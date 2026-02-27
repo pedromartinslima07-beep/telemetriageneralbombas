@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>GENERAL • Painel do Cliente</title>
+
+  <!-- Reaproveita o mesmo visual do admin -->
+  <link rel="stylesheet" href="/static/admin.css">
+</head>
+<body>
+  <div class="shell">
+    <header>
+      <div class="brand">
+        <!-- Logo: use a que você quiser -->
+        <img src="/static/logo.png" alt="GENERAL" />
+        <div class="titles">
+          <div class="company">GENERAL ENGENHARIA DA MANUTENÇÃO</div>
+          <div class="product">PAINEL DO CLIENTE • TELEMETRIA</div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="btn" onclick="carregar()">Atualizar agora</button>
+        <button class="btn" onclick="abrirModalSenha()">Alterar senha</button>
+        <button class="btn btnAccent" onclick="logout()">Sair</button>
+        <span id="statusMsg" class="statusMsg"></span>
+      </div>
+    </header>
+
+    <div class="stack">
+
+      <!-- RESUMO -->
+      <section class="card">
+        <div class="cardHead">
+          <h2>Resumo do Reservatório</h2>
+          <div class="hint">Fonte: <span class="mono">GET /cliente/status</span></div>
+        </div>
+
+        <div style="padding:16px 14px;">
+          <div id="resumoGrid" style="
+            display:grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 12px;
+          "></div>
+        </div>
+      </section>
+
+      <!-- ALERTAS -->
+      <section class="card">
+        <div class="cardHead">
+          <h2>Alertas Abertos</h2>
+          <div class="hint">Somente do seu condomínio</div>
+        </div>
+
+        <div class="tableWrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Tipo</th>
+                <th>Mensagem</th>
+                <th>Criado em</th>
+                <th>Atualizado em</th>
+              </tr>
+            </thead>
+            <tbody id="tbodyAlertasCliente"></tbody>
+          </table>
+        </div>
+
+        <div id="semAlertas" style="padding:14px; display:none; color: var(--muted);">
+          Sem alertas ativos ✅
+        </div>
+      </section>
+
+<!--<section class="card">
+        <div class="cardHead">
+          <h2>Segurança da Conta</h2>
+          <div class="hint">Alterar sua senha de acesso</div>
+        </div>
+
+        <div style="padding:16px 14px; max-width:400px;">
+          <form onsubmit="trocarSenha(event)" class="formGrid">
+
+            <label class="f">
+              <span>Senha atual</span>
+              <input type="password" id="senhaAtual" required />
+            </label>
+
+            <label class="f">
+              <span>Nova senha</span>
+              <input type="password" id="senhaNova" required />
+            </label>
+
+            <label class="f">
+              <span>Confirmar nova senha</span>
+              <input type="password" id="senhaConfirmar" required />
+            </label>
+
+            <div class="formActions">
+              <button class="btn btnAccent" type="submit">
+                Alterar senha
+              </button>
+            </div>
+
+            <div id="senhaMsg" style="margin-top:8px;"></div>
+
+          </form>
+        </div>
+      </section> -->
+
+
+
+    </div>
+  </div>
+
+<!-- MODAL ALTERAR SENHA -->
+<div id="senhaOverlay" class="modalOverlay" style="display:none;">
+  <div class="modalBox">
+    <div class="modalHead">
+      <div>
+        <div class="modalTitle">Alterar senha</div>
+        <div class="modalSub">Defina uma nova senha para sua conta</div>
+      </div>
+      <button class="btn" onclick="fecharModalSenha()">Fechar</button>
+    </div>
+
+    <div class="modalBody">
+      <div class="modalTools">
+        <div class="modalCount" id="senhaMsg"></div>
+      </div>
+
+      <form class="formGrid" onsubmit="trocarSenha(event)">
+        <label class="f">
+          <span>Senha atual</span>
+          <input id="senhaAtual" type="password" required />
+        </label>
+
+        <label class="f">
+          <span>Nova senha</span>
+          <input id="senhaNova" type="password" required minlength="6" />
+        </label>
+
+        <label class="f" style="grid-column: 1 / -1;">
+          <span>Confirmar nova senha</span>
+          <input id="senhaNova2" type="password" required minlength="6" />
+        </label>
+
+        <div class="formActions" style="grid-column: 1 / -1;">
+          <button class="btn btnAccent" type="submit">Salvar</button>
+          <button class="btn" type="button" onclick="fecharModalSenha()">Cancelar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+  <script src="/static/cliente.js"></script>
+</body>
+</html>
