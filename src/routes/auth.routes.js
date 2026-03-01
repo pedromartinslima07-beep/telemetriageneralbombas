@@ -1,3 +1,5 @@
+
+const rateLimit = require("express-rate-limit");
 const express = require("express");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
@@ -8,6 +10,14 @@ const { adminOnly } = require("../middleware/adminOnly");
 const { clienteOnly } = require("../middleware/clienteOnly"); // se você tiver separado; se não tiver, eu te digo abaixo
 
 const router = express.Router();
+
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 min
+  max: 20,                  // 20 tentativas por IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Muitas tentativas de login. Tente novamente em alguns minutos." },
+});
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_EXPIRES_IN = "7d";
@@ -69,7 +79,7 @@ router.post("/registrar", authRequired, adminOnly, async (req, res) => {
  * POST /auth/login
  * Body: { email, senha }
  */
-router.post("/login", async (req, res) => {
+router.post("/login", loginLimiter, async (req, res) => {
   const { email, senha } = req.body || {};
   if (!email || !senha) {
     return res.status(400).json({ error: "Campos: email, senha" });
@@ -124,7 +134,7 @@ router.post("/login", async (req, res) => {
  *
  * OBS: No seu server.js isso existe. Estou mantendo igual.
  */
-router.patch("/../cliente/senha", authRequired, clienteOnly, async (req, res) => {
+router.patch("/cliente/senha", authRequired, clienteOnly, async (req, res) => {
   const { senha_atual, nova_senha } = req.body || {};
 
   if (!senha_atual || !nova_senha) {

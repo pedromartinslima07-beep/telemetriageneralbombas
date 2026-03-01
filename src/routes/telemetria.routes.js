@@ -1,11 +1,19 @@
-// src/routes/telemetria.routes.js
+const rateLimit = require("express-rate-limit");
 const express = require("express");
 const { pool } = require("../db"); // vem do src/db.js
 const { upsertAlertaAberto } = require("../services/alertas.service");
 
 const router = express.Router();
 
-router.post("/", async (req, res) => {
+const telemetriaLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minuto
+  max: 120,            // 120 req/min por IP (ajuste se precisar)
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Muitas requisições. Reduza a frequência da telemetria." },
+});
+
+router.post("/", telemetriaLimiter, async (req, res) => {
   const { device_id, nivel, bomba_ligada } = req.body;
 
   // === Validação de payload (telemetria) ===
@@ -98,30 +106,30 @@ router.post("/", async (req, res) => {
     }
 
     if (n === "baixo") {
-  await pool.query(
-    "UPDATE alertas SET status = 'resolvido' WHERE device_id = $1 AND tipo = 'nivel_muito_baixo' AND status = 'aberto'",
-    [device_id]
-  );
+      await pool.query(
+        "UPDATE alertas SET status = 'resolvido' WHERE device_id = $1 AND tipo = 'nivel_muito_baixo' AND status = 'aberto'",
+        [device_id]
+      );
 
-  await upsertAlertaAberto(
-    device_id,
-    "nivel_baixo",
-    `Nível baixo detectado no dispositivo ${device_id}`
-  );
-}
+      await upsertAlertaAberto(
+        device_id,
+        "nivel_baixo",
+        `Nível baixo detectado no dispositivo ${device_id}`
+      );
+    }
 
-if (n === "muito_baixo") {
-  await pool.query(
-    "UPDATE alertas SET status = 'resolvido' WHERE device_id = $1 AND tipo = 'nivel_baixo' AND status = 'aberto'",
-    [device_id]
-  );
+    if (n === "muito_baixo") {
+      await pool.query(
+        "UPDATE alertas SET status = 'resolvido' WHERE device_id = $1 AND tipo = 'nivel_baixo' AND status = 'aberto'",
+        [device_id]
+      );
 
-  await upsertAlertaAberto(
-    device_id,
-    "nivel_muito_baixo",
-    `NÍVEL MUITO BAIXO detectado no dispositivo ${device_id}`
-  );
-}
+      await upsertAlertaAberto(
+        device_id,
+        "nivel_muito_baixo",
+        `NÍVEL MUITO BAIXO detectado no dispositivo ${device_id}`
+      );
+    }
 
     return res.json({ status: "Dados salvos com sucesso" });
   } catch (error) {
