@@ -1,6 +1,6 @@
 require("dotenv").config();
 
-const URL = process.env.SIM_URL || "http://localhost:3001/telemetria";
+const URL = process.env.SIM_URL || "http://127.0.0.1:3001/telemetria";
 const INTERVAL_MS = Number(process.env.SIM_INTERVAL_MS || 5000);
 
 const IDS = String(process.env.SIM_DEVICE_IDS || "")
@@ -67,6 +67,13 @@ const senders = IDS.map((id, idx) => makeDeviceSender(id, KEYS[idx]));
 senders.forEach((fn, idx) => setTimeout(fn, idx * 300));
 
 // loop
-setInterval(() => {
+setTimeout(() => {
+  // roda 1 ciclo logo depois de 1s
   senders.forEach(fn => fn());
-}, INTERVAL_MS);
+
+  // e repete no intervalo
+  setInterval(() => {
+    senders.forEach(fn => fn());
+  }, INTERVAL_MS);
+
+}, 1000);

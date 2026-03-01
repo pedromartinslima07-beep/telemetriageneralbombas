@@ -16,6 +16,7 @@ const { leiturasRouter } = require("./routes/leituras.routes");
 const { statusRouter } = require("./routes/status.routes");
 const { jobsRouter } = require("./routes/jobs.routes");
 
+
 const app = express();
 
 // qnd for usar Render/NGINX/Cloudflare, isso ajuda o rate limit a pegar o IP certo
