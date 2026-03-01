@@ -1,3 +1,5 @@
+require("dotenv").config();
+
 // simulador.js
 const DEVICE_ID = "TESTE001";
 const DEVICE_KEY = process.env.DEVICE_KEY; // vamos passar no comando
