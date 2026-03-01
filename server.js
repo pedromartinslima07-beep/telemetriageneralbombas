@@ -9,11 +9,11 @@ const bcrypt = require("bcrypt");
 const crypto = require("crypto");
 
 const pool = new Pool({
-  user: "postgres",
-  host: "localhost",
-  database: "telemetria",
-  password: "123456",
-  port: 5432,
+  host: process.env.PGHOST,
+  port: Number(process.env.PGPORT || 5432),
+  user: process.env.PGUSER,
+  password: process.env.PGPASSWORD,
+  database: process.env.PGDATABASE,
 });
 
 const JWT_SECRET = process.env.JWT_SECRET; // <-- OBRIGATÓRIO via .env
@@ -341,34 +341,6 @@ app.patch("/condominios/:id", authRequired, adminOnly, async (req, res) => {
     console.error("Erro ao atualizar condomínio:", error);
     if (error && error.code === "23505") return res.status(409).json({ error: "Device ID já cadastrado" });
     return res.status(500).json({ error: "Erro ao atualizar condomínio" });
-  }
-});
-
-app.post("/condominios/:id/regenerar-device-key", authRequired, adminOnly, async (req, res) => {
-  const idNum = Number(req.params.id);
-  if (!Number.isInteger(idNum) || idNum <= 0) {
-    return res.status(400).json({ error: "id inválido" });
-  }
-
-  try {
-    const novaKey = crypto.randomBytes(24).toString("hex");
-
-    const result = await pool.query(
-      `UPDATE condominios
-       SET device_key = $2
-       WHERE id = $1
-       RETURNING id, nome, device_id, device_key`,
-      [idNum, novaKey]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: "Condomínio não encontrado" });
-    }
-
-    return res.json({ ok: true, ...result.rows[0] });
-  } catch (error) {
-    console.error("Erro ao regenerar device_key:", error);
-    return res.status(500).json({ error: "Erro ao regenerar device_key" });
   }
 });
 
