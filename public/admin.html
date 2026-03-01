@@ -1,11 +1,13 @@
 <!doctype html>
 <html lang="pt-br">
+
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>GENERAL • TELEMETRIA</title>
   <link rel="stylesheet" href="/static/admin.css">
 </head>
+
 <body>
   <div class="shell">
     <header>
@@ -18,9 +20,9 @@
       </div>
 
       <div class="actions">
-        <button class="btn" onclick="carregarTudo()">Atualizar agora</button>
-        <button class="btn btnAccent" onclick="rodarJobOffline()">Verificar OFFLINE</button>
-        <button class="btn" onclick="logout()">Sair</button>
+        <button class="btn" id="btnAtualizar">Atualizar agora</button>
+        <button class="btn btnAccent" id="btnOffline">Verificar OFFLINE</button>
+        <button class="btn" id="btnSair">Sair</button>
         <span id="statusMsg" class="statusMsg"></span>
       </div>
     </header>
@@ -77,30 +79,33 @@
               style="width:100%; padding:10px 12px; border-radius:12px; border:1px solid rgba(43,43,71,.9); background: rgba(255,255,255,.04); color: var(--text); outline:none;" />
           </div>
 
-          <label style="display:flex; align-items:center; gap:8px; color: var(--muted); font-size:12px; user-select:none;">
+          <label
+            style="display:flex; align-items:center; gap:8px; color: var(--muted); font-size:12px; user-select:none;">
             <input type="checkbox" id="filtroSomenteAlertas" />
             Somente com alertas
           </label>
 
-          <label style="display:flex; align-items:center; gap:8px; color: var(--muted); font-size:12px; user-select:none;">
+          <label
+            style="display:flex; align-items:center; gap:8px; color: var(--muted); font-size:12px; user-select:none;">
             <input type="checkbox" id="filtroSomenteOffline" />
             Somente offline
           </label>
 
-          <button class="btn" onclick="aplicarFiltros()">Aplicar</button>
-          <button class="btn" onclick="limparFiltros()">Limpar</button>
+          <button class="btn" id="btnAplicarFiltros">Aplicar</button>
+          <button class="btn" id="btnLimparFiltros">Limpar</button>
         </div>
 
         <!-- paginação -->
         <div style="padding:0 14px 14px 14px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
           <span class="hint">Página:</span>
-          <button class="btn" onclick="paginaAnterior()">◀</button>
+          <button class="btn" id="btnPaginaAnterior">◀</button>
           <span id="paginaInfo" class="hint"></span>
-          <button class="btn" onclick="proximaPagina()">▶</button>
+          <button class="btn" id="btnProximaPagina">▶</button>
 
           <span class="hint" style="margin-left:auto;">Itens por página:</span>
-          <select id="pageSize" onchange="mudarPageSize()"
-            style="padding:8px 10px; border-radius:12px; border:1px solid rgba(43,43,71,.9); background: rgba(255,255,255,.04); color: var(--text); outline:none;">
+          <select id="pageSize">
+            style="padding:8px 10px; border-radius:12px; border:1px solid rgba(43,43,71,.9); background:
+            rgba(255,255,255,.04); color: var(--text); outline:none;">
             <option value="10">10</option>
             <option value="25" selected>25</option>
             <option value="50">50</option>
@@ -135,248 +140,247 @@
       </section>
 
       <!-- ✅ CADASTRO (SEPARADO) -->
-<section class="card">
-  <div class="cardHead">
-    <h2>Cadastro de condomínio</h2>
-    <div class="hint">Salva todos os campos no banco</div>
-  </div>
+      <section class="card">
+        <div class="cardHead">
+          <h2>Cadastro de condomínio</h2>
+          <div class="hint">Salva todos os campos no banco</div>
+        </div>
 
-  <div style="padding:14px; display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
-    <div>
-      <div class="hint">Nome *</div>
-      <input id="novoNome" placeholder="Ex: Condomínio Exemplo"
-        style="width:100%; padding:10px 12px; border-radius:12px; border:1px solid rgba(43,43,71,.9); background: rgba(255,255,255,.04); color: var(--text); outline:none;" />
-    </div>
+        <div style="padding:14px; display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+          <div>
+            <div class="hint">Nome *</div>
+            <input id="novoNome" placeholder="Ex: Condomínio Exemplo"
+              style="width:100%; padding:10px 12px; border-radius:12px; border:1px solid rgba(43,43,71,.9); background: rgba(255,255,255,.04); color: var(--text); outline:none;" />
+          </div>
 
-    <div>
-      <div class="hint">Device ID *</div>
-      <input id="novoDevice" placeholder="Ex: COND002"
-        style="width:100%; padding:10px 12px; border-radius:12px; border:1px solid rgba(43,43,71,.9); background: rgba(255,255,255,.04); color: var(--text); outline:none;" />
-    </div>
+          <div>
+            <div class="hint">Device ID *</div>
+            <input id="novoDevice" placeholder="Ex: COND002"
+              style="width:100%; padding:10px 12px; border-radius:12px; border:1px solid rgba(43,43,71,.9); background: rgba(255,255,255,.04); color: var(--text); outline:none;" />
+          </div>
 
-    <div style="grid-column: 1 / -1;">
-      <div class="hint">Endereço</div>
-      <input id="novoEndereco" placeholder="Rua, número"
-        style="width:100%; padding:10px 12px; border-radius:12px; border:1px solid rgba(43,43,71,.9); background: rgba(255,255,255,.04); color: var(--text); outline:none;" />
-    </div>
+          <div style="grid-column: 1 / -1;">
+            <div class="hint">Endereço</div>
+            <input id="novoEndereco" placeholder="Rua, número"
+              style="width:100%; padding:10px 12px; border-radius:12px; border:1px solid rgba(43,43,71,.9); background: rgba(255,255,255,.04); color: var(--text); outline:none;" />
+          </div>
 
-    <div>
-      <div class="hint">Bairro</div>
-      <input id="novoBairro" placeholder="Ex: Tatuapé"
-        style="width:100%; padding:10px 12px; border-radius:12px; border:1px solid rgba(43,43,71,.9); background: rgba(255,255,255,.04); color: var(--text); outline:none;" />
-    </div>
+          <div>
+            <div class="hint">Bairro</div>
+            <input id="novoBairro" placeholder="Ex: Tatuapé"
+              style="width:100%; padding:10px 12px; border-radius:12px; border:1px solid rgba(43,43,71,.9); background: rgba(255,255,255,.04); color: var(--text); outline:none;" />
+          </div>
 
-    <div>
-      <div class="hint">Cidade</div>
-      <input id="novoCidade" placeholder="Ex: São Paulo"
-        style="width:100%; padding:10px 12px; border-radius:12px; border:1px solid rgba(43,43,71,.9); background: rgba(255,255,255,.04); color: var(--text); outline:none;" />
-    </div>
+          <div>
+            <div class="hint">Cidade</div>
+            <input id="novoCidade" placeholder="Ex: São Paulo"
+              style="width:100%; padding:10px 12px; border-radius:12px; border:1px solid rgba(43,43,71,.9); background: rgba(255,255,255,.04); color: var(--text); outline:none;" />
+          </div>
 
-    <div>
-      <div class="hint">UF</div>
-      <input id="novoUf" maxlength="2" placeholder="SP"
-        style="width:100%; padding:10px 12px; border-radius:12px; border:1px solid rgba(43,43,71,.9); background: rgba(255,255,255,.04); color: var(--text); outline:none;" />
-    </div>
+          <div>
+            <div class="hint">UF</div>
+            <input id="novoUf" maxlength="2" placeholder="SP"
+              style="width:100%; padding:10px 12px; border-radius:12px; border:1px solid rgba(43,43,71,.9); background: rgba(255,255,255,.04); color: var(--text); outline:none;" />
+          </div>
 
-    <div>
-      <div class="hint">Responsável</div>
-      <input id="novoResponsavel" placeholder="Ex: Síndico João"
-        style="width:100%; padding:10px 12px; border-radius:12px; border:1px solid rgba(43,43,71,.9); background: rgba(255,255,255,.04); color: var(--text); outline:none;" />
-    </div>
+          <div>
+            <div class="hint">Responsável</div>
+            <input id="novoResponsavel" placeholder="Ex: Síndico João"
+              style="width:100%; padding:10px 12px; border-radius:12px; border:1px solid rgba(43,43,71,.9); background: rgba(255,255,255,.04); color: var(--text); outline:none;" />
+          </div>
 
-    <div>
-      <div class="hint">Telefone</div>
-      <input id="novoTelefone" placeholder="(11) 99999-9999"
-        style="width:100%; padding:10px 12px; border-radius:12px; border:1px solid rgba(43,43,71,.9); background: rgba(255,255,255,.04); color: var(--text); outline:none;" />
-    </div>
+          <div>
+            <div class="hint">Telefone</div>
+            <input id="novoTelefone" placeholder="(11) 99999-9999"
+              style="width:100%; padding:10px 12px; border-radius:12px; border:1px solid rgba(43,43,71,.9); background: rgba(255,255,255,.04); color: var(--text); outline:none;" />
+          </div>
 
-    <div style="grid-column: 1 / -1;">
-      <div class="hint">Observações</div>
-      <input id="novoObs" placeholder="Ex: Reservatório superior + inferior"
-        style="width:100%; padding:10px 12px; border-radius:12px; border:1px solid rgba(43,43,71,.9); background: rgba(255,255,255,.04); color: var(--text); outline:none;" />
-    </div>
+          <div style="grid-column: 1 / -1;">
+            <div class="hint">Observações</div>
+            <input id="novoObs" placeholder="Ex: Reservatório superior + inferior"
+              style="width:100%; padding:10px 12px; border-radius:12px; border:1px solid rgba(43,43,71,.9); background: rgba(255,255,255,.04); color: var(--text); outline:none;" />
+          </div>
 
-    <label style="grid-column: 1 / -1; display:flex; align-items:center; gap:10px; color: var(--muted); font-size:12px;">
-      <input type="checkbox" id="novoAtivo" checked />
-      Ativo
-    </label>
-  </div>
+          <label
+            style="grid-column: 1 / -1; display:flex; align-items:center; gap:10px; color: var(--muted); font-size:12px;">
+            <input type="checkbox" id="novoAtivo" checked />
+            Ativo
+          </label>
+        </div>
 
-  <div style="padding:0 14px 14px 14px; display:flex; gap:10px; align-items:center;">
-    <button class="btn btnAccent" onclick="criarCondominio()">Cadastrar</button>
-    <span id="msgCadastro" class="hint"></span>
-  </div>
-</section>
+        <div style="padding:0 14px 14px 14px; display:flex; gap:10px; align-items:center;">
+          <button class="btn btnAccent" id="btnCadastrarCondominio">Cadastrar</button>
+          <span id="msgCadastro" class="hint"></span>
+        </div>
+      </section>
 
-<!-- ✅ CRIAR USUÁRIO CLIENTE -->
-<section class="card">
-  <div class="cardHead">
-    <h2>Usuários • Criar cliente</h2>
-    <div class="hint">Cria um usuário do tipo <span class="mono">cliente</span> vinculado a um condomínio</div>
-  </div>
+      <!-- ✅ CRIAR USUÁRIO CLIENTE -->
+      <section class="card">
+        <div class="cardHead">
+          <h2>Usuários • Criar cliente</h2>
+          <div class="hint">Cria um usuário do tipo <span class="mono">cliente</span> vinculado a um condomínio</div>
+        </div>
 
-  <div style="padding:14px; display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
-    <div>
-      <div class="hint">Nome do cliente *</div>
-      <input id="cliNome" placeholder="Ex: João Silva"
-        style="width:100%; padding:10px 12px; border-radius:12px; border:1px solid rgba(43,43,71,.9); background: rgba(255,255,255,.04); color: var(--text); outline:none;" />
-    </div>
+        <div style="padding:14px; display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+          <div>
+            <div class="hint">Nome do cliente *</div>
+            <input id="cliNome" placeholder="Ex: João Silva"
+              style="width:100%; padding:10px 12px; border-radius:12px; border:1px solid rgba(43,43,71,.9); background: rgba(255,255,255,.04); color: var(--text); outline:none;" />
+          </div>
 
-    <div>
-      <div class="hint">Condomínio *</div>
-      <select id="cliCondominio"
-        style="width:100%; padding:10px 12px; border-radius:12px; border:1px solid rgba(43,43,71,.9); background: rgba(255,255,255,.04); color: var(--text); outline:none;">
-        <option value="">Carregando...</option>
-      </select>
-    </div>
+          <div>
+            <div class="hint">Condomínio *</div>
+            <select id="cliCondominio"
+              style="width:100%; padding:10px 12px; border-radius:12px; border:1px solid rgba(43,43,71,.9); background: rgba(255,255,255,.04); color: var(--text); outline:none;">
+              <option value="">Carregando...</option>
+            </select>
+          </div>
 
-    <div>
-      <div class="hint">Email *</div>
-      <input id="cliEmail" placeholder="cliente@exemplo.com"
-        style="width:100%; padding:10px 12px; border-radius:12px; border:1px solid rgba(43,43,71,.9); background: rgba(255,255,255,.04); color: var(--text); outline:none;" />
-    </div>
+          <div>
+            <div class="hint">Email *</div>
+            <input id="cliEmail" placeholder="cliente@exemplo.com"
+              style="width:100%; padding:10px 12px; border-radius:12px; border:1px solid rgba(43,43,71,.9); background: rgba(255,255,255,.04); color: var(--text); outline:none;" />
+          </div>
 
-    <div>
-      <div class="hint">Senha provisória *</div>
-      <input id="cliSenha" type="text" placeholder="Ex: 123456"
-        style="width:100%; padding:10px 12px; border-radius:12px; border:1px solid rgba(43,43,71,.9); background: rgba(255,255,255,.04); color: var(--text); outline:none;" />
-    </div>
-  </div>
+          <div>
+            <div class="hint">Senha provisória *</div>
+            <input id="cliSenha" type="text" placeholder="Ex: 123456"
+              style="width:100%; padding:10px 12px; border-radius:12px; border:1px solid rgba(43,43,71,.9); background: rgba(255,255,255,.04); color: var(--text); outline:none;" />
+          </div>
+        </div>
 
-  <div style="padding:0 14px 14px 14px; display:flex; gap:10px; align-items:center;">
-    <button class="btn btnAccent" onclick="criarCliente()">Criar cliente</button>
-    <span id="msgCliente" class="hint"></span>
-  </div>
-</section>
+        <div style="padding:0 14px 14px 14px; display:flex; gap:10px; align-items:center;">
+          <button class="btn btnAccent" id="btnCriarCliente">Criar cliente</button>
+          <span id="msgCliente" class="hint"></span>
+        </div>
+      </section>
 
     </div>
   </div>
   <!-- Tooltip flutuante -->
-<div id="cardTip" class="cardTip" style="display:none;"></div>
+  <div id="cardTip" class="cardTip" style="display:none;"></div>
 
-<!-- Modal -->
-<div id="modalOverlay" class="modalOverlay" style="display:none;">
-  <div class="modalBox">
-    <div class="modalHead">
-      <div>
-        <div id="modalTitle" class="modalTitle">Detalhes</div>
-        <div id="modalSub" class="modalSub">—</div>
-      </div>
-      <button class="btn" onclick="fecharModal()">Fechar</button>
-    </div>
-
-    <div class="modalBody">
-      <div class="modalTools">
-        <input id="modalBusca" class="modalBusca" placeholder="Buscar por nome ou device..."
-               oninput="renderModalLista()" />
-        <span id="modalCount" class="modalCount">0 itens</span>
-      </div>
-
-      <div class="modalListWrap">
-        <table class="modalTable">
-          <thead>
-            <tr>
-              <th>Condomínio</th>
-              <th>Device</th>
-              <th>Detalhe</th>
-              <th class="right">Ação</th>
-            </tr>
-          </thead>
-          <tbody id="modalTbody"></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- MODAL EDITAR CONDOMÍNIO -->
-<div id="editOverlay" class="modalOverlay" style="display:none;">
-  <div class="modalBox">
-    <div class="modalHead">
-      <div>
-        <div class="modalTitle">Editar condomínio</div>
-        <div id="editSub" class="modalSub"> </div>
-      </div>
-      <button class="btn" onclick="fecharModalEditar()">Fechar</button>
-    </div>
-
-    <div class="modalBody">
-      <div class="modalTools">
-        <div class="modalCount" id="editMsg"></div>
-      </div>
-
-      <form id="editForm" class="formGrid" onsubmit="salvarEdicao(event)">
-        <input type="hidden" id="editId" />
-
-        <label class="f">
-          <span>Nome*</span>
-          <input id="editNome" required />
-        </label>
-
-        <label class="f">
-          <span>Device ID*</span>
-          <input id="editDevice" required />
-        </label>
-
-        <label class="f">
-          <span>Endereço</span>
-          <input id="editEndereco" />
-        </label>
-
-        <label class="f">
-          <span>Bairro</span>
-          <input id="editBairro" />
-        </label>
-
-        <label class="f">
-          <span>Cidade</span>
-          <input id="editCidade" />
-        </label>
-
-        <label class="f">
-          <span>UF</span>
-          <input id="editUf" maxlength="2" />
-        </label>
-
-        <label class="f">
-          <span>Responsável</span>
-          <input id="editResponsavel" />
-        </label>
-
-        <label class="f">
-          <span>Telefone</span>
-          <input id="editTelefone" />
-        </label>
-
-        <label class="f" style="grid-column: 1 / -1;">
-          <span>Observações</span>
-          <input id="editObs" />
-        </label>
-
-        <label class="fCheck" style="grid-column: 1 / -1;">
-          <input type="checkbox" id="editAtivo" />
-          <span>Ativo</span>
-        </label>
-
-<!-- BOTÃO REGENERAR DEVICE KEY -->
-<div style="grid-column: 1 / -1; margin-top:10px;">
-  <button type="button"
-          class="btn"
-          style="background:#b91c1c; color:white;"
-          onclick="regenerarDeviceKey()">
-    🔑 Regenerar Device Key
-  </button>
-</div>
-
-        <div class="formActions" style="grid-column: 1 / -1;">
-          <button class="btn btnAccent" type="submit">Salvar</button>
-          <button class="btn" type="button" onclick="fecharModalEditar()">Cancelar</button>
+  <!-- Modal -->
+  <div id="modalOverlay" class="modalOverlay" style="display:none;">
+    <div class="modalBox">
+      <div class="modalHead">
+        <div>
+          <div id="modalTitle" class="modalTitle">Detalhes</div>
+          <div id="modalSub" class="modalSub">—</div>
         </div>
-      </form>
+        <button class="btn" id="btnFecharModal">Fechar</button>
+      </div>
+
+      <div class="modalBody">
+        <div class="modalTools">
+          <input id="modalBusca" class="modalBusca" placeholder="Buscar por nome ou device..."
+            oninput="renderModalLista()" />
+          <span id="modalCount" class="modalCount">0 itens</span>
+        </div>
+
+        <div class="modalListWrap">
+          <table class="modalTable">
+            <thead>
+              <tr>
+                <th>Condomínio</th>
+                <th>Device</th>
+                <th>Detalhe</th>
+                <th class="right">Ação</th>
+              </tr>
+            </thead>
+            <tbody id="modalTbody"></tbody>
+          </table>
+        </div>
+      </div>
     </div>
   </div>
-</div>
 
-  <script src="/static/admin.js"></script>
+  <!-- MODAL EDITAR CONDOMÍNIO -->
+  <div id="editOverlay" class="modalOverlay" style="display:none;">
+    <div class="modalBox">
+      <div class="modalHead">
+        <div>
+          <div class="modalTitle">Editar condomínio</div>
+          <div id="editSub" class="modalSub"> </div>
+        </div>
+        <button class="btn" id="btnFecharModalEditar">Fechar</button>
+      </div>
+
+      <div class="modalBody">
+        <div class="modalTools">
+          <div class="modalCount" id="editMsg"></div>
+        </div>
+
+        <form id="editForm" class="formGrid">
+          <input type="hidden" id="editId" />
+
+          <label class="f">
+            <span>Nome*</span>
+            <input id="editNome" required />
+          </label>
+
+          <label class="f">
+            <span>Device ID*</span>
+            <input id="editDevice" required />
+          </label>
+
+          <label class="f">
+            <span>Endereço</span>
+            <input id="editEndereco" />
+          </label>
+
+          <label class="f">
+            <span>Bairro</span>
+            <input id="editBairro" />
+          </label>
+
+          <label class="f">
+            <span>Cidade</span>
+            <input id="editCidade" />
+          </label>
+
+          <label class="f">
+            <span>UF</span>
+            <input id="editUf" maxlength="2" />
+          </label>
+
+          <label class="f">
+            <span>Responsável</span>
+            <input id="editResponsavel" />
+          </label>
+
+          <label class="f">
+            <span>Telefone</span>
+            <input id="editTelefone" />
+          </label>
+
+          <label class="f" style="grid-column: 1 / -1;">
+            <span>Observações</span>
+            <input id="editObs" />
+          </label>
+
+          <label class="fCheck" style="grid-column: 1 / -1;">
+            <input type="checkbox" id="editAtivo" />
+            <span>Ativo</span>
+          </label>
+
+          <!-- BOTÃO REGENERAR DEVICE KEY -->
+          <div style="grid-column: 1 / -1; margin-top:10px;">
+            <button type="button" class="btn" id="btnRegenerarDeviceKey" style="background:#b91c1c; color:white;">
+              🔑 Regenerar Device Key
+            </button>
+          </div>
+
+          <div class="formActions" style="grid-column: 1 / -1;">
+            <button class="btn btnAccent" type="submit">Salvar</button>
+           <button class="btn" type="button" id="btnCancelarEdicao">Cancelar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/admin.js" defer></script>
 </body>
+
 </html>

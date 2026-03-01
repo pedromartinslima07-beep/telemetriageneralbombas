@@ -1,5 +1,6 @@
 <!doctype html>
 <html lang="pt-br">
+
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
@@ -8,6 +9,7 @@
   <!-- Reaproveita o mesmo visual do admin -->
   <link rel="stylesheet" href="/static/admin.css">
 </head>
+
 <body>
   <div class="shell">
     <header>
@@ -21,9 +23,9 @@
       </div>
 
       <div class="actions">
-        <button class="btn" onclick="carregar()">Atualizar agora</button>
-        <button class="btn" onclick="abrirModalSenha()">Alterar senha</button>
-        <button class="btn btnAccent" onclick="logout()">Sair</button>
+        <button class="btn" id="btnAtualizarCliente">Atualizar agora</button>
+        <button class="btn" id="btnAbrirSenha">Alterar senha</button>
+        <button class="btn btnAccent" id="btnSairCliente">Sair</button>
         <span id="statusMsg" class="statusMsg"></span>
       </div>
     </header>
@@ -72,7 +74,7 @@
         </div>
       </section>
 
-<!--<section class="card">
+      <!--<section class="card">
         <div class="cardHead">
           <h2>Segurança da Conta</h2>
           <div class="hint">Alterar sua senha de acesso</div>
@@ -113,47 +115,48 @@
     </div>
   </div>
 
-<!-- MODAL ALTERAR SENHA -->
-<div id="senhaOverlay" class="modalOverlay" style="display:none;">
-  <div class="modalBox">
-    <div class="modalHead">
-      <div>
-        <div class="modalTitle">Alterar senha</div>
-        <div class="modalSub">Defina uma nova senha para sua conta</div>
-      </div>
-      <button class="btn" onclick="fecharModalSenha()">Fechar</button>
-    </div>
-
-    <div class="modalBody">
-      <div class="modalTools">
-        <div class="modalCount" id="senhaMsg"></div>
-      </div>
-
-      <form class="formGrid" onsubmit="trocarSenha(event)">
-        <label class="f">
-          <span>Senha atual</span>
-          <input id="senhaAtual" type="password" required />
-        </label>
-
-        <label class="f">
-          <span>Nova senha</span>
-          <input id="senhaNova" type="password" required minlength="6" />
-        </label>
-
-        <label class="f" style="grid-column: 1 / -1;">
-          <span>Confirmar nova senha</span>
-          <input id="senhaNova2" type="password" required minlength="6" />
-        </label>
-
-        <div class="formActions" style="grid-column: 1 / -1;">
-          <button class="btn btnAccent" type="submit">Salvar</button>
-          <button class="btn" type="button" onclick="fecharModalSenha()">Cancelar</button>
+  <!-- MODAL ALTERAR SENHA -->
+  <div id="senhaOverlay" class="modalOverlay" style="display:none;">
+    <div class="modalBox">
+      <div class="modalHead">
+        <div>
+          <div class="modalTitle">Alterar senha</div>
+          <div class="modalSub">Defina uma nova senha para sua conta</div>
         </div>
-      </form>
+        <button class="btn" id="btnFecharSenhaTop">Fechar</button>
+      </div>
+
+      <div class="modalBody">
+        <div class="modalTools">
+          <div class="modalCount" id="senhaMsg"></div>
+        </div>
+
+        <form class="formGrid" id="formTrocarSenha">
+          <label class="f">
+            <span>Senha atual</span>
+            <input id="senhaAtual" type="password" required />
+          </label>
+
+          <label class="f">
+            <span>Nova senha</span>
+            <input id="senhaNova" type="password" required minlength="6" />
+          </label>
+
+          <label class="f" style="grid-column: 1 / -1;">
+            <span>Confirmar nova senha</span>
+            <input id="senhaNova2" type="password" required minlength="6" />
+          </label>
+
+          <div class="formActions" style="grid-column: 1 / -1;">
+            <button class="btn btnAccent" type="submit">Salvar</button>
+            <button class="btn" type="button" id="btnCancelarSenha">Cancelar</button>
+          </div>
+        </form>
+      </div>
     </div>
   </div>
-</div>
 
-  <script src="/static/cliente.js"></script>
+  <script src="/static/cliente.js" defer></script>
 </body>
+
 </html>

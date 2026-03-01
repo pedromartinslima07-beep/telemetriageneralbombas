@@ -1,39 +1,39 @@
-function getToken(){ return localStorage.getItem("token"); }
-function authHeaders(){
+function getToken() { return localStorage.getItem("token"); }
+function authHeaders() {
   const token = getToken();
   return token ? { Authorization: "Bearer " + token } : {};
 }
 if (!getToken()) window.location.href = "/login";
 
-function logout(){
+function logout() {
   localStorage.removeItem("token");
   localStorage.removeItem("user");
   window.location.href = "/login";
 }
 
-function fmtData(iso){
+function fmtData(iso) {
   if (!iso) return "-";
   return new Date(iso).toLocaleString();
 }
 
-function badge(text, kind){
+function badge(text, kind) {
   const cls = kind === "ok" ? "b-ok" : (kind === "warn" ? "b-warn" : "b-bad");
   return `<span class="badge ${cls}">${text}</span>`;
 }
 
-function tipoBadge(tipo){
+function tipoBadge(tipo) {
   if (tipo === "nivel_muito_baixo") return badge("NÍVEL MUITO BAIXO", "bad");
   if (tipo === "nivel_baixo") return badge("NÍVEL BAIXO", "warn");
   if (tipo === "dispositivo_offline") return badge("OFFLINE", "bad");
-  return badge(String(tipo || "").replaceAll("_"," "), "warn");
+  return badge(String(tipo || "").replaceAll("_", " "), "warn");
 }
 
-function resumoCard(titulo, valorHtml, kind, cardKey){
+function resumoCard(titulo, valorHtml, kind, cardKey) {
   const border =
     kind === "bad" ? "rgba(255,90,95,.55)" :
-    kind === "warn" ? "rgba(240,176,20,.55)" :
-    kind === "ok" ? "rgba(45,212,191,.45)" :
-    "rgba(43,43,71,.7)";
+      kind === "warn" ? "rgba(240,176,20,.55)" :
+        kind === "ok" ? "rgba(45,212,191,.45)" :
+          "rgba(43,43,71,.7)";
 
   return `
     <button
@@ -70,13 +70,13 @@ let _alertasAbertos = [];
 let _alertasPorDevice = new Map();
 let _condominios = [];
 
-const filtros = { texto:"", somenteAlertas:false, somenteOffline:false };
+const filtros = { texto: "", somenteAlertas: false, somenteOffline: false };
 
 let page = 1;
 let pageSize = 25;
 
 // ===== filtros =====
-function aplicarFiltros(){
+function aplicarFiltros() {
   filtros.texto = (document.getElementById("filtroTexto").value || "").trim().toLowerCase();
   filtros.somenteAlertas = !!document.getElementById("filtroSomenteAlertas").checked;
   filtros.somenteOffline = !!document.getElementById("filtroSomenteOffline").checked;
@@ -84,7 +84,7 @@ function aplicarFiltros(){
   renderStatus();
 }
 
-function limparFiltros(){
+function limparFiltros() {
   document.getElementById("filtroTexto").value = "";
   document.getElementById("filtroSomenteAlertas").checked = false;
   document.getElementById("filtroSomenteOffline").checked = false;
@@ -95,39 +95,39 @@ function limparFiltros(){
   renderStatus();
 }
 
-function mudarPageSize(){
+function mudarPageSize() {
   const v = Number(document.getElementById("pageSize").value);
   pageSize = Number.isFinite(v) ? v : 25;
   page = 1;
   renderStatus();
 }
 
-function paginaAnterior(){
-  if (page > 1){ page--; renderStatus(); }
+function paginaAnterior() {
+  if (page > 1) { page--; renderStatus(); }
 }
 
-function proximaPagina(){
+function proximaPagina() {
   const total = getFilteredList().length;
   const maxPage = Math.max(1, Math.ceil(total / pageSize));
-  if (page < maxPage){ page++; renderStatus(); }
+  if (page < maxPage) { page++; renderStatus(); }
 }
 
-function getFilteredList(){
+function getFilteredList() {
   let list = Array.isArray(_statusData) ? [..._statusData] : [];
 
-  if (filtros.texto){
+  if (filtros.texto) {
     const t = filtros.texto;
     list = list.filter(item => {
       const c = item.condominio || {};
-      return String(c.nome||"").toLowerCase().includes(t) || String(c.device_id||"").toLowerCase().includes(t);
+      return String(c.nome || "").toLowerCase().includes(t) || String(c.device_id || "").toLowerCase().includes(t);
     });
   }
 
-  if (filtros.somenteAlertas){
+  if (filtros.somenteAlertas) {
     list = list.filter(item => (item.alertas_abertos_count ?? 0) > 0);
   }
 
-  if (filtros.somenteOffline){
+  if (filtros.somenteOffline) {
     list = list.filter(item => !!item.offline);
   }
 
@@ -135,15 +135,15 @@ function getFilteredList(){
 }
 
 // ===== admin actions =====
-async function fecharAlerta(id){
+async function fecharAlerta(id) {
   if (!confirm("Fechar alerta " + id + "?")) return;
 
   const r = await fetch("/alertas/" + id + "/fechar", {
-    method:"PATCH",
+    method: "PATCH",
     headers: authHeaders(),
   });
 
-  if (!r.ok){
+  if (!r.ok) {
     alert("Erro ao fechar alerta: " + (await r.text()));
     return;
   }
@@ -151,9 +151,9 @@ async function fecharAlerta(id){
   carregarTudo();
 }
 
-async function rodarJobOffline(){
-  const r = await fetch("/jobs/verificar-offline", { method:"POST", headers: authHeaders() });
-  if (!r.ok){
+async function rodarJobOffline() {
+  const r = await fetch("/jobs/verificar-offline", { method: "POST", headers: authHeaders() });
+  if (!r.ok) {
     alert("Erro no job OFFLINE: " + (await r.text()));
     return;
   }
@@ -162,24 +162,24 @@ async function rodarJobOffline(){
   carregarTudo();
 }
 
-async function criarCondominio(){
+async function criarCondominio() {
   const nome = (document.getElementById("novoNome").value || "").trim();
   const device_id = (document.getElementById("novoDevice").value || "").trim();
 
   // novos campos (crie esses inputs depois no HTML)
   const endereco = (document.getElementById("novoEndereco")?.value || "").trim();
-const bairro = (document.getElementById("novoBairro")?.value || "").trim();
-const cidade = (document.getElementById("novoCidade")?.value || "").trim();
-const uf = (document.getElementById("novoUf")?.value || "").trim();
-const responsavel = (document.getElementById("novoResponsavel")?.value || "").trim();
-const telefone = (document.getElementById("novoTelefone")?.value || "").trim();
-const observacoes = (document.getElementById("novoObs")?.value || "").trim();
-const ativo = document.getElementById("novoAtivo") ? !!document.getElementById("novoAtivo").checked : true;
+  const bairro = (document.getElementById("novoBairro")?.value || "").trim();
+  const cidade = (document.getElementById("novoCidade")?.value || "").trim();
+  const uf = (document.getElementById("novoUf")?.value || "").trim();
+  const responsavel = (document.getElementById("novoResponsavel")?.value || "").trim();
+  const telefone = (document.getElementById("novoTelefone")?.value || "").trim();
+  const observacoes = (document.getElementById("novoObs")?.value || "").trim();
+  const ativo = document.getElementById("novoAtivo") ? !!document.getElementById("novoAtivo").checked : true;
 
   const msg = document.getElementById("msgCadastro");
   if (msg) msg.textContent = "";
 
-  if (!nome || !device_id){
+  if (!nome || !device_id) {
     if (msg) msg.textContent = "Preencha Nome e Device ID.";
     return;
   }
@@ -198,20 +198,20 @@ const ativo = document.getElementById("novoAtivo") ? !!document.getElementById("
   };
 
   const r = await fetch("/condominios", {
-    method:"POST",
-    headers: { "Content-Type":"application/json", ...authHeaders() },
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify(payload),
   });
 
-  const data = await r.json().catch(()=> ({}));
+  const data = await r.json().catch(() => ({}));
 
-  if (!r.ok){
+  if (!r.ok) {
     if (msg) msg.textContent = data.error || ("Erro ao cadastrar (" + r.status + ")");
     return;
   }
 
- if (msg) msg.textContent =
-  `✅ Cadastrado: ${data.nome} (${data.device_id}) • KEY: ${data.device_key || "-"}`;
+  if (msg) msg.textContent =
+    `✅ Cadastrado: ${data.nome} (${data.device_id}) • KEY: ${data.device_key || "-"}`;
 
   // limpa apenas os obrigatórios (e os outros se existirem)
   document.getElementById("novoNome").value = "";
@@ -228,7 +228,7 @@ const ativo = document.getElementById("novoAtivo") ? !!document.getElementById("
   carregarTudo();
 }
 
-function renderSelectCondominiosCliente(){
+function renderSelectCondominiosCliente() {
   const sel = document.getElementById("cliCondominio");
   if (!sel) return;
 
@@ -248,7 +248,7 @@ function renderSelectCondominiosCliente(){
   if (prev) sel.value = prev;
 }
 
-async function criarCliente(){
+async function criarCliente() {
   const nome = (document.getElementById("cliNome").value || "").trim();
   const email = (document.getElementById("cliEmail").value || "").trim().toLowerCase();
   const senha = (document.getElementById("cliSenha").value || "").trim();
@@ -257,7 +257,7 @@ async function criarCliente(){
   const msg = document.getElementById("msgCliente");
   if (msg) msg.textContent = "";
 
-  if (!nome || !email || !senha || !condominio_id){
+  if (!nome || !email || !senha || !condominio_id) {
     if (msg) msg.textContent = "Preencha nome, email, senha e selecione o condomínio.";
     return;
   }
@@ -270,7 +270,7 @@ async function criarCliente(){
     condominio_id
   };
 
-  try{
+  try {
     if (msg) msg.textContent = "Criando...";
 
     const r = await fetch("/auth/registrar", {
@@ -281,7 +281,7 @@ async function criarCliente(){
 
     const data = await r.json().catch(() => ({}));
 
-    if (!r.ok){
+    if (!r.ok) {
       if (msg) msg.textContent = data.error || ("Erro ao criar (" + r.status + ")");
       return;
     }
@@ -294,25 +294,25 @@ async function criarCliente(){
     document.getElementById("cliSenha").value = "";
     document.getElementById("cliCondominio").value = "";
 
-  } catch (e){
+  } catch (e) {
     if (msg) msg.textContent = "Erro: " + e.message;
   }
 }
 
 // ===== carregamento =====
-function montarMapaAlertas(){
+function montarMapaAlertas() {
   _alertasPorDevice = new Map();
-  for (const a of _alertasAbertos){
+  for (const a of _alertasAbertos) {
     const dev = a.device_id;
     if (!_alertasPorDevice.has(dev)) _alertasPorDevice.set(dev, []);
     _alertasPorDevice.get(dev).push(a);
   }
 }
 
-function renderResumo(){
+function renderResumo() {
   let offline = 0, baixo = 0, muitoBaixo = 0;
 
-  for (const a of _alertasAbertos){
+  for (const a of _alertasAbertos) {
     if (a.tipo === "dispositivo_offline") offline++;
     else if (a.tipo === "nivel_baixo") baixo++;
     else if (a.tipo === "nivel_muito_baixo") muitoBaixo++;
@@ -334,35 +334,35 @@ function renderResumo(){
   ].join("");
 }
 
-  
 
-function renderAlertas(){
+
+function renderAlertas() {
   const tbody = document.getElementById("tbodyAlertas");
   tbody.innerHTML = "";
 
   _alertasAbertos.forEach(a => {
     const kind =
       a.tipo === "nivel_muito_baixo" || a.tipo === "dispositivo_offline" ? "bad"
-      : a.tipo === "nivel_baixo" ? "warn"
-      : "warn";
+        : a.tipo === "nivel_baixo" ? "warn"
+          : "warn";
 
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${a.id}</td>
       <td class="mono">${a.device_id}</td>
-      <td>${badge(String(a.tipo || "").replaceAll("_"," "), kind)}</td>
+      <td>${badge(String(a.tipo || "").replaceAll("_", " "), kind)}</td>
       <td>${a.mensagem || ""}</td>
       <td>${fmtData(a.criado_em)}</td>
       <td>${fmtData(a.atualizado_em)}</td>
       <td class="right">
-        <button class="btn btnAccent" onclick="fecharAlerta(${a.id})">Fechar</button>
+       <button class="btn btnAccent" data-action="fechar-alerta" data-id="${a.id}">Fechar</button>
       </td>
     `;
     tbody.appendChild(tr);
   });
 }
 
-function renderStatus(){
+function renderStatus() {
   const list = getFilteredList();
 
   const total = list.length;
@@ -373,7 +373,7 @@ function renderStatus(){
   const pageItems = list.slice(start, start + pageSize);
 
   const paginaInfo = document.getElementById("paginaInfo");
-  if (paginaInfo){
+  if (paginaInfo) {
     paginaInfo.textContent = `${page} / ${maxPage} • ${total} condomínios`;
   }
 
@@ -392,11 +392,11 @@ function renderStatus(){
     const alertasDoDevice = _alertasPorDevice.get(c.device_id) || [];
 
     let badges = "";
-    if (alertasDoDevice.length === 0){
+    if (alertasDoDevice.length === 0) {
       badges = badge("OK", "ok");
     } else {
       badges = alertasDoDevice.slice(0, 3).map(a => tipoBadge(a.tipo)).join(" ");
-      if (alertasDoDevice.length > 3){
+      if (alertasDoDevice.length > 3) {
         badges += " " + badge("+" + (alertasDoDevice.length - 3), "warn");
       }
     }
@@ -404,9 +404,9 @@ function renderStatus(){
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td class="right">
-        <button class="btn" onclick="abrirModalEditar(${Number(c.id) || 0})" ${c.id ? "" : "disabled"}>
-          Editar
-        </button>
+        <button class="btn" data-action="editar-condominio" data-id="${Number(c.id) || 0}" ${c.id ? "" : "disabled"}>
+  Editar
+</button>
       </td>
 
       <td>${c.nome || "-"}</td>
@@ -415,7 +415,7 @@ function renderStatus(){
       <td>${u ? (u.nivel ?? "-") : "-"}</td>
       <td>${u ? (u.bomba_ligada ? "Ligada" : "Desligada") : "-"}</td>
       <td>${min}</td>
-      <td>${offline ? badge("SIM","bad") : badge("NÃO","ok")}</td>
+      <td>${offline ? badge("SIM", "bad") : badge("NÃO", "ok")}</td>
       <td>
         <span class="pillCount">${item.alertas_abertos_count ?? 0}</span>
         <span style="margin-left:8px; display:inline-flex; gap:6px; flex-wrap:wrap;">${badges}</span>
@@ -425,29 +425,29 @@ function renderStatus(){
   });
 }
 
-async function carregarStatus(){
+async function carregarStatus() {
   const r = await fetch("/admin/status", { headers: authHeaders() });
   if (!r.ok) throw new Error("Erro /admin/status: " + r.status);
   _statusData = await r.json();
 }
 
-async function carregarAlertas(){
+async function carregarAlertas() {
   const r = await fetch("/alertas-abertos", { headers: authHeaders() });
   if (!r.ok) throw new Error("Erro /alertas-abertos: " + r.status);
   _alertasAbertos = await r.json();
   montarMapaAlertas();
 }
 
-async function carregarCondominios(){
+async function carregarCondominios() {
   const r = await fetch("/condominios", { headers: authHeaders() });
   if (!r.ok) throw new Error("Erro /condominios: " + r.status);
   _condominios = await r.json();
 }
 
-async function carregarTudo(){
+async function carregarTudo() {
   const el = document.getElementById("statusMsg");
   el.textContent = "Carregando...";
-  try{
+  try {
     await Promise.all([carregarStatus(), carregarAlertas(), carregarCondominios()]);
     renderSelectCondominiosCliente();
     renderResumo();
@@ -455,7 +455,7 @@ async function carregarTudo(){
     renderAlertas();
     renderStatus();
     el.textContent = "Atualizado às " + new Date().toLocaleTimeString();
-  } catch(e){
+  } catch (e) {
     el.textContent = "Erro ao atualizar";
     console.error(e);
   }
@@ -468,7 +468,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 let _modalKey = null;
 
-function bindResumoInteracoes(){
+function bindResumoInteracoes() {
   document.querySelectorAll(".resumoCardBtn").forEach(btn => {
     btn.addEventListener("mouseenter", (e) => showTip(e.currentTarget));
     btn.addEventListener("mousemove", (e) => moveTip(e));
@@ -477,12 +477,12 @@ function bindResumoInteracoes(){
   });
 }
 
-function getListaPorKey(key){
+function getListaPorKey(key) {
   // Retorna itens no formato: {nome, device_id, detalhe, kind}
   const items = [];
 
-  if (key === "offline"){
-    for (const it of _statusData){
+  if (key === "offline") {
+    for (const it of _statusData) {
       if (!it.offline) continue;
       const c = it.condominio || {};
       items.push({
@@ -492,12 +492,12 @@ function getListaPorKey(key){
         kind: "bad"
       });
     }
-    return items.sort((a,b)=> (parseInt(b.detalhe)||0) - (parseInt(a.detalhe)||0));
+    return items.sort((a, b) => (parseInt(b.detalhe) || 0) - (parseInt(a.detalhe) || 0));
   }
 
-  if (key === "nivel_baixo" || key === "nivel_muito_baixo"){
+  if (key === "nivel_baixo" || key === "nivel_muito_baixo") {
     const tipo = key;
-    for (const a of _alertasAbertos){
+    for (const a of _alertasAbertos) {
       if (a.tipo !== tipo) continue;
       const dev = a.device_id;
       const cond = _statusData.find(s => (s.condominio?.device_id === dev))?.condominio;
@@ -511,12 +511,12 @@ function getListaPorKey(key){
     return items;
   }
 
-  if (key === "com_alerta"){
-    for (const it of _statusData){
+  if (key === "com_alerta") {
+    for (const it of _statusData) {
       if ((it.alertas_abertos_count ?? 0) <= 0) continue;
       const c = it.condominio || {};
       const list = _alertasPorDevice.get(c.device_id) || [];
-      const tipos = [...new Set(list.map(x=>x.tipo))].join(", ");
+      const tipos = [...new Set(list.map(x => x.tipo))].join(", ");
       items.push({
         nome: c.nome || "-",
         device_id: c.device_id || "-",
@@ -527,8 +527,8 @@ function getListaPorKey(key){
     return items;
   }
 
-  if (key === "ok"){
-    for (const it of _statusData){
+  if (key === "ok") {
+    for (const it of _statusData) {
       const c = it.condominio || {};
       if ((it.alertas_abertos_count ?? 0) > 0) continue;
       if (it.offline) continue;
@@ -546,7 +546,7 @@ function getListaPorKey(key){
 }
 
 /* ===== Tooltip (hover) ===== */
-function showTip(el){
+function showTip(el) {
   const key = el.dataset.card;
   const tip = document.getElementById("cardTip");
   const list = getListaPorKey(key).slice(0, 6);
@@ -561,14 +561,14 @@ function showTip(el){
 
   let html = `<div class="tTitle">${titleMap[key] || "Prévia"}</div>`;
 
-  if (list.length === 0){
+  if (list.length === 0) {
     html += `<div class="tEmpty">Nada por aqui ✅</div>`;
   } else {
-    for (const it of list){
+    for (const it of list) {
       html += `
         <div class="tItem">
           <div><b>${it.device_id}</b> • ${it.nome}</div>
-          <span>${String(it.detalhe).slice(0, 22)}${String(it.detalhe).length>22?"…":""}</span>
+          <span>${String(it.detalhe).slice(0, 22)}${String(it.detalhe).length > 22 ? "…" : ""}</span>
         </div>
       `;
     }
@@ -579,7 +579,7 @@ function showTip(el){
   tip.style.display = "block";
 }
 
-function moveTip(e){
+function moveTip(e) {
   const tip = document.getElementById("cardTip");
   const pad = 14;
   let x = e.clientX + pad;
@@ -594,13 +594,13 @@ function moveTip(e){
   tip.style.left = x + "px";
   tip.style.top = y + "px";
 }
-function hideTip(){
+function hideTip() {
   const tip = document.getElementById("cardTip");
   tip.style.display = "none";
 }
 
 /* ===== Modal (click) ===== */
-function abrirModal(key){
+function abrirModal(key) {
   _modalKey = key;
 
   const titleMap = {
@@ -619,20 +619,20 @@ function abrirModal(key){
   renderModalLista();
 }
 
-function fecharModal(){
+function fecharModal() {
   document.getElementById("modalOverlay").style.display = "none";
   _modalKey = null;
 }
 
-function renderModalLista(){
+function renderModalLista() {
   const busca = (document.getElementById("modalBusca").value || "").trim().toLowerCase();
   let list = getListaPorKey(_modalKey);
 
-  if (busca){
+  if (busca) {
     list = list.filter(it =>
-      String(it.nome||"").toLowerCase().includes(busca) ||
-      String(it.device_id||"").toLowerCase().includes(busca) ||
-      String(it.detalhe||"").toLowerCase().includes(busca)
+      String(it.nome || "").toLowerCase().includes(busca) ||
+      String(it.device_id || "").toLowerCase().includes(busca) ||
+      String(it.detalhe || "").toLowerCase().includes(busca)
     );
   }
 
@@ -641,21 +641,22 @@ function renderModalLista(){
   const tbody = document.getElementById("modalTbody");
   tbody.innerHTML = "";
 
-  for (const it of list){
+  for (const it of list) {
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${it.nome}</td>
       <td class="mono">${it.device_id}</td>
       <td>${it.detalhe}</td>
       <td class="right">
-        <button class="btn" onclick="focarCondominio('${it.device_id}')">Ver no status</button>
-      </td>
+       <button class="btn" data-action="focar-condominio" data-device="${String(it.device_id).replaceAll('"', "&quot;")}">
+  Ver no status
+</button>
     `;
     tbody.appendChild(tr);
   }
 }
 
-function focarCondominio(deviceId){
+function focarCondominio(deviceId) {
   // aplica filtro e desce até a tabela de status
   document.getElementById("filtroTexto").value = deviceId;
   document.getElementById("filtroSomenteAlertas").checked = false;
@@ -675,7 +676,7 @@ document.addEventListener("click", (e) => {
   if (ov && ov.style.display !== "none" && e.target === ov) fecharModal();
 });
 
-function abrirModalEditar(id){
+function abrirModalEditar(id) {
   if (!id) return;
 
   const overlay = document.getElementById("editOverlay");
@@ -718,18 +719,18 @@ function abrirModalEditar(id){
     });
 }
 
-function fecharModalEditar(){
+function fecharModalEditar() {
   const overlay = document.getElementById("editOverlay");
   overlay.style.display = "none";
   document.getElementById("editMsg").textContent = "";
 }
 
-function _valOrNull(id){
+function _valOrNull(id) {
   const v = (document.getElementById(id).value || "").trim();
   return v === "" ? null : v;
 }
 
-async function salvarEdicao(event){
+async function salvarEdicao(event) {
   event.preventDefault();
 
   const id = Number(document.getElementById("editId").value);
@@ -755,12 +756,12 @@ async function salvarEdicao(event){
     ativo: document.getElementById("editAtivo").checked
   };
 
-  if (!payload.nome || !payload.device_id){
+  if (!payload.nome || !payload.device_id) {
     msg.textContent = "Nome e Device ID são obrigatórios.";
     return;
   }
 
-  try{
+  try {
     msg.textContent = "Salvando...";
 
     const r = await fetch("/condominios/" + id, {
@@ -771,7 +772,7 @@ async function salvarEdicao(event){
 
     const data = await r.json().catch(() => ({}));
 
-    if (!r.ok){
+    if (!r.ok) {
       msg.textContent = data.error || ("Erro ao salvar (" + r.status + ")");
       return;
     }
@@ -780,16 +781,16 @@ async function salvarEdicao(event){
     await carregarTudo();
     setTimeout(fecharModalEditar, 400);
 
-  } catch (e){
+  } catch (e) {
     msg.textContent = "Erro: " + e.message;
   }
 }
 
-async function regenerarDeviceKey(){
+async function regenerarDeviceKey() {
   const id = Number(document.getElementById("editId").value);
   const msg = document.getElementById("editMsg");
 
-  if (!id){
+  if (!id) {
     msg.textContent = "ID inválido.";
     return;
   }
@@ -798,7 +799,7 @@ async function regenerarDeviceKey(){
     return;
   }
 
-  try{
+  try {
     msg.textContent = "Regenerando device key...";
 
     const r = await fetch(`/condominios/${id}/regenerar-device-key`, {
@@ -808,7 +809,7 @@ async function regenerarDeviceKey(){
 
     const data = await r.json().catch(() => ({}));
 
-    if (!r.ok){
+    if (!r.ok) {
       msg.textContent = data.error || ("Erro (" + r.status + ")");
       return;
     }
@@ -817,7 +818,7 @@ async function regenerarDeviceKey(){
     // se você mostrar a key no modal, aqui dá pra atualizar o campo/label também
     await carregarTudo();
 
-  } catch(e){
+  } catch (e) {
     msg.textContent = "Erro: " + e.message;
   }
 }
@@ -833,5 +834,75 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") fecharModalEditar();
 });
 
-carregarTudo();
-setInterval(carregarTudo, 10000);
+  document.addEventListener("DOMContentLoaded", () => {
+    // ===== BOTÕES FIXOS =====
+    document.getElementById("btnAtualizar")?.addEventListener("click", carregarTudo);
+    document.getElementById("btnOffline")?.addEventListener("click", rodarJobOffline);
+    document.getElementById("btnSair")?.addEventListener("click", logout);
+
+    document.getElementById("btnAplicarFiltros")?.addEventListener("click", aplicarFiltros);
+    document.getElementById("btnLimparFiltros")?.addEventListener("click", limparFiltros);
+    document.getElementById("btnPaginaAnterior")?.addEventListener("click", paginaAnterior);
+    document.getElementById("btnProximaPagina")?.addEventListener("click", proximaPagina);
+
+    document.getElementById("pageSize")?.addEventListener("change", mudarPageSize);
+
+    document.getElementById("btnCadastrarCondominio")?.addEventListener("click", criarCondominio);
+    document.getElementById("btnCriarCliente")?.addEventListener("click", criarCliente);
+
+    document.getElementById("btnFecharModal")?.addEventListener("click", fecharModal);
+    document.getElementById("btnFecharModalEditar")?.addEventListener("click", fecharModalEditar);
+    document.getElementById("btnCancelarEdicao")?.addEventListener("click", fecharModalEditar);
+    document.getElementById("btnRegenerarDeviceKey")?.addEventListener("click", regenerarDeviceKey);
+
+    // salvar edição via submit (sem inline)
+    document.getElementById("editForm")?.addEventListener("submit", salvarEdicao);
+
+    // filtro texto (já tinha)
+    document.getElementById("filtroTexto")?.addEventListener("input", aplicarFiltros);
+
+    // ===== EVENT DELEGATION (cliques em botões criados via innerHTML) =====
+    document.body.addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-action]");
+      if (!btn) return;
+
+      const action = btn.dataset.action;
+
+      if (action === "fechar-alerta") {
+        const id = Number(btn.dataset.id);
+        if (id) fecharAlerta(id);
+        return;
+      }
+
+      if (action === "editar-condominio") {
+        const id = Number(btn.dataset.id);
+        if (id) abrirModalEditar(id);
+        return;
+      }
+
+      if (action === "focar-condominio") {
+        const device = btn.dataset.device;
+        if (device) focarCondominio(device);
+        return;
+      }
+    });
+
+    // Fechar modal clicando fora (você já tem, pode manter)
+    document.addEventListener("click", (e) => {
+      const ov = document.getElementById("modalOverlay");
+      if (ov && ov.style.display !== "none" && e.target === ov) fecharModal();
+    });
+
+    document.addEventListener("click", (e) => {
+      const ov = document.getElementById("editOverlay");
+      if (ov && ov.style.display !== "none" && e.target === ov) fecharModalEditar();
+    });
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") fecharModalEditar();
+    });
+
+    // primeira carga + auto refresh
+    carregarTudo();
+    setInterval(carregarTudo, 10000);
+  });

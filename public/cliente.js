@@ -202,58 +202,20 @@ async function trocarSenha(event){
   }
 }
 
-carregar();
-setInterval(carregar, 10000);
+document.addEventListener("DOMContentLoaded", () => {
+  // botões do topo (precisa ter IDs no HTML)
+  document.getElementById("btnAtualizarCliente")?.addEventListener("click", carregar);
+  document.getElementById("btnAbrirSenha")?.addEventListener("click", abrirModalSenha);
+  document.getElementById("btnSairCliente")?.addEventListener("click", logout);
 
-async function trocarSenha(event){
-  event.preventDefault();
+  // modal senha
+  document.getElementById("btnFecharSenhaTop")?.addEventListener("click", fecharModalSenha);
+  document.getElementById("btnCancelarSenha")?.addEventListener("click", fecharModalSenha);
 
-  const senhaAtual = (document.getElementById("senhaAtual")?.value || "").trim();
-  const senhaNova  = (document.getElementById("senhaNova")?.value || "").trim();
-  const senhaNova2 = (document.getElementById("senhaNova2")?.value || "").trim();
+  // submit do form (precisa ter id="formTrocarSenha")
+  document.getElementById("formTrocarSenha")?.addEventListener("submit", trocarSenha);
 
-  const msg = document.getElementById("senhaMsg");
-  if (msg) msg.textContent = "";
-
-  if (!senhaAtual || !senhaNova || !senhaNova2){
-    if (msg) msg.textContent = "Preencha todos os campos.";
-    return;
-  }
-
-  if (senhaNova.length < 6){
-    if (msg) msg.textContent = "A nova senha deve ter pelo menos 6 caracteres.";
-    return;
-  }
-
-  if (senhaNova !== senhaNova2){
-    if (msg) msg.textContent = "As senhas não coincidem.";
-    return;
-  }
-
-  try{
-    if (msg) msg.textContent = "Salvando...";
-
-    const r = await fetch("/cliente/trocar-senha", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...authHeaders() },
-      body: JSON.stringify({ senha_atual: senhaAtual, senha_nova: senhaNova }),
-    });
-
-    const data = await r.json().catch(() => ({}));
-
-    if (!r.ok){
-      if (msg) msg.textContent = data.error || ("Erro (" + r.status + ")");
-      return;
-    }
-
-    if (msg) msg.textContent = "✅ Senha alterada com sucesso!";
-    document.getElementById("senhaAtual").value = "";
-    document.getElementById("senhaNova").value = "";
-    document.getElementById("senhaNova2").value = "";
-
-    setTimeout(fecharModalSenha, 600);
-
-  } catch (e){
-    if (msg) msg.textContent = "Erro: " + e.message;
-  }
-}
+  // primeira carga + auto refresh
+  carregar();
+  setInterval(carregar, 10000);
+});
