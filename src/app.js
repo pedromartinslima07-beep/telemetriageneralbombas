@@ -59,7 +59,7 @@ app.use("/reservatorios", reservatoriosRouter);
 app.use("/cliente", clienteRouter);
 app.use("/admin", adminRouter);
 app.use(leiturasRouter); // ex: /ultima-leitura/:device_id
-app.use(statusRouter);   // ex: /status/:device_id
+app.use("/status", statusRouter);
 app.use("/jobs", jobsRouter);
 
 module.exports = { app };
