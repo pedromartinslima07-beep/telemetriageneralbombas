@@ -1,23 +1,21 @@
+// src/routes/status.routes.js
 const express = require("express");
-const router = express.Router();
-const db = require("../db");
+const { pool } = require("../db");
+const { authRequired } = require("../middleware/authRequired");
+const { adminOnly } = require("../middleware/adminOnly");
 
-// Ajuste aqui o “tempo sem sinal” que você considera offline:
+const router = express.Router();
 const OFFLINE_MINUTES = Number(process.env.OFFLINE_MINUTES || 15);
 
-router.get("/:device_id", async (req, res) => {
+// GET /status/:device_id  (montado com prefixo no app.js)
+router.get("/:device_id", authRequired, adminOnly, async (req, res) => {
   const { device_id } = req.params;
 
   try {
-    // 1) Busca o reservatório pelo device_id
-    const r = await db.query(
+    // 1) Busca reservatório pelo device_id
+    const r = await pool.query(
       `
-      SELECT
-        id,
-        device_id,
-        nome,
-        condominio_id,
-        last_seen
+      SELECT id, condominio_id, nome, tipo, device_id, last_seen
       FROM reservatorios
       WHERE device_id = $1
       LIMIT 1
@@ -25,57 +23,43 @@ router.get("/:device_id", async (req, res) => {
       [device_id]
     );
 
-    if (r.rowCount === 0) {
-      return res.status(404).json({ error: "Reservatório não encontrado" });
+    if (r.rows.length === 0) {
+      return res.status(404).json({ error: "Reservatório/Dispositivo não encontrado" });
     }
 
     const reservatorio = r.rows[0];
 
-    // 2) Última leitura (se existir)
-    const l = await db.query(
+    // 2) Última leitura (tabela leituras atual usa criado_em)
+    const l = await pool.query(
       `
-      SELECT
-        id,
-        nivel,
-        bomba_ligada,
-        created_at
+      SELECT id, device_id, nivel, bomba_ligada, criado_em
       FROM leituras
-      WHERE reservatorio_id = $1
-      ORDER BY created_at DESC
+      WHERE device_id = $1
+      ORDER BY criado_em DESC
       LIMIT 1
       `,
-      [reservatorio.id]
+      [device_id]
     );
 
-    const ultimaLeitura = l.rows[0] || null;
+    const ultima_leitura = l.rows[0] || null;
 
-    // 3) Alerta aberto (se existir)
-    const a = await db.query(
+    // 3) Alerta aberto mais recente (status no schema atual é 'aberto'/'resolvido')
+    const a = await pool.query(
       `
-      SELECT
-        id,
-        tipo,
-        status,
-        mensagem,
-        created_at,
-        updated_at
+      SELECT id, device_id, tipo, mensagem, status, criado_em, atualizado_em
       FROM alertas
-      WHERE reservatorio_id = $1
-        AND status = 'ABERTO'
-      ORDER BY updated_at DESC
+      WHERE device_id = $1 AND status = 'aberto'
+      ORDER BY atualizado_em DESC NULLS LAST, criado_em DESC
       LIMIT 1
       `,
-      [reservatorio.id]
+      [device_id]
     );
 
-    const alertaAberto = a.rows[0] || null;
+    const alerta_aberto = a.rows[0] || null;
 
-    // 4) Determina lastSeen:
-    // - Se tiver reservatorios.last_seen, usa ele
-    // - Senão, usa a data da última leitura
+    // 4) lastSeen (usa last_seen se existir; senão usa última leitura)
     const lastSeen =
-      reservatorio.last_seen ||
-      (ultimaLeitura ? ultimaLeitura.created_at : null);
+      reservatorio.last_seen || (ultima_leitura ? ultima_leitura.criado_em : null);
 
     // 5) Calcula offline
     let offline = true;
@@ -88,22 +72,17 @@ router.get("/:device_id", async (req, res) => {
     }
 
     return res.json({
-      device_id: reservatorio.device_id,
-      reservatorio: {
-        id: reservatorio.id,
-        nome: reservatorio.nome,
-        condominio_id: reservatorio.condominio_id,
-      },
-      ultima_leitura: ultimaLeitura,
-      alerta_aberto: alertaAberto,
+      reservatorio,
+      ultima_leitura,
+      alerta_aberto,
       last_seen: lastSeen,
       offline,
       offline_minutes,
       offline_threshold_minutes: OFFLINE_MINUTES,
     });
-  } catch (err) {
-    console.error("GET /status/:device_id error", err);
-    return res.status(500).json({ error: "Erro interno" });
+  } catch (error) {
+    console.error("Erro ao buscar status:", error);
+    return res.status(500).json({ error: "Erro ao buscar status" });
   }
 });
 
