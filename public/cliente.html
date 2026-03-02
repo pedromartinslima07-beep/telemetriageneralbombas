@@ -35,8 +35,8 @@
       <!-- RESUMO -->
       <section class="card">
         <div class="cardHead">
-          <h2>Resumo do Reservatório</h2>
-          <div class="hint">Fonte: <span class="mono">GET /cliente/status</span></div>
+          <h2>Resumo do Condomínio</h2>
+          <div class="hint">Agregado dos reservatórios • Fonte: <span class="mono">GET /cliente/status</span></div>
         </div>
 
         <div style="padding:16px 14px;">
@@ -45,6 +45,37 @@
             grid-template-columns: repeat(4, minmax(0, 1fr));
             gap: 12px;
           "></div>
+        </div>
+      </section>
+
+      <!-- RESERVATÓRIOS -->
+      <section class="card">
+        <div class="cardHead">
+          <h2>Reservatórios do condomínio</h2>
+          <div class="hint">Fonte: <span class="mono">GET /cliente/status</span> • campo <span
+              class="mono">reservatorios</span></div>
+        </div>
+
+        <div class="tableWrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Reservatório</th>
+                <th>Tipo</th>
+                <th>Última leitura</th>
+                <th>Nível</th>
+                <th>Bomba</th>
+                <th>Min s/ atualizar</th>
+                <th>Offline</th>
+                <th>Alertas</th>
+              </tr>
+            </thead>
+            <tbody id="tbodyReservatoriosCliente"></tbody>
+          </table>
+        </div>
+
+        <div id="semReservatorios" style="padding:14px; display:none; color: var(--muted);">
+          Nenhum reservatório cadastrado para este condomínio.
         </div>
       </section>
 

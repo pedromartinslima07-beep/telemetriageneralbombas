@@ -125,13 +125,10 @@
               <tr>
                 <th class="right">Ação</th>
                 <th>Condomínio</th>
-                <th>Device</th>
-                <th>Última leitura</th>
-                <th>Nível</th>
-                <th>Bomba</th>
-                <th>Min sem atualizar</th>
+                <th>Total reservatórios</th>
                 <th>Offline</th>
                 <th>Alertas</th>
+                <th>Última leitura</th>
               </tr>
             </thead>
             <tbody id="tbodyStatus"></tbody>
@@ -153,11 +150,7 @@
               style="width:100%; padding:10px 12px; border-radius:12px; border:1px solid rgba(43,43,71,.9); background: rgba(255,255,255,.04); color: var(--text); outline:none;" />
           </div>
 
-          <div>
-            <div class="hint">Device ID *</div>
-            <input id="novoDevice" placeholder="Ex: COND002"
-              style="width:100%; padding:10px 12px; border-radius:12px; border:1px solid rgba(43,43,71,.9); background: rgba(255,255,255,.04); color: var(--text); outline:none;" />
-          </div>
+
 
           <div style="grid-column: 1 / -1;">
             <div class="hint">Endereço</div>
@@ -211,6 +204,50 @@
         <div style="padding:0 14px 14px 14px; display:flex; gap:10px; align-items:center;">
           <button class="btn btnAccent" id="btnCadastrarCondominio">Cadastrar</button>
           <span id="msgCadastro" class="hint"></span>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="cardHead">
+          <h2>Cadastro de reservatório</h2>
+          <div class="hint">Vincula um reservatório a um condomínio</div>
+        </div>
+
+        <div style="padding:14px; display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+          <div>
+            <div class="hint">Condomínio *</div>
+            <select id="resCondominio"
+              style="width:100%; padding:10px 12px; border-radius:12px; border:1px solid rgba(43,43,71,.9); background: rgba(255,255,255,.04); color: var(--text); outline:none;">
+              <option value="">Carregando...</option>
+            </select>
+          </div>
+
+          <div>
+            <div class="hint">Tipo *</div>
+            <select id="resTipo"
+              style="width:100%; padding:10px 12px; border-radius:12px; border:1px solid rgba(43,43,71,.9); background: rgba(255,255,255,.04); color: var(--text); outline:none;">
+              <option value="superior">Superior</option>
+              <option value="inferior">Inferior</option>
+              <option value="outro">Outro</option>
+            </select>
+          </div>
+
+          <div style="grid-column: 1 / -1;">
+            <div class="hint">Nome *</div>
+            <input id="resNome" placeholder="Ex: Reservatório Superior"
+              style="width:100%; padding:10px 12px; border-radius:12px; border:1px solid rgba(43,43,71,.9); background: rgba(255,255,255,.04); color: var(--text); outline:none;" />
+          </div>
+
+          <div style="grid-column: 1 / -1;">
+            <div class="hint">Device ID *</div>
+            <input id="resDeviceId" placeholder="Ex: RES_COND10_SUP"
+              style="width:100%; padding:10px 12px; border-radius:12px; border:1px solid rgba(43,43,71,.9); background: rgba(255,255,255,.04); color: var(--text); outline:none;" />
+          </div>
+        </div>
+
+        <div style="padding:0 14px 14px 14px; display:flex; gap:10px; align-items:center;">
+          <button id="btnCadastrarReservatorio" class="btn btnAccent">Cadastrar reservatório</button>
+          <span id="msgReservatorio" class="hint"></span>
         </div>
       </section>
 
@@ -373,7 +410,7 @@
 
           <div class="formActions" style="grid-column: 1 / -1;">
             <button class="btn btnAccent" type="submit">Salvar</button>
-           <button class="btn" type="button" id="btnCancelarEdicao">Cancelar</button>
+            <button class="btn" type="button" id="btnCancelarEdicao">Cancelar</button>
           </div>
         </form>
       </div>

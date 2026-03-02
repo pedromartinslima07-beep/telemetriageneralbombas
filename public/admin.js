@@ -115,20 +115,28 @@ function proximaPagina() {
 function getFilteredList() {
   let list = Array.isArray(_statusData) ? [..._statusData] : [];
 
-  if (filtros.texto) {
-    const t = filtros.texto;
-    list = list.filter(item => {
-      const c = item.condominio || {};
-      return String(c.nome || "").toLowerCase().includes(t) || String(c.device_id || "").toLowerCase().includes(t);
+  const t = (filtros.texto || "").trim().toLowerCase();
+
+  if (t) {
+    list = list.filter(grupo => {
+      const c = grupo.condominio || {};
+      if (String(c.nome || "").toLowerCase().includes(t)) return true;
+
+      const reservs = Array.isArray(grupo.reservatorios) ? grupo.reservatorios : [];
+      return reservs.some(r =>
+        String(r.nome || "").toLowerCase().includes(t) ||
+        String(r.device_id || "").toLowerCase().includes(t) ||
+        String(r.tipo || "").toLowerCase().includes(t)
+      );
     });
   }
 
   if (filtros.somenteAlertas) {
-    list = list.filter(item => (item.alertas_abertos_count ?? 0) > 0);
+    list = list.filter(grupo => (grupo.resumo?.alertas_abertos_total ?? 0) > 0);
   }
 
   if (filtros.somenteOffline) {
-    list = list.filter(item => !!item.offline);
+    list = list.filter(grupo => (grupo.resumo?.offline_count ?? 0) > 0);
   }
 
   return list;
@@ -164,7 +172,6 @@ async function rodarJobOffline() {
 
 async function criarCondominio() {
   const nome = (document.getElementById("novoNome").value || "").trim();
-  const device_id = (document.getElementById("novoDevice").value || "").trim();
 
   // novos campos (crie esses inputs depois no HTML)
   const endereco = (document.getElementById("novoEndereco")?.value || "").trim();
@@ -179,14 +186,13 @@ async function criarCondominio() {
   const msg = document.getElementById("msgCadastro");
   if (msg) msg.textContent = "";
 
-  if (!nome || !device_id) {
-    if (msg) msg.textContent = "Preencha Nome e Device ID.";
+  if (!nome) {
+    if (msg) msg.textContent = "Preencha o Nome.";
     return;
   }
 
   const payload = {
     nome,
-    device_id,
     endereco: endereco || null,
     bairro: bairro || null,
     cidade: cidade || null,
@@ -210,12 +216,10 @@ async function criarCondominio() {
     return;
   }
 
-  if (msg) msg.textContent =
-    `✅ Cadastrado: ${data.nome} (${data.device_id}) • KEY: ${data.device_key || "-"}`;
+  if (msg) msg.textContent = `✅ Condomínio cadastrado: ${data.nome} (ID ${data.id})`;
 
   // limpa apenas os obrigatórios (e os outros se existirem)
   document.getElementById("novoNome").value = "";
-  document.getElementById("novoDevice").value = "";
   if (document.getElementById("novoEndereco")) document.getElementById("novoEndereco").value = "";
   if (document.getElementById("novoBairro")) document.getElementById("novoBairro").value = "";
   if (document.getElementById("novoCidade")) document.getElementById("novoCidade").value = "";
@@ -234,17 +238,12 @@ function renderSelectCondominiosCliente() {
 
   const list = Array.isArray(_condominios) ? _condominios : [];
 
-  // mantém valor selecionado, se existir
   const prev = sel.value;
 
-  sel.innerHTML = `<option value="">Selecione...</option>` +
-    list.map(c => {
-      const nome = c.nome || "-";
-      const dev = c.device_id || "-";
-      return `<option value="${c.id}">${nome} • ${dev} (ID ${c.id})</option>`;
-    }).join("");
+  sel.innerHTML =
+    `<option value="">Selecione...</option>` +
+    list.map(c => `<option value="${c.id}">${c.nome || "-"} (ID ${c.id})</option>`).join("");
 
-  // tenta restaurar seleção anterior
   if (prev) sel.value = prev;
 }
 
@@ -310,23 +309,38 @@ function montarMapaAlertas() {
 }
 
 function renderResumo() {
-  let offline = 0, baixo = 0, muitoBaixo = 0;
+  // Esses 3 ainda podem vir de alertas abertos (ok)
+  let baixo = 0, muitoBaixo = 0;
 
   for (const a of _alertasAbertos) {
-    if (a.tipo === "dispositivo_offline") offline++;
-    else if (a.tipo === "nivel_baixo") baixo++;
+    if (a.tipo === "nivel_baixo") baixo++;
     else if (a.tipo === "nivel_muito_baixo") muitoBaixo++;
   }
 
-  const totalConds = _statusData.length;
-  const condsComAlerta = _statusData.filter(x => (x.alertas_abertos_count ?? 0) > 0).length;
-  const condsOk = Math.max(0, totalConds - condsComAlerta);
+  // ✅ OFFLINE agora vem do STATUS (resumo.offline_count), não de alertas
+  const grupos = Array.isArray(_statusData) ? _statusData : [];
+
+  let offlineTotal = 0;
+  let condsComAlerta = 0;
+  let condsOk = 0;
+
+  for (const g of grupos) {
+    const off = g?.resumo?.offline_count ?? 0;
+    const al = g?.resumo?.alertas_abertos_total ?? 0;
+
+    offlineTotal += off;
+    if (al > 0) condsComAlerta++;
+
+    // Condomínio OK = sem alertas e sem offline
+    if (al === 0 && off === 0) condsOk++;
+  }
 
   const grid = document.getElementById("resumoGrid");
   if (!grid) return;
 
   grid.innerHTML = [
-    resumoCard("OFFLINE", offline, offline > 0 ? "bad" : "ok", "offline"),
+    // ✅ agora o card OFFLINE mostra a soma real de reservatórios offline
+    resumoCard("OFFLINE", offlineTotal, offlineTotal > 0 ? "bad" : "ok", "offline"),
     resumoCard("NÍVEL BAIXO", baixo, baixo > 0 ? "warn" : "ok", "nivel_baixo"),
     resumoCard("MUITO BAIXO", muitoBaixo, muitoBaixo > 0 ? "bad" : "ok", "nivel_muito_baixo"),
     resumoCard("COND. COM ALERTA", condsComAlerta, condsComAlerta > 0 ? "warn" : "ok", "com_alerta"),
@@ -362,8 +376,33 @@ function renderAlertas() {
   });
 }
 
+let _expandedCondo = new Set(); // guarda quais condomínios estão “abertos”
+
+function getUltimaLeituraDoCondominio(condoItem) {
+  const list = condoItem.reservatorios || [];
+  let best = null;
+  for (const r of list) {
+    const u = r.ultima_leitura;
+    if (!u?.criado_em) continue;
+    if (!best) best = u;
+    else if (new Date(u.criado_em) > new Date(best.criado_em)) best = u;
+  }
+  return best; // pode ser null
+}
+
+function toggleCondo(id) {
+  if (_expandedCondo.has(id)) _expandedCondo.delete(id);
+  else _expandedCondo.add(id);
+  renderStatus();
+}
+
 function renderStatus() {
-  const list = getFilteredList();
+  const tbody = document.getElementById("tbodyStatus");
+  if (!tbody) return;
+  tbody.innerHTML = "";
+
+  const list = Array.isArray(_statusData) ? _statusData : [];
+
 
   const total = list.length;
   const maxPage = Math.max(1, Math.ceil(total / pageSize));
@@ -373,62 +412,122 @@ function renderStatus() {
   const pageItems = list.slice(start, start + pageSize);
 
   const paginaInfo = document.getElementById("paginaInfo");
-  if (paginaInfo) {
-    paginaInfo.textContent = `${page} / ${maxPage} • ${total} condomínios`;
-  }
+  if (paginaInfo) paginaInfo.textContent = `${page} / ${maxPage} • ${total} condomínios`;
 
-  const tbody = document.getElementById("tbodyStatus");
-  tbody.innerHTML = "";
-
-  pageItems.forEach(item => {
+  for (const item of pageItems) {
     const c = item.condominio || {};
-    const u = item.ultima_leitura || null;
+    const resumo = item.resumo || {};
+    const condoId = Number(c.id) || 0;
 
-    const offline = !!item.offline;
-    const min = (item.minutos_sem_atualizar === null || item.minutos_sem_atualizar === undefined)
-      ? "-"
-      : item.minutos_sem_atualizar;
+    const totalRes = resumo.total_reservatorios ?? 0;
+    const offlineCount = resumo.offline_count ?? 0;
+    const alertasTotal = resumo.alertas_abertos_total ?? 0;
 
-    const alertasDoDevice = _alertasPorDevice.get(c.device_id) || [];
+    const ultima = getUltimaLeituraDoCondominio(item);
+    const ultimaTxt = ultima?.criado_em ? fmtData(ultima.criado_em) : "-";
 
-    let badges = "";
-    if (alertasDoDevice.length === 0) {
-      badges = badge("OK", "ok");
-    } else {
-      badges = alertasDoDevice.slice(0, 3).map(a => tipoBadge(a.tipo)).join(" ");
-      if (alertasDoDevice.length > 3) {
-        badges += " " + badge("+" + (alertasDoDevice.length - 3), "warn");
-      }
-    }
+    const expanded = _expandedCondo.has(condoId);
 
+    // ===== LINHA DO CONDOMÍNIO (RESUMO) =====
     const tr = document.createElement("tr");
+    tr.style.cursor = "pointer";
     tr.innerHTML = `
       <td class="right">
-        <button class="btn" data-action="editar-condominio" data-id="${Number(c.id) || 0}" ${c.id ? "" : "disabled"}>
-  Editar
-</button>
+        <button class="btn" data-action="toggle-condo" data-id="${condoId}">
+          ${expanded ? "Fechar" : "Ver reservatórios"}
+        </button>
       </td>
 
       <td>${c.nome || "-"}</td>
-      <td class="mono">${c.device_id || "-"}</td>
-      <td>${u ? fmtData(u.criado_em) : "-"}</td>
-      <td>${u ? (u.nivel ?? "-") : "-"}</td>
-      <td>${u ? (u.bomba_ligada ? "Ligada" : "Desligada") : "-"}</td>
-      <td>${min}</td>
-      <td>${offline ? badge("SIM", "bad") : badge("NÃO", "ok")}</td>
+      <td>${totalRes}</td>
+      <td>${offlineCount > 0 ? badge(`${offlineCount} SIM`, "bad") : badge("NÃO", "ok")}</td>
       <td>
-        <span class="pillCount">${item.alertas_abertos_count ?? 0}</span>
-        <span style="margin-left:8px; display:inline-flex; gap:6px; flex-wrap:wrap;">${badges}</span>
+        <span class="pillCount">${alertasTotal}</span>
       </td>
+      <td>${ultimaTxt}</td>
     `;
     tbody.appendChild(tr);
-  });
+
+    // ===== DETALHES (LINHAS DOS RESERVATÓRIOS) =====
+    if (expanded) {
+      const reservatorios = item.reservatorios || [];
+
+      // cabeçalho dos detalhes (uma linha “subtítulo”)
+      const trHead = document.createElement("tr");
+      trHead.innerHTML = `
+        <td></td>
+        <td colspan="5" style="padding:10px 8px;">
+          <div style="color: var(--muted); font-size:12px; margin-bottom:8px;">
+            Reservatórios
+          </div>
+
+          <div style="overflow:auto; border:1px solid rgba(43,43,71,.7); border-radius:12px;">
+            <table style="width:100%; border-collapse:collapse;">
+              <thead>
+                <tr style="background: rgba(255,255,255,.03);">
+                  <th style="text-align:left; padding:10px;">Reservatório</th>
+                  <th style="text-align:left; padding:10px;">Tipo</th>
+                  <th style="text-align:left; padding:10px;">Device</th>
+                  <th style="text-align:left; padding:10px;">Última leitura</th>
+                  <th style="text-align:left; padding:10px;">Nível</th>
+                  <th style="text-align:left; padding:10px;">Bomba</th>
+                  <th style="text-align:left; padding:10px;">Min s/ atualizar</th>
+                  <th style="text-align:left; padding:10px;">Offline</th>
+                  <th style="text-align:left; padding:10px;">Alertas</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${reservatorios.map(r => {
+        const u = r.ultima_leitura;
+        const offline = !!r.offline;
+        const min = (r.minutos_sem_atualizar === null || r.minutos_sem_atualizar === undefined)
+          ? "-"
+          : r.minutos_sem_atualizar;
+
+        const alertas = r.alertas_abertos_count ?? 0;
+
+        return `
+                    <tr>
+                      <td style="padding:10px;">${r.nome || "-"}</td>
+                      <td style="padding:10px;">${r.tipo || "-"}</td>
+                      <td style="padding:10px;" class="mono">${r.device_id || "-"}</td>
+                      <td style="padding:10px;">${u?.criado_em ? fmtData(u.criado_em) : "-"}</td>
+                      <td style="padding:10px;">${u ? (u.nivel ?? "-") : "-"}</td>
+                      <td style="padding:10px;">${u ? (u.bomba_ligada ? "Ligada" : "Desligada") : "-"}</td>
+                      <td style="padding:10px;">${min}</td>
+                      <td style="padding:10px;">${offline ? badge("SIM", "bad") : badge("NÃO", "ok")}</td>
+                      <td style="padding:10px;">
+                        <span class="pillCount">${alertas}</span>
+<button 
+    class="btn btnAccent"
+    style="margin-left:8px;"
+    data-action="regen-res-key"
+    data-id="${r.id}">
+    Regenerar Key
+  </button>
+
+                      </td>
+                    </tr>
+                  `;
+      }).join("")}
+              </tbody>
+            </table>
+          </div>
+        </td>
+      `;
+      tbody.appendChild(trHead);
+    }
+  }
 }
 
 async function carregarStatus() {
   const r = await fetch("/admin/status", { headers: authHeaders() });
   if (!r.ok) throw new Error("Erro /admin/status: " + r.status);
-  _statusData = await r.json();
+
+  const grouped = await r.json(); // vem AGRUPADO do backend (admin.routes)
+
+  // ✅ mantém AGRUPADO, porque o renderStatus usa item.reservatorios + item.resumo
+  _statusData = Array.isArray(grouped) ? grouped : [];
 }
 
 async function carregarAlertas() {
@@ -444,12 +543,26 @@ async function carregarCondominios() {
   _condominios = await r.json();
 }
 
+function renderSelectCondominiosReservatorio() {
+  const sel = document.getElementById("resCondominio");
+  if (!sel) return;
+
+  const list = Array.isArray(_condominios) ? _condominios : [];
+  const prev = sel.value;
+
+  sel.innerHTML = `<option value="">Selecione...</option>` +
+    list.map(c => `<option value="${c.id}">${c.nome} (ID ${c.id})</option>`).join("");
+
+  if (prev) sel.value = prev;
+}
+
 async function carregarTudo() {
   const el = document.getElementById("statusMsg");
   el.textContent = "Carregando...";
   try {
     await Promise.all([carregarStatus(), carregarAlertas(), carregarCondominios()]);
     renderSelectCondominiosCliente();
+    renderSelectCondominiosReservatorio();
     renderResumo();
     bindResumoInteracoes();
     renderAlertas();
@@ -459,6 +572,45 @@ async function carregarTudo() {
     el.textContent = "Erro ao atualizar";
     console.error(e);
   }
+}
+
+async function criarReservatorio() {
+  const msg = document.getElementById("msgReservatorio");
+  if (msg) msg.textContent = "";
+
+  const condominio_id = Number(document.getElementById("resCondominio").value);
+  const tipo = (document.getElementById("resTipo").value || "").trim();
+  const nome = (document.getElementById("resNome").value || "").trim();
+  const device_id = (document.getElementById("resDeviceId").value || "").trim();
+
+  if (!condominio_id || !nome || !tipo || !device_id) {
+    if (msg) msg.textContent = "Preencha condomínio, tipo, nome e device id.";
+    return;
+  }
+
+  const payload = { condominio_id, nome, tipo, device_id };
+
+  const r = await fetch("/reservatorios", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(payload),
+  });
+
+  const data = await r.json().catch(() => ({}));
+
+  if (!r.ok) {
+    if (msg) msg.textContent = data.error || ("Erro (" + r.status + ")");
+    return;
+  }
+
+  if (msg) msg.textContent = `✅ Reservatório cadastrado • KEY: ${data.device_key}`;
+
+  // limpa campos
+  document.getElementById("resNome").value = "";
+  document.getElementById("resDeviceId").value = "";
+
+  // opcional: atualizar tudo
+  carregarTudo();
 }
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -478,68 +630,74 @@ function bindResumoInteracoes() {
 }
 
 function getListaPorKey(key) {
-  // Retorna itens no formato: {nome, device_id, detalhe, kind}
   const items = [];
 
-  if (key === "offline") {
-    for (const it of _statusData) {
-      if (!it.offline) continue;
-      const c = it.condominio || {};
+  // percorre por condomínio e reservatórios
+  for (const g of (_statusData || [])) {
+    const c = g.condominio || {};
+    const resumo = g.resumo || {};
+    const reservs = Array.isArray(g.reservatorios) ? g.reservatorios : [];
+
+    if (key === "offline") {
+  const grupos = Array.isArray(_statusData) ? _statusData : [];
+
+  for (const g of grupos) {
+    const c = g.condominio || {};
+    const reservs = Array.isArray(g.reservatorios) ? g.reservatorios : [];
+
+    for (const r of reservs) {
+      if (!r.offline) continue;
+
       items.push({
-        nome: c.nome || "-",
-        device_id: c.device_id || "-",
-        detalhe: `${it.minutos_sem_atualizar ?? "-"} min sem atualizar`,
+        nome: `${c.nome || "-"} • ${r.nome || "Reservatório"}`,
+        device_id: r.device_id || "-",
+        detalhe: `${r.minutos_sem_atualizar ?? "-"} min sem atualizar`,
         kind: "bad"
       });
     }
-    return items.sort((a, b) => (parseInt(b.detalhe) || 0) - (parseInt(a.detalhe) || 0));
   }
 
+  return items.sort((a, b) => (parseInt(b.detalhe) || 0) - (parseInt(a.detalhe) || 0));
+}
+
+    if (key === "com_alerta") {
+      if ((resumo.alertas_abertos_total ?? 0) <= 0) continue;
+      items.push({
+        nome: c.nome || "-",
+        device_id: `Reservatórios: ${resumo.total_reservatorios ?? 0}`,
+        detalhe: `Alertas abertos: ${resumo.alertas_abertos_total ?? 0}`,
+        kind: "warn",
+      });
+      continue;
+    }
+
+    if (key === "ok") {
+      const off = resumo.offline_count ?? 0;
+      const al = resumo.alertas_abertos_total ?? 0;
+      if (off > 0) continue;
+      if (al > 0) continue;
+      items.push({
+        nome: c.nome || "-",
+        device_id: `Reservatórios: ${resumo.total_reservatorios ?? 0}`,
+        detalhe: "Sem alertas • Online",
+        kind: "ok",
+      });
+      continue;
+    }
+  }
+
+  // alertas por tipo vem direto da tabela de alertas abertos
   if (key === "nivel_baixo" || key === "nivel_muito_baixo") {
     const tipo = key;
-    for (const a of _alertasAbertos) {
+    for (const a of (_alertasAbertos || [])) {
       if (a.tipo !== tipo) continue;
-      const dev = a.device_id;
-      const cond = _statusData.find(s => (s.condominio?.device_id === dev))?.condominio;
       items.push({
-        nome: cond?.nome || "-",
-        device_id: dev,
+        nome: a.condominio_nome ? a.condominio_nome : "-", // se não existir, ok
+        device_id: a.device_id,
         detalhe: a.mensagem || tipo,
-        kind: (tipo === "nivel_muito_baixo") ? "bad" : "warn"
+        kind: tipo === "nivel_muito_baixo" ? "bad" : "warn",
       });
     }
-    return items;
-  }
-
-  if (key === "com_alerta") {
-    for (const it of _statusData) {
-      if ((it.alertas_abertos_count ?? 0) <= 0) continue;
-      const c = it.condominio || {};
-      const list = _alertasPorDevice.get(c.device_id) || [];
-      const tipos = [...new Set(list.map(x => x.tipo))].join(", ");
-      items.push({
-        nome: c.nome || "-",
-        device_id: c.device_id || "-",
-        detalhe: `Alertas: ${list.length} • ${tipos}`,
-        kind: "warn"
-      });
-    }
-    return items;
-  }
-
-  if (key === "ok") {
-    for (const it of _statusData) {
-      const c = it.condominio || {};
-      if ((it.alertas_abertos_count ?? 0) > 0) continue;
-      if (it.offline) continue;
-      items.push({
-        nome: c.nome || "-",
-        device_id: c.device_id || "-",
-        detalhe: "Sem alertas • Online",
-        kind: "ok"
-      });
-    }
-    return items;
   }
 
   return items;
@@ -786,6 +944,29 @@ async function salvarEdicao(event) {
   }
 }
 
+ async function regenerarDeviceKeyReservatorio(reservatorioId) {
+  if (!confirm("Tem certeza? O ESP antigo vai parar de enviar telemetria.")) return;
+
+  const r = await fetch(
+    `/reservatorios/${reservatorioId}/regenerar-device-key`,
+    {
+      method: "POST",
+      headers: authHeaders()
+    }
+  );
+
+  const data = await r.json().catch(() => ({}));
+
+  if (!r.ok) {
+    alert(data.error || ("Erro (" + r.status + ")"));
+    return;
+  }
+
+  alert("✅ Nova Device Key:\n\n" + (data.reservatorio?.device_key || "-"));
+
+  carregarTudo(); // atualiza painel
+}
+
 async function regenerarDeviceKey() {
   const id = Number(document.getElementById("editId").value);
   const msg = document.getElementById("editMsg");
@@ -823,6 +1004,8 @@ async function regenerarDeviceKey() {
   }
 }
 
+
+
 // Fechar modal editar clicando fora
 document.addEventListener("click", (e) => {
   const ov = document.getElementById("editOverlay");
@@ -834,75 +1017,93 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") fecharModalEditar();
 });
 
-  document.addEventListener("DOMContentLoaded", () => {
-    // ===== BOTÕES FIXOS =====
-    document.getElementById("btnAtualizar")?.addEventListener("click", carregarTudo);
-    document.getElementById("btnOffline")?.addEventListener("click", rodarJobOffline);
-    document.getElementById("btnSair")?.addEventListener("click", logout);
 
-    document.getElementById("btnAplicarFiltros")?.addEventListener("click", aplicarFiltros);
-    document.getElementById("btnLimparFiltros")?.addEventListener("click", limparFiltros);
-    document.getElementById("btnPaginaAnterior")?.addEventListener("click", paginaAnterior);
-    document.getElementById("btnProximaPagina")?.addEventListener("click", proximaPagina);
 
-    document.getElementById("pageSize")?.addEventListener("change", mudarPageSize);
+document.addEventListener("DOMContentLoaded", () => {
+  // ===== BOTÕES FIXOS =====
+  document.getElementById("btnAtualizar")?.addEventListener("click", carregarTudo);
+  document.getElementById("btnOffline")?.addEventListener("click", rodarJobOffline);
+  document.getElementById("btnSair")?.addEventListener("click", logout);
 
-    document.getElementById("btnCadastrarCondominio")?.addEventListener("click", criarCondominio);
-    document.getElementById("btnCriarCliente")?.addEventListener("click", criarCliente);
+  document.getElementById("btnAplicarFiltros")?.addEventListener("click", aplicarFiltros);
+  document.getElementById("btnLimparFiltros")?.addEventListener("click", limparFiltros);
+  document.getElementById("btnPaginaAnterior")?.addEventListener("click", paginaAnterior);
+  document.getElementById("btnProximaPagina")?.addEventListener("click", proximaPagina);
 
-    document.getElementById("btnFecharModal")?.addEventListener("click", fecharModal);
-    document.getElementById("btnFecharModalEditar")?.addEventListener("click", fecharModalEditar);
-    document.getElementById("btnCancelarEdicao")?.addEventListener("click", fecharModalEditar);
-    document.getElementById("btnRegenerarDeviceKey")?.addEventListener("click", regenerarDeviceKey);
+  document.getElementById("pageSize")?.addEventListener("change", mudarPageSize);
 
-    // salvar edição via submit (sem inline)
-    document.getElementById("editForm")?.addEventListener("submit", salvarEdicao);
+  document.getElementById("btnCadastrarCondominio")?.addEventListener("click", criarCondominio);
+  document.getElementById("btnCriarCliente")?.addEventListener("click", criarCliente);
 
-    // filtro texto (já tinha)
-    document.getElementById("filtroTexto")?.addEventListener("input", aplicarFiltros);
+  document.getElementById("btnFecharModal")?.addEventListener("click", fecharModal);
+  document.getElementById("btnFecharModalEditar")?.addEventListener("click", fecharModalEditar);
+  document.getElementById("btnCancelarEdicao")?.addEventListener("click", fecharModalEditar);
+  document.getElementById("btnRegenerarDeviceKey")?.addEventListener("click", regenerarDeviceKey);
 
-    // ===== EVENT DELEGATION (cliques em botões criados via innerHTML) =====
-    document.body.addEventListener("click", (e) => {
-      const btn = e.target.closest("[data-action]");
-      if (!btn) return;
+  document.getElementById("btnCadastrarReservatorio")
+    ?.addEventListener("click", criarReservatorio);
 
-      const action = btn.dataset.action;
+  // salvar edição via submit (sem inline)
+  document.getElementById("editForm")?.addEventListener("submit", salvarEdicao);
 
-      if (action === "fechar-alerta") {
-        const id = Number(btn.dataset.id);
-        if (id) fecharAlerta(id);
-        return;
-      }
+  // filtro texto (já tinha)
+  document.getElementById("filtroTexto")?.addEventListener("input", aplicarFiltros);
 
-      if (action === "editar-condominio") {
-        const id = Number(btn.dataset.id);
-        if (id) abrirModalEditar(id);
-        return;
-      }
+  // ===== EVENT DELEGATION (cliques em botões criados via innerHTML) =====
+  document.body.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-action]");
+    if (!btn) return;
 
-      if (action === "focar-condominio") {
-        const device = btn.dataset.device;
-        if (device) focarCondominio(device);
-        return;
-      }
-    });
+    const action = btn.dataset.action;
 
-    // Fechar modal clicando fora (você já tem, pode manter)
-    document.addEventListener("click", (e) => {
-      const ov = document.getElementById("modalOverlay");
-      if (ov && ov.style.display !== "none" && e.target === ov) fecharModal();
-    });
+    if (action === "fechar-alerta") {
+      const id = Number(btn.dataset.id);
+      if (id) fecharAlerta(id);
+      return;
+    }
 
-    document.addEventListener("click", (e) => {
-      const ov = document.getElementById("editOverlay");
-      if (ov && ov.style.display !== "none" && e.target === ov) fecharModalEditar();
-    });
+    if (action === "toggle-condo") {
+      const id = Number(btn.dataset.id);
+      if (id) toggleCondo(id);
+      return;
+    }
 
-    document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") fecharModalEditar();
-    });
+    if (action === "editar-condominio") {
+      const id = Number(btn.dataset.id);
+      if (id) abrirModalEditar(id);
+      return;
+    }
 
-    // primeira carga + auto refresh
-    carregarTudo();
-    setInterval(carregarTudo, 10000);
+    if (action === "regen-res-key") {
+      const id = Number(btn.dataset.id);
+      if (id) regenerarDeviceKeyReservatorio(id);
+      return;
+    }
+
+    if (action === "focar-condominio") {
+      const device = btn.dataset.device;
+      if (device) focarCondominio(device);
+      return;
+    }
   });
+
+  // Fechar modal clicando fora (você já tem, pode manter)
+  document.addEventListener("click", (e) => {
+    const ov = document.getElementById("modalOverlay");
+    if (ov && ov.style.display !== "none" && e.target === ov) fecharModal();
+  });
+
+  document.addEventListener("click", (e) => {
+    const ov = document.getElementById("editOverlay");
+    if (ov && ov.style.display !== "none" && e.target === ov) fecharModalEditar();
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") fecharModalEditar();
+  });
+
+ 
+  // primeira carga + auto refresh
+  carregarTudo();
+  setInterval(carregarTudo, 10000);
+});

@@ -15,6 +15,7 @@ const { adminRouter } = require("./routes/admin.routes");
 const { leiturasRouter } = require("./routes/leituras.routes");
 const { statusRouter } = require("./routes/status.routes");
 const { jobsRouter } = require("./routes/jobs.routes");
+const { reservatoriosRouter } = require("./routes/reservatorios.routes");
 
 
 const app = express();
@@ -53,6 +54,7 @@ app.use("/auth", authRouter);
 app.use(alertasRouter);
 app.use("/condominios", condominiosRouter);
 app.use("/telemetria", telemetriaRouter);
+app.use("/reservatorios", reservatoriosRouter);
 
 app.use("/cliente", clienteRouter);
 app.use("/admin", adminRouter);

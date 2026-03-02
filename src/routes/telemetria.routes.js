@@ -72,26 +72,35 @@ router.post("/", telemetriaLimiter, async (req, res) => {
   }
 
   try {
-    const condominioRes = await pool.query(
-      "SELECT id, device_id, device_key FROM condominios WHERE device_id = $1 LIMIT 1",
+    // ✅ Agora valida em RESERVATORIOS (multi-reservatório)
+    const rRes = await pool.query(
+      `SELECT id, condominio_id, device_id, device_key
+       FROM reservatorios
+       WHERE device_id = $1
+       LIMIT 1`,
       [device_id]
     );
 
-    if (condominioRes.rows.length === 0) {
+    if (rRes.rows.length === 0) {
       return res.status(403).json({ error: "Dispositivo não autorizado" });
     }
 
-    const cond = condominioRes.rows[0];
+    const reservatorio = rRes.rows[0];
 
-    if (!cond.device_key || String(cond.device_key) !== String(deviceKeyHeader)) {
+    if (
+      !reservatorio.device_key ||
+      String(reservatorio.device_key) !== String(deviceKeyHeader)
+    ) {
       return res.status(403).json({ error: "Chave do dispositivo inválida" });
     }
 
+    // ✅ salva leitura (device_id = do reservatório)
     await pool.query(
       "INSERT INTO leituras (device_id, nivel, bomba_ligada) VALUES ($1, $2, $3)",
       [device_id, n, bomba_ligada]
     );
 
+    // ✅ fecha alerta offline se existir (voltou a mandar dados)
     await pool.query(
       "UPDATE alertas SET status = 'resolvido' WHERE device_id = $1 AND tipo = 'dispositivo_offline' AND status = 'aberto'",
       [device_id]

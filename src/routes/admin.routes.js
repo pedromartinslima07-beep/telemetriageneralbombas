@@ -7,49 +7,112 @@ const { adminOnly } = require("../middleware/adminOnly");
 
 const router = express.Router();
 
-// GET /admin/status
+// GET /admin/status  (AGRUPADO POR CONDOMÍNIO -> LISTA RESERVATÓRIOS)
 router.get("/status", authRequired, adminOnly, async (req, res) => {
   try {
-    const condominiosResult = await pool.query(
-      "SELECT id, nome, device_id FROM condominios ORDER BY id ASC"
-    );
+    const limiteMinutos = 10;
+    const agora = new Date();
 
-    const condominios = condominiosResult.rows;
-    const statusList = [];
+    // 1 query: condomínios + reservatórios + última leitura + count alertas abertos
+    const q = await pool.query(`
+      SELECT
+        c.id   AS condominio_id,
+        c.nome AS condominio_nome,
 
-    for (const c of condominios) {
-      const ultimaLeituraResult = await pool.query(
-        "SELECT id, device_id, nivel, bomba_ligada, criado_em FROM leituras WHERE device_id = $1 ORDER BY criado_em DESC LIMIT 1",
-        [c.device_id]
-      );
-      const ultimaLeitura = ultimaLeituraResult.rows[0] || null;
+        r.id        AS reservatorio_id,
+        r.nome      AS reservatorio_nome,
+        r.tipo      AS reservatorio_tipo,
+        r.device_id AS reservatorio_device_id,
 
-      const alertasAbertosCountResult = await pool.query(
-        "SELECT COUNT(*)::int AS total FROM alertas WHERE device_id = $1 AND status = 'aberto'",
-        [c.device_id]
-      );
+        ul.nivel        AS ultima_nivel,
+        ul.bomba_ligada AS ultima_bomba_ligada,
+        ul.criado_em    AS ultima_criado_em,
+
+        COALESCE(a.alertas_abertos_count, 0) AS alertas_abertos_count
+
+      FROM condominios c
+      LEFT JOIN reservatorios r
+        ON r.condominio_id = c.id
+
+      LEFT JOIN LATERAL (
+        SELECT nivel, bomba_ligada, criado_em
+        FROM leituras
+        WHERE device_id = r.device_id
+        ORDER BY criado_em DESC
+        LIMIT 1
+      ) ul ON true
+
+      LEFT JOIN LATERAL (
+        SELECT COUNT(*)::int AS alertas_abertos_count
+        FROM alertas
+        WHERE device_id = r.device_id
+          AND status = 'aberto'
+      ) a ON true
+
+      ORDER BY c.id ASC, r.id ASC
+    `);
+
+    // Agrupar por condomínio
+    const map = new Map();
+
+    for (const row of q.rows) {
+      if (!map.has(row.condominio_id)) {
+        map.set(row.condominio_id, {
+          condominio: { id: row.condominio_id, nome: row.condominio_nome },
+          reservatorios: [],
+          resumo: {
+            total_reservatorios: 0,
+            offline_count: 0,
+            alertas_abertos_total: 0,
+          },
+        });
+      }
+
+      const item = map.get(row.condominio_id);
+
+      // condomínio sem reservatórios
+      if (!row.reservatorio_id) continue;
 
       let minutos_sem_atualizar = null;
       let offline = true;
 
-      if (ultimaLeitura) {
-        const agora = new Date();
-        const ultima = new Date(ultimaLeitura.criado_em);
+      if (row.ultima_criado_em) {
+        const ultima = new Date(row.ultima_criado_em);
         const diffMs = agora - ultima;
         minutos_sem_atualizar = Math.floor(diffMs / 60000);
-        offline = minutos_sem_atualizar > 10;
+        offline = minutos_sem_atualizar > limiteMinutos;
+      } else {
+        // sem leitura = offline (MVP)
+        offline = true;
       }
 
-      statusList.push({
-        condominio: c,
-        ultima_leitura: ultimaLeitura,
+      item.reservatorios.push({
+        id: row.reservatorio_id,
+        nome: row.reservatorio_nome,
+        tipo: row.reservatorio_tipo,
+        device_id: row.reservatorio_device_id,
+
+        ultima_leitura: row.ultima_criado_em
+          ? {
+              device_id: row.reservatorio_device_id,
+              nivel: row.ultima_nivel,
+              bomba_ligada: row.ultima_bomba_ligada,
+              criado_em: row.ultima_criado_em,
+            }
+          : null,
+
         minutos_sem_atualizar,
         offline,
-        alertas_abertos_count: alertasAbertosCountResult.rows[0].total,
+        alertas_abertos_count: row.alertas_abertos_count,
       });
+
+      // resumo do condomínio
+      item.resumo.total_reservatorios += 1;
+      item.resumo.alertas_abertos_total += row.alertas_abertos_count;
+      if (offline) item.resumo.offline_count += 1;
     }
 
-    return res.json(statusList);
+    return res.json([...map.values()]);
   } catch (error) {
     console.error("Erro ao buscar /admin/status:", error);
     return res.status(500).json({ error: "Erro ao buscar status geral" });

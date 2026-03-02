@@ -1,12 +1,15 @@
+// src/jobs/offline.job.js
 const { pool } = require("../db");
 const { upsertAlertaAberto } = require("../services/alertas.service");
 
 async function jobVerificarOffline() {
-  const condominiosResult = await pool.query(
-    "SELECT id, nome, device_id FROM condominios ORDER BY id ASC"
+  const reservatoriosRes = await pool.query(
+    `SELECT id, condominio_id, nome, tipo, device_id
+     FROM reservatorios
+     ORDER BY id ASC`
   );
 
-  const condominios = condominiosResult.rows;
+  const reservatorios = reservatoriosRes.rows;
 
   const limiteMinutos = 10;
   const agora = new Date();
@@ -15,10 +18,10 @@ async function jobVerificarOffline() {
   let ja_existia = 0;
   let ignorados_sem_leitura = 0;
 
-  for (const c of condominios) {
+  for (const r of reservatorios) {
     const ultimaLeituraResult = await pool.query(
       "SELECT criado_em FROM leituras WHERE device_id = $1 ORDER BY criado_em DESC LIMIT 1",
-      [c.device_id]
+      [r.device_id]
     );
 
     if (ultimaLeituraResult.rows.length === 0) {
@@ -33,10 +36,13 @@ async function jobVerificarOffline() {
     const offline = minutos_sem_atualizar > limiteMinutos;
     if (!offline) continue;
 
+    const nomeReservatorio = r.nome || "Reservatório";
+    const tipoReservatorio = r.tipo ? ` (${r.tipo})` : "";
+
     const resultado = await upsertAlertaAberto(
-      c.device_id,
+      r.device_id,
       "dispositivo_offline",
-      `Dispositivo ${c.device_id} está OFFLINE há ${minutos_sem_atualizar} minutos`
+      `${nomeReservatorio}${tipoReservatorio} (${r.device_id}) está OFFLINE há ${minutos_sem_atualizar} minutos`
     );
 
     if (resultado.action === "inserted") criados++;

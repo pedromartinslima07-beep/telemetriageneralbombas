@@ -11,7 +11,7 @@ if (!getToken()) {
   window.location.href = "/login";
 }
 
-function abrirModalSenha(){
+function abrirModalSenha() {
   document.getElementById("senhaMsg").textContent = "";
   document.getElementById("senhaAtual").value = "";
   document.getElementById("senhaNova").value = "";
@@ -19,7 +19,7 @@ function abrirModalSenha(){
   document.getElementById("senhaOverlay").style.display = "flex";
 }
 
-function fecharModalSenha(){
+function fecharModalSenha() {
   document.getElementById("senhaOverlay").style.display = "none";
   document.getElementById("senhaMsg").textContent = "";
 }
@@ -97,6 +97,72 @@ function resumoCard(titulo, valorHtml, sub) {
   `;
 }
 
+function renderReservatoriosCliente(data) {
+  const tbody = document.getElementById("tbodyReservatoriosCliente");
+  const empty = document.getElementById("semReservatorios");
+  if (!tbody) return;
+
+  tbody.innerHTML = "";
+
+  const list = Array.isArray(data?.reservatorios) ? data.reservatorios : [];
+
+  if (empty) empty.style.display = list.length === 0 ? "block" : "none";
+  if (list.length === 0) return;
+
+  for (const r of list) {
+    const u = r.ultima_leitura;
+
+    const min =
+      (r.minutos_sem_atualizar === null || r.minutos_sem_atualizar === undefined)
+        ? "-"
+        : r.minutos_sem_atualizar;
+
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${r.nome || "-"}</td>
+      <td>${r.tipo || "-"}</td>
+      
+      <td>${u?.criado_em ? fmtData(u.criado_em) : "-"}</td>
+      <td>${u?.nivel ? nivelBadge(u.nivel) : "-"}</td>
+      <td>${u ? bombaBadge(u.bomba_ligada) : "-"}</td>
+
+      <td>${min}</td>
+      <td>${r.offline ? badge("SIM", "bad") : badge("NÃO", "ok")}</td>
+      <td><span class="pillCount">${r.alertas_abertos_count ?? 0}</span></td>
+    `;
+    tbody.appendChild(tr);
+  }
+}
+
+function pickMaisRecente(reservatorios) {
+  let best = null;
+  for (const r of reservatorios) {
+    const u = r?.ultima_leitura;
+    if (!u?.criado_em) continue;
+    if (!best) best = r;
+    else if (new Date(u.criado_em) > new Date(best.ultima_leitura.criado_em)) best = r;
+  }
+  return best; // pode ser null
+}
+
+function pickMaisCritico(reservatorios) {
+  const peso = { muito_baixo: 4, baixo: 3, medio: 2, alto: 1 };
+  let best = null;
+
+  for (const r of reservatorios) {
+    const n = String(r?.ultima_leitura?.nivel || "").toLowerCase();
+    const p = peso[n] || 0;
+    if (!best) best = { r, p };
+    else if (p > best.p) best = { r, p };
+  }
+
+  return best?.r || null;
+}
+
+function algumOffline(reservatorios) {
+  return reservatorios.some(r => !!r.offline);
+}
+
 async function carregar() {
   setStatusMsg("Carregando...");
 
@@ -105,29 +171,59 @@ async function carregar() {
   });
 
   if (!r.ok) {
-    // token inválido / expirado
+  if (r.status === 401 || r.status === 403) {
     window.location.href = "/login";
     return;
   }
+  const txt = await r.text().catch(() => "");
+  setStatusMsg("Erro no /cliente/status (" + r.status + "): " + txt);
+  return;
+}
 
   const data = await r.json();
 
-  // ===== Resumo =====
-  const grid = document.getElementById("resumoGrid");
-  const u = data.ultima_leitura;
+  
+  // ===== Resumo (AGREGADO DO CONDOMÍNIO) =====
+const grid = document.getElementById("resumoGrid");
 
-  const nome = data.condominio?.nome || "-";
-  const device = data.condominio?.device_id || "-";
-  const nivel = u?.nivel ?? "-";
-  const bomba = u?.bomba_ligada;
-  const atualizado = u?.criado_em ? fmtData(u.criado_em) : "-";
+const nome = data.condominio?.nome || "-";
+const reservatorios = Array.isArray(data.reservatorios) ? data.reservatorios : [];
+const totalRes = reservatorios.length;
 
-  grid.innerHTML = [
-    resumoCard("Condomínio", `<span class="mono">${nome}</span>`, `Device: ${device}`),
-    resumoCard("Nível atual", nivelBadge(nivel), null),
-    resumoCard("Bomba", bombaBadge(bomba), null),
-    resumoCard("Última atualização", `<span class="mono">${atualizado}</span>`, null),
-  ].join("");
+const rMaisRecente = pickMaisRecente(reservatorios);
+const rMaisCritico = pickMaisCritico(reservatorios);
+
+const uRecente = rMaisRecente?.ultima_leitura || null;
+const atualizado = uRecente?.criado_em ? fmtData(uRecente.criado_em) : "-";
+
+const nivelCritico = rMaisCritico?.ultima_leitura?.nivel || null;
+const offlineGeral = algumOffline(reservatorios);
+
+// texto pra deixar claro QUAL reservatório está definindo o “pior nível”
+const baseTxt = rMaisCritico
+  ? `${rMaisCritico.nome || "Reservatório"} • ${rMaisCritico.tipo || "-"} • ${rMaisCritico.device_id || "-"}`
+  : "-";
+
+grid.innerHTML = [
+  resumoCard("Condomínio", `<span class="mono">${nome}</span>`, `Reservatórios: ${totalRes}`),
+
+  resumoCard(
+    "Pior nível (agora)",
+    nivelCritico ? nivelBadge(nivelCritico) : badge("-", "warn"),
+    `Base: ${baseTxt}`
+  ),
+
+  resumoCard(
+    "Offline (geral)",
+    offlineGeral ? badge("SIM", "bad") : badge("NÃO", "ok"),
+    offlineGeral ? "Algum reservatório está offline" : "Todos online"
+  ),
+
+  resumoCard("Última atualização (geral)", `<span class="mono">${atualizado}</span>`, null),
+].join("");
+
+  // ✅ NOVO: renderiza reservatórios
+renderReservatoriosCliente(data);
 
   // ===== Alertas =====
   const tbody = document.getElementById("tbodyAlertasCliente");
@@ -156,7 +252,7 @@ async function carregar() {
   setStatusMsg("Atualizado às " + new Date().toLocaleTimeString());
 }
 
-async function trocarSenha(event){
+async function trocarSenha(event) {
   event.preventDefault();
 
   const msg = document.getElementById("senhaMsg");
@@ -166,38 +262,38 @@ async function trocarSenha(event){
   const senha_nova = (document.getElementById("senhaNova").value || "").trim();
   const senha_nova2 = (document.getElementById("senhaNova2").value || "").trim();
 
-  if (!senha_atual || !senha_nova || !senha_nova2){
+  if (!senha_atual || !senha_nova || !senha_nova2) {
     msg.textContent = "Preencha todos os campos.";
     return;
   }
-  if (senha_nova.length < 6){
+  if (senha_nova.length < 6) {
     msg.textContent = "A nova senha deve ter pelo menos 6 caracteres.";
     return;
   }
-  if (senha_nova !== senha_nova2){
+  if (senha_nova !== senha_nova2) {
     msg.textContent = "A confirmação não confere.";
     return;
   }
 
-  try{
+  try {
     msg.textContent = "Salvando...";
 
     const r = await fetch("/cliente/trocar-senha", {
       method: "POST",
-      headers: { "Content-Type":"application/json", ...authHeaders() },
+      headers: { "Content-Type": "application/json", ...authHeaders() },
       body: JSON.stringify({ senha_atual, senha_nova }),
     });
 
-    const data = await r.json().catch(()=> ({}));
+    const data = await r.json().catch(() => ({}));
 
-    if (!r.ok){
+    if (!r.ok) {
       msg.textContent = data.error || ("Erro ao trocar senha (" + r.status + ")");
       return;
     }
 
     msg.textContent = "✅ Senha alterada com sucesso!";
     setTimeout(fecharModalSenha, 600);
-  } catch(e){
+  } catch (e) {
     msg.textContent = "Erro: " + e.message;
   }
 }

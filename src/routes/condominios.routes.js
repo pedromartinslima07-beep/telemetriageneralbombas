@@ -11,31 +11,28 @@ const router = express.Router();
 // POST /condominios (criar)
 router.post("/", authRequired, adminOnly, async (req, res) => {
   const {
-    nome, device_id, endereco, bairro, cidade, uf,
+    nome, endereco, bairro, cidade, uf,
     responsavel, telefone, observacoes, ativo
   } = req.body || {};
 
-  if (!nome || !device_id) {
-    return res.status(400).json({ error: "Campos obrigatórios: nome, device_id" });
+  if (!nome) {
+    return res.status(400).json({ error: "Campo obrigatório: nome" });
   }
 
   const ufNorm = uf ? String(uf).trim().toUpperCase().slice(0, 2) : null;
   const ativoNorm = (ativo === undefined || ativo === null) ? true : !!ativo;
 
-  const deviceKeyGerada = crypto.randomBytes(24).toString("hex");
-
   try {
     const result = await pool.query(
       `INSERT INTO condominios
-        (nome, device_id, endereco, bairro, cidade, uf, responsavel, telefone, observacoes, ativo, device_key)
+        (nome, endereco, bairro, cidade, uf, responsavel, telefone, observacoes, ativo)
        VALUES
-        ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+        ($1,$2,$3,$4,$5,$6,$7,$8,$9)
        RETURNING
-        id, nome, device_id, device_key, endereco, bairro, cidade, uf,
+        id, nome, endereco, bairro, cidade, uf,
         responsavel, telefone, observacoes, ativo, criado_em`,
       [
         nome,
-        device_id,
         endereco ?? null,
         bairro ?? null,
         cidade ?? null,
@@ -44,16 +41,12 @@ router.post("/", authRequired, adminOnly, async (req, res) => {
         telefone ?? null,
         observacoes ?? null,
         ativoNorm,
-        deviceKeyGerada,
       ]
     );
 
     return res.status(201).json(result.rows[0]);
   } catch (error) {
     console.error("Erro ao criar condomínio:", error);
-    if (error && error.code === "23505") {
-      return res.status(409).json({ error: "Device ID já cadastrado" });
-    }
     return res.status(500).json({ error: "Erro ao criar condomínio" });
   }
 });
@@ -61,13 +54,16 @@ router.post("/", authRequired, adminOnly, async (req, res) => {
 // GET /condominios (listar)
 router.get("/", authRequired, adminOnly, async (req, res) => {
   try {
-    const result = await pool.query(
-      `SELECT
-        id, nome, device_id, device_key, endereco, bairro, cidade, uf,
-        responsavel, telefone, observacoes, ativo, criado_em
-       FROM condominios
-       ORDER BY id DESC`
-    );
+    const result = await pool.query(`
+  SELECT
+    c.id, c.nome, c.endereco, c.bairro, c.cidade, c.uf,
+    c.responsavel, c.telefone, c.observacoes, c.ativo, c.criado_em,
+    COUNT(r.id)::int AS total_reservatorios
+  FROM condominios c
+  LEFT JOIN reservatorios r ON r.condominio_id = c.id
+  GROUP BY c.id
+  ORDER BY c.id DESC
+`);
     return res.json(result.rows);
   } catch (error) {
     console.error("Erro ao listar condomínios:", error);
@@ -83,12 +79,13 @@ router.get("/:id", authRequired, adminOnly, async (req, res) => {
   }
 
   try {
-    const result = await pool.query(
-      `SELECT id, nome, device_id, endereco, bairro, cidade, uf,
-              responsavel, telefone, observacoes, ativo, criado_em
-       FROM condominios WHERE id = $1 LIMIT 1`,
-      [idNum]
-    );
+    const result = await pool.query(`
+  SELECT id, nome, endereco, bairro, cidade, uf,
+         responsavel, telefone, observacoes, ativo, criado_em
+  FROM condominios
+  WHERE id = $1
+  LIMIT 1
+`, [idNum]);
 
     if (result.rows.length === 0) {
       return res.status(404).json({ error: "Condomínio não encontrado" });
@@ -133,8 +130,7 @@ router.patch("/:id", authRequired, adminOnly, async (req, res) => {
   };
 
   add("nome", b.nome);
-  add("device_id", b.device_id);
-  add("endereco", b.endereco);
+    add("endereco", b.endereco);
   add("bairro", b.bairro);
   add("cidade", b.cidade);
   add("uf", ufNorm);
@@ -150,7 +146,7 @@ router.patch("/:id", authRequired, adminOnly, async (req, res) => {
   try {
     const result = await pool.query(
       `UPDATE condominios SET ${sets.join(", ")} WHERE id = $1
-       RETURNING id, nome, device_id, endereco, bairro, cidade, uf,
+       RETURNING id, nome, endereco, bairro, cidade, uf,
                  responsavel, telefone, observacoes, ativo, criado_em`,
       values
     );
