@@ -14,17 +14,7 @@
 <div class="layout">
 
   <!-- ===== SIDEBAR ===== -->
-  <aside class="sidebar">
-
-    <!-- Header: logo + botão hamburguer -->
-    <div class="sidebar-header">
-      <img class="sidebar-logo" src="/static/login-logo.png" alt="GENERAL" />
-      <button class="sidebar-toggle" id="btnSidebarToggle" aria-label="Fechar menu">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
-        </svg>
-      </button>
-    </div>
+  <aside class="sidebar collapsed">
 
     <nav class="nav">
 
@@ -86,6 +76,11 @@
     <!-- Top bar -->
     <div class="topbar">
       <div class="topbar-left">
+        <button class="sidebar-toggle" id="btnSidebarToggle" aria-label="Abrir/fechar menu">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+          </svg>
+        </button>
         <img class="topbar-logo" src="/static/login-logo.png" alt="GENERAL" />
       </div>
       <div class="topbar-actions">
