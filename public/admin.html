@@ -1,423 +1,434 @@
 <!doctype html>
 <html lang="pt-br">
-
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>GENERAL • TELEMETRIA</title>
+  <title>GENERAL • Telemetria Admin</title>
   <link rel="stylesheet" href="/static/admin.css">
 </head>
-
 <body>
-  <div class="shell">
-    <header>
-      <div class="brand">
-        <img src="/static/logo.png" alt="GENERAL" />
-        <div class="titles">
-          <div class="company">GENERAL ENGENHARIA DA MANUTENÇÃO</div>
-          <div class="product">TELEMETRIA • RESERVATÓRIOS</div>
+
+<div class="layout">
+
+  <!-- ===== SIDEBAR ===== -->
+  <aside class="sidebar">
+    <nav class="nav">
+      <button class="sidebar-toggle" id="btnSidebarToggle" aria-label="Recolher menu" data-tooltip="Menu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+        </svg>
+      </button>
+
+      <span class="nav-section-label">Monitor</span>
+
+      <button class="nav-item active" data-section="dashboard" data-tooltip="Dashboard">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/>
+          <rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>
+        </svg>
+        <span>Dashboard</span>
+      </button>
+
+      <button class="nav-item" data-section="alertas" data-tooltip="Alertas">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+          <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+        </svg>
+        <span>Alertas</span>
+        <span class="nav-badge" id="navBadgeAlertas" style="display:none;">0</span>
+      </button>
+
+      <span class="nav-section-label">Gestão</span>
+
+      <button class="nav-item" data-section="cadastros" data-tooltip="Cadastros">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+          <polyline points="9 22 9 12 15 12 15 22"/>
+        </svg>
+        <span>Cadastros</span>
+      </button>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="sidebar-user">
+        <div class="sidebar-user-avatar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+          </svg>
+        </div>
+        <div class="sidebar-user-info">
+          <div class="sidebar-user-role">Admin</div>
+          <div class="sidebar-user-label">Painel Geral</div>
         </div>
       </div>
-
-      <div class="actions">
-        <button class="btn" id="btnAtualizar">Atualizar agora</button>
-        <button class="btn btnAccent" id="btnOffline">Verificar OFFLINE</button>
-        <button class="btn" id="btnSair">Sair</button>
-        <span id="statusMsg" class="statusMsg"></span>
-      </div>
-    </header>
-
-    <div class="stack">
-
-      <!-- ✅ RESUMO (TOPO) -->
-      <section class="card">
-        <div class="cardHead">
-          <h2>Resumo • Situação atual</h2>
-          <div class="hint">Atualiza a cada 10s</div>
-        </div>
-
-        <div style="padding:14px;">
-          <div id="resumoGrid" style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;"></div>
-        </div>
-      </section>
-
-      <!-- ✅ ALERTAS PRIMEIRO -->
-      <section class="card">
-        <div class="cardHead">
-          <h2>🚨 Alertas abertos (prioridade)</h2>
-          <div class="hint">Fonte: <span class="mono">GET /alertas-abertos</span></div>
-        </div>
-        <div class="tableWrap">
-          <table>
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Device</th>
-                <th>Tipo</th>
-                <th>Mensagem</th>
-                <th>Criado em</th>
-                <th>Atualizado em</th>
-                <th class="right">Ação</th>
-              </tr>
-            </thead>
-            <tbody id="tbodyAlertas"></tbody>
-          </table>
-        </div>
-      </section>
-
-      <!-- ✅ FILTROS (SEPARADO) -->
-      <section class="card">
-        <div class="cardHead">
-          <h2>Filtros • Condomínios</h2>
-          <div class="hint">Filtra a tabela de status</div>
-        </div>
-
-        <div style="padding:14px; display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end;">
-          <div style="flex:1; min-width:240px;">
-            <div class="hint">Buscar (nome ou device)</div>
-            <input id="filtroTexto" placeholder="Ex: COND001 ou Condomínio X"
-              style="width:100%; padding:10px 12px; border-radius:12px; border:1px solid rgba(43,43,71,.9); background: rgba(255,255,255,.04); color: var(--text); outline:none;" />
-          </div>
-
-          <label
-            style="display:flex; align-items:center; gap:8px; color: var(--muted); font-size:12px; user-select:none;">
-            <input type="checkbox" id="filtroSomenteAlertas" />
-            Somente com alertas
-          </label>
-
-          <label
-            style="display:flex; align-items:center; gap:8px; color: var(--muted); font-size:12px; user-select:none;">
-            <input type="checkbox" id="filtroSomenteOffline" />
-            Somente offline
-          </label>
-
-          <button class="btn" id="btnAplicarFiltros">Aplicar</button>
-          <button class="btn" id="btnLimparFiltros">Limpar</button>
-        </div>
-
-        <!-- paginação -->
-        <div style="padding:0 14px 14px 14px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-          <span class="hint">Página:</span>
-          <button class="btn" id="btnPaginaAnterior">◀</button>
-          <span id="paginaInfo" class="hint"></span>
-          <button class="btn" id="btnProximaPagina">▶</button>
-
-          <span class="hint" style="margin-left:auto;">Itens por página:</span>
-          <select id="pageSize">
-            style="padding:8px 10px; border-radius:12px; border:1px solid rgba(43,43,71,.9); background:
-            rgba(255,255,255,.04); color: var(--text); outline:none;">
-            <option value="10">10</option>
-            <option value="25" selected>25</option>
-            <option value="50">50</option>
-          </select>
-        </div>
-      </section>
-
-      <!-- ✅ STATUS (DEPOIS DOS ALERTAS) -->
-      <section class="card">
-        <div class="cardHead">
-          <h2>Status dos condomínios</h2>
-          <div class="hint">Fonte: <span class="mono">GET /admin/status</span></div>
-        </div>
-        <div class="tableWrap">
-          <table>
-            <thead>
-              <tr>
-                <th class="right">Ação</th>
-                <th>Condomínio</th>
-                <th>Total reservatórios</th>
-                <th>Offline</th>
-                <th>Alertas</th>
-                <th>Última leitura</th>
-              </tr>
-            </thead>
-            <tbody id="tbodyStatus"></tbody>
-          </table>
-        </div>
-      </section>
-
-      <!-- ✅ CADASTRO (SEPARADO) -->
-      <section class="card">
-        <div class="cardHead">
-          <h2>Cadastro de condomínio</h2>
-          <div class="hint">Salva todos os campos no banco</div>
-        </div>
-
-        <div style="padding:14px; display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
-          <div>
-            <div class="hint">Nome *</div>
-            <input id="novoNome" placeholder="Ex: Condomínio Exemplo"
-              style="width:100%; padding:10px 12px; border-radius:12px; border:1px solid rgba(43,43,71,.9); background: rgba(255,255,255,.04); color: var(--text); outline:none;" />
-          </div>
-
-
-
-          <div style="grid-column: 1 / -1;">
-            <div class="hint">Endereço</div>
-            <input id="novoEndereco" placeholder="Rua, número"
-              style="width:100%; padding:10px 12px; border-radius:12px; border:1px solid rgba(43,43,71,.9); background: rgba(255,255,255,.04); color: var(--text); outline:none;" />
-          </div>
-
-          <div>
-            <div class="hint">Bairro</div>
-            <input id="novoBairro" placeholder="Ex: Tatuapé"
-              style="width:100%; padding:10px 12px; border-radius:12px; border:1px solid rgba(43,43,71,.9); background: rgba(255,255,255,.04); color: var(--text); outline:none;" />
-          </div>
-
-          <div>
-            <div class="hint">Cidade</div>
-            <input id="novoCidade" placeholder="Ex: São Paulo"
-              style="width:100%; padding:10px 12px; border-radius:12px; border:1px solid rgba(43,43,71,.9); background: rgba(255,255,255,.04); color: var(--text); outline:none;" />
-          </div>
-
-          <div>
-            <div class="hint">UF</div>
-            <input id="novoUf" maxlength="2" placeholder="SP"
-              style="width:100%; padding:10px 12px; border-radius:12px; border:1px solid rgba(43,43,71,.9); background: rgba(255,255,255,.04); color: var(--text); outline:none;" />
-          </div>
-
-          <div>
-            <div class="hint">Responsável</div>
-            <input id="novoResponsavel" placeholder="Ex: Síndico João"
-              style="width:100%; padding:10px 12px; border-radius:12px; border:1px solid rgba(43,43,71,.9); background: rgba(255,255,255,.04); color: var(--text); outline:none;" />
-          </div>
-
-          <div>
-            <div class="hint">Telefone</div>
-            <input id="novoTelefone" placeholder="(11) 99999-9999"
-              style="width:100%; padding:10px 12px; border-radius:12px; border:1px solid rgba(43,43,71,.9); background: rgba(255,255,255,.04); color: var(--text); outline:none;" />
-          </div>
-
-          <div style="grid-column: 1 / -1;">
-            <div class="hint">Observações</div>
-            <input id="novoObs" placeholder="Ex: Reservatório superior + inferior"
-              style="width:100%; padding:10px 12px; border-radius:12px; border:1px solid rgba(43,43,71,.9); background: rgba(255,255,255,.04); color: var(--text); outline:none;" />
-          </div>
-
-          <label
-            style="grid-column: 1 / -1; display:flex; align-items:center; gap:10px; color: var(--muted); font-size:12px;">
-            <input type="checkbox" id="novoAtivo" checked />
-            Ativo
-          </label>
-        </div>
-
-        <div style="padding:0 14px 14px 14px; display:flex; gap:10px; align-items:center;">
-          <button class="btn btnAccent" id="btnCadastrarCondominio">Cadastrar</button>
-          <span id="msgCadastro" class="hint"></span>
-        </div>
-      </section>
-
-      <section class="card">
-        <div class="cardHead">
-          <h2>Cadastro de reservatório</h2>
-          <div class="hint">Vincula um reservatório a um condomínio</div>
-        </div>
-
-        <div style="padding:14px; display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
-          <div>
-            <div class="hint">Condomínio *</div>
-            <select id="resCondominio"
-              style="width:100%; padding:10px 12px; border-radius:12px; border:1px solid rgba(43,43,71,.9); background: rgba(255,255,255,.04); color: var(--text); outline:none;">
-              <option value="">Carregando...</option>
-            </select>
-          </div>
-
-          <div>
-            <div class="hint">Tipo *</div>
-            <select id="resTipo"
-              style="width:100%; padding:10px 12px; border-radius:12px; border:1px solid rgba(43,43,71,.9); background: rgba(255,255,255,.04); color: var(--text); outline:none;">
-              <option value="superior">Superior</option>
-              <option value="inferior">Inferior</option>
-              <option value="outro">Outro</option>
-            </select>
-          </div>
-
-          <div style="grid-column: 1 / -1;">
-            <div class="hint">Nome *</div>
-            <input id="resNome" placeholder="Ex: Reservatório Superior"
-              style="width:100%; padding:10px 12px; border-radius:12px; border:1px solid rgba(43,43,71,.9); background: rgba(255,255,255,.04); color: var(--text); outline:none;" />
-          </div>
-
-          <div style="grid-column: 1 / -1;">
-            <div class="hint">Device ID *</div>
-            <input id="resDeviceId" placeholder="Ex: RES_COND10_SUP"
-              style="width:100%; padding:10px 12px; border-radius:12px; border:1px solid rgba(43,43,71,.9); background: rgba(255,255,255,.04); color: var(--text); outline:none;" />
-          </div>
-        </div>
-
-        <div style="padding:0 14px 14px 14px; display:flex; gap:10px; align-items:center;">
-          <button id="btnCadastrarReservatorio" class="btn btnAccent">Cadastrar reservatório</button>
-          <span id="msgReservatorio" class="hint"></span>
-        </div>
-      </section>
-
-      <!-- ✅ CRIAR USUÁRIO CLIENTE -->
-      <section class="card">
-        <div class="cardHead">
-          <h2>Usuários • Criar cliente</h2>
-          <div class="hint">Cria um usuário do tipo <span class="mono">cliente</span> vinculado a um condomínio</div>
-        </div>
-
-        <div style="padding:14px; display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
-          <div>
-            <div class="hint">Nome do cliente *</div>
-            <input id="cliNome" placeholder="Ex: João Silva"
-              style="width:100%; padding:10px 12px; border-radius:12px; border:1px solid rgba(43,43,71,.9); background: rgba(255,255,255,.04); color: var(--text); outline:none;" />
-          </div>
-
-          <div>
-            <div class="hint">Condomínio *</div>
-            <select id="cliCondominio"
-              style="width:100%; padding:10px 12px; border-radius:12px; border:1px solid rgba(43,43,71,.9); background: rgba(255,255,255,.04); color: var(--text); outline:none;">
-              <option value="">Carregando...</option>
-            </select>
-          </div>
-
-          <div>
-            <div class="hint">Email *</div>
-            <input id="cliEmail" placeholder="cliente@exemplo.com"
-              style="width:100%; padding:10px 12px; border-radius:12px; border:1px solid rgba(43,43,71,.9); background: rgba(255,255,255,.04); color: var(--text); outline:none;" />
-          </div>
-
-          <div>
-            <div class="hint">Senha provisória *</div>
-            <input id="cliSenha" type="text" placeholder="Ex: 123456"
-              style="width:100%; padding:10px 12px; border-radius:12px; border:1px solid rgba(43,43,71,.9); background: rgba(255,255,255,.04); color: var(--text); outline:none;" />
-          </div>
-        </div>
-
-        <div style="padding:0 14px 14px 14px; display:flex; gap:10px; align-items:center;">
-          <button class="btn btnAccent" id="btnCriarCliente">Criar cliente</button>
-          <span id="msgCliente" class="hint"></span>
-        </div>
-      </section>
-
+      <button class="nav-item" id="btnSair" data-tooltip="Sair">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+          <polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+        </svg>
+        <span>Sair</span>
+      </button>
     </div>
-  </div>
-  <!-- Tooltip flutuante -->
-  <div id="cardTip" class="cardTip" style="display:none;"></div>
+  </aside>
 
-  <!-- Modal -->
-  <div id="modalOverlay" class="modalOverlay" style="display:none;">
-    <div class="modalBox">
-      <div class="modalHead">
-        <div>
-          <div id="modalTitle" class="modalTitle">Detalhes</div>
-          <div id="modalSub" class="modalSub">—</div>
-        </div>
-        <button class="btn" id="btnFecharModal">Fechar</button>
+  <!-- ===== MAIN ===== -->
+  <div class="main">
+
+    <!-- Top bar -->
+    <div class="topbar">
+      <div class="topbar-left">
+        <img class="topbar-logo" src="/static/login-logo.png" alt="GENERAL" />
       </div>
-
-      <div class="modalBody">
-        <div class="modalTools">
-          <input id="modalBusca" class="modalBusca" placeholder="Buscar por nome ou device..."
-            oninput="renderModalLista()" />
-          <span id="modalCount" class="modalCount">0 itens</span>
-        </div>
-
-        <div class="modalListWrap">
-          <table class="modalTable">
-            <thead>
-              <tr>
-                <th>Condomínio</th>
-                <th>Device</th>
-                <th>Detalhe</th>
-                <th class="right">Ação</th>
-              </tr>
-            </thead>
-            <tbody id="modalTbody"></tbody>
-          </table>
-        </div>
+      <div class="topbar-actions">
+        <button class="btn btn-sm" id="btnAtualizar">Atualizar</button>
+        <button class="btn btn-sm btnAccent" id="btnOffline">Verificar Offline</button>
+        <span class="statusMsg" id="statusMsg"></span>
       </div>
     </div>
-  </div>
 
-  <!-- MODAL EDITAR CONDOMÍNIO -->
-  <div id="editOverlay" class="modalOverlay" style="display:none;">
-    <div class="modalBox">
-      <div class="modalHead">
-        <div>
-          <div class="modalTitle">Editar condomínio</div>
-          <div id="editSub" class="modalSub"> </div>
-        </div>
-        <button class="btn" id="btnFecharModalEditar">Fechar</button>
+    <!-- Page content -->
+    <div class="content">
+
+      <!-- ===== SECTION: DASHBOARD ===== -->
+      <div class="section is-active" data-section="dashboard">
+
+        <!-- Stats -->
+        <section class="card">
+          <div class="cardHead">
+            <h2>
+              <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+              </svg>
+              Situação atual
+            </h2>
+            <span class="hint">Atualiza a cada 10s</span>
+          </div>
+          <div class="section-body">
+            <div id="resumoGrid" class="resumo-grid" style="grid-template-columns:repeat(5,minmax(0,1fr));"></div>
+          </div>
+        </section>
+
+        <!-- Filtros + Status -->
+        <section class="card">
+          <div class="cardHead">
+            <h2>
+              <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/>
+              </svg>
+              Condomínios
+            </h2>
+            <span class="hint">Status em tempo real</span>
+          </div>
+
+          <div class="section-body" style="border-bottom:1px solid var(--border);">
+            <div class="filter-bar">
+              <div class="field" style="flex:1;min-width:220px;">
+                <span class="lbl">Buscar</span>
+                <input id="filtroTexto" class="input" placeholder="Nome do condomínio ou device ID…" />
+              </div>
+              <label class="filter-check">
+                <input type="checkbox" id="filtroSomenteAlertas" />
+                Com alertas
+              </label>
+              <label class="filter-check">
+                <input type="checkbox" id="filtroSomenteOffline" />
+                Offline
+              </label>
+              <button class="btn btn-sm" id="btnAplicarFiltros">Aplicar</button>
+              <button class="btn btn-sm" id="btnLimparFiltros">Limpar</button>
+            </div>
+
+            <div class="pagination">
+              <button class="btn btn-sm" id="btnPaginaAnterior">◀</button>
+              <span id="paginaInfo" class="page-info"></span>
+              <button class="btn btn-sm" id="btnProximaPagina">▶</button>
+              <span class="hint" style="margin-left:auto;">Por página:</span>
+              <select id="pageSize" class="select" style="width:auto;">
+                <option value="10">10</option>
+                <option value="25" selected>25</option>
+                <option value="50">50</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="tableWrap">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width:150px;">Ação</th>
+                  <th>Condomínio</th>
+                  <th>Reservatórios</th>
+                  <th>Offline</th>
+                  <th>Alertas abertos</th>
+                  <th>Última leitura</th>
+                </tr>
+              </thead>
+              <tbody id="tbodyStatus"></tbody>
+            </table>
+          </div>
+        </section>
+
+      </div><!-- /section dashboard -->
+
+      <!-- ===== SECTION: ALERTAS ===== -->
+      <div class="section" data-section="alertas">
+        <section class="card">
+          <div class="cardHead">
+            <h2>
+              <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+              </svg>
+              Alertas abertos
+            </h2>
+            <span class="hint">Pendentes de resolução</span>
+          </div>
+          <div class="tableWrap">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width:60px;">ID</th>
+                  <th>Device</th>
+                  <th>Tipo</th>
+                  <th>Mensagem</th>
+                  <th>Criado em</th>
+                  <th>Atualizado em</th>
+                  <th class="right" style="width:100px;">Ação</th>
+                </tr>
+              </thead>
+              <tbody id="tbodyAlertas"></tbody>
+            </table>
+          </div>
+        </section>
+      </div><!-- /section alertas -->
+
+      <!-- ===== SECTION: CADASTROS ===== -->
+      <div class="section" data-section="cadastros">
+
+        <!-- Cadastro de condomínio -->
+        <section class="card">
+          <div class="cardHead">
+            <h2>
+              <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                <polyline points="9 22 9 12 15 12 15 22"/>
+              </svg>
+              Novo condomínio
+            </h2>
+          </div>
+          <div class="section-body">
+            <div class="grid-2">
+              <div class="field">
+                <span class="lbl">Nome <span class="req">*</span></span>
+                <input id="novoNome" class="input" placeholder="Ex: Condomínio Jardins" />
+              </div>
+              <div class="field">
+                <span class="lbl">Responsável</span>
+                <input id="novoResponsavel" class="input" placeholder="Ex: Síndico João Silva" />
+              </div>
+              <div class="field col-2">
+                <span class="lbl">Endereço</span>
+                <input id="novoEndereco" class="input" placeholder="Rua, número" />
+              </div>
+              <div class="field">
+                <span class="lbl">Bairro</span>
+                <input id="novoBairro" class="input" placeholder="Ex: Tatuapé" />
+              </div>
+              <div class="field">
+                <span class="lbl">Cidade</span>
+                <input id="novoCidade" class="input" placeholder="Ex: São Paulo" />
+              </div>
+              <div class="field">
+                <span class="lbl">UF</span>
+                <input id="novoUf" class="input" maxlength="2" placeholder="SP" />
+              </div>
+              <div class="field">
+                <span class="lbl">Telefone</span>
+                <input id="novoTelefone" class="input" placeholder="(11) 99999-9999" />
+              </div>
+              <div class="field col-2">
+                <span class="lbl">Observações</span>
+                <input id="novoObs" class="input" placeholder="Informações adicionais…" />
+              </div>
+              <label class="check-field col-2">
+                <input type="checkbox" id="novoAtivo" checked />
+                Ativo
+              </label>
+            </div>
+            <div class="form-footer" style="margin-top:16px;">
+              <button class="btn btnAccent" id="btnCadastrarCondominio">Cadastrar condomínio</button>
+              <span id="msgCadastro" class="hint"></span>
+            </div>
+          </div>
+        </section>
+
+        <!-- Cadastro de reservatório -->
+        <section class="card">
+          <div class="cardHead">
+            <h2>
+              <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 7H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/>
+                <path d="M12 12v.01"/>
+              </svg>
+              Novo reservatório
+            </h2>
+            <span class="hint">Vincula um dispositivo IoT a um condomínio</span>
+          </div>
+          <div class="section-body">
+            <div class="grid-2">
+              <div class="field">
+                <span class="lbl">Condomínio <span class="req">*</span></span>
+                <select id="resCondominio" class="select">
+                  <option value="">Selecione…</option>
+                </select>
+              </div>
+              <div class="field">
+                <span class="lbl">Tipo <span class="req">*</span></span>
+                <select id="resTipo" class="select">
+                  <option value="superior">Superior</option>
+                  <option value="inferior">Inferior</option>
+                  <option value="outro">Outro</option>
+                </select>
+              </div>
+              <div class="field col-2">
+                <span class="lbl">Nome <span class="req">*</span></span>
+                <input id="resNome" class="input" placeholder="Ex: Reservatório Superior Bloco A" />
+              </div>
+              <div class="field col-2">
+                <span class="lbl">Device ID <span class="req">*</span></span>
+                <input id="resDeviceId" class="input" placeholder="Ex: RES_COND10_SUP" />
+              </div>
+            </div>
+            <div class="form-footer" style="margin-top:16px;">
+              <button id="btnCadastrarReservatorio" class="btn btnAccent">Cadastrar reservatório</button>
+              <span id="msgReservatorio" class="hint"></span>
+            </div>
+          </div>
+        </section>
+
+        <!-- Criar acesso de cliente -->
+        <section class="card">
+          <div class="cardHead">
+            <h2>
+              <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+              </svg>
+              Criar acesso de cliente
+            </h2>
+            <span class="hint">Usuário vinculado a um condomínio</span>
+          </div>
+          <div class="section-body">
+            <div class="grid-2">
+              <div class="field">
+                <span class="lbl">Nome <span class="req">*</span></span>
+                <input id="cliNome" class="input" placeholder="Ex: João Silva" />
+              </div>
+              <div class="field">
+                <span class="lbl">Condomínio <span class="req">*</span></span>
+                <select id="cliCondominio" class="select">
+                  <option value="">Selecione…</option>
+                </select>
+              </div>
+              <div class="field">
+                <span class="lbl">Email <span class="req">*</span></span>
+                <input id="cliEmail" class="input" placeholder="cliente@exemplo.com" />
+              </div>
+              <div class="field">
+                <span class="lbl">Senha provisória <span class="req">*</span></span>
+                <input id="cliSenha" class="input" type="text" placeholder="Ex: 123456" />
+              </div>
+            </div>
+            <div class="form-footer" style="margin-top:16px;">
+              <button class="btn btnAccent" id="btnCriarCliente">Criar cliente</button>
+              <span id="msgCliente" class="hint"></span>
+            </div>
+          </div>
+        </section>
+
+      </div><!-- /section cadastros -->
+
+    </div><!-- /content -->
+  </div><!-- /main -->
+</div><!-- /layout -->
+
+<!-- Tooltip -->
+<div id="cardTip" class="cardTip" style="display:none;"></div>
+
+<!-- Modal: resumo card details -->
+<div id="modalOverlay" class="modalOverlay" style="display:none;">
+  <div class="modalBox">
+    <div class="modalHead">
+      <div>
+        <div id="modalTitle" class="modalTitle">Detalhes</div>
+        <div id="modalSub" class="modalSub">—</div>
       </div>
-
-      <div class="modalBody">
-        <div class="modalTools">
-          <div class="modalCount" id="editMsg"></div>
-        </div>
-
-        <form id="editForm" class="formGrid">
-          <input type="hidden" id="editId" />
-
-          <label class="f">
-            <span>Nome*</span>
-            <input id="editNome" required />
-          </label>
-
-          <label class="f">
-            <span>Device ID*</span>
-            <input id="editDevice" required />
-          </label>
-
-          <label class="f">
-            <span>Endereço</span>
-            <input id="editEndereco" />
-          </label>
-
-          <label class="f">
-            <span>Bairro</span>
-            <input id="editBairro" />
-          </label>
-
-          <label class="f">
-            <span>Cidade</span>
-            <input id="editCidade" />
-          </label>
-
-          <label class="f">
-            <span>UF</span>
-            <input id="editUf" maxlength="2" />
-          </label>
-
-          <label class="f">
-            <span>Responsável</span>
-            <input id="editResponsavel" />
-          </label>
-
-          <label class="f">
-            <span>Telefone</span>
-            <input id="editTelefone" />
-          </label>
-
-          <label class="f" style="grid-column: 1 / -1;">
-            <span>Observações</span>
-            <input id="editObs" />
-          </label>
-
-          <label class="fCheck" style="grid-column: 1 / -1;">
-            <input type="checkbox" id="editAtivo" />
-            <span>Ativo</span>
-          </label>
-
-          <!-- BOTÃO REGENERAR DEVICE KEY -->
-          <div style="grid-column: 1 / -1; margin-top:10px;">
-            <button type="button" class="btn" id="btnRegenerarDeviceKey" style="background:#b91c1c; color:white;">
-              🔑 Regenerar Device Key
-            </button>
-          </div>
-
-          <div class="formActions" style="grid-column: 1 / -1;">
-            <button class="btn btnAccent" type="submit">Salvar</button>
-            <button class="btn" type="button" id="btnCancelarEdicao">Cancelar</button>
-          </div>
-        </form>
+      <button class="btn btn-sm" id="btnFecharModal">Fechar</button>
+    </div>
+    <div class="modalBody">
+      <div class="modalTools">
+        <input id="modalBusca" class="modalBusca" placeholder="Buscar…" oninput="renderModalLista()" />
+        <span id="modalCount" class="modalCount">0 itens</span>
+      </div>
+      <div class="modalListWrap">
+        <table class="modalTable">
+          <thead>
+            <tr>
+              <th>Condomínio</th>
+              <th>Device</th>
+              <th>Detalhe</th>
+              <th class="right">Ação</th>
+            </tr>
+          </thead>
+          <tbody id="modalTbody"></tbody>
+        </table>
       </div>
     </div>
   </div>
+</div>
 
-  <script src="/static/admin.js" defer></script>
+<!-- Modal: editar condomínio -->
+<div id="editOverlay" class="modalOverlay" style="display:none;">
+  <div class="modalBox">
+    <div class="modalHead">
+      <div>
+        <div class="modalTitle">Editar condomínio</div>
+        <div id="editSub" class="modalSub"> </div>
+      </div>
+      <button class="btn btn-sm" id="btnFecharModalEditar">Fechar</button>
+    </div>
+    <div class="modalBody">
+      <div class="modalTools">
+        <div class="modalCount" id="editMsg"></div>
+      </div>
+      <form id="editForm" class="formGrid">
+        <input type="hidden" id="editId" />
+        <label class="f"><span>Nome *</span><input id="editNome" required /></label>
+        <label class="f"><span>Device ID *</span><input id="editDevice" required /></label>
+        <label class="f"><span>Endereço</span><input id="editEndereco" /></label>
+        <label class="f"><span>Bairro</span><input id="editBairro" /></label>
+        <label class="f"><span>Cidade</span><input id="editCidade" /></label>
+        <label class="f"><span>UF</span><input id="editUf" maxlength="2" /></label>
+        <label class="f"><span>Responsável</span><input id="editResponsavel" /></label>
+        <label class="f"><span>Telefone</span><input id="editTelefone" /></label>
+        <label class="f" style="grid-column:1/-1;"><span>Observações</span><input id="editObs" /></label>
+        <label class="fCheck" style="grid-column:1/-1;">
+          <input type="checkbox" id="editAtivo" />
+          <span>Ativo</span>
+        </label>
+        <div style="grid-column:1/-1;">
+          <button type="button" class="btn btnDanger" id="btnRegenerarDeviceKey">
+            Regenerar Device Key
+          </button>
+        </div>
+        <div class="formActions" style="grid-column:1/-1;">
+          <button class="btn" type="button" id="btnCancelarEdicao">Cancelar</button>
+          <button class="btn btnAccent" type="submit">Salvar alterações</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script src="/static/admin.js" defer></script>
 </body>
-
 </html>
