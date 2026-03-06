@@ -36,8 +36,8 @@ CREATE TABLE public.alertas (
     tipo character varying(50) NOT NULL,
     mensagem text NOT NULL,
     status character varying(20) DEFAULT 'aberto'::character varying NOT NULL,
-    criado_em timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    atualizado_em timestamp without time zone DEFAULT now()
+    criado_em timestamp with time zone DEFAULT now() NOT NULL,
+    atualizado_em timestamp with time zone DEFAULT now()
 );
 
 
@@ -84,8 +84,7 @@ CREATE TABLE public.condominios (
     telefone text,
     observacoes text,
     ativo boolean DEFAULT true NOT NULL,
-    criado_em timestamp with time zone DEFAULT now() NOT NULL,
-    device_key text
+    criado_em timestamp with time zone DEFAULT now() NOT NULL
 );
 
 
@@ -126,7 +125,8 @@ CREATE TABLE public.leituras (
     device_id character varying(50) NOT NULL,
     nivel character varying(20),
     bomba_ligada boolean,
-    criado_em timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+    criado_em timestamp with time zone DEFAULT now(),
+    nivel_pct smallint CHECK (nivel_pct >= 0 AND nivel_pct <= 100)
 );
 
 
@@ -170,7 +170,8 @@ CREATE TABLE public.reservatorios (
     device_id character varying(80) NOT NULL,
     device_key character varying(200) NOT NULL,
     ativo boolean DEFAULT true NOT NULL,
-    criado_em timestamp without time zone DEFAULT now() NOT NULL
+    criado_em timestamp with time zone DEFAULT now() NOT NULL,
+    last_seen timestamp with time zone
 );
 
 
@@ -213,7 +214,7 @@ CREATE TABLE public.usuarios (
     senha_hash text NOT NULL,
     role text NOT NULL,
     condominio_id integer,
-    criado_em timestamp without time zone DEFAULT now(),
+    criado_em timestamp with time zone DEFAULT now(),
     CONSTRAINT usuarios_role_check CHECK ((role = ANY (ARRAY['admin'::text, 'cliente'::text])))
 );
 
@@ -349,27 +350,13 @@ ALTER TABLE ONLY public.usuarios
 
 
 --
--- TOC entry 4893 (class 1259 OID 16480)
--- Name: idx_condominios_device_key_unique; Type: INDEX; Schema: public; Owner: postgres
---
-
-CREATE UNIQUE INDEX idx_condominios_device_key_unique ON public.condominios USING btree (device_key);
-
-
---
--- TOC entry 4894 (class 1259 OID 16479)
--- Name: idx_device_key_unique; Type: INDEX; Schema: public; Owner: postgres
---
-
-CREATE UNIQUE INDEX idx_device_key_unique ON public.condominios USING btree (device_key);
-
-
---
 -- TOC entry 4905 (class 1259 OID 24644)
 -- Name: idx_reservatorios_condominio_id; Type: INDEX; Schema: public; Owner: postgres
 --
 
 CREATE INDEX idx_reservatorios_condominio_id ON public.reservatorios USING btree (condominio_id);
+
+CREATE INDEX idx_leituras_device_criado ON public.leituras USING btree (device_id, criado_em DESC);
 
 
 --

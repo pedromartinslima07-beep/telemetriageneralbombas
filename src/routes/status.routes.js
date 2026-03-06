@@ -5,7 +5,7 @@ const { authRequired } = require("../middleware/authRequired");
 const { adminOnly } = require("../middleware/adminOnly");
 
 const router = express.Router();
-const OFFLINE_MINUTES = Number(process.env.OFFLINE_MINUTES || 15);
+const OFFLINE_MINUTES = Number(process.env.OFFLINE_MINUTES || 10);
 
 // GET /status/:device_id  (montado com prefixo no app.js)
 router.get("/:device_id", authRequired, adminOnly, async (req, res) => {

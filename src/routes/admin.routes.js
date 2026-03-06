@@ -10,7 +10,7 @@ const router = express.Router();
 // GET /admin/status  (AGRUPADO POR CONDOMÍNIO -> LISTA RESERVATÓRIOS)
 router.get("/status", authRequired, adminOnly, async (req, res) => {
   try {
-    const limiteMinutos = 10;
+    const limiteMinutos = Number(process.env.OFFLINE_MINUTES || 10);
     const agora = new Date();
 
     // 1 query: condomínios + reservatórios + última leitura + count alertas abertos

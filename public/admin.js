@@ -5,6 +5,22 @@ function authHeaders() {
 }
 if (!getToken()) window.location.href = "/login";
 
+// ===== NAVEGAÇÃO POR SEÇÕES =====
+const _sectionTitles = {
+  dashboard: "Dashboard",
+  alertas:   "Alertas Abertos",
+  cadastros: "Cadastros",
+};
+
+function showSection(name) {
+  document.querySelectorAll(".section").forEach(s => s.classList.remove("is-active"));
+  document.querySelector(`.section[data-section="${name}"]`)?.classList.add("is-active");
+  document.querySelectorAll(".nav-item[data-section]").forEach(n => n.classList.remove("active"));
+  document.querySelector(`.nav-item[data-section="${name}"]`)?.classList.add("active");
+  const t = document.getElementById("topbarTitle");
+  if (t) t.textContent = _sectionTitles[name] || name;
+}
+
 function logout() {
   localStorage.removeItem("token");
   localStorage.removeItem("user");
@@ -26,6 +42,25 @@ function tipoBadge(tipo) {
   if (tipo === "nivel_baixo") return badge("NÍVEL BAIXO", "warn");
   if (tipo === "dispositivo_offline") return badge("OFFLINE", "bad");
   return badge(String(tipo || "").replaceAll("_", " "), "warn");
+}
+
+function tankHtml(nivel) {
+  const n = String(nivel || "").toLowerCase();
+  const map = {
+    alto:        { pct: 100, cls: "tank-alto",        label: "100%" },
+    medio:       { pct: 65,  cls: "tank-medio",       label: "65%"  },
+    baixo:       { pct: 30,  cls: "tank-baixo",       label: "30%"  },
+    muito_baixo: { pct: 10,  cls: "tank-muito-baixo", label: "10%"  },
+  };
+  const cfg = map[n];
+  if (!cfg) return `<span style="color:var(--muted)">-</span>`;
+  return `
+    <div class="tank-wrap">
+      <div class="tank">
+        <div class="tank-fill ${cfg.cls}" style="height:${cfg.pct}%"></div>
+      </div>
+      <span class="tank-pct">${cfg.label}</span>
+    </div>`;
 }
 
 function resumoCard(titulo, valorHtml, kind, cardKey) {
@@ -456,24 +491,21 @@ function renderStatus() {
       const trHead = document.createElement("tr");
       trHead.innerHTML = `
         <td></td>
-        <td colspan="5" style="padding:10px 8px;">
-          <div style="color: var(--muted); font-size:12px; margin-bottom:8px;">
-            Reservatórios
-          </div>
-
-          <div style="overflow:auto; border:1px solid rgba(43,43,71,.7); border-radius:12px;">
-            <table style="width:100%; border-collapse:collapse;">
+        <td colspan="5" class="expand-cell">
+          <div class="expand-label">Reservatórios</div>
+          <div class="inner-table-wrap">
+            <table class="inner-table">
               <thead>
-                <tr style="background: rgba(255,255,255,.03);">
-                  <th style="text-align:left; padding:10px;">Reservatório</th>
-                  <th style="text-align:left; padding:10px;">Tipo</th>
-                  <th style="text-align:left; padding:10px;">Device</th>
-                  <th style="text-align:left; padding:10px;">Última leitura</th>
-                  <th style="text-align:left; padding:10px;">Nível</th>
-                  <th style="text-align:left; padding:10px;">Bomba</th>
-                  <th style="text-align:left; padding:10px;">Min s/ atualizar</th>
-                  <th style="text-align:left; padding:10px;">Offline</th>
-                  <th style="text-align:left; padding:10px;">Alertas</th>
+                <tr>
+                  <th>Reservatório</th>
+                  <th>Tipo</th>
+                  <th>Device</th>
+                  <th>Última leitura</th>
+                  <th>Nível</th>
+                  <th>Bomba</th>
+                  <th>Min s/ atualizar</th>
+                  <th>Offline</th>
+                  <th>Alertas</th>
                 </tr>
               </thead>
               <tbody>
@@ -488,24 +520,19 @@ function renderStatus() {
 
         return `
                     <tr>
-                      <td style="padding:10px;">${r.nome || "-"}</td>
-                      <td style="padding:10px;">${r.tipo || "-"}</td>
-                      <td style="padding:10px;" class="mono">${r.device_id || "-"}</td>
-                      <td style="padding:10px;">${u?.criado_em ? fmtData(u.criado_em) : "-"}</td>
-                      <td style="padding:10px;">${u ? (u.nivel ?? "-") : "-"}</td>
-                      <td style="padding:10px;">${u ? (u.bomba_ligada ? "Ligada" : "Desligada") : "-"}</td>
-                      <td style="padding:10px;">${min}</td>
-                      <td style="padding:10px;">${offline ? badge("SIM", "bad") : badge("NÃO", "ok")}</td>
-                      <td style="padding:10px;">
+                      <td>${r.nome || "-"}</td>
+                      <td>${r.tipo || "-"}</td>
+                      <td class="mono">${r.device_id || "-"}</td>
+                      <td>${u?.criado_em ? fmtData(u.criado_em) : "-"}</td>
+                      <td>${u?.nivel ? tankHtml(u.nivel) : "-"}</td>
+                      <td>${u ? (u.bomba_ligada ? badge("LIGADA","warn") : badge("DESLIGADA","ok")) : "-"}</td>
+                      <td>${min}</td>
+                      <td>${offline ? badge("SIM", "bad") : badge("NÃO", "ok")}</td>
+                      <td>
                         <span class="pillCount">${alertas}</span>
-<button 
-    class="btn btnAccent"
-    style="margin-left:8px;"
-    data-action="regen-res-key"
-    data-id="${r.id}">
-    Regenerar Key
-  </button>
-
+                        <button class="btn btn-sm" style="margin-left:8px;" data-action="regen-res-key" data-id="${r.id}">
+                          Regenerar Key
+                        </button>
                       </td>
                     </tr>
                   `;
@@ -535,6 +562,13 @@ async function carregarAlertas() {
   if (!r.ok) throw new Error("Erro /alertas-abertos: " + r.status);
   _alertasAbertos = await r.json();
   montarMapaAlertas();
+
+  // atualiza badge da sidebar
+  const badge = document.getElementById("navBadgeAlertas");
+  if (badge) {
+    badge.textContent = _alertasAbertos.length;
+    badge.style.display = _alertasAbertos.length > 0 ? "inline-flex" : "none";
+  }
 }
 
 async function carregarCondominios() {
@@ -1021,9 +1055,48 @@ document.addEventListener("keydown", (e) => {
 
 document.addEventListener("DOMContentLoaded", () => {
   // ===== BOTÕES FIXOS =====
+  // nav sections
+  document.querySelectorAll(".nav-item[data-section]").forEach(item => {
+    item.addEventListener("click", () => showSection(item.dataset.section));
+  });
+
   document.getElementById("btnAtualizar")?.addEventListener("click", carregarTudo);
   document.getElementById("btnOffline")?.addEventListener("click", rodarJobOffline);
   document.getElementById("btnSair")?.addEventListener("click", logout);
+
+  // ===== SIDEBAR TOGGLE =====
+  const _sidebar = document.querySelector(".sidebar");
+  const _btnToggle = document.getElementById("btnSidebarToggle");
+
+  function _applySidebar(collapsed) {
+    _sidebar.classList.toggle("collapsed", collapsed);
+  }
+
+  _applySidebar(localStorage.getItem("sidebarCollapsed") === "true");
+
+  _btnToggle?.addEventListener("click", () => {
+    const next = !_sidebar.classList.contains("collapsed");
+    _applySidebar(next);
+    localStorage.setItem("sidebarCollapsed", next);
+  });
+
+  // ===== NAV TOOLTIPS (quando collapsed) =====
+  const _navTip = document.createElement("div");
+  _navTip.className = "nav-tooltip";
+  document.body.appendChild(_navTip);
+
+  document.querySelectorAll(".nav-item[data-tooltip]").forEach(item => {
+    item.addEventListener("mouseenter", () => {
+      if (!_sidebar.classList.contains("collapsed")) return;
+      const r = item.getBoundingClientRect();
+      _navTip.textContent = item.dataset.tooltip;
+      _navTip.style.top  = (r.top + r.height / 2) + "px";
+      _navTip.style.left = (r.right + 8) + "px";
+      _navTip.style.transform = "translateY(-50%)";
+      _navTip.classList.add("visible");
+    });
+    item.addEventListener("mouseleave", () => _navTip.classList.remove("visible"));
+  });
 
   document.getElementById("btnAplicarFiltros")?.addEventListener("click", aplicarFiltros);
   document.getElementById("btnLimparFiltros")?.addEventListener("click", limparFiltros);

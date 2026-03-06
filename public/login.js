@@ -6,6 +6,7 @@ document.getElementById("loginForm").addEventListener("submit", async (e) => {
   const erroMsg = document.getElementById("erroMsg");
 
   erroMsg.textContent = "";
+  erroMsg.classList.remove("visible");
 
   try {
     const response = await fetch("/auth/login", {
@@ -18,6 +19,7 @@ document.getElementById("loginForm").addEventListener("submit", async (e) => {
 
     if (!response.ok) {
       erroMsg.textContent = data.error || "Erro ao fazer login";
+      erroMsg.classList.add("visible");
       return;
     }
 
@@ -32,5 +34,6 @@ document.getElementById("loginForm").addEventListener("submit", async (e) => {
     }
   } catch (err) {
     erroMsg.textContent = "Erro de conexão com servidor";
+    erroMsg.classList.add("visible");
   }
 });
