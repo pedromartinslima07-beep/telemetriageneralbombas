@@ -1067,35 +1067,37 @@ document.addEventListener("DOMContentLoaded", () => {
   // ===== SIDEBAR TOGGLE =====
   const _sidebar = document.querySelector(".sidebar");
   const _btnToggle = document.getElementById("btnSidebarToggle");
+  const _btnFloatToggle = document.getElementById("btnSidebarFloatToggle");
+  const _sidebarOverlay = document.getElementById("sidebarOverlay");
 
   function _applySidebar(collapsed) {
     _sidebar.classList.toggle("collapsed", collapsed);
+    document.body.classList.toggle("sidebar-collapsed", collapsed);
+    if (_btnFloatToggle) _btnFloatToggle.style.display = collapsed ? "flex" : "none";
+    if (_sidebarOverlay) {
+      _sidebarOverlay.classList.toggle("visible", !collapsed && window.innerWidth < 900);
+    }
   }
 
   _applySidebar(localStorage.getItem("sidebarCollapsed") === "true");
 
-  _btnToggle?.addEventListener("click", () => {
+  function _toggleSidebar() {
     const next = !_sidebar.classList.contains("collapsed");
     _applySidebar(next);
     localStorage.setItem("sidebarCollapsed", next);
+  }
+
+  _btnToggle?.addEventListener("click", _toggleSidebar);
+  _btnFloatToggle?.addEventListener("click", _toggleSidebar);
+  _sidebarOverlay?.addEventListener("click", () => {
+    _applySidebar(true);
+    localStorage.setItem("sidebarCollapsed", true);
   });
 
-  // ===== NAV TOOLTIPS (quando collapsed) =====
-  const _navTip = document.createElement("div");
-  _navTip.className = "nav-tooltip";
-  document.body.appendChild(_navTip);
-
-  document.querySelectorAll(".nav-item[data-tooltip]").forEach(item => {
-    item.addEventListener("mouseenter", () => {
-      if (!_sidebar.classList.contains("collapsed")) return;
-      const r = item.getBoundingClientRect();
-      _navTip.textContent = item.dataset.tooltip;
-      _navTip.style.top  = (r.top + r.height / 2) + "px";
-      _navTip.style.left = (r.right + 8) + "px";
-      _navTip.style.transform = "translateY(-50%)";
-      _navTip.classList.add("visible");
-    });
-    item.addEventListener("mouseleave", () => _navTip.classList.remove("visible"));
+  window.addEventListener("resize", () => {
+    if (!_sidebar.classList.contains("collapsed") && _sidebarOverlay) {
+      _sidebarOverlay.classList.toggle("visible", window.innerWidth < 900);
+    }
   });
 
   document.getElementById("btnAplicarFiltros")?.addEventListener("click", aplicarFiltros);
