@@ -16,7 +16,13 @@ const { leiturasRouter } = require("./routes/leituras.routes");
 const { statusRouter } = require("./routes/status.routes");
 const { jobsRouter } = require("./routes/jobs.routes");
 const { reservatoriosRouter } = require("./routes/reservatorios.routes");
+const { startOfflineScheduler } = require("./jobs/offline.job");
 
+
+if (!process.env.JWT_SECRET) {
+  console.error("FATAL: JWT_SECRET não definido. Defina no .env antes de iniciar.");
+  process.exit(1);
+}
 
 const app = express();
 
@@ -29,11 +35,11 @@ app.use(
   })
 );
 
-app.use(
-  cors({
-    origin: ["http://localhost:3001", "http://127.0.0.1:3001"],
-  })
-);
+const corsOrigins = process.env.CORS_ORIGINS
+  ? process.env.CORS_ORIGINS.split(",").map((o) => o.trim())
+  : ["http://localhost:3001", "http://127.0.0.1:3001"];
+
+app.use(cors({ origin: corsOrigins }));
 app.use(express.json());
 app.use("/static", express.static("public"));
 
@@ -61,5 +67,7 @@ app.use("/admin", adminRouter);
 app.use(leiturasRouter); // ex: /ultima-leitura/:device_id
 app.use("/status", statusRouter);
 app.use("/jobs", jobsRouter);
+
+startOfflineScheduler();
 
 module.exports = { app };

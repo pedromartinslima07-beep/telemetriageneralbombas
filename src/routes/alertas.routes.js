@@ -32,7 +32,10 @@ router.get("/alertas-abertos", authRequired, adminOnly, async (req, res) => {
  * PATCH /alertas/:id/fechar  (admin only)
  */
 router.patch("/alertas/:id/fechar", authRequired, adminOnly, async (req, res) => {
-  const { id } = req.params;
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    return res.status(400).json({ error: "id inválido" });
+  }
 
   try {
     const result = await pool.query(

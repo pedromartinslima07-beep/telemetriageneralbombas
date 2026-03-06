@@ -3,29 +3,19 @@ const { pool } = require("../db");
 async function upsertAlertaAberto(device_id, tipo, mensagem) {
   const tipoNorm = String(tipo).toLowerCase().trim();
 
-  const upd = await pool.query(
-    "UPDATE alertas SET mensagem = $3, atualizado_em = NOW() WHERE device_id = $1 AND TRIM(LOWER(tipo)) = $2 AND TRIM(LOWER(status)) = 'aberto' RETURNING id",
+  // Operação atômica usando o partial unique index uniq_alerta_aberto
+  // (device_id, tipo) WHERE status = 'aberto'
+  const result = await pool.query(
+    `INSERT INTO alertas (device_id, tipo, mensagem, status, atualizado_em)
+     VALUES ($1, $2, $3, 'aberto', NOW())
+     ON CONFLICT (device_id, tipo) WHERE status = 'aberto'
+     DO UPDATE SET mensagem = EXCLUDED.mensagem, atualizado_em = NOW()
+     RETURNING id, (xmax = 0) AS inserted`,
     [device_id, tipoNorm, mensagem]
   );
-  if (upd.rows.length > 0) return { action: "updated", id: upd.rows[0].id };
 
-  try {
-    const ins = await pool.query(
-      "INSERT INTO alertas (device_id, tipo, mensagem, status, atualizado_em) VALUES ($1, $2, $3, 'aberto', NOW()) RETURNING id",
-      [device_id, tipoNorm, mensagem]
-    );
-    return { action: "inserted", id: ins.rows[0].id };
-  } catch (e) {
-    if (e && e.code === "23505") {
-      const upd2 = await pool.query(
-        "UPDATE alertas SET mensagem = $3, atualizado_em = NOW() WHERE device_id = $1 AND TRIM(LOWER(tipo)) = $2 AND TRIM(LOWER(status)) = 'aberto' RETURNING id",
-        [device_id, tipoNorm, mensagem]
-      );
-      if (upd2.rows.length > 0)
-        return { action: "updated_after_conflict", id: upd2.rows[0].id };
-    }
-    throw e;
-  }
+  const row = result.rows[0];
+  return { action: row.inserted ? "inserted" : "updated", id: row.id };
 }
 
 module.exports = { upsertAlertaAberto };

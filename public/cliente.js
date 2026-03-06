@@ -11,6 +11,23 @@ if (!getToken()) {
   window.location.href = "/login";
 }
 
+// ===== NAVEGAÇÃO POR SEÇÕES =====
+const _sectionTitles = { dashboard: "Dashboard", historico: "Histórico", alertas: "Alertas" };
+
+// ── Estado do histórico ──
+let _reservatorios = [];
+let _histDias = 1;
+let _histChart = null;
+
+function showSection(name) {
+  document.querySelectorAll(".section").forEach(s => s.classList.remove("is-active"));
+  document.querySelector(`.section[data-section="${name}"]`)?.classList.add("is-active");
+  document.querySelectorAll(".nav-item[data-section]").forEach(n => n.classList.remove("active"));
+  document.querySelector(`.nav-item[data-section="${name}"]`)?.classList.add("active");
+  const t = document.getElementById("topbarTitle");
+  if (t) t.textContent = _sectionTitles[name] || name;
+}
+
 function abrirModalSenha() {
   document.getElementById("senhaMsg").textContent = "";
   document.getElementById("senhaAtual").value = "";
@@ -58,6 +75,26 @@ function nivelBadge(nivel) {
   if (n === "baixo") return badge("BAIXO", "warn");
   if (n === "muito_baixo") return badge("MUITO BAIXO", "bad");
   return badge(n || "-", "warn");
+}
+
+function tankHtml(nivel, nivelPct) {
+  const n = String(nivel || "").toLowerCase();
+  const map = {
+    alto:        { fallbackPct: 85,  cls: "tank-alto"        },
+    medio:       { fallbackPct: 60,  cls: "tank-medio"       },
+    baixo:       { fallbackPct: 30,  cls: "tank-baixo"       },
+    muito_baixo: { fallbackPct: 10,  cls: "tank-muito-baixo" },
+  };
+  const cfg = map[n];
+  if (!cfg) return `<span style="color:var(--muted)">-</span>`;
+  const pct = nivelPct != null ? nivelPct : cfg.fallbackPct;
+  return `
+    <div class="tank-wrap">
+      <div class="tank">
+        <div class="tank-fill ${cfg.cls}" style="height:${pct}%"></div>
+      </div>
+      <span class="tank-pct">${pct}%</span>
+    </div>`;
 }
 
 function bombaBadge(ligada) {
@@ -123,7 +160,7 @@ function renderReservatoriosCliente(data) {
       <td>${r.tipo || "-"}</td>
       
       <td>${u?.criado_em ? fmtData(u.criado_em) : "-"}</td>
-      <td>${u?.nivel ? nivelBadge(u.nivel) : "-"}</td>
+      <td>${u?.nivel ? tankHtml(u.nivel, u.nivel_pct) : "-"}</td>
       <td>${u ? bombaBadge(u.bomba_ligada) : "-"}</td>
 
       <td>${min}</td>
@@ -163,6 +200,158 @@ function algumOffline(reservatorios) {
   return reservatorios.some(r => !!r.offline);
 }
 
+function populateHistSelect() {
+  const sel = document.getElementById("histReservatorio");
+  if (!sel) return;
+  const prev = sel.value;
+  sel.innerHTML = "";
+  _reservatorios.forEach((r) => {
+    const opt = document.createElement("option");
+    opt.value = r.device_id;
+    opt.textContent = `${r.nome} (${r.tipo || r.device_id})`;
+    sel.appendChild(opt);
+  });
+  if (prev) sel.value = prev;
+}
+
+function histResumoCard(titulo, valor, cor) {
+  return `
+    <div style="
+      border:1px solid rgba(43,43,71,.7);
+      background:rgba(255,255,255,.03);
+      border-radius:14px;
+      padding:12px;
+    ">
+      <div style="color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.3px;">${titulo}</div>
+      <div style="margin-top:8px;font-weight:900;font-size:22px;color:${cor || "var(--accent)"};">${valor}</div>
+    </div>`;
+}
+
+async function carregarHistorico() {
+  const sel = document.getElementById("histReservatorio");
+  const msg = document.getElementById("histMsg");
+  const statsEl = document.getElementById("histStats");
+  const wrapEl = document.getElementById("histChartWrap");
+  const semEl = document.getElementById("histSemDados");
+  if (!sel || !sel.value) return;
+
+  const device_id = sel.value;
+  if (msg) msg.textContent = "Carregando...";
+  if (statsEl) statsEl.style.display = "none";
+  if (wrapEl) wrapEl.style.display = "none";
+  if (semEl) semEl.style.display = "none";
+
+  try {
+    const r = await fetch(`/cliente/historico?device_id=${encodeURIComponent(device_id)}&dias=${_histDias}`, {
+      headers: authHeaders(),
+    });
+    if (!r.ok) {
+      if (r.status === 401 || r.status === 403) { window.location.href = "/login"; return; }
+      const t = await r.text().catch(() => "");
+      if (msg) msg.textContent = "Erro ao carregar histórico: " + t;
+      return;
+    }
+
+    const data = await r.json();
+    const leituras = Array.isArray(data.leituras) ? data.leituras : [];
+
+    if (msg) msg.textContent = "";
+
+    if (leituras.length === 0) {
+      if (semEl) semEl.style.display = "block";
+      return;
+    }
+
+    // Stats
+    if (statsEl && data.stats) {
+      const s = data.stats;
+      statsEl.innerHTML = [
+        histResumoCard("Mínimo", `${s.min_pct}%`, "#f87171"),
+        histResumoCard("Máximo", `${s.max_pct}%`, "#4ade80"),
+        histResumoCard("Média", `${s.avg_pct}%`, "var(--accent)"),
+        histResumoCard("Leituras", s.total_leituras.toLocaleString(), "var(--blue)"),
+      ].join("");
+      statsEl.style.display = "grid";
+    }
+
+    // Chart
+    if (wrapEl) wrapEl.style.display = "block";
+    const canvas = document.getElementById("histChart");
+    if (!canvas) return;
+
+    const labels = leituras.map((l) => {
+      const d = new Date(l.bucket);
+      if (_histDias <= 1) return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      if (_histDias <= 7) return d.toLocaleDateString([], { weekday: "short", hour: "2-digit", minute: "2-digit" });
+      return d.toLocaleDateString([], { day: "2-digit", month: "short", hour: "2-digit" });
+    });
+    const values = leituras.map((l) => l.nivel_pct_avg);
+
+    if (_histChart) { _histChart.destroy(); _histChart = null; }
+
+    const ctx = canvas.getContext("2d");
+
+    // Gradient fill
+    const gradient = ctx.createLinearGradient(0, 0, 0, 280);
+    gradient.addColorStop(0, "rgba(240,176,20,0.35)");
+    gradient.addColorStop(1, "rgba(240,176,20,0.01)");
+
+    _histChart = new Chart(ctx, {
+      type: "line",
+      data: {
+        labels,
+        datasets: [{
+          label: "Nível (%)",
+          data: values,
+          borderColor: "#f0b014",
+          backgroundColor: gradient,
+          borderWidth: 2,
+          pointRadius: values.length > 60 ? 0 : 3,
+          pointHoverRadius: 5,
+          tension: 0.35,
+          fill: true,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        scales: {
+          x: {
+            ticks: { color: "#60617e", maxTicksLimit: 10, maxRotation: 0 },
+            grid: { color: "rgba(255,255,255,.04)" },
+          },
+          y: {
+            min: 0,
+            max: 100,
+            ticks: {
+              color: "#60617e",
+              callback: (v) => v + "%",
+            },
+            grid: { color: "rgba(255,255,255,.06)" },
+          },
+        },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: "#181b33",
+            titleColor: "#e1e3ef",
+            bodyColor: "#a0a3bf",
+            borderColor: "rgba(255,255,255,.08)",
+            borderWidth: 1,
+            callbacks: {
+              label: (ctx) => ` Nível: ${ctx.parsed.y}%`,
+            },
+          },
+        },
+      },
+    });
+
+  } catch (e) {
+    if (msg) msg.textContent = "Erro: " + e.message;
+  }
+}
+
 async function carregar() {
   setStatusMsg("Carregando...");
 
@@ -188,6 +377,8 @@ const grid = document.getElementById("resumoGrid");
 
 const nome = data.condominio?.nome || "-";
 const reservatorios = Array.isArray(data.reservatorios) ? data.reservatorios : [];
+_reservatorios = reservatorios;
+populateHistSelect();
 const totalRes = reservatorios.length;
 
 const rMaisRecente = pickMaisRecente(reservatorios);
@@ -232,6 +423,13 @@ renderReservatoriosCliente(data);
   tbody.innerHTML = "";
 
   const alertas = Array.isArray(data.alertas_abertos) ? data.alertas_abertos : [];
+
+  // atualiza badge da sidebar
+  const navBadge = document.getElementById("navBadgeAlertas");
+  if (navBadge) {
+    navBadge.textContent = alertas.length;
+    navBadge.style.display = alertas.length > 0 ? "inline-flex" : "none";
+  }
 
   if (alertas.length === 0) {
     sem.style.display = "block";
@@ -299,10 +497,48 @@ async function trocarSenha(event) {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-  // botões do topo (precisa ter IDs no HTML)
+  // nav sections
+  document.querySelectorAll(".nav-item[data-section]").forEach(item => {
+    item.addEventListener("click", () => showSection(item.dataset.section));
+  });
+
   document.getElementById("btnAtualizarCliente")?.addEventListener("click", carregar);
   document.getElementById("btnAbrirSenha")?.addEventListener("click", abrirModalSenha);
   document.getElementById("btnSairCliente")?.addEventListener("click", logout);
+
+  // ===== SIDEBAR TOGGLE =====
+  const _sidebar = document.querySelector(".sidebar");
+  const _btnToggle = document.getElementById("btnSidebarToggle");
+
+  function _applySidebar(collapsed) {
+    _sidebar.classList.toggle("collapsed", collapsed);
+  }
+
+  _applySidebar(localStorage.getItem("sidebarCollapsed") === "true");
+
+  _btnToggle?.addEventListener("click", () => {
+    const next = !_sidebar.classList.contains("collapsed");
+    _applySidebar(next);
+    localStorage.setItem("sidebarCollapsed", next);
+  });
+
+  // ===== NAV TOOLTIPS (quando collapsed) =====
+  const _navTip = document.createElement("div");
+  _navTip.className = "nav-tooltip";
+  document.body.appendChild(_navTip);
+
+  document.querySelectorAll(".nav-item[data-tooltip]").forEach(item => {
+    item.addEventListener("mouseenter", () => {
+      if (!_sidebar.classList.contains("collapsed")) return;
+      const r = item.getBoundingClientRect();
+      _navTip.textContent = item.dataset.tooltip;
+      _navTip.style.top  = (r.top + r.height / 2) + "px";
+      _navTip.style.left = (r.right + 8) + "px";
+      _navTip.style.transform = "translateY(-50%)";
+      _navTip.classList.add("visible");
+    });
+    item.addEventListener("mouseleave", () => _navTip.classList.remove("visible"));
+  });
 
   // modal senha
   document.getElementById("btnFecharSenhaTop")?.addEventListener("click", fecharModalSenha);
@@ -311,7 +547,32 @@ document.addEventListener("DOMContentLoaded", () => {
   // submit do form (precisa ter id="formTrocarSenha")
   document.getElementById("formTrocarSenha")?.addEventListener("submit", trocarSenha);
 
+  // Histórico: troca de reservatório
+  document.getElementById("histReservatorio")?.addEventListener("change", carregarHistorico);
+
+  // Histórico: botões de período
+  document.querySelectorAll(".hist-period").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".hist-period").forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      _histDias = Number(btn.dataset.dias);
+      carregarHistorico();
+    });
+  });
+
+  // Carrega histórico quando entra na seção
+  const _origShowSection = showSection;
+  // eslint-disable-next-line no-global-assign
+  showSection = (name) => {
+    _origShowSection(name);
+    if (name === "historico") carregarHistorico();
+  };
+
   // primeira carga + auto refresh
   carregar();
-  setInterval(carregar, 10000);
+  setInterval(() => {
+    carregar();
+    const secAtiva = document.querySelector(".section.is-active");
+    if (secAtiva?.dataset.section === "historico") carregarHistorico();
+  }, 10000);
 });
