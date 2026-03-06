@@ -8,13 +8,20 @@
 </head>
 <body>
 
-<!-- Overlay: fecha sidebar ao clicar fora -->
-<div class="sidebar-overlay" id="sidebarOverlay"></div>
-
 <div class="layout">
 
   <!-- ===== SIDEBAR ===== -->
   <aside class="sidebar collapsed">
+
+    <!-- Header: hamburguer + logo (logo oculta quando fechada via CSS) -->
+    <div class="sidebar-header">
+      <button class="sidebar-toggle" id="btnSidebarToggle" aria-label="Abrir/fechar menu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+        </svg>
+      </button>
+      <img class="sidebar-logo" src="/static/login-logo.png" alt="GENERAL" />
+    </div>
 
     <nav class="nav">
 
@@ -73,17 +80,10 @@
   <!-- ===== MAIN ===== -->
   <div class="main">
 
-    <!-- Top bar -->
-    <div class="topbar">
-      <div class="topbar-left">
-        <button class="sidebar-toggle" id="btnSidebarToggle" aria-label="Abrir/fechar menu">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
-          </svg>
-        </button>
-        <img class="topbar-logo" src="/static/login-logo.png" alt="GENERAL" />
-      </div>
-      <div class="topbar-actions">
+    <!-- Barra do conteúdo -->
+    <div class="content-header">
+      <span class="content-title" id="topbarTitle">Dashboard</span>
+      <div class="content-header-actions">
         <button class="btn btn-sm" id="btnAtualizar">Atualizar</button>
         <button class="btn btn-sm btnAccent" id="btnOffline">Verificar Offline</button>
         <span class="statusMsg" id="statusMsg"></span>

@@ -1067,24 +1067,18 @@ document.addEventListener("DOMContentLoaded", () => {
   // ===== SIDEBAR TOGGLE =====
   const _sidebar = document.querySelector(".sidebar");
   const _btnToggle = document.getElementById("btnSidebarToggle");
-  const _sidebarOverlay = document.getElementById("sidebarOverlay");
 
   function _applySidebar(collapsed) {
     _sidebar.classList.toggle("collapsed", collapsed);
-    if (_sidebarOverlay) _sidebarOverlay.classList.toggle("visible", !collapsed);
   }
 
-  _applySidebar(localStorage.getItem("sidebarCollapsed") === "true");
+  // Fechada por padrão; abre se o usuário havia deixado aberta
+  _applySidebar(localStorage.getItem("sidebarCollapsed") !== "false");
 
   _btnToggle?.addEventListener("click", () => {
     const next = !_sidebar.classList.contains("collapsed");
     _applySidebar(next);
     localStorage.setItem("sidebarCollapsed", next);
-  });
-
-  _sidebarOverlay?.addEventListener("click", () => {
-    _applySidebar(true);
-    localStorage.setItem("sidebarCollapsed", true);
   });
 
   document.getElementById("btnAplicarFiltros")?.addEventListener("click", aplicarFiltros);

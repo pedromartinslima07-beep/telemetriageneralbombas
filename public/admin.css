@@ -59,48 +59,67 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
 a { color: inherit; text-decoration: none; }
 
 /* ============================================================
-   LAYOUT: SIDEBAR + MAIN
+   LAYOUT: SIDEBAR + MAIN (flex horizontal — sidebar empurra o conteúdo)
    ============================================================ */
 .layout {
   display: flex;
   min-height: 100vh;
 }
 
+/* variável local para a largura fechada */
+:root { --sidebar-closed: 52px; }
+
 /* ============================================================
-   SIDEBAR — overlay deslizante, não empurra o conteúdo
+   SIDEBAR — parte do layout flex, empurra o conteúdo
    ============================================================ */
 .sidebar {
-  position: fixed;
-  top: 60px;
-  left: 0;
-  bottom: 0;
-  z-index: 150;
-  width: var(--sidebar-w);
+  width: var(--sidebar-closed);
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
   background: var(--sidebar);
-  border-radius: 0 16px 16px 0;
-  border-top: 1px solid var(--border);
   border-right: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
-  box-shadow: 4px 0 32px rgba(0,0,0,.5);
-  transform: translateX(-100%);
-  transition: transform .28s cubic-bezier(.4,0,.2,1);
+  transition: width .25s cubic-bezier(.4,0,.2,1);
   overflow: hidden;
+  position: sticky;
+  top: 0;
+  height: 100vh;
 }
 
 /* Aberta */
 .sidebar:not(.collapsed) {
-  transform: translateX(0);
+  width: var(--sidebar-w);
 }
 
-/* ---- BOTÃO HAMBURGUER (fica no topbar) ---- */
+/* ---- SIDEBAR HEADER: hamburguer + logo ---- */
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 9px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  height: 56px;
+}
+
+.sidebar-logo {
+  height: 26px;
+  width: auto;
+  display: block;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* Logo oculta quando sidebar fechada */
+.sidebar.collapsed .sidebar-logo { display: none; }
+
+/* ---- BOTÃO HAMBURGUER ---- */
 .sidebar-toggle {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 34px;
+  height: 34px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border);
   background: rgba(255,255,255,.04);
@@ -114,28 +133,19 @@ a { color: inherit; text-decoration: none; }
 .sidebar-toggle:hover { color: var(--text); background: rgba(255,255,255,.08); }
 
 .sidebar-toggle svg {
-  width: 18px;
-  height: 18px;
+  width: 17px;
+  height: 17px;
 }
 
-/* ---- OVERLAY — aparece quando sidebar está aberta ---- */
-.sidebar-overlay {
-  position: fixed;
-  top: 60px;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 140;
-  background: rgba(0,0,0,.45);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity .25s;
-}
-
-.sidebar-overlay.visible {
-  opacity: 1;
-  pointer-events: all;
-}
+/* ---- COLLAPSED: ícone centralizado, sem texto, sem labels ---- */
+.sidebar.collapsed .nav-section-label            { display: none; }
+.sidebar.collapsed .nav-item                     { padding: 10px; justify-content: center; }
+.sidebar.collapsed .nav-item span:not(.nav-badge){ display: none; }
+.sidebar.collapsed .nav-item svg                 { width: 20px; height: 20px; }
+.sidebar.collapsed .nav-item::before             { display: none; }
+.sidebar.collapsed .nav-badge                    { display: none !important; }
+.sidebar.collapsed .sidebar-user                 { justify-content: center; padding: 10px; }
+.sidebar.collapsed .sidebar-user-info            { display: none; }
 
 /* NAV */
 .nav {
@@ -276,46 +286,44 @@ a { color: inherit; text-decoration: none; }
    ============================================================ */
 .main {
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  padding-top: 60px; /* compensa topbar fixo */
 }
 
-/* TOPBAR — fixo no topo, altura 60px */
-.topbar {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 200;
-  height: 60px;
+/* CONTENT HEADER — barra superior do conteúdo (não é fixed) */
+.content-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 20px;
-  background: var(--sidebar);
-  border-bottom: 1px solid var(--border);
-}
-
-.topbar-left {
-  display: flex;
-  align-items: center;
   gap: 12px;
-}
-
-.topbar-logo {
-  height: 36px;
-  width: auto;
-  display: block;
+  padding: 0 24px;
+  height: 56px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(9,11,24,.95);
   flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  backdrop-filter: blur(12px);
 }
 
-.topbar-actions {
+.content-title {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: .1px;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.content-header-actions {
   display: flex;
   align-items: center;
   gap: 8px;
 }
+
+/* STATUS MSG */
 
 /* STATUS MSG */
 .statusMsg {
