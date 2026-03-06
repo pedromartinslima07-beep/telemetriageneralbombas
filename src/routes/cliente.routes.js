@@ -33,7 +33,7 @@ router.get("/status", authRequired, clienteOnly, async (req, res) => {
     const condominio = condominioResult.rows[0];
 
     // 2) Reservatórios + última leitura + offline + contagem de alertas
-    const limiteMinutos = 10;
+    const limiteMinutos = Number(process.env.OFFLINE_MINUTES || 10);
 
     const reservsRes = await pool.query(
       `
@@ -44,18 +44,19 @@ router.get("/status", authRequired, clienteOnly, async (req, res) => {
         r.device_id,
 
         ul.nivel         AS ultima_nivel,
+        ul.nivel_pct     AS ultima_nivel_pct,
         ul.bomba_ligada  AS ultima_bomba_ligada,
         ul.criado_em     AS ultima_criado_em,
 
         CASE
-          WHEN ul.criado_em IS NULL THEN true
-          WHEN (NOW() - ul.criado_em) > ($2 || ' minutes')::interval THEN true
+          WHEN r.last_seen IS NULL THEN true
+          WHEN (NOW() - r.last_seen) > ($2 || ' minutes')::interval THEN true
           ELSE false
         END AS offline,
 
         CASE
-          WHEN ul.criado_em IS NULL THEN NULL
-          ELSE FLOOR(EXTRACT(EPOCH FROM (NOW() - ul.criado_em))/60)::int
+          WHEN r.last_seen IS NULL THEN NULL
+          ELSE FLOOR(EXTRACT(EPOCH FROM (NOW() - r.last_seen))/60)::int
         END AS minutos_sem_atualizar,
 
         COALESCE(a.alertas_abertos_count, 0) AS alertas_abertos_count
@@ -63,7 +64,7 @@ router.get("/status", authRequired, clienteOnly, async (req, res) => {
       FROM reservatorios r
 
       LEFT JOIN LATERAL (
-        SELECT nivel, bomba_ligada, criado_em
+        SELECT nivel, nivel_pct, bomba_ligada, criado_em
         FROM leituras
         WHERE device_id = r.device_id
         ORDER BY criado_em DESC
@@ -90,6 +91,7 @@ router.get("/status", authRequired, clienteOnly, async (req, res) => {
       ultima_leitura: r.ultima_criado_em ? {
         device_id: r.device_id,
         nivel: r.ultima_nivel,
+        nivel_pct: r.ultima_nivel_pct,
         bomba_ligada: r.ultima_bomba_ligada,
         criado_em: r.ultima_criado_em,
       } : null,
@@ -129,6 +131,95 @@ router.get("/status", authRequired, clienteOnly, async (req, res) => {
 
   } catch (error) {
     console.error("Erro cliente/status:", error);
+    return res.status(500).json({ error: "Erro interno" });
+  }
+});
+
+// GET /cliente/historico?device_id=RES001&dias=7
+router.get("/historico", authRequired, clienteOnly, async (req, res) => {
+  const condominioId = Number(req.user.condominio_id);
+  const { device_id, dias: diasStr } = req.query;
+
+  if (!device_id) {
+    return res.status(400).json({ error: "device_id é obrigatório" });
+  }
+
+  const dias = Math.min(Math.max(Number(diasStr) || 7, 1), 90);
+
+  try {
+    // Verifica que o device pertence ao condomínio do cliente
+    const check = await pool.query(
+      "SELECT id FROM reservatorios WHERE device_id = $1 AND condominio_id = $2 LIMIT 1",
+      [device_id, condominioId]
+    );
+    if (check.rows.length === 0) {
+      return res.status(403).json({ error: "Dispositivo não autorizado" });
+    }
+
+    // Tamanho do bucket em segundos conforme o período
+    let bucketSec;
+    if (dias <= 1)       bucketSec = 300;    // 5 min
+    else if (dias <= 7)  bucketSec = 3600;   // 1 hora
+    else if (dias <= 30) bucketSec = 14400;  // 4 horas
+    else                 bucketSec = 43200;  // 12 horas
+
+    // nivel_pct_resolvido: usa nivel_pct direto, ou deriva do campo nivel (string)
+    // para leituras antigas inseridas antes da coluna nivel_pct existir
+    const result = await pool.query(
+      `SELECT
+         TO_TIMESTAMP(FLOOR(EXTRACT(EPOCH FROM criado_em) / $3) * $3) AS bucket,
+         ROUND(AVG(
+           COALESCE(nivel_pct,
+             CASE nivel
+               WHEN 'alto'       THEN 85
+               WHEN 'medio'      THEN 60
+               WHEN 'baixo'      THEN 30
+               WHEN 'muito_baixo' THEN 10
+             END)
+         ))::int AS nivel_pct_avg,
+         MIN(COALESCE(nivel_pct,
+           CASE nivel
+             WHEN 'alto'       THEN 85
+             WHEN 'medio'      THEN 60
+             WHEN 'baixo'      THEN 30
+             WHEN 'muito_baixo' THEN 10
+           END))::int AS nivel_pct_min,
+         MAX(COALESCE(nivel_pct,
+           CASE nivel
+             WHEN 'alto'       THEN 85
+             WHEN 'medio'      THEN 60
+             WHEN 'baixo'      THEN 30
+             WHEN 'muito_baixo' THEN 10
+           END))::int AS nivel_pct_max,
+         BOOL_OR(bomba_ligada) AS bomba_ligada,
+         COUNT(*)::int         AS count
+       FROM leituras
+       WHERE device_id = $1
+         AND criado_em >= NOW() - ($2 || ' days')::interval
+         AND (nivel_pct IS NOT NULL OR nivel IS NOT NULL)
+       GROUP BY FLOOR(EXTRACT(EPOCH FROM criado_em) / $3)
+       ORDER BY bucket ASC`,
+      [device_id, dias, bucketSec]
+    );
+
+    const rows = result.rows;
+
+    let stats = null;
+    if (rows.length > 0) {
+      const allMin = rows.map((r) => r.nivel_pct_min);
+      const allMax = rows.map((r) => r.nivel_pct_max);
+      const allAvg = rows.map((r) => r.nivel_pct_avg);
+      stats = {
+        min_pct: Math.min(...allMin),
+        max_pct: Math.max(...allMax),
+        avg_pct: Math.round(allAvg.reduce((s, v) => s + v, 0) / allAvg.length),
+        total_leituras: rows.reduce((s, r) => s + r.count, 0),
+      };
+    }
+
+    return res.json({ device_id, dias, bucket_sec: bucketSec, leituras: rows, stats });
+  } catch (error) {
+    console.error("Erro /cliente/historico:", error);
     return res.status(500).json({ error: "Erro interno" });
   }
 });
