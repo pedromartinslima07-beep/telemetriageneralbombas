@@ -8,14 +8,14 @@
 </head>
 <body>
 
-<div class="layout">
+<div class="layout layout-cli">
 
   <!-- ===== SIDEBAR ===== -->
-  <aside class="sidebar collapsed">
+  <aside class="sidebar collapsed" id="sidebar">
 
-    <!-- Header: hamburguer + logo (logo oculta quando fechada via CSS) -->
+    <!-- Header interno: visível quando sidebar aberta -->
     <div class="sidebar-header">
-      <button class="sidebar-toggle" id="btnSidebarToggle" aria-label="Abrir/fechar menu">
+      <button class="sidebar-toggle" id="btnSidebarToggleIn" aria-label="Fechar menu">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
         </svg>
@@ -27,7 +27,7 @@
 
       <span class="nav-section-label">Monitor</span>
 
-      <button class="nav-item active" data-section="dashboard" data-tooltip="Dashboard">
+      <button class="nav-item active" data-section="dashboard">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
           <rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/>
           <rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>
@@ -35,14 +35,14 @@
         <span>Dashboard</span>
       </button>
 
-      <button class="nav-item" data-section="historico" data-tooltip="Histórico">
+      <button class="nav-item" data-section="historico">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
         </svg>
         <span>Histórico</span>
       </button>
 
-      <button class="nav-item" data-section="alertas" data-tooltip="Alertas">
+      <button class="nav-item" data-section="alertas">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
           <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
           <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
@@ -50,6 +50,7 @@
         <span>Alertas</span>
         <span class="nav-badge" id="navBadgeAlertas" style="display:none;">0</span>
       </button>
+
     </nav>
 
     <div class="sidebar-footer">
@@ -64,13 +65,13 @@
           <div class="sidebar-user-label">Meu Condomínio</div>
         </div>
       </div>
-      <button class="nav-item" id="btnAbrirSenha" data-tooltip="Alterar senha">
+      <button class="nav-item" id="btnAbrirSenha">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
           <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
         </svg>
         <span>Alterar senha</span>
       </button>
-      <button class="nav-item" id="btnSairCliente" data-tooltip="Sair">
+      <button class="nav-item" id="btnSairCliente">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
           <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
           <polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
@@ -83,10 +84,8 @@
   <!-- ===== MAIN ===== -->
   <div class="main">
 
-    <!-- Barra do conteúdo -->
     <div class="content-header">
-      <span class="content-title" id="topbarTitle">Dashboard</span>
-      <div class="content-header-actions">
+      <div class="content-header-actions" style="margin-left:auto;">
         <button class="btn btn-sm" id="btnAtualizarCliente">Atualizar</button>
         <span class="statusMsg" id="statusMsg"></span>
       </div>

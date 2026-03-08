@@ -8,14 +8,14 @@
 </head>
 <body>
 
-<div class="layout">
+<div class="layout layout-cli">
 
   <!-- ===== SIDEBAR ===== -->
-  <aside class="sidebar collapsed">
+  <aside class="sidebar collapsed" id="sidebar">
 
-    <!-- Header: hamburguer + logo (logo oculta quando fechada via CSS) -->
+    <!-- Header interno: visível quando sidebar aberta -->
     <div class="sidebar-header">
-      <button class="sidebar-toggle" id="btnSidebarToggle" aria-label="Abrir/fechar menu">
+      <button class="sidebar-toggle" id="btnSidebarToggleIn" aria-label="Fechar menu">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
         </svg>
@@ -27,7 +27,7 @@
 
       <span class="nav-section-label">Monitor</span>
 
-      <button class="nav-item active" data-section="dashboard" data-tooltip="Dashboard">
+      <button class="nav-item active" data-section="dashboard">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
           <rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/>
           <rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>
@@ -35,7 +35,7 @@
         <span>Dashboard</span>
       </button>
 
-      <button class="nav-item" data-section="alertas" data-tooltip="Alertas">
+      <button class="nav-item" data-section="alertas">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
           <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
           <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
@@ -46,7 +46,7 @@
 
       <span class="nav-section-label">Gestão</span>
 
-      <button class="nav-item" data-section="cadastros" data-tooltip="Cadastros">
+      <button class="nav-item" data-section="cadastros">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
           <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
           <polyline points="9 22 9 12 15 12 15 22"/>
@@ -67,7 +67,7 @@
           <div class="sidebar-user-label">Painel Geral</div>
         </div>
       </div>
-      <button class="nav-item" id="btnSair" data-tooltip="Sair">
+      <button class="nav-item" id="btnSair">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
           <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
           <polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
@@ -80,10 +80,8 @@
   <!-- ===== MAIN ===== -->
   <div class="main">
 
-    <!-- Barra do conteúdo -->
     <div class="content-header">
-      <span class="content-title" id="topbarTitle">Dashboard</span>
-      <div class="content-header-actions">
+      <div class="content-header-actions" style="margin-left:auto;">
         <button class="btn btn-sm" id="btnAtualizar">Atualizar</button>
         <button class="btn btn-sm btnAccent" id="btnOffline">Verificar Offline</button>
         <span class="statusMsg" id="statusMsg"></span>

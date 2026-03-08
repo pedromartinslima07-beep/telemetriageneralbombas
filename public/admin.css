@@ -52,6 +52,7 @@ body {
   background: var(--bg);
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
 }
 
 button { font-family: inherit; font-size: inherit; }
@@ -66,20 +67,17 @@ a { color: inherit; text-decoration: none; }
   min-height: 100vh;
 }
 
-/* variável local para a largura fechada */
-:root { --sidebar-closed: 52px; }
-
 /* ============================================================
    SIDEBAR — parte do layout flex, empurra o conteúdo
    ============================================================ */
 .sidebar {
-  width: var(--sidebar-closed);
+  width: 52px;       /* admin: ícones visíveis quando fechada */
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
   background: var(--sidebar);
   border-right: 1px solid var(--border);
-  transition: width .25s cubic-bezier(.4,0,.2,1);
+  transition: width .3s ease;
   overflow: hidden;
   position: sticky;
   top: 0;
@@ -89,6 +87,90 @@ a { color: inherit; text-decoration: none; }
 /* Aberta */
 .sidebar:not(.collapsed) {
   width: var(--sidebar-w);
+}
+
+/* === CLIENTE: layout com sidebar flutuante e arredondada === */
+.layout-cli {
+  align-items: flex-start;
+  padding: 12px;
+  gap: 0;
+  overflow-x: clip;
+}
+
+/* Sidebar layout-cli: anima largura + margin no fluxo flex */
+.layout-cli .sidebar {
+  border-right: none;
+  position: relative;
+  top: auto;
+  height: calc(100vh - 24px);
+  transition: width .3s ease, margin-right .3s ease, background .25s ease, box-shadow .25s ease, border-radius .25s ease;
+}
+
+/* Collapsed: zero espaço no layout, sem fundo */
+.layout-cli .sidebar.collapsed {
+  width: 0;
+  margin-right: 0;
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+}
+
+/* Open: empurra conteúdo para a direita */
+.layout-cli .sidebar:not(.collapsed) {
+  width: 220px;
+  margin-right: 16px;
+  background: var(--sidebar);
+  border-radius: 16px;
+  box-shadow: 0 8px 40px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.06);
+  position: sticky;
+  top: 12px;
+}
+
+/* Header: fixed quando collapsed (escapa do overflow:hidden do width:0) */
+.layout-cli .sidebar.collapsed .sidebar-header {
+  position: fixed;
+  left: 12px;
+  top: 12px;
+  border-bottom-color: transparent;
+  z-index: 51;
+}
+
+.layout-cli .sidebar:not(.collapsed) .sidebar-header {
+  position: relative;
+}
+
+/* Logo sempre visível no header */
+.layout-cli .sidebar.collapsed .sidebar-logo {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Nav e footer: fade, sem scrollbar horizontal */
+.layout-cli .sidebar .nav,
+.layout-cli .sidebar .sidebar-footer {
+  transition: opacity .2s ease;
+  overflow-x: hidden;
+}
+
+.layout-cli .sidebar.collapsed .nav,
+.layout-cli .sidebar.collapsed .sidebar-footer {
+  opacity: 0;
+}
+
+.layout-cli .sidebar:not(.collapsed) .nav,
+.layout-cli .sidebar:not(.collapsed) .sidebar-footer {
+  opacity: 1;
+}
+
+/* Content-header cliente: sem visual de "barra" — só conteúdo flutuante */
+.layout-cli .content-header {
+  background: transparent;
+  border-bottom: none;
+  backdrop-filter: none;
+  padding: 4px 8px 8px;
+  height: auto;
+  min-height: 52px;
+  position: static;
 }
 
 /* ---- SIDEBAR HEADER: hamburguer + logo ---- */
@@ -110,8 +192,16 @@ a { color: inherit; text-decoration: none; }
   white-space: nowrap;
 }
 
-/* Logo oculta quando sidebar fechada */
-.sidebar.collapsed .sidebar-logo { display: none; }
+/* Elementos que fazem fade durante a transição */
+.sidebar-logo,
+.sidebar-user-info,
+.nav-section-label,
+.nav-item span:not(.nav-badge) {
+  transition: opacity .15s ease;
+}
+
+/* Logo oculta quando sidebar fechada (admin) — fade em vez de display:none */
+.sidebar.collapsed .sidebar-logo { opacity: 0; pointer-events: none; }
 
 /* ---- BOTÃO HAMBURGUER ---- */
 .sidebar-toggle {
@@ -137,15 +227,34 @@ a { color: inherit; text-decoration: none; }
   height: 17px;
 }
 
-/* ---- COLLAPSED: ícone centralizado, sem texto, sem labels ---- */
-.sidebar.collapsed .nav-section-label            { display: none; }
-.sidebar.collapsed .nav-item                     { padding: 10px; justify-content: center; }
-.sidebar.collapsed .nav-item span:not(.nav-badge){ display: none; }
-.sidebar.collapsed .nav-item svg                 { width: 20px; height: 20px; }
-.sidebar.collapsed .nav-item::before             { display: none; }
-.sidebar.collapsed .nav-badge                    { display: none !important; }
-.sidebar.collapsed .sidebar-user                 { justify-content: center; padding: 10px; }
-.sidebar.collapsed .sidebar-user-info            { display: none; }
+/* ---- COLLAPSED: ícone centralizado, sem texto, sem labels (admin) ---- */
+.sidebar.collapsed .nav-section-label             { opacity: 0; pointer-events: none; }
+.sidebar.collapsed .nav-item                      { padding: 10px; justify-content: center; }
+.sidebar.collapsed .nav-item span:not(.nav-badge) { opacity: 0; pointer-events: none; }
+.sidebar.collapsed .nav-item svg                  { width: 20px; height: 20px; }
+.sidebar.collapsed .nav-item::before              { display: none; }
+.sidebar.collapsed .nav-badge                     { display: none !important; }
+.sidebar.collapsed .sidebar-user                  { justify-content: center; padding: 10px; }
+.sidebar.collapsed .sidebar-user-info             { opacity: 0; pointer-events: none; }
+
+/* ============================================================
+   SIDEBAR TRIGGER (cliente) — hamburguer + logo flutuando no topo
+   da área de conteúdo quando a sidebar está fechada
+   ============================================================ */
+.sidebar-trigger {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+  transition: opacity .15s ease;
+}
+
+.sidebar-trigger-logo {
+  height: 26px;
+  width: auto;
+  display: block;
+  opacity: .9;
+}
 
 /* NAV */
 .nav {
@@ -296,7 +405,6 @@ a { color: inherit; text-decoration: none; }
 .content-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 12px;
   padding: 0 24px;
   height: 56px;
@@ -310,11 +418,15 @@ a { color: inherit; text-decoration: none; }
 }
 
 .content-title {
+  flex: 1;
+  min-width: 0;
   font-size: 14px;
   font-weight: 700;
   letter-spacing: .1px;
   color: var(--text);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .content-header-actions {
@@ -340,6 +452,12 @@ a { color: inherit; text-decoration: none; }
 .content {
   flex: 1;
   padding: 24px;
+}
+
+/* Cliente: sem padding extra no main — conteúdo começa no trigger */
+.layout-cli .main {
+  min-width: 0;
+  padding: 0;
 }
 
 /* ============================================================
