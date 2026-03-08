@@ -1065,21 +1065,23 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("btnSair")?.addEventListener("click", logout);
 
   // ===== SIDEBAR TOGGLE =====
-  const _sidebar = document.querySelector(".sidebar");
-  const _btnToggle = document.getElementById("btnSidebarToggle");
+  const _sidebar = document.getElementById("sidebar");
 
   function _applySidebar(collapsed) {
     _sidebar.classList.toggle("collapsed", collapsed);
   }
 
-  // Fechada por padrão; abre se o usuário havia deixado aberta
+  // Começa fechada por padrão; abre se o usuário havia deixado aberta
   _applySidebar(localStorage.getItem("sidebarCollapsed") !== "false");
 
-  _btnToggle?.addEventListener("click", () => {
+  function _onToggle() {
     const next = !_sidebar.classList.contains("collapsed");
     _applySidebar(next);
     localStorage.setItem("sidebarCollapsed", next);
-  });
+  }
+
+  document.getElementById("btnSidebarToggleIn")?.addEventListener("click", _onToggle);
+  document.getElementById("btnSidebarToggleOut")?.addEventListener("click", _onToggle);
 
   document.getElementById("btnAplicarFiltros")?.addEventListener("click", aplicarFiltros);
   document.getElementById("btnLimparFiltros")?.addEventListener("click", limparFiltros);
