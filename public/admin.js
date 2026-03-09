@@ -64,37 +64,16 @@ function tankHtml(nivel) {
 }
 
 function resumoCard(titulo, valorHtml, kind, cardKey) {
-  const border =
-    kind === "bad" ? "rgba(255,90,95,.55)" :
-      kind === "warn" ? "rgba(240,176,20,.55)" :
-        kind === "ok" ? "rgba(45,212,191,.45)" :
-          "rgba(43,43,71,.7)";
+  const kindCls =
+    kind === "bad"  ? "rc-bad"  :
+    kind === "warn" ? "rc-warn" :
+    kind === "ok"   ? "rc-ok"   : "rc-neutral";
 
   return `
-    <button
-      class="resumoCardBtn"
-      data-card="${cardKey}"
-      style="
-        text-align:left;
-        cursor:pointer;
-        border:1px solid ${border};
-        background:rgba(255,255,255,.03);
-        border-radius:14px;
-        padding:12px 12px;
-        color:inherit;
-      "
-    >
-      <div style="color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .3px;">
-        ${titulo}
-      </div>
-
-      <div style="margin-top:8px; font-weight:900; font-size:22px;">
-        ${valorHtml}
-      </div>
-
-      <div style="margin-top:6px; font-size:12px; color: var(--muted);">
-        Passe o mouse • Clique para detalhes
-      </div>
+    <button class="rc ${kindCls}" data-card="${cardKey}">
+      <div class="rc-label">${titulo}</div>
+      <div class="rc-value">${valorHtml}</div>
+      <div class="rc-hint">Passe o mouse • Clique para detalhes</div>
     </button>
   `;
 }
@@ -333,6 +312,37 @@ async function criarCliente() {
   }
 }
 
+async function criarAdminViewer() {
+  const nome = document.getElementById("avNome")?.value?.trim();
+  const email = document.getElementById("avEmail")?.value?.trim();
+  const senha = document.getElementById("avSenha")?.value?.trim();
+  const msg = document.getElementById("msgAdminViewer");
+
+  if (!nome || !email || !senha) {
+    if (msg) msg.textContent = "Preencha todos os campos.";
+    return;
+  }
+
+  try {
+    const r = await fetch("/auth/registrar", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      body: JSON.stringify({ nome, email, senha, role: "admin_viewer" }),
+    });
+    if (!r.ok) {
+      const e = await r.json().catch(() => ({}));
+      if (msg) msg.textContent = e.error || "Erro ao criar acesso.";
+      return;
+    }
+    if (msg) msg.textContent = "Acesso de visualizador criado!";
+    document.getElementById("avNome").value = "";
+    document.getElementById("avEmail").value = "";
+    document.getElementById("avSenha").value = "";
+  } catch {
+    if (msg) msg.textContent = "Erro de conexão.";
+  }
+}
+
 // ===== carregamento =====
 function montarMapaAlertas() {
   _alertasPorDevice = new Map();
@@ -436,7 +446,7 @@ function renderStatus() {
   if (!tbody) return;
   tbody.innerHTML = "";
 
-  const list = Array.isArray(_statusData) ? _statusData : [];
+  const list = getFilteredList();
 
 
   const total = list.length;
@@ -468,9 +478,16 @@ function renderStatus() {
     tr.style.cursor = "pointer";
     tr.innerHTML = `
       <td class="right">
-        <button class="btn" data-action="toggle-condo" data-id="${condoId}">
-          ${expanded ? "Fechar" : "Ver reservatórios"}
+        <button class="btn btn-sm" data-action="toggle-condo" data-id="${condoId}">
+          ${expanded ? "Fechar" : "Ver"}
         </button>
+        ${_isMaster ? `
+        <button class="btn btn-sm" data-action="editar-condominio" data-id="${condoId}" style="margin-left:4px;">
+          Editar
+        </button>
+        <button class="btn btn-sm btnDanger" data-action="excluir-condominio" data-id="${condoId}" data-nome="${(c.nome || "").replaceAll('"', "&quot;")}" style="margin-left:4px;">
+          Excluir
+        </button>` : ""}
       </td>
 
       <td>${c.nome || "-"}</td>
@@ -506,6 +523,7 @@ function renderStatus() {
                   <th>Min s/ atualizar</th>
                   <th>Offline</th>
                   <th>Alertas</th>
+                  <th>Ações</th>
                 </tr>
               </thead>
               <tbody>
@@ -528,11 +546,13 @@ function renderStatus() {
                       <td>${u ? (u.bomba_ligada ? badge("LIGADA","warn") : badge("DESLIGADA","ok")) : "-"}</td>
                       <td>${min}</td>
                       <td>${offline ? badge("SIM", "bad") : badge("NÃO", "ok")}</td>
+                      <td><span class="pillCount">${alertas}</span></td>
                       <td>
-                        <span class="pillCount">${alertas}</span>
-                        <button class="btn btn-sm" style="margin-left:8px;" data-action="regen-res-key" data-id="${r.id}">
-                          Regenerar Key
-                        </button>
+                        ${_isMaster ? `
+                        <button class="btn btn-sm" data-action="editar-reservatorio" data-id="${r.id}">Editar</button>
+                        <button class="btn btn-sm" style="margin-left:4px;" data-action="regen-res-key" data-id="${r.id}">Key</button>
+                        <button class="btn btn-sm btnDanger" style="margin-left:4px;" data-action="excluir-reservatorio" data-id="${r.id}" data-nome="${(r.nome || "").replaceAll('"', "&quot;")}">Excluir</button>
+                        ` : ""}
                       </td>
                     </tr>
                   `;
@@ -646,6 +666,16 @@ async function criarReservatorio() {
   // opcional: atualizar tudo
   carregarTudo();
 }
+
+function getMyRole() {
+  try {
+    const token = localStorage.getItem("token");
+    if (!token) return null;
+    return JSON.parse(atob(token.split(".")[1])).role;
+  } catch { return null; }
+}
+const _myRole = getMyRole();
+const _isMaster = _myRole === "admin";
 
 document.addEventListener("DOMContentLoaded", () => {
   const f = document.getElementById("filtroTexto");
@@ -890,7 +920,6 @@ function abrirModalEditar(id) {
       document.getElementById("editId").value = c.id;
 
       document.getElementById("editNome").value = c.nome || "";
-      document.getElementById("editDevice").value = c.device_id || "";
 
       document.getElementById("editEndereco").value = c.endereco || "";
       document.getElementById("editBairro").value = c.bairro || "";
@@ -904,7 +933,7 @@ function abrirModalEditar(id) {
       document.getElementById("editAtivo").checked = (c.ativo !== false);
 
       msg.textContent = "";
-      sub.textContent = `${c.nome || "Condomínio"} • ${c.device_id || ""} • ID: ${c.id}`;
+      sub.textContent = `${c.nome || "Condomínio"} • ID: ${c.id}`;
     })
     .catch((e) => {
       msg.textContent = "Erro: " + e.message;
@@ -937,7 +966,6 @@ async function salvarEdicao(event) {
   // Monta payload (aqui enviamos tudo; vazio vira null -> limpa)
   const payload = {
     nome: (document.getElementById("editNome").value || "").trim(),
-    device_id: (document.getElementById("editDevice").value || "").trim(),
     endereco: _valOrNull("editEndereco"),
     bairro: _valOrNull("editBairro"),
     cidade: _valOrNull("editCidade"),
@@ -948,8 +976,8 @@ async function salvarEdicao(event) {
     ativo: document.getElementById("editAtivo").checked
   };
 
-  if (!payload.nome || !payload.device_id) {
-    msg.textContent = "Nome e Device ID são obrigatórios.";
+  if (!payload.nome) {
+    msg.textContent = "Nome é obrigatório.";
     return;
   }
 
@@ -1001,44 +1029,111 @@ async function salvarEdicao(event) {
   carregarTudo(); // atualiza painel
 }
 
-async function regenerarDeviceKey() {
-  const id = Number(document.getElementById("editId").value);
-  const msg = document.getElementById("editMsg");
+// ===== EXCLUIR CONDOMÍNIO =====
+async function excluirCondominio(id, nome) {
+  if (!confirm(`Excluir "${nome}"?\n\nTodos os reservatórios vinculados serão desativados.`)) return;
 
-  if (!id) {
-    msg.textContent = "ID inválido.";
+  const r = await fetch(`/condominios/${id}`, { method: "DELETE", headers: authHeaders() });
+  const data = await r.json().catch(() => ({}));
+
+  if (!r.ok) {
+    alert(data.error || `Erro ao excluir (${r.status})`);
     return;
   }
 
-  if (!confirm("Tem certeza que deseja regenerar a Device Key? O ESP antigo vai parar de enviar telemetria.")) {
+  carregarTudo();
+}
+
+// ===== EXCLUIR RESERVATÓRIO =====
+async function excluirReservatorio(id, nome) {
+  if (!confirm(`Excluir reservatório "${nome}"?`)) return;
+
+  const r = await fetch(`/reservatorios/${id}`, { method: "DELETE", headers: authHeaders() });
+  const data = await r.json().catch(() => ({}));
+
+  if (!r.ok) {
+    alert(data.error || `Erro ao excluir (${r.status})`);
     return;
   }
+
+  carregarTudo();
+}
+
+// ===== MODAL EDITAR RESERVATÓRIO =====
+function abrirModalEditarReservatorio(id) {
+  if (!id) return;
+
+  const overlay = document.getElementById("editResOverlay");
+  const msg = document.getElementById("editResMsg");
+  const sub = document.getElementById("editResSub");
+
+  msg.textContent = "Carregando...";
+  sub.textContent = `ID: ${id}`;
+  overlay.style.display = "flex";
+
+  fetch(`/reservatorios/${id}`, { headers: authHeaders() })
+    .then(async r => {
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data.error || `Erro ${r.status}`);
+      return data;
+    })
+    .then(res => {
+      document.getElementById("editResId").value = res.id;
+      document.getElementById("editResNome").value = res.nome || "";
+      document.getElementById("editResTipo").value = res.tipo || "outro";
+      document.getElementById("editResAtivo").checked = res.ativo !== false;
+      msg.textContent = "";
+      sub.textContent = `${res.nome || "Reservatório"} • ${res.device_id || ""} • ID: ${res.id}`;
+    })
+    .catch(e => { msg.textContent = "Erro: " + e.message; });
+}
+
+function fecharModalEditarReservatorio() {
+  document.getElementById("editResOverlay").style.display = "none";
+  document.getElementById("editResMsg").textContent = "";
+}
+
+async function salvarEdicaoReservatorio(event) {
+  event.preventDefault();
+
+  const id = Number(document.getElementById("editResId").value);
+  const msg = document.getElementById("editResMsg");
+  msg.textContent = "";
+
+  if (!id) { msg.textContent = "ID inválido."; return; }
+
+  const payload = {
+    nome: (document.getElementById("editResNome").value || "").trim(),
+    tipo: document.getElementById("editResTipo").value,
+    ativo: document.getElementById("editResAtivo").checked,
+  };
+
+  if (!payload.nome) { msg.textContent = "Nome é obrigatório."; return; }
 
   try {
-    msg.textContent = "Regenerando device key...";
+    msg.textContent = "Salvando...";
 
-    const r = await fetch(`/condominios/${id}/regenerar-device-key`, {
-      method: "POST",
-      headers: authHeaders()
+    const r = await fetch(`/reservatorios/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      body: JSON.stringify(payload),
     });
 
     const data = await r.json().catch(() => ({}));
 
     if (!r.ok) {
-      msg.textContent = data.error || ("Erro (" + r.status + ")");
+      msg.textContent = data.error || `Erro ao salvar (${r.status})`;
       return;
     }
 
-    msg.textContent = "✅ Device Key regenerada com sucesso!";
-    // se você mostrar a key no modal, aqui dá pra atualizar o campo/label também
+    msg.textContent = "✅ Salvo com sucesso!";
     await carregarTudo();
+    setTimeout(fecharModalEditarReservatorio, 400);
 
   } catch (e) {
     msg.textContent = "Erro: " + e.message;
   }
 }
-
-
 
 // Fechar modal editar clicando fora
 document.addEventListener("click", (e) => {
@@ -1046,9 +1141,17 @@ document.addEventListener("click", (e) => {
   if (ov && ov.style.display !== "none" && e.target === ov) fecharModalEditar();
 });
 
-// ESC fecha modal editar
+document.addEventListener("click", (e) => {
+  const ov = document.getElementById("editResOverlay");
+  if (ov && ov.style.display !== "none" && e.target === ov) fecharModalEditarReservatorio();
+});
+
+// ESC fecha modais
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape") fecharModalEditar();
+  if (e.key === "Escape") {
+    fecharModalEditar();
+    fecharModalEditarReservatorio();
+  }
 });
 
 
@@ -1074,6 +1177,16 @@ document.addEventListener("DOMContentLoaded", () => {
   // Começa fechada por padrão; abre se o usuário havia deixado aberta
   _applySidebar(localStorage.getItem("sidebarCollapsed") !== "false");
 
+  // Esconde seção Cadastros para admin_viewer
+  if (!_isMaster) {
+    document.querySelectorAll('[data-section="cadastros"]').forEach(el => el.style.display = "none");
+  }
+  // Mostra card de criar admin_viewer apenas para master admin
+  if (_isMaster) {
+    const cardAV = document.getElementById("cardCriarAdminViewer");
+    if (cardAV) cardAV.style.display = "";
+  }
+
   function _onToggle() {
     const next = !_sidebar.classList.contains("collapsed");
     _applySidebar(next);
@@ -1092,11 +1205,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
   document.getElementById("btnCadastrarCondominio")?.addEventListener("click", criarCondominio);
   document.getElementById("btnCriarCliente")?.addEventListener("click", criarCliente);
+  document.getElementById("btnCriarAdminViewer")?.addEventListener("click", criarAdminViewer);
 
   document.getElementById("btnFecharModal")?.addEventListener("click", fecharModal);
   document.getElementById("btnFecharModalEditar")?.addEventListener("click", fecharModalEditar);
   document.getElementById("btnCancelarEdicao")?.addEventListener("click", fecharModalEditar);
-  document.getElementById("btnRegenerarDeviceKey")?.addEventListener("click", regenerarDeviceKey);
+
+  document.getElementById("btnFecharModalEditarRes")?.addEventListener("click", fecharModalEditarReservatorio);
+  document.getElementById("btnCancelarEdicaoRes")?.addEventListener("click", fecharModalEditarReservatorio);
+  document.getElementById("editResForm")?.addEventListener("submit", salvarEdicaoReservatorio);
 
   document.getElementById("btnCadastrarReservatorio")
     ?.addEventListener("click", criarReservatorio);
@@ -1135,6 +1252,26 @@ document.addEventListener("DOMContentLoaded", () => {
     if (action === "regen-res-key") {
       const id = Number(btn.dataset.id);
       if (id) regenerarDeviceKeyReservatorio(id);
+      return;
+    }
+
+    if (action === "editar-reservatorio") {
+      const id = Number(btn.dataset.id);
+      if (id) abrirModalEditarReservatorio(id);
+      return;
+    }
+
+    if (action === "excluir-reservatorio") {
+      const id = Number(btn.dataset.id);
+      const nome = btn.dataset.nome || "";
+      if (id) excluirReservatorio(id, nome);
+      return;
+    }
+
+    if (action === "excluir-condominio") {
+      const id = Number(btn.dataset.id);
+      const nome = btn.dataset.nome || "";
+      if (id) excluirCondominio(id, nome);
       return;
     }
 

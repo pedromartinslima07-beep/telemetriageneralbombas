@@ -3,11 +3,12 @@ const express = require("express");
 const { pool } = require("../db");
 const { authRequired } = require("../middleware/authRequired");
 const { adminOnly } = require("../middleware/adminOnly");
+const { masterAdminOnly } = require("../middleware/masterAdminOnly");
 
 const router = express.Router();
 
 // POST /condominios (criar)
-router.post("/", authRequired, adminOnly, async (req, res) => {
+router.post("/", authRequired, masterAdminOnly, async (req, res) => {
   const {
     nome, endereco, bairro, cidade, uf,
     responsavel, telefone, observacoes, ativo
@@ -98,7 +99,7 @@ router.get("/:id", authRequired, adminOnly, async (req, res) => {
 });
 
 // PATCH /condominios/:id (editar)
-router.patch("/:id", authRequired, adminOnly, async (req, res) => {
+router.patch("/:id", authRequired, masterAdminOnly, async (req, res) => {
   const idNum = Number(req.params.id);
   if (!Number.isInteger(idNum) || idNum <= 0) {
     return res.status(400).json({ error: "id inválido" });
@@ -161,6 +162,36 @@ router.patch("/:id", authRequired, adminOnly, async (req, res) => {
       return res.status(409).json({ error: "Conflito: valor já cadastrado" });
     }
     return res.status(500).json({ error: "Erro ao atualizar condomínio" });
+  }
+});
+
+// DELETE /condominios/:id  (soft delete + cascata nos reservatórios)
+router.delete("/:id", authRequired, masterAdminOnly, async (req, res) => {
+  const idNum = Number(req.params.id);
+  if (!Number.isInteger(idNum) || idNum <= 0) {
+    return res.status(400).json({ error: "id inválido" });
+  }
+
+  try {
+    const result = await pool.query(
+      `UPDATE condominios SET ativo = false WHERE id = $1 RETURNING id`,
+      [idNum]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Condomínio não encontrado" });
+    }
+
+    // desativa todos os reservatórios do condomínio
+    await pool.query(
+      `UPDATE reservatorios SET ativo = false WHERE condominio_id = $1`,
+      [idNum]
+    );
+
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error("Erro ao excluir condomínio:", e);
+    return res.status(500).json({ error: "Erro ao excluir condomínio" });
   }
 });
 

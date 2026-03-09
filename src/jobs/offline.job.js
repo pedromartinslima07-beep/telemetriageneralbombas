@@ -1,9 +1,10 @@
 // src/jobs/offline.job.js
 const { pool } = require("../db");
 const { upsertAlertaAberto } = require("../services/alertas.service");
+const { OFFLINE_MINUTES } = require("../config");
 
 async function jobVerificarOffline() {
-  const limiteMinutos = Number(process.env.OFFLINE_MINUTES || 10);
+  const limiteMinutos = OFFLINE_MINUTES;
 
   // 1 query: usa last_seen (atualizado em toda telemetria, mesmo sem gravar leitura)
   const res = await pool.query(

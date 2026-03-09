@@ -5,6 +5,7 @@ const { pool } = require("../db");
 
 const { authRequired } = require("../middleware/authRequired");
 const { clienteOnly } = require("../middleware/clienteOnly");
+const { OFFLINE_MINUTES } = require("../config");
 
 const router = express.Router();
 
@@ -33,7 +34,7 @@ router.get("/status", authRequired, clienteOnly, async (req, res) => {
     const condominio = condominioResult.rows[0];
 
     // 2) Reservatórios + última leitura + offline + contagem de alertas
-    const limiteMinutos = Number(process.env.OFFLINE_MINUTES || 10);
+    const limiteMinutos = OFFLINE_MINUTES;
 
     const reservsRes = await pool.query(
       `
@@ -77,7 +78,7 @@ router.get("/status", authRequired, clienteOnly, async (req, res) => {
         WHERE device_id = r.device_id AND status = 'aberto'
       ) a ON true
 
-      WHERE r.condominio_id = $1
+      WHERE r.condominio_id = $1 AND r.ativo = true
       ORDER BY r.id ASC
       `,
       [condominioId, limiteMinutos]

@@ -117,19 +117,10 @@ function setStatusMsg(msg) {
 
 function resumoCard(titulo, valorHtml, sub) {
   return `
-    <div style="
-      border:1px solid rgba(43,43,71,.7);
-      background: rgba(255,255,255,.03);
-      border-radius: 14px;
-      padding: 12px 12px;
-    ">
-      <div style="color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .3px;">
-        ${titulo}
-      </div>
-      <div style="margin-top: 8px; font-weight: 900; font-size: 16px;">
-        ${valorHtml}
-      </div>
-      ${sub ? `<div style="margin-top:6px; color: var(--muted); font-size: 12px;">${sub}</div>` : ""}
+    <div class="rc rc-neutral rc-static">
+      <div class="rc-label">${titulo}</div>
+      <div class="rc-value" style="font-size:22px;">${valorHtml}</div>
+      ${sub ? `<div class="rc-sub">${sub}</div>` : ""}
     </div>
   `;
 }
@@ -216,14 +207,9 @@ function populateHistSelect() {
 
 function histResumoCard(titulo, valor, cor) {
   return `
-    <div style="
-      border:1px solid rgba(43,43,71,.7);
-      background:rgba(255,255,255,.03);
-      border-radius:14px;
-      padding:12px;
-    ">
-      <div style="color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.3px;">${titulo}</div>
-      <div style="margin-top:8px;font-weight:900;font-size:22px;color:${cor || "var(--accent)"};">${valor}</div>
+    <div class="rc rc-neutral rc-static">
+      <div class="rc-label">${titulo}</div>
+      <div class="rc-value" style="font-size:24px; color:${cor || "var(--accent)"};">${valor}</div>
     </div>`;
 }
 
