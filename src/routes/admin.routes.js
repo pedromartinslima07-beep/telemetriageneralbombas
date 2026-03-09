@@ -4,13 +4,14 @@ const { pool } = require("../db");
 
 const { authRequired } = require("../middleware/authRequired");
 const { adminOnly } = require("../middleware/adminOnly");
+const { OFFLINE_MINUTES } = require("../config");
 
 const router = express.Router();
 
 // GET /admin/status  (AGRUPADO POR CONDOMÍNIO -> LISTA RESERVATÓRIOS)
 router.get("/status", authRequired, adminOnly, async (req, res) => {
   try {
-    const limiteMinutos = Number(process.env.OFFLINE_MINUTES || 10);
+    const limiteMinutos = OFFLINE_MINUTES;
     const agora = new Date();
 
     // 1 query: condomínios + reservatórios + última leitura + count alertas abertos
@@ -32,7 +33,7 @@ router.get("/status", authRequired, adminOnly, async (req, res) => {
 
       FROM condominios c
       LEFT JOIN reservatorios r
-        ON r.condominio_id = c.id
+        ON r.condominio_id = c.id AND r.ativo = true
 
       LEFT JOIN LATERAL (
         SELECT nivel, bomba_ligada, criado_em

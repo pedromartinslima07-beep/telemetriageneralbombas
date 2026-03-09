@@ -7,6 +7,7 @@ const { pool } = require("../db");
 
 const { authRequired } = require("../middleware/authRequired");
 const { adminOnly } = require("../middleware/adminOnly");
+const { masterAdminOnly } = require("../middleware/masterAdminOnly");
 const { clienteOnly } = require("../middleware/clienteOnly"); // se você tiver separado; se não tiver, eu te digo abaixo
 
 const router = express.Router();
@@ -26,15 +27,15 @@ const JWT_EXPIRES_IN = "7d";
  * POST /auth/registrar  (admin only)
  * Body: { nome, email, senha, role, condominio_id }
  */
-router.post("/registrar", authRequired, adminOnly, async (req, res) => {
+router.post("/registrar", authRequired, masterAdminOnly, async (req, res) => {
   const { nome, email, senha, role, condominio_id } = req.body || {};
 
   if (!nome || !email || !senha || !role) {
     return res.status(400).json({ error: "Campos: nome, email, senha, role" });
   }
 
-  if (!["admin", "cliente"].includes(role)) {
-    return res.status(400).json({ error: "role deve ser 'admin' ou 'cliente'" });
+  if (!["admin", "admin_viewer", "cliente"].includes(role)) {
+    return res.status(400).json({ error: "role deve ser 'admin', 'admin_viewer' ou 'cliente'" });
   }
 
   if (role === "cliente" && !condominio_id) {
@@ -70,8 +71,11 @@ router.post("/registrar", authRequired, adminOnly, async (req, res) => {
 
     return res.status(201).json(result.rows[0]);
   } catch (error) {
+    if (error?.code === "23505") {
+      return res.status(409).json({ error: "Email já cadastrado" });
+    }
     console.error("Erro /auth/registrar:", error);
-    return res.status(500).json({ error: "Erro ao registrar (email pode já existir)" });
+    return res.status(500).json({ error: "Erro ao registrar" });
   }
 });
 
