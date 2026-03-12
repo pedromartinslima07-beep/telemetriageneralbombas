@@ -485,8 +485,8 @@ function renderStatus() {
         <button class="btn btn-sm" data-action="editar-condominio" data-id="${condoId}" style="margin-left:4px;">
           Editar
         </button>
-        <button class="btn btn-sm btnDanger" data-action="excluir-condominio" data-id="${condoId}" data-nome="${(c.nome || "").replaceAll('"', "&quot;")}" style="margin-left:4px;">
-          Excluir
+        <button class="btn btn-sm" data-action="inativar-condominio" data-id="${condoId}" data-nome="${(c.nome || "").replaceAll('"', "&quot;")}" style="margin-left:4px;">
+          Inativar
         </button>` : ""}
       </td>
 
@@ -1029,20 +1029,84 @@ async function salvarEdicao(event) {
   carregarTudo(); // atualiza painel
 }
 
-// ===== EXCLUIR CONDOMÍNIO =====
-async function excluirCondominio(id, nome) {
-  if (!confirm(`Excluir "${nome}"?\n\nTodos os reservatórios vinculados serão desativados.`)) return;
+// ===== INATIVAR CONDOMÍNIO (soft delete) =====
+async function inativarCondominio(id, nome) {
+  if (!confirm(`Inativar "${nome}"?\n\nO condomínio e seus reservatórios serão desativados, mas os dados serão mantidos.`)) return;
 
   const r = await fetch(`/condominios/${id}`, { method: "DELETE", headers: authHeaders() });
   const data = await r.json().catch(() => ({}));
 
   if (!r.ok) {
-    alert(data.error || `Erro ao excluir (${r.status})`);
+    alert(data.error || `Erro ao inativar (${r.status})`);
     return;
   }
 
   carregarTudo();
 }
+
+// ===== EXCLUIR CONDOMÍNIO (hard delete com confirmação de senha) =====
+let _hardDeleteId = null;
+
+function excluirCondominio(id, nome) {
+  _hardDeleteId = id;
+  document.getElementById("hardDeleteMsg").textContent =
+    `Você está prestes a excluir permanentemente o condomínio "${nome}" e todos os dados relacionados.`;
+  document.getElementById("hardDeleteSenha").value = "";
+  document.getElementById("hardDeleteErr").style.display = "none";
+  document.getElementById("hardDeleteOverlay").style.display = "flex";
+  setTimeout(() => document.getElementById("hardDeleteSenha").focus(), 80);
+}
+
+async function confirmarHardDelete() {
+  const senha = document.getElementById("hardDeleteSenha").value;
+  const errEl = document.getElementById("hardDeleteErr");
+  errEl.style.display = "none";
+
+  if (!senha) {
+    errEl.textContent = "Digite sua senha para confirmar.";
+    errEl.style.display = "block";
+    return;
+  }
+
+  const btn = document.getElementById("btnConfirmarHardDelete");
+  btn.disabled = true;
+  btn.textContent = "Excluindo…";
+
+  const r = await fetch(`/condominios/${_hardDeleteId}/hard`, {
+    method: "DELETE",
+    headers: { ...authHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify({ senha }),
+  });
+  const data = await r.json().catch(() => ({}));
+
+  btn.disabled = false;
+  btn.textContent = "Excluir permanentemente";
+
+  if (!r.ok) {
+    errEl.textContent = data.error || `Erro (${r.status})`;
+    errEl.style.display = "block";
+    return;
+  }
+
+  document.getElementById("hardDeleteOverlay").style.display = "none";
+  _hardDeleteId = null;
+  carregarTudo();
+}
+
+function fecharHardDelete() {
+  document.getElementById("hardDeleteOverlay").style.display = "none";
+  _hardDeleteId = null;
+}
+
+document.getElementById("btnConfirmarHardDelete").addEventListener("click", confirmarHardDelete);
+document.getElementById("hardDeleteSenha").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") confirmarHardDelete();
+});
+document.getElementById("btnFecharHardDelete").addEventListener("click", fecharHardDelete);
+document.getElementById("btnCancelarHardDelete").addEventListener("click", fecharHardDelete);
+document.getElementById("hardDeleteOverlay").addEventListener("click", (e) => {
+  if (e.target === document.getElementById("hardDeleteOverlay")) fecharHardDelete();
+});
 
 // ===== EXCLUIR RESERVATÓRIO =====
 async function excluirReservatorio(id, nome) {
@@ -1210,6 +1274,13 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("btnFecharModal")?.addEventListener("click", fecharModal);
   document.getElementById("btnFecharModalEditar")?.addEventListener("click", fecharModalEditar);
   document.getElementById("btnCancelarEdicao")?.addEventListener("click", fecharModalEditar);
+  document.getElementById("btnHardDeleteNoEdit")?.addEventListener("click", () => {
+    const id = Number(document.getElementById("editId").value);
+    const nome = document.getElementById("editNome").value || "este condomínio";
+    if (!id) return;
+    fecharModalEditar();
+    excluirCondominio(id, nome);
+  });
 
   document.getElementById("btnFecharModalEditarRes")?.addEventListener("click", fecharModalEditarReservatorio);
   document.getElementById("btnCancelarEdicaoRes")?.addEventListener("click", fecharModalEditarReservatorio);
@@ -1268,10 +1339,10 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    if (action === "excluir-condominio") {
+    if (action === "inativar-condominio") {
       const id = Number(btn.dataset.id);
       const nome = btn.dataset.nome || "";
-      if (id) excluirCondominio(id, nome);
+      if (id) inativarCondominio(id, nome);
       return;
     }
 

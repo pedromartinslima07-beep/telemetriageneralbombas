@@ -16,6 +16,7 @@ const { leiturasRouter } = require("./routes/leituras.routes");
 const { statusRouter } = require("./routes/status.routes");
 const { jobsRouter } = require("./routes/jobs.routes");
 const { reservatoriosRouter } = require("./routes/reservatorios.routes");
+const { relatorioRouter } = require("./routes/relatorio.routes");
 const { startOfflineScheduler } = require("./jobs/offline.job");
 
 
@@ -63,6 +64,7 @@ app.use("/telemetria", telemetriaRouter);
 app.use("/reservatorios", reservatoriosRouter);
 
 app.use("/cliente", clienteRouter);
+app.use("/relatorio", relatorioRouter);
 app.use("/admin", adminRouter);
 app.use(leiturasRouter); // ex: /ultima-leitura/:device_id
 app.use("/status", statusRouter);
