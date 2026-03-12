@@ -286,17 +286,41 @@ async function carregarHistorico() {
       type: "line",
       data: {
         labels,
-        datasets: [{
-          label: "Nível (%)",
-          data: values,
-          borderColor: "#f0b014",
-          backgroundColor: gradient,
-          borderWidth: 2,
-          pointRadius: values.length > 60 ? 0 : 3,
-          pointHoverRadius: 5,
-          tension: 0.35,
-          fill: true,
-        }],
+        datasets: [
+          {
+            label: "Nível (%)",
+            data: values,
+            borderColor: "#f0b014",
+            backgroundColor: gradient,
+            borderWidth: 2.5,
+            pointRadius: values.length > 60 ? 0 : 4,
+            pointHoverRadius: 6,
+            pointBackgroundColor: "#f0b014",
+            tension: 0.35,
+            fill: true,
+            order: 0,
+          },
+          {
+            label: "Atenção (45%)",
+            data: labels.map(() => 45),
+            borderColor: "#D97706",
+            borderDash: [6, 4],
+            borderWidth: 1.5,
+            pointRadius: 0,
+            fill: false,
+            order: 1,
+          },
+          {
+            label: "Crítico (20%)",
+            data: labels.map(() => 20),
+            borderColor: "#ef4444",
+            borderDash: [6, 4],
+            borderWidth: 1.5,
+            pointRadius: 0,
+            fill: false,
+            order: 1,
+          },
+        ],
       },
       options: {
         responsive: true,
@@ -318,13 +342,25 @@ async function carregarHistorico() {
           },
         },
         plugins: {
-          legend: { display: false },
+          legend: {
+            display: true,
+            position: "top",
+            align: "end",
+            labels: {
+              color: "#a0a3bf",
+              boxWidth: 24,
+              boxHeight: 3,
+              padding: 14,
+              font: { size: 11 },
+            },
+          },
           tooltip: {
             backgroundColor: "#181b33",
             titleColor: "#e1e3ef",
             bodyColor: "#a0a3bf",
             borderColor: "rgba(255,255,255,.08)",
             borderWidth: 1,
+            filter: (item) => item.datasetIndex === 0,
             callbacks: {
               label: (ctx) => ` Nível: ${ctx.parsed.y}%`,
             },
@@ -489,6 +525,39 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   document.getElementById("btnAtualizarCliente")?.addEventListener("click", carregar);
+
+  document.getElementById("btnExportarPDF")?.addEventListener("click", async () => {
+    const sel = document.getElementById("histReservatorio");
+    if (!sel || !sel.value) return;
+    const btn = document.getElementById("btnExportarPDF");
+    const origHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.textContent = "Gerando PDF...";
+    try {
+      const url = `/relatorio/pdf?device_id=${encodeURIComponent(sel.value)}&dias=${_histDias}`;
+      const r = await fetch(url, { headers: authHeaders() });
+      if (!r.ok) {
+        const txt = await r.text().catch(() => "");
+        alert("Erro ao gerar PDF: " + txt);
+        return;
+      }
+      const blob = await r.blob();
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      const cd = r.headers.get("Content-Disposition") || "";
+      const match = cd.match(/filename="?([^"]+)"?/);
+      a.download = match ? match[1] : "relatorio.pdf";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(a.href);
+    } catch (e) {
+      alert("Erro ao gerar PDF: " + e.message);
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = origHtml;
+    }
+  });
   document.getElementById("btnAbrirSenha")?.addEventListener("click", abrirModalSenha);
   document.getElementById("btnSairCliente")?.addEventListener("click", logout);
 

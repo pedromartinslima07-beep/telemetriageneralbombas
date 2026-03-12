@@ -1,4 +1,5 @@
 const express = require("express");
+const bcrypt = require("bcrypt");
 
 const { pool } = require("../db");
 const { authRequired } = require("../middleware/authRequired");
@@ -192,6 +193,75 @@ router.delete("/:id", authRequired, masterAdminOnly, async (req, res) => {
   } catch (e) {
     console.error("Erro ao excluir condomínio:", e);
     return res.status(500).json({ error: "Erro ao excluir condomínio" });
+  }
+});
+
+// DELETE /condominios/:id/hard  (hard delete permanente — apenas master admin)
+router.delete("/:id/hard", authRequired, masterAdminOnly, async (req, res) => {
+  const idNum = Number(req.params.id);
+  if (!Number.isInteger(idNum) || idNum <= 0) {
+    return res.status(400).json({ error: "id inválido" });
+  }
+
+  const { senha } = req.body || {};
+  if (!senha) {
+    return res.status(400).json({ error: "Campo obrigatório: senha" });
+  }
+
+  // verifica senha do admin logado
+  const userRes = await pool.query(
+    "SELECT senha_hash FROM usuarios WHERE id = $1 LIMIT 1",
+    [req.user.id]
+  );
+  if (userRes.rows.length === 0) {
+    return res.status(401).json({ error: "Usuário não encontrado" });
+  }
+  const senhaOk = await bcrypt.compare(String(senha), userRes.rows[0].senha_hash);
+  if (!senhaOk) {
+    return res.status(401).json({ error: "Senha incorreta" });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    // pega os device_ids dos reservatórios deste condomínio
+    const resRes = await client.query(
+      "SELECT device_id FROM reservatorios WHERE condominio_id = $1",
+      [idNum]
+    );
+    const deviceIds = resRes.rows.map((r) => r.device_id);
+
+    if (deviceIds.length > 0) {
+      await client.query(
+        "DELETE FROM leituras WHERE device_id = ANY($1::varchar[])",
+        [deviceIds]
+      );
+      await client.query(
+        "DELETE FROM alertas WHERE device_id = ANY($1::varchar[])",
+        [deviceIds]
+      );
+    }
+
+    // ON DELETE CASCADE remove reservatorios; ON DELETE SET NULL limpa usuarios
+    const del = await client.query(
+      "DELETE FROM condominios WHERE id = $1 RETURNING id",
+      [idNum]
+    );
+
+    if (del.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "Condomínio não encontrado" });
+    }
+
+    await client.query("COMMIT");
+    return res.json({ ok: true });
+  } catch (e) {
+    await client.query("ROLLBACK");
+    console.error("Erro no hard delete:", e);
+    return res.status(500).json({ error: "Erro ao excluir permanentemente" });
+  } finally {
+    client.release();
   }
 });
 

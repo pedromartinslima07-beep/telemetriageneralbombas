@@ -423,6 +423,31 @@
   </div>
 </div>
 
+<!-- Modal: exclusão permanente de condomínio -->
+<div id="hardDeleteOverlay" class="modalOverlay" style="display:none;">
+  <div class="modalBox" style="max-width:440px;">
+    <div class="modalHead">
+      <div class="modalTitle" style="color:var(--danger);">&#9888; Exclusão permanente</div>
+      <button class="btn btn-sm" id="btnFecharHardDelete">Fechar</button>
+    </div>
+    <div class="modalBody" style="padding:20px 24px 24px;">
+      <p id="hardDeleteMsg" style="margin:0 0 16px;line-height:1.5;color:var(--text-muted);font-size:13px;"></p>
+      <p style="margin:0 0 16px;line-height:1.5;color:var(--danger);font-size:13px;font-weight:600;">
+        Esta ação apagará permanentemente o condomínio, todos os reservatórios, leituras e alertas. Não é reversível.
+      </p>
+      <label class="f" style="margin-bottom:20px;">
+        <span>Confirme sua senha de acesso</span>
+        <input type="password" id="hardDeleteSenha" placeholder="Senha" autocomplete="current-password" />
+      </label>
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button class="btn btn-sm" id="btnCancelarHardDelete">Cancelar</button>
+        <button class="btn btn-sm btnDanger" id="btnConfirmarHardDelete">Excluir permanentemente</button>
+      </div>
+      <div id="hardDeleteErr" style="margin-top:12px;font-size:12px;color:var(--danger);display:none;"></div>
+    </div>
+  </div>
+</div>
+
 <!-- Modal: editar condomínio -->
 <div id="editOverlay" class="modalOverlay" style="display:none;">
   <div class="modalBox">
@@ -454,6 +479,10 @@
         <div class="formActions" style="grid-column:1/-1;">
           <button class="btn" type="button" id="btnCancelarEdicao">Cancelar</button>
           <button class="btn btnAccent" type="submit">Salvar alterações</button>
+        </div>
+        <div style="grid-column:1/-1;margin-top:8px;padding-top:16px;border-top:1px solid var(--border);display:flex;align-items:center;gap:12px;">
+          <span style="font-size:12px;color:var(--text-muted);flex:1;">Zona de perigo — esta ação é irreversível.</span>
+          <button class="btn btn-sm btnDanger" type="button" id="btnHardDeleteNoEdit">Excluir permanentemente</button>
         </div>
       </form>
     </div>
@@ -497,6 +526,63 @@
   </div>
 </div>
 
+<!-- ===== MOBILE TOP BAR ===== -->
+<header class="mob-topbar">
+  <img src="/static/login-logo.png" class="mob-top-logo" alt="GENERAL" />
+  <span class="mob-top-title" id="topbarTitle">Dashboard</span>
+  <button class="mob-top-btn" id="mobBtnOffline" aria-label="Verificar Offline" title="Verificar Offline">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="1" y1="1" x2="23" y2="23"/>
+      <path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/>
+      <path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/>
+      <path d="M10.71 5.05A16 16 0 0 1 22.56 9"/>
+      <path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/>
+      <path d="M8.53 16.11a6 6 0 0 1 6.95 0"/>
+      <line x1="12" y1="20" x2="12.01" y2="20"/>
+    </svg>
+  </button>
+  <button class="mob-top-btn" id="mobBtnAtualizar" aria-label="Atualizar">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
+      <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+    </svg>
+  </button>
+</header>
+
+<!-- ===== MOBILE BOTTOM NAV ===== -->
+<nav class="mob-nav">
+  <button class="mob-nav-item active" data-mob-section="dashboard">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/>
+      <rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>
+    </svg>
+    <span>Dashboard</span>
+  </button>
+  <button class="mob-nav-item" data-mob-section="alertas">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+      <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+    </svg>
+    <span>Alertas</span>
+    <span class="mob-nav-badge" id="mobBadgeAlertas"></span>
+  </button>
+  <button class="mob-nav-item" data-mob-section="cadastros">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+      <polyline points="9 22 9 12 15 12 15 22"/>
+    </svg>
+    <span>Cadastros</span>
+  </button>
+  <button class="mob-nav-item" id="mobBtnSair">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+      <polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+    </svg>
+    <span>Sair</span>
+  </button>
+</nav>
+
 <script src="/static/admin.js" defer></script>
+<script src="/static/mob-sidebar.js" defer></script>
 </body>
 </html>
