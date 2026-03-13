@@ -1,7 +1,4 @@
 (function () {
-  // Só executa em mobile
-  if (window.innerWidth > 768) return;
-
   // ── Navegação pelo bottom nav ──
   var mobItems = document.querySelectorAll('.mob-nav-item[data-mob-section]');
 
@@ -9,10 +6,8 @@
     btn.addEventListener('click', function () {
       var section = btn.dataset.mobSection;
 
-      // Chama showSection definido em admin.js / cliente.js
       if (typeof showSection === 'function') showSection(section);
 
-      // Atualiza active no bottom nav
       mobItems.forEach(function (b) { b.classList.remove('active'); });
       btn.classList.add('active');
     });
@@ -26,7 +21,6 @@
                     document.getElementById('btnAtualizarCliente');
       if (desktop) desktop.click();
 
-      // Animação de rotação no ícone
       var svg = mobRefresh.querySelector('svg');
       if (svg) {
         svg.style.transition = 'transform .6s ease';
@@ -80,9 +74,7 @@
     syncBadge();
   }
 
-  // ── Sincroniza título do topbar com a seção ativa ──
-  // O admin.js/cliente.js já atualiza #topbarTitle via showSection(),
-  // então basta garantir que o título inicial está correto
+  // ── Título inicial do topbar ──
   var activeItem = document.querySelector('.mob-nav-item.active[data-mob-section]');
   if (activeItem) {
     var titles = { dashboard: 'Dashboard', alertas: 'Alertas', cadastros: 'Cadastros', historico: 'Histórico' };
