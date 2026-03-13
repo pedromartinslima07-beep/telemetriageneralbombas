@@ -215,7 +215,7 @@ CREATE TABLE public.usuarios (
     role text NOT NULL,
     condominio_id integer,
     criado_em timestamp with time zone DEFAULT now(),
-    CONSTRAINT usuarios_role_check CHECK ((role = ANY (ARRAY['admin'::text, 'cliente'::text])))
+    CONSTRAINT usuarios_role_check CHECK ((role = ANY (ARRAY['admin'::text, 'admin_viewer'::text, 'cliente'::text])))
 );
 
 
@@ -394,6 +394,28 @@ ALTER TABLE ONLY public.usuarios
 
 
 -- Completed on 2026-03-02 02:28:20
+
+-- Tabelas adicionadas via migrations após dump inicial
+
+CREATE TABLE IF NOT EXISTS public.login_codes (
+    id         SERIAL PRIMARY KEY,
+    usuario_id INT NOT NULL REFERENCES public.usuarios(id) ON DELETE CASCADE,
+    code       CHAR(6) NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL,
+    used       BOOLEAN NOT NULL DEFAULT FALSE,
+    criado_em  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_login_codes_usuario ON public.login_codes (usuario_id);
+
+CREATE TABLE IF NOT EXISTS public.trusted_devices (
+    id         SERIAL PRIMARY KEY,
+    usuario_id INT NOT NULL REFERENCES public.usuarios(id) ON DELETE CASCADE,
+    token      TEXT NOT NULL UNIQUE,
+    expires_at TIMESTAMPTZ NOT NULL,
+    criado_em  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_trusted_devices_token   ON public.trusted_devices (token);
+CREATE INDEX IF NOT EXISTS idx_trusted_devices_usuario ON public.trusted_devices (usuario_id);
 
 --
 -- PostgreSQL database dump complete

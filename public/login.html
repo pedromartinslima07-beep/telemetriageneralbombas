@@ -33,6 +33,20 @@
       <button type="submit" class="login-btn">Entrar</button>
     </form>
 
+    <div id="otpStep" style="display:none">
+      <p class="otp-info">Enviamos um código de 6 dígitos para o seu email.<br>Verifique sua caixa de entrada.</p>
+      <div class="login-field">
+        <label for="otpCode">Código de verificação</label>
+        <input type="text" id="otpCode" placeholder="000000" maxlength="6" inputmode="numeric" autocomplete="one-time-code" />
+      </div>
+      <label class="otp-trust-label">
+        <input type="checkbox" id="otpConfiar" />
+        Confiar neste dispositivo por 30 dias
+      </label>
+      <button type="button" id="otpBtn" class="login-btn">Verificar</button>
+      <button type="button" id="otpBack" class="login-btn-secondary">Voltar</button>
+    </div>
+
     <p id="erroMsg" class="erro"></p>
 
     <div class="login-footer">

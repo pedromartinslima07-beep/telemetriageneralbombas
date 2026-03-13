@@ -3,6 +3,7 @@ const helmet = require("helmet");
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
+const cookieParser = require("cookie-parser");
 
 const { authRouter } = require("./routes/auth.routes");
 const { alertasRouter } = require("./routes/alertas.routes");
@@ -30,11 +31,7 @@ const app = express();
 // qnd for usar Render/NGINX/Cloudflare, isso ajuda o rate limit a pegar o IP certo
 app.set("trust proxy", 1);
 
-app.use(
-  helmet({
-    
-  })
-);
+app.use(helmet());
 
 const corsOrigins = process.env.CORS_ORIGINS
   ? process.env.CORS_ORIGINS.split(",").map((o) => o.trim())
@@ -42,10 +39,14 @@ const corsOrigins = process.env.CORS_ORIGINS
 
 app.use(cors({ origin: corsOrigins }));
 app.use(express.json());
+app.use(cookieParser());
 app.use("/static", express.static("public"));
 
+// health check para monitoramento e balanceadores de carga
+app.get("/health", (req, res) => res.json({ status: "ok" }));
+
 // páginas
-app.get("/", (req, res) => res.send("Servidor rodando 🚀"));
+app.get("/", (req, res) => res.redirect("/login"));
 app.get("/login", (req, res) =>
   res.sendFile(path.join(__dirname, "../public/login.html"))
 );
