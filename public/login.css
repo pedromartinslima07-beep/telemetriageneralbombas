@@ -35,7 +35,7 @@ body::before {
   background: #111326;
   border: 1px solid rgba(255,255,255,.07);
   border-radius: 16px;
-  padding: 40px 36px 36px;
+  padding: 48px 40px 44px;
   box-shadow: 0 20px 60px rgba(0,0,0,.6);
 }
 
@@ -53,7 +53,7 @@ body::before {
 .login-logo-wrap {
   display: flex;
   justify-content: center;
-  margin-bottom: 28px;
+  margin-bottom: 36px;
 }
 
 .loginLogo {
@@ -66,7 +66,7 @@ body::before {
 /* ===== HEADER TEXT ===== */
 .login-title {
   text-align: center;
-  margin-bottom: 28px;
+  margin-bottom: 32px;
 }
 
 .login-title h1 {
@@ -77,7 +77,7 @@ body::before {
 }
 
 .login-title p {
-  margin-top: 6px;
+  margin-top: 10px;
   font-size: 13px;
   color: #60617e;
 }
@@ -157,6 +157,73 @@ body::before {
 }
 
 .erro.visible { display: block; }
+
+/* ===== OTP STEP ===== */
+#otpStep {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.otp-info {
+  font-size: 13px;
+  color: #60617e;
+  text-align: center;
+  line-height: 1.7;
+  margin-bottom: 24px;
+}
+
+#otpStep .login-field {
+  margin-bottom: 20px;
+}
+
+#otpCode {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: 10px;
+  text-align: center;
+  padding: 16px 14px;
+}
+
+.otp-trust-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: #60617e;
+  cursor: pointer;
+  margin-bottom: 24px;
+}
+
+.otp-trust-label input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: #f0b014;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+#otpBtn {
+  margin-bottom: 12px;
+}
+
+.login-btn-secondary {
+  width: 100%;
+  padding: 11px;
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 9px;
+  background: transparent;
+  color: #60617e;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color .15s, color .15s;
+}
+
+.login-btn-secondary:hover {
+  border-color: rgba(255,255,255,.2);
+  color: #9094ae;
+}
 
 /* ===== FOOTER ===== */
 .login-footer {
