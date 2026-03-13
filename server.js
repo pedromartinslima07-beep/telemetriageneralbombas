@@ -1,6 +1,4 @@
-if (process.env.NODE_ENV !== "production") {
-  require("dotenv").config();
-}
+require("dotenv").config({ path: ".env", override: false });
 
 const { app } = require("./src/app");
 const { pool } = require("./src/db");
