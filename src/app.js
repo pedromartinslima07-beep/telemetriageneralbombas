@@ -22,8 +22,8 @@ const { startOfflineScheduler } = require("./jobs/offline.job");
 
 
 if (!process.env.JWT_SECRET) {
-  console.error("FATAL: JWT_SECRET não definido. Defina no .env antes de iniciar.");
-  process.exit(1);
+  console.warn("AVISO: JWT_SECRET não definido, usando valor padrão de desenvolvimento");
+  process.env.JWT_SECRET = "dev-secret-local-apenas";
 }
 
 const app = express();

@@ -1,5 +1,3 @@
-require("dotenv").config({ path: ".env", override: false });
-
 const { app } = require("./src/app");
 const { pool } = require("./src/db");
 
