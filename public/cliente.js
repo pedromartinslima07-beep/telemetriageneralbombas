@@ -273,14 +273,24 @@ async function carregarHistorico() {
     });
     const values = leituras.map((l) => l.nivel_pct_avg);
 
-    if (_histChart) { _histChart.destroy(); _histChart = null; }
-
     const ctx = canvas.getContext("2d");
 
     // Gradient fill
     const gradient = ctx.createLinearGradient(0, 0, 0, 280);
     gradient.addColorStop(0, "rgba(240,176,20,0.35)");
     gradient.addColorStop(1, "rgba(240,176,20,0.01)");
+
+    // Atualiza gráfico existente sem destruir (evita flash)
+    if (_histChart) {
+      _histChart.data.labels = labels;
+      _histChart.data.datasets[0].data = values;
+      _histChart.data.datasets[0].backgroundColor = gradient;
+      _histChart.data.datasets[0].pointRadius = values.length > 60 ? 0 : 4;
+      _histChart.data.datasets[1].data = labels.map(() => 45);
+      _histChart.data.datasets[2].data = labels.map(() => 20);
+      _histChart.update("none");
+      return;
+    }
 
     _histChart = new Chart(ctx, {
       type: "line",
