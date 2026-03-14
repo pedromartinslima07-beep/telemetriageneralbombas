@@ -1258,7 +1258,8 @@ tbody tr:nth-child(even):hover td { background: rgba(255,255,255,.04); }
 
   /* Card head */
   .cardHead { padding: 11px 14px; }
-  .cardHead h2 { font-size: 12.5px; }
+  .cardHead h2 { font-size: 12.5px; min-width: 0; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cardHead h2 .head-icon { width: 20px; height: 20px; flex-shrink: 0; }
   .cardHead .hint { display: none; }
 
   /* Section body */
