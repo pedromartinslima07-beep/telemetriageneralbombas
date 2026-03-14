@@ -1,21 +1,12 @@
-const nodemailer = require("nodemailer");
+const { Resend } = require("resend");
 
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || "smtps.uhserver.com",
-  port: Number(process.env.SMTP_PORT) || 465,
-  secure: true,
-  authMethod: "LOGIN",
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-});
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 async function sendOTP(toEmail, code) {
-  const from = `"General Telemetria" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`;
+  const from = process.env.SMTP_FROM || "telemetria@generalbombas.com";
 
-  await transporter.sendMail({
-    from,
+  await resend.emails.send({
+    from: `General Telemetria <${from}>`,
     to: toEmail,
     subject: "Seu código de acesso — General Telemetria",
     text: [
