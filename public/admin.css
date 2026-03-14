@@ -1139,7 +1139,7 @@ tbody tr:nth-child(even):hover td { background: rgba(255,255,255,.04); }
   }
 
   .mob-top-logo {
-    height: 40px;
+    height: 44px;
     width: auto;
     flex-shrink: 0;
     object-fit: contain;
@@ -1197,7 +1197,7 @@ tbody tr:nth-child(even):hover td { background: rgba(255,255,255,.04); }
     background: transparent;
     color: var(--muted);
     cursor: pointer;
-    font-size: 13px;
+    font-size: 10px;
     font-weight: 600;
     letter-spacing: .2px;
     padding: 6px 2px;
@@ -1207,8 +1207,8 @@ tbody tr:nth-child(even):hover td { background: rgba(255,255,255,.04); }
     -webkit-tap-highlight-color: transparent;
   }
   .mob-nav-item svg {
-    width: 26px;
-    height: 26px;
+    width: 22px;
+    height: 22px;
     flex-shrink: 0;
     stroke-width: 1.75;
     transition: stroke .15s;
