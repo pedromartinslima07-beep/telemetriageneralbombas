@@ -1,3 +1,8 @@
+// Carrega .env apenas em desenvolvimento (em prod as vars vêm do ambiente)
+if (process.env.NODE_ENV !== "production") {
+  require("dotenv").config();
+}
+
 const { app } = require("./src/app");
 const { pool } = require("./src/db");
 
