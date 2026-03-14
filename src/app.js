@@ -47,6 +47,15 @@ app.use("/static", express.static("public"));
 // health check para monitoramento e balanceadores de carga
 app.get("/health", (req, res) => res.json({ status: "ok" }));
 
+// PWA — manifest e service worker precisam estar na raiz
+app.get("/manifest.json", (req, res) =>
+  res.sendFile(path.join(__dirname, "../public/manifest.json"))
+);
+app.get("/sw.js", (req, res) => {
+  res.setHeader("Service-Worker-Allowed", "/");
+  res.sendFile(path.join(__dirname, "../public/sw.js"));
+});
+
 // páginas
 app.get("/", (req, res) => res.redirect("/login"));
 app.get("/login", (req, res) =>
