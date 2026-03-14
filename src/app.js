@@ -2,6 +2,7 @@
 const helmet = require("helmet");
 const express = require("express");
 const cors = require("cors");
+const compression = require("compression");
 const path = require("path");
 const cookieParser = require("cookie-parser");
 
@@ -31,6 +32,7 @@ const app = express();
 // qnd for usar Render/NGINX/Cloudflare, isso ajuda o rate limit a pegar o IP certo
 app.set("trust proxy", 1);
 
+app.use(compression());
 app.use(helmet());
 
 const corsOrigins = process.env.CORS_ORIGINS
