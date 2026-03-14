@@ -223,8 +223,8 @@ async function carregarHistorico() {
 
   const device_id = sel.value;
   if (msg) msg.textContent = "Carregando...";
-  if (statsEl) statsEl.style.display = "none";
-  if (wrapEl) wrapEl.style.display = "none";
+  if (statsEl && !_histChart) statsEl.style.display = "none";
+  if (wrapEl && !_histChart) wrapEl.style.display = "none";
   if (semEl) semEl.style.display = "none";
 
   try {
