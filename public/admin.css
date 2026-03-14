@@ -1117,6 +1117,12 @@ tbody tr:nth-child(even):hover td { background: rgba(255,255,255,.04); }
     padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px));
   }
 
+  /* Cliente: garante padding-top mesmo com padding:0 no desktop */
+  .layout-cli .main {
+    padding-top: 70px;
+    padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px));
+  }
+
   /* ── TOP BAR ── */
   .mob-topbar {
     display: flex;
