@@ -1139,7 +1139,7 @@ tbody tr:nth-child(even):hover td { background: rgba(255,255,255,.04); }
   }
 
   .mob-top-logo {
-    height: 30px;
+    height: 40px;
     width: auto;
     flex-shrink: 0;
     object-fit: contain;
@@ -1147,7 +1147,7 @@ tbody tr:nth-child(even):hover td { background: rgba(255,255,255,.04); }
 
   .mob-top-title {
     flex: 1;
-    font-size: 14px;
+    font-size: 18px;
     font-weight: 700;
     color: var(--text);
     white-space: nowrap;
@@ -1197,7 +1197,7 @@ tbody tr:nth-child(even):hover td { background: rgba(255,255,255,.04); }
     background: transparent;
     color: var(--muted);
     cursor: pointer;
-    font-size: 10px;
+    font-size: 13px;
     font-weight: 600;
     letter-spacing: .2px;
     padding: 6px 2px;
@@ -1207,8 +1207,8 @@ tbody tr:nth-child(even):hover td { background: rgba(255,255,255,.04); }
     -webkit-tap-highlight-color: transparent;
   }
   .mob-nav-item svg {
-    width: 22px;
-    height: 22px;
+    width: 26px;
+    height: 26px;
     flex-shrink: 0;
     stroke-width: 1.75;
     transition: stroke .15s;
@@ -1263,9 +1263,9 @@ tbody tr:nth-child(even):hover td { background: rgba(255,255,255,.04); }
   .grid-2, .grid-3, .formGrid { grid-template-columns: 1fr !important; }
 
   /* Card head */
-  .cardHead { padding: 11px 14px; flex-wrap: wrap; }
-  .cardHead h2 { font-size: 12px; min-width: 0; flex: 1; flex-wrap: wrap; word-break: break-word; }
-  .cardHead h2 .head-icon { width: 18px; height: 18px; flex-shrink: 0; }
+  .cardHead { padding: 14px 16px; flex-wrap: wrap; }
+  .cardHead h2 { font-size: 18px; min-width: 0; flex: 1; flex-wrap: wrap; word-break: break-word; }
+  .cardHead h2 .head-icon { width: 22px; height: 22px; flex-shrink: 0; }
   .cardHead .hint { display: none; }
 
   /* Section body */
