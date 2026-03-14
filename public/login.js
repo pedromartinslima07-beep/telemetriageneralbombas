@@ -1,5 +1,16 @@
 let _otpToken = null;
 
+// Aviso de sessão expirada por inatividade
+if (new URLSearchParams(location.search).get("motivo") === "inatividade") {
+  document.addEventListener("DOMContentLoaded", () => {
+    const el = document.getElementById("erroMsg");
+    if (el) {
+      el.textContent = "Sua sessão expirou por inatividade. Faça login novamente.";
+      el.classList.add("visible");
+    }
+  });
+}
+
 const loginForm  = document.getElementById("loginForm");
 const otpStep    = document.getElementById("otpStep");
 const otpCode    = document.getElementById("otpCode");
