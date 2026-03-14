@@ -1,4 +1,4 @@
-const CACHE_NAME = "telemetria-v2";
+const CACHE_NAME = "telemetria-v3";
 
 const STATIC_ASSETS = [
   "/login",
