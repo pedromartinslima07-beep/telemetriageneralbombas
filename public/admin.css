@@ -798,21 +798,15 @@ tbody tr:nth-child(even):hover td { background: rgba(255,255,255,.04); }
 /* ============================================================
    INNER TABLE (expanded reservatórios)
    ============================================================ */
-.expand-cell { padding: 12px 0 0 0; }
+.expand-cell { padding: 12px 16px; }
 
 .expand-label {
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 700;
-  color: var(--accent, #facc15);
+  color: var(--muted);
   text-transform: uppercase;
-  letter-spacing: .7px;
+  letter-spacing: .55px;
   margin-bottom: 10px;
-  margin-left: 16px;
-  padding: 6px 12px;
-  border-left: 3px solid var(--accent, #facc15);
-  background: rgba(250,204,21,.06);
-  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-  display: inline-block;
 }
 
 .inner-table-wrap {
@@ -826,7 +820,7 @@ tbody tr:nth-child(even):hover td { background: rgba(255,255,255,.04); }
 
 .inner-table th {
   background: var(--surface2);
-  padding: 10px 16px;
+  padding: 9px 14px;
   font-size: 10.5px;
   font-weight: 700;
   color: var(--muted);
@@ -839,27 +833,15 @@ tbody tr:nth-child(even):hover td { background: rgba(255,255,255,.04); }
   z-index: 3;
 }
 
-.inner-table th.center { text-align: center; }
-
 .inner-table td {
-  padding: 12px 16px;
+  padding: 10px 14px;
   border-bottom: 1px solid var(--border);
   font-size: 12.5px;
   vertical-align: middle;
 }
 
-.inner-table td.center {
-  text-align: center;
-}
-
 .inner-table tr:last-child td { border-bottom: none; }
-.inner-table tbody tr:hover td { background: rgba(255,255,255,.045); }
-
-.btn-group {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
+.inner-table tbody tr:hover td { background: rgba(255,255,255,.022); }
 
 /* ============================================================
    MODAL
