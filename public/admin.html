@@ -496,6 +496,26 @@
   </div>
 </div>
 
+<!-- Modal: nova device key -->
+<div id="deviceKeyOverlay" class="modalOverlay" style="display:none;">
+  <div class="modalBox" style="max-width:480px;">
+    <div class="modalHead">
+      <div class="modalTitle">Nova Device Key gerada</div>
+      <button class="btn btn-sm" id="btnFecharDeviceKey">Fechar</button>
+    </div>
+    <div class="modalBody" style="padding:20px 24px 24px;display:flex;flex-direction:column;gap:16px;">
+      <p style="margin:0;padding:10px 14px;background:rgba(239,68,68,.12);border:1px solid var(--danger);border-radius:6px;color:var(--danger);font-size:13px;font-weight:600;">
+        &#9888; Salve esta chave agora! Ela não será exibida novamente.
+      </p>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input id="deviceKeyValue" class="input" readonly style="font-family:monospace;font-size:13px;flex:1;cursor:text;" />
+        <button class="btn btnAccent" id="btnCopiarDeviceKey" style="white-space:nowrap;min-width:80px;">Copiar</button>
+      </div>
+      <div id="deviceKeyCopiadoMsg" style="display:none;font-size:12px;color:#4ade80;font-weight:600;">&#10003; Copiado!</div>
+    </div>
+  </div>
+</div>
+
 <!-- Modal: editar reservatório -->
 <div id="editResOverlay" class="modalOverlay" style="display:none;">
   <div class="modalBox">

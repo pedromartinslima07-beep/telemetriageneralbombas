@@ -1024,9 +1024,34 @@ async function salvarEdicao(event) {
     return;
   }
 
-  alert("✅ Nova Device Key:\n\n" + (data.reservatorio?.device_key || "-"));
+  mostrarDeviceKeyModal(data.reservatorio?.device_key || "-");
 
   carregarTudo(); // atualiza painel
+}
+
+function mostrarDeviceKeyModal(chave) {
+  const overlay = document.getElementById("deviceKeyOverlay");
+  const input   = document.getElementById("deviceKeyValue");
+  const btnCopy = document.getElementById("btnCopiarDeviceKey");
+  const msgCopy = document.getElementById("deviceKeyCopiadoMsg");
+
+  input.value = chave;
+  msgCopy.style.display = "none";
+  btnCopy.textContent = "Copiar";
+  overlay.style.display = "flex";
+
+  document.getElementById("btnFecharDeviceKey").onclick = () => { overlay.style.display = "none"; };
+
+  btnCopy.onclick = async () => {
+    try {
+      await navigator.clipboard.writeText(chave);
+    } catch {
+      input.select();
+      document.execCommand("copy");
+    }
+    btnCopy.textContent = "Copiado!";
+    msgCopy.style.display = "block";
+  };
 }
 
 // ===== INATIVAR CONDOMÍNIO (soft delete) =====
