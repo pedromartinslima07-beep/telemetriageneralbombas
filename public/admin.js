@@ -507,8 +507,7 @@ function renderStatus() {
       // cabeçalho dos detalhes (uma linha “subtítulo”)
       const trHead = document.createElement("tr");
       trHead.innerHTML = `
-        <td></td>
-        <td colspan="5" class="expand-cell">
+        <td colspan="6" class="expand-cell">
           <div class="expand-label">Reservatórios</div>
           <div class="inner-table-wrap">
             <table class="inner-table">
