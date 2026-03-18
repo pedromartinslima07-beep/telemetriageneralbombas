@@ -685,7 +685,7 @@ document.addEventListener("DOMContentLoaded", () => {
 let _modalKey = null;
 
 function bindResumoInteracoes() {
-  document.querySelectorAll(".resumoCardBtn").forEach(btn => {
+  document.querySelectorAll(".rc[data-card]").forEach(btn => {
     btn.addEventListener("mouseenter", (e) => showTip(e.currentTarget));
     btn.addEventListener("mousemove", (e) => moveTip(e));
     btn.addEventListener("mouseleave", () => hideTip());
