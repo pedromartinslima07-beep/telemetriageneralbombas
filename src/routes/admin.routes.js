@@ -24,6 +24,7 @@ router.get("/status", authRequired, adminOnly, async (req, res) => {
         r.nome      AS reservatorio_nome,
         r.tipo      AS reservatorio_tipo,
         r.device_id AS reservatorio_device_id,
+        r.last_seen AS last_seen,
 
         ul.nivel        AS ultima_nivel,
         ul.bomba_ligada AS ultima_bomba_ligada,
@@ -77,14 +78,11 @@ router.get("/status", authRequired, adminOnly, async (req, res) => {
       let minutos_sem_atualizar = null;
       let offline = true;
 
-      if (row.ultima_criado_em) {
-        const ultima = new Date(row.ultima_criado_em);
+      if (row.last_seen) {
+        const ultima = new Date(row.last_seen);
         const diffMs = agora - ultima;
         minutos_sem_atualizar = Math.floor(diffMs / 60000);
         offline = minutos_sem_atualizar > limiteMinutos;
-      } else {
-        // sem leitura = offline (MVP)
-        offline = true;
       }
 
       item.reservatorios.push({
