@@ -518,12 +518,12 @@ function renderStatus() {
                   <th>Tipo</th>
                   <th>Device</th>
                   <th>Última leitura</th>
-                  <th>Nível</th>
-                  <th>Bomba</th>
-                  <th>Min s/ atualizar</th>
-                  <th>Offline</th>
-                  <th>Alertas</th>
-                  <th>Ações</th>
+                  <th class="center">Nível</th>
+                  <th class="center">Bomba</th>
+                  <th class="center">Min s/ atualizar</th>
+                  <th class="center">Offline</th>
+                  <th class="center">Alertas</th>
+                  <th class="center">Ações</th>
                 </tr>
               </thead>
               <tbody>
@@ -542,16 +542,18 @@ function renderStatus() {
                       <td>${r.tipo || "-"}</td>
                       <td class="mono">${r.device_id || "-"}</td>
                       <td>${u?.criado_em ? fmtData(u.criado_em) : "-"}</td>
-                      <td>${u?.nivel ? tankHtml(u.nivel) : "-"}</td>
-                      <td>${u ? (u.bomba_ligada ? badge("LIGADA","warn") : badge("DESLIGADA","ok")) : "-"}</td>
-                      <td>${min}</td>
-                      <td>${offline ? badge("SIM", "bad") : badge("NÃO", "ok")}</td>
-                      <td><span class="pillCount">${alertas}</span></td>
-                      <td>
+                      <td class="center">${u?.nivel ? tankHtml(u.nivel) : "-"}</td>
+                      <td class="center">${u ? (u.bomba_ligada ? badge("LIGADA","warn") : badge("DESLIGADA","ok")) : "-"}</td>
+                      <td class="center">${min}</td>
+                      <td class="center">${offline ? badge("SIM", "bad") : badge("NÃO", "ok")}</td>
+                      <td class="center"><span class="pillCount">${alertas}</span></td>
+                      <td class="center">
                         ${_isMaster ? `
-                        <button class="btn btn-sm" data-action="editar-reservatorio" data-id="${r.id}">Editar</button>
-                        <button class="btn btn-sm" style="margin-left:4px;" data-action="regen-res-key" data-id="${r.id}">Key</button>
-                        <button class="btn btn-sm btnDanger" style="margin-left:4px;" data-action="excluir-reservatorio" data-id="${r.id}" data-nome="${(r.nome || "").replaceAll('"', "&quot;")}">Excluir</button>
+                        <div class="btn-group">
+                          <button class="btn btn-sm" data-action="editar-reservatorio" data-id="${r.id}">Editar</button>
+                          <button class="btn btn-sm" data-action="regen-res-key" data-id="${r.id}">Key</button>
+                          <button class="btn btn-sm btnDanger" data-action="excluir-reservatorio" data-id="${r.id}" data-nome="${(r.nome || "").replaceAll('"', "&quot;")}">Excluir</button>
+                        </div>
                         ` : ""}
                       </td>
                     </tr>
