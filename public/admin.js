@@ -343,6 +343,60 @@ async function criarAdminViewer() {
   }
 }
 
+// ===== redefinir senha =====
+let _usuarios = [];
+
+function renderUsuarios() {
+  const tbody = document.getElementById("tbodyUsuarios");
+  if (!tbody) return;
+  tbody.innerHTML = "";
+
+  if (_usuarios.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--muted)">Nenhum usuário encontrado</td></tr>`;
+    return;
+  }
+
+  for (const u of _usuarios) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${u.nome || "-"}</td>
+      <td class="mono">${u.email || "-"}</td>
+      <td>${u.role === "cliente" ? badge("cliente", "ok") : badge(u.role, "warn")}</td>
+      <td>${u.condominio_nome || "-"}</td>
+      <td>
+        <button class="btn btn-sm btnAccent" data-action="resetar-senha" data-id="${u.id}" data-email="${(u.email || "").replaceAll('"', "&quot;")}">
+          Redefinir senha
+        </button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  }
+}
+
+async function carregarUsuarios() {
+  const r = await fetch("/admin/usuarios", { headers: authHeaders() });
+  if (!r.ok) throw new Error("Erro /admin/usuarios: " + r.status);
+  _usuarios = await r.json();
+}
+
+async function resetarSenhaCliente(id, email) {
+  if (!confirm(`Redefinir senha de ${email}?\nUma nova senha será gerada e enviada por email.`)) return;
+
+  const r = await fetch(`/admin/usuarios/${id}/resetar-senha`, {
+    method: "POST",
+    headers: authHeaders(),
+  });
+
+  const data = await r.json().catch(() => ({}));
+
+  if (!r.ok) {
+    alert("Erro ao redefinir senha: " + (data.error || r.status));
+    return;
+  }
+
+  alert(`Nova senha enviada para ${data.email || email}.`);
+}
+
 // ===== carregamento =====
 function montarMapaAlertas() {
   _alertasPorDevice = new Map();
@@ -614,13 +668,14 @@ async function carregarTudo() {
   const el = document.getElementById("statusMsg");
   el.textContent = "Carregando...";
   try {
-    await Promise.all([carregarStatus(), carregarAlertas(), carregarCondominios()]);
+    await Promise.all([carregarStatus(), carregarAlertas(), carregarCondominios(), carregarUsuarios()]);
     renderSelectCondominiosCliente();
     renderSelectCondominiosReservatorio();
     renderResumo();
     bindResumoInteracoes();
     renderAlertas();
     renderStatus();
+    renderUsuarios();
     el.textContent = "Atualizado às " + new Date().toLocaleTimeString();
   } catch (e) {
     el.textContent = "Erro ao atualizar";
@@ -1374,6 +1429,13 @@ document.addEventListener("DOMContentLoaded", () => {
     if (action === "focar-condominio") {
       const device = btn.dataset.device;
       if (device) focarCondominio(device);
+      return;
+    }
+
+    if (action === "resetar-senha") {
+      const id = Number(btn.dataset.id);
+      const email = btn.dataset.email || "";
+      if (id) resetarSenhaCliente(id, email);
       return;
     }
   });

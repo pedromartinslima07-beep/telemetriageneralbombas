@@ -1,10 +1,19 @@
 // src/routes/admin.routes.js
 const express = require("express");
+const bcrypt = require("bcrypt");
 const { pool } = require("../db");
 
 const { authRequired } = require("../middleware/authRequired");
 const { adminOnly } = require("../middleware/adminOnly");
 const { OFFLINE_MINUTES } = require("../config");
+const { sendPasswordReset } = require("../services/email");
+
+function gerarSenhaAleatoria(len = 10) {
+  const chars = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789";
+  let s = "";
+  for (let i = 0; i < len; i++) s += chars[Math.floor(Math.random() * chars.length)];
+  return s;
+}
 
 const router = express.Router();
 
@@ -115,6 +124,52 @@ router.get("/status", authRequired, adminOnly, async (req, res) => {
   } catch (error) {
     console.error("Erro ao buscar /admin/status:", error);
     return res.status(500).json({ error: "Erro ao buscar status geral" });
+  }
+});
+
+// GET /admin/usuarios  — lista clientes (e admin_viewer) para o painel admin
+router.get("/usuarios", authRequired, adminOnly, async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT u.id, u.nome, u.email, u.role, u.condominio_id, c.nome AS condominio_nome
+      FROM usuarios u
+      LEFT JOIN condominios c ON c.id = u.condominio_id
+      WHERE u.role IN ('cliente', 'admin_viewer')
+      ORDER BY u.role ASC, u.nome ASC
+    `);
+    return res.json(result.rows);
+  } catch (e) {
+    console.error("Erro GET /admin/usuarios:", e);
+    return res.status(500).json({ error: "Erro interno" });
+  }
+});
+
+// POST /admin/usuarios/:id/resetar-senha
+router.post("/usuarios/:id/resetar-senha", authRequired, adminOnly, async (req, res) => {
+  const userId = Number(req.params.id);
+  if (!userId) return res.status(400).json({ error: "ID inválido" });
+
+  try {
+    const result = await pool.query(
+      "SELECT id, nome, email FROM usuarios WHERE id = $1 AND role IN ('cliente', 'admin_viewer') LIMIT 1",
+      [userId]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Usuário não encontrado" });
+    }
+
+    const user = result.rows[0];
+    const novaSenha = gerarSenhaAleatoria(10);
+    const hash = await bcrypt.hash(novaSenha, 10);
+
+    await pool.query("UPDATE usuarios SET senha_hash = $1 WHERE id = $2", [hash, userId]);
+
+    await sendPasswordReset(user.email, user.nome, novaSenha);
+
+    return res.json({ ok: true, email: user.email });
+  } catch (e) {
+    console.error("Erro POST /admin/usuarios/:id/resetar-senha:", e);
+    return res.status(500).json({ error: "Erro ao redefinir senha" });
   }
 });
 
