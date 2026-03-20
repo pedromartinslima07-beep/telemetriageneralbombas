@@ -277,8 +277,8 @@ async function carregarHistorico() {
 
     // Gradient fill
     const gradient = ctx.createLinearGradient(0, 0, 0, 280);
-    gradient.addColorStop(0, "rgba(240,176,20,0.35)");
-    gradient.addColorStop(1, "rgba(240,176,20,0.01)");
+    gradient.addColorStop(0, "rgba(245,166,35,0.3)");
+    gradient.addColorStop(1, "rgba(245,166,35,0.01)");
 
     // Atualiza gráfico existente sem destruir (evita flash)
     if (_histChart) {
@@ -300,12 +300,12 @@ async function carregarHistorico() {
           {
             label: "Nível (%)",
             data: values,
-            borderColor: "#f0b014",
+            borderColor: "#F5A623",
             backgroundColor: gradient,
             borderWidth: 2.5,
             pointRadius: values.length > 60 ? 0 : 4,
             pointHoverRadius: 6,
-            pointBackgroundColor: "#f0b014",
+            pointBackgroundColor: "#F5A623",
             tension: 0.35,
             fill: true,
             order: 0,
@@ -338,14 +338,14 @@ async function carregarHistorico() {
         interaction: { mode: "index", intersect: false },
         scales: {
           x: {
-            ticks: { color: "#60617e", maxTicksLimit: 10, maxRotation: 0 },
+            ticks: { color: "#5a7a90", maxTicksLimit: 10, maxRotation: 0 },
             grid: { color: "rgba(255,255,255,.04)" },
           },
           y: {
             min: 0,
             max: 100,
             ticks: {
-              color: "#60617e",
+              color: "#5a7a90",
               callback: (v) => v + "%",
             },
             grid: { color: "rgba(255,255,255,.06)" },
@@ -357,7 +357,7 @@ async function carregarHistorico() {
             position: "top",
             align: "end",
             labels: {
-              color: "#a0a3bf",
+              color: "#7a9aaa",
               boxWidth: 24,
               boxHeight: 3,
               padding: 14,
@@ -365,10 +365,10 @@ async function carregarHistorico() {
             },
           },
           tooltip: {
-            backgroundColor: "#181b33",
-            titleColor: "#e1e3ef",
-            bodyColor: "#a0a3bf",
-            borderColor: "rgba(255,255,255,.08)",
+            backgroundColor: "#0d1926",
+            titleColor: "#ffffff",
+            bodyColor: "#7a9aaa",
+            borderColor: "rgba(255,255,255,.09)",
             borderWidth: 1,
             filter: (item) => item.datasetIndex === 0,
             callbacks: {
