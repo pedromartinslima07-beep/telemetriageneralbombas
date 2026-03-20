@@ -23,8 +23,8 @@ body::before {
   position: fixed;
   inset: 0;
   background:
-    radial-gradient(ellipse at 50% 40%, rgba(245,166,35,.06) 0%, transparent 60%),
-    radial-gradient(ellipse at 80% 80%, rgba(74,120,247,.05) 0%, transparent 55%);
+    radial-gradient(ellipse at 50% 30%, rgba(245,166,35,.07) 0%, transparent 50%),
+    radial-gradient(ellipse at 20% 80%, rgba(74,120,247,.04) 0%, transparent 50%);
   pointer-events: none;
 }
 
@@ -32,21 +32,24 @@ body::before {
 .login-card {
   position: relative;
   width: 100%;
-  max-width: 400px;
+  max-width: 420px;
   background: #08111e;
-  border: 1px solid rgba(255,255,255,.09);
-  border-radius: 20px;
-  padding: 52px 44px 48px;
-  box-shadow: 0 24px 64px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.03);
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 24px;
+  padding: 56px 48px 52px;
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,.03),
+    0 4px 16px rgba(0,0,0,.3),
+    0 24px 64px rgba(0,0,0,.4);
 }
 
 /* top accent line */
 .login-card::before {
   content: '';
   position: absolute;
-  top: 0; left: 24px; right: 24px;
+  top: 0; left: 32px; right: 32px;
   height: 2px;
-  background: linear-gradient(90deg, transparent, #F5A623 30%, #4a78f7 70%, transparent);
+  background: linear-gradient(90deg, transparent, #F5A623 40%, #4a78f7 60%, transparent);
   border-radius: 0 0 2px 2px;
 }
 
@@ -71,16 +74,17 @@ body::before {
 }
 
 .login-title h1 {
-  font-size: 18px;
-  font-weight: 800;
-  letter-spacing: .3px;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -.02em;
   color: #ffffff;
 }
 
 .login-title p {
   margin-top: 10px;
-  font-size: 13px;
+  font-size: 13.5px;
   color: #5a7a90;
+  line-height: 1.5;
 }
 
 /* ===== FORM ===== */
