@@ -398,6 +398,7 @@ a { color: inherit; text-decoration: none; }
   display: flex;
   flex-direction: column;
   gap: var(--gap);
+  opacity: 1;                          /* fallback caso animação falhe */
   animation: sectionIn .22s ease both;
 }
 
@@ -1107,12 +1108,20 @@ tbody tr:nth-child(even):hover td { background: rgba(255,255,255,.04); }
   .content-header { display: none !important; }
   .layout-cli .content-header { display: none !important; }
 
-  /* Layout sem padding */
-  .layout { padding: 0; gap: 0; }
+  /* Layout: mobile full-screen, sem padding */
+  .layout {
+    padding: 0;
+    gap: 0;
+    height: 100vh;
+    height: 100dvh;           /* iOS: usa viewport dinâmico */
+  }
 
   /* Main: espaço para topbar (topo) e bottom nav (rodapé) */
   .main {
     width: 100%;
+    height: 100%;
+    overflow-y: auto;         /* permite scroll no mobile */
+    -webkit-overflow-scrolling: touch;
     padding-top: 56px;
     padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px));
   }
@@ -1236,7 +1245,12 @@ tbody tr:nth-child(even):hover td { background: rgba(255,255,255,.04); }
   .mob-nav-badge.is-visible { display: block; }
 
   /* ── CONTEÚDO ── */
-  .content { padding: 12px; }
+  .content {
+    padding: 12px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    min-height: 0;
+  }
   .layout-cli .content { padding: 10px; }
 
   /* Resumo grid: 2 colunas */
