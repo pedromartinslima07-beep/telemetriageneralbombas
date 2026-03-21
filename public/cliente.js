@@ -256,7 +256,7 @@ async function carregarHistorico() {
       const s = data.stats;
       statsEl.innerHTML = [
         histResumoCard("Mínimo", `${s.min_pct}%`, "#f87171", "trending-down"),
-        histResumoCard("Máximo", `${s.max_pct}%`, "#4ade80", "trending-up"),
+        histResumoCard("Máximo", `${s.max_pct}%`, "var(--accent)", "trending-up"),
         histResumoCard("Média", `${s.avg_pct}%`, "var(--accent)", "minus"),
         histResumoCard("Leituras", s.total_leituras.toLocaleString(), "var(--blue)", "hash"),
       ].join("");
