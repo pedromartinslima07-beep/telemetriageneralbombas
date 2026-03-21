@@ -15,391 +15,355 @@
 </head>
 <body>
 
-<div class="layout">
+<div class="app">
 
-  <!-- ===== SIDEBAR ===== -->
-  <aside class="sidebar collapsed" id="sidebar">
-    <div class="sidebar-inner">
+  <!-- ===== HEADER ===== -->
+  <header class="header">
+    <div class="header-left">
+      <img class="header-logo" src="/static/login-logo.png" alt="GENERAL" />
+      <span class="header-brand">TELEMETRIA</span>
+    </div>
 
-      <div class="sidebar-header">
-        <button class="sidebar-toggle" id="btnSidebarToggleIn" aria-label="Abrir/fechar menu">
-          <i data-lucide="menu" style="width:16px;height:16px;"></i>
-        </button>
-        <img class="sidebar-logo" src="/static/login-logo.png" alt="GENERAL" />
-      </div>
+    <nav class="header-nav" id="headerNav">
+      <button class="nav-tab active" data-section="dashboard">
+        <i data-lucide="layout-grid"></i>
+        <span>Dashboard</span>
+      </button>
+      <button class="nav-tab" data-section="alertas">
+        <i data-lucide="bell"></i>
+        <span>Alertas</span>
+        <span class="tab-badge" id="navBadgeAlertas" style="display:none;">0</span>
+      </button>
+      <button class="nav-tab" data-section="cadastros">
+        <i data-lucide="settings"></i>
+        <span>Cadastros</span>
+      </button>
+    </nav>
 
-      <nav class="nav">
+    <div class="header-actions">
+      <span class="status-pill" id="statusMsg"></span>
+      <button class="icon-btn" id="btnAtualizar" title="Atualizar dados">
+        <i data-lucide="refresh-cw"></i>
+      </button>
+      <button class="icon-btn" id="btnOffline" title="Verificar offline">
+        <i data-lucide="wifi-off"></i>
+      </button>
+      <div class="header-sep"></div>
+      <span class="user-label" id="userLabel">Admin</span>
+      <button class="icon-btn" id="btnSair" title="Sair">
+        <i data-lucide="log-out"></i>
+      </button>
+    </div>
+  </header>
 
-        <span class="nav-section-label">Monitor</span>
+  <!-- ===== CONTENT ===== -->
+  <div class="main-content">
 
-        <button class="nav-item active" data-section="dashboard">
-          <i data-lucide="layout-grid"></i>
-          <span>Dashboard</span>
-        </button>
+    <!-- ===== SECTION: DASHBOARD ===== -->
+    <div class="section is-active" data-section="dashboard">
 
-        <button class="nav-item" data-section="alertas">
-          <i data-lucide="bell"></i>
-          <span>Alertas</span>
-          <span class="nav-badge" id="navBadgeAlertas" style="display:none;">0</span>
-        </button>
+      <!-- Stats -->
+      <section class="card">
+        <div class="cardHead">
+          <h2>
+            <i data-lucide="activity" class="head-icon"></i>
+            Situação atual
+          </h2>
+          <span class="hint">Atualiza a cada 10s</span>
+        </div>
+        <div class="section-body">
+          <div id="resumoGrid" class="resumo-grid" style="grid-template-columns:repeat(5,minmax(0,1fr));"></div>
+        </div>
+      </section>
 
-        <span class="nav-section-label">Gestão</span>
+      <!-- Filtros + Status -->
+      <section class="card">
+        <div class="cardHead">
+          <h2>
+            <i data-lucide="building" class="head-icon"></i>
+            Condomínios
+          </h2>
+          <span class="hint">Status em tempo real</span>
+        </div>
 
-        <button class="nav-item" data-section="cadastros">
-          <i data-lucide="building-2"></i>
-          <span>Cadastros</span>
-        </button>
-      </nav>
-
-      <div class="sidebar-footer">
-        <div class="sidebar-user">
-          <div class="sidebar-user-avatar">
-            <i data-lucide="user" style="width:16px;height:16px;"></i>
+        <div class="section-body" style="border-bottom:1px solid var(--border);">
+          <div class="filter-bar">
+            <div class="field" style="flex:1;min-width:220px;">
+              <span class="lbl">Buscar</span>
+              <input id="filtroTexto" class="input" placeholder="Nome do condomínio ou device ID..." />
+            </div>
+            <label class="filter-check">
+              <input type="checkbox" id="filtroSomenteAlertas" />
+              Com alertas
+            </label>
+            <label class="filter-check">
+              <input type="checkbox" id="filtroSomenteOffline" />
+              Offline
+            </label>
+            <button class="btn btn-sm" id="btnAplicarFiltros">Aplicar</button>
+            <button class="btn btn-sm" id="btnLimparFiltros">Limpar</button>
           </div>
-          <div class="sidebar-user-info">
-            <div class="sidebar-user-role">Admin</div>
-            <div class="sidebar-user-label">Painel Geral</div>
+
+          <div class="pagination">
+            <button class="btn btn-sm" id="btnPaginaAnterior">
+              <i data-lucide="chevron-left" style="width:14px;height:14px;"></i>
+            </button>
+            <span id="paginaInfo" class="page-info"></span>
+            <button class="btn btn-sm" id="btnProximaPagina">
+              <i data-lucide="chevron-right" style="width:14px;height:14px;"></i>
+            </button>
+            <span class="hint" style="margin-left:auto;">Por página:</span>
+            <select id="pageSize" class="select" style="width:auto;">
+              <option value="10">10</option>
+              <option value="25" selected>25</option>
+              <option value="50">50</option>
+            </select>
           </div>
         </div>
-        <button class="nav-item" id="btnSair">
-          <i data-lucide="log-out"></i>
-          <span>Sair</span>
-        </button>
-      </div>
 
-    </div>
-  </aside>
+        <div class="tableWrap">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:180px;">Ação</th>
+                <th>Condomínio</th>
+                <th>Reservatórios</th>
+                <th>Offline</th>
+                <th>Alertas abertos</th>
+                <th>Última leitura</th>
+              </tr>
+            </thead>
+            <tbody id="tbodyStatus"></tbody>
+          </table>
+        </div>
+      </section>
 
-  <!-- ===== MAIN ===== -->
-  <div class="main">
+    </div><!-- /section dashboard -->
 
-    <div class="content-header">
-      <div class="page-title-wrap">
-        <div class="page-title" id="pageTitle">Dashboard</div>
-        <div class="page-subtitle" id="pageSubtitle">Visão geral do sistema</div>
-      </div>
-      <div class="content-header-actions">
-        <span class="statusMsg" id="statusMsg"></span>
-        <button class="btn btn-sm" id="btnAtualizar">
-          <i data-lucide="refresh-cw" style="width:14px;height:14px;"></i>
-          Atualizar
-        </button>
-        <button class="btn btn-sm btnAccent" id="btnOffline">
-          <i data-lucide="wifi-off" style="width:14px;height:14px;"></i>
-          Verificar Offline
-        </button>
-      </div>
-    </div>
+    <!-- ===== SECTION: ALERTAS ===== -->
+    <div class="section" data-section="alertas">
+      <section class="card">
+        <div class="cardHead">
+          <h2>
+            <i data-lucide="bell-ring" class="head-icon"></i>
+            Alertas abertos
+          </h2>
+          <span class="hint">Pendentes de resolução</span>
+        </div>
+        <div class="tableWrap">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:60px;">ID</th>
+                <th>Device</th>
+                <th>Tipo</th>
+                <th>Mensagem</th>
+                <th>Criado em</th>
+                <th>Atualizado em</th>
+                <th class="right" style="width:100px;">Ação</th>
+              </tr>
+            </thead>
+            <tbody id="tbodyAlertas"></tbody>
+          </table>
+        </div>
+      </section>
+    </div><!-- /section alertas -->
 
-    <!-- Page content -->
-    <div class="content">
+    <!-- ===== SECTION: CADASTROS ===== -->
+    <div class="section" data-section="cadastros">
 
-      <!-- ===== SECTION: DASHBOARD ===== -->
-      <div class="section is-active" data-section="dashboard">
-
-        <!-- Stats -->
-        <section class="card">
-          <div class="cardHead">
-            <h2>
-              <i data-lucide="activity" class="head-icon"></i>
-              Situação atual
-            </h2>
-            <span class="hint">Atualiza a cada 10s</span>
-          </div>
-          <div class="section-body">
-            <div id="resumoGrid" class="resumo-grid" style="grid-template-columns:repeat(5,minmax(0,1fr));"></div>
-          </div>
-        </section>
-
-        <!-- Filtros + Status -->
-        <section class="card">
-          <div class="cardHead">
-            <h2>
-              <i data-lucide="building" class="head-icon"></i>
-              Condomínios
-            </h2>
-            <span class="hint">Status em tempo real</span>
-          </div>
-
-          <div class="section-body" style="border-bottom:1px solid var(--border);">
-            <div class="filter-bar">
-              <div class="field" style="flex:1;min-width:220px;">
-                <span class="lbl">Buscar</span>
-                <input id="filtroTexto" class="input" placeholder="Nome do condomínio ou device ID..." />
-              </div>
-              <label class="filter-check">
-                <input type="checkbox" id="filtroSomenteAlertas" />
-                Com alertas
-              </label>
-              <label class="filter-check">
-                <input type="checkbox" id="filtroSomenteOffline" />
-                Offline
-              </label>
-              <button class="btn btn-sm" id="btnAplicarFiltros">Aplicar</button>
-              <button class="btn btn-sm" id="btnLimparFiltros">Limpar</button>
+      <!-- Cadastro de condomínio -->
+      <section class="card">
+        <div class="cardHead">
+          <h2>
+            <i data-lucide="plus-circle" class="head-icon"></i>
+            Novo condomínio
+          </h2>
+        </div>
+        <div class="section-body">
+          <div class="grid-2">
+            <div class="field">
+              <span class="lbl">Nome <span class="req">*</span></span>
+              <input id="novoNome" class="input" placeholder="Ex: Condomínio Jardins" />
             </div>
+            <div class="field">
+              <span class="lbl">Responsável</span>
+              <input id="novoResponsavel" class="input" placeholder="Ex: Síndico João Silva" />
+            </div>
+            <div class="field col-2">
+              <span class="lbl">Endereço</span>
+              <input id="novoEndereco" class="input" placeholder="Rua, número" />
+            </div>
+            <div class="field">
+              <span class="lbl">Bairro</span>
+              <input id="novoBairro" class="input" placeholder="Ex: Tatuapé" />
+            </div>
+            <div class="field">
+              <span class="lbl">Cidade</span>
+              <input id="novoCidade" class="input" placeholder="Ex: São Paulo" />
+            </div>
+            <div class="field">
+              <span class="lbl">UF</span>
+              <input id="novoUf" class="input" maxlength="2" placeholder="SP" />
+            </div>
+            <div class="field">
+              <span class="lbl">Telefone</span>
+              <input id="novoTelefone" class="input" placeholder="(11) 99999-9999" />
+            </div>
+            <div class="field col-2">
+              <span class="lbl">Observações</span>
+              <input id="novoObs" class="input" placeholder="Informações adicionais..." />
+            </div>
+            <label class="check-field col-2">
+              <input type="checkbox" id="novoAtivo" checked />
+              Ativo
+            </label>
+          </div>
+          <div class="form-footer" style="margin-top:20px;">
+            <button class="btn btnAccent" id="btnCadastrarCondominio">Cadastrar condomínio</button>
+            <span id="msgCadastro" class="hint"></span>
+          </div>
+        </div>
+      </section>
 
-            <div class="pagination">
-              <button class="btn btn-sm" id="btnPaginaAnterior">
-                <i data-lucide="chevron-left" style="width:14px;height:14px;"></i>
-              </button>
-              <span id="paginaInfo" class="page-info"></span>
-              <button class="btn btn-sm" id="btnProximaPagina">
-                <i data-lucide="chevron-right" style="width:14px;height:14px;"></i>
-              </button>
-              <span class="hint" style="margin-left:auto;">Por página:</span>
-              <select id="pageSize" class="select" style="width:auto;">
-                <option value="10">10</option>
-                <option value="25" selected>25</option>
-                <option value="50">50</option>
+      <!-- Cadastro de reservatório -->
+      <section class="card">
+        <div class="cardHead">
+          <h2>
+            <i data-lucide="hard-drive" class="head-icon"></i>
+            Novo reservatório
+          </h2>
+          <span class="hint">Vincula um dispositivo IoT a um condomínio</span>
+        </div>
+        <div class="section-body">
+          <div class="grid-2">
+            <div class="field">
+              <span class="lbl">Condomínio <span class="req">*</span></span>
+              <select id="resCondominio" class="select">
+                <option value="">Selecione...</option>
               </select>
             </div>
-          </div>
-
-          <div class="tableWrap">
-            <table>
-              <thead>
-                <tr>
-                  <th style="width:180px;">Ação</th>
-                  <th>Condomínio</th>
-                  <th>Reservatórios</th>
-                  <th>Offline</th>
-                  <th>Alertas abertos</th>
-                  <th>Última leitura</th>
-                </tr>
-              </thead>
-              <tbody id="tbodyStatus"></tbody>
-            </table>
-          </div>
-        </section>
-
-      </div><!-- /section dashboard -->
-
-      <!-- ===== SECTION: ALERTAS ===== -->
-      <div class="section" data-section="alertas">
-        <section class="card">
-          <div class="cardHead">
-            <h2>
-              <i data-lucide="bell-ring" class="head-icon"></i>
-              Alertas abertos
-            </h2>
-            <span class="hint">Pendentes de resolução</span>
-          </div>
-          <div class="tableWrap">
-            <table>
-              <thead>
-                <tr>
-                  <th style="width:60px;">ID</th>
-                  <th>Device</th>
-                  <th>Tipo</th>
-                  <th>Mensagem</th>
-                  <th>Criado em</th>
-                  <th>Atualizado em</th>
-                  <th class="right" style="width:100px;">Ação</th>
-                </tr>
-              </thead>
-              <tbody id="tbodyAlertas"></tbody>
-            </table>
-          </div>
-        </section>
-      </div><!-- /section alertas -->
-
-      <!-- ===== SECTION: CADASTROS ===== -->
-      <div class="section" data-section="cadastros">
-
-        <!-- Cadastro de condomínio -->
-        <section class="card">
-          <div class="cardHead">
-            <h2>
-              <i data-lucide="plus-circle" class="head-icon"></i>
-              Novo condomínio
-            </h2>
-          </div>
-          <div class="section-body">
-            <div class="grid-2">
-              <div class="field">
-                <span class="lbl">Nome <span class="req">*</span></span>
-                <input id="novoNome" class="input" placeholder="Ex: Condomínio Jardins" />
-              </div>
-              <div class="field">
-                <span class="lbl">Responsável</span>
-                <input id="novoResponsavel" class="input" placeholder="Ex: Síndico João Silva" />
-              </div>
-              <div class="field col-2">
-                <span class="lbl">Endereço</span>
-                <input id="novoEndereco" class="input" placeholder="Rua, número" />
-              </div>
-              <div class="field">
-                <span class="lbl">Bairro</span>
-                <input id="novoBairro" class="input" placeholder="Ex: Tatuapé" />
-              </div>
-              <div class="field">
-                <span class="lbl">Cidade</span>
-                <input id="novoCidade" class="input" placeholder="Ex: São Paulo" />
-              </div>
-              <div class="field">
-                <span class="lbl">UF</span>
-                <input id="novoUf" class="input" maxlength="2" placeholder="SP" />
-              </div>
-              <div class="field">
-                <span class="lbl">Telefone</span>
-                <input id="novoTelefone" class="input" placeholder="(11) 99999-9999" />
-              </div>
-              <div class="field col-2">
-                <span class="lbl">Observações</span>
-                <input id="novoObs" class="input" placeholder="Informações adicionais..." />
-              </div>
-              <label class="check-field col-2">
-                <input type="checkbox" id="novoAtivo" checked />
-                Ativo
-              </label>
+            <div class="field">
+              <span class="lbl">Tipo <span class="req">*</span></span>
+              <select id="resTipo" class="select">
+                <option value="superior">Superior</option>
+                <option value="inferior">Inferior</option>
+                <option value="outro">Outro</option>
+              </select>
             </div>
-            <div class="form-footer" style="margin-top:20px;">
-              <button class="btn btnAccent" id="btnCadastrarCondominio">Cadastrar condomínio</button>
-              <span id="msgCadastro" class="hint"></span>
+            <div class="field col-2">
+              <span class="lbl">Nome <span class="req">*</span></span>
+              <input id="resNome" class="input" placeholder="Ex: Reservatório Superior Bloco A" />
+            </div>
+            <div class="field col-2">
+              <span class="lbl">Device ID <span class="req">*</span></span>
+              <input id="resDeviceId" class="input" placeholder="Ex: RES_COND10_SUP" />
             </div>
           </div>
-        </section>
-
-        <!-- Cadastro de reservatório -->
-        <section class="card">
-          <div class="cardHead">
-            <h2>
-              <i data-lucide="hard-drive" class="head-icon"></i>
-              Novo reservatório
-            </h2>
-            <span class="hint">Vincula um dispositivo IoT a um condomínio</span>
+          <div class="form-footer" style="margin-top:20px;">
+            <button id="btnCadastrarReservatorio" class="btn btnAccent">Cadastrar reservatório</button>
+            <span id="msgReservatorio" class="hint"></span>
           </div>
-          <div class="section-body">
-            <div class="grid-2">
-              <div class="field">
-                <span class="lbl">Condomínio <span class="req">*</span></span>
-                <select id="resCondominio" class="select">
-                  <option value="">Selecione...</option>
-                </select>
-              </div>
-              <div class="field">
-                <span class="lbl">Tipo <span class="req">*</span></span>
-                <select id="resTipo" class="select">
-                  <option value="superior">Superior</option>
-                  <option value="inferior">Inferior</option>
-                  <option value="outro">Outro</option>
-                </select>
-              </div>
-              <div class="field col-2">
-                <span class="lbl">Nome <span class="req">*</span></span>
-                <input id="resNome" class="input" placeholder="Ex: Reservatório Superior Bloco A" />
-              </div>
-              <div class="field col-2">
-                <span class="lbl">Device ID <span class="req">*</span></span>
-                <input id="resDeviceId" class="input" placeholder="Ex: RES_COND10_SUP" />
-              </div>
+        </div>
+      </section>
+
+      <!-- Criar acesso de cliente -->
+      <section class="card">
+        <div class="cardHead">
+          <h2>
+            <i data-lucide="user-plus" class="head-icon"></i>
+            Criar acesso de cliente
+          </h2>
+          <span class="hint">Usuário vinculado a um condomínio</span>
+        </div>
+        <div class="section-body">
+          <div class="grid-2">
+            <div class="field">
+              <span class="lbl">Nome <span class="req">*</span></span>
+              <input id="cliNome" class="input" placeholder="Ex: João Silva" />
             </div>
-            <div class="form-footer" style="margin-top:20px;">
-              <button id="btnCadastrarReservatorio" class="btn btnAccent">Cadastrar reservatório</button>
-              <span id="msgReservatorio" class="hint"></span>
+            <div class="field">
+              <span class="lbl">Condomínio <span class="req">*</span></span>
+              <select id="cliCondominio" class="select">
+                <option value="">Selecione...</option>
+              </select>
+            </div>
+            <div class="field">
+              <span class="lbl">Email <span class="req">*</span></span>
+              <input id="cliEmail" class="input" placeholder="cliente@exemplo.com" />
+            </div>
+            <div class="field">
+              <span class="lbl">Senha provisória <span class="req">*</span></span>
+              <input id="cliSenha" class="input" type="text" placeholder="Ex: 123456" />
             </div>
           </div>
-        </section>
-
-        <!-- Criar acesso de cliente -->
-        <section class="card">
-          <div class="cardHead">
-            <h2>
-              <i data-lucide="user-plus" class="head-icon"></i>
-              Criar acesso de cliente
-            </h2>
-            <span class="hint">Usuário vinculado a um condomínio</span>
+          <div class="form-footer" style="margin-top:20px;">
+            <button class="btn btnAccent" id="btnCriarCliente">Criar cliente</button>
+            <span id="msgCliente" class="hint"></span>
           </div>
-          <div class="section-body">
-            <div class="grid-2">
-              <div class="field">
-                <span class="lbl">Nome <span class="req">*</span></span>
-                <input id="cliNome" class="input" placeholder="Ex: João Silva" />
-              </div>
-              <div class="field">
-                <span class="lbl">Condomínio <span class="req">*</span></span>
-                <select id="cliCondominio" class="select">
-                  <option value="">Selecione...</option>
-                </select>
-              </div>
-              <div class="field">
-                <span class="lbl">Email <span class="req">*</span></span>
-                <input id="cliEmail" class="input" placeholder="cliente@exemplo.com" />
-              </div>
-              <div class="field">
-                <span class="lbl">Senha provisória <span class="req">*</span></span>
-                <input id="cliSenha" class="input" type="text" placeholder="Ex: 123456" />
-              </div>
+        </div>
+      </section>
+
+      <!-- Criar acesso de visualizador -->
+      <section class="card" id="cardCriarAdminViewer" style="display:none;">
+        <div class="cardHead">
+          <h2>
+            <i data-lucide="eye" class="head-icon"></i>
+            Criar acesso de visualizador
+          </h2>
+          <span class="hint">Admin com acesso somente leitura</span>
+        </div>
+        <div class="section-body">
+          <div class="grid-2">
+            <div class="field">
+              <span class="lbl">Nome <span class="req">*</span></span>
+              <input id="avNome" class="input" placeholder="Ex: Maria Oliveira" />
             </div>
-            <div class="form-footer" style="margin-top:20px;">
-              <button class="btn btnAccent" id="btnCriarCliente">Criar cliente</button>
-              <span id="msgCliente" class="hint"></span>
+            <div class="field">
+              <span class="lbl">Email <span class="req">*</span></span>
+              <input id="avEmail" class="input" placeholder="viewer@exemplo.com" />
+            </div>
+            <div class="field">
+              <span class="lbl">Senha provisória <span class="req">*</span></span>
+              <input id="avSenha" class="input" type="text" placeholder="Ex: 123456" />
             </div>
           </div>
-        </section>
-
-        <!-- Criar acesso de visualizador -->
-        <section class="card" id="cardCriarAdminViewer" style="display:none;">
-          <div class="cardHead">
-            <h2>
-              <i data-lucide="eye" class="head-icon"></i>
-              Criar acesso de visualizador
-            </h2>
-            <span class="hint">Admin com acesso somente leitura</span>
+          <div class="form-footer" style="margin-top:20px;">
+            <button class="btn btnAccent" id="btnCriarAdminViewer">Criar acesso visualizador</button>
+            <span id="msgAdminViewer" class="hint"></span>
           </div>
-          <div class="section-body">
-            <div class="grid-2">
-              <div class="field">
-                <span class="lbl">Nome <span class="req">*</span></span>
-                <input id="avNome" class="input" placeholder="Ex: Maria Oliveira" />
-              </div>
-              <div class="field">
-                <span class="lbl">Email <span class="req">*</span></span>
-                <input id="avEmail" class="input" placeholder="viewer@exemplo.com" />
-              </div>
-              <div class="field">
-                <span class="lbl">Senha provisória <span class="req">*</span></span>
-                <input id="avSenha" class="input" type="text" placeholder="Ex: 123456" />
-              </div>
-            </div>
-            <div class="form-footer" style="margin-top:20px;">
-              <button class="btn btnAccent" id="btnCriarAdminViewer">Criar acesso visualizador</button>
-              <span id="msgAdminViewer" class="hint"></span>
-            </div>
-          </div>
-        </section>
+        </div>
+      </section>
 
-        <!-- Redefinir senha de cliente -->
-        <section class="card">
-          <div class="cardHead">
-            <h2>
-              <i data-lucide="key-round" class="head-icon"></i>
-              Redefinir senha de cliente
-            </h2>
-            <span class="hint">Gera senha aleatória e envia por email</span>
-          </div>
-          <div class="tableWrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Nome</th>
-                  <th>Email</th>
-                  <th>Perfil</th>
-                  <th>Condomínio</th>
-                  <th style="width:140px;">Ação</th>
-                </tr>
-              </thead>
-              <tbody id="tbodyUsuarios"></tbody>
-            </table>
-          </div>
-        </section>
+      <!-- Redefinir senha de cliente -->
+      <section class="card">
+        <div class="cardHead">
+          <h2>
+            <i data-lucide="key-round" class="head-icon"></i>
+            Redefinir senha de cliente
+          </h2>
+          <span class="hint">Gera senha aleatória e envia por email</span>
+        </div>
+        <div class="tableWrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Nome</th>
+                <th>Email</th>
+                <th>Perfil</th>
+                <th>Condomínio</th>
+                <th style="width:140px;">Ação</th>
+              </tr>
+            </thead>
+            <tbody id="tbodyUsuarios"></tbody>
+          </table>
+        </div>
+      </section>
 
-      </div><!-- /section cadastros -->
+    </div><!-- /section cadastros -->
 
-    </div><!-- /content -->
-  </div><!-- /main -->
-</div><!-- /layout -->
+  </div><!-- /main-content -->
+</div><!-- /app -->
 
 <!-- Tooltip -->
 <div id="cardTip" class="cardTip" style="display:none;"></div>
@@ -444,7 +408,7 @@
       <button class="btn btn-sm" id="btnFecharHardDelete">Fechar</button>
     </div>
     <div class="modalBody" style="padding:20px 24px 24px;">
-      <p id="hardDeleteMsg" style="margin:0 0 16px;line-height:1.5;color:var(--text-secondary);font-size:13px;"></p>
+      <p id="hardDeleteMsg" style="margin:0 0 16px;line-height:1.5;color:var(--text-sec);font-size:13px;"></p>
       <p style="margin:0 0 16px;line-height:1.5;color:var(--danger);font-size:13px;font-weight:600;">
         Esta ação apagará permanentemente o condomínio, todos os reservatórios, leituras e alertas. Não é reversível.
       </p>
@@ -559,35 +523,35 @@
   </div>
 </div>
 
-<!-- ===== MOBILE TOP BAR ===== -->
-<header class="mob-topbar">
-  <img src="/static/login-logo.png" class="mob-top-logo" alt="GENERAL" />
-  <span class="mob-top-title" id="topbarTitle">Dashboard</span>
-  <button class="mob-top-btn" id="mobBtnOffline" aria-label="Verificar Offline" title="Verificar Offline">
-    <i data-lucide="wifi-off" style="width:16px;height:16px;"></i>
+<!-- ===== MOBILE HEADER ===== -->
+<header class="mob-header">
+  <img src="/static/login-logo.png" class="mob-header-logo" alt="GENERAL" />
+  <span class="mob-header-title" id="topbarTitle">Dashboard</span>
+  <button class="icon-btn" id="mobBtnOffline" title="Verificar Offline">
+    <i data-lucide="wifi-off"></i>
   </button>
-  <button class="mob-top-btn" id="mobBtnAtualizar" aria-label="Atualizar">
-    <i data-lucide="refresh-cw" style="width:16px;height:16px;"></i>
+  <button class="icon-btn" id="mobBtnAtualizar" title="Atualizar">
+    <i data-lucide="refresh-cw"></i>
   </button>
 </header>
 
 <!-- ===== MOBILE BOTTOM NAV ===== -->
 <nav class="mob-nav">
-  <button class="mob-nav-item active" data-mob-section="dashboard">
-    <i data-lucide="layout-grid" style="width:22px;height:22px;stroke-width:1.75;"></i>
+  <button class="mob-tab active" data-mob-section="dashboard">
+    <i data-lucide="layout-grid"></i>
     <span>Dashboard</span>
   </button>
-  <button class="mob-nav-item" data-mob-section="alertas">
-    <i data-lucide="bell" style="width:22px;height:22px;stroke-width:1.75;"></i>
+  <button class="mob-tab" data-mob-section="alertas">
+    <i data-lucide="bell"></i>
     <span>Alertas</span>
-    <span class="mob-nav-badge" id="mobBadgeAlertas"></span>
+    <span class="mob-badge" id="mobBadgeAlertas"></span>
   </button>
-  <button class="mob-nav-item" data-mob-section="cadastros">
-    <i data-lucide="building-2" style="width:22px;height:22px;stroke-width:1.75;"></i>
+  <button class="mob-tab" data-mob-section="cadastros">
+    <i data-lucide="settings"></i>
     <span>Cadastros</span>
   </button>
-  <button class="mob-nav-item" id="mobBtnSair">
-    <i data-lucide="log-out" style="width:22px;height:22px;stroke-width:1.75;"></i>
+  <button class="mob-tab" id="mobBtnSair">
+    <i data-lucide="log-out"></i>
     <span>Sair</span>
   </button>
 </nav>
