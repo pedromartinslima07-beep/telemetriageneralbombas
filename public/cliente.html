@@ -15,184 +15,214 @@
 </head>
 <body>
 
-<div class="app">
+<div class="layout layout-cli">
 
-  <!-- ===== HEADER ===== -->
-  <header class="header">
-    <div class="header-left">
-      <img class="header-logo" src="/static/login-logo.png" alt="GENERAL" />
-      <span class="header-brand">TELEMETRIA</span>
+  <!-- ===== SIDEBAR ===== -->
+  <aside class="sidebar collapsed" id="sidebar">
+    <div class="sidebar-inner">
+
+      <div class="sidebar-header">
+        <button class="sidebar-toggle" id="btnSidebarToggleIn" aria-label="Abrir/fechar menu">
+          <i data-lucide="menu" style="width:16px;height:16px;"></i>
+        </button>
+        <img class="sidebar-logo" src="/static/login-logo.png" alt="GENERAL" />
+      </div>
+
+      <nav class="nav">
+
+        <span class="nav-section-label">Monitor</span>
+
+        <button class="nav-item active" data-section="dashboard">
+          <i data-lucide="layout-grid"></i>
+          <span>Dashboard</span>
+        </button>
+
+        <button class="nav-item" data-section="historico">
+          <i data-lucide="trending-up"></i>
+          <span>Histórico</span>
+        </button>
+
+        <button class="nav-item" data-section="alertas">
+          <i data-lucide="bell"></i>
+          <span>Alertas</span>
+          <span class="nav-badge" id="navBadgeAlertas" style="display:none;">0</span>
+        </button>
+
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="sidebar-user">
+          <div class="sidebar-user-avatar">
+            <i data-lucide="user" style="width:16px;height:16px;"></i>
+          </div>
+          <div class="sidebar-user-info">
+            <div class="sidebar-user-role">Cliente</div>
+            <div class="sidebar-user-label">Meu Condomínio</div>
+          </div>
+        </div>
+        <button class="nav-item" id="btnAbrirSenha">
+          <i data-lucide="lock"></i>
+          <span>Alterar senha</span>
+        </button>
+        <button class="nav-item" id="btnSairCliente">
+          <i data-lucide="log-out"></i>
+          <span>Sair</span>
+        </button>
+      </div>
+
+    </div>
+  </aside>
+
+  <!-- ===== MAIN ===== -->
+  <div class="main">
+
+    <div class="content-header">
+      <div class="content-header-actions" style="margin-left:auto;">
+        <button class="btn btn-sm" id="btnAtualizarCliente">
+          <i data-lucide="refresh-cw" style="width:14px;height:14px;"></i>
+          Atualizar
+        </button>
+        <span class="statusMsg" id="statusMsg"></span>
+      </div>
     </div>
 
-    <nav class="header-nav" id="headerNav">
-      <button class="nav-tab active" data-section="dashboard">
-        <i data-lucide="layout-grid"></i>
-        <span>Dashboard</span>
-      </button>
-      <button class="nav-tab" data-section="historico">
-        <i data-lucide="trending-up"></i>
-        <span>Histórico</span>
-      </button>
-      <button class="nav-tab" data-section="alertas">
-        <i data-lucide="bell"></i>
-        <span>Alertas</span>
-        <span class="tab-badge" id="navBadgeAlertas" style="display:none;">0</span>
-      </button>
-    </nav>
+    <div class="content">
 
-    <div class="header-actions">
-      <span class="status-pill" id="statusMsg"></span>
-      <button class="icon-btn" id="btnAtualizarCliente" title="Atualizar dados">
-        <i data-lucide="refresh-cw"></i>
-      </button>
-      <button class="icon-btn" id="btnAbrirSenha" title="Alterar senha">
-        <i data-lucide="lock"></i>
-      </button>
-      <div class="header-sep"></div>
-      <span class="user-label">Cliente</span>
-      <button class="icon-btn" id="btnSairCliente" title="Sair">
-        <i data-lucide="log-out"></i>
-      </button>
-    </div>
-  </header>
+      <!-- ===== SECTION: DASHBOARD ===== -->
+      <div class="section is-active" data-section="dashboard">
 
-  <!-- ===== CONTENT ===== -->
-  <div class="main-content">
+        <section class="card">
+          <div class="cardHead">
+            <h2>
+              <i data-lucide="activity" class="head-icon"></i>
+              Resumo do condomínio
+            </h2>
+            <span class="hint">Atualiza a cada 10s</span>
+          </div>
+          <div class="section-body">
+            <div id="resumoGrid" class="resumo-grid" style="grid-template-columns:repeat(4,minmax(0,1fr));"></div>
+          </div>
+        </section>
 
-    <!-- ===== SECTION: DASHBOARD ===== -->
-    <div class="section is-active" data-section="dashboard">
+        <section class="card">
+          <div class="cardHead">
+            <h2>
+              <i data-lucide="database" class="head-icon"></i>
+              Reservatórios
+            </h2>
+            <span class="hint">Status em tempo real</span>
+          </div>
+          <div class="tableWrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Reservatório</th>
+                  <th>Tipo</th>
+                  <th>Última leitura</th>
+                  <th>Nível</th>
+                  <th>Bomba</th>
+                  <th>Min s/ atualizar</th>
+                  <th>Offline</th>
+                  <th>Alertas</th>
+                </tr>
+              </thead>
+              <tbody id="tbodyReservatoriosCliente"></tbody>
+            </table>
+          </div>
+          <div id="semReservatorios" style="display:none; padding:24px 20px; color:var(--muted);">
+            Nenhum reservatório cadastrado para este condomínio.
+          </div>
+        </section>
 
-      <section class="card">
-        <div class="cardHead">
-          <h2>
-            <i data-lucide="activity" class="head-icon"></i>
-            Resumo do condomínio
-          </h2>
-          <span class="hint">Atualiza a cada 10s</span>
-        </div>
-        <div class="section-body">
-          <div id="resumoGrid" class="resumo-grid" style="grid-template-columns:repeat(4,minmax(0,1fr));"></div>
-        </div>
-      </section>
+      </div><!-- /section dashboard -->
 
-      <section class="card">
-        <div class="cardHead">
-          <h2>
-            <i data-lucide="database" class="head-icon"></i>
-            Reservatórios
-          </h2>
-          <span class="hint">Status em tempo real</span>
-        </div>
-        <div class="tableWrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Reservatório</th>
-                <th>Tipo</th>
-                <th>Última leitura</th>
-                <th>Nível</th>
-                <th>Bomba</th>
-                <th>Min s/ atualizar</th>
-                <th>Offline</th>
-                <th>Alertas</th>
-              </tr>
-            </thead>
-            <tbody id="tbodyReservatoriosCliente"></tbody>
-          </table>
-        </div>
-        <div id="semReservatorios" style="display:none; padding:24px 20px; color:var(--muted);">
-          Nenhum reservatório cadastrado para este condomínio.
-        </div>
-      </section>
+      <!-- ===== SECTION: HISTÓRICO ===== -->
+      <div class="section" data-section="historico">
 
-    </div><!-- /section dashboard -->
-
-    <!-- ===== SECTION: HISTÓRICO ===== -->
-    <div class="section" data-section="historico">
-
-      <section class="card">
-        <div class="cardHead">
-          <h2>
-            <i data-lucide="bar-chart-3" class="head-icon"></i>
-            Histórico de nível
-          </h2>
-        </div>
-        <div class="section-body">
-          <!-- Filtros -->
-          <div class="filter-bar" style="flex-wrap:wrap; gap:12px; align-items:center; margin-bottom:24px;">
-            <div class="field" style="margin:0; flex:1; min-width:180px;">
-              <label class="lbl" for="histReservatorio">Reservatório</label>
-              <select class="select" id="histReservatorio"></select>
-            </div>
-            <div style="display:flex; flex-direction:column; gap:6px;">
-              <span class="lbl">Período</span>
-              <div style="display:flex; gap:6px;">
-                <button class="btn btn-sm hist-period active" data-dias="1">24h</button>
-                <button class="btn btn-sm hist-period" data-dias="7">7 dias</button>
-                <button class="btn btn-sm hist-period" data-dias="30">30 dias</button>
-                <button class="btn btn-sm hist-period" data-dias="90">90 dias</button>
+        <section class="card">
+          <div class="cardHead">
+            <h2>
+              <i data-lucide="bar-chart-3" class="head-icon"></i>
+              Histórico de nível
+            </h2>
+          </div>
+          <div class="section-body">
+            <!-- Filtros -->
+            <div class="filter-bar" style="flex-wrap:wrap; gap:12px; align-items:center; margin-bottom:24px;">
+              <div class="field" style="margin:0; flex:1; min-width:180px;">
+                <label class="lbl" for="histReservatorio">Reservatório</label>
+                <select class="select" id="histReservatorio"></select>
+              </div>
+              <div style="display:flex; flex-direction:column; gap:6px;">
+                <span class="lbl">Período</span>
+                <div style="display:flex; gap:6px;">
+                  <button class="btn btn-sm hist-period active" data-dias="1">24h</button>
+                  <button class="btn btn-sm hist-period" data-dias="7">7 dias</button>
+                  <button class="btn btn-sm hist-period" data-dias="30">30 dias</button>
+                  <button class="btn btn-sm hist-period" data-dias="90">90 dias</button>
+                </div>
+              </div>
+              <div style="display:flex; flex-direction:column; gap:6px;">
+                <span class="lbl">&nbsp;</span>
+                <button class="btn btn-sm btnAccent" id="btnExportarPDF" style="display:flex; align-items:center; gap:6px; white-space:nowrap;">
+                  <i data-lucide="download" style="width:14px;height:14px;"></i>
+                  Exportar PDF
+                </button>
               </div>
             </div>
-            <div style="display:flex; flex-direction:column; gap:6px;">
-              <span class="lbl">&nbsp;</span>
-              <button class="btn btn-sm btnAccent" id="btnExportarPDF" style="display:flex; align-items:center; gap:6px; white-space:nowrap;">
-                <i data-lucide="download" style="width:14px;height:14px;"></i>
-                Exportar PDF
-              </button>
+
+            <!-- Stats -->
+            <div id="histStats" class="resumo-grid" style="grid-template-columns:repeat(4,minmax(0,1fr)); display:none;"></div>
+
+            <!-- Chart -->
+            <div id="histChartWrap" style="position:relative; height:350px; display:none;">
+              <div id="histChart"></div>
             </div>
+
+            <!-- Sem dados -->
+            <div id="histSemDados" style="display:none; padding:40px 0; text-align:center; color:var(--muted);">
+              Nenhuma leitura com percentual encontrada para este período.<br>
+              <small style="opacity:.6;">Envie dados com <code>nivel_pct</code> para visualizar o histórico.</small>
+            </div>
+
+            <div id="histMsg" style="color:var(--muted); font-size:13px;"></div>
           </div>
+        </section>
 
-          <!-- Stats -->
-          <div id="histStats" class="resumo-grid" style="grid-template-columns:repeat(4,minmax(0,1fr)); display:none;"></div>
+      </div><!-- /section historico -->
 
-          <!-- Chart -->
-          <div id="histChartWrap" style="position:relative; height:350px; display:none;">
-            <div id="histChart"></div>
+      <!-- ===== SECTION: ALERTAS ===== -->
+      <div class="section" data-section="alertas">
+        <section class="card">
+          <div class="cardHead">
+            <h2>
+              <i data-lucide="bell-ring" class="head-icon"></i>
+              Alertas abertos
+            </h2>
+            <span class="hint">Somente do seu condomínio</span>
           </div>
-
-          <!-- Sem dados -->
-          <div id="histSemDados" style="display:none; padding:40px 0; text-align:center; color:var(--muted);">
-            Nenhuma leitura com percentual encontrada para este período.<br>
-            <small style="opacity:.6;">Envie dados com <code>nivel_pct</code> para visualizar o histórico.</small>
+          <div class="tableWrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Tipo</th>
+                  <th>Mensagem</th>
+                  <th>Criado em</th>
+                  <th>Atualizado em</th>
+                </tr>
+              </thead>
+              <tbody id="tbodyAlertasCliente"></tbody>
+            </table>
           </div>
+          <div id="semAlertas" style="display:none; padding:24px 20px; color:var(--muted);">
+            Nenhum alerta ativo no momento.
+          </div>
+        </section>
+      </div><!-- /section alertas -->
 
-          <div id="histMsg" style="color:var(--muted); font-size:13px;"></div>
-        </div>
-      </section>
-
-    </div><!-- /section historico -->
-
-    <!-- ===== SECTION: ALERTAS ===== -->
-    <div class="section" data-section="alertas">
-      <section class="card">
-        <div class="cardHead">
-          <h2>
-            <i data-lucide="bell-ring" class="head-icon"></i>
-            Alertas abertos
-          </h2>
-          <span class="hint">Somente do seu condomínio</span>
-        </div>
-        <div class="tableWrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Tipo</th>
-                <th>Mensagem</th>
-                <th>Criado em</th>
-                <th>Atualizado em</th>
-              </tr>
-            </thead>
-            <tbody id="tbodyAlertasCliente"></tbody>
-          </table>
-        </div>
-        <div id="semAlertas" style="display:none; padding:24px 20px; color:var(--muted);">
-          Nenhum alerta ativo no momento.
-        </div>
-      </section>
-    </div><!-- /section alertas -->
-
-  </div><!-- /main-content -->
-</div><!-- /app -->
+    </div><!-- /content -->
+  </div><!-- /main -->
+</div><!-- /layout -->
 
 <!-- Modal: alterar senha -->
 <div id="senhaOverlay" class="modalOverlay" style="display:none;">
@@ -219,35 +249,35 @@
   </div>
 </div>
 
-<!-- ===== MOBILE HEADER ===== -->
-<header class="mob-header">
-  <img src="/static/login-logo.png" class="mob-header-logo" alt="GENERAL" />
-  <span class="mob-header-title" id="topbarTitle">Dashboard</span>
-  <button class="icon-btn" id="mobBtnSenha" title="Alterar senha">
-    <i data-lucide="lock"></i>
+<!-- ===== MOBILE TOP BAR ===== -->
+<header class="mob-topbar">
+  <img src="/static/login-logo.png" class="mob-top-logo" alt="GENERAL" />
+  <span class="mob-top-title" id="topbarTitle">Dashboard</span>
+  <button class="mob-top-btn" id="mobBtnSenha" aria-label="Alterar senha" title="Alterar senha">
+    <i data-lucide="lock" style="width:16px;height:16px;"></i>
   </button>
-  <button class="icon-btn" id="mobBtnAtualizar" title="Atualizar">
-    <i data-lucide="refresh-cw"></i>
+  <button class="mob-top-btn" id="mobBtnAtualizar" aria-label="Atualizar">
+    <i data-lucide="refresh-cw" style="width:16px;height:16px;"></i>
   </button>
 </header>
 
 <!-- ===== MOBILE BOTTOM NAV ===== -->
 <nav class="mob-nav">
-  <button class="mob-tab active" data-mob-section="dashboard">
-    <i data-lucide="layout-grid"></i>
+  <button class="mob-nav-item active" data-mob-section="dashboard">
+    <i data-lucide="layout-grid" style="width:22px;height:22px;stroke-width:1.75;"></i>
     <span>Dashboard</span>
   </button>
-  <button class="mob-tab" data-mob-section="historico">
-    <i data-lucide="trending-up"></i>
+  <button class="mob-nav-item" data-mob-section="historico">
+    <i data-lucide="trending-up" style="width:22px;height:22px;stroke-width:1.75;"></i>
     <span>Histórico</span>
   </button>
-  <button class="mob-tab" data-mob-section="alertas">
-    <i data-lucide="bell"></i>
+  <button class="mob-nav-item" data-mob-section="alertas">
+    <i data-lucide="bell" style="width:22px;height:22px;stroke-width:1.75;"></i>
     <span>Alertas</span>
-    <span class="mob-badge" id="mobBadgeAlertas"></span>
+    <span class="mob-nav-badge" id="mobBadgeAlertas"></span>
   </button>
-  <button class="mob-tab" id="mobBtnSair">
-    <i data-lucide="log-out"></i>
+  <button class="mob-nav-item" id="mobBtnSair">
+    <i data-lucide="log-out" style="width:22px;height:22px;stroke-width:1.75;"></i>
     <span>Sair</span>
   </button>
 </nav>

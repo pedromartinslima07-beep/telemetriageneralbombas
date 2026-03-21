@@ -22,14 +22,10 @@ let _histChart = null;
 function showSection(name) {
   document.querySelectorAll(".section").forEach(s => s.classList.remove("is-active"));
   document.querySelector(`.section[data-section="${name}"]`)?.classList.add("is-active");
-  // Desktop nav tabs
-  document.querySelectorAll(".nav-tab[data-section]").forEach(n => n.classList.remove("active"));
-  document.querySelector(`.nav-tab[data-section="${name}"]`)?.classList.add("active");
-  // Mobile topbar title
+  document.querySelectorAll(".nav-item[data-section]").forEach(n => n.classList.remove("active"));
+  document.querySelector(`.nav-item[data-section="${name}"]`)?.classList.add("active");
   const t = document.getElementById("topbarTitle");
   if (t) t.textContent = _sectionTitles[name] || name;
-  // Hash routing
-  if (location.hash !== "#" + name) history.replaceState(null, "", "#" + name);
 }
 
 function abrirModalSenha() {
@@ -286,7 +282,7 @@ async function carregarHistorico() {
         type: "area",
         height: 340,
         background: "transparent",
-        foreColor: "#4a6a8a",
+        foreColor: "#3a5a70",
         fontFamily: "'Inter', sans-serif",
         toolbar: { show: false },
         zoom: { enabled: false },
@@ -300,7 +296,7 @@ async function carregarHistorico() {
       xaxis: {
         categories: categories,
         labels: {
-          style: { fontSize: "11px", colors: "#4a6a8a", fontFamily: "'Inter', sans-serif" },
+          style: { fontSize: "11px", colors: "#3a5a70", fontFamily: "'Inter', sans-serif" },
           rotate: 0,
           hideOverlappingLabels: true,
           maxHeight: 60,
@@ -312,7 +308,7 @@ async function carregarHistorico() {
       yaxis: {
         min: 0, max: 100,
         labels: {
-          style: { fontSize: "11px", colors: "#4a6a8a", fontFamily: "'Inter', sans-serif" },
+          style: { fontSize: "11px", colors: "#3a5a70", fontFamily: "'Inter', sans-serif" },
           formatter: (v) => v + "%",
         },
       },
@@ -337,7 +333,7 @@ async function carregarHistorico() {
       markers: {
         size: values.length > 60 ? 0 : 5,
         colors: ["#F5A623"],
-        strokeColors: "#0A1628",
+        strokeColors: "#050a12",
         strokeWidth: 2,
         hover: { size: 7 },
       },
@@ -547,8 +543,8 @@ async function trocarSenha(event) {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-  // nav sections (desktop tabs)
-  document.querySelectorAll(".nav-tab[data-section]").forEach(item => {
+  // nav sections
+  document.querySelectorAll(".nav-item[data-section]").forEach(item => {
     item.addEventListener("click", () => showSection(item.dataset.section));
   });
 
@@ -589,9 +585,24 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("btnAbrirSenha")?.addEventListener("click", abrirModalSenha);
   document.getElementById("btnSairCliente")?.addEventListener("click", logout);
 
-  // Hash routing: restore section from URL hash
-  const _hash = location.hash.replace("#", "");
-  if (_hash && _sectionTitles[_hash]) showSection(_hash);
+  // ===== SIDEBAR TOGGLE =====
+  const _sidebar = document.getElementById("sidebar");
+
+  function _applySidebar(collapsed) {
+    _sidebar.classList.toggle("collapsed", collapsed);
+  }
+
+  // Começa fechada por padrão; abre se o usuário havia deixado aberta
+  _applySidebar(localStorage.getItem("sidebarCollapsed") !== "false");
+
+  function _onToggle() {
+    const next = !_sidebar.classList.contains("collapsed");
+    _applySidebar(next);
+    localStorage.setItem("sidebarCollapsed", next);
+  }
+
+  document.getElementById("btnSidebarToggleIn")?.addEventListener("click", _onToggle);
+  document.getElementById("btnSidebarToggleOut")?.addEventListener("click", _onToggle);
 
   // modal senha
   document.getElementById("btnFecharSenhaTop")?.addEventListener("click", fecharModalSenha);
