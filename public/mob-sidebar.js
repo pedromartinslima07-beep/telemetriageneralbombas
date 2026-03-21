@@ -1,6 +1,6 @@
 (function () {
   // ── Navegação pelo bottom nav ──
-  var mobItems = document.querySelectorAll('.mob-nav-item[data-mob-section]');
+  var mobItems = document.querySelectorAll('.mob-tab[data-mob-section]');
 
   mobItems.forEach(function (btn) {
     btn.addEventListener('click', function () {
@@ -58,7 +58,7 @@
     });
   }
 
-  // ── Sincroniza badge de alertas (sidebar → bottom nav) ──
+  // ── Sincroniza badge de alertas (header → bottom nav) ──
   var srcBadge = document.getElementById('navBadgeAlertas');
   var dstBadge = document.getElementById('mobBadgeAlertas');
 
@@ -75,7 +75,7 @@
   }
 
   // ── Título inicial do topbar ──
-  var activeItem = document.querySelector('.mob-nav-item.active[data-mob-section]');
+  var activeItem = document.querySelector('.mob-tab.active[data-mob-section]');
   if (activeItem) {
     var titles = { dashboard: 'Dashboard', alertas: 'Alertas', cadastros: 'Cadastros', historico: 'Histórico' };
     var titleEl = document.getElementById('topbarTitle');
