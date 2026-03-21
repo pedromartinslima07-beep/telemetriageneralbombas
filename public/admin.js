@@ -11,6 +11,11 @@ const _sectionTitles = {
   alertas:   "Alertas Abertos",
   cadastros: "Cadastros",
 };
+const _sectionSubtitles = {
+  dashboard: "Visão geral do sistema",
+  alertas:   "Pendentes de resolução",
+  cadastros: "Condomínios, reservatórios e usuários",
+};
 
 function showSection(name) {
   document.querySelectorAll(".section").forEach(s => s.classList.remove("is-active"));
@@ -19,6 +24,10 @@ function showSection(name) {
   document.querySelector(`.nav-item[data-section="${name}"]`)?.classList.add("active");
   const t = document.getElementById("topbarTitle");
   if (t) t.textContent = _sectionTitles[name] || name;
+  const pt = document.getElementById("pageTitle");
+  if (pt) pt.textContent = _sectionTitles[name] || name;
+  const ps = document.getElementById("pageSubtitle");
+  if (ps) ps.textContent = _sectionSubtitles[name] || "";
 }
 
 function logout() {
@@ -34,7 +43,8 @@ function fmtData(iso) {
 
 function badge(text, kind) {
   const cls = kind === "ok" ? "b-ok" : (kind === "warn" ? "b-warn" : "b-bad");
-  return `<span class="badge ${cls}">${text}</span>`;
+  const dotCls = kind === "ok" ? "status-dot-ok" : (kind === "warn" ? "status-dot-warn" : "status-dot-bad");
+  return `<span class="badge ${cls}"><span class="status-dot ${dotCls}"></span>${text}</span>`;
 }
 
 function tipoBadge(tipo) {
@@ -69,11 +79,21 @@ function resumoCard(titulo, valorHtml, kind, cardKey) {
     kind === "warn" ? "rc-warn" :
     kind === "ok"   ? "rc-ok"   : "rc-neutral";
 
+  const iconMap = {
+    offline: "wifi-off",
+    nivel_baixo: "trending-down",
+    nivel_muito_baixo: "alert-triangle",
+    com_alerta: "bell",
+    ok: "check-circle",
+  };
+  const iconName = iconMap[cardKey] || "activity";
+
   return `
     <button class="rc ${kindCls}" data-card="${cardKey}">
+      <div class="rc-icon"><i data-lucide="${iconName}"></i></div>
       <div class="rc-label">${titulo}</div>
       <div class="rc-value">${valorHtml}</div>
-      <div class="rc-hint">Passe o mouse • Clique para detalhes</div>
+      <div class="rc-hint">Clique para detalhes</div>
     </button>
   `;
 }

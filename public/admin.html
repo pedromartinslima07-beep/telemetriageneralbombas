@@ -74,7 +74,12 @@
   <div class="main">
 
     <div class="content-header">
-      <div class="content-header-actions" style="margin-left:auto;">
+      <div class="page-title-wrap">
+        <div class="page-title" id="pageTitle">Dashboard</div>
+        <div class="page-subtitle" id="pageSubtitle">Visão geral do sistema</div>
+      </div>
+      <div class="content-header-actions">
+        <span class="statusMsg" id="statusMsg"></span>
         <button class="btn btn-sm" id="btnAtualizar">
           <i data-lucide="refresh-cw" style="width:14px;height:14px;"></i>
           Atualizar
@@ -83,7 +88,6 @@
           <i data-lucide="wifi-off" style="width:14px;height:14px;"></i>
           Verificar Offline
         </button>
-        <span class="statusMsg" id="statusMsg"></span>
       </div>
     </div>
 
