@@ -1,4 +1,4 @@
-const CACHE_NAME = "telemetria-v6";
+const CACHE_NAME = "telemetria-v5";
 
 const STATIC_ASSETS = [
   "/login",
@@ -7,8 +7,6 @@ const STATIC_ASSETS = [
   "/static/admin.css",
   "/static/favicon.png",
   "/static/login-logo.png",
-  "/static/lucide.min.js",
-  "/static/apexcharts.min.js",
   "/static/icons/icon-192x192.png",
   "/static/icons/icon-512x512.png",
 ];

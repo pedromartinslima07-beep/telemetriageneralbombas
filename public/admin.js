@@ -11,11 +11,6 @@ const _sectionTitles = {
   alertas:   "Alertas Abertos",
   cadastros: "Cadastros",
 };
-const _sectionSubtitles = {
-  dashboard: "Visão geral do sistema",
-  alertas:   "Pendentes de resolução",
-  cadastros: "Condomínios, reservatórios e usuários",
-};
 
 function showSection(name) {
   document.querySelectorAll(".section").forEach(s => s.classList.remove("is-active"));
@@ -24,10 +19,6 @@ function showSection(name) {
   document.querySelector(`.nav-item[data-section="${name}"]`)?.classList.add("active");
   const t = document.getElementById("topbarTitle");
   if (t) t.textContent = _sectionTitles[name] || name;
-  const pt = document.getElementById("pageTitle");
-  if (pt) pt.textContent = _sectionTitles[name] || name;
-  const ps = document.getElementById("pageSubtitle");
-  if (ps) ps.textContent = _sectionSubtitles[name] || "";
 }
 
 function logout() {
@@ -43,8 +34,7 @@ function fmtData(iso) {
 
 function badge(text, kind) {
   const cls = kind === "ok" ? "b-ok" : (kind === "warn" ? "b-warn" : "b-bad");
-  const dotCls = kind === "ok" ? "status-dot-ok" : (kind === "warn" ? "status-dot-warn" : "status-dot-bad");
-  return `<span class="badge ${cls}"><span class="status-dot ${dotCls}"></span>${text}</span>`;
+  return `<span class="badge ${cls}">${text}</span>`;
 }
 
 function tipoBadge(tipo) {
@@ -79,21 +69,11 @@ function resumoCard(titulo, valorHtml, kind, cardKey) {
     kind === "warn" ? "rc-warn" :
     kind === "ok"   ? "rc-ok"   : "rc-neutral";
 
-  const iconMap = {
-    offline: "wifi-off",
-    nivel_baixo: "trending-down",
-    nivel_muito_baixo: "alert-triangle",
-    com_alerta: "bell",
-    ok: "check-circle",
-  };
-  const iconName = iconMap[cardKey] || "activity";
-
   return `
     <button class="rc ${kindCls}" data-card="${cardKey}">
-      <div class="rc-icon"><i data-lucide="${iconName}"></i></div>
       <div class="rc-label">${titulo}</div>
       <div class="rc-value">${valorHtml}</div>
-      <div class="rc-hint">Clique para detalhes</div>
+      <div class="rc-hint">Passe o mouse • Clique para detalhes</div>
     </button>
   `;
 }
@@ -361,60 +341,6 @@ async function criarAdminViewer() {
   } catch {
     if (msg) msg.textContent = "Erro de conexão.";
   }
-}
-
-// ===== redefinir senha =====
-let _usuarios = [];
-
-function renderUsuarios() {
-  const tbody = document.getElementById("tbodyUsuarios");
-  if (!tbody) return;
-  tbody.innerHTML = "";
-
-  if (_usuarios.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--muted)">Nenhum usuário encontrado</td></tr>`;
-    return;
-  }
-
-  for (const u of _usuarios) {
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>${u.nome || "-"}</td>
-      <td class="mono">${u.email || "-"}</td>
-      <td>${u.role === "cliente" ? badge("cliente", "ok") : badge(u.role, "warn")}</td>
-      <td>${u.condominio_nome || "-"}</td>
-      <td>
-        <button class="btn btn-sm btnAccent" data-action="resetar-senha" data-id="${u.id}" data-email="${(u.email || "").replaceAll('"', "&quot;")}">
-          Redefinir senha
-        </button>
-      </td>
-    `;
-    tbody.appendChild(tr);
-  }
-}
-
-async function carregarUsuarios() {
-  const r = await fetch("/admin/usuarios", { headers: authHeaders() });
-  if (!r.ok) throw new Error("Erro /admin/usuarios: " + r.status);
-  _usuarios = await r.json();
-}
-
-async function resetarSenhaCliente(id, email) {
-  if (!confirm(`Redefinir senha de ${email}?\nUma nova senha será gerada e enviada por email.`)) return;
-
-  const r = await fetch(`/admin/usuarios/${id}/resetar-senha`, {
-    method: "POST",
-    headers: authHeaders(),
-  });
-
-  const data = await r.json().catch(() => ({}));
-
-  if (!r.ok) {
-    alert("Erro ao redefinir senha: " + (data.error || r.status));
-    return;
-  }
-
-  alert(`Nova senha enviada para ${data.email || email}.`);
 }
 
 // ===== carregamento =====
@@ -688,15 +614,13 @@ async function carregarTudo() {
   const el = document.getElementById("statusMsg");
   el.textContent = "Carregando...";
   try {
-    await Promise.all([carregarStatus(), carregarAlertas(), carregarCondominios(), carregarUsuarios()]);
+    await Promise.all([carregarStatus(), carregarAlertas(), carregarCondominios()]);
     renderSelectCondominiosCliente();
     renderSelectCondominiosReservatorio();
     renderResumo();
     bindResumoInteracoes();
     renderAlertas();
     renderStatus();
-    renderUsuarios();
-    if (typeof lucide !== "undefined") lucide.createIcons();
     el.textContent = "Atualizado às " + new Date().toLocaleTimeString();
   } catch (e) {
     el.textContent = "Erro ao atualizar";
@@ -1450,13 +1374,6 @@ document.addEventListener("DOMContentLoaded", () => {
     if (action === "focar-condominio") {
       const device = btn.dataset.device;
       if (device) focarCondominio(device);
-      return;
-    }
-
-    if (action === "resetar-senha") {
-      const id = Number(btn.dataset.id);
-      const email = btn.dataset.email || "";
-      if (id) resetarSenhaCliente(id, email);
       return;
     }
   });

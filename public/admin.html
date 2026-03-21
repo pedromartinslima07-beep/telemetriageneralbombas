@@ -23,7 +23,9 @@
 
       <div class="sidebar-header">
         <button class="sidebar-toggle" id="btnSidebarToggleIn" aria-label="Abrir/fechar menu">
-          <i data-lucide="menu" style="width:16px;height:16px;"></i>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+          </svg>
         </button>
         <img class="sidebar-logo" src="/static/login-logo.png" alt="GENERAL" />
       </div>
@@ -33,12 +35,18 @@
         <span class="nav-section-label">Monitor</span>
 
         <button class="nav-item active" data-section="dashboard">
-          <i data-lucide="layout-grid"></i>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/>
+            <rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>
+          </svg>
           <span>Dashboard</span>
         </button>
 
         <button class="nav-item" data-section="alertas">
-          <i data-lucide="bell"></i>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+          </svg>
           <span>Alertas</span>
           <span class="nav-badge" id="navBadgeAlertas" style="display:none;">0</span>
         </button>
@@ -46,7 +54,10 @@
         <span class="nav-section-label">Gestão</span>
 
         <button class="nav-item" data-section="cadastros">
-          <i data-lucide="building-2"></i>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+            <polyline points="9 22 9 12 15 12 15 22"/>
+          </svg>
           <span>Cadastros</span>
         </button>
       </nav>
@@ -54,7 +65,9 @@
       <div class="sidebar-footer">
         <div class="sidebar-user">
           <div class="sidebar-user-avatar">
-            <i data-lucide="user" style="width:16px;height:16px;"></i>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+            </svg>
           </div>
           <div class="sidebar-user-info">
             <div class="sidebar-user-role">Admin</div>
@@ -62,7 +75,10 @@
           </div>
         </div>
         <button class="nav-item" id="btnSair">
-          <i data-lucide="log-out"></i>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+            <polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+          </svg>
           <span>Sair</span>
         </button>
       </div>
@@ -74,20 +90,10 @@
   <div class="main">
 
     <div class="content-header">
-      <div class="page-title-wrap">
-        <div class="page-title" id="pageTitle">Dashboard</div>
-        <div class="page-subtitle" id="pageSubtitle">Visão geral do sistema</div>
-      </div>
-      <div class="content-header-actions">
+      <div class="content-header-actions" style="margin-left:auto;">
+        <button class="btn btn-sm" id="btnAtualizar">Atualizar</button>
+        <button class="btn btn-sm btnAccent" id="btnOffline">Verificar Offline</button>
         <span class="statusMsg" id="statusMsg"></span>
-        <button class="btn btn-sm" id="btnAtualizar">
-          <i data-lucide="refresh-cw" style="width:14px;height:14px;"></i>
-          Atualizar
-        </button>
-        <button class="btn btn-sm btnAccent" id="btnOffline">
-          <i data-lucide="wifi-off" style="width:14px;height:14px;"></i>
-          Verificar Offline
-        </button>
       </div>
     </div>
 
@@ -101,7 +107,9 @@
         <section class="card">
           <div class="cardHead">
             <h2>
-              <i data-lucide="activity" class="head-icon"></i>
+              <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+              </svg>
               Situação atual
             </h2>
             <span class="hint">Atualiza a cada 10s</span>
@@ -115,7 +123,9 @@
         <section class="card">
           <div class="cardHead">
             <h2>
-              <i data-lucide="building" class="head-icon"></i>
+              <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/>
+              </svg>
               Condomínios
             </h2>
             <span class="hint">Status em tempo real</span>
@@ -125,7 +135,7 @@
             <div class="filter-bar">
               <div class="field" style="flex:1;min-width:220px;">
                 <span class="lbl">Buscar</span>
-                <input id="filtroTexto" class="input" placeholder="Nome do condomínio ou device ID..." />
+                <input id="filtroTexto" class="input" placeholder="Nome do condomínio ou device ID…" />
               </div>
               <label class="filter-check">
                 <input type="checkbox" id="filtroSomenteAlertas" />
@@ -140,13 +150,9 @@
             </div>
 
             <div class="pagination">
-              <button class="btn btn-sm" id="btnPaginaAnterior">
-                <i data-lucide="chevron-left" style="width:14px;height:14px;"></i>
-              </button>
+              <button class="btn btn-sm" id="btnPaginaAnterior">◀</button>
               <span id="paginaInfo" class="page-info"></span>
-              <button class="btn btn-sm" id="btnProximaPagina">
-                <i data-lucide="chevron-right" style="width:14px;height:14px;"></i>
-              </button>
+              <button class="btn btn-sm" id="btnProximaPagina">▶</button>
               <span class="hint" style="margin-left:auto;">Por página:</span>
               <select id="pageSize" class="select" style="width:auto;">
                 <option value="10">10</option>
@@ -180,7 +186,10 @@
         <section class="card">
           <div class="cardHead">
             <h2>
-              <i data-lucide="bell-ring" class="head-icon"></i>
+              <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+              </svg>
               Alertas abertos
             </h2>
             <span class="hint">Pendentes de resolução</span>
@@ -211,7 +220,10 @@
         <section class="card">
           <div class="cardHead">
             <h2>
-              <i data-lucide="plus-circle" class="head-icon"></i>
+              <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                <polyline points="9 22 9 12 15 12 15 22"/>
+              </svg>
               Novo condomínio
             </h2>
           </div>
@@ -247,14 +259,14 @@
               </div>
               <div class="field col-2">
                 <span class="lbl">Observações</span>
-                <input id="novoObs" class="input" placeholder="Informações adicionais..." />
+                <input id="novoObs" class="input" placeholder="Informações adicionais…" />
               </div>
               <label class="check-field col-2">
                 <input type="checkbox" id="novoAtivo" checked />
                 Ativo
               </label>
             </div>
-            <div class="form-footer" style="margin-top:20px;">
+            <div class="form-footer" style="margin-top:16px;">
               <button class="btn btnAccent" id="btnCadastrarCondominio">Cadastrar condomínio</button>
               <span id="msgCadastro" class="hint"></span>
             </div>
@@ -265,7 +277,10 @@
         <section class="card">
           <div class="cardHead">
             <h2>
-              <i data-lucide="hard-drive" class="head-icon"></i>
+              <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 7H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/>
+                <path d="M12 12v.01"/>
+              </svg>
               Novo reservatório
             </h2>
             <span class="hint">Vincula um dispositivo IoT a um condomínio</span>
@@ -275,7 +290,7 @@
               <div class="field">
                 <span class="lbl">Condomínio <span class="req">*</span></span>
                 <select id="resCondominio" class="select">
-                  <option value="">Selecione...</option>
+                  <option value="">Selecione…</option>
                 </select>
               </div>
               <div class="field">
@@ -295,7 +310,7 @@
                 <input id="resDeviceId" class="input" placeholder="Ex: RES_COND10_SUP" />
               </div>
             </div>
-            <div class="form-footer" style="margin-top:20px;">
+            <div class="form-footer" style="margin-top:16px;">
               <button id="btnCadastrarReservatorio" class="btn btnAccent">Cadastrar reservatório</button>
               <span id="msgReservatorio" class="hint"></span>
             </div>
@@ -306,7 +321,9 @@
         <section class="card">
           <div class="cardHead">
             <h2>
-              <i data-lucide="user-plus" class="head-icon"></i>
+              <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+              </svg>
               Criar acesso de cliente
             </h2>
             <span class="hint">Usuário vinculado a um condomínio</span>
@@ -320,7 +337,7 @@
               <div class="field">
                 <span class="lbl">Condomínio <span class="req">*</span></span>
                 <select id="cliCondominio" class="select">
-                  <option value="">Selecione...</option>
+                  <option value="">Selecione…</option>
                 </select>
               </div>
               <div class="field">
@@ -332,7 +349,7 @@
                 <input id="cliSenha" class="input" type="text" placeholder="Ex: 123456" />
               </div>
             </div>
-            <div class="form-footer" style="margin-top:20px;">
+            <div class="form-footer" style="margin-top:16px;">
               <button class="btn btnAccent" id="btnCriarCliente">Criar cliente</button>
               <span id="msgCliente" class="hint"></span>
             </div>
@@ -343,7 +360,9 @@
         <section class="card" id="cardCriarAdminViewer" style="display:none;">
           <div class="cardHead">
             <h2>
-              <i data-lucide="eye" class="head-icon"></i>
+              <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+              </svg>
               Criar acesso de visualizador
             </h2>
             <span class="hint">Admin com acesso somente leitura</span>
@@ -363,35 +382,10 @@
                 <input id="avSenha" class="input" type="text" placeholder="Ex: 123456" />
               </div>
             </div>
-            <div class="form-footer" style="margin-top:20px;">
+            <div class="form-footer" style="margin-top:16px;">
               <button class="btn btnAccent" id="btnCriarAdminViewer">Criar acesso visualizador</button>
               <span id="msgAdminViewer" class="hint"></span>
             </div>
-          </div>
-        </section>
-
-        <!-- Redefinir senha de cliente -->
-        <section class="card">
-          <div class="cardHead">
-            <h2>
-              <i data-lucide="key-round" class="head-icon"></i>
-              Redefinir senha de cliente
-            </h2>
-            <span class="hint">Gera senha aleatória e envia por email</span>
-          </div>
-          <div class="tableWrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Nome</th>
-                  <th>Email</th>
-                  <th>Perfil</th>
-                  <th>Condomínio</th>
-                  <th style="width:140px;">Ação</th>
-                </tr>
-              </thead>
-              <tbody id="tbodyUsuarios"></tbody>
-            </table>
           </div>
         </section>
 
@@ -416,7 +410,7 @@
     </div>
     <div class="modalBody">
       <div class="modalTools">
-        <input id="modalBusca" class="modalBusca" placeholder="Buscar..." oninput="renderModalLista()" />
+        <input id="modalBusca" class="modalBusca" placeholder="Buscar…" oninput="renderModalLista()" />
         <span id="modalCount" class="modalCount">0 itens</span>
       </div>
       <div class="modalListWrap">
@@ -440,11 +434,11 @@
 <div id="hardDeleteOverlay" class="modalOverlay" style="display:none;">
   <div class="modalBox" style="max-width:440px;">
     <div class="modalHead">
-      <div class="modalTitle" style="color:var(--danger);">Exclusão permanente</div>
+      <div class="modalTitle" style="color:var(--danger);">&#9888; Exclusão permanente</div>
       <button class="btn btn-sm" id="btnFecharHardDelete">Fechar</button>
     </div>
     <div class="modalBody" style="padding:20px 24px 24px;">
-      <p id="hardDeleteMsg" style="margin:0 0 16px;line-height:1.5;color:var(--text-secondary);font-size:13px;"></p>
+      <p id="hardDeleteMsg" style="margin:0 0 16px;line-height:1.5;color:var(--text-muted);font-size:13px;"></p>
       <p style="margin:0 0 16px;line-height:1.5;color:var(--danger);font-size:13px;font-weight:600;">
         Esta ação apagará permanentemente o condomínio, todos os reservatórios, leituras e alertas. Não é reversível.
       </p>
@@ -494,7 +488,7 @@
           <button class="btn btnAccent" type="submit">Salvar alterações</button>
         </div>
         <div style="grid-column:1/-1;margin-top:8px;padding-top:16px;border-top:1px solid var(--border);display:flex;align-items:center;gap:12px;">
-          <span style="font-size:12px;color:var(--muted);flex:1;">Zona de perigo — esta ação é irreversível.</span>
+          <span style="font-size:12px;color:var(--text-muted);flex:1;">Zona de perigo — esta ação é irreversível.</span>
           <button class="btn btn-sm btnDanger" type="button" id="btnHardDeleteNoEdit">Excluir permanentemente</button>
         </div>
       </form>
@@ -510,14 +504,14 @@
       <button class="btn btn-sm" id="btnFecharDeviceKey">Fechar</button>
     </div>
     <div class="modalBody" style="padding:20px 24px 24px;display:flex;flex-direction:column;gap:16px;">
-      <p style="margin:0;padding:12px 16px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:8px;color:var(--danger);font-size:13px;font-weight:600;">
-        Salve esta chave agora! Ela não será exibida novamente.
+      <p style="margin:0;padding:10px 14px;background:rgba(239,68,68,.12);border:1px solid var(--danger);border-radius:6px;color:var(--danger);font-size:13px;font-weight:600;">
+        &#9888; Salve esta chave agora! Ela não será exibida novamente.
       </p>
       <div style="display:flex;gap:8px;align-items:center;">
         <input id="deviceKeyValue" class="input" readonly style="font-family:monospace;font-size:13px;flex:1;cursor:text;" />
         <button class="btn btnAccent" id="btnCopiarDeviceKey" style="white-space:nowrap;min-width:80px;">Copiar</button>
       </div>
-      <div id="deviceKeyCopiadoMsg" style="display:none;font-size:12px;color:#F5A623;font-weight:600;">Copiado!</div>
+      <div id="deviceKeyCopiadoMsg" style="display:none;font-size:12px;color:#4ade80;font-weight:600;">&#10003; Copiado!</div>
     </div>
   </div>
 </div>
@@ -564,36 +558,57 @@
   <img src="/static/login-logo.png" class="mob-top-logo" alt="GENERAL" />
   <span class="mob-top-title" id="topbarTitle">Dashboard</span>
   <button class="mob-top-btn" id="mobBtnOffline" aria-label="Verificar Offline" title="Verificar Offline">
-    <i data-lucide="wifi-off" style="width:16px;height:16px;"></i>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="1" y1="1" x2="23" y2="23"/>
+      <path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/>
+      <path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/>
+      <path d="M10.71 5.05A16 16 0 0 1 22.56 9"/>
+      <path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/>
+      <path d="M8.53 16.11a6 6 0 0 1 6.95 0"/>
+      <line x1="12" y1="20" x2="12.01" y2="20"/>
+    </svg>
   </button>
   <button class="mob-top-btn" id="mobBtnAtualizar" aria-label="Atualizar">
-    <i data-lucide="refresh-cw" style="width:16px;height:16px;"></i>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
+      <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+    </svg>
   </button>
 </header>
 
 <!-- ===== MOBILE BOTTOM NAV ===== -->
 <nav class="mob-nav">
   <button class="mob-nav-item active" data-mob-section="dashboard">
-    <i data-lucide="layout-grid" style="width:22px;height:22px;stroke-width:1.75;"></i>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/>
+      <rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>
+    </svg>
     <span>Dashboard</span>
   </button>
   <button class="mob-nav-item" data-mob-section="alertas">
-    <i data-lucide="bell" style="width:22px;height:22px;stroke-width:1.75;"></i>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+      <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+    </svg>
     <span>Alertas</span>
     <span class="mob-nav-badge" id="mobBadgeAlertas"></span>
   </button>
   <button class="mob-nav-item" data-mob-section="cadastros">
-    <i data-lucide="building-2" style="width:22px;height:22px;stroke-width:1.75;"></i>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+      <polyline points="9 22 9 12 15 12 15 22"/>
+    </svg>
     <span>Cadastros</span>
   </button>
   <button class="mob-nav-item" id="mobBtnSair">
-    <i data-lucide="log-out" style="width:22px;height:22px;stroke-width:1.75;"></i>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+      <polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+    </svg>
     <span>Sair</span>
   </button>
 </nav>
 
-<script src="/static/lucide.min.js"></script>
-<script>lucide.createIcons();</script>
 <script src="/static/inatividade.js" defer></script>
 <script src="/static/admin.js" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
