@@ -65,7 +65,8 @@ function fmtData(iso) {
 
 function badge(text, kind) {
   const cls = kind === "ok" ? "b-ok" : (kind === "warn" ? "b-warn" : "b-bad");
-  return `<span class="badge ${cls}">${text}</span>`;
+  const dotCls = kind === "ok" ? "status-dot-ok" : (kind === "warn" ? "status-dot-warn" : "status-dot-bad");
+  return `<span class="badge ${cls}"><span class="status-dot ${dotCls}"></span>${text}</span>`;
 }
 
 function nivelBadge(nivel) {
@@ -205,11 +206,13 @@ function populateHistSelect() {
   if (prev) sel.value = prev;
 }
 
-function histResumoCard(titulo, valor, cor) {
+function histResumoCard(titulo, valor, cor, iconName) {
+  const ic = iconName || "activity";
   return `
     <div class="rc rc-neutral rc-static">
+      <div class="rc-icon" style="background:${cor ? cor + '18' : 'rgba(59,130,246,.12)'};color:${cor || 'var(--blue)'}"><i data-lucide="${ic}"></i></div>
       <div class="rc-label">${titulo}</div>
-      <div class="rc-value" style="font-size:24px; color:${cor || "var(--accent)"};">${valor}</div>
+      <div class="rc-value" style="font-size:28px; color:${cor || "var(--accent)"};">${valor}</div>
     </div>`;
 }
 
@@ -252,11 +255,12 @@ async function carregarHistorico() {
     if (statsEl && data.stats) {
       const s = data.stats;
       statsEl.innerHTML = [
-        histResumoCard("Mínimo", `${s.min_pct}%`, "#f87171"),
-        histResumoCard("Máximo", `${s.max_pct}%`, "#4ade80"),
-        histResumoCard("Média", `${s.avg_pct}%`, "var(--accent)"),
-        histResumoCard("Leituras", s.total_leituras.toLocaleString(), "var(--blue)"),
+        histResumoCard("Mínimo", `${s.min_pct}%`, "#f87171", "trending-down"),
+        histResumoCard("Máximo", `${s.max_pct}%`, "#4ade80", "trending-up"),
+        histResumoCard("Média", `${s.avg_pct}%`, "var(--accent)", "minus"),
+        histResumoCard("Leituras", s.total_leituras.toLocaleString(), "var(--blue)", "hash"),
       ].join("");
+      if (typeof lucide !== "undefined") lucide.createIcons();
       statsEl.style.display = "grid";
     }
 
@@ -278,26 +282,21 @@ async function carregarHistorico() {
         type: "area",
         height: 340,
         background: "transparent",
-        foreColor: "#64748b",
-        fontFamily: "Inter, sans-serif",
+        foreColor: "#3a5a70",
+        fontFamily: "'Inter', sans-serif",
         toolbar: { show: false },
         zoom: { enabled: false },
         animations: {
           enabled: true,
           easing: "easeinout",
-          speed: 600,
+          speed: 500,
         },
       },
-      series: [
-        {
-          name: "Nível (%)",
-          data: values,
-        },
-      ],
+      series: [{ name: "Nível (%)", data: values }],
       xaxis: {
         categories: categories,
         labels: {
-          style: { fontSize: "11px", colors: "#64748b" },
+          style: { fontSize: "11px", colors: "#3a5a70", fontFamily: "'Inter', sans-serif" },
           rotate: 0,
           hideOverlappingLabels: true,
           maxHeight: 60,
@@ -307,10 +306,9 @@ async function carregarHistorico() {
         tickAmount: Math.min(categories.length, 10),
       },
       yaxis: {
-        min: 0,
-        max: 100,
+        min: 0, max: 100,
         labels: {
-          style: { fontSize: "11px", colors: "#64748b" },
+          style: { fontSize: "11px", colors: "#3a5a70", fontFamily: "'Inter', sans-serif" },
           formatter: (v) => v + "%",
         },
       },
@@ -323,45 +321,47 @@ async function carregarHistorico() {
         type: "gradient",
         gradient: {
           shadeIntensity: 1,
-          opacityFrom: 0.3,
-          opacityTo: 0.02,
+          opacityFrom: 0.15,
+          opacityTo: 0,
           stops: [0, 100],
           colorStops: [
-            { offset: 0, color: "#F5A623", opacity: 0.3 },
-            { offset: 100, color: "#F5A623", opacity: 0.02 },
+            { offset: 0, color: "#F5A623", opacity: 0.15 },
+            { offset: 100, color: "#F5A623", opacity: 0 },
           ],
         },
       },
       markers: {
-        size: values.length > 60 ? 0 : 4,
+        size: values.length > 60 ? 0 : 5,
         colors: ["#F5A623"],
-        strokeWidth: 0,
-        hover: { size: 6 },
+        strokeColors: "#050a12",
+        strokeWidth: 2,
+        hover: { size: 7 },
       },
       grid: {
-        borderColor: "rgba(255,255,255,.05)",
-        strokeDashArray: 4,
+        borderColor: "rgba(255,255,255,.04)",
+        strokeDashArray: 0,
         xaxis: { lines: { show: false } },
         yaxis: { lines: { show: true } },
         padding: { top: 0, right: 10, bottom: 0, left: 10 },
       },
       tooltip: {
         theme: "dark",
-        style: { fontSize: "12px" },
+        style: { fontSize: "12px", fontFamily: "'Inter', sans-serif" },
         y: { formatter: (v) => v + "%" },
         marker: { show: true },
-        custom: undefined,
+        fillSeriesColor: false,
+        cssClass: "apex-tooltip-custom",
       },
       annotations: {
         yaxis: [
           {
             y: 45,
-            borderColor: "#D97706",
+            borderColor: "#f97316",
             strokeDashArray: 6,
             label: {
               text: "Atenção (45%)",
               position: "left",
-              style: { color: "#D97706", background: "transparent", fontSize: "10px", padding: { left: 4, right: 4, top: 2, bottom: 2 } },
+              style: { color: "#f97316", background: "transparent", fontSize: "10px", fontFamily: "'Inter', sans-serif", padding: { left: 4, right: 4, top: 2, bottom: 2 } },
             },
           },
           {
@@ -371,7 +371,7 @@ async function carregarHistorico() {
             label: {
               text: "Crítico (20%)",
               position: "left",
-              style: { color: "#ef4444", background: "transparent", fontSize: "10px", padding: { left: 4, right: 4, top: 2, bottom: 2 } },
+              style: { color: "#ef4444", background: "transparent", fontSize: "10px", fontFamily: "'Inter', sans-serif", padding: { left: 4, right: 4, top: 2, bottom: 2 } },
             },
           },
         ],
@@ -492,6 +492,7 @@ renderReservatoriosCliente(data);
     });
   }
 
+  if (typeof lucide !== "undefined") lucide.createIcons();
   setStatusMsg("Atualizado às " + new Date().toLocaleTimeString());
 }
 
