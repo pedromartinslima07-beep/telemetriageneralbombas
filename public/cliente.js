@@ -149,7 +149,7 @@ function renderReservatoriosCliente(data) {
     tr.innerHTML = `
       <td>${r.nome || "-"}</td>
       <td>${r.tipo || "-"}</td>
-      
+
       <td>${u?.criado_em ? fmtData(u.criado_em) : "-"}</td>
       <td>${u?.nivel ? tankHtml(u.nivel, u.nivel_pct) : "-"}</td>
       <td>${u ? bombaBadge(u.bomba_ligada) : "-"}</td>
@@ -260,12 +260,12 @@ async function carregarHistorico() {
       statsEl.style.display = "grid";
     }
 
-    // Chart
+    // Chart with ApexCharts
     if (wrapEl) wrapEl.style.display = "block";
-    const canvas = document.getElementById("histChart");
-    if (!canvas) return;
+    const chartEl = document.getElementById("histChart");
+    if (!chartEl) return;
 
-    const labels = leituras.map((l) => {
+    const categories = leituras.map((l) => {
       const d = new Date(l.bucket);
       if (_histDias <= 1) return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
       if (_histDias <= 7) return d.toLocaleDateString([], { weekday: "short", hour: "2-digit", minute: "2-digit" });
@@ -273,111 +273,124 @@ async function carregarHistorico() {
     });
     const values = leituras.map((l) => l.nivel_pct_avg);
 
-    const ctx = canvas.getContext("2d");
-
-    // Gradient fill
-    const gradient = ctx.createLinearGradient(0, 0, 0, 280);
-    gradient.addColorStop(0, "rgba(245,166,35,0.3)");
-    gradient.addColorStop(1, "rgba(245,166,35,0.01)");
-
-    // Atualiza gráfico existente sem destruir (evita flash)
-    if (_histChart) {
-      _histChart.data.labels = labels;
-      _histChart.data.datasets[0].data = values;
-      _histChart.data.datasets[0].backgroundColor = gradient;
-      _histChart.data.datasets[0].pointRadius = values.length > 60 ? 0 : 4;
-      _histChart.data.datasets[1].data = labels.map(() => 45);
-      _histChart.data.datasets[2].data = labels.map(() => 20);
-      _histChart.update("none");
-      return;
-    }
-
-    _histChart = new Chart(ctx, {
-      type: "line",
-      data: {
-        labels,
-        datasets: [
+    const chartOptions = {
+      chart: {
+        type: "area",
+        height: 340,
+        background: "transparent",
+        foreColor: "#64748b",
+        fontFamily: "Inter, sans-serif",
+        toolbar: { show: false },
+        zoom: { enabled: false },
+        animations: {
+          enabled: true,
+          easing: "easeinout",
+          speed: 600,
+        },
+      },
+      series: [
+        {
+          name: "Nível (%)",
+          data: values,
+        },
+      ],
+      xaxis: {
+        categories: categories,
+        labels: {
+          style: { fontSize: "11px", colors: "#64748b" },
+          rotate: 0,
+          hideOverlappingLabels: true,
+          maxHeight: 60,
+        },
+        axisBorder: { show: false },
+        axisTicks: { show: false },
+        tickAmount: Math.min(categories.length, 10),
+      },
+      yaxis: {
+        min: 0,
+        max: 100,
+        labels: {
+          style: { fontSize: "11px", colors: "#64748b" },
+          formatter: (v) => v + "%",
+        },
+      },
+      stroke: {
+        curve: "smooth",
+        width: 2.5,
+        colors: ["#F5A623"],
+      },
+      fill: {
+        type: "gradient",
+        gradient: {
+          shadeIntensity: 1,
+          opacityFrom: 0.3,
+          opacityTo: 0.02,
+          stops: [0, 100],
+          colorStops: [
+            { offset: 0, color: "#F5A623", opacity: 0.3 },
+            { offset: 100, color: "#F5A623", opacity: 0.02 },
+          ],
+        },
+      },
+      markers: {
+        size: values.length > 60 ? 0 : 4,
+        colors: ["#F5A623"],
+        strokeWidth: 0,
+        hover: { size: 6 },
+      },
+      grid: {
+        borderColor: "rgba(255,255,255,.05)",
+        strokeDashArray: 4,
+        xaxis: { lines: { show: false } },
+        yaxis: { lines: { show: true } },
+        padding: { top: 0, right: 10, bottom: 0, left: 10 },
+      },
+      tooltip: {
+        theme: "dark",
+        style: { fontSize: "12px" },
+        y: { formatter: (v) => v + "%" },
+        marker: { show: true },
+        custom: undefined,
+      },
+      annotations: {
+        yaxis: [
           {
-            label: "Nível (%)",
-            data: values,
-            borderColor: "#F5A623",
-            backgroundColor: gradient,
-            borderWidth: 2.5,
-            pointRadius: values.length > 60 ? 0 : 4,
-            pointHoverRadius: 6,
-            pointBackgroundColor: "#F5A623",
-            tension: 0.35,
-            fill: true,
-            order: 0,
-          },
-          {
-            label: "Atenção (45%)",
-            data: labels.map(() => 45),
+            y: 45,
             borderColor: "#D97706",
-            borderDash: [6, 4],
-            borderWidth: 1.5,
-            pointRadius: 0,
-            fill: false,
-            order: 1,
+            strokeDashArray: 6,
+            label: {
+              text: "Atenção (45%)",
+              position: "left",
+              style: { color: "#D97706", background: "transparent", fontSize: "10px", padding: { left: 4, right: 4, top: 2, bottom: 2 } },
+            },
           },
           {
-            label: "Crítico (20%)",
-            data: labels.map(() => 20),
+            y: 20,
             borderColor: "#ef4444",
-            borderDash: [6, 4],
-            borderWidth: 1.5,
-            pointRadius: 0,
-            fill: false,
-            order: 1,
+            strokeDashArray: 6,
+            label: {
+              text: "Crítico (20%)",
+              position: "left",
+              style: { color: "#ef4444", background: "transparent", fontSize: "10px", padding: { left: 4, right: 4, top: 2, bottom: 2 } },
+            },
           },
         ],
       },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        interaction: { mode: "index", intersect: false },
-        scales: {
-          x: {
-            ticks: { color: "#5a7a90", maxTicksLimit: 10, maxRotation: 0 },
-            grid: { color: "rgba(255,255,255,.04)" },
-          },
-          y: {
-            min: 0,
-            max: 100,
-            ticks: {
-              color: "#5a7a90",
-              callback: (v) => v + "%",
-            },
-            grid: { color: "rgba(255,255,255,.06)" },
-          },
-        },
-        plugins: {
-          legend: {
-            display: true,
-            position: "top",
-            align: "end",
-            labels: {
-              color: "#7a9aaa",
-              boxWidth: 24,
-              boxHeight: 3,
-              padding: 14,
-              font: { size: 11 },
-            },
-          },
-          tooltip: {
-            backgroundColor: "#0d1926",
-            titleColor: "#ffffff",
-            bodyColor: "#7a9aaa",
-            borderColor: "rgba(255,255,255,.09)",
-            borderWidth: 1,
-            filter: (item) => item.datasetIndex === 0,
-            callbacks: {
-              label: (ctx) => ` Nível: ${ctx.parsed.y}%`,
-            },
-          },
-        },
-      },
-    });
+      legend: { show: false },
+      dataLabels: { enabled: false },
+      theme: { mode: "dark" },
+    };
+
+    if (_histChart) {
+      _histChart.updateOptions({
+        xaxis: { ...chartOptions.xaxis },
+        markers: { ...chartOptions.markers },
+      }, false, false);
+      _histChart.updateSeries([{ name: "Nível (%)", data: values }]);
+    } else {
+      _histChart = new ApexCharts(chartEl, chartOptions);
+      _histChart.render();
+    }
 
   } catch (e) {
     if (msg) msg.textContent = "Erro: " + e.message;
@@ -403,7 +416,7 @@ async function carregar() {
 
   const data = await r.json();
 
-  
+
   // ===== Resumo (AGREGADO DO CONDOMÍNIO) =====
 const grid = document.getElementById("resumoGrid");
 
@@ -422,7 +435,7 @@ const atualizado = uRecente?.criado_em ? fmtData(uRecente.criado_em) : "-";
 const nivelCritico = rMaisCritico?.ultima_leitura?.nivel || null;
 const offlineGeral = algumOffline(reservatorios);
 
-// texto pra deixar claro QUAL reservatório está definindo o “pior nível”
+// texto pra deixar claro QUAL reservatório está definindo o "pior nível"
 const baseTxt = rMaisCritico
   ? `${rMaisCritico.nome || "Reservatório"} • ${rMaisCritico.tipo || "-"} • ${rMaisCritico.device_id || "-"}`
   : "-";
@@ -445,7 +458,7 @@ grid.innerHTML = [
   resumoCard("Última atualização (geral)", `<span class="mono">${atualizado}</span>`, null),
 ].join("");
 
-  // ✅ NOVO: renderiza reservatórios
+  // Renderiza reservatórios
 renderReservatoriosCliente(data);
 
   // ===== Alertas =====
@@ -521,7 +534,7 @@ async function trocarSenha(event) {
       return;
     }
 
-    msg.textContent = "✅ Senha alterada com sucesso!";
+    msg.textContent = "Senha alterada com sucesso!";
     setTimeout(fecharModalSenha, 600);
   } catch (e) {
     msg.textContent = "Erro: " + e.message;

@@ -676,6 +676,7 @@ async function carregarTudo() {
     renderAlertas();
     renderStatus();
     renderUsuarios();
+    if (typeof lucide !== "undefined") lucide.createIcons();
     el.textContent = "Atualizado às " + new Date().toLocaleTimeString();
   } catch (e) {
     el.textContent = "Erro ao atualizar";
