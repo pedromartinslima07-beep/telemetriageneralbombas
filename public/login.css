@@ -10,7 +10,7 @@ body {
   font-size: 14px;
   letter-spacing: -.006em;
   color: #f0f4f8;
-  background: #0A1628;
+  background: #050a12;
   min-height: 100vh;
   display: flex;
   align-items: center;
@@ -35,7 +35,7 @@ body::before {
   position: relative;
   width: 100%;
   max-width: 440px;
-  background: #0D1B2A;
+  background: #0d1926;
   border: 1px solid rgba(255,255,255,.07);
   border-radius: 20px;
   padding: 52px 48px 48px;
@@ -116,7 +116,7 @@ body::before {
   padding: 12px 16px;
   border-radius: 10px;
   border: 1px solid rgba(255,255,255,.07);
-  background: #0D1B2A;
+  background: #0d1926;
   color: #f0f4f8;
   font-size: 14px;
   font-family: inherit;
@@ -128,7 +128,7 @@ body::before {
 
 .login-field input:focus {
   border-color: rgba(245,166,35,.4);
-  background: #112240;
+  background: #111f30;
   box-shadow: 0 0 0 3px rgba(245,166,35,.06);
 }
 
@@ -140,7 +140,7 @@ body::before {
   border: none;
   border-radius: 10px;
   background: #F5A623;
-  color: #0A1628;
+  color: #050a12;
   font-size: 14px;
   font-weight: 700;
   font-family: inherit;

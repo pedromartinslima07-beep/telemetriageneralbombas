@@ -20,14 +20,14 @@ const _sectionSubtitles = {
 function showSection(name) {
   document.querySelectorAll(".section").forEach(s => s.classList.remove("is-active"));
   document.querySelector(`.section[data-section="${name}"]`)?.classList.add("is-active");
-  // Desktop nav tabs
-  document.querySelectorAll(".nav-tab[data-section]").forEach(n => n.classList.remove("active"));
-  document.querySelector(`.nav-tab[data-section="${name}"]`)?.classList.add("active");
-  // Mobile topbar title
+  document.querySelectorAll(".nav-item[data-section]").forEach(n => n.classList.remove("active"));
+  document.querySelector(`.nav-item[data-section="${name}"]`)?.classList.add("active");
   const t = document.getElementById("topbarTitle");
   if (t) t.textContent = _sectionTitles[name] || name;
-  // Hash routing
-  if (location.hash !== "#" + name) history.replaceState(null, "", "#" + name);
+  const pt = document.getElementById("pageTitle");
+  if (pt) pt.textContent = _sectionTitles[name] || name;
+  const ps = document.getElementById("pageSubtitle");
+  if (ps) ps.textContent = _sectionSubtitles[name] || "";
 }
 
 function logout() {
@@ -1322,14 +1322,25 @@ document.addEventListener("keydown", (e) => {
 
 
 document.addEventListener("DOMContentLoaded", () => {
-  // ===== NAVIGATION =====
-  document.querySelectorAll(".nav-tab[data-section]").forEach(item => {
+  // ===== BOTÕES FIXOS =====
+  // nav sections
+  document.querySelectorAll(".nav-item[data-section]").forEach(item => {
     item.addEventListener("click", () => showSection(item.dataset.section));
   });
 
   document.getElementById("btnAtualizar")?.addEventListener("click", carregarTudo);
   document.getElementById("btnOffline")?.addEventListener("click", rodarJobOffline);
   document.getElementById("btnSair")?.addEventListener("click", logout);
+
+  // ===== SIDEBAR TOGGLE =====
+  const _sidebar = document.getElementById("sidebar");
+
+  function _applySidebar(collapsed) {
+    _sidebar.classList.toggle("collapsed", collapsed);
+  }
+
+  // Começa fechada por padrão; abre se o usuário havia deixado aberta
+  _applySidebar(localStorage.getItem("sidebarCollapsed") !== "false");
 
   // Esconde seção Cadastros para admin_viewer
   if (!_isMaster) {
@@ -1341,9 +1352,14 @@ document.addEventListener("DOMContentLoaded", () => {
     if (cardAV) cardAV.style.display = "";
   }
 
-  // Hash routing: restore section from URL hash
-  const _hash = location.hash.replace("#", "");
-  if (_hash && _sectionTitles[_hash]) showSection(_hash);
+  function _onToggle() {
+    const next = !_sidebar.classList.contains("collapsed");
+    _applySidebar(next);
+    localStorage.setItem("sidebarCollapsed", next);
+  }
+
+  document.getElementById("btnSidebarToggleIn")?.addEventListener("click", _onToggle);
+  document.getElementById("btnSidebarToggleOut")?.addEventListener("click", _onToggle);
 
   document.getElementById("btnAplicarFiltros")?.addEventListener("click", aplicarFiltros);
   document.getElementById("btnLimparFiltros")?.addEventListener("click", limparFiltros);
