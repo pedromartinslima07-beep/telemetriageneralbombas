@@ -215,26 +215,26 @@ function buildHtml({
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
   * { box-sizing:border-box; margin:0; padding:0; }
-  body { font-family:'Inter',system-ui,sans-serif; background:#fff; color:#1e293b; font-size:13px; line-height:1.5; }
+  body { font-family:'Inter',system-ui,sans-serif; background:#fff; color:#1e293b; font-size:14.5px; line-height:1.55; }
 
   /* BODY */
   .body { padding:24px 44px 16px; }
 
   /* INFO BLOCK */
   .info-block { background:#F8F9FA; border:1px solid #E9ECEF; border-radius:10px; padding:14px 20px; margin-bottom:12px; display:grid; grid-template-columns:repeat(3,1fr); gap:10px 24px; box-shadow:0 1px 4px rgba(0,0,0,0.05); }
-  .info-label { font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:0.9px; color:#868E96; margin-bottom:3px; }
-  .info-value { font-size:12.5px; font-weight:700; color:#0D1B2A; line-height:1.3; }
-  .info-value-mono { font-family:'Courier New',monospace; font-size:11.5px; font-weight:600; color:#0D1B2A; }
+  .info-label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.9px; color:#868E96; margin-bottom:3px; }
+  .info-value { font-size:13.5px; font-weight:700; color:#0D1B2A; line-height:1.3; }
+  .info-value-mono { font-family:'Courier New',monospace; font-size:12.5px; font-weight:600; color:#0D1B2A; }
 
   /* ANALISE */
   .analise-block { background:#F0F4FF; border:1px solid #C5D3F0; border-left:4px solid #3B5BDB; border-radius:10px; padding:14px 18px; margin-bottom:12px; }
-  .analise-header { font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:1px; color:#3B5BDB; margin-bottom:8px; }
-  .analise-text   { font-size:12px; color:#2D3748; line-height:1.6; margin-bottom:10px; }
-  .analise-alerts-label { font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:0.9px; color:#718096; margin-bottom:6px; }
+  .analise-header { font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:1px; color:#3B5BDB; margin-bottom:8px; }
+  .analise-text   { font-size:13px; color:#2D3748; line-height:1.6; margin-bottom:10px; }
+  .analise-alerts-label { font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:0.9px; color:#718096; margin-bottom:6px; }
   .analise-badges { display:flex; flex-wrap:wrap; gap:6px; }
 
   /* SECTION TITLE */
-  .section-title { font-size:10px; font-weight:800; color:#0D1B2A; text-transform:uppercase; letter-spacing:1px; margin-bottom:10px; display:flex; align-items:center; gap:8px; }
+  .section-title { font-size:11px; font-weight:800; color:#0D1B2A; text-transform:uppercase; letter-spacing:1px; margin-bottom:10px; display:flex; align-items:center; gap:8px; }
   .stbar { width:4px; height:14px; background:#0D1B2A; border-radius:2px; flex-shrink:0; }
 
   /* SECTION WRAPPER — cola título com seu conteúdo, nunca quebra no meio */
@@ -246,14 +246,14 @@ function buildHtml({
   .cards3 { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; page-break-inside:avoid; break-inside:avoid; }
   .card { background:#fff; border:1px solid #E9ECEF; border-radius:10px; padding:12px 14px 14px; box-shadow:0 1px 6px rgba(0,0,0,0.06); page-break-inside:avoid; break-inside:avoid; }
   .card-icon { width:26px; height:26px; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:14px; margin-bottom:8px; }
-  .card-label { font-size:8.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.9px; color:#868E96; margin-bottom:4px; }
+  .card-label { font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.9px; color:#868E96; margin-bottom:4px; }
   .card-value { font-size:24px; font-weight:800; line-height:1; letter-spacing:-0.5px; }
 
   /* DIST TABLE */
   .dist-wrap { border-radius:10px; overflow:hidden; border:1px solid #E9ECEF; box-shadow:0 1px 4px rgba(0,0,0,0.04); }
   .dist-wrap table { width:100%; border-collapse:collapse; }
   .dist-wrap thead tr { background:#0D1B2A; }
-  .dist-wrap thead th { padding:8px 14px; text-align:left; font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.8px; color:#fff; }
+  .dist-wrap thead th { padding:8px 14px; text-align:left; font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.8px; color:#fff; }
   .dist-wrap tbody td { border-bottom:1px solid #F1F3F5; }
   .dist-wrap tbody tr:last-child td { border-bottom:none; }
 
@@ -264,10 +264,10 @@ function buildHtml({
   .table-wrap { border-radius:10px; overflow:hidden; border:1px solid #E9ECEF; box-shadow:0 1px 4px rgba(0,0,0,0.04); margin-bottom:20px; }
   table { width:100%; border-collapse:collapse; }
   thead tr { background:#0D1B2A; }
-  thead th { padding:10px 14px; text-align:left; font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.8px; color:#fff; }
-  tbody td { padding:9px 14px; font-size:12px; border-bottom:1px solid #F1F3F5; color:#343A40; }
+  thead th { padding:10px 14px; text-align:left; font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.8px; color:#fff; }
+  tbody td { padding:9px 14px; font-size:13px; border-bottom:1px solid #F1F3F5; color:#343A40; }
   tbody tr:last-child td { border-bottom:none; }
-  .status-pill { font-size:10.5px; font-weight:700; padding:2px 8px; border-radius:99px; display:inline-block; }
+  .status-pill { font-size:11.5px; font-weight:700; padding:2px 8px; border-radius:99px; display:inline-block; }
 </style>
 </head>
 <body>
@@ -665,10 +665,10 @@ router.get("/pdf", authRequired, clienteOnly, async (req, res) => {
     //     height must exactly match margin.bottom
     const condNomeEsc = (condominio.nome || "").replace(/&/g, "&amp;").replace(/</g, "&lt;");
     const footerHtml = `<style>*{margin:0!important;padding:0!important;box-sizing:border-box!important;}html,body{margin:0!important;padding:0!important;}</style>
-<div style="margin:0;padding:0 44px;width:100%;height:60px;display:flex;align-items:center;justify-content:space-between;border-top:1px solid #E9ECEF;-webkit-print-color-adjust:exact;print-color-adjust:exact;">
-  <span style="font-family:Arial,sans-serif;font-size:10px;color:#ADB5BD;">${condNomeEsc} &middot; ${periodoLabel(dias)}</span>
-  <strong style="font-family:Arial,sans-serif;font-size:10px;color:#868E96;">General Eng. &mdash; Sistema de Telemetria</strong>
-  <span style="font-family:Arial,sans-serif;font-size:10px;color:#ADB5BD;">P&aacute;gina <span class="pageNumber"></span> de <span class="totalPages"></span></span>
+<div style="margin:0 auto!important;padding:0 24px!important;width:calc(100% - 48px)!important;max-width:100%!important;height:60px;display:flex;align-items:center;justify-content:space-between;border-top:1px solid #E9ECEF;-webkit-print-color-adjust:exact;print-color-adjust:exact;">
+  <span style="font-family:Arial,sans-serif;font-size:10px;color:#ADB5BD;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:35%;">${condNomeEsc} &middot; ${periodoLabel(dias)}</span>
+  <strong style="font-family:Arial,sans-serif;font-size:10px;color:#868E96;white-space:nowrap;">General Eng. &mdash; Telemetria</strong>
+  <span style="font-family:Arial,sans-serif;font-size:10px;color:#ADB5BD;white-space:nowrap;">P&aacute;g. <span class="pageNumber"></span> de <span class="totalPages"></span></span>
 </div>`;
 
     // 9. Render PDF
@@ -695,7 +695,7 @@ router.get("/pdf", authRequired, clienteOnly, async (req, res) => {
         format: "A4",
         printBackground: true,
         // top/bottom devem ser iguais à height do header/footer template
-        margin: { top: "144px", right: "0", bottom: "60px", left: "0" },
+        margin: { top: "144px", right: "24px", bottom: "60px", left: "24px" },
         displayHeaderFooter: true,
         headerTemplate: headerHtml,
         footerTemplate: footerHtml,

@@ -42,7 +42,17 @@ const corsOrigins = process.env.CORS_ORIGINS
 app.use(cors({ origin: corsOrigins }));
 app.use(express.json());
 app.use(cookieParser());
-app.use("/static", express.static("public"));
+app.use("/static", express.static("public", {
+  etag: true,
+  lastModified: true,
+  setHeaders(res, filePath) {
+    // JS/CSS: browser sempre revalida com o servidor (usa ETag),
+    // mas não re-baixa se o arquivo não mudou — evita cache stale
+    if (filePath.endsWith(".js") || filePath.endsWith(".css")) {
+      res.setHeader("Cache-Control", "no-cache");
+    }
+  },
+}));
 
 // health check para monitoramento e balanceadores de carga
 app.get("/health", (req, res) => res.json({ status: "ok" }));
