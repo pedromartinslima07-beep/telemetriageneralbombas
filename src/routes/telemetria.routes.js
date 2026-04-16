@@ -13,25 +13,6 @@ const telemetriaLimiter = rateLimit({
   message: { error: "Muitas requisições. Reduza a frequência da telemetria." },
 });
 
-// Converte string de nível para enum normalizado
-const normalizeNivel = (raw) => {
-  if (typeof raw !== "string") return null;
-  const s = raw
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[\s-]+/g, "_");
-  const map = {
-    alto: "alto", cheia: "alto",
-    medio: "medio", meia: "medio",
-    baixo: "baixo",
-    muito_baixo: "muito_baixo", muitobaixo: "muito_baixo",
-    critico: "muito_baixo", minimo: "muito_baixo",
-  };
-  return map[s] || null;
-};
-
 // Deriva nivel (string) a partir de nivel_pct (0-100)
 const nivelFromPct = (pct) => {
   if (pct >= 70) return "alto";
@@ -40,14 +21,16 @@ const nivelFromPct = (pct) => {
   return "muito_baixo";
 };
 
-// Deriva nivel_pct aproximado a partir de nivel (string) — para dispositivos legados
-const pctFromNivel = (nivel) => {
-  const map = { alto: 85, medio: 60, baixo: 30, muito_baixo: 10 };
-  return map[nivel] ?? null;
+// Calcula nivel_pct a partir do valor ADC bruto + calibração do reservatório
+const calcularNivelPct = (adcRaw, calibracao) => {
+  const { adc_zero, adc_por_metro, altura_total_m } = calibracao;
+  const alturaAgua = (adcRaw - adc_zero) / adc_por_metro;
+  const pct = (alturaAgua / altura_total_m) * 100;
+  return Math.round(Math.min(100, Math.max(0, pct)));
 };
 
 router.post("/", telemetriaLimiter, async (req, res) => {
-  const { device_id, nivel: nivelRaw, nivel_pct: nivelPctRaw, bomba_ligada } = req.body;
+  const { device_id, adc_raw: adcRawInput, bomba_ligada } = req.body;
 
   // ── device_id ──
   if (typeof device_id !== "string" || device_id.trim().length < 3) {
@@ -59,30 +42,10 @@ router.post("/", telemetriaLimiter, async (req, res) => {
     return res.status(400).json({ error: "bomba_ligada deve ser boolean (true/false)" });
   }
 
-  // ── nivel / nivel_pct — aceita qualquer um dos dois ──
-  let nivelNormalizado = null;
-  let nivelPct = null;
-
-  const pctProvided = nivelPctRaw !== undefined && nivelPctRaw !== null;
-  const nivelProvided = nivelRaw !== undefined && nivelRaw !== null;
-
-  if (pctProvided) {
-    const pct = Number(nivelPctRaw);
-    if (!Number.isInteger(pct) || pct < 0 || pct > 100) {
-      return res.status(400).json({ error: "nivel_pct deve ser inteiro entre 0 e 100" });
-    }
-    nivelPct = pct;
-    nivelNormalizado = nivelFromPct(pct);
-  } else if (nivelProvided) {
-    nivelNormalizado = normalizeNivel(nivelRaw);
-    if (!nivelNormalizado) {
-      return res.status(400).json({
-        error: "nivel inválido. Use: alto, medio, baixo, muito_baixo — ou envie nivel_pct (0-100)",
-      });
-    }
-    nivelPct = pctFromNivel(nivelNormalizado);
-  } else {
-    return res.status(400).json({ error: "Envie nivel (string) ou nivel_pct (0-100)" });
+  // ── adc_raw ──
+  const adcRaw = Number(adcRawInput);
+  if (!Number.isInteger(adcRaw) || adcRaw < 0) {
+    return res.status(400).json({ error: "adc_raw deve ser inteiro >= 0" });
   }
 
   // ── chave do device ──
@@ -93,7 +56,8 @@ router.post("/", telemetriaLimiter, async (req, res) => {
 
   try {
     const rRes = await pool.query(
-      `SELECT id, condominio_id, device_id, device_key
+      `SELECT id, condominio_id, device_id, device_key,
+              altura_total_m, adc_zero, adc_por_metro
        FROM reservatorios
        WHERE device_id = $1
        LIMIT 1`,
@@ -113,9 +77,19 @@ router.post("/", telemetriaLimiter, async (req, res) => {
       return res.status(403).json({ error: "Chave do dispositivo inválida" });
     }
 
+    // ── Calibração ──
+    if (!reservatorio.altura_total_m || !reservatorio.adc_zero || !reservatorio.adc_por_metro) {
+      return res.status(422).json({
+        error: "Reservatório sem calibração configurada. Configure altura_total_m, adc_zero e adc_por_metro no painel admin.",
+      });
+    }
+
+    const nivelPct = calcularNivelPct(adcRaw, reservatorio);
+    const nivelNormalizado = nivelFromPct(nivelPct);
+
     // ── Threshold: só grava leitura se nivel_pct mudou ≥ X% ou passou ≥ N min ──
-    const pctThreshold   = Number(process.env.TELEMETRIA_PCT_THRESHOLD  ?? 5);
-    const heartbeatMin   = Number(process.env.TELEMETRIA_HEARTBEAT_MIN  ?? 10);
+    const pctThreshold = Number(process.env.TELEMETRIA_PCT_THRESHOLD ?? 5);
+    const heartbeatMin = Number(process.env.TELEMETRIA_HEARTBEAT_MIN ?? 10);
 
     const lastRes = await pool.query(
       `SELECT nivel_pct, criado_em FROM leituras
@@ -128,15 +102,15 @@ router.post("/", telemetriaLimiter, async (req, res) => {
     let deveGravar = true;
     if (lastRes.rows.length > 0) {
       const last = lastRes.rows[0];
-      const diffPct      = Math.abs((nivelPct ?? 0) - (last.nivel_pct ?? 0));
+      const diffPct = Math.abs(nivelPct - (last.nivel_pct ?? 0));
       const minutosSemGravar = (Date.now() - new Date(last.criado_em).getTime()) / 60000;
       deveGravar = diffPct >= pctThreshold || minutosSemGravar >= heartbeatMin;
     }
 
     if (deveGravar) {
       await pool.query(
-        "INSERT INTO leituras (device_id, nivel, bomba_ligada, nivel_pct) VALUES ($1, $2, $3, $4)",
-        [device_id, nivelNormalizado, bomba_ligada, nivelPct]
+        "INSERT INTO leituras (device_id, nivel, bomba_ligada, nivel_pct, adc_raw) VALUES ($1, $2, $3, $4, $5)",
+        [device_id, nivelNormalizado, bomba_ligada, nivelPct, adcRaw]
       );
     }
 
@@ -184,7 +158,12 @@ router.post("/", telemetriaLimiter, async (req, res) => {
       );
     }
 
-    return res.json({ status: "Dados salvos com sucesso", gravado: deveGravar });
+    return res.json({
+      status: "Dados salvos com sucesso",
+      gravado: deveGravar,
+      nivel_pct: nivelPct,
+      nivel: nivelNormalizado,
+    });
   } catch (error) {
     console.error("Erro no /telemetria:", error);
     return res.status(500).json({ error: "Erro ao salvar no banco" });
