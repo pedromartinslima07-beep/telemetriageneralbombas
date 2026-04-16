@@ -126,7 +126,8 @@ CREATE TABLE public.leituras (
     nivel character varying(20),
     bomba_ligada boolean,
     criado_em timestamp with time zone DEFAULT now(),
-    nivel_pct smallint CHECK (nivel_pct >= 0 AND nivel_pct <= 100)
+    nivel_pct smallint CHECK (nivel_pct >= 0 AND nivel_pct <= 100),
+    adc_raw integer
 );
 
 
@@ -171,7 +172,11 @@ CREATE TABLE public.reservatorios (
     device_key character varying(200) NOT NULL,
     ativo boolean DEFAULT true NOT NULL,
     criado_em timestamp with time zone DEFAULT now() NOT NULL,
-    last_seen timestamp with time zone
+    last_seen timestamp with time zone,
+    altura_total_m numeric(5,2),
+    adc_zero integer,
+    adc_por_metro integer,
+    faixa_sonda_m numeric(5,2)
 );
 
 
