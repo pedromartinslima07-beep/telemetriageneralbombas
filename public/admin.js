@@ -642,7 +642,15 @@ async function criarReservatorio() {
     return;
   }
 
-  const payload = { condominio_id, nome, tipo, device_id };
+  const _numOrNull = (id) => { const v = document.getElementById(id)?.value; return v ? Number(v) : null; };
+
+  const payload = {
+    condominio_id, nome, tipo, device_id,
+    altura_total_m: _numOrNull("resAlturaTotalM"),
+    adc_zero: _numOrNull("resAdcZero"),
+    adc_por_metro: _numOrNull("resAdcPorMetro"),
+    faixa_sonda_m: _numOrNull("resFaixaSondaM"),
+  };
 
   const r = await fetch("/reservatorios", {
     method: "POST",
@@ -662,6 +670,10 @@ async function criarReservatorio() {
   // limpa campos
   document.getElementById("resNome").value = "";
   document.getElementById("resDeviceId").value = "";
+  document.getElementById("resAlturaTotalM").value = "";
+  document.getElementById("resAdcZero").value = "";
+  document.getElementById("resAdcPorMetro").value = "";
+  document.getElementById("resFaixaSondaM").value = "";
 
   // opcional: atualizar tudo
   carregarTudo();
@@ -1171,6 +1183,10 @@ function abrirModalEditarReservatorio(id) {
       document.getElementById("editResNome").value = res.nome || "";
       document.getElementById("editResTipo").value = res.tipo || "outro";
       document.getElementById("editResAtivo").checked = res.ativo !== false;
+      document.getElementById("editResAlturaTotalM").value = res.altura_total_m ?? "";
+      document.getElementById("editResAdcZero").value = res.adc_zero ?? "";
+      document.getElementById("editResAdcPorMetro").value = res.adc_por_metro ?? "";
+      document.getElementById("editResFaixaSondaM").value = res.faixa_sonda_m ?? "";
       msg.textContent = "";
       sub.textContent = `${res.nome || "Reservatório"} • ${res.device_id || ""} • ID: ${res.id}`;
     })
@@ -1191,10 +1207,16 @@ async function salvarEdicaoReservatorio(event) {
 
   if (!id) { msg.textContent = "ID inválido."; return; }
 
+  const _editNumOrNull = (id) => { const v = document.getElementById(id)?.value; return v !== "" && v != null ? Number(v) : null; };
+
   const payload = {
     nome: (document.getElementById("editResNome").value || "").trim(),
     tipo: document.getElementById("editResTipo").value,
     ativo: document.getElementById("editResAtivo").checked,
+    altura_total_m: _editNumOrNull("editResAlturaTotalM"),
+    adc_zero: _editNumOrNull("editResAdcZero"),
+    adc_por_metro: _editNumOrNull("editResAdcPorMetro"),
+    faixa_sonda_m: _editNumOrNull("editResFaixaSondaM"),
   };
 
   if (!payload.nome) { msg.textContent = "Nome é obrigatório."; return; }

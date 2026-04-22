@@ -309,6 +309,25 @@
                 <span class="lbl">Device ID <span class="req">*</span></span>
                 <input id="resDeviceId" class="input" placeholder="Ex: RES_COND10_SUP" />
               </div>
+              <div class="field col-2" style="margin-top:8px;padding-top:12px;border-top:1px solid var(--border);">
+                <span class="lbl" style="font-weight:600;">Calibração da sonda</span>
+              </div>
+              <div class="field">
+                <span class="lbl">Altura total (m)</span>
+                <input id="resAlturaTotalM" class="input" type="number" step="0.01" min="0" placeholder="Ex: 2.20" />
+              </div>
+              <div class="field">
+                <span class="lbl">ADC zero (sonda fora d'água)</span>
+                <input id="resAdcZero" class="input" type="number" step="1" min="0" placeholder="Ex: 923" />
+              </div>
+              <div class="field">
+                <span class="lbl">ADC por metro</span>
+                <input id="resAdcPorMetro" class="input" type="number" step="1" min="1" placeholder="Ex: 565" />
+              </div>
+              <div class="field">
+                <span class="lbl">Faixa da sonda (m)</span>
+                <input id="resFaixaSondaM" class="input" type="number" step="0.01" min="0" placeholder="Ex: 4.00" />
+              </div>
             </div>
             <div class="form-footer" style="margin-top:16px;">
               <button id="btnCadastrarReservatorio" class="btn btnAccent">Cadastrar reservatório</button>
@@ -544,6 +563,11 @@
           <input type="checkbox" id="editResAtivo" />
           <span>Ativo</span>
         </label>
+        <div style="grid-column:1/-1;margin-top:8px;padding-top:12px;border-top:1px solid var(--border);font-size:13px;font-weight:600;color:var(--text-muted);">Calibração da sonda</div>
+        <label class="f"><span>Altura total (m)</span><input id="editResAlturaTotalM" type="number" step="0.01" min="0" /></label>
+        <label class="f"><span>ADC zero</span><input id="editResAdcZero" type="number" step="1" min="0" /></label>
+        <label class="f"><span>ADC por metro</span><input id="editResAdcPorMetro" type="number" step="1" min="1" /></label>
+        <label class="f"><span>Faixa sonda (m)</span><input id="editResFaixaSondaM" type="number" step="0.01" min="0" /></label>
         <div class="formActions" style="grid-column:1/-1;">
           <button class="btn" type="button" id="btnCancelarEdicaoRes">Cancelar</button>
           <button class="btn btnAccent" type="submit">Salvar alterações</button>
