@@ -44,22 +44,23 @@ function tipoBadge(tipo) {
   return badge(String(tipo || "").replaceAll("_", " "), "warn");
 }
 
-function tankHtml(nivel) {
+function tankHtml(nivel, nivelPct) {
   const n = String(nivel || "").toLowerCase();
   const map = {
-    alto:        { pct: 100, cls: "tank-alto",        label: "100%" },
-    medio:       { pct: 65,  cls: "tank-medio",       label: "65%"  },
-    baixo:       { pct: 30,  cls: "tank-baixo",       label: "30%"  },
-    muito_baixo: { pct: 10,  cls: "tank-muito-baixo", label: "10%"  },
+    alto:        { fallbackPct: 85, cls: "tank-alto"        },
+    medio:       { fallbackPct: 60, cls: "tank-medio"       },
+    baixo:       { fallbackPct: 30, cls: "tank-baixo"       },
+    muito_baixo: { fallbackPct: 10, cls: "tank-muito-baixo" },
   };
   const cfg = map[n];
   if (!cfg) return `<span style="color:var(--muted)">-</span>`;
+  const pct = nivelPct != null ? nivelPct : cfg.fallbackPct;
   return `
     <div class="tank-wrap">
       <div class="tank">
-        <div class="tank-fill ${cfg.cls}" style="height:${cfg.pct}%"></div>
+        <div class="tank-fill ${cfg.cls}" style="height:${pct}%"></div>
       </div>
-      <span class="tank-pct">${cfg.label}</span>
+      <span class="tank-pct">${pct}%</span>
     </div>`;
 }
 
@@ -542,7 +543,7 @@ function renderStatus() {
                       <td>${r.tipo || "-"}</td>
                       <td class="mono">${r.device_id || "-"}</td>
                       <td>${u?.criado_em ? fmtData(u.criado_em) : "-"}</td>
-                      <td>${u?.nivel ? tankHtml(u.nivel) : "-"}</td>
+                      <td>${u?.nivel ? tankHtml(u.nivel, u.nivel_pct) : "-"}</td>
                       <td>${u ? (u.bomba_ligada ? badge("LIGADA","warn") : badge("DESLIGADA","ok")) : "-"}</td>
                       <td>${min}</td>
                       <td>${offline ? badge("SIM", "bad") : badge("NÃO", "ok")}</td>
