@@ -27,6 +27,7 @@ router.get("/status", authRequired, adminOnly, async (req, res) => {
         r.last_seen AS last_seen,
 
         ul.nivel        AS ultima_nivel,
+        ul.nivel_pct    AS ultima_nivel_pct,
         ul.bomba_ligada AS ultima_bomba_ligada,
         ul.criado_em    AS ultima_criado_em,
 
@@ -37,7 +38,7 @@ router.get("/status", authRequired, adminOnly, async (req, res) => {
         ON r.condominio_id = c.id AND r.ativo = true
 
       LEFT JOIN LATERAL (
-        SELECT nivel, bomba_ligada, criado_em
+        SELECT nivel, nivel_pct, bomba_ligada, criado_em
         FROM leituras
         WHERE device_id = r.device_id
         ORDER BY criado_em DESC
@@ -95,6 +96,7 @@ router.get("/status", authRequired, adminOnly, async (req, res) => {
           ? {
               device_id: row.reservatorio_device_id,
               nivel: row.ultima_nivel,
+              nivel_pct: row.ultima_nivel_pct,
               bomba_ligada: row.ultima_bomba_ligada,
               criado_em: row.ultima_criado_em,
             }
