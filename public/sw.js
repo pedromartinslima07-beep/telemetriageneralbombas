@@ -1,4 +1,4 @@
-const CACHE_NAME = "telemetria-v8";
+const CACHE_NAME = "telemetria-v9";
 
 const STATIC_ASSETS = [
   "/login",
@@ -30,6 +30,9 @@ self.addEventListener("activate", (e) => {
 });
 
 self.addEventListener("fetch", (e) => {
+  // Cache API só suporta GET. POST/PUT/DELETE passam direto pra rede.
+  if (e.request.method !== "GET") return;
+
   const url = new URL(e.request.url);
 
   // API: network first, sem cache
