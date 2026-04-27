@@ -13,7 +13,7 @@ const router = express.Router();
  * -> gera device_key automaticamente
  */
 router.post("/", authRequired, masterAdminOnly, async (req, res) => {
-  const { condominio_id, nome, tipo, device_id, altura_total_m, adc_zero, adc_por_metro, faixa_sonda_m } = req.body || {};
+  const { condominio_id, nome, tipo, device_id, altura_total_m, adc_zero, adc_por_metro, faixa_sonda_m, limiar_bomba } = req.body || {};
 
   const condId = Number(condominio_id);
   if (!Number.isInteger(condId) || condId <= 0) {
@@ -34,6 +34,7 @@ router.post("/", authRequired, masterAdminOnly, async (req, res) => {
   const adcZero       = adc_zero        != null ? Number(adc_zero)        : null;
   const adcPorMetro   = adc_por_metro   != null ? Number(adc_por_metro)   : null;
   const faixaSondaM   = faixa_sonda_m   != null ? Number(faixa_sonda_m)   : null;
+  const limiarBomba   = limiar_bomba    != null ? Number(limiar_bomba)    : null;
 
   if (alturaTotalM != null && (alturaTotalM <= 0 || alturaTotalM > 999)) {
     return res.status(400).json({ error: "altura_total_m deve ser > 0 e <= 999" });
@@ -47,6 +48,9 @@ router.post("/", authRequired, masterAdminOnly, async (req, res) => {
   if (faixaSondaM != null && (faixaSondaM <= 0 || faixaSondaM > 999)) {
     return res.status(400).json({ error: "faixa_sonda_m deve ser > 0 e <= 999" });
   }
+  if (limiarBomba != null && (!Number.isInteger(limiarBomba) || limiarBomba < 0)) {
+    return res.status(400).json({ error: "limiar_bomba deve ser inteiro >= 0" });
+  }
 
   try {
     // confere se o condomínio existe
@@ -58,10 +62,10 @@ router.post("/", authRequired, masterAdminOnly, async (req, res) => {
     const device_key = crypto.randomBytes(24).toString("hex");
 
     const result = await pool.query(
-      `INSERT INTO reservatorios (condominio_id, nome, tipo, device_id, device_key, altura_total_m, adc_zero, adc_por_metro, faixa_sonda_m)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
-       RETURNING id, condominio_id, nome, tipo, device_id, device_key, altura_total_m, adc_zero, adc_por_metro, faixa_sonda_m, criado_em`,
-      [condId, String(nome).trim(), String(tipo), String(device_id).trim(), device_key, alturaTotalM, adcZero, adcPorMetro, faixaSondaM]
+      `INSERT INTO reservatorios (condominio_id, nome, tipo, device_id, device_key, altura_total_m, adc_zero, adc_por_metro, faixa_sonda_m, limiar_bomba)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+       RETURNING id, condominio_id, nome, tipo, device_id, device_key, altura_total_m, adc_zero, adc_por_metro, faixa_sonda_m, limiar_bomba, criado_em`,
+      [condId, String(nome).trim(), String(tipo), String(device_id).trim(), device_key, alturaTotalM, adcZero, adcPorMetro, faixaSondaM, limiarBomba]
     );
 
     return res.status(201).json(result.rows[0]);
@@ -84,14 +88,14 @@ router.get("/", authRequired, adminOnly, async (req, res) => {
   try {
     const result = condominio_id
       ? await pool.query(
-          `SELECT id, condominio_id, nome, tipo, device_id, altura_total_m, adc_zero, adc_por_metro, faixa_sonda_m, criado_em
+          `SELECT id, condominio_id, nome, tipo, device_id, altura_total_m, adc_zero, adc_por_metro, faixa_sonda_m, limiar_bomba, criado_em
            FROM reservatorios
            WHERE condominio_id = $1
            ORDER BY id DESC`,
           [condominio_id]
         )
       : await pool.query(
-          `SELECT id, condominio_id, nome, tipo, device_id, altura_total_m, adc_zero, adc_por_metro, faixa_sonda_m, criado_em
+          `SELECT id, condominio_id, nome, tipo, device_id, altura_total_m, adc_zero, adc_por_metro, faixa_sonda_m, limiar_bomba, criado_em
            FROM reservatorios
            ORDER BY id DESC`
         );
@@ -150,7 +154,7 @@ router.get("/:id", authRequired, adminOnly, async (req, res) => {
 
   try {
     const r = await pool.query(
-      `SELECT id, condominio_id, nome, tipo, device_id, altura_total_m, adc_zero, adc_por_metro, faixa_sonda_m, criado_em
+      `SELECT id, condominio_id, nome, tipo, device_id, altura_total_m, adc_zero, adc_por_metro, faixa_sonda_m, limiar_bomba, criado_em
        FROM reservatorios
        WHERE id = $1
        LIMIT 1`,
@@ -224,6 +228,11 @@ router.patch("/:id", authRequired, masterAdminOnly, async (req, res) => {
     if (v != null && (v <= 0 || v > 999)) return res.status(400).json({ error: "faixa_sonda_m deve ser > 0 e <= 999" });
     add("faixa_sonda_m", v);
   }
+  if (b.limiar_bomba !== undefined) {
+    const v = b.limiar_bomba === null ? null : Number(b.limiar_bomba);
+    if (v != null && (!Number.isInteger(v) || v < 0)) return res.status(400).json({ error: "limiar_bomba deve ser inteiro >= 0" });
+    add("limiar_bomba", v);
+  }
 
   if (sets.length === 0) {
     return res.status(400).json({ error: "Nenhum campo para atualizar" });
@@ -232,7 +241,7 @@ router.patch("/:id", authRequired, masterAdminOnly, async (req, res) => {
   try {
     const result = await pool.query(
       `UPDATE reservatorios SET ${sets.join(", ")} WHERE id = $1
-       RETURNING id, condominio_id, nome, tipo, device_id, ativo, altura_total_m, adc_zero, adc_por_metro, faixa_sonda_m, criado_em`,
+       RETURNING id, condominio_id, nome, tipo, device_id, ativo, altura_total_m, adc_zero, adc_por_metro, faixa_sonda_m, limiar_bomba, criado_em`,
       values
     );
 
