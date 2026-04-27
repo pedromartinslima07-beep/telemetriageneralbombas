@@ -315,7 +315,7 @@ async function criarCliente() {
 
 async function criarAdminViewer() {
   const nome = document.getElementById("avNome")?.value?.trim();
-  const email = document.getElementById("avEmail")?.value?.trim();
+  const email = document.getElementById("avEmail")?.value?.trim().toLowerCase();
   const senha = document.getElementById("avSenha")?.value?.trim();
   const msg = document.getElementById("msgAdminViewer");
 

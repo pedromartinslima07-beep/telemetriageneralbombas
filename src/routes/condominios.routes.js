@@ -15,7 +15,8 @@ router.post("/", authRequired, masterAdminOnly, async (req, res) => {
     responsavel, telefone, observacoes, ativo
   } = req.body || {};
 
-  if (!nome) {
+  const nomeNorm = nome ? String(nome).trim() : "";
+  if (!nomeNorm) {
     return res.status(400).json({ error: "Campo obrigatório: nome" });
   }
 
@@ -32,7 +33,7 @@ router.post("/", authRequired, masterAdminOnly, async (req, res) => {
         id, nome, endereco, bairro, cidade, uf,
         responsavel, telefone, observacoes, ativo, criado_em`,
       [
-        nome,
+        nomeNorm,
         endereco ?? null,
         bairro ?? null,
         cidade ?? null,
