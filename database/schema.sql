@@ -127,7 +127,8 @@ CREATE TABLE public.leituras (
     bomba_ligada boolean,
     criado_em timestamp with time zone DEFAULT now(),
     nivel_pct smallint CHECK (nivel_pct >= 0 AND nivel_pct <= 100),
-    adc_raw integer
+    adc_raw integer,
+    bomba_rms integer
 );
 
 
@@ -176,7 +177,8 @@ CREATE TABLE public.reservatorios (
     altura_total_m numeric(5,2),
     adc_zero integer,
     adc_por_metro integer,
-    faixa_sonda_m numeric(5,2)
+    faixa_sonda_m numeric(5,2),
+    limiar_bomba integer
 );
 
 

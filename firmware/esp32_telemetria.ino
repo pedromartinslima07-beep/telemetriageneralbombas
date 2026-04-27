@@ -17,6 +17,12 @@ const char* DEVICE_KEY = "0624e7fcf31d483cb115d12c1b0d82c3d8f97bb9daefb2fb";
 // Pino da sonda 4-20mA
 #define PINO_SONDA 34
 
+// Sensor de corrente SCT-013 (detecção da bomba)
+// O limiar de detecção fica no servidor (campo limiar_bomba do reservatório),
+// configurável pelo painel admin sem precisar regravar o firmware.
+#define PINO_BOMBA      35
+#define AMOSTRAS_BOMBA  500
+
 // Intervalo de envio
 #define INTERVALO_MS 10000
 
@@ -61,6 +67,33 @@ int lerSonda() {
   return leitura;
 }
 
+// Lê o SCT-013 e devolve um valor proporcional à corrente que está passando.
+// Quanto maior o valor, mais corrente. Bomba desligada -> valor baixo (ruído).
+// Bomba ligada -> valor sobe bastante. O servidor decide se é "ligada" comparando
+// com limiar_bomba do reservatório (configurável pelo painel admin).
+int lerCorrenteRMS() {
+  static int16_t amostras[AMOSTRAS_BOMBA];
+  long soma = 0;
+
+  for (int i = 0; i < AMOSTRAS_BOMBA; i++) {
+    amostras[i] = analogRead(PINO_BOMBA);
+    soma += amostras[i];
+    delayMicroseconds(200);
+  }
+
+  // Calcula o bias DC (~ponto médio dos divisores 10k+10k)
+  int bias = soma / AMOSTRAS_BOMBA;
+
+  // Soma dos quadrados do sinal AC (amostra menos bias)
+  long sumSq = 0;
+  for (int i = 0; i < AMOSTRAS_BOMBA; i++) {
+    int v = amostras[i] - bias;
+    sumSq += (long)v * v;
+  }
+
+  return (int)sqrt(sumSq / (float)AMOSTRAS_BOMBA);
+}
+
 void enviarDados() {
   if (WiFi.status() != WL_CONNECTED) {
     Serial.println("WiFi desconectado, tentando reconectar...");
@@ -78,12 +111,14 @@ void enviarDados() {
   http.addHeader("X-Device-Key", DEVICE_KEY);
   http.setTimeout(10000);
 
-  int adcRaw = lerSonda();
+  int adcRaw   = lerSonda();
+  int bombaRms = lerCorrenteRMS();
+  Serial.printf("RMS bomba: %d\n", bombaRms);
 
   StaticJsonDocument<256> doc;
-  doc["device_id"]    = DEVICE_ID;
-  doc["bomba_ligada"] = false;
-  doc["adc_raw"]      = adcRaw;
+  doc["device_id"] = DEVICE_ID;
+  doc["adc_raw"]   = adcRaw;
+  doc["bomba_rms"] = bombaRms;
 
   String body;
   serializeJson(doc, body);

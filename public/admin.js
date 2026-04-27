@@ -652,6 +652,7 @@ async function criarReservatorio() {
     adc_zero: _numOrNull("resAdcZero"),
     adc_por_metro: _numOrNull("resAdcPorMetro"),
     faixa_sonda_m: _numOrNull("resFaixaSondaM"),
+    limiar_bomba: _numOrNull("resLimiarBomba"),
   };
 
   const r = await fetch("/reservatorios", {
@@ -676,6 +677,7 @@ async function criarReservatorio() {
   document.getElementById("resAdcZero").value = "";
   document.getElementById("resAdcPorMetro").value = "";
   document.getElementById("resFaixaSondaM").value = "";
+  document.getElementById("resLimiarBomba").value = "";
 
   // opcional: atualizar tudo
   carregarTudo();
@@ -1189,6 +1191,7 @@ function abrirModalEditarReservatorio(id) {
       document.getElementById("editResAdcZero").value = res.adc_zero ?? "";
       document.getElementById("editResAdcPorMetro").value = res.adc_por_metro ?? "";
       document.getElementById("editResFaixaSondaM").value = res.faixa_sonda_m ?? "";
+      document.getElementById("editResLimiarBomba").value = res.limiar_bomba ?? "";
       msg.textContent = "";
       sub.textContent = `${res.nome || "Reservatório"} • ${res.device_id || ""} • ID: ${res.id}`;
     })
@@ -1219,6 +1222,7 @@ async function salvarEdicaoReservatorio(event) {
     adc_zero: _editNumOrNull("editResAdcZero"),
     adc_por_metro: _editNumOrNull("editResAdcPorMetro"),
     faixa_sonda_m: _editNumOrNull("editResFaixaSondaM"),
+    limiar_bomba: _editNumOrNull("editResLimiarBomba"),
   };
 
   if (!payload.nome) { msg.textContent = "Nome é obrigatório."; return; }

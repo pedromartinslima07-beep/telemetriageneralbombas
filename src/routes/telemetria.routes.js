@@ -30,22 +30,35 @@ const calcularNivelPct = (adcRaw, calibracao) => {
 };
 
 router.post("/", telemetriaLimiter, async (req, res) => {
-  const { device_id, adc_raw: adcRawInput, bomba_ligada } = req.body;
+  const {
+    device_id,
+    adc_raw: adcRawInput,
+    bomba_rms: bombaRmsInput,
+    bomba_ligada: bombaLigadaInput,
+  } = req.body;
 
   // ── device_id ──
   if (typeof device_id !== "string" || device_id.trim().length < 3) {
     return res.status(400).json({ error: "device_id inválido" });
   }
 
-  // ── bomba_ligada ──
-  if (typeof bomba_ligada !== "boolean") {
-    return res.status(400).json({ error: "bomba_ligada deve ser boolean (true/false)" });
-  }
-
   // ── adc_raw ──
   const adcRaw = Number(adcRawInput);
   if (!Number.isInteger(adcRaw) || adcRaw < 0) {
     return res.status(400).json({ error: "adc_raw deve ser inteiro >= 0" });
+  }
+
+  // ── bomba_rms (opcional) — quando vier, o servidor decide bomba_ligada
+  //    comparando com reservatorio.limiar_bomba.
+  //    Para compatibilidade, ainda aceita bomba_ligada direto. ──
+  let bombaRms = null;
+  if (bombaRmsInput != null) {
+    bombaRms = Number(bombaRmsInput);
+    if (!Number.isInteger(bombaRms) || bombaRms < 0) {
+      return res.status(400).json({ error: "bomba_rms deve ser inteiro >= 0" });
+    }
+  } else if (typeof bombaLigadaInput !== "boolean") {
+    return res.status(400).json({ error: "informe bomba_rms (recomendado) ou bomba_ligada (boolean)" });
   }
 
   // ── chave do device ──
@@ -59,6 +72,7 @@ router.post("/", telemetriaLimiter, async (req, res) => {
     const rRes = await pool.query(
       `SELECT r.id, r.condominio_id, r.device_id, r.device_key,
               r.altura_total_m, r.adc_zero, r.adc_por_metro,
+              r.limiar_bomba,
               ul.nivel       AS last_nivel,
               ul.nivel_pct   AS last_nivel_pct,
               ul.criado_em   AS last_criado_em
@@ -98,6 +112,19 @@ router.post("/", telemetriaLimiter, async (req, res) => {
     const nivelPct = calcularNivelPct(adcRaw, reservatorio);
     const nivelNormalizado = nivelFromPct(nivelPct);
 
+    // ── Decide bomba_ligada ──
+    // Se o ESP32 enviou bomba_rms, compara com limiar_bomba do reservatório.
+    // Caso o limiar não esteja configurado, fica null (UI mostra "-").
+    // Se veio bomba_ligada direto (compatibilidade), usa esse.
+    let bombaLigada;
+    if (bombaRms != null) {
+      bombaLigada = reservatorio.limiar_bomba != null
+        ? bombaRms > reservatorio.limiar_bomba
+        : null;
+    } else {
+      bombaLigada = bombaLigadaInput;
+    }
+
     // ── Threshold: só grava leitura se nivel_pct mudou ≥ X% ou passou ≥ N min ──
     const pctThreshold = Number(process.env.TELEMETRIA_PCT_THRESHOLD ?? 5);
     const heartbeatMin = Number(process.env.TELEMETRIA_HEARTBEAT_MIN ?? 10);
@@ -113,8 +140,8 @@ router.post("/", telemetriaLimiter, async (req, res) => {
     if (deveGravar) {
       await pool.query(
         `WITH ins AS (
-           INSERT INTO leituras (device_id, nivel, bomba_ligada, nivel_pct, adc_raw)
-           VALUES ($1, $2, $3, $4, $5)
+           INSERT INTO leituras (device_id, nivel, bomba_ligada, nivel_pct, adc_raw, bomba_rms)
+           VALUES ($1, $2, $3, $4, $5, $6)
            RETURNING device_id
          ),
          upd_res AS (
@@ -122,7 +149,7 @@ router.post("/", telemetriaLimiter, async (req, res) => {
          )
          UPDATE alertas SET status = 'resolvido'
          WHERE device_id = $1 AND tipo = 'dispositivo_offline' AND status = 'aberto'`,
-        [device_id, nivelNormalizado, bomba_ligada, nivelPct, adcRaw]
+        [device_id, nivelNormalizado, bombaLigada, nivelPct, adcRaw, bombaRms]
       );
     } else {
       await pool.query(
