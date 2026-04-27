@@ -48,6 +48,15 @@ router.post("/registrar", authRequired, masterAdminOnly, async (req, res) => {
     return res.status(400).json({ error: "Campos: nome, email, senha, role" });
   }
 
+  const emailNorm = String(email).trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailNorm)) {
+    return res.status(400).json({ error: "email inválido" });
+  }
+
+  if (String(senha).length < 6) {
+    return res.status(400).json({ error: "senha deve ter no mínimo 6 caracteres" });
+  }
+
   if (!["admin", "admin_viewer", "cliente"].includes(role)) {
     return res.status(400).json({ error: "role deve ser 'admin', 'admin_viewer' ou 'cliente'" });
   }
@@ -76,7 +85,7 @@ router.post("/registrar", authRequired, masterAdminOnly, async (req, res) => {
       `,
       [
         nome,
-        String(email).toLowerCase(),
+        emailNorm,
         senha_hash,
         role,
         role === "cliente" ? condominio_id : null,
