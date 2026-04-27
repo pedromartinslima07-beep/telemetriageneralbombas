@@ -545,7 +545,7 @@ function renderStatus() {
                       <td class="mono">${r.device_id || "-"}</td>
                       <td>${u?.criado_em ? fmtData(u.criado_em) : "-"}</td>
                       <td>${u?.nivel ? tankHtml(u.nivel, u.nivel_pct) : "-"}</td>
-                      <td>${u ? (u.bomba_ligada ? badge("LIGADA","warn") : badge("DESLIGADA","ok")) : "-"}</td>
+                      <td>${!u ? "-" : (u.bomba_ligada === true ? badge("LIGADA","warn") : u.bomba_ligada === false ? badge("DESLIGADA","ok") : "-")}</td>
                       <td>${min}</td>
                       <td>${offline ? badge("SIM", "bad") : badge("NÃO", "ok")}</td>
                       <td><span class="pillCount">${alertas}</span></td>
