@@ -1,4 +1,4 @@
-const CACHE_NAME = "telemetria-v10";
+const CACHE_NAME = "telemetria-v11";
 
 const STATIC_ASSETS = [
   "/login",
@@ -46,6 +46,7 @@ self.addEventListener("fetch", (e) => {
       url.pathname.startsWith("/relatorio") ||
       url.pathname.startsWith("/status") ||
       url.pathname.startsWith("/jobs") ||
+      url.pathname.startsWith("/ultima-leitura") ||
       url.pathname.startsWith("/health")) {
     e.respondWith(fetch(e.request).catch(() => new Response(
       JSON.stringify({ error: "Sem conexão" }),

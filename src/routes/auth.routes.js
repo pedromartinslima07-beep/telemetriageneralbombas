@@ -12,9 +12,7 @@ const TRUSTED_COOKIE = "td_token";
 const isProd = process.env.NODE_ENV === "production";
 
 const { authRequired } = require("../middleware/authRequired");
-const { adminOnly } = require("../middleware/adminOnly");
 const { masterAdminOnly } = require("../middleware/masterAdminOnly");
-const { clienteOnly } = require("../middleware/clienteOnly"); // se você tiver separado; se não tiver, eu te digo abaixo
 
 const router = express.Router();
 
@@ -263,52 +261,6 @@ router.post("/verify-otp", otpLimiter, async (req, res) => {
   } catch (error) {
     console.error("Erro /auth/verify-otp:", error);
     return res.status(500).json({ error: "Erro ao verificar código" });
-  }
-});
-
-/**
- * PATCH /cliente/senha  (cliente only)
- * Body: { senha_atual, nova_senha }
- *
- * OBS: No seu server.js isso existe. Estou mantendo igual.
- */
-router.patch("/cliente/senha", authRequired, clienteOnly, async (req, res) => {
-  const { senha_atual, nova_senha } = req.body || {};
-
-  if (!senha_atual || !nova_senha) {
-    return res.status(400).json({ error: "Campos: senha_atual, nova_senha" });
-  }
-
-  if (String(nova_senha).length < 6) {
-    return res.status(400).json({ error: "nova_senha deve ter no mínimo 6 caracteres" });
-  }
-
-  try {
-    const uRes = await pool.query(
-      "SELECT id, senha_hash FROM usuarios WHERE id = $1 LIMIT 1",
-      [req.user.id]
-    );
-
-    if (uRes.rows.length === 0) {
-      return res.status(404).json({ error: "Usuário não encontrado" });
-    }
-
-    const u = uRes.rows[0];
-    const ok = await bcrypt.compare(String(senha_atual), u.senha_hash);
-    if (!ok) {
-      return res.status(401).json({ error: "Senha atual incorreta" });
-    }
-
-    const novoHash = await bcrypt.hash(String(nova_senha), 10);
-    await pool.query("UPDATE usuarios SET senha_hash = $2 WHERE id = $1", [
-      req.user.id,
-      novoHash,
-    ]);
-
-    return res.json({ ok: true, message: "Senha atualizada com sucesso" });
-  } catch (error) {
-    console.error("Erro ao trocar senha (cliente):", error);
-    return res.status(500).json({ error: "Erro ao trocar senha" });
   }
 });
 

@@ -55,11 +55,22 @@ router.post("/", telemetriaLimiter, async (req, res) => {
   }
 
   try {
+    // 1 query: reservatório + última leitura (substitui 2 round-trips)
     const rRes = await pool.query(
-      `SELECT id, condominio_id, device_id, device_key,
-              altura_total_m, adc_zero, adc_por_metro
-       FROM reservatorios
-       WHERE device_id = $1
+      `SELECT r.id, r.condominio_id, r.device_id, r.device_key,
+              r.altura_total_m, r.adc_zero, r.adc_por_metro,
+              ul.nivel       AS last_nivel,
+              ul.nivel_pct   AS last_nivel_pct,
+              ul.criado_em   AS last_criado_em
+       FROM reservatorios r
+       LEFT JOIN LATERAL (
+         SELECT nivel, nivel_pct, criado_em
+         FROM leituras
+         WHERE device_id = r.device_id
+         ORDER BY criado_em DESC
+         LIMIT 1
+       ) ul ON true
+       WHERE r.device_id = $1
        LIMIT 1`,
       [device_id]
     );
@@ -91,66 +102,71 @@ router.post("/", telemetriaLimiter, async (req, res) => {
     const pctThreshold = Number(process.env.TELEMETRIA_PCT_THRESHOLD ?? 5);
     const heartbeatMin = Number(process.env.TELEMETRIA_HEARTBEAT_MIN ?? 10);
 
-    const lastRes = await pool.query(
-      `SELECT nivel_pct, criado_em FROM leituras
-       WHERE device_id = $1
-       ORDER BY criado_em DESC
-       LIMIT 1`,
-      [device_id]
-    );
-
     let deveGravar = true;
-    if (lastRes.rows.length > 0) {
-      const last = lastRes.rows[0];
-      const diffPct = Math.abs(nivelPct - (last.nivel_pct ?? 0));
-      const minutosSemGravar = (Date.now() - new Date(last.criado_em).getTime()) / 60000;
+    if (reservatorio.last_criado_em != null) {
+      const diffPct = Math.abs(nivelPct - (reservatorio.last_nivel_pct ?? 0));
+      const minutosSemGravar = (Date.now() - new Date(reservatorio.last_criado_em).getTime()) / 60000;
       deveGravar = diffPct >= pctThreshold || minutosSemGravar >= heartbeatMin;
     }
 
+    // CTE única: INSERT (condicional) + UPDATE last_seen + resolve alerta offline
     if (deveGravar) {
       await pool.query(
-        "INSERT INTO leituras (device_id, nivel, bomba_ligada, nivel_pct, adc_raw) VALUES ($1, $2, $3, $4, $5)",
+        `WITH ins AS (
+           INSERT INTO leituras (device_id, nivel, bomba_ligada, nivel_pct, adc_raw)
+           VALUES ($1, $2, $3, $4, $5)
+           RETURNING device_id
+         ),
+         upd_res AS (
+           UPDATE reservatorios SET last_seen = NOW() WHERE device_id = $1 RETURNING device_id
+         )
+         UPDATE alertas SET status = 'resolvido'
+         WHERE device_id = $1 AND tipo = 'dispositivo_offline' AND status = 'aberto'`,
         [device_id, nivelNormalizado, bomba_ligada, nivelPct, adcRaw]
+      );
+    } else {
+      await pool.query(
+        `WITH upd_res AS (
+           UPDATE reservatorios SET last_seen = NOW() WHERE device_id = $1 RETURNING device_id
+         )
+         UPDATE alertas SET status = 'resolvido'
+         WHERE device_id = $1 AND tipo = 'dispositivo_offline' AND status = 'aberto'`,
+        [device_id]
       );
     }
 
-    // Atualiza last_seen (sempre, independente de gravar)
-    await pool.query(
-      "UPDATE reservatorios SET last_seen = NOW() WHERE device_id = $1",
-      [device_id]
-    );
+    // ── Alertas de nível ──
+    // Pula UPDATEs de "resolvido" quando o nível não mudou (são no-op nesse caso).
+    // upsertAlertaAberto roda sempre que nivel é baixo/muito_baixo, preservando
+    // a auto-reabertura caso um admin tenha fechado o alerta manualmente.
+    const nivelMudou = reservatorio.last_nivel !== nivelNormalizado;
 
-    // Fecha alerta offline se existir (sempre)
-    await pool.query(
-      "UPDATE alertas SET status = 'resolvido' WHERE device_id = $1 AND tipo = 'dispositivo_offline' AND status = 'aberto'",
-      [device_id]
-    );
-
-    // ── Alertas de nível (sempre) ──
-    if (nivelNormalizado === "medio" || nivelNormalizado === "alto") {
-      await pool.query(
-        "UPDATE alertas SET status = 'resolvido' WHERE device_id = $1 AND tipo IN ('nivel_baixo','nivel_muito_baixo') AND status = 'aberto'",
-        [device_id]
-      );
+    if (nivelMudou) {
+      if (nivelNormalizado === "medio" || nivelNormalizado === "alto") {
+        await pool.query(
+          "UPDATE alertas SET status = 'resolvido' WHERE device_id = $1 AND tipo IN ('nivel_baixo','nivel_muito_baixo') AND status = 'aberto'",
+          [device_id]
+        );
+      } else if (nivelNormalizado === "baixo") {
+        await pool.query(
+          "UPDATE alertas SET status = 'resolvido' WHERE device_id = $1 AND tipo = 'nivel_muito_baixo' AND status = 'aberto'",
+          [device_id]
+        );
+      } else if (nivelNormalizado === "muito_baixo") {
+        await pool.query(
+          "UPDATE alertas SET status = 'resolvido' WHERE device_id = $1 AND tipo = 'nivel_baixo' AND status = 'aberto'",
+          [device_id]
+        );
+      }
     }
 
     if (nivelNormalizado === "baixo") {
-      await pool.query(
-        "UPDATE alertas SET status = 'resolvido' WHERE device_id = $1 AND tipo = 'nivel_muito_baixo' AND status = 'aberto'",
-        [device_id]
-      );
       await upsertAlertaAberto(
         device_id,
         "nivel_baixo",
         `Nível baixo detectado no dispositivo ${device_id}`
       );
-    }
-
-    if (nivelNormalizado === "muito_baixo") {
-      await pool.query(
-        "UPDATE alertas SET status = 'resolvido' WHERE device_id = $1 AND tipo = 'nivel_baixo' AND status = 'aberto'",
-        [device_id]
-      );
+    } else if (nivelNormalizado === "muito_baixo") {
       await upsertAlertaAberto(
         device_id,
         "nivel_muito_baixo",

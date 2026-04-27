@@ -1,11 +1,19 @@
 const { Resend } = require("resend");
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+let _resend = null;
+function getResend() {
+  if (_resend) return _resend;
+  if (!process.env.RESEND_API_KEY) {
+    throw new Error("RESEND_API_KEY não configurada — envio de email indisponível");
+  }
+  _resend = new Resend(process.env.RESEND_API_KEY);
+  return _resend;
+}
 
 async function sendOTP(toEmail, code) {
   const from = process.env.SMTP_FROM || "telemetria@generalbombas.com";
 
-  await resend.emails.send({
+  await getResend().emails.send({
     from: `General Telemetria <${from}>`,
     to: toEmail,
     subject: "Seu código de acesso — General Telemetria",

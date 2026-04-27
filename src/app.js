@@ -1,4 +1,12 @@
 // src/app.js
+
+// Fallback de JWT_SECRET em dev — DEVE rodar antes dos requires de rotas/middleware,
+// que capturam process.env.JWT_SECRET em constantes de módulo no load.
+if (!process.env.JWT_SECRET) {
+  console.warn("AVISO: JWT_SECRET não definido, usando valor padrão de desenvolvimento");
+  process.env.JWT_SECRET = "dev-secret-local-apenas";
+}
+
 const helmet = require("helmet");
 const express = require("express");
 const cors = require("cors");
@@ -20,12 +28,6 @@ const { jobsRouter } = require("./routes/jobs.routes");
 const { reservatoriosRouter } = require("./routes/reservatorios.routes");
 const { relatorioRouter } = require("./routes/relatorio.routes");
 const { startOfflineScheduler } = require("./jobs/offline.job");
-
-
-if (!process.env.JWT_SECRET) {
-  console.warn("AVISO: JWT_SECRET não definido, usando valor padrão de desenvolvimento");
-  process.env.JWT_SECRET = "dev-secret-local-apenas";
-}
 
 const app = express();
 
