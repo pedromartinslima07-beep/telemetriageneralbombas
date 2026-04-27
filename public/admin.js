@@ -308,6 +308,7 @@ async function criarCliente() {
     document.getElementById("cliSenha").value = "";
     document.getElementById("cliCondominio").value = "";
 
+    carregarTudo();
   } catch (e) {
     if (msg) msg.textContent = "Erro: " + e.message;
   }
