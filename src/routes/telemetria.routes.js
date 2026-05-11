@@ -73,12 +73,13 @@ router.post("/", telemetriaLimiter, async (req, res) => {
       `SELECT r.id, r.condominio_id, r.device_id, r.device_key,
               r.altura_total_m, r.adc_zero, r.adc_por_metro,
               r.limiar_bomba,
-              ul.nivel       AS last_nivel,
-              ul.nivel_pct   AS last_nivel_pct,
-              ul.criado_em   AS last_criado_em
+              ul.nivel        AS last_nivel,
+              ul.nivel_pct    AS last_nivel_pct,
+              ul.bomba_ligada AS last_bomba_ligada,
+              ul.criado_em    AS last_criado_em
        FROM reservatorios r
        LEFT JOIN LATERAL (
-         SELECT nivel, nivel_pct, criado_em
+         SELECT nivel, nivel_pct, bomba_ligada, criado_em
          FROM leituras
          WHERE device_id = r.device_id
          ORDER BY criado_em DESC
@@ -125,7 +126,8 @@ router.post("/", telemetriaLimiter, async (req, res) => {
       bombaLigada = bombaLigadaInput;
     }
 
-    // ── Threshold: só grava leitura se nivel_pct mudou ≥ X% ou passou ≥ N min ──
+    // ── Threshold: só grava leitura se nivel_pct mudou ≥ X%, passou ≥ N min,
+    //    ou o estado da bomba mudou ──
     const pctThreshold = Number(process.env.TELEMETRIA_PCT_THRESHOLD ?? 5);
     const heartbeatMin = Number(process.env.TELEMETRIA_HEARTBEAT_MIN ?? 10);
 
@@ -133,7 +135,8 @@ router.post("/", telemetriaLimiter, async (req, res) => {
     if (reservatorio.last_criado_em != null) {
       const diffPct = Math.abs(nivelPct - (reservatorio.last_nivel_pct ?? 0));
       const minutosSemGravar = (Date.now() - new Date(reservatorio.last_criado_em).getTime()) / 60000;
-      deveGravar = diffPct >= pctThreshold || minutosSemGravar >= heartbeatMin;
+      const bombaEstadoMudou = bombaLigada !== reservatorio.last_bomba_ligada;
+      deveGravar = diffPct >= pctThreshold || minutosSemGravar >= heartbeatMin || bombaEstadoMudou;
     }
 
     // CTE única: INSERT (condicional) + UPDATE last_seen + resolve alerta offline
