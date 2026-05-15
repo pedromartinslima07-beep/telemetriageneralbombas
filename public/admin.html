@@ -60,6 +60,25 @@
           </svg>
           <span>Cadastros</span>
         </button>
+
+        <button class="nav-item" data-section="chamados">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="9" y1="13" x2="15" y2="13"/>
+            <line x1="9" y1="17" x2="13" y2="17"/>
+          </svg>
+          <span>Chamados</span>
+          <span class="nav-badge" id="navBadgeChamados" style="display:none;">0</span>
+        </button>
+
+        <button class="nav-item" data-section="whatsapp">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+          </svg>
+          <span>WhatsApp</span>
+          <span class="nav-badge" id="navBadgeWhatsapp" style="display:none;">0</span>
+        </button>
       </nav>
 
       <div class="sidebar-footer">
@@ -162,21 +181,7 @@
             </div>
           </div>
 
-          <div class="tableWrap">
-            <table>
-              <thead>
-                <tr>
-                  <th style="width:180px;">Ação</th>
-                  <th>Condomínio</th>
-                  <th>Reservatórios</th>
-                  <th>Offline</th>
-                  <th>Alertas abertos</th>
-                  <th>Última leitura</th>
-                </tr>
-              </thead>
-              <tbody id="tbodyStatus"></tbody>
-            </table>
-          </div>
+          <div id="condoGrid" class="condo-grid"></div>
         </section>
 
       </div><!-- /section dashboard -->
@@ -417,9 +422,97 @@
 
       </div><!-- /section cadastros -->
 
+      <!-- ===== SECTION: CHAMADOS ===== -->
+      <div class="section" data-section="chamados">
+        <section class="card">
+          <div class="cardHead">
+            <h2>
+              <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/>
+              </svg>
+              Chamados
+            </h2>
+            <span class="hint">Tickets de suporte</span>
+          </div>
+          <div class="tableWrap">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width:50px;">ID</th>
+                  <th>Condomínio</th>
+                  <th>Título</th>
+                  <th>Prioridade</th>
+                  <th>Status</th>
+                  <th>Criado em</th>
+                  <th class="right" style="width:160px;">Ações</th>
+                </tr>
+              </thead>
+              <tbody id="tbodyChamados"></tbody>
+            </table>
+          </div>
+        </section>
+      </div><!-- /section chamados -->
+
+      <!-- ===== SECTION: WHATSAPP ===== -->
+      <div class="section" data-section="whatsapp">
+        <section class="card">
+          <div class="cardHead">
+            <h2>
+              <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+              </svg>
+              WhatsApp — Conversas
+            </h2>
+            <span class="hint">Histórico de atendimentos</span>
+          </div>
+          <div class="tableWrap">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width:50px;">ID</th>
+                  <th>Cliente / Telefone</th>
+                  <th>Condomínio</th>
+                  <th>Status</th>
+                  <th>Última mensagem</th>
+                  <th class="right" style="width:80px;">Ver</th>
+                </tr>
+              </thead>
+              <tbody id="tbodyConversas"></tbody>
+            </table>
+          </div>
+        </section>
+      </div><!-- /section whatsapp -->
+
     </div><!-- /content -->
   </div><!-- /main -->
 </div><!-- /layout -->
+
+<!-- ===== DRAWER: Detalhe do condomínio ===== -->
+<div id="drawerOverlay" class="drawer-overlay"></div>
+<div id="drawerPanel" class="drawer-panel">
+  <div class="drawer-head">
+    <h3 id="drawerTitle">Condomínio</h3>
+    <button class="btn btn-sm" id="btnFecharDrawer">Fechar</button>
+  </div>
+  <div class="drawer-tabs">
+    <button class="drawer-tab active" data-action="drawer-tab" data-tab="telemetria">Telemetria</button>
+    <button class="drawer-tab" data-action="drawer-tab" data-tab="chamados">
+      Chamados
+      <span class="drawer-tab-badge" id="drawerBadgeChamados"></span>
+    </button>
+    <button class="drawer-tab" data-action="drawer-tab" data-tab="whatsapp">
+      WhatsApp
+      <span class="drawer-tab-badge" id="drawerBadgeWhatsapp"></span>
+    </button>
+  </div>
+  <div class="drawer-body">
+    <div class="drawer-pane is-active" id="drawerPaneTelemetria" data-pane="telemetria"></div>
+    <div class="drawer-pane" id="drawerPaneChamados" data-pane="chamados"></div>
+    <div class="drawer-pane" id="drawerPaneWhatsapp" data-pane="whatsapp"></div>
+  </div>
+</div>
 
 <!-- Tooltip -->
 <div id="cardTip" class="cardTip" style="display:none;"></div>
@@ -632,6 +725,15 @@
       <polyline points="9 22 9 12 15 12 15 22"/>
     </svg>
     <span>Cadastros</span>
+  </button>
+  <button class="mob-nav-item" data-mob-section="chamados">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+      <polyline points="14 2 14 8 20 8"/>
+      <line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/>
+    </svg>
+    <span>Chamados</span>
+    <span class="mob-nav-badge" id="mobBadgeChamados"></span>
   </button>
   <button class="mob-nav-item" id="mobBtnSair">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">

@@ -1,4 +1,4 @@
-function getToken() { return localStorage.getItem("token"); }
+﻿function getToken() { return localStorage.getItem("token"); }
 function authHeaders() {
   const token = getToken();
   return token ? { Authorization: "Bearer " + token } : {};
@@ -10,6 +10,8 @@ const _sectionTitles = {
   dashboard: "Dashboard",
   alertas:   "Alertas Abertos",
   cadastros: "Cadastros",
+  chamados:  "Chamados",
+  whatsapp:  "WhatsApp",
 };
 
 function showSection(name) {
@@ -84,6 +86,13 @@ let _statusData = [];
 let _alertasAbertos = [];
 let _alertasPorDevice = new Map();
 let _condominios = [];
+let _chamadosData = [];
+let _conversasData = [];
+
+// ===== estado do drawer =====
+let _drawerCondoId = null;
+let _drawerTab = "telemetria";
+let _drawerConversaId = null;
 
 const filtros = { texto: "", somenteAlertas: false, somenteOffline: false };
 
@@ -96,7 +105,7 @@ function aplicarFiltros() {
   filtros.somenteAlertas = !!document.getElementById("filtroSomenteAlertas").checked;
   filtros.somenteOffline = !!document.getElementById("filtroSomenteOffline").checked;
   page = 1;
-  renderStatus();
+  renderCondoCards();
 }
 
 function limparFiltros() {
@@ -107,24 +116,24 @@ function limparFiltros() {
   filtros.somenteAlertas = false;
   filtros.somenteOffline = false;
   page = 1;
-  renderStatus();
+  renderCondoCards();
 }
 
 function mudarPageSize() {
   const v = Number(document.getElementById("pageSize").value);
   pageSize = Number.isFinite(v) ? v : 25;
   page = 1;
-  renderStatus();
+  renderCondoCards();
 }
 
 function paginaAnterior() {
-  if (page > 1) { page--; renderStatus(); }
+  if (page > 1) { page--; renderCondoCards(); }
 }
 
 function proximaPagina() {
   const total = getFilteredList().length;
   const maxPage = Math.max(1, Math.ceil(total / pageSize));
-  if (page < maxPage) { page++; renderStatus(); }
+  if (page < maxPage) { page++; renderCondoCards(); }
 }
 
 function getFilteredList() {
@@ -423,8 +432,6 @@ function renderAlertas() {
   });
 }
 
-let _expandedCondo = new Set(); // guarda quais condomínios estão “abertos”
-
 function getUltimaLeituraDoCondominio(condoItem) {
   const list = condoItem.reservatorios || [];
   let best = null;
@@ -437,20 +444,12 @@ function getUltimaLeituraDoCondominio(condoItem) {
   return best; // pode ser null
 }
 
-function toggleCondo(id) {
-  if (_expandedCondo.has(id)) _expandedCondo.delete(id);
-  else _expandedCondo.add(id);
-  renderStatus();
-}
-
-function renderStatus() {
-  const tbody = document.getElementById("tbodyStatus");
-  if (!tbody) return;
-  tbody.innerHTML = "";
+function renderCondoCards() {
+  const grid = document.getElementById("condoGrid");
+  if (!grid) return;
+  grid.innerHTML = "";
 
   const list = getFilteredList();
-
-
   const total = list.length;
   const maxPage = Math.max(1, Math.ceil(total / pageSize));
   if (page > maxPage) page = maxPage;
@@ -465,107 +464,86 @@ function renderStatus() {
     const c = item.condominio || {};
     const resumo = item.resumo || {};
     const condoId = Number(c.id) || 0;
+    const reservs = Array.isArray(item.reservatorios) ? item.reservatorios : [];
 
-    const totalRes = resumo.total_reservatorios ?? 0;
-    const offlineCount = resumo.offline_count ?? 0;
     const alertasTotal = resumo.alertas_abertos_total ?? 0;
+    const offlineCount = resumo.offline_count ?? 0;
 
+    const chamadosAbertos = _chamadosData.filter(ch => Number(ch.condominio_id) === condoId && ch.status !== "fechado").length;
+    const conversasAbertas = _conversasData.filter(cv => Number(cv.condominio_id) === condoId && cv.status === "aberta").length;
+
+    let cardClass = "cc-ok";
+    if (offlineCount > 0) cardClass = "cc-bad";
+    else if (alertasTotal > 0) cardClass = "cc-alerta";
+
+    // Last reading
     const ultima = getUltimaLeituraDoCondominio(item);
-    const ultimaTxt = ultima?.criado_em ? fmtData(ultima.criado_em) : "-";
-
-    const expanded = _expandedCondo.has(condoId);
-
-    // ===== LINHA DO CONDOMÍNIO (RESUMO) =====
-    const tr = document.createElement("tr");
-    tr.style.cursor = "pointer";
-    tr.innerHTML = `
-      <td class="right">
-        <button class="btn btn-sm" data-action="toggle-condo" data-id="${condoId}">
-          ${expanded ? "Fechar" : "Ver"}
-        </button>
-        ${_isMaster ? `
-        <button class="btn btn-sm" data-action="editar-condominio" data-id="${condoId}" style="margin-left:4px;">
-          Editar
-        </button>
-        <button class="btn btn-sm" data-action="inativar-condominio" data-id="${condoId}" data-nome="${(c.nome || "").replaceAll('"', "&quot;")}" style="margin-left:4px;">
-          Inativar
-        </button>` : ""}
-      </td>
-
-      <td>${c.nome || "-"}</td>
-      <td>${totalRes}</td>
-      <td>${offlineCount > 0 ? badge(`${offlineCount} SIM`, "bad") : badge("NÃO", "ok")}</td>
-      <td>
-        <span class="pillCount">${alertasTotal}</span>
-      </td>
-      <td>${ultimaTxt}</td>
-    `;
-    tbody.appendChild(tr);
-
-    // ===== DETALHES (LINHAS DOS RESERVATÓRIOS) =====
-    if (expanded) {
-      const reservatorios = item.reservatorios || [];
-
-      // cabeçalho dos detalhes (uma linha “subtítulo”)
-      const trHead = document.createElement("tr");
-      trHead.innerHTML = `
-        <td></td>
-        <td colspan="5" class="expand-cell">
-          <div class="expand-label">Reservatórios</div>
-          <div class="inner-table-wrap">
-            <table class="inner-table">
-              <thead>
-                <tr>
-                  <th>Reservatório</th>
-                  <th>Tipo</th>
-                  <th>Device</th>
-                  <th>Última leitura</th>
-                  <th>Nível</th>
-                  <th>Bomba</th>
-                  <th>Min s/ atualizar</th>
-                  <th>Offline</th>
-                  <th>Alertas</th>
-                  <th>Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${reservatorios.map(r => {
-        const u = r.ultima_leitura;
-        const offline = !!r.offline;
-        const min = (r.minutos_sem_atualizar === null || r.minutos_sem_atualizar === undefined)
-          ? "-"
-          : r.minutos_sem_atualizar;
-
-        const alertas = r.alertas_abertos_count ?? 0;
-
-        return `
-                    <tr>
-                      <td>${r.nome || "-"}</td>
-                      <td>${r.tipo || "-"}</td>
-                      <td class="mono">${r.device_id || "-"}</td>
-                      <td>${u?.criado_em ? fmtData(u.criado_em) : "-"}</td>
-                      <td>${u?.nivel ? tankHtml(u.nivel, u.nivel_pct) : "-"}</td>
-                      <td>${!u ? "-" : (u.bomba_ligada === true ? badge("LIGADA","warn") : u.bomba_ligada === false ? badge("DESLIGADA","ok") : "-")}</td>
-                      <td>${min}</td>
-                      <td>${offline ? badge("SIM", "bad") : badge("NÃO", "ok")}</td>
-                      <td><span class="pillCount">${alertas}</span></td>
-                      <td>
-                        ${_isMaster ? `
-                        <button class="btn btn-sm" data-action="editar-reservatorio" data-id="${r.id}">Editar</button>
-                        <button class="btn btn-sm" style="margin-left:4px;" data-action="regen-res-key" data-id="${r.id}">Key</button>
-                        <button class="btn btn-sm btnDanger" style="margin-left:4px;" data-action="excluir-reservatorio" data-id="${r.id}" data-nome="${(r.nome || "").replaceAll('"', "&quot;")}">Excluir</button>
-                        ` : ""}
-                      </td>
-                    </tr>
-                  `;
-      }).join("")}
-              </tbody>
-            </table>
-          </div>
-        </td>
-      `;
-      tbody.appendChild(trHead);
+    let lastSeen = "-";
+    if (ultima?.criado_em) {
+      const mins = Math.round((Date.now() - new Date(ultima.criado_em)) / 60000);
+      if (mins < 60) lastSeen = `há ${mins}min`;
+      else if (mins < 1440) lastSeen = `há ${Math.round(mins / 60)}h`;
+      else lastSeen = fmtData(ultima.criado_em);
     }
+
+    // Badges
+    let badgesHtml = "";
+    if (alertasTotal > 0) badgesHtml += `<span class="cc-count cc-count-alerta">⚠ ${alertasTotal}</span>`;
+    if (chamadosAbertos > 0) badgesHtml += `<span class="cc-count cc-count-chamado">📋 ${chamadosAbertos}</span>`;
+    if (conversasAbertas > 0) badgesHtml += `<span class="cc-count cc-count-wz">💬 ${conversasAbertas}</span>`;
+
+    // Reservoir bars
+    let resHtml = "";
+    if (reservs.length === 0) {
+      resHtml = `<div style="font-size:11px;color:var(--muted2);padding:4px 0;">Sem reservatórios ativos</div>`;
+    } else {
+      for (const r of reservs) {
+        const u = r.ultima_leitura;
+        const pct = u?.nivel_pct ?? null;
+        const n = String(u?.nivel || "").toLowerCase();
+        const lvClass = n === "alto" ? "lv-alto" : n === "medio" ? "lv-medio" : n === "baixo" ? "lv-baixo" : n === "muito_baixo" ? "lv-muito-baixo" : "lv-unknown";
+        const pctWidth = pct != null ? pct : 0;
+        const pctDisplay = pct != null ? pct + "%" : "-";
+        const bombaClass = u?.bomba_ligada === true ? "on" : u?.bomba_ligada === false ? "off" : "uk";
+        const bombaLabel = u?.bomba_ligada === true ? "LIGADA" : u?.bomba_ligada === false ? "DESLIG." : "—";
+        resHtml += `
+          <div class="cc-res">
+            <div class="cc-res-header">
+              <span class="cc-res-name">${r.nome || "Reservatório"}</span>
+              <span class="cc-res-bomba ${bombaClass}">${bombaLabel}</span>
+            </div>
+            <div class="cc-level-row">
+              <div class="cc-level-bar">
+                <div class="cc-level-fill ${lvClass}" style="width:${pctWidth}%"></div>
+              </div>
+              <span class="cc-level-pct">${pctDisplay}</span>
+            </div>
+          </div>`;
+      }
+    }
+
+    const offlineBanner = offlineCount > 0
+      ? `<div class="cc-offline-banner">⚠ ${offlineCount} dispositivo${offlineCount > 1 ? "s" : ""} offline</div>`
+      : "";
+
+    const adminBtns = _isMaster
+      ? `<button class="btn btn-sm" data-action="editar-condominio" data-id="${condoId}" title="Editar condomínio">✎</button>`
+      : "";
+
+    const div = document.createElement("div");
+    div.className = `cc ${cardClass}`;
+    div.innerHTML = `
+      <div class="cc-header">
+        <div class="cc-name">${c.nome || "-"}</div>
+        <div class="cc-header-badges">${badgesHtml}</div>
+      </div>
+      ${offlineBanner}
+      <div class="cc-res-list">${resHtml}</div>
+      <div class="cc-footer">
+        <span class="cc-last-seen">${lastSeen}</span>
+        <div style="display:flex;gap:6px;">${adminBtns}<button class="btn btn-sm btnAccent" data-action="ver-condo" data-id="${condoId}">Detalhes</button></div>
+      </div>`;
+    grid.appendChild(div);
   }
 }
 
@@ -575,7 +553,7 @@ async function carregarStatus() {
 
   const grouped = await r.json(); // vem AGRUPADO do backend (admin.routes)
 
-  // ✅ mantém AGRUPADO, porque o renderStatus usa item.reservatorios + item.resumo
+  // vem AGRUPADO do backend (admin.routes) — renderCondoCards usa item.reservatorios + item.resumo
   _statusData = Array.isArray(grouped) ? grouped : [];
 }
 
@@ -599,6 +577,18 @@ async function carregarCondominios() {
   _condominios = await r.json();
 }
 
+async function carregarChamados() {
+  const r = await fetch("/chamados", { headers: authHeaders() });
+  if (!r.ok) throw new Error("Erro /chamados: " + r.status);
+  _chamadosData = await r.json();
+}
+
+async function carregarConversas() {
+  const r = await fetch("/whatsapp/conversas", { headers: authHeaders() });
+  if (!r.ok) throw new Error("Erro /whatsapp/conversas: " + r.status);
+  _conversasData = await r.json();
+}
+
 function renderSelectCondominiosReservatorio() {
   const sel = document.getElementById("resCondominio");
   if (!sel) return;
@@ -616,18 +606,42 @@ async function carregarTudo() {
   const el = document.getElementById("statusMsg");
   el.textContent = "Carregando...";
   try {
-    await Promise.all([carregarStatus(), carregarAlertas(), carregarCondominios()]);
+    await Promise.all([
+      carregarStatus(),
+      carregarAlertas(),
+      carregarCondominios(),
+      carregarChamados().catch(() => {}),
+      carregarConversas().catch(() => {}),
+    ]);
     renderSelectCondominiosCliente();
     renderSelectCondominiosReservatorio();
     renderResumo();
     bindResumoInteracoes();
     renderAlertas();
-    renderStatus();
+    renderCondoCards();
+    renderChamados();
+    renderConversas();
+    atualizarBadgesChamados();
+    atualizarBadgesWhatsapp();
     el.textContent = "Atualizado às " + new Date().toLocaleTimeString();
   } catch (e) {
     el.textContent = "Erro ao atualizar";
     console.error(e);
   }
+}
+
+function atualizarBadgesChamados() {
+  const n = _chamadosData.filter(ch => ch.status !== "fechado").length;
+  const badge = document.getElementById("navBadgeChamados");
+  if (badge) { badge.textContent = n; badge.style.display = n > 0 ? "inline-flex" : "none"; }
+  const mobBadge = document.getElementById("mobBadgeChamados");
+  if (mobBadge) { mobBadge.textContent = n; mobBadge.classList.toggle("is-visible", n > 0); }
+}
+
+function atualizarBadgesWhatsapp() {
+  const n = _conversasData.filter(cv => cv.status === "aberta").length;
+  const badge = document.getElementById("navBadgeWhatsapp");
+  if (badge) { badge.textContent = n; badge.style.display = n > 0 ? "inline-flex" : "none"; }
 }
 
 async function criarReservatorio() {
@@ -681,6 +695,277 @@ async function criarReservatorio() {
 
   // opcional: atualizar tudo
   carregarTudo();
+}
+
+// ===== SECTION: CHAMADOS =====
+function renderChamados() {
+  const tbody = document.getElementById("tbodyChamados");
+  if (!tbody) return;
+  tbody.innerHTML = "";
+
+  const prioLabel  = { baixa: "Baixa", media: "Média", alta: "Alta", emergencia: "Emergência" };
+  const statusLbl  = { aberto: "Aberto", em_atendimento: "Em atend.", fechado: "Fechado" };
+
+  if (_chamadosData.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px;">Nenhum chamado encontrado.</td></tr>`;
+    return;
+  }
+
+  for (const ch of _chamadosData) {
+    const prioClass = `prio-${ch.prioridade || "media"}`;
+    const statusCls = `chamado-status-${ch.status || "aberto"}`;
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${ch.id}</td>
+      <td>${ch.condominio_nome || "-"}</td>
+      <td>${ch.titulo || "-"}</td>
+      <td><span class="prio-badge ${prioClass}">${prioLabel[ch.prioridade] || ch.prioridade || "-"}</span></td>
+      <td class="${statusCls}">${statusLbl[ch.status] || ch.status || "-"}</td>
+      <td>${fmtData(ch.criado_em)}</td>
+      <td class="right">
+        ${ch.status !== "fechado" ? `<button class="btn btn-sm" data-action="fechar-chamado" data-id="${ch.id}">Fechar</button>` : ""}
+        ${ch.status === "aberto" ? `<button class="btn btn-sm" data-action="atender-chamado" data-id="${ch.id}" style="margin-left:4px;">Atender</button>` : ""}
+      </td>`;
+    tbody.appendChild(tr);
+  }
+}
+
+// ===== SECTION: WHATSAPP =====
+function renderConversas() {
+  const tbody = document.getElementById("tbodyConversas");
+  if (!tbody) return;
+  tbody.innerHTML = "";
+
+  if (_conversasData.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px;">Nenhuma conversa encontrada.</td></tr>`;
+    return;
+  }
+
+  for (const cv of _conversasData) {
+    const nome = cv.cliente_nome || cv.telefone || "-";
+    const statusBadge = cv.status === "aberta" ? badge("aberta", "warn") : badge("fechada", "ok");
+    const preview = cv.ultima_mensagem ? cv.ultima_mensagem.slice(0, 60) + (cv.ultima_mensagem.length > 60 ? "…" : "") : "-";
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${cv.id}</td>
+      <td>${nome}<br><span class="mono" style="font-size:11px;color:var(--muted);">${cv.telefone || ""}</span></td>
+      <td>${cv.condominio_nome || "-"}</td>
+      <td>${statusBadge}</td>
+      <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${preview}</td>
+      <td class="right"><button class="btn btn-sm" data-action="ver-convo-section" data-id="${cv.id}">Ver</button></td>`;
+    tbody.appendChild(tr);
+  }
+}
+
+// ===== AÇÕES DE CHAMADO =====
+async function fecharChamadoAction(id) {
+  const r = await fetch(`/chamados/${id}`, {
+    method: "PATCH",
+    headers: { ...authHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify({ status: "fechado" }),
+  });
+  if (!r.ok) { alert("Erro ao fechar chamado"); return; }
+  await carregarTudo();
+  if (_drawerCondoId) renderDrawerChamados();
+}
+
+async function atenderChamadoAction(id) {
+  const r = await fetch(`/chamados/${id}`, {
+    method: "PATCH",
+    headers: { ...authHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify({ status: "em_atendimento" }),
+  });
+  if (!r.ok) { alert("Erro ao atualizar chamado"); return; }
+  await carregarTudo();
+  if (_drawerCondoId) renderDrawerChamados();
+}
+
+// ===== DRAWER =====
+function abrirDrawer(condoId) {
+  _drawerCondoId = condoId;
+  _drawerTab = "telemetria";
+  _drawerConversaId = null;
+
+  const item = (_statusData || []).find(g => Number(g.condominio?.id) === condoId);
+  const nome = item?.condominio?.nome || `Condomínio ${condoId}`;
+  document.getElementById("drawerTitle").textContent = nome;
+
+  const chamadosN = _chamadosData.filter(ch => Number(ch.condominio_id) === condoId && ch.status !== "fechado").length;
+  const wzN       = _conversasData.filter(cv => Number(cv.condominio_id) === condoId && cv.status === "aberta").length;
+
+  const bCh = document.getElementById("drawerBadgeChamados");
+  if (bCh) { bCh.textContent = chamadosN; bCh.classList.toggle("vis", chamadosN > 0); }
+  const bWz = document.getElementById("drawerBadgeWhatsapp");
+  if (bWz) { bWz.textContent = wzN; bWz.classList.toggle("vis", wzN > 0); }
+
+  document.getElementById("drawerOverlay").classList.add("is-open");
+  document.getElementById("drawerPanel").classList.add("is-open");
+
+  switchDrawerTab("telemetria");
+}
+
+function fecharDrawer() {
+  document.getElementById("drawerOverlay").classList.remove("is-open");
+  document.getElementById("drawerPanel").classList.remove("is-open");
+  _drawerCondoId = null;
+  _drawerConversaId = null;
+}
+
+function switchDrawerTab(tab) {
+  _drawerTab = tab;
+  _drawerConversaId = null;
+
+  document.querySelectorAll(".drawer-tab").forEach(t => t.classList.toggle("active", t.dataset.tab === tab));
+  document.querySelectorAll(".drawer-pane").forEach(p => p.classList.toggle("is-active", p.dataset.pane === tab));
+
+  if (tab === "telemetria") renderDrawerTelemetria();
+  else if (tab === "chamados") renderDrawerChamados();
+  else if (tab === "whatsapp") renderDrawerWhatsapp();
+}
+
+function renderDrawerTelemetria() {
+  const pane = document.getElementById("drawerPaneTelemetria");
+  if (!pane) return;
+
+  const item = (_statusData || []).find(g => Number(g.condominio?.id) === _drawerCondoId);
+  if (!item) { pane.innerHTML = `<div style="color:var(--muted);">Dados não encontrados.</div>`; return; }
+
+  const reservs = Array.isArray(item.reservatorios) ? item.reservatorios : [];
+
+  if (reservs.length === 0) {
+    pane.innerHTML = `<div style="color:var(--muted);font-size:13px;">Nenhum reservatório ativo neste condomínio.</div>`;
+    return;
+  }
+
+  pane.innerHTML = reservs.map(r => {
+    const u = r.ultima_leitura;
+    const pct = u?.nivel_pct ?? null;
+    const n = String(u?.nivel || "").toLowerCase();
+    const lvClass = n === "alto" ? "lv-alto" : n === "medio" ? "lv-medio" : n === "baixo" ? "lv-baixo" : n === "muito_baixo" ? "lv-muito-baixo" : "";
+    const pctWidth = pct != null ? pct : 0;
+    const offline = !!r.offline;
+    const mins = r.minutos_sem_atualizar;
+    const alertas = r.alertas_abertos_count ?? 0;
+    const bombaLabel = u?.bomba_ligada === true ? badge("LIGADA", "warn") : u?.bomba_ligada === false ? badge("DESLIGADA", "ok") : "-";
+    const offlineBadge = offline ? badge("OFFLINE", "bad") : badge("Online", "ok");
+
+    return `
+      <div class="dp-res">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+          <div class="dp-res-name">${r.nome || "Reservatório"}</div>
+          ${offlineBadge}
+        </div>
+        ${lvClass ? `
+        <div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+            <span style="font-size:11px;font-weight:700;color:var(--muted);">Nível</span>
+            <span style="font-size:14px;font-weight:800;color:var(--text);">${pct != null ? pct + "%" : "-"}</span>
+          </div>
+          <div class="dp-level-bar"><div class="dp-level-fill ${lvClass}" style="width:${pctWidth}%"></div></div>
+        </div>` : `<div style="color:var(--muted);font-size:12px;">Sem dados de nível</div>`}
+        <div class="dp-res-meta">
+          <span>Bomba: ${bombaLabel}</span>
+          <span>Tipo: ${r.tipo || "-"}</span>
+          <span>Device: <code style="font-size:11px;">${r.device_id || "-"}</code></span>
+          ${mins != null ? `<span>Sem atualizar: ${mins}min</span>` : ""}
+          ${alertas > 0 ? `<span style="color:#f87171;">${alertas} alerta${alertas > 1 ? "s" : ""} aberto${alertas > 1 ? "s" : ""}</span>` : ""}
+          <span>Última leitura: ${u?.criado_em ? fmtData(u.criado_em) : "-"}</span>
+        </div>
+      </div>`;
+  }).join("");
+}
+
+function renderDrawerChamados() {
+  const pane = document.getElementById("drawerPaneChamados");
+  if (!pane) return;
+
+  const list = _chamadosData.filter(ch => Number(ch.condominio_id) === _drawerCondoId);
+  if (list.length === 0) {
+    pane.innerHTML = `<div style="color:var(--muted);font-size:13px;">Nenhum chamado para este condomínio.</div>`;
+    return;
+  }
+
+  const prioLabel = { baixa: "Baixa", media: "Média", alta: "Alta", emergencia: "Emergência" };
+  const statusLbl = { aberto: "Aberto", em_atendimento: "Em atendimento", fechado: "Fechado" };
+
+  pane.innerHTML = list.map(ch => {
+    const prioClass = `prio-${ch.prioridade || "media"}`;
+    const statusCls = `chamado-status-${ch.status || "aberto"}`;
+    return `
+      <div class="dp-chamado">
+        <div class="dp-chamado-titulo">${ch.titulo || "Chamado #" + ch.id}</div>
+        <div class="dp-chamado-meta">
+          <span class="prio-badge ${prioClass}">${prioLabel[ch.prioridade] || ch.prioridade}</span>
+          <span class="${statusCls}">${statusLbl[ch.status] || ch.status}</span>
+          <span style="color:var(--muted2);">#${ch.id} • ${fmtData(ch.criado_em)}</span>
+        </div>
+        ${ch.descricao ? `<div style="font-size:12px;color:var(--muted);line-height:1.5;">${ch.descricao.slice(0, 200)}${ch.descricao.length > 200 ? "…" : ""}</div>` : ""}
+        ${ch.status !== "fechado" ? `
+        <div class="dp-chamado-actions">
+          ${ch.status === "aberto" ? `<button class="btn btn-sm" data-action="atender-chamado" data-id="${ch.id}">Em atendimento</button>` : ""}
+          <button class="btn btn-sm" data-action="fechar-chamado" data-id="${ch.id}">Fechar</button>
+        </div>` : ""}
+      </div>`;
+  }).join("");
+}
+
+function renderDrawerWhatsapp() {
+  const pane = document.getElementById("drawerPaneWhatsapp");
+  if (!pane) return;
+
+  if (_drawerConversaId) { renderConversaChat(_drawerConversaId); return; }
+
+  const list = _conversasData.filter(cv => Number(cv.condominio_id) === _drawerCondoId);
+  if (list.length === 0) {
+    pane.innerHTML = `<div style="color:var(--muted);font-size:13px;">Nenhuma conversa para este condomínio.</div>`;
+    return;
+  }
+
+  pane.innerHTML = `<div class="wz-list">${list.map(cv => {
+    const nome = cv.cliente_nome || cv.telefone || "Desconhecido";
+    const ts = cv.ultima_mensagem_em ? fmtData(cv.ultima_mensagem_em) : fmtData(cv.criado_em);
+    const preview = cv.ultima_mensagem ? cv.ultima_mensagem.slice(0, 80) + (cv.ultima_mensagem.length > 80 ? "…" : "") : "(sem mensagens)";
+    const statusB = cv.status === "aberta" ? badge("aberta", "warn") : badge("fechada", "ok");
+    return `
+      <div class="wz-convo" data-action="ver-conversa" data-id="${cv.id}">
+        <div class="wz-convo-head">
+          <span class="wz-convo-name">${nome}</span>
+          ${statusB}
+          <span class="wz-convo-ts">${ts}</span>
+        </div>
+        <div class="wz-convo-last">${preview}</div>
+      </div>`;
+  }).join("")}</div>`;
+}
+
+async function renderConversaChat(conversaId) {
+  const pane = document.getElementById("drawerPaneWhatsapp");
+  if (!pane) return;
+  pane.innerHTML = `<button class="wz-back" data-action="voltar-conversas">← Voltar</button><div style="color:var(--muted);">Carregando…</div>`;
+
+  try {
+    const r = await fetch(`/whatsapp/conversas/${conversaId}`, { headers: authHeaders() });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || "Erro ao carregar");
+
+    const nome = data.cliente_nome || data.telefone || "Cliente";
+    const msgs = Array.isArray(data.mensagens) ? data.mensagens : [];
+    const statusB = data.status === "aberta" ? badge("aberta", "warn") : badge("fechada", "ok");
+
+    pane.innerHTML = `
+      <button class="wz-back" data-action="voltar-conversas">← Voltar</button>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:4px;">${nome} • ${data.telefone || ""} • ${statusB}</div>
+      <div class="wz-chat">
+        ${msgs.length === 0 ? `<div style="color:var(--muted);">Sem mensagens.</div>` :
+          msgs.map(m => `
+            <div class="wz-msg ${m.direcao === "entrada" ? "wz-in" : "wz-out"}">
+              ${m.conteudo || "(sem texto)"}
+              <span class="wz-ts">${fmtData(m.criado_em)}</span>
+            </div>`).join("")}
+      </div>`;
+  } catch (err) {
+    pane.innerHTML = `<button class="wz-back" data-action="voltar-conversas">← Voltar</button><div style="color:var(--danger);">Erro: ${err.message}</div>`;
+  }
 }
 
 function getMyRole() {
@@ -895,17 +1180,13 @@ function renderModalLista() {
 }
 
 function focarCondominio(deviceId) {
-  // aplica filtro e desce até a tabela de status
   document.getElementById("filtroTexto").value = deviceId;
   document.getElementById("filtroSomenteAlertas").checked = false;
   document.getElementById("filtroSomenteOffline").checked = false;
   aplicarFiltros();
-
   fecharModal();
-
-  // rola para a tabela de status
-  const tabela = document.getElementById("tbodyStatus");
-  if (tabela) tabela.scrollIntoView({ behavior: "smooth", block: "start" });
+  const grid = document.getElementById("condoGrid");
+  if (grid) grid.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 // Fechar modal clicando fora
@@ -1324,6 +1605,9 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("btnCriarCliente")?.addEventListener("click", criarCliente);
   document.getElementById("btnCriarAdminViewer")?.addEventListener("click", criarAdminViewer);
 
+  document.getElementById("btnFecharDrawer")?.addEventListener("click", fecharDrawer);
+  document.getElementById("drawerOverlay")?.addEventListener("click", fecharDrawer);
+
   document.getElementById("btnFecharModal")?.addEventListener("click", fecharModal);
   document.getElementById("btnFecharModalEditar")?.addEventListener("click", fecharModalEditar);
   document.getElementById("btnCancelarEdicao")?.addEventListener("click", fecharModalEditar);
@@ -1361,9 +1645,50 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    if (action === "toggle-condo") {
+    if (action === "ver-condo") {
       const id = Number(btn.dataset.id);
-      if (id) toggleCondo(id);
+      if (id) abrirDrawer(id);
+      return;
+    }
+
+    if (action === "drawer-tab") {
+      switchDrawerTab(btn.dataset.tab);
+      return;
+    }
+
+    if (action === "fechar-chamado") {
+      const id = Number(btn.dataset.id);
+      if (id) fecharChamadoAction(id);
+      return;
+    }
+
+    if (action === "atender-chamado") {
+      const id = Number(btn.dataset.id);
+      if (id) atenderChamadoAction(id);
+      return;
+    }
+
+    if (action === "ver-conversa") {
+      const id = Number(btn.dataset.id);
+      if (id) { _drawerConversaId = id; renderConversaChat(id); }
+      return;
+    }
+
+    if (action === "voltar-conversas") {
+      _drawerConversaId = null;
+      renderDrawerWhatsapp();
+      return;
+    }
+
+    if (action === "ver-convo-section") {
+      const id = Number(btn.dataset.id);
+      const cv = _conversasData.find(c => c.id === id);
+      if (cv && cv.condominio_id) {
+        abrirDrawer(cv.condominio_id);
+        _drawerConversaId = id;
+        switchDrawerTab("whatsapp");
+        renderConversaChat(id);
+      }
       return;
     }
 
@@ -1418,10 +1743,13 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") fecharModalEditar();
+    if (e.key === "Escape") {
+      fecharDrawer();
+      fecharModalEditar();
+      fecharModalEditarReservatorio();
+    }
   });
 
- 
   // primeira carga + auto refresh
   carregarTudo();
   setInterval(carregarTudo, 10000);

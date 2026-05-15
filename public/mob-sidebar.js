@@ -77,7 +77,7 @@
   // ── Título inicial do topbar ──
   var activeItem = document.querySelector('.mob-nav-item.active[data-mob-section]');
   if (activeItem) {
-    var titles = { dashboard: 'Dashboard', alertas: 'Alertas', cadastros: 'Cadastros', historico: 'Histórico' };
+    var titles = { dashboard: 'Dashboard', alertas: 'Alertas', cadastros: 'Cadastros', historico: 'Histórico', chamados: 'Chamados', whatsapp: 'WhatsApp' };
     var titleEl = document.getElementById('topbarTitle');
     if (titleEl) titleEl.textContent = titles[activeItem.dataset.mobSection] || 'Dashboard';
   }
