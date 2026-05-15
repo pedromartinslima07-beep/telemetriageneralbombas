@@ -527,7 +527,8 @@ function renderCondoCards() {
       : "";
 
     const adminBtns = _isMaster
-      ? `<button class="btn btn-sm" data-action="editar-condominio" data-id="${condoId}" title="Editar condomínio">✎</button>`
+      ? `<button class="btn btn-sm" data-action="editar-condominio" data-id="${condoId}" title="Editar condomínio">✎ Editar</button>
+         <button class="btn btn-sm" data-action="inativar-condominio" data-id="${condoId}" data-nome="${(c.nome || "").replaceAll('"', "&quot;")}" title="Inativar condomínio">Inativar</button>`
       : "";
 
     const div = document.createElement("div");
@@ -871,6 +872,12 @@ function renderDrawerTelemetria() {
           ${alertas > 0 ? `<span style="color:#f87171;">${alertas} alerta${alertas > 1 ? "s" : ""} aberto${alertas > 1 ? "s" : ""}</span>` : ""}
           <span>Última leitura: ${u?.criado_em ? fmtData(u.criado_em) : "-"}</span>
         </div>
+        ${_isMaster ? `
+        <div style="display:flex;gap:6px;padding-top:8px;border-top:1px solid var(--border);">
+          <button class="btn btn-sm" data-action="editar-reservatorio" data-id="${r.id}">Editar</button>
+          <button class="btn btn-sm" data-action="regen-res-key" data-id="${r.id}">Nova Key</button>
+          <button class="btn btn-sm btnDanger" data-action="excluir-reservatorio" data-id="${r.id}" data-nome="${(r.nome || "").replaceAll('"', "&quot;")}">Excluir</button>
+        </div>` : ""}
       </div>`;
   }).join("");
 }
