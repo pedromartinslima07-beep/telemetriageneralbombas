@@ -27,6 +27,7 @@ const { statusRouter } = require("./routes/status.routes");
 const { jobsRouter } = require("./routes/jobs.routes");
 const { reservatoriosRouter } = require("./routes/reservatorios.routes");
 const { relatorioRouter } = require("./routes/relatorio.routes");
+const { whatsappRouter } = require("./routes/whatsapp.routes");
 const { startOfflineScheduler } = require("./jobs/offline.job");
 
 const app = express();
@@ -93,6 +94,7 @@ app.use("/admin", adminRouter);
 app.use(leiturasRouter); // ex: /ultima-leitura/:device_id
 app.use("/status", statusRouter);
 app.use("/jobs", jobsRouter);
+app.use("/whatsapp", whatsappRouter);
 
 startOfflineScheduler();
 
