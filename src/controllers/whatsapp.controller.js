@@ -1,4 +1,6 @@
 const { pool } = require("../db");
+const { processarComIA } = require("../services/ia.service");
+const { enviarMensagem } = require("../services/evolution.service");
 
 const WEBHOOK_TOKEN = process.env.EVOLUTION_WEBHOOK_TOKEN;
 
@@ -72,7 +74,39 @@ async function processarMensagem(payload) {
 
     console.log(`[whatsapp] ${telefone} → conversa ${conversaId} | tipo: ${tipo}`);
 
-    // TODO: disparar IA (Fase 2)
+    // Só processa texto com IA
+    if (tipo !== "conversation" && tipo !== "extendedTextMessage") return;
+    if (!conteudo || conteudo.trim().split(/\s+/).length < 2) return; // ignora mensagens triviais
+
+    // Busca histórico da conversa e condomínio do cliente
+    const [historicoRes, clienteRes] = await Promise.all([
+      pool.query(
+        `SELECT direcao, conteudo FROM mensagens_whatsapp
+         WHERE conversa_id = $1 ORDER BY criado_em ASC LIMIT 20`,
+        [conversaId]
+      ),
+      pool.query(
+        `SELECT condominio_id FROM clientes_whatsapp WHERE id = $1`,
+        [clienteId]
+      ),
+    ]);
+
+    const condominio_id = clienteRes.rows[0]?.condominio_id ?? null;
+    const historico = historicoRes.rows;
+
+    const respostaIA = await processarComIA({ conversa_id: conversaId, condominio_id, cliente_whatsapp_id: clienteId, historico });
+
+    if (!respostaIA) return;
+
+    // Salva resposta da IA no banco
+    await pool.query(
+      `INSERT INTO mensagens_whatsapp (conversa_id, direcao, tipo, conteudo)
+       VALUES ($1, 'saida', 'text', $2)`,
+      [conversaId, respostaIA]
+    );
+
+    // Envia resposta via Evolution API
+    await enviarMensagem(telefone, respostaIA);
 
   } catch (err) {
     console.error("[whatsapp] erro ao processar mensagem:", err);
