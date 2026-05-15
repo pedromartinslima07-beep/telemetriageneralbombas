@@ -270,47 +270,66 @@ O handler não pode quebrar nesses casos — salva o tipo mas processa só texto
 - [x] IA busca condomínio por nome/endereço e vincula cliente automaticamente
 - [x] Tom profissional e natural no atendimento
 
-### Fase 3 — Painel admin expandido
+### Fase 3 — Painel admin expandido + redesign do dashboard
 
-**Premissa:** condomínio como entidade central. Telemetria continua funcionando igual —
-o painel é expandido, não substituído. Nenhuma rota ou lógica existente é alterada.
+**Premissa:** condomínio como entidade central. Cores atuais mantidas. Telemetria continua
+funcionando — o painel é expandido e embelezado, não substituído.
 
-**Dashboard principal (reformulado):**
-- Cards por condomínio mostrando tudo de uma vez:
-  - Status telemetria: nível do reservatório, bomba ligada/desligada, online/offline
-  - Badge com contagem de chamados abertos
-  - Indicador de conversa WhatsApp recente (se houver)
-  - Cor do card reflete urgência: verde (ok) → amarelo (atenção) → vermelho (crítico/emergência)
-- Polling a cada 30s para atualizar os dados sem recarregar a página
-- Notificação visual quando chega chamado novo ou mensagem nova
+#### 3A — Redesign do dashboard
 
-**Detalhe do condomínio (ao clicar no card):**
-Painel lateral ou página com 3 abas:
-- **Telemetria** — gráfico de nível, histórico de leituras, alertas (conteúdo já existente)
-- **Chamados** — lista de chamados do condomínio, ações inline: mudar status, prioridade, responsável
-- **WhatsApp** — histórico da conversa em formato de chat, leitura apenas
+O layout atual (tabela com linhas expansíveis) será substituído por **cards visuais** por condomínio.
 
-**Novas rotas necessárias:**
-```
-GET /whatsapp/conversas              — lista conversas (com filtro por condominio_id)
-GET /whatsapp/conversas/:id          — detalhe com mensagens
-GET /admin/resumo                    — dados consolidados por condomínio para o dashboard
-```
+**Card de condomínio:**
+- Nome + status online/offline (indicador colorido)
+- Gauge visual de nível do reservatório (ApexCharts radial — já está no projeto)
+- Indicador de bomba (ícone animado ligada/desligada)
+- Badge de chamados abertos (vermelho se houver)
+- Badge de mensagem WhatsApp recente (azul se houver)
+- Cor da borda do card reflete urgência: verde → amarelo → vermelho
 
-**Arquivos a criar/modificar:**
-```
-public/admin.html          — adiciona abas e novo layout do dashboard
-public/admin.js            — lógica de polling, cards, abas, chat
-```
+**Ao clicar no card** — abre painel lateral (drawer) com 3 abas:
+- **Telemetria** — gauge de nível, histórico de leituras em gráfico de linha, alertas
+- **Chamados** — lista + ações inline (mudar status, prioridade, responsável)
+- **WhatsApp** — histórico em formato de chat, leitura apenas
+
+**Interatividade:**
+- Polling 30s para dados gerais, 10s para telemetria (já existe)
+- Notificação visual (badge pulsante) quando chega chamado novo ou mensagem nova
+- Cards animam suavemente ao atualizar dados
 
 Itens:
+- [ ] Migration: `ALTER TABLE condominios ADD COLUMN lat NUMERIC(9,6), ADD COLUMN lng NUMERIC(9,6)`
 - [ ] Rota `GET /admin/resumo` — consolida telemetria + chamados + WhatsApp por condomínio
 - [ ] Rota `GET /whatsapp/conversas` e `GET /whatsapp/conversas/:id`
-- [ ] Refatorar dashboard: cards por condomínio com badge de chamados e WhatsApp
-- [ ] Aba Telemetria no detalhe do condomínio (mover conteúdo existente)
-- [ ] Aba Chamados no detalhe: lista + ações inline
-- [ ] Aba WhatsApp no detalhe: histórico em formato chat
-- [ ] Polling 30s + notificação visual de novos chamados/mensagens
+- [ ] Redesign dashboard: substituir tabela por cards com gauge ApexCharts
+- [ ] Drawer lateral com abas: Telemetria / Chamados / WhatsApp
+- [ ] Polling independente por tipo de dado
+- [ ] Notificação visual de novos chamados/mensagens
+
+#### 3B — Mapa interativo de condomínios
+
+**Biblioteca:** Leaflet.js (open source, sem API key, ~40kb)
+
+**O que o mapa mostra:**
+- Pin por condomínio na posição geográfica real
+- Cor do pin reflete status: verde (ok) → amarelo (alerta) → vermelho (offline/emergência)
+- Cluster automático quando há muitos pins próximos
+
+**Ao clicar no pin — popup com:**
+- Nome do condomínio
+- Nível atual do reservatório (gauge mini)
+- Status da bomba
+- Chamados abertos
+- Botão "Ver detalhes" → abre o drawer com abas completo
+
+**Nova seção na sidebar:** "Mapa" — carrega o mapa a pedido (não no polling geral)
+
+Itens:
+- [ ] Adicionar Leaflet.js ao projeto (arquivo local, sem CDN externo)
+- [ ] Seção "Mapa" na sidebar e HTML
+- [ ] Renderização dos pins com cor dinâmica por status
+- [ ] Popup com telemetria ao vivo ao clicar no pin
+- [ ] Campo de endereço/coordenadas no cadastro de condomínio (admin)
 
 ### Fase 4 — Integração telemetria automática
 - [ ] Ao abrir chamado, anexa última leitura do condomínio automaticamente
