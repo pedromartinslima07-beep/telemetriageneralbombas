@@ -257,10 +257,10 @@ O handler não pode quebrar nesses casos — salva o tipo mas processa só texto
 ## Sequência de implementação (MVP)
 
 ### Fase 1 — Fundação (sem IA ainda)
-- [ ] Migration SQL: 4 tabelas + `ALTER TABLE usuarios ADD COLUMN telefone`
-- [ ] `POST /whatsapp/webhook`: valida token, salva mensagem, responde 200
-- [ ] `GET /chamados` e `PATCH /chamados/:id`
-- [ ] Registrar rotas no `app.js`
+- [x] Migration SQL: 4 tabelas + `ALTER TABLE usuarios ADD COLUMN telefone` — rodada no Railway
+- [x] `POST /whatsapp/webhook`: valida token, salva mensagem, responde 200 — testado e funcionando
+- [x] Registrar rotas no `app.js`
+- [x] `GET /chamados`, `GET /chamados/:id` e `PATCH /chamados/:id`
 
 ### Fase 2 — IA
 - [ ] `ia.service.js` com function calling
