@@ -263,10 +263,12 @@ O handler não pode quebrar nesses casos — salva o tipo mas processa só texto
 - [x] `GET /chamados`, `GET /chamados/:id` e `PATCH /chamados/:id`
 
 ### Fase 2 — IA
-- [ ] `ia.service.js` com function calling
-- [ ] `evolution.service.js` para enviar respostas
-- [ ] Processamento background na Fase 1 dispara a IA
-- [ ] IA abre chamados automaticamente
+- [x] `ia.service.js` com function calling (gpt-4o-mini)
+- [x] `evolution.service.js` para enviar respostas via Evolution API
+- [x] Processamento background na Fase 1 dispara a IA
+- [x] IA abre chamados automaticamente
+- [x] IA busca condomínio por nome/endereço e vincula cliente automaticamente
+- [x] Tom profissional e natural no atendimento
 
 ### Fase 3 — Painel
 - [ ] Nova página no admin: lista de chamados
