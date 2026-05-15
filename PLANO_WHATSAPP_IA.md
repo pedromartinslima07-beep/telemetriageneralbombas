@@ -270,13 +270,50 @@ O handler não pode quebrar nesses casos — salva o tipo mas processa só texto
 - [x] IA busca condomínio por nome/endereço e vincula cliente automaticamente
 - [x] Tom profissional e natural no atendimento
 
-### Fase 3 — Painel
-- [ ] Nova página no admin: lista de chamados
-- [ ] Nova página no admin: detalhe de conversa WhatsApp
-- [ ] Notificação em tempo real (SSE ou polling) para novos chamados
+### Fase 3 — Painel admin expandido
+
+**Premissa:** condomínio como entidade central. Telemetria continua funcionando igual —
+o painel é expandido, não substituído. Nenhuma rota ou lógica existente é alterada.
+
+**Dashboard principal (reformulado):**
+- Cards por condomínio mostrando tudo de uma vez:
+  - Status telemetria: nível do reservatório, bomba ligada/desligada, online/offline
+  - Badge com contagem de chamados abertos
+  - Indicador de conversa WhatsApp recente (se houver)
+  - Cor do card reflete urgência: verde (ok) → amarelo (atenção) → vermelho (crítico/emergência)
+- Polling a cada 30s para atualizar os dados sem recarregar a página
+- Notificação visual quando chega chamado novo ou mensagem nova
+
+**Detalhe do condomínio (ao clicar no card):**
+Painel lateral ou página com 3 abas:
+- **Telemetria** — gráfico de nível, histórico de leituras, alertas (conteúdo já existente)
+- **Chamados** — lista de chamados do condomínio, ações inline: mudar status, prioridade, responsável
+- **WhatsApp** — histórico da conversa em formato de chat, leitura apenas
+
+**Novas rotas necessárias:**
+```
+GET /whatsapp/conversas              — lista conversas (com filtro por condominio_id)
+GET /whatsapp/conversas/:id          — detalhe com mensagens
+GET /admin/resumo                    — dados consolidados por condomínio para o dashboard
+```
+
+**Arquivos a criar/modificar:**
+```
+public/admin.html          — adiciona abas e novo layout do dashboard
+public/admin.js            — lógica de polling, cards, abas, chat
+```
+
+Itens:
+- [ ] Rota `GET /admin/resumo` — consolida telemetria + chamados + WhatsApp por condomínio
+- [ ] Rota `GET /whatsapp/conversas` e `GET /whatsapp/conversas/:id`
+- [ ] Refatorar dashboard: cards por condomínio com badge de chamados e WhatsApp
+- [ ] Aba Telemetria no detalhe do condomínio (mover conteúdo existente)
+- [ ] Aba Chamados no detalhe: lista + ações inline
+- [ ] Aba WhatsApp no detalhe: histórico em formato chat
+- [ ] Polling 30s + notificação visual de novos chamados/mensagens
 
 ### Fase 4 — Integração telemetria automática
-- [ ] Ao abrir chamado, anexa última leitura do condomínio
+- [ ] Ao abrir chamado, anexa última leitura do condomínio automaticamente
 - [ ] Alerta de telemetria crítico → IA abre chamado + notifica cliente via WhatsApp automaticamente
 
 ---
