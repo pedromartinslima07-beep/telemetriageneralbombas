@@ -18,70 +18,145 @@
 <div class="layout">
 
   <!-- ===== SIDEBAR ===== -->
-  <aside class="sidebar collapsed" id="sidebar">
+  <aside class="sidebar" id="sidebar">
     <div class="sidebar-inner">
 
       <div class="sidebar-header">
-        <button class="sidebar-toggle" id="btnSidebarToggleIn" aria-label="Abrir/fechar menu">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
-          </svg>
-        </button>
-        <img class="sidebar-logo" src="/static/login-logo.png" alt="GENERAL" />
+        <div class="sidebar-brand">
+          <img class="sidebar-brand-logo sidebar-brand-full" src="/static/login-logo.png" alt="GENERAL" />
+          <img class="sidebar-brand-logo sidebar-brand-mini" src="/static/logo-menu.png" alt="GENERAL" />
+        </div>
       </div>
 
       <nav class="nav">
 
         <span class="nav-section-label">Monitor</span>
 
-        <button class="nav-item active" data-section="dashboard">
+        <button class="nav-item active" data-section="dashboard" data-label="Dashboard">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
             <rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/>
             <rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>
           </svg>
-          <span>Dashboard</span>
+          <span class="nav-item-label">Dashboard</span>
         </button>
 
-        <button class="nav-item" data-section="alertas">
+        <button class="nav-item" data-section="telemetria" data-label="Telemetria">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 12h4l3-9 4 18 3-9h4"/>
+          </svg>
+          <span class="nav-item-label">Telemetria</span>
+        </button>
+
+        <button class="nav-item" data-section="mapa" data-label="Mapa">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/>
+            <line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/>
+          </svg>
+          <span class="nav-item-label">Mapa</span>
+        </button>
+
+        <button class="nav-item" data-section="alertas" data-label="Alertas">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
             <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
             <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
           </svg>
-          <span>Alertas</span>
+          <span class="nav-item-label">Alertas</span>
           <span class="nav-badge" id="navBadgeAlertas" style="display:none;">0</span>
         </button>
 
-        <span class="nav-section-label">Gestão</span>
+        <span class="nav-section-label">Atendimento</span>
 
-        <button class="nav-item" data-section="cadastros">
+        <button class="nav-item" data-section="whatsapp" data-label="WhatsApp">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-            <polyline points="9 22 9 12 15 12 15 22"/>
+            <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
           </svg>
-          <span>Cadastros</span>
+          <span class="nav-item-label">WhatsApp</span>
+          <span class="nav-badge" id="navBadgeWhatsapp" style="display:none;">0</span>
         </button>
 
-        <button class="nav-item" data-section="chamados">
+        <button class="nav-item" data-section="chamados" data-label="Chamados">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
             <polyline points="14 2 14 8 20 8"/>
             <line x1="9" y1="13" x2="15" y2="13"/>
             <line x1="9" y1="17" x2="13" y2="17"/>
           </svg>
-          <span>Chamados</span>
+          <span class="nav-item-label">Chamados</span>
           <span class="nav-badge" id="navBadgeChamados" style="display:none;">0</span>
         </button>
 
-        <button class="nav-item" data-section="whatsapp">
+        <span class="nav-section-label">Infraestrutura</span>
+
+        <button class="nav-item" data-section="reservatorios" data-label="Reservatórios">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            <path d="M5 3h14v18H5z"/><path d="M5 12c2 1.5 5 1.5 7 0s5-1.5 7 0"/>
           </svg>
-          <span>WhatsApp</span>
-          <span class="nav-badge" id="navBadgeWhatsapp" style="display:none;">0</span>
+          <span class="nav-item-label">Reservatórios</span>
         </button>
+
+        <button class="nav-item" data-section="bombas" data-label="Bombas">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="4"/>
+            <path d="M12 4v2M12 18v2M4 12h2M18 12h2M6.3 6.3l1.4 1.4M16.3 16.3l1.4 1.4M6.3 17.7l1.4-1.4M16.3 7.7l1.4-1.4"/>
+          </svg>
+          <span class="nav-item-label">Bombas</span>
+        </button>
+
+        <span class="nav-section-label">Gestão</span>
+
+        <button class="nav-item" data-section="cadastros" data-label="Clientes">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+            <circle cx="9" cy="7" r="4"/>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+          </svg>
+          <span class="nav-item-label">Clientes</span>
+        </button>
+
+        <button class="nav-item" data-section="tecnicos" data-label="Técnicos">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+          </svg>
+          <span class="nav-item-label">Técnicos</span>
+        </button>
+
+        <button class="nav-item" data-section="relatorios" data-label="Relatórios">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="8" y1="13" x2="16" y2="13"/>
+            <line x1="8" y1="17" x2="13" y2="17"/>
+          </svg>
+          <span class="nav-item-label">Relatórios</span>
+        </button>
+
+        <button class="nav-item" data-section="ia-insights" data-label="IA Insights">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2a4 4 0 0 0-4 4v0a3 3 0 0 0-3 3v1a3 3 0 0 0 1 5.83V19a3 3 0 0 0 6 0V6a4 4 0 0 0 0-4Z"/>
+            <path d="M12 2a4 4 0 0 1 4 4v0a3 3 0 0 1 3 3v1a3 3 0 0 1-1 5.83V19a3 3 0 0 1-6 0"/>
+          </svg>
+          <span class="nav-item-label">IA Insights</span>
+        </button>
+
+        <button class="nav-item" data-section="config" data-label="Configurações">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+          <span class="nav-item-label">Configurações</span>
+        </button>
+
       </nav>
 
       <div class="sidebar-footer">
+        <div class="sidebar-status">
+          <div class="sidebar-status-dot"></div>
+          <div class="sidebar-status-text">
+            <span class="sidebar-status-label">Status do sistema</span>
+            <span class="sidebar-status-value" id="sysStatusValue">Operacional</span>
+          </div>
+        </div>
         <div class="sidebar-user">
           <div class="sidebar-user-avatar">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
@@ -93,12 +168,12 @@
             <div class="sidebar-user-label">Painel Geral</div>
           </div>
         </div>
-        <button class="nav-item" id="btnSair">
+        <button class="nav-item nav-item-logout" id="btnSair" data-label="Sair">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
             <polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
           </svg>
-          <span>Sair</span>
+          <span class="nav-item-label">Sair</span>
         </button>
       </div>
 
@@ -109,9 +184,57 @@
   <div class="main">
 
     <div class="content-header">
-      <div class="content-header-actions" style="margin-left:auto;">
-        <button class="btn btn-sm" id="btnAtualizar">Atualizar</button>
-        <button class="btn btn-sm btnAccent" id="btnOffline">Verificar Offline</button>
+      <button class="topbar-toggle" id="btnSidebarToggleIn" aria-label="Abrir/fechar menu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+        </svg>
+      </button>
+      <h1 class="topbar-title" id="topbarTitleDesktop">Dashboard</h1>
+
+      <div class="topbar-search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <input type="text" id="topbarSearch" placeholder="Buscar condomínio, device, chamado…" />
+        <span class="topbar-search-key">⌘K</span>
+      </div>
+
+      <div class="topbar-actions">
+        <button class="icon-btn" id="btnAtualizar" title="Atualizar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+          </svg>
+        </button>
+        <button class="icon-btn" id="btnOffline" title="Verificar Offline">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="1" y1="1" x2="23" y2="23"/>
+            <path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/>
+            <path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/>
+            <path d="M10.71 5.05A16 16 0 0 1 22.56 9"/>
+            <path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/>
+            <path d="M8.53 16.11a6 6 0 0 1 6.95 0"/>
+            <line x1="12" y1="20" x2="12.01" y2="20"/>
+          </svg>
+        </button>
+        <button class="icon-btn icon-btn-pulse" title="Notificações">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+          </svg>
+          <span class="icon-btn-dot"></span>
+        </button>
+        <div class="topbar-user">
+          <div class="topbar-user-avatar">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+            </svg>
+          </div>
+          <div class="topbar-user-meta">
+            <span class="topbar-user-name">Admin</span>
+            <span class="topbar-user-role">Painel Geral</span>
+          </div>
+        </div>
         <span class="statusMsg" id="statusMsg"></span>
       </div>
     </div>
@@ -123,20 +246,88 @@
       <div class="section is-active" data-section="dashboard">
 
         <!-- Stats -->
-        <section class="card">
-          <div class="cardHead">
-            <h2>
-              <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+        <div id="resumoGrid" class="resumo-grid"></div>
+
+        <!-- ===== Mission Control Grid: Mapa | Alertas | Atividade ===== -->
+        <div class="mc-grid">
+
+          <!-- Mapa estilizado -->
+          <section class="card mc-map">
+            <div class="cardHead">
+              <h2>
+                <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/>
+                  <line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/>
+                </svg>
+                Mapa de Monitoramento
+              </h2>
+              <div class="mc-map-legend">
+                <span class="mc-leg ok">OK</span>
+                <span class="mc-leg warn">Alerta</span>
+                <span class="mc-leg bad">Crítico</span>
+              </div>
+            </div>
+            <div class="mc-map-canvas" id="mcMapCanvas">
+              <!-- SVG decorativo: malha + pontos. Pins injetados via JS conforme _statusData -->
+              <svg class="mc-map-bg" viewBox="0 0 800 500" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+                <defs>
+                  <radialGradient id="mcGlow" cx="50%" cy="50%" r="50%">
+                    <stop offset="0%" stop-color="rgba(74,120,247,.22)"/>
+                    <stop offset="100%" stop-color="rgba(74,120,247,0)"/>
+                  </radialGradient>
+                  <pattern id="mcGrid" width="40" height="40" patternUnits="userSpaceOnUse">
+                    <path d="M40 0L0 0 0 40" fill="none" stroke="rgba(255,255,255,.035)" stroke-width="1"/>
+                  </pattern>
+                </defs>
+                <rect width="800" height="500" fill="url(#mcGrid)"/>
+                <circle cx="400" cy="260" r="220" fill="url(#mcGlow)"/>
+                <!-- contorno estilizado de SP (aproximado, decorativo) -->
+                <path d="M180 200 Q220 160 280 170 T380 180 Q440 170 480 200 T560 240 Q580 280 540 320 T440 360 Q380 380 320 360 T240 320 Q190 280 180 200 Z"
+                      fill="rgba(34,211,238,.04)" stroke="rgba(34,211,238,.22)" stroke-width="1.2" stroke-dasharray="3 4"/>
+                <text x="400" y="270" text-anchor="middle" fill="rgba(255,255,255,.08)"
+                      font-size="46" font-weight="900" letter-spacing="6">SÃO PAULO</text>
               </svg>
-              Situação atual
-            </h2>
-            <span class="hint">Atualiza a cada 10s</span>
-          </div>
-          <div class="section-body">
-            <div id="resumoGrid" class="resumo-grid" style="grid-template-columns:repeat(5,minmax(0,1fr));"></div>
-          </div>
-        </section>
+              <div class="mc-map-pins" id="mcMapPins"></div>
+            </div>
+          </section>
+
+          <!-- Alertas críticos -->
+          <section class="card mc-alerts">
+            <div class="cardHead">
+              <h2>
+                <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                  <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+                Alertas Críticos
+              </h2>
+              <button class="btn-link" data-section-go="alertas">Ver todos →</button>
+            </div>
+            <div class="mc-alerts-list" id="mcAlertsList">
+              <div class="mc-empty">Carregando…</div>
+            </div>
+          </section>
+
+          <!-- Atividade em tempo real -->
+          <section class="card mc-activity">
+            <div class="cardHead">
+              <h2>
+                <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                </svg>
+                Atividade em Tempo Real
+              </h2>
+              <span class="mc-live">
+                <span class="mc-live-dot"></span>
+                LIVE
+              </span>
+            </div>
+            <div class="mc-activity-list" id="mcActivityList">
+              <div class="mc-empty">Aguardando eventos…</div>
+            </div>
+          </section>
+
+        </div>
 
         <!-- Filtros + Status -->
         <section class="card">
@@ -184,6 +375,81 @@
           <div id="condoGrid" class="condo-grid"></div>
         </section>
 
+        <!-- ===== Linha inferior: Conversas + IA Insights + Telemetria ===== -->
+        <div class="mc-bottom">
+
+          <!-- Conversas Recentes -->
+          <section class="card mc-conv">
+            <div class="cardHead">
+              <h2>
+                <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+                </svg>
+                Conversas Recentes
+              </h2>
+              <button class="btn-link" data-section-go="whatsapp">Ver todas →</button>
+            </div>
+            <div class="mc-conv-list" id="mcConvList">
+              <div class="mc-empty">Sem conversas recentes</div>
+            </div>
+          </section>
+
+          <!-- IA Insights -->
+          <section class="card mc-ia">
+            <div class="cardHead">
+              <h2>
+                <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 2a4 4 0 0 0-4 4v0a3 3 0 0 0-3 3v1a3 3 0 0 0 1 5.83V19a3 3 0 0 0 6 0V6a4 4 0 0 0 0-4Z"/>
+                  <path d="M12 2a4 4 0 0 1 4 4v0a3 3 0 0 1 3 3v1a3 3 0 0 1-1 5.83V19a3 3 0 0 1-6 0"/>
+                </svg>
+                IA Insights
+              </h2>
+              <span class="mc-ia-badge">GPT-4o-mini</span>
+            </div>
+            <div class="mc-ia-body">
+              <div class="mc-brain" aria-hidden="true">
+                <div class="mc-brain-aura"></div>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 2a4 4 0 0 0-4 4v0a3 3 0 0 0-3 3v1a3 3 0 0 0 1 5.83V19a3 3 0 0 0 6 0V6a4 4 0 0 0 0-4Z"/>
+                  <path d="M12 2a4 4 0 0 1 4 4v0a3 3 0 0 1 3 3v1a3 3 0 0 1-1 5.83V19a3 3 0 0 1-6 0"/>
+                  <path d="M9 9v.01M15 9v.01M9 13v.01M15 13v.01M12 6v12"/>
+                </svg>
+                <div class="mc-brain-particles">
+                  <span></span><span></span><span></span><span></span><span></span>
+                </div>
+              </div>
+
+              <div class="mc-ia-content">
+                <div class="mc-ia-title">Principais insights da semana</div>
+                <ul class="mc-ia-list" id="mcIaList">
+                  <li><span class="mc-ia-dot violet"></span>Sistema operacional dentro do esperado.</li>
+                  <li><span class="mc-ia-dot cyan"></span>Carregando análise da telemetria…</li>
+                </ul>
+                <button class="btn-link mc-ia-cta" data-section-go="ia-insights">Ver análise completa →</button>
+              </div>
+            </div>
+          </section>
+
+          <!-- Telemetria em Tempo Real -->
+          <section class="card mc-telem">
+            <div class="cardHead">
+              <h2>
+                <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M3 12h4l3-9 4 18 3-9h4"/>
+                </svg>
+                Telemetria em Tempo Real
+              </h2>
+              <span class="mc-live">
+                <span class="mc-live-dot"></span>
+                LIVE
+              </span>
+            </div>
+            <div class="mc-telem-list" id="mcTelemList">
+              <div class="mc-empty">Aguardando leituras…</div>
+            </div>
+          </section>
+
+        </div>
       </div><!-- /section dashboard -->
 
       <!-- ===== SECTION: ALERTAS ===== -->
@@ -485,6 +751,95 @@
         </section>
       </div><!-- /section whatsapp -->
 
+      <!-- ===== STUB SECTIONS (em breve) ===== -->
+      <div class="section" data-section="telemetria">
+        <div class="coming-soon">
+          <div class="coming-soon-mark">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3-9 4 18 3-9h4"/></svg>
+          </div>
+          <h3>Telemetria avançada</h3>
+          <p>Gráficos históricos por reservatório, comparativos e exportação. Em construção.</p>
+          <span class="coming-soon-tag">Em breve</span>
+        </div>
+      </div>
+
+      <div class="section" data-section="mapa">
+        <div class="coming-soon">
+          <div class="coming-soon-mark">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
+          </div>
+          <h3>Mapa interativo</h3>
+          <p>Visualização geográfica dos condomínios com pins por status. Próxima fase do plano.</p>
+          <span class="coming-soon-tag">Fase 3B</span>
+        </div>
+      </div>
+
+      <div class="section" data-section="reservatorios">
+        <div class="coming-soon">
+          <div class="coming-soon-mark">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h14v18H5z"/><path d="M5 12c2 1.5 5 1.5 7 0s5-1.5 7 0"/></svg>
+          </div>
+          <h3>Reservatórios</h3>
+          <p>Gestão consolidada de todos os reservatórios cadastrados.</p>
+          <span class="coming-soon-tag">Em breve</span>
+        </div>
+      </div>
+
+      <div class="section" data-section="bombas">
+        <div class="coming-soon">
+          <div class="coming-soon-mark">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 4v2M12 18v2M4 12h2M18 12h2M6.3 6.3l1.4 1.4M16.3 16.3l1.4 1.4M6.3 17.7l1.4-1.4M16.3 7.7l1.4-1.4"/></svg>
+          </div>
+          <h3>Bombas</h3>
+          <p>Monitor de operação e diagnóstico das bombas de recalque.</p>
+          <span class="coming-soon-tag">Em breve</span>
+        </div>
+      </div>
+
+      <div class="section" data-section="tecnicos">
+        <div class="coming-soon">
+          <div class="coming-soon-mark">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+          </div>
+          <h3>Técnicos</h3>
+          <p>Cadastro e atribuição de equipe técnica de atendimento.</p>
+          <span class="coming-soon-tag">Em breve</span>
+        </div>
+      </div>
+
+      <div class="section" data-section="relatorios">
+        <div class="coming-soon">
+          <div class="coming-soon-mark">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          </div>
+          <h3>Relatórios</h3>
+          <p>Exportação de relatórios operacionais e SLA de chamados.</p>
+          <span class="coming-soon-tag">Em breve</span>
+        </div>
+      </div>
+
+      <div class="section" data-section="ia-insights">
+        <div class="coming-soon">
+          <div class="coming-soon-mark">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a4 4 0 0 0-4 4v0a3 3 0 0 0-3 3v1a3 3 0 0 0 1 5.83V19a3 3 0 0 0 6 0V6a4 4 0 0 0 0-4Z"/><path d="M12 2a4 4 0 0 1 4 4v0a3 3 0 0 1 3 3v1a3 3 0 0 1-1 5.83V19a3 3 0 0 1-6 0"/></svg>
+          </div>
+          <h3>IA Insights</h3>
+          <p>Análises preditivas e tendências geradas pela IA com base nos dados de telemetria.</p>
+          <span class="coming-soon-tag">Em breve</span>
+        </div>
+      </div>
+
+      <div class="section" data-section="config">
+        <div class="coming-soon">
+          <div class="coming-soon-mark">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          </div>
+          <h3>Configurações</h3>
+          <p>Preferências do sistema, integrações e gestão de acessos.</p>
+          <span class="coming-soon-tag">Em breve</span>
+        </div>
+      </div>
+
     </div><!-- /content -->
   </div><!-- /main -->
 </div><!-- /layout -->
@@ -744,6 +1099,7 @@
   </button>
 </nav>
 
+<script src="/static/apexcharts.min.js"></script>
 <script src="/static/inatividade.js" defer></script>
 <script src="/static/admin.js" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>

@@ -7,11 +7,19 @@ if (!getToken()) window.location.href = "/login";
 
 // ===== NAVEGAÇÃO POR SEÇÕES =====
 const _sectionTitles = {
-  dashboard: "Dashboard",
-  alertas:   "Alertas Abertos",
-  cadastros: "Cadastros",
-  chamados:  "Chamados",
-  whatsapp:  "WhatsApp",
+  dashboard:    "Dashboard",
+  telemetria:   "Telemetria",
+  mapa:         "Mapa",
+  alertas:      "Alertas",
+  whatsapp:     "WhatsApp",
+  chamados:     "Chamados",
+  reservatorios:"Reservatórios",
+  bombas:       "Bombas",
+  cadastros:    "Clientes",
+  tecnicos:     "Técnicos",
+  relatorios:   "Relatórios",
+  "ia-insights":"IA Insights",
+  config:       "Configurações",
 };
 
 function showSection(name) {
@@ -19,8 +27,11 @@ function showSection(name) {
   document.querySelector(`.section[data-section="${name}"]`)?.classList.add("is-active");
   document.querySelectorAll(".nav-item[data-section]").forEach(n => n.classList.remove("active"));
   document.querySelector(`.nav-item[data-section="${name}"]`)?.classList.add("active");
-  const t = document.getElementById("topbarTitle");
-  if (t) t.textContent = _sectionTitles[name] || name;
+  const title = _sectionTitles[name] || name;
+  const t1 = document.getElementById("topbarTitle");        // mobile
+  const t2 = document.getElementById("topbarTitleDesktop"); // desktop
+  if (t1) t1.textContent = title;
+  if (t2) t2.textContent = title;
 }
 
 function logout() {
@@ -66,17 +77,42 @@ function tankHtml(nivel, nivelPct) {
     </div>`;
 }
 
+const RC_ICONS = {
+  offline: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M10.71 5.05A16 16 0 0 1 22.56 9"/><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>',
+  warn:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+  danger:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>',
+  ok:      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
+  building:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>',
+};
+
+const RC_META = {
+  offline:           { icon: 'offline',  label: 'Offline' },
+  nivel_baixo:       { icon: 'warn',     label: 'Nível baixo' },
+  nivel_muito_baixo: { icon: 'danger',   label: 'Muito baixo' },
+  com_alerta:        { icon: 'warn',     label: 'Cond. com alerta' },
+  ok:                { icon: 'ok',       label: 'Cond. OK' },
+};
+
 function resumoCard(titulo, valorHtml, kind, cardKey) {
   const kindCls =
     kind === "bad"  ? "rc-bad"  :
     kind === "warn" ? "rc-warn" :
     kind === "ok"   ? "rc-ok"   : "rc-neutral";
 
+  const meta = RC_META[cardKey] || {};
+  const iconKey = meta.icon || (kind === 'bad' ? 'danger' : kind === 'warn' ? 'warn' : 'ok');
+  const iconSvg = RC_ICONS[iconKey] || RC_ICONS.ok;
+
+  const sparkId = 'spark_' + cardKey + '_' + Math.random().toString(36).slice(2, 8);
+
   return `
     <button class="rc ${kindCls}" data-card="${cardKey}">
-      <div class="rc-label">${titulo}</div>
+      <div class="rc-head">
+        <div class="rc-icon">${iconSvg}</div>
+        <div class="rc-label">${titulo}</div>
+      </div>
       <div class="rc-value">${valorHtml}</div>
-      <div class="rc-hint">Passe o mouse • Clique para detalhes</div>
+      <div class="rc-spark" id="${sparkId}"></div>
     </button>
   `;
 }
@@ -394,17 +430,349 @@ function renderResumo() {
   const grid = document.getElementById("resumoGrid");
   if (!grid) return;
 
-  grid.innerHTML = [
-    // ✅ agora o card OFFLINE mostra a soma real de reservatórios offline
-    resumoCard("OFFLINE", offlineTotal, offlineTotal > 0 ? "bad" : "ok", "offline"),
-    resumoCard("NÍVEL BAIXO", baixo, baixo > 0 ? "warn" : "ok", "nivel_baixo"),
-    resumoCard("MUITO BAIXO", muitoBaixo, muitoBaixo > 0 ? "bad" : "ok", "nivel_muito_baixo"),
-    resumoCard("COND. COM ALERTA", condsComAlerta, condsComAlerta > 0 ? "warn" : "ok", "com_alerta"),
-    resumoCard("COND. OK", condsOk, "ok", "ok"),
-  ].join("");
+  const cards = [
+    { titulo: "OFFLINE", valor: offlineTotal, kind: offlineTotal > 0 ? "bad" : "ok", key: "offline" },
+    { titulo: "NÍVEL BAIXO", valor: baixo, kind: baixo > 0 ? "warn" : "ok", key: "nivel_baixo" },
+    { titulo: "MUITO BAIXO", valor: muitoBaixo, kind: muitoBaixo > 0 ? "bad" : "ok", key: "nivel_muito_baixo" },
+    { titulo: "COND. COM ALERTA", valor: condsComAlerta, kind: condsComAlerta > 0 ? "warn" : "ok", key: "com_alerta" },
+    { titulo: "COND. OK", valor: condsOk, kind: "ok", key: "ok" },
+  ];
+
+  grid.innerHTML = cards.map(c => resumoCard(c.titulo, c.valor, c.kind, c.key)).join("");
+
+  // Render sparklines (visual, semi-randomized around current value)
+  cards.forEach(c => {
+    const sparkEl = grid.querySelector(`.rc[data-card="${c.key}"] .rc-spark`);
+    if (!sparkEl) return;
+    renderSparkline(sparkEl, c.valor, c.kind);
+  });
 }
 
+const RC_SPARK_COLORS = { ok: '#22c55e', warn: '#f59e0b', bad: '#ef4444', neutral: '#4a78f7' };
 
+function renderSparkline(el, currentValue, kind) {
+  if (typeof ApexCharts === 'undefined') return;
+  const color = RC_SPARK_COLORS[kind] || RC_SPARK_COLORS.neutral;
+
+  // Synth a 20-point series ending at currentValue
+  const base = Number(currentValue) || 0;
+  const series = [];
+  let v = Math.max(0, base + (Math.random() - .5) * 4);
+  for (let i = 0; i < 19; i++) {
+    v = Math.max(0, v + (Math.random() - .5) * Math.max(1.5, base * .3));
+    series.push(Number(v.toFixed(2)));
+  }
+  series.push(base);
+
+  el.innerHTML = '';
+  try {
+    const chart = new ApexCharts(el, {
+      chart: { type: 'area', height: 46, sparkline: { enabled: true }, animations: { enabled: true, easing: 'easeinout', speed: 400 } },
+      series: [{ data: series }],
+      stroke: { curve: 'smooth', width: 2 },
+      colors: [color],
+      fill: {
+        type: 'gradient',
+        gradient: { shadeIntensity: 1, opacityFrom: .45, opacityTo: 0, stops: [0, 95] }
+      },
+      tooltip: { enabled: false },
+    });
+    chart.render();
+  } catch (e) { /* silent */ }
+}
+
+// ===================================================================
+// MISSION CONTROL — mapa, alertas críticos, atividade
+// ===================================================================
+
+// Posições "estilizadas" estáveis por condomínio (não é mapa geográfico real)
+function _mcPosFor(id, total) {
+  // Distribui no canvas 800x500 com seed determinística no id
+  const seed = (Number(id) || 0) * 9301 + 49297;
+  const rnd1 = ((seed % 233280) / 233280);
+  const rnd2 = (((seed * 2 + 13) % 233280) / 233280);
+  // Limita ao "interior" do contorno estilizado de SP (~ 200..580 x  ~180..360)
+  const x = 220 + rnd1 * 340;
+  const y = 200 + rnd2 * 160;
+  return { x: (x / 800) * 100, y: (y / 500) * 100 };
+}
+
+function _mcStatusKind(item) {
+  const off = item?.resumo?.offline_count ?? 0;
+  const al  = item?.resumo?.alertas_abertos_total ?? 0;
+  if (off > 0) return 'bad';
+  if (al > 0)  return 'warn';
+  return 'ok';
+}
+
+function renderMcMap() {
+  const pins = document.getElementById("mcMapPins");
+  if (!pins) return;
+  const groups = Array.isArray(_statusData) ? _statusData : [];
+  pins.innerHTML = "";
+  groups.forEach(g => {
+    const c = g.condominio || {};
+    const id = c.id;
+    if (!id) return;
+    const pos = _mcPosFor(id, groups.length);
+    const kind = _mcStatusKind(g);
+    const div = document.createElement("div");
+    div.className = `mc-pin ${kind}`;
+    div.style.left = pos.x + '%';
+    div.style.top  = pos.y + '%';
+    div.dataset.action = "ver-condo";
+    div.dataset.id = String(id);
+    div.innerHTML = `<span class="mc-pin-label">${c.nome || 'Condomínio'}</span>`;
+    pins.appendChild(div);
+  });
+}
+
+function _mcAlertIconFor(tipo) {
+  if (tipo === "dispositivo_offline") {
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>';
+  }
+  if (tipo === "nivel_muito_baixo") {
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v8M12 14v.01"/><path d="M5 12a7 7 0 1 0 14 0"/></svg>';
+  }
+  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
+}
+
+function _mcDeviceCondoName(deviceId) {
+  // Procura o condomínio associado ao device_id
+  for (const g of _statusData || []) {
+    const r = (g.reservatorios || []).find(r => r.device_id === deviceId);
+    if (r) return g.condominio?.nome || deviceId;
+  }
+  return deviceId;
+}
+
+function _mcRelTime(iso) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  const diff = (Date.now() - d.getTime()) / 1000;
+  if (diff < 60)     return `${Math.floor(diff)}s atrás`;
+  if (diff < 3600)   return `${Math.floor(diff / 60)}min atrás`;
+  if (diff < 86400)  return `${Math.floor(diff / 3600)}h atrás`;
+  return `${Math.floor(diff / 86400)}d atrás`;
+}
+
+function renderMcAlerts() {
+  const wrap = document.getElementById("mcAlertsList");
+  if (!wrap) return;
+
+  // Prioridade: dispositivo_offline + nivel_muito_baixo no topo
+  const sorted = [..._alertasAbertos].sort((a, b) => {
+    const w = { dispositivo_offline: 0, nivel_muito_baixo: 1, nivel_baixo: 2 };
+    const wa = w[a.tipo] ?? 9;
+    const wb = w[b.tipo] ?? 9;
+    if (wa !== wb) return wa - wb;
+    return new Date(b.criado_em) - new Date(a.criado_em);
+  }).slice(0, 6);
+
+  if (!sorted.length) {
+    wrap.innerHTML = `<div class="mc-empty">Nenhum alerta crítico no momento ✓</div>`;
+    return;
+  }
+
+  wrap.innerHTML = sorted.map(a => {
+    const kind = (a.tipo === "dispositivo_offline" || a.tipo === "nivel_muito_baixo") ? "bad" : "warn";
+    const tipoLabel = String(a.tipo || "").replaceAll("_", " ");
+    return `
+      <div class="mc-alert-row" data-action="goto-alertas">
+        <div class="mc-alert-icon ${kind}">${_mcAlertIconFor(a.tipo)}</div>
+        <div class="mc-alert-main">
+          <div class="mc-alert-title">${_mcDeviceCondoName(a.device_id)}</div>
+          <div class="mc-alert-sub">${tipoLabel} • ${a.mensagem || a.device_id || ""}</div>
+        </div>
+        <div class="mc-alert-time">${_mcRelTime(a.criado_em)}</div>
+      </div>
+    `;
+  }).join("");
+}
+
+function renderMcActivity() {
+  const wrap = document.getElementById("mcActivityList");
+  if (!wrap) return;
+
+  // Combina: alertas recentes + chamados recentes + última leitura de cada condomínio
+  const events = [];
+
+  for (const a of _alertasAbertos || []) {
+    const kind = (a.tipo === "dispositivo_offline" || a.tipo === "nivel_muito_baixo") ? "bad" : "warn";
+    events.push({
+      ts: a.criado_em,
+      kind,
+      title: `Alerta — ${String(a.tipo || "").replaceAll("_", " ")}`,
+      sub: _mcDeviceCondoName(a.device_id),
+    });
+  }
+
+  for (const ch of _chamadosData || []) {
+    const kind = ch.prioridade === "emergencia" ? "bad"
+              : ch.prioridade === "alta"        ? "warn"
+              : "info";
+    events.push({
+      ts: ch.criado_em,
+      kind,
+      title: `Chamado — ${ch.titulo || "Sem título"}`,
+      sub: ch.condominio_nome || "—",
+    });
+  }
+
+  for (const g of _statusData || []) {
+    for (const r of (g.reservatorios || [])) {
+      const u = r.ultima_leitura;
+      if (!u?.criado_em) continue;
+      events.push({
+        ts: u.criado_em,
+        kind: "ok",
+        title: `Leitura — ${r.nome || r.device_id}`,
+        sub: `${g.condominio?.nome || ''} • ${u.nivel_pct != null ? Math.round(u.nivel_pct) + '%' : ''}`,
+      });
+    }
+  }
+
+  events.sort((a, b) => new Date(b.ts) - new Date(a.ts));
+  const top = events.slice(0, 12);
+
+  if (!top.length) {
+    wrap.innerHTML = `<div class="mc-empty">Aguardando eventos…</div>`;
+    return;
+  }
+
+  wrap.innerHTML = top.map(e => `
+    <div class="mc-act-row">
+      <div class="mc-act-stripe ${e.kind}"></div>
+      <div class="mc-act-main">
+        <div class="mc-act-title">${e.title}</div>
+        <div class="mc-act-sub">${e.sub} • ${_mcRelTime(e.ts)}</div>
+      </div>
+    </div>
+  `).join("");
+}
+
+function _mcInitials(name) {
+  const s = String(name || "").trim();
+  if (!s) return "?";
+  const parts = s.split(/\s+/);
+  return ((parts[0]?.[0] || "") + (parts[1]?.[0] || "")).toUpperCase() || s[0].toUpperCase();
+}
+
+function renderMcConversas() {
+  const wrap = document.getElementById("mcConvList");
+  if (!wrap) return;
+  const list = Array.isArray(_conversasData) ? _conversasData.slice(0, 6) : [];
+  if (!list.length) {
+    wrap.innerHTML = `<div class="mc-empty">Sem conversas recentes</div>`;
+    return;
+  }
+  wrap.innerHTML = list.map(c => {
+    const nome = c.cliente_nome || c.telefone || "Cliente";
+    const ts = c.ultima_mensagem_em || c.criado_em;
+    return `
+      <div class="mc-conv-row" data-action="ver-convo-section" data-id="${c.id}">
+        <div class="mc-conv-avatar">${_mcInitials(nome)}</div>
+        <div class="mc-conv-main">
+          <div class="mc-conv-name">${nome}</div>
+          <div class="mc-conv-last">${c.condominio_nome || c.telefone || ""}</div>
+        </div>
+        <div class="mc-conv-time">${_mcRelTime(ts)}</div>
+      </div>
+    `;
+  }).join("");
+}
+
+function renderMcTelemetria() {
+  const wrap = document.getElementById("mcTelemList");
+  if (!wrap) return;
+  // Pega últimas leituras dos reservatórios e ordena pelo timestamp
+  const items = [];
+  for (const g of _statusData || []) {
+    for (const r of (g.reservatorios || [])) {
+      const u = r.ultima_leitura;
+      if (!u) continue;
+      items.push({
+        name: r.nome || r.device_id,
+        condo: g.condominio?.nome || '',
+        pct: u.nivel_pct,
+        ts: u.criado_em,
+      });
+    }
+  }
+  items.sort((a, b) => new Date(b.ts) - new Date(a.ts));
+  const top = items.slice(0, 8);
+
+  if (!top.length) {
+    wrap.innerHTML = `<div class="mc-empty">Aguardando leituras…</div>`;
+    return;
+  }
+
+  wrap.innerHTML = top.map(it => {
+    const pct = it.pct == null ? null : Math.max(0, Math.min(100, Number(it.pct)));
+    const cls = pct == null ? 'lv-medio'
+              : pct >= 60 ? 'lv-alto'
+              : pct >= 30 ? 'lv-medio'
+              : pct >= 15 ? 'lv-baixo'
+              : 'lv-muito-baixo';
+    const pctTxt = pct == null ? '—' : Math.round(pct) + '%';
+    return `
+      <div class="mc-telem-row" title="${it.condo}">
+        <div class="mc-telem-name">${it.name}</div>
+        <div class="mc-telem-bar"><div class="mc-telem-fill ${cls}" style="width:${pct ?? 0}%"></div></div>
+        <div class="mc-telem-pct">${pctTxt}</div>
+      </div>
+    `;
+  }).join("");
+}
+
+function renderMcIaInsights() {
+  const wrap = document.getElementById("mcIaList");
+  if (!wrap) return;
+  // Insights derivados dos dados atuais
+  const insights = [];
+  const groups = _statusData || [];
+
+  const total = groups.length;
+  const offline = groups.reduce((s, g) => s + (g?.resumo?.offline_count ?? 0), 0);
+  const comAlerta = groups.filter(g => (g?.resumo?.alertas_abertos_total ?? 0) > 0).length;
+
+  const niveisBaixos = groups
+    .flatMap(g => (g.reservatorios || []).map(r => ({ g, r })))
+    .filter(({ r }) => r.ultima_leitura?.nivel_pct != null && r.ultima_leitura.nivel_pct < 30);
+
+  const chamadosEmergencia = (_chamadosData || []).filter(c => c.prioridade === "emergencia" && c.status !== "fechado").length;
+
+  if (offline > 0) {
+    insights.push({ color: 'violet', text: `${offline} reservatório${offline > 1 ? 's' : ''} offline — investigar conectividade.` });
+  }
+  if (niveisBaixos.length > 0) {
+    insights.push({ color: 'cyan', text: `${niveisBaixos.length} reservatório${niveisBaixos.length > 1 ? 's' : ''} abaixo de 30% — risco crescente.` });
+  }
+  if (chamadosEmergencia > 0) {
+    insights.push({ color: 'amber', text: `${chamadosEmergencia} chamado${chamadosEmergencia > 1 ? 's' : ''} de emergência em aberto.` });
+  }
+  if (insights.length < 3) {
+    insights.push({ color: 'cyan', text: `${total - comAlerta} de ${total} condomínios operando sem alertas.` });
+  }
+  if (insights.length < 3) {
+    insights.push({ color: 'violet', text: `IA pronta para abrir chamados via WhatsApp 24/7.` });
+  }
+
+  wrap.innerHTML = insights.slice(0, 4).map(i =>
+    `<li><span class="mc-ia-dot ${i.color}"></span>${i.text}</li>`
+  ).join("");
+}
+
+function atualizarStatusSistema() {
+  const el = document.getElementById("sysStatusValue");
+  if (!el) return;
+  const groups = _statusData || [];
+  const offline = groups.reduce((s, g) => s + (g?.resumo?.offline_count ?? 0), 0);
+  const comAlerta = groups.filter(g => (g?.resumo?.alertas_abertos_total ?? 0) > 0).length;
+  if (offline > 0) el.textContent = `${offline} offline`;
+  else if (comAlerta > 0) el.textContent = `${comAlerta} alerta${comAlerta > 1 ? 's' : ''}`;
+  else el.textContent = "Operacional";
+}
 
 function renderAlertas() {
   const tbody = document.getElementById("tbodyAlertas");
@@ -624,6 +992,13 @@ async function carregarTudo() {
     renderConversas();
     atualizarBadgesChamados();
     atualizarBadgesWhatsapp();
+    renderMcMap();
+    renderMcAlerts();
+    renderMcActivity();
+    renderMcConversas();
+    renderMcTelemetria();
+    renderMcIaInsights();
+    atualizarStatusSistema();
     el.textContent = "Atualizado às " + new Date().toLocaleTimeString();
   } catch (e) {
     el.textContent = "Erro ao atualizar";
@@ -1572,6 +1947,19 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("btnOffline")?.addEventListener("click", rodarJobOffline);
   document.getElementById("btnSair")?.addEventListener("click", logout);
 
+  // "Ver todos →" e atalhos do dashboard mission-control
+  document.body.addEventListener("click", (e) => {
+    const go = e.target.closest("[data-section-go]");
+    if (go) {
+      showSection(go.dataset.sectionGo);
+      return;
+    }
+    const gotoAlertas = e.target.closest('[data-action="goto-alertas"]');
+    if (gotoAlertas) {
+      showSection("alertas");
+    }
+  });
+
   // ===== SIDEBAR TOGGLE =====
   const _sidebar = document.getElementById("sidebar");
 
@@ -1579,8 +1967,8 @@ document.addEventListener("DOMContentLoaded", () => {
     _sidebar.classList.toggle("collapsed", collapsed);
   }
 
-  // Começa fechada por padrão; abre se o usuário havia deixado aberta
-  _applySidebar(localStorage.getItem("sidebarCollapsed") !== "false");
+  // Começa expandida; respeita preferência salva
+  _applySidebar(localStorage.getItem("sidebarCollapsed") === "true");
 
   // Esconde seção Cadastros para admin_viewer
   if (!_isMaster) {

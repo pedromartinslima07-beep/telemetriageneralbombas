@@ -297,6 +297,34 @@ O layout antigo (tabela com linhas expansíveis) foi substituído por **cards vi
 - [ ] Polling independente por tipo de dado (telemetria mais rápida que chamados)
 - [ ] Badge pulsante / notificação sonora para chamados novos em tempo real
 
+#### 3A.1 — Redesign visual "Mission Control" ✅ CONCLUÍDO
+
+Reestilização premium do painel admin inspirada em Vercel/Linear/Datadog. Stack mantida (HTML/CSS/JS puro), sem migrar pra Next.js.
+
+**O que foi implementado:**
+- **Paleta dark premium** com aurora sutil de fundo, glassmorphism leve, glows coloridos por status (amber/cyan/violet/danger)
+- **Sidebar colapsável** em dois modos: expandida (240px com texto) ou rail (68px com ícones centralizados + tooltip ao hover)
+  - 13 itens organizados em seções (Monitor / Atendimento / Infraestrutura / Gestão)
+  - Logo da empresa adapta: `login-logo.png` (expandida) → `logo-menu.png` (rail)
+  - Indicador de "Status do sistema" no rodapé com bolinha pulsante
+- **Topbar** com hamburger + título dinâmico da seção + busca central estilo Linear + ações (atualizar / offline / notificações) + chip do usuário
+- **Cards de métrica** com ícone colorido, valor grande, sparkline ApexCharts em gradiente
+- **Mission control grid**:
+  - Mapa estilizado de São Paulo (SVG decorativo com malha + contorno + pins pulsantes por status, clicáveis abrindo o drawer)
+  - Painel "Alertas Críticos" com top alertas priorizados
+  - Feed "Atividade em Tempo Real" combinando alertas + chamados + leituras, com badge LIVE pulsante
+- **Linha inferior**:
+  - Conversas Recentes (avatar de iniciais)
+  - **IA Insights** com ícone de cérebro brilhante, aura roxa pulsante, partículas orbitando, e insights derivados dos dados reais
+  - Telemetria em Tempo Real (mini-barras por reservatório)
+- **Animações otimizadas**: transição da sidebar usa `will-change` + `contain: layout paint`, conteúdo interno colapsa via `max-width` e `opacity` (compositor-friendly, sem reflow cascateado)
+- Seções stub "Em breve" para itens novos do menu (Telemetria avançada, Mapa, Reservatórios, Bombas, Técnicos, Relatórios, IA Insights, Configurações) — permite navegar sem quebrar `showSection()`
+
+**Funcionalidade preservada:**
+- Todos os IDs e data-actions originais mantidos — `admin.js` continua populando os mesmos containers
+- Drawer, modais, mobile topbar + bottom nav intactos
+- Lógica de autenticação, filtros, paginação e cadastros sem alterações
+
 #### 3B — Mapa interativo de condomínios
 
 **Biblioteca:** Leaflet.js (open source, sem API key, ~40kb)
