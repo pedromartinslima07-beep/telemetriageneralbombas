@@ -93,6 +93,86 @@ app.get("/sw.js", (req, res) => {
   res.sendFile(path.join(__dirname, "../public/sw.js"));
 });
 
+// Pagina publica para forcar reset do PWA (desregistra SW, limpa caches e
+// localStorage). Util quando o usuario fica preso em uma versao antiga e
+// nao consegue acessar o DevTools. Headers explicitos pra nao ser cacheada.
+app.get("/reset-cache", (req, res) => {
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.send(`<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <title>Atualizando o aplicativo…</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <style>
+    body { background:#0b0f1f; color:#e6e9f5; font-family: system-ui, sans-serif; margin:0;
+           display:flex; align-items:center; justify-content:center; min-height:100vh; padding:24px; }
+    .box { max-width: 460px; text-align:center; }
+    h1 { font-size: 20px; margin: 0 0 8px; }
+    p  { color:#94a3b8; font-size: 14px; line-height:1.5; }
+    .ok { color:#4ade80; font-weight:700; }
+    .err { color:#f87171; font-weight:700; }
+    button { margin-top: 18px; background:#3b82f6; border:none; color:#fff;
+             padding:10px 20px; border-radius:8px; font-weight:700; cursor:pointer; }
+    .log { margin-top:18px; text-align:left; background:rgba(255,255,255,.04);
+           border:1px solid rgba(255,255,255,.08); border-radius:8px; padding:10px 12px;
+           font-family: monospace; font-size:11.5px; max-height: 220px; overflow:auto; }
+    .log div { padding: 2px 0; color:#94a3b8; }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <h1>Atualizando o aplicativo</h1>
+    <p>Limpando cache e service worker. Em instantes você será redirecionado.</p>
+    <div class="log" id="log"></div>
+    <button id="btnVoltar" style="display:none;" onclick="location.href='/admin/painel'">Ir para o painel</button>
+  </div>
+  <script>
+  (async () => {
+    const log = document.getElementById("log");
+    const add = (msg, cls) => {
+      const d = document.createElement("div");
+      if (cls) d.className = cls;
+      d.textContent = msg;
+      log.appendChild(d);
+    };
+    try {
+      if ("serviceWorker" in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        add("Service workers encontrados: " + regs.length);
+        for (const r of regs) {
+          await r.unregister();
+          add("✓ Desregistrado: " + (r.scope || "(escopo)"), "ok");
+        }
+      } else {
+        add("Service worker indisponível (ok)");
+      }
+      if ("caches" in window) {
+        const names = await caches.keys();
+        add("Caches encontrados: " + names.length);
+        for (const n of names) {
+          await caches.delete(n);
+          add("✓ Cache apagado: " + n, "ok");
+        }
+      }
+      try { localStorage.removeItem("token"); add("✓ Token removido", "ok"); } catch (e) {}
+      add("✓ Pronto — recarregando em 2s…", "ok");
+      setTimeout(() => {
+        // bust de cache total: query string única + reload forçado
+        location.href = "/admin/painel?_=" + Date.now();
+      }, 2000);
+      document.getElementById("btnVoltar").style.display = "inline-block";
+    } catch (e) {
+      add("Erro: " + e.message, "err");
+    }
+  })();
+  </script>
+</body>
+</html>`);
+});
+
 // páginas
 app.get("/", (req, res) => res.redirect("/login"));
 app.get("/login", (req, res) =>
