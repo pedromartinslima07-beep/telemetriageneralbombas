@@ -878,21 +878,37 @@
       <div class="section" data-section="mapa">
         <!-- KPIs -->
         <div class="mp-kpis">
-          <div class="rc rc-blue">
-            <div class="rc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg></div>
-            <div class="rc-body"><span class="rc-label">Total</span><span class="rc-value" id="mpKpiTotal">—</span></div>
+          <div class="rc rc-neutral rc-static">
+            <div class="rc-head">
+              <div class="rc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div>
+              <div class="rc-label">Total</div>
+            </div>
+            <div class="rc-value" id="mpKpiTotal">—</div>
+            <div class="rc-hint">Condomínios cadastrados</div>
           </div>
-          <div class="rc rc-green">
-            <div class="rc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
-            <div class="rc-body"><span class="rc-label">Online</span><span class="rc-value" id="mpKpiOnline">—</span></div>
+          <div class="rc rc-ok rc-static">
+            <div class="rc-head">
+              <div class="rc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
+              <div class="rc-label">Online</div>
+            </div>
+            <div class="rc-value" id="mpKpiOnline">—</div>
+            <div class="rc-hint">Sem alertas nem offline</div>
           </div>
-          <div class="rc rc-red">
-            <div class="rc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86 1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
-            <div class="rc-body"><span class="rc-label">Crítico</span><span class="rc-value" id="mpKpiCritico">—</span></div>
+          <div class="rc rc-bad rc-static">
+            <div class="rc-head">
+              <div class="rc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
+              <div class="rc-label">Crítico</div>
+            </div>
+            <div class="rc-value" id="mpKpiCritico">—</div>
+            <div class="rc-hint">Com alertas em aberto</div>
           </div>
-          <div class="rc rc-amber">
-            <div class="rc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0119 12.55"/><path d="M5 12.55a10.94 10.94 0 015.17-2.39"/><path d="M8.53 16.11a6 6 0 016.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg></div>
-            <div class="rc-body"><span class="rc-label">Offline</span><span class="rc-value" id="mpKpiOffline">—</span></div>
+          <div class="rc rc-warn rc-static">
+            <div class="rc-head">
+              <div class="rc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg></div>
+              <div class="rc-label">Offline</div>
+            </div>
+            <div class="rc-value" id="mpKpiOffline">—</div>
+            <div class="rc-hint">Sem comunicação</div>
           </div>
         </div>
 
