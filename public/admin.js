@@ -3746,6 +3746,18 @@ function _mpAtualizarUpdates() {
     </div>`).join("");
 }
 
+// Toggle fullscreen do mapa. Se forcar = true/false, vai para esse estado;
+// caso contrário inverte o atual.
+function _mpToggleFullscreen(forcar) {
+  const card = document.getElementById("mpMapCard");
+  if (!card) return;
+  const ativar = forcar != null ? forcar : !card.classList.contains("is-fullscreen");
+  card.classList.toggle("is-fullscreen", ativar);
+  document.body.classList.toggle("mp-fs-active", ativar);
+  // Leaflet precisa recalcular o tamanho após a mudança de dimensões
+  if (_mpMap) requestAnimationFrame(() => _mpMap.invalidateSize());
+}
+
 // Função pública: chamada em showSection e após carregar dados
 function renderSecaoMapa() {
   _mpAtualizarKpis();
@@ -3818,6 +3830,17 @@ document.addEventListener("DOMContentLoaded", () => {
     // Botão "Abrir Painel" da seção Mapa
     if (e.target.closest('#mpBtnAbrirPainel') && _mpCondoSelecionadoId) {
       abrirDrawer(_mpCondoSelecionadoId);
+    }
+    // Botão "Tela cheia" do mapa
+    if (e.target.closest('[data-action="mp-fullscreen"]')) {
+      _mpToggleFullscreen();
+    }
+  });
+
+  // ESC sai do modo fullscreen do mapa
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && document.getElementById("mpMapCard")?.classList.contains("is-fullscreen")) {
+      _mpToggleFullscreen(false);
     }
   });
 

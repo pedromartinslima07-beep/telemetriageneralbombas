@@ -3208,6 +3208,66 @@ tbody tr:nth-child(even):hover td { background: rgba(255,255,255,.04); }
   width: 100%; height: 100%;
 }
 
+/* Cabeçalho do mapa: ações alinhadas à direita */
+.mp-map-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.mp-fs-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,.03);
+  color: var(--text);
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s, border-color .15s, color .15s;
+}
+.mp-fs-btn:hover {
+  background: rgba(255,255,255,.06);
+  border-color: var(--border-strong);
+  color: var(--accent);
+}
+.mp-fs-btn svg { width: 14px; height: 14px; }
+.mp-fs-ico-compress { display: none; }
+.mp-map-card.is-fullscreen .mp-fs-ico-expand   { display: none; }
+.mp-map-card.is-fullscreen .mp-fs-ico-compress { display: inline-block; }
+.mp-map-card.is-fullscreen .mp-fs-label::before {
+  content: "Sair (ESC)";
+}
+.mp-map-card.is-fullscreen .mp-fs-label {
+  font-size: 0; /* esconde o texto original "Tela cheia" e mostra só o ::before */
+}
+.mp-map-card.is-fullscreen .mp-fs-label::before {
+  font-size: 11.5px;
+}
+@media (max-width: 540px) {
+  .mp-fs-label { display: none; }
+}
+
+/* Modo tela cheia: o card invade a viewport inteira */
+.mp-map-card.is-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 1500;
+  border-radius: 0;
+  min-height: 100vh;
+  height: 100vh;
+  max-height: 100vh;
+}
+.mp-map-card.is-fullscreen .mp-map-canvas {
+  border-radius: 0;
+  min-height: 0;
+}
+/* Trava scroll do body enquanto está em fullscreen */
+body.mp-fs-active { overflow: hidden; }
+
 /* Painel lateral */
 .mp-panel { display: flex; flex-direction: column; min-height: 560px; }
 .mp-panel-head {
