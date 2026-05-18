@@ -98,9 +98,30 @@ app.get("/sw.js", (req, res) => {
 
 // Proxy de tiles do mapa — busca do Carto Dark e serve pelo nosso domínio.
 // Resolve quando adblockers/firewalls do cliente bloqueiam tile servers
-// publicos. Cache HTTP forte (1 dia) pra reduzir tráfego upstream.
+// publicos. Cache em memória + HTTP cache forte (1 dia) reduzem latência.
 const _tileCache = new Map(); // key "z/x/y" → { buf, type, ts }
 const _TILE_TTL_MS = 1000 * 60 * 60 * 24; // 24h
+const _TILE_CACHE_MAX = 4000;
+// Inflight: dedupe quando vários clientes pedem o mesmo tile ao mesmo tempo
+const _tileInflight = new Map();
+
+async function _baixarTileUpstream(z, x, y) {
+  // Rotaciona subdomínios pro paralelismo (Carto aceita a/b/c/d)
+  const sub = "abcd"[(Number(z) + Number(x) + Number(y)) % 4];
+  const url = `https://${sub}.basemaps.cartocdn.com/dark_all/${z}/${x}/${y}.png`;
+  try {
+    const r = await fetch(url, {
+      headers: { "User-Agent": "TelemetriaGeneralBombas/1.0 (tiles proxy)" },
+    });
+    if (!r.ok) return null;
+    const buf = Buffer.from(await r.arrayBuffer());
+    const type = r.headers.get("content-type") || "image/png";
+    return { buf, type };
+  } catch (e) {
+    return null;
+  }
+}
+
 app.get("/tiles/:z/:x/:y.png", async (req, res) => {
   const { z, x, y } = req.params;
   // Sanity: só dígitos pra evitar SSRF
@@ -111,40 +132,40 @@ app.get("/tiles/:z/:x/:y.png", async (req, res) => {
   if (zoom > 19 || zoom < 0) return res.status(400).end();
 
   const key = `${z}/${x}/${y}`;
+  const enviar = ({ buf, type }) => {
+    res.setHeader("Content-Type", type);
+    res.setHeader("Cache-Control", "public, max-age=86400, immutable");
+    res.send(buf);
+  };
+
   const cached = _tileCache.get(key);
   if (cached && (Date.now() - cached.ts) < _TILE_TTL_MS) {
-    res.setHeader("Content-Type", cached.type);
-    res.setHeader("Cache-Control", "public, max-age=86400");
-    return res.send(cached.buf);
+    return enviar(cached);
   }
 
-  // Tenta Carto Dark primeiro, OSM como fallback
-  const fontes = [
-    `https://a.basemaps.cartocdn.com/dark_all/${z}/${x}/${y}.png`,
-    `https://a.tile.openstreetmap.org/${z}/${x}/${y}.png`,
-  ];
-  for (const url of fontes) {
+  // Se outro request pro mesmo tile já está baixando, espera ele
+  if (_tileInflight.has(key)) {
     try {
-      const r = await fetch(url, {
-        headers: { "User-Agent": "TelemetriaGeneralBombas/1.0 (tiles proxy)" },
-      });
-      if (!r.ok) continue;
-      const buf = Buffer.from(await r.arrayBuffer());
-      const type = r.headers.get("content-type") || "image/png";
-      _tileCache.set(key, { buf, type, ts: Date.now() });
-      // Limita o cache a ~2000 tiles em memória
-      if (_tileCache.size > 2000) {
-        const primeira = _tileCache.keys().next().value;
-        _tileCache.delete(primeira);
-      }
-      res.setHeader("Content-Type", type);
-      res.setHeader("Cache-Control", "public, max-age=86400");
-      return res.send(buf);
-    } catch (e) {
-      // tenta a próxima
-    }
+      const tile = await _tileInflight.get(key);
+      if (tile) return enviar(tile);
+    } catch (e) {}
+    return res.status(502).end();
   }
-  return res.status(502).end();
+
+  const p = _baixarTileUpstream(z, x, y);
+  _tileInflight.set(key, p);
+  try {
+    const tile = await p;
+    if (!tile) return res.status(502).end();
+    _tileCache.set(key, { ...tile, ts: Date.now() });
+    if (_tileCache.size > _TILE_CACHE_MAX) {
+      const primeira = _tileCache.keys().next().value;
+      _tileCache.delete(primeira);
+    }
+    enviar(tile);
+  } finally {
+    _tileInflight.delete(key);
+  }
 });
 
 // Pagina publica para forcar reset do PWA (desregistra SW, limpa caches e
@@ -239,89 +260,6 @@ app.get("/admin/reset-cache", _resetCacheHandler);
 // Mantém /reset-cache como atalho compatível (mas pode pegar do cache antigo
 // em navegadores que ja acessaram antes do fix do CSP).
 app.get("/reset-cache", _resetCacheHandler);
-
-// Pagina de diagnostico do mapa: tenta criar um Leaflet basico e mostra
-// visualmente se os tiles do Carto baixam ou nao. Util quando o usuario
-// nao tem acesso ao DevTools e o mapa esta em branco.
-app.get("/admin/teste-mapa", (req, res) => {
-  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
-  res.setHeader("Content-Security-Policy",
-    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; " +
-    "img-src 'self' data: blob: https://*.basemaps.cartocdn.com https://*.tile.openstreetmap.org");
-  res.setHeader("Content-Type", "text/html; charset=utf-8");
-  res.send(`<!doctype html>
-<html lang="pt-br">
-<head>
-  <meta charset="utf-8">
-  <title>Teste do mapa</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <link rel="stylesheet" href="/static/leaflet.css">
-  <style>
-    body { background:#0b0f1f; color:#e6e9f5; font-family: system-ui, sans-serif; margin:0; padding:16px; }
-    h1 { font-size:18px; margin:0 0 12px; }
-    h2 { font-size:14px; margin:16px 0 6px; color:#94a3b8; }
-    .mapa { width:100%; height:260px; border:1px solid rgba(255,255,255,.15); border-radius:8px; background:#101427; }
-    .log { margin-top:8px; background:rgba(0,0,0,.4); border:1px solid rgba(255,255,255,.1);
-           border-radius:8px; padding:10px 12px; font-family: monospace; font-size:11.5px;
-           max-height: 160px; overflow:auto; }
-    .log .ok  { color:#4ade80; }
-    .log .err { color:#f87171; }
-    .log .info { color:#94a3b8; }
-    a { color:#60a5fa; }
-  </style>
-</head>
-<body>
-  <h1>Diagnóstico do mapa — Carto vs OpenStreetMap</h1>
-  <p style="color:#94a3b8;font-size:13px;">Dois mapas testando provedores diferentes. O que mostrar ruas é o que funciona pra você.</p>
-
-  <h2>1) Carto Dark (tema dark)</h2>
-  <div id="mapaCarto" class="mapa"></div>
-  <div class="log" id="logCarto"></div>
-
-  <h2>2) OpenStreetMap padrão (tema claro — fallback)</h2>
-  <div id="mapaOsm" class="mapa"></div>
-  <div class="log" id="logOsm"></div>
-
-  <p style="margin-top:14px;"><a href="/admin/painel">← Voltar pro painel</a></p>
-  <script src="/static/leaflet.js"></script>
-  <script>
-  function fazerLog(elId) {
-    const log = document.getElementById(elId);
-    return (msg, cls) => {
-      const d = document.createElement("div");
-      if (cls) d.className = cls;
-      d.textContent = "[" + new Date().toLocaleTimeString() + "] " + msg;
-      log.appendChild(d);
-      log.scrollTop = log.scrollHeight;
-    };
-  }
-  function testarTile(mapaId, url, opts, logId) {
-    const add = fazerLog(logId);
-    if (typeof L === "undefined") return add("Leaflet não carregou", "err");
-    try {
-      const map = L.map(mapaId, { center: [-23.55, -46.63], zoom: 11, zoomControl: false });
-      const layer = L.tileLayer(url, opts || {});
-      let ok = 0, err = 0;
-      layer.on("tileload",  () => { ok++; if (ok === 1) add("✓ Primeiro tile carregou", "ok"); });
-      layer.on("tileerror", () => { err++; });
-      layer.addTo(map);
-      setTimeout(() => {
-        add("Resultado: " + ok + " tiles OK, " + err + " com erro", ok > 0 ? "ok" : "err");
-      }, 5000);
-    } catch (e) { add("Exceção: " + e.message, "err"); }
-  }
-  testarTile("mapaCarto",
-    "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
-    { subdomains: "abcd", maxZoom: 19 },
-    "logCarto");
-  testarTile("mapaOsm",
-    "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-    { subdomains: "abc", maxZoom: 19 },
-    "logOsm");
-  </script>
-</body>
-</html>`);
-});
 
 // páginas
 app.get("/", (req, res) => res.redirect("/login"));

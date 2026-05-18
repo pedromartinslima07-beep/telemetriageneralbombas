@@ -576,6 +576,14 @@ function _criarTileLayer(map) {
   L.tileLayer("/tiles/{z}/{x}/{y}.png", {
     maxZoom: 19,
     attribution: "© OpenStreetMap · © CARTO",
+    // keepBuffer alto = mantém tiles fora da viewport carregados, então
+    // pequenos arrastos não precisam baixar nada.
+    keepBuffer: 4,
+    // Atualiza tiles durante o pan/zoom (não só quando para) — sensação
+    // de carregamento mais rápida.
+    updateWhenIdle: false,
+    // updateInterval baixo = mais responsivo durante o arrasto.
+    updateInterval: 100,
   }).addTo(map);
 }
 
