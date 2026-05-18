@@ -95,10 +95,14 @@ app.get("/sw.js", (req, res) => {
 
 // Pagina publica para forcar reset do PWA (desregistra SW, limpa caches e
 // localStorage). Util quando o usuario fica preso em uma versao antiga e
-// nao consegue acessar o DevTools. Headers explicitos pra nao ser cacheada.
-// CSP relaxado pra permitir o script inline (essa pagina nao carrega nada
-// externo, entao 'unsafe-inline' nao expoe nada — e ela e isolada).
-app.get("/reset-cache", (req, res) => {
+// nao consegue acessar o DevTools.
+//
+// IMPORTANTE: a rota fica DENTRO de /admin/* de proposito — o SW antigo
+// (v11) trata todo /admin/* como "network first", entao sempre busca a
+// versao nova do servidor, ignorando qualquer versao cacheada. Se ficasse
+// fora desse prefixo, cairia em "cache first" e o SW antigo serviria a
+// versao quebrada cacheada na primeira tentativa.
+function _resetCacheHandler(req, res) {
   res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
   res.setHeader("Pragma", "no-cache");
   res.setHeader("Content-Security-Policy",
@@ -175,7 +179,12 @@ app.get("/reset-cache", (req, res) => {
   </script>
 </body>
 </html>`);
-});
+}
+// Rota recomendada (dentro de /admin/* → network-first no SW antigo)
+app.get("/admin/reset-cache", _resetCacheHandler);
+// Mantém /reset-cache como atalho compatível (mas pode pegar do cache antigo
+// em navegadores que ja acessaram antes do fix do CSP).
+app.get("/reset-cache", _resetCacheHandler);
 
 // páginas
 app.get("/", (req, res) => res.redirect("/login"));
