@@ -269,26 +269,7 @@
               </div>
             </div>
             <div class="mc-map-canvas" id="mcMapCanvas">
-              <!-- SVG decorativo: malha + pontos. Pins injetados via JS conforme _statusData -->
-              <svg class="mc-map-bg" viewBox="0 0 800 500" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-                <defs>
-                  <radialGradient id="mcGlow" cx="50%" cy="50%" r="50%">
-                    <stop offset="0%" stop-color="rgba(74,120,247,.22)"/>
-                    <stop offset="100%" stop-color="rgba(74,120,247,0)"/>
-                  </radialGradient>
-                  <pattern id="mcGrid" width="40" height="40" patternUnits="userSpaceOnUse">
-                    <path d="M40 0L0 0 0 40" fill="none" stroke="rgba(255,255,255,.035)" stroke-width="1"/>
-                  </pattern>
-                </defs>
-                <rect width="800" height="500" fill="url(#mcGrid)"/>
-                <circle cx="400" cy="260" r="220" fill="url(#mcGlow)"/>
-                <!-- contorno estilizado de SP (aproximado, decorativo) -->
-                <path d="M180 200 Q220 160 280 170 T380 180 Q440 170 480 200 T560 240 Q580 280 540 320 T440 360 Q380 380 320 360 T240 320 Q190 280 180 200 Z"
-                      fill="rgba(34,211,238,.04)" stroke="rgba(34,211,238,.22)" stroke-width="1.2" stroke-dasharray="3 4"/>
-                <text x="400" y="270" text-anchor="middle" fill="rgba(255,255,255,.08)"
-                      font-size="46" font-weight="900" letter-spacing="6">SÃO PAULO</text>
-              </svg>
-              <div class="mc-map-pins" id="mcMapPins"></div>
+              <!-- Leaflet monta o mapa nesse container. Pinos são injetados em JS por _statusData. -->
             </div>
           </section>
 
@@ -895,13 +876,101 @@
       </div>
 
       <div class="section" data-section="mapa">
-        <div class="coming-soon">
-          <div class="coming-soon-mark">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
+        <!-- KPIs -->
+        <div class="mp-kpis">
+          <div class="rc rc-blue">
+            <div class="rc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg></div>
+            <div class="rc-body"><span class="rc-label">Total</span><span class="rc-value" id="mpKpiTotal">—</span></div>
           </div>
-          <h3>Mapa interativo</h3>
-          <p>Visualização geográfica dos condomínios com pins por status. Próxima fase do plano.</p>
-          <span class="coming-soon-tag">Fase 3B</span>
+          <div class="rc rc-green">
+            <div class="rc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
+            <div class="rc-body"><span class="rc-label">Online</span><span class="rc-value" id="mpKpiOnline">—</span></div>
+          </div>
+          <div class="rc rc-red">
+            <div class="rc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86 1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
+            <div class="rc-body"><span class="rc-label">Crítico</span><span class="rc-value" id="mpKpiCritico">—</span></div>
+          </div>
+          <div class="rc rc-amber">
+            <div class="rc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0119 12.55"/><path d="M5 12.55a10.94 10.94 0 015.17-2.39"/><path d="M8.53 16.11a6 6 0 016.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg></div>
+            <div class="rc-body"><span class="rc-label">Offline</span><span class="rc-value" id="mpKpiOffline">—</span></div>
+          </div>
+        </div>
+
+        <!-- Grid principal: mapa + painel lateral -->
+        <div class="mp-grid">
+          <section class="card mp-map-card">
+            <div class="cardHead">
+              <h2>
+                <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
+                Mapa de Condomínios
+              </h2>
+              <div class="mc-map-legend">
+                <span class="mc-leg ok">OK</span>
+                <span class="mc-leg warn">Alerta</span>
+                <span class="mc-leg bad">Crítico</span>
+              </div>
+            </div>
+            <div class="mp-map-canvas" id="mpMapCanvas"></div>
+          </section>
+
+          <section class="card mp-panel">
+            <div class="mp-panel-head">
+              <div class="mp-panel-title">
+                <h3 id="mpCondoNome">Selecione um condomínio</h3>
+                <span id="mpCondoEndereco" class="mp-panel-sub">Clique em um pino no mapa para ver detalhes</span>
+              </div>
+              <button class="btn btn-sm btnAccent" id="mpBtnAbrirPainel" style="display:none;">Abrir Painel</button>
+            </div>
+
+            <div class="mp-tabs" role="tablist">
+              <button class="mp-tab is-active" data-tab="visao">Visão Geral</button>
+              <button class="mp-tab" data-tab="reservatorios">Reservatórios</button>
+              <button class="mp-tab" data-tab="bombas">Bombas</button>
+              <button class="mp-tab" data-tab="alertas">Alertas</button>
+              <button class="mp-tab" data-tab="chamados">Chamados</button>
+            </div>
+
+            <div class="mp-tab-body" id="mpTabBody">
+              <div class="mp-empty">Nenhum condomínio selecionado.</div>
+            </div>
+          </section>
+        </div>
+
+        <!-- Linha inferior: 3 cards -->
+        <div class="mp-bottom">
+          <section class="card">
+            <div class="cardHead">
+              <h2>
+                <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                Status dos Condomínios
+              </h2>
+            </div>
+            <div class="mp-donut" id="mpStatusChart"></div>
+            <div class="mp-donut-legend" id="mpStatusLegend"></div>
+          </section>
+
+          <section class="card">
+            <div class="cardHead">
+              <h2>
+                <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                Distribuição por Zona
+              </h2>
+            </div>
+            <div class="mp-donut" id="mpZonaChart"></div>
+            <div class="mp-donut-legend" id="mpZonaLegend"></div>
+          </section>
+
+          <section class="card">
+            <div class="cardHead">
+              <h2>
+                <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                Últimas Atualizações
+              </h2>
+            </div>
+            <div class="mp-updates" id="mpUpdatesList">
+              <div class="mc-empty">Carregando…</div>
+            </div>
+          </section>
         </div>
       </div>
 

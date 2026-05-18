@@ -394,19 +394,30 @@ Caso real que motivou: CEP `05861-270` (Jardim Mônica, SP) — BrasilAPI sem co
 - Race protection: sequência por prefixo descarta resposta obsoleta se o usuário arrastar várias vezes rápido.
 - **Heurística "ajuste fino vs mudança de endereço"** (300m via Haversine): arrastes pequenos mantêm o texto vindo do CEP intacto (porque o OSM em algumas áreas tem o bairro indexado errado — ex: rua do Jardim Mônica aparece como Capão Redondo no reverse); arrastes longos sobrescrevem tudo com o que o Nominatim retornou.
 
-##### 3B.2 — Seção Mapa (próxima)
+##### 3B.2 — Seção Mapa ✅ CONCLUÍDO
 
-- [ ] Substituir o stub "Em breve" de `data-section="mapa"`
-- [ ] 4 KPIs no topo (Total / Online / Crítico / Offline)
-- [ ] Mapa principal Leaflet com pinos coloridos por status, cluster automático
-- [ ] Painel lateral side-by-side: tabs Visão Geral / Reservatórios / Bombas / Alertas + botão "Ir ao Painel" (abre o drawer existente)
-- [ ] Legenda + zoom controls customizados na paleta Mission Control
+Mapa do dashboard (Mission Control) reescrito como Leaflet real, e nova seção dedicada `data-section="mapa"` no padrão da referência visual `public/front-mapa.png`.
 
-##### 3B.3 — Cards inferiores do Mapa (próxima)
+**Dashboard:** o SVG decorativo do `mc-map` foi substituído por um Leaflet (dark Carto) que plota cada condomínio pelas suas coordenadas reais (`condominios.lat`/`lng`). Pinos pulsantes (`mc-pin-leaflet`) coloridos por status — OK / Alerta / Crítico — clique abre o drawer existente. Singleton com `_mcMap` + `_mcMarkers` reusado entre polls (sem recriar o Leaflet a cada atualização).
 
-- [ ] **Chamados por Categoria** — barras horizontais ApexCharts (vazamento / bomba_falha / etc.)
-- [ ] **Distribuição por Zona** — donut ApexCharts; zona derivada por quadrante em torno da Praça da Sé (-23.55, -46.63), raio Centro ≈ 3km
-- [ ] **Últimas Atualizações** — lista combinando chamados e alertas recentes
+**Seção Mapa nova:**
+- **4 KPIs no topo:** Total / Online / Crítico / Offline (recalculados a cada poll).
+- **Grid 60/40:** mapa Leaflet grande à esquerda + painel lateral à direita.
+- **Painel lateral** com cabeçalho (nome + endereço completo) e 5 tabs:
+  - *Visão Geral* — gauge de nível médio dos reservatórios + 3 stats (Reservatórios / Bombas Ativas / Alertas) + lista resumida de alertas
+  - *Reservatórios* — lista por reservatório com nível e status offline
+  - *Bombas* — pills LIGADA/DESLIGADA por reservatório + "última leitura há ..."
+  - *Alertas* — todos os alertas abertos daquele condomínio
+  - *Chamados* — chamados filtrados pelo `condominio_id` (consome `_chamadosData`)
+- Clicar num pino seleciona o condomínio e re-renderiza o painel. Botão **"Abrir Painel"** dispara o `abrirDrawer()` existente para o fluxo completo (telemetria histórica, ações de chamado, conversas WhatsApp).
+- **Linha inferior, 3 cards:**
+  - *Status dos Condomínios* — donut SVG (OK / Alerta / Crítico / Offline)
+  - *Distribuição por Zona* — donut SVG com total no centro; zona derivada por quadrante em torno da Praça da Sé (`-23.5505, -46.6333`), raio Centro ≈ 3 km
+  - *Últimas Atualizações* — lista combinando alertas abertos + chamados, ordenados por `criado_em` descendente
+
+**Backend:** `GET /admin/status` agora retorna `endereco`, `bairro`, `cidade`, `uf`, `cep`, `lat`, `lng` por condomínio (era só id+nome). Pré-requisito pra plotar e mostrar endereço no painel sem fazer uma chamada extra.
+
+**Sem clusters por enquanto** (decisão consciente — adicionar `leaflet.markercluster` quando o número de condomínios justificar).
 
 ### Fase 4 — Integração telemetria automática
 - [ ] Ao abrir chamado, anexa última leitura do condomínio automaticamente

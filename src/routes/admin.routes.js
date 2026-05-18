@@ -19,6 +19,13 @@ router.get("/status", authRequired, adminOnly, async (req, res) => {
       SELECT
         c.id   AS condominio_id,
         c.nome AS condominio_nome,
+        c.endereco AS condominio_endereco,
+        c.bairro   AS condominio_bairro,
+        c.cidade   AS condominio_cidade,
+        c.uf       AS condominio_uf,
+        c.cep      AS condominio_cep,
+        c.lat      AS condominio_lat,
+        c.lng      AS condominio_lng,
 
         r.id        AS reservatorio_id,
         r.nome      AS reservatorio_nome,
@@ -61,7 +68,17 @@ router.get("/status", authRequired, adminOnly, async (req, res) => {
     for (const row of q.rows) {
       if (!map.has(row.condominio_id)) {
         map.set(row.condominio_id, {
-          condominio: { id: row.condominio_id, nome: row.condominio_nome },
+          condominio: {
+            id: row.condominio_id,
+            nome: row.condominio_nome,
+            endereco: row.condominio_endereco,
+            bairro: row.condominio_bairro,
+            cidade: row.condominio_cidade,
+            uf: row.condominio_uf,
+            cep: row.condominio_cep,
+            lat: row.condominio_lat != null ? Number(row.condominio_lat) : null,
+            lng: row.condominio_lng != null ? Number(row.condominio_lng) : null,
+          },
           reservatorios: [],
           resumo: {
             total_reservatorios: 0,

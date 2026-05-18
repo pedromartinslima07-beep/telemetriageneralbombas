@@ -38,6 +38,9 @@ function showSection(name) {
     renderTelemetriaAvancada();
     carregarHistoricoTelemetria();
   }
+  if (name === "mapa") {
+    renderSecaoMapa();
+  }
 }
 
 function logout() {
@@ -532,18 +535,6 @@ function renderSparkline(el, currentValue, kind) {
 // MISSION CONTROL — mapa, alertas críticos, atividade
 // ===================================================================
 
-// Posições "estilizadas" estáveis por condomínio (não é mapa geográfico real)
-function _mcPosFor(id, total) {
-  // Distribui no canvas 800x500 com seed determinística no id
-  const seed = (Number(id) || 0) * 9301 + 49297;
-  const rnd1 = ((seed % 233280) / 233280);
-  const rnd2 = (((seed * 2 + 13) % 233280) / 233280);
-  // Limita ao "interior" do contorno estilizado de SP (~ 200..580 x  ~180..360)
-  const x = 220 + rnd1 * 340;
-  const y = 200 + rnd2 * 160;
-  return { x: (x / 800) * 100, y: (y / 500) * 100 };
-}
-
 function _mcStatusKind(item) {
   const off = item?.resumo?.offline_count ?? 0;
   const al  = item?.resumo?.alertas_abertos_total ?? 0;
@@ -552,26 +543,78 @@ function _mcStatusKind(item) {
   return 'ok';
 }
 
-function renderMcMap() {
-  const pins = document.getElementById("mcMapPins");
-  if (!pins) return;
-  const groups = Array.isArray(_statusData) ? _statusData : [];
-  pins.innerHTML = "";
-  groups.forEach(g => {
-    const c = g.condominio || {};
-    const id = c.id;
-    if (!id) return;
-    const pos = _mcPosFor(id, groups.length);
-    const kind = _mcStatusKind(g);
-    const div = document.createElement("div");
-    div.className = `mc-pin ${kind}`;
-    div.style.left = pos.x + '%';
-    div.style.top  = pos.y + '%';
-    div.dataset.action = "ver-condo";
-    div.dataset.id = String(id);
-    div.innerHTML = `<span class="mc-pin-label">${c.nome || 'Condomínio'}</span>`;
-    pins.appendChild(div);
+// ---- Mapa do dashboard (mini Leaflet) ----
+// Singleton: criado uma vez ao primeiro renderMcMap, depois apenas atualiza markers.
+let _mcMap = null;
+let _mcMarkers = new Map(); // condoId → L.Marker
+
+function _mcPinIcon(kind) {
+  return L.divIcon({
+    className: "mc-pin-leaflet-wrap",
+    html: `<div class="mc-pin-leaflet ${kind}"></div>`,
+    iconSize: [16, 16],
+    iconAnchor: [8, 8],
   });
+}
+
+function renderMcMap() {
+  const el = document.getElementById("mcMapCanvas");
+  if (!el || typeof L === "undefined") return;
+
+  // Cria o mapa Leaflet na primeira chamada
+  if (!_mcMap) {
+    _mcMap = L.map(el, {
+      center: [SP_CENTRO.lat, SP_CENTRO.lng],
+      zoom: SP_CENTRO.zoom,
+      zoomControl: true,
+      attributionControl: false,
+      scrollWheelZoom: false, // não captura scroll da página
+    });
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+      subdomains: "abcd",
+      maxZoom: 19,
+    }).addTo(_mcMap);
+    // Garante medida correta quando o container é mostrado depois (dashboard inicial)
+    setTimeout(() => _mcMap.invalidateSize(), 60);
+  }
+
+  const groups = Array.isArray(_statusData) ? _statusData : [];
+  const idsAgora = new Set();
+  const bounds = [];
+
+  for (const g of groups) {
+    const c = g.condominio || {};
+    if (!c.id || c.lat == null || c.lng == null) continue;
+    idsAgora.add(c.id);
+    const kind = _mcStatusKind(g);
+    const tooltip = `${c.nome || "Condomínio"} • ${kind === "bad" ? "Crítico" : kind === "warn" ? "Alerta" : "OK"}`;
+    let marker = _mcMarkers.get(c.id);
+    if (!marker) {
+      marker = L.marker([c.lat, c.lng], { icon: _mcPinIcon(kind) }).addTo(_mcMap);
+      marker.bindTooltip(tooltip, { direction: "top", offset: [0, -8] });
+      marker.on("click", () => abrirDrawer(c.id));
+      _mcMarkers.set(c.id, marker);
+    } else {
+      marker.setLatLng([c.lat, c.lng]);
+      marker.setIcon(_mcPinIcon(kind));
+      marker.setTooltipContent(tooltip);
+    }
+    bounds.push([c.lat, c.lng]);
+  }
+
+  // Remove markers de condomínios que sumiram do _statusData
+  for (const [id, marker] of _mcMarkers) {
+    if (!idsAgora.has(id)) {
+      _mcMap.removeLayer(marker);
+      _mcMarkers.delete(id);
+    }
+  }
+
+  // Ajusta zoom apenas na 1ª vez ou quando os bounds mudaram significativamente
+  if (bounds.length > 0 && !_mcMap._fitAplicado) {
+    _mcMap.fitBounds(bounds, { padding: [30, 30], maxZoom: 13 });
+    _mcMap._fitAplicado = true;
+  }
 }
 
 function _mcAlertIconFor(tipo) {
@@ -1614,6 +1657,10 @@ function renderVisuaisCombinados() {
   // Visuais que combinam telemetria + atendimento
   renderMcActivity();
   renderMcIaInsights();
+  // Seção Mapa também combina telemetria + atendimento; atualiza só se o DOM existe
+  if (document.getElementById("mpMapCanvas")) {
+    renderSecaoMapa();
+  }
 }
 
 function marcarAtualizado() {
@@ -3278,6 +3325,427 @@ async function buscarCoordenadasPorEndereco(prefixo) {
   }
 }
 
+// ============================================================
+// SEÇÃO MAPA (Fase 3B.2) — Leaflet principal + painel lateral com tabs
+// ============================================================
+let _mpMap = null;
+let _mpMarkers = new Map(); // condoId → L.Marker
+let _mpCondoSelecionadoId = null;
+let _mpTabAtiva = "visao";
+let _mpStatusChart = null;
+let _mpZonaChart   = null;
+// Praça da Sé como referência para os quadrantes
+const _MP_SE = { lat: -23.5505, lng: -46.6333 };
+
+function _mpZonaPara(c) {
+  // Centro: <= 3km da Sé. Senão, classifica pelos quadrantes N/S/L/O.
+  if (c.lat == null || c.lng == null) return "Sem coordenada";
+  const dLat = c.lat - _MP_SE.lat;
+  const dLng = c.lng - _MP_SE.lng;
+  // distância aproximada (graus → km, latitude ~111km/°)
+  const distKm = Math.sqrt((dLat * 111) ** 2 + (dLng * 102) ** 2);
+  if (distKm <= 3) return "Centro";
+  // Quadrante por dominância (Norte/Sul vs Leste/Oeste)
+  if (Math.abs(dLat) >= Math.abs(dLng)) {
+    return dLat < 0 ? "Zona Sul" : "Zona Norte";
+  }
+  return dLng > 0 ? "Zona Leste" : "Zona Oeste";
+}
+
+function _mpRelTime(iso) {
+  if (!iso) return "—";
+  const diff = (Date.now() - new Date(iso).getTime()) / 1000;
+  if (diff < 60)    return `${Math.floor(diff)}s`;
+  if (diff < 3600)  return `${Math.floor(diff / 60)}min`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
+  return `${Math.floor(diff / 86400)}d`;
+}
+
+function _mpPctClasse(pct) {
+  if (pct == null) return "";
+  if (pct < 30) return "lo";
+  if (pct < 60) return "mid";
+  return "hi";
+}
+
+function _mpEndereco(c) {
+  const partes = [c.endereco, c.bairro, c.cidade && `${c.cidade}/${c.uf || "?"}`].filter(Boolean);
+  return partes.length ? partes.join(", ") : "Endereço não cadastrado";
+}
+
+function _mpStatusLabel(kind) {
+  return kind === "bad" ? "Crítico" : kind === "warn" ? "Alerta" : "OK";
+}
+
+// --- KPIs do topo ---
+function _mpAtualizarKpis() {
+  const groups = Array.isArray(_statusData) ? _statusData : [];
+  let total = 0, online = 0, critico = 0, offline = 0;
+  for (const g of groups) {
+    total += 1;
+    const off = g.resumo?.offline_count ?? 0;
+    const al  = g.resumo?.alertas_abertos_total ?? 0;
+    const totR = g.resumo?.total_reservatorios ?? 0;
+    if (totR > 0 && off === totR) offline += 1;
+    else if (off > 0 || al > 0) critico += 1;
+    else online += 1;
+  }
+  document.getElementById("mpKpiTotal")  && (document.getElementById("mpKpiTotal").textContent   = total);
+  document.getElementById("mpKpiOnline") && (document.getElementById("mpKpiOnline").textContent  = online);
+  document.getElementById("mpKpiCritico")&& (document.getElementById("mpKpiCritico").textContent = critico);
+  document.getElementById("mpKpiOffline")&& (document.getElementById("mpKpiOffline").textContent = offline);
+}
+
+// --- Mapa principal Leaflet ---
+function _mpAtualizarMapa() {
+  const el = document.getElementById("mpMapCanvas");
+  if (!el || typeof L === "undefined") return;
+
+  if (!_mpMap) {
+    _mpMap = L.map(el, {
+      center: [SP_CENTRO.lat, SP_CENTRO.lng],
+      zoom: SP_CENTRO.zoom,
+      zoomControl: true,
+      attributionControl: false,
+    });
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+      subdomains: "abcd",
+      maxZoom: 19,
+    }).addTo(_mpMap);
+    setTimeout(() => _mpMap.invalidateSize(), 80);
+  }
+
+  const groups = Array.isArray(_statusData) ? _statusData : [];
+  const idsAgora = new Set();
+  const bounds = [];
+
+  for (const g of groups) {
+    const c = g.condominio || {};
+    if (!c.id || c.lat == null || c.lng == null) continue;
+    idsAgora.add(c.id);
+    const kind = _mcStatusKind(g);
+    const tooltip = `${c.nome || "Condomínio"} • ${_mpStatusLabel(kind)}`;
+    let marker = _mpMarkers.get(c.id);
+    if (!marker) {
+      marker = L.marker([c.lat, c.lng], { icon: _mcPinIcon(kind) }).addTo(_mpMap);
+      marker.bindTooltip(tooltip, { direction: "top", offset: [0, -8] });
+      marker.on("click", () => {
+        _mpCondoSelecionadoId = c.id;
+        _mpAtualizarPainel();
+      });
+      _mpMarkers.set(c.id, marker);
+    } else {
+      marker.setLatLng([c.lat, c.lng]);
+      marker.setIcon(_mcPinIcon(kind));
+      marker.setTooltipContent(tooltip);
+    }
+    bounds.push([c.lat, c.lng]);
+  }
+
+  for (const [id, marker] of _mpMarkers) {
+    if (!idsAgora.has(id)) {
+      _mpMap.removeLayer(marker);
+      _mpMarkers.delete(id);
+    }
+  }
+
+  if (bounds.length > 0 && !_mpMap._fitAplicado) {
+    _mpMap.fitBounds(bounds, { padding: [40, 40], maxZoom: 13 });
+    _mpMap._fitAplicado = true;
+  }
+}
+
+// --- Painel lateral ---
+function _mpAtualizarPainel() {
+  const groups = Array.isArray(_statusData) ? _statusData : [];
+  const g = groups.find(x => x.condominio?.id === _mpCondoSelecionadoId);
+  const nomeEl = document.getElementById("mpCondoNome");
+  const subEl  = document.getElementById("mpCondoEndereco");
+  const btn    = document.getElementById("mpBtnAbrirPainel");
+  const body   = document.getElementById("mpTabBody");
+
+  if (!g) {
+    if (nomeEl) nomeEl.textContent = "Selecione um condomínio";
+    if (subEl)  subEl.textContent  = "Clique em um pino no mapa para ver detalhes";
+    if (btn)    btn.style.display  = "none";
+    if (body)   body.innerHTML     = `<div class="mp-empty">Nenhum condomínio selecionado.</div>`;
+    return;
+  }
+
+  const c = g.condominio || {};
+  if (nomeEl) nomeEl.textContent = c.nome || "Condomínio";
+  if (subEl)  subEl.textContent  = _mpEndereco(c);
+  if (btn)    btn.style.display  = "";
+
+  if (!body) return;
+  if (_mpTabAtiva === "visao")          body.innerHTML = _mpRenderVisaoGeral(g);
+  else if (_mpTabAtiva === "reservatorios") body.innerHTML = _mpRenderReservatorios(g);
+  else if (_mpTabAtiva === "bombas")    body.innerHTML = _mpRenderBombas(g);
+  else if (_mpTabAtiva === "alertas")   body.innerHTML = _mpRenderAlertas(g);
+  else if (_mpTabAtiva === "chamados")  body.innerHTML = _mpRenderChamados(g);
+}
+
+function _mpRenderVisaoGeral(g) {
+  const reservas = g.reservatorios || [];
+  // Nível médio (ignora reservatórios sem leitura)
+  const comNivel = reservas.filter(r => r.ultima_leitura?.nivel_pct != null);
+  const nivelMedio = comNivel.length
+    ? Math.round(comNivel.reduce((s, r) => s + Number(r.ultima_leitura.nivel_pct), 0) / comNivel.length)
+    : null;
+  const cls = _mpPctClasse(nivelMedio);
+  const bombasAtivas = reservas.filter(r => r.ultima_leitura?.bomba_ligada).length;
+  const alertasCount = g.resumo?.alertas_abertos_total ?? 0;
+
+  // Alertas do condomínio (filtra _alertasAbertos pelos device_ids do condo)
+  const deviceIds = new Set(reservas.map(r => r.device_id));
+  const alertasCondo = (_alertasAbertos || []).filter(a => deviceIds.has(a.device_id)).slice(0, 5);
+
+  const gaugeHtml = nivelMedio == null
+    ? `<div class="mp-vg-gauge-value" style="color:var(--muted)">—</div><div class="mp-vg-gauge-label">Sem leituras</div>`
+    : `
+      <div class="mp-vg-gauge-label">Nível médio dos reservatórios</div>
+      <div class="mp-vg-gauge-value ${cls}">${nivelMedio}%</div>
+      <div class="mp-vg-bar"><div class="mp-vg-bar-fill ${cls}" style="width:${nivelMedio}%"></div></div>`;
+
+  const alertasHtml = alertasCondo.length === 0
+    ? `<div class="mp-empty" style="height:auto;padding:14px 0;">Nenhum alerta aberto.</div>`
+    : `<div class="mp-list">
+        ${alertasCondo.map(a => {
+          const tipo = String(a.tipo || "").replaceAll("_", " ");
+          const kind = (a.tipo === "dispositivo_offline" || a.tipo === "nivel_muito_baixo") ? "bad" : "warn";
+          return `
+            <div class="mp-list-item">
+              <span class="mli-dot ${kind}"></span>
+              <div class="mli-main">
+                <div class="mli-title">${tipo}</div>
+                <div class="mli-sub">${a.device_id || ""} ${a.mensagem ? "• " + a.mensagem : ""}</div>
+              </div>
+              <span class="mli-right">${_mpRelTime(a.criado_em)}</span>
+            </div>`;
+        }).join("")}
+      </div>`;
+
+  return `
+    <div class="mp-vg-gauge">${gaugeHtml}</div>
+    <div class="mp-vg-stats">
+      <div class="mp-vg-stat"><span class="mp-vg-stat-label">Reservatórios</span><span class="mp-vg-stat-value">${reservas.length}</span></div>
+      <div class="mp-vg-stat"><span class="mp-vg-stat-label">Bombas Ativas</span><span class="mp-vg-stat-value">${bombasAtivas}</span></div>
+      <div class="mp-vg-stat"><span class="mp-vg-stat-label">Alertas</span><span class="mp-vg-stat-value">${alertasCount}</span></div>
+    </div>
+    <div class="mp-vg-section-title">Alertas recentes</div>
+    ${alertasHtml}`;
+}
+
+function _mpRenderReservatorios(g) {
+  const reservas = g.reservatorios || [];
+  if (reservas.length === 0) return `<div class="mp-empty">Nenhum reservatório cadastrado.</div>`;
+  return `<div class="mp-list">${reservas.map(r => {
+    const pct = r.ultima_leitura?.nivel_pct;
+    const pctCls = _mpPctClasse(pct);
+    const dot = r.offline ? "off" : (pct != null && pct < 30 ? "bad" : pct != null && pct < 60 ? "warn" : "ok");
+    return `
+      <div class="mp-list-item">
+        <span class="mli-dot ${dot}"></span>
+        <div class="mli-main">
+          <div class="mli-title">${r.nome || r.device_id}</div>
+          <div class="mli-sub">${r.tipo || ""} ${r.offline ? "• OFFLINE" : ""}</div>
+        </div>
+        <span class="mli-pct ${pctCls}">${pct != null ? pct + "%" : "—"}</span>
+      </div>`;
+  }).join("")}</div>`;
+}
+
+function _mpRenderBombas(g) {
+  const reservas = g.reservatorios || [];
+  if (reservas.length === 0) return `<div class="mp-empty">Nenhum reservatório cadastrado.</div>`;
+  return `<div class="mp-list">${reservas.map(r => {
+    const ligada = !!r.ultima_leitura?.bomba_ligada;
+    return `
+      <div class="mp-list-item">
+        <span class="mli-dot ${ligada ? "ok" : "off"}"></span>
+        <div class="mli-main">
+          <div class="mli-title">${r.nome || r.device_id}</div>
+          <div class="mli-sub">${r.offline ? "Dispositivo offline" : "Última leitura " + _mpRelTime(r.ultima_leitura?.criado_em)}</div>
+        </div>
+        <span class="mp-list-pill ${ligada ? "on" : "off"}">${ligada ? "LIGADA" : "DESLIGADA"}</span>
+      </div>`;
+  }).join("")}</div>`;
+}
+
+function _mpRenderAlertas(g) {
+  const deviceIds = new Set((g.reservatorios || []).map(r => r.device_id));
+  const lista = (_alertasAbertos || []).filter(a => deviceIds.has(a.device_id));
+  if (lista.length === 0) return `<div class="mp-empty">Nenhum alerta aberto neste condomínio.</div>`;
+  return `<div class="mp-list">${lista.map(a => {
+    const tipo = String(a.tipo || "").replaceAll("_", " ");
+    const kind = (a.tipo === "dispositivo_offline" || a.tipo === "nivel_muito_baixo") ? "bad" : "warn";
+    return `
+      <div class="mp-list-item">
+        <span class="mli-dot ${kind}"></span>
+        <div class="mli-main">
+          <div class="mli-title">${tipo}</div>
+          <div class="mli-sub">${a.device_id || ""} ${a.mensagem ? "• " + a.mensagem : ""}</div>
+        </div>
+        <span class="mli-right">${_mpRelTime(a.criado_em)}</span>
+      </div>`;
+  }).join("")}</div>`;
+}
+
+function _mpRenderChamados(g) {
+  const condoId = g.condominio?.id;
+  const lista = (Array.isArray(_chamadosData) ? _chamadosData : []).filter(ch => ch.condominio_id === condoId);
+  if (lista.length === 0) return `<div class="mp-empty">Nenhum chamado para este condomínio.</div>`;
+  return `<div class="mp-list">${lista.slice(0, 20).map(ch => {
+    const kind = ch.prioridade === "emergencia" ? "bad" : ch.prioridade === "alta" ? "warn" : "ok";
+    const statusLabel = (ch.status || "").replaceAll("_", " ");
+    return `
+      <div class="mp-list-item">
+        <span class="mli-dot ${kind}"></span>
+        <div class="mli-main">
+          <div class="mli-title">${ch.titulo || "Chamado #" + ch.id}</div>
+          <div class="mli-sub">${statusLabel} • ${ch.prioridade || "media"} ${ch.categoria ? "• " + ch.categoria : ""}</div>
+        </div>
+        <span class="mli-right">${_mpRelTime(ch.criado_em)}</span>
+      </div>`;
+  }).join("")}</div>`;
+}
+
+// --- Donut helper (SVG puro, sem ApexCharts pra leveza) ---
+function _mpRenderDonut(containerId, legendId, fatias, totalCentro) {
+  const cont = document.getElementById(containerId);
+  const leg  = document.getElementById(legendId);
+  if (!cont || !leg) return;
+  const total = fatias.reduce((s, f) => s + f.value, 0);
+  if (total === 0) {
+    cont.innerHTML = `<div class="mp-empty" style="height:200px;">Sem dados.</div>`;
+    leg.innerHTML = "";
+    return;
+  }
+  const R = 70, CX = 100, CY = 100, STROKE = 22;
+  const C = 2 * Math.PI * R;
+  let acc = 0;
+  const segs = fatias.filter(f => f.value > 0).map(f => {
+    const frac = f.value / total;
+    const dash = `${C * frac} ${C * (1 - frac)}`;
+    const dashoffset = -C * acc;
+    acc += frac;
+    return `<circle cx="${CX}" cy="${CY}" r="${R}" fill="none" stroke="${f.color}" stroke-width="${STROKE}" stroke-dasharray="${dash}" stroke-dashoffset="${dashoffset}" transform="rotate(-90 ${CX} ${CY})"/>`;
+  }).join("");
+  const centroHtml = totalCentro != null
+    ? `<text x="${CX}" y="${CY - 4}" text-anchor="middle" font-size="28" font-weight="800" fill="currentColor">${totalCentro}</text>
+       <text x="${CX}" y="${CY + 16}" text-anchor="middle" font-size="11" fill="rgba(255,255,255,.5)" letter-spacing="1.5">TOTAL</text>`
+    : "";
+  cont.innerHTML = `<svg viewBox="0 0 200 200" width="100%" height="200">
+    <circle cx="${CX}" cy="${CY}" r="${R}" fill="none" stroke="rgba(255,255,255,.06)" stroke-width="${STROKE}"/>
+    ${segs}
+    ${centroHtml}
+  </svg>`;
+  leg.innerHTML = fatias.map(f => `
+    <div class="dl-row">
+      <span class="dl-dot" style="background:${f.color}"></span>
+      <span class="dl-label">${f.label}</span>
+      <span class="dl-value">${f.value}</span>
+    </div>`).join("");
+}
+
+function _mpAtualizarStatusDonut() {
+  const groups = Array.isArray(_statusData) ? _statusData : [];
+  let ok = 0, warn = 0, bad = 0, off = 0;
+  for (const g of groups) {
+    const totR = g.resumo?.total_reservatorios ?? 0;
+    const offCnt = g.resumo?.offline_count ?? 0;
+    const al = g.resumo?.alertas_abertos_total ?? 0;
+    if (totR > 0 && offCnt === totR) off++;
+    else if (offCnt > 0)             bad++;
+    else if (al > 0)                 warn++;
+    else                             ok++;
+  }
+  _mpRenderDonut("mpStatusChart", "mpStatusLegend", [
+    { label: "OK",       value: ok,   color: "#10b981" },
+    { label: "Alerta",   value: warn, color: "#f59e0b" },
+    { label: "Crítico",  value: bad,  color: "#ef4444" },
+    { label: "Offline",  value: off,  color: "#64748b" },
+  ]);
+}
+
+function _mpAtualizarZonaDonut() {
+  const groups = Array.isArray(_statusData) ? _statusData : [];
+  const contagem = new Map();
+  for (const g of groups) {
+    const z = _mpZonaPara(g.condominio || {});
+    contagem.set(z, (contagem.get(z) || 0) + 1);
+  }
+  const cores = {
+    "Centro":     "#22d3ee",
+    "Zona Norte": "#a78bfa",
+    "Zona Sul":   "#10b981",
+    "Zona Leste": "#f59e0b",
+    "Zona Oeste": "#ec4899",
+    "Sem coordenada": "#64748b",
+  };
+  const fatias = [...contagem.entries()].map(([label, value]) => ({
+    label, value, color: cores[label] || "#94a3b8",
+  }));
+  const total = fatias.reduce((s, f) => s + f.value, 0);
+  _mpRenderDonut("mpZonaChart", "mpZonaLegend", fatias, total);
+}
+
+function _mpAtualizarUpdates() {
+  const wrap = document.getElementById("mpUpdatesList");
+  if (!wrap) return;
+  const eventos = [];
+  for (const a of (_alertasAbertos || [])) {
+    eventos.push({
+      tipo: "alerta",
+      titulo: _mcDeviceCondoName(a.device_id),
+      sub: String(a.tipo || "").replaceAll("_", " "),
+      kind: (a.tipo === "dispositivo_offline" || a.tipo === "nivel_muito_baixo") ? "bad" : "warn",
+      iso: a.criado_em,
+    });
+  }
+  for (const ch of (Array.isArray(_chamadosData) ? _chamadosData : [])) {
+    eventos.push({
+      tipo: "chamado",
+      titulo: ch.titulo || ("Chamado #" + ch.id),
+      sub: `${ch.prioridade || "media"} • ${(ch.status || "").replaceAll("_", " ")}`,
+      kind: ch.prioridade === "emergencia" ? "bad" : ch.prioridade === "alta" ? "warn" : "ok",
+      iso: ch.criado_em,
+    });
+  }
+  eventos.sort((a, b) => new Date(b.iso) - new Date(a.iso));
+  const top = eventos.slice(0, 10);
+  if (top.length === 0) {
+    wrap.innerHTML = `<div class="mc-empty">Sem eventos recentes.</div>`;
+    return;
+  }
+  const ico = (k) => k === "bad"
+    ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>'
+    : k === "warn"
+    ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6"/></svg>'
+    : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>';
+  wrap.innerHTML = top.map(ev => `
+    <div class="mp-update-row">
+      <div class="mu-icon ${ev.kind}">${ico(ev.kind)}</div>
+      <div class="mu-main">
+        <div class="mu-title">${ev.titulo}</div>
+        <div class="mu-sub">${ev.sub}</div>
+      </div>
+      <span class="mu-time">${_mpRelTime(ev.iso)}</span>
+    </div>`).join("");
+}
+
+// Função pública: chamada em showSection e após carregar dados
+function renderSecaoMapa() {
+  _mpAtualizarKpis();
+  _mpAtualizarMapa();
+  _mpAtualizarPainel();
+  _mpAtualizarStatusDonut();
+  _mpAtualizarZonaDonut();
+  _mpAtualizarUpdates();
+  // Leaflet precisa recalcular tamanho quando a seção fica visível
+  if (_mpMap) setTimeout(() => _mpMap.invalidateSize(), 80);
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   // ===== BOTÕES FIXOS =====
   // nav sections
@@ -3311,6 +3779,17 @@ document.addEventListener("DOMContentLoaded", () => {
     if (buscarCoords) {
       const prefixo = buscarCoords.dataset.prefix;
       if (prefixo) buscarCoordenadasPorEndereco(prefixo);
+    }
+    // Tabs do painel lateral da seção Mapa
+    const mpTab = e.target.closest('.mp-tab[data-tab]');
+    if (mpTab) {
+      _mpTabAtiva = mpTab.dataset.tab;
+      document.querySelectorAll('.mp-tab').forEach(t => t.classList.toggle('is-active', t === mpTab));
+      _mpAtualizarPainel();
+    }
+    // Botão "Abrir Painel" da seção Mapa
+    if (e.target.closest('#mpBtnAbrirPainel') && _mpCondoSelecionadoId) {
+      abrirDrawer(_mpCondoSelecionadoId);
     }
   });
 
