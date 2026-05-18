@@ -196,7 +196,7 @@ app.get("/admin/teste-mapa", (req, res) => {
   res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
   res.setHeader("Content-Security-Policy",
     "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; " +
-    "img-src 'self' data: blob: https://*.basemaps.cartocdn.com");
+    "img-src 'self' data: blob: https://*.basemaps.cartocdn.com https://*.tile.openstreetmap.org");
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.send(`<!doctype html>
 <html lang="pt-br">
@@ -208,10 +208,11 @@ app.get("/admin/teste-mapa", (req, res) => {
   <style>
     body { background:#0b0f1f; color:#e6e9f5; font-family: system-ui, sans-serif; margin:0; padding:16px; }
     h1 { font-size:18px; margin:0 0 12px; }
-    #mapa { width:100%; height:380px; border:1px solid rgba(255,255,255,.15); border-radius:8px; background:#101427; }
-    .log { margin-top:14px; background:rgba(0,0,0,.4); border:1px solid rgba(255,255,255,.1);
-           border-radius:8px; padding:10px 12px; font-family: monospace; font-size:12px;
-           max-height: 260px; overflow:auto; }
+    h2 { font-size:14px; margin:16px 0 6px; color:#94a3b8; }
+    .mapa { width:100%; height:260px; border:1px solid rgba(255,255,255,.15); border-radius:8px; background:#101427; }
+    .log { margin-top:8px; background:rgba(0,0,0,.4); border:1px solid rgba(255,255,255,.1);
+           border-radius:8px; padding:10px 12px; font-family: monospace; font-size:11.5px;
+           max-height: 160px; overflow:auto; }
     .log .ok  { color:#4ade80; }
     .log .err { color:#f87171; }
     .log .info { color:#94a3b8; }
@@ -219,46 +220,53 @@ app.get("/admin/teste-mapa", (req, res) => {
   </style>
 </head>
 <body>
-  <h1>Diagnóstico do mapa</h1>
-  <p style="color:#94a3b8;font-size:13px;">Se você vê o mapa abaixo com ruas e nomes, está funcionando. Se ficar cinza/preto, o log mostra o que falhou.</p>
-  <div id="mapa"></div>
-  <div class="log" id="log"></div>
+  <h1>Diagnóstico do mapa — Carto vs OpenStreetMap</h1>
+  <p style="color:#94a3b8;font-size:13px;">Dois mapas testando provedores diferentes. O que mostrar ruas é o que funciona pra você.</p>
+
+  <h2>1) Carto Dark (tema dark)</h2>
+  <div id="mapaCarto" class="mapa"></div>
+  <div class="log" id="logCarto"></div>
+
+  <h2>2) OpenStreetMap padrão (tema claro — fallback)</h2>
+  <div id="mapaOsm" class="mapa"></div>
+  <div class="log" id="logOsm"></div>
+
   <p style="margin-top:14px;"><a href="/admin/painel">← Voltar pro painel</a></p>
   <script src="/static/leaflet.js"></script>
   <script>
-  const log = document.getElementById("log");
-  const add = (msg, cls) => {
-    const d = document.createElement("div");
-    if (cls) d.className = cls;
-    d.textContent = "[" + new Date().toLocaleTimeString() + "] " + msg;
-    log.appendChild(d);
-    log.scrollTop = log.scrollHeight;
-  };
-  window.addEventListener("error", e => add("JS error: " + e.message, "err"));
-
-  if (typeof L === "undefined") {
-    add("ERRO: Leaflet não carregou (/static/leaflet.js)", "err");
-  } else {
-    add("Leaflet carregado: v" + (L.version || "?"), "ok");
-    try {
-      const map = L.map("mapa", { center: [-23.55, -46.63], zoom: 11 });
-      add("L.map criado", "ok");
-      const layer = L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
-        subdomains: "abcd", maxZoom: 19,
-      });
-      let okCount = 0, errCount = 0;
-      layer.on("tileloadstart", e => add("tile request: " + e.tile.src, "info"));
-      layer.on("tileload",  () => { okCount++; if (okCount === 1) add("✓ Primeiro tile carregou", "ok"); });
-      layer.on("tileerror", e => { errCount++; add("✗ Tile error: " + (e.tile?.src || "?"), "err"); });
-      layer.addTo(map);
-      add("tileLayer adicionado ao mapa", "ok");
-      setTimeout(() => {
-        add("Após 5s: " + okCount + " tiles ok, " + errCount + " com erro", okCount > 0 ? "ok" : "err");
-      }, 5000);
-    } catch (e) {
-      add("Exceção: " + e.message, "err");
-    }
+  function fazerLog(elId) {
+    const log = document.getElementById(elId);
+    return (msg, cls) => {
+      const d = document.createElement("div");
+      if (cls) d.className = cls;
+      d.textContent = "[" + new Date().toLocaleTimeString() + "] " + msg;
+      log.appendChild(d);
+      log.scrollTop = log.scrollHeight;
+    };
   }
+  function testarTile(mapaId, url, opts, logId) {
+    const add = fazerLog(logId);
+    if (typeof L === "undefined") return add("Leaflet não carregou", "err");
+    try {
+      const map = L.map(mapaId, { center: [-23.55, -46.63], zoom: 11, zoomControl: false });
+      const layer = L.tileLayer(url, opts || {});
+      let ok = 0, err = 0;
+      layer.on("tileload",  () => { ok++; if (ok === 1) add("✓ Primeiro tile carregou", "ok"); });
+      layer.on("tileerror", () => { err++; });
+      layer.addTo(map);
+      setTimeout(() => {
+        add("Resultado: " + ok + " tiles OK, " + err + " com erro", ok > 0 ? "ok" : "err");
+      }, 5000);
+    } catch (e) { add("Exceção: " + e.message, "err"); }
+  }
+  testarTile("mapaCarto",
+    "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
+    { subdomains: "abcd", maxZoom: 19 },
+    "logCarto");
+  testarTile("mapaOsm",
+    "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    { subdomains: "abc", maxZoom: 19 },
+    "logOsm");
   </script>
 </body>
 </html>`);
