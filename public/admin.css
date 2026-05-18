@@ -3251,7 +3251,8 @@ tbody tr:nth-child(even):hover td { background: rgba(255,255,255,.04); }
   .mp-fs-label { display: none; }
 }
 
-/* Modo tela cheia: o card invade a viewport inteira */
+/* Modo tela cheia: o card invade a viewport inteira e some o chrome do card.
+   O cabeçalho vira overlay flutuante; o canvas do mapa ocupa 100% da viewport. */
 .mp-map-card.is-fullscreen {
   position: fixed;
   inset: 0;
@@ -3260,11 +3261,51 @@ tbody tr:nth-child(even):hover td { background: rgba(255,255,255,.04); }
   min-height: 100vh;
   height: 100vh;
   max-height: 100vh;
+  border: none;
+  background: var(--bg);
+  padding: 0;
+  display: block; /* sai do flex column do .card */
 }
-.mp-map-card.is-fullscreen .mp-map-canvas {
-  border-radius: 0;
+/* Cabeçalho do card vira faixa flutuante transparente sobre o mapa */
+.mp-map-card.is-fullscreen .cardHead {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  right: 16px;
+  z-index: 3;
+  padding: 0;
+  border: none;
+  background: transparent;
+  pointer-events: none; /* só os elementos interativos pegam clique */
   min-height: 0;
 }
+.mp-map-card.is-fullscreen .cardHead h2 { display: none; }
+.mp-map-card.is-fullscreen .mp-map-actions { pointer-events: auto; margin-left: auto; }
+
+/* Legenda em fullscreen ganha fundo sólido pra não confundir com mapa */
+.mp-map-card.is-fullscreen .mc-map-legend {
+  background: rgba(12,14,28,.85);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(10px);
+  padding: 6px 10px;
+  border-radius: 8px;
+}
+/* Botão Tela cheia / Sair em fullscreen também ganha fundo sólido */
+.mp-map-card.is-fullscreen .mp-fs-btn {
+  background: rgba(12,14,28,.85);
+  border-color: var(--border-strong);
+  backdrop-filter: blur(10px);
+}
+/* Canvas ocupa toda a viewport */
+.mp-map-card.is-fullscreen .mp-map-canvas {
+  position: absolute;
+  inset: 0;
+  border-radius: 0;
+  min-height: 0;
+  z-index: 1;
+}
+/* Controles do Leaflet ficam acima do header overlay */
+.mp-map-card.is-fullscreen .leaflet-control-container { z-index: 4; }
 /* Trava scroll do body enquanto está em fullscreen */
 body.mp-fs-active { overflow: hidden; }
 

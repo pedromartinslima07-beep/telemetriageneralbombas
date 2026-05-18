@@ -573,7 +573,10 @@ function renderMcMap() {
   // Cria o mapa Leaflet na primeira chamada — só quando o container tem
   // dimensões reais. Caso contrário os tiles do Carto não baixam.
   if (!_mcMap) {
-    if (el.clientWidth === 0 || el.clientHeight === 0) return;
+    if (el.clientWidth === 0 || el.clientHeight === 0) {
+      _esperarDimensao(el, () => renderMcMap());
+      return;
+    }
     _mcMap = L.map(el, {
       center: [SP_CENTRO.lat, SP_CENTRO.lng],
       zoom: SP_CENTRO.zoom,
@@ -585,6 +588,7 @@ function renderMcMap() {
       subdomains: "abcd",
       maxZoom: 19,
     }).addTo(_mcMap);
+    requestAnimationFrame(() => _mcMap.invalidateSize());
   }
 
   const groups = Array.isArray(_statusData) ? _statusData : [];
@@ -3406,6 +3410,23 @@ function _mpAtualizarKpis() {
 }
 
 // --- Mapa principal Leaflet ---
+// Detecta quando o container ganha dimensões reais (a seção foi exibida)
+// e chama o callback uma vez. Robusto contra mudanças de display:none → block.
+function _esperarDimensao(el, cb) {
+  if (!el) return;
+  if (el.clientWidth > 0 && el.clientHeight > 0) { cb(); return; }
+  if (el._roEsperando) return;
+  el._roEsperando = true;
+  const ro = new ResizeObserver(() => {
+    if (el.clientWidth > 0 && el.clientHeight > 0) {
+      ro.disconnect();
+      el._roEsperando = false;
+      cb();
+    }
+  });
+  ro.observe(el);
+}
+
 function _mpAtualizarMapa() {
   const el = document.getElementById("mpMapCanvas");
   if (!el || typeof L === "undefined") return;
@@ -3414,7 +3435,11 @@ function _mpAtualizarMapa() {
   // se criasse com width/height 0 (seção display:none), os tiles do Carto
   // não baixariam e o mapa ficaria em branco depois da seção aparecer.
   if (!_mpMap) {
-    if (el.clientWidth === 0 || el.clientHeight === 0) return;
+    if (el.clientWidth === 0 || el.clientHeight === 0) {
+      // Agenda criação automática assim que o container ganhar dimensão
+      _esperarDimensao(el, () => _mpAtualizarMapa());
+      return;
+    }
     _mpMap = L.map(el, {
       center: [SP_CENTRO.lat, SP_CENTRO.lng],
       zoom: SP_CENTRO.zoom,
@@ -3425,6 +3450,8 @@ function _mpAtualizarMapa() {
       subdomains: "abcd",
       maxZoom: 19,
     }).addTo(_mpMap);
+    // Garante que os tiles renderizem corretamente após inserção tardia
+    requestAnimationFrame(() => _mpMap.invalidateSize());
   }
 
   const groups = Array.isArray(_statusData) ? _statusData : [];
