@@ -96,6 +96,57 @@ app.get("/sw.js", (req, res) => {
   res.sendFile(path.join(__dirname, "../public/sw.js"));
 });
 
+// Proxy de tiles do mapa — busca do Carto Dark e serve pelo nosso domínio.
+// Resolve quando adblockers/firewalls do cliente bloqueiam tile servers
+// publicos. Cache HTTP forte (1 dia) pra reduzir tráfego upstream.
+const _tileCache = new Map(); // key "z/x/y" → { buf, type, ts }
+const _TILE_TTL_MS = 1000 * 60 * 60 * 24; // 24h
+app.get("/tiles/:z/:x/:y.png", async (req, res) => {
+  const { z, x, y } = req.params;
+  // Sanity: só dígitos pra evitar SSRF
+  if (!/^\d+$/.test(z) || !/^\d+$/.test(x) || !/^\d+$/.test(y)) {
+    return res.status(400).end();
+  }
+  const zoom = Number(z);
+  if (zoom > 19 || zoom < 0) return res.status(400).end();
+
+  const key = `${z}/${x}/${y}`;
+  const cached = _tileCache.get(key);
+  if (cached && (Date.now() - cached.ts) < _TILE_TTL_MS) {
+    res.setHeader("Content-Type", cached.type);
+    res.setHeader("Cache-Control", "public, max-age=86400");
+    return res.send(cached.buf);
+  }
+
+  // Tenta Carto Dark primeiro, OSM como fallback
+  const fontes = [
+    `https://a.basemaps.cartocdn.com/dark_all/${z}/${x}/${y}.png`,
+    `https://a.tile.openstreetmap.org/${z}/${x}/${y}.png`,
+  ];
+  for (const url of fontes) {
+    try {
+      const r = await fetch(url, {
+        headers: { "User-Agent": "TelemetriaGeneralBombas/1.0 (tiles proxy)" },
+      });
+      if (!r.ok) continue;
+      const buf = Buffer.from(await r.arrayBuffer());
+      const type = r.headers.get("content-type") || "image/png";
+      _tileCache.set(key, { buf, type, ts: Date.now() });
+      // Limita o cache a ~2000 tiles em memória
+      if (_tileCache.size > 2000) {
+        const primeira = _tileCache.keys().next().value;
+        _tileCache.delete(primeira);
+      }
+      res.setHeader("Content-Type", type);
+      res.setHeader("Cache-Control", "public, max-age=86400");
+      return res.send(buf);
+    } catch (e) {
+      // tenta a próxima
+    }
+  }
+  return res.status(502).end();
+});
+
 // Pagina publica para forcar reset do PWA (desregistra SW, limpa caches e
 // localStorage). Util quando o usuario fica preso em uma versao antiga e
 // nao consegue acessar o DevTools.

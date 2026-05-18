@@ -1,5 +1,5 @@
 ﻿// eslint-disable-next-line no-console
-console.log("[telemetria-admin] v14 carregado", new Date().toISOString());
+console.log("[telemetria-admin] v15 carregado", new Date().toISOString());
 function getToken() { return localStorage.getItem("token"); }
 function authHeaders() {
   const token = getToken();
@@ -568,31 +568,15 @@ function _mcPinIcon(kind) {
   });
 }
 
-// Cria a tile layer dark do Carto. Se 3 ou mais tiles falharem (acontece
-// quando o navegador ou rede bloqueia o CDN ou o @2x não está disponível),
-// substitui por OpenStreetMap padrão como fallback resiliente.
+// Tiles servidos pelo nosso próprio backend (proxy em /tiles/{z}/{x}/{y}.png).
+// O proxy busca do Carto Dark com fallback pra OSM no servidor — assim
+// adblockers/firewalls do cliente não bloqueiam nada, já que os tiles
+// chegam pelo mesmo domínio do site.
 function _criarTileLayer(map) {
-  const carto = L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png", {
-    subdomains: "abcd",
+  L.tileLayer("/tiles/{z}/{x}/{y}.png", {
     maxZoom: 19,
-    crossOrigin: true,
-  });
-  let erros = 0;
-  let trocado = false;
-  carto.on("tileerror", () => {
-    erros++;
-    if (!trocado && erros >= 3) {
-      trocado = true;
-      console.warn("[tiles] Carto falhou", erros, "vezes — caindo pro OpenStreetMap");
-      map.removeLayer(carto);
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        subdomains: "abc",
-        maxZoom: 19,
-        attribution: "© OpenStreetMap",
-      }).addTo(map);
-    }
-  });
-  carto.addTo(map);
+    attribution: "© OpenStreetMap · © CARTO",
+  }).addTo(map);
 }
 
 function renderMcMap() {
