@@ -39,7 +39,16 @@ function showSection(name) {
     carregarHistoricoTelemetria();
   }
   if (name === "mapa") {
-    renderSecaoMapa();
+    // O Leaflet pode não ter sido criado ainda (seção estava display:none e
+    // a primeira chamada de renderSecaoMapa fez early-return). Garante que
+    // tenta de novo agora que o container está visível e com dimensões.
+    setTimeout(() => renderSecaoMapa(), 0);
+  }
+  // Dashboard também tem Leaflet (mc-map). Quando o user volta pra dashboard,
+  // revalida o tamanho — pode ter ficado com tiles travados se foi criado
+  // antes do container medir.
+  if (name === "dashboard" && _mcMap) {
+    setTimeout(() => _mcMap.invalidateSize(), 0);
   }
 }
 
@@ -561,8 +570,10 @@ function renderMcMap() {
   const el = document.getElementById("mcMapCanvas");
   if (!el || typeof L === "undefined") return;
 
-  // Cria o mapa Leaflet na primeira chamada
+  // Cria o mapa Leaflet na primeira chamada — só quando o container tem
+  // dimensões reais. Caso contrário os tiles do Carto não baixam.
   if (!_mcMap) {
+    if (el.clientWidth === 0 || el.clientHeight === 0) return;
     _mcMap = L.map(el, {
       center: [SP_CENTRO.lat, SP_CENTRO.lng],
       zoom: SP_CENTRO.zoom,
@@ -574,8 +585,6 @@ function renderMcMap() {
       subdomains: "abcd",
       maxZoom: 19,
     }).addTo(_mcMap);
-    // Garante medida correta quando o container é mostrado depois (dashboard inicial)
-    setTimeout(() => _mcMap.invalidateSize(), 60);
   }
 
   const groups = Array.isArray(_statusData) ? _statusData : [];
@@ -3401,7 +3410,11 @@ function _mpAtualizarMapa() {
   const el = document.getElementById("mpMapCanvas");
   if (!el || typeof L === "undefined") return;
 
+  // Só inicializa quando o container realmente tem dimensão visível —
+  // se criasse com width/height 0 (seção display:none), os tiles do Carto
+  // não baixariam e o mapa ficaria em branco depois da seção aparecer.
   if (!_mpMap) {
+    if (el.clientWidth === 0 || el.clientHeight === 0) return;
     _mpMap = L.map(el, {
       center: [SP_CENTRO.lat, SP_CENTRO.lng],
       zoom: SP_CENTRO.zoom,
@@ -3412,7 +3425,6 @@ function _mpAtualizarMapa() {
       subdomains: "abcd",
       maxZoom: 19,
     }).addTo(_mpMap);
-    setTimeout(() => _mpMap.invalidateSize(), 80);
   }
 
   const groups = Array.isArray(_statusData) ? _statusData : [];
@@ -3742,8 +3754,24 @@ function renderSecaoMapa() {
   _mpAtualizarStatusDonut();
   _mpAtualizarZonaDonut();
   _mpAtualizarUpdates();
-  // Leaflet precisa recalcular tamanho quando a seção fica visível
-  if (_mpMap) setTimeout(() => _mpMap.invalidateSize(), 80);
+  // Leaflet precisa recalcular tamanho sempre que o container muda de visível
+  // (ex: usuário trocou de seção e voltou). Sem isso os tiles ficam em branco.
+  if (_mpMap) {
+    requestAnimationFrame(() => {
+      _mpMap.invalidateSize();
+      // Se nunca aplicou fit (mapa criado em tamanho 0 ou sem coords), reaplica agora
+      if (!_mpMap._fitAplicado) {
+        const groups = Array.isArray(_statusData) ? _statusData : [];
+        const bounds = groups
+          .filter(g => g.condominio?.lat != null && g.condominio?.lng != null)
+          .map(g => [g.condominio.lat, g.condominio.lng]);
+        if (bounds.length > 0) {
+          _mpMap.fitBounds(bounds, { padding: [40, 40], maxZoom: 13 });
+          _mpMap._fitAplicado = true;
+        }
+      }
+    });
+  }
 }
 
 document.addEventListener("DOMContentLoaded", () => {
