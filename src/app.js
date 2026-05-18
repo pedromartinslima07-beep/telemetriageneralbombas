@@ -41,12 +41,15 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       ...helmet.contentSecurityPolicy.getDefaultDirectives(),
-      // Tiles do mapa (Carto dark) — Leaflet baixa imagens diretamente do CDN público
+      // Tiles do mapa — Leaflet baixa imagens diretamente do CDN público.
+      // Carto Dark é o preferido (tema dark), com fallback pro OpenStreetMap
+      // padrão caso o Carto seja bloqueado por adblock / rede / etc.
       "img-src": [
         "'self'",
         "data:",
         "blob:",
         "https://*.basemaps.cartocdn.com",
+        "https://*.tile.openstreetmap.org",
       ],
       // Auto-preenchimento de endereço por CEP:
       //   ViaCEP      — texto granular

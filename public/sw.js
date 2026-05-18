@@ -1,4 +1,4 @@
-const CACHE_NAME = "telemetria-v13";
+const CACHE_NAME = "telemetria-v14";
 
 // Permite que a página force a ativação imediata desta versão (sem esperar
 // todos os clients fecharem). Pareado com o postMessage no register-sw.js.

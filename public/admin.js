@@ -1,5 +1,5 @@
 ﻿// eslint-disable-next-line no-console
-console.log("[telemetria-admin] v13 carregado", new Date().toISOString());
+console.log("[telemetria-admin] v14 carregado", new Date().toISOString());
 function getToken() { return localStorage.getItem("token"); }
 function authHeaders() {
   const token = getToken();
@@ -568,6 +568,33 @@ function _mcPinIcon(kind) {
   });
 }
 
+// Cria a tile layer dark do Carto. Se 3 ou mais tiles falharem (acontece
+// quando o navegador ou rede bloqueia o CDN ou o @2x não está disponível),
+// substitui por OpenStreetMap padrão como fallback resiliente.
+function _criarTileLayer(map) {
+  const carto = L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png", {
+    subdomains: "abcd",
+    maxZoom: 19,
+    crossOrigin: true,
+  });
+  let erros = 0;
+  let trocado = false;
+  carto.on("tileerror", () => {
+    erros++;
+    if (!trocado && erros >= 3) {
+      trocado = true;
+      console.warn("[tiles] Carto falhou", erros, "vezes — caindo pro OpenStreetMap");
+      map.removeLayer(carto);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        subdomains: "abc",
+        maxZoom: 19,
+        attribution: "© OpenStreetMap",
+      }).addTo(map);
+    }
+  });
+  carto.addTo(map);
+}
+
 function renderMcMap() {
   const el = document.getElementById("mcMapCanvas");
   if (!el || typeof L === "undefined") return;
@@ -586,10 +613,7 @@ function renderMcMap() {
       attributionControl: false,
       scrollWheelZoom: false, // não captura scroll da página
     });
-    L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
-      subdomains: "abcd",
-      maxZoom: 19,
-    }).addTo(_mcMap);
+    _criarTileLayer(_mcMap);
     requestAnimationFrame(() => _mcMap.invalidateSize());
   }
 
@@ -3015,14 +3039,9 @@ function criarOuObterMiniMapa(prefixo) {
     attributionControl: true,
   });
 
-  const tileLayer = L.tileLayer(
-    "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-    {
-      attribution: "© OpenStreetMap · © CARTO",
-      subdomains: "abcd",
-      maxZoom: 19,
-    }
-  ).addTo(map);
+  // Mesma estratégia de fallback do mapa principal: tenta Carto dark, cai
+  // pro OSM padrão se falhar (caso o navegador/rede bloqueie o Carto).
+  _criarTileLayer(map);
 
   const marker = L.marker([lat, lng], {
     draggable: true,
@@ -3049,7 +3068,7 @@ function criarOuObterMiniMapa(prefixo) {
   inLat?.addEventListener("change", onInputCoord);
   inLng?.addEventListener("change", onInputCoord);
 
-  const ref = { map, marker, tileLayer };
+  const ref = { map, marker };
   _miniMapas.set(prefixo, ref);
   return ref;
 }
@@ -3448,10 +3467,7 @@ function _mpAtualizarMapa() {
       zoomControl: true,
       attributionControl: false,
     });
-    L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
-      subdomains: "abcd",
-      maxZoom: 19,
-    }).addTo(_mpMap);
+    _criarTileLayer(_mpMap);
     // Garante que os tiles renderizem corretamente após inserção tardia
     requestAnimationFrame(() => _mpMap.invalidateSize());
   }
