@@ -96,9 +96,13 @@ app.get("/sw.js", (req, res) => {
 // Pagina publica para forcar reset do PWA (desregistra SW, limpa caches e
 // localStorage). Util quando o usuario fica preso em uma versao antiga e
 // nao consegue acessar o DevTools. Headers explicitos pra nao ser cacheada.
+// CSP relaxado pra permitir o script inline (essa pagina nao carrega nada
+// externo, entao 'unsafe-inline' nao expoe nada — e ela e isolada).
 app.get("/reset-cache", (req, res) => {
   res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
   res.setHeader("Pragma", "no-cache");
+  res.setHeader("Content-Security-Policy",
+    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'");
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.send(`<!doctype html>
 <html lang="pt-br">
