@@ -1,4 +1,6 @@
-﻿function getToken() { return localStorage.getItem("token"); }
+﻿// eslint-disable-next-line no-console
+console.log("[telemetria-admin] v13 carregado", new Date().toISOString());
+function getToken() { return localStorage.getItem("token"); }
 function authHeaders() {
   const token = getToken();
   return token ? { Authorization: "Bearer " + token } : {};
