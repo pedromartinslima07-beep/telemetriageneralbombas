@@ -292,10 +292,10 @@ O layout antigo (tabela com linhas expansíveis) foi substituído por **cards vi
 - Badges de contagem no menu lateral para Chamados e WhatsApp
 - Mobile: Chamados no bottom nav com badge; drawer como sheet inferior
 
-**Pendente da 3A (melhorias futuras):**
-- [ ] Gauge ApexCharts radial substituindo a barra de nível simples
-- [ ] Polling independente por tipo de dado (telemetria mais rápida que chamados)
-- [ ] Badge pulsante / notificação sonora para chamados novos em tempo real
+**Pendências da 3A — todas concluídas:**
+- [x] Gauge ApexCharts radial substituindo a barra de nível simples (no drawer, mantendo barra simples nos cards por performance)
+- [x] Polling independente por tipo de dado (telemetria 7s / chamados+WhatsApp 20s)
+- [x] Badge pulsante para chamados novos + beep curto apenas para `prioridade=emergencia`
 
 #### 3A.1 — Redesign visual "Mission Control" ✅ CONCLUÍDO
 
@@ -325,31 +325,61 @@ Reestilização premium do painel admin inspirada em Vercel/Linear/Datadog. Stac
 - Drawer, modais, mobile topbar + bottom nav intactos
 - Lógica de autenticação, filtros, paginação e cadastros sem alterações
 
+#### 3A.2 — Seção Telemetria avançada ✅ CONCLUÍDO
+
+Substitui o stub "Em breve" da seção Telemetria por uma página completa inspirada em painéis SaaS de monitoramento.
+
+**O que foi implementado:**
+- **5 KPIs no topo** (`.resumo-grid` + `.rc` reaproveitados): Reservatórios Monitorados · Nível Médio Geral · Bombas Ativas · Alertas Críticos · Dispositivos Offline
+- **Bar chart "Níveis dos Reservatórios"** (ApexCharts) com cor por barra (vermelho <20%, âmbar <40%, ciano <70%, verde >70%) e filtros funcionais de **condomínio** e **tipo**
+- **Lista "Reservatórios Críticos"** priorizando offline > nível baixo > alertas, top 12, clicáveis abrindo o drawer
+- **Tabela "Status das Bombas"** com pills LIGADA/DESLIGADA, % colorido por faixa, tempo desde a última atualização e badge OFFLINE
+- **Line chart "Histórico de Níveis"** (24h/3d/7d) com seleção de **condomínio** + **reservatório** (rótulos: `— Auto: 3 mais críticos —` quando sem filtro). Botão **Exportar PDF** habilita quando há reservatório específico
+- Endpoint novo `GET /admin/historico?device_ids=A,B,C&horas=N` (até 10 devices, buckets agregados por hora)
+- Rota `/relatorio/pdf` liberada para admin (mantém restrição de condomínio para cliente)
+
 #### 3B — Mapa interativo de condomínios
 
-**Biblioteca:** Leaflet.js (open source, sem API key, ~40kb)
+**Biblioteca:** Leaflet.js (open source, sem API key, ~150kb local) + tiles dark do Carto
 
-**O que o mapa mostrará:**
-- Pin por condomínio na posição geográfica real
-- Cor do pin reflete status: verde (ok) → amarelo (alerta) → vermelho (offline/emergência)
-- Cluster automático quando há muitos pins próximos
+**Pinos:** todos os condomínios cadastrados, cor pelo status calculado de chamados abertos + alertas de telemetria + offline.
 
-**Ao clicar no pin — popup com:**
-- Nome do condomínio
-- Nível atual do reservatório
-- Status da bomba
-- Chamados abertos
-- Botão "Ver detalhes" → abre o drawer com abas completo
+**Painel lateral:** side-by-side colado ao mapa (não usa o drawer, mantém o contexto visual do mapa).
 
-**Nova seção na sidebar:** "Mapa" — carrega a pedido (não no polling geral)
+##### 3B.0 — Schema + IA com classificação ✅ CONCLUÍDO
 
-Itens:
-- [ ] Migration: `ALTER TABLE condominios ADD COLUMN lat NUMERIC(9,6), ADD COLUMN lng NUMERIC(9,6)`
-- [ ] Adicionar Leaflet.js ao projeto (arquivo local, sem CDN externo)
-- [ ] Seção "Mapa" na sidebar e HTML
-- [ ] Renderização dos pins com cor dinâmica por status
-- [ ] Popup com telemetria ao clicar no pin
-- [ ] Campo de coordenadas no cadastro/edição de condomínio (admin)
+- Migration `002_mapa_categoria.sql`: `condominios.lat`/`lng` (NUMERIC 9,6) + `chamados.categoria` (enum: `vazamento`, `bomba_falha`, `nivel_baixo`, `sem_agua`, `ruido`, `manutencao`, `outro`)
+- Função `abrir_chamado` da IA ganha parâmetro `categoria` (obrigatório, enum)
+- System prompt da IA ensina a classificar categoria e prioridade com critérios objetivos
+- Endpoints de chamados aceitam e retornam `categoria` (filtro `?categoria=` no GET)
+- Bug latente corrigido: GET `/chamados` agora retorna `condominio_id` (fazia os badges dos cards filtrarem sempre 0)
+- Script `npm run migrate <arquivo.sql>` para aplicar migrations via Node usando `DATABASE_URL` (substitui depender da UI do Railway)
+
+##### 3B.1 — Cadastro de coordenadas com geocoding híbrido ✅ CONCLUÍDO
+
+- POST/PATCH `/condominios` aceitam e validam `lat`/`lng`; GET retorna ambos
+- Endpoint `GET /admin/geocode?q=...` proxy do Nominatim (OpenStreetMap) com User-Agent e fila de 1 req/s respeitando o ToS
+- Formulários de cadastro e edição ganham:
+  - Campo **CEP** que auto-preenche endereço/bairro/cidade/UF via **ViaCEP** ao completar 8 dígitos (máscara automática)
+  - Botão **"Buscar pelo endereço"** que dispara o geocoding; 1 resultado posiciona o pino direto, múltiplos viram lista de sugestões
+  - **Mini-mapa Leaflet** (~280px) com pino arrastável; arrastar atualiza os campos lat/lng, e digitar lat/lng move o pino
+- Leaflet servido localmente em `public/leaflet.{js,css}` (sem CDN externo); tema dark Carto para os tiles
+- Pino customizado via DivIcon (CSS-only, sem depender das imagens default do Leaflet)
+- CSP (Helmet) ajustado para permitir tiles do Carto e fetch ao ViaCEP
+
+##### 3B.2 — Seção Mapa (próxima)
+
+- [ ] Substituir o stub "Em breve" de `data-section="mapa"`
+- [ ] 4 KPIs no topo (Total / Online / Crítico / Offline)
+- [ ] Mapa principal Leaflet com pinos coloridos por status, cluster automático
+- [ ] Painel lateral side-by-side: tabs Visão Geral / Reservatórios / Bombas / Alertas + botão "Ir ao Painel" (abre o drawer existente)
+- [ ] Legenda + zoom controls customizados na paleta Mission Control
+
+##### 3B.3 — Cards inferiores do Mapa (próxima)
+
+- [ ] **Chamados por Categoria** — barras horizontais ApexCharts (vazamento / bomba_falha / etc.)
+- [ ] **Distribuição por Zona** — donut ApexCharts; zona derivada por quadrante em torno da Praça da Sé (-23.55, -46.63), raio Centro ≈ 3km
+- [ ] **Últimas Atualizações** — lista combinando chamados e alertas recentes
 
 ### Fase 4 — Integração telemetria automática
 - [ ] Ao abrir chamado, anexa última leitura do condomínio automaticamente

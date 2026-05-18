@@ -6,7 +6,6 @@ const path = require("path");
 
 const { pool } = require("../db");
 const { authRequired } = require("../middleware/authRequired");
-const { clienteOnly } = require("../middleware/clienteOnly");
 
 const router = express.Router();
 
@@ -498,8 +497,12 @@ ${chartScript}
 
 // ── Route: GET /relatorio/pdf ─────────────────────────────────────────────────
 
-router.get("/pdf", authRequired, clienteOnly, async (req, res) => {
-  const condominioId = Number(req.user.condominio_id);
+router.get("/pdf", authRequired, async (req, res) => {
+  const role = req.user?.role;
+  if (role !== "cliente" && role !== "admin" && role !== "admin_viewer") {
+    return res.status(403).json({ error: "Acesso restrito" });
+  }
+
   const { device_id, dias: diasStr } = req.query;
 
   if (!device_id) {
@@ -509,15 +512,27 @@ router.get("/pdf", authRequired, clienteOnly, async (req, res) => {
   const dias = Math.min(Math.max(Number(diasStr) || 30, 1), 90);
 
   try {
-    // 1. Verify device ownership
-    const checkRes = await pool.query(
-      `SELECT r.id, r.nome, r.tipo, r.device_id, c.nome AS cond_nome
-       FROM reservatorios r
-       JOIN condominios c ON c.id = r.condominio_id
-       WHERE r.device_id = $1 AND r.condominio_id = $2 AND r.ativo = true
-       LIMIT 1`,
-      [device_id, condominioId]
-    );
+    // 1. Verify device ownership (cliente restrito ao próprio condomínio; admin acessa qualquer)
+    const isAdmin = role === "admin" || role === "admin_viewer";
+    const condominioId = Number(req.user.condominio_id);
+
+    const checkRes = isAdmin
+      ? await pool.query(
+          `SELECT r.id, r.nome, r.tipo, r.device_id, c.nome AS cond_nome
+           FROM reservatorios r
+           JOIN condominios c ON c.id = r.condominio_id
+           WHERE r.device_id = $1 AND r.ativo = true
+           LIMIT 1`,
+          [device_id]
+        )
+      : await pool.query(
+          `SELECT r.id, r.nome, r.tipo, r.device_id, c.nome AS cond_nome
+           FROM reservatorios r
+           JOIN condominios c ON c.id = r.condominio_id
+           WHERE r.device_id = $1 AND r.condominio_id = $2 AND r.ativo = true
+           LIMIT 1`,
+          [device_id, condominioId]
+        );
 
     if (checkRes.rows.length === 0) {
       return res.status(403).json({ error: "Dispositivo não autorizado" });

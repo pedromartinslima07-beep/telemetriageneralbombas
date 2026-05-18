@@ -316,6 +316,19 @@ a { color: inherit; text-decoration: none; }
   box-shadow: 0 0 10px rgba(239,68,68,.5);
 }
 
+/* pulso ao detectar chamado/conversa novo(a) */
+@keyframes badgeNovoPulse {
+  0%   { transform: scale(1);    box-shadow: 0 0 10px rgba(239,68,68,.5); }
+  30%  { transform: scale(1.25); box-shadow: 0 0 22px rgba(239,68,68,.95); }
+  60%  { transform: scale(1);    box-shadow: 0 0 14px rgba(239,68,68,.7); }
+  100% { transform: scale(1);    box-shadow: 0 0 10px rgba(239,68,68,.5); }
+}
+.nav-badge.pulse-novo,
+.mob-nav-badge.pulse-novo {
+  animation: badgeNovoPulse 1.1s ease-in-out 0s 5;
+  transform-origin: center;
+}
+
 /* ---- Collapsed: icons-only with tooltip ---- */
 .sidebar.collapsed .nav-item {
   padding: 0;
@@ -1618,6 +1631,412 @@ a { color: inherit; text-decoration: none; }
 }
 
 /* ============================================================
+   TELEMETRIA AVANÇADA
+   ============================================================ */
+.tel-kpi-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  margin-bottom: 16px;
+}
+
+.tel-row {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+.tel-row-main   { grid-template-columns: 1.6fr 1fr; }
+.tel-row-bottom { grid-template-columns: 1.4fr 1fr; }
+
+.tel-row > .card {
+  display: flex;
+  flex-direction: column;
+  min-height: 360px;
+}
+
+/* Filtros */
+.tel-filtros {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.tel-select {
+  background: rgba(255,255,255,.04);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  outline: none;
+  transition: border-color .15s, background .15s;
+  min-width: 130px;
+  max-width: 180px;
+}
+.tel-select:hover  { border-color: var(--border-strong); }
+.tel-select:focus  { border-color: var(--accent); background: rgba(240,176,20,.06); }
+.tel-select option { background: #14172a; color: var(--text); }
+
+/* Gráfico de níveis (bar) */
+.tel-niveis-chart {
+  flex: 1;
+  min-height: 280px;
+  padding: 6px 8px 12px;
+}
+.tel-niveis-empty { padding: 32px; text-align: center; }
+
+/* Reservatórios críticos */
+.tel-criticos-list {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  overflow-y: auto;
+  max-height: 380px;
+}
+.tel-criticos-list::-webkit-scrollbar { width: 4px; }
+.tel-criticos-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,.08); border-radius: 99px; }
+
+.tel-crit-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(255,255,255,.025);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: background .15s, border-color .15s, transform .15s;
+}
+.tel-crit-row:hover {
+  background: rgba(255,255,255,.05);
+  border-color: var(--border-strong);
+  transform: translateX(2px);
+}
+.tel-crit-icon {
+  width: 32px; height: 32px;
+  border-radius: 9px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  border: 1px solid transparent;
+}
+.tel-crit-icon svg { width: 15px; height: 15px; }
+.tel-crit-icon.bad  { background: rgba(239,68,68,.14); border-color: rgba(239,68,68,.3); color: #f87171; }
+.tel-crit-icon.warn { background: rgba(245,158,11,.12); border-color: rgba(245,158,11,.3); color: #fbbf24; }
+.tel-crit-icon.off  { background: rgba(122,126,156,.14); border-color: rgba(122,126,156,.3); color: #9ca0bf; }
+
+.tel-crit-main { min-width: 0; }
+.tel-crit-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.tel-crit-sub {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 2px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.tel-crit-pct {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -.5px;
+  white-space: nowrap;
+}
+.tel-crit-pct.bad  { color: #f87171; }
+.tel-crit-pct.warn { color: #fbbf24; }
+.tel-crit-pct.off  { color: #9ca0bf; }
+
+/* Tabela de bombas */
+.tel-bombas-summary {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  letter-spacing: .4px;
+}
+.tel-bombas-wrap {
+  flex: 1;
+  overflow-y: auto;
+  max-height: 360px;
+}
+.tel-bombas-wrap::-webkit-scrollbar { width: 4px; }
+.tel-bombas-wrap::-webkit-scrollbar-thumb { background: rgba(255,255,255,.08); border-radius: 99px; }
+.tel-bombas-table { width: 100%; }
+.tel-bombas-table th,
+.tel-bombas-table td {
+  padding: 9px 14px;
+  font-size: 12px;
+}
+.tel-bombas-table th { background: rgba(20, 23, 42, .7); }
+.tel-bomba-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 10.5px; font-weight: 800; letter-spacing: .4px;
+  padding: 3px 8px; border-radius: 999px;
+}
+.tel-bomba-pill::before {
+  content: ''; width: 6px; height: 6px; border-radius: 999px;
+}
+.tel-bomba-pill.on  { background: rgba(34,197,94,.12);  color: #6ee7a9; border: 1px solid rgba(34,197,94,.28); }
+.tel-bomba-pill.on::before  { background: #22c55e; box-shadow: 0 0 8px #22c55e; }
+.tel-bomba-pill.off { background: rgba(122,126,156,.12); color: #b9bcd4; border: 1px solid rgba(122,126,156,.28); }
+.tel-bomba-pill.off::before { background: #7a7e9c; }
+.tel-bomba-pill.uk  { background: rgba(255,255,255,.04); color: var(--muted); border: 1px solid var(--border); }
+.tel-bomba-pill.uk::before  { background: var(--muted); }
+.tel-bomba-pct {
+  display: inline-block;
+  font-weight: 700;
+  font-size: 12px;
+}
+.tel-bomba-pct.bad  { color: #f87171; }
+.tel-bomba-pct.warn { color: #fbbf24; }
+.tel-bomba-pct.ok   { color: #6ee7a9; }
+
+/* Histórico (line chart) */
+.tel-historico-ctrls {
+  display: flex;
+  gap: 4px;
+  background: rgba(255,255,255,.04);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 2px;
+}
+.tel-range-btn {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .3px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: color .15s, background .15s;
+}
+.tel-range-btn:hover { color: var(--text); }
+.tel-range-btn.is-active {
+  background: rgba(240,176,20,.14);
+  color: var(--accent-2);
+}
+
+.tel-historico-filtros {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 16px 4px;
+  flex-wrap: wrap;
+}
+.tel-historico-filtros .tel-select { min-width: 0; flex: 1 1 140px; max-width: 220px; }
+
+.btn-pdf {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(240,176,20,.4);
+  background: rgba(240,176,20,.12);
+  color: var(--accent-2);
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: .3px;
+  cursor: pointer;
+  transition: background .15s, border-color .15s, transform .15s, opacity .15s;
+}
+.btn-pdf:hover:not(:disabled) {
+  background: rgba(240,176,20,.2);
+  border-color: rgba(240,176,20,.65);
+  transform: translateY(-1px);
+}
+.btn-pdf:disabled {
+  opacity: .4;
+  cursor: not-allowed;
+}
+
+.tel-historico-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  padding: 0 16px 4px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.tel-leg-item { display: inline-flex; align-items: center; gap: 6px; }
+.tel-leg-item::before {
+  content: ''; width: 10px; height: 3px; border-radius: 2px;
+  background: var(--col, var(--accent));
+  box-shadow: 0 0 6px var(--col, var(--accent));
+}
+
+.tel-historico-chart {
+  flex: 1;
+  min-height: 260px;
+  padding: 0 8px 8px;
+}
+.tel-historico-empty { padding: 32px; text-align: center; }
+
+/* Responsive */
+@media (max-width: 1100px) {
+  .tel-kpi-grid    { grid-template-columns: repeat(3, minmax(0,1fr)); }
+  .tel-row-main,
+  .tel-row-bottom  { grid-template-columns: 1fr; }
+}
+@media (max-width: 640px) {
+  .tel-kpi-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .tel-filtros  { flex-direction: column; align-items: stretch; }
+  .tel-select   { max-width: 100%; }
+}
+
+/* ============================================================
+   CAMPO CEP (auto-preenchimento de endereço via ViaCEP)
+   ============================================================ */
+.cep-field {
+  position: relative;
+}
+.cep-input {
+  letter-spacing: 1px;
+  font-family: ui-monospace, "Cascadia Code", "Fira Code", Consolas, monospace;
+}
+.cep-msg {
+  display: block;
+  font-size: 11px;
+  margin-top: 4px;
+  min-height: 14px;
+  color: var(--muted);
+}
+.cep-msg.is-loading { color: var(--text-dim); }
+.cep-msg.is-ok      { color: #6ee7a9; }
+.cep-msg.is-error   { color: #f87171; }
+
+/* ============================================================
+   LOCALIZAÇÃO / MINI-MAPA (cadastro e edição de condomínio)
+   ============================================================ */
+.loc-block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 12px;
+  background: rgba(255,255,255,.02);
+  border: 1px solid var(--border);
+  margin-top: 4px;
+}
+.loc-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.loc-coords {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.loc-coords .field,
+.loc-coords .f {
+  margin: 0;
+}
+.loc-msg {
+  font-size: 11.5px;
+  color: var(--muted);
+  min-height: 0;
+}
+.loc-msg.is-error { color: #f87171; }
+.loc-msg.is-ok    { color: #6ee7a9; }
+.loc-hint {
+  font-size: 10.5px;
+  color: var(--muted2);
+  text-align: center;
+}
+.mini-mapa {
+  width: 100%;
+  height: 280px;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: rgba(0,0,0,.3);
+}
+.mini-mapa.is-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted2);
+  font-size: 12px;
+}
+
+/* Pino customizado (DivIcon) — sem depender das imagens default do Leaflet */
+.tg-pin {
+  width: 26px;
+  height: 26px;
+  border-radius: 50% 50% 50% 0;
+  background: linear-gradient(135deg, var(--accent), #d97706);
+  border: 2px solid #fff;
+  box-shadow: 0 4px 12px rgba(0,0,0,.6), 0 0 0 4px rgba(240,176,20,.18);
+  transform: rotate(-45deg);
+  cursor: grab;
+}
+.tg-pin::after {
+  content: '';
+  display: block;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: rgba(255,255,255,.7);
+  margin: 7px;
+}
+
+/* Sugestões do geocoding */
+.loc-suggestions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 180px;
+  overflow-y: auto;
+  border-radius: 8px;
+  background: rgba(0,0,0,.25);
+  border: 1px solid var(--border);
+  padding: 4px;
+}
+.loc-suggestions::-webkit-scrollbar { width: 4px; }
+.loc-suggestions::-webkit-scrollbar-thumb { background: rgba(255,255,255,.08); border-radius: 99px; }
+
+.loc-sugg-item {
+  text-align: left;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-dim);
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  cursor: pointer;
+  transition: background .12s, border-color .12s, color .12s;
+}
+.loc-sugg-item:hover {
+  background: rgba(255,255,255,.04);
+  border-color: var(--border);
+  color: var(--text);
+}
+
+/* Tema dark do Leaflet — atenua o fundo branco dos controles */
+.leaflet-container {
+  background: #0d1325 !important;
+  font-family: inherit;
+}
+.leaflet-control-zoom a {
+  background-color: rgba(20, 23, 42, .9) !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+}
+.leaflet-control-zoom a:hover {
+  background-color: rgba(40, 44, 70, .95) !important;
+}
+.leaflet-control-attribution {
+  background: rgba(20, 23, 42, .85) !important;
+  color: var(--muted) !important;
+  font-size: 9px !important;
+}
+.leaflet-control-attribution a { color: var(--accent-2) !important; }
+
+/* ============================================================
    TABLES
    ============================================================ */
 .tableWrap { overflow: auto; max-height: 68vh; }
@@ -2622,6 +3041,15 @@ tbody tr:nth-child(even):hover td { background: rgba(255,255,255,.04); }
   font-size: 11.5px;
   color: var(--muted);
 }
+
+.dp-gauge-wrap {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 4px 0 0;
+  margin: 0 auto;
+}
+.dp-gauge { width: 100%; max-width: 240px; }
 
 .dp-level-bar { height: 10px; border-radius: 999px; background: rgba(255,255,255,.07); overflow: hidden; }
 

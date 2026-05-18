@@ -5,9 +5,11 @@ const { adminOnly } = require("../middleware/adminOnly");
 
 const router = express.Router();
 
+const CATEGORIAS = ["vazamento", "bomba_falha", "nivel_baixo", "sem_agua", "ruido", "manutencao", "outro"];
+
 // GET /chamados — lista chamados (com filtros opcionais)
 router.get("/", authRequired, adminOnly, async (req, res) => {
-  const { status, prioridade, condominio_id } = req.query;
+  const { status, prioridade, categoria, condominio_id } = req.query;
 
   const conditions = [];
   const values = [];
@@ -19,6 +21,10 @@ router.get("/", authRequired, adminOnly, async (req, res) => {
   if (prioridade) {
     values.push(prioridade);
     conditions.push(`ch.prioridade = $${values.length}`);
+  }
+  if (categoria) {
+    values.push(categoria);
+    conditions.push(`ch.categoria = $${values.length}`);
   }
   if (condominio_id) {
     values.push(Number(condominio_id));
@@ -33,8 +39,10 @@ router.get("/", authRequired, adminOnly, async (req, res) => {
          ch.id,
          ch.status,
          ch.prioridade,
+         ch.categoria,
          ch.titulo,
          ch.descricao,
+         ch.condominio_id,
          ch.criado_em,
          ch.atualizado_em,
          ch.fechado_em,
@@ -115,7 +123,7 @@ router.patch("/:id", authRequired, adminOnly, async (req, res) => {
     return res.status(400).json({ error: "id inválido" });
   }
 
-  const { status, prioridade, responsavel_id } = req.body || {};
+  const { status, prioridade, categoria, responsavel_id } = req.body || {};
 
   const STATUSES   = ["aberto", "em_atendimento", "fechado"];
   const PRIORIDADES = ["baixa", "media", "alta", "emergencia"];
@@ -125,6 +133,9 @@ router.patch("/:id", authRequired, adminOnly, async (req, res) => {
   }
   if (prioridade && !PRIORIDADES.includes(prioridade)) {
     return res.status(400).json({ error: `prioridade deve ser: ${PRIORIDADES.join(", ")}` });
+  }
+  if (categoria && !CATEGORIAS.includes(categoria)) {
+    return res.status(400).json({ error: `categoria deve ser: ${CATEGORIAS.join(", ")}` });
   }
 
   const sets = ["atualizado_em = NOW()"];
@@ -138,6 +149,10 @@ router.patch("/:id", authRequired, adminOnly, async (req, res) => {
   if (prioridade) {
     values.push(prioridade);
     sets.push(`prioridade = $${values.length}`);
+  }
+  if (categoria) {
+    values.push(categoria);
+    sets.push(`categoria = $${values.length}`);
   }
   if (responsavel_id !== undefined) {
     values.push(responsavel_id || null);

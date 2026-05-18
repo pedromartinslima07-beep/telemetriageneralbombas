@@ -32,6 +32,12 @@ function showSection(name) {
   const t2 = document.getElementById("topbarTitleDesktop"); // desktop
   if (t1) t1.textContent = title;
   if (t2) t2.textContent = title;
+
+  _telSecaoAtiva = (name === "telemetria");
+  if (_telSecaoAtiva) {
+    renderTelemetriaAvancada();
+    carregarHistoricoTelemetria();
+  }
 }
 
 function logout() {
@@ -124,6 +130,25 @@ let _alertasPorDevice = new Map();
 let _condominios = [];
 let _chamadosData = [];
 let _conversasData = [];
+
+// chamados já vistos — usado para detectar novos e disparar pulso/beep
+let _chamadosIdsVistos = new Set();
+let _chamadosInicializado = false;
+
+// charts ApexCharts ativos no drawer (id reservatório → instance)
+let _drawerGauges = new Map();
+
+// ===== TELEMETRIA AVANÇADA — estado =====
+let _telFiltroCondominioId = "";
+let _telFiltroTipo = "";
+let _telHistoricoHoras = 24;
+let _telBarChart = null;
+let _telHistoricoChart = null;
+let _telSecaoAtiva = false;
+let _telFiltrosInicializados = false;
+let _telHistCondominioId = "";   // filtro do card histórico (independe do filtro do bar chart)
+let _telHistReservatorioId = ""; // reservatório selecionado para PDF
+let _telHistFiltrosInicializados = false;
 
 // ===== estado do drawer =====
 let _drawerCondoId = null;
@@ -251,6 +276,11 @@ async function criarCondominio() {
     return;
   }
 
+  const latStr = (document.getElementById("novoLat")?.value || "").trim();
+  const lngStr = (document.getElementById("novoLng")?.value || "").trim();
+  const lat = latStr === "" ? null : Number(latStr);
+  const lng = lngStr === "" ? null : Number(lngStr);
+
   const payload = {
     nome,
     endereco: endereco || null,
@@ -260,7 +290,9 @@ async function criarCondominio() {
     responsavel: responsavel || null,
     telefone: telefone || null,
     observacoes: observacoes || null,
-    ativo
+    ativo,
+    lat,
+    lng,
   };
 
   const r = await fetch("/condominios", {
@@ -288,6 +320,19 @@ async function criarCondominio() {
   if (document.getElementById("novoTelefone")) document.getElementById("novoTelefone").value = "";
   if (document.getElementById("novoObs")) document.getElementById("novoObs").value = "";
   if (document.getElementById("novoAtivo")) document.getElementById("novoAtivo").checked = true;
+  if (document.getElementById("novoLat")) document.getElementById("novoLat").value = "";
+  if (document.getElementById("novoLng")) document.getElementById("novoLng").value = "";
+  if (document.getElementById("novoCep")) document.getElementById("novoCep").value = "";
+  const cepMsg = document.getElementById("novoCepMsg");
+  if (cepMsg) { cepMsg.className = "cep-msg"; cepMsg.textContent = ""; }
+  const locMsg = document.getElementById("novoLocMsg");
+  if (locMsg) { locMsg.className = "loc-msg"; locMsg.textContent = ""; }
+  // reseta o pino do mini-mapa para o centro de SP
+  const ref = _miniMapas.get("novo");
+  if (ref) {
+    ref.marker.setLatLng([SP_CENTRO.lat, SP_CENTRO.lng]);
+    ref.map.setView([SP_CENTRO.lat, SP_CENTRO.lng], SP_CENTRO.zoom);
+  }
 
   carregarTudo();
 }
@@ -774,6 +819,574 @@ function atualizarStatusSistema() {
   else el.textContent = "Operacional";
 }
 
+// ============================================================
+// TELEMETRIA AVANÇADA
+// ============================================================
+
+const TEL_KPI_ICONS = {
+  monitorados: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h14v18H5z"/><path d="M5 12c2 1.5 5 1.5 7 0s5-1.5 7 0"/></svg>`,
+  nivel:       `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2c4 5 6 8 6 12a6 6 0 1 1-12 0c0-4 2-7 6-12z"/></svg>`,
+  bombas:      `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 4v2M12 18v2M4 12h2M18 12h2"/></svg>`,
+  alertas:     `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
+  offline:     `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M10.71 5.05A16 16 0 0 1 22.58 9"/><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>`,
+};
+
+const TEL_HIST_COLORS = ["#22d3ee", "#f59e0b", "#a78bfa"]; // cyan, accent, violet
+
+function _telColetarReservatorios() {
+  const lista = [];
+  for (const g of (_statusData || [])) {
+    const condId = g?.condominio?.id;
+    const condNome = g?.condominio?.nome || "-";
+    for (const r of (g.reservatorios || [])) {
+      lista.push({
+        ...r,
+        condominio_id: condId,
+        condominio_nome: condNome,
+      });
+    }
+  }
+  return lista;
+}
+
+function _telAplicarFiltros(lista) {
+  return lista.filter(r => {
+    if (_telFiltroCondominioId && String(r.condominio_id) !== String(_telFiltroCondominioId)) return false;
+    if (_telFiltroTipo && r.tipo !== _telFiltroTipo) return false;
+    return true;
+  });
+}
+
+function _telCorPct(pct) {
+  if (pct == null) return "off";
+  if (pct < 20) return "bad";
+  if (pct < 40) return "warn";
+  return "ok";
+}
+
+function _telLvClassDeNivel(nivel) {
+  const n = String(nivel || "").toLowerCase();
+  return n === "alto" ? "lv-alto"
+    : n === "medio" ? "lv-medio"
+      : n === "baixo" ? "lv-baixo"
+        : n === "muito_baixo" ? "lv-muito-baixo" : "";
+}
+
+function renderTelemetriaAvancada() {
+  if (!document.getElementById("telKpiGrid")) return;
+
+  popularFiltrosTelemetria();
+  popularFiltrosHistorico();
+  renderTelKpis();
+  renderTelBarChart();
+  renderTelCriticos();
+  renderTelBombas();
+}
+
+function renderTelKpis() {
+  const grid = document.getElementById("telKpiGrid");
+  if (!grid) return;
+
+  const reservs = _telColetarReservatorios();
+  const total = reservs.length;
+
+  let pctSum = 0, pctCount = 0;
+  let bombasAtivas = 0, bombasConhecidas = 0;
+  let alertas = 0;
+  let offline = 0;
+
+  for (const r of reservs) {
+    const u = r.ultima_leitura;
+    if (u?.nivel_pct != null) { pctSum += u.nivel_pct; pctCount++; }
+    if (u?.bomba_ligada === true) bombasAtivas++;
+    if (u?.bomba_ligada === true || u?.bomba_ligada === false) bombasConhecidas++;
+    alertas += r.alertas_abertos_count || 0;
+    if (r.offline) offline++;
+  }
+
+  const nivelMedio = pctCount > 0 ? Math.round(pctSum / pctCount) : null;
+
+  const cards = [
+    { key: "monitorados", label: "RESERVATÓRIOS MONITORADOS", value: total,                                kind: "neutral", icon: "monitorados" },
+    { key: "nivel",       label: "NÍVEL MÉDIO GERAL",         value: nivelMedio != null ? nivelMedio + "%" : "—", kind: nivelMedio == null ? "neutral" : nivelMedio < 30 ? "bad" : nivelMedio < 50 ? "warn" : "ok", icon: "nivel" },
+    { key: "bombas",      label: "BOMBAS ATIVAS",             value: bombasConhecidas > 0 ? `${bombasAtivas}/${bombasConhecidas}` : "—", kind: bombasAtivas > 0 ? "ok" : "neutral", icon: "bombas" },
+    { key: "alertas",     label: "ALERTAS CRÍTICOS",          value: alertas,                              kind: alertas > 0 ? "bad" : "ok",  icon: "alertas" },
+    { key: "offline",     label: "DISPOSITIVOS OFFLINE",      value: offline,                              kind: offline > 0 ? "bad" : "ok",  icon: "offline" },
+  ];
+
+  grid.innerHTML = cards.map(c => {
+    const kindCls = c.kind === "bad" ? "rc-bad" : c.kind === "warn" ? "rc-warn" : c.kind === "ok" ? "rc-ok" : "rc-neutral";
+    return `
+      <div class="rc ${kindCls}" data-card="tel-${c.key}" style="cursor:default;">
+        <div class="rc-head">
+          <div class="rc-icon">${TEL_KPI_ICONS[c.icon] || ""}</div>
+          <div class="rc-label">${c.label}</div>
+        </div>
+        <div class="rc-value">${c.value}</div>
+      </div>`;
+  }).join("");
+}
+
+function popularFiltrosTelemetria() {
+  const selCond = document.getElementById("telFiltroCondominio");
+  const selTipo = document.getElementById("telFiltroTipo");
+  if (!selCond || !selTipo) return;
+
+  // Condomínios — preserva seleção
+  const prevCond = selCond.value;
+  const conds = (_statusData || []).map(g => g.condominio).filter(Boolean);
+  selCond.innerHTML = `<option value="">Todos os condomínios</option>` +
+    conds.map(c => `<option value="${c.id}">${c.nome}</option>`).join("");
+  if (prevCond && conds.some(c => String(c.id) === prevCond)) selCond.value = prevCond;
+  else _telFiltroCondominioId = "";
+
+  // Tipos únicos
+  const prevTipo = selTipo.value;
+  const tipos = [...new Set(_telColetarReservatorios().map(r => r.tipo).filter(Boolean))].sort();
+  selTipo.innerHTML = `<option value="">Todos os tipos</option>` +
+    tipos.map(t => `<option value="${t}">${t}</option>`).join("");
+  if (prevTipo && tipos.includes(prevTipo)) selTipo.value = prevTipo;
+  else _telFiltroTipo = "";
+
+  if (!_telFiltrosInicializados) {
+    selCond.addEventListener("change", () => {
+      _telFiltroCondominioId = selCond.value;
+      renderTelBarChart();
+      renderTelCriticos();
+      renderTelBombas();
+    });
+    selTipo.addEventListener("change", () => {
+      _telFiltroTipo = selTipo.value;
+      renderTelBarChart();
+      renderTelCriticos();
+      renderTelBombas();
+    });
+    _telFiltrosInicializados = true;
+  }
+}
+
+function renderTelBarChart() {
+  const el = document.getElementById("telNiveisChart");
+  const empty = document.getElementById("telNiveisEmpty");
+  if (!el || typeof ApexCharts === "undefined") return;
+
+  const reservs = _telAplicarFiltros(_telColetarReservatorios())
+    .filter(r => r.ultima_leitura?.nivel_pct != null)
+    .sort((a, b) => (a.condominio_nome || "").localeCompare(b.condominio_nome || "") || (a.nome || "").localeCompare(b.nome || ""));
+
+  if (reservs.length === 0) {
+    if (_telBarChart) { try { _telBarChart.destroy(); } catch (_) {} _telBarChart = null; }
+    el.innerHTML = "";
+    if (empty) empty.style.display = "block";
+    return;
+  }
+  if (empty) empty.style.display = "none";
+
+  const labels = reservs.map(r => `${r.nome || "Res."} · ${r.condominio_nome.slice(0, 14)}`);
+  const data = reservs.map(r => Math.round(r.ultima_leitura.nivel_pct));
+  const cores = reservs.map(r => {
+    const pct = r.ultima_leitura.nivel_pct;
+    if (pct < 20) return "#ef4444";
+    if (pct < 40) return "#f59e0b";
+    if (pct < 70) return "#22d3ee";
+    return "#22c55e";
+  });
+
+  const opts = {
+    chart: { type: "bar", height: "100%", toolbar: { show: false }, background: "transparent", animations: { speed: 350 } },
+    series: [{ name: "Nível (%)", data }],
+    plotOptions: {
+      bar: {
+        borderRadius: 6,
+        borderRadiusApplication: "end",
+        columnWidth: "55%",
+        distributed: true,
+        dataLabels: { position: "top" },
+      },
+    },
+    dataLabels: {
+      enabled: true,
+      formatter: (v) => v + "%",
+      offsetY: -18,
+      style: { fontSize: "10px", fontWeight: "700", colors: ["#eef0fb"] },
+    },
+    colors: cores,
+    xaxis: {
+      categories: labels,
+      labels: { style: { colors: "#7a7e9c", fontSize: "10px" }, rotate: -32, hideOverlappingLabels: false, trim: true },
+      axisBorder: { color: "rgba(255,255,255,.06)" },
+      axisTicks: { color: "rgba(255,255,255,.06)" },
+    },
+    yaxis: {
+      min: 0, max: 100,
+      labels: { style: { colors: "#7a7e9c", fontSize: "10px" }, formatter: (v) => v + "%" },
+    },
+    grid: { borderColor: "rgba(255,255,255,.05)", strokeDashArray: 3, padding: { top: 10, right: 10, bottom: 0, left: 10 } },
+    legend: { show: false },
+    tooltip: {
+      theme: "dark",
+      y: { formatter: (v) => v + "%" },
+    },
+    fill: {
+      type: "gradient",
+      gradient: { shade: "dark", type: "vertical", shadeIntensity: .4, opacityFrom: .95, opacityTo: .7, stops: [0, 100] },
+    },
+  };
+
+  if (_telBarChart) {
+    _telBarChart.updateOptions(opts, false, true);
+  } else {
+    el.innerHTML = "";
+    _telBarChart = new ApexCharts(el, opts);
+    _telBarChart.render();
+  }
+}
+
+function renderTelCriticos() {
+  const list = document.getElementById("telCriticosList");
+  if (!list) return;
+
+  const reservs = _telAplicarFiltros(_telColetarReservatorios());
+  const criticos = reservs
+    .map(r => {
+      const u = r.ultima_leitura;
+      const pct = u?.nivel_pct;
+      const offline = !!r.offline;
+      const alertas = r.alertas_abertos_count || 0;
+      let kind = null, prioridade = 999;
+      if (offline)                      { kind = "off";  prioridade = 0; }
+      else if (pct != null && pct < 20) { kind = "bad";  prioridade = 1; }
+      else if (pct != null && pct < 40) { kind = "warn"; prioridade = 2; }
+      else if (alertas > 0)             { kind = "warn"; prioridade = 3; }
+      return kind ? { r, pct, offline, alertas, kind, prioridade } : null;
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.prioridade - b.prioridade || ((a.pct ?? 100) - (b.pct ?? 100)))
+    .slice(0, 12);
+
+  if (criticos.length === 0) {
+    list.innerHTML = `<div class="mc-empty">Tudo dentro dos parâmetros ✓</div>`;
+    return;
+  }
+
+  const ICON_BAD  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`;
+  const ICON_WARN = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
+  const ICON_OFF  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>`;
+
+  list.innerHTML = criticos.map(({ r, pct, offline, alertas, kind }) => {
+    const icone = kind === "bad" ? ICON_BAD : kind === "off" ? ICON_OFF : ICON_WARN;
+    const sub = offline
+      ? `${r.condominio_nome} · OFFLINE há ${r.minutos_sem_atualizar ?? "?"}min`
+      : pct != null
+        ? `${r.condominio_nome}${alertas > 0 ? ` · ${alertas} alerta${alertas > 1 ? "s" : ""}` : ""}`
+        : `${r.condominio_nome}${alertas > 0 ? ` · ${alertas} alerta${alertas > 1 ? "s" : ""}` : ""}`;
+    const pctTxt = offline ? "OFF" : (pct != null ? pct + "%" : "—");
+    return `
+      <button class="tel-crit-row" data-action="ver-condo" data-id="${r.condominio_id}">
+        <span class="tel-crit-icon ${kind}">${icone}</span>
+        <span class="tel-crit-main">
+          <span class="tel-crit-title">${r.nome || "Reservatório"}</span>
+          <span class="tel-crit-sub">${sub}</span>
+        </span>
+        <span class="tel-crit-pct ${kind}">${pctTxt}</span>
+      </button>`;
+  }).join("");
+}
+
+function renderTelBombas() {
+  const tbody = document.getElementById("telBombasBody");
+  const summary = document.getElementById("telBombasSummary");
+  if (!tbody) return;
+
+  const reservs = _telAplicarFiltros(_telColetarReservatorios())
+    .sort((a, b) => (a.condominio_nome || "").localeCompare(b.condominio_nome || "") || (a.nome || "").localeCompare(b.nome || ""));
+
+  if (summary) {
+    const on = reservs.filter(r => r.ultima_leitura?.bomba_ligada === true).length;
+    const known = reservs.filter(r => r.ultima_leitura?.bomba_ligada === true || r.ultima_leitura?.bomba_ligada === false).length;
+    summary.textContent = known > 0 ? `${on} de ${known} ligadas` : `${reservs.length} reservatórios`;
+  }
+
+  if (reservs.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="5" class="mc-empty" style="padding:24px;">Nenhum resultado para os filtros.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = reservs.map(r => {
+    const u = r.ultima_leitura;
+    const pct = u?.nivel_pct;
+    const corPct = _telCorPct(pct);
+    const bombaCls = u?.bomba_ligada === true ? "on" : u?.bomba_ligada === false ? "off" : "uk";
+    const bombaLbl = u?.bomba_ligada === true ? "LIGADA" : u?.bomba_ligada === false ? "DESLIGADA" : "—";
+    let atualizacao = "—";
+    if (u?.criado_em) {
+      const mins = Math.round((Date.now() - new Date(u.criado_em)) / 60000);
+      if (mins < 60) atualizacao = `há ${mins}min`;
+      else if (mins < 1440) atualizacao = `há ${Math.round(mins / 60)}h`;
+      else atualizacao = fmtData(u.criado_em);
+    }
+    const offlineTag = r.offline ? ` <span class="badge b-bad" style="margin-left:6px;font-size:9px;padding:1px 5px;">OFFLINE</span>` : "";
+    return `
+      <tr>
+        <td><strong>${r.nome || "—"}</strong><div style="font-size:10.5px;color:var(--muted2);">${r.tipo || ""}</div></td>
+        <td>${r.condominio_nome || "—"}</td>
+        <td><span class="tel-bomba-pill ${bombaCls}">${bombaLbl}</span></td>
+        <td><span class="tel-bomba-pct ${corPct === "off" ? "" : corPct}">${pct != null ? pct + "%" : "—"}</span></td>
+        <td style="color:var(--muted);">${atualizacao}${offlineTag}</td>
+      </tr>`;
+  }).join("");
+}
+
+// ----- histórico (line chart) -----
+function _telEscolherReservatoriosParaHistorico() {
+  const todos = _telColetarReservatorios().filter(r => r.device_id);
+  if (todos.length === 0) return [];
+
+  if (_telHistCondominioId) {
+    const doCondo = todos.filter(r => String(r.condominio_id) === String(_telHistCondominioId));
+
+    if (_telHistReservatorioId) {
+      const escolhido = doCondo.find(r => String(r.id) === String(_telHistReservatorioId));
+      if (escolhido) return [escolhido];
+    }
+
+    // todos do condomínio, limitando a 3 para não poluir o gráfico
+    return doCondo.slice(0, 3);
+  }
+
+  // sem filtro: top 3 mais críticos (offline > nivel mais baixo > alertas)
+  return todos
+    .map(r => {
+      const u = r.ultima_leitura;
+      const pct = u?.nivel_pct ?? 999;
+      const score = (r.offline ? 0 : 1000) + pct - (r.alertas_abertos_count || 0) * 5;
+      return { r, score };
+    })
+    .sort((a, b) => a.score - b.score)
+    .slice(0, 3)
+    .map(x => x.r);
+}
+
+function popularFiltrosHistorico() {
+  const selCond = document.getElementById("telHistCondominio");
+  const selRes  = document.getElementById("telHistReservatorio");
+  const btnPdf  = document.getElementById("btnTelExportarPdf");
+  if (!selCond || !selRes) return;
+
+  // condomínios
+  const prevCond = selCond.value;
+  const conds = (_statusData || []).map(g => g.condominio).filter(Boolean);
+  selCond.innerHTML = `<option value="">— Auto: 3 mais críticos —</option>` +
+    conds.map(c => `<option value="${c.id}">${c.nome}</option>`).join("");
+  if (prevCond && conds.some(c => String(c.id) === prevCond)) {
+    selCond.value = prevCond;
+  } else {
+    _telHistCondominioId = "";
+  }
+
+  // reservatórios do condomínio selecionado
+  _telPopularSelectReservatoriosHist();
+
+  if (!_telHistFiltrosInicializados) {
+    selCond.addEventListener("change", () => {
+      _telHistCondominioId = selCond.value;
+      _telHistReservatorioId = "";
+      _telPopularSelectReservatoriosHist();
+      carregarHistoricoTelemetria();
+    });
+    selRes.addEventListener("change", () => {
+      _telHistReservatorioId = selRes.value;
+      _telAtualizarBotaoPdf();
+      carregarHistoricoTelemetria();
+    });
+    btnPdf?.addEventListener("click", exportarPdfHistorico);
+    _telHistFiltrosInicializados = true;
+  }
+
+  _telAtualizarBotaoPdf();
+}
+
+function _telPopularSelectReservatoriosHist() {
+  const selRes = document.getElementById("telHistReservatorio");
+  if (!selRes) return;
+
+  if (!_telHistCondominioId) {
+    selRes.innerHTML = `<option value="">Escolha o condomínio primeiro</option>`;
+    selRes.disabled = true;
+    _telAtualizarBotaoPdf();
+    return;
+  }
+
+  const reservs = _telColetarReservatorios()
+    .filter(r => String(r.condominio_id) === String(_telHistCondominioId) && r.device_id);
+
+  const prev = selRes.value;
+  selRes.innerHTML = `<option value="">Todos os reservatórios (até 3)</option>` +
+    reservs.map(r => `<option value="${r.id}">${r.nome || "Reservatório " + r.id}</option>`).join("");
+  selRes.disabled = reservs.length === 0;
+  if (prev && reservs.some(r => String(r.id) === prev)) {
+    selRes.value = prev;
+  } else {
+    _telHistReservatorioId = "";
+  }
+  _telAtualizarBotaoPdf();
+}
+
+function _telAtualizarBotaoPdf() {
+  const btnPdf = document.getElementById("btnTelExportarPdf");
+  if (!btnPdf) return;
+  // PDF precisa de um reservatório específico
+  btnPdf.disabled = !_telHistReservatorioId;
+  btnPdf.title = _telHistReservatorioId
+    ? "Exportar relatório PDF deste reservatório"
+    : "Selecione um reservatório para exportar PDF";
+}
+
+async function exportarPdfHistorico() {
+  if (!_telHistReservatorioId) return;
+  const reserv = _telColetarReservatorios().find(r => String(r.id) === String(_telHistReservatorioId));
+  if (!reserv?.device_id) {
+    alert("Reservatório sem device_id válido.");
+    return;
+  }
+
+  const btn = document.getElementById("btnTelExportarPdf");
+  const origHtml = btn?.innerHTML;
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<span>Gerando…</span>`;
+  }
+
+  // horas → dias para a rota
+  const horas = _telHistoricoHoras || 24;
+  const dias = Math.max(1, Math.round(horas / 24));
+
+  try {
+    const url = `/relatorio/pdf?device_id=${encodeURIComponent(reserv.device_id)}&dias=${dias}`;
+    const r = await fetch(url, { headers: authHeaders() });
+    if (!r.ok) {
+      const txt = await r.text().catch(() => "");
+      alert("Erro ao gerar PDF: " + (txt || r.status));
+      return;
+    }
+    const blob = await r.blob();
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    const cd = r.headers.get("Content-Disposition") || "";
+    const match = cd.match(/filename="?([^"]+)"?/);
+    a.download = match ? match[1] : "relatorio.pdf";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(a.href);
+  } catch (e) {
+    alert("Erro ao gerar PDF: " + e.message);
+  } finally {
+    if (btn) {
+      btn.innerHTML = origHtml;
+      _telAtualizarBotaoPdf();
+    }
+  }
+}
+
+async function carregarHistoricoTelemetria() {
+  const wrap = document.getElementById("telHistoricoChart");
+  const empty = document.getElementById("telHistoricoEmpty");
+  const legend = document.getElementById("telHistoricoLegend");
+  if (!wrap) return;
+
+  const escolhidos = _telEscolherReservatoriosParaHistorico();
+
+  if (escolhidos.length === 0) {
+    if (empty) { empty.style.display = "block"; empty.textContent = "Sem reservatórios para o filtro selecionado."; }
+    if (legend) legend.innerHTML = "";
+    if (_telHistoricoChart) { try { _telHistoricoChart.destroy(); } catch (_) {} _telHistoricoChart = null; }
+    return;
+  }
+
+  const deviceIds = escolhidos.map(r => r.device_id).join(",");
+
+  try {
+    const resp = await fetch(`/admin/historico?device_ids=${encodeURIComponent(deviceIds)}&horas=${_telHistoricoHoras}`, {
+      headers: authHeaders(),
+    });
+    if (!resp.ok) throw new Error("status " + resp.status);
+    const data = await resp.json();
+
+    renderTelHistoricoChart(escolhidos, data.series || {});
+  } catch (e) {
+    console.error("Erro histórico telemetria:", e);
+    if (empty) { empty.style.display = "block"; empty.textContent = "Erro ao carregar histórico."; }
+  }
+}
+
+function renderTelHistoricoChart(reservatorios, seriesMap) {
+  const wrap = document.getElementById("telHistoricoChart");
+  const empty = document.getElementById("telHistoricoEmpty");
+  const legend = document.getElementById("telHistoricoLegend");
+  if (!wrap || typeof ApexCharts === "undefined") return;
+
+  const series = reservatorios.map((r, i) => ({
+    name: `${r.nome || "Reservatório"} · ${r.condominio_nome || ""}`,
+    data: (seriesMap[r.device_id] || []).map(p => ({ x: new Date(p.bucket).getTime(), y: p.nivel_pct_avg })),
+    color: TEL_HIST_COLORS[i % TEL_HIST_COLORS.length],
+  }));
+
+  const total = series.reduce((s, x) => s + x.data.length, 0);
+  if (total === 0) {
+    if (empty) { empty.style.display = "block"; empty.textContent = "Sem dados de histórico no período."; }
+    wrap.innerHTML = "";
+    if (legend) legend.innerHTML = "";
+    if (_telHistoricoChart) { try { _telHistoricoChart.destroy(); } catch (_) {} _telHistoricoChart = null; }
+    return;
+  }
+  if (empty) empty.style.display = "none";
+
+  if (legend) {
+    legend.innerHTML = series.map((s, i) =>
+      `<span class="tel-leg-item" style="--col:${TEL_HIST_COLORS[i % TEL_HIST_COLORS.length]};">${s.name}</span>`
+    ).join("");
+  }
+
+  const opts = {
+    chart: { type: "area", height: "100%", toolbar: { show: false }, background: "transparent", animations: { speed: 300 }, zoom: { enabled: false } },
+    series,
+    colors: series.map(s => s.color),
+    stroke: { curve: "smooth", width: 2.4 },
+    fill: {
+      type: "gradient",
+      gradient: { shade: "dark", type: "vertical", shadeIntensity: .4, opacityFrom: .35, opacityTo: 0, stops: [0, 90] },
+    },
+    dataLabels: { enabled: false },
+    grid: { borderColor: "rgba(255,255,255,.05)", strokeDashArray: 3 },
+    xaxis: {
+      type: "datetime",
+      labels: { style: { colors: "#7a7e9c", fontSize: "10px" }, datetimeUTC: false },
+      axisBorder: { color: "rgba(255,255,255,.06)" },
+      axisTicks: { color: "rgba(255,255,255,.06)" },
+    },
+    yaxis: {
+      min: 0, max: 100,
+      labels: { style: { colors: "#7a7e9c", fontSize: "10px" }, formatter: (v) => v + "%" },
+    },
+    legend: { show: false },
+    tooltip: {
+      theme: "dark",
+      x: { format: "dd MMM HH:mm" },
+      y: { formatter: (v) => v + "%" },
+    },
+    markers: { size: 0, hover: { size: 4 } },
+  };
+
+  if (_telHistoricoChart) {
+    _telHistoricoChart.updateOptions(opts, false, true);
+  } else {
+    wrap.innerHTML = "";
+    _telHistoricoChart = new ApexCharts(wrap, opts);
+    _telHistoricoChart.render();
+  }
+}
+
 function renderAlertas() {
   const tbody = document.getElementById("tbodyAlertas");
   tbody.innerHTML = "";
@@ -971,9 +1584,75 @@ function renderSelectCondominiosReservatorio() {
   if (prev) sel.value = prev;
 }
 
+function renderTelemetriaVisuais() {
+  renderSelectCondominiosCliente();
+  renderSelectCondominiosReservatorio();
+  renderResumo();
+  bindResumoInteracoes();
+  renderAlertas();
+  renderCondoCards();
+  renderMcMap();
+  renderMcAlerts();
+  renderMcTelemetria();
+  atualizarStatusSistema();
+  atualizarGaugesDrawerSeAberto();
+  if (_telSecaoAtiva) renderTelemetriaAvancada();
+}
+
+function renderAtendimentoVisuais() {
+  renderChamados();
+  renderConversas();
+  atualizarBadgesChamados();
+  atualizarBadgesWhatsapp();
+  renderCondoCards();        // cards têm badges de chamados/wz
+  renderMcConversas();
+}
+
+function renderVisuaisCombinados() {
+  // Visuais que combinam telemetria + atendimento
+  renderMcActivity();
+  renderMcIaInsights();
+}
+
+function marcarAtualizado() {
+  const el = document.getElementById("statusMsg");
+  if (el) el.textContent = "Atualizado às " + new Date().toLocaleTimeString();
+}
+
+async function carregarTelemetria() {
+  try {
+    await Promise.all([
+      carregarStatus(),
+      carregarAlertas(),
+      carregarCondominios(),
+    ]);
+    renderTelemetriaVisuais();
+    renderVisuaisCombinados();
+    marcarAtualizado();
+  } catch (e) {
+    const el = document.getElementById("statusMsg");
+    if (el) el.textContent = "Erro ao atualizar telemetria";
+    console.error(e);
+  }
+}
+
+async function carregarAtendimento() {
+  try {
+    await Promise.all([
+      carregarChamados().catch(() => {}),
+      carregarConversas().catch(() => {}),
+    ]);
+    detectarChamadosNovos();
+    renderAtendimentoVisuais();
+    renderVisuaisCombinados();
+  } catch (e) {
+    console.error("Erro carregarAtendimento:", e);
+  }
+}
+
 async function carregarTudo() {
   const el = document.getElementById("statusMsg");
-  el.textContent = "Carregando...";
+  if (el) el.textContent = "Carregando...";
   try {
     await Promise.all([
       carregarStatus(),
@@ -982,26 +1661,13 @@ async function carregarTudo() {
       carregarChamados().catch(() => {}),
       carregarConversas().catch(() => {}),
     ]);
-    renderSelectCondominiosCliente();
-    renderSelectCondominiosReservatorio();
-    renderResumo();
-    bindResumoInteracoes();
-    renderAlertas();
-    renderCondoCards();
-    renderChamados();
-    renderConversas();
-    atualizarBadgesChamados();
-    atualizarBadgesWhatsapp();
-    renderMcMap();
-    renderMcAlerts();
-    renderMcActivity();
-    renderMcConversas();
-    renderMcTelemetria();
-    renderMcIaInsights();
-    atualizarStatusSistema();
-    el.textContent = "Atualizado às " + new Date().toLocaleTimeString();
+    detectarChamadosNovos();
+    renderTelemetriaVisuais();
+    renderAtendimentoVisuais();
+    renderVisuaisCombinados();
+    marcarAtualizado();
   } catch (e) {
-    el.textContent = "Erro ao atualizar";
+    if (el) el.textContent = "Erro ao atualizar";
     console.error(e);
   }
 }
@@ -1012,6 +1678,72 @@ function atualizarBadgesChamados() {
   if (badge) { badge.textContent = n; badge.style.display = n > 0 ? "inline-flex" : "none"; }
   const mobBadge = document.getElementById("mobBadgeChamados");
   if (mobBadge) { mobBadge.textContent = n; mobBadge.classList.toggle("is-visible", n > 0); }
+}
+
+// ---- alerta de chamados novos ----
+function detectarChamadosNovos() {
+  if (!Array.isArray(_chamadosData)) return;
+
+  if (!_chamadosInicializado) {
+    // primeira carga: popula sem disparar alerta
+    for (const ch of _chamadosData) _chamadosIdsVistos.add(ch.id);
+    _chamadosInicializado = true;
+    return;
+  }
+
+  const novos = _chamadosData.filter(ch => !_chamadosIdsVistos.has(ch.id));
+  if (novos.length === 0) return;
+
+  for (const ch of novos) _chamadosIdsVistos.add(ch.id);
+
+  pulsarBadgeChamados();
+
+  if (novos.some(ch => ch.prioridade === "emergencia")) {
+    tocarBeepEmergencia();
+  }
+}
+
+function pulsarBadgeChamados() {
+  const badge = document.getElementById("navBadgeChamados");
+  const mob = document.getElementById("mobBadgeChamados");
+  for (const el of [badge, mob]) {
+    if (!el) continue;
+    el.classList.remove("pulse-novo");
+    // reflow para reiniciar a animação
+    void el.offsetWidth;
+    el.classList.add("pulse-novo");
+    setTimeout(() => el.classList.remove("pulse-novo"), 6000);
+  }
+}
+
+let _audioCtx = null;
+function tocarBeepEmergencia() {
+  try {
+    if (!_audioCtx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      _audioCtx = new AC();
+    }
+    if (_audioCtx.state === "suspended") _audioCtx.resume().catch(() => {});
+
+    const now = _audioCtx.currentTime;
+    // dois beeps curtos descendentes
+    [880, 660].forEach((freq, i) => {
+      const osc = _audioCtx.createOscillator();
+      const gain = _audioCtx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = freq;
+      const t0 = now + i * 0.18;
+      gain.gain.setValueAtTime(0.0001, t0);
+      gain.gain.exponentialRampToValueAtTime(0.25, t0 + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.15);
+      osc.connect(gain).connect(_audioCtx.destination);
+      osc.start(t0);
+      osc.stop(t0 + 0.18);
+    });
+  } catch (e) {
+    console.warn("Beep emergência falhou:", e);
+  }
 }
 
 function atualizarBadgesWhatsapp() {
@@ -1185,6 +1917,7 @@ function fecharDrawer() {
   document.getElementById("drawerPanel").classList.remove("is-open");
   _drawerCondoId = null;
   _drawerConversaId = null;
+  destruirGaugesDrawer();
 }
 
 function switchDrawerTab(tab) {
@@ -1199,9 +1932,67 @@ function switchDrawerTab(tab) {
   else if (tab === "whatsapp") renderDrawerWhatsapp();
 }
 
+function corGaugePorNivel(lvClass) {
+  switch (lvClass) {
+    case "lv-alto":        return "#22c55e";
+    case "lv-medio":       return "#60a5fa";
+    case "lv-baixo":       return "#fb923c";
+    case "lv-muito-baixo": return "#f87171";
+    default:               return "#9ca3af";
+  }
+}
+
+function destruirGaugesDrawer() {
+  for (const chart of _drawerGauges.values()) {
+    try { chart.destroy(); } catch (_) {}
+  }
+  _drawerGauges.clear();
+}
+
+function criarGaugeReservatorio(elId, pct, lvClass) {
+  const el = document.getElementById(elId);
+  if (!el || typeof ApexCharts === "undefined") return;
+  const cor = corGaugePorNivel(lvClass);
+  const chart = new ApexCharts(el, {
+    chart: { type: "radialBar", height: 200, sparkline: { enabled: true }, animations: { enabled: true, speed: 600 } },
+    series: [Math.round(pct)],
+    colors: [cor],
+    plotOptions: {
+      radialBar: {
+        startAngle: -135,
+        endAngle: 135,
+        hollow: { size: "62%", background: "transparent" },
+        track: { background: "rgba(255,255,255,.06)", strokeWidth: "100%", margin: 0 },
+        dataLabels: {
+          name: { show: true, color: "#9ca3af", offsetY: 22, fontSize: "11px", fontWeight: 600 },
+          value: {
+            show: true,
+            color: "#f5f5f5",
+            fontSize: "30px",
+            fontWeight: 800,
+            offsetY: -8,
+            formatter: (v) => v + "%",
+          },
+        },
+      },
+    },
+    fill: {
+      type: "gradient",
+      gradient: { shade: "dark", type: "horizontal", gradientToColors: [cor], stops: [0, 100], opacityFrom: 1, opacityTo: 1 },
+    },
+    stroke: { lineCap: "round" },
+    labels: ["Nível"],
+  });
+  chart.render();
+  _drawerGauges.set(elId, { chart, cor });
+}
+
 function renderDrawerTelemetria() {
   const pane = document.getElementById("drawerPaneTelemetria");
   if (!pane) return;
+
+  // sempre destrói gauges antigos antes de reconstruir o HTML
+  destruirGaugesDrawer();
 
   const item = (_statusData || []).find(g => Number(g.condominio?.id) === _drawerCondoId);
   if (!item) { pane.innerHTML = `<div style="color:var(--muted);">Dados não encontrados.</div>`; return; }
@@ -1213,17 +2004,25 @@ function renderDrawerTelemetria() {
     return;
   }
 
+  const gaugesParaCriar = []; // {elId, pct, lvClass}
+
   pane.innerHTML = reservs.map(r => {
     const u = r.ultima_leitura;
     const pct = u?.nivel_pct ?? null;
     const n = String(u?.nivel || "").toLowerCase();
     const lvClass = n === "alto" ? "lv-alto" : n === "medio" ? "lv-medio" : n === "baixo" ? "lv-baixo" : n === "muito_baixo" ? "lv-muito-baixo" : "";
-    const pctWidth = pct != null ? pct : 0;
     const offline = !!r.offline;
     const mins = r.minutos_sem_atualizar;
     const alertas = r.alertas_abertos_count ?? 0;
     const bombaLabel = u?.bomba_ligada === true ? badge("LIGADA", "warn") : u?.bomba_ligada === false ? badge("DESLIGADA", "ok") : "-";
     const offlineBadge = offline ? badge("OFFLINE", "bad") : badge("Online", "ok");
+
+    const gaugeId = `gauge-r-${r.id}`;
+    if (pct != null && lvClass) gaugesParaCriar.push({ elId: gaugeId, pct, lvClass });
+
+    const gaugeHtml = pct != null
+      ? `<div class="dp-gauge-wrap"><div id="${gaugeId}" class="dp-gauge"></div></div>`
+      : `<div style="color:var(--muted);font-size:12px;padding:12px 0;">Sem dados de nível</div>`;
 
     return `
       <div class="dp-res">
@@ -1231,14 +2030,7 @@ function renderDrawerTelemetria() {
           <div class="dp-res-name">${r.nome || "Reservatório"}</div>
           ${offlineBadge}
         </div>
-        ${lvClass ? `
-        <div>
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-            <span style="font-size:11px;font-weight:700;color:var(--muted);">Nível</span>
-            <span style="font-size:14px;font-weight:800;color:var(--text);">${pct != null ? pct + "%" : "-"}</span>
-          </div>
-          <div class="dp-level-bar"><div class="dp-level-fill ${lvClass}" style="width:${pctWidth}%"></div></div>
-        </div>` : `<div style="color:var(--muted);font-size:12px;">Sem dados de nível</div>`}
+        ${gaugeHtml}
         <div class="dp-res-meta">
           <span>Bomba: ${bombaLabel}</span>
           <span>Tipo: ${r.tipo || "-"}</span>
@@ -1255,6 +2047,46 @@ function renderDrawerTelemetria() {
         </div>` : ""}
       </div>`;
   }).join("");
+
+  for (const g of gaugesParaCriar) criarGaugeReservatorio(g.elId, g.pct, g.lvClass);
+}
+
+// Atualiza os gauges abertos sem rebuild de HTML (chamado no tick de telemetria)
+function atualizarGaugesDrawerSeAberto() {
+  if (!_drawerCondoId || _drawerTab !== "telemetria") return;
+  if (_drawerGauges.size === 0) return;
+
+  const item = (_statusData || []).find(g => Number(g.condominio?.id) === _drawerCondoId);
+  if (!item) return;
+  const reservs = Array.isArray(item.reservatorios) ? item.reservatorios : [];
+
+  // Se conjunto de reservatórios mudou (criação/exclusão), refaz tudo
+  const idsAtuais = new Set(reservs.map(r => `gauge-r-${r.id}`));
+  let mudouEstrutura = false;
+  for (const id of _drawerGauges.keys()) {
+    if (!idsAtuais.has(id)) { mudouEstrutura = true; break; }
+  }
+  if (mudouEstrutura) { renderDrawerTelemetria(); return; }
+
+  for (const r of reservs) {
+    const u = r.ultima_leitura;
+    const pct = u?.nivel_pct;
+    if (pct == null) continue;
+    const n = String(u?.nivel || "").toLowerCase();
+    const lvClass = n === "alto" ? "lv-alto" : n === "medio" ? "lv-medio" : n === "baixo" ? "lv-baixo" : n === "muito_baixo" ? "lv-muito-baixo" : "";
+    if (!lvClass) continue;
+
+    const elId = `gauge-r-${r.id}`;
+    const entry = _drawerGauges.get(elId);
+    if (!entry) { renderDrawerTelemetria(); return; }
+
+    const novaCor = corGaugePorNivel(lvClass);
+    if (novaCor !== entry.cor) {
+      entry.chart.updateOptions({ colors: [novaCor], fill: { type: "gradient", gradient: { gradientToColors: [novaCor] } } }, false, true);
+      entry.cor = novaCor;
+    }
+    entry.chart.updateSeries([Math.round(pct)]);
+  }
 }
 
 function renderDrawerChamados() {
@@ -1611,6 +2443,34 @@ function abrirModalEditar(id) {
 
       document.getElementById("editAtivo").checked = (c.ativo !== false);
 
+      const editLat = document.getElementById("editLat");
+      const editLng = document.getElementById("editLng");
+      if (editLat) editLat.value = c.lat != null ? c.lat : "";
+      if (editLng) editLng.value = c.lng != null ? c.lng : "";
+      // CEP não é persistido — sempre começa em branco
+      const editCep = document.getElementById("editCep");
+      if (editCep) editCep.value = "";
+      const cepMsg = document.getElementById("editCepMsg");
+      if (cepMsg) { cepMsg.className = "cep-msg"; cepMsg.textContent = ""; }
+      const locMsg = document.getElementById("editLocMsg");
+      if (locMsg) { locMsg.className = "loc-msg"; locMsg.textContent = ""; }
+
+      // Inicializa ou atualiza o mini-mapa após o modal estar visível
+      setTimeout(() => {
+        criarOuObterMiniMapa("edit");
+        _miniMapaInvalidar("edit");
+        if (c.lat != null && c.lng != null) {
+          _miniMapaAplicarCoord("edit", Number(c.lat), Number(c.lng));
+        } else {
+          // sem coordenadas: centro de SP, zoom padrão
+          const ref = _miniMapas.get("edit");
+          if (ref) {
+            ref.marker.setLatLng([SP_CENTRO.lat, SP_CENTRO.lng]);
+            ref.map.setView([SP_CENTRO.lat, SP_CENTRO.lng], SP_CENTRO.zoom);
+          }
+        }
+      }, 80);
+
       msg.textContent = "";
       sub.textContent = `${c.nome || "Condomínio"} • ID: ${c.id}`;
     })
@@ -1643,6 +2503,8 @@ async function salvarEdicao(event) {
   }
 
   // Monta payload (aqui enviamos tudo; vazio vira null -> limpa)
+  const latRaw = (document.getElementById("editLat")?.value || "").trim();
+  const lngRaw = (document.getElementById("editLng")?.value || "").trim();
   const payload = {
     nome: (document.getElementById("editNome").value || "").trim(),
     endereco: _valOrNull("editEndereco"),
@@ -1652,7 +2514,9 @@ async function salvarEdicao(event) {
     responsavel: _valOrNull("editResponsavel"),
     telefone: _valOrNull("editTelefone"),
     observacoes: _valOrNull("editObs"),
-    ativo: document.getElementById("editAtivo").checked
+    ativo: document.getElementById("editAtivo").checked,
+    lat: latRaw === "" ? null : Number(latRaw),
+    lng: lngRaw === "" ? null : Number(lngRaw),
   };
 
   if (!payload.nome) {
@@ -1936,6 +2800,232 @@ document.addEventListener("keydown", (e) => {
 
 
 
+// ============================================================
+// CEP: auto-preenche endereço via ViaCEP
+// ============================================================
+function _cepMascarar(valor) {
+  const d = String(valor || "").replace(/\D/g, "").slice(0, 8);
+  if (d.length <= 5) return d;
+  return d.slice(0, 5) + "-" + d.slice(5);
+}
+
+async function buscarEnderecoPorCep(prefixo) {
+  const input = document.getElementById(`${prefixo}Cep`);
+  const msg = document.getElementById(`${prefixo}CepMsg`);
+  if (!input) return;
+
+  const cepLimpo = String(input.value || "").replace(/\D/g, "");
+  if (cepLimpo.length !== 8) {
+    if (msg) { msg.className = "cep-msg is-error"; msg.textContent = "CEP deve ter 8 dígitos."; }
+    return;
+  }
+
+  if (msg) { msg.className = "cep-msg is-loading"; msg.textContent = "Buscando…"; }
+
+  try {
+    const resp = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`);
+    if (!resp.ok) throw new Error("Status " + resp.status);
+    const data = await resp.json();
+
+    if (data.erro) {
+      if (msg) { msg.className = "cep-msg is-error"; msg.textContent = "CEP não encontrado."; }
+      return;
+    }
+
+    // Preenche apenas campos vazios — não sobrescreve o que o usuário digitou
+    const set = (id, valor) => {
+      const el = document.getElementById(id);
+      if (!el || !valor) return;
+      if (!el.value || !el.value.trim()) el.value = valor;
+    };
+
+    const ruaCompleta = data.logradouro
+      ? (data.complemento ? `${data.logradouro} (${data.complemento})` : data.logradouro)
+      : "";
+
+    set(`${prefixo}Endereco`, ruaCompleta);
+    set(`${prefixo}Bairro`,   data.bairro || "");
+    set(`${prefixo}Cidade`,   data.localidade || "");
+    set(`${prefixo}Uf`,       data.uf || "");
+
+    if (msg) {
+      msg.className = "cep-msg is-ok";
+      msg.textContent = `✓ ${data.logradouro || ""}${data.bairro ? ", " + data.bairro : ""} — ${data.localidade}/${data.uf}`;
+    }
+  } catch (e) {
+    if (msg) { msg.className = "cep-msg is-error"; msg.textContent = "Erro: " + e.message; }
+  }
+}
+
+function _bindCepInput(prefixo) {
+  const input = document.getElementById(`${prefixo}Cep`);
+  if (!input || input.dataset.cepBound) return;
+  input.dataset.cepBound = "1";
+
+  input.addEventListener("input", () => {
+    const masked = _cepMascarar(input.value);
+    if (input.value !== masked) input.value = masked;
+
+    // dispara busca automática ao completar 8 dígitos
+    if (masked.replace(/\D/g, "").length === 8) {
+      buscarEnderecoPorCep(prefixo);
+    }
+  });
+}
+
+// ============================================================
+// MINI-MAPA (cadastro e edição de condomínio)
+// ============================================================
+const SP_CENTRO = { lat: -23.5505, lng: -46.6333, zoom: 12 };
+const _miniMapas = new Map(); // prefixo → { map, marker, tileLayer }
+
+function _miniMapaCriarPino() {
+  return L.divIcon({
+    className: "tg-pin-wrap",
+    html: `<div class="tg-pin"></div>`,
+    iconSize: [26, 26],
+    iconAnchor: [13, 24],
+  });
+}
+
+function criarOuObterMiniMapa(prefixo) {
+  if (typeof L === "undefined") return null;
+  if (_miniMapas.has(prefixo)) return _miniMapas.get(prefixo);
+
+  const el = document.getElementById(`${prefixo}MiniMapa`);
+  if (!el) return null;
+
+  const lat = Number(document.getElementById(`${prefixo}Lat`)?.value) || SP_CENTRO.lat;
+  const lng = Number(document.getElementById(`${prefixo}Lng`)?.value) || SP_CENTRO.lng;
+  const temCoord = Boolean(Number(document.getElementById(`${prefixo}Lat`)?.value) && Number(document.getElementById(`${prefixo}Lng`)?.value));
+
+  const map = L.map(el, {
+    center: [lat, lng],
+    zoom: temCoord ? 16 : SP_CENTRO.zoom,
+    zoomControl: true,
+    attributionControl: true,
+  });
+
+  const tileLayer = L.tileLayer(
+    "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+    {
+      attribution: "© OpenStreetMap · © CARTO",
+      subdomains: "abcd",
+      maxZoom: 19,
+    }
+  ).addTo(map);
+
+  const marker = L.marker([lat, lng], {
+    draggable: true,
+    icon: _miniMapaCriarPino(),
+  }).addTo(map);
+
+  marker.on("dragend", () => {
+    const ll = marker.getLatLng();
+    _miniMapaAplicarCoord(prefixo, ll.lat, ll.lng, { centralizar: false });
+  });
+
+  // Sync campos lat/lng → marker
+  const inLat = document.getElementById(`${prefixo}Lat`);
+  const inLng = document.getElementById(`${prefixo}Lng`);
+  const onInputCoord = () => {
+    const la = Number(inLat.value);
+    const ln = Number(inLng.value);
+    if (Number.isFinite(la) && Number.isFinite(ln) && la >= -90 && la <= 90 && ln >= -180 && ln <= 180) {
+      marker.setLatLng([la, ln]);
+      map.panTo([la, ln]);
+    }
+  };
+  inLat?.addEventListener("change", onInputCoord);
+  inLng?.addEventListener("change", onInputCoord);
+
+  const ref = { map, marker, tileLayer };
+  _miniMapas.set(prefixo, ref);
+  return ref;
+}
+
+function _miniMapaAplicarCoord(prefixo, lat, lng, { centralizar = true } = {}) {
+  const ref = _miniMapas.get(prefixo);
+  const inLat = document.getElementById(`${prefixo}Lat`);
+  const inLng = document.getElementById(`${prefixo}Lng`);
+  if (inLat) inLat.value = lat.toFixed(6);
+  if (inLng) inLng.value = lng.toFixed(6);
+  if (ref) {
+    ref.marker.setLatLng([lat, lng]);
+    if (centralizar) ref.map.setView([lat, lng], 17);
+  }
+}
+
+function _miniMapaInvalidar(prefixo) {
+  // Leaflet precisa recalcular tamanho quando o container fica visível
+  const ref = _miniMapas.get(prefixo);
+  if (ref) setTimeout(() => ref.map.invalidateSize(), 50);
+}
+
+async function buscarCoordenadasPorEndereco(prefixo) {
+  const partes = [
+    document.getElementById(`${prefixo}Endereco`)?.value,
+    document.getElementById(`${prefixo}Bairro`)?.value,
+    document.getElementById(`${prefixo}Cidade`)?.value,
+    document.getElementById(`${prefixo}Uf`)?.value,
+  ].map(s => (s || "").trim()).filter(Boolean);
+
+  const msg = document.getElementById(`${prefixo}LocMsg`);
+  if (msg) { msg.className = "loc-msg"; msg.textContent = ""; }
+
+  if (partes.length === 0) {
+    if (msg) { msg.className = "loc-msg is-error"; msg.textContent = "Preencha o endereço primeiro."; }
+    return;
+  }
+
+  const query = partes.join(", ");
+  if (msg) msg.textContent = "Buscando…";
+
+  try {
+    const resp = await fetch(`/admin/geocode?q=${encodeURIComponent(query)}`, { headers: authHeaders() });
+    const data = await resp.json();
+    if (!resp.ok) {
+      if (msg) { msg.className = "loc-msg is-error"; msg.textContent = data.error || "Erro na busca."; }
+      return;
+    }
+
+    const results = Array.isArray(data.results) ? data.results : [];
+    if (results.length === 0) {
+      if (msg) { msg.className = "loc-msg is-error"; msg.textContent = "Nenhum resultado. Arraste o pino manualmente ou cole as coordenadas."; }
+      return;
+    }
+
+    if (results.length === 1) {
+      _miniMapaAplicarCoord(prefixo, results[0].lat, results[0].lon);
+      if (msg) { msg.className = "loc-msg is-ok"; msg.textContent = "✓ Pino posicionado. Confirme arrastando se necessário."; }
+      return;
+    }
+
+    // Múltiplos: mostra lista
+    if (msg) {
+      msg.className = "loc-msg";
+      msg.innerHTML = `<div style="margin-bottom:6px;">${results.length} resultados encontrados — escolha:</div>`;
+      const list = document.createElement("div");
+      list.className = "loc-suggestions";
+      results.forEach((r) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "loc-sugg-item";
+        btn.textContent = r.display_name;
+        btn.addEventListener("click", () => {
+          _miniMapaAplicarCoord(prefixo, r.lat, r.lon);
+          msg.className = "loc-msg is-ok";
+          msg.textContent = "✓ Pino posicionado em: " + r.display_name;
+        });
+        list.appendChild(btn);
+      });
+      msg.appendChild(list);
+    }
+  } catch (e) {
+    if (msg) { msg.className = "loc-msg is-error"; msg.textContent = "Erro: " + e.message; }
+  }
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   // ===== BOTÕES FIXOS =====
   // nav sections
@@ -1958,7 +3048,36 @@ document.addEventListener("DOMContentLoaded", () => {
     if (gotoAlertas) {
       showSection("alertas");
     }
+    const rangeBtn = e.target.closest('[data-action="tel-range"]');
+    if (rangeBtn) {
+      const horas = Number(rangeBtn.dataset.range) || 24;
+      _telHistoricoHoras = horas;
+      document.querySelectorAll('[data-action="tel-range"]').forEach(b => b.classList.toggle("is-active", b === rangeBtn));
+      carregarHistoricoTelemetria();
+    }
+    const buscarCoords = e.target.closest('[data-action="buscar-coords"]');
+    if (buscarCoords) {
+      const prefixo = buscarCoords.dataset.prefix;
+      if (prefixo) buscarCoordenadasPorEndereco(prefixo);
+    }
   });
+
+  // Mini-mapa do cadastro: inicializa quando a seção Cadastros é exibida
+  // (precisa do container estar visível para o Leaflet medir corretamente)
+  const _initMiniMapaCadastro = () => {
+    if (!document.getElementById("novoMiniMapa")) return;
+    criarOuObterMiniMapa("novo");
+    _miniMapaInvalidar("novo");
+  };
+  // Tenta na primeira renderização e ao trocar para a seção
+  setTimeout(_initMiniMapaCadastro, 200);
+  document.querySelectorAll('.nav-item[data-section="cadastros"]').forEach(item => {
+    item.addEventListener("click", () => setTimeout(_initMiniMapaCadastro, 100));
+  });
+
+  // Bind do CEP nos dois formulários (auto-preenchimento de endereço)
+  _bindCepInput("novo");
+  _bindCepInput("edit");
 
   // ===== SIDEBAR TOGGLE =====
   const _sidebar = document.getElementById("sidebar");
@@ -2145,7 +3264,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // primeira carga + auto refresh
+  // primeira carga + auto refresh com polling separado
   carregarTudo();
-  setInterval(carregarTudo, 10000);
+  setInterval(carregarTelemetria, 7000);
+  setInterval(carregarAtendimento, 20000);
 });

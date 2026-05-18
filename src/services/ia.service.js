@@ -63,12 +63,12 @@ async function vincularClienteCondominio({ cliente_whatsapp_id, condominio_id })
   return { ok: true };
 }
 
-async function abrirChamado({ conversa_id, condominio_id, titulo, descricao, prioridade }) {
+async function abrirChamado({ conversa_id, condominio_id, titulo, descricao, prioridade, categoria }) {
   const result = await pool.query(
-    `INSERT INTO chamados (conversa_id, condominio_id, titulo, descricao, prioridade)
-     VALUES ($1, $2, $3, $4, $5)
+    `INSERT INTO chamados (conversa_id, condominio_id, titulo, descricao, prioridade, categoria)
+     VALUES ($1, $2, $3, $4, $5, $6)
      RETURNING id`,
-    [conversa_id, condominio_id || null, titulo, descricao, prioridade]
+    [conversa_id, condominio_id || null, titulo, descricao, prioridade, categoria || 'outro']
   );
   return { chamado_id: result.rows[0].id };
 }
@@ -137,7 +137,7 @@ const tools = [
     type: "function",
     function: {
       name: "abrir_chamado",
-      description: "Abre um chamado de suporte para o condomínio",
+      description: "Abre um chamado de suporte para o condomínio. Sempre classifique categoria e prioridade.",
       parameters: {
         type: "object",
         properties: {
@@ -145,9 +145,18 @@ const tools = [
           condominio_id: { type: "integer", description: "ID do condomínio" },
           titulo:       { type: "string",  description: "Título curto do problema" },
           descricao:    { type: "string",  description: "Descrição detalhada" },
-          prioridade:   { type: "string",  enum: ["baixa", "media", "alta", "emergencia"] },
+          prioridade:   {
+            type: "string",
+            enum: ["baixa", "media", "alta", "emergencia"],
+            description: "Gravidade: emergencia=sem água/risco imediato, alta=problema afetando uso, media=incômodo significativo, baixa=preventivo/dúvida",
+          },
+          categoria:    {
+            type: "string",
+            enum: ["vazamento", "bomba_falha", "nivel_baixo", "sem_agua", "ruido", "manutencao", "outro"],
+            description: "Tipo de problema. vazamento=água escapando; bomba_falha=bomba não funciona/com defeito; nivel_baixo=reservatório com pouca água; sem_agua=sem abastecimento; ruido=barulho anormal; manutencao=solicitação preventiva; outro=não se encaixa nas demais",
+          },
         },
-        required: ["conversa_id", "titulo", "descricao", "prioridade"],
+        required: ["conversa_id", "titulo", "descricao", "prioridade", "categoria"],
       },
     },
   },
@@ -189,6 +198,23 @@ Fluxo quando o condomínio está identificado:
 1. Se o cliente relatar problema técnico, consulte a telemetria antes de responder
 2. Verifique se já existe chamado aberto para o mesmo problema
 3. Se não existir, abra um chamado
+
+Ao abrir um chamado, sempre classifique categoria e prioridade:
+
+Categorias (escolha a mais específica):
+- vazamento     — água escapando, infiltração visível, cano estourado
+- bomba_falha   — bomba não liga, não desliga, ruído anormal vindo dela, queimou
+- nivel_baixo   — reservatório com pouca água mas ainda funcionando
+- sem_agua      — abastecimento interrompido, sem água nas torneiras
+- ruido         — barulho anormal no sistema (que não é bomba)
+- manutencao    — solicitação preventiva, limpeza de caixa, revisão programada
+- outro         — não se encaixa nas categorias acima
+
+Prioridades:
+- emergencia — sem água agora, vazamento ativo, risco imediato
+- alta       — problema afetando uso normal mas há margem (algumas horas)
+- media      — incômodo significativo, sem urgência hoje
+- baixa      — preventivo, dúvida, agendamento
 
 Tom e estilo:
 - Você representa uma empresa profissional. Seja sempre cordial, humano e prestativo

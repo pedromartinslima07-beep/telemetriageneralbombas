@@ -37,7 +37,25 @@ const app = express();
 app.set("trust proxy", 1);
 
 app.use(compression());
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+      // Tiles do mapa (Carto dark) — Leaflet baixa imagens diretamente do CDN público
+      "img-src": [
+        "'self'",
+        "data:",
+        "blob:",
+        "https://*.basemaps.cartocdn.com",
+      ],
+      // Auto-preenchimento de endereço por CEP (ViaCEP, gratuito, sem chave)
+      "connect-src": [
+        "'self'",
+        "https://viacep.com.br",
+      ],
+    },
+  },
+}));
 
 const corsOrigins = process.env.CORS_ORIGINS
   ? process.env.CORS_ORIGINS.split(",").map((o) => o.trim())

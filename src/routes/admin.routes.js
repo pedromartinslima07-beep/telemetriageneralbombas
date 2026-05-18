@@ -120,4 +120,125 @@ router.get("/status", authRequired, adminOnly, async (req, res) => {
   }
 });
 
+// GET /admin/historico?device_ids=A,B,C&horas=24
+// Retorna leituras agregadas em buckets para múltiplos reservatórios (até 10).
+router.get("/historico", authRequired, adminOnly, async (req, res) => {
+  const { device_ids: idsStr, horas: horasStr } = req.query;
+
+  if (!idsStr) {
+    return res.status(400).json({ error: "device_ids é obrigatório (separados por vírgula)" });
+  }
+
+  const deviceIds = idsStr.split(",").map(s => s.trim()).filter(Boolean).slice(0, 10);
+  if (deviceIds.length === 0) {
+    return res.status(400).json({ error: "Nenhum device_id válido" });
+  }
+
+  const horas = Math.min(Math.max(Number(horasStr) || 24, 1), 720);
+
+  // bucket conforme janela
+  let bucketSec;
+  if (horas <= 6)        bucketSec = 300;    // 5 min
+  else if (horas <= 48)  bucketSec = 1800;   // 30 min
+  else if (horas <= 168) bucketSec = 3600;   // 1 hora
+  else                   bucketSec = 14400;  // 4 horas
+
+  try {
+    const result = await pool.query(
+      `SELECT
+         device_id,
+         TO_TIMESTAMP(FLOOR(EXTRACT(EPOCH FROM criado_em) / $2) * $2) AS bucket,
+         ROUND(AVG(
+           COALESCE(nivel_pct,
+             CASE nivel
+               WHEN 'alto'        THEN 85
+               WHEN 'medio'       THEN 60
+               WHEN 'baixo'       THEN 30
+               WHEN 'muito_baixo' THEN 10
+             END)
+         ))::int AS nivel_pct_avg
+       FROM leituras
+       WHERE device_id = ANY($1::text[])
+         AND criado_em >= NOW() - ($3 || ' hours')::interval
+         AND (nivel_pct IS NOT NULL OR nivel IS NOT NULL)
+       GROUP BY device_id, FLOOR(EXTRACT(EPOCH FROM criado_em) / $2)
+       ORDER BY device_id ASC, bucket ASC`,
+      [deviceIds, bucketSec, horas]
+    );
+
+    // agrupa por device
+    const series = {};
+    for (const id of deviceIds) series[id] = [];
+    for (const row of result.rows) {
+      series[row.device_id]?.push({ bucket: row.bucket, nivel_pct_avg: row.nivel_pct_avg });
+    }
+
+    return res.json({ horas, bucket_sec: bucketSec, series });
+  } catch (error) {
+    console.error("Erro ao buscar /admin/historico:", error);
+    return res.status(500).json({ error: "Erro ao buscar histórico" });
+  }
+});
+
+// ----------------------------------------------------------------------------
+// GET /admin/geocode?q=<endereço>
+// Proxy do Nominatim (OpenStreetMap) para geocoding.
+// Respeita o rate-limit de 1 req/s exigido pelo serviço público.
+// ----------------------------------------------------------------------------
+let _geocodeFila = Promise.resolve();
+function _geocodeAguardarVez() {
+  // encadeia uma espera de 1100ms após o último request enfileirado
+  const espera = new Promise((resolve) => setTimeout(resolve, 1100));
+  const minhaVez = _geocodeFila;
+  _geocodeFila = _geocodeFila.then(() => espera);
+  return minhaVez;
+}
+
+router.get("/geocode", authRequired, adminOnly, async (req, res) => {
+  const { q } = req.query;
+  if (!q || String(q).trim().length < 3) {
+    return res.status(400).json({ error: "Parâmetro 'q' obrigatório (>= 3 caracteres)" });
+  }
+
+  await _geocodeAguardarVez();
+
+  try {
+    const url = "https://nominatim.openstreetmap.org/search?" + new URLSearchParams({
+      q: String(q).trim(),
+      format: "json",
+      addressdetails: "1",
+      limit: "5",
+      countrycodes: "br",
+    });
+
+    const resp = await fetch(url, {
+      headers: {
+        "User-Agent": "TelemetriaGeneralBombas/1.0 (admin geocoding)",
+        "Accept": "application/json",
+        "Accept-Language": "pt-BR,pt;q=0.9",
+      },
+    });
+
+    if (!resp.ok) {
+      console.warn("[geocode] Nominatim respondeu", resp.status);
+      return res.status(502).json({ error: "Geocoding indisponível (status " + resp.status + ")" });
+    }
+
+    const data = await resp.json();
+    return res.json({
+      query: String(q),
+      results: (Array.isArray(data) ? data : []).map((r) => ({
+        display_name: r.display_name,
+        lat: Number(r.lat),
+        lon: Number(r.lon),
+        type: r.type,
+        importance: r.importance,
+      })),
+    });
+  } catch (err) {
+    console.error("Erro geocode:", err);
+    return res.status(500).json({ error: "Erro ao consultar geocoding" });
+  }
+});
+
 module.exports = { adminRouter: router };

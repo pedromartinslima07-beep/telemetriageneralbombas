@@ -8,11 +8,19 @@ const { masterAdminOnly } = require("../middleware/masterAdminOnly");
 
 const router = express.Router();
 
+function _normCoord(v, min, max) {
+  if (v === undefined || v === null || v === "") return null;
+  const n = Number(v);
+  if (!Number.isFinite(n) || n < min || n > max) return undefined; // inválido
+  return n;
+}
+
 // POST /condominios (criar)
 router.post("/", authRequired, masterAdminOnly, async (req, res) => {
   const {
     nome, endereco, bairro, cidade, uf,
-    responsavel, telefone, observacoes, ativo
+    responsavel, telefone, observacoes, ativo,
+    lat, lng,
   } = req.body || {};
 
   const nomeNorm = nome ? String(nome).trim() : "";
@@ -23,15 +31,20 @@ router.post("/", authRequired, masterAdminOnly, async (req, res) => {
   const ufNorm = uf ? String(uf).trim().toUpperCase().slice(0, 2) : null;
   const ativoNorm = (ativo === undefined || ativo === null) ? true : !!ativo;
 
+  const latNorm = _normCoord(lat, -90, 90);
+  const lngNorm = _normCoord(lng, -180, 180);
+  if (latNorm === undefined) return res.status(400).json({ error: "lat inválida (-90 a 90)" });
+  if (lngNorm === undefined) return res.status(400).json({ error: "lng inválida (-180 a 180)" });
+
   try {
     const result = await pool.query(
       `INSERT INTO condominios
-        (nome, endereco, bairro, cidade, uf, responsavel, telefone, observacoes, ativo)
+        (nome, endereco, bairro, cidade, uf, responsavel, telefone, observacoes, ativo, lat, lng)
        VALUES
-        ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+        ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
        RETURNING
         id, nome, endereco, bairro, cidade, uf,
-        responsavel, telefone, observacoes, ativo, criado_em`,
+        responsavel, telefone, observacoes, ativo, lat, lng, criado_em`,
       [
         nomeNorm,
         endereco ?? null,
@@ -42,6 +55,8 @@ router.post("/", authRequired, masterAdminOnly, async (req, res) => {
         telefone ?? null,
         observacoes ?? null,
         ativoNorm,
+        latNorm,
+        lngNorm,
       ]
     );
 
@@ -58,7 +73,7 @@ router.get("/", authRequired, adminOnly, async (req, res) => {
     const result = await pool.query(`
       SELECT
         c.id, c.nome, c.endereco, c.bairro, c.cidade, c.uf,
-        c.responsavel, c.telefone, c.observacoes, c.ativo, c.criado_em,
+        c.responsavel, c.telefone, c.observacoes, c.ativo, c.lat, c.lng, c.criado_em,
         COUNT(r.id)::int AS total_reservatorios
       FROM condominios c
       LEFT JOIN reservatorios r ON r.condominio_id = c.id
@@ -83,7 +98,7 @@ router.get("/:id", authRequired, adminOnly, async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT id, nome, endereco, bairro, cidade, uf,
-             responsavel, telefone, observacoes, ativo, criado_em
+             responsavel, telefone, observacoes, ativo, lat, lng, criado_em
       FROM condominios
       WHERE id = $1
       LIMIT 1
@@ -141,6 +156,17 @@ router.patch("/:id", authRequired, masterAdminOnly, async (req, res) => {
   add("observacoes", b.observacoes);
   add("ativo", ativoNorm);
 
+  if ("lat" in b) {
+    const latNorm = _normCoord(b.lat, -90, 90);
+    if (latNorm === undefined) return res.status(400).json({ error: "lat inválida (-90 a 90)" });
+    add("lat", latNorm);
+  }
+  if ("lng" in b) {
+    const lngNorm = _normCoord(b.lng, -180, 180);
+    if (lngNorm === undefined) return res.status(400).json({ error: "lng inválida (-180 a 180)" });
+    add("lng", lngNorm);
+  }
+
   if (sets.length === 0) {
     return res.status(400).json({ error: "Nenhum campo para atualizar" });
   }
@@ -149,7 +175,7 @@ router.patch("/:id", authRequired, masterAdminOnly, async (req, res) => {
     const result = await pool.query(
       `UPDATE condominios SET ${sets.join(", ")} WHERE id = $1
        RETURNING id, nome, endereco, bairro, cidade, uf,
-                 responsavel, telefone, observacoes, ativo, criado_em`,
+                 responsavel, telefone, observacoes, ativo, lat, lng, criado_em`,
       values
     );
 
