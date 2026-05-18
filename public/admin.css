@@ -3268,6 +3268,59 @@ tbody tr:nth-child(even):hover td { background: rgba(255,255,255,.04); }
 /* Trava scroll do body enquanto está em fullscreen */
 body.mp-fs-active { overflow: hidden; }
 
+/* Botão X (fechar painel flutuante) — só aparece quando painel está flutuando */
+.mp-fs-close {
+  display: none;
+  align-items: center; justify-content: center;
+  width: 28px; height: 28px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,.03);
+  color: var(--muted);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background .15s, color .15s, border-color .15s;
+}
+.mp-fs-close svg { width: 14px; height: 14px; }
+.mp-fs-close:hover {
+  background: rgba(255,255,255,.06);
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+.mp-panel-actions { display: flex; align-items: center; gap: 8px; }
+
+/* ── Painel flutuante (modo fullscreen) ──
+   Quando o JS move o .mp-panel para dentro do .mp-map-card, ele vira
+   um overlay flutuante no canto direito do mapa.                    */
+.mp-map-card.is-fullscreen .mp-panel {
+  position: absolute;
+  top: 76px;
+  right: 16px;
+  bottom: 16px;
+  width: 380px;
+  max-width: calc(100vw - 32px);
+  z-index: 2;
+  min-height: 0;
+  border: 1px solid var(--border-strong);
+  background: rgba(12,14,28,.92);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 20px 60px rgba(0,0,0,.6);
+}
+/* Em fullscreen, mostra o X e esconde o Abrir Painel */
+.mp-map-card.is-fullscreen .mp-fs-close { display: inline-flex; }
+.mp-map-card.is-fullscreen #mpBtnAbrirPainel { display: none !important; }
+/* Painel flutuante escondido até clicar num pino */
+.mp-map-card.is-fullscreen .mp-panel.mp-fs-hidden { display: none; }
+@media (max-width: 540px) {
+  .mp-map-card.is-fullscreen .mp-panel {
+    top: auto;
+    left: 8px;
+    right: 8px;
+    bottom: 8px;
+    width: auto;
+    max-height: 55vh;
+  }
+}
+
 /* Painel lateral */
 .mp-panel { display: flex; flex-direction: column; min-height: 560px; }
 .mp-panel-head {

@@ -3444,6 +3444,10 @@ function _mpAtualizarMapa() {
       marker.on("click", () => {
         _mpCondoSelecionadoId = c.id;
         _mpAtualizarPainel();
+        // Em fullscreen, garante que o painel flutuante apareça
+        if (document.getElementById("mpMapCard")?.classList.contains("is-fullscreen")) {
+          _mpFsPanelMostrar();
+        }
       });
       _mpMarkers.set(c.id, marker);
     } else {
@@ -3748,14 +3752,43 @@ function _mpAtualizarUpdates() {
 
 // Toggle fullscreen do mapa. Se forcar = true/false, vai para esse estado;
 // caso contrário inverte o atual.
+// Em fullscreen, move o .mp-panel pra dentro do .mp-map-card pra ele virar
+// um overlay flutuante no canto direito do mapa. Guarda a posição original
+// pra devolver ao sair.
 function _mpToggleFullscreen(forcar) {
   const card = document.getElementById("mpMapCard");
+  const panel = document.querySelector('.mp-panel');
   if (!card) return;
   const ativar = forcar != null ? forcar : !card.classList.contains("is-fullscreen");
+
+  if (panel) {
+    if (ativar && !panel._mpOldParent) {
+      // Salva posição original e move pra dentro do card
+      panel._mpOldParent = panel.parentNode;
+      panel._mpOldNext   = panel.nextSibling;
+      card.appendChild(panel);
+      // Esconde até o usuário clicar num pino (a não ser que já tenha um selecionado)
+      panel.classList.toggle("mp-fs-hidden", !_mpCondoSelecionadoId);
+    } else if (!ativar && panel._mpOldParent) {
+      // Devolve pra posição original e limpa estado de overlay
+      panel._mpOldParent.insertBefore(panel, panel._mpOldNext);
+      panel._mpOldParent = null;
+      panel._mpOldNext   = null;
+      panel.classList.remove("mp-fs-hidden");
+    }
+  }
+
   card.classList.toggle("is-fullscreen", ativar);
   document.body.classList.toggle("mp-fs-active", ativar);
   // Leaflet precisa recalcular o tamanho após a mudança de dimensões
   if (_mpMap) requestAnimationFrame(() => _mpMap.invalidateSize());
+}
+
+function _mpFsPanelMostrar() {
+  document.querySelector('.mp-panel')?.classList.remove("mp-fs-hidden");
+}
+function _mpFsPanelEsconder() {
+  document.querySelector('.mp-panel')?.classList.add("mp-fs-hidden");
 }
 
 // Função pública: chamada em showSection e após carregar dados
@@ -3834,6 +3867,10 @@ document.addEventListener("DOMContentLoaded", () => {
     // Botão "Tela cheia" do mapa
     if (e.target.closest('[data-action="mp-fullscreen"]')) {
       _mpToggleFullscreen();
+    }
+    // Botão X do painel flutuante (apenas em fullscreen)
+    if (e.target.closest('[data-action="mp-fs-close"]')) {
+      _mpFsPanelEsconder();
     }
   });
 
