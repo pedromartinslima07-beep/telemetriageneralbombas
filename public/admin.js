@@ -2822,38 +2822,82 @@ async function buscarEnderecoPorCep(prefixo) {
 
   if (msg) { msg.className = "cep-msg is-loading"; msg.textContent = "Buscando…"; }
 
-  try {
-    const resp = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`);
-    if (!resp.ok) throw new Error("Status " + resp.status);
-    const data = await resp.json();
+  // 3 fontes em paralelo (qualquer falha individual não derruba o fluxo):
+  //   ViaCEP      — texto granular (logradouro, bairro, cidade, UF)
+  //   BrasilAPI v2 — pode trazer lat/lng (cobertura limitada)
+  //   AwesomeAPI   — também traz lat/lng, com cobertura melhor pra CEPs urbanos
+  // Preferência de coords: BrasilAPI → AwesomeAPI → fallback Nominatim
+  const [viaPromise, brasilPromise, awesomePromise] = [
+    fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => (d && !d.erro) ? d : null)
+      .catch(() => null),
+    fetch(`https://brasilapi.com.br/api/cep/v2/${cepLimpo}`)
+      .then(r => r.ok ? r.json() : null)
+      .catch(() => null),
+    fetch(`https://cep.awesomeapi.com.br/json/${cepLimpo}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => (d && !d.status) ? d : null) // status presente = erro
+      .catch(() => null),
+  ];
 
-    if (data.erro) {
-      if (msg) { msg.className = "cep-msg is-error"; msg.textContent = "CEP não encontrado."; }
-      return;
+  const [viaData, brasilData, awesomeData] = await Promise.all([viaPromise, brasilPromise, awesomePromise]);
+
+  if (!viaData && !brasilData && !awesomeData) {
+    if (msg) { msg.className = "cep-msg is-error"; msg.textContent = "CEP não encontrado."; }
+    return;
+  }
+
+  // Preenche campos texto preferindo ViaCEP (mais granular), com fallback no BrasilAPI.
+  // NÃO usa data.complemento — é só faixa de numeração que confunde geocoding.
+  const set = (id, valor) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.value = valor || "";
+  };
+
+  const logradouro = (viaData?.logradouro || brasilData?.street       || awesomeData?.address      || "").trim();
+  const bairro     = (viaData?.bairro     || brasilData?.neighborhood || awesomeData?.district     || "").trim();
+  const cidade     = (viaData?.localidade || brasilData?.city         || awesomeData?.city         || "").trim();
+  const uf         = (viaData?.uf         || brasilData?.state        || awesomeData?.state        || "").trim();
+
+  set(`${prefixo}Endereco`, logradouro);
+  set(`${prefixo}Bairro`,   bairro);
+  set(`${prefixo}Cidade`,   cidade);
+  set(`${prefixo}Uf`,       uf);
+
+  if (msg) {
+    msg.className = "cep-msg is-ok";
+    msg.textContent = `✓ ${logradouro}${bairro ? ", " + bairro : ""} — ${cidade}/${uf}`;
+  }
+
+  // Caminho preferido: alguma API CEP veio com coordenadas → posiciona o pino direto.
+  // Muito mais preciso que Nominatim adivinhar pelo nome da rua.
+  // Tenta BrasilAPI primeiro (location.coordinates), depois AwesomeAPI (lat/lng).
+  const coordsBrasil = brasilData?.location?.coordinates;
+  const fontes = [
+    { fonte: "BrasilAPI",  lat: coordsBrasil?.latitude,  lng: coordsBrasil?.longitude  },
+    { fonte: "AwesomeAPI", lat: awesomeData?.lat,        lng: awesomeData?.lng         },
+  ];
+  const escolhida = fontes.find(f =>
+    f.lat != null && f.lng != null &&
+    Number.isFinite(Number(f.lat)) && Number.isFinite(Number(f.lng))
+  );
+
+  const locMsg = document.getElementById(`${prefixo}LocMsg`);
+
+  if (escolhida) {
+    _miniMapaAplicarCoord(prefixo, Number(escolhida.lat), Number(escolhida.lng));
+    if (locMsg) {
+      locMsg.className = "loc-msg is-ok";
+      locMsg.textContent = "✓ Pino posicionado pelo CEP. Arraste se precisar ajustar o número da casa.";
     }
+    return;
+  }
 
-    // Preenche apenas campos vazios — não sobrescreve o que o usuário digitou
-    const set = (id, valor) => {
-      const el = document.getElementById(id);
-      if (!el || !valor) return;
-      if (!el.value || !el.value.trim()) el.value = valor;
-    };
-
-    const ruaCompleta = data.logradouro
-      ? (data.complemento ? `${data.logradouro} (${data.complemento})` : data.logradouro)
-      : "";
-
-    set(`${prefixo}Endereco`, ruaCompleta);
-    set(`${prefixo}Bairro`,   data.bairro || "");
-    set(`${prefixo}Cidade`,   data.localidade || "");
-    set(`${prefixo}Uf`,       data.uf || "");
-
-    if (msg) {
-      msg.className = "cep-msg is-ok";
-      msg.textContent = `✓ ${data.logradouro || ""}${data.bairro ? ", " + data.bairro : ""} — ${data.localidade}/${data.uf}`;
-    }
-  } catch (e) {
-    if (msg) { msg.className = "cep-msg is-error"; msg.textContent = "Erro: " + e.message; }
+  // Nenhuma API trouxe coords (CEP genérico, etc) → cai pro Nominatim com structured search
+  if (logradouro || bairro) {
+    buscarCoordenadasPorEndereco(prefixo);
   }
 }
 
@@ -2922,7 +2966,12 @@ function criarOuObterMiniMapa(prefixo) {
 
   marker.on("dragend", () => {
     const ll = marker.getLatLng();
+    // Lê a posição anterior ANTES de sobrescrever os campos lat/lng, pra
+    // distinguir "ajuste fino na mesma rua" de "mudei pra outro endereço".
+    const latAntes = Number(document.getElementById(`${prefixo}Lat`)?.value);
+    const lngAntes = Number(document.getElementById(`${prefixo}Lng`)?.value);
     _miniMapaAplicarCoord(prefixo, ll.lat, ll.lng, { centralizar: false });
+    _miniMapaReverseGeocode(prefixo, ll.lat, ll.lng, { latAntes, lngAntes });
   });
 
   // Sync campos lat/lng → marker
@@ -2962,49 +3011,276 @@ function _miniMapaInvalidar(prefixo) {
   if (ref) setTimeout(() => ref.map.invalidateSize(), 50);
 }
 
+// Quando o user arrasta o pino, descobre o endereço daquele ponto e atualiza
+// os campos do formulário. Mantém um "request id" por prefixo: se o user
+// arrastar várias vezes rápido, só a resposta do último request é aplicada.
+const _reverseSeq = new Map(); // prefixo → último seq disparado
+
+// Raio (em metros) abaixo do qual consideramos o arraste como "ajuste fino"
+// dentro do mesmo endereço — mantém os campos texto vindos do CEP intactos.
+// 300m cobre uma rua inteira sem trocar de bairro.
+const _AJUSTE_FINO_METROS = 300;
+
+function _distanciaMetros(lat1, lng1, lat2, lng2) {
+  // Haversine — suficiente pra distâncias de até alguns km
+  if (![lat1, lng1, lat2, lng2].every(Number.isFinite)) return Infinity;
+  const R = 6371000;
+  const toRad = (g) => (g * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a = Math.sin(dLat / 2) ** 2 +
+            Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+
+async function _miniMapaReverseGeocode(prefixo, lat, lng, { latAntes, lngAntes } = {}) {
+  const seq = (_reverseSeq.get(prefixo) || 0) + 1;
+  _reverseSeq.set(prefixo, seq);
+
+  const msg = document.getElementById(`${prefixo}LocMsg`);
+  if (msg) {
+    msg.className = "loc-msg";
+    msg.textContent = "Lendo o endereço desse ponto…";
+  }
+
+  let data;
+  try {
+    const resp = await fetch(`/admin/reverse-geocode?lat=${lat}&lon=${lng}`, { headers: authHeaders() });
+    data = await resp.json();
+    if (!resp.ok) {
+      if (msg && seq === _reverseSeq.get(prefixo)) {
+        msg.className = "loc-msg is-error";
+        msg.textContent = data?.error || "Não consegui ler o endereço desse ponto.";
+      }
+      return;
+    }
+  } catch (e) {
+    if (msg && seq === _reverseSeq.get(prefixo)) {
+      msg.className = "loc-msg is-error";
+      msg.textContent = "Erro: " + e.message;
+    }
+    return;
+  }
+
+  // Resposta obsoleta (user arrastou de novo enquanto a primeira não voltou)
+  if (seq !== _reverseSeq.get(prefixo)) return;
+
+  const a = data.address || {};
+  const endereco = a.road || a.pedestrian || a.footway || a.cycleway || a.path || "";
+  const bairro   = a.suburb || a.neighbourhood || a.quarter || a.city_district || a.district || "";
+  const cidade   = a.city || a.town || a.municipality || a.village || "";
+  // ISO3166-2-lvl4 vem como "BR-SP" — extrai só a UF; fallback no a.state se não tiver.
+  const ufIso    = a["ISO3166-2-lvl4"] || "";
+  const uf       = ufIso.startsWith("BR-") ? ufIso.slice(3) : (a.state || "");
+  const cep      = (a.postcode || "").replace(/\D/g, "");
+
+  // Distingue ajuste fino (mantém texto do CEP) de mudança real de endereço (sobrescreve).
+  // Razão: a indexação do OSM tem erros frequentes em bairros (ex: rua de Jd. Mônica
+  // vem como Capão Redondo). Confiamos no CEP pro nome do bairro/rua quando o pino
+  // só foi ajustado alguns metros.
+  const distancia = _distanciaMetros(latAntes, lngAntes, lat, lng);
+  const ajusteFino = distancia <= _AJUSTE_FINO_METROS;
+
+  const aplicar = (id, valor) => {
+    const el = document.getElementById(id);
+    if (!el || !valor) return;
+    el.value = valor;
+  };
+
+  if (!ajusteFino) {
+    aplicar(`${prefixo}Endereco`, endereco);
+    aplicar(`${prefixo}Bairro`,   bairro);
+    aplicar(`${prefixo}Cidade`,   cidade);
+    aplicar(`${prefixo}Uf`,       uf);
+    if (cep) {
+      const cepEl = document.getElementById(`${prefixo}Cep`);
+      if (cepEl) cepEl.value = _cepMascarar(cep);
+    }
+  }
+
+  if (msg) {
+    if (ajusteFino) {
+      msg.className = "loc-msg is-ok";
+      msg.textContent = `✓ Pino ajustado (${Math.round(distancia)}m) — mantendo o endereço do CEP.`;
+    } else if (endereco || bairro) {
+      msg.className = "loc-msg is-ok";
+      const partes = [endereco, bairro, cidade && `${cidade}/${uf || "?"}`].filter(Boolean);
+      msg.textContent = "✓ Endereço atualizado: " + partes.join(", ");
+    } else {
+      msg.className = "loc-msg";
+      msg.textContent = "⚠ Pino fora de uma rua mapeada — confirme os campos manualmente.";
+    }
+  }
+}
+
+function _semAcento(s) {
+  return String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+}
+
+function _resultadoNaCidade(r, cidadeAlvo) {
+  if (!cidadeAlvo) return true;
+  const alvo = _semAcento(cidadeAlvo);
+  const a = r.address || {};
+  // Match estrito no address — sem fallback no display_name, que pega "São Paulo"
+  // do estado e deixa passar endereços de outras cidades paulistas.
+  const cs = [a.city, a.town, a.municipality, a.village, a.county].filter(Boolean).map(_semAcento);
+  if (cs.length === 0) return true; // sem address detalhado, dá benefício da dúvida
+  return cs.some(c => c === alvo);
+}
+
+function _resultadoNoBairro(r, bairroAlvo) {
+  if (!bairroAlvo) return false;
+  const alvo = _semAcento(bairroAlvo);
+  const a = r.address || {};
+  const bs = [a.suburb, a.neighbourhood, a.quarter, a.city_district, a.district].filter(Boolean).map(_semAcento);
+  if (bs.some(b => b === alvo)) return true;
+  return _semAcento(r.display_name || "").includes(alvo);
+}
+
+function _resultadoNoCep(r, cepAlvo) {
+  // Bate prefixo de 5 dígitos (área CEP) — se o resultado não traz postcode, retorna null
+  // (decisão de manter ou descartar fica com o caller).
+  if (!cepAlvo) return null;
+  const alvo = String(cepAlvo).replace(/\D/g, "").slice(0, 5);
+  if (alvo.length !== 5) return null;
+  const pc = String(r.address?.postcode || "").replace(/\D/g, "");
+  if (!pc) return null;
+  return pc.slice(0, 5) === alvo;
+}
+
 async function buscarCoordenadasPorEndereco(prefixo) {
-  const partes = [
-    document.getElementById(`${prefixo}Endereco`)?.value,
-    document.getElementById(`${prefixo}Bairro`)?.value,
-    document.getElementById(`${prefixo}Cidade`)?.value,
-    document.getElementById(`${prefixo}Uf`)?.value,
-  ].map(s => (s || "").trim()).filter(Boolean);
+  const endereco = (document.getElementById(`${prefixo}Endereco`)?.value || "").trim();
+  const bairro   = (document.getElementById(`${prefixo}Bairro`)?.value   || "").trim();
+  const cidade   = (document.getElementById(`${prefixo}Cidade`)?.value   || "").trim();
+  const uf       = (document.getElementById(`${prefixo}Uf`)?.value       || "").trim();
+  const cep      = (document.getElementById(`${prefixo}Cep`)?.value      || "").replace(/\D/g, "");
 
   const msg = document.getElementById(`${prefixo}LocMsg`);
   if (msg) { msg.className = "loc-msg"; msg.textContent = ""; }
 
-  if (partes.length === 0) {
-    if (msg) { msg.className = "loc-msg is-error"; msg.textContent = "Preencha o endereço primeiro."; }
+  if (!endereco && !bairro && !cidade && !cep) {
+    if (msg) { msg.className = "loc-msg is-error"; msg.textContent = "Preencha endereço, bairro, cidade ou CEP primeiro."; }
     return;
   }
 
-  const query = partes.join(", ");
-  if (msg) msg.textContent = "Buscando…";
+  // Structured search progressivo, do mais específico ao mais amplo.
+  // CEP é a âncora geográfica mais forte — sempre que tiver, vai junto.
+  // bairro NÃO entra em "street" (deve ser só logradouro) para não confundir o Nominatim.
+  // A tentativa "bairro" usa busca livre (q) porque o Nominatim não aceita bairro em structured search.
+  const queryBairro = [bairro, cidade, uf].filter(Boolean).join(", ");
+  const tentativas = [
+    { params: { street: endereco, city: cidade, state: uf, postalcode: cep }, nivel: "endereço+CEP",   isFallback: false },
+    { params: { street: endereco, city: cidade, state: uf },                  nivel: "endereço",       isFallback: false },
+    { params: {                   city: cidade, state: uf, postalcode: cep }, nivel: "CEP+cidade",     isFallback: true  },
+    { params: { q: queryBairro },                                             nivel: "bairro",         isFallback: true  },
+    { params: {                   city: cidade, state: uf },                  nivel: "cidade",         isFallback: true  },
+  ].filter(t => {
+    if (t.params.q !== undefined) return Boolean(bairro) && Boolean(cidade);
+    return Object.values(t.params).some(v => v && String(v).trim());
+  });
 
-  try {
-    const resp = await fetch(`/admin/geocode?q=${encodeURIComponent(query)}`, { headers: authHeaders() });
-    const data = await resp.json();
-    if (!resp.ok) {
-      if (msg) { msg.className = "loc-msg is-error"; msg.textContent = data.error || "Erro na busca."; }
+  // Remove duplicatas (params iguais)
+  const vistos = new Set();
+  const filas = tentativas.filter(t => {
+    const key = JSON.stringify(t.params);
+    if (vistos.has(key)) return false;
+    vistos.add(key);
+    return true;
+  });
+
+  for (let i = 0; i < filas.length; i++) {
+    const t = filas[i];
+    if (msg) {
+      msg.className = "loc-msg";
+      msg.textContent = i === 0 ? "Buscando…" : `Não achei pelo ${filas[i-1].nivel}, tentando pelo ${t.nivel}…`;
+    }
+
+    const sp = new URLSearchParams();
+    for (const [k, v] of Object.entries(t.params)) {
+      if (v && String(v).trim()) sp.set(k, String(v).trim());
+    }
+
+    let data;
+    try {
+      const resp = await fetch(`/admin/geocode?${sp}`, { headers: authHeaders() });
+      data = await resp.json();
+      if (!resp.ok) {
+        if (msg) { msg.className = "loc-msg is-error"; msg.textContent = data.error || "Erro na busca."; }
+        return;
+      }
+    } catch (e) {
+      if (msg) { msg.className = "loc-msg is-error"; msg.textContent = "Erro: " + e.message; }
       return;
     }
 
-    const results = Array.isArray(data.results) ? data.results : [];
-    if (results.length === 0) {
-      if (msg) { msg.className = "loc-msg is-error"; msg.textContent = "Nenhum resultado. Arraste o pino manualmente ou cole as coordenadas."; }
-      return;
+    let results = Array.isArray(data.results) ? data.results : [];
+
+    // Filtra resultados que estão na cidade certa
+    if (cidade) {
+      const naCidade = results.filter(r => _resultadoNaCidade(r, cidade));
+      if (naCidade.length > 0) results = naCidade;
+      else results = []; // sem nenhum na cidade, descarta — não vale chutar endereço de outra cidade
+    }
+
+    // Filtro estrito por CEP: se o user tem CEP e a tentativa não é a aproximação por bairro,
+    // descarta resultados cujo postcode bate negativamente (ex: Nominatim retornou rua homônima
+    // em outro bairro/CEP). Resultados sem postcode são mantidos (benefício da dúvida).
+    if (cep && t.nivel !== "bairro" && results.length > 0) {
+      const baterCep = results.map(r => ({ r, bate: _resultadoNoCep(r, cep) }));
+      const positivos = baterCep.filter(x => x.bate === true).map(x => x.r);
+      if (positivos.length > 0) {
+        results = positivos;
+      } else {
+        // ninguém bate positivamente; remove só os que batem negativamente
+        results = baterCep.filter(x => x.bate !== false).map(x => x.r);
+      }
+    }
+
+    if (results.length === 0) continue;
+
+    const avisoFallback = t.isFallback ? ` (aproximação pelo ${t.nivel} — arraste o pino até o local exato)` : ". Confirme arrastando se necessário.";
+
+    // Se temos bairro e algum resultado bate exatamente com ele, posiciona direto
+    // (evita mostrar lista quando o "correto" é óbvio)
+    if (bairro && results.length > 1) {
+      const noBairro = results.filter(r => _resultadoNoBairro(r, bairro));
+      if (noBairro.length === 1) {
+        _miniMapaAplicarCoord(prefixo, noBairro[0].lat, noBairro[0].lon);
+        if (msg) {
+          msg.className = t.isFallback ? "loc-msg" : "loc-msg is-ok";
+          msg.textContent = `✓ Pino posicionado no bairro ${bairro}${avisoFallback}`;
+        }
+        return;
+      }
+      if (noBairro.length > 1) {
+        results = noBairro; // reduz a lista aos do bairro certo
+      }
     }
 
     if (results.length === 1) {
-      _miniMapaAplicarCoord(prefixo, results[0].lat, results[0].lon);
-      if (msg) { msg.className = "loc-msg is-ok"; msg.textContent = "✓ Pino posicionado. Confirme arrastando se necessário."; }
+      const r = results[0];
+      _miniMapaAplicarCoord(prefixo, r.lat, r.lon);
+      if (msg) {
+        // Quando o Nominatim só achou o limite administrativo da cidade (sem rua),
+        // o pino cai no centroide do município — explicita isso pra evitar mal-entendido.
+        const ehSoMunicipio = r.address?.municipality && !r.address?.road && !r.address?.suburb && !r.address?.neighbourhood;
+        if (ehSoMunicipio) {
+          msg.className = "loc-msg";
+          msg.textContent = `⚠ Não achei a rua exata no mapa. Pino colocado no centro de ${r.address.municipality} — arraste até o endereço correto.`;
+        } else {
+          msg.className = t.isFallback ? "loc-msg" : "loc-msg is-ok";
+          msg.textContent = `✓ Pino posicionado${avisoFallback}`;
+        }
+      }
       return;
     }
 
-    // Múltiplos: mostra lista
     if (msg) {
       msg.className = "loc-msg";
-      msg.innerHTML = `<div style="margin-bottom:6px;">${results.length} resultados encontrados — escolha:</div>`;
+      const titulo = t.isFallback
+        ? `Não achei o endereço exato — ${results.length} opções pelo ${t.nivel}:`
+        : `${results.length} resultados na mesma cidade — escolha:`;
+      msg.innerHTML = `<div style="margin-bottom:6px;">${titulo}</div>`;
       const list = document.createElement("div");
       list.className = "loc-suggestions";
       results.forEach((r) => {
@@ -3021,8 +3297,12 @@ async function buscarCoordenadasPorEndereco(prefixo) {
       });
       msg.appendChild(list);
     }
-  } catch (e) {
-    if (msg) { msg.className = "loc-msg is-error"; msg.textContent = "Erro: " + e.message; }
+    return;
+  }
+
+  if (msg) {
+    msg.className = "loc-msg is-error";
+    msg.textContent = "Nenhum resultado encontrado em " + (cidade || "nenhuma cidade") + ". Cole as coordenadas do Google Maps ou arraste o pino manualmente.";
   }
 }
 

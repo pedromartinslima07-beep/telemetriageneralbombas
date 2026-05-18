@@ -195,21 +195,42 @@ function _geocodeAguardarVez() {
 }
 
 router.get("/geocode", authRequired, adminOnly, async (req, res) => {
-  const { q } = req.query;
-  if (!q || String(q).trim().length < 3) {
-    return res.status(400).json({ error: "Parâmetro 'q' obrigatório (>= 3 caracteres)" });
+  // Aceita query livre (q=...) ou structured search (street/city/state/postalcode)
+  const { q, street, city, state, postalcode } = req.query;
+
+  const trim = (v) => (v ? String(v).trim() : "");
+  const sStreet     = trim(street);
+  const sCity       = trim(city);
+  const sState      = trim(state);
+  const sPostalcode = trim(postalcode).replace(/\D/g, "");
+  const sQ          = trim(q);
+
+  const isStructured = Boolean(sStreet || sCity || sState || sPostalcode);
+
+  if (!isStructured && sQ.length < 3) {
+    return res.status(400).json({ error: "Forneça 'q' (>=3 chars) ou parâmetros structured (street/city/state/postalcode)" });
   }
 
   await _geocodeAguardarVez();
 
   try {
-    const url = "https://nominatim.openstreetmap.org/search?" + new URLSearchParams({
-      q: String(q).trim(),
+    const params = {
       format: "json",
       addressdetails: "1",
       limit: "5",
       countrycodes: "br",
-    });
+    };
+
+    if (isStructured) {
+      if (sStreet)     params.street     = sStreet;
+      if (sCity)       params.city       = sCity;
+      if (sState)      params.state      = sState;
+      if (sPostalcode) params.postalcode = sPostalcode;
+    } else {
+      params.q = sQ;
+    }
+
+    const url = "https://nominatim.openstreetmap.org/search?" + new URLSearchParams(params);
 
     const resp = await fetch(url, {
       headers: {
@@ -226,18 +247,71 @@ router.get("/geocode", authRequired, adminOnly, async (req, res) => {
 
     const data = await resp.json();
     return res.json({
-      query: String(q),
+      query: isStructured ? { street: sStreet, city: sCity, state: sState, postalcode: sPostalcode } : sQ,
       results: (Array.isArray(data) ? data : []).map((r) => ({
         display_name: r.display_name,
         lat: Number(r.lat),
         lon: Number(r.lon),
         type: r.type,
         importance: r.importance,
+        address: r.address || {},
       })),
     });
   } catch (err) {
     console.error("Erro geocode:", err);
     return res.status(500).json({ error: "Erro ao consultar geocoding" });
+  }
+});
+
+// ----------------------------------------------------------------------------
+// GET /admin/reverse-geocode?lat=X&lon=Y
+// Reverse geocoding via Nominatim — usado quando o usuário arrasta o pino no
+// mini-mapa, pra preencher de volta os campos endereço/bairro/cidade/UF/CEP.
+// Mesma fila de rate-limit do /geocode (1 req/s).
+// ----------------------------------------------------------------------------
+router.get("/reverse-geocode", authRequired, adminOnly, async (req, res) => {
+  const lat = Number(req.query.lat);
+  const lon = Number(req.query.lon);
+
+  if (!Number.isFinite(lat) || !Number.isFinite(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+    return res.status(400).json({ error: "Parâmetros 'lat' e 'lon' obrigatórios e válidos" });
+  }
+
+  await _geocodeAguardarVez();
+
+  try {
+    const url = "https://nominatim.openstreetmap.org/reverse?" + new URLSearchParams({
+      lat: String(lat),
+      lon: String(lon),
+      format: "json",
+      addressdetails: "1",
+      zoom: "18", // detalhe nível rua/casa
+    });
+
+    const resp = await fetch(url, {
+      headers: {
+        "User-Agent": "TelemetriaGeneralBombas/1.0 (admin reverse-geocoding)",
+        "Accept": "application/json",
+        "Accept-Language": "pt-BR,pt;q=0.9",
+      },
+    });
+
+    if (!resp.ok) {
+      console.warn("[reverse-geocode] Nominatim respondeu", resp.status);
+      return res.status(502).json({ error: "Reverse geocoding indisponível (status " + resp.status + ")" });
+    }
+
+    const data = await resp.json();
+    if (data?.error) {
+      return res.json({ display_name: "", address: {} });
+    }
+    return res.json({
+      display_name: data.display_name || "",
+      address: data.address || {},
+    });
+  } catch (err) {
+    console.error("Erro reverse-geocode:", err);
+    return res.status(500).json({ error: "Erro ao consultar reverse geocoding" });
   }
 });
 

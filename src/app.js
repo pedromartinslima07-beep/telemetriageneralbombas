@@ -48,10 +48,15 @@ app.use(helmet({
         "blob:",
         "https://*.basemaps.cartocdn.com",
       ],
-      // Auto-preenchimento de endereço por CEP (ViaCEP, gratuito, sem chave)
+      // Auto-preenchimento de endereço por CEP:
+      //   ViaCEP      — texto granular
+      //   BrasilAPI   — lat/lng (cobertura limitada)
+      //   AwesomeAPI  — lat/lng com cobertura melhor pra CEPs urbanos
       "connect-src": [
         "'self'",
         "https://viacep.com.br",
+        "https://brasilapi.com.br",
+        "https://cep.awesomeapi.com.br",
       ],
     },
   },

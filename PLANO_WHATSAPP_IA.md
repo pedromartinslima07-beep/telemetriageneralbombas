@@ -367,6 +367,26 @@ Substitui o stub "Em breve" da seção Telemetria por uma página completa inspi
 - Pino customizado via DivIcon (CSS-only, sem depender das imagens default do Leaflet)
 - CSP (Helmet) ajustado para permitir tiles do Carto e fetch ao ViaCEP
 
+##### 3B.1.1 — Refinamentos do geocoding + reverse geocoding ✅ CONCLUÍDO
+
+Caso real que motivou: CEP `05861-270` (Jardim Mônica, SP) — BrasilAPI sem coords, Nominatim retornava 3 ruas homônimas em outros bairros/cidades. O usuário não conseguia posicionar o pino e, ao arrastar, os campos do formulário não acompanhavam.
+
+**Geocoding direto (CEP → coords) mais robusto:**
+- **AwesomeAPI** adicionada como 3ª fonte de coordenadas em paralelo com ViaCEP+BrasilAPI no `buscarEnderecoPorCep`. Ordem de preferência: `brasilData.location.coordinates` → `awesomeData.lat/lng` → fallback Nominatim. Cobre os CEPs urbanos que a BrasilAPI v2 deixa sem coords.
+- CSP (Helmet) liberado para `https://cep.awesomeapi.com.br`.
+
+**Busca por endereço (`buscarCoordenadasPorEndereco`):**
+- Tentativas progressivas: `endereço+CEP` → `endereço` → `CEP+cidade` → `bairro` (busca livre `q=`) → `cidade`. Bairro nunca entra no campo `street` do Nominatim (que aceita só logradouro).
+- `_resultadoNaCidade` ficou estrito (sem fallback no `display_name`, que deixava passar "São Paulo" do nome do estado e validava endereços de outras cidades paulistas).
+- Novo helper `_resultadoNoCep` — bate prefixo de 5 dígitos do `address.postcode` e descarta resultados que batem negativamente (rua homônima em CEP/bairro errado). Resultados sem postcode são mantidos.
+- Quando só o limite administrativo do município é encontrado, mensagem explicita: *"Não achei a rua exata no mapa. Pino colocado no centro de <cidade> — arraste até o endereço correto."*
+
+**Reverse geocoding ao arrastar o pino:**
+- Novo endpoint `GET /admin/reverse-geocode?lat=X&lon=Y` — proxy do Nominatim `/reverse` com `zoom=18` e mesma fila de rate limit do `/geocode`.
+- Handler `dragend` chama o reverse e popula os campos endereço/bairro/cidade/UF/CEP. `ISO3166-2-lvl4` é tratado pra extrair a UF (`BR-SP` → `SP`).
+- Race protection: sequência por prefixo descarta resposta obsoleta se o usuário arrastar várias vezes rápido.
+- **Heurística "ajuste fino vs mudança de endereço"** (300m via Haversine): arrastes pequenos mantêm o texto vindo do CEP intacto (porque o OSM em algumas áreas tem o bairro indexado errado — ex: rua do Jardim Mônica aparece como Capão Redondo no reverse); arrastes longos sobrescrevem tudo com o que o Nominatim retornou.
+
 ##### 3B.2 — Seção Mapa (próxima)
 
 - [ ] Substituir o stub "Em breve" de `data-section="mapa"`
