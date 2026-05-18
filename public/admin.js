@@ -3777,27 +3777,20 @@ function _mpAtualizarUpdates() {
     </div>`).join("");
 }
 
-// Toggle fullscreen do mapa. Se forcar = true/false, vai para esse estado;
-// caso contrário inverte o atual.
-// Em fullscreen, move o .mp-panel pra dentro do .mp-map-card pra ele virar
-// um overlay flutuante no canto direito do mapa. Guarda a posição original
-// pra devolver ao sair.
-function _mpToggleFullscreen(forcar) {
+// Aplica/remove o visual de fullscreen (classes CSS + mover o painel pra dentro
+// do card). NÃO toca na Fullscreen API do navegador — quem chama é responsável.
+function _mpAplicarFullscreen(ativar) {
   const card = document.getElementById("mpMapCard");
   const panel = document.querySelector('.mp-panel');
   if (!card) return;
-  const ativar = forcar != null ? forcar : !card.classList.contains("is-fullscreen");
 
   if (panel) {
     if (ativar && !panel._mpOldParent) {
-      // Salva posição original e move pra dentro do card
       panel._mpOldParent = panel.parentNode;
       panel._mpOldNext   = panel.nextSibling;
       card.appendChild(panel);
-      // Esconde até o usuário clicar num pino (a não ser que já tenha um selecionado)
       panel.classList.toggle("mp-fs-hidden", !_mpCondoSelecionadoId);
     } else if (!ativar && panel._mpOldParent) {
-      // Devolve pra posição original e limpa estado de overlay
       panel._mpOldParent.insertBefore(panel, panel._mpOldNext);
       panel._mpOldParent = null;
       panel._mpOldNext   = null;
@@ -3807,9 +3800,42 @@ function _mpToggleFullscreen(forcar) {
 
   card.classList.toggle("is-fullscreen", ativar);
   document.body.classList.toggle("mp-fs-active", ativar);
-  // Leaflet precisa recalcular o tamanho após a mudança de dimensões
   if (_mpMap) requestAnimationFrame(() => _mpMap.invalidateSize());
 }
+
+// Toggle fullscreen do mapa. Tenta usar a Fullscreen API do navegador
+// (esconde a chrome do browser inteiro — barra de URL, abas, etc) e
+// cai pro pseudo-fullscreen via CSS se a API não estiver disponível.
+function _mpToggleFullscreen(forcar) {
+  const card = document.getElementById("mpMapCard");
+  if (!card) return;
+  const estaEm = card.classList.contains("is-fullscreen") || !!document.fullscreenElement;
+  const ativar = forcar != null ? forcar : !estaEm;
+
+  if (ativar) {
+    if (card.requestFullscreen) {
+      card.requestFullscreen().catch(() => _mpAplicarFullscreen(true));
+    } else {
+      _mpAplicarFullscreen(true);
+    }
+  } else {
+    if (document.fullscreenElement) {
+      document.exitFullscreen?.();
+    } else {
+      _mpAplicarFullscreen(false);
+    }
+  }
+}
+
+// Sincroniza a classe is-fullscreen quando o usuário entra/sai da Fullscreen
+// API via ESC do navegador ou outro caminho fora do nosso botão.
+document.addEventListener("fullscreenchange", () => {
+  const card = document.getElementById("mpMapCard");
+  if (!card) return;
+  const apiAtiva = document.fullscreenElement === card;
+  const classeAtiva = card.classList.contains("is-fullscreen");
+  if (apiAtiva !== classeAtiva) _mpAplicarFullscreen(apiAtiva);
+});
 
 function _mpFsPanelMostrar() {
   document.querySelector('.mp-panel')?.classList.remove("mp-fs-hidden");
