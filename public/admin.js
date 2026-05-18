@@ -263,6 +263,7 @@ async function criarCondominio() {
   const bairro = (document.getElementById("novoBairro")?.value || "").trim();
   const cidade = (document.getElementById("novoCidade")?.value || "").trim();
   const uf = (document.getElementById("novoUf")?.value || "").trim();
+  const cep = (document.getElementById("novoCep")?.value || "").replace(/\D/g, "");
   const responsavel = (document.getElementById("novoResponsavel")?.value || "").trim();
   const telefone = (document.getElementById("novoTelefone")?.value || "").trim();
   const observacoes = (document.getElementById("novoObs")?.value || "").trim();
@@ -287,6 +288,7 @@ async function criarCondominio() {
     bairro: bairro || null,
     cidade: cidade || null,
     uf: uf || null,
+    cep: cep || null,
     responsavel: responsavel || null,
     telefone: telefone || null,
     observacoes: observacoes || null,
@@ -2447,9 +2449,8 @@ function abrirModalEditar(id) {
       const editLng = document.getElementById("editLng");
       if (editLat) editLat.value = c.lat != null ? c.lat : "";
       if (editLng) editLng.value = c.lng != null ? c.lng : "";
-      // CEP não é persistido — sempre começa em branco
       const editCep = document.getElementById("editCep");
-      if (editCep) editCep.value = "";
+      if (editCep) editCep.value = c.cep ? _cepMascarar(c.cep) : "";
       const cepMsg = document.getElementById("editCepMsg");
       if (cepMsg) { cepMsg.className = "cep-msg"; cepMsg.textContent = ""; }
       const locMsg = document.getElementById("editLocMsg");
@@ -2505,12 +2506,14 @@ async function salvarEdicao(event) {
   // Monta payload (aqui enviamos tudo; vazio vira null -> limpa)
   const latRaw = (document.getElementById("editLat")?.value || "").trim();
   const lngRaw = (document.getElementById("editLng")?.value || "").trim();
+  const cepRaw = (document.getElementById("editCep")?.value || "").replace(/\D/g, "");
   const payload = {
     nome: (document.getElementById("editNome").value || "").trim(),
     endereco: _valOrNull("editEndereco"),
     bairro: _valOrNull("editBairro"),
     cidade: _valOrNull("editCidade"),
     uf: _valOrNull("editUf"),
+    cep: cepRaw === "" ? null : cepRaw,
     responsavel: _valOrNull("editResponsavel"),
     telefone: _valOrNull("editTelefone"),
     observacoes: _valOrNull("editObs"),
@@ -2966,12 +2969,8 @@ function criarOuObterMiniMapa(prefixo) {
 
   marker.on("dragend", () => {
     const ll = marker.getLatLng();
-    // Lê a posição anterior ANTES de sobrescrever os campos lat/lng, pra
-    // distinguir "ajuste fino na mesma rua" de "mudei pra outro endereço".
-    const latAntes = Number(document.getElementById(`${prefixo}Lat`)?.value);
-    const lngAntes = Number(document.getElementById(`${prefixo}Lng`)?.value);
     _miniMapaAplicarCoord(prefixo, ll.lat, ll.lng, { centralizar: false });
-    _miniMapaReverseGeocode(prefixo, ll.lat, ll.lng, { latAntes, lngAntes });
+    _miniMapaReverseGeocode(prefixo, ll.lat, ll.lng);
   });
 
   // Sync campos lat/lng → marker
@@ -3016,24 +3015,7 @@ function _miniMapaInvalidar(prefixo) {
 // arrastar várias vezes rápido, só a resposta do último request é aplicada.
 const _reverseSeq = new Map(); // prefixo → último seq disparado
 
-// Raio (em metros) abaixo do qual consideramos o arraste como "ajuste fino"
-// dentro do mesmo endereço — mantém os campos texto vindos do CEP intactos.
-// 300m cobre uma rua inteira sem trocar de bairro.
-const _AJUSTE_FINO_METROS = 300;
-
-function _distanciaMetros(lat1, lng1, lat2, lng2) {
-  // Haversine — suficiente pra distâncias de até alguns km
-  if (![lat1, lng1, lat2, lng2].every(Number.isFinite)) return Infinity;
-  const R = 6371000;
-  const toRad = (g) => (g * Math.PI) / 180;
-  const dLat = toRad(lat2 - lat1);
-  const dLng = toRad(lng2 - lng1);
-  const a = Math.sin(dLat / 2) ** 2 +
-            Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
-  return 2 * R * Math.asin(Math.sqrt(a));
-}
-
-async function _miniMapaReverseGeocode(prefixo, lat, lng, { latAntes, lngAntes } = {}) {
+async function _miniMapaReverseGeocode(prefixo, lat, lng) {
   const seq = (_reverseSeq.get(prefixo) || 0) + 1;
   _reverseSeq.set(prefixo, seq);
 
@@ -3074,35 +3056,25 @@ async function _miniMapaReverseGeocode(prefixo, lat, lng, { latAntes, lngAntes }
   const uf       = ufIso.startsWith("BR-") ? ufIso.slice(3) : (a.state || "");
   const cep      = (a.postcode || "").replace(/\D/g, "");
 
-  // Distingue ajuste fino (mantém texto do CEP) de mudança real de endereço (sobrescreve).
-  // Razão: a indexação do OSM tem erros frequentes em bairros (ex: rua de Jd. Mônica
-  // vem como Capão Redondo). Confiamos no CEP pro nome do bairro/rua quando o pino
-  // só foi ajustado alguns metros.
-  const distancia = _distanciaMetros(latAntes, lngAntes, lat, lng);
-  const ajusteFino = distancia <= _AJUSTE_FINO_METROS;
-
+  // Atualiza os campos do formulário com o resultado do reverse geocoding.
+  // Campos só são sobrescritos quando o Nominatim retorna valor — vazio mantém o atual.
   const aplicar = (id, valor) => {
     const el = document.getElementById(id);
     if (!el || !valor) return;
     el.value = valor;
   };
 
-  if (!ajusteFino) {
-    aplicar(`${prefixo}Endereco`, endereco);
-    aplicar(`${prefixo}Bairro`,   bairro);
-    aplicar(`${prefixo}Cidade`,   cidade);
-    aplicar(`${prefixo}Uf`,       uf);
-    if (cep) {
-      const cepEl = document.getElementById(`${prefixo}Cep`);
-      if (cepEl) cepEl.value = _cepMascarar(cep);
-    }
+  aplicar(`${prefixo}Endereco`, endereco);
+  aplicar(`${prefixo}Bairro`,   bairro);
+  aplicar(`${prefixo}Cidade`,   cidade);
+  aplicar(`${prefixo}Uf`,       uf);
+  if (cep) {
+    const cepEl = document.getElementById(`${prefixo}Cep`);
+    if (cepEl) cepEl.value = _cepMascarar(cep);
   }
 
   if (msg) {
-    if (ajusteFino) {
-      msg.className = "loc-msg is-ok";
-      msg.textContent = `✓ Pino ajustado (${Math.round(distancia)}m) — mantendo o endereço do CEP.`;
-    } else if (endereco || bairro) {
+    if (endereco || bairro) {
       msg.className = "loc-msg is-ok";
       const partes = [endereco, bairro, cidade && `${cidade}/${uf || "?"}`].filter(Boolean);
       msg.textContent = "✓ Endereço atualizado: " + partes.join(", ");

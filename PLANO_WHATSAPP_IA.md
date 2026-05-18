@@ -367,6 +367,13 @@ Substitui o stub "Em breve" da seção Telemetria por uma página completa inspi
 - Pino customizado via DivIcon (CSS-only, sem depender das imagens default do Leaflet)
 - CSP (Helmet) ajustado para permitir tiles do Carto e fetch ao ViaCEP
 
+##### 3B.1.2 — CEP persistido + reverse sempre sobrescreve ✅ CONCLUÍDO
+
+- Migration `003_condominio_cep.sql` adiciona `condominios.cep VARCHAR(8)` (somente dígitos).
+- POST/GET/PATCH `/condominios` aceitam, retornam e validam `cep` (8 dígitos ou null).
+- Formulários (novo e editar) enviam `cep` no payload; ao abrir o editar, o campo é pré-preenchido com a máscara `12345-678`.
+- Removida a heurística de 300m do reverse geocode: ao arrastar o pino, **sempre** sobrescreve endereço/bairro/cidade/UF/CEP com o que o Nominatim retornou (campo vazio do reverse mantém o atual). A pequena chance de o OSM trazer o bairro errado em algumas áreas é compensada pelo controle manual — o usuário ajusta direto se discordar.
+
 ##### 3B.1.1 — Refinamentos do geocoding + reverse geocoding ✅ CONCLUÍDO
 
 Caso real que motivou: CEP `05861-270` (Jardim Mônica, SP) — BrasilAPI sem coords, Nominatim retornava 3 ruas homônimas em outros bairros/cidades. O usuário não conseguia posicionar o pino e, ao arrastar, os campos do formulário não acompanhavam.

@@ -15,10 +15,20 @@ function _normCoord(v, min, max) {
   return n;
 }
 
+// Normaliza CEP: descarta tudo que não é dígito; exige exatamente 8 dígitos.
+// Retorna null pra vazio, undefined pra inválido.
+function _normCep(v) {
+  if (v === undefined || v === null || v === "") return null;
+  const d = String(v).replace(/\D/g, "");
+  if (d.length === 0) return null;
+  if (d.length !== 8) return undefined;
+  return d;
+}
+
 // POST /condominios (criar)
 router.post("/", authRequired, masterAdminOnly, async (req, res) => {
   const {
-    nome, endereco, bairro, cidade, uf,
+    nome, endereco, bairro, cidade, uf, cep,
     responsavel, telefone, observacoes, ativo,
     lat, lng,
   } = req.body || {};
@@ -36,14 +46,17 @@ router.post("/", authRequired, masterAdminOnly, async (req, res) => {
   if (latNorm === undefined) return res.status(400).json({ error: "lat inválida (-90 a 90)" });
   if (lngNorm === undefined) return res.status(400).json({ error: "lng inválida (-180 a 180)" });
 
+  const cepNorm = _normCep(cep);
+  if (cepNorm === undefined) return res.status(400).json({ error: "CEP inválido (precisa ter 8 dígitos)" });
+
   try {
     const result = await pool.query(
       `INSERT INTO condominios
-        (nome, endereco, bairro, cidade, uf, responsavel, telefone, observacoes, ativo, lat, lng)
+        (nome, endereco, bairro, cidade, uf, cep, responsavel, telefone, observacoes, ativo, lat, lng)
        VALUES
-        ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+        ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
        RETURNING
-        id, nome, endereco, bairro, cidade, uf,
+        id, nome, endereco, bairro, cidade, uf, cep,
         responsavel, telefone, observacoes, ativo, lat, lng, criado_em`,
       [
         nomeNorm,
@@ -51,6 +64,7 @@ router.post("/", authRequired, masterAdminOnly, async (req, res) => {
         bairro ?? null,
         cidade ?? null,
         ufNorm,
+        cepNorm,
         responsavel ?? null,
         telefone ?? null,
         observacoes ?? null,
@@ -72,7 +86,7 @@ router.get("/", authRequired, adminOnly, async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT
-        c.id, c.nome, c.endereco, c.bairro, c.cidade, c.uf,
+        c.id, c.nome, c.endereco, c.bairro, c.cidade, c.uf, c.cep,
         c.responsavel, c.telefone, c.observacoes, c.ativo, c.lat, c.lng, c.criado_em,
         COUNT(r.id)::int AS total_reservatorios
       FROM condominios c
@@ -97,7 +111,7 @@ router.get("/:id", authRequired, adminOnly, async (req, res) => {
 
   try {
     const result = await pool.query(`
-      SELECT id, nome, endereco, bairro, cidade, uf,
+      SELECT id, nome, endereco, bairro, cidade, uf, cep,
              responsavel, telefone, observacoes, ativo, lat, lng, criado_em
       FROM condominios
       WHERE id = $1
@@ -156,6 +170,11 @@ router.patch("/:id", authRequired, masterAdminOnly, async (req, res) => {
   add("observacoes", b.observacoes);
   add("ativo", ativoNorm);
 
+  if ("cep" in b) {
+    const cepNorm = _normCep(b.cep);
+    if (cepNorm === undefined) return res.status(400).json({ error: "CEP inválido (precisa ter 8 dígitos)" });
+    add("cep", cepNorm);
+  }
   if ("lat" in b) {
     const latNorm = _normCoord(b.lat, -90, 90);
     if (latNorm === undefined) return res.status(400).json({ error: "lat inválida (-90 a 90)" });
@@ -174,7 +193,7 @@ router.patch("/:id", authRequired, masterAdminOnly, async (req, res) => {
   try {
     const result = await pool.query(
       `UPDATE condominios SET ${sets.join(", ")} WHERE id = $1
-       RETURNING id, nome, endereco, bairro, cidade, uf,
+       RETURNING id, nome, endereco, bairro, cidade, uf, cep,
                  responsavel, telefone, observacoes, ativo, lat, lng, criado_em`,
       values
     );
