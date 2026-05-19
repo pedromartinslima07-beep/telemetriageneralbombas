@@ -567,9 +567,9 @@ Página /whatsapp era uma tabela simples de conversas. Virou central de atendime
 - Display rich de áudio/imagem/documento (cards visuais com ícone por tipo)
 - WebSocket adiado conscientemente — polling de 5s suficiente para o volume atual
 
-### Fase 4 — Integração telemetria automática
-- [ ] Ao abrir chamado, anexa última leitura do condomínio automaticamente
-- [ ] Alerta de telemetria crítico → IA abre chamado + notifica cliente via WhatsApp automaticamente
+### Fase 4 — Integração telemetria automática ✅ CONCLUÍDO
+- [x] Ao abrir chamado, anexa última leitura do condomínio automaticamente
+- [x] Alerta de telemetria crítico → IA abre chamado + notifica cliente via WhatsApp automaticamente
 
 ---
 

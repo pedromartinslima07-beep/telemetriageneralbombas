@@ -64,11 +64,26 @@ async function vincularClienteCondominio({ cliente_whatsapp_id, condominio_id })
 }
 
 async function abrirChamado({ conversa_id, condominio_id, titulo, descricao, prioridade, categoria }) {
+  let descricaoFinal = descricao;
+
+  // Anexa snapshot de telemetria se há condomínio vinculado
+  if (condominio_id) {
+    try {
+      const tel = await buscarTelemetria({ condominio_id });
+      if (tel.length > 0) {
+        const linhas = tel.map(t =>
+          `• ${t.reservatorio}: ${t.nivel_pct !== null ? t.nivel_pct + '%' : 'N/D'} | Bomba: ${t.bomba_ligada ? 'LIGADA' : 'DESLIGADA'}`
+        ).join('\n');
+        descricaoFinal += `\n\n📊 Telemetria no momento da abertura:\n${linhas}`;
+      }
+    } catch (_) { /* não bloqueia criação do chamado se telemetria falhar */ }
+  }
+
   const result = await pool.query(
     `INSERT INTO chamados (conversa_id, condominio_id, titulo, descricao, prioridade, categoria)
      VALUES ($1, $2, $3, $4, $5, $6)
      RETURNING id`,
-    [conversa_id, condominio_id || null, titulo, descricao, prioridade, categoria || 'outro']
+    [conversa_id, condominio_id || null, titulo, descricaoFinal, prioridade, categoria || 'outro']
   );
   return { chamado_id: result.rows[0].id };
 }
