@@ -27,6 +27,7 @@ const { statusRouter } = require("./routes/status.routes");
 const { jobsRouter } = require("./routes/jobs.routes");
 const { reservatoriosRouter } = require("./routes/reservatorios.routes");
 const { relatorioRouter } = require("./routes/relatorio.routes");
+const { relatoriosRouter } = require("./routes/relatorios.routes");
 const { whatsappRouter } = require("./routes/whatsapp.routes");
 const { chamadosRouter } = require("./routes/chamados.routes");
 const { tecnicosRouter } = require("./routes/tecnicos.routes");
@@ -283,6 +284,7 @@ app.use("/reservatorios", reservatoriosRouter);
 
 app.use("/cliente", clienteRouter);
 app.use("/relatorio", relatorioRouter);
+app.use("/relatorios", relatoriosRouter);
 app.use("/admin", adminRouter);
 app.use(leiturasRouter); // ex: /ultima-leitura/:device_id
 app.use("/status", statusRouter);

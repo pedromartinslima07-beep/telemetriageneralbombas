@@ -1099,16 +1099,157 @@
         </div>
       </div>
 
+      <!-- ===== SECTION: RELATÓRIOS ===== -->
       <div class="section" data-section="relatorios">
-        <div class="coming-soon">
-          <div class="coming-soon-mark">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        <div class="card" style="padding:0;overflow:hidden;">
+
+          <!-- Tabs -->
+          <div style="padding:16px 20px 0;border-bottom:1px solid var(--border);">
+            <div class="wa-tabs" id="relTabs" role="tablist" style="border-bottom:none;">
+              <button class="wa-tab is-active" data-rel-tab="chamados">Chamados</button>
+              <button class="wa-tab" data-rel-tab="alertas">Alertas</button>
+              <button class="wa-tab" data-rel-tab="telemetria">Telemetria diária</button>
+            </div>
           </div>
-          <h3>Relatórios</h3>
-          <p>Exportação de relatórios operacionais e SLA de chamados.</p>
-          <span class="coming-soon-tag">Em breve</span>
+
+          <!-- ── ABA: CHAMADOS ── -->
+          <div class="rel-tab-pane" id="relPaneChamados" style="padding:20px;">
+            <div class="filter-bar" style="margin-bottom:16px;">
+              <div class="field"><label class="lbl">De</label><input type="date" id="relChIni" class="input" style="width:140px;"></div>
+              <div class="field"><label class="lbl">Até</label><input type="date" id="relChFim" class="input" style="width:140px;"></div>
+              <div class="field"><label class="lbl">Condomínio</label><select id="relChCondo" class="input" style="width:160px;"><option value="">Todos</option></select></div>
+              <div class="field"><label class="lbl">Status</label>
+                <select id="relChStatus" class="input" style="width:140px;">
+                  <option value="">Todos</option>
+                  <option value="aberto">Aberto</option>
+                  <option value="em_atendimento">Em atendimento</option>
+                  <option value="fechado">Fechado</option>
+                </select>
+              </div>
+              <div class="field"><label class="lbl">Prioridade</label>
+                <select id="relChPrioridade" class="input" style="width:130px;">
+                  <option value="">Todas</option>
+                  <option value="baixa">Baixa</option>
+                  <option value="media">Média</option>
+                  <option value="alta">Alta</option>
+                  <option value="emergencia">Emergência</option>
+                </select>
+              </div>
+              <div class="field"><label class="lbl">Técnico</label><select id="relChTecnico" class="input" style="width:150px;"><option value="">Todos</option></select></div>
+              <button class="btn btn-sm" data-rel-action="gerar-chamados" style="align-self:flex-end;">Gerar relatório</button>
+            </div>
+            <div class="resumo-grid" id="relChKpis" style="margin-bottom:16px;display:none;"></div>
+            <div id="relChTableWrap" style="display:none;">
+              <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+                <button class="btn btn-sm" data-rel-action="exportar-chamados">Exportar CSV</button>
+              </div>
+              <div class="tableWrap">
+                <table>
+                  <thead><tr>
+                    <th style="width:60px">ID</th>
+                    <th>Título</th>
+                    <th style="width:160px">Condomínio</th>
+                    <th style="width:130px">Técnico</th>
+                    <th style="width:110px">Categoria</th>
+                    <th style="width:96px">Prioridade</th>
+                    <th style="width:84px">Status</th>
+                    <th style="width:110px">Aberto em</th>
+                    <th style="width:110px">Fechado em</th>
+                    <th style="width:72px">SLA (h)</th>
+                  </tr></thead>
+                  <tbody id="relChTbody"></tbody>
+                </table>
+              </div>
+              <p id="relChCount" style="font-size:11.5px;color:var(--text-dim);margin-top:6px;"></p>
+            </div>
+            <div id="relChEmpty" style="display:none;text-align:center;padding:32px;color:var(--text-dim);font-size:13px;">Nenhum chamado no período.</div>
+          </div>
+
+          <!-- ── ABA: ALERTAS ── -->
+          <div class="rel-tab-pane" id="relPaneAlertas" style="padding:20px;display:none;">
+            <div class="filter-bar" style="margin-bottom:16px;">
+              <div class="field"><label class="lbl">De</label><input type="date" id="relAlIni" class="input" style="width:140px;"></div>
+              <div class="field"><label class="lbl">Até</label><input type="date" id="relAlFim" class="input" style="width:140px;"></div>
+              <div class="field"><label class="lbl">Condomínio</label><select id="relAlCondo" class="input" style="width:160px;"><option value="">Todos</option></select></div>
+              <div class="field"><label class="lbl">Tipo</label>
+                <select id="relAlTipo" class="input" style="width:160px;">
+                  <option value="">Todos</option>
+                  <option value="nivel_muito_baixo">Nível muito baixo</option>
+                  <option value="nivel_baixo">Nível baixo</option>
+                  <option value="dispositivo_offline">Offline</option>
+                </select>
+              </div>
+              <div class="field"><label class="lbl">Status</label>
+                <select id="relAlStatus" class="input" style="width:130px;">
+                  <option value="">Todos</option>
+                  <option value="ativo">Ativo</option>
+                  <option value="resolvido">Resolvido</option>
+                </select>
+              </div>
+              <button class="btn btn-sm" data-rel-action="gerar-alertas" style="align-self:flex-end;">Gerar relatório</button>
+            </div>
+            <div class="resumo-grid" id="relAlKpis" style="margin-bottom:16px;display:none;"></div>
+            <div id="relAlTableWrap" style="display:none;">
+              <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+                <button class="btn btn-sm" data-rel-action="exportar-alertas">Exportar CSV</button>
+              </div>
+              <div class="tableWrap">
+                <table>
+                  <thead><tr>
+                    <th style="width:60px">ID</th>
+                    <th style="width:160px">Tipo</th>
+                    <th>Mensagem</th>
+                    <th style="width:160px">Reservatório</th>
+                    <th style="width:160px">Condomínio</th>
+                    <th style="width:84px">Status</th>
+                    <th style="width:110px">Criado em</th>
+                    <th style="width:80px">Tempo (h)</th>
+                  </tr></thead>
+                  <tbody id="relAlTbody"></tbody>
+                </table>
+              </div>
+              <p id="relAlCount" style="font-size:11.5px;color:var(--text-dim);margin-top:6px;"></p>
+            </div>
+            <div id="relAlEmpty" style="display:none;text-align:center;padding:32px;color:var(--text-dim);font-size:13px;">Nenhum alerta no período.</div>
+          </div>
+
+          <!-- ── ABA: TELEMETRIA ── -->
+          <div class="rel-tab-pane" id="relPaneTelemetria" style="padding:20px;display:none;">
+            <div class="filter-bar" style="margin-bottom:16px;">
+              <div class="field"><label class="lbl">De</label><input type="date" id="relTelIni" class="input" style="width:140px;"></div>
+              <div class="field"><label class="lbl">Até</label><input type="date" id="relTelFim" class="input" style="width:140px;"></div>
+              <div class="field"><label class="lbl">Condomínio</label><select id="relTelCondo" class="input" style="width:160px;"><option value="">Todos</option></select></div>
+              <div class="field"><label class="lbl">Reservatório (device)</label><input type="text" id="relTelDevice" class="input" placeholder="device_id (opcional)" style="width:180px;"></div>
+              <button class="btn btn-sm" data-rel-action="gerar-telemetria" style="align-self:flex-end;">Gerar relatório</button>
+            </div>
+            <div class="resumo-grid" id="relTelKpis" style="margin-bottom:16px;display:none;"></div>
+            <div id="relTelTableWrap" style="display:none;">
+              <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+                <button class="btn btn-sm" data-rel-action="exportar-telemetria">Exportar CSV</button>
+              </div>
+              <div class="tableWrap">
+                <table>
+                  <thead><tr>
+                    <th style="width:96px">Dia</th>
+                    <th style="width:130px">Device ID</th>
+                    <th style="width:160px">Reservatório</th>
+                    <th style="width:160px">Condomínio</th>
+                    <th style="width:70px">Leituras</th>
+                    <th style="width:80px">Nível mín %</th>
+                    <th style="width:80px">Nível méd %</th>
+                    <th style="width:80px">Nível máx %</th>
+                    <th style="width:90px">Bomba ON</th>
+                  </tr></thead>
+                  <tbody id="relTelTbody"></tbody>
+                </table>
+              </div>
+              <p id="relTelCount" style="font-size:11.5px;color:var(--text-dim);margin-top:6px;"></p>
+            </div>
+            <div id="relTelEmpty" style="display:none;text-align:center;padding:32px;color:var(--text-dim);font-size:13px;">Nenhum dado no período.</div>
+          </div>
+
         </div>
-      </div>
+      </div><!-- /section relatorios -->
 
       <div class="section" data-section="ia-insights">
         <div class="coming-soon">

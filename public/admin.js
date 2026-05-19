@@ -38,6 +38,9 @@ function showSection(name) {
     renderTelemetriaAvancada();
     carregarHistoricoTelemetria();
   }
+  if (name === "relatorios") {
+    renderRelatorios();
+  }
   if (name === "mapa") {
     // O Leaflet pode não ter sido criado ainda (seção estava display:none e
     // a primeira chamada de renderSecaoMapa fez early-return). Garante que
@@ -144,6 +147,12 @@ let _chamadosData = [];
 let _conversasData = [];
 let _usuariosData = [];
 let _tecnicosData = [];
+
+// ===== RELATÓRIOS — estado =====
+let _relTab       = "chamados";
+let _relChDados   = [];
+let _relAlDados   = [];
+let _relTelDados  = [];
 
 // chamados já vistos — usado para detectar novos e disparar pulso/beep
 let _chamadosIdsVistos = new Set();
@@ -6209,6 +6218,301 @@ function renderSecaoMapa() {
   }
 }
 
+// ============================================================
+//  RELATÓRIOS
+// ============================================================
+function _relDataPadrao() {
+  const hoje = new Date();
+  const fim  = hoje.toISOString().split("T")[0];
+  const ini  = new Date(hoje - 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+  return { ini, fim };
+}
+
+function _relPreencherCondoSelects(ids) {
+  const condos = Array.isArray(_condominios) ? _condominios : [];
+  const opts   = '<option value="">Todos</option>' +
+    condos.map(c => `<option value="${c.id}">${_waEscaparHtml(c.nome)}</option>`).join("");
+  ids.forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = opts; });
+}
+
+function _relPreencherTecnicoSelect() {
+  const el = document.getElementById("relChTecnico");
+  if (!el) return;
+  const tecs = Array.isArray(_tecnicosData) ? _tecnicosData : [];
+  el.innerHTML = '<option value="">Todos</option>' +
+    tecs.map(t => `<option value="${t.id}">${_waEscaparHtml(t.nome)}</option>`).join("");
+}
+
+function _relMostrarTab(tab) {
+  _relTab = tab;
+  document.querySelectorAll("#relTabs .wa-tab").forEach(btn =>
+    btn.classList.toggle("is-active", btn.dataset.relTab === tab)
+  );
+  document.querySelectorAll(".rel-tab-pane").forEach(p => p.style.display = "none");
+  const pane = document.getElementById(
+    tab === "chamados"   ? "relPaneChamados"   :
+    tab === "alertas"    ? "relPaneAlertas"    :
+                           "relPaneTelemetria"
+  );
+  if (pane) pane.style.display = "";
+}
+
+function renderRelatorios() {
+  const { ini, fim } = _relDataPadrao();
+  ["relChIni","relAlIni","relTelIni"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el && !el.value) el.value = ini;
+  });
+  ["relChFim","relAlFim","relTelFim"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el && !el.value) el.value = fim;
+  });
+  _relPreencherCondoSelects(["relChCondo","relAlCondo","relTelCondo"]);
+  _relPreencherTecnicoSelect();
+  _relMostrarTab(_relTab);
+}
+
+function _relKpiCard(icon, label, value, cls) {
+  return `<div class="resumo-card rc-${cls || "neutral"}">
+    <div class="rc-head"><span class="rc-icon">${icon}</span><span class="rc-label">${label}</span></div>
+    <div class="rc-value">${value}</div>
+  </div>`;
+}
+
+function _relSlaFmt(h) {
+  if (h == null || isNaN(h)) return "-";
+  if (h < 1) return `${Math.round(h * 60)} min`;
+  if (h < 24) return `${Number(h).toFixed(1)} h`;
+  return `${(h / 24).toFixed(1)} d`;
+}
+
+async function gerarRelChamados() {
+  const btn = document.querySelector("[data-rel-action='gerar-chamados']");
+  if (btn) btn.disabled = true;
+
+  const params = new URLSearchParams();
+  const v = id => document.getElementById(id)?.value || "";
+  params.set("data_ini",     v("relChIni"));
+  params.set("data_fim",     v("relChFim"));
+  if (v("relChCondo"))     params.set("condominio_id", v("relChCondo"));
+  if (v("relChStatus"))    params.set("status",        v("relChStatus"));
+  if (v("relChPrioridade"))params.set("prioridade",    v("relChPrioridade"));
+  if (v("relChTecnico"))   params.set("tecnico_id",    v("relChTecnico"));
+
+  try {
+    const r = await fetch("/relatorios/chamados?" + params, { headers: authHeaders() });
+    if (!r.ok) throw new Error(r.status);
+    _relChDados = await r.json();
+  } catch (e) {
+    alert("Erro ao gerar relatório de chamados."); return;
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+
+  const dados = _relChDados;
+  const total    = dados.length;
+  const abertos  = dados.filter(d => d.status === "aberto" || d.status === "em_atendimento").length;
+  const fechados = dados.filter(d => d.status === "fechado").length;
+  const slaArr   = dados.filter(d => d.fechado_em && d.sla_horas != null).map(d => Number(d.sla_horas));
+  const slaMedia = slaArr.length ? slaArr.reduce((a,b) => a+b, 0) / slaArr.length : null;
+
+  const kpiEl = document.getElementById("relChKpis");
+  if (kpiEl) {
+    kpiEl.style.display = "";
+    kpiEl.innerHTML =
+      _relKpiCard("📋", "Total",       total,                 "neutral") +
+      _relKpiCard("🔴", "Em aberto",   abertos,               abertos > 0 ? "bad"  : "ok") +
+      _relKpiCard("✅", "Fechados",    fechados,              "ok") +
+      _relKpiCard("⏱", "SLA médio",   slaMedia != null ? _relSlaFmt(slaMedia) : "-", "neutral");
+  }
+
+  const tbody = document.getElementById("relChTbody");
+  const wrap  = document.getElementById("relChTableWrap");
+  const empty = document.getElementById("relChEmpty");
+  const count = document.getElementById("relChCount");
+
+  if (!dados.length) {
+    if (wrap)  wrap.style.display  = "none";
+    if (empty) empty.style.display = "";
+    return;
+  }
+  if (empty) empty.style.display = "none";
+  if (wrap)  wrap.style.display  = "";
+
+  const prioClass = p =>
+    p === "emergencia" ? "b-bad" : p === "alta" ? "b-bad" : p === "media" ? "b-warn" : "b-ok";
+  const statusClass = s =>
+    s === "fechado" ? "b-ok" : s === "em_atendimento" ? "b-warn" : "b-bad";
+
+  tbody.innerHTML = dados.map(d => `
+    <tr>
+      <td>${d.id}</td>
+      <td>${_waEscaparHtml(d.titulo || "")}</td>
+      <td>${_waEscaparHtml(d.condominio_nome || "-")}</td>
+      <td>${_waEscaparHtml(d.tecnico_nome || "-")}</td>
+      <td>${_waEscaparHtml(d.categoria || "-")}</td>
+      <td><span class="badge ${prioClass(d.prioridade)}">${d.prioridade || "-"}</span></td>
+      <td><span class="badge ${statusClass(d.status)}">${d.status || "-"}</span></td>
+      <td>${d.criado_em ? new Date(d.criado_em).toLocaleDateString("pt-BR") : "-"}</td>
+      <td>${d.fechado_em ? new Date(d.fechado_em).toLocaleDateString("pt-BR") : "-"}</td>
+      <td>${d.sla_horas != null ? _relSlaFmt(Number(d.sla_horas)) : "-"}</td>
+    </tr>
+  `).join("");
+  if (count) count.textContent = `${total} registro${total !== 1 ? "s" : ""}`;
+}
+
+async function gerarRelAlertas() {
+  const btn = document.querySelector("[data-rel-action='gerar-alertas']");
+  if (btn) btn.disabled = true;
+
+  const params = new URLSearchParams();
+  const v = id => document.getElementById(id)?.value || "";
+  params.set("data_ini", v("relAlIni"));
+  params.set("data_fim", v("relAlFim"));
+  if (v("relAlCondo"))  params.set("condominio_id", v("relAlCondo"));
+  if (v("relAlTipo"))   params.set("tipo",          v("relAlTipo"));
+  if (v("relAlStatus")) params.set("status",        v("relAlStatus"));
+
+  try {
+    const r = await fetch("/relatorios/alertas?" + params, { headers: authHeaders() });
+    if (!r.ok) throw new Error(r.status);
+    _relAlDados = await r.json();
+  } catch (e) {
+    alert("Erro ao gerar relatório de alertas."); return;
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+
+  const dados = _relAlDados;
+  const total     = dados.length;
+  const ativos    = dados.filter(d => d.status === "ativo").length;
+  const resolvidos= dados.filter(d => d.status === "resolvido").length;
+  const tempoArr  = dados.filter(d => d.status === "resolvido" && d.tempo_horas != null).map(d => Number(d.tempo_horas));
+  const tempoMed  = tempoArr.length ? tempoArr.reduce((a,b) => a+b, 0) / tempoArr.length : null;
+
+  const kpiEl = document.getElementById("relAlKpis");
+  if (kpiEl) {
+    kpiEl.style.display = "";
+    kpiEl.innerHTML =
+      _relKpiCard("🚨", "Total",         total,              "neutral") +
+      _relKpiCard("🔴", "Ativos",        ativos,             ativos > 0 ? "bad" : "ok") +
+      _relKpiCard("✅", "Resolvidos",    resolvidos,         "ok") +
+      _relKpiCard("⏱", "Tempo médio",   tempoMed != null ? _relSlaFmt(tempoMed) : "-", "neutral");
+  }
+
+  const tbody = document.getElementById("relAlTbody");
+  const wrap  = document.getElementById("relAlTableWrap");
+  const empty = document.getElementById("relAlEmpty");
+  const count = document.getElementById("relAlCount");
+
+  if (!dados.length) {
+    if (wrap)  wrap.style.display  = "none";
+    if (empty) empty.style.display = "";
+    return;
+  }
+  if (empty) empty.style.display = "none";
+  if (wrap)  wrap.style.display  = "";
+
+  tbody.innerHTML = dados.map(d => `
+    <tr>
+      <td>${d.id}</td>
+      <td>${_waEscaparHtml(String(d.tipo || "").replaceAll("_"," "))}</td>
+      <td style="max-width:260px;white-space:normal;">${_waEscaparHtml(d.mensagem || "")}</td>
+      <td>${_waEscaparHtml(d.reservatorio_nome || "-")}</td>
+      <td>${_waEscaparHtml(d.condominio_nome   || "-")}</td>
+      <td><span class="badge ${d.status === "resolvido" ? "b-ok" : "b-bad"}">${d.status || "-"}</span></td>
+      <td>${d.criado_em ? new Date(d.criado_em).toLocaleDateString("pt-BR") : "-"}</td>
+      <td>${d.tempo_horas != null ? _relSlaFmt(Number(d.tempo_horas)) : "-"}</td>
+    </tr>
+  `).join("");
+  if (count) count.textContent = `${total} registro${total !== 1 ? "s" : ""}`;
+}
+
+async function gerarRelTelemetria() {
+  const btn = document.querySelector("[data-rel-action='gerar-telemetria']");
+  if (btn) btn.disabled = true;
+
+  const params = new URLSearchParams();
+  const v = id => document.getElementById(id)?.value || "";
+  params.set("data_ini", v("relTelIni"));
+  params.set("data_fim", v("relTelFim"));
+  if (v("relTelCondo"))  params.set("condominio_id", v("relTelCondo"));
+  if (v("relTelDevice")) params.set("device_id",     v("relTelDevice").trim());
+
+  try {
+    const r = await fetch("/relatorios/telemetria?" + params, { headers: authHeaders() });
+    if (!r.ok) throw new Error(r.status);
+    _relTelDados = await r.json();
+  } catch (e) {
+    alert("Erro ao gerar relatório de telemetria."); return;
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+
+  const dados = _relTelDados;
+  const total       = dados.length;
+  const dispositivos= new Set(dados.map(d => d.device_id)).size;
+  const nivelMedArr = dados.filter(d => d.nivel_medio != null).map(d => Number(d.nivel_medio));
+  const nivelGlobal = nivelMedArr.length ? Math.round(nivelMedArr.reduce((a,b) => a+b, 0) / nivelMedArr.length) : null;
+  const bombaOnTotal= dados.reduce((s, d) => s + (Number(d.leituras_bomba_on) || 0), 0);
+
+  const kpiEl = document.getElementById("relTelKpis");
+  if (kpiEl) {
+    kpiEl.style.display = "";
+    kpiEl.innerHTML =
+      _relKpiCard("📊", "Linhas",        total,                       "neutral") +
+      _relKpiCard("📡", "Dispositivos",  dispositivos,                "neutral") +
+      _relKpiCard("💧", "Nível médio",   nivelGlobal != null ? nivelGlobal + "%" : "-",
+        nivelGlobal != null && nivelGlobal < 30 ? "bad" : nivelGlobal != null && nivelGlobal < 60 ? "warn" : "ok") +
+      _relKpiCard("⚡", "Leit. bomba ON",bombaOnTotal,                "neutral");
+  }
+
+  const tbody = document.getElementById("relTelTbody");
+  const wrap  = document.getElementById("relTelTableWrap");
+  const empty = document.getElementById("relTelEmpty");
+  const count = document.getElementById("relTelCount");
+
+  if (!dados.length) {
+    if (wrap)  wrap.style.display  = "none";
+    if (empty) empty.style.display = "";
+    return;
+  }
+  if (empty) empty.style.display = "none";
+  if (wrap)  wrap.style.display  = "";
+
+  tbody.innerHTML = dados.map(d => {
+    const med = Number(d.nivel_medio);
+    const cls = med < 30 ? "b-bad" : med < 60 ? "b-warn" : "b-ok";
+    return `<tr>
+      <td>${d.dia || "-"}</td>
+      <td style="font-family:monospace;font-size:11.5px;">${_waEscaparHtml(d.device_id || "-")}</td>
+      <td>${_waEscaparHtml(d.reservatorio_nome || "-")}</td>
+      <td>${_waEscaparHtml(d.condominio_nome   || "-")}</td>
+      <td>${d.leituras ?? "-"}</td>
+      <td>${d.nivel_min != null ? d.nivel_min + "%" : "-"}</td>
+      <td><span class="badge ${cls}">${d.nivel_medio != null ? d.nivel_medio + "%" : "-"}</span></td>
+      <td>${d.nivel_max != null ? d.nivel_max + "%" : "-"}</td>
+      <td>${d.leituras_bomba_on ?? "-"}</td>
+    </tr>`;
+  }).join("");
+  if (count) count.textContent = `${total} linha${total !== 1 ? "s" : ""}`;
+}
+
+function _relExportarCsv(rows, keys, labels, filename) {
+  if (!rows.length) { alert("Sem dados para exportar."); return; }
+  const esc = v => {
+    const s = v == null ? "" : String(v);
+    return /[,"\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const lines = [labels.join(",")];
+  rows.forEach(r => lines.push(keys.map(k => esc(r[k])).join(",")));
+  const blob = new Blob(["﻿" + lines.join("\r\n")], { type: "text/csv;charset=utf-8;" });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement("a");
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   // ===== BOTÕES FIXOS =====
   // nav sections
@@ -6219,6 +6523,44 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("btnAtualizar")?.addEventListener("click", carregarTudo);
   document.getElementById("btnOffline")?.addEventListener("click", rodarJobOffline);
   document.getElementById("btnSair")?.addEventListener("click", logout);
+
+  // ===== RELATÓRIOS =====
+  document.getElementById("relTabs")?.addEventListener("click", e => {
+    const tab = e.target.closest("[data-rel-tab]")?.dataset.relTab;
+    if (tab) _relMostrarTab(tab);
+  });
+
+  document.querySelector(".section[data-section='relatorios']")?.addEventListener("click", e => {
+    const btn = e.target.closest("[data-rel-action]");
+    if (!btn || btn.disabled) return;
+    const action = btn.dataset.relAction;
+
+    if (action === "gerar-chamados")   { gerarRelChamados(); return; }
+    if (action === "gerar-alertas")    { gerarRelAlertas(); return; }
+    if (action === "gerar-telemetria") { gerarRelTelemetria(); return; }
+
+    if (action === "exportar-chamados") {
+      _relExportarCsv(_relChDados,
+        ["id","titulo","condominio_nome","tecnico_nome","categoria","prioridade","status","criado_em","fechado_em","sla_horas"],
+        ["ID","Título","Condomínio","Técnico","Categoria","Prioridade","Status","Aberto em","Fechado em","SLA (h)"],
+        "chamados.csv");
+      return;
+    }
+    if (action === "exportar-alertas") {
+      _relExportarCsv(_relAlDados,
+        ["id","tipo","mensagem","reservatorio_nome","condominio_nome","status","criado_em","tempo_horas"],
+        ["ID","Tipo","Mensagem","Reservatório","Condomínio","Status","Criado em","Tempo (h)"],
+        "alertas.csv");
+      return;
+    }
+    if (action === "exportar-telemetria") {
+      _relExportarCsv(_relTelDados,
+        ["dia","device_id","reservatorio_nome","condominio_nome","leituras","nivel_min","nivel_medio","nivel_max","leituras_bomba_on"],
+        ["Dia","Device ID","Reservatório","Condomínio","Leituras","Nível mín %","Nível méd %","Nível máx %","Bomba ON"],
+        "telemetria.csv");
+      return;
+    }
+  });
 
   // "Ver todos →" e atalhos do dashboard mission-control
   document.body.addEventListener("click", (e) => {
