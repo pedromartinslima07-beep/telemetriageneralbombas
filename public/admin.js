@@ -6277,12 +6277,25 @@ function renderRelatorios() {
   if (!_relInicializado) { _relInicializado = true; gerarRelChamados(); }
 }
 
-function _relKpiCard(icon, label, value, cls) {
-  return `<div class="resumo-card rc-${cls || "neutral"}">
-    <div class="rc-head"><span class="rc-icon">${icon}</span><span class="rc-label">${label}</span></div>
+function _relKpiCard(iconSvg, label, value, cls) {
+  return `<div class="rc rc-${cls || "neutral"} rc-static">
+    <div class="rc-head">
+      <div class="rc-icon">${iconSvg}</div>
+      <div class="rc-label">${label}</div>
+    </div>
     <div class="rc-value">${value}</div>
   </div>`;
 }
+
+// SVGs reutilizáveis nos cards de relatórios
+const _SVG_FILE    = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`;
+const _SVG_CLOCK   = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`;
+const _SVG_BAR     = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>`;
+const _SVG_ALERT   = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`;
+const _SVG_CHECK   = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+const _SVG_DROP    = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>`;
+const _SVG_CPU     = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg>`;
+const _SVG_WAVE    = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>`;
 
 function _relSlaFmt(h) {
   if (h == null || isNaN(h)) return "-";
@@ -6381,12 +6394,15 @@ async function gerarRelChamados() {
   const slaArr   = dados.filter(d => d.fechado_em && d.sla_horas != null).map(d => Number(d.sla_horas));
   const slaMedia = slaArr.length ? slaArr.reduce((a,b) => a+b,0) / slaArr.length : null;
 
+  const criticos = dados.filter(d => d.prioridade === "emergencia" && d.status !== "fechado").length;
+  const taxa     = total > 0 ? Math.round(fechados / total * 100) : 0;
+
   const kpiEl = document.getElementById("relChKpis");
   if (kpiEl) kpiEl.innerHTML =
-    _relKpiCard("📋", "Total chamados", total, "neutral") +
-    _relKpiCard("🔴", "Em aberto",  abertos,  abertos > 0 ? "bad" : "ok") +
-    _relKpiCard("✅", "Fechados",   fechados, "ok") +
-    _relKpiCard("⏱",  "SLA médio",  slaMedia != null ? _relSlaFmt(slaMedia) : "-", "neutral");
+    _relKpiCard(_SVG_FILE,  "Total no período",     total,                                          "neutral") +
+    _relKpiCard(_SVG_CLOCK, "SLA médio",            slaMedia != null ? _relSlaFmt(slaMedia) : "—", "neutral") +
+    _relKpiCard(_SVG_BAR,   "Taxa de resolução",    `${taxa}%`,    taxa>=70?"ok":taxa>=40?"warn":"bad") +
+    _relKpiCard(_SVG_ALERT, "Críticos em aberto",   criticos,      criticos>0?"bad":"neutral");
 
   // — agregações para gráficos —
   const porDiaMap = {};
@@ -6488,12 +6504,14 @@ async function gerarRelAlertas() {
   const tempoArr  = dados.filter(d => d.status==="resolvido"&&d.tempo_horas!=null).map(d=>Number(d.tempo_horas));
   const tempoMed  = tempoArr.length ? tempoArr.reduce((a,b)=>a+b,0)/tempoArr.length : null;
 
+  const taxaAl = total > 0 ? Math.round(resolvidos / total * 100) : 0;
+
   const kpiEl = document.getElementById("relAlKpis");
   if (kpiEl) kpiEl.innerHTML =
-    _relKpiCard("🚨","Total alertas", total,     "neutral") +
-    _relKpiCard("🔴","Ativos",        ativos,    ativos>0?"bad":"ok") +
-    _relKpiCard("✅","Resolvidos",    resolvidos,"ok") +
-    _relKpiCard("⏱","Tempo médio",   tempoMed!=null?_relSlaFmt(tempoMed):"-","neutral");
+    _relKpiCard(_SVG_ALERT, "Total no período",    total,                                         "neutral") +
+    _relKpiCard(_SVG_WAVE,  "Ativos",              ativos,   ativos>0?"bad":"neutral") +
+    _relKpiCard(_SVG_BAR,   "Taxa de resolução",   `${taxaAl}%`, taxaAl>=70?"ok":taxaAl>=40?"warn":"bad") +
+    _relKpiCard(_SVG_CLOCK, "Tempo médio",         tempoMed!=null?_relSlaFmt(tempoMed):"—","neutral");
 
   const porDiaMap = {};
   dados.forEach(d => { const dia=(d.criado_em||"").split("T")[0]; if(dia) porDiaMap[dia]=(porDiaMap[dia]||0)+1; });
@@ -6584,13 +6602,16 @@ async function gerarRelTelemetria() {
   const nivelGlobal= nivelArr.length?Math.round(nivelArr.reduce((a,b)=>a+b,0)/nivelArr.length):null;
   const bombaOn    = dados.reduce((s,d)=>s+(Number(d.leituras_bomba_on)||0),0);
 
+  const diasCount = new Set(dados.map(d => d.dia)).size;
+  const totalLeit = dados.reduce((s,d) => s+(Number(d.leituras)||0), 0);
+
   const kpiEl = document.getElementById("relTelKpis");
   if (kpiEl) kpiEl.innerHTML =
-    _relKpiCard("📊","Linhas diárias", total,       "neutral") +
-    _relKpiCard("📡","Dispositivos",   dispositivos,"neutral") +
-    _relKpiCard("💧","Nível médio",    nivelGlobal!=null?nivelGlobal+"%":"-",
+    _relKpiCard(_SVG_FILE,  "Dias com dados",  diasCount,                                   "neutral") +
+    _relKpiCard(_SVG_CPU,   "Dispositivos",    dispositivos,                                "neutral") +
+    _relKpiCard(_SVG_DROP,  "Nível médio",     nivelGlobal!=null?nivelGlobal+"%":"—",
       nivelGlobal!=null&&nivelGlobal<30?"bad":nivelGlobal!=null&&nivelGlobal<60?"warn":"ok") +
-    _relKpiCard("⚡","Bomba ON",       bombaOn,      "neutral");
+    _relKpiCard(_SVG_BAR,   "Total leituras",  totalLeit.toLocaleString("pt-BR"),           "neutral");
 
   // agrega por dia (média de todos os devices)
   const porDia = {};
