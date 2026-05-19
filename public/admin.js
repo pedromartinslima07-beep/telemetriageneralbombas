@@ -6328,45 +6328,59 @@ const _REL_GRID  = { borderColor: "rgba(255,255,255,.05)", strokeDashArray: 3, p
 const _REL_XLBL  = { style: { colors: "#7a7e9c", fontSize: "10px" } };
 const _REL_YLBL  = { style: { colors: "#7a7e9c", fontSize: "10px" } };
 
+function _relBadgePeriodo(iniId, fimId) {
+  const ini = document.getElementById(iniId)?.value;
+  const fim = document.getElementById(fimId)?.value;
+  if (!ini && !fim) return "";
+  const fmt = s => s ? new Date(s + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" }) : "?";
+  return `<span class="rel-ct-badge">${fmt(ini)} – ${fmt(fim)}</span>`;
+}
+
 function _relAreaOpts(name, seriesData, color) {
   return {
-    chart: { type: "area", height: "100%", toolbar: { show: false }, background: "transparent", zoom: { enabled: false }, animations: { speed: 300 } },
+    chart: { type: "area", height: "100%", toolbar: { show: false }, background: "transparent", zoom: { enabled: false }, animations: { speed: 500, easing: "easeinout" } },
     series: [{ name, data: seriesData }],
     xaxis: { type: "datetime", labels: { ...(_REL_XLBL), datetimeFormatter: { day: "dd/MM" } }, axisBorder: { show: false }, axisTicks: { show: false } },
     yaxis: { labels: _REL_YLBL, min: 0, forceNiceScale: true },
-    stroke: { curve: "smooth", width: 2.2 },
-    fill: { type: "gradient", gradient: { shade: "dark", type: "vertical", opacityFrom: .3, opacityTo: .02 } },
+    stroke: { curve: "smooth", width: 2.5 },
+    fill: { type: "gradient", gradient: { shade: "dark", type: "vertical", shadeIntensity: 0.5, gradientToColors: ["transparent"], opacityFrom: 0.5, opacityTo: 0, stops: [0, 85, 100] } },
     colors: [color || "#f0b014"],
-    grid: _REL_GRID,
+    grid: { borderColor: "rgba(255,255,255,.04)", strokeDashArray: 3, padding: { left: 12, right: 12, bottom: 4, top: 4 } },
+    markers: { size: 0, hover: { size: 4 } },
     tooltip: { theme: "dark", x: { format: "dd/MM/yyyy" } },
     dataLabels: { enabled: false },
   };
 }
 
 function _relDonutOpts(labels, values, colors) {
+  const totalVal = values.reduce((a,b) => a+b, 0);
   return {
-    chart: { type: "donut", height: "100%", toolbar: { show: false }, background: "transparent" },
+    chart: { type: "donut", height: "100%", toolbar: { show: false }, background: "transparent", animations: { speed: 500 } },
     series: values,
     labels,
     colors: colors || ["#f0b014","#4a78f7","#4ade80","#f97316","#ef4444"],
-    plotOptions: { pie: { donut: { size: "65%", labels: { show: true, total: { show: true, label: "Total", color: "#7a7e9c", fontSize: "11px" } } } } },
+    plotOptions: { pie: { donut: { size: "72%", labels: { show: true,
+      total: { show: true, label: "Total", color: "#6b7280", fontSize: "11px", fontWeight: "600", formatter: () => String(totalVal) },
+      value: { show: true, color: "#eef0fb", fontSize: "22px", fontWeight: "700", offsetY: 4 }
+    } } } },
+    stroke: { width: 3, colors: ["#111326"] },
     dataLabels: { enabled: false },
-    legend: { position: "bottom", fontSize: "11px", labels: { colors: "#9094ae" }, itemMargin: { horizontal: 8, vertical: 4 } },
+    legend: { position: "bottom", fontSize: "11px", labels: { colors: "#9094ae" }, itemMargin: { horizontal: 8, vertical: 4 }, offsetY: 4 },
     tooltip: { theme: "dark" },
   };
 }
 
 function _relBarOpts(categories, values, colors) {
   return {
-    chart: { type: "bar", height: "100%", toolbar: { show: false }, background: "transparent" },
+    chart: { type: "bar", height: "100%", toolbar: { show: false }, background: "transparent", animations: { speed: 450 } },
     series: [{ name: "Total", data: values }],
     xaxis: { categories, labels: _REL_XLBL, axisBorder: { show: false }, axisTicks: { show: false } },
     yaxis: { labels: _REL_YLBL },
-    plotOptions: { bar: { distributed: true, borderRadius: 5, columnWidth: "50%", dataLabels: { position: "top" } } },
+    plotOptions: { bar: { distributed: true, borderRadius: 6, columnWidth: "44%", dataLabels: { position: "top" } } },
     dataLabels: { enabled: true, offsetY: -18, style: { fontSize: "11px", fontWeight: "700", colors: ["#eef0fb"] } },
     colors: colors || ["#4ade80","#f0b014","#f97316","#ef4444"],
     legend: { show: false },
-    grid: _REL_GRID,
+    grid: { borderColor: "rgba(255,255,255,.04)", strokeDashArray: 3, padding: { left: 12, right: 12, bottom: 4, top: 4 } },
     tooltip: { theme: "dark" },
   };
 }
@@ -6440,6 +6454,9 @@ async function gerarRelChamados() {
   const bodyEl = document.getElementById("relBodyChamados");
   if (bodyEl) bodyEl.style.display = "";
 
+  const _chHeadDia = document.getElementById("relChHeadDia");
+  if (_chHeadDia) _chHeadDia.innerHTML = `<span>Chamados por dia</span>${_relBadgePeriodo("relChIni","relChFim")}`;
+
   setTimeout(() => {
     _relChart("relChChartDia", _relAreaOpts("Chamados",
       dias.map(d => [new Date(d + "T12:00:00").getTime(), porDiaMap[d]]), "#f0b014"));
@@ -6451,15 +6468,22 @@ async function gerarRelChamados() {
   }, 60);
 
   const top5tbody = document.getElementById("relChTop5Body");
-  if (top5tbody) top5tbody.innerHTML = top5.map(([nome, d]) => {
-    const slaM = d.slaArr.length ? d.slaArr.reduce((a,b)=>a+b,0)/d.slaArr.length : null;
-    return `<tr>
-      <td>${_waEscaparHtml(nome)}</td>
-      <td style="text-align:right;">${d.total}</td>
-      <td style="text-align:right;">${d.abertos>0?`<span class="badge b-bad">${d.abertos}</span>`:`<span class="badge b-ok">0</span>`}</td>
-      <td style="text-align:right;">${slaM!=null?_relSlaFmt(slaM):"-"}</td>
-    </tr>`;
-  }).join("");
+  if (top5tbody) {
+    const maxT5 = top5.length ? top5[0][1].total : 1;
+    top5tbody.innerHTML = top5.map(([nome, d]) => {
+      const slaM = d.slaArr.length ? d.slaArr.reduce((a,b)=>a+b,0)/d.slaArr.length : null;
+      const pct  = Math.round((d.total / maxT5) * 100);
+      return `<tr>
+        <td>
+          <div style="font-size:12px;line-height:1.3;">${_waEscaparHtml(nome)}</div>
+          <div class="rel-prog"><div class="rel-prog-fill" style="width:${pct}%;"></div></div>
+        </td>
+        <td style="text-align:right;">${d.total}</td>
+        <td style="text-align:right;">${d.abertos>0?`<span class="badge b-bad">${d.abertos}</span>`:`<span class="badge b-ok">0</span>`}</td>
+        <td style="text-align:right;">${slaM!=null?_relSlaFmt(slaM):"-"}</td>
+      </tr>`;
+    }).join("");
+  }
 
   const prioClass = p => (p==="emergencia"||p==="alta")?"b-bad":p==="media"?"b-warn":"b-ok";
   const stClass   = s => s==="fechado"?"b-ok":s==="em_atendimento"?"b-warn":"b-bad";
@@ -6544,6 +6568,9 @@ async function gerarRelAlertas() {
   const bodyEl = document.getElementById("relBodyAlertas");
   if (bodyEl) bodyEl.style.display = "";
 
+  const _alHeadDia = document.getElementById("relAlHeadDia");
+  if (_alHeadDia) _alHeadDia.innerHTML = `<span>Incidentes por dia</span>${_relBadgePeriodo("relAlIni","relAlFim")}`;
+
   const top5nomes  = top5res.map(([n]) => n.length > 22 ? n.slice(0,22)+"…" : n);
   const top5totais = top5res.map(([,d]) => d.total);
 
@@ -6558,26 +6585,33 @@ async function gerarRelAlertas() {
         series: [{ name: "Alertas", data: top5totais }],
         xaxis: { categories: top5nomes, labels: _REL_XLBL, axisBorder: { show: false }, axisTicks: { show: false } },
         yaxis: { labels: _REL_YLBL },
-        plotOptions: { bar: { distributed: true, horizontal: true, borderRadius: 4, barHeight: "55%" } },
+        plotOptions: { bar: { distributed: true, horizontal: true, borderRadius: 3, barHeight: "42%" } },
         dataLabels: { enabled: true, style: { fontSize: "11px", fontWeight: "700", colors: ["#fff"] }, textAnchor: "start", offsetX: 6 },
         colors: ["#ef4444","#f97316","#f0b014","#4a78f7","#94a3b8"],
         legend: { show: false },
-        grid: _REL_GRID,
+        grid: { borderColor: "rgba(255,255,255,.04)", strokeDashArray: 3, padding: { left: 12, right: 12, bottom: 4, top: 4 } },
         tooltip: { theme: "dark" },
       });
   }, 60);
 
   const top5tbody = document.getElementById("relAlTop5Body");
-  if (top5tbody) top5tbody.innerHTML = top5res.map(([nome,d]) => {
-    const tM = d.tempoArr.length ? d.tempoArr.reduce((a,b)=>a+b,0)/d.tempoArr.length : null;
-    return `<tr>
-      <td>${_waEscaparHtml(nome)}</td>
-      <td>${_waEscaparHtml(d.condo)}</td>
-      <td style="text-align:right;">${d.total}</td>
-      <td style="text-align:right;">${d.ativos>0?`<span class="badge b-bad">${d.ativos}</span>`:`<span class="badge b-ok">0</span>`}</td>
-      <td style="text-align:right;">${tM!=null?_relSlaFmt(tM):"-"}</td>
-    </tr>`;
-  }).join("");
+  if (top5tbody) {
+    const maxT5al = top5res.length ? top5res[0][1].total : 1;
+    top5tbody.innerHTML = top5res.map(([nome,d]) => {
+      const tM  = d.tempoArr.length ? d.tempoArr.reduce((a,b)=>a+b,0)/d.tempoArr.length : null;
+      const pct = Math.round((d.total / maxT5al) * 100);
+      return `<tr>
+        <td>
+          <div style="font-size:12px;line-height:1.3;">${_waEscaparHtml(nome)}</div>
+          <div class="rel-prog"><div class="rel-prog-fill" style="width:${pct}%;background:#ef4444;"></div></div>
+        </td>
+        <td>${_waEscaparHtml(d.condo)}</td>
+        <td style="text-align:right;">${d.total}</td>
+        <td style="text-align:right;">${d.ativos>0?`<span class="badge b-bad">${d.ativos}</span>`:`<span class="badge b-ok">0</span>`}</td>
+        <td style="text-align:right;">${tM!=null?_relSlaFmt(tM):"-"}</td>
+      </tr>`;
+    }).join("");
+  }
 
   const tbody = document.getElementById("relAlTbody");
   if (tbody) tbody.innerHTML = dados.map(d => `<tr>
@@ -6649,6 +6683,9 @@ async function gerarRelTelemetria() {
   const bodyEl = document.getElementById("relBodyTelemetria");
   if (bodyEl) bodyEl.style.display = "";
 
+  const _telHeadDia = document.getElementById("relTelHeadDia");
+  if (_telHeadDia) _telHeadDia.innerHTML = `<span>Tendência de nível — média diária</span>${_relBadgePeriodo("relTelIni","relTelFim")}`;
+
   // ranking de dispositivos por nível médio (mais crítico primeiro)
   const devMap = {};
   dados.forEach(d => {
@@ -6675,11 +6712,11 @@ async function gerarRelTelemetria() {
           labels: _REL_XLBL, axisBorder: { show: false }, axisTicks: { show: false },
         },
         yaxis: { min:0, max:100, labels: { ..._REL_YLBL, formatter: v=>v+"%" } },
-        plotOptions: { bar: { distributed: true, horizontal: true, borderRadius: 4, barHeight: "55%" } },
+        plotOptions: { bar: { distributed: true, horizontal: true, borderRadius: 3, barHeight: "42%" } },
         dataLabels: { enabled: true, formatter: v=>v+"%", style: { fontSize:"11px", fontWeight:"700", colors:["#fff"] }, textAnchor:"start", offsetX:6 },
         colors: devRank.map(d => d.avg<30?"#ef4444":d.avg<60?"#f0b014":"#4ade80"),
         legend: { show: false },
-        grid: _REL_GRID,
+        grid: { borderColor: "rgba(255,255,255,.04)", strokeDashArray: 3, padding: { left: 12, right: 12, bottom: 4, top: 4 } },
         tooltip: { theme:"dark", y:{ formatter: v=>v+"%" } },
       });
   }, 60);
