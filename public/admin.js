@@ -149,10 +149,8 @@ let _usuariosData = [];
 let _tecnicosData = [];
 
 // ===== RELATÓRIOS — estado =====
-let _relTab       = "chamados";
-let _relChDados   = [];
-let _relAlDados   = [];
-let _relTelDados  = [];
+let _relTab    = "chamados";
+let _relChDados = [], _relAlDados = [], _relTelDados = [];
 
 // chamados já vistos — usado para detectar novos e disparar pulso/beep
 let _chamadosIdsVistos = new Set();
@@ -6221,6 +6219,9 @@ function renderSecaoMapa() {
 // ============================================================
 //  RELATÓRIOS
 // ============================================================
+let _relCharts     = {};  // instâncias ApexCharts — keyed by container id
+let _relInicializado = false;
+
 function _relDataPadrao() {
   const hoje = new Date();
   const fim  = hoje.toISOString().split("T")[0];
@@ -6230,7 +6231,7 @@ function _relDataPadrao() {
 
 function _relPreencherCondoSelects(ids) {
   const condos = Array.isArray(_condominios) ? _condominios : [];
-  const opts   = '<option value="">Todos</option>' +
+  const opts = '<option value="">Todos</option>' +
     condos.map(c => `<option value="${c.id}">${_waEscaparHtml(c.nome)}</option>`).join("");
   ids.forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = opts; });
 }
@@ -6249,27 +6250,31 @@ function _relMostrarTab(tab) {
     btn.classList.toggle("is-active", btn.dataset.relTab === tab)
   );
   document.querySelectorAll(".rel-tab-pane").forEach(p => p.style.display = "none");
-  const pane = document.getElementById(
-    tab === "chamados"   ? "relPaneChamados"   :
-    tab === "alertas"    ? "relPaneAlertas"    :
-                           "relPaneTelemetria"
+  const filterPane = document.getElementById(
+    tab === "chamados" ? "relPaneChamados" : tab === "alertas" ? "relPaneAlertas" : "relPaneTelemetria"
   );
-  if (pane) pane.style.display = "";
+  if (filterPane) filterPane.style.display = "";
+
+  document.querySelectorAll(".rel-body").forEach(b => b.style.display = "none");
+  const hasData =
+    tab === "chamados"  ? _relChDados.length  > 0 :
+    tab === "alertas"   ? _relAlDados.length  > 0 : _relTelDados.length > 0;
+  if (hasData) {
+    const bodyEl = document.getElementById(
+      tab === "chamados" ? "relBodyChamados" : tab === "alertas" ? "relBodyAlertas" : "relBodyTelemetria"
+    );
+    if (bodyEl) bodyEl.style.display = "";
+  }
 }
 
 function renderRelatorios() {
   const { ini, fim } = _relDataPadrao();
-  ["relChIni","relAlIni","relTelIni"].forEach(id => {
-    const el = document.getElementById(id);
-    if (el && !el.value) el.value = ini;
-  });
-  ["relChFim","relAlFim","relTelFim"].forEach(id => {
-    const el = document.getElementById(id);
-    if (el && !el.value) el.value = fim;
-  });
+  ["relChIni","relAlIni","relTelIni"].forEach(id => { const el = document.getElementById(id); if (el && !el.value) el.value = ini; });
+  ["relChFim","relAlFim","relTelFim"].forEach(id => { const el = document.getElementById(id); if (el && !el.value) el.value = fim; });
   _relPreencherCondoSelects(["relChCondo","relAlCondo","relTelCondo"]);
   _relPreencherTecnicoSelect();
   _relMostrarTab(_relTab);
+  if (!_relInicializado) { _relInicializado = true; gerarRelChamados(); }
 }
 
 function _relKpiCard(icon, label, value, cls) {
@@ -6286,18 +6291,78 @@ function _relSlaFmt(h) {
   return `${(h / 24).toFixed(1)} d`;
 }
 
+function _relChart(containerId, opts) {
+  if (_relCharts[containerId]) {
+    try { _relCharts[containerId].destroy(); } catch (_) {}
+    delete _relCharts[containerId];
+  }
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  el.innerHTML = "";
+  const c = new ApexCharts(el, opts);
+  c.render();
+  _relCharts[containerId] = c;
+}
+
+const _REL_GRID  = { borderColor: "rgba(255,255,255,.05)", strokeDashArray: 3, padding: { left: 12, right: 12, bottom: 4, top: 4 } };
+const _REL_XLBL  = { style: { colors: "#7a7e9c", fontSize: "10px" } };
+const _REL_YLBL  = { style: { colors: "#7a7e9c", fontSize: "10px" } };
+
+function _relAreaOpts(name, seriesData, color) {
+  return {
+    chart: { type: "area", height: "100%", toolbar: { show: false }, background: "transparent", zoom: { enabled: false }, animations: { speed: 300 } },
+    series: [{ name, data: seriesData }],
+    xaxis: { type: "datetime", labels: { ...(_REL_XLBL), datetimeFormatter: { day: "dd/MM" } }, axisBorder: { show: false }, axisTicks: { show: false } },
+    yaxis: { labels: _REL_YLBL, min: 0, forceNiceScale: true },
+    stroke: { curve: "smooth", width: 2.2 },
+    fill: { type: "gradient", gradient: { shade: "dark", type: "vertical", opacityFrom: .3, opacityTo: .02 } },
+    colors: [color || "#f0b014"],
+    grid: _REL_GRID,
+    tooltip: { theme: "dark", x: { format: "dd/MM/yyyy" } },
+    dataLabels: { enabled: false },
+  };
+}
+
+function _relDonutOpts(labels, values, colors) {
+  return {
+    chart: { type: "donut", height: "100%", toolbar: { show: false }, background: "transparent" },
+    series: values,
+    labels,
+    colors: colors || ["#f0b014","#4a78f7","#4ade80","#f97316","#ef4444"],
+    plotOptions: { pie: { donut: { size: "65%", labels: { show: true, total: { show: true, label: "Total", color: "#7a7e9c", fontSize: "11px" } } } } },
+    dataLabels: { enabled: false },
+    legend: { position: "bottom", fontSize: "11px", labels: { colors: "#9094ae" }, itemMargin: { horizontal: 8, vertical: 4 } },
+    tooltip: { theme: "dark" },
+  };
+}
+
+function _relBarOpts(categories, values, colors) {
+  return {
+    chart: { type: "bar", height: "100%", toolbar: { show: false }, background: "transparent" },
+    series: [{ name: "Total", data: values }],
+    xaxis: { categories, labels: _REL_XLBL, axisBorder: { show: false }, axisTicks: { show: false } },
+    yaxis: { labels: _REL_YLBL },
+    plotOptions: { bar: { distributed: true, borderRadius: 5, columnWidth: "50%", dataLabels: { position: "top" } } },
+    dataLabels: { enabled: true, offsetY: -18, style: { fontSize: "11px", fontWeight: "700", colors: ["#eef0fb"] } },
+    colors: colors || ["#4ade80","#f0b014","#f97316","#ef4444"],
+    legend: { show: false },
+    grid: _REL_GRID,
+    tooltip: { theme: "dark" },
+  };
+}
+
 async function gerarRelChamados() {
   const btn = document.querySelector("[data-rel-action='gerar-chamados']");
-  if (btn) btn.disabled = true;
+  if (btn) { btn.textContent = "Aguarde…"; btn.disabled = true; }
 
   const params = new URLSearchParams();
   const v = id => document.getElementById(id)?.value || "";
-  params.set("data_ini",     v("relChIni"));
-  params.set("data_fim",     v("relChFim"));
-  if (v("relChCondo"))     params.set("condominio_id", v("relChCondo"));
-  if (v("relChStatus"))    params.set("status",        v("relChStatus"));
-  if (v("relChPrioridade"))params.set("prioridade",    v("relChPrioridade"));
-  if (v("relChTecnico"))   params.set("tecnico_id",    v("relChTecnico"));
+  if (v("relChIni"))       params.set("data_ini",      v("relChIni"));
+  if (v("relChFim"))       params.set("data_fim",       v("relChFim"));
+  if (v("relChCondo"))     params.set("condominio_id",  v("relChCondo"));
+  if (v("relChStatus"))    params.set("status",         v("relChStatus"));
+  if (v("relChPrioridade"))params.set("prioridade",     v("relChPrioridade"));
+  if (v("relChTecnico"))   params.set("tecnico_id",     v("relChTecnico"));
 
   try {
     const r = await fetch("/relatorios/chamados?" + params, { headers: authHeaders() });
@@ -6306,7 +6371,7 @@ async function gerarRelChamados() {
   } catch (e) {
     alert("Erro ao gerar relatório de chamados."); return;
   } finally {
-    if (btn) btn.disabled = false;
+    if (btn) { btn.textContent = "Gerar"; btn.disabled = false; }
   }
 
   const dados = _relChDados;
@@ -6314,64 +6379,97 @@ async function gerarRelChamados() {
   const abertos  = dados.filter(d => d.status === "aberto" || d.status === "em_atendimento").length;
   const fechados = dados.filter(d => d.status === "fechado").length;
   const slaArr   = dados.filter(d => d.fechado_em && d.sla_horas != null).map(d => Number(d.sla_horas));
-  const slaMedia = slaArr.length ? slaArr.reduce((a,b) => a+b, 0) / slaArr.length : null;
+  const slaMedia = slaArr.length ? slaArr.reduce((a,b) => a+b,0) / slaArr.length : null;
 
   const kpiEl = document.getElementById("relChKpis");
-  if (kpiEl) {
-    kpiEl.style.display = "";
-    kpiEl.innerHTML =
-      _relKpiCard("📋", "Total",       total,                 "neutral") +
-      _relKpiCard("🔴", "Em aberto",   abertos,               abertos > 0 ? "bad"  : "ok") +
-      _relKpiCard("✅", "Fechados",    fechados,              "ok") +
-      _relKpiCard("⏱", "SLA médio",   slaMedia != null ? _relSlaFmt(slaMedia) : "-", "neutral");
-  }
+  if (kpiEl) kpiEl.innerHTML =
+    _relKpiCard("📋", "Total chamados", total, "neutral") +
+    _relKpiCard("🔴", "Em aberto",  abertos,  abertos > 0 ? "bad" : "ok") +
+    _relKpiCard("✅", "Fechados",   fechados, "ok") +
+    _relKpiCard("⏱",  "SLA médio",  slaMedia != null ? _relSlaFmt(slaMedia) : "-", "neutral");
 
+  // — agregações para gráficos —
+  const porDiaMap = {};
+  dados.forEach(d => { const dia = (d.criado_em||"").split("T")[0]; if(dia) porDiaMap[dia] = (porDiaMap[dia]||0)+1; });
+  const dias = Object.keys(porDiaMap).sort();
+
+  const stMap = {};
+  dados.forEach(d => { const k = d.status||"outro"; stMap[k] = (stMap[k]||0)+1; });
+  const stLabels = Object.keys(stMap).map(l => l.replace("_"," "));
+  const stVals   = Object.values(stMap);
+  const stColors = Object.keys(stMap).map(l => l==="fechado"?"#4ade80":l==="em_atendimento"?"#f0b014":"#f87171");
+
+  const prioOrder  = ["baixa","media","alta","emergencia"];
+  const prioLabels = ["Baixa","Média","Alta","Emergência"];
+  const prioColors = ["#4ade80","#f0b014","#f97316","#ef4444"];
+  const prioVals   = prioOrder.map(p => dados.filter(d => d.prioridade===p).length);
+
+  const condoMap = {};
+  dados.forEach(d => {
+    const n = d.condominio_nome || "Sem condomínio";
+    if (!condoMap[n]) condoMap[n] = { total:0, abertos:0, slaArr:[] };
+    condoMap[n].total++;
+    if (d.status !== "fechado") condoMap[n].abertos++;
+    if (d.sla_horas != null) condoMap[n].slaArr.push(Number(d.sla_horas));
+  });
+  const top5 = Object.entries(condoMap).sort(([,a],[,b])=>b.total-a.total).slice(0,5);
+
+  const bodyEl = document.getElementById("relBodyChamados");
+  if (bodyEl) bodyEl.style.display = "";
+
+  setTimeout(() => {
+    _relChart("relChChartDia", _relAreaOpts("Chamados",
+      dias.map(d => [new Date(d + "T12:00:00").getTime(), porDiaMap[d]]), "#f0b014"));
+
+    if (stVals.length && stVals.some(v => v > 0))
+      _relChart("relChChartStatus", _relDonutOpts(stLabels, stVals, stColors));
+
+    _relChart("relChChartPrio", _relBarOpts(prioLabels, prioVals, prioColors));
+  }, 60);
+
+  const top5tbody = document.getElementById("relChTop5Body");
+  if (top5tbody) top5tbody.innerHTML = top5.map(([nome, d]) => {
+    const slaM = d.slaArr.length ? d.slaArr.reduce((a,b)=>a+b,0)/d.slaArr.length : null;
+    return `<tr>
+      <td>${_waEscaparHtml(nome)}</td>
+      <td style="text-align:right;">${d.total}</td>
+      <td style="text-align:right;">${d.abertos>0?`<span class="badge b-bad">${d.abertos}</span>`:`<span class="badge b-ok">0</span>`}</td>
+      <td style="text-align:right;">${slaM!=null?_relSlaFmt(slaM):"-"}</td>
+    </tr>`;
+  }).join("");
+
+  const prioClass = p => (p==="emergencia"||p==="alta")?"b-bad":p==="media"?"b-warn":"b-ok";
+  const stClass   = s => s==="fechado"?"b-ok":s==="em_atendimento"?"b-warn":"b-bad";
   const tbody = document.getElementById("relChTbody");
-  const wrap  = document.getElementById("relChTableWrap");
-  const empty = document.getElementById("relChEmpty");
+  if (tbody) tbody.innerHTML = dados.map(d => `<tr>
+    <td>${d.id}</td>
+    <td>${_waEscaparHtml(d.titulo||"")}</td>
+    <td>${_waEscaparHtml(d.condominio_nome||"-")}</td>
+    <td>${_waEscaparHtml(d.tecnico_nome||"-")}</td>
+    <td><span class="badge ${prioClass(d.prioridade)}">${(d.prioridade||"-").replace("_"," ")}</span></td>
+    <td><span class="badge ${stClass(d.status)}">${(d.status||"-").replace("_"," ")}</span></td>
+    <td>${d.criado_em?new Date(d.criado_em).toLocaleDateString("pt-BR"):"-"}</td>
+    <td>${d.sla_horas!=null?_relSlaFmt(Number(d.sla_horas)):"-"}</td>
+  </tr>`).join("");
+
   const count = document.getElementById("relChCount");
-
-  if (!dados.length) {
-    if (wrap)  wrap.style.display  = "none";
-    if (empty) empty.style.display = "";
-    return;
-  }
-  if (empty) empty.style.display = "none";
-  if (wrap)  wrap.style.display  = "";
-
-  const prioClass = p =>
-    p === "emergencia" ? "b-bad" : p === "alta" ? "b-bad" : p === "media" ? "b-warn" : "b-ok";
-  const statusClass = s =>
-    s === "fechado" ? "b-ok" : s === "em_atendimento" ? "b-warn" : "b-bad";
-
-  tbody.innerHTML = dados.map(d => `
-    <tr>
-      <td>${d.id}</td>
-      <td>${_waEscaparHtml(d.titulo || "")}</td>
-      <td>${_waEscaparHtml(d.condominio_nome || "-")}</td>
-      <td>${_waEscaparHtml(d.tecnico_nome || "-")}</td>
-      <td>${_waEscaparHtml(d.categoria || "-")}</td>
-      <td><span class="badge ${prioClass(d.prioridade)}">${d.prioridade || "-"}</span></td>
-      <td><span class="badge ${statusClass(d.status)}">${d.status || "-"}</span></td>
-      <td>${d.criado_em ? new Date(d.criado_em).toLocaleDateString("pt-BR") : "-"}</td>
-      <td>${d.fechado_em ? new Date(d.fechado_em).toLocaleDateString("pt-BR") : "-"}</td>
-      <td>${d.sla_horas != null ? _relSlaFmt(Number(d.sla_horas)) : "-"}</td>
-    </tr>
-  `).join("");
-  if (count) count.textContent = `${total} registro${total !== 1 ? "s" : ""}`;
+  if (count) count.textContent = `${total} registro${total!==1?"s":""}`;
+  const exChCount = document.getElementById("relExChCount");
+  if (exChCount) exChCount.textContent = `(${total})`;
+  _relMostrarExport();
 }
 
 async function gerarRelAlertas() {
   const btn = document.querySelector("[data-rel-action='gerar-alertas']");
-  if (btn) btn.disabled = true;
+  if (btn) { btn.textContent = "Aguarde…"; btn.disabled = true; }
 
   const params = new URLSearchParams();
   const v = id => document.getElementById(id)?.value || "";
-  params.set("data_ini", v("relAlIni"));
-  params.set("data_fim", v("relAlFim"));
-  if (v("relAlCondo"))  params.set("condominio_id", v("relAlCondo"));
-  if (v("relAlTipo"))   params.set("tipo",          v("relAlTipo"));
-  if (v("relAlStatus")) params.set("status",        v("relAlStatus"));
+  if (v("relAlIni"))   params.set("data_ini",     v("relAlIni"));
+  if (v("relAlFim"))   params.set("data_fim",      v("relAlFim"));
+  if (v("relAlCondo")) params.set("condominio_id", v("relAlCondo"));
+  if (v("relAlTipo"))  params.set("tipo",          v("relAlTipo"));
+  if (v("relAlStatus"))params.set("status",        v("relAlStatus"));
 
   try {
     const r = await fetch("/relatorios/alertas?" + params, { headers: authHeaders() });
@@ -6380,64 +6478,94 @@ async function gerarRelAlertas() {
   } catch (e) {
     alert("Erro ao gerar relatório de alertas."); return;
   } finally {
-    if (btn) btn.disabled = false;
+    if (btn) { btn.textContent = "Gerar"; btn.disabled = false; }
   }
 
   const dados = _relAlDados;
   const total     = dados.length;
   const ativos    = dados.filter(d => d.status === "ativo").length;
   const resolvidos= dados.filter(d => d.status === "resolvido").length;
-  const tempoArr  = dados.filter(d => d.status === "resolvido" && d.tempo_horas != null).map(d => Number(d.tempo_horas));
-  const tempoMed  = tempoArr.length ? tempoArr.reduce((a,b) => a+b, 0) / tempoArr.length : null;
+  const tempoArr  = dados.filter(d => d.status==="resolvido"&&d.tempo_horas!=null).map(d=>Number(d.tempo_horas));
+  const tempoMed  = tempoArr.length ? tempoArr.reduce((a,b)=>a+b,0)/tempoArr.length : null;
 
   const kpiEl = document.getElementById("relAlKpis");
-  if (kpiEl) {
-    kpiEl.style.display = "";
-    kpiEl.innerHTML =
-      _relKpiCard("🚨", "Total",         total,              "neutral") +
-      _relKpiCard("🔴", "Ativos",        ativos,             ativos > 0 ? "bad" : "ok") +
-      _relKpiCard("✅", "Resolvidos",    resolvidos,         "ok") +
-      _relKpiCard("⏱", "Tempo médio",   tempoMed != null ? _relSlaFmt(tempoMed) : "-", "neutral");
-  }
+  if (kpiEl) kpiEl.innerHTML =
+    _relKpiCard("🚨","Total alertas", total,     "neutral") +
+    _relKpiCard("🔴","Ativos",        ativos,    ativos>0?"bad":"ok") +
+    _relKpiCard("✅","Resolvidos",    resolvidos,"ok") +
+    _relKpiCard("⏱","Tempo médio",   tempoMed!=null?_relSlaFmt(tempoMed):"-","neutral");
+
+  const porDiaMap = {};
+  dados.forEach(d => { const dia=(d.criado_em||"").split("T")[0]; if(dia) porDiaMap[dia]=(porDiaMap[dia]||0)+1; });
+  const dias = Object.keys(porDiaMap).sort();
+
+  const tipoMap = {};
+  dados.forEach(d => { const t=(d.tipo||"outro").replaceAll("_"," "); tipoMap[t]=(tipoMap[t]||0)+1; });
+  const tipoLabels = Object.keys(tipoMap);
+  const tipoVals   = Object.values(tipoMap);
+  const tipoColors = ["#ef4444","#f97316","#94a3b8","#4a78f7","#4ade80"];
+
+  const resMap = {};
+  dados.forEach(d => {
+    const n = d.reservatorio_nome || d.device_id || "?";
+    const condo = d.condominio_nome || "-";
+    if (!resMap[n]) resMap[n] = { total:0, ativos:0, condo, tempoArr:[] };
+    resMap[n].total++;
+    if (d.status==="ativo") resMap[n].ativos++;
+    if (d.tempo_horas!=null) resMap[n].tempoArr.push(Number(d.tempo_horas));
+  });
+  const top5res = Object.entries(resMap).sort(([,a],[,b])=>b.total-a.total).slice(0,5);
+
+  const bodyEl = document.getElementById("relBodyAlertas");
+  if (bodyEl) bodyEl.style.display = "";
+
+  setTimeout(() => {
+    _relChart("relAlChartDia", _relAreaOpts("Alertas",
+      dias.map(d=>[new Date(d+"T12:00:00").getTime(), porDiaMap[d]]), "#ef4444"));
+    if (tipoVals.length && tipoVals.some(v=>v>0))
+      _relChart("relAlChartTipo", _relDonutOpts(tipoLabels, tipoVals, tipoColors));
+  }, 60);
+
+  const top5tbody = document.getElementById("relAlTop5Body");
+  if (top5tbody) top5tbody.innerHTML = top5res.map(([nome,d]) => {
+    const tM = d.tempoArr.length ? d.tempoArr.reduce((a,b)=>a+b,0)/d.tempoArr.length : null;
+    return `<tr>
+      <td>${_waEscaparHtml(nome)}</td>
+      <td>${_waEscaparHtml(d.condo)}</td>
+      <td style="text-align:right;">${d.total}</td>
+      <td style="text-align:right;">${d.ativos>0?`<span class="badge b-bad">${d.ativos}</span>`:`<span class="badge b-ok">0</span>`}</td>
+      <td style="text-align:right;">${tM!=null?_relSlaFmt(tM):"-"}</td>
+    </tr>`;
+  }).join("");
 
   const tbody = document.getElementById("relAlTbody");
-  const wrap  = document.getElementById("relAlTableWrap");
-  const empty = document.getElementById("relAlEmpty");
+  if (tbody) tbody.innerHTML = dados.map(d => `<tr>
+    <td>${d.id}</td>
+    <td>${_waEscaparHtml((d.tipo||"").replaceAll("_"," "))}</td>
+    <td style="max-width:240px;white-space:normal;">${_waEscaparHtml(d.mensagem||"")}</td>
+    <td>${_waEscaparHtml(d.reservatorio_nome||"-")}</td>
+    <td><span class="badge ${d.status==="resolvido"?"b-ok":"b-bad"}">${d.status||"-"}</span></td>
+    <td>${d.criado_em?new Date(d.criado_em).toLocaleDateString("pt-BR"):"-"}</td>
+    <td>${d.tempo_horas!=null?_relSlaFmt(Number(d.tempo_horas)):"-"}</td>
+  </tr>`).join("");
+
   const count = document.getElementById("relAlCount");
-
-  if (!dados.length) {
-    if (wrap)  wrap.style.display  = "none";
-    if (empty) empty.style.display = "";
-    return;
-  }
-  if (empty) empty.style.display = "none";
-  if (wrap)  wrap.style.display  = "";
-
-  tbody.innerHTML = dados.map(d => `
-    <tr>
-      <td>${d.id}</td>
-      <td>${_waEscaparHtml(String(d.tipo || "").replaceAll("_"," "))}</td>
-      <td style="max-width:260px;white-space:normal;">${_waEscaparHtml(d.mensagem || "")}</td>
-      <td>${_waEscaparHtml(d.reservatorio_nome || "-")}</td>
-      <td>${_waEscaparHtml(d.condominio_nome   || "-")}</td>
-      <td><span class="badge ${d.status === "resolvido" ? "b-ok" : "b-bad"}">${d.status || "-"}</span></td>
-      <td>${d.criado_em ? new Date(d.criado_em).toLocaleDateString("pt-BR") : "-"}</td>
-      <td>${d.tempo_horas != null ? _relSlaFmt(Number(d.tempo_horas)) : "-"}</td>
-    </tr>
-  `).join("");
-  if (count) count.textContent = `${total} registro${total !== 1 ? "s" : ""}`;
+  if (count) count.textContent = `${total} registro${total!==1?"s":""}`;
+  const exAlCount = document.getElementById("relExAlCount");
+  if (exAlCount) exAlCount.textContent = `(${total})`;
+  _relMostrarExport();
 }
 
 async function gerarRelTelemetria() {
   const btn = document.querySelector("[data-rel-action='gerar-telemetria']");
-  if (btn) btn.disabled = true;
+  if (btn) { btn.textContent = "Aguarde…"; btn.disabled = true; }
 
   const params = new URLSearchParams();
   const v = id => document.getElementById(id)?.value || "";
-  params.set("data_ini", v("relTelIni"));
-  params.set("data_fim", v("relTelFim"));
-  if (v("relTelCondo"))  params.set("condominio_id", v("relTelCondo"));
-  if (v("relTelDevice")) params.set("device_id",     v("relTelDevice").trim());
+  if (v("relTelIni"))   params.set("data_ini",     v("relTelIni"));
+  if (v("relTelFim"))   params.set("data_fim",      v("relTelFim"));
+  if (v("relTelCondo")) params.set("condominio_id", v("relTelCondo"));
+  if (v("relTelDevice"))params.set("device_id",     v("relTelDevice").trim());
 
   try {
     const r = await fetch("/relatorios/telemetria?" + params, { headers: authHeaders() });
@@ -6446,70 +6574,82 @@ async function gerarRelTelemetria() {
   } catch (e) {
     alert("Erro ao gerar relatório de telemetria."); return;
   } finally {
-    if (btn) btn.disabled = false;
+    if (btn) { btn.textContent = "Gerar"; btn.disabled = false; }
   }
 
   const dados = _relTelDados;
-  const total       = dados.length;
-  const dispositivos= new Set(dados.map(d => d.device_id)).size;
-  const nivelMedArr = dados.filter(d => d.nivel_medio != null).map(d => Number(d.nivel_medio));
-  const nivelGlobal = nivelMedArr.length ? Math.round(nivelMedArr.reduce((a,b) => a+b, 0) / nivelMedArr.length) : null;
-  const bombaOnTotal= dados.reduce((s, d) => s + (Number(d.leituras_bomba_on) || 0), 0);
+  const total      = dados.length;
+  const dispositivos = new Set(dados.map(d=>d.device_id)).size;
+  const nivelArr   = dados.filter(d=>d.nivel_medio!=null).map(d=>Number(d.nivel_medio));
+  const nivelGlobal= nivelArr.length?Math.round(nivelArr.reduce((a,b)=>a+b,0)/nivelArr.length):null;
+  const bombaOn    = dados.reduce((s,d)=>s+(Number(d.leituras_bomba_on)||0),0);
 
   const kpiEl = document.getElementById("relTelKpis");
-  if (kpiEl) {
-    kpiEl.style.display = "";
-    kpiEl.innerHTML =
-      _relKpiCard("📊", "Linhas",        total,                       "neutral") +
-      _relKpiCard("📡", "Dispositivos",  dispositivos,                "neutral") +
-      _relKpiCard("💧", "Nível médio",   nivelGlobal != null ? nivelGlobal + "%" : "-",
-        nivelGlobal != null && nivelGlobal < 30 ? "bad" : nivelGlobal != null && nivelGlobal < 60 ? "warn" : "ok") +
-      _relKpiCard("⚡", "Leit. bomba ON",bombaOnTotal,                "neutral");
-  }
+  if (kpiEl) kpiEl.innerHTML =
+    _relKpiCard("📊","Linhas diárias", total,       "neutral") +
+    _relKpiCard("📡","Dispositivos",   dispositivos,"neutral") +
+    _relKpiCard("💧","Nível médio",    nivelGlobal!=null?nivelGlobal+"%":"-",
+      nivelGlobal!=null&&nivelGlobal<30?"bad":nivelGlobal!=null&&nivelGlobal<60?"warn":"ok") +
+    _relKpiCard("⚡","Bomba ON",       bombaOn,      "neutral");
+
+  // agrega por dia (média de todos os devices)
+  const porDia = {};
+  dados.forEach(d => {
+    if (!porDia[d.dia]) porDia[d.dia] = { sum:0, count:0 };
+    porDia[d.dia].sum   += Number(d.nivel_medio)||0;
+    porDia[d.dia].count ++;
+  });
+  const dias = Object.keys(porDia).sort();
+  const seriesData = dias.map(d => [new Date(d+"T12:00:00").getTime(), Math.round(porDia[d].sum/porDia[d].count)]);
+
+  const bodyEl = document.getElementById("relBodyTelemetria");
+  if (bodyEl) bodyEl.style.display = "";
+
+  setTimeout(() => {
+    _relChart("relTelChartDia", Object.assign(_relAreaOpts("Nível médio (%)", seriesData, "#4a78f7"), {
+      yaxis: { min:0, max:100, labels: { ..._REL_YLBL, formatter: v=>v+"%" } },
+      tooltip: { theme:"dark", x:{ format:"dd/MM/yyyy" }, y:{ formatter: v=>v+"%" } },
+    }));
+  }, 60);
 
   const tbody = document.getElementById("relTelTbody");
-  const wrap  = document.getElementById("relTelTableWrap");
-  const empty = document.getElementById("relTelEmpty");
-  const count = document.getElementById("relTelCount");
-
-  if (!dados.length) {
-    if (wrap)  wrap.style.display  = "none";
-    if (empty) empty.style.display = "";
-    return;
-  }
-  if (empty) empty.style.display = "none";
-  if (wrap)  wrap.style.display  = "";
-
-  tbody.innerHTML = dados.map(d => {
+  if (tbody) tbody.innerHTML = dados.map(d => {
     const med = Number(d.nivel_medio);
-    const cls = med < 30 ? "b-bad" : med < 60 ? "b-warn" : "b-ok";
+    const cls = med<30?"b-bad":med<60?"b-warn":"b-ok";
     return `<tr>
-      <td>${d.dia || "-"}</td>
-      <td style="font-family:monospace;font-size:11.5px;">${_waEscaparHtml(d.device_id || "-")}</td>
-      <td>${_waEscaparHtml(d.reservatorio_nome || "-")}</td>
-      <td>${_waEscaparHtml(d.condominio_nome   || "-")}</td>
-      <td>${d.leituras ?? "-"}</td>
-      <td>${d.nivel_min != null ? d.nivel_min + "%" : "-"}</td>
-      <td><span class="badge ${cls}">${d.nivel_medio != null ? d.nivel_medio + "%" : "-"}</span></td>
-      <td>${d.nivel_max != null ? d.nivel_max + "%" : "-"}</td>
-      <td>${d.leituras_bomba_on ?? "-"}</td>
+      <td>${d.dia||"-"}</td>
+      <td style="font-family:monospace;font-size:11.5px;">${_waEscaparHtml(d.device_id||"-")}</td>
+      <td>${_waEscaparHtml(d.reservatorio_nome||"-")}</td>
+      <td>${_waEscaparHtml(d.condominio_nome||"-")}</td>
+      <td style="text-align:right;">${d.leituras??"-"}</td>
+      <td style="text-align:right;">${d.nivel_min!=null?d.nivel_min+"%":"-"}</td>
+      <td style="text-align:right;"><span class="badge ${cls}">${d.nivel_medio!=null?d.nivel_medio+"%":"-"}</span></td>
+      <td style="text-align:right;">${d.nivel_max!=null?d.nivel_max+"%":"-"}</td>
+      <td style="text-align:right;">${d.leituras_bomba_on??"-"}</td>
     </tr>`;
   }).join("");
-  if (count) count.textContent = `${total} linha${total !== 1 ? "s" : ""}`;
+
+  const count = document.getElementById("relTelCount");
+  if (count) count.textContent = `${total} linha${total!==1?"s":""}`;
+  const exTelCount = document.getElementById("relExTelCount");
+  if (exTelCount) exTelCount.textContent = `(${total})`;
+  _relMostrarExport();
+}
+
+function _relMostrarExport() {
+  const card = document.getElementById("relExportCard");
+  if (card) card.style.display = "";
 }
 
 function _relExportarCsv(rows, keys, labels, filename) {
   if (!rows.length) { alert("Sem dados para exportar."); return; }
-  const esc = v => {
-    const s = v == null ? "" : String(v);
-    return /[,"\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-  };
+  const esc = v => { const s=v==null?"":String(v); return /[,"\n]/.test(s)?`"${s.replace(/"/g,'""')}"`:s; };
   const lines = [labels.join(",")];
-  rows.forEach(r => lines.push(keys.map(k => esc(r[k])).join(",")));
-  const blob = new Blob(["﻿" + lines.join("\r\n")], { type: "text/csv;charset=utf-8;" });
+  rows.forEach(r => lines.push(keys.map(k=>esc(r[k])).join(",")));
+  const blob = new Blob(["﻿"+lines.join("\r\n")], { type:"text/csv;charset=utf-8;" });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement("a");
-  a.href = url; a.download = filename; a.click();
+  a.href=url; a.download=filename; a.click();
   URL.revokeObjectURL(url);
 }
 
