@@ -1486,6 +1486,33 @@ let _alFiltros = {
 let _alSelecionadoKey = null;
 let _alHistoricoChart = null;
 let _alHistoricoCache = new Map(); // device_id → { ts, dados }
+let _alComentariosCache = new Map(); // key → lista
+let _alAnaliseIACache = new Map();   // key → { analise, acoes }
+
+// Ações fixas por tipo. Aparece instantaneamente sem custo de IA. O botão
+// "Pedir análise da IA" chama a OpenAI sob demanda quando quer mais.
+const _AL_ACOES_FIXAS = {
+  telemetria: {
+    dispositivo_offline: ["Verificar alimentação e sinal do device", "Acionar técnico de campo", "Avisar síndico do condomínio"],
+    nivel_muito_baixo:   ["Verificar funcionamento da bomba", "Conferir nível físico no reservatório", "Acionar manutenção urgente"],
+    nivel_baixo:         ["Monitorar consumo nas próximas horas", "Programar reabastecimento", "Conferir histórico de uso"],
+  },
+  chamado: {
+    emergencia: ["Acionar plantão técnico imediatamente", "Notificar gerência", "Confirmar problema com cliente"],
+    alta:       ["Atribuir técnico ainda hoje", "Confirmar contato com cliente", "Documentar diagnóstico inicial"],
+    media:      ["Agendar na rotina da semana", "Solicitar mais informações ao cliente"],
+    baixa:      ["Avaliar prioridade real", "Adicionar à fila de manutenção normal"],
+  },
+};
+
+function _alAcoesFixasPara(it) {
+  if (it.origem === "telemetria") {
+    return _AL_ACOES_FIXAS.telemetria[it.raw?.tipo]
+      || ["Investigar a causa raiz", "Documentar achados pra histórico"];
+  }
+  const prio = String(it.raw?.prioridade || "media").toLowerCase();
+  return _AL_ACOES_FIXAS.chamado[prio] || _AL_ACOES_FIXAS.chamado.media;
+}
 
 // Lista todos os alertas (telemetria + chamados) num formato normalizado.
 // Inclui resolvidos (alertas fechados são pegues separadamente — por enquanto
@@ -1760,8 +1787,9 @@ async function _alRenderPainel() {
             </div>
           </div>
           <div style="flex:1;min-width:0;">
-            <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;">Capacidade</div>
-            <div style="font-size:18px;font-weight:700;margin-top:2px;">${reserv.capacidade_litros ? reserv.capacidade_litros.toLocaleString("pt-BR") + " L" : "—"}</div>
+            <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;">Reservatório</div>
+            <div style="font-size:14px;font-weight:700;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${reserv.nome || "—"}</div>
+            ${reserv.altura_total_m ? `<div style="font-size:11px;color:var(--muted);margin-top:4px;">Altura ${reserv.altura_total_m}m${reserv.tipo ? ` • ${reserv.tipo}` : ""}</div>` : ""}
             <div style="font-size:11px;color:var(--muted);margin-top:6px;">Última leitura: ${_alFmtData(reserv.ultima_leitura?.criado_em)} ${_alFmtHora(reserv.ultima_leitura?.criado_em)}</div>
           </div>
         </div>
@@ -1829,6 +1857,28 @@ async function _alRenderPainel() {
       <div class="ap-section-title">Histórico de nível (24h)</div>
       <div class="ap-chart" id="alChartHistorico"></div>
     </div>` : ""}
+
+    <div class="ap-section">
+      <div class="ap-section-title">Ações recomendadas</div>
+      <ul class="al-acoes-list">
+        ${_alAcoesFixasPara(it).map(a => `<li>${_alEscaparHtml(a)}</li>`).join("")}
+      </ul>
+      <div id="alIaBox" style="margin-top:10px;">
+        <button class="btn btn-sm" type="button" data-al-action="ia-analisar" data-al-key="${it.key}">✨ Pedir análise da IA</button>
+      </div>
+    </div>
+
+    <div class="ap-section">
+      <div class="ap-section-title">Comentários</div>
+      <div id="alCmtLista" class="al-cmt-lista">
+        <div style="color:var(--muted);font-size:11px;padding:8px 0;">Carregando…</div>
+      </div>
+      <div class="al-cmt-form">
+        <textarea id="alCmtInput" class="input" rows="2" placeholder="Adicionar comentário…" maxlength="2000"></textarea>
+        <button class="btn btn-sm btnAccent" type="button" data-al-action="cmt-enviar" data-al-key="${it.key}">Enviar</button>
+      </div>
+    </div>
+
     ${acoes}
   `;
 
@@ -1836,6 +1886,10 @@ async function _alRenderPainel() {
   if (it.origem === "telemetria" && it.device_id) {
     _alCarregarHistorico(it.device_id);
   }
+  // Carrega comentários
+  _alCarregarComentarios(it);
+  // Restaura análise IA do cache (se já gerada nessa sessão)
+  if (_alAnaliseIACache.has(it.key)) _alRenderAnaliseIA(it);
 }
 
 // Mini-gauge donut SVG. pct 0-100, cor depende da severidade.
@@ -1900,7 +1954,7 @@ async function _alResolver(key) {
 
   if (it.origem === "telemetria") {
     const r = await fetch("/alertas/" + it.rawId + "/fechar", {
-      method: "POST", headers: authHeaders(),
+      method: "PATCH", headers: authHeaders(),
     });
     if (!r.ok) { alert("Erro ao fechar alerta"); return; }
   } else {
@@ -1914,6 +1968,116 @@ async function _alResolver(key) {
   // Recarrega dados
   await Promise.all([carregarAlertas?.(), carregarChamados?.()]);
   renderAlertas();
+}
+
+// ============ Comentários ============
+
+async function _alCarregarComentarios(it) {
+  const origem = it.origem;
+  const id = it.rawId;
+  try {
+    const r = await fetch(`/alertas/comentarios/${origem}/${id}`, { headers: authHeaders() });
+    if (!r.ok) throw new Error("comentarios " + r.status);
+    const lista = await r.json();
+    _alComentariosCache.set(it.key, lista);
+    _alRenderComentarios(it);
+  } catch (e) {
+    const wrap = document.getElementById("alCmtLista");
+    if (wrap) wrap.innerHTML = `<div style="color:var(--muted);font-size:11px;padding:8px 0;">Erro ao carregar comentários.</div>`;
+  }
+}
+
+async function _alEnviarComentario(key, texto) {
+  const it = _alAchaPorKey(key);
+  if (!it || !texto) return;
+  try {
+    const r = await fetch("/alertas/comentarios", {
+      method: "POST",
+      headers: { ...authHeaders(), "Content-Type": "application/json" },
+      body: JSON.stringify({ origem: it.origem, id: it.rawId, texto }),
+    });
+    if (!r.ok) { alert("Erro ao enviar comentário"); return; }
+    // Limpa input e recarrega lista
+    const ta = document.getElementById("alCmtInput");
+    if (ta) ta.value = "";
+    _alComentariosCache.delete(it.key);
+    _alCarregarComentarios(it);
+  } catch (e) {
+    alert("Erro ao enviar comentário: " + e.message);
+  }
+}
+
+function _alRenderComentarios(it) {
+  const wrap = document.getElementById("alCmtLista");
+  if (!wrap) return;
+  const lista = _alComentariosCache.get(it.key) || [];
+  if (!lista.length) {
+    wrap.innerHTML = `<div style="color:var(--muted);font-size:11px;padding:8px 0;font-style:italic;">Sem comentários ainda. Seja o primeiro.</div>`;
+    return;
+  }
+  wrap.innerHTML = lista.map(c => `
+    <div class="al-cmt">
+      <div class="al-cmt-head">
+        <span class="al-cmt-autor">${c.autor_nome || "Anônimo"}</span>
+        <span class="al-cmt-tempo">${_alFmtData(c.criado_em)} ${_alFmtHora(c.criado_em)}</span>
+      </div>
+      <div class="al-cmt-texto">${_alEscaparHtml(c.texto)}</div>
+    </div>
+  `).join("");
+}
+
+function _alEscaparHtml(s) {
+  return String(s || "")
+    .replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;").replaceAll("'", "&#39;");
+}
+
+// ============ Análise IA ============
+
+async function _alPedirAnaliseIA(key) {
+  const it = _alAchaPorKey(key);
+  if (!it) return;
+  const box = document.getElementById("alIaBox");
+  if (!box) return;
+  box.innerHTML = `<div style="color:var(--muted);font-size:11px;padding:10px;text-align:center;">Analisando com IA…</div>`;
+  try {
+    const r = await fetch("/alertas/analisar-ia", {
+      method: "POST",
+      headers: { ...authHeaders(), "Content-Type": "application/json" },
+      body: JSON.stringify({ origem: it.origem, id: it.rawId }),
+    });
+    if (!r.ok) {
+      const txt = await r.text();
+      throw new Error(txt || ("ia " + r.status));
+    }
+    const j = await r.json();
+    _alAnaliseIACache.set(it.key, j);
+    _alRenderAnaliseIA(it);
+  } catch (e) {
+    box.innerHTML = `<div style="color:var(--danger);font-size:11px;padding:10px;">Erro: ${_alEscaparHtml(e.message)}</div>`;
+  }
+}
+
+function _alRenderAnaliseIA(it) {
+  const box = document.getElementById("alIaBox");
+  if (!box) return;
+  const j = _alAnaliseIACache.get(it.key);
+  if (!j) {
+    box.innerHTML = `<button class="btn btn-sm" type="button" data-al-action="ia-analisar" data-al-key="${it.key}">✨ Pedir análise da IA</button>`;
+    return;
+  }
+  const acoesIA = (j.acoes || []).map(a => `<li>${_alEscaparHtml(a)}</li>`).join("");
+  box.innerHTML = `
+    <div class="al-ia-card">
+      <div class="al-ia-head">
+        <span class="al-ia-badge">IA</span>
+        <span style="color:var(--muted);font-size:10.5px;">Análise sob demanda</span>
+      </div>
+      ${j.analise ? `<div class="al-ia-analise">${_alEscaparHtml(j.analise)}</div>` : ""}
+      ${acoesIA ? `<ul class="al-ia-acoes">${acoesIA}</ul>` : ""}
+      <button class="btn btn-sm al-ia-refazer" type="button" data-al-action="ia-analisar" data-al-key="${it.key}">Refazer análise</button>
+    </div>
+  `;
 }
 
 function renderAlertas() {
@@ -4638,6 +4802,21 @@ document.addEventListener("DOMContentLoaded", () => {
       renderAlertas();
     } else if (action === "resolver") {
       if (confirm("Marcar este alerta como resolvido?")) _alResolver(key);
+    } else if (action === "ia-analisar") {
+      _alPedirAnaliseIA(key);
+    } else if (action === "cmt-enviar") {
+      const ta = document.getElementById("alCmtInput");
+      const texto = (ta?.value || "").trim();
+      if (!texto) { ta?.focus(); return; }
+      _alEnviarComentario(key, texto);
+    }
+  });
+  // Enter pra enviar comentário (Shift+Enter quebra linha)
+  document.getElementById("alPainel")?.addEventListener("keydown", (e) => {
+    if (e.target?.id === "alCmtInput" && e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      const btn = document.querySelector('[data-al-action="cmt-enviar"]');
+      btn?.click();
     }
   });
 
