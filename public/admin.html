@@ -1218,30 +1218,39 @@
         <!-- ── CORPO: ALERTAS ── -->
         <div class="rel-body" id="relBodyAlertas" style="display:none;">
           <div class="resumo-grid" id="relAlKpis" style="margin-bottom:12px;"></div>
+          <!-- linha 1: área por dia + donut por tipo -->
           <div class="rel-charts-2" style="margin-bottom:12px;">
             <div class="card" style="padding:0;overflow:hidden;">
-              <p class="rel-ct-head">Alertas por dia</p>
+              <p class="rel-ct-head">Incidentes por dia</p>
               <div id="relAlChartDia" style="height:200px;"></div>
             </div>
             <div class="card" style="padding:0;overflow:hidden;">
-              <p class="rel-ct-head">Por tipo</p>
+              <p class="rel-ct-head">Distribuição por tipo</p>
               <div id="relAlChartTipo" style="height:200px;"></div>
             </div>
           </div>
-          <div class="card" style="padding:0;overflow:hidden;margin-bottom:12px;">
-            <p class="rel-ct-head">Top 5 reservatórios com mais alertas</p>
-            <div style="padding:0 12px 12px;">
-              <table><thead><tr>
-                <th>Reservatório</th><th style="width:148px">Condomínio</th>
-                <th style="width:52px;text-align:right;">Total</th>
-                <th style="width:60px;text-align:right;">Ativos</th>
-                <th style="width:82px;text-align:right;">Tempo méd</th>
-              </tr></thead><tbody id="relAlTop5Body"></tbody></table>
+          <!-- linha 2: bar reservatórios + tabela top 5 -->
+          <div class="rel-charts-2b" style="margin-bottom:12px;">
+            <div class="card" style="padding:0;overflow:hidden;">
+              <p class="rel-ct-head">Top reservatórios — ocorrências</p>
+              <div id="relAlChartRes" style="height:210px;"></div>
+            </div>
+            <div class="card" style="padding:0;overflow:hidden;">
+              <p class="rel-ct-head">Top 5 reservatórios</p>
+              <div style="padding:0 12px 12px;">
+                <table><thead><tr>
+                  <th>Reservatório</th>
+                  <th style="width:52px;text-align:right;">Total</th>
+                  <th style="width:60px;text-align:right;">Ativos</th>
+                  <th style="width:82px;text-align:right;">Tempo méd</th>
+                </tr></thead><tbody id="relAlTop5Body"></tbody></table>
+              </div>
             </div>
           </div>
+          <!-- tabela completa -->
           <div class="card" style="padding:0;overflow:hidden;margin-bottom:12px;">
             <div class="rel-ct-head" style="display:flex;justify-content:space-between;align-items:center;">
-              <span>Todos os alertas</span>
+              <span>Log de incidentes</span>
               <div style="display:flex;gap:8px;align-items:center;">
                 <span id="relAlCount" style="font-size:11.5px;color:var(--text-dim);"></span>
                 <button class="btn btn-sm" data-rel-action="exportar-alertas" style="margin-right:4px;">Exportar CSV</button>
@@ -1261,13 +1270,21 @@
         <!-- ── CORPO: TELEMETRIA ── -->
         <div class="rel-body" id="relBodyTelemetria" style="display:none;">
           <div class="resumo-grid" id="relTelKpis" style="margin-bottom:12px;"></div>
-          <div class="card" style="padding:0;overflow:hidden;margin-bottom:12px;">
-            <p class="rel-ct-head">Nível médio por dia (média de todos os dispositivos)</p>
-            <div id="relTelChartDia" style="height:220px;"></div>
+          <!-- linha 1: tendência de nível + ranking por dispositivo -->
+          <div class="rel-charts-2" style="margin-bottom:12px;">
+            <div class="card" style="padding:0;overflow:hidden;">
+              <p class="rel-ct-head">Tendência de nível — média diária</p>
+              <div id="relTelChartDia" style="height:220px;"></div>
+            </div>
+            <div class="card" style="padding:0;overflow:hidden;">
+              <p class="rel-ct-head">Nível médio por reservatório</p>
+              <div id="relTelChartDev" style="height:220px;"></div>
+            </div>
           </div>
+          <!-- tabela completa -->
           <div class="card" style="padding:0;overflow:hidden;margin-bottom:12px;">
             <div class="rel-ct-head" style="display:flex;justify-content:space-between;align-items:center;">
-              <span>Dados diários por dispositivo</span>
+              <span>Leituras diárias por dispositivo</span>
               <div style="display:flex;gap:8px;align-items:center;">
                 <span id="relTelCount" style="font-size:11.5px;color:var(--text-dim);"></span>
                 <button class="btn btn-sm" data-rel-action="exportar-telemetria" style="margin-right:4px;">Exportar CSV</button>

@@ -6537,11 +6537,27 @@ async function gerarRelAlertas() {
   const bodyEl = document.getElementById("relBodyAlertas");
   if (bodyEl) bodyEl.style.display = "";
 
+  const top5nomes  = top5res.map(([n]) => n.length > 22 ? n.slice(0,22)+"…" : n);
+  const top5totais = top5res.map(([,d]) => d.total);
+
   setTimeout(() => {
-    _relChart("relAlChartDia", _relAreaOpts("Alertas",
+    _relChart("relAlChartDia", _relAreaOpts("Incidentes",
       dias.map(d=>[new Date(d+"T12:00:00").getTime(), porDiaMap[d]]), "#ef4444"));
     if (tipoVals.length && tipoVals.some(v=>v>0))
       _relChart("relAlChartTipo", _relDonutOpts(tipoLabels, tipoVals, tipoColors));
+    if (top5totais.length)
+      _relChart("relAlChartRes", {
+        chart: { type: "bar", height: "100%", toolbar: { show: false }, background: "transparent" },
+        series: [{ name: "Alertas", data: top5totais }],
+        xaxis: { categories: top5nomes, labels: _REL_XLBL, axisBorder: { show: false }, axisTicks: { show: false } },
+        yaxis: { labels: _REL_YLBL },
+        plotOptions: { bar: { distributed: true, horizontal: true, borderRadius: 4, barHeight: "55%" } },
+        dataLabels: { enabled: true, style: { fontSize: "11px", fontWeight: "700", colors: ["#fff"] }, textAnchor: "start", offsetX: 6 },
+        colors: ["#ef4444","#f97316","#f0b014","#4a78f7","#94a3b8"],
+        legend: { show: false },
+        grid: _REL_GRID,
+        tooltip: { theme: "dark" },
+      });
   }, 60);
 
   const top5tbody = document.getElementById("relAlTop5Body");
@@ -6626,11 +6642,39 @@ async function gerarRelTelemetria() {
   const bodyEl = document.getElementById("relBodyTelemetria");
   if (bodyEl) bodyEl.style.display = "";
 
+  // ranking de dispositivos por nível médio (mais crítico primeiro)
+  const devMap = {};
+  dados.forEach(d => {
+    if (!devMap[d.device_id]) devMap[d.device_id] = { sum:0, count:0, nome: d.reservatorio_nome || d.device_id };
+    devMap[d.device_id].sum   += Number(d.nivel_medio) || 0;
+    devMap[d.device_id].count ++;
+  });
+  const devRank = Object.values(devMap)
+    .map(v => ({ nome: v.nome, avg: Math.round(v.sum / v.count) }))
+    .sort((a,b) => a.avg - b.avg)  // menor nível primeiro = mais críticos no topo
+    .slice(0, 8);
+
   setTimeout(() => {
     _relChart("relTelChartDia", Object.assign(_relAreaOpts("Nível médio (%)", seriesData, "#4a78f7"), {
       yaxis: { min:0, max:100, labels: { ..._REL_YLBL, formatter: v=>v+"%" } },
       tooltip: { theme:"dark", x:{ format:"dd/MM/yyyy" }, y:{ formatter: v=>v+"%" } },
     }));
+    if (devRank.length)
+      _relChart("relTelChartDev", {
+        chart: { type: "bar", height: "100%", toolbar: { show: false }, background: "transparent" },
+        series: [{ name: "Nível médio", data: devRank.map(d => d.avg) }],
+        xaxis: {
+          categories: devRank.map(d => d.nome.length>20 ? d.nome.slice(0,20)+"…" : d.nome),
+          labels: _REL_XLBL, axisBorder: { show: false }, axisTicks: { show: false },
+        },
+        yaxis: { min:0, max:100, labels: { ..._REL_YLBL, formatter: v=>v+"%" } },
+        plotOptions: { bar: { distributed: true, horizontal: true, borderRadius: 4, barHeight: "55%" } },
+        dataLabels: { enabled: true, formatter: v=>v+"%", style: { fontSize:"11px", fontWeight:"700", colors:["#fff"] }, textAnchor:"start", offsetX:6 },
+        colors: devRank.map(d => d.avg<30?"#ef4444":d.avg<60?"#f0b014":"#4ade80"),
+        legend: { show: false },
+        grid: _REL_GRID,
+        tooltip: { theme:"dark", y:{ formatter: v=>v+"%" } },
+      });
   }, 60);
 
   const tbody = document.getElementById("relTelTbody");
