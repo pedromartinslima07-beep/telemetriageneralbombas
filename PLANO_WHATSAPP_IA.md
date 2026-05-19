@@ -419,6 +419,154 @@ Mapa do dashboard (Mission Control) reescrito como Leaflet real, e nova seção 
 
 **Sem clusters por enquanto** (decisão consciente — adicionar `leaflet.markercluster` quando o número de condomínios justificar).
 
+##### 3B.3 — Tiles via proxy + otimização do mapa ✅ CONCLUÍDO
+
+Tiles do Carto passavam direto pro cliente, mas adblockers e firewalls corporativos bloqueavam, deixando o mapa em branco pra alguns usuários.
+
+**Solução:** rota nova `GET /tiles/:z/:x/:y.png` proxy o tile do Carto pelo nosso próprio domínio. Como tudo chega do mesmo origin, nada é bloqueado.
+
+**Otimizações no proxy:**
+- Rotação de subdomínios `a/b/c/d.basemaps.cartocdn.com` pra paralelismo
+- Cache em memória de até 4000 tiles (24h TTL) — depois do primeiro hit por tile, sai instantâneo
+- Dedup de requisições inflight (vários clientes pedindo o mesmo tile = 1 fetch upstream)
+- `Cache-Control: immutable, max-age=86400` (browser + CDN cacheiam)
+- Subdomínios rotacionados na URL upstream
+- OSM fallback removido (Carto é estável, OSM oficialmente proíbe proxy em apps)
+
+**Otimizações no cliente Leaflet:**
+- `keepBuffer: 4` — mantém tiles ao redor da viewport carregados (arrasto pequeno não baixa nada)
+- `updateWhenIdle: false` + `updateInterval: 100` — carrega durante o pan, sensação de fluidez
+
+##### 3B.4 — Polimento da página Mapa ✅ CONCLUÍDO
+
+Três ajustes na seção Mapa após uso real:
+
+**Card "Status dos Condomínios" → "Alertas Recentes":**
+- Donut OK/Alerta/Crítico/Offline substituído por lista compacta combinando telemetria aberta + chamados não-fechados
+- Cada item: nome do condomínio + tipo do problema + badge Crítico/Alta/Média + tempo relativo
+- Click vai pra seção Alertas (ou Chamados, se for um chamado)
+
+**Pinos do mapa redesenhados:**
+- Bolinha pulsante substituída por ícone de prédio (SVG branco) sobre quadrado arredondado com cor de status
+- Pulse só em warn/bad (chama atenção); ok fica discreto; offline cinza sem pulse
+- Hover cresce 15% e fica por cima (útil quando pinos próximos)
+
+**Fix da classificação por zona:**
+- A divisão oficial de SP não é simétrica (Zona Sul cobre todo o sudoeste — Capão Redondo, Campo Limpo, M'Boi Mirim — mesmo geograficamente sendo "oeste-sul")
+- Quadrante puro lat/lng falhava: Capão Redondo aparecia como Zona Oeste
+- `_mpZonaPara` ganhou mapa de ~80 bairros conhecidos de SP → zona oficial (com normalização de acentos)
+- Fallback geográfico ajustado: > 8km ao sul = Zona Sul independente da longitude
+
+### 3C — Redesign página /alertas (unificada) ✅ CONCLUÍDO
+
+A página antes era uma tabela simples só de telemetria. Agora "alerta" passa a ser conceito guarda-chuva que cobre **telemetria + chamados**. Banco fica separado (cada origem tem campos próprios), unificação só na UI.
+
+**Layout completo inspirado em mockup (`public/alertas-front.png`):**
+
+- **5 KPIs clicáveis** no topo: Críticos / Atenção / Normais / Resolvidos / Tempo médio pra resolver
+- **Toolbar:** 5 tabs com contadores (Todos / Críticos / Atenção / Normais / Resolvidos) + busca + range de data + Limpar
+- **Tabela unificada** com 8 colunas: ID (`TEL-X` ou `CH-X`), Condomínio + badge de origem, Tipo, Severidade, Data, Tempo aberto, Status, Ações
+- **Painel lateral de detalhes** abre ao clicar numa linha:
+  - **Telemetria:** mini-gauge SVG do reservatório + dados (nome, altura, tipo) + **histórico de nível 24h** via `/admin/historico`
+  - **Chamado:** categoria, prioridade, responsável, dados do cliente WhatsApp
+  - Linha do tempo (criado em / tempo aberto ou resolvido em)
+- **Paginação** + seletor 10/25/50 por página
+- Botão "Marcar como resolvido" chama o endpoint certo por origem (PATCH `/alertas/:id/fechar` ou PATCH `/chamados/:id`)
+
+**Modelo de dados normalizado** (`_alUnificar()`):
+```js
+{ key: 'TEL-123' | 'CH-45', origem, rawId, raw, titulo, descricao,
+  condominio_id, condominio_nome, device_id, severidade, status,
+  criado_em, fechado_em }
+```
+
+Mapeamento de severidade:
+- Telemetria: `dispositivo_offline`/`nivel_muito_baixo` → crítico, `nivel_baixo` → atenção, resto → normal
+- Chamado: `emergencia` → crítico, `alta` → atenção, `media`/`baixa` → normal
+
+### 3D — Ações recomendadas + Análise IA + Comentários (alertas) ✅ CONCLUÍDO
+
+Continuação da página /alertas — 3 features extra no painel lateral.
+
+**Ações recomendadas (fixas, hardcoded por tipo):**
+- Aparecem instantâneo, sem custo de IA
+- Por tipo de alerta de telemetria (`dispositivo_offline` / `nivel_muito_baixo` / `nivel_baixo`) ou por prioridade do chamado (`emergencia` / `alta` / `media` / `baixa`)
+- Lista de 3-5 ações por tipo (ex: "Verificar bomba", "Acionar manutenção urgente")
+
+**Análise IA sob demanda:**
+- Botão "✨ Pedir análise da IA" — quando clicado, chama `POST /alertas/analisar-ia` que monta contexto (tipo, reservatório, altura, condomínio, endereço) e chama `gpt-4o-mini` com `response_format: json_object`
+- Resposta tem forma `{ analise: string, acoes: string[] }`
+- UI: card roxo com gradient mostrando análise + ações + botão "Refazer análise"
+- Cache na sessão (Map em memória) — reabrir o painel não dispara nova chamada
+
+**Comentários nos alertas:**
+- Migration `004_alerta_comentarios.sql`: tabela `alerta_comentarios` com `alerta_origem` ('telemetria'|'chamado') + `alerta_id` (sem FK porque cobre 2 origens) + autor + texto + data
+- Endpoints `GET /alertas/comentarios/:origem/:id` e `POST /alertas/comentarios`
+- UI: lista cronológica + textarea (Enter envia, Shift+Enter quebra linha, max 2000 chars)
+- Autor mostrado a partir do `usuarios.nome` via JOIN
+
+**Bug correlato corrigido:** `_alResolver` chamava `POST /alertas/:id/fechar` mas a rota é `PATCH`. Telemetria não conseguia ser fechada pela página /alertas.
+
+### 3E — Polimento da animação da sidebar ✅ CONCLUÍDO
+
+Reclamação que a animação de expandir/colapsar a sidebar "não estava lisa". Diagnóstico mostrou 3 problemas:
+
+1. **Texto dos itens snap-out**: `opacity` no `.nav-item-label` mudava instantâneo (não estava no `transition`), só `max-width` animava — texto "estalava" pra invisível enquanto a largura ainda animava.
+2. **Logos da marca pulando**: full → mini usava `display: none/block`, sem transição. Solução: ambas as imagens em `position: absolute` sobrepostas no `.sidebar-brand`, com `align-self: stretch` pra herdar a altura do header, e crossfade via opacity.
+3. **Durações dessincronizadas**: `.nav-section-label` tinha `opacity .15s` + `max-height .22s` — terminavam em momentos diferentes.
+
+**Solução:** unificou tudo em **280ms com `cubic-bezier(.4, 0, .2, 1)`** (material standard easing), opacity dos sub-elementos animando junto, `will-change` nos labels pra GPU hint.
+
+### 3F — WhatsApp como central de atendimento ✅ FASE A CONCLUÍDA
+
+Página /whatsapp era uma tabela simples de conversas. Virou central de atendimento estilo CRM/inbox, **inspirada em `public/whatsapp-ia.png`**.
+
+**Premissa do redesign** (do briefing do usuário): não é "WhatsApp Web dentro do site". É uma caixa de entrada própria que recebe mensagens da Evolution API e responde via Evolution API. O cliente continua usando o WhatsApp dele normal; quem muda é a empresa (responde pelo painel em vez do celular).
+
+#### Fase A — Visualização + assumir conversa ✅ CONCLUÍDO
+
+**Layout 3 colunas:**
+
+- **Coluna 1 (lista):** busca + 4 tabs com contadores (Todos / Não respondidas / Em atendimento / Resolvidas), cards com avatar (iniciais), nome, condomínio, prévia da última mensagem, hora, indicador de status (bolinha vermelha/amarela/verde no avatar), badge 👤 se assumida por humano.
+
+- **Coluna 2 (chat):** cabeçalho com avatar + nome + telefone + condomínio + botão "Assumir/Devolver", corpo com bubbles tipo WhatsApp (entrada esquerda neutra, saída direita verde), separadores de data, cards roxos especiais quando mensagem tem `ia_resumo` (mostra resumo + badges de categoria/urgência), input desabilitado (Fase B vai habilitar).
+
+- **Coluna 3 (info):** Contato (nome, telefone), Condomínio (com endereço), Ações rápidas (sempre visíveis agora):
+  - Com condomínio vinculado: "Ver telemetria" (navega pra Mapa + seleciona o condo) + "Abrir chamado"
+  - Sem vínculo: "🔗 Vincular a um condomínio" (prompt com lista numerada) + "Abrir chamado sem condomínio"
+  - Histórico dos últimos 5 chamados do condomínio
+
+**Classificação dinâmica de status** (sem mexer no schema):
+- `status = 'fechada'` → resolvida
+- `assumida_por_id != NULL` → em atendimento (humano controlando)
+- `aberta` + última saída → em atendimento (IA respondeu)
+- `aberta` + última entrada / sem msg → não respondida
+
+**Polling rápido (5s)** só pra mensagens da conversa selecionada (independente do polling de 20s da lista geral).
+
+**Assumir conversa (IA cala):**
+- Migration `005_conversas_assumida.sql`: `conversas_whatsapp.assumida_por_id` (FK `usuarios`) + `assumida_em` (timestamptz)
+- Endpoints: `PATCH /whatsapp/conversas/:id/assumir` e `/devolver-ia`
+- No `whatsapp.controller.js`, antes de chamar `processarComIA`, checa `assumida_por_id` — se setado, **a IA não responde** (mas a mensagem do cliente continua sendo salva)
+- UI: botão "✋ Assumir conversa" / "↩ Devolver à IA" no cabeçalho do chat, subtítulo mostra "Assumida por [nome]" em laranja
+- Endpoint extra `PATCH /whatsapp/conversas/:id/vincular-condominio` pra vincular cliente sem condomínio direto da interface
+
+#### Fase B — Envio de mensagens (PENDENTE)
+- Habilitar o input da coluna 2
+- Endpoint `POST /whatsapp/conversas/:id/responder` que chama `evolution.service.enviarMensagem`
+- Salvar a mensagem enviada como `direcao = 'saida'` (e marcar como humana, não-IA)
+- Auto-assumir a conversa quando o atendente digita
+
+#### Fase C — IA assistiva (PENDENTE)
+- Botão "Resumir conversa" → chamada IA sob demanda mostrando resumo no painel direito
+- Botão "Sugerir resposta" → IA propõe texto que o atendente pode revisar e enviar
+
+#### Fase D — Refinamentos (PENDENTE)
+- Status da conversa expandido (`em_atendimento` no banco) + migração de dados existentes
+- Mensagens não-lidas (coluna `lida_em` ou contagem virtual)
+- Display rich de áudio/imagem/documento (Evolution já envia o `tipo`)
+- WebSocket pra updates em real-time (substituindo polling)
+
 ### Fase 4 — Integração telemetria automática
 - [ ] Ao abrir chamado, anexa última leitura do condomínio automaticamente
 - [ ] Alerta de telemetria crítico → IA abre chamado + notifica cliente via WhatsApp automaticamente

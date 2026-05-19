@@ -821,30 +821,58 @@
 
       <!-- ===== SECTION: WHATSAPP ===== -->
       <div class="section" data-section="whatsapp">
-        <section class="card">
-          <div class="cardHead">
+        <section class="card wa-card">
+          <div class="cardHead wa-head">
             <h2>
               <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
               </svg>
-              WhatsApp — Conversas
+              WhatsApp
             </h2>
-            <span class="hint">Histórico de atendimentos</span>
+            <span class="hint">Central de atendimento via WhatsApp + IA</span>
           </div>
-          <div class="tableWrap">
-            <table>
-              <thead>
-                <tr>
-                  <th style="width:50px;">ID</th>
-                  <th>Cliente / Telefone</th>
-                  <th>Condomínio</th>
-                  <th>Status</th>
-                  <th>Última mensagem</th>
-                  <th class="right" style="width:80px;">Ver</th>
-                </tr>
-              </thead>
-              <tbody id="tbodyConversas"></tbody>
-            </table>
+
+          <div class="wa-grid">
+            <!-- Coluna 1: lista de conversas -->
+            <aside class="wa-list-col">
+              <div class="wa-list-head">
+                <input id="waBusca" class="input" placeholder="Buscar conversa…">
+                <div class="wa-tabs" role="tablist">
+                  <button class="wa-tab is-active" data-wa-tab="todos">Todos <span class="wa-count" id="waCountTodos">0</span></button>
+                  <button class="wa-tab" data-wa-tab="nao-respondidas">Não respondidas <span class="wa-count" id="waCountNaoResp">0</span></button>
+                  <button class="wa-tab" data-wa-tab="em-atendimento">Em atendimento <span class="wa-count" id="waCountAtend">0</span></button>
+                  <button class="wa-tab" data-wa-tab="resolvidas">Resolvidas <span class="wa-count" id="waCountResolv">0</span></button>
+                </div>
+              </div>
+              <div class="wa-list" id="waList">
+                <div class="mc-empty">Carregando…</div>
+              </div>
+              <div class="wa-list-foot hint" id="waListFoot">—</div>
+            </aside>
+
+            <!-- Coluna 2: chat -->
+            <section class="wa-chat-col">
+              <div class="wa-chat-head" id="waChatHead">
+                <div class="wa-chat-empty-head">Selecione uma conversa</div>
+              </div>
+              <div class="wa-chat-body" id="waChatBody">
+                <div class="wa-chat-empty">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                  </svg>
+                  <p>Clique numa conversa pra ver o histórico</p>
+                </div>
+              </div>
+              <div class="wa-chat-input" id="waChatInput" style="display:none;">
+                <textarea id="waMsgInput" class="input" rows="1" placeholder="Digite uma mensagem…" disabled></textarea>
+                <button class="btn btnAccent" id="waBtnEnviar" type="button" disabled title="Envio será habilitado na Fase B">Enviar</button>
+              </div>
+            </section>
+
+            <!-- Coluna 3: informações -->
+            <aside class="wa-info-col" id="waInfoCol">
+              <div class="wa-info-empty">Selecione uma conversa pra ver detalhes</div>
+            </aside>
           </div>
         </section>
       </div><!-- /section whatsapp -->

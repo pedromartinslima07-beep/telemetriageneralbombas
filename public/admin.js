@@ -2521,30 +2521,389 @@ function renderChamados() {
   }
 }
 
-// ===== SECTION: WHATSAPP =====
-function renderConversas() {
-  const tbody = document.getElementById("tbodyConversas");
-  if (!tbody) return;
-  tbody.innerHTML = "";
+// ============================================================
+// SECTION: WHATSAPP — central de atendimento (lista + chat + info)
+// ============================================================
 
-  if (_conversasData.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px;">Nenhuma conversa encontrada.</td></tr>`;
+let _waFiltros = { tab: "todos", busca: "" };
+let _waSelecionadaId = null;
+let _waConversaCache = new Map(); // id → conversa com mensagens
+
+// Status visual da conversa baseado em: status do banco + quem mandou
+// a última mensagem. Schema atual só tem 'aberta'/'fechada', então
+// inferimos 'naoresp' vs 'atend' pela direção da última mensagem.
+function _waClassificar(cv) {
+  if (cv.status === "fechada") return "resolv";
+  // Conversa assumida por humano = sempre em atendimento (independente de quem
+  // mandou a última msg). Diferencia visualmente de quem só recebeu resposta da IA.
+  if (cv.assumida_por_id) return "atend";
+  // Aberta sem humano: olha quem mandou a última mensagem
+  if (!cv.ultima_mensagem) return "naoresp";
+  return cv.ultima_direcao === "saida" ? "atend" : "naoresp";
+}
+
+function _waConversasFiltradas() {
+  const lista = Array.isArray(_conversasData) ? _conversasData : [];
+  return lista.filter(cv => {
+    const st = _waClassificar(cv);
+    if (_waFiltros.tab === "nao-respondidas" && st !== "naoresp") return false;
+    if (_waFiltros.tab === "em-atendimento"  && st !== "atend")   return false;
+    if (_waFiltros.tab === "resolvidas"      && st !== "resolv")  return false;
+    if (_waFiltros.busca) {
+      const q = _waFiltros.busca.toLowerCase();
+      const blob = `${cv.cliente_nome || ""} ${cv.telefone || ""} ${cv.condominio_nome || ""} ${cv.ultima_mensagem || ""}`.toLowerCase();
+      if (!blob.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+function _waIniciaisDe(s) {
+  const txt = String(s || "?").trim();
+  const partes = txt.split(/\s+/).filter(Boolean);
+  if (!partes.length) return "?";
+  if (partes.length === 1) return partes[0].slice(0, 2).toUpperCase();
+  return (partes[0][0] + partes[partes.length - 1][0]).toUpperCase();
+}
+
+function _waEscaparHtml(s) {
+  return String(s || "")
+    .replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;").replaceAll("'","&#39;");
+}
+
+function _waFmtTempo(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const agora = Date.now();
+  const diffMs = agora - d.getTime();
+  const diffH = diffMs / 3600000;
+  if (diffH < 24) return d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  if (diffH < 24 * 7) return d.toLocaleDateString("pt-BR", { weekday: "short" });
+  return d.toLocaleDateString("pt-BR");
+}
+
+function _waFmtHoraCompleta(iso) {
+  if (!iso) return "";
+  return new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+}
+
+function _waFmtDataLonga(iso) {
+  if (!iso) return "";
+  return new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
+}
+
+function _waContadores() {
+  const todos = Array.isArray(_conversasData) ? _conversasData : [];
+  let naoresp = 0, atend = 0, resolv = 0;
+  for (const cv of todos) {
+    const st = _waClassificar(cv);
+    if (st === "naoresp") naoresp++;
+    else if (st === "atend") atend++;
+    else if (st === "resolv") resolv++;
+  }
+  return { todos: todos.length, naoresp, atend, resolv };
+}
+
+function _waRenderLista() {
+  const wrap = document.getElementById("waList");
+  if (!wrap) return;
+
+  // Contadores das tabs
+  const c = _waContadores();
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  set("waCountTodos", c.todos);
+  set("waCountNaoResp", c.naoresp);
+  set("waCountAtend", c.atend);
+  set("waCountResolv", c.resolv);
+
+  const filtrados = _waConversasFiltradas();
+  const foot = document.getElementById("waListFoot");
+  if (foot) foot.textContent = `${filtrados.length} conversa${filtrados.length === 1 ? "" : "s"}`;
+
+  if (!filtrados.length) {
+    wrap.innerHTML = `<div class="mc-empty" style="padding:30px 16px;">Nenhuma conversa nesse filtro.</div>`;
     return;
   }
 
-  for (const cv of _conversasData) {
-    const nome = cv.cliente_nome || cv.telefone || "-";
-    const statusBadge = cv.status === "aberta" ? badge("aberta", "warn") : badge("fechada", "ok");
-    const preview = cv.ultima_mensagem ? cv.ultima_mensagem.slice(0, 60) + (cv.ultima_mensagem.length > 60 ? "…" : "") : "-";
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>${cv.id}</td>
-      <td>${nome}<br><span class="mono" style="font-size:11px;color:var(--muted);">${cv.telefone || ""}</span></td>
-      <td>${cv.condominio_nome || "-"}</td>
-      <td>${statusBadge}</td>
-      <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${preview}</td>
-      <td class="right"><button class="btn btn-sm" data-action="ver-convo-section" data-id="${cv.id}">Ver</button></td>`;
-    tbody.appendChild(tr);
+  wrap.innerHTML = filtrados.map(cv => {
+    const st = _waClassificar(cv);
+    const nome = cv.cliente_nome || cv.telefone || "Sem nome";
+    const condo = cv.condominio_nome || "—";
+    const preview = cv.ultima_mensagem ? _waEscaparHtml(cv.ultima_mensagem) : "(sem mensagens)";
+    const tempo = _waFmtTempo(cv.ultima_mensagem_em || cv.criado_em);
+    const selected = _waSelecionadaId === cv.id ? " is-selected" : "";
+    return `
+      <div class="wa-conv-row status-${st}${selected}" data-wa-conv="${cv.id}">
+        <div class="wa-conv-avatar">${_waIniciaisDe(cv.cliente_nome || cv.telefone)}</div>
+        <div class="wa-conv-main">
+          <div class="wa-conv-name">${_waEscaparHtml(nome)}</div>
+          <div class="wa-conv-condo">${_waEscaparHtml(condo)}</div>
+          <div class="wa-conv-preview">${preview}</div>
+        </div>
+        <div class="wa-conv-side">
+          <span class="wa-conv-time">${tempo}</span>
+          ${cv.assumida_por_id ? `<span class="wa-conv-assumida" title="Assumida por humano">👤</span>` : ""}
+        </div>
+      </div>`;
+  }).join("");
+}
+
+async function _waSelecionar(id) {
+  _waSelecionadaId = Number(id);
+  _waRenderLista();
+  // Mostra estado de carregamento no chat
+  const chatBody = document.getElementById("waChatBody");
+  const chatHead = document.getElementById("waChatHead");
+  if (chatBody) chatBody.innerHTML = `<div class="wa-chat-empty"><p>Carregando conversa…</p></div>`;
+  if (chatHead) chatHead.innerHTML = `<div class="wa-chat-empty-head">Carregando…</div>`;
+  // Esconde info
+  const info = document.getElementById("waInfoCol");
+  if (info) info.innerHTML = `<div class="wa-info-empty">Carregando…</div>`;
+
+  try {
+    const r = await fetch(`/whatsapp/conversas/${_waSelecionadaId}`, { headers: authHeaders() });
+    if (!r.ok) throw new Error("conversa " + r.status);
+    const conv = await r.json();
+    _waConversaCache.set(_waSelecionadaId, conv);
+    _waRenderChat(conv);
+    _waRenderInfo(conv);
+    // Mostra input (desabilitado por enquanto — Fase B vai habilitar)
+    const inp = document.getElementById("waChatInput");
+    if (inp) inp.style.display = "flex";
+  } catch (e) {
+    if (chatBody) chatBody.innerHTML = `<div class="wa-chat-empty"><p style="color:var(--danger);">Erro ao carregar conversa: ${_waEscaparHtml(e.message)}</p></div>`;
+  }
+}
+
+function _waRenderChat(conv) {
+  const head = document.getElementById("waChatHead");
+  if (head) {
+    const assumida = !!conv.assumida_por_id;
+    const btnAssumir = assumida
+      ? `<button class="btn btn-sm" type="button" data-wa-action="devolver-ia" data-conv-id="${conv.id}" title="Devolver pra IA responder">↩ Devolver à IA</button>`
+      : `<button class="btn btn-sm btnAccent" type="button" data-wa-action="assumir" data-conv-id="${conv.id}" title="IA para de responder; você assume">✋ Assumir conversa</button>`;
+
+    head.innerHTML = `
+      <div class="wa-conv-avatar">${_waIniciaisDe(conv.cliente_nome || conv.telefone)}</div>
+      <div class="wa-chat-head-main">
+        <div class="wa-chat-head-name">${_waEscaparHtml(conv.cliente_nome || "Sem nome")}</div>
+        <div class="wa-chat-head-sub">${_waEscaparHtml(conv.telefone || "")}${conv.condominio_nome ? ` • ${_waEscaparHtml(conv.condominio_nome)}` : ""}${assumida ? ` • <span style="color:var(--accent);">Assumida por ${_waEscaparHtml(conv.assumida_por_nome || "você")}</span>` : ""}</div>
+      </div>
+      <div style="display:flex;gap:6px;flex-shrink:0;">${btnAssumir}</div>
+    `;
+  }
+
+  const body = document.getElementById("waChatBody");
+  if (!body) return;
+
+  const msgs = Array.isArray(conv.mensagens) ? conv.mensagens : [];
+  if (!msgs.length) {
+    body.innerHTML = `<div class="wa-chat-empty"><p>Sem mensagens nessa conversa ainda.</p></div>`;
+    return;
+  }
+
+  let html = "";
+  let dataAtual = "";
+  for (const m of msgs) {
+    const dia = new Date(m.criado_em).toLocaleDateString("pt-BR");
+    if (dia !== dataAtual) {
+      html += `<div class="wa-msg-date-sep">${_waFmtDataLonga(m.criado_em)}</div>`;
+      dataAtual = dia;
+    }
+
+    // Card especial pro resumo da IA, se houver
+    if (m.ia_resumo) {
+      html += `
+        <div class="wa-msg-ia-card">
+          <div class="wa-msg-ia-card-title">
+            <span class="wa-msg-ia-badge">IA</span>
+            <span>Resumo / análise</span>
+          </div>
+          <div style="font-size:11.5px;color:var(--text);line-height:1.5;">${_waEscaparHtml(m.ia_resumo)}</div>
+          ${m.ia_categoria || m.ia_urgencia ? `
+            <div style="margin-top:6px;display:flex;gap:6px;font-size:10px;">
+              ${m.ia_categoria ? `<span style="background:rgba(255,255,255,.06);padding:2px 7px;border-radius:4px;color:var(--muted);">${_waEscaparHtml(m.ia_categoria)}</span>` : ""}
+              ${m.ia_urgencia ? `<span style="background:rgba(245,158,11,.15);padding:2px 7px;border-radius:4px;color:var(--warn);">${_waEscaparHtml(m.ia_urgencia)}</span>` : ""}
+            </div>` : ""}
+        </div>`;
+    }
+
+    // Bubble da mensagem
+    const dir = m.direcao === "saida" ? "out" : "in";
+    const conteudo = m.tipo === "text" || !m.tipo
+      ? _waEscaparHtml(m.conteudo || "")
+      : `<span class="wa-msg-tipo">[${_waEscaparHtml(m.tipo)}]</span> ${_waEscaparHtml(m.conteudo || "")}`;
+    html += `
+      <div class="wa-msg ${dir}">
+        ${conteudo}
+        <span class="wa-msg-time">${_waFmtHoraCompleta(m.criado_em)}</span>
+      </div>`;
+  }
+  body.innerHTML = html;
+  // Scroll pro final
+  requestAnimationFrame(() => { body.scrollTop = body.scrollHeight; });
+}
+
+function _waRenderInfo(conv) {
+  const wrap = document.getElementById("waInfoCol");
+  if (!wrap) return;
+
+  // Tenta encontrar condomínio com dados completos
+  let condo = null;
+  if (conv.condominio_id && Array.isArray(_condominios)) {
+    condo = _condominios.find(c => c.id === conv.condominio_id);
+  }
+
+  // Histórico de chamados do condomínio (reaproveita _chamadosData)
+  const historico = (Array.isArray(_chamadosData) ? _chamadosData : [])
+    .filter(ch => ch.condominio_id === conv.condominio_id)
+    .slice(0, 5);
+
+  const histHtml = historico.length
+    ? historico.map(ch => {
+        const status = String(ch.status || "").toLowerCase();
+        const kind = status === "fechado" ? "ok" : (ch.prioridade === "emergencia" ? "bad" : "warn");
+        return `
+          <div class="wa-hist-item">
+            <div class="wa-hist-icon ${kind}">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>
+            </div>
+            <div class="wa-hist-main">
+              <div class="wa-hist-title">${_waEscaparHtml(ch.titulo || ("Chamado #" + ch.id))}</div>
+              <div class="wa-hist-time">${_waFmtDataLonga(ch.criado_em)} • ${_waEscaparHtml(status.replaceAll("_", " "))}</div>
+            </div>
+          </div>`;
+      }).join("")
+    : `<div style="color:var(--muted);font-size:11.5px;font-style:italic;">Sem chamados anteriores nesse condomínio.</div>`;
+
+  wrap.innerHTML = `
+    <div class="wa-info-section">
+      <div class="wa-info-title">Contato</div>
+      <div class="wa-info-row">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 15v3a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-3"/><path d="M22 11a10 10 0 1 0-20 0"/></svg>
+        <span>${_waEscaparHtml(conv.cliente_nome || "Sem nome")}</span>
+      </div>
+      <div class="wa-info-row">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+        <span>${_waEscaparHtml(conv.telefone || "—")}</span>
+      </div>
+    </div>
+
+    ${condo || conv.condominio_nome ? `
+    <div class="wa-info-section">
+      <div class="wa-info-title">Condomínio</div>
+      <div class="wa-info-row" style="font-weight:600;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="3" width="16" height="18" rx="1"/></svg>
+        <span>${_waEscaparHtml(conv.condominio_nome || "—")}</span>
+      </div>
+      ${condo?.endereco ? `
+      <div class="wa-info-row">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+        <span style="font-size:11.5px;color:var(--muted);">${_waEscaparHtml([condo.endereco, condo.bairro, condo.cidade].filter(Boolean).join(", "))}</span>
+      </div>` : ""}
+    </div>` : ""}
+
+    <div class="wa-info-section">
+      <div class="wa-info-title">Ações rápidas</div>
+      <div class="wa-info-acoes">
+        ${conv.condominio_id ? `
+          <button class="btn btn-sm" type="button" data-wa-action="ver-condo" data-condo-id="${conv.condominio_id}">📍 Ver telemetria do condomínio</button>
+          <button class="btn btn-sm" type="button" data-wa-action="abrir-chamado" data-condo-id="${conv.condominio_id}">📋 Abrir chamado</button>
+        ` : `
+          <div style="color:var(--muted);font-size:11px;margin-bottom:6px;font-style:italic;">Cliente sem condomínio vinculado.</div>
+          <button class="btn btn-sm btnAccent" type="button" data-wa-action="vincular-condo" data-conv-id="${conv.id}">🔗 Vincular a um condomínio</button>
+          <button class="btn btn-sm" type="button" data-wa-action="abrir-chamado-sem-condo">📋 Abrir chamado sem condomínio</button>
+        `}
+      </div>
+    </div>
+
+    <div class="wa-info-section">
+      <div class="wa-info-title">Histórico de chamados</div>
+      ${histHtml}
+    </div>
+  `;
+}
+
+async function _waAssumir(convId) {
+  try {
+    const r = await fetch(`/whatsapp/conversas/${convId}/assumir`, {
+      method: "PATCH", headers: authHeaders(),
+    });
+    if (!r.ok) throw new Error(await r.text());
+    // Limpa cache pra refresh, recarrega
+    _waConversaCache.delete(convId);
+    await carregarConversas?.();
+    if (_waSelecionadaId === convId) await _waSelecionar(convId);
+    _waRenderLista();
+  } catch (e) {
+    alert("Erro ao assumir conversa: " + e.message);
+  }
+}
+
+async function _waDevolverIA(convId) {
+  try {
+    const r = await fetch(`/whatsapp/conversas/${convId}/devolver-ia`, {
+      method: "PATCH", headers: authHeaders(),
+    });
+    if (!r.ok) throw new Error(await r.text());
+    _waConversaCache.delete(convId);
+    await carregarConversas?.();
+    if (_waSelecionadaId === convId) await _waSelecionar(convId);
+    _waRenderLista();
+  } catch (e) {
+    alert("Erro ao devolver conversa: " + e.message);
+  }
+}
+
+function _waAbrirSelecaoCondominio(convId) {
+  const lista = Array.isArray(_condominios) ? _condominios : [];
+  if (!lista.length) { alert("Nenhum condomínio cadastrado."); return; }
+  // Prompt simples (sem modal sofisticado pra Fase A) — lista numerada
+  const opcoes = lista.map((c, i) => `${i + 1}. ${c.nome}${c.bairro ? " — " + c.bairro : ""}`).join("\n");
+  const escolha = prompt(`Vincular conversa a qual condomínio?\n\n${opcoes}\n\nDigite o número:`);
+  if (!escolha) return;
+  const idx = Number(escolha) - 1;
+  const condo = lista[idx];
+  if (!condo) { alert("Opção inválida"); return; }
+  _waVincularCondo(convId, condo.id);
+}
+
+async function _waVincularCondo(convId, condoId) {
+  try {
+    const r = await fetch(`/whatsapp/conversas/${convId}/vincular-condominio`, {
+      method: "PATCH",
+      headers: { ...authHeaders(), "Content-Type": "application/json" },
+      body: JSON.stringify({ condominio_id: condoId }),
+    });
+    if (!r.ok) throw new Error(await r.text());
+    _waConversaCache.delete(convId);
+    await carregarConversas?.();
+    if (_waSelecionadaId === convId) await _waSelecionar(convId);
+  } catch (e) {
+    alert("Erro ao vincular: " + e.message);
+  }
+}
+
+function renderConversas() {
+  // Mantém o nome pra compatibilidade — agora só renderiza a coluna 1.
+  // O chat e o painel só são renderizados quando seleciona uma conversa.
+  _waRenderLista();
+  // Se tinha uma conversa selecionada, mantém visível
+  if (_waSelecionadaId) {
+    const cv = (_conversasData || []).find(c => c.id === _waSelecionadaId);
+    if (!cv) {
+      // sumiu da lista — limpa
+      _waSelecionadaId = null;
+      const head = document.getElementById("waChatHead");
+      const body = document.getElementById("waChatBody");
+      const info = document.getElementById("waInfoCol");
+      const inp  = document.getElementById("waChatInput");
+      if (head) head.innerHTML = `<div class="wa-chat-empty-head">Selecione uma conversa</div>`;
+      if (body) body.innerHTML = `<div class="wa-chat-empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><p>Clique numa conversa pra ver o histórico</p></div>`;
+      if (info) info.innerHTML = `<div class="wa-info-empty">Selecione uma conversa pra ver detalhes</div>`;
+      if (inp)  inp.style.display = "none";
+    }
   }
 }
 
@@ -4820,6 +5179,62 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  // ===== Página WhatsApp =====
+  // Tabs de filtro
+  document.querySelectorAll(".wa-tab").forEach(tab => {
+    tab.addEventListener("click", () => {
+      document.querySelectorAll(".wa-tab").forEach(t => t.classList.remove("is-active"));
+      tab.classList.add("is-active");
+      _waFiltros.tab = tab.dataset.waTab;
+      _waRenderLista();
+    });
+  });
+  // Busca (debounced)
+  const _waDebounce = (fn, ms) => { let h; return (...a) => { clearTimeout(h); h = setTimeout(() => fn(...a), ms); }; };
+  document.getElementById("waBusca")?.addEventListener("input", _waDebounce((e) => {
+    _waFiltros.busca = e.target.value.trim();
+    _waRenderLista();
+  }, 200));
+  // Clique numa conversa da lista
+  document.getElementById("waList")?.addEventListener("click", (e) => {
+    const row = e.target.closest("[data-wa-conv]");
+    if (!row) return;
+    const id = Number(row.dataset.waConv);
+    if (id && id !== _waSelecionadaId) _waSelecionar(id);
+  });
+  // Ações dos painéis WhatsApp (chat head + info col compartilham o mesmo handler)
+  const _waAcaoHandler = async (e) => {
+    const btn = e.target.closest("[data-wa-action]");
+    if (!btn) return;
+    const action = btn.dataset.waAction;
+    const condoId = Number(btn.dataset.condoId);
+    const convId  = Number(btn.dataset.convId);
+
+    if (action === "ver-condo" && condoId) {
+      showSection("mapa");
+      setTimeout(() => {
+        if (typeof _mpCondoSelecionadoId !== "undefined") {
+          _mpCondoSelecionadoId = condoId;
+          if (typeof renderSecaoMapa === "function") renderSecaoMapa();
+        }
+      }, 200);
+    } else if (action === "abrir-chamado" && condoId) {
+      showSection("chamados");
+    } else if (action === "abrir-chamado-sem-condo") {
+      showSection("chamados");
+    } else if (action === "assumir" && convId) {
+      if (!confirm("Assumir essa conversa? A IA vai parar de responder automaticamente.")) return;
+      await _waAssumir(convId);
+    } else if (action === "devolver-ia" && convId) {
+      if (!confirm("Devolver essa conversa pra IA responder?")) return;
+      await _waDevolverIA(convId);
+    } else if (action === "vincular-condo" && convId) {
+      _waAbrirSelecaoCondominio(convId);
+    }
+  };
+  document.getElementById("waInfoCol")?.addEventListener("click", _waAcaoHandler);
+  document.getElementById("waChatHead")?.addEventListener("click", _waAcaoHandler);
+
   document.getElementById("btnCadastrarCondominio")?.addEventListener("click", criarCondominio);
   document.getElementById("btnCriarCliente")?.addEventListener("click", criarCliente);
   document.getElementById("btnCriarAdminViewer")?.addEventListener("click", criarAdminViewer);
@@ -4973,4 +5388,19 @@ document.addEventListener("DOMContentLoaded", () => {
   carregarTudo();
   setInterval(carregarTelemetria, 7000);
   setInterval(carregarAtendimento, 20000);
+  // Polling rápido só pra mensagens da conversa selecionada (Fase A: read-only)
+  setInterval(async () => {
+    if (!_waSelecionadaId) return;
+    try {
+      const r = await fetch(`/whatsapp/conversas/${_waSelecionadaId}`, { headers: authHeaders() });
+      if (!r.ok) return;
+      const conv = await r.json();
+      const cached = _waConversaCache.get(_waSelecionadaId);
+      // Re-renderiza só se o número de mensagens mudou (evita rolar pra cima sem motivo)
+      if (!cached || (conv.mensagens?.length || 0) !== (cached.mensagens?.length || 0)) {
+        _waConversaCache.set(_waSelecionadaId, conv);
+        _waRenderChat(conv);
+      }
+    } catch (e) { /* silencia — próximo ciclo tenta de novo */ }
+  }, 5000);
 });

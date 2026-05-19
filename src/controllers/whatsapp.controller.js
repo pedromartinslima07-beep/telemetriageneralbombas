@@ -78,6 +78,17 @@ async function processarMensagem(payload) {
     if (tipo !== "conversation" && tipo !== "extendedTextMessage") return;
     if (!conteudo || conteudo.trim().split(/\s+/).length < 2) return; // ignora mensagens triviais
 
+    // Se um atendente humano assumiu essa conversa, a IA fica em silêncio.
+    // A mensagem já foi salva acima — só não respondemos automaticamente.
+    const assumidaRes = await pool.query(
+      `SELECT assumida_por_id FROM conversas_whatsapp WHERE id = $1`,
+      [conversaId]
+    );
+    if (assumidaRes.rows[0]?.assumida_por_id) {
+      console.log(`[whatsapp] conversa ${conversaId} assumida por humano — IA não responde`);
+      return;
+    }
+
     // Busca histórico da conversa e condomínio do cliente
     const [historicoRes, clienteRes] = await Promise.all([
       pool.query(
