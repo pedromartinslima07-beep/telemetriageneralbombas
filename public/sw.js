@@ -1,4 +1,4 @@
-const CACHE_NAME = "telemetria-v15";
+const CACHE_NAME = "telemetria-v17";
 
 // Permite que a página force a ativação imediata desta versão (sem esperar
 // todos os clients fecharem). Pareado com o postMessage no register-sw.js.
@@ -41,8 +41,10 @@ self.addEventListener("fetch", (e) => {
 
   const url = new URL(e.request.url);
 
-  // API: network first, sem cache
-  if (url.pathname.startsWith("/auth") ||
+  // HTML e API: sempre network first, sem cache
+  const isHtml = e.request.headers.get("accept")?.includes("text/html");
+  if (isHtml ||
+      url.pathname.startsWith("/auth") ||
       url.pathname.startsWith("/cliente") ||
       url.pathname.startsWith("/admin") ||
       url.pathname.startsWith("/telemetria") ||
@@ -53,7 +55,10 @@ self.addEventListener("fetch", (e) => {
       url.pathname.startsWith("/status") ||
       url.pathname.startsWith("/jobs") ||
       url.pathname.startsWith("/ultima-leitura") ||
-      url.pathname.startsWith("/health")) {
+      url.pathname.startsWith("/health") ||
+      url.pathname.startsWith("/whatsapp") ||
+      url.pathname.startsWith("/chamados") ||
+      url.pathname.startsWith("/tiles")) {
     e.respondWith(fetch(e.request).catch(() => new Response(
       JSON.stringify({ error: "Sem conexão" }),
       { headers: { "Content-Type": "application/json" } }
@@ -64,7 +69,7 @@ self.addEventListener("fetch", (e) => {
   // JS/CSS: network first (evita servir arquivo stale do cache)
   if (url.pathname.endsWith(".js") || url.pathname.endsWith(".css")) {
     e.respondWith(
-      fetch(e.request).then((res) => {
+      fetch(e.request, { cache: "reload" }).then((res) => {
         if (res.ok) {
           const clone = res.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put(e.request, clone));

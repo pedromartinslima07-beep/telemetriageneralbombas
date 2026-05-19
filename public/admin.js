@@ -2529,15 +2529,9 @@ let _waFiltros = { tab: "todos", busca: "" };
 let _waSelecionadaId = null;
 let _waConversaCache = new Map(); // id → conversa com mensagens
 
-// Status visual da conversa baseado em: status do banco + quem mandou
-// a última mensagem. Schema atual só tem 'aberta'/'fechada', então
-// inferimos 'naoresp' vs 'atend' pela direção da última mensagem.
 function _waClassificar(cv) {
   if (cv.status === "fechada") return "resolv";
-  // Conversa assumida por humano = sempre em atendimento (independente de quem
-  // mandou a última msg). Diferencia visualmente de quem só recebeu resposta da IA.
-  if (cv.assumida_por_id) return "atend";
-  // Aberta sem humano: olha quem mandou a última mensagem
+  if (cv.status === "em_atendimento" || cv.assumida_por_id) return "atend";
   if (!cv.ultima_mensagem) return "naoresp";
   return cv.ultima_direcao === "saida" ? "atend" : "naoresp";
 }
@@ -2643,6 +2637,7 @@ function _waRenderLista() {
         </div>
         <div class="wa-conv-side">
           <span class="wa-conv-time">${tempo}</span>
+          ${cv.unread_count > 0 ? `<span class="wa-conv-unread">${cv.unread_count}</span>` : ""}
           ${cv.assumida_por_id ? `<span class="wa-conv-assumida" title="Assumida por humano">👤</span>` : ""}
         </div>
       </div>`;
@@ -2668,12 +2663,59 @@ async function _waSelecionar(id) {
     _waConversaCache.set(_waSelecionadaId, conv);
     _waRenderChat(conv);
     _waRenderInfo(conv);
-    // Mostra input (desabilitado por enquanto — Fase B vai habilitar)
+    // Zera unread_count local imediatamente (o backend já marcou como lido)
+    const cvLocal = (_conversasData || []).find(c => c.id === _waSelecionadaId);
+    if (cvLocal) cvLocal.unread_count = 0;
+    _waRenderLista();
     const inp = document.getElementById("waChatInput");
     if (inp) inp.style.display = "flex";
   } catch (e) {
     if (chatBody) chatBody.innerHTML = `<div class="wa-chat-empty"><p style="color:var(--danger);">Erro ao carregar conversa: ${_waEscaparHtml(e.message)}</p></div>`;
   }
+}
+
+function _waRenderConteudo(m) {
+  const tipo = String(m.tipo || "text").toLowerCase();
+  const caption = m.conteudo ? `<div class="wa-media-caption">${_waEscaparHtml(m.conteudo)}</div>` : "";
+
+  if (tipo === "text" || tipo === "conversation" || tipo === "extendedtextmessage" || !tipo) {
+    return _waEscaparHtml(m.conteudo || "");
+  }
+  if (tipo === "audiomessage" || tipo === "audio" || tipo === "ptpmessage") {
+    return `<div class="wa-media-card">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+      <span>Mensagem de áudio</span>
+    </div>${caption}`;
+  }
+  if (tipo === "imagemessage" || tipo === "image") {
+    return `<div class="wa-media-card">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+      <span>Imagem</span>
+    </div>${caption}`;
+  }
+  if (tipo === "videomessage" || tipo === "video") {
+    return `<div class="wa-media-card">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+      <span>Vídeo</span>
+    </div>${caption}`;
+  }
+  if (tipo === "documentmessage" || tipo === "document") {
+    return `<div class="wa-media-card">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      <span>${m.conteudo ? _waEscaparHtml(m.conteudo) : "Documento"}</span>
+    </div>`;
+  }
+  if (tipo === "stickermessage" || tipo === "sticker") {
+    return `<div class="wa-media-card">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+      <span>Figurinha</span>
+    </div>`;
+  }
+  // fallback para tipos desconhecidos
+  return `<div class="wa-media-card">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    <span>[${_waEscaparHtml(m.tipo)}]</span>
+  </div>${caption}`;
 }
 
 function _waRenderChat(conv) {
@@ -2731,9 +2773,7 @@ function _waRenderChat(conv) {
 
     // Bubble da mensagem
     const dir = m.direcao === "saida" ? "out" : "in";
-    const conteudo = m.tipo === "text" || !m.tipo
-      ? _waEscaparHtml(m.conteudo || "")
-      : `<span class="wa-msg-tipo">[${_waEscaparHtml(m.tipo)}]</span> ${_waEscaparHtml(m.conteudo || "")}`;
+    const conteudo = _waRenderConteudo(m);
     html += `
       <div class="wa-msg ${dir}">
         ${conteudo}
@@ -2818,11 +2858,72 @@ function _waRenderInfo(conv) {
       </div>
     </div>
 
+    <div class="wa-info-section" id="waIaSection">
+      <div class="wa-info-title">IA Assistiva</div>
+      <div class="wa-info-acoes">
+        <button class="btn btn-sm" type="button" data-wa-action="resumir" data-conv-id="${conv.id}">✨ Resumir conversa</button>
+        <button class="btn btn-sm" type="button" data-wa-action="sugerir-resposta" data-conv-id="${conv.id}">💡 Sugerir resposta</button>
+      </div>
+      <div id="waIaResult"></div>
+    </div>
+
     <div class="wa-info-section">
       <div class="wa-info-title">Histórico de chamados</div>
       ${histHtml}
     </div>
   `;
+}
+
+const _waIaCache = new Map(); // "convId-acao" → resultado
+
+async function _waIaAcao(convId, acao) {
+  const resultDiv = document.getElementById("waIaResult");
+  if (!resultDiv) return;
+
+  const cacheKey = `${convId}-${acao}`;
+  if (_waIaCache.has(cacheKey)) {
+    _waIaRenderResultado(acao, _waIaCache.get(cacheKey));
+    return;
+  }
+
+  resultDiv.innerHTML = `<div style="color:var(--muted);font-size:11.5px;margin-top:8px;">Consultando IA…</div>`;
+
+  try {
+    const r = await fetch(`/whatsapp/conversas/${convId}/${acao}`, {
+      method: "POST", headers: authHeaders(),
+    });
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || r.statusText);
+    const data = await r.json();
+    const texto = acao === "resumir" ? data.resumo : data.sugestao;
+    _waIaCache.set(cacheKey, { acao, texto });
+    _waIaRenderResultado(acao, { acao, texto });
+  } catch (e) {
+    if (resultDiv) resultDiv.innerHTML = `<div style="color:var(--danger);font-size:11.5px;margin-top:8px;">Erro: ${_waEscaparHtml(e.message)}</div>`;
+  }
+}
+
+function _waIaRenderResultado(acao, { texto }) {
+  const resultDiv = document.getElementById("waIaResult");
+  if (!resultDiv) return;
+
+  const titulo = acao === "resumir" ? "Resumo da conversa" : "Sugestão de resposta";
+  const convId = _waSelecionadaId;
+
+  resultDiv.innerHTML = `
+    <div class="wa-ia-result">
+      <div class="wa-ia-result-title">${titulo}</div>
+      <div class="wa-ia-result-text">${_waEscaparHtml(texto)}</div>
+      ${acao === "sugerir-resposta" ? `
+        <button class="btn btn-sm btnAccent" type="button" style="margin-top:8px;width:100%;"
+          data-wa-action="usar-sugestao" data-texto="${_waEscaparHtml(texto)}">
+          Usar essa resposta
+        </button>` : ""}
+      <button class="btn btn-sm" type="button" style="margin-top:4px;width:100%;font-size:10px;opacity:.6;"
+        data-wa-action="${acao === "resumir" ? "resumir" : "sugerir-resposta"}" data-conv-id="${convId}"
+        onclick="this.closest('#waIaResult').innerHTML=''; _waIaCache && _waIaCache.delete('${convId}-${acao === "resumir" ? "resumir" : "sugerir-resposta"}');">
+        Refazer
+      </button>
+    </div>`;
 }
 
 async function _waAssumir(convId) {
@@ -2838,6 +2939,54 @@ async function _waAssumir(convId) {
     _waRenderLista();
   } catch (e) {
     alert("Erro ao assumir conversa: " + e.message);
+  }
+}
+
+async function _waEnviarMensagem() {
+  const input = document.getElementById("waMsgInput");
+  const btn   = document.getElementById("waBtnEnviar");
+  if (!input || !_waSelecionadaId) return;
+
+  const texto = input.value.trim();
+  if (!texto) return;
+
+  input.disabled = true;
+  btn.disabled   = true;
+  btn.textContent = "Enviando…";
+
+  try {
+    const r = await fetch(`/whatsapp/conversas/${_waSelecionadaId}/responder`, {
+      method: "POST",
+      headers: { ...authHeaders(), "Content-Type": "application/json" },
+      body: JSON.stringify({ texto }),
+    });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({ error: r.statusText }));
+      throw new Error(err.error || r.statusText);
+    }
+    const { mensagem } = await r.json();
+
+    // Adiciona a mensagem localmente (sem esperar o poll)
+    const cached = _waConversaCache.get(_waSelecionadaId);
+    if (cached) {
+      cached.mensagens = [...(cached.mensagens || []), mensagem];
+      cached.assumida_por_id = cached.assumida_por_id || true;
+      _waRenderChat(cached);
+      _waRenderInfo(cached);
+    }
+
+    input.value = "";
+
+    // Atualiza a lista para refletir auto-assume
+    await carregarConversas?.();
+    _waRenderLista();
+  } catch (e) {
+    alert("Erro ao enviar: " + e.message);
+  } finally {
+    input.disabled = false;
+    btn.disabled   = false;
+    btn.textContent = "Enviar";
+    input.focus();
   }
 }
 
@@ -5230,10 +5379,27 @@ document.addEventListener("DOMContentLoaded", () => {
       await _waDevolverIA(convId);
     } else if (action === "vincular-condo" && convId) {
       _waAbrirSelecaoCondominio(convId);
+    } else if (action === "resumir" && convId) {
+      await _waIaAcao(convId, "resumir");
+    } else if (action === "sugerir-resposta" && convId) {
+      await _waIaAcao(convId, "sugerir-resposta");
+    } else if (action === "usar-sugestao") {
+      const texto = btn.dataset.texto;
+      const input = document.getElementById("waMsgInput");
+      if (input && texto) { input.value = texto; input.focus(); }
     }
   };
   document.getElementById("waInfoCol")?.addEventListener("click", _waAcaoHandler);
   document.getElementById("waChatHead")?.addEventListener("click", _waAcaoHandler);
+
+  // Envio de mensagem: botão + Enter (Shift+Enter = quebra de linha)
+  document.getElementById("waBtnEnviar")?.addEventListener("click", _waEnviarMensagem);
+  document.getElementById("waMsgInput")?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      _waEnviarMensagem();
+    }
+  });
 
   document.getElementById("btnCadastrarCondominio")?.addEventListener("click", criarCondominio);
   document.getElementById("btnCriarCliente")?.addEventListener("click", criarCliente);

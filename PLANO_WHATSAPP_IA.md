@@ -551,21 +551,21 @@ Página /whatsapp era uma tabela simples de conversas. Virou central de atendime
 - UI: botão "✋ Assumir conversa" / "↩ Devolver à IA" no cabeçalho do chat, subtítulo mostra "Assumida por [nome]" em laranja
 - Endpoint extra `PATCH /whatsapp/conversas/:id/vincular-condominio` pra vincular cliente sem condomínio direto da interface
 
-#### Fase B — Envio de mensagens (PENDENTE)
+#### Fase B — Envio de mensagens ✅ CONCLUÍDO
 - Habilitar o input da coluna 2
 - Endpoint `POST /whatsapp/conversas/:id/responder` que chama `evolution.service.enviarMensagem`
 - Salvar a mensagem enviada como `direcao = 'saida'` (e marcar como humana, não-IA)
 - Auto-assumir a conversa quando o atendente digita
 
-#### Fase C — IA assistiva (PENDENTE)
+#### Fase C — IA assistiva ✅ CONCLUÍDO
 - Botão "Resumir conversa" → chamada IA sob demanda mostrando resumo no painel direito
-- Botão "Sugerir resposta" → IA propõe texto que o atendente pode revisar e enviar
+- Botão "Sugerir resposta" → IA propõe texto que o atendente pode revisar e enviar; "Usar essa resposta" cola no input
 
-#### Fase D — Refinamentos (PENDENTE)
+#### Fase D — Refinamentos ✅ CONCLUÍDO
 - Status da conversa expandido (`em_atendimento` no banco) + migração de dados existentes
-- Mensagens não-lidas (coluna `lida_em` ou contagem virtual)
-- Display rich de áudio/imagem/documento (Evolution já envia o `tipo`)
-- WebSocket pra updates em real-time (substituindo polling)
+- Mensagens não-lidas (badge vermelho com contagem, some ao abrir a conversa)
+- Display rich de áudio/imagem/documento (cards visuais com ícone por tipo)
+- WebSocket adiado conscientemente — polling de 5s suficiente para o volume atual
 
 ### Fase 4 — Integração telemetria automática
 - [ ] Ao abrir chamado, anexa última leitura do condomínio automaticamente

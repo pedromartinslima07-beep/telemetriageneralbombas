@@ -1,8 +1,31 @@
 const express = require("express");
+const OpenAI = require("openai");
 const { pool } = require("../db");
 const { receberWebhook } = require("../controllers/whatsapp.controller");
+const { enviarMensagem } = require("../services/evolution.service");
 const { authRequired } = require("../middleware/authRequired");
 const { adminOnly } = require("../middleware/adminOnly");
+
+let _openai = null;
+function getOpenAI() {
+  if (_openai) return _openai;
+  if (!process.env.OPENAI_API_KEY) throw new Error("OPENAI_API_KEY não configurada");
+  _openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  return _openai;
+}
+
+async function _buscarMensagensParaIA(convId) {
+  const r = await pool.query(
+    `SELECT direcao, conteudo, tipo FROM mensagens_whatsapp
+     WHERE conversa_id = $1 AND tipo = 'text' AND conteudo IS NOT NULL
+     ORDER BY criado_em ASC LIMIT 40`,
+    [convId]
+  );
+  return r.rows.map(m => ({
+    role: m.direcao === "entrada" ? "user" : "assistant",
+    content: m.conteudo,
+  }));
+}
 
 const router = express.Router();
 
@@ -38,7 +61,8 @@ router.get("/conversas", authRequired, adminOnly, async (req, res) => {
          (SELECT COUNT(*)::int FROM mensagens_whatsapp m WHERE m.conversa_id = cv.id) AS total_mensagens,
          (SELECT conteudo FROM mensagens_whatsapp m WHERE m.conversa_id = cv.id ORDER BY criado_em DESC LIMIT 1) AS ultima_mensagem,
          (SELECT criado_em FROM mensagens_whatsapp m WHERE m.conversa_id = cv.id ORDER BY criado_em DESC LIMIT 1) AS ultima_mensagem_em,
-         (SELECT direcao  FROM mensagens_whatsapp m WHERE m.conversa_id = cv.id ORDER BY criado_em DESC LIMIT 1) AS ultima_direcao
+         (SELECT direcao  FROM mensagens_whatsapp m WHERE m.conversa_id = cv.id ORDER BY criado_em DESC LIMIT 1) AS ultima_direcao,
+         (SELECT COUNT(*)::int FROM mensagens_whatsapp m WHERE m.conversa_id = cv.id AND m.direcao = 'entrada' AND m.lida_em IS NULL) AS unread_count
        FROM conversas_whatsapp cv
        JOIN clientes_whatsapp cw ON cw.id = cv.cliente_whatsapp_id
        LEFT JOIN condominios c   ON c.id  = cw.condominio_id
@@ -91,6 +115,13 @@ router.get("/conversas/:id", authRequired, adminOnly, async (req, res) => {
       [id]
     );
 
+    // Marca todas as mensagens de entrada como lidas
+    await pool.query(
+      `UPDATE mensagens_whatsapp SET lida_em = NOW()
+       WHERE conversa_id = $1 AND direcao = 'entrada' AND lida_em IS NULL`,
+      [id]
+    );
+
     return res.json({ ...conversa.rows[0], mensagens: mensagens.rows });
   } catch (err) {
     console.error("[whatsapp] GET /conversas/:id:", err);
@@ -109,9 +140,9 @@ router.patch("/conversas/:id/assumir", authRequired, adminOnly, async (req, res)
   try {
     const r = await pool.query(
       `UPDATE conversas_whatsapp
-       SET assumida_por_id = $1, assumida_em = NOW()
+       SET assumida_por_id = $1, assumida_em = NOW(), status = 'em_atendimento'
        WHERE id = $2
-       RETURNING id, assumida_por_id, assumida_em`,
+       RETURNING id, assumida_por_id, assumida_em, status`,
       [req.user?.id || null, id]
     );
     if (r.rows.length === 0) return res.status(404).json({ error: "Conversa não encontrada" });
@@ -133,7 +164,7 @@ router.patch("/conversas/:id/devolver-ia", authRequired, adminOnly, async (req, 
   try {
     const r = await pool.query(
       `UPDATE conversas_whatsapp
-       SET assumida_por_id = NULL, assumida_em = NULL
+       SET assumida_por_id = NULL, assumida_em = NULL, status = 'aberta'
        WHERE id = $1
        RETURNING id`,
       [id]
@@ -168,6 +199,121 @@ router.patch("/conversas/:id/vincular-condominio", authRequired, adminOnly, asyn
   } catch (err) {
     console.error("[whatsapp] PATCH /conversas/:id/vincular-condominio:", err);
     return res.status(500).json({ error: "Erro ao vincular condomínio" });
+  }
+});
+
+// POST /whatsapp/conversas/:id/responder
+// Atendente humano envia mensagem; auto-assume a conversa se não estava assumida.
+router.post("/conversas/:id/responder", authRequired, adminOnly, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
+
+  const texto = String(req.body?.texto || "").trim();
+  if (!texto) return res.status(400).json({ error: "texto obrigatório" });
+  if (texto.length > 4096) return res.status(400).json({ error: "mensagem muito longa (máx 4096 chars)" });
+
+  try {
+    // Busca a conversa + telefone do cliente
+    const cvRes = await pool.query(
+      `SELECT cv.id, cv.assumida_por_id, cv.status, cw.telefone
+       FROM conversas_whatsapp cv
+       JOIN clientes_whatsapp cw ON cw.id = cv.cliente_whatsapp_id
+       WHERE cv.id = $1`,
+      [id]
+    );
+    if (cvRes.rows.length === 0) return res.status(404).json({ error: "Conversa não encontrada" });
+    const conv = cvRes.rows[0];
+    if (conv.status === "fechada") return res.status(400).json({ error: "Conversa já está fechada" });
+
+    // Auto-assume se ainda não foi assumida
+    if (!conv.assumida_por_id) {
+      await pool.query(
+        `UPDATE conversas_whatsapp SET assumida_por_id = $1, assumida_em = NOW(), status = 'em_atendimento' WHERE id = $2`,
+        [req.user.id, id]
+      );
+    }
+
+    // Envia via Evolution API (não bloqueia a resposta se falhar)
+    try {
+      await enviarMensagem(conv.telefone, texto);
+    } catch (evErr) {
+      console.error("[whatsapp] erro ao enviar via Evolution:", evErr.message);
+    }
+
+    // Persiste a mensagem enviada
+    const msgRes = await pool.query(
+      `INSERT INTO mensagens_whatsapp (conversa_id, direcao, conteudo, tipo)
+       VALUES ($1, 'saida', $2, 'text')
+       RETURNING id, direcao, conteudo, tipo, criado_em`,
+      [id, texto]
+    );
+
+    return res.json({ ok: true, mensagem: msgRes.rows[0] });
+  } catch (err) {
+    console.error("[whatsapp] POST /conversas/:id/responder:", err);
+    return res.status(500).json({ error: "Erro ao enviar mensagem" });
+  }
+});
+
+// POST /whatsapp/conversas/:id/resumir
+router.post("/conversas/:id/resumir", authRequired, adminOnly, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
+
+  try {
+    const msgs = await _buscarMensagensParaIA(id);
+    if (!msgs.length) return res.json({ resumo: "Nenhuma mensagem de texto nessa conversa ainda." });
+
+    const ai = getOpenAI();
+    const resp = await ai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: "Você é um assistente de atendimento ao cliente para uma empresa de manutenção predial. Analise o histórico da conversa e responda APENAS com um resumo objetivo em 2-3 frases: qual é o problema relatado, a urgência percebida e o status atual do atendimento. Sem introduções, sem formatação markdown.",
+        },
+        ...msgs,
+        { role: "user", content: "Resuma essa conversa." },
+      ],
+      max_tokens: 200,
+      temperature: 0.3,
+    });
+
+    return res.json({ resumo: resp.choices[0].message.content.trim() });
+  } catch (err) {
+    console.error("[whatsapp] POST /resumir:", err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /whatsapp/conversas/:id/sugerir-resposta
+router.post("/conversas/:id/sugerir-resposta", authRequired, adminOnly, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
+
+  try {
+    const msgs = await _buscarMensagensParaIA(id);
+    if (!msgs.length) return res.json({ sugestao: "" });
+
+    const ai = getOpenAI();
+    const resp = await ai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: "Você é um atendente profissional de uma empresa de manutenção predial (bombas d'água e reservatórios). Analise o histórico e sugira a próxima resposta para o cliente: seja direto, empático e profissional. Escreva APENAS o texto da mensagem, sem aspas, sem introduções como 'Aqui está a sugestão:', sem markdown.",
+        },
+        ...msgs,
+        { role: "user", content: "Sugira a próxima resposta para o cliente." },
+      ],
+      max_tokens: 200,
+      temperature: 0.5,
+    });
+
+    return res.json({ sugestao: resp.choices[0].message.content.trim() });
+  } catch (err) {
+    console.error("[whatsapp] POST /sugerir-resposta:", err);
+    return res.status(500).json({ error: err.message });
   }
 });
 
