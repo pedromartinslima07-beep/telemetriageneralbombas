@@ -560,11 +560,19 @@ let _mcMap = null;
 let _mcMarkers = new Map(); // condoId → L.Marker
 
 function _mcPinIcon(kind) {
+  // Pino de condomínio: ícone de prédio (SVG branco) sobre fundo colorido
+  // conforme status. Pulse ao redor pra warn/bad chamar atenção à distância.
+  const svg = `
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="4" y="3" width="16" height="18" rx="1.5"/>
+      <path d="M8 7h.01M12 7h.01M16 7h.01M8 11h.01M12 11h.01M16 11h.01M8 15h.01M16 15h.01"/>
+      <path d="M10 21v-4h4v4"/>
+    </svg>`;
   return L.divIcon({
     className: "mc-pin-leaflet-wrap",
-    html: `<div class="mc-pin-leaflet ${kind}"></div>`,
-    iconSize: [16, 16],
-    iconAnchor: [8, 8],
+    html: `<div class="mc-pin-condo ${kind}">${svg}</div>`,
+    iconSize: [28, 28],
+    iconAnchor: [14, 14],
   });
 }
 
@@ -3358,23 +3366,85 @@ let _mpMap = null;
 let _mpMarkers = new Map(); // condoId → L.Marker
 let _mpCondoSelecionadoId = null;
 let _mpTabAtiva = "visao";
-let _mpStatusChart = null;
 let _mpZonaChart   = null;
-// Praça da Sé como referência para os quadrantes
+// Praça da Sé como referência para os quadrantes (fallback)
 const _MP_SE = { lat: -23.5505, lng: -46.6333 };
 
+// Mapeamento oficial de bairros de SP → zona. A divisão real da prefeitura
+// não é simétrica: a Zona Sul cobre um pedaço gigante a sudoeste (Capão
+// Redondo, M'Boi Mirim, Jardim Ângela), então quadrante puro por lat/lng erra.
+// Bairros aqui ditam a zona; se o bairro não estiver na lista (ou não
+// preenchido), cai no fallback geográfico mais abaixo.
+const _MP_BAIRROS_ZONA = {
+  // Centro
+  "se": "Centro", "republica": "Centro", "liberdade": "Centro",
+  "bela vista": "Centro", "consolacao": "Centro", "santa cecilia": "Centro",
+  "cambuci": "Centro", "bom retiro": "Centro",
+
+  // Zona Norte
+  "santana": "Zona Norte", "tucuruvi": "Zona Norte", "tremembe": "Zona Norte",
+  "jacana": "Zona Norte", "vila guilherme": "Zona Norte", "vila maria": "Zona Norte",
+  "casa verde": "Zona Norte", "limao": "Zona Norte", "freguesia do o": "Zona Norte",
+  "pirituba": "Zona Norte", "jaragua": "Zona Norte", "perus": "Zona Norte",
+  "brasilandia": "Zona Norte", "mandaqui": "Zona Norte", "cachoeirinha": "Zona Norte",
+  "vila nova cachoeirinha": "Zona Norte", "vila medeiros": "Zona Norte",
+
+  // Zona Sul (inclui o sudoeste todo)
+  "vila mariana": "Zona Sul", "saude": "Zona Sul", "ipiranga": "Zona Sul",
+  "jabaquara": "Zona Sul", "santo amaro": "Zona Sul", "brooklin": "Zona Sul",
+  "campo belo": "Zona Sul", "moema": "Zona Sul", "vila olimpia": "Zona Sul",
+  "campo limpo": "Zona Sul", "capao redondo": "Zona Sul", "jardim sao luis": "Zona Sul",
+  "jardim angela": "Zona Sul", "mboi mirim": "Zona Sul", "m'boi mirim": "Zona Sul",
+  "cidade ademar": "Zona Sul", "pedreira": "Zona Sul", "cidade dutra": "Zona Sul",
+  "socorro": "Zona Sul", "capela do socorro": "Zona Sul", "grajau": "Zona Sul",
+  "parelheiros": "Zona Sul", "marsilac": "Zona Sul", "interlagos": "Zona Sul",
+  "morumbi": "Zona Sul", "vila andrade": "Zona Sul", "real parque": "Zona Sul",
+  "veleiros": "Zona Sul", "americanopolis": "Zona Sul",
+
+  // Zona Leste
+  "mooca": "Zona Leste", "tatuape": "Zona Leste", "penha": "Zona Leste",
+  "belem": "Zona Leste", "bras": "Zona Leste", "itaquera": "Zona Leste",
+  "sao miguel": "Zona Leste", "itaim paulista": "Zona Leste",
+  "cidade tiradentes": "Zona Leste", "vila prudente": "Zona Leste",
+  "aricanduva": "Zona Leste", "vila formosa": "Zona Leste", "vila carrao": "Zona Leste",
+  "ermelino matarazzo": "Zona Leste", "guaianases": "Zona Leste",
+  "sao mateus": "Zona Leste", "sapopemba": "Zona Leste", "cangaiba": "Zona Leste",
+  "vila matilde": "Zona Leste", "artur alvim": "Zona Leste", "carrao": "Zona Leste",
+
+  // Zona Oeste (relativamente pequena)
+  "butanta": "Zona Oeste", "pinheiros": "Zona Oeste", "lapa": "Zona Oeste",
+  "vila madalena": "Zona Oeste", "perdizes": "Zona Oeste", "pompeia": "Zona Oeste",
+  "barra funda": "Zona Oeste", "alto de pinheiros": "Zona Oeste",
+  "itaim bibi": "Zona Oeste", "vila leopoldina": "Zona Oeste",
+  "jaguare": "Zona Oeste", "rio pequeno": "Zona Oeste",
+  "raposo tavares": "Zona Oeste", "vila sonia": "Zona Oeste",
+  "jardim paulista": "Zona Oeste", "jardins": "Zona Oeste",
+};
+
+// Tira acento, baixa caixa e normaliza espaços pra match estável
+function _mpNormalizar(s) {
+  return String(s || "")
+    .normalize("NFD").replace(/[̀-ͯ]/g, "")
+    .toLowerCase().trim().replace(/\s+/g, " ");
+}
+
 function _mpZonaPara(c) {
-  // Centro: <= 3km da Sé. Senão, classifica pelos quadrantes N/S/L/O.
+  // 1) Bairro tem prioridade — divisão oficial de SP não é simétrica
+  const bairroNorm = _mpNormalizar(c.bairro);
+  if (bairroNorm && _MP_BAIRROS_ZONA[bairroNorm]) {
+    return _MP_BAIRROS_ZONA[bairroNorm];
+  }
+
+  // 2) Fallback geográfico: quadrante a partir da Sé
   if (c.lat == null || c.lng == null) return "Sem coordenada";
   const dLat = c.lat - _MP_SE.lat;
   const dLng = c.lng - _MP_SE.lng;
-  // distância aproximada (graus → km, latitude ~111km/°)
   const distKm = Math.sqrt((dLat * 111) ** 2 + (dLng * 102) ** 2);
   if (distKm <= 3) return "Centro";
-  // Quadrante por dominância (Norte/Sul vs Leste/Oeste)
-  if (Math.abs(dLat) >= Math.abs(dLng)) {
-    return dLat < 0 ? "Zona Sul" : "Zona Norte";
-  }
+  // Zona Sul abrange tudo bem ao sul, mesmo deslocado pra oeste
+  // (heurística: se está mais de 8km ao sul, é Sul independente da longitude)
+  if (dLat < -0.072) return "Zona Sul"; // ~8km ao sul
+  if (dLat > 0.072)  return "Zona Norte";
   return dLng > 0 ? "Zona Leste" : "Zona Oeste";
 }
 
@@ -3701,24 +3771,73 @@ function _mpRenderDonut(containerId, legendId, fatias, totalCentro) {
     </div>`).join("");
 }
 
-function _mpAtualizarStatusDonut() {
-  const groups = Array.isArray(_statusData) ? _statusData : [];
-  let ok = 0, warn = 0, bad = 0, off = 0;
-  for (const g of groups) {
-    const totR = g.resumo?.total_reservatorios ?? 0;
-    const offCnt = g.resumo?.offline_count ?? 0;
-    const al = g.resumo?.alertas_abertos_total ?? 0;
-    if (totR > 0 && offCnt === totR) off++;
-    else if (offCnt > 0)             bad++;
-    else if (al > 0)                 warn++;
-    else                             ok++;
+// "Alertas Recentes" = telemetria aberta + chamados não-fechados, juntos,
+// ordenados por severidade e depois por mais recente.
+function _mpAtualizarAlertasRecentes() {
+  const wrap = document.getElementById("mpAlertsList");
+  if (!wrap) return;
+
+  const itens = [];
+
+  for (const a of (_alertasAbertos || [])) {
+    const sev = (a.tipo === "dispositivo_offline" || a.tipo === "nivel_muito_baixo")
+      ? "critico"
+      : "media";
+    itens.push({
+      sev,
+      titulo: _mcDeviceCondoName(a.device_id),
+      sub: String(a.tipo || "").replaceAll("_", " "),
+      iso: a.criado_em,
+      target: "alertas",
+    });
   }
-  _mpRenderDonut("mpStatusChart", "mpStatusLegend", [
-    { label: "OK",       value: ok,   color: "#10b981" },
-    { label: "Alerta",   value: warn, color: "#f59e0b" },
-    { label: "Crítico",  value: bad,  color: "#ef4444" },
-    { label: "Offline",  value: off,  color: "#64748b" },
-  ]);
+
+  for (const ch of (Array.isArray(_chamadosData) ? _chamadosData : [])) {
+    // Só chamados ainda em aberto (qualquer status != fechado/resolvido)
+    const status = String(ch.status || "").toLowerCase();
+    if (status === "fechado" || status === "resolvido") continue;
+    const prio = String(ch.prioridade || "media").toLowerCase();
+    const sev = prio === "emergencia" ? "critico"
+              : prio === "alta"       ? "alta"
+              : prio === "baixa"      ? "media"
+              : "media";
+    itens.push({
+      sev,
+      titulo: ch.titulo || ("Chamado #" + ch.id),
+      sub: ch.condominio_nome
+        ? `${ch.condominio_nome} • ${status.replaceAll("_", " ")}`
+        : status.replaceAll("_", " "),
+      iso: ch.criado_em,
+      target: "chamados",
+    });
+  }
+
+  const pesoSev = { critico: 0, alta: 1, media: 2 };
+  itens.sort((a, b) => {
+    const p = (pesoSev[a.sev] ?? 9) - (pesoSev[b.sev] ?? 9);
+    if (p !== 0) return p;
+    return new Date(b.iso) - new Date(a.iso);
+  });
+
+  const top = itens.slice(0, 8);
+  if (!top.length) {
+    wrap.innerHTML = `<div class="mc-empty">Nenhum alerta no momento ✓</div>`;
+    return;
+  }
+
+  const badgeLabel = { critico: "Crítico", alta: "Alta", media: "Média" };
+  wrap.innerHTML = top.map(it => `
+    <div class="mp-alert-row" data-section-go="${it.target}">
+      <div class="mp-alert-main">
+        <div class="mp-alert-title">${it.titulo}</div>
+        <div class="mp-alert-sub">${it.sub}</div>
+      </div>
+      <div class="mp-alert-side">
+        <span class="mp-alert-badge ${it.sev}">${badgeLabel[it.sev]}</span>
+        <span class="mp-alert-time">${_mpRelTime(it.iso)}</span>
+      </div>
+    </div>
+  `).join("");
 }
 
 function _mpAtualizarZonaDonut() {
@@ -3859,7 +3978,7 @@ function renderSecaoMapa() {
   _mpAtualizarKpis();
   _mpAtualizarMapa();
   _mpAtualizarPainel();
-  _mpAtualizarStatusDonut();
+  _mpAtualizarAlertasRecentes();
   _mpAtualizarZonaDonut();
   _mpAtualizarUpdates();
   // Leaflet precisa recalcular tamanho sempre que o container muda de visível
