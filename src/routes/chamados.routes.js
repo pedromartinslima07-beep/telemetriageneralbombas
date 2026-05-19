@@ -43,16 +43,19 @@ router.get("/", authRequired, adminOnly, async (req, res) => {
          ch.titulo,
          ch.descricao,
          ch.condominio_id,
+         ch.tecnico_id,
          ch.criado_em,
          ch.atualizado_em,
          ch.fechado_em,
          c.nome  AS condominio_nome,
          u.nome  AS responsavel_nome,
+         t.nome  AS tecnico_nome,
          cw.telefone AS cliente_telefone,
          cw.nome     AS cliente_nome
        FROM chamados ch
        LEFT JOIN condominios c  ON c.id  = ch.condominio_id
        LEFT JOIN usuarios u     ON u.id  = ch.responsavel_id
+       LEFT JOIN tecnicos t     ON t.id  = ch.tecnico_id
        LEFT JOIN conversas_whatsapp cv ON cv.id = ch.conversa_id
        LEFT JOIN clientes_whatsapp cw  ON cw.id = cv.cliente_whatsapp_id
        ${where}
@@ -81,11 +84,13 @@ router.get("/:id", authRequired, adminOnly, async (req, res) => {
          ch.*,
          c.nome  AS condominio_nome,
          u.nome  AS responsavel_nome,
+         t.nome  AS tecnico_nome,
          cw.telefone AS cliente_telefone,
          cw.nome     AS cliente_nome
        FROM chamados ch
        LEFT JOIN condominios c  ON c.id  = ch.condominio_id
        LEFT JOIN usuarios u     ON u.id  = ch.responsavel_id
+       LEFT JOIN tecnicos t     ON t.id  = ch.tecnico_id
        LEFT JOIN conversas_whatsapp cv ON cv.id = ch.conversa_id
        LEFT JOIN clientes_whatsapp cw  ON cw.id = cv.cliente_whatsapp_id
        WHERE ch.id = $1`,
@@ -123,7 +128,7 @@ router.patch("/:id", authRequired, adminOnly, async (req, res) => {
     return res.status(400).json({ error: "id inválido" });
   }
 
-  const { status, prioridade, categoria, responsavel_id, condominio_id } = req.body || {};
+  const { status, prioridade, categoria, responsavel_id, condominio_id, tecnico_id } = req.body || {};
 
   const STATUSES   = ["aberto", "em_atendimento", "fechado"];
   const PRIORIDADES = ["baixa", "media", "alta", "emergencia"];
@@ -165,6 +170,14 @@ router.patch("/:id", authRequired, adminOnly, async (req, res) => {
     }
     values.push(cid);
     sets.push(`condominio_id = $${values.length}`);
+  }
+  if (tecnico_id !== undefined) {
+    const tid = tecnico_id ? Number(tecnico_id) : null;
+    if (tid !== null && (!Number.isInteger(tid) || tid <= 0)) {
+      return res.status(400).json({ error: "tecnico_id inválido" });
+    }
+    values.push(tid);
+    sets.push(`tecnico_id = $${values.length}`);
   }
 
   if (values.length === 0) {

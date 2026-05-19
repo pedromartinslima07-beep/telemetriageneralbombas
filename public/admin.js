@@ -15,8 +15,6 @@ const _sectionTitles = {
   alertas:      "Alertas",
   whatsapp:     "WhatsApp",
   chamados:     "Chamados",
-  reservatorios:"Reservatórios",
-  bombas:       "Bombas",
   cadastros:    "Clientes",
   tecnicos:     "Técnicos",
   relatorios:   "Relatórios",
@@ -144,6 +142,8 @@ let _alertasPorDevice = new Map();
 let _condominios = [];
 let _chamadosData = [];
 let _conversasData = [];
+let _usuariosData = [];
+let _tecnicosData = [];
 
 // chamados já vistos — usado para detectar novos e disparar pulso/beep
 let _chamadosIdsVistos = new Set();
@@ -1182,6 +1182,12 @@ function renderTelBombas() {
   const summary = document.getElementById("telBombasSummary");
   if (!tbody) return;
 
+  // mostra/oculta coluna de ações e botão + Novo conforme permissão
+  const acoesHeader = document.getElementById("telBombasAcoesHeader");
+  const btnNovo = document.getElementById("btnNovoReservatorio");
+  if (acoesHeader) acoesHeader.style.display = _isMaster ? "" : "none";
+  if (btnNovo) btnNovo.style.display = _isMaster ? "" : "none";
+
   const reservs = _telAplicarFiltros(_telColetarReservatorios())
     .sort((a, b) => (a.condominio_nome || "").localeCompare(b.condominio_nome || "") || (a.nome || "").localeCompare(b.nome || ""));
 
@@ -1191,8 +1197,9 @@ function renderTelBombas() {
     summary.textContent = known > 0 ? `${on} de ${known} ligadas` : `${reservs.length} reservatórios`;
   }
 
+  const cols = _isMaster ? 6 : 5;
   if (reservs.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="5" class="mc-empty" style="padding:24px;">Nenhum resultado para os filtros.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="${cols}" class="mc-empty" style="padding:24px;">Nenhum resultado para os filtros.</td></tr>`;
     return;
   }
 
@@ -1210,6 +1217,13 @@ function renderTelBombas() {
       else atualizacao = fmtData(u.criado_em);
     }
     const offlineTag = r.offline ? ` <span class="badge b-bad" style="margin-left:6px;font-size:9px;padding:1px 5px;">OFFLINE</span>` : "";
+    const acoesTd = _isMaster
+      ? `<td style="white-space:nowrap;">
+          <button class="btn btn-sm" data-action="editar-reservatorio" data-id="${r.id}">Editar</button>
+          <button class="btn btn-sm" data-action="regen-res-key" data-id="${r.id}" style="margin-left:4px;">Nova Key</button>
+          <button class="btn btn-sm btnDanger" data-action="excluir-reservatorio" data-id="${r.id}" data-nome="${(r.nome || "").replaceAll('"', "&quot;")}" style="margin-left:4px;">Excluir</button>
+        </td>`
+      : "";
     return `
       <tr>
         <td><strong>${r.nome || "—"}</strong><div style="font-size:10.5px;color:var(--muted2);">${r.tipo || ""}</div></td>
@@ -1217,6 +1231,7 @@ function renderTelBombas() {
         <td><span class="tel-bomba-pill ${bombaCls}">${bombaLbl}</span></td>
         <td><span class="tel-bomba-pct ${corPct === "off" ? "" : corPct}">${pct != null ? pct + "%" : "—"}</span></td>
         <td style="color:var(--muted);">${atualizacao}${offlineTag}</td>
+        ${acoesTd}
       </tr>`;
   }).join("");
 }
@@ -1711,9 +1726,6 @@ function _alRenderTabela(filtrados) {
           <td><span class="al-status ${it.status}">${_alStatusLabel(it.status)}</span></td>
           <td class="right">
             <div class="al-actions">
-              <button class="al-act-btn" data-al-action="ver" data-al-key="${it.key}" title="Ver detalhes">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-              </button>
               ${it.status === "ativo" ? `
               <button class="al-act-btn" data-al-action="resolver" data-al-key="${it.key}" title="Marcar como resolvido">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
@@ -2183,11 +2195,6 @@ function renderCondoCards() {
       ? `<div class="cc-offline-banner">⚠ ${offlineCount} dispositivo${offlineCount > 1 ? "s" : ""} offline</div>`
       : "";
 
-    const adminBtns = _isMaster
-      ? `<button class="btn btn-sm" data-action="editar-condominio" data-id="${condoId}" title="Editar condomínio">✎ Editar</button>
-         <button class="btn btn-sm" data-action="inativar-condominio" data-id="${condoId}" data-nome="${(c.nome || "").replaceAll('"', "&quot;")}" title="Inativar condomínio">Inativar</button>`
-      : "";
-
     const div = document.createElement("div");
     div.className = `cc ${cardClass}`;
     div.innerHTML = `
@@ -2199,7 +2206,7 @@ function renderCondoCards() {
       <div class="cc-res-list">${resHtml}</div>
       <div class="cc-footer">
         <span class="cc-last-seen">${lastSeen}</span>
-        <div style="display:flex;gap:6px;">${adminBtns}<button class="btn btn-sm btnAccent" data-action="ver-condo" data-id="${condoId}">Detalhes</button></div>
+        <div style="display:flex;gap:6px;"><button class="btn btn-sm btnAccent" data-action="ver-condo" data-id="${condoId}">Detalhes</button></div>
       </div>`;
     grid.appendChild(div);
   }
@@ -2333,6 +2340,749 @@ async function carregarAtendimento() {
   }
 }
 
+// ============================================================
+// PÁGINA CLIENTES
+// ============================================================
+
+async function carregarUsuarios() {
+  const r = await fetch("/admin/usuarios?role=cliente", { headers: authHeaders() });
+  if (!r.ok) throw new Error("Erro /admin/usuarios: " + r.status);
+  _usuariosData = await r.json();
+}
+
+function renderCliKpis() {
+  const el = document.getElementById("cliKpiGrid");
+  if (!el) return;
+  const condos   = Array.isArray(_condominios)  ? _condominios  : [];
+  const usuarios = Array.isArray(_usuariosData) ? _usuariosData : [];
+  const chamados = Array.isArray(_chamadosData) ? _chamadosData : [];
+
+  const ativos       = condos.filter(c => c.ativo).length;
+  const representantes = usuarios.filter(u => u.role === "cliente").length;
+  const chAbertos    = chamados.filter(ch => ch.status !== "fechado").length;
+
+  const kpi = (icon, val, label, kindCls) => `
+    <div class="rc ${kindCls} rc-static">
+      <div class="rc-head"><div class="rc-icon">${icon}</div><div class="rc-label">${label}</div></div>
+      <div class="rc-value">${val}</div>
+    </div>`;
+
+  el.innerHTML =
+    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`,
+        condos.length, "Total clientes", "rc-neutral") +
+    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`,
+        ativos, "Ativos", ativos < condos.length ? "rc-warn" : "rc-ok") +
+    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
+        representantes, "Representantes", "rc-neutral") +
+    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`,
+        chAbertos, "Chamados abertos", chAbertos > 0 ? "rc-warn" : "rc-neutral");
+}
+
+let _cliFiltros = { tab: "todos", busca: "" };
+let _cliSelecionadoId = null;
+
+function _cliFiltrados() {
+  const condos = Array.isArray(_condominios) ? _condominios : [];
+  const busca = (_cliFiltros.busca || "").toLowerCase().trim();
+  return condos.filter(c => {
+    if (_cliFiltros.tab === "ativo"   && !c.ativo) return false;
+    if (_cliFiltros.tab === "inativo" &&  c.ativo) return false;
+    if (busca && !c.nome?.toLowerCase().includes(busca) &&
+                 !c.cidade?.toLowerCase().includes(busca) &&
+                 !c.responsavel?.toLowerCase().includes(busca)) return false;
+    return true;
+  });
+}
+
+function renderCliTabela() {
+  const tbody = document.getElementById("cliTableBody");
+  if (!tbody) return;
+  const condos = Array.isArray(_condominios) ? _condominios : [];
+
+  const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+  set("cliCtTodos",    condos.length);
+  set("cliCtAtivos",   condos.filter(c => c.ativo).length);
+  set("cliCtInativos", condos.filter(c => !c.ativo).length);
+
+  const lista = _cliFiltrados();
+  if (!lista.length) {
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:32px;">Nenhum cliente encontrado.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = lista.map(c => {
+    const sel = _cliSelecionadoId === c.id ? " is-selected" : "";
+    const statusBadge = c.ativo
+      ? `<span class="ch-st ch-st-aberto">Ativo</span>`
+      : `<span class="ch-st ch-st-fechado">Inativo</span>`;
+    const cidade = c.cidade ? _waEscaparHtml(c.cidade + (c.uf ? "/" + c.uf : "")) : "—";
+    return `<tr class="ch-row${sel}" data-cli-id="${c.id}" style="cursor:pointer;">
+      <td><div style="font-weight:500;font-size:12px;">${_waEscaparHtml(c.nome || "—")}</div></td>
+      <td style="font-size:11px;color:var(--muted);">${cidade}</td>
+      <td style="font-size:11px;">${_waEscaparHtml(c.responsavel || "—")}</td>
+      <td style="font-size:11px;text-align:center;">${c.total_reservatorios ?? 0}</td>
+      <td>${statusBadge}</td>
+    </tr>`;
+  }).join("");
+}
+
+function renderCliDetalhe(c) {
+  const col = document.getElementById("cliDetailCol");
+  if (!col) return;
+
+  if (!c) {
+    col.innerHTML = `<div class="ch-detail-empty">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      <p>Selecione um cliente para ver os detalhes</p>
+    </div>`;
+    return;
+  }
+
+  const statusBadge = c.ativo
+    ? `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;background:rgba(34,197,94,.15);color:var(--ok);">Ativo</span>`
+    : `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;background:rgba(150,150,150,.15);color:var(--muted);">Inativo</span>`;
+
+  const chamadosCondo = (Array.isArray(_chamadosData) ? _chamadosData : [])
+    .filter(ch => Number(ch.condominio_id) === Number(c.id));
+  const chAbertos  = chamadosCondo.filter(ch => ch.status !== "fechado").length;
+  const chFechados = chamadosCondo.filter(ch => ch.status === "fechado").length;
+
+  // Telemetria
+  const item = (_statusData || []).find(g => Number(g.condominio?.id) === Number(c.id));
+  const reservs = item?.reservatorios?.slice(0, 6) || [];
+  let telHtml = "";
+  if (reservs.length) {
+    const resHtml = reservs.map(r => {
+      const uu = r.ultima_leitura;
+      const pct = uu?.nivel_pct ?? null;
+      const n = String(uu?.nivel || "").toLowerCase();
+      const lvClass = n === "alto" ? "lv-alto" : n === "medio" ? "lv-medio" : n === "baixo" ? "lv-baixo" : n === "muito_baixo" ? "lv-muito-baixo" : "lv-unknown";
+      const bombaClass = uu?.bomba_ligada === true ? "on" : uu?.bomba_ligada === false ? "off" : "uk";
+      const bombaLabel = uu?.bomba_ligada === true ? "LIGADA" : uu?.bomba_ligada === false ? "DESLIG." : "—";
+      return `<div class="cc-res">
+        <div class="cc-res-header"><span class="cc-res-name">${_waEscaparHtml(r.nome || "Reservatório")}</span><span class="cc-res-bomba ${bombaClass}">${bombaLabel}</span></div>
+        <div class="cc-level-row">
+          <div class="cc-level-bar"><div class="cc-level-fill ${lvClass}" style="width:${pct ?? 0}%"></div></div>
+          <span class="cc-level-pct">${pct != null ? pct + "%" : "-"}</span>
+        </div>
+      </div>`;
+    }).join("");
+    telHtml = `<div class="ch-det-section">
+      <div class="ch-det-sec-title">Telemetria</div>
+      <div class="cc-res-list">${resHtml}</div>
+      <button class="btn btn-sm ch-tel-btn" data-action="ver-condo" data-id="${c.id}">Ver telemetria completa</button>
+    </div>`;
+  }
+
+  // Representantes (usuários vinculados a este condomínio)
+  const reps = (Array.isArray(_usuariosData) ? _usuariosData : [])
+    .filter(u => Number(u.condominio_id) === Number(c.id));
+  const repsHtml = reps.length
+    ? reps.map(u => `<div class="ch-met-row">
+        <span class="ch-met-lbl">${_waEscaparHtml(u.nome || "—")}</span>
+        <span style="font-size:11px;color:var(--muted);">${_waEscaparHtml(u.email || "—")}</span>
+      </div>`).join("")
+    : `<div style="font-size:11px;color:var(--muted);padding:4px 0;">Nenhum representante cadastrado.</div>`;
+
+  col.innerHTML = `<div class="ch-detail">
+    <div class="ch-det-head">
+      <span class="ch-det-id" style="font-size:10px;">${c.cidade ? _waEscaparHtml(c.cidade + (c.uf ? "/" + c.uf : "")) : "Condomínio"}</span>
+      ${statusBadge}
+    </div>
+    <div class="ch-det-title">${_waEscaparHtml(c.nome || "Sem nome")}</div>
+
+    <div class="ch-det-section">
+      <div class="ch-det-sec-title">Informações</div>
+      <div class="ch-det-meta">
+        ${c.responsavel ? `<div class="ch-met-row"><span class="ch-met-lbl">Responsável</span><span style="font-size:12px;">${_waEscaparHtml(c.responsavel)}</span></div>` : ""}
+        ${c.telefone    ? `<div class="ch-met-row"><span class="ch-met-lbl">Telefone</span><span style="font-size:12px;">${_waEscaparHtml(c.telefone)}</span></div>` : ""}
+        ${c.endereco    ? `<div class="ch-met-row"><span class="ch-met-lbl">Endereço</span><span style="font-size:12px;">${_waEscaparHtml(c.endereco + (c.bairro ? ", " + c.bairro : ""))}</span></div>` : ""}
+        <div class="ch-met-row"><span class="ch-met-lbl">Cliente desde</span><span style="font-size:12px;">${fmtData(c.criado_em)}</span></div>
+        <div class="ch-met-row"><span class="ch-met-lbl">Reservatórios</span><span style="font-size:12px;">${c.total_reservatorios ?? 0}</span></div>
+      </div>
+    </div>
+
+    <div class="ch-det-section">
+      <div class="ch-det-sec-title">Chamados</div>
+      <div class="ch-det-meta">
+        <div class="ch-met-row"><span class="ch-met-lbl">Em aberto</span><span style="font-size:13px;font-weight:600;color:${chAbertos > 0 ? "var(--warn)" : "var(--text)"};">${chAbertos}</span></div>
+        <div class="ch-met-row"><span class="ch-met-lbl">Resolvidos</span><span style="font-size:13px;font-weight:600;color:var(--ok);">${chFechados}</span></div>
+      </div>
+    </div>
+
+    ${telHtml}
+
+    <div class="ch-det-section">
+      <div class="ch-det-sec-title" style="display:flex;align-items:center;justify-content:space-between;">
+        Representantes
+        <button class="btn btn-sm" data-action="novo-representante" data-condo-id="${c.id}">+ Adicionar</button>
+      </div>
+      <div class="ch-det-meta">${repsHtml}</div>
+    </div>
+
+    <div class="ch-det-acoes">
+      <button class="btn btn-sm" data-action="editar-condominio" data-id="${c.id}">Editar</button>
+      ${c.ativo
+        ? `<button class="btn btn-sm btnDanger" data-action="inativar-condominio" data-id="${c.id}" data-nome="${_waEscaparHtml(c.nome).replaceAll('"', '&quot;')}">Inativar</button>`
+        : `<button class="btn btn-sm btnAccent" data-action="reativar-condominio" data-id="${c.id}">Reativar</button>`}
+      ${chAbertos > 0 ? `<button class="btn btn-sm" data-action="ir-chamados-condo" data-condo-id="${c.id}">Ver chamados</button>` : ""}
+      ${!reservs.length ? `<button class="btn btn-sm" data-action="ver-condo" data-id="${c.id}">Ver telemetria</button>` : ""}
+    </div>
+  </div>`;
+}
+
+function renderClientes() {
+  renderCliKpis();
+  renderCliTabela();
+  if (_cliSelecionadoId) {
+    const c = (Array.isArray(_condominios) ? _condominios : []).find(c => c.id === _cliSelecionadoId);
+    renderCliDetalhe(c || null);
+    if (!c) _cliSelecionadoId = null;
+  }
+}
+
+// ============================================================
+// SECTION: TÉCNICOS
+// ============================================================
+
+async function carregarTecnicos() {
+  const r = await fetch("/tecnicos", { headers: authHeaders() });
+  if (!r.ok) throw new Error("Erro /tecnicos: " + r.status);
+  _tecnicosData = await r.json();
+}
+
+let _tecFiltros = { tab: "todos", busca: "" };
+let _tecSelecionadoId = null;
+
+function _tecFiltrados() {
+  const lista = Array.isArray(_tecnicosData) ? _tecnicosData : [];
+  const busca = (_tecFiltros.busca || "").toLowerCase().trim();
+  return lista.filter(t => {
+    if (!t.ativo) return false;
+    if (_tecFiltros.tab === "disponivel" && !t.disponivel) return false;
+    if (_tecFiltros.tab === "ocupado"    &&  t.disponivel) return false;
+    if (busca && !t.nome?.toLowerCase().includes(busca) &&
+                 !t.especialidade?.toLowerCase().includes(busca) &&
+                 !t.telefone?.includes(busca)) return false;
+    return true;
+  });
+}
+
+function renderTecKpis() {
+  const el = document.getElementById("tecKpiGrid");
+  if (!el) return;
+  const lista = (Array.isArray(_tecnicosData) ? _tecnicosData : []).filter(t => t.ativo);
+  const total      = lista.length;
+  const disponiveis = lista.filter(t => t.disponivel).length;
+  const ocupados    = lista.filter(t => !t.disponivel).length;
+  const chAbertos   = lista.reduce((s, t) => s + Number(t.chamados_abertos || 0), 0);
+
+  const kpi = (icon, val, label, kindCls) => `
+    <div class="rc ${kindCls} rc-static">
+      <div class="rc-head"><div class="rc-icon">${icon}</div><div class="rc-label">${label}</div></div>
+      <div class="rc-value">${val}</div>
+    </div>`;
+
+  el.innerHTML =
+    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>`,
+        total, "Total técnicos", "rc-neutral") +
+    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`,
+        disponiveis, "Disponíveis", disponiveis > 0 ? "rc-ok" : "rc-neutral") +
+    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
+        ocupados, "Ocupados", ocupados > 0 ? "rc-warn" : "rc-neutral") +
+    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`,
+        chAbertos, "Chamados em aberto", chAbertos > 0 ? "rc-warn" : "rc-neutral");
+}
+
+function renderTecTabela() {
+  const tbody = document.getElementById("tecTableBody");
+  if (!tbody) return;
+  const lista = (Array.isArray(_tecnicosData) ? _tecnicosData : []).filter(t => t.ativo);
+
+  document.getElementById("tecCtTodos").textContent = lista.length;
+  document.getElementById("tecCtDisp").textContent  = lista.filter(t => t.disponivel).length;
+  document.getElementById("tecCtOcup").textContent  = lista.filter(t => !t.disponivel).length;
+
+  const filtrados = _tecFiltrados();
+  if (!filtrados.length) {
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:32px;">Nenhum técnico encontrado.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = filtrados.map(t => {
+    const sel = _tecSelecionadoId === t.id ? " is-selected" : "";
+    const dispBadge = t.disponivel
+      ? `<span class="ch-st ch-st-fechado">Disponível</span>`
+      : `<span class="ch-st ch-st-em_atendimento">Ocupado</span>`;
+    return `<tr class="ch-row${sel}" data-tec-id="${t.id}" style="cursor:pointer;">
+      <td style="font-weight:500;font-size:12px;">${_waEscaparHtml(t.nome)}</td>
+      <td style="font-size:11px;color:var(--muted);">${_waEscaparHtml(t.telefone || "—")}</td>
+      <td><span class="ch-cat-badge">${_waEscaparHtml(t.especialidade || "—")}</span></td>
+      <td style="font-size:12px;text-align:center;">${t.chamados_abertos ?? 0}</td>
+      <td>${dispBadge}</td>
+    </tr>`;
+  }).join("");
+}
+
+function renderTecDetalhe(t) {
+  const col = document.getElementById("tecDetailCol");
+  if (!col) return;
+
+  if (!t) {
+    col.innerHTML = `<div class="ch-detail-empty">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+      <p>Selecione um técnico para ver os detalhes</p>
+    </div>`;
+    return;
+  }
+
+  const dispBadge = t.disponivel
+    ? `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;background:rgba(34,197,94,.15);color:var(--ok);">Disponível</span>`
+    : `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;background:rgba(251,146,60,.15);color:#fb923c;">Ocupado</span>`;
+
+  // Chamados atribuídos a este técnico
+  const chamadosTec = (Array.isArray(_chamadosData) ? _chamadosData : [])
+    .filter(ch => Number(ch.tecnico_id) === Number(t.id));
+  const chAbertos  = chamadosTec.filter(ch => ch.status !== "fechado");
+  const chFechados = chamadosTec.filter(ch => ch.status === "fechado").length;
+
+  const chRecentesHtml = chAbertos.slice(0, 4).map(ch => `
+    <div class="ch-met-row">
+      <span class="ch-met-lbl">CH-${String(ch.id).padStart(4,"0")}</span>
+      <span style="font-size:11px;">${_waEscaparHtml(ch.titulo || "Sem título")}</span>
+    </div>`).join("") || `<div style="font-size:11px;color:var(--muted);">Nenhum chamado em aberto.</div>`;
+
+  col.innerHTML = `<div class="ch-detail">
+    <div class="ch-det-head">
+      <span class="ch-det-id" style="font-size:10px;">${_waEscaparHtml(t.especialidade || "Técnico")}</span>
+      ${dispBadge}
+    </div>
+    <div class="ch-det-title">${_waEscaparHtml(t.nome)}</div>
+
+    <div class="ch-det-section">
+      <div class="ch-det-sec-title">Informações</div>
+      <div class="ch-det-meta">
+        ${t.telefone ? `<div class="ch-met-row"><span class="ch-met-lbl">Telefone</span><span style="font-size:12px;">${_waEscaparHtml(t.telefone)}</span></div>` : ""}
+        ${t.email    ? `<div class="ch-met-row"><span class="ch-met-lbl">Email</span><span style="font-size:12px;">${_waEscaparHtml(t.email)}</span></div>` : ""}
+        <div class="ch-met-row"><span class="ch-met-lbl">Cadastrado em</span><span style="font-size:12px;">${fmtData(t.criado_em)}</span></div>
+      </div>
+    </div>
+
+    <div class="ch-det-section">
+      <div class="ch-det-sec-title">Chamados</div>
+      <div class="ch-det-meta" style="margin-bottom:8px;">
+        <div class="ch-met-row"><span class="ch-met-lbl">Em aberto</span><span style="font-size:13px;font-weight:600;color:${chAbertos.length > 0 ? "var(--warn)" : "var(--text)"};">${chAbertos.length}</span></div>
+        <div class="ch-met-row"><span class="ch-met-lbl">Resolvidos</span><span style="font-size:13px;font-weight:600;color:var(--ok);">${chFechados}</span></div>
+      </div>
+      ${chRecentesHtml}
+    </div>
+
+    <div class="ch-det-acoes">
+      <button class="btn btn-sm ${t.disponivel ? "" : "btnAccent"}" data-action="toggle-tec-disp" data-id="${t.id}" data-disp="${t.disponivel ? "1" : "0"}">
+        ${t.disponivel ? "Marcar ocupado" : "Marcar disponível"}
+      </button>
+      <button class="btn btn-sm" data-action="editar-tecnico" data-id="${t.id}">Editar</button>
+      <button class="btn btn-sm btnDanger" data-action="excluir-tecnico" data-id="${t.id}" data-nome="${_waEscaparHtml(t.nome)}">Excluir</button>
+    </div>
+  </div>`;
+}
+
+function renderTecnicos() {
+  renderTecKpis();
+  renderTecTabela();
+  if (_tecSelecionadoId) {
+    const t = (_tecnicosData || []).find(t => t.id === _tecSelecionadoId);
+    renderTecDetalhe(t || null);
+    if (!t) _tecSelecionadoId = null;
+  }
+}
+
+function abrirModalTecnico(tec = null) {
+  const editing = !!tec;
+  const overlay = document.createElement("div");
+  overlay.id = "modalTecnico";
+  overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9999;display:flex;align-items:center;justify-content:center;";
+  overlay.innerHTML = `
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:24px;width:440px;max-width:95vw;box-shadow:0 24px 64px rgba(0,0,0,.6);">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+        <div style="font-size:14px;font-weight:600;">${editing ? "Editar técnico" : "Novo técnico"}</div>
+        <button class="btn btn-sm" data-action="fechar-modal-tecnico">✕</button>
+      </div>
+      <div class="grid-2">
+        <div class="field col-2">
+          <span class="lbl">Nome <span class="req">*</span></span>
+          <input id="tecModalNome" class="input" value="${tec ? _waEscaparHtml(tec.nome) : ""}" placeholder="Ex: Carlos Silva" />
+        </div>
+        <div class="field">
+          <span class="lbl">Telefone</span>
+          <input id="tecModalTel" class="input" value="${tec?.telefone ? _waEscaparHtml(tec.telefone) : ""}" placeholder="(11) 99999-9999" />
+        </div>
+        <div class="field">
+          <span class="lbl">Email</span>
+          <input id="tecModalEmail" class="input" value="${tec?.email ? _waEscaparHtml(tec.email) : ""}" placeholder="tecnico@exemplo.com" />
+        </div>
+        <div class="field col-2">
+          <span class="lbl">Especialidade</span>
+          <input id="tecModalEsp" class="input" value="${tec?.especialidade ? _waEscaparHtml(tec.especialidade) : ""}" placeholder="Ex: Hidráulica, Elétrica…" />
+        </div>
+      </div>
+      <div class="form-footer" style="margin-top:16px;">
+        <button class="btn btnAccent" id="btnSalvarTecnico">${editing ? "Salvar" : "Criar técnico"}</button>
+        <span id="msgTecnico" class="hint"></span>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  document.getElementById("btnSalvarTecnico")?.addEventListener("click", async () => {
+    const nome  = (document.getElementById("tecModalNome")?.value  || "").trim();
+    const tel   = (document.getElementById("tecModalTel")?.value   || "").trim();
+    const email = (document.getElementById("tecModalEmail")?.value || "").trim();
+    const esp   = (document.getElementById("tecModalEsp")?.value   || "").trim();
+    const msg   = document.getElementById("msgTecnico");
+    if (!nome) { if (msg) msg.textContent = "Nome é obrigatório."; return; }
+    if (msg) msg.textContent = "";
+
+    const body = { nome, telefone: tel || null, email: email || null, especialidade: esp || null };
+    const url    = editing ? `/tecnicos/${tec.id}` : "/tecnicos";
+    const method = editing ? "PATCH" : "POST";
+
+    try {
+      const r = await fetch(url, { method, headers: { ...authHeaders(), "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      const data = await r.json();
+      if (!r.ok) { if (msg) msg.textContent = data.error || "Erro ao salvar."; return; }
+      overlay.remove();
+      await carregarTecnicos();
+      renderTecnicos();
+    } catch { if (msg) msg.textContent = "Erro de rede."; }
+  });
+}
+
+function abrirModalNovoCliente() {
+  const overlay = document.createElement("div");
+  overlay.id = "modalNovoCliente";
+  overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9999;display:flex;align-items:center;justify-content:center;";
+  overlay.innerHTML = `
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:24px;width:520px;max-width:95vw;box-shadow:0 24px 64px rgba(0,0,0,.6);">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+        <div style="font-size:14px;font-weight:600;">Novo cliente</div>
+        <button class="btn btn-sm" data-action="fechar-modal-cliente">✕</button>
+      </div>
+
+      <!-- busca por CNPJ -->
+      <div style="display:flex;gap:8px;margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--border);">
+        <div style="flex:1;">
+          <span class="lbl" style="display:block;margin-bottom:4px;">CNPJ</span>
+          <input id="cliModalCnpj" class="input" placeholder="00.000.000/0001-00" maxlength="18"
+            style="font-family:monospace;" />
+        </div>
+        <div style="display:flex;align-items:flex-end;">
+          <button class="btn btn-sm" id="btnBuscarCnpj" style="height:34px;white-space:nowrap;">Buscar dados</button>
+        </div>
+      </div>
+      <span id="msgCnpj" class="hint" style="display:block;margin-top:-12px;margin-bottom:12px;"></span>
+
+      <div class="grid-2">
+        <div class="field col-2">
+          <span class="lbl">Nome do condomínio <span class="req">*</span></span>
+          <input id="cliModalNome" class="input" placeholder="Ex: Condomínio Jardins" />
+        </div>
+        <div class="field col-2">
+          <span class="lbl">Endereço</span>
+          <input id="cliModalEndereco" class="input" placeholder="Rua, número" />
+        </div>
+        <div class="field">
+          <span class="lbl">Bairro</span>
+          <input id="cliModalBairro" class="input" placeholder="Ex: Tatuapé" />
+        </div>
+        <div class="field">
+          <span class="lbl">CEP</span>
+          <input id="cliModalCep" class="input" placeholder="00000-000" maxlength="9" />
+        </div>
+        <div class="field">
+          <span class="lbl">Cidade</span>
+          <input id="cliModalCidade" class="input" placeholder="Ex: São Paulo" />
+        </div>
+        <div class="field">
+          <span class="lbl">UF</span>
+          <input id="cliModalUf" class="input" maxlength="2" placeholder="SP" />
+        </div>
+        <div class="field">
+          <span class="lbl">Responsável</span>
+          <input id="cliModalResponsavel" class="input" placeholder="Ex: Síndico João Silva" />
+        </div>
+        <div class="field">
+          <span class="lbl">Telefone</span>
+          <input id="cliModalTelefone" class="input" placeholder="(11) 99999-9999" />
+        </div>
+      </div>
+      <input type="hidden" id="cliModalLat" />
+      <input type="hidden" id="cliModalLng" />
+      <div style="display:flex;align-items:center;justify-content:flex-end;margin-top:8px;">
+        <button type="button" class="btn btn-sm" data-action="buscar-coords" data-prefix="cliModal">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          Buscar pelo endereço
+        </button>
+      </div>
+      <div id="cliModalLocMsg" class="loc-msg" style="margin-top:6px;font-size:11px;"></div>
+      <div class="form-footer" style="margin-top:16px;">
+        <button class="btn btnAccent" id="btnCriarClienteModal">Criar cliente</button>
+        <span id="msgClienteModal" class="hint"></span>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  // CEP auto-preenche endereço + geocoding ao completar 8 dígitos
+  _bindCepInput("cliModal");
+
+  // ---- busca CNPJ ----
+  const cnpjInput = document.getElementById("cliModalCnpj");
+  cnpjInput?.addEventListener("input", () => {
+    let v = cnpjInput.value.replace(/\D/g, "").slice(0, 14);
+    if (v.length > 12) v = v.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{0,2})/, "$1.$2.$3/$4-$5");
+    else if (v.length > 8) v = v.replace(/^(\d{2})(\d{3})(\d{3})(\d{0,4})/, "$1.$2.$3/$4");
+    else if (v.length > 5) v = v.replace(/^(\d{2})(\d{3})(\d{0,3})/, "$1.$2.$3");
+    else if (v.length > 2) v = v.replace(/^(\d{2})(\d{0,3})/, "$1.$2");
+    cnpjInput.value = v;
+  });
+
+  document.getElementById("btnBuscarCnpj")?.addEventListener("click", async () => {
+    const cnpj = (cnpjInput?.value || "").replace(/\D/g, "");
+    const msgCnpj = document.getElementById("msgCnpj");
+    if (msgCnpj) msgCnpj.textContent = "";
+    if (cnpj.length !== 14) {
+      if (msgCnpj) msgCnpj.textContent = "CNPJ deve ter 14 dígitos.";
+      return;
+    }
+    const btn = document.getElementById("btnBuscarCnpj");
+    if (btn) { btn.disabled = true; btn.textContent = "Buscando…"; }
+    try {
+      const r = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cnpj}`);
+      const data = await r.json();
+      if (!r.ok) {
+        if (msgCnpj) msgCnpj.textContent = data.message || "CNPJ não encontrado.";
+        return;
+      }
+      // preenche campos automaticamente
+      const set = (id, val) => { const el = document.getElementById(id); if (el && val) el.value = val; };
+      set("cliModalNome",      data.razao_social || data.nome_fantasia);
+      set("cliModalEndereco",  [data.logradouro, data.numero, data.complemento].filter(Boolean).join(", "));
+      set("cliModalBairro",    data.bairro);
+      set("cliModalCidade",    data.municipio);
+      set("cliModalUf",        data.uf);
+      set("cliModalCep",       (data.cep || "").replace(/^(\d{5})(\d{3})$/, "$1-$2"));
+      set("cliModalTelefone",  data.ddd_telefone_1 ? data.ddd_telefone_1.replace(/\D/g, "").replace(/^(\d{2})(\d{4,5})(\d{4})$/, "($1) $2-$3") : "");
+      if (msgCnpj) {
+        const situacao = data.descricao_situacao_cadastral || "";
+        const ativa = situacao.toLowerCase().includes("ativa");
+        msgCnpj.style.color = ativa ? "var(--ok)" : "var(--warn)";
+        msgCnpj.textContent = `✓ Dados preenchidos${situacao ? " · " + situacao : ""}`;
+      }
+      // geocodifica automaticamente para gerar o pin no mapa
+      buscarCoordenadasPorEndereco("cliModal");
+    } catch {
+      if (msgCnpj) msgCnpj.textContent = "Erro ao consultar CNPJ. Verifique a conexão.";
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = "Buscar dados"; }
+    }
+  });
+
+  document.getElementById("btnCriarClienteModal")?.addEventListener("click", async () => {
+    const nome        = (document.getElementById("cliModalNome")?.value || "").trim();
+    const responsavel = (document.getElementById("cliModalResponsavel")?.value || "").trim() || null;
+    const telefone    = (document.getElementById("cliModalTelefone")?.value || "").trim() || null;
+    const cidade      = (document.getElementById("cliModalCidade")?.value || "").trim() || null;
+    const uf          = (document.getElementById("cliModalUf")?.value || "").trim().toUpperCase() || null;
+    const endereco    = (document.getElementById("cliModalEndereco")?.value || "").trim() || null;
+    const bairro      = (document.getElementById("cliModalBairro")?.value || "").trim() || null;
+    const cep         = (document.getElementById("cliModalCep")?.value || "").replace(/\D/g, "") || null;
+    const latVal      = document.getElementById("cliModalLat")?.value;
+    const lngVal      = document.getElementById("cliModalLng")?.value;
+    const lat         = latVal ? Number(latVal) : null;
+    const lng         = lngVal ? Number(lngVal) : null;
+    const msg = document.getElementById("msgClienteModal");
+    if (msg) msg.textContent = "";
+    if (!nome) {
+      if (msg) msg.textContent = "Nome do condomínio é obrigatório.";
+      return;
+    }
+    try {
+      const r = await fetch("/condominios", {
+        method: "POST",
+        headers: { ...authHeaders(), "Content-Type": "application/json" },
+        body: JSON.stringify({ nome, responsavel, telefone, cidade, uf, endereco, bairro, cep, lat, lng })
+      });
+      const data = await r.json();
+      if (!r.ok) { if (msg) msg.textContent = data.error || "Erro ao criar."; return; }
+      overlay.remove();
+      await carregarCondominios();
+      renderClientes();
+    } catch (e) {
+      if (msg) msg.textContent = "Erro de rede.";
+    }
+  });
+}
+
+function abrirModalNovoRepresentante(condoId) {
+  const condo = (Array.isArray(_condominios) ? _condominios : []).find(c => c.id === condoId);
+  const overlay = document.createElement("div");
+  overlay.id = "modalNovoRep";
+  overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9999;display:flex;align-items:center;justify-content:center;";
+  overlay.innerHTML = `
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:24px;width:440px;max-width:95vw;box-shadow:0 24px 64px rgba(0,0,0,.6);">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+        <div style="font-size:14px;font-weight:600;">Adicionar representante</div>
+        <button class="btn btn-sm" data-action="fechar-modal-rep">✕</button>
+      </div>
+      ${condo ? `<div style="font-size:11px;color:var(--muted);margin-bottom:16px;">${_waEscaparHtml(condo.nome)}</div>` : ""}
+      <div class="grid-2">
+        <div class="field">
+          <span class="lbl">Nome <span class="req">*</span></span>
+          <input id="repModalNome" class="input" placeholder="Ex: João Silva" />
+        </div>
+        <div class="field">
+          <span class="lbl">Email <span class="req">*</span></span>
+          <input id="repModalEmail" class="input" placeholder="joao@exemplo.com" />
+        </div>
+        <div class="field col-2">
+          <span class="lbl">Senha provisória <span class="req">*</span></span>
+          <input id="repModalSenha" class="input" type="text" placeholder="Ex: 123456" />
+        </div>
+      </div>
+      <div class="form-footer" style="margin-top:16px;">
+        <button class="btn btnAccent" id="btnCriarRepModal">Adicionar</button>
+        <span id="msgRepModal" class="hint"></span>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  document.getElementById("btnCriarRepModal")?.addEventListener("click", async () => {
+    const nome  = (document.getElementById("repModalNome")?.value || "").trim();
+    const email = (document.getElementById("repModalEmail")?.value || "").trim().toLowerCase();
+    const senha = (document.getElementById("repModalSenha")?.value || "").trim();
+    const msg = document.getElementById("msgRepModal");
+    if (msg) msg.textContent = "";
+    if (!nome || !email || !senha) {
+      if (msg) msg.textContent = "Preencha todos os campos.";
+      return;
+    }
+    try {
+      const r = await fetch("/admin/usuarios", {
+        method: "POST",
+        headers: { ...authHeaders(), "Content-Type": "application/json" },
+        body: JSON.stringify({ nome, email, senha, role: "cliente", condominio_id: condoId })
+      });
+      const data = await r.json();
+      if (!r.ok) { if (msg) msg.textContent = data.error || "Erro ao criar."; return; }
+      overlay.remove();
+      await carregarUsuarios();
+      renderCliDetalhe((Array.isArray(_condominios) ? _condominios : []).find(c => c.id === condoId) || null);
+    } catch (e) {
+      if (msg) msg.textContent = "Erro de rede.";
+    }
+  });
+}
+
+function abrirModalNovoReservatorio() {
+  const condosOpts = (Array.isArray(_condominios) ? _condominios : [])
+    .filter(c => c.ativo)
+    .map(c => `<option value="${c.id}">${_waEscaparHtml(c.nome)}</option>`).join("");
+
+  const overlay = document.createElement("div");
+  overlay.id = "modalNovoRes";
+  overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9999;display:flex;align-items:center;justify-content:center;";
+  overlay.innerHTML = `
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:24px;width:520px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 24px 64px rgba(0,0,0,.6);">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+        <div style="font-size:14px;font-weight:600;">Novo reservatório</div>
+        <button class="btn btn-sm" data-action="fechar-modal-res">✕</button>
+      </div>
+      <div class="grid-2">
+        <div class="field">
+          <span class="lbl">Condomínio <span class="req">*</span></span>
+          <select id="resModalCondominio" class="select">
+            <option value="">Selecione…</option>
+            ${condosOpts}
+          </select>
+        </div>
+        <div class="field">
+          <span class="lbl">Tipo <span class="req">*</span></span>
+          <select id="resModalTipo" class="select">
+            <option value="superior">Superior</option>
+            <option value="inferior">Inferior</option>
+          </select>
+        </div>
+        <div class="field col-2">
+          <span class="lbl">Nome <span class="req">*</span></span>
+          <input id="resModalNome" class="input" placeholder="Ex: Reservatório Superior Bloco A" />
+        </div>
+        <div class="field col-2">
+          <span class="lbl">Device ID <span class="req">*</span></span>
+          <input id="resModalDeviceId" class="input" placeholder="Ex: RES_COND10_SUP" />
+        </div>
+        <div class="field">
+          <span class="lbl">Altura total (m)</span>
+          <input id="resModalAlturaM" class="input" type="number" step="0.01" min="0" />
+        </div>
+        <div class="field">
+          <span class="lbl">ADC zero</span>
+          <input id="resModalAdcZero" class="input" type="number" step="1" min="0" />
+        </div>
+        <div class="field">
+          <span class="lbl">ADC por metro</span>
+          <input id="resModalAdcPorMetro" class="input" type="number" step="1" min="1" />
+        </div>
+        <div class="field">
+          <span class="lbl">Faixa sonda (m)</span>
+          <input id="resModalFaixaM" class="input" type="number" step="0.01" min="0" />
+        </div>
+        <div class="field col-2">
+          <span class="lbl">Limiar bomba</span>
+          <input id="resModalLimiar" class="input" type="number" step="1" min="0" />
+        </div>
+      </div>
+      <div class="form-footer" style="margin-top:16px;">
+        <button class="btn btnAccent" id="btnCriarResModal">Cadastrar</button>
+        <span id="msgResModal" class="hint"></span>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  const _numOrNull = (id) => { const v = (document.getElementById(id)?.value || "").trim(); return v ? Number(v) : null; };
+
+  document.getElementById("btnCriarResModal")?.addEventListener("click", async () => {
+    const condominio_id = Number(document.getElementById("resModalCondominio")?.value);
+    const tipo          = (document.getElementById("resModalTipo")?.value || "").trim();
+    const nome          = (document.getElementById("resModalNome")?.value || "").trim();
+    const device_id     = (document.getElementById("resModalDeviceId")?.value || "").trim();
+    const msg = document.getElementById("msgResModal");
+    if (msg) msg.textContent = "";
+    if (!condominio_id || !tipo || !nome || !device_id) {
+      if (msg) msg.textContent = "Preencha condomínio, tipo, nome e Device ID.";
+      return;
+    }
+    try {
+      const r = await fetch("/reservatorios", {
+        method: "POST",
+        headers: { ...authHeaders(), "Content-Type": "application/json" },
+        body: JSON.stringify({
+          condominio_id, nome, tipo, device_id,
+          altura_total_m: _numOrNull("resModalAlturaM"),
+          adc_zero:       _numOrNull("resModalAdcZero"),
+          adc_por_metro:  _numOrNull("resModalAdcPorMetro"),
+          faixa_sonda_m:  _numOrNull("resModalFaixaM"),
+          limiar_bomba:   _numOrNull("resModalLimiar"),
+        })
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) { if (msg) msg.textContent = data.error || "Erro ao cadastrar."; return; }
+      if (msg) msg.textContent = `✅ Cadastrado! KEY: ${data.device_key}`;
+      setTimeout(() => { overlay.remove(); carregarTudo(); }, 1500);
+    } catch (e) {
+      if (msg) msg.textContent = "Erro de rede.";
+    }
+  });
+}
+
 async function carregarTudo() {
   const el = document.getElementById("statusMsg");
   if (el) el.textContent = "Carregando...";
@@ -2343,11 +3093,15 @@ async function carregarTudo() {
       carregarCondominios(),
       carregarChamados().catch(() => {}),
       carregarConversas().catch(() => {}),
+      carregarUsuarios().catch(() => {}),
+      carregarTecnicos().catch(() => {}),
     ]);
     detectarChamadosNovos();
     renderTelemetriaVisuais();
     renderAtendimentoVisuais();
     renderVisuaisCombinados();
+    renderClientes();
+    renderTecnicos();
     marcarAtualizado();
   } catch (e) {
     if (el) el.textContent = "Erro ao atualizar";
@@ -2540,25 +3294,28 @@ function renderChKpis() {
     tempoMedio = avgH < 1 ? `${Math.round(avgH * 60)}min` : `${avgH.toFixed(1)}h`;
   }
 
-  const kpi = (icon, val, lbl, color) => `
-    <div class="rc">
-      <div class="rc-icon" style="background:${color}22;color:${color};">${icon}</div>
-      <div class="rc-body"><div class="rc-val">${val}</div><div class="rc-lbl">${lbl}</div></div>
+  const kpi = (icon, val, hint, kindCls) => `
+    <div class="rc ${kindCls} rc-static">
+      <div class="rc-head">
+        <div class="rc-icon">${icon}</div>
+        <div class="rc-label">${hint}</div>
+      </div>
+      <div class="rc-value">${val}</div>
     </div>`;
 
   el.innerHTML =
-    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`,
-        abertos, "Abertos", "#60a5fa") +
-    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
-        atend, "Em atendimento", "#fb923c") +
-    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>`,
-        fechados, "Resolvidos", "#22c55e") +
-    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
-        criticos, "Críticos abertos", "#ef4444") +
-    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>`,
-        `${taxa}%`, "Taxa de resolução", "#a78bfa") +
-    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
-        tempoMedio, "Tempo médio resolução", "#22d3ee");
+    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`,
+        abertos, "Abertos", abertos > 0 ? "rc-warn" : "rc-neutral") +
+    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
+        atend, "Em atendimento", atend > 0 ? "rc-warn" : "rc-neutral") +
+    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`,
+        fechados, "Resolvidos", fechados > 0 ? "rc-ok" : "rc-neutral") +
+    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
+        criticos, "Críticos abertos", criticos > 0 ? "rc-bad" : "rc-neutral") +
+    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>`,
+        `${taxa}%`, "Taxa de resolução", taxa >= 70 ? "rc-ok" : taxa >= 40 ? "rc-warn" : "rc-neutral") +
+    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
+        tempoMedio, "Tempo médio resolução", "rc-neutral");
 }
 
 function renderChTabela() {
@@ -2611,21 +3368,37 @@ function renderChDetalhe(ch) {
   let telHtml = "";
   if (ch.condominio_id) {
     const item = (_statusData || []).find(g => Number(g.condominio?.id) === Number(ch.condominio_id));
-    const reservs = item?.reservatorios?.slice(0, 4) || [];
+    const reservs = item?.reservatorios?.slice(0, 6) || [];
     if (reservs.length) {
+      const resHtml = reservs.map(r => {
+        const u = r.ultima_leitura;
+        const pct = u?.nivel_pct ?? null;
+        const n = String(u?.nivel || "").toLowerCase();
+        const lvClass = n === "alto" ? "lv-alto" : n === "medio" ? "lv-medio" : n === "baixo" ? "lv-baixo" : n === "muito_baixo" ? "lv-muito-baixo" : "lv-unknown";
+        const pctWidth = pct != null ? pct : 0;
+        const pctDisplay = pct != null ? pct + "%" : "-";
+        const bombaClass = u?.bomba_ligada === true ? "on" : u?.bomba_ligada === false ? "off" : "uk";
+        const bombaLabel = u?.bomba_ligada === true ? "LIGADA" : u?.bomba_ligada === false ? "DESLIG." : "—";
+        return `<div class="cc-res">
+          <div class="cc-res-header">
+            <span class="cc-res-name">${_waEscaparHtml(r.nome || "Reservatório")}</span>
+            <span class="cc-res-bomba ${bombaClass}">${bombaLabel}</span>
+          </div>
+          <div class="cc-level-row">
+            <div class="cc-level-bar">
+              <div class="cc-level-fill ${lvClass}" style="width:${pctWidth}%"></div>
+            </div>
+            <span class="cc-level-pct">${pctDisplay}</span>
+          </div>
+        </div>`;
+      }).join("");
       telHtml = `<div class="ch-det-section">
         <div class="ch-det-sec-title">Telemetria atual</div>
-        <div class="ch-tel-grid">
-          ${reservs.map(r => {
-            const pct = r.ultima_leitura?.nivel_pct;
-            const cls = r.offline ? "bad" : pct < 20 ? "bad" : pct < 40 ? "warn" : "ok";
-            return `<div class="ch-tel-item">
-              <div class="ch-tel-name">${_waEscaparHtml(r.nome || "Res.")}</div>
-              <div class="ch-tel-bar-bg"><div class="ch-tel-bar ch-tel-${cls}" style="width:${Math.min(pct??0,100)}%"></div></div>
-              <div class="ch-tel-pct ch-tel-${cls}">${r.offline ? "OFF" : pct != null ? pct+"%" : "—"}</div>
-            </div>`;
-          }).join("")}
-        </div>
+        <div class="cc-res-list">${resHtml}</div>
+        <button class="btn btn-sm ch-tel-btn"
+          data-action="ver-condo" data-id="${ch.condominio_id}">
+          📊 Ver telemetria do condomínio
+        </button>
       </div>`;
     }
   }
@@ -2664,6 +3437,17 @@ function renderChDetalhe(ch) {
                  data-action="vincular-ch-condo" data-ch-id="${ch.id}">🔗 Vincular condomínio</button>`}
         </div>
         ${ch.responsavel_nome  ? `<div class="ch-met-row"><span class="ch-met-lbl">Responsável</span><span>${_waEscaparHtml(ch.responsavel_nome)}</span></div>` : ""}
+        <div class="ch-met-row" id="chTecnicoRow-${ch.id}">
+          <span class="ch-met-lbl">Técnico</span>
+          ${ch.tecnico_nome
+            ? `<span style="display:flex;align-items:center;gap:6px;">
+                 ${_waEscaparHtml(ch.tecnico_nome)}
+                 <button class="btn btn-sm" style="font-size:10px;padding:1px 6px;opacity:.6;"
+                   data-action="vincular-ch-tecnico" data-ch-id="${ch.id}">trocar</button>
+               </span>`
+            : `<button class="btn btn-sm" style="font-size:11px;"
+                 data-action="vincular-ch-tecnico" data-ch-id="${ch.id}">Atribuir técnico</button>`}
+        </div>
         ${ch.categoria         ? `<div class="ch-met-row"><span class="ch-met-lbl">Categoria</span><span class="ch-cat-badge">${_chCatNome[ch.categoria]||ch.categoria}</span></div>` : ""}
         <div class="ch-met-row"><span class="ch-met-lbl">Prioridade</span><span class="ch-prio ch-prio-${ch.prioridade||"media"}">${_chPrioNome[ch.prioridade]||ch.prioridade}</span></div>
         <div class="ch-met-row"><span class="ch-met-lbl">Aberto em</span><span>${fmtData(ch.criado_em)}</span></div>
@@ -3512,12 +4296,6 @@ function renderDrawerTelemetria() {
           ${alertas > 0 ? `<span style="color:#f87171;">${alertas} alerta${alertas > 1 ? "s" : ""} aberto${alertas > 1 ? "s" : ""}</span>` : ""}
           <span>Última leitura: ${u?.criado_em ? fmtData(u.criado_em) : "-"}</span>
         </div>
-        ${_isMaster ? `
-        <div style="display:flex;gap:6px;padding-top:8px;border-top:1px solid var(--border);">
-          <button class="btn btn-sm" data-action="editar-reservatorio" data-id="${r.id}">Editar</button>
-          <button class="btn btn-sm" data-action="regen-res-key" data-id="${r.id}">Nova Key</button>
-          <button class="btn btn-sm btnDanger" data-action="excluir-reservatorio" data-id="${r.id}" data-nome="${(r.nome || "").replaceAll('"', "&quot;")}">Excluir</button>
-        </div>` : ""}
       </div>`;
   }).join("");
 
@@ -3892,6 +4670,51 @@ function abrirModalEditar(id) {
   msg.textContent = "Carregando...";
   sub.textContent = `ID: ${id}`;
   overlay.style.display = "flex";
+
+  // bind CNPJ (só uma vez — guarda flag no elemento)
+  const cnpjEditInput = document.getElementById("editCnpj");
+  if (cnpjEditInput && !cnpjEditInput.dataset.bound) {
+    cnpjEditInput.dataset.bound = "1";
+    cnpjEditInput.addEventListener("input", () => {
+      let v = cnpjEditInput.value.replace(/\D/g, "").slice(0, 14);
+      if (v.length > 12) v = v.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{0,2})/, "$1.$2.$3/$4-$5");
+      else if (v.length > 8) v = v.replace(/^(\d{2})(\d{3})(\d{3})(\d{0,4})/, "$1.$2.$3/$4");
+      else if (v.length > 5) v = v.replace(/^(\d{2})(\d{3})(\d{0,3})/, "$1.$2.$3");
+      else if (v.length > 2) v = v.replace(/^(\d{2})(\d{0,3})/, "$1.$2");
+      cnpjEditInput.value = v;
+    });
+    document.getElementById("btnBuscarCnpjEdit")?.addEventListener("click", async () => {
+      const cnpj = (cnpjEditInput.value || "").replace(/\D/g, "");
+      const msgEl = document.getElementById("msgCnpjEdit");
+      if (msgEl) { msgEl.textContent = ""; msgEl.style.color = ""; }
+      if (cnpj.length !== 14) { if (msgEl) msgEl.textContent = "CNPJ deve ter 14 dígitos."; return; }
+      const btn = document.getElementById("btnBuscarCnpjEdit");
+      if (btn) { btn.disabled = true; btn.textContent = "Buscando…"; }
+      try {
+        const r = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cnpj}`);
+        const data = await r.json();
+        if (!r.ok) { if (msgEl) msgEl.textContent = data.message || "CNPJ não encontrado."; return; }
+        const set = (id, val) => { const el = document.getElementById(id); if (el && val) el.value = val; };
+        set("editNome",       data.razao_social || data.nome_fantasia);
+        set("editEndereco",   [data.logradouro, data.numero, data.complemento].filter(Boolean).join(", "));
+        set("editBairro",     data.bairro);
+        set("editCidade",     data.municipio);
+        set("editUf",         data.uf);
+        set("editCep",        (data.cep || "").replace(/^(\d{5})(\d{3})$/, "$1-$2"));
+        set("editTelefone",   data.ddd_telefone_1 ? data.ddd_telefone_1.replace(/\D/g, "").replace(/^(\d{2})(\d{4,5})(\d{4})$/, "($1) $2-$3") : "");
+        if (msgEl) {
+          const situacao = data.descricao_situacao_cadastral || "";
+          msgEl.style.color = situacao.toLowerCase().includes("ativa") ? "var(--ok)" : "var(--warn)";
+          msgEl.textContent = `✓ Dados preenchidos${situacao ? " · " + situacao : ""}`;
+        }
+        buscarCoordenadasPorEndereco("edit");
+      } catch {
+        if (msgEl) msgEl.textContent = "Erro ao consultar CNPJ. Verifique a conexão.";
+      } finally {
+        if (btn) { btn.disabled = false; btn.textContent = "Buscar dados"; }
+      }
+    });
+  }
 
   fetch("/condominios/" + id, { headers: authHeaders() })
     .then(async (r) => {
@@ -5501,6 +6324,58 @@ document.addEventListener("DOMContentLoaded", () => {
 
   document.getElementById("pageSize")?.addEventListener("change", mudarPageSize);
 
+  // ===== Página Clientes =====
+  document.querySelectorAll("[data-cli-tab]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll("[data-cli-tab]").forEach(b => b.classList.remove("is-active"));
+      btn.classList.add("is-active");
+      _cliFiltros.tab = btn.dataset.cliTab;
+      renderCliTabela();
+    });
+  });
+
+  let _cliBuscaTimer = null;
+  document.getElementById("cliBusca")?.addEventListener("input", e => {
+    clearTimeout(_cliBuscaTimer);
+    _cliBuscaTimer = setTimeout(() => { _cliFiltros.busca = e.target.value; renderCliTabela(); }, 200);
+  });
+
+  document.getElementById("cliTableBody")?.addEventListener("click", e => {
+    const row = e.target.closest("tr[data-cli-id]");
+    if (!row) return;
+    const id = Number(row.dataset.cliId);
+    _cliSelecionadoId = id;
+    renderCliTabela();
+    const c = (Array.isArray(_condominios) ? _condominios : []).find(c => c.id === id);
+    renderCliDetalhe(c || null);
+  });
+
+  // ===== Página Técnicos =====
+  document.querySelectorAll("[data-tec-tab]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll("[data-tec-tab]").forEach(b => b.classList.remove("is-active"));
+      btn.classList.add("is-active");
+      _tecFiltros.tab = btn.dataset.tecTab;
+      renderTecTabela();
+    });
+  });
+
+  let _tecBuscaTimer = null;
+  document.getElementById("tecBusca")?.addEventListener("input", e => {
+    clearTimeout(_tecBuscaTimer);
+    _tecBuscaTimer = setTimeout(() => { _tecFiltros.busca = e.target.value; renderTecTabela(); }, 200);
+  });
+
+  document.getElementById("tecTableBody")?.addEventListener("click", e => {
+    const row = e.target.closest("tr[data-tec-id]");
+    if (!row) return;
+    const id = Number(row.dataset.tecId);
+    _tecSelecionadoId = id;
+    renderTecTabela();
+    const t = (_tecnicosData || []).find(t => t.id === id);
+    renderTecDetalhe(t || null);
+  });
+
   // ===== Página Alertas =====
   // Tabs de severidade
   document.querySelectorAll(".al-tab").forEach(tab => {
@@ -5567,10 +6442,7 @@ document.addEventListener("DOMContentLoaded", () => {
       e.stopPropagation();
       const action = btn.dataset.alAction;
       const key = btn.dataset.alKey;
-      if (action === "ver") {
-        _alSelecionadoKey = key;
-        renderAlertas();
-      } else if (action === "resolver") {
+      if (action === "resolver") {
         if (confirm("Marcar este alerta como resolvido?")) _alResolver(key);
       }
       return;
@@ -5834,6 +6706,44 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
+    if (action === "vincular-ch-tecnico") {
+      const chId = Number(btn.dataset.chId);
+      const lista = Array.isArray(_tecnicosData) ? _tecnicosData.filter(t => t.ativo) : [];
+      if (!lista.length) { alert("Nenhum técnico cadastrado."); return; }
+      const row = document.getElementById(`chTecnicoRow-${chId}`);
+      if (!row) return;
+      row.innerHTML = `
+        <span class="ch-met-lbl">Técnico</span>
+        <div style="display:flex;gap:6px;align-items:center;flex:1;min-width:0;">
+          <select id="chSelectTecnico" class="input" style="font-size:11.5px;flex:1;min-width:0;">
+            <option value="">Sem técnico</option>
+            ${lista.map(t => `<option value="${t.id}">${_waEscaparHtml(t.nome)}${t.especialidade ? " · " + _waEscaparHtml(t.especialidade) : ""}</option>`).join("")}
+          </select>
+          <button class="btn btn-sm btnAccent" data-action="confirmar-ch-tecnico" data-ch-id="${chId}">Ok</button>
+          <button class="btn btn-sm" data-action="cancelar-ch-tecnico" data-ch-id="${chId}">✕</button>
+        </div>`;
+      document.getElementById("chSelectTecnico")?.focus();
+      return;
+    }
+
+    if (action === "confirmar-ch-tecnico") {
+      const chId = Number(btn.dataset.chId);
+      const tecId = document.getElementById("chSelectTecnico")?.value;
+      fetch(`/chamados/${chId}`, {
+        method: "PATCH",
+        headers: { ...authHeaders(), "Content-Type": "application/json" },
+        body: JSON.stringify({ tecnico_id: tecId ? Number(tecId) : null })
+      }).then(r => { if (!r.ok) r.json().then(e => alert(e.error)); else carregarTudo(); });
+      return;
+    }
+
+    if (action === "cancelar-ch-tecnico") {
+      const chId = Number(btn.dataset.chId);
+      const ch = (_chamadosData || []).find(c => c.id === chId);
+      if (ch) renderChDetalhe(ch);
+      return;
+    }
+
     if (action === "ver-conversa") {
       const id = Number(btn.dataset.id);
       if (id) { _drawerConversaId = id; renderConversaChat(id); }
@@ -5905,9 +6815,121 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
+    if (action === "reativar-condominio") {
+      const id = Number(btn.dataset.id);
+      if (!id) return;
+      fetch(`/condominios/${id}`, {
+        method: "PATCH",
+        headers: { ...authHeaders(), "Content-Type": "application/json" },
+        body: JSON.stringify({ ativo: true })
+      }).then(async r => {
+        if (!r.ok) { const e = await r.json().catch(() => ({})); alert(e.error || "Erro ao reativar"); return; }
+        await carregarTudo();
+      }).catch(() => alert("Erro de rede"));
+      return;
+    }
+
     if (action === "focar-condominio") {
       const device = btn.dataset.device;
       if (device) focarCondominio(device);
+      return;
+    }
+
+    if (action === "novo-cliente") {
+      abrirModalNovoCliente();
+      return;
+    }
+
+    if (action === "fechar-modal-cliente") {
+      document.getElementById("modalNovoCliente")?.remove();
+      return;
+    }
+
+    if (action === "novo-representante") {
+      const condoId = Number(btn.dataset.condoId);
+      if (condoId) abrirModalNovoRepresentante(condoId);
+      return;
+    }
+
+    if (action === "fechar-modal-rep") {
+      document.getElementById("modalNovoRep")?.remove();
+      return;
+    }
+
+    if (action === "novo-reservatorio") {
+      abrirModalNovoReservatorio();
+      return;
+    }
+
+    if (action === "fechar-modal-res") {
+      document.getElementById("modalNovoRes")?.remove();
+      return;
+    }
+
+    if (action === "novo-tecnico") {
+      abrirModalTecnico();
+      return;
+    }
+
+    if (action === "fechar-modal-tecnico") {
+      document.getElementById("modalTecnico")?.remove();
+      return;
+    }
+
+    if (action === "editar-tecnico") {
+      const id = Number(btn.dataset.id);
+      const t = (_tecnicosData || []).find(t => t.id === id);
+      if (t) abrirModalTecnico(t);
+      return;
+    }
+
+    if (action === "toggle-tec-disp") {
+      const id   = Number(btn.dataset.id);
+      const disp = btn.dataset.disp === "1";
+      fetch(`/tecnicos/${id}`, {
+        method: "PATCH",
+        headers: { ...authHeaders(), "Content-Type": "application/json" },
+        body: JSON.stringify({ disponivel: !disp })
+      }).then(async r => {
+        if (!r.ok) { const e = await r.json(); alert(e.error); return; }
+        await carregarTecnicos();
+        _tecSelecionadoId = id;
+        renderTecnicos();
+        const t = (_tecnicosData || []).find(t => t.id === id);
+        renderTecDetalhe(t || null);
+      });
+      return;
+    }
+
+    if (action === "excluir-tecnico") {
+      const id   = Number(btn.dataset.id);
+      const nome = btn.dataset.nome || "este técnico";
+      if (!confirm(`Excluir ${nome}?`)) return;
+      fetch(`/tecnicos/${id}`, { method: "DELETE", headers: authHeaders() })
+        .then(async r => {
+          if (!r.ok) { const e = await r.json(); alert(e.error); return; }
+          _tecSelecionadoId = null;
+          await carregarTecnicos();
+          renderTecnicos();
+          renderTecDetalhe(null);
+        });
+      return;
+    }
+
+    if (action === "toggle-cli-ativo") {
+      const id = Number(btn.dataset.id);
+      const ativo = btn.dataset.ativo === "1";
+      if (!id) return;
+      fetch(`/admin/usuarios/${id}`, {
+        method: "PATCH",
+        headers: { ...authHeaders(), "Content-Type": "application/json" },
+        body: JSON.stringify({ ativo: !ativo })
+      }).then(r => { if (!r.ok) return r.json().then(e => alert(e.error)); return carregarTudo(); });
+      return;
+    }
+
+    if (action === "ir-chamados-condo") {
+      showSection("chamados");
       return;
     }
   });

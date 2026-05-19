@@ -4292,14 +4292,6 @@ body.mp-fs-active { overflow: hidden; }
    SECTION: CHAMADOS — redesign
    ============================================================ */
 
-.ch-kpi-grid {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 12px;
-  margin-bottom: 16px;
-}
-@media (max-width: 1200px) { .ch-kpi-grid { grid-template-columns: repeat(3, 1fr); } }
-@media (max-width: 640px)  { .ch-kpi-grid { grid-template-columns: repeat(2, 1fr); } }
 
 .ch-layout {
   display: flex;
@@ -4310,7 +4302,7 @@ body.mp-fs-active { overflow: hidden; }
 .ch-list-col {
   flex: 1;
   min-width: 0;
-  background: var(--card);
+  background: var(--surface2);
   border: 1px solid var(--border);
   border-radius: 14px;
   overflow: hidden;
@@ -4361,7 +4353,7 @@ body.mp-fs-active { overflow: hidden; }
 .ch-detail-col {
   width: 360px;
   flex-shrink: 0;
-  background: var(--card);
+  background: var(--surface2);
   border: 1px solid var(--border);
   border-radius: 14px;
   overflow: hidden;
@@ -4396,16 +4388,8 @@ body.mp-fs-active { overflow: hidden; }
 .ch-met-row         { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; }
 .ch-met-lbl         { color: var(--muted); flex-shrink: 0; }
 
-/* Telemetria snapshot */
-.ch-tel-grid   { display: flex; flex-direction: column; gap: 8px; }
-.ch-tel-item   { display: grid; grid-template-columns: 80px 1fr 36px; align-items: center; gap: 8px; }
-.ch-tel-name   { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ch-tel-bar-bg { height: 6px; border-radius: 999px; background: rgba(255,255,255,.08); overflow: hidden; }
-.ch-tel-bar    { height: 100%; border-radius: 999px; transition: width .4s; }
-.ch-tel-ok     { background: var(--ok); color: var(--ok); }
-.ch-tel-warn   { background: var(--warn); color: var(--warn); }
-.ch-tel-bad    { background: var(--danger); color: var(--danger); }
-.ch-tel-pct    { font-size: 10px; font-weight: 600; text-align: right; }
+/* Telemetria snapshot — reutiliza .cc-res do dashboard, só o botão precisa de estilo */
+.ch-tel-btn  { width: 100%; justify-content: center; margin-top: 8px; }
 
 /* Ações */
 .ch-det-acoes {

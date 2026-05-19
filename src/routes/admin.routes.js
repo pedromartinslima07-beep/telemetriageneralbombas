@@ -332,4 +332,67 @@ router.get("/reverse-geocode", authRequired, adminOnly, async (req, res) => {
   }
 });
 
+// GET /admin/usuarios?role=cliente
+router.get("/usuarios", authRequired, adminOnly, async (req, res) => {
+  const role = req.query.role || null;
+  try {
+    const result = await pool.query(
+      `SELECT u.id, u.nome, u.email, u.role, u.criado_em,
+              c.id AS condominio_id, c.nome AS condominio_nome, c.cidade AS condominio_cidade
+       FROM usuarios u
+       LEFT JOIN condominios c ON c.id = u.condominio_id
+       WHERE ($1::text IS NULL OR u.role = $1)
+       ORDER BY u.criado_em DESC
+       LIMIT 500`,
+      [role]
+    );
+    return res.json(result.rows);
+  } catch (err) {
+    console.error("[admin] GET /usuarios:", err);
+    return res.status(500).json({ error: "Erro ao buscar usuários" });
+  }
+});
+
+// POST /admin/usuarios — cria novo usuário
+router.post("/usuarios", authRequired, adminOnly, async (req, res) => {
+  const bcrypt = require("bcrypt");
+  const { nome, email, senha, role, condominio_id } = req.body || {};
+  if (!nome || !email || !senha) return res.status(400).json({ error: "nome, email e senha obrigatórios" });
+  const ROLES = ["cliente", "admin", "admin_viewer"];
+  if (role && !ROLES.includes(role)) return res.status(400).json({ error: "role inválido" });
+  try {
+    const hash = await bcrypt.hash(String(senha), 10);
+    const result = await pool.query(
+      `INSERT INTO usuarios (nome, email, senha_hash, role, condominio_id)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING id, nome, email, role, criado_em`,
+      [nome, email.toLowerCase(), hash, role || "cliente", condominio_id || null]
+    );
+    return res.status(201).json(result.rows[0]);
+  } catch (err) {
+    if (err.code === "23505") return res.status(409).json({ error: "Email já cadastrado" });
+    console.error("[admin] POST /usuarios:", err);
+    return res.status(500).json({ error: "Erro ao criar usuário" });
+  }
+});
+
+// PATCH /admin/usuarios/:id — placeholder (sem coluna ativo no schema atual)
+router.patch("/usuarios/:id", authRequired, adminOnly, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
+  const { ativo } = req.body || {};
+  if (typeof ativo !== "boolean") return res.status(400).json({ error: "ativo deve ser boolean" });
+  try {
+    const result = await pool.query(
+      "SELECT id, nome FROM usuarios WHERE id = $1",
+      [id]
+    );
+    if (!result.rows.length) return res.status(404).json({ error: "Não encontrado" });
+    return res.json(result.rows[0]);
+  } catch (err) {
+    console.error("[admin] PATCH /usuarios/:id:", err);
+    return res.status(500).json({ error: "Erro ao atualizar" });
+  }
+});
+
 module.exports = { adminRouter: router };
