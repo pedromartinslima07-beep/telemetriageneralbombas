@@ -436,32 +436,119 @@
 
       <!-- ===== SECTION: ALERTAS ===== -->
       <div class="section" data-section="alertas">
-        <section class="card">
-          <div class="cardHead">
+        <!-- KPIs -->
+        <div class="al-kpis">
+          <div class="rc rc-bad rc-static" data-al-kpi-tab="critico" title="Filtrar críticos">
+            <div class="rc-head">
+              <div class="rc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
+              <div class="rc-label">Críticos</div>
+            </div>
+            <div class="rc-value" id="alKpiCritico">—</div>
+            <div class="rc-hint">Ativos agora</div>
+          </div>
+          <div class="rc rc-warn rc-static" data-al-kpi-tab="atencao" title="Filtrar atenção">
+            <div class="rc-head">
+              <div class="rc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg></div>
+              <div class="rc-label">Atenção</div>
+            </div>
+            <div class="rc-value" id="alKpiAtencao">—</div>
+            <div class="rc-hint">Ativos agora</div>
+          </div>
+          <div class="rc rc-ok rc-static" data-al-kpi-tab="normal" title="Filtrar normais">
+            <div class="rc-head">
+              <div class="rc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
+              <div class="rc-label">Normais</div>
+            </div>
+            <div class="rc-value" id="alKpiNormal">—</div>
+            <div class="rc-hint">Ativos agora</div>
+          </div>
+          <div class="rc rc-neutral rc-static" data-al-kpi-tab="resolvido" title="Ver resolvidos">
+            <div class="rc-head">
+              <div class="rc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div>
+              <div class="rc-label">Resolvidos</div>
+            </div>
+            <div class="rc-value" id="alKpiResolvido">—</div>
+            <div class="rc-hint">No período</div>
+          </div>
+          <div class="rc rc-neutral rc-static">
+            <div class="rc-head">
+              <div class="rc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+              <div class="rc-label">Tempo médio</div>
+            </div>
+            <div class="rc-value" id="alKpiTempoMedio">—</div>
+            <div class="rc-hint">Pra resolver</div>
+          </div>
+        </div>
+
+        <!-- Toolbar -->
+        <section class="card al-card">
+          <div class="cardHead al-head">
             <h2>
               <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
                 <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
               </svg>
-              Alertas abertos
+              Alertas
             </h2>
-            <span class="hint">Pendentes de resolução</span>
+            <span class="hint">Telemetria + chamados, todos num lugar só</span>
           </div>
-          <div class="tableWrap">
-            <table>
-              <thead>
-                <tr>
-                  <th style="width:60px;">ID</th>
-                  <th>Device</th>
-                  <th>Tipo</th>
-                  <th>Mensagem</th>
-                  <th>Criado em</th>
-                  <th>Atualizado em</th>
-                  <th class="right" style="width:100px;">Ação</th>
-                </tr>
-              </thead>
-              <tbody id="tbodyAlertas"></tbody>
-            </table>
+
+          <div class="al-toolbar">
+            <div class="al-tabs" role="tablist">
+              <button class="al-tab is-active" data-al-tab="todos">Todos <span class="al-count" id="alCountTodos">0</span></button>
+              <button class="al-tab" data-al-tab="critico">Críticos <span class="al-count" id="alCountCritico">0</span></button>
+              <button class="al-tab" data-al-tab="atencao">Atenção <span class="al-count" id="alCountAtencao">0</span></button>
+              <button class="al-tab" data-al-tab="normal">Normais <span class="al-count" id="alCountNormal">0</span></button>
+              <button class="al-tab" data-al-tab="resolvido">Resolvidos <span class="al-count" id="alCountResolvido">0</span></button>
+            </div>
+            <div class="al-filters">
+              <input id="alBusca" class="input" placeholder="Buscar por condomínio, tipo, descrição…">
+              <input type="date" id="alDataIni" class="input al-date" title="Data inicial">
+              <span class="al-date-sep">→</span>
+              <input type="date" id="alDataFim" class="input al-date" title="Data final">
+              <button class="btn btn-sm" id="alBtnLimpar" type="button">Limpar</button>
+            </div>
+          </div>
+
+          <div class="al-grid">
+            <div class="al-tableWrap">
+              <table class="al-table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Condomínio</th>
+                    <th>Tipo</th>
+                    <th>Severidade</th>
+                    <th>Data</th>
+                    <th>Tempo</th>
+                    <th>Status</th>
+                    <th class="right">Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="alTbody"></tbody>
+              </table>
+              <div class="al-pagination">
+                <span class="hint" id="alPageInfo">—</span>
+                <div class="al-pag-btns">
+                  <button class="btn btn-sm" id="alBtnPagAnt" type="button">◀</button>
+                  <button class="btn btn-sm" id="alBtnPagProx" type="button">▶</button>
+                </div>
+                <select id="alPageSize" class="select" style="width:auto;">
+                  <option value="10" selected>10 por página</option>
+                  <option value="25">25 por página</option>
+                  <option value="50">50 por página</option>
+                </select>
+              </div>
+            </div>
+
+            <aside class="al-painel" id="alPainel">
+              <div class="al-empty">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+                <p>Clique numa linha pra ver os detalhes do alerta</p>
+              </div>
+            </aside>
           </div>
         </section>
       </div><!-- /section alertas -->

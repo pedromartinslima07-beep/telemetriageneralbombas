@@ -1471,30 +1471,458 @@ function renderTelHistoricoChart(reservatorios, seriesMap) {
   }
 }
 
-function renderAlertas() {
-  const tbody = document.getElementById("tbodyAlertas");
-  tbody.innerHTML = "";
+// ============================================================
+// PÁGINA ALERTAS (unificada: telemetria + chamados)
+// ============================================================
 
-  _alertasAbertos.forEach(a => {
-    const kind =
-      a.tipo === "nivel_muito_baixo" || a.tipo === "dispositivo_offline" ? "bad"
-        : a.tipo === "nivel_baixo" ? "warn"
-          : "warn";
+let _alFiltros = {
+  tab: "todos",       // todos | critico | atencao | normal | resolvido
+  busca: "",
+  dataIni: "",
+  dataFim: "",
+  page: 1,
+  pageSize: 10,
+};
+let _alSelecionadoKey = null;
+let _alHistoricoChart = null;
+let _alHistoricoCache = new Map(); // device_id → { ts, dados }
 
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>${a.id}</td>
-      <td class="mono">${a.device_id}</td>
-      <td>${badge(String(a.tipo || "").replaceAll("_", " "), kind)}</td>
-      <td>${a.mensagem || ""}</td>
-      <td>${fmtData(a.criado_em)}</td>
-      <td>${fmtData(a.atualizado_em)}</td>
-      <td class="right">
-       <button class="btn btnAccent" data-action="fechar-alerta" data-id="${a.id}">Fechar</button>
-      </td>
-    `;
-    tbody.appendChild(tr);
+// Lista todos os alertas (telemetria + chamados) num formato normalizado.
+// Inclui resolvidos (alertas fechados são pegues separadamente — por enquanto
+// só temos os abertos; resolvidos vêm dos chamados fechados).
+function _alUnificar() {
+  const itens = [];
+
+  // Telemetria (todos os que temos em _alertasAbertos = só abertos)
+  for (const a of (_alertasAbertos || [])) {
+    const sev = (a.tipo === "dispositivo_offline" || a.tipo === "nivel_muito_baixo")
+      ? "critico"
+      : a.tipo === "nivel_baixo" ? "atencao" : "normal";
+    itens.push({
+      key: `TEL-${a.id}`,
+      origem: "telemetria",
+      rawId: a.id,
+      raw: a,
+      titulo: String(a.tipo || "").replaceAll("_", " "),
+      descricao: a.mensagem || "",
+      condominio_id: _alCondoIdDoDevice(a.device_id),
+      condominio_nome: _mcDeviceCondoName(a.device_id),
+      device_id: a.device_id,
+      severidade: sev,
+      status: "ativo",
+      criado_em: a.criado_em,
+      fechado_em: null,
+    });
+  }
+
+  // Chamados (abertos, em_atendimento E fechados)
+  for (const ch of (Array.isArray(_chamadosData) ? _chamadosData : [])) {
+    const prio = String(ch.prioridade || "media").toLowerCase();
+    const sev = prio === "emergencia" ? "critico"
+              : prio === "alta"       ? "atencao"
+              : "normal";
+    const status = String(ch.status || "").toLowerCase();
+    itens.push({
+      key: `CH-${ch.id}`,
+      origem: "chamado",
+      rawId: ch.id,
+      raw: ch,
+      titulo: ch.titulo || `Chamado #${ch.id}`,
+      descricao: ch.descricao || "",
+      condominio_id: ch.condominio_id || null,
+      condominio_nome: ch.condominio_nome || "—",
+      device_id: null,
+      severidade: sev,
+      status: status === "fechado" ? "resolvido" : "ativo",
+      criado_em: ch.criado_em,
+      fechado_em: ch.fechado_em,
+    });
+  }
+
+  return itens;
+}
+
+function _alCondoIdDoDevice(deviceId) {
+  for (const g of (_statusData || [])) {
+    for (const r of (g.reservatorios || [])) {
+      if (r.device_id === deviceId) return g.condominio?.id || null;
+    }
+  }
+  return null;
+}
+
+function _alAplicarFiltros(lista) {
+  const f = _alFiltros;
+  return lista.filter(it => {
+    // Tab
+    if (f.tab === "resolvido") {
+      if (it.status !== "resolvido") return false;
+    } else if (f.tab !== "todos") {
+      if (it.severidade !== f.tab) return false;
+      if (it.status !== "ativo") return false;
+    } else {
+      // "todos" mostra só ativos por padrão (resolvidos têm tab própria)
+      if (it.status !== "ativo") return false;
+    }
+    // Busca
+    if (f.busca) {
+      const q = f.busca.toLowerCase();
+      const blob = `${it.key} ${it.titulo} ${it.descricao} ${it.condominio_nome}`.toLowerCase();
+      if (!blob.includes(q)) return false;
+    }
+    // Range de data
+    if (f.dataIni) {
+      const di = new Date(f.dataIni + "T00:00:00").getTime();
+      if (new Date(it.criado_em).getTime() < di) return false;
+    }
+    if (f.dataFim) {
+      const df = new Date(f.dataFim + "T23:59:59").getTime();
+      if (new Date(it.criado_em).getTime() > df) return false;
+    }
+    return true;
   });
+}
+
+function _alFmtDuracao(ms) {
+  if (ms == null || isNaN(ms) || ms < 0) return "—";
+  const totMin = Math.floor(ms / 60000);
+  if (totMin < 60) return `${totMin}min`;
+  const horas = Math.floor(totMin / 60);
+  const min = totMin % 60;
+  if (horas < 24) return `${horas}h ${min.toString().padStart(2,"0")}min`;
+  const dias = Math.floor(horas / 24);
+  const hrest = horas % 24;
+  return `${dias}d ${hrest}h`;
+}
+
+function _alFmtData(iso) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  return d.toLocaleDateString("pt-BR");
+}
+function _alFmtHora(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  return d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+}
+
+function _alRenderKpis(todos) {
+  const ativos = todos.filter(it => it.status === "ativo");
+  const critico = ativos.filter(it => it.severidade === "critico").length;
+  const atencao = ativos.filter(it => it.severidade === "atencao").length;
+  const normal  = ativos.filter(it => it.severidade === "normal").length;
+  const resolvidos = todos.filter(it => it.status === "resolvido");
+
+  // Tempo médio pra resolver (só dos resolvidos com fechado_em)
+  let temposMs = [];
+  for (const r of resolvidos) {
+    if (r.fechado_em && r.criado_em) {
+      const dur = new Date(r.fechado_em) - new Date(r.criado_em);
+      if (dur > 0) temposMs.push(dur);
+    }
+  }
+  const tempoMedio = temposMs.length
+    ? _alFmtDuracao(temposMs.reduce((s, v) => s + v, 0) / temposMs.length)
+    : "—";
+
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  set("alKpiCritico", critico);
+  set("alKpiAtencao", atencao);
+  set("alKpiNormal", normal);
+  set("alKpiResolvido", resolvidos.length);
+  set("alKpiTempoMedio", tempoMedio);
+
+  // Contadores nas tabs
+  set("alCountTodos",     ativos.length);
+  set("alCountCritico",   critico);
+  set("alCountAtencao",   atencao);
+  set("alCountNormal",    normal);
+  set("alCountResolvido", resolvidos.length);
+}
+
+function _alSevLabel(sev) {
+  return sev === "critico" ? "Crítico"
+       : sev === "atencao" ? "Atenção"
+       : "Normal";
+}
+function _alStatusLabel(st) {
+  return st === "resolvido" ? "Resolvido" : "Ativo";
+}
+
+function _alRenderTabela(filtrados) {
+  const tbody = document.getElementById("alTbody");
+  if (!tbody) return;
+
+  const total = filtrados.length;
+  const maxPage = Math.max(1, Math.ceil(total / _alFiltros.pageSize));
+  if (_alFiltros.page > maxPage) _alFiltros.page = maxPage;
+  const ini = (_alFiltros.page - 1) * _alFiltros.pageSize;
+  const pageItems = filtrados.slice(ini, ini + _alFiltros.pageSize);
+
+  if (!pageItems.length) {
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--muted);">Nenhum alerta encontrado com esses filtros.</td></tr>`;
+  } else {
+    tbody.innerHTML = pageItems.map(it => {
+      const agora = Date.now();
+      const ref = it.status === "resolvido" && it.fechado_em
+        ? new Date(it.fechado_em).getTime() - new Date(it.criado_em).getTime()
+        : agora - new Date(it.criado_em).getTime();
+      const tempoStr = _alFmtDuracao(ref);
+      const isSelected = _alSelecionadoKey === it.key ? " is-selected" : "";
+      return `
+        <tr class="al-row${isSelected}" data-al-key="${it.key}">
+          <td class="al-id">${it.key}</td>
+          <td class="al-condo">
+            <span class="al-origem ${it.origem}">${it.origem === "telemetria" ? "Tel" : "Cham"}</span>
+            ${it.condominio_nome}
+            ${it.device_id ? `<small>${it.device_id}</small>` : ""}
+          </td>
+          <td>${_alCapitalize(it.titulo)}</td>
+          <td><span class="al-sev ${it.severidade}">${_alSevLabel(it.severidade)}</span></td>
+          <td class="al-data">${_alFmtData(it.criado_em)}<small>${_alFmtHora(it.criado_em)}</small></td>
+          <td class="al-tempo">${tempoStr}</td>
+          <td><span class="al-status ${it.status}">${_alStatusLabel(it.status)}</span></td>
+          <td class="right">
+            <div class="al-actions">
+              <button class="al-act-btn" data-al-action="ver" data-al-key="${it.key}" title="Ver detalhes">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+              ${it.status === "ativo" ? `
+              <button class="al-act-btn" data-al-action="resolver" data-al-key="${it.key}" title="Marcar como resolvido">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              </button>` : ""}
+            </div>
+          </td>
+        </tr>`;
+    }).join("");
+  }
+
+  // Paginação info
+  const pageInfo = document.getElementById("alPageInfo");
+  if (pageInfo) {
+    const first = total === 0 ? 0 : ini + 1;
+    const last = Math.min(ini + _alFiltros.pageSize, total);
+    pageInfo.textContent = `Mostrando ${first}-${last} de ${total}`;
+  }
+}
+
+function _alCapitalize(s) {
+  if (!s) return "";
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function _alAchaPorKey(key) {
+  return _alUnificar().find(it => it.key === key) || null;
+}
+
+async function _alRenderPainel() {
+  const wrap = document.getElementById("alPainel");
+  if (!wrap) return;
+
+  if (!_alSelecionadoKey) {
+    wrap.innerHTML = `
+      <div class="al-empty">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        <p>Clique numa linha pra ver os detalhes do alerta</p>
+      </div>`;
+    return;
+  }
+
+  const it = _alAchaPorKey(_alSelecionadoKey);
+  if (!it) {
+    _alSelecionadoKey = null;
+    return _alRenderPainel();
+  }
+
+  // Reservatório (se telemetria)
+  let reserv = null;
+  if (it.origem === "telemetria" && it.device_id) {
+    for (const g of (_statusData || [])) {
+      for (const r of (g.reservatorios || [])) {
+        if (r.device_id === it.device_id) { reserv = r; break; }
+      }
+      if (reserv) break;
+    }
+  }
+
+  const pct = reserv?.ultima_leitura?.nivel_pct;
+  const banner = reserv && pct != null
+    ? `
+      <div class="ap-banner ${it.severidade}">
+        <div class="ap-banner-row">
+          <div class="ap-gauge-mini">
+            ${_alGaugeMiniSvg(pct, it.severidade)}
+            <div class="ap-gauge-mini-val">
+              <div>${Math.round(pct)}%</div>
+              <small>Nível atual</small>
+            </div>
+          </div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;">Capacidade</div>
+            <div style="font-size:18px;font-weight:700;margin-top:2px;">${reserv.capacidade_litros ? reserv.capacidade_litros.toLocaleString("pt-BR") + " L" : "—"}</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:6px;">Última leitura: ${_alFmtData(reserv.ultima_leitura?.criado_em)} ${_alFmtHora(reserv.ultima_leitura?.criado_em)}</div>
+          </div>
+        </div>
+      </div>`
+    : "";
+
+  const kv = (k, v) => `<div><span class="k">${k}</span><span class="v">${v ?? "—"}</span></div>`;
+
+  let detalhes = "";
+  if (it.origem === "telemetria") {
+    detalhes = `
+      <div class="ap-section">
+        <div class="ap-section-title">Detalhes</div>
+        <div class="ap-kv">
+          ${kv("Reservatório", reserv?.nome)}
+          ${kv("Device", it.device_id)}
+          ${kv("Tipo", _alCapitalize(it.titulo))}
+          ${kv("Severidade", _alSevLabel(it.severidade))}
+        </div>
+        ${it.descricao ? `<div style="margin-top:10px;font-size:11.5px;color:var(--muted);">${it.descricao}</div>` : ""}
+      </div>`;
+  } else {
+    const r = it.raw;
+    detalhes = `
+      <div class="ap-section">
+        <div class="ap-section-title">Detalhes do chamado</div>
+        <div class="ap-kv">
+          ${kv("Categoria", r.categoria ? _alCapitalize(r.categoria) : "—")}
+          ${kv("Prioridade", _alCapitalize(String(r.prioridade || "")))}
+          ${kv("Status", _alCapitalize(String(r.status || "").replaceAll("_", " ")))}
+          ${kv("Responsável", r.responsavel_nome || "Sem atribuição")}
+        </div>
+        ${r.cliente_nome ? `<div style="margin-top:10px;font-size:11.5px;"><b>Cliente:</b> ${r.cliente_nome} ${r.cliente_telefone ? `<span style="color:var(--muted);">(${r.cliente_telefone})</span>` : ""}</div>` : ""}
+        ${it.descricao ? `<div style="margin-top:10px;font-size:11.5px;color:var(--muted);max-height:80px;overflow-y:auto;">${it.descricao}</div>` : ""}
+      </div>`;
+  }
+
+  const tempoStr = it.status === "resolvido" && it.fechado_em
+    ? `Resolvido em ${_alFmtDuracao(new Date(it.fechado_em) - new Date(it.criado_em))}`
+    : `Aberto há ${_alFmtDuracao(Date.now() - new Date(it.criado_em).getTime())}`;
+
+  const acoes = it.status === "ativo"
+    ? `<div class="ap-actions">
+         <button class="btn btnAccent" data-al-action="resolver" data-al-key="${it.key}">Marcar como resolvido</button>
+       </div>`
+    : "";
+
+  wrap.innerHTML = `
+    <div class="ap-head">
+      <div>
+        <div class="ap-title">${_alCapitalize(it.titulo)}</div>
+        <div class="ap-sub">${it.key} • ${it.condominio_nome}</div>
+      </div>
+      <button class="ap-close" data-al-action="fechar-painel" title="Fechar">×</button>
+    </div>
+    ${banner}
+    ${detalhes}
+    <div class="ap-section">
+      <div class="ap-section-title">Linha do tempo</div>
+      <div style="font-size:11.5px;color:var(--text);">Criado em ${_alFmtData(it.criado_em)} ${_alFmtHora(it.criado_em)}</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:3px;">${tempoStr}</div>
+    </div>
+    ${it.origem === "telemetria" && it.device_id ? `
+    <div class="ap-section">
+      <div class="ap-section-title">Histórico de nível (24h)</div>
+      <div class="ap-chart" id="alChartHistorico"></div>
+    </div>` : ""}
+    ${acoes}
+  `;
+
+  // Carrega histórico se for telemetria
+  if (it.origem === "telemetria" && it.device_id) {
+    _alCarregarHistorico(it.device_id);
+  }
+}
+
+// Mini-gauge donut SVG. pct 0-100, cor depende da severidade.
+function _alGaugeMiniSvg(pct, sev) {
+  const p = Math.max(0, Math.min(100, pct || 0));
+  const r = 32;
+  const c = 2 * Math.PI * r;
+  const filled = (p / 100) * c;
+  const cor = sev === "critico" ? "#ef4444" : sev === "atencao" ? "#f59e0b" : "#10b981";
+  return `
+    <svg viewBox="0 0 80 80">
+      <circle cx="40" cy="40" r="${r}" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="8"/>
+      <circle cx="40" cy="40" r="${r}" fill="none" stroke="${cor}" stroke-width="8"
+              stroke-dasharray="${filled} ${c}" stroke-linecap="round"
+              transform="rotate(-90 40 40)"/>
+    </svg>`;
+}
+
+async function _alCarregarHistorico(deviceId) {
+  const el = document.getElementById("alChartHistorico");
+  if (!el || typeof ApexCharts === "undefined") return;
+
+  try {
+    // Cache simples: usa se < 60s
+    const cached = _alHistoricoCache.get(deviceId);
+    let dados;
+    if (cached && (Date.now() - cached.ts) < 60000) {
+      dados = cached.dados;
+    } else {
+      const r = await fetch(`/admin/historico?device_ids=${encodeURIComponent(deviceId)}&horas=24`, {
+        headers: authHeaders(),
+      });
+      if (!r.ok) throw new Error("historico " + r.status);
+      const j = await r.json();
+      dados = j[deviceId] || [];
+      _alHistoricoCache.set(deviceId, { ts: Date.now(), dados });
+    }
+
+    const serie = dados.map(p => ({ x: new Date(p.bucket).getTime(), y: p.nivel_pct_avg }));
+    if (_alHistoricoChart) { _alHistoricoChart.destroy(); _alHistoricoChart = null; }
+    _alHistoricoChart = new ApexCharts(el, {
+      chart: { type: "area", height: 120, sparkline: { enabled: true }, animations: { enabled: false } },
+      stroke: { curve: "smooth", width: 2 },
+      colors: ["#ef4444"],
+      fill: { type: "gradient", gradient: { shadeIntensity: .6, opacityFrom: .4, opacityTo: 0 } },
+      series: [{ name: "Nível %", data: serie }],
+      tooltip: {
+        theme: "dark",
+        x: { format: "dd/MM HH:mm" },
+        y: { formatter: v => v != null ? Math.round(v) + "%" : "—" },
+      },
+    });
+    _alHistoricoChart.render();
+  } catch (e) {
+    el.innerHTML = `<div style="color:var(--muted);font-size:11px;text-align:center;padding:20px;">Não foi possível carregar o histórico.</div>`;
+  }
+}
+
+async function _alResolver(key) {
+  const it = _alAchaPorKey(key);
+  if (!it) return;
+
+  if (it.origem === "telemetria") {
+    const r = await fetch("/alertas/" + it.rawId + "/fechar", {
+      method: "POST", headers: authHeaders(),
+    });
+    if (!r.ok) { alert("Erro ao fechar alerta"); return; }
+  } else {
+    const r = await fetch("/chamados/" + it.rawId, {
+      method: "PATCH",
+      headers: { ...authHeaders(), "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "fechado" }),
+    });
+    if (!r.ok) { alert("Erro ao fechar chamado"); return; }
+  }
+  // Recarrega dados
+  await Promise.all([carregarAlertas?.(), carregarChamados?.()]);
+  renderAlertas();
+}
+
+function renderAlertas() {
+  // Compatível com a API existente: continua sendo chamado por carregarTelemetria.
+  const todos = _alUnificar();
+  const filtrados = _alAplicarFiltros(todos);
+  _alRenderKpis(todos);
+  _alRenderTabela(filtrados);
+  _alRenderPainel();
 }
 
 function getUltimaLeituraDoCondominio(condoItem) {
@@ -1690,6 +2118,9 @@ function renderAtendimentoVisuais() {
   atualizarBadgesWhatsapp();
   renderCondoCards();        // cards têm badges de chamados/wz
   renderMcConversas();
+  // Página de Alertas combina telemetria + chamados; mantém em dia quando
+  // chamados são atualizados, não só quando telemetria recarrega.
+  renderAlertas();
 }
 
 function renderVisuaisCombinados() {
@@ -4115,6 +4546,100 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("btnProximaPagina")?.addEventListener("click", proximaPagina);
 
   document.getElementById("pageSize")?.addEventListener("change", mudarPageSize);
+
+  // ===== Página Alertas =====
+  // Tabs de severidade
+  document.querySelectorAll(".al-tab").forEach(tab => {
+    tab.addEventListener("click", () => {
+      document.querySelectorAll(".al-tab").forEach(t => t.classList.remove("is-active"));
+      tab.classList.add("is-active");
+      _alFiltros.tab = tab.dataset.alTab;
+      _alFiltros.page = 1;
+      renderAlertas();
+    });
+  });
+  // KPIs clicáveis (atalho pras tabs)
+  document.querySelectorAll("[data-al-kpi-tab]").forEach(card => {
+    card.addEventListener("click", () => {
+      const t = card.dataset.alKpiTab;
+      const tab = document.querySelector(`.al-tab[data-al-tab="${t}"]`);
+      tab?.click();
+    });
+  });
+  // Busca e filtros
+  const debounce = (fn, ms) => {
+    let h; return (...args) => { clearTimeout(h); h = setTimeout(() => fn(...args), ms); };
+  };
+  document.getElementById("alBusca")?.addEventListener("input", debounce((e) => {
+    _alFiltros.busca = e.target.value.trim();
+    _alFiltros.page = 1;
+    renderAlertas();
+  }, 200));
+  document.getElementById("alDataIni")?.addEventListener("change", (e) => {
+    _alFiltros.dataIni = e.target.value;
+    _alFiltros.page = 1;
+    renderAlertas();
+  });
+  document.getElementById("alDataFim")?.addEventListener("change", (e) => {
+    _alFiltros.dataFim = e.target.value;
+    _alFiltros.page = 1;
+    renderAlertas();
+  });
+  document.getElementById("alBtnLimpar")?.addEventListener("click", () => {
+    _alFiltros = { tab: "todos", busca: "", dataIni: "", dataFim: "", page: 1, pageSize: _alFiltros.pageSize };
+    const busca = document.getElementById("alBusca"); if (busca) busca.value = "";
+    const di = document.getElementById("alDataIni"); if (di) di.value = "";
+    const df = document.getElementById("alDataFim"); if (df) df.value = "";
+    document.querySelectorAll(".al-tab").forEach(t => t.classList.toggle("is-active", t.dataset.alTab === "todos"));
+    renderAlertas();
+  });
+  // Paginação
+  document.getElementById("alBtnPagAnt")?.addEventListener("click", () => {
+    if (_alFiltros.page > 1) { _alFiltros.page--; renderAlertas(); }
+  });
+  document.getElementById("alBtnPagProx")?.addEventListener("click", () => {
+    _alFiltros.page++;
+    renderAlertas();
+  });
+  document.getElementById("alPageSize")?.addEventListener("change", (e) => {
+    _alFiltros.pageSize = Number(e.target.value) || 10;
+    _alFiltros.page = 1;
+    renderAlertas();
+  });
+  // Clique na linha / botões de ação (delegado, pra suportar re-render)
+  document.getElementById("alTbody")?.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-al-action]");
+    if (btn) {
+      e.stopPropagation();
+      const action = btn.dataset.alAction;
+      const key = btn.dataset.alKey;
+      if (action === "ver") {
+        _alSelecionadoKey = key;
+        renderAlertas();
+      } else if (action === "resolver") {
+        if (confirm("Marcar este alerta como resolvido?")) _alResolver(key);
+      }
+      return;
+    }
+    const row = e.target.closest(".al-row");
+    if (row) {
+      _alSelecionadoKey = row.dataset.alKey;
+      renderAlertas();
+    }
+  });
+  // Ações dentro do painel
+  document.getElementById("alPainel")?.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-al-action]");
+    if (!btn) return;
+    const action = btn.dataset.alAction;
+    const key = btn.dataset.alKey;
+    if (action === "fechar-painel") {
+      _alSelecionadoKey = null;
+      renderAlertas();
+    } else if (action === "resolver") {
+      if (confirm("Marcar este alerta como resolvido?")) _alResolver(key);
+    }
+  });
 
   document.getElementById("btnCadastrarCondominio")?.addEventListener("click", criarCondominio);
   document.getElementById("btnCriarCliente")?.addEventListener("click", criarCliente);
