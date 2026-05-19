@@ -129,6 +129,46 @@ router.get("/conversas/:id", authRequired, adminOnly, async (req, res) => {
   }
 });
 
+// PATCH /whatsapp/conversas/:id/fechar
+router.patch("/conversas/:id/fechar", authRequired, adminOnly, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
+  try {
+    const r = await pool.query(
+      `UPDATE conversas_whatsapp
+       SET status = 'fechada', fechado_em = NOW()
+       WHERE id = $1
+       RETURNING id, status, fechado_em`,
+      [id]
+    );
+    if (r.rows.length === 0) return res.status(404).json({ error: "Conversa não encontrada" });
+    return res.json(r.rows[0]);
+  } catch (err) {
+    console.error("[whatsapp] PATCH /conversas/:id/fechar:", err);
+    return res.status(500).json({ error: "Erro ao fechar conversa" });
+  }
+});
+
+// PATCH /whatsapp/conversas/:id/reabrir
+router.patch("/conversas/:id/reabrir", authRequired, adminOnly, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
+  try {
+    const r = await pool.query(
+      `UPDATE conversas_whatsapp
+       SET status = 'aberta', fechado_em = NULL
+       WHERE id = $1
+       RETURNING id, status`,
+      [id]
+    );
+    if (r.rows.length === 0) return res.status(404).json({ error: "Conversa não encontrada" });
+    return res.json(r.rows[0]);
+  } catch (err) {
+    console.error("[whatsapp] PATCH /conversas/:id/reabrir:", err);
+    return res.status(500).json({ error: "Erro ao reabrir conversa" });
+  }
+});
+
 // PATCH /whatsapp/conversas/:id/assumir
 // Atendente humano assume a conversa - IA para de responder automaticamente.
 router.patch("/conversas/:id/assumir", authRequired, adminOnly, async (req, res) => {
@@ -314,6 +354,25 @@ router.post("/conversas/:id/sugerir-resposta", authRequired, adminOnly, async (r
   } catch (err) {
     console.error("[whatsapp] POST /sugerir-resposta:", err);
     return res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE /whatsapp/conversas/:id
+// Remove conversa + mensagens (CASCADE) e desvincula chamados (SET NULL).
+router.delete("/conversas/:id", authRequired, adminOnly, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
+
+  try {
+    const r = await pool.query(
+      `DELETE FROM conversas_whatsapp WHERE id = $1 RETURNING id`,
+      [id]
+    );
+    if (r.rows.length === 0) return res.status(404).json({ error: "Conversa não encontrada" });
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("[whatsapp] DELETE /conversas/:id:", err);
+    return res.status(500).json({ error: "Erro ao apagar conversa" });
   }
 });
 

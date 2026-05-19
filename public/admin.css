@@ -4068,20 +4068,10 @@ body.mp-fs-active { overflow: hidden; }
 }
 .wa-conv-time { color: var(--muted); font-size: 10px; }
 .wa-conv-unread {
-  background: var(--danger); color: #fff;
-  font-size: 9.5px; font-weight: 700;
+  background: var(--danger, #ef4444); color: #fff;
+  font-size: 10px; font-weight: 700;
   padding: 1px 6px; border-radius: 999px;
-  min-width: 16px; text-align: center;
-}
-.wa-conv-unread {
-  font-size: 10px;
-  font-weight: 700;
-  background: var(--danger, #ef4444);
-  color: #fff;
-  border-radius: 999px;
-  padding: 1px 6px;
-  min-width: 18px;
-  text-align: center;
+  min-width: 18px; text-align: center;
   line-height: 1.6;
 }
 
@@ -4122,6 +4112,16 @@ body.mp-fs-active { overflow: hidden; }
 }
 .wa-chat-empty svg { width: 44px; height: 44px; opacity: .35; margin-bottom: 12px; }
 .wa-chat-empty p { font-size: 12px; }
+
+.wa-chat-closed-banner {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  align-self: center;
+  font-size: 11px; color: var(--ok);
+  background: rgba(34,197,94,.08);
+  border: 1px solid rgba(34,197,94,.2);
+  padding: 6px 14px; border-radius: 999px;
+  margin: 12px 0 4px;
+}
 
 .wa-msg-date-sep {
   align-self: center;

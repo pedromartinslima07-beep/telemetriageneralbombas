@@ -2721,18 +2721,37 @@ function _waRenderConteudo(m) {
 function _waRenderChat(conv) {
   const head = document.getElementById("waChatHead");
   if (head) {
+    const fechada = conv.status === "fechada";
     const assumida = !!conv.assumida_por_id;
-    const btnAssumir = assumida
+
+    const btnAssumir = fechada ? "" : assumida
       ? `<button class="btn btn-sm" type="button" data-wa-action="devolver-ia" data-conv-id="${conv.id}" title="Devolver pra IA responder">↩ Devolver à IA</button>`
       : `<button class="btn btn-sm btnAccent" type="button" data-wa-action="assumir" data-conv-id="${conv.id}" title="IA para de responder; você assume">✋ Assumir conversa</button>`;
+
+    const btnFechar = fechada
+      ? `<button class="btn btn-sm" type="button" data-wa-action="reabrir-conversa" data-conv-id="${conv.id}" title="Reabrir conversa">↺ Reabrir</button>`
+      : `<button class="btn btn-sm" type="button" data-wa-action="fechar-conversa" data-conv-id="${conv.id}" title="Encerrar atendimento" style="color:var(--ok);">✓ Fechar</button>`;
+
+    const subStatus = fechada
+      ? ` • <span style="color:var(--muted);">Encerrada${conv.fechado_em ? " em " + _waFmtDataLonga(conv.fechado_em) : ""}</span>`
+      : assumida ? ` • <span style="color:var(--accent);">Assumida por ${_waEscaparHtml(conv.assumida_por_nome || "você")}</span>` : "";
 
     head.innerHTML = `
       <div class="wa-conv-avatar">${_waIniciaisDe(conv.cliente_nome || conv.telefone)}</div>
       <div class="wa-chat-head-main">
         <div class="wa-chat-head-name">${_waEscaparHtml(conv.cliente_nome || "Sem nome")}</div>
-        <div class="wa-chat-head-sub">${_waEscaparHtml(conv.telefone || "")}${conv.condominio_nome ? ` • ${_waEscaparHtml(conv.condominio_nome)}` : ""}${assumida ? ` • <span style="color:var(--accent);">Assumida por ${_waEscaparHtml(conv.assumida_por_nome || "você")}</span>` : ""}</div>
+        <div class="wa-chat-head-sub">${_waEscaparHtml(conv.telefone || "")}${conv.condominio_nome ? ` • ${_waEscaparHtml(conv.condominio_nome)}` : ""}${subStatus}</div>
       </div>
-      <div style="display:flex;gap:6px;flex-shrink:0;">${btnAssumir}</div>
+      <div style="display:flex;gap:6px;flex-shrink:0;">
+        ${btnAssumir}
+        ${btnFechar}
+        <button class="btn btn-sm" type="button"
+          data-wa-action="apagar-conversa" data-conv-id="${conv.id}"
+          style="color:var(--danger);border-color:rgba(239,68,68,.25);"
+          title="Apagar conversa permanentemente">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+        </button>
+      </div>
     `;
   }
 
@@ -2780,7 +2799,17 @@ function _waRenderChat(conv) {
         <span class="wa-msg-time">${_waFmtHoraCompleta(m.criado_em)}</span>
       </div>`;
   }
+  if (conv.status === "fechada") {
+    html += `<div class="wa-chat-closed-banner">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="20 6 9 17 4 12"/></svg>
+      Conversa encerrada${conv.fechado_em ? " em " + _waFmtDataLonga(conv.fechado_em) : ""}
+    </div>`;
+  }
+
   body.innerHTML = html;
+  // Oculta o input quando a conversa está fechada
+  const inp = document.getElementById("waChatInput");
+  if (inp) inp.style.display = conv.status === "fechada" ? "none" : "flex";
   // Scroll pro final
   requestAnimationFrame(() => { body.scrollTop = body.scrollHeight; });
 }
@@ -2848,7 +2877,7 @@ function _waRenderInfo(conv) {
       <div class="wa-info-title">Ações rápidas</div>
       <div class="wa-info-acoes">
         ${conv.condominio_id ? `
-          <button class="btn btn-sm" type="button" data-wa-action="ver-condo" data-condo-id="${conv.condominio_id}">📍 Ver telemetria do condomínio</button>
+          <button class="btn btn-sm" type="button" data-wa-action="ver-condo" data-condo-id="${conv.condominio_id}">📊 Ver telemetria do condomínio</button>
           <button class="btn btn-sm" type="button" data-wa-action="abrir-chamado" data-condo-id="${conv.condominio_id}">📋 Abrir chamado</button>
         ` : `
           <div style="color:var(--muted);font-size:11px;margin-bottom:6px;font-style:italic;">Cliente sem condomínio vinculado.</div>
@@ -3005,17 +3034,85 @@ async function _waDevolverIA(convId) {
   }
 }
 
+async function _waFecharConversa(convId) {
+  try {
+    const r = await fetch(`/whatsapp/conversas/${convId}/fechar`, {
+      method: "PATCH", headers: authHeaders(),
+    });
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || r.statusText);
+    _waConversaCache.delete(convId);
+    await carregarConversas?.();
+    if (_waSelecionadaId === convId) await _waSelecionar(convId);
+    _waRenderLista();
+  } catch (e) {
+    alert("Erro ao fechar conversa: " + e.message);
+  }
+}
+
+async function _waReabrirConversa(convId) {
+  try {
+    const r = await fetch(`/whatsapp/conversas/${convId}/reabrir`, {
+      method: "PATCH", headers: authHeaders(),
+    });
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || r.statusText);
+    _waConversaCache.delete(convId);
+    await carregarConversas?.();
+    if (_waSelecionadaId === convId) await _waSelecionar(convId);
+    _waRenderLista();
+  } catch (e) {
+    alert("Erro ao reabrir conversa: " + e.message);
+  }
+}
+
+async function _waApagarConversa(convId) {
+  try {
+    const r = await fetch(`/whatsapp/conversas/${convId}`, {
+      method: "DELETE", headers: authHeaders(),
+    });
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || r.statusText);
+
+    _waConversaCache.delete(convId);
+
+    if (_waSelecionadaId === convId) {
+      _waSelecionadaId = null;
+      const head = document.getElementById("waChatHead");
+      const body = document.getElementById("waChatBody");
+      const info = document.getElementById("waInfoCol");
+      const inp  = document.getElementById("waChatInput");
+      if (head) head.innerHTML = `<div class="wa-chat-empty-head">Selecione uma conversa</div>`;
+      if (body) body.innerHTML = `<div class="wa-chat-empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><p>Clique numa conversa pra ver o histórico</p></div>`;
+      if (info) info.innerHTML = `<div class="wa-info-empty">Selecione uma conversa pra ver detalhes</div>`;
+      if (inp)  inp.style.display = "none";
+    }
+
+    await carregarConversas?.();
+    _waRenderLista();
+  } catch (e) {
+    alert("Erro ao apagar conversa: " + e.message);
+  }
+}
+
 function _waAbrirSelecaoCondominio(convId) {
   const lista = Array.isArray(_condominios) ? _condominios : [];
-  if (!lista.length) { alert("Nenhum condomínio cadastrado."); return; }
-  // Prompt simples (sem modal sofisticado pra Fase A) — lista numerada
-  const opcoes = lista.map((c, i) => `${i + 1}. ${c.nome}${c.bairro ? " — " + c.bairro : ""}`).join("\n");
-  const escolha = prompt(`Vincular conversa a qual condomínio?\n\n${opcoes}\n\nDigite o número:`);
-  if (!escolha) return;
-  const idx = Number(escolha) - 1;
-  const condo = lista[idx];
-  if (!condo) { alert("Opção inválida"); return; }
-  _waVincularCondo(convId, condo.id);
+  const acoes = document.querySelector(`[data-wa-action="vincular-condo"][data-conv-id="${convId}"]`)?.closest(".wa-info-acoes");
+  if (!acoes) return;
+
+  if (!lista.length) {
+    acoes.insertAdjacentHTML("beforebegin", `<div style="color:var(--danger);font-size:11.5px;margin-bottom:6px;">Nenhum condomínio cadastrado.</div>`);
+    return;
+  }
+
+  acoes.innerHTML = `
+    <select id="waSelectCondo" class="input" style="font-size:11.5px;width:100%;">
+      <option value="">Selecione o condomínio…</option>
+      ${lista.map(c => `<option value="${c.id}">${_waEscaparHtml(c.nome)}${c.bairro ? " — " + _waEscaparHtml(c.bairro) : ""}</option>`).join("")}
+    </select>
+    <div style="display:flex;gap:6px;margin-top:6px;">
+      <button class="btn btn-sm btnAccent" type="button"
+        data-wa-action="confirmar-vincular" data-conv-id="${convId}" style="flex:1;">Confirmar</button>
+      <button class="btn btn-sm" type="button"
+        data-wa-action="cancelar-vincular" data-conv-id="${convId}">Cancelar</button>
+    </div>`;
 }
 
 async function _waVincularCondo(convId, condoId) {
@@ -3197,7 +3294,14 @@ function renderDrawerTelemetria() {
 
   const gaugesParaCriar = []; // {elId, pct, lvClass}
 
-  pane.innerHTML = reservs.map(r => {
+  const btnTelFull = `<div style="margin-bottom:12px;">
+    <button class="btn btn-sm" type="button" data-action="ir-telemetria-condo" data-condo-id="${_drawerCondoId}"
+      style="width:100%;justify-content:center;">
+      📊 Ver telemetria completa
+    </button>
+  </div>`;
+
+  pane.innerHTML = btnTelFull + reservs.map(r => {
     const u = r.ultima_leitura;
     const pct = u?.nivel_pct ?? null;
     const n = String(u?.nivel || "").toLowerCase();
@@ -5360,13 +5464,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const convId  = Number(btn.dataset.convId);
 
     if (action === "ver-condo" && condoId) {
-      showSection("mapa");
-      setTimeout(() => {
-        if (typeof _mpCondoSelecionadoId !== "undefined") {
-          _mpCondoSelecionadoId = condoId;
-          if (typeof renderSecaoMapa === "function") renderSecaoMapa();
-        }
-      }, 200);
+      abrirDrawer(condoId);
     } else if (action === "abrir-chamado" && condoId) {
       showSection("chamados");
     } else if (action === "abrir-chamado-sem-condo") {
@@ -5377,8 +5475,24 @@ document.addEventListener("DOMContentLoaded", () => {
     } else if (action === "devolver-ia" && convId) {
       if (!confirm("Devolver essa conversa pra IA responder?")) return;
       await _waDevolverIA(convId);
+    } else if (action === "fechar-conversa" && convId) {
+      if (!confirm("Encerrar esta conversa? O cliente não receberá mais respostas automáticas da IA.")) return;
+      await _waFecharConversa(convId);
+    } else if (action === "reabrir-conversa" && convId) {
+      if (!confirm("Reabrir esta conversa?")) return;
+      await _waReabrirConversa(convId);
+    } else if (action === "apagar-conversa" && convId) {
+      if (!confirm("Apagar esta conversa permanentemente?\n\nTodas as mensagens serão removidas. Esta ação não pode ser desfeita.")) return;
+      await _waApagarConversa(convId);
     } else if (action === "vincular-condo" && convId) {
       _waAbrirSelecaoCondominio(convId);
+    } else if (action === "confirmar-vincular" && convId) {
+      const condoId = Number(document.getElementById("waSelectCondo")?.value);
+      if (!condoId) return;
+      await _waVincularCondo(convId, condoId);
+    } else if (action === "cancelar-vincular") {
+      const cached = _waConversaCache.get(_waSelecionadaId);
+      if (cached) _waRenderInfo(cached);
     } else if (action === "resumir" && convId) {
       await _waIaAcao(convId, "resumir");
     } else if (action === "sugerir-resposta" && convId) {
@@ -5504,6 +5618,21 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
+    if (action === "ir-telemetria-condo") {
+      const condoId = Number(btn.dataset.condoId);
+      fecharDrawer();
+      showSection("telemetria");
+      setTimeout(() => {
+        _telFiltroCondominioId = String(condoId);
+        const sel = document.getElementById("telFiltroCondominio");
+        if (sel) sel.value = String(condoId);
+        renderTelBarChart?.();
+        renderTelCriticos?.();
+        renderTelBombas?.();
+      }, 0);
+      return;
+    }
+
     if (action === "editar-reservatorio") {
       const id = Number(btn.dataset.id);
       if (id) abrirModalEditarReservatorio(id);
@@ -5554,7 +5683,7 @@ document.addEventListener("DOMContentLoaded", () => {
   carregarTudo();
   setInterval(carregarTelemetria, 7000);
   setInterval(carregarAtendimento, 20000);
-  // Polling rápido só pra mensagens da conversa selecionada (Fase A: read-only)
+  // Polling rápido pra conversa selecionada — atualiza mensagens e metadados
   setInterval(async () => {
     if (!_waSelecionadaId) return;
     try {
@@ -5562,10 +5691,27 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!r.ok) return;
       const conv = await r.json();
       const cached = _waConversaCache.get(_waSelecionadaId);
-      // Re-renderiza só se o número de mensagens mudou (evita rolar pra cima sem motivo)
-      if (!cached || (conv.mensagens?.length || 0) !== (cached.mensagens?.length || 0)) {
+
+      const msgCountChanged = !cached ||
+        (conv.mensagens?.length || 0) !== (cached.mensagens?.length || 0);
+      const metaChanged = !cached ||
+        cached.condominio_id    !== conv.condominio_id    ||
+        cached.assumida_por_id  !== conv.assumida_por_id  ||
+        cached.status           !== conv.status;
+
+      if (msgCountChanged || metaChanged) {
         _waConversaCache.set(_waSelecionadaId, conv);
         _waRenderChat(conv);
+      }
+
+      if (metaChanged) {
+        // Preserva resultado da IA já exibido ao re-renderizar o painel direito
+        const iaHtml = document.getElementById("waIaResult")?.innerHTML || "";
+        _waRenderInfo(conv);
+        if (iaHtml) {
+          const iaDiv = document.getElementById("waIaResult");
+          if (iaDiv) iaDiv.innerHTML = iaHtml;
+        }
       }
     } catch (e) { /* silencia — próximo ciclo tenta de novo */ }
   }, 5000);

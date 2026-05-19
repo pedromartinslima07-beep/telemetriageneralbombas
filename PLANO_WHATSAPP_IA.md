@@ -571,6 +571,31 @@ Página /whatsapp era uma tabela simples de conversas. Virou central de atendime
 - [x] Ao abrir chamado, anexa última leitura do condomínio automaticamente
 - [x] Alerta de telemetria crítico → IA abre chamado + notifica cliente via WhatsApp automaticamente
 
+### Fase 5 — Polimento e gestão de conversas ✅ CONCLUÍDO
+
+#### Correções de bugs
+- `whatsapp.controller.js`: busca de conversa existente agora inclui `status = 'em_atendimento'` — evitava criar conversa duplicada quando o cliente respondia com a conversa assumida por humano
+- CSS: definição duplicada de `.wa-conv-unread` mesclada em uma só
+- Polling 5s: agora também atualiza o painel direito quando metadados mudam (`condominio_id`, `assumida_por_id`, `status`), preservando resultado da IA já exibido
+
+#### Vincular condomínio — sem prompt()
+- Substituído `window.prompt()` (bloqueado silenciosamente em alguns browsers) por select inline no próprio painel direito
+- Botão "Vincular" expande para `<select>` + "Confirmar" / "Cancelar" sem sair do painel
+
+#### Apagar conversa
+- Rota `DELETE /whatsapp/conversas/:id` — remove conversa e mensagens (CASCADE), desvincula chamados (SET NULL)
+- Botão de lixeira no cabeçalho do chat com confirmação explícita
+
+#### Fechar / Reabrir conversa
+- Rotas `PATCH /whatsapp/conversas/:id/fechar` e `/reabrir`
+- Botão **"✓ Fechar"** (verde) no cabeçalho — encerra o atendimento, IA para de responder, input some, banner de encerramento aparece no rodapé do chat com a data
+- Botão **"↺ Reabrir"** aparece no lugar para reverter
+- Botão "Assumir/Devolver" desaparece em conversas fechadas
+
+#### Botão "Ver telemetria do condomínio"
+- Antes navegava diretamente para a seção Telemetria; agora abre o drawer lateral (aba Telemetria) do condomínio
+- Dentro do drawer, botão **"📊 Ver telemetria completa"** fecha o drawer, navega para a seção Telemetria e aplica o filtro do condomínio automaticamente
+
 ---
 
 ## Variáveis de ambiente novas necessárias

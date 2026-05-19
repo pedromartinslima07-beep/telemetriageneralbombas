@@ -47,7 +47,7 @@ async function processarMensagem(payload) {
     // Busca conversa aberta ou cria uma nova
     const conversaExistente = await pool.query(
       `SELECT id FROM conversas_whatsapp
-       WHERE cliente_whatsapp_id = $1 AND status = 'aberta'
+       WHERE cliente_whatsapp_id = $1 AND status IN ('aberta','em_atendimento')
        ORDER BY criado_em DESC LIMIT 1`,
       [clienteId]
     );
