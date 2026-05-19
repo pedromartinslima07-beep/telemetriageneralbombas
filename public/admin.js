@@ -6219,8 +6219,8 @@ function renderSecaoMapa() {
 // ============================================================
 //  RELATÓRIOS
 // ============================================================
-let _relCharts     = {};  // instâncias ApexCharts — keyed by container id
-let _relInicializado = false;
+let _relCharts  = {};  // instâncias ApexCharts — keyed by container id
+let _relGerado  = { chamados: false, alertas: false, telemetria: false };
 
 function _relDataPadrao() {
   const hoje = new Date();
@@ -6244,7 +6244,7 @@ function _relPreencherTecnicoSelect() {
     tecs.map(t => `<option value="${t.id}">${_waEscaparHtml(t.nome)}</option>`).join("");
 }
 
-function _relMostrarTab(tab) {
+function _relMostrarTab(tab, autoGerar) {
   _relTab = tab;
   document.querySelectorAll("#relTabs .wa-tab").forEach(btn =>
     btn.classList.toggle("is-active", btn.dataset.relTab === tab)
@@ -6265,6 +6265,14 @@ function _relMostrarTab(tab) {
     );
     if (bodyEl) bodyEl.style.display = "";
   }
+
+  // auto-gera na primeira visita a cada aba
+  if (autoGerar && !_relGerado[tab]) {
+    _relGerado[tab] = true;
+    if (tab === "chamados")   gerarRelChamados();
+    if (tab === "alertas")    gerarRelAlertas();
+    if (tab === "telemetria") gerarRelTelemetria();
+  }
 }
 
 function renderRelatorios() {
@@ -6273,8 +6281,7 @@ function renderRelatorios() {
   ["relChFim","relAlFim","relTelFim"].forEach(id => { const el = document.getElementById(id); if (el && !el.value) el.value = fim; });
   _relPreencherCondoSelects(["relChCondo","relAlCondo","relTelCondo"]);
   _relPreencherTecnicoSelect();
-  _relMostrarTab(_relTab);
-  if (!_relInicializado) { _relInicializado = true; gerarRelChamados(); }
+  _relMostrarTab(_relTab, true);
 }
 
 function _relKpiCard(iconSvg, label, value, cls) {
@@ -6732,7 +6739,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // ===== RELATÓRIOS =====
   document.getElementById("relTabs")?.addEventListener("click", e => {
     const tab = e.target.closest("[data-rel-tab]")?.dataset.relTab;
-    if (tab) _relMostrarTab(tab);
+    if (tab) _relMostrarTab(tab, true);
   });
 
   document.querySelector(".section[data-section='relatorios']")?.addEventListener("click", e => {
