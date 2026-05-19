@@ -2489,35 +2489,202 @@ async function criarReservatorio() {
 }
 
 // ===== SECTION: CHAMADOS =====
-function renderChamados() {
-  const tbody = document.getElementById("tbodyChamados");
+// ============================================================
+// SECTION: CHAMADOS — redesign
+// ============================================================
+
+let _chFiltros = { tab: "todos", busca: "" };
+let _chSelecionadoId = null;
+
+const _chCatNome  = { vazamento:"Vazamento", bomba_falha:"Bomba", nivel_baixo:"Nível baixo",
+                      sem_agua:"Sem água", ruido:"Ruído", manutencao:"Manutenção", outro:"Outro" };
+const _chPrioNome = { baixa:"Baixa", media:"Média", alta:"Alta", emergencia:"Emergência" };
+const _chStNome   = { aberto:"Aberto", em_atendimento:"Em atend.", fechado:"Resolvido" };
+
+function _chFiltrados() {
+  const lista = Array.isArray(_chamadosData) ? _chamadosData : [];
+  const { tab, busca } = _chFiltros;
+  return lista.filter(ch => {
+    if (tab === "emergencia" && (ch.prioridade !== "emergencia" || ch.status === "fechado")) return false;
+    if (tab !== "todos" && tab !== "emergencia" && ch.status !== tab) return false;
+    if (busca) {
+      const q = busca.toLowerCase();
+      const blob = `${ch.id} ${ch.titulo||""} ${ch.condominio_nome||""} ${ch.cliente_nome||""} ${ch.categoria||""}`.toLowerCase();
+      if (!blob.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+function _chFmtDataCurta(iso) {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleDateString("pt-BR", { day:"2-digit", month:"2-digit" });
+}
+
+function renderChKpis() {
+  const el = document.getElementById("chKpiGrid");
+  if (!el) return;
+  const data = Array.isArray(_chamadosData) ? _chamadosData : [];
+
+  const abertos  = data.filter(ch => ch.status === "aberto").length;
+  const atend    = data.filter(ch => ch.status === "em_atendimento").length;
+  const fechados = data.filter(ch => ch.status === "fechado").length;
+  const criticos = data.filter(ch => ch.prioridade === "emergencia" && ch.status !== "fechado").length;
+  const taxa     = data.length > 0 ? Math.round(fechados / data.length * 100) : 0;
+
+  const comFechamento = data.filter(ch => ch.status === "fechado" && ch.fechado_em && ch.criado_em);
+  let tempoMedio = "—";
+  if (comFechamento.length > 0) {
+    const avgH = comFechamento.reduce((s, ch) =>
+      s + (new Date(ch.fechado_em) - new Date(ch.criado_em)), 0) / comFechamento.length / 3600000;
+    tempoMedio = avgH < 1 ? `${Math.round(avgH * 60)}min` : `${avgH.toFixed(1)}h`;
+  }
+
+  const kpi = (icon, val, lbl, color) => `
+    <div class="rc">
+      <div class="rc-icon" style="background:${color}22;color:${color};">${icon}</div>
+      <div class="rc-body"><div class="rc-val">${val}</div><div class="rc-lbl">${lbl}</div></div>
+    </div>`;
+
+  el.innerHTML =
+    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`,
+        abertos, "Abertos", "#60a5fa") +
+    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
+        atend, "Em atendimento", "#fb923c") +
+    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>`,
+        fechados, "Resolvidos", "#22c55e") +
+    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
+        criticos, "Críticos abertos", "#ef4444") +
+    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>`,
+        `${taxa}%`, "Taxa de resolução", "#a78bfa") +
+    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
+        tempoMedio, "Tempo médio resolução", "#22d3ee");
+}
+
+function renderChTabela() {
+  const tbody = document.getElementById("chTableBody");
   if (!tbody) return;
-  tbody.innerHTML = "";
+  const data = Array.isArray(_chamadosData) ? _chamadosData : [];
 
-  const prioLabel  = { baixa: "Baixa", media: "Média", alta: "Alta", emergencia: "Emergência" };
-  const statusLbl  = { aberto: "Aberto", em_atendimento: "Em atend.", fechado: "Fechado" };
+  const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+  set("chCtTodos",    data.length);
+  set("chCtAbertos",  data.filter(ch => ch.status === "aberto").length);
+  set("chCtAtend",    data.filter(ch => ch.status === "em_atendimento").length);
+  set("chCtFechados", data.filter(ch => ch.status === "fechado").length);
+  set("chCtEmerg",    data.filter(ch => ch.prioridade === "emergencia" && ch.status !== "fechado").length);
 
-  if (_chamadosData.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px;">Nenhum chamado encontrado.</td></tr>`;
+  const lista = _chFiltrados();
+  if (!lista.length) {
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:32px;">Nenhum chamado encontrado.</td></tr>`;
     return;
   }
 
-  for (const ch of _chamadosData) {
-    const prioClass = `prio-${ch.prioridade || "media"}`;
-    const statusCls = `chamado-status-${ch.status || "aberto"}`;
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>${ch.id}</td>
-      <td>${ch.condominio_nome || "-"}</td>
-      <td>${ch.titulo || "-"}</td>
-      <td><span class="prio-badge ${prioClass}">${prioLabel[ch.prioridade] || ch.prioridade || "-"}</span></td>
-      <td class="${statusCls}">${statusLbl[ch.status] || ch.status || "-"}</td>
-      <td>${fmtData(ch.criado_em)}</td>
-      <td class="right">
-        ${ch.status !== "fechado" ? `<button class="btn btn-sm" data-action="fechar-chamado" data-id="${ch.id}">Fechar</button>` : ""}
-        ${ch.status === "aberto" ? `<button class="btn btn-sm" data-action="atender-chamado" data-id="${ch.id}" style="margin-left:4px;">Atender</button>` : ""}
-      </td>`;
-    tbody.appendChild(tr);
+  tbody.innerHTML = lista.map(ch => {
+    const sel = _chSelecionadoId === ch.id ? " is-selected" : "";
+    return `<tr class="ch-row${sel}" data-ch-id="${ch.id}">
+      <td class="ch-id-cell">CH-${String(ch.id).padStart(4,"0")}</td>
+      <td class="ch-titulo-cell">
+        <div class="ch-titulo-text">${_waEscaparHtml(ch.titulo || "—")}</div>
+      </td>
+      <td class="ch-condo-cell">${_waEscaparHtml(ch.condominio_nome || "—")}</td>
+      <td><span class="ch-cat-badge">${_chCatNome[ch.categoria] || ch.categoria || "—"}</span></td>
+      <td><span class="ch-prio ch-prio-${ch.prioridade||"media"}">${_chPrioNome[ch.prioridade]||ch.prioridade||"—"}</span></td>
+      <td><span class="ch-st ch-st-${ch.status||"aberto"}">${_chStNome[ch.status]||ch.status||"—"}</span></td>
+      <td class="ch-data-cell">${_chFmtDataCurta(ch.criado_em)}</td>
+    </tr>`;
+  }).join("");
+}
+
+function renderChDetalhe(ch) {
+  const col = document.getElementById("chDetailCol");
+  if (!col) return;
+
+  if (!ch) {
+    col.innerHTML = `<div class="ch-detail-empty">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg>
+      <p>Selecione um chamado para ver os detalhes</p>
+    </div>`;
+    return;
+  }
+
+  // Telemetria snapshot do condomínio
+  let telHtml = "";
+  if (ch.condominio_id) {
+    const item = (_statusData || []).find(g => Number(g.condominio?.id) === Number(ch.condominio_id));
+    const reservs = item?.reservatorios?.slice(0, 4) || [];
+    if (reservs.length) {
+      telHtml = `<div class="ch-det-section">
+        <div class="ch-det-sec-title">Telemetria atual</div>
+        <div class="ch-tel-grid">
+          ${reservs.map(r => {
+            const pct = r.ultima_leitura?.nivel_pct;
+            const cls = r.offline ? "bad" : pct < 20 ? "bad" : pct < 40 ? "warn" : "ok";
+            return `<div class="ch-tel-item">
+              <div class="ch-tel-name">${_waEscaparHtml(r.nome || "Res.")}</div>
+              <div class="ch-tel-bar-bg"><div class="ch-tel-bar ch-tel-${cls}" style="width:${Math.min(pct??0,100)}%"></div></div>
+              <div class="ch-tel-pct ch-tel-${cls}">${r.offline ? "OFF" : pct != null ? pct+"%" : "—"}</div>
+            </div>`;
+          }).join("")}
+        </div>
+      </div>`;
+    }
+  }
+
+  const fechado   = ch.status === "fechado";
+  const emAtend   = ch.status === "em_atendimento";
+  const acoes = fechado
+    ? `<button class="btn btn-sm" data-action="reabrir-chamado" data-id="${ch.id}">↺ Reabrir</button>`
+    : `${!emAtend ? `<button class="btn btn-sm btnAccent" data-action="atender-chamado" data-id="${ch.id}">▶ Em atendimento</button>` : ""}
+       <button class="btn btn-sm" style="color:var(--ok);border-color:rgba(34,197,94,.3);" data-action="fechar-chamado" data-id="${ch.id}">✓ Fechar</button>`;
+
+  col.innerHTML = `<div class="ch-detail">
+    <div class="ch-det-head">
+      <span class="ch-det-id">CH-${String(ch.id).padStart(4,"0")}</span>
+      <span class="ch-st ch-st-${ch.status||"aberto"}">${_chStNome[ch.status]||ch.status}</span>
+    </div>
+    <div class="ch-det-title">${_waEscaparHtml(ch.titulo || "Sem título")}</div>
+
+    ${ch.descricao ? `<div class="ch-det-section">
+      <div class="ch-det-sec-title">Descrição</div>
+      <div class="ch-det-desc">${_waEscaparHtml(ch.descricao)}</div>
+    </div>` : ""}
+
+    <div class="ch-det-section">
+      <div class="ch-det-sec-title">Informações</div>
+      <div class="ch-det-meta">
+        <div class="ch-met-row" id="chCondoRow-${ch.id}">
+          <span class="ch-met-lbl">Condomínio</span>
+          ${ch.condominio_nome
+            ? `<span style="display:flex;align-items:center;gap:6px;">
+                 ${_waEscaparHtml(ch.condominio_nome)}
+                 <button class="btn btn-sm" style="font-size:10px;padding:1px 6px;opacity:.6;"
+                   data-action="vincular-ch-condo" data-ch-id="${ch.id}">trocar</button>
+               </span>`
+            : `<button class="btn btn-sm btnAccent" style="font-size:11px;"
+                 data-action="vincular-ch-condo" data-ch-id="${ch.id}">🔗 Vincular condomínio</button>`}
+        </div>
+        ${ch.responsavel_nome  ? `<div class="ch-met-row"><span class="ch-met-lbl">Responsável</span><span>${_waEscaparHtml(ch.responsavel_nome)}</span></div>` : ""}
+        ${ch.categoria         ? `<div class="ch-met-row"><span class="ch-met-lbl">Categoria</span><span class="ch-cat-badge">${_chCatNome[ch.categoria]||ch.categoria}</span></div>` : ""}
+        <div class="ch-met-row"><span class="ch-met-lbl">Prioridade</span><span class="ch-prio ch-prio-${ch.prioridade||"media"}">${_chPrioNome[ch.prioridade]||ch.prioridade}</span></div>
+        <div class="ch-met-row"><span class="ch-met-lbl">Aberto em</span><span>${fmtData(ch.criado_em)}</span></div>
+        ${ch.fechado_em        ? `<div class="ch-met-row"><span class="ch-met-lbl">Fechado em</span><span>${fmtData(ch.fechado_em)}</span></div>` : ""}
+        ${ch.cliente_nome      ? `<div class="ch-met-row"><span class="ch-met-lbl">Cliente WA</span><span>${_waEscaparHtml(ch.cliente_nome)}${ch.cliente_telefone ? " · "+_waEscaparHtml(ch.cliente_telefone) : ""}</span></div>` : ""}
+      </div>
+    </div>
+
+    ${telHtml}
+
+    <div class="ch-det-acoes">${acoes}</div>
+  </div>`;
+}
+
+function renderChamados() {
+  renderChKpis();
+  renderChTabela();
+  if (_chSelecionadoId) {
+    const ch = (_chamadosData || []).find(c => c.id === _chSelecionadoId);
+    renderChDetalhe(ch || null);
+    if (!ch) _chSelecionadoId = null;
   }
 }
 
@@ -3172,6 +3339,17 @@ async function atenderChamadoAction(id) {
     body: JSON.stringify({ status: "em_atendimento" }),
   });
   if (!r.ok) { alert("Erro ao atualizar chamado"); return; }
+  await carregarTudo();
+  if (_drawerCondoId) renderDrawerChamados();
+}
+
+async function reabrirChamadoAction(id) {
+  const r = await fetch(`/chamados/${id}`, {
+    method: "PATCH",
+    headers: { ...authHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify({ status: "aberto" }),
+  });
+  if (!r.ok) { alert("Erro ao reabrir chamado"); return; }
   await carregarTudo();
   if (_drawerCondoId) renderDrawerChamados();
 }
@@ -5515,6 +5693,31 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  // ===== Página Chamados =====
+  document.querySelectorAll("[data-ch-tab]").forEach(tab => {
+    tab.addEventListener("click", () => {
+      document.querySelectorAll("[data-ch-tab]").forEach(t => t.classList.remove("is-active"));
+      tab.classList.add("is-active");
+      _chFiltros.tab = tab.dataset.chTab;
+      renderChTabela();
+    });
+  });
+  const _chDebounce = (fn, ms) => { let h; return (...a) => { clearTimeout(h); h = setTimeout(() => fn(...a), ms); }; };
+  document.getElementById("chBusca")?.addEventListener("input", _chDebounce(e => {
+    _chFiltros.busca = e.target.value.trim();
+    renderChTabela();
+  }, 200));
+  document.getElementById("chTableBody")?.addEventListener("click", e => {
+    const row = e.target.closest("[data-ch-id]");
+    if (!row) return;
+    const id = Number(row.dataset.chId);
+    if (!id) return;
+    _chSelecionadoId = id;
+    renderChTabela();
+    const ch = (_chamadosData || []).find(c => c.id === id);
+    renderChDetalhe(ch || null);
+  });
+
   document.getElementById("btnCadastrarCondominio")?.addEventListener("click", criarCondominio);
   document.getElementById("btnCriarCliente")?.addEventListener("click", criarCliente);
   document.getElementById("btnCriarAdminViewer")?.addEventListener("click", criarAdminViewer);
@@ -5579,6 +5782,55 @@ document.addEventListener("DOMContentLoaded", () => {
     if (action === "atender-chamado") {
       const id = Number(btn.dataset.id);
       if (id) atenderChamadoAction(id);
+      return;
+    }
+
+    if (action === "reabrir-chamado") {
+      const id = Number(btn.dataset.id);
+      if (id) reabrirChamadoAction(id);
+      return;
+    }
+
+    if (action === "vincular-ch-condo") {
+      const chId = Number(btn.dataset.chId);
+      if (!chId) return;
+      const lista = Array.isArray(_condominios) ? _condominios : [];
+      if (!lista.length) { alert("Nenhum condomínio cadastrado."); return; }
+      const row = document.getElementById(`chCondoRow-${chId}`);
+      if (!row) return;
+      row.innerHTML = `
+        <span class="ch-met-lbl">Condomínio</span>
+        <div style="display:flex;gap:6px;align-items:center;flex:1;min-width:0;">
+          <select id="chSelectCondo" class="input" style="font-size:11.5px;flex:1;min-width:0;">
+            <option value="">Selecione…</option>
+            ${lista.map(c => `<option value="${c.id}">${_waEscaparHtml(c.nome)}</option>`).join("")}
+          </select>
+          <button class="btn btn-sm btnAccent" data-action="confirmar-ch-condo" data-ch-id="${chId}">Ok</button>
+          <button class="btn btn-sm" data-action="cancelar-ch-condo" data-ch-id="${chId}">✕</button>
+        </div>`;
+      document.getElementById("chSelectCondo")?.focus();
+      return;
+    }
+
+    if (action === "confirmar-ch-condo") {
+      const chId = Number(btn.dataset.chId);
+      const condoId = Number(document.getElementById("chSelectCondo")?.value);
+      if (!chId || !condoId) return;
+      fetch(`/chamados/${chId}`, {
+        method: "PATCH",
+        headers: { ...authHeaders(), "Content-Type": "application/json" },
+        body: JSON.stringify({ condominio_id: condoId }),
+      }).then(r => {
+        if (!r.ok) { alert("Erro ao vincular condomínio"); return; }
+        carregarTudo();
+      });
+      return;
+    }
+
+    if (action === "cancelar-ch-condo") {
+      const chId = Number(btn.dataset.chId);
+      const ch = (_chamadosData || []).find(c => c.id === chId);
+      if (ch) renderChDetalhe(ch);
       return;
     }
 

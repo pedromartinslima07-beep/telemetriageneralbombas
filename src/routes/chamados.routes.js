@@ -123,7 +123,7 @@ router.patch("/:id", authRequired, adminOnly, async (req, res) => {
     return res.status(400).json({ error: "id inválido" });
   }
 
-  const { status, prioridade, categoria, responsavel_id } = req.body || {};
+  const { status, prioridade, categoria, responsavel_id, condominio_id } = req.body || {};
 
   const STATUSES   = ["aberto", "em_atendimento", "fechado"];
   const PRIORIDADES = ["baixa", "media", "alta", "emergencia"];
@@ -157,6 +157,14 @@ router.patch("/:id", authRequired, adminOnly, async (req, res) => {
   if (responsavel_id !== undefined) {
     values.push(responsavel_id || null);
     sets.push(`responsavel_id = $${values.length}`);
+  }
+  if (condominio_id !== undefined) {
+    const cid = condominio_id ? Number(condominio_id) : null;
+    if (cid !== null && (!Number.isInteger(cid) || cid <= 0)) {
+      return res.status(400).json({ error: "condominio_id inválido" });
+    }
+    values.push(cid);
+    sets.push(`condominio_id = $${values.length}`);
   }
 
   if (values.length === 0) {

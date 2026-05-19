@@ -788,35 +788,49 @@
 
       <!-- ===== SECTION: CHAMADOS ===== -->
       <div class="section" data-section="chamados">
-        <section class="card">
-          <div class="cardHead">
-            <h2>
-              <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                <polyline points="14 2 14 8 20 8"/>
-                <line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/>
-              </svg>
-              Chamados
-            </h2>
-            <span class="hint">Tickets de suporte</span>
+        <!-- KPIs -->
+        <div class="ch-kpi-grid" id="chKpiGrid"></div>
+
+        <!-- Layout principal: lista + detalhe -->
+        <div class="ch-layout">
+          <!-- Coluna lista -->
+          <div class="ch-list-col">
+            <div class="ch-toolbar">
+              <div class="wa-tabs" role="tablist">
+                <button class="wa-tab is-active" data-ch-tab="todos">Todos <span class="wa-count" id="chCtTodos">0</span></button>
+                <button class="wa-tab" data-ch-tab="aberto">Abertos <span class="wa-count" id="chCtAbertos">0</span></button>
+                <button class="wa-tab" data-ch-tab="em_atendimento">Em atend. <span class="wa-count" id="chCtAtend">0</span></button>
+                <button class="wa-tab" data-ch-tab="fechado">Resolvidos <span class="wa-count" id="chCtFechados">0</span></button>
+                <button class="wa-tab" data-ch-tab="emergencia">Emergência <span class="wa-count" id="chCtEmerg">0</span></button>
+              </div>
+              <input id="chBusca" class="input" placeholder="Buscar chamado…">
+            </div>
+            <div class="tableWrap ch-table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th style="width:72px">ID</th>
+                    <th>Título</th>
+                    <th style="width:148px">Condomínio</th>
+                    <th style="width:104px">Categoria</th>
+                    <th style="width:96px">Prioridade</th>
+                    <th style="width:84px">Status</th>
+                    <th style="width:72px">Data</th>
+                  </tr>
+                </thead>
+                <tbody id="chTableBody"></tbody>
+              </table>
+            </div>
           </div>
-          <div class="tableWrap">
-            <table>
-              <thead>
-                <tr>
-                  <th style="width:50px;">ID</th>
-                  <th>Condomínio</th>
-                  <th>Título</th>
-                  <th>Prioridade</th>
-                  <th>Status</th>
-                  <th>Criado em</th>
-                  <th class="right" style="width:160px;">Ações</th>
-                </tr>
-              </thead>
-              <tbody id="tbodyChamados"></tbody>
-            </table>
-          </div>
-        </section>
+
+          <!-- Painel de detalhe -->
+          <aside class="ch-detail-col" id="chDetailCol">
+            <div class="ch-detail-empty">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg>
+              <p>Selecione um chamado para ver os detalhes</p>
+            </div>
+          </aside>
+        </div>
       </div><!-- /section chamados -->
 
       <!-- ===== SECTION: WHATSAPP ===== -->
