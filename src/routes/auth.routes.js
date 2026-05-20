@@ -265,6 +265,23 @@ router.post("/verify-otp", otpLimiter, async (req, res) => {
 });
 
 /**
+ * GET /auth/me  — usado pelo app pra validar JWT salvo e obter dados frescos
+ */
+router.get("/me", authRequired, async (req, res) => {
+  try {
+    const r = await pool.query(
+      "SELECT id, nome, email, role, condominio_id FROM usuarios WHERE id = $1 LIMIT 1",
+      [req.user.id]
+    );
+    if (r.rows.length === 0) return res.status(404).json({ error: "Usuário não encontrado" });
+    return res.json(r.rows[0]);
+  } catch (err) {
+    console.error("Erro GET /auth/me:", err);
+    return res.status(500).json({ error: "Erro ao buscar usuário" });
+  }
+});
+
+/**
  * POST /auth/trocar-senha  (qualquer usuário logado)
  * Body: { senha_atual, senha_nova }
  */

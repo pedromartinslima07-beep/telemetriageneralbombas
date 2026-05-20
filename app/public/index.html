@@ -11,44 +11,155 @@
 </head>
 <body>
   <div class="app-shell">
-    <header class="app-header">
-      <div class="brand">
-        <div class="logo">GB</div>
-        <div>
-          <div class="brand-name">General Bombas</div>
-          <div class="brand-sub">App de campo</div>
-        </div>
+
+    <!-- ========== SPLASH (verifica token) ========== -->
+    <section class="screen" data-screen="splash" data-active>
+      <div class="splash-content">
+        <div class="logo logo-lg">GB</div>
+        <div class="splash-name">General Bombas</div>
+        <div class="splash-spinner" aria-hidden="true"></div>
       </div>
-    </header>
+    </section>
 
-    <main class="app-main">
-      <div class="welcome-card">
-        <div class="welcome-emoji">📱</div>
-        <h1>App em construção</h1>
-        <p>Fase 7A — estrutura inicial pronta.</p>
-        <p class="muted">Login, chamados, O.S. e GPS chegam nas próximas fases.</p>
+    <!-- ========== LOGIN ========== -->
+    <section class="screen" data-screen="login">
+      <header class="app-header">
+        <div class="brand">
+          <div class="logo">GB</div>
+          <div>
+            <div class="brand-name">General Bombas</div>
+            <div class="brand-sub">App de campo</div>
+          </div>
+        </div>
+      </header>
 
-        <button id="btnPing" class="btn btn-primary">
-          Verificar conexão com o servidor
+      <main class="app-main">
+        <form class="card" id="formLogin" novalidate>
+          <h1>Entrar</h1>
+          <p class="muted">Use as mesmas credenciais do painel.</p>
+
+          <label class="field">
+            <span class="field-label">Email</span>
+            <input type="email" name="email" id="loginEmail" autocomplete="username"
+                   inputmode="email" required placeholder="voce@empresa.com.br" />
+          </label>
+
+          <label class="field">
+            <span class="field-label">Senha</span>
+            <input type="password" name="senha" id="loginSenha" autocomplete="current-password"
+                   required placeholder="••••••••" />
+          </label>
+
+          <div class="alert" id="loginAlert" hidden></div>
+
+          <button type="submit" class="btn btn-primary" id="loginBtn">
+            <span class="btn-label">Entrar</span>
+          </button>
+        </form>
+      </main>
+
+      <footer class="app-footer">
+        <div class="diag-line">
+          <span id="apiBase">—</span> · <span id="envInfo">—</span>
+        </div>
+      </footer>
+    </section>
+
+    <!-- ========== OTP (código de 6 dígitos por email) ========== -->
+    <section class="screen" data-screen="otp">
+      <header class="app-header">
+        <button class="header-back" id="otpBack" aria-label="Voltar">←</button>
+        <div class="brand">
+          <div class="logo">GB</div>
+          <div>
+            <div class="brand-name">Código de verificação</div>
+            <div class="brand-sub">Enviado por email</div>
+          </div>
+        </div>
+      </header>
+
+      <main class="app-main">
+        <form class="card" id="formOtp" novalidate>
+          <div class="otp-emoji">📧</div>
+          <h1>Digite o código</h1>
+          <p class="muted">
+            Enviamos um código de 6 dígitos para
+            <strong id="otpEmail">seu email</strong>.
+          </p>
+
+          <label class="field">
+            <span class="field-label">Código</span>
+            <input type="text" name="code" id="otpCode" inputmode="numeric"
+                   pattern="[0-9]*" maxlength="6" autocomplete="one-time-code"
+                   required placeholder="123456" class="otp-input" />
+          </label>
+
+          <label class="field-checkbox">
+            <input type="checkbox" id="otpConfiar" checked />
+            <span>Confiar neste dispositivo (30 dias)</span>
+          </label>
+
+          <div class="alert" id="otpAlert" hidden></div>
+
+          <button type="submit" class="btn btn-primary" id="otpBtn">
+            <span class="btn-label">Verificar</span>
+          </button>
+        </form>
+      </main>
+    </section>
+
+    <!-- ========== HOME (placeholder pós-login) ========== -->
+    <section class="screen" data-screen="home">
+      <header class="app-header">
+        <div class="brand">
+          <div class="logo">GB</div>
+          <div>
+            <div class="brand-name" id="homeUserName">—</div>
+            <div class="brand-sub" id="homeUserRole">—</div>
+          </div>
+        </div>
+        <button class="header-logout" id="btnLogout" aria-label="Sair">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+            <polyline points="16 17 21 12 16 7"/>
+            <line x1="21" y1="12" x2="9" y2="12"/>
+          </svg>
         </button>
-        <div id="pingStatus" class="ping-status"></div>
+      </header>
 
-        <div class="diag">
-          <div class="diag-row">
-            <span class="diag-label">API base</span>
-            <span class="diag-value" id="apiBase">—</span>
+      <main class="app-main">
+        <div class="card">
+          <div class="welcome-emoji">👋</div>
+          <h1 id="homeGreeting">Olá!</h1>
+          <p class="muted" id="homeBody">Fase 7B concluída — login funcionando.</p>
+
+          <div class="user-info">
+            <div class="info-row">
+              <span class="info-label">Email</span>
+              <span class="info-value" id="homeEmail">—</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Papel</span>
+              <span class="info-value" id="homeRoleBadge">—</span>
+            </div>
+            <div class="info-row" id="homeCondoRow" hidden>
+              <span class="info-label">Condomínio</span>
+              <span class="info-value" id="homeCondo">—</span>
+            </div>
           </div>
-          <div class="diag-row">
-            <span class="diag-label">Ambiente</span>
-            <span class="diag-value" id="envInfo">—</span>
-          </div>
+
+          <button type="button" class="btn btn-secondary" id="btnPing">
+            Testar /chamados
+          </button>
+          <div class="alert" id="homeAlert" hidden></div>
         </div>
-      </div>
-    </main>
+      </main>
 
-    <footer class="app-footer">
-      <span id="now"></span>
-    </footer>
+      <footer class="app-footer">
+        <span id="now"></span>
+      </footer>
+    </section>
+
   </div>
 
   <script src="app.js"></script>
