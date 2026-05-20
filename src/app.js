@@ -1,8 +1,13 @@
 // src/app.js
 
-// Fallback de JWT_SECRET em dev — DEVE rodar antes dos requires de rotas/middleware,
-// que capturam process.env.JWT_SECRET em constantes de módulo no load.
+// JWT_SECRET — obrigatório em prod; fallback só em dev.
+// DEVE rodar antes dos requires de rotas/middleware, que capturam
+// process.env.JWT_SECRET em constantes de módulo no load.
 if (!process.env.JWT_SECRET) {
+  if (process.env.NODE_ENV === "production") {
+    console.error("FATAL: JWT_SECRET não definido em produção.");
+    process.exit(1);
+  }
   console.warn("AVISO: JWT_SECRET não definido, usando valor padrão de desenvolvimento");
   process.env.JWT_SECRET = "dev-secret-local-apenas";
 }
@@ -70,6 +75,11 @@ app.use(helmet({
 const corsOrigins = process.env.CORS_ORIGINS
   ? process.env.CORS_ORIGINS.split(",").map((o) => o.trim())
   : ["http://localhost:3001", "http://127.0.0.1:3001"];
+
+if (process.env.NODE_ENV === "production" && !process.env.CORS_ORIGINS) {
+  console.error("FATAL: CORS_ORIGINS não definido em produção (fallback é localhost).");
+  process.exit(1);
+}
 
 app.use(cors({ origin: corsOrigins }));
 app.use(express.json());

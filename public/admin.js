@@ -18,7 +18,6 @@ const _sectionTitles = {
   cadastros:    "Clientes",
   tecnicos:     "Técnicos",
   relatorios:   "Relatórios",
-  "ia-insights":"IA Insights",
   config:       "Configurações",
 };
 
@@ -40,6 +39,9 @@ function showSection(name) {
   }
   if (name === "relatorios") {
     renderRelatorios();
+  }
+  if (name === "config") {
+    renderConfiguracoes();
   }
   if (name === "mapa") {
     // O Leaflet pode não ter sido criado ainda (seção estava display:none e
@@ -151,6 +153,7 @@ let _tecnicosData = [];
 // ===== RELATÓRIOS — estado =====
 let _relTab    = "chamados";
 let _relChDados = [], _relAlDados = [], _relTelDados = [];
+let _relInDados = { top_condominios: [], categorias_whatsapp: [], totais: {} };
 
 // chamados já vistos — usado para detectar novos e disparar pulso/beep
 let _chamadosIdsVistos = new Set();
@@ -1734,7 +1737,7 @@ function _alRenderTabela(filtrados) {
           <td class="right">
             <div class="al-actions">
               ${it.status === "ativo" ? `
-              <button class="al-act-btn" data-al-action="resolver" data-al-key="${it.key}" title="Marcar como resolvido">
+              <button class="al-act-btn viewer-only-hide" data-al-action="resolver" data-al-key="${it.key}" title="Marcar como resolvido">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
               </button>` : ""}
             </div>
@@ -1851,7 +1854,7 @@ async function _alRenderPainel() {
     : `Aberto há ${_alFmtDuracao(Date.now() - new Date(it.criado_em).getTime())}`;
 
   const acoes = it.status === "ativo"
-    ? `<div class="ap-actions">
+    ? `<div class="ap-actions viewer-only-hide">
          <button class="btn btnAccent" data-al-action="resolver" data-al-key="${it.key}">Marcar como resolvido</button>
        </div>`
     : "";
@@ -2528,10 +2531,10 @@ function renderCliDetalhe(c) {
     </div>
 
     <div class="ch-det-acoes">
-      <button class="btn btn-sm" data-action="editar-condominio" data-id="${c.id}">Editar</button>
+      <button class="btn btn-sm viewer-only-hide" data-action="editar-condominio" data-id="${c.id}">Editar</button>
       ${c.ativo
-        ? `<button class="btn btn-sm btnDanger" data-action="inativar-condominio" data-id="${c.id}" data-nome="${_waEscaparHtml(c.nome).replaceAll('"', '&quot;')}">Inativar</button>`
-        : `<button class="btn btn-sm btnAccent" data-action="reativar-condominio" data-id="${c.id}">Reativar</button>`}
+        ? `<button class="btn btn-sm btnDanger viewer-only-hide" data-action="inativar-condominio" data-id="${c.id}" data-nome="${_waEscaparHtml(c.nome).replaceAll('"', '&quot;')}">Inativar</button>`
+        : `<button class="btn btn-sm btnAccent viewer-only-hide" data-action="reativar-condominio" data-id="${c.id}">Reativar</button>`}
       ${chAbertos > 0 ? `<button class="btn btn-sm" data-action="ir-chamados-condo" data-condo-id="${c.id}">Ver chamados</button>` : ""}
       ${!reservs.length ? `<button class="btn btn-sm" data-action="ver-condo" data-id="${c.id}">Ver telemetria</button>` : ""}
     </div>
@@ -2685,11 +2688,11 @@ function renderTecDetalhe(t) {
     </div>
 
     <div class="ch-det-acoes">
-      <button class="btn btn-sm ${t.disponivel ? "" : "btnAccent"}" data-action="toggle-tec-disp" data-id="${t.id}" data-disp="${t.disponivel ? "1" : "0"}">
+      <button class="btn btn-sm viewer-only-hide ${t.disponivel ? "" : "btnAccent"}" data-action="toggle-tec-disp" data-id="${t.id}" data-disp="${t.disponivel ? "1" : "0"}">
         ${t.disponivel ? "Marcar ocupado" : "Marcar disponível"}
       </button>
-      <button class="btn btn-sm" data-action="editar-tecnico" data-id="${t.id}">Editar</button>
-      <button class="btn btn-sm btnDanger" data-action="excluir-tecnico" data-id="${t.id}" data-nome="${_waEscaparHtml(t.nome)}">Excluir</button>
+      <button class="btn btn-sm viewer-only-hide" data-action="editar-tecnico" data-id="${t.id}">Editar</button>
+      <button class="btn btn-sm btnDanger viewer-only-hide" data-action="excluir-tecnico" data-id="${t.id}" data-nome="${_waEscaparHtml(t.nome)}">Excluir</button>
     </div>
   </div>`;
 }
@@ -3413,9 +3416,9 @@ function renderChDetalhe(ch) {
   const fechado   = ch.status === "fechado";
   const emAtend   = ch.status === "em_atendimento";
   const acoes = fechado
-    ? `<button class="btn btn-sm" data-action="reabrir-chamado" data-id="${ch.id}">↺ Reabrir</button>`
-    : `${!emAtend ? `<button class="btn btn-sm btnAccent" data-action="atender-chamado" data-id="${ch.id}">▶ Em atendimento</button>` : ""}
-       <button class="btn btn-sm" style="color:var(--ok);border-color:rgba(34,197,94,.3);" data-action="fechar-chamado" data-id="${ch.id}">✓ Fechar</button>`;
+    ? `<button class="btn btn-sm viewer-only-hide" data-action="reabrir-chamado" data-id="${ch.id}">↺ Reabrir</button>`
+    : `${!emAtend ? `<button class="btn btn-sm btnAccent viewer-only-hide" data-action="atender-chamado" data-id="${ch.id}">▶ Em atendimento</button>` : ""}
+       <button class="btn btn-sm viewer-only-hide" style="color:var(--ok);border-color:rgba(34,197,94,.3);" data-action="fechar-chamado" data-id="${ch.id}">✓ Fechar</button>`;
 
   col.innerHTML = `<div class="ch-detail">
     <div class="ch-det-head">
@@ -3437,10 +3440,10 @@ function renderChDetalhe(ch) {
           ${ch.condominio_nome
             ? `<span style="display:flex;align-items:center;gap:6px;">
                  ${_waEscaparHtml(ch.condominio_nome)}
-                 <button class="btn btn-sm" style="font-size:10px;padding:1px 6px;opacity:.6;"
+                 <button class="btn btn-sm viewer-only-hide" style="font-size:10px;padding:1px 6px;opacity:.6;"
                    data-action="vincular-ch-condo" data-ch-id="${ch.id}">trocar</button>
                </span>`
-            : `<button class="btn btn-sm btnAccent" style="font-size:11px;"
+            : `<button class="btn btn-sm btnAccent viewer-only-hide" style="font-size:11px;"
                  data-action="vincular-ch-condo" data-ch-id="${ch.id}">🔗 Vincular condomínio</button>`}
         </div>
         ${ch.responsavel_nome  ? `<div class="ch-met-row"><span class="ch-met-lbl">Responsável</span><span>${_waEscaparHtml(ch.responsavel_nome)}</span></div>` : ""}
@@ -3449,10 +3452,10 @@ function renderChDetalhe(ch) {
           ${ch.tecnico_nome
             ? `<span style="display:flex;align-items:center;gap:6px;">
                  ${_waEscaparHtml(ch.tecnico_nome)}
-                 <button class="btn btn-sm" style="font-size:10px;padding:1px 6px;opacity:.6;"
+                 <button class="btn btn-sm viewer-only-hide" style="font-size:10px;padding:1px 6px;opacity:.6;"
                    data-action="vincular-ch-tecnico" data-ch-id="${ch.id}">trocar</button>
                </span>`
-            : `<button class="btn btn-sm" style="font-size:11px;"
+            : `<button class="btn btn-sm viewer-only-hide" style="font-size:11px;"
                  data-action="vincular-ch-tecnico" data-ch-id="${ch.id}">Atribuir técnico</button>`}
         </div>
         ${ch.categoria         ? `<div class="ch-met-row"><span class="ch-met-lbl">Categoria</span><span class="ch-cat-badge">${_chCatNome[ch.categoria]||ch.categoria}</span></div>` : ""}
@@ -4373,7 +4376,7 @@ function renderDrawerChamados() {
         </div>
         ${ch.descricao ? `<div style="font-size:12px;color:var(--muted);line-height:1.5;">${ch.descricao.slice(0, 200)}${ch.descricao.length > 200 ? "…" : ""}</div>` : ""}
         ${ch.status !== "fechado" ? `
-        <div class="dp-chamado-actions">
+        <div class="dp-chamado-actions viewer-only-hide">
           ${ch.status === "aberto" ? `<button class="btn btn-sm" data-action="atender-chamado" data-id="${ch.id}">Em atendimento</button>` : ""}
           <button class="btn btn-sm" data-action="fechar-chamado" data-id="${ch.id}">Fechar</button>
         </div>` : ""}
@@ -6220,7 +6223,46 @@ function renderSecaoMapa() {
 //  RELATÓRIOS
 // ============================================================
 let _relCharts  = {};  // instâncias ApexCharts — keyed by container id
-let _relGerado  = { chamados: false, alertas: false, telemetria: false };
+let _relGerado  = { chamados: false, alertas: false, telemetria: false, insights: false };
+
+// Formatadores compartilhados (centralização — antes cada tabela formatava à sua maneira)
+const _relFmtData     = iso => iso ? new Date(iso).toLocaleDateString("pt-BR") : "-";
+const _relFmtTipo     = t   => (t || "").replaceAll("_", " ").replace(/\b\w/g, c => c.toUpperCase());
+const _relFmtTxt      = (t, max = 28) => { const s = String(t || ""); return s.length > max ? s.slice(0, max) + "…" : s; };
+const _relTipoClasse  = tipo => /muito_baixo|offline/i.test(tipo || "") ? "b-bad"
+                              : /baixo/i.test(tipo || "")              ? "b-warn"
+                              : "b-ok";
+const _relCategoriaLabel = c => ({
+  vazamento: "Vazamento", bomba_falha: "Falha de bomba", nivel_baixo: "Nível baixo",
+  sem_agua: "Sem água", ruido: "Ruído", manutencao: "Manutenção", outro: "Outro",
+  sem_classificacao: "Sem classificação",
+})[c] || _relFmtTipo(c);
+
+// Fetch comum: monta querystring a partir de IDs, gerencia botão "Aguarde…", trata erro.
+// Antes cada gerarRel* duplicava esse boilerplate.
+async function _relFetch({ endpoint, btnAction, ids }) {
+  const btn = document.querySelector(`[data-rel-action='${btnAction}']`);
+  if (btn) { btn.textContent = "Aguarde…"; btn.disabled = true; }
+  const params = new URLSearchParams();
+  const v = id => document.getElementById(id)?.value || "";
+  Object.entries(ids).forEach(([key, id]) => {
+    const val = v(id);
+    if (val) params.set(key, key === "device_id" ? val.trim() : val);
+  });
+  try {
+    const r = await fetch(`${endpoint}?${params}`, { headers: authHeaders() });
+    if (!r.ok) throw new Error(r.status);
+    return await r.json();
+  } catch (e) {
+    alert(`Erro ao gerar relatório (${endpoint}).`);
+    return null;
+  } finally {
+    if (btn) { btn.textContent = "Gerar"; btn.disabled = false; }
+  }
+}
+
+// Conta registros consistente em todas as abas (antes algumas diziam "linha", outras "registro")
+const _relCount = n => `${n} registro${n !== 1 ? "s" : ""}`;
 
 function _relDataPadrao() {
   const hoje = new Date();
@@ -6244,42 +6286,43 @@ function _relPreencherTecnicoSelect() {
     tecs.map(t => `<option value="${t.id}">${_waEscaparHtml(t.nome)}</option>`).join("");
 }
 
+// Mapa tab → { pane, body, hasData, fn } — centraliza o switch das 4 abas
+const _REL_TABS = {
+  chamados:   { pane: "relPaneChamados",   body: "relBodyChamados",   has: () => _relChDados.length > 0,           fn: () => gerarRelChamados() },
+  alertas:    { pane: "relPaneAlertas",    body: "relBodyAlertas",    has: () => _relAlDados.length > 0,           fn: () => gerarRelAlertas() },
+  telemetria: { pane: "relPaneTelemetria", body: "relBodyTelemetria", has: () => _relTelDados.length > 0,          fn: () => gerarRelTelemetria() },
+  insights:   { pane: "relPaneInsights",   body: "relBodyInsights",   has: () => _relInDados.top_condominios.length > 0, fn: () => gerarRelInsights() },
+};
+
 function _relMostrarTab(tab, autoGerar) {
+  const conf = _REL_TABS[tab];
+  if (!conf) return;
   _relTab = tab;
+
   document.querySelectorAll("#relTabs .wa-tab").forEach(btn =>
     btn.classList.toggle("is-active", btn.dataset.relTab === tab)
   );
   document.querySelectorAll(".rel-tab-pane").forEach(p => p.style.display = "none");
-  const filterPane = document.getElementById(
-    tab === "chamados" ? "relPaneChamados" : tab === "alertas" ? "relPaneAlertas" : "relPaneTelemetria"
-  );
+  const filterPane = document.getElementById(conf.pane);
   if (filterPane) filterPane.style.display = "";
 
+  // Body sempre visível ao entrar na aba — antes ficava em branco até dados chegarem
   document.querySelectorAll(".rel-body").forEach(b => b.style.display = "none");
-  const hasData =
-    tab === "chamados"  ? _relChDados.length  > 0 :
-    tab === "alertas"   ? _relAlDados.length  > 0 : _relTelDados.length > 0;
-  if (hasData) {
-    const bodyEl = document.getElementById(
-      tab === "chamados" ? "relBodyChamados" : tab === "alertas" ? "relBodyAlertas" : "relBodyTelemetria"
-    );
-    if (bodyEl) bodyEl.style.display = "";
-  }
+  const bodyEl = document.getElementById(conf.body);
+  if (bodyEl) bodyEl.style.display = "";
 
   // auto-gera na primeira visita a cada aba
   if (autoGerar && !_relGerado[tab]) {
     _relGerado[tab] = true;
-    if (tab === "chamados")   gerarRelChamados();
-    if (tab === "alertas")    gerarRelAlertas();
-    if (tab === "telemetria") gerarRelTelemetria();
+    conf.fn();
   }
 }
 
 function renderRelatorios() {
   const { ini, fim } = _relDataPadrao();
-  ["relChIni","relAlIni","relTelIni"].forEach(id => { const el = document.getElementById(id); if (el && !el.value) el.value = ini; });
-  ["relChFim","relAlFim","relTelFim"].forEach(id => { const el = document.getElementById(id); if (el && !el.value) el.value = fim; });
-  _relPreencherCondoSelects(["relChCondo","relAlCondo","relTelCondo"]);
+  ["relChIni","relAlIni","relTelIni","relInIni"].forEach(id => { const el = document.getElementById(id); if (el && !el.value) el.value = ini; });
+  ["relChFim","relAlFim","relTelFim","relInFim"].forEach(id => { const el = document.getElementById(id); if (el && !el.value) el.value = fim; });
+  _relPreencherCondoSelects(["relChCondo","relAlCondo","relTelCondo","relInCondo"]);
   _relPreencherTecnicoSelect();
   _relMostrarTab(_relTab, true);
 }
@@ -6386,27 +6429,17 @@ function _relBarOpts(categories, values, colors) {
 }
 
 async function gerarRelChamados() {
-  const btn = document.querySelector("[data-rel-action='gerar-chamados']");
-  if (btn) { btn.textContent = "Aguarde…"; btn.disabled = true; }
-
-  const params = new URLSearchParams();
-  const v = id => document.getElementById(id)?.value || "";
-  if (v("relChIni"))       params.set("data_ini",      v("relChIni"));
-  if (v("relChFim"))       params.set("data_fim",       v("relChFim"));
-  if (v("relChCondo"))     params.set("condominio_id",  v("relChCondo"));
-  if (v("relChStatus"))    params.set("status",         v("relChStatus"));
-  if (v("relChPrioridade"))params.set("prioridade",     v("relChPrioridade"));
-  if (v("relChTecnico"))   params.set("tecnico_id",     v("relChTecnico"));
-
-  try {
-    const r = await fetch("/relatorios/chamados?" + params, { headers: authHeaders() });
-    if (!r.ok) throw new Error(r.status);
-    _relChDados = await r.json();
-  } catch (e) {
-    alert("Erro ao gerar relatório de chamados."); return;
-  } finally {
-    if (btn) { btn.textContent = "Gerar"; btn.disabled = false; }
-  }
+  const data = await _relFetch({
+    endpoint: "/relatorios/chamados",
+    btnAction: "gerar-chamados",
+    ids: {
+      data_ini: "relChIni", data_fim: "relChFim",
+      condominio_id: "relChCondo", status: "relChStatus",
+      prioridade: "relChPrioridade", tecnico_id: "relChTecnico",
+    },
+  });
+  if (!data) return;
+  _relChDados = data;
 
   const dados = _relChDados;
   const total    = dados.length;
@@ -6457,7 +6490,7 @@ async function gerarRelChamados() {
   const _chHeadDia = document.getElementById("relChHeadDia");
   if (_chHeadDia) _chHeadDia.innerHTML = `<span>Chamados por dia</span>${_relBadgePeriodo("relChIni","relChFim")}`;
 
-  setTimeout(() => {
+  requestAnimationFrame(() => {
     _relChart("relChChartDia", _relAreaOpts("Chamados",
       dias.map(d => [new Date(d + "T12:00:00").getTime(), porDiaMap[d]]), "#f0b014"));
 
@@ -6465,7 +6498,7 @@ async function gerarRelChamados() {
       _relChart("relChChartStatus", _relDonutOpts(stLabels, stVals, stColors));
 
     _relChart("relChChartPrio", _relBarOpts(prioLabels, prioVals, prioColors));
-  }, 60);
+  });
 
   const top5tbody = document.getElementById("relChTop5Body");
   if (top5tbody) {
@@ -6489,44 +6522,35 @@ async function gerarRelChamados() {
   const stClass   = s => s==="fechado"?"b-ok":s==="em_atendimento"?"b-warn":"b-bad";
   const tbody = document.getElementById("relChTbody");
   if (tbody) tbody.innerHTML = dados.map(d => `<tr>
-    <td>${d.id}</td>
+    <td>CH-${d.id}</td>
     <td>${_waEscaparHtml(d.titulo||"")}</td>
     <td>${_waEscaparHtml(d.condominio_nome||"-")}</td>
     <td>${_waEscaparHtml(d.tecnico_nome||"-")}</td>
-    <td><span class="badge ${prioClass(d.prioridade)}">${(d.prioridade||"-").replace("_"," ")}</span></td>
-    <td><span class="badge ${stClass(d.status)}">${(d.status||"-").replace("_"," ")}</span></td>
-    <td>${d.criado_em?new Date(d.criado_em).toLocaleDateString("pt-BR"):"-"}</td>
+    <td>${d.categoria?_waEscaparHtml(_relCategoriaLabel(d.categoria)):"-"}</td>
+    <td><span class="badge ${prioClass(d.prioridade)}">${_relFmtTipo(d.prioridade)||"-"}</span></td>
+    <td><span class="badge ${stClass(d.status)}">${_relFmtTipo(d.status)||"-"}</span></td>
+    <td>${_relFmtData(d.criado_em)}</td>
     <td>${d.sla_horas!=null?_relSlaFmt(Number(d.sla_horas)):"-"}</td>
   </tr>`).join("");
 
   const count = document.getElementById("relChCount");
-  if (count) count.textContent = `${total} registro${total!==1?"s":""}`;
+  if (count) count.textContent = _relCount(total);
   const exChCount = document.getElementById("relExChCount");
   if (exChCount) exChCount.textContent = `(${total})`;
   _relMostrarExport();
 }
 
 async function gerarRelAlertas() {
-  const btn = document.querySelector("[data-rel-action='gerar-alertas']");
-  if (btn) { btn.textContent = "Aguarde…"; btn.disabled = true; }
-
-  const params = new URLSearchParams();
-  const v = id => document.getElementById(id)?.value || "";
-  if (v("relAlIni"))   params.set("data_ini",     v("relAlIni"));
-  if (v("relAlFim"))   params.set("data_fim",      v("relAlFim"));
-  if (v("relAlCondo")) params.set("condominio_id", v("relAlCondo"));
-  if (v("relAlTipo"))  params.set("tipo",          v("relAlTipo"));
-  if (v("relAlStatus"))params.set("status",        v("relAlStatus"));
-
-  try {
-    const r = await fetch("/relatorios/alertas?" + params, { headers: authHeaders() });
-    if (!r.ok) throw new Error(r.status);
-    _relAlDados = await r.json();
-  } catch (e) {
-    alert("Erro ao gerar relatório de alertas."); return;
-  } finally {
-    if (btn) { btn.textContent = "Gerar"; btn.disabled = false; }
-  }
+  const data = await _relFetch({
+    endpoint: "/relatorios/alertas",
+    btnAction: "gerar-alertas",
+    ids: {
+      data_ini: "relAlIni", data_fim: "relAlFim",
+      condominio_id: "relAlCondo", tipo: "relAlTipo", status: "relAlStatus",
+    },
+  });
+  if (!data) return;
+  _relAlDados = data;
 
   const dados = _relAlDados;
   const total     = dados.length;
@@ -6574,7 +6598,7 @@ async function gerarRelAlertas() {
   const top5nomes  = top5res.map(([n]) => n.length > 22 ? n.slice(0,22)+"…" : n);
   const top5totais = top5res.map(([,d]) => d.total);
 
-  setTimeout(() => {
+  requestAnimationFrame(() => {
     _relChart("relAlChartDia", _relAreaOpts("Incidentes",
       dias.map(d=>[new Date(d+"T12:00:00").getTime(), porDiaMap[d]]), "#ef4444"));
     if (tipoVals.length && tipoVals.some(v=>v>0))
@@ -6592,7 +6616,7 @@ async function gerarRelAlertas() {
         grid: { borderColor: "rgba(255,255,255,.04)", strokeDashArray: 3, padding: { left: 12, right: 12, bottom: 4, top: 4 } },
         tooltip: { theme: "dark" },
       });
-  }, 60);
+  });
 
   const top5tbody = document.getElementById("relAlTop5Body");
   if (top5tbody) {
@@ -6615,42 +6639,34 @@ async function gerarRelAlertas() {
 
   const tbody = document.getElementById("relAlTbody");
   if (tbody) tbody.innerHTML = dados.map(d => `<tr>
-    <td>${d.id}</td>
-    <td>${_waEscaparHtml((d.tipo||"").replaceAll("_"," "))}</td>
+    <td>TEL-${d.id}</td>
+    <td><span class="badge ${_relTipoClasse(d.tipo)}">${_relFmtTipo(d.tipo)||"-"}</span></td>
     <td style="max-width:240px;white-space:normal;">${_waEscaparHtml(d.mensagem||"")}</td>
     <td>${_waEscaparHtml(d.reservatorio_nome||"-")}</td>
-    <td><span class="badge ${d.status==="resolvido"?"b-ok":"b-bad"}">${d.status||"-"}</span></td>
-    <td>${d.criado_em?new Date(d.criado_em).toLocaleDateString("pt-BR"):"-"}</td>
+    <td>${_waEscaparHtml(d.condominio_nome||"-")}</td>
+    <td><span class="badge ${d.status==="resolvido"?"b-ok":"b-bad"}">${_relFmtTipo(d.status)||"-"}</span></td>
+    <td>${_relFmtData(d.criado_em)}</td>
     <td>${d.tempo_horas!=null?_relSlaFmt(Number(d.tempo_horas)):"-"}</td>
   </tr>`).join("");
 
   const count = document.getElementById("relAlCount");
-  if (count) count.textContent = `${total} registro${total!==1?"s":""}`;
+  if (count) count.textContent = _relCount(total);
   const exAlCount = document.getElementById("relExAlCount");
   if (exAlCount) exAlCount.textContent = `(${total})`;
   _relMostrarExport();
 }
 
 async function gerarRelTelemetria() {
-  const btn = document.querySelector("[data-rel-action='gerar-telemetria']");
-  if (btn) { btn.textContent = "Aguarde…"; btn.disabled = true; }
-
-  const params = new URLSearchParams();
-  const v = id => document.getElementById(id)?.value || "";
-  if (v("relTelIni"))   params.set("data_ini",     v("relTelIni"));
-  if (v("relTelFim"))   params.set("data_fim",      v("relTelFim"));
-  if (v("relTelCondo")) params.set("condominio_id", v("relTelCondo"));
-  if (v("relTelDevice"))params.set("device_id",     v("relTelDevice").trim());
-
-  try {
-    const r = await fetch("/relatorios/telemetria?" + params, { headers: authHeaders() });
-    if (!r.ok) throw new Error(r.status);
-    _relTelDados = await r.json();
-  } catch (e) {
-    alert("Erro ao gerar relatório de telemetria."); return;
-  } finally {
-    if (btn) { btn.textContent = "Gerar"; btn.disabled = false; }
-  }
+  const data = await _relFetch({
+    endpoint: "/relatorios/telemetria",
+    btnAction: "gerar-telemetria",
+    ids: {
+      data_ini: "relTelIni", data_fim: "relTelFim",
+      condominio_id: "relTelCondo", device_id: "relTelDevice",
+    },
+  });
+  if (!data) return;
+  _relTelDados = data;
 
   const dados = _relTelDados;
   const total      = dados.length;
@@ -6698,35 +6714,36 @@ async function gerarRelTelemetria() {
     .sort((a,b) => a.avg - b.avg)  // menor nível primeiro = mais críticos no topo
     .slice(0, 8);
 
-  setTimeout(() => {
+  requestAnimationFrame(() => {
     _relChart("relTelChartDia", Object.assign(_relAreaOpts("Nível médio (%)", seriesData, "#4a78f7"), {
       yaxis: { min:0, max:100, labels: { ..._REL_YLBL, formatter: v=>v+"%" } },
       tooltip: { theme:"dark", x:{ format:"dd/MM/yyyy" }, y:{ formatter: v=>v+"%" } },
     }));
     if (devRank.length)
       _relChart("relTelChartDev", {
-        chart: { type: "bar", height: "100%", toolbar: { show: false }, background: "transparent" },
+        chart: { type: "bar", height: "100%", toolbar: { show: false }, background: "transparent", animations: { speed: 450 } },
         series: [{ name: "Nível médio", data: devRank.map(d => d.avg) }],
         xaxis: {
-          categories: devRank.map(d => d.nome.length>20 ? d.nome.slice(0,20)+"…" : d.nome),
-          labels: _REL_XLBL, axisBorder: { show: false }, axisTicks: { show: false },
+          categories: devRank.map(d => d.nome.length>16 ? d.nome.slice(0,16)+"…" : d.nome),
+          labels: { ..._REL_XLBL, rotate: -25, hideOverlappingLabels: false, trim: false },
+          axisBorder: { show: false }, axisTicks: { show: false },
         },
-        yaxis: { min:0, max:100, labels: { ..._REL_YLBL, formatter: v=>v+"%" } },
-        plotOptions: { bar: { distributed: true, horizontal: true, borderRadius: 3, barHeight: "42%" } },
-        dataLabels: { enabled: true, formatter: v=>v+"%", style: { fontSize:"11px", fontWeight:"700", colors:["#fff"] }, textAnchor:"start", offsetX:6 },
-        colors: devRank.map(d => d.avg<30?"#ef4444":d.avg<60?"#f0b014":"#4ade80"),
+        yaxis: { min: 0, max: 100, labels: { ..._REL_YLBL, formatter: v => v + "%" } },
+        plotOptions: { bar: { distributed: true, borderRadius: 6, columnWidth: "48%", dataLabels: { position: "top" } } },
+        dataLabels: { enabled: true, formatter: v => v + "%", offsetY: -18, style: { fontSize: "11px", fontWeight: "700", colors: ["#eef0fb"] } },
+        colors: devRank.map(d => d.avg < 30 ? "#ef4444" : d.avg < 60 ? "#f0b014" : "#4ade80"),
         legend: { show: false },
         grid: { borderColor: "rgba(255,255,255,.04)", strokeDashArray: 3, padding: { left: 12, right: 12, bottom: 4, top: 4 } },
-        tooltip: { theme:"dark", y:{ formatter: v=>v+"%" } },
+        tooltip: { theme: "dark", y: { formatter: v => v + "%" } },
       });
-  }, 60);
+  });
 
   const tbody = document.getElementById("relTelTbody");
   if (tbody) tbody.innerHTML = dados.map(d => {
     const med = Number(d.nivel_medio);
     const cls = med<30?"b-bad":med<60?"b-warn":"b-ok";
     return `<tr>
-      <td>${d.dia||"-"}</td>
+      <td>${_relFmtData(d.dia)}</td>
       <td style="font-family:monospace;font-size:11.5px;">${_waEscaparHtml(d.device_id||"-")}</td>
       <td>${_waEscaparHtml(d.reservatorio_nome||"-")}</td>
       <td>${_waEscaparHtml(d.condominio_nome||"-")}</td>
@@ -6739,10 +6756,75 @@ async function gerarRelTelemetria() {
   }).join("");
 
   const count = document.getElementById("relTelCount");
-  if (count) count.textContent = `${total} linha${total!==1?"s":""}`;
+  if (count) count.textContent = _relCount(total);
   const exTelCount = document.getElementById("relExTelCount");
   if (exTelCount) exTelCount.textContent = `(${total})`;
   _relMostrarExport();
+}
+
+async function gerarRelInsights() {
+  const data = await _relFetch({
+    endpoint: "/relatorios/insights",
+    btnAction: "gerar-insights",
+    ids: { data_ini: "relInIni", data_fim: "relInFim", condominio_id: "relInCondo" },
+  });
+  if (!data) return;
+  _relInDados = data;
+
+  const { top_condominios = [], categorias_whatsapp = [], totais = {} } = data;
+
+  const bodyEl = document.getElementById("relBodyInsights");
+  if (bodyEl) bodyEl.style.display = "";
+
+  // KPIs do header
+  const kpiEl = document.getElementById("relInKpis");
+  if (kpiEl) kpiEl.innerHTML =
+    _relKpiCard(_SVG_FILE,  "Chamados no período", totais.chamados_total ?? 0, "neutral") +
+    _relKpiCard(_SVG_ALERT, "Alertas no período",  totais.alertas_total  ?? 0, totais.alertas_total > 0 ? "warn" : "neutral") +
+    _relKpiCard(_SVG_BAR,   "Msgs WhatsApp",        totais.msgs_total     ?? 0, "neutral") +
+    _relKpiCard(_SVG_CPU,   "Condomínios c/ problemas", top_condominios.length, top_condominios.length > 0 ? "warn" : "ok");
+
+  // Header com badge de período
+  const headTop = document.getElementById("relInHeadTop");
+  if (headTop) headTop.innerHTML = `<span>Condomínios mais problemáticos</span>${_relBadgePeriodo("relInIni","relInFim")}`;
+  const headCat = document.getElementById("relInHeadCat");
+  if (headCat) headCat.innerHTML = `<span>Categorias mais comuns no WhatsApp</span>${_relBadgePeriodo("relInIni","relInFim")}`;
+
+  // Top condomínios — tabela com barra de score
+  const tbodyTop = document.getElementById("relInTopBody");
+  if (tbodyTop) {
+    if (top_condominios.length === 0) {
+      tbodyTop.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--text-dim);padding:24px 0;font-size:12px;">Sem dados no período</td></tr>`;
+    } else {
+      const maxScore = top_condominios[0].score || 1;
+      tbodyTop.innerHTML = top_condominios.slice(0, 5).map(c => {
+        const pct = Math.round((c.score / maxScore) * 100);
+        return `<tr>
+          <td>
+            <div style="font-size:12px;line-height:1.3;">${_waEscaparHtml(c.nome)}</div>
+            <div class="rel-prog"><div class="rel-prog-fill" style="width:${pct}%;background:#ef4444;"></div></div>
+          </td>
+          <td style="text-align:right;font-weight:700;">${c.score}</td>
+          <td style="text-align:right;">${c.chamados_abertos > 0 ? `<span class="badge b-bad">${c.chamados_abertos}/${c.chamados_total}</span>` : c.chamados_total}</td>
+          <td style="text-align:right;">${c.alertas_ativos > 0 ? `<span class="badge b-warn">${c.alertas_ativos}/${c.alertas_total}</span>` : c.alertas_total}</td>
+          <td style="text-align:right;">${c.sla_horas > 0 ? _relSlaFmt(Number(c.sla_horas)) : "-"}</td>
+        </tr>`;
+      }).join("");
+    }
+  }
+
+  // Donut de categorias
+  requestAnimationFrame(() => {
+    if (categorias_whatsapp.length === 0) {
+      const el = document.getElementById("relInChartCat");
+      if (el) el.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-dim);font-size:12px;">Sem mensagens classificadas no período</div>`;
+      return;
+    }
+    const labels = categorias_whatsapp.map(c => _relCategoriaLabel(c.categoria));
+    const values = categorias_whatsapp.map(c => c.total);
+    const colors = ["#ef4444","#f0b014","#4a78f7","#8b5cf6","#4ade80","#f97316","#06b6d4","#94a3b8"];
+    _relChart("relInChartCat", _relDonutOpts(labels, values, colors));
+  });
 }
 
 function _relMostrarExport() {
@@ -6760,6 +6842,451 @@ function _relExportarCsv(rows, keys, labels, filename) {
   const a    = document.createElement("a");
   a.href=url; a.download=filename; a.click();
   URL.revokeObjectURL(url);
+}
+
+// ============================================================
+//  CONFIGURAÇÕES
+// ============================================================
+let _cfgTab = "conta";
+let _cfgConfigs = null;     // { valores, definicoes, padroes } do GET /admin/configuracoes
+let _cfgUsuariosDados = [];
+let _cfgCarregado = { conta: false, usuarios: false, ia: false, notificacoes: false, integracoes: false };
+
+const _CFG_TABS = {
+  conta:        { body: "cfgBodyConta",        carregar: () => _cfgCarregarConta() },
+  usuarios:     { body: "cfgBodyUsuarios",     carregar: () => _cfgCarregarUsuarios() },
+  ia:           { body: "cfgBodyIa",           carregar: () => _cfgCarregarConfigs() },
+  notificacoes: { body: "cfgBodyNotificacoes", carregar: () => _cfgCarregarConfigs() },
+  integracoes:  { body: "cfgBodyIntegracoes",  carregar: () => _cfgCarregarIntegracoes() },
+};
+
+function _cfgMostrarTab(tab) {
+  const conf = _CFG_TABS[tab];
+  if (!conf) return;
+  _cfgTab = tab;
+  document.querySelectorAll("#cfgTabs .wa-tab").forEach(btn =>
+    btn.classList.toggle("is-active", btn.dataset.cfgTab === tab)
+  );
+  document.querySelectorAll(".cfg-body").forEach(b => b.style.display = "none");
+  const bodyEl = document.getElementById(conf.body);
+  if (bodyEl) bodyEl.style.display = "";
+  if (!_cfgCarregado[tab]) {
+    _cfgCarregado[tab] = true;
+    conf.carregar();
+  }
+}
+
+// Decodifica id do usuário do JWT (pra marcar "Você" e bloquear auto-remoção)
+function _cfgMyId() {
+  try {
+    const token = localStorage.getItem("token");
+    if (!token) return null;
+    return JSON.parse(atob(token.split(".")[1])).id;
+  } catch { return null; }
+}
+
+function renderConfiguracoes() {
+  // Mostra/esconde tabs que exigem master admin
+  ["usuarios","ia","notificacoes","integracoes"].forEach(t => {
+    const btn = document.querySelector(`[data-cfg-tab="${t}"]`);
+    if (btn) btn.style.display = _isMaster ? "" : "none";
+  });
+  // Se não for master e estava numa tab restrita, volta pra Conta
+  if (!_isMaster && _cfgTab !== "conta") _cfgTab = "conta";
+  _cfgMostrarTab(_cfgTab);
+}
+
+function _cfgMostrarMsg(elId, texto, cls) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  el.textContent = texto || "";
+  el.className = "cfg-msg" + (cls ? " " + cls : "");
+  if (texto) setTimeout(() => { if (el.textContent === texto) el.textContent = ""; }, 4000);
+}
+
+// ── CONTA ────────────────────────────────────────────────────────────────────
+async function _cfgCarregarConta() {
+  const el = document.getElementById("cfgDispLista");
+  if (!el) return;
+  try {
+    const r = await fetch("/auth/dispositivos", { headers: authHeaders() });
+    if (!r.ok) throw new Error(r.status);
+    const lista = await r.json();
+    if (!lista.length) {
+      el.innerHTML = `<div class="cfg-empty">Nenhum dispositivo confiável.</div>`;
+      return;
+    }
+    el.innerHTML = lista.map(d => {
+      const criado = new Date(d.criado_em).toLocaleDateString("pt-BR");
+      const expira = new Date(d.expires_at).toLocaleDateString("pt-BR");
+      return `<div class="cfg-disp-item ${d.atual ? "atual" : ""}">
+        <div class="cfg-disp-info">
+          <div>Dispositivo confiável ${d.atual ? '<span class="cfg-disp-tag">Este</span>' : ''}</div>
+          <div class="cfg-disp-meta">Confiável desde ${criado} · expira em ${expira}</div>
+        </div>
+        ${d.atual ? '' : `<button class="btn btn-sm" data-cfg-action="revogar-disp" data-id="${d.id}">Revogar</button>`}
+      </div>`;
+    }).join("");
+  } catch (e) {
+    el.innerHTML = `<div class="cfg-empty">Erro ao carregar dispositivos.</div>`;
+  }
+}
+
+async function _cfgTrocarSenha() {
+  const atual = document.getElementById("cfgSenhaAtual")?.value;
+  const nova  = document.getElementById("cfgSenhaNova")?.value;
+  const conf  = document.getElementById("cfgSenhaNovaConf")?.value;
+  if (!atual || !nova || !conf) return _cfgMostrarMsg("cfgSenhaMsg", "Preencha todos os campos", "err");
+  if (nova !== conf) return _cfgMostrarMsg("cfgSenhaMsg", "Senha nova e confirmação não conferem", "err");
+  if (nova.length < 6) return _cfgMostrarMsg("cfgSenhaMsg", "Mínimo 6 caracteres", "err");
+
+  try {
+    const r = await fetch("/auth/trocar-senha", {
+      method: "POST",
+      headers: { ...authHeaders(), "Content-Type": "application/json" },
+      body: JSON.stringify({ senha_atual: atual, senha_nova: nova }),
+    });
+    const data = await r.json();
+    if (!r.ok) return _cfgMostrarMsg("cfgSenhaMsg", data.error || "Erro ao trocar senha", "err");
+    _cfgMostrarMsg("cfgSenhaMsg", "Senha atualizada com sucesso", "ok");
+    ["cfgSenhaAtual","cfgSenhaNova","cfgSenhaNovaConf"].forEach(id => { const el=document.getElementById(id); if(el) el.value=""; });
+  } catch (e) {
+    _cfgMostrarMsg("cfgSenhaMsg", "Erro de conexão", "err");
+  }
+}
+
+async function _cfgRevogarDispositivo(id) {
+  if (!confirm("Revogar este dispositivo? Ele exigirá 2FA no próximo acesso.")) return;
+  try {
+    const r = await fetch(`/auth/dispositivos/${id}`, { method: "DELETE", headers: authHeaders() });
+    if (!r.ok) throw new Error(r.status);
+    _cfgCarregarConta();
+  } catch (e) {
+    alert("Erro ao revogar dispositivo.");
+  }
+}
+
+async function _cfgSairTodos() {
+  if (!confirm("Sair de TODOS os dispositivos? Isso vai forçar 2FA em todos os próximos acessos seus.")) return;
+  try {
+    const r = await fetch("/auth/dispositivos", { method: "DELETE", headers: authHeaders() });
+    if (!r.ok) throw new Error(r.status);
+    _cfgCarregarConta();
+    alert("Dispositivos revogados com sucesso.");
+  } catch (e) {
+    alert("Erro ao revogar dispositivos.");
+  }
+}
+
+// ── CONFIGS GLOBAIS (IA + Notificações) ──────────────────────────────────────
+async function _cfgCarregarConfigs() {
+  if (_cfgConfigs) { _cfgAplicarConfigsUI(); return; }
+  try {
+    const r = await fetch("/admin/configuracoes", { headers: authHeaders() });
+    if (!r.ok) throw new Error(r.status);
+    _cfgConfigs = await r.json();
+    _cfgAplicarConfigsUI();
+  } catch (e) {
+    console.error("[cfg] erro ao carregar configs:", e);
+  }
+}
+
+function _cfgAplicarConfigsUI() {
+  const v = _cfgConfigs?.valores || {};
+  // IA
+  const enabled = document.getElementById("cfgIaEnabled");   if (enabled) enabled.checked = v["ia.enabled"] === "true";
+  const modelo  = document.getElementById("cfgIaModelo");    if (modelo)  modelo.value   = v["ia.modelo"] || "gpt-4o-mini";
+  const prompt  = document.getElementById("cfgIaPrompt");    if (prompt)  prompt.value   = v["ia.system_prompt"] || (_cfgConfigs?.padroes?.["ia.system_prompt"] || "");
+  // Notificações
+  const email   = document.getElementById("cfgEmailDestinatario"); if (email)   email.value   = v["alertas.email_destinatario"] || "";
+  const interv  = document.getElementById("cfgOfflineIntervalo");  if (interv)  interv.value  = v["jobs.offline_intervalo_min"] || "1";
+}
+
+async function _cfgSalvarIa() {
+  const payload = {
+    "ia.enabled":       document.getElementById("cfgIaEnabled")?.checked ? "true" : "false",
+    "ia.modelo":        document.getElementById("cfgIaModelo")?.value || "gpt-4o-mini",
+    "ia.system_prompt": document.getElementById("cfgIaPrompt")?.value || "",
+  };
+  await _cfgEnviarConfigs(payload, "cfgIaMsg", "Configurações de IA salvas");
+}
+
+async function _cfgSalvarNotificacoes() {
+  const payload = {
+    "alertas.email_destinatario": document.getElementById("cfgEmailDestinatario")?.value || "",
+    "jobs.offline_intervalo_min": document.getElementById("cfgOfflineIntervalo")?.value || "1",
+  };
+  await _cfgEnviarConfigs(payload, "cfgNotifMsg", "Notificações salvas");
+}
+
+async function _cfgEnviarConfigs(payload, msgId, sucessoTxt) {
+  try {
+    const r = await fetch("/admin/configuracoes", {
+      method: "PATCH",
+      headers: { ...authHeaders(), "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const data = await r.json();
+    if (!r.ok) return _cfgMostrarMsg(msgId, data.error || "Erro ao salvar", "err");
+    _cfgConfigs = { ..._cfgConfigs, valores: data.valores };
+    _cfgMostrarMsg(msgId, sucessoTxt, "ok");
+  } catch (e) {
+    _cfgMostrarMsg(msgId, "Erro de conexão", "err");
+  }
+}
+
+function _cfgRestaurarPrompt() {
+  const padrao = _cfgConfigs?.padroes?.["ia.system_prompt"];
+  if (!padrao) return;
+  if (!confirm("Restaurar o system prompt para o padrão? Sua versão atual será substituída.")) return;
+  const el = document.getElementById("cfgIaPrompt");
+  if (el) el.value = padrao;
+}
+
+// ── INTEGRAÇÕES ──────────────────────────────────────────────────────────────
+async function _cfgCarregarIntegracoes() {
+  const grid = document.getElementById("cfgIntGrid");
+  if (!grid) return;
+  grid.innerHTML = `<div class="cfg-empty">Verificando conexões…</div>`;
+  try {
+    const r = await fetch("/admin/integracoes/status", { headers: authHeaders() });
+    if (!r.ok) throw new Error(r.status);
+    const s = await r.json();
+    grid.innerHTML = _cfgRenderIntegracoes(s);
+  } catch (e) {
+    grid.innerHTML = `<div class="cfg-empty">Erro ao verificar conexões.</div>`;
+  }
+}
+
+function _cfgIntCard({ titulo, icone, status, mensagem, meta }) {
+  const badgeTxt = status === "ok" ? "Online" : status === "warn" ? "Atenção" : "Offline";
+  const metaHtml = meta?.length ? `<div class="cfg-int-meta">${meta.map(m => `<span><strong>${m.label}:</strong> ${m.valor}</span>`).join("")}</div>` : "";
+  return `<div class="card cfg-int-card">
+    <div class="cfg-int-head">
+      ${icone}
+      <h4>${titulo}</h4>
+      <span class="cfg-int-badge ${status}">${badgeTxt}</span>
+    </div>
+    <div class="cfg-int-msg">${mensagem}</div>
+    ${metaHtml}
+  </div>`;
+}
+
+function _cfgRenderIntegracoes(s) {
+  const _icoSvg = (d) => `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent);">${d}</svg>`;
+  const cards = [];
+
+  // WhatsApp
+  cards.push(_cfgIntCard({
+    titulo: "WhatsApp (Evolution)",
+    icone: _icoSvg(`<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>`),
+    status: s.whatsapp?.ok ? "ok" : (s.whatsapp?.configurado ? "bad" : "warn"),
+    mensagem: s.whatsapp?.ok
+      ? `Instância conectada e pronta para receber mensagens.`
+      : s.whatsapp?.mensagem || `Estado: ${s.whatsapp?.estado || "desconhecido"}`,
+    meta: s.whatsapp?.estado ? [{ label: "Estado", valor: s.whatsapp.estado }] : [],
+  }));
+
+  // OpenAI
+  cards.push(_cfgIntCard({
+    titulo: "OpenAI (IA)",
+    icone: _icoSvg(`<path d="M12 2a4 4 0 0 0-4 4v0a3 3 0 0 0-3 3v1a3 3 0 0 0 1 5.83V19a3 3 0 0 0 6 0V6a4 4 0 0 0 0-4Z"/><path d="M12 2a4 4 0 0 1 4 4v0a3 3 0 0 1 3 3v1a3 3 0 0 1-1 5.83V19a3 3 0 0 1-6 0"/>`),
+    status: s.openai?.ok ? "ok" : "bad",
+    mensagem: s.openai?.mensagem || "Sem informação",
+  }));
+
+  // Resend (email)
+  cards.push(_cfgIntCard({
+    titulo: "Email (Resend)",
+    icone: _icoSvg(`<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>`),
+    status: s.resend?.ok ? "ok" : "bad",
+    mensagem: s.resend?.mensagem || "Sem informação",
+  }));
+
+  // Postgres / Servidor
+  cards.push(_cfgIntCard({
+    titulo: "Banco de dados",
+    icone: _icoSvg(`<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/><path d="M3 12c0 1.66 4 3 9 3s9-1.34 9-3"/>`),
+    status: s.postgres?.ok ? "ok" : "bad",
+    mensagem: s.postgres?.ok ? `Conexão saudável.` : (s.postgres?.mensagem || "Erro ao consultar"),
+    meta: s.postgres?.ok ? [{ label: "Latência", valor: s.postgres.latencia_ms + " ms" }] : [],
+  }));
+
+  // Job offline
+  const jb = s.job_offline || {};
+  const ultExec = jb.ultima_execucao ? new Date(jb.ultima_execucao).toLocaleString("pt-BR") : "Ainda não executou";
+  cards.push(_cfgIntCard({
+    titulo: "Job: verificação de offline",
+    icone: _icoSvg(`<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>`),
+    status: jb.ultima_execucao ? "ok" : "warn",
+    mensagem: jb.ultima_execucao ? "Executando no intervalo configurado." : "Aguardando primeira execução.",
+    meta: [
+      { label: "Última execução", valor: ultExec },
+      ...(jb.ultimo_resultado?.criados != null ? [{ label: "Alertas novos", valor: jb.ultimo_resultado.criados }] : []),
+    ],
+  }));
+
+  return cards.join("");
+}
+
+// ── USUÁRIOS ─────────────────────────────────────────────────────────────────
+async function _cfgCarregarUsuarios() {
+  const tb = document.getElementById("cfgUsuariosBody");
+  if (!tb) return;
+  try {
+    const r = await fetch("/admin/usuarios", { headers: authHeaders() });
+    if (!r.ok) throw new Error(r.status);
+    _cfgUsuariosDados = await r.json();
+    _cfgRenderUsuarios();
+  } catch (e) {
+    tb.innerHTML = `<tr><td colspan="6" class="cfg-empty">Erro ao carregar usuários.</td></tr>`;
+  }
+}
+
+function _cfgRoleLabel(role) {
+  return { admin: "Admin Master", admin_viewer: "Admin Visualizador", cliente: "Cliente" }[role] || role || "-";
+}
+
+function _cfgRenderUsuarios() {
+  const tb = document.getElementById("cfgUsuariosBody");
+  if (!tb) return;
+  if (!_cfgUsuariosDados.length) {
+    tb.innerHTML = `<tr><td colspan="6" class="cfg-empty">Nenhum usuário cadastrado.</td></tr>`;
+    return;
+  }
+  const meId = _cfgMyId();
+  tb.innerHTML = _cfgUsuariosDados.map(u => {
+    const dataCad = u.criado_em ? new Date(u.criado_em).toLocaleDateString("pt-BR") : "-";
+    const condo = u.condominio_nome || (u.role === "cliente" ? "<span style='color:var(--muted);'>—</span>" : "<span style='color:var(--muted);'>n/a</span>");
+    const meTag = u.id === meId ? '<span class="cfg-disp-tag" style="margin-left:6px;">Você</span>' : '';
+    return `<tr>
+      <td>${_waEscaparHtml(u.nome || "-")}${meTag}</td>
+      <td style="font-family:ui-monospace,monospace;font-size:12px;">${_waEscaparHtml(u.email || "-")}</td>
+      <td><span class="badge ${u.role === "admin" ? "b-warn" : u.role === "admin_viewer" ? "b-ok" : ""}">${_cfgRoleLabel(u.role)}</span></td>
+      <td>${condo}</td>
+      <td>${dataCad}</td>
+      <td>
+        <button class="btn btn-sm" data-cfg-action="editar-usuario"   data-id="${u.id}">Editar</button>
+        <button class="btn btn-sm" data-cfg-action="reset-senha"      data-id="${u.id}">Resetar senha</button>
+        ${u.id !== meId ? `<button class="btn btn-sm" data-cfg-action="remover-usuario" data-id="${u.id}" style="border-color:rgba(248,113,113,.3);color:#f87171;">Remover</button>` : ''}
+      </td>
+    </tr>`;
+  }).join("");
+}
+
+function _cfgAbrirModalUsuario(usuario) {
+  const isEdit = !!usuario;
+  const condos = Array.isArray(_condominios) ? _condominios : [];
+  const condoOpts = '<option value="">— sem condomínio —</option>' +
+    condos.map(c => `<option value="${c.id}" ${usuario?.condominio_id === c.id ? "selected" : ""}>${_waEscaparHtml(c.nome)}</option>`).join("");
+  const overlay = document.getElementById("cfgModalOverlay");
+  if (!overlay) return;
+  const box = document.getElementById("cfgModalBox");
+  box.innerHTML = `
+    <h3 style="margin:0 0 16px;font-size:16px;">${isEdit ? "Editar usuário" : "Novo usuário"}</h3>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div class="field"><label class="lbl">Nome</label><input id="mdUsrNome" class="input" value="${_waEscaparHtml(usuario?.nome || "")}"></div>
+      <div class="field"><label class="lbl">Email</label><input id="mdUsrEmail" class="input" type="email" value="${_waEscaparHtml(usuario?.email || "")}"></div>
+      ${!isEdit ? `<div class="field"><label class="lbl">Senha inicial</label><input id="mdUsrSenha" class="input" type="text" placeholder="Mínimo 6 caracteres"></div>` : ""}
+      <div class="field"><label class="lbl">Tipo</label>
+        <select id="mdUsrRole" class="input">
+          <option value="admin"        ${usuario?.role === "admin" ? "selected" : ""}>Admin Master</option>
+          <option value="admin_viewer" ${usuario?.role === "admin_viewer" ? "selected" : ""}>Admin Visualizador</option>
+          <option value="cliente"      ${(!usuario || usuario?.role === "cliente") ? "selected" : ""}>Cliente</option>
+        </select>
+      </div>
+      <div class="field"><label class="lbl">Condomínio (clientes)</label>
+        <select id="mdUsrCondo" class="input">${condoOpts}</select>
+      </div>
+      <div id="mdUsrMsg" class="cfg-msg"></div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:6px;">
+        <button class="btn btn-sm" data-cfg-action="cancel-modal-usuario">Cancelar</button>
+        <button class="btn btnAccent btn-sm" data-cfg-action="${isEdit ? "patch-usuario" : "post-usuario"}" data-id="${usuario?.id || ''}">${isEdit ? "Salvar" : "Criar"}</button>
+      </div>
+    </div>
+  `;
+  overlay.style.display = "flex";
+}
+
+function _cfgFecharModalUsuario() {
+  const overlay = document.getElementById("cfgModalOverlay");
+  if (overlay) overlay.style.display = "none";
+}
+
+async function _cfgSalvarUsuario(id) {
+  const payload = {
+    nome:  document.getElementById("mdUsrNome")?.value?.trim(),
+    email: document.getElementById("mdUsrEmail")?.value?.trim().toLowerCase(),
+    role:  document.getElementById("mdUsrRole")?.value,
+    condominio_id: document.getElementById("mdUsrCondo")?.value || null,
+  };
+  if (!id) payload.senha = document.getElementById("mdUsrSenha")?.value;
+
+  if (!payload.nome || !payload.email) return _cfgMostrarMsg("mdUsrMsg", "Nome e email obrigatórios", "err");
+  if (!id && (!payload.senha || payload.senha.length < 6)) return _cfgMostrarMsg("mdUsrMsg", "Senha mínima de 6 caracteres", "err");
+
+  try {
+    const url = id ? `/admin/usuarios/${id}` : "/admin/usuarios";
+    const method = id ? "PATCH" : "POST";
+    const r = await fetch(url, {
+      method,
+      headers: { ...authHeaders(), "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const data = await r.json();
+    if (!r.ok) return _cfgMostrarMsg("mdUsrMsg", data.error || "Erro", "err");
+    _cfgFecharModalUsuario();
+    _cfgCarregarUsuarios();
+  } catch (e) {
+    _cfgMostrarMsg("mdUsrMsg", "Erro de conexão", "err");
+  }
+}
+
+async function _cfgResetSenha(id) {
+  const u = _cfgUsuariosDados.find(x => x.id === id);
+  if (!u) return;
+  if (!confirm(`Gerar nova senha temporária para ${u.nome}? Os dispositivos confiáveis dele serão revogados.`)) return;
+  try {
+    const r = await fetch(`/admin/usuarios/${id}/reset-senha`, { method: "POST", headers: authHeaders() });
+    const data = await r.json();
+    if (!r.ok) return alert(data.error || "Erro ao resetar senha");
+    _cfgMostrarSenhaTemporaria(u.nome, data.senha_temporaria);
+  } catch (e) {
+    alert("Erro de conexão");
+  }
+}
+
+function _cfgMostrarSenhaTemporaria(nome, senha) {
+  const overlay = document.getElementById("cfgModalOverlay");
+  if (!overlay) return;
+  const box = document.getElementById("cfgModalBox");
+  box.innerHTML = `
+    <h3 style="margin:0 0 8px;font-size:16px;">Senha temporária gerada</h3>
+    <p style="color:var(--text-dim);font-size:13px;margin:0 0 6px;">Compartilhe esta senha com <strong>${_waEscaparHtml(nome)}</strong>. Ela só será exibida uma vez.</p>
+    <div class="cfg-temp-pass">
+      <div class="cfg-temp-pass-val" id="cfgTempPass">${_waEscaparHtml(senha)}</div>
+      <button class="btn btn-sm" data-cfg-action="copiar-senha">Copiar</button>
+    </div>
+    <p style="color:var(--muted);font-size:11.5px;margin-top:10px;">Recomende ao usuário trocar a senha no primeiro acesso, em Configurações → Conta.</p>
+    <div style="display:flex;justify-content:flex-end;margin-top:14px;">
+      <button class="btn btnAccent btn-sm" data-cfg-action="cancel-modal-usuario">Fechar</button>
+    </div>
+  `;
+  overlay.style.display = "flex";
+}
+
+async function _cfgRemoverUsuario(id) {
+  const u = _cfgUsuariosDados.find(x => x.id === id);
+  if (!u) return;
+  if (!confirm(`Remover o usuário ${u.nome}? Esta ação não pode ser desfeita.`)) return;
+  try {
+    const r = await fetch(`/admin/usuarios/${id}`, { method: "DELETE", headers: authHeaders() });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) return alert(data.error || "Erro ao remover usuário");
+    _cfgCarregarUsuarios();
+  } catch (e) {
+    alert("Erro de conexão");
+  }
 }
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -6787,6 +7314,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (action === "gerar-chamados")   { gerarRelChamados(); return; }
     if (action === "gerar-alertas")    { gerarRelAlertas(); return; }
     if (action === "gerar-telemetria") { gerarRelTelemetria(); return; }
+    if (action === "gerar-insights")   { gerarRelInsights(); return; }
 
     if (action === "exportar-chamados") {
       _relExportarCsv(_relChDados,
@@ -6811,11 +7339,58 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  // ===== CONFIGURAÇÕES =====
+  document.getElementById("cfgTabs")?.addEventListener("click", e => {
+    const tab = e.target.closest("[data-cfg-tab]")?.dataset.cfgTab;
+    if (tab) _cfgMostrarTab(tab);
+  });
+
+  document.querySelector(".section[data-section='config']")?.addEventListener("click", e => {
+    const btn = e.target.closest("[data-cfg-action]");
+    if (!btn) return;
+    const action = btn.dataset.cfgAction;
+    const id = btn.dataset.id ? Number(btn.dataset.id) : null;
+
+    if (action === "trocar-senha")        return _cfgTrocarSenha();
+    if (action === "sair-todos")          return _cfgSairTodos();
+    if (action === "revogar-disp")        return _cfgRevogarDispositivo(id);
+    if (action === "salvar-ia")           return _cfgSalvarIa();
+    if (action === "restaurar-prompt")    return _cfgRestaurarPrompt();
+    if (action === "salvar-notificacoes") return _cfgSalvarNotificacoes();
+    if (action === "testar-integracoes")  return _cfgCarregarIntegracoes();
+    if (action === "novo-usuario")        return _cfgAbrirModalUsuario(null);
+    if (action === "editar-usuario")      return _cfgAbrirModalUsuario(_cfgUsuariosDados.find(u => u.id === id));
+    if (action === "reset-senha")         return _cfgResetSenha(id);
+    if (action === "remover-usuario")     return _cfgRemoverUsuario(id);
+  });
+
+  // Modal exclusivo da seção Configurações
+  document.getElementById("cfgModalOverlay")?.addEventListener("click", e => {
+    if (e.target.id === "cfgModalOverlay") return _cfgFecharModalUsuario();
+    const btn = e.target.closest("[data-cfg-action]");
+    if (!btn) return;
+    const action = btn.dataset.cfgAction;
+    const id = btn.dataset.id ? Number(btn.dataset.id) : null;
+    if (action === "cancel-modal-usuario") return _cfgFecharModalUsuario();
+    if (action === "post-usuario")         return _cfgSalvarUsuario(null);
+    if (action === "patch-usuario")        return _cfgSalvarUsuario(id);
+    if (action === "copiar-senha") {
+      const v = document.getElementById("cfgTempPass")?.textContent;
+      if (v) { navigator.clipboard?.writeText(v); btn.textContent = "Copiado!"; setTimeout(() => btn.textContent = "Copiar", 1500); }
+      return;
+    }
+  });
+
   // "Ver todos →" e atalhos do dashboard mission-control
   document.body.addEventListener("click", (e) => {
     const go = e.target.closest("[data-section-go]");
     if (go) {
       showSection(go.dataset.sectionGo);
+      // Suporte a abrir uma aba específica dentro de Relatórios (ex: Mission Control → Insights)
+      const relTab = go.dataset.relTabGo;
+      if (relTab && go.dataset.sectionGo === "relatorios") {
+        _relMostrarTab(relTab, true);
+      }
       return;
     }
     const gotoAlertas = e.target.closest('[data-action="goto-alertas"]');
@@ -6889,9 +7464,10 @@ document.addEventListener("DOMContentLoaded", () => {
   // Começa expandida; respeita preferência salva
   _applySidebar(localStorage.getItem("sidebarCollapsed") === "true");
 
-  // Esconde seção Cadastros para admin_viewer
+  // Admin_viewer vê todas as seções igual ao master, só não tem botões de escrita.
+  // O CSS .viewer-only-hide esconde elementos sensíveis quando body tem .role-viewer.
   if (!_isMaster) {
-    document.querySelectorAll('[data-section="cadastros"]').forEach(el => el.style.display = "none");
+    document.body.classList.add("role-viewer");
   }
   // Mostra card de criar admin_viewer apenas para master admin
   if (_isMaster) {

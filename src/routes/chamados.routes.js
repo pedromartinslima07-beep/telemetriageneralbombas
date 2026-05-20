@@ -2,6 +2,7 @@ const express = require("express");
 const { pool } = require("../db");
 const { authRequired } = require("../middleware/authRequired");
 const { adminOnly } = require("../middleware/adminOnly");
+const { masterAdminOnly } = require("../middleware/masterAdminOnly");
 
 const router = express.Router();
 
@@ -122,7 +123,7 @@ router.get("/:id", authRequired, adminOnly, async (req, res) => {
 });
 
 // PATCH /chamados/:id — atualiza status, prioridade ou responsável
-router.patch("/:id", authRequired, adminOnly, async (req, res) => {
+router.patch("/:id", authRequired, masterAdminOnly, async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) {
     return res.status(400).json({ error: "id inválido" });

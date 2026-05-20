@@ -2,7 +2,9 @@
 const { pool } = require("../db");
 const { upsertAlertaAberto } = require("../services/alertas.service");
 const { enviarMensagem } = require("../services/evolution.service");
+const { sendAlertaEmail } = require("../services/email");
 const { OFFLINE_MINUTES } = require("../config");
+const { getConfigInt } = require("../services/config.service");
 
 async function _notificarClienteWhatsApp(condominio_id, mensagem) {
   // Busca cliente + conversa aberta do condomínio
@@ -116,20 +118,36 @@ async function jobVerificarOffline() {
 }
 
 let _jobRunning = false;
+let _ultimaExecucao = null;
+let _ultimoResultado = null;
 
-function startOfflineScheduler({ intervalMs = 60_000 } = {}) {
-  setInterval(async () => {
-    if (_jobRunning) return;
+function getOfflineJobStatus() {
+  return { ultima_execucao: _ultimaExecucao, ultimo_resultado: _ultimoResultado };
+}
+
+// Scheduler com auto-ajuste do intervalo via config 'jobs.offline_intervalo_min'.
+// Em vez de setInterval fixo, usa setTimeout recursivo que lê a config a cada tick.
+function startOfflineScheduler() {
+  async function tick() {
+    if (_jobRunning) return scheduleProximo();
     _jobRunning = true;
     try {
-      const r = await jobVerificarOffline();
-      console.log("🛰️ Job OFFLINE automático:", r);
+      _ultimoResultado = await jobVerificarOffline();
+      _ultimaExecucao = new Date().toISOString();
+      console.log("🛰️ Job OFFLINE automático:", _ultimoResultado);
     } catch (e) {
       console.error("❌ Job OFFLINE automático falhou:", e);
     } finally {
       _jobRunning = false;
+      scheduleProximo();
     }
-  }, intervalMs);
+  }
+  async function scheduleProximo() {
+    const minutos = await getConfigInt("jobs.offline_intervalo_min", 1);
+    setTimeout(tick, Math.max(1, minutos) * 60_000);
+  }
+  // Primeira execução imediata, depois agenda pela config
+  tick();
 }
 
-module.exports = { jobVerificarOffline, startOfflineScheduler };
+module.exports = { jobVerificarOffline, startOfflineScheduler, getOfflineJobStatus };

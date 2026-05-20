@@ -4498,3 +4498,199 @@ body.mp-fs-active { overflow: hidden; }
   .rel-charts-2  { grid-template-columns: 1fr; }
   .rel-charts-2b { grid-template-columns: 1fr; }
 }
+
+/* ============================================================
+   CONFIGURAÇÕES — cards, formulários e status de integrações
+   ============================================================ */
+.cfg-body { display: block; }
+
+.cfg-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+.cfg-grid > .cfg-card-wide { grid-column: 1 / -1; }
+
+.cfg-card { padding: 18px; }
+
+.cfg-card-head {
+  display: flex; gap: 12px; align-items: flex-start;
+  padding-bottom: 14px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+.cfg-card-head h3 {
+  font-size: 14px; font-weight: 700; color: var(--text);
+  margin: 0 0 2px;
+}
+.cfg-card-head p {
+  font-size: 12px; color: var(--text-dim);
+  margin: 0; line-height: 1.45;
+}
+.cfg-icon {
+  width: 38px; height: 38px; padding: 9px;
+  border-radius: 9px;
+  background: linear-gradient(135deg, rgba(240,176,20,.18), rgba(240,176,20,.06));
+  border: 1px solid rgba(240,176,20,.25);
+  stroke: var(--accent);
+  flex-shrink: 0;
+}
+
+.cfg-form { display: flex; flex-direction: column; gap: 12px; }
+.cfg-form .field { display: flex; flex-direction: column; gap: 4px; }
+.cfg-form .lbl {
+  font-size: 11px; font-weight: 600;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: .5px;
+}
+.cfg-form .input { font-size: 13px; }
+
+.cfg-hint {
+  font-size: 11.5px; color: var(--muted);
+  margin: 4px 0 0; line-height: 1.45;
+}
+
+.cfg-actions {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 10px;
+  padding-top: 4px;
+}
+.cfg-msg {
+  font-size: 12px;
+  min-height: 16px;
+}
+.cfg-msg.ok  { color: #4ade80; }
+.cfg-msg.err { color: #f87171; }
+
+/* Toggle switch (IA on/off) */
+.cfg-toggle-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px;
+  padding: 12px;
+  background: rgba(255,255,255,.02);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.cfg-toggle-row strong { font-size: 13px; color: var(--text); display: block; }
+.cfg-toggle-row p { font-size: 11.5px; color: var(--text-dim); margin: 2px 0 0; }
+
+.cfg-switch { position: relative; display: inline-block; width: 44px; height: 24px; flex-shrink: 0; }
+.cfg-switch input { opacity: 0; width: 0; height: 0; }
+.cfg-slider {
+  position: absolute; cursor: pointer; inset: 0;
+  background-color: rgba(255,255,255,.1);
+  border: 1px solid var(--border);
+  transition: .25s; border-radius: 999px;
+}
+.cfg-slider::before {
+  position: absolute; content: ""; height: 18px; width: 18px;
+  left: 2px; top: 2px;
+  background: var(--text);
+  transition: .25s; border-radius: 50%;
+}
+.cfg-switch input:checked + .cfg-slider {
+  background: rgba(74,222,128,.3);
+  border-color: rgba(74,222,128,.5);
+}
+.cfg-switch input:checked + .cfg-slider::before {
+  transform: translateX(20px);
+  background: #4ade80;
+}
+
+/* Lista de dispositivos confiáveis */
+.cfg-disp-lista {
+  display: flex; flex-direction: column; gap: 8px;
+  max-height: 320px; overflow-y: auto;
+}
+.cfg-disp-item {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 10px 12px;
+  background: rgba(255,255,255,.02);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 12px;
+}
+.cfg-disp-item.atual {
+  border-color: rgba(74,222,128,.4);
+  background: rgba(74,222,128,.06);
+}
+.cfg-disp-info { display: flex; flex-direction: column; gap: 2px; }
+.cfg-disp-meta { color: var(--text-dim); font-size: 11px; }
+.cfg-disp-tag {
+  font-size: 10px; font-weight: 700;
+  color: #4ade80;
+  background: rgba(74,222,128,.15);
+  padding: 2px 6px; border-radius: 999px;
+  margin-left: 8px; vertical-align: middle;
+}
+
+.cfg-empty {
+  padding: 20px; text-align: center;
+  color: var(--muted); font-size: 12px;
+}
+
+/* Cards de integrações */
+.cfg-int-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+.cfg-int-card {
+  padding: 16px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.cfg-int-head {
+  display: flex; align-items: center; gap: 10px;
+}
+.cfg-int-head h4 {
+  font-size: 13px; font-weight: 700; color: var(--text);
+  margin: 0; flex: 1;
+}
+.cfg-int-badge {
+  font-size: 10px; font-weight: 700;
+  padding: 3px 8px; border-radius: 999px;
+  text-transform: uppercase; letter-spacing: .4px;
+}
+.cfg-int-badge.ok   { background: rgba(74,222,128,.15);  color: #4ade80; border: 1px solid rgba(74,222,128,.3); }
+.cfg-int-badge.warn { background: rgba(240,176,20,.15);  color: #f0b014; border: 1px solid rgba(240,176,20,.3); }
+.cfg-int-badge.bad  { background: rgba(248,113,113,.15); color: #f87171; border: 1px solid rgba(248,113,113,.3); }
+.cfg-int-msg {
+  font-size: 11.5px; color: var(--text-dim);
+  line-height: 1.5;
+}
+.cfg-int-meta {
+  display: flex; gap: 12px; flex-wrap: wrap;
+  font-size: 11px; color: var(--muted);
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+.cfg-int-meta strong { color: var(--text-dim); font-weight: 600; }
+
+/* Modal de senha temporária (após reset) */
+.cfg-temp-pass {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px; margin-top: 12px;
+  background: rgba(240,176,20,.08);
+  border: 1px solid rgba(240,176,20,.3);
+  border-radius: 10px;
+  font-family: ui-monospace, monospace;
+}
+.cfg-temp-pass-val {
+  flex: 1; font-size: 16px; font-weight: 700;
+  letter-spacing: 1px; color: var(--accent);
+}
+
+@media (max-width: 900px) {
+  .cfg-grid { grid-template-columns: 1fr; }
+}
+
+/* ============================================================
+   ROLE-BASED VISIBILITY
+   Admin_viewer vê o sistema igual ao master, mas com botões de
+   escrita escondidos. body.role-viewer é setado no boot do admin.js.
+   ============================================================ */
+body.role-viewer .viewer-only-hide,
+body.role-viewer .viewer-only-hide-inline {
+  display: none !important;
+}

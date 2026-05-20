@@ -5,6 +5,7 @@ const { receberWebhook } = require("../controllers/whatsapp.controller");
 const { enviarMensagem } = require("../services/evolution.service");
 const { authRequired } = require("../middleware/authRequired");
 const { adminOnly } = require("../middleware/adminOnly");
+const { masterAdminOnly } = require("../middleware/masterAdminOnly");
 
 let _openai = null;
 function getOpenAI() {

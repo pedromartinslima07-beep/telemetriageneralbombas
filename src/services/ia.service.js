@@ -1,5 +1,6 @@
 const OpenAI = require("openai");
 const { pool } = require("../db");
+const { getConfig, getConfigBool } = require("./config.service");
 
 let _client = null;
 function getClient() {
@@ -193,7 +194,9 @@ async function executarFuncao(nome, args) {
 
 // ─── Orquestrador principal ───────────────────────────────────────────────────
 
-const SYSTEM_PROMPT = `Você é um assistente de atendimento da General Bombas, empresa especializada em
+// Prompt padrão usado quando a config 'ia.system_prompt' está vazia.
+// Editável pelo master admin em Configurações → IA.
+const SYSTEM_PROMPT_PADRAO = `Você é um assistente de atendimento da General Bombas, empresa especializada em
 sistemas de abastecimento de água para condomínios. Você atende clientes via WhatsApp.
 
 Seu papel:
@@ -243,11 +246,21 @@ Tom e estilo:
 - Responda sempre em português brasileiro`;
 
 async function processarComIA({ conversa_id, condominio_id, cliente_whatsapp_id, historico }) {
+  // Master admin pode desabilitar a IA globalmente em Configurações → IA
+  const habilitada = await getConfigBool("ia.enabled", true);
+  if (!habilitada) {
+    return null; // null sinaliza ao controller que a IA não deve responder
+  }
+
   const client = getClient();
+
+  // Lê prompt e modelo da config dinâmica (com fallback pros padrões)
+  const systemPrompt = (await getConfig("ia.system_prompt", "")) || SYSTEM_PROMPT_PADRAO;
+  const modelo       = (await getConfig("ia.modelo", "gpt-4o-mini")) || "gpt-4o-mini";
 
   // Monta o histórico no formato da OpenAI
   const messages = [
-    { role: "system", content: SYSTEM_PROMPT },
+    { role: "system", content: systemPrompt },
     ...historico.map((m) => ({
       role: m.direcao === "entrada" ? "user" : "assistant",
       content: m.conteudo || "",
@@ -259,7 +272,7 @@ async function processarComIA({ conversa_id, condominio_id, cliente_whatsapp_id,
   // Loop de function calling — a IA pode chamar múltiplas funções antes de responder
   while (true) {
     const completion = await client.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: modelo,
       messages,
       tools,
       tool_choice: "auto",
@@ -304,4 +317,4 @@ async function processarComIA({ conversa_id, condominio_id, cliente_whatsapp_id,
   return resposta;
 }
 
-module.exports = { processarComIA };
+module.exports = { processarComIA, SYSTEM_PROMPT_PADRAO };

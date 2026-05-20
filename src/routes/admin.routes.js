@@ -1,10 +1,17 @@
 // src/routes/admin.routes.js
 const express = require("express");
+const crypto = require("crypto");
+const bcrypt = require("bcrypt");
 const { pool } = require("../db");
 
 const { authRequired } = require("../middleware/authRequired");
 const { adminOnly } = require("../middleware/adminOnly");
+const { masterAdminOnly } = require("../middleware/masterAdminOnly");
 const { OFFLINE_MINUTES } = require("../config");
+const { getAllConfigs, setConfig, CHAVES } = require("../services/config.service");
+const { checarStatusConexao } = require("../services/evolution.service");
+const { SYSTEM_PROMPT_PADRAO } = require("../services/ia.service");
+const { getOfflineJobStatus } = require("../jobs/offline.job");
 
 const router = express.Router();
 
@@ -354,7 +361,7 @@ router.get("/usuarios", authRequired, adminOnly, async (req, res) => {
 });
 
 // POST /admin/usuarios — cria novo usuário
-router.post("/usuarios", authRequired, adminOnly, async (req, res) => {
+router.post("/usuarios", authRequired, masterAdminOnly, async (req, res) => {
   const bcrypt = require("bcrypt");
   const { nome, email, senha, role, condominio_id } = req.body || {};
   if (!nome || !email || !senha) return res.status(400).json({ error: "nome, email e senha obrigatórios" });
@@ -376,23 +383,147 @@ router.post("/usuarios", authRequired, adminOnly, async (req, res) => {
   }
 });
 
-// PATCH /admin/usuarios/:id — placeholder (sem coluna ativo no schema atual)
-router.patch("/usuarios/:id", authRequired, adminOnly, async (req, res) => {
+// PATCH /admin/usuarios/:id — atualiza nome, email, role (master admin)
+router.patch("/usuarios/:id", authRequired, masterAdminOnly, async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
-  const { ativo } = req.body || {};
-  if (typeof ativo !== "boolean") return res.status(400).json({ error: "ativo deve ser boolean" });
+
+  const { nome, email, role, condominio_id } = req.body || {};
+  const ROLES = ["cliente", "admin", "admin_viewer"];
+  if (role && !ROLES.includes(role)) return res.status(400).json({ error: "role inválido" });
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: "email inválido" });
+
+  const sets = [];
+  const vals = [];
+  if (nome !== undefined)          { vals.push(nome);                       sets.push(`nome = $${vals.length}`); }
+  if (email !== undefined)         { vals.push(String(email).toLowerCase()); sets.push(`email = $${vals.length}`); }
+  if (role !== undefined)          { vals.push(role);                       sets.push(`role = $${vals.length}`); }
+  if (condominio_id !== undefined) { vals.push(condominio_id || null);      sets.push(`condominio_id = $${vals.length}`); }
+
+  if (!sets.length) return res.status(400).json({ error: "Nenhum campo para atualizar" });
+  vals.push(id);
+
   try {
     const result = await pool.query(
-      "SELECT id, nome FROM usuarios WHERE id = $1",
-      [id]
+      `UPDATE usuarios SET ${sets.join(", ")} WHERE id = $${vals.length}
+       RETURNING id, nome, email, role, condominio_id`,
+      vals
     );
     if (!result.rows.length) return res.status(404).json({ error: "Não encontrado" });
     return res.json(result.rows[0]);
   } catch (err) {
+    if (err.code === "23505") return res.status(409).json({ error: "Email já cadastrado" });
     console.error("[admin] PATCH /usuarios/:id:", err);
     return res.status(500).json({ error: "Erro ao atualizar" });
   }
+});
+
+// DELETE /admin/usuarios/:id — remove usuário (master admin, não pode deletar a si mesmo)
+router.delete("/usuarios/:id", authRequired, masterAdminOnly, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
+  if (id === req.user.id) return res.status(400).json({ error: "Você não pode remover a si mesmo" });
+  try {
+    const r = await pool.query("DELETE FROM usuarios WHERE id = $1", [id]);
+    if (r.rowCount === 0) return res.status(404).json({ error: "Não encontrado" });
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("[admin] DELETE /usuarios/:id:", err);
+    return res.status(500).json({ error: "Erro ao remover usuário" });
+  }
+});
+
+// POST /admin/usuarios/:id/reset-senha — gera senha temporária aleatória (master admin)
+// Retorna a senha gerada em texto puro UMA vez — admin deve compartilhar com o usuário.
+router.post("/usuarios/:id/reset-senha", authRequired, masterAdminOnly, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
+  try {
+    // Gera senha de 12 caracteres alfanuméricos
+    const senha = crypto.randomBytes(9).toString("base64").replace(/[+/=]/g, "").slice(0, 12);
+    const hash = await bcrypt.hash(senha, 10);
+    const r = await pool.query(
+      "UPDATE usuarios SET senha_hash = $1 WHERE id = $2 RETURNING id, nome, email",
+      [hash, id]
+    );
+    if (!r.rows.length) return res.status(404).json({ error: "Não encontrado" });
+    // Revoga dispositivos confiáveis do usuário pra forçar 2FA na próxima sessão
+    await pool.query("DELETE FROM trusted_devices WHERE usuario_id = $1", [id]);
+    return res.json({ ok: true, usuario: r.rows[0], senha_temporaria: senha });
+  } catch (err) {
+    console.error("[admin] POST /usuarios/:id/reset-senha:", err);
+    return res.status(500).json({ error: "Erro ao resetar senha" });
+  }
+});
+
+// GET /admin/configuracoes — lê todas as chaves whitelistadas + metadata
+router.get("/configuracoes", authRequired, masterAdminOnly, async (req, res) => {
+  try {
+    const valores = await getAllConfigs();
+    return res.json({
+      valores,
+      definicoes: CHAVES,
+      padroes: { "ia.system_prompt": SYSTEM_PROMPT_PADRAO },
+    });
+  } catch (err) {
+    console.error("[admin] GET /configuracoes:", err);
+    return res.status(500).json({ error: "Erro ao ler configurações" });
+  }
+});
+
+// PATCH /admin/configuracoes — atualiza um conjunto de chaves
+// Body: { chave1: valor1, chave2: valor2, ... }
+router.patch("/configuracoes", authRequired, masterAdminOnly, async (req, res) => {
+  const updates = req.body || {};
+  const entradas = Object.entries(updates);
+  if (!entradas.length) return res.status(400).json({ error: "Nenhuma configuração informada" });
+
+  try {
+    for (const [chave, valor] of entradas) {
+      await setConfig(chave, String(valor), req.user.id);
+    }
+    const valores = await getAllConfigs();
+    return res.json({ ok: true, valores });
+  } catch (err) {
+    console.error("[admin] PATCH /configuracoes:", err);
+    return res.status(400).json({ error: err.message || "Erro ao atualizar configurações" });
+  }
+});
+
+// GET /admin/integracoes/status — status das 4 integrações externas
+router.get("/integracoes/status", authRequired, masterAdminOnly, async (req, res) => {
+  const out = {};
+
+  // 1. Postgres — se chegou aqui, já está conectado. Mede latência simples.
+  try {
+    const t0 = Date.now();
+    await pool.query("SELECT 1");
+    out.postgres = { ok: true, latencia_ms: Date.now() - t0 };
+  } catch (err) {
+    out.postgres = { ok: false, mensagem: err.message };
+  }
+
+  // 2. WhatsApp Evolution — checa estado da instância
+  out.whatsapp = await checarStatusConexao();
+
+  // 3. OpenAI — só checa se a key está setada (chamada real custa $, não vale o ping)
+  out.openai = {
+    ok: !!process.env.OPENAI_API_KEY,
+    configurado: !!process.env.OPENAI_API_KEY,
+    mensagem: process.env.OPENAI_API_KEY ? "API key configurada" : "OPENAI_API_KEY ausente",
+  };
+
+  // 4. Resend (email) — só checa se a key está setada
+  out.resend = {
+    ok: !!process.env.RESEND_API_KEY,
+    configurado: !!process.env.RESEND_API_KEY,
+    mensagem: process.env.RESEND_API_KEY ? "API key configurada" : "RESEND_API_KEY ausente",
+  };
+
+  // 5. Job offline — última execução + último resultado
+  out.job_offline = getOfflineJobStatus();
+
+  return res.json(out);
 });
 
 module.exports = { adminRouter: router };

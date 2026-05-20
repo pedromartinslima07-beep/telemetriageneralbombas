@@ -596,6 +596,108 @@ Página /whatsapp era uma tabela simples de conversas. Virou central de atendime
 - Antes navegava diretamente para a seção Telemetria; agora abre o drawer lateral (aba Telemetria) do condomínio
 - Dentro do drawer, botão **"📊 Ver telemetria completa"** fecha o drawer, navega para a seção Telemetria e aplica o filtro do condomínio automaticamente
 
+### Fase 6 — Hardening de segurança e configurações dinâmicas ✅ CONCLUÍDO
+
+Auditoria de segurança ampla cobrindo envs obrigatórias em produção, role-based access mais granular, e migração de constantes hardcoded para configuração dinâmica editável pelo master admin.
+
+#### 6A — Envs obrigatórias em produção ✅
+
+Em `NODE_ENV=production`, o servidor faz `process.exit(1)` no boot se faltar:
+- `JWT_SECRET` (antes tinha fallback `dev-secret-local-apenas`)
+- `CORS_ORIGINS` (antes caía em `localhost:3001`)
+- `EVOLUTION_WEBHOOK_TOKEN` (antes o webhook aceitava qualquer payload)
+
+`OTP_DISABLED=true` é **ignorado em produção** (2FA sempre obrigatório). Em dev, todos os fallbacks continuam funcionando — desenvolvimento local não muda.
+
+#### 6B — Página Relatórios → aba Insights ✅
+
+Substituiu a página stub "IA Insights" do menu. Removida da sidebar; botão "Ver análise completa →" do Mission Control passou a apontar pra **Relatórios → aba Insights** via `data-rel-tab-go="insights"`.
+
+**Novo endpoint** `GET /relatorios/insights` retorna 3 blocos (top condomínios problemáticos, categorias mais comuns no WhatsApp, totais agregados). SQL puro, filtros `data_ini/data_fim/condominio_id`. Bug latente corrigido: `conversas_whatsapp` não tem `condominio_id` direto — joinado via `clientes_whatsapp`.
+
+**2 widgets na UI:**
+- Tabela "Top 5 condomínios" com score = chamados_abertos×3 + alertas_ativos×2 + total
+- Donut "Categorias mais comuns no WhatsApp" usando `mensagens_whatsapp.ia_categoria`
+
+#### 6C — Centralização e polimento dos Relatórios ✅
+
+**Centralização** (antes cada aba duplicava boilerplate):
+- `_relFetch({ endpoint, btnAction, ids })` — substitui fetch+botão+erro nas 4 funções `gerarRel*`
+- `_relFmtData()`, `_relFmtTipo()`, `_relTipoClasse()`, `_relCategoriaLabel()`, `_relCount()` — formatadores compartilhados
+- `_REL_TABS` mapa — substitui o switch ternário triplo do `_relMostrarTab`
+
+**Tabelas consertadas:**
+- Chamados: ID virou `CH-3`, coluna **Categoria** adicionada (estava no CSV mas faltava na tabela)
+- Alertas: ID virou `TEL-7`, coluna **Condomínio** adicionada, tipo ganhou badge colorido
+- Telemetria: coluna Dia em pt-BR (antes ISO `2026-05-19`)
+- Texto "registros" consistente em todas (Telemetria antes dizia "linhas")
+
+**Polimento UX:**
+- Tabs do topo com padding correto (antes coladas na borda inferior do card)
+- Gráfico "Nível médio por reservatório" trocado de horizontal pra vertical (bug do `yaxis.formatter` em horizontal aplicando "%" nos nomes)
+- Body da aba sempre visível ao trocar de tab (antes ficava em branco durante o fetch)
+- `setTimeout(60)` antes do render ApexCharts → `requestAnimationFrame` (~16ms vs 60ms)
+
+#### 6D — Página Configurações completa ✅
+
+Substituiu stub "Em breve" por layout com 5 tabs no padrão visual de Relatórios.
+
+**Nova infraestrutura:**
+- Migration `010_configuracoes.sql`: tabela key-value `configuracoes` com seeds idempotentes
+- `src/services/config.service.js`: helpers `getConfig/getConfigBool/getConfigInt/setConfig` com cache em memória (TTL 30s), whitelist de chaves + validação de tipo
+- `ia.service.js` lê `ia.enabled`, `ia.modelo`, `ia.system_prompt` da config; retorna `null` quando desabilitada (não chama OpenAI)
+- `offline.job.js` lê `jobs.offline_intervalo_min` a cada tick (setInterval virou setTimeout recursivo); expõe `getOfflineJobStatus()`
+- `evolution.service.js` ganhou `checarStatusConexao()` (GET `/instance/connectionState/`)
+
+**Novos endpoints:**
+- `POST /auth/trocar-senha`
+- `GET /auth/dispositivos`, `DELETE /auth/dispositivos/:id`, `DELETE /auth/dispositivos`
+- `GET /admin/configuracoes`, `PATCH /admin/configuracoes` (master admin)
+- `POST /admin/usuarios/:id/reset-senha` — gera senha temporária aleatória, revoga trusted devices (master admin)
+- `DELETE /admin/usuarios/:id` (master admin, bloqueia auto-remoção)
+- `PATCH /admin/usuarios/:id` — agora atualiza nome/email/role/condomínio (antes era placeholder vazio)
+- `GET /admin/integracoes/status` — 5 cards: WhatsApp Evolution (ping real), OpenAI, Resend, Postgres (latência), Job offline
+
+**5 abas em Configurações:**
+
+| Aba | Quem vê | Conteúdo |
+|---|---|---|
+| Conta | todos | Trocar senha + lista trusted devices (marca "Este" no atual) + Sair de todos |
+| Usuários | master | Tabela CRUD + modal de criar/editar + reset senha (mostra senha temp uma vez) + remover |
+| IA | master | Toggle on/off + select modelo (mini/4o) + textarea system prompt + Restaurar padrão |
+| Notificações | master | Email destinatário + intervalo do job offline (1-60 min) |
+| Integrações | master | 5 cards de status com badge ok/warn/bad + botão "Testar conexões" |
+
+Modal exclusivo da seção (`#cfgModalOverlay`) pra não conflitar com o overlay global.
+
+#### 6E — Email de alerta crítico ✅
+
+Resend já era usado pra OTP; agora também dispara email automático quando alerta novo é criado:
+
+- `sendAlertaEmail(dados)` em `email.js` lê config `alertas.email_destinatario`
+- Anti-spam: dispara só quando `upsertAlertaAberto` retorna `action: "inserted"` (alerta novo). 1 alerta = 1 email
+- 3 origens disparam: `offline.job.js` (dispositivo offline), `telemetria.routes.js` (nivel_baixo e nivel_muito_baixo)
+- Template HTML formatado (dark, paleta Mission Control) com tabela Condomínio / Reservatório / Nível / Data + caixa da mensagem
+- Silencioso quando config vazia, sem API key, ou destinatários sem email válido (regex)
+
+#### 6F — Refinamento do RBAC (admin_viewer) ✅
+
+**Backend** — rotas de escrita sensíveis migradas de `adminOnly` (admin + viewer) pra `masterAdminOnly` (só admin):
+- `POST /admin/usuarios` (era inconsistente — PATCH/DELETE já eram master)
+- `PATCH /chamados/:id`
+- `POST /tecnicos`, `PATCH /tecnicos/:id`, `DELETE /tecnicos/:id`
+
+**Mantidas em `adminOnly` por decisão (admin_viewer participa):**
+- Comentários em alertas (`POST /alertas/comentarios`)
+- Disparar job manual (`POST /jobs/verificar-offline`)
+- **WhatsApp inteiro** (responder, assumir, devolver, fechar, reabrir, vincular, apagar, sugerir, resumir) — viewer é parte do time de atendimento
+
+**Frontend** — viewer agora vê **as mesmas telas que o master**, só sem botões de escrita:
+- Mecanismo: `body.role-viewer` + CSS `body.role-viewer .viewer-only-hide { display: none !important }`
+- Seção Cadastros não fica mais oculta — viewer vê a lista de clientes, só não tem botões de criar/editar/inativar
+- Botões escondidos: criar/editar/excluir em Cadastros, Técnicos, Reservatórios; mudar status em Chamados; "Marcar como resolvido" em Alertas; aba inteira Usuários/IA/Notificações/Integrações em Configurações
+- WhatsApp permanece 100% liberado (acesso total à central de atendimento)
+
 ---
 
 ## Variáveis de ambiente novas necessárias

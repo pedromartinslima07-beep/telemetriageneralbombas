@@ -2,6 +2,7 @@ const rateLimit = require("express-rate-limit");
 const express = require("express");
 const { pool } = require("../db");
 const { upsertAlertaAberto } = require("../services/alertas.service");
+const { sendAlertaEmail } = require("../services/email");
 
 const router = express.Router();
 
@@ -69,15 +70,19 @@ router.post("/", telemetriaLimiter, async (req, res) => {
 
   try {
     // 1 query: reservatório + última leitura (substitui 2 round-trips)
+    // Inclui nome do reservatório + condomínio pra email de alerta sem query extra.
     const rRes = await pool.query(
       `SELECT r.id, r.condominio_id, r.device_id, r.device_key,
+              r.nome AS reservatorio_nome,
               r.altura_total_m, r.adc_zero, r.adc_por_metro,
               r.limiar_bomba,
+              c.nome AS condominio_nome,
               ul.nivel        AS last_nivel,
               ul.nivel_pct    AS last_nivel_pct,
               ul.bomba_ligada AS last_bomba_ligada,
               ul.criado_em    AS last_criado_em
        FROM reservatorios r
+       LEFT JOIN condominios c ON c.id = r.condominio_id
        LEFT JOIN LATERAL (
          SELECT nivel, nivel_pct, bomba_ligada, criado_em
          FROM leituras
@@ -190,18 +195,28 @@ router.post("/", telemetriaLimiter, async (req, res) => {
       }
     }
 
+    // Dispara email só quando o alerta é NOVO (inserted) — evita spam a cada leitura
+    // enquanto o nível continua baixo. updated = atualizou mensagem do existente.
+    const _notificarSeNovo = (resultado, tipo, mensagem) => {
+      if (resultado?.action !== "inserted") return;
+      sendAlertaEmail({
+        tipo,
+        mensagem,
+        reservatorio_nome: reservatorio.reservatorio_nome,
+        condominio_nome: reservatorio.condominio_nome,
+        device_id,
+        nivel_pct: nivelPct,
+      }).catch(() => {}); // já loga internamente, não bloqueia a resposta
+    };
+
     if (nivelNormalizado === "baixo") {
-      await upsertAlertaAberto(
-        device_id,
-        "nivel_baixo",
-        `Nível baixo detectado no dispositivo ${device_id}`
-      );
+      const msg = `Nível baixo detectado no dispositivo ${device_id}`;
+      const r = await upsertAlertaAberto(device_id, "nivel_baixo", msg);
+      _notificarSeNovo(r, "nivel_baixo", msg);
     } else if (nivelNormalizado === "muito_baixo") {
-      await upsertAlertaAberto(
-        device_id,
-        "nivel_muito_baixo",
-        `NÍVEL MUITO BAIXO detectado no dispositivo ${device_id}`
-      );
+      const msg = `NÍVEL MUITO BAIXO detectado no dispositivo ${device_id}`;
+      const r = await upsertAlertaAberto(device_id, "nivel_muito_baixo", msg);
+      _notificarSeNovo(r, "nivel_muito_baixo", msg);
     }
 
     return res.json({

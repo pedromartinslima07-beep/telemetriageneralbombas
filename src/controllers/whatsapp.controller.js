@@ -3,6 +3,12 @@ const { processarComIA } = require("../services/ia.service");
 const { enviarMensagem } = require("../services/evolution.service");
 
 const WEBHOOK_TOKEN = process.env.EVOLUTION_WEBHOOK_TOKEN;
+const _isProd = process.env.NODE_ENV === "production";
+
+if (_isProd && !WEBHOOK_TOKEN) {
+  console.error("FATAL: EVOLUTION_WEBHOOK_TOKEN não definido em produção. Webhook ficaria aberto.");
+  process.exit(1);
+}
 
 function extrairTelefone(remoteJid) {
   // "5511999998888@s.whatsapp.net" → "5511999998888"
@@ -125,6 +131,7 @@ async function processarMensagem(payload) {
 }
 
 async function receberWebhook(req, res) {
+  // Em prod, token é obrigatório (checagem no boot). Em dev, valida só se setado.
   if (WEBHOOK_TOKEN && req.headers["apikey"] !== WEBHOOK_TOKEN) {
     return res.sendStatus(401);
   }

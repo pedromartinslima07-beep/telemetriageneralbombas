@@ -115,13 +115,6 @@
           <span class="nav-item-label">Relatórios</span>
         </button>
 
-        <button class="nav-item" data-section="ia-insights" data-label="IA Insights">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 2a4 4 0 0 0-4 4v0a3 3 0 0 0-3 3v1a3 3 0 0 0 1 5.83V19a3 3 0 0 0 6 0V6a4 4 0 0 0 0-4Z"/>
-            <path d="M12 2a4 4 0 0 1 4 4v0a3 3 0 0 1 3 3v1a3 3 0 0 1-1 5.83V19a3 3 0 0 1-6 0"/>
-          </svg>
-          <span class="nav-item-label">IA Insights</span>
-        </button>
 
         <button class="nav-item" data-section="config" data-label="Configurações">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
@@ -390,7 +383,7 @@
                   <li><span class="mc-ia-dot violet"></span>Sistema operacional dentro do esperado.</li>
                   <li><span class="mc-ia-dot cyan"></span>Carregando análise da telemetria…</li>
                 </ul>
-                <button class="btn-link mc-ia-cta" data-section-go="ia-insights">Ver análise completa →</button>
+                <button class="btn-link mc-ia-cta" data-section-go="relatorios" data-rel-tab-go="insights">Ver análise completa →</button>
               </div>
             </div>
           </section>
@@ -553,7 +546,7 @@
               </div>
               <div style="display:flex;gap:8px;align-items:center;">
                 <input id="cliBusca" class="input" style="width:200px;" placeholder="Buscar condomínio…">
-                <button class="btn btnAccent btn-sm" data-action="novo-cliente">+ Novo cliente</button>
+                <button class="btn btnAccent btn-sm viewer-only-hide" data-action="novo-cliente">+ Novo cliente</button>
               </div>
             </div>
             <div class="tableWrap ch-table-wrap">
@@ -1072,7 +1065,7 @@
               </div>
               <div style="display:flex;gap:8px;align-items:center;">
                 <input id="tecBusca" class="input" style="width:200px;" placeholder="Buscar técnico…">
-                <button class="btn btnAccent btn-sm" data-action="novo-tecnico">+ Novo técnico</button>
+                <button class="btn btnAccent btn-sm viewer-only-hide" data-action="novo-tecnico">+ Novo técnico</button>
               </div>
             </div>
             <div class="tableWrap ch-table-wrap">
@@ -1104,11 +1097,12 @@
 
         <!-- Tabs + filtros -->
         <div class="card" style="padding:0;overflow:hidden;margin-bottom:12px;">
-          <div style="padding:12px 20px 0;border-bottom:1px solid var(--border);">
-            <div class="wa-tabs" id="relTabs" role="tablist" style="border-bottom:none;">
+          <div style="padding:12px 20px;border-bottom:1px solid var(--border);">
+            <div class="wa-tabs" id="relTabs" role="tablist" style="border-bottom:none;margin-top:0;">
               <button class="wa-tab is-active" data-rel-tab="chamados">Chamados</button>
               <button class="wa-tab" data-rel-tab="alertas">Alertas</button>
               <button class="wa-tab" data-rel-tab="telemetria">Telemetria diária</button>
+              <button class="wa-tab" data-rel-tab="insights">Insights</button>
             </div>
           </div>
           <!-- filtros chamados -->
@@ -1164,6 +1158,15 @@
               <button class="btn btn-sm" data-rel-action="gerar-telemetria" style="align-self:flex-end;">Gerar</button>
             </div>
           </div>
+          <!-- filtros insights -->
+          <div class="rel-tab-pane" id="relPaneInsights" style="padding:14px 20px;display:none;">
+            <div class="filter-bar">
+              <div class="field"><label class="lbl">De</label><input type="date" id="relInIni" class="input" style="width:136px;"></div>
+              <div class="field"><label class="lbl">Até</label><input type="date" id="relInFim" class="input" style="width:136px;"></div>
+              <div class="field"><label class="lbl">Condomínio</label><select id="relInCondo" class="input" style="width:158px;"><option value="">Todos</option></select></div>
+              <button class="btn btn-sm" data-rel-action="gerar-insights" style="align-self:flex-end;">Gerar</button>
+            </div>
+          </div>
         </div>
 
         <!-- ── CORPO: CHAMADOS ── -->
@@ -1206,9 +1209,10 @@
             </div>
             <div class="tableWrap" style="max-height:260px;">
               <table><thead><tr>
-                <th style="width:52px">ID</th><th>Título</th>
+                <th style="width:64px">ID</th><th>Título</th>
                 <th style="width:148px">Condomínio</th><th style="width:120px">Técnico</th>
-                <th style="width:90px">Prioridade</th><th style="width:80px">Status</th>
+                <th style="width:118px">Categoria</th>
+                <th style="width:96px">Prioridade</th><th style="width:96px">Status</th>
                 <th style="width:96px">Aberto em</th><th style="width:66px">SLA</th>
               </tr></thead><tbody id="relChTbody"></tbody></table>
             </div>
@@ -1258,9 +1262,10 @@
             </div>
             <div class="tableWrap" style="max-height:260px;">
               <table><thead><tr>
-                <th style="width:52px">ID</th><th style="width:152px">Tipo</th>
+                <th style="width:68px">ID</th><th style="width:160px">Tipo</th>
                 <th>Mensagem</th><th style="width:148px">Reservatório</th>
-                <th style="width:78px">Status</th><th style="width:96px">Criado em</th>
+                <th style="width:148px">Condomínio</th>
+                <th style="width:90px">Status</th><th style="width:96px">Criado em</th>
                 <th style="width:70px">Tempo</th>
               </tr></thead><tbody id="relAlTbody"></tbody></table>
             </div>
@@ -1304,6 +1309,29 @@
           </div>
         </div>
 
+        <!-- ── CORPO: INSIGHTS ── -->
+        <div class="rel-body" id="relBodyInsights" style="display:none;">
+          <div class="resumo-grid" id="relInKpis" style="margin-bottom:12px;"></div>
+          <div class="rel-charts-2b" style="margin-bottom:12px;">
+            <div class="card" style="padding:0;overflow:hidden;">
+              <p class="rel-ct-head" id="relInHeadTop"><span>Condomínios mais problemáticos</span></p>
+              <div style="padding:0 12px 12px;">
+                <table><thead><tr>
+                  <th>Condomínio</th>
+                  <th style="width:62px;text-align:right;">Score</th>
+                  <th style="width:60px;text-align:right;">Chamados</th>
+                  <th style="width:54px;text-align:right;">Alertas</th>
+                  <th style="width:82px;text-align:right;">Tempo méd</th>
+                </tr></thead><tbody id="relInTopBody"></tbody></table>
+              </div>
+            </div>
+            <div class="card" style="padding:0;overflow:hidden;">
+              <p class="rel-ct-head" id="relInHeadCat"><span>Categorias mais comuns no WhatsApp</span></p>
+              <div id="relInChartCat" style="height:240px;"></div>
+            </div>
+          </div>
+        </div>
+
         <!-- Exportação rápida -->
         <div id="relExportCard" style="display:none;">
           <div class="card" style="padding:0;overflow:hidden;">
@@ -1330,26 +1358,195 @@
 
       </div><!-- /section relatorios -->
 
-      <div class="section" data-section="ia-insights">
-        <div class="coming-soon">
-          <div class="coming-soon-mark">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a4 4 0 0 0-4 4v0a3 3 0 0 0-3 3v1a3 3 0 0 0 1 5.83V19a3 3 0 0 0 6 0V6a4 4 0 0 0 0-4Z"/><path d="M12 2a4 4 0 0 1 4 4v0a3 3 0 0 1 3 3v1a3 3 0 0 1-1 5.83V19a3 3 0 0 1-6 0"/></svg>
-          </div>
-          <h3>IA Insights</h3>
-          <p>Análises preditivas e tendências geradas pela IA com base nos dados de telemetria.</p>
-          <span class="coming-soon-tag">Em breve</span>
-        </div>
-      </div>
-
       <div class="section" data-section="config">
-        <div class="coming-soon">
-          <div class="coming-soon-mark">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+
+        <!-- Tabs no topo -->
+        <div class="card" style="padding:0;overflow:hidden;margin-bottom:12px;">
+          <div style="padding:12px 20px;border-bottom:1px solid var(--border);">
+            <div class="wa-tabs" id="cfgTabs" role="tablist" style="border-bottom:none;margin-top:0;">
+              <button class="wa-tab is-active" data-cfg-tab="conta">Conta</button>
+              <button class="wa-tab" data-cfg-tab="usuarios">Usuários</button>
+              <button class="wa-tab" data-cfg-tab="ia">IA</button>
+              <button class="wa-tab" data-cfg-tab="notificacoes">Notificações</button>
+              <button class="wa-tab" data-cfg-tab="integracoes">Integrações</button>
+            </div>
           </div>
-          <h3>Configurações</h3>
-          <p>Preferências do sistema, integrações e gestão de acessos.</p>
-          <span class="coming-soon-tag">Em breve</span>
         </div>
+
+        <!-- ── BODY: CONTA ── -->
+        <div class="cfg-body" id="cfgBodyConta">
+          <div class="cfg-grid">
+            <!-- Trocar senha -->
+            <div class="card cfg-card">
+              <div class="cfg-card-head">
+                <svg class="cfg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                <div>
+                  <h3>Alterar senha</h3>
+                  <p>Atualize sua senha de acesso ao painel.</p>
+                </div>
+              </div>
+              <div class="cfg-form">
+                <div class="field"><label class="lbl">Senha atual</label><input type="password" id="cfgSenhaAtual" class="input" autocomplete="current-password"></div>
+                <div class="field"><label class="lbl">Nova senha</label><input type="password" id="cfgSenhaNova" class="input" autocomplete="new-password"></div>
+                <div class="field"><label class="lbl">Confirmar nova senha</label><input type="password" id="cfgSenhaNovaConf" class="input" autocomplete="new-password"></div>
+                <div class="cfg-actions">
+                  <span id="cfgSenhaMsg" class="cfg-msg"></span>
+                  <button class="btn btnAccent btn-sm" data-cfg-action="trocar-senha">Salvar nova senha</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Dispositivos confiáveis -->
+            <div class="card cfg-card">
+              <div class="cfg-card-head">
+                <svg class="cfg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                <div>
+                  <h3>Dispositivos confiáveis</h3>
+                  <p>Dispositivos que dispensam código 2FA por 30 dias.</p>
+                </div>
+              </div>
+              <div id="cfgDispLista" class="cfg-disp-lista">
+                <div class="cfg-empty">Carregando…</div>
+              </div>
+              <div class="cfg-actions" style="margin-top:12px;">
+                <span></span>
+                <button class="btn btn-sm" data-cfg-action="sair-todos" style="border-color:rgba(248,113,113,.4);color:#f87171;">Sair de todos os dispositivos</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── BODY: USUÁRIOS ── -->
+        <div class="cfg-body" id="cfgBodyUsuarios" style="display:none;">
+          <div class="card" style="padding:0;overflow:hidden;">
+            <div class="cfg-card-head" style="padding:14px 16px;border-bottom:1px solid var(--border);">
+              <svg class="cfg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              <div style="flex:1;">
+                <h3>Usuários do sistema</h3>
+                <p>Administradores, visualizadores e clientes cadastrados.</p>
+              </div>
+              <button class="btn btnAccent btn-sm viewer-only-hide" data-cfg-action="novo-usuario">+ Novo usuário</button>
+            </div>
+            <div class="tableWrap" style="max-height:560px;">
+              <table>
+                <thead><tr>
+                  <th>Nome</th><th>Email</th><th style="width:120px">Tipo</th>
+                  <th style="width:180px">Condomínio</th><th style="width:110px">Cadastrado em</th>
+                  <th style="width:220px">Ações</th>
+                </tr></thead>
+                <tbody id="cfgUsuariosBody"><tr><td colspan="6" class="cfg-empty">Carregando…</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── BODY: IA ── -->
+        <div class="cfg-body" id="cfgBodyIa" style="display:none;">
+          <div class="cfg-grid">
+            <div class="card cfg-card cfg-card-wide">
+              <div class="cfg-card-head">
+                <svg class="cfg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a4 4 0 0 0-4 4v0a3 3 0 0 0-3 3v1a3 3 0 0 0 1 5.83V19a3 3 0 0 0 6 0V6a4 4 0 0 0 0-4Z"/><path d="M12 2a4 4 0 0 1 4 4v0a3 3 0 0 1 3 3v1a3 3 0 0 1-1 5.83V19a3 3 0 0 1-6 0"/></svg>
+                <div>
+                  <h3>Comportamento da IA</h3>
+                  <p>Controle quando, como e com qual modelo o assistente responde clientes no WhatsApp.</p>
+                </div>
+              </div>
+              <div class="cfg-form">
+                <div class="cfg-toggle-row">
+                  <div>
+                    <strong>IA ativa</strong>
+                    <p>Quando desligada, mensagens recebidas no WhatsApp ficam aguardando resposta humana.</p>
+                  </div>
+                  <label class="cfg-switch">
+                    <input type="checkbox" id="cfgIaEnabled">
+                    <span class="cfg-slider"></span>
+                  </label>
+                </div>
+
+                <div class="field"><label class="lbl">Modelo OpenAI</label>
+                  <select id="cfgIaModelo" class="input" style="max-width:240px;">
+                    <option value="gpt-4o-mini">gpt-4o-mini (rápido, econômico)</option>
+                    <option value="gpt-4o">gpt-4o (mais preciso, ~20× custo)</option>
+                  </select>
+                </div>
+
+                <div class="field">
+                  <label class="lbl" style="display:flex;justify-content:space-between;align-items:center;">
+                    System prompt
+                    <button class="btn-link" data-cfg-action="restaurar-prompt" style="font-size:11px;">Restaurar padrão</button>
+                  </label>
+                  <textarea id="cfgIaPrompt" class="input" rows="14" style="font-family:ui-monospace,monospace;font-size:12px;line-height:1.5;"></textarea>
+                  <p class="cfg-hint">Define personalidade, tom e regras de classificação. Mudanças entram em vigor na próxima mensagem.</p>
+                </div>
+
+                <div class="cfg-actions">
+                  <span id="cfgIaMsg" class="cfg-msg"></span>
+                  <button class="btn btnAccent btn-sm" data-cfg-action="salvar-ia">Salvar configurações de IA</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── BODY: NOTIFICAÇÕES ── -->
+        <div class="cfg-body" id="cfgBodyNotificacoes" style="display:none;">
+          <div class="cfg-grid">
+            <div class="card cfg-card">
+              <div class="cfg-card-head">
+                <svg class="cfg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                <div>
+                  <h3>Emails de alerta</h3>
+                  <p>Quem recebe notificações por email quando um dispositivo fica offline ou um nível chega ao crítico.</p>
+                </div>
+              </div>
+              <div class="cfg-form">
+                <div class="field">
+                  <label class="lbl">Destinatários</label>
+                  <input type="text" id="cfgEmailDestinatario" class="input" placeholder="email1@empresa.com, email2@empresa.com">
+                  <p class="cfg-hint">Múltiplos emails separados por vírgula. Deixe vazio pra desabilitar notificações por email.</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="card cfg-card">
+              <div class="cfg-card-head">
+                <svg class="cfg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                <div>
+                  <h3>Frequência da verificação offline</h3>
+                  <p>De quanto em quanto tempo o sistema checa se algum dispositivo parou de enviar dados.</p>
+                </div>
+              </div>
+              <div class="cfg-form">
+                <div class="field">
+                  <label class="lbl">Intervalo (minutos)</label>
+                  <input type="number" id="cfgOfflineIntervalo" class="input" min="1" max="60" style="max-width:120px;">
+                  <p class="cfg-hint">Entre 1 e 60 minutos. Valor menor = detecção mais rápida, mais carga no banco.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="cfg-actions" style="margin-top:12px;">
+            <span id="cfgNotifMsg" class="cfg-msg"></span>
+            <button class="btn btnAccent btn-sm" data-cfg-action="salvar-notificacoes">Salvar notificações</button>
+          </div>
+        </div>
+
+        <!-- ── BODY: INTEGRAÇÕES ── -->
+        <div class="cfg-body" id="cfgBodyIntegracoes" style="display:none;">
+          <div class="cfg-actions" style="margin-bottom:12px;justify-content:flex-end;">
+            <button class="btn btn-sm" data-cfg-action="testar-integracoes">↻ Testar conexões</button>
+          </div>
+          <div class="cfg-int-grid" id="cfgIntGrid">
+            <div class="cfg-empty">Carregando status…</div>
+          </div>
+        </div>
+
+      </div><!-- /section config -->
+
+      <!-- Modal exclusivo da seção Configurações (evita conflito com modais existentes) -->
+      <div id="cfgModalOverlay" class="modalOverlay" style="display:none;">
+        <div class="modalBox" id="cfgModalBox"></div>
       </div>
 
     </div><!-- /content -->

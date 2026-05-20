@@ -151,8 +151,8 @@ router.post("/login", loginLimiter, async (req, res) => {
       }
     }
 
-    // 2FA desativado via env (útil em dev)
-    if (process.env.OTP_DISABLED === "true") {
+    // 2FA desativado via env (útil em dev) — ignorado em produção
+    if (process.env.OTP_DISABLED === "true" && !isProd) {
       const token = jwt.sign(
         { id: u.id, role: u.role, condominio_id: u.condominio_id, email: u.email },
         JWT_SECRET,
@@ -261,6 +261,95 @@ router.post("/verify-otp", otpLimiter, async (req, res) => {
   } catch (error) {
     console.error("Erro /auth/verify-otp:", error);
     return res.status(500).json({ error: "Erro ao verificar código" });
+  }
+});
+
+/**
+ * POST /auth/trocar-senha  (qualquer usuário logado)
+ * Body: { senha_atual, senha_nova }
+ */
+router.post("/trocar-senha", authRequired, async (req, res) => {
+  const { senha_atual, senha_nova } = req.body || {};
+  if (!senha_atual || !senha_nova) {
+    return res.status(400).json({ error: "Campos: senha_atual, senha_nova" });
+  }
+  if (String(senha_nova).length < 6) {
+    return res.status(400).json({ error: "Senha nova deve ter no mínimo 6 caracteres" });
+  }
+  if (senha_atual === senha_nova) {
+    return res.status(400).json({ error: "A senha nova deve ser diferente da atual" });
+  }
+
+  try {
+    const r = await pool.query("SELECT senha_hash FROM usuarios WHERE id = $1 LIMIT 1", [req.user.id]);
+    if (r.rows.length === 0) return res.status(404).json({ error: "Usuário não encontrado" });
+
+    const ok = await bcrypt.compare(String(senha_atual), r.rows[0].senha_hash);
+    if (!ok) return res.status(401).json({ error: "Senha atual incorreta" });
+
+    const hash = await bcrypt.hash(String(senha_nova), 10);
+    await pool.query("UPDATE usuarios SET senha_hash = $1 WHERE id = $2", [hash, req.user.id]);
+
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("Erro /auth/trocar-senha:", err);
+    return res.status(500).json({ error: "Erro ao trocar senha" });
+  }
+});
+
+/**
+ * GET /auth/dispositivos  (qualquer usuário logado)
+ * Lista os dispositivos confiáveis do próprio usuário.
+ */
+router.get("/dispositivos", authRequired, async (req, res) => {
+  try {
+    const r = await pool.query(
+      `SELECT id, criado_em, expires_at,
+              (token = $2) AS atual
+       FROM trusted_devices
+       WHERE usuario_id = $1 AND expires_at > NOW()
+       ORDER BY criado_em DESC`,
+      [req.user.id, req.cookies?.[TRUSTED_COOKIE] || ""]
+    );
+    return res.json(r.rows);
+  } catch (err) {
+    console.error("Erro GET /auth/dispositivos:", err);
+    return res.status(500).json({ error: "Erro ao listar dispositivos" });
+  }
+});
+
+/**
+ * DELETE /auth/dispositivos/:id  — revoga um dispositivo específico
+ */
+router.delete("/dispositivos/:id", authRequired, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    return res.status(400).json({ error: "id inválido" });
+  }
+  try {
+    const r = await pool.query(
+      "DELETE FROM trusted_devices WHERE id = $1 AND usuario_id = $2",
+      [id, req.user.id]
+    );
+    if (r.rowCount === 0) return res.status(404).json({ error: "Dispositivo não encontrado" });
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("Erro DELETE /auth/dispositivos:", err);
+    return res.status(500).json({ error: "Erro ao revogar dispositivo" });
+  }
+});
+
+/**
+ * DELETE /auth/dispositivos  — revoga todos os dispositivos do usuário
+ */
+router.delete("/dispositivos", authRequired, async (req, res) => {
+  try {
+    const r = await pool.query("DELETE FROM trusted_devices WHERE usuario_id = $1", [req.user.id]);
+    res.clearCookie(TRUSTED_COOKIE);
+    return res.json({ ok: true, revogados: r.rowCount });
+  } catch (err) {
+    console.error("Erro DELETE /auth/dispositivos (todos):", err);
+    return res.status(500).json({ error: "Erro ao revogar dispositivos" });
   }
 });
 
