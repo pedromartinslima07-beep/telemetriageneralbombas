@@ -4,3 +4,6 @@ node_modules/
 *.log
 .DS_Store
 .claude/
+desktop.ini
+**/desktop.ini
+Thumbs.db

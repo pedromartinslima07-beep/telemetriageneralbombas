@@ -700,6 +700,403 @@ Resend já era usado pra OTP; agora também dispara email automático quando ale
 
 ---
 
+### Fase 7 — App mobile nativo (Capacitor) para técnicos e clientes 📋 PLANEJADA
+
+Objetivo: app real no celular (Play Store + App Store) focado em **técnicos** (campo) e **clientes/síndicos** (acompanhamento). O admin continua usado no PC — o app **não substitui** o painel admin, complementa.
+
+**Premissa de stack:** mantém HTML/CSS/JS puro. Usa **Capacitor** (Ionic) pra embrulhar o frontend num app nativo. Mesmo código, dois alvos (`.apk` e `.ipa`). Sem React Native, sem Flutter — preserva a decisão original do projeto.
+
+**Por que não PWA:** o requisito de **rastreamento GPS do técnico em background** mata PWA — iOS Safari só captura localização com aba visível; Android Chrome mata o service worker em minutos. Capacitor expõe APIs nativas de background location com gestão de bateria adequada.
+
+#### 7A — Estrutura do app + Capacitor setup
+
+- Diretório novo `app/` no monorepo (não confundir com `public/` do admin):
+  ```
+  app/
+    public/           — index.html, app.js, app.css (HTML/CSS/JS puro, igual ao admin)
+    capacitor.config.ts
+    android/          — gerado pelo `npx cap add android`
+    ios/              — gerado pelo `npx cap add ios`
+    package.json      — só pra deps do Capacitor + plugins
+  ```
+- 2 modos no mesmo bundle (decidido por role do JWT no login):
+  - `role=tecnico` → fluxo de campo (lista de chamados, O.S., GPS)
+  - `role=cliente` → fluxo de acompanhamento (telemetria, abrir/acompanhar chamado)
+- Reuso visual: copia paleta Mission Control + componentes (`.rc`, cards) do admin pra manter identidade
+- Build: `npm run build:app` → copia `app/public/` pra `app/www/` → `npx cap sync`
+- Splash + ícone: a partir do `logo-menu.png`, gerados via `@capacitor/assets`
+
+#### 7B — Autenticação e onboarding
+
+- Reusa endpoints existentes (`POST /auth/login` + JWT). Sem reescrever auth.
+- **Trusted device** do app é mais permissivo que web: token salvo em `Capacitor Preferences` (storage nativo criptografado), válido por 30 dias
+- Tela de login com biometria (Touch ID / Face ID / impressão digital) via `@capacitor-community/biometric-auth`
+- OTP via WhatsApp (já implementado pro web) também roda no app — usa deep link `general-bombas://otp?code=...`
+
+#### 7C — Tela inicial do técnico
+
+- **Lista de chamados atribuídos** (filtro `responsavel_id = me` em `/chamados`)
+- Cada card: condomínio, endereço, prioridade (badge), categoria, tempo aberto, distância (Haversine entre GPS atual e `condominios.lat/lng`)
+- Ordenação configurável: **proximidade** (default) / prioridade / data
+- 3 tabs: **Hoje** (atribuídos não concluídos) / **Próximos** (agendados) / **Histórico** (concluídos)
+- Botão flutuante "🔄" pra forçar refresh + indicador de quando foi o último sync
+
+#### 7D — Tela do chamado + ciclo de atendimento
+
+Estados visíveis pro técnico:
+
+```
+[aberto]                                — chamado atribuído a mim
+   ↓ "🚗 Iniciar atendimento"
+[em_atendimento] (GPS chegada gravada)  — tracking ativo, timer rodando
+   ↓ "📋 Preencher O.S."
+[preenchendo_os]                        — formulário multi-etapa
+   ↓ assina + finaliza (GPS saída gravada)
+[concluido]                             — PDF gerado, email enviado, fora da fila
+```
+
+- Header com nome do condomínio, endereço completo (com botão "📍 Abrir no Maps" → `Capacitor App.openUrl()` pra Google/Apple Maps)
+- Detalhe: descrição, categoria, prioridade, conversa WhatsApp que originou (se houver)
+- **Última telemetria** do condomínio (nível dos reservatórios, status das bombas) — reutiliza endpoint existente
+- Botão grande "🚗 Iniciar atendimento" → registra GPS chegada via `@capacitor/geolocation`, muda status pra `em_atendimento`, ativa background tracking
+
+#### 7E — Ordem de Serviço digital (substitui o formulário paper atual)
+
+A O.S. paper em `public/ordem-de-servico.png` é a referência. O fluxo digital preserva 100% do que captura, melhora aproveitando ser digital.
+
+**Pré-preenchimento automático** (técnico só edita o que muda em cada visita):
+- **Data** (hoje), **Técnico** (do JWT), **OS/Nº** (gerado pelo backend: `OS-2026-0042`)
+- **Cliente / Endereço / Bairro** vêm de `condominios` via `chamado_id`
+
+**Campos do formulário (acordeon multi-etapa):**
+
+1. **Tipos de serviço** (chips multi-select, ≥1 obrigatório):
+   `retirada_equipamento`, `vistoria_contrato`, `visita_tecnica`, `devolucao`, `limpeza_piscina`, `limpeza_caixas`, `chamado_emergencial`, `preventiva_mensal`, `instalacao_pecas`
+
+2. **Equipamentos verificados** (lista vertical com switches, ≥1 obrigatório OU observação preenchida):
+   - Comando elétrico, Bombas de recalque, Bombas de sucção, Bombas de piscina, Bombas de pressurização, Bombas de cascata, Bombas de espelho d'águas, Linha dos automáticos, **Painéis solares** *(corrigido: era "PAINEL SOLARES")*, **Válvula redutora de pressão** *(corrigido: era "VÁVULA")*, **Válvula de retenção** *(corrigido)*, Estação de tratamento, Grupo gerador
+
+3. **Correntes elétricas** (Mono / Bi / Tri):
+   - Radio único pra tipo, depois 1/2/3 inputs numéricos condicionais
+   - Salvo como `{ tipo: 'tri', valores: [3.2, 3.1, 3.3] }`
+
+4. **Fotos** (categorizadas, compressão no client antes do upload):
+   - Tipos: `antes` / `depois` / `geral`
+   - Plugin: `@capacitor/camera` (câmera nativa + galeria)
+   - Compressão: máx 1600px de lado maior, qualidade 0.75 (~150-300KB cada)
+   - **Obrigatórias** quando tipos contiverem `instalacao_pecas` ou `chamado_emergencial`
+
+5. **Peças usadas / substituídas** (lista repetível, opcional):
+   - `{ descricao, quantidade, observacao }` — facilita controle de estoque e cobrança futura
+
+6. **Observações gerais** (textarea, máx 2000 chars)
+
+7. **Resolução** (radio obrigatório):
+   - `resolvido` (problema sanado) / `paliativo` (medida temporária) / `agravado` (descobriu coisa pior)
+   - **Necessário retorno** sim/não — se sim, sugere data com date picker
+
+8. **Quem recebeu** + **Assinatura**:
+   - Nome de quem recebeu + tipo (`gestor` / `sindico` / `portaria`)
+   - Canvas full screen pra assinatura digital (dedo na tela)
+   - Salva como PNG base64 no banco (~10-30 KB)
+
+**Finalização:**
+- Toca "✅ Confirmar e finalizar"
+- App registra GPS saída + `saida_em` via `@capacitor/geolocation`
+- Backend muda `chamados.status = 'concluido'`, gera PDF idêntico ao formulário paper original (logo General + paleta) via `pdfkit` no servidor
+- Email automático pro síndico com PDF anexo (Resend, já integrado)
+- PDF fica disponível no histórico do condomínio — cliente/síndico vê pelo app
+- Endpoint `PATCH /chamados/:id/executar` **só aceita se** `ordens_servico.finalizada_em IS NOT NULL` (regra de negócio: sem O.S., não fecha)
+
+**Schema novo:**
+
+```sql
+-- Migration 015_ordens_servico.sql
+CREATE TABLE ordens_servico (
+  id              SERIAL PRIMARY KEY,
+  numero          VARCHAR(20) UNIQUE NOT NULL,           -- 'OS-2026-0042'
+  chamado_id      INTEGER REFERENCES chamados(id) ON DELETE SET NULL,
+  condominio_id   INTEGER REFERENCES condominios(id),
+  tecnico_id      INTEGER REFERENCES usuarios(id),
+
+  tipos_servico   TEXT[] NOT NULL,
+
+  chegada_em      TIMESTAMPTZ,
+  chegada_lat     NUMERIC(9,6),
+  chegada_lng     NUMERIC(9,6),
+  saida_em        TIMESTAMPTZ,
+  saida_lat       NUMERIC(9,6),
+  saida_lng       NUMERIC(9,6),
+
+  recebido_nome   VARCHAR(255),
+  recebido_tipo   VARCHAR(20),                           -- 'gestor'|'sindico'|'portaria'
+
+  itens_verificados JSONB,                               -- { "comando_eletrico": true, ... }
+  correntes       JSONB,                                 -- { "tipo": "tri", "valores": [...] }
+
+  observacoes     TEXT,
+
+  servico_realizado VARCHAR(20),                         -- 'resolvido'|'paliativo'|'agravado'
+  necessario_retorno BOOLEAN DEFAULT false,
+  retorno_sugerido_em DATE,
+
+  assinatura_b64  TEXT,                                  -- PNG base64
+
+  pdf_url         TEXT,
+
+  criado_em       TIMESTAMPTZ DEFAULT NOW(),
+  finalizada_em   TIMESTAMPTZ
+);
+
+CREATE TABLE os_fotos (
+  id          SERIAL PRIMARY KEY,
+  os_id       INTEGER REFERENCES ordens_servico(id) ON DELETE CASCADE,
+  url         TEXT NOT NULL,
+  legenda     VARCHAR(255),
+  tipo        VARCHAR(20),                               -- 'antes'|'depois'|'geral'
+  criado_em   TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE os_pecas (
+  id          SERIAL PRIMARY KEY,
+  os_id       INTEGER REFERENCES ordens_servico(id) ON DELETE CASCADE,
+  descricao   VARCHAR(255) NOT NULL,
+  quantidade  INTEGER DEFAULT 1,
+  observacao  TEXT
+);
+
+ALTER TABLE chamados ADD COLUMN IF NOT EXISTS ordem_servico_id INTEGER REFERENCES ordens_servico(id);
+```
+
+**Endpoints novos:**
+
+```
+POST   /ordens-servico                    — cria O.S. (status: rascunho)
+PATCH  /ordens-servico/:id                — atualiza campos (multi-etapa)
+POST   /ordens-servico/:id/fotos          — upload de foto (multipart)
+DELETE /ordens-servico/:id/fotos/:foto_id
+POST   /ordens-servico/:id/finalizar      — gera PDF, dispara email, fecha chamado
+GET    /ordens-servico/:id/pdf            — baixa o PDF gerado
+GET    /chamados/:id/ordem-servico        — retorna O.S. vinculada (se houver)
+```
+
+**Storage das fotos:** começa em `public/uploads/os/{os_id}/` no próprio servidor (barato e simples). Migrar pra Cloudinary/S3 só quando volume justificar (>10GB).
+
+#### 7F — Rastreamento GPS dos técnicos
+
+- Plugin: `@capacitor-community/background-geolocation`
+- Tracking ligado automaticamente quando técnico está em chamado com status `em_atendimento`
+- Frequência configurável em **Configurações > Operacional**: padrão 60s
+- **Otimização de bateria:** plugin usa significant-change-only do iOS e fused location do Android — não polling cego
+- Notificação persistente Android "📍 Rastreando localização — General Bombas" (exigência do sistema; honesto com o técnico)
+- Endpoint `POST /tecnicos/localizacao` — recebe `{lat, lng, precisao_m, capturada_em}`, sobrescreve a última em `tecnico_localizacoes`
+- **Privacidade:**
+  - Tracking só liga durante chamado ativo (fora disso, app não rastreia)
+  - Localizações > 24h são apagadas por job diário (config dinâmica de retenção)
+  - Técnico vê toggle "Pausar rastreamento" no menu (com confirmação) — útil pra horário de almoço; admin recebe aviso
+
+**Schema:**
+
+```sql
+-- Migration 016_tecnico_localizacoes.sql
+CREATE TABLE tecnico_localizacoes (
+  usuario_id    INTEGER PRIMARY KEY REFERENCES usuarios(id) ON DELETE CASCADE,
+  lat           NUMERIC(9,6) NOT NULL,
+  lng           NUMERIC(9,6) NOT NULL,
+  precisao_m    NUMERIC(6,1),
+  bateria_pct   INTEGER,                                 -- opcional, plugin reporta
+  capturada_em  TIMESTAMPTZ NOT NULL,
+  atualizada_em TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE tecnico_localizacoes_historico (
+  id            BIGSERIAL PRIMARY KEY,
+  usuario_id    INTEGER REFERENCES usuarios(id) ON DELETE CASCADE,
+  lat           NUMERIC(9,6) NOT NULL,
+  lng           NUMERIC(9,6) NOT NULL,
+  precisao_m    NUMERIC(6,1),
+  capturada_em  TIMESTAMPTZ NOT NULL
+);
+CREATE INDEX idx_tec_loc_hist ON tecnico_localizacoes_historico(usuario_id, capturada_em DESC);
+```
+
+- Tabela `tecnico_localizacoes` (1 linha por técnico, sobrescrita) → consultas rápidas pro mapa
+- Tabela `tecnico_localizacoes_historico` (append-only, retenção de 24h ou configurável) → trilha do dia, útil pra auditoria
+
+**Integração com o mapa admin:**
+
+- `GET /admin/tecnicos/localizacao` retorna lista `{usuario_id, nome, lat, lng, em_atendimento_no_condominio_id, capturada_em}`
+- Mapa Leaflet existente (seção Mapa + dashboard Mission Control) ganha layer extra: ícones de técnico (DivIcon CSS com avatar de iniciais) ao lado dos pinos de condomínio
+- Clicar no ícone do técnico → popup com nome + qual chamado está atendendo + botão "Ver no painel"
+- Polling de 20s (mesma cadência dos outros dados do dashboard)
+
+#### 7G — Push notifications nativas
+
+Capacitor Push usa **FCM (Firebase Cloud Messaging)** no Android e **APNs (Apple Push Notification service)** no iOS direto — sem o intermediário do Web Push.
+
+- Plugin: `@capacitor/push-notifications`
+- Setup Firebase pro Android (free tier suficiente) + Apple Developer pra APNs
+- Migration `017_push_tokens.sql`: `push_tokens(usuario_id, token UNIQUE, platform, ultima_atividade)` — diferente de `push_subscriptions` da PWA porque o formato do token é nativo
+- Endpoint `POST /push/registrar-token` (token vem do plugin no boot do app)
+- Backend usa `firebase-admin` (Android) e `node-apn` (iOS) — wrappers de envio em `src/services/push.service.js`
+- Mesma lógica anti-spam do email (Fase 6E): dispara só quando alerta novo
+- **Triggers:**
+  - Técnico recebe push quando chamado é atribuído a ele
+  - Técnico recebe push quando admin reatribui chamado
+  - Cliente recebe push quando chamado dele muda de status (atendimento iniciado / concluído)
+  - Cliente recebe push de alertas críticos do seu condomínio (telemetria offline / nível crítico)
+- Anti-flood: limite de 1 push por evento por usuário por 30 min (tabela `push_dedup`)
+- Janelas de silêncio configuráveis em **Perfil > Notificações** do app (default 22h–7h pra cliente, sempre ligado pra técnico em horário comercial)
+
+#### 7H — App do cliente / síndico
+
+Menos crítico que o do técnico, mas valioso pra fidelização. Mesma base do app (mesmo bundle, fluxo decidido pelo role).
+
+- **Tela inicial:** mosaico do condomínio dele — reservatórios (gauges), bombas, alertas abertos, último chamado
+- **Abrir chamado** direto pelo app (formulário curto: categoria + descrição + foto opcional)
+- **Acompanhar chamado em andamento:** linha do tempo (criado → atribuído → técnico a caminho → no local → concluído) + **mapa com pino do técnico se movendo** quando estiver indo / no local
+- **Histórico:** lista de O.S. anteriores com botão "Baixar PDF"
+- **Telemetria histórica:** reaproveita gráficos de `cliente.html` já existentes
+- Conversa WhatsApp do condomínio: lista de conversas + abrir uma ler (read-only no app — responder só pelo painel admin, decisão consciente: cliente fala com a empresa por WhatsApp normal)
+
+#### 7I — Configurações de notificação e operacional
+
+- Aba **Operacional** em Configurações (admin master):
+  - Frequência do GPS tracking dos técnicos (30s–5min)
+  - Retenção do histórico de localização (1–7 dias)
+  - Tempo máximo de chamado em `em_atendimento` antes de alerta (default 4h — se passar, admin recebe push "Técnico X está há 4h+ no chamado Y")
+- Aba **Notificações** ganha seção "Push do app":
+  - Toggle por tipo (alertas críticos / chamados atribuídos / mudanças de status / mensagens WhatsApp)
+  - Lista de devices com push ativo + botão "Desativar neste"
+  - Janelas de silêncio por usuário (padrão 22h–7h)
+
+#### 7J — Publicação nas lojas
+
+- **Android (Play Store):** conta Google Play Developer ($25 uma vez), build assinado via Android Studio, screenshots + descrição + ícone. ~3–7 dias pra aprovação inicial.
+- **iOS (App Store):** Apple Developer Program ($99/ano), build via Xcode, TestFlight pra beta, depois review. ~1–2 semanas pra aprovação inicial (Apple é mais rigorosa).
+- Versionamento: app reusa o backend de produção — mesma URL, mesmas APIs.
+- **Decisão consciente:** começar pelo Android (mais usuários no Brasil + processo mais rápido). iOS num segundo momento.
+
+**Estimativa de tempo realista:** 2–3 semanas pra MVP funcional do app do técnico (7A–7G), +1 semana app do cliente (7H), +1 semana publicação Android (7J). Total: 4–5 semanas até a primeira release real na Play Store.
+
+---
+
+### Fase 8 — Analytics e SLA 📋 PLANEJADA
+
+Dashboards focados em **prestação de contas** — tempo de resposta, taxa de resolução, SLA por prioridade. Hoje os números existem espalhados nos relatórios; a Fase 8 organiza em métricas auditáveis.
+
+#### 8A — Métricas de tempo (base)
+
+- Campos novos em `chamados`: `primeira_resposta_em` (timestamptz, set no primeiro `direcao=saida` após criação) e `tempo_resolucao_seg` (calculado no fechamento)
+- View materializada `chamados_metricas` agregando por dia / condomínio / categoria / prioridade
+- 4 KPIs base: **TTFR** (time to first response), **TTR** (time to resolution), **taxa de resolução em <1h**, **% reabertos**
+
+#### 8B — SLA configurável
+
+- Migration `012_sla.sql`: `sla_definicoes(prioridade, ttfr_min, ttr_min)` com seeds (emergência: 5min/30min, alta: 15min/2h, média: 1h/8h, baixa: 4h/24h)
+- Editável pelo master admin em **Configurações > SLA** (nova aba)
+- Cálculo de **SLA estourado** em tempo real: chamado aberto + sem resposta há mais que `ttfr_min` da prioridade → badge vermelho "⚠ SLA"
+- Push (Fase 7) e email opcionais quando estoura
+
+#### 8C — Dashboard de SLA (nova seção do menu)
+
+- 4 KPIs no topo: % SLA cumprido (último mês) / TTFR médio / TTR médio / Chamados em risco (próximos a estourar)
+- Gráfico **TTR ao longo do tempo** (line chart, 30/60/90 dias)
+- Tabela **Performance por técnico** (chamados atendidos / tempo médio / % no SLA / nota média se existir)
+- Tabela **Condomínios com mais incidentes** (parecido com o "Top 5" da Insights — refatorar pra reusar)
+- Filtros por período + condomínio + categoria + prioridade
+- Botão **Exportar PDF** com cabeçalho da empresa (relatório mensal pra cliente)
+
+#### 8D — Histórico longo de leituras (gráficos > 7 dias)
+
+Hoje o `/admin/historico` aceita até `horas=N` com buckets por hora. Pra cobrir SLA mensal, precisa de buckets diários e janelas maiores — depende parcialmente da Fase 9 (agregação).
+
+---
+
+### Fase 9 — Histórico longo + compressão 📋 PLANEJADA
+
+A tabela `leituras` cresce ~1 linha por device por 5 min. Em 100 condomínios com 3 reservatórios cada, são ~86k linhas/dia. Em 6 meses, o Railway começa a doer. A Fase 9 cria política de retenção e agregação **sem mudar o stack** (continua Postgres puro, sem TimescaleDB).
+
+#### 9A — Tabela agregada horária
+
+- Migration `013_leituras_agregadas.sql`: `leituras_agregadas_hora(device_id, hora_truncada, nivel_pct_min, nivel_pct_max, nivel_pct_avg, bomba_pct_ligada, n_amostras)`
+- Job em `cron` (ou setTimeout recursivo, padrão do projeto): a cada hora, agrega leituras da **última hora fechada** e insere idempotente (`ON CONFLICT (device_id, hora_truncada) DO UPDATE`)
+- Reaproveita o `config.service.js` pra ligar/desligar o job e ajustar intervalo
+
+#### 9B — Tabela agregada diária
+
+- `leituras_agregadas_dia` populada a partir da horária (mais barato que da raw)
+- Permite gráficos de 30/90/180 dias sem ler milhões de linhas
+
+#### 9C — Política de retenção
+
+- Configurável em **Configurações > Retenção**:
+  - Leituras raw: padrão 60 dias
+  - Agregação horária: padrão 1 ano
+  - Agregação diária: indefinido
+- Job de limpeza diário (3h da manhã, configurável) faz `DELETE` por lotes de 10k linhas pra não travar
+- Antes de deletar, gera contagem e loga (audit trail simples em tabela `jobs_log`)
+- **Modo "dry-run"** no toggle — mostra quanto seria apagado sem apagar
+
+#### 9D — Adaptar queries existentes
+
+- `GET /admin/historico` ganha lógica:
+  - `horas <= 168` (7 dias) → lê de `leituras` (raw)
+  - `horas > 168 && horas <= 720` (30 dias) → lê de `leituras_agregadas_hora`
+  - `horas > 720` → lê de `leituras_agregadas_dia`
+- Chave: o frontend não sabe da diferença — apenas o endpoint serve granularidade adequada
+
+#### 9E — Limpeza retroativa de alertas e conversas antigas
+
+- Alertas resolvidos há > 1 ano → tabela `alertas_arquivados` (mesma estrutura, sem indexes)
+- Conversas WhatsApp fechadas há > 1 ano → mensagens vão pra `mensagens_whatsapp_arquivadas`
+- Endpoints de listagem só leem a tabela ativa; histórico longo precisa de toggle "incluir arquivados" (raro, viewer não vê)
+
+---
+
+### Fase 10 — Treinar IA com histórico 📋 PLANEJADA
+
+A IA hoje usa um `system_prompt` genérico (Fase 6D deixou ele editável). Conforme o sistema acumula conversas reais resolvidas com bom atendimento humano, dá pra **especializar a IA no domínio** — vocabulário do morador, tipos de problema típicos, gírias regionais, padrões de "o que normalmente é só susto vs. emergência real".
+
+**Pré-requisito de volume:** ~500+ conversas resolvidas com avaliação humana (bom/ruim). Antes disso, few-shot puro já melhora muito.
+
+#### 10A — Curadoria de conversas resolvidas
+
+- Coluna nova `conversas_whatsapp.qualidade_atendimento` (enum: `excelente` / `boa` / `aceitavel` / `ruim` / `null`) — preenchida manualmente pelos admins no painel
+- Migration `014_qualidade_conversas.sql` + UI: dropdown no painel direito de WhatsApp ao fechar conversa ("Como foi este atendimento?")
+- Export `GET /admin/conversas/export?qualidade=excelente,boa&desde=...` — JSONL com pares (entrada do cliente → resposta humana ou da IA aprovada)
+- **PII scrubbing automático** no export: regex pra CPF, telefone, endereço completo → tokens `[CPF]`, `[FONE]`, etc.
+
+#### 10B — Few-shot por categoria
+
+- Tabela `ia_exemplos(categoria, mensagem_cliente, resposta_ideal, criado_por, ativo)`
+- Editável em **Configurações > IA** (nova sub-aba "Exemplos") — master admin promove conversas reais a exemplos curados
+- `ia.service.js` injeta 2-3 exemplos relevantes no `messages[]` baseado em **classificação prévia** (1ª chamada barata classifica → 2ª chamada com exemplos da categoria)
+- Cache: classificação fica em `mensagens_whatsapp.ia_categoria`, já existe
+
+#### 10C — Avaliação A/B (com vs sem few-shot)
+
+- Toggle em **Configurações > IA**: "% de tráfego com few-shot" (0-100)
+- Log de cada chamada: `ia_chamadas_log(conversa_id, com_few_shot, modelo, tokens_in, tokens_out, latencia_ms, custo_usd)`
+- Dashboard simples (em Insights): comparativo de qualidade média (vinda da Fase 10A) entre os dois ramos
+- Se ganho for marginal, **não vale o custo** — manter prompt simples
+
+#### 10D — Fine-tuning (só se 10B/C indicar que vale)
+
+- OpenAI permite fine-tuning de `gpt-4o-mini` com JSONL no formato `{messages: [...]}`
+- Custo: ~3-5x mais caro por token de inferência, mas reduz tokens do prompt (não precisa enviar exemplos toda vez)
+- **Critério de decisão:** só vale se few-shot do 10B já estiver dando ganho consistente E o volume de conversas/mês justificar (>10k mensagens IA/mês)
+- Pipeline: export JSONL curado (10A) → upload pra OpenAI → cria fine-tune → endpoint troca modelo via config dinâmica (Fase 6D já permite trocar modelo sem deploy)
+- Versionamento: cada fine-tune é um `ft:gpt-4o-mini:...:abc123` — guardar histórico em `ia_modelos_fine_tune` com data, qualidade média, custo
+
+#### 10E — Guardrails contra deriva
+
+- Avaliações automáticas mensais: rodar a IA fine-tuned em ~50 conversas "ouro" (curadas como referência) e comparar resposta vs. resposta humana real
+- Se taxa de divergência > X%, alerta no painel pra reavaliar
+- Botão "Rollback rápido" em **Configurações > IA** pra voltar ao modelo base se algo der errado em prod
+
+---
+
 ## Variáveis de ambiente novas necessárias
 
 ```env
