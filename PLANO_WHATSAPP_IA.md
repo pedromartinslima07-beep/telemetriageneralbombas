@@ -708,6 +708,14 @@ Objetivo: app real no celular (Play Store + App Store) focado em **técnicos** (
 
 **Por que não PWA:** o requisito de **rastreamento GPS do técnico em background** mata PWA — iOS Safari só captura localização com aba visível; Android Chrome mata o service worker em minutos. Capacitor expõe APIs nativas de background location com gestão de bateria adequada.
 
+**Premissa visual (regra rígida):** o app **herda 100% do sistema visual do admin web** (Mission Control). Toda nova tela em `app/public/*` deve:
+- Usar verbatim os tokens (`:root`) de `public/admin.css` — `--bg`, `--surface`, `--accent` (**amber `#f0b014`**, não cyan/violet), `--ok/warn/danger`, glows, shadows
+- Reusar componentes existentes: `.btn` / `.btnAccent` / `.btnDanger`, `.rc` (com variantes `rc-ok/warn/bad/neutral/violet/cyan`), `.card`, `body::before` aurora
+- Pra conteúdo idêntico entre admin e app (cards de chamado, badges de prioridade, KPIs), usar **exatamente as mesmas classes**
+- Mobile-only patterns (`.app-shell`, `.screen`, bottom nav, full-screen sheet, login form) podem ser novos, mas só com os tokens do admin — **nunca declarar variáveis paralelas**
+
+Antes de criar qualquer estilo no app, `grep` no `admin.css` pelo conceito. Se existe, copia. Se não, cria com os tokens existentes.
+
 #### 7A — Estrutura do app + Capacitor setup
 
 - Diretório novo `app/` no monorepo (não confundir com `public/` do admin):
