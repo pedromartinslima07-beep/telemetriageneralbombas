@@ -1,0 +1,12 @@
+{
+  "appId": "com.generalbombas.app",
+  "appName": "General Bombas",
+  "webDir": "public",
+  "android": {
+    "allowMixedContent": false
+  },
+  "server": {
+    "androidScheme": "https",
+    "iosScheme": "capacitor"
+  }
+}

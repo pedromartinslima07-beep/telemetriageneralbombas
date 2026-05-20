@@ -98,6 +98,19 @@ app.use("/static", express.static("public", {
   },
 }));
 
+// App mobile (Capacitor): em dev o Express serve /app/* a partir de app/public.
+// Em produção o app é empacotado pelo Capacitor e roda em capacitor://,
+// fazendo fetch direto pro backend. CORS pra capacitor:// é configurado
+// separadamente quando empacotamos o app.
+app.use("/app", express.static(path.join(__dirname, "../app/public"), {
+  etag: true,
+  setHeaders(res, filePath) {
+    if (filePath.endsWith(".js") || filePath.endsWith(".css")) {
+      res.setHeader("Cache-Control", "no-cache");
+    }
+  },
+}));
+
 // health check para monitoramento e balanceadores de carga
 app.get("/health", (req, res) => res.json({ status: "ok" }));
 

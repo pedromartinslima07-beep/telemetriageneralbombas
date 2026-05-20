@@ -1,0 +1,245 @@
+/* General Bombas — App mobile (Capacitor) */
+/* Paleta Mission Control: dark premium com aurora sutil e glassmorphism leve. */
+
+:root {
+  --bg-primary: #0b0f1f;
+  --bg-secondary: #131829;
+  --bg-tertiary: #1a2138;
+
+  --text-primary: #e6e9f5;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+
+  --accent-cyan: #06b6d4;
+  --accent-violet: #8b5cf6;
+  --accent-amber: #f59e0b;
+  --accent-success: #10b981;
+  --accent-danger: #ef4444;
+
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.16);
+  --shadow-lg: 0 20px 40px -12px rgba(0, 0, 0, 0.5);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100%;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  background-image:
+    radial-gradient(ellipse at top, rgba(139, 92, 246, 0.10), transparent 50%),
+    radial-gradient(ellipse at bottom right, rgba(6, 182, 212, 0.06), transparent 50%);
+  background-attachment: fixed;
+  overflow-x: hidden;
+}
+
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.app-header {
+  padding: 20px 20px 12px;
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  position: sticky;
+  top: 0;
+  background: rgba(11, 15, 31, 0.85);
+  z-index: 10;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logo {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--accent-cyan), var(--accent-violet));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 16px;
+  color: white;
+  letter-spacing: -0.5px;
+  box-shadow: 0 4px 16px -4px rgba(139, 92, 246, 0.4);
+}
+
+.brand-name {
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--text-primary);
+}
+
+.brand-sub {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.app-main {
+  flex: 1;
+  padding: 24px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.welcome-card {
+  width: 100%;
+  max-width: 420px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 32px 24px;
+  text-align: center;
+  box-shadow: var(--shadow-lg);
+}
+
+.welcome-emoji {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.welcome-card h1 {
+  font-size: 22px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  letter-spacing: -0.2px;
+}
+
+.welcome-card p {
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.welcome-card p.muted {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 24px;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border-radius: 10px;
+  border: none;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease;
+  min-height: 44px;
+  font-family: inherit;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--accent-cyan), var(--accent-violet));
+  color: white;
+  width: 100%;
+}
+
+.btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px -8px rgba(139, 92, 246, 0.4);
+  filter: brightness(1.05);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+  filter: brightness(0.95);
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.ping-status {
+  margin-top: 16px;
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  text-align: left;
+  display: none;
+}
+
+.ping-status.show {
+  display: block;
+}
+
+.ping-status.success {
+  background: rgba(16, 185, 129, 0.10);
+  border: 1px solid rgba(16, 185, 129, 0.30);
+  color: var(--accent-success);
+}
+
+.ping-status.error {
+  background: rgba(239, 68, 68, 0.10);
+  border: 1px solid rgba(239, 68, 68, 0.30);
+  color: var(--accent-danger);
+}
+
+.ping-status.loading {
+  background: rgba(6, 182, 212, 0.10);
+  border: 1px solid rgba(6, 182, 212, 0.30);
+  color: var(--accent-cyan);
+}
+
+.diag {
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px dashed var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 11.5px;
+  font-family: ui-monospace, "SF Mono", Menlo, Monaco, Consolas, monospace;
+}
+
+.diag-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.diag-label {
+  color: var(--text-muted);
+}
+
+.diag-value {
+  color: var(--text-secondary);
+  text-align: right;
+  word-break: break-all;
+}
+
+.app-footer {
+  padding: 16px 20px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 11px;
+  border-top: 1px solid var(--border);
+  font-family: ui-monospace, "SF Mono", Menlo, Monaco, Consolas, monospace;
+}

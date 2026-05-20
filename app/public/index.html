@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+  <meta name="theme-color" content="#0b0f1f" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>General Bombas</title>
+  <link rel="stylesheet" href="app.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="app-header">
+      <div class="brand">
+        <div class="logo">GB</div>
+        <div>
+          <div class="brand-name">General Bombas</div>
+          <div class="brand-sub">App de campo</div>
+        </div>
+      </div>
+    </header>
+
+    <main class="app-main">
+      <div class="welcome-card">
+        <div class="welcome-emoji">📱</div>
+        <h1>App em construção</h1>
+        <p>Fase 7A — estrutura inicial pronta.</p>
+        <p class="muted">Login, chamados, O.S. e GPS chegam nas próximas fases.</p>
+
+        <button id="btnPing" class="btn btn-primary">
+          Verificar conexão com o servidor
+        </button>
+        <div id="pingStatus" class="ping-status"></div>
+
+        <div class="diag">
+          <div class="diag-row">
+            <span class="diag-label">API base</span>
+            <span class="diag-value" id="apiBase">—</span>
+          </div>
+          <div class="diag-row">
+            <span class="diag-label">Ambiente</span>
+            <span class="diag-value" id="envInfo">—</span>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <footer class="app-footer">
+      <span id="now"></span>
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
