@@ -3,6 +3,7 @@ const { pool } = require("../db");
 const { authRequired } = require("../middleware/authRequired");
 const { adminOnly } = require("../middleware/adminOnly");
 const { masterAdminOnly } = require("../middleware/masterAdminOnly");
+const { salvarFotoMensagemChamado } = require("../services/chamado-mensagens.service");
 
 const router = express.Router();
 
@@ -52,13 +53,18 @@ router.get("/", authRequired, adminOnly, async (req, res) => {
          u.nome  AS responsavel_nome,
          t.nome  AS tecnico_nome,
          cw.telefone AS cliente_telefone,
-         cw.nome     AS cliente_nome
+         cw.nome     AS cliente_nome,
+         ch.ordem_servico_id,
+         os.orcamento_necessario,
+         os.orcamento_observacoes,
+         os.finalizada_em       AS os_finalizada_em
        FROM chamados ch
        LEFT JOIN condominios c  ON c.id  = ch.condominio_id
        LEFT JOIN usuarios u     ON u.id  = ch.responsavel_id
        LEFT JOIN tecnicos t     ON t.id  = ch.tecnico_id
        LEFT JOIN conversas_whatsapp cv ON cv.id = ch.conversa_id
        LEFT JOIN clientes_whatsapp cw  ON cw.id = cv.cliente_whatsapp_id
+       LEFT JOIN ordens_servico os     ON os.id = ch.ordem_servico_id
        ${where}
        ORDER BY ch.criado_em DESC
        LIMIT 200`,
@@ -290,6 +296,101 @@ router.get("/meus/:id", authRequired, async (req, res) => {
   } catch (err) {
     console.error("[chamados] GET /chamados/meus/:id:", err);
     return res.status(500).json({ error: "Erro ao buscar chamado" });
+  }
+});
+
+// ============================================================
+// Mensagens do chamado para o técnico (thread cliente↔técnico).
+// Persistidas em alerta_comentarios (alerta_origem='chamado').
+// Acesso só para o técnico atribuído ao chamado.
+// ============================================================
+
+async function _tecnicoDoChamado(userId, chamadoId) {
+  const tec = await pool.query(
+    `SELECT id FROM tecnicos WHERE usuario_id = $1 AND ativo = true LIMIT 1`,
+    [userId]
+  );
+  if (tec.rows.length === 0) return null;
+  const tecnicoId = tec.rows[0].id;
+
+  const ch = await pool.query(
+    `SELECT id FROM chamados WHERE id = $1 AND tecnico_id = $2 LIMIT 1`,
+    [chamadoId, tecnicoId]
+  );
+  if (ch.rows.length === 0) return null;
+  return tecnicoId;
+}
+
+// GET /chamados/meus/:id/mensagens
+router.get("/meus/:id/mensagens", authRequired, async (req, res) => {
+  if (req.user.role !== "tecnico") {
+    return res.status(403).json({ error: "Apenas técnicos" });
+  }
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
+
+  try {
+    const tecnicoId = await _tecnicoDoChamado(req.user.id, id);
+    if (!tecnicoId) return res.status(404).json({ error: "Chamado não encontrado" });
+
+    const r = await pool.query(
+      `SELECT c.id, c.texto, c.foto_url, c.criado_em,
+              c.autor_id, u.nome AS autor_nome, u.role AS autor_role
+       FROM alerta_comentarios c
+       LEFT JOIN usuarios u ON u.id = c.autor_id
+       WHERE c.alerta_origem = 'chamado' AND c.alerta_id = $1
+       ORDER BY c.criado_em ASC`,
+      [id]
+    );
+    return res.json(r.rows);
+  } catch (e) {
+    console.error("[chamados] GET /meus/:id/mensagens:", e);
+    return res.status(500).json({ error: "Erro ao buscar mensagens" });
+  }
+});
+
+// POST /chamados/meus/:id/mensagens   body: { texto?, foto_base64? }
+router.post("/meus/:id/mensagens", authRequired, async (req, res) => {
+  if (req.user.role !== "tecnico") {
+    return res.status(403).json({ error: "Apenas técnicos" });
+  }
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
+
+  const { texto, foto_base64 } = req.body || {};
+  const t = texto && typeof texto === "string" ? texto.trim() : "";
+  if (!t && !foto_base64) return res.status(400).json({ error: "Envie texto ou foto" });
+  if (t.length > 2000) return res.status(400).json({ error: "Texto muito longo (máx 2000)" });
+
+  try {
+    const tecnicoId = await _tecnicoDoChamado(req.user.id, id);
+    if (!tecnicoId) return res.status(404).json({ error: "Chamado não encontrado" });
+
+    let fotoUrl = null;
+    if (foto_base64) {
+      try {
+        ({ url: fotoUrl } = await salvarFotoMensagemChamado(id, foto_base64));
+      } catch (e) {
+        const code = e.code === "muito_grande" ? 413 : 400;
+        return res.status(code).json({ error: e.message });
+      }
+    }
+
+    const ins = await pool.query(
+      `INSERT INTO alerta_comentarios (alerta_origem, alerta_id, autor_id, texto, foto_url)
+       VALUES ('chamado', $1, $2, $3, $4)
+       RETURNING id, texto, foto_url, criado_em, autor_id`,
+      [id, req.user.id, t || null, fotoUrl]
+    );
+    const row = ins.rows[0];
+    return res.status(201).json({
+      ...row,
+      autor_nome: req.user.nome || null,
+      autor_role: req.user.role || "tecnico",
+    });
+  } catch (e) {
+    console.error("[chamados] POST /meus/:id/mensagens:", e);
+    return res.status(500).json({ error: "Erro ao enviar mensagem" });
   }
 });
 

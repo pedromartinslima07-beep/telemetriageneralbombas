@@ -110,7 +110,7 @@
          cardHead com head-icon amber + lista de cards. Reaproveita todas as
          classes do admin (rc/resumo-grid/cardHead/head-icon/ch-*/wa-*). -->
     <section class="screen" data-screen="tecnico-chamados">
-      <header class="app-header app-header-tec">
+      <header class="app-header cli-header">
         <div class="brand">
           <img src="login-logo.png" class="app-brand-logo" alt="GENERAL" />
           <div class="brand-text">
@@ -312,6 +312,195 @@
           <span class="btn-label">Confirmar e finalizar O.S.</span>
         </button>
       </div>
+    </section>
+
+    <!-- ========== CLIENTE — HOME (Fase 7H) ==========
+         "Mission Control que cabe no celular" — herda visual do admin:
+         logo + brand-name no header, .resumo-grid + .rc nos KPIs,
+         .card + .cardHead + .head-icon nas seções, .tec-shell como container.
+         Logout/alterar senha agora vivem na aba "Conta" (4ª do bottom-nav). -->
+    <section class="screen" data-screen="cliente-home">
+      <header class="app-header cli-header">
+        <div class="brand">
+          <img src="login-logo.png" class="app-brand-logo" alt="GENERAL" />
+          <div class="brand-text">
+            <div class="brand-name" id="cliCondoNome">—</div>
+            <div class="brand-sub" id="cliCondoEndereco">—</div>
+          </div>
+        </div>
+      </header>
+
+      <div class="tec-shell" id="cliHomeMain"></div>
+
+      <nav class="cli-nav">
+        <button data-cli-tab="home" class="active">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l2-2 7-7 7 7 2 2"/><path d="M5 10v10h14V10"/></svg>
+          <span>Início</span>
+        </button>
+        <button data-cli-tab="telemetria">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 17 9 11 13 15 21 7"/><polyline points="14 7 21 7 21 14"/></svg>
+          <span>Telemetria</span>
+        </button>
+        <button data-cli-tab="chamados">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          <span>Chamados</span>
+        </button>
+        <button data-cli-tab="conta">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          <span>Conta</span>
+        </button>
+      </nav>
+    </section>
+
+    <!-- ========== CLIENTE — TELEMETRIA HISTÓRICA ========== -->
+    <section class="screen" data-screen="cliente-telemetria">
+      <header class="app-header cli-header">
+        <div class="brand">
+          <img src="login-logo.png" class="app-brand-logo" alt="GENERAL" />
+          <div class="brand-text">
+            <div class="brand-name">Telemetria histórica</div>
+            <div class="brand-sub" id="cliTeleCondo">—</div>
+          </div>
+        </div>
+      </header>
+
+      <div class="tec-shell" id="cliTeleMain"></div>
+
+      <nav class="cli-nav">
+        <button data-cli-tab="home">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l2-2 7-7 7 7 2 2"/><path d="M5 10v10h14V10"/></svg>
+          <span>Início</span>
+        </button>
+        <button data-cli-tab="telemetria" class="active">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 17 9 11 13 15 21 7"/><polyline points="14 7 21 7 21 14"/></svg>
+          <span>Telemetria</span>
+        </button>
+        <button data-cli-tab="chamados">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          <span>Chamados</span>
+        </button>
+        <button data-cli-tab="conta">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          <span>Conta</span>
+        </button>
+      </nav>
+    </section>
+
+    <!-- ========== CLIENTE — CHAMADOS ========== -->
+    <section class="screen" data-screen="cliente-chamados">
+      <header class="app-header cli-header">
+        <div class="brand">
+          <img src="login-logo.png" class="app-brand-logo" alt="GENERAL" />
+          <div class="brand-text">
+            <div class="brand-name">Meus chamados</div>
+            <div class="brand-sub" id="cliChCondo">—</div>
+          </div>
+        </div>
+      </header>
+
+      <div class="tec-shell" id="cliChMain"></div>
+
+      <button class="cli-fab" id="cliBtnNovoChamado" aria-label="Abrir chamado">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      </button>
+
+      <nav class="cli-nav">
+        <button data-cli-tab="home">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l2-2 7-7 7 7 2 2"/><path d="M5 10v10h14V10"/></svg>
+          <span>Início</span>
+        </button>
+        <button data-cli-tab="telemetria">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 17 9 11 13 15 21 7"/><polyline points="14 7 21 7 21 14"/></svg>
+          <span>Telemetria</span>
+        </button>
+        <button data-cli-tab="chamados" class="active">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          <span>Chamados</span>
+        </button>
+        <button data-cli-tab="conta">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          <span>Conta</span>
+        </button>
+      </nav>
+    </section>
+
+    <!-- ========== CLIENTE — CONTA (perfil + trocar senha + sair) ========== -->
+    <section class="screen" data-screen="cliente-conta">
+      <header class="app-header cli-header">
+        <div class="brand">
+          <img src="login-logo.png" class="app-brand-logo" alt="GENERAL" />
+          <div class="brand-text">
+            <div class="brand-name">Conta</div>
+            <div class="brand-sub" id="cliContaSub">—</div>
+          </div>
+        </div>
+      </header>
+
+      <div class="tec-shell" id="cliContaMain"></div>
+
+      <nav class="cli-nav">
+        <button data-cli-tab="home">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l2-2 7-7 7 7 2 2"/><path d="M5 10v10h14V10"/></svg>
+          <span>Início</span>
+        </button>
+        <button data-cli-tab="telemetria">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 17 9 11 13 15 21 7"/><polyline points="14 7 21 7 21 14"/></svg>
+          <span>Telemetria</span>
+        </button>
+        <button data-cli-tab="chamados">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          <span>Chamados</span>
+        </button>
+        <button data-cli-tab="conta" class="active">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          <span>Conta</span>
+        </button>
+      </nav>
+    </section>
+
+    <!-- ========== CLIENTE — NOVO CHAMADO ========== -->
+    <section class="screen" data-screen="cliente-novo-chamado">
+      <header class="app-header app-header-detail">
+        <button class="header-back" id="cliNovoBack" aria-label="Voltar">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="19" y1="12" x2="5" y2="12"/>
+            <polyline points="12 19 5 12 12 5"/>
+          </svg>
+        </button>
+        <img src="login-logo.png" class="app-brand-logo app-brand-logo-sm" alt="GENERAL" />
+        <div class="brand">
+          <div class="brand-text">
+            <div class="brand-name">Abrir chamado</div>
+            <div class="brand-sub">Conte o que aconteceu</div>
+          </div>
+        </div>
+      </header>
+
+      <div class="tec-shell" id="cliNovoMain"></div>
+    </section>
+
+    <!-- ========== CLIENTE — DETALHE DO CHAMADO ========== -->
+    <section class="screen" data-screen="cliente-chamado-detalhe">
+      <header class="app-header app-header-detail">
+        <button class="header-back" id="cliDetBack" aria-label="Voltar">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="19" y1="12" x2="5" y2="12"/>
+            <polyline points="12 19 5 12 12 5"/>
+          </svg>
+        </button>
+        <img src="login-logo.png" class="app-brand-logo app-brand-logo-sm" alt="GENERAL" />
+        <div class="brand">
+          <div class="brand-text">
+            <div class="brand-name" id="cliDetTitulo">Chamado</div>
+            <div class="brand-sub">
+              <span class="ch-id-cell" id="cliDetSub">—</span>
+              <span class="td-status-pill" id="cliDetStatusPill" hidden>—</span>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div class="tec-shell" id="cliDetMain"></div>
     </section>
 
     <!-- ========== HOME (placeholder pós-login — admin/cliente) ========== -->

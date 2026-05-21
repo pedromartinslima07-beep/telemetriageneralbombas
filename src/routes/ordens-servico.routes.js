@@ -5,6 +5,7 @@ const crypto = require("crypto");
 const { pool } = require("../db");
 const { authRequired } = require("../middleware/authRequired");
 const { adminOnly } = require("../middleware/adminOnly");
+const { gerarPdfOS } = require("../services/os-pdf.service");
 
 const router = express.Router();
 
@@ -281,6 +282,19 @@ router.patch("/:id", authRequired, osDonoOuAdmin({ forWrite: true }), async (req
     sets.push(`assinatura_b64 = $${values.length}`);
   }
 
+  if (b.orcamento_necessario !== undefined) {
+    values.push(!!b.orcamento_necessario);
+    sets.push(`orcamento_necessario = $${values.length}`);
+  }
+  if (b.orcamento_observacoes !== undefined) {
+    const s = b.orcamento_observacoes ? String(b.orcamento_observacoes) : null;
+    if (s && s.length > 4000) {
+      return res.status(400).json({ error: "orcamento_observacoes muito longo (max 4000)" });
+    }
+    values.push(s);
+    sets.push(`orcamento_observacoes = $${values.length}`);
+  }
+
   if (sets.length === 0) return res.status(400).json({ error: "Nenhum campo para atualizar" });
 
   values.push(id);
@@ -421,6 +435,54 @@ router.post("/:id/pecas", authRequired, osDonoOuAdmin({ forWrite: true }), async
   }
 });
 
+// PATCH /ordens-servico/:id/pecas/:peca_id — edita descrição/quantidade/observação
+router.patch("/:id/pecas/:peca_id", authRequired, osDonoOuAdmin({ forWrite: true }), async (req, res) => {
+  const id = Number(req.params.id);
+  const pecaId = Number(req.params.peca_id);
+  if (!Number.isInteger(id) || !Number.isInteger(pecaId)) {
+    return res.status(400).json({ error: "id inválido" });
+  }
+
+  const b = req.body || {};
+  const sets = [];
+  const values = [];
+
+  if (b.descricao !== undefined) {
+    const d = String(b.descricao || "").trim();
+    if (!d) return res.status(400).json({ error: "descricao não pode ser vazia" });
+    if (d.length > 255) return res.status(400).json({ error: "descricao muito longa (max 255)" });
+    values.push(d);
+    sets.push(`descricao = $${values.length}`);
+  }
+  if (b.quantidade !== undefined) {
+    const q = Number(b.quantidade);
+    if (!Number.isInteger(q) || q <= 0) return res.status(400).json({ error: "quantidade inválida" });
+    values.push(q);
+    sets.push(`quantidade = $${values.length}`);
+  }
+  if (b.observacao !== undefined) {
+    values.push(b.observacao || null);
+    sets.push(`observacao = $${values.length}`);
+  }
+
+  if (sets.length === 0) return res.status(400).json({ error: "Nenhum campo para atualizar" });
+
+  values.push(pecaId, id);
+  try {
+    const result = await pool.query(
+      `UPDATE os_pecas SET ${sets.join(", ")}
+       WHERE id = $${values.length - 1} AND os_id = $${values.length}
+       RETURNING *`,
+      values
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: "Peça não encontrada" });
+    return res.json(result.rows[0]);
+  } catch (err) {
+    console.error("[ordens-servico] PATCH peca:", err);
+    return res.status(500).json({ error: "Erro ao atualizar peça" });
+  }
+});
+
 // DELETE /ordens-servico/:id/pecas/:peca_id
 router.delete("/:id/pecas/:peca_id", authRequired, osDonoOuAdmin({ forWrite: true }), async (req, res) => {
   const id = Number(req.params.id);
@@ -486,6 +548,23 @@ router.post("/:id/finalizar", authRequired, osDonoOuAdmin({ forWrite: true }), a
       return res.status(400).json({ error: "Assinatura e nome de quem recebeu são obrigatórios" });
     }
 
+    // Fotos obrigatórias quando tipo for instalacao_pecas ou chamado_emergencial
+    const tiposObrigamFoto = os.tipos_servico.some((t) =>
+      t === "instalacao_pecas" || t === "chamado_emergencial"
+    );
+    if (tiposObrigamFoto) {
+      const fc = await client.query(
+        `SELECT COUNT(*)::int AS n FROM os_fotos WHERE os_id = $1`,
+        [id]
+      );
+      if (fc.rows[0].n === 0) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({
+          error: "Pelo menos 1 foto é obrigatória para Instalação de peças ou Chamado emergencial.",
+        });
+      }
+    }
+
     const upd = await client.query(
       `UPDATE ordens_servico
           SET finalizada_em = NOW(),
@@ -510,6 +589,15 @@ router.post("/:id/finalizar", authRequired, osDonoOuAdmin({ forWrite: true }), a
     }
 
     await client.query("COMMIT");
+
+    // Dispara geração de PDF em background — não bloqueia o response.
+    // Falha aqui não impede a finalização; GET /:id/pdf regenera on-demand.
+    setImmediate(() => {
+      gerarPdfOS(id).catch((err) => {
+        console.error(`[ordens-servico] PDF background OS#${id} falhou:`, err.message);
+      });
+    });
+
     return res.json(upd.rows[0]);
   } catch (err) {
     await client.query("ROLLBACK");
@@ -517,6 +605,43 @@ router.post("/:id/finalizar", authRequired, osDonoOuAdmin({ forWrite: true }), a
     return res.status(500).json({ error: "Erro ao finalizar O.S." });
   } finally {
     client.release();
+  }
+});
+
+// GET /ordens-servico/:id/pdf — serve o PDF.
+// Se ainda não foi gerado (ou o arquivo sumiu do disco), gera on-demand.
+// Só admin/admin_viewer OU técnico dono.
+router.get("/:id/pdf", authRequired, osDonoOuAdmin(), async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
+
+  try {
+    const r = await pool.query(
+      `SELECT id, numero, finalizada_em, pdf_url FROM ordens_servico WHERE id = $1`,
+      [id]
+    );
+    if (r.rows.length === 0) return res.status(404).json({ error: "O.S. não encontrada" });
+    const os = r.rows[0];
+
+    if (!os.finalizada_em) {
+      return res.status(400).json({ error: "O.S. ainda não foi finalizada" });
+    }
+
+    const expectedPath = path.join(UPLOAD_ROOT, String(id), `os-${os.numero}.pdf`);
+    let exists = false;
+    try { await fs.access(expectedPath); exists = true; } catch {}
+
+    if (!exists) {
+      console.log(`[ordens-servico] PDF on-demand OS#${id}`);
+      await gerarPdfOS(id);
+    }
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `inline; filename="os-${os.numero}.pdf"`);
+    return res.sendFile(expectedPath);
+  } catch (err) {
+    console.error("[ordens-servico] GET /:id/pdf:", err);
+    return res.status(500).json({ error: "Erro ao servir PDF da O.S." });
   }
 });
 

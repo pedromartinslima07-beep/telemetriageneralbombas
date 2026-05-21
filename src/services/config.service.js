@@ -26,6 +26,7 @@ const CHAVES = {
   "ia.system_prompt":            { tipo: "string", maxLen: 16000 },
   "alertas.email_destinatario":  { tipo: "string", maxLen: 500 }, // múltiplos emails separados por vírgula
   "jobs.offline_intervalo_min":  { tipo: "int", min: 1, max: 60 },
+  "gps.retencao_horas":          { tipo: "int", min: 1, max: 720 }, // Fase 7F — 1h a 30 dias
 };
 
 function chaveValida(chave) {

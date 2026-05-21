@@ -765,7 +765,7 @@ Commit `0dacff6`.
 - Migration `017_role_tecnico.sql` libera `role='tecnico'` no CHECK constraint de `usuarios` (antes só admin/admin_viewer/cliente)
 - `POST /auth/registrar` aceita `role=tecnico` com `tecnico_id` opcional. Em transação: cria usuário + vincula a registro existente em `tecnicos` (atualiza `tecnicos.usuario_id`) OU cria registro novo em `tecnicos` com mesmo nome/email
 - `GET /chamados/meus` (substitui o `responsavel_id = me` do plano original — usamos `tecnicos.usuario_id` que já existia da Fase 7F): resolve `tecnicos.id` via JWT, retorna chamados com endereço/lat/lng do condomínio, telefone do cliente WhatsApp, filtros `?status=csv` e `?abertos=1`. Ordena por status > prioridade > data
-- ⚠️ Migration ainda **não aplicada no Railway** — pendente: `npm run migrate migrations/017_role_tecnico.sql`
+- Migration `017_role_tecnico.sql` aplicada no Railway (verificado via `pg_constraint`: `usuarios_role_check` inclui `'tecnico'`)
 
 **App:**
 - Tela "Meus chamados" com header (logo real `login-logo.png` + nome do técnico + bolinha pulsante de status em campo / em atendimento / em dia)
@@ -823,7 +823,7 @@ Estados visíveis pro técnico:
 - **Última telemetria** do condomínio (nível dos reservatórios, status das bombas) — reutiliza endpoint existente
 - Botão grande "🚗 Iniciar atendimento" → registra GPS chegada via `@capacitor/geolocation`, muda status pra `em_atendimento`, ativa background tracking
 
-#### 7E — Ordem de Serviço digital ⚠️ PARCIAL (formulário pronto, falta PDF + email + edição inline de peças)
+#### 7E — Ordem de Serviço digital ✅ CONCLUÍDO
 
 **Commitado neste branch** (ainda não pushado): formulário completo + auto-save + upload de fotos + assinatura + finalização com GPS de saída. Falta o pós-finalização (PDF + email) que é grande e não bloqueia o fluxo.
 
@@ -854,17 +854,30 @@ Nova screen `tecnico-os`:
 - CTA "Confirmar e finalizar O.S." sticky no rodapé — só habilita com obrigatórios prontos (tipos ≥ 1, resolução escolhida, recebido+assinatura completos)
 - Finalizar pede GPS, chama `POST /:id/finalizar` com `{lat, lng}`, mostra tela de sucesso, volta pra lista
 
-**⚠️ Pendências (próximo turno):**
+**✅ Edição inline de peças (concluído):** `PATCH /ordens-servico/:id/pecas/:peca_id` aceita `descricao`/`quantidade`/`observacao` com validação (descricao não vazia, max 255 chars; quantidade inteira > 0). Frontend: listener `input` no `#osPecas` com debounce de 600ms por par (peça, campo) via `OS.pecaDebounce` (Map). Valor inválido (quantidade ≤ 0 ou descrição vazia) não dispara PATCH — espera até o usuário corrigir.
 
-1. **PATCH `/ordens-servico/:id/pecas/:peca_id`** — edição inline de descrição/quantidade das peças. Hoje a peça nasce como "Nova peça" e o técnico só pode add/remove. ~15 min: endpoint + listener `input` debounced no front.
+**✅ Orçamento pelo técnico (concluído):** seção opcional no formulário da O.S. Técnico só *explica* o orçamento (o que encontrou, o que sugere); admin monta o formal depois. Estrutura mínima:
+- Migration `018_os_orcamento.sql`: 2 colunas em `ordens_servico` (`orcamento_necessario BOOLEAN`, `orcamento_observacoes TEXT`) + index parcial `WHERE orcamento_necessario = true` (já pensando na página "Orçamentos pendentes" futura). Aplicada no Railway.
+- Backend (`PATCH /ordens-servico/:id`): aceita ambos os campos com validação (max 4000 chars).
+- App: nova seção "Orçamento" entre Observações e Resolução. Toggle "Necessário orçamento?" + textarea condicional. Auto-save 600ms. Subtítulo dinâmico ("Opcional" / "Sim — X caracteres").
+- PDF (`os-pdf.service.js`): **não aparece no PDF**. Decisão consciente: a explicação do técnico é anotação interna pro admin. Se fosse pro PDF, o síndico poderia interpretar como orçamento fechado e questionar quando o valor formal viesse. O síndico só fica sabendo quando a administração contatar com o orçamento real.
+- Admin: `GET /chamados` agora retorna `orcamento_necessario` e `orcamento_observacoes` via LEFT JOIN com `ordens_servico`. No drawer (aba Chamados), card ganha borda amber + pill "💰 Orçamento" + bloco amber com a explicação do técnico. Helper `escapeHtml` adicionado em `admin.js`.
+- **Próximo:** página dedicada "Orçamentos" no menu admin pra listar todos os chamados com `orcamento_necessario = true` (usando o index parcial) — não feita ainda.
 
-2. **Geração de PDF da O.S.** — escopo médio. Precisa de `pdfkit` (já não está no `package.json`), template visual fiel ao `public/ordem-de-servico.png` (logo General + paleta), e popular com todos os campos + fotos + assinatura. Salvar em `uploads/os/{id}/os-{numero}.pdf`, gravar caminho em `ordens_servico.pdf_url`. Disparar após `finalizada_em` ser setado.
+**⚠️ Bug crítico encontrado durante essa fase:** migrations `015_ordens_servico.sql` e `016_tecnico_localizacoes.sql` **nunca tinham sido aplicadas no Railway** (apesar do plano marcar a Fase 7E como concluída). Tabelas `ordens_servico`, `os_fotos`, `os_pecas`, `tecnico_localizacoes` não existiam em produção. Aplicadas agora junto com a 018. Lição: ao concluir uma fase com migration, confirmar no banco real além do código.
 
-3. **Email pro síndico com PDF anexo** — usa Resend já integrado. Buscar email do síndico do condomínio (`condominios.responsavel_email`? Não existe ainda — adicionar coluna) ou do cliente WhatsApp se aplicável. Template HTML com link pro PDF público + resumo da O.S.
+**✅ Geração de PDF da O.S. (concluído):** stack Puppeteer (já era dep do projeto via `relatorio.routes.js`), não pdfkit. Arquivos:
+- `src/services/os-pdf.service.js`: `gerarPdfOS(osId)` busca dados (O.S. + cond + tec + fotos + peças), monta HTML fiel à referência `public/ordem-de-servico.png` (logo General base64, cabeçalho amber, 9 checkboxes de tipo em grid 3×3, bloco Dados, 13 equipamentos em 2 colunas com checkbox, tabela CORRENTE Mono/Bi/Tri × 3 fases, horários com GPS, observações, peças, resolução, assinatura embed). Fotos em página extra (grid 2 colunas com legenda + tipo).
+- `POST /:id/finalizar`: dispara `setImmediate(() => gerarPdfOS(id))` após commit — não bloqueia o response.
+- `GET /:id/pdf`: serve `uploads/os/{id}/os-{numero}.pdf`. Se o arquivo não existir (background falhou ou ainda não rodou), gera **on-demand**.
+- App (`mostrarOSSucesso`): botão **📄 Baixar PDF** na tela de sucesso. Usa `baixarPdfOS()` (fetch com Bearer + blob + download via `<a>` invisível) — funciona em demo nada (escondido) ou backend real.
 
-4. **Endpoint `PATCH /chamados/:id/executar`** mencionado no plano original — não foi criado. Hoje o chamado fecha direto via `POST /:id/finalizar` da O.S. dentro da mesma transação. Mantive simples — a regra "sem O.S., não fecha chamado" continua valendo porque é o `finalizar` da O.S. que fecha o chamado.
+**✅ Fotos obrigatórias condicionais (concluído):** quando `tipos_servico` inclui `instalacao_pecas` ou `chamado_emergencial`, finalizar a O.S. exige pelo menos 1 foto. Backend (`POST /:id/finalizar`) faz `SELECT COUNT(*) FROM os_fotos WHERE os_id=$1` antes do UPDATE e rejeita com 400 se zero. App valida o mesmo localmente em `finalizarOS()` (lendo `OS.data.fotos`) pra dar feedback imediato sem round-trip — backend é o gatekeeper definitivo.
 
-5. **Fotos obrigatórias** quando tipos contiverem `instalacao_pecas` ou `chamado_emergencial` — descrito no plano, não implementado. Hoje fotos são sempre opcionais.
+**Decisões conscientes (não implementar):**
+
+- **Email pro síndico com PDF anexo** — descartado. A O.S. fica interna na empresa inicialmente; o cliente não recebe cópia automática. Se mudar de ideia depois, o PDF já existe e o Resend está integrado, é trivial.
+- **Endpoint `PATCH /chamados/:id/executar`** — não necessário. Hoje o chamado fecha direto via `POST /:id/finalizar` da O.S. dentro da mesma transação. A regra "sem O.S., não fecha chamado" continua valendo porque é o `finalizar` da O.S. que fecha o chamado.
 
 #### 7E-original — Plano descritivo
 
@@ -988,7 +1001,40 @@ GET    /chamados/:id/ordem-servico        — retorna O.S. vinculada (se houver)
 
 **Storage das fotos:** começa em `public/uploads/os/{os_id}/` no próprio servidor (barato e simples). Migrar pra Cloudinary/S3 só quando volume justificar (>10GB).
 
-#### 7F — Rastreamento GPS dos técnicos
+#### 7F — Rastreamento GPS dos técnicos ✅ CONCLUÍDO
+
+Backend já existia (Fase 7D introduziu os endpoints + migration 016): `POST /tecnicos/localizacao` (ping), `GET /tecnicos/localizacao` (admin lista posições atuais), `GET /tecnicos/:id/historico-gps` (trilha). Faltava o app enviar pings e o admin renderizar no mapa. Implementado nessa rodada:
+
+**App (`app/public/app.js`):**
+- Módulo `GPS` (state + start/stop) usa `navigator.geolocation.watchPosition` (alta precisão) + setInterval de garantia. Envia ping pro backend a cada **60s**. Não tem pausar/retomar — decisão de política de gestão. Limitação consciente do navegador: pausa quando a tela apaga ou app vai pra background. Quando empacotar com Capacitor (Fase 7J), troca a implementação por `@capacitor-community/background-geolocation` mantendo a mesma API interna (`gpsStart/gpsStop`).
+- **Trigger:** liga em `iniciarAtendimento` após sucesso e em `abrirChamado` quando o chamado já está `em_atendimento` (refresh/reabertura do app). Desliga em `mostrarOSSucesso` (finalizou), no logout do técnico e no 401 (sessão expirada).
+- **Chip visual `#gpsChip`** flutuante no canto superior direito (criado dinamicamente): bolinha verde pulsante + "GPS ativo". **Não é clicável** (`pointer-events: none`) — decisão consciente: técnico não pode pausar o rastreamento (política de gestão). O chip existe pra transparência, pra ele saber que está sendo rastreado.
+- CSS em `app.css` com glassmorphism + animação `gpsPulse`.
+
+**Admin (`public/admin.js` + `public/admin.css`):**
+- `carregarTecnicosLocalizacao()` busca `/tecnicos/localizacao` em paralelo com chamados/conversas, dentro do polling de 20s (`carregarAtendimento`).
+- Layer adicional no Leaflet da seção Mapa: pinos circulares violeta com iniciais do nome (`DivIcon` CSS-only), `zIndexOffset: 1000` pra ficar acima dos pinos de condomínio, pulse animado.
+- **Popup ao clicar** mostra: nome + especialidade, badge "EM ATENDIMENTO" + chamado/condomínio (se houver), tempo relativo da última atualização ("agora", "há 5 min", "há 2 h"), bateria se reportada. Link "Ver no painel →" seleciona o condomínio no painel lateral do mapa.
+- Pinos antigos (técnicos que sumiram da resposta) são removidos automaticamente do mapa.
+
+**Job de limpeza (`src/jobs/gps-cleanup.job.js`):**
+- `setTimeout` recursivo (padrão do projeto, igual offline.job): roda 1×/dia. Primeira execução 5min após boot pra não pesar o startup.
+- `DELETE FROM tecnico_localizacoes_historico WHERE capturada_em < NOW() - X hours` — X vem da config `gps.retencao_horas` (default 24, range 1-720h via whitelist em `config.service.js`).
+- Sem essa limpeza a tabela cresce ~1 ping/min/técnico em atendimento (≈ 1.500/dia por técnico ativo).
+- Boot do app (`src/app.js`) chama `startGpsCleanupScheduler()`.
+
+**Decisões conscientes:**
+- **Sem aba "Operacional" em Configurações ainda** — a frequência do ping (60s) está hardcoded no app. Quando virar APK e a frequência precisar variar por contexto (e.g., 30s em emergência), expõe via config. Por enquanto valor único basta.
+- **Sem trilha histórica visualizada** — backend grava em `tecnico_localizacoes_historico` e o endpoint `/tecnicos/:id/historico-gps` existe, mas a UI de "ver rota do técnico do dia" fica pra quando alguém pedir.
+- **Sem layer no dashboard Mission Control** — feito só na seção Mapa (onde já tem Leaflet completo). Adicionar no dashboard é trivial mas duplicaria código sem ganho proporcional pro MVP.
+
+**✅ Refinamentos posteriores (mesmo branch):**
+
+- **GPS sempre ativo enquanto logado** — mudança de regra: antes ligava em `iniciarAtendimento` e desligava em `mostrarOSSucesso`. Agora liga em `abrirTelaTecnico` (logo após login) e só para em logout/401. Motivo: o admin precisa ver onde cada técnico está pra decidir designação por proximidade, não só quando ele já está atendendo. `gpsStart(chamadoId)` virou idempotente — chamadas em `iniciarAtendimento` e `abrirDetalheChamado` continuam funcionando como antes mas só atualizam o `chamadoId` de contexto, sem reiniciar o watch.
+- **`bateria_pct` enviado** — `gpsEnviar()` agora lê `navigator.getBattery()` (cacheado em `GPS.battery`) e inclui no body. Backend e popup do admin já tavam preparados, só faltava o app mandar. Null-safe pra iOS Safari (que não implementa).
+- **Banner de aviso quando GPS falha** — faixa vermelha sticky no topo das telas do técnico, com mensagem específica por tipo de erro (`PositionError.code`): permissão negada, sinal indisponível, timeout, contexto não seguro (sem HTTPS). Botão "Permitir GPS" / "Tentar novamente" dispara `getCurrentPosition()` pra re-abrir o prompt; se já estava `denied`, abre `alert` explicando como reabrir nas configs do navegador. Some sozinho quando o watch volta a receber posição. Reavaliado a cada `showScreen()` pra não aparecer em login/cliente.
+
+#### 7F-original — Plano descritivo
 
 - Plugin: `@capacitor-community/background-geolocation`
 - Tracking ligado automaticamente quando técnico está em chamado com status `em_atendimento`
@@ -1036,7 +1082,11 @@ CREATE INDEX idx_tec_loc_hist ON tecnico_localizacoes_historico(usuario_id, capt
 - Clicar no ícone do técnico → popup com nome + qual chamado está atendendo + botão "Ver no painel"
 - Polling de 20s (mesma cadência dos outros dados do dashboard)
 
-#### 7G — Push notifications nativas
+#### 7G — Push notifications nativas ⏸️ ADIADA (depende da 7J)
+
+Decisão consciente: push nativo (FCM/APNs) só funciona após empacotar com Capacitor. Sem APK não dá pra registrar token no `@capacitor/push-notifications`. Implementar a infra backend agora ficaria sem como testar de ponta a ponta. Volta depois que o app virar APK na 7J — aí cria projeto Firebase, instala o plugin, registra token no boot e plugar nos triggers (chamado atribuído, status mudou, alerta crítico).
+
+#### 7G-original — Plano descritivo
 
 Capacitor Push usa **FCM (Firebase Cloud Messaging)** no Android e **APNs (Apple Push Notification service)** no iOS direto — sem o intermediário do Web Push.
 
@@ -1054,7 +1104,65 @@ Capacitor Push usa **FCM (Firebase Cloud Messaging)** no Android e **APNs (Apple
 - Anti-flood: limite de 1 push por evento por usuário por 30 min (tabela `push_dedup`)
 - Janelas de silêncio configuráveis em **Perfil > Notificações** do app (default 22h–7h pra cliente, sempre ligado pra técnico em horário comercial)
 
-#### 7H — App do cliente / síndico
+#### 7H — App do cliente / síndico ✅ MVP CONCLUÍDO
+
+Mesmo bundle `app/public/`, fluxo decidido por `user.role === "cliente"` no `mostrarPosLogin`.
+
+**Backend** (em `src/routes/cliente.routes.js` — estendido):
+- `GET /cliente/chamados?status=csv` — lista chamados do condomínio do JWT, ordenados por status (em_atendimento > aberto > fechado) > data desc. Inclui `tecnico_nome` e `os_finalizada_em` via JOIN.
+- `GET /cliente/chamados/:id` — detalhe + O.S. vinculada (`os_id`, `os_numero`, `os_finalizada_em`). Valida `condominio_id` no WHERE.
+- `POST /cliente/chamados` — abre chamado: aceita `categoria` (enum), `prioridade`, `descricao` (min 5, max 4000 chars). Status nasce `aberto`. Sem WhatsApp/conversa (NULL).
+- `GET /cliente/ordens-servico/:id/pdf` — serve PDF da O.S. validando que ela pertence ao condomínio do cliente. Mesma lógica on-demand do endpoint do técnico (gera se faltar).
+
+**App** — 5 screens novas no `index.html`, bottom nav com **3 abas** (Início / Telemetria / Chamados):
+- `cliente-home` — header com nome+endereço do condomínio, KPIs (Offline / Alertas / Em aberto), CTA "Abrir chamado", grid 2-col de reservatórios (barra de nível + pill bomba + pill alertas), lista dos 3 chamados mais recentes.
+- `cliente-telemetria` — chips horizontais com os reservatórios + chips de período (24h / 7 dias / 30 dias). Card com 4 stats (Mín / Médio / Máx / Leituras) + line chart Chart.js (paleta amber, fundo dark) consumindo `/cliente/historico`. Chart.js carregado **lazy** via `${API_BASE}/static/chart.umd.min.js` só quando o cliente abre a aba — não pesa o boot. Reaproveita `Chart` global se cliente entrar na aba múltiplas vezes (destroi/recria sem dup). Botão **"📄 Baixar relatório (PDF)"** abaixo do gráfico — usa o endpoint existente `/relatorio/pdf?device_id=X&dias=N` (mesmo que o `cliente.html` web já consumia, role=cliente autorizado).
+- `cliente-chamados` — tabs com contadores (Todos / Abertos / Em atendimento / Fechados), cards por chamado clicáveis, FAB amber pra abrir novo.
+- `cliente-novo-chamado` — form simples: select categoria (7 opções amigáveis), select prioridade, textarea descrição. Submit volta pra lista na aba "Abertos".
+- `cliente-chamado-detalhe` — pill de status + prioridade + categoria, descrição do problema, **timeline 3 passos** (Chamado registrado → Em atendimento (técnico) → Atendimento concluído) com dot ✓ verde / amber pulsante / cinza, botão "📄 Baixar Ordem de Serviço (PDF)" quando há O.S. finalizada.
+
+Polling 20s na home pra status + chamados. Para no logout.
+
+**Decisões conscientes (não MVP):**
+- **Mapa do condomínio / técnico se movendo** — descartado por escolha do usuário. Cliente não tem nenhuma tela de mapa no app. Se algum dia mudar, é trivial adicionar (Leaflet + GPS dos técnicos já existem).
+- **WhatsApp read-only do condomínio** — descartado por enquanto. Cliente fala com a empresa pelo WhatsApp normal dele, não pelo app.
+
+**✅ Polimento + Conta + Mensagens + Avaliação (mesmo branch):**
+
+Depois do MVP, várias frentes simultâneas:
+
+- **Refactor visual pra reaproveitar o Mission Control:** as 5 telas do cliente foram reescritas pra usar verbatim os componentes do admin — `.resumo-grid` + `.rc` (KPIs), `.card.tec-card` + `.cardHead` + `.head-icon` (seções), `.ch-list-mob` + `.ch-row-mob` (cards de chamado iguais ao app do técnico), `.wa-tabs` + `.wa-tab.is-active` (tabs com contador), `.td-card`/`.td-status-pill` (detalhe). Removidas ~150 linhas de classes `.cli-*` paralelas em `app/public/app.css` que duplicavam o admin. Sobrou só o que é exclusivo de mobile: `.cli-nav` (bottom-nav), `.cli-fab`, mini-cards de reservatório, timeline. Bug crítico do `.app-main` (que centralizava o conteúdo de todas as telas como flex-row): regra escopada com `[data-screen="home"] .app-main { ... }` pra valer só no placeholder antigo.
+- **Áreas de toque mobile:** `.btn` ganhou `min-height: 38px`, `.btn-sm` foi de ~26px pra 36px, `.wa-tab` de ~28px pra 36px, botões da nav de ~36px pra 52px. `cli-nav` agora tem `flex-shrink: 0` + `tec-shell { flex: 1 }` pra resolver o sticky bottom-nav que "subia até metade da tela" quando o conteúdo era curto.
+- **Tela "Conta" (4ª aba do bottom-nav)** — substitui o botão de logout do header. Cards: "Seus dados" (avatar com iniciais + nome + email + condomínio + endereço) e "Alterar senha" (form de senha atual / nova / confirmar, validação completa, submit em `POST /cliente/trocar-senha` que já existia). Botão "Sair da conta" em vermelho no rodapé.
+- **Prioridade automática:** cliente NÃO escolhe mais prioridade no form de novo chamado (estavam marcando tudo como emergência). Backend `POST /cliente/chamados` ignora o campo do body e deriva via `CATEGORIA_PRIORIDADE`: `sem_agua → emergencia`, `vazamento|bomba_falha → alta`, `nivel_baixo|outro → media`, `manutencao|ruido → baixa`. Mesmo mapa duplicado em `app.js` (`CLI_CAT_TO_PRIO`) só pro modo demo offline.
+- **KPIs clicáveis na home:** os 3 cards (Offline / Alertas / Em aberto) viraram `<button class="rc">`. Offline e Alertas → Telemetria; Em aberto → Chamados na aba "Abertos". `.rc` ganhou `appearance: none; font: inherit` pra ficar idêntico ao `<div>` quando vira `<button>`.
+- **Renomeação `abrirDetalheChamadoCli`** — corrige colisão silenciosa: a função `abrirDetalheChamado` existia em 2 lugares (linha 685 = técnico, linha 2796 = cliente), e a do cliente sobrescrevia a do técnico via hoisting. Agora cada uma tem seu nome.
+
+**✅ Thread de mensagens cliente ↔ técnico (Migration 019):**
+
+Comunicação dentro do chamado, depois de aberto. Cliente pode dizer "agora piorou, segue foto" e o técnico responde. Estrutura reaproveita `alerta_comentarios` (já usada pra comentários de alerta no admin):
+
+- Migration `019_chamado_mensagens.sql`: adiciona `foto_url TEXT` em `alerta_comentarios`, relaxa `texto NOT NULL` e adiciona constraint `CHECK (texto IS NOT NULL OR foto_url IS NOT NULL)`. Quando `alerta_origem='chamado'`, a linha é uma mensagem do chamado.
+- Service compartilhado `src/services/chamado-mensagens.service.js`: `salvarFotoMensagemChamado(chamadoId, base64)` decodifica data URL, valida tamanho (~4 MB), salva em `uploads/chamados/<id>/<rand>.{jpg|png|webp}`. Mesmo padrão de upload das fotos da O.S.
+- Backend cliente (`src/routes/cliente.routes.js`):
+  - `GET /cliente/chamados/:id/mensagens` — lista a thread.
+  - `POST /cliente/chamados/:id/mensagens` — body `{ texto?, foto_base64? }`, pelo menos um.
+- Backend técnico (`src/routes/chamados.routes.js`):
+  - `GET /chamados/meus/:id/mensagens` + `POST /chamados/meus/:id/mensagens` simétricos, validando que o chamado é do técnico autenticado (`_tecnicoDoChamado` resolve `tecnicos.usuario_id = req.user.id` + `chamados.tecnico_id`).
+- App cliente: novo card "Mensagens" no detalhe do chamado. Thread visual estilo chat (bolhas alinhadas — minhas à direita amber, outras à esquerda). Composer no rodapé com textarea auto-resize, botão de anexar foto (com preview removível) e botão enviar. Foto comprimida com `comprimirFoto(file, 1280, 0.78)` que já existia.
+- App técnico: **endpoints prontos, UI ainda não** — o técnico hoje vê só o bloco antigo "Conversa WhatsApp" (que é coisa diferente — mensagens da conversa que originou o chamado, não a thread do chamado em si). UI no técnico fica como follow-up.
+
+**✅ Avaliação pós-fechamento (Migration 020):**
+
+Métrica de qualidade do atendimento, só pra olhos do admin.
+
+- Migration `020_chamado_avaliacao.sql`: adiciona em `chamados` as colunas `avaliacao_nota SMALLINT CHECK (1-5)`, `avaliacao_comentario TEXT`, `avaliacao_em TIMESTAMPTZ`.
+- `POST /cliente/chamados/:id/avaliar` — body `{ nota: 1-5, comentario? }`. Valida que o chamado está fechado (400 se não) e que ainda não foi avaliado (409 se já). Resposta opaca `{ ok: true }` — não ecoa a nota de volta.
+- `GET /cliente/chamados/:id` foi reescrito pra **não expor** `avaliacao_nota`/`comentario`/`em`. Só retorna o boolean derivado `ja_avaliado` (decisão de produto do usuário: cliente envia e some, só admin vê).
+- App cliente: card "Como foi o atendimento?" só aparece em chamados `fechados` E `!ja_avaliado`. 5 estrelas clicáveis + comentário opcional + submit. Após enviar, o card vira uma confirmação inline "Obrigado pela avaliação!" que some sozinha em 4s. Re-visitas ao chamado: nenhum card de avaliação aparece (porque `ja_avaliado === true` e o read-only foi removido).
+- **Admin desktop ainda não tem UI dedicada** pra ver as avaliações — as colunas estão em `chamados`, então um `GET /chamados` admin já as traz; falta plugar visualmente.
+
+#### 7H-original — Plano descritivo
 
 Menos crítico que o do técnico, mas valioso pra fidelização. Mesma base do app (mesmo bundle, fluxo decidido pelo role).
 

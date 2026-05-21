@@ -1203,6 +1203,36 @@ a { color: inherit; text-decoration: none; }
 .mc-pin-condo.bad  { background: var(--danger); }
 .mc-pin-condo.off  { background: var(--muted); }
 
+/* Pino do técnico (Fase 7F): círculo com iniciais, glow violeta */
+.tec-pin-leaflet { background: transparent !important; border: none !important; }
+.tec-pin {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  position: relative;
+  cursor: pointer;
+  box-shadow:
+    0 0 0 2px #fff,
+    0 0 12px rgba(139,92,246,.6),
+    0 2px 8px rgba(0,0,0,.5);
+  transition: transform .15s ease;
+}
+.tec-pin:hover { transform: scale(1.18); z-index: 1001; }
+.tec-pin::before {
+  content: '';
+  position: absolute; inset: -3px;
+  border-radius: inherit;
+  background: inherit;
+  opacity: .45;
+  animation: pinPulse 2.4s ease-out infinite;
+  z-index: -1;
+}
+
 /* ── Alerts list ── */
 .mc-alerts-list, .mc-activity-list {
   flex: 1;
@@ -3092,6 +3122,51 @@ tbody tr:nth-child(even):hover td { background: rgba(255,255,255,.04); }
 .chamado-status-aberto         { color: #f87171; font-weight: 700; }
 .chamado-status-em_atendimento { color: #fbbf24; font-weight: 700; }
 .chamado-status-fechado        { color: #4ade80; font-weight: 700; }
+
+/* Orçamento solicitado pelo técnico (Fase 7E) */
+.dp-chamado-orc {
+  border-left: 3px solid var(--accent);
+  box-shadow: 0 0 0 1px rgba(240,176,20,.15) inset;
+}
+.orc-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  background: rgba(240,176,20,.12);
+  border: 1px solid rgba(240,176,20,.35);
+  color: var(--accent);
+}
+.orc-bloco {
+  background: rgba(240,176,20,.06);
+  border: 1px solid rgba(240,176,20,.25);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  margin-top: 4px;
+}
+.orc-bloco-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.orc-bloco-badge {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  color: var(--accent);
+  text-transform: uppercase;
+}
+.orc-bloco-texto {
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.orc-bloco-texto em { color: var(--muted); font-style: italic; }
 
 /* WhatsApp pane */
 .wz-list { display: flex; flex-direction: column; gap: 8px; }

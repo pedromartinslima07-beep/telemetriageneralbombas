@@ -7,6 +7,16 @@ function authHeaders() {
 }
 if (!getToken()) window.location.href = "/login";
 
+function escapeHtml(s) {
+  if (s == null) return "";
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 // ===== NAVEGAÇÃO POR SEÇÕES =====
 const _sectionTitles = {
   dashboard:    "Dashboard",
@@ -2341,13 +2351,25 @@ async function carregarAtendimento() {
     await Promise.all([
       carregarChamados().catch(() => {}),
       carregarConversas().catch(() => {}),
+      carregarTecnicosLocalizacao().catch(() => {}),
     ]);
     detectarChamadosNovos();
     renderAtendimentoVisuais();
     renderVisuaisCombinados();
+    _mpRenderTecnicos();
   } catch (e) {
     console.error("Erro carregarAtendimento:", e);
   }
+}
+
+// ===== Localização dos técnicos (Fase 7F) =====
+let _tecLocs = [];
+let _mpTecMarkers = new Map(); // tecnico_id → L.Marker
+
+async function carregarTecnicosLocalizacao() {
+  const r = await fetch("/tecnicos/localizacao", { headers: authHeaders() });
+  if (!r.ok) return;
+  _tecLocs = await r.json();
 }
 
 // ============================================================
@@ -4366,15 +4388,26 @@ function renderDrawerChamados() {
   pane.innerHTML = list.map(ch => {
     const prioClass = `prio-${ch.prioridade || "media"}`;
     const statusCls = `chamado-status-${ch.status || "aberto"}`;
+    const orcBloco = ch.orcamento_necessario ? `
+      <div class="orc-bloco">
+        <div class="orc-bloco-head">
+          <span class="orc-bloco-badge">💰 Orçamento solicitado pelo técnico</span>
+        </div>
+        <div class="orc-bloco-texto">${ch.orcamento_observacoes
+          ? escapeHtml(ch.orcamento_observacoes).replace(/\n/g, "<br>")
+          : "<em>Sem observações registradas — contate o técnico.</em>"}</div>
+      </div>` : "";
     return `
-      <div class="dp-chamado">
+      <div class="dp-chamado${ch.orcamento_necessario ? " dp-chamado-orc" : ""}">
         <div class="dp-chamado-titulo">${ch.titulo || "Chamado #" + ch.id}</div>
         <div class="dp-chamado-meta">
           <span class="prio-badge ${prioClass}">${prioLabel[ch.prioridade] || ch.prioridade}</span>
           <span class="${statusCls}">${statusLbl[ch.status] || ch.status}</span>
+          ${ch.orcamento_necessario ? `<span class="orc-pill">💰 Orçamento</span>` : ""}
           <span style="color:var(--muted2);">#${ch.id} • ${fmtData(ch.criado_em)}</span>
         </div>
         ${ch.descricao ? `<div style="font-size:12px;color:var(--muted);line-height:1.5;">${ch.descricao.slice(0, 200)}${ch.descricao.length > 200 ? "…" : ""}</div>` : ""}
+        ${orcBloco}
         ${ch.status !== "fechado" ? `
         <div class="dp-chamado-actions viewer-only-hide">
           ${ch.status === "aberto" ? `<button class="btn btn-sm" data-action="atender-chamado" data-id="${ch.id}">Em atendimento</button>` : ""}
@@ -5793,6 +5826,108 @@ function _mpAtualizarMapa() {
   if (bounds.length > 0 && !_mpMap._fitAplicado) {
     _mpMap.fitBounds(bounds, { padding: [40, 40], maxZoom: 13 });
     _mpMap._fitAplicado = true;
+  }
+
+  // Renderiza técnicos sempre que o mapa atualiza condomínios
+  _mpRenderTecnicos();
+}
+
+// --- Técnicos no mapa (Fase 7F) ---
+function _tecIconeIniciais(nome) {
+  return (nome || "?")
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map(s => s[0]?.toUpperCase() || "")
+    .join("") || "?";
+}
+function _tecPinIcon(iniciais) {
+  return L.divIcon({
+    className: "tec-pin-leaflet",
+    html: `<div class="tec-pin"><span>${iniciais}</span></div>`,
+    iconSize: [32, 32],
+    iconAnchor: [16, 16],
+  });
+}
+function _tempoRelativo(iso) {
+  if (!iso) return "—";
+  const diffSec = (Date.now() - new Date(iso).getTime()) / 1000;
+  if (diffSec < 60)    return "agora";
+  if (diffSec < 3600)  return `há ${Math.floor(diffSec / 60)} min`;
+  if (diffSec < 86400) return `há ${Math.floor(diffSec / 3600)} h`;
+  return `há ${Math.floor(diffSec / 86400)} dias`;
+}
+
+function _mpRenderTecnicos() {
+  if (!_mpMap) return;
+  const lista = Array.isArray(_tecLocs) ? _tecLocs : [];
+  const idsAgora = new Set();
+
+  for (const t of lista) {
+    const lat = Number(t.lat), lng = Number(t.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+    idsAgora.add(t.tecnico_id);
+
+    const iniciais = _tecIconeIniciais(t.nome);
+    let marker = _mpTecMarkers.get(t.tecnico_id);
+    if (!marker) {
+      marker = L.marker([lat, lng], { icon: _tecPinIcon(iniciais), zIndexOffset: 1000 }).addTo(_mpMap);
+      _mpTecMarkers.set(t.tecnico_id, marker);
+    } else {
+      marker.setLatLng([lat, lng]);
+      marker.setIcon(_tecPinIcon(iniciais));
+    }
+
+    // Popup com dados (re-bind sempre porque última atualização muda)
+    const condId = t.chamado_condominio_id;
+    const condGroup = condId ? (Array.isArray(_statusData) ? _statusData : [])
+      .find(g => g.condominio?.id === condId) : null;
+    const condNome = condGroup?.condominio?.nome || (condId ? `Condomínio #${condId}` : "");
+    const popupHtml = `
+      <div style="font-size:12px;line-height:1.5;min-width:200px;">
+        <div style="font-weight:700;font-size:13px;margin-bottom:4px;color:#1a1f2e;">
+          ${(t.nome || "Técnico")}${t.especialidade ? ` <span style="color:#6b7280;font-weight:400;">· ${t.especialidade}</span>` : ""}
+        </div>
+        ${t.chamado_em_atendimento_id ? `
+          <div style="color:#1f2937;margin-top:6px;">
+            <span style="background:#fef3c7;color:#92400e;padding:1px 6px;border-radius:3px;font-size:10.5px;font-weight:700;">EM ATENDIMENTO</span>
+          </div>
+          <div style="color:#374151;margin-top:4px;">Chamado #${t.chamado_em_atendimento_id}${condNome ? ` · ${condNome}` : ""}</div>
+          ${condId ? `<a href="#" data-action="ver-condo" data-id="${condId}" style="display:inline-block;margin-top:6px;color:#2563eb;font-weight:600;text-decoration:none;">Ver no painel →</a>` : ""}
+        ` : `
+          <div style="color:#6b7280;margin-top:4px;">Sem chamado em atendimento</div>
+        `}
+        <div style="color:#9ca3af;font-size:10.5px;margin-top:6px;">
+          Última atualização ${_tempoRelativo(t.capturada_em)}
+          ${t.bateria_pct != null ? ` · 🔋 ${t.bateria_pct}%` : ""}
+        </div>
+      </div>`;
+    marker.bindPopup(popupHtml);
+
+    if (!marker._gbHandlerInstalled) {
+      marker.on("popupopen", (ev) => {
+        const link = ev.popup.getElement()?.querySelector('[data-action="ver-condo"]');
+        if (!link) return;
+        link.addEventListener("click", (e) => {
+          e.preventDefault();
+          const cid = Number(link.dataset.id);
+          if (cid) {
+            _mpCondoSelecionadoId = cid;
+            _mpAtualizarPainel();
+            marker.closePopup();
+          }
+        });
+      });
+      marker._gbHandlerInstalled = true;
+    }
+  }
+
+  // Remove técnicos que sumiram da resposta
+  for (const [tid, marker] of _mpTecMarkers) {
+    if (!idsAgora.has(tid)) {
+      _mpMap.removeLayer(marker);
+      _mpTecMarkers.delete(tid);
+    }
   }
 }
 

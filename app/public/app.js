@@ -47,6 +47,7 @@ async function api(path, opts = {}) {
   });
 
   if (r.status === 401 && token) {
+    if (typeof gpsStop === "function") gpsStop();
     Storage.clear();
     showScreen("login");
     throw new Error("Sessão expirada. Faça login novamente.");
@@ -71,6 +72,8 @@ function showScreen(name) {
       el.removeAttribute("data-active");
     }
   });
+  // Banner de GPS só aparece em telas do técnico — reavalia ao trocar de tela.
+  if (typeof gpsRenderAviso === "function") gpsRenderAviso();
 }
 
 // ============== HELPERS UI ==============
@@ -197,6 +200,8 @@ formOtp.addEventListener("submit", async (e) => {
 function mostrarPosLogin(user) {
   if (user.role === "tecnico") {
     abrirTelaTecnico(user);
+  } else if (user.role === "cliente") {
+    abrirTelaCliente(user);
   } else {
     mostrarHome(user);
   }
@@ -251,7 +256,11 @@ function abrirTelaTecnico(user) {
   showScreen("tecnico-chamados");
   carregarMeusChamados();
   iniciarPollingTecnico();
-  // pede GPS sem bloquear; quando chegar, re-renderiza com distâncias
+  // GPS fica ativo o tempo todo enquanto logado — o admin precisa saber
+  // onde o técnico está para decidir designação por proximidade, não só
+  // durante atendimento. Para no logout.
+  gpsStart();
+  // GPS rápido (one-shot) só pra ordenar a lista por proximidade
   pedirGPSOportunista();
 }
 
@@ -608,6 +617,7 @@ document.getElementById("tcRefresh").addEventListener("click", () => {
 
 document.getElementById("btnLogoutTec").addEventListener("click", () => {
   pararPollingTecnico();
+  gpsStop();
   Storage.clear();
   document.getElementById("loginSenha").value = "";
   hideAlert(document.getElementById("loginAlert"));
@@ -634,6 +644,7 @@ setInterval(() => {
 }, 30000);
 
 document.getElementById("btnLogout").addEventListener("click", () => {
+  gpsStop();
   Storage.clear();
   document.getElementById("loginSenha").value = "";
   hideAlert(loginAlert);
@@ -698,6 +709,9 @@ async function abrirDetalheChamado(id) {
 
   try {
     TD.chamado = await api(`/chamados/meus/${id}`);
+    // Se o técnico voltou pro app com atendimento em andamento (refresh, app
+    // fechado e reaberto), liga o GPS automaticamente.
+    if (TD.chamado.status === "em_atendimento") gpsStart(TD.chamado.id);
     renderDetalhe();
   } catch (err) {
     showAlert(document.getElementById("tdAlert"), err.message, "error");
@@ -964,6 +978,7 @@ async function iniciarAtendimento(id) {
       TD.chamado.ordem_servico = r.ordem_servico;
     }
 
+    gpsStart(id);
     renderDetalhe();
   } catch (err) {
     showAlert(document.getElementById("tdAlert"), err.message, "error");
@@ -1077,6 +1092,219 @@ document.getElementById("tdBack").addEventListener("click", () => {
   if (!IS_DEMO) carregarMeusChamados(true);
   else renderTecnicoChamados();
 });
+
+// ============== GPS TRACKING (Fase 7F) ==============
+// Liga `watchPosition` assim que o técnico faz login e mantém rodando
+// até o logout — o admin precisa enxergar o técnico no mapa o tempo
+// todo (não só durante atendimento) pra decidir designação por
+// proximidade. `chamadoId` é opcional, só registrado pra contexto.
+// No web, watchPosition pausa quando a tela apaga / app vai pra
+// background — quando empacotar com Capacitor, troca pelo plugin
+// `@capacitor-community/background-geolocation` mantendo essa API.
+const GPS = {
+  watchId: null,
+  pingTimer: null,
+  last: null,             // { lat, lng, precisao_m, ts }
+  lastSentTs: 0,
+  active: false,          // tracking deveria estar rodando
+  chamadoId: null,
+  lastError: null,        // code do PositionError ou "no_api" / "no_secure_context"
+  battery: null,          // BatteryManager cacheado
+  PING_MS: 60 * 1000,
+};
+
+function gpsAtivo() { return GPS.active; }
+
+function gpsStart(chamadoId = null) {
+  if (IS_DEMO) return; // demo não rastreia
+
+  // chamada idempotente — se já está rodando, só atualiza o chamadoId
+  if (GPS.active) {
+    GPS.chamadoId = chamadoId;
+    return;
+  }
+
+  // Geolocation só funciona em https/localhost. Em produção sem TLS o navegador
+  // bloqueia silenciosamente — avisa o usuário.
+  if (typeof window !== "undefined" && window.isSecureContext === false) {
+    GPS.lastError = "no_secure_context";
+    gpsRenderAviso();
+    return;
+  }
+  if (!navigator.geolocation) {
+    GPS.lastError = "no_api";
+    gpsRenderAviso();
+    console.warn("[gps] geolocation indisponível");
+    return;
+  }
+
+  GPS.active = true;
+  GPS.chamadoId = chamadoId;
+  GPS.lastError = null;
+
+  // Tenta abrir o BatteryManager (não suportado em iOS Safari — null-safe abaixo).
+  if (!GPS.battery && navigator.getBattery) {
+    navigator.getBattery().then((bm) => { GPS.battery = bm; }).catch(() => {});
+  }
+
+  GPS.watchId = navigator.geolocation.watchPosition(
+    (pos) => {
+      GPS.lastError = null;
+      GPS.last = {
+        lat: pos.coords.latitude,
+        lng: pos.coords.longitude,
+        precisao_m: pos.coords.accuracy,
+        ts: Date.now(),
+      };
+      gpsRenderAviso(); // some o banner se voltou a permissão
+      // Envia o primeiro imediatamente; daí em diante respeita PING_MS
+      const agora = Date.now();
+      if (agora - GPS.lastSentTs >= GPS.PING_MS) gpsEnviar();
+    },
+    (err) => {
+      // err.code: 1=PERMISSION_DENIED, 2=POSITION_UNAVAILABLE, 3=TIMEOUT
+      GPS.lastError = err.code;
+      console.warn("[gps] watch error:", err.code, err.message);
+      gpsRenderAviso();
+    },
+    { enableHighAccuracy: true, maximumAge: 30000, timeout: 30000 }
+  );
+  // Fallback: garante envio a cada PING_MS mesmo se watchPosition demorar
+  GPS.pingTimer = setInterval(() => {
+    if (gpsAtivo() && GPS.last) gpsEnviar();
+  }, GPS.PING_MS);
+  gpsRenderChip();
+}
+
+function gpsStop() {
+  if (GPS.watchId != null && navigator.geolocation) {
+    navigator.geolocation.clearWatch(GPS.watchId);
+  }
+  if (GPS.pingTimer) clearInterval(GPS.pingTimer);
+  GPS.watchId = null;
+  GPS.pingTimer = null;
+  GPS.active = false;
+  GPS.chamadoId = null;
+  GPS.last = null;
+  GPS.lastSentTs = 0;
+  GPS.lastError = null;
+  gpsRenderChip();
+  gpsRenderAviso();
+}
+
+async function gpsEnviar() {
+  if (!gpsAtivo() || !GPS.last) return;
+  GPS.lastSentTs = Date.now();
+  const batPct = (GPS.battery && Number.isFinite(GPS.battery.level))
+    ? Math.round(GPS.battery.level * 100)
+    : null;
+  try {
+    await api("/tecnicos/localizacao", {
+      method: "POST",
+      body: {
+        lat: GPS.last.lat,
+        lng: GPS.last.lng,
+        precisao_m: GPS.last.precisao_m,
+        bateria_pct: batPct,
+        capturada_em: new Date(GPS.last.ts).toISOString(),
+      },
+    });
+  } catch (err) {
+    // Silencioso — falha de ping não atrapalha o atendimento.
+    console.warn("[gps] ping falhou:", err.message);
+  }
+}
+
+function gpsRenderChip() {
+  let chip = document.getElementById("gpsChip");
+  if (!GPS.active) {
+    if (chip) chip.hidden = true;
+    return;
+  }
+  if (!chip) {
+    chip = document.createElement("div");
+    chip.id = "gpsChip";
+    chip.className = "gps-chip";
+    chip.title = "Localização ativa";
+    chip.innerHTML = `<span class="gps-dot"></span><span class="gps-text">GPS ativo</span>`;
+    document.body.appendChild(chip);
+  }
+  chip.hidden = false;
+}
+
+// Banner persistente quando o GPS está indisponível ou negado. Some
+// automaticamente quando o watch volta a receber posição.
+function gpsRenderAviso() {
+  let aviso = document.getElementById("gpsAviso");
+  const err = GPS.lastError;
+
+  // Só mostra o aviso pro técnico autenticado, não no login/demo/cliente
+  const visivelSomenteNoTecnico =
+    !!document.querySelector('[data-screen^="tecnico"][data-active]');
+
+  if (!err || !visivelSomenteNoTecnico) {
+    if (aviso) aviso.hidden = true;
+    return;
+  }
+
+  let msg, cta;
+  if (err === 1) { // PERMISSION_DENIED
+    msg = "Permissão de localização negada. O escritório não consegue te localizar.";
+    cta = "Permitir GPS";
+  } else if (err === 2) { // POSITION_UNAVAILABLE
+    msg = "Sinal de GPS indisponível. Verifique se o GPS do celular está ligado.";
+    cta = "Tentar novamente";
+  } else if (err === 3) { // TIMEOUT
+    msg = "GPS demorando pra responder. Tente novamente ao ar livre.";
+    cta = "Tentar novamente";
+  } else if (err === "no_secure_context") {
+    msg = "Este endereço não está em HTTPS — o navegador bloqueia o GPS.";
+    cta = null;
+  } else {
+    msg = "Localização indisponível neste dispositivo.";
+    cta = null;
+  }
+
+  if (!aviso) {
+    aviso = document.createElement("div");
+    aviso.id = "gpsAviso";
+    aviso.className = "gps-aviso";
+    aviso.setAttribute("role", "alert");
+    document.body.appendChild(aviso);
+  }
+  aviso.hidden = false;
+  aviso.innerHTML = `
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+      <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+    </svg>
+    <span class="gps-aviso-msg">${escapeHtml(msg)}</span>
+    ${cta ? `<button class="gps-aviso-cta" id="gpsAvisoBtn">${escapeHtml(cta)}</button>` : ""}`;
+
+  document.getElementById("gpsAvisoBtn")?.addEventListener("click", () => {
+    // Re-tenta — chamada nova de getCurrentPosition vai disparar o prompt
+    // se a permissão estiver em "prompt", ou falhar imediatamente se "denied"
+    // (nesse caso o usuário precisa habilitar manualmente nas configs do navegador).
+    navigator.geolocation?.getCurrentPosition(
+      () => {
+        // Sucesso: reinicia o watch
+        gpsStop();
+        gpsStart(GPS.chamadoId);
+      },
+      (err) => {
+        GPS.lastError = err.code;
+        gpsRenderAviso();
+        if (err.code === 1) {
+          // Já estava negado — abre uma dica sobre como reabrir no navegador
+          alert("Permissão negada nas configurações do navegador.\n\n" +
+            "Para reativar: toque no cadeado/ícone ao lado do endereço " +
+            "→ Permissões → Localização → Permitir, e recarregue a página.");
+        }
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  });
+}
 
 // ============== TÉCNICO — FORMULÁRIO DE O.S. (Fase 7E) ==============
 const OS = {
@@ -1232,6 +1460,7 @@ function renderOSSections() {
     sectionFotos(),
     sectionPecas(),
     sectionObservacoes(),
+    sectionOrcamento(),
     sectionResolucao(),
     sectionRecebidoAssinatura(),
   ];
@@ -1251,6 +1480,7 @@ function renderOSSections() {
   bindFotos();
   bindPecas();
   bindObservacoes();
+  bindOrcamento();
   bindResolucao();
   bindRecebidoAssinatura();
   atualizarProgresso();
@@ -1605,8 +1835,11 @@ function bindPecas() {
     if (sub) sub.textContent = `${OS.data.pecas.length} item${OS.data.pecas.length > 1 ? "s" : ""}`;
   });
 
-  // Editar inline (debounced PATCH) e excluir
-  document.getElementById("osPecas")?.addEventListener("click", async (e) => {
+  const wrap = document.getElementById("osPecas");
+  if (!wrap) return;
+
+  // Excluir
+  wrap.addEventListener("click", async (e) => {
     const del = e.target.closest(".os-peca-del");
     if (!del) return;
     const row = del.closest(".os-peca");
@@ -1627,9 +1860,50 @@ function bindPecas() {
     if (sub) sub.textContent = OS.data.pecas.length
       ? `${OS.data.pecas.length} item${OS.data.pecas.length > 1 ? "s" : ""}` : "Opcional";
   });
-  // Edição inline: usa PATCH específico — não temos endpoint de PATCH peça,
-  // então pra Fase 7E simplificado, edição apenas reflete localmente (admin pode
-  // editar via web). Backlog: PATCH /pecas/:id pro técnico ajustar texto.
+
+  // Edição inline: PATCH /pecas/:id debounced (600ms, igual aos outros campos)
+  wrap.addEventListener("input", (e) => {
+    const input = e.target.closest(".os-peca [data-f]");
+    if (!input) return;
+    const row = input.closest(".os-peca");
+    const pecaId = Number(row.dataset.pecaId);
+    const field = input.dataset.f; // "descricao" | "quantidade"
+
+    let valor = input.value;
+    if (field === "quantidade") {
+      const q = Number(valor);
+      if (!Number.isInteger(q) || q <= 0) return; // ignora valor inválido até virar válido
+      valor = q;
+    } else if (field === "descricao") {
+      // permite digitar livre; só não envia se ficar vazio (servidor rejeita)
+      if (!String(valor).trim()) return;
+    }
+
+    // aplica localmente pro feedback instantâneo
+    const p = OS.data.pecas.find((x) => x.id === pecaId);
+    if (p) p[field] = valor;
+
+    if (IS_DEMO) return;
+
+    OS.pecaDebounce = OS.pecaDebounce || new Map();
+    const key = `${pecaId}:${field}`;
+    if (OS.pecaDebounce.has(key)) clearTimeout(OS.pecaDebounce.get(key));
+    OS.pecaDebounce.set(
+      key,
+      setTimeout(async () => {
+        try {
+          await api(`/ordens-servico/${OS.data.id}/pecas/${pecaId}`, {
+            method: "PATCH",
+            body: { [field]: valor },
+          });
+        } catch (err) {
+          console.warn("[os] auto-save peça falhou:", err.message);
+          showAlert(document.getElementById("osAlert"),
+            "Não foi possível salvar a peça: " + err.message, "error");
+        }
+      }, 600)
+    );
+  });
 }
 
 // ---- Seção 6: Observações ----
@@ -1655,7 +1929,68 @@ function bindObservacoes() {
   });
 }
 
-// ---- Seção 7: Resolução ----
+// ---- Seção 7: Orçamento (opcional) ----
+function sectionOrcamento() {
+  const need = !!OS.data.orcamento_necessario;
+  const obs = OS.data.orcamento_observacoes || "";
+  return sectionTemplate({
+    id: "orcamento",
+    title: "Orçamento",
+    subtitle: need
+      ? (obs ? `Sim — ${obs.length} caracteres` : "Sim — sem observações")
+      : "Opcional",
+    required: false,
+    complete: false,
+    body: `
+      <label class="os-switch-row">
+        <span class="os-switch-label">Necessário orçamento?</span>
+        <span class="os-switch">
+          <input type="checkbox" id="osOrcNeed" ${need ? "checked" : ""}>
+          <span class="os-switch-slider"></span>
+        </span>
+      </label>
+      <div id="osOrcBox" ${need ? "" : "hidden"} style="margin-top:10px">
+        <div class="os-corrente-label" style="text-align:left;margin-bottom:6px">
+          Explique o que encontrou e o que precisa de orçamento
+        </div>
+        <textarea class="os-textarea" id="osOrcObs" maxlength="4000"
+          placeholder="Ex: bomba 1 com vedação danificada, precisa trocar pressostato e selo mecânico. Sugiro substituição completa. Tempo estimado 4h.">${escapeHtml(obs)}</textarea>
+      </div>`,
+  });
+}
+function bindOrcamento() {
+  const toggle = document.getElementById("osOrcNeed");
+  const box = document.getElementById("osOrcBox");
+  const ta = document.getElementById("osOrcObs");
+  if (!toggle) return;
+
+  function atualizarSubtitle() {
+    const sec = document.querySelector('[data-section="orcamento"]');
+    const sub = sec.querySelector(".os-section-title small");
+    if (!sub) return;
+    if (!toggle.checked) sub.textContent = "Opcional";
+    else if (ta && ta.value) sub.textContent = `Sim — ${ta.value.length} caracteres`;
+    else sub.textContent = "Sim — sem observações";
+  }
+
+  toggle.addEventListener("change", () => {
+    if (box) box.hidden = !toggle.checked;
+    salvarOSDebounced({
+      orcamento_necessario: toggle.checked,
+      // limpa observações ao desmarcar
+      ...(toggle.checked ? {} : { orcamento_observacoes: null }),
+    });
+    if (!toggle.checked && ta) ta.value = "";
+    atualizarSubtitle();
+  });
+
+  ta?.addEventListener("input", () => {
+    salvarOSDebounced({ orcamento_observacoes: ta.value });
+    atualizarSubtitle();
+  });
+}
+
+// ---- Seção 8: Resolução ----
 function sectionResolucao() {
   const sr = OS.data.servico_realizado;
   const ret = OS.data.necessario_retorno;
@@ -1884,6 +2219,15 @@ async function finalizarOS() {
   setBtnLoading(btn, true);
   hideAlert(document.getElementById("osAlert"));
   try {
+    // Pré-validação: fotos obrigatórias quando tipo é instalacao_pecas
+    // ou chamado_emergencial (backend valida de novo, mas damos feedback rápido).
+    const tipos = OS.data.tipos_servico || [];
+    const exigeFoto = tipos.includes("instalacao_pecas") || tipos.includes("chamado_emergencial");
+    const temFoto = Array.isArray(OS.data.fotos) && OS.data.fotos.length > 0;
+    if (exigeFoto && !temFoto) {
+      throw new Error("Anexe pelo menos 1 foto antes de finalizar. Os tipos selecionados (Instalação de peças / Chamado emergencial) exigem foto.");
+    }
+
     // Pede GPS pra saída
     const geo = await new Promise((resolve) => {
       if (!navigator.geolocation) return resolve(null);
@@ -1918,6 +2262,10 @@ async function finalizarOS() {
 
 function mostrarOSSucesso() {
   pararTimerOS();
+  // GPS continua ativo após o atendimento — só para no logout (o admin
+  // precisa ver o técnico se deslocando entre chamados, não só durante).
+  const osId = OS.data.id;
+  const numero = OS.data.numero || "";
   document.getElementById("osSections").innerHTML = `
     <div class="td-card">
       <div class="td-card-body os-success">
@@ -1927,7 +2275,8 @@ function mostrarOSSucesso() {
           </svg>
         </div>
         <div class="os-success-title">O.S. finalizada!</div>
-        <div class="os-success-sub">Chamado fechado · ${OS.data.numero || ""}</div>
+        <div class="os-success-sub">Chamado fechado · ${numero}</div>
+        ${IS_DEMO ? "" : `<button class="btn btn-lg" id="osBaixarPdf">📄 Baixar PDF</button>`}
         <button class="btn btnAccent btn-lg" id="osVoltarLista">Voltar pra minha lista</button>
       </div>
     </div>`;
@@ -1940,11 +2289,1355 @@ function mostrarOSSucesso() {
     if (!IS_DEMO) carregarMeusChamados(true);
     else renderTecnicoChamados();
   });
+  document.getElementById("osBaixarPdf")?.addEventListener("click", async (e) => {
+    const btn = e.currentTarget;
+    setBtnLoading(btn, true);
+    try {
+      await baixarPdfOS(osId, numero);
+    } catch (err) {
+      showAlert(document.getElementById("osAlert"), err.message, "error");
+    } finally {
+      setBtnLoading(btn, false);
+    }
+  });
+}
+
+// Baixa o PDF da O.S. — fetch com Authorization, blob → trigger download.
+// On-demand: o GET pode demorar uns segundos se o background ainda não gerou.
+async function baixarPdfOS(osId, numero) {
+  const token = Storage.getToken();
+  const r = await fetch(`${API_BASE}/ordens-servico/${osId}/pdf`, {
+    headers: token ? { "Authorization": `Bearer ${token}` } : {},
+  });
+  if (r.status === 401) {
+    gpsStop();
+    Storage.clear();
+    showScreen("login");
+    throw new Error("Sessão expirada. Faça login novamente.");
+  }
+  if (!r.ok) {
+    let msg = `Erro HTTP ${r.status}`;
+    try { const j = await r.json(); if (j?.error) msg = j.error; } catch {}
+    throw new Error(msg);
+  }
+  const blob = await r.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `os-${numero || osId}.pdf`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 // Eventos da tela de O.S.
 document.getElementById("osBack").addEventListener("click", sairFormularioOS);
 document.getElementById("osFinalizar").addEventListener("click", finalizarOS);
+
+// ============== CLIENTE — App do síndico / morador (Fase 7H) ==============
+const CLI = {
+  user: null,
+  condominio: null,
+  reservatorios: [],
+  alertas: [],
+  chamados: [],
+  polling: null,
+  detalheId: null,
+  detalhe: null,        // chamado aberto na tela de detalhe (com avaliação)
+  detalheMsgs: [],      // thread de mensagens do detalhe
+};
+
+const CLI_CATEGORIAS = [
+  ["sem_agua",     "Falta de água"],
+  ["vazamento",    "Vazamento"],
+  ["nivel_baixo",  "Nível baixo do reservatório"],
+  ["bomba_falha",  "Problema com bomba"],
+  ["ruido",        "Ruído anormal"],
+  ["manutencao",   "Manutenção / vistoria"],
+  ["outro",        "Outro"],
+];
+
+const CLI_PRIO_LABEL = { baixa: "Baixa", media: "Média", alta: "Alta", emergencia: "Emergência" };
+const CLI_STATUS_LABEL = { aberto: "Aberto", em_atendimento: "Em atendimento", fechado: "Fechado" };
+const CLI_CAT_LABEL = Object.fromEntries(CLI_CATEGORIAS);
+
+// Mapa categoria → prioridade automática. Mesma tabela do backend
+// (src/routes/cliente.routes.js) — duplicada aqui só para o modo demo,
+// onde não há servidor para classificar.
+const CLI_CAT_TO_PRIO = {
+  sem_agua:    "emergencia",
+  vazamento:   "alta",
+  bomba_falha: "alta",
+  nivel_baixo: "media",
+  manutencao:  "baixa",
+  ruido:       "baixa",
+  outro:       "media",
+};
+
+function abrirTelaCliente(user) {
+  CLI.user = user;
+  showScreen("cliente-home");
+  carregarClienteStatus(true);
+  carregarClienteChamados(true);
+  if (CLI.polling) clearInterval(CLI.polling);
+  CLI.polling = setInterval(() => {
+    carregarClienteStatus(false);
+    carregarClienteChamados(false);
+  }, 20000);
+}
+
+function pararPollingCliente() {
+  if (CLI.polling) { clearInterval(CLI.polling); CLI.polling = null; }
+}
+
+async function carregarClienteStatus(showSkel) {
+  if (showSkel) renderClienteHome({ loading: true });
+  try {
+    const d = await api("/cliente/status");
+    CLI.condominio = d.condominio;
+    CLI.reservatorios = d.reservatorios || [];
+    CLI.alertas = d.alertas_abertos || [];
+    atualizarHeaderCondo();
+    if (document.querySelector('[data-screen="cliente-home"][data-active]')) {
+      renderClienteHome({ loading: false });
+    }
+  } catch (err) {
+    console.warn("[cli] status:", err.message);
+  }
+}
+
+async function carregarClienteChamados(showSkel) {
+  try {
+    const list = await api("/cliente/chamados");
+    CLI.chamados = Array.isArray(list) ? list : [];
+    if (document.querySelector('[data-screen="cliente-home"][data-active]')) {
+      renderClienteHome({ loading: false });
+    }
+    if (document.querySelector('[data-screen="cliente-chamados"][data-active]')) {
+      renderClienteChamados();
+    }
+  } catch (err) {
+    console.warn("[cli] chamados:", err.message);
+  }
+}
+
+function atualizarHeaderCondo() {
+  const nome = CLI.condominio?.nome || "—";
+  const endLinha = [CLI.condominio?.endereco, CLI.condominio?.bairro, CLI.condominio?.cidade]
+    .filter(Boolean).join(" · ") || "—";
+  const elNome = document.getElementById("cliCondoNome");
+  if (elNome) elNome.textContent = nome;
+  const elEnd = document.getElementById("cliCondoEndereco");
+  if (elEnd) elEnd.textContent = endLinha;
+  const elChCondo = document.getElementById("cliChCondo");
+  if (elChCondo) elChCondo.textContent = nome;
+}
+
+// ---- HOME do cliente — herda visual do admin: KPIs em .resumo-grid+.rc,
+// seções como .card.tec-card+.cardHead+.head-icon, CTA com .btn.btnAccent.btn-lg.
+function renderClienteHome({ loading }) {
+  const main = document.getElementById("cliHomeMain");
+  if (!main) return;
+  if (loading && CLI.reservatorios.length === 0) {
+    main.innerHTML = `<section class="card tec-card"><div class="td-card-body"><div class="muted">Carregando…</div></div></section>`;
+    return;
+  }
+
+  const totalReservatorios = CLI.reservatorios.length;
+  const offline = CLI.reservatorios.filter((r) => r.offline).length;
+  const alertasAbertos = CLI.alertas.length;
+  const chamadosAbertos = CLI.chamados.filter((c) => c.status !== "fechado").length;
+
+  const kpi = (icon, val, lbl, kindCls, action) => `
+    <button type="button" class="rc ${kindCls}" data-cli-kpi="${action}">
+      <div class="rc-head">
+        <div class="rc-icon">${icon}</div>
+        <div class="rc-label">${lbl}</div>
+      </div>
+      <div class="rc-value">${val}</div>
+    </button>`;
+
+  const svgWifi   = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>`;
+  const svgBell   = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>`;
+  const svgTicket = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
+
+  const kpisHtml = `
+    <div class="resumo-grid cli-kpi-grid">
+      ${kpi(svgWifi,   offline,         "Offline",   offline > 0         ? "rc-bad"  : "rc-ok",   "offline")}
+      ${kpi(svgBell,   alertasAbertos,  "Alertas",   alertasAbertos > 0  ? "rc-warn" : "rc-ok",   "alertas")}
+      ${kpi(svgTicket, chamadosAbertos, "Em aberto", chamadosAbertos > 0 ? "rc-warn" : "rc-ok",   "abertos")}
+    </div>`;
+
+  const ctaHtml = `
+    <button type="button" class="btn btnAccent btn-lg cli-cta-btn" id="cliBtnAbrirChamado">
+      <span class="btn-label">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:8px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Abrir chamado
+      </span>
+    </button>`;
+
+  const svgWater = `<svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5c4 5 7 8.5 7 12.5a7 7 0 1 1-14 0c0-4 3-7.5 7-12.5z"/></svg>`;
+  const reservHtml = `
+    <section class="card tec-card">
+      <div class="cardHead">
+        <h2>${svgWater}Reservatórios</h2>
+        <span class="hint">${totalReservatorios} ${totalReservatorios === 1 ? "monitorado" : "monitorados"}</span>
+      </div>
+      ${CLI.reservatorios.length === 0
+        ? `<div class="cli-empty-section">Sem reservatórios monitorados ainda.</div>`
+        : `<div class="cli-reserv-grid">${CLI.reservatorios.map(renderReservCard).join("")}</div>`}
+    </section>`;
+
+  const svgList = `<svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg>`;
+  const chamadosRecentes = CLI.chamados.slice(0, 3);
+  const chamadosHtml = `
+    <section class="card tec-card">
+      <div class="cardHead">
+        <h2>${svgList}Últimos chamados</h2>
+        ${CLI.chamados.length > 0
+          ? `<button type="button" class="btn btn-sm" id="cliVerTodosChamados">Ver todos</button>`
+          : `<span class="hint">nenhum ainda</span>`}
+      </div>
+      ${chamadosRecentes.length === 0
+        ? `<div class="cli-empty-section">Você ainda não abriu nenhum chamado.</div>`
+        : `<div class="ch-list-mob">${chamadosRecentes.map(renderChamadoCardCli).join("")}</div>`}
+    </section>`;
+
+  main.innerHTML = kpisHtml + ctaHtml + reservHtml + chamadosHtml;
+
+  document.getElementById("cliBtnAbrirChamado")?.addEventListener("click", abrirNovoChamado);
+  document.getElementById("cliVerTodosChamados")?.addEventListener("click", () => {
+    showScreen("cliente-chamados");
+    renderClienteChamados();
+  });
+  main.querySelectorAll("[data-chamado]").forEach((el) => {
+    el.addEventListener("click", () => abrirDetalheChamadoCli(Number(el.dataset.chamado)));
+  });
+  // KPIs clicáveis: cada card leva pra tela relacionada
+  main.querySelectorAll("[data-cli-kpi]").forEach((el) => {
+    el.addEventListener("click", () => {
+      const a = el.dataset.cliKpi;
+      if (a === "offline" || a === "alertas") {
+        abrirTelemetriaCliente();
+      } else if (a === "abertos") {
+        _cliChTab = "aberto";
+        showScreen("cliente-chamados");
+        renderClienteChamados();
+      }
+    });
+  });
+}
+
+function renderReservCard(r) {
+  const pct = r.ultima_leitura?.nivel_pct;
+  const bombaOn = !!r.ultima_leitura?.bomba_ligada;
+  const offline = r.offline;
+  let cor = "ok";
+  if (offline) cor = "off";
+  else if (pct != null && pct < 20) cor = "bad";
+  else if (pct != null && pct < 40) cor = "warn";
+  const pctStr = pct != null ? `${pct}%` : "—";
+
+  return `
+    <div class="cli-reserv cli-reserv-${cor}">
+      <div class="cli-reserv-head">
+        <div class="cli-reserv-nome">${escapeHtml(r.nome || "Reservatório")}</div>
+        ${r.tipo ? `<div class="cli-reserv-tipo">${escapeHtml(r.tipo)}</div>` : ""}
+      </div>
+      <div class="cli-reserv-pct">${pctStr}</div>
+      <div class="cli-reserv-bar">
+        <div class="cli-reserv-bar-fill" style="width:${offline ? 0 : Math.max(0, Math.min(100, pct || 0))}%"></div>
+      </div>
+      <div class="cli-reserv-meta">
+        ${offline
+          ? `<span class="cli-pill cli-pill-off">OFFLINE</span>`
+          : `<span class="cli-pill ${bombaOn ? "cli-pill-on" : "cli-pill-neutral"}">Bomba ${bombaOn ? "ligada" : "desligada"}</span>`}
+        ${r.alertas_abertos_count > 0 ? `<span class="cli-pill cli-pill-warn">${r.alertas_abertos_count} alerta${r.alertas_abertos_count > 1 ? "s" : ""}</span>` : ""}
+      </div>
+    </div>`;
+}
+
+// Card de chamado no padrão .ch-row-mob (mesmo do app do técnico).
+// Cor lateral por prioridade; pills com categoria + status + meta.
+function renderChamadoCardCli(ch) {
+  const status   = ch.status || "aberto";
+  const stLabel  = CLI_STATUS_LABEL[status] || status;
+  const cat      = ch.categoria ? (CLI_CAT_LABEL[ch.categoria] || ch.categoria) : "";
+  const titulo   = ch.titulo || (ch.categoria ? `Solicitação: ${ch.categoria.replace(/_/g, " ")}` : `Chamado #${ch.id}`);
+  const descTxt  = ch.descricao ? (ch.descricao.length > 140 ? ch.descricao.slice(0, 140) + "…" : ch.descricao) : "";
+  const tempo    = tempoAbertoLabel(ch.criado_em);
+  const tecnico  = ch.tecnico_nome ? escapeHtml(ch.tecnico_nome) : "";
+
+  const iconTicket = `
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+    </svg>`;
+
+  return `
+    <button type="button" class="ch-row-mob" data-chamado="${ch.id}" data-pri="${escapeHtml(ch.prioridade || "media")}">
+      <div class="ch-row-mob-icon">${iconTicket}</div>
+      <div class="ch-row-mob-head">
+        <span class="ch-row-mob-title">${escapeHtml(titulo)}</span>
+        <span class="ch-id-cell">CH-${String(ch.id).padStart(3,"0")}</span>
+      </div>
+      ${descTxt ? `<div class="ch-row-mob-desc"><span>${escapeHtml(descTxt)}</span></div>` : ""}
+      <div class="ch-row-mob-pills">
+        ${cat ? `<span class="ch-cat-badge">${escapeHtml(cat)}</span>` : ""}
+        <span class="ch-st ch-st-${escapeHtml(status)}">${stLabel}</span>
+        <span class="ch-row-mob-meta">
+          <span>há ${tempo}</span>
+          ${tecnico ? `<span class="ch-row-mob-meta-sep"></span><span>${tecnico}</span>` : ""}
+        </span>
+      </div>
+    </button>`;
+}
+
+function fmtDataCli(iso) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  return d.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+}
+
+// ---- TELEMETRIA HISTÓRICA ----
+const TELE = {
+  deviceId: null,
+  dias: 7,
+  chart: null,
+  loading: false,
+};
+
+async function ensureChartJs() {
+  if (window.Chart) return;
+  await new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = `${API_BASE}/static/chart.umd.min.js`;
+    s.onload = resolve;
+    s.onerror = () => reject(new Error("Não foi possível carregar Chart.js"));
+    document.head.appendChild(s);
+  });
+}
+
+async function abrirTelemetriaCliente() {
+  showScreen("cliente-telemetria");
+  const telCondoEl = document.getElementById("cliTeleCondo");
+  if (telCondoEl) telCondoEl.textContent = CLI.condominio?.nome || "—";
+
+  // Garante que temos reservatórios (vem de /cliente/status)
+  if (CLI.reservatorios.length === 0) await carregarClienteStatus(false);
+
+  // Default: primeiro reservatório
+  if (!TELE.deviceId && CLI.reservatorios[0]) {
+    TELE.deviceId = CLI.reservatorios[0].device_id;
+  }
+
+  renderTelemetriaCliente();
+}
+
+function renderTelemetriaCliente() {
+  const main = document.getElementById("cliTeleMain");
+  if (!main) return;
+
+  if (CLI.reservatorios.length === 0) {
+    main.innerHTML = `
+      <section class="card tec-card">
+        <div class="cli-empty-section">Sem reservatórios monitorados ainda.</div>
+      </section>`;
+    return;
+  }
+
+  const reservChips = CLI.reservatorios.map((r) => `
+    <button type="button" class="btn btn-sm ${TELE.deviceId === r.device_id ? "btnAccent" : ""}"
+            data-tele-dev="${escapeHtml(r.device_id)}">
+      ${escapeHtml(r.nome || "Reservatório")}
+    </button>`).join("");
+
+  const periodChips = [
+    { dias: 1,  label: "24h" },
+    { dias: 7,  label: "7 dias" },
+    { dias: 30, label: "30 dias" },
+  ].map((p) => `
+    <button type="button" class="btn btn-sm ${TELE.dias === p.dias ? "btnAccent" : ""}"
+            data-tele-dias="${p.dias}">${p.label}</button>`).join("");
+
+  const svgChart = `<svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>`;
+
+  main.innerHTML = `
+    <section class="card tec-card">
+      <div class="cardHead">
+        <h2>${svgChart}Histórico de nível</h2>
+      </div>
+      <div class="cli-tele-body">
+        <div class="cli-chip-group">
+          <span class="rc-label">Reservatório</span>
+          <div class="cli-chip-row">${reservChips}</div>
+        </div>
+        <div class="cli-chip-group">
+          <span class="rc-label">Período</span>
+          <div class="cli-chip-row">${periodChips}</div>
+        </div>
+        <div id="cliTeleStats" class="resumo-grid cli-tele-stats" hidden></div>
+        <div class="cli-tele-canvas-wrap">
+          <canvas id="cliTeleChart"></canvas>
+          <div id="cliTeleLoading" class="cli-tele-loading" hidden>Carregando…</div>
+        </div>
+        <button type="button" class="btn btnAccent btn-lg" id="cliTelePdf">
+          <span class="btn-label">📄 Baixar relatório (PDF)</span>
+        </button>
+      </div>
+    </section>`;
+
+  main.querySelectorAll("[data-tele-dev]").forEach((b) => {
+    b.addEventListener("click", () => {
+      TELE.deviceId = b.dataset.teleDev;
+      renderTelemetriaCliente();
+    });
+  });
+  main.querySelectorAll("[data-tele-dias]").forEach((b) => {
+    b.addEventListener("click", () => {
+      TELE.dias = Number(b.dataset.teleDias);
+      renderTelemetriaCliente();
+    });
+  });
+  document.getElementById("cliTelePdf")?.addEventListener("click", baixarRelatorioTelemetria);
+
+  carregarGraficoTelemetria();
+}
+
+async function baixarRelatorioTelemetria() {
+  if (!TELE.deviceId) return;
+  if (IS_DEMO) {
+    alert("Modo demo: PDF não disponível. Use a versão com login real.");
+    return;
+  }
+  const btn = document.getElementById("cliTelePdf");
+  setBtnLoading(btn, true);
+  const token = Storage.getToken();
+  try {
+    const url = `${API_BASE}/relatorio/pdf?device_id=${encodeURIComponent(TELE.deviceId)}&dias=${TELE.dias}`;
+    const r = await fetch(url, { headers: token ? { "Authorization": `Bearer ${token}` } : {} });
+    if (!r.ok) {
+      let msg = `Erro HTTP ${r.status}`;
+      try { const j = await r.json(); if (j?.error) msg = j.error; } catch {}
+      throw new Error(msg);
+    }
+    const blob = await r.blob();
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    const cd = r.headers.get("Content-Disposition") || "";
+    const match = cd.match(/filename="?([^"]+)"?/);
+    a.download = match ? match[1] : `relatorio-${TELE.deviceId}-${TELE.dias}d.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  } catch (err) {
+    alert("Não foi possível baixar o relatório: " + err.message);
+  } finally {
+    setBtnLoading(btn, false);
+  }
+}
+
+async function carregarGraficoTelemetria() {
+  if (TELE.loading) return;
+  if (!TELE.deviceId) return;
+  TELE.loading = true;
+  const loadingEl = document.getElementById("cliTeleLoading");
+  if (loadingEl) loadingEl.hidden = false;
+
+  try {
+    await ensureChartJs();
+    let data;
+    if (IS_DEMO) {
+      data = gerarHistoricoFakeDemo(TELE.deviceId, TELE.dias);
+    } else {
+      data = await api(`/cliente/historico?device_id=${encodeURIComponent(TELE.deviceId)}&dias=${TELE.dias}`);
+    }
+    desenharGraficoTelemetria(data);
+  } catch (err) {
+    const main = document.getElementById("cliTeleMain");
+    if (main) {
+      const wrap = main.querySelector(".cli-tele-canvas-wrap");
+      if (wrap) wrap.innerHTML = `<div class="alert is-error">${escapeHtml(err.message)}</div>`;
+    }
+  } finally {
+    TELE.loading = false;
+    if (loadingEl) loadingEl.hidden = true;
+  }
+}
+
+// Gera dados sintéticos pra preview no modo demo. Curva senoidal + ruído,
+// com amplitude conforme o reservatório (cisterna oscila mais que a caixa).
+function gerarHistoricoFakeDemo(deviceId, dias) {
+  const now = Date.now();
+  const bucketSec = dias <= 1 ? 300 : dias <= 7 ? 3600 : 14400;
+  const buckets = Math.min(Math.floor((dias * 86400) / bucketSec), 200);
+  const base = deviceId === "RES002" ? 45 : 75;
+  const amp  = deviceId === "RES002" ? 25 : 12;
+  const leituras = [];
+  for (let i = buckets; i >= 0; i--) {
+    const t = now - i * bucketSec * 1000;
+    const fase = (i / buckets) * Math.PI * (dias <= 1 ? 4 : dias <= 7 ? 8 : 14);
+    const ruido = (Math.random() - 0.5) * 6;
+    const v = Math.round(Math.max(5, Math.min(95, base + Math.sin(fase) * amp + ruido)));
+    leituras.push({
+      bucket: new Date(t).toISOString(),
+      nivel_pct_avg: v,
+      nivel_pct_min: Math.max(0, v - 4),
+      nivel_pct_max: Math.min(100, v + 4),
+      bomba_ligada: v < 30,
+      count: 1,
+    });
+  }
+  const allAvg = leituras.map((l) => l.nivel_pct_avg);
+  const stats = {
+    min_pct: Math.min(...allAvg),
+    max_pct: Math.max(...allAvg),
+    avg_pct: Math.round(allAvg.reduce((s, v) => s + v, 0) / allAvg.length),
+    total_leituras: leituras.length * 12,
+  };
+  return { device_id: deviceId, dias, bucket_sec: bucketSec, leituras, stats };
+}
+
+function desenharGraficoTelemetria(data) {
+  const canvas = document.getElementById("cliTeleChart");
+  if (!canvas) return;
+  const leituras = Array.isArray(data.leituras) ? data.leituras : [];
+
+  // Stats — usa o mesmo padrão .resumo-grid + .rc do admin
+  const statsEl = document.getElementById("cliTeleStats");
+  if (statsEl) {
+    if (data.stats) {
+      const stat = (val, lbl, kind) => `
+        <div class="rc ${kind} rc-static">
+          <div class="rc-head"><div class="rc-label">${lbl}</div></div>
+          <div class="rc-value">${val}</div>
+        </div>`;
+      statsEl.hidden = false;
+      statsEl.innerHTML =
+        stat(`${data.stats.min_pct}%`,     "Mínimo",  "rc-bad") +
+        stat(`${data.stats.avg_pct}%`,     "Médio",   "rc-neutral") +
+        stat(`${data.stats.max_pct}%`,     "Máximo",  "rc-ok") +
+        stat(`${data.stats.total_leituras}`, "Leituras", "rc-violet");
+    } else {
+      statsEl.hidden = false;
+      statsEl.innerHTML = `<div class="muted" style="font-size:12px;grid-column:1/-1;text-align:center;padding:12px">Sem dados no período.</div>`;
+    }
+  }
+
+  if (TELE.chart) { try { TELE.chart.destroy(); } catch {} TELE.chart = null; }
+  if (leituras.length === 0) return;
+
+  const labels = leituras.map((l) => {
+    const d = new Date(l.bucket);
+    return TELE.dias <= 1
+      ? d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
+      : d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+  });
+  const valores = leituras.map((l) => l.nivel_pct_avg);
+
+  TELE.chart = new Chart(canvas.getContext("2d"), {
+    type: "line",
+    data: {
+      labels,
+      datasets: [{
+        label: "Nível médio (%)",
+        data: valores,
+        borderColor: "#f0b014",
+        backgroundColor: "rgba(240,176,20,.15)",
+        borderWidth: 2,
+        fill: true,
+        tension: 0.3,
+        pointRadius: TELE.dias <= 1 ? 3 : 2,
+        pointBackgroundColor: "#f0b014",
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: "rgba(15,23,42,.95)",
+          borderColor: "rgba(240,176,20,.4)",
+          borderWidth: 1,
+          callbacks: { label: (ctx) => ` ${ctx.parsed.y}%` },
+        },
+      },
+      scales: {
+        x: {
+          ticks: { color: "#94a3b8", maxRotation: 0, autoSkip: true, maxTicksLimit: 8 },
+          grid: { color: "rgba(255,255,255,.05)" },
+        },
+        y: {
+          min: 0, max: 100,
+          ticks: { color: "#94a3b8", stepSize: 25, callback: (v) => v + "%" },
+          grid: { color: "rgba(255,255,255,.05)" },
+        },
+      },
+    },
+  });
+}
+
+// ---- LISTA de chamados (tela cheia) ----
+let _cliChTab = "todos";
+function renderClienteChamados() {
+  const main = document.getElementById("cliChMain");
+  if (!main) return;
+  const counts = {
+    todos: CLI.chamados.length,
+    aberto: CLI.chamados.filter((c) => c.status === "aberto").length,
+    em_atendimento: CLI.chamados.filter((c) => c.status === "em_atendimento").length,
+    fechado: CLI.chamados.filter((c) => c.status === "fechado").length,
+  };
+  const filtrados = _cliChTab === "todos" ? CLI.chamados : CLI.chamados.filter((c) => c.status === _cliChTab);
+
+  const svgList = `<svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg>`;
+
+  main.innerHTML = `
+    <section class="card tec-card">
+      <div class="cardHead">
+        <h2>${svgList}Meus chamados</h2>
+        <span class="hint">${counts.todos} ${counts.todos === 1 ? "chamado" : "chamados"}</span>
+      </div>
+      <div class="ch-toolbar tec-toolbar">
+        <div class="wa-tabs" role="tablist">
+          <button class="wa-tab ${_cliChTab === "todos"          ? "is-active" : ""}" data-tab="todos">Todos <span class="wa-count">${counts.todos}</span></button>
+          <button class="wa-tab ${_cliChTab === "aberto"         ? "is-active" : ""}" data-tab="aberto">Abertos <span class="wa-count">${counts.aberto}</span></button>
+          <button class="wa-tab ${_cliChTab === "em_atendimento" ? "is-active" : ""}" data-tab="em_atendimento">Em atend. <span class="wa-count">${counts.em_atendimento}</span></button>
+          <button class="wa-tab ${_cliChTab === "fechado"        ? "is-active" : ""}" data-tab="fechado">Fechados <span class="wa-count">${counts.fechado}</span></button>
+        </div>
+      </div>
+      ${filtrados.length === 0
+        ? `<div class="tc-empty">
+             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+               <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+             </svg>
+             <p>Nenhum chamado nesta aba</p>
+           </div>`
+        : `<div class="ch-list-mob">${filtrados.map(renderChamadoCardCli).join("")}</div>`}
+    </section>`;
+
+  main.querySelectorAll(".wa-tab").forEach((b) => {
+    b.addEventListener("click", () => { _cliChTab = b.dataset.tab; renderClienteChamados(); });
+  });
+  main.querySelectorAll("[data-chamado]").forEach((el) => {
+    el.addEventListener("click", () => abrirDetalheChamadoCli(Number(el.dataset.chamado)));
+  });
+}
+
+// ---- NOVO CHAMADO ----
+function abrirNovoChamado() {
+  showScreen("cliente-novo-chamado");
+  const main = document.getElementById("cliNovoMain");
+  const svgEdit = `<svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>`;
+
+  main.innerHTML = `
+    <section class="card tec-card">
+      <div class="cardHead">
+        <h2>${svgEdit}Conte o que aconteceu</h2>
+        <span class="hint">resposta em até 24h</span>
+      </div>
+      <form id="cliNovoForm" class="cli-form" novalidate>
+        <label class="cli-form-field">
+          <span class="rc-label">Tipo de problema</span>
+          <select class="input" id="cliNovoCat">
+            ${CLI_CATEGORIAS.map(([k, lbl]) => `<option value="${k}">${escapeHtml(lbl)}</option>`).join("")}
+          </select>
+        </label>
+
+        <label class="cli-form-field">
+          <span class="rc-label">Descreva o que aconteceu</span>
+          <textarea class="input cli-textarea" id="cliNovoDesc" maxlength="4000" rows="6"
+            placeholder="Ex: faltou água nos últimos 2 dias, ouvi a bomba fazer barulho estranho ontem..."></textarea>
+          <span class="hint">Mínimo 5 caracteres. A prioridade é definida automaticamente pelo tipo do problema.</span>
+        </label>
+
+        <div class="alert error" id="cliNovoAlert" hidden></div>
+
+        <button type="submit" class="btn btnAccent btn-lg" id="cliNovoSubmit">
+          <span class="btn-label">Abrir chamado</span>
+        </button>
+      </form>
+    </section>`;
+
+  document.getElementById("cliNovoForm").addEventListener("submit", (e) => {
+    e.preventDefault();
+    submeterNovoChamado();
+  });
+}
+
+async function submeterNovoChamado() {
+  const cat = document.getElementById("cliNovoCat").value;
+  const desc = document.getElementById("cliNovoDesc").value.trim();
+  const alertEl = document.getElementById("cliNovoAlert");
+  const btn = document.getElementById("cliNovoSubmit");
+
+  hideAlert(alertEl);
+  if (desc.length < 5) {
+    showAlert(alertEl, "Descreva o problema com pelo menos 5 caracteres.", "error");
+    return;
+  }
+
+  setBtnLoading(btn, true);
+  try {
+    let novo;
+    if (IS_DEMO) {
+      novo = {
+        id: Math.floor(Date.now() / 1000) % 10000,
+        status: "aberto",
+        prioridade: CLI_CAT_TO_PRIO[cat] || "media",
+        categoria: cat,
+        titulo: `Solicitação: ${cat.replace(/_/g, " ")}`,
+        descricao: desc,
+        criado_em: new Date().toISOString(),
+      };
+    } else {
+      // Prioridade não vai mais no body — o backend deriva da categoria.
+      novo = await api("/cliente/chamados", {
+        method: "POST",
+        body: { categoria: cat, descricao: desc },
+      });
+    }
+    CLI.chamados.unshift({
+      ...novo,
+      tecnico_nome: null,
+      ordem_servico_id: null,
+      os_finalizada_em: null,
+    });
+    _cliChTab = "aberto";
+    showScreen("cliente-chamados");
+    renderClienteChamados();
+  } catch (err) {
+    showAlert(alertEl, err.message, "error");
+  } finally {
+    setBtnLoading(btn, false);
+  }
+}
+
+// ---- DETALHE do chamado ----
+async function abrirDetalheChamadoCli(id) {
+  CLI.detalheId = id;
+  CLI.detalhe = null;
+  CLI.detalheMsgs = [];
+  showScreen("cliente-chamado-detalhe");
+  const main = document.getElementById("cliDetMain");
+  const pill = document.getElementById("cliDetStatusPill");
+  if (pill) pill.hidden = true;
+  main.innerHTML = `
+    <section class="td-card"><div class="td-card-body"><div class="muted">Carregando…</div></div></section>`;
+
+  try {
+    let ch;
+    if (IS_DEMO) {
+      ch = CLI.chamados.find((c) => c.id === id);
+      if (!ch) throw new Error("Chamado não encontrado");
+      // Em demo o detalhe usa o que já está na lista (mesma estrutura)
+      ch = { ...ch, os_id: ch.ordem_servico_id, os_numero: ch.os_numero };
+      CLI.detalheMsgs = []; // sem backend, thread começa vazia
+    } else {
+      ch = await api(`/cliente/chamados/${id}`);
+      // Mensagens em paralelo, mas tolera falha (a tela ainda carrega)
+      try {
+        CLI.detalheMsgs = await api(`/cliente/chamados/${id}/mensagens`);
+      } catch (e) {
+        console.warn("[cli] mensagens:", e.message);
+        CLI.detalheMsgs = [];
+      }
+    }
+    CLI.detalhe = ch;
+    renderDetalheChamado(ch);
+  } catch (err) {
+    main.innerHTML = `
+      <section class="card tec-card">
+        <div class="td-card-body"><div class="alert error">${escapeHtml(err.message)}</div></div>
+      </section>`;
+  }
+}
+
+function renderDetalheChamado(ch) {
+  const status = ch.status || "aberto";
+  const titulo = ch.titulo || (ch.categoria ? CLI_CAT_LABEL[ch.categoria] || ch.categoria : `Chamado #${ch.id}`);
+
+  document.getElementById("cliDetTitulo").textContent = titulo;
+  document.getElementById("cliDetSub").textContent = `CH-${String(ch.id).padStart(3,"0")}`;
+  const pill = document.getElementById("cliDetStatusPill");
+  if (pill) {
+    pill.hidden = false;
+    pill.className = `td-status-pill td-status-${status}`;
+    pill.textContent = CLI_STATUS_LABEL[status] || status;
+  }
+
+  const main = document.getElementById("cliDetMain");
+
+  // ---- Card de resumo (pills + descrição) ----
+  const prioLabel = ch.prioridade ? (CLI_PRIO_LABEL[ch.prioridade] || ch.prioridade) : null;
+  const catLabel  = ch.categoria  ? (CLI_CAT_LABEL[ch.categoria]   || ch.categoria)  : null;
+  const resumoHtml = `
+    <section class="td-card">
+      <div class="td-card-body">
+        <div class="cli-det-pills">
+          ${prioLabel ? `<span class="cli-prio cli-prio-${ch.prioridade}">${escapeHtml(prioLabel)}</span>` : ""}
+          ${catLabel  ? `<span class="ch-cat-badge">${escapeHtml(catLabel)}</span>` : ""}
+        </div>
+        <h2 class="cli-det-titulo">${escapeHtml(titulo)}</h2>
+        ${ch.descricao ? `<div class="cli-det-desc">${escapeHtml(ch.descricao)}</div>` : ""}
+      </div>
+    </section>`;
+
+  // ---- Timeline em .card + .cardHead (visual do admin) ----
+  const steps = [
+    { key: "criado",      label: "Chamado registrado", at: ch.criado_em, done: true },
+    { key: "atendimento", label: ch.tecnico_nome ? `Em atendimento · ${ch.tecnico_nome}` : "Em atendimento",
+      at: status !== "aberto" ? ch.atualizado_em : null,
+      done: status === "em_atendimento" || status === "fechado",
+      current: status === "em_atendimento" },
+    { key: "fechado",     label: "Atendimento concluído",
+      at: ch.fechado_em, done: status === "fechado", current: false },
+  ];
+
+  const svgClock = `<svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`;
+
+  const timelineHtml = `
+    <section class="card tec-card">
+      <div class="cardHead">
+        <h2>${svgClock}Linha do tempo</h2>
+      </div>
+      <div class="cli-timeline">
+        ${steps.map((s, i) => `
+          <div class="cli-tl-item ${s.done ? "is-done" : ""} ${s.current ? "is-current" : ""}">
+            <div class="cli-tl-dot">${s.done ? "✓" : (i + 1)}</div>
+            <div class="cli-tl-body">
+              <div class="cli-tl-label">${escapeHtml(s.label)}</div>
+              ${s.at ? `<div class="cli-tl-time">${fmtDataCli(s.at)}</div>` : ""}
+            </div>
+          </div>`).join("")}
+      </div>
+    </section>`;
+
+  // ---- Avaliação: só o formulário, quando chamado fechado e ainda não
+  // avaliado. Depois de enviar, o cliente vê uma confirmação rápida e o
+  // card some — a nota/comentário ficam disponíveis apenas para o admin.
+  const avaliacaoHtml = (status === "fechado" && !ch.ja_avaliado)
+    ? renderAvaliacaoCardForm()
+    : "";
+
+  // ---- Mensagens: thread entre cliente e técnico
+  const mensagensHtml = renderMensagensCard();
+
+  const pdfBtn = (ch.os_id && ch.os_finalizada_em)
+    ? `<button type="button" class="btn btnAccent btn-lg" id="cliBtnPdf">
+         <span class="btn-label">📄 Baixar Ordem de Serviço (PDF)</span>
+       </button>`
+    : "";
+
+  main.innerHTML = resumoHtml + timelineHtml + avaliacaoHtml + mensagensHtml + pdfBtn;
+
+  document.getElementById("cliBtnPdf")?.addEventListener("click", () => baixarPdfClienteOS(ch.os_id, ch.os_numero));
+  _bindAvaliacaoForm();
+  _bindMensagensForm();
+}
+
+// =====================================================================
+// MENSAGENS — thread cliente ↔ técnico (alerta_comentarios)
+// =====================================================================
+
+function renderMensagensCard() {
+  const svgChat = `<svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
+  return `
+    <section class="card tec-card cli-msg-card">
+      <div class="cardHead">
+        <h2>${svgChat}Mensagens</h2>
+        <span class="hint" id="cliMsgCount">${CLI.detalheMsgs.length} ${CLI.detalheMsgs.length === 1 ? "mensagem" : "mensagens"}</span>
+      </div>
+      <div class="cli-msg-list" id="cliMsgList">
+        ${renderMensagensList()}
+      </div>
+      <form id="cliMsgForm" class="cli-msg-composer" novalidate>
+        <div class="cli-msg-preview" id="cliMsgPreview" hidden></div>
+        <div class="cli-msg-input-row">
+          <label class="cli-msg-photo-btn" for="cliMsgFoto" aria-label="Anexar foto">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 19V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2z"/>
+              <circle cx="8.5" cy="8.5" r="1.5"/>
+              <polyline points="21 15 16 10 5 21"/>
+            </svg>
+            <input type="file" id="cliMsgFoto" accept="image/*" hidden>
+          </label>
+          <textarea class="input cli-msg-input" id="cliMsgTexto" rows="1" maxlength="2000"
+            placeholder="Escreva uma mensagem…"></textarea>
+          <button type="submit" class="cli-msg-send" id="cliMsgSend" aria-label="Enviar">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+            </svg>
+          </button>
+        </div>
+        <div class="alert error" id="cliMsgAlert" hidden></div>
+      </form>
+    </section>`;
+}
+
+function renderMensagensList() {
+  if (CLI.detalheMsgs.length === 0) {
+    return `<div class="cli-empty-section" style="padding:18px 16px">
+      Nenhuma mensagem ainda. Use o campo abaixo para mandar texto ou foto pro técnico.
+    </div>`;
+  }
+  return CLI.detalheMsgs.map(renderMensagemItem).join("");
+}
+
+function renderMensagemItem(m) {
+  const mine = m.autor_id && CLI.user?.id === m.autor_id;
+  const role = m.autor_role || (mine ? "cliente" : "tecnico");
+  const lado = mine ? "is-mine" : "is-other";
+  const nome = m.autor_nome || (role === "tecnico" ? "Técnico" : role === "admin" ? "Atendimento" : "Você");
+  const fotoHtml = m.foto_url
+    ? `<a class="cli-msg-photo" href="${escapeHtml(_apiUrl(m.foto_url))}" target="_blank" rel="noopener">
+         <img src="${escapeHtml(_apiUrl(m.foto_url))}" alt="foto" loading="lazy">
+       </a>`
+    : "";
+  const textoHtml = m.texto ? `<div class="cli-msg-text">${escapeHtml(m.texto)}</div>` : "";
+  return `
+    <div class="cli-msg-item ${lado}" data-role="${escapeHtml(role)}">
+      <div class="cli-msg-bubble">
+        <div class="cli-msg-header">
+          <span class="cli-msg-author">${escapeHtml(nome)}</span>
+          <span class="cli-msg-time">${fmtDataCli(m.criado_em)}</span>
+        </div>
+        ${fotoHtml}
+        ${textoHtml}
+      </div>
+    </div>`;
+}
+
+// foto_url vem como "/uploads/chamados/123/abc.jpg"; em capacitor ou se o
+// app for servido de outro host, precisa prefixar com API_BASE.
+function _apiUrl(p) {
+  if (!p) return "";
+  if (/^https?:|^data:|^blob:/i.test(p)) return p;
+  return API_BASE + (p.startsWith("/") ? p : "/" + p);
+}
+
+let _enviandoMsg = false;
+let _fotoMsgPending = null; // data URL aguardando envio
+
+function _bindMensagensForm() {
+  const form = document.getElementById("cliMsgForm");
+  if (!form) return;
+
+  const inputFoto = document.getElementById("cliMsgFoto");
+  inputFoto?.addEventListener("change", async (e) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    try {
+      _fotoMsgPending = await comprimirFoto(f, 1280, 0.78);
+      _atualizarPreviewFotoMsg();
+    } catch (err) {
+      console.error(err);
+      alert("Não foi possível processar a imagem.");
+    } finally {
+      inputFoto.value = ""; // reseta pra permitir escolher a mesma de novo
+    }
+  });
+
+  // Auto-resize do textarea (1 a 5 linhas)
+  const ta = document.getElementById("cliMsgTexto");
+  ta?.addEventListener("input", () => {
+    ta.style.height = "auto";
+    ta.style.height = Math.min(ta.scrollHeight, 120) + "px";
+  });
+
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    enviarMensagemDetalhe();
+  });
+}
+
+function _atualizarPreviewFotoMsg() {
+  const el = document.getElementById("cliMsgPreview");
+  if (!el) return;
+  if (!_fotoMsgPending) {
+    el.hidden = true;
+    el.innerHTML = "";
+    return;
+  }
+  el.hidden = false;
+  el.innerHTML = `
+    <img src="${_fotoMsgPending}" alt="prévia">
+    <button type="button" class="cli-msg-preview-x" id="cliMsgPreviewX" aria-label="Remover foto">×</button>`;
+  document.getElementById("cliMsgPreviewX")?.addEventListener("click", () => {
+    _fotoMsgPending = null;
+    _atualizarPreviewFotoMsg();
+  });
+}
+
+async function enviarMensagemDetalhe() {
+  if (_enviandoMsg) return;
+  const ta = document.getElementById("cliMsgTexto");
+  const alertEl = document.getElementById("cliMsgAlert");
+  const sendBtn = document.getElementById("cliMsgSend");
+  const texto = (ta?.value || "").trim();
+
+  hideAlert(alertEl);
+  if (!texto && !_fotoMsgPending) {
+    showAlert(alertEl, "Escreva algo ou anexe uma foto.", "error");
+    return;
+  }
+
+  if (IS_DEMO) {
+    // Modo demo: insere a mensagem local sem chamar backend
+    CLI.detalheMsgs.push({
+      id: Date.now(), texto: texto || null,
+      foto_url: _fotoMsgPending || null,
+      criado_em: new Date().toISOString(),
+      autor_id: CLI.user?.id, autor_nome: CLI.user?.nome || "Você",
+      autor_role: "cliente",
+    });
+    ta.value = ""; ta.style.height = "auto";
+    _fotoMsgPending = null; _atualizarPreviewFotoMsg();
+    _atualizarMensagensList();
+    return;
+  }
+
+  _enviandoMsg = true;
+  sendBtn.disabled = true;
+  try {
+    const novo = await api(`/cliente/chamados/${CLI.detalheId}/mensagens`, {
+      method: "POST",
+      body: { texto: texto || null, foto_base64: _fotoMsgPending || null },
+    });
+    CLI.detalheMsgs.push(novo);
+    ta.value = ""; ta.style.height = "auto";
+    _fotoMsgPending = null; _atualizarPreviewFotoMsg();
+    _atualizarMensagensList();
+  } catch (err) {
+    showAlert(alertEl, err.message, "error");
+  } finally {
+    _enviandoMsg = false;
+    sendBtn.disabled = false;
+  }
+}
+
+function _atualizarMensagensList() {
+  const list = document.getElementById("cliMsgList");
+  if (list) {
+    list.innerHTML = renderMensagensList();
+    // scroll pro fim
+    list.scrollTop = list.scrollHeight;
+  }
+  const count = document.getElementById("cliMsgCount");
+  if (count) count.textContent =
+    `${CLI.detalheMsgs.length} ${CLI.detalheMsgs.length === 1 ? "mensagem" : "mensagens"}`;
+}
+
+// =====================================================================
+// AVALIAÇÃO — só aparece depois que o chamado é fechado
+// =====================================================================
+
+let _avaliacaoNota = 0;
+
+function renderAvaliacaoCardForm() {
+  _avaliacaoNota = 0;
+  const svgStar = `<svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`;
+  return `
+    <section class="card tec-card">
+      <div class="cardHead">
+        <h2>${svgStar}Como foi o atendimento?</h2>
+        <span class="hint">Ajuda a equipe a melhorar</span>
+      </div>
+      <form id="cliAvaliacaoForm" class="cli-form" novalidate>
+        <div class="cli-stars-row" id="cliStarsRow" role="radiogroup" aria-label="Nota">
+          ${[1,2,3,4,5].map((n) => `
+            <button type="button" class="cli-star" data-nota="${n}" role="radio" aria-checked="false" aria-label="${n} estrela${n>1?"s":""}">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+              </svg>
+            </button>`).join("")}
+        </div>
+        <label class="cli-form-field">
+          <span class="rc-label">Quer comentar algo? (opcional)</span>
+          <textarea class="input cli-textarea" id="cliAvaliacaoComent" maxlength="1000" rows="3"
+            placeholder="Ex: técnico atencioso, problema resolvido na primeira visita."></textarea>
+        </label>
+        <div class="alert error" id="cliAvaliacaoAlert" hidden></div>
+        <button type="submit" class="btn btnAccent btn-lg" id="cliAvaliacaoSubmit">
+          <span class="btn-label">Enviar avaliação</span>
+        </button>
+      </form>
+    </section>`;
+}
+
+function _bindAvaliacaoForm() {
+  const form = document.getElementById("cliAvaliacaoForm");
+  if (!form) return;
+  const starsRow = document.getElementById("cliStarsRow");
+  starsRow.querySelectorAll(".cli-star").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      _avaliacaoNota = Number(btn.dataset.nota);
+      starsRow.querySelectorAll(".cli-star").forEach((s) => {
+        const n = Number(s.dataset.nota);
+        s.classList.toggle("is-filled", n <= _avaliacaoNota);
+        s.setAttribute("aria-checked", n === _avaliacaoNota ? "true" : "false");
+        s.querySelector("svg")?.setAttribute("fill", n <= _avaliacaoNota ? "currentColor" : "none");
+      });
+    });
+  });
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    enviarAvaliacao();
+  });
+}
+
+async function enviarAvaliacao() {
+  const alertEl = document.getElementById("cliAvaliacaoAlert");
+  const btn = document.getElementById("cliAvaliacaoSubmit");
+  const coment = document.getElementById("cliAvaliacaoComent").value.trim();
+
+  hideAlert(alertEl);
+  if (!_avaliacaoNota) {
+    showAlert(alertEl, "Toque em uma das estrelas para dar a nota.", "error");
+    return;
+  }
+
+  if (!IS_DEMO) {
+    setBtnLoading(btn, true);
+    try {
+      await api(`/cliente/chamados/${CLI.detalheId}/avaliar`, {
+        method: "POST",
+        body: { nota: _avaliacaoNota, comentario: coment || null },
+      });
+    } catch (err) {
+      showAlert(alertEl, err.message, "error");
+      setBtnLoading(btn, false);
+      return;
+    }
+    setBtnLoading(btn, false);
+  }
+
+  // Marca como avaliado pro caso de re-render no mesmo ciclo. A nota/comentário
+  // não ficam no estado local — o cliente não vê isso de volta.
+  if (CLI.detalhe) CLI.detalhe.ja_avaliado = true;
+
+  // Substitui o card do formulário por uma confirmação inline e some depois.
+  const formCard = document.getElementById("cliAvaliacaoForm")?.closest("section.card");
+  if (formCard) {
+    formCard.innerHTML = `
+      <div class="cli-aval-thanks">
+        <div class="cli-aval-thanks-icon">
+          <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+        </div>
+        <div class="cli-aval-thanks-title">Obrigado pela avaliação!</div>
+        <div class="cli-aval-thanks-sub">Sua opinião ajuda a equipe a melhorar.</div>
+      </div>`;
+    setTimeout(() => { formCard.remove(); }, 4000);
+  }
+}
+
+async function baixarPdfClienteOS(osId, numero) {
+  if (IS_DEMO) {
+    alert("Modo demo: PDF não disponível. Use a versão com login real.");
+    return;
+  }
+  const token = Storage.getToken();
+  try {
+    const r = await fetch(`${API_BASE}/cliente/ordens-servico/${osId}/pdf`, {
+      headers: token ? { "Authorization": `Bearer ${token}` } : {},
+    });
+    if (!r.ok) {
+      let msg = `Erro HTTP ${r.status}`;
+      try { const j = await r.json(); if (j?.error) msg = j.error; } catch {}
+      throw new Error(msg);
+    }
+    const blob = await r.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `os-${numero || osId}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  } catch (err) {
+    alert("Não foi possível baixar o PDF: " + err.message);
+  }
+}
+
+// ---- CONTA — perfil + trocar senha + sair ----
+function abrirTelaConta() {
+  showScreen("cliente-conta");
+  const sub = document.getElementById("cliContaSub");
+  if (sub) sub.textContent = CLI.condominio?.nome || CLI.user?.email || "—";
+  renderClienteConta();
+}
+
+function _iniciaisNome(nome) {
+  if (!nome) return "?";
+  const partes = String(nome).trim().split(/\s+/);
+  const a = partes[0]?.[0] || "";
+  const b = partes.length > 1 ? partes[partes.length - 1][0] : "";
+  return (a + b).toUpperCase() || "?";
+}
+
+function renderClienteConta() {
+  const main = document.getElementById("cliContaMain");
+  if (!main) return;
+
+  const user = CLI.user || {};
+  const condo = CLI.condominio || {};
+  const endLinha = [condo.endereco, condo.bairro, condo.cidade].filter(Boolean).join(", ") || "—";
+
+  const svgUser = `<svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`;
+  const svgLock = `<svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`;
+
+  main.innerHTML = `
+    <section class="card tec-card">
+      <div class="cardHead">
+        <h2>${svgUser}Seus dados</h2>
+      </div>
+      <div class="cli-conta-hero">
+        <div class="cli-conta-avatar">${escapeHtml(_iniciaisNome(user.nome))}</div>
+        <div class="cli-conta-hero-text">
+          <div class="cli-conta-nome">${escapeHtml(user.nome || "—")}</div>
+          <div class="cli-conta-email">${escapeHtml(user.email || "—")}</div>
+        </div>
+      </div>
+      <div class="cli-info-row">
+        <span class="cli-info-row-label">Condomínio</span>
+        <span class="cli-info-row-value">${escapeHtml(condo.nome || "—")}</span>
+      </div>
+      <div class="cli-info-row">
+        <span class="cli-info-row-label">Endereço</span>
+        <span class="cli-info-row-value">${escapeHtml(endLinha)}</span>
+      </div>
+    </section>
+
+    <section class="card tec-card">
+      <div class="cardHead">
+        <h2>${svgLock}Alterar senha</h2>
+      </div>
+      <form id="cliSenhaForm" class="cli-form" novalidate autocomplete="off">
+        <label class="cli-form-field">
+          <span class="rc-label">Senha atual</span>
+          <input class="input" type="password" id="cliSenhaAtual" autocomplete="current-password" required>
+        </label>
+        <label class="cli-form-field">
+          <span class="rc-label">Nova senha</span>
+          <input class="input" type="password" id="cliSenhaNova" autocomplete="new-password" minlength="6" required>
+          <span class="hint">Mínimo 6 caracteres</span>
+        </label>
+        <label class="cli-form-field">
+          <span class="rc-label">Confirmar nova senha</span>
+          <input class="input" type="password" id="cliSenhaNova2" autocomplete="new-password" minlength="6" required>
+        </label>
+
+        <div class="alert" id="cliSenhaAlert" hidden></div>
+
+        <button type="submit" class="btn btnAccent btn-lg" id="cliSenhaSubmit">
+          <span class="btn-label">Salvar nova senha</span>
+        </button>
+      </form>
+    </section>
+
+    <button type="button" class="btn btn-lg cli-conta-logout" id="cliBtnSair">
+      <span class="btn-label">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:8px">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+        </svg>
+        Sair da conta
+      </span>
+    </button>`;
+
+  document.getElementById("cliSenhaForm").addEventListener("submit", (e) => {
+    e.preventDefault();
+    submitTrocarSenha();
+  });
+  document.getElementById("cliBtnSair").addEventListener("click", () => {
+    pararPollingCliente();
+    Storage.clear();
+    showScreen("login");
+  });
+}
+
+async function submitTrocarSenha() {
+  const atual = document.getElementById("cliSenhaAtual").value;
+  const nova  = document.getElementById("cliSenhaNova").value;
+  const nova2 = document.getElementById("cliSenhaNova2").value;
+  const alertEl = document.getElementById("cliSenhaAlert");
+  const btn = document.getElementById("cliSenhaSubmit");
+
+  hideAlert(alertEl);
+
+  if (!atual || !nova || !nova2) {
+    showAlert(alertEl, "Preencha todos os campos.", "error");
+    return;
+  }
+  if (nova.length < 6) {
+    showAlert(alertEl, "A nova senha deve ter pelo menos 6 caracteres.", "error");
+    return;
+  }
+  if (nova !== nova2) {
+    showAlert(alertEl, "As novas senhas não conferem.", "error");
+    return;
+  }
+  if (nova === atual) {
+    showAlert(alertEl, "A nova senha precisa ser diferente da atual.", "error");
+    return;
+  }
+
+  if (IS_DEMO) {
+    showAlert(alertEl, "Modo demo: alteração de senha não disponível.", "info");
+    return;
+  }
+
+  setBtnLoading(btn, true);
+  try {
+    await api("/cliente/trocar-senha", {
+      method: "POST",
+      body: { senha_atual: atual, senha_nova: nova },
+    });
+    document.getElementById("cliSenhaForm").reset();
+    showAlert(alertEl, "Senha atualizada com sucesso.", "success");
+  } catch (err) {
+    showAlert(alertEl, err.message, "error");
+  } finally {
+    setBtnLoading(btn, false);
+  }
+}
+
+// ---- Eventos do cliente ----
+function _bindClienteUI() {
+  document.querySelectorAll(
+    '[data-screen="cliente-home"] [data-cli-tab], [data-screen="cliente-chamados"] [data-cli-tab], [data-screen="cliente-telemetria"] [data-cli-tab], [data-screen="cliente-conta"] [data-cli-tab]'
+  ).forEach((b) => {
+    b.addEventListener("click", () => {
+      const tab = b.dataset.cliTab;
+      if (tab === "home") {
+        showScreen("cliente-home");
+        renderClienteHome({ loading: false });
+      } else if (tab === "chamados") {
+        showScreen("cliente-chamados");
+        renderClienteChamados();
+      } else if (tab === "telemetria") {
+        abrirTelemetriaCliente();
+      } else if (tab === "conta") {
+        abrirTelaConta();
+      }
+    });
+  });
+
+  document.getElementById("cliBtnNovoChamado")?.addEventListener("click", abrirNovoChamado);
+  document.getElementById("cliNovoBack")?.addEventListener("click", () => {
+    showScreen("cliente-chamados");
+    renderClienteChamados();
+  });
+  document.getElementById("cliDetBack")?.addEventListener("click", () => {
+    showScreen("cliente-chamados");
+    renderClienteChamados();
+  });
+}
+_bindClienteUI();
 
 // ============== BOOTSTRAP ==============
 // Footer de diagnóstico no login
@@ -1952,10 +3645,13 @@ document.getElementById("apiBase").textContent = API_BASE;
 document.getElementById("envInfo").textContent = IS_CAPACITOR ? "Capacitor (nativo)" : "Browser (dev)";
 
 // ============== MODO DEMO ==============
-// Abrir /app/?demo=1 (ou ?demo=tecnico) pula login e mostra a tela do técnico
-// com dados fake. Útil pra preview de UI sem backend/banco. Não toca em
-// nenhum endpoint real, não inicia polling. Pra sair do modo demo: /app/.
-const IS_DEMO = new URLSearchParams(window.location.search).get("demo") != null;
+// /app/?demo=1 ou ?demo=tecnico → tela do técnico com dados fake
+// /app/?demo=cliente             → tela do cliente/síndico com dados fake
+// Útil pra preview de UI sem backend/banco. Não toca em endpoint real,
+// não inicia polling. Pra sair do modo demo: /app/ (sem query).
+const DEMO_PARAM = new URLSearchParams(window.location.search).get("demo");
+const IS_DEMO = DEMO_PARAM != null;
+const DEMO_ROLE = DEMO_PARAM === "cliente" ? "cliente" : "tecnico";
 
 function entrarModoDemo() {
   const fakeUser = {
@@ -2055,10 +3751,66 @@ function chamadosFakeDemo() {
   ];
 }
 
+// Demo: gera condomínio + reservatórios + alertas + chamados fake
+function entrarModoDemoCliente() {
+  const now = Date.now();
+  const min = 60 * 1000, hour = 60 * min, day = 24 * hour;
+  CLI.user = { id: 998, nome: "Síndico Demo", email: "sindico@demo.com", role: "cliente", condominio_id: 1 };
+  CLI.condominio = {
+    id: 1,
+    nome: "Edifício Solaris",
+    endereco: "Av. Paulista, 1578",
+    bairro: "Bela Vista",
+    cidade: "São Paulo",
+    uf: "SP",
+  };
+  CLI.reservatorios = [
+    { id: 1, nome: "Caixa superior", tipo: "superior", device_id: "RES001",
+      ultima_leitura: { device_id: "RES001", nivel_pct: 72, bomba_ligada: false, criado_em: new Date(now - 2*min).toISOString() },
+      offline: false, alertas_abertos_count: 0 },
+    { id: 2, nome: "Cisterna", tipo: "inferior", device_id: "RES002",
+      ultima_leitura: { device_id: "RES002", nivel_pct: 28, bomba_ligada: true, criado_em: new Date(now - 4*min).toISOString() },
+      offline: false, alertas_abertos_count: 1 },
+    { id: 3, nome: "Piscina", tipo: "piscina", device_id: "RES003",
+      ultima_leitura: null, offline: true, alertas_abertos_count: 0 },
+  ];
+  CLI.alertas = [
+    { id: 1, device_id: "RES002", tipo: "nivel_baixo", mensagem: "Cisterna abaixo de 30%", criado_em: new Date(now - 30*min).toISOString() },
+  ];
+  CLI.chamados = [
+    {
+      id: 201, status: "em_atendimento", prioridade: "alta", categoria: "vazamento",
+      titulo: "Vazamento na sala de bombas", tecnico_nome: "Carlos Andrade",
+      descricao: "Identificado vazamento na conexão da bomba 1. Necessário avaliação.",
+      criado_em: new Date(now - 3*hour).toISOString(), atualizado_em: new Date(now - hour).toISOString(),
+      ordem_servico_id: null, os_finalizada_em: null,
+    },
+    {
+      id: 198, status: "fechado", prioridade: "media", categoria: "manutencao",
+      titulo: "Preventiva mensal", tecnico_nome: "Marcos Lima",
+      descricao: "Manutenção preventiva das bombas, troca de óleo, checagem geral.",
+      criado_em: new Date(now - 5*day).toISOString(), atualizado_em: new Date(now - 4*day).toISOString(),
+      fechado_em: new Date(now - 4*day).toISOString(),
+      ordem_servico_id: 42, os_finalizada_em: new Date(now - 4*day).toISOString(), os_numero: "OS-2026-0042",
+    },
+    {
+      id: 195, status: "aberto", prioridade: "baixa", categoria: "ruido",
+      titulo: "Ruído nas bombas à noite", tecnico_nome: null,
+      descricao: "Moradores reclamando de ruído após 22h. Solicito vistoria.",
+      criado_em: new Date(now - 8*hour).toISOString(),
+      ordem_servico_id: null, os_finalizada_em: null,
+    },
+  ];
+  atualizarHeaderCondo();
+  showScreen("cliente-home");
+  renderClienteHome({ loading: false });
+}
+
 // Se tem token, tenta validar e ir direto pra home
 (async () => {
   if (IS_DEMO) {
-    entrarModoDemo();
+    if (DEMO_ROLE === "cliente") entrarModoDemoCliente();
+    else                          entrarModoDemo();
     return;
   }
   const token = Storage.getToken();
