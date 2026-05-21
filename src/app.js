@@ -84,8 +84,18 @@ if (process.env.NODE_ENV === "production" && !process.env.CORS_ORIGINS) {
 }
 
 app.use(cors({ origin: corsOrigins }));
-app.use(express.json());
+// Limit aumentado pra 8mb pra aceitar fotos da O.S. em base64
+// (comprimidas client-side pra ~150-300KB cada; base64 infla ~33%).
+app.use(express.json({ limit: "8mb" }));
 app.use(cookieParser());
+
+// Uploads (fotos de O.S.) — público e cacheável
+app.use("/uploads", express.static(path.join(__dirname, "../uploads"), {
+  etag: true,
+  maxAge: "30d",
+  immutable: true,
+}));
+
 app.use("/static", express.static("public", {
   etag: true,
   lastModified: true,

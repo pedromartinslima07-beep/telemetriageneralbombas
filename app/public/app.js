@@ -920,7 +920,7 @@ function configurarCTA(c) {
   } else if (c.status === "em_atendimento") {
     lbl.textContent = "Preencher Ordem de Serviço";
     btn.className = "btn btnAccent btn-lg";
-    btn.onclick = () => alert("Fase 7E — formulário de O.S. ainda não implementado.");
+    btn.onclick = () => abrirFormularioOS(c.id, c.ordem_servico?.id);
   }
 }
 
@@ -1077,6 +1077,874 @@ document.getElementById("tdBack").addEventListener("click", () => {
   if (!IS_DEMO) carregarMeusChamados(true);
   else renderTecnicoChamados();
 });
+
+// ============== TÉCNICO — FORMULÁRIO DE O.S. (Fase 7E) ==============
+const OS = {
+  data: null,      // O.S. completa (chamado_id, condominio_id, campos, fotos, peças...)
+  chamadoId: null, // pra voltar pra detalhe
+  saveDebounce: null,
+  timer: null,
+  sign: { ctx: null, canvas: null, drawing: false, lastX: 0, lastY: 0, hasInk: false },
+};
+
+const OS_TIPOS = [
+  ["retirada_equipamento", "Retirada de equipamento"],
+  ["vistoria_contrato",    "Vistoria de contrato"],
+  ["visita_tecnica",       "Visita técnica"],
+  ["devolucao",            "Devolução"],
+  ["limpeza_piscina",      "Limpeza de piscina"],
+  ["limpeza_caixas",       "Limpeza de caixas d'água"],
+  ["chamado_emergencial",  "Chamado emergencial"],
+  ["preventiva_mensal",    "Preventiva mensal"],
+  ["instalacao_pecas",     "Instalação de peças"],
+];
+
+const OS_EQUIPAMENTOS = [
+  ["comando_eletrico",       "Comando elétrico"],
+  ["bombas_recalque",        "Bombas de recalque"],
+  ["bombas_succao",          "Bombas de sucção"],
+  ["bombas_piscina",         "Bombas de piscina"],
+  ["bombas_pressurizacao",   "Bombas de pressurização"],
+  ["bombas_cascata",         "Bombas de cascata"],
+  ["bombas_espelho_dagua",   "Bombas de espelho d'água"],
+  ["linha_automaticos",      "Linha dos automáticos"],
+  ["paineis_solares",        "Painéis solares"],
+  ["valvula_redutora",       "Válvula redutora de pressão"],
+  ["valvula_retencao",       "Válvula de retenção"],
+  ["estacao_tratamento",     "Estação de tratamento"],
+  ["grupo_gerador",          "Grupo gerador"],
+];
+
+const OS_RECEBIDO_TIPOS = [
+  ["gestor",   "Gestor"],
+  ["sindico",  "Síndico"],
+  ["portaria", "Portaria"],
+];
+
+const OS_RESOLUCAO = [
+  ["resolvido", "Resolvido"],
+  ["paliativo", "Paliativo"],
+  ["agravado",  "Agravado"],
+];
+
+const OS_FOTO_TIPOS = ["antes", "depois", "geral"];
+
+// ---- Entrar/sair da tela ----
+async function abrirFormularioOS(chamadoId, osId) {
+  OS.chamadoId = chamadoId;
+  showScreen("tecnico-os");
+  document.getElementById("osSections").innerHTML = `
+    <div class="tc-skel" style="height:80px"></div>
+    <div class="tc-skel" style="height:80px"></div>
+    <div class="tc-skel" style="height:80px"></div>`;
+  hideAlert(document.getElementById("osAlert"));
+
+  try {
+    if (IS_DEMO) {
+      OS.data = {
+        id: osId || 999,
+        numero: "OS-2026-DEMO",
+        chamado_id: chamadoId,
+        chegada_em: new Date(Date.now() - 35 * 60 * 1000).toISOString(),
+        tipos_servico: [],
+        itens_verificados: {},
+        correntes: null,
+        observacoes: null,
+        servico_realizado: null,
+        necessario_retorno: false,
+        retorno_sugerido_em: null,
+        recebido_nome: null,
+        recebido_tipo: null,
+        assinatura_b64: null,
+        fotos: [],
+        pecas: [],
+      };
+    } else {
+      OS.data = await api(`/ordens-servico/${osId}`);
+      OS.data.fotos = OS.data.fotos || [];
+      OS.data.pecas = OS.data.pecas || [];
+    }
+
+    document.getElementById("osNumero").textContent = OS.data.numero || `OS-${osId}`;
+    iniciarTimerOS(OS.data.chegada_em);
+    renderOSSections();
+  } catch (err) {
+    showAlert(document.getElementById("osAlert"), err.message, "error");
+  }
+}
+
+function sairFormularioOS() {
+  pararTimerOS();
+  if (OS.saveDebounce) clearTimeout(OS.saveDebounce);
+  OS.data = null;
+  showScreen("tecnico-detalhe");
+}
+
+function iniciarTimerOS(chegadaIso) {
+  pararTimerOS();
+  if (!chegadaIso) return;
+  const inicio = new Date(chegadaIso).getTime();
+  const el = document.getElementById("osTimer");
+  if (!el) return;
+  const tick = () => {
+    const diff = Math.max(0, Date.now() - inicio);
+    const totalSec = Math.floor(diff / 1000);
+    const hh = Math.floor(totalSec / 3600);
+    const mm = Math.floor((totalSec % 3600) / 60);
+    const ss = totalSec % 60;
+    const pad = (n) => String(n).padStart(2, "0");
+    el.textContent = hh > 0 ? `${pad(hh)}:${pad(mm)}:${pad(ss)}` : `${pad(mm)}:${pad(ss)}`;
+  };
+  tick();
+  OS.timer = setInterval(tick, 1000);
+}
+
+function pararTimerOS() {
+  if (OS.timer) { clearInterval(OS.timer); OS.timer = null; }
+}
+
+// ---- Auto-save debounced ----
+function salvarOSDebounced(patch) {
+  if (!OS.data) return;
+  // aplica localmente primeiro pro feedback instantâneo
+  Object.assign(OS.data, patch);
+  if (OS.saveDebounce) clearTimeout(OS.saveDebounce);
+  OS.saveDebounce = setTimeout(async () => {
+    if (IS_DEMO) return; // demo não persiste
+    try {
+      await api(`/ordens-servico/${OS.data.id}`, { method: "PATCH", body: patch });
+    } catch (err) {
+      console.warn("[os] auto-save falhou:", err.message);
+      showAlert(document.getElementById("osAlert"),
+        "Não foi possível salvar: " + err.message, "error");
+    }
+  }, 600);
+  atualizarProgresso();
+}
+
+// ---- Render das seções ----
+function renderOSSections() {
+  const wrap = document.getElementById("osSections");
+  const sections = [
+    sectionTipos(),
+    sectionEquipamentos(),
+    sectionCorrentes(),
+    sectionFotos(),
+    sectionPecas(),
+    sectionObservacoes(),
+    sectionResolucao(),
+    sectionRecebidoAssinatura(),
+  ];
+  wrap.innerHTML = sections.join("");
+
+  // Bind: clique no head abre/fecha
+  wrap.querySelectorAll(".os-section-head").forEach((head) => {
+    head.addEventListener("click", () => {
+      head.parentElement.classList.toggle("is-open");
+    });
+  });
+
+  // Bind: handlers por seção
+  bindTipos();
+  bindEquipamentos();
+  bindCorrentes();
+  bindFotos();
+  bindPecas();
+  bindObservacoes();
+  bindResolucao();
+  bindRecebidoAssinatura();
+  atualizarProgresso();
+}
+
+function sectionTemplate({ id, title, subtitle, required, complete, body, open }) {
+  return `
+    <div class="os-section${complete ? " is-complete" : ""}${open ? " is-open" : ""}" data-section="${id}">
+      <button type="button" class="os-section-head">
+        <div class="os-section-icon">
+          ${complete
+            ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`
+            : `<span style="font-size:11px;font-weight:800">${OS_SECTION_NUMBER[id] || "•"}</span>`}
+        </div>
+        <div class="os-section-title">
+          ${title}
+          ${subtitle ? `<small>${subtitle}</small>` : ""}
+        </div>
+        ${required && !complete ? `<span class="os-section-required">Obrig.</span>` : ""}
+        <svg class="os-section-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="6 9 12 15 18 9"/>
+        </svg>
+      </button>
+      <div class="os-section-body">${body}</div>
+    </div>`;
+}
+
+const OS_SECTION_NUMBER = {
+  tipos: "1", equipamentos: "2", correntes: "3", fotos: "4",
+  pecas: "5", observacoes: "6", resolucao: "7", recebido: "8",
+};
+
+// ---- Seção 1: Tipos de serviço ----
+function sectionTipos() {
+  const tipos = OS.data.tipos_servico || [];
+  return sectionTemplate({
+    id: "tipos",
+    title: "Tipos de serviço",
+    subtitle: tipos.length ? `${tipos.length} selecionado${tipos.length > 1 ? "s" : ""}` : "Toque pra selecionar",
+    required: true,
+    complete: tipos.length > 0,
+    open: tipos.length === 0,
+    body: `
+      <div class="os-chips" id="osChips">
+        ${OS_TIPOS.map(([k, lbl]) => `
+          <button type="button" class="os-chip ${tipos.includes(k) ? "is-on" : ""}" data-tipo="${k}">${escapeHtml(lbl)}</button>
+        `).join("")}
+      </div>`,
+  });
+}
+function bindTipos() {
+  document.getElementById("osChips")?.addEventListener("click", (e) => {
+    const chip = e.target.closest(".os-chip");
+    if (!chip) return;
+    const k = chip.dataset.tipo;
+    const set = new Set(OS.data.tipos_servico || []);
+    if (set.has(k)) set.delete(k); else set.add(k);
+    chip.classList.toggle("is-on");
+    salvarOSDebounced({ tipos_servico: [...set] });
+    // atualiza badge "X selecionados" e estado complete
+    const sub = chip.closest(".os-section").querySelector(".os-section-title small");
+    if (sub) {
+      const n = [...set].length;
+      sub.textContent = n ? `${n} selecionado${n > 1 ? "s" : ""}` : "Toque pra selecionar";
+    }
+    chip.closest(".os-section").classList.toggle("is-complete", set.size > 0);
+  });
+}
+
+// ---- Seção 2: Equipamentos verificados ----
+function sectionEquipamentos() {
+  const it = OS.data.itens_verificados || {};
+  const checked = OS_EQUIPAMENTOS.filter(([k]) => it[k]).length;
+  return sectionTemplate({
+    id: "equipamentos",
+    title: "Equipamentos verificados",
+    subtitle: checked ? `${checked} verificado${checked > 1 ? "s" : ""}` : "Marque o que foi verificado",
+    required: false,
+    complete: checked > 0,
+    body: `
+      <div id="osEquipamentos" style="padding-top:6px">
+        ${OS_EQUIPAMENTOS.map(([k, lbl]) => `
+          <label class="os-switch-row">
+            <span class="os-switch-label">${escapeHtml(lbl)}</span>
+            <span class="os-switch">
+              <input type="checkbox" data-eq="${k}" ${it[k] ? "checked" : ""}>
+              <span class="os-switch-slider"></span>
+            </span>
+          </label>
+        `).join("")}
+      </div>`,
+  });
+}
+function bindEquipamentos() {
+  document.getElementById("osEquipamentos")?.addEventListener("change", (e) => {
+    const input = e.target.closest('input[type="checkbox"][data-eq]');
+    if (!input) return;
+    const it = { ...(OS.data.itens_verificados || {}) };
+    if (input.checked) it[input.dataset.eq] = true;
+    else delete it[input.dataset.eq];
+    salvarOSDebounced({ itens_verificados: it });
+    const n = Object.keys(it).filter((k) => it[k]).length;
+    const sec = input.closest(".os-section");
+    const sub = sec.querySelector(".os-section-title small");
+    if (sub) sub.textContent = n ? `${n} verificado${n > 1 ? "s" : ""}` : "Marque o que foi verificado";
+    sec.classList.toggle("is-complete", n > 0);
+  });
+}
+
+// ---- Seção 3: Correntes elétricas ----
+function sectionCorrentes() {
+  const c = OS.data.correntes || {};
+  const tipo = c.tipo || "";
+  const v = c.valores || [];
+  return sectionTemplate({
+    id: "correntes",
+    title: "Correntes elétricas",
+    subtitle: tipo ? `${tipo.toUpperCase()} · ${v.filter(Boolean).join(" / ")} A` : "Mono / Bi / Tri",
+    required: false,
+    complete: tipo && v.some((x) => x != null && x !== ""),
+    body: `
+      <div class="os-radio-group" id="osCorTipo">
+        ${["mono","bi","tri"].map((t) => `
+          <label class="os-radio">
+            <input type="radio" name="osCorTipo" value="${t}" ${tipo === t ? "checked" : ""}>
+            <span class="os-radio-label">${t.toUpperCase()}</span>
+          </label>`).join("")}
+      </div>
+      <div class="os-correntes-inputs" id="osCorVals">
+        ${[0,1,2].map((i) => `
+          <div>
+            <div class="os-corrente-label">F${i+1}</div>
+            <input type="number" step="0.1" class="input os-corrente-input"
+                   data-idx="${i}" placeholder="0.0"
+                   value="${v[i] != null ? v[i] : ""}">
+          </div>`).join("")}
+      </div>`,
+  });
+}
+function bindCorrentes() {
+  const aplicar = () => {
+    const tipo = document.querySelector('#osCorTipo input:checked')?.value || null;
+    const inputs = document.querySelectorAll('#osCorVals input');
+    const lim = tipo === "mono" ? 1 : tipo === "bi" ? 2 : 3;
+    inputs.forEach((inp, i) => {
+      inp.disabled = !tipo || i >= lim;
+      if (i >= lim) inp.value = "";
+    });
+    const valores = [...inputs].map((inp) => inp.value === "" ? null : Number(inp.value));
+    const correntes = tipo ? { tipo, valores: valores.slice(0, lim) } : null;
+    salvarOSDebounced({ correntes });
+    // atualiza subtitle + complete
+    const sec = document.querySelector('[data-section="correntes"]');
+    const sub = sec.querySelector(".os-section-title small");
+    if (correntes && correntes.valores.some((x) => x != null)) {
+      sub.textContent = `${tipo.toUpperCase()} · ${correntes.valores.filter((x) => x != null).join(" / ")} A`;
+      sec.classList.add("is-complete");
+    } else {
+      sub.textContent = "Mono / Bi / Tri";
+      sec.classList.remove("is-complete");
+    }
+  };
+  document.querySelectorAll('#osCorTipo input').forEach((r) => r.addEventListener("change", aplicar));
+  document.querySelectorAll('#osCorVals input').forEach((i) => i.addEventListener("input", aplicar));
+  // estado inicial: desabilita campos não usados
+  aplicar();
+}
+
+// ---- Seção 4: Fotos ----
+function sectionFotos() {
+  const fotos = OS.data.fotos || [];
+  return sectionTemplate({
+    id: "fotos",
+    title: "Fotos",
+    subtitle: fotos.length ? `${fotos.length} foto${fotos.length > 1 ? "s" : ""}` : "Antes / Depois / Geral",
+    required: false,
+    complete: fotos.length > 0,
+    body: `
+      <div class="os-foto-tipo-picker" id="osFotoTipo">
+        ${OS_FOTO_TIPOS.map((t, i) => `
+          <button type="button" class="os-foto-tipo-opt ${i === 2 ? "is-on" : ""}" data-tipo="${t}">${t}</button>
+        `).join("")}
+      </div>
+      <div class="os-foto-list" id="osFotos">
+        ${fotos.map(renderFotoCard).join("")}
+        <label class="os-foto-add">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+            <circle cx="12" cy="13" r="4"/>
+          </svg>
+          Foto
+          <input type="file" accept="image/*" capture="environment" id="osFotoInput">
+        </label>
+      </div>`,
+  });
+}
+function renderFotoCard(f) {
+  return `
+    <div class="os-foto" data-foto-id="${f.id}">
+      <img src="${escapeHtml(f.url)}" alt="${escapeHtml(f.tipo || "")}">
+      ${f.tipo ? `<span class="os-foto-tipo">${escapeHtml(f.tipo)}</span>` : ""}
+      <button type="button" class="os-foto-del" aria-label="Remover">×</button>
+    </div>`;
+}
+function bindFotos() {
+  // Picker de tipo (antes/depois/geral) — afeta as próximas fotos enviadas
+  document.querySelectorAll("#osFotoTipo .os-foto-tipo-opt").forEach((b) => {
+    b.addEventListener("click", () => {
+      document.querySelectorAll("#osFotoTipo .os-foto-tipo-opt")
+        .forEach((x) => x.classList.remove("is-on"));
+      b.classList.add("is-on");
+    });
+  });
+
+  // Upload com compressão client-side
+  document.getElementById("osFotoInput")?.addEventListener("change", async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = ""; // permite re-enviar a mesma foto
+
+    const tipo = document.querySelector("#osFotoTipo .os-foto-tipo-opt.is-on")?.dataset.tipo || "geral";
+
+    try {
+      const dataUrl = await comprimirFoto(file, 1600, 0.75);
+
+      if (IS_DEMO) {
+        const fakeFoto = {
+          id: Date.now(),
+          url: dataUrl, // no demo usa o próprio dataUrl pra exibir
+          tipo,
+        };
+        OS.data.fotos.push(fakeFoto);
+      } else {
+        const created = await api(`/ordens-servico/${OS.data.id}/fotos/upload`, {
+          method: "POST",
+          body: { image_base64: dataUrl, tipo },
+        });
+        OS.data.fotos.push(created);
+      }
+
+      // Re-render da seção
+      const sec = document.querySelector('[data-section="fotos"]');
+      const open = sec.classList.contains("is-open");
+      sec.outerHTML = sectionFotos();
+      const newSec = document.querySelector('[data-section="fotos"]');
+      if (open) newSec.classList.add("is-open");
+      newSec.querySelector(".os-section-head").addEventListener("click", () =>
+        newSec.classList.toggle("is-open"));
+      bindFotos();
+      atualizarProgresso();
+    } catch (err) {
+      showAlert(document.getElementById("osAlert"),
+        "Falha ao enviar foto: " + err.message, "error");
+    }
+  });
+
+  // Remover foto
+  document.getElementById("osFotos")?.addEventListener("click", async (e) => {
+    const btn = e.target.closest(".os-foto-del");
+    if (!btn) return;
+    const card = btn.closest(".os-foto");
+    const id = Number(card.dataset.fotoId);
+    if (!confirm("Remover esta foto?")) return;
+    try {
+      if (!IS_DEMO) {
+        await api(`/ordens-servico/${OS.data.id}/fotos/${id}`, { method: "DELETE" });
+      }
+      OS.data.fotos = OS.data.fotos.filter((f) => f.id !== id);
+      card.remove();
+      const sec = document.querySelector('[data-section="fotos"]');
+      const n = OS.data.fotos.length;
+      const sub = sec.querySelector(".os-section-title small");
+      if (sub) sub.textContent = n ? `${n} foto${n > 1 ? "s" : ""}` : "Antes / Depois / Geral";
+      sec.classList.toggle("is-complete", n > 0);
+      atualizarProgresso();
+    } catch (err) {
+      showAlert(document.getElementById("osAlert"),
+        "Falha ao remover: " + err.message, "error");
+    }
+  });
+}
+
+// Compressão de imagem via canvas. Retorna data URL JPEG.
+async function comprimirFoto(file, maxDim, quality) {
+  const img = await new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => {
+      const i = new Image();
+      i.onload = () => resolve(i);
+      i.onerror = reject;
+      i.src = r.result;
+    };
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+
+  let { width, height } = img;
+  if (width > maxDim || height > maxDim) {
+    const ratio = width / height;
+    if (ratio >= 1) { width = maxDim; height = Math.round(maxDim / ratio); }
+    else            { height = maxDim; width  = Math.round(maxDim * ratio); }
+  }
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(img, 0, 0, width, height);
+  return canvas.toDataURL("image/jpeg", quality);
+}
+
+// ---- Seção 5: Peças usadas ----
+function sectionPecas() {
+  const pecas = OS.data.pecas || [];
+  return sectionTemplate({
+    id: "pecas",
+    title: "Peças usadas / substituídas",
+    subtitle: pecas.length ? `${pecas.length} item${pecas.length > 1 ? "s" : ""}` : "Opcional",
+    required: false,
+    complete: false, // peça é opcional, não marca como completa
+    body: `
+      <div id="osPecas">
+        ${pecas.map(renderPeca).join("")}
+      </div>
+      <button type="button" class="btn btn-sm os-peca-add" id="osPecaAdd">+ Adicionar peça</button>`,
+  });
+}
+function renderPeca(p) {
+  return `
+    <div class="os-peca" data-peca-id="${p.id}">
+      <input class="input" type="text" data-f="descricao" placeholder="Descrição" value="${escapeHtml(p.descricao || "")}">
+      <input class="input" type="number" min="1" data-f="quantidade" placeholder="Qtd" value="${p.quantidade || 1}">
+      <button type="button" class="os-peca-del" aria-label="Remover">×</button>
+    </div>`;
+}
+function bindPecas() {
+  document.getElementById("osPecaAdd")?.addEventListener("click", async () => {
+    const desc = "Nova peça";
+    let novaPeca;
+    if (IS_DEMO) {
+      novaPeca = { id: Date.now(), descricao: desc, quantidade: 1 };
+    } else {
+      novaPeca = await api(`/ordens-servico/${OS.data.id}/pecas`, {
+        method: "POST",
+        body: { descricao: desc, quantidade: 1 },
+      });
+    }
+    OS.data.pecas.push(novaPeca);
+    document.getElementById("osPecas").insertAdjacentHTML("beforeend", renderPeca(novaPeca));
+    const sec = document.querySelector('[data-section="pecas"]');
+    const sub = sec.querySelector(".os-section-title small");
+    if (sub) sub.textContent = `${OS.data.pecas.length} item${OS.data.pecas.length > 1 ? "s" : ""}`;
+  });
+
+  // Editar inline (debounced PATCH) e excluir
+  document.getElementById("osPecas")?.addEventListener("click", async (e) => {
+    const del = e.target.closest(".os-peca-del");
+    if (!del) return;
+    const row = del.closest(".os-peca");
+    const id = Number(row.dataset.pecaId);
+    if (!confirm("Remover esta peça?")) return;
+    if (!IS_DEMO) {
+      try {
+        await api(`/ordens-servico/${OS.data.id}/pecas/${id}`, { method: "DELETE" });
+      } catch (err) {
+        showAlert(document.getElementById("osAlert"), err.message, "error");
+        return;
+      }
+    }
+    OS.data.pecas = OS.data.pecas.filter((p) => p.id !== id);
+    row.remove();
+    const sec = document.querySelector('[data-section="pecas"]');
+    const sub = sec.querySelector(".os-section-title small");
+    if (sub) sub.textContent = OS.data.pecas.length
+      ? `${OS.data.pecas.length} item${OS.data.pecas.length > 1 ? "s" : ""}` : "Opcional";
+  });
+  // Edição inline: usa PATCH específico — não temos endpoint de PATCH peça,
+  // então pra Fase 7E simplificado, edição apenas reflete localmente (admin pode
+  // editar via web). Backlog: PATCH /pecas/:id pro técnico ajustar texto.
+}
+
+// ---- Seção 6: Observações ----
+function sectionObservacoes() {
+  const obs = OS.data.observacoes || "";
+  return sectionTemplate({
+    id: "observacoes",
+    title: "Observações",
+    subtitle: obs ? `${obs.length} caracteres` : "Opcional",
+    required: false,
+    complete: false,
+    body: `<textarea class="os-textarea" id="osObs" maxlength="2000" placeholder="Detalhes do atendimento, peças encontradas, recomendações...">${escapeHtml(obs)}</textarea>`,
+  });
+}
+function bindObservacoes() {
+  const ta = document.getElementById("osObs");
+  if (!ta) return;
+  ta.addEventListener("input", () => {
+    salvarOSDebounced({ observacoes: ta.value });
+    const sec = document.querySelector('[data-section="observacoes"]');
+    const sub = sec.querySelector(".os-section-title small");
+    if (sub) sub.textContent = ta.value ? `${ta.value.length} caracteres` : "Opcional";
+  });
+}
+
+// ---- Seção 7: Resolução ----
+function sectionResolucao() {
+  const sr = OS.data.servico_realizado;
+  const ret = OS.data.necessario_retorno;
+  const dt = OS.data.retorno_sugerido_em || "";
+  return sectionTemplate({
+    id: "resolucao",
+    title: "Resolução",
+    subtitle: sr ? OS_RESOLUCAO.find(([k]) => k === sr)?.[1] : "Como ficou o serviço?",
+    required: true,
+    complete: !!sr,
+    body: `
+      <div class="os-radio-group" id="osResRadio">
+        ${OS_RESOLUCAO.map(([k, lbl]) => `
+          <label class="os-radio">
+            <input type="radio" name="osRes" value="${k}" ${sr === k ? "checked" : ""}>
+            <span class="os-radio-label">${escapeHtml(lbl)}</span>
+          </label>`).join("")}
+      </div>
+      <label class="os-switch-row" style="margin-top:12px">
+        <span class="os-switch-label">Necessário retorno?</span>
+        <span class="os-switch">
+          <input type="checkbox" id="osRet" ${ret ? "checked" : ""}>
+          <span class="os-switch-slider"></span>
+        </span>
+      </label>
+      <div id="osRetDateBox" ${ret ? "" : "hidden"}>
+        <div class="os-corrente-label" style="margin-top:8px;text-align:left">Data sugerida</div>
+        <input type="date" class="input" id="osRetDate" value="${dt}">
+      </div>`,
+  });
+}
+function bindResolucao() {
+  document.querySelectorAll('#osResRadio input').forEach((r) => {
+    r.addEventListener("change", () => {
+      const v = document.querySelector('#osResRadio input:checked')?.value || null;
+      salvarOSDebounced({ servico_realizado: v });
+      const sec = document.querySelector('[data-section="resolucao"]');
+      const sub = sec.querySelector(".os-section-title small");
+      if (sub) sub.textContent = OS_RESOLUCAO.find(([k]) => k === v)?.[1] || "Como ficou o serviço?";
+      sec.classList.toggle("is-complete", !!v);
+    });
+  });
+  document.getElementById("osRet")?.addEventListener("change", (e) => {
+    document.getElementById("osRetDateBox").hidden = !e.target.checked;
+    salvarOSDebounced({
+      necessario_retorno: e.target.checked,
+      retorno_sugerido_em: e.target.checked ? (document.getElementById("osRetDate")?.value || null) : null,
+    });
+  });
+  document.getElementById("osRetDate")?.addEventListener("change", (e) => {
+    salvarOSDebounced({ retorno_sugerido_em: e.target.value || null });
+  });
+}
+
+// ---- Seção 8: Quem recebeu + Assinatura ----
+function sectionRecebidoAssinatura() {
+  const nome = OS.data.recebido_nome || "";
+  const tipo = OS.data.recebido_tipo || "";
+  const tem = !!OS.data.assinatura_b64;
+  return sectionTemplate({
+    id: "recebido",
+    title: "Quem recebeu + Assinatura",
+    subtitle: tem && nome ? `${nome}` : "Toque pra assinar",
+    required: true,
+    complete: tem && nome && tipo,
+    body: `
+      <div class="os-recebido-grid">
+        <input class="input" type="text" id="osRecNome" placeholder="Nome de quem recebeu" value="${escapeHtml(nome)}">
+        <div class="os-radio-group" id="osRecTipo">
+          ${OS_RECEBIDO_TIPOS.map(([k, lbl]) => `
+            <label class="os-radio">
+              <input type="radio" name="osRecTipo" value="${k}" ${tipo === k ? "checked" : ""}>
+              <span class="os-radio-label">${escapeHtml(lbl)}</span>
+            </label>`).join("")}
+        </div>
+      </div>
+
+      <div class="os-corrente-label" style="text-align:left;margin-top:14px">Assinatura</div>
+      <div class="os-sign-wrap ${tem ? "has-signature" : ""}" id="osSignWrap">
+        <canvas class="os-sign-canvas" id="osSignCanvas"></canvas>
+        <div class="os-sign-hint">Assine aqui com o dedo</div>
+      </div>
+      <div class="os-sign-actions">
+        <span>Use o dedo ou caneta sobre a tela</span>
+        <button type="button" class="os-sign-clear" id="osSignClear">Limpar</button>
+      </div>`,
+  });
+}
+function bindRecebidoAssinatura() {
+  document.getElementById("osRecNome")?.addEventListener("input", (e) => {
+    salvarOSDebounced({ recebido_nome: e.target.value });
+    avaliarRecebidoComplete();
+  });
+  document.querySelectorAll('#osRecTipo input').forEach((r) => {
+    r.addEventListener("change", () => {
+      const v = document.querySelector('#osRecTipo input:checked')?.value || null;
+      salvarOSDebounced({ recebido_tipo: v });
+      avaliarRecebidoComplete();
+    });
+  });
+
+  // Canvas
+  iniciarCanvasAssinatura();
+  document.getElementById("osSignClear")?.addEventListener("click", limparAssinatura);
+}
+
+function avaliarRecebidoComplete() {
+  const nome = document.getElementById("osRecNome")?.value || "";
+  const tipo = document.querySelector('#osRecTipo input:checked')?.value || "";
+  const tem = OS.sign.hasInk || !!OS.data.assinatura_b64;
+  const sec = document.querySelector('[data-section="recebido"]');
+  if (sec) {
+    sec.classList.toggle("is-complete", !!(nome && tipo && tem));
+    const sub = sec.querySelector(".os-section-title small");
+    if (sub) sub.textContent = tem && nome ? nome : "Toque pra assinar";
+  }
+  atualizarProgresso();
+}
+
+function iniciarCanvasAssinatura() {
+  const canvas = document.getElementById("osSignCanvas");
+  const wrap = document.getElementById("osSignWrap");
+  if (!canvas) return;
+
+  // Dimensiona canvas com DPR pra ficar nítido
+  const rect = canvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = Math.floor(rect.width * dpr);
+  canvas.height = Math.floor(rect.height * dpr);
+  const ctx = canvas.getContext("2d");
+  ctx.scale(dpr, dpr);
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = "#0a0a0a";
+
+  OS.sign.canvas = canvas;
+  OS.sign.ctx = ctx;
+  OS.sign.hasInk = !!OS.data.assinatura_b64;
+
+  // Se já tinha assinatura, restaura
+  if (OS.data.assinatura_b64) {
+    const img = new Image();
+    img.onload = () => ctx.drawImage(img, 0, 0, rect.width, rect.height);
+    img.src = OS.data.assinatura_b64;
+    wrap.classList.add("has-signature");
+  }
+
+  const ptFromEvent = (e) => {
+    const r = canvas.getBoundingClientRect();
+    const t = e.touches?.[0] || e.changedTouches?.[0] || e;
+    return { x: t.clientX - r.left, y: t.clientY - r.top };
+  };
+
+  const start = (e) => {
+    e.preventDefault();
+    OS.sign.drawing = true;
+    const { x, y } = ptFromEvent(e);
+    OS.sign.lastX = x; OS.sign.lastY = y;
+  };
+  const move = (e) => {
+    if (!OS.sign.drawing) return;
+    e.preventDefault();
+    const { x, y } = ptFromEvent(e);
+    ctx.beginPath();
+    ctx.moveTo(OS.sign.lastX, OS.sign.lastY);
+    ctx.lineTo(x, y);
+    ctx.stroke();
+    OS.sign.lastX = x; OS.sign.lastY = y;
+    OS.sign.hasInk = true;
+    wrap.classList.add("has-signature");
+  };
+  const end = () => {
+    if (!OS.sign.drawing) return;
+    OS.sign.drawing = false;
+    if (OS.sign.hasInk) {
+      const dataUrl = canvas.toDataURL("image/png");
+      salvarOSDebounced({ assinatura_b64: dataUrl });
+      avaliarRecebidoComplete();
+    }
+  };
+
+  canvas.addEventListener("mousedown", start);
+  canvas.addEventListener("mousemove", move);
+  canvas.addEventListener("mouseup", end);
+  canvas.addEventListener("mouseleave", end);
+  canvas.addEventListener("touchstart", start, { passive: false });
+  canvas.addEventListener("touchmove",  move,  { passive: false });
+  canvas.addEventListener("touchend",   end);
+}
+
+function limparAssinatura() {
+  const { canvas, ctx } = OS.sign;
+  if (!canvas || !ctx) return;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  OS.sign.hasInk = false;
+  document.getElementById("osSignWrap")?.classList.remove("has-signature");
+  salvarOSDebounced({ assinatura_b64: null });
+  avaliarRecebidoComplete();
+}
+
+// ---- Progresso geral ----
+function atualizarProgresso() {
+  const requiredSections = ["tipos", "resolucao", "recebido"];
+  const completedRequired = requiredSections.filter((id) => {
+    const sec = document.querySelector(`[data-section="${id}"]`);
+    return sec?.classList.contains("is-complete");
+  }).length;
+  const allComplete = document.querySelectorAll(".os-section.is-complete").length;
+  const total = 7; // 7 seções com lógica de completude (peças é opcional, não marca)
+
+  const pct = Math.round((allComplete / total) * 100);
+  const bar = document.getElementById("osProgressBar");
+  if (bar) bar.style.width = `${Math.min(100, pct)}%`;
+  const txt = document.getElementById("osProgressText");
+  if (txt) txt.textContent = `${allComplete} de ${total} seções preenchidas`;
+
+  // Habilita botão finalizar só com obrigatórios prontos
+  const btn = document.getElementById("osFinalizar");
+  if (btn) btn.disabled = completedRequired < requiredSections.length;
+}
+
+// ---- Finalizar ----
+async function finalizarOS() {
+  const btn = document.getElementById("osFinalizar");
+  setBtnLoading(btn, true);
+  hideAlert(document.getElementById("osAlert"));
+  try {
+    // Pede GPS pra saída
+    const geo = await new Promise((resolve) => {
+      if (!navigator.geolocation) return resolve(null);
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve({
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+        }),
+        () => resolve(null), // GPS opcional na saída
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+      );
+    });
+
+    if (IS_DEMO) {
+      // Demo: simula sucesso, marca chamado como fechado na lista
+      const ch = TC.chamados.find((c) => c.id === OS.chamadoId);
+      if (ch) { ch.status = "fechado"; ch.fechado_em = new Date().toISOString(); }
+      mostrarOSSucesso();
+    } else {
+      await api(`/ordens-servico/${OS.data.id}/finalizar`, {
+        method: "POST",
+        body: geo || {},
+      });
+      mostrarOSSucesso();
+    }
+  } catch (err) {
+    showAlert(document.getElementById("osAlert"), err.message, "error");
+  } finally {
+    setBtnLoading(btn, false);
+  }
+}
+
+function mostrarOSSucesso() {
+  pararTimerOS();
+  document.getElementById("osSections").innerHTML = `
+    <div class="td-card">
+      <div class="td-card-body os-success">
+        <div class="os-success-icon">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+        </div>
+        <div class="os-success-title">O.S. finalizada!</div>
+        <div class="os-success-sub">Chamado fechado · ${OS.data.numero || ""}</div>
+        <button class="btn btnAccent btn-lg" id="osVoltarLista">Voltar pra minha lista</button>
+      </div>
+    </div>`;
+  document.querySelector(".os-shell .td-card").style.display = "none"; // some o timer
+  document.querySelector(".td-cta-bar").style.display = "none";
+  document.getElementById("osVoltarLista").addEventListener("click", () => {
+    OS.data = null;
+    document.querySelector(".td-cta-bar").style.display = "";
+    showScreen("tecnico-chamados");
+    if (!IS_DEMO) carregarMeusChamados(true);
+    else renderTecnicoChamados();
+  });
+}
+
+// Eventos da tela de O.S.
+document.getElementById("osBack").addEventListener("click", sairFormularioOS);
+document.getElementById("osFinalizar").addEventListener("click", finalizarOS);
 
 // ============== BOOTSTRAP ==============
 // Footer de diagnóstico no login

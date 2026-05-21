@@ -1,4 +1,7 @@
 const express = require("express");
+const path = require("path");
+const fs = require("fs/promises");
+const crypto = require("crypto");
 const { pool } = require("../db");
 const { authRequired } = require("../middleware/authRequired");
 const { adminOnly } = require("../middleware/adminOnly");
@@ -14,6 +17,57 @@ const TIPOS_SERVICO = [
 const RECEBIDO_TIPOS = ["gestor", "sindico", "portaria"];
 const SERVICO_RESULTADOS = ["resolvido", "paliativo", "agravado"];
 const FOTO_TIPOS = ["antes", "depois", "geral"];
+
+const UPLOAD_ROOT = path.join(__dirname, "../../uploads/os");
+
+// Middleware fábrica: permite admin/admin_viewer OU o técnico dono da O.S.
+// `forWrite=true` bloqueia escrita em O.S. finalizada / chamado fechado.
+function osDonoOuAdmin({ forWrite = false } = {}) {
+  return async function (req, res, next) {
+    const role = req.user?.role;
+    if (role === "admin" || role === "admin_viewer") return next();
+    if (role !== "tecnico") {
+      return res.status(403).json({ error: "Apenas técnicos ou admin" });
+    }
+
+    const osId = Number(req.params.id);
+    if (!Number.isInteger(osId) || osId <= 0) {
+      return res.status(400).json({ error: "id inválido" });
+    }
+
+    try {
+      const r = await pool.query(
+        `SELECT os.id, os.tecnico_id, os.finalizada_em, os.chamado_id,
+                t.usuario_id, ch.status AS chamado_status
+         FROM ordens_servico os
+         LEFT JOIN tecnicos t ON t.id = os.tecnico_id
+         LEFT JOIN chamados ch ON ch.id = os.chamado_id
+         WHERE os.id = $1`,
+        [osId]
+      );
+      if (r.rows.length === 0) {
+        return res.status(404).json({ error: "O.S. não encontrada" });
+      }
+      const os = r.rows[0];
+      if (!os.usuario_id || os.usuario_id !== req.user.id) {
+        return res.status(403).json({ error: "Esta O.S. não pertence a você" });
+      }
+      if (forWrite) {
+        if (os.finalizada_em) {
+          return res.status(400).json({ error: "O.S. já finalizada — não pode ser editada" });
+        }
+        if (os.chamado_status && os.chamado_status !== "em_atendimento") {
+          return res.status(400).json({ error: "Só é possível editar a O.S. com chamado em_atendimento" });
+        }
+      }
+      req.osMeta = os;
+      next();
+    } catch (err) {
+      console.error("[ordens-servico] osDonoOuAdmin:", err);
+      return res.status(500).json({ error: "Erro ao validar permissão" });
+    }
+  };
+}
 
 // POST /ordens-servico — cria rascunho. Aceita { chamado_id } ou { condominio_id, tecnico_id? }
 router.post("/", authRequired, adminOnly, async (req, res) => {
@@ -98,7 +152,7 @@ router.get("/", authRequired, adminOnly, async (req, res) => {
 });
 
 // GET /ordens-servico/:id — detalhe completo (com fotos e peças)
-router.get("/:id", authRequired, adminOnly, async (req, res) => {
+router.get("/:id", authRequired, osDonoOuAdmin(), async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
 
@@ -131,7 +185,7 @@ router.get("/:id", authRequired, adminOnly, async (req, res) => {
 });
 
 // PATCH /ordens-servico/:id — atualiza campos do formulário
-router.patch("/:id", authRequired, adminOnly, async (req, res) => {
+router.patch("/:id", authRequired, osDonoOuAdmin({ forWrite: true }), async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
 
@@ -244,8 +298,66 @@ router.patch("/:id", authRequired, adminOnly, async (req, res) => {
   }
 });
 
+// POST /ordens-servico/:id/fotos/upload — recebe foto em base64, salva no disco
+// e registra metadado em os_fotos. Body: { image_base64, tipo?, legenda? }
+// image_base64 deve ser data URL ("data:image/jpeg;base64,...") ou só o base64.
+router.post("/:id/fotos/upload", authRequired, osDonoOuAdmin({ forWrite: true }), async (req, res) => {
+  const id = Number(req.params.id);
+  const { image_base64, tipo, legenda } = req.body || {};
+
+  if (!image_base64 || typeof image_base64 !== "string") {
+    return res.status(400).json({ error: "image_base64 é obrigatório" });
+  }
+  if (tipo && !FOTO_TIPOS.includes(tipo)) {
+    return res.status(400).json({ error: `tipo deve ser: ${FOTO_TIPOS.join(", ")}` });
+  }
+
+  // Extrai mime + base64 puro
+  let mime = "image/jpeg";
+  let b64 = image_base64;
+  const m = image_base64.match(/^data:(image\/(jpeg|png|webp));base64,(.+)$/i);
+  if (m) {
+    mime = m[1].toLowerCase();
+    b64 = m[3];
+  }
+
+  // Sanity: limita tamanho (~6 MB de base64 = ~4.5 MB de arquivo)
+  if (b64.length > 6 * 1024 * 1024) {
+    return res.status(413).json({ error: "Foto muito grande (limite ~4 MB)" });
+  }
+
+  let buf;
+  try {
+    buf = Buffer.from(b64, "base64");
+    if (buf.length < 1024) throw new Error("imagem inválida ou muito pequena");
+  } catch (e) {
+    return res.status(400).json({ error: "image_base64 inválido" });
+  }
+
+  const ext = mime === "image/png" ? "png" : mime === "image/webp" ? "webp" : "jpg";
+  const dir = path.join(UPLOAD_ROOT, String(id));
+  const fname = `${crypto.randomBytes(8).toString("hex")}.${ext}`;
+  const fpath = path.join(dir, fname);
+  const urlPublic = `/uploads/os/${id}/${fname}`;
+
+  try {
+    await fs.mkdir(dir, { recursive: true });
+    await fs.writeFile(fpath, buf);
+
+    const result = await pool.query(
+      `INSERT INTO os_fotos (os_id, url, legenda, tipo)
+       VALUES ($1, $2, $3, $4) RETURNING *`,
+      [id, urlPublic, legenda || null, tipo || "geral"]
+    );
+    return res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error("[ordens-servico] POST /:id/fotos/upload:", err);
+    return res.status(500).json({ error: "Erro ao salvar foto" });
+  }
+});
+
 // POST /ordens-servico/:id/fotos — registra metadado de uma foto já uploadada
-router.post("/:id/fotos", authRequired, adminOnly, async (req, res) => {
+router.post("/:id/fotos", authRequired, osDonoOuAdmin({ forWrite: true }), async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
 
@@ -269,7 +381,7 @@ router.post("/:id/fotos", authRequired, adminOnly, async (req, res) => {
 });
 
 // DELETE /ordens-servico/:id/fotos/:foto_id
-router.delete("/:id/fotos/:foto_id", authRequired, adminOnly, async (req, res) => {
+router.delete("/:id/fotos/:foto_id", authRequired, osDonoOuAdmin({ forWrite: true }), async (req, res) => {
   const id = Number(req.params.id);
   const fotoId = Number(req.params.foto_id);
   if (!Number.isInteger(id) || !Number.isInteger(fotoId)) {
@@ -285,7 +397,7 @@ router.delete("/:id/fotos/:foto_id", authRequired, adminOnly, async (req, res) =
 });
 
 // POST /ordens-servico/:id/pecas — adiciona peça usada/substituída
-router.post("/:id/pecas", authRequired, adminOnly, async (req, res) => {
+router.post("/:id/pecas", authRequired, osDonoOuAdmin({ forWrite: true }), async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
 
@@ -310,7 +422,7 @@ router.post("/:id/pecas", authRequired, adminOnly, async (req, res) => {
 });
 
 // DELETE /ordens-servico/:id/pecas/:peca_id
-router.delete("/:id/pecas/:peca_id", authRequired, adminOnly, async (req, res) => {
+router.delete("/:id/pecas/:peca_id", authRequired, osDonoOuAdmin({ forWrite: true }), async (req, res) => {
   const id = Number(req.params.id);
   const pecaId = Number(req.params.peca_id);
   if (!Number.isInteger(id) || !Number.isInteger(pecaId)) {
@@ -325,10 +437,22 @@ router.delete("/:id/pecas/:peca_id", authRequired, adminOnly, async (req, res) =
   }
 });
 
-// POST /ordens-servico/:id/finalizar — valida obrigatórios, finaliza, fecha o chamado
-router.post("/:id/finalizar", authRequired, adminOnly, async (req, res) => {
+// POST /ordens-servico/:id/finalizar — valida obrigatórios, grava GPS de saída,
+// finaliza, fecha o chamado. Body opcional: { lat, lng, precisao_m }.
+router.post("/:id/finalizar", authRequired, osDonoOuAdmin({ forWrite: true }), async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
+
+  const { lat, lng } = req.body || {};
+  let latN = null, lngN = null;
+  if (lat != null && lng != null) {
+    latN = Number(lat);
+    lngN = Number(lng);
+    if (!Number.isFinite(latN) || !Number.isFinite(lngN) ||
+        latN < -90 || latN > 90 || lngN < -180 || lngN > 180) {
+      return res.status(400).json({ error: "lat/lng inválidos" });
+    }
+  }
 
   const client = await pool.connect();
   try {
@@ -363,8 +487,14 @@ router.post("/:id/finalizar", authRequired, adminOnly, async (req, res) => {
     }
 
     const upd = await client.query(
-      `UPDATE ordens_servico SET finalizada_em = NOW() WHERE id = $1 RETURNING *`,
-      [id]
+      `UPDATE ordens_servico
+          SET finalizada_em = NOW(),
+              saida_em      = NOW(),
+              saida_lat     = COALESCE($1, saida_lat),
+              saida_lng     = COALESCE($2, saida_lng)
+        WHERE id = $3
+        RETURNING *`,
+      [latN, lngN, id]
     );
 
     if (os.chamado_id) {

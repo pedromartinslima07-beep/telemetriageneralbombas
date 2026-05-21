@@ -255,6 +255,65 @@
       </div>
     </section>
 
+    <!-- ========== TÉCNICO — Formulário de Ordem de Serviço (Fase 7E) ========== -->
+    <section class="screen" data-screen="tecnico-os">
+      <header class="app-header app-header-tec app-header-detail">
+        <button class="header-back" id="osBack" aria-label="Voltar">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="19" y1="12" x2="5" y2="12"/>
+            <polyline points="12 19 5 12 12 5"/>
+          </svg>
+        </button>
+        <img src="login-logo.png" class="app-brand-logo app-brand-logo-sm" alt="GENERAL" />
+        <div class="brand">
+          <div class="brand-text">
+            <div class="brand-name" id="osTitulo">Ordem de Serviço</div>
+            <div class="brand-sub">
+              <span class="ch-id-cell" id="osNumero">—</span>
+              <span class="td-status-pill td-status-em_atendimento">Em atendimento</span>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div class="tec-shell os-shell">
+        <!-- Banner do timer + GPS de chegada -->
+        <div class="td-card">
+          <div class="td-card-body">
+            <div class="td-timer-box">
+              <div class="td-timer-icon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                </svg>
+              </div>
+              <div class="td-timer-meta">
+                <div class="td-timer-label">Atendendo há</div>
+                <div class="td-timer-value" id="osTimer">00:00</div>
+              </div>
+            </div>
+            <div class="os-progress">
+              <div class="os-progress-bar" id="osProgressBar"></div>
+            </div>
+            <div class="os-progress-label">
+              <span id="osProgressText">0 de 7 seções preenchidas</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Seções (accordions) — injetadas via JS -->
+        <div id="osSections"></div>
+
+        <div class="alert" id="osAlert" hidden></div>
+      </div>
+
+      <!-- CTA sticky no rodapé -->
+      <div class="td-cta-bar">
+        <button class="btn btnAccent btn-lg" id="osFinalizar">
+          <span class="btn-label">Confirmar e finalizar O.S.</span>
+        </button>
+      </div>
+    </section>
+
     <!-- ========== HOME (placeholder pós-login — admin/cliente) ========== -->
     <section class="screen" data-screen="home">
       <header class="app-header">

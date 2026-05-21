@@ -716,7 +716,9 @@ Objetivo: app real no celular (Play Store + App Store) focado em **técnicos** (
 
 Antes de criar qualquer estilo no app, `grep` no `admin.css` pelo conceito. Se existe, copia. Se não, cria com os tokens existentes.
 
-#### 7A — Estrutura do app + Capacitor setup
+#### 7A — Estrutura do app + Capacitor setup ✅ CONCLUÍDO
+
+Commit `066c1a8`: diretório `app/public/` criado com `index.html`, `app.js`, `app.css`. Express serve `/app/*` a partir dessa pasta (em dev). Capacitor (config + sync + Android/iOS) ainda **não inicializado** — fica pra fase de empacotamento (7J).
 
 - Diretório novo `app/` no monorepo (não confundir com `public/` do admin):
   ```
@@ -734,14 +736,49 @@ Antes de criar qualquer estilo no app, `grep` no `admin.css` pelo conceito. Se e
 - Build: `npm run build:app` → copia `app/public/` pra `app/www/` → `npx cap sync`
 - Splash + ícone: a partir do `logo-menu.png`, gerados via `@capacitor/assets`
 
-#### 7B — Autenticação e onboarding
+#### 7B — Autenticação e onboarding ✅ CONCLUÍDO
+
+Commits `0731d23` (login+OTP+home) + `aba47da` (refactor visual) + commit deste branch (login alinhado ao site).
+
+**O que foi feito:**
+- Login + OTP + home placeholder no app, consumindo `POST /auth/login` + `POST /auth/verify-otp` existentes
+- Token JWT salvo em `localStorage` (wrapper `Storage`); migrar pra `Capacitor Preferences` quando empacotar
+- Visual do login do app **idêntico ao do site** (mesmo `login-card`, `loginLogo`, `login-field`, `.login-btn`, glow radial, footer) — copiados verbatim de `public/login.css` pra `app/public/app.css`
+- Splash com logo real (`login-logo.png`) em vez do "GB" placeholder
+- Roteamento pós-login: `role=tecnico` abre tela de chamados (7C); demais mantêm home placeholder
+
+**Pendente** (não bloqueante pra MVP de dev):
+- Biometria (`@capacitor-community/biometric-auth`) — pra empacotamento
+- Trusted device com `Capacitor Preferences` em vez de `localStorage` — idem
+- Deep link OTP `general-bombas://otp?code=...` — idem
 
 - Reusa endpoints existentes (`POST /auth/login` + JWT). Sem reescrever auth.
 - **Trusted device** do app é mais permissivo que web: token salvo em `Capacitor Preferences` (storage nativo criptografado), válido por 30 dias
 - Tela de login com biometria (Touch ID / Face ID / impressão digital) via `@capacitor-community/biometric-auth`
 - OTP via WhatsApp (já implementado pro web) também roda no app — usa deep link `general-bombas://otp?code=...`
 
-#### 7C — Tela inicial do técnico
+#### 7C — Tela inicial do técnico ✅ CONCLUÍDO
+
+Commit `0dacff6`.
+
+**Backend:**
+- Migration `017_role_tecnico.sql` libera `role='tecnico'` no CHECK constraint de `usuarios` (antes só admin/admin_viewer/cliente)
+- `POST /auth/registrar` aceita `role=tecnico` com `tecnico_id` opcional. Em transação: cria usuário + vincula a registro existente em `tecnicos` (atualiza `tecnicos.usuario_id`) OU cria registro novo em `tecnicos` com mesmo nome/email
+- `GET /chamados/meus` (substitui o `responsavel_id = me` do plano original — usamos `tecnicos.usuario_id` que já existia da Fase 7F): resolve `tecnicos.id` via JWT, retorna chamados com endereço/lat/lng do condomínio, telefone do cliente WhatsApp, filtros `?status=csv` e `?abertos=1`. Ordena por status > prioridade > data
+- ⚠️ Migration ainda **não aplicada no Railway** — pendente: `npm run migrate migrations/017_role_tecnico.sql`
+
+**App:**
+- Tela "Meus chamados" com header (logo real `login-logo.png` + nome do técnico + bolinha pulsante de status em campo / em atendimento / em dia)
+- 4 KPIs no topo (cards `.rc` copiados verbatim do admin): Abertos / Em atendimento / Críticos / Fechados hoje — cor adaptativa
+- Tabs Hoje / Próximos / Histórico no padrão `wa-tabs/wa-tab/wa-count` do admin
+- Cards de chamado com ícone de prédio em quadrado colorido por prioridade (estilo `.rc-icon`/`.head-icon`), glow na borda esquerda, hover lift, pills do admin (`ch-cat-badge`, `ch-st`)
+- Ordenação por proximidade (Haversine vs GPS via `navigator.geolocation` cacheado 5min) / prioridade / data
+- Polling silencioso a cada 30s
+- Rodapé fininho mono-espaçado: `X chamados · GPS ativo/aguardando · HH:MM`
+- Empty state minimal (SVG sutil + frase contextual por aba)
+- Modo demo `?demo=1` com 8 chamados fake (emergencia em atendimento + variações) — pula login
+
+#### 7C-original — Plano descritivo
 
 - **Lista de chamados atribuídos** (filtro `responsavel_id = me` em `/chamados`)
 - Cada card: condomínio, endereço, prioridade (badge), categoria, tempo aberto, distância (Haversine entre GPS atual e `condominios.lat/lng`)
@@ -749,7 +786,25 @@ Antes de criar qualquer estilo no app, `grep` no `admin.css` pelo conceito. Se e
 - 3 tabs: **Hoje** (atribuídos não concluídos) / **Próximos** (agendados) / **Histórico** (concluídos)
 - Botão flutuante "🔄" pra forçar refresh + indicador de quando foi o último sync
 
-#### 7D — Tela do chamado + ciclo de atendimento
+#### 7D — Tela do chamado + ciclo de atendimento ✅ CONCLUÍDO
+
+Commit `0dacff6`.
+
+**Backend:**
+- `GET /chamados/meus/:id`: valida ownership do técnico via JWT, retorna chamado + condomínio completo (endereço/CEP/lat/lng/telefone) + reservatórios do condomínio com última leitura + alertas + status offline + O.S. vinculada (se houver) + últimas 10 mensagens WhatsApp
+- `POST /chamados/:id/iniciar-atendimento`: aceita `{lat, lng, precisao_m?}`, valida técnico autenticado. Idempotente — se já tem O.S. rascunho, retorna ela; senão cria O.S. com `chegada_em=NOW()` + `chegada_lat/lng`, vincula `chamados.ordem_servico_id`, muda status pra `em_atendimento`. Também grava ping em `tecnico_localizacoes`. Tudo em uma transação.
+
+**App:**
+- Header com voltar + logo (28px discreta) + condomínio + pill de status colorido (azul aberto / amber pulsante em_atendimento / verde fechado)
+- Hero com endereço completo + 2 botões: **Abrir no Maps** (link `google.com/maps/dir/?destination=lat,lng`) e **Ligar** (`tel:` link, disabled se sem telefone)
+- Pills categoria + prioridade
+- Bloco timer (só em_atendimento): caixa amber com "Atendendo há HH:MM:SS" rolando + número da O.S. + hora da chegada
+- Bloco telemetria: cards compactos por reservatório com barra de nível colorida por faixa (verde/cyan/amber/vermelho) + pill bomba LIGADA/DESLIGADA + tempo da última leitura + alerta de OFFLINE em vermelho
+- Bloco conversa WhatsApp (se houver): bubbles estilo WhatsApp com hora
+- Bloco descrição
+- CTA sticky no rodapé: adapta por status — "Iniciar atendimento" (aberto, pede GPS) → "Preencher Ordem de Serviço" (em_atendimento, abre 7E) → some (fechado)
+
+#### 7D-original — Plano descritivo
 
 Estados visíveis pro técnico:
 
@@ -768,7 +823,50 @@ Estados visíveis pro técnico:
 - **Última telemetria** do condomínio (nível dos reservatórios, status das bombas) — reutiliza endpoint existente
 - Botão grande "🚗 Iniciar atendimento" → registra GPS chegada via `@capacitor/geolocation`, muda status pra `em_atendimento`, ativa background tracking
 
-#### 7E — Ordem de Serviço digital (substitui o formulário paper atual)
+#### 7E — Ordem de Serviço digital ⚠️ PARCIAL (formulário pronto, falta PDF + email + edição inline de peças)
+
+**Commitado neste branch** (ainda não pushado): formulário completo + auto-save + upload de fotos + assinatura + finalização com GPS de saída. Falta o pós-finalização (PDF + email) que é grande e não bloqueia o fluxo.
+
+**✅ Backend feito:**
+- `src/app.js`: `express.json({ limit: '8mb' })` (pra fotos base64) + `app.use('/uploads', express.static(...))`
+- `src/routes/ordens-servico.routes.js`:
+  - Middleware factory `osDonoOuAdmin({ forWrite })` permite admin/admin_viewer OU técnico dono da O.S. `forWrite=true` bloqueia escrita em O.S. finalizada ou com chamado fora de `em_atendimento`
+  - Aplicado em: `GET /:id`, `PATCH /:id`, `POST /:id/fotos`, `DELETE /:id/fotos/:foto_id`, `POST /:id/pecas`, `DELETE /:id/pecas/:peca_id`, `POST /:id/finalizar`
+  - `POST /:id` (criar) e `GET /` (listar) seguem `adminOnly` — técnico não cria O.S. arbitrária nem lista todas
+  - Nova rota `POST /:id/fotos/upload`: aceita `{ image_base64, tipo, legenda }`, decodifica base64 (max ~4 MB), salva em `uploads/os/{os_id}/{uuid}.jpg`, registra metadado em `os_fotos` com `url=/uploads/...`
+  - `POST /:id/finalizar` agora aceita `{ lat, lng }` opcionais e grava `saida_em + saida_lat + saida_lng` na mesma transação que fecha o chamado
+- `.gitignore` agora ignora `uploads/`
+
+**✅ App feito:**
+Nova screen `tecnico-os`:
+- Header com voltar + logo + número da O.S. + pill "Em atendimento"
+- Banner amber com timer rolando ("Atendendo há HH:MM:SS") + barra de progresso amber + contador "X de 7 seções preenchidas"
+- 8 seções accordion (ícone numerado vira ✓ verde quando completa, borda fica verde, badge "OBRIG." some):
+  1. **Tipos** — chips multi-select com glow amber
+  2. **Equipamentos** — 13 toggles individuais (slider amber)
+  3. **Correntes** — radio Mono/Bi/Tri ativa 1/2/3 inputs numéricos
+  4. **Fotos** — picker antes/depois/geral + grid com X de remover + botão "Foto" abre câmera (`capture=environment`) ou galeria. Compressão client-side (max 1600px, q=0.75) → base64 → `POST /:id/fotos/upload`
+  5. **Peças** — lista repetível com add/remove (⚠️ edição inline ainda não persiste, ver pendência abaixo)
+  6. **Observações** — textarea max 2000 chars com contador
+  7. **Resolução** — radio resolvido/paliativo/agravado + toggle "Necessário retorno" + date picker condicional
+  8. **Quem recebeu + Assinatura** — nome + radio gestor/síndico/portaria + canvas 180px DPR-aware (touch + mouse), botão "Limpar"
+- Auto-save debounced 600ms a cada mudança → `PATCH /ordens-servico/:id` (campo individual)
+- CTA "Confirmar e finalizar O.S." sticky no rodapé — só habilita com obrigatórios prontos (tipos ≥ 1, resolução escolhida, recebido+assinatura completos)
+- Finalizar pede GPS, chama `POST /:id/finalizar` com `{lat, lng}`, mostra tela de sucesso, volta pra lista
+
+**⚠️ Pendências (próximo turno):**
+
+1. **PATCH `/ordens-servico/:id/pecas/:peca_id`** — edição inline de descrição/quantidade das peças. Hoje a peça nasce como "Nova peça" e o técnico só pode add/remove. ~15 min: endpoint + listener `input` debounced no front.
+
+2. **Geração de PDF da O.S.** — escopo médio. Precisa de `pdfkit` (já não está no `package.json`), template visual fiel ao `public/ordem-de-servico.png` (logo General + paleta), e popular com todos os campos + fotos + assinatura. Salvar em `uploads/os/{id}/os-{numero}.pdf`, gravar caminho em `ordens_servico.pdf_url`. Disparar após `finalizada_em` ser setado.
+
+3. **Email pro síndico com PDF anexo** — usa Resend já integrado. Buscar email do síndico do condomínio (`condominios.responsavel_email`? Não existe ainda — adicionar coluna) ou do cliente WhatsApp se aplicável. Template HTML com link pro PDF público + resumo da O.S.
+
+4. **Endpoint `PATCH /chamados/:id/executar`** mencionado no plano original — não foi criado. Hoje o chamado fecha direto via `POST /:id/finalizar` da O.S. dentro da mesma transação. Mantive simples — a regra "sem O.S., não fecha chamado" continua valendo porque é o `finalizar` da O.S. que fecha o chamado.
+
+5. **Fotos obrigatórias** quando tipos contiverem `instalacao_pecas` ou `chamado_emergencial` — descrito no plano, não implementado. Hoje fotos são sempre opcionais.
+
+#### 7E-original — Plano descritivo
 
 A O.S. paper em `public/ordem-de-servico.png` é a referência. O fluxo digital preserva 100% do que captura, melhora aproveitando ser digital.
 
