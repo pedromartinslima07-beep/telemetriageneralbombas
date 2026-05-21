@@ -13,102 +13,249 @@
   <div class="app-shell">
 
     <!-- ========== SPLASH (verifica token) ========== -->
-    <section class="screen" data-screen="splash" data-active>
+    <section class="screen screen-auth" data-screen="splash" data-active>
       <div class="splash-content">
-        <div class="logo logo-lg">GB</div>
-        <div class="splash-name">General Bombas</div>
+        <img src="login-logo.png" class="loginLogo" alt="GENERAL" />
         <div class="splash-spinner" aria-hidden="true"></div>
       </div>
     </section>
 
-    <!-- ========== LOGIN ========== -->
-    <section class="screen" data-screen="login">
-      <header class="app-header">
-        <div class="brand">
-          <div class="logo">GB</div>
-          <div>
-            <div class="brand-name">General Bombas</div>
-            <div class="brand-sub">App de campo</div>
-          </div>
+    <!-- ========== LOGIN (visual idêntico ao site) ========== -->
+    <section class="screen screen-auth" data-screen="login">
+      <div class="login-card">
+
+        <div class="login-logo-wrap">
+          <img src="login-logo.png" class="loginLogo" alt="GENERAL" />
         </div>
-      </header>
 
-      <main class="app-main">
-        <form class="card" id="formLogin" novalidate>
-          <h1>Entrar</h1>
-          <p class="muted">Use as mesmas credenciais do painel.</p>
+        <div class="login-title">
+          <h1>TELEMETRIA</h1>
+          <p>Sistema de monitoramento de reservatórios</p>
+        </div>
 
-          <label class="field">
-            <span class="field-label">Email</span>
-            <input type="email" name="email" id="loginEmail" autocomplete="username"
-                   inputmode="email" required placeholder="voce@empresa.com.br" />
-          </label>
+        <form id="formLogin" novalidate>
+          <div class="login-field">
+            <label for="loginEmail">Email</label>
+            <input type="email" id="loginEmail" name="email" placeholder="seu@email.com"
+                   required autocomplete="username" inputmode="email" />
+          </div>
 
-          <label class="field">
-            <span class="field-label">Senha</span>
-            <input type="password" name="senha" id="loginSenha" autocomplete="current-password"
-                   required placeholder="••••••••" />
-          </label>
+          <div class="login-field">
+            <label for="loginSenha">Senha</label>
+            <input type="password" id="loginSenha" name="senha" placeholder="••••••••"
+                   required autocomplete="current-password" />
+          </div>
 
-          <div class="alert" id="loginAlert" hidden></div>
-
-          <button type="submit" class="btn btnAccent btn-lg" id="loginBtn">
+          <button type="submit" class="login-btn" id="loginBtn">
             <span class="btn-label">Entrar</span>
           </button>
         </form>
-      </main>
 
-      <footer class="app-footer">
-        <div class="diag-line">
-          <span id="apiBase">—</span> · <span id="envInfo">—</span>
+        <div class="alert" id="loginAlert" hidden></div>
+
+        <div class="login-footer">
+          General Engenharia da Manutenção
+          <div class="diag-line">
+            <span id="apiBase">—</span> · <span id="envInfo">—</span>
+          </div>
         </div>
-      </footer>
+
+      </div>
     </section>
 
-    <!-- ========== OTP (código de 6 dígitos por email) ========== -->
-    <section class="screen" data-screen="otp">
-      <header class="app-header">
-        <button class="header-back" id="otpBack" aria-label="Voltar">←</button>
+    <!-- ========== OTP (visual idêntico ao site) ========== -->
+    <section class="screen screen-auth" data-screen="otp">
+      <div class="login-card">
+
+        <div class="login-logo-wrap">
+          <img src="login-logo.png" class="loginLogo" alt="GENERAL" />
+        </div>
+
+        <div class="login-title">
+          <h1>TELEMETRIA</h1>
+          <p>Sistema de monitoramento de reservatórios</p>
+        </div>
+
+        <form id="formOtp" novalidate>
+          <p class="otp-info">
+            Enviamos um código de 6 dígitos para<br>
+            <strong id="otpEmail">seu email</strong>.
+          </p>
+
+          <div class="login-field">
+            <label for="otpCode">Código de verificação</label>
+            <input type="text" id="otpCode" name="code" placeholder="000000"
+                   maxlength="6" inputmode="numeric" pattern="[0-9]*"
+                   autocomplete="one-time-code" required />
+          </div>
+
+          <label class="otp-trust-label">
+            <input type="checkbox" id="otpConfiar" checked />
+            Confiar neste dispositivo por 30 dias
+          </label>
+
+          <button type="submit" class="login-btn" id="otpBtn">
+            <span class="btn-label">Verificar</span>
+          </button>
+          <button type="button" class="login-btn-secondary" id="otpBack">Voltar</button>
+        </form>
+
+        <div class="alert" id="otpAlert" hidden></div>
+
+      </div>
+    </section>
+
+    <!-- ========== TÉCNICO — Lista de chamados (Fase 7C) ==========
+         "Mission Control que cabe no celular": logo real + KPIs com glow +
+         cardHead com head-icon amber + lista de cards. Reaproveita todas as
+         classes do admin (rc/resumo-grid/cardHead/head-icon/ch-*/wa-*). -->
+    <section class="screen" data-screen="tecnico-chamados">
+      <header class="app-header app-header-tec">
         <div class="brand">
-          <div class="logo">GB</div>
-          <div>
-            <div class="brand-name">Código de verificação</div>
-            <div class="brand-sub">Enviado por email</div>
+          <img src="login-logo.png" class="app-brand-logo" alt="GENERAL" />
+          <div class="brand-text">
+            <div class="brand-name" id="tcUserName">—</div>
+            <div class="brand-sub">
+              <span class="brand-dot" id="tcStatusDot"></span>
+              <span id="tcStatusText">Em campo</span>
+            </div>
+          </div>
+        </div>
+        <button class="header-logout" id="btnLogoutTec" aria-label="Sair">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+            <polyline points="16 17 21 12 16 7"/>
+            <line x1="21" y1="12" x2="9" y2="12"/>
+          </svg>
+        </button>
+      </header>
+
+      <div class="tec-shell">
+        <!-- KPIs no topo (rc cards copiados do admin) -->
+        <div class="resumo-grid tec-kpi" id="tcKpiGrid"></div>
+
+        <!-- Container principal — estilo .card do admin com cardHead -->
+        <section class="card tec-card">
+          <div class="cardHead">
+            <h2>
+              <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <line x1="9" y1="13" x2="15" y2="13"/>
+                <line x1="9" y1="17" x2="13" y2="17"/>
+              </svg>
+              Meus chamados
+            </h2>
+            <button class="btn btn-sm" id="tcRefresh" aria-label="Atualizar">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="23 4 23 10 17 10"/>
+                <polyline points="1 20 1 14 7 14"/>
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"/>
+                <path d="M20.49 15a9 9 0 0 1-14.85 3.36L1 14"/>
+              </svg>
+            </button>
+          </div>
+
+          <div class="ch-toolbar tec-toolbar">
+            <div class="wa-tabs" role="tablist">
+              <button class="wa-tab is-active" data-tab="hoje">
+                Hoje <span class="wa-count" id="tcCountHoje">0</span>
+              </button>
+              <button class="wa-tab" data-tab="proximos">
+                Próximos <span class="wa-count" id="tcCountProximos">0</span>
+              </button>
+              <button class="wa-tab" data-tab="historico">
+                Histórico <span class="wa-count" id="tcCountHistorico">0</span>
+              </button>
+            </div>
+            <div class="tec-toolbar-bottom">
+              <select id="tcSort" class="input tc-sort" aria-label="Ordenar por">
+                <option value="proximidade">📍 Mais próximos</option>
+                <option value="prioridade">🔥 Prioridade</option>
+                <option value="data">🕒 Mais recentes</option>
+              </select>
+              <span class="tc-sync hint" id="tcSync">—</span>
+            </div>
+          </div>
+
+          <div class="ch-list-mob" id="tcList"></div>
+          <div class="tc-empty" id="tcEmpty" hidden>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+              <polyline points="22 4 12 14.01 9 11.01"/>
+            </svg>
+            <p id="tcEmptyMsg">Nenhum chamado nesta aba</p>
+          </div>
+          <div class="alert error" id="tcAlert" hidden></div>
+
+          <!-- Rodapé da lista — total + GPS + relógio -->
+          <div class="tec-footer" id="tcFooter">
+            <span class="tec-footer-cell">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+              </svg>
+              <span id="tcFooterTotal">0 chamados</span>
+            </span>
+            <span class="tec-footer-sep"></span>
+            <span class="tec-footer-cell" id="tcFooterGps">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                <circle cx="12" cy="10" r="3"/>
+              </svg>
+              <span>GPS aguardando…</span>
+            </span>
+            <span class="tec-footer-sep"></span>
+            <span class="tec-footer-cell tec-footer-clock" id="tcFooterClock">—</span>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <!-- ========== TÉCNICO — Detalhe do chamado (Fase 7D) ========== -->
+    <section class="screen" data-screen="tecnico-detalhe">
+      <header class="app-header app-header-tec app-header-detail">
+        <button class="header-back" id="tdBack" aria-label="Voltar">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="19" y1="12" x2="5" y2="12"/>
+            <polyline points="12 19 5 12 12 5"/>
+          </svg>
+        </button>
+        <img src="login-logo.png" class="app-brand-logo app-brand-logo-sm" alt="GENERAL" />
+        <div class="brand">
+          <div class="brand-text">
+            <div class="brand-name" id="tdCondoNome">—</div>
+            <div class="brand-sub">
+              <span class="ch-id-cell" id="tdChamadoId">—</span>
+              <span class="td-status-pill" id="tdStatusPill">—</span>
+            </div>
           </div>
         </div>
       </header>
 
-      <main class="app-main">
-        <form class="card" id="formOtp" novalidate>
-          <div class="otp-emoji">📧</div>
-          <h1>Digite o código</h1>
-          <p class="muted">
-            Enviamos um código de 6 dígitos para
-            <strong id="otpEmail">seu email</strong>.
-          </p>
+      <div class="tec-shell" id="tdShell">
+        <!-- skeleton enquanto carrega -->
+        <div class="td-skel" id="tdSkel">
+          <div class="tc-skel" style="height:120px"></div>
+          <div class="tc-skel" style="height:80px"></div>
+          <div class="tc-skel" style="height:160px"></div>
+        </div>
 
-          <label class="field">
-            <span class="field-label">Código</span>
-            <input type="text" name="code" id="otpCode" inputmode="numeric"
-                   pattern="[0-9]*" maxlength="6" autocomplete="one-time-code"
-                   required placeholder="123456" class="otp-input" />
-          </label>
+        <!-- conteúdo injetado quando carrega -->
+        <div id="tdContent" hidden></div>
 
-          <label class="field-checkbox">
-            <input type="checkbox" id="otpConfiar" checked />
-            <span>Confiar neste dispositivo (30 dias)</span>
-          </label>
+        <div class="alert error" id="tdAlert" hidden></div>
+      </div>
 
-          <div class="alert" id="otpAlert" hidden></div>
-
-          <button type="submit" class="btn btnAccent btn-lg" id="otpBtn">
-            <span class="btn-label">Verificar</span>
-          </button>
-        </form>
-      </main>
+      <!-- CTA grande sticky no rodapé -->
+      <div class="td-cta-bar" id="tdCtaBar" hidden>
+        <button class="btn btnAccent btn-lg" id="tdCtaBtn">
+          <span class="btn-label" id="tdCtaLabel">Iniciar atendimento</span>
+        </button>
+      </div>
     </section>
 
-    <!-- ========== HOME (placeholder pós-login) ========== -->
+    <!-- ========== HOME (placeholder pós-login — admin/cliente) ========== -->
     <section class="screen" data-screen="home">
       <header class="app-header">
         <div class="brand">

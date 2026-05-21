@@ -37,10 +37,14 @@ const JWT_EXPIRES_IN = "7d";
 
 /**
  * POST /auth/registrar  (admin only)
- * Body: { nome, email, senha, role, condominio_id }
+ * Body: { nome, email, senha, role, condominio_id, tecnico_id }
+ *   - role='cliente' exige condominio_id
+ *   - role='tecnico' pode receber tecnico_id pra vincular a um cadastro
+ *     existente (atualiza tecnicos.usuario_id); se omitido, cria registro
+ *     novo em tecnicos com nome/email e vincula.
  */
 router.post("/registrar", authRequired, masterAdminOnly, async (req, res) => {
-  const { nome, email, senha, role, condominio_id } = req.body || {};
+  const { nome, email, senha, role, condominio_id, tecnico_id } = req.body || {};
 
   if (!nome || !email || !senha || !role) {
     return res.status(400).json({ error: "Campos: nome, email, senha, role" });
@@ -55,17 +59,18 @@ router.post("/registrar", authRequired, masterAdminOnly, async (req, res) => {
     return res.status(400).json({ error: "senha deve ter no mínimo 6 caracteres" });
   }
 
-  if (!["admin", "admin_viewer", "cliente"].includes(role)) {
-    return res.status(400).json({ error: "role deve ser 'admin', 'admin_viewer' ou 'cliente'" });
+  if (!["admin", "admin_viewer", "cliente", "tecnico"].includes(role)) {
+    return res.status(400).json({ error: "role deve ser 'admin', 'admin_viewer', 'cliente' ou 'tecnico'" });
   }
 
   if (role === "cliente" && !condominio_id) {
     return res.status(400).json({ error: "cliente precisa de condominio_id" });
   }
 
+  const client = await pool.connect();
   try {
     if (role === "cliente") {
-      const c = await pool.query("SELECT id FROM condominios WHERE id = $1", [
+      const c = await client.query("SELECT id FROM condominios WHERE id = $1", [
         condominio_id,
       ]);
       if (c.rows.length === 0) {
@@ -73,9 +78,31 @@ router.post("/registrar", authRequired, masterAdminOnly, async (req, res) => {
       }
     }
 
+    // Pra role=tecnico, valida tecnico_id se passado.
+    let tecnicoIdResolvido = null;
+    if (role === "tecnico" && tecnico_id) {
+      const tid = Number(tecnico_id);
+      if (!Number.isInteger(tid) || tid <= 0) {
+        return res.status(400).json({ error: "tecnico_id inválido" });
+      }
+      const t = await client.query(
+        "SELECT id, usuario_id FROM tecnicos WHERE id = $1 AND ativo = true",
+        [tid]
+      );
+      if (t.rows.length === 0) {
+        return res.status(400).json({ error: "tecnico_id inválido ou inativo" });
+      }
+      if (t.rows[0].usuario_id) {
+        return res.status(409).json({ error: "Este técnico já tem um usuário vinculado" });
+      }
+      tecnicoIdResolvido = tid;
+    }
+
     const senha_hash = await bcrypt.hash(String(senha), 10);
 
-    const result = await pool.query(
+    await client.query("BEGIN");
+
+    const result = await client.query(
       `
       INSERT INTO usuarios (nome, email, senha_hash, role, condominio_id)
       VALUES ($1,$2,$3,$4,$5)
@@ -90,13 +117,41 @@ router.post("/registrar", authRequired, masterAdminOnly, async (req, res) => {
       ]
     );
 
-    return res.status(201).json(result.rows[0]);
+    const usuario = result.rows[0];
+
+    if (role === "tecnico") {
+      if (tecnicoIdResolvido) {
+        await client.query(
+          "UPDATE tecnicos SET usuario_id = $1 WHERE id = $2",
+          [usuario.id, tecnicoIdResolvido]
+        );
+      } else {
+        // Cria registro novo em tecnicos vinculado a esse usuário.
+        const novo = await client.query(
+          `INSERT INTO tecnicos (nome, email, usuario_id)
+           VALUES ($1, $2, $3)
+           RETURNING id`,
+          [nome, emailNorm, usuario.id]
+        );
+        tecnicoIdResolvido = novo.rows[0].id;
+      }
+    }
+
+    await client.query("COMMIT");
+
+    return res.status(201).json({
+      ...usuario,
+      tecnico_id: tecnicoIdResolvido,
+    });
   } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
     if (error?.code === "23505") {
       return res.status(409).json({ error: "Email já cadastrado" });
     }
     console.error("Erro /auth/registrar:", error);
     return res.status(500).json({ error: "Erro ao registrar" });
+  } finally {
+    client.release();
   }
 });
 
