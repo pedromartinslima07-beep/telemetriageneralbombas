@@ -1033,6 +1033,7 @@ Backend já existia (Fase 7D introduziu os endpoints + migration 016): `POST /te
 - **GPS sempre ativo enquanto logado** — mudança de regra: antes ligava em `iniciarAtendimento` e desligava em `mostrarOSSucesso`. Agora liga em `abrirTelaTecnico` (logo após login) e só para em logout/401. Motivo: o admin precisa ver onde cada técnico está pra decidir designação por proximidade, não só quando ele já está atendendo. `gpsStart(chamadoId)` virou idempotente — chamadas em `iniciarAtendimento` e `abrirDetalheChamado` continuam funcionando como antes mas só atualizam o `chamadoId` de contexto, sem reiniciar o watch.
 - **`bateria_pct` enviado** — `gpsEnviar()` agora lê `navigator.getBattery()` (cacheado em `GPS.battery`) e inclui no body. Backend e popup do admin já tavam preparados, só faltava o app mandar. Null-safe pra iOS Safari (que não implementa).
 - **Banner de aviso quando GPS falha** — faixa vermelha sticky no topo das telas do técnico, com mensagem específica por tipo de erro (`PositionError.code`): permissão negada, sinal indisponível, timeout, contexto não seguro (sem HTTPS). Botão "Permitir GPS" / "Tentar novamente" dispara `getCurrentPosition()` pra re-abrir o prompt; se já estava `denied`, abre `alert` explicando como reabrir nas configs do navegador. Some sozinho quando o watch volta a receber posição. Reavaliado a cada `showScreen()` pra não aparecer em login/cliente.
+- **Janela de operação 08:00–18:00 (horário local)** — GPS só envia pings dentro do expediente. Fora dessa faixa o `watchPosition` é desligado (economia de bateria + privacidade do técnico). Refatoração interna: `gpsStart`/`gpsStop` viraram porta pública que setam `GPS.scheduled`; funções privadas `_gpsAbrirWatch`/`_gpsFecharWatch` controlam o watch real; `_gpsAplicarJanela` decide o estado a cada 60s via `GPS.horarioTimer`. Religa às 8h e desliga às 18h sem precisar logout/login. Chip ganha variante cinza "Fora do expediente" (sem pulso, classe `.gps-chip-paused`) quando o técnico está logado mas fora da janela. Constantes `GPS_HORA_INI = 8` e `GPS_HORA_FIM = 18` no topo do módulo. Última posição registrada no admin permanece visível (não some) — útil pra saber onde o técnico terminou o turno.
 
 #### 7F-original — Plano descritivo
 
@@ -1150,7 +1151,9 @@ Comunicação dentro do chamado, depois de aberto. Cliente pode dizer "agora pio
 - Backend técnico (`src/routes/chamados.routes.js`):
   - `GET /chamados/meus/:id/mensagens` + `POST /chamados/meus/:id/mensagens` simétricos, validando que o chamado é do técnico autenticado (`_tecnicoDoChamado` resolve `tecnicos.usuario_id = req.user.id` + `chamados.tecnico_id`).
 - App cliente: novo card "Mensagens" no detalhe do chamado. Thread visual estilo chat (bolhas alinhadas — minhas à direita amber, outras à esquerda). Composer no rodapé com textarea auto-resize, botão de anexar foto (com preview removível) e botão enviar. Foto comprimida com `comprimirFoto(file, 1280, 0.78)` que já existia.
-- App técnico: **endpoints prontos, UI ainda não** — o técnico hoje vê só o bloco antigo "Conversa WhatsApp" (que é coisa diferente — mensagens da conversa que originou o chamado, não a thread do chamado em si). UI no técnico fica como follow-up.
+  - **Refinamento posterior:** em chamados `fechado` o card de mensagens some — a avaliação assume esse canal (decisão de produto: cliente já pode escrever no comentário da avaliação, evita duplicação). `_bindMensagensForm` também é pulado nesses casos. Otimização: `/cliente/chamados/:id/mensagens` deixa de ser baixado quando o chamado já está fechado.
+  - **Remoção do PDF da O.S.** — botão "📄 Baixar Ordem de Serviço (PDF)" tirado do detalhe (decisão consciente: cliente não recebe a O.S. inicialmente). Função `baixarPdfClienteOS` apagada. Endpoint backend `GET /cliente/ordens-servico/:id/pdf` mantido intocado caso a decisão seja revertida.
+- App técnico: **UI implementada (✅ follow-up resolvido)** — em `renderDetalhe` o card "Mensagens do cliente" é inserido entre Telemetria e o bloco antigo "Conversa WhatsApp" (que é coisa diferente — mensagens da conversa que originou o chamado, não a thread do chamado em si). 7 funções com prefixo `td` espelham as do cliente reusando 100% das classes CSS `.cli-msg-*`: `tdRenderMensagensCard`, `tdRenderMensagensList`, `tdRenderMensagemItem`, `tdBindMensagensForm`, `tdEnviarMensagem`, `_tdAtualizarMensagensList`, `_tdAtualizarPreviewFotoMsg`. Estado em `TD.mensagens`, carregado em paralelo com `/chamados/meus/:id` (pulado em fechados). "Minha" = `m.autor_id === TC.user.id` (bolha amber à direita). Placeholder: "Responder ao cliente…". Modo demo simétrico ao cliente.
 
 **✅ Avaliação pós-fechamento (Migration 020):**
 
@@ -1160,7 +1163,10 @@ Métrica de qualidade do atendimento, só pra olhos do admin.
 - `POST /cliente/chamados/:id/avaliar` — body `{ nota: 1-5, comentario? }`. Valida que o chamado está fechado (400 se não) e que ainda não foi avaliado (409 se já). Resposta opaca `{ ok: true }` — não ecoa a nota de volta.
 - `GET /cliente/chamados/:id` foi reescrito pra **não expor** `avaliacao_nota`/`comentario`/`em`. Só retorna o boolean derivado `ja_avaliado` (decisão de produto do usuário: cliente envia e some, só admin vê).
 - App cliente: card "Como foi o atendimento?" só aparece em chamados `fechados` E `!ja_avaliado`. 5 estrelas clicáveis + comentário opcional + submit. Após enviar, o card vira uma confirmação inline "Obrigado pela avaliação!" que some sozinha em 4s. Re-visitas ao chamado: nenhum card de avaliação aparece (porque `ja_avaliado === true` e o read-only foi removido).
-- **Admin desktop ainda não tem UI dedicada** pra ver as avaliações — as colunas estão em `chamados`, então um `GET /chamados` admin já as traz; falta plugar visualmente.
+- **Admin desktop: UI implementada (✅ follow-up resolvido)** — duas visualizações:
+  - **Card "Avaliação do cliente"** no detalhe do chamado (`renderChDetalhe` em `public/admin.js`), inserido entre Descrição e Informações. Estrelas amber grandes (20px), texto "N de 5", data, e o comentário entre aspas num bloco com borda esquerda amber e fonte itálica. Quando sem comentário: linha cinza "Sem comentário escrito".
+  - **Estrelas pequenas (11px) inline na tabela de chamados** ao lado da pílula de status, só em `status === 'fechado'` com `avaliacao_nota != null`. Tooltip `title="Avaliado: N de 5"`. Compacto, não consome coluna nova.
+  - Helpers: `_chRenderStars(nota, size)` com tamanhos sm/md/lg e `_chRenderAvaliacaoCard(ch)`. Backend: `GET /chamados/` (lista) ganhou `ch.avaliacao_nota` no SELECT (detalhe já vinha via `ch.*`). CSS novo em `admin.css`: `.ch-stars`, `.ch-star.is-filled`, `.ch-aval-row`, `.ch-aval-coment`, `.ch-aval-inline`. Reusa variáveis `--accent`/`--muted`/`--text`/`--border` do Mission Control.
 
 #### 7H-original — Plano descritivo
 
@@ -1227,44 +1233,70 @@ Hoje o `/admin/historico` aceita até `horas=N` com buckets por hora. Pra cobrir
 
 ---
 
-### Fase 9 — Histórico longo + compressão 📋 PLANEJADA
+### Fase 9 — Histórico longo + retenção ✅ MVP CONCLUÍDO (9C apenas)
 
-A tabela `leituras` cresce ~1 linha por device por 5 min. Em 100 condomínios com 3 reservatórios cada, são ~86k linhas/dia. Em 6 meses, o Railway começa a doer. A Fase 9 cria política de retenção e agregação **sem mudar o stack** (continua Postgres puro, sem TimescaleDB).
+A tabela `leituras` cresce ~1 linha por device por 5 min. Em 100 condomínios com 3 reservatórios cada, são ~86k linhas/dia. Em 6 meses, o Railway começa a doer.
 
-#### 9A — Tabela agregada horária
+**Decisão de escopo:** o usuário confirmou que histórico > 60 dias **não é necessário** no produto. Isso elimina a complexidade de tabelas agregadas e roteamento de queries — basta política de retenção. **9A, 9B e 9D ficam descartadas** (não fazer); fica só a 9C, implementada como descrito abaixo. Se um dia precisar mostrar gráficos > 60 dias, agregar fica fácil porque o desenho original em camadas continua válido.
+
+#### 9C — Política de retenção ✅ CONCLUÍDO
+
+**Job (`src/jobs/leituras-cleanup.job.js`):**
+- `setTimeout` recursivo (padrão do projeto, igual `gps-cleanup.job.js` e `offline.job.js`): roda 1×/dia. Primeira execução **10 minutos após boot** (mais tarde que o GPS pra não disputar pool no startup).
+- `DELETE FROM leituras WHERE id IN (SELECT id FROM leituras WHERE criado_em < NOW() - X days LIMIT 10000)` — apaga em **lotes de 10k** pra não segurar locks longos nem inchar o WAL.
+- **Cap de segurança: 200 lotes** (2M linhas) por execução. Se atingir, marca `truncado: true` no resultado e o admin vê aviso amarelo "Atingiu o limite de lotes — talvez precise rodar de novo".
+- **Hard floor de 7 dias** — se a config vier abaixo disso, usa 7. Protege contra erro de digitação que apagaria tudo.
+
+**Config (`src/services/config.service.js`):** 2 chaves novas na whitelist:
+- `leituras.retencao_dias` (int 7–3650, default 60)
+- `leituras.cleanup_dry_run` (boolean)
+
+**Modo dry-run:** quando `leituras.cleanup_dry_run = "true"`, o job faz só `SELECT COUNT(*)` e retorna `seriam_removidos: N` sem apagar. Permite confirmar volume na primeira execução em produção antes de soltar o DELETE.
+
+**Backend endpoints (`src/routes/admin.routes.js`):**
+- `GET /admin/integracoes/status` ganhou `job_gps_cleanup` e `job_leituras_cleanup` no response (última execução + último resultado).
+- `POST /admin/jobs/leituras-cleanup/run` (master admin) — dispara a limpeza na hora. Respeita o `dry_run` da config. Útil pra testar sem esperar 24h.
+
+**UI admin (`public/admin.html` + `public/admin.js` + estilos reusados de `.cfg-card`):** nova aba **Configurações > Manutenção** (só master admin). Dois cards:
+- **"Limpeza de leituras antigas"**: input numérico de dias (mín 7, máx 3650), checkbox "Modo seguro (só conta, não apaga)" com explicação, botão "▶ Rodar agora" e "Salvar".
+- **"Última execução"** (só aparece depois da primeira run): quando, modo (seguro/real), linhas removidas com separador de milhar, lotes, duração em segundos, retenção configurada, aviso amarelo se truncado.
+- **Confirm dialogs** com mensagem diferente conforme dry-run: modo seguro = "Rodar em modo seguro?", modo real = "Vai APAGAR de verdade. Tem certeza?" (texto enfático em maiúsculas).
+
+**Estimativa de impacto:**
+- Sem limpeza: ~3,6 GB/ano crescendo pra sempre. Em 2 anos pesa ~7 GB.
+- Com limpeza 60 dias: estabiliza em ~5,2M linhas = **~600 MB**, independente do tempo de operação.
+
+**Plano de rollout (passos manuais sugeridos):**
+1. Antes do primeiro deploy real, ligar dry-run na config.
+2. Chamar `POST /admin/jobs/leituras-cleanup/run` → conferir `seriam_removidos: N`.
+3. Desligar dry-run via UI.
+4. Rodar de novo → apaga de verdade.
+5. Daí em diante: roda sozinho 1×/dia.
+
+#### 9E — Limpeza retroativa de alertas e conversas antigas 📋 NÃO INICIADA
+
+(Mantida como roadmap futuro — alertas resolvidos há > 1 ano e conversas fechadas há > 1 ano vão pra tabelas `*_arquivados`. Pequeno impacto comparado às `leituras`, sem urgência.)
+
+#### 9A — Tabela agregada horária ❌ DESCARTADA
+
+Mantido aqui pra referência caso a decisão de escopo mude.
 
 - Migration `013_leituras_agregadas.sql`: `leituras_agregadas_hora(device_id, hora_truncada, nivel_pct_min, nivel_pct_max, nivel_pct_avg, bomba_pct_ligada, n_amostras)`
 - Job em `cron` (ou setTimeout recursivo, padrão do projeto): a cada hora, agrega leituras da **última hora fechada** e insere idempotente (`ON CONFLICT (device_id, hora_truncada) DO UPDATE`)
 - Reaproveita o `config.service.js` pra ligar/desligar o job e ajustar intervalo
 
-#### 9B — Tabela agregada diária
+#### 9B — Tabela agregada diária ❌ DESCARTADA
 
 - `leituras_agregadas_dia` populada a partir da horária (mais barato que da raw)
 - Permite gráficos de 30/90/180 dias sem ler milhões de linhas
 
-#### 9C — Política de retenção
-
-- Configurável em **Configurações > Retenção**:
-  - Leituras raw: padrão 60 dias
-  - Agregação horária: padrão 1 ano
-  - Agregação diária: indefinido
-- Job de limpeza diário (3h da manhã, configurável) faz `DELETE` por lotes de 10k linhas pra não travar
-- Antes de deletar, gera contagem e loga (audit trail simples em tabela `jobs_log`)
-- **Modo "dry-run"** no toggle — mostra quanto seria apagado sem apagar
-
-#### 9D — Adaptar queries existentes
+#### 9D — Adaptar queries existentes ❌ DESCARTADA
 
 - `GET /admin/historico` ganha lógica:
   - `horas <= 168` (7 dias) → lê de `leituras` (raw)
   - `horas > 168 && horas <= 720` (30 dias) → lê de `leituras_agregadas_hora`
   - `horas > 720` → lê de `leituras_agregadas_dia`
 - Chave: o frontend não sabe da diferença — apenas o endpoint serve granularidade adequada
-
-#### 9E — Limpeza retroativa de alertas e conversas antigas
-
-- Alertas resolvidos há > 1 ano → tabela `alertas_arquivados` (mesma estrutura, sem indexes)
-- Conversas WhatsApp fechadas há > 1 ano → mensagens vão pra `mensagens_whatsapp_arquivadas`
-- Endpoints de listagem só leem a tabela ativa; histórico longo precisa de toggle "incluir arquivados" (raro, viewer não vê)
 
 ---
 

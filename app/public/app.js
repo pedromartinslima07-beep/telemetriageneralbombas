@@ -680,6 +680,7 @@ const TD = {
   chamado: null,
   timer: null,        // setInterval id pro timer "Em atendimento há HH:MM:SS"
   loading: false,
+  mensagens: [],      // thread cliente ↔ técnico (Fase 7H — UI no técnico)
 };
 
 const ST_LABEL = {
@@ -709,6 +710,20 @@ async function abrirDetalheChamado(id) {
 
   try {
     TD.chamado = await api(`/chamados/meus/${id}`);
+    // Thread em paralelo — tolera falha sem derrubar a tela.
+    // Em chamados fechados a thread some pra dar lugar à avaliação no app
+    // do cliente; aqui no técnico não temos esse equivalente, então só
+    // pula o fetch pra economizar bandwidth.
+    if (TD.chamado.status !== "fechado") {
+      try {
+        TD.mensagens = await api(`/chamados/meus/${id}/mensagens`);
+      } catch (e) {
+        console.warn("[td] mensagens:", e.message);
+        TD.mensagens = [];
+      }
+    } else {
+      TD.mensagens = [];
+    }
     // Se o técnico voltou pro app com atendimento em andamento (refresh, app
     // fechado e reaberto), liga o GPS automaticamente.
     if (TD.chamado.status === "em_atendimento") gpsStart(TD.chamado.id);
@@ -896,6 +911,7 @@ function renderDetalhe() {
     </div>
 
     ${resHtml}
+    ${c.status !== "fechado" ? tdRenderMensagensCard() : ""}
     ${msgsHtml}
   `;
 
@@ -914,6 +930,194 @@ function renderDetalhe() {
   // Botões hero
   document.getElementById("tdBtnMaps")?.addEventListener("click", () => abrirMaps(c));
   document.getElementById("tdBtnLigar")?.addEventListener("click", () => ligarPara(c));
+
+  // Thread de mensagens (Fase 7H — UI no técnico)
+  if (c.status !== "fechado") tdBindMensagensForm();
+}
+
+// =====================================================================
+// MENSAGENS — thread cliente ↔ técnico (Fase 7H, UI do técnico)
+// Reusa as classes CSS .cli-msg-* já existentes (mesmo visual do app
+// do cliente). IDs com prefixo `tdMsg` pra não conflitar com o card do
+// cliente (eles nunca renderizam simultaneamente, mas mantém limpo).
+// =====================================================================
+
+let _tdEnviandoMsg = false;
+let _tdFotoMsgPending = null; // data URL aguardando envio
+
+function tdRenderMensagensCard() {
+  const svgChat = `<svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
+  return `
+    <section class="card tec-card cli-msg-card">
+      <div class="cardHead">
+        <h2>${svgChat}Mensagens do cliente</h2>
+        <span class="hint" id="tdMsgCount">${TD.mensagens.length} ${TD.mensagens.length === 1 ? "mensagem" : "mensagens"}</span>
+      </div>
+      <div class="cli-msg-list" id="tdMsgList">
+        ${tdRenderMensagensList()}
+      </div>
+      <form id="tdMsgForm" class="cli-msg-composer" novalidate>
+        <div class="cli-msg-preview" id="tdMsgPreview" hidden></div>
+        <div class="cli-msg-input-row">
+          <label class="cli-msg-photo-btn" for="tdMsgFoto" aria-label="Anexar foto">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 19V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2z"/>
+              <circle cx="8.5" cy="8.5" r="1.5"/>
+              <polyline points="21 15 16 10 5 21"/>
+            </svg>
+            <input type="file" id="tdMsgFoto" accept="image/*" hidden>
+          </label>
+          <textarea class="input cli-msg-input" id="tdMsgTexto" rows="1" maxlength="2000"
+            placeholder="Responder ao cliente…"></textarea>
+          <button type="submit" class="cli-msg-send" id="tdMsgSend" aria-label="Enviar">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+            </svg>
+          </button>
+        </div>
+        <div class="alert error" id="tdMsgAlert" hidden></div>
+      </form>
+    </section>`;
+}
+
+function tdRenderMensagensList() {
+  if (TD.mensagens.length === 0) {
+    return `<div class="cli-empty-section" style="padding:18px 16px">
+      Nenhuma mensagem ainda. Use o campo abaixo para responder ao cliente.
+    </div>`;
+  }
+  return TD.mensagens.map(tdRenderMensagemItem).join("");
+}
+
+function tdRenderMensagemItem(m) {
+  // "Minha" = mensagem do técnico logado (autor_id bate com TC.user.id)
+  const mine = m.autor_id && TC.user?.id === m.autor_id;
+  const role = m.autor_role || (mine ? "tecnico" : "cliente");
+  const lado = mine ? "is-mine" : "is-other";
+  const nome = m.autor_nome || (role === "cliente" ? "Cliente" : role === "admin" ? "Atendimento" : "Você");
+  const fotoHtml = m.foto_url
+    ? `<a class="cli-msg-photo" href="${escapeHtml(_apiUrl(m.foto_url))}" target="_blank" rel="noopener">
+         <img src="${escapeHtml(_apiUrl(m.foto_url))}" alt="foto" loading="lazy">
+       </a>`
+    : "";
+  const textoHtml = m.texto ? `<div class="cli-msg-text">${escapeHtml(m.texto)}</div>` : "";
+  return `
+    <div class="cli-msg-item ${lado}" data-role="${escapeHtml(role)}">
+      <div class="cli-msg-bubble">
+        <div class="cli-msg-header">
+          <span class="cli-msg-author">${escapeHtml(nome)}</span>
+          <span class="cli-msg-time">${fmtDataCli(m.criado_em)}</span>
+        </div>
+        ${fotoHtml}
+        ${textoHtml}
+      </div>
+    </div>`;
+}
+
+function tdBindMensagensForm() {
+  const form = document.getElementById("tdMsgForm");
+  if (!form) return;
+
+  const inputFoto = document.getElementById("tdMsgFoto");
+  inputFoto?.addEventListener("change", async (e) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    try {
+      _tdFotoMsgPending = await comprimirFoto(f, 1280, 0.78);
+      _tdAtualizarPreviewFotoMsg();
+    } catch (err) {
+      console.error(err);
+      alert("Não foi possível processar a imagem.");
+    } finally {
+      inputFoto.value = "";
+    }
+  });
+
+  const ta = document.getElementById("tdMsgTexto");
+  ta?.addEventListener("input", () => {
+    ta.style.height = "auto";
+    ta.style.height = Math.min(ta.scrollHeight, 120) + "px";
+  });
+
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    tdEnviarMensagem();
+  });
+}
+
+function _tdAtualizarPreviewFotoMsg() {
+  const el = document.getElementById("tdMsgPreview");
+  if (!el) return;
+  if (!_tdFotoMsgPending) {
+    el.hidden = true;
+    el.innerHTML = "";
+    return;
+  }
+  el.hidden = false;
+  el.innerHTML = `
+    <img src="${_tdFotoMsgPending}" alt="prévia">
+    <button type="button" class="cli-msg-preview-x" id="tdMsgPreviewX" aria-label="Remover foto">×</button>`;
+  document.getElementById("tdMsgPreviewX")?.addEventListener("click", () => {
+    _tdFotoMsgPending = null;
+    _tdAtualizarPreviewFotoMsg();
+  });
+}
+
+async function tdEnviarMensagem() {
+  if (_tdEnviandoMsg) return;
+  const ta = document.getElementById("tdMsgTexto");
+  const alertEl = document.getElementById("tdMsgAlert");
+  const sendBtn = document.getElementById("tdMsgSend");
+  const texto = (ta?.value || "").trim();
+
+  hideAlert(alertEl);
+  if (!texto && !_tdFotoMsgPending) {
+    showAlert(alertEl, "Escreva algo ou anexe uma foto.", "error");
+    return;
+  }
+
+  if (IS_DEMO) {
+    TD.mensagens.push({
+      id: Date.now(), texto: texto || null,
+      foto_url: _tdFotoMsgPending || null,
+      criado_em: new Date().toISOString(),
+      autor_id: TC.user?.id, autor_nome: TC.user?.nome || "Você",
+      autor_role: "tecnico",
+    });
+    ta.value = ""; ta.style.height = "auto";
+    _tdFotoMsgPending = null; _tdAtualizarPreviewFotoMsg();
+    _tdAtualizarMensagensList();
+    return;
+  }
+
+  _tdEnviandoMsg = true;
+  sendBtn.disabled = true;
+  try {
+    const novo = await api(`/chamados/meus/${TD.chamado.id}/mensagens`, {
+      method: "POST",
+      body: { texto: texto || null, foto_base64: _tdFotoMsgPending || null },
+    });
+    TD.mensagens.push(novo);
+    ta.value = ""; ta.style.height = "auto";
+    _tdFotoMsgPending = null; _tdAtualizarPreviewFotoMsg();
+    _tdAtualizarMensagensList();
+  } catch (err) {
+    showAlert(alertEl, err.message, "error");
+  } finally {
+    _tdEnviandoMsg = false;
+    sendBtn.disabled = false;
+  }
+}
+
+function _tdAtualizarMensagensList() {
+  const list = document.getElementById("tdMsgList");
+  if (list) {
+    list.innerHTML = tdRenderMensagensList();
+    list.scrollTop = list.scrollHeight;
+  }
+  const count = document.getElementById("tdMsgCount");
+  if (count) count.textContent =
+    `${TD.mensagens.length} ${TD.mensagens.length === 1 ? "mensagem" : "mensagens"}`;
 }
 
 function configurarCTA(c) {
@@ -1101,12 +1305,21 @@ document.getElementById("tdBack").addEventListener("click", () => {
 // No web, watchPosition pausa quando a tela apaga / app vai pra
 // background — quando empacotar com Capacitor, troca pelo plugin
 // `@capacitor-community/background-geolocation` mantendo essa API.
+// Janela de operação: o GPS só envia pings entre 08:00 e 18:00 (horário
+// local do dispositivo). Fora desse intervalo o watchPosition fica
+// desligado (poupa bateria + privacidade do técnico). Um timer de 60s
+// reavalia a janela e religa/desliga sem precisar de logout.
+const GPS_HORA_INI = 8;
+const GPS_HORA_FIM = 18;
+
 const GPS = {
   watchId: null,
   pingTimer: null,
   last: null,             // { lat, lng, precisao_m, ts }
   lastSentTs: 0,
-  active: false,          // tracking deveria estar rodando
+  active: false,          // watchPosition realmente rodando
+  scheduled: false,       // técnico está logado e quer rastreio (mas pode estar fora do horário)
+  horarioTimer: null,     // setInterval que reavalia a janela 8h–18h
   chamadoId: null,
   lastError: null,        // code do PositionError ou "no_api" / "no_secure_context"
   battery: null,          // BatteryManager cacheado
@@ -1115,15 +1328,49 @@ const GPS = {
 
 function gpsAtivo() { return GPS.active; }
 
+function gpsDentroDoHorario() {
+  const h = new Date().getHours();
+  return h >= GPS_HORA_INI && h < GPS_HORA_FIM;
+}
+
 function gpsStart(chamadoId = null) {
   if (IS_DEMO) return; // demo não rastreia
 
-  // chamada idempotente — se já está rodando, só atualiza o chamadoId
-  if (GPS.active) {
-    GPS.chamadoId = chamadoId;
-    return;
-  }
+  GPS.scheduled = true;
+  GPS.chamadoId = chamadoId;
 
+  // Liga o timer que policia a janela 8h–18h (idempotente)
+  if (!GPS.horarioTimer) {
+    GPS.horarioTimer = setInterval(_gpsAplicarJanela, 60 * 1000);
+  }
+  _gpsAplicarJanela();
+}
+
+function gpsStop() {
+  GPS.scheduled = false;
+  GPS.chamadoId = null;
+  if (GPS.horarioTimer) clearInterval(GPS.horarioTimer);
+  GPS.horarioTimer = null;
+  _gpsFecharWatch();
+  GPS.lastError = null;
+  gpsRenderChip();
+  gpsRenderAviso();
+}
+
+// Avalia a janela de operação e abre/fecha o watchPosition conforme.
+// Idempotente — chamado tanto no gpsStart inicial quanto pelo horarioTimer.
+function _gpsAplicarJanela() {
+  if (!GPS.scheduled) return;
+  const dentro = gpsDentroDoHorario();
+  if (dentro && !GPS.active) {
+    _gpsAbrirWatch();
+  } else if (!dentro && GPS.active) {
+    _gpsFecharWatch();
+  }
+  gpsRenderChip();
+}
+
+function _gpsAbrirWatch() {
   // Geolocation só funciona em https/localhost. Em produção sem TLS o navegador
   // bloqueia silenciosamente — avisa o usuário.
   if (typeof window !== "undefined" && window.isSecureContext === false) {
@@ -1139,7 +1386,6 @@ function gpsStart(chamadoId = null) {
   }
 
   GPS.active = true;
-  GPS.chamadoId = chamadoId;
   GPS.lastError = null;
 
   // Tenta abrir o BatteryManager (não suportado em iOS Safari — null-safe abaixo).
@@ -1173,10 +1419,9 @@ function gpsStart(chamadoId = null) {
   GPS.pingTimer = setInterval(() => {
     if (gpsAtivo() && GPS.last) gpsEnviar();
   }, GPS.PING_MS);
-  gpsRenderChip();
 }
 
-function gpsStop() {
+function _gpsFecharWatch() {
   if (GPS.watchId != null && navigator.geolocation) {
     navigator.geolocation.clearWatch(GPS.watchId);
   }
@@ -1184,12 +1429,8 @@ function gpsStop() {
   GPS.watchId = null;
   GPS.pingTimer = null;
   GPS.active = false;
-  GPS.chamadoId = null;
   GPS.last = null;
   GPS.lastSentTs = 0;
-  GPS.lastError = null;
-  gpsRenderChip();
-  gpsRenderAviso();
 }
 
 async function gpsEnviar() {
@@ -1217,7 +1458,8 @@ async function gpsEnviar() {
 
 function gpsRenderChip() {
   let chip = document.getElementById("gpsChip");
-  if (!GPS.active) {
+  // Sem usuário logado pedindo rastreio → some
+  if (!GPS.scheduled) {
     if (chip) chip.hidden = true;
     return;
   }
@@ -1225,9 +1467,17 @@ function gpsRenderChip() {
     chip = document.createElement("div");
     chip.id = "gpsChip";
     chip.className = "gps-chip";
-    chip.title = "Localização ativa";
-    chip.innerHTML = `<span class="gps-dot"></span><span class="gps-text">GPS ativo</span>`;
     document.body.appendChild(chip);
+  }
+  if (GPS.active) {
+    chip.title = "Localização ativa";
+    chip.classList.remove("gps-chip-paused");
+    chip.innerHTML = `<span class="gps-dot"></span><span class="gps-text">GPS ativo</span>`;
+  } else {
+    // Agendado mas fora da janela 8h–18h
+    chip.title = `GPS opera apenas das ${String(GPS_HORA_INI).padStart(2,"0")}:00 às ${String(GPS_HORA_FIM).padStart(2,"0")}:00`;
+    chip.classList.add("gps-chip-paused");
+    chip.innerHTML = `<span class="gps-dot"></span><span class="gps-text">Fora do expediente</span>`;
   }
   chip.hidden = false;
 }
@@ -3037,12 +3287,18 @@ async function abrirDetalheChamadoCli(id) {
       CLI.detalheMsgs = []; // sem backend, thread começa vazia
     } else {
       ch = await api(`/cliente/chamados/${id}`);
-      // Mensagens em paralelo, mas tolera falha (a tela ainda carrega)
-      try {
-        CLI.detalheMsgs = await api(`/cliente/chamados/${id}/mensagens`);
-      } catch (e) {
-        console.warn("[cli] mensagens:", e.message);
+      // Mensagens em paralelo, mas tolera falha (a tela ainda carrega).
+      // Em chamados fechados a thread some pra dar lugar à avaliação,
+      // então não vale a pena baixar.
+      if (ch.status === "fechado") {
         CLI.detalheMsgs = [];
+      } else {
+        try {
+          CLI.detalheMsgs = await api(`/cliente/chamados/${id}/mensagens`);
+        } catch (e) {
+          console.warn("[cli] mensagens:", e.message);
+          CLI.detalheMsgs = [];
+        }
       }
     }
     CLI.detalhe = ch;
@@ -3122,20 +3378,14 @@ function renderDetalheChamado(ch) {
     ? renderAvaliacaoCardForm()
     : "";
 
-  // ---- Mensagens: thread entre cliente e técnico
-  const mensagensHtml = renderMensagensCard();
+  // ---- Mensagens: thread entre cliente e técnico — escondida quando o
+  // chamado já está fechado (a avaliação assume esse canal).
+  const mensagensHtml = status === "fechado" ? "" : renderMensagensCard();
 
-  const pdfBtn = (ch.os_id && ch.os_finalizada_em)
-    ? `<button type="button" class="btn btnAccent btn-lg" id="cliBtnPdf">
-         <span class="btn-label">📄 Baixar Ordem de Serviço (PDF)</span>
-       </button>`
-    : "";
+  main.innerHTML = resumoHtml + timelineHtml + avaliacaoHtml + mensagensHtml;
 
-  main.innerHTML = resumoHtml + timelineHtml + avaliacaoHtml + mensagensHtml + pdfBtn;
-
-  document.getElementById("cliBtnPdf")?.addEventListener("click", () => baixarPdfClienteOS(ch.os_id, ch.os_numero));
   _bindAvaliacaoForm();
-  _bindMensagensForm();
+  if (status !== "fechado") _bindMensagensForm();
 }
 
 // =====================================================================
@@ -3432,35 +3682,6 @@ async function enviarAvaliacao() {
         <div class="cli-aval-thanks-sub">Sua opinião ajuda a equipe a melhorar.</div>
       </div>`;
     setTimeout(() => { formCard.remove(); }, 4000);
-  }
-}
-
-async function baixarPdfClienteOS(osId, numero) {
-  if (IS_DEMO) {
-    alert("Modo demo: PDF não disponível. Use a versão com login real.");
-    return;
-  }
-  const token = Storage.getToken();
-  try {
-    const r = await fetch(`${API_BASE}/cliente/ordens-servico/${osId}/pdf`, {
-      headers: token ? { "Authorization": `Bearer ${token}` } : {},
-    });
-    if (!r.ok) {
-      let msg = `Erro HTTP ${r.status}`;
-      try { const j = await r.json(); if (j?.error) msg = j.error; } catch {}
-      throw new Error(msg);
-    }
-    const blob = await r.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `os-${numero || osId}.pdf`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-  } catch (err) {
-    alert("Não foi possível baixar o PDF: " + err.message);
   }
 }
 

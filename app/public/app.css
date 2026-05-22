@@ -2291,6 +2291,17 @@ body:has(.screen-auth[data-active])::before { display: none; }
   60%  { box-shadow: 0 0 0 8px rgba(34, 197, 94, 0); }
   100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
 }
+/* Variante "fora do expediente" — GPS está agendado mas a janela 8h–18h
+   ainda não abriu (ou já fechou). Cinza, sem pulso. */
+.gps-chip.gps-chip-paused {
+  border-color: rgba(148, 163, 184, 0.45);
+  color: #94a3b8;
+}
+.gps-chip.gps-chip-paused .gps-dot {
+  background: #64748b;
+  animation: none;
+  box-shadow: none;
+}
 
 /* Banner persistente quando o GPS falha (negado, indisponível, etc).
    Fica no topo da tela, acima de tudo, até a permissão voltar. */

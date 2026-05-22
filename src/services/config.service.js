@@ -27,6 +27,8 @@ const CHAVES = {
   "alertas.email_destinatario":  { tipo: "string", maxLen: 500 }, // múltiplos emails separados por vírgula
   "jobs.offline_intervalo_min":  { tipo: "int", min: 1, max: 60 },
   "gps.retencao_horas":          { tipo: "int", min: 1, max: 720 }, // Fase 7F — 1h a 30 dias
+  "leituras.retencao_dias":      { tipo: "int", min: 7, max: 3650 }, // Fase 9C — 7 dias a 10 anos (default 60)
+  "leituras.cleanup_dry_run":    { tipo: "boolean" }, // se "true", só conta sem deletar (verificação inicial)
 };
 
 function chaveValida(chave) {

@@ -4466,6 +4466,37 @@ body.mp-fs-active { overflow: hidden; }
 /* Telemetria snapshot — reutiliza .cc-res do dashboard, só o botão precisa de estilo */
 .ch-tel-btn  { width: 100%; justify-content: center; margin-top: 8px; }
 
+/* ===== Avaliação do cliente (Fase 7H) ===== */
+.ch-aval-section .ch-det-sec-title { color: var(--accent); }
+.ch-aval-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ch-aval-nota { font-size: 13px; font-weight: 600; color: var(--text); }
+.ch-aval-quando { font-size: 11px; color: var(--muted); margin-left: auto; }
+.ch-aval-coment {
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: rgba(255,255,255,.03);
+  border-left: 3px solid var(--accent);
+  border-radius: 4px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text);
+  font-style: italic;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.ch-aval-coment.ch-aval-vazio { color: var(--muted); font-style: normal; opacity: .7; }
+
+/* Estrelas — usadas no card e no inline da tabela */
+.ch-stars { display: inline-flex; align-items: center; gap: 1px; line-height: 0; }
+.ch-star  { color: rgba(148,163,184,.25); transition: color .12s ease; }
+.ch-star.is-filled { color: var(--accent); }
+.ch-stars-sm .ch-star { width: 11px; height: 11px; }
+.ch-stars-md .ch-star { width: 14px; height: 14px; }
+.ch-stars-lg .ch-star { width: 20px; height: 20px; }
+
+/* Estrelas inline na tabela — discreto, ao lado da pílula de status */
+.ch-aval-inline { margin-left: 6px; vertical-align: middle; display: inline-flex; }
+
 /* Ações */
 .ch-det-acoes {
   display: flex; gap: 8px; flex-wrap: wrap;

@@ -55,6 +55,7 @@ router.get("/", authRequired, adminOnly, async (req, res) => {
          cw.telefone AS cliente_telefone,
          cw.nome     AS cliente_nome,
          ch.ordem_servico_id,
+         ch.avaliacao_nota,
          os.orcamento_necessario,
          os.orcamento_observacoes,
          os.finalizada_em       AS os_finalizada_em

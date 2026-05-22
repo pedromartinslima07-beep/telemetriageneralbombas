@@ -12,6 +12,8 @@ const { getAllConfigs, setConfig, CHAVES } = require("../services/config.service
 const { checarStatusConexao } = require("../services/evolution.service");
 const { SYSTEM_PROMPT_PADRAO } = require("../services/ia.service");
 const { getOfflineJobStatus } = require("../jobs/offline.job");
+const { getGpsCleanupStatus } = require("../jobs/gps-cleanup.job");
+const { getLeiturasCleanupStatus, jobLimparLeituras } = require("../jobs/leituras-cleanup.job");
 
 const router = express.Router();
 
@@ -522,8 +524,24 @@ router.get("/integracoes/status", authRequired, masterAdminOnly, async (req, res
 
   // 5. Job offline — última execução + último resultado
   out.job_offline = getOfflineJobStatus();
+  out.job_gps_cleanup = getGpsCleanupStatus();
+  out.job_leituras_cleanup = getLeiturasCleanupStatus();
 
   return res.json(out);
+});
+
+// POST /admin/jobs/leituras-cleanup/run — dispara a limpeza de leituras
+// na hora, em vez de esperar o ciclo de 24h. Respeita o dry-run da config
+// (se "leituras.cleanup_dry_run" = "true", só conta sem apagar). Útil pra
+// confirmar volume antes de soltar o DELETE em produção.
+router.post("/jobs/leituras-cleanup/run", authRequired, masterAdminOnly, async (req, res) => {
+  try {
+    const resultado = await jobLimparLeituras();
+    return res.json(resultado);
+  } catch (err) {
+    console.error("[admin] /jobs/leituras-cleanup/run:", err);
+    return res.status(500).json({ error: "Erro ao executar limpeza", detalhe: err.message });
+  }
 });
 
 module.exports = { adminRouter: router };

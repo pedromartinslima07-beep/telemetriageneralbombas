@@ -1368,6 +1368,7 @@
               <button class="wa-tab" data-cfg-tab="usuarios">Usuários</button>
               <button class="wa-tab" data-cfg-tab="ia">IA</button>
               <button class="wa-tab" data-cfg-tab="notificacoes">Notificações</button>
+              <button class="wa-tab" data-cfg-tab="manutencao">Manutenção</button>
               <button class="wa-tab" data-cfg-tab="integracoes">Integrações</button>
             </div>
           </div>
@@ -1529,6 +1530,51 @@
           <div class="cfg-actions" style="margin-top:12px;">
             <span id="cfgNotifMsg" class="cfg-msg"></span>
             <button class="btn btnAccent btn-sm" data-cfg-action="salvar-notificacoes">Salvar notificações</button>
+          </div>
+        </div>
+
+        <!-- ── BODY: MANUTENÇÃO ── -->
+        <div class="cfg-body" id="cfgBodyManutencao" style="display:none;">
+          <div class="cfg-grid">
+            <div class="card cfg-card">
+              <div class="cfg-card-head">
+                <svg class="cfg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/><path d="M3 12c0 1.66 4 3 9 3s9-1.34 9-3"/></svg>
+                <div>
+                  <h3>Limpeza de leituras antigas</h3>
+                  <p>Sensores enviam dados a cada 5 min — a tabela cresce ~86 mil linhas por dia. Esta limpeza apaga leituras antigas todo dia pra manter o banco enxuto.</p>
+                </div>
+              </div>
+              <div class="cfg-form">
+                <div class="field">
+                  <label class="lbl">Guardar leituras por (dias)</label>
+                  <input type="number" id="cfgLeiturasRetencaoDias" class="input" min="7" max="3650" style="max-width:120px;">
+                  <p class="cfg-hint">Leituras com mais que isso são apagadas automaticamente todo dia. Mínimo 7 dias (proteção contra erro). Padrão: 60 dias.</p>
+                </div>
+                <div class="field">
+                  <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                    <input type="checkbox" id="cfgLeiturasDryRun">
+                    <span><strong>Modo seguro (só conta, não apaga)</strong></span>
+                  </label>
+                  <p class="cfg-hint">Quando ligado, o job apenas calcula quantas linhas seriam apagadas — não apaga nada. Use pra confirmar o volume na primeira execução, depois desligue.</p>
+                </div>
+              </div>
+              <div class="cfg-actions" style="margin-top:8px;">
+                <span id="cfgManutMsg" class="cfg-msg"></span>
+                <button class="btn btn-sm" data-cfg-action="rodar-limpeza-leituras">▶ Rodar agora</button>
+                <button class="btn btnAccent btn-sm" data-cfg-action="salvar-manutencao">Salvar</button>
+              </div>
+            </div>
+
+            <div class="card cfg-card" id="cfgManutResultadoCard" style="display:none;">
+              <div class="cfg-card-head">
+                <svg class="cfg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                <div>
+                  <h3>Última execução</h3>
+                  <p id="cfgManutResultadoSub">Detalhes do último ciclo de limpeza.</p>
+                </div>
+              </div>
+              <div id="cfgManutResultadoBody" style="padding:4px 2px;"></div>
+            </div>
           </div>
         </div>
 

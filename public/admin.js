@@ -3378,10 +3378,44 @@ function renderChTabela() {
       <td class="ch-condo-cell">${_waEscaparHtml(ch.condominio_nome || "—")}</td>
       <td><span class="ch-cat-badge">${_chCatNome[ch.categoria] || ch.categoria || "—"}</span></td>
       <td><span class="ch-prio ch-prio-${ch.prioridade||"media"}">${_chPrioNome[ch.prioridade]||ch.prioridade||"—"}</span></td>
-      <td><span class="ch-st ch-st-${ch.status||"aberto"}">${_chStNome[ch.status]||ch.status||"—"}</span></td>
+      <td>
+        <span class="ch-st ch-st-${ch.status||"aberto"}">${_chStNome[ch.status]||ch.status||"—"}</span>
+        ${(ch.status === "fechado" && ch.avaliacao_nota != null)
+          ? `<span class="ch-aval-inline" title="Avaliado: ${ch.avaliacao_nota} de 5">${_chRenderStars(ch.avaliacao_nota, "sm")}</span>`
+          : ""}
+      </td>
       <td class="ch-data-cell">${_chFmtDataCurta(ch.criado_em)}</td>
     </tr>`;
   }).join("");
+}
+
+// Avaliação (Fase 7H — visível só pra admin)
+function _chRenderStars(nota, size = "md") {
+  const n = Math.max(0, Math.min(5, Math.round(Number(nota) || 0)));
+  let html = `<div class="ch-stars ch-stars-${size}">`;
+  for (let i = 1; i <= 5; i++) {
+    const filled = i <= n ? "is-filled" : "";
+    html += `<svg class="ch-star ${filled}" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round">
+      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26"/>
+    </svg>`;
+  }
+  html += `</div>`;
+  return html;
+}
+
+function _chRenderAvaliacaoCard(ch) {
+  if (ch.avaliacao_nota == null) return "";
+  const quando = ch.avaliacao_em ? fmtData(ch.avaliacao_em) : "";
+  const coment = ch.avaliacao_comentario ? _waEscaparHtml(ch.avaliacao_comentario) : "";
+  return `<div class="ch-det-section ch-aval-section">
+    <div class="ch-det-sec-title">Avaliação do cliente</div>
+    <div class="ch-aval-row">
+      ${_chRenderStars(ch.avaliacao_nota, "lg")}
+      <span class="ch-aval-nota">${ch.avaliacao_nota} de 5</span>
+      ${quando ? `<span class="ch-aval-quando">${quando}</span>` : ""}
+    </div>
+    ${coment ? `<div class="ch-aval-coment">"${coment}"</div>` : `<div class="ch-aval-coment ch-aval-vazio">Sem comentário escrito.</div>`}
+  </div>`;
 }
 
 function renderChDetalhe(ch) {
@@ -3453,6 +3487,8 @@ function renderChDetalhe(ch) {
       <div class="ch-det-sec-title">Descrição</div>
       <div class="ch-det-desc">${_waEscaparHtml(ch.descricao)}</div>
     </div>` : ""}
+
+    ${_chRenderAvaliacaoCard(ch)}
 
     <div class="ch-det-section">
       <div class="ch-det-sec-title">Informações</div>
@@ -6985,13 +7021,14 @@ function _relExportarCsv(rows, keys, labels, filename) {
 let _cfgTab = "conta";
 let _cfgConfigs = null;     // { valores, definicoes, padroes } do GET /admin/configuracoes
 let _cfgUsuariosDados = [];
-let _cfgCarregado = { conta: false, usuarios: false, ia: false, notificacoes: false, integracoes: false };
+let _cfgCarregado = { conta: false, usuarios: false, ia: false, notificacoes: false, manutencao: false, integracoes: false };
 
 const _CFG_TABS = {
   conta:        { body: "cfgBodyConta",        carregar: () => _cfgCarregarConta() },
   usuarios:     { body: "cfgBodyUsuarios",     carregar: () => _cfgCarregarUsuarios() },
   ia:           { body: "cfgBodyIa",           carregar: () => _cfgCarregarConfigs() },
   notificacoes: { body: "cfgBodyNotificacoes", carregar: () => _cfgCarregarConfigs() },
+  manutencao:   { body: "cfgBodyManutencao",   carregar: () => _cfgCarregarManutencao() },
   integracoes:  { body: "cfgBodyIntegracoes",  carregar: () => _cfgCarregarIntegracoes() },
 };
 
@@ -7022,7 +7059,7 @@ function _cfgMyId() {
 
 function renderConfiguracoes() {
   // Mostra/esconde tabs que exigem master admin
-  ["usuarios","ia","notificacoes","integracoes"].forEach(t => {
+  ["usuarios","ia","notificacoes","manutencao","integracoes"].forEach(t => {
     const btn = document.querySelector(`[data-cfg-tab="${t}"]`);
     if (btn) btn.style.display = _isMaster ? "" : "none";
   });
@@ -7135,6 +7172,9 @@ function _cfgAplicarConfigsUI() {
   // Notificações
   const email   = document.getElementById("cfgEmailDestinatario"); if (email)   email.value   = v["alertas.email_destinatario"] || "";
   const interv  = document.getElementById("cfgOfflineIntervalo");  if (interv)  interv.value  = v["jobs.offline_intervalo_min"] || "1";
+  // Manutenção
+  const ret     = document.getElementById("cfgLeiturasRetencaoDias"); if (ret) ret.value = v["leituras.retencao_dias"] || "60";
+  const dry     = document.getElementById("cfgLeiturasDryRun");       if (dry) dry.checked = v["leituras.cleanup_dry_run"] === "true";
 }
 
 async function _cfgSalvarIa() {
@@ -7176,6 +7216,88 @@ function _cfgRestaurarPrompt() {
   if (!confirm("Restaurar o system prompt para o padrão? Sua versão atual será substituída.")) return;
   const el = document.getElementById("cfgIaPrompt");
   if (el) el.value = padrao;
+}
+
+// ── MANUTENÇÃO (limpeza de leituras) ─────────────────────────────────────────
+async function _cfgCarregarManutencao() {
+  // Carrega configs (compartilha cache com IA/Notificações)
+  await _cfgCarregarConfigs();
+  // Busca o status do último ciclo de limpeza
+  try {
+    const r = await fetch("/admin/integracoes/status", { headers: authHeaders() });
+    if (r.ok) {
+      const s = await r.json();
+      _cfgRenderUltimaLimpeza(s.job_leituras_cleanup);
+    }
+  } catch (e) {
+    console.warn("[cfg] status manutenção:", e.message);
+  }
+}
+
+function _cfgRenderUltimaLimpeza(jb) {
+  const card = document.getElementById("cfgManutResultadoCard");
+  const body = document.getElementById("cfgManutResultadoBody");
+  if (!card || !body) return;
+  if (!jb || !jb.ultima_execucao) {
+    card.style.display = "none";
+    return;
+  }
+  card.style.display = "";
+  const quando = new Date(jb.ultima_execucao).toLocaleString("pt-BR");
+  const r = jb.ultimo_resultado || {};
+  const linhas = [];
+  linhas.push(`<div><strong>Quando:</strong> ${quando}</div>`);
+  if (r.dry_run) {
+    linhas.push(`<div><strong>Modo:</strong> seguro (não apagou)</div>`);
+    linhas.push(`<div><strong>Linhas que seriam removidas:</strong> ${Number(r.seriam_removidos || 0).toLocaleString("pt-BR")}</div>`);
+  } else {
+    linhas.push(`<div><strong>Linhas removidas:</strong> ${Number(r.removidos || 0).toLocaleString("pt-BR")}</div>`);
+    if (r.lotes != null)      linhas.push(`<div><strong>Lotes executados:</strong> ${r.lotes}</div>`);
+    if (r.duracao_ms != null) linhas.push(`<div><strong>Duração:</strong> ${(r.duracao_ms / 1000).toFixed(1)}s</div>`);
+    if (r.truncado)           linhas.push(`<div style="color:#f59e0b;"><strong>⚠ Atingiu o limite de lotes</strong> — talvez precise rodar de novo</div>`);
+  }
+  linhas.push(`<div><strong>Retenção configurada:</strong> ${r.retencao_dias || "?"} dias</div>`);
+  body.innerHTML = linhas.join("");
+}
+
+async function _cfgSalvarManutencao() {
+  const dias = document.getElementById("cfgLeiturasRetencaoDias")?.value || "60";
+  const dry  = document.getElementById("cfgLeiturasDryRun")?.checked ? "true" : "false";
+  const payload = {
+    "leituras.retencao_dias":   String(dias),
+    "leituras.cleanup_dry_run": dry,
+  };
+  await _cfgEnviarConfigs(payload, "cfgManutMsg", "Configuração salva");
+}
+
+async function _cfgRodarLimpezaLeituras() {
+  const dry = document.getElementById("cfgLeiturasDryRun")?.checked;
+  const aviso = dry
+    ? "Rodar limpeza agora em MODO SEGURO (só conta, não apaga)?"
+    : "Rodar limpeza agora? Isso vai APAGAR de verdade as leituras antigas. Tem certeza?";
+  if (!confirm(aviso)) return;
+
+  _cfgMostrarMsg("cfgManutMsg", "Executando…", "");
+  try {
+    const r = await fetch("/admin/jobs/leituras-cleanup/run", {
+      method: "POST",
+      headers: authHeaders(),
+    });
+    const data = await r.json();
+    if (!r.ok) return _cfgMostrarMsg("cfgManutMsg", data.error || "Erro ao executar", "err");
+    _cfgMostrarMsg("cfgManutMsg",
+      data.dry_run
+        ? `Modo seguro: ${Number(data.seriam_removidos).toLocaleString("pt-BR")} linhas seriam apagadas`
+        : `Removidas ${Number(data.removidos).toLocaleString("pt-BR")} linhas em ${data.lotes} lote(s)`,
+      "ok");
+    // Atualiza o card de "última execução" sem recarregar tudo
+    _cfgRenderUltimaLimpeza({
+      ultima_execucao: new Date().toISOString(),
+      ultimo_resultado: data,
+    });
+  } catch (e) {
+    _cfgMostrarMsg("cfgManutMsg", "Erro de conexão", "err");
+  }
 }
 
 // ── INTEGRAÇÕES ──────────────────────────────────────────────────────────────
@@ -7492,6 +7614,8 @@ document.addEventListener("DOMContentLoaded", () => {
     if (action === "salvar-ia")           return _cfgSalvarIa();
     if (action === "restaurar-prompt")    return _cfgRestaurarPrompt();
     if (action === "salvar-notificacoes") return _cfgSalvarNotificacoes();
+    if (action === "salvar-manutencao")      return _cfgSalvarManutencao();
+    if (action === "rodar-limpeza-leituras") return _cfgRodarLimpezaLeituras();
     if (action === "testar-integracoes")  return _cfgCarregarIntegracoes();
     if (action === "novo-usuario")        return _cfgAbrirModalUsuario(null);
     if (action === "editar-usuario")      return _cfgAbrirModalUsuario(_cfgUsuariosDados.find(u => u.id === id));

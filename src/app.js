@@ -40,6 +40,7 @@ const { tecnicosLocalizacaoRouter } = require("./routes/tecnicos-localizacao.rou
 const { ordensServicoRouter } = require("./routes/ordens-servico.routes");
 const { startOfflineScheduler } = require("./jobs/offline.job");
 const { startGpsCleanupScheduler } = require("./jobs/gps-cleanup.job");
+const { startLeiturasCleanupScheduler } = require("./jobs/leituras-cleanup.job");
 
 const app = express();
 
@@ -333,5 +334,6 @@ app.use("/ordens-servico", ordensServicoRouter);
 
 startOfflineScheduler();
 startGpsCleanupScheduler();
+startLeiturasCleanupScheduler();
 
 module.exports = { app };
