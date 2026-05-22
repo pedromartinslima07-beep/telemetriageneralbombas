@@ -1179,16 +1179,42 @@ Menos crítico que o do técnico, mas valioso pra fidelização. Mesma base do a
 - **Telemetria histórica:** reaproveita gráficos de `cliente.html` já existentes
 - Conversa WhatsApp do condomínio: lista de conversas + abrir uma ler (read-only no app — responder só pelo painel admin, decisão consciente: cliente fala com a empresa por WhatsApp normal)
 
-#### 7I — Configurações de notificação e operacional
+#### 7I — Configurações de notificação e operacional ✅ PARTE A CONCLUÍDA
 
-- Aba **Operacional** em Configurações (admin master):
-  - Frequência do GPS tracking dos técnicos (30s–5min)
-  - Retenção do histórico de localização (1–7 dias)
-  - Tempo máximo de chamado em `em_atendimento` antes de alerta (default 4h — se passar, admin recebe push "Técnico X está há 4h+ no chamado Y")
+**Parte A (operacional)** — implementada. **Parte B (push)** depende da 7J (APK).
+
+**Parte A — Aba Operacional (admin master, em `public/admin.html`):**
+
+3 cards na nova tab `cfgBodyOperacional`:
+
+1. **Frequência do GPS** — config `gps.frequencia_segundos` (30–300, default 60). App busca via `GET /tecnicos/config` no login (`aplicarConfigOperacional`) e aplica em `GPS.PING_MS`. Se o watch já estava rodando, reabre pra valer o novo intervalo imediatamente. Sem precisar logout/login.
+2. **Retenção do histórico de GPS** — UI da config já existente `gps.retencao_horas` (1–720, default 24). O job `gps-cleanup.job.js` já lê dela.
+3. **Alerta de chamado parado** — config `chamados.alerta_atraso_enabled` (boolean, default true) + `chamados.alerta_atraso_horas` (1–24, default 4). Job `chamados-atraso.job.js` roda a cada 15 min, busca chamados `em_atendimento` com `COALESCE(os.chegada_em, ch.atualizado_em)` antigo demais, dispara `sendChamadoAtrasoEmail` (helper novo em `src/services/email.js` com layout amber/⏱), marca `chamados.alerta_atraso_enviado_em` pra anti-spam (re-notifica só após uma janela completa). Botão "▶ Testar verificação agora" chama `POST /admin/jobs/chamados-atraso/run` (master admin) pra disparo manual.
+
+**Migration 021** (`migrations/021_chamados_alerta_atraso.sql`): adiciona `chamados.alerta_atraso_enviado_em TIMESTAMPTZ`. Sem índice (queries do job já cobertas pelos índices de status/atualizado_em).
+
+**Status dos jobs** centralizado: `GET /admin/integracoes/status` agora retorna `job_offline`, `job_gps_cleanup`, `job_leituras_cleanup`, `job_chamados_atraso`.
+
+**Acesso de técnico ao app** (gap operacional resolvido junto):
+- Antes: a aba **Técnicos** criava só uma linha em `tecnicos`, sem login; o modal de Usuários em **Configurações** aceitava só `admin`, `admin_viewer`, `cliente` — técnico não conseguia abrir o app.
+- Agora: o modal de Técnicos ganhou campo **"Senha do app (opcional)"**. Se preenchido, `POST /tecnicos` cria também o usuário com role `tecnico` e linka via `tecnicos.usuario_id` em uma única transação (helper `_criarUsuarioTecnico` em `src/routes/tecnicos.routes.js`). PATCH segue a mesma lógica: cria login retroativamente ou só troca senha. Email vira obrigatório quando há senha.
+- Badge **"✓ Tem login do app"** / "Sem login" no header do modal de edição. `GET /tecnicos` ganhou `tem_login` derivado.
+- Whitelist `ROLES` em `admin.routes.js` ganhou `tecnico` (POST/PATCH `/admin/usuarios`). Dropdown do modal de Usuários ganhou opção "Técnico" com hint apontando pra aba Técnicos.
+
+**Bottom nav no app do técnico** (UX gap antigo resolvido):
+- Antes o app do técnico tinha só a tela de chamados — sem perfil, sem trocar senha, e logout escondido num botãozinho do header.
+- Agora: nav inferior com 2 abas — **Chamados** + **Conta** — reusando a classe `.cli-nav` (sobrescrita pontual `grid-template-columns: repeat(2, 1fr)` quando dentro de `[data-screen^="tecnico"]`).
+- Nova tela `tecnico-conta` com 4 blocos: **Seus dados** (avatar+nome+email+especialidade), **Localização (GPS)** (status dinâmico: ativo / fora do expediente 08–18h / aguardando login / desativado em demo, com a janela exibida), **Alterar senha** (POST `/auth/trocar-senha` — endpoint genérico que já existia), botão **Sair** em vermelho.
+- Botão de logout no header da tela chamados foi removido (redundante). Funções novas: `abrirTelaContaTec`, `renderContaTec`, `submitTrocarSenhaTec`, `_bindTecnicoUI`.
+
+**Parte B — Push do app (📋 NÃO INICIADA, bloqueada pela 7J):**
+
 - Aba **Notificações** ganha seção "Push do app":
   - Toggle por tipo (alertas críticos / chamados atribuídos / mudanças de status / mensagens WhatsApp)
   - Lista de devices com push ativo + botão "Desativar neste"
   - Janelas de silêncio por usuário (padrão 22h–7h)
+
+Decisão consciente: empacotar primeiro (7J), aí montar a infra de push registro/dispatch (7G), só então plugar a UI da 7I-B.
 
 #### 7J — Publicação nas lojas
 

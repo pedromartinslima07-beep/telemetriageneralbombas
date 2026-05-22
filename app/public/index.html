@@ -121,13 +121,6 @@
             </div>
           </div>
         </div>
-        <button class="header-logout" id="btnLogoutTec" aria-label="Sair">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-            <polyline points="16 17 21 12 16 7"/>
-            <line x1="21" y1="12" x2="9" y2="12"/>
-          </svg>
-        </button>
       </header>
 
       <div class="tec-shell">
@@ -210,6 +203,44 @@
           </div>
         </section>
       </div>
+
+      <!-- Bottom nav do técnico: 2 abas (Chamados / Conta) -->
+      <nav class="cli-nav">
+        <button data-tec-tab="chamados" class="active">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          <span>Chamados</span>
+        </button>
+        <button data-tec-tab="conta">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          <span>Conta</span>
+        </button>
+      </nav>
+    </section>
+
+    <!-- ========== TÉCNICO — Conta / Perfil (Fase 7I+) ========== -->
+    <section class="screen" data-screen="tecnico-conta">
+      <header class="app-header cli-header">
+        <div class="brand">
+          <img src="login-logo.png" class="app-brand-logo" alt="GENERAL" />
+          <div class="brand-text">
+            <div class="brand-name">Conta</div>
+            <div class="brand-sub" id="tecContaSub">—</div>
+          </div>
+        </div>
+      </header>
+
+      <div class="tec-shell" id="tecContaMain"></div>
+
+      <nav class="cli-nav">
+        <button data-tec-tab="chamados">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          <span>Chamados</span>
+        </button>
+        <button data-tec-tab="conta" class="active">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          <span>Conta</span>
+        </button>
+      </nav>
     </section>
 
     <!-- ========== TÉCNICO — Detalhe do chamado (Fase 7D) ========== -->

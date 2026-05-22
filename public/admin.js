@@ -2734,10 +2734,22 @@ function abrirModalTecnico(tec = null) {
   const overlay = document.createElement("div");
   overlay.id = "modalTecnico";
   overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9999;display:flex;align-items:center;justify-content:center;";
+  const temLogin = !!tec?.tem_login;
+  const senhaHint = !editing
+    ? "Opcional. Se preencher, cria um login pro app (email + senha)."
+    : (temLogin
+        ? "Trocar senha do login do app. Deixe vazio pra manter."
+        : "Opcional. Se preencher, cria o login do app retroativamente.");
+  const loginBadge = editing
+    ? `<span class="badge ${temLogin ? "b-ok" : ""}" style="font-size:10px;margin-left:8px;vertical-align:middle;">
+         ${temLogin ? "✓ Tem login do app" : "Sem login"}
+       </span>`
+    : "";
+
   overlay.innerHTML = `
-    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:24px;width:440px;max-width:95vw;box-shadow:0 24px 64px rgba(0,0,0,.6);">
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:24px;width:480px;max-width:95vw;box-shadow:0 24px 64px rgba(0,0,0,.6);">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-        <div style="font-size:14px;font-weight:600;">${editing ? "Editar técnico" : "Novo técnico"}</div>
+        <div style="font-size:14px;font-weight:600;">${editing ? "Editar técnico" : "Novo técnico"}${loginBadge}</div>
         <button class="btn btn-sm" data-action="fechar-modal-tecnico">✕</button>
       </div>
       <div class="grid-2">
@@ -2757,6 +2769,11 @@ function abrirModalTecnico(tec = null) {
           <span class="lbl">Especialidade</span>
           <input id="tecModalEsp" class="input" value="${tec?.especialidade ? _waEscaparHtml(tec.especialidade) : ""}" placeholder="Ex: Hidráulica, Elétrica…" />
         </div>
+        <div class="field col-2" style="border-top:1px solid var(--border);padding-top:14px;margin-top:4px;">
+          <span class="lbl">${editing && temLogin ? "Nova senha do app" : "Senha do app"}</span>
+          <input id="tecModalSenha" class="input" type="text" autocomplete="new-password" placeholder="Mínimo 6 caracteres" />
+          <span class="hint" style="display:block;margin-top:4px;font-size:11px;color:var(--muted);">${senhaHint}</span>
+        </div>
       </div>
       <div class="form-footer" style="margin-top:16px;">
         <button class="btn btnAccent" id="btnSalvarTecnico">${editing ? "Salvar" : "Criar técnico"}</button>
@@ -2770,11 +2787,15 @@ function abrirModalTecnico(tec = null) {
     const tel   = (document.getElementById("tecModalTel")?.value   || "").trim();
     const email = (document.getElementById("tecModalEmail")?.value || "").trim();
     const esp   = (document.getElementById("tecModalEsp")?.value   || "").trim();
+    const senha = (document.getElementById("tecModalSenha")?.value || "").trim();
     const msg   = document.getElementById("msgTecnico");
     if (!nome) { if (msg) msg.textContent = "Nome é obrigatório."; return; }
+    if (senha && senha.length < 6) { if (msg) msg.textContent = "Senha mínima de 6 caracteres."; return; }
+    if (senha && !email) { if (msg) msg.textContent = "Email é obrigatório quando há senha (será o login)."; return; }
     if (msg) msg.textContent = "";
 
     const body = { nome, telefone: tel || null, email: email || null, especialidade: esp || null };
+    if (senha) body.senha = senha;
     const url    = editing ? `/tecnicos/${tec.id}` : "/tecnicos";
     const method = editing ? "PATCH" : "POST";
 
@@ -7021,13 +7042,14 @@ function _relExportarCsv(rows, keys, labels, filename) {
 let _cfgTab = "conta";
 let _cfgConfigs = null;     // { valores, definicoes, padroes } do GET /admin/configuracoes
 let _cfgUsuariosDados = [];
-let _cfgCarregado = { conta: false, usuarios: false, ia: false, notificacoes: false, manutencao: false, integracoes: false };
+let _cfgCarregado = { conta: false, usuarios: false, ia: false, notificacoes: false, operacional: false, manutencao: false, integracoes: false };
 
 const _CFG_TABS = {
   conta:        { body: "cfgBodyConta",        carregar: () => _cfgCarregarConta() },
   usuarios:     { body: "cfgBodyUsuarios",     carregar: () => _cfgCarregarUsuarios() },
   ia:           { body: "cfgBodyIa",           carregar: () => _cfgCarregarConfigs() },
   notificacoes: { body: "cfgBodyNotificacoes", carregar: () => _cfgCarregarConfigs() },
+  operacional:  { body: "cfgBodyOperacional",  carregar: () => _cfgCarregarConfigs() },
   manutencao:   { body: "cfgBodyManutencao",   carregar: () => _cfgCarregarManutencao() },
   integracoes:  { body: "cfgBodyIntegracoes",  carregar: () => _cfgCarregarIntegracoes() },
 };
@@ -7059,7 +7081,7 @@ function _cfgMyId() {
 
 function renderConfiguracoes() {
   // Mostra/esconde tabs que exigem master admin
-  ["usuarios","ia","notificacoes","manutencao","integracoes"].forEach(t => {
+  ["usuarios","ia","notificacoes","operacional","manutencao","integracoes"].forEach(t => {
     const btn = document.querySelector(`[data-cfg-tab="${t}"]`);
     if (btn) btn.style.display = _isMaster ? "" : "none";
   });
@@ -7175,6 +7197,11 @@ function _cfgAplicarConfigsUI() {
   // Manutenção
   const ret     = document.getElementById("cfgLeiturasRetencaoDias"); if (ret) ret.value = v["leituras.retencao_dias"] || "60";
   const dry     = document.getElementById("cfgLeiturasDryRun");       if (dry) dry.checked = v["leituras.cleanup_dry_run"] === "true";
+  // Operacional
+  const gpsFreq = document.getElementById("cfgGpsFrequencia");        if (gpsFreq) gpsFreq.value = v["gps.frequencia_segundos"] || "60";
+  const gpsRet  = document.getElementById("cfgGpsRetencaoHoras");     if (gpsRet)  gpsRet.value  = v["gps.retencao_horas"] || "24";
+  const atrEn   = document.getElementById("cfgAtrasoEnabled");        if (atrEn)   atrEn.checked = v["chamados.alerta_atraso_enabled"] !== "false"; // default ligado
+  const atrHr   = document.getElementById("cfgAtrasoHoras");          if (atrHr)   atrHr.value   = v["chamados.alerta_atraso_horas"] || "4";
 }
 
 async function _cfgSalvarIa() {
@@ -7216,6 +7243,38 @@ function _cfgRestaurarPrompt() {
   if (!confirm("Restaurar o system prompt para o padrão? Sua versão atual será substituída.")) return;
   const el = document.getElementById("cfgIaPrompt");
   if (el) el.value = padrao;
+}
+
+// ── OPERACIONAL (Fase 7I — GPS + alerta de atraso) ───────────────────────────
+async function _cfgSalvarOperacional() {
+  const payload = {
+    "gps.frequencia_segundos":         document.getElementById("cfgGpsFrequencia")?.value || "60",
+    "gps.retencao_horas":              document.getElementById("cfgGpsRetencaoHoras")?.value || "24",
+    "chamados.alerta_atraso_enabled":  document.getElementById("cfgAtrasoEnabled")?.checked ? "true" : "false",
+    "chamados.alerta_atraso_horas":    document.getElementById("cfgAtrasoHoras")?.value || "4",
+  };
+  await _cfgEnviarConfigs(payload, "cfgOperMsg", "Configurações operacionais salvas");
+}
+
+async function _cfgRodarChamadosAtraso() {
+  if (!confirm("Rodar verificação de chamados parados agora? Se houver alguém estourado, um email será enviado pra lista de destinatários.")) return;
+  _cfgMostrarMsg("cfgOperMsg", "Verificando…", "");
+  try {
+    const r = await fetch("/admin/jobs/chamados-atraso/run", { method: "POST", headers: authHeaders() });
+    const data = await r.json();
+    if (!r.ok) return _cfgMostrarMsg("cfgOperMsg", data.error || "Erro ao executar", "err");
+    if (!data.enabled) {
+      _cfgMostrarMsg("cfgOperMsg", "Alerta está desativado — ligue o toggle e salve antes de testar.", "err");
+      return;
+    }
+    _cfgMostrarMsg("cfgOperMsg",
+      data.avisados > 0
+        ? `${data.avisados} email(s) enviado(s). Limite: ${data.horas}h.`
+        : `Nenhum chamado estourado (limite ${data.horas}h).`,
+      "ok");
+  } catch (e) {
+    _cfgMostrarMsg("cfgOperMsg", "Erro de conexão", "err");
+  }
 }
 
 // ── MANUTENÇÃO (limpeza de leituras) ─────────────────────────────────────────
@@ -7401,7 +7460,7 @@ async function _cfgCarregarUsuarios() {
 }
 
 function _cfgRoleLabel(role) {
-  return { admin: "Admin Master", admin_viewer: "Admin Visualizador", cliente: "Cliente" }[role] || role || "-";
+  return { admin: "Admin Master", admin_viewer: "Admin Visualizador", cliente: "Cliente", tecnico: "Técnico" }[role] || role || "-";
 }
 
 function _cfgRenderUsuarios() {
@@ -7450,7 +7509,9 @@ function _cfgAbrirModalUsuario(usuario) {
           <option value="admin"        ${usuario?.role === "admin" ? "selected" : ""}>Admin Master</option>
           <option value="admin_viewer" ${usuario?.role === "admin_viewer" ? "selected" : ""}>Admin Visualizador</option>
           <option value="cliente"      ${(!usuario || usuario?.role === "cliente") ? "selected" : ""}>Cliente</option>
+          <option value="tecnico"      ${usuario?.role === "tecnico" ? "selected" : ""}>Técnico</option>
         </select>
+        <p class="cfg-hint" style="margin-top:6px;font-size:11px;">Pra gerenciar atribuições, GPS e telefone do técnico, use também a seção <strong>Técnicos</strong> no menu lateral.</p>
       </div>
       <div class="field"><label class="lbl">Condomínio (clientes)</label>
         <select id="mdUsrCondo" class="input">${condoOpts}</select>
@@ -7616,6 +7677,8 @@ document.addEventListener("DOMContentLoaded", () => {
     if (action === "salvar-notificacoes") return _cfgSalvarNotificacoes();
     if (action === "salvar-manutencao")      return _cfgSalvarManutencao();
     if (action === "rodar-limpeza-leituras") return _cfgRodarLimpezaLeituras();
+    if (action === "salvar-operacional")     return _cfgSalvarOperacional();
+    if (action === "rodar-chamados-atraso")  return _cfgRodarChamadosAtraso();
     if (action === "testar-integracoes")  return _cfgCarregarIntegracoes();
     if (action === "novo-usuario")        return _cfgAbrirModalUsuario(null);
     if (action === "editar-usuario")      return _cfgAbrirModalUsuario(_cfgUsuariosDados.find(u => u.id === id));

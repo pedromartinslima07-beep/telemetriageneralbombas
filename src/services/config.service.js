@@ -27,8 +27,11 @@ const CHAVES = {
   "alertas.email_destinatario":  { tipo: "string", maxLen: 500 }, // múltiplos emails separados por vírgula
   "jobs.offline_intervalo_min":  { tipo: "int", min: 1, max: 60 },
   "gps.retencao_horas":          { tipo: "int", min: 1, max: 720 }, // Fase 7F — 1h a 30 dias
+  "gps.frequencia_segundos":     { tipo: "int", min: 30, max: 300 }, // Fase 7I — app pinga GPS a cada N segundos (default 60)
   "leituras.retencao_dias":      { tipo: "int", min: 7, max: 3650 }, // Fase 9C — 7 dias a 10 anos (default 60)
   "leituras.cleanup_dry_run":    { tipo: "boolean" }, // se "true", só conta sem deletar (verificação inicial)
+  "chamados.alerta_atraso_horas":   { tipo: "int", min: 1, max: 24 }, // Fase 7I — chamado em_atendimento sem fechar (default 4)
+  "chamados.alerta_atraso_enabled": { tipo: "boolean" }, // Fase 7I — liga/desliga o alerta por email
 };
 
 function chaveValida(chave) {

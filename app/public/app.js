@@ -256,12 +256,40 @@ function abrirTelaTecnico(user) {
   showScreen("tecnico-chamados");
   carregarMeusChamados();
   iniciarPollingTecnico();
+  // Busca config operacional (frequência do GPS) — não bloqueia o resto.
+  // Se falhar, GPS usa o default de 60s já hardcoded no módulo.
+  aplicarConfigOperacional();
   // GPS fica ativo o tempo todo enquanto logado — o admin precisa saber
   // onde o técnico está para decidir designação por proximidade, não só
   // durante atendimento. Para no logout.
   gpsStart();
   // GPS rápido (one-shot) só pra ordenar a lista por proximidade
   pedirGPSOportunista();
+}
+
+// Aplica configurações operacionais vindas do backend (Fase 7I). Hoje
+// só ajusta a frequência do GPS, mas é o ponto de entrada pra outras
+// configs que o app vai consumir no futuro.
+async function aplicarConfigOperacional() {
+  if (IS_DEMO) return;
+  try {
+    const cfg = await api("/tecnicos/config");
+    const freq = Number(cfg?.gps?.frequencia_segundos);
+    if (Number.isFinite(freq) && freq >= 30 && freq <= 300) {
+      const novoMs = freq * 1000;
+      if (novoMs !== GPS.PING_MS) {
+        GPS.PING_MS = novoMs;
+        // Se o GPS já estava rodando com o pingTimer no valor antigo,
+        // reabre o watch pra aplicar o novo intervalo imediatamente.
+        if (GPS.active) {
+          _gpsFecharWatch();
+          _gpsAbrirWatch();
+        }
+      }
+    }
+  } catch (e) {
+    console.warn("[cfg] tecnicos/config:", e.message);
+  }
 }
 
 function pararPollingTecnico() {
@@ -615,14 +643,6 @@ document.getElementById("tcRefresh").addEventListener("click", () => {
   carregarMeusChamados();
 });
 
-document.getElementById("btnLogoutTec").addEventListener("click", () => {
-  pararPollingTecnico();
-  gpsStop();
-  Storage.clear();
-  document.getElementById("loginSenha").value = "";
-  hideAlert(document.getElementById("loginAlert"));
-  showScreen("login");
-});
 
 // GPS oportunista no boot da tela (sort default = proximidade)
 // — só dispara prompt depois que o técnico já está autenticado
@@ -3859,6 +3879,174 @@ function _bindClienteUI() {
   });
 }
 _bindClienteUI();
+
+// =====================================================================
+// TÉCNICO — Conta / Perfil (bottom nav 2 abas)
+// =====================================================================
+
+function abrirTelaContaTec() {
+  showScreen("tecnico-conta");
+  const sub = document.getElementById("tecContaSub");
+  if (sub) sub.textContent = TC.user?.email || TC.user?.nome || "—";
+  renderContaTec();
+}
+
+function renderContaTec() {
+  const main = document.getElementById("tecContaMain");
+  if (!main) return;
+
+  const user = TC.user || {};
+  const svgUser = `<svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`;
+  const svgGps  = `<svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>`;
+  const svgLock = `<svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`;
+
+  // Estado do GPS — usa o módulo global GPS
+  let gpsStatus, gpsClass;
+  if (IS_DEMO) {
+    gpsStatus = "Desativado no modo demo"; gpsClass = "muted";
+  } else if (!GPS.scheduled) {
+    gpsStatus = "Aguardando login";        gpsClass = "muted";
+  } else if (GPS.active) {
+    gpsStatus = "Ativo — enviando posição";gpsClass = "ok";
+  } else {
+    gpsStatus = "Fora do expediente (08h–18h)"; gpsClass = "warn";
+  }
+
+  main.innerHTML = `
+    <section class="card tec-card">
+      <div class="cardHead">
+        <h2>${svgUser}Seus dados</h2>
+      </div>
+      <div class="cli-conta-hero">
+        <div class="cli-conta-avatar">${escapeHtml(_iniciaisNome(user.nome))}</div>
+        <div class="cli-conta-hero-text">
+          <div class="cli-conta-nome">${escapeHtml(user.nome || "—")}</div>
+          <div class="cli-conta-email">${escapeHtml(user.email || "—")}</div>
+        </div>
+      </div>
+      ${user.especialidade ? `
+        <div class="cli-info-row">
+          <span class="cli-info-row-label">Especialidade</span>
+          <span class="cli-info-row-value">${escapeHtml(user.especialidade)}</span>
+        </div>` : ""}
+    </section>
+
+    <section class="card tec-card">
+      <div class="cardHead">
+        <h2>${svgGps}Localização (GPS)</h2>
+      </div>
+      <div class="cli-info-row">
+        <span class="cli-info-row-label">Status</span>
+        <span class="cli-info-row-value" id="tecContaGpsStatus">${escapeHtml(gpsStatus)}</span>
+      </div>
+      <div class="cli-info-row">
+        <span class="cli-info-row-label">Janela ativa</span>
+        <span class="cli-info-row-value">${String(GPS_HORA_INI).padStart(2,"0")}:00 às ${String(GPS_HORA_FIM).padStart(2,"0")}:00</span>
+      </div>
+      <p class="hint" style="font-size:11.5px;color:var(--muted);margin:6px 2px 0;">
+        O rastreio é obrigatório enquanto você estiver logado e dentro do expediente. Fora do horário, nada é enviado.
+      </p>
+    </section>
+
+    <section class="card tec-card">
+      <div class="cardHead">
+        <h2>${svgLock}Alterar senha</h2>
+      </div>
+      <form id="tecSenhaForm" class="cli-form" novalidate autocomplete="off">
+        <label class="cli-form-field">
+          <span class="rc-label">Senha atual</span>
+          <input class="input" type="password" id="tecSenhaAtual" autocomplete="current-password" required>
+        </label>
+        <label class="cli-form-field">
+          <span class="rc-label">Nova senha</span>
+          <input class="input" type="password" id="tecSenhaNova" autocomplete="new-password" minlength="6" required>
+          <span class="hint">Mínimo 6 caracteres</span>
+        </label>
+        <label class="cli-form-field">
+          <span class="rc-label">Confirmar nova senha</span>
+          <input class="input" type="password" id="tecSenhaNova2" autocomplete="new-password" minlength="6" required>
+        </label>
+
+        <div class="alert" id="tecSenhaAlert" hidden></div>
+
+        <button type="submit" class="btn btnAccent btn-lg" id="tecSenhaSubmit">
+          <span class="btn-label">Salvar nova senha</span>
+        </button>
+      </form>
+    </section>
+
+    <button type="button" class="btn btn-lg cli-conta-logout" id="tecBtnSair">
+      <span class="btn-label">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:8px">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+        </svg>
+        Sair da conta
+      </span>
+    </button>`;
+
+  document.getElementById("tecSenhaForm").addEventListener("submit", (e) => {
+    e.preventDefault();
+    submitTrocarSenhaTec();
+  });
+  document.getElementById("tecBtnSair").addEventListener("click", () => {
+    pararPollingTecnico();
+    gpsStop();
+    Storage.clear();
+    document.getElementById("loginSenha").value = "";
+    hideAlert(document.getElementById("loginAlert"));
+    showScreen("login");
+  });
+}
+
+async function submitTrocarSenhaTec() {
+  const atual = document.getElementById("tecSenhaAtual").value;
+  const nova  = document.getElementById("tecSenhaNova").value;
+  const nova2 = document.getElementById("tecSenhaNova2").value;
+  const alertEl = document.getElementById("tecSenhaAlert");
+  const btn = document.getElementById("tecSenhaSubmit");
+
+  hideAlert(alertEl);
+  if (!atual || !nova || !nova2)  return showAlert(alertEl, "Preencha todos os campos.", "error");
+  if (nova.length < 6)            return showAlert(alertEl, "A nova senha deve ter pelo menos 6 caracteres.", "error");
+  if (nova !== nova2)             return showAlert(alertEl, "As novas senhas não conferem.", "error");
+  if (nova === atual)             return showAlert(alertEl, "A nova senha precisa ser diferente da atual.", "error");
+
+  if (IS_DEMO) {
+    showAlert(alertEl, "Modo demo: alteração de senha não disponível.", "info");
+    return;
+  }
+
+  setBtnLoading(btn, true);
+  try {
+    await api("/auth/trocar-senha", {
+      method: "POST",
+      body: { senha_atual: atual, senha_nova: nova },
+    });
+    document.getElementById("tecSenhaForm").reset();
+    showAlert(alertEl, "Senha atualizada com sucesso.", "success");
+  } catch (err) {
+    showAlert(alertEl, err.message, "error");
+  } finally {
+    setBtnLoading(btn, false);
+  }
+}
+
+// Wire das tabs do técnico (bottom nav). Igual padrão do cliente.
+function _bindTecnicoUI() {
+  document.querySelectorAll(
+    '[data-screen="tecnico-chamados"] [data-tec-tab], [data-screen="tecnico-conta"] [data-tec-tab]'
+  ).forEach((b) => {
+    b.addEventListener("click", () => {
+      const tab = b.dataset.tecTab;
+      if (tab === "chamados") {
+        showScreen("tecnico-chamados");
+      } else if (tab === "conta") {
+        abrirTelaContaTec();
+      }
+    });
+  });
+}
+_bindTecnicoUI();
 
 // ============== BOOTSTRAP ==============
 // Footer de diagnóstico no login

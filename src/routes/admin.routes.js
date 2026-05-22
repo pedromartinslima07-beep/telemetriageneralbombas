@@ -14,6 +14,7 @@ const { SYSTEM_PROMPT_PADRAO } = require("../services/ia.service");
 const { getOfflineJobStatus } = require("../jobs/offline.job");
 const { getGpsCleanupStatus } = require("../jobs/gps-cleanup.job");
 const { getLeiturasCleanupStatus, jobLimparLeituras } = require("../jobs/leituras-cleanup.job");
+const { getChamadosAtrasoStatus, jobVerificarChamadosAtraso } = require("../jobs/chamados-atraso.job");
 
 const router = express.Router();
 
@@ -367,7 +368,7 @@ router.post("/usuarios", authRequired, masterAdminOnly, async (req, res) => {
   const bcrypt = require("bcrypt");
   const { nome, email, senha, role, condominio_id } = req.body || {};
   if (!nome || !email || !senha) return res.status(400).json({ error: "nome, email e senha obrigatórios" });
-  const ROLES = ["cliente", "admin", "admin_viewer"];
+  const ROLES = ["cliente", "admin", "admin_viewer", "tecnico"];
   if (role && !ROLES.includes(role)) return res.status(400).json({ error: "role inválido" });
   try {
     const hash = await bcrypt.hash(String(senha), 10);
@@ -391,7 +392,7 @@ router.patch("/usuarios/:id", authRequired, masterAdminOnly, async (req, res) =>
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
 
   const { nome, email, role, condominio_id } = req.body || {};
-  const ROLES = ["cliente", "admin", "admin_viewer"];
+  const ROLES = ["cliente", "admin", "admin_viewer", "tecnico"];
   if (role && !ROLES.includes(role)) return res.status(400).json({ error: "role inválido" });
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: "email inválido" });
 
@@ -526,8 +527,22 @@ router.get("/integracoes/status", authRequired, masterAdminOnly, async (req, res
   out.job_offline = getOfflineJobStatus();
   out.job_gps_cleanup = getGpsCleanupStatus();
   out.job_leituras_cleanup = getLeiturasCleanupStatus();
+  out.job_chamados_atraso = getChamadosAtrasoStatus();
 
   return res.json(out);
+});
+
+// POST /admin/jobs/chamados-atraso/run — dispara verificação de chamados
+// atrasados imediatamente (em vez de esperar o ciclo de 15 min). Útil pra
+// testar configuração e ver se o email chega.
+router.post("/jobs/chamados-atraso/run", authRequired, masterAdminOnly, async (req, res) => {
+  try {
+    const resultado = await jobVerificarChamadosAtraso();
+    return res.json(resultado);
+  } catch (err) {
+    console.error("[admin] /jobs/chamados-atraso/run:", err);
+    return res.status(500).json({ error: "Erro ao executar verificação", detalhe: err.message });
+  }
 });
 
 // POST /admin/jobs/leituras-cleanup/run — dispara a limpeza de leituras

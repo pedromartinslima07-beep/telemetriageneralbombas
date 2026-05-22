@@ -2,8 +2,25 @@ const express = require("express");
 const { pool } = require("../db");
 const { authRequired } = require("../middleware/authRequired");
 const { adminOnly } = require("../middleware/adminOnly");
+const { getConfigInt } = require("../services/config.service");
 
 const router = express.Router();
+
+// GET /tecnicos/config — config operacional consumida pelo app no boot do
+// técnico. Aberto pra qualquer usuário autenticado (não vaza nada sensível).
+// Hoje só expõe a frequência do GPS, mas é o lugar pra adicionar futuros
+// ajustes operacionais sem precisar de outro endpoint.
+router.get("/config", authRequired, async (req, res) => {
+  try {
+    const gps_frequencia_segundos = await getConfigInt("gps.frequencia_segundos", 60);
+    return res.json({
+      gps: { frequencia_segundos: gps_frequencia_segundos },
+    });
+  } catch (err) {
+    console.error("[tecnicos-localizacao] GET /config:", err);
+    return res.status(500).json({ error: "Erro ao buscar config" });
+  }
+});
 
 // POST /tecnicos/localizacao — técnico envia ping GPS pelo app.
 // Resolve `tecnico_id` via `tecnicos.usuario_id = req.user.id`.

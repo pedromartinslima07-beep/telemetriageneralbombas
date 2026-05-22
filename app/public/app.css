@@ -2522,6 +2522,10 @@ body:has(.screen-auth[data-active])::before { display: none; }
 .cli-nav button.active { color: var(--accent); }
 .cli-nav button:hover  { color: var(--text); }
 
+/* Bottom nav do técnico: só 2 abas (Chamados/Conta) — colunas se adaptam */
+[data-screen="tecnico-chamados"] .cli-nav,
+[data-screen="tecnico-conta"]    .cli-nav { grid-template-columns: repeat(2, 1fr); }
+
 /* ===== FAB (Floating Action Button) ===== */
 .cli-fab {
   position: fixed;

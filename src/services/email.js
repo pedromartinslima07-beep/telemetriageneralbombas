@@ -123,4 +123,68 @@ async function sendAlertaEmail(dados) {
   }
 }
 
-module.exports = { sendOTP, sendAlertaEmail };
+// Envia email avisando que um chamado está há muito tempo em atendimento
+// (Fase 7I). Vai pra mesma lista de destinatários do alerta crítico —
+// `alertas.email_destinatario`.
+//
+// dados: { chamado_id, titulo, condominio_nome, tecnico_nome, horas, desde_iso }
+async function sendChamadoAtrasoEmail(dados) {
+  const destinatariosRaw = await getConfig("alertas.email_destinatario", "");
+  if (!destinatariosRaw) return;
+  if (!process.env.RESEND_API_KEY) return;
+
+  const to = String(destinatariosRaw)
+    .split(",")
+    .map(s => s.trim())
+    .filter(s => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s));
+  if (!to.length) return;
+
+  const condo = dados.condominio_nome || "—";
+  const tecnico = dados.tecnico_nome || "—";
+  const titulo = dados.titulo || "Sem título";
+  const horas = Number(dados.horas || 0).toFixed(1);
+  const cor = "#f0b014";
+  const dataFmt = dados.desde_iso ? new Date(dados.desde_iso).toLocaleString("pt-BR") : "—";
+
+  try {
+    await getResend().emails.send({
+      from: `General Telemetria <${_emailFrom()}>`,
+      to,
+      subject: `[Aviso] Chamado #${dados.chamado_id} em atendimento há ${horas}h — ${condo}`,
+      text: [
+        `Chamado em atendimento há mais que o limite configurado.`,
+        `Chamado: CH-${String(dados.chamado_id).padStart(4, "0")} — ${titulo}`,
+        `Condomínio: ${condo}`,
+        `Técnico: ${tecnico}`,
+        `Em atendimento desde: ${dataFmt}`,
+        `Tempo decorrido: ${horas}h`,
+        "",
+        "Verifique se o técnico precisa de apoio ou se esqueceu de fechar o chamado.",
+      ].join("\n"),
+      html: `
+        <div style="font-family:sans-serif;max-width:520px;margin:auto;padding:24px;background:#0b0f1f;color:#eef0fb;border-radius:12px;">
+          <div style="display:flex;align-items:center;gap:10px;padding-bottom:14px;border-bottom:1px solid rgba(255,255,255,.08);">
+            <div style="width:36px;height:36px;border-radius:8px;background:${cor};display:inline-flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:18px;">⏱</div>
+            <div>
+              <div style="font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:.6px;">Aviso operacional</div>
+              <div style="font-size:16px;font-weight:700;color:${cor};">Chamado em atendimento há ${horas}h</div>
+            </div>
+          </div>
+          <table style="width:100%;margin-top:16px;font-size:13.5px;line-height:1.6;border-collapse:collapse;">
+            <tr><td style="color:#94a3b8;padding:6px 0;width:130px;">Chamado</td><td style="font-weight:600;">CH-${String(dados.chamado_id).padStart(4, "0")} — ${titulo}</td></tr>
+            <tr><td style="color:#94a3b8;padding:6px 0;">Condomínio</td><td style="font-weight:600;">${condo}</td></tr>
+            <tr><td style="color:#94a3b8;padding:6px 0;">Técnico</td><td style="font-weight:600;">${tecnico}</td></tr>
+            <tr><td style="color:#94a3b8;padding:6px 0;">Em atendimento desde</td><td style="font-weight:600;">${dataFmt}</td></tr>
+          </table>
+          <div style="margin-top:14px;padding:12px;background:rgba(255,255,255,.04);border-radius:8px;font-size:13px;color:#cbd5e1;">
+            Verifique se o técnico precisa de apoio ou se esqueceu de fechar o chamado.
+          </div>
+        </div>
+      `,
+    });
+  } catch (err) {
+    console.error("[email] erro ao enviar aviso de atraso:", err.message);
+  }
+}
+
+module.exports = { sendOTP, sendAlertaEmail, sendChamadoAtrasoEmail };

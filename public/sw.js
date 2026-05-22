@@ -1,4 +1,10 @@
-const CACHE_NAME = "telemetria-v17";
+// ⚠️ AO ADICIONAR UM ENDPOINT NOVO NO BACKEND (ex: /chamados, /tecnicos),
+// inclua o prefixo na lista de "network first" abaixo (busque por "isHtml ||")
+// E bumpe o CACHE_NAME aqui + o ?v=N do register-sw.js no HTML que registra
+// este SW. Sem essa lista, o SW intercepta o GET com cache first e serve
+// resposta antiga — sintoma clássico: dado aparece em Ctrl+Shift+R mas some
+// em F5. Ver CLAUDE.md raiz pro racional completo.
+const CACHE_NAME = "telemetria-v18";
 
 // Permite que a página force a ativação imediata desta versão (sem esperar
 // todos os clients fecharem). Pareado com o postMessage no register-sw.js.
@@ -52,12 +58,15 @@ self.addEventListener("fetch", (e) => {
       url.pathname.startsWith("/reservatorios") ||
       url.pathname.startsWith("/condominios") ||
       url.pathname.startsWith("/relatorio") ||
+      url.pathname.startsWith("/relatorios") ||
       url.pathname.startsWith("/status") ||
       url.pathname.startsWith("/jobs") ||
       url.pathname.startsWith("/ultima-leitura") ||
       url.pathname.startsWith("/health") ||
       url.pathname.startsWith("/whatsapp") ||
       url.pathname.startsWith("/chamados") ||
+      url.pathname.startsWith("/tecnicos") ||
+      url.pathname.startsWith("/ordens-servico") ||
       url.pathname.startsWith("/tiles")) {
     e.respondWith(fetch(e.request).catch(() => new Response(
       JSON.stringify({ error: "Sem conexão" }),

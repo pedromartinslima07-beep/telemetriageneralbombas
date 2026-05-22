@@ -1,4 +1,5 @@
 const express = require("express");
+const bcrypt = require("bcrypt");
 const { pool } = require("../db");
 const { authRequired } = require("../middleware/authRequired");
 const { adminOnly } = require("../middleware/adminOnly");
@@ -6,13 +7,29 @@ const { masterAdminOnly } = require("../middleware/masterAdminOnly");
 
 const router = express.Router();
 
+// Helper: cria usuário com role=tecnico e devolve o id. Usa o client de
+// transação passado (não abre pool novo).
+async function _criarUsuarioTecnico(client, { nome, email, senha }) {
+  if (!email) throw new Error("Email é obrigatório para criar login");
+  if (!senha || String(senha).length < 6) throw new Error("Senha mínima de 6 caracteres");
+  const hash = await bcrypt.hash(String(senha), 10);
+  const r = await client.query(
+    `INSERT INTO usuarios (nome, email, senha_hash, role)
+     VALUES ($1, $2, $3, 'tecnico')
+     RETURNING id`,
+    [nome, String(email).toLowerCase(), hash]
+  );
+  return r.rows[0].id;
+}
+
 // GET /tecnicos
 router.get("/", authRequired, adminOnly, async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT
         t.id, t.nome, t.email, t.telefone, t.especialidade,
-        t.disponivel, t.ativo, t.criado_em,
+        t.disponivel, t.ativo, t.criado_em, t.usuario_id,
+        (t.usuario_id IS NOT NULL) AS tem_login,
         COUNT(ch.id) FILTER (WHERE ch.status != 'fechado') AS chamados_abertos,
         COUNT(ch.id) AS chamados_total
       FROM tecnicos t
@@ -28,52 +45,142 @@ router.get("/", authRequired, adminOnly, async (req, res) => {
 });
 
 // POST /tecnicos
+// Aceita campo opcional `senha`. Se presente, cria também o usuário (role=tecnico)
+// e vincula via `tecnicos.usuario_id` na mesma transação. Email vira obrigatório
+// nesse caso (é o login do técnico).
 router.post("/", authRequired, masterAdminOnly, async (req, res) => {
-  const { nome, email, telefone, especialidade } = req.body || {};
+  const { nome, email, telefone, especialidade, senha } = req.body || {};
   if (!nome) return res.status(400).json({ error: "nome é obrigatório" });
+
+  const querSenha = !!(senha && String(senha).trim());
+
+  if (querSenha) {
+    if (!email) return res.status(400).json({ error: "Email é obrigatório quando há senha (será o login do app)" });
+    if (String(senha).length < 6) return res.status(400).json({ error: "Senha mínima de 6 caracteres" });
+  }
+
+  const client = await pool.connect();
   try {
-    const result = await pool.query(
-      `INSERT INTO tecnicos (nome, email, telefone, especialidade)
-       VALUES ($1, $2, $3, $4)
-       RETURNING *`,
-      [nome, email || null, telefone || null, especialidade || null]
+    await client.query("BEGIN");
+
+    let usuarioId = null;
+    if (querSenha) {
+      usuarioId = await _criarUsuarioTecnico(client, { nome, email, senha });
+    }
+
+    const result = await client.query(
+      `INSERT INTO tecnicos (nome, email, telefone, especialidade, usuario_id)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING *, (usuario_id IS NOT NULL) AS tem_login`,
+      [nome, email || null, telefone || null, especialidade || null, usuarioId]
     );
+
+    await client.query("COMMIT");
     return res.status(201).json(result.rows[0]);
   } catch (err) {
+    await client.query("ROLLBACK");
+    if (err.code === "23505") return res.status(409).json({ error: "Email já cadastrado em outro usuário" });
     console.error("[tecnicos] POST /:", err);
-    return res.status(500).json({ error: "Erro ao criar técnico" });
+    return res.status(500).json({ error: err.message || "Erro ao criar técnico" });
+  } finally {
+    client.release();
   }
 });
 
 // PATCH /tecnicos/:id
+// Se vier `senha`:
+//   - técnico sem usuario_id ainda → cria usuário e linka (precisa email)
+//   - técnico já com usuario_id    → atualiza só a senha do usuário existente
 router.patch("/:id", authRequired, masterAdminOnly, async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
 
-  const { nome, email, telefone, especialidade, disponivel, ativo } = req.body || {};
-  const sets = [];
-  const values = [];
+  const { nome, email, telefone, especialidade, disponivel, ativo, senha } = req.body || {};
+  const querSenha = !!(senha && String(senha).trim());
 
-  if (nome !== undefined)         { values.push(nome);         sets.push(`nome = $${values.length}`); }
-  if (email !== undefined)        { values.push(email);        sets.push(`email = $${values.length}`); }
-  if (telefone !== undefined)     { values.push(telefone);     sets.push(`telefone = $${values.length}`); }
-  if (especialidade !== undefined){ values.push(especialidade);sets.push(`especialidade = $${values.length}`); }
-  if (disponivel !== undefined)   { values.push(!!disponivel); sets.push(`disponivel = $${values.length}`); }
-  if (ativo !== undefined)        { values.push(!!ativo);      sets.push(`ativo = $${values.length}`); }
-
-  if (!sets.length) return res.status(400).json({ error: "Nenhum campo para atualizar" });
-
-  values.push(id);
+  const client = await pool.connect();
   try {
-    const result = await pool.query(
-      `UPDATE tecnicos SET ${sets.join(", ")} WHERE id = $${values.length} RETURNING *`,
-      values
+    await client.query("BEGIN");
+
+    // Carrega o técnico atual pra decidir o caminho da senha
+    const cur = await client.query(
+      `SELECT id, nome, email, usuario_id FROM tecnicos WHERE id = $1`,
+      [id]
     );
-    if (!result.rows.length) return res.status(404).json({ error: "Técnico não encontrado" });
-    return res.json(result.rows[0]);
+    if (!cur.rows.length) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "Técnico não encontrado" });
+    }
+    const tec = cur.rows[0];
+
+    // Resolve a senha primeiro — pode invalidar a transação antes de mexer no
+    // resto. Não trata como "campo a ser atualizado em tecnicos".
+    let novoUsuarioId = null;
+    if (querSenha) {
+      if (String(senha).length < 6) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({ error: "Senha mínima de 6 caracteres" });
+      }
+      if (tec.usuario_id) {
+        // já tem login — só troca senha
+        const hash = await bcrypt.hash(String(senha), 10);
+        await client.query(
+          `UPDATE usuarios SET senha_hash = $1 WHERE id = $2`,
+          [hash, tec.usuario_id]
+        );
+      } else {
+        // cria login agora
+        const emailFinal = email !== undefined ? email : tec.email;
+        if (!emailFinal) {
+          await client.query("ROLLBACK");
+          return res.status(400).json({ error: "Email é obrigatório quando se cria login" });
+        }
+        novoUsuarioId = await _criarUsuarioTecnico(client, {
+          nome: nome !== undefined ? nome : tec.nome,
+          email: emailFinal,
+          senha,
+        });
+      }
+    }
+
+    // Monta UPDATE da tabela tecnicos com os campos comuns
+    const sets = [];
+    const values = [];
+    if (nome !== undefined)          { values.push(nome);          sets.push(`nome = $${values.length}`); }
+    if (email !== undefined)         { values.push(email);         sets.push(`email = $${values.length}`); }
+    if (telefone !== undefined)      { values.push(telefone);      sets.push(`telefone = $${values.length}`); }
+    if (especialidade !== undefined) { values.push(especialidade); sets.push(`especialidade = $${values.length}`); }
+    if (disponivel !== undefined)    { values.push(!!disponivel);  sets.push(`disponivel = $${values.length}`); }
+    if (ativo !== undefined)         { values.push(!!ativo);       sets.push(`ativo = $${values.length}`); }
+    if (novoUsuarioId)               { values.push(novoUsuarioId); sets.push(`usuario_id = $${values.length}`); }
+
+    let updated;
+    if (sets.length) {
+      values.push(id);
+      const r = await client.query(
+        `UPDATE tecnicos SET ${sets.join(", ")} WHERE id = $${values.length}
+         RETURNING *, (usuario_id IS NOT NULL) AS tem_login`,
+        values
+      );
+      updated = r.rows[0];
+    } else {
+      // Nada pra atualizar em tecnicos (só trocou senha). Devolve o estado atual.
+      const r = await client.query(
+        `SELECT *, (usuario_id IS NOT NULL) AS tem_login FROM tecnicos WHERE id = $1`,
+        [id]
+      );
+      updated = r.rows[0];
+    }
+
+    await client.query("COMMIT");
+    return res.json(updated);
   } catch (err) {
+    await client.query("ROLLBACK");
+    if (err.code === "23505") return res.status(409).json({ error: "Email já cadastrado em outro usuário" });
     console.error("[tecnicos] PATCH /:id:", err);
-    return res.status(500).json({ error: "Erro ao atualizar técnico" });
+    return res.status(500).json({ error: err.message || "Erro ao atualizar técnico" });
+  } finally {
+    client.release();
   }
 });
 

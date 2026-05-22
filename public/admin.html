@@ -12,7 +12,9 @@
   <meta name="apple-mobile-web-app-title" content="Telemetria">
   <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
   <link rel="stylesheet" href="/static/leaflet.css">
-  <link rel="stylesheet" href="/static/admin.css?v=17">
+  <!-- ⚠️ Ao mexer em admin.js ou admin.css, bumpe o ?v=N aqui E no <script>
+       lá embaixo. Ver CLAUDE.md raiz. -->
+  <link rel="stylesheet" href="/static/admin.css?v=18">
 </head>
 <body>
 
@@ -1368,6 +1370,7 @@
               <button class="wa-tab" data-cfg-tab="usuarios">Usuários</button>
               <button class="wa-tab" data-cfg-tab="ia">IA</button>
               <button class="wa-tab" data-cfg-tab="notificacoes">Notificações</button>
+              <button class="wa-tab" data-cfg-tab="operacional">Operacional</button>
               <button class="wa-tab" data-cfg-tab="manutencao">Manutenção</button>
               <button class="wa-tab" data-cfg-tab="integracoes">Integrações</button>
             </div>
@@ -1530,6 +1533,79 @@
           <div class="cfg-actions" style="margin-top:12px;">
             <span id="cfgNotifMsg" class="cfg-msg"></span>
             <button class="btn btnAccent btn-sm" data-cfg-action="salvar-notificacoes">Salvar notificações</button>
+          </div>
+        </div>
+
+        <!-- ── BODY: OPERACIONAL ── -->
+        <div class="cfg-body" id="cfgBodyOperacional" style="display:none;">
+          <div class="cfg-grid">
+
+            <!-- 1. Frequência do GPS dos técnicos -->
+            <div class="card cfg-card">
+              <div class="cfg-card-head">
+                <svg class="cfg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                <div>
+                  <h3>Frequência do GPS</h3>
+                  <p>De quantos em quantos segundos o app do técnico envia a posição. Valor menor = mapa mais atualizado, mais consumo de bateria.</p>
+                </div>
+              </div>
+              <div class="cfg-form">
+                <div class="field">
+                  <label class="lbl">Intervalo (segundos)</label>
+                  <input type="number" id="cfgGpsFrequencia" class="input" min="30" max="300" style="max-width:120px;">
+                  <p class="cfg-hint">Entre 30 e 300 segundos (5 min). Padrão: 60 segundos. A janela ativa do GPS é 08h–18h.</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- 2. Retenção do histórico de localização -->
+            <div class="card cfg-card">
+              <div class="cfg-card-head">
+                <svg class="cfg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                <div>
+                  <h3>Retenção do histórico de GPS</h3>
+                  <p>Por quantas horas o sistema guarda a trilha completa de cada técnico. Útil pra reconstruir caminhos passados.</p>
+                </div>
+              </div>
+              <div class="cfg-form">
+                <div class="field">
+                  <label class="lbl">Manter histórico por (horas)</label>
+                  <input type="number" id="cfgGpsRetencaoHoras" class="input" min="1" max="720" style="max-width:120px;">
+                  <p class="cfg-hint">Entre 1 e 720 horas (30 dias). Padrão: 24h. 168h = 7 dias.</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- 3. Alerta de chamado parado -->
+            <div class="card cfg-card">
+              <div class="cfg-card-head">
+                <svg class="cfg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                <div>
+                  <h3>Alerta de chamado parado</h3>
+                  <p>Se um chamado ficar em "Em atendimento" por muito tempo, o sistema avisa por email. Pode ser que o técnico esqueceu de fechar ou precisa de ajuda.</p>
+                </div>
+              </div>
+              <div class="cfg-form">
+                <div class="field">
+                  <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                    <input type="checkbox" id="cfgAtrasoEnabled">
+                    <span><strong>Ativar alerta por email</strong></span>
+                  </label>
+                  <p class="cfg-hint">Usa a mesma lista de destinatários configurada em "Emails de alerta" (aba Notificações).</p>
+                </div>
+                <div class="field">
+                  <label class="lbl">Limite (horas)</label>
+                  <input type="number" id="cfgAtrasoHoras" class="input" min="1" max="24" style="max-width:120px;">
+                  <p class="cfg-hint">Entre 1 e 24 horas. Padrão: 4. O sistema re-avisa a cada janela completa pra não esquecer.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="cfg-actions" style="margin-top:12px;">
+            <span id="cfgOperMsg" class="cfg-msg"></span>
+            <button class="btn btn-sm" data-cfg-action="rodar-chamados-atraso">▶ Testar verificação agora</button>
+            <button class="btn btnAccent btn-sm" data-cfg-action="salvar-operacional">Salvar</button>
           </div>
         </div>
 
@@ -1891,8 +1967,8 @@
 <script src="/static/apexcharts.min.js"></script>
 <script src="/static/leaflet.js"></script>
 <script src="/static/inatividade.js" defer></script>
-<script src="/static/admin.js?v=17" defer></script>
+<script src="/static/admin.js?v=18" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
-<script src="/static/register-sw.js?v=15" defer></script>
+<script src="/static/register-sw.js?v=16" defer></script>
 </body>
 </html>

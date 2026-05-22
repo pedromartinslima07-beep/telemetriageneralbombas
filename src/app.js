@@ -41,6 +41,7 @@ const { ordensServicoRouter } = require("./routes/ordens-servico.routes");
 const { startOfflineScheduler } = require("./jobs/offline.job");
 const { startGpsCleanupScheduler } = require("./jobs/gps-cleanup.job");
 const { startLeiturasCleanupScheduler } = require("./jobs/leituras-cleanup.job");
+const { startChamadosAtrasoScheduler } = require("./jobs/chamados-atraso.job");
 
 const app = express();
 
@@ -301,14 +302,23 @@ app.get("/admin/reset-cache", _resetCacheHandler);
 app.get("/reset-cache", _resetCacheHandler);
 
 // páginas
+// HTMLs principais — `Cache-Control: no-cache` força o browser a sempre
+// revalidar antes de servir do cache. Sem isso, o navegador às vezes serve
+// um admin.html antigo (com `?v=N` defasado), o que faz o admin.js velho
+// continuar sendo carregado mesmo após F5. Revalidar é barato (304 quando
+// não mudou) e elimina a classe inteira de bug.
+function _htmlNoCache(req, res, next) {
+  res.setHeader("Cache-Control", "no-cache");
+  next();
+}
 app.get("/", (req, res) => res.redirect("/login"));
-app.get("/login", (req, res) =>
+app.get("/login", _htmlNoCache, (req, res) =>
   res.sendFile(path.join(__dirname, "../public/login.html"))
 );
-app.get("/admin/painel", (req, res) =>
+app.get("/admin/painel", _htmlNoCache, (req, res) =>
   res.sendFile(path.join(__dirname, "../public/admin.html"))
 );
-app.get("/cliente/painel", (req, res) =>
+app.get("/cliente/painel", _htmlNoCache, (req, res) =>
   res.sendFile(path.join(__dirname, "../public/cliente.html"))
 );
 
@@ -335,5 +345,6 @@ app.use("/ordens-servico", ordensServicoRouter);
 startOfflineScheduler();
 startGpsCleanupScheduler();
 startLeiturasCleanupScheduler();
+startChamadosAtrasoScheduler();
 
 module.exports = { app };
