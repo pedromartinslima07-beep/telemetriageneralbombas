@@ -12,20 +12,57 @@ if (!getToken()) {
 }
 
 // ===== NAVEGAÇÃO POR SEÇÕES =====
-const _sectionTitles = { dashboard: "Dashboard", historico: "Histórico", alertas: "Alertas" };
+const _sectionTitles = { dashboard: "Dashboard", telemetria: "Telemetria", alertas: "Alertas", chamados: "Chamados" };
 
 // ── Estado do histórico ──
 let _reservatorios = [];
 let _histDias = 1;
 let _histChart = null;
 
+// ── Estado dos alertas (modelo novo) ──
+let _alAlertas = [];
+let _alTabAtiva = "todos";
+let _alBindFeito = false;
+let _alSelecionadoId = null;
+
+// ── Estado da telemetria ──
+let _telCliUltimoStatus = null; // último payload de /cliente/status
+let _telCliBarChart    = null;  // ApexCharts (níveis - bar)
+let _telCliHistChart   = null;  // ApexCharts (histórico - area)
+
+const TEL_CLI_HIST_COLORS = ["#f0b014", "#22d3ee", "#a78bfa", "#34d399", "#fb7185", "#fbbf24"];
+
+function _telCliTemReservatorios() {
+  const list = Array.isArray(_telCliUltimoStatus?.reservatorios) ? _telCliUltimoStatus.reservatorios : [];
+  return list.length > 0;
+}
+
+function _telCliCorPct(pct) {
+  if (pct == null) return "off";
+  if (pct < 20) return "bad";
+  if (pct < 40) return "warn";
+  return "ok";
+}
+
 function showSection(name) {
   document.querySelectorAll(".section").forEach(s => s.classList.remove("is-active"));
   document.querySelector(`.section[data-section="${name}"]`)?.classList.add("is-active");
   document.querySelectorAll(".nav-item[data-section]").forEach(n => n.classList.remove("active"));
   document.querySelector(`.nav-item[data-section="${name}"]`)?.classList.add("active");
-  const t = document.getElementById("topbarTitle");
-  if (t) t.textContent = _sectionTitles[name] || name;
+  const title = _sectionTitles[name] || name;
+  const t1 = document.getElementById("topbarTitle");        // mobile
+  const t2 = document.getElementById("topbarTitleDesktop"); // desktop
+  if (t1) t1.textContent = title;
+  if (t2) t2.textContent = title;
+
+  if (name === "chamados" && typeof renderSecaoChCli === "function") {
+    renderSecaoChCli();
+  }
+  if (name === "telemetria") {
+    // Re-render do conteúdo (KPIs + mini-cards) e carrega o histórico se houver dados
+    _telCliAtualizar(_telCliUltimoStatus);
+    if (_telCliTemReservatorios()) carregarHistorico();
+  }
 }
 
 function abrirModalSenha() {
@@ -125,41 +162,249 @@ function resumoCard(titulo, valorHtml, sub) {
   `;
 }
 
-function renderReservatoriosCliente(data) {
-  const tbody = document.getElementById("tbodyReservatoriosCliente");
-  const empty = document.getElementById("semReservatorios");
-  if (!tbody) return;
+// ============================================================
+// TELEMETRIA — página combinada (reservatórios + histórico)
+// ============================================================
 
-  tbody.innerHTML = "";
+function _telCliEscapar(s) {
+  return String(s || "")
+    .replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;").replaceAll("'","&#39;");
+}
+
+function _telCliFmtTempoRel(iso) {
+  if (!iso) return "—";
+  const diff = Date.now() - new Date(iso).getTime();
+  if (diff < 0) return "agora";
+  const s = Math.floor(diff / 1000);
+  if (s < 60)    return `há ${s}s`;
+  const m = Math.floor(s / 60);
+  if (m < 60)   return `há ${m} min`;
+  const h = Math.floor(m / 60);
+  if (h < 24)   return `há ${h}h`;
+  return `há ${Math.floor(h / 24)} dia${h >= 48 ? "s" : ""}`;
+}
+
+function _telCliAtualizar(data) {
+  const fallback  = document.getElementById("telCliFallback");
+  const conteudo  = document.getElementById("telCliConteudo");
+  if (!fallback || !conteudo) return; // seção não está renderizada nesta página
 
   const list = Array.isArray(data?.reservatorios) ? data.reservatorios : [];
 
-  if (empty) empty.style.display = list.length === 0 ? "block" : "none";
-  if (list.length === 0) return;
-
-  for (const r of list) {
-    const u = r.ultima_leitura;
-
-    const min =
-      (r.minutos_sem_atualizar === null || r.minutos_sem_atualizar === undefined)
-        ? "-"
-        : r.minutos_sem_atualizar;
-
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>${r.nome || "-"}</td>
-      <td>${r.tipo || "-"}</td>
-      
-      <td>${u?.criado_em ? fmtData(u.criado_em) : "-"}</td>
-      <td>${u?.nivel ? tankHtml(u.nivel, u.nivel_pct) : "-"}</td>
-      <td>${u ? bombaBadge(u.bomba_ligada) : "-"}</td>
-
-      <td>${min}</td>
-      <td>${r.offline ? badge("SIM", "bad") : badge("NÃO", "ok")}</td>
-      <td><span class="pillCount">${r.alertas_abertos_count ?? 0}</span></td>
-    `;
-    tbody.appendChild(tr);
+  if (list.length === 0) {
+    fallback.style.display = "flex";
+    conteudo.style.display = "none";
+    return;
   }
+
+  fallback.style.display = "none";
+  conteudo.style.display = "block";
+
+  _telCliRenderKpis(list);
+  _telCliRenderNiveisChart(list);
+  _telCliRenderCriticos(list);
+  _telCliRenderBombas(list);
+  // O select do histórico é populado em populateHistSelect() chamado dentro de carregar()
+}
+
+function _telCliRenderKpis(list) {
+  const el = document.getElementById("telCliKpis");
+  if (!el) return;
+
+  const total       = list.length;
+  const offline     = list.filter(r => r.offline).length;
+  const online      = total - offline;
+  const alertas     = list.reduce((s, r) => s + (Number(r.alertas_abertos_count) || 0), 0);
+
+  // Última leitura: mais recente de todos
+  let ultimaIso = null;
+  for (const r of list) {
+    const c = r.ultima_leitura?.criado_em;
+    if (!c) continue;
+    if (!ultimaIso || new Date(c) > new Date(ultimaIso)) ultimaIso = c;
+  }
+
+  const kpi = (icon, val, hint, kindCls) => `
+    <div class="rc ${kindCls} rc-static">
+      <div class="rc-head"><div class="rc-icon">${icon}</div><div class="rc-label">${hint}</div></div>
+      <div class="rc-value">${val}</div>
+    </div>`;
+
+  el.innerHTML =
+    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/></svg>`,
+        total, "Reservatórios", "rc-neutral") +
+    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`,
+        online, "Online", online === total ? "rc-ok" : "rc-warn") +
+    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>`,
+        alertas, "Alertas abertos", alertas > 0 ? "rc-bad" : "rc-ok") +
+    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
+        _telCliFmtTempoRel(ultimaIso), "Última leitura", "rc-neutral");
+}
+
+// --- Bar chart de níveis (ApexCharts) ---
+function _telCliRenderNiveisChart(list) {
+  const el = document.getElementById("telCliNiveisChart");
+  const empty = document.getElementById("telCliNiveisEmpty");
+  if (!el || typeof ApexCharts === "undefined") return;
+
+  const reservs = list
+    .filter(r => r.ultima_leitura?.nivel_pct != null)
+    .sort((a, b) => (a.nome || "").localeCompare(b.nome || ""));
+
+  if (reservs.length === 0) {
+    if (_telCliBarChart) { try { _telCliBarChart.destroy(); } catch (_) {} _telCliBarChart = null; }
+    el.innerHTML = "";
+    if (empty) empty.style.display = "block";
+    return;
+  }
+  if (empty) empty.style.display = "none";
+
+  const labels = reservs.map(r => `${r.nome || "Res."}${r.tipo ? " · " + r.tipo : ""}`);
+  const data   = reservs.map(r => Math.round(r.ultima_leitura.nivel_pct));
+  const cores  = reservs.map(r => {
+    const pct = r.ultima_leitura.nivel_pct;
+    if (pct < 20) return "#ef4444";
+    if (pct < 40) return "#f59e0b";
+    if (pct < 70) return "#22d3ee";
+    return "#22c55e";
+  });
+
+  const opts = {
+    chart: { type: "bar", height: "100%", toolbar: { show: false }, background: "transparent", animations: { speed: 350 } },
+    series: [{ name: "Nível (%)", data }],
+    plotOptions: {
+      bar: {
+        borderRadius: 6,
+        borderRadiusApplication: "end",
+        columnWidth: "55%",
+        distributed: true,
+        dataLabels: { position: "top" },
+      },
+    },
+    dataLabels: {
+      enabled: true,
+      formatter: (v) => v + "%",
+      offsetY: -18,
+      style: { fontSize: "10px", fontWeight: "700", colors: ["#eef0fb"] },
+    },
+    colors: cores,
+    xaxis: {
+      categories: labels,
+      labels: { style: { colors: "#7a7e9c", fontSize: "10.5px" }, rotate: -25, hideOverlappingLabels: false, trim: true },
+      axisBorder: { color: "rgba(255,255,255,.06)" },
+      axisTicks:  { color: "rgba(255,255,255,.06)" },
+    },
+    yaxis: {
+      min: 0, max: 100,
+      labels: { style: { colors: "#7a7e9c", fontSize: "10px" }, formatter: (v) => v + "%" },
+    },
+    grid: { borderColor: "rgba(255,255,255,.05)", strokeDashArray: 3, padding: { top: 10, right: 10, bottom: 0, left: 10 } },
+    legend: { show: false },
+    tooltip: { theme: "dark", y: { formatter: (v) => v + "%" } },
+    fill: {
+      type: "gradient",
+      gradient: { shade: "dark", type: "vertical", shadeIntensity: .4, opacityFrom: .95, opacityTo: .7, stops: [0, 100] },
+    },
+  };
+
+  if (_telCliBarChart) {
+    _telCliBarChart.updateOptions(opts, false, true);
+  } else {
+    el.innerHTML = "";
+    _telCliBarChart = new ApexCharts(el, opts);
+    _telCliBarChart.render();
+  }
+}
+
+// --- Lista de "em atenção" ---
+function _telCliRenderCriticos(list) {
+  const wrap = document.getElementById("telCliCriticosList");
+  if (!wrap) return;
+
+  const criticos = list.map(r => {
+    const u = r.ultima_leitura;
+    const pct = u?.nivel_pct;
+    const offline = !!r.offline;
+    const alertas = Number(r.alertas_abertos_count || 0);
+    let kind = null, prioridade = 999;
+    if (offline)                      { kind = "off";  prioridade = 0; }
+    else if (pct != null && pct < 20) { kind = "bad";  prioridade = 1; }
+    else if (pct != null && pct < 40) { kind = "warn"; prioridade = 2; }
+    else if (alertas > 0)             { kind = "warn"; prioridade = 3; }
+    return kind ? { r, pct, offline, alertas, kind, prioridade } : null;
+  }).filter(Boolean)
+    .sort((a, b) => a.prioridade - b.prioridade || ((a.pct ?? 100) - (b.pct ?? 100)))
+    .slice(0, 8);
+
+  if (criticos.length === 0) {
+    wrap.innerHTML = `<div class="mc-empty">Tudo dentro dos parâmetros ✓</div>`;
+    return;
+  }
+
+  const ICON_BAD  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`;
+  const ICON_WARN = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
+  const ICON_OFF  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>`;
+
+  wrap.innerHTML = criticos.map(({ r, pct, offline, alertas, kind }) => {
+    const icone = kind === "bad" ? ICON_BAD : kind === "off" ? ICON_OFF : ICON_WARN;
+    const sub = offline
+      ? `${r.tipo || "Reservatório"} · OFFLINE há ${r.minutos_sem_atualizar ?? "?"} min`
+      : `${r.tipo || "Reservatório"}${alertas > 0 ? ` · ${alertas} alerta${alertas > 1 ? "s" : ""}` : ""}`;
+    const pctTxt = offline ? "OFF" : (pct != null ? Math.round(pct) + "%" : "—");
+    return `
+      <div class="tel-crit-row">
+        <span class="tel-crit-icon ${kind}">${icone}</span>
+        <span class="tel-crit-main">
+          <span class="tel-crit-title">${_telCliEscapar(r.nome || "Reservatório")}</span>
+          <span class="tel-crit-sub">${_telCliEscapar(sub)}</span>
+        </span>
+        <span class="tel-crit-pct ${kind}">${pctTxt}</span>
+      </div>`;
+  }).join("");
+}
+
+// --- Tabela de bombas ---
+function _telCliRenderBombas(list) {
+  const tbody   = document.getElementById("telCliBombasBody");
+  const summary = document.getElementById("telCliBombasSummary");
+  if (!tbody) return;
+
+  const reservs = [...list].sort((a, b) => (a.nome || "").localeCompare(b.nome || ""));
+
+  if (summary) {
+    const on    = reservs.filter(r => r.ultima_leitura?.bomba_ligada === true).length;
+    const known = reservs.filter(r => r.ultima_leitura?.bomba_ligada === true || r.ultima_leitura?.bomba_ligada === false).length;
+    summary.textContent = known > 0 ? `${on} de ${known} ligadas` : `${reservs.length} reservatórios`;
+  }
+
+  if (reservs.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="4" class="mc-empty" style="padding:24px;">Nenhum reservatório.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = reservs.map(r => {
+    const u = r.ultima_leitura;
+    const pct = u?.nivel_pct;
+    const corPct = _telCliCorPct(pct);
+    const bombaCls = u?.bomba_ligada === true ? "on" : u?.bomba_ligada === false ? "off" : "uk";
+    const bombaLbl = u?.bomba_ligada === true ? "LIGADA" : u?.bomba_ligada === false ? "DESLIGADA" : "—";
+    let atualizacao = "—";
+    if (u?.criado_em) {
+      const mins = Math.round((Date.now() - new Date(u.criado_em)) / 60000);
+      if (mins < 60)     atualizacao = `há ${mins} min`;
+      else if (mins < 1440) atualizacao = `há ${Math.round(mins / 60)}h`;
+      else atualizacao = fmtData(u.criado_em);
+    }
+    const offlineTag = r.offline ? ` <span class="badge b-bad" style="margin-left:6px;font-size:9px;padding:1px 5px;">OFFLINE</span>` : "";
+
+    return `<tr>
+      <td><strong>${_telCliEscapar(r.nome || "—")}</strong><div style="font-size:10.5px;color:var(--muted);">${_telCliEscapar(r.tipo || "")}</div></td>
+      <td><span class="tel-bomba-pill ${bombaCls}">${bombaLbl}</span></td>
+      <td><span class="tel-bomba-pct ${corPct === "off" ? "" : corPct}">${pct != null ? Math.round(pct) + "%" : "—"}</span></td>
+      <td style="color:var(--muted);">${atualizacao}${offlineTag}</td>
+    </tr>`;
+  }).join("");
 }
 
 function pickMaisRecente(reservatorios) {
@@ -214,18 +459,15 @@ function histResumoCard(titulo, valor, cor) {
 }
 
 async function carregarHistorico() {
-  const sel = document.getElementById("histReservatorio");
-  const msg = document.getElementById("histMsg");
-  const statsEl = document.getElementById("histStats");
-  const wrapEl = document.getElementById("histChartWrap");
-  const semEl = document.getElementById("histSemDados");
-  if (!sel || !sel.value) return;
+  const sel    = document.getElementById("histReservatorio");
+  const wrapEl = document.getElementById("telCliHistChart");
+  const semEl  = document.getElementById("telCliHistEmpty");
+  const btnPdf = document.getElementById("btnExportarPDF");
+  if (!sel || !sel.value || !wrapEl) return;
 
   const device_id = sel.value;
-  if (msg) msg.textContent = "Carregando...";
-  if (statsEl && !_histChart) statsEl.style.display = "none";
-  if (wrapEl && !_histChart) wrapEl.style.display = "none";
   if (semEl) semEl.style.display = "none";
+  if (btnPdf) btnPdf.disabled = true;
 
   try {
     const r = await fetch(`/cliente/historico?device_id=${encodeURIComponent(device_id)}&dias=${_histDias}`, {
@@ -233,154 +475,76 @@ async function carregarHistorico() {
     });
     if (!r.ok) {
       if (r.status === 401 || r.status === 403) { window.location.href = "/login"; return; }
-      const t = await r.text().catch(() => "");
-      if (msg) msg.textContent = "Erro ao carregar histórico: " + t;
+      if (semEl) { semEl.style.display = "block"; semEl.textContent = "Erro ao carregar histórico."; }
       return;
     }
 
     const data = await r.json();
     const leituras = Array.isArray(data.leituras) ? data.leituras : [];
 
-    if (msg) msg.textContent = "";
-
     if (leituras.length === 0) {
-      if (semEl) semEl.style.display = "block";
+      if (semEl) { semEl.style.display = "block"; semEl.textContent = "Sem dados de histórico no período."; }
+      if (_telCliHistChart) { try { _telCliHistChart.destroy(); } catch (_) {} _telCliHistChart = null; }
+      wrapEl.innerHTML = "";
       return;
     }
+    if (semEl) semEl.style.display = "none";
+    if (btnPdf) btnPdf.disabled = false;
 
-    // Stats
-    if (statsEl && data.stats) {
-      const s = data.stats;
-      statsEl.innerHTML = [
-        histResumoCard("Mínimo", `${s.min_pct}%`, "#f87171"),
-        histResumoCard("Máximo", `${s.max_pct}%`, "#4ade80"),
-        histResumoCard("Média", `${s.avg_pct}%`, "var(--accent)"),
-        histResumoCard("Leituras", s.total_leituras.toLocaleString(), "var(--blue)"),
-      ].join("");
-      statsEl.style.display = "grid";
-    }
+    // Nome do reservatório selecionado pra título da série
+    const reservNome = (sel.options[sel.selectedIndex]?.text || "Nível").split(" (")[0];
 
-    // Chart
-    if (wrapEl) wrapEl.style.display = "block";
-    const canvas = document.getElementById("histChart");
-    if (!canvas) return;
+    const series = [{
+      name: reservNome,
+      data: leituras.map(l => ({ x: new Date(l.bucket).getTime(), y: Math.round(Number(l.nivel_pct_avg)) })),
+    }];
 
-    const labels = leituras.map((l) => {
-      const d = new Date(l.bucket);
-      if (_histDias <= 1) return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-      if (_histDias <= 7) return d.toLocaleDateString([], { weekday: "short", hour: "2-digit", minute: "2-digit" });
-      return d.toLocaleDateString([], { day: "2-digit", month: "short", hour: "2-digit" });
-    });
-    const values = leituras.map((l) => l.nivel_pct_avg);
-
-    const ctx = canvas.getContext("2d");
-
-    // Gradient fill
-    const gradient = ctx.createLinearGradient(0, 0, 0, 280);
-    gradient.addColorStop(0, "rgba(240,176,20,0.35)");
-    gradient.addColorStop(1, "rgba(240,176,20,0.01)");
-
-    // Atualiza gráfico existente sem destruir (evita flash)
-    if (_histChart) {
-      _histChart.data.labels = labels;
-      _histChart.data.datasets[0].data = values;
-      _histChart.data.datasets[0].backgroundColor = gradient;
-      _histChart.data.datasets[0].pointRadius = values.length > 60 ? 0 : 4;
-      _histChart.data.datasets[1].data = labels.map(() => 45);
-      _histChart.data.datasets[2].data = labels.map(() => 20);
-      _histChart.update("none");
-      return;
-    }
-
-    _histChart = new Chart(ctx, {
-      type: "line",
-      data: {
-        labels,
-        datasets: [
-          {
-            label: "Nível (%)",
-            data: values,
-            borderColor: "#f0b014",
-            backgroundColor: gradient,
-            borderWidth: 2.5,
-            pointRadius: values.length > 60 ? 0 : 4,
-            pointHoverRadius: 6,
-            pointBackgroundColor: "#f0b014",
-            tension: 0.35,
-            fill: true,
-            order: 0,
-          },
-          {
-            label: "Atenção (45%)",
-            data: labels.map(() => 45),
-            borderColor: "#D97706",
-            borderDash: [6, 4],
-            borderWidth: 1.5,
-            pointRadius: 0,
-            fill: false,
-            order: 1,
-          },
-          {
-            label: "Crítico (20%)",
-            data: labels.map(() => 20),
-            borderColor: "#ef4444",
-            borderDash: [6, 4],
-            borderWidth: 1.5,
-            pointRadius: 0,
-            fill: false,
-            order: 1,
-          },
+    const opts = {
+      chart: { type: "area", height: "100%", toolbar: { show: false }, background: "transparent", animations: { speed: 300 }, zoom: { enabled: false } },
+      series,
+      colors: ["#f0b014"],
+      stroke: { curve: "smooth", width: 2.4 },
+      fill: {
+        type: "gradient",
+        gradient: { shade: "dark", type: "vertical", shadeIntensity: .4, opacityFrom: .45, opacityTo: 0, stops: [0, 90] },
+      },
+      dataLabels: { enabled: false },
+      grid: { borderColor: "rgba(255,255,255,.05)", strokeDashArray: 3 },
+      xaxis: {
+        type: "datetime",
+        labels: { style: { colors: "#7a7e9c", fontSize: "10px" }, datetimeUTC: false },
+        axisBorder: { color: "rgba(255,255,255,.06)" },
+        axisTicks:  { color: "rgba(255,255,255,.06)" },
+      },
+      yaxis: {
+        min: 0, max: 100,
+        labels: { style: { colors: "#7a7e9c", fontSize: "10px" }, formatter: (v) => v + "%" },
+      },
+      legend: { show: false },
+      annotations: {
+        yaxis: [
+          { y: 45, borderColor: "#D97706", strokeDashArray: 4, label: { borderColor: "#D97706", style: { color: "#fff", background: "#D97706", fontSize: "10px" }, text: "Atenção 45%" } },
+          { y: 20, borderColor: "#ef4444", strokeDashArray: 4, label: { borderColor: "#ef4444", style: { color: "#fff", background: "#ef4444", fontSize: "10px" }, text: "Crítico 20%" } },
         ],
       },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        interaction: { mode: "index", intersect: false },
-        scales: {
-          x: {
-            ticks: { color: "#60617e", maxTicksLimit: 10, maxRotation: 0 },
-            grid: { color: "rgba(255,255,255,.04)" },
-          },
-          y: {
-            min: 0,
-            max: 100,
-            ticks: {
-              color: "#60617e",
-              callback: (v) => v + "%",
-            },
-            grid: { color: "rgba(255,255,255,.06)" },
-          },
-        },
-        plugins: {
-          legend: {
-            display: true,
-            position: "top",
-            align: "end",
-            labels: {
-              color: "#a0a3bf",
-              boxWidth: 24,
-              boxHeight: 3,
-              padding: 14,
-              font: { size: 11 },
-            },
-          },
-          tooltip: {
-            backgroundColor: "#181b33",
-            titleColor: "#e1e3ef",
-            bodyColor: "#a0a3bf",
-            borderColor: "rgba(255,255,255,.08)",
-            borderWidth: 1,
-            filter: (item) => item.datasetIndex === 0,
-            callbacks: {
-              label: (ctx) => ` Nível: ${ctx.parsed.y}%`,
-            },
-          },
-        },
+      tooltip: {
+        theme: "dark",
+        x: { format: _histDias <= 1 ? "HH:mm" : "dd MMM HH:mm" },
+        y: { formatter: (v) => v + "%" },
       },
-    });
+      markers: { size: 0, hover: { size: 5 } },
+    };
 
+    if (_telCliHistChart) {
+      _telCliHistChart.updateOptions(opts, false, true);
+    } else {
+      wrapEl.innerHTML = "";
+      _telCliHistChart = new ApexCharts(wrapEl, opts);
+      _telCliHistChart.render();
+    }
   } catch (e) {
-    if (msg) msg.textContent = "Erro: " + e.message;
+    console.error("carregarHistorico:", e);
+    if (semEl) { semEl.style.display = "block"; semEl.textContent = "Erro: " + e.message; }
   }
 }
 
@@ -445,41 +609,259 @@ grid.innerHTML = [
   resumoCard("Última atualização (geral)", `<span class="mono">${atualizado}</span>`, null),
 ].join("");
 
-  // ✅ NOVO: renderiza reservatórios
-renderReservatoriosCliente(data);
+  // Telemetria (cliente sem produto cai no fallback dentro do _telCliAtualizar)
+  _telCliUltimoStatus = data;
+  _telCliAtualizar(data);
 
   // ===== Alertas =====
-  const tbody = document.getElementById("tbodyAlertasCliente");
-  const sem = document.getElementById("semAlertas");
-
-  tbody.innerHTML = "";
-
-  const alertas = Array.isArray(data.alertas_abertos) ? data.alertas_abertos : [];
+  _alAlertas = Array.isArray(data.alertas_abertos) ? data.alertas_abertos : [];
 
   // atualiza badge da sidebar
   const navBadge = document.getElementById("navBadgeAlertas");
   if (navBadge) {
-    navBadge.textContent = alertas.length;
-    navBadge.style.display = alertas.length > 0 ? "inline-flex" : "none";
+    navBadge.textContent = _alAlertas.length;
+    navBadge.style.display = _alAlertas.length > 0 ? "inline-flex" : "none";
   }
 
-  if (alertas.length === 0) {
-    sem.style.display = "block";
-  } else {
-    sem.style.display = "none";
-    alertas.forEach((a) => {
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td>${tipoBadge(a.tipo)}</td>
-        <td>${a.mensagem || ""}</td>
-        <td>${fmtData(a.criado_em)}</td>
-        <td>${fmtData(a.atualizado_em)}</td>
-      `;
-      tbody.appendChild(tr);
-    });
-  }
+  _alBindEventos();
+  _alRender();
 
   setStatusMsg("Atualizado às " + new Date().toLocaleTimeString());
+}
+
+// ============================================================
+// ALERTAS (modelo novo Mission Control)
+// ============================================================
+
+function _alSeveridade(tipo) {
+  if (tipo === "nivel_muito_baixo" || tipo === "dispositivo_offline") return "critico";
+  if (tipo === "nivel_baixo") return "atencao";
+  return "normal";
+}
+
+function _alSeveridadeLabel(sev) {
+  if (sev === "critico") return "Crítico";
+  if (sev === "atencao") return "Atenção";
+  return "Normal";
+}
+
+function _alTipoLabel(tipo) {
+  if (tipo === "nivel_muito_baixo")   return "Nível muito baixo";
+  if (tipo === "nivel_baixo")         return "Nível baixo";
+  if (tipo === "dispositivo_offline") return "Dispositivo offline";
+  return String(tipo || "").replaceAll("_", " ");
+}
+
+function _alTempoAberto(iso) {
+  if (!iso) return "—";
+  const diff = Date.now() - new Date(iso).getTime();
+  if (diff < 0) return "—";
+  const min = Math.floor(diff / 60000);
+  if (min < 60)   return `${min} min`;
+  const h = Math.floor(min / 60);
+  if (h < 24)     return `${h}h`;
+  const d = Math.floor(h / 24);
+  return `${d} dia${d > 1 ? "s" : ""}`;
+}
+
+function _alFiltrados() {
+  const q = (document.getElementById("alBusca")?.value || "").trim().toLowerCase();
+  let lista = [..._alAlertas];
+
+  if (_alTabAtiva !== "todos") {
+    lista = lista.filter(a => _alSeveridade(a.tipo) === _alTabAtiva);
+  }
+  if (q) {
+    lista = lista.filter(a => {
+      const blob = `${_alTipoLabel(a.tipo)} ${a.mensagem || ""}`.toLowerCase();
+      return blob.includes(q);
+    });
+  }
+  return lista;
+}
+
+function _alRender() {
+  const tbody = document.getElementById("tbodyAlertasCliente");
+  const sem   = document.getElementById("semAlertas");
+  if (!tbody) return;
+
+  // KPIs
+  const criticos = _alAlertas.filter(a => _alSeveridade(a.tipo) === "critico").length;
+  const atencao  = _alAlertas.filter(a => _alSeveridade(a.tipo) === "atencao").length;
+  const total    = _alAlertas.length;
+
+  const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+  set("alKpiCritico", criticos);
+  set("alKpiAtencao", atencao);
+  set("alKpiTotal",   total);
+  set("alCountTodos",    total);
+  set("alCountCritico",  criticos);
+  set("alCountAtencao",  atencao);
+
+  // Tabela
+  const lista = _alFiltrados();
+  if (lista.length === 0) {
+    tbody.innerHTML = "";
+    if (sem) sem.style.display = "flex";
+    return;
+  }
+  if (sem) sem.style.display = "none";
+
+  tbody.innerHTML = lista.map(a => {
+    const sev = _alSeveridade(a.tipo);
+    const sel = _alSelecionadoId === a.id ? " is-selected" : "";
+    return `<tr class="${sel.trim()}" data-al-id="${a.id}" style="cursor:pointer;">
+      <td><strong>${_alTipoLabel(a.tipo)}</strong></td>
+      <td>${a.mensagem ? a.mensagem.replace(/[<>&]/g, c => ({"<":"&lt;",">":"&gt;","&":"&amp;"}[c])) : "—"}</td>
+      <td><span class="al-sev ${sev}">${_alSeveridadeLabel(sev)}</span></td>
+      <td class="al-tempo">${_alTempoAberto(a.criado_em)}</td>
+      <td class="al-data">${fmtData(a.atualizado_em)}</td>
+    </tr>`;
+  }).join("");
+
+  // Mantém o painel em sincronia (alerta selecionado pode ter sumido)
+  _alRenderPainel();
+}
+
+function _alAchaPorId(id) {
+  return _alAlertas.find(a => a.id === id) || null;
+}
+
+function _alReservatorioPorDevice(deviceId) {
+  if (!deviceId || !Array.isArray(_reservatorios)) return null;
+  return _reservatorios.find(r => r.device_id === deviceId) || null;
+}
+
+function _alRenderPainel() {
+  const wrap = document.getElementById("alPainel");
+  if (!wrap) return;
+
+  if (_alSelecionadoId == null) {
+    wrap.innerHTML = `
+      <div class="al-empty">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        <p>Clique numa linha pra ver os detalhes</p>
+      </div>`;
+    return;
+  }
+
+  const a = _alAchaPorId(_alSelecionadoId);
+  if (!a) {
+    _alSelecionadoId = null;
+    return _alRenderPainel();
+  }
+
+  const sev = _alSeveridade(a.tipo);
+  const sevLabel = _alSeveridadeLabel(sev);
+  const reserv = _alReservatorioPorDevice(a.device_id);
+  const pct = reserv?.ultima_leitura?.nivel_pct;
+
+  const kv = (k, v) => `<div><span class="k">${k}</span><span class="v">${v != null && v !== "" ? v : "—"}</span></div>`;
+
+  const banner = reserv ? `
+    <div class="ap-banner ${sev}">
+      <div class="ap-banner-row">
+        ${pct != null ? `
+        <div class="ap-gauge-mini">
+          <svg viewBox="0 0 60 60">
+            <circle cx="30" cy="30" r="26" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="6"/>
+            <circle cx="30" cy="30" r="26" fill="none"
+              stroke="${sev === "critico" ? "#ef4444" : sev === "atencao" ? "#f59e0b" : "#10b981"}"
+              stroke-width="6" stroke-linecap="round"
+              stroke-dasharray="${(Math.max(0, Math.min(100, pct)) / 100 * 163.36).toFixed(1)} 163.36"
+              transform="rotate(-90 30 30)"/>
+          </svg>
+          <div class="ap-gauge-mini-val"><div>${Math.round(pct)}%</div><small>Nível</small></div>
+        </div>` : ""}
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;">Reservatório</div>
+          <div style="font-size:14px;font-weight:700;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${reserv.nome || "—"}</div>
+          ${reserv.tipo ? `<div style="font-size:11px;color:var(--muted);margin-top:4px;">${reserv.tipo}</div>` : ""}
+        </div>
+      </div>
+    </div>` : "";
+
+  const tempoStr = `Aberto há ${_alTempoAberto(a.criado_em)}`;
+
+  wrap.innerHTML = `
+    <div class="ap-head">
+      <div>
+        <div class="ap-title">${_alTipoLabel(a.tipo)}</div>
+        <div class="ap-sub">Alerta #${a.id}${reserv?.nome ? ` • ${reserv.nome}` : ""}</div>
+      </div>
+      <button class="ap-close" data-al-action="fechar-painel" title="Fechar">×</button>
+    </div>
+    ${banner}
+    <div class="ap-section">
+      <div class="ap-section-title">Detalhes</div>
+      <div class="ap-kv">
+        ${kv("Severidade", `<span class="al-sev ${sev}" style="font-size:10.5px;">${sevLabel}</span>`)}
+        ${kv("Tipo", _alTipoLabel(a.tipo))}
+        ${kv("Device", a.device_id || "—")}
+        ${kv("Status", "Aberto")}
+      </div>
+      ${a.mensagem ? `<div style="margin-top:10px;font-size:11.5px;color:var(--muted);">${a.mensagem.replace(/[<>&]/g, c => ({"<":"&lt;",">":"&gt;","&":"&amp;"}[c]))}</div>` : ""}
+    </div>
+    <div class="ap-section">
+      <div class="ap-section-title">Linha do tempo</div>
+      <div style="font-size:11.5px;color:var(--text);">Criado em ${fmtData(a.criado_em)}</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:3px;">${tempoStr}</div>
+      ${a.atualizado_em && a.atualizado_em !== a.criado_em ? `<div style="font-size:11px;color:var(--muted);margin-top:3px;">Última atualização: ${fmtData(a.atualizado_em)}</div>` : ""}
+    </div>`;
+}
+
+function _alBindEventos() {
+  if (_alBindFeito) return;
+  _alBindFeito = true;
+
+  // Tabs
+  document.querySelectorAll(".al-tab[data-al-tab]").forEach(tab => {
+    tab.addEventListener("click", () => {
+      _alTabAtiva = tab.dataset.alTab;
+      document.querySelectorAll(".al-tab[data-al-tab]").forEach(t => t.classList.toggle("is-active", t === tab));
+      _alRender();
+    });
+  });
+
+  // KPI cards clicáveis filtram a tab
+  document.querySelectorAll(".al-kpis .rc[data-al-kpi-tab]").forEach(card => {
+    card.addEventListener("click", () => {
+      const target = card.dataset.alKpiTab;
+      const tab = document.querySelector(`.al-tab[data-al-tab="${target}"]`);
+      if (tab) tab.click();
+    });
+  });
+
+  // Busca
+  document.getElementById("alBusca")?.addEventListener("input", _alRender);
+  document.getElementById("alBtnLimpar")?.addEventListener("click", () => {
+    const b = document.getElementById("alBusca");
+    if (b) b.value = "";
+    _alTabAtiva = "todos";
+    document.querySelectorAll(".al-tab[data-al-tab]").forEach(t => t.classList.toggle("is-active", t.dataset.alTab === "todos"));
+    _alSelecionadoId = null;
+    _alRender();
+  });
+
+  // Click na linha → seleciona e mostra painel
+  document.getElementById("tbodyAlertasCliente")?.addEventListener("click", (e) => {
+    const row = e.target.closest("tr[data-al-id]");
+    if (!row) return;
+    const id = Number(row.dataset.alId);
+    _alSelecionadoId = (_alSelecionadoId === id) ? null : id; // toggle
+    _alRender();
+  });
+
+  // Fechar painel
+  document.getElementById("alPainel")?.addEventListener("click", (e) => {
+    const close = e.target.closest('[data-al-action="fechar-painel"]');
+    if (close) {
+      _alSelecionadoId = null;
+      _alRender();
+    }
+  });
 }
 
 async function trocarSenha(event) {
@@ -578,8 +960,8 @@ document.addEventListener("DOMContentLoaded", () => {
     _sidebar.classList.toggle("collapsed", collapsed);
   }
 
-  // Começa fechada por padrão; abre se o usuário havia deixado aberta
-  _applySidebar(localStorage.getItem("sidebarCollapsed") !== "false");
+  // Começa aberta por padrão; mantém fechada só se o usuário fechou antes
+  _applySidebar(localStorage.getItem("sidebarCollapsed") === "true");
 
   function _onToggle() {
     const next = !_sidebar.classList.contains("collapsed");
@@ -600,11 +982,11 @@ document.addEventListener("DOMContentLoaded", () => {
   // Histórico: troca de reservatório
   document.getElementById("histReservatorio")?.addEventListener("change", carregarHistorico);
 
-  // Histórico: botões de período
-  document.querySelectorAll(".hist-period").forEach((btn) => {
+  // Histórico: botões de período (.tel-range-btn no modelo novo)
+  document.querySelectorAll(".tel-range-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
-      document.querySelectorAll(".hist-period").forEach((b) => b.classList.remove("active"));
-      btn.classList.add("active");
+      document.querySelectorAll(".tel-range-btn").forEach((b) => b.classList.remove("is-active"));
+      btn.classList.add("is-active");
       _histDias = Number(btn.dataset.dias);
       carregarHistorico();
     });
@@ -615,7 +997,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // eslint-disable-next-line no-global-assign
   showSection = (name) => {
     _origShowSection(name);
-    if (name === "historico") carregarHistorico();
+    if (name === "telemetria") carregarHistorico();
   };
 
   // primeira carga + auto refresh
@@ -623,6 +1005,486 @@ document.addEventListener("DOMContentLoaded", () => {
   setInterval(() => {
     carregar();
     const secAtiva = document.querySelector(".section.is-active");
-    if (secAtiva?.dataset.section === "historico") carregarHistorico();
+    if (secAtiva?.dataset.section === "telemetria") carregarHistorico();
+    if (secAtiva?.dataset.section === "chamados")  carregarChamadosCli();
   }, 10000);
 });
+
+// ============================================================
+// CHAMADOS — seção do cliente desktop
+// ============================================================
+
+let _chCliData = [];
+let _chCliSelecionadoId = null;
+let _chCliSelecionado = null;
+let _chCliMensagens = [];
+let _chCliTabAtiva = "todos";
+let _chCliBindFeito = false;
+let _chCliAvalNotaSelecionada = 0;
+
+const _chCliCatNome = {
+  vazamento:  "Vazamento",
+  bomba_falha:"Bomba",
+  nivel_baixo:"Nível baixo",
+  sem_agua:   "Sem água",
+  ruido:      "Ruído",
+  manutencao: "Manutenção",
+  outro:      "Outro",
+};
+const _chCliPrioNome = { baixa:"Baixa", media:"Média", alta:"Alta", emergencia:"Emergência" };
+const _chCliStNome   = { aberto:"Aberto", em_atendimento:"Em atend.", fechado:"Resolvido" };
+
+function _chCliEscapar(s) {
+  return String(s || "")
+    .replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;").replaceAll("'","&#39;");
+}
+
+function _chCliFmtData(iso) {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit" });
+}
+function _chCliFmtDataCurta(iso) {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleDateString("pt-BR", { day:"2-digit", month:"2-digit" });
+}
+
+async function carregarChamadosCli() {
+  try {
+    const r = await fetch("/cliente/chamados", { headers: authHeaders() });
+    if (!r.ok) return;
+    _chCliData = await r.json();
+    // Mantém detalhe sincronizado se houver selecionado
+    if (_chCliSelecionadoId != null) {
+      const existe = _chCliData.find(c => c.id === _chCliSelecionadoId);
+      if (!existe) {
+        _chCliSelecionadoId = null;
+        _chCliSelecionado = null;
+        _chCliMensagens = [];
+      }
+    }
+    _chCliRender();
+  } catch (e) {
+    console.warn("[cli-chamados] carregar:", e.message);
+  }
+}
+
+async function renderSecaoChCli() {
+  if (!_chCliData.length) {
+    await carregarChamadosCli();
+  } else {
+    _chCliRender();
+  }
+  _chCliBindEventos();
+}
+
+function _chCliFiltrados() {
+  const q = (document.getElementById("chCliBusca")?.value || "").trim().toLowerCase();
+  let lista = Array.isArray(_chCliData) ? [..._chCliData] : [];
+  if (_chCliTabAtiva !== "todos") lista = lista.filter(c => c.status === _chCliTabAtiva);
+  if (q) {
+    lista = lista.filter(c => {
+      const blob = `${c.id} ${c.titulo||""} ${c.categoria||""} ${c.descricao||""}`.toLowerCase();
+      return blob.includes(q);
+    });
+  }
+  return lista;
+}
+
+function _chCliRender() {
+  const data = _chCliData;
+  const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+
+  const abertos  = data.filter(c => c.status === "aberto").length;
+  const atend    = data.filter(c => c.status === "em_atendimento").length;
+  const fechados = data.filter(c => c.status === "fechado").length;
+
+  set("chCliKpiAbertos",  abertos);
+  set("chCliKpiAtend",    atend);
+  set("chCliKpiFechados", fechados);
+
+  set("chCliCtTodos",    data.length);
+  set("chCliCtAbertos",  abertos);
+  set("chCliCtAtend",    atend);
+  set("chCliCtFechados", fechados);
+
+  // Badge na sidebar
+  const navBadge = document.getElementById("navBadgeChamados");
+  if (navBadge) {
+    const ativos = abertos + atend;
+    navBadge.textContent = ativos;
+    navBadge.style.display = ativos > 0 ? "inline-flex" : "none";
+  }
+
+  const tbody = document.getElementById("chCliTableBody");
+  const empty = document.getElementById("chCliEmpty");
+  if (!tbody) return;
+
+  const lista = _chCliFiltrados();
+  if (lista.length === 0) {
+    tbody.innerHTML = "";
+    if (empty) empty.style.display = data.length === 0 ? "flex" : "none";
+    // Se filtrou mas não está vazio o dataset, mostra dentro da tabela
+    if (data.length > 0) {
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px;">Nenhum chamado nesse filtro.</td></tr>`;
+    }
+  } else {
+    if (empty) empty.style.display = "none";
+    tbody.innerHTML = lista.map(c => {
+      const sel = _chCliSelecionadoId === c.id ? " is-selected" : "";
+      return `<tr class="ch-row${sel}" data-ch-cli-id="${c.id}">
+        <td class="ch-id-cell">#${c.id}</td>
+        <td class="ch-titulo-cell"><div class="ch-titulo-text">${_chCliEscapar(c.titulo || "—")}</div></td>
+        <td><span class="ch-cat-badge">${_chCliCatNome[c.categoria] || c.categoria || "—"}</span></td>
+        <td><span class="ch-prio ch-prio-${c.prioridade||"media"}">${_chCliPrioNome[c.prioridade] || c.prioridade || "—"}</span></td>
+        <td><span class="ch-st ch-st-${c.status||"aberto"}">${_chCliStNome[c.status] || c.status || "—"}</span></td>
+        <td class="ch-data-cell">${_chCliFmtDataCurta(c.criado_em)}</td>
+      </tr>`;
+    }).join("");
+  }
+
+  _chCliRenderDetalhe();
+}
+
+async function _chCliSelecionar(id) {
+  _chCliSelecionadoId = id;
+  _chCliSelecionado = null;
+  _chCliMensagens = [];
+
+  // Re-render lista pra marcar selecionado
+  _chCliRender();
+
+  // Busca detalhe + mensagens em paralelo
+  try {
+    const [chR, msR] = await Promise.all([
+      fetch(`/cliente/chamados/${id}`,           { headers: authHeaders() }),
+      fetch(`/cliente/chamados/${id}/mensagens`, { headers: authHeaders() }),
+    ]);
+    if (chR.ok) _chCliSelecionado = await chR.json();
+    if (msR.ok) _chCliMensagens   = await msR.json();
+  } catch (e) {
+    console.warn("[cli-chamados] selecionar:", e.message);
+  }
+  _chCliRenderDetalhe();
+}
+
+function _chCliRenderDetalhe() {
+  const col = document.getElementById("chCliDetailCol");
+  if (!col) return;
+
+  if (_chCliSelecionadoId == null) {
+    col.innerHTML = `<div class="ch-detail-empty">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg>
+      <p>Selecione um chamado para ver os detalhes</p>
+    </div>`;
+    return;
+  }
+  const ch = _chCliSelecionado;
+  if (!ch) {
+    col.innerHTML = `<div class="ch-detail-empty"><p>Carregando…</p></div>`;
+    return;
+  }
+
+  // Timeline 3 passos
+  const passos = ["aberto", "em_atendimento", "fechado"];
+  const idx = passos.indexOf(ch.status);
+  const labels = {
+    aberto:         { titulo: "Chamado registrado",      data: ch.criado_em },
+    em_atendimento: { titulo: ch.tecnico_nome ? `Em atendimento — ${ch.tecnico_nome}` : "Em atendimento", data: ch.atualizado_em },
+    fechado:        { titulo: "Atendimento concluído",   data: ch.fechado_em },
+  };
+  const timelineHtml = passos.map((p, i) => {
+    const ativo = i <= idx;
+    const atual = i === idx && ch.status !== "fechado";
+    const cls = ativo ? (atual ? "ch-tl-step-curr" : "ch-tl-step-done") : "ch-tl-step-pending";
+    const lbl = labels[p];
+    return `<li class="ch-tl-step ${cls}">
+      <div class="ch-tl-dot"></div>
+      <div class="ch-tl-content">
+        <div class="ch-tl-title">${lbl.titulo}</div>
+        <div class="ch-tl-data">${ativo && lbl.data ? _chCliFmtData(lbl.data) : ""}</div>
+      </div>
+    </li>`;
+  }).join("");
+
+  // Mensagens
+  const userId = JSON.parse(localStorage.getItem("user") || "{}")?.id;
+  const mensagensHtml = _chCliMensagens.length === 0
+    ? `<div class="ch-chat-empty">Nenhuma mensagem ainda. Envie a primeira.</div>`
+    : _chCliMensagens.map(m => {
+        const mine = userId && m.autor_id === userId;
+        const sideCls = mine ? "is-mine" : "is-other";
+        const author = mine ? "Você" : (m.autor_nome || (m.autor_role === "tecnico" ? "Técnico" : "—"));
+        const foto = m.foto_url ? `<div class="ch-chat-photo"><img src="${_chCliEscapar(m.foto_url)}" alt="Foto" /></div>` : "";
+        const texto = m.texto ? `<div class="ch-chat-text">${_chCliEscapar(m.texto)}</div>` : "";
+        return `<div class="ch-chat-item ${sideCls}">
+          <div class="ch-chat-bubble">
+            <div class="ch-chat-header">
+              <span class="ch-chat-author">${_chCliEscapar(author)}</span>
+              <span class="ch-chat-time">${_chCliFmtData(m.criado_em)}</span>
+            </div>
+            ${foto}
+            ${texto}
+          </div>
+        </div>`;
+      }).join("");
+
+  // Bloco de avaliação (só se fechado E não avaliado)
+  const podeAvaliar = ch.status === "fechado" && !ch.ja_avaliado;
+  const avalBlock = podeAvaliar
+    ? `<div class="ch-aval-cta">
+         <div>Como foi o atendimento? Sua avaliação ajuda a melhorar o serviço.</div>
+         <button class="btn btnAccent" id="chCliBtnAvaliar" type="button">Avaliar agora</button>
+       </div>`
+    : ch.ja_avaliado
+      ? `<div class="ch-aval-cta ch-aval-done">✓ Atendimento avaliado. Obrigado!</div>`
+      : "";
+
+  // OS finalizada → mostra info
+  const osBlock = ch.os_numero
+    ? `<div class="ch-os-info">
+         <span class="hint">Ordem de serviço:</span>
+         <strong>${_chCliEscapar(ch.os_numero)}</strong>
+         ${ch.os_finalizada_em ? `<small style="color:var(--muted);">Finalizada em ${_chCliFmtData(ch.os_finalizada_em)}</small>` : ""}
+       </div>`
+    : "";
+
+  col.innerHTML = `
+    <div class="ch-detail-head">
+      <div>
+        <div class="ch-detail-title">#${ch.id} — ${_chCliEscapar(ch.titulo || "—")}</div>
+        <div class="ch-detail-sub">
+          <span class="ch-cat-badge">${_chCliCatNome[ch.categoria] || ch.categoria || "—"}</span>
+          <span class="ch-prio ch-prio-${ch.prioridade||"media"}">${_chCliPrioNome[ch.prioridade] || ch.prioridade || "—"}</span>
+          <span class="ch-st ch-st-${ch.status||"aberto"}">${_chCliStNome[ch.status] || ch.status || "—"}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="ch-detail-body">
+      <div class="ch-detail-section">
+        <div class="ch-detail-sec-title">Descrição</div>
+        <p class="ch-detail-desc">${_chCliEscapar(ch.descricao || "Sem descrição")}</p>
+      </div>
+
+      ${osBlock}
+
+      <div class="ch-detail-section">
+        <div class="ch-detail-sec-title">Linha do tempo</div>
+        <ol class="ch-timeline">${timelineHtml}</ol>
+      </div>
+
+      ${avalBlock}
+
+      <div class="ch-detail-section ch-chat-section">
+        <div class="ch-detail-sec-title">Mensagens</div>
+        <div class="ch-chat-list" id="chCliChatList">${mensagensHtml}</div>
+        ${ch.status !== "fechado" ? `
+          <div class="ch-chat-composer">
+            <textarea id="chCliChatInput" class="input" rows="2" placeholder="Escreva uma mensagem para o técnico…" maxlength="2000"></textarea>
+            <button class="btn btnAccent" id="chCliChatEnviar" type="button">Enviar</button>
+          </div>` : ""}
+      </div>
+    </div>`;
+
+  // Scroll do chat pro fim
+  const list = document.getElementById("chCliChatList");
+  if (list) list.scrollTop = list.scrollHeight;
+
+  _chCliBindDetalheEventos();
+}
+
+function _chCliBindDetalheEventos() {
+  document.getElementById("chCliChatEnviar")?.addEventListener("click", _chCliEnviarMensagem);
+  document.getElementById("chCliChatInput")?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      _chCliEnviarMensagem();
+    }
+  });
+  document.getElementById("chCliBtnAvaliar")?.addEventListener("click", _chCliAbrirModalAvaliacao);
+}
+
+async function _chCliEnviarMensagem() {
+  const inp = document.getElementById("chCliChatInput");
+  const btn = document.getElementById("chCliChatEnviar");
+  if (!inp || !_chCliSelecionadoId) return;
+  const texto = (inp.value || "").trim();
+  if (!texto) return;
+
+  if (btn) { btn.disabled = true; btn.textContent = "…"; }
+  try {
+    const r = await fetch(`/cliente/chamados/${_chCliSelecionadoId}/mensagens`, {
+      method: "POST",
+      headers: { ...authHeaders(), "Content-Type": "application/json" },
+      body: JSON.stringify({ texto }),
+    });
+    if (!r.ok) {
+      const e = await r.json().catch(() => ({}));
+      throw new Error(e.error || "Erro ao enviar");
+    }
+    inp.value = "";
+    // Refetch só as mensagens
+    const msR = await fetch(`/cliente/chamados/${_chCliSelecionadoId}/mensagens`, { headers: authHeaders() });
+    if (msR.ok) _chCliMensagens = await msR.json();
+    _chCliRenderDetalhe();
+  } catch (err) {
+    alert("Erro: " + err.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = "Enviar"; }
+  }
+}
+
+// ----- Avaliação -----
+function _chCliAbrirModalAvaliacao() {
+  if (!_chCliSelecionado) return;
+  _chCliAvalNotaSelecionada = 0;
+  document.getElementById("chCliAvalSub").textContent = `Chamado #${_chCliSelecionado.id} — ${_chCliSelecionado.titulo || ""}`;
+  document.getElementById("chCliAvalComentario").value = "";
+  document.getElementById("chCliAvalMsg").textContent = "";
+  _chCliAtualizarEstrelas(0);
+  document.getElementById("chCliAvalOverlay").style.display = "flex";
+}
+
+function _chCliFecharModalAvaliacao() {
+  document.getElementById("chCliAvalOverlay").style.display = "none";
+}
+
+function _chCliAtualizarEstrelas(nota) {
+  document.querySelectorAll("#chCliAvalStars .ch-star-btn").forEach(btn => {
+    const n = Number(btn.dataset.nota);
+    btn.classList.toggle("is-active", n <= nota);
+  });
+}
+
+async function _chCliSubmitAvaliacao(event) {
+  event.preventDefault();
+  const msg = document.getElementById("chCliAvalMsg");
+  if (!_chCliSelecionadoId) return;
+  if (!_chCliAvalNotaSelecionada || _chCliAvalNotaSelecionada < 1 || _chCliAvalNotaSelecionada > 5) {
+    msg.textContent = "Escolha uma nota de 1 a 5.";
+    return;
+  }
+  const comentario = (document.getElementById("chCliAvalComentario").value || "").trim();
+  msg.textContent = "Enviando…";
+
+  try {
+    const r = await fetch(`/cliente/chamados/${_chCliSelecionadoId}/avaliar`, {
+      method: "POST",
+      headers: { ...authHeaders(), "Content-Type": "application/json" },
+      body: JSON.stringify({ nota: _chCliAvalNotaSelecionada, comentario: comentario || undefined }),
+    });
+    if (!r.ok) {
+      const e = await r.json().catch(() => ({}));
+      throw new Error(e.error || "Erro ao avaliar");
+    }
+    _chCliFecharModalAvaliacao();
+    // Refetch detalhe pro `ja_avaliado` virar true
+    await _chCliSelecionar(_chCliSelecionadoId);
+  } catch (err) {
+    msg.textContent = "Erro: " + err.message;
+  }
+}
+
+// ----- Abrir novo chamado -----
+function _chCliAbrirModalNovo() {
+  document.getElementById("chCliNovoCategoria").value = "";
+  document.getElementById("chCliNovoDescricao").value = "";
+  document.getElementById("chCliNovoMsg").textContent = "";
+  document.getElementById("chCliNovoOverlay").style.display = "flex";
+}
+
+function _chCliFecharModalNovo() {
+  document.getElementById("chCliNovoOverlay").style.display = "none";
+}
+
+async function _chCliSubmitNovo(event) {
+  event.preventDefault();
+  const msg = document.getElementById("chCliNovoMsg");
+  const categoria = document.getElementById("chCliNovoCategoria").value;
+  const descricao = (document.getElementById("chCliNovoDescricao").value || "").trim();
+
+  if (!categoria) { msg.textContent = "Selecione uma categoria."; return; }
+  if (descricao.length < 5) { msg.textContent = "Descreva o problema com pelo menos 5 caracteres."; return; }
+
+  msg.textContent = "Abrindo chamado…";
+  try {
+    const r = await fetch("/cliente/chamados", {
+      method: "POST",
+      headers: { ...authHeaders(), "Content-Type": "application/json" },
+      body: JSON.stringify({ categoria, descricao }),
+    });
+    if (!r.ok) {
+      const e = await r.json().catch(() => ({}));
+      throw new Error(e.error || "Erro ao abrir chamado");
+    }
+    _chCliFecharModalNovo();
+    await carregarChamadosCli();
+    // Vai pra tab "Abertos" e seleciona o novo
+    const novo = await r.json();
+    if (novo?.id) {
+      _chCliTabAtiva = "aberto";
+      document.querySelectorAll(".wa-tab[data-ch-cli-tab]").forEach(t => t.classList.toggle("is-active", t.dataset.chCliTab === "aberto"));
+      _chCliSelecionar(novo.id);
+    }
+  } catch (err) {
+    msg.textContent = "Erro: " + err.message;
+  }
+}
+
+function _chCliBindEventos() {
+  if (_chCliBindFeito) return;
+  _chCliBindFeito = true;
+
+  // Tabs
+  document.querySelectorAll(".wa-tab[data-ch-cli-tab]").forEach(tab => {
+    tab.addEventListener("click", () => {
+      _chCliTabAtiva = tab.dataset.chCliTab;
+      document.querySelectorAll(".wa-tab[data-ch-cli-tab]").forEach(t => t.classList.toggle("is-active", t === tab));
+      _chCliRender();
+    });
+  });
+
+  // Busca
+  document.getElementById("chCliBusca")?.addEventListener("input", _chCliRender);
+
+  // Click na linha da tabela
+  document.getElementById("chCliTableBody")?.addEventListener("click", (e) => {
+    const row = e.target.closest("tr[data-ch-cli-id]");
+    if (!row) return;
+    const id = Number(row.dataset.chCliId);
+    _chCliSelecionar(id);
+  });
+
+  // Modal abrir chamado
+  document.getElementById("chCliBtnNovo")?.addEventListener("click", _chCliAbrirModalNovo);
+  document.getElementById("chCliNovoFechar")?.addEventListener("click", _chCliFecharModalNovo);
+  document.getElementById("chCliNovoCancelar")?.addEventListener("click", _chCliFecharModalNovo);
+  document.getElementById("chCliNovoForm")?.addEventListener("submit", _chCliSubmitNovo);
+  document.getElementById("chCliNovoOverlay")?.addEventListener("click", (e) => {
+    if (e.target.id === "chCliNovoOverlay") _chCliFecharModalNovo();
+  });
+
+  // Modal avaliação
+  document.getElementById("chCliAvalFechar")?.addEventListener("click", _chCliFecharModalAvaliacao);
+  document.getElementById("chCliAvalCancelar")?.addEventListener("click", _chCliFecharModalAvaliacao);
+  document.getElementById("chCliAvalForm")?.addEventListener("submit", _chCliSubmitAvaliacao);
+  document.getElementById("chCliAvalOverlay")?.addEventListener("click", (e) => {
+    if (e.target.id === "chCliAvalOverlay") _chCliFecharModalAvaliacao();
+  });
+  document.querySelectorAll("#chCliAvalStars .ch-star-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      _chCliAvalNotaSelecionada = Number(btn.dataset.nota);
+      _chCliAtualizarEstrelas(_chCliAvalNotaSelecionada);
+    });
+  });
+
+  // Esc fecha modais
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+    const ov1 = document.getElementById("chCliNovoOverlay");
+    const ov2 = document.getElementById("chCliAvalOverlay");
+    if (ov1 && ov1.style.display !== "none") _chCliFecharModalNovo();
+    if (ov2 && ov2.style.display !== "none") _chCliFecharModalAvaliacao();
+  });
+}

@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="/static/leaflet.css">
   <!-- ⚠️ Ao mexer em admin.js ou admin.css, bumpe o ?v=N aqui E no <script>
        lá embaixo. Ver CLAUDE.md raiz. -->
-  <link rel="stylesheet" href="/static/admin.css?v=18">
+  <link rel="stylesheet" href="/static/admin.css?v=26">
 </head>
 <body>
 
@@ -86,6 +86,15 @@
           </svg>
           <span class="nav-item-label">Chamados</span>
           <span class="nav-badge" id="navBadgeChamados" style="display:none;">0</span>
+        </button>
+
+        <button class="nav-item" data-section="ordens-servico" data-label="O.S.">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <path d="M9 14l2 2 4-4"/>
+          </svg>
+          <span class="nav-item-label">Ordens de Serviço</span>
         </button>
 
         <span class="nav-section-label">Gestão</span>
@@ -746,6 +755,56 @@
           </aside>
         </div>
       </div><!-- /section chamados -->
+
+      <!-- ===== SECTION: ORDENS DE SERVIÇO ===== -->
+      <div class="section" data-section="ordens-servico">
+        <!-- KPIs -->
+        <div class="resumo-grid" id="osKpiGrid" style="margin-bottom:16px;"></div>
+
+        <section class="card">
+          <div class="cardHead">
+            <h2>
+              <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <path d="M9 14l2 2 4-4"/>
+              </svg>
+              Ordens de Serviço
+            </h2>
+            <span class="hint">Documentos finalizados pelos técnicos no campo</span>
+          </div>
+
+          <div class="os-toolbar">
+            <div class="wa-tabs" role="tablist">
+              <button class="wa-tab is-active" data-os-tab="todas" type="button">Todas <span class="wa-count" id="osCtTodas">0</span></button>
+              <button class="wa-tab" data-os-tab="finalizadas" type="button">Finalizadas <span class="wa-count" id="osCtFinal">0</span></button>
+              <button class="wa-tab" data-os-tab="rascunho" type="button">Em rascunho <span class="wa-count" id="osCtRascunho">0</span></button>
+            </div>
+            <input id="osBusca" class="input" placeholder="Buscar por número, condomínio, técnico…" />
+          </div>
+
+          <div class="tableWrap os-table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width:120px">Número</th>
+                  <th style="width:120px">Criada em</th>
+                  <th>Condomínio</th>
+                  <th style="width:160px">Técnico</th>
+                  <th>Tipos de serviço</th>
+                  <th style="width:120px">Resultado</th>
+                  <th style="width:96px">Status</th>
+                  <th style="width:110px" class="right">Ações</th>
+                </tr>
+              </thead>
+              <tbody id="osTableBody"></tbody>
+            </table>
+          </div>
+          <div id="osEmpty" class="mc-empty" style="display:none;padding:24px;text-align:center;">
+            Nenhuma O.S. encontrada com esses filtros.
+          </div>
+        </section>
+      </div><!-- /section ordens-servico -->
 
       <!-- ===== SECTION: WHATSAPP ===== -->
       <div class="section" data-section="whatsapp">
@@ -1735,6 +1794,36 @@
   </div>
 </div>
 
+<!-- Modal: detalhe de Ordem de Serviço -->
+<div id="osModalOverlay" class="modalOverlay" style="display:none;">
+  <div class="modalBox" style="width:min(1000px, 96vw);">
+    <div class="modalHead">
+      <div>
+        <div id="osModalTitle" class="modalTitle">Ordem de Serviço</div>
+        <div id="osModalSub" class="modalSub">—</div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-sm" id="osBtnPdf" type="button">📄 PDF</button>
+        <button class="btn btn-sm btnAccent" id="osBtnEditar" type="button">Editar</button>
+        <button class="btn btn-sm" id="osBtnSalvar" type="button" style="display:none;">Salvar</button>
+        <button class="btn btn-sm" id="osBtnCancelarEdicao" type="button" style="display:none;">Cancelar</button>
+        <button class="btn btn-sm" id="osBtnFechar" type="button">Fechar</button>
+      </div>
+    </div>
+    <div class="modalBody" id="osModalBody">
+      <div class="mc-empty">Carregando…</div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: lightbox de foto da O.S. -->
+<div id="osFotoLightbox" class="modalOverlay" style="display:none;z-index:9999;">
+  <div style="position:relative;max-width:96vw;max-height:96vh;">
+    <button class="btn btn-sm" id="osFotoLightboxClose" type="button" style="position:absolute;top:-44px;right:0;">Fechar</button>
+    <img id="osFotoLightboxImg" alt="Foto da O.S." style="max-width:96vw;max-height:90vh;border-radius:8px;border:1px solid var(--border);" />
+  </div>
+</div>
+
 <!-- Modal: exclusão permanente de condomínio -->
 <div id="hardDeleteOverlay" class="modalOverlay" style="display:none;">
   <div class="modalBox" style="max-width:440px;">
@@ -1967,8 +2056,8 @@
 <script src="/static/apexcharts.min.js"></script>
 <script src="/static/leaflet.js"></script>
 <script src="/static/inatividade.js" defer></script>
-<script src="/static/admin.js?v=18" defer></script>
+<script src="/static/admin.js?v=20" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
-<script src="/static/register-sw.js?v=16" defer></script>
+<script src="/static/register-sw.js?v=17" defer></script>
 </body>
 </html>

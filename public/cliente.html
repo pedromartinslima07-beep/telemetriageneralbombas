@@ -11,56 +11,74 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Telemetria">
   <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
-  <link rel="stylesheet" href="/static/admin.css">
+  <link rel="stylesheet" href="/static/admin.css?v=26">
 </head>
 <body>
 
-<div class="layout layout-cli">
+<div class="layout">
 
   <!-- ===== SIDEBAR ===== -->
-  <aside class="sidebar collapsed" id="sidebar">
+  <aside class="sidebar" id="sidebar">
     <div class="sidebar-inner">
 
       <div class="sidebar-header">
-        <button class="sidebar-toggle" id="btnSidebarToggleIn" aria-label="Abrir/fechar menu">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
-          </svg>
-        </button>
-        <img class="sidebar-logo" src="/static/login-logo.png" alt="GENERAL" />
+        <div class="sidebar-brand">
+          <img class="sidebar-brand-logo sidebar-brand-full" src="/static/login-logo.png" alt="GENERAL" />
+          <img class="sidebar-brand-logo sidebar-brand-mini" src="/static/logo-menu.png" alt="GENERAL" />
+        </div>
       </div>
 
       <nav class="nav">
 
         <span class="nav-section-label">Monitor</span>
 
-        <button class="nav-item active" data-section="dashboard">
+        <button class="nav-item active" data-section="dashboard" data-label="Dashboard">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
             <rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/>
             <rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>
           </svg>
-          <span>Dashboard</span>
+          <span class="nav-item-label">Dashboard</span>
         </button>
 
-        <button class="nav-item" data-section="historico">
+        <button class="nav-item" data-section="telemetria" data-label="Telemetria">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+            <path d="M3 12h4l3-9 4 18 3-9h4"/>
           </svg>
-          <span>Histórico</span>
+          <span class="nav-item-label">Telemetria</span>
         </button>
 
-        <button class="nav-item" data-section="alertas">
+        <button class="nav-item" data-section="alertas" data-label="Alertas">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
             <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
             <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
           </svg>
-          <span>Alertas</span>
+          <span class="nav-item-label">Alertas</span>
           <span class="nav-badge" id="navBadgeAlertas" style="display:none;">0</span>
+        </button>
+
+        <span class="nav-section-label">Atendimento</span>
+
+        <button class="nav-item" data-section="chamados" data-label="Chamados">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="9" y1="13" x2="15" y2="13"/>
+            <line x1="9" y1="17" x2="13" y2="17"/>
+          </svg>
+          <span class="nav-item-label">Chamados</span>
+          <span class="nav-badge" id="navBadgeChamados" style="display:none;">0</span>
         </button>
 
       </nav>
 
       <div class="sidebar-footer">
+        <div class="sidebar-status">
+          <div class="sidebar-status-dot"></div>
+          <div class="sidebar-status-text">
+            <span class="sidebar-status-label">Status</span>
+            <span class="sidebar-status-value">Operacional</span>
+          </div>
+        </div>
         <div class="sidebar-user">
           <div class="sidebar-user-avatar">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
@@ -72,18 +90,18 @@
             <div class="sidebar-user-label">Meu Condomínio</div>
           </div>
         </div>
-        <button class="nav-item" id="btnAbrirSenha">
+        <button class="nav-item" id="btnAbrirSenha" data-label="Alterar senha">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
             <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
           </svg>
-          <span>Alterar senha</span>
+          <span class="nav-item-label">Alterar senha</span>
         </button>
-        <button class="nav-item" id="btnSairCliente">
+        <button class="nav-item nav-item-logout" id="btnSairCliente" data-label="Sair">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
             <polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
           </svg>
-          <span>Sair</span>
+          <span class="nav-item-label">Sair</span>
         </button>
       </div>
 
@@ -94,8 +112,31 @@
   <div class="main">
 
     <div class="content-header">
-      <div class="content-header-actions" style="margin-left:auto;">
-        <button class="btn btn-sm" id="btnAtualizarCliente">Atualizar</button>
+      <button class="topbar-toggle" id="btnSidebarToggleIn" aria-label="Abrir/fechar menu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+        </svg>
+      </button>
+      <h1 class="topbar-title" id="topbarTitleDesktop">Dashboard</h1>
+
+      <div class="topbar-actions">
+        <button class="icon-btn" id="btnAtualizarCliente" title="Atualizar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+          </svg>
+        </button>
+        <div class="topbar-user">
+          <div class="topbar-user-avatar">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+            </svg>
+          </div>
+          <div class="topbar-user-meta">
+            <span class="topbar-user-name">Cliente</span>
+            <span class="topbar-user-role">Meu Condomínio</span>
+          </div>
+        </div>
         <span class="statusMsg" id="statusMsg"></span>
       </div>
     </div>
@@ -120,133 +161,330 @@
           </div>
         </section>
 
-        <section class="card">
-          <div class="cardHead">
-            <h2>
-              <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M20 7H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/>
-                <path d="M12 12v.01"/>
-              </svg>
-              Reservatórios
-            </h2>
-            <span class="hint">Status em tempo real</span>
-          </div>
-          <div class="tableWrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Reservatório</th>
-                  <th>Tipo</th>
-                  <th>Última leitura</th>
-                  <th>Nível</th>
-                  <th>Bomba</th>
-                  <th>Min s/ atualizar</th>
-                  <th>Offline</th>
-                  <th>Alertas</th>
-                </tr>
-              </thead>
-              <tbody id="tbodyReservatoriosCliente"></tbody>
-            </table>
-          </div>
-          <div id="semReservatorios" style="display:none; padding:20px 18px; color:var(--muted);">
-            Nenhum reservatório cadastrado para este condomínio.
-          </div>
-        </section>
-
       </div><!-- /section dashboard -->
 
-      <!-- ===== SECTION: HISTÓRICO ===== -->
-      <div class="section" data-section="historico">
+      <!-- ===== SECTION: TELEMETRIA ===== -->
+      <div class="section" data-section="telemetria">
 
-        <section class="card">
-          <div class="cardHead">
-            <h2>
-              <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
-              </svg>
-              Histórico de nível
-            </h2>
+        <!-- Fallback: cliente sem produto -->
+        <div id="telCliFallback" class="tel-cli-fallback" style="display:none;">
+          <div class="tel-cli-fallback-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 12h4l3-9 4 18 3-9h4"/>
+            </svg>
           </div>
-          <div class="section-body">
-            <!-- Filtros -->
-            <div class="filter-bar" style="flex-wrap:wrap; gap:10px; align-items:center; margin-bottom:20px;">
-              <div class="field" style="margin:0; flex:1; min-width:180px;">
-                <label class="lbl" for="histReservatorio">Reservatório</label>
-                <select class="select" id="histReservatorio"></select>
+          <h2 class="tel-cli-fallback-title">Você ainda não tem telemetria contratada</h2>
+          <p class="tel-cli-fallback-text">
+            A telemetria da General Bombas mostra em tempo real o <strong>nível dos reservatórios</strong>,
+            <strong>status das bombas</strong> e dispara <strong>alertas automáticos</strong> antes do
+            problema chegar ao morador. Histórico completo, gráficos, relatórios em PDF e notificações
+            quando algo sai do esperado.
+          </p>
+          <ul class="tel-cli-fallback-list">
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              <span>Acompanhamento 24/7 do reservatório</span>
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              <span>Alertas automáticos de nível baixo, vazamento e falha na bomba</span>
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              <span>Histórico completo e relatórios em PDF pro síndico</span>
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              <span>Atendimento técnico mais rápido (a gente já chega sabendo o problema)</span>
+            </li>
+          </ul>
+          <div class="tel-cli-fallback-cta">
+            <a href="https://wa.me/5511999999999?text=Ol%C3%A1!%20Quero%20saber%20mais%20sobre%20a%20telemetria%20General%20Bombas" target="_blank" rel="noopener" class="btn btnAccent">
+              Quero saber mais
+            </a>
+            <span class="tel-cli-fallback-note">Resposta rápida pelo WhatsApp</span>
+          </div>
+        </div>
+
+        <!-- Conteúdo real: aparece quando há reservatórios -->
+        <div id="telCliConteudo" style="display:none;">
+
+          <!-- KPIs -->
+          <div class="al-kpis al-kpis-4col" id="telCliKpis"></div>
+
+          <!-- Linha 1: Níveis (bar chart) + Em atenção (lista) -->
+          <div class="tel-row tel-row-main">
+            <section class="card">
+              <div class="cardHead">
+                <h2>
+                  <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M3 21h18"/><rect x="5"  y="10" width="3" height="9"/><rect x="10" y="5"  width="3" height="14"/><rect x="15" y="13" width="3" height="6"/>
+                  </svg>
+                  Níveis dos reservatórios
+                </h2>
+                <span class="hint">Atualiza em tempo real</span>
               </div>
-              <div style="display:flex; flex-direction:column; gap:4px;">
-                <span class="lbl">Período</span>
-                <div style="display:flex; gap:6px;">
-                  <button class="btn btn-sm hist-period active" data-dias="1">24h</button>
-                  <button class="btn btn-sm hist-period" data-dias="7">7 dias</button>
-                  <button class="btn btn-sm hist-period" data-dias="30">30 dias</button>
-                  <button class="btn btn-sm hist-period" data-dias="90">90 dias</button>
+              <div class="tel-niveis-chart" id="telCliNiveisChart"></div>
+              <div class="tel-niveis-empty mc-empty" id="telCliNiveisEmpty" style="display:none;">Nenhuma leitura com nível % no momento.</div>
+            </section>
+
+            <section class="card">
+              <div class="cardHead">
+                <h2>
+                  <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                    <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                  </svg>
+                  Em atenção
+                </h2>
+                <button class="btn-link" data-section-go="alertas">Ver alertas →</button>
+              </div>
+              <div class="tel-criticos-list" id="telCliCriticosList">
+                <div class="mc-empty">Carregando…</div>
+              </div>
+            </section>
+          </div>
+
+          <!-- Linha 2: Histórico (line chart) + Status das bombas -->
+          <div class="tel-row tel-row-bottom">
+            <section class="card">
+              <div class="cardHead">
+                <h2>
+                  <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M3 12h4l3-9 4 18 3-9h4"/>
+                  </svg>
+                  Histórico de níveis
+                </h2>
+                <div class="tel-historico-ctrls">
+                  <button class="tel-range-btn is-active" data-dias="1" type="button">24h</button>
+                  <button class="tel-range-btn" data-dias="7"  type="button">7d</button>
+                  <button class="tel-range-btn" data-dias="30" type="button">30d</button>
+                  <button class="tel-range-btn" data-dias="90" type="button">90d</button>
                 </div>
               </div>
-              <div style="display:flex; flex-direction:column; gap:4px;">
-                <span class="lbl">&nbsp;</span>
-                <button class="btn btn-sm btnAccent" id="btnExportarPDF" style="display:flex; align-items:center; gap:6px; white-space:nowrap;">
-                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                    <polyline points="7 10 12 15 17 10"/>
-                    <line x1="12" y1="15" x2="12" y2="3"/>
+              <div class="tel-historico-filtros">
+                <select class="tel-select" id="histReservatorio"></select>
+                <button id="btnExportarPDF" class="btn-pdf" type="button" disabled>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
                   </svg>
-                  Exportar PDF
+                  <span>PDF</span>
                 </button>
               </div>
-            </div>
+              <div class="tel-historico-chart" id="telCliHistChart"></div>
+              <div class="tel-historico-empty mc-empty" id="telCliHistEmpty" style="display:none;">Sem dados de histórico no período.</div>
+            </section>
 
-            <!-- Stats -->
-            <div id="histStats" class="resumo-grid" style="grid-template-columns:repeat(4,minmax(0,1fr)); display:none;"></div>
-
-            <!-- Chart -->
-            <div id="histChartWrap" style="position:relative; height:300px; display:none;">
-              <canvas id="histChart"></canvas>
-            </div>
-
-            <!-- Sem dados -->
-            <div id="histSemDados" style="display:none; padding:30px 0; text-align:center; color:var(--muted);">
-              Nenhuma leitura com percentual encontrada para este período.<br>
-              <small style="opacity:.6;">Envie dados com <code>nivel_pct</code> para visualizar o histórico.</small>
-            </div>
-
-            <div id="histMsg" style="color:var(--muted); font-size:13px;"></div>
+            <section class="card">
+              <div class="cardHead">
+                <h2>
+                  <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="4"/>
+                    <path d="M12 4v2M12 18v2M4 12h2M18 12h2M6.3 6.3l1.4 1.4M16.3 16.3l1.4 1.4M6.3 17.7l1.4-1.4M16.3 7.7l1.4-1.4"/>
+                  </svg>
+                  Status das bombas
+                </h2>
+                <span class="tel-bombas-summary" id="telCliBombasSummary"></span>
+              </div>
+              <div class="tel-bombas-wrap">
+                <table class="tel-bombas-table">
+                  <thead>
+                    <tr>
+                      <th>Reservatório</th>
+                      <th>Bomba</th>
+                      <th>Nível</th>
+                      <th>Atualização</th>
+                    </tr>
+                  </thead>
+                  <tbody id="telCliBombasBody">
+                    <tr><td colspan="4" class="mc-empty" style="padding:24px;">Carregando…</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
           </div>
-        </section>
-
-      </div><!-- /section historico -->
+        </div>
+      </div><!-- /section telemetria -->
 
       <!-- ===== SECTION: ALERTAS ===== -->
       <div class="section" data-section="alertas">
-        <section class="card">
-          <div class="cardHead">
+
+        <!-- KPIs -->
+        <div class="al-kpis al-kpis-3col">
+          <div class="rc rc-bad rc-static" data-al-kpi-tab="critico" title="Filtrar críticos">
+            <div class="rc-head">
+              <div class="rc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
+              <div class="rc-label">Críticos</div>
+            </div>
+            <div class="rc-value" id="alKpiCritico">—</div>
+            <div class="rc-hint">Ativos agora</div>
+          </div>
+          <div class="rc rc-warn rc-static" data-al-kpi-tab="atencao" title="Filtrar atenção">
+            <div class="rc-head">
+              <div class="rc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg></div>
+              <div class="rc-label">Atenção</div>
+            </div>
+            <div class="rc-value" id="alKpiAtencao">—</div>
+            <div class="rc-hint">Ativos agora</div>
+          </div>
+          <div class="rc rc-neutral rc-static">
+            <div class="rc-head">
+              <div class="rc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
+              <div class="rc-label">Total</div>
+            </div>
+            <div class="rc-value" id="alKpiTotal">—</div>
+            <div class="rc-hint">Abertos no momento</div>
+          </div>
+        </div>
+
+        <section class="card al-card">
+          <div class="cardHead al-head">
             <h2>
               <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
                 <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
               </svg>
-              Alertas abertos
+              Alertas
             </h2>
             <span class="hint">Somente do seu condomínio</span>
           </div>
-          <div class="tableWrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Tipo</th>
-                  <th>Mensagem</th>
-                  <th>Criado em</th>
-                  <th>Atualizado em</th>
-                </tr>
-              </thead>
-              <tbody id="tbodyAlertasCliente"></tbody>
-            </table>
+
+          <div class="al-toolbar">
+            <div class="al-tabs" role="tablist">
+              <button class="al-tab is-active" data-al-tab="todos" type="button">Todos <span class="al-count" id="alCountTodos">0</span></button>
+              <button class="al-tab" data-al-tab="critico" type="button">Críticos <span class="al-count" id="alCountCritico">0</span></button>
+              <button class="al-tab" data-al-tab="atencao" type="button">Atenção <span class="al-count" id="alCountAtencao">0</span></button>
+            </div>
+            <div class="al-filters">
+              <input id="alBusca" class="input" placeholder="Buscar por tipo ou mensagem…">
+              <button class="btn btn-sm" id="alBtnLimpar" type="button">Limpar</button>
+            </div>
           </div>
-          <div id="semAlertas" style="display:none; padding:20px 18px; color:var(--muted);">
-            Nenhum alerta ativo no momento.
+
+          <div class="al-grid">
+            <div class="al-tableWrap">
+              <table class="al-table">
+                <thead>
+                  <tr>
+                    <th>Tipo</th>
+                    <th>Mensagem</th>
+                    <th>Severidade</th>
+                    <th>Aberto há</th>
+                    <th>Atualizado</th>
+                  </tr>
+                </thead>
+                <tbody id="tbodyAlertasCliente"></tbody>
+              </table>
+
+              <div id="semAlertas" class="al-empty" style="display:none;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+                </svg>
+                <p>Nenhum alerta ativo no momento.</p>
+              </div>
+            </div>
+
+            <aside class="al-painel" id="alPainel">
+              <div class="al-empty">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+                <p>Clique numa linha pra ver os detalhes</p>
+              </div>
+            </aside>
           </div>
         </section>
       </div><!-- /section alertas -->
+
+      <!-- ===== SECTION: CHAMADOS ===== -->
+      <div class="section" data-section="chamados">
+
+        <!-- KPIs -->
+        <div class="al-kpis al-kpis-3col">
+          <div class="rc rc-warn rc-static">
+            <div class="rc-head">
+              <div class="rc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>
+              <div class="rc-label">Abertos</div>
+            </div>
+            <div class="rc-value" id="chCliKpiAbertos">—</div>
+            <div class="rc-hint">Aguardando atendimento</div>
+          </div>
+          <div class="rc rc-bad rc-static">
+            <div class="rc-head">
+              <div class="rc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+              <div class="rc-label">Em atendimento</div>
+            </div>
+            <div class="rc-value" id="chCliKpiAtend">—</div>
+            <div class="rc-hint">Técnico designado</div>
+          </div>
+          <div class="rc rc-ok rc-static">
+            <div class="rc-head">
+              <div class="rc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+              <div class="rc-label">Resolvidos</div>
+            </div>
+            <div class="rc-value" id="chCliKpiFechados">—</div>
+            <div class="rc-hint">Histórico</div>
+          </div>
+        </div>
+
+        <section class="card al-card">
+          <div class="cardHead">
+            <h2>
+              <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+              </svg>
+              Chamados
+            </h2>
+            <button class="btn btn-sm btnAccent" id="chCliBtnNovo" type="button">+ Abrir chamado</button>
+          </div>
+
+          <div class="al-toolbar">
+            <div class="wa-tabs" role="tablist">
+              <button class="wa-tab is-active" data-ch-cli-tab="todos" type="button">Todos <span class="wa-count" id="chCliCtTodos">0</span></button>
+              <button class="wa-tab" data-ch-cli-tab="aberto" type="button">Abertos <span class="wa-count" id="chCliCtAbertos">0</span></button>
+              <button class="wa-tab" data-ch-cli-tab="em_atendimento" type="button">Em atend. <span class="wa-count" id="chCliCtAtend">0</span></button>
+              <button class="wa-tab" data-ch-cli-tab="fechado" type="button">Resolvidos <span class="wa-count" id="chCliCtFechados">0</span></button>
+            </div>
+            <div class="al-filters">
+              <input id="chCliBusca" class="input" placeholder="Buscar por título, categoria…">
+            </div>
+          </div>
+
+          <div class="ch-layout">
+            <div class="ch-list-col">
+              <div class="tableWrap ch-table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th style="width:64px">ID</th>
+                      <th>Título</th>
+                      <th style="width:100px">Categoria</th>
+                      <th style="width:90px">Prioridade</th>
+                      <th style="width:90px">Status</th>
+                      <th style="width:64px">Data</th>
+                    </tr>
+                  </thead>
+                  <tbody id="chCliTableBody"></tbody>
+                </table>
+              </div>
+              <div id="chCliEmpty" class="al-empty" style="display:none;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+                </svg>
+                <p>Você ainda não tem chamados. Clique em "Abrir chamado" pra começar.</p>
+              </div>
+            </div>
+
+            <aside class="ch-detail-col" id="chCliDetailCol">
+              <div class="ch-detail-empty">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg>
+                <p>Selecione um chamado para ver os detalhes</p>
+              </div>
+            </aside>
+          </div>
+        </section>
+      </div><!-- /section chamados -->
 
     </div><!-- /content -->
   </div><!-- /main -->
@@ -271,6 +509,81 @@
         <div class="formActions">
           <button class="btn" type="button" id="btnCancelarSenha">Cancelar</button>
           <button class="btn btnAccent" type="submit">Salvar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: abrir chamado -->
+<div id="chCliNovoOverlay" class="modalOverlay" style="display:none;">
+  <div class="modalBox" style="max-width:520px;">
+    <div class="modalHead">
+      <div>
+        <div class="modalTitle">Abrir chamado</div>
+        <div class="modalSub">Descreva o problema que sua equipe está enfrentando</div>
+      </div>
+      <button class="btn btn-sm" id="chCliNovoFechar" type="button">Fechar</button>
+    </div>
+    <div class="modalBody">
+      <div class="modalTools"><div class="modalCount" id="chCliNovoMsg"></div></div>
+      <form id="chCliNovoForm" class="formGrid" style="grid-template-columns:1fr;">
+        <label class="f">
+          <span>Categoria</span>
+          <select id="chCliNovoCategoria" required>
+            <option value="">Selecione…</option>
+            <option value="sem_agua">Sem água</option>
+            <option value="vazamento">Vazamento</option>
+            <option value="bomba_falha">Falha na bomba</option>
+            <option value="nivel_baixo">Nível baixo</option>
+            <option value="ruido">Ruído</option>
+            <option value="manutencao">Manutenção</option>
+            <option value="outro">Outro</option>
+          </select>
+        </label>
+        <label class="f">
+          <span>Descrição</span>
+          <textarea id="chCliNovoDescricao" rows="5" required minlength="5" maxlength="4000" placeholder="O que está acontecendo? Quando começou? Mais detalhes ajudam o técnico a chegar preparado."></textarea>
+        </label>
+        <div class="formActions">
+          <button class="btn" type="button" id="chCliNovoCancelar">Cancelar</button>
+          <button class="btn btnAccent" type="submit">Abrir chamado</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: avaliar atendimento -->
+<div id="chCliAvalOverlay" class="modalOverlay" style="display:none;">
+  <div class="modalBox" style="max-width:480px;">
+    <div class="modalHead">
+      <div>
+        <div class="modalTitle">Como foi o atendimento?</div>
+        <div class="modalSub" id="chCliAvalSub">—</div>
+      </div>
+      <button class="btn btn-sm" id="chCliAvalFechar" type="button">Fechar</button>
+    </div>
+    <div class="modalBody">
+      <div class="modalTools"><div class="modalCount" id="chCliAvalMsg"></div></div>
+      <form id="chCliAvalForm" class="formGrid" style="grid-template-columns:1fr;">
+        <div class="f">
+          <span>Sua nota</span>
+          <div class="ch-stars-input" id="chCliAvalStars" role="radiogroup" aria-label="Avaliação">
+            <button type="button" class="ch-star-btn" data-nota="1" aria-label="1 estrela">★</button>
+            <button type="button" class="ch-star-btn" data-nota="2" aria-label="2 estrelas">★</button>
+            <button type="button" class="ch-star-btn" data-nota="3" aria-label="3 estrelas">★</button>
+            <button type="button" class="ch-star-btn" data-nota="4" aria-label="4 estrelas">★</button>
+            <button type="button" class="ch-star-btn" data-nota="5" aria-label="5 estrelas">★</button>
+          </div>
+        </div>
+        <label class="f">
+          <span>Comentário <small style="color:var(--muted);">(opcional)</small></span>
+          <textarea id="chCliAvalComentario" rows="4" maxlength="1000" placeholder="Conta pra gente como foi…"></textarea>
+        </label>
+        <div class="formActions">
+          <button class="btn" type="button" id="chCliAvalCancelar">Cancelar</button>
+          <button class="btn btnAccent" type="submit">Enviar avaliação</button>
         </div>
       </form>
     </div>
@@ -303,11 +616,11 @@
     </svg>
     <span>Dashboard</span>
   </button>
-  <button class="mob-nav-item" data-mob-section="historico">
+  <button class="mob-nav-item" data-mob-section="telemetria">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
-      <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+      <path d="M3 12h4l3-9 4 18 3-9h4"/>
     </svg>
-    <span>Histórico</span>
+    <span>Telemetria</span>
   </button>
   <button class="mob-nav-item" data-mob-section="alertas">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
@@ -316,6 +629,13 @@
     </svg>
     <span>Alertas</span>
     <span class="mob-nav-badge" id="mobBadgeAlertas"></span>
+  </button>
+  <button class="mob-nav-item" data-mob-section="chamados">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+      <polyline points="14 2 14 8 20 8"/>
+    </svg>
+    <span>Chamados</span>
   </button>
   <button class="mob-nav-item" id="mobBtnSair">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
@@ -327,8 +647,9 @@
 </nav>
 
 <script src="/static/chart.umd.min.js"></script>
+<script src="/static/apexcharts.min.js"></script>
 <script src="/static/inatividade.js" defer></script>
-<script src="/static/cliente.js" defer></script>
+<script src="/static/cliente.js?v=8" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
 <script src="/static/register-sw.js" defer></script>
 </body>

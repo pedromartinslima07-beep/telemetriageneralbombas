@@ -1225,6 +1225,82 @@ Decisão consciente: empacotar primeiro (7J), aí montar a infra de push registr
 
 **Estimativa de tempo realista:** 2–3 semanas pra MVP funcional do app do técnico (7A–7G), +1 semana app do cliente (7H), +1 semana publicação Android (7J). Total: 4–5 semanas até a primeira release real na Play Store.
 
+#### 7K — Página de O.S. no admin + Painel do cliente refeito (Mission Control completo) ✅ CONCLUÍDO
+
+Frente grande que cobriu 6 áreas: criou a página de O.S. faltante no admin e levou o painel do cliente desktop e o app mobile pro mesmo padrão visual do Mission Control. Antes só o admin tinha sido modernizado; cliente ainda usava a estrutura antiga (sidebar com classes legadas, tabela de reservatórios crua, histórico isolado, sem chamados).
+
+**a) Página "Ordens de Serviço" no admin (`public/admin.{html,js,css}`):**
+
+- Nova seção na sidebar (grupo Atendimento, depois de Chamados). Backend (`src/routes/ordens-servico.routes.js`) já existia desde a 7E mas não era exposto na UI.
+- 4 KPIs (`.rc`): Total / Finalizadas / Em rascunho / Este mês.
+- Toolbar simplificada após primeira iteração: 3 tabs (Todas/Finalizadas/Em rascunho) com contadores + 1 input de busca. Refactor depois de receber feedback de que 5 selects (busca + condomínio + técnico + status + período) era overkill — a busca textual já cobria condomínio e técnico.
+- Tabela: Número · Criada em · Condomínio · Técnico · Tipos de serviço (chips amber) · Resultado (pill colorida) · Status · Ações (👁 ver · 📄 PDF).
+- **Modal de detalhe** com: identificação, check-in/out + GPS, tipos de serviço (chips grandes), itens verificados, correntes elétricas, resultado + pill, observações, peças (tabela), fotos (grid clicável que abre lightbox), assinatura (img base64).
+- **Modo edição** — botão "Editar" no header do modal abre form que aceita: tipos_servico, recebido_nome/tipo, servico_realizado, necessario_retorno + data, observações, orçamento. Salva via `PATCH /ordens-servico/:id`. Backend já permitia admin escrever em O.S. finalizada (middleware `osDonoOuAdmin` pula o check de `forWrite` quando role é admin) — confirmado antes de implementar.
+- `/ordens-servico` já estava na lista network-first do SW (`public/sw.js` linha 69), então não precisou mexer.
+
+**b) Painel do cliente desktop — estrutura Mission Control (`public/cliente.{html,js}`):**
+
+A sidebar do cliente estava usando classes pré-redesign (`sidebar-logo`, `nav-item` sem `nav-item-label`, sem `data-label`, sem par `sidebar-brand-full/mini`). Tudo migrado pro padrão idêntico ao admin: par de logos com crossfade (44px expandida / 36px mini), nav items com `data-label` e `nav-item-label`, footer com `sidebar-status` (bolinha verde "Operacional"), botão Sair como `nav-item-logout`. `layout-cli` removido (era variante do Mission Control que sobrescrevia coisa demais). Topbar desktop ganhou estrutura nova (`topbar-toggle` + `topbar-title` + `topbar-actions` com `icon-btn` redondo + `topbar-user`). `showSection` atualiza tanto `topbarTitle` (mobile) quanto `topbarTitleDesktop`. Sidebar começa expandida por padrão (invertido o `localStorage` check).
+
+**c) Página "Alertas" do cliente — modelo Mission Control:**
+
+- 3 KPIs (`.al-kpis.al-kpis-3col` — variante de 3 colunas criada no admin.css): Críticos / Atenção / Total. Os 2 primeiros clicáveis filtram a tab correspondente.
+- 3 tabs com contadores (Todos/Críticos/Atenção) + busca + botão Limpar.
+- Tabela: Tipo · Mensagem · Severidade (pill colorida) · Aberto há (tempo relativo) · Atualizado.
+- Severidade derivada do tipo: `nivel_muito_baixo`/`dispositivo_offline` → crítico; `nivel_baixo` → atenção.
+- **Painel lateral** (`.al-painel` em layout `.al-grid 1fr 380px`): click numa linha abre detalhe com banner de reservatório (mini-gauge SVG circular do nível atual), info kv (Severidade/Tipo/Device/Status), mensagem, linha do tempo. Igual o admin, simplificado (sem chamados, sem ações de "marcar resolvido", sem chart histórico — cliente não tem essas permissões).
+
+**d) Página "Chamados" do cliente desktop (~430 linhas JS + 170 CSS):**
+
+Backend já estava todo pronto desde a 7H. Faltava só a UI desktop. Layout estilo "Chamados" do admin (`.ch-layout` lista + painel):
+
+- 3 KPIs (Abertos / Em atendimento / Resolvidos).
+- 4 tabs com contadores (Todos/Abertos/Em atend./Resolvidos) + busca + botão "+ Abrir chamado".
+- Tabela: ID · Título · Categoria · Prioridade · Status · Data.
+- Painel detalhe: header com badges (cat/prio/status), descrição, info da O.S. vinculada (se houver), **timeline 3 passos** (Registrado → Em atendimento → Concluído) com dot verde/amber-pulsante/cinza + linha conectando, bloco de avaliação (CTA quando fechado e não avaliado / "Obrigado pela avaliação" quando já avaliou), **thread de mensagens** estilo chat (bolhas amber à direita = você, cinza à esquerda = técnico) + composer (Enter envia, Shift+Enter quebra linha) — composer some quando chamado fechado.
+- Modal "Abrir chamado": categoria (7 opções) + descrição (mín 5 chars). Prioridade auto-derivada no backend.
+- Modal "Avaliar": 5 estrelas grandes clicáveis (`.ch-star-btn.is-active` amber) + comentário opcional. Após enviar, refetch detalhe e `ja_avaliado=true` esconde o CTA.
+- Polling 20s recarrega quando a tab está ativa.
+- Mobile nav ganhou item "Chamados" também.
+
+**e) Telemetria como página única (substitui Histórico) — fallback de propaganda:**
+
+Mudança de modelo de produto: telemetria virou item opcional contratado. Histórico antigo do cliente desktop foi fundido com a parte de reservatórios do Dashboard numa página única "Telemetria":
+
+- Sidebar: "Histórico" → "Telemetria" (gráfico de barras). Dashboard mantém só o resumo (sem mais tabela de reservatórios, que migrou).
+- 4 KPIs (`.al-kpis.al-kpis-4col` — variante criada): Reservatórios / Online / Alertas / Última leitura (tempo relativo).
+- **Linha 1** (1.6fr / 1fr) — espelha o admin:
+  - **Bar chart ApexCharts** "Níveis dos reservatórios" — uma barra por reservatório com cores graduadas (vermelho <20% / amber <40% / ciano <70% / verde) e gradient vertical.
+  - Card "Em atenção" — lista priorizada de reservatórios offline / com nível baixo / com alertas (top 8).
+- **Linha 2** (1.4fr / 1fr):
+  - **Area chart ApexCharts** "Histórico de níveis" com gradient amber + **annotations** "Atenção 45%" e "Crítico 20%" (no lugar dos datasets fake do Chart.js antigo). Ranges 24h/7d/30d/90d (`.tel-range-btn`). Botão PDF reusa endpoint existente.
+  - Tabela "Status das bombas" com pills "LIGADA" verde com glow / "DESLIGADA" cinza / "—".
+- **Fallback `#telCliFallback`** quando `data.reservatorios.length === 0`: card central com ícone amber, título "Você ainda não tem telemetria contratada", parágrafo explicativo, lista de 4 benefícios (com check verde), botão amber "Quero saber mais" linkando pra WhatsApp + nota "Resposta rápida pelo WhatsApp".
+- Dependência nova carregada no `<head>`: `apexcharts.min.js` (já existia em `/static/` mas o cliente não usava).
+- Toda a estilização reaproveita classes `.tel-row`, `.tel-niveis-chart`, `.tel-crit-row`, `.tel-bombas-table`, `.tel-historico-ctrls/-chart` que já existiam no `admin.css` — zero CSS específico do cliente (exceto as 2 variantes de grid `al-kpis-3col`/`al-kpis-4col`).
+
+**f) App mobile — fallback de propaganda + telemetria enriquecida (`app/public/app.{js,css}`):**
+
+- Aba **Telemetria** quando `reservatorios.length === 0` → mostra propaganda tela cheia (`_renderClienteSemTelemetria({ contexto: "tela" })`) com ícone amber, título, parágrafo, lista de benefícios, CTA WhatsApp e nota.
+- Home quando sem telemetria: KPI "Offline" some (não faz sentido sem reservatório) e card "Reservatórios" é substituído pelo mesmo bloco de propaganda em variante compacta (`contexto: "home"`).
+- Aba Telemetria foi enriquecida — antes só tinha chips + chart. Agora mostra (top→bottom): 4 KPIs Mission Control compactos (2x2) → mini-cards de reservatórios atuais (`renderReservCard` reusado da home) → lista "Status das bombas" com pills coloridas → chart histórico Chart.js (mantido).
+- **Bug do flash de propaganda corrigido**: `CLI.statusCarregado` vira `true` só após primeira resposta de `/cliente/status`. Antes, race com `/cliente/chamados` (que é mais leve e resolve antes) chamava `renderClienteHome` com `reservatorios=[]` (estado default) e mostrava propaganda por ~500ms até o status chegar.
+- **Splash estendido**: `abrirTelaCliente` virou async — força `showScreen("splash")` no início e só troca pra `cliente-home` depois que `Promise.all([carregarClienteStatus, carregarClienteChamados])` resolve. Logo da General fica visível até a tela estar populada, sem flash de "Carregando…" intermediário.
+
+**g) Timeline (linha do tempo) — alinhamento corrigido:**
+
+A linha vertical conectando as 3 bolinhas do detalhe do chamado tinha dois bugs (visíveis quando o título de algum step quebrava em várias linhas):
+
+- **Desktop** (`.ch-tl-step` em `admin.css`): coluna do grid 20px, dot 18px sem `justify-self` → dot ficava em x=0..18 (centro x=9), linha em `left:9 width:2` (centro x=10). 1px de offset. Linha tinha `height: calc(100% + 4px)` com `top:18` → terminava 8px DENTRO do próximo dot (gap=14, sobra=18+4-14). Corrigido: dot pra 20px com `justify-self: center` (centra na coluna independente de width futura), linha `top:24 bottom:-10` (4px de respiro depois do dot e 4px antes do próximo).
+- **Mobile** (`.cli-tl-item` em `app.css`): linha `top:32` sobrepunha 4px do bottom do dot (que vai até y=36 com padding-top 8 + dot 28). Corrigido pra `top:40 bottom:0` (4px depois do dot, termina no fim do item, 12px antes do próximo dot por causa do padding + gap natural).
+
+**Pendências conhecidas:**
+
+- **Telefone do WhatsApp da propaganda** = `5511999999999` (placeholder fake) em 4 lugares: `public/cliente.html:202` e `app/public/app.js:2914`. Trocar pelo número real antes de publicar.
+- Funções/classes `.tel-cli-card*` antigas (mini-cards com gauge SVG circular do primeiro draft da Telemetria) ficaram órfãs no `admin.css` mas não atrapalham — limpar se quiser reduzir CSS morto.
+- A função `_histChart` (Chart.js, da implementação anterior do histórico) também virou variável morta — o histórico do cliente desktop agora usa `_telCliHistChart` (ApexCharts).
+
 ---
 
 ### Fase 8 — Analytics e SLA 📋 PLANEJADA

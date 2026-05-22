@@ -19,16 +19,17 @@ function escapeHtml(s) {
 
 // ===== NAVEGAÇÃO POR SEÇÕES =====
 const _sectionTitles = {
-  dashboard:    "Dashboard",
-  telemetria:   "Telemetria",
-  mapa:         "Mapa",
-  alertas:      "Alertas",
-  whatsapp:     "WhatsApp",
-  chamados:     "Chamados",
-  cadastros:    "Clientes",
-  tecnicos:     "Técnicos",
-  relatorios:   "Relatórios",
-  config:       "Configurações",
+  dashboard:        "Dashboard",
+  telemetria:       "Telemetria",
+  mapa:             "Mapa",
+  alertas:          "Alertas",
+  whatsapp:         "WhatsApp",
+  chamados:         "Chamados",
+  "ordens-servico": "Ordens de Serviço",
+  cadastros:        "Clientes",
+  tecnicos:         "Técnicos",
+  relatorios:       "Relatórios",
+  config:           "Configurações",
 };
 
 function showSection(name) {
@@ -58,6 +59,9 @@ function showSection(name) {
     // a primeira chamada de renderSecaoMapa fez early-return). Garante que
     // tenta de novo agora que o container está visível e com dimensões.
     setTimeout(() => renderSecaoMapa(), 0);
+  }
+  if (name === "ordens-servico") {
+    renderSecaoOS();
   }
   // Dashboard também tem Leaflet (mc-map). Quando o user volta pra dashboard,
   // revalida o tamanho — pode ter ficado com tiles travados se foi criado
@@ -8479,3 +8483,653 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (e) { /* silencia — próximo ciclo tenta de novo */ }
   }, 5000);
 });
+
+// ============================================================
+// ORDENS DE SERVIÇO — seção admin (lista + detalhe + edição + PDF)
+// ============================================================
+
+let _osData = [];
+let _osLoaded = false;
+let _osSelecionadaId = null;
+let _osSelecionada = null;
+let _osModoEdicao = false;
+let _osEdits = null;        // rascunho de edição (objeto solto)
+let _osTabAtiva = "todas";  // "todas" | "finalizadas" | "rascunho"
+
+const _OS_TIPOS_SERVICO = {
+  retirada_equipamento: "Retirada de equipamento",
+  vistoria_contrato:    "Vistoria contratual",
+  visita_tecnica:       "Visita técnica",
+  devolucao:            "Devolução",
+  limpeza_piscina:      "Limpeza piscina",
+  limpeza_caixas:       "Limpeza caixas d'água",
+  chamado_emergencial:  "Chamado emergencial",
+  preventiva_mensal:    "Preventiva mensal",
+  instalacao_pecas:     "Instalação de peças",
+};
+
+const _OS_RESULTADOS = {
+  resolvido:  { label: "Resolvido",  cls: "os-result-ok"   },
+  paliativo:  { label: "Paliativo",  cls: "os-result-warn" },
+  agravado:   { label: "Agravado",   cls: "os-result-bad"  },
+};
+
+const _OS_RECEBIDO_TIPOS = { gestor: "Gestor", sindico: "Síndico", portaria: "Portaria" };
+
+function _osFmtData(iso) {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit" });
+}
+function _osFmtDataCurta(iso) {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleDateString("pt-BR", { day:"2-digit", month:"2-digit", year:"2-digit" });
+}
+
+async function carregarOrdensServico() {
+  try {
+    const r = await fetch("/ordens-servico", { headers: authHeaders() });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    _osData = await r.json();
+    _osLoaded = true;
+  } catch (err) {
+    console.error("[os] carregarOrdensServico:", err);
+    _osData = [];
+  }
+}
+
+async function renderSecaoOS() {
+  // Carrega dados se ainda não tiver
+  if (!_osLoaded) await carregarOrdensServico();
+
+  _osRenderKpis();
+  _osRenderTabela();
+  _osBindEventos();
+}
+
+function _osRenderKpis() {
+  const el = document.getElementById("osKpiGrid");
+  if (!el) return;
+  const data = Array.isArray(_osData) ? _osData : [];
+
+  const total      = data.length;
+  const finaliz    = data.filter(o => o.finalizada_em).length;
+  const rascunho   = total - finaliz;
+
+  const inicioMes = new Date();
+  inicioMes.setDate(1);
+  inicioMes.setHours(0, 0, 0, 0);
+  const esteMes = data.filter(o => o.criado_em && new Date(o.criado_em) >= inicioMes).length;
+
+  const kpi = (icon, val, hint, kindCls) => `
+    <div class="rc ${kindCls} rc-static">
+      <div class="rc-head"><div class="rc-icon">${icon}</div><div class="rc-label">${hint}</div></div>
+      <div class="rc-value">${val}</div>
+    </div>`;
+
+  el.innerHTML =
+    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`,
+        total, "Total de O.S.", "rc-neutral") +
+    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`,
+        finaliz, "Finalizadas", finaliz > 0 ? "rc-ok" : "rc-neutral") +
+    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
+        rascunho, "Em rascunho", rascunho > 0 ? "rc-warn" : "rc-neutral") +
+    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`,
+        esteMes, "Este mês", "rc-neutral");
+}
+
+function _osFiltrados() {
+  const q = (document.getElementById("osBusca")?.value || "").trim().toLowerCase();
+
+  let lista = Array.isArray(_osData) ? [..._osData] : [];
+
+  if (_osTabAtiva === "finalizadas") lista = lista.filter(o => o.finalizada_em);
+  if (_osTabAtiva === "rascunho")    lista = lista.filter(o => !o.finalizada_em);
+
+  if (q) {
+    lista = lista.filter(o => {
+      const blob = `${o.numero || ""} ${o.condominio_nome || ""} ${o.tecnico_nome || ""}`.toLowerCase();
+      return blob.includes(q);
+    });
+  }
+  return lista;
+}
+
+function _osRenderTabela() {
+  const tbody = document.getElementById("osTableBody");
+  const empty = document.getElementById("osEmpty");
+  if (!tbody) return;
+
+  // Contadores das tabs (sempre baseados no dataset completo, ignoram a busca textual)
+  const data = Array.isArray(_osData) ? _osData : [];
+  const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+  set("osCtTodas",    data.length);
+  set("osCtFinal",    data.filter(o => o.finalizada_em).length);
+  set("osCtRascunho", data.filter(o => !o.finalizada_em).length);
+
+  const lista = _osFiltrados();
+  if (!lista.length) {
+    tbody.innerHTML = "";
+    if (empty) empty.style.display = "block";
+    return;
+  }
+  if (empty) empty.style.display = "none";
+
+  tbody.innerHTML = lista.map(o => {
+    const tipos = Array.isArray(o.tipos_servico) ? o.tipos_servico : [];
+    const tiposHtml = tipos.length
+      ? tipos.slice(0, 2).map(t => `<span class="os-chip">${_waEscaparHtml(_OS_TIPOS_SERVICO[t] || t)}</span>`).join("") +
+        (tipos.length > 2 ? `<span class="os-chip os-chip-more">+${tipos.length - 2}</span>` : "")
+      : `<span class="os-muted">—</span>`;
+
+    const resultado = o.servico_realizado
+      ? `<span class="os-result-pill ${_OS_RESULTADOS[o.servico_realizado]?.cls || ""}">${_OS_RESULTADOS[o.servico_realizado]?.label || o.servico_realizado}</span>`
+      : `<span class="os-muted">—</span>`;
+
+    const status = o.finalizada_em
+      ? `<span class="os-status-pill os-status-final">Finalizada</span>`
+      : `<span class="os-status-pill os-status-rascunho">Rascunho</span>`;
+
+    return `<tr class="os-row" data-os-id="${o.id}">
+      <td><strong>${_waEscaparHtml(o.numero || "—")}</strong></td>
+      <td>${_osFmtDataCurta(o.criado_em)}</td>
+      <td>${_waEscaparHtml(o.condominio_nome || "—")}</td>
+      <td>${_waEscaparHtml(o.tecnico_nome || "—")}</td>
+      <td class="os-tipos-cell">${tiposHtml}</td>
+      <td>${resultado}</td>
+      <td>${status}</td>
+      <td class="right os-acoes-cell">
+        <button class="btn btn-sm os-btn-ver" data-os-id="${o.id}" type="button" title="Ver detalhes">👁</button>
+        ${o.finalizada_em ? `<button class="btn btn-sm os-btn-pdf" data-os-id="${o.id}" type="button" title="Baixar PDF">📄</button>` : ""}
+      </td>
+    </tr>`;
+  }).join("");
+}
+
+let _osEventosBound = false;
+function _osBindEventos() {
+  if (_osEventosBound) return;
+  _osEventosBound = true;
+
+  document.getElementById("osBusca")?.addEventListener("input", _osRenderTabela);
+
+  document.querySelectorAll(".wa-tab[data-os-tab]").forEach(tab => {
+    tab.addEventListener("click", () => {
+      _osTabAtiva = tab.dataset.osTab;
+      document.querySelectorAll(".wa-tab[data-os-tab]").forEach(t => t.classList.toggle("is-active", t === tab));
+      _osRenderTabela();
+    });
+  });
+
+  // Delegação no tbody (botões dinâmicos)
+  document.getElementById("osTableBody")?.addEventListener("click", (e) => {
+    const ver = e.target.closest(".os-btn-ver");
+    const pdf = e.target.closest(".os-btn-pdf");
+    if (ver) { abrirOSDetalhe(Number(ver.dataset.osId)); return; }
+    if (pdf) { baixarOSPdf(Number(pdf.dataset.osId)); return; }
+    const row = e.target.closest(".os-row");
+    if (row) abrirOSDetalhe(Number(row.dataset.osId));
+  });
+
+  // Modal
+  document.getElementById("osBtnFechar")?.addEventListener("click", fecharOSModal);
+  document.getElementById("osBtnPdf")?.addEventListener("click", () => {
+    if (_osSelecionadaId) baixarOSPdf(_osSelecionadaId);
+  });
+  document.getElementById("osBtnEditar")?.addEventListener("click", _osEntrarModoEdicao);
+  document.getElementById("osBtnSalvar")?.addEventListener("click", _osSalvarEdicao);
+  document.getElementById("osBtnCancelarEdicao")?.addEventListener("click", _osCancelarEdicao);
+
+  document.getElementById("osModalOverlay")?.addEventListener("click", (e) => {
+    if (e.target.id === "osModalOverlay") fecharOSModal();
+  });
+  document.getElementById("osFotoLightboxClose")?.addEventListener("click", () => {
+    const lb = document.getElementById("osFotoLightbox");
+    if (lb) lb.style.display = "none";
+  });
+  document.getElementById("osFotoLightbox")?.addEventListener("click", (e) => {
+    if (e.target.id === "osFotoLightbox") {
+      e.currentTarget.style.display = "none";
+    }
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+    const lb = document.getElementById("osFotoLightbox");
+    if (lb && lb.style.display !== "none") { lb.style.display = "none"; return; }
+    const ov = document.getElementById("osModalOverlay");
+    if (ov && ov.style.display !== "none") fecharOSModal();
+  });
+}
+
+// ============================================================
+// MODAL DE DETALHE
+// ============================================================
+
+async function abrirOSDetalhe(id) {
+  if (!id) return;
+  _osSelecionadaId = id;
+  _osModoEdicao = false;
+  _osEdits = null;
+
+  const ov   = document.getElementById("osModalOverlay");
+  const body = document.getElementById("osModalBody");
+  const sub  = document.getElementById("osModalSub");
+  const tit  = document.getElementById("osModalTitle");
+  if (!ov || !body) return;
+
+  ov.style.display = "flex";
+  body.innerHTML = `<div class="mc-empty" style="padding:32px;text-align:center;">Carregando…</div>`;
+  if (sub) sub.textContent = "Carregando…";
+  if (tit) tit.textContent = "Ordem de Serviço";
+  _osAtualizarBotoesHeader();
+
+  try {
+    const r = await fetch(`/ordens-servico/${id}`, { headers: authHeaders() });
+    if (!r.ok) {
+      const e = await r.json().catch(() => ({}));
+      throw new Error(e.error || ("HTTP " + r.status));
+    }
+    _osSelecionada = await r.json();
+    _osRenderModal();
+  } catch (err) {
+    body.innerHTML = `<div class="mc-empty" style="padding:32px;text-align:center;color:var(--danger);">Erro: ${_waEscaparHtml(err.message)}</div>`;
+  }
+}
+
+function fecharOSModal() {
+  const ov = document.getElementById("osModalOverlay");
+  if (ov) ov.style.display = "none";
+  _osSelecionadaId = null;
+  _osSelecionada = null;
+  _osModoEdicao = false;
+  _osEdits = null;
+}
+
+function _osAtualizarBotoesHeader() {
+  const btnEditar    = document.getElementById("osBtnEditar");
+  const btnSalvar    = document.getElementById("osBtnSalvar");
+  const btnCancelar  = document.getElementById("osBtnCancelarEdicao");
+  const btnPdf       = document.getElementById("osBtnPdf");
+  if (!btnEditar) return;
+
+  if (_osModoEdicao) {
+    btnEditar.style.display = "none";
+    btnSalvar.style.display = "inline-flex";
+    btnCancelar.style.display = "inline-flex";
+    btnPdf.style.display = "none";
+  } else {
+    btnEditar.style.display = "inline-flex";
+    btnSalvar.style.display = "none";
+    btnCancelar.style.display = "none";
+    btnPdf.style.display = (_osSelecionada && _osSelecionada.finalizada_em) ? "inline-flex" : "none";
+  }
+}
+
+function _osRenderModal() {
+  const body = document.getElementById("osModalBody");
+  const tit  = document.getElementById("osModalTitle");
+  const sub  = document.getElementById("osModalSub");
+  if (!body || !_osSelecionada) return;
+  const os = _osSelecionada;
+
+  if (tit) tit.textContent = os.numero || "O.S.";
+  if (sub) {
+    const cond = os.condominio_nome || "—";
+    const tec  = os.tecnico_nome || "Sem técnico";
+    const status = os.finalizada_em
+      ? `Finalizada em ${_osFmtData(os.finalizada_em)}`
+      : "Rascunho (não finalizada)";
+    sub.innerHTML = `${_waEscaparHtml(cond)} · ${_waEscaparHtml(tec)} · ${status}`;
+  }
+
+  _osAtualizarBotoesHeader();
+
+  if (_osModoEdicao) {
+    body.innerHTML = _osRenderForm(_osEdits || _osEditsFromOS(os));
+    _osBindFormEventos();
+  } else {
+    body.innerHTML = _osRenderView(os);
+    _osBindViewEventos();
+  }
+}
+
+function _osRenderView(os) {
+  const tipos = Array.isArray(os.tipos_servico) ? os.tipos_servico : [];
+  const tiposHtml = tipos.length
+    ? tipos.map(t => `<span class="os-chip os-chip-lg">${_waEscaparHtml(_OS_TIPOS_SERVICO[t] || t)}</span>`).join("")
+    : `<span class="os-muted">Nenhum tipo informado</span>`;
+
+  const resultado = os.servico_realizado
+    ? `<span class="os-result-pill ${_OS_RESULTADOS[os.servico_realizado]?.cls || ""}">${_OS_RESULTADOS[os.servico_realizado]?.label || os.servico_realizado}</span>`
+    : `<span class="os-muted">—</span>`;
+
+  const endereco = [os.endereco, os.bairro, os.cidade, os.uf].filter(Boolean).join(", ") || "—";
+
+  const itensVerif = os.itens_verificados && typeof os.itens_verificados === "object"
+    ? Object.entries(os.itens_verificados)
+    : [];
+  const itensHtml = itensVerif.length
+    ? `<ul class="os-list">${itensVerif.map(([k, v]) =>
+        `<li>${_waEscaparHtml(k)}: <strong>${v === true ? "Sim" : v === false ? "Não" : _waEscaparHtml(String(v))}</strong></li>`
+      ).join("")}</ul>`
+    : `<span class="os-muted">Nada verificado.</span>`;
+
+  let correntesHtml = `<span class="os-muted">—</span>`;
+  if (os.correntes && typeof os.correntes === "object") {
+    const tipo = os.correntes.tipo || "—";
+    const vals = Array.isArray(os.correntes.valores) ? os.correntes.valores : [];
+    correntesHtml = `<div class="os-correntes-row">
+      <span><strong>Tipo:</strong> ${_waEscaparHtml(tipo)}</span>
+      ${vals.length ? `<span><strong>Valores:</strong> ${vals.map(v => `${_waEscaparHtml(String(v))} A`).join(" · ")}</span>` : ""}
+    </div>`;
+  }
+
+  const pecas = Array.isArray(os.pecas) ? os.pecas : [];
+  const pecasHtml = pecas.length
+    ? `<table class="os-pecas-table"><thead><tr><th>Descrição</th><th>Qtd</th><th>Observação</th></tr></thead>
+       <tbody>${pecas.map(p => `<tr>
+         <td>${_waEscaparHtml(p.descricao || "—")}</td>
+         <td>${p.quantidade ?? 1}</td>
+         <td>${_waEscaparHtml(p.observacao || "—")}</td>
+       </tr>`).join("")}</tbody></table>`
+    : `<span class="os-muted">Nenhuma peça registrada.</span>`;
+
+  const fotos = Array.isArray(os.fotos) ? os.fotos : [];
+  const fotosHtml = fotos.length
+    ? `<div class="os-fotos-grid">${fotos.map(f => `
+        <figure class="os-foto" data-foto-url="${_waEscaparHtml(f.url)}">
+          <img src="${_waEscaparHtml(f.url)}" alt="Foto ${_waEscaparHtml(f.tipo || "")}" loading="lazy" />
+          <figcaption>
+            ${f.tipo ? `<span class="os-foto-tag">${_waEscaparHtml(f.tipo)}</span>` : ""}
+            ${f.legenda ? `<span>${_waEscaparHtml(f.legenda)}</span>` : ""}
+          </figcaption>
+        </figure>`).join("")}</div>`
+    : `<span class="os-muted">Nenhuma foto.</span>`;
+
+  const assin = os.assinatura_b64
+    ? `<img class="os-assin-img" src="${_waEscaparHtml(os.assinatura_b64.startsWith("data:") ? os.assinatura_b64 : "data:image/png;base64," + os.assinatura_b64)}" alt="Assinatura" />`
+    : `<span class="os-muted">Não assinada.</span>`;
+
+  return `
+    <div class="os-grid">
+      <section class="os-section">
+        <h3 class="os-sec-title">Identificação</h3>
+        <div class="os-rows">
+          <div class="os-row-info"><span class="os-key">Número</span><span class="os-val"><strong>${_waEscaparHtml(os.numero || "—")}</strong></span></div>
+          <div class="os-row-info"><span class="os-key">Criada em</span><span class="os-val">${_osFmtData(os.criado_em)}</span></div>
+          <div class="os-row-info"><span class="os-key">Finalizada</span><span class="os-val">${os.finalizada_em ? _osFmtData(os.finalizada_em) : "—"}</span></div>
+          <div class="os-row-info"><span class="os-key">Chamado</span><span class="os-val">${os.chamado_id ? `#${os.chamado_id}` : "—"}</span></div>
+          <div class="os-row-info"><span class="os-key">Condomínio</span><span class="os-val">${_waEscaparHtml(os.condominio_nome || "—")}</span></div>
+          <div class="os-row-info"><span class="os-key">Endereço</span><span class="os-val">${_waEscaparHtml(endereco)}</span></div>
+          <div class="os-row-info"><span class="os-key">Técnico</span><span class="os-val">${_waEscaparHtml(os.tecnico_nome || "—")}${os.tecnico_telefone ? ` · ${_waEscaparHtml(os.tecnico_telefone)}` : ""}</span></div>
+        </div>
+      </section>
+
+      <section class="os-section">
+        <h3 class="os-sec-title">Check-in / Check-out</h3>
+        <div class="os-rows">
+          <div class="os-row-info"><span class="os-key">Chegada</span><span class="os-val">${_osFmtData(os.chegada_em)}${os.chegada_lat ? ` · ${Number(os.chegada_lat).toFixed(5)}, ${Number(os.chegada_lng).toFixed(5)}` : ""}</span></div>
+          <div class="os-row-info"><span class="os-key">Saída</span><span class="os-val">${_osFmtData(os.saida_em)}${os.saida_lat ? ` · ${Number(os.saida_lat).toFixed(5)}, ${Number(os.saida_lng).toFixed(5)}` : ""}</span></div>
+          <div class="os-row-info"><span class="os-key">Recebido por</span><span class="os-val">${_waEscaparHtml(os.recebido_nome || "—")}${os.recebido_tipo ? ` (${_OS_RECEBIDO_TIPOS[os.recebido_tipo] || os.recebido_tipo})` : ""}</span></div>
+        </div>
+      </section>
+
+      <section class="os-section os-section-full">
+        <h3 class="os-sec-title">Tipos de serviço</h3>
+        <div class="os-chips-wrap">${tiposHtml}</div>
+      </section>
+
+      <section class="os-section">
+        <h3 class="os-sec-title">Itens verificados</h3>
+        ${itensHtml}
+      </section>
+
+      <section class="os-section">
+        <h3 class="os-sec-title">Correntes elétricas</h3>
+        ${correntesHtml}
+      </section>
+
+      <section class="os-section os-section-full">
+        <h3 class="os-sec-title">Resultado do serviço</h3>
+        <div class="os-result-row">
+          ${resultado}
+          ${os.necessario_retorno ? `<span class="os-status-pill os-status-rascunho">Necessita retorno${os.retorno_sugerido_em ? ` em ${_osFmtDataCurta(os.retorno_sugerido_em)}` : ""}</span>` : ""}
+          ${os.orcamento_necessario ? `<span class="os-status-pill os-status-rascunho">Orçamento necessário</span>` : ""}
+        </div>
+        ${os.observacoes ? `<p class="os-obs">${_waEscaparHtml(os.observacoes)}</p>` : ""}
+        ${os.orcamento_observacoes ? `<p class="os-obs"><strong>Orçamento:</strong> ${_waEscaparHtml(os.orcamento_observacoes)}</p>` : ""}
+      </section>
+
+      <section class="os-section os-section-full">
+        <h3 class="os-sec-title">Peças usadas</h3>
+        ${pecasHtml}
+      </section>
+
+      <section class="os-section os-section-full">
+        <h3 class="os-sec-title">Fotos</h3>
+        ${fotosHtml}
+      </section>
+
+      <section class="os-section os-section-full">
+        <h3 class="os-sec-title">Assinatura de quem recebeu</h3>
+        ${assin}
+      </section>
+    </div>`;
+}
+
+function _osBindViewEventos() {
+  document.querySelectorAll("#osModalBody .os-foto").forEach(fig => {
+    fig.addEventListener("click", () => {
+      const url = fig.dataset.fotoUrl;
+      if (!url) return;
+      const lb = document.getElementById("osFotoLightbox");
+      const img = document.getElementById("osFotoLightboxImg");
+      if (lb && img) { img.src = url; lb.style.display = "flex"; }
+    });
+  });
+}
+
+// ============================================================
+// PDF
+// ============================================================
+
+async function baixarOSPdf(id) {
+  if (!id) return;
+  try {
+    const r = await fetch(`/ordens-servico/${id}/pdf`, { headers: authHeaders() });
+    if (!r.ok) {
+      const e = await r.json().catch(() => ({}));
+      alert(e.error || "Não foi possível baixar o PDF.");
+      return;
+    }
+    const blob = await r.blob();
+    const url  = URL.createObjectURL(blob);
+    // Abre em nova aba; revoga depois de carregar
+    const w = window.open(url, "_blank");
+    if (!w) {
+      // popup bloqueado — força download
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `os-${id}.pdf`;
+      a.click();
+    }
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
+  } catch (err) {
+    console.error("[os] baixarOSPdf:", err);
+    alert("Erro ao baixar PDF: " + err.message);
+  }
+}
+
+// ============================================================
+// EDIÇÃO
+// ============================================================
+
+function _osEditsFromOS(os) {
+  return {
+    tipos_servico:        [...(os.tipos_servico || [])],
+    observacoes:          os.observacoes || "",
+    recebido_nome:        os.recebido_nome || "",
+    recebido_tipo:        os.recebido_tipo || "",
+    servico_realizado:    os.servico_realizado || "",
+    necessario_retorno:   !!os.necessario_retorno,
+    retorno_sugerido_em:  os.retorno_sugerido_em || "",
+    orcamento_necessario: !!os.orcamento_necessario,
+    orcamento_observacoes: os.orcamento_observacoes || "",
+  };
+}
+
+function _osEntrarModoEdicao() {
+  if (!_osSelecionada) return;
+  _osModoEdicao = true;
+  _osEdits = _osEditsFromOS(_osSelecionada);
+  _osRenderModal();
+}
+
+function _osCancelarEdicao() {
+  _osModoEdicao = false;
+  _osEdits = null;
+  _osRenderModal();
+}
+
+async function _osSalvarEdicao() {
+  if (!_osSelecionadaId || !_osEdits) return;
+  const btn = document.getElementById("osBtnSalvar");
+  if (btn) { btn.disabled = true; btn.textContent = "Salvando…"; }
+  try {
+    const payload = { ..._osEdits };
+    // Limpa retorno se desmarcou
+    if (!payload.necessario_retorno) payload.retorno_sugerido_em = null;
+    if (!payload.retorno_sugerido_em) delete payload.retorno_sugerido_em;
+    if (!payload.recebido_tipo) payload.recebido_tipo = null;
+    if (!payload.servico_realizado) payload.servico_realizado = null;
+
+    const r = await fetch(`/ordens-servico/${_osSelecionadaId}`, {
+      method: "PATCH",
+      headers: { ...authHeaders(), "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!r.ok) {
+      const e = await r.json().catch(() => ({}));
+      throw new Error(e.error || "Erro HTTP " + r.status);
+    }
+    // Recarrega lista + detalhe
+    await carregarOrdensServico();
+    _osModoEdicao = false;
+    _osEdits = null;
+    await abrirOSDetalhe(_osSelecionadaId); // refetch detalhe
+    _osRenderKpis();
+    _osRenderTabela();
+  } catch (err) {
+    alert("Erro ao salvar: " + err.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = "Salvar"; }
+  }
+}
+
+function _osRenderForm(edits) {
+  const tipos = new Set(edits.tipos_servico || []);
+  const tiposCheckboxes = Object.entries(_OS_TIPOS_SERVICO).map(([key, label]) => `
+    <label class="os-check">
+      <input type="checkbox" data-os-tipo="${key}" ${tipos.has(key) ? "checked" : ""}>
+      <span>${_waEscaparHtml(label)}</span>
+    </label>`).join("");
+
+  const radios = (name, current, opcoes) => opcoes.map(([v, lbl]) => `
+    <label class="os-radio">
+      <input type="radio" name="${name}" value="${v}" ${current === v ? "checked" : ""}>
+      <span>${_waEscaparHtml(lbl)}</span>
+    </label>`).join("");
+
+  return `
+    <div class="os-form">
+      <section class="os-section os-section-full">
+        <h3 class="os-sec-title">Tipos de serviço</h3>
+        <div class="os-checks-grid">${tiposCheckboxes}</div>
+      </section>
+
+      <section class="os-section">
+        <h3 class="os-sec-title">Recebido por</h3>
+        <label class="f"><span>Nome</span>
+          <input id="osEdRecebidoNome" class="input" type="text" value="${_waEscaparHtml(edits.recebido_nome || "")}" />
+        </label>
+        <label class="f"><span>Tipo</span>
+          <select id="osEdRecebidoTipo" class="input">
+            <option value="">—</option>
+            <option value="gestor"  ${edits.recebido_tipo === "gestor"   ? "selected" : ""}>Gestor</option>
+            <option value="sindico" ${edits.recebido_tipo === "sindico"  ? "selected" : ""}>Síndico</option>
+            <option value="portaria"${edits.recebido_tipo === "portaria" ? "selected" : ""}>Portaria</option>
+          </select>
+        </label>
+      </section>
+
+      <section class="os-section">
+        <h3 class="os-sec-title">Resultado</h3>
+        <div class="os-radios-row">
+          ${radios("osEdResultado", edits.servico_realizado || "", [
+            ["resolvido", "Resolvido"],
+            ["paliativo", "Paliativo"],
+            ["agravado",  "Agravado"],
+          ])}
+        </div>
+      </section>
+
+      <section class="os-section os-section-full">
+        <h3 class="os-sec-title">Retorno</h3>
+        <label class="os-check">
+          <input type="checkbox" id="osEdRetorno" ${edits.necessario_retorno ? "checked" : ""}>
+          <span>Necessita retorno</span>
+        </label>
+        <label class="f" style="margin-top:8px;"><span>Data sugerida</span>
+          <input id="osEdRetornoData" type="date" class="input" value="${_waEscaparHtml(edits.retorno_sugerido_em ? String(edits.retorno_sugerido_em).slice(0, 10) : "")}" ${edits.necessario_retorno ? "" : "disabled"} />
+        </label>
+      </section>
+
+      <section class="os-section os-section-full">
+        <h3 class="os-sec-title">Observações</h3>
+        <textarea id="osEdObs" class="input" rows="4" placeholder="Observações da O.S.">${_waEscaparHtml(edits.observacoes || "")}</textarea>
+      </section>
+
+      <section class="os-section os-section-full">
+        <h3 class="os-sec-title">Orçamento</h3>
+        <label class="os-check">
+          <input type="checkbox" id="osEdOrcamento" ${edits.orcamento_necessario ? "checked" : ""}>
+          <span>Orçamento necessário</span>
+        </label>
+        <textarea id="osEdOrcamentoObs" class="input" rows="3" style="margin-top:8px;" placeholder="Detalhes do orçamento">${_waEscaparHtml(edits.orcamento_observacoes || "")}</textarea>
+      </section>
+    </div>`;
+}
+
+function _osBindFormEventos() {
+  const e = _osEdits;
+  if (!e) return;
+
+  document.querySelectorAll("[data-os-tipo]").forEach(cb => {
+    cb.addEventListener("change", () => {
+      const set = new Set(e.tipos_servico);
+      if (cb.checked) set.add(cb.dataset.osTipo);
+      else set.delete(cb.dataset.osTipo);
+      e.tipos_servico = [...set];
+    });
+  });
+
+  document.getElementById("osEdRecebidoNome")?.addEventListener("input", (ev) => { e.recebido_nome = ev.target.value; });
+  document.getElementById("osEdRecebidoTipo")?.addEventListener("change", (ev) => { e.recebido_tipo = ev.target.value; });
+
+  document.querySelectorAll('input[name="osEdResultado"]').forEach(r => {
+    r.addEventListener("change", () => { if (r.checked) e.servico_realizado = r.value; });
+  });
+
+  document.getElementById("osEdRetorno")?.addEventListener("change", (ev) => {
+    e.necessario_retorno = ev.target.checked;
+    const dt = document.getElementById("osEdRetornoData");
+    if (dt) dt.disabled = !ev.target.checked;
+    if (!ev.target.checked) e.retorno_sugerido_em = "";
+  });
+  document.getElementById("osEdRetornoData")?.addEventListener("change", (ev) => { e.retorno_sugerido_em = ev.target.value; });
+
+  document.getElementById("osEdObs")?.addEventListener("input", (ev) => { e.observacoes = ev.target.value; });
+
+  document.getElementById("osEdOrcamento")?.addEventListener("change", (ev) => { e.orcamento_necessario = ev.target.checked; });
+  document.getElementById("osEdOrcamentoObs")?.addEventListener("input", (ev) => { e.orcamento_observacoes = ev.target.value; });
+}

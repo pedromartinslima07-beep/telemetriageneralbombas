@@ -2616,6 +2616,7 @@ const CLI = {
   detalheId: null,
   detalhe: null,        // chamado aberto na tela de detalhe (com avaliação)
   detalheMsgs: [],      // thread de mensagens do detalhe
+  statusCarregado: false, // vira true após primeira resposta de /cliente/status
 };
 
 const CLI_CATEGORIAS = [
@@ -2645,11 +2646,21 @@ const CLI_CAT_TO_PRIO = {
   outro:       "media",
 };
 
-function abrirTelaCliente(user) {
+async function abrirTelaCliente(user) {
   CLI.user = user;
+  // Mantém o splash (logo + spinner) visível enquanto buscamos status e
+  // chamados em paralelo — assim a tela final aparece já preenchida, sem
+  // flash de "Carregando…" depois.
+  showScreen("splash");
+  try {
+    await Promise.all([
+      carregarClienteStatus(false),
+      carregarClienteChamados(false),
+    ]);
+  } catch (_) { /* erros individuais já são tratados dentro de cada fetch */ }
   showScreen("cliente-home");
-  carregarClienteStatus(true);
-  carregarClienteChamados(true);
+  renderClienteHome({ loading: false });
+
   if (CLI.polling) clearInterval(CLI.polling);
   CLI.polling = setInterval(() => {
     carregarClienteStatus(false);
@@ -2668,9 +2679,13 @@ async function carregarClienteStatus(showSkel) {
     CLI.condominio = d.condominio;
     CLI.reservatorios = d.reservatorios || [];
     CLI.alertas = d.alertas_abertos || [];
+    CLI.statusCarregado = true;
     atualizarHeaderCondo();
     if (document.querySelector('[data-screen="cliente-home"][data-active]')) {
       renderClienteHome({ loading: false });
+    }
+    if (document.querySelector('[data-screen="cliente-telemetria"][data-active]')) {
+      renderTelemetriaCliente();
     }
   } catch (err) {
     console.warn("[cli] status:", err.message);
@@ -2709,12 +2724,16 @@ function atualizarHeaderCondo() {
 function renderClienteHome({ loading }) {
   const main = document.getElementById("cliHomeMain");
   if (!main) return;
-  if (loading && CLI.reservatorios.length === 0) {
+  // Skeleton enquanto o primeiro /cliente/status não voltou ainda — evita
+  // flash da propaganda quando o fetch de /cliente/chamados resolve antes
+  // de /cliente/status (race comum porque chamados é mais leve).
+  if (loading || !CLI.statusCarregado) {
     main.innerHTML = `<section class="card tec-card"><div class="td-card-body"><div class="muted">Carregando…</div></div></section>`;
     return;
   }
 
   const totalReservatorios = CLI.reservatorios.length;
+  const temTelemetria = totalReservatorios > 0;
   const offline = CLI.reservatorios.filter((r) => r.offline).length;
   const alertasAbertos = CLI.alertas.length;
   const chamadosAbertos = CLI.chamados.filter((c) => c.status !== "fechado").length;
@@ -2732,9 +2751,10 @@ function renderClienteHome({ loading }) {
   const svgBell   = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>`;
   const svgTicket = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
 
+  // Quando sem telemetria, o KPI "Offline" não faz sentido — escondemos
   const kpisHtml = `
     <div class="resumo-grid cli-kpi-grid">
-      ${kpi(svgWifi,   offline,         "Offline",   offline > 0         ? "rc-bad"  : "rc-ok",   "offline")}
+      ${temTelemetria ? kpi(svgWifi, offline, "Offline", offline > 0 ? "rc-bad" : "rc-ok", "offline") : ""}
       ${kpi(svgBell,   alertasAbertos,  "Alertas",   alertasAbertos > 0  ? "rc-warn" : "rc-ok",   "alertas")}
       ${kpi(svgTicket, chamadosAbertos, "Em aberto", chamadosAbertos > 0 ? "rc-warn" : "rc-ok",   "abertos")}
     </div>`;
@@ -2748,16 +2768,15 @@ function renderClienteHome({ loading }) {
     </button>`;
 
   const svgWater = `<svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5c4 5 7 8.5 7 12.5a7 7 0 1 1-14 0c0-4 3-7.5 7-12.5z"/></svg>`;
-  const reservHtml = `
-    <section class="card tec-card">
-      <div class="cardHead">
-        <h2>${svgWater}Reservatórios</h2>
-        <span class="hint">${totalReservatorios} ${totalReservatorios === 1 ? "monitorado" : "monitorados"}</span>
-      </div>
-      ${CLI.reservatorios.length === 0
-        ? `<div class="cli-empty-section">Sem reservatórios monitorados ainda.</div>`
-        : `<div class="cli-reserv-grid">${CLI.reservatorios.map(renderReservCard).join("")}</div>`}
-    </section>`;
+  const reservHtml = temTelemetria
+    ? `<section class="card tec-card">
+        <div class="cardHead">
+          <h2>${svgWater}Reservatórios</h2>
+          <span class="hint">${totalReservatorios} ${totalReservatorios === 1 ? "monitorado" : "monitorados"}</span>
+        </div>
+        <div class="cli-reserv-grid">${CLI.reservatorios.map(renderReservCard).join("")}</div>
+      </section>`
+    : _renderClienteSemTelemetria({ contexto: "home" });
 
   const svgList = `<svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg>`;
   const chamadosRecentes = CLI.chamados.slice(0, 3);
@@ -2775,6 +2794,8 @@ function renderClienteHome({ loading }) {
     </section>`;
 
   main.innerHTML = kpisHtml + ctaHtml + reservHtml + chamadosHtml;
+
+  if (!temTelemetria) _bindClienteSemTelemetria();
 
   document.getElementById("cliBtnAbrirChamado")?.addEventListener("click", abrirNovoChamado);
   document.getElementById("cliVerTodosChamados")?.addEventListener("click", () => {
@@ -2904,15 +2925,59 @@ async function abrirTelemetriaCliente() {
   renderTelemetriaCliente();
 }
 
+// Bloco "sem telemetria contratada" — usado tanto na tela cheia de Telemetria
+// quanto como card compacto na Home. `contexto` controla o tamanho/texto.
+function _renderClienteSemTelemetria({ contexto } = {}) {
+  const isTela = contexto === "tela";
+  const waLink = "https://wa.me/5511999999999?text=" + encodeURIComponent("Olá! Quero saber mais sobre a telemetria General Bombas");
+
+  const checkSvg = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+  const iconSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3-9 4 18 3-9h4"/></svg>`;
+
+  const beneficios = [
+    "Acompanhamento 24/7 do reservatório",
+    "Alertas automáticos de nível baixo, vazamento e falha",
+    "Histórico completo e relatórios em PDF",
+    "Atendimento técnico mais rápido",
+  ];
+
+  return `
+    <section class="card tec-card cli-promo${isTela ? " cli-promo-tela" : ""}">
+      <div class="cli-promo-icon">${iconSvg}</div>
+      <h2 class="cli-promo-title">${isTela ? "Você ainda não tem telemetria" : "Quer monitorar seu reservatório?"}</h2>
+      <p class="cli-promo-text">
+        ${isTela
+          ? "Com a telemetria da General Bombas, você acompanha o <strong>nível dos reservatórios</strong> e o <strong>status das bombas</strong> em tempo real e recebe <strong>alertas automáticos</strong> antes do problema chegar ao morador."
+          : "Veja em tempo real o nível do reservatório e receba alertas antes do problema chegar ao morador."}
+      </p>
+      <ul class="cli-promo-list">
+        ${beneficios.map(b => `<li><span class="cli-promo-check">${checkSvg}</span>${b}</li>`).join("")}
+      </ul>
+      <a class="btn btnAccent btn-lg cli-promo-cta" href="${waLink}" target="_blank" rel="noopener">
+        <span class="btn-label">Quero saber mais</span>
+      </a>
+      <span class="cli-promo-note">Resposta rápida pelo WhatsApp</span>
+    </section>`;
+}
+
+function _bindClienteSemTelemetria() {
+  // O CTA é um <a target="_blank">, não precisa de bind extra.
+  // Função existe pra ponto de extensão (tracking, animação, etc.).
+}
+
 function renderTelemetriaCliente() {
   const main = document.getElementById("cliTeleMain");
   if (!main) return;
 
+  // Espera o primeiro /cliente/status responder pra não dar flash de propaganda
+  if (!CLI.statusCarregado) {
+    main.innerHTML = `<section class="card tec-card"><div class="td-card-body"><div class="muted">Carregando…</div></div></section>`;
+    return;
+  }
+
   if (CLI.reservatorios.length === 0) {
-    main.innerHTML = `
-      <section class="card tec-card">
-        <div class="cli-empty-section">Sem reservatórios monitorados ainda.</div>
-      </section>`;
+    main.innerHTML = _renderClienteSemTelemetria({ contexto: "tela" });
+    _bindClienteSemTelemetria();
     return;
   }
 
@@ -2931,8 +2996,66 @@ function renderTelemetriaCliente() {
             data-tele-dias="${p.dias}">${p.label}</button>`).join("");
 
   const svgChart = `<svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>`;
+  const svgWater = `<svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5c4 5 7 8.5 7 12.5a7 7 0 1 1-14 0c0-4 3-7.5 7-12.5z"/></svg>`;
+  const svgPump  = `<svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 4v2M12 18v2M4 12h2M18 12h2M6.3 6.3l1.4 1.4M16.3 16.3l1.4 1.4M6.3 17.7l1.4-1.4M16.3 7.7l1.4-1.4"/></svg>`;
+
+  // KPIs do topo (mesma régua do desktop)
+  const offline   = CLI.reservatorios.filter((r) => r.offline).length;
+  const online    = CLI.reservatorios.length - offline;
+  const alertasN  = CLI.alertas.length;
+  let ultimaIso = null;
+  for (const r of CLI.reservatorios) {
+    const c = r.ultima_leitura?.criado_em;
+    if (!c) continue;
+    if (!ultimaIso || new Date(c) > new Date(ultimaIso)) ultimaIso = c;
+  }
+  const kpiTele = (val, lbl, kindCls) => `
+    <div class="rc ${kindCls}">
+      <div class="rc-label">${lbl}</div>
+      <div class="rc-value">${val}</div>
+    </div>`;
+  const kpisTeleHtml = `
+    <div class="resumo-grid cli-kpi-grid cli-tele-kpis">
+      ${kpiTele(CLI.reservatorios.length, "Reservatórios", "rc-neutral")}
+      ${kpiTele(online, "Online", online === CLI.reservatorios.length ? "rc-ok" : "rc-warn")}
+      ${kpiTele(alertasN, "Alertas", alertasN > 0 ? "rc-bad" : "rc-ok")}
+      ${kpiTele(ultimaIso ? `há ${tempoAbertoLabel(ultimaIso)}` : "—", "Última leitura", "rc-neutral")}
+    </div>`;
+
+  // Status atual dos reservatórios (mesmos mini-cards da home)
+  const reservAgoraHtml = `
+    <section class="card tec-card">
+      <div class="cardHead">
+        <h2>${svgWater}Status agora</h2>
+        <span class="hint">Tempo real</span>
+      </div>
+      <div class="cli-reserv-grid">${CLI.reservatorios.map(renderReservCard).join("")}</div>
+    </section>`;
+
+  // Status das bombas (lista compacta)
+  const bombasHtml = `
+    <section class="card tec-card">
+      <div class="cardHead">
+        <h2>${svgPump}Status das bombas</h2>
+      </div>
+      <ul class="cli-tele-bombas">
+        ${CLI.reservatorios.map((r) => {
+          const u = r.ultima_leitura;
+          const onState = u?.bomba_ligada;
+          const cls = onState === true ? "on" : onState === false ? "off" : "uk";
+          const lbl = onState === true ? "Ligada" : onState === false ? "Desligada" : "—";
+          return `<li>
+            <span class="cli-tele-bomba-nome">${escapeHtml(r.nome || "Reservatório")}</span>
+            <span class="cli-tele-bomba-pill ${cls}">${lbl}</span>
+          </li>`;
+        }).join("")}
+      </ul>
+    </section>`;
 
   main.innerHTML = `
+    ${kpisTeleHtml}
+    ${reservAgoraHtml}
+    ${bombasHtml}
     <section class="card tec-card">
       <div class="cardHead">
         <h2>${svgChart}Histórico de nível</h2>
