@@ -17,7 +17,6 @@ const _sectionTitles = { dashboard: "Dashboard", telemetria: "Telemetria", alert
 // ── Estado do histórico ──
 let _reservatorios = [];
 let _histDias = 1;
-let _histChart = null;
 
 // ── Estado dos alertas (modelo novo) ──
 let _alAlertas = [];

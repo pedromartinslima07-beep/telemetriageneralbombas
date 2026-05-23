@@ -478,10 +478,19 @@ function atualizarFooterTecnico(totalVisiveis) {
     ? `${total} ${total === 1 ? "chamado" : "chamados"}`
     : `${totalVisiveis} de ${total}`;
 
-  if (TC.geo) {
+  // Footer do GPS espelha o estado real do watchPosition (não só a
+  // existência de uma posição cacheada). Caso contrário, depois das 18h
+  // o GPS desliga mas o footer continuaria mostrando "GPS ativo".
+  const gpsOn = typeof gpsAtivo === "function" && gpsAtivo();
+  const dentroJanela = typeof gpsDentroDoHorario === "function" ? gpsDentroDoHorario() : true;
+
+  if (gpsOn && TC.geo) {
     const idade = Math.floor((Date.now() - TC.geo.capturada_em) / 60000);
     elGps.classList.add("tec-footer-gps-on");
-    elGps.querySelector("span").textContent = idade < 1 ? "GPS ativo" : `GPS ${idade}m`;
+    elGps.querySelector("span").textContent = idade < 1 ? "GPS ativo" : `GPS · há ${idade}m`;
+  } else if (GPS.scheduled && !dentroJanela) {
+    elGps.classList.remove("tec-footer-gps-on");
+    elGps.querySelector("span").textContent = "Fora do expediente";
   } else {
     elGps.classList.remove("tec-footer-gps-on");
     elGps.querySelector("span").textContent = "GPS aguardando…";
