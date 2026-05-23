@@ -1298,8 +1298,6 @@ A linha vertical conectando as 3 bolinhas do detalhe do chamado tinha dois bugs 
 **Pendências conhecidas:**
 
 - **Telefone do WhatsApp da propaganda** = `5511999999999` (placeholder fake) em 4 lugares: `public/cliente.html:202` e `app/public/app.js:2914`. Trocar pelo número real antes de publicar.
-- Funções/classes `.tel-cli-card*` antigas (mini-cards com gauge SVG circular do primeiro draft da Telemetria) ficaram órfãs no `admin.css` mas não atrapalham — limpar se quiser reduzir CSS morto.
-- A função `_histChart` (Chart.js, da implementação anterior do histórico) também virou variável morta — o histórico do cliente desktop agora usa `_telCliHistChart` (ApexCharts).
 
 ---
 
@@ -1375,9 +1373,27 @@ A tabela `leituras` cresce ~1 linha por device por 5 min. Em 100 condomínios co
 4. Rodar de novo → apaga de verdade.
 5. Daí em diante: roda sozinho 1×/dia.
 
-#### 9E — Limpeza retroativa de alertas e conversas antigas 📋 NÃO INICIADA
+#### 9E — Limpeza retroativa de alertas e conversas antigas ✅ CONCLUÍDO
 
-(Mantida como roadmap futuro — alertas resolvidos há > 1 ano e conversas fechadas há > 1 ano vão pra tabelas `*_arquivados`. Pequeno impacto comparado às `leituras`, sem urgência.)
+Decisão consciente: **só deletar** (sem tabelas `*_arquivados`). Quem precisar de histórico longo consulta Relatórios. O WhatsApp do cliente e a Evolution API mantêm o histórico independentemente — nosso DELETE só apaga a cópia local.
+
+**Jobs (`src/jobs/alertas-cleanup.job.js` + `conversas-cleanup.job.js`):**
+- Mesmo padrão de `leituras-cleanup` (setTimeout recursivo, 1×/dia, hard floor, lotes pequenos, MAX_LOTES de segurança, dry-run).
+- Primeira execução 15min (alertas) e 20min (conversas) após boot — escalonado pra não disputar pool com gps-cleanup e leituras-cleanup.
+- **Alertas:** `WHERE status='resolvido' AND atualizado_em < NOW() - N days`. CTE com 2 DELETEs no mesmo round-trip apaga `alerta_comentarios WHERE alerta_origem='telemetria'` daqueles alertas (sem FK direta — viraria órfão se não fosse junto). Lotes de 1000.
+- **Conversas:** `WHERE status='fechada' AND fechado_em < NOW() - N days`. `mensagens_whatsapp` cascateia via FK (migration 001), `chamados.conversa_id` vira NULL via SET NULL. CTE também conta mensagens afetadas pra reportar no resultado. Lotes de 500.
+
+**Config (whitelist em `config.service.js`):** 4 chaves novas, hard floor de 30 dias, default 365:
+- `alertas.retencao_dias` (int 30–3650) + `alertas.cleanup_dry_run` (bool)
+- `conversas.retencao_dias` (int 30–3650) + `conversas.cleanup_dry_run` (bool)
+
+**Endpoints novos:**
+- `POST /admin/jobs/alertas-cleanup/run` + `POST /admin/jobs/conversas-cleanup/run` (master admin, dispara imediato respeitando dry-run)
+- `GET /admin/integracoes/status` ganhou `job_alertas_cleanup` e `job_conversas_cleanup`
+
+**UI Manutenção:** 4 cards novos (config + "última execução" pra cada job). Card de conversas tem aviso explícito: "Não mexe no WhatsApp do cliente — só na cópia que aparece na central de atendimento aqui." Confirm dialog diferencia dry-run de delete real, com texto enfático no modo real.
+
+**Sem migration nova** — colunas usadas já existiam (`alertas.status`+`atualizado_em` e `conversas_whatsapp.status`+`fechado_em`).
 
 #### 9A — Tabela agregada horária ❌ DESCARTADA
 
