@@ -141,6 +141,13 @@ router.post("/alertas/comentarios", authRequired, adminOnly, async (req, res) =>
        RETURNING id, criado_em, autor_id, texto`,
       [origem, Number(id), req.user?.id || null, t]
     );
+    // Fase 8A: comentário do admin num chamado conta como primeira resposta.
+    if (origem === "chamado") {
+      pool.query(
+        `UPDATE chamados SET primeira_resposta_em = COALESCE(primeira_resposta_em, NOW()) WHERE id = $1`,
+        [Number(id)]
+      ).catch((e) => console.error("[alertas-comentarios] hook primeira_resposta_em:", e.message));
+    }
     return res.status(201).json(r.rows[0]);
   } catch (err) {
     console.error("[alertas-comentarios] POST:", err);

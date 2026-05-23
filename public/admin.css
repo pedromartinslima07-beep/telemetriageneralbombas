@@ -1103,6 +1103,33 @@ a { color: inherit; text-decoration: none; }
 .rc-static { cursor: default; }
 .rc-static:hover { transform: none; box-shadow: none; }
 
+/* Subtitle dos KPIs (Fase 8A — SLA metrics na aba Insights) */
+.rc-sub {
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.3;
+}
+
+/* Header da seção de SLA (Fase 8A) */
+.rel-sla-section { display: flex; flex-direction: column; gap: 8px; }
+.rel-sla-head {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding-left: 2px;
+}
+.rel-sla-empty {
+  padding: 18px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--muted);
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+}
+
 /* ============================================================
    MISSION CONTROL GRID — map + alerts + activity
    ============================================================ */

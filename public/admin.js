@@ -6523,13 +6523,15 @@ function renderRelatorios() {
   _relMostrarTab(_relTab, true);
 }
 
-function _relKpiCard(iconSvg, label, value, cls) {
+function _relKpiCard(iconSvg, label, value, cls, subtitle) {
+  const sub = subtitle ? `<div class="rc-sub">${subtitle}</div>` : "";
   return `<div class="rc rc-${cls || "neutral"} rc-static">
     <div class="rc-head">
       <div class="rc-icon">${iconSvg}</div>
       <div class="rc-label">${label}</div>
     </div>
     <div class="rc-value">${value}</div>
+    ${sub}
   </div>`;
 }
 
@@ -6542,6 +6544,8 @@ const _SVG_CHECK   = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
 const _SVG_DROP    = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>`;
 const _SVG_CPU     = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg>`;
 const _SVG_WAVE    = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>`;
+const _SVG_BOLT    = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`;
+const _SVG_REVERT  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>`;
 
 function _relSlaFmt(h) {
   if (h == null || isNaN(h)) return "-";
@@ -7021,6 +7025,73 @@ async function gerarRelInsights() {
     const colors = ["#ef4444","#f0b014","#4a78f7","#8b5cf6","#4ade80","#f97316","#06b6d4","#94a3b8"];
     _relChart("relInChartCat", _relDonutOpts(labels, values, colors));
   });
+
+  // KPIs de SLA — busca em paralelo, falhas só logam (não bloqueiam Insights)
+  _relCarregarSlaMetricas();
+}
+
+// ── Fase 8A: KPIs de SLA na aba Insights ─────────────────────────────────
+async function _relCarregarSlaMetricas() {
+  const wrap = document.getElementById("relInSlaKpis");
+  if (!wrap) return;
+  const ini = document.getElementById("relInIni")?.value || "";
+  const fim = document.getElementById("relInFim")?.value || "";
+  const cnd = document.getElementById("relInCondo")?.value || "";
+  const qs = new URLSearchParams();
+  if (ini) qs.set("data_ini", ini);
+  if (fim) qs.set("data_fim", fim);
+  if (cnd) qs.set("condominio_id", cnd);
+  try {
+    const r = await fetch(`/relatorios/sla-metricas?${qs}`, { headers: authHeaders() });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const k = await r.json();
+    wrap.innerHTML = _relRenderSlaKpis(k);
+  } catch (e) {
+    console.warn("[insights] sla-metricas:", e.message);
+    wrap.innerHTML = `<div class="rel-sla-empty">Sem dados de SLA no período</div>`;
+  }
+}
+
+function _relRenderSlaKpis(k) {
+  // Formatadores: minutos viram "Xm" ou "Xh Ym" se > 60
+  const fmtMin = (m) => {
+    if (m == null) return "—";
+    if (m < 60)  return `${Math.round(m)} min`;
+    const h = Math.floor(m / 60);
+    const r = Math.round(m - h * 60);
+    return r > 0 ? `${h}h ${r}m` : `${h}h`;
+  };
+  const ttfrStatus = k.ttfr_mediano_min == null ? "neutral"
+    : k.ttfr_mediano_min <= 30  ? "ok"
+    : k.ttfr_mediano_min <= 120 ? "warn" : "bad";
+  const ttrStatus = k.ttr_mediano_min == null ? "neutral"
+    : k.ttr_mediano_min <= 120  ? "ok"
+    : k.ttr_mediano_min <= 480  ? "warn" : "bad";
+  const lt1hStatus = k.taxa_resolucao_lt1h == null ? "neutral"
+    : k.taxa_resolucao_lt1h >= 60 ? "ok"
+    : k.taxa_resolucao_lt1h >= 30 ? "warn" : "bad";
+  const reabStatus = k.taxa_reabertos == null ? "neutral"
+    : k.taxa_reabertos === 0  ? "ok"
+    : k.taxa_reabertos <= 10  ? "warn" : "bad";
+
+  return (
+    _relKpiCard(_SVG_CLOCK, "Primeira resposta (TTFR)",
+      fmtMin(k.ttfr_mediano_min),
+      ttfrStatus,
+      `mediana · ${k.com_resposta} de ${k.total} chamados`) +
+    _relKpiCard(_SVG_CHECK, "Resolução (TTR)",
+      fmtMin(k.ttr_mediano_min),
+      ttrStatus,
+      `mediana · ${k.fechados} chamados fechados`) +
+    _relKpiCard(_SVG_BOLT, "Resolvidos em < 1h",
+      k.taxa_resolucao_lt1h == null ? "—" : `${k.taxa_resolucao_lt1h}%`,
+      lt1hStatus,
+      `${k.resolvidos_lt1h} de ${k.fechados} fechados`) +
+    _relKpiCard(_SVG_REVERT, "Reabertos pendentes",
+      k.taxa_reabertos == null ? "—" : `${k.taxa_reabertos}%`,
+      reabStatus,
+      `${k.reabertos_pendentes} de ${k.total} chamados`)
+  );
 }
 
 function _relMostrarExport() {

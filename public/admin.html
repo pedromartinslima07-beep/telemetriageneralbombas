@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="/static/leaflet.css">
   <!-- ⚠️ Ao mexer em admin.js ou admin.css, bumpe o ?v=N aqui E no <script>
        lá embaixo. Ver CLAUDE.md raiz. -->
-  <link rel="stylesheet" href="/static/admin.css?v=27">
+  <link rel="stylesheet" href="/static/admin.css?v=28">
 </head>
 <body>
 
@@ -1373,6 +1373,10 @@
         <!-- ── CORPO: INSIGHTS ── -->
         <div class="rel-body" id="relBodyInsights" style="display:none;">
           <div class="resumo-grid" id="relInKpis" style="margin-bottom:12px;"></div>
+          <div class="rel-sla-section" style="margin-bottom:12px;">
+            <div class="rel-sla-head">Métricas de SLA · tempo de resposta e resolução</div>
+            <div class="resumo-grid" id="relInSlaKpis"></div>
+          </div>
           <div class="rel-charts-2b" style="margin-bottom:12px;">
             <div class="card" style="padding:0;overflow:hidden;">
               <p class="rel-ct-head" id="relInHeadTop"><span>Condomínios mais problemáticos</span></p>
@@ -2138,8 +2142,8 @@
 <script src="/static/apexcharts.min.js"></script>
 <script src="/static/leaflet.js"></script>
 <script src="/static/inatividade.js" defer></script>
-<script src="/static/admin.js?v=21" defer></script>
+<script src="/static/admin.js?v=22" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
-<script src="/static/register-sw.js?v=18" defer></script>
+<script src="/static/register-sw.js?v=19" defer></script>
 </body>
 </html>

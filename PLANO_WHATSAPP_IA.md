@@ -1305,11 +1305,33 @@ A linha vertical conectando as 3 bolinhas do detalhe do chamado tinha dois bugs 
 
 Dashboards focados em **prestação de contas** — tempo de resposta, taxa de resolução, SLA por prioridade. Hoje os números existem espalhados nos relatórios; a Fase 8 organiza em métricas auditáveis.
 
-#### 8A — Métricas de tempo (base)
+#### 8A — Métricas de tempo (base) ✅ CONCLUÍDO
 
-- Campos novos em `chamados`: `primeira_resposta_em` (timestamptz, set no primeiro `direcao=saida` após criação) e `tempo_resolucao_seg` (calculado no fechamento)
-- View materializada `chamados_metricas` agregando por dia / condomínio / categoria / prioridade
-- 4 KPIs base: **TTFR** (time to first response), **TTR** (time to resolution), **taxa de resolução em <1h**, **% reabertos**
+**Migration `022_chamados_sla.sql`:** 2 colunas em `chamados`:
+- `primeira_resposta_em` (timestamptz) — quando alguém da equipe interagiu pela primeira vez
+- `tempo_resolucao_seg` (int) — segundos entre `criado_em` e fechamento
+- **Backfill** automático: `tempo_resolucao_seg` calculado pra chamados já fechados a partir de `fechado_em - criado_em`
+- Index parcial `idx_chamados_sla (criado_em DESC) INCLUDE (status, prioridade, condominio_id, primeira_resposta_em, tempo_resolucao_seg)` cobrindo o GET de SLA
+
+**Redefinição prática de `primeira_resposta_em`:** o plano original dizia "primeiro `direcao=saida`", mas na prática chamados podem nascer sem conversa (cliente app ou admin manual). Decisão: **primeiro evento da equipe sobre o chamado**, capturado via `COALESCE(primeira_resposta_em, NOW())` em 4 hooks:
+- `POST /chamados/:id/iniciar-atendimento` (técnico inicia)
+- `PATCH /chamados/:id` (admin muda pra qualquer status ≠ aberto)
+- `POST /chamados/meus/:id/mensagens` (técnico responde no thread)
+- `POST /alertas/comentarios` quando `origem='chamado'` (admin comenta)
+
+**`tempo_resolucao_seg`** preenchido em 2 hooks de fechamento via `GREATEST(0, EXTRACT(EPOCH FROM (NOW() - criado_em))::int)`:
+- `PATCH /chamados/:id` com `status='fechado'` (admin) — reabertura zera o campo pra recalcular
+- `POST /ordens-servico/:id/finalizar` (técnico fecha via O.S.)
+
+**View materializada `chamados_metricas` — descartada por enquanto.** Volume de chamados no MVP não justifica o overhead. Query direta com `PERCENTILE_CONT` cobre os KPIs. Materializar fica fácil depois (índice já está pronto).
+
+**Endpoint `GET /relatorios/sla-metricas`** com filtros `data_ini/data_fim/condominio_id/prioridade`. Retorna mediana + média de TTFR e TTR, % resolvidos em < 1h, % reabertos pendentes + contagens auxiliares (`total`, `fechados`, `com_resposta`).
+
+**UI na aba Insights** (Relatórios → Insights): nova seção "Métricas de SLA · tempo de resposta e resolução" abaixo dos KPIs existentes. 4 cards `.rc` com cor adaptativa por thresholds (TTFR ≤ 30min ok / ≤ 2h warn / > 2h bad; TTR ≤ 2h ok / ≤ 8h warn; resolvidos < 1h ≥ 60% ok / ≥ 30% warn; reabertos = 0% ok / ≤ 10% warn). Subtitle contextual nos cards (ex: "mediana · 12 de 30 chamados").
+
+**Helper `_relKpiCard` estendido** com 5º parâmetro `subtitle` opcional + 2 novos SVGs (`_SVG_BOLT` e `_SVG_REVERT`). CSS novos `.rc-sub`, `.rel-sla-section`, `.rel-sla-head`, `.rel-sla-empty`.
+
+**Limitação consciente — `% reabertos`:** sem audit log de transições de status, a métrica só captura "chamados que foram fechados e estão abertos agora" (`fechado_em IS NOT NULL AND status <> 'fechado'`). Chamados que reabriram e foram refechados não entram na conta. Quando virar 8B (SLA configurável) ou 8C (dashboard dedicado), adicionar log dedicado de transições corrige isso.
 
 #### 8B — SLA configurável
 

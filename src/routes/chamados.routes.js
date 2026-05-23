@@ -384,6 +384,11 @@ router.post("/meus/:id/mensagens", authRequired, async (req, res) => {
       [id, req.user.id, t || null, fotoUrl]
     );
     const row = ins.rows[0];
+    // Fase 8A: técnico mandando msg conta como primeira resposta humana.
+    pool.query(
+      `UPDATE chamados SET primeira_resposta_em = COALESCE(primeira_resposta_em, NOW()) WHERE id = $1`,
+      [id]
+    ).catch((e) => console.error("[chamados] hook primeira_resposta_em msg-tec:", e.message));
     return res.status(201).json({
       ...row,
       autor_nome: req.user.nome || null,
@@ -481,6 +486,7 @@ router.post("/:id/iniciar-atendimento", authRequired, async (req, res) => {
         `UPDATE chamados
             SET status = 'em_atendimento',
                 ordem_servico_id = $1,
+                primeira_resposta_em = COALESCE(primeira_resposta_em, NOW()),
                 atualizado_em = NOW()
           WHERE id = $2`,
         [osId, id]
@@ -491,6 +497,7 @@ router.post("/:id/iniciar-atendimento", authRequired, async (req, res) => {
       await client.query(
         `UPDATE chamados
             SET status = 'em_atendimento',
+                primeira_resposta_em = COALESCE(primeira_resposta_em, NOW()),
                 atualizado_em = NOW()
           WHERE id = $1`,
         [id]
@@ -605,7 +612,20 @@ router.patch("/:id", authRequired, masterAdminOnly, async (req, res) => {
   if (status) {
     values.push(status);
     sets.push(`status = $${values.length}`);
-    if (status === "fechado") sets.push("fechado_em = NOW()");
+    if (status === "fechado") {
+      sets.push("fechado_em = NOW()");
+      // Fase 8A: tempo_resolucao_seg = quanto demorou pra resolver, em segundos.
+      sets.push("tempo_resolucao_seg = GREATEST(0, EXTRACT(EPOCH FROM (NOW() - criado_em))::int)");
+    } else {
+      // Reabertura (status saindo de 'fechado'): zera o tempo de resolução
+      // pra ser recalculado no próximo fechamento. fechado_em fica como
+      // memória do último fechamento.
+      sets.push("tempo_resolucao_seg = CASE WHEN status = 'fechado' THEN NULL ELSE tempo_resolucao_seg END");
+    }
+    // Fase 8A: qualquer transição saindo de 'aberto' conta como primeira resposta.
+    if (status !== "aberto") {
+      sets.push("primeira_resposta_em = COALESCE(primeira_resposta_em, NOW())");
+    }
   }
   if (prioridade) {
     values.push(prioridade);

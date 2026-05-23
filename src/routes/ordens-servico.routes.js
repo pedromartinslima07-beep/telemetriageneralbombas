@@ -577,11 +577,16 @@ router.post("/:id/finalizar", authRequired, osDonoOuAdmin({ forWrite: true }), a
     );
 
     if (os.chamado_id) {
+      // Fase 8A: o técnico chegou pra atender (status já passou de 'aberto'),
+      // então primeira_resposta_em normalmente já está preenchida. COALESCE
+      // garante backfill se por algum motivo ainda for NULL.
       await client.query(
         `UPDATE chamados
            SET ordem_servico_id = $1,
                status = 'fechado',
                fechado_em = NOW(),
+               primeira_resposta_em = COALESCE(primeira_resposta_em, NOW()),
+               tempo_resolucao_seg = GREATEST(0, EXTRACT(EPOCH FROM (NOW() - criado_em))::int),
                atualizado_em = NOW()
          WHERE id = $2`,
         [id, os.chamado_id]

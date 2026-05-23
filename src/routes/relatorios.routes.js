@@ -263,4 +263,76 @@ router.get("/insights", authRequired, adminOnly, async (req, res) => {
   }
 });
 
+// GET /relatorios/sla-metricas — Fase 8A. 4 KPIs de SLA do período:
+//   - TTFR mediano (minutos) — tempo até a primeira resposta humana
+//   - TTR mediano (minutos)  — tempo até a resolução (chamados fechados)
+//   - taxa_resolucao_lt1h    — % de chamados fechados em menos de 1 hora
+//   - taxa_reabertos         — % de chamados que foram fechados e reabriram
+//                              (chamados com fechado_em != NULL mas status != 'fechado').
+//                              Limitação consciente: sem audit log de transições,
+//                              chamados que reabriram e foram refechados não contam.
+router.get("/sla-metricas", authRequired, adminOnly, async (req, res) => {
+  const { data_ini, data_fim, condominio_id, prioridade } = req.query;
+  const ini = _ini(data_ini);
+  const fim = _fim(data_fim);
+
+  const conds = [
+    "ch.criado_em >= $1",
+    "ch.criado_em < ($2::date + interval '1 day')",
+  ];
+  const vals = [ini, fim];
+  if (condominio_id) { vals.push(Number(condominio_id)); conds.push(`ch.condominio_id = $${vals.length}`); }
+  if (prioridade)    { vals.push(prioridade);            conds.push(`ch.prioridade = $${vals.length}`); }
+
+  try {
+    const r = await pool.query(`
+      WITH base AS (
+        SELECT
+          ch.id,
+          ch.status,
+          ch.fechado_em,
+          ch.criado_em,
+          ch.primeira_resposta_em,
+          ch.tempo_resolucao_seg,
+          EXTRACT(EPOCH FROM (ch.primeira_resposta_em - ch.criado_em)) / 60.0 AS ttfr_min,
+          ch.tempo_resolucao_seg / 60.0 AS ttr_min
+        FROM chamados ch
+        WHERE ${conds.join(" AND ")}
+      )
+      SELECT
+        COUNT(*)::int AS total,
+        COUNT(tempo_resolucao_seg)::int AS fechados,
+        COUNT(primeira_resposta_em)::int AS com_resposta,
+        ROUND(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY ttfr_min)::numeric, 1) AS ttfr_mediano_min,
+        ROUND(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY ttr_min)::numeric, 1)  AS ttr_mediano_min,
+        ROUND(AVG(ttfr_min)::numeric, 1) AS ttfr_medio_min,
+        ROUND(AVG(ttr_min)::numeric, 1)  AS ttr_medio_min,
+        SUM(CASE WHEN tempo_resolucao_seg IS NOT NULL AND tempo_resolucao_seg < 3600 THEN 1 ELSE 0 END)::int AS resolvidos_lt1h,
+        SUM(CASE WHEN fechado_em IS NOT NULL AND status <> 'fechado' THEN 1 ELSE 0 END)::int AS reabertos_pendentes
+      FROM base
+    `, vals);
+
+    const k = r.rows[0] || {};
+    const fechados = Number(k.fechados) || 0;
+    const total = Number(k.total) || 0;
+    return res.json({
+      filtros: { data_ini: ini, data_fim: fim, condominio_id: condominio_id || null, prioridade: prioridade || null },
+      total,
+      fechados,
+      com_resposta: Number(k.com_resposta) || 0,
+      ttfr_mediano_min: k.ttfr_mediano_min == null ? null : Number(k.ttfr_mediano_min),
+      ttr_mediano_min:  k.ttr_mediano_min  == null ? null : Number(k.ttr_mediano_min),
+      ttfr_medio_min:   k.ttfr_medio_min   == null ? null : Number(k.ttfr_medio_min),
+      ttr_medio_min:    k.ttr_medio_min    == null ? null : Number(k.ttr_medio_min),
+      taxa_resolucao_lt1h: fechados > 0 ? Math.round(100 * (Number(k.resolvidos_lt1h) / fechados)) : null,
+      taxa_reabertos:      total    > 0 ? Math.round(100 * (Number(k.reabertos_pendentes) / total)) : null,
+      resolvidos_lt1h: Number(k.resolvidos_lt1h) || 0,
+      reabertos_pendentes: Number(k.reabertos_pendentes) || 0,
+    });
+  } catch (err) {
+    console.error("[relatorios] sla-metricas:", err);
+    return res.status(500).json({ error: "Erro ao calcular métricas de SLA" });
+  }
+});
+
 module.exports = { relatoriosRouter: router };
