@@ -41,6 +41,8 @@ const { ordensServicoRouter } = require("./routes/ordens-servico.routes");
 const { startOfflineScheduler } = require("./jobs/offline.job");
 const { startGpsCleanupScheduler } = require("./jobs/gps-cleanup.job");
 const { startLeiturasCleanupScheduler } = require("./jobs/leituras-cleanup.job");
+const { startAlertasCleanupScheduler } = require("./jobs/alertas-cleanup.job");
+const { startConversasCleanupScheduler } = require("./jobs/conversas-cleanup.job");
 const { startChamadosAtrasoScheduler } = require("./jobs/chamados-atraso.job");
 
 const app = express();
@@ -345,6 +347,8 @@ app.use("/ordens-servico", ordensServicoRouter);
 startOfflineScheduler();
 startGpsCleanupScheduler();
 startLeiturasCleanupScheduler();
+startAlertasCleanupScheduler();
+startConversasCleanupScheduler();
 startChamadosAtrasoScheduler();
 
 module.exports = { app };

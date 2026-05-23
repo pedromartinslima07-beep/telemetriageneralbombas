@@ -7201,6 +7201,10 @@ function _cfgAplicarConfigsUI() {
   // Manutenção
   const ret     = document.getElementById("cfgLeiturasRetencaoDias"); if (ret) ret.value = v["leituras.retencao_dias"] || "60";
   const dry     = document.getElementById("cfgLeiturasDryRun");       if (dry) dry.checked = v["leituras.cleanup_dry_run"] === "true";
+  const aRet    = document.getElementById("cfgAlertasRetencaoDias");  if (aRet) aRet.value = v["alertas.retencao_dias"] || "365";
+  const aDry    = document.getElementById("cfgAlertasDryRun");        if (aDry) aDry.checked = v["alertas.cleanup_dry_run"] === "true";
+  const cRet    = document.getElementById("cfgConversasRetencaoDias");if (cRet) cRet.value = v["conversas.retencao_dias"] || "365";
+  const cDry    = document.getElementById("cfgConversasDryRun");      if (cDry) cDry.checked = v["conversas.cleanup_dry_run"] === "true";
   // Operacional
   const gpsFreq = document.getElementById("cfgGpsFrequencia");        if (gpsFreq) gpsFreq.value = v["gps.frequencia_segundos"] || "60";
   const gpsRet  = document.getElementById("cfgGpsRetencaoHoras");     if (gpsRet)  gpsRet.value  = v["gps.retencao_horas"] || "24";
@@ -7285,12 +7289,14 @@ async function _cfgRodarChamadosAtraso() {
 async function _cfgCarregarManutencao() {
   // Carrega configs (compartilha cache com IA/Notificações)
   await _cfgCarregarConfigs();
-  // Busca o status do último ciclo de limpeza
+  // Busca o status do último ciclo de limpeza dos 3 jobs
   try {
     const r = await fetch("/admin/integracoes/status", { headers: authHeaders() });
     if (r.ok) {
       const s = await r.json();
       _cfgRenderUltimaLimpeza(s.job_leituras_cleanup);
+      _cfgRenderUltimaAlertas(s.job_alertas_cleanup);
+      _cfgRenderUltimaConversas(s.job_conversas_cleanup);
     }
   } catch (e) {
     console.warn("[cfg] status manutenção:", e.message);
@@ -7360,6 +7366,117 @@ async function _cfgRodarLimpezaLeituras() {
     });
   } catch (e) {
     _cfgMostrarMsg("cfgManutMsg", "Erro de conexão", "err");
+  }
+}
+
+// ── Fase 9E: alertas resolvidos antigos ───────────────────────────────────
+function _cfgRenderUltimaAlertas(jb) {
+  const card = document.getElementById("cfgAlertasResultadoCard");
+  const body = document.getElementById("cfgAlertasResultadoBody");
+  if (!card || !body) return;
+  if (!jb || !jb.ultima_execucao) { card.style.display = "none"; return; }
+  card.style.display = "";
+  const quando = new Date(jb.ultima_execucao).toLocaleString("pt-BR");
+  const r = jb.ultimo_resultado || {};
+  const linhas = [`<div><strong>Quando:</strong> ${quando}</div>`];
+  if (r.dry_run) {
+    linhas.push(`<div><strong>Modo:</strong> seguro (não apagou)</div>`);
+    linhas.push(`<div><strong>Alertas que seriam removidos:</strong> ${Number(r.seriam_removidos || 0).toLocaleString("pt-BR")}</div>`);
+  } else {
+    linhas.push(`<div><strong>Alertas removidos:</strong> ${Number(r.removidos || 0).toLocaleString("pt-BR")}</div>`);
+    if (r.comentarios_removidos != null) linhas.push(`<div><strong>Comentários removidos:</strong> ${Number(r.comentarios_removidos).toLocaleString("pt-BR")}</div>`);
+    if (r.lotes != null)      linhas.push(`<div><strong>Lotes:</strong> ${r.lotes}</div>`);
+    if (r.duracao_ms != null) linhas.push(`<div><strong>Duração:</strong> ${(r.duracao_ms / 1000).toFixed(1)}s</div>`);
+    if (r.truncado)           linhas.push(`<div style="color:#f59e0b;"><strong>⚠ Atingiu o limite de lotes</strong> — talvez precise rodar de novo</div>`);
+  }
+  linhas.push(`<div><strong>Retenção configurada:</strong> ${r.retencao_dias || "?"} dias</div>`);
+  body.innerHTML = linhas.join("");
+}
+
+async function _cfgSalvarAlertasRetencao() {
+  const payload = {
+    "alertas.retencao_dias":   String(document.getElementById("cfgAlertasRetencaoDias")?.value || "365"),
+    "alertas.cleanup_dry_run": document.getElementById("cfgAlertasDryRun")?.checked ? "true" : "false",
+  };
+  await _cfgEnviarConfigs(payload, "cfgAlertasMsg", "Configuração salva");
+}
+
+async function _cfgRodarLimpezaAlertas() {
+  const dry = document.getElementById("cfgAlertasDryRun")?.checked;
+  const aviso = dry
+    ? "Rodar limpeza de alertas em MODO SEGURO (só conta, não apaga)?"
+    : "Rodar limpeza de alertas agora? Isso vai APAGAR de verdade os alertas resolvidos antigos e seus comentários. Tem certeza?";
+  if (!confirm(aviso)) return;
+
+  _cfgMostrarMsg("cfgAlertasMsg", "Executando…", "");
+  try {
+    const r = await fetch("/admin/jobs/alertas-cleanup/run", { method: "POST", headers: authHeaders() });
+    const data = await r.json();
+    if (!r.ok) return _cfgMostrarMsg("cfgAlertasMsg", data.error || "Erro ao executar", "err");
+    _cfgMostrarMsg("cfgAlertasMsg",
+      data.dry_run
+        ? `Modo seguro: ${Number(data.seriam_removidos).toLocaleString("pt-BR")} alertas seriam apagados`
+        : `Removidos ${Number(data.removidos).toLocaleString("pt-BR")} alertas (${Number(data.comentarios_removidos || 0).toLocaleString("pt-BR")} comentários) em ${data.lotes} lote(s)`,
+      "ok");
+    _cfgRenderUltimaAlertas({ ultima_execucao: new Date().toISOString(), ultimo_resultado: data });
+  } catch (e) {
+    _cfgMostrarMsg("cfgAlertasMsg", "Erro de conexão", "err");
+  }
+}
+
+// ── Fase 9E: conversas WhatsApp fechadas antigas ──────────────────────────
+function _cfgRenderUltimaConversas(jb) {
+  const card = document.getElementById("cfgConversasResultadoCard");
+  const body = document.getElementById("cfgConversasResultadoBody");
+  if (!card || !body) return;
+  if (!jb || !jb.ultima_execucao) { card.style.display = "none"; return; }
+  card.style.display = "";
+  const quando = new Date(jb.ultima_execucao).toLocaleString("pt-BR");
+  const r = jb.ultimo_resultado || {};
+  const linhas = [`<div><strong>Quando:</strong> ${quando}</div>`];
+  if (r.dry_run) {
+    linhas.push(`<div><strong>Modo:</strong> seguro (não apagou)</div>`);
+    linhas.push(`<div><strong>Conversas que seriam removidas:</strong> ${Number(r.seriam_removidos || 0).toLocaleString("pt-BR")}</div>`);
+    if (r.mensagens_seriam_removidas != null) linhas.push(`<div><strong>Mensagens que seriam removidas:</strong> ${Number(r.mensagens_seriam_removidas).toLocaleString("pt-BR")}</div>`);
+  } else {
+    linhas.push(`<div><strong>Conversas removidas:</strong> ${Number(r.removidos || 0).toLocaleString("pt-BR")}</div>`);
+    if (r.mensagens_removidas != null) linhas.push(`<div><strong>Mensagens removidas:</strong> ${Number(r.mensagens_removidas).toLocaleString("pt-BR")}</div>`);
+    if (r.lotes != null)      linhas.push(`<div><strong>Lotes:</strong> ${r.lotes}</div>`);
+    if (r.duracao_ms != null) linhas.push(`<div><strong>Duração:</strong> ${(r.duracao_ms / 1000).toFixed(1)}s</div>`);
+    if (r.truncado)           linhas.push(`<div style="color:#f59e0b;"><strong>⚠ Atingiu o limite de lotes</strong> — talvez precise rodar de novo</div>`);
+  }
+  linhas.push(`<div><strong>Retenção configurada:</strong> ${r.retencao_dias || "?"} dias</div>`);
+  body.innerHTML = linhas.join("");
+}
+
+async function _cfgSalvarConversasRetencao() {
+  const payload = {
+    "conversas.retencao_dias":   String(document.getElementById("cfgConversasRetencaoDias")?.value || "365"),
+    "conversas.cleanup_dry_run": document.getElementById("cfgConversasDryRun")?.checked ? "true" : "false",
+  };
+  await _cfgEnviarConfigs(payload, "cfgConversasMsg", "Configuração salva");
+}
+
+async function _cfgRodarLimpezaConversas() {
+  const dry = document.getElementById("cfgConversasDryRun")?.checked;
+  const aviso = dry
+    ? "Rodar limpeza de conversas em MODO SEGURO (só conta, não apaga)?"
+    : "Rodar limpeza de conversas agora? Isso vai APAGAR as conversas fechadas antigas e todas as suas mensagens. O WhatsApp do cliente NÃO é afetado, só nosso banco. Tem certeza?";
+  if (!confirm(aviso)) return;
+
+  _cfgMostrarMsg("cfgConversasMsg", "Executando…", "");
+  try {
+    const r = await fetch("/admin/jobs/conversas-cleanup/run", { method: "POST", headers: authHeaders() });
+    const data = await r.json();
+    if (!r.ok) return _cfgMostrarMsg("cfgConversasMsg", data.error || "Erro ao executar", "err");
+    _cfgMostrarMsg("cfgConversasMsg",
+      data.dry_run
+        ? `Modo seguro: ${Number(data.seriam_removidos).toLocaleString("pt-BR")} conversas (${Number(data.mensagens_seriam_removidas || 0).toLocaleString("pt-BR")} msgs) seriam apagadas`
+        : `Removidas ${Number(data.removidos).toLocaleString("pt-BR")} conversas (${Number(data.mensagens_removidas || 0).toLocaleString("pt-BR")} mensagens) em ${data.lotes} lote(s)`,
+      "ok");
+    _cfgRenderUltimaConversas({ ultima_execucao: new Date().toISOString(), ultimo_resultado: data });
+  } catch (e) {
+    _cfgMostrarMsg("cfgConversasMsg", "Erro de conexão", "err");
   }
 }
 
@@ -7681,6 +7798,10 @@ document.addEventListener("DOMContentLoaded", () => {
     if (action === "salvar-notificacoes") return _cfgSalvarNotificacoes();
     if (action === "salvar-manutencao")      return _cfgSalvarManutencao();
     if (action === "rodar-limpeza-leituras") return _cfgRodarLimpezaLeituras();
+    if (action === "salvar-alertas-retencao") return _cfgSalvarAlertasRetencao();
+    if (action === "rodar-limpeza-alertas")   return _cfgRodarLimpezaAlertas();
+    if (action === "salvar-conversas-retencao") return _cfgSalvarConversasRetencao();
+    if (action === "rodar-limpeza-conversas")   return _cfgRodarLimpezaConversas();
     if (action === "salvar-operacional")     return _cfgSalvarOperacional();
     if (action === "rodar-chamados-atraso")  return _cfgRodarChamadosAtraso();
     if (action === "testar-integracoes")  return _cfgCarregarIntegracoes();

@@ -14,6 +14,8 @@ const { SYSTEM_PROMPT_PADRAO } = require("../services/ia.service");
 const { getOfflineJobStatus } = require("../jobs/offline.job");
 const { getGpsCleanupStatus } = require("../jobs/gps-cleanup.job");
 const { getLeiturasCleanupStatus, jobLimparLeituras } = require("../jobs/leituras-cleanup.job");
+const { getAlertasCleanupStatus, jobLimparAlertas } = require("../jobs/alertas-cleanup.job");
+const { getConversasCleanupStatus, jobLimparConversas } = require("../jobs/conversas-cleanup.job");
 const { getChamadosAtrasoStatus, jobVerificarChamadosAtraso } = require("../jobs/chamados-atraso.job");
 
 const router = express.Router();
@@ -527,6 +529,8 @@ router.get("/integracoes/status", authRequired, masterAdminOnly, async (req, res
   out.job_offline = getOfflineJobStatus();
   out.job_gps_cleanup = getGpsCleanupStatus();
   out.job_leituras_cleanup = getLeiturasCleanupStatus();
+  out.job_alertas_cleanup = getAlertasCleanupStatus();
+  out.job_conversas_cleanup = getConversasCleanupStatus();
   out.job_chamados_atraso = getChamadosAtrasoStatus();
 
   return res.json(out);
@@ -555,6 +559,28 @@ router.post("/jobs/leituras-cleanup/run", authRequired, masterAdminOnly, async (
     return res.json(resultado);
   } catch (err) {
     console.error("[admin] /jobs/leituras-cleanup/run:", err);
+    return res.status(500).json({ error: "Erro ao executar limpeza", detalhe: err.message });
+  }
+});
+
+// POST /admin/jobs/alertas-cleanup/run — Fase 9E. Mesmo padrão do leituras.
+router.post("/jobs/alertas-cleanup/run", authRequired, masterAdminOnly, async (req, res) => {
+  try {
+    const resultado = await jobLimparAlertas();
+    return res.json(resultado);
+  } catch (err) {
+    console.error("[admin] /jobs/alertas-cleanup/run:", err);
+    return res.status(500).json({ error: "Erro ao executar limpeza", detalhe: err.message });
+  }
+});
+
+// POST /admin/jobs/conversas-cleanup/run — Fase 9E. Mesmo padrão.
+router.post("/jobs/conversas-cleanup/run", authRequired, masterAdminOnly, async (req, res) => {
+  try {
+    const resultado = await jobLimparConversas();
+    return res.json(resultado);
+  } catch (err) {
+    console.error("[admin] /jobs/conversas-cleanup/run:", err);
     return res.status(500).json({ error: "Erro ao executar limpeza", detalhe: err.message });
   }
 });
