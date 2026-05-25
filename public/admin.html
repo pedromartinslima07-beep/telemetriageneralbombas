@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="/static/leaflet.css">
   <!-- ⚠️ Ao mexer em admin.js ou admin.css, bumpe o ?v=N aqui E no <script>
        lá embaixo. Ver CLAUDE.md raiz. -->
-  <link rel="stylesheet" href="/static/admin.css?v=31">
+  <link rel="stylesheet" href="/static/admin.css?v=32">
 </head>
 <body>
 
@@ -95,6 +95,15 @@
             <path d="M9 14l2 2 4-4"/>
           </svg>
           <span class="nav-item-label">Ordens de Serviço</span>
+        </button>
+
+        <button class="nav-item" data-section="orcamentos" data-label="Orçamentos">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="1" x2="12" y2="23"/>
+            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+          </svg>
+          <span class="nav-item-label">Orçamentos</span>
+          <span class="nav-badge" id="navBadgeOrcamentos" style="display:none;">0</span>
         </button>
 
         <span class="nav-section-label">Gestão</span>
@@ -805,6 +814,76 @@
           </div>
         </section>
       </div><!-- /section ordens-servico -->
+
+      <!-- ===== SECTION: ORÇAMENTOS ===== -->
+      <div class="section" data-section="orcamentos">
+
+        <!-- KPIs -->
+        <div class="resumo-grid" id="orcKpiGrid" style="margin-bottom:16px;"></div>
+
+        <section class="card al-card">
+          <div class="cardHead al-head">
+            <h2>
+              <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="1" x2="12" y2="23"/>
+                <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+              </svg>
+              Orçamentos
+            </h2>
+            <span class="hint">Solicitados pelos técnicos nas O.S.</span>
+          </div>
+
+          <div class="al-toolbar">
+            <div class="wa-tabs" role="tablist">
+              <button class="wa-tab is-active" data-orc-tab="todos" type="button">Todos <span class="wa-count" id="orcCtTodos">0</span></button>
+              <button class="wa-tab" data-orc-tab="pendente" type="button">Pendentes <span class="wa-count" id="orcCtPendente">0</span></button>
+              <button class="wa-tab" data-orc-tab="aprovado" type="button">Aprovados <span class="wa-count" id="orcCtAprovado">0</span></button>
+              <button class="wa-tab" data-orc-tab="rejeitado" type="button">Rejeitados <span class="wa-count" id="orcCtRejeitado">0</span></button>
+            </div>
+            <div class="al-filters">
+              <input id="orcBusca" class="input" placeholder="Buscar condomínio ou técnico…">
+              <select id="orcFiltroCondo" class="select" style="width:180px;">
+                <option value="">Todos os condomínios</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="al-grid">
+            <div class="al-tableWrap">
+              <table class="orc-table">
+                <thead>
+                  <tr>
+                    <th style="width:110px">O.S.</th>
+                    <th>Condomínio</th>
+                    <th style="width:130px">Técnico</th>
+                    <th>Observação do técnico</th>
+                    <th style="width:110px">Valor</th>
+                    <th style="width:90px">Status</th>
+                    <th style="width:80px">Data</th>
+                  </tr>
+                </thead>
+                <tbody id="orcTableBody"></tbody>
+              </table>
+              <div id="orcEmpty" class="al-empty" style="display:none;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                </svg>
+                <p>Nenhum orçamento encontrado.</p>
+              </div>
+            </div>
+
+            <aside class="al-painel" id="orcPainel">
+              <div class="al-empty">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                </svg>
+                <p>Selecione um orçamento para ver os detalhes</p>
+              </div>
+            </aside>
+          </div>
+        </section>
+
+      </div><!-- /section orcamentos -->
 
       <!-- ===== SECTION: WHATSAPP ===== -->
       <div class="section" data-section="whatsapp">
@@ -2267,7 +2346,7 @@
 <script src="/static/apexcharts.min.js"></script>
 <script src="/static/leaflet.js"></script>
 <script src="/static/inatividade.js" defer></script>
-<script src="/static/admin.js?v=25" defer></script>
+<script src="/static/admin.js?v=26" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
 <script src="/static/register-sw.js?v=19" defer></script>
 </body>

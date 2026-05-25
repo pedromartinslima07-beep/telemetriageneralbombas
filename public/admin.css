@@ -5500,3 +5500,71 @@ body.role-viewer .viewer-only-hide-inline {
   color: #000;
   border-color: var(--accent);
 }
+
+/* ============================================================
+   ORÇAMENTOS
+   ============================================================ */
+
+/* Status pills */
+.orc-status-pill {
+  display: inline-block;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: .5px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  text-transform: uppercase;
+}
+.orc-status-pend { background: rgba(245,158,11,.15); color: #fbbf24; border: 1px solid rgba(245,158,11,.3); }
+.orc-status-ok   { background: rgba(34,197,94,.12);  color: #4ade80; border: 1px solid rgba(34,197,94,.28); }
+.orc-status-bad  { background: rgba(239,68,68,.12);  color: #f87171; border: 1px solid rgba(239,68,68,.28); }
+.orc-status-off  { background: rgba(122,126,156,.1); color: #9ca3af; border: 1px solid rgba(122,126,156,.2); }
+
+/* Tabela */
+.orc-table { width: 100%; }
+.orc-table th,
+.orc-table td { padding: 9px 12px; font-size: 12px; }
+.orc-table th  { background: rgba(20,23,42,.7); }
+.orc-table tbody tr:hover { background: rgba(255,255,255,.03); }
+.orc-table tbody tr.is-selected { background: rgba(240,176,20,.06); }
+
+/* Painel de detalhe — seção do form */
+.orc-form-section { border-top: 1px solid var(--border); padding-top: 12px; }
+.orc-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 8px;
+}
+.orc-form-label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.orc-form-label .input { font-size: 12px; padding: 6px 10px; }
+.orc-form-msg { font-size: 11px; color: var(--ok); margin-left: 8px; }
+
+/* Botões de ação no painel */
+.orc-acoes {
+  display: flex;
+  gap: 8px;
+  padding: 14px 16px 16px;
+  border-top: 1px solid var(--border);
+  margin-top: auto;
+}
+.orc-btn-approve {
+  flex: 1;
+  background: rgba(34,197,94,.15);
+  color: #4ade80;
+  border-color: rgba(34,197,94,.3);
+}
+.orc-btn-approve:hover { background: rgba(34,197,94,.25); }
+.orc-btn-reject {
+  flex: 1;
+  background: rgba(239,68,68,.1);
+  color: #f87171;
+  border-color: rgba(239,68,68,.25);
+}
+.orc-btn-reject:hover { background: rgba(239,68,68,.2); }

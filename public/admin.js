@@ -26,6 +26,7 @@ const _sectionTitles = {
   whatsapp:         "WhatsApp",
   chamados:         "Chamados",
   "ordens-servico": "Ordens de Serviço",
+  orcamentos:       "Orçamentos",
   cadastros:        "Clientes",
   tecnicos:         "Técnicos",
   relatorios:       "Relatórios",
@@ -62,6 +63,10 @@ function showSection(name) {
   }
   if (name === "ordens-servico") {
     renderSecaoOS();
+  }
+  if (name === "orcamentos") {
+    _orcBindEventos();
+    carregarOrcamentos();
   }
   // Dashboard também tem Leaflet (mc-map). Quando o user volta pra dashboard,
   // revalida o tamanho — pode ter ficado com tiles travados se foi criado
@@ -9583,4 +9588,325 @@ function _osBindFormEventos() {
 
   document.getElementById("osEdOrcamento")?.addEventListener("change", (ev) => { e.orcamento_necessario = ev.target.checked; });
   document.getElementById("osEdOrcamentoObs")?.addEventListener("input", (ev) => { e.orcamento_observacoes = ev.target.value; });
+}
+
+// ============================================================
+// ORÇAMENTOS — seção admin
+// ============================================================
+
+let _orcData        = [];
+let _orcTabAtiva    = "todos";
+let _orcSelecionado = null;
+let _orcBindFeito   = false;
+let _orcCondosCarregados = false;
+
+async function carregarOrcamentos() {
+  try {
+    const r = await fetch("/admin/orcamentos", { headers: authHeaders() });
+    if (!r.ok) return;
+    _orcData = await r.json();
+    _orcRenderTudo();
+    _orcAtualizarBadge();
+    if (!_orcCondosCarregados) _orcPopularFiltroCondos();
+  } catch (e) {
+    console.error("carregarOrcamentos:", e);
+  }
+}
+
+function _orcFmtValor(v) {
+  if (v == null) return "—";
+  return "R$ " + Number(v).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function _orcFmtData(iso) {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" });
+}
+
+function _orcStatusCls(s) {
+  if (s === "aprovado")  return "orc-status-ok";
+  if (s === "rejeitado") return "orc-status-bad";
+  if (s === "expirado")  return "orc-status-off";
+  return "orc-status-pend";
+}
+
+function _orcStatusLabel(s) {
+  if (s === "aprovado")  return "APROVADO";
+  if (s === "rejeitado") return "REJEITADO";
+  if (s === "expirado")  return "EXPIRADO";
+  return "PENDENTE";
+}
+
+function _orcFiltrados() {
+  const q = (document.getElementById("orcBusca")?.value || "").trim().toLowerCase();
+  const condo = document.getElementById("orcFiltroCondo")?.value || "";
+  return _orcData.filter(o => {
+    if (_orcTabAtiva !== "todos" && o.orcamento_status !== _orcTabAtiva) return false;
+    if (condo && String(o.condominio_id) !== condo) return false;
+    if (q) {
+      const blob = `${o.condominio_nome || ""} ${o.tecnico_nome || ""} ${o.numero || ""}`.toLowerCase();
+      if (!blob.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+function _orcRenderTudo() {
+  // KPIs
+  const total    = _orcData.length;
+  const pend     = _orcData.filter(o => o.orcamento_status === "pendente").length;
+  const aprov    = _orcData.filter(o => o.orcamento_status === "aprovado").length;
+  const rejeit   = _orcData.filter(o => o.orcamento_status === "rejeitado").length;
+  const totalVal = _orcData.filter(o => o.orcamento_status === "aprovado" && o.orcamento_valor)
+                           .reduce((s, o) => s + Number(o.orcamento_valor), 0);
+
+  const ICO_LIST  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>`;
+  const ICO_CLK   = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`;
+  const ICO_CHECK = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`;
+  const ICO_X     = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>`;
+  const ICO_MONEY = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>`;
+
+  const kpi = (ico, val, label, cls) => `
+    <div class="rc ${cls} rc-static">
+      <div class="rc-head"><div class="rc-icon">${ico}</div><div class="rc-label">${label}</div></div>
+      <div class="rc-value">${val}</div>
+    </div>`;
+
+  const grid = document.getElementById("orcKpiGrid");
+  if (grid) grid.innerHTML =
+    kpi(ICO_LIST,  total,                         "Total",          "rc-neutral") +
+    kpi(ICO_CLK,   pend,                          "Pendentes",      pend  > 0 ? "rc-warn" : "rc-neutral") +
+    kpi(ICO_CHECK, aprov,                         "Aprovados",      aprov > 0 ? "rc-ok"   : "rc-neutral") +
+    kpi(ICO_X,     rejeit,                        "Rejeitados",     rejeit> 0 ? "rc-bad"  : "rc-neutral") +
+    kpi(ICO_MONEY, _orcFmtValor(totalVal || null),"Total aprovado", aprov > 0 ? "rc-ok"   : "rc-neutral");
+
+  // Contadores das tabs
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  set("orcCtTodos",     total);
+  set("orcCtPendente",  pend);
+  set("orcCtAprovado",  aprov);
+  set("orcCtRejeitado", rejeit);
+
+  // Tabela
+  const lista   = _orcFiltrados();
+  const tbody   = document.getElementById("orcTableBody");
+  const empty   = document.getElementById("orcEmpty");
+  if (!tbody) return;
+
+  if (!lista.length) {
+    tbody.innerHTML = "";
+    if (empty) empty.style.display = "flex";
+    return;
+  }
+  if (empty) empty.style.display = "none";
+
+  tbody.innerHTML = lista.map(o => {
+    const sel = _orcSelecionado?.id === o.id ? " is-selected" : "";
+    const obs = o.orcamento_observacoes
+      ? o.orcamento_observacoes.slice(0, 80) + (o.orcamento_observacoes.length > 80 ? "…" : "")
+      : "—";
+    return `<tr class="${sel.trim()}" data-orc-id="${o.id}" style="cursor:pointer;">
+      <td><span class="mono" style="font-size:11px;">${o.numero || "—"}</span></td>
+      <td>${_waEscaparHtml(o.condominio_nome || "—")}</td>
+      <td style="color:var(--muted);font-size:11.5px;">${_waEscaparHtml(o.tecnico_nome || "—")}</td>
+      <td style="color:var(--muted);font-size:11px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${_waEscaparHtml(obs)}</td>
+      <td style="font-weight:700;">${_orcFmtValor(o.orcamento_valor)}</td>
+      <td><span class="orc-status-pill ${_orcStatusCls(o.orcamento_status)}">${_orcStatusLabel(o.orcamento_status)}</span></td>
+      <td style="color:var(--muted);font-size:11px;">${_orcFmtData(o.finalizada_em || o.criado_em)}</td>
+    </tr>`;
+  }).join("");
+
+  _orcRenderPainel();
+}
+
+function _orcRenderPainel() {
+  const wrap = document.getElementById("orcPainel");
+  if (!wrap) return;
+
+  if (!_orcSelecionado) {
+    wrap.innerHTML = `<div class="al-empty">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+      </svg>
+      <p>Selecione um orçamento para ver os detalhes</p>
+    </div>`;
+    return;
+  }
+
+  const o = _orcSelecionado;
+  const isPend = o.orcamento_status === "pendente";
+  const isAprov = o.orcamento_status === "aprovado";
+
+  const tipos = Array.isArray(o.tipos_servico) && o.tipos_servico.length
+    ? o.tipos_servico.map(t => `<span class="os-tipo-chip">${t.replaceAll("_", " ")}</span>`).join(" ")
+    : "—";
+
+  const validadeVal = o.orcamento_valido_ate
+    ? new Date(o.orcamento_valido_ate).toISOString().split("T")[0]
+    : "";
+
+  wrap.innerHTML = `
+    <div class="ap-head">
+      <div>
+        <div class="ap-title">${o.numero || "Orçamento"}</div>
+        <div class="ap-sub"><span class="orc-status-pill ${_orcStatusCls(o.orcamento_status)}">${_orcStatusLabel(o.orcamento_status)}</span> · ${_orcFmtData(o.finalizada_em || o.criado_em)}</div>
+      </div>
+      <button class="ap-close" data-orc-action="fechar" title="Fechar">×</button>
+    </div>
+
+    <div class="ap-section">
+      <div class="ap-section-title">Condomínio &amp; Técnico</div>
+      <div class="ap-kv">
+        <div><span class="k">Condomínio</span><span class="v">${_waEscaparHtml(o.condominio_nome || "—")}</span></div>
+        <div><span class="k">Técnico</span><span class="v">${_waEscaparHtml(o.tecnico_nome || "—")}</span></div>
+        ${o.chamado_id ? `<div><span class="k">Chamado</span><span class="v">#${o.chamado_id}</span></div>` : ""}
+      </div>
+    </div>
+
+    ${o.tipos_servico?.length ? `
+    <div class="ap-section">
+      <div class="ap-section-title">Tipos de serviço</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;">${tipos}</div>
+    </div>` : ""}
+
+    <div class="ap-section">
+      <div class="ap-section-title">Observação do técnico</div>
+      <div style="font-size:12px;line-height:1.6;color:var(--text);margin-top:4px;white-space:pre-wrap;">${o.orcamento_observacoes ? _waEscaparHtml(o.orcamento_observacoes) : '<span style="color:var(--muted)">Sem observação.</span>'}</div>
+    </div>
+
+    ${isAprov && o.orcamento_aprovado_em ? `
+    <div class="ap-section">
+      <div class="ap-section-title">Aprovação</div>
+      <div class="ap-kv">
+        <div><span class="k">Aprovado em</span><span class="v">${new Date(o.orcamento_aprovado_em).toLocaleString("pt-BR")}</span></div>
+        ${o.aprovado_por_nome ? `<div><span class="k">Por</span><span class="v">${_waEscaparHtml(o.aprovado_por_nome)}</span></div>` : ""}
+      </div>
+    </div>` : ""}
+
+    ${o.orcamento_status === "rejeitado" && o.orcamento_motivo_rejeicao ? `
+    <div class="ap-section">
+      <div class="ap-section-title">Motivo da rejeição</div>
+      <div style="font-size:12px;color:var(--danger);margin-top:4px;">${_waEscaparHtml(o.orcamento_motivo_rejeicao)}</div>
+    </div>` : ""}
+
+    <div class="ap-section orc-form-section">
+      <div class="ap-section-title">Registrar valor formal</div>
+      <div class="orc-form-row">
+        <label class="orc-form-label">Valor (R$)
+          <input id="orcInputValor" class="input" type="number" min="0" step="0.01" placeholder="0,00"
+            value="${o.orcamento_valor != null ? o.orcamento_valor : ""}">
+        </label>
+        <label class="orc-form-label">Válido até
+          <input id="orcInputValidade" class="input" type="date" value="${validadeVal}">
+        </label>
+      </div>
+      <button class="btn btn-sm" data-orc-action="salvar" style="margin-top:8px;">Salvar valor</button>
+      <span class="orc-form-msg" id="orcFormMsg"></span>
+    </div>
+
+    <div class="orc-acoes">
+      ${isPend || isAprov ? `<button class="btn btn-sm orc-btn-reject" data-orc-action="rejeitar">✕ Rejeitar</button>` : ""}
+      ${isPend ? `<button class="btn btn-sm orc-btn-approve" data-orc-action="aprovar">✓ Aprovar</button>` : ""}
+      ${!isPend && o.orcamento_status !== "aprovado" ? `<button class="btn btn-sm orc-btn-approve" data-orc-action="aprovar">✓ Aprovar</button>` : ""}
+    </div>`;
+}
+
+async function _orcAcao(acao) {
+  if (!_orcSelecionado) return;
+  const osId = _orcSelecionado.id;
+  const msg = document.getElementById("orcFormMsg");
+  if (msg) msg.textContent = "Salvando…";
+
+  const body = { acao };
+  if (acao === "salvar" || acao === "aprovar") {
+    const v = document.getElementById("orcInputValor")?.value;
+    if (v !== "" && v != null) body.valor = Number(v);
+    const d = document.getElementById("orcInputValidade")?.value;
+    if (d) body.valido_ate = d;
+  }
+  if (acao === "rejeitar") {
+    const m = prompt("Motivo da rejeição (opcional):");
+    if (m === null) { if (msg) msg.textContent = ""; return; }
+    if (m) body.motivo_rejeicao = m;
+  }
+
+  try {
+    const r = await fetch(`/admin/orcamentos/${osId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      body: JSON.stringify(body),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { if (msg) msg.textContent = j.error || "Erro"; return; }
+
+    // Atualiza dado local
+    const idx = _orcData.findIndex(o => o.id === osId);
+    if (idx !== -1) Object.assign(_orcData[idx], j);
+    _orcSelecionado = _orcData[idx] || null;
+    if (msg) msg.textContent = "✓ Salvo";
+    setTimeout(() => { if (msg) msg.textContent = ""; }, 2000);
+    _orcRenderTudo();
+    _orcAtualizarBadge();
+  } catch (e) {
+    if (msg) msg.textContent = "Erro: " + e.message;
+  }
+}
+
+function _orcAtualizarBadge() {
+  const pend = _orcData.filter(o => o.orcamento_status === "pendente").length;
+  const badge = document.getElementById("navBadgeOrcamentos");
+  if (badge) {
+    badge.textContent = pend;
+    badge.style.display = pend > 0 ? "inline-flex" : "none";
+  }
+}
+
+function _orcPopularFiltroCondos() {
+  const sel = document.getElementById("orcFiltroCondo");
+  if (!sel) return;
+  const condos = [...new Map(_orcData.map(o => [o.condominio_id, o.condominio_nome])).entries()]
+    .sort((a, b) => (a[1] || "").localeCompare(b[1] || ""));
+  condos.forEach(([id, nome]) => {
+    const opt = document.createElement("option");
+    opt.value = id;
+    opt.textContent = nome || id;
+    sel.appendChild(opt);
+  });
+  _orcCondosCarregados = true;
+}
+
+function _orcBindEventos() {
+  if (_orcBindFeito) return;
+  _orcBindFeito = true;
+
+  // Tabs
+  document.querySelectorAll("[data-orc-tab]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      _orcTabAtiva = btn.dataset.orcTab;
+      document.querySelectorAll("[data-orc-tab]").forEach(b => b.classList.toggle("is-active", b === btn));
+      _orcRenderTudo();
+    });
+  });
+
+  // Busca + filtro condo
+  document.getElementById("orcBusca")?.addEventListener("input", _orcRenderTudo);
+  document.getElementById("orcFiltroCondo")?.addEventListener("change", _orcRenderTudo);
+
+  // Click na linha
+  document.getElementById("orcTableBody")?.addEventListener("click", e => {
+    const row = e.target.closest("tr[data-orc-id]");
+    if (!row) return;
+    const id = Number(row.dataset.orcId);
+    _orcSelecionado = _orcData.find(o => o.id === id) || null;
+    _orcRenderTudo();
+  });
+
+  // Ações no painel
+  document.getElementById("orcPainel")?.addEventListener("click", e => {
+    const btn = e.target.closest("[data-orc-action]");
+    if (!btn) return;
+    const acao = btn.dataset.orcAction;
+    if (acao === "fechar") { _orcSelecionado = null; _orcRenderTudo(); }
+    else _orcAcao(acao);
+  });
 }

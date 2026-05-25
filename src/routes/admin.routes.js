@@ -652,4 +652,147 @@ router.patch("/sla/:prioridade", authRequired, masterAdminOnly, async (req, res)
   }
 });
 
+// ============================================================
+// ORÇAMENTOS
+// ============================================================
+
+// GET /admin/orcamentos?status=pendente&condominio_id=1&data_ini=&data_fim=
+router.get("/orcamentos", authRequired, adminOnly, async (req, res) => {
+  const { status, condominio_id, data_ini, data_fim } = req.query;
+
+  const where = ["os.orcamento_necessario = TRUE"];
+  const vals  = [];
+
+  if (status && ["pendente","aprovado","rejeitado","expirado"].includes(status)) {
+    vals.push(status);
+    where.push(`os.orcamento_status = $${vals.length}`);
+  }
+  if (condominio_id) {
+    vals.push(Number(condominio_id));
+    where.push(`os.condominio_id = $${vals.length}`);
+  }
+  if (data_ini) {
+    vals.push(data_ini);
+    where.push(`os.finalizada_em >= $${vals.length}::date`);
+  }
+  if (data_fim) {
+    vals.push(data_fim);
+    where.push(`os.finalizada_em < ($${vals.length}::date + interval '1 day')`);
+  }
+
+  try {
+    const r = await pool.query(
+      `SELECT
+         os.id,
+         os.numero,
+         os.condominio_id,
+         c.nome              AS condominio_nome,
+         os.tecnico_id,
+         t.nome              AS tecnico_nome,
+         os.chamado_id,
+         os.finalizada_em,
+         os.criado_em,
+         os.orcamento_necessario,
+         os.orcamento_observacoes,
+         os.orcamento_valor,
+         os.orcamento_status,
+         os.orcamento_valido_ate,
+         os.orcamento_aprovado_em,
+         os.orcamento_motivo_rejeicao,
+         ua.nome             AS aprovado_por_nome,
+         os.servico_realizado,
+         os.tipos_servico
+       FROM ordens_servico os
+       LEFT JOIN condominios c ON c.id = os.condominio_id
+       LEFT JOIN tecnicos t    ON t.id = os.tecnico_id
+       LEFT JOIN usuarios ua   ON ua.id = os.orcamento_aprovado_por
+       WHERE ${where.join(" AND ")}
+       ORDER BY
+         CASE os.orcamento_status WHEN 'pendente' THEN 0 ELSE 1 END,
+         os.finalizada_em DESC NULLS LAST
+       LIMIT 200`,
+      vals
+    );
+    return res.json(r.rows);
+  } catch (err) {
+    console.error("[admin] GET /orcamentos:", err);
+    return res.status(500).json({ error: "Erro ao buscar orçamentos" });
+  }
+});
+
+// PATCH /admin/orcamentos/:os_id — aprovar, rejeitar ou salvar valor
+router.patch("/orcamentos/:os_id", authRequired, adminOnly, async (req, res) => {
+  const osId = Number(req.params.os_id);
+  if (!Number.isInteger(osId) || osId <= 0) {
+    return res.status(400).json({ error: "os_id inválido" });
+  }
+
+  const { acao, valor, valido_ate, motivo_rejeicao } = req.body || {};
+
+  if (!["aprovar","rejeitar","salvar"].includes(acao)) {
+    return res.status(400).json({ error: "acao inválida (aprovar | rejeitar | salvar)" });
+  }
+
+  try {
+    const check = await pool.query(
+      "SELECT id, orcamento_necessario FROM ordens_servico WHERE id = $1",
+      [osId]
+    );
+    if (!check.rows.length) return res.status(404).json({ error: "O.S. não encontrada" });
+    if (!check.rows[0].orcamento_necessario) {
+      return res.status(400).json({ error: "Esta O.S. não tem orçamento solicitado" });
+    }
+
+    let sets = [], vals = [osId];
+
+    if (acao === "aprovar") {
+      sets = [
+        "orcamento_status = 'aprovado'",
+        "orcamento_aprovado_em = NOW()",
+        `orcamento_aprovado_por = ${req.user.id}`,
+        "orcamento_motivo_rejeicao = NULL",
+      ];
+      if (valor != null) {
+        const v = Number(valor);
+        if (isNaN(v) || v < 0) return res.status(400).json({ error: "valor inválido" });
+        vals.push(v); sets.push(`orcamento_valor = $${vals.length}`);
+      }
+      if (valido_ate) {
+        vals.push(valido_ate); sets.push(`orcamento_valido_ate = $${vals.length}::date`);
+      }
+    } else if (acao === "rejeitar") {
+      sets = ["orcamento_status = 'rejeitado'", "orcamento_aprovado_em = NULL"];
+      if (motivo_rejeicao) {
+        const m = String(motivo_rejeicao).slice(0, 1000);
+        vals.push(m); sets.push(`orcamento_motivo_rejeicao = $${vals.length}`);
+      }
+    } else {
+      // salvar: apenas valor/validade sem mudar status
+      if (valor != null) {
+        const v = Number(valor);
+        if (isNaN(v) || v < 0) return res.status(400).json({ error: "valor inválido" });
+        vals.push(v); sets.push(`orcamento_valor = $${vals.length}`);
+      }
+      if (valido_ate !== undefined) {
+        vals.push(valido_ate || null);
+        sets.push(`orcamento_valido_ate = $${vals.length}::date`);
+      }
+    }
+
+    if (!sets.length) return res.status(400).json({ error: "Nenhum campo para atualizar" });
+
+    const r = await pool.query(
+      `UPDATE ordens_servico SET ${sets.join(", ")}
+       WHERE id = $1
+       RETURNING id, numero, orcamento_status, orcamento_valor, orcamento_valido_ate,
+                 orcamento_aprovado_em, orcamento_motivo_rejeicao`,
+      vals
+    );
+    return res.json(r.rows[0]);
+  } catch (err) {
+    console.error("[admin] PATCH /orcamentos/:os_id:", err);
+    return res.status(500).json({ error: "Erro ao atualizar orçamento" });
+  }
+});
+
 module.exports = { adminRouter: router };
