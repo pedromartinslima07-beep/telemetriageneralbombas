@@ -9599,6 +9599,8 @@ let _orcTabAtiva    = "todos";
 let _orcSelecionado = null;
 let _orcBindFeito   = false;
 let _orcCondosCarregados = false;
+let _orcItens       = [];
+let _orcItensOsId   = null;
 
 async function carregarOrcamentos() {
   try {
@@ -9734,12 +9736,8 @@ function _orcRenderPainel() {
   }
 
   const o = _orcSelecionado;
-  const isPend = o.orcamento_status === "pendente";
+  const isPend  = o.orcamento_status === "pendente";
   const isAprov = o.orcamento_status === "aprovado";
-
-  const tipos = Array.isArray(o.tipos_servico) && o.tipos_servico.length
-    ? o.tipos_servico.map(t => `<span class="os-tipo-chip">${t.replaceAll("_", " ")}</span>`).join(" ")
-    : "—";
 
   const validadeVal = o.orcamento_valido_ate
     ? new Date(o.orcamento_valido_ate).toISOString().split("T")[0]
@@ -9748,14 +9746,14 @@ function _orcRenderPainel() {
   wrap.innerHTML = `
     <div class="ap-head">
       <div>
-        <div class="ap-title">${o.numero || "Orçamento"}</div>
+        <div class="ap-title">OS ${o.numero || o.id}</div>
         <div class="ap-sub"><span class="orc-status-pill ${_orcStatusCls(o.orcamento_status)}">${_orcStatusLabel(o.orcamento_status)}</span> · ${_orcFmtData(o.finalizada_em || o.criado_em)}</div>
       </div>
       <button class="ap-close" data-orc-action="fechar" title="Fechar">×</button>
     </div>
 
     <div class="ap-section">
-      <div class="ap-section-title">Condomínio &amp; Técnico</div>
+      <div class="ap-section-title">Dados</div>
       <div class="ap-kv">
         <div><span class="k">Condomínio</span><span class="v">${_waEscaparHtml(o.condominio_nome || "—")}</span></div>
         <div><span class="k">Técnico</span><span class="v">${_waEscaparHtml(o.tecnico_nome || "—")}</span></div>
@@ -9763,17 +9761,76 @@ function _orcRenderPainel() {
       </div>
     </div>
 
-    ${o.tipos_servico?.length ? `
-    <div class="ap-section">
-      <div class="ap-section-title">Tipos de serviço</div>
-      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;">${tipos}</div>
-    </div>` : ""}
-
     <div class="ap-section">
       <div class="ap-section-title">Observação do técnico</div>
-      <div style="font-size:12px;line-height:1.6;color:var(--text);margin-top:4px;white-space:pre-wrap;">${o.orcamento_observacoes ? _waEscaparHtml(o.orcamento_observacoes) : '<span style="color:var(--muted)">Sem observação.</span>'}</div>
+      <div style="font-size:12px;line-height:1.6;color:var(--text);margin-top:4px;white-space:pre-wrap;">${o.orcamento_observacoes ? _waEscaparHtml(o.orcamento_observacoes) : '<span style="color:var(--muted)">Sem observação registrada.</span>'}</div>
     </div>
 
+    <!-- Orçamento Formal -->
+    <div class="ap-section orc-form-section">
+      <div class="ap-section-title">Orçamento Formal</div>
+
+      <div class="orc-form-row" style="margin-bottom:10px;">
+        <label class="orc-form-label">Nº Orçamento
+          <input id="orcInputNumero" class="input" type="text" maxlength="30" placeholder="OR-XXXXXX"
+            value="${_waEscaparHtml(o.orcamento_numero || '')}">
+        </label>
+        <label class="orc-form-label">Válido até
+          <input id="orcInputValidade" class="input" type="date" value="${validadeVal}">
+        </label>
+      </div>
+
+      <label class="orc-form-label" style="display:flex;flex-direction:column;margin-bottom:10px;">
+        Constatação
+        <textarea id="orcInputConstatacao" class="input" rows="3" maxlength="255"
+          style="resize:vertical;font-size:12px;padding:8px 10px;margin-top:4px;"
+          placeholder="Descreva o problema constatado…">${_waEscaparHtml(o.orcamento_constatacao || '')}</textarea>
+      </label>
+
+      <!-- Itens -->
+      <div class="ap-section-title" style="margin-top:4px;margin-bottom:8px;">Itens</div>
+      <div id="orcItensWrap">
+        <div class="orc-itens-loading" style="color:var(--muted);font-size:12px;padding:8px 0;">Carregando itens…</div>
+      </div>
+
+      <!-- Condições comerciais -->
+      <div class="ap-section-title" style="margin-top:12px;margin-bottom:8px;">Condições Comerciais</div>
+      <div class="orc-form-row" style="margin-bottom:8px;">
+        <label class="orc-form-label">Forma de pagamento
+          <input id="orcInputPagamento" class="input" type="text" maxlength="255"
+            placeholder="Via boleto bancário"
+            value="${_waEscaparHtml(o.orcamento_forma_pagamento || '')}">
+        </label>
+        <label class="orc-form-label">Prazo de entrega
+          <input id="orcInputPrazo" class="input" type="text" maxlength="100"
+            placeholder="5 dias úteis após aprovação"
+            value="${_waEscaparHtml(o.orcamento_prazo_entrega || '')}">
+        </label>
+      </div>
+      <div class="orc-form-row" style="margin-bottom:10px;">
+        <label class="orc-form-label">Garantia
+          <input id="orcInputGarantia" class="input" type="text" maxlength="100"
+            placeholder="12 meses por defeito de fabricação"
+            value="${_waEscaparHtml(o.orcamento_garantia || '')}">
+        </label>
+        <label class="orc-form-label">Disponibilidade
+          <input id="orcInputDisponibilidade" class="input" type="text" maxlength="100"
+            placeholder="Total"
+            value="${_waEscaparHtml(o.orcamento_disponibilidade || '')}">
+        </label>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:4px;">
+        <button class="btn btn-sm" data-orc-action="salvar" style="flex-shrink:0;">Salvar orçamento</button>
+        <button class="btn btn-sm" data-orc-action="gerar-pdf"
+          style="flex-shrink:0;background:rgba(240,176,20,.1);border-color:rgba(240,176,20,.4);color:#f0b014;">
+          ↓ Gerar PDF
+        </button>
+        <span class="orc-form-msg" id="orcFormMsg"></span>
+      </div>
+    </div>
+
+    <!-- Aprovação -->
     ${isAprov && o.orcamento_aprovado_em ? `
     <div class="ap-section">
       <div class="ap-section-title">Aprovação</div>
@@ -9789,25 +9846,75 @@ function _orcRenderPainel() {
       <div style="font-size:12px;color:var(--danger);margin-top:4px;">${_waEscaparHtml(o.orcamento_motivo_rejeicao)}</div>
     </div>` : ""}
 
-    <div class="ap-section orc-form-section">
-      <div class="ap-section-title">Registrar valor formal</div>
-      <div class="orc-form-row">
-        <label class="orc-form-label">Valor (R$)
-          <input id="orcInputValor" class="input" type="number" min="0" step="0.01" placeholder="0,00"
-            value="${o.orcamento_valor != null ? o.orcamento_valor : ""}">
-        </label>
-        <label class="orc-form-label">Válido até
-          <input id="orcInputValidade" class="input" type="date" value="${validadeVal}">
-        </label>
-      </div>
-      <button class="btn btn-sm" data-orc-action="salvar" style="margin-top:8px;">Salvar valor</button>
-      <span class="orc-form-msg" id="orcFormMsg"></span>
-    </div>
-
     <div class="orc-acoes">
       ${isPend || isAprov ? `<button class="btn btn-sm orc-btn-reject" data-orc-action="rejeitar">✕ Rejeitar</button>` : ""}
-      ${isPend ? `<button class="btn btn-sm orc-btn-approve" data-orc-action="aprovar">✓ Aprovar</button>` : ""}
-      ${!isPend && o.orcamento_status !== "aprovado" ? `<button class="btn btn-sm orc-btn-approve" data-orc-action="aprovar">✓ Aprovar</button>` : ""}
+      <button class="btn btn-sm orc-btn-approve" data-orc-action="aprovar">✓ Aprovar</button>
+    </div>`;
+
+  // Carregar itens async
+  _orcCarregarItens(o.id);
+}
+
+async function _orcCarregarItens(osId) {
+  try {
+    const r = await fetch(`/admin/orcamentos/${osId}/itens`, { headers: authHeaders() });
+    if (!r.ok) return;
+    _orcItens = await r.json();
+    _orcItensOsId = osId;
+    _orcRenderItens();
+  } catch (e) {
+    console.error("_orcCarregarItens:", e);
+  }
+}
+
+function _orcRenderItens() {
+  const wrap = document.getElementById("orcItensWrap");
+  if (!wrap || _orcItensOsId !== _orcSelecionado?.id) return;
+
+  const total = _orcItens.reduce((s, it) => s + Number(it.valor_unitario) * Number(it.quantidade), 0);
+
+  const fileiras = _orcItens.map(it => {
+    const tot = Number(it.valor_unitario) * Number(it.quantidade);
+    return `<tr data-orc-item-id="${it.id}">
+      <td style="max-width:160px;">
+        <div style="font-size:12px;font-weight:500;">${_waEscaparHtml(it.descricao)}</div>
+        ${it.ficha_tecnica ? `<div style="font-size:10.5px;color:var(--muted);margin-top:2px;white-space:pre-line;">${_waEscaparHtml(it.ficha_tecnica)}</div>` : ""}
+      </td>
+      <td class="orc-it-num">${it.quantidade}</td>
+      <td class="orc-it-num">${_orcFmtValor(it.valor_unitario)}</td>
+      <td class="orc-it-num" style="font-weight:600;">${_orcFmtValor(tot)}</td>
+      <td style="text-align:center;">
+        <button class="orc-it-del" data-orc-del-item="${it.id}" title="Remover">✕</button>
+      </td>
+    </tr>`;
+  }).join("");
+
+  wrap.innerHTML = `
+    <table class="orc-itens-table">
+      <thead>
+        <tr>
+          <th>Descrição / Ficha técnica</th>
+          <th class="orc-it-num">Qtd</th>
+          <th class="orc-it-num">Unit.</th>
+          <th class="orc-it-num">Total</th>
+          <th style="width:30px;"></th>
+        </tr>
+      </thead>
+      <tbody>${fileiras || '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:12px;font-size:12px;">Nenhum item ainda.</td></tr>'}</tbody>
+    </table>
+    ${_orcItens.length ? `<div style="text-align:right;font-size:12px;font-weight:700;padding:6px 8px 0;color:var(--accent);">Total: ${_orcFmtValor(total)}</div>` : ""}
+
+    <!-- Formulário de novo item -->
+    <div class="orc-add-item-form" id="orcAddItemForm">
+      <div class="orc-add-item-row">
+        <input id="orcNewDescricao" class="input" type="text" placeholder="Descrição do item *" maxlength="500" style="flex:2;">
+        <input id="orcNewQtd" class="input" type="number" min="1" step="1" placeholder="Qtd" value="1" style="width:60px;">
+        <input id="orcNewValor" class="input" type="number" min="0" step="0.01" placeholder="R$ unit." style="width:90px;">
+      </div>
+      <textarea id="orcNewFicha" class="input" rows="2" maxlength="1000"
+        placeholder="Ficha técnica (opcional) — ex: Marca: Weg&#10;Potência: 1.5cv"
+        style="font-size:11.5px;resize:vertical;margin-top:6px;"></textarea>
+      <button class="btn btn-sm" data-orc-action="add-item" style="margin-top:6px;align-self:flex-start;">+ Adicionar item</button>
     </div>`;
 }
 
@@ -9815,15 +9922,44 @@ async function _orcAcao(acao) {
   if (!_orcSelecionado) return;
   const osId = _orcSelecionado.id;
   const msg = document.getElementById("orcFormMsg");
+
+  if (acao === "add-item") {
+    return _orcAdicionarItem();
+  }
+
+  if (acao === "gerar-pdf") {
+    return _orcGerarPdf();
+  }
+
+  if (acao === "del-item") return; // handled via data-orc-del-item
+
   if (msg) msg.textContent = "Salvando…";
 
   const body = { acao };
-  if (acao === "salvar" || acao === "aprovar") {
-    const v = document.getElementById("orcInputValor")?.value;
-    if (v !== "" && v != null) body.valor = Number(v);
-    const d = document.getElementById("orcInputValidade")?.value;
-    if (d) body.valido_ate = d;
+
+  // Campos do orçamento formal (sempre enviados)
+  const numero = document.getElementById("orcInputNumero")?.value.trim();
+  const constatacao = document.getElementById("orcInputConstatacao")?.value.trim();
+  const forma_pagamento = document.getElementById("orcInputPagamento")?.value.trim();
+  const prazo_entrega = document.getElementById("orcInputPrazo")?.value.trim();
+  const garantia = document.getElementById("orcInputGarantia")?.value.trim();
+  const disponibilidade = document.getElementById("orcInputDisponibilidade")?.value.trim();
+  const valido_ate = document.getElementById("orcInputValidade")?.value;
+
+  if (numero !== undefined)         body.numero = numero;
+  if (constatacao !== undefined)    body.constatacao = constatacao;
+  if (forma_pagamento !== undefined) body.forma_pagamento = forma_pagamento;
+  if (prazo_entrega !== undefined)  body.prazo_entrega = prazo_entrega;
+  if (garantia !== undefined)       body.garantia = garantia;
+  if (disponibilidade !== undefined) body.disponibilidade = disponibilidade;
+  if (valido_ate)                   body.valido_ate = valido_ate;
+
+  // Valor calculado dos itens (se houver); fallback manual removido
+  if (_orcItensOsId === osId && _orcItens.length > 0) {
+    const total = _orcItens.reduce((s, it) => s + Number(it.valor_unitario) * Number(it.quantidade), 0);
+    body.valor = total;
   }
+
   if (acao === "rejeitar") {
     const m = prompt("Motivo da rejeição (opcional):");
     if (m === null) { if (msg) msg.textContent = ""; return; }
@@ -9839,7 +9975,6 @@ async function _orcAcao(acao) {
     const j = await r.json().catch(() => ({}));
     if (!r.ok) { if (msg) msg.textContent = j.error || "Erro"; return; }
 
-    // Atualiza dado local
     const idx = _orcData.findIndex(o => o.id === osId);
     if (idx !== -1) Object.assign(_orcData[idx], j);
     _orcSelecionado = _orcData[idx] || null;
@@ -9847,6 +9982,82 @@ async function _orcAcao(acao) {
     setTimeout(() => { if (msg) msg.textContent = ""; }, 2000);
     _orcRenderTudo();
     _orcAtualizarBadge();
+  } catch (e) {
+    if (msg) msg.textContent = "Erro: " + e.message;
+  }
+}
+
+async function _orcAdicionarItem() {
+  const osId = _orcSelecionado?.id;
+  if (!osId) return;
+
+  const desc  = document.getElementById("orcNewDescricao")?.value.trim();
+  const qtd   = Number(document.getElementById("orcNewQtd")?.value) || 1;
+  const valor = Number(document.getElementById("orcNewValor")?.value) || 0;
+  const ficha = document.getElementById("orcNewFicha")?.value.trim() || null;
+
+  if (!desc) {
+    alert("Informe a descrição do item.");
+    return;
+  }
+
+  const msg = document.getElementById("orcFormMsg");
+  if (msg) msg.textContent = "Adicionando…";
+
+  try {
+    const r = await fetch(`/admin/orcamentos/${osId}/itens`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      body: JSON.stringify({ descricao: desc, ficha_tecnica: ficha, quantidade: qtd, valor_unitario: valor }),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { if (msg) msg.textContent = j.error || "Erro"; return; }
+
+    _orcItens.push(j);
+    // Limpa form
+    const clr = (id, v = "") => { const el = document.getElementById(id); if (el) el.value = v; };
+    clr("orcNewDescricao"); clr("orcNewQtd", "1"); clr("orcNewValor"); clr("orcNewFicha");
+    if (msg) msg.textContent = "✓ Item adicionado";
+    setTimeout(() => { if (msg) msg.textContent = ""; }, 2000);
+    _orcRenderItens();
+  } catch (e) {
+    if (msg) msg.textContent = "Erro: " + e.message;
+  }
+}
+
+async function _orcRemoverItem(itemId) {
+  if (!confirm("Remover este item?")) return;
+  const msg = document.getElementById("orcFormMsg");
+  try {
+    const r = await fetch(`/admin/orcamentos/itens/${itemId}`, {
+      method: "DELETE",
+      headers: authHeaders(),
+    });
+    if (!r.ok) { if (msg) msg.textContent = "Erro ao remover"; return; }
+    _orcItens = _orcItens.filter(it => it.id !== itemId);
+    _orcRenderItens();
+  } catch (e) {
+    if (msg) msg.textContent = "Erro: " + e.message;
+  }
+}
+
+async function _orcGerarPdf() {
+  const osId = _orcSelecionado?.id;
+  if (!osId) return;
+  const msg = document.getElementById("orcFormMsg");
+  if (msg) msg.textContent = "Gerando PDF…";
+  try {
+    const url = `/admin/orcamentos/${osId}/pdf`;
+    const r = await fetch(url, { headers: authHeaders() });
+    if (!r.ok) {
+      const j = await r.json().catch(() => ({}));
+      if (msg) msg.textContent = j.error || "Erro ao gerar PDF";
+      return;
+    }
+    // abre em nova aba
+    window.open(url + "?t=" + Date.now(), "_blank");
+    if (msg) msg.textContent = "✓ PDF gerado";
+    setTimeout(() => { if (msg) msg.textContent = ""; }, 3000);
   } catch (e) {
     if (msg) msg.textContent = "Erro: " + e.message;
   }
@@ -9901,8 +10112,12 @@ function _orcBindEventos() {
     _orcRenderTudo();
   });
 
-  // Ações no painel
+  // Ações no painel (delegated)
   document.getElementById("orcPainel")?.addEventListener("click", e => {
+    // Remover item
+    const delBtn = e.target.closest("[data-orc-del-item]");
+    if (delBtn) { _orcRemoverItem(Number(delBtn.dataset.orcDelItem)); return; }
+
     const btn = e.target.closest("[data-orc-action]");
     if (!btn) return;
     const acao = btn.dataset.orcAction;

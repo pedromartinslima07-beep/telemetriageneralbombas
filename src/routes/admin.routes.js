@@ -2,7 +2,9 @@
 const express = require("express");
 const crypto = require("crypto");
 const bcrypt = require("bcrypt");
+const path = require("path");
 const { pool } = require("../db");
+const { gerarPdfOrcamento } = require("../services/orcamento-pdf.service");
 
 const { authRequired } = require("../middleware/authRequired");
 const { adminOnly } = require("../middleware/adminOnly");
@@ -727,7 +729,10 @@ router.patch("/orcamentos/:os_id", authRequired, adminOnly, async (req, res) => 
     return res.status(400).json({ error: "os_id inválido" });
   }
 
-  const { acao, valor, valido_ate, motivo_rejeicao } = req.body || {};
+  const {
+    acao, valor, valido_ate, motivo_rejeicao,
+    numero, constatacao, forma_pagamento, prazo_entrega, garantia, disponibilidade,
+  } = req.body || {};
 
   if (!["aprovar","rejeitar","salvar"].includes(acao)) {
     return res.status(400).json({ error: "acao inválida (aprovar | rejeitar | salvar)" });
@@ -767,7 +772,7 @@ router.patch("/orcamentos/:os_id", authRequired, adminOnly, async (req, res) => 
         vals.push(m); sets.push(`orcamento_motivo_rejeicao = $${vals.length}`);
       }
     } else {
-      // salvar: apenas valor/validade sem mudar status
+      // salvar: apenas valor/validade/campos sem mudar status
       if (valor != null) {
         const v = Number(valor);
         if (isNaN(v) || v < 0) return res.status(400).json({ error: "valor inválido" });
@@ -779,19 +784,166 @@ router.patch("/orcamentos/:os_id", authRequired, adminOnly, async (req, res) => 
       }
     }
 
+    // Campos do orçamento formal (aplicados em qualquer acao)
+    if (numero !== undefined) {
+      vals.push(String(numero || "").slice(0, 30) || null);
+      sets.push(`orcamento_numero = $${vals.length}`);
+    }
+    if (constatacao !== undefined) {
+      vals.push(String(constatacao || "").slice(0, 255) || null);
+      sets.push(`orcamento_constatacao = $${vals.length}`);
+    }
+    if (forma_pagamento !== undefined) {
+      vals.push(String(forma_pagamento || "").slice(0, 255) || null);
+      sets.push(`orcamento_forma_pagamento = $${vals.length}`);
+    }
+    if (prazo_entrega !== undefined) {
+      vals.push(String(prazo_entrega || "").slice(0, 100) || null);
+      sets.push(`orcamento_prazo_entrega = $${vals.length}`);
+    }
+    if (garantia !== undefined) {
+      vals.push(String(garantia || "").slice(0, 100) || null);
+      sets.push(`orcamento_garantia = $${vals.length}`);
+    }
+    if (disponibilidade !== undefined) {
+      vals.push(String(disponibilidade || "").slice(0, 100) || null);
+      sets.push(`orcamento_disponibilidade = $${vals.length}`);
+    }
+
     if (!sets.length) return res.status(400).json({ error: "Nenhum campo para atualizar" });
 
     const r = await pool.query(
       `UPDATE ordens_servico SET ${sets.join(", ")}
        WHERE id = $1
        RETURNING id, numero, orcamento_status, orcamento_valor, orcamento_valido_ate,
-                 orcamento_aprovado_em, orcamento_motivo_rejeicao`,
+                 orcamento_aprovado_em, orcamento_motivo_rejeicao,
+                 orcamento_numero, orcamento_constatacao, orcamento_forma_pagamento,
+                 orcamento_prazo_entrega, orcamento_garantia, orcamento_disponibilidade`,
       vals
     );
     return res.json(r.rows[0]);
   } catch (err) {
     console.error("[admin] PATCH /orcamentos/:os_id:", err);
     return res.status(500).json({ error: "Erro ao atualizar orçamento" });
+  }
+});
+
+// ── Itens do orçamento ────────────────────────────────────────────────────────
+
+// GET /admin/orcamentos/:os_id/itens
+router.get("/orcamentos/:os_id/itens", authRequired, adminOnly, async (req, res) => {
+  const osId = Number(req.params.os_id);
+  if (!Number.isInteger(osId) || osId <= 0) return res.status(400).json({ error: "os_id inválido" });
+  try {
+    const r = await pool.query(
+      `SELECT id, descricao, ficha_tecnica, quantidade, valor_unitario
+       FROM orcamento_itens WHERE os_id = $1 ORDER BY id ASC`,
+      [osId]
+    );
+    return res.json(r.rows);
+  } catch (err) {
+    console.error("[admin] GET /orcamentos/:os_id/itens:", err);
+    return res.status(500).json({ error: "Erro ao buscar itens" });
+  }
+});
+
+// POST /admin/orcamentos/:os_id/itens
+router.post("/orcamentos/:os_id/itens", authRequired, adminOnly, async (req, res) => {
+  const osId = Number(req.params.os_id);
+  if (!Number.isInteger(osId) || osId <= 0) return res.status(400).json({ error: "os_id inválido" });
+
+  const { descricao, ficha_tecnica, quantidade, valor_unitario } = req.body || {};
+  if (!descricao || !String(descricao).trim()) return res.status(400).json({ error: "descricao obrigatória" });
+
+  const qtd = Number(quantidade) || 1;
+  const vu  = Number(valor_unitario) || 0;
+  if (qtd <= 0)  return res.status(400).json({ error: "quantidade inválida" });
+  if (vu < 0)    return res.status(400).json({ error: "valor_unitario inválido" });
+
+  try {
+    const r = await pool.query(
+      `INSERT INTO orcamento_itens (os_id, descricao, ficha_tecnica, quantidade, valor_unitario)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING id, descricao, ficha_tecnica, quantidade, valor_unitario`,
+      [osId, String(descricao).trim(), ficha_tecnica ? String(ficha_tecnica).trim() : null, qtd, vu]
+    );
+    return res.status(201).json(r.rows[0]);
+  } catch (err) {
+    console.error("[admin] POST /orcamentos/:os_id/itens:", err);
+    return res.status(500).json({ error: "Erro ao criar item" });
+  }
+});
+
+// PATCH /admin/orcamentos/itens/:item_id
+router.patch("/orcamentos/itens/:item_id", authRequired, adminOnly, async (req, res) => {
+  const itemId = Number(req.params.item_id);
+  if (!Number.isInteger(itemId) || itemId <= 0) return res.status(400).json({ error: "item_id inválido" });
+
+  const { descricao, ficha_tecnica, quantidade, valor_unitario } = req.body || {};
+  const sets = []; const vals = [itemId];
+
+  if (descricao !== undefined) {
+    if (!String(descricao).trim()) return res.status(400).json({ error: "descricao não pode ser vazia" });
+    vals.push(String(descricao).trim()); sets.push(`descricao = $${vals.length}`);
+  }
+  if (ficha_tecnica !== undefined) {
+    vals.push(ficha_tecnica ? String(ficha_tecnica).trim() : null);
+    sets.push(`ficha_tecnica = $${vals.length}`);
+  }
+  if (quantidade !== undefined) {
+    const q = Number(quantidade);
+    if (q <= 0) return res.status(400).json({ error: "quantidade inválida" });
+    vals.push(q); sets.push(`quantidade = $${vals.length}`);
+  }
+  if (valor_unitario !== undefined) {
+    const v = Number(valor_unitario);
+    if (v < 0) return res.status(400).json({ error: "valor_unitario inválido" });
+    vals.push(v); sets.push(`valor_unitario = $${vals.length}`);
+  }
+
+  if (!sets.length) return res.status(400).json({ error: "Nenhum campo para atualizar" });
+
+  try {
+    const r = await pool.query(
+      `UPDATE orcamento_itens SET ${sets.join(", ")} WHERE id = $1
+       RETURNING id, descricao, ficha_tecnica, quantidade, valor_unitario`,
+      vals
+    );
+    if (!r.rows.length) return res.status(404).json({ error: "Item não encontrado" });
+    return res.json(r.rows[0]);
+  } catch (err) {
+    console.error("[admin] PATCH /orcamentos/itens/:item_id:", err);
+    return res.status(500).json({ error: "Erro ao atualizar item" });
+  }
+});
+
+// DELETE /admin/orcamentos/itens/:item_id
+router.delete("/orcamentos/itens/:item_id", authRequired, adminOnly, async (req, res) => {
+  const itemId = Number(req.params.item_id);
+  if (!Number.isInteger(itemId) || itemId <= 0) return res.status(400).json({ error: "item_id inválido" });
+  try {
+    await pool.query("DELETE FROM orcamento_itens WHERE id = $1", [itemId]);
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("[admin] DELETE /orcamentos/itens/:item_id:", err);
+    return res.status(500).json({ error: "Erro ao remover item" });
+  }
+});
+
+// GET /admin/orcamentos/:os_id/pdf — gera e serve o PDF
+router.get("/orcamentos/:os_id/pdf", authRequired, adminOnly, async (req, res) => {
+  const osId = Number(req.params.os_id);
+  if (!Number.isInteger(osId) || osId <= 0) return res.status(400).json({ error: "os_id inválido" });
+  try {
+    const { fpath } = await gerarPdfOrcamento(osId);
+    const fs = require("fs");
+    if (!fs.existsSync(fpath)) return res.status(500).json({ error: "PDF não gerado" });
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `inline; filename="orcamento-${osId}.pdf"`);
+    fs.createReadStream(fpath).pipe(res);
+  } catch (err) {
+    console.error("[admin] GET /orcamentos/:os_id/pdf:", err);
+    return res.status(500).json({ error: err.message || "Erro ao gerar PDF" });
   }
 });
 

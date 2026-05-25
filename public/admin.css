@@ -5568,3 +5568,53 @@ body.role-viewer .viewer-only-hide-inline {
   border-color: rgba(239,68,68,.25);
 }
 .orc-btn-reject:hover { background: rgba(239,68,68,.2); }
+
+/* ── Itens do orçamento ── */
+.orc-itens-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11.5px;
+  margin-bottom: 4px;
+}
+.orc-itens-table th,
+.orc-itens-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+.orc-itens-table th {
+  background: rgba(255,255,255,.04);
+  color: var(--muted);
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: .3px;
+  font-weight: 600;
+}
+.orc-it-num { text-align: right; white-space: nowrap; }
+.orc-it-del {
+  background: none;
+  border: none;
+  color: var(--danger);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 2px 4px;
+  opacity: .6;
+  transition: opacity .15s;
+}
+.orc-it-del:hover { opacity: 1; }
+
+/* Add-item form */
+.orc-add-item-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 10px 0 2px;
+  border-top: 1px dashed var(--border);
+  margin-top: 8px;
+}
+.orc-add-item-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
