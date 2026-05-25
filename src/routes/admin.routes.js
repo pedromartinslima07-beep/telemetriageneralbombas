@@ -585,4 +585,70 @@ router.post("/jobs/conversas-cleanup/run", authRequired, masterAdminOnly, async 
   }
 });
 
+// ── Fase 8B: SLA configurável ─────────────────────────────────────────────
+
+const PRIORIDADES_ORDEM = ["emergencia", "alta", "media", "baixa"];
+
+// GET /admin/sla — retorna definições de SLA por prioridade (master admin)
+router.get("/sla", authRequired, masterAdminOnly, async (req, res) => {
+  try {
+    const r = await pool.query(
+      `SELECT prioridade, ttfr_min, ttr_min, atualizado_em
+       FROM sla_definicoes
+       ORDER BY CASE prioridade
+         WHEN 'emergencia' THEN 0 WHEN 'alta' THEN 1
+         WHEN 'media' THEN 2 WHEN 'baixa' THEN 3 ELSE 4 END`
+    );
+    return res.json(r.rows);
+  } catch (err) {
+    console.error("[admin] GET /sla:", err);
+    return res.status(500).json({ error: "Erro ao buscar SLA" });
+  }
+});
+
+// PATCH /admin/sla/:prioridade — atualiza TTFR e/ou TTR de uma prioridade
+// Body: { ttfr_min?: number, ttr_min?: number }
+router.patch("/sla/:prioridade", authRequired, masterAdminOnly, async (req, res) => {
+  const { prioridade } = req.params;
+  if (!PRIORIDADES_ORDEM.includes(prioridade)) {
+    return res.status(400).json({ error: "Prioridade inválida" });
+  }
+
+  const { ttfr_min, ttr_min } = req.body || {};
+  const ttfr = ttfr_min != null ? Number(ttfr_min) : null;
+  const ttr  = ttr_min  != null ? Number(ttr_min)  : null;
+
+  if (ttfr !== null && (!Number.isInteger(ttfr) || ttfr <= 0)) {
+    return res.status(400).json({ error: "ttfr_min deve ser inteiro positivo" });
+  }
+  if (ttr !== null && (!Number.isInteger(ttr) || ttr <= 0)) {
+    return res.status(400).json({ error: "ttr_min deve ser inteiro positivo" });
+  }
+  if (ttfr !== null && ttr !== null && ttfr >= ttr) {
+    return res.status(400).json({ error: "ttfr_min deve ser menor que ttr_min" });
+  }
+  if (ttfr === null && ttr === null) {
+    return res.status(400).json({ error: "Informe ao menos ttfr_min ou ttr_min" });
+  }
+
+  try {
+    const sets = ["atualizado_em = NOW()", `atualizado_por = ${req.user.id}`];
+    const vals = [prioridade];
+    if (ttfr !== null) { vals.push(ttfr); sets.push(`ttfr_min = $${vals.length}`); }
+    if (ttr  !== null) { vals.push(ttr);  sets.push(`ttr_min  = $${vals.length}`); }
+
+    const r = await pool.query(
+      `UPDATE sla_definicoes SET ${sets.join(", ")}
+       WHERE prioridade = $1
+       RETURNING prioridade, ttfr_min, ttr_min, atualizado_em`,
+      vals
+    );
+    if (!r.rows.length) return res.status(404).json({ error: "Prioridade não encontrada" });
+    return res.json(r.rows[0]);
+  } catch (err) {
+    console.error("[admin] PATCH /sla/:prioridade:", err);
+    return res.status(500).json({ error: "Erro ao salvar SLA" });
+  }
+});
+
 module.exports = { adminRouter: router };

@@ -1333,21 +1333,34 @@ Dashboards focados em **prestação de contas** — tempo de resposta, taxa de r
 
 **Limitação consciente — `% reabertos`:** sem audit log de transições de status, a métrica só captura "chamados que foram fechados e estão abertos agora" (`fechado_em IS NOT NULL AND status <> 'fechado'`). Chamados que reabriram e foram refechados não entram na conta. Quando virar 8B (SLA configurável) ou 8C (dashboard dedicado), adicionar log dedicado de transições corrige isso.
 
-#### 8B — SLA configurável
+#### 8B — SLA configurável ✅ CONCLUÍDO
 
-- Migration `012_sla.sql`: `sla_definicoes(prioridade, ttfr_min, ttr_min)` com seeds (emergência: 5min/30min, alta: 15min/2h, média: 1h/8h, baixa: 4h/24h)
-- Editável pelo master admin em **Configurações > SLA** (nova aba)
-- Cálculo de **SLA estourado** em tempo real: chamado aberto + sem resposta há mais que `ttfr_min` da prioridade → badge vermelho "⚠ SLA"
-- Push (Fase 7) e email opcionais quando estoura
+- Migration `023_sla_definicoes.sql`: `sla_definicoes(prioridade, ttfr_min, ttr_min)` com seeds (emergência: 5min/30min, alta: 15min/2h, média: 1h/8h, baixa: 4h/24h)
+- Editável pelo master admin em **Configurações > SLA** (nova aba) — tabela inline com inputs numéricos + botão "Salvar" por linha
+- `GET /admin/sla` e `PATCH /admin/sla/:prioridade` (master admin)
+- `GET /chamados` faz LEFT JOIN com `sla_definicoes`: calcula `sla_ttfr_estourado` (sem 1ª resposta + passou ttfr_min) e `sla_ttr_risco` (não fechado + passou ttr_min) por chamado em tempo real
+- Badge vermelho "⚠ SLA" e badge âmbar "⏱ TTR" na tabela de chamados e no painel lateral de detalhe
+- Aba SLA oculta para admin_viewer (só master admin)
+- Push (Fase 7) e email opcionais ficam para a 8C/8D
 
-#### 8C — Dashboard de SLA (nova seção do menu)
+#### 8C — Dashboard de SLA ✅ CONCLUÍDO
 
-- 4 KPIs no topo: % SLA cumprido (último mês) / TTFR médio / TTR médio / Chamados em risco (próximos a estourar)
-- Gráfico **TTR ao longo do tempo** (line chart, 30/60/90 dias)
-- Tabela **Performance por técnico** (chamados atendidos / tempo médio / % no SLA / nota média se existir)
-- Tabela **Condomínios com mais incidentes** (parecido com o "Top 5" da Insights — refatorar pra reusar)
-- Filtros por período + condomínio + categoria + prioridade
-- Botão **Exportar PDF** com cabeçalho da empresa (relatório mensal pra cliente)
+Nova aba **"Dashboard SLA"** em Relatórios (ao lado de Insights).
+
+**Backend** (`GET /relatorios/sla-dashboard`): 4 queries em paralelo retornando:
+- `kpis`: % no SLA (TTFR), TTFR/TTR medianos, chamados em risco (≥ 50% TTR usado), violações de TTFR
+- `ttr_por_dia`: série temporal (TTR médio por dia) para o line chart
+- `por_tecnico`: performance por técnico (total, TTFR/TTR médios, % no SLA, nota de avaliação)
+- `em_risco`: chamados abertos com ≥ 50% do TTR consumido — estado atual, independente de filtro de data
+
+**UI:**
+- Filtros: período (ini/fim) + condomínio + prioridade + botão Gerar
+- 4 KPI cards com cor adaptativa (ok/warn/bad)
+- Line chart "TTR médio ao longo do tempo" em amber com botões 30/60/90 dias que recarregam os dados
+- Tabela "Performance por técnico" com badge colorido de % no SLA
+- Tabela "Chamados em risco" com barra de progresso colorida (azul → âmbar → vermelho conforme % do TTR)
+
+**Exportar PDF** fica para 8D (depende de histórico longo de leituras para relatório mensal completo).
 
 #### 8D — Histórico longo de leituras (gráficos > 7 dias)
 

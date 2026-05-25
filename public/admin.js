@@ -3408,6 +3408,8 @@ function renderChTabela() {
         ${(ch.status === "fechado" && ch.avaliacao_nota != null)
           ? `<span class="ch-aval-inline" title="Avaliado: ${ch.avaliacao_nota} de 5">${_chRenderStars(ch.avaliacao_nota, "sm")}</span>`
           : ""}
+        ${ch.sla_ttfr_estourado ? `<span class="ch-sla-badge" title="Sem resposta há mais de ${ch.sla_ttfr_min} min (TTFR)">⚠ SLA</span>` : ""}
+        ${(!ch.sla_ttfr_estourado && ch.sla_ttr_risco) ? `<span class="ch-sla-ttr-badge" title="Aberto há mais de ${ch.sla_ttr_min} min (TTR)">⏱ TTR</span>` : ""}
       </td>
       <td class="ch-data-cell">${_chFmtDataCurta(ch.criado_em)}</td>
     </tr>`;
@@ -3543,6 +3545,16 @@ function renderChDetalhe(ch) {
         </div>
         ${ch.categoria         ? `<div class="ch-met-row"><span class="ch-met-lbl">Categoria</span><span class="ch-cat-badge">${_chCatNome[ch.categoria]||ch.categoria}</span></div>` : ""}
         <div class="ch-met-row"><span class="ch-met-lbl">Prioridade</span><span class="ch-prio ch-prio-${ch.prioridade||"media"}">${_chPrioNome[ch.prioridade]||ch.prioridade}</span></div>
+        ${ch.sla_ttfr_min != null && !ch.fechado_em ? `<div class="ch-met-row"><span class="ch-met-lbl">SLA</span><span style="display:flex;gap:5px;flex-wrap:wrap;">
+          ${ch.sla_ttfr_estourado
+            ? `<span class="ch-sla-badge" title="Sem resposta há mais de ${ch.sla_ttfr_min} min">⚠ TTFR estourado</span>`
+            : ch.primeira_resposta_em
+              ? `<span style="font-size:11px;color:var(--ok);">✓ Respondido</span>`
+              : `<span style="font-size:11px;color:var(--muted);">Aguardando resposta (limite ${ch.sla_ttfr_min} min)</span>`}
+          ${ch.sla_ttr_risco && !ch.sla_ttfr_estourado
+            ? `<span class="ch-sla-ttr-badge" title="Aberto há mais de ${ch.sla_ttr_min} min">⏱ TTR estourado</span>`
+            : ""}
+        </span></div>` : ""}
         <div class="ch-met-row"><span class="ch-met-lbl">Aberto em</span><span>${fmtData(ch.criado_em)}</span></div>
         ${ch.fechado_em        ? `<div class="ch-met-row"><span class="ch-met-lbl">Fechado em</span><span>${fmtData(ch.fechado_em)}</span></div>` : ""}
         ${ch.cliente_nome      ? `<div class="ch-met-row"><span class="ch-met-lbl">Cliente WA</span><span>${_waEscaparHtml(ch.cliente_nome)}${ch.cliente_telefone ? " · "+_waEscaparHtml(ch.cliente_telefone) : ""}</span></div>` : ""}
@@ -6482,12 +6494,15 @@ function _relPreencherTecnicoSelect() {
     tecs.map(t => `<option value="${t.id}">${_waEscaparHtml(t.nome)}</option>`).join("");
 }
 
+let _relSlaDados = null; // cache do último fetch do dashboard SLA
+
 // Mapa tab → { pane, body, hasData, fn } — centraliza o switch das 4 abas
 const _REL_TABS = {
-  chamados:   { pane: "relPaneChamados",   body: "relBodyChamados",   has: () => _relChDados.length > 0,           fn: () => gerarRelChamados() },
-  alertas:    { pane: "relPaneAlertas",    body: "relBodyAlertas",    has: () => _relAlDados.length > 0,           fn: () => gerarRelAlertas() },
-  telemetria: { pane: "relPaneTelemetria", body: "relBodyTelemetria", has: () => _relTelDados.length > 0,          fn: () => gerarRelTelemetria() },
+  chamados:   { pane: "relPaneChamados",   body: "relBodyChamados",   has: () => _relChDados.length > 0,                 fn: () => gerarRelChamados() },
+  alertas:    { pane: "relPaneAlertas",    body: "relBodyAlertas",    has: () => _relAlDados.length > 0,                 fn: () => gerarRelAlertas() },
+  telemetria: { pane: "relPaneTelemetria", body: "relBodyTelemetria", has: () => _relTelDados.length > 0,                fn: () => gerarRelTelemetria() },
   insights:   { pane: "relPaneInsights",   body: "relBodyInsights",   has: () => _relInDados.top_condominios.length > 0, fn: () => gerarRelInsights() },
+  sla:        { pane: "relPaneSla",        body: "relBodySla",        has: () => _relSlaDados !== null,                  fn: () => gerarRelSla() },
 };
 
 function _relMostrarTab(tab, autoGerar) {
@@ -6516,9 +6531,9 @@ function _relMostrarTab(tab, autoGerar) {
 
 function renderRelatorios() {
   const { ini, fim } = _relDataPadrao();
-  ["relChIni","relAlIni","relTelIni","relInIni"].forEach(id => { const el = document.getElementById(id); if (el && !el.value) el.value = ini; });
-  ["relChFim","relAlFim","relTelFim","relInFim"].forEach(id => { const el = document.getElementById(id); if (el && !el.value) el.value = fim; });
-  _relPreencherCondoSelects(["relChCondo","relAlCondo","relTelCondo","relInCondo"]);
+  ["relChIni","relAlIni","relTelIni","relInIni","relSlIni"].forEach(id => { const el = document.getElementById(id); if (el && !el.value) el.value = ini; });
+  ["relChFim","relAlFim","relTelFim","relInFim","relSlFim"].forEach(id => { const el = document.getElementById(id); if (el && !el.value) el.value = fim; });
+  _relPreencherCondoSelects(["relChCondo","relAlCondo","relTelCondo","relInCondo","relSlCondo"]);
   _relPreencherTecnicoSelect();
   _relMostrarTab(_relTab, true);
 }
@@ -6962,6 +6977,173 @@ async function gerarRelTelemetria() {
   _relMostrarExport();
 }
 
+// ── DASHBOARD SLA (Fase 8C) ───────────────────────────────────────────────────
+
+const _fmtMin = (m) => {
+  if (m == null || isNaN(m)) return "—";
+  if (m < 60) return `${Math.round(m)} min`;
+  const h = Math.floor(m / 60);
+  const r = Math.round(m - h * 60);
+  return r > 0 ? `${h}h ${r}m` : `${h}h`;
+};
+
+async function gerarRelSla() {
+  const btn = document.querySelector("[data-rel-action='gerar-sla']");
+  if (btn) { btn.disabled = true; btn.textContent = "Carregando…"; }
+  const qs = new URLSearchParams();
+  const v = (id) => document.getElementById(id)?.value || "";
+  if (v("relSlIni"))   qs.set("data_ini",      v("relSlIni"));
+  if (v("relSlFim"))   qs.set("data_fim",       v("relSlFim"));
+  if (v("relSlCondo")) qs.set("condominio_id",  v("relSlCondo"));
+  if (v("relSlPrio"))  qs.set("prioridade",     v("relSlPrio"));
+
+  try {
+    const r = await fetch(`/relatorios/sla-dashboard?${qs}`, { headers: authHeaders() });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    _relSlaDados = await r.json();
+    _relRenderSlaDashboard(_relSlaDados);
+  } catch (e) {
+    console.error("[sla-dashboard]", e);
+    alert("Erro ao carregar dashboard de SLA: " + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = "Gerar"; }
+  }
+}
+
+function _relRenderSlaDashboard(d) {
+  _relRenderSlaKpisMain(d.kpis);
+  _relRenderSlaTtrChart(d.ttr_por_dia);
+  _relRenderSlaTecnicos(d.por_tecnico);
+  _relRenderSlaEmRisco(d.em_risco);
+}
+
+function _relRenderSlaKpisMain(k) {
+  const el = document.getElementById("relSlKpis");
+  if (!el) return;
+  const slaStatus = k.pct_no_sla == null ? "neutral"
+    : k.pct_no_sla >= 80 ? "ok"
+    : k.pct_no_sla >= 50 ? "warn" : "bad";
+  const ttfrStatus = k.ttfr_mediano_min == null ? "neutral"
+    : k.ttfr_mediano_min <= 30  ? "ok"
+    : k.ttfr_mediano_min <= 120 ? "warn" : "bad";
+  const ttrStatus  = k.ttr_mediano_min == null ? "neutral"
+    : k.ttr_mediano_min <= 120  ? "ok"
+    : k.ttr_mediano_min <= 480  ? "warn" : "bad";
+  const riscoStatus = k.em_risco === 0 ? "ok" : k.em_risco <= 3 ? "warn" : "bad";
+
+  el.innerHTML =
+    _relKpiCard(_SVG_CHECK, "% no SLA (TTFR)",
+      k.pct_no_sla != null ? `${k.pct_no_sla}%` : "—",
+      slaStatus,
+      `${k.total_com_sla_data} chamados com dados de SLA`) +
+    _relKpiCard(_SVG_CLOCK, "TTFR mediano",
+      _fmtMin(k.ttfr_mediano_min),
+      ttfrStatus,
+      `tempo até a 1ª resposta · ${k.fechados} de ${k.total}`) +
+    _relKpiCard(_SVG_BOLT,  "TTR mediano",
+      _fmtMin(k.ttr_mediano_min),
+      ttrStatus,
+      `tempo até resolver · ${k.fechados} chamados fechados`) +
+    _relKpiCard(_SVG_ALERT, "Em risco agora",
+      k.em_risco,
+      riscoStatus,
+      `abertos com ≥ 50% do TTR consumido`);
+}
+
+function _relRenderSlaTtrChart(porDia) {
+  if (!porDia || !porDia.length) {
+    const el = document.getElementById("relSlChartTtr");
+    if (el) el.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:220px;color:var(--muted);font-size:12px;">Sem chamados fechados no período</div>`;
+    return;
+  }
+  const cats = porDia.map(d => d.dia);
+  const vals = porDia.map(d => d.ttr_medio_min != null ? Number(d.ttr_medio_min) : null);
+  requestAnimationFrame(() => {
+    _relChart("relSlChartTtr", {
+      chart: { type: "area", height: 220, toolbar: { show: false }, background: "transparent",
+               animations: { enabled: true, speed: 400 } },
+      theme: { mode: "dark" },
+      series: [{ name: "TTR médio (min)", data: vals }],
+      xaxis: { categories: cats, labels: { ..._REL_XLBL, formatter: v => v ? v.slice(5) : v }, tickAmount: 8 },
+      yaxis: { labels: { ..._REL_YLBL, formatter: v => _fmtMin(v) } },
+      stroke: { curve: "smooth", width: 2 },
+      fill: { type: "gradient", gradient: { shadeIntensity: 1, opacityFrom: .35, opacityTo: .05, stops: [0, 100] } },
+      colors: ["#f0b014"],
+      tooltip: { theme: "dark", y: { formatter: v => _fmtMin(v) } },
+      grid: _REL_GRID,
+    });
+  });
+}
+
+function _relRenderSlaTecnicos(lista) {
+  const tbody = document.getElementById("relSlTecBody");
+  if (!tbody) return;
+  if (!lista || !lista.length) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px;">Nenhum técnico com chamados no período</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = lista.map(t => {
+    const slaClass = t.pct_no_sla == null ? "" : t.pct_no_sla >= 80 ? "b-ok" : t.pct_no_sla >= 50 ? "b-warn" : "b-bad";
+    const stars = t.nota_media != null ? `${Number(t.nota_media).toFixed(1)} ★` : "—";
+    return `<tr>
+      <td style="font-size:12px;font-weight:500;">${_waEscaparHtml(t.tecnico_nome || "—")}</td>
+      <td style="text-align:right;">${t.total}</td>
+      <td style="text-align:right;">${_fmtMin(t.ttfr_medio_min)}</td>
+      <td style="text-align:right;">${_fmtMin(t.ttr_medio_min)}</td>
+      <td style="text-align:right;">${t.pct_no_sla != null ? `<span class="badge ${slaClass}">${t.pct_no_sla}%</span>` : "—"}</td>
+      <td style="text-align:right;color:var(--accent);">${stars}</td>
+    </tr>`;
+  }).join("");
+}
+
+function _relRenderSlaEmRisco(lista) {
+  const tbody = document.getElementById("relSlRiscoBody");
+  if (!tbody) return;
+  if (!lista || !lista.length) {
+    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--ok);padding:20px;">✓ Nenhum chamado em risco no momento</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = lista.map(ch => {
+    const pct = Math.min(ch.pct_ttr, 999);
+    const barColor = pct >= 100 ? "#ef4444" : pct >= 75 ? "#f59e0b" : "#4a78f7";
+    const prioClass = { emergencia: "b-bad", alta: "b-warn", media: "b-info", baixa: "" }[ch.prioridade] || "";
+    const prioLabel = { emergencia: "Emergência", alta: "Alta", media: "Média", baixa: "Baixa" }[ch.prioridade] || ch.prioridade;
+    return `<tr>
+      <td>
+        <div style="font-size:12px;font-weight:500;">CH-${String(ch.id).padStart(4,"0")}</div>
+        <div style="font-size:11px;color:var(--muted);">${_waEscaparHtml(ch.titulo || "Sem título")}</div>
+      </td>
+      <td><span class="badge ${prioClass}">${prioLabel}</span></td>
+      <td style="font-size:12px;">${_waEscaparHtml(ch.condominio_nome || "—")}</td>
+      <td style="min-width:120px;">
+        <div style="display:flex;align-items:center;gap:6px;">
+          <div style="flex:1;height:6px;border-radius:3px;background:rgba(255,255,255,.1);overflow:hidden;">
+            <div style="height:100%;width:${Math.min(pct,100)}%;background:${barColor};border-radius:3px;transition:width .4s;"></div>
+          </div>
+          <span style="font-size:11px;font-weight:600;color:${barColor};white-space:nowrap;">${pct}%</span>
+        </div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px;">${_fmtMin(ch.minutos_abertos)} de ${_fmtMin(ch.ttr_min)}</div>
+      </td>
+    </tr>`;
+  }).join("");
+}
+
+function _relSlaMudarPeriodo(dias) {
+  // Atualiza os botões de período
+  document.querySelectorAll(".sla-period-btn").forEach(b =>
+    b.classList.toggle("is-active", Number(b.dataset.slaPeriod) === dias)
+  );
+  // Ajusta o filtro de data e gera
+  const fim  = new Date();
+  const ini  = new Date(fim.getTime() - dias * 86400000);
+  const fmt  = d => d.toISOString().split("T")[0];
+  const iniEl = document.getElementById("relSlIni");
+  const fimEl = document.getElementById("relSlFim");
+  if (iniEl) iniEl.value = fmt(ini);
+  if (fimEl) fimEl.value = fmt(fim);
+  gerarRelSla();
+}
+
 async function gerarRelInsights() {
   const data = await _relFetch({
     endpoint: "/relatorios/insights",
@@ -7117,7 +7299,7 @@ function _relExportarCsv(rows, keys, labels, filename) {
 let _cfgTab = "conta";
 let _cfgConfigs = null;     // { valores, definicoes, padroes } do GET /admin/configuracoes
 let _cfgUsuariosDados = [];
-let _cfgCarregado = { conta: false, usuarios: false, ia: false, notificacoes: false, operacional: false, manutencao: false, integracoes: false };
+let _cfgCarregado = { conta: false, usuarios: false, ia: false, notificacoes: false, operacional: false, sla: false, manutencao: false, integracoes: false };
 
 const _CFG_TABS = {
   conta:        { body: "cfgBodyConta",        carregar: () => _cfgCarregarConta() },
@@ -7125,6 +7307,7 @@ const _CFG_TABS = {
   ia:           { body: "cfgBodyIa",           carregar: () => _cfgCarregarConfigs() },
   notificacoes: { body: "cfgBodyNotificacoes", carregar: () => _cfgCarregarConfigs() },
   operacional:  { body: "cfgBodyOperacional",  carregar: () => _cfgCarregarConfigs() },
+  sla:          { body: "cfgBodySla",          carregar: () => _cfgCarregarSla() },
   manutencao:   { body: "cfgBodyManutencao",   carregar: () => _cfgCarregarManutencao() },
   integracoes:  { body: "cfgBodyIntegracoes",  carregar: () => _cfgCarregarIntegracoes() },
 };
@@ -7156,7 +7339,7 @@ function _cfgMyId() {
 
 function renderConfiguracoes() {
   // Mostra/esconde tabs que exigem master admin
-  ["usuarios","ia","notificacoes","operacional","manutencao","integracoes"].forEach(t => {
+  ["usuarios","ia","notificacoes","operacional","sla","manutencao","integracoes"].forEach(t => {
     const btn = document.querySelector(`[data-cfg-tab="${t}"]`);
     if (btn) btn.style.display = _isMaster ? "" : "none";
   });
@@ -7353,6 +7536,73 @@ async function _cfgRodarChamadosAtraso() {
       "ok");
   } catch (e) {
     _cfgMostrarMsg("cfgOperMsg", "Erro de conexão", "err");
+  }
+}
+
+// ── SLA configurável (Fase 8B) ────────────────────────────────────────────────
+
+const _SLA_PRIO_LABEL = { emergencia: "Emergência", alta: "Alta", media: "Média", baixa: "Baixa" };
+const _SLA_PRIO_ORDEM = ["emergencia", "alta", "media", "baixa"];
+
+async function _cfgCarregarSla() {
+  const tbody = document.getElementById("slaTableBody");
+  if (!tbody) return;
+  try {
+    const r = await fetch("/admin/sla", { headers: authHeaders() });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const rows = await r.json();
+    tbody.innerHTML = rows.map(row => _slaRenderRow(row)).join("");
+  } catch (e) {
+    if (tbody) tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--danger);padding:24px;">Erro ao carregar: ${e.message}</td></tr>`;
+  }
+}
+
+function _slaRenderRow(row) {
+  const p = row.prioridade;
+  const label = _SLA_PRIO_LABEL[p] || p;
+  return `<tr data-sla-prio="${p}">
+    <td><span class="sla-prio-pill p-${p}">${label}</span></td>
+    <td><input type="number" class="sla-input" id="slaT_${p}_ttfr" value="${row.ttfr_min}" min="1" max="9999"></td>
+    <td><input type="number" class="sla-input" id="slaT_${p}_ttr"  value="${row.ttr_min}"  min="1" max="99999"></td>
+    <td style="text-align:right;">
+      <button class="btn btn-sm sla-save-btn" data-sla-save="${p}">Salvar</button>
+      <span class="sla-row-msg" id="slaMsg_${p}"></span>
+    </td>
+  </tr>`;
+}
+
+async function _slaSalvarLinha(prioridade) {
+  const ttfr = Number(document.getElementById(`slaT_${prioridade}_ttfr`)?.value);
+  const ttr  = Number(document.getElementById(`slaT_${prioridade}_ttr`)?.value);
+  const msg  = document.getElementById(`slaMsg_${prioridade}`);
+  if (!Number.isInteger(ttfr) || ttfr <= 0 || !Number.isInteger(ttr) || ttr <= 0) {
+    if (msg) { msg.style.color = "var(--danger)"; msg.textContent = "Valores inválidos"; msg.classList.add("visible"); }
+    return;
+  }
+  if (ttfr >= ttr) {
+    if (msg) { msg.style.color = "var(--danger)"; msg.textContent = "TTFR deve ser < TTR"; msg.classList.add("visible"); }
+    return;
+  }
+  try {
+    const r = await fetch(`/admin/sla/${prioridade}`, {
+      method: "PATCH",
+      headers: { ...authHeaders(), "Content-Type": "application/json" },
+      body: JSON.stringify({ ttfr_min: ttfr, ttr_min: ttr }),
+    });
+    if (!r.ok) {
+      const d = await r.json().catch(() => ({}));
+      throw new Error(d.error || `HTTP ${r.status}`);
+    }
+    if (msg) {
+      msg.style.color = "#4ade80";
+      msg.textContent = "Salvo!";
+      msg.classList.add("visible");
+      setTimeout(() => msg.classList.remove("visible"), 2500);
+    }
+    // Invalida o cache de chamados para que o próximo poll mostre badges atualizados
+    _chamadosData = null;
+  } catch (e) {
+    if (msg) { msg.style.color = "var(--danger)"; msg.textContent = e.message; msg.classList.add("visible"); }
   }
 }
 
@@ -7825,6 +8075,11 @@ document.addEventListener("DOMContentLoaded", () => {
     if (action === "gerar-alertas")    { gerarRelAlertas(); return; }
     if (action === "gerar-telemetria") { gerarRelTelemetria(); return; }
     if (action === "gerar-insights")   { gerarRelInsights(); return; }
+    if (action === "gerar-sla")        { gerarRelSla(); return; }
+
+    // Botões de período do gráfico TTR
+    const period = btn.dataset.slaPeriod;
+    if (period) { _relSlaMudarPeriodo(Number(period)); return; }
 
     if (action === "exportar-chamados") {
       _relExportarCsv(_relChDados,
@@ -7856,6 +8111,10 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   document.querySelector(".section[data-section='config']")?.addEventListener("click", e => {
+    // Botões da tabela SLA (data-sla-save) — tratados antes do data-cfg-action
+    const slaSave = e.target.closest("[data-sla-save]")?.dataset.slaSave;
+    if (slaSave) return _slaSalvarLinha(slaSave);
+
     const btn = e.target.closest("[data-cfg-action]");
     if (!btn) return;
     const action = btn.dataset.cfgAction;

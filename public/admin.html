@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="/static/leaflet.css">
   <!-- ⚠️ Ao mexer em admin.js ou admin.css, bumpe o ?v=N aqui E no <script>
        lá embaixo. Ver CLAUDE.md raiz. -->
-  <link rel="stylesheet" href="/static/admin.css?v=28">
+  <link rel="stylesheet" href="/static/admin.css?v=30">
 </head>
 <body>
 
@@ -1164,6 +1164,7 @@
               <button class="wa-tab" data-rel-tab="alertas">Alertas</button>
               <button class="wa-tab" data-rel-tab="telemetria">Telemetria diária</button>
               <button class="wa-tab" data-rel-tab="insights">Insights</button>
+              <button class="wa-tab" data-rel-tab="sla">Dashboard SLA</button>
             </div>
           </div>
           <!-- filtros chamados -->
@@ -1226,6 +1227,24 @@
               <div class="field"><label class="lbl">Até</label><input type="date" id="relInFim" class="input" style="width:136px;"></div>
               <div class="field"><label class="lbl">Condomínio</label><select id="relInCondo" class="input" style="width:158px;"><option value="">Todos</option></select></div>
               <button class="btn btn-sm" data-rel-action="gerar-insights" style="align-self:flex-end;">Gerar</button>
+            </div>
+          </div>
+          <!-- filtros sla dashboard -->
+          <div class="rel-tab-pane" id="relPaneSla" style="padding:14px 20px;display:none;">
+            <div class="filter-bar">
+              <div class="field"><label class="lbl">De</label><input type="date" id="relSlIni" class="input" style="width:136px;"></div>
+              <div class="field"><label class="lbl">Até</label><input type="date" id="relSlFim" class="input" style="width:136px;"></div>
+              <div class="field"><label class="lbl">Condomínio</label><select id="relSlCondo" class="input" style="width:158px;"><option value="">Todos</option></select></div>
+              <div class="field"><label class="lbl">Prioridade</label>
+                <select id="relSlPrio" class="input" style="width:130px;">
+                  <option value="">Todas</option>
+                  <option value="emergencia">Emergência</option>
+                  <option value="alta">Alta</option>
+                  <option value="media">Média</option>
+                  <option value="baixa">Baixa</option>
+                </select>
+              </div>
+              <button class="btn btn-sm" data-rel-action="gerar-sla" style="align-self:flex-end;">Gerar</button>
             </div>
           </div>
         </div>
@@ -1397,6 +1416,61 @@
           </div>
         </div>
 
+        <!-- ── CORPO: DASHBOARD SLA ── -->
+        <div class="rel-body" id="relBodySla" style="display:none;">
+          <!-- KPIs -->
+          <div class="resumo-grid" id="relSlKpis" style="margin-bottom:12px;"></div>
+
+          <!-- Gráfico TTR ao longo do tempo -->
+          <div class="card" style="padding:0;overflow:hidden;margin-bottom:12px;">
+            <div class="rel-ct-head">
+              <span>TTR médio ao longo do tempo <span style="font-size:11px;color:var(--muted);">(minutos para resolver)</span></span>
+              <div class="sla-period-btns">
+                <button class="btn btn-sm sla-period-btn is-active" data-sla-period="30">30 dias</button>
+                <button class="btn btn-sm sla-period-btn" data-sla-period="60">60 dias</button>
+                <button class="btn btn-sm sla-period-btn" data-sla-period="90">90 dias</button>
+              </div>
+            </div>
+            <div id="relSlChartTtr" style="height:220px;"></div>
+          </div>
+
+          <!-- Grid 2 colunas: técnicos + em risco -->
+          <div class="rel-charts-2b" style="margin-bottom:12px;">
+            <!-- Tabela por técnico -->
+            <div class="card" style="padding:0;overflow:hidden;">
+              <p class="rel-ct-head"><span>Performance por técnico</span></p>
+              <div style="overflow-x:auto;">
+                <table>
+                  <thead><tr>
+                    <th>Técnico</th>
+                    <th style="text-align:right;">Chamados</th>
+                    <th style="text-align:right;">TTFR méd</th>
+                    <th style="text-align:right;">TTR méd</th>
+                    <th style="text-align:right;">% no SLA</th>
+                    <th style="text-align:right;">Nota</th>
+                  </tr></thead>
+                  <tbody id="relSlTecBody"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px;">Clique em Gerar</td></tr></tbody>
+                </table>
+              </div>
+            </div>
+            <!-- Chamados em risco -->
+            <div class="card" style="padding:0;overflow:hidden;">
+              <p class="rel-ct-head"><span>Chamados em risco <span style="font-size:11px;color:var(--muted);">(≥ 50% do TTR usado, estado atual)</span></span></p>
+              <div style="overflow-x:auto;">
+                <table>
+                  <thead><tr>
+                    <th>Chamado</th>
+                    <th>Prioridade</th>
+                    <th>Condomínio</th>
+                    <th>Uso do TTR</th>
+                  </tr></thead>
+                  <tbody id="relSlRiscoBody"><tr><td colspan="4" style="text-align:center;color:var(--muted);padding:20px;">Clique em Gerar</td></tr></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Exportação rápida -->
         <div id="relExportCard" style="display:none;">
           <div class="card" style="padding:0;overflow:hidden;">
@@ -1434,6 +1508,7 @@
               <button class="wa-tab" data-cfg-tab="ia">IA</button>
               <button class="wa-tab" data-cfg-tab="notificacoes">Notificações</button>
               <button class="wa-tab" data-cfg-tab="operacional">Operacional</button>
+              <button class="wa-tab" data-cfg-tab="sla">SLA</button>
               <button class="wa-tab" data-cfg-tab="manutencao">Manutenção</button>
               <button class="wa-tab" data-cfg-tab="integracoes">Integrações</button>
             </div>
@@ -1669,6 +1744,54 @@
             <span id="cfgOperMsg" class="cfg-msg"></span>
             <button class="btn btn-sm" data-cfg-action="rodar-chamados-atraso">▶ Testar verificação agora</button>
             <button class="btn btnAccent btn-sm" data-cfg-action="salvar-operacional">Salvar</button>
+          </div>
+        </div>
+
+        <!-- ── BODY: SLA ── -->
+        <div class="cfg-body" id="cfgBodySla" style="display:none;">
+          <div class="cfg-grid">
+            <div class="card cfg-card cfg-card-wide">
+              <div class="cfg-card-head">
+                <svg class="cfg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                <div>
+                  <div class="cfg-card-title">Metas de SLA por Prioridade</div>
+                  <div class="cfg-card-desc">TTFR = tempo até primeira resposta da equipe · TTR = tempo até resolução</div>
+                </div>
+              </div>
+              <div class="sla-table-wrap">
+                <table class="sla-table">
+                  <thead>
+                    <tr>
+                      <th>Prioridade</th>
+                      <th>TTFR (min)</th>
+                      <th>TTR (min)</th>
+                      <th style="text-align:right;">Ação</th>
+                    </tr>
+                  </thead>
+                  <tbody id="slaTableBody">
+                    <tr><td colspan="4" style="text-align:center;color:var(--muted);padding:24px;">Carregando…</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="cfg-actions" style="margin-top:4px;">
+                <span id="cfgSlaMsg" class="cfg-msg"></span>
+              </div>
+            </div>
+
+            <div class="card cfg-card">
+              <div class="cfg-card-head">
+                <svg class="cfg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
+                <div>
+                  <div class="cfg-card-title">Como funciona</div>
+                </div>
+              </div>
+              <ul class="sla-info-list">
+                <li><strong>TTFR</strong> (Time To First Response) — minutos até o primeiro contato da equipe com o chamado (atribuir, responder, iniciar atendimento).</li>
+                <li><strong>TTR</strong> (Time To Resolution) — minutos totais para fechar o chamado.</li>
+                <li>Chamados que ultrapassam o TTFR sem resposta exibem o badge <span class="ch-sla-badge">⚠ SLA</span> na lista.</li>
+                <li>Chamados que ultrapassam o TTR sem fechamento exibem o badge <span class="ch-sla-ttr-badge">⏱ TTR</span>.</li>
+              </ul>
+            </div>
           </div>
         </div>
 
@@ -2142,7 +2265,7 @@
 <script src="/static/apexcharts.min.js"></script>
 <script src="/static/leaflet.js"></script>
 <script src="/static/inatividade.js" defer></script>
-<script src="/static/admin.js?v=22" defer></script>
+<script src="/static/admin.js?v=24" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
 <script src="/static/register-sw.js?v=19" defer></script>
 </body>

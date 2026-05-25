@@ -49,6 +49,7 @@ router.get("/", authRequired, adminOnly, async (req, res) => {
          ch.criado_em,
          ch.atualizado_em,
          ch.fechado_em,
+         ch.primeira_resposta_em,
          c.nome  AS condominio_nome,
          u.nome  AS responsavel_nome,
          t.nome  AS tecnico_nome,
@@ -58,7 +59,21 @@ router.get("/", authRequired, adminOnly, async (req, res) => {
          ch.avaliacao_nota,
          os.orcamento_necessario,
          os.orcamento_observacoes,
-         os.finalizada_em       AS os_finalizada_em
+         os.finalizada_em       AS os_finalizada_em,
+         -- Fase 8B: SLA estourado em tempo real
+         -- sla_ttfr_estourado: sem resposta + passou do ttfr_min da prioridade
+         CASE WHEN ch.status IN ('aberto', 'em_atendimento')
+                   AND ch.primeira_resposta_em IS NULL
+                   AND sd.ttfr_min IS NOT NULL
+                   AND ch.criado_em < NOW() - (sd.ttfr_min || ' minutes')::interval
+              THEN true ELSE false END AS sla_ttfr_estourado,
+         -- sla_ttr_risco: não fechado + passou do ttr_min (ainda que já respondido)
+         CASE WHEN ch.status IN ('aberto', 'em_atendimento')
+                   AND sd.ttr_min IS NOT NULL
+                   AND ch.criado_em < NOW() - (sd.ttr_min || ' minutes')::interval
+              THEN true ELSE false END AS sla_ttr_risco,
+         sd.ttfr_min AS sla_ttfr_min,
+         sd.ttr_min  AS sla_ttr_min
        FROM chamados ch
        LEFT JOIN condominios c  ON c.id  = ch.condominio_id
        LEFT JOIN usuarios u     ON u.id  = ch.responsavel_id
@@ -66,6 +81,7 @@ router.get("/", authRequired, adminOnly, async (req, res) => {
        LEFT JOIN conversas_whatsapp cv ON cv.id = ch.conversa_id
        LEFT JOIN clientes_whatsapp cw  ON cw.id = cv.cliente_whatsapp_id
        LEFT JOIN ordens_servico os     ON os.id = ch.ordem_servico_id
+       LEFT JOIN sla_definicoes sd     ON sd.prioridade = ch.prioridade
        ${where}
        ORDER BY ch.criado_em DESC
        LIMIT 200`,

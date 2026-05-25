@@ -335,4 +335,158 @@ router.get("/sla-metricas", authRequired, adminOnly, async (req, res) => {
   }
 });
 
+// GET /relatorios/sla-dashboard — Fase 8C. Dashboard completo de SLA:
+//   - kpis: % no SLA, TTFR/TTR medianos, chamados em risco
+//   - ttr_por_dia: série temporal pra line chart
+//   - por_tecnico: performance por técnico
+//   - em_risco: chamados abertos que já usaram ≥ 50% do TTR
+router.get("/sla-dashboard", authRequired, adminOnly, async (req, res) => {
+  const { data_ini, data_fim, condominio_id, prioridade } = req.query;
+  const ini = _ini(data_ini);
+  const fim = _fim(data_fim);
+
+  const conds = [
+    "ch.criado_em >= $1",
+    "ch.criado_em < ($2::date + interval '1 day')",
+  ];
+  const vals = [ini, fim];
+  if (condominio_id) { vals.push(Number(condominio_id)); conds.push(`ch.condominio_id = $${vals.length}`); }
+  if (prioridade)    { vals.push(prioridade);            conds.push(`ch.prioridade = $${vals.length}`); }
+  const where = conds.join(" AND ");
+
+  try {
+    const [kpisRes, porDiaRes, porTecnicoRes, emRiscoRes] = await Promise.all([
+
+      // 1. KPIs: totais + medianas + % no SLA
+      pool.query(`
+        WITH base AS (
+          SELECT
+            ch.id, ch.status, ch.fechado_em, ch.criado_em,
+            ch.primeira_resposta_em, ch.tempo_resolucao_seg,
+            EXTRACT(EPOCH FROM (ch.primeira_resposta_em - ch.criado_em)) / 60.0 AS ttfr_min_real,
+            ch.tempo_resolucao_seg / 60.0 AS ttr_min_real,
+            sd.ttfr_min AS sla_ttfr,
+            sd.ttr_min  AS sla_ttr
+          FROM chamados ch
+          LEFT JOIN sla_definicoes sd ON sd.prioridade = ch.prioridade
+          WHERE ${where}
+        )
+        SELECT
+          COUNT(*)::int                                                           AS total,
+          COUNT(tempo_resolucao_seg)::int                                         AS fechados,
+          COUNT(CASE WHEN status IN ('aberto','em_atendimento')
+                          AND sla_ttr IS NOT NULL
+                          AND EXTRACT(EPOCH FROM (NOW() - criado_em))/60.0 >= sla_ttr * 0.5
+                     THEN 1 END)::int                                             AS em_risco,
+          COUNT(CASE WHEN status IN ('aberto','em_atendimento')
+                          AND primeira_resposta_em IS NULL
+                          AND sla_ttfr IS NOT NULL
+                          AND criado_em < NOW() - (sla_ttfr || ' minutes')::interval
+                     THEN 1 END)::int                                             AS ttfr_violados,
+          ROUND(PERCENTILE_CONT(0.5) WITHIN GROUP
+            (ORDER BY ttfr_min_real)::numeric, 1)                                AS ttfr_mediano_min,
+          ROUND(PERCENTILE_CONT(0.5) WITHIN GROUP
+            (ORDER BY ttr_min_real)::numeric, 1)                                 AS ttr_mediano_min,
+          SUM(CASE WHEN primeira_resposta_em IS NOT NULL
+                        AND sla_ttfr IS NOT NULL
+                        AND ttfr_min_real <= sla_ttfr
+                   THEN 1 ELSE 0 END)::int                                        AS ttfr_no_sla,
+          COUNT(CASE WHEN primeira_resposta_em IS NOT NULL
+                          AND sla_ttfr IS NOT NULL
+                     THEN 1 END)::int                                             AS total_com_sla_data
+        FROM base
+      `, vals),
+
+      // 2. TTR médio por dia (série temporal para o line chart)
+      pool.query(`
+        SELECT
+          DATE(ch.criado_em AT TIME ZONE 'America/Sao_Paulo') AS dia,
+          ROUND(AVG(ch.tempo_resolucao_seg / 60.0)::numeric, 1) AS ttr_medio_min,
+          COUNT(*)::int AS total
+        FROM chamados ch
+        WHERE ${where}
+          AND ch.tempo_resolucao_seg IS NOT NULL
+        GROUP BY DATE(ch.criado_em AT TIME ZONE 'America/Sao_Paulo')
+        ORDER BY dia ASC
+      `, vals),
+
+      // 3. Performance por técnico
+      pool.query(`
+        SELECT
+          t.nome                                                                      AS tecnico_nome,
+          COUNT(ch.id)::int                                                           AS total,
+          ROUND(AVG(EXTRACT(EPOCH FROM (ch.primeira_resposta_em - ch.criado_em))
+            / 60.0)::numeric, 1)                                                     AS ttfr_medio_min,
+          ROUND(AVG(ch.tempo_resolucao_seg / 60.0)::numeric, 1)                      AS ttr_medio_min,
+          ROUND(AVG(ch.avaliacao_nota)::numeric, 1)                                  AS nota_media,
+          SUM(CASE WHEN ch.primeira_resposta_em IS NOT NULL
+                        AND sd.ttfr_min IS NOT NULL
+                        AND EXTRACT(EPOCH FROM (ch.primeira_resposta_em - ch.criado_em))
+                            / 60.0 <= sd.ttfr_min
+                   THEN 1 ELSE 0 END)::int                                            AS no_sla,
+          COUNT(CASE WHEN ch.primeira_resposta_em IS NOT NULL
+                          AND sd.ttfr_min IS NOT NULL
+                     THEN 1 END)::int                                                 AS com_sla_data
+        FROM chamados ch
+        JOIN tecnicos t ON t.id = ch.tecnico_id
+        LEFT JOIN sla_definicoes sd ON sd.prioridade = ch.prioridade
+        WHERE ${where}
+          AND ch.tecnico_id IS NOT NULL
+        GROUP BY t.id, t.nome
+        ORDER BY total DESC
+        LIMIT 20
+      `, vals),
+
+      // 4. Chamados em risco (abertos + ≥ 50% do TTR usado)
+      pool.query(`
+        SELECT
+          ch.id, ch.titulo, ch.prioridade, ch.status, ch.criado_em,
+          c.nome AS condominio_nome,
+          t.nome AS tecnico_nome,
+          sd.ttr_min,
+          ROUND(EXTRACT(EPOCH FROM (NOW() - ch.criado_em)) / 60.0)::int AS minutos_abertos,
+          ROUND((EXTRACT(EPOCH FROM (NOW() - ch.criado_em)) / 60.0) / sd.ttr_min * 100)::int AS pct_ttr
+        FROM chamados ch
+        LEFT JOIN condominios    c  ON c.id  = ch.condominio_id
+        LEFT JOIN tecnicos       t  ON t.id  = ch.tecnico_id
+        LEFT JOIN sla_definicoes sd ON sd.prioridade = ch.prioridade
+        WHERE ch.status IN ('aberto', 'em_atendimento')
+          AND sd.ttr_min IS NOT NULL
+          AND EXTRACT(EPOCH FROM (NOW() - ch.criado_em)) / 60.0 >= sd.ttr_min * 0.5
+        ORDER BY pct_ttr DESC
+        LIMIT 20
+      `, []),  // sem filtro de data — mostra o estado atual independente de período
+    ]);
+
+    const k = kpisRes.rows[0] || {};
+    const comSla = Number(k.total_com_sla_data) || 0;
+    const noSla  = Number(k.ttfr_no_sla) || 0;
+
+    return res.json({
+      filtros: { data_ini: ini, data_fim: fim, condominio_id: condominio_id || null, prioridade: prioridade || null },
+      kpis: {
+        total:          Number(k.total)           || 0,
+        fechados:       Number(k.fechados)        || 0,
+        em_risco:       Number(k.em_risco)        || 0,
+        ttfr_violados:  Number(k.ttfr_violados)   || 0,
+        ttfr_mediano_min: k.ttfr_mediano_min != null ? Number(k.ttfr_mediano_min) : null,
+        ttr_mediano_min:  k.ttr_mediano_min  != null ? Number(k.ttr_mediano_min)  : null,
+        pct_no_sla: comSla > 0 ? Math.round(100 * noSla / comSla) : null,
+        total_com_sla_data: comSla,
+      },
+      ttr_por_dia: porDiaRes.rows,
+      por_tecnico: porTecnicoRes.rows.map(r => ({
+        ...r,
+        pct_no_sla: Number(r.com_sla_data) > 0
+          ? Math.round(100 * Number(r.no_sla) / Number(r.com_sla_data))
+          : null,
+      })),
+      em_risco: emRiscoRes.rows,
+    });
+  } catch (err) {
+    console.error("[relatorios] sla-dashboard:", err);
+    return res.status(500).json({ error: "Erro ao gerar dashboard de SLA" });
+  }
+});
+
 module.exports = { relatoriosRouter: router };
