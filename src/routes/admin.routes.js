@@ -163,14 +163,15 @@ router.get("/historico", authRequired, adminOnly, async (req, res) => {
     return res.status(400).json({ error: "Nenhum device_id válido" });
   }
 
-  const horas = Math.min(Math.max(Number(horasStr) || 24, 1), 720);
+  const horas = Math.min(Math.max(Number(horasStr) || 24, 1), 1440);
 
   // bucket conforme janela
   let bucketSec;
   if (horas <= 6)        bucketSec = 300;    // 5 min
   else if (horas <= 48)  bucketSec = 1800;   // 30 min
   else if (horas <= 168) bucketSec = 3600;   // 1 hora
-  else                   bucketSec = 14400;  // 4 horas
+  else if (horas <= 720) bucketSec = 14400;  // 4 horas
+  else                   bucketSec = 86400;  // 1 dia (60d)
 
   try {
     const result = await pool.query(

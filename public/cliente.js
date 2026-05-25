@@ -18,6 +18,9 @@ const _sectionTitles = { dashboard: "Dashboard", telemetria: "Telemetria", alert
 let _reservatorios = [];
 let _histDias = 1;
 
+// ── Estado do dashboard ──
+let _dashNiveisChart = null;
+
 // ── Estado dos alertas (modelo novo) ──
 let _alAlertas = [];
 let _alTabAtiva = "todos";
@@ -151,14 +154,248 @@ function setStatusMsg(msg) {
   if (el) el.textContent = msg || "";
 }
 
-function resumoCard(titulo, valorHtml, sub) {
-  return `
-    <div class="rc rc-neutral rc-static">
-      <div class="rc-label">${titulo}</div>
-      <div class="rc-value" style="font-size:22px;">${valorHtml}</div>
-      ${sub ? `<div class="rc-sub">${sub}</div>` : ""}
-    </div>
-  `;
+// ============================================================
+// DASHBOARD — funções de renderização modernas
+// ============================================================
+
+function _dashRenderKpis(list) {
+  const el = document.getElementById("resumoGrid");
+  if (!el) return;
+
+  const total   = list.length;
+  const offline = list.filter(r => r.offline).length;
+  const online  = total - offline;
+  const alertas = list.reduce((s, r) => s + (Number(r.alertas_abertos_count) || 0), 0);
+
+  let ultimaIso = null;
+  for (const r of list) {
+    const c = r.ultima_leitura?.criado_em;
+    if (c && (!ultimaIso || new Date(c) > new Date(ultimaIso))) ultimaIso = c;
+  }
+
+  const kpi = (icon, val, hint, kindCls) => `
+    <div class="rc ${kindCls} rc-static">
+      <div class="rc-head"><div class="rc-icon">${icon}</div><div class="rc-label">${hint}</div></div>
+      <div class="rc-value">${val}</div>
+    </div>`;
+
+  const ICO_RES  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/></svg>`;
+  const ICO_OK   = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`;
+  const ICO_BELL = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>`;
+  const ICO_CLK  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`;
+
+  el.innerHTML =
+    kpi(ICO_RES,  total,   "Reservatórios",  "rc-neutral") +
+    kpi(ICO_OK,   online,  "Online",          offline === 0 ? "rc-ok" : (online > 0 ? "rc-warn" : "rc-bad")) +
+    kpi(ICO_BELL, alertas, "Alertas abertos", alertas === 0 ? "rc-ok" : "rc-bad") +
+    kpi(ICO_CLK,  _telCliFmtTempoRel(ultimaIso), "Última leitura", "rc-neutral");
+}
+
+function _dashRenderNiveis(list) {
+  const el    = document.getElementById("dashNiveisChart");
+  const empty = document.getElementById("dashNiveisEmpty");
+  if (!el || typeof ApexCharts === "undefined") return;
+
+  const reservs = list
+    .filter(r => r.ultima_leitura?.nivel_pct != null)
+    .sort((a, b) => (a.nome || "").localeCompare(b.nome || ""));
+
+  if (reservs.length === 0) {
+    if (_dashNiveisChart) { try { _dashNiveisChart.destroy(); } catch (_) {} _dashNiveisChart = null; }
+    el.innerHTML = "";
+    if (empty) empty.style.display = "flex";
+    return;
+  }
+  if (empty) empty.style.display = "none";
+
+  const labels = reservs.map(r => `${r.nome || "Res."}${r.tipo ? " · " + r.tipo : ""}`);
+  const data   = reservs.map(r => Math.round(r.ultima_leitura.nivel_pct));
+  const cores  = reservs.map(r => {
+    const pct = r.ultima_leitura.nivel_pct;
+    if (pct < 20) return "#ef4444";
+    if (pct < 40) return "#f59e0b";
+    if (pct < 70) return "#22d3ee";
+    return "#22c55e";
+  });
+
+  const opts = {
+    chart: { type: "bar", height: "100%", toolbar: { show: false }, background: "transparent", animations: { speed: 350 } },
+    series: [{ name: "Nível (%)", data }],
+    plotOptions: {
+      bar: { borderRadius: 6, borderRadiusApplication: "end", columnWidth: "55%", distributed: true, dataLabels: { position: "top" } },
+    },
+    dataLabels: {
+      enabled: true,
+      formatter: v => v + "%",
+      offsetY: -18,
+      style: { fontSize: "10px", fontWeight: "700", colors: ["#eef0fb"] },
+    },
+    colors: cores,
+    xaxis: {
+      categories: labels,
+      labels: { style: { colors: "#7a7e9c", fontSize: "10.5px" }, rotate: -25, hideOverlappingLabels: false, trim: true },
+      axisBorder: { color: "rgba(255,255,255,.06)" },
+      axisTicks:  { color: "rgba(255,255,255,.06)" },
+    },
+    yaxis: { min: 0, max: 100, labels: { style: { colors: "#7a7e9c", fontSize: "10px" }, formatter: v => v + "%" } },
+    grid: { borderColor: "rgba(255,255,255,.05)", strokeDashArray: 3, padding: { top: 10, right: 10, bottom: 0, left: 10 } },
+    legend: { show: false },
+    tooltip: { theme: "dark", y: { formatter: v => v + "%" } },
+    fill: { type: "gradient", gradient: { shade: "dark", type: "vertical", shadeIntensity: .4, opacityFrom: .95, opacityTo: .7, stops: [0, 100] } },
+  };
+
+  if (_dashNiveisChart) {
+    _dashNiveisChart.updateOptions(opts, false, true);
+  } else {
+    el.innerHTML = "";
+    _dashNiveisChart = new ApexCharts(el, opts);
+    _dashNiveisChart.render();
+  }
+}
+
+function _dashRenderCriticos(list) {
+  const wrap = document.getElementById("dashCriticosList");
+  if (!wrap) return;
+
+  const ICO_BAD  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`;
+  const ICO_WARN = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
+  const ICO_OFF  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>`;
+
+  const criticos = list.map(r => {
+    const pct = r.ultima_leitura?.nivel_pct;
+    const offline = !!r.offline;
+    const alertas = Number(r.alertas_abertos_count || 0);
+    let kind = null, prioridade = 999;
+    if (offline)                      { kind = "bad";  prioridade = 0; }
+    else if (pct != null && pct < 20) { kind = "bad";  prioridade = 1; }
+    else if (pct != null && pct < 40) { kind = "warn"; prioridade = 2; }
+    else if (alertas > 0)             { kind = "warn"; prioridade = 3; }
+    return kind ? { r, pct, offline, alertas, kind, prioridade } : null;
+  }).filter(Boolean)
+    .sort((a, b) => a.prioridade - b.prioridade || ((a.pct ?? 100) - (b.pct ?? 100)))
+    .slice(0, 8);
+
+  if (criticos.length === 0) {
+    wrap.innerHTML = `<div class="mc-empty">Tudo dentro dos parâmetros ✓</div>`;
+    return;
+  }
+
+  wrap.innerHTML = criticos.map(({ r, pct, offline, alertas, kind }) => {
+    const icone = kind === "bad" && offline ? ICO_OFF : kind === "bad" ? ICO_BAD : ICO_WARN;
+    const sub = offline
+      ? `${r.tipo || "Reservatório"} · OFFLINE`
+      : `${r.tipo || "Reservatório"}${alertas > 0 ? ` · ${alertas} alerta${alertas > 1 ? "s" : ""}` : ""}`;
+    const pctTxt = offline ? "OFF" : (pct != null ? Math.round(pct) + "%" : "—");
+    return `
+      <div class="mc-alert-row">
+        <div class="mc-alert-icon ${kind}">${icone}</div>
+        <div class="mc-alert-main">
+          <div class="mc-alert-title">${_telCliEscapar(r.nome || "Reservatório")}</div>
+          <div class="mc-alert-sub">${_telCliEscapar(sub)}</div>
+        </div>
+        <div class="mc-alert-time">${pctTxt}</div>
+      </div>`;
+  }).join("");
+}
+
+function _dashRenderActivity(alertas, reservatorios) {
+  const wrap = document.getElementById("dashActivityList");
+  if (!wrap) return;
+
+  const events = [];
+
+  for (const a of alertas || []) {
+    const kind = (a.tipo === "dispositivo_offline" || a.tipo === "nivel_muito_baixo") ? "bad" : "warn";
+    const reserv = (reservatorios || []).find(r => r.device_id === a.device_id);
+    events.push({
+      ts: a.criado_em,
+      kind,
+      title: String(a.tipo || "").replaceAll("_", " "),
+      sub: reserv?.nome || a.device_id || "—",
+    });
+  }
+
+  for (const r of reservatorios || []) {
+    const u = r.ultima_leitura;
+    if (!u?.criado_em) continue;
+    events.push({
+      ts: u.criado_em,
+      kind: r.offline ? "bad" : (u.nivel_pct != null && u.nivel_pct < 20 ? "warn" : "ok"),
+      title: `Leitura — ${r.nome || r.device_id}`,
+      sub: u.nivel_pct != null ? Math.round(u.nivel_pct) + "% nível" : "—",
+    });
+  }
+
+  events.sort((a, b) => new Date(b.ts) - new Date(a.ts));
+  const top = events.slice(0, 12);
+
+  if (!top.length) {
+    wrap.innerHTML = `<div class="mc-empty">Aguardando eventos…</div>`;
+    return;
+  }
+
+  const relTime = iso => {
+    if (!iso) return "—";
+    const diff = Date.now() - new Date(iso).getTime();
+    const s = Math.floor(diff / 1000);
+    if (s < 60)  return `${s}s atrás`;
+    const m = Math.floor(s / 60);
+    if (m < 60)  return `${m} min atrás`;
+    const h = Math.floor(m / 60);
+    if (h < 24)  return `${h}h atrás`;
+    return `${Math.floor(h / 24)}d atrás`;
+  };
+
+  wrap.innerHTML = top.map(e => `
+    <div class="mc-act-row">
+      <div class="mc-act-stripe ${e.kind}"></div>
+      <div class="mc-act-main">
+        <div class="mc-act-title">${e.title}</div>
+        <div class="mc-act-sub">${_telCliEscapar(e.sub)} · ${relTime(e.ts)}</div>
+      </div>
+    </div>`).join("");
+}
+
+function _dashRenderBombas(list) {
+  const tbody   = document.getElementById("dashBombasBody");
+  const summary = document.getElementById("dashBombasSummary");
+  if (!tbody) return;
+
+  const reservs = [...list].sort((a, b) => (a.nome || "").localeCompare(b.nome || ""));
+
+  if (summary) {
+    const on    = reservs.filter(r => r.ultima_leitura?.bomba_ligada === true).length;
+    const known = reservs.filter(r => r.ultima_leitura?.bomba_ligada === true || r.ultima_leitura?.bomba_ligada === false).length;
+    summary.textContent = known > 0 ? `${on} de ${known} ligadas` : `${reservs.length} reservatórios`;
+  }
+
+  if (reservs.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="4" class="mc-empty" style="padding:24px;">Nenhum reservatório.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = reservs.map(r => {
+    const u = r.ultima_leitura;
+    const pct = u?.nivel_pct;
+    const corPct = _telCliCorPct(pct);
+    const bombaCls = u?.bomba_ligada === true ? "on" : u?.bomba_ligada === false ? "off" : "uk";
+    const bombaLbl = u?.bomba_ligada === true ? "LIGADA" : u?.bomba_ligada === false ? "DESLIGADA" : "—";
+    let atualizacao = "—";
+    if (u?.criado_em) {
+      const mins = Math.round((Date.now() - new Date(u.criado_em)) / 60000);
+      if (mins < 60)    atualizacao = `há ${mins} min`;
+      else if (mins < 1440) atualizacao = `há ${Math.round(mins / 60)}h`;
+      else atualizacao = fmtData(u.criado_em);
+    }
+    const offlineTag = r.offline ? ` <span class="badge b-bad" style="margin-left:6px;font-size:9px;padding:1px 5px;">OFFLINE</span>` : "";
+
+    return `<tr>
+      <td><strong>${_telCliEscapar(r.nome || "—")}</strong><div style="font-size:10.5px;color:var(--muted);">${_telCliEscapar(r.tipo || "")}</div></td>
+      <td><span class="tel-bomba-pill ${bombaCls}">${bombaLbl}</span></td>
+      <td><span class="tel-bomba-pct ${corPct === "off" ? "" : corPct}">${pct != null ? Math.round(pct) + "%" : "—"}</span></td>
+      <td style="color:var(--muted);">${atualizacao}${offlineTag}</td>
+    </tr>`;
+  }).join("");
 }
 
 // ============================================================
@@ -567,53 +804,23 @@ async function carregar() {
   const data = await r.json();
 
   
-  // ===== Resumo (AGREGADO DO CONDOMÍNIO) =====
-const grid = document.getElementById("resumoGrid");
+  const reservatorios = Array.isArray(data.reservatorios) ? data.reservatorios : [];
+  _reservatorios = reservatorios;
+  populateHistSelect();
 
-const nome = data.condominio?.nome || "-";
-const reservatorios = Array.isArray(data.reservatorios) ? data.reservatorios : [];
-_reservatorios = reservatorios;
-populateHistSelect();
-const totalRes = reservatorios.length;
+  // ===== Alertas =====
+  _alAlertas = Array.isArray(data.alertas_abertos) ? data.alertas_abertos : [];
 
-const rMaisRecente = pickMaisRecente(reservatorios);
-const rMaisCritico = pickMaisCritico(reservatorios);
-
-const uRecente = rMaisRecente?.ultima_leitura || null;
-const atualizado = uRecente?.criado_em ? fmtData(uRecente.criado_em) : "-";
-
-const nivelCritico = rMaisCritico?.ultima_leitura?.nivel || null;
-const offlineGeral = algumOffline(reservatorios);
-
-// texto pra deixar claro QUAL reservatório está definindo o “pior nível”
-const baseTxt = rMaisCritico
-  ? `${rMaisCritico.nome || "Reservatório"} • ${rMaisCritico.tipo || "-"} • ${rMaisCritico.device_id || "-"}`
-  : "-";
-
-grid.innerHTML = [
-  resumoCard("Condomínio", `<span class="mono">${nome}</span>`, `Reservatórios: ${totalRes}`),
-
-  resumoCard(
-    "Pior nível (agora)",
-    nivelCritico ? nivelBadge(nivelCritico) : badge("-", "warn"),
-    `Base: ${baseTxt}`
-  ),
-
-  resumoCard(
-    "Offline (geral)",
-    offlineGeral ? badge("SIM", "bad") : badge("NÃO", "ok"),
-    offlineGeral ? "Algum reservatório está offline" : "Todos online"
-  ),
-
-  resumoCard("Última atualização (geral)", `<span class="mono">${atualizado}</span>`, null),
-].join("");
+  // ===== Dashboard moderno =====
+  _dashRenderKpis(reservatorios);
+  _dashRenderNiveis(reservatorios);
+  _dashRenderCriticos(reservatorios);
+  _dashRenderActivity(_alAlertas, reservatorios);
+  _dashRenderBombas(reservatorios);
 
   // Telemetria (cliente sem produto cai no fallback dentro do _telCliAtualizar)
   _telCliUltimoStatus = data;
   _telCliAtualizar(data);
-
-  // ===== Alertas =====
-  _alAlertas = Array.isArray(data.alertas_abertos) ? data.alertas_abertos : [];
 
   // atualiza badge da sidebar
   const navBadge = document.getElementById("navBadgeAlertas");
@@ -913,6 +1120,12 @@ document.addEventListener("DOMContentLoaded", () => {
   // nav sections
   document.querySelectorAll(".nav-item[data-section]").forEach(item => {
     item.addEventListener("click", () => showSection(item.dataset.section));
+  });
+
+  // links internos data-section-go (ex: "Ver alertas →" no dashboard)
+  document.addEventListener("click", e => {
+    const btn = e.target.closest("[data-section-go]");
+    if (btn) showSection(btn.dataset.sectionGo);
   });
 
   document.getElementById("btnAtualizarCliente")?.addEventListener("click", carregar);
