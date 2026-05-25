@@ -1295,6 +1295,45 @@ A linha vertical conectando as 3 bolinhas do detalhe do chamado tinha dois bugs 
 - **Desktop** (`.ch-tl-step` em `admin.css`): coluna do grid 20px, dot 18px sem `justify-self` → dot ficava em x=0..18 (centro x=9), linha em `left:9 width:2` (centro x=10). 1px de offset. Linha tinha `height: calc(100% + 4px)` com `top:18` → terminava 8px DENTRO do próximo dot (gap=14, sobra=18+4-14). Corrigido: dot pra 20px com `justify-self: center` (centra na coluna independente de width futura), linha `top:24 bottom:-10` (4px de respiro depois do dot e 4px antes do próximo).
 - **Mobile** (`.cli-tl-item` em `app.css`): linha `top:32` sobrepunha 4px do bottom do dot (que vai até y=36 com padding-top 8 + dot 28). Corrigido pra `top:40 bottom:0` (4px depois do dot, termina no fim do item, 12px antes do próximo dot por causa do padding + gap natural).
 
+**h) Orçamentos avulsos — polimento e PDF com papel timbrado ✅ CONCLUÍDO:**
+
+Melhorias na página de orçamentos independentes (avulsos) do admin, que havia sido criada nos commits anteriores da Fase 7K.
+
+**Modal full-screen (substituiu side panel 380px):**
+- `#avModal` com `.av-modal-backdrop` (blur + overlay escuro) e `.av-modal-dialog` (fundo sólido `#0e1022`, max-width 900px, animação de entrada)
+- Botão fechar reposicionado para canto superior direito do dialog
+- Removido o antigo `<aside id="avPainel">`
+
+**Numeração automática:**
+- Usa a sequence `orcamento_numero_seq` (já existia na migration 025 mas não era usada)
+- Formato `OR-000001`, `OR-000002`… via `nextval` no Postgres
+- Campo de número saiu do formulário (só leitura)
+
+**Vinculação a O.S. (migration 027):**
+- `ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS os_id INTEGER REFERENCES ordens_servico(id) ON DELETE SET NULL`
+- Modal ganha select "O.S. vinculada" que carrega as O.S. do condomínio selecionado via `GET /admin/condominios/:id/historico`
+- PATCH envia `os_id`; GET lista retorna `o.os_id, os.numero AS os_numero` via LEFT JOIN
+
+**Histórico por condomínio no painel lateral (drawer):**
+- Novo endpoint `GET /admin/condominios/:id/historico` retorna `{ os: [...], orcamentos: [...] }`
+- Duas novas abas no drawer existente: "O.S." e "Orçamentos"
+- `_drawerHistorico` com cache por `condoId` — não recarrega ao trocar de aba
+- Botão "Ver histórico completo" (substituiu "Ver telemetria completa") na tela de detalhe do cliente no painel lateral
+- Colunas corretas da tabela `ordens_servico`: `finalizada_em` (não `fechado_em`), `servico_realizado` (não `descricao`), sem coluna `status` — derivado no frontend a partir de `finalizada_em`
+
+**PDF com papel timbrado:**
+- `papel-timbrado.png` (A4 completo com logo, marca d'água de engrenagem e rodapé da empresa) lido como base64 em `timbradoBase64()`
+- Fundo full-page via `<div class="timbrado-bg" style="background-image:url('...')">` com `position: fixed; inset: 0; background-size: 100% 100%; -webkit-print-color-adjust: exact`
+- Margens do Puppeteer zeradas (`top/right/bottom/left: "0"`) — espaçamento feito via `padding: 44mm 20mm 32mm 20mm` no `body` do HTML gerado (margens do Puppeteer recortam a área de `position: fixed`, causando imagem pequena no centro se não zeradas)
+- Removidos `.header` programático (logo + "ORÇAMENTO" + linha âmbar) e `.rodape` de texto (o timbrado já tem essas informações)
+- Número + data do orçamento aparecem como `.doc-info` no canto direito dentro da área de conteúdo
+- `displayHeaderFooter: false` (o timbrado já tem rodapé com endereço/telefone da empresa)
+
+**Fix auth PDF:**
+- `window.open(url)` não envia header `Authorization: Bearer` → retorna 401
+- Substituído por `fetch(url, {headers: authHeaders()})` → `r.blob()` → `URL.createObjectURL(blob)` → clique programático em `<a>` invisível
+- Aplicado em `_avAcao("gerar-pdf")` (avulsos) e `_orcGerarPdf()` (O.S.)
+
 **Pendências conhecidas:**
 
 - **Telefone do WhatsApp da propaganda** = `5511999999999` (placeholder fake) em 4 lugares: `public/cliente.html:202` e `app/public/app.js:2914`. Trocar pelo número real antes de publicar.
@@ -1362,9 +1401,9 @@ Nova aba **"Dashboard SLA"** em Relatórios (ao lado de Insights).
 
 **Exportar PDF** fica para 8D (depende de histórico longo de leituras para relatório mensal completo).
 
-#### 8D — Histórico longo de leituras (gráficos > 7 dias)
+#### 8D — Histórico longo de leituras (gráficos > 7 dias) ✅ CONCLUÍDO
 
-Hoje o `/admin/historico` aceita até `horas=N` com buckets por hora. Pra cobrir SLA mensal, precisa de buckets diários e janelas maiores — depende parcialmente da Fase 9 (agregação).
+`/admin/historico` passou a suportar buckets diários quando `horas > 168` (> 7 dias), consultando direto a tabela `leituras` com `DATE_TRUNC('day', criado_em)` — dentro dos 60 dias garantidos pela retenção (9C). Sem necessidade de tabelas agregadas (9A/9B/9D descartadas).
 
 ---
 

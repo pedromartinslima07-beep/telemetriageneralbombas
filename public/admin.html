@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="/static/leaflet.css">
   <!-- ⚠️ Ao mexer em admin.js ou admin.css, bumpe o ?v=N aqui E no <script>
        lá embaixo. Ver CLAUDE.md raiz. -->
-  <link rel="stylesheet" href="/static/admin.css?v=34">
+  <link rel="stylesheet" href="/static/admin.css?v=38">
 </head>
 <body>
 
@@ -862,7 +862,7 @@
               </div>
             </div>
 
-            <div class="al-grid">
+            <div class="al-grid" style="grid-template-columns: 1fr;">
               <div class="al-tableWrap">
                 <table class="orc-table">
                   <thead>
@@ -884,14 +884,6 @@
                 </div>
               </div>
 
-              <aside class="al-painel" id="avPainel">
-                <div class="al-empty">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                    <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
-                  </svg>
-                  <p>Selecione ou crie um orçamento</p>
-                </div>
-              </aside>
             </div>
           </section>
         </div><!-- /avulso -->
@@ -2121,11 +2113,15 @@
       WhatsApp
       <span class="drawer-tab-badge" id="drawerBadgeWhatsapp"></span>
     </button>
+    <button class="drawer-tab" data-action="drawer-tab" data-tab="os">O.S.</button>
+    <button class="drawer-tab" data-action="drawer-tab" data-tab="orcamentos">Orçamentos</button>
   </div>
   <div class="drawer-body">
     <div class="drawer-pane is-active" id="drawerPaneTelemetria" data-pane="telemetria"></div>
     <div class="drawer-pane" id="drawerPaneChamados" data-pane="chamados"></div>
     <div class="drawer-pane" id="drawerPaneWhatsapp" data-pane="whatsapp"></div>
+    <div class="drawer-pane" id="drawerPaneOS" data-pane="os"></div>
+    <div class="drawer-pane" id="drawerPaneOrcamentos" data-pane="orcamentos"></div>
   </div>
 </div>
 
@@ -2426,7 +2422,15 @@
 <script src="/static/apexcharts.min.js"></script>
 <script src="/static/leaflet.js"></script>
 <script src="/static/inatividade.js" defer></script>
-<script src="/static/admin.js?v=28" defer></script>
+<!-- Modal de edição/criação de orçamento avulso -->
+<div id="avModal" class="av-modal" style="display:none;" role="dialog" aria-modal="true">
+  <div class="av-modal-backdrop" id="avModalBackdrop"></div>
+  <div class="av-modal-dialog">
+    <div id="avModalBody"></div>
+  </div>
+</div>
+
+<script src="/static/admin.js?v=36" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
 <script src="/static/register-sw.js?v=19" defer></script>
 </body>

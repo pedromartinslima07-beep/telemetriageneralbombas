@@ -5647,3 +5647,107 @@ body.role-viewer .viewer-only-hide-inline {
   gap: 6px;
   align-items: center;
 }
+
+/* ─── Drawer: OS e Orçamentos ────────────────────────────────────────────── */
+.dh-item {
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255,255,255,.06);
+}
+.dh-item:last-child { border-bottom: none; }
+.dh-row-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 3px;
+}
+.dh-num  { font-size: 13px; font-weight: 600; color: var(--text); }
+.dh-badge { font-size: 11px; font-weight: 700; white-space: nowrap; }
+.dh-row-sub { font-size: 11.5px; color: var(--muted); line-height: 1.5; }
+
+/* ─── Modal de criação/edição de orçamento ───────────────────────────────── */
+.av-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 48px 20px 60px;
+  overflow-y: auto;
+}
+.av-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.68);
+  backdrop-filter: blur(4px);
+  z-index: 0;
+}
+.av-modal-dialog {
+  position: relative;
+  z-index: 1;
+  background: #0e1022;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  width: 100%;
+  max-width: 900px;
+  padding: 36px 40px 40px;
+  box-shadow: 0 28px 80px rgba(0,0,0,.7);
+  animation: avModalIn .18s ease;
+}
+@keyframes avModalIn {
+  from { transform: translateY(18px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+/* Botão fechar: canto superior direito do dialog */
+.av-modal-dialog .ap-close {
+  position: absolute;
+  top: 14px;
+  right: 18px;
+  font-size: 24px;
+  line-height: 1;
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: rgba(255,255,255,.05);
+  border: 1px solid rgba(255,255,255,.08);
+  color: var(--muted);
+  cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.av-modal-dialog .ap-close:hover {
+  background: rgba(255,255,255,.1);
+  color: var(--text);
+}
+/* Cabeçalho: não precisa reservar espaço pro botão (está absoluto) */
+.av-modal-dialog .ap-head {
+  margin-bottom: 20px;
+  padding-right: 48px;
+}
+.av-modal-dialog .ap-title { font-size: 18px; }
+.av-modal-dialog .ap-sub   { font-size: 12px; }
+/* Form em 3 colunas onde cabia só 2 */
+.av-modal-dialog .orc-form-row {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+/* Campos de texto mais confortáveis */
+.av-modal-dialog .input,
+.av-modal-dialog .select { font-size: 13px; padding: 7px 12px; }
+.av-modal-dialog textarea.input { min-height: 90px; }
+/* Seção de form sem borda de topo — usa separação visual própria */
+.av-modal-dialog .orc-form-section {
+  border-top: none;
+  padding-top: 0;
+}
+/* Itens: tabela mais legível */
+.av-modal-dialog .orc-itens-table th,
+.av-modal-dialog .orc-itens-table td { font-size: 13px; }
+/* Botões de ação principais maiores */
+.av-modal-dialog [data-av-action="salvar"],
+.av-modal-dialog [data-av-action="gerar-pdf"] {
+  padding: 8px 20px;
+  font-size: 13px;
+}

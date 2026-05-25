@@ -2513,7 +2513,6 @@ function renderCliDetalhe(c) {
     telHtml = `<div class="ch-det-section">
       <div class="ch-det-sec-title">Telemetria</div>
       <div class="cc-res-list">${resHtml}</div>
-      <button class="btn btn-sm ch-tel-btn" data-action="ver-condo" data-id="${c.id}">Ver telemetria completa</button>
     </div>`;
   }
 
@@ -2564,15 +2563,17 @@ function renderCliDetalhe(c) {
     </div>
 
     <div class="ch-det-acoes">
+      <button class="btn btn-sm" data-action="ver-condo" data-id="${c.id}" style="width:100%;justify-content:center;">
+        Ver histórico completo
+      </button>
       <button class="btn btn-sm viewer-only-hide" data-action="editar-condominio" data-id="${c.id}">Editar</button>
       ${c.ativo
         ? `<button class="btn btn-sm btnDanger viewer-only-hide" data-action="inativar-condominio" data-id="${c.id}" data-nome="${_waEscaparHtml(c.nome).replaceAll('"', '&quot;')}">Inativar</button>`
         : `<button class="btn btn-sm btnAccent viewer-only-hide" data-action="reativar-condominio" data-id="${c.id}">Reativar</button>`}
-      ${chAbertos > 0 ? `<button class="btn btn-sm" data-action="ir-chamados-condo" data-condo-id="${c.id}">Ver chamados</button>` : ""}
-      ${!reservs.length ? `<button class="btn btn-sm" data-action="ver-condo" data-id="${c.id}">Ver telemetria</button>` : ""}
     </div>
   </div>`;
 }
+
 
 function renderClientes() {
   renderCliKpis();
@@ -4251,13 +4252,15 @@ async function reabrirChamadoAction(id) {
 }
 
 // ===== DRAWER =====
-function abrirDrawer(condoId) {
+function abrirDrawer(condoId, tabInicial) {
   _drawerCondoId = condoId;
-  _drawerTab = "telemetria";
+  _drawerTab = tabInicial || "telemetria";
   _drawerConversaId = null;
+  _drawerHistorico = null; // limpa cache do histórico
 
   const item = (_statusData || []).find(g => Number(g.condominio?.id) === condoId);
-  const nome = item?.condominio?.nome || `Condomínio ${condoId}`;
+  const condoObj = (Array.isArray(_condominios) ? _condominios : []).find(c => Number(c.id) === condoId);
+  const nome = item?.condominio?.nome || condoObj?.nome || `Condomínio ${condoId}`;
   document.getElementById("drawerTitle").textContent = nome;
 
   const chamadosN = _chamadosData.filter(ch => Number(ch.condominio_id) === condoId && ch.status !== "fechado").length;
@@ -4271,7 +4274,7 @@ function abrirDrawer(condoId) {
   document.getElementById("drawerOverlay").classList.add("is-open");
   document.getElementById("drawerPanel").classList.add("is-open");
 
-  switchDrawerTab("telemetria");
+  switchDrawerTab(_drawerTab || "telemetria");
 }
 
 function fecharDrawer() {
@@ -4279,6 +4282,7 @@ function fecharDrawer() {
   document.getElementById("drawerPanel").classList.remove("is-open");
   _drawerCondoId = null;
   _drawerConversaId = null;
+  _drawerHistorico = null;
   destruirGaugesDrawer();
 }
 
@@ -4292,6 +4296,8 @@ function switchDrawerTab(tab) {
   if (tab === "telemetria") renderDrawerTelemetria();
   else if (tab === "chamados") renderDrawerChamados();
   else if (tab === "whatsapp") renderDrawerWhatsapp();
+  else if (tab === "os") renderDrawerOS();
+  else if (tab === "orcamentos") renderDrawerOrcamentos();
 }
 
 function corGaugePorNivel(lvClass) {
@@ -4554,6 +4560,81 @@ async function renderConversaChat(conversaId) {
   } catch (err) {
     pane.innerHTML = `<button class="wz-back" data-action="voltar-conversas">← Voltar</button><div style="color:var(--danger);">Erro: ${err.message}</div>`;
   }
+}
+
+// ─── Drawer: OS e Orçamentos ─────────────────────────────────────────────────
+let _drawerHistorico = null; // { condoId, os, orcamentos }
+
+async function _drawerCarregarHistorico() {
+  const id = _drawerCondoId;
+  if (!id) return null;
+  if (_drawerHistorico?.condoId === id) return _drawerHistorico;
+  try {
+    const r = await fetch(`/admin/condominios/${id}/historico`, { headers: authHeaders() });
+    if (!r.ok) return null;
+    const data = await r.json();
+    _drawerHistorico = { condoId: id, ...data };
+    return _drawerHistorico;
+  } catch (e) { console.error("_drawerCarregarHistorico:", e); return null; }
+}
+
+async function renderDrawerOS() {
+  const pane = document.getElementById("drawerPaneOS");
+  if (!pane) return;
+  pane.innerHTML = `<div style="color:var(--muted);font-size:13px;">Carregando…</div>`;
+
+  const hist = await _drawerCarregarHistorico();
+  if (!hist) { pane.innerHTML = `<div style="color:var(--muted);font-size:13px;">Erro ao carregar.</div>`; return; }
+
+  const { os } = hist;
+  const fmtD  = iso => iso ? new Date(iso).toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit",year:"numeric"}) : "—";
+  const fmtV  = v  => Number(v) > 0 ? "R$ " + Number(v).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}) : null;
+  const sCor  = s  => s==="fechado"||s==="aprovado" ? "var(--ok)" : s==="rejeitado" ? "#f87171" : s==="rascunho"||s==="pendente" ? "var(--muted)" : "var(--warn)";
+  const sLbl  = s  => ({aberto:"Aberto",fechado:"Fechado",pendente:"Pendente",aprovado:"Aprovado",rejeitado:"Rejeitado"})[s] || s || "—";
+
+  if (!os.length) { pane.innerHTML = `<div style="color:var(--muted);font-size:13px;">Nenhuma O.S. registrada.</div>`; return; }
+
+  pane.innerHTML = os.map(o => {
+    const status = o.finalizada_em ? "fechado" : "aberto";
+    const orcInfo = o.orcamento_necessario && o.orcamento_status
+      ? `<div class="dh-row-sub">Orç.: <span style="color:${sCor(o.orcamento_status)};font-weight:600;">${sLbl(o.orcamento_status)}</span>${fmtV(o.orcamento_valor) ? " · " + fmtV(o.orcamento_valor) : ""}</div>`
+      : "";
+    return `<div class="dh-item">
+      <div class="dh-row-main">
+        <span class="dh-num">OS #${_waEscaparHtml(o.numero || o.id)}</span>
+        <span class="dh-badge" style="color:${sCor(status)};">${sLbl(status)}</span>
+      </div>
+      <div class="dh-row-sub">${fmtD(o.criado_em)}${o.tecnico_nome ? " · " + _waEscaparHtml(o.tecnico_nome) : ""}${o.tipos_servico ? " · " + _waEscaparHtml(o.tipos_servico) : ""}</div>
+      ${orcInfo}
+    </div>`;
+  }).join("");
+}
+
+async function renderDrawerOrcamentos() {
+  const pane = document.getElementById("drawerPaneOrcamentos");
+  if (!pane) return;
+  pane.innerHTML = `<div style="color:var(--muted);font-size:13px;">Carregando…</div>`;
+
+  const hist = await _drawerCarregarHistorico();
+  if (!hist) { pane.innerHTML = `<div style="color:var(--muted);font-size:13px;">Erro ao carregar.</div>`; return; }
+
+  const { orcamentos } = hist;
+  const fmtD = iso => iso ? new Date(iso).toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit",year:"numeric"}) : "—";
+  const fmtV = v  => "R$ " + Number(v||0).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2});
+  const sCor = s  => s==="aprovado" ? "var(--ok)" : s==="rejeitado" ? "#f87171" : s==="rascunho" ? "var(--muted)" : s==="enviado" ? "var(--warn)" : "var(--muted)";
+  const sLbl = s  => ({rascunho:"Rascunho",enviado:"Enviado",aprovado:"Aprovado",rejeitado:"Rejeitado"})[s] || s || "—";
+
+  if (!orcamentos.length) { pane.innerHTML = `<div style="color:var(--muted);font-size:13px;">Nenhum orçamento registrado.</div>`; return; }
+
+  pane.innerHTML = orcamentos.map(o => `
+    <div class="dh-item">
+      <div class="dh-row-main">
+        <span class="dh-num">${_waEscaparHtml(o.numero || "—")}</span>
+        <span class="dh-badge" style="color:${sCor(o.status)};">${sLbl(o.status)}</span>
+      </div>
+      <div class="dh-row-sub">${fmtD(o.criado_em)} · ${fmtV(o.valor_total)}</div>
+      ${o.os_id ? `<div class="dh-row-sub">Vinculado à <span style="color:var(--text);font-weight:600;">OS #${_waEscaparHtml(o.os_numero || o.os_id)}</span></div>` : ""}
+    </div>`).join("");
 }
 
 function getMyRole() {
@@ -9715,22 +9796,32 @@ function _avRenderTudo() {
       </tr>`;
     }).join("");
   }
+}
 
-  _avRenderPainel();
+function _avFecharModal() {
+  const m = document.getElementById("avModal");
+  if (m) m.style.display = "none";
+  document.body.style.overflow = "";
+  _avSelecionado = null;
+  // Atualiza seleção visual na tabela
+  document.querySelectorAll("#avTableBody tr.is-selected").forEach(r => r.classList.remove("is-selected"));
 }
 
 function _avRenderPainel() {
-  const wrap = document.getElementById("avPainel");
-  if (!wrap) return;
+  const modal = document.getElementById("avModal");
+  const wrap  = document.getElementById("avModalBody");
+  if (!wrap || !modal) return;
 
   if (!_avSelecionado) {
-    wrap.innerHTML = `<div class="al-empty">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-        <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
-      </svg>
-      <p>Selecione ou crie um orçamento</p>
-    </div>`;
+    modal.style.display = "none";
+    document.body.style.overflow = "";
     return;
+  }
+
+  // Abre modal (sem re-animar se já estava aberto)
+  if (modal.style.display !== "flex") {
+    modal.style.display = "flex";
+    document.body.style.overflow = "hidden";
   }
 
   const o = _avSelecionado;
@@ -9753,22 +9844,21 @@ function _avRenderPainel() {
 
     <div class="ap-section orc-form-section">
       <div class="orc-form-row" style="margin-bottom:10px;">
-        <label class="orc-form-label">Nº Orçamento
-          <input id="avInputNumero" class="input" type="text" maxlength="30" placeholder="OR-XXXXXX"
-            value="${_waEscaparHtml(o.numero || '')}">
+        <label class="orc-form-label">Condomínio / Cliente
+          <select id="avInputCondo" class="select" style="margin-top:4px;">
+            <option value="">Selecionar…</option>
+            ${condoOptions}
+          </select>
+        </label>
+        <label class="orc-form-label">O.S. vinculada
+          <select id="avInputOs" class="select" style="margin-top:4px;">
+            <option value="">Nenhuma</option>
+          </select>
         </label>
         <label class="orc-form-label">Válido até
           <input id="avInputValidade" class="input" type="date" value="${validadeVal}">
         </label>
       </div>
-
-      <label class="orc-form-label" style="display:flex;flex-direction:column;margin-bottom:10px;">
-        Condomínio / Cliente
-        <select id="avInputCondo" class="select" style="margin-top:4px;">
-          <option value="">Selecionar…</option>
-          ${condoOptions}
-        </select>
-      </label>
 
       <label class="orc-form-label" style="display:flex;flex-direction:column;margin-bottom:10px;">
         Constatação
@@ -9825,6 +9915,31 @@ function _avRenderPainel() {
     </div>`;
 
   _avCarregarLinhas(o.id);
+  _avCarregarOsDoModal(o.condominio_id, o.os_id);
+
+  // Quando troca o condomínio, recarrega lista de OS
+  document.getElementById("avInputCondo")?.addEventListener("change", e => {
+    _avCarregarOsDoModal(e.target.value, null);
+  });
+}
+
+async function _avCarregarOsDoModal(condoId, osIdSelecionado) {
+  const sel = document.getElementById("avInputOs");
+  if (!sel) return;
+  sel.innerHTML = `<option value="">Nenhuma</option>`;
+  if (!condoId) return;
+  try {
+    const r = await fetch(`/admin/condominios/${condoId}/historico`, { headers: authHeaders() });
+    if (!r.ok) return;
+    const { os } = await r.json();
+    os.forEach(o => {
+      const opt = document.createElement("option");
+      opt.value = o.id;
+      opt.textContent = `OS #${o.numero || o.id} — ${o.status}`;
+      if (String(o.id) === String(osIdSelecionado)) opt.selected = true;
+      sel.appendChild(opt);
+    });
+  } catch (e) { console.error("_avCarregarOsDoModal:", e); }
 }
 
 async function _avCarregarLinhas(orcId) {
@@ -9902,6 +10017,7 @@ async function _avAcao(acao) {
       _avSelecionado = j;
       _avLinhas = []; _avLinhasId = j.id;
       _avRenderTudo();
+      _avRenderPainel();
     } catch (e) { alert("Erro: " + e.message); }
     return;
   }
@@ -9942,12 +10058,15 @@ async function _avAcao(acao) {
   if (acao === "gerar-pdf") {
     if (msg) msg.textContent = "Gerando PDF…";
     try {
-      const url = `/admin/orcamentos/avulsos/${id}/pdf`;
-      const r = await fetch(url, { headers: authHeaders() });
-      if (!r.ok) { const j = await r.json().catch(()=>({})); if (msg) msg.textContent = j.error || "Erro"; return; }
-      window.open(url + "?t=" + Date.now(), "_blank");
-      if (msg) msg.textContent = "✓ PDF gerado";
-      setTimeout(() => { if (msg) msg.textContent = ""; }, 3000);
+      const r = await fetch(`/admin/orcamentos/avulsos/${id}/pdf`, { headers: authHeaders() });
+      if (!r.ok) { const j = await r.json().catch(()=>({})); if (msg) msg.textContent = j.error || "Erro ao gerar PDF"; return; }
+      const blob = await r.blob();
+      const objUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = objUrl; a.target = "_blank"; a.rel = "noopener";
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(objUrl), 60000);
+      if (msg) { msg.textContent = "✓ PDF gerado"; setTimeout(() => { msg.textContent = ""; }, 3000); }
     } catch (e) { if (msg) msg.textContent = "Erro: " + e.message; }
     return;
   }
@@ -9958,6 +10077,7 @@ async function _avAcao(acao) {
       await fetch(`/admin/orcamentos/avulsos/${id}`, { method: "DELETE", headers: authHeaders() });
       _avData = _avData.filter(o => o.id !== id);
       _avSelecionado = null; _avLinhas = []; _avLinhasId = null;
+      _avFecharModal();
       _avRenderTudo();
     } catch (e) { alert("Erro: " + e.message); }
     return;
@@ -9966,8 +10086,8 @@ async function _avAcao(acao) {
   // salvar
   if (msg) msg.textContent = "Salvando…";
   const body = {
-    numero:          document.getElementById("avInputNumero")?.value.trim() || null,
     condominio_id:   document.getElementById("avInputCondo")?.value || null,
+    os_id:           document.getElementById("avInputOs")?.value || null,
     constatacao:     document.getElementById("avInputConstatacao")?.value.trim() || null,
     forma_pagamento: document.getElementById("avInputPagamento")?.value.trim() || null,
     prazo_entrega:   document.getElementById("avInputPrazo")?.value.trim() || null,
@@ -9996,6 +10116,7 @@ async function _avAcao(acao) {
     if (msg) msg.textContent = "✓ Salvo";
     setTimeout(() => { if (msg) msg.textContent = ""; }, 2000);
     _avRenderTudo();
+    _avRenderPainel();
   } catch (e) { if (msg) msg.textContent = "Erro: " + e.message; }
 }
 
@@ -10032,17 +10153,27 @@ function _avBindEventos() {
     if (!row) return;
     const id = Number(row.dataset.avId);
     _avSelecionado = _avData.find(o => o.id === id) || null;
-    _avRenderTudo();
+    _avRenderPainel();
+    // Atualiza visual de seleção na tabela
+    document.querySelectorAll("#avTableBody tr").forEach(r => r.classList.toggle("is-selected", r === row));
   });
 
-  document.getElementById("avPainel")?.addEventListener("click", e => {
+  document.getElementById("avModalBackdrop")?.addEventListener("click", _avFecharModal);
+
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape" && document.getElementById("avModal")?.style.display === "flex") {
+      _avFecharModal();
+    }
+  });
+
+  document.getElementById("avModal")?.addEventListener("click", e => {
     const delBtn = e.target.closest("[data-av-del-linha]");
     if (delBtn) { _avRemoverLinha(Number(delBtn.dataset.avDelLinha)); return; }
 
     const btn = e.target.closest("[data-av-action]");
     if (!btn) return;
     const acao = btn.dataset.avAction;
-    if (acao === "fechar") { _avSelecionado = null; _avRenderTudo(); }
+    if (acao === "fechar") { _avFecharModal(); }
     else _avAcao(acao);
   });
 }
@@ -10076,7 +10207,7 @@ function _orcFmtValor(v) {
 
 function _orcFmtData(iso) {
   if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" });
+  return new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
 function _orcStatusCls(s) {
@@ -10501,17 +10632,19 @@ async function _orcGerarPdf() {
   const msg = document.getElementById("orcFormMsg");
   if (msg) msg.textContent = "Gerando PDF…";
   try {
-    const url = `/admin/orcamentos/${osId}/pdf`;
-    const r = await fetch(url, { headers: authHeaders() });
+    const r = await fetch(`/admin/orcamentos/${osId}/pdf`, { headers: authHeaders() });
     if (!r.ok) {
       const j = await r.json().catch(() => ({}));
       if (msg) msg.textContent = j.error || "Erro ao gerar PDF";
       return;
     }
-    // abre em nova aba
-    window.open(url + "?t=" + Date.now(), "_blank");
-    if (msg) msg.textContent = "✓ PDF gerado";
-    setTimeout(() => { if (msg) msg.textContent = ""; }, 3000);
+    const blob = await r.blob();
+    const objUrl = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = objUrl; a.target = "_blank"; a.rel = "noopener";
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(objUrl), 60000);
+    if (msg) { msg.textContent = "✓ PDF gerado"; setTimeout(() => { msg.textContent = ""; }, 3000); }
   } catch (e) {
     if (msg) msg.textContent = "Erro: " + e.message;
   }

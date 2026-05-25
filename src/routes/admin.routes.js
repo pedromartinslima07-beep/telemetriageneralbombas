@@ -954,6 +954,7 @@ router.get("/orcamentos/avulsos", authRequired, adminOnly, async (req, res) => {
   try {
     const r = await pool.query(
       `SELECT o.id, o.numero, o.status, o.valido_ate, o.criado_em,
+              o.os_id, os.numero AS os_numero,
               c.nome AS condominio_nome, c.id AS condominio_id,
               COALESCE(
                 (SELECT SUM(l.quantidade * l.valor_unitario)
@@ -961,6 +962,7 @@ router.get("/orcamentos/avulsos", authRequired, adminOnly, async (req, res) => {
               ) AS valor_total
        FROM orcamentos o
        LEFT JOIN condominios c ON c.id = o.condominio_id
+       LEFT JOIN ordens_servico os ON os.id = o.os_id
        ORDER BY o.criado_em DESC
        LIMIT 300`
     );
@@ -973,19 +975,23 @@ router.get("/orcamentos/avulsos", authRequired, adminOnly, async (req, res) => {
 
 // POST /admin/orcamentos/avulsos — criar novo
 router.post("/orcamentos/avulsos", authRequired, adminOnly, async (req, res) => {
-  const { condominio_id, numero, constatacao, forma_pagamento, prazo_entrega, garantia, disponibilidade, valido_ate } = req.body || {};
+  const { condominio_id, numero, os_id, constatacao, forma_pagamento, prazo_entrega, garantia, disponibilidade, valido_ate } = req.body || {};
   try {
-    // gera numero automático se não enviado
-    const num = numero ? String(numero).trim().slice(0, 30) : null;
+    // número sequencial automático: OR-000001, OR-000002…
+    const numSeq = (await pool.query(
+      "SELECT 'OR-' || LPAD(nextval('orcamento_numero_seq')::text, 6, '0') AS n"
+    )).rows[0].n;
+    const num = numero ? String(numero).trim().slice(0, 30) : numSeq;
     const r = await pool.query(
       `INSERT INTO orcamentos
-         (numero, condominio_id, constatacao, forma_pagamento, prazo_entrega,
+         (numero, condominio_id, os_id, constatacao, forma_pagamento, prazo_entrega,
           garantia, disponibilidade, valido_ate, criado_por)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8::date,$9)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::date,$10)
        RETURNING *`,
       [
         num,
         condominio_id ? Number(condominio_id) : null,
+        os_id ? Number(os_id) : null,
         constatacao ? String(constatacao).slice(0, 1000) : null,
         forma_pagamento ? String(forma_pagamento).slice(0, 255) : "Via boleto bancário",
         prazo_entrega ? String(prazo_entrega).slice(0, 100) : "5 dias úteis após aprovação",
@@ -1007,7 +1013,7 @@ router.patch("/orcamentos/avulsos/:id", authRequired, adminOnly, async (req, res
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
 
-  const fields = ["numero","condominio_id","status","constatacao","forma_pagamento","prazo_entrega","garantia","disponibilidade","valido_ate"];
+  const fields = ["numero","condominio_id","os_id","status","constatacao","forma_pagamento","prazo_entrega","garantia","disponibilidade","valido_ate"];
   const sets = []; const vals = [id];
 
   for (const f of fields) {
@@ -1122,6 +1128,46 @@ router.get("/orcamentos/avulsos/:id/pdf", authRequired, adminOnly, async (req, r
   } catch (err) {
     console.error("[admin] GET /orcamentos/avulsos/:id/pdf:", err);
     return res.status(500).json({ error: err.message || "Erro ao gerar PDF" });
+  }
+});
+
+// GET /admin/condominios/:id/historico — OS + orçamentos do condomínio
+router.get("/condominios/:id/historico", authRequired, adminOnly, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
+  try {
+    const [osRes, orcRes] = await Promise.all([
+      pool.query(
+        `SELECT os.id, os.numero, os.criado_em, os.finalizada_em,
+                os.servico_realizado, os.tipos_servico,
+                t.nome AS tecnico_nome,
+                os.orcamento_necessario, os.orcamento_status, os.orcamento_valor, os.orcamento_numero
+         FROM ordens_servico os
+         LEFT JOIN tecnicos t ON t.id = os.tecnico_id
+         WHERE os.condominio_id = $1
+         ORDER BY os.criado_em DESC
+         LIMIT 200`,
+        [id]
+      ),
+      pool.query(
+        `SELECT o.id, o.numero, o.status, o.criado_em, o.valido_ate, o.os_id,
+                os.numero AS os_numero,
+                COALESCE(
+                  (SELECT SUM(l.quantidade * l.valor_unitario)
+                   FROM orcamento_linhas l WHERE l.orcamento_id = o.id), 0
+                ) AS valor_total
+         FROM orcamentos o
+         LEFT JOIN ordens_servico os ON os.id = o.os_id
+         WHERE o.condominio_id = $1
+         ORDER BY o.criado_em DESC
+         LIMIT 200`,
+        [id]
+      ),
+    ]);
+    return res.json({ os: osRes.rows, orcamentos: orcRes.rows });
+  } catch (err) {
+    console.error("[admin] GET /condominios/:id/historico:", err);
+    return res.status(500).json({ error: "Erro ao buscar histórico" });
   }
 });
 

@@ -27,9 +27,9 @@ function fmtMoeda(v) {
   return Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
-function logoBase64() {
+function timbradoBase64() {
   try {
-    const buf = fs.readFileSync(path.join(PUBLIC_ROOT, "login-logo.png"));
+    const buf = fs.readFileSync(path.join(PUBLIC_ROOT, "papel-timbrado.png"));
     return "data:image/png;base64," + buf.toString("base64");
   } catch { return null; }
 }
@@ -121,7 +121,7 @@ async function buscarDadosAvulso(orcamentoId) {
 }
 
 function renderHTML({ os, itens }) {
-  const logo = logoBase64();
+  const timbrado = timbradoBase64();
 
   // número do orçamento: campo próprio ou fallback para OS numero
   const orcNumero = os.orcamento_numero || os.os_numero || String(os.id);
@@ -161,6 +161,10 @@ function renderHTML({ os, itens }) {
     ? `60 dias (até ${fmtDateBR(os.orcamento_valido_ate)})`
     : "60 dias";
 
+  const timbradoTag = timbrado
+    ? `<div class="timbrado-bg" style="background-image:url('${timbrado}');"></div>`
+    : "";
+
   return `<!doctype html>
 <html lang="pt-BR"><head>
 <meta charset="utf-8">
@@ -173,32 +177,43 @@ function renderHTML({ os, itens }) {
     color: #1a1f2e;
     font-size: 11px;
     line-height: 1.4;
+    padding: 44mm 20mm 32mm 20mm;
   }
 
-  /* ── Header ── */
-  .header {
+  /* ── Papel timbrado como fundo fixo (repete em cada página) ── */
+  .timbrado-bg {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    z-index: -1;
+    background-size: 100% 100%;
+    background-repeat: no-repeat;
+    background-position: top left;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* ── Número / data do orçamento ── */
+  .doc-info {
     display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    padding-bottom: 10px;
-    border-bottom: 2.5px solid #f0b014;
+    justify-content: flex-end;
     margin-bottom: 14px;
   }
-  .header-logo img { height: 48px; display: block; }
-  .header-right { text-align: right; }
-  .header-right .doc-title {
-    font-size: 18px;
+  .doc-info-box {
+    text-align: right;
+  }
+  .doc-info-box .doc-title {
+    font-size: 16px;
     font-weight: bold;
     color: #1a1f2e;
     letter-spacing: 1px;
   }
-  .header-right .doc-num {
+  .doc-info-box .doc-num {
     font-size: 12px;
-    color: #f0b014;
+    color: #c07a00;
     font-weight: bold;
     margin-top: 2px;
   }
-  .header-right .doc-date {
+  .doc-info-box .doc-date {
     font-size: 10px;
     color: #4a5568;
     margin-top: 4px;
@@ -210,7 +225,7 @@ function renderHTML({ os, itens }) {
     border-radius: 6px;
     padding: 10px 14px;
     margin-bottom: 14px;
-    background: #f8fafc;
+    background: rgba(248,250,252,0.92);
   }
   .cliente-box .sec-title {
     font-size: 10px;
@@ -265,7 +280,7 @@ function renderHTML({ os, itens }) {
     padding: 6px 8px;
     border: 1px dashed #cbd5e0;
     border-radius: 4px;
-    background: #fafbfc;
+    background: rgba(250,251,252,0.92);
     min-height: 36px;
   }
 
@@ -287,7 +302,7 @@ function renderHTML({ os, itens }) {
     letter-spacing: 0.3px;
   }
   .tabela-itens th.it-num { text-align: right; }
-  .tabela-itens tbody tr:nth-child(even) { background: #f7fafc; }
+  .tabela-itens tbody tr:nth-child(even) { background: rgba(247,250,252,0.9); }
   .tabela-itens td {
     padding: 6px 8px;
     border-bottom: 1px solid #e2e8f0;
@@ -301,7 +316,7 @@ function renderHTML({ os, itens }) {
     margin-top: 4px;
     font-size: 9.5px;
     color: #4a5568;
-    background: #f0f4f8;
+    background: rgba(240,244,248,0.95);
     border-left: 3px solid #f0b014;
     padding: 3px 6px;
     border-radius: 0 3px 3px 0;
@@ -345,33 +360,20 @@ function renderHTML({ os, itens }) {
     letter-spacing: 0.3px;
   }
   .cond-val { color: #1a1f2e; margin-top: 1px; }
-
-  /* ── Rodapé ── */
-  .rodape {
-    margin-top: 24px;
-    padding-top: 10px;
-    border-top: 1px solid #e2e8f0;
-    text-align: center;
-    font-size: 9px;
-    color: #718096;
-    line-height: 1.6;
-  }
-  .rodape strong { color: #1a1f2e; }
 </style>
 </head>
 <body>
 
-<!-- Header -->
-<header class="header">
-  <div class="header-logo">
-    ${logo ? `<img src="${logo}" alt="General">` : `<strong style="font-size:20px;color:#1e3a5f;">GENERAL</strong>`}
-  </div>
-  <div class="header-right">
+${timbradoTag}
+
+<!-- Número e data do orçamento -->
+<div class="doc-info">
+  <div class="doc-info-box">
     <div class="doc-title">ORÇAMENTO</div>
     <div class="doc-num">Nº ${escapeHtml(orcNumero)}</div>
     <div class="doc-date">Data: ${escapeHtml(dataOrc)}</div>
   </div>
-</header>
+</div>
 
 <!-- Cliente -->
 <div class="cliente-box">
@@ -433,14 +435,6 @@ function renderHTML({ os, itens }) {
   </div>
 </div>
 
-<!-- Rodapé -->
-<div class="rodape">
-  <strong>General Engenharia da Manutenção</strong><br>
-  R. Bananal, 37 – Tatuapé – São Paulo/SP – CEP: 03073-080<br>
-  Tel.: (11) 2038-8679 | (11) 99019-6003 (Comercial) | (11) 96653-6110 (Plantão)<br>
-  www.ggeneral.com.br
-</div>
-
 </body></html>`;
 }
 
@@ -466,13 +460,8 @@ async function _gerarPdf(dados, subdir, idStr) {
     const pdfBuf = await page.pdf({
       format: "A4",
       printBackground: true,
-      margin: { top: "14mm", right: "14mm", bottom: "16mm", left: "14mm" },
-      displayHeaderFooter: true,
-      headerTemplate: `<div></div>`,
-      footerTemplate: `<div style="font-family:Arial,sans-serif;font-size:8px;color:#718096;width:100%;padding:0 14mm;display:flex;justify-content:space-between;">
-        <span>General Engenharia · Orç. ${escapeHtml(orcNumero)}</span>
-        <span>Página <span class="pageNumber"></span> de <span class="totalPages"></span></span>
-      </div>`,
+      margin: { top: "0", right: "0", bottom: "0", left: "0" },
+      displayHeaderFooter: false,
     });
     const buf = Buffer.isBuffer(pdfBuf) ? pdfBuf : Buffer.from(pdfBuf);
     await fsp.writeFile(fpath, buf);
