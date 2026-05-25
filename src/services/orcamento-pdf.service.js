@@ -71,6 +71,55 @@ async function buscarDadosOrcamento(osId) {
   return { os: osRes.rows[0], itens: itensRes.rows };
 }
 
+async function buscarDadosAvulso(orcamentoId) {
+  const r = await pool.query(
+    `SELECT
+       o.id,
+       o.numero,
+       o.status,
+       o.constatacao,
+       o.forma_pagamento,
+       o.prazo_entrega,
+       o.garantia,
+       o.disponibilidade,
+       o.valido_ate,
+       o.criado_em,
+       c.nome      AS condominio_nome,
+       c.endereco, c.bairro, c.cidade, c.uf, c.cep,
+       c.cnpj      AS condominio_cnpj
+     FROM orcamentos o
+     LEFT JOIN condominios c ON c.id = o.condominio_id
+     WHERE o.id = $1`,
+    [orcamentoId]
+  );
+  if (!r.rows.length) throw new Error("Orçamento não encontrado");
+
+  const linhasRes = await pool.query(
+    `SELECT id, descricao, ficha_tecnica, quantidade, valor_unitario
+     FROM orcamento_linhas
+     WHERE orcamento_id = $1
+     ORDER BY id ASC`,
+    [orcamentoId]
+  );
+
+  const o = r.rows[0];
+  // normalise para mesmo formato que buscarDadosOrcamento usa
+  const os = {
+    ...o,
+    os_numero:                o.numero,
+    orcamento_numero:         o.numero,
+    orcamento_constatacao:    o.constatacao,
+    orcamento_forma_pagamento: o.forma_pagamento,
+    orcamento_prazo_entrega:  o.prazo_entrega,
+    orcamento_garantia:       o.garantia,
+    orcamento_disponibilidade: o.disponibilidade,
+    orcamento_valido_ate:     o.valido_ate,
+    orcamento_status:         o.status,
+    finalizada_em:            o.criado_em,
+  };
+  return { os, itens: linhasRes.rows };
+}
+
 function renderHTML({ os, itens }) {
   const logo = logoBase64();
 
@@ -395,17 +444,16 @@ function renderHTML({ os, itens }) {
 </body></html>`;
 }
 
-async function gerarPdfOrcamento(osId) {
-  const dados = await buscarDadosOrcamento(osId);
+async function _gerarPdf(dados, subdir, idStr) {
   const { os } = dados;
-  const orcNumero = os.orcamento_numero || os.os_numero || String(os.id);
+  const orcNumero = os.orcamento_numero || os.os_numero || idStr;
 
   const html = renderHTML(dados);
-  const dir  = path.join(UPLOAD_ROOT, String(osId));
+  const dir  = path.join(UPLOAD_ROOT, subdir, idStr);
   await fsp.mkdir(dir, { recursive: true });
   const filename   = `orcamento-${orcNumero}.pdf`;
   const fpath      = path.join(dir, filename);
-  const urlPublica = `/uploads/orcamentos/${osId}/${filename}`;
+  const urlPublica = `/uploads/orcamentos/${subdir}/${idStr}/${filename}`;
 
   const browser = await puppeteer.launch({
     args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
@@ -435,4 +483,14 @@ async function gerarPdfOrcamento(osId) {
   return { pdf_url: urlPublica, fpath };
 }
 
-module.exports = { gerarPdfOrcamento };
+async function gerarPdfOrcamento(osId) {
+  const dados = await buscarDadosOrcamento(osId);
+  return _gerarPdf(dados, "os", String(osId));
+}
+
+async function gerarPdfAvulso(orcamentoId) {
+  const dados = await buscarDadosAvulso(orcamentoId);
+  return _gerarPdf(dados, "avulso", String(orcamentoId));
+}
+
+module.exports = { gerarPdfOrcamento, gerarPdfAvulso };

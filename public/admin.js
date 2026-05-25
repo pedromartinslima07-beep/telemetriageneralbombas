@@ -65,8 +65,10 @@ function showSection(name) {
     renderSecaoOS();
   }
   if (name === "orcamentos") {
+    _orcModoBindEventos();
+    _avBindEventos();
     _orcBindEventos();
-    carregarOrcamentos();
+    carregarAvulsos();
   }
   // Dashboard também tem Leaflet (mc-map). Quando o user volta pra dashboard,
   // revalida o tamanho — pode ter ficado com tiles travados se foi criado
@@ -9594,6 +9596,458 @@ function _osBindFormEventos() {
 // ORÇAMENTOS — seção admin
 // ============================================================
 
+// ─── Orçamentos modo: troca de aba principal ────────────────────────────────
+let _orcModoAtivo      = "avulso"; // "avulso" | "os"
+let _orcModoBindFeito  = false;
+
+function _orcModoBindEventos() {
+  if (_orcModoBindFeito) return;
+  _orcModoBindFeito = true;
+  document.getElementById("orcMainTabs")?.addEventListener("click", e => {
+    const btn = e.target.closest("[data-orc-modo]");
+    if (!btn) return;
+    const modo = btn.dataset.orcModo;
+    if (modo === _orcModoAtivo) return;
+    _orcModoAtivo = modo;
+    document.querySelectorAll("[data-orc-modo]").forEach(b => b.classList.toggle("is-active", b === btn));
+    document.getElementById("orcModoAvulso").style.display = modo === "avulso" ? "" : "none";
+    document.getElementById("orcModoOS").style.display     = modo === "os"     ? "" : "none";
+    if (modo === "os") { carregarOrcamentos(); }
+    else               { carregarAvulsos(); }
+  });
+}
+
+// ─── Orçamentos avulsos ──────────────────────────────────────────────────────
+let _avData        = [];
+let _avTabAtiva    = "todos";
+let _avSelecionado = null;
+let _avLinhas      = [];
+let _avLinhasId    = null;
+let _avBindFeito   = false;
+let _avCondos      = []; // lista de condominios para o select
+
+async function carregarAvulsos() {
+  try {
+    const [rAv, rCond] = await Promise.all([
+      fetch("/admin/orcamentos/avulsos", { headers: authHeaders() }),
+      _avCondos.length ? null : fetch("/admin/condominios/lista", { headers: authHeaders() }),
+    ]);
+    if (!rAv.ok) return;
+    _avData = await rAv.json();
+    if (rCond && rCond.ok) _avCondos = await rCond.json();
+    _avRenderTudo();
+  } catch (e) {
+    console.error("carregarAvulsos:", e);
+  }
+}
+
+function _avStatusCls(s) {
+  if (s === "aprovado")  return "orc-status-ok";
+  if (s === "rejeitado") return "orc-status-bad";
+  if (s === "enviado")   return "orc-status-pend";
+  return "orc-status-off";
+}
+function _avStatusLabel(s) {
+  return { aprovado:"APROVADO", rejeitado:"REJEITADO", enviado:"ENVIADO", rascunho:"RASCUNHO" }[s] || s.toUpperCase();
+}
+
+function _avFiltrados() {
+  const q = (document.getElementById("avBusca")?.value || "").trim().toLowerCase();
+  return _avData.filter(o => {
+    if (_avTabAtiva !== "todos" && o.status !== _avTabAtiva) return false;
+    if (q) {
+      const blob = `${o.condominio_nome || ""} ${o.numero || ""}`.toLowerCase();
+      if (!blob.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+function _avRenderTudo() {
+  const total   = _avData.length;
+  const rascunho= _avData.filter(o => o.status === "rascunho").length;
+  const enviado = _avData.filter(o => o.status === "enviado").length;
+  const aprov   = _avData.filter(o => o.status === "aprovado").length;
+  const totalVal= _avData.reduce((s, o) => s + Number(o.valor_total || 0), 0);
+
+  const ICO_LIST  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>`;
+  const ICO_DRAFT = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>`;
+  const ICO_SEND  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>`;
+  const ICO_MONEY = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>`;
+
+  const kpi = (ico, val, label, cls) => `
+    <div class="rc ${cls} rc-static">
+      <div class="rc-head"><div class="rc-icon">${ico}</div><div class="rc-label">${label}</div></div>
+      <div class="rc-value">${val}</div>
+    </div>`;
+
+  const grid = document.getElementById("avKpiGrid");
+  if (grid) grid.innerHTML =
+    kpi(ICO_LIST,  total,                "Total",           "rc-neutral") +
+    kpi(ICO_DRAFT, rascunho,             "Rascunho",        rascunho > 0 ? "rc-warn" : "rc-neutral") +
+    kpi(ICO_SEND,  enviado,              "Enviado",         enviado  > 0 ? "rc-warn" : "rc-neutral") +
+    kpi(ICO_MONEY, _orcFmtValor(totalVal || null), "Total aprovado", aprov > 0 ? "rc-ok" : "rc-neutral");
+
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  set("avCtTodos",    total);
+  set("avCtRascunho", rascunho);
+  set("avCtEnviado",  enviado);
+  set("avCtAprovado", aprov);
+
+  const lista = _avFiltrados();
+  const tbody = document.getElementById("avTableBody");
+  const empty = document.getElementById("avEmpty");
+  if (!tbody) return;
+
+  if (!lista.length) {
+    tbody.innerHTML = "";
+    if (empty) empty.style.display = "flex";
+  } else {
+    if (empty) empty.style.display = "none";
+    tbody.innerHTML = lista.map(o => {
+      const sel = _avSelecionado?.id === o.id ? " is-selected" : "";
+      return `<tr class="${sel.trim()}" data-av-id="${o.id}" style="cursor:pointer;">
+        <td><span class="mono" style="font-size:11px;">${_waEscaparHtml(o.numero || "—")}</span></td>
+        <td>${_waEscaparHtml(o.condominio_nome || "—")}</td>
+        <td style="font-weight:700;">${_orcFmtValor(o.valor_total)}</td>
+        <td><span class="orc-status-pill ${_avStatusCls(o.status)}">${_avStatusLabel(o.status)}</span></td>
+        <td style="color:var(--muted);font-size:11px;">${_orcFmtData(o.criado_em)}</td>
+      </tr>`;
+    }).join("");
+  }
+
+  _avRenderPainel();
+}
+
+function _avRenderPainel() {
+  const wrap = document.getElementById("avPainel");
+  if (!wrap) return;
+
+  if (!_avSelecionado) {
+    wrap.innerHTML = `<div class="al-empty">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+      </svg>
+      <p>Selecione ou crie um orçamento</p>
+    </div>`;
+    return;
+  }
+
+  const o = _avSelecionado;
+  const validadeVal = o.valido_ate ? new Date(o.valido_ate).toISOString().split("T")[0] : "";
+  const condoOptions = _avCondos.map(c =>
+    `<option value="${c.id}" ${String(c.id) === String(o.condominio_id) ? "selected" : ""}>${_waEscaparHtml(c.nome)}</option>`
+  ).join("");
+
+  wrap.innerHTML = `
+    <div class="ap-head">
+      <div>
+        <div class="ap-title">${_waEscaparHtml(o.numero || "Novo orçamento")}</div>
+        <div class="ap-sub">
+          <span class="orc-status-pill ${_avStatusCls(o.status)}">${_avStatusLabel(o.status)}</span>
+          · ${_orcFmtData(o.criado_em)}
+        </div>
+      </div>
+      <button class="ap-close" data-av-action="fechar" title="Fechar">×</button>
+    </div>
+
+    <div class="ap-section orc-form-section">
+      <div class="orc-form-row" style="margin-bottom:10px;">
+        <label class="orc-form-label">Nº Orçamento
+          <input id="avInputNumero" class="input" type="text" maxlength="30" placeholder="OR-XXXXXX"
+            value="${_waEscaparHtml(o.numero || '')}">
+        </label>
+        <label class="orc-form-label">Válido até
+          <input id="avInputValidade" class="input" type="date" value="${validadeVal}">
+        </label>
+      </div>
+
+      <label class="orc-form-label" style="display:flex;flex-direction:column;margin-bottom:10px;">
+        Condomínio / Cliente
+        <select id="avInputCondo" class="select" style="margin-top:4px;">
+          <option value="">Selecionar…</option>
+          ${condoOptions}
+        </select>
+      </label>
+
+      <label class="orc-form-label" style="display:flex;flex-direction:column;margin-bottom:10px;">
+        Constatação
+        <textarea id="avInputConstatacao" class="input" rows="3" maxlength="1000"
+          style="resize:vertical;font-size:12px;padding:8px 10px;margin-top:4px;"
+          placeholder="Descreva o serviço ou problema constatado…">${_waEscaparHtml(o.constatacao || '')}</textarea>
+      </label>
+
+      <!-- Itens -->
+      <div class="ap-section-title" style="margin-top:4px;margin-bottom:8px;">Itens</div>
+      <div id="avItensWrap">
+        <div style="color:var(--muted);font-size:12px;padding:8px 0;">Carregando…</div>
+      </div>
+
+      <!-- Condições -->
+      <div class="ap-section-title" style="margin-top:12px;margin-bottom:8px;">Condições Comerciais</div>
+      <div class="orc-form-row" style="margin-bottom:8px;">
+        <label class="orc-form-label">Forma de pagamento
+          <input id="avInputPagamento" class="input" type="text" maxlength="255"
+            placeholder="Via boleto bancário" value="${_waEscaparHtml(o.forma_pagamento || '')}">
+        </label>
+        <label class="orc-form-label">Prazo de entrega
+          <input id="avInputPrazo" class="input" type="text" maxlength="100"
+            placeholder="5 dias úteis após aprovação" value="${_waEscaparHtml(o.prazo_entrega || '')}">
+        </label>
+      </div>
+      <div class="orc-form-row" style="margin-bottom:10px;">
+        <label class="orc-form-label">Garantia
+          <input id="avInputGarantia" class="input" type="text" maxlength="100"
+            placeholder="12 meses por defeito de fabricação" value="${_waEscaparHtml(o.garantia || '')}">
+        </label>
+        <label class="orc-form-label">Status
+          <select id="avInputStatus" class="select" style="margin-top:4px;">
+            <option value="rascunho" ${o.status==="rascunho"?"selected":""}>Rascunho</option>
+            <option value="enviado"  ${o.status==="enviado" ?"selected":""}>Enviado ao cliente</option>
+            <option value="aprovado" ${o.status==="aprovado"?"selected":""}>Aprovado</option>
+            <option value="rejeitado"${o.status==="rejeitado"?"selected":""}>Rejeitado</option>
+          </select>
+        </label>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:4px;">
+        <button class="btn btn-sm" data-av-action="salvar" style="flex-shrink:0;">Salvar</button>
+        <button class="btn btn-sm" data-av-action="gerar-pdf"
+          style="flex-shrink:0;background:rgba(240,176,20,.1);border-color:rgba(240,176,20,.4);color:#f0b014;">
+          ↓ Gerar PDF
+        </button>
+        <button class="btn btn-sm" data-av-action="deletar"
+          style="flex-shrink:0;background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.25);color:#f87171;">
+          Excluir
+        </button>
+        <span class="orc-form-msg" id="avFormMsg"></span>
+      </div>
+    </div>`;
+
+  _avCarregarLinhas(o.id);
+}
+
+async function _avCarregarLinhas(orcId) {
+  try {
+    const r = await fetch(`/admin/orcamentos/avulsos/${orcId}/linhas`, { headers: authHeaders() });
+    if (!r.ok) return;
+    _avLinhas   = await r.json();
+    _avLinhasId = orcId;
+    _avRenderLinhas();
+  } catch (e) { console.error("_avCarregarLinhas:", e); }
+}
+
+function _avRenderLinhas() {
+  const wrap = document.getElementById("avItensWrap");
+  if (!wrap || _avLinhasId !== _avSelecionado?.id) return;
+
+  const total = _avLinhas.reduce((s, l) => s + Number(l.valor_unitario) * Number(l.quantidade), 0);
+
+  const fileiras = _avLinhas.map(l => {
+    const tot = Number(l.valor_unitario) * Number(l.quantidade);
+    return `<tr data-av-linha-id="${l.id}">
+      <td style="max-width:160px;">
+        <div style="font-size:12px;font-weight:500;">${_waEscaparHtml(l.descricao)}</div>
+        ${l.ficha_tecnica ? `<div style="font-size:10.5px;color:var(--muted);margin-top:2px;white-space:pre-line;">${_waEscaparHtml(l.ficha_tecnica)}</div>` : ""}
+      </td>
+      <td class="orc-it-num">${l.quantidade}</td>
+      <td class="orc-it-num">${_orcFmtValor(l.valor_unitario)}</td>
+      <td class="orc-it-num" style="font-weight:600;">${_orcFmtValor(tot)}</td>
+      <td style="text-align:center;"><button class="orc-it-del" data-av-del-linha="${l.id}" title="Remover">✕</button></td>
+    </tr>`;
+  }).join("");
+
+  wrap.innerHTML = `
+    <table class="orc-itens-table">
+      <thead>
+        <tr>
+          <th>Descrição / Ficha técnica</th>
+          <th class="orc-it-num">Qtd</th>
+          <th class="orc-it-num">Unit.</th>
+          <th class="orc-it-num">Total</th>
+          <th style="width:30px;"></th>
+        </tr>
+      </thead>
+      <tbody>${fileiras || '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:12px;font-size:12px;">Nenhum item ainda.</td></tr>'}</tbody>
+    </table>
+    ${_avLinhas.length ? `<div style="text-align:right;font-size:12px;font-weight:700;padding:6px 8px 0;color:var(--accent);">Total: ${_orcFmtValor(total)}</div>` : ""}
+
+    <div class="orc-add-item-form" id="avAddLinhaForm">
+      <div class="orc-add-item-row">
+        <input id="avNewDesc" class="input" type="text" placeholder="Descrição do item *" maxlength="500" style="flex:2;">
+        <input id="avNewQtd"  class="input" type="number" min="1" step="1" placeholder="Qtd" value="1" style="width:60px;">
+        <input id="avNewVal"  class="input" type="number" min="0" step="0.01" placeholder="R$ unit." style="width:90px;">
+      </div>
+      <textarea id="avNewFicha" class="input" rows="2" maxlength="1000"
+        placeholder="Ficha técnica (opcional) — ex: Marca: Weg&#10;Potência: 1.5cv"
+        style="font-size:11.5px;resize:vertical;margin-top:6px;"></textarea>
+      <button class="btn btn-sm" data-av-action="add-linha" style="margin-top:6px;align-self:flex-start;">+ Adicionar item</button>
+    </div>`;
+}
+
+async function _avAcao(acao) {
+  const msg = document.getElementById("avFormMsg");
+
+  if (acao === "novo") {
+    if (msg) msg.textContent = "Criando…";
+    try {
+      const r = await fetch("/admin/orcamentos/avulsos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders() },
+        body: JSON.stringify({}),
+      });
+      const j = await r.json();
+      if (!r.ok) { alert(j.error || "Erro ao criar"); return; }
+      _avData.unshift(j);
+      _avSelecionado = j;
+      _avLinhas = []; _avLinhasId = j.id;
+      _avRenderTudo();
+    } catch (e) { alert("Erro: " + e.message); }
+    return;
+  }
+
+  if (!_avSelecionado) return;
+  const id = _avSelecionado.id;
+
+  if (acao === "add-linha") {
+    const desc  = document.getElementById("avNewDesc")?.value.trim();
+    const qtd   = Number(document.getElementById("avNewQtd")?.value) || 1;
+    const valor = Number(document.getElementById("avNewVal")?.value) || 0;
+    const ficha = document.getElementById("avNewFicha")?.value.trim() || null;
+    if (!desc) { alert("Informe a descrição."); return; }
+    if (msg) msg.textContent = "Adicionando…";
+    try {
+      const r = await fetch(`/admin/orcamentos/avulsos/${id}/linhas`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders() },
+        body: JSON.stringify({ descricao: desc, ficha_tecnica: ficha, quantidade: qtd, valor_unitario: valor }),
+      });
+      const j = await r.json();
+      if (!r.ok) { if (msg) msg.textContent = j.error || "Erro"; return; }
+      _avLinhas.push(j);
+      const clr = (i, v="") => { const el = document.getElementById(i); if (el) el.value = v; };
+      clr("avNewDesc"); clr("avNewQtd","1"); clr("avNewVal"); clr("avNewFicha");
+      if (msg) msg.textContent = "✓ Item adicionado";
+      setTimeout(() => { if (msg) msg.textContent = ""; }, 2000);
+      _avRenderLinhas();
+      // Atualiza valor_total no _avData local
+      const idx = _avData.findIndex(o => o.id === id);
+      if (idx !== -1) _avData[idx].valor_total = _avLinhas.reduce((s, l) => s + Number(l.valor_unitario) * Number(l.quantidade), 0);
+    } catch (e) { if (msg) msg.textContent = "Erro: " + e.message; }
+    return;
+  }
+
+  if (acao === "del-linha") return; // handled via data-av-del-linha
+
+  if (acao === "gerar-pdf") {
+    if (msg) msg.textContent = "Gerando PDF…";
+    try {
+      const url = `/admin/orcamentos/avulsos/${id}/pdf`;
+      const r = await fetch(url, { headers: authHeaders() });
+      if (!r.ok) { const j = await r.json().catch(()=>({})); if (msg) msg.textContent = j.error || "Erro"; return; }
+      window.open(url + "?t=" + Date.now(), "_blank");
+      if (msg) msg.textContent = "✓ PDF gerado";
+      setTimeout(() => { if (msg) msg.textContent = ""; }, 3000);
+    } catch (e) { if (msg) msg.textContent = "Erro: " + e.message; }
+    return;
+  }
+
+  if (acao === "deletar") {
+    if (!confirm("Excluir este orçamento e todos seus itens?")) return;
+    try {
+      await fetch(`/admin/orcamentos/avulsos/${id}`, { method: "DELETE", headers: authHeaders() });
+      _avData = _avData.filter(o => o.id !== id);
+      _avSelecionado = null; _avLinhas = []; _avLinhasId = null;
+      _avRenderTudo();
+    } catch (e) { alert("Erro: " + e.message); }
+    return;
+  }
+
+  // salvar
+  if (msg) msg.textContent = "Salvando…";
+  const body = {
+    numero:          document.getElementById("avInputNumero")?.value.trim() || null,
+    condominio_id:   document.getElementById("avInputCondo")?.value || null,
+    constatacao:     document.getElementById("avInputConstatacao")?.value.trim() || null,
+    forma_pagamento: document.getElementById("avInputPagamento")?.value.trim() || null,
+    prazo_entrega:   document.getElementById("avInputPrazo")?.value.trim() || null,
+    garantia:        document.getElementById("avInputGarantia")?.value.trim() || null,
+    valido_ate:      document.getElementById("avInputValidade")?.value || null,
+    status:          document.getElementById("avInputStatus")?.value || "rascunho",
+  };
+  try {
+    const r = await fetch(`/admin/orcamentos/avulsos/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      body: JSON.stringify(body),
+    });
+    const j = await r.json();
+    if (!r.ok) { if (msg) msg.textContent = j.error || "Erro"; return; }
+    const idx = _avData.findIndex(o => o.id === id);
+    if (idx !== -1) {
+      Object.assign(_avData[idx], j);
+      // preservar condominio_nome
+      if (body.condominio_id) {
+        const c = _avCondos.find(c => String(c.id) === String(body.condominio_id));
+        if (c) _avData[idx].condominio_nome = c.nome;
+      }
+    }
+    _avSelecionado = _avData[idx] || _avSelecionado;
+    if (msg) msg.textContent = "✓ Salvo";
+    setTimeout(() => { if (msg) msg.textContent = ""; }, 2000);
+    _avRenderTudo();
+  } catch (e) { if (msg) msg.textContent = "Erro: " + e.message; }
+}
+
+async function _avRemoverLinha(linhaId) {
+  if (!confirm("Remover este item?")) return;
+  try {
+    await fetch(`/admin/orcamentos/avulsos/linhas/${linhaId}`, { method: "DELETE", headers: authHeaders() });
+    _avLinhas = _avLinhas.filter(l => l.id !== linhaId);
+    // Atualiza total local
+    const idx = _avData.findIndex(o => o.id === _avSelecionado?.id);
+    if (idx !== -1) _avData[idx].valor_total = _avLinhas.reduce((s, l) => s + Number(l.valor_unitario) * Number(l.quantidade), 0);
+    _avRenderLinhas();
+  } catch (e) { alert("Erro: " + e.message); }
+}
+
+function _avBindEventos() {
+  if (_avBindFeito) return;
+  _avBindFeito = true;
+
+  document.getElementById("avBtnNovo")?.addEventListener("click", () => _avAcao("novo"));
+
+  document.querySelectorAll("[data-av-tab]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      _avTabAtiva = btn.dataset.avTab;
+      document.querySelectorAll("[data-av-tab]").forEach(b => b.classList.toggle("is-active", b === btn));
+      _avRenderTudo();
+    });
+  });
+
+  document.getElementById("avBusca")?.addEventListener("input", _avRenderTudo);
+
+  document.getElementById("avTableBody")?.addEventListener("click", e => {
+    const row = e.target.closest("tr[data-av-id]");
+    if (!row) return;
+    const id = Number(row.dataset.avId);
+    _avSelecionado = _avData.find(o => o.id === id) || null;
+    _avRenderTudo();
+  });
+
+  document.getElementById("avPainel")?.addEventListener("click", e => {
+    const delBtn = e.target.closest("[data-av-del-linha]");
+    if (delBtn) { _avRemoverLinha(Number(delBtn.dataset.avDelLinha)); return; }
+
+    const btn = e.target.closest("[data-av-action]");
+    if (!btn) return;
+    const acao = btn.dataset.avAction;
+    if (acao === "fechar") { _avSelecionado = null; _avRenderTudo(); }
+    else _avAcao(acao);
+  });
+}
+
+// ─── Orçamentos por OS ───────────────────────────────────────────────────────
 let _orcData        = [];
 let _orcTabAtiva    = "todos";
 let _orcSelecionado = null;

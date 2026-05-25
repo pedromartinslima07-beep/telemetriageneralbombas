@@ -4,7 +4,7 @@ const crypto = require("crypto");
 const bcrypt = require("bcrypt");
 const path = require("path");
 const { pool } = require("../db");
-const { gerarPdfOrcamento } = require("../services/orcamento-pdf.service");
+const { gerarPdfOrcamento, gerarPdfAvulso } = require("../services/orcamento-pdf.service");
 
 const { authRequired } = require("../middleware/authRequired");
 const { adminOnly } = require("../middleware/adminOnly");
@@ -944,6 +944,196 @@ router.get("/orcamentos/:os_id/pdf", authRequired, adminOnly, async (req, res) =
   } catch (err) {
     console.error("[admin] GET /orcamentos/:os_id/pdf:", err);
     return res.status(500).json({ error: err.message || "Erro ao gerar PDF" });
+  }
+});
+
+// ── Orçamentos avulsos (criados direto no admin) ──────────────────────────────
+
+// GET /admin/orcamentos/avulsos — lista
+router.get("/orcamentos/avulsos", authRequired, adminOnly, async (req, res) => {
+  try {
+    const r = await pool.query(
+      `SELECT o.id, o.numero, o.status, o.valido_ate, o.criado_em,
+              c.nome AS condominio_nome, c.id AS condominio_id,
+              COALESCE(
+                (SELECT SUM(l.quantidade * l.valor_unitario)
+                 FROM orcamento_linhas l WHERE l.orcamento_id = o.id), 0
+              ) AS valor_total
+       FROM orcamentos o
+       LEFT JOIN condominios c ON c.id = o.condominio_id
+       ORDER BY o.criado_em DESC
+       LIMIT 300`
+    );
+    return res.json(r.rows);
+  } catch (err) {
+    console.error("[admin] GET /orcamentos/avulsos:", err);
+    return res.status(500).json({ error: "Erro ao listar orçamentos" });
+  }
+});
+
+// POST /admin/orcamentos/avulsos — criar novo
+router.post("/orcamentos/avulsos", authRequired, adminOnly, async (req, res) => {
+  const { condominio_id, numero, constatacao, forma_pagamento, prazo_entrega, garantia, disponibilidade, valido_ate } = req.body || {};
+  try {
+    // gera numero automático se não enviado
+    const num = numero ? String(numero).trim().slice(0, 30) : null;
+    const r = await pool.query(
+      `INSERT INTO orcamentos
+         (numero, condominio_id, constatacao, forma_pagamento, prazo_entrega,
+          garantia, disponibilidade, valido_ate, criado_por)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8::date,$9)
+       RETURNING *`,
+      [
+        num,
+        condominio_id ? Number(condominio_id) : null,
+        constatacao ? String(constatacao).slice(0, 1000) : null,
+        forma_pagamento ? String(forma_pagamento).slice(0, 255) : "Via boleto bancário",
+        prazo_entrega ? String(prazo_entrega).slice(0, 100) : "5 dias úteis após aprovação",
+        garantia ? String(garantia).slice(0, 100) : "12 meses por defeito de fabricação",
+        disponibilidade ? String(disponibilidade).slice(0, 100) : "Total",
+        valido_ate || null,
+        req.user.id,
+      ]
+    );
+    return res.status(201).json(r.rows[0]);
+  } catch (err) {
+    console.error("[admin] POST /orcamentos/avulsos:", err);
+    return res.status(500).json({ error: "Erro ao criar orçamento" });
+  }
+});
+
+// PATCH /admin/orcamentos/avulsos/:id — atualizar
+router.patch("/orcamentos/avulsos/:id", authRequired, adminOnly, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
+
+  const fields = ["numero","condominio_id","status","constatacao","forma_pagamento","prazo_entrega","garantia","disponibilidade","valido_ate"];
+  const sets = []; const vals = [id];
+
+  for (const f of fields) {
+    if (!(f in (req.body || {}))) continue;
+    const v = req.body[f];
+    if (f === "condominio_id") { vals.push(v ? Number(v) : null); sets.push(`${f} = $${vals.length}`); }
+    else if (f === "valido_ate") { vals.push(v || null); sets.push(`valido_ate = $${vals.length}::date`); }
+    else if (f === "status") {
+      if (!["rascunho","enviado","aprovado","rejeitado"].includes(v)) return res.status(400).json({ error: "status inválido" });
+      vals.push(v); sets.push(`status = $${vals.length}`);
+    }
+    else { vals.push(v != null ? String(v).slice(0, 255) : null); sets.push(`${f} = $${vals.length}`); }
+  }
+
+  if (!sets.length) return res.status(400).json({ error: "Nenhum campo para atualizar" });
+
+  try {
+    const r = await pool.query(
+      `UPDATE orcamentos SET ${sets.join(",")} WHERE id = $1
+       RETURNING id, numero, status, condominio_id, constatacao,
+                 forma_pagamento, prazo_entrega, garantia, disponibilidade, valido_ate`,
+      vals
+    );
+    if (!r.rows.length) return res.status(404).json({ error: "Orçamento não encontrado" });
+
+    // Recalcula valor_total para retornar junto
+    const tot = await pool.query(
+      `SELECT COALESCE(SUM(quantidade * valor_unitario),0) AS valor_total
+       FROM orcamento_linhas WHERE orcamento_id = $1`, [id]
+    );
+    return res.json({ ...r.rows[0], valor_total: tot.rows[0].valor_total });
+  } catch (err) {
+    console.error("[admin] PATCH /orcamentos/avulsos/:id:", err);
+    return res.status(500).json({ error: "Erro ao atualizar orçamento" });
+  }
+});
+
+// DELETE /admin/orcamentos/avulsos/:id
+router.delete("/orcamentos/avulsos/:id", authRequired, adminOnly, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
+  try {
+    await pool.query("DELETE FROM orcamentos WHERE id = $1", [id]);
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("[admin] DELETE /orcamentos/avulsos/:id:", err);
+    return res.status(500).json({ error: "Erro ao deletar" });
+  }
+});
+
+// GET /admin/orcamentos/avulsos/:id/linhas
+router.get("/orcamentos/avulsos/:id/linhas", authRequired, adminOnly, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
+  try {
+    const r = await pool.query(
+      `SELECT id, descricao, ficha_tecnica, quantidade, valor_unitario
+       FROM orcamento_linhas WHERE orcamento_id = $1 ORDER BY id ASC`, [id]
+    );
+    return res.json(r.rows);
+  } catch (err) {
+    console.error("[admin] GET /orcamentos/avulsos/:id/linhas:", err);
+    return res.status(500).json({ error: "Erro ao buscar linhas" });
+  }
+});
+
+// POST /admin/orcamentos/avulsos/:id/linhas
+router.post("/orcamentos/avulsos/:id/linhas", authRequired, adminOnly, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
+  const { descricao, ficha_tecnica, quantidade, valor_unitario } = req.body || {};
+  if (!descricao || !String(descricao).trim()) return res.status(400).json({ error: "descricao obrigatória" });
+  const qtd = Math.max(1, Number(quantidade) || 1);
+  const vu  = Math.max(0, Number(valor_unitario) || 0);
+  try {
+    const r = await pool.query(
+      `INSERT INTO orcamento_linhas (orcamento_id, descricao, ficha_tecnica, quantidade, valor_unitario)
+       VALUES ($1,$2,$3,$4,$5) RETURNING id, descricao, ficha_tecnica, quantidade, valor_unitario`,
+      [id, String(descricao).trim(), ficha_tecnica ? String(ficha_tecnica).trim() : null, qtd, vu]
+    );
+    return res.status(201).json(r.rows[0]);
+  } catch (err) {
+    console.error("[admin] POST /orcamentos/avulsos/:id/linhas:", err);
+    return res.status(500).json({ error: "Erro ao criar linha" });
+  }
+});
+
+// DELETE /admin/orcamentos/avulsos/linhas/:linha_id
+router.delete("/orcamentos/avulsos/linhas/:linha_id", authRequired, adminOnly, async (req, res) => {
+  const linhaId = Number(req.params.linha_id);
+  if (!Number.isInteger(linhaId) || linhaId <= 0) return res.status(400).json({ error: "linha_id inválido" });
+  try {
+    await pool.query("DELETE FROM orcamento_linhas WHERE id = $1", [linhaId]);
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("[admin] DELETE /orcamentos/avulsos/linhas/:linha_id:", err);
+    return res.status(500).json({ error: "Erro ao remover linha" });
+  }
+});
+
+// GET /admin/orcamentos/avulsos/:id/pdf
+router.get("/orcamentos/avulsos/:id/pdf", authRequired, adminOnly, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
+  try {
+    const { fpath } = await gerarPdfAvulso(id);
+    const fs = require("fs");
+    if (!fs.existsSync(fpath)) return res.status(500).json({ error: "PDF não gerado" });
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `inline; filename="orcamento-${id}.pdf"`);
+    fs.createReadStream(fpath).pipe(res);
+  } catch (err) {
+    console.error("[admin] GET /orcamentos/avulsos/:id/pdf:", err);
+    return res.status(500).json({ error: err.message || "Erro ao gerar PDF" });
+  }
+});
+
+// GET /admin/condominios/lista — lista simples para selects
+router.get("/condominios/lista", authRequired, adminOnly, async (req, res) => {
+  try {
+    const r = await pool.query(
+      `SELECT id, nome FROM condominios WHERE ativo = true ORDER BY nome ASC`
+    );
+    return res.json(r.rows);
+  } catch (err) {
+    return res.status(500).json({ error: "Erro ao listar condomínios" });
   }
 });
 

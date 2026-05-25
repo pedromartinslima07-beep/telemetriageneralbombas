@@ -5569,6 +5569,35 @@ body.role-viewer .viewer-only-hide-inline {
 }
 .orc-btn-reject:hover { background: rgba(239,68,68,.2); }
 
+/* ── Abas principais da seção de orçamentos ── */
+.orc-main-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0;
+}
+.orc-main-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 18px;
+  border: none;
+  background: none;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: color .15s, border-color .15s;
+}
+.orc-main-tab:hover { color: var(--text); }
+.orc-main-tab.is-active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
 /* ── Itens do orçamento ── */
 .orc-itens-table {
   width: 100%;
