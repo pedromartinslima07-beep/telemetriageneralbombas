@@ -4,7 +4,7 @@
 // este SW. Sem essa lista, o SW intercepta o GET com cache first e serve
 // resposta antiga — sintoma clássico: dado aparece em Ctrl+Shift+R mas some
 // em F5. Ver CLAUDE.md raiz pro racional completo.
-const CACHE_NAME = "telemetria-v29";
+const CACHE_NAME = "telemetria-v30";
 
 // Permite que a página force a ativação imediata desta versão (sem esperar
 // todos os clients fecharem). Pareado com o postMessage no register-sw.js.
@@ -18,7 +18,8 @@ const STATIC_ASSETS = [
   "/static/login.js",
   "/static/admin.css",
   "/static/favicon.png",
-  "/static/login-logo.png",
+  // login-logo.png removido do precache — é asset que pode mudar e causava
+  // o sintoma "Ctrl+Shift+R atualiza, F5 volta pra antiga"
   "/static/icons/icon-192x192.png",
   "/static/icons/icon-512x512.png",
 ];
