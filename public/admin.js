@@ -2660,8 +2660,11 @@ function renderTecTabela() {
     const dispBadge = t.disponivel
       ? `<span class="ch-st ch-st-fechado">Disponível</span>`
       : `<span class="ch-st ch-st-em_atendimento">Ocupado</span>`;
+    const avatarHtml = t.foto_url
+      ? `<span class="tec-row-avatar"><img src="${t.foto_url}" alt=""></span>`
+      : `<span class="tec-row-avatar">${_tecIniciais(t.nome)}</span>`;
     return `<tr class="ch-row${sel}" data-tec-id="${t.id}" style="cursor:pointer;">
-      <td style="font-weight:500;font-size:12px;">${_waEscaparHtml(t.nome)}</td>
+      <td style="font-weight:500;font-size:12px;display:flex;align-items:center;">${avatarHtml}${_waEscaparHtml(t.nome)}</td>
       <td style="font-size:11px;color:var(--muted);">${_waEscaparHtml(t.telefone || "—")}</td>
       <td><span class="ch-cat-badge">${_waEscaparHtml(t.especialidade || "—")}</span></td>
       <td style="font-size:12px;text-align:center;">${t.chamados_abertos ?? 0}</td>
@@ -2686,6 +2689,10 @@ function renderTecDetalhe(t) {
     ? `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;background:rgba(34,197,94,.15);color:var(--ok);">Disponível</span>`
     : `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;background:rgba(251,146,60,.15);color:#fb923c;">Ocupado</span>`;
 
+  const avatarDet = t.foto_url
+    ? `<div class="tec-det-avatar"><img src="${t.foto_url}" alt="foto"></div>`
+    : `<div class="tec-det-avatar">${_tecIniciais(t.nome)}</div>`;
+
   // Chamados atribuídos a este técnico
   const chamadosTec = (Array.isArray(_chamadosData) ? _chamadosData : [])
     .filter(ch => Number(ch.tecnico_id) === Number(t.id));
@@ -2698,21 +2705,50 @@ function renderTecDetalhe(t) {
       <span style="font-size:11px;">${_waEscaparHtml(ch.titulo || "Sem título")}</span>
     </div>`).join("") || `<div style="font-size:11px;color:var(--muted);">Nenhum chamado em aberto.</div>`;
 
-  col.innerHTML = `<div class="ch-detail">
-    <div class="ch-det-head">
-      <span class="ch-det-id" style="font-size:10px;">${_waEscaparHtml(t.especialidade || "Técnico")}</span>
-      ${dispBadge}
-    </div>
-    <div class="ch-det-title">${_waEscaparHtml(t.nome)}</div>
+  const fmtNasc = n => {
+    if (!n) return null;
+    const d = new Date(n);
+    if (isNaN(d)) return null;
+    return d.toLocaleDateString("pt-BR", { timeZone: "UTC" });
+  };
 
-    <div class="ch-det-section">
-      <div class="ch-det-sec-title">Informações</div>
-      <div class="ch-det-meta">
-        ${t.telefone ? `<div class="ch-met-row"><span class="ch-met-lbl">Telefone</span><span style="font-size:12px;">${_waEscaparHtml(t.telefone)}</span></div>` : ""}
-        ${t.email    ? `<div class="ch-met-row"><span class="ch-met-lbl">Email</span><span style="font-size:12px;">${_waEscaparHtml(t.email)}</span></div>` : ""}
-        <div class="ch-met-row"><span class="ch-met-lbl">Cadastrado em</span><span style="font-size:12px;">${fmtData(t.criado_em)}</span></div>
+  const row = (lbl, val) => val ? `<div class="ch-met-row"><span class="ch-met-lbl">${lbl}</span><span style="font-size:12px;">${_waEscaparHtml(val)}</span></div>` : "";
+
+  col.innerHTML = `<div class="ch-detail">
+    <div class="tec-det-head-row">
+      ${avatarDet}
+      <div class="tec-det-head-info">
+        <div class="ch-det-title" style="margin-bottom:4px;">${_waEscaparHtml(t.nome)}</div>
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+          ${t.especialidade ? `<span class="ch-cat-badge">${_waEscaparHtml(t.especialidade)}</span>` : ""}
+          ${dispBadge}
+        </div>
       </div>
     </div>
+
+    <div class="ch-det-section">
+      <div class="ch-det-sec-title">Contato</div>
+      <div class="ch-det-meta">
+        ${row("Telefone", t.telefone)}
+        ${row("Email", t.email)}
+        ${row("Endereço", t.endereco)}
+      </div>
+    </div>
+
+    <div class="ch-det-section">
+      <div class="ch-det-sec-title">Documentos</div>
+      <div class="ch-det-meta">
+        ${row("CPF", t.cpf)}
+        ${row("RG", t.rg)}
+        ${row("Nascimento", fmtNasc(t.data_nascimento))}
+        ${row("Cadastrado em", fmtData(t.criado_em))}
+      </div>
+    </div>
+
+    ${t.observacoes ? `<div class="ch-det-section">
+      <div class="ch-det-sec-title">Observações</div>
+      <div style="font-size:12px;color:var(--text);padding:8px;background:var(--surface3);border-radius:6px;">${_waEscaparHtml(t.observacoes)}</div>
+    </div>` : ""}
 
     <div class="ch-det-section">
       <div class="ch-det-sec-title">Chamados</div>
@@ -2743,52 +2779,121 @@ function renderTecnicos() {
   }
 }
 
+function _tecFotoBase64(file) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const reader = new FileReader();
+    reader.onload = e => { img.src = e.target.result; };
+    img.onload = () => {
+      const SIZE = 300;
+      const canvas = document.createElement("canvas");
+      canvas.width = SIZE; canvas.height = SIZE;
+      const ctx = canvas.getContext("2d");
+      const side = Math.min(img.width, img.height);
+      const ox = (img.width - side) / 2;
+      const oy = (img.height - side) / 2;
+      ctx.drawImage(img, ox, oy, side, side, 0, 0, SIZE, SIZE);
+      resolve(canvas.toDataURL("image/jpeg", 0.85));
+    };
+    img.onerror = reject;
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function _tecIniciais(nome) {
+  if (!nome) return "?";
+  const parts = nome.trim().split(/\s+/);
+  return parts.length >= 2 ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase() : parts[0][0].toUpperCase();
+}
+
 function abrirModalTecnico(tec = null) {
   const editing = !!tec;
   const overlay = document.createElement("div");
   overlay.id = "modalTecnico";
-  overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9999;display:flex;align-items:center;justify-content:center;";
+  overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9999;display:flex;align-items:center;justify-content:center;overflow-y:auto;padding:16px 0;";
   const temLogin = !!tec?.tem_login;
   const senhaHint = !editing
     ? "Opcional. Se preencher, cria um login pro app (email + senha)."
-    : (temLogin
-        ? "Trocar senha do login do app. Deixe vazio pra manter."
-        : "Opcional. Se preencher, cria o login do app retroativamente.");
+    : (temLogin ? "Trocar senha do login do app. Deixe vazio pra manter."
+                : "Opcional. Se preencher, cria o login do app retroativamente.");
   const loginBadge = editing
-    ? `<span class="badge ${temLogin ? "b-ok" : ""}" style="font-size:10px;margin-left:8px;vertical-align:middle;">
-         ${temLogin ? "✓ Tem login do app" : "Sem login"}
-       </span>`
+    ? `<span class="badge ${temLogin ? "b-ok" : ""}" style="font-size:10px;margin-left:8px;vertical-align:middle;">${temLogin ? "✓ Tem login do app" : "Sem login"}</span>`
     : "";
 
+  const fotoAtual = tec?.foto_url || null;
+  const avatarInner = fotoAtual
+    ? `<img src="${fotoAtual}" alt="foto">`
+    : `<span id="tecModalAvatarIniciais">${_tecIniciais(tec?.nome || "")}</span>`;
+
+  const fmtNasc = tec?.data_nascimento ? tec.data_nascimento.slice(0, 10) : "";
+
   overlay.innerHTML = `
-    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:24px;width:480px;max-width:95vw;box-shadow:0 24px 64px rgba(0,0,0,.6);">
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:24px;width:560px;max-width:95vw;box-shadow:0 24px 64px rgba(0,0,0,.6);margin:auto;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
         <div style="font-size:14px;font-weight:600;">${editing ? "Editar técnico" : "Novo técnico"}${loginBadge}</div>
         <button class="btn btn-sm" data-action="fechar-modal-tecnico">✕</button>
       </div>
+
+      <!-- Foto de perfil -->
+      <div class="tec-avatar-wrap">
+        <div class="tec-avatar-circle" id="tecModalAvatarCircle" title="Clique para trocar a foto">
+          ${avatarInner}
+          <div class="tec-avatar-overlay">Trocar<br>foto</div>
+        </div>
+        <span class="tec-avatar-hint">Clique para escolher foto (JPG/PNG)</span>
+        <input type="file" id="tecModalFotoInput" accept="image/jpeg,image/png,image/webp" style="display:none;">
+      </div>
+
       <div class="grid-2">
+        <!-- Dados básicos -->
         <div class="field col-2">
           <span class="lbl">Nome <span class="req">*</span></span>
           <input id="tecModalNome" class="input" value="${tec ? _waEscaparHtml(tec.nome) : ""}" placeholder="Ex: Carlos Silva" />
         </div>
         <div class="field">
           <span class="lbl">Telefone</span>
-          <input id="tecModalTel" class="input" value="${tec?.telefone ? _waEscaparHtml(tec.telefone) : ""}" placeholder="(11) 99999-9999" />
+          <input id="tecModalTel" class="input" value="${_waEscaparHtml(tec?.telefone || "")}" placeholder="(11) 99999-9999" />
         </div>
         <div class="field">
           <span class="lbl">Email</span>
-          <input id="tecModalEmail" class="input" value="${tec?.email ? _waEscaparHtml(tec.email) : ""}" placeholder="tecnico@exemplo.com" />
+          <input id="tecModalEmail" class="input" value="${_waEscaparHtml(tec?.email || "")}" placeholder="tecnico@exemplo.com" />
         </div>
         <div class="field col-2">
           <span class="lbl">Especialidade</span>
-          <input id="tecModalEsp" class="input" value="${tec?.especialidade ? _waEscaparHtml(tec.especialidade) : ""}" placeholder="Ex: Hidráulica, Elétrica…" />
+          <input id="tecModalEsp" class="input" value="${_waEscaparHtml(tec?.especialidade || "")}" placeholder="Ex: Hidráulica, Elétrica…" />
         </div>
+
+        <!-- Documentos e nascimento -->
+        <div class="field" style="border-top:1px solid var(--border);padding-top:14px;margin-top:4px;">
+          <span class="lbl">CPF</span>
+          <input id="tecModalCpf" class="input" value="${_waEscaparHtml(tec?.cpf || "")}" placeholder="000.000.000-00" maxlength="14" />
+        </div>
+        <div class="field" style="border-top:1px solid var(--border);padding-top:14px;margin-top:4px;">
+          <span class="lbl">RG</span>
+          <input id="tecModalRg" class="input" value="${_waEscaparHtml(tec?.rg || "")}" placeholder="00.000.000-0" maxlength="12" />
+        </div>
+        <div class="field">
+          <span class="lbl">Data de nascimento</span>
+          <input id="tecModalNasc" class="input" type="date" value="${fmtNasc}" />
+        </div>
+        <div class="field">
+          <span class="lbl">Endereço</span>
+          <input id="tecModalEnd" class="input" value="${_waEscaparHtml(tec?.endereco || "")}" placeholder="Rua, número, cidade" />
+        </div>
+        <div class="field col-2">
+          <span class="lbl">Observações internas</span>
+          <textarea id="tecModalObs" class="input" rows="2" style="resize:vertical;">${_waEscaparHtml(tec?.observacoes || "")}</textarea>
+        </div>
+
+        <!-- Login / senha -->
         <div class="field col-2" style="border-top:1px solid var(--border);padding-top:14px;margin-top:4px;">
           <span class="lbl">${editing && temLogin ? "Nova senha do app" : "Senha do app"}</span>
           <input id="tecModalSenha" class="input" type="text" autocomplete="new-password" placeholder="Mínimo 6 caracteres" />
           <span class="hint" style="display:block;margin-top:4px;font-size:11px;color:var(--muted);">${senhaHint}</span>
         </div>
       </div>
+
       <div class="form-footer" style="margin-top:16px;">
         <button class="btn btnAccent" id="btnSalvarTecnico">${editing ? "Salvar" : "Criar técnico"}</button>
         <span id="msgTecnico" class="hint"></span>
@@ -2796,23 +2901,60 @@ function abrirModalTecnico(tec = null) {
     </div>`;
   document.body.appendChild(overlay);
 
+  // Upload de foto
+  let _fotoBase64Pendente = fotoAtual;
+  const fotoInput  = document.getElementById("tecModalFotoInput");
+  const avatarCirc = document.getElementById("tecModalAvatarCircle");
+  avatarCirc?.addEventListener("click", () => fotoInput?.click());
+  fotoInput?.addEventListener("change", async () => {
+    const file = fotoInput.files[0];
+    if (!file) return;
+    try {
+      const b64 = await _tecFotoBase64(file);
+      _fotoBase64Pendente = b64;
+      avatarCirc.innerHTML = `<img src="${b64}" alt="foto"><div class="tec-avatar-overlay">Trocar<br>foto</div>`;
+    } catch { alert("Não foi possível processar a imagem."); }
+  });
+
+  // Máscara simples de CPF
+  document.getElementById("tecModalCpf")?.addEventListener("input", e => {
+    let v = e.target.value.replace(/\D/g, "").slice(0, 11);
+    if (v.length > 9) v = v.replace(/(\d{3})(\d{3})(\d{3})(\d{1,2})/, "$1.$2.$3-$4");
+    else if (v.length > 6) v = v.replace(/(\d{3})(\d{3})(\d{1,3})/, "$1.$2.$3");
+    else if (v.length > 3) v = v.replace(/(\d{3})(\d{1,3})/, "$1.$2");
+    e.target.value = v;
+  });
+
   document.getElementById("btnSalvarTecnico")?.addEventListener("click", async () => {
     const nome  = (document.getElementById("tecModalNome")?.value  || "").trim();
     const tel   = (document.getElementById("tecModalTel")?.value   || "").trim();
     const email = (document.getElementById("tecModalEmail")?.value || "").trim();
     const esp   = (document.getElementById("tecModalEsp")?.value   || "").trim();
     const senha = (document.getElementById("tecModalSenha")?.value || "").trim();
+    const cpf   = (document.getElementById("tecModalCpf")?.value   || "").trim();
+    const rg    = (document.getElementById("tecModalRg")?.value    || "").trim();
+    const nasc  = (document.getElementById("tecModalNasc")?.value  || "").trim();
+    const end   = (document.getElementById("tecModalEnd")?.value   || "").trim();
+    const obs   = (document.getElementById("tecModalObs")?.value   || "").trim();
     const msg   = document.getElementById("msgTecnico");
+
     if (!nome) { if (msg) msg.textContent = "Nome é obrigatório."; return; }
     if (senha && senha.length < 6) { if (msg) msg.textContent = "Senha mínima de 6 caracteres."; return; }
     if (senha && !email) { if (msg) msg.textContent = "Email é obrigatório quando há senha (será o login)."; return; }
     if (msg) msg.textContent = "";
 
-    const body = { nome, telefone: tel || null, email: email || null, especialidade: esp || null };
+    const body = {
+      nome, telefone: tel || null, email: email || null, especialidade: esp || null,
+      foto_url: _fotoBase64Pendente || null,
+      cpf: cpf || null, rg: rg || null,
+      data_nascimento: nasc || null, endereco: end || null, observacoes: obs || null,
+    };
     if (senha) body.senha = senha;
+
     const url    = editing ? `/tecnicos/${tec.id}` : "/tecnicos";
     const method = editing ? "PATCH" : "POST";
-
+    const btn = document.getElementById("btnSalvarTecnico");
+    if (btn) btn.disabled = true;
     try {
       const r = await fetch(url, { method, headers: { ...authHeaders(), "Content-Type": "application/json" }, body: JSON.stringify(body) });
       const data = await r.json();
@@ -2820,7 +2962,12 @@ function abrirModalTecnico(tec = null) {
       overlay.remove();
       await carregarTecnicos();
       renderTecnicos();
+      if (_tecSelecionadoId === (tec?.id || data.id)) {
+        const updated = (_tecnicosData || []).find(t => t.id === _tecSelecionadoId);
+        renderTecDetalhe(updated || null);
+      }
     } catch { if (msg) msg.textContent = "Erro de rede."; }
+    finally { if (btn) btn.disabled = false; }
   });
 }
 

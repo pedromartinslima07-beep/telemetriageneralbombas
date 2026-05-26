@@ -29,6 +29,7 @@ router.get("/", authRequired, adminOnly, async (req, res) => {
       SELECT
         t.id, t.nome, t.email, t.telefone, t.especialidade,
         t.disponivel, t.ativo, t.criado_em, t.usuario_id,
+        t.foto_url, t.cpf, t.rg, t.data_nascimento, t.endereco, t.observacoes,
         (t.usuario_id IS NOT NULL) AS tem_login,
         COUNT(ch.id) FILTER (WHERE ch.status != 'fechado') AS chamados_abertos,
         COUNT(ch.id) AS chamados_total
@@ -49,7 +50,7 @@ router.get("/", authRequired, adminOnly, async (req, res) => {
 // e vincula via `tecnicos.usuario_id` na mesma transação. Email vira obrigatório
 // nesse caso (é o login do técnico).
 router.post("/", authRequired, masterAdminOnly, async (req, res) => {
-  const { nome, email, telefone, especialidade, senha } = req.body || {};
+  const { nome, email, telefone, especialidade, senha, foto_url, cpf, rg, data_nascimento, endereco, observacoes } = req.body || {};
   if (!nome) return res.status(400).json({ error: "nome é obrigatório" });
 
   const querSenha = !!(senha && String(senha).trim());
@@ -69,10 +70,11 @@ router.post("/", authRequired, masterAdminOnly, async (req, res) => {
     }
 
     const result = await client.query(
-      `INSERT INTO tecnicos (nome, email, telefone, especialidade, usuario_id)
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO tecnicos (nome, email, telefone, especialidade, usuario_id, foto_url, cpf, rg, data_nascimento, endereco, observacoes)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
        RETURNING *, (usuario_id IS NOT NULL) AS tem_login`,
-      [nome, email || null, telefone || null, especialidade || null, usuarioId]
+      [nome, email || null, telefone || null, especialidade || null, usuarioId,
+       foto_url || null, cpf || null, rg || null, data_nascimento || null, endereco || null, observacoes || null]
     );
 
     await client.query("COMMIT");
@@ -95,7 +97,7 @@ router.patch("/:id", authRequired, masterAdminOnly, async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
 
-  const { nome, email, telefone, especialidade, disponivel, ativo, senha } = req.body || {};
+  const { nome, email, telefone, especialidade, disponivel, ativo, senha, foto_url, cpf, rg, data_nascimento, endereco, observacoes } = req.body || {};
   const querSenha = !!(senha && String(senha).trim());
 
   const client = await pool.connect();
@@ -150,9 +152,15 @@ router.patch("/:id", authRequired, masterAdminOnly, async (req, res) => {
     if (email !== undefined)         { values.push(email);         sets.push(`email = $${values.length}`); }
     if (telefone !== undefined)      { values.push(telefone);      sets.push(`telefone = $${values.length}`); }
     if (especialidade !== undefined) { values.push(especialidade); sets.push(`especialidade = $${values.length}`); }
-    if (disponivel !== undefined)    { values.push(!!disponivel);  sets.push(`disponivel = $${values.length}`); }
-    if (ativo !== undefined)         { values.push(!!ativo);       sets.push(`ativo = $${values.length}`); }
-    if (novoUsuarioId)               { values.push(novoUsuarioId); sets.push(`usuario_id = $${values.length}`); }
+    if (disponivel !== undefined)      { values.push(!!disponivel);      sets.push(`disponivel = $${values.length}`); }
+    if (ativo !== undefined)           { values.push(!!ativo);           sets.push(`ativo = $${values.length}`); }
+    if (novoUsuarioId)                 { values.push(novoUsuarioId);     sets.push(`usuario_id = $${values.length}`); }
+    if (foto_url !== undefined)        { values.push(foto_url || null);        sets.push(`foto_url = $${values.length}`); }
+    if (cpf !== undefined)             { values.push(cpf || null);             sets.push(`cpf = $${values.length}`); }
+    if (rg !== undefined)              { values.push(rg || null);              sets.push(`rg = $${values.length}`); }
+    if (data_nascimento !== undefined) { values.push(data_nascimento || null); sets.push(`data_nascimento = $${values.length}`); }
+    if (endereco !== undefined)        { values.push(endereco || null);        sets.push(`endereco = $${values.length}`); }
+    if (observacoes !== undefined)     { values.push(observacoes || null);     sets.push(`observacoes = $${values.length}`); }
 
     let updated;
     if (sets.length) {

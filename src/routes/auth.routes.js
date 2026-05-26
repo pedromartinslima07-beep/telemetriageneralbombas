@@ -325,7 +325,11 @@ router.post("/verify-otp", otpLimiter, async (req, res) => {
 router.get("/me", authRequired, async (req, res) => {
   try {
     const r = await pool.query(
-      "SELECT id, nome, email, role, condominio_id FROM usuarios WHERE id = $1 LIMIT 1",
+      `SELECT u.id, u.nome, u.email, u.role, u.condominio_id,
+              t.id AS tecnico_id, t.foto_url, t.especialidade, t.telefone AS tecnico_telefone
+       FROM usuarios u
+       LEFT JOIN tecnicos t ON t.usuario_id = u.id
+       WHERE u.id = $1 LIMIT 1`,
       [req.user.id]
     );
     if (r.rows.length === 0) return res.status(404).json({ error: "Usuário não encontrado" });

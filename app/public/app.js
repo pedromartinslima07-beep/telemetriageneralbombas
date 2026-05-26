@@ -4278,7 +4278,11 @@ function renderContaTec() {
         <h2>${svgUser}Seus dados</h2>
       </div>
       <div class="cli-conta-hero">
-        <div class="cli-conta-avatar">${escapeHtml(_iniciaisNome(user.nome))}</div>
+        <div class="cli-conta-avatar" style="${user.foto_url ? "padding:0;overflow:hidden;" : ""}">
+          ${user.foto_url
+            ? `<img src="${user.foto_url}" alt="foto" style="width:100%;height:100%;object-fit:cover;">`
+            : escapeHtml(_iniciaisNome(user.nome))}
+        </div>
         <div class="cli-conta-hero-text">
           <div class="cli-conta-nome">${escapeHtml(user.nome || "—")}</div>
           <div class="cli-conta-email">${escapeHtml(user.email || "—")}</div>
