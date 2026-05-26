@@ -7148,6 +7148,7 @@ async function gerarRelReservatorios() {
     _relChart("relResChartNivel", Object.assign(
       _relAreaOpts("Nível médio (%)", nivelSerie, "#4a78f7"), {
         yaxis: { min:0, max:100, labels: { ..._REL_YLBL, formatter: v=>v+"%" } },
+        grid:  { borderColor:"rgba(255,255,255,.04)", strokeDashArray:3, padding:{ left:12, right:12, bottom:16, top:4 } },
         tooltip: { theme:"dark", x:{ format:"dd/MM/yyyy" }, y:{ formatter: v=>v+"%" } },
         annotations: { xaxis: alertAnnotations.slice(0,10) },
       }
@@ -7164,7 +7165,7 @@ async function gerarRelReservatorios() {
         plotOptions:{ bar:{ distributed:true, borderRadius:6, columnWidth:"48%", dataLabels:{ position:"top" } } },
         dataLabels:{ enabled:true, formatter:v=>v+"%", offsetY:-18, style:{ fontSize:"11px", fontWeight:"700", colors:["#eef0fb"] } },
         colors: devRank.map(d=>d.avg<30?"#ef4444":d.avg<60?"#f0b014":"#4ade80"),
-        legend:{ show:false }, grid:_REL_GRID, tooltip:{ theme:"dark", y:{ formatter:v=>v+"%" } },
+        legend:{ show:false }, grid:{ ..._REL_GRID, padding:{ left:12, right:12, bottom:16, top:4 } }, tooltip:{ theme:"dark", y:{ formatter:v=>v+"%" } },
       });
   });
 
@@ -7488,11 +7489,11 @@ function _relRenderSlaWorkload(lista) {
         categories: lista.map(t => t.tecnico_nome.split(" ")[0]),
         labels: _REL_XLBL, axisBorder: { show: false }, axisTicks: { show: false },
       },
-      yaxis: { labels: _REL_YLBL, allowDecimals: false },
+      yaxis: { labels: _REL_YLBL, allowDecimals: false, min: 0 },
       plotOptions: { bar: { borderRadius: 4, columnWidth: "44%", dataLabels: { position: "top" } } },
       dataLabels: { enabled: false },
       legend: { position: "top", fontSize: "11px", labels: { colors: "#9094ae" }, itemMargin: { horizontal: 8 } },
-      grid: _REL_GRID,
+      grid: { ..._REL_GRID, padding: { left: 12, right: 12, bottom: 16, top: 4 } },
       tooltip: {
         theme: "dark",
         custom: ({ series, dataPointIndex }) => {
