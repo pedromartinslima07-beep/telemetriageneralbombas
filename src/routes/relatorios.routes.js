@@ -355,7 +355,7 @@ router.get("/sla-dashboard", authRequired, adminOnly, async (req, res) => {
   const where = conds.join(" AND ");
 
   try {
-    const [kpisRes, porDiaRes, porTecnicoRes, emRiscoRes] = await Promise.all([
+    const [kpisRes, porDiaRes, porTecnicoRes, emRiscoRes, porPrioRes] = await Promise.all([
 
       // 1. KPIs: totais + medianas + % no SLA
       pool.query(`
@@ -456,6 +456,26 @@ router.get("/sla-dashboard", authRequired, adminOnly, async (req, res) => {
         ORDER BY pct_ttr DESC
         LIMIT 20
       `, []),  // sem filtro de data — mostra o estado atual independente de período
+
+      // 5. Distribuição por prioridade + conformidade SLA por nível
+      pool.query(`
+        SELECT
+          ch.prioridade,
+          COUNT(*)::int AS total,
+          SUM(CASE WHEN ch.primeira_resposta_em IS NOT NULL
+                        AND sd.ttfr_min IS NOT NULL
+                        AND EXTRACT(EPOCH FROM (ch.primeira_resposta_em - ch.criado_em)) / 60.0 <= sd.ttfr_min
+                   THEN 1 ELSE 0 END)::int AS no_sla,
+          COUNT(CASE WHEN ch.primeira_resposta_em IS NOT NULL
+                          AND sd.ttfr_min IS NOT NULL
+                     THEN 1 END)::int AS com_sla_data,
+          ROUND(AVG(EXTRACT(EPOCH FROM (ch.primeira_resposta_em - ch.criado_em)) / 60.0)::numeric, 1) AS ttfr_medio_min
+        FROM chamados ch
+        LEFT JOIN sla_definicoes sd ON sd.prioridade = ch.prioridade
+        WHERE ${where}
+        GROUP BY ch.prioridade
+        ORDER BY CASE ch.prioridade WHEN 'p1' THEN 0 WHEN 'p2' THEN 1 WHEN 'p3' THEN 2 WHEN 'p4' THEN 3 ELSE 9 END
+      `, vals),
     ]);
 
     const k = kpisRes.rows[0] || {};
@@ -482,6 +502,14 @@ router.get("/sla-dashboard", authRequired, adminOnly, async (req, res) => {
           : null,
       })),
       em_risco: emRiscoRes.rows,
+      por_prioridade: porPrioRes.rows.map(r => ({
+        prioridade: r.prioridade,
+        total: Number(r.total) || 0,
+        pct_no_sla: Number(r.com_sla_data) > 0
+          ? Math.round(100 * Number(r.no_sla) / Number(r.com_sla_data))
+          : null,
+        ttfr_medio_min: r.ttfr_medio_min != null ? Number(r.ttfr_medio_min) : null,
+      })),
     });
   } catch (err) {
     console.error("[relatorios] sla-dashboard:", err);

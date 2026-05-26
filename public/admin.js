@@ -6956,7 +6956,12 @@ async function gerarRelChamados() {
     if (stVals.length && stVals.some(v => v > 0))
       _relChart("relChChartStatus", _relDonutOpts(stLabels, stVals, stColors));
 
-    _relChart("relChChartPrio", _relBarOpts(prioLabels, prioVals, prioColors));
+    if (prioVals.some(v => v > 0))
+      _relChart("relChChartPrio", _relDonutOpts(prioLabels, prioVals, prioColors));
+    else {
+      const el = document.getElementById("relChChartPrio");
+      if (el) el.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted);font-size:12px;">Sem chamados no período</div>`;
+    }
   });
 
   const top5tbody = document.getElementById("relChTop5Body");
@@ -7257,8 +7262,62 @@ async function gerarRelSla() {
 function _relRenderSlaDashboard(d) {
   _relRenderSlaKpisMain(d.kpis);
   _relRenderSlaTtrChart(d.ttr_por_dia);
+  _relRenderSlaPorPrio(d.por_prioridade || []);
   _relRenderSlaTecnicos(d.por_tecnico);
   _relRenderSlaEmRisco(d.em_risco);
+}
+
+function _relRenderSlaPorPrio(lista) {
+  const PRIO_META = {
+    p1: { label: "P1 Crítico",    color: "#ef4444", sla: "≤ 3h chegada"  },
+    p2: { label: "P2 Alta",       color: "#f97316", sla: "≤ 24h chegada" },
+    p3: { label: "P3 Controlado", color: "#f0b014", sla: "≤ 72h chegada" },
+    p4: { label: "P4 Agendado",   color: "#4ade80", sla: "Agendado"      },
+  };
+  const ordem = ["p1","p2","p3","p4"];
+
+  // Build a map indexed by prioridade (backend returns only rows with data)
+  const map = {};
+  (lista || []).forEach(r => { map[r.prioridade] = r; });
+
+  // Donut chart — only prioridades with data
+  const chartData = ordem.map(p => ({ p, meta: PRIO_META[p], row: map[p] || null }))
+    .filter(x => x.row && x.row.total > 0);
+
+  const chartEl = document.getElementById("relSlChartPrio");
+  if (chartData.length) {
+    requestAnimationFrame(() => {
+      _relChart("relSlChartPrio", _relDonutOpts(
+        chartData.map(x => x.meta.label),
+        chartData.map(x => x.row.total),
+        chartData.map(x => x.meta.color),
+      ));
+    });
+  } else if (chartEl) {
+    chartEl.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:220px;color:var(--muted);font-size:12px;">Sem chamados no período</div>`;
+  }
+
+  // Conformidade table — all 4 levels
+  const tbody = document.getElementById("relSlPrioBody");
+  if (!tbody) return;
+  tbody.innerHTML = ordem.map(p => {
+    const meta = PRIO_META[p];
+    const row  = map[p];
+    if (!row) return `<tr>
+      <td><span class="badge" style="background:${meta.color}20;color:${meta.color};border:1px solid ${meta.color}40;">${meta.label}</span></td>
+      <td style="text-align:right;color:var(--muted);">0</td>
+      <td style="text-align:right;color:var(--muted);">—</td>
+      <td style="text-align:right;color:var(--muted);">—</td>
+    </tr>`;
+    const slaClass = row.pct_no_sla == null ? "" : row.pct_no_sla >= 80 ? "b-ok" : row.pct_no_sla >= 50 ? "b-warn" : "b-bad";
+    const slaText  = row.pct_no_sla != null ? `<span class="badge ${slaClass}">${row.pct_no_sla}%</span>` : `<span style="color:var(--muted);">—</span>`;
+    return `<tr>
+      <td><span class="badge" style="background:${meta.color}20;color:${meta.color};border:1px solid ${meta.color}40;">${meta.label}</span></td>
+      <td style="text-align:right;">${row.total}</td>
+      <td style="text-align:right;">${slaText}</td>
+      <td style="text-align:right;font-size:11px;">${row.ttfr_medio_min != null ? _fmtMin(row.ttfr_medio_min) : "—"}</td>
+    </tr>`;
+  }).join("");
 }
 
 function _relRenderSlaKpisMain(k) {

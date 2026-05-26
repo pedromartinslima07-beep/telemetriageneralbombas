@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="/static/leaflet.css">
   <!-- ⚠️ Ao mexer em admin.js ou admin.css, bumpe o ?v=N aqui E no <script>
        lá embaixo. Ver CLAUDE.md raiz. -->
-  <link rel="stylesheet" href="/static/admin.css?v=45">
+  <link rel="stylesheet" href="/static/admin.css?v=46">
 </head>
 <body>
 
@@ -1588,6 +1588,28 @@
             <div id="relSlChartTtr" style="height:220px;"></div>
           </div>
 
+          <!-- Distribuição P1-P4 + conformidade SLA por nível -->
+          <div class="rel-charts-2b" style="margin-bottom:12px;">
+            <div class="card" style="padding:0;overflow:hidden;">
+              <p class="rel-ct-head">Distribuição por prioridade</p>
+              <div id="relSlChartPrio" style="height:220px;"></div>
+            </div>
+            <div class="card" style="padding:0;overflow:hidden;">
+              <p class="rel-ct-head">Conformidade SLA por nível</p>
+              <div style="padding:0 12px 12px;">
+                <table>
+                  <thead><tr>
+                    <th>Prioridade</th>
+                    <th style="text-align:right;width:64px;">Total</th>
+                    <th style="text-align:right;width:80px;">% no SLA</th>
+                    <th style="text-align:right;width:80px;">TTFR méd</th>
+                  </tr></thead>
+                  <tbody id="relSlPrioBody"><tr><td colspan="4" style="text-align:center;color:var(--muted);padding:20px;">Clique em Gerar</td></tr></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
           <!-- Grid 2 colunas: técnicos + em risco -->
           <div class="rel-charts-2b" style="margin-bottom:12px;">
             <!-- Tabela por técnico -->
@@ -2511,7 +2533,7 @@
   </div>
 </div>
 
-<script src="/static/admin.js?v=45" defer></script>
+<script src="/static/admin.js?v=46" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
 <script src="/static/register-sw.js?v=22" defer></script>
 </body>
