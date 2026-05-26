@@ -118,7 +118,7 @@ function renderHTML({ chamados, filtros, geradoEm }) {
   // Todos os chamados
   const chamadosRows = chamados.map(c => `
     <tr>
-      <td style="font-family:monospace;font-size:9px;">CH-${String(c.id).padStart(4,"0")}</td>
+      <td style="font-family:monospace;font-size:10px;">CH-${String(c.id).padStart(4,"0")}</td>
       <td style="max-width:200px;">${esc(c.titulo)}</td>
       <td>${esc(c.condominio_nome)}</td>
       <td>${esc(c.tecnico_nome)}</td>
@@ -131,41 +131,41 @@ function renderHTML({ chamados, filtros, geradoEm }) {
   return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
-  body { font-family:Arial,Helvetica,sans-serif; font-size:10.5px; color:#1a1a2e; background:#fff; }
+  body { font-family:Arial,Helvetica,sans-serif; font-size:12px; color:#1a1a2e; background:#fff; }
 
   /* ── Header ── */
   .header { display:flex; align-items:center; justify-content:space-between; padding-bottom:14px; border-bottom:2.5px solid #1a1a2e; margin-bottom:18px; }
   .logo { height:44px; }
   .header-right { text-align:right; }
-  .header-title { font-size:17px; font-weight:700; color:#1a1a2e; letter-spacing:-.02em; }
-  .header-periodo { font-size:11px; color:#1a1a2e; font-weight:600; margin-top:3px; }
-  .header-sub { font-size:9.5px; color:#888; margin-top:2px; }
+  .header-title { font-size:19px; font-weight:700; color:#1a1a2e; letter-spacing:-.02em; }
+  .header-periodo { font-size:12.5px; color:#1a1a2e; font-weight:600; margin-top:3px; }
+  .header-sub { font-size:11px; color:#888; margin-top:2px; }
 
   /* ── KPI grid ── */
   .kpi-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:18px; }
   .kpi { background:#f4f6fb; border-radius:8px; padding:12px 14px; border-left:3px solid #1a1a2e; }
-  .kpi-val { font-size:22px; font-weight:700; color:#1a1a2e; line-height:1; }
-  .kpi-lbl { font-size:9px; color:#6b7280; margin-top:5px; text-transform:uppercase; letter-spacing:.05em; }
+  .kpi-val { font-size:26px; font-weight:700; color:#1a1a2e; line-height:1; }
+  .kpi-lbl { font-size:10.5px; color:#6b7280; margin-top:5px; text-transform:uppercase; letter-spacing:.05em; }
   .kpi.ok  { border-color:#16a34a; } .kpi.ok  .kpi-val { color:#16a34a; }
   .kpi.bad { border-color:#dc2626; } .kpi.bad .kpi-val { color:#dc2626; }
   .kpi.warn{ border-color:#d97706; } .kpi.warn .kpi-val{ color:#d97706; }
 
   /* ── Section ── */
-  .sec-title { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.07em;
-               color:#fff; background:#1a1a2e; padding:5px 10px; margin-bottom:0; }
+  .sec-title { font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:.07em;
+               color:#fff; background:#1a1a2e; padding:6px 10px; margin-bottom:0; }
   .sec-block { margin-bottom:18px; }
   .two-col   { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:18px; }
 
   /* ── Tables ── */
-  table { width:100%; border-collapse:collapse; font-size:9.5px; }
-  th { background:#1a1a2e; color:#fff; padding:6px 9px; text-align:left;
-       font-weight:600; font-size:8.5px; text-transform:uppercase; letter-spacing:.04em; }
-  td { padding:5px 9px; border-bottom:1px solid #f0f0f0; vertical-align:middle; color:#1a1a2e; }
+  table { width:100%; border-collapse:collapse; font-size:11px; }
+  th { background:#1a1a2e; color:#fff; padding:7px 9px; text-align:left;
+       font-weight:600; font-size:10px; text-transform:uppercase; letter-spacing:.04em; }
+  td { padding:6px 9px; border-bottom:1px solid #f0f0f0; vertical-align:middle; color:#1a1a2e; }
   tr:nth-child(even) td { background:#fafbfc; }
   .empty { text-align:center; color:#aaa; padding:12px; }
 
   /* ── Badges ── */
-  .badge { display:inline-block; padding:2px 6px; border-radius:3px; font-size:8.5px; font-weight:700; white-space:nowrap; }
+  .badge { display:inline-block; padding:2px 7px; border-radius:3px; font-size:10px; font-weight:700; white-space:nowrap; }
   .b-p1 { background:#fee2e2; color:#991b1b; }
   .b-p2 { background:#ffedd5; color:#9a3412; }
   .b-p3 { background:#fef9c3; color:#854d0e; }
