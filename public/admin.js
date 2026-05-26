@@ -2559,7 +2559,7 @@ function renderCliDetalhe(c) {
     <div class="ch-det-section">
       <div class="ch-det-sec-title" style="display:flex;align-items:center;justify-content:space-between;">
         Representantes
-        <button class="btn btn-sm" data-action="novo-representante" data-condo-id="${c.id}">+ Adicionar</button>
+        <button class="btn btn-sm viewer-only-hide" data-action="novo-representante" data-condo-id="${c.id}">+ Adicionar</button>
       </div>
       <div class="ch-det-meta">${repsHtml}</div>
     </div>
