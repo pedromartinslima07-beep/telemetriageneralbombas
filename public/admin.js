@@ -769,8 +769,8 @@ function renderMcActivity() {
   }
 
   for (const ch of _chamadosData || []) {
-    const kind = ch.prioridade === "emergencia" ? "bad"
-              : ch.prioridade === "alta"        ? "warn"
+    const kind = ch.prioridade === "p1" ? "bad"
+              : ch.prioridade === "p2"        ? "warn"
               : "info";
     events.push({
       ts: ch.criado_em,
@@ -901,7 +901,7 @@ function renderMcIaInsights() {
     .flatMap(g => (g.reservatorios || []).map(r => ({ g, r })))
     .filter(({ r }) => r.ultima_leitura?.nivel_pct != null && r.ultima_leitura.nivel_pct < 30);
 
-  const chamadosEmergencia = (_chamadosData || []).filter(c => c.prioridade === "emergencia" && c.status !== "fechado").length;
+  const chamadosEmergencia = (_chamadosData || []).filter(c => c.prioridade === "p1" && c.status !== "fechado").length;
 
   if (offline > 0) {
     insights.push({ color: 'violet', text: `${offline} reservatório${offline > 1 ? 's' : ''} offline — investigar conectividade.` });
@@ -1545,10 +1545,10 @@ const _AL_ACOES_FIXAS = {
     nivel_baixo:         ["Monitorar consumo nas próximas horas", "Programar reabastecimento", "Conferir histórico de uso"],
   },
   chamado: {
-    emergencia: ["Acionar plantão técnico imediatamente", "Notificar gerência", "Confirmar problema com cliente"],
-    alta:       ["Atribuir técnico ainda hoje", "Confirmar contato com cliente", "Documentar diagnóstico inicial"],
-    media:      ["Agendar na rotina da semana", "Solicitar mais informações ao cliente"],
-    baixa:      ["Avaliar prioridade real", "Adicionar à fila de manutenção normal"],
+    p1: ["Acionar plantão técnico imediatamente", "Notificar gerência", "Confirmar problema com cliente"],
+    p2: ["Atribuir técnico ainda hoje", "Confirmar contato com cliente", "Documentar diagnóstico inicial"],
+    p3: ["Agendar na rotina da semana", "Solicitar mais informações ao cliente"],
+    p4: ["Avaliar prioridade real", "Adicionar à fila de manutenção normal"],
   },
 };
 
@@ -1557,7 +1557,7 @@ function _alAcoesFixasPara(it) {
     return _AL_ACOES_FIXAS.telemetria[it.raw?.tipo]
       || ["Investigar a causa raiz", "Documentar achados pra histórico"];
   }
-  const prio = String(it.raw?.prioridade || "media").toLowerCase();
+  const prio = String(it.raw?.prioridade || "p3").toLowerCase();
   return _AL_ACOES_FIXAS.chamado[prio] || _AL_ACOES_FIXAS.chamado.media;
 }
 
@@ -1591,9 +1591,9 @@ function _alUnificar() {
 
   // Chamados (abertos, em_atendimento E fechados)
   for (const ch of (Array.isArray(_chamadosData) ? _chamadosData : [])) {
-    const prio = String(ch.prioridade || "media").toLowerCase();
-    const sev = prio === "emergencia" ? "critico"
-              : prio === "alta"       ? "atencao"
+    const prio = String(ch.prioridade || "p3").toLowerCase();
+    const sev = prio === "p1" ? "critico"
+              : prio === "p2" ? "atencao"
               : "normal";
     const status = String(ch.status || "").toLowerCase();
     itens.push({
@@ -3232,7 +3232,7 @@ function detectarChamadosNovos() {
 
   pulsarBadgeChamados();
 
-  if (novos.some(ch => ch.prioridade === "emergencia")) {
+  if (novos.some(ch => ch.prioridade === "p1")) {
     tocarBeepEmergencia();
   }
 }
@@ -3349,15 +3349,15 @@ let _chSelecionadoId = null;
 
 const _chCatNome  = { vazamento:"Vazamento", bomba_falha:"Bomba", nivel_baixo:"Nível baixo",
                       sem_agua:"Sem água", ruido:"Ruído", manutencao:"Manutenção", outro:"Outro" };
-const _chPrioNome = { baixa:"Baixa", media:"Média", alta:"Alta", emergencia:"Emergência" };
+const _chPrioNome = { p4:"P4 Agendado", p3:"P3 Controlado", p2:"P2 Alta", p1:"P1 Crítico" };
 const _chStNome   = { aberto:"Aberto", em_atendimento:"Em atend.", fechado:"Resolvido" };
 
 function _chFiltrados() {
   const lista = Array.isArray(_chamadosData) ? _chamadosData : [];
   const { tab, busca } = _chFiltros;
   return lista.filter(ch => {
-    if (tab === "emergencia" && (ch.prioridade !== "emergencia" || ch.status === "fechado")) return false;
-    if (tab !== "todos" && tab !== "emergencia" && ch.status !== tab) return false;
+    if (tab === "p1" && (ch.prioridade !== "p1" || ch.status === "fechado")) return false;
+    if (tab !== "todos" && tab !== "p1" && ch.status !== tab) return false;
     if (busca) {
       const q = busca.toLowerCase();
       const blob = `${ch.id} ${ch.titulo||""} ${ch.condominio_nome||""} ${ch.cliente_nome||""} ${ch.categoria||""}`.toLowerCase();
@@ -3380,7 +3380,7 @@ function renderChKpis() {
   const abertos  = data.filter(ch => ch.status === "aberto").length;
   const atend    = data.filter(ch => ch.status === "em_atendimento").length;
   const fechados = data.filter(ch => ch.status === "fechado").length;
-  const criticos = data.filter(ch => ch.prioridade === "emergencia" && ch.status !== "fechado").length;
+  const criticos = data.filter(ch => ch.prioridade === "p1" && ch.status !== "fechado").length;
   const taxa     = data.length > 0 ? Math.round(fechados / data.length * 100) : 0;
 
   const comFechamento = data.filter(ch => ch.status === "fechado" && ch.fechado_em && ch.criado_em);
@@ -3425,7 +3425,7 @@ function renderChTabela() {
   set("chCtAbertos",  data.filter(ch => ch.status === "aberto").length);
   set("chCtAtend",    data.filter(ch => ch.status === "em_atendimento").length);
   set("chCtFechados", data.filter(ch => ch.status === "fechado").length);
-  set("chCtEmerg",    data.filter(ch => ch.prioridade === "emergencia" && ch.status !== "fechado").length);
+  set("chCtEmerg",    data.filter(ch => ch.prioridade === "p1" && ch.status !== "fechado").length);
 
   const lista = _chFiltrados();
   if (!lista.length) {
@@ -3442,7 +3442,7 @@ function renderChTabela() {
       </td>
       <td class="ch-condo-cell">${_waEscaparHtml(ch.condominio_nome || "—")}</td>
       <td><span class="ch-cat-badge">${_chCatNome[ch.categoria] || ch.categoria || "—"}</span></td>
-      <td><span class="ch-prio ch-prio-${ch.prioridade||"media"}">${_chPrioNome[ch.prioridade]||ch.prioridade||"—"}</span></td>
+      <td><span class="ch-prio ch-prio-${ch.prioridade||"p3"}">${_chPrioNome[ch.prioridade]||ch.prioridade||"—"}</span></td>
       <td>
         <span class="ch-st ch-st-${ch.status||"aberto"}">${_chStNome[ch.status]||ch.status||"—"}</span>
         ${(ch.status === "fechado" && ch.avaliacao_nota != null)
@@ -3584,7 +3584,7 @@ function renderChDetalhe(ch) {
                  data-action="vincular-ch-tecnico" data-ch-id="${ch.id}">Atribuir técnico</button>`}
         </div>
         ${ch.categoria         ? `<div class="ch-met-row"><span class="ch-met-lbl">Categoria</span><span class="ch-cat-badge">${_chCatNome[ch.categoria]||ch.categoria}</span></div>` : ""}
-        <div class="ch-met-row"><span class="ch-met-lbl">Prioridade</span><span class="ch-prio ch-prio-${ch.prioridade||"media"}">${_chPrioNome[ch.prioridade]||ch.prioridade}</span></div>
+        <div class="ch-met-row"><span class="ch-met-lbl">Prioridade</span><span class="ch-prio ch-prio-${ch.prioridade||"p3"}">${_chPrioNome[ch.prioridade]||ch.prioridade}</span></div>
         ${ch.sla_ttfr_min != null && !ch.fechado_em ? `<div class="ch-met-row"><span class="ch-met-lbl">SLA</span><span style="display:flex;gap:5px;flex-wrap:wrap;">
           ${ch.sla_ttfr_estourado
             ? `<span class="ch-sla-badge" title="Sem resposta há mais de ${ch.sla_ttfr_min} min">⚠ TTFR estourado</span>`
@@ -3641,9 +3641,17 @@ function renderChamados() {
     // Limpa campos
     ["ncTitulo","ncDescricao"].forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
     document.getElementById("ncCategoria").value = "outro";
-    document.getElementById("ncPrioridade").value = "media";
+    document.getElementById("ncPrioridade").value = "p3";
     document.getElementById("ncCondo").value = "";
     if (msg) msg.textContent = "";
+    // Reset wizard
+    ["ncQ1","ncQ2","ncQ3"].forEach((id,i) => {
+      const el = document.getElementById(id);
+      if (el) { el.style.display = i === 0 ? "" : "none"; }
+      document.querySelectorAll(`[data-q="${["q1","q2","q3"][i]}"]`).forEach(b => b.classList.remove("btnAccent"));
+    });
+    const res = document.getElementById("ncTriagemResultado");
+    if (res) { res.style.display = "none"; res.textContent = ""; }
     overlay.style.display = "flex";
   }
 
@@ -3663,7 +3671,7 @@ function renderChamados() {
         titulo,
         descricao,
         categoria:    document.getElementById("ncCategoria")?.value || "outro",
-        prioridade:   document.getElementById("ncPrioridade")?.value || "media",
+        prioridade:   document.getElementById("ncPrioridade")?.value || "p3",
         condominio_id: document.getElementById("ncCondo")?.value || null,
       };
       const r = await fetch("/chamados", {
@@ -3691,6 +3699,46 @@ function renderChamados() {
   btnCanc.addEventListener("click",  _ncFechar);
   btnSalv.addEventListener("click",  _ncSalvar);
   overlay.addEventListener("click",  e => { if (e.target === overlay) _ncFechar(); });
+
+  // Wizard de triagem Q1→Q4
+  const _prioLabel = { p1:"P1 Crítico (≤ 3h)", p2:"P2 Alta (24–48h)", p3:"P3 Controlado (≤ 72h)", p4:"P4 Agendado" };
+  overlay.addEventListener("click", e => {
+    const btn = e.target.closest(".nc-tq-btn");
+    if (!btn) return;
+    const q = btn.dataset.q;
+    const v = btn.dataset.v;
+
+    // Destaca botão selecionado
+    document.querySelectorAll(`[data-q="${q}"]`).forEach(b => b.classList.remove("btnAccent"));
+    btn.classList.add("btnAccent");
+
+    let sugestao = null;
+    if (q === "q1") {
+      if (v === "sim") { sugestao = "p1"; }
+      else {
+        document.getElementById("ncQ2").style.display = "";
+        document.getElementById("ncQ3").style.display = "none";
+        return;
+      }
+    } else if (q === "q2") {
+      if (v === "sim") { sugestao = "p2"; }
+      else {
+        document.getElementById("ncQ3").style.display = "";
+        return;
+      }
+    } else if (q === "q3") {
+      sugestao = v === "sim" ? "p3" : "p4";
+    }
+
+    if (sugestao) {
+      document.getElementById("ncPrioridade").value = sugestao;
+      const res = document.getElementById("ncTriagemResultado");
+      if (res) {
+        res.style.display = "";
+        res.innerHTML = `✓ Sugestão: <strong style="color:var(--accent)">${_prioLabel[sugestao]}</strong> — confirme ou ajuste no select abaixo.`;
+      }
+    }
+  });
 })();
 
 // ============================================================
@@ -4004,7 +4052,7 @@ function _waRenderInfo(conv) {
   const histHtml = historico.length
     ? historico.map(ch => {
         const status = String(ch.status || "").toLowerCase();
-        const kind = status === "fechado" ? "ok" : (ch.prioridade === "emergencia" ? "bad" : "warn");
+        const kind = status === "fechado" ? "ok" : (ch.prioridade === "p1" ? "bad" : "warn");
         return `
           <div class="wa-hist-item">
             <div class="wa-hist-icon ${kind}">
@@ -4576,11 +4624,11 @@ function renderDrawerChamados() {
     return;
   }
 
-  const prioLabel = { baixa: "Baixa", media: "Média", alta: "Alta", emergencia: "Emergência" };
+  const prioLabel = { p4: "P4 Agendado", p3: "P3 Controlado", p2: "P2 Alta", p1: "P1 Crítico" };
   const statusLbl = { aberto: "Aberto", em_atendimento: "Em atendimento", fechado: "Fechado" };
 
   pane.innerHTML = list.map(ch => {
-    const prioClass = `prio-${ch.prioridade || "media"}`;
+    const prioClass = `prio-${ch.prioridade || "p3"}`;
     const statusCls = `chamado-status-${ch.status || "aberto"}`;
     const orcBloco = ch.orcamento_necessario ? `
       <div class="orc-bloco">
@@ -6341,14 +6389,14 @@ function _mpRenderChamados(g) {
   const lista = (Array.isArray(_chamadosData) ? _chamadosData : []).filter(ch => ch.condominio_id === condoId);
   if (lista.length === 0) return `<div class="mp-empty">Nenhum chamado para este condomínio.</div>`;
   return `<div class="mp-list">${lista.slice(0, 20).map(ch => {
-    const kind = ch.prioridade === "emergencia" ? "bad" : ch.prioridade === "alta" ? "warn" : "ok";
+    const kind = ch.prioridade === "p1" ? "bad" : ch.prioridade === "p2" ? "warn" : "ok";
     const statusLabel = (ch.status || "").replaceAll("_", " ");
     return `
       <div class="mp-list-item">
         <span class="mli-dot ${kind}"></span>
         <div class="mli-main">
           <div class="mli-title">${ch.titulo || "Chamado #" + ch.id}</div>
-          <div class="mli-sub">${statusLabel} • ${ch.prioridade || "media"} ${ch.categoria ? "• " + ch.categoria : ""}</div>
+          <div class="mli-sub">${statusLabel} • ${ch.prioridade || "p3"} ${ch.categoria ? "• " + ch.categoria : ""}</div>
         </div>
         <span class="mli-right">${_mpRelTime(ch.criado_em)}</span>
       </div>`;
@@ -6418,10 +6466,10 @@ function _mpAtualizarAlertasRecentes() {
     // Só chamados ainda em aberto (qualquer status != fechado/resolvido)
     const status = String(ch.status || "").toLowerCase();
     if (status === "fechado" || status === "resolvido") continue;
-    const prio = String(ch.prioridade || "media").toLowerCase();
-    const sev = prio === "emergencia" ? "critico"
-              : prio === "alta"       ? "alta"
-              : prio === "baixa"      ? "media"
+    const prio = String(ch.prioridade || "p3").toLowerCase();
+    const sev = prio === "p1" ? "critico"
+              : prio === "p2" ? "alta"
+              : prio === "p4" ? "media"
               : "media";
     itens.push({
       sev,
@@ -6501,8 +6549,8 @@ function _mpAtualizarUpdates() {
     eventos.push({
       tipo: "chamado",
       titulo: ch.titulo || ("Chamado #" + ch.id),
-      sub: `${ch.prioridade || "media"} • ${(ch.status || "").replaceAll("_", " ")}`,
-      kind: ch.prioridade === "emergencia" ? "bad" : ch.prioridade === "alta" ? "warn" : "ok",
+      sub: `${ch.prioridade || "p3"} • ${(ch.status || "").replaceAll("_", " ")}`,
+      kind: ch.prioridade === "p1" ? "bad" : ch.prioridade === "p2" ? "warn" : "ok",
       iso: ch.criado_em,
     });
   }
@@ -6859,7 +6907,7 @@ async function gerarRelChamados() {
   const slaArr   = dados.filter(d => d.fechado_em && d.sla_horas != null).map(d => Number(d.sla_horas));
   const slaMedia = slaArr.length ? slaArr.reduce((a,b) => a+b,0) / slaArr.length : null;
 
-  const criticos = dados.filter(d => d.prioridade === "emergencia" && d.status !== "fechado").length;
+  const criticos = dados.filter(d => d.prioridade === "p1" && d.status !== "fechado").length;
   const taxa     = total > 0 ? Math.round(fechados / total * 100) : 0;
 
   const kpiEl = document.getElementById("relChKpis");
@@ -6880,7 +6928,7 @@ async function gerarRelChamados() {
   const stVals   = Object.values(stMap);
   const stColors = Object.keys(stMap).map(l => l==="fechado"?"#4ade80":l==="em_atendimento"?"#f0b014":"#f87171");
 
-  const prioOrder  = ["baixa","media","alta","emergencia"];
+  const prioOrder  = ["p4","p3","p2","p1"];
   const prioLabels = ["Baixa","Média","Alta","Emergência"];
   const prioColors = ["#4ade80","#f0b014","#f97316","#ef4444"];
   const prioVals   = prioOrder.map(p => dados.filter(d => d.prioridade===p).length);
@@ -6929,7 +6977,7 @@ async function gerarRelChamados() {
     }).join("");
   }
 
-  const prioClass = p => (p==="emergencia"||p==="alta")?"b-bad":p==="media"?"b-warn":"b-ok";
+  const prioClass = p => (p==="p1"||p==="p2")?"b-bad":p==="p3"?"b-warn":"b-ok";
   const stClass   = s => s==="fechado"?"b-ok":s==="em_atendimento"?"b-warn":"b-bad";
   const tbody = document.getElementById("relChTbody");
   if (tbody) tbody.innerHTML = dados.map(d => `<tr>
@@ -7302,8 +7350,8 @@ function _relRenderSlaEmRisco(lista) {
   tbody.innerHTML = lista.map(ch => {
     const pct = Math.min(ch.pct_ttr, 999);
     const barColor = pct >= 100 ? "#ef4444" : pct >= 75 ? "#f59e0b" : "#4a78f7";
-    const prioClass = { emergencia: "b-bad", alta: "b-warn", media: "b-info", baixa: "" }[ch.prioridade] || "";
-    const prioLabel = { emergencia: "Emergência", alta: "Alta", media: "Média", baixa: "Baixa" }[ch.prioridade] || ch.prioridade;
+    const prioClass = { p1: "b-bad", p2: "b-warn", p3: "b-info", p4: "" }[ch.prioridade] || "";
+    const prioLabel = { p1: "P1 Crítico", p2: "P2 Alta", p3: "P3 Controlado", p4: "P4 Agendado" }[ch.prioridade] || ch.prioridade;
     return `<tr>
       <td>
         <div style="font-size:12px;font-weight:500;">CH-${String(ch.id).padStart(4,"0")}</div>
@@ -7737,8 +7785,8 @@ async function _cfgRodarChamadosAtraso() {
 
 // ── SLA configurável (Fase 8B) ────────────────────────────────────────────────
 
-const _SLA_PRIO_LABEL = { emergencia: "Emergência", alta: "Alta", media: "Média", baixa: "Baixa" };
-const _SLA_PRIO_ORDEM = ["emergencia", "alta", "media", "baixa"];
+const _SLA_PRIO_LABEL = { p1: "P1 Crítico", p2: "P2 Alta", p3: "P3 Controlado", p4: "P4 Agendado" };
+const _SLA_PRIO_ORDEM = ["p1", "p2", "p3", "p4"];
 
 async function _cfgCarregarSla() {
   const tbody = document.getElementById("slaTableBody");

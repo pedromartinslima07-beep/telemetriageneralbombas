@@ -238,8 +238,8 @@ const TC = {
   polling: null,
 };
 
-const PRI_RANK = { emergencia: 0, alta: 1, media: 2, baixa: 3 };
-const PRI_LABEL = { emergencia: "Emergência", alta: "Alta", media: "Média", baixa: "Baixa" };
+const PRI_RANK = { p1: 0, p2: 1, p3: 2, p4: 3 };
+const PRI_LABEL = { p1: "P1 Crítico", p2: "P2 Alta", p3: "P3 Controlado", p4: "P4 Agendado" };
 const CAT_LABEL = {
   vazamento: "Vazamento",
   bomba_falha: "Falha de bomba",
@@ -510,7 +510,7 @@ function renderTecnicoKpis() {
   const abertos  = TC.chamados.filter((c) => c.status === "aberto").length;
   const atend    = TC.chamados.filter((c) => c.status === "em_atendimento").length;
   const criticos = TC.chamados.filter((c) =>
-    c.prioridade === "emergencia" && c.status !== "fechado").length;
+    c.prioridade === "p1" && c.status !== "fechado").length;
   const fechHoje = TC.chamados.filter((c) => {
     if (c.status !== "fechado" || !c.fechado_em) return false;
     const d = new Date(c.fechado_em);
@@ -1160,14 +1160,76 @@ function configurarCTA(c) {
   }
   bar.hidden = false;
 
+  // Remove botão secundário anterior se existir
+  const secExist = document.getElementById("tdCtaBtnSec");
+  if (secExist) secExist.remove();
+
   if (c.status === "aberto") {
-    lbl.textContent = "Iniciar atendimento";
-    btn.className = "btn btnAccent btn-lg";
-    btn.onclick = () => iniciarAtendimento(c.id);
+    if (!c.tecnico_a_caminho_em) {
+      // Fase 1: ainda não saiu → "A caminho"
+      lbl.textContent = "A caminho";
+      btn.className = "btn btn-lg";
+      btn.style.background = "rgba(74,120,247,.2)";
+      btn.style.borderColor = "rgba(74,120,247,.5)";
+      btn.style.color = "#93c5fd";
+      btn.onclick = () => registrarACaminho(c.id);
+    } else if (!c.tecnico_chegou_em) {
+      // Fase 2: a caminho → "Chegou"
+      lbl.textContent = "Chegou ao local";
+      btn.className = "btn btnAccent btn-lg";
+      btn.style = "";
+      btn.onclick = () => registrarChegou(c.id);
+    } else {
+      // Fase 3: chegou → iniciar atendimento
+      lbl.textContent = "Iniciar atendimento";
+      btn.className = "btn btnAccent btn-lg";
+      btn.style = "";
+      btn.onclick = () => iniciarAtendimento(c.id);
+    }
   } else if (c.status === "em_atendimento") {
     lbl.textContent = "Preencher Ordem de Serviço";
     btn.className = "btn btnAccent btn-lg";
+    btn.style = "";
     btn.onclick = () => abrirFormularioOS(c.id, c.ordem_servico?.id);
+    // Se ainda não registrou chegada, mostra botão secundário
+    if (!c.tecnico_chegou_em) {
+      const sec = document.createElement("button");
+      sec.id = "tdCtaBtnSec";
+      sec.className = "btn btn-lg";
+      sec.style.cssText = "font-size:12px;margin-top:6px;width:100%;background:rgba(240,176,20,.1);border-color:rgba(240,176,20,.3);color:var(--accent);";
+      sec.textContent = "Registrar chegada (SLA)";
+      sec.onclick = () => registrarChegou(c.id);
+      bar.appendChild(sec);
+    }
+  }
+}
+
+async function registrarACaminho(id) {
+  const btn = document.getElementById("tdCtaBtn");
+  setBtnLoading(btn, true);
+  try {
+    if (!IS_DEMO) await api(`/chamados/${id}/a-caminho`, { method: "POST" });
+    TD.chamado.tecnico_a_caminho_em = new Date().toISOString();
+    renderDetalhe();
+  } catch (err) {
+    showAlert(document.getElementById("tdAlert"), err.message, "error");
+  } finally {
+    setBtnLoading(btn, false);
+  }
+}
+
+async function registrarChegou(id) {
+  const btn = document.getElementById("tdCtaBtn");
+  setBtnLoading(btn, true);
+  try {
+    if (!IS_DEMO) await api(`/chamados/${id}/chegou`, { method: "POST" });
+    TD.chamado.tecnico_chegou_em    = new Date().toISOString();
+    TD.chamado.tecnico_a_caminho_em = TD.chamado.tecnico_a_caminho_em || new Date().toISOString();
+    renderDetalhe();
+  } catch (err) {
+    showAlert(document.getElementById("tdAlert"), err.message, "error");
+  } finally {
+    setBtnLoading(btn, false);
   }
 }
 
@@ -2804,7 +2866,7 @@ const CLI_CATEGORIAS = [
   ["outro",        "Outro"],
 ];
 
-const CLI_PRIO_LABEL = { baixa: "Baixa", media: "Média", alta: "Alta", emergencia: "Emergência" };
+const CLI_PRIO_LABEL = { p4: "P4 Agendado", p3: "P3 Controlado", p2: "P2 Alta", p1: "P1 Crítico" };
 const CLI_STATUS_LABEL = { aberto: "Aberto", em_atendimento: "Em atendimento", fechado: "Fechado" };
 const CLI_CAT_LABEL = Object.fromEntries(CLI_CATEGORIAS);
 
@@ -2812,13 +2874,13 @@ const CLI_CAT_LABEL = Object.fromEntries(CLI_CATEGORIAS);
 // (src/routes/cliente.routes.js) — duplicada aqui só para o modo demo,
 // onde não há servidor para classificar.
 const CLI_CAT_TO_PRIO = {
-  sem_agua:    "emergencia",
-  vazamento:   "alta",
-  bomba_falha: "alta",
-  nivel_baixo: "media",
-  manutencao:  "baixa",
-  ruido:       "baixa",
-  outro:       "media",
+  sem_agua:    "p1",
+  vazamento:   "p2",
+  bomba_falha: "p2",
+  nivel_baixo: "p3",
+  manutencao:  "p4",
+  ruido:       "p3",
+  outro:       "p3",
 };
 
 async function abrirTelaCliente(user) {
@@ -3041,7 +3103,7 @@ function renderChamadoCardCli(ch) {
     </svg>`;
 
   return `
-    <button type="button" class="ch-row-mob" data-chamado="${ch.id}" data-pri="${escapeHtml(ch.prioridade || "media")}">
+    <button type="button" class="ch-row-mob" data-chamado="${ch.id}" data-pri="${escapeHtml(ch.prioridade || "p3")}">
       <div class="ch-row-mob-icon">${iconTicket}</div>
       <div class="ch-row-mob-head">
         <span class="ch-row-mob-title">${escapeHtml(titulo)}</span>
@@ -3554,7 +3616,7 @@ async function submeterNovoChamado() {
       novo = {
         id: Math.floor(Date.now() / 1000) % 10000,
         status: "aberto",
-        prioridade: CLI_CAT_TO_PRIO[cat] || "media",
+        prioridade: CLI_CAT_TO_PRIO[cat] || "p3",
         categoria: cat,
         titulo: `Solicitação: ${cat.replace(/_/g, " ")}`,
         descricao: desc,
@@ -4382,7 +4444,7 @@ function chamadosFakeDemo() {
   const min = 60 * 1000, hour = 60 * min, day = 24 * hour;
   return [
     {
-      id: 142, status: "em_atendimento", prioridade: "emergencia", categoria: "vazamento",
+      id: 142, status: "em_atendimento", prioridade: "p1", categoria: "vazamento",
       titulo: "Vazamento no subsolo, bomba 2 desligou sozinha",
       condominio_nome: "Edifício Solaris",
       condominio_endereco: "Av. Paulista, 1578",
@@ -4391,7 +4453,7 @@ function chamadosFakeDemo() {
       criado_em: new Date(now - 35 * min).toISOString(),
     },
     {
-      id: 138, status: "aberto", prioridade: "alta", categoria: "bomba_falha",
+      id: 138, status: "aberto", prioridade: "p2", categoria: "bomba_falha",
       titulo: "Bomba 1 não liga após queda de energia",
       condominio_nome: "Residencial Jardim das Flores",
       condominio_endereco: "Rua Augusta, 920",
@@ -4400,7 +4462,7 @@ function chamadosFakeDemo() {
       criado_em: new Date(now - 2 * hour).toISOString(),
     },
     {
-      id: 134, status: "aberto", prioridade: "media", categoria: "nivel_baixo",
+      id: 134, status: "aberto", prioridade: "p3", categoria: "nivel_baixo",
       titulo: "Reservatório principal baixou rápido durante a noite",
       condominio_nome: "Condomínio Vila Bella",
       condominio_endereco: "Rua Oscar Freire, 350",
@@ -4409,7 +4471,7 @@ function chamadosFakeDemo() {
       criado_em: new Date(now - 5 * hour).toISOString(),
     },
     {
-      id: 131, status: "aberto", prioridade: "media", categoria: "ruido",
+      id: 131, status: "aberto", prioridade: "p3", categoria: "ruido",
       titulo: "Bomba fazendo barulho estranho desde ontem",
       condominio_nome: "Edifício Atrium",
       condominio_endereco: "Av. Brigadeiro Faria Lima, 2100",
@@ -4418,7 +4480,7 @@ function chamadosFakeDemo() {
       criado_em: new Date(now - 8 * hour).toISOString(),
     },
     {
-      id: 127, status: "aberto", prioridade: "baixa", categoria: "manutencao",
+      id: 127, status: "aberto", prioridade: "p4", categoria: "manutencao",
       titulo: "Preventiva mensal — março/26",
       condominio_nome: "Condomínio Aurora",
       condominio_endereco: "Rua Haddock Lobo, 595",
@@ -4427,7 +4489,7 @@ function chamadosFakeDemo() {
       criado_em: new Date(now - 1 * day).toISOString(),
     },
     {
-      id: 122, status: "aberto", prioridade: "baixa", categoria: "outro",
+      id: 122, status: "aberto", prioridade: "p4", categoria: "outro",
       titulo: "Cliente solicitou orçamento de bomba reserva",
       condominio_nome: "Edifício Maranta",
       condominio_endereco: "Rua Bela Cintra, 1000",
@@ -4436,7 +4498,7 @@ function chamadosFakeDemo() {
       criado_em: new Date(now - 36 * hour).toISOString(),
     },
     {
-      id: 115, status: "fechado", prioridade: "alta", categoria: "bomba_falha",
+      id: 115, status: "fechado", prioridade: "p2", categoria: "bomba_falha",
       titulo: "Substituição de selo mecânico bomba 2",
       condominio_nome: "Residencial Pateo São Bento",
       condominio_endereco: "Rua Pamplona, 1620",
@@ -4446,7 +4508,7 @@ function chamadosFakeDemo() {
       fechado_em: new Date(now - 2 * day).toISOString(),
     },
     {
-      id: 110, status: "fechado", prioridade: "emergencia", categoria: "sem_agua",
+      id: 110, status: "fechado", prioridade: "p1", categoria: "sem_agua",
       titulo: "Sem água nos andares superiores",
       condominio_nome: "Edifício Mirante",
       condominio_endereco: "Av. Rebouças, 3970",
@@ -4486,14 +4548,14 @@ function entrarModoDemoCliente() {
   ];
   CLI.chamados = [
     {
-      id: 201, status: "em_atendimento", prioridade: "alta", categoria: "vazamento",
+      id: 201, status: "em_atendimento", prioridade: "p2", categoria: "vazamento",
       titulo: "Vazamento na sala de bombas", tecnico_nome: "Carlos Andrade",
       descricao: "Identificado vazamento na conexão da bomba 1. Necessário avaliação.",
       criado_em: new Date(now - 3*hour).toISOString(), atualizado_em: new Date(now - hour).toISOString(),
       ordem_servico_id: null, os_finalizada_em: null,
     },
     {
-      id: 198, status: "fechado", prioridade: "media", categoria: "manutencao",
+      id: 198, status: "fechado", prioridade: "p3", categoria: "manutencao",
       titulo: "Preventiva mensal", tecnico_nome: "Marcos Lima",
       descricao: "Manutenção preventiva das bombas, troca de óleo, checagem geral.",
       criado_em: new Date(now - 5*day).toISOString(), atualizado_em: new Date(now - 4*day).toISOString(),

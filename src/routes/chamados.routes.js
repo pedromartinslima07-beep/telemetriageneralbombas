@@ -8,7 +8,7 @@ const { salvarFotoMensagemChamado } = require("../services/chamado-mensagens.ser
 const router = express.Router();
 
 const CATEGORIAS = ["vazamento", "bomba_falha", "nivel_baixo", "sem_agua", "ruido", "manutencao", "outro"];
-const PRIORIDADES = ["baixa", "media", "alta", "emergencia"];
+const PRIORIDADES = ["p1", "p2", "p3", "p4"];
 
 // POST /chamados — cria chamado manualmente (admin)
 router.post("/", authRequired, masterAdminOnly, async (req, res) => {
@@ -24,6 +24,25 @@ router.post("/", authRequired, masterAdminOnly, async (req, res) => {
     return res.status(400).json({ error: `prioridade inválida` });
 
   try {
+    let prioFinal = prioridade || "p3";
+
+    // Detecção de recorrência: mesma categoria no mesmo condomínio nos últimos 30 dias
+    // → sobe 1 nível automaticamente (P4→P3→P2→P1)
+    if (categoria && condominio_id) {
+      const recorrencia = await pool.query(
+        `SELECT 1 FROM chamados
+         WHERE condominio_id = $1 AND categoria = $2
+           AND criado_em >= NOW() - INTERVAL '30 days'
+           AND prioridade <> 'p4'
+         LIMIT 1`,
+        [Number(condominio_id), categoria]
+      );
+      if (recorrencia.rows.length > 0) {
+        const bump = { p4: "p3", p3: "p2", p2: "p1", p1: "p1" };
+        prioFinal = bump[prioFinal] || prioFinal;
+      }
+    }
+
     const ins = await pool.query(
       `INSERT INTO chamados (condominio_id, titulo, descricao, prioridade, categoria, responsavel_id, status)
        VALUES ($1, $2, $3, $4, $5, $6, 'aberto')
@@ -32,12 +51,17 @@ router.post("/", authRequired, masterAdminOnly, async (req, res) => {
         condominio_id ? Number(condominio_id) : null,
         titulo.trim().slice(0, 255),
         descricao.trim().slice(0, 4000),
-        prioridade || "media",
+        prioFinal,
         categoria || "outro",
         responsavel_id ? Number(responsavel_id) : null,
       ]
     );
-    return res.status(201).json(ins.rows[0]);
+    const row = ins.rows[0];
+    // Informa se houve bump de recorrência
+    if (row.prioridade !== (prioridade || "p3")) {
+      row._recorrencia_bump = true;
+    }
+    return res.status(201).json(row);
   } catch (e) {
     console.error("[chamados] POST /:", e);
     return res.status(500).json({ error: "Erro ao criar chamado" });
@@ -211,10 +235,10 @@ router.get("/meus", authRequired, async (req, res) => {
            ELSE 2
          END,
          CASE ch.prioridade
-           WHEN 'emergencia' THEN 0
-           WHEN 'alta' THEN 1
-           WHEN 'media' THEN 2
-           WHEN 'baixa' THEN 3
+           WHEN 'p1' THEN 0
+           WHEN 'p2' THEN 1
+           WHEN 'p3' THEN 2
+           WHEN 'p4' THEN 3
            ELSE 4
          END,
          ch.criado_em DESC
@@ -645,7 +669,7 @@ router.patch("/:id", authRequired, masterAdminOnly, async (req, res) => {
   const { status, prioridade, categoria, responsavel_id, condominio_id, tecnico_id } = req.body || {};
 
   const STATUSES   = ["aberto", "em_atendimento", "fechado"];
-  const PRIORIDADES = ["baixa", "media", "alta", "emergencia"];
+  const PRIORIDADES = ["p1", "p2", "p3", "p4"];
 
   if (status && !STATUSES.includes(status)) {
     return res.status(400).json({ error: `status deve ser: ${STATUSES.join(", ")}` });
@@ -727,6 +751,58 @@ router.patch("/:id", authRequired, masterAdminOnly, async (req, res) => {
   } catch (err) {
     console.error("[chamados] PATCH /chamados/:id:", err);
     return res.status(500).json({ error: "Erro ao atualizar chamado" });
+  }
+});
+
+// POST /chamados/:id/a-caminho — técnico registra que está a caminho
+router.post("/:id/a-caminho", authRequired, async (req, res) => {
+  if (!["tecnico", "admin", "master_admin"].includes(req.user.role)) {
+    return res.status(403).json({ error: "Sem permissão" });
+  }
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
+
+  try {
+    const r = await pool.query(
+      `UPDATE chamados
+       SET tecnico_a_caminho_em = COALESCE(tecnico_a_caminho_em, NOW()),
+           atualizado_em = NOW()
+       WHERE id = $1
+       RETURNING id, tecnico_a_caminho_em, tecnico_chegou_em`,
+      [id]
+    );
+    if (!r.rows.length) return res.status(404).json({ error: "Chamado não encontrado" });
+    return res.json(r.rows[0]);
+  } catch (err) {
+    console.error("[chamados] POST /:id/a-caminho:", err);
+    return res.status(500).json({ error: "Erro ao registrar deslocamento" });
+  }
+});
+
+// POST /chamados/:id/chegou — técnico registra chegada (marca SLA de chegada)
+router.post("/:id/chegou", authRequired, async (req, res) => {
+  if (!["tecnico", "admin", "master_admin"].includes(req.user.role)) {
+    return res.status(403).json({ error: "Sem permissão" });
+  }
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
+
+  try {
+    const r = await pool.query(
+      `UPDATE chamados
+       SET tecnico_chegou_em    = COALESCE(tecnico_chegou_em, NOW()),
+           tecnico_a_caminho_em = COALESCE(tecnico_a_caminho_em, NOW()),
+           primeira_resposta_em = COALESCE(primeira_resposta_em, NOW()),
+           atualizado_em        = NOW()
+       WHERE id = $1
+       RETURNING id, tecnico_a_caminho_em, tecnico_chegou_em`,
+      [id]
+    );
+    if (!r.rows.length) return res.status(404).json({ error: "Chamado não encontrado" });
+    return res.json(r.rows[0]);
+  } catch (err) {
+    console.error("[chamados] POST /:id/chegou:", err);
+    return res.status(500).json({ error: "Erro ao registrar chegada" });
   }
 });
 

@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="/static/leaflet.css">
   <!-- ⚠️ Ao mexer em admin.js ou admin.css, bumpe o ?v=N aqui E no <script>
        lá embaixo. Ver CLAUDE.md raiz. -->
-  <link rel="stylesheet" href="/static/admin.css?v=44">
+  <link rel="stylesheet" href="/static/admin.css?v=45">
 </head>
 <body>
 
@@ -733,7 +733,7 @@
                 <button class="wa-tab" data-ch-tab="aberto">Abertos <span class="wa-count" id="chCtAbertos">0</span></button>
                 <button class="wa-tab" data-ch-tab="em_atendimento">Em atend. <span class="wa-count" id="chCtAtend">0</span></button>
                 <button class="wa-tab" data-ch-tab="fechado">Resolvidos <span class="wa-count" id="chCtFechados">0</span></button>
-                <button class="wa-tab" data-ch-tab="emergencia">Emergência <span class="wa-count" id="chCtEmerg">0</span></button>
+                <button class="wa-tab" data-ch-tab="p1">P1 Crítico <span class="wa-count" id="chCtEmerg">0</span></button>
               </div>
               <input id="chBusca" class="input" placeholder="Buscar chamado…">
               <button class="btn btn-sm btnAccent viewer-only-hide" id="btnNovoChamado" style="white-space:nowrap;">+ Novo chamado</button>
@@ -1335,9 +1335,9 @@
               </div>
               <div class="field"><label class="lbl">Prioridade</label>
                 <select id="relChPrioridade" class="input" style="width:118px;">
-                  <option value="">Todas</option><option value="baixa">Baixa</option>
-                  <option value="media">Média</option><option value="alta">Alta</option>
-                  <option value="emergencia">Emergência</option>
+                  <option value="">Todas</option><option value="p4">P4 Agendado</option>
+                  <option value="p3">P3 Controlado</option><option value="p2">P2 Alta</option>
+                  <option value="p1">P1 Crítico</option>
                 </select>
               </div>
               <div class="field"><label class="lbl">Técnico</label><select id="relChTecnico" class="input" style="width:138px;"><option value="">Todos</option></select></div>
@@ -1392,10 +1392,10 @@
               <div class="field"><label class="lbl">Prioridade</label>
                 <select id="relSlPrio" class="input" style="width:130px;">
                   <option value="">Todas</option>
-                  <option value="emergencia">Emergência</option>
-                  <option value="alta">Alta</option>
-                  <option value="media">Média</option>
-                  <option value="baixa">Baixa</option>
+                  <option value="p1">P1 Crítico</option>
+                  <option value="p2">P2 Alta</option>
+                  <option value="p3">P3 Controlado</option>
+                  <option value="p4">P4 Agendado</option>
                 </select>
               </div>
               <button class="btn btn-sm" data-rel-action="gerar-sla" style="align-self:flex-end;">Gerar</button>
@@ -2246,13 +2246,39 @@
           </select>
         </label>
       </div>
+      <!-- Wizard de triagem Q1→Q4 -->
+      <div id="ncTriagem" style="background:rgba(240,176,20,.06);border:1px solid rgba(240,176,20,.2);border-radius:8px;padding:12px 14px;margin-bottom:4px;">
+        <div style="font-size:11px;font-weight:700;color:var(--accent);letter-spacing:.04em;margin-bottom:10px;">TRIAGEM — CRITICIDADE</div>
+        <div class="nc-tq" id="ncQ1" style="margin-bottom:8px;">
+          <div style="font-size:12px;color:var(--fg);margin-bottom:4px;">Q1 — Sem água, alagamento, esgoto subindo, cheiro de queimado ou risco de incêndio?</div>
+          <div style="display:flex;gap:6px;">
+            <button type="button" class="btn btn-sm nc-tq-btn" data-q="q1" data-v="sim" style="font-size:11px;">Sim → P1</button>
+            <button type="button" class="btn btn-sm nc-tq-btn" data-q="q1" data-v="nao" style="font-size:11px;">Não</button>
+          </div>
+        </div>
+        <div class="nc-tq" id="ncQ2" style="margin-bottom:8px;display:none;">
+          <div style="font-size:12px;color:var(--fg);margin-bottom:4px;">Q2 — Sistema funciona em modo parcial, manual ou com redundância comprometida?</div>
+          <div style="display:flex;gap:6px;">
+            <button type="button" class="btn btn-sm nc-tq-btn" data-q="q2" data-v="sim" style="font-size:11px;">Sim → P2</button>
+            <button type="button" class="btn btn-sm nc-tq-btn" data-q="q2" data-v="nao" style="font-size:11px;">Não</button>
+          </div>
+        </div>
+        <div class="nc-tq" id="ncQ3" style="margin-bottom:8px;display:none;">
+          <div style="font-size:12px;color:var(--fg);margin-bottom:4px;">Q3 — Funciona normalmente mas precisa de inspeção, ajuste ou pequena correção?</div>
+          <div style="display:flex;gap:6px;">
+            <button type="button" class="btn btn-sm nc-tq-btn" data-q="q3" data-v="sim" style="font-size:11px;">Sim → P3</button>
+            <button type="button" class="btn btn-sm nc-tq-btn" data-q="q3" data-v="nao" style="font-size:11px;">Não → P4</button>
+          </div>
+        </div>
+        <div id="ncTriagemResultado" style="display:none;font-size:12px;color:var(--muted);margin-top:6px;"></div>
+      </div>
       <label class="f">
-        <span>Prioridade</span>
+        <span>Prioridade <span style="font-size:10px;color:var(--muted);font-weight:400;">(sugerida pelo wizard acima)</span></span>
         <select id="ncPrioridade" class="select">
-          <option value="baixa">Baixa</option>
-          <option value="media" selected>Média</option>
-          <option value="alta">Alta</option>
-          <option value="emergencia">Emergência</option>
+          <option value="p1">P1 Crítico (≤ 3h)</option>
+          <option value="p2">P2 Alta (24–48h)</option>
+          <option value="p3" selected>P3 Controlado (≤ 72h)</option>
+          <option value="p4">P4 Agendado (conforme agenda)</option>
         </select>
       </label>
       <label class="f">
@@ -2485,7 +2511,7 @@
   </div>
 </div>
 
-<script src="/static/admin.js?v=43" defer></script>
+<script src="/static/admin.js?v=44" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
 <script src="/static/register-sw.js?v=22" defer></script>
 </body>

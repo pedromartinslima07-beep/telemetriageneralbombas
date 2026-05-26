@@ -95,7 +95,7 @@ async function jobVerificarOffline() {
         const titulo = `[AUTO] Dispositivo offline: ${nomeRes}${tipoRes}`;
         const descricao = `Alerta automático — ${mensagemAlerta}`;
         try {
-          await _abrirChamadoAuto(r.condominio_id, titulo, descricao, 'alta', 'bomba_falha');
+          await _abrirChamadoAuto(r.condominio_id, titulo, descricao, 'p2', 'bomba_falha');
         } catch (e) {
           console.error("[offline.job] erro ao abrir chamado automático:", e.message);
         }

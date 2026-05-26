@@ -21,13 +21,13 @@ const CATEGORIAS = ["vazamento", "bomba_falha", "nivel_baixo", "sem_agua", "ruid
 // inviabiliza a fila do técnico). Mesma tabela no frontend em
 // app/public/app.js (CLI_CAT_TO_PRIO) só para o modo demo offline.
 const CATEGORIA_PRIORIDADE = {
-  sem_agua:    "emergencia",
-  vazamento:   "alta",
-  bomba_falha: "alta",
-  nivel_baixo: "media",
-  manutencao:  "baixa",
-  ruido:       "baixa",
-  outro:       "media",
+  sem_agua:    "p1",
+  vazamento:   "p2",
+  bomba_falha: "p2",
+  nivel_baixo: "p3",
+  manutencao:  "p4",
+  ruido:       "p3",
+  outro:       "p3",
 };
 
 // GET /cliente/status  (AGORA baseado em RESERVATÓRIOS)

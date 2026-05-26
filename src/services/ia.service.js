@@ -163,8 +163,8 @@ const tools = [
           descricao:    { type: "string",  description: "Descrição detalhada" },
           prioridade:   {
             type: "string",
-            enum: ["baixa", "media", "alta", "emergencia"],
-            description: "Gravidade: emergencia=sem água/risco imediato, alta=problema afetando uso, media=incômodo significativo, baixa=preventivo/dúvida",
+            enum: ["p1", "p2", "p3", "p4"],
+            description: "Criticidade: p1=sem água/risco imediato/emergência, p2=funciona parcialmente com risco de agravar, p3=funciona normalmente mas precisa atenção, p4=preventiva/agendamento/sem urgência",
           },
           categoria:    {
             type: "string",
@@ -228,11 +228,11 @@ Categorias (escolha a mais específica):
 - manutencao    — solicitação preventiva, limpeza de caixa, revisão programada
 - outro         — não se encaixa nas categorias acima
 
-Prioridades:
-- emergencia — sem água agora, vazamento ativo, risco imediato
-- alta       — problema afetando uso normal mas há margem (algumas horas)
-- media      — incômodo significativo, sem urgência hoje
-- baixa      — preventivo, dúvida, agendamento
+Prioridades (Política P1-P4):
+- p1 — Crítico: sem água, alagamento, esgoto, cheiro de queimado, risco imediato (SLA ≤3h)
+- p2 — Alta: funciona parcialmente ou em modo manual, risco de agravar (SLA 24-48h)
+- p3 — Controlado: funciona normalmente, precisa de inspeção ou ajuste (SLA ≤72h)
+- p4 — Agendado: preventiva, retrofit, orçamento, instalação planejada (conforme agenda)
 
 Tom e estilo:
 - Você representa uma empresa profissional. Seja sempre cordial, humano e prestativo

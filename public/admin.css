@@ -4447,10 +4447,10 @@ body.mp-fs-active { overflow: hidden; }
 }
 
 .ch-prio          { font-size: 10.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
-.ch-prio-baixa    { background: rgba(148,163,184,.15); color: #94a3b8; }
-.ch-prio-media    { background: rgba(34,211,238,.15);  color: #22d3ee; }
-.ch-prio-alta     { background: rgba(251,146,60,.15);  color: #fb923c; }
-.ch-prio-emergencia { background: rgba(239,68,68,.18); color: #f87171; }
+.ch-prio-p4 { background: rgba(148,163,184,.15); color: #94a3b8; }
+.ch-prio-p3 { background: rgba(34,211,238,.15);  color: #22d3ee; }
+.ch-prio-p2 { background: rgba(251,146,60,.15);  color: #fb923c; }
+.ch-prio-p1 { background: rgba(239,68,68,.18);   color: #f87171; }
 
 .ch-st            { font-size: 10.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
 .ch-st-aberto         { background: rgba(96,165,250,.15); color: #60a5fa; }

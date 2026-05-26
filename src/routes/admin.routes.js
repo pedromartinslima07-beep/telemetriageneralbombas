@@ -590,7 +590,7 @@ router.post("/jobs/conversas-cleanup/run", authRequired, masterAdminOnly, async 
 
 // ── Fase 8B: SLA configurável ─────────────────────────────────────────────
 
-const PRIORIDADES_ORDEM = ["emergencia", "alta", "media", "baixa"];
+const PRIORIDADES_ORDEM = ["p1", "p2", "p3", "p4"];
 
 // GET /admin/sla — retorna definições de SLA por prioridade (master admin)
 router.get("/sla", authRequired, masterAdminOnly, async (req, res) => {
@@ -599,8 +599,8 @@ router.get("/sla", authRequired, masterAdminOnly, async (req, res) => {
       `SELECT prioridade, ttfr_min, ttr_min, atualizado_em
        FROM sla_definicoes
        ORDER BY CASE prioridade
-         WHEN 'emergencia' THEN 0 WHEN 'alta' THEN 1
-         WHEN 'media' THEN 2 WHEN 'baixa' THEN 3 ELSE 4 END`
+         WHEN 'p1' THEN 0 WHEN 'p2' THEN 1
+         WHEN 'p3' THEN 2 WHEN 'p4' THEN 3 ELSE 4 END`
     );
     return res.json(r.rows);
   } catch (err) {
