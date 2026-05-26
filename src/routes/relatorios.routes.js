@@ -355,7 +355,7 @@ router.get("/sla-dashboard", authRequired, adminOnly, async (req, res) => {
   const where = conds.join(" AND ");
 
   try {
-    const [kpisRes, porDiaRes, porTecnicoRes, emRiscoRes, porPrioRes] = await Promise.all([
+    const [kpisRes, porDiaRes, porTecnicoRes, emRiscoRes, porPrioRes, workloadRes] = await Promise.all([
 
       // 1. KPIs: totais + medianas + % no SLA
       pool.query(`
@@ -397,15 +397,18 @@ router.get("/sla-dashboard", authRequired, adminOnly, async (req, res) => {
         FROM base
       `, vals),
 
-      // 2. TTR médio por dia (série temporal para o line chart)
+      // 2. TTR e TTFR médios por dia (séries temporais para chart duplo)
       pool.query(`
         SELECT
           DATE(ch.criado_em AT TIME ZONE 'America/Sao_Paulo') AS dia,
-          ROUND(AVG(ch.tempo_resolucao_seg / 60.0)::numeric, 1) AS ttr_medio_min,
+          ROUND(AVG(CASE WHEN ch.tempo_resolucao_seg IS NOT NULL
+                         THEN ch.tempo_resolucao_seg / 60.0 END)::numeric, 1) AS ttr_medio_min,
+          ROUND(AVG(CASE WHEN ch.primeira_resposta_em IS NOT NULL
+                         THEN EXTRACT(EPOCH FROM (ch.primeira_resposta_em - ch.criado_em)) / 60.0 END)::numeric, 1) AS ttfr_medio_min,
           COUNT(*)::int AS total
         FROM chamados ch
         WHERE ${where}
-          AND ch.tempo_resolucao_seg IS NOT NULL
+          AND (ch.tempo_resolucao_seg IS NOT NULL OR ch.primeira_resposta_em IS NOT NULL)
         GROUP BY DATE(ch.criado_em AT TIME ZONE 'America/Sao_Paulo')
         ORDER BY dia ASC
       `, vals),
@@ -457,6 +460,23 @@ router.get("/sla-dashboard", authRequired, adminOnly, async (req, res) => {
         LIMIT 20
       `, []),  // sem filtro de data — mostra o estado atual independente de período
 
+      // 6. Workload atual por técnico (estado ao vivo, sem filtro de período)
+      pool.query(`
+        SELECT
+          t.nome AS tecnico_nome,
+          COUNT(*)::int AS abertos,
+          COUNT(CASE WHEN ch.prioridade = 'p1' THEN 1 END)::int AS p1,
+          COUNT(CASE WHEN ch.prioridade = 'p2' THEN 1 END)::int AS p2,
+          COUNT(CASE WHEN ch.prioridade = 'p3' THEN 1 END)::int AS p3,
+          COUNT(CASE WHEN ch.prioridade = 'p4' THEN 1 END)::int AS p4
+        FROM chamados ch
+        JOIN tecnicos t ON t.id = ch.tecnico_id
+        WHERE ch.status IN ('aberto', 'em_atendimento')
+        GROUP BY t.id, t.nome
+        ORDER BY p1 DESC, p2 DESC, abertos DESC
+        LIMIT 10
+      `, []),
+
       // 5. Distribuição por prioridade + conformidade SLA por nível
       pool.query(`
         SELECT
@@ -502,6 +522,14 @@ router.get("/sla-dashboard", authRequired, adminOnly, async (req, res) => {
           : null,
       })),
       em_risco: emRiscoRes.rows,
+      workload_tecnico: workloadRes.rows.map(r => ({
+        tecnico_nome: r.tecnico_nome,
+        abertos: Number(r.abertos) || 0,
+        p1: Number(r.p1) || 0,
+        p2: Number(r.p2) || 0,
+        p3: Number(r.p3) || 0,
+        p4: Number(r.p4) || 0,
+      })),
       por_prioridade: porPrioRes.rows.map(r => ({
         prioridade: r.prioridade,
         total: Number(r.total) || 0,

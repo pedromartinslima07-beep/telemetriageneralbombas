@@ -108,11 +108,58 @@ substituição planejada de equipamento, levantamento comercial.
 ---
 
 ## Status
-- [ ] Migration 028
-- [ ] chamados.routes.js
-- [ ] cliente.routes.js
-- [ ] admin.routes.js
-- [ ] ia.service.js
-- [ ] offline.job.js
-- [ ] admin.js + admin.css
-- [ ] app.js + app.css
+- [x] Migration 028
+- [x] chamados.routes.js
+- [x] cliente.routes.js
+- [x] admin.routes.js
+- [x] ia.service.js
+- [x] offline.job.js
+- [x] admin.js + admin.css
+- [x] app.js + app.css
+
+---
+
+## Backlog — Análise de Schema (para atacar depois)
+
+### Redundâncias confirmadas
+
+**1. Sistema de orçamentos duplicado (maior problema)**
+- `ordens_servico` tem 12 colunas `orcamento_*` direto + tabela `orcamento_itens` para itens
+- Em paralelo existe `orcamentos` + `orcamento_linhas` (sistema standalone mais limpo)
+- Migration 027 já adicionou `orcamentos.os_id` como ponte, mas ambos coexistem
+- **Ação:** migrar tudo para `orcamentos`/`orcamento_linhas`, dropar as 12 colunas `orcamento_*` da OS e a tabela `orcamento_itens`
+
+**2. FK bidirecional chamados ↔ ordens_servico**
+- `chamados.ordem_servico_id` → ordens_servico
+- `ordens_servico.chamado_id` → chamados
+- Uma direção é suficiente; `chamados.ordem_servico_id` é redundante
+
+**3. `responsavel_id` vs `tecnico_id` em chamados**
+- `responsavel_id` → usuarios (admin acompanhador)
+- `tecnico_id` → tecnicos (quem executa)
+- Verificar se `responsavel_id` está sendo populado/lido; pode ser campo morto
+
+**4. `mensagens_whatsapp.ia_urgencia` usa enum antigo**
+- Ainda tem `'baixa'|'media'|'alta'|'emergencia'` enquanto tudo migrou para p1-p4
+- Baixo risco imediato, mas inconsistente
+
+### Tabelas faltando (por prioridade de impacto)
+
+**1. `planos_manutencao` — alta prioridade**
+- Todo condomínio tem contrato preventivo mas não há gestão disso no banco
+- Permitiria: gerar P4 automaticamente quando vence, dashboard de compliance preventivo
+- Colunas sugeridas: `condominio_id`, `titulo`, `periodicidade_dias`, `proxima_em`, `ultima_em`, `tecnico_responsavel_id`, `ativo`
+
+**2. `equipamentos` — média prioridade**
+- Só `reservatorios` é rastreado; bombas, motores, painéis não têm identidade no sistema
+- Sem isso: `os_pecas` registra "trocou bomba X" mas não vincula ao equipamento físico
+- Colunas sugeridas: `condominio_id`, `tipo`, `marca`, `modelo`, `numero_serie`, `instalado_em`, `garantia_ate`
+
+**3. `historico_chamados` — média prioridade**
+- Só o estado atual é salvo; não dá ver quem alterou prioridade/status nem quanto tempo cada fase durou
+- Essencial para relatórios SLA ricos e accountability
+- Colunas sugeridas: `chamado_id`, `campo_alterado`, `valor_anterior`, `valor_novo`, `alterado_por`, `alterado_em`
+
+**4. `contratos` — média prioridade**
+- Sistema sabe que todo condomínio é cliente com contrato, mas não guarda valor, vigência, tipo de plano
+- Sem isso não há alertas de renovação nem relatório de receita recorrente

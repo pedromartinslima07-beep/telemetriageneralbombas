@@ -176,6 +176,7 @@ let _tecnicosData = [];
 let _relTab    = "chamados";
 let _relChDados = [], _relAlDados = [], _relTelDados = [];
 let _relInDados = { top_condominios: [], categorias_whatsapp: [], totais: {} };
+let _relResDados = null; // cache reservatórios (telemetria + alertas merged)
 
 // chamados já vistos — usado para detectar novos e disparar pulso/beep
 let _chamadosIdsVistos = new Set();
@@ -6675,7 +6676,7 @@ function renderSecaoMapa() {
 //  RELATÓRIOS
 // ============================================================
 let _relCharts  = {};  // instâncias ApexCharts — keyed by container id
-let _relGerado  = { chamados: false, alertas: false, telemetria: false, insights: false };
+let _relGerado  = { chamados: false, reservatorios: false, sla: false };
 
 // Formatadores compartilhados (centralização — antes cada tabela formatava à sua maneira)
 const _relFmtData     = iso => iso ? new Date(iso).toLocaleDateString("pt-BR") : "-";
@@ -6740,13 +6741,11 @@ function _relPreencherTecnicoSelect() {
 
 let _relSlaDados = null; // cache do último fetch do dashboard SLA
 
-// Mapa tab → { pane, body, hasData, fn } — centraliza o switch das 4 abas
+// Mapa tab → { pane, body, hasData, fn } — centraliza o switch das abas
 const _REL_TABS = {
-  chamados:   { pane: "relPaneChamados",   body: "relBodyChamados",   has: () => _relChDados.length > 0,                 fn: () => gerarRelChamados() },
-  alertas:    { pane: "relPaneAlertas",    body: "relBodyAlertas",    has: () => _relAlDados.length > 0,                 fn: () => gerarRelAlertas() },
-  telemetria: { pane: "relPaneTelemetria", body: "relBodyTelemetria", has: () => _relTelDados.length > 0,                fn: () => gerarRelTelemetria() },
-  insights:   { pane: "relPaneInsights",   body: "relBodyInsights",   has: () => _relInDados.top_condominios.length > 0, fn: () => gerarRelInsights() },
-  sla:        { pane: "relPaneSla",        body: "relBodySla",        has: () => _relSlaDados !== null,                  fn: () => gerarRelSla() },
+  chamados:      { pane: "relPaneChamados",      body: "relBodyChamados",      has: () => _relChDados.length > 0,       fn: () => gerarRelChamados() },
+  reservatorios: { pane: "relPaneReservatorios", body: "relBodyReservatorios", has: () => _relResDados !== null,        fn: () => gerarRelReservatorios() },
+  sla:           { pane: "relPaneSla",           body: "relBodySla",           has: () => _relSlaDados !== null,        fn: () => gerarRelSla() },
 };
 
 function _relMostrarTab(tab, autoGerar) {
@@ -6775,9 +6774,9 @@ function _relMostrarTab(tab, autoGerar) {
 
 function renderRelatorios() {
   const { ini, fim } = _relDataPadrao();
-  ["relChIni","relAlIni","relTelIni","relInIni","relSlIni"].forEach(id => { const el = document.getElementById(id); if (el && !el.value) el.value = ini; });
-  ["relChFim","relAlFim","relTelFim","relInFim","relSlFim"].forEach(id => { const el = document.getElementById(id); if (el && !el.value) el.value = fim; });
-  _relPreencherCondoSelects(["relChCondo","relAlCondo","relTelCondo","relInCondo","relSlCondo"]);
+  ["relChIni","relResIni","relSlIni"].forEach(id => { const el = document.getElementById(id); if (el && !el.value) el.value = ini; });
+  ["relChFim","relResFim","relSlFim"].forEach(id => { const el = document.getElementById(id); if (el && !el.value) el.value = fim; });
+  _relPreencherCondoSelects(["relChCondo","relResCondo","relSlCondo"]);
   _relPreencherTecnicoSelect();
   _relMostrarTab(_relTab, true);
 }
@@ -6933,6 +6932,14 @@ async function gerarRelChamados() {
   const prioColors = ["#4ade80","#f0b014","#f97316","#ef4444"];
   const prioVals   = prioOrder.map(p => dados.filter(d => d.prioridade===p).length);
 
+  const catOrder  = ["sem_agua","vazamento","bomba_falha","nivel_baixo","ruido","manutencao","outro"];
+  const catColors = ["#ef4444","#f97316","#f0b014","#4a78f7","#8b5cf6","#4ade80","#94a3b8"];
+  const catMap = {};
+  dados.forEach(d => { const c = d.categoria || "outro"; catMap[c] = (catMap[c]||0)+1; });
+  const catLabels = catOrder.filter(c => catMap[c]).map(c => _relCategoriaLabel(c));
+  const catVals   = catOrder.filter(c => catMap[c]).map(c => catMap[c]);
+  const catClrs   = catOrder.filter(c => catMap[c]).map((c,_,arr) => catColors[catOrder.indexOf(c)]);
+
   const condoMap = {};
   dados.forEach(d => {
     const n = d.condominio_nome || "Sem condomínio";
@@ -6942,6 +6949,9 @@ async function gerarRelChamados() {
     if (d.sla_horas != null) condoMap[n].slaArr.push(Number(d.sla_horas));
   });
   const top5 = Object.entries(condoMap).sort(([,a],[,b])=>b.total-a.total).slice(0,5);
+  const top5problemas = Object.entries(condoMap)
+    .map(([nome,d]) => ({ nome, score: d.abertos*3 + d.total, abertos: d.abertos, total: d.total }))
+    .sort((a,b) => b.score-a.score).slice(0,5);
 
   const bodyEl = document.getElementById("relBodyChamados");
   if (bodyEl) bodyEl.style.display = "";
@@ -6961,6 +6971,13 @@ async function gerarRelChamados() {
     else {
       const el = document.getElementById("relChChartPrio");
       if (el) el.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted);font-size:12px;">Sem chamados no período</div>`;
+    }
+
+    if (catVals.length && catVals.some(v => v > 0))
+      _relChart("relChChartCat", _relDonutOpts(catLabels, catVals, catClrs));
+    else {
+      const el = document.getElementById("relChChartCat");
+      if (el) el.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted);font-size:12px;">Sem chamados com categoria</div>`;
     }
   });
 
@@ -6982,6 +6999,23 @@ async function gerarRelChamados() {
     }).join("");
   }
 
+  const problemasTbody = document.getElementById("relChProblemaBody");
+  if (problemasTbody) {
+    const maxScore = top5problemas[0]?.score || 1;
+    problemasTbody.innerHTML = top5problemas.map(({ nome, score, abertos, total }) => {
+      const pct = Math.round((score / maxScore) * 100);
+      return `<tr>
+        <td>
+          <div style="font-size:12px;line-height:1.3;">${_waEscaparHtml(nome)}</div>
+          <div class="rel-prog"><div class="rel-prog-fill" style="width:${pct}%;background:#ef4444;"></div></div>
+        </td>
+        <td style="text-align:right;font-weight:700;">${score}</td>
+        <td style="text-align:right;">${abertos>0?`<span class="badge b-bad">${abertos}/${total}</span>`:total}</td>
+        <td style="text-align:right;color:var(--muted);">—</td>
+      </tr>`;
+    }).join("") || `<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:20px;font-size:12px;">Sem dados</td></tr>`;
+  }
+
   const prioClass = p => (p==="p1"||p==="p2")?"b-bad":p==="p3"?"b-warn":"b-ok";
   const stClass   = s => s==="fechado"?"b-ok":s==="em_atendimento"?"b-warn":"b-bad";
   const tbody = document.getElementById("relChTbody");
@@ -7001,6 +7035,172 @@ async function gerarRelChamados() {
   if (count) count.textContent = _relCount(total);
   const exChCount = document.getElementById("relExChCount");
   if (exChCount) exChCount.textContent = `(${total})`;
+  _relMostrarExport();
+}
+
+async function gerarRelReservatorios() {
+  const v = id => document.getElementById(id)?.value || "";
+  const params = new URLSearchParams();
+  if (v("relResIni"))    params.set("data_ini",     v("relResIni"));
+  if (v("relResFim"))    params.set("data_fim",      v("relResFim"));
+  if (v("relResCondo"))  params.set("condominio_id", v("relResCondo"));
+  if (v("relResDevice")) params.set("device_id",     v("relResDevice").trim());
+
+  const btn = document.querySelector("[data-rel-action='gerar-reservatorios']");
+  if (btn) { btn.textContent = "Aguarde…"; btn.disabled = true; }
+  try {
+    const [telRes, alRes] = await Promise.all([
+      fetch(`/relatorios/telemetria?${params}`, { headers: authHeaders() }).then(r => r.json()),
+      fetch(`/relatorios/alertas?${params}`,    { headers: authHeaders() }).then(r => r.json()),
+    ]);
+    _relResDados = { tel: telRes, al: alRes };
+  } catch (e) {
+    alert("Erro ao carregar dados de reservatórios.");
+    return;
+  } finally {
+    if (btn) { btn.textContent = "Gerar"; btn.disabled = false; }
+  }
+
+  const tel = _relResDados.tel;
+  const al  = _relResDados.al;
+
+  // ── KPIs ─────────────────────────────────────────────────────────────────
+  const dispositivos  = new Set(tel.map(d => d.device_id)).size;
+  const nivelArr      = tel.filter(d => d.nivel_medio != null).map(d => Number(d.nivel_medio));
+  const nivelGlobal   = nivelArr.length ? Math.round(nivelArr.reduce((a,b)=>a+b,0)/nivelArr.length) : null;
+  const alAtivos      = al.filter(d => d.status === "ativo").length;
+  const alTotal       = al.length;
+  const offline       = al.filter(d => d.tipo === "dispositivo_offline" && d.status === "ativo").length;
+
+  const kpiEl = document.getElementById("relResKpis");
+  if (kpiEl) kpiEl.innerHTML =
+    _relKpiCard(_SVG_CPU,   "Dispositivos",    dispositivos,                              "neutral") +
+    _relKpiCard(_SVG_DROP,  "Nível médio",     nivelGlobal!=null?nivelGlobal+"%":"—",
+      nivelGlobal!=null&&nivelGlobal<30?"bad":nivelGlobal!=null&&nivelGlobal<60?"warn":"ok") +
+    _relKpiCard(_SVG_ALERT, "Alertas ativos",  alAtivos, alAtivos>0?"bad":"neutral") +
+    _relKpiCard(_SVG_WAVE,  "Dispositivos offline", offline, offline>0?"bad":"neutral");
+
+  // ── Série nível por dia ──────────────────────────────────────────────────
+  const porDia = {};
+  tel.forEach(d => {
+    if (!porDia[d.dia]) porDia[d.dia] = { sum:0, cnt:0 };
+    porDia[d.dia].sum += Number(d.nivel_medio)||0;
+    porDia[d.dia].cnt++;
+  });
+  const dias = Object.keys(porDia).sort();
+  const nivelSerie = dias.map(d => [new Date(d+"T12:00:00").getTime(), Math.round(porDia[d].sum/porDia[d].cnt)]);
+
+  // Anotações de alertas sobre o gráfico de nível
+  const alertAnnotations = al
+    .filter(d => d.tipo !== "dispositivo_offline")
+    .reduce((acc, d) => {
+      const dia = (d.criado_em||"").split("T")[0];
+      if (dia && !acc.find(a => a.x === new Date(dia+"T12:00:00").getTime()))
+        acc.push({ x: new Date(dia+"T12:00:00").getTime(), borderColor: "#ef4444",
+          label: { borderColor: "#ef4444", style: { color: "#fff", background: "#ef4444", fontSize: "9px" }, text: "Alerta" } });
+      return acc;
+    }, []);
+
+  // ── Tipo de alerta ───────────────────────────────────────────────────────
+  const tipoMap = {};
+  al.forEach(d => { const t=(d.tipo||"outro").replaceAll("_"," "); tipoMap[t]=(tipoMap[t]||0)+1; });
+  const tipoLabels = Object.keys(tipoMap);
+  const tipoVals   = Object.values(tipoMap);
+  const tipoColors = ["#ef4444","#f97316","#94a3b8","#4a78f7","#4ade80"];
+
+  // ── Nível por device ─────────────────────────────────────────────────────
+  const devMap = {};
+  tel.forEach(d => {
+    if (!devMap[d.device_id]) devMap[d.device_id] = { sum:0, cnt:0, nome: d.reservatorio_nome||d.device_id, condo: d.condominio_nome||"-" };
+    devMap[d.device_id].sum += Number(d.nivel_medio)||0;
+    devMap[d.device_id].cnt++;
+  });
+  const devRank = Object.values(devMap)
+    .map(v => ({ ...v, avg: Math.round(v.sum/v.cnt) }))
+    .sort((a,b) => a.avg-b.avg).slice(0,8);
+
+  // ── Saúde por reservatório (merge tel + al) ──────────────────────────────
+  const saudeMap = {};
+  tel.forEach(d => {
+    const k = d.device_id;
+    if (!saudeMap[k]) saudeMap[k] = { nome: d.reservatorio_nome||d.device_id, condo: d.condominio_nome||"-", sumN:0, cntN:0, alTotal:0, alAtivos:0, tempoArr:[] };
+    saudeMap[k].sumN += Number(d.nivel_medio)||0;
+    saudeMap[k].cntN++;
+  });
+  al.forEach(d => {
+    const k = d.device_id;
+    if (!saudeMap[k]) saudeMap[k] = { nome: d.reservatorio_nome||d.device_id||k, condo: d.condominio_nome||"-", sumN:0, cntN:0, alTotal:0, alAtivos:0, tempoArr:[] };
+    saudeMap[k].alTotal++;
+    if (d.status==="ativo") saudeMap[k].alAtivos++;
+    if (d.tempo_horas!=null) saudeMap[k].tempoArr.push(Number(d.tempo_horas));
+  });
+  const saudeList = Object.values(saudeMap)
+    .map(v => ({ ...v, nivelMed: v.cntN ? Math.round(v.sumN/v.cntN) : null, tempoMed: v.tempoArr.length ? v.tempoArr.reduce((a,b)=>a+b,0)/v.tempoArr.length : null }))
+    .sort((a,b) => (b.alAtivos-a.alAtivos) || (a.nivelMed??101)-(b.nivelMed??101));
+
+  const bodyEl = document.getElementById("relBodyReservatorios");
+  if (bodyEl) bodyEl.style.display = "";
+
+  const headNivel = document.getElementById("relResHeadNivel");
+  if (headNivel) headNivel.innerHTML = `<span>Tendência de nível — média diária</span>${_relBadgePeriodo("relResIni","relResFim")}`;
+
+  requestAnimationFrame(() => {
+    _relChart("relResChartNivel", Object.assign(
+      _relAreaOpts("Nível médio (%)", nivelSerie, "#4a78f7"), {
+        yaxis: { min:0, max:100, labels: { ..._REL_YLBL, formatter: v=>v+"%" } },
+        tooltip: { theme:"dark", x:{ format:"dd/MM/yyyy" }, y:{ formatter: v=>v+"%" } },
+        annotations: { xaxis: alertAnnotations.slice(0,10) },
+      }
+    ));
+    if (tipoVals.some(v=>v>0))
+      _relChart("relResChartTipo", _relDonutOpts(tipoLabels, tipoVals, tipoColors));
+    if (devRank.length)
+      _relChart("relResChartDev", {
+        chart: { type:"bar", height:"100%", toolbar:{ show:false }, background:"transparent", animations:{ speed:450 } },
+        series: [{ name:"Nível médio", data: devRank.map(d=>d.avg) }],
+        xaxis: { categories: devRank.map(d=>d.nome.length>16?d.nome.slice(0,16)+"…":d.nome),
+          labels:{ ..._REL_XLBL, rotate:-25, hideOverlappingLabels:false }, axisBorder:{show:false}, axisTicks:{show:false} },
+        yaxis: { min:0, max:100, labels:{ ..._REL_YLBL, formatter:v=>v+"%" } },
+        plotOptions:{ bar:{ distributed:true, borderRadius:6, columnWidth:"48%", dataLabels:{ position:"top" } } },
+        dataLabels:{ enabled:true, formatter:v=>v+"%", offsetY:-18, style:{ fontSize:"11px", fontWeight:"700", colors:["#eef0fb"] } },
+        colors: devRank.map(d=>d.avg<30?"#ef4444":d.avg<60?"#f0b014":"#4ade80"),
+        legend:{ show:false }, grid:_REL_GRID, tooltip:{ theme:"dark", y:{ formatter:v=>v+"%" } },
+      });
+  });
+
+  const saudeTbody = document.getElementById("relResSaudeBody");
+  if (saudeTbody) saudeTbody.innerHTML = saudeList.slice(0,10).map(d => {
+    const nvlCls = d.nivelMed==null?"":d.nivelMed<30?"b-bad":d.nivelMed<60?"b-warn":"b-ok";
+    return `<tr>
+      <td>
+        <div style="font-size:12px;font-weight:500;">${_waEscaparHtml(d.nome)}</div>
+        <div style="font-size:10px;color:var(--muted);">${_waEscaparHtml(d.condo)}</div>
+      </td>
+      <td style="text-align:right;">${d.nivelMed!=null?`<span class="badge ${nvlCls}">${d.nivelMed}%</span>`:"—"}</td>
+      <td style="text-align:right;">${d.alTotal}</td>
+      <td style="text-align:right;">${d.alAtivos>0?`<span class="badge b-bad">${d.alAtivos}</span>`:`<span class="badge b-ok">0</span>`}</td>
+      <td style="text-align:right;">${d.tempoMed!=null?_relSlaFmt(d.tempoMed):"—"}</td>
+    </tr>`;
+  }).join("") || `<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px;">Sem dados no período</td></tr>`;
+
+  const alCount = document.getElementById("relResAlCount");
+  if (alCount) alCount.textContent = _relCount(alTotal);
+
+  const alTbody = document.getElementById("relResAlTbody");
+  if (alTbody) alTbody.innerHTML = al.map(d => `<tr>
+    <td>TEL-${d.id}</td>
+    <td><span class="badge ${_relTipoClasse(d.tipo)}">${_relFmtTipo(d.tipo)||"-"}</span></td>
+    <td style="max-width:240px;white-space:normal;">${_waEscaparHtml(d.mensagem||"")}</td>
+    <td>${_waEscaparHtml(d.reservatorio_nome||"-")}</td>
+    <td>${_waEscaparHtml(d.condominio_nome||"-")}</td>
+    <td><span class="badge ${d.status==="resolvido"?"b-ok":"b-bad"}">${_relFmtTipo(d.status)||"-"}</span></td>
+    <td>${_relFmtData(d.criado_em)}</td>
+    <td>${d.tempo_horas!=null?_relSlaFmt(Number(d.tempo_horas)):"-"}</td>
+  </tr>`).join("");
+
+  // Atualiza cache antigo para exportar CSV de alertas ainda funcionar
+  _relAlDados = al;
+  _relTelDados = tel;
   _relMostrarExport();
 }
 
@@ -7262,9 +7462,53 @@ async function gerarRelSla() {
 function _relRenderSlaDashboard(d) {
   _relRenderSlaKpisMain(d.kpis);
   _relRenderSlaTtrChart(d.ttr_por_dia);
+  _relRenderSlaWorkload(d.workload_tecnico || []);
   _relRenderSlaPorPrio(d.por_prioridade || []);
   _relRenderSlaTecnicos(d.por_tecnico);
   _relRenderSlaEmRisco(d.em_risco);
+}
+
+function _relRenderSlaWorkload(lista) {
+  const el = document.getElementById("relSlChartWorkload");
+  if (!el) return;
+  if (!lista || !lista.length) {
+    el.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--ok);font-size:12px;">✓ Nenhum chamado aberto no momento</div>`;
+    return;
+  }
+  requestAnimationFrame(() => {
+    _relChart("relSlChartWorkload", {
+      chart: { type: "bar", height: "100%", toolbar: { show: false }, background: "transparent", animations: { speed: 400 }, stacked: true },
+      series: [
+        { name: "P1 Crítico",    data: lista.map(t => t.p1), color: "#ef4444" },
+        { name: "P2 Alta",       data: lista.map(t => t.p2), color: "#f97316" },
+        { name: "P3 Controlado", data: lista.map(t => t.p3), color: "#f0b014" },
+        { name: "P4 Agendado",   data: lista.map(t => t.p4), color: "#4ade80" },
+      ],
+      xaxis: {
+        categories: lista.map(t => t.tecnico_nome.split(" ")[0]),
+        labels: _REL_XLBL, axisBorder: { show: false }, axisTicks: { show: false },
+      },
+      yaxis: { labels: _REL_YLBL, allowDecimals: false },
+      plotOptions: { bar: { borderRadius: 4, columnWidth: "44%", dataLabels: { position: "top" } } },
+      dataLabels: { enabled: false },
+      legend: { position: "top", fontSize: "11px", labels: { colors: "#9094ae" }, itemMargin: { horizontal: 8 } },
+      grid: _REL_GRID,
+      tooltip: {
+        theme: "dark",
+        custom: ({ series, dataPointIndex }) => {
+          const t = lista[dataPointIndex];
+          return `<div style="padding:8px 12px;font-size:12px;">
+            <div style="font-weight:600;margin-bottom:4px;">${_waEscaparHtml(t.tecnico_nome)}</div>
+            <div style="color:#ef4444;">P1: ${t.p1}</div>
+            <div style="color:#f97316;">P2: ${t.p2}</div>
+            <div style="color:#f0b014;">P3: ${t.p3}</div>
+            <div style="color:#4ade80;">P4: ${t.p4}</div>
+            <div style="margin-top:4px;border-top:1px solid rgba(255,255,255,.1);padding-top:4px;">Total: ${t.abertos}</div>
+          </div>`;
+        },
+      },
+    });
+  });
 }
 
 function _relRenderSlaPorPrio(lista) {
@@ -7354,27 +7598,40 @@ function _relRenderSlaKpisMain(k) {
 }
 
 function _relRenderSlaTtrChart(porDia) {
-  if (!porDia || !porDia.length) {
-    const el = document.getElementById("relSlChartTtr");
-    if (el) el.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:220px;color:var(--muted);font-size:12px;">Sem chamados fechados no período</div>`;
-    return;
-  }
-  const cats = porDia.map(d => d.dia);
-  const vals = porDia.map(d => d.ttr_medio_min != null ? Number(d.ttr_medio_min) : null);
-  requestAnimationFrame(() => {
-    _relChart("relSlChartTtr", {
-      chart: { type: "area", height: 220, toolbar: { show: false }, background: "transparent",
+  const _mkSlaAreaChart = (elId, seriesName, color, vals, cats) => {
+    if (!vals.some(v => v != null)) {
+      const el = document.getElementById(elId);
+      if (el) el.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted);font-size:12px;">Sem dados no período</div>`;
+      return;
+    }
+    _relChart(elId, {
+      chart: { type: "area", height: "100%", toolbar: { show: false }, background: "transparent",
                animations: { enabled: true, speed: 400 } },
       theme: { mode: "dark" },
-      series: [{ name: "TTR médio (min)", data: vals }],
+      series: [{ name: seriesName, data: vals }],
       xaxis: { categories: cats, labels: { ..._REL_XLBL, formatter: v => v ? v.slice(5) : v }, tickAmount: 8 },
       yaxis: { labels: { ..._REL_YLBL, formatter: v => _fmtMin(v) } },
       stroke: { curve: "smooth", width: 2 },
       fill: { type: "gradient", gradient: { shadeIntensity: 1, opacityFrom: .35, opacityTo: .05, stops: [0, 100] } },
-      colors: ["#f0b014"],
+      colors: [color],
       tooltip: { theme: "dark", y: { formatter: v => _fmtMin(v) } },
       grid: _REL_GRID,
     });
+  };
+
+  if (!porDia || !porDia.length) {
+    ["relSlChartTtr","relSlChartTtfr"].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted);font-size:12px;">Sem dados no período</div>`;
+    });
+    return;
+  }
+  const cats     = porDia.map(d => d.dia);
+  const ttrVals  = porDia.map(d => d.ttr_medio_min  != null ? Number(d.ttr_medio_min)  : null);
+  const ttfrVals = porDia.map(d => d.ttfr_medio_min != null ? Number(d.ttfr_medio_min) : null);
+  requestAnimationFrame(() => {
+    _mkSlaAreaChart("relSlChartTtr",  "TTR médio (min)",  "#f0b014", ttrVals,  cats);
+    _mkSlaAreaChart("relSlChartTtfr", "TTFR médio (min)", "#4a78f7", ttfrVals, cats);
   });
 }
 
@@ -8374,11 +8631,9 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!btn || btn.disabled) return;
     const action = btn.dataset.relAction;
 
-    if (action === "gerar-chamados")   { gerarRelChamados(); return; }
-    if (action === "gerar-alertas")    { gerarRelAlertas(); return; }
-    if (action === "gerar-telemetria") { gerarRelTelemetria(); return; }
-    if (action === "gerar-insights")   { gerarRelInsights(); return; }
-    if (action === "gerar-sla")        { gerarRelSla(); return; }
+    if (action === "gerar-chamados")      { gerarRelChamados(); return; }
+    if (action === "gerar-reservatorios") { gerarRelReservatorios(); return; }
+    if (action === "gerar-sla")           { gerarRelSla(); return; }
 
     // Botões de período do gráfico TTR
     const period = btn.dataset.slaPeriod;

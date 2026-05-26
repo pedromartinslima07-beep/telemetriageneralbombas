@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="/static/leaflet.css">
   <!-- ⚠️ Ao mexer em admin.js ou admin.css, bumpe o ?v=N aqui E no <script>
        lá embaixo. Ver CLAUDE.md raiz. -->
-  <link rel="stylesheet" href="/static/admin.css?v=46">
+  <link rel="stylesheet" href="/static/admin.css?v=47">
 </head>
 <body>
 
@@ -1315,9 +1315,7 @@
           <div style="padding:12px 20px;border-bottom:1px solid var(--border);">
             <div class="wa-tabs" id="relTabs" role="tablist" style="border-bottom:none;margin-top:0;">
               <button class="wa-tab is-active" data-rel-tab="chamados">Chamados</button>
-              <button class="wa-tab" data-rel-tab="alertas">Alertas</button>
-              <button class="wa-tab" data-rel-tab="telemetria">Telemetria diária</button>
-              <button class="wa-tab" data-rel-tab="insights">Insights</button>
+              <button class="wa-tab" data-rel-tab="reservatorios">Reservatórios</button>
               <button class="wa-tab" data-rel-tab="sla">Dashboard SLA</button>
             </div>
           </div>
@@ -1344,43 +1342,14 @@
               <button class="btn btn-sm" data-rel-action="gerar-chamados" style="align-self:flex-end;">Gerar</button>
             </div>
           </div>
-          <!-- filtros alertas -->
-          <div class="rel-tab-pane" id="relPaneAlertas" style="padding:14px 20px;display:none;">
+          <!-- filtros reservatórios (telemetria + alertas unificados) -->
+          <div class="rel-tab-pane" id="relPaneReservatorios" style="padding:14px 20px;display:none;">
             <div class="filter-bar">
-              <div class="field"><label class="lbl">De</label><input type="date" id="relAlIni" class="input" style="width:136px;"></div>
-              <div class="field"><label class="lbl">Até</label><input type="date" id="relAlFim" class="input" style="width:136px;"></div>
-              <div class="field"><label class="lbl">Condomínio</label><select id="relAlCondo" class="input" style="width:158px;"><option value="">Todos</option></select></div>
-              <div class="field"><label class="lbl">Tipo</label>
-                <select id="relAlTipo" class="input" style="width:158px;">
-                  <option value="">Todos</option><option value="nivel_muito_baixo">Nível muito baixo</option>
-                  <option value="nivel_baixo">Nível baixo</option><option value="dispositivo_offline">Offline</option>
-                </select>
-              </div>
-              <div class="field"><label class="lbl">Status</label>
-                <select id="relAlStatus" class="input" style="width:118px;">
-                  <option value="">Todos</option><option value="ativo">Ativo</option><option value="resolvido">Resolvido</option>
-                </select>
-              </div>
-              <button class="btn btn-sm" data-rel-action="gerar-alertas" style="align-self:flex-end;">Gerar</button>
-            </div>
-          </div>
-          <!-- filtros telemetria -->
-          <div class="rel-tab-pane" id="relPaneTelemetria" style="padding:14px 20px;display:none;">
-            <div class="filter-bar">
-              <div class="field"><label class="lbl">De</label><input type="date" id="relTelIni" class="input" style="width:136px;"></div>
-              <div class="field"><label class="lbl">Até</label><input type="date" id="relTelFim" class="input" style="width:136px;"></div>
-              <div class="field"><label class="lbl">Condomínio</label><select id="relTelCondo" class="input" style="width:158px;"><option value="">Todos</option></select></div>
-              <div class="field"><label class="lbl">Device ID</label><input type="text" id="relTelDevice" class="input" placeholder="Opcional" style="width:154px;"></div>
-              <button class="btn btn-sm" data-rel-action="gerar-telemetria" style="align-self:flex-end;">Gerar</button>
-            </div>
-          </div>
-          <!-- filtros insights -->
-          <div class="rel-tab-pane" id="relPaneInsights" style="padding:14px 20px;display:none;">
-            <div class="filter-bar">
-              <div class="field"><label class="lbl">De</label><input type="date" id="relInIni" class="input" style="width:136px;"></div>
-              <div class="field"><label class="lbl">Até</label><input type="date" id="relInFim" class="input" style="width:136px;"></div>
-              <div class="field"><label class="lbl">Condomínio</label><select id="relInCondo" class="input" style="width:158px;"><option value="">Todos</option></select></div>
-              <button class="btn btn-sm" data-rel-action="gerar-insights" style="align-self:flex-end;">Gerar</button>
+              <div class="field"><label class="lbl">De</label><input type="date" id="relResIni" class="input" style="width:136px;"></div>
+              <div class="field"><label class="lbl">Até</label><input type="date" id="relResFim" class="input" style="width:136px;"></div>
+              <div class="field"><label class="lbl">Condomínio</label><select id="relResCondo" class="input" style="width:158px;"><option value="">Todos</option></select></div>
+              <div class="field"><label class="lbl">Device ID</label><input type="text" id="relResDevice" class="input" placeholder="Opcional" style="width:154px;"></div>
+              <button class="btn btn-sm" data-rel-action="gerar-reservatorios" style="align-self:flex-end;">Gerar</button>
             </div>
           </div>
           <!-- filtros sla dashboard -->
@@ -1422,6 +1391,12 @@
               <div id="relChChartPrio" style="height:210px;"></div>
             </div>
             <div class="card" style="padding:0;overflow:hidden;">
+              <p class="rel-ct-head">Por categoria</p>
+              <div id="relChChartCat" style="height:210px;"></div>
+            </div>
+          </div>
+          <div class="rel-charts-2b" style="margin-bottom:12px;">
+            <div class="card" style="padding:0;overflow:hidden;">
               <p class="rel-ct-head">Top 5 condomínios</p>
               <div style="padding:0 12px 12px;">
                 <table><thead><tr>
@@ -1430,6 +1405,17 @@
                   <th style="width:60px;text-align:right;">Abertos</th>
                   <th style="width:74px;text-align:right;">SLA méd</th>
                 </tr></thead><tbody id="relChTop5Body"></tbody></table>
+              </div>
+            </div>
+            <div class="card" style="padding:0;overflow:hidden;">
+              <p class="rel-ct-head">Condomínios mais problemáticos <span style="font-size:11px;color:var(--muted);">(chamados + alertas)</span></p>
+              <div style="padding:0 12px 12px;">
+                <table><thead><tr>
+                  <th>Condomínio</th>
+                  <th style="width:52px;text-align:right;">Score</th>
+                  <th style="width:66px;text-align:right;">Chamados</th>
+                  <th style="width:54px;text-align:right;">Alertas</th>
+                </tr></thead><tbody id="relChProblemaBody"></tbody></table>
               </div>
             </div>
           </div>
@@ -1453,44 +1439,45 @@
           </div>
         </div>
 
-        <!-- ── CORPO: ALERTAS ── -->
-        <div class="rel-body" id="relBodyAlertas" style="display:none;">
-          <div class="resumo-grid" id="relAlKpis" style="margin-bottom:12px;"></div>
-          <!-- linha 1: área por dia + donut por tipo -->
+        <!-- ── CORPO: RESERVATÓRIOS (telemetria + alertas unificados) ── -->
+        <div class="rel-body" id="relBodyReservatorios" style="display:none;">
+          <div class="resumo-grid" id="relResKpis" style="margin-bottom:12px;"></div>
+          <!-- linha 1: nível por dia + donut tipo alerta -->
           <div class="rel-charts-2" style="margin-bottom:12px;">
             <div class="card" style="padding:0;overflow:hidden;">
-              <p class="rel-ct-head" id="relAlHeadDia"><span>Incidentes por dia</span></p>
-              <div id="relAlChartDia" style="height:200px;"></div>
+              <p class="rel-ct-head" id="relResHeadNivel"><span>Tendência de nível — média diária</span></p>
+              <div id="relResChartNivel" style="height:220px;"></div>
             </div>
             <div class="card" style="padding:0;overflow:hidden;">
-              <p class="rel-ct-head">Distribuição por tipo</p>
-              <div id="relAlChartTipo" style="height:200px;"></div>
+              <p class="rel-ct-head">Alertas por tipo</p>
+              <div id="relResChartTipo" style="height:220px;"></div>
             </div>
           </div>
-          <!-- linha 2: bar reservatórios + tabela top 5 -->
+          <!-- linha 2: nível por device + tabela saúde -->
           <div class="rel-charts-2b" style="margin-bottom:12px;">
             <div class="card" style="padding:0;overflow:hidden;">
-              <p class="rel-ct-head">Top reservatórios — ocorrências</p>
-              <div id="relAlChartRes" style="height:210px;"></div>
+              <p class="rel-ct-head">Nível médio por reservatório</p>
+              <div id="relResChartDev" style="height:220px;"></div>
             </div>
             <div class="card" style="padding:0;overflow:hidden;">
-              <p class="rel-ct-head">Top 5 reservatórios</p>
+              <p class="rel-ct-head">Saúde por reservatório</p>
               <div style="padding:0 12px 12px;">
                 <table><thead><tr>
                   <th>Reservatório</th>
-                  <th style="width:52px;text-align:right;">Total</th>
-                  <th style="width:60px;text-align:right;">Ativos</th>
-                  <th style="width:82px;text-align:right;">Tempo méd</th>
-                </tr></thead><tbody id="relAlTop5Body"></tbody></table>
+                  <th style="width:64px;text-align:right;">Nível</th>
+                  <th style="width:60px;text-align:right;">Alertas</th>
+                  <th style="width:56px;text-align:right;">Ativos</th>
+                  <th style="width:76px;text-align:right;">Tempo méd</th>
+                </tr></thead><tbody id="relResSaudeBody"></tbody></table>
               </div>
             </div>
           </div>
-          <!-- tabela completa -->
+          <!-- log de alertas -->
           <div class="card" style="padding:0;overflow:hidden;margin-bottom:12px;">
             <div class="rel-ct-head" style="display:flex;justify-content:space-between;align-items:center;">
               <span>Log de incidentes</span>
               <div style="display:flex;gap:8px;align-items:center;">
-                <span id="relAlCount" style="font-size:11.5px;color:var(--text-dim);"></span>
+                <span id="relResAlCount" style="font-size:11.5px;color:var(--text-dim);"></span>
                 <button class="btn btn-sm" data-rel-action="exportar-alertas" style="margin-right:4px;">Exportar CSV</button>
               </div>
             </div>
@@ -1501,71 +1488,7 @@
                 <th style="width:148px">Condomínio</th>
                 <th style="width:90px">Status</th><th style="width:96px">Criado em</th>
                 <th style="width:70px">Tempo</th>
-              </tr></thead><tbody id="relAlTbody"></tbody></table>
-            </div>
-          </div>
-        </div>
-
-        <!-- ── CORPO: TELEMETRIA ── -->
-        <div class="rel-body" id="relBodyTelemetria" style="display:none;">
-          <div class="resumo-grid" id="relTelKpis" style="margin-bottom:12px;"></div>
-          <!-- linha 1: tendência de nível + ranking por dispositivo -->
-          <div class="rel-charts-2" style="margin-bottom:12px;">
-            <div class="card" style="padding:0;overflow:hidden;">
-              <p class="rel-ct-head" id="relTelHeadDia"><span>Tendência de nível — média diária</span></p>
-              <div id="relTelChartDia" style="height:220px;"></div>
-            </div>
-            <div class="card" style="padding:0;overflow:hidden;">
-              <p class="rel-ct-head">Nível médio por reservatório</p>
-              <div id="relTelChartDev" style="height:220px;"></div>
-            </div>
-          </div>
-          <!-- tabela completa -->
-          <div class="card" style="padding:0;overflow:hidden;margin-bottom:12px;">
-            <div class="rel-ct-head" style="display:flex;justify-content:space-between;align-items:center;">
-              <span>Leituras diárias por dispositivo</span>
-              <div style="display:flex;gap:8px;align-items:center;">
-                <span id="relTelCount" style="font-size:11.5px;color:var(--text-dim);"></span>
-                <button class="btn btn-sm" data-rel-action="exportar-telemetria" style="margin-right:4px;">Exportar CSV</button>
-              </div>
-            </div>
-            <div class="tableWrap" style="max-height:280px;">
-              <table><thead><tr>
-                <th style="width:92px">Dia</th><th style="width:128px">Device ID</th>
-                <th style="width:148px">Reservatório</th><th style="width:148px">Condomínio</th>
-                <th style="width:62px;text-align:right;">Leit.</th>
-                <th style="width:68px;text-align:right;">Mín %</th>
-                <th style="width:68px;text-align:right;">Méd %</th>
-                <th style="width:68px;text-align:right;">Máx %</th>
-                <th style="width:76px;text-align:right;">Bomba ON</th>
-              </tr></thead><tbody id="relTelTbody"></tbody></table>
-            </div>
-          </div>
-        </div>
-
-        <!-- ── CORPO: INSIGHTS ── -->
-        <div class="rel-body" id="relBodyInsights" style="display:none;">
-          <div class="resumo-grid" id="relInKpis" style="margin-bottom:12px;"></div>
-          <div class="rel-sla-section" style="margin-bottom:12px;">
-            <div class="rel-sla-head">Métricas de SLA · tempo de resposta e resolução</div>
-            <div class="resumo-grid" id="relInSlaKpis"></div>
-          </div>
-          <div class="rel-charts-2b" style="margin-bottom:12px;">
-            <div class="card" style="padding:0;overflow:hidden;">
-              <p class="rel-ct-head" id="relInHeadTop"><span>Condomínios mais problemáticos</span></p>
-              <div style="padding:0 12px 12px;">
-                <table><thead><tr>
-                  <th>Condomínio</th>
-                  <th style="width:62px;text-align:right;">Score</th>
-                  <th style="width:60px;text-align:right;">Chamados</th>
-                  <th style="width:54px;text-align:right;">Alertas</th>
-                  <th style="width:82px;text-align:right;">Tempo méd</th>
-                </tr></thead><tbody id="relInTopBody"></tbody></table>
-              </div>
-            </div>
-            <div class="card" style="padding:0;overflow:hidden;">
-              <p class="rel-ct-head" id="relInHeadCat"><span>Categorias mais comuns no WhatsApp</span></p>
-              <div id="relInChartCat" style="height:240px;"></div>
+              </tr></thead><tbody id="relResAlTbody"></tbody></table>
             </div>
           </div>
         </div>
@@ -1575,17 +1498,23 @@
           <!-- KPIs -->
           <div class="resumo-grid" id="relSlKpis" style="margin-bottom:12px;"></div>
 
-          <!-- Gráfico TTR ao longo do tempo -->
-          <div class="card" style="padding:0;overflow:hidden;margin-bottom:12px;">
-            <div class="rel-ct-head">
-              <span>TTR médio ao longo do tempo <span style="font-size:11px;color:var(--muted);">(minutos para resolver)</span></span>
-              <div class="sla-period-btns">
-                <button class="btn btn-sm sla-period-btn is-active" data-sla-period="30">30 dias</button>
-                <button class="btn btn-sm sla-period-btn" data-sla-period="60">60 dias</button>
-                <button class="btn btn-sm sla-period-btn" data-sla-period="90">90 dias</button>
+          <!-- TTR + TTFR ao longo do tempo (side by side) -->
+          <div class="rel-charts-2b" style="margin-bottom:12px;">
+            <div class="card" style="padding:0;overflow:hidden;">
+              <div class="rel-ct-head" style="display:flex;justify-content:space-between;align-items:center;">
+                <span>TTR médio <span style="font-size:11px;color:var(--muted);">(tempo até resolver)</span></span>
+                <div class="sla-period-btns">
+                  <button class="btn btn-sm sla-period-btn is-active" data-sla-period="30">30d</button>
+                  <button class="btn btn-sm sla-period-btn" data-sla-period="60">60d</button>
+                  <button class="btn btn-sm sla-period-btn" data-sla-period="90">90d</button>
+                </div>
               </div>
+              <div id="relSlChartTtr" style="height:200px;"></div>
             </div>
-            <div id="relSlChartTtr" style="height:220px;"></div>
+            <div class="card" style="padding:0;overflow:hidden;">
+              <p class="rel-ct-head">TTFR médio <span style="font-size:11px;color:var(--muted);">(tempo até 1ª resposta)</span></p>
+              <div id="relSlChartTtfr" style="height:200px;"></div>
+            </div>
           </div>
 
           <!-- Distribuição P1-P4 + conformidade SLA por nível -->
@@ -1608,6 +1537,12 @@
                 </table>
               </div>
             </div>
+          </div>
+
+          <!-- Workload atual por técnico -->
+          <div class="card" style="padding:0;overflow:hidden;margin-bottom:12px;">
+            <p class="rel-ct-head">Workload atual <span style="font-size:11px;color:var(--muted);">(chamados abertos agora, independente do período)</span></p>
+            <div id="relSlChartWorkload" style="height:180px;"></div>
           </div>
 
           <!-- Grid 2 colunas: técnicos + em risco -->
@@ -2533,7 +2468,7 @@
   </div>
 </div>
 
-<script src="/static/admin.js?v=46" defer></script>
+<script src="/static/admin.js?v=47" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
 <script src="/static/register-sw.js?v=22" defer></script>
 </body>
