@@ -722,34 +722,56 @@ function renderMcAlerts() {
   const wrap = document.getElementById("mcAlertsList");
   if (!wrap) return;
 
-  // Prioridade: dispositivo_offline + nivel_muito_baixo no topo
-  const sorted = [..._alertasAbertos].sort((a, b) => {
-    const w = { dispositivo_offline: 0, nivel_muito_baixo: 1, nivel_baixo: 2 };
-    const wa = w[a.tipo] ?? 9;
-    const wb = w[b.tipo] ?? 9;
-    if (wa !== wb) return wa - wb;
-    return new Date(b.criado_em) - new Date(a.criado_em);
-  }).slice(0, 6);
+  const itens = [];
+
+  // Telemetria: offline e nível crítico têm prioridade máxima
+  for (const a of (_alertasAbertos || [])) {
+    const peso = a.tipo === "dispositivo_offline" ? 0
+               : a.tipo === "nivel_muito_baixo"   ? 1
+               : a.tipo === "nivel_baixo"          ? 2 : 3;
+    itens.push({
+      peso,
+      kind: (a.tipo === "dispositivo_offline" || a.tipo === "nivel_muito_baixo") ? "bad" : "warn",
+      icon: _mcAlertIconFor(a.tipo),
+      titulo: _mcDeviceCondoName(a.device_id),
+      sub: String(a.tipo || "").replaceAll("_", " ") + (a.mensagem ? ` • ${a.mensagem}` : ""),
+      criado_em: a.criado_em,
+    });
+  }
+
+  const _iconChamado = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`;
+
+  // Chamados P1/P2 abertos
+  for (const ch of _chamadosP12Abertos()) {
+    const peso = ch.prioridade === "p1" ? 0 : 1;
+    itens.push({
+      peso,
+      kind: ch.prioridade === "p1" ? "bad" : "warn",
+      icon: _iconChamado,
+      titulo: ch.titulo || `Chamado #${ch.id}`,
+      sub: `Chamado ${String(ch.prioridade || "").toUpperCase()} • ${ch.condominio_nome || "—"}`,
+      criado_em: ch.criado_em,
+    });
+  }
+
+  itens.sort((a, b) => a.peso - b.peso || new Date(b.criado_em) - new Date(a.criado_em));
+  const sorted = itens.slice(0, 6);
 
   if (!sorted.length) {
     wrap.innerHTML = `<div class="mc-empty">Nenhum alerta crítico no momento ✓</div>`;
     return;
   }
 
-  wrap.innerHTML = sorted.map(a => {
-    const kind = (a.tipo === "dispositivo_offline" || a.tipo === "nivel_muito_baixo") ? "bad" : "warn";
-    const tipoLabel = String(a.tipo || "").replaceAll("_", " ");
-    return `
-      <div class="mc-alert-row" data-action="goto-alertas">
-        <div class="mc-alert-icon ${kind}">${_mcAlertIconFor(a.tipo)}</div>
-        <div class="mc-alert-main">
-          <div class="mc-alert-title">${_mcDeviceCondoName(a.device_id)}</div>
-          <div class="mc-alert-sub">${tipoLabel} • ${a.mensagem || a.device_id || ""}</div>
-        </div>
-        <div class="mc-alert-time">${_mcRelTime(a.criado_em)}</div>
+  wrap.innerHTML = sorted.map(it => `
+    <div class="mc-alert-row" data-action="goto-alertas">
+      <div class="mc-alert-icon ${it.kind}">${it.icon}</div>
+      <div class="mc-alert-main">
+        <div class="mc-alert-title">${it.titulo}</div>
+        <div class="mc-alert-sub">${it.sub}</div>
       </div>
-    `;
-  }).join("");
+      <div class="mc-alert-time">${_mcRelTime(it.criado_em)}</div>
+    </div>
+  `).join("");
 }
 
 function renderMcActivity() {
@@ -1020,6 +1042,7 @@ function renderTelKpis() {
     alertas += r.alertas_abertos_count || 0;
     if (r.offline) offline++;
   }
+  alertas += _chamadosP12Abertos().length;
 
   const nivelMedio = pctCount > 0 ? Math.round(pctSum / pctCount) : null;
 
@@ -1615,6 +1638,22 @@ function _alUnificar() {
   }
 
   return itens;
+}
+
+function _chamadosP12Abertos() {
+  return (_chamadosData || []).filter(ch => {
+    const p = String(ch.prioridade || "").toLowerCase();
+    const s = String(ch.status || "").toLowerCase();
+    return (p === "p1" || p === "p2") && s !== "fechado";
+  });
+}
+
+function _atualizarBadgeAlertas() {
+  const badge = document.getElementById("navBadgeAlertas");
+  if (!badge) return;
+  const total = (_alertasAbertos || []).length + _chamadosP12Abertos().length;
+  badge.textContent = total;
+  badge.style.display = total > 0 ? "inline-flex" : "none";
 }
 
 function _alCondoIdDoDevice(deviceId) {
@@ -2260,13 +2299,7 @@ async function carregarAlertas() {
   if (!r.ok) throw new Error("Erro /alertas-abertos: " + r.status);
   _alertasAbertos = await r.json();
   montarMapaAlertas();
-
-  // atualiza badge da sidebar
-  const badge = document.getElementById("navBadgeAlertas");
-  if (badge) {
-    badge.textContent = _alertasAbertos.length;
-    badge.style.display = _alertasAbertos.length > 0 ? "inline-flex" : "none";
-  }
+  _atualizarBadgeAlertas();
 }
 
 async function carregarCondominios() {
@@ -2320,8 +2353,10 @@ function renderAtendimentoVisuais() {
   renderConversas();
   atualizarBadgesChamados();
   atualizarBadgesWhatsapp();
+  _atualizarBadgeAlertas();
   renderCondoCards();        // cards têm badges de chamados/wz
   renderMcConversas();
+  renderMcAlerts();
   // Página de Alertas combina telemetria + chamados; mantém em dia quando
   // chamados são atualizados, não só quando telemetria recarrega.
   renderAlertas();
