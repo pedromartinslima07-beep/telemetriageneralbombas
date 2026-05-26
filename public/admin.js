@@ -6929,7 +6929,7 @@ async function gerarRelChamados() {
   const stColors = Object.keys(stMap).map(l => l==="fechado"?"#4ade80":l==="em_atendimento"?"#f0b014":"#f87171");
 
   const prioOrder  = ["p4","p3","p2","p1"];
-  const prioLabels = ["Baixa","Média","Alta","Emergência"];
+  const prioLabels = ["P4 Agendado","P3 Controlado","P2 Alta","P1 Crítico"];
   const prioColors = ["#4ade80","#f0b014","#f97316","#ef4444"];
   const prioVals   = prioOrder.map(p => dados.filter(d => d.prioridade===p).length);
 
