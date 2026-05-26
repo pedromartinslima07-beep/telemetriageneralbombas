@@ -812,6 +812,12 @@ async function carregar() {
   _alAlertas = Array.isArray(data.alertas_abertos) ? data.alertas_abertos : [];
 
   // ===== Dashboard moderno =====
+  const temTelemetria = reservatorios.length > 0;
+  const dashFallback  = document.getElementById("dashFallback");
+  const dashConteudo  = document.getElementById("dashConteudo");
+  if (dashFallback) dashFallback.style.display = temTelemetria ? "none" : "flex";
+  if (dashConteudo) dashConteudo.style.display = temTelemetria ? ""     : "none";
+
   _dashRenderKpis(reservatorios);
   _dashRenderNiveis(reservatorios);
   _dashRenderCriticos(reservatorios);

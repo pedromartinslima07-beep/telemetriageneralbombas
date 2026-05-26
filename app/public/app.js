@@ -3104,7 +3104,7 @@ async function abrirTelemetriaCliente() {
 // quanto como card compacto na Home. `contexto` controla o tamanho/texto.
 function _renderClienteSemTelemetria({ contexto } = {}) {
   const isTela = contexto === "tela";
-  const waLink = "https://wa.me/5511999999999?text=" + encodeURIComponent("Olá! Quero saber mais sobre a telemetria General Bombas");
+  const waLink = "https://wa.me/5511966536110?text=" + encodeURIComponent("Olá! Quero saber mais sobre a telemetria General Bombas");
 
   const checkSvg = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
   const iconSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3-9 4 18 3-9h4"/></svg>`;

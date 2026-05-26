@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="/static/leaflet.css">
   <!-- ⚠️ Ao mexer em admin.js ou admin.css, bumpe o ?v=N aqui E no <script>
        lá embaixo. Ver CLAUDE.md raiz. -->
-  <link rel="stylesheet" href="/static/admin.css?v=38">
+  <link rel="stylesheet" href="/static/admin.css?v=44">
 </head>
 <body>
 
@@ -801,7 +801,7 @@
                   <th style="width:120px">Criada em</th>
                   <th>Condomínio</th>
                   <th style="width:160px">Técnico</th>
-                  <th>Tipos de serviço</th>
+                  <th style="white-space:nowrap">Tipos de serviço</th>
                   <th style="width:120px">Resultado</th>
                   <th style="width:96px">Status</th>
                   <th style="width:110px" class="right">Ações</th>
@@ -846,7 +846,7 @@
                 </svg>
                 Orçamentos
               </h2>
-              <button class="btn" id="avBtnNovo" type="button" style="margin-left:auto;background:rgba(240,176,20,.15);border-color:rgba(240,176,20,.4);color:#f0b014;font-size:12px;padding:6px 14px;">
+              <button class="btn viewer-only-hide" id="avBtnNovo" type="button" style="margin-left:auto;background:rgba(240,176,20,.15);border-color:rgba(240,176,20,.4);color:#f0b014;font-size:12px;padding:6px 14px;">
                 + Novo orçamento
               </button>
             </div>
@@ -2485,7 +2485,7 @@
   </div>
 </div>
 
-<script src="/static/admin.js?v=37" defer></script>
+<script src="/static/admin.js?v=43" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
 <script src="/static/register-sw.js?v=22" defer></script>
 </body>

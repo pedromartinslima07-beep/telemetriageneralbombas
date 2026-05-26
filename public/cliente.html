@@ -149,6 +149,48 @@
         <!-- KPI stat cards -->
         <div id="resumoGrid" class="resumo-grid"></div>
 
+        <!-- Fallback: condomínio sem telemetria contratada -->
+        <div id="dashFallback" class="tel-cli-fallback" style="display:none;">
+          <div class="tel-cli-fallback-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 12h4l3-9 4 18 3-9h4"/>
+            </svg>
+          </div>
+          <h2 class="tel-cli-fallback-title">Você ainda não tem telemetria contratada</h2>
+          <p class="tel-cli-fallback-text">
+            Com a telemetria da General Bombas você acompanha o <strong>nível dos reservatórios</strong>
+            e o <strong>status das bombas</strong> em tempo real e recebe <strong>alertas automáticos</strong>
+            antes do problema chegar ao morador.
+          </p>
+          <ul class="tel-cli-fallback-list">
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              <span>Acompanhamento 24/7 do reservatório</span>
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              <span>Alertas automáticos de nível baixo, vazamento e falha na bomba</span>
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              <span>Histórico completo e relatórios em PDF pro síndico</span>
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              <span>Atendimento técnico mais rápido (a gente já chega sabendo o problema)</span>
+            </li>
+          </ul>
+          <div class="tel-cli-fallback-cta">
+            <a href="https://wa.me/5511966536110?text=Ol%C3%A1!%20Quero%20saber%20mais%20sobre%20a%20telemetria%20General%20Bombas" target="_blank" rel="noopener" class="btn btnAccent">
+              Quero saber mais
+            </a>
+            <span class="tel-cli-fallback-note">Resposta rápida pelo WhatsApp</span>
+          </div>
+        </div>
+
+        <!-- Conteúdo real (visível somente quando há reservatórios) -->
+        <div id="dashConteudo">
+
         <!-- mc-grid: Níveis | Em atenção | Atividade -->
         <div class="mc-grid">
 
@@ -228,6 +270,8 @@
           </div>
         </section>
 
+        </div><!-- /dashConteudo -->
+
       </div><!-- /section dashboard -->
 
       <!-- ===== SECTION: TELEMETRIA ===== -->
@@ -266,7 +310,7 @@
             </li>
           </ul>
           <div class="tel-cli-fallback-cta">
-            <a href="https://wa.me/5511999999999?text=Ol%C3%A1!%20Quero%20saber%20mais%20sobre%20a%20telemetria%20General%20Bombas" target="_blank" rel="noopener" class="btn btnAccent">
+            <a href="https://wa.me/5511966536110?text=Ol%C3%A1!%20Quero%20saber%20mais%20sobre%20a%20telemetria%20General%20Bombas" target="_blank" rel="noopener" class="btn btnAccent">
               Quero saber mais
             </a>
             <span class="tel-cli-fallback-note">Resposta rápida pelo WhatsApp</span>
@@ -716,7 +760,7 @@
 <script src="/static/chart.umd.min.js"></script>
 <script src="/static/apexcharts.min.js"></script>
 <script src="/static/inatividade.js" defer></script>
-<script src="/static/cliente.js?v=10" defer></script>
+<script src="/static/cliente.js?v=11" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
 <script src="/static/register-sw.js" defer></script>
 </body>

@@ -4880,7 +4880,7 @@ body.role-viewer .viewer-only-hide-inline {
 .os-row { cursor: pointer; transition: background .12s; }
 .os-row:hover td { background: rgba(255,255,255,.025); }
 
-.os-tipos-cell { display: flex; flex-wrap: wrap; gap: 4px; padding-top: 10px; padding-bottom: 10px; }
+.os-tipos-cell { display: flex; flex-wrap: wrap; gap: 4px; }
 .os-acoes-cell { white-space: nowrap; }
 .os-acoes-cell .btn { padding: 4px 8px; font-size: 13px; }
 

@@ -69,6 +69,7 @@ function showSection(name) {
     _avBindEventos();
     _orcBindEventos();
     carregarAvulsos();
+    carregarOrcamentos();
   }
   // Dashboard também tem Leaflet (mc-map). Quando o user volta pra dashboard,
   // revalida o tamanho — pode ter ficado com tiles travados se foi criado
@@ -2862,6 +2863,7 @@ function abrirModalNovoCliente() {
         <div class="field">
           <span class="lbl">CEP</span>
           <input id="cliModalCep" class="input" placeholder="00000-000" maxlength="9" />
+          <span class="cep-msg" id="cliModalCepMsg" style="margin-top:4px;display:block;"></span>
         </div>
         <div class="field">
           <span class="lbl">Cidade</span>
@@ -2889,12 +2891,17 @@ function abrirModalNovoCliente() {
         </button>
       </div>
       <div id="cliModalLocMsg" class="loc-msg" style="margin-top:6px;font-size:11px;"></div>
+      <div class="mini-mapa" id="cliModalMiniMapa" style="margin-top:10px;"></div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px;">Arraste o pino para ajustar a posição manualmente.</div>
       <div class="form-footer" style="margin-top:16px;">
         <button class="btn btnAccent" id="btnCriarClienteModal">Criar cliente</button>
         <span id="msgClienteModal" class="hint"></span>
       </div>
     </div>`;
   document.body.appendChild(overlay);
+
+  // Mini-mapa (precisa do elemento no DOM antes de inicializar)
+  criarOuObterMiniMapa("cliModal");
 
   // CEP auto-preenche endereço + geocoding ao completar 8 dígitos
   _bindCepInput("cliModal");
@@ -2942,8 +2949,32 @@ function abrirModalNovoCliente() {
         msgCnpj.style.color = ativa ? "var(--ok)" : "var(--warn)";
         msgCnpj.textContent = `✓ Dados preenchidos${situacao ? " · " + situacao : ""}`;
       }
-      // geocodifica automaticamente para gerar o pin no mapa
-      buscarCoordenadasPorEndereco("cliModal");
+      // Geocodifica: tenta CEP primeiro (BrasilAPI/AwesomeAPI trazem coords diretas pra
+      // endereços brasileiros — muito mais confiável que Nominatim nesses casos).
+      // Não chama buscarEnderecoPorCep() pra não sobrescrever o endereço completo
+      // (rua + número + complemento) que o CNPJ já preencheu.
+      const _locMsg = document.getElementById("cliModalLocMsg");
+      if (_locMsg) { _locMsg.className = "loc-msg"; _locMsg.textContent = "Buscando localização…"; }
+      const _cepCnpj = (data.cep || "").replace(/\D/g, "");
+      if (_cepCnpj.length === 8) {
+        const [_brasilCep, _awesomeCep] = await Promise.all([
+          fetch(`https://brasilapi.com.br/api/cep/v2/${_cepCnpj}`).then(r => r.ok ? r.json() : null).catch(() => null),
+          fetch(`https://cep.awesomeapi.com.br/json/${_cepCnpj}`).then(r => r.ok ? r.json() : null).then(d => d?.status ? null : d).catch(() => null),
+        ]);
+        const _bc = _brasilCep?.location?.coordinates;
+        const _coords = [
+          { lat: _bc?.latitude,    lng: _bc?.longitude   },
+          { lat: _awesomeCep?.lat, lng: _awesomeCep?.lng },
+        ].find(f => f.lat != null && f.lng != null && Number.isFinite(Number(f.lat)) && Number.isFinite(Number(f.lng)));
+        if (_coords) {
+          _miniMapaAplicarCoord("cliModal", Number(_coords.lat), Number(_coords.lng));
+          if (_locMsg) { _locMsg.className = "loc-msg is-ok"; _locMsg.textContent = "✓ Pino posicionado pelo CEP. Arraste se precisar ajustar o número da casa."; }
+        } else {
+          buscarCoordenadasPorEndereco("cliModal");
+        }
+      } else {
+        buscarCoordenadasPorEndereco("cliModal");
+      }
     } catch {
       if (msgCnpj) msgCnpj.textContent = "Erro ao consultar CNPJ. Verifique a conexão.";
     } finally {
@@ -2979,6 +3010,7 @@ function abrirModalNovoCliente() {
       const data = await r.json();
       if (!r.ok) { if (msg) msg.textContent = data.error || "Erro ao criar."; return; }
       overlay.remove();
+      _miniMapas.delete("cliModal");
       await carregarCondominios();
       renderClientes();
     } catch (e) {
@@ -8950,6 +8982,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (action === "fechar-modal-cliente") {
       document.getElementById("modalNovoCliente")?.remove();
+      _miniMapas.delete("cliModal");
       return;
     }
 
@@ -9249,7 +9282,7 @@ function _osRenderTabela() {
       <td>${_osFmtDataCurta(o.criado_em)}</td>
       <td>${_waEscaparHtml(o.condominio_nome || "—")}</td>
       <td>${_waEscaparHtml(o.tecnico_nome || "—")}</td>
-      <td class="os-tipos-cell">${tiposHtml}</td>
+      <td><div class="os-tipos-cell">${tiposHtml}</div></td>
       <td>${resultado}</td>
       <td>${status}</td>
       <td class="right os-acoes-cell">
@@ -10482,8 +10515,8 @@ function _orcRenderPainel() {
       </div>
 
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:4px;">
-        <button class="btn btn-sm" data-orc-action="salvar" style="flex-shrink:0;">Salvar orçamento</button>
-        <button class="btn btn-sm" data-orc-action="gerar-pdf"
+        <button class="btn btn-sm viewer-only-hide" data-orc-action="salvar" style="flex-shrink:0;">Salvar orçamento</button>
+        <button class="btn btn-sm viewer-only-hide" data-orc-action="gerar-pdf"
           style="flex-shrink:0;background:rgba(240,176,20,.1);border-color:rgba(240,176,20,.4);color:#f0b014;">
           ↓ Gerar PDF
         </button>
@@ -10507,7 +10540,7 @@ function _orcRenderPainel() {
       <div style="font-size:12px;color:var(--danger);margin-top:4px;">${_waEscaparHtml(o.orcamento_motivo_rejeicao)}</div>
     </div>` : ""}
 
-    <div class="orc-acoes">
+    <div class="orc-acoes viewer-only-hide">
       ${isPend || isAprov ? `<button class="btn btn-sm orc-btn-reject" data-orc-action="rejeitar">✕ Rejeitar</button>` : ""}
       <button class="btn btn-sm orc-btn-approve" data-orc-action="aprovar">✓ Aprovar</button>
     </div>`;
@@ -10544,7 +10577,7 @@ function _orcRenderItens() {
       <td class="orc-it-num">${it.quantidade}</td>
       <td class="orc-it-num">${_orcFmtValor(it.valor_unitario)}</td>
       <td class="orc-it-num" style="font-weight:600;">${_orcFmtValor(tot)}</td>
-      <td style="text-align:center;">
+      <td class="viewer-only-hide" style="text-align:center;">
         <button class="orc-it-del" data-orc-del-item="${it.id}" title="Remover">✕</button>
       </td>
     </tr>`;
@@ -10558,7 +10591,7 @@ function _orcRenderItens() {
           <th class="orc-it-num">Qtd</th>
           <th class="orc-it-num">Unit.</th>
           <th class="orc-it-num">Total</th>
-          <th style="width:30px;"></th>
+          <th class="viewer-only-hide" style="width:30px;"></th>
         </tr>
       </thead>
       <tbody>${fileiras || '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:12px;font-size:12px;">Nenhum item ainda.</td></tr>'}</tbody>
@@ -10566,7 +10599,7 @@ function _orcRenderItens() {
     ${_orcItens.length ? `<div style="text-align:right;font-size:12px;font-weight:700;padding:6px 8px 0;color:var(--accent);">Total: ${_orcFmtValor(total)}</div>` : ""}
 
     <!-- Formulário de novo item -->
-    <div class="orc-add-item-form" id="orcAddItemForm">
+    <div class="orc-add-item-form viewer-only-hide" id="orcAddItemForm">
       <div class="orc-add-item-row">
         <input id="orcNewDescricao" class="input" type="text" placeholder="Descrição do item *" maxlength="500" style="flex:2;">
         <input id="orcNewQtd" class="input" type="number" min="1" step="1" placeholder="Qtd" value="1" style="width:60px;">
@@ -10732,6 +10765,11 @@ function _orcAtualizarBadge() {
   if (badge) {
     badge.textContent = pend;
     badge.style.display = pend > 0 ? "inline-flex" : "none";
+  }
+  const tabBadge = document.getElementById("navBadgeOrcamentosOS");
+  if (tabBadge) {
+    tabBadge.textContent = pend;
+    tabBadge.style.display = pend > 0 ? "inline-flex" : "none";
   }
 }
 
