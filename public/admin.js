@@ -7033,9 +7033,6 @@ async function gerarRelChamados() {
 
   const count = document.getElementById("relChCount");
   if (count) count.textContent = _relCount(total);
-  const exChCount = document.getElementById("relExChCount");
-  if (exChCount) exChCount.textContent = `(${total})`;
-  _relMostrarExport();
 }
 
 async function gerarRelReservatorios() {
@@ -7199,10 +7196,8 @@ async function gerarRelReservatorios() {
     <td>${d.tempo_horas!=null?_relSlaFmt(Number(d.tempo_horas)):"-"}</td>
   </tr>`).join("");
 
-  // Atualiza cache antigo para exportar CSV de alertas ainda funcionar
   _relAlDados = al;
   _relTelDados = tel;
-  _relMostrarExport();
 }
 
 async function gerarRelAlertas() {
@@ -7316,9 +7311,6 @@ async function gerarRelAlertas() {
 
   const count = document.getElementById("relAlCount");
   if (count) count.textContent = _relCount(total);
-  const exAlCount = document.getElementById("relExAlCount");
-  if (exAlCount) exAlCount.textContent = `(${total})`;
-  _relMostrarExport();
 }
 
 async function gerarRelTelemetria() {
@@ -7422,9 +7414,6 @@ async function gerarRelTelemetria() {
 
   const count = document.getElementById("relTelCount");
   if (count) count.textContent = _relCount(total);
-  const exTelCount = document.getElementById("relExTelCount");
-  if (exTelCount) exTelCount.textContent = `(${total})`;
-  _relMostrarExport();
 }
 
 // ── DASHBOARD SLA (Fase 8C) ───────────────────────────────────────────────────
@@ -7837,21 +7826,40 @@ function _relRenderSlaKpis(k) {
   );
 }
 
-function _relMostrarExport() {
-  const card = document.getElementById("relExportCard");
-  if (card) card.style.display = "";
-}
+async function exportarRelPdf() {
+  const ini   = document.getElementById("relChIni")?.value        || "";
+  const fim   = document.getElementById("relChFim")?.value        || "";
+  const condo = document.getElementById("relChCondo")?.value      || "";
+  const prio  = document.getElementById("relChPrioridade")?.value || "";
+  const st    = document.getElementById("relChStatus")?.value     || "";
+  const tec   = document.getElementById("relChTecnico")?.value    || "";
 
-function _relExportarCsv(rows, keys, labels, filename) {
-  if (!rows.length) { alert("Sem dados para exportar."); return; }
-  const esc = v => { const s=v==null?"":String(v); return /[,"\n]/.test(s)?`"${s.replace(/"/g,'""')}"`:s; };
-  const lines = [labels.join(",")];
-  rows.forEach(r => lines.push(keys.map(k=>esc(r[k])).join(",")));
-  const blob = new Blob(["﻿"+lines.join("\r\n")], { type:"text/csv;charset=utf-8;" });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement("a");
-  a.href=url; a.download=filename; a.click();
-  URL.revokeObjectURL(url);
+  const params = new URLSearchParams();
+  if (ini)   params.set("data_ini", ini);
+  if (fim)   params.set("data_fim", fim);
+  if (condo) params.set("condominio_id", condo);
+  if (prio)  params.set("prioridade", prio);
+  if (st)    params.set("status", st);
+  if (tec)   params.set("tecnico_id", tec);
+
+  const btn = document.querySelector("[data-rel-action='exportar-pdf']");
+  if (btn) { btn.disabled = true; btn.textContent = "Gerando…"; }
+
+  try {
+    const res = await fetch(`/relatorios/pdf-chamados?${params}`, { headers: authHeaders() });
+    if (!res.ok) throw new Error("Falha ao gerar PDF");
+    const blob = await res.blob();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement("a");
+    a.href = url;
+    a.download = `relatorio-chamados-${ini || "todos"}-${fim || "todos"}.pdf`;
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    alert("Erro ao gerar PDF: " + err.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = "Exportar PDF"; }
+  }
 }
 
 // ============================================================
@@ -8640,27 +8648,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const period = btn.dataset.slaPeriod;
     if (period) { _relSlaMudarPeriodo(Number(period)); return; }
 
-    if (action === "exportar-chamados") {
-      _relExportarCsv(_relChDados,
-        ["id","titulo","condominio_nome","tecnico_nome","categoria","prioridade","status","criado_em","fechado_em","sla_horas"],
-        ["ID","Título","Condomínio","Técnico","Categoria","Prioridade","Status","Aberto em","Fechado em","SLA (h)"],
-        "chamados.csv");
-      return;
-    }
-    if (action === "exportar-alertas") {
-      _relExportarCsv(_relAlDados,
-        ["id","tipo","mensagem","reservatorio_nome","condominio_nome","status","criado_em","tempo_horas"],
-        ["ID","Tipo","Mensagem","Reservatório","Condomínio","Status","Criado em","Tempo (h)"],
-        "alertas.csv");
-      return;
-    }
-    if (action === "exportar-telemetria") {
-      _relExportarCsv(_relTelDados,
-        ["dia","device_id","reservatorio_nome","condominio_nome","leituras","nivel_min","nivel_medio","nivel_max","leituras_bomba_on"],
-        ["Dia","Device ID","Reservatório","Condomínio","Leituras","Nível mín %","Nível méd %","Nível máx %","Bomba ON"],
-        "telemetria.csv");
-      return;
-    }
+    if (action === "exportar-pdf") { exportarRelPdf(); return; }
   });
 
   // ===== CONFIGURAÇÕES =====

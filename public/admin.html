@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="/static/leaflet.css">
   <!-- ⚠️ Ao mexer em admin.js ou admin.css, bumpe o ?v=N aqui E no <script>
        lá embaixo. Ver CLAUDE.md raiz. -->
-  <link rel="stylesheet" href="/static/admin.css?v=47">
+  <link rel="stylesheet" href="/static/admin.css?v=48">
 </head>
 <body>
 
@@ -1424,7 +1424,9 @@
               <span>Todos os chamados</span>
               <div style="display:flex;gap:8px;align-items:center;">
                 <span id="relChCount" style="font-size:11.5px;color:var(--text-dim);"></span>
-                <button class="btn btn-sm" data-rel-action="exportar-chamados" style="margin-right:4px;">Exportar CSV</button>
+                <button class="btn btn-sm btnAccent" data-rel-action="exportar-pdf" style="margin-right:4px;">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>Exportar PDF
+                </button>
               </div>
             </div>
             <div class="tableWrap" style="max-height:260px;">
@@ -1478,7 +1480,6 @@
               <span>Log de incidentes</span>
               <div style="display:flex;gap:8px;align-items:center;">
                 <span id="relResAlCount" style="font-size:11.5px;color:var(--text-dim);"></span>
-                <button class="btn btn-sm" data-rel-action="exportar-alertas" style="margin-right:4px;">Exportar CSV</button>
               </div>
             </div>
             <div class="tableWrap" style="max-height:260px;">
@@ -1582,29 +1583,6 @@
           </div>
         </div>
 
-        <!-- Exportação rápida -->
-        <div id="relExportCard" style="display:none;">
-          <div class="card" style="padding:0;overflow:hidden;">
-            <p class="rel-ct-head">Exportação rápida</p>
-            <div class="rel-export-grid">
-              <button class="rel-export-btn" data-rel-action="exportar-chamados">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg>
-                Relatório de chamados (CSV)
-                <span style="margin-left:auto;font-size:11px;color:var(--muted);" id="relExChCount"></span>
-              </button>
-              <button class="rel-export-btn" data-rel-action="exportar-alertas">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-                Relatório de alertas (CSV)
-                <span style="margin-left:auto;font-size:11px;color:var(--muted);" id="relExAlCount"></span>
-              </button>
-              <button class="rel-export-btn" data-rel-action="exportar-telemetria">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-                Telemetria diária (CSV)
-                <span style="margin-left:auto;font-size:11px;color:var(--muted);" id="relExTelCount"></span>
-              </button>
-            </div>
-          </div>
-        </div>
 
       </div><!-- /section relatorios -->
 
@@ -2468,7 +2446,7 @@
   </div>
 </div>
 
-<script src="/static/admin.js?v=47" defer></script>
+<script src="/static/admin.js?v=48" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
 <script src="/static/register-sw.js?v=22" defer></script>
 </body>

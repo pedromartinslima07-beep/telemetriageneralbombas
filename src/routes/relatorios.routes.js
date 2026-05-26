@@ -2,6 +2,7 @@ const express = require("express");
 const { pool } = require("../db");
 const { authRequired } = require("../middleware/authRequired");
 const { adminOnly } = require("../middleware/adminOnly");
+const { gerarPdfRelatorio } = require("../services/relatorio-pdf.service");
 
 const router = express.Router();
 
@@ -47,6 +48,61 @@ router.get("/chamados", authRequired, adminOnly, async (req, res) => {
   } catch (err) {
     console.error("[relatorios] chamados:", err);
     return res.status(500).json({ error: "Erro ao gerar relatório de chamados" });
+  }
+});
+
+// GET /relatorios/pdf-chamados — gera PDF do relatório de chamados com os mesmos filtros
+router.get("/pdf-chamados", authRequired, adminOnly, async (req, res) => {
+  const { data_ini, data_fim, condominio_id, status, tecnico_id, prioridade } = req.query;
+
+  const conds = [
+    "ch.criado_em >= $1",
+    "ch.criado_em < ($2::date + interval '1 day')",
+  ];
+  const vals = [_ini(data_ini), _fim(data_fim)];
+  if (condominio_id) { vals.push(Number(condominio_id)); conds.push(`ch.condominio_id = $${vals.length}`); }
+  if (status)        { vals.push(status);                conds.push(`ch.status = $${vals.length}`); }
+  if (tecnico_id)    { vals.push(Number(tecnico_id));    conds.push(`ch.tecnico_id = $${vals.length}`); }
+  if (prioridade)    { vals.push(prioridade);            conds.push(`ch.prioridade = $${vals.length}`); }
+
+  try {
+    const [chamadosRes, condoRes, tecRes] = await Promise.all([
+      pool.query(`
+        SELECT ch.id, ch.titulo, ch.status, ch.prioridade, ch.categoria,
+               ch.criado_em, ch.fechado_em,
+               CASE WHEN ch.fechado_em IS NOT NULL
+                 THEN ROUND(EXTRACT(EPOCH FROM (ch.fechado_em - ch.criado_em)) / 3600, 1)
+                 ELSE ROUND(EXTRACT(EPOCH FROM (NOW() - ch.criado_em)) / 3600, 1)
+               END AS sla_horas,
+               c.nome AS condominio_nome, t.nome AS tecnico_nome
+        FROM chamados ch
+        LEFT JOIN condominios c ON c.id = ch.condominio_id
+        LEFT JOIN tecnicos    t ON t.id = ch.tecnico_id
+        WHERE ${conds.join(" AND ")}
+        ORDER BY ch.criado_em DESC
+        LIMIT 2000
+      `, vals),
+      condominio_id ? pool.query("SELECT nome FROM condominios WHERE id = $1", [Number(condominio_id)]) : null,
+      tecnico_id    ? pool.query("SELECT nome FROM tecnicos    WHERE id = $1", [Number(tecnico_id)])    : null,
+    ]);
+
+    const filtros = {
+      data_ini: _ini(data_ini), data_fim: _fim(data_fim),
+      condominio_nome: condoRes?.rows[0]?.nome || null,
+      tecnico_nome:    tecRes?.rows[0]?.nome   || null,
+      status: status || null,
+      prioridade: prioridade || null,
+    };
+
+    const pdfBuf = await gerarPdfRelatorio({ chamados: chamadosRes.rows, filtros });
+
+    const periodo = `${_ini(data_ini)}_${_fim(data_fim)}`;
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="relatorio-chamados-${periodo}.pdf"`);
+    res.end(pdfBuf);
+  } catch (err) {
+    console.error("[relatorios] pdf-chamados:", err);
+    return res.status(500).json({ error: "Erro ao gerar PDF" });
   }
 });
 
