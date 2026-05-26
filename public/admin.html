@@ -736,6 +736,7 @@
                 <button class="wa-tab" data-ch-tab="emergencia">Emergência <span class="wa-count" id="chCtEmerg">0</span></button>
               </div>
               <input id="chBusca" class="input" placeholder="Buscar chamado…">
+              <button class="btn btn-sm btnAccent viewer-only-hide" id="btnNovoChamado" style="white-space:nowrap;">+ Novo chamado</button>
             </div>
             <div class="tableWrap ch-table-wrap">
               <table>
@@ -2215,6 +2216,60 @@
   </div>
 </div>
 
+<!-- Modal: novo chamado (admin) -->
+<div id="novoChamadoOverlay" class="modalOverlay" style="display:none;">
+  <div class="modalBox" style="max-width:520px;">
+    <div class="modalHead">
+      <div class="modalTitle">Novo chamado</div>
+      <button class="btn btn-sm" id="btnFecharNovoChamado">Fechar</button>
+    </div>
+    <div class="modalBody" style="padding:20px 24px 24px;display:flex;flex-direction:column;gap:14px;">
+      <label class="f">
+        <span>Título <span style="color:var(--danger)">*</span></span>
+        <input id="ncTitulo" class="input" type="text" maxlength="255" placeholder="Ex: Bomba parou de funcionar">
+      </label>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <label class="f">
+          <span>Condomínio</span>
+          <select id="ncCondo" class="select"><option value="">Sem condomínio</option></select>
+        </label>
+        <label class="f">
+          <span>Categoria</span>
+          <select id="ncCategoria" class="select">
+            <option value="outro">Outro</option>
+            <option value="vazamento">Vazamento</option>
+            <option value="bomba_falha">Falha de bomba</option>
+            <option value="nivel_baixo">Nível baixo</option>
+            <option value="sem_agua">Sem água</option>
+            <option value="ruido">Ruído</option>
+            <option value="manutencao">Manutenção</option>
+          </select>
+        </label>
+      </div>
+      <label class="f">
+        <span>Prioridade</span>
+        <select id="ncPrioridade" class="select">
+          <option value="baixa">Baixa</option>
+          <option value="media" selected>Média</option>
+          <option value="alta">Alta</option>
+          <option value="emergencia">Emergência</option>
+        </select>
+      </label>
+      <label class="f">
+        <span>Descrição <span style="color:var(--danger)">*</span></span>
+        <textarea id="ncDescricao" class="input" rows="4" maxlength="4000"
+          style="resize:vertical;font-size:13px;padding:8px 10px;"
+          placeholder="Descreva o problema em detalhes…"></textarea>
+      </label>
+      <div style="display:flex;gap:8px;justify-content:flex-end;align-items:center;">
+        <span id="ncMsg" style="font-size:12px;color:var(--muted);"></span>
+        <button class="btn btn-sm" id="btnCancelarNovoChamado">Cancelar</button>
+        <button class="btn btn-sm btnAccent" id="btnSalvarNovoChamado">Criar chamado</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Modal: editar condomínio -->
 <div id="editOverlay" class="modalOverlay" style="display:none;">
   <div class="modalBox">
@@ -2430,7 +2485,7 @@
   </div>
 </div>
 
-<script src="/static/admin.js?v=36" defer></script>
+<script src="/static/admin.js?v=37" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
 <script src="/static/register-sw.js?v=22" defer></script>
 </body>

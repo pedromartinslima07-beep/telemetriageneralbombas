@@ -3585,6 +3585,82 @@ function renderChamados() {
   }
 }
 
+// ---- Modal: novo chamado ----
+(function _bindNovoChamado() {
+  const overlay  = document.getElementById("novoChamadoOverlay");
+  const btnAbrir = document.getElementById("btnNovoChamado");
+  const btnFech  = document.getElementById("btnFecharNovoChamado");
+  const btnCanc  = document.getElementById("btnCancelarNovoChamado");
+  const btnSalv  = document.getElementById("btnSalvarNovoChamado");
+  const msg      = document.getElementById("ncMsg");
+  if (!overlay || !btnAbrir) return;
+
+  function _ncAbrir() {
+    // Popula select de condomínios
+    const sel = document.getElementById("ncCondo");
+    if (sel && sel.options.length <= 1) {
+      (_condominios || []).forEach(c => {
+        const opt = document.createElement("option");
+        opt.value = c.id;
+        opt.textContent = c.nome;
+        sel.appendChild(opt);
+      });
+    }
+    // Limpa campos
+    ["ncTitulo","ncDescricao"].forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
+    document.getElementById("ncCategoria").value = "outro";
+    document.getElementById("ncPrioridade").value = "media";
+    document.getElementById("ncCondo").value = "";
+    if (msg) msg.textContent = "";
+    overlay.style.display = "flex";
+  }
+
+  function _ncFechar() { overlay.style.display = "none"; }
+
+  async function _ncSalvar() {
+    const titulo    = document.getElementById("ncTitulo")?.value.trim();
+    const descricao = document.getElementById("ncDescricao")?.value.trim();
+    if (!titulo)         { if (msg) { msg.style.color = "var(--danger)"; msg.textContent = "Título obrigatório"; } return; }
+    if (!descricao || descricao.length < 5) { if (msg) { msg.style.color = "var(--danger)"; msg.textContent = "Descreva com pelo menos 5 caracteres"; } return; }
+
+    if (msg) { msg.style.color = "var(--muted)"; msg.textContent = "Salvando…"; }
+    btnSalv.disabled = true;
+
+    try {
+      const body = {
+        titulo,
+        descricao,
+        categoria:    document.getElementById("ncCategoria")?.value || "outro",
+        prioridade:   document.getElementById("ncPrioridade")?.value || "media",
+        condominio_id: document.getElementById("ncCondo")?.value || null,
+      };
+      const r = await fetch("/chamados", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders() },
+        body: JSON.stringify(body),
+      });
+      const j = await r.json();
+      if (!r.ok) { if (msg) { msg.style.color = "var(--danger)"; msg.textContent = j.error || "Erro"; } return; }
+
+      // Adiciona ao array local e re-renderiza
+      const condo = (_condominios || []).find(c => String(c.id) === String(body.condominio_id));
+      _chamadosData = [{ ...j, condominio_nome: condo?.nome || null }, ...(_chamadosData || [])];
+      renderChamados();
+      _ncFechar();
+    } catch (e) {
+      if (msg) { msg.style.color = "var(--danger)"; msg.textContent = "Erro: " + e.message; }
+    } finally {
+      btnSalv.disabled = false;
+    }
+  }
+
+  btnAbrir.addEventListener("click", _ncAbrir);
+  btnFech.addEventListener("click",  _ncFechar);
+  btnCanc.addEventListener("click",  _ncFechar);
+  btnSalv.addEventListener("click",  _ncSalvar);
+  overlay.addEventListener("click",  e => { if (e.target === overlay) _ncFechar(); });
+})();
+
 // ============================================================
 // SECTION: WHATSAPP — central de atendimento (lista + chat + info)
 // ============================================================

@@ -8,6 +8,41 @@ const { salvarFotoMensagemChamado } = require("../services/chamado-mensagens.ser
 const router = express.Router();
 
 const CATEGORIAS = ["vazamento", "bomba_falha", "nivel_baixo", "sem_agua", "ruido", "manutencao", "outro"];
+const PRIORIDADES = ["baixa", "media", "alta", "emergencia"];
+
+// POST /chamados — cria chamado manualmente (admin)
+router.post("/", authRequired, masterAdminOnly, async (req, res) => {
+  const { titulo, descricao, categoria, prioridade, condominio_id, responsavel_id } = req.body || {};
+
+  if (!titulo || typeof titulo !== "string" || !titulo.trim())
+    return res.status(400).json({ error: "Título obrigatório" });
+  if (!descricao || typeof descricao !== "string" || descricao.trim().length < 5)
+    return res.status(400).json({ error: "Descreva o problema com pelo menos 5 caracteres" });
+  if (categoria && !CATEGORIAS.includes(categoria))
+    return res.status(400).json({ error: `categoria inválida` });
+  if (prioridade && !PRIORIDADES.includes(prioridade))
+    return res.status(400).json({ error: `prioridade inválida` });
+
+  try {
+    const ins = await pool.query(
+      `INSERT INTO chamados (condominio_id, titulo, descricao, prioridade, categoria, responsavel_id, status)
+       VALUES ($1, $2, $3, $4, $5, $6, 'aberto')
+       RETURNING id, status, prioridade, categoria, titulo, descricao, condominio_id, responsavel_id, criado_em`,
+      [
+        condominio_id ? Number(condominio_id) : null,
+        titulo.trim().slice(0, 255),
+        descricao.trim().slice(0, 4000),
+        prioridade || "media",
+        categoria || "outro",
+        responsavel_id ? Number(responsavel_id) : null,
+      ]
+    );
+    return res.status(201).json(ins.rows[0]);
+  } catch (e) {
+    console.error("[chamados] POST /:", e);
+    return res.status(500).json({ error: "Erro ao criar chamado" });
+  }
+});
 
 // GET /chamados — lista chamados (com filtros opcionais)
 router.get("/", authRequired, adminOnly, async (req, res) => {

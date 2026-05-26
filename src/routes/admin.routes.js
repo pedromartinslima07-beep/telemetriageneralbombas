@@ -955,6 +955,8 @@ router.get("/orcamentos/avulsos", authRequired, adminOnly, async (req, res) => {
     const r = await pool.query(
       `SELECT o.id, o.numero, o.status, o.valido_ate, o.criado_em,
               o.os_id, os.numero AS os_numero,
+              o.constatacao, o.forma_pagamento, o.prazo_entrega,
+              o.garantia, o.disponibilidade,
               c.nome AS condominio_nome, c.id AS condominio_id,
               COALESCE(
                 (SELECT SUM(l.quantidade * l.valor_unitario)
@@ -1025,7 +1027,11 @@ router.patch("/orcamentos/avulsos/:id", authRequired, adminOnly, async (req, res
       if (!["rascunho","enviado","aprovado","rejeitado"].includes(v)) return res.status(400).json({ error: "status inválido" });
       vals.push(v); sets.push(`status = $${vals.length}`);
     }
-    else { vals.push(v != null ? String(v).slice(0, 255) : null); sets.push(`${f} = $${vals.length}`); }
+    else {
+      const max = f === "constatacao" ? 1000 : 255;
+      vals.push(v != null ? String(v).slice(0, max) : null);
+      sets.push(`${f} = $${vals.length}`);
+    }
   }
 
   if (!sets.length) return res.status(400).json({ error: "Nenhum campo para atualizar" });

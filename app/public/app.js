@@ -1177,19 +1177,31 @@ async function iniciarAtendimento(id) {
   hideAlert(document.getElementById("tdAlert"));
 
   try {
-    // Pede GPS com alta precisão pra registrar chegada
-    const geo = await new Promise((resolve, reject) => {
-      if (!navigator.geolocation) return reject(new Error("GPS indisponível"));
-      navigator.geolocation.getCurrentPosition(
-        (pos) => resolve({
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-          precisao_m: pos.coords.accuracy,
-        }),
-        (err) => reject(new Error("Não foi possível obter GPS: " + err.message)),
-        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
-      );
-    });
+    // Usa posição recente do watchPosition se tiver < 60s; evita timeout do getCurrentPosition
+    const geo = await (async () => {
+      if (GPS.last && (Date.now() - GPS.last.ts) < 60000) {
+        return { lat: GPS.last.lat, lng: GPS.last.lng, precisao_m: GPS.last.precisao_m };
+      }
+      if (!navigator.geolocation) throw new Error("GPS indisponível");
+      return new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => resolve({
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+            precisao_m: pos.coords.accuracy,
+          }),
+          (err) => {
+            // Timeout ou sinal fraco: aceita posição em cache se existir, mesmo velha
+            if (GPS.last) {
+              resolve({ lat: GPS.last.lat, lng: GPS.last.lng, precisao_m: GPS.last.precisao_m });
+            } else {
+              reject(new Error("Não foi possível obter GPS: " + err.message));
+            }
+          },
+          { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 }
+        );
+      });
+    })();
 
     if (IS_DEMO) {
       // Modo demo: simula a resposta do servidor
@@ -1748,7 +1760,13 @@ function renderOSSections() {
   // Bind: clique no head abre/fecha
   wrap.querySelectorAll(".os-section-head").forEach((head) => {
     head.addEventListener("click", () => {
-      head.parentElement.classList.toggle("is-open");
+      const sec = head.parentElement;
+      const wasOpen = sec.classList.contains("is-open");
+      sec.classList.toggle("is-open");
+      // Canvas da assinatura precisa de dimensões reais — só disponíveis quando a seção está visível
+      if (!wasOpen && sec.dataset.section === "recebido") {
+        requestAnimationFrame(() => iniciarCanvasAssinatura());
+      }
     });
   });
 
@@ -1891,7 +1909,6 @@ function sectionCorrentes() {
       <div class="os-correntes-inputs" id="osCorVals">
         ${[0,1,2].map((i) => `
           <div>
-            <div class="os-corrente-label">F${i+1}</div>
             <input type="number" step="0.1" class="input os-corrente-input"
                    data-idx="${i}" placeholder="0.0"
                    value="${v[i] != null ? v[i] : ""}">
@@ -2353,7 +2370,10 @@ function sectionRecebidoAssinatura() {
         <div class="os-sign-hint">Assine aqui com o dedo</div>
       </div>
       <div class="os-sign-actions">
-        <span>Use o dedo ou caneta sobre a tela</span>
+        <button type="button" class="os-sign-expand" id="osSignExpand">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+          Tela cheia
+        </button>
         <button type="button" class="os-sign-clear" id="osSignClear">Limpar</button>
       </div>`,
   });
@@ -2371,9 +2391,10 @@ function bindRecebidoAssinatura() {
     });
   });
 
-  // Canvas
-  iniciarCanvasAssinatura();
+  // Canvas: vincula eventos uma vez; dimensionamento ocorre ao abrir a seção
+  bindCanvasAssinatura();
   document.getElementById("osSignClear")?.addEventListener("click", limparAssinatura);
+  document.getElementById("osSignExpand")?.addEventListener("click", abrirAssinaturaFullscreen);
 }
 
 function avaliarRecebidoComplete() {
@@ -2389,13 +2410,15 @@ function avaliarRecebidoComplete() {
   atualizarProgresso();
 }
 
+// Dimensiona o canvas e restaura assinatura salva. Seguro chamar várias vezes (sem listeners).
 function iniciarCanvasAssinatura() {
   const canvas = document.getElementById("osSignCanvas");
   const wrap = document.getElementById("osSignWrap");
   if (!canvas) return;
 
-  // Dimensiona canvas com DPR pra ficar nítido
   const rect = canvas.getBoundingClientRect();
+  if (rect.width === 0) return; // seção ainda fechada — será chamado novamente ao abrir
+
   const dpr = window.devicePixelRatio || 1;
   canvas.width = Math.floor(rect.width * dpr);
   canvas.height = Math.floor(rect.height * dpr);
@@ -2410,13 +2433,19 @@ function iniciarCanvasAssinatura() {
   OS.sign.ctx = ctx;
   OS.sign.hasInk = !!OS.data.assinatura_b64;
 
-  // Se já tinha assinatura, restaura
   if (OS.data.assinatura_b64) {
     const img = new Image();
     img.onload = () => ctx.drawImage(img, 0, 0, rect.width, rect.height);
     img.src = OS.data.assinatura_b64;
-    wrap.classList.add("has-signature");
+    wrap?.classList.add("has-signature");
   }
+}
+
+// Vincula eventos de desenho ao canvas — chamado UMA vez em bindRecebidoAssinatura.
+function bindCanvasAssinatura() {
+  const canvas = document.getElementById("osSignCanvas");
+  const wrap = document.getElementById("osSignWrap");
+  if (!canvas) return;
 
   const ptFromEvent = (e) => {
     const r = canvas.getBoundingClientRect();
@@ -2434,13 +2463,15 @@ function iniciarCanvasAssinatura() {
     if (!OS.sign.drawing) return;
     e.preventDefault();
     const { x, y } = ptFromEvent(e);
+    const ctx = OS.sign.ctx;
+    if (!ctx) return;
     ctx.beginPath();
     ctx.moveTo(OS.sign.lastX, OS.sign.lastY);
     ctx.lineTo(x, y);
     ctx.stroke();
     OS.sign.lastX = x; OS.sign.lastY = y;
     OS.sign.hasInk = true;
-    wrap.classList.add("has-signature");
+    wrap?.classList.add("has-signature");
   };
   const end = () => {
     if (!OS.sign.drawing) return;
@@ -2469,6 +2500,146 @@ function limparAssinatura() {
   document.getElementById("osSignWrap")?.classList.remove("has-signature");
   salvarOSDebounced({ assinatura_b64: null });
   avaliarRecebidoComplete();
+}
+
+async function abrirAssinaturaFullscreen() {
+  const overlay = document.createElement("div");
+  overlay.className = "sign-fs-overlay";
+
+  const jaTemAssinatura = OS.sign.hasInk || !!OS.data.assinatura_b64;
+
+  overlay.innerHTML = `
+    <div class="sign-fs-bar">
+      <span class="sign-fs-title">Assinatura</span>
+      <div class="sign-fs-actions">
+        <button class="btn btn-sm" id="signFsClear">Limpar</button>
+        <button class="btn btn-sm" id="signFsCancel">Cancelar</button>
+        <button class="btn btn-sm btnAccent" id="signFsConfirm">✓ Confirmar</button>
+      </div>
+    </div>
+    <div class="sign-fs-canvas-wrap${jaTemAssinatura ? " has-ink" : ""}" id="signFsWrap">
+      <canvas id="signFsCanvas" class="sign-fs-canvas"></canvas>
+      <div class="sign-fs-hint">Assine aqui com o dedo</div>
+      <div class="sign-fs-rotate-msg" id="signFsRotateMsg">
+        <svg class="sign-fs-rotate-icon" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="10" y="4" width="18" height="30" rx="3" stroke="currentColor" stroke-width="2.5"/>
+          <circle cx="19" cy="30" r="1.5" fill="currentColor"/>
+          <path d="M32 10 A13 13 0 0 1 32 36" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+          <polyline points="29,33 32,36 35,33" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span>Vire o celular para o lado</span>
+      </div>
+    </div>`;
+
+  document.body.appendChild(overlay);
+
+  const canvas    = overlay.querySelector("#signFsCanvas");
+  const wrap      = overlay.querySelector("#signFsWrap");
+  const rotateMsg = overlay.querySelector("#signFsRotateMsg");
+
+  let ctx     = null;
+  let drawing = false, lastX = 0, lastY = 0, hasInk = jaTemAssinatura;
+  const cleanups = [];
+
+  function iniciarCtx() {
+    const dpr  = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    canvas.width  = Math.floor(rect.width  * dpr);
+    canvas.height = Math.floor(rect.height * dpr);
+    ctx = canvas.getContext("2d");
+    ctx.scale(dpr, dpr);
+    ctx.lineCap     = "round";
+    ctx.lineJoin    = "round";
+    ctx.lineWidth   = 2.5;
+    ctx.strokeStyle = "#0a0a0a";
+    if (OS.data.assinatura_b64) {
+      const img = new Image();
+      img.onload = () => ctx.drawImage(img, 0, 0, rect.width, rect.height);
+      img.src = OS.data.assinatura_b64;
+    }
+  }
+
+  // Tenta travar em landscape — aguarda a rotação completar antes de inicializar o canvas
+  let travado = false;
+  try {
+    await screen.orientation.lock("landscape");
+    travado = true;
+  } catch (_) {}
+
+  if (travado) {
+    // Android/PWA: aguarda o layout estabilizar após a rotação
+    await new Promise(r => requestAnimationFrame(r));
+    rotateMsg.style.display = "none";
+    iniciarCtx();
+  } else {
+    // iOS: não conseguiu travar — detecta orientação e espera o usuário girar
+    const verificar = () => {
+      const landscape = window.innerWidth > window.innerHeight;
+      rotateMsg.style.display = landscape ? "none" : "flex";
+      if (landscape && !ctx) requestAnimationFrame(() => requestAnimationFrame(iniciarCtx));
+    };
+    verificar();
+    window.addEventListener("resize", verificar);
+    cleanups.push(() => window.removeEventListener("resize", verificar));
+  }
+
+  const pt = (e) => {
+    const r = canvas.getBoundingClientRect();
+    const t = e.touches?.[0] || e.changedTouches?.[0] || e;
+    return { x: t.clientX - r.left, y: t.clientY - r.top };
+  };
+  const start = (e) => {
+    if (!ctx) return;
+    e.preventDefault();
+    drawing = true;
+    const p = pt(e); lastX = p.x; lastY = p.y;
+  };
+  const move = (e) => {
+    if (!drawing || !ctx) return;
+    e.preventDefault();
+    const p = pt(e);
+    ctx.beginPath(); ctx.moveTo(lastX, lastY); ctx.lineTo(p.x, p.y); ctx.stroke();
+    lastX = p.x; lastY = p.y;
+    hasInk = true;
+    wrap.classList.add("has-ink");
+  };
+  const stop = () => { drawing = false; };
+
+  canvas.addEventListener("mousedown",  start);
+  canvas.addEventListener("mousemove",  move);
+  canvas.addEventListener("mouseup",    stop);
+  canvas.addEventListener("mouseleave", stop);
+  canvas.addEventListener("touchstart", start, { passive: false });
+  canvas.addEventListener("touchmove",  move,  { passive: false });
+  canvas.addEventListener("touchend",   stop);
+
+  function _fechar() {
+    cleanups.forEach(fn => fn());
+    try { screen.orientation?.unlock?.(); } catch (_) {}
+    overlay.remove();
+  }
+
+  overlay.querySelector("#signFsClear").addEventListener("click", () => {
+    if (!ctx) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    hasInk = false;
+    wrap.classList.remove("has-ink");
+  });
+
+  overlay.querySelector("#signFsCancel").addEventListener("click", _fechar);
+
+  overlay.querySelector("#signFsConfirm").addEventListener("click", () => {
+    if (hasInk && ctx) {
+      const dataUrl = canvas.toDataURL("image/png");
+      OS.data.assinatura_b64 = dataUrl;
+      OS.sign.hasInk = true;
+      document.getElementById("osSignWrap")?.classList.add("has-signature");
+      iniciarCanvasAssinatura();
+      salvarOSDebounced({ assinatura_b64: dataUrl });
+      avaliarRecebidoComplete();
+    }
+    _fechar();
+  });
 }
 
 // ---- Progresso geral ----
@@ -2507,18 +2678,13 @@ async function finalizarOS() {
       throw new Error("Anexe pelo menos 1 foto antes de finalizar. Os tipos selecionados (Instalação de peças / Chamado emergencial) exigem foto.");
     }
 
-    // Pede GPS pra saída
-    const geo = await new Promise((resolve) => {
-      if (!navigator.geolocation) return resolve(null);
-      navigator.geolocation.getCurrentPosition(
-        (pos) => resolve({
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-        }),
-        () => resolve(null), // GPS opcional na saída
-        { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
-      );
-    });
+    // GPS de saída: usa posição recente do watch se disponível (opcional — não bloqueia)
+    const geo = (() => {
+      if (GPS.last && (Date.now() - GPS.last.ts) < 120000) {
+        return { lat: GPS.last.lat, lng: GPS.last.lng };
+      }
+      return null;
+    })();
 
     if (IS_DEMO) {
       // Demo: simula sucesso, marca chamado como fechado na lista
