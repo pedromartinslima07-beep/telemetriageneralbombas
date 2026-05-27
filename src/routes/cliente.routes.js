@@ -318,12 +318,12 @@ router.get("/chamados", authRequired, clienteOnly, async (req, res) => {
       `SELECT
          ch.id, ch.status, ch.prioridade, ch.categoria, ch.titulo, ch.descricao,
          ch.criado_em, ch.atualizado_em, ch.fechado_em,
-         ch.ordem_servico_id,
+         os.id AS ordem_servico_id,
          t.nome AS tecnico_nome,
          os.finalizada_em AS os_finalizada_em
        FROM chamados ch
        LEFT JOIN tecnicos t          ON t.id = ch.tecnico_id
-       LEFT JOIN ordens_servico os   ON os.id = ch.ordem_servico_id
+       LEFT JOIN ordens_servico os   ON os.chamado_id = ch.id
        WHERE ${where}
        ORDER BY
          CASE ch.status
@@ -357,7 +357,7 @@ router.get("/chamados/:id", authRequired, clienteOnly, async (req, res) => {
          ch.id, ch.conversa_id, ch.condominio_id, ch.status, ch.prioridade,
          ch.titulo, ch.descricao, ch.responsavel_id, ch.criado_em,
          ch.atualizado_em, ch.fechado_em, ch.categoria, ch.tecnico_id,
-         ch.ordem_servico_id,
+         os.id AS ordem_servico_id,
          (ch.avaliacao_nota IS NOT NULL) AS ja_avaliado,
          t.nome AS tecnico_nome,
          os.id              AS os_id,
@@ -368,7 +368,7 @@ router.get("/chamados/:id", authRequired, clienteOnly, async (req, res) => {
          os.retorno_sugerido_em
        FROM chamados ch
        LEFT JOIN tecnicos t        ON t.id = ch.tecnico_id
-       LEFT JOIN ordens_servico os ON os.id = ch.ordem_servico_id
+       LEFT JOIN ordens_servico os ON os.chamado_id = ch.id
        WHERE ch.id = $1 AND ch.condominio_id = $2
        LIMIT 1`,
       [id, condominioId]

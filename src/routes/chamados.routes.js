@@ -116,7 +116,7 @@ router.get("/", authRequired, adminOnly, async (req, res) => {
          t.nome  AS tecnico_nome,
          cw.telefone AS cliente_telefone,
          cw.nome     AS cliente_nome,
-         ch.ordem_servico_id,
+         os.id       AS ordem_servico_id,
          ch.avaliacao_nota,
          os.orcamento_necessario,
          os.orcamento_observacoes,
@@ -143,7 +143,7 @@ router.get("/", authRequired, adminOnly, async (req, res) => {
        LEFT JOIN tecnicos t     ON t.id  = ch.tecnico_id
        LEFT JOIN conversas_whatsapp cv ON cv.id = ch.conversa_id
        LEFT JOIN clientes_whatsapp cw  ON cw.id = cv.cliente_whatsapp_id
-       LEFT JOIN ordens_servico os     ON os.id = ch.ordem_servico_id
+       LEFT JOIN ordens_servico os     ON os.chamado_id = ch.id
        LEFT JOIN planos_manutencao pm  ON pm.id = ch.plano_manutencao_id
        LEFT JOIN sla_definicoes sd     ON sd.prioridade = ch.prioridade
        ${where}
@@ -284,7 +284,8 @@ router.get("/meus/:id", authRequired, async (req, res) => {
       `SELECT
          ch.id, ch.status, ch.prioridade, ch.categoria,
          ch.titulo, ch.descricao,
-         ch.condominio_id, ch.tecnico_id, ch.conversa_id, ch.ordem_servico_id,
+         ch.condominio_id, ch.tecnico_id, ch.conversa_id,
+         os.id AS ordem_servico_id,
          ch.criado_em, ch.atualizado_em, ch.fechado_em,
          c.nome     AS condominio_nome,
          c.endereco AS condominio_endereco,
@@ -302,6 +303,7 @@ router.get("/meus/:id", authRequired, async (req, res) => {
        LEFT JOIN condominios c ON c.id = ch.condominio_id
        LEFT JOIN conversas_whatsapp cv ON cv.id = ch.conversa_id
        LEFT JOIN clientes_whatsapp cw  ON cw.id = cv.cliente_whatsapp_id
+       LEFT JOIN ordens_servico os     ON os.chamado_id = ch.id
        WHERE ch.id = $1 AND ch.tecnico_id = $2`,
       [id, tecnicoId]
     );
@@ -353,8 +355,8 @@ router.get("/meus/:id", authRequired, async (req, res) => {
       const os = await pool.query(
         `SELECT id, numero, chegada_em, chegada_lat, chegada_lng,
                 saida_em, finalizada_em
-         FROM ordens_servico WHERE id = $1`,
-        [chamado.ordem_servico_id]
+         FROM ordens_servico WHERE chamado_id = $1`,
+        [chamado.id]
       );
       ordemServico = os.rows[0] || null;
     }
@@ -481,9 +483,9 @@ router.post("/meus/:id/mensagens", authRequired, async (req, res) => {
 });
 
 // POST /chamados/:id/iniciar-atendimento — técnico inicia atendimento.
-// Recebe {lat, lng, precisao_m?}. Idempotente: se já em_atendimento, retorna
-// a O.S. existente. Caso contrário muda status + cria O.S. rascunho com
-// chegada_em/chegada_lat/chegada_lng e vincula ordem_servico_id no chamado.
+// Recebe {lat, lng, precisao_m?}. Idempotente: se já existe O.S. pra esse
+// chamado (UNIQUE em ordens_servico.chamado_id), retorna ela. Caso contrário
+// muda status pra em_atendimento e cria O.S. rascunho com chegada_em/lat/lng.
 router.post("/:id/iniciar-atendimento", authRequired, async (req, res) => {
   if (req.user.role !== "tecnico") {
     return res.status(403).json({ error: "Apenas técnicos" });
@@ -517,7 +519,7 @@ router.post("/:id/iniciar-atendimento", authRequired, async (req, res) => {
 
     const ch = await client.query(
       `SELECT id, status, prioridade, categoria, responsavel_id,
-              condominio_id, tecnico_id, ordem_servico_id
+              condominio_id, tecnico_id
        FROM chamados WHERE id = $1`,
       [id]
     );
@@ -542,18 +544,14 @@ router.post("/:id/iniciar-atendimento", authRequired, async (req, res) => {
 
     await client.query("BEGIN");
 
-    // Idempotência: se já tem O.S. rascunho, retorna ela sem criar outra
-    let osId = chamado.ordem_servico_id;
-    let osRow = null;
-
-    if (osId) {
-      const existing = await client.query(
-        `SELECT id, numero, chegada_em, chegada_lat, chegada_lng, finalizada_em
-         FROM ordens_servico WHERE id = $1`,
-        [osId]
-      );
-      osRow = existing.rows[0] || null;
-    }
+    // Idempotência: UNIQUE em ordens_servico.chamado_id garante 1:1.
+    // Se já existe O.S., retorna ela sem criar outra.
+    const existing = await client.query(
+      `SELECT id, numero, chegada_em, chegada_lat, chegada_lng, finalizada_em
+       FROM ordens_servico WHERE chamado_id = $1`,
+      [id]
+    );
+    let osRow = existing.rows[0] || null;
 
     if (!osRow) {
       const novaOs = await client.query(
@@ -569,16 +567,14 @@ router.post("/:id/iniciar-atendimento", authRequired, async (req, res) => {
         [id, chamado.condominio_id, tecnicoId, latN, lngN]
       );
       osRow = novaOs.rows[0];
-      osId = osRow.id;
 
       await client.query(
         `UPDATE chamados
             SET status = 'em_atendimento',
-                ordem_servico_id = $1,
                 primeira_resposta_em = COALESCE(primeira_resposta_em, NOW()),
                 atualizado_em = NOW()
-          WHERE id = $2`,
-        [osId, id]
+          WHERE id = $1`,
+        [id]
       );
     } else if (chamado.status !== "em_atendimento") {
       // O.S. já existe (foi criada manualmente ou ficou pendente),
@@ -676,7 +672,8 @@ router.get("/:id", authRequired, adminOnly, async (req, res) => {
          t.nome  AS tecnico_nome,
          cw.telefone AS cliente_telefone,
          cw.nome     AS cliente_nome,
-         pm.titulo   AS plano_titulo
+         pm.titulo   AS plano_titulo,
+         os.id       AS ordem_servico_id
        FROM chamados ch
        LEFT JOIN condominios c  ON c.id  = ch.condominio_id
        LEFT JOIN usuarios u     ON u.id  = ch.responsavel_id
@@ -684,6 +681,7 @@ router.get("/:id", authRequired, adminOnly, async (req, res) => {
        LEFT JOIN conversas_whatsapp cv ON cv.id = ch.conversa_id
        LEFT JOIN clientes_whatsapp cw  ON cw.id = cv.cliente_whatsapp_id
        LEFT JOIN planos_manutencao pm  ON pm.id = ch.plano_manutencao_id
+       LEFT JOIN ordens_servico os     ON os.chamado_id = ch.id
        WHERE ch.id = $1`,
       [id]
     );

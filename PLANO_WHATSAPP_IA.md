@@ -1622,12 +1622,15 @@ Antes coexistiam dois sistemas paralelos: 12 colunas `orcamento_*` em `ordens_se
 - Status "pendente" no banco virou "rascunho" — filtros, KPIs e badge da sidebar mapeiam o nome de tab `pendente` ao valor `rascunho` no banco, label do usuário continua "PENDENTE" pra não confundir
 - `_orcStatusCls/_orcStatusLabel` ganharam variante `enviado` (nova possibilidade do sistema unificado)
 
-### Redundâncias confirmadas (pendentes)
+### Redundâncias confirmadas
 
-**FK bidirecional chamados ↔ ordens_servico**
-- `chamados.ordem_servico_id` → ordens_servico
-- `ordens_servico.chamado_id` → chamados
-- Uma direção é suficiente; `chamados.ordem_servico_id` é redundante
+#### FK bidirecional chamados ↔ ordens_servico ✅ CONCLUÍDO (Migration 034)
+
+Antes existiam 2 FKs: `chamados.ordem_servico_id` E `ordens_servico.chamado_id`. Manter as duas custava: (1) escritas precisavam sincronizar as duas pontas (risco de inconsistência); (2) confusão sobre qual é a "fonte da verdade".
+
+- **Migration 034 (`remove_fk_redundante.sql`)**: adiciona `UNIQUE` em `ordens_servico.chamado_id` (preserva semântica 1:1 antiga) e dropa `chamados.ordem_servico_id`. Pré-requisitos checados antes: 0 chamados com >1 O.S., 0 inconsistências entre as duas FKs
+- **Refactor backend** em 4 arquivos: `LEFT JOIN ordens_servico os ON os.id = ch.ordem_servico_id` virou `LEFT JOIN ordens_servico os ON os.chamado_id = ch.id`, e o SELECT mantém o alias `os.id AS ordem_servico_id` pra não quebrar o frontend
+- **`iniciar-atendimento`** simplificou: idempotência agora vem direto do `UNIQUE` do banco (busca via `WHERE chamado_id = $1`), sem precisar do `UPDATE chamados SET ordem_servico_id = ...` que duplicava a sync
 
 **`responsavel_id` vs `tecnico_id` em chamados**
 - `responsavel_id` → usuarios (admin acompanhador, populado/lido em chamados/cliente/relatorios)

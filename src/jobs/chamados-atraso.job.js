@@ -43,7 +43,7 @@ async function jobVerificarChamadosAtraso() {
      FROM chamados ch
      LEFT JOIN condominios c       ON c.id  = ch.condominio_id
      LEFT JOIN tecnicos t          ON t.id  = ch.tecnico_id
-     LEFT JOIN ordens_servico os   ON os.id = ch.ordem_servico_id
+     LEFT JOIN ordens_servico os   ON os.chamado_id = ch.id
      WHERE ch.status = 'em_atendimento'
        AND COALESCE(os.chegada_em, ch.atualizado_em) < NOW() - ($1 || ' hours')::interval
        AND (

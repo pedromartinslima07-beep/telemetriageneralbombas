@@ -589,14 +589,13 @@ router.post("/:id/finalizar", authRequired, osDonoOuAdmin({ forWrite: true }), a
       // garante backfill se por algum motivo ainda for NULL.
       await client.query(
         `UPDATE chamados
-           SET ordem_servico_id = $1,
-               status = 'fechado',
+           SET status = 'fechado',
                fechado_em = NOW(),
                primeira_resposta_em = COALESCE(primeira_resposta_em, NOW()),
                tempo_resolucao_seg = GREATEST(0, EXTRACT(EPOCH FROM (NOW() - criado_em))::int),
                atualizado_em = NOW()
-         WHERE id = $2`,
-        [id, os.chamado_id]
+         WHERE id = $1`,
+        [os.chamado_id]
       );
       if (antesCh.rows.length > 0) {
         await registrarMudancas({
