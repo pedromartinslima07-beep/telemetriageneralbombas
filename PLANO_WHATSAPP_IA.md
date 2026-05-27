@@ -1334,9 +1334,7 @@ Melhorias na página de orçamentos independentes (avulsos) do admin, que havia 
 - Substituído por `fetch(url, {headers: authHeaders()})` → `r.blob()` → `URL.createObjectURL(blob)` → clique programático em `<a>` invisível
 - Aplicado em `_avAcao("gerar-pdf")` (avulsos) e `_orcGerarPdf()` (O.S.)
 
-**Pendências conhecidas:**
-
-- **Telefone do WhatsApp da propaganda** = `5511999999999` (placeholder fake) em 4 lugares: `public/cliente.html:202` e `app/public/app.js:2914`. Trocar pelo número real antes de publicar.
+**Pendências conhecidas:** nenhuma — telefone real `5511966536110` já está em `public/cliente.html` (2 lugares) e `app/public/app.js`.
 
 ---
 
@@ -1601,27 +1599,42 @@ Substituição da nomenclatura antiga (`emergencia/alta/media/baixa`) por nívei
 
 ---
 
-## Backlog — Análise de Schema (para atacar depois)
+## Backlog — Análise de Schema
 
-### Redundâncias confirmadas
+### Concluídos
 
-**1. Sistema de orçamentos duplicado (maior problema)**
-- `ordens_servico` tem 12 colunas `orcamento_*` direto + tabela `orcamento_itens` para itens
-- Em paralelo existe `orcamentos` + `orcamento_linhas` (sistema standalone mais limpo)
-- Migration 027 já adicionou `orcamentos.os_id` como ponte, mas ambos coexistem
-- **Ação:** migrar tudo para `orcamentos`/`orcamento_linhas`, dropar as 12 colunas `orcamento_*` da OS e a tabela `orcamento_itens`
+#### 1. Sistema de orçamentos unificado ✅ CONCLUÍDO (Migration 030)
 
-**2. FK bidirecional chamados ↔ ordens_servico**
+Antes coexistiam dois sistemas paralelos: 12 colunas `orcamento_*` em `ordens_servico` + tabela `orcamento_itens` (sistema A, migrations 018/024/025) e tabelas `orcamentos`/`orcamento_linhas` (sistema B, migrations 026/027).
+
+**Migration 030 (`unificar_orcamentos.sql`), em transação:**
+- Adicionou em `orcamentos` as colunas que só existiam no sistema A: `valor`, `aprovado_em`, `aprovado_por`, `motivo_rejeicao`
+- Backfill: pra cada OS com `orcamento_necessario=true` que ainda não tinha registro em `orcamentos`, criou um. Status `pendente` → `rascunho`, demais 1:1. Moveu `orcamento_itens` → `orcamento_linhas`
+- Dropou 12 colunas formais de `ordens_servico` e a tabela `orcamento_itens`
+- **Mantém em `ordens_servico`**: `orcamento_necessario` BOOLEAN e `orcamento_observacoes` TEXT — esses são input do técnico no app (semente do orçamento formal)
+
+**Backend refatorado:**
+- `admin.routes.js`: as rotas `/admin/orcamentos/:os_id/*` mantêm `:os_id` na URL por compat com o frontend, mas internamente resolvem `orcamento_id` via helper `_garantirOrcamentoDaOs` (cria registro em `orcamentos` se ainda não existir, com número sequencial OR-XXXXXX). Response usa aliases `orcamento_*` pro frontend não precisar de mudanças amplas
+- `orcamento-pdf.service.js`: removida função `gerarPdfOrcamento` (sistema A); o endpoint `/orcamentos/:os_id/pdf` agora resolve o `orcamento_id` da OS e chama `gerarPdfAvulso` com a mesma normalização que já existia
+- `GET /admin/condominios/:id/historico`: agora faz LEFT JOIN com `orcamentos` em vez de ler colunas da OS
+
+**Frontend:**
+- Status "pendente" no banco virou "rascunho" — filtros, KPIs e badge da sidebar mapeiam o nome de tab `pendente` ao valor `rascunho` no banco, label do usuário continua "PENDENTE" pra não confundir
+- `_orcStatusCls/_orcStatusLabel` ganharam variante `enviado` (nova possibilidade do sistema unificado)
+
+### Redundâncias confirmadas (pendentes)
+
+**FK bidirecional chamados ↔ ordens_servico**
 - `chamados.ordem_servico_id` → ordens_servico
 - `ordens_servico.chamado_id` → chamados
 - Uma direção é suficiente; `chamados.ordem_servico_id` é redundante
 
-**3. `responsavel_id` vs `tecnico_id` em chamados**
-- `responsavel_id` → usuarios (admin acompanhador)
-- `tecnico_id` → tecnicos (quem executa)
-- Verificar se `responsavel_id` está sendo populado/lido; pode ser campo morto
+**`responsavel_id` vs `tecnico_id` em chamados**
+- `responsavel_id` → usuarios (admin acompanhador, populado/lido em chamados/cliente/relatorios)
+- `tecnico_id` → tecnicos (quem executa em campo)
+- Não está morto — semântica distinta; decidir se vale unificar ou só documentar
 
-**4. `mensagens_whatsapp.ia_urgencia` usa enum antigo**
+**`mensagens_whatsapp.ia_urgencia` usa enum antigo**
 - Ainda tem `'baixa'|'media'|'alta'|'emergencia'` enquanto tudo migrou para p1-p4
 - Baixo risco imediato, mas inconsistente
 

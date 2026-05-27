@@ -10856,21 +10856,25 @@ function _orcStatusCls(s) {
   if (s === "aprovado")  return "orc-status-ok";
   if (s === "rejeitado") return "orc-status-bad";
   if (s === "expirado")  return "orc-status-off";
-  return "orc-status-pend";
+  if (s === "enviado")   return "orc-status-info";
+  return "orc-status-pend"; // rascunho
 }
 
 function _orcStatusLabel(s) {
   if (s === "aprovado")  return "APROVADO";
   if (s === "rejeitado") return "REJEITADO";
   if (s === "expirado")  return "EXPIRADO";
-  return "PENDENTE";
+  if (s === "enviado")   return "ENVIADO";
+  return "PENDENTE"; // rascunho mostra como PENDENTE pro usuário (estado inicial)
 }
 
 function _orcFiltrados() {
   const q = (document.getElementById("orcBusca")?.value || "").trim().toLowerCase();
   const condo = document.getElementById("orcFiltroCondo")?.value || "";
+  // Tab "pendente" mapeia para o novo valor "rascunho" no banco
+  const tabBanco = _orcTabAtiva === "pendente" ? "rascunho" : _orcTabAtiva;
   return _orcData.filter(o => {
-    if (_orcTabAtiva !== "todos" && o.orcamento_status !== _orcTabAtiva) return false;
+    if (_orcTabAtiva !== "todos" && o.orcamento_status !== tabBanco) return false;
     if (condo && String(o.condominio_id) !== condo) return false;
     if (q) {
       const blob = `${o.condominio_nome || ""} ${o.tecnico_nome || ""} ${o.numero || ""}`.toLowerCase();
@@ -10881,9 +10885,9 @@ function _orcFiltrados() {
 }
 
 function _orcRenderTudo() {
-  // KPIs
+  // KPIs (no banco, "pendente" é representado como "rascunho")
   const total    = _orcData.length;
-  const pend     = _orcData.filter(o => o.orcamento_status === "pendente").length;
+  const pend     = _orcData.filter(o => o.orcamento_status === "rascunho").length;
   const aprov    = _orcData.filter(o => o.orcamento_status === "aprovado").length;
   const rejeit   = _orcData.filter(o => o.orcamento_status === "rejeitado").length;
   const totalVal = _orcData.filter(o => o.orcamento_status === "aprovado" && o.orcamento_valor)
@@ -10963,7 +10967,7 @@ function _orcRenderPainel() {
   }
 
   const o = _orcSelecionado;
-  const isPend  = o.orcamento_status === "pendente";
+  const isPend  = o.orcamento_status === "rascunho";
   const isAprov = o.orcamento_status === "aprovado";
 
   const validadeVal = o.orcamento_valido_ate
@@ -11293,7 +11297,7 @@ async function _orcGerarPdf() {
 }
 
 function _orcAtualizarBadge() {
-  const pend = _orcData.filter(o => o.orcamento_status === "pendente").length;
+  const pend = _orcData.filter(o => o.orcamento_status === "rascunho").length;
   const badge = document.getElementById("navBadgeOrcamentos");
   if (badge) {
     badge.textContent = pend;

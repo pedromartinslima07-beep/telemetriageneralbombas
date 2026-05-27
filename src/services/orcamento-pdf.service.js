@@ -34,43 +34,6 @@ function timbradoBase64() {
   } catch { return null; }
 }
 
-async function buscarDadosOrcamento(osId) {
-  const osRes = await pool.query(
-    `SELECT
-       os.id,
-       os.numero        AS os_numero,
-       os.orcamento_numero,
-       os.orcamento_constatacao,
-       os.orcamento_forma_pagamento,
-       os.orcamento_prazo_entrega,
-       os.orcamento_garantia,
-       os.orcamento_disponibilidade,
-       os.orcamento_valor,
-       os.orcamento_valido_ate,
-       os.orcamento_status,
-       os.criado_em,
-       os.finalizada_em,
-       c.nome           AS condominio_nome,
-       c.endereco, c.bairro, c.cidade, c.uf, c.cep,
-       c.cnpj           AS condominio_cnpj
-     FROM ordens_servico os
-     LEFT JOIN condominios c ON c.id = os.condominio_id
-     WHERE os.id = $1`,
-    [osId]
-  );
-  if (!osRes.rows.length) throw new Error("O.S. não encontrada");
-
-  const itensRes = await pool.query(
-    `SELECT id, descricao, ficha_tecnica, quantidade, valor_unitario
-     FROM orcamento_itens
-     WHERE os_id = $1
-     ORDER BY id ASC`,
-    [osId]
-  );
-
-  return { os: osRes.rows[0], itens: itensRes.rows };
-}
-
 async function buscarDadosAvulso(orcamentoId) {
   const r = await pool.query(
     `SELECT
@@ -472,14 +435,9 @@ async function _gerarPdf(dados, subdir, idStr) {
   return { pdf_url: urlPublica, fpath };
 }
 
-async function gerarPdfOrcamento(osId) {
-  const dados = await buscarDadosOrcamento(osId);
-  return _gerarPdf(dados, "os", String(osId));
-}
-
 async function gerarPdfAvulso(orcamentoId) {
   const dados = await buscarDadosAvulso(orcamentoId);
   return _gerarPdf(dados, "avulso", String(orcamentoId));
 }
 
-module.exports = { gerarPdfOrcamento, gerarPdfAvulso };
+module.exports = { gerarPdfAvulso };

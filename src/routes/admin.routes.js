@@ -4,7 +4,7 @@ const crypto = require("crypto");
 const bcrypt = require("bcrypt");
 const path = require("path");
 const { pool } = require("../db");
-const { gerarPdfOrcamento, gerarPdfAvulso } = require("../services/orcamento-pdf.service");
+const { gerarPdfAvulso } = require("../services/orcamento-pdf.service");
 
 const { authRequired } = require("../middleware/authRequired");
 const { adminOnly } = require("../middleware/adminOnly");
@@ -655,19 +655,71 @@ router.patch("/sla/:prioridade", authRequired, masterAdminOnly, async (req, res)
 });
 
 // ============================================================
-// ORÇAMENTOS
+// ORÇAMENTOS (Migration 029: unificados na tabela `orcamentos`)
 // ============================================================
+//
+// Modelo:
+// - ordens_servico.orcamento_necessario (boolean) e .orcamento_observacoes (texto)
+//   são input do TÉCNICO no app — sinalização "preciso de orçamento" + observação.
+// - Orçamento formal vive em `orcamentos` (FK opcional `os_id` aponta para a OS
+//   que originou). Itens em `orcamento_linhas`.
+//
+// As rotas /admin/orcamentos/* (sem "avulsos") mantém o contrato antigo com
+// :os_id na URL para o frontend continuar funcionando, mas operam no novo schema.
 
-// GET /admin/orcamentos?status=pendente&condominio_id=1&data_ini=&data_fim=
+// Status mapping: o sistema antigo usava "pendente" — agora é "rascunho".
+// Aceita o valor antigo no query string por compat, mapeando ao novo.
+function _orcStatusIn(status) {
+  if (status === "pendente") return "rascunho";
+  return status;
+}
+
+// Garante que existe um registro em `orcamentos` para a OS (cria se não tiver).
+// Retorna { id, criado } do orçamento.
+async function _garantirOrcamentoDaOs(osId, userId) {
+  const existente = await pool.query(
+    "SELECT id FROM orcamentos WHERE os_id = $1 LIMIT 1",
+    [osId]
+  );
+  if (existente.rows.length) return { id: existente.rows[0].id, criado: false };
+
+  const osRow = await pool.query(
+    "SELECT id, condominio_id, orcamento_necessario FROM ordens_servico WHERE id = $1",
+    [osId]
+  );
+  if (!osRow.rows.length) throw Object.assign(new Error("O.S. não encontrada"), { status: 404 });
+  if (!osRow.rows[0].orcamento_necessario) {
+    throw Object.assign(new Error("Esta O.S. não tem orçamento solicitado"), { status: 400 });
+  }
+
+  const numSeq = (await pool.query(
+    "SELECT 'OR-' || LPAD(nextval('orcamento_numero_seq')::text, 6, '0') AS n"
+  )).rows[0].n;
+
+  const ins = await pool.query(
+    `INSERT INTO orcamentos (os_id, numero, condominio_id, status, criado_por)
+     VALUES ($1, $2, $3, 'rascunho', $4)
+     RETURNING id`,
+    [osId, numSeq, osRow.rows[0].condominio_id, userId || null]
+  );
+  return { id: ins.rows[0].id, criado: true };
+}
+
+// Helpers de status: rascunho|enviado|aprovado|rejeitado (não há mais "pendente").
+const ORC_STATUS_VALIDOS = ["rascunho", "enviado", "aprovado", "rejeitado"];
+
+// GET /admin/orcamentos?status=&condominio_id=&data_ini=&data_fim=
+// Lista APENAS orçamentos originados de OS (orcamentos.os_id IS NOT NULL).
 router.get("/orcamentos", authRequired, adminOnly, async (req, res) => {
-  const { status, condominio_id, data_ini, data_fim } = req.query;
+  const { status: rawStatus, condominio_id, data_ini, data_fim } = req.query;
+  const status = _orcStatusIn(rawStatus);
 
-  const where = ["os.orcamento_necessario = TRUE"];
+  const where = ["o.os_id IS NOT NULL", "os.orcamento_necessario = TRUE"];
   const vals  = [];
 
-  if (status && ["pendente","aprovado","rejeitado","expirado"].includes(status)) {
+  if (status && ORC_STATUS_VALIDOS.includes(status)) {
     vals.push(status);
-    where.push(`os.orcamento_status = $${vals.length}`);
+    where.push(`o.status = $${vals.length}`);
   }
   if (condominio_id) {
     vals.push(Number(condominio_id));
@@ -696,21 +748,29 @@ router.get("/orcamentos", authRequired, adminOnly, async (req, res) => {
          os.criado_em,
          os.orcamento_necessario,
          os.orcamento_observacoes,
-         os.orcamento_valor,
-         os.orcamento_status,
-         os.orcamento_valido_ate,
-         os.orcamento_aprovado_em,
-         os.orcamento_motivo_rejeicao,
+         o.id                AS orcamento_id,
+         o.valor             AS orcamento_valor,
+         o.status            AS orcamento_status,
+         o.valido_ate        AS orcamento_valido_ate,
+         o.aprovado_em       AS orcamento_aprovado_em,
+         o.motivo_rejeicao   AS orcamento_motivo_rejeicao,
+         o.numero            AS orcamento_numero,
+         o.constatacao       AS orcamento_constatacao,
+         o.forma_pagamento   AS orcamento_forma_pagamento,
+         o.prazo_entrega     AS orcamento_prazo_entrega,
+         o.garantia          AS orcamento_garantia,
+         o.disponibilidade   AS orcamento_disponibilidade,
          ua.nome             AS aprovado_por_nome,
          os.servico_realizado,
          os.tipos_servico
        FROM ordens_servico os
+       JOIN orcamentos o       ON o.os_id = os.id
        LEFT JOIN condominios c ON c.id = os.condominio_id
        LEFT JOIN tecnicos t    ON t.id = os.tecnico_id
-       LEFT JOIN usuarios ua   ON ua.id = os.orcamento_aprovado_por
+       LEFT JOIN usuarios ua   ON ua.id = o.aprovado_por
        WHERE ${where.join(" AND ")}
        ORDER BY
-         CASE os.orcamento_status WHEN 'pendente' THEN 0 ELSE 1 END,
+         CASE o.status WHEN 'rascunho' THEN 0 ELSE 1 END,
          os.finalizada_em DESC NULLS LAST
        LIMIT 200`,
       vals
@@ -723,6 +783,7 @@ router.get("/orcamentos", authRequired, adminOnly, async (req, res) => {
 });
 
 // PATCH /admin/orcamentos/:os_id — aprovar, rejeitar ou salvar valor
+// (mantém :os_id na URL por compat; resolve internamente para orcamentos.id)
 router.patch("/orcamentos/:os_id", authRequired, adminOnly, async (req, res) => {
   const osId = Number(req.params.os_id);
   if (!Number.isInteger(osId) || osId <= 0) {
@@ -739,96 +800,98 @@ router.patch("/orcamentos/:os_id", authRequired, adminOnly, async (req, res) => 
   }
 
   try {
-    const check = await pool.query(
-      "SELECT id, orcamento_necessario FROM ordens_servico WHERE id = $1",
-      [osId]
-    );
-    if (!check.rows.length) return res.status(404).json({ error: "O.S. não encontrada" });
-    if (!check.rows[0].orcamento_necessario) {
-      return res.status(400).json({ error: "Esta O.S. não tem orçamento solicitado" });
-    }
+    const { id: orcId } = await _garantirOrcamentoDaOs(osId, req.user.id);
 
-    let sets = [], vals = [osId];
+    let sets = [], vals = [orcId];
 
     if (acao === "aprovar") {
       sets = [
-        "orcamento_status = 'aprovado'",
-        "orcamento_aprovado_em = NOW()",
-        `orcamento_aprovado_por = ${req.user.id}`,
-        "orcamento_motivo_rejeicao = NULL",
+        "status = 'aprovado'",
+        "aprovado_em = NOW()",
+        `aprovado_por = ${req.user.id}`,
+        "motivo_rejeicao = NULL",
       ];
       if (valor != null) {
         const v = Number(valor);
         if (isNaN(v) || v < 0) return res.status(400).json({ error: "valor inválido" });
-        vals.push(v); sets.push(`orcamento_valor = $${vals.length}`);
+        vals.push(v); sets.push(`valor = $${vals.length}`);
       }
       if (valido_ate) {
-        vals.push(valido_ate); sets.push(`orcamento_valido_ate = $${vals.length}::date`);
+        vals.push(valido_ate); sets.push(`valido_ate = $${vals.length}::date`);
       }
     } else if (acao === "rejeitar") {
-      sets = ["orcamento_status = 'rejeitado'", "orcamento_aprovado_em = NULL"];
+      sets = ["status = 'rejeitado'", "aprovado_em = NULL"];
       if (motivo_rejeicao) {
         const m = String(motivo_rejeicao).slice(0, 1000);
-        vals.push(m); sets.push(`orcamento_motivo_rejeicao = $${vals.length}`);
+        vals.push(m); sets.push(`motivo_rejeicao = $${vals.length}`);
       }
     } else {
       // salvar: apenas valor/validade/campos sem mudar status
       if (valor != null) {
         const v = Number(valor);
         if (isNaN(v) || v < 0) return res.status(400).json({ error: "valor inválido" });
-        vals.push(v); sets.push(`orcamento_valor = $${vals.length}`);
+        vals.push(v); sets.push(`valor = $${vals.length}`);
       }
       if (valido_ate !== undefined) {
         vals.push(valido_ate || null);
-        sets.push(`orcamento_valido_ate = $${vals.length}::date`);
+        sets.push(`valido_ate = $${vals.length}::date`);
       }
     }
 
     // Campos do orçamento formal (aplicados em qualquer acao)
     if (numero !== undefined) {
       vals.push(String(numero || "").slice(0, 30) || null);
-      sets.push(`orcamento_numero = $${vals.length}`);
+      sets.push(`numero = $${vals.length}`);
     }
     if (constatacao !== undefined) {
-      vals.push(String(constatacao || "").slice(0, 255) || null);
-      sets.push(`orcamento_constatacao = $${vals.length}`);
+      vals.push(String(constatacao || "").slice(0, 1000) || null);
+      sets.push(`constatacao = $${vals.length}`);
     }
     if (forma_pagamento !== undefined) {
       vals.push(String(forma_pagamento || "").slice(0, 255) || null);
-      sets.push(`orcamento_forma_pagamento = $${vals.length}`);
+      sets.push(`forma_pagamento = $${vals.length}`);
     }
     if (prazo_entrega !== undefined) {
       vals.push(String(prazo_entrega || "").slice(0, 100) || null);
-      sets.push(`orcamento_prazo_entrega = $${vals.length}`);
+      sets.push(`prazo_entrega = $${vals.length}`);
     }
     if (garantia !== undefined) {
       vals.push(String(garantia || "").slice(0, 100) || null);
-      sets.push(`orcamento_garantia = $${vals.length}`);
+      sets.push(`garantia = $${vals.length}`);
     }
     if (disponibilidade !== undefined) {
       vals.push(String(disponibilidade || "").slice(0, 100) || null);
-      sets.push(`orcamento_disponibilidade = $${vals.length}`);
+      sets.push(`disponibilidade = $${vals.length}`);
     }
 
     if (!sets.length) return res.status(400).json({ error: "Nenhum campo para atualizar" });
 
     const r = await pool.query(
-      `UPDATE ordens_servico SET ${sets.join(", ")}
+      `UPDATE orcamentos SET ${sets.join(", ")}
        WHERE id = $1
-       RETURNING id, numero, orcamento_status, orcamento_valor, orcamento_valido_ate,
-                 orcamento_aprovado_em, orcamento_motivo_rejeicao,
-                 orcamento_numero, orcamento_constatacao, orcamento_forma_pagamento,
-                 orcamento_prazo_entrega, orcamento_garantia, orcamento_disponibilidade`,
+       RETURNING id              AS orcamento_id,
+                 numero          AS orcamento_numero,
+                 status          AS orcamento_status,
+                 valor           AS orcamento_valor,
+                 valido_ate      AS orcamento_valido_ate,
+                 aprovado_em     AS orcamento_aprovado_em,
+                 motivo_rejeicao AS orcamento_motivo_rejeicao,
+                 constatacao     AS orcamento_constatacao,
+                 forma_pagamento AS orcamento_forma_pagamento,
+                 prazo_entrega   AS orcamento_prazo_entrega,
+                 garantia        AS orcamento_garantia,
+                 disponibilidade AS orcamento_disponibilidade`,
       vals
     );
     return res.json(r.rows[0]);
   } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
     console.error("[admin] PATCH /orcamentos/:os_id:", err);
     return res.status(500).json({ error: "Erro ao atualizar orçamento" });
   }
 });
 
-// ── Itens do orçamento ────────────────────────────────────────────────────────
+// ── Itens do orçamento (mantém :os_id na URL; opera em orcamento_linhas) ──────
 
 // GET /admin/orcamentos/:os_id/itens
 router.get("/orcamentos/:os_id/itens", authRequired, adminOnly, async (req, res) => {
@@ -836,8 +899,11 @@ router.get("/orcamentos/:os_id/itens", authRequired, adminOnly, async (req, res)
   if (!Number.isInteger(osId) || osId <= 0) return res.status(400).json({ error: "os_id inválido" });
   try {
     const r = await pool.query(
-      `SELECT id, descricao, ficha_tecnica, quantidade, valor_unitario
-       FROM orcamento_itens WHERE os_id = $1 ORDER BY id ASC`,
+      `SELECT l.id, l.descricao, l.ficha_tecnica, l.quantidade, l.valor_unitario
+       FROM orcamento_linhas l
+       JOIN orcamentos o ON o.id = l.orcamento_id
+       WHERE o.os_id = $1
+       ORDER BY l.id ASC`,
       [osId]
     );
     return res.json(r.rows);
@@ -861,14 +927,16 @@ router.post("/orcamentos/:os_id/itens", authRequired, adminOnly, async (req, res
   if (vu < 0)    return res.status(400).json({ error: "valor_unitario inválido" });
 
   try {
+    const { id: orcId } = await _garantirOrcamentoDaOs(osId, req.user.id);
     const r = await pool.query(
-      `INSERT INTO orcamento_itens (os_id, descricao, ficha_tecnica, quantidade, valor_unitario)
+      `INSERT INTO orcamento_linhas (orcamento_id, descricao, ficha_tecnica, quantidade, valor_unitario)
        VALUES ($1, $2, $3, $4, $5)
        RETURNING id, descricao, ficha_tecnica, quantidade, valor_unitario`,
-      [osId, String(descricao).trim(), ficha_tecnica ? String(ficha_tecnica).trim() : null, qtd, vu]
+      [orcId, String(descricao).trim(), ficha_tecnica ? String(ficha_tecnica).trim() : null, qtd, vu]
     );
     return res.status(201).json(r.rows[0]);
   } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
     console.error("[admin] POST /orcamentos/:os_id/itens:", err);
     return res.status(500).json({ error: "Erro ao criar item" });
   }
@@ -905,7 +973,7 @@ router.patch("/orcamentos/itens/:item_id", authRequired, adminOnly, async (req, 
 
   try {
     const r = await pool.query(
-      `UPDATE orcamento_itens SET ${sets.join(", ")} WHERE id = $1
+      `UPDATE orcamento_linhas SET ${sets.join(", ")} WHERE id = $1
        RETURNING id, descricao, ficha_tecnica, quantidade, valor_unitario`,
       vals
     );
@@ -922,7 +990,7 @@ router.delete("/orcamentos/itens/:item_id", authRequired, adminOnly, async (req,
   const itemId = Number(req.params.item_id);
   if (!Number.isInteger(itemId) || itemId <= 0) return res.status(400).json({ error: "item_id inválido" });
   try {
-    await pool.query("DELETE FROM orcamento_itens WHERE id = $1", [itemId]);
+    await pool.query("DELETE FROM orcamento_linhas WHERE id = $1", [itemId]);
     return res.json({ ok: true });
   } catch (err) {
     console.error("[admin] DELETE /orcamentos/itens/:item_id:", err);
@@ -930,18 +998,20 @@ router.delete("/orcamentos/itens/:item_id", authRequired, adminOnly, async (req,
   }
 });
 
-// GET /admin/orcamentos/:os_id/pdf — gera e serve o PDF
+// GET /admin/orcamentos/:os_id/pdf — resolve o orcamento.id da OS e gera PDF
 router.get("/orcamentos/:os_id/pdf", authRequired, adminOnly, async (req, res) => {
   const osId = Number(req.params.os_id);
   if (!Number.isInteger(osId) || osId <= 0) return res.status(400).json({ error: "os_id inválido" });
   try {
-    const { fpath } = await gerarPdfOrcamento(osId);
+    const { id: orcId } = await _garantirOrcamentoDaOs(osId, req.user.id);
+    const { fpath } = await gerarPdfAvulso(orcId);
     const fs = require("fs");
     if (!fs.existsSync(fpath)) return res.status(500).json({ error: "PDF não gerado" });
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", `inline; filename="orcamento-${osId}.pdf"`);
     fs.createReadStream(fpath).pipe(res);
   } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
     console.error("[admin] GET /orcamentos/:os_id/pdf:", err);
     return res.status(500).json({ error: err.message || "Erro ao gerar PDF" });
   }
@@ -1147,9 +1217,13 @@ router.get("/condominios/:id/historico", authRequired, adminOnly, async (req, re
         `SELECT os.id, os.numero, os.criado_em, os.finalizada_em,
                 os.servico_realizado, os.tipos_servico,
                 t.nome AS tecnico_nome,
-                os.orcamento_necessario, os.orcamento_status, os.orcamento_valor, os.orcamento_numero
+                os.orcamento_necessario,
+                orc.status  AS orcamento_status,
+                orc.valor   AS orcamento_valor,
+                orc.numero  AS orcamento_numero
          FROM ordens_servico os
-         LEFT JOIN tecnicos t ON t.id = os.tecnico_id
+         LEFT JOIN tecnicos t   ON t.id = os.tecnico_id
+         LEFT JOIN orcamentos orc ON orc.os_id = os.id
          WHERE os.condominio_id = $1
          ORDER BY os.criado_em DESC
          LIMIT 200`,
