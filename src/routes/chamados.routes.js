@@ -119,6 +119,8 @@ router.get("/", authRequired, adminOnly, async (req, res) => {
          os.orcamento_necessario,
          os.orcamento_observacoes,
          os.finalizada_em       AS os_finalizada_em,
+         ch.plano_manutencao_id,
+         pm.titulo               AS plano_titulo,
          -- Fase 8B: SLA estourado em tempo real
          -- sla_ttfr_estourado: sem resposta + passou do ttfr_min da prioridade
          CASE WHEN ch.status IN ('aberto', 'em_atendimento')
@@ -140,6 +142,7 @@ router.get("/", authRequired, adminOnly, async (req, res) => {
        LEFT JOIN conversas_whatsapp cv ON cv.id = ch.conversa_id
        LEFT JOIN clientes_whatsapp cw  ON cw.id = cv.cliente_whatsapp_id
        LEFT JOIN ordens_servico os     ON os.id = ch.ordem_servico_id
+       LEFT JOIN planos_manutencao pm  ON pm.id = ch.plano_manutencao_id
        LEFT JOIN sla_definicoes sd     ON sd.prioridade = ch.prioridade
        ${where}
        ORDER BY ch.criado_em DESC
@@ -624,13 +627,15 @@ router.get("/:id", authRequired, adminOnly, async (req, res) => {
          u.nome  AS responsavel_nome,
          t.nome  AS tecnico_nome,
          cw.telefone AS cliente_telefone,
-         cw.nome     AS cliente_nome
+         cw.nome     AS cliente_nome,
+         pm.titulo   AS plano_titulo
        FROM chamados ch
        LEFT JOIN condominios c  ON c.id  = ch.condominio_id
        LEFT JOIN usuarios u     ON u.id  = ch.responsavel_id
        LEFT JOIN tecnicos t     ON t.id  = ch.tecnico_id
        LEFT JOIN conversas_whatsapp cv ON cv.id = ch.conversa_id
        LEFT JOIN clientes_whatsapp cw  ON cw.id = cv.cliente_whatsapp_id
+       LEFT JOIN planos_manutencao pm  ON pm.id = ch.plano_manutencao_id
        WHERE ch.id = $1`,
       [id]
     );

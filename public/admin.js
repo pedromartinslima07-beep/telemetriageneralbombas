@@ -29,6 +29,7 @@ const _sectionTitles = {
   orcamentos:       "Orçamentos",
   cadastros:        "Clientes",
   tecnicos:         "Técnicos",
+  planos:           "Planos de manutenção",
   relatorios:       "Relatórios",
   config:           "Configurações",
 };
@@ -63,6 +64,10 @@ function showSection(name) {
   }
   if (name === "ordens-servico") {
     renderSecaoOS();
+  }
+  if (name === "planos") {
+    _pmBindEventos();
+    carregarPlanos();
   }
   if (name === "orcamentos") {
     _orcModoBindEventos();
@@ -4844,6 +4849,7 @@ function renderDrawerChamados() {
           <span class="prio-badge ${prioClass}">${prioLabel[ch.prioridade] || ch.prioridade}</span>
           <span class="${statusCls}">${statusLbl[ch.status] || ch.status}</span>
           ${ch.orcamento_necessario ? `<span class="orc-pill">💰 Orçamento</span>` : ""}
+          ${ch.plano_manutencao_id ? `<span class="orc-pill" style="background:rgba(99,102,241,.15);color:#a5b4fc;border-color:rgba(99,102,241,.35);" title="${_waEscaparHtml(ch.plano_titulo || "Plano de manutenção")}">🔄 Preventiva</span>` : ""}
           <span style="color:var(--muted2);">#${ch.id} • ${fmtData(ch.criado_em)}</span>
         </div>
         ${ch.descricao ? `<div style="font-size:12px;color:var(--muted);line-height:1.5;">${ch.descricao.slice(0, 200)}${ch.descricao.length > 200 ? "…" : ""}</div>` : ""}
@@ -11377,4 +11383,319 @@ function _orcBindEventos() {
     if (acao === "fechar") { _orcSelecionado = null; _orcRenderTudo(); }
     else _orcAcao(acao);
   });
+}
+
+// ─── Planos de manutenção preventiva ─────────────────────────────────────────
+
+let _pmData         = [];
+let _pmTabAtiva     = "todos";
+let _pmBindFeito    = false;
+let _pmCondosCache  = null;
+
+const PM_PERIOD_PRESETS = [
+  { label: "Semanal",     dias: 7   },
+  { label: "Quinzenal",   dias: 15  },
+  { label: "Mensal",      dias: 30  },
+  { label: "Trimestral",  dias: 90  },
+  { label: "Semestral",   dias: 180 },
+  { label: "Anual",       dias: 365 },
+];
+
+function _pmFmtData(iso) {
+  if (!iso) return "—";
+  // proxima_em/ultima_em vêm como YYYY-MM-DD (DATE) — não tem timezone
+  const s = String(iso).slice(0, 10);
+  const [y, m, d] = s.split("-");
+  return `${d}/${m}/${y}`;
+}
+
+function _pmPeriodLabel(dias) {
+  const preset = PM_PERIOD_PRESETS.find(p => p.dias === Number(dias));
+  if (preset) return preset.label;
+  return `${dias} dias`;
+}
+
+function _pmDiasAteProxima(iso) {
+  if (!iso) return null;
+  const hoje = new Date(); hoje.setHours(0,0,0,0);
+  const prox = new Date(String(iso).slice(0, 10) + "T00:00:00");
+  return Math.round((prox - hoje) / (1000 * 60 * 60 * 24));
+}
+
+function _pmStatus(p) {
+  if (!p.ativo) return { cls: "orc-status-off", label: "INATIVO", kind: "inativo" };
+  const d = _pmDiasAteProxima(p.proxima_em);
+  if (d == null) return { cls: "orc-status-pend", label: "—", kind: "em-dia" };
+  if (d < 0)  return { cls: "orc-status-bad",  label: `VENCIDO ${-d}d`, kind: "vencidos" };
+  if (d <= 7) return { cls: "orc-status-pend", label: `EM ${d}d`,       kind: "vencendo" };
+  return { cls: "orc-status-ok", label: "EM DIA", kind: "em-dia" };
+}
+
+async function carregarPlanos() {
+  try {
+    const r = await fetch("/planos-manutencao", { headers: authHeaders() });
+    if (!r.ok) return;
+    _pmData = await r.json();
+    _pmRenderTudo();
+    _pmAtualizarBadge();
+  } catch (e) {
+    console.error("carregarPlanos:", e);
+  }
+}
+
+async function _pmCarregarCondos() {
+  if (_pmCondosCache) return _pmCondosCache;
+  try {
+    const r = await fetch("/admin/condominios/lista", { headers: authHeaders() });
+    _pmCondosCache = r.ok ? await r.json() : [];
+  } catch { _pmCondosCache = []; }
+  return _pmCondosCache;
+}
+
+function _pmFiltrados() {
+  const q = (document.getElementById("pmBusca")?.value || "").trim().toLowerCase();
+  return _pmData.filter(p => {
+    const st = _pmStatus(p).kind;
+    if (_pmTabAtiva === "vencidos" && st !== "vencidos") return false;
+    if (_pmTabAtiva === "vencendo" && st !== "vencendo") return false;
+    if (_pmTabAtiva === "em-dia"   && st !== "em-dia")   return false;
+    if (_pmTabAtiva === "inativos" && p.ativo)           return false;
+    if (_pmTabAtiva === "todos"    && !p.ativo)          return false; // "todos" mostra só ativos
+    if (q) {
+      const blob = `${p.condominio_nome || ""} ${p.titulo || ""}`.toLowerCase();
+      if (!blob.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+function _pmRenderTudo() {
+  const ativos    = _pmData.filter(p => p.ativo);
+  const vencidos  = ativos.filter(p => _pmStatus(p).kind === "vencidos").length;
+  const vencendo  = ativos.filter(p => _pmStatus(p).kind === "vencendo").length;
+  const emDia     = ativos.filter(p => _pmStatus(p).kind === "em-dia").length;
+  const inativos  = _pmData.filter(p => !p.ativo).length;
+
+  // KPIs
+  const ICO_CAL  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`;
+  const ICO_X    = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>`;
+  const ICO_CLK  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`;
+  const ICO_OK   = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`;
+
+  const kpi = (ico, val, label, cls) => `
+    <div class="rc ${cls} rc-static">
+      <div class="rc-head"><div class="rc-icon">${ico}</div><div class="rc-label">${label}</div></div>
+      <div class="rc-value">${val}</div>
+    </div>`;
+
+  const grid = document.getElementById("pmKpiGrid");
+  if (grid) grid.innerHTML =
+    kpi(ICO_CAL, ativos.length, "Planos ativos", "rc-neutral") +
+    kpi(ICO_X,   vencidos,      "Vencidos",      vencidos > 0 ? "rc-bad"  : "rc-neutral") +
+    kpi(ICO_CLK, vencendo,      "Próximos 7d",   vencendo > 0 ? "rc-warn" : "rc-neutral") +
+    kpi(ICO_OK,  emDia,         "Em dia",        emDia > 0    ? "rc-ok"   : "rc-neutral");
+
+  // Contadores das tabs
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  set("pmCtTodos",    ativos.length);
+  set("pmCtVencidos", vencidos);
+  set("pmCtVencendo", vencendo);
+  set("pmCtEmDia",    emDia);
+  set("pmCtInativos", inativos);
+
+  // Tabela
+  const lista = _pmFiltrados();
+  const tbody = document.getElementById("pmTableBody");
+  const empty = document.getElementById("pmEmpty");
+  if (!tbody) return;
+
+  if (!lista.length) {
+    tbody.innerHTML = "";
+    if (empty) empty.style.display = "flex";
+    return;
+  }
+  if (empty) empty.style.display = "none";
+
+  tbody.innerHTML = lista.map(p => {
+    const st = _pmStatus(p);
+    return `<tr data-pm-id="${p.id}">
+      <td>${_waEscaparHtml(p.condominio_nome || "—")}</td>
+      <td>${_waEscaparHtml(p.titulo || "—")}</td>
+      <td style="color:var(--muted);font-size:11.5px;">${_pmPeriodLabel(p.periodicidade_dias)}</td>
+      <td style="color:var(--muted);font-size:11.5px;">${_pmFmtData(p.ultima_em)}</td>
+      <td style="font-weight:600;">${_pmFmtData(p.proxima_em)}</td>
+      <td><span class="orc-status-pill ${st.cls}">${st.label}</span></td>
+      <td>
+        <button class="btn btn-sm viewer-only-hide" data-pm-action="executar" data-pm-id="${p.id}" title="Gerar chamado P4 agora" style="font-size:10.5px;padding:3px 8px;">▶</button>
+        <button class="btn btn-sm viewer-only-hide" data-pm-action="editar"   data-pm-id="${p.id}" title="Editar"                  style="font-size:10.5px;padding:3px 8px;">✎</button>
+        <button class="btn btn-sm viewer-only-hide" data-pm-action="excluir"  data-pm-id="${p.id}" title="Desativar"               style="font-size:10.5px;padding:3px 8px;color:var(--danger);">×</button>
+      </td>
+    </tr>`;
+  }).join("");
+}
+
+function _pmAtualizarBadge() {
+  const venc = _pmData.filter(p => p.ativo && _pmStatus(p).kind === "vencidos").length;
+  const badge = document.getElementById("navBadgePlanos");
+  if (!badge) return;
+  badge.textContent = venc;
+  badge.style.display = venc > 0 ? "inline-flex" : "none";
+}
+
+async function _pmAbrirModal(plano) {
+  await _pmCarregarCondos();
+  const isEdit = !!plano;
+  document.getElementById("pmModalTitulo").textContent = isEdit ? "Editar plano" : "Novo plano";
+
+  const condoOpts = _pmCondosCache.map(c =>
+    `<option value="${c.id}" ${plano?.condominio_id === c.id ? "selected" : ""}>${_waEscaparHtml(c.nome)}</option>`
+  ).join("");
+
+  const periodAtual = plano?.periodicidade_dias ?? 30;
+  const periodCustom = !PM_PERIOD_PRESETS.some(p => p.dias === periodAtual);
+  const periodOpts = PM_PERIOD_PRESETS.map(p =>
+    `<option value="${p.dias}" ${p.dias === periodAtual ? "selected" : ""}>${p.label} (${p.dias}d)</option>`
+  ).join("") + `<option value="custom" ${periodCustom ? "selected" : ""}>Personalizado…</option>`;
+
+  // Próxima: default = hoje+30d
+  const proxDefault = (() => {
+    const d = new Date(); d.setDate(d.getDate() + 30);
+    return d.toISOString().slice(0, 10);
+  })();
+  const proxVal = plano?.proxima_em ? String(plano.proxima_em).slice(0, 10) : proxDefault;
+
+  const body = document.getElementById("pmModalBody");
+  body.innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <label style="font-size:11px;color:var(--muted);">Condomínio
+        <select id="pmFCondo" class="input">
+          <option value="">— escolha —</option>
+          ${condoOpts}
+        </select>
+      </label>
+      <label style="font-size:11px;color:var(--muted);">Título do plano
+        <input id="pmFTitulo" class="input" type="text" maxlength="255" placeholder="Ex: Limpeza de caixa d'água" value="${_waEscaparHtml(plano?.titulo || "")}">
+      </label>
+      <label style="font-size:11px;color:var(--muted);">Descrição (opcional)
+        <textarea id="pmFDescricao" class="input" rows="3" maxlength="2000" placeholder="Detalhes do serviço a executar">${_waEscaparHtml(plano?.descricao || "")}</textarea>
+      </label>
+      <div style="display:flex;gap:12px;">
+        <label style="font-size:11px;color:var(--muted);flex:1;">Periodicidade
+          <select id="pmFPeriodPreset" class="input">${periodOpts}</select>
+        </label>
+        <label id="pmFPeriodCustomLabel" style="font-size:11px;color:var(--muted);flex:1;${periodCustom ? "" : "display:none;"}">Dias
+          <input id="pmFPeriodDias" class="input" type="number" min="1" max="3650" value="${periodAtual}">
+        </label>
+      </div>
+      <label style="font-size:11px;color:var(--muted);">Próxima execução
+        <input id="pmFProxima" class="input" type="date" value="${proxVal}">
+      </label>
+      ${isEdit ? `<label style="font-size:11px;color:var(--muted);display:flex;gap:8px;align-items:center;cursor:pointer;">
+        <input id="pmFAtivo" type="checkbox" ${plano.ativo ? "checked" : ""}> Plano ativo
+      </label>` : ""}
+      <div id="pmFErr" style="font-size:11px;color:var(--danger);min-height:14px;"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:4px;">
+        <button class="btn btn-sm" id="pmFCancelar" type="button">Cancelar</button>
+        <button class="btn btnAccent btn-sm" id="pmFSalvar" type="button">${isEdit ? "Salvar" : "Criar plano"}</button>
+      </div>
+    </div>
+  `;
+
+  document.getElementById("pmFPeriodPreset")?.addEventListener("change", (ev) => {
+    const isCustom = ev.target.value === "custom";
+    document.getElementById("pmFPeriodCustomLabel").style.display = isCustom ? "block" : "none";
+    if (!isCustom) document.getElementById("pmFPeriodDias").value = Number(ev.target.value);
+  });
+
+  document.getElementById("pmFCancelar")?.addEventListener("click", _pmFecharModal);
+  document.getElementById("pmFSalvar")?.addEventListener("click", () => _pmSalvar(plano?.id));
+
+  document.getElementById("pmModal").style.display = "flex";
+}
+
+function _pmFecharModal() {
+  document.getElementById("pmModal").style.display = "none";
+}
+
+async function _pmSalvar(idEdit) {
+  const errEl = document.getElementById("pmFErr");
+  errEl.textContent = "";
+
+  const preset = document.getElementById("pmFPeriodPreset").value;
+  const dias   = preset === "custom" ? Number(document.getElementById("pmFPeriodDias").value) : Number(preset);
+
+  const payload = {
+    condominio_id:      Number(document.getElementById("pmFCondo").value) || null,
+    titulo:             document.getElementById("pmFTitulo").value.trim(),
+    descricao:          document.getElementById("pmFDescricao").value.trim() || null,
+    periodicidade_dias: dias,
+    proxima_em:         document.getElementById("pmFProxima").value,
+  };
+  if (idEdit) payload.ativo = document.getElementById("pmFAtivo")?.checked ?? true;
+
+  try {
+    const url = idEdit ? `/planos-manutencao/${idEdit}` : "/planos-manutencao";
+    const method = idEdit ? "PATCH" : "POST";
+    const r = await fetch(url, { method, headers: { ...authHeaders(), "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    const j = await r.json();
+    if (!r.ok) { errEl.textContent = j.error || "Erro ao salvar"; return; }
+    _pmFecharModal();
+    await carregarPlanos();
+  } catch (e) {
+    errEl.textContent = e.message;
+  }
+}
+
+async function _pmAcao(acao, id) {
+  const plano = _pmData.find(p => p.id === id);
+  if (acao === "editar") {
+    _pmAbrirModal(plano);
+    return;
+  }
+  if (acao === "excluir") {
+    if (!confirm(`Desativar o plano "${plano?.titulo}"? Ele não vai mais gerar chamados automáticos.`)) return;
+    try {
+      const r = await fetch(`/planos-manutencao/${id}`, { method: "DELETE", headers: authHeaders() });
+      if (!r.ok) { alert("Erro ao desativar"); return; }
+      await carregarPlanos();
+    } catch (e) { alert(e.message); }
+    return;
+  }
+  if (acao === "executar") {
+    if (!confirm(`Gerar chamado P4 agora para "${plano?.titulo}"?`)) return;
+    try {
+      const r = await fetch(`/planos-manutencao/${id}/executar-agora`, { method: "POST", headers: authHeaders() });
+      const j = await r.json();
+      if (!r.ok) { alert(j.error || "Erro ao executar"); return; }
+      if (j.duplicado) alert(`Esse plano já tem o chamado #${j.chamado_id} em andamento.`);
+      else             alert(`Chamado #${j.chamado_id} criado.`);
+      await carregarPlanos();
+    } catch (e) { alert(e.message); }
+    return;
+  }
+}
+
+function _pmBindEventos() {
+  if (_pmBindFeito) return;
+  _pmBindFeito = true;
+
+  document.querySelectorAll("[data-pm-tab]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      _pmTabAtiva = btn.dataset.pmTab;
+      document.querySelectorAll("[data-pm-tab]").forEach(b => b.classList.toggle("is-active", b === btn));
+      _pmRenderTudo();
+    });
+  });
+
+  document.getElementById("pmBusca")?.addEventListener("input", _pmRenderTudo);
+  document.getElementById("pmBtnNovo")?.addEventListener("click", () => _pmAbrirModal(null));
+
+  document.getElementById("pmTableBody")?.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-pm-action]");
+    if (!btn) return;
+    _pmAcao(btn.dataset.pmAction, Number(btn.dataset.pmId));
+  });
+
+  document.getElementById("pmModalBackdrop")?.addEventListener("click", _pmFecharModal);
+  document.getElementById("pmModalClose")?.addEventListener("click", _pmFecharModal);
 }

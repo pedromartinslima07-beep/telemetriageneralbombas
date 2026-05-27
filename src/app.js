@@ -38,7 +38,9 @@ const { chamadosRouter } = require("./routes/chamados.routes");
 const { tecnicosRouter } = require("./routes/tecnicos.routes");
 const { tecnicosLocalizacaoRouter } = require("./routes/tecnicos-localizacao.routes");
 const { ordensServicoRouter } = require("./routes/ordens-servico.routes");
+const { planosManutencaoRouter } = require("./routes/planos-manutencao.routes");
 const { startOfflineScheduler } = require("./jobs/offline.job");
+const { startPlanosManutencaoScheduler } = require("./jobs/planos-manutencao.job");
 const { startGpsCleanupScheduler } = require("./jobs/gps-cleanup.job");
 const { startLeiturasCleanupScheduler } = require("./jobs/leituras-cleanup.job");
 const { startAlertasCleanupScheduler } = require("./jobs/alertas-cleanup.job");
@@ -343,6 +345,7 @@ app.use("/chamados", chamadosRouter);
 app.use("/tecnicos", tecnicosRouter);
 app.use("/tecnicos", tecnicosLocalizacaoRouter);
 app.use("/ordens-servico", ordensServicoRouter);
+app.use("/planos-manutencao", planosManutencaoRouter);
 
 startOfflineScheduler();
 startGpsCleanupScheduler();
@@ -350,5 +353,6 @@ startLeiturasCleanupScheduler();
 startAlertasCleanupScheduler();
 startConversasCleanupScheduler();
 startChamadosAtrasoScheduler();
+startPlanosManutencaoScheduler();
 
 module.exports = { app };

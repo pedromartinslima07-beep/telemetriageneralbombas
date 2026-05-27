@@ -36,6 +36,7 @@ const CHAVES = {
   "conversas.cleanup_dry_run":   { tipo: "boolean" },
   "chamados.alerta_atraso_horas":   { tipo: "int", min: 1, max: 24 }, // Fase 7I — chamado em_atendimento sem fechar (default 4)
   "chamados.alerta_atraso_enabled": { tipo: "boolean" }, // Fase 7I — liga/desliga o alerta por email
+  "planos.geracao_enabled":         { tipo: "boolean" }, // gera chamado P4 automático quando plano de manutenção vence (default true)
 };
 
 function chaveValida(chave) {

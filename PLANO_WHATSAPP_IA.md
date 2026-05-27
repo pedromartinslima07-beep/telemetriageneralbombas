@@ -1641,12 +1641,18 @@ Coluna criada na migration 001 com CHECK `('baixa','media','alta','emergencia')`
 - Migration `031_ia_urgencia_p1p4.sql`, em transação: DROP CONSTRAINT antigo → UPDATE mapeando `emergencia→p1, alta→p2, media→p3, baixa→p4` → ADD CONSTRAINT novo aceitando `NULL` ou `p1-p4`
 - UI (`public/admin.js`): badge de urgência no card de resumo da IA passou a usar helpers `_waUrgenciaLabel/_waUrgenciaCor/_waUrgenciaBg` → mostra `CRÍTICO` (vermelho), `ALTA` (amber), `CONTROLADO` (amarelo), `AGENDADO` (cinza) em vez do código cru
 
-### Tabelas faltando (por prioridade de impacto)
+### Concluídos (tabelas)
 
-**1. `planos_manutencao` — alta prioridade**
-- Todo condomínio tem contrato preventivo mas não há gestão disso no banco
-- Permitiria: gerar P4 automaticamente quando vence, dashboard de compliance preventivo
-- Colunas sugeridas: `condominio_id`, `titulo`, `periodicidade_dias`, `proxima_em`, `ultima_em`, `tecnico_responsavel_id`, `ativo`
+#### `planos_manutencao` ✅ CONCLUÍDO (Migration 032)
+
+Toda condomínio tem contrato preventivo, mas até agora ficava na cabeça da equipe ou em planilha.
+
+- **Migration 032 (`planos_manutencao.sql`)**: tabela com `condominio_id`, `titulo`, `descricao`, `periodicidade_dias`, `proxima_em` DATE, `ultima_em` DATE, `ativo` BOOLEAN. Index parcial `(proxima_em) WHERE ativo=TRUE` cobre o job. `chamados.plano_manutencao_id` adicionado para vincular o chamado gerado de volta ao plano (anti-dup + badge)
+- **Job (`src/jobs/planos-manutencao.job.js`)**: setTimeout recursivo no padrão dos outros jobs, 1×/dia, primeira execução 30 min após boot. Para cada plano ativo vencido: abre chamado P4 categoria `manutencao`, status `aberto`, sem técnico (admin atribui depois), atualiza `ultima_em` e `proxima_em`. Anti-duplicidade: pula plano que já tem chamado não-fechado vinculado. `executarPlano(id)` exportado para uso manual
+- **Endpoints (`/planos-manutencao`)** master admin: GET (lista com filtros condominio_id/ativo), GET /:id, POST, PATCH, DELETE (soft via `ativo=false`), POST /:id/executar-agora
+- **Config `planos.geracao_enabled`** (bool, default true) na whitelist — master admin liga/desliga em Configurações
+- **UI admin**: nova seção "Planos" na sidebar (grupo Gestão), 4 KPIs (Ativos / Vencidos / Próximos 7d / Em dia), 5 tabs (Todos / Vencidos / Próximos 7d / Em dia / Inativos), tabela com Condomínio + Plano + Periodicidade (label do preset) + Última + Próxima + Status (pill colorida) + ações (▶ executar / ✎ editar / × desativar). Modal de cadastro com dropdown de periodicidade (Semanal/Quinzenal/Mensal/Trimestral/Semestral/Anual/Personalizado em dias)
+- **Badge "🔄 Preventiva"** (roxa) inline ao lado das outras pills no detalhe do chamado quando `plano_manutencao_id != null`. Title tooltip mostra o título do plano. LEFT JOIN em `GET /chamados` e `GET /chamados/:id` retorna `plano_titulo`
 
 **2. `equipamentos` — média prioridade**
 - Só `reservatorios` é rastreado; bombas, motores, painéis não têm identidade no sistema
