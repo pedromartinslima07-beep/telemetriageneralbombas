@@ -1,6 +1,7 @@
 const OpenAI = require("openai");
 const { pool } = require("../db");
 const { getConfig, getConfigBool } = require("./config.service");
+const { registrarCriacao } = require("./chamado-historico.service");
 
 let _client = null;
 function getClient() {
@@ -86,6 +87,8 @@ async function abrirChamado({ conversa_id, condominio_id, titulo, descricao, pri
      RETURNING id`,
     [conversa_id, condominio_id || null, titulo, descricaoFinal, prioridade, categoria || 'outro']
   );
+  // Audit log: alteradoPor=null sinaliza "criado pela IA" no histórico.
+  registrarCriacao({ chamadoId: result.rows[0].id, alteradoPor: null });
   return { chamado_id: result.rows[0].id };
 }
 

@@ -11,6 +11,7 @@ const { clienteOnly } = require("../middleware/clienteOnly");
 const { OFFLINE_MINUTES } = require("../config");
 const { gerarPdfOS } = require("../services/os-pdf.service");
 const { salvarFotoMensagemChamado } = require("../services/chamado-mensagens.service");
+const { registrarCriacao } = require("../services/chamado-historico.service");
 
 const router = express.Router();
 
@@ -552,6 +553,7 @@ router.post("/chamados", authRequired, clienteOnly, async (req, res) => {
        RETURNING id, status, prioridade, categoria, titulo, descricao, criado_em`,
       [condominioId, tituloFinal, descricao.trim(), prio, cat]
     );
+    registrarCriacao({ chamadoId: ins.rows[0].id, alteradoPor: req.user.id });
     return res.status(201).json(ins.rows[0]);
   } catch (e) {
     console.error("[cliente] POST /chamados:", e);

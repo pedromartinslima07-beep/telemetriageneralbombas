@@ -323,10 +323,12 @@ router.get("/insights", authRequired, adminOnly, async (req, res) => {
 //   - TTFR mediano (minutos) — tempo até a primeira resposta humana
 //   - TTR mediano (minutos)  — tempo até a resolução (chamados fechados)
 //   - taxa_resolucao_lt1h    — % de chamados fechados em menos de 1 hora
-//   - taxa_reabertos         — % de chamados que foram fechados e reabriram
-//                              (chamados com fechado_em != NULL mas status != 'fechado').
-//                              Limitação consciente: sem audit log de transições,
-//                              chamados que reabriram e foram refechados não contam.
+//   - taxa_reabertos         — % de chamados que tiveram pelo menos uma
+//                              transição de status saindo de 'fechado' no
+//                              audit log (historico_chamados, migration 033).
+//                              Pega tanto reaberturas pendentes quanto as
+//                              que foram refechadas — corrige a limitação
+//                              anterior que só contava o estado atual.
 router.get("/sla-metricas", authRequired, adminOnly, async (req, res) => {
   const { data_ini, data_fim, condominio_id, prioridade } = req.query;
   const ini = _ini(data_ini);
@@ -351,7 +353,13 @@ router.get("/sla-metricas", authRequired, adminOnly, async (req, res) => {
           ch.primeira_resposta_em,
           ch.tempo_resolucao_seg,
           EXTRACT(EPOCH FROM (ch.primeira_resposta_em - ch.criado_em)) / 60.0 AS ttfr_min,
-          ch.tempo_resolucao_seg / 60.0 AS ttr_min
+          ch.tempo_resolucao_seg / 60.0 AS ttr_min,
+          EXISTS (
+            SELECT 1 FROM historico_chamados h
+            WHERE h.chamado_id = ch.id
+              AND h.campo_alterado = 'status'
+              AND h.valor_anterior = 'fechado'
+          ) AS foi_reaberto
         FROM chamados ch
         WHERE ${conds.join(" AND ")}
       )
@@ -364,7 +372,7 @@ router.get("/sla-metricas", authRequired, adminOnly, async (req, res) => {
         ROUND(AVG(ttfr_min)::numeric, 1) AS ttfr_medio_min,
         ROUND(AVG(ttr_min)::numeric, 1)  AS ttr_medio_min,
         SUM(CASE WHEN tempo_resolucao_seg IS NOT NULL AND tempo_resolucao_seg < 3600 THEN 1 ELSE 0 END)::int AS resolvidos_lt1h,
-        SUM(CASE WHEN fechado_em IS NOT NULL AND status <> 'fechado' THEN 1 ELSE 0 END)::int AS reabertos_pendentes
+        SUM(CASE WHEN foi_reaberto THEN 1 ELSE 0 END)::int AS reabertos_pendentes
       FROM base
     `, vals);
 
@@ -413,7 +421,7 @@ router.get("/sla-dashboard", authRequired, adminOnly, async (req, res) => {
   try {
     const [kpisRes, porDiaRes, porTecnicoRes, emRiscoRes, porPrioRes, workloadRes] = await Promise.all([
 
-      // 1. KPIs: totais + medianas + % no SLA
+      // 1. KPIs: totais + medianas + % no SLA + reabertos (via audit log)
       pool.query(`
         WITH base AS (
           SELECT
@@ -422,7 +430,13 @@ router.get("/sla-dashboard", authRequired, adminOnly, async (req, res) => {
             EXTRACT(EPOCH FROM (ch.primeira_resposta_em - ch.criado_em)) / 60.0 AS ttfr_min_real,
             ch.tempo_resolucao_seg / 60.0 AS ttr_min_real,
             sd.ttfr_min AS sla_ttfr,
-            sd.ttr_min  AS sla_ttr
+            sd.ttr_min  AS sla_ttr,
+            EXISTS (
+              SELECT 1 FROM historico_chamados h
+              WHERE h.chamado_id = ch.id
+                AND h.campo_alterado = 'status'
+                AND h.valor_anterior = 'fechado'
+            ) AS foi_reaberto
           FROM chamados ch
           LEFT JOIN sla_definicoes sd ON sd.prioridade = ch.prioridade
           WHERE ${where}
@@ -449,7 +463,8 @@ router.get("/sla-dashboard", authRequired, adminOnly, async (req, res) => {
                    THEN 1 ELSE 0 END)::int                                        AS ttfr_no_sla,
           COUNT(CASE WHEN primeira_resposta_em IS NOT NULL
                           AND sla_ttfr IS NOT NULL
-                     THEN 1 END)::int                                             AS total_com_sla_data
+                     THEN 1 END)::int                                             AS total_com_sla_data,
+          SUM(CASE WHEN foi_reaberto THEN 1 ELSE 0 END)::int                      AS reabertos
         FROM base
       `, vals),
 
@@ -569,6 +584,10 @@ router.get("/sla-dashboard", authRequired, adminOnly, async (req, res) => {
         ttr_mediano_min:  k.ttr_mediano_min  != null ? Number(k.ttr_mediano_min)  : null,
         pct_no_sla: comSla > 0 ? Math.round(100 * noSla / comSla) : null,
         total_com_sla_data: comSla,
+        reabertos: Number(k.reabertos) || 0,
+        taxa_reabertos: Number(k.total) > 0
+          ? Math.round(100 * (Number(k.reabertos) || 0) / Number(k.total))
+          : null,
       },
       ttr_por_dia: porDiaRes.rows,
       por_tecnico: porTecnicoRes.rows.map(r => ({

@@ -5,6 +5,7 @@ const { enviarMensagem } = require("../services/evolution.service");
 const { sendAlertaEmail } = require("../services/email");
 const { OFFLINE_MINUTES } = require("../config");
 const { getConfigInt } = require("../services/config.service");
+const { registrarCriacao } = require("../services/chamado-historico.service");
 
 async function _notificarClienteWhatsApp(condominio_id, mensagem) {
   // Busca cliente + conversa aberta do condomínio
@@ -58,6 +59,8 @@ async function _abrirChamadoAuto(condominio_id, titulo, descricao, prioridade, c
      VALUES ($1, $2, $3, $4, $5) RETURNING id`,
     [condominio_id, titulo, descricao, prioridade, categoria]
   );
+  // Audit log: criado pelo job (alteradoPor=null = sistema)
+  registrarCriacao({ chamadoId: result.rows[0].id, alteradoPor: null });
   return result.rows[0].id;
 }
 

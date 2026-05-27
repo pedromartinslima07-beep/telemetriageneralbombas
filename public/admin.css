@@ -2,6 +2,10 @@
    DESIGN TOKENS — premium dark "mission control"
    ============================================================ */
 :root {
+  /* Diz ao browser que a UI é dark — corrige dropdowns nativos (<option>),
+     calendário do <input type="date">, scrollbars, etc, em TODAS as telas */
+  color-scheme: dark;
+
   /* Backgrounds — deep blue/violet, multi-layered */
   --bg:       #06070f;
   --bg-soft:  #0a0c18;
@@ -2201,6 +2205,10 @@ tbody tr:nth-child(even):hover td { background: rgba(255,255,255,.04); }
 
 .select option { background: #18181b; color: var(--text); }
 
+/* Fallback universal pra <select> que não tem classe .select / .tel-select.
+   Funciona em Chrome/Edge desktop. Combinado com color-scheme:dark cobre o resto. */
+select option { background: #14172a; color: #eef0fb; }
+
 .field { display: flex; flex-direction: column; gap: 6px; }
 
 .lbl {
@@ -2248,9 +2256,47 @@ tbody tr:nth-child(even):hover td { background: rgba(255,255,255,.04); }
    ============================================================ */
 .filter-bar {
   display: flex;
-  gap: 10px;
+  gap: 12px;
   align-items: flex-end;
   flex-wrap: wrap;
+  padding: 14px 16px;
+  background: linear-gradient(180deg, rgba(36,40,70,.35) 0%, rgba(20,23,42,.25) 100%);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+/* Quando .filter-bar está dentro de .rel-tab-pane (que já tem padding),
+   anula o padding/borda duplicados */
+.rel-tab-pane .filter-bar {
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+/* Label fica mais discreto, menor */
+.filter-bar .lbl {
+  font-size: 10.5px;
+  letter-spacing: .35px;
+  margin-bottom: 2px;
+}
+/* Inputs/selects do filtro têm tom levemente diferente pra contrastar */
+.filter-bar .input,
+.filter-bar .select {
+  padding: 7px 10px;
+  font-size: 12.5px;
+  min-height: 34px;
+  background: rgba(255,255,255,.05);
+}
+/* Botão Gerar do filter bar fica destacado em amber */
+.filter-bar [data-rel-action^="gerar-"] {
+  background: var(--accent);
+  color: #000;
+  border-color: var(--accent);
+  font-weight: 600;
+  padding: 7px 18px;
+  min-height: 34px;
+}
+.filter-bar [data-rel-action^="gerar-"]:hover {
+  background: var(--accent-2);
+  border-color: var(--accent-2);
 }
 
 .filter-check {
@@ -4527,6 +4573,60 @@ body.mp-fs-active { overflow: hidden; }
 .ch-stars-md .ch-star { width: 14px; height: 14px; }
 .ch-stars-lg .ch-star { width: 20px; height: 20px; }
 
+/* ===== Histórico do chamado (audit log) ===== */
+.ch-hist-section .ch-det-sec-title { color: var(--muted); }
+.ch-hist-loading { font-size: 12px; color: var(--muted); padding: 4px 0; }
+.ch-hist-list {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-left: 18px;
+}
+.ch-hist-list::before {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 4px;
+  bottom: 4px;
+  width: 2px;
+  background: var(--border);
+}
+.ch-hist-item {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.ch-hist-dot {
+  position: absolute;
+  left: -18px;
+  top: 4px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 2px solid var(--border);
+  flex-shrink: 0;
+}
+.ch-hist-dot-criado { border-color: var(--accent); background: rgba(240,176,20,.18); }
+.ch-hist-body { flex: 1; min-width: 0; }
+.ch-hist-titulo {
+  font-size: 12.5px;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.ch-hist-meta {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+.ch-hist-autor { color: var(--text); font-weight: 500; }
+.ch-hist-autor.ch-hist-sistema { color: var(--muted); font-style: italic; }
+
 /* Estrelas inline na tabela — discreto, ao lado da pílula de status */
 .ch-aval-inline { margin-left: 6px; vertical-align: middle; display: inline-flex; }
 
@@ -5487,20 +5587,6 @@ body.role-viewer .viewer-only-hide-inline {
 /* ============================================================
    SLA Dashboard — aba Relatorios (Fase 8C)
    ============================================================ */
-.sla-period-btns {
-  display: flex;
-  gap: 4px;
-}
-.sla-period-btn {
-  padding: 3px 10px;
-  font-size: 11px;
-}
-.sla-period-btn.is-active {
-  background: var(--accent);
-  color: #000;
-  border-color: var(--accent);
-}
-
 /* ============================================================
    ORÇAMENTOS
    ============================================================ */

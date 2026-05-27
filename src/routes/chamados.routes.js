@@ -4,6 +4,7 @@ const { authRequired } = require("../middleware/authRequired");
 const { adminOnly } = require("../middleware/adminOnly");
 const { masterAdminOnly } = require("../middleware/masterAdminOnly");
 const { salvarFotoMensagemChamado } = require("../services/chamado-mensagens.service");
+const { registrarCriacao, registrarMudancas } = require("../services/chamado-historico.service");
 
 const router = express.Router();
 
@@ -61,6 +62,7 @@ router.post("/", authRequired, masterAdminOnly, async (req, res) => {
     if (row.prioridade !== (prioridade || "p3")) {
       row._recorrencia_bump = true;
     }
+    registrarCriacao({ chamadoId: row.id, alteradoPor: req.user.id });
     return res.status(201).json(row);
   } catch (e) {
     console.error("[chamados] POST /:", e);
@@ -514,7 +516,8 @@ router.post("/:id/iniciar-atendimento", authRequired, async (req, res) => {
     const tecnicoId = tec.rows[0].id;
 
     const ch = await client.query(
-      `SELECT id, status, condominio_id, tecnico_id, ordem_servico_id
+      `SELECT id, status, prioridade, categoria, responsavel_id,
+              condominio_id, tecnico_id, ordem_servico_id
        FROM chamados WHERE id = $1`,
       [id]
     );
@@ -522,6 +525,14 @@ router.post("/:id/iniciar-atendimento", authRequired, async (req, res) => {
       return res.status(404).json({ error: "Chamado não encontrado" });
     }
     const chamado = ch.rows[0];
+    const antesIniciar = {
+      status: chamado.status,
+      prioridade: chamado.prioridade,
+      categoria: chamado.categoria,
+      responsavel_id: chamado.responsavel_id,
+      tecnico_id: chamado.tecnico_id,
+      condominio_id: chamado.condominio_id,
+    };
     if (chamado.tecnico_id !== tecnicoId) {
       return res.status(403).json({ error: "Chamado não está atribuído a você" });
     }
@@ -596,6 +607,16 @@ router.post("/:id/iniciar-atendimento", authRequired, async (req, res) => {
       [tecnicoId, latN, lngN, Number.isFinite(precN) ? precN : null]
     );
 
+    // Audit log: status transitou pra em_atendimento (se de fato mudou).
+    const depoisIniciar = { ...antesIniciar, status: "em_atendimento" };
+    await registrarMudancas({
+      client,
+      chamadoId: id,
+      antes: antesIniciar,
+      depois: depoisIniciar,
+      alteradoPor: req.user.id,
+    });
+
     await client.query("COMMIT");
 
     return res.json({
@@ -609,6 +630,33 @@ router.post("/:id/iniciar-atendimento", authRequired, async (req, res) => {
     return res.status(500).json({ error: "Erro ao iniciar atendimento" });
   } finally {
     client.release();
+  }
+});
+
+// GET /chamados/:id/historico — timeline cronológica de mudanças do chamado.
+// Retorna linhas de historico_chamados + nome do autor (LEFT JOIN usuarios).
+// alterado_por = NULL significa "sistema" (IA, jobs).
+router.get("/:id/historico", authRequired, adminOnly, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    return res.status(400).json({ error: "id inválido" });
+  }
+  try {
+    const r = await pool.query(
+      `SELECT h.id, h.campo_alterado, h.valor_anterior, h.valor_novo,
+              h.alterado_em, h.alterado_por,
+              u.nome AS alterado_por_nome,
+              u.role AS alterado_por_role
+       FROM historico_chamados h
+       LEFT JOIN usuarios u ON u.id = h.alterado_por
+       WHERE h.chamado_id = $1
+       ORDER BY h.alterado_em ASC, h.id ASC`,
+      [id]
+    );
+    return res.json(r.rows);
+  } catch (err) {
+    console.error("[chamados] GET /:id/historico:", err);
+    return res.status(500).json({ error: "Erro ao buscar histórico" });
   }
 });
 
@@ -742,20 +790,42 @@ router.patch("/:id", authRequired, masterAdminOnly, async (req, res) => {
 
   values.push(id);
 
+  const client = await pool.connect();
   try {
-    const result = await pool.query(
+    await client.query("BEGIN");
+    const antesRes = await client.query(
+      `SELECT status, prioridade, categoria, responsavel_id, tecnico_id, condominio_id
+       FROM chamados WHERE id = $1 FOR UPDATE`,
+      [id]
+    );
+    if (antesRes.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "Chamado não encontrado" });
+    }
+    const antes = antesRes.rows[0];
+
+    const result = await client.query(
       `UPDATE chamados SET ${sets.join(", ")} WHERE id = $${values.length} RETURNING *`,
       values
     );
+    const depois = result.rows[0];
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: "Chamado não encontrado" });
-    }
+    await registrarMudancas({
+      client,
+      chamadoId: id,
+      antes,
+      depois,
+      alteradoPor: req.user.id,
+    });
 
-    return res.json(result.rows[0]);
+    await client.query("COMMIT");
+    return res.json(depois);
   } catch (err) {
+    await client.query("ROLLBACK").catch(() => {});
     console.error("[chamados] PATCH /chamados/:id:", err);
     return res.status(500).json({ error: "Erro ao atualizar chamado" });
+  } finally {
+    client.release();
   }
 });
 

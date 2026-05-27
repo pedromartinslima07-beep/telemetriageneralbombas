@@ -3658,6 +3658,96 @@ function _chRenderStars(nota, size = "md") {
   return html;
 }
 
+// Histórico de mudanças (Fase backlog #3 — auditoria)
+// Cache por chamadoId: { items: [], loaded: bool, loading: bool }
+const _chHistCache = new Map();
+
+function _chFmtCampo(campo) {
+  return ({
+    criado:          "Chamado criado",
+    status:          "Status",
+    prioridade:      "Prioridade",
+    categoria:       "Categoria",
+    responsavel_id:  "Responsável",
+    tecnico_id:      "Técnico",
+    condominio_id:   "Condomínio",
+  })[campo] || campo;
+}
+
+function _chFmtValor(campo, valor) {
+  if (valor == null || valor === "") return `<em style="color:var(--muted)">—</em>`;
+  if (campo === "status")     return `<span class="ch-st ch-st-${valor}">${_chStNome[valor] || valor}</span>`;
+  if (campo === "prioridade") return `<span class="ch-prio ch-prio-${valor}">${_chPrioNome[valor] || valor}</span>`;
+  if (campo === "categoria")  return `<span class="ch-cat-badge">${_chCatNome[valor] || valor}</span>`;
+  if (campo === "responsavel_id" || campo === "tecnico_id" || campo === "condominio_id") return `#${_waEscaparHtml(valor)}`;
+  return _waEscaparHtml(String(valor));
+}
+
+function _chRenderHistEntry(h) {
+  const quando = fmtData(h.alterado_em);
+  const autor = h.alterado_por_nome
+    ? `<span class="ch-hist-autor">${_waEscaparHtml(h.alterado_por_nome)}</span>`
+    : `<span class="ch-hist-autor ch-hist-sistema">Sistema</span>`;
+  if (h.campo_alterado === "criado") {
+    return `<div class="ch-hist-item">
+      <div class="ch-hist-dot ch-hist-dot-criado"></div>
+      <div class="ch-hist-body">
+        <div class="ch-hist-titulo">Chamado criado</div>
+        <div class="ch-hist-meta">${autor} · ${quando}</div>
+      </div>
+    </div>`;
+  }
+  const campo = _chFmtCampo(h.campo_alterado);
+  const de = _chFmtValor(h.campo_alterado, h.valor_anterior);
+  const para = _chFmtValor(h.campo_alterado, h.valor_novo);
+  return `<div class="ch-hist-item">
+    <div class="ch-hist-dot"></div>
+    <div class="ch-hist-body">
+      <div class="ch-hist-titulo">${campo}: ${de} → ${para}</div>
+      <div class="ch-hist-meta">${autor} · ${quando}</div>
+    </div>
+  </div>`;
+}
+
+function _chRenderHistoricoCard(chamadoId) {
+  const cache = _chHistCache.get(chamadoId);
+  let inner;
+  if (!cache || (!cache.loaded && !cache.loading)) {
+    inner = `<div class="ch-hist-loading">Carregando histórico…</div>`;
+  } else if (cache.loading) {
+    inner = `<div class="ch-hist-loading">Carregando histórico…</div>`;
+  } else if (cache.error) {
+    inner = `<div class="ch-hist-loading" style="color:var(--danger)">${_waEscaparHtml(cache.error)}</div>`;
+  } else if (!cache.items.length) {
+    inner = `<div class="ch-hist-loading">Sem mudanças registradas.</div>`;
+  } else {
+    inner = `<div class="ch-hist-list">${cache.items.map(_chRenderHistEntry).join("")}</div>`;
+  }
+  return `<div class="ch-det-section ch-hist-section" id="chHistSec-${chamadoId}">
+    <div class="ch-det-sec-title">Histórico</div>
+    ${inner}
+  </div>`;
+}
+
+async function _chCarregarHistorico(chamadoId) {
+  const cache = _chHistCache.get(chamadoId);
+  if (cache && (cache.loaded || cache.loading)) return;
+  _chHistCache.set(chamadoId, { items: [], loaded: false, loading: true });
+  try {
+    const r = await fetch(`/chamados/${chamadoId}/historico`, { headers: authHeaders() });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const items = await r.json();
+    _chHistCache.set(chamadoId, { items, loaded: true, loading: false });
+  } catch (e) {
+    _chHistCache.set(chamadoId, { items: [], loaded: true, loading: false, error: "Erro ao carregar histórico" });
+  }
+  // Re-renderiza só a seção, se ainda for o chamado selecionado
+  if (_chSelecionadoId === chamadoId) {
+    const sec = document.getElementById(`chHistSec-${chamadoId}`);
+    if (sec) sec.outerHTML = _chRenderHistoricoCard(chamadoId);
+  }
+}
+
 function _chRenderAvaliacaoCard(ch) {
   if (ch.avaliacao_nota == null) return "";
   const quando = ch.avaliacao_em ? fmtData(ch.avaliacao_em) : "";
@@ -3791,8 +3881,13 @@ function renderChDetalhe(ch) {
 
     ${telHtml}
 
+    ${_chRenderHistoricoCard(ch.id)}
+
     <div class="ch-det-acoes">${acoes}</div>
   </div>`;
+
+  // Dispara o carregamento do histórico (lazy, cache por id).
+  _chCarregarHistorico(ch.id);
 }
 
 function renderChamados() {
@@ -6961,7 +7056,8 @@ function _relMostrarTab(tab, autoGerar) {
   );
   document.querySelectorAll(".rel-tab-pane").forEach(p => p.style.display = "none");
   const filterPane = document.getElementById(conf.pane);
-  if (filterPane) filterPane.style.display = "";
+  // "block" e não "" — string vazia volta pro CSS .rel-tab-pane { display:none }
+  if (filterPane) filterPane.style.display = "block";
 
   // Body sempre visível ao entrar na aba — antes ficava em branco até dados chegarem
   document.querySelectorAll(".rel-body").forEach(b => b.style.display = "none");
@@ -7023,6 +7119,17 @@ function _relChart(containerId, opts) {
   const el = document.getElementById(containerId);
   if (!el) return;
   el.innerHTML = "";
+
+  // Converte height: "100%" em altura numérica baseada no div pai.
+  // Sem isso, o ApexCharts renderiza ~43px além do parent (pra acomodar
+  // labels do eixo X) e o overflow:hidden dos cards corta o eixo.
+  if (opts && opts.chart && opts.chart.height === "100%") {
+    const h = el.offsetHeight;
+    if (h > 0) {
+      opts = { ...opts, chart: { ...opts.chart, height: h } };
+    }
+  }
+
   const c = new ApexCharts(el, opts);
   c.render();
   _relCharts[containerId] = c;
@@ -7678,7 +7785,7 @@ function _relRenderSlaWorkload(lista) {
         { name: "P4 Agendado",   data: lista.map(t => t.p4), color: "#4ade80" },
       ],
       xaxis: {
-        categories: lista.map(t => t.tecnico_nome.split(" ")[0]),
+        categories: lista.map(t => (t.tecnico_nome || "—").split(" ")[0]),
         labels: _REL_XLBL, axisBorder: { show: false }, axisTicks: { show: false },
       },
       yaxis: { labels: _REL_YLBL, allowDecimals: false, min: 0 },
@@ -7691,7 +7798,7 @@ function _relRenderSlaWorkload(lista) {
         custom: ({ series, dataPointIndex }) => {
           const t = lista[dataPointIndex];
           return `<div style="padding:8px 12px;font-size:12px;">
-            <div style="font-weight:600;margin-bottom:4px;">${_waEscaparHtml(t.tecnico_nome)}</div>
+            <div style="font-weight:600;margin-bottom:4px;">${_waEscaparHtml(t.tecnico_nome || "—")}</div>
             <div style="color:#ef4444;">P1: ${t.p1}</div>
             <div style="color:#f97316;">P2: ${t.p2}</div>
             <div style="color:#f0b014;">P3: ${t.p3}</div>
@@ -7770,6 +7877,9 @@ function _relRenderSlaKpisMain(k) {
     : k.ttr_mediano_min <= 120  ? "ok"
     : k.ttr_mediano_min <= 480  ? "warn" : "bad";
   const riscoStatus = k.em_risco === 0 ? "ok" : k.em_risco <= 3 ? "warn" : "bad";
+  const reabStatus = k.taxa_reabertos == null ? "neutral"
+    : k.taxa_reabertos === 0  ? "ok"
+    : k.taxa_reabertos <= 10  ? "warn" : "bad";
 
   el.innerHTML =
     _relKpiCard(_SVG_CHECK, "% no SLA (TTFR)",
@@ -7787,28 +7897,87 @@ function _relRenderSlaKpisMain(k) {
     _relKpiCard(_SVG_ALERT, "Em risco agora",
       k.em_risco,
       riscoStatus,
-      `abertos com ≥ 50% do TTR consumido`);
+      `abertos com ≥ 50% do TTR consumido`) +
+    _relKpiCard(_SVG_REVERT, "Chamados reabertos",
+      k.taxa_reabertos == null ? "—" : `${k.taxa_reabertos}%`,
+      reabStatus,
+      `${k.reabertos} de ${k.total} chamados`);
 }
 
 function _relRenderSlaTtrChart(porDia) {
+  // Calcula p90 dos valores não-nulos pra usar como cap da escala Y.
+  // Sem isso, um único chamado de 7 dias estoura a escala e achata o resto
+  // dos pontos pra zero (gráfico vira linha rente ao chão).
+  const _capP90 = (vals) => {
+    const sorted = vals.filter(v => v != null && v > 0).sort((a, b) => a - b);
+    if (!sorted.length) return null;
+    const idx = Math.floor(sorted.length * 0.9);
+    const p90 = sorted[Math.min(idx, sorted.length - 1)];
+    // Margem 15% acima do p90, mínimo de 60min pra evitar gráfico microscópico
+    return Math.max(p90 * 1.15, 60);
+  };
+
   const _mkSlaAreaChart = (elId, seriesName, color, vals, cats) => {
     if (!vals.some(v => v != null)) {
       const el = document.getElementById(elId);
       if (el) el.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted);font-size:12px;">Sem dados no período</div>`;
       return;
     }
+    const cap = _capP90(vals);
+    const outliers = cap ? vals.filter(v => v != null && v > cap).length : 0;
+    const yaxisCfg = { labels: { ..._REL_YLBL, formatter: v => _fmtMin(v) } };
+    if (cap != null) yaxisCfg.max = cap;
+
     _relChart(elId, {
-      chart: { type: "area", height: "100%", toolbar: { show: false }, background: "transparent",
-               animations: { enabled: true, speed: 400 } },
+      chart: {
+        type: "area",
+        height: "100%",  // _relChart converte em altura numérica do parent
+        toolbar: { show: false },
+        background: "transparent",
+        zoom: { enabled: false },
+        animations: { enabled: true, speed: 400 },
+      },
       theme: { mode: "dark" },
       series: [{ name: seriesName, data: vals }],
-      xaxis: { categories: cats, labels: { ..._REL_XLBL, formatter: v => v ? v.slice(5) : v }, tickAmount: 8 },
-      yaxis: { labels: { ..._REL_YLBL, formatter: v => _fmtMin(v) } },
+      xaxis: {
+        categories: cats,
+        labels: {
+          ..._REL_XLBL,
+          formatter: v => {
+            if (!v) return "";
+            // Backend retorna DATE como ISO string "2026-05-27T03:00:00.000Z"
+            // ou só "2026-05-27" — extrai DD/MM em ambos os casos
+            const d = new Date(v);
+            if (isNaN(d.getTime())) return String(v);
+            return String(d.getUTCDate()).padStart(2, "0") + "/" +
+                   String(d.getUTCMonth() + 1).padStart(2, "0");
+          },
+          rotate: 0,
+          hideOverlappingLabels: true,
+          trim: false,
+        },
+        axisBorder: { show: false },
+        axisTicks: { show: false },
+        tickAmount: Math.min(8, cats.length),
+        tooltip: { enabled: false },
+      },
+      yaxis: yaxisCfg,
       stroke: { curve: "smooth", width: 2 },
       fill: { type: "gradient", gradient: { shadeIntensity: 1, opacityFrom: .35, opacityTo: .05, stops: [0, 100] } },
       colors: [color],
+      markers: { size: 0, hover: { size: 4 } },
+      dataLabels: { enabled: false },
       tooltip: { theme: "dark", y: { formatter: v => _fmtMin(v) } },
-      grid: _REL_GRID,
+      grid: { borderColor: "rgba(255,255,255,.05)", strokeDashArray: 3, padding: { left: 12, right: 12, top: 4, bottom: 4 } },
+      // Nota discreta no canto inferior se houver outlier acima do cap
+      ...(outliers > 0 ? {
+        subtitle: {
+          text: `${outliers} outlier${outliers > 1 ? "s" : ""} acima de ${_fmtMin(cap)} (fora da escala)`,
+          align: "right",
+          offsetY: 6,
+          style: { fontSize: "10px", color: "#9094ae" },
+        },
+      } : {}),
     });
   };
 
@@ -7881,21 +8050,6 @@ function _relRenderSlaEmRisco(lista) {
   }).join("");
 }
 
-function _relSlaMudarPeriodo(dias) {
-  // Atualiza os botões de período
-  document.querySelectorAll(".sla-period-btn").forEach(b =>
-    b.classList.toggle("is-active", Number(b.dataset.slaPeriod) === dias)
-  );
-  // Ajusta o filtro de data e gera
-  const fim  = new Date();
-  const ini  = new Date(fim.getTime() - dias * 86400000);
-  const fmt  = d => d.toISOString().split("T")[0];
-  const iniEl = document.getElementById("relSlIni");
-  const fimEl = document.getElementById("relSlFim");
-  if (iniEl) iniEl.value = fmt(ini);
-  if (fimEl) fimEl.value = fmt(fim);
-  gerarRelSla();
-}
 
 async function gerarRelInsights() {
   const data = await _relFetch({
@@ -8022,7 +8176,7 @@ function _relRenderSlaKpis(k) {
       k.taxa_resolucao_lt1h == null ? "—" : `${k.taxa_resolucao_lt1h}%`,
       lt1hStatus,
       `${k.resolvidos_lt1h} de ${k.fechados} fechados`) +
-    _relKpiCard(_SVG_REVERT, "Reabertos pendentes",
+    _relKpiCard(_SVG_REVERT, "Chamados reabertos",
       k.taxa_reabertos == null ? "—" : `${k.taxa_reabertos}%`,
       reabStatus,
       `${k.reabertos_pendentes} de ${k.total} chamados`)
@@ -8846,10 +9000,6 @@ document.addEventListener("DOMContentLoaded", () => {
     if (action === "gerar-chamados")      { gerarRelChamados(); return; }
     if (action === "gerar-reservatorios") { gerarRelReservatorios(); return; }
     if (action === "gerar-sla")           { gerarRelSla(); return; }
-
-    // Botões de período do gráfico TTR
-    const period = btn.dataset.slaPeriod;
-    if (period) { _relSlaMudarPeriodo(Number(period)); return; }
 
     if (action === "exportar-pdf") { exportarRelPdf(); return; }
   });

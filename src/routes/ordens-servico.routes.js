@@ -6,6 +6,7 @@ const { pool } = require("../db");
 const { authRequired } = require("../middleware/authRequired");
 const { adminOnly } = require("../middleware/adminOnly");
 const { gerarPdfOS } = require("../services/os-pdf.service");
+const { registrarMudancas } = require("../services/chamado-historico.service");
 
 const router = express.Router();
 
@@ -577,6 +578,12 @@ router.post("/:id/finalizar", authRequired, osDonoOuAdmin({ forWrite: true }), a
     );
 
     if (os.chamado_id) {
+      // Snapshot pre-UPDATE para audit log
+      const antesCh = await client.query(
+        `SELECT status, prioridade, categoria, responsavel_id, tecnico_id, condominio_id
+         FROM chamados WHERE id = $1`,
+        [os.chamado_id]
+      );
       // Fase 8A: o técnico chegou pra atender (status já passou de 'aberto'),
       // então primeira_resposta_em normalmente já está preenchida. COALESCE
       // garante backfill se por algum motivo ainda for NULL.
@@ -591,6 +598,15 @@ router.post("/:id/finalizar", authRequired, osDonoOuAdmin({ forWrite: true }), a
          WHERE id = $2`,
         [id, os.chamado_id]
       );
+      if (antesCh.rows.length > 0) {
+        await registrarMudancas({
+          client,
+          chamadoId: os.chamado_id,
+          antes: antesCh.rows[0],
+          depois: { ...antesCh.rows[0], status: "fechado" },
+          alteradoPor: req.user.id,
+        });
+      }
     }
 
     await client.query("COMMIT");

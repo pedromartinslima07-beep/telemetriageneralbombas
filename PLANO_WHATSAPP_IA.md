@@ -1659,10 +1659,16 @@ Toda condomínio tem contrato preventivo, mas até agora ficava na cabeça da eq
 - Sem isso: `os_pecas` registra "trocou bomba X" mas não vincula ao equipamento físico
 - Colunas sugeridas: `condominio_id`, `tipo`, `marca`, `modelo`, `numero_serie`, `instalado_em`, `garantia_ate`
 
-**3. `historico_chamados` — média prioridade**
-- Só o estado atual é salvo; não dá ver quem alterou prioridade/status nem quanto tempo cada fase durou
-- Essencial para relatórios SLA ricos e accountability
-- Colunas sugeridas: `chamado_id`, `campo_alterado`, `valor_anterior`, `valor_novo`, `alterado_por`, `alterado_em`
+#### `historico_chamados` ✅ CONCLUÍDO (Migration 033)
+
+Audit log append-only de mudanças nos chamados. Resolve a limitação consciente da Fase 8A no cálculo de "% reabertos" (que antes só contava reaberturas pendentes via estado atual) e dá accountability sobre quem mudou o quê.
+
+- **Migration 033 (`historico_chamados.sql`)**: tabela com `chamado_id` (FK CASCADE), `campo_alterado`, `valor_anterior`, `valor_novo`, `alterado_por` (FK usuarios, SET NULL), `alterado_em`. Index principal `(chamado_id, alterado_em DESC)` cobre a timeline; index parcial em `valor_anterior='fechado'` acelera a query de reabertos
+- **Service `src/services/chamado-historico.service.js`**: `registrarCriacao` insere linha `campo_alterado='criado'`; `registrarMudancas` compara `antes`/`depois` e insere uma linha por campo modificado em CAMPOS_AUDITADOS (status, prioridade, categoria, responsavel_id, tecnico_id, condominio_id). Multi-row insert via UNNEST. Falhas não bloqueiam a operação principal (audit é best-effort)
+- **Hooks instrumentados**: criação manual (POST `/chamados`), cliente app (POST `/cliente/chamados`), IA (`ia.service.js` `abrirChamado`), job offline, job de planos preventivos, PATCH `/chamados/:id` (snapshot pre-UPDATE com `FOR UPDATE`), POST `/chamados/:id/iniciar-atendimento` (transição pra `em_atendimento`), POST `/ordens-servico/:id/finalizar` (transição pra `fechado`). `alterado_por=null` sinaliza "sistema" (IA/jobs)
+- **Endpoint `GET /chamados/:id/historico`** (adminOnly): retorna timeline ASC com `alterado_por_nome`/`role` via LEFT JOIN com usuarios. `/chamados` já está na network-first do SW (não precisou bump)
+- **UI admin (`renderChDetalhe`)**: card "Histórico" no painel de detalhe do chamado abaixo das informações. Timeline com dot + linha conectando, formatação amigável (`Status: aberto → em_atendimento`), labels reutilizam `_chStNome`/`_chPrioNome`/`_chCatNome`. Cache lazy por chamadoId (`_chHistCache`), só refaz fetch quando ainda não carregou. "Sistema" em itálico cinza quando `alterado_por=null`
+- **Métrica de reabertos corrigida**: o cálculo agora usa `EXISTS` em `historico_chamados WHERE campo_alterado='status' AND valor_anterior='fechado'` (captura tanto reaberturas pendentes quanto as que foram refechadas). Aplicado em 2 endpoints: `GET /relatorios/sla-metricas` (legado, sem UI hoje — a aba Insights foi removida) e `GET /relatorios/sla-dashboard` (Fase 8C, usado em Relatórios → Dashboard SLA), que agora retorna `kpis.reabertos` e `kpis.taxa_reabertos`. O Dashboard SLA ganhou um 5º card "Chamados reabertos" ao lado dos 4 existentes (% no SLA, TTFR mediano, TTR mediano, Em risco agora)
 
 **4. `contratos` — média prioridade**
 - Sistema sabe que todo condomínio é cliente com contrato, mas não guarda valor, vigência, tipo de plano

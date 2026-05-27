@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="/static/leaflet.css">
   <!-- ⚠️ Ao mexer em admin.js ou admin.css, bumpe o ?v=N aqui E no <script>
        lá embaixo. Ver CLAUDE.md raiz. -->
-  <link rel="stylesheet" href="/static/admin.css?v=55">
+  <link rel="stylesheet" href="/static/admin.css?v=67">
 </head>
 <body>
 
@@ -1586,19 +1586,12 @@
           <!-- TTR + TTFR ao longo do tempo (side by side) -->
           <div class="rel-charts-2b" style="margin-bottom:12px;">
             <div class="card" style="padding:0;overflow:hidden;">
-              <div class="rel-ct-head" style="display:flex;justify-content:space-between;align-items:center;">
-                <span>TTR médio <span style="font-size:11px;color:var(--muted);">(tempo até resolver)</span></span>
-                <div class="sla-period-btns">
-                  <button class="btn btn-sm sla-period-btn is-active" data-sla-period="30">30d</button>
-                  <button class="btn btn-sm sla-period-btn" data-sla-period="60">60d</button>
-                  <button class="btn btn-sm sla-period-btn" data-sla-period="90">90d</button>
-                </div>
-              </div>
-              <div id="relSlChartTtr" style="height:200px;"></div>
+              <p class="rel-ct-head">TTR médio <span style="font-size:11px;color:var(--muted);">(tempo até resolver)</span></p>
+              <div id="relSlChartTtr" style="height:300px;"></div>
             </div>
             <div class="card" style="padding:0;overflow:hidden;">
               <p class="rel-ct-head">TTFR médio <span style="font-size:11px;color:var(--muted);">(tempo até 1ª resposta)</span></p>
-              <div id="relSlChartTtfr" style="height:200px;"></div>
+              <div id="relSlChartTtfr" style="height:300px;"></div>
             </div>
           </div>
 
@@ -2530,7 +2523,7 @@
   </div>
 </div>
 
-<script src="/static/admin.js?v=55" defer></script>
+<script src="/static/admin.js?v=67" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
 <script src="/static/register-sw.js?v=24" defer></script>
 </body>

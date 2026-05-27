@@ -10,6 +10,7 @@
 
 const { pool } = require("../db");
 const { getConfigBool } = require("../services/config.service");
+const { registrarCriacao } = require("../services/chamado-historico.service");
 
 const INTERVALO_MS = 24 * 60 * 60 * 1000; // 1 dia
 const PRIMEIRA_EXECUCAO_MS = 30 * 60 * 1000; // 30 min após boot
@@ -69,6 +70,12 @@ async function executarPlano(planoId) {
        RETURNING id`,
       [plano.condominio_id, plano.titulo, descricao, planoId]
     );
+
+    await registrarCriacao({
+      client,
+      chamadoId: chamadoRes.rows[0].id,
+      alteradoPor: null,
+    });
 
     await client.query(
       `UPDATE planos_manutencao
