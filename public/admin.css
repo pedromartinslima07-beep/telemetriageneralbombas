@@ -1432,6 +1432,39 @@ a { color: inherit; text-decoration: none; }
   gap: 14px;
 }
 
+/* Linha financeira (contratos) entre condoGrid e mc-bottom */
+.mc-fin { margin: 14px 0; }
+.mc-fin-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  padding: 14px 18px 18px;
+}
+.mc-fin-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  background: rgba(255,255,255,.03);
+  border: 1px solid var(--border);
+}
+.mc-fin-label {
+  font-size: 10.5px;
+  letter-spacing: .4px;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 600;
+}
+.mc-fin-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+}
+@media (max-width: 900px) {
+  .mc-fin-row { grid-template-columns: repeat(2, 1fr); }
+}
+
 .mc-conv, .mc-ia, .mc-telem { display: flex; flex-direction: column; min-height: 280px; }
 
 .mc-conv-list, .mc-telem-list {

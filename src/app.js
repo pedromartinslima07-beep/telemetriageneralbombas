@@ -39,6 +39,7 @@ const { tecnicosRouter } = require("./routes/tecnicos.routes");
 const { tecnicosLocalizacaoRouter } = require("./routes/tecnicos-localizacao.routes");
 const { ordensServicoRouter } = require("./routes/ordens-servico.routes");
 const { planosManutencaoRouter } = require("./routes/planos-manutencao.routes");
+const { contratosRouter } = require("./routes/contratos.routes");
 const { startOfflineScheduler } = require("./jobs/offline.job");
 const { startPlanosManutencaoScheduler } = require("./jobs/planos-manutencao.job");
 const { startGpsCleanupScheduler } = require("./jobs/gps-cleanup.job");
@@ -346,6 +347,7 @@ app.use("/tecnicos", tecnicosRouter);
 app.use("/tecnicos", tecnicosLocalizacaoRouter);
 app.use("/ordens-servico", ordensServicoRouter);
 app.use("/planos-manutencao", planosManutencaoRouter);
+app.use("/contratos", contratosRouter);
 
 startOfflineScheduler();
 startGpsCleanupScheduler();

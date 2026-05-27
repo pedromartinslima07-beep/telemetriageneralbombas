@@ -2435,16 +2435,55 @@ async function carregarUsuarios() {
   _usuariosData = await r.json();
 }
 
+// Cache global das métricas de contratos (recarregadas em background)
+let _contratosMetricas = null;
+// Map: condominio_id → contrato ativo (pra pílula na tabela de clientes)
+let _contratosByCondoId = new Map();
+
+function renderMcContratos() {
+  const m = _contratosMetricas?.total;
+  if (!m) return;
+  const set = (id, v, color) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = v;
+    if (color) el.style.color = color;
+  };
+  const fmtMoeda = (v) => Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
+  set("mcContrMrr",      fmtMoeda(m.mrr || 0), "var(--accent)");
+  set("mcContrAtivos",   m.ativos || 0);
+  set("mcContrVencendo", m.vencendo_30d || 0, m.vencendo_30d > 0 ? "var(--warn)" : null);
+  set("mcContrVencidos", m.vencidos || 0,     m.vencidos > 0     ? "var(--danger)" : null);
+}
+
+async function _carregarContratosMetricas() {
+  try {
+    const [rMet, rLista] = await Promise.all([
+      fetch(`/contratos/metricas`,        { headers: authHeaders() }),
+      fetch(`/contratos?ativo=true`,      { headers: authHeaders() }),
+    ]);
+    if (rMet.ok)   _contratosMetricas   = await rMet.json();
+    if (rLista.ok) {
+      const lista = await rLista.json();
+      _contratosByCondoId = new Map(lista.map(c => [Number(c.condominio_id), c]));
+    }
+    renderCliKpis?.();
+    renderCliTabela?.();
+    renderMcContratos?.(); // Mission Control widget (criado adiante)
+  } catch (_) { /* silencioso */ }
+}
+
 function renderCliKpis() {
   const el = document.getElementById("cliKpiGrid");
   if (!el) return;
   const condos   = Array.isArray(_condominios)  ? _condominios  : [];
-  const usuarios = Array.isArray(_usuariosData) ? _usuariosData : [];
   const chamados = Array.isArray(_chamadosData) ? _chamadosData : [];
 
-  const ativos       = condos.filter(c => c.ativo).length;
-  const representantes = usuarios.filter(u => u.role === "cliente").length;
-  const chAbertos    = chamados.filter(ch => ch.status !== "fechado").length;
+  const ativos    = condos.filter(c => c.ativo).length;
+  const chAbertos = chamados.filter(ch => ch.status !== "fechado").length;
+
+  const m = _contratosMetricas?.total || { mrr: 0, ativos: 0, vencendo_30d: 0, vencidos: 0 };
+  const fmtMoeda = (v) => Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
 
   const kpi = (icon, val, label, kindCls) => `
     <div class="rc ${kindCls} rc-static">
@@ -2454,11 +2493,13 @@ function renderCliKpis() {
 
   el.innerHTML =
     kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`,
-        condos.length, "Total clientes", "rc-neutral") +
-    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`,
-        ativos, "Ativos", ativos < condos.length ? "rc-warn" : "rc-ok") +
-    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
-        representantes, "Representantes", "rc-neutral") +
+        ativos, "Clientes ativos", ativos < condos.length ? "rc-warn" : "rc-ok") +
+    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>`,
+        fmtMoeda(m.mrr), "MRR mensal", "rc-ok") +
+    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`,
+        m.vencendo_30d, "Vencendo em 30d", m.vencendo_30d > 0 ? "rc-warn" : "rc-neutral") +
+    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`,
+        m.vencidos, "Contratos vencidos", m.vencidos > 0 ? "rc-bad" : "rc-neutral") +
     kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`,
         chAbertos, "Chamados abertos", chAbertos > 0 ? "rc-warn" : "rc-neutral");
 }
@@ -2491,7 +2532,7 @@ function renderCliTabela() {
 
   const lista = _cliFiltrados();
   if (!lista.length) {
-    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:32px;">Nenhum cliente encontrado.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:32px;">Nenhum cliente encontrado.</td></tr>`;
     return;
   }
 
@@ -2501,14 +2542,100 @@ function renderCliTabela() {
       ? `<span class="ch-st ch-st-aberto">Ativo</span>`
       : `<span class="ch-st ch-st-fechado">Inativo</span>`;
     const cidade = c.cidade ? _waEscaparHtml(c.cidade + (c.uf ? "/" + c.uf : "")) : "—";
+    const contrato = _contratosByCondoId.get(Number(c.id));
+    const st = _ctrStatusVisual(contrato);
+    const ctrBadge = contrato
+      ? `<span class="ch-st ch-st-${st.cls === "ok" ? "aberto" : st.cls === "warn" ? "em_atendimento" : "fechado"}" title="${st.texto}">${st.texto}</span>`
+      : `<span style="font-size:10px;color:var(--muted);">—</span>`;
     return `<tr class="ch-row${sel}" data-cli-id="${c.id}" style="cursor:pointer;">
       <td><div style="font-weight:500;font-size:12px;">${_waEscaparHtml(c.nome || "—")}</div></td>
       <td style="font-size:11px;color:var(--muted);">${cidade}</td>
       <td style="font-size:11px;">${_waEscaparHtml(c.responsavel || "—")}</td>
       <td style="font-size:11px;text-align:center;">${c.total_reservatorios ?? 0}</td>
+      <td>${ctrBadge}</td>
       <td>${statusBadge}</td>
     </tr>`;
   }).join("");
+}
+
+// ─── Contratos: cache + render do card no detalhe do cliente ────────────────
+const _cliContratoCache = new Map(); // condoId → { contrato, loaded, loading, error }
+const _ctrTipoLabel = { mensal: "Mensal", anual: "Anual", avulso: "Avulso" };
+const _ctrFormaLabel = { pix: "PIX", boleto: "Boleto", transferencia: "Transferência", cartao: "Cartão", outro: "Outro" };
+
+function _ctrStatusVisual(contrato) {
+  if (!contrato) return { texto: "Sem contrato", cls: "warn", cor: "var(--muted)" };
+  if (!contrato.fim_em) return { texto: "Ativo (sem fim)", cls: "ok", cor: "var(--ok)" };
+  const dias = Number(contrato.dias_para_vencer);
+  if (Number.isFinite(dias)) {
+    if (dias < 0)  return { texto: `Vencido há ${Math.abs(dias)}d`, cls: "bad",  cor: "var(--danger)" };
+    if (dias <= 30) return { texto: `Vence em ${dias}d`,             cls: "warn", cor: "var(--warn)" };
+  }
+  return { texto: "Ativo", cls: "ok", cor: "var(--ok)" };
+}
+
+function _ctrFmtMoeda(v) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return "—";
+  return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+function _ctrFmtData(s) {
+  if (!s) return "—";
+  const d = new Date(s);
+  if (isNaN(d.getTime())) return s;
+  return d.toLocaleDateString("pt-BR");
+}
+
+function _cliRenderContratoCard(condoId) {
+  const cache = _cliContratoCache.get(condoId);
+  let inner;
+  if (!cache || cache.loading) {
+    inner = `<div style="font-size:11px;color:var(--muted);padding:6px 0;">Carregando contrato…</div>`;
+  } else if (cache.error) {
+    inner = `<div style="font-size:11px;color:var(--danger);padding:6px 0;">Erro ao carregar contrato</div>`;
+  } else if (!cache.contrato) {
+    inner = `<div style="font-size:11px;color:var(--muted);padding:6px 0 10px;">Sem contrato cadastrado.</div>
+      <button class="btn btn-sm btnAccent viewer-only-hide" data-action="novo-contrato" data-condo-id="${condoId}" style="width:100%;justify-content:center;">+ Cadastrar contrato</button>`;
+  } else {
+    const c = cache.contrato;
+    const st = _ctrStatusVisual(c);
+    inner = `<div class="ch-det-meta">
+      <div class="ch-met-row"><span class="ch-met-lbl">Tipo</span><span style="font-size:12px;">${_ctrTipoLabel[c.tipo] || c.tipo}</span></div>
+      <div class="ch-met-row"><span class="ch-met-lbl">Valor mensal</span><span style="font-size:13px;font-weight:600;color:var(--accent);">${_ctrFmtMoeda(c.valor_mensal)}</span></div>
+      <div class="ch-met-row"><span class="ch-met-lbl">Vigência</span><span style="font-size:12px;">${_ctrFmtData(c.inicio_em)} → ${c.fim_em ? _ctrFmtData(c.fim_em) : "sem fim"}</span></div>
+      <div class="ch-met-row"><span class="ch-met-lbl">Status</span><span style="font-size:11px;font-weight:700;color:${st.cor};">${st.texto}</span></div>
+      ${c.forma_pagamento ? `<div class="ch-met-row"><span class="ch-met-lbl">Pagamento</span><span style="font-size:12px;">${_ctrFormaLabel[c.forma_pagamento] || c.forma_pagamento}${c.dia_vencimento ? ` · dia ${c.dia_vencimento}` : ""}</span></div>` : ""}
+      ${c.numero ? `<div class="ch-met-row"><span class="ch-met-lbl">Número</span><span style="font-size:12px;">${_waEscaparHtml(c.numero)}</span></div>` : ""}
+    </div>
+    <button class="btn btn-sm viewer-only-hide" data-action="editar-contrato" data-contrato-id="${c.id}" data-condo-id="${condoId}" style="width:100%;justify-content:center;margin-top:8px;">Editar contrato</button>`;
+  }
+  return `<div class="ch-det-section" id="cliContratoSec-${condoId}">
+    <div class="ch-det-sec-title">Contrato</div>
+    ${inner}
+  </div>`;
+}
+
+async function _cliCarregarContrato(condoId) {
+  const cache = _cliContratoCache.get(condoId);
+  if (cache && (cache.loaded || cache.loading)) return;
+  _cliContratoCache.set(condoId, { contrato: null, loaded: false, loading: true });
+  try {
+    const r = await fetch(`/contratos?condominio_id=${condoId}&ativo=true`, { headers: authHeaders() });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const lista = await r.json();
+    _cliContratoCache.set(condoId, { contrato: lista[0] || null, loaded: true, loading: false });
+  } catch (e) {
+    _cliContratoCache.set(condoId, { contrato: null, loaded: true, loading: false, error: e.message });
+  }
+  if (_cliSelecionadoId === condoId) {
+    const sec = document.getElementById(`cliContratoSec-${condoId}`);
+    if (sec) sec.outerHTML = _cliRenderContratoCard(condoId);
+  }
+}
+
+function _cliInvalidarContrato(condoId) {
+  _cliContratoCache.delete(condoId);
 }
 
 function renderCliDetalhe(c) {
@@ -2594,6 +2721,8 @@ function renderCliDetalhe(c) {
       </div>
     </div>
 
+    ${_cliRenderContratoCard(c.id)}
+
     ${telHtml}
 
     <div class="ch-det-section">
@@ -2614,6 +2743,9 @@ function renderCliDetalhe(c) {
         : `<button class="btn btn-sm btnAccent viewer-only-hide" data-action="reativar-condominio" data-id="${c.id}">Reativar</button>`}
     </div>
   </div>`;
+
+  // Lazy fetch do contrato — cache evita recarregar ao re-renderizar
+  _cliCarregarContrato(c.id);
 }
 
 
@@ -3385,6 +3517,7 @@ async function carregarTudo() {
     renderTelemetriaVisuais();
     renderAtendimentoVisuais();
     renderVisuaisCombinados();
+    _carregarContratosMetricas?.();
     renderClientes();
     renderTecnicos();
     marcarAtualizado();
@@ -4022,6 +4155,156 @@ function renderChamados() {
       }
     }
   });
+})();
+
+// ─── Modal: novo/editar contrato ────────────────────────────────────────────
+let _ctrEditando = null; // { condoId, contratoId? }
+
+function _ctrAbrirModal({ condoId, contratoId }) {
+  const overlay = document.getElementById("ctrOverlay");
+  if (!overlay) return;
+  _ctrEditando = { condoId, contratoId: contratoId || null };
+
+  // Limpa form
+  const ids = ["ctrNumero","ctrValor","ctrInicio","ctrFim","ctrDiaVenc","ctrObs"];
+  ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
+  document.getElementById("ctrTipo").value = "mensal";
+  document.getElementById("ctrFormaPagto").value = "";
+  document.getElementById("ctrRenovAuto").checked = false;
+  document.getElementById("ctrId").value = "";
+  document.getElementById("ctrCondoId").value = String(condoId);
+  document.getElementById("ctrMsg").textContent = "";
+  document.getElementById("ctrBtnEncerrar").style.display = contratoId ? "" : "none";
+
+  const condo = (_condominios || []).find(c => Number(c.id) === Number(condoId));
+  document.getElementById("ctrSub").textContent = condo ? condo.nome : "";
+  document.getElementById("ctrTitulo").textContent = contratoId ? "Editar contrato" : "Novo contrato";
+
+  if (contratoId) {
+    fetch(`/contratos/${contratoId}`, { headers: authHeaders() })
+      .then(r => r.ok ? r.json() : Promise.reject(r))
+      .then(c => {
+        document.getElementById("ctrId").value         = String(c.id);
+        document.getElementById("ctrTipo").value       = c.tipo;
+        document.getElementById("ctrValor").value      = c.valor_mensal != null ? Number(c.valor_mensal).toFixed(2) : "";
+        document.getElementById("ctrInicio").value     = c.inicio_em ? String(c.inicio_em).slice(0,10) : "";
+        document.getElementById("ctrFim").value        = c.fim_em ? String(c.fim_em).slice(0,10) : "";
+        document.getElementById("ctrFormaPagto").value = c.forma_pagamento || "";
+        document.getElementById("ctrDiaVenc").value    = c.dia_vencimento || "";
+        document.getElementById("ctrNumero").value     = c.numero || "";
+        document.getElementById("ctrObs").value        = c.observacoes || "";
+        document.getElementById("ctrRenovAuto").checked = !!c.renovacao_automatica;
+      })
+      .catch(() => { document.getElementById("ctrMsg").textContent = "Erro ao carregar contrato"; });
+  }
+
+  overlay.style.display = "flex";
+}
+
+function _ctrFecharModal() {
+  const overlay = document.getElementById("ctrOverlay");
+  if (overlay) overlay.style.display = "none";
+  _ctrEditando = null;
+}
+
+async function _ctrSalvar() {
+  if (!_ctrEditando) return;
+  const msg = document.getElementById("ctrMsg");
+  const btn = document.getElementById("ctrBtnSalvar");
+
+  const body = {
+    condominio_id:        Number(document.getElementById("ctrCondoId").value),
+    tipo:                 document.getElementById("ctrTipo").value,
+    valor_mensal:         Number(document.getElementById("ctrValor").value),
+    inicio_em:            document.getElementById("ctrInicio").value || null,
+    fim_em:               document.getElementById("ctrFim").value || null,
+    forma_pagamento:      document.getElementById("ctrFormaPagto").value || null,
+    dia_vencimento:       document.getElementById("ctrDiaVenc").value ? Number(document.getElementById("ctrDiaVenc").value) : null,
+    numero:               document.getElementById("ctrNumero").value.trim() || null,
+    observacoes:          document.getElementById("ctrObs").value.trim() || null,
+    renovacao_automatica: document.getElementById("ctrRenovAuto").checked,
+  };
+
+  if (!body.valor_mensal && body.valor_mensal !== 0) {
+    msg.style.color = "var(--danger)"; msg.textContent = "Valor mensal obrigatório"; return;
+  }
+  if (!body.inicio_em) {
+    msg.style.color = "var(--danger)"; msg.textContent = "Data de início obrigatória"; return;
+  }
+
+  msg.style.color = "var(--muted)"; msg.textContent = "Salvando…";
+  btn.disabled = true;
+
+  const editandoId = document.getElementById("ctrId").value;
+  const url    = editandoId ? `/contratos/${editandoId}` : "/contratos";
+  const method = editandoId ? "PATCH" : "POST";
+
+  try {
+    const r = await fetch(url, {
+      method,
+      headers: { ...authHeaders(), "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!r.ok) {
+      const e = await r.json().catch(() => ({}));
+      msg.style.color = "var(--danger)"; msg.textContent = e.error || "Erro ao salvar";
+      btn.disabled = false;
+      return;
+    }
+    const condoId = _ctrEditando.condoId;
+    _cliInvalidarContrato(condoId);
+    _ctrFecharModal();
+    // Re-renderiza o detalhe se ainda for o cliente selecionado
+    if (_cliSelecionadoId === condoId) {
+      const c = (_condominios || []).find(x => Number(x.id) === Number(condoId));
+      if (c) renderCliDetalhe(c);
+    }
+    // Recarrega KPIs e tabela
+    _carregarContratosMetricas?.();
+    renderCliTabela?.();
+  } catch (e) {
+    msg.style.color = "var(--danger)"; msg.textContent = "Erro de rede";
+    btn.disabled = false;
+  }
+}
+
+async function _ctrEncerrar() {
+  const editandoId = document.getElementById("ctrId").value;
+  if (!editandoId) return;
+  if (!confirm("Encerrar este contrato? Ele ficará inativo e você poderá cadastrar um novo no condomínio.")) return;
+  const msg = document.getElementById("ctrMsg");
+  msg.style.color = "var(--muted)"; msg.textContent = "Encerrando…";
+  try {
+    const r = await fetch(`/contratos/${editandoId}`, { method: "DELETE", headers: authHeaders() });
+    if (!r.ok) {
+      const e = await r.json().catch(() => ({}));
+      msg.style.color = "var(--danger)"; msg.textContent = e.error || "Erro ao encerrar";
+      return;
+    }
+    const condoId = _ctrEditando?.condoId;
+    if (condoId) {
+      _cliInvalidarContrato(condoId);
+      _ctrFecharModal();
+      if (_cliSelecionadoId === condoId) {
+        const c = (_condominios || []).find(x => Number(x.id) === Number(condoId));
+        if (c) renderCliDetalhe(c);
+      }
+      _carregarContratosMetricas?.();
+      renderCliTabela?.();
+    }
+  } catch (e) {
+    msg.style.color = "var(--danger)"; msg.textContent = "Erro de rede";
+  }
+}
+
+(function _bindCtrModal() {
+  const overlay = document.getElementById("ctrOverlay");
+  if (!overlay) return;
+  document.getElementById("ctrBtnFechar")?.addEventListener("click", _ctrFecharModal);
+  document.getElementById("ctrBtnCancelar")?.addEventListener("click", _ctrFecharModal);
+  document.getElementById("ctrBtnSalvar")?.addEventListener("click", _ctrSalvar);
+  document.getElementById("ctrBtnEncerrar")?.addEventListener("click", _ctrEncerrar);
+  overlay.addEventListener("click", e => { if (e.target === overlay) _ctrFecharModal(); });
 })();
 
 // ============================================================
@@ -7379,13 +7662,22 @@ async function gerarRelReservatorios() {
   const alTotal       = al.length;
   const offline       = al.filter(d => d.tipo === "dispositivo_offline" && d.status === "ativo").length;
 
+  // KPI extra de contratos com telemetria — info financeira do parque
+  const tel_m = _contratosMetricas?.com_telemetria || { ativos: 0, mrr: 0 };
+  const fmtMoedaCurta = (v) => {
+    const n = Number(v) || 0;
+    if (n >= 1000) return "R$ " + (n / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 }) + "k";
+    return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
+  };
+
   const kpiEl = document.getElementById("relResKpis");
   if (kpiEl) kpiEl.innerHTML =
     _relKpiCard(_SVG_CPU,   "Dispositivos",    dispositivos,                              "neutral") +
     _relKpiCard(_SVG_DROP,  "Nível médio",     nivelGlobal!=null?nivelGlobal+"%":"—",
       nivelGlobal!=null&&nivelGlobal<30?"bad":nivelGlobal!=null&&nivelGlobal<60?"warn":"ok") +
     _relKpiCard(_SVG_ALERT, "Alertas ativos",  alAtivos, alAtivos>0?"bad":"neutral") +
-    _relKpiCard(_SVG_WAVE,  "Dispositivos offline", offline, offline>0?"bad":"neutral");
+    _relKpiCard(_SVG_WAVE,  "Dispositivos offline", offline, offline>0?"bad":"neutral") +
+    _relKpiCard(_SVG_CHECK, "Contratos c/ telemetria", `${tel_m.ativos} · ${fmtMoedaCurta(tel_m.mrr)}/mês`, "ok");
 
   // ── Série nível por dia ──────────────────────────────────────────────────
   const porDia = {};
@@ -9676,6 +9968,19 @@ document.addEventListener("DOMContentLoaded", () => {
     if (action === "focar-condominio") {
       const device = btn.dataset.device;
       if (device) focarCondominio(device);
+      return;
+    }
+
+    if (action === "novo-contrato") {
+      const condoId = Number(btn.dataset.condoId);
+      if (condoId) _ctrAbrirModal({ condoId });
+      return;
+    }
+
+    if (action === "editar-contrato") {
+      const contratoId = Number(btn.dataset.contratoId);
+      const condoId = Number(btn.dataset.condoId);
+      if (contratoId) _ctrAbrirModal({ condoId, contratoId });
       return;
     }
 

@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="/static/leaflet.css">
   <!-- ⚠️ Ao mexer em admin.js ou admin.css, bumpe o ?v=N aqui E no <script>
        lá embaixo. Ver CLAUDE.md raiz. -->
-  <link rel="stylesheet" href="/static/admin.css?v=67">
+  <link rel="stylesheet" href="/static/admin.css?v=68">
 </head>
 <body>
 
@@ -365,6 +365,38 @@
           <div id="condoGrid" class="condo-grid"></div>
         </section>
 
+        <!-- ===== Linha financeira: contratos + MRR ===== -->
+        <section class="card mc-fin">
+          <div class="cardHead">
+            <h2>
+              <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="1" x2="12" y2="23"/>
+                <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+              </svg>
+              Contratos
+            </h2>
+            <button class="btn-link" data-section-go="cadastros">Gerenciar →</button>
+          </div>
+          <div class="mc-fin-row" id="mcContratosRow">
+            <div class="mc-fin-item">
+              <div class="mc-fin-label">MRR mensal</div>
+              <div class="mc-fin-value" id="mcContrMrr">—</div>
+            </div>
+            <div class="mc-fin-item">
+              <div class="mc-fin-label">Contratos ativos</div>
+              <div class="mc-fin-value" id="mcContrAtivos">—</div>
+            </div>
+            <div class="mc-fin-item">
+              <div class="mc-fin-label">Vencendo em 30d</div>
+              <div class="mc-fin-value" id="mcContrVencendo">—</div>
+            </div>
+            <div class="mc-fin-item">
+              <div class="mc-fin-label">Vencidos</div>
+              <div class="mc-fin-value" id="mcContrVencidos">—</div>
+            </div>
+          </div>
+        </section>
+
         <!-- ===== Linha inferior: Conversas + IA Insights + Telemetria ===== -->
         <div class="mc-bottom">
 
@@ -589,6 +621,7 @@
                     <th>Cidade</th>
                     <th>Responsável</th>
                     <th style="text-align:center;">Reserv.</th>
+                    <th>Contrato</th>
                     <th>Status</th>
                   </tr>
                 </thead>
@@ -2523,8 +2556,91 @@
   </div>
 </div>
 
-<script src="/static/admin.js?v=67" defer></script>
+<!-- Modal: novo/editar contrato do condomínio -->
+<div id="ctrOverlay" class="modalOverlay" style="display:none;">
+  <div class="modalBox" style="max-width:560px;">
+    <div class="modalHead">
+      <div>
+        <div class="modalTitle" id="ctrTitulo">Novo contrato</div>
+        <div class="modalSub" id="ctrSub"></div>
+      </div>
+      <button class="btn btn-sm" id="ctrBtnFechar">Fechar</button>
+    </div>
+    <div class="modalBody" style="padding:20px 24px 24px;display:flex;flex-direction:column;gap:14px;">
+      <input type="hidden" id="ctrId" />
+      <input type="hidden" id="ctrCondoId" />
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <label class="f">
+          <span>Tipo <span style="color:var(--danger)">*</span></span>
+          <select id="ctrTipo" class="select">
+            <option value="mensal">Mensal</option>
+            <option value="anual">Anual</option>
+            <option value="avulso">Avulso</option>
+          </select>
+        </label>
+        <label class="f">
+          <span>Valor mensal (R$) <span style="color:var(--danger)">*</span></span>
+          <input id="ctrValor" class="input" type="number" min="0" step="0.01" placeholder="0,00" inputmode="decimal" />
+        </label>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <label class="f">
+          <span>Início <span style="color:var(--danger)">*</span></span>
+          <input id="ctrInicio" class="input" type="date" />
+        </label>
+        <label class="f">
+          <span>Fim <span style="font-size:10px;color:var(--muted);font-weight:400;">(opcional)</span></span>
+          <input id="ctrFim" class="input" type="date" />
+        </label>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <label class="f">
+          <span>Forma de pagamento</span>
+          <select id="ctrFormaPagto" class="select">
+            <option value="">—</option>
+            <option value="pix">PIX</option>
+            <option value="boleto">Boleto</option>
+            <option value="transferencia">Transferência</option>
+            <option value="cartao">Cartão</option>
+            <option value="outro">Outro</option>
+          </select>
+        </label>
+        <label class="f">
+          <span>Dia do vencimento <span style="font-size:10px;color:var(--muted);font-weight:400;">(1–28)</span></span>
+          <input id="ctrDiaVenc" class="input" type="number" min="1" max="28" placeholder="ex: 10" />
+        </label>
+      </div>
+
+      <label class="f">
+        <span>Número do contrato <span style="font-size:10px;color:var(--muted);font-weight:400;">(opcional)</span></span>
+        <input id="ctrNumero" class="input" type="text" maxlength="40" placeholder="ex: CT-2026-0001" />
+      </label>
+
+      <label class="check-field">
+        <input type="checkbox" id="ctrRenovAuto" />
+        Renovação automática
+      </label>
+
+      <label class="f">
+        <span>Observações</span>
+        <textarea id="ctrObs" class="input" rows="3" maxlength="4000" style="resize:vertical;font-size:13px;padding:8px 10px;" placeholder="Detalhes do contrato, cláusulas especiais…"></textarea>
+      </label>
+
+      <div style="display:flex;gap:8px;justify-content:flex-end;align-items:center;">
+        <span id="ctrMsg" style="font-size:12px;color:var(--muted);"></span>
+        <button class="btn btn-sm btnDanger" id="ctrBtnEncerrar" style="display:none;">Encerrar contrato</button>
+        <button class="btn btn-sm" id="ctrBtnCancelar">Cancelar</button>
+        <button class="btn btn-sm btnAccent" id="ctrBtnSalvar">Salvar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/static/admin.js?v=68" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
-<script src="/static/register-sw.js?v=24" defer></script>
+<script src="/static/register-sw.js?v=25" defer></script>
 </body>
 </html>

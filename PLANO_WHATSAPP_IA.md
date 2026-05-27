@@ -1673,6 +1673,21 @@ Audit log append-only de mudanças nos chamados. Resolve a limitação conscient
 - **UI admin (`renderChDetalhe`)**: card "Histórico" no painel de detalhe do chamado abaixo das informações. Timeline com dot + linha conectando, formatação amigável (`Status: aberto → em_atendimento`), labels reutilizam `_chStNome`/`_chPrioNome`/`_chCatNome`. Cache lazy por chamadoId (`_chHistCache`), só refaz fetch quando ainda não carregou. "Sistema" em itálico cinza quando `alterado_por=null`
 - **Métrica de reabertos corrigida**: o cálculo agora usa `EXISTS` em `historico_chamados WHERE campo_alterado='status' AND valor_anterior='fechado'` (captura tanto reaberturas pendentes quanto as que foram refechadas). Aplicado em 2 endpoints: `GET /relatorios/sla-metricas` (legado, sem UI hoje — a aba Insights foi removida) e `GET /relatorios/sla-dashboard` (Fase 8C, usado em Relatórios → Dashboard SLA), que agora retorna `kpis.reabertos` e `kpis.taxa_reabertos`. O Dashboard SLA ganhou um 5º card "Chamados reabertos" ao lado dos 4 existentes (% no SLA, TTFR mediano, TTR mediano, Em risco agora)
 
-**4. `contratos` — média prioridade**
-- Sistema sabe que todo condomínio é cliente com contrato, mas não guarda valor, vigência, tipo de plano
-- Sem isso não há alertas de renovação nem relatório de receita recorrente
+#### `contratos` ✅ CONCLUÍDO (Migration 035)
+
+Sistema sabia que todo condomínio é cliente com contrato, mas nada guardava valor, vigência, tipo de plano. Bloqueava cálculo de MRR e qualquer relatório financeiro.
+
+- **Migration 035 (`contratos.sql`)**: tabela com `condominio_id`, `numero`, `tipo` (mensal/anual/avulso), `valor_mensal`, `inicio_em`, `fim_em` (null = sem fim), `renovacao_automatica`, `forma_pagamento`, `dia_vencimento`, `observacoes`, `ativo`. UNIQUE parcial `(condominio_id) WHERE ativo=TRUE` garante 1 contrato ativo por vez (renovação cria novo, antigo vira ativo=false)
+- **Backend (`/contratos`)** master admin: GET (filtros condominio_id/ativo/vencendo_em_dias), GET /:id, POST, PATCH, DELETE (soft via ativo=false), GET /metricas (2 blocos — `total` e `com_telemetria` — cada um com mrr/ativos/vencendo_30d/vencidos)
+- **UI ancorada na página Clientes** (sem nova seção na sidebar — decisão do usuário):
+  - **Card "Contrato"** no painel de detalhe do cliente (entre Chamados e Telemetria), com lazy fetch + cache por condoId. Mostra tipo, valor, vigência, status colorido. Botão Editar ou + Cadastrar
+  - **Modal único** pra criar/editar (`#ctrOverlay`) com botão "Encerrar contrato" no modo edição
+  - **5 KPIs** no topo da página Clientes substituindo os antigos: Clientes ativos · MRR mensal · Vencendo 30d · Contratos vencidos · Chamados abertos
+  - **Coluna "Contrato"** na tabela de clientes com pílula colorida (ok/warn/bad/—)
+- **Widget no Mission Control** (`.mc-fin`): card entre `condoGrid` e `mc-bottom` com 4 mini-stats (MRR mensal / Ativos / Vencendo 30d / Vencidos), atalho "Gerenciar →" pra página Clientes
+- **KPI em Relatórios → Reservatórios**: "Contratos c/ telemetria" mostrando `N · R$ Xk/mês` (info financeira específica do parque que tem telemetria, separado do MRR total)
+- SW: `/contratos` adicionado à lista network-first; CACHE_NAME bumpado pra v34; register-sw.js pra v25
+
+**Pendente (não MVP):**
+- Job de email de renovação (60/30/15 dias antes do `fim_em`) — Resend já está integrado, é trivial adicionar quando precisar
+- Histórico de contratos do mesmo condomínio (listar inativos) — basta filtro `?ativo=false&condominio_id=X` no endpoint atual
