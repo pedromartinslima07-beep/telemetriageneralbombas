@@ -3980,6 +3980,21 @@ function _waFmtTempo(iso) {
   return d.toLocaleDateString("pt-BR");
 }
 
+function _waUrgenciaLabel(u) {
+  return ({ p1: "CRÍTICO", p2: "ALTA", p3: "CONTROLADO", p4: "AGENDADO" })[u] || String(u || "").toUpperCase();
+}
+function _waUrgenciaCor(u) {
+  return ({ p1: "var(--danger)", p2: "var(--warn)", p3: "#facc15", p4: "var(--muted)" })[u] || "var(--muted)";
+}
+function _waUrgenciaBg(u) {
+  return ({
+    p1: "rgba(239,68,68,.15)",
+    p2: "rgba(245,158,11,.15)",
+    p3: "rgba(250,204,21,.12)",
+    p4: "rgba(255,255,255,.06)",
+  })[u] || "rgba(255,255,255,.06)";
+}
+
 function _waFmtHoraCompleta(iso) {
   if (!iso) return "";
   return new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
@@ -4188,7 +4203,7 @@ function _waRenderChat(conv) {
           ${m.ia_categoria || m.ia_urgencia ? `
             <div style="margin-top:6px;display:flex;gap:6px;font-size:10px;">
               ${m.ia_categoria ? `<span style="background:rgba(255,255,255,.06);padding:2px 7px;border-radius:4px;color:var(--muted);">${_waEscaparHtml(m.ia_categoria)}</span>` : ""}
-              ${m.ia_urgencia ? `<span style="background:rgba(245,158,11,.15);padding:2px 7px;border-radius:4px;color:var(--warn);">${_waEscaparHtml(m.ia_urgencia)}</span>` : ""}
+              ${m.ia_urgencia ? `<span style="background:${_waUrgenciaBg(m.ia_urgencia)};padding:2px 7px;border-radius:4px;color:${_waUrgenciaCor(m.ia_urgencia)};font-weight:600;">${_waUrgenciaLabel(m.ia_urgencia)}</span>` : ""}
             </div>` : ""}
         </div>`;
     }

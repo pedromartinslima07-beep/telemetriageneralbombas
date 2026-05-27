@@ -1634,9 +1634,12 @@ Antes coexistiam dois sistemas paralelos: 12 colunas `orcamento_*` em `ordens_se
 - `tecnico_id` → tecnicos (quem executa em campo)
 - Não está morto — semântica distinta; decidir se vale unificar ou só documentar
 
-**`mensagens_whatsapp.ia_urgencia` usa enum antigo**
-- Ainda tem `'baixa'|'media'|'alta'|'emergencia'` enquanto tudo migrou para p1-p4
-- Baixo risco imediato, mas inconsistente
+#### 2. `mensagens_whatsapp.ia_urgencia` em p1-p4 ✅ CONCLUÍDO (Migration 031)
+
+Coluna criada na migration 001 com CHECK `('baixa','media','alta','emergencia')`. Fase 11 padronizou tudo em p1-p4 mas essa ficou pra trás. Em produção: 12 mensagens, todas NULL — só o constraint precisava trocar, UPDATE foi defensivo.
+
+- Migration `031_ia_urgencia_p1p4.sql`, em transação: DROP CONSTRAINT antigo → UPDATE mapeando `emergencia→p1, alta→p2, media→p3, baixa→p4` → ADD CONSTRAINT novo aceitando `NULL` ou `p1-p4`
+- UI (`public/admin.js`): badge de urgência no card de resumo da IA passou a usar helpers `_waUrgenciaLabel/_waUrgenciaCor/_waUrgenciaBg` → mostra `CRÍTICO` (vermelho), `ALTA` (amber), `CONTROLADO` (amarelo), `AGENDADO` (cinza) em vez do código cru
 
 ### Tabelas faltando (por prioridade de impacto)
 
