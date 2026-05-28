@@ -4295,18 +4295,16 @@ async function _supEnviar() {
   input.value = "";
   input.style.height = "";
 
+  // Mostra a mensagem do cliente imediatamente e indicador de digitação
+  _supAppendMsg({ direcao: "entrada", conteudo: texto, criado_em: new Date().toISOString() });
   _supSetTyping(true);
 
   try {
     const data = await api("/cliente/chat/mensagem", { method: "POST", body: { texto } });
     _supSetTyping(false);
-
-    _supAppendMsg({ direcao: "entrada", conteudo: texto, criado_em: new Date().toISOString() });
-
-    if (data.resposta) {
-      _supAppendMsg({ direcao: "saida", conteudo: data.resposta, criado_em: new Date().toISOString() });
-    }
     if (data.aguardando_atendente) _supSetBanner(true);
+    // Recarrega do servidor para garantir timestamps corretos (evita loop no poll)
+    await _supCarregar();
   } catch (e) {
     _supSetTyping(false);
     console.error("[suporte] erro ao enviar:", e.message);
@@ -4328,8 +4326,10 @@ function _supIniciarPoll() {
     try {
       const desde = SUP.ultimaMsg || new Date(0).toISOString();
       const data = await api(`/cliente/chat/mensagens?desde=${encodeURIComponent(desde)}`);
-      // Só adiciona mensagens de saída novas (entrada já foi mostrada otimisticamente)
-      (data.mensagens || []).filter(m => m.direcao === "saida").forEach(_supAppendMsg);
+      // Só adiciona mensagens de saída novas com timestamp maior que o atual
+      (data.mensagens || [])
+        .filter(m => m.direcao === "saida" && (!SUP.ultimaMsg || m.criado_em > SUP.ultimaMsg))
+        .forEach(_supAppendMsg);
       if (data.aguardando_atendente) _supSetBanner(true);
     } catch (_) {}
   }, 5000);
