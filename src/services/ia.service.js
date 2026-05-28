@@ -2,6 +2,7 @@ const OpenAI = require("openai");
 const { pool } = require("../db");
 const { getConfig, getConfigBool } = require("./config.service");
 const { registrarCriacao } = require("./chamado-historico.service");
+const { sendOrcamentoIAEmail } = require("./email");
 
 let _client = null;
 function getClient() {
@@ -66,6 +67,27 @@ async function vincularClienteCondominio({ cliente_whatsapp_id, condominio_id })
 }
 
 async function abrirChamado({ conversa_id, condominio_id, titulo, descricao, prioridade, categoria }) {
+  // Backend como juiz final (Prioridade 3):
+  // P1 é emergência — abre imediatamente sem pedir confirmação.
+  // Qualquer outra prioridade: armazena como pendente_acao e aguarda confirmação do cliente.
+  // O controller detecta a confirmação na próxima mensagem e executa.
+  if (prioridade !== "p1") {
+    await pool.query(
+      `UPDATE conversas_whatsapp
+          SET pendente_acao   = $1,
+              estado_conversa = 'aguardando_confirmacao'
+        WHERE id = $2`,
+      [
+        JSON.stringify({ tipo: "abrir_chamado", params: { condominio_id, titulo, descricao, prioridade, categoria } }),
+        conversa_id,
+      ]
+    );
+    return {
+      aguardando_confirmacao: true,
+      resumo: `Chamado ${prioridade.toUpperCase()} — "${titulo}". Backend aguarda confirmação do cliente antes de abrir.`,
+    };
+  }
+
   let descricaoFinal = descricao;
 
   // Anexa snapshot de telemetria se há condomínio vinculado
@@ -87,14 +109,17 @@ async function abrirChamado({ conversa_id, condominio_id, titulo, descricao, pri
      RETURNING id`,
     [conversa_id, condominio_id || null, titulo, descricaoFinal, prioridade, categoria || 'outro']
   );
-  // Audit log: alteradoPor=null sinaliza "criado pela IA" no histórico.
   registrarCriacao({ chamadoId: result.rows[0].id, alteradoPor: null });
+  await pool.query(
+    `UPDATE conversas_whatsapp SET estado_conversa = 'chamado_aberto', pendente_acao = NULL WHERE id = $1`,
+    [conversa_id]
+  );
   return { chamado_id: result.rows[0].id };
 }
 
-async function criarSolicitacaoOrcamento({ condominio_id, resumo_pedido, observacoes }) {
-  // Constatação = bloco que aparece no PDF e na UI do admin. Sinaliza claramente
-  // que veio do WhatsApp e que ainda precisa de triagem comercial.
+// Executa de fato a criação do orçamento — chamada tanto pela IA (após confirmação)
+// quanto pelo controller quando o cliente confirma a ação pendente.
+async function _executarCriarOrcamento({ condominio_id, resumo_pedido, observacoes }) {
   const partes = [
     "Pedido recebido pelo WhatsApp (registrado pela IA).",
     `\nResumo do que o cliente solicitou:\n${resumo_pedido}`,
@@ -102,7 +127,6 @@ async function criarSolicitacaoOrcamento({ condominio_id, resumo_pedido, observa
   if (observacoes) partes.push(`\nObservações adicionais:\n${observacoes}`);
   const constatacao = partes.join("\n");
 
-  // Número sequencial OR-XXXXXX (mesma sequence usada pela criação manual).
   const numQ = await pool.query(
     "SELECT 'OR-' || LPAD(nextval('orcamento_numero_seq')::text, 6, '0') AS n"
   );
@@ -114,7 +138,52 @@ async function criarSolicitacaoOrcamento({ condominio_id, resumo_pedido, observa
      RETURNING id, numero`,
     [numero, condominio_id || null, constatacao]
   );
+
+  let condominio_nome = null;
+  if (condominio_id) {
+    try {
+      const cn = await pool.query("SELECT nome FROM condominios WHERE id = $1", [condominio_id]);
+      condominio_nome = cn.rows[0]?.nome ?? null;
+    } catch (_) {}
+  }
+  sendOrcamentoIAEmail({
+    orcamento_id: r.rows[0].id,
+    numero: r.rows[0].numero,
+    condominio_nome,
+    resumo_pedido,
+  }).catch(() => {});
+
   return { orcamento_id: r.rows[0].id, numero: r.rows[0].numero };
+}
+
+async function criarSolicitacaoOrcamento({ conversa_id, condominio_id, resumo_pedido, observacoes }) {
+  // Backend como juiz final: armazena como pendente e aguarda confirmação do cliente.
+  await pool.query(
+    `UPDATE conversas_whatsapp
+        SET pendente_acao   = $1,
+            estado_conversa = 'aguardando_confirmacao'
+      WHERE id = $2`,
+    [
+      JSON.stringify({ tipo: "criar_solicitacao_orcamento", params: { condominio_id, resumo_pedido, observacoes } }),
+      conversa_id,
+    ]
+  );
+  return {
+    aguardando_confirmacao: true,
+    resumo: `Solicitação de orçamento — "${resumo_pedido}". Backend aguarda confirmação do cliente antes de registrar.`,
+  };
+}
+
+async function escalarParaAtendente({ conversa_id }) {
+  await pool.query(
+    `UPDATE conversas_whatsapp
+        SET aguardando_atendente = TRUE,
+            estado_conversa      = 'escalado',
+            pendente_acao        = NULL
+      WHERE id = $1`,
+    [conversa_id]
+  );
+  return { ok: true };
 }
 
 // ─── Definição das ferramentas para a OpenAI ─────────────────────────────────
@@ -232,6 +301,24 @@ const tools = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "escalar_para_atendente",
+      description:
+        "Encerra o atendimento automático e coloca a conversa na fila para um atendente humano. " +
+        "Use quando: (1) você já disse que vai redirecionar; (2) a conversa está longa sem resolução; " +
+        "(3) o cliente fez 3+ perguntas que você não consegue responder com certeza. " +
+        "SEMPRE chame esta função junto com a mensagem de redirecionamento — nunca só prometa redirecionar sem chamar.",
+      parameters: {
+        type: "object",
+        properties: {
+          conversa_id: { type: "integer", description: "ID da conversa WhatsApp" },
+        },
+        required: ["conversa_id"],
+      },
+    },
+  },
 ];
 
 // ─── Executa a função solicitada pela IA ──────────────────────────────────────
@@ -244,6 +331,7 @@ async function executarFuncao(nome, args) {
     case "criar_solicitacao_orcamento": return criarSolicitacaoOrcamento(args);
     case "buscar_condominio":           return buscarCondominio(args);
     case "vincular_cliente_condominio": return vincularClienteCondominio(args);
+    case "escalar_para_atendente":      return escalarParaAtendente(args);
     default:
       throw new Error(`Função desconhecida: ${nome}`);
   }
@@ -272,10 +360,13 @@ Seu papel:
 - Responder de forma clara, objetiva e humanizada
 
 Chamado x Orçamento — escolha o caminho certo:
-- ABRIR CHAMADO quando há um problema operacional: algo quebrou, vazou, está sem água, bomba não funciona, ruído anormal, dispositivo offline. Use abrir_chamado.
 - CRIAR SOLICITAÇÃO DE ORÇAMENTO quando o cliente pede valor, cotação, "quanto custa", quer trocar/instalar/reformar algo planejado, pedir proposta para serviço novo. Use criar_solicitacao_orcamento.
-- Em dúvida entre os dois, decida pelo tom: o cliente está aflito porque algo falhou? → chamado. Está planejando uma compra/serviço? → orçamento.
 - Você NÃO cota preço nem promete prazos comerciais. No orçamento, apenas registra o pedido para a equipe comercial preencher e responder.
+
+Abertura de chamado — só com confirmação do cliente (regra importante):
+- NUNCA abra um chamado por iniciativa própria. Sempre pergunte antes: "Posso abrir um chamado para registrar isso e acionar a equipe?" — e só execute após o cliente confirmar com "sim", "pode", "por favor" ou equivalente
+- EXCEÇÃO: se o problema for P1 (sem água em todo o prédio, alagamento, cheiro de queimado, risco imediato), abra o chamado sem pedir confirmação e avise o cliente que já foi registrado como emergência — a urgência justifica agir sem esperar
+- Se o cliente já pedir explicitamente ("abre um chamado", "registra aí", "preciso de um técnico"), abra diretamente sem perguntar de novo
 
 Fluxo quando o condomínio não está identificado (condominio_id ausente):
 1. Pergunte o nome da pessoa e o nome ou endereço do condomínio de forma natural
@@ -305,6 +396,24 @@ Prioridades (Política P1-P4):
 - p3 — Controlado: funciona normalmente, precisa de inspeção ou ajuste (SLA ≤72h)
 - p4 — Agendado: preventiva, retrofit, orçamento, instalação planejada (conforme agenda)
 
+Quando encerrar o atendimento e redirecionar para um humano:
+- Se o cliente fizer 3 ou mais perguntas consecutivas que você não consegue responder com certeza (valores, prazos técnicos específicos, detalhes de contrato, situações que fogem do roteiro), redirecione: "Essa pergunta é melhor respondida diretamente pela nossa equipe. Vou deixar um atendente dar sequência, tudo bem?"
+- Se a conversa estiver longa e o cliente ainda não chegou a um desfecho claro (nem chamado, nem orçamento, nem dúvida resolvida), ofereça: "Para garantir que você seja atendido da melhor forma, posso encaminhar para um de nossos atendentes. Prefere isso?"
+- SEMPRE que disser que vai redirecionar, chame imediatamente a função escalar_para_atendente — nunca só prometa sem executar. A função garante que a IA não responda mais nessa conversa
+- Após chamar escalar_para_atendente, envie uma última mensagem de encerramento e pare. Não responda mais nada mesmo que o cliente escreva de novo — um atendente humano vai assumir
+
+Lead de telemetria — quando o cliente pergunta sobre contratar o serviço:
+- Reconheça frases como "quero saber mais sobre telemetria", "quanto custa o monitoramento", "como funciona o sistema de vocês", "tenho interesse no serviço" como leads comerciais, não problemas operacionais
+- NÃO abra chamado nesses casos. O fluxo correto é: conversar naturalmente, coletar as informações do imóvel e registrar uma solicitação de orçamento
+- Explique o serviço de forma breve e natural: a General Bombas instala sensores nos reservatórios do condomínio que monitoram o nível da água e o status das bombas em tempo real. A gestão acompanha tudo pelo painel online e recebe alertas automáticos quando algo sai do normal
+- Colete as informações necessárias em ordem natural dentro da conversa, sem parecer um formulário:
+  1. Nome da pessoa e do condomínio (ou endereço, se não souber o nome)
+  2. Quantos reservatórios o prédio tem (caixas d'água, cisternas, reservatórios de incêndio)
+  3. Se já tem sistema de bombeamento (recalque, pressurização) — ajuda a dimensionar
+  4. Qualquer necessidade específica que o cliente mencionou
+- Quando tiver o suficiente para a equipe comercial dar continuidade (pelo menos nome/condomínio e número de reservatórios), use criar_solicitacao_orcamento com um resumo completo incluindo tudo que coletou
+- Após registrar, informe que a equipe comercial vai entrar em contato em breve para apresentar uma proposta personalizada. Não prometa prazo específico nem valor
+
 Tom e estilo:
 - Você representa uma empresa profissional. Seja sempre cordial, humano e prestativo
 - Na primeira mensagem de um cliente novo, se apresente brevemente como assistente da General Bombas
@@ -315,6 +424,70 @@ Tom e estilo:
 - Não use expressões robóticas como "Claro!", "Certamente!", "Com prazer!"
 - Não invente dados. Se não souber, diga que vai verificar com a equipe
 - Responda sempre em português brasileiro`;
+
+// Busca telemetria, alertas e chamados abertos do condomínio para injetar
+// como contexto antes de chamar a OpenAI. Nunca bloqueia — erros são silenciosos.
+async function _buscarContextoOperacional(condominio_id) {
+  if (!condominio_id) return null;
+  try {
+    const [telRes, alertRes, chamRes] = await Promise.all([
+      pool.query(
+        `SELECT r.nome, l.nivel_pct, l.bomba_ligada
+           FROM reservatorios r
+           LEFT JOIN LATERAL (
+             SELECT nivel_pct, bomba_ligada
+               FROM leituras WHERE device_id = r.device_id
+              ORDER BY criado_em DESC LIMIT 1
+           ) l ON true
+          WHERE r.condominio_id = $1`,
+        [condominio_id]
+      ),
+      pool.query(
+        `SELECT tipo, mensagem FROM alertas
+          WHERE condominio_id = $1 AND status = 'aberto'
+          ORDER BY criado_em DESC LIMIT 5`,
+        [condominio_id]
+      ),
+      pool.query(
+        `SELECT titulo, prioridade, status FROM chamados
+          WHERE condominio_id = $1 AND status != 'fechado'
+          ORDER BY criado_em DESC LIMIT 3`,
+        [condominio_id]
+      ),
+    ]);
+
+    const linhas = [];
+    if (telRes.rows.length) {
+      linhas.push("TELEMETRIA ATUAL:");
+      telRes.rows.forEach(r => {
+        const nivel = r.nivel_pct != null ? `${r.nivel_pct}%` : "sem leitura";
+        const bomba = r.bomba_ligada ? "LIGADA" : "DESLIGADA";
+        linhas.push(`  • ${r.nome}: nível ${nivel}, bomba ${bomba}`);
+      });
+    }
+    if (alertRes.rows.length) {
+      linhas.push("ALERTAS ABERTOS:");
+      alertRes.rows.forEach(a => linhas.push(`  • ${a.tipo}: ${a.mensagem}`));
+    }
+    if (chamRes.rows.length) {
+      linhas.push("CHAMADOS EM ABERTO:");
+      chamRes.rows.forEach(c =>
+        linhas.push(`  • [${c.prioridade.toUpperCase()}] ${c.titulo} (${c.status})`)
+      );
+    }
+    return linhas.length ? linhas.join("\n") : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+// Ferramentas que indicam progresso real na conversa (reset do anti-loop)
+const FERRAMENTAS_PROGRESSO = new Set([
+  "abrir_chamado",
+  "criar_solicitacao_orcamento",
+  "vincular_cliente_condominio",
+  "escalar_para_atendente",
+]);
 
 async function processarComIA({
   conversa_id,
@@ -350,13 +523,19 @@ async function processarComIA({
   }
   if (contato_observacoes) ctxLinhas.push(`- Observações do cadastro: ${contato_observacoes}`);
 
+  // Contexto operacional pré-injetado (Prioridade 2 — evita tool calls desnecessários)
+  const ctxOperacional = await _buscarContextoOperacional(condominio_id);
+  const blocoOperacional = ctxOperacional
+    ? `\n\nSITUAÇÃO ATUAL DO CONDOMÍNIO (dados em tempo real — use para contextualizar sem precisar chamar buscar_telemetria):\n${ctxOperacional}`
+    : "";
+
   const blocoContexto = ctxLinhas.length
     ? `\n\nCONTEXTO PRÉ-CADASTRADO DO CONTATO (use sem perguntar de novo, cumprimente pelo nome quando fizer sentido):\n${ctxLinhas.join("\n")}`
     : "";
 
   // Monta o histórico no formato da OpenAI
   const messages = [
-    { role: "system", content: systemPrompt + blocoContexto },
+    { role: "system", content: systemPrompt + blocoContexto + blocoOperacional },
     ...historico.map((m) => ({
       role: m.direcao === "entrada" ? "user" : "assistant",
       content: m.conteudo || "",
@@ -364,6 +543,7 @@ async function processarComIA({
   ];
 
   let resposta = null;
+  const ferramentasUsadas = new Set();
 
   // Loop de function calling — a IA pode chamar múltiplas funções antes de responder
   while (true) {
@@ -378,16 +558,15 @@ async function processarComIA({
     messages.push(choice.message);
 
     if (choice.finish_reason === "tool_calls") {
-      // Executa cada função solicitada pela IA
       for (const call of choice.message.tool_calls) {
         const args = JSON.parse(call.function.arguments);
 
-        // Injeta conversa_id e condominio_id se a função precisar
-        args.conversa_id         = conversa_id; // sempre usa o valor real do contexto
+        args.conversa_id         = conversa_id;
         args.cliente_whatsapp_id = args.cliente_whatsapp_id ?? cliente_whatsapp_id;
         if (condominio_id) args.condominio_id = args.condominio_id ?? condominio_id;
 
         console.log(`[ia] chamando ${call.function.name}`, args);
+        ferramentasUsadas.add(call.function.name);
 
         let resultado;
         try {
@@ -405,12 +584,12 @@ async function processarComIA({
       continue;
     }
 
-    // finish_reason === "stop" — IA terminou de responder
     resposta = choice.message.content;
     break;
   }
 
-  return resposta;
+  const progresso = [...ferramentasUsadas].some(f => FERRAMENTAS_PROGRESSO.has(f));
+  return { resposta, progresso };
 }
 
-module.exports = { processarComIA, SYSTEM_PROMPT_PADRAO };
+module.exports = { processarComIA, SYSTEM_PROMPT_PADRAO, _executarCriarOrcamento };

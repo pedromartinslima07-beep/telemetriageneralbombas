@@ -1,7 +1,7 @@
 const express = require("express");
 const OpenAI = require("openai");
 const { pool } = require("../db");
-const { receberWebhook } = require("../controllers/whatsapp.controller");
+const { receberWebhook, verificarWebhook } = require("../controllers/whatsapp.controller");
 const { enviarMensagem } = require("../services/evolution.service");
 const { authRequired } = require("../middleware/authRequired");
 const { adminOnly } = require("../middleware/adminOnly");
@@ -30,7 +30,8 @@ async function _buscarMensagensParaIA(convId) {
 
 const router = express.Router();
 
-router.post("/webhook", receberWebhook);
+router.get("/webhook", verificarWebhook);   // verificação da Meta
+router.post("/webhook", receberWebhook);    // receber mensagens
 
 // GET /whatsapp/conversas
 router.get("/conversas", authRequired, adminOnly, async (req, res) => {
@@ -137,7 +138,7 @@ router.patch("/conversas/:id/fechar", authRequired, adminOnly, async (req, res) 
   try {
     const r = await pool.query(
       `UPDATE conversas_whatsapp
-       SET status = 'fechada', fechado_em = NOW()
+       SET status = 'fechada', fechado_em = NOW(), estado_conversa = 'finalizado'
        WHERE id = $1
        RETURNING id, status, fechado_em`,
       [id]
@@ -181,7 +182,8 @@ router.patch("/conversas/:id/assumir", authRequired, adminOnly, async (req, res)
   try {
     const r = await pool.query(
       `UPDATE conversas_whatsapp
-       SET assumida_por_id = $1, assumida_em = NOW(), status = 'em_atendimento'
+       SET assumida_por_id = $1, assumida_em = NOW(), status = 'em_atendimento',
+           aguardando_atendente = FALSE
        WHERE id = $2
        RETURNING id, assumida_por_id, assumida_em, status`,
       [req.user?.id || null, id]

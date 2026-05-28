@@ -1533,15 +1533,24 @@ A IA hoje usa um `system_prompt` genérico (Fase 6D deixou ele editável). Confo
 
 ---
 
-## Variáveis de ambiente novas necessárias
+## Variáveis de ambiente necessárias
 
 ```env
-EVOLUTION_API_URL=https://sua-evolution-api.com
-EVOLUTION_API_KEY=chave-da-evolution-api
-EVOLUTION_WEBHOOK_TOKEN=token-secreto-do-webhook
-EVOLUTION_INSTANCE=nome-da-instancia
 OPENAI_API_KEY=sk-...
+
+# WhatsApp Business API (Meta) — obtidas no Meta for Developers
+WHATSAPP_VERIFY_TOKEN=token-que-voce-cria-para-verificar-o-webhook
+WHATSAPP_ACCESS_TOKEN=token-de-acesso-permanente-do-sistema-meta
+WHATSAPP_PHONE_NUMBER_ID=id-do-numero-no-meta
 ```
+
+### Como obter as variáveis Meta
+
+1. Acesse developers.facebook.com → crie app do tipo Business → adicione produto WhatsApp
+2. `WHATSAPP_PHONE_NUMBER_ID` — em WhatsApp > Configuração da API, campo "ID do número de telefone"
+3. `WHATSAPP_ACCESS_TOKEN` — token permanente gerado em Configurações do Sistema > Usuários do Sistema
+4. `WHATSAPP_VERIFY_TOKEN` — valor livre que você define; deve ser igual ao configurado no painel de webhook da Meta
+5. URL do webhook a registrar na Meta: `https://SEU_DOMINIO/whatsapp/webhook`
 
 ---
 
@@ -1733,6 +1742,110 @@ A página Clientes acumulava 3 entradas de edição no painel direito (botão "+
 - **Painel direito**: cards "Contrato" e "Contatos WhatsApp" agora só mostram informação (sem botões `+` nem "Editar"). Texto vazio orienta usar o botão "Editar" geral do condomínio.
 - Sincronização: ao salvar contrato/contato nos modais internos, tanto o painel direito quanto a tab ativa do `editOverlay` se atualizam (via `_cliInvalidar*` + `_editCondoIdAtivo`).
 - CSS novo `.edit-tabs` / `.edit-tab` / `.edit-tab.is-active` / `.edit-tab-pane` em amber (alinhado ao botão Editar).
+
+---
+
+### Fluxo Geral Revisado (2026-05-28) — versão para apresentação
+
+```
+ENTRADA
+  Cliente → Meta WhatsApp Business API (número verificado ✓) → POST /whatsapp/webhook
+
+PRÉ-VALIDAÇÕES (backend, antes da IA)
+  • Conversa assumida por humano → IA silenciosa
+  • Aguardando atendente → IA silenciosa
+  • Avaliação pendente (resposta 1–4) → captura nota, encerra
+  • Sessão expirada (>8h) → nova conversa, IA faz primeiro contato do zero
+
+CONTEXTO INJETADO AUTOMATICAMENTE
+  • Telemetria atual (nível reservatórios, status bombas)
+  • Alertas abertos
+  • Chamados em andamento
+  → IA já entra sabendo o estado real sem precisar buscar
+
+IA CLASSIFICA, BACKEND DECIDE
+  Intent → Ação pendente → Cliente confirma → Backend executa
+  (A IA nunca executa ações diretamente — só sugere)
+
+  Problema operacional → backend armazena pendente → "Posso abrir um chamado?" → cliente confirma → chamado aberto
+  Emergência P1       → backend executa direto (urgência, sem confirmação)
+  Pedido de orçamento → backend armazena pendente → confirmação → orçamento registrado + email equipe comercial
+  Conversa complexa   → escala para humano
+
+MÁQUINA DE ESTADOS
+  TRIAGEM → AGUARDANDO_CONFIRMAÇÃO → CHAMADO_ABERTO → FINALIZADO
+                                   → TRIAGEM (negado)
+  TRIAGEM → ESCALADO → FINALIZADO
+
+PROTEÇÃO ANTI-LOOP
+  3 trocas sem avanço → escalação automática para humano
+
+POLÍTICA P1–P4
+  P1 Crítico  ≤3h   | sem água, alagamento, risco imediato
+  P2 Alta   24–48h  | funciona parcialmente, risco de agravar
+  P3 Controlado ≤72h | funciona, precisa de inspeção
+  P4 Agendado       | preventiva, instalação planejada
+  Recorrência: mesma falha no mês → sobe 1 nível automaticamente
+
+CICLO DO CHAMADO
+  aberto → técnico atribuído → em atendimento (GPS chegada)
+  → O.S. digital preenchida (fotos, assinatura) → concluído (PDF gerado)
+
+SLA
+  TTFR e TTR calculados por chamado
+  Badge de alerta no painel quando prazo estoura
+  Email automático quando chamado para há mais de X horas
+  Dashboard SLA por técnico / prioridade / período
+
+SESSÃO WHATSAPP (ciclo automático)
+  IA resolve → cliente some → 8h → sistema fecha
+  → "Como foi o atendimento? 1-Ótimo 2-Bom 3-Regular 4-Ruim"
+  → avaliação salva → alimenta curadoria para treinamento futuro
+  → próximo contato = nova sessão limpa
+
+ATENDIMENTO HUMANO
+  IA encaminha (ou anti-loop aciona) → "Aguardando" na central
+  → atendente assume → IA para definitivamente
+  → atendente fecha → prompt de qualidade → avaliação salva
+```
+
+---
+
+### Migrations aplicadas (2026-05-28)
+- **041** — `ia_sem_avanco SMALLINT` — contador anti-loop
+- **042** — `estado_conversa VARCHAR(30)` + `pendente_acao JSONB` — state machine
+
+### Melhorias arquiteturais implementadas (resposta a auditoria)
+1. **Anti-loop** — `ia_sem_avanco`, escalação automática em 3 trocas sem progresso
+2. **Contexto pré-injetado** — `_buscarContextoOperacional` injeta telemetria/alertas/chamados antes de cada chamada à OpenAI
+3. **Backend como juiz final** — `abrir_chamado` (não-P1) e `criar_solicitacao_orcamento` ficam em `pendente_acao`, executam só após confirmação explícita do cliente
+4. **State machine formal** — `triagem → aguardando_confirmacao → chamado_aberto / escalado / finalizado`
+5. **`estado_conversa = 'finalizado'`** setado tanto no fechamento manual quanto no job de timeout
+
+---
+
+### Gateway WhatsApp — Migração para Meta Business API ✅ CÓDIGO PRONTO / PENDENTE CONFIGURAÇÃO
+
+**Decisão:** abandonar Evolution API (self-hosted, complexo de configurar no Railway) e Z-API (risco de ban) em favor da **WhatsApp Business API oficial da Meta** — número verificado, zero risco de ban, custo por conversa.
+
+**O que mudou no código:**
+- `src/services/evolution.service.js` — reescrito para a Meta Graph API (`POST /v20.0/{phone_number_id}/messages`, `Authorization: Bearer {token}`)
+- `src/controllers/whatsapp.controller.js` — reescrito para o formato de webhook da Meta (payload `entry[].changes[].value.messages[]`) + handler GET de verificação do webhook
+- `src/routes/whatsapp.routes.js` — adicionado `GET /webhook` para verificação
+- Migrations 039 (`aguardando_atendente`) e 040 (`aguardando_avaliacao`) aplicadas em produção — compatíveis com a Meta API
+
+**Melhorias implementadas junto (Migrations 039/040):**
+- IA para de responder imediatamente ao chamar `escalar_para_atendente` (tool nova)
+- Timeout de sessão configurável (`whatsapp.sessao_timeout_horas`, padrão 8h) — job fecha conversas inativas e pede avaliação via WhatsApp (1-Ótimo / 2-Bom / 3-Regular / 4-Ruim)
+- Avaliação pós-atendimento capturada diretamente no WhatsApp (sem depender de clique no admin)
+- Qualidade do atendimento movida do painel direito para o momento do fechamento manual
+
+**O que falta para ativar:**
+1. Criar app no developers.facebook.com (tipo Business) + adicionar produto WhatsApp
+2. Cadastrar número da empresa e obter `WHATSAPP_PHONE_NUMBER_ID`
+3. Gerar token permanente (`WHATSAPP_ACCESS_TOKEN`) via Usuário do Sistema no Business Manager
+4. Subir a branch para o Railway (merge ou deploy direto)
+5. Configurar webhook na Meta: URL `https://SEU_DOMINIO/whatsapp/webhook`, verify token `general-bombas-verify-2026`
 
 ---
 

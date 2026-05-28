@@ -1829,6 +1829,27 @@
 
             <div class="card cfg-card cfg-card-wide">
               <div class="cfg-card-head">
+                <svg class="cfg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                <div>
+                  <h3>Tempo de sessão do WhatsApp</h3>
+                  <p>Se o cliente ficar sem responder por mais desse tempo, o próximo contato abre uma nova sessão e a IA faz o primeiro atendimento do zero.</p>
+                </div>
+              </div>
+              <div class="cfg-form">
+                <div class="field">
+                  <label class="lbl">Timeout de inatividade (horas)</label>
+                  <input type="number" id="cfgWaSessaoTimeout" class="input" min="1" max="72" style="max-width:120px;">
+                  <p class="cfg-hint">Entre 1 e 72 horas. Padrão recomendado: 8h (um turno comercial). Sessões assumidas por humano não são afetadas.</p>
+                </div>
+                <div class="cfg-actions">
+                  <span id="cfgWaSessaoMsg" class="cfg-msg"></span>
+                  <button class="btn btnAccent btn-sm" data-cfg-action="salvar-wa-sessao">Salvar</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="card cfg-card cfg-card-wide">
+              <div class="cfg-card-head">
                 <svg class="cfg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                 <div>
                   <h3>Curadoria de conversas</h3>

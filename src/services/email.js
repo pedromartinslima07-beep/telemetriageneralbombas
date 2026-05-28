@@ -187,4 +187,68 @@ async function sendChamadoAtrasoEmail(dados) {
   }
 }
 
-module.exports = { sendOTP, sendAlertaEmail, sendChamadoAtrasoEmail };
+// Envia email avisando a equipe comercial que a IA registrou um pedido de orçamento.
+// Vai pra mesma lista de destinatários de `alertas.email_destinatario`.
+//
+// dados: { orcamento_id, numero, condominio_nome, resumo_pedido }
+async function sendOrcamentoIAEmail(dados) {
+  const destinatariosRaw = await getConfig("alertas.email_destinatario", "");
+  if (!destinatariosRaw) return;
+  if (!process.env.RESEND_API_KEY) return;
+
+  const to = String(destinatariosRaw)
+    .split(",")
+    .map(s => s.trim())
+    .filter(s => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s));
+  if (!to.length) return;
+
+  const numero  = dados.numero || `#${dados.orcamento_id}`;
+  const condo   = dados.condominio_nome || "Não identificado";
+  const resumo  = dados.resumo_pedido || "—";
+  const dataFmt = new Date().toLocaleString("pt-BR");
+  const cor     = "#f0b014";
+
+  try {
+    await getResend().emails.send({
+      from: `General Telemetria <${_emailFrom()}>`,
+      to,
+      subject: `[Orçamento] Novo pedido via WhatsApp — ${numero}`,
+      text: [
+        `Novo pedido de orçamento registrado pela IA (WhatsApp).`,
+        `Número: ${numero}`,
+        `Condomínio: ${condo}`,
+        `Pedido: ${resumo}`,
+        `Recebido em: ${dataFmt}`,
+        "",
+        "Acesse o painel → Orçamentos → aba Rascunho para preencher e enviar.",
+      ].join("\n"),
+      html: `
+        <div style="font-family:sans-serif;max-width:520px;margin:auto;padding:24px;background:#0b0f1f;color:#eef0fb;border-radius:12px;">
+          <div style="display:flex;align-items:center;gap:10px;padding-bottom:14px;border-bottom:1px solid rgba(255,255,255,.08);">
+            <div style="width:36px;height:36px;border-radius:8px;background:${cor};display:inline-flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:18px;">💰</div>
+            <div>
+              <div style="font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:.6px;">Novo pedido via WhatsApp</div>
+              <div style="font-size:16px;font-weight:700;color:${cor};">Orçamento ${numero}</div>
+            </div>
+          </div>
+          <table style="width:100%;margin-top:16px;font-size:13.5px;line-height:1.6;border-collapse:collapse;">
+            <tr><td style="color:#94a3b8;padding:6px 0;width:130px;">Número</td><td style="font-weight:600;">${numero}</td></tr>
+            <tr><td style="color:#94a3b8;padding:6px 0;">Condomínio</td><td style="font-weight:600;">${condo}</td></tr>
+            <tr><td style="color:#94a3b8;padding:6px 0;">Recebido em</td><td style="font-weight:600;">${dataFmt}</td></tr>
+          </table>
+          <div style="margin-top:14px;padding:12px;background:rgba(255,255,255,.04);border-radius:8px;font-size:13px;color:#cbd5e1;">
+            <div style="font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Pedido do cliente</div>
+            ${resumo}
+          </div>
+          <p style="margin-top:18px;font-size:12px;color:#6b7280;">
+            Acesse o painel → <strong style="color:#f0b014;">Orçamentos → aba Rascunho</strong> para preencher os valores e enviar ao cliente.
+          </p>
+        </div>
+      `,
+    });
+  } catch (err) {
+    console.error("[email] erro ao enviar notificação de orçamento IA:", err.message);
+  }
+}
+
+module.exports = { sendOTP, sendAlertaEmail, sendChamadoAtrasoEmail, sendOrcamentoIAEmail };

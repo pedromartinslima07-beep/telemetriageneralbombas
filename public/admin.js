@@ -5002,8 +5002,6 @@ function _waRenderInfo(conv) {
       <div id="waIaResult"></div>
     </div>
 
-    ${_waRenderQualidadeSection(conv)}
-
     <div class="wa-info-section">
       <div class="wa-info-title">Histórico de chamados</div>
       ${histHtml}
@@ -5207,8 +5205,52 @@ async function _waDevolverIA(convId) {
   }
 }
 
-async function _waFecharConversa(convId) {
+function _waFecharConversa(convId) {
+  // Mostra mini-modal de avaliação inline no header do chat antes de fechar
+  const header = document.querySelector(".wa-chat-header");
+  if (!header) { _waFecharConversaConfirmar(convId, null); return; }
+
+  // Evita duplicar se já estiver aberto
+  if (document.getElementById("waQaInline")) { _waFecharConversaConfirmar(convId, null); return; }
+
+  const div = document.createElement("div");
+  div.id = "waQaInline";
+  div.innerHTML = `
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;
+                padding:14px 16px;margin-top:8px;display:flex;flex-direction:column;gap:10px;">
+      <div style="font-size:12px;font-weight:600;color:var(--text);">Como foi este atendimento?</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        ${_WA_QUALIDADES.map(q =>
+          `<button class="btn btn-sm wa-qa-btn ${q.cls}" type="button"
+             data-qa-fechar="${convId}" data-q="${q.v}">${q.label}</button>`
+        ).join("")}
+        <button class="btn btn-sm" type="button" data-qa-fechar="${convId}" data-q=""
+          style="color:var(--muted);margin-left:auto;">Pular</button>
+      </div>
+    </div>`;
+
+  // Delega clique nos botões
+  div.addEventListener("click", async e => {
+    const btn = e.target.closest("[data-qa-fechar]");
+    if (!btn) return;
+    const qualidade = btn.dataset.q || null;
+    div.remove();
+    await _waFecharConversaConfirmar(Number(btn.dataset.qaFechar), qualidade);
+  });
+
+  header.after(div);
+}
+
+async function _waFecharConversaConfirmar(convId, qualidade) {
   try {
+    // Salva qualidade antes de fechar (se escolheu)
+    if (qualidade) {
+      await fetch(`/whatsapp/conversas/${convId}/qualidade`, {
+        method: "PATCH",
+        headers: { ...authHeaders(), "Content-Type": "application/json" },
+        body: JSON.stringify({ qualidade }),
+      });
+    }
     const r = await fetch(`/whatsapp/conversas/${convId}/fechar`, {
       method: "PATCH", headers: authHeaders(),
     });
@@ -9044,6 +9086,7 @@ function _cfgAplicarConfigsUI() {
   const enabled = document.getElementById("cfgIaEnabled");   if (enabled) enabled.checked = v["ia.enabled"] === "true";
   const modelo  = document.getElementById("cfgIaModelo");    if (modelo)  modelo.value   = v["ia.modelo"] || "gpt-4o-mini";
   const prompt  = document.getElementById("cfgIaPrompt");    if (prompt)  prompt.value   = v["ia.system_prompt"] || (_cfgConfigs?.padroes?.["ia.system_prompt"] || "");
+  const waTout  = document.getElementById("cfgWaSessaoTimeout"); if (waTout) waTout.value = v["whatsapp.sessao_timeout_horas"] || "8";
   // Notificações
   const email   = document.getElementById("cfgEmailDestinatario"); if (email)   email.value   = v["alertas.email_destinatario"] || "";
   const interv  = document.getElementById("cfgOfflineIntervalo");  if (interv)  interv.value  = v["jobs.offline_intervalo_min"] || "1";
@@ -9068,6 +9111,12 @@ async function _cfgSalvarIa() {
     "ia.system_prompt": document.getElementById("cfgIaPrompt")?.value || "",
   };
   await _cfgEnviarConfigs(payload, "cfgIaMsg", "Configurações de IA salvas");
+}
+
+async function _cfgSalvarWaSessao() {
+  const v = document.getElementById("cfgWaSessaoTimeout")?.value;
+  if (!v || isNaN(Number(v))) return;
+  await _cfgEnviarConfigs({ "whatsapp.sessao_timeout_horas": String(Math.round(Number(v))) }, "cfgWaSessaoMsg", "Tempo de sessão salvo");
 }
 
 async function _cfgSalvarNotificacoes() {
@@ -9742,6 +9791,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (action === "sair-todos")          return _cfgSairTodos();
     if (action === "revogar-disp")        return _cfgRevogarDispositivo(id);
     if (action === "salvar-ia")           return _cfgSalvarIa();
+    if (action === "salvar-wa-sessao")    return _cfgSalvarWaSessao();
     if (action === "restaurar-prompt")    return _cfgRestaurarPrompt();
     if (action === "recarregar-curadoria") return _cfgCarregarCuradoria();
     if (action === "exportar-curadoria")   return _cfgExportarCuradoria(btn);

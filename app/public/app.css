@@ -2469,7 +2469,7 @@ body:has(.screen-auth[data-active])::before { display: none; }
 
 /* ===== KPIs — 3 colunas (override do .resumo-grid no mobile) ===== */
 .cli-kpi-grid {
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
   gap: 8px;
 }
 .cli-kpi-grid .rc {
