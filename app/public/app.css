@@ -2730,7 +2730,7 @@ body:has(.screen-auth[data-active])::before { display: none; }
 /* ===== Chat de suporte (tela cliente-suporte) ===== */
 .suporte-shell {
   display: flex; flex-direction: column;
-  height: 100%; overflow: hidden;
+  flex: 1; min-height: 0; overflow: hidden;
 }
 .suporte-msgs {
   flex: 1; overflow-y: auto;
