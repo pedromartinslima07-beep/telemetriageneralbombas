@@ -4339,14 +4339,14 @@ function _supBindComposer() {
   const input  = document.getElementById("cliSuporteInput");
   const btn    = document.getElementById("cliSuporteSend");
   if (!input || !btn) return;
+  if (input.dataset.supBound) return; // já foi vinculado — evita listeners duplicados
+  input.dataset.supBound = "1";
 
-  // Auto-resize
   input.addEventListener("input", () => {
     input.style.height = "";
     input.style.height = Math.min(input.scrollHeight, 120) + "px";
   });
 
-  // Enter envia, Shift+Enter quebra linha
   input.addEventListener("keydown", e => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); _supEnviar(); }
   });
