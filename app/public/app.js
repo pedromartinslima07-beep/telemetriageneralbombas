@@ -3522,9 +3522,29 @@ function renderClienteChamados() {
   };
   const filtrados = _cliChTab === "todos" ? CLI.chamados : CLI.chamados.filter((c) => c.status === _cliChTab);
 
-  const svgList = `<svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg>`;
+  const svgList   = `<svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg>`;
+  const svgTicket = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
+  const svgClock  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`;
+  const svgCheck  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`;
+
+  const kpi = (icon, val, lbl, kindCls, tab) => `
+    <button type="button" class="rc ${kindCls}" data-kpi-tab="${tab}">
+      <div class="rc-head">
+        <div class="rc-icon">${icon}</div>
+        <div class="rc-label">${lbl}</div>
+      </div>
+      <div class="rc-value">${val}</div>
+    </button>`;
+
+  const kpisHtml = `
+    <div class="resumo-grid cli-kpi-grid">
+      ${kpi(svgTicket, counts.aberto,        "Abertos",      counts.aberto        > 0 ? "rc-warn"    : "rc-ok",      "aberto")}
+      ${kpi(svgClock,  counts.em_atendimento, "Em atend.",    counts.em_atendimento > 0 ? "rc-warn"   : "rc-neutral", "em_atendimento")}
+      ${kpi(svgCheck,  counts.fechado,        "Fechados",     counts.fechado       > 0 ? "rc-ok"      : "rc-neutral", "fechado")}
+    </div>`;
 
   main.innerHTML = `
+    ${kpisHtml}
     <section class="card tec-card">
       <div class="cardHead">
         <h2>${svgList}Meus chamados</h2>
@@ -3548,6 +3568,9 @@ function renderClienteChamados() {
         : `<div class="ch-list-mob">${filtrados.map(renderChamadoCardCli).join("")}</div>`}
     </section>`;
 
+  main.querySelectorAll("[data-kpi-tab]").forEach((b) => {
+    b.addEventListener("click", () => { _cliChTab = b.dataset.kpiTab; renderClienteChamados(); });
+  });
   main.querySelectorAll(".wa-tab").forEach((b) => {
     b.addEventListener("click", () => { _cliChTab = b.dataset.tab; renderClienteChamados(); });
   });

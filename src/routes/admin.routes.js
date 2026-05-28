@@ -635,7 +635,7 @@ router.patch("/sla/:prioridade", authRequired, masterAdminOnly, async (req, res)
   }
 
   try {
-    const sets = ["atualizado_em = NOW()", `atualizado_por = ${req.user.id}`];
+    const sets = ["atualizado_em = NOW()", `atualizado_por = (SELECT id FROM usuarios WHERE id = ${req.user.id} LIMIT 1)`];
     const vals = [prioridade];
     if (ttfr !== null) { vals.push(ttfr); sets.push(`ttfr_min = $${vals.length}`); }
     if (ttr  !== null) { vals.push(ttr);  sets.push(`ttr_min  = $${vals.length}`); }

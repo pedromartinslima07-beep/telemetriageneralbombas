@@ -14,6 +14,20 @@ async function _executarAcaoPendente(conversaId, pendente, telefone) {
   if (tipo === "abrir_chamado") {
     const { condominio_id, titulo, descricao, prioridade, categoria } = params;
 
+    // Guard anti-duplicata: se já existe chamado aberto nesta conversa, não cria outro.
+    const dup = await pool.query(
+      `SELECT id FROM chamados WHERE conversa_id = $1 AND status != 'fechado' LIMIT 1`,
+      [conversaId]
+    );
+    if (dup.rows.length) {
+      await pool.query(
+        `UPDATE conversas_whatsapp SET pendente_acao = NULL, estado_conversa = 'chamado_aberto' WHERE id = $1`,
+        [conversaId]
+      );
+      console.log(`[whatsapp] duplicata bloqueada: chamado ${dup.rows[0].id} já existe para conversa ${conversaId}`);
+      return;
+    }
+
     let descricaoFinal = descricao;
     if (condominio_id) {
       try {

@@ -50,6 +50,16 @@ function showSection(name) {
     renderTelemetriaAvancada();
     carregarHistoricoTelemetria();
   }
+
+  if (name === "chamados") {
+    for (const ch of (_chamadosData || [])) _chamadosIdsAck.add(ch.id);
+    atualizarBadgesChamados();
+  }
+  if (name === "alertas") {
+    for (const a  of (_alertasAbertos   || [])) _alertasIdsAck.add(`al-${a.id}`);
+    for (const ch of _chamadosP12Abertos())     _alertasIdsAck.add(`ch-${ch.id}`);
+    _atualizarBadgeAlertas();
+  }
   if (name === "relatorios") {
     renderRelatorios();
   }
@@ -186,6 +196,10 @@ let _relResDados = null; // cache reservatórios (telemetria + alertas merged)
 // chamados já vistos — usado para detectar novos e disparar pulso/beep
 let _chamadosIdsVistos = new Set();
 let _chamadosInicializado = false;
+
+// IDs reconhecidos pelo admin ao visitar a seção — badge some ao entrar, volta ao chegar item novo
+let _chamadosIdsAck  = new Set();
+let _alertasIdsAck   = new Set();
 
 // charts ApexCharts ativos no drawer (id reservatório → instance)
 let _drawerGauges = new Map();
@@ -1660,7 +1674,9 @@ function _chamadosP12Abertos() {
 function _atualizarBadgeAlertas() {
   const badge = document.getElementById("navBadgeAlertas");
   if (!badge) return;
-  const total = (_alertasAbertos || []).length + _chamadosP12Abertos().length;
+  const nAlertas  = (_alertasAbertos || []).filter(a => !_alertasIdsAck.has(`al-${a.id}`)).length;
+  const nChamados = _chamadosP12Abertos().filter(ch => !_alertasIdsAck.has(`ch-${ch.id}`)).length;
+  const total = nAlertas + nChamados;
   badge.textContent = total;
   badge.style.display = total > 0 ? "inline-flex" : "none";
 }
@@ -3610,7 +3626,7 @@ async function carregarTudo() {
 }
 
 function atualizarBadgesChamados() {
-  const n = _chamadosData.filter(ch => ch.status !== "fechado").length;
+  const n = _chamadosData.filter(ch => ch.status !== "fechado" && !_chamadosIdsAck.has(ch.id)).length;
   const badge = document.getElementById("navBadgeChamados");
   if (badge) { badge.textContent = n; badge.style.display = n > 0 ? "inline-flex" : "none"; }
   const mobBadge = document.getElementById("mobBadgeChamados");
@@ -3684,7 +3700,7 @@ function tocarBeepEmergencia() {
 }
 
 function atualizarBadgesWhatsapp() {
-  const n = _conversasData.filter(cv => cv.status === "aberta").length;
+  const n = _conversasData.filter(cv => cv.unread_count > 0).length;
   const badge = document.getElementById("navBadgeWhatsapp");
   if (badge) { badge.textContent = n; badge.style.display = n > 0 ? "inline-flex" : "none"; }
 }
@@ -4030,11 +4046,9 @@ function renderChDetalhe(ch) {
   }
 
   const fechado   = ch.status === "fechado";
-  const emAtend   = ch.status === "em_atendimento";
   const acoes = fechado
     ? `<button class="btn btn-sm viewer-only-hide" data-action="reabrir-chamado" data-id="${ch.id}">↺ Reabrir</button>`
-    : `${!emAtend ? `<button class="btn btn-sm btnAccent viewer-only-hide" data-action="atender-chamado" data-id="${ch.id}">▶ Em atendimento</button>` : ""}
-       <button class="btn btn-sm viewer-only-hide" style="color:var(--ok);border-color:rgba(34,197,94,.3);" data-action="fechar-chamado" data-id="${ch.id}">✓ Fechar</button>`;
+    : `<button class="btn btn-sm viewer-only-hide" style="color:var(--ok);border-color:rgba(34,197,94,.3);" data-action="fechar-chamado" data-id="${ch.id}">✓ Fechar</button>`;
 
   col.innerHTML = `<div class="ch-detail">
     <div class="ch-det-head">
@@ -4777,6 +4791,7 @@ async function _waSelecionar(id) {
     const cvLocal = (_conversasData || []).find(c => c.id === _waSelecionadaId);
     if (cvLocal) cvLocal.unread_count = 0;
     _waRenderLista();
+    atualizarBadgesWhatsapp();
     const inp = document.getElementById("waChatInput");
     if (inp) inp.style.display = "flex";
   } catch (e) {
@@ -5384,16 +5399,6 @@ async function fecharChamadoAction(id) {
   if (_drawerCondoId) renderDrawerChamados();
 }
 
-async function atenderChamadoAction(id) {
-  const r = await fetch(`/chamados/${id}`, {
-    method: "PATCH",
-    headers: { ...authHeaders(), "Content-Type": "application/json" },
-    body: JSON.stringify({ status: "em_atendimento" }),
-  });
-  if (!r.ok) { alert("Erro ao atualizar chamado"); return; }
-  await carregarTudo();
-  if (_drawerCondoId) renderDrawerChamados();
-}
 
 async function reabrirChamadoAction(id) {
   const r = await fetch(`/chamados/${id}`, {
@@ -5652,7 +5657,6 @@ function renderDrawerChamados() {
         ${orcBloco}
         ${ch.status !== "fechado" ? `
         <div class="dp-chamado-actions viewer-only-hide">
-          ${ch.status === "aberto" ? `<button class="btn btn-sm" data-action="atender-chamado" data-id="${ch.id}">Em atendimento</button>` : ""}
           <button class="btn btn-sm" data-action="fechar-chamado" data-id="${ch.id}">Fechar</button>
         </div>` : ""}
       </div>`;
@@ -10259,12 +10263,6 @@ document.addEventListener("DOMContentLoaded", () => {
     if (action === "fechar-chamado") {
       const id = Number(btn.dataset.id);
       if (id) fecharChamadoAction(id);
-      return;
-    }
-
-    if (action === "atender-chamado") {
-      const id = Number(btn.dataset.id);
-      if (id) atenderChamadoAction(id);
       return;
     }
 

@@ -47,6 +47,63 @@ async function buscarChamadosAbertos({ condominio_id }) {
   return result.rows;
 }
 
+async function buscarStatusTecnico({ chamado_id }) {
+  const r = await pool.query(
+    `SELECT
+       ch.id, ch.status,
+       ch.tecnico_a_caminho_em, ch.tecnico_chegou_em,
+       ch.tecnico_id,
+       u.nome        AS tecnico_nome,
+       cd.lat        AS condo_lat,
+       cd.lng        AS condo_lng,
+       tl.lat        AS tec_lat,
+       tl.lng        AS tec_lng,
+       tl.capturada_em AS tec_gps_em
+     FROM chamados ch
+     LEFT JOIN usuarios            u  ON u.id  = ch.tecnico_id
+     LEFT JOIN condominios         cd ON cd.id = ch.condominio_id
+     LEFT JOIN tecnico_localizacoes tl ON tl.tecnico_id = ch.tecnico_id
+     WHERE ch.id = $1`,
+    [chamado_id]
+  );
+  if (!r.rows.length) return { erro: "Chamado não encontrado" };
+  const row = r.rows[0];
+
+  if (!row.tecnico_id) return { status: "sem_tecnico_designado" };
+  if (!row.tecnico_a_caminho_em) return { tecnico_nome: row.tecnico_nome, status: "tecnico_designado_mas_nao_saiu" };
+  if (row.tecnico_chegou_em)     return { tecnico_nome: row.tecnico_nome, status: "tecnico_ja_chegou", chegou_em: row.tecnico_chegou_em };
+
+  const resultado = {
+    tecnico_nome: row.tecnico_nome,
+    status: "a_caminho",
+    a_caminho_desde: row.tecnico_a_caminho_em,
+  };
+
+  // Estima ETA se tiver GPS do técnico e coordenadas do condomínio
+  if (row.tec_lat && row.tec_lng && row.condo_lat && row.condo_lng) {
+    const toRad = (d) => d * Math.PI / 180;
+    const R = 6371;
+    const dLat = toRad(row.condo_lat - row.tec_lat);
+    const dLng = toRad(row.condo_lng - row.tec_lng);
+    const a = Math.sin(dLat / 2) ** 2
+      + Math.cos(toRad(row.tec_lat)) * Math.cos(toRad(row.condo_lat)) * Math.sin(dLng / 2) ** 2;
+    const distKm = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const etaMin = Math.round((distKm / 40) * 60); // 40 km/h velocidade urbana média
+    const gpsIdadeMin = Math.round((Date.now() - new Date(row.tec_gps_em).getTime()) / 60000);
+
+    resultado.distancia_km     = Math.round(distKm * 10) / 10;
+    resultado.eta_minutos      = etaMin;
+    resultado.gps_idade_minutos = gpsIdadeMin;
+    if (gpsIdadeMin > 10) {
+      resultado.aviso = `GPS do técnico foi atualizado há ${gpsIdadeMin} min — a estimativa pode ser imprecisa`;
+    }
+  } else {
+    resultado.sem_gps = "Posição do técnico não disponível — estimativa de tempo indisponível";
+  }
+
+  return resultado;
+}
+
 async function buscarCondominio({ nome, endereco }) {
   const termo = `%${(nome || endereco || "").toLowerCase()}%`;
   const result = await pool.query(
@@ -67,6 +124,24 @@ async function vincularClienteCondominio({ cliente_whatsapp_id, condominio_id })
 }
 
 async function abrirChamado({ conversa_id, condominio_id, titulo, descricao, prioridade, categoria }) {
+  // Guard anti-duplicata: se já existe chamado aberto nesta conversa, retorna o existente.
+  const dup = await pool.query(
+    `SELECT id, titulo, status FROM chamados
+      WHERE conversa_id = $1 AND status != 'fechado'
+      ORDER BY criado_em DESC LIMIT 1`,
+    [conversa_id]
+  );
+  if (dup.rows.length) {
+    const c = dup.rows[0];
+    return {
+      chamado_ja_existe: true,
+      chamado_id: c.id,
+      titulo: c.titulo,
+      status: c.status,
+      aviso: "Já existe um chamado aberto para esta conversa. Não foi criado um novo.",
+    };
+  }
+
   // Backend como juiz final (Prioridade 3):
   // P1 é emergência — abre imediatamente sem pedir confirmação.
   // Qualquer outra prioridade: armazena como pendente_acao e aguarda confirmação do cliente.
@@ -304,6 +379,23 @@ const tools = [
   {
     type: "function",
     function: {
+      name: "buscar_status_tecnico",
+      description:
+        "Consulta o status do técnico designado a um chamado: se está a caminho, já chegou, ou ainda não saiu. " +
+        "Quando disponível, calcula a distância até o condomínio e estima o tempo de chegada com base no GPS do técnico. " +
+        "Use quando o cliente perguntar sobre horário de chegada, previsão ou 'cadê o técnico'.",
+      parameters: {
+        type: "object",
+        properties: {
+          chamado_id: { type: "integer", description: "ID do chamado para consultar o técnico designado" },
+        },
+        required: ["chamado_id"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "escalar_para_atendente",
       description:
         "Encerra o atendimento automático e coloca a conversa na fila para um atendente humano. " +
@@ -327,6 +419,7 @@ async function executarFuncao(nome, args) {
   switch (nome) {
     case "buscar_telemetria":           return buscarTelemetria(args);
     case "buscar_chamados_abertos":     return buscarChamadosAbertos(args);
+    case "buscar_status_tecnico":       return buscarStatusTecnico(args);
     case "abrir_chamado":               return abrirChamado(args);
     case "criar_solicitacao_orcamento": return criarSolicitacaoOrcamento(args);
     case "buscar_condominio":           return buscarCondominio(args);
@@ -406,6 +499,10 @@ Prioridades (Política P1-P4):
 - p4 — Agendado: preventiva, retrofit, orçamento, instalação planejada (conforme agenda)
 
 Quando encerrar o atendimento e redirecionar para um humano:
+- ESCALADA IMEDIATA (sem esperar 3 perguntas) nas seguintes situações:
+  * O cliente pergunta que horas o técnico chega, previsão de chegada, tempo de espera, ETA — PRIMEIRO chame buscar_status_tecnico com o id do chamado aberto. Se o técnico estiver a caminho e o GPS estiver disponível, informe a estimativa ("O técnico está a aproximadamente X min de distância"). Se não houver GPS ou técnico designado, aí sim escale para atendente.
+  * O cliente demonstra frustração, impaciência ou insatisfação com a demora ("cadê o técnico", "já faz horas", "isso é um absurdo") — chame buscar_status_tecnico primeiro para ter uma resposta concreta; se não houver informação, escale.
+  * A pergunta envolve compromisso comercial, contrato, negociação de valor ou condições que só a equipe pode confirmar.
 - Se o cliente fizer 3 ou mais perguntas consecutivas que você não consegue responder com certeza (valores, prazos técnicos específicos, detalhes de contrato, situações que fogem do roteiro), redirecione: "Essa pergunta é melhor respondida diretamente pela nossa equipe. Vou deixar um atendente dar sequência, tudo bem?"
 - Se a conversa estiver longa e o cliente ainda não chegou a um desfecho claro (nem chamado, nem orçamento, nem dúvida resolvida), ofereça: "Para garantir que você seja atendido da melhor forma, posso encaminhar para um de nossos atendentes. Prefere isso?"
 - SEMPRE que disser que vai redirecionar, chame imediatamente a função escalar_para_atendente — nunca só prometa sem executar. A função garante que a IA não responda mais nessa conversa

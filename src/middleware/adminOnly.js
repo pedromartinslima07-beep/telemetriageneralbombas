@@ -1,5 +1,6 @@
 function adminOnly(req, res, next) {
-  if (req.user?.role !== "admin" && req.user?.role !== "admin_viewer") {
+  const r = req.user?.role;
+  if (r !== "admin" && r !== "admin_viewer") {
     return res.status(403).json({ error: "Acesso restrito (admin)" });
   }
   next();

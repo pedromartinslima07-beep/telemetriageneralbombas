@@ -401,6 +401,24 @@ ${timbradoTag}
 </body></html>`;
 }
 
+const PUPPETEER_ARGS = ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"];
+
+let _browser = null;
+
+async function getBrowser() {
+  if (_browser) {
+    try {
+      // Valida que o processo ainda está vivo
+      await _browser.version();
+      return _browser;
+    } catch {
+      _browser = null;
+    }
+  }
+  _browser = await puppeteer.launch({ args: PUPPETEER_ARGS, headless: true });
+  return _browser;
+}
+
 async function _gerarPdf(dados, subdir, idStr) {
   const { os } = dados;
   const orcNumero = os.orcamento_numero || os.os_numero || idStr;
@@ -412,14 +430,11 @@ async function _gerarPdf(dados, subdir, idStr) {
   const fpath      = path.join(dir, filename);
   const urlPublica = `/uploads/orcamentos/${subdir}/${idStr}/${filename}`;
 
-  const browser = await puppeteer.launch({
-    args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
-    headless: true,
-  });
+  const browser = await getBrowser();
+  const page = await browser.newPage();
   try {
-    const page = await browser.newPage();
     await page.setViewport({ width: 1200, height: 1600, deviceScaleFactor: 2 });
-    await page.setContent(html, { waitUntil: "networkidle0", timeout: 30000 });
+    await page.setContent(html, { waitUntil: "domcontentloaded", timeout: 30000 });
     const pdfBuf = await page.pdf({
       format: "A4",
       printBackground: true,
@@ -429,7 +444,7 @@ async function _gerarPdf(dados, subdir, idStr) {
     const buf = Buffer.isBuffer(pdfBuf) ? pdfBuf : Buffer.from(pdfBuf);
     await fsp.writeFile(fpath, buf);
   } finally {
-    await browser.close();
+    await page.close();
   }
 
   return { pdf_url: urlPublica, fpath };

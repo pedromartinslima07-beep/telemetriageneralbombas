@@ -1,5 +1,6 @@
 function masterAdminOnly(req, res, next) {
-  if (req.user?.role !== "admin") {
+  const r = req.user?.role;
+  if (r !== "admin") {
     return res.status(403).json({ error: "Acesso restrito (admin master)" });
   }
   next();

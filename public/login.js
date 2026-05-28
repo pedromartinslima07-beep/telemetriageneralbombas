@@ -32,6 +32,8 @@ function clearError() {
 function redirectByRole(role) {
   if (role === "admin" || role === "admin_viewer") {
     window.location.href = "/admin/painel";
+  } else if (role === "tecnico") {
+    window.location.href = "/tecnico/painel";
   } else {
     window.location.href = "/cliente/painel";
   }

@@ -719,11 +719,11 @@ router.patch("/:id", authRequired, masterAdminOnly, async (req, res) => {
 
   const { status, prioridade, categoria, responsavel_id, condominio_id, tecnico_id } = req.body || {};
 
-  const STATUSES   = ["aberto", "em_atendimento", "fechado"];
+  const STATUSES   = ["aberto", "fechado"];
   const PRIORIDADES = ["p1", "p2", "p3", "p4"];
 
   if (status && !STATUSES.includes(status)) {
-    return res.status(400).json({ error: `status deve ser: ${STATUSES.join(", ")}` });
+    return res.status(400).json({ error: `status deve ser: ${STATUSES.join(", ")} — em_atendimento só é permitido via /iniciar-atendimento` });
   }
   if (prioridade && !PRIORIDADES.includes(prioridade)) {
     return res.status(400).json({ error: `prioridade deve ser: ${PRIORIDADES.join(", ")}` });
@@ -829,7 +829,7 @@ router.patch("/:id", authRequired, masterAdminOnly, async (req, res) => {
 
 // POST /chamados/:id/a-caminho — técnico registra que está a caminho
 router.post("/:id/a-caminho", authRequired, async (req, res) => {
-  if (!["tecnico", "admin", "master_admin"].includes(req.user.role)) {
+  if (!["tecnico", "admin"].includes(req.user.role)) {
     return res.status(403).json({ error: "Sem permissão" });
   }
   const id = Number(req.params.id);
@@ -854,7 +854,7 @@ router.post("/:id/a-caminho", authRequired, async (req, res) => {
 
 // POST /chamados/:id/chegou — técnico registra chegada (marca SLA de chegada)
 router.post("/:id/chegou", authRequired, async (req, res) => {
-  if (!["tecnico", "admin", "master_admin"].includes(req.user.role)) {
+  if (!["tecnico", "admin"].includes(req.user.role)) {
     return res.status(403).json({ error: "Sem permissão" });
   }
   const id = Number(req.params.id);
