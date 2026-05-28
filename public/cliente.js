@@ -159,31 +159,10 @@ function setStatusMsg(msg) {
 // ============================================================
 
 function _dashRenderChamados() {
-  const kpisEl = document.getElementById("dashChamadosKpis");
   const listaEl = document.getElementById("dashChamadosLista");
-  if (!kpisEl || !listaEl) return;
+  if (!listaEl) return;
 
   const data = Array.isArray(_chCliData) ? _chCliData : [];
-
-  const abertos  = data.filter(c => c.status === "aberto").length;
-  const emAtend  = data.filter(c => c.status === "em_atendimento").length;
-  const fechados = data.filter(c => c.status === "fechado").length;
-
-  const rc = (icon, val, label, cls) => `
-    <div class="rc rc-static ${cls}">
-      <div class="rc-icon">${icon}</div>
-      <div class="rc-label">${label}</div>
-      <div class="rc-value">${val}</div>
-    </div>`;
-
-  const icoFile  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`;
-  const icoTool  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>`;
-  const icoCheck = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
-
-  kpisEl.innerHTML =
-    rc(icoFile,  abertos, "Abertos",         abertos  > 0 ? "rc-warn"    : "rc-ok") +
-    rc(icoTool,  emAtend, "Em atendimento",   emAtend  > 0 ? "rc-cyan"   : "rc-neutral") +
-    rc(icoCheck, fechados, "Resolvidos",       "rc-ok");
 
   if (data.length === 0) {
     listaEl.innerHTML = `<div class="mc-empty" style="padding:16px 0;">Nenhum chamado registrado ainda.</div>`;
@@ -225,16 +204,12 @@ function _dashRenderKpis(list) {
   const el = document.getElementById("resumoGrid");
   if (!el) return;
 
-  const total   = list.length;
-  const offline = list.filter(r => r.offline).length;
-  const online  = total - offline;
-  const alertas = list.reduce((s, r) => s + (Number(r.alertas_abertos_count) || 0), 0);
-
-  let ultimaIso = null;
-  for (const r of list) {
-    const c = r.ultima_leitura?.criado_em;
-    if (c && (!ultimaIso || new Date(c) > new Date(ultimaIso))) ultimaIso = c;
-  }
+  const offline  = list.filter(r => r.offline).length;
+  const online   = list.length - offline;
+  const alertas  = list.reduce((s, r) => s + (Number(r.alertas_abertos_count) || 0), 0);
+  const chamados = Array.isArray(_chCliData) ? _chCliData : [];
+  const abertos  = chamados.filter(c => c.status === "aberto").length;
+  const emAtend  = chamados.filter(c => c.status === "em_atendimento").length;
 
   const kpi = (icon, val, hint, kindCls) => `
     <div class="rc ${kindCls} rc-static">
@@ -242,16 +217,16 @@ function _dashRenderKpis(list) {
       <div class="rc-value">${val}</div>
     </div>`;
 
-  const ICO_RES  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/></svg>`;
-  const ICO_OK   = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`;
+  const ICO_WIFI = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>`;
   const ICO_BELL = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>`;
-  const ICO_CLK  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`;
+  const ICO_FILE = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`;
+  const ICO_TOOL = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>`;
 
   el.innerHTML =
-    kpi(ICO_RES,  total,   "Reservatórios",  "rc-neutral") +
-    kpi(ICO_OK,   online,  "Online",          offline === 0 ? "rc-ok" : (online > 0 ? "rc-warn" : "rc-bad")) +
-    kpi(ICO_BELL, alertas, "Alertas abertos", alertas === 0 ? "rc-ok" : "rc-bad") +
-    kpi(ICO_CLK,  _telCliFmtTempoRel(ultimaIso), "Última leitura", "rc-neutral");
+    kpi(ICO_WIFI, online,  "Online",           offline === 0 ? "rc-ok" : (online > 0 ? "rc-warn" : "rc-bad")) +
+    kpi(ICO_BELL, alertas, "Alertas ativos",   alertas === 0 ? "rc-ok" : "rc-bad") +
+    kpi(ICO_FILE, abertos, "Chamados abertos", abertos === 0 ? "rc-ok" : "rc-warn") +
+    kpi(ICO_TOOL, emAtend, "Em atendimento",   emAtend  > 0 ? "rc-cyan" : "rc-neutral");
 }
 
 function _dashRenderNiveis(list) {
