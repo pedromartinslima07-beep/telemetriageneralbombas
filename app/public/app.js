@@ -4235,9 +4235,7 @@ function _supLimpar() {
 async function _supCarregar() {
   if (IS_DEMO) { _supRenderMensagens(_supDemoMsgs()); return; }
   try {
-    const r = await apiFetch("/cliente/chat");
-    if (!r.ok) return;
-    const data = await r.json();
+    const data = await api("/cliente/chat");
     SUP.convId = data.conversa_id;
     _supRenderMensagens(data.mensagens || []);
     _supSetBanner(data.aguardando_atendente);
@@ -4300,16 +4298,9 @@ async function _supEnviar() {
   _supSetTyping(true);
 
   try {
-    const r = await apiFetch("/cliente/chat/mensagem", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ texto }),
-    });
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    const data = await r.json();
+    const data = await api("/cliente/chat/mensagem", { method: "POST", body: { texto } });
     _supSetTyping(false);
 
-    // Só mostra a mensagem do cliente quando confirmamos que foi salva
     _supAppendMsg({ direcao: "entrada", conteudo: texto, criado_em: new Date().toISOString() });
 
     if (data.resposta) {
@@ -4336,9 +4327,7 @@ function _supIniciarPoll() {
     }
     try {
       const desde = SUP.ultimaMsg || new Date(0).toISOString();
-      const r = await apiFetch(`/cliente/chat/mensagens?desde=${encodeURIComponent(desde)}`);
-      if (!r.ok) return;
-      const data = await r.json();
+      const data = await api(`/cliente/chat/mensagens?desde=${encodeURIComponent(desde)}`);
       // Só adiciona mensagens de saída novas (entrada já foi mostrada otimisticamente)
       (data.mensagens || []).filter(m => m.direcao === "saida").forEach(_supAppendMsg);
       if (data.aguardando_atendente) _supSetBanner(true);
