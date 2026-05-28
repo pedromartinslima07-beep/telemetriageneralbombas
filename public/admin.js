@@ -23,7 +23,7 @@ const _sectionTitles = {
   telemetria:       "Telemetria",
   mapa:             "Mapa",
   alertas:          "Alertas",
-  whatsapp:         "WhatsApp",
+  whatsapp:         "Atendimento",
   chamados:         "Chamados",
   "ordens-servico": "Ordens de Serviço",
   orcamentos:       "Orçamentos",
@@ -2686,7 +2686,7 @@ function _cliRenderContatosWppCard(condoId) {
     inner = `<div class="ch-det-meta">${linhas}</div>`;
   }
   return `<div class="ch-det-section" id="cliContatosWppSec-${condoId}">
-    <div class="ch-det-sec-title">Contatos WhatsApp</div>
+    <div class="ch-det-sec-title">Contatos</div>
     ${inner}
   </div>`;
 }
@@ -8781,14 +8781,14 @@ async function gerarRelInsights() {
   if (kpiEl) kpiEl.innerHTML =
     _relKpiCard(_SVG_FILE,  "Chamados no período", totais.chamados_total ?? 0, "neutral") +
     _relKpiCard(_SVG_ALERT, "Alertas no período",  totais.alertas_total  ?? 0, totais.alertas_total > 0 ? "warn" : "neutral") +
-    _relKpiCard(_SVG_BAR,   "Msgs WhatsApp",        totais.msgs_total     ?? 0, "neutral") +
+    _relKpiCard(_SVG_BAR,   "Msgs Atendimento",     totais.msgs_total     ?? 0, "neutral") +
     _relKpiCard(_SVG_CPU,   "Condomínios c/ problemas", top_condominios.length, top_condominios.length > 0 ? "warn" : "ok");
 
   // Header com badge de período
   const headTop = document.getElementById("relInHeadTop");
   if (headTop) headTop.innerHTML = `<span>Condomínios mais problemáticos</span>${_relBadgePeriodo("relInIni","relInFim")}`;
   const headCat = document.getElementById("relInHeadCat");
-  if (headCat) headCat.innerHTML = `<span>Categorias mais comuns no WhatsApp</span>${_relBadgePeriodo("relInIni","relInFim")}`;
+  if (headCat) headCat.innerHTML = `<span>Categorias mais comuns no atendimento</span>${_relBadgePeriodo("relInIni","relInFim")}`;
 
   // Top condomínios — tabela com barra de score
   const tbodyTop = document.getElementById("relInTopBody");
