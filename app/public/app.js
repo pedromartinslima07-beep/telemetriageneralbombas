@@ -3707,13 +3707,11 @@ function renderDetalheChamado(ch) {
   const main = document.getElementById("cliDetMain");
 
   // ---- Card de resumo (pills + descrição) ----
-  const prioLabel = ch.prioridade ? (CLI_PRIO_LABEL[ch.prioridade] || ch.prioridade) : null;
   const catLabel  = ch.categoria  ? (CLI_CAT_LABEL[ch.categoria]   || ch.categoria)  : null;
   const resumoHtml = `
     <section class="td-card">
       <div class="td-card-body">
         <div class="cli-det-pills">
-          ${prioLabel ? `<span class="cli-prio cli-prio-${ch.prioridade}">${escapeHtml(prioLabel)}</span>` : ""}
           ${catLabel  ? `<span class="ch-cat-badge">${escapeHtml(catLabel)}</span>` : ""}
         </div>
         <h2 class="cli-det-titulo">${escapeHtml(titulo)}</h2>

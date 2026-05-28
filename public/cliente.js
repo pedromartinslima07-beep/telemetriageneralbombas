@@ -182,7 +182,6 @@ function _dashRenderChamados() {
         <tr>
           <th>#</th>
           <th>Título</th>
-          <th>Prioridade</th>
           <th>Status</th>
           <th>Data</th>
         </tr>
@@ -192,7 +191,6 @@ function _dashRenderChamados() {
           <tr>
             <td style="color:var(--muted);font-size:11px;">${c.id}</td>
             <td><strong>${_chCliEscapar(c.titulo || "—")}</strong></td>
-            <td><span class="ch-prio ch-prio-${c.prioridade||"media"}">${PRIO_NOME[c.prioridade] || c.prioridade || "—"}</span></td>
             <td><span class="ch-st ch-st-${c.status||"aberto"}">${ST_NOME[c.status] || c.status || "—"}</span></td>
             <td style="color:var(--muted);font-size:11px;">${_chCliFmtDataCurta(c.criado_em)}</td>
           </tr>`).join("")}
@@ -1397,7 +1395,6 @@ function _chCliRender() {
         <td class="ch-id-cell">#${c.id}</td>
         <td class="ch-titulo-cell"><div class="ch-titulo-text">${_chCliEscapar(c.titulo || "—")}</div></td>
         <td><span class="ch-cat-badge">${_chCliCatNome[c.categoria] || c.categoria || "—"}</span></td>
-        <td><span class="ch-prio ch-prio-${c.prioridade||"media"}">${_chCliPrioNome[c.prioridade] || c.prioridade || "—"}</span></td>
         <td><span class="ch-st ch-st-${c.status||"aberto"}">${_chCliStNome[c.status] || c.status || "—"}</span></td>
         <td class="ch-data-cell">${_chCliFmtDataCurta(c.criado_em)}</td>
       </tr>`;
@@ -1516,7 +1513,6 @@ function _chCliRenderDetalhe() {
         <div class="ch-detail-title">#${ch.id} — ${_chCliEscapar(ch.titulo || "—")}</div>
         <div class="ch-detail-sub">
           <span class="ch-cat-badge">${_chCliCatNome[ch.categoria] || ch.categoria || "—"}</span>
-          <span class="ch-prio ch-prio-${ch.prioridade||"media"}">${_chCliPrioNome[ch.prioridade] || ch.prioridade || "—"}</span>
           <span class="ch-st ch-st-${ch.status||"aberto"}">${_chCliStNome[ch.status] || ch.status || "—"}</span>
         </div>
       </div>
