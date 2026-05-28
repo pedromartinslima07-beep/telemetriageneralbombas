@@ -714,6 +714,56 @@ router.post("/chat/mensagem", authRequired, clienteOnly, async (req, res) => {
       return res.json({ ia: false, aguardando_atendente: true });
     }
 
+    // Ação pendente aguardando confirmação (state machine)
+    const _RE_CONF = /\b(sim|pode|ok|vai|certo|por favor|claro|confirmo|confirma|quero|abre|registra)\b/i;
+    const _RE_NEG  = /\b(n[aã]o|cancel|deixa|ignora|esquece)\b/i;
+    if (conv.estado_conversa === "aguardando_confirmacao" && conv.pendente_acao) {
+      if (_RE_CONF.test(texto)) {
+        const { tipo, params } = conv.pendente_acao;
+        let respostaConfirm = null;
+        if (tipo === "abrir_chamado") {
+          const { registrarCriacao } = require("../services/chamado-historico.service");
+          const r = await pool.query(
+            `INSERT INTO chamados (conversa_id, condominio_id, titulo, descricao, prioridade, categoria)
+             VALUES ($1,$2,$3,$4,$5,$6) RETURNING id`,
+            [convId, condominioId, params.titulo, params.descricao, params.prioridade, params.categoria || "outro"]
+          );
+          registrarCriacao({ chamadoId: r.rows[0].id, alteradoPor: null });
+          await pool.query(
+            `UPDATE conversas_whatsapp SET pendente_acao=NULL, estado_conversa='chamado_aberto', ia_sem_avanco=0 WHERE id=$1`,
+            [convId]
+          );
+          respostaConfirm = `Chamado registrado. Nossa equipe vai entrar em contato em breve. Número: CH-${String(r.rows[0].id).padStart(4,"0")}.`;
+        } else if (tipo === "criar_solicitacao_orcamento") {
+          const { _executarCriarOrcamento } = require("../services/ia.service");
+          const orc = await _executarCriarOrcamento(params);
+          await pool.query(
+            `UPDATE conversas_whatsapp SET pendente_acao=NULL, estado_conversa='triagem', ia_sem_avanco=0 WHERE id=$1`,
+            [convId]
+          );
+          respostaConfirm = `Pedido de orçamento registrado. Nossa equipe comercial vai entrar em contato com uma proposta. Número: ${orc.numero}.`;
+        }
+        if (respostaConfirm) {
+          await pool.query(
+            `INSERT INTO mensagens_whatsapp (conversa_id, direcao, tipo, conteudo) VALUES ($1,'saida','text',$2)`,
+            [convId, respostaConfirm]
+          );
+          return res.json({ ia: true, resposta: respostaConfirm });
+        }
+      } else if (_RE_NEG.test(texto)) {
+        await pool.query(
+          `UPDATE conversas_whatsapp SET pendente_acao=NULL, estado_conversa='triagem' WHERE id=$1`,
+          [convId]
+        );
+        const msgNeg = "Tudo bem, não vou registrar. Se precisar de mais alguma coisa, é só falar.";
+        await pool.query(
+          `INSERT INTO mensagens_whatsapp (conversa_id, direcao, tipo, conteudo) VALUES ($1,'saida','text',$2)`,
+          [convId, msgNeg]
+        );
+        return res.json({ ia: true, resposta: msgNeg });
+      }
+    }
+
     // Busca histórico + contexto do condomínio
     const [historicoRes, condRes] = await Promise.all([
       pool.query(

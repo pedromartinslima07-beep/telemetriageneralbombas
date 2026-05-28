@@ -379,6 +379,15 @@ Fluxo quando o condomínio está identificado:
 2. Verifique se já existe chamado aberto para o mesmo problema
 3. Se não existir, abra um chamado OU registre uma solicitação de orçamento conforme o caso
 
+Ao abrir um chamado, sempre classifique categoria, prioridade e crie um título profissional:
+
+Título do chamado — regras:
+- Máximo 60 caracteres
+- Formato: "[Problema] – [detalhe se relevante]". Exemplos: "Falta de água total", "Bomba de recalque com falha", "Nível crítico no reservatório superior", "Vazamento na casa de bombas"
+- Nunca use "condomínio" no título (já está vinculado)
+- Nunca use caixa baixa completa nem exclamações
+- Seja específico: "Bomba não liga" é melhor que "Problema com bomba"
+
 Ao abrir um chamado, sempre classifique categoria e prioridade:
 
 Categorias (escolha a mais específica):
