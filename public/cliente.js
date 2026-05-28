@@ -158,6 +158,69 @@ function setStatusMsg(msg) {
 // DASHBOARD — funções de renderização modernas
 // ============================================================
 
+function _dashRenderChamados() {
+  const kpisEl = document.getElementById("dashChamadosKpis");
+  const listaEl = document.getElementById("dashChamadosLista");
+  if (!kpisEl || !listaEl) return;
+
+  const data = Array.isArray(_chCliData) ? _chCliData : [];
+
+  const abertos  = data.filter(c => c.status === "aberto").length;
+  const emAtend  = data.filter(c => c.status === "em_atendimento").length;
+  const fechados = data.filter(c => c.status === "fechado").length;
+
+  const rc = (icon, val, label, cls) => `
+    <div class="rc rc-static ${cls}">
+      <div class="rc-icon">${icon}</div>
+      <div class="rc-label">${label}</div>
+      <div class="rc-value">${val}</div>
+    </div>`;
+
+  const icoFile  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`;
+  const icoTool  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>`;
+  const icoCheck = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+
+  kpisEl.innerHTML =
+    rc(icoFile,  abertos, "Abertos",         abertos  > 0 ? "rc-warn"    : "rc-ok") +
+    rc(icoTool,  emAtend, "Em atendimento",   emAtend  > 0 ? "rc-cyan"   : "rc-neutral") +
+    rc(icoCheck, fechados, "Resolvidos",       "rc-ok");
+
+  if (data.length === 0) {
+    listaEl.innerHTML = `<div class="mc-empty" style="padding:16px 0;">Nenhum chamado registrado ainda.</div>`;
+    return;
+  }
+
+  const recentes = [...data]
+    .sort((a, b) => new Date(b.criado_em) - new Date(a.criado_em))
+    .slice(0, 5);
+
+  const PRIO_NOME = { baixa:"Baixa", media:"Média", alta:"Alta", emergencia:"Emergência", p1:"P1 Crítico", p2:"P2 Alta", p3:"P3 Controlado", p4:"P4 Agendado" };
+  const ST_NOME   = { aberto:"Aberto", em_atendimento:"Em atendimento", fechado:"Resolvido" };
+
+  listaEl.innerHTML = `
+    <table class="tel-bombas-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Título</th>
+          <th>Prioridade</th>
+          <th>Status</th>
+          <th>Data</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${recentes.map(c => `
+          <tr>
+            <td style="color:var(--muted);font-size:11px;">${c.id}</td>
+            <td><strong>${_chCliEscapar(c.titulo || "—")}</strong></td>
+            <td><span class="ch-prio ch-prio-${c.prioridade||"media"}">${PRIO_NOME[c.prioridade] || c.prioridade || "—"}</span></td>
+            <td><span class="ch-st ch-st-${c.status||"aberto"}">${ST_NOME[c.status] || c.status || "—"}</span></td>
+            <td style="color:var(--muted);font-size:11px;">${_chCliFmtDataCurta(c.criado_em)}</td>
+          </tr>`).join("")}
+      </tbody>
+    </table>`;
+}
+
 function _dashRenderKpis(list) {
   const el = document.getElementById("resumoGrid");
   if (!el) return;
@@ -787,9 +850,11 @@ async function carregarHistorico() {
 async function carregar() {
   setStatusMsg("Carregando...");
 
-  const r = await fetch("/cliente/status", {
-    headers: authHeaders(),
-  });
+  // Carrega status e chamados em paralelo para o dashboard ter ambos disponíveis
+  const [r] = await Promise.all([
+    fetch("/cliente/status",   { headers: authHeaders() }),
+    carregarChamadosCli().catch(() => {}),
+  ]);
 
   if (!r.ok) {
   if (r.status === 401 || r.status === 403) {
@@ -811,18 +876,21 @@ async function carregar() {
   // ===== Alertas =====
   _alAlertas = Array.isArray(data.alertas_abertos) ? data.alertas_abertos : [];
 
-  // ===== Dashboard moderno =====
+  // ===== Dashboard =====
   const temTelemetria = reservatorios.length > 0;
-  const dashFallback  = document.getElementById("dashFallback");
   const dashConteudo  = document.getElementById("dashConteudo");
-  if (dashFallback) dashFallback.style.display = temTelemetria ? "none" : "flex";
-  if (dashConteudo) dashConteudo.style.display = temTelemetria ? ""     : "none";
+  if (dashConteudo) dashConteudo.style.display = temTelemetria ? "" : "none";
 
-  _dashRenderKpis(reservatorios);
-  _dashRenderNiveis(reservatorios);
-  _dashRenderCriticos(reservatorios);
-  _dashRenderActivity(_alAlertas, reservatorios);
-  _dashRenderBombas(reservatorios);
+  // Chamados sempre visíveis no dashboard
+  _dashRenderChamados();
+
+  if (temTelemetria) {
+    _dashRenderKpis(reservatorios);
+    _dashRenderNiveis(reservatorios);
+    _dashRenderCriticos(reservatorios);
+    _dashRenderActivity(_alAlertas, reservatorios);
+    _dashRenderBombas(reservatorios);
+  }
 
   // Telemetria (cliente sem produto cai no fallback dentro do _telCliAtualizar)
   _telCliUltimoStatus = data;
