@@ -1864,3 +1864,70 @@ Primeira etapa da estratégia de especialização da IA: admin marca a qualidade
 - **UI Configurações → IA**: card novo "Curadoria de conversas" com 4 KPIs (contagem por qualidade), hint dinâmico ("N conversas prontas pra exportar"), botão "Atualizar" + "Baixar dataset .jsonl" (download direto via blob). Lazy load junto com `_cfgCarregarConfigs` quando a aba IA é ativada.
 
 **Pré-requisito de volume:** o plano original aponta ~500 conversas curadas pra fazer sentido investir em few-shot/fine-tuning. Com 1 conversa hoje (WhatsApp real ainda não conectado), a infra está pronta mas o dataset só vai ter massa crítica conforme o uso aumentar.
+
+---
+
+## Sessão 2026-05-28 — Preparação para deploy + correções gerais
+
+### Ambiente limpo para deploy
+
+Banco de produção (Railway) limpo de todos os dados de teste. Sobrevivem apenas logins e configurações.
+
+**Scripts criados:**
+- `migrations/limpar-dados-teste.sql` — limpa dados com DELETE explícito (sem TRUNCATE CASCADE para não arrastar logins)
+- `migrations/restaurar-defaults.sql` — reinsere SLAs P1-P4 e todas as configurações padrão
+
+**Lição crítica:** `TRUNCATE ... CASCADE` no PostgreSQL propaga para TODAS as tabelas com FK, ignorando `ON DELETE SET NULL`. Usar sempre DELETE explícito em scripts de limpeza que envolvam tabelas pai de `usuarios`.
+
+---
+
+### Role master_admin removido
+
+Role `master_admin` existia no código mas nunca foi atribuído a ninguém. Removido completamente — hierarquia real é `admin / admin_viewer / tecnico / cliente`. `_isMaster` no frontend e `masterAdminOnly` no backend agora só verificam `admin`.
+
+**Arquivos corrigidos:** `adminOnly.js`, `masterAdminOnly.js`, `chamados.routes.js`, `admin.js`, `login.js`, constraint do banco.
+
+---
+
+### Melhorias de produto
+
+**App mobile (cliente):**
+- Botão Suporte adicionado no nav da tela Conta (estava faltando — navegação incompleta)
+- KPIs clicáveis (Abertos / Em atend. / Fechados) acima da lista de chamados do cliente
+
+**Chamados — restrição de status:**
+- Botão "Em atendimento" removido do painel admin (status só via app do técnico no campo)
+- `PATCH /chamados/:id` bloqueado para `em_atendimento` — único caminho é `/iniciar-atendimento` com GPS
+
+**IA — ETA do técnico:**
+- Nova function `buscar_status_tecnico({ chamado_id })` — consulta GPS do técnico em `tecnico_localizacoes`, calcula distância via Haversine e estima tempo de chegada (40 km/h urbano)
+- Prompt atualizado: quando cliente pergunta "que horas chegam?", IA chama a function antes de escalar — se tiver GPS ativo responde com estimativa, se não tiver aí sim escala para humano
+- Escalada imediata também em frustração do cliente e compromisso comercial
+
+**IA — anti-duplicata de chamado:**
+- Guard no `abrirChamado` (ia.service.js): se já existe chamado aberto para a `conversa_id`, retorna o existente em vez de criar novo
+- Guard no `_executarAcaoPendente` (whatsapp.controller.js): mesmo guard na confirmação via pendente_acao
+
+**Admin — badges de notificação:**
+- Badges de Chamados e Alertas: somem ao entrar na seção, voltam só com itens novos (sets `_chamadosIdsAck` / `_alertasIdsAck`)
+- Badge WhatsApp: corrigido para `unread_count > 0` (antes contava conversas abertas independente de leitura), atualiza imediatamente ao abrir conversa
+
+**PDF de orçamento:**
+- Puppeteer singleton: browser reutilizado entre requisições — elimina cold start de 10-20s no Railway
+- `waitUntil: domcontentloaded` em vez de `networkidle0` (HTML gerado localmente, sem requests externos)
+
+**Auth:**
+- `OTP_DISABLED` lido com `.trim()` — comentário inline no .env (`OTP_DISABLED=true   # comentário`) não quebra mais a flag
+- `redirectByRole` no login.js corrigido para incluir `tecnico → /tecnico/painel`
+
+---
+
+### Próximos passos
+
+1. Cadastrar demais usuários (técnicos, admin_viewer) via painel Configurações → Usuários
+2. Cadastrar condomínios e reservatórios reais
+3. Configurar Meta for Developers (credenciais WhatsApp)
+4. Subir branch `feature/app-mobile` para Railway (merge na main ou deploy direto)
+5. Testar fluxo completo com número WhatsApp real
+6. 10B — few-shot por categoria (aguardar volume de conversas curadas)
+7. 7J — publicação Play Store
