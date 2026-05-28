@@ -95,7 +95,8 @@ async function processarMensagem(payload) {
       return;
     }
 
-    // Busca histórico da conversa e condomínio do cliente
+    // Busca histórico da conversa + contexto do contato (nome cadastrado, tipo,
+    // condomínio vinculado, observações). Permite a IA já entrar sabendo quem é.
     const [historicoRes, clienteRes] = await Promise.all([
       pool.query(
         `SELECT direcao, conteudo FROM mensagens_whatsapp
@@ -103,15 +104,28 @@ async function processarMensagem(payload) {
         [conversaId]
       ),
       pool.query(
-        `SELECT condominio_id FROM clientes_whatsapp WHERE id = $1`,
+        `SELECT cw.nome, cw.condominio_id, cw.tipo, cw.observacoes,
+                c.nome AS condominio_nome
+           FROM clientes_whatsapp cw
+           LEFT JOIN condominios c ON c.id = cw.condominio_id
+          WHERE cw.id = $1`,
         [clienteId]
       ),
     ]);
 
-    const condominio_id = clienteRes.rows[0]?.condominio_id ?? null;
+    const ctx = clienteRes.rows[0] || {};
     const historico = historicoRes.rows;
 
-    const respostaIA = await processarComIA({ conversa_id: conversaId, condominio_id, cliente_whatsapp_id: clienteId, historico });
+    const respostaIA = await processarComIA({
+      conversa_id:           conversaId,
+      condominio_id:         ctx.condominio_id ?? null,
+      condominio_nome:       ctx.condominio_nome ?? null,
+      cliente_whatsapp_id:   clienteId,
+      contato_nome:          ctx.nome ?? null,
+      contato_tipo:          ctx.tipo ?? "desconhecido",
+      contato_observacoes:   ctx.observacoes ?? null,
+      historico,
+    });
 
     if (!respostaIA) return;
 

@@ -92,6 +92,31 @@ async function abrirChamado({ conversa_id, condominio_id, titulo, descricao, pri
   return { chamado_id: result.rows[0].id };
 }
 
+async function criarSolicitacaoOrcamento({ condominio_id, resumo_pedido, observacoes }) {
+  // Constatação = bloco que aparece no PDF e na UI do admin. Sinaliza claramente
+  // que veio do WhatsApp e que ainda precisa de triagem comercial.
+  const partes = [
+    "Pedido recebido pelo WhatsApp (registrado pela IA).",
+    `\nResumo do que o cliente solicitou:\n${resumo_pedido}`,
+  ];
+  if (observacoes) partes.push(`\nObservações adicionais:\n${observacoes}`);
+  const constatacao = partes.join("\n");
+
+  // Número sequencial OR-XXXXXX (mesma sequence usada pela criação manual).
+  const numQ = await pool.query(
+    "SELECT 'OR-' || LPAD(nextval('orcamento_numero_seq')::text, 6, '0') AS n"
+  );
+  const numero = numQ.rows[0].n;
+
+  const r = await pool.query(
+    `INSERT INTO orcamentos (numero, condominio_id, status, origem, constatacao, criado_por)
+     VALUES ($1, $2, 'rascunho', 'ia', $3, NULL)
+     RETURNING id, numero`,
+    [numero, condominio_id || null, constatacao]
+  );
+  return { orcamento_id: r.rows[0].id, numero: r.rows[0].numero };
+}
+
 // ─── Definição das ferramentas para a OpenAI ─────────────────────────────────
 
 const tools = [
@@ -179,16 +204,45 @@ const tools = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "criar_solicitacao_orcamento",
+      description:
+        "Registra um pedido de orçamento na fila comercial. Use quando o cliente solicita valor/cotação, " +
+        "pede pra trocar/instalar/reformar algo planejado, ou pergunta 'quanto custa'. " +
+        "NUNCA use para problema operacional (algo quebrado, vazando, sem água) — nesse caso use abrir_chamado. " +
+        "Você não cota preço — apenas encaminha o pedido pra equipe comercial preencher e enviar.",
+      parameters: {
+        type: "object",
+        properties: {
+          condominio_id: { type: "integer", description: "ID do condomínio (se já vinculado)" },
+          resumo_pedido: {
+            type: "string",
+            description:
+              "Resumo objetivo do que o cliente quer orçar (equipamento, serviço, escopo aproximado). " +
+              "Ex.: 'Troca da bomba de recalque do prédio. Cliente menciona que a atual está fazendo ruído há 2 meses e quer modelo similar ou superior.'",
+          },
+          observacoes: {
+            type: "string",
+            description: "Informações adicionais úteis pra cotação: prazo desejado, restrições, fotos mencionadas etc. Opcional.",
+          },
+        },
+        required: ["resumo_pedido"],
+      },
+    },
+  },
 ];
 
 // ─── Executa a função solicitada pela IA ──────────────────────────────────────
 
 async function executarFuncao(nome, args) {
   switch (nome) {
-    case "buscar_telemetria":          return buscarTelemetria(args);
-    case "buscar_chamados_abertos":    return buscarChamadosAbertos(args);
-    case "abrir_chamado":              return abrirChamado(args);
-    case "buscar_condominio":          return buscarCondominio(args);
+    case "buscar_telemetria":           return buscarTelemetria(args);
+    case "buscar_chamados_abertos":     return buscarChamadosAbertos(args);
+    case "abrir_chamado":               return abrirChamado(args);
+    case "criar_solicitacao_orcamento": return criarSolicitacaoOrcamento(args);
+    case "buscar_condominio":           return buscarCondominio(args);
     case "vincular_cliente_condominio": return vincularClienteCondominio(args);
     default:
       throw new Error(`Função desconhecida: ${nome}`);
@@ -200,25 +254,39 @@ async function executarFuncao(nome, args) {
 // Prompt padrão usado quando a config 'ia.system_prompt' está vazia.
 // Editável pelo master admin em Configurações → IA.
 const SYSTEM_PROMPT_PADRAO = `Você é um assistente de atendimento da General Bombas, empresa especializada em
-sistemas de abastecimento de água para condomínios. Você atende clientes via WhatsApp.
+sistemas de abastecimento de água para condomínios. Você atende a gestão do prédio via WhatsApp.
+
+Quem fala com você:
+- Na grande maioria dos casos, os clientes da General Bombas são CONDOMÍNIOS, e o interlocutor é alguém da gestão: síndico, subsíndico, zelador, porteiro, administrador ou gerente predial
+- Em casos minoritários (porém possíveis), o cliente é uma pessoa física: morador de casa, sítio, comércio próprio ou até morador de condomínio contratando algo por conta própria (instalação numa área privada, por exemplo)
+- POR ISSO, no primeiro contato, descubra com naturalidade o contexto da pessoa antes de assumir. Boa abordagem: "Você está falando em nome de um condomínio ou é um atendimento particular?"
+- Se for gestão de condomínio: trate como responsável técnico/administrativo — ela tem acesso à casa de bombas, conhece o sistema e fala em nome do prédio. NUNCA diga "avise o síndico", "fale com o zelador" ou "consulte a administração", quem está conversando com você JÁ é essa pessoa.
+- Se for pessoa física (casa/comércio/particular): trate como cliente final mesmo, e ajuste a linguagem (menos jargão técnico de prédio, mais explicação)
+- Se for morador comum perguntando sobre o prédio onde mora: oriente educadamente a procurar a administração/zelador, porque a relação contratual da General Bombas é com o condomínio
 
 Seu papel:
-- Entender o problema do cliente em linguagem natural
-- Identificar o condomínio do cliente quando ele não estiver vinculado
+- Entender a demanda da gestão em linguagem natural
+- Identificar o condomínio quando ele não estiver vinculado
 - Consultar dados reais do sistema quando necessário (telemetria, chamados)
-- Abrir chamados de suporte quando identificar problemas
+- Encaminhar a demanda para o lugar certo: chamado (problema operacional) ou orçamento (solicitação comercial)
 - Responder de forma clara, objetiva e humanizada
+
+Chamado x Orçamento — escolha o caminho certo:
+- ABRIR CHAMADO quando há um problema operacional: algo quebrou, vazou, está sem água, bomba não funciona, ruído anormal, dispositivo offline. Use abrir_chamado.
+- CRIAR SOLICITAÇÃO DE ORÇAMENTO quando o cliente pede valor, cotação, "quanto custa", quer trocar/instalar/reformar algo planejado, pedir proposta para serviço novo. Use criar_solicitacao_orcamento.
+- Em dúvida entre os dois, decida pelo tom: o cliente está aflito porque algo falhou? → chamado. Está planejando uma compra/serviço? → orçamento.
+- Você NÃO cota preço nem promete prazos comerciais. No orçamento, apenas registra o pedido para a equipe comercial preencher e responder.
 
 Fluxo quando o condomínio não está identificado (condominio_id ausente):
 1. Pergunte o nome da pessoa e o nome ou endereço do condomínio de forma natural
 2. Use buscar_condominio para procurar no sistema
 3. Se encontrar: use vincular_cliente_condominio para vincular e prossiga o atendimento normalmente
-4. Se não encontrar: abra o chamado com o nome e endereço informados na descrição
+4. Se não encontrar: registre a demanda (chamado ou orçamento) com o nome e endereço informados na descrição
 
 Fluxo quando o condomínio está identificado:
 1. Se o cliente relatar problema técnico, consulte a telemetria antes de responder
 2. Verifique se já existe chamado aberto para o mesmo problema
-3. Se não existir, abra um chamado
+3. Se não existir, abra um chamado OU registre uma solicitação de orçamento conforme o caso
 
 Ao abrir um chamado, sempre classifique categoria e prioridade:
 
@@ -248,7 +316,16 @@ Tom e estilo:
 - Não invente dados. Se não souber, diga que vai verificar com a equipe
 - Responda sempre em português brasileiro`;
 
-async function processarComIA({ conversa_id, condominio_id, cliente_whatsapp_id, historico }) {
+async function processarComIA({
+  conversa_id,
+  condominio_id,
+  condominio_nome,
+  cliente_whatsapp_id,
+  contato_nome,
+  contato_tipo,
+  contato_observacoes,
+  historico,
+}) {
   // Master admin pode desabilitar a IA globalmente em Configurações → IA
   const habilitada = await getConfigBool("ia.enabled", true);
   if (!habilitada) {
@@ -261,9 +338,25 @@ async function processarComIA({ conversa_id, condominio_id, cliente_whatsapp_id,
   const systemPrompt = (await getConfig("ia.system_prompt", "")) || SYSTEM_PROMPT_PADRAO;
   const modelo       = (await getConfig("ia.modelo", "gpt-4o-mini")) || "gpt-4o-mini";
 
+  // Bloco de contexto do contato — só anexa quando há informação útil pré-cadastrada.
+  // Quando vazio, a IA segue o fluxo original e pergunta nome/condomínio normalmente.
+  const ctxLinhas = [];
+  if (contato_nome)        ctxLinhas.push(`- Nome do contato: ${contato_nome}`);
+  if (contato_tipo === "gestao_condominio") {
+    ctxLinhas.push(`- Tipo: gestão de condomínio (não precisa perguntar contexto)`);
+    if (condominio_nome) ctxLinhas.push(`- Condomínio: ${condominio_nome} (id ${condominio_id})`);
+  } else if (contato_tipo === "pessoa_fisica") {
+    ctxLinhas.push(`- Tipo: pessoa física / atendimento particular (não precisa perguntar contexto)`);
+  }
+  if (contato_observacoes) ctxLinhas.push(`- Observações do cadastro: ${contato_observacoes}`);
+
+  const blocoContexto = ctxLinhas.length
+    ? `\n\nCONTEXTO PRÉ-CADASTRADO DO CONTATO (use sem perguntar de novo, cumprimente pelo nome quando fizer sentido):\n${ctxLinhas.join("\n")}`
+    : "";
+
   // Monta o histórico no formato da OpenAI
   const messages = [
-    { role: "system", content: systemPrompt },
+    { role: "system", content: systemPrompt + blocoContexto },
     ...historico.map((m) => ({
       role: m.direcao === "entrada" ? "user" : "assistant",
       content: m.conteudo || "",

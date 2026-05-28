@@ -1490,13 +1490,13 @@ Mantido aqui pra referência caso a decisão de escopo mude.
 
 ---
 
-### Fase 10 — Treinar IA com histórico 📋 PLANEJADA
+### Fase 10 — Treinar IA com histórico 🟡 EM ANDAMENTO (10A concluída — ver bloco acima)
 
 A IA hoje usa um `system_prompt` genérico (Fase 6D deixou ele editável). Conforme o sistema acumula conversas reais resolvidas com bom atendimento humano, dá pra **especializar a IA no domínio** — vocabulário do morador, tipos de problema típicos, gírias regionais, padrões de "o que normalmente é só susto vs. emergência real".
 
 **Pré-requisito de volume:** ~500+ conversas resolvidas com avaliação humana (bom/ruim). Antes disso, few-shot puro já melhora muito.
 
-#### 10A — Curadoria de conversas resolvidas
+#### 10A — Curadoria de conversas resolvidas ✅ CONCLUÍDO (Migration 038) — ver descrição completa acima
 
 - Coluna nova `conversas_whatsapp.qualidade_atendimento` (enum: `excelente` / `boa` / `aceitavel` / `ruim` / `null`) — preenchida manualmente pelos admins no painel
 - Migration `014_qualidade_conversas.sql` + UI: dropdown no painel direito de WhatsApp ao fechar conversa ("Como foi este atendimento?")
@@ -1691,3 +1691,63 @@ Sistema sabia que todo condomínio é cliente com contrato, mas nada guardava va
 **Pendente (não MVP):**
 - Job de email de renovação (60/30/15 dias antes do `fim_em`) — Resend já está integrado, é trivial adicionar quando precisar
 - Histórico de contratos do mesmo condomínio (listar inativos) — basta filtro `?ativo=false&condominio_id=X` no endpoint atual
+
+#### Encaminhamento de orçamento via IA ✅ CONCLUÍDO (Migration 036)
+
+Pedido recebido pelo WhatsApp era sempre virado em chamado P4 "manutenção", mesmo quando o cliente só queria cotação. Bagunçava a fila operacional e a equipe comercial só descobria por sorte. Agora a IA distingue **problema operacional** de **solicitação comercial** e cada um vai pro lugar certo.
+
+- **Migration 036 (`orcamento_origem.sql`)**: adiciona `orcamentos.origem VARCHAR(10)` CHECK `('admin','ia','os')` default `'admin'`. Backfill: registros com `os_id` viraram `os`, resto `admin`. Index parcial `(criado_em DESC) WHERE origem='ia' AND status='rascunho'` cobre a query "pedidos novos da IA aguardando triagem".
+- **Tool nova `criar_solicitacao_orcamento`** em `ia.service.js`: aceita `condominio_id` (opcional), `resumo_pedido` (obrigatório), `observacoes` (opcional). Insere em `orcamentos` com `status='rascunho'`, `origem='ia'`, `criado_por=NULL`. Número OR-XXXXXX da mesma `orcamento_numero_seq` que admin usa. Constatação começa com "Pedido recebido pelo WhatsApp (registrado pela IA)" pra sinalizar visualmente que é triagem comercial.
+- **Prompt da IA** ganhou bloco "Chamado x Orçamento — escolha o caminho certo": problema operacional (vazou, sem água, bomba quebrada) → `abrir_chamado`; valor/cotação/troca planejada → `criar_solicitacao_orcamento`. IA explicitamente NÃO cota preço — só encaminha.
+- **UI admin** (`/admin/orcamentos` aba Rascunho): pílula `via IA` (roxa) ou `via OS` (azul) inline ao lado do número na tabela. `_avOrigemBadge()` helper + classes `.orc-origem-pill` / `.orc-origem-ia` / `.orc-origem-os` em `admin.css`. Tooltip explica origem. `GET /admin/orcamentos/avulsos` retorna a coluna nova.
+- SW não precisou bump (rota `/admin/*` já era network-first); só `?v=68 → 69` em admin.html.
+
+**Próxima evolução natural:** notificação pra equipe comercial quando aparece novo orçamento `origem='ia' status='rascunho'` (email ou push). Hoje precisa olhar a aba pra descobrir.
+
+#### Quem é o interlocutor da IA — contexto de cliente B2B vs PF ✅ CONCLUÍDO
+
+Refinamento do prompt + memória do agente. Antes a IA tratava todo mundo genericamente como "cliente"; agora reconhece 3 perfis e adapta linguagem.
+
+- **Perfil majoritário**: clientes da General Bombas são **condomínios** (B2B), e o interlocutor é gestão predial — síndico, subsíndico, zelador, porteiro, administrador. Nunca dizer "avise o síndico" / "consulte a administração" — a pessoa que está falando JÁ é essa.
+- **Perfil minoritário (porém real)**: pessoa física — morador de casa, sítio, comércio, ou morador de condomínio contratando algo particular numa área privada. Ajustar linguagem (menos jargão de prédio).
+- **Caso de borda**: morador comum perguntando sobre o prédio onde mora — orientar a procurar a administração, porque o contrato é com o condomínio.
+- **Prompt instrui**: no primeiro contato a IA pergunta naturalmente "Você está falando em nome de um condomínio ou é um atendimento particular?" antes de assumir. Quando o contato está pré-cadastrado (ver bloco abaixo), pula essa pergunta.
+- Salvo na memória do agente em `clientes-condominios.md` pra não regredir em sessões futuras.
+
+#### Pré-cadastro de contatos do WhatsApp ✅ CONCLUÍDO (Migration 037)
+
+Antes a IA descobria o contato só na primeira mensagem ("oi, sou Carlos do Pq. Anhanguera"), gastava tokens perguntando e podia errar a identificação. Agora admin pré-cadastra os números conhecidos e a IA já entra sabendo nome + tipo + condomínio.
+
+- **Migration 037 (`clientes_whatsapp_contexto.sql`)**: estende `clientes_whatsapp` com `tipo VARCHAR(20)` CHECK `('gestao_condominio','pessoa_fisica','desconhecido')` default `'desconhecido'`; `cadastrado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL` (null = auto-criado pelo webhook, preenchido = cadastrado por admin); `observacoes TEXT`. Backfill: registros já vinculados (com `condominio_id`) viraram `gestao_condominio`. Index `(condominio_id) WHERE condominio_id IS NOT NULL` cobre a listagem por cliente.
+- **Endpoints `/admin/whatsapp/contatos`** (adminOnly): GET com filtros `condominio_id`/`tipo`/`q` + total de conversas + última conversa; POST cria/atualiza (UPSERT por telefone, normalização BR — adiciona `55` se faltar); PATCH parcial; DELETE **não apaga** (FK CASCADE em conversas), só limpa nome/condominio/tipo/observacoes voltando a `desconhecido`.
+- **Controller webhook** (`whatsapp.controller.js`) estendido: SELECT agora pega `nome`, `tipo`, `observacoes`, `condominio_nome` e passa tudo pra `processarComIA`.
+- **IA** (`ia.service.js`): novo bloco "CONTEXTO PRÉ-CADASTRADO DO CONTATO" anexado ao system prompt **só quando há dados úteis** ("Nome do contato: Carlos", "Tipo: gestão de condomínio (não precisa perguntar contexto)", "Condomínio: Pq. Anhanguera (id 12)"). Vazio = fluxo original (pergunta como antes).
+- **UI ancorada no modal Editar do condomínio** (não no painel direito — ver consolidação abaixo): aba "Contatos WhatsApp" lista nome + tipo + telefone formatado + última conversa + observações, com botões "+ Adicionar" e "Editar" por linha. Modal compacto `wcOverlay`: telefone (desabilitado em edição porque é a chave única), nome, tipo, observações, botão "Desvincular" no modo edição.
+
+#### Consolidação do modal "Editar condomínio" em tabs ✅ CONCLUÍDO
+
+A página Clientes acumulava 3 entradas de edição no painel direito (botão "+ Cadastrar contrato", "Editar contrato", "+ Adicionar contato"), cada um abrindo um modal próprio. Decisão de UX: o painel direito vira **somente leitura** e tudo que é edição vai pra dentro do modal de Editar Condomínio.
+
+- **Modal `editOverlay`** ganhou 3 tabs no topo: **Dados** (form atual: CNPJ, endereço, mapa Leaflet, etc), **Contrato**, **Contatos WhatsApp**.
+- Cada tab faz fetch fresco ao ser ativada (`_editRenderTabContrato` / `_editRenderTabContatos`), invalidando os caches do painel direito. Conteúdo da aba reaproveita os modais `ctrOverlay` e `wcOverlay` que já existiam (modal-em-modal funciona via z-index empilhado).
+- **Painel direito**: cards "Contrato" e "Contatos WhatsApp" agora só mostram informação (sem botões `+` nem "Editar"). Texto vazio orienta usar o botão "Editar" geral do condomínio.
+- Sincronização: ao salvar contrato/contato nos modais internos, tanto o painel direito quanto a tab ativa do `editOverlay` se atualizam (via `_cliInvalidar*` + `_editCondoIdAtivo`).
+- CSS novo `.edit-tabs` / `.edit-tab` / `.edit-tab.is-active` / `.edit-tab-pane` em amber (alinhado ao botão Editar).
+
+---
+
+### Fase 10 — Treinar IA com histórico
+
+#### 10A — Curadoria de conversas resolvidas ✅ CONCLUÍDO (Migration 038)
+
+Primeira etapa da estratégia de especialização da IA: admin marca a qualidade do atendimento de cada conversa pra alimentar um dataset de treinamento. Sem isso, as fases 10B (few-shot) e 10D (fine-tuning) não têm matéria-prima.
+
+- **Migration 038 (`qualidade_conversas.sql`)**: adiciona em `conversas_whatsapp` as colunas `qualidade_atendimento VARCHAR(20)` CHECK `('excelente','boa','aceitavel','ruim')` ou NULL, `qualidade_avaliada_em TIMESTAMPTZ`, `qualidade_avaliada_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL`. Index parcial `(qualidade_avaliada_em DESC) WHERE qualidade IN ('excelente','boa')` cobre o export do dataset curado.
+- **Endpoint `PATCH /whatsapp/conversas/:id/qualidade`** (adminOnly): aceita `{ qualidade: 'excelente'|'boa'|'aceitavel'|'ruim'|null }`, atualiza timestamps + autor. Passar `null` limpa a avaliação.
+- **Endpoint `GET /whatsapp/conversas/curadoria/stats`** (adminOnly): retorna `{ excelente, boa, aceitavel, ruim, exportavel }` pra UI mostrar contadores.
+- **Endpoint `GET /whatsapp/conversas/export?qualidade=excelente,boa&desde=YYYY-MM-DD`** (masterAdminOnly): **streaming NDJSON** (Content-Type `application/x-ndjson`) — uma linha por conversa no formato `{messages:[{role:'system',content:...},{role:'user',content:...},{role:'assistant',content:...}], _qualidade, _conversa_id}`. Já vem pronto pra subir como JSONL na API de fine-tuning da OpenAI.
+- **PII scrubbing automático** (`scrubPII()` em `whatsapp.routes.js`): regex pra CPF, CNPJ, telefone BR (com/sem DDI), email, CEP, RG. Conservador — prefere falso positivo a vazar dado pessoal. Tokens substitutos `[CPF]`, `[FONE]`, `[EMAIL]`, `[CEP]`, `[CNPJ]`, `[RG]`.
+- **UI painel WhatsApp**: nova seção "Qualidade do atendimento" no painel direito de cada conversa, com 4 botões compactos (Excelente/Boa amber-ok, Aceitável amber-warn, Ruim red-bad). Estado otimista com rollback em erro. Link "limpar" + indicador "entrará no dataset" quando marcada como excelente/boa. Classes `.wa-qa-grid` / `.wa-qa-btn` / `.wa-qa-btn.is-active.wa-qa-{ok,warn,bad}` em `admin.css`.
+- **UI Configurações → IA**: card novo "Curadoria de conversas" com 4 KPIs (contagem por qualidade), hint dinâmico ("N conversas prontas pra exportar"), botão "Atualizar" + "Baixar dataset .jsonl" (download direto via blob). Lazy load junto com `_cfgCarregarConfigs` quando a aba IA é ativada.
+
+**Pré-requisito de volume:** o plano original aponta ~500 conversas curadas pra fazer sentido investir em few-shot/fine-tuning. Com 1 conversa hoje (WhatsApp real ainda não conectado), a infra está pronta mas o dataset só vai ter massa crítica conforme o uso aumentar.

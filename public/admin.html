@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="/static/leaflet.css">
   <!-- ⚠️ Ao mexer em admin.js ou admin.css, bumpe o ?v=N aqui E no <script>
        lá embaixo. Ver CLAUDE.md raiz. -->
-  <link rel="stylesheet" href="/static/admin.css?v=68">
+  <link rel="stylesheet" href="/static/admin.css?v=72">
 </head>
 <body>
 
@@ -1826,6 +1826,30 @@
                 </div>
               </div>
             </div>
+
+            <div class="card cfg-card cfg-card-wide">
+              <div class="cfg-card-head">
+                <svg class="cfg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                <div>
+                  <h3>Curadoria de conversas</h3>
+                  <p>Marque a qualidade de cada atendimento no painel do WhatsApp. Conversas "Excelente" e "Boa" alimentam o dataset de treinamento da IA. Aqui você exporta esse dataset.</p>
+                </div>
+              </div>
+              <div class="cfg-form">
+                <div id="cfgCuradoriaStats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">
+                  <div class="rc rc-static rc-neutral"><div class="rc-label">Excelente</div><div class="rc-value" id="cfgCurExc">—</div></div>
+                  <div class="rc rc-static rc-neutral"><div class="rc-label">Boa</div><div class="rc-value" id="cfgCurBoa">—</div></div>
+                  <div class="rc rc-static rc-neutral"><div class="rc-label">Aceitável</div><div class="rc-value" id="cfgCurAce">—</div></div>
+                  <div class="rc rc-static rc-neutral"><div class="rc-label">Ruim</div><div class="rc-value" id="cfgCurRuim">—</div></div>
+                </div>
+                <p class="cfg-hint" id="cfgCurHint">PII (CPF, telefone, email, CEP) é automaticamente substituído por tokens antes do download.</p>
+                <div class="cfg-actions">
+                  <span id="cfgCurMsg" class="cfg-msg"></span>
+                  <button class="btn btn-sm" data-cfg-action="recarregar-curadoria">Atualizar</button>
+                  <button class="btn btnAccent btn-sm" data-cfg-action="exportar-curadoria">Baixar dataset .jsonl</button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -2351,10 +2375,16 @@
       </div>
       <button class="btn btn-sm" id="btnFecharModalEditar">Fechar</button>
     </div>
+    <div class="edit-tabs">
+      <button type="button" class="edit-tab is-active" data-edit-tab="dados">Dados</button>
+      <button type="button" class="edit-tab" data-edit-tab="contrato">Contrato</button>
+      <button type="button" class="edit-tab" data-edit-tab="contatos">Contatos WhatsApp</button>
+    </div>
     <div class="modalBody">
       <div class="modalTools">
         <div class="modalCount" id="editMsg"></div>
       </div>
+      <div class="edit-tab-pane" data-edit-pane="dados">
       <form id="editForm" class="formGrid">
         <input type="hidden" id="editId" />
         <div class="f" style="grid-column:1/-1;display:flex;gap:8px;padding-bottom:16px;border-bottom:1px solid var(--border);margin-bottom:4px;">
@@ -2412,6 +2442,13 @@
           <button class="btn btn-sm btnDanger" type="button" id="btnHardDeleteNoEdit">Excluir permanentemente</button>
         </div>
       </form>
+      </div>
+      <div class="edit-tab-pane" data-edit-pane="contrato" hidden>
+        <div id="editTabContratoBody"></div>
+      </div>
+      <div class="edit-tab-pane" data-edit-pane="contatos" hidden>
+        <div id="editTabContatosBody"></div>
+      </div>
     </div>
   </div>
 </div>
@@ -2639,7 +2676,56 @@
   </div>
 </div>
 
-<script src="/static/admin.js?v=68" defer></script>
+<!-- Modal: novo/editar contato WhatsApp do condomínio -->
+<div id="wcOverlay" class="modalOverlay" style="display:none;">
+  <div class="modalBox" style="max-width:480px;">
+    <div class="modalHead">
+      <div>
+        <div class="modalTitle" id="wcTitulo">Novo contato</div>
+        <div class="modalSub" id="wcSub"></div>
+      </div>
+      <button class="btn btn-sm" id="wcBtnFechar">Fechar</button>
+    </div>
+    <div class="modalBody" style="padding:20px 24px 24px;display:flex;flex-direction:column;gap:14px;">
+      <input type="hidden" id="wcId" />
+      <input type="hidden" id="wcCondoId" />
+
+      <label class="f">
+        <span>Telefone <span style="color:var(--danger)">*</span></span>
+        <input id="wcTelefone" class="input" type="tel" placeholder="11 99999-8888" maxlength="20" />
+        <span style="font-size:10px;color:var(--muted);margin-top:2px;">DDD + número. O 55 é adicionado automaticamente se faltar.</span>
+      </label>
+
+      <label class="f">
+        <span>Nome</span>
+        <input id="wcNome" class="input" type="text" maxlength="120" placeholder="ex: Carlos (síndico)" />
+      </label>
+
+      <label class="f">
+        <span>Tipo <span style="color:var(--danger)">*</span></span>
+        <select id="wcTipo" class="select">
+          <option value="gestao_condominio">Gestão do condomínio</option>
+          <option value="pessoa_fisica">Pessoa física (particular)</option>
+          <option value="desconhecido">Desconhecido</option>
+        </select>
+      </label>
+
+      <label class="f">
+        <span>Observações <span style="font-size:10px;color:var(--muted);font-weight:400;">(opcional)</span></span>
+        <textarea id="wcObs" class="input" rows="2" maxlength="1000" style="resize:vertical;font-size:13px;padding:8px 10px;" placeholder="ex: prefere áudio, atende só de manhã…"></textarea>
+      </label>
+
+      <div style="display:flex;gap:8px;justify-content:flex-end;align-items:center;">
+        <span id="wcMsg" style="font-size:12px;color:var(--muted);"></span>
+        <button class="btn btn-sm btnDanger" id="wcBtnRemover" style="display:none;">Desvincular</button>
+        <button class="btn btn-sm" id="wcBtnCancelar">Cancelar</button>
+        <button class="btn btn-sm btnAccent" id="wcBtnSalvar">Salvar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/static/admin.js?v=72" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
 <script src="/static/register-sw.js?v=25" defer></script>
 </body>

@@ -5639,6 +5639,82 @@ body.role-viewer .viewer-only-hide-inline {
 .orc-status-bad  { background: rgba(239,68,68,.12);  color: #f87171; border: 1px solid rgba(239,68,68,.28); }
 .orc-status-off  { background: rgba(122,126,156,.1); color: #9ca3af; border: 1px solid rgba(122,126,156,.2); }
 
+/* Avaliação de qualidade da conversa (Fase 10A) */
+.wa-qa-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-top: 4px;
+}
+.wa-qa-btn {
+  background: rgba(255,255,255,.03);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  padding: 6px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .3px;
+  text-transform: uppercase;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background .15s ease, color .15s ease, border-color .15s ease;
+}
+.wa-qa-btn:hover { background: rgba(255,255,255,.06); color: var(--text); }
+.wa-qa-btn.is-active.wa-qa-ok   { background: rgba(34,197,94,.18);  color: #4ade80; border-color: rgba(34,197,94,.4); }
+.wa-qa-btn.is-active.wa-qa-warn { background: rgba(245,158,11,.18); color: #fbbf24; border-color: rgba(245,158,11,.4); }
+.wa-qa-btn.is-active.wa-qa-bad  { background: rgba(239,68,68,.18);  color: #f87171; border-color: rgba(239,68,68,.4); }
+
+/* Tabs do modal de Editar (Dados / Contrato / Contatos) */
+.edit-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 8px 24px 0;
+  border-bottom: 1px solid var(--border);
+  background: rgba(0,0,0,.12);
+}
+.edit-tab {
+  background: transparent;
+  border: 1px solid transparent;
+  border-bottom: none;
+  color: var(--muted);
+  padding: 8px 14px;
+  border-radius: 6px 6px 0 0;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  position: relative;
+  bottom: -1px;
+  transition: color .15s ease, background .15s ease;
+}
+.edit-tab:hover { color: var(--text); background: rgba(255,255,255,.03); }
+.edit-tab.is-active {
+  background: var(--card-bg, rgba(20,23,42,.6));
+  border-color: var(--border);
+  color: var(--accent);
+}
+.edit-tab-pane[hidden] { display: none !important; }
+.edit-tab-empty {
+  font-size: 12px;
+  color: var(--muted);
+  padding: 14px 0;
+  text-align: center;
+}
+
+/* Badge de origem (IA / OS) — sinaliza pedidos vindos do WhatsApp ou da OS */
+.orc-origem-pill {
+  display: inline-block;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .4px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  text-transform: uppercase;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+.orc-origem-ia { background: rgba(168,85,247,.14); color: #c4b5fd; border: 1px solid rgba(168,85,247,.32); }
+.orc-origem-os { background: rgba(56,189,248,.12); color: #7dd3fc; border: 1px solid rgba(56,189,248,.28); }
+
 /* Tabela */
 .orc-table { width: 100%; }
 .orc-table th,

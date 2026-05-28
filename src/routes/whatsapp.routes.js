@@ -358,6 +358,137 @@ router.post("/conversas/:id/sugerir-resposta", authRequired, adminOnly, async (r
   }
 });
 
+// ─── Curadoria de qualidade (Fase 10A) ──────────────────────────────────────
+// Admin marca a qualidade do atendimento pra alimentar um dataset de
+// treinamento (few-shot na 10B, fine-tuning na 10D).
+
+const QUALIDADES_VALIDAS = ["excelente", "boa", "aceitavel", "ruim"];
+
+// PATCH /whatsapp/conversas/:id/qualidade  body: { qualidade: '...' | null }
+router.patch("/conversas/:id/qualidade", authRequired, adminOnly, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
+
+  const { qualidade } = req.body || {};
+  if (qualidade !== null && qualidade !== undefined && !QUALIDADES_VALIDAS.includes(qualidade)) {
+    return res.status(400).json({ error: "qualidade inválida" });
+  }
+  const valor = qualidade || null;
+
+  try {
+    const r = await pool.query(
+      `UPDATE conversas_whatsapp
+          SET qualidade_atendimento  = $1,
+              qualidade_avaliada_em  = CASE WHEN $1 IS NULL THEN NULL ELSE NOW() END,
+              qualidade_avaliada_por = CASE WHEN $1 IS NULL THEN NULL ELSE $2 END
+        WHERE id = $3
+       RETURNING id, qualidade_atendimento, qualidade_avaliada_em, qualidade_avaliada_por`,
+      [valor, req.user?.id || null, id]
+    );
+    if (r.rows.length === 0) return res.status(404).json({ error: "Conversa não encontrada" });
+    return res.json(r.rows[0]);
+  } catch (err) {
+    console.error("[whatsapp] PATCH /conversas/:id/qualidade:", err);
+    return res.status(500).json({ error: "Erro ao salvar avaliação" });
+  }
+});
+
+// GET /whatsapp/conversas/curadoria/stats — contagens pro card de export
+router.get("/conversas/curadoria/stats", authRequired, adminOnly, async (req, res) => {
+  try {
+    const r = await pool.query(
+      `SELECT qualidade_atendimento AS q, COUNT(*)::int AS n
+         FROM conversas_whatsapp
+        WHERE qualidade_atendimento IS NOT NULL
+        GROUP BY qualidade_atendimento`
+    );
+    const out = { excelente: 0, boa: 0, aceitavel: 0, ruim: 0 };
+    for (const row of r.rows) out[row.q] = row.n;
+    out.exportavel = out.excelente + out.boa;
+    return res.json(out);
+  } catch (err) {
+    console.error("[whatsapp] GET /conversas/curadoria/stats:", err);
+    return res.status(500).json({ error: "Erro ao buscar estatísticas" });
+  }
+});
+
+// Scrub de PII pra exports — substitui dados pessoais antes de mandar pra OpenAI.
+// Conservador: prefere falso positivo (substituir demais) do que vazar.
+function scrubPII(texto) {
+  if (!texto) return texto;
+  return String(texto)
+    // CPF (000.000.000-00 ou 11 dígitos seguidos)
+    .replace(/\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b/g, "[CPF]")
+    // CNPJ (00.000.000/0000-00)
+    .replace(/\b\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2}\b/g, "[CNPJ]")
+    // Telefone BR — (11) 99999-8888 / 11999998888 / +5511999998888
+    .replace(/(?:\+?55\s?)?\(?\d{2}\)?[\s.-]?9?\d{4}[\s.-]?\d{4}\b/g, "[FONE]")
+    // Email
+    .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, "[EMAIL]")
+    // CEP
+    .replace(/\b\d{5}-?\d{3}\b/g, "[CEP]")
+    // RG genérico (8-10 dígitos com pontos/hífen, evita matar números úteis curtos)
+    .replace(/\b\d{2}\.?\d{3}\.?\d{3}-?[\dXx]\b/g, "[RG]");
+}
+
+// GET /whatsapp/conversas/export?qualidade=excelente,boa&desde=YYYY-MM-DD
+// Retorna application/x-ndjson — uma linha JSON por conversa no formato
+// {messages:[{role:'system',...},{role:'user',...},...]} pronto pra fine-tuning.
+router.get("/conversas/export", authRequired, masterAdminOnly, async (req, res) => {
+  const qParam = String(req.query.qualidade || "excelente,boa").split(",").map(s => s.trim()).filter(Boolean);
+  const qualidades = qParam.filter(q => QUALIDADES_VALIDAS.includes(q));
+  if (!qualidades.length) return res.status(400).json({ error: "qualidade inválida" });
+
+  const desde = req.query.desde && /^\d{4}-\d{2}-\d{2}$/.test(req.query.desde) ? req.query.desde : null;
+
+  try {
+    const where = [`c.qualidade_atendimento = ANY($1)`];
+    const vals  = [qualidades];
+    if (desde) { vals.push(desde); where.push(`c.qualidade_avaliada_em >= $${vals.length}::date`); }
+
+    const conversas = await pool.query(
+      `SELECT c.id, c.qualidade_atendimento
+         FROM conversas_whatsapp c
+        WHERE ${where.join(" AND ")}
+        ORDER BY c.qualidade_avaliada_em DESC`,
+      vals
+    );
+
+    res.setHeader("Content-Type", "application/x-ndjson; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="conversas-curadas-${new Date().toISOString().slice(0,10)}.jsonl"`);
+
+    const systemContent = "Você é um assistente de atendimento da General Bombas (telemetria e manutenção de bombas hidráulicas em condomínios). Responda como o atendente humano teria respondido.";
+
+    for (const conv of conversas.rows) {
+      const msgs = await pool.query(
+        `SELECT direcao, conteudo FROM mensagens_whatsapp
+          WHERE conversa_id = $1 AND tipo IN ('text','conversation','extendedTextMessage')
+            AND conteudo IS NOT NULL
+          ORDER BY criado_em ASC`,
+        [conv.id]
+      );
+      const messages = [{ role: "system", content: systemContent }];
+      for (const m of msgs.rows) {
+        messages.push({
+          role:    m.direcao === "entrada" ? "user" : "assistant",
+          content: scrubPII(m.conteudo),
+        });
+      }
+      // Só exporta conversas com pelo menos 1 par user→assistant
+      const temUser  = messages.some(m => m.role === "user");
+      const temAssis = messages.some(m => m.role === "assistant");
+      if (temUser && temAssis) {
+        res.write(JSON.stringify({ messages, _qualidade: conv.qualidade_atendimento, _conversa_id: conv.id }) + "\n");
+      }
+    }
+    return res.end();
+  } catch (err) {
+    console.error("[whatsapp] GET /conversas/export:", err);
+    if (!res.headersSent) return res.status(500).json({ error: "Erro ao exportar" });
+    return res.end();
+  }
+});
+
 // DELETE /whatsapp/conversas/:id
 // Remove conversa + mensagens (CASCADE) e desvincula chamados (SET NULL).
 router.delete("/conversas/:id", authRequired, adminOnly, async (req, res) => {
