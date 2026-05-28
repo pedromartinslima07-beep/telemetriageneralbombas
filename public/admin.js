@@ -1624,6 +1624,8 @@ function _alUnificar() {
     const sev = prio === "p1" ? "critico"
               : prio === "p2" ? "atencao"
               : "normal";
+    const _PRIO_LABEL = { p1: "P1 · Crítico", p2: "P2 · Alta", p3: "P3 · Controlado", p4: "P4 · Agendado" };
+    const sevLabel = _PRIO_LABEL[prio] || _PRIO_LABEL.p3;
     const status = String(ch.status || "").toLowerCase();
     itens.push({
       key: `CH-${ch.id}`,
@@ -1636,6 +1638,7 @@ function _alUnificar() {
       condominio_nome: ch.condominio_nome || "—",
       device_id: null,
       severidade: sev,
+      sevLabel,
       status: status === "fechado" ? "resolvido" : "ativo",
       criado_em: ch.criado_em,
       fechado_em: ch.fechado_em,
@@ -1797,7 +1800,7 @@ function _alRenderTabela(filtrados) {
             ${it.device_id ? `<small>${it.device_id}</small>` : ""}
           </td>
           <td>${_alCapitalize(it.titulo)}</td>
-          <td><span class="al-sev ${it.severidade}">${_alSevLabel(it.severidade)}</span></td>
+          <td><span class="al-sev ${it.severidade}">${it.sevLabel || _alSevLabel(it.severidade)}</span></td>
           <td class="al-data">${_alFmtData(it.criado_em)}<small>${_alFmtHora(it.criado_em)}</small></td>
           <td class="al-tempo">${tempoStr}</td>
           <td><span class="al-status ${it.status}">${_alStatusLabel(it.status)}</span></td>
@@ -1896,7 +1899,7 @@ async function _alRenderPainel() {
           ${kv("Reservatório", reserv?.nome)}
           ${kv("Device", it.device_id)}
           ${kv("Tipo", _alCapitalize(it.titulo))}
-          ${kv("Severidade", _alSevLabel(it.severidade))}
+          ${kv("Severidade", it.sevLabel || _alSevLabel(it.severidade))}
         </div>
         ${it.descricao ? `<div style="margin-top:10px;font-size:11.5px;color:var(--muted);">${it.descricao}</div>` : ""}
       </div>`;
