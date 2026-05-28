@@ -4235,7 +4235,7 @@ function _supLimpar() {
 async function _supCarregar() {
   if (IS_DEMO) { _supRenderMensagens(_supDemoMsgs()); return; }
   try {
-    const r = await fetch(`${API_BASE}/cliente/chat`, { headers: authHeaders() });
+    const r = await apiFetch("/cliente/chat");
     if (!r.ok) return;
     const data = await r.json();
     SUP.convId = data.conversa_id;
@@ -4297,26 +4297,28 @@ async function _supEnviar() {
   input.value = "";
   input.style.height = "";
 
-  // Mostra mensagem do cliente imediatamente (otimista)
-  const msgCliente = { direcao: "entrada", conteudo: texto, criado_em: new Date().toISOString() };
-  _supAppendMsg(msgCliente);
   _supSetTyping(true);
 
   try {
-    const r = await fetch(`${API_BASE}/cliente/chat/mensagem`, {
+    const r = await apiFetch("/cliente/chat/mensagem", {
       method: "POST",
-      headers: { ...authHeaders(), "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ texto }),
     });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const data = await r.json();
     _supSetTyping(false);
+
+    // Só mostra a mensagem do cliente quando confirmamos que foi salva
+    _supAppendMsg({ direcao: "entrada", conteudo: texto, criado_em: new Date().toISOString() });
 
     if (data.resposta) {
       _supAppendMsg({ direcao: "saida", conteudo: data.resposta, criado_em: new Date().toISOString() });
     }
     if (data.aguardando_atendente) _supSetBanner(true);
-  } catch (_) {
+  } catch (e) {
     _supSetTyping(false);
+    console.error("[suporte] erro ao enviar:", e.message);
   }
 
   SUP.enviando = false;
@@ -4334,7 +4336,7 @@ function _supIniciarPoll() {
     }
     try {
       const desde = SUP.ultimaMsg || new Date(0).toISOString();
-      const r = await fetch(`${API_BASE}/cliente/chat/mensagens?desde=${encodeURIComponent(desde)}`, { headers: authHeaders() });
+      const r = await apiFetch(`/cliente/chat/mensagens?desde=${encodeURIComponent(desde)}`);
       if (!r.ok) return;
       const data = await r.json();
       // Só adiciona mensagens de saída novas (entrada já foi mostrada otimisticamente)

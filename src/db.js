@@ -6,21 +6,33 @@ const poolConfig = {
   connectionTimeoutMillis: 5_000,
 };
 
-const pool = process.env.DATABASE_URL
-  ? new Pool({
-      connectionString: process.env.DATABASE_URL,
-      ssl: { rejectUnauthorized: false },
+function _buildPoolConfig() {
+  const url = process.env.DATABASE_URL;
+  if (url) {
+    // Extrai componentes da URL para evitar que pg leia PGPASSWORD do ambiente
+    const u = new URL(url);
+    return {
+      host:     u.hostname,
+      port:     Number(u.port) || 5432,
+      user:     decodeURIComponent(u.username),
+      password: decodeURIComponent(u.password),
+      database: u.pathname.slice(1),
+      ssl:      { rejectUnauthorized: false },
       ...poolConfig,
-    })
-  : new Pool({
-      host: process.env.PGHOST,
-      port: Number(process.env.PGPORT || 5432),
-      user: process.env.PGUSER,
-      password: process.env.PGPASSWORD,
-      database: process.env.PGDATABASE,
-      ssl: process.env.PGSSL === "true" ? { rejectUnauthorized: false } : false,
-      ...poolConfig,
-    });
+    };
+  }
+  return {
+    host:     process.env.PGHOST,
+    port:     Number(process.env.PGPORT || 5432),
+    user:     process.env.PGUSER,
+    password: process.env.PGPASSWORD,
+    database: process.env.PGDATABASE,
+    ssl:      process.env.PGSSL === "true" ? { rejectUnauthorized: false } : false,
+    ...poolConfig,
+  };
+}
+
+const pool = new Pool(_buildPoolConfig());
 
 pool.on("error", (err) => {
   console.error("PostgreSQL pool error:", err);
