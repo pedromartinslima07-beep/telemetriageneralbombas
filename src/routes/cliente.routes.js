@@ -619,13 +619,18 @@ async function _buscarOuCriarChatApp(condominioId, usuarioId) {
   );
   if (existing.rows.length > 0) return existing.rows[0].id;
 
-  // Garante registro em clientes_whatsapp (sem telefone — usa usuario_id como âncora)
+  // Garante registro em clientes_whatsapp — telefone fictício como chave única,
+  // nome vem do usuário logado para aparecer corretamente no painel de atendimento
+  const nomeUsuario = await pool.query(`SELECT nome FROM usuarios WHERE id = $1`, [usuarioId]);
+  const nomeDisplay = nomeUsuario.rows[0]?.nome || `Usuário ${usuarioId}`;
   const cli = await pool.query(
-    `INSERT INTO clientes_whatsapp (telefone, condominio_id, usuario_id)
-     VALUES ($1, $2, $3)
-     ON CONFLICT (telefone) DO UPDATE SET condominio_id = EXCLUDED.condominio_id
+    `INSERT INTO clientes_whatsapp (telefone, nome, condominio_id, usuario_id)
+     VALUES ($1, $2, $3, $4)
+     ON CONFLICT (telefone) DO UPDATE
+       SET condominio_id = EXCLUDED.condominio_id,
+           nome          = EXCLUDED.nome
      RETURNING id`,
-    [`app:${usuarioId}`, condominioId, usuarioId]
+    [`app:${usuarioId}`, nomeDisplay, condominioId, usuarioId]
   );
   const clienteId = cli.rows[0].id;
 

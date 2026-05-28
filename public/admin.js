@@ -856,14 +856,15 @@ function renderMcConversas() {
     return;
   }
   wrap.innerHTML = list.map(c => {
-    const nome = c.cliente_nome || c.telefone || "Cliente";
+    const nome = c.cliente_nome || (c.canal === "app" ? "App" : c.telefone) || "Cliente";
+    const sub  = c.condominio_nome || (c.canal === "app" ? "via App" : c.telefone) || "";
     const ts = c.ultima_mensagem_em || c.criado_em;
     return `
       <div class="mc-conv-row" data-action="ver-convo-section" data-id="${c.id}">
         <div class="mc-conv-avatar">${_mcInitials(nome)}</div>
         <div class="mc-conv-main">
           <div class="mc-conv-name">${nome}</div>
-          <div class="mc-conv-last">${c.condominio_nome || c.telefone || ""}</div>
+          <div class="mc-conv-last">${sub}</div>
         </div>
         <div class="mc-conv-time">${_mcRelTime(ts)}</div>
       </div>
@@ -4964,7 +4965,7 @@ function _waRenderInfo(conv) {
       </div>
       <div class="wa-info-row">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-        <span>${_waEscaparHtml(conv.telefone || "—")}</span>
+        <span>${conv.canal === "app" ? "via App" : _waEscaparHtml(conv.telefone || "—")}</span>
       </div>
     </div>
 
