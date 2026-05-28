@@ -4205,10 +4205,176 @@ async function submitTrocarSenha() {
   }
 }
 
+// ─── Chat de Suporte Interno ─────────────────────────────────────────────────
+
+const SUP = {
+  convId:     null,
+  ultimaMsg:  null,   // ISO da última mensagem para polling incremental
+  pollTimer:  null,
+  enviando:   false,
+};
+
+async function abrirSuporteCliente() {
+  showScreen("cliente-suporte");
+  _supLimpar();
+  await _supCarregar();
+  _supBindComposer();
+  _supIniciarPoll();
+}
+
+function _supLimpar() {
+  const msgs = document.getElementById("cliSuporteMsgs");
+  if (msgs) msgs.innerHTML = "";
+  _supSetTyping(false);
+  _supSetBanner(false);
+  clearInterval(SUP.pollTimer);
+  SUP.pollTimer = null;
+  SUP.ultimaMsg = null;
+}
+
+async function _supCarregar() {
+  if (IS_DEMO) { _supRenderMensagens(_supDemoMsgs()); return; }
+  try {
+    const r = await fetch(`${API_BASE}/cliente/chat`, { headers: authHeaders() });
+    if (!r.ok) return;
+    const data = await r.json();
+    SUP.convId = data.conversa_id;
+    _supRenderMensagens(data.mensagens || []);
+    _supSetBanner(data.aguardando_atendente);
+    if (data.mensagens?.length) {
+      SUP.ultimaMsg = data.mensagens[data.mensagens.length - 1].criado_em;
+    }
+  } catch (_) {}
+}
+
+function _supRenderMensagens(msgs) {
+  const el = document.getElementById("cliSuporteMsgs");
+  if (!el) return;
+  el.innerHTML = msgs.map(_supMsgHtml).join("");
+  el.scrollTop = el.scrollHeight;
+}
+
+function _supAppendMsg(msg) {
+  const el = document.getElementById("cliSuporteMsgs");
+  if (!el) return;
+  el.insertAdjacentHTML("beforeend", _supMsgHtml(msg));
+  el.scrollTop = el.scrollHeight;
+  SUP.ultimaMsg = msg.criado_em;
+}
+
+function _supMsgHtml(msg) {
+  const isMine = msg.direcao === "entrada";
+  const texto  = escapeHtml(msg.conteudo || "");
+  const hora   = msg.criado_em ? new Date(msg.criado_em).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "";
+  return `<div class="cli-msg-item ${isMine ? "is-mine" : "is-other"}">
+    <div class="cli-msg-bubble">
+      <div class="cli-msg-text">${texto}</div>
+      <div class="cli-msg-time">${hora}</div>
+    </div>
+  </div>`;
+}
+
+function _supSetTyping(on) {
+  const el = document.getElementById("cliSuporteTyping");
+  if (el) el.textContent = on ? "Assistente está digitando…" : "";
+}
+
+function _supSetBanner(on) {
+  const el = document.getElementById("cliSuporteBanner");
+  if (el) el.style.display = on ? "block" : "none";
+  const composer = document.getElementById("cliSuporteComposer");
+  if (composer) composer.style.display = on ? "none" : "flex";
+}
+
+async function _supEnviar() {
+  if (SUP.enviando) return;
+  const input = document.getElementById("cliSuporteInput");
+  const texto = input?.value?.trim();
+  if (!texto) return;
+
+  SUP.enviando = true;
+  document.getElementById("cliSuporteSend")?.setAttribute("disabled", "");
+  input.value = "";
+  input.style.height = "";
+
+  // Mostra mensagem do cliente imediatamente (otimista)
+  const msgCliente = { direcao: "entrada", conteudo: texto, criado_em: new Date().toISOString() };
+  _supAppendMsg(msgCliente);
+  _supSetTyping(true);
+
+  try {
+    const r = await fetch(`${API_BASE}/cliente/chat/mensagem`, {
+      method: "POST",
+      headers: { ...authHeaders(), "Content-Type": "application/json" },
+      body: JSON.stringify({ texto }),
+    });
+    const data = await r.json();
+    _supSetTyping(false);
+
+    if (data.resposta) {
+      _supAppendMsg({ direcao: "saida", conteudo: data.resposta, criado_em: new Date().toISOString() });
+    }
+    if (data.aguardando_atendente) _supSetBanner(true);
+  } catch (_) {
+    _supSetTyping(false);
+  }
+
+  SUP.enviando = false;
+  document.getElementById("cliSuporteSend")?.removeAttribute("disabled");
+}
+
+function _supIniciarPoll() {
+  clearInterval(SUP.pollTimer);
+  SUP.pollTimer = setInterval(async () => {
+    if (!SUP.convId || IS_DEMO) return;
+    // Só pollar quando a tela estiver ativa
+    if (!document.querySelector('[data-screen="cliente-suporte"][data-active]')) {
+      clearInterval(SUP.pollTimer);
+      return;
+    }
+    try {
+      const desde = SUP.ultimaMsg || new Date(0).toISOString();
+      const r = await fetch(`${API_BASE}/cliente/chat/mensagens?desde=${encodeURIComponent(desde)}`, { headers: authHeaders() });
+      if (!r.ok) return;
+      const data = await r.json();
+      // Só adiciona mensagens de saída novas (entrada já foi mostrada otimisticamente)
+      (data.mensagens || []).filter(m => m.direcao === "saida").forEach(_supAppendMsg);
+      if (data.aguardando_atendente) _supSetBanner(true);
+    } catch (_) {}
+  }, 5000);
+}
+
+function _supBindComposer() {
+  const input  = document.getElementById("cliSuporteInput");
+  const btn    = document.getElementById("cliSuporteSend");
+  if (!input || !btn) return;
+
+  // Auto-resize
+  input.addEventListener("input", () => {
+    input.style.height = "";
+    input.style.height = Math.min(input.scrollHeight, 120) + "px";
+  });
+
+  // Enter envia, Shift+Enter quebra linha
+  input.addEventListener("keydown", e => {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); _supEnviar(); }
+  });
+
+  btn.addEventListener("click", _supEnviar);
+}
+
+function _supDemoMsgs() {
+  return [
+    { direcao: "saida",   conteudo: "Olá! Sou o assistente da General Bombas. Como posso ajudar?", criado_em: new Date(Date.now() - 60000).toISOString() },
+    { direcao: "entrada", conteudo: "Preciso de informações sobre o contrato.", criado_em: new Date(Date.now() - 30000).toISOString() },
+    { direcao: "saida",   conteudo: "Claro! Pode me dar mais detalhes sobre o que precisa saber?", criado_em: new Date().toISOString() },
+  ];
+}
+
 // ---- Eventos do cliente ----
 function _bindClienteUI() {
   document.querySelectorAll(
-    '[data-screen="cliente-home"] [data-cli-tab], [data-screen="cliente-chamados"] [data-cli-tab], [data-screen="cliente-telemetria"] [data-cli-tab], [data-screen="cliente-conta"] [data-cli-tab]'
+    '[data-screen="cliente-home"] [data-cli-tab], [data-screen="cliente-chamados"] [data-cli-tab], [data-screen="cliente-telemetria"] [data-cli-tab], [data-screen="cliente-conta"] [data-cli-tab], [data-screen="cliente-suporte"] [data-cli-tab]'
   ).forEach((b) => {
     b.addEventListener("click", () => {
       const tab = b.dataset.cliTab;
@@ -4220,6 +4386,8 @@ function _bindClienteUI() {
         renderClienteChamados();
       } else if (tab === "telemetria") {
         abrirTelemetriaCliente();
+      } else if (tab === "suporte") {
+        abrirSuporteCliente();
       } else if (tab === "conta") {
         abrirTelaConta();
       }

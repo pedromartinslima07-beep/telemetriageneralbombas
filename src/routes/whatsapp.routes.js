@@ -51,6 +51,7 @@ router.get("/conversas", authRequired, adminOnly, async (req, res) => {
       `SELECT
          cv.id,
          cv.status,
+         cv.canal,
          cv.criado_em,
          cv.fechado_em,
          cv.assumida_por_id,

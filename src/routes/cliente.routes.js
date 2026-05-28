@@ -598,4 +598,182 @@ router.get("/ordens-servico/:id/pdf", authRequired, clienteOnly, async (req, res
   }
 });
 
+// ─── Chat interno (canal='app') ──────────────────────────────────────────────
+//
+// O cliente tem 1 conversa ativa por vez. A IA responde igual ao WhatsApp —
+// a diferença é que a resposta é salva no banco e retornada direto no HTTP
+// (sem chamar Meta/WhatsApp API). O app faz polling para novas mensagens.
+
+const { processarComIA } = require("../services/ia.service");
+
+async function _buscarOuCriarChatApp(condominioId, usuarioId) {
+  // Busca conversa aberta ou em_atendimento com canal='app' do condomínio
+  const existing = await pool.query(
+    `SELECT cw.id FROM conversas_whatsapp cw
+      JOIN clientes_whatsapp cl ON cl.id = cw.cliente_whatsapp_id
+     WHERE cl.condominio_id = $1
+       AND cw.canal = 'app'
+       AND cw.status IN ('aberta', 'em_atendimento')
+     ORDER BY cw.criado_em DESC LIMIT 1`,
+    [condominioId]
+  );
+  if (existing.rows.length > 0) return existing.rows[0].id;
+
+  // Garante registro em clientes_whatsapp (sem telefone — usa usuario_id como âncora)
+  const cli = await pool.query(
+    `INSERT INTO clientes_whatsapp (telefone, condominio_id, usuario_id)
+     VALUES ($1, $2, $3)
+     ON CONFLICT (telefone) DO UPDATE SET condominio_id = EXCLUDED.condominio_id
+     RETURNING id`,
+    [`app:${usuarioId}`, condominioId, usuarioId]
+  );
+  const clienteId = cli.rows[0].id;
+
+  const nova = await pool.query(
+    `INSERT INTO conversas_whatsapp (cliente_whatsapp_id, canal) VALUES ($1, 'app') RETURNING id`,
+    [clienteId]
+  );
+  return nova.rows[0].id;
+}
+
+// GET /cliente/chat — retorna conversa ativa + últimas 40 mensagens
+router.get("/chat", authRequired, clienteOnly, async (req, res) => {
+  const condominioId = Number(req.user.condominio_id);
+  const usuarioId   = Number(req.user.id);
+  try {
+    const convId = await _buscarOuCriarChatApp(condominioId, usuarioId);
+    const msgs = await pool.query(
+      `SELECT id, direcao, conteudo, tipo, criado_em
+         FROM mensagens_whatsapp
+        WHERE conversa_id = $1
+        ORDER BY criado_em ASC LIMIT 40`,
+      [convId]
+    );
+    const conv = await pool.query(
+      `SELECT status, assumida_por_id, aguardando_atendente FROM conversas_whatsapp WHERE id = $1`,
+      [convId]
+    );
+    return res.json({ conversa_id: convId, mensagens: msgs.rows, ...conv.rows[0] });
+  } catch (err) {
+    console.error("[chat-app] GET /chat:", err);
+    return res.status(500).json({ error: "Erro ao carregar chat" });
+  }
+});
+
+// GET /cliente/chat/mensagens?desde=ISO — polling incremental
+router.get("/chat/mensagens", authRequired, clienteOnly, async (req, res) => {
+  const condominioId = Number(req.user.condominio_id);
+  const usuarioId   = Number(req.user.id);
+  const desde = req.query.desde || new Date(0).toISOString();
+  try {
+    const convId = await _buscarOuCriarChatApp(condominioId, usuarioId);
+    const msgs = await pool.query(
+      `SELECT id, direcao, conteudo, tipo, criado_em
+         FROM mensagens_whatsapp
+        WHERE conversa_id = $1 AND criado_em > $2
+        ORDER BY criado_em ASC`,
+      [convId, desde]
+    );
+    const conv = await pool.query(
+      `SELECT status, assumida_por_id, aguardando_atendente FROM conversas_whatsapp WHERE id = $1`,
+      [convId]
+    );
+    return res.json({ conversa_id: convId, mensagens: msgs.rows, ...conv.rows[0] });
+  } catch (err) {
+    return res.status(500).json({ error: "Erro" });
+  }
+});
+
+// POST /cliente/chat/mensagem — cliente envia mensagem → IA responde
+router.post("/chat/mensagem", authRequired, clienteOnly, async (req, res) => {
+  const condominioId = Number(req.user.condominio_id);
+  const usuarioId   = Number(req.user.id);
+  const { texto } = req.body;
+  if (!texto || !texto.trim()) return res.status(400).json({ error: "Texto obrigatório" });
+
+  try {
+    const convId = await _buscarOuCriarChatApp(condominioId, usuarioId);
+
+    // Salva mensagem do cliente
+    await pool.query(
+      `INSERT INTO mensagens_whatsapp (conversa_id, direcao, tipo, conteudo)
+       VALUES ($1, 'entrada', 'text', $2)`,
+      [convId, texto.trim()]
+    );
+
+    // Verifica estado da conversa
+    const convRes = await pool.query(
+      `SELECT assumida_por_id, aguardando_atendente, estado_conversa, pendente_acao
+         FROM conversas_whatsapp WHERE id = $1`,
+      [convId]
+    );
+    const conv = convRes.rows[0] || {};
+
+    // Se humano assumiu ou aguarda atendente, não aciona IA
+    if (conv.assumida_por_id || conv.aguardando_atendente) {
+      return res.json({ ia: false, aguardando_atendente: true });
+    }
+
+    // Busca histórico + contexto do condomínio
+    const [historicoRes, condRes] = await Promise.all([
+      pool.query(
+        `SELECT direcao, conteudo FROM mensagens_whatsapp
+          WHERE conversa_id = $1 ORDER BY criado_em ASC LIMIT 20`,
+        [convId]
+      ),
+      pool.query(`SELECT nome FROM condominios WHERE id = $1`, [condominioId]),
+    ]);
+
+    const resultado = await processarComIA({
+      conversa_id:         convId,
+      condominio_id:       condominioId,
+      condominio_nome:     condRes.rows[0]?.nome ?? null,
+      cliente_whatsapp_id: null,
+      contato_nome:        req.user.nome ?? null,
+      contato_tipo:        "gestao_condominio",
+      contato_observacoes: null,
+      historico:           historicoRes.rows,
+    });
+
+    if (!resultado?.resposta) return res.json({ ia: false });
+
+    const { resposta, progresso } = resultado;
+
+    // Anti-loop
+    if (progresso) {
+      await pool.query(`UPDATE conversas_whatsapp SET ia_sem_avanco = 0 WHERE id = $1`, [convId]);
+    } else {
+      const upd = await pool.query(
+        `UPDATE conversas_whatsapp SET ia_sem_avanco = ia_sem_avanco + 1
+          WHERE id = $1 RETURNING ia_sem_avanco`,
+        [convId]
+      );
+      if ((upd.rows[0]?.ia_sem_avanco ?? 0) >= 3) {
+        const msgEsc = "Vou encaminhar você para um de nossos atendentes.";
+        await pool.query(
+          `UPDATE conversas_whatsapp SET aguardando_atendente = TRUE, ia_sem_avanco = 0 WHERE id = $1`,
+          [convId]
+        );
+        await pool.query(
+          `INSERT INTO mensagens_whatsapp (conversa_id, direcao, tipo, conteudo) VALUES ($1, 'saida', 'text', $2)`,
+          [convId, msgEsc]
+        );
+        return res.json({ ia: true, resposta: msgEsc, aguardando_atendente: true });
+      }
+    }
+
+    // Salva resposta da IA
+    await pool.query(
+      `INSERT INTO mensagens_whatsapp (conversa_id, direcao, tipo, conteudo)
+       VALUES ($1, 'saida', 'text', $2)`,
+      [convId, resposta]
+    );
+
+    return res.json({ ia: true, resposta });
+  } catch (err) {
+    console.error("[chat-app] POST /chat/mensagem:", err);
+    return res.status(500).json({ error: "Erro ao processar mensagem" });
+  }
+});
+
 module.exports = { clienteRouter: router };

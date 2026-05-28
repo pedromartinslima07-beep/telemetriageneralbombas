@@ -2594,12 +2594,12 @@ body:has(.screen-auth[data-active])::before { display: none; }
 .cli-textarea { resize: vertical; min-height: 110px; font-family: inherit; line-height: 1.45; }
 
 /* ===== Bottom nav (exclusivo do app mobile) =====
-   4 abas: Início / Telemetria / Chamados / Conta.
+   5 abas: Início / Telemetria / Chamados / Suporte / Conta.
    flex-shrink: 0 garante que o .tec-shell (flex: 1) não invada a nav. */
 .cli-nav {
   flex-shrink: 0;
   position: sticky; bottom: 0;
-  display: grid; grid-template-columns: repeat(4, 1fr);
+  display: grid; grid-template-columns: repeat(5, 1fr);
   background: rgba(10,14,26,.92);
   border-top: 1px solid var(--border);
   backdrop-filter: blur(12px);
@@ -2726,6 +2726,53 @@ body:has(.screen-auth[data-active])::before { display: none; }
 .cli-tl-label { font-size: 13px; font-weight: 600; color: var(--text); }
 .cli-tl-item:not(.is-done):not(.is-current) .cli-tl-label { color: var(--muted); font-weight: 400; }
 .cli-tl-time  { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+/* ===== Chat de suporte (tela cliente-suporte) ===== */
+.suporte-shell {
+  display: flex; flex-direction: column;
+  height: 100%; overflow: hidden;
+}
+.suporte-msgs {
+  flex: 1; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 10px;
+  padding: 16px 14px 8px;
+}
+.suporte-msgs:empty::after {
+  content: "Olá! Como posso ajudar?";
+  color: var(--muted); font-size: 13px; text-align: center;
+  margin: auto; padding: 40px 0;
+}
+.suporte-composer {
+  flex-shrink: 0;
+  display: flex; align-items: flex-end; gap: 8px;
+  padding: 10px 12px calc(env(safe-area-inset-bottom) + 10px);
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+.suporte-input {
+  flex: 1; resize: none; max-height: 120px;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 18px; padding: 10px 14px;
+  font: inherit; font-size: 14px; color: var(--text);
+  line-height: 1.4; outline: none;
+}
+.suporte-input:focus { border-color: var(--accent); }
+.suporte-send {
+  flex-shrink: 0; width: 40px; height: 40px; border-radius: 50%;
+  background: var(--accent); border: 0; color: #000;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: opacity .15s;
+}
+.suporte-send:disabled { opacity: .4; pointer-events: none; }
+.suporte-banner {
+  background: rgba(240,176,20,.1); border-left: 3px solid var(--accent);
+  padding: 10px 14px; font-size: 12px; color: var(--accent);
+  flex-shrink: 0;
+}
+.suporte-typing {
+  padding: 6px 14px; font-size: 12px; color: var(--muted);
+  font-style: italic; flex-shrink: 0; min-height: 24px;
+}
 
 /* ===== Mensagens do chamado (thread cliente ↔ técnico) ===== */
 .cli-msg-card { display: flex; flex-direction: column; }
