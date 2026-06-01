@@ -10,6 +10,7 @@ faz, quais tabelas/serviços/jobs participam e as regras de decisão.
 | Atendimento WhatsApp + IA | [`whatsapp-ia.md`](whatsapp-ia.md) |
 | Chamados, criticidade P1–P4 e SLA | [`chamados-sla.md`](chamados-sla.md) |
 | Ordens de Serviço, orçamentos e GPS | [`ordens-servico.md`](ordens-servico.md) |
+| Mapa, geocoding e tiles | [`mapa-geocoding.md`](mapa-geocoding.md) |
 
 Referências cruzadas: [`../banco-de-dados.md`](../banco-de-dados.md),
 [`../api.md`](../api.md), [`../arquitetura.md`](../arquitetura.md).

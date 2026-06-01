@@ -1,7 +1,8 @@
 # Decisões Arquiteturais
 
-Decisões deliberadas identificadas no código e no `../PLANO_WHATSAPP_IA.md`.
-Cada uma custou tempo ou foi tomada conscientemente — não reverter sem motivo.
+Decisões deliberadas tomadas ao longo do projeto. Cada uma custou tempo ou foi
+tomada conscientemente — não reverter sem motivo. Este arquivo é a fonte
+canônica do "porquê"; o "o quê" está em `../docs/` e em `current-state.md`.
 
 ## Stack e frontend
 
@@ -125,3 +126,69 @@ Cada uma custou tempo ou foi tomada conscientemente — não reverter sem motivo
   (HTML gerado localmente, sem requests externos).
 - **Upload de fotos de O.S. em base64** com `express.json({ limit: "8mb" })`;
   comprimidas client-side (~150-300KB, base64 infla ~33%).
+
+## Decisões de schema (modelagem)
+
+- **Sistema de orçamentos unificado (migration 030).** Coexistiam dois modelos
+  paralelos: colunas `orcamento_*` em `ordens_servico` + `orcamento_itens`
+  (sistema A) e as tabelas `orcamentos`/`orcamento_linhas` (sistema B). A 030
+  unificou tudo em `orcamentos`/`orcamento_linhas` (em transação, com backfill),
+  dropou as 12 colunas formais da O.S. e a tabela `orcamento_itens`.
+  - **Mantidos na O.S.:** `orcamento_necessario` e `orcamento_observacoes` — são
+    input do técnico no campo (a "semente" do orçamento formal).
+  - As rotas `/admin/orcamentos/:os_id/*` mantêm `:os_id` na URL por compat com
+    o frontend, mas resolvem `orcamento_id` via helper `_garantirOrcamentoDaOs`
+    (cria o registro com número sequencial `OR-XXXXXX` se ainda não existir).
+- **FK chamados↔O.S. é unidirecional (migration 034).** Existiam duas FKs
+  (`chamados.ordem_servico_id` E `ordens_servico.chamado_id`) — toda escrita
+  precisava sincronizar as duas pontas (risco de inconsistência). Ficou só
+  `ordens_servico.chamado_id` com `UNIQUE` (preserva o 1:1). A idempotência do
+  `iniciar-atendimento` passou a vir do `UNIQUE` do banco.
+- **`responsavel_id` ≠ `tecnico_id` em `chamados`** (semântica distinta,
+  intencional): `responsavel_id`→`usuarios` é o admin que acompanha;
+  `tecnico_id`→`tecnicos` é quem executa em campo. Não unificar.
+- **`origem` em `orcamentos` (migration 036):** `admin | ia | os`. A IA distingue
+  **problema operacional** (vira chamado) de **solicitação comercial** (vira
+  orçamento rascunho `origem='ia'`). A IA nunca cota preço — só encaminha.
+- **Contrato ativo único:** índice parcial `UNIQUE (condominio_id) WHERE
+  ativo=TRUE` em `contratos` — renovação cria um novo e marca o antigo
+  `ativo=false`. Habilita cálculo de MRR.
+- **`alerta_comentarios` sem FK** para o alerta: a coluna `alerta_id` cobre duas
+  origens (`telemetria` | `chamado`), então o vínculo é lógico, não FK. Por isso
+  o cleanup de alertas precisa apagar os comentários de telemetria junto (CTE).
+
+## Decisões descartadas (e por quê)
+
+Registradas para não serem "redescobertas" e refeitas. Se o escopo mudar, o
+desenho em camadas original continua válido.
+
+- **Tabelas agregadas de leituras — `leituras_agregadas_hora`/`_dia` (Fases 9A,
+  9B) ❌.** O produto **não precisa** de histórico > 60 dias (confirmado com o
+  usuário). Com a política de retenção (9C) a tabela `leituras` estabiliza em
+  ~600 MB; gráficos > 7 dias são servidos com buckets diários
+  (`DATE_TRUNC('day', ...)`) direto da raw. Sem tabelas agregadas, sem
+  roteamento de query por granularidade (**9D** também descartada).
+- **WebSocket no WhatsApp ❌/⏸️.** Polling de 5s na conversa selecionada atende
+  o volume atual. Reavaliar só se o volume crescer muito.
+- **`leaflet.markercluster` ⏸️.** Adiado até o nº de condomínios justificar
+  clusterização dos pinos.
+- **Evolution API / Z-API ❌ → Meta Business API.** Evolution era complexa de
+  hospedar no Railway; Z-API tinha risco de ban. A Meta (número oficial
+  verificado) elimina o risco de ban ao custo de tarifa por conversa.
+- **Fallback OSM no proxy de tiles ❌.** Carto é estável e o OSM oficialmente
+  proíbe proxy em apps — manter só o Carto.
+- **Tabelas `*_arquivados` para histórico ❌.** Cleanup só deleta; quem precisa
+  de histórico longo usa Relatórios. O WhatsApp do cliente mantém o histórico
+  dele independentemente — nosso DELETE só apaga a cópia local.
+
+## Lições aprendidas (cicatrizes)
+
+- **Marcar fase como "concluída" antes de rodar a migration em produção** gera
+  bug silencioso (código referencia tabela que não existe). Rodar
+  `scripts/migrate.js` **imediatamente** ao mexer no schema, mesmo em dev.
+- **`TRUNCATE ... CASCADE`** propaga ignorando `ON DELETE SET NULL` e arrasta
+  logins — usar DELETE explícito (ver `limpar-dados-teste.sql`).
+- **Cleanups em lote** com hard floor + `dry_run` + cap de lotes: um erro de
+  digitação na retenção poderia apagar tudo; o piso protege.
+- **`OTP_DISABLED` precisa de `.trim()`** — comentário inline no `.env`
+  (`OTP_DISABLED=true   # ...`) quebrava a flag.

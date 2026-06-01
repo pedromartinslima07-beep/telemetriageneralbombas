@@ -1,7 +1,8 @@
 # Changelog
 
-Histórico técnico derivado das migrations (`migrations/NNN_*.sql`) e das fases
-do `PLANO_WHATSAPP_IA.md`. Para o detalhe narrativo de cada fase, ver o plano.
+Histórico técnico do projeto: evolução do schema (`migrations/NNN_*.sql`) e
+marcos de produto por fase. O "porquê" das decisões está em
+`../memory-bank/decisions.md`; o roadmap em `../memory-bank/roadmap.md`.
 
 ## Schema base (2026-03)
 
@@ -69,5 +70,5 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
   (código pronto, pendente configuração); remoção do role `master_admin`;
   Puppeteer singleton; ambiente limpo para deploy.
 
-> Detalhe completo, decisões e itens descartados: `../PLANO_WHATSAPP_IA.md` e
-> `../memory-bank/roadmap.md`.
+> Decisões, itens descartados e backlog futuro: `../memory-bank/decisions.md` e
+> `../memory-bank/roadmap.md`. Fluxos de negócio em `modulos/`.

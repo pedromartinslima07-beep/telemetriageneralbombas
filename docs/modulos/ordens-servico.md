@@ -26,8 +26,16 @@ Uploads servidos em `/uploads` (estático, cacheável). Regerar PDFs em lote:
 
 ## Orçamentos (sistema unificado)
 
-Após migration 030, existe **um** sistema: tabela `orcamentos` +
-`orcamento_linhas`. A `origem` distingue a procedência:
+> **Contexto histórico:** até a migration 030 coexistiam dois sistemas paralelos
+> — colunas `orcamento_*` na O.S. + `orcamento_itens` (A) e as tabelas
+> `orcamentos`/`orcamento_linhas` (B). A 030 unificou em B (com backfill em
+> transação) e removeu A. A O.S. **mantém** só `orcamento_necessario` e
+> `orcamento_observacoes` (input do técnico, semente do orçamento). As rotas
+> ainda usam `:os_id` na URL, mas resolvem o `orcamento_id` via
+> `_garantirOrcamentoDaOs` (cria com número `OR-XXXXXX` se não existir).
+
+Hoje existe **um** sistema: tabela `orcamentos` + `orcamento_linhas`. A `origem`
+distingue a procedência:
 
 - **`os`** — orçamento derivado de uma O.S. (`os_id`).
 - **`ia`** — solicitação criada pela IA via WhatsApp (entra como rascunho +

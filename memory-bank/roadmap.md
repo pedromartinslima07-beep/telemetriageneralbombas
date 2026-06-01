@@ -1,7 +1,8 @@
 # Roadmap
 
-> Espelho condensado de `../PLANO_WHATSAPP_IA.md`. Status: ✅ concluído ·
-> 🟡 em andamento · 📋 planejado · ⏸️ adiado · ❌ descartado.
+> Status: ✅ concluído · 🟡 em andamento · 📋 planejado · ⏸️ adiado · ❌ descartado.
+> O "porquê" de cada decisão está em `decisions.md`; o histórico técnico por
+> migration está em `../docs/changelog.md`.
 
 ## Linha do tempo das fases (já entregue)
 
@@ -56,6 +57,22 @@
 - Encaminhamento de orçamento via IA (036), contexto cliente B2B vs PF (037),
   pré-cadastro de contatos WhatsApp (037).
 - State machine de conversa (042), anti-loop (041), canal (043).
+
+## Backlog futuro (ideias não-MVP já mapeadas)
+
+Itens levantados durante o desenvolvimento, conscientemente deixados para
+depois. Nenhum é bloqueante.
+
+- **Tabela `equipamentos`** — hoje só `reservatorios` tem identidade no sistema;
+  bombas, motores e painéis não. `os_pecas` registra "trocou bomba X" mas não
+  vincula a um equipamento físico. Colunas sugeridas: `condominio_id`, `tipo`,
+  `marca`, `modelo`, `numero_serie`, `instalado_em`, `garantia_ate`.
+- **Job de email de renovação de contrato** (60/30/15 dias antes de `fim_em`) —
+  Resend já integrado, é trivial adicionar.
+- **Notificação à equipe comercial** quando entra orçamento `origem='ia'
+  status='rascunho'` (hoje só aparece na aba; falta email/push ativo).
+- **Histórico de contratos** do mesmo condomínio (listar inativos) — basta o
+  filtro `?ativo=false&condominio_id=X` no endpoint atual.
 
 ## Visão de produto de longo prazo
 

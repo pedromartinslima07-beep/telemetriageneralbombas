@@ -5,6 +5,12 @@ node_modules/
 .DS_Store
 .claude/
 .obsidian/
+
+# Notas vazias que o Obsidian cria ao clicar em link de pasta (memory-bank/, docs/).
+# Os conteúdos reais vivem dentro das pastas memory-bank/ e docs/, não na raiz.
+/memory-bank.md
+/docs.md
+/*\ 1.md
 desktop.ini
 **/desktop.ini
 Thumbs.db

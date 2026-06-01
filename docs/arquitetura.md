@@ -79,7 +79,6 @@ App mobile (Capacitor) ──JWT──fetch───────────┤
 ├── docs/                     # esta documentação
 ├── memory-bank/              # brief, estado, decisões, roadmap (contexto p/ devs/IA)
 ├── CLAUDE.md                 # convenções e pegadinhas
-├── PLANO_WHATSAPP_IA.md      # histórico detalhado fase a fase
 ├── README.md
 └── INSTALACAO.md             # guia de instalação física (sonda + sensor)
 ```

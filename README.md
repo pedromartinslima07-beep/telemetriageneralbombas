@@ -318,7 +318,7 @@ Guia de instalação física (sonda + sensor) em [`INSTALACAO.md`](INSTALACAO.md
 ├── migrations/                 # migrations numeradas 001..043 (ativas)
 ├── scripts/migrate.js          # aplicador de migrations
 ├── CLAUDE.md                   # convenções e pegadinhas do projeto
-├── PLANO_WHATSAPP_IA.md        # histórico detalhado fase a fase
+├── docs/                       # documentação técnica (banco, API, arquitetura, fluxos)
 ├── memory-bank/                # brief, estado atual, decisões, roadmap
 └── simulador.js                # simulador de dispositivo
 ```
@@ -335,7 +335,7 @@ Guia de instalação física (sonda + sensor) em [`INSTALACAO.md`](INSTALACAO.md
 - [ ] Push notifications nativas (depende da publicação nas lojas)
 - [ ] Publicação na Play Store
 
-Histórico completo e decisões em [`PLANO_WHATSAPP_IA.md`](PLANO_WHATSAPP_IA.md) e [`memory-bank/`](memory-bank/).
+Documentação técnica completa em [`docs/arquitetura.md`](docs/arquitetura.md); contexto, decisões e roadmap em [`memory-bank/projectbrief.md`](memory-bank/projectbrief.md).
 
 ---
 

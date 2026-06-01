@@ -1,7 +1,7 @@
 # Trabalho em Andamento
 
-> Branch atual: `feature/app-mobile` · Referência: `../PLANO_WHATSAPP_IA.md`
-> (registro detalhado fase a fase). Última sessão registrada: **2026-05-28**.
+> Branch atual: `feature/app-mobile`. Última sessão registrada: **2026-05-28**.
+> Roadmap completo em `roadmap.md`; decisões em `decisions.md`.
 
 ## Foco atual — Preparação para deploy
 
