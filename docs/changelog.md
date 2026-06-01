@@ -77,6 +77,15 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
 - **2026-05-28** — Migração do gateway WhatsApp Evolution → **Meta Business API**
   (código pronto, pendente configuração); remoção do role `master_admin`;
   Puppeteer singleton; ambiente limpo para deploy.
+- **2026-06-01** — **App mobile: camada visual HUD "Painel de comando"**
+  (`app/public/app.css`, só mobile — não toca admin/site). Bloco aditivo no fim
+  do CSS + 6 tokens `--hud-*` no `:root`. Grid técnico + scanline de fundo
+  (estáticos), tipografia monospace nos dados
+  (KPIs/timer/IDs/relógio), headers em uppercase tracked com tique âmbar,
+  hairline nas barras, indicador de aba ativa no bottom-nav, linha de dados
+  animada no login e anel de varredura no splash. Perf preservada (única
+  animação contínua nova é cheap e desligada em `prefers-reduced-motion`).
+  Reversível removendo o bloco + tokens.
 
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e

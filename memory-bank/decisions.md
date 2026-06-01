@@ -28,6 +28,22 @@ canônica do "porquê"; o "o quê" está em `../docs/` e em [`current-state.md`]
   `contain: layout paint`, opacity/max-width em vez de display none/block, tudo
   unificado em 280ms `cubic-bezier(.4,0,.2,1)` (material standard easing) para
   evitar reflow cascateado e "estalos".
+- **Camada HUD "Painel de comando" (só app mobile).** Para deixar o app "mais
+  tecnológico" sem fugir do Mission Control, o `app/public/app.css` ganhou um
+  bloco **aditivo** no fim (+ tokens `--hud-*` no `:root`): grid técnico +
+  scanline de fundo (estáticos, custo de pintura ~zero), números/IDs em
+  monospace, headers uppercase tracked, hairline âmbar e indicador de aba no
+  bottom-nav. Mantido isolado e reversível de propósito (remover o bloco
+  desfaz tudo). **Corner-brackets âmbar nos cards foram descartados** após review
+  visual — poluíam (pareciam "cantos de quadradinho amarelo" repetidos em cada
+  card, inclusive os menores/injetados). **Lição:** efeitos aplicados por classe
+  compartilhada (`.card`, `.tec-card`) propagam pra muito mais lugar do que se
+  imagina — preferir acento pontual a decorar todo container.
+- **Não redefinir `position` em elementos `sticky` ao adicionar pseudos de HUD.**
+  `.cli-nav`, `.app-header*` já são `position: sticky`; sobrescrever para
+  `relative` (mesma especificidade, regra nova vinha depois) quebra o sticky e o
+  menu/header "descem" com o scroll. Pseudo-elementos absolutos já se ancoram no
+  `sticky` — não precisam de `relative`.
 
 ## Cache (a pegadinha nº 1 do projeto)
 

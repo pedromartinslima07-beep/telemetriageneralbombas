@@ -123,6 +123,10 @@ ESP32 (sonda 4-20mA + SCT-013)
 - Telas cliente/síndico: home, telemetria, chamados (KPIs clicáveis), conta,
   suporte, novo chamado, detalhe.
 - Auth + onboarding; rastreamento GPS; herda visual do admin.
+- **Camada visual HUD "Painel de comando"** (jun/2026): grid técnico + scanline
+  de fundo, dados em monospace, headers
+  uppercase tracked, indicador de aba no bottom-nav. Bloco aditivo no fim de
+  `app/public/app.css` + tokens `--hud-*`; só mobile, não afeta admin/site.
 
 **Segurança & operação**
 - Envs obrigatórias em produção (JWT_SECRET, CORS_ORIGINS) com `process.exit(1)`.

@@ -56,6 +56,15 @@
   --radius-sm: 8px;
   --radius-lg: 16px;
   --gap:       16px;
+
+  /* ── HUD — camada "Painel de comando" (só app mobile) ──
+     fonte mono para dados + cores da moldura/grid/scanline.        */
+  --font-mono:   ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Monaco, Consolas, monospace;
+  --hud-grid:    rgba(120,140,200,.045);   /* linhas frias do grid  */
+  --hud-grid-2:  rgba(240,176,20,.022);    /* linhas âmbar do grid  */
+  --hud-line:    rgba(240,176,20,.55);     /* cantos/brackets       */
+  --hud-line-dim:rgba(240,176,20,.22);     /* hairline de molduras  */
+  --hud-scan:    rgba(0,0,0,.10);          /* scanline CRT sutil    */
 }
 
 /* Aurora sutil — copiado de admin.css body::before */
@@ -3122,3 +3131,152 @@ body:has(.screen-auth[data-active])::before { display: none; }
 .cli-tele-bomba-pill.off::before { background: #7a7e9c; }
 .cli-tele-bomba-pill.uk  { background: rgba(255,255,255,.04); color: var(--muted); border: 1px solid var(--border); }
 .cli-tele-bomba-pill.uk::before  { background: var(--muted); }
+
+/* ============================================================
+   ╔══════════════════════════════════════════════════════╗
+   ║  HUD / PAINEL DE COMANDO — camada visual (só app)      ║
+   ╚══════════════════════════════════════════════════════╝
+   Camada aditiva sobre o Mission Control. Restila componentes
+   compartilhados (cards, KPIs, headers, nav) por herança, então
+   propaga pra todas as telas sem reescrever cada uma.
+
+   Princípios de perf (memória redesign-guidelines):
+   - grid, scanline e corner-brackets são ESTÁTICOS (sem repaint).
+   - única animação contínua nova = fluxo na linha de dados do auth,
+     desligada em prefers-reduced-motion.
+   Pra reverter o HUD: basta remover este bloco (e os 6 tokens --hud-*).
+   ============================================================ */
+
+/* ── 1. Grid técnico + scanline de fundo ───────────────────
+   Um overlay fixo, atrás de tudo, somando ao body::before (aurora).
+   Grid 30px (frio + âmbar) dá a malha de telemetria; a scanline 3px
+   dá textura CRT. Tudo estático → custo de pintura praticamente nulo. */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    /* scanline CRT */
+    repeating-linear-gradient(0deg, var(--hud-scan) 0 1px, transparent 1px 3px),
+    /* grid vertical/horizontal frio */
+    linear-gradient(90deg, var(--hud-grid) 1px, transparent 1px) 0 0 / 30px 30px,
+    linear-gradient(0deg,  var(--hud-grid) 1px, transparent 1px) 0 0 / 30px 30px,
+    /* grid âmbar mais largo (sobreposição de "setor") */
+    linear-gradient(90deg, var(--hud-grid-2) 1px, transparent 1px) 0 0 / 150px 150px,
+    linear-gradient(0deg,  var(--hud-grid-2) 1px, transparent 1px) 0 0 / 150px 150px;
+  /* fade radial: grid mais visível no topo, some embaixo */
+  -webkit-mask-image: radial-gradient(120% 90% at 50% 0%, #000 35%, transparent 92%);
+          mask-image: radial-gradient(120% 90% at 50% 0%, #000 35%, transparent 92%);
+}
+
+/* ── 3. Tipografia mono nos dados ──────────────────────────
+   Números/medidas/IDs/relógios em monospace = "leitura de instrumento". */
+/* Só os NÚMEROS/medidas em mono (instrumento). Labels ficam na
+   fonte normal pra não perder legibilidade nos tamanhos pequenos. */
+.rc-value,
+.td-timer-value,
+.tc-sync,
+.diag-line,
+#now,
+.ch-id-cell { font-family: var(--font-mono); font-feature-settings: "tnum" 1; }
+
+/* ── 4. Headers HUD (cardHead) ─────────────────────────────
+   Título uppercase tracked + glow no head-icon + tique âmbar à esquerda. */
+.cardHead { position: relative; }
+.cardHead::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 50%;
+  width: 2px; height: 16px;
+  transform: translateY(-50%);
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+  border-radius: 0 2px 2px 0;
+}
+.cardHead h2 {
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-size: 11.5px;
+}
+.cardHead h2 .head-icon {
+  box-shadow: inset 0 0 12px rgba(240,176,20,.18), 0 0 10px rgba(240,176,20,.12);
+}
+
+/* ── 5. Hairline âmbar nos headers/nav (moldura de cockpit) ─
+   NÃO redefinir position aqui: os headers já são position:sticky,
+   que basta como contexto pros pseudos. Sobrescrever pra relative
+   quebra o sticky (header/menu deixam de grudar e "descem"). */
+.app-header::after,
+.app-header-tec::after,
+.cli-header::after {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; bottom: -1px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--hud-line-dim) 30%, var(--hud-line-dim) 70%, transparent);
+  pointer-events: none;
+}
+
+/* status do técnico ("Em campo") em mono uppercase */
+.app-header-tec .brand-sub { font-family: var(--font-mono); text-transform: uppercase; letter-spacing: .5px; }
+
+/* ── 6. Bottom nav — indicador de aba ativa + hairline topo ─
+   .cli-nav já é position:sticky → não redefinir (senão perde o
+   bottom:0 e o menu desce com o scroll). */
+.cli-nav::before {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; top: -1px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--hud-line-dim), transparent);
+  pointer-events: none;
+}
+.cli-nav button { position: relative; }
+.cli-nav button.active::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 50%;
+  width: 22px; height: 2px;
+  transform: translateX(-50%);
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+  border-radius: 0 0 2px 2px;
+}
+
+/* ── 7. Splash + Login com toque HUD ───────────────────────
+   A linha superior do login vira "fluxo de dados" animado (cheap:
+   só anima background-position de um gradiente de 2px). */
+.login-card::before {
+  background: linear-gradient(90deg, transparent, var(--accent) 30%, var(--blue) 70%, transparent);
+  background-size: 200% 100%;
+  animation: hudFlow 3.2s linear infinite;
+}
+@keyframes hudFlow { to { background-position: 200% 0; } }
+
+/* anel de varredura no splash (além do spinner) */
+.splash-spinner { position: relative; }
+.splash-spinner::after {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border: 1px solid var(--hud-line-dim);
+  border-radius: 50%;
+  animation: hudPing 1.8s ease-out infinite;
+}
+@keyframes hudPing {
+  0%   { transform: scale(.85); opacity: .8; }
+  100% { transform: scale(1.35); opacity: 0; }
+}
+
+/* título do login em tracking de instrumento */
+.login-title h1 { letter-spacing: 2px; }
+
+/* ── 8. Respeita preferência de menos movimento ────────────
+   Desliga as animações novas; o visual estático (grid, brackets,
+   moldura) permanece intacto. */
+@media (prefers-reduced-motion: reduce) {
+  .login-card::before { animation: none; }
+  .splash-spinner::after { animation: none; }
+}

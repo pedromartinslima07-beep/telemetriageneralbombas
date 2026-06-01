@@ -7,7 +7,7 @@ aliases:
 ---
 # Trabalho em Andamento
 
-> Branch atual: `feature/app-mobile`. Última sessão registrada: **2026-05-28**.
+> Branch atual: `feature/app-mobile`. Última sessão registrada: **2026-06-01**.
 > Roadmap completo em [`roadmap.md`](roadmap.md); decisões em [`decisions.md`](decisions.md).
 
 ## Foco atual — Preparação para deploy
@@ -60,6 +60,24 @@ Envs necessárias: `OPENAI_API_KEY`, `WHATSAPP_VERIFY_TOKEN`,
 5. Testar fluxo completo com número WhatsApp real.
 6. 10B — few-shot por categoria (aguardar volume de conversas curadas).
 7. 7J — publicação Play Store.
+
+## Melhorias recentes (sessão 2026-06-01)
+
+- **App mobile — camada visual HUD "Painel de comando"** (`app/public/app.css`,
+  só mobile, não toca admin/site). Bloco aditivo no fim do CSS + tokens
+  `--hud-*` no `:root`: grid técnico + scanline de fundo (estáticos), números/IDs
+  em monospace, headers uppercase tracked com tique âmbar + glow no head-icon,
+  hairline âmbar nos headers, indicador de aba ativa no bottom-nav, linha de
+  dados animada no login e anel de varredura no splash. Reversível.
+- **Corner-brackets âmbar descartados** após review visual (poluíam — pareciam
+  "cantos de quadradinho amarelo" repetidos em todo card). Ver
+  [`decisions.md`](decisions.md).
+- **Pegadinha corrigida:** redefinir `position: relative` em `.cli-nav` /
+  `.app-header*` quebra o `position: sticky` original (mesma especificidade,
+  regra do HUD vinha depois) → menu/header "desciam" com o scroll. Pseudos de
+  HUD funcionam direto sobre o `sticky`, sem precisar de `relative`.
+- **Legibilidade dos KPIs:** labels dos `.rc` ficam na fonte normal; só os
+  valores numéricos em monospace.
 
 ## Melhorias recentes (sessão 2026-05-28)
 
