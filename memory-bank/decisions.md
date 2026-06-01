@@ -1,8 +1,15 @@
+---
+tags:
+  - projeto
+  - contexto/decisoes
+aliases:
+  - Decisões Arquiteturais
+---
 # Decisões Arquiteturais
 
 Decisões deliberadas tomadas ao longo do projeto. Cada uma custou tempo ou foi
 tomada conscientemente — não reverter sem motivo. Este arquivo é a fonte
-canônica do "porquê"; o "o quê" está em `../docs/` e em `current-state.md`.
+canônica do "porquê"; o "o quê" está em `../docs/` e em [`current-state.md`](current-state.md).
 
 ## Stack e frontend
 

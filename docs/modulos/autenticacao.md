@@ -1,3 +1,12 @@
+---
+tags:
+  - projeto
+  - fluxo
+aliases:
+  - Autenticação
+  - Login
+  - OTP
+---
 # Fluxo: Autenticação
 
 Login com 2FA por email (OTP) e dispositivos confiáveis.

@@ -1,3 +1,11 @@
+---
+tags:
+  - projeto
+  - moc
+aliases:
+  - Fluxos de Negócio
+  - Módulos
+---
 # Fluxos de Negócio (Módulos)
 
 Cada arquivo descreve um fluxo ponta a ponta — quem dispara, o que o backend

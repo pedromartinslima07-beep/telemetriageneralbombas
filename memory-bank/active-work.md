@@ -1,7 +1,14 @@
+---
+tags:
+  - projeto
+  - contexto/em-andamento
+aliases:
+  - Trabalho em Andamento
+---
 # Trabalho em Andamento
 
 > Branch atual: `feature/app-mobile`. Última sessão registrada: **2026-05-28**.
-> Roadmap completo em `roadmap.md`; decisões em `decisions.md`.
+> Roadmap completo em [`roadmap.md`](roadmap.md); decisões em [`decisions.md`](decisions.md).
 
 ## Foco atual — Preparação para deploy
 

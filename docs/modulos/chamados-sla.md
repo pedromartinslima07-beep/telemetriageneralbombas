@@ -1,3 +1,12 @@
+---
+tags:
+  - projeto
+  - fluxo
+aliases:
+  - Chamados
+  - SLA
+  - P1-P4
+---
 # Fluxo: Chamados, Criticidade P1–P4 e SLA
 
 ## Abertura de chamado

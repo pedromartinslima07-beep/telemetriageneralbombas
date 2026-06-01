@@ -1,8 +1,16 @@
+---
+tags:
+  - projeto
+  - doc/changelog
+aliases:
+  - Changelog
+---
 # Changelog
 
 Histórico técnico do projeto: evolução do schema (`migrations/NNN_*.sql`) e
 marcos de produto por fase. O "porquê" das decisões está em
-`../memory-bank/decisions.md`; o roadmap em `../memory-bank/roadmap.md`.
+[`../memory-bank/decisions.md`](../memory-bank/decisions.md); o roadmap em
+[`../memory-bank/roadmap.md`](../memory-bank/roadmap.md).
 
 ## Schema base (2026-03)
 
@@ -70,5 +78,7 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
   (código pronto, pendente configuração); remoção do role `master_admin`;
   Puppeteer singleton; ambiente limpo para deploy.
 
-> Decisões, itens descartados e backlog futuro: `../memory-bank/decisions.md` e
-> `../memory-bank/roadmap.md`. Fluxos de negócio em `modulos/`.
+> Decisões, itens descartados e backlog futuro:
+> [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
+> [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em
+> [`modulos/`](modulos/README.md).

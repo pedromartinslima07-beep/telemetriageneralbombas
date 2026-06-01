@@ -28,6 +28,47 @@ tempo** e regras que não dá pra inferir lendo só o arquivo.
 - **Nunca remova funcionalidades sem autorização explícita.**
 - **Sempre priorize consistência com a arquitetura existente.**
 
+### Formato da documentação (vault Obsidian + GitHub)
+
+`docs/` e `memory-bank/` são lidos **tanto no GitHub quanto como vault do
+Obsidian** ("segundo cérebro"). Toda doc nova/editada deve seguir estas regras
+para não quebrar nenhum dos dois:
+
+1. **Frontmatter YAML** no topo de todo `.md` de doc, com `tags` e `aliases`:
+   ```yaml
+   ---
+   tags:
+     - projeto
+     - <categoria>      # contexto/* · doc/* · fluxo · moc
+   aliases:
+     - <nomes alternativos para o Quick Switcher>
+   ---
+   ```
+   Categorias em uso: `contexto/*` (memory-bank), `doc/*` (docs técnicos),
+   `fluxo` (docs/modulos), `moc` (índices/Home).
+
+2. **Links sempre em markdown relativo** — `[texto](../pasta/arquivo.md)`.
+   Funcionam no GitHub **e** alimentam grafo/backlinks do Obsidian.
+   - **Nunca usar wikilinks `[[ ]]`** (o GitHub mostra como texto cru).
+   - **Nunca linkar para pasta** (`](docs/)`, `](memory-bank/)`) — o Obsidian
+     cria uma nota vazia ao clicar. Aponte para um arquivo real (ex.: o
+     `README.md`/índice da pasta).
+   - **Referência cruzada entre docs = link de verdade**, não código em crase
+     (`` `arquivo.md` `` não vira link no Obsidian). Crase só para nomes de
+     arquivo-fonte que não são notas (`src/...js`, `schema.sql`, etc.).
+
+3. **Ligue notas novas ao grafo** — toda doc nova entra como link na
+   [`Home.md`](Home.md) (MOC) e, quando fizer sentido, nas notas relacionadas.
+   Nada de nota órfã.
+
+4. **Cuidado com `#` virando tag** — hex de cor, headers de exemplo e afins
+   devem ficar em crase (`` `#f0b014` ``) para o Obsidian não os ler como tag.
+
+5. **Divisão de papéis** (não duplicar conteúdo entre eles):
+   - `memory-bank/decisions.md` = **o "porquê"** (decisões, descartados, lições).
+   - `memory-bank/{projectbrief,current-state,active-work,roadmap}.md` = contexto/direção.
+   - `docs/` = **o "o quê"/"como"** (banco, API, arquitetura, changelog) + `docs/modulos/` (fluxos).
+
 ---
 
 ## ⚠️ Cache em 3 camadas — sempre invalide ao mexer no admin

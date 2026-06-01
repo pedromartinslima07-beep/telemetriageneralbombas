@@ -1,3 +1,13 @@
+---
+tags:
+  - projeto
+  - fluxo
+aliases:
+  - Ordens de Serviço
+  - O.S.
+  - Orçamentos
+  - GPS
+---
 # Fluxo: Ordens de Serviço, Orçamentos e GPS
 
 ## Ordem de Serviço (O.S.) digital

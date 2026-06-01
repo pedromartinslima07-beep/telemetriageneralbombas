@@ -335,7 +335,7 @@ Guia de instalação física (sonda + sensor) em [`INSTALACAO.md`](INSTALACAO.md
 - [ ] Push notifications nativas (depende da publicação nas lojas)
 - [ ] Publicação na Play Store
 
-Documentação técnica completa em [`docs/arquitetura.md`](docs/arquitetura.md); contexto, decisões e roadmap em [`memory-bank/projectbrief.md`](memory-bank/projectbrief.md).
+Documentação técnica completa em [`docs/arquitetura.md`](docs/arquitetura.md); contexto, decisões e roadmap em [`memory-bank/projectbrief.md`](memory-bank/projectbrief.md). Ponto de entrada navegável (Obsidian): [`Home.md`](Home.md).
 
 ---
 

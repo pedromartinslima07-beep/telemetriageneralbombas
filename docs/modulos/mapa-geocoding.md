@@ -1,3 +1,12 @@
+---
+tags:
+  - projeto
+  - fluxo
+aliases:
+  - Mapa
+  - Geocoding
+  - Tiles
+---
 # Fluxo: Mapa, Geocoding e Tiles
 
 Como o sistema posiciona condomínios no mapa e renderiza os tiles.
@@ -55,7 +64,7 @@ Cliente Leaflet: `keepBuffer: 4`, `updateWhenIdle: false`, `updateInterval: 100`
 (carrega durante o pan, sensação de fluidez).
 
 > **Sem fallback OSM** e **sem markercluster** — decisões conscientes (ver
-> `../../memory-bank/decisions.md`).
+> [`../../memory-bank/decisions.md`](../../memory-bank/decisions.md)).
 
 ## Classificação por zona de SP
 

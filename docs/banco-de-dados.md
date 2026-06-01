@@ -1,3 +1,11 @@
+---
+tags:
+  - projeto
+  - doc/banco
+aliases:
+  - Banco de Dados
+  - Schema
+---
 # Banco de Dados
 
 PostgreSQL 18 (Railway em produção). Acesso via pool `pg` (`src/db.js`), que
@@ -167,7 +175,7 @@ OU foto).
 
 **`configuracoes`** (010) — key-value dinâmico (`chave`, `valor`,
 `atualizado_em`, `atualizado_por`). Whitelist de chaves em
-`src/services/config.service.js` (ver `arquitetura.md`). Cache em memória 30s.
+`src/services/config.service.js` (ver [`arquitetura.md`](arquitetura.md)). Cache em memória 30s.
 
 ---
 

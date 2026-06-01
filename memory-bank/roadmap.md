@@ -1,8 +1,15 @@
+---
+tags:
+  - projeto
+  - contexto/roadmap
+aliases:
+  - Roadmap
+---
 # Roadmap
 
 > Status: ✅ concluído · 🟡 em andamento · 📋 planejado · ⏸️ adiado · ❌ descartado.
-> O "porquê" de cada decisão está em `decisions.md`; o histórico técnico por
-> migration está em `../docs/changelog.md`.
+> O "porquê" de cada decisão está em [`decisions.md`](decisions.md); o histórico
+> técnico por migration está em [`../docs/changelog.md`](../docs/changelog.md).
 
 ## Linha do tempo das fases (já entregue)
 
@@ -30,7 +37,7 @@
 ## Em andamento / pendente
 
 - **Gateway Meta WhatsApp** — código pronto, pendente configuração externa
-  (ver `active-work.md`).
+  (ver [`active-work.md`](active-work.md)).
 - **Fase 10 (treinar IA)** 🟡 — 10A feito; 10B-E aguardam ~500+ conversas
   curadas.
 - **7G — Push notifications nativas** ⏸️ — depende da 7J.

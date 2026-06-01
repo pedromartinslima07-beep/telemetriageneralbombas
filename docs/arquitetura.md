@@ -1,3 +1,12 @@
+---
+tags:
+  - projeto
+  - doc/arquitetura
+aliases:
+  - Arquitetura
+  - Estrutura de Pastas
+  - Integrações
+---
 # Arquitetura, Estrutura de Pastas, Dependências e Integrações
 
 ## Visão geral
@@ -5,7 +14,7 @@
 Monólito Node.js/Express servindo API REST + frontend estático (HTML/CSS/JS
 puro) + app mobile (Capacitor). Banco PostgreSQL. Deploy no Railway. Sem build
 step, sem framework de frontend — **decisão deliberada** (ver
-`../memory-bank/decisions.md`).
+[`../memory-bank/decisions.md`](../memory-bank/decisions.md)).
 
 ```
 ESP32 ──HTTPS POST /telemetria (X-Device-Key)──┐
@@ -197,8 +206,8 @@ WHATSAPP_ACCESS_TOKEN · WHATSAPP_PHONE_NUMBER_ID · WHATSAPP_VERIFY_TOKEN
 
 Bug mais comum do projeto. Resumo: (1) `?v=N` nos assets em `admin.html`;
 (2) lista network-first + `CACHE_NAME` no `sw.js`; (3) `Cache-Control:no-cache`
-nas HTMLs (`_htmlNoCache`). Detalhes em `../CLAUDE.md`. Saída de emergência:
-`GET /admin/reset-cache`.
+nas HTMLs (`_htmlNoCache`). Detalhes em [`../CLAUDE.md`](../CLAUDE.md). Saída de
+emergência: `GET /admin/reset-cache`.
 
-Ver também: `banco-de-dados.md`, `api.md`, `modulos/` (fluxos de negócio),
-`changelog.md`.
+Ver também: [`banco-de-dados.md`](banco-de-dados.md), [`api.md`](api.md),
+[`modulos/`](modulos/README.md) (fluxos de negócio), [`changelog.md`](changelog.md).

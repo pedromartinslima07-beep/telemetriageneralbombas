@@ -1,3 +1,11 @@
+---
+tags:
+  - projeto
+  - contexto/visao
+aliases:
+  - Project Brief
+  - Visão do Projeto
+---
 # Project Brief — Telemetria General Bombas
 
 ## Objetivo do sistema
@@ -62,4 +70,5 @@ A partir daí o sistema cresceu para cobrir **todo o ciclo de manutenção**:
   ficam pendentes até confirmação explícita do cliente.
 
 Detalhes de convenções operacionais (cache em 3 camadas, migrations, jobs) em
-`../CLAUDE.md`. Ver também `current-state.md`, `decisions.md`, `roadmap.md`.
+[`../CLAUDE.md`](../CLAUDE.md). Ver também [`current-state.md`](current-state.md),
+[`decisions.md`](decisions.md), [`roadmap.md`](roadmap.md).

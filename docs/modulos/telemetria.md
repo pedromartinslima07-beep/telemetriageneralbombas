@@ -1,3 +1,12 @@
+---
+tags:
+  - projeto
+  - fluxo
+aliases:
+  - Telemetria
+  - Leituras
+  - ESP32
+---
 # Fluxo: Telemetria
 
 Do dispositivo físico ao alerta no painel.
@@ -59,7 +68,7 @@ remotamente pelo painel.
 A tabela `leituras` cresce ~1 linha por device a cada poucos minutos (~86k
 linhas/dia em 100 condomínios × 3 reservatórios). Decisão de escopo: histórico
 > 60 dias **não é necessário** no produto, então a estratégia é **só retenção**
-(sem tabelas agregadas — ver `../../memory-bank/decisions.md`). Sem limpeza:
+(sem tabelas agregadas — ver [`../../memory-bank/decisions.md`](../../memory-bank/decisions.md)). Sem limpeza:
 ~3,6 GB/ano crescendo; com retenção de 60 dias estabiliza em ~600 MB.
 
 `leituras-cleanup.job.js` (`leituras.retencao_dias`, default 60),

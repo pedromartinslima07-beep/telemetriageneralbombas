@@ -1,3 +1,10 @@
+---
+tags:
+  - projeto
+  - contexto/estado
+aliases:
+  - Estado Atual
+---
 # Estado Atual — Arquitetura, Módulos e Funcionalidades Prontas
 
 ## Arquitetura atual
@@ -123,7 +130,7 @@ ESP32 (sonda 4-20mA + SCT-013)
 - **Configurações dinâmicas** editáveis pelo admin (whitelist `CHAVES` em
   `config.service.js`) — intervalos de job, modelo IA, timeouts, sem deploy.
 - Email de alerta crítico (Resend).
-- Cache em 3 camadas documentado (ver `../CLAUDE.md`).
+- Cache em 3 camadas documentado (ver [`../CLAUDE.md`](../CLAUDE.md)).
 
 ## Banco de dados
 

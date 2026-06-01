@@ -1,3 +1,12 @@
+---
+tags:
+  - projeto
+  - fluxo
+aliases:
+  - WhatsApp
+  - IA
+  - Atendimento
+---
 # Fluxo: Atendimento WhatsApp + IA
 
 Assistente de atendimento que conversa em linguagem natural, consulta dados
@@ -95,4 +104,4 @@ TRIAGEM → ESCALADO → FINALIZADO
 ## Status atual
 
 Código migrado de Evolution API para **Meta Business API** — pronto, **pendente
-configuração** das credenciais Meta. Ver `../../memory-bank/active-work.md`.
+configuração** das credenciais Meta. Ver [`../../memory-bank/active-work.md`](../../memory-bank/active-work.md).

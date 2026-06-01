@@ -1,3 +1,11 @@
+---
+tags:
+  - projeto
+  - doc/api
+aliases:
+  - API REST
+  - Endpoints
+---
 # API REST
 
 API Express montada em `src/app.js`. Todas as respostas são JSON salvo PDFs
