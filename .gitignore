@@ -4,6 +4,7 @@ node_modules/
 *.log
 .DS_Store
 .claude/
+.obsidian/
 desktop.ini
 **/desktop.ini
 Thumbs.db

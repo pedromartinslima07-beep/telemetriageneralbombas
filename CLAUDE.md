@@ -6,6 +6,30 @@ tempo** e regras que não dá pra inferir lendo só o arquivo.
 
 ---
 
+## 📋 Instruções do Projeto (fluxo de trabalho obrigatório)
+
+### Antes de qualquer alteração
+
+1. Leia todos os arquivos da pasta `memory-bank/`.
+2. Leia todos os arquivos da pasta `docs/`.
+3. Entenda o contexto antes de modificar código.
+
+### Sempre que criar ou alterar uma funcionalidade
+
+1. Atualize a documentação técnica (`docs/`).
+2. Atualize o roadmap (`memory-bank/roadmap.md`).
+3. Atualize o banco de dados documentado (`docs/banco-de-dados.md`).
+4. Atualize o changelog (`docs/changelog.md`).
+5. Atualize `memory-bank/current-state.md`.
+6. Atualize `memory-bank/active-work.md` caso necessário.
+
+### Regras invioláveis
+
+- **Nunca remova funcionalidades sem autorização explícita.**
+- **Sempre priorize consistência com a arquitetura existente.**
+
+---
+
 ## ⚠️ Cache em 3 camadas — sempre invalide ao mexer no admin
 
 Este é o bug mais comum do projeto. Sintoma clássico: você mexe em

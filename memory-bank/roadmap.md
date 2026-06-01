@@ -1,0 +1,65 @@
+# Roadmap
+
+> Espelho condensado de `../PLANO_WHATSAPP_IA.md`. Status: ✅ concluído ·
+> 🟡 em andamento · 📋 planejado · ⏸️ adiado · ❌ descartado.
+
+## Linha do tempo das fases (já entregue)
+
+| Fase | Tema | Status |
+|---|---|---|
+| 1 | Fundação WhatsApp (webhook, tabelas, sem IA) | ✅ |
+| 2 | IA com function calling (gpt-4o-mini) | ✅ |
+| 3A | Redesign dashboard (cards por condomínio) | ✅ |
+| 3A.1 | Redesign visual "Mission Control" | ✅ |
+| 3A.2 | Seção Telemetria avançada | ✅ |
+| 3B | Mapa interativo Leaflet + geocoding híbrido + proxy de tiles | ✅ |
+| 3C | Página /alertas unificada (telemetria + chamados) | ✅ |
+| 3D | Ações recomendadas + análise IA + comentários | ✅ |
+| 3E | Polimento da animação da sidebar | ✅ |
+| 3F | WhatsApp como central de atendimento (Fases A-D) | ✅ |
+| 4 | Integração telemetria automática (chamado anexa leitura) | ✅ |
+| 5 | Polimento e gestão de conversas | ✅ |
+| 6 | Hardening de segurança + configurações dinâmicas | ✅ |
+| 7A-7F, 7H, 7I-A, 7K | App mobile Capacitor (técnico + cliente) + O.S. + GPS | ✅ |
+| 8 | Analytics e SLA (métricas, SLA configurável, dashboard) | ✅ |
+| 9C, 9E | Política de retenção + limpeza retroativa | ✅ |
+| 10A | Curadoria de conversas resolvidas | ✅ |
+| 11 | Política de criticidade P1–P4 e SLA de chegada | ✅ |
+
+## Em andamento / pendente
+
+- **Gateway Meta WhatsApp** — código pronto, pendente configuração externa
+  (ver `active-work.md`).
+- **Fase 10 (treinar IA)** 🟡 — 10A feito; 10B-E aguardam ~500+ conversas
+  curadas.
+- **7G — Push notifications nativas** ⏸️ — depende da 7J.
+- **7J — Publicação Play Store** 📋.
+
+## Descartado (decisões conscientes)
+
+- **9A — Tabela agregada horária** ❌ — write-threshold já reduz volume o
+  suficiente; agregação on-the-fly por bucket atende.
+- **9B — Tabela agregada diária** ❌ — mesmo motivo.
+- **9D — Adaptar queries para tabelas agregadas** ❌ — sem as tabelas, sem
+  necessidade.
+- **WebSocket no WhatsApp** ⏸️/❌ — polling de 5s suficiente para o volume atual.
+- **leaflet.markercluster** — adiado até o nº de condomínios justificar.
+
+## Backlog de schema (já resolvido)
+
+- Sistema de orçamentos **unificado** (Migration 030 — eliminou os dois sistemas
+  paralelos A e B).
+- FK bidirecional `chamados ↔ ordens_servico` redundante removida (Migration 034).
+- `mensagens_whatsapp.ia_urgencia` migrado para p1-p4 (Migration 031).
+- Tabelas `planos_manutencao` (032), `historico_chamados` (033), `contratos`
+  (035) criadas.
+- Encaminhamento de orçamento via IA (036), contexto cliente B2B vs PF (037),
+  pré-cadastro de contatos WhatsApp (037).
+- State machine de conversa (042), anti-loop (041), canal (043).
+
+## Visão de produto de longo prazo
+
+- IA especializada no domínio via few-shot → fine-tuning (Fase 10).
+- App nas lojas com push nativo.
+- Possível: multi-empresa white-label, health do device (qualidade de sinal),
+  múltiplas sondas por reservatório (itens do roadmap original do README).
