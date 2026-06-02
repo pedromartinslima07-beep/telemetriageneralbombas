@@ -2534,6 +2534,7 @@ function _cliFiltrados() {
     if (_cliFiltros.tab === "ativo"   && !c.ativo) return false;
     if (_cliFiltros.tab === "inativo" &&  c.ativo) return false;
     if (busca && !c.nome?.toLowerCase().includes(busca) &&
+                 !c.nome_fantasia?.toLowerCase().includes(busca) &&
                  !c.cidade?.toLowerCase().includes(busca) &&
                  !c.responsavel?.toLowerCase().includes(busca)) return false;
     return true;
@@ -2568,7 +2569,7 @@ function renderCliTabela() {
       ? `<span class="ch-st ch-st-${st.cls === "ok" ? "aberto" : st.cls === "warn" ? "em_atendimento" : "fechado"}" title="${st.texto}">${st.texto}</span>`
       : `<span style="font-size:10px;color:var(--muted);">—</span>`;
     return `<tr class="ch-row${sel}" data-cli-id="${c.id}" style="cursor:pointer;">
-      <td><div style="font-weight:500;font-size:12px;">${_waEscaparHtml(c.nome || "—")}</div></td>
+      <td><div style="font-weight:500;font-size:12px;">${_waEscaparHtml(c.nome_fantasia || c.nome || "—")}</div></td>
       <td style="font-size:11px;color:var(--muted);">${cidade}</td>
       <td style="font-size:11px;">${_waEscaparHtml(c.responsavel || "—")}</td>
       <td style="font-size:11px;text-align:center;">${c.total_reservatorios ?? 0}</td>
@@ -2795,11 +2796,13 @@ function renderCliDetalhe(c) {
       <span class="ch-det-id" style="font-size:10px;">${c.cidade ? _waEscaparHtml(c.cidade + (c.uf ? "/" + c.uf : "")) : "Condomínio"}</span>
       ${statusBadge}
     </div>
-    <div class="ch-det-title">${_waEscaparHtml(c.nome || "Sem nome")}</div>
+    <div class="ch-det-title">${_waEscaparHtml(c.nome_fantasia || c.nome || "Sem nome")}</div>
+    ${c.nome_fantasia ? `<div style="font-size:11px;color:var(--muted);margin-top:2px;margin-bottom:8px;">Razão social: ${_waEscaparHtml(c.nome)}</div>` : ""}
 
     <div class="ch-det-section">
       <div class="ch-det-sec-title">Informações</div>
       <div class="ch-det-meta">
+        ${c.cnpj        ? `<div class="ch-met-row"><span class="ch-met-lbl">CNPJ</span><span style="font-size:12px;font-family:monospace;">${_waEscaparHtml(c.cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5"))}</span></div>` : ""}
         ${c.responsavel ? `<div class="ch-met-row"><span class="ch-met-lbl">Responsável</span><span style="font-size:12px;">${_waEscaparHtml(c.responsavel)}</span></div>` : ""}
         ${c.telefone    ? `<div class="ch-met-row"><span class="ch-met-lbl">Telefone</span><span style="font-size:12px;">${_waEscaparHtml(c.telefone)}</span></div>` : ""}
         ${c.endereco    ? `<div class="ch-met-row"><span class="ch-met-lbl">Endereço</span><span style="font-size:12px;">${_waEscaparHtml(c.endereco + (c.bairro ? ", " + c.bairro : ""))}</span></div>` : ""}
@@ -2836,7 +2839,7 @@ function renderCliDetalhe(c) {
       </button>
       <button class="btn btn-sm viewer-only-hide" data-action="editar-condominio" data-id="${c.id}">Editar</button>
       ${c.ativo
-        ? `<button class="btn btn-sm btnDanger viewer-only-hide" data-action="inativar-condominio" data-id="${c.id}" data-nome="${_waEscaparHtml(c.nome).replaceAll('"', '&quot;')}">Inativar</button>`
+        ? `<button class="btn btn-sm btnDanger viewer-only-hide" data-action="inativar-condominio" data-id="${c.id}" data-nome="${_waEscaparHtml(c.nome_fantasia || c.nome).replaceAll('"', '&quot;')}">Inativar</button>`
         : `<button class="btn btn-sm btnAccent viewer-only-hide" data-action="reativar-condominio" data-id="${c.id}">Reativar</button>`}
     </div>
   </div>`;
@@ -3244,74 +3247,93 @@ function abrirModalTecnico(tec = null) {
 function abrirModalNovoCliente() {
   const overlay = document.createElement("div");
   overlay.id = "modalNovoCliente";
-  overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9999;display:flex;align-items:center;justify-content:center;";
+  overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;";
   overlay.innerHTML = `
-    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:24px;width:520px;max-width:95vw;box-shadow:0 24px 64px rgba(0,0,0,.6);">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:20px 28px;width:1100px;max-width:98vw;box-shadow:0 24px 64px rgba(0,0,0,.6);">
+
+      <!-- Cabeçalho -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
         <div style="font-size:14px;font-weight:600;">Novo cliente</div>
         <button class="btn btn-sm" data-action="fechar-modal-cliente">✕</button>
       </div>
 
-      <!-- busca por CNPJ -->
-      <div style="display:flex;gap:8px;margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--border);">
+      <!-- CNPJ -->
+      <div style="display:flex;gap:8px;margin-bottom:6px;padding-bottom:12px;border-bottom:1px solid var(--border);">
         <div style="flex:1;">
-          <span class="lbl" style="display:block;margin-bottom:4px;">CNPJ</span>
-          <input id="cliModalCnpj" class="input" placeholder="00.000.000/0001-00" maxlength="18"
-            style="font-family:monospace;" />
+          <span class="lbl" style="display:block;margin-bottom:4px;">CNPJ — preenche campos automaticamente</span>
+          <input id="cliModalCnpj" class="input" placeholder="00.000.000/0001-00" maxlength="18" style="font-family:monospace;" />
         </div>
         <div style="display:flex;align-items:flex-end;">
           <button class="btn btn-sm" id="btnBuscarCnpj" style="height:34px;white-space:nowrap;">Buscar dados</button>
         </div>
       </div>
-      <span id="msgCnpj" class="hint" style="display:block;margin-top:-12px;margin-bottom:12px;"></span>
+      <span id="msgCnpj" class="hint" style="display:block;min-height:14px;margin-bottom:8px;"></span>
 
-      <div class="grid-2">
-        <div class="field col-2">
-          <span class="lbl">Nome do condomínio <span class="req">*</span></span>
-          <input id="cliModalNome" class="input" placeholder="Ex: Condomínio Jardins" />
+      <!-- Layout dois painéis: campos | mapa -->
+      <div style="display:flex;gap:20px;align-items:flex-start;">
+
+        <!-- Painel esquerdo: campos -->
+        <div style="flex:1;min-width:0;display:grid;grid-template-columns:1fr 1fr;gap:8px 14px;">
+          <div class="field">
+            <span class="lbl">Razão Social <span class="req">*</span></span>
+            <input id="cliModalNome" class="input" placeholder="Ex: Jardins Condomínio LTDA" />
+          </div>
+          <div class="field">
+            <span class="lbl">Nome Fantasia <span style="font-weight:400;color:var(--muted);">— exibição</span></span>
+            <input id="cliModalNomeFantasia" class="input" placeholder="Ex: Condomínio Jardins" />
+          </div>
+          <div class="field" style="grid-column:1/-1;">
+            <span class="lbl">Endereço</span>
+            <input id="cliModalEndereco" class="input" placeholder="Rua, número" />
+          </div>
+          <div class="field">
+            <span class="lbl">Bairro</span>
+            <input id="cliModalBairro" class="input" placeholder="Ex: Tatuapé" />
+          </div>
+          <div class="field">
+            <span class="lbl">CEP</span>
+            <input id="cliModalCep" class="input" placeholder="00000-000" maxlength="9" />
+            <span class="cep-msg" id="cliModalCepMsg" style="margin-top:3px;display:block;"></span>
+          </div>
+          <div class="field">
+            <span class="lbl">Cidade</span>
+            <input id="cliModalCidade" class="input" placeholder="Ex: São Paulo" />
+          </div>
+          <div class="field">
+            <span class="lbl">UF</span>
+            <input id="cliModalUf" class="input" maxlength="2" placeholder="SP" />
+          </div>
+          <div class="field">
+            <span class="lbl">Responsável</span>
+            <input id="cliModalResponsavel" class="input" placeholder="Ex: Síndico João Silva" />
+          </div>
+          <div class="field">
+            <span class="lbl">Telefone</span>
+            <input id="cliModalTelefone" class="input" placeholder="(11) 99999-9999" />
+          </div>
         </div>
-        <div class="field col-2">
-          <span class="lbl">Endereço</span>
-          <input id="cliModalEndereco" class="input" placeholder="Rua, número" />
+
+        <!-- Painel direito: mapa -->
+        <div style="width:420px;flex-shrink:0;display:flex;flex-direction:column;gap:6px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <span class="lbl" style="margin:0;">Localização</span>
+            <button type="button" class="btn btn-sm" data-action="buscar-coords" data-prefix="cliModal" style="font-size:11px;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              Buscar
+            </button>
+          </div>
+          <div id="cliModalLocMsg" class="loc-msg" style="font-size:10px;"></div>
+          <div class="mini-mapa" id="cliModalMiniMapa" style="height:360px;border-radius:6px;overflow:hidden;"></div>
+          <div style="font-size:10px;color:var(--muted);">Arraste o pino para ajustar.</div>
         </div>
-        <div class="field">
-          <span class="lbl">Bairro</span>
-          <input id="cliModalBairro" class="input" placeholder="Ex: Tatuapé" />
-        </div>
-        <div class="field">
-          <span class="lbl">CEP</span>
-          <input id="cliModalCep" class="input" placeholder="00000-000" maxlength="9" />
-          <span class="cep-msg" id="cliModalCepMsg" style="margin-top:4px;display:block;"></span>
-        </div>
-        <div class="field">
-          <span class="lbl">Cidade</span>
-          <input id="cliModalCidade" class="input" placeholder="Ex: São Paulo" />
-        </div>
-        <div class="field">
-          <span class="lbl">UF</span>
-          <input id="cliModalUf" class="input" maxlength="2" placeholder="SP" />
-        </div>
-        <div class="field">
-          <span class="lbl">Responsável</span>
-          <input id="cliModalResponsavel" class="input" placeholder="Ex: Síndico João Silva" />
-        </div>
-        <div class="field">
-          <span class="lbl">Telefone</span>
-          <input id="cliModalTelefone" class="input" placeholder="(11) 99999-9999" />
-        </div>
+
       </div>
+
       <input type="hidden" id="cliModalLat" />
       <input type="hidden" id="cliModalLng" />
-      <div style="display:flex;align-items:center;justify-content:flex-end;margin-top:8px;">
-        <button type="button" class="btn btn-sm" data-action="buscar-coords" data-prefix="cliModal">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          Buscar pelo endereço
-        </button>
-      </div>
-      <div id="cliModalLocMsg" class="loc-msg" style="margin-top:6px;font-size:11px;"></div>
-      <div class="mini-mapa" id="cliModalMiniMapa" style="margin-top:10px;"></div>
-      <div style="font-size:11px;color:var(--muted);margin-top:4px;">Arraste o pino para ajustar a posição manualmente.</div>
-      <div class="form-footer" style="margin-top:16px;">
+
+      <!-- Rodapé -->
+      <div class="form-footer" style="margin-top:14px;">
         <button class="btn btnAccent" id="btnCriarClienteModal">Criar cliente</button>
         <span id="msgClienteModal" class="hint"></span>
       </div>
@@ -3354,8 +3376,9 @@ function abrirModalNovoCliente() {
       }
       // preenche campos automaticamente
       const set = (id, val) => { const el = document.getElementById(id); if (el && val) el.value = val; };
-      set("cliModalNome",      data.razao_social || data.nome_fantasia);
-      set("cliModalEndereco",  [data.logradouro, data.numero, data.complemento].filter(Boolean).join(", "));
+      set("cliModalNome",         data.razao_social || data.nome_fantasia);
+      set("cliModalNomeFantasia", data.nome_fantasia);
+      set("cliModalEndereco",     [data.logradouro, data.numero, data.complemento].filter(Boolean).join(", "));
       set("cliModalBairro",    data.bairro);
       set("cliModalCidade",    data.municipio);
       set("cliModalUf",        data.uf);
@@ -3401,29 +3424,31 @@ function abrirModalNovoCliente() {
   });
 
   document.getElementById("btnCriarClienteModal")?.addEventListener("click", async () => {
-    const nome        = (document.getElementById("cliModalNome")?.value || "").trim();
-    const responsavel = (document.getElementById("cliModalResponsavel")?.value || "").trim() || null;
-    const telefone    = (document.getElementById("cliModalTelefone")?.value || "").trim() || null;
-    const cidade      = (document.getElementById("cliModalCidade")?.value || "").trim() || null;
-    const uf          = (document.getElementById("cliModalUf")?.value || "").trim().toUpperCase() || null;
-    const endereco    = (document.getElementById("cliModalEndereco")?.value || "").trim() || null;
-    const bairro      = (document.getElementById("cliModalBairro")?.value || "").trim() || null;
-    const cep         = (document.getElementById("cliModalCep")?.value || "").replace(/\D/g, "") || null;
-    const latVal      = document.getElementById("cliModalLat")?.value;
-    const lngVal      = document.getElementById("cliModalLng")?.value;
-    const lat         = latVal ? Number(latVal) : null;
-    const lng         = lngVal ? Number(lngVal) : null;
+    const nome         = (document.getElementById("cliModalNome")?.value || "").trim();
+    const nome_fantasia = (document.getElementById("cliModalNomeFantasia")?.value || "").trim() || null;
+    const cnpj         = (document.getElementById("cliModalCnpj")?.value || "").replace(/\D/g, "") || null;
+    const responsavel  = (document.getElementById("cliModalResponsavel")?.value || "").trim() || null;
+    const telefone     = (document.getElementById("cliModalTelefone")?.value || "").trim() || null;
+    const cidade       = (document.getElementById("cliModalCidade")?.value || "").trim() || null;
+    const uf           = (document.getElementById("cliModalUf")?.value || "").trim().toUpperCase() || null;
+    const endereco     = (document.getElementById("cliModalEndereco")?.value || "").trim() || null;
+    const bairro       = (document.getElementById("cliModalBairro")?.value || "").trim() || null;
+    const cep          = (document.getElementById("cliModalCep")?.value || "").replace(/\D/g, "") || null;
+    const latVal       = document.getElementById("cliModalLat")?.value;
+    const lngVal       = document.getElementById("cliModalLng")?.value;
+    const lat          = latVal ? Number(latVal) : null;
+    const lng          = lngVal ? Number(lngVal) : null;
     const msg = document.getElementById("msgClienteModal");
     if (msg) msg.textContent = "";
     if (!nome) {
-      if (msg) msg.textContent = "Nome do condomínio é obrigatório.";
+      if (msg) msg.textContent = "Razão Social é obrigatória.";
       return;
     }
     try {
       const r = await fetch("/condominios", {
         method: "POST",
         headers: { ...authHeaders(), "Content-Type": "application/json" },
-        body: JSON.stringify({ nome, responsavel, telefone, cidade, uf, endereco, bairro, cep, lat, lng })
+        body: JSON.stringify({ nome, nome_fantasia, cnpj, responsavel, telefone, cidade, uf, endereco, bairro, cep, lat, lng })
       });
       const data = await r.json();
       if (!r.ok) { if (msg) msg.textContent = data.error || "Erro ao criar."; return; }
@@ -6063,8 +6088,9 @@ function abrirModalEditar(id) {
         const data = await r.json();
         if (!r.ok) { if (msgEl) msgEl.textContent = data.message || "CNPJ não encontrado."; return; }
         const set = (id, val) => { const el = document.getElementById(id); if (el && val) el.value = val; };
-        set("editNome",       data.razao_social || data.nome_fantasia);
-        set("editEndereco",   [data.logradouro, data.numero, data.complemento].filter(Boolean).join(", "));
+        set("editNome",         data.razao_social || data.nome_fantasia);
+        set("editNomeFantasia", data.nome_fantasia);
+        set("editEndereco",     [data.logradouro, data.numero, data.complemento].filter(Boolean).join(", "));
         set("editBairro",     data.bairro);
         set("editCidade",     data.municipio);
         set("editUf",         data.uf);
@@ -6095,6 +6121,10 @@ function abrirModalEditar(id) {
       document.getElementById("editId").value = c.id;
 
       document.getElementById("editNome").value = c.nome || "";
+      const editNomeFantasia = document.getElementById("editNomeFantasia");
+      if (editNomeFantasia) editNomeFantasia.value = c.nome_fantasia || "";
+      const editCnpjEl = document.getElementById("editCnpj");
+      if (editCnpjEl) editCnpjEl.value = c.cnpj ? c.cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5") : "";
 
       document.getElementById("editEndereco").value = c.endereco || "";
       document.getElementById("editBairro").value = c.bairro || "";
@@ -6135,7 +6165,7 @@ function abrirModalEditar(id) {
       }, 80);
 
       msg.textContent = "";
-      sub.textContent = `${c.nome || "Condomínio"} • ID: ${c.id}`;
+      sub.textContent = `${c.nome_fantasia || c.nome || "Condomínio"} • ID: ${c.id}`;
     })
     .catch((e) => {
       msg.textContent = "Erro: " + e.message;
@@ -6172,6 +6202,8 @@ async function salvarEdicao(event) {
   const cepRaw = (document.getElementById("editCep")?.value || "").replace(/\D/g, "");
   const payload = {
     nome: (document.getElementById("editNome").value || "").trim(),
+    nome_fantasia: _valOrNull("editNomeFantasia"),
+    cnpj: (document.getElementById("editCnpj")?.value || "").replace(/\D/g, "") || null,
     endereco: _valOrNull("editEndereco"),
     bairro: _valOrNull("editBairro"),
     cidade: _valOrNull("editCidade"),

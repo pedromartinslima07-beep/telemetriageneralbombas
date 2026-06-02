@@ -61,6 +61,7 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
 | 041 | ia_sem_avanco | contador anti-loop |
 | 042 | conversa_state_machine | `estado_conversa` + `pendente_acao JSONB` |
 | 043 | conversa_canal | `canal` (multi-canal futuro) |
+| 044 | condominios_nome_fantasia | `condominios.nome_fantasia TEXT` (nome principal de exibição) |
 
 ## Marcos de produto (fases do plano)
 
@@ -77,6 +78,23 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
 - **2026-05-28** — Migração do gateway WhatsApp Evolution → **Meta Business API**
   (código pronto, pendente configuração); remoção do role `master_admin`;
   Puppeteer singleton; ambiente limpo para deploy.
+- **2026-06-02** — **Cadastro de clientes — Nome Fantasia e CNPJ persistido.**
+  - Migration 044: coluna `nome_fantasia TEXT` em `condominios`.
+  - Backend: `nome_fantasia` e `cnpj` incluídos em todos os endpoints
+    (`POST /condominios`, `GET /condominios`, `GET /condominios/:id`,
+    `PATCH /condominios/:id`) — antes o CNPJ era apenas buscado na BrasilAPI
+    mas nunca gravado no banco.
+  - Admin — modal "Novo cliente": redesenho em dois painéis horizontais
+    (campos à esquerda em grid 2 colunas, mini-mapa à direita); modal
+    ampliado para 1 100 px; campos Razão Social + Nome Fantasia lado a lado.
+  - Admin — modal "Editar": campo "Razão Social" renomeado (era "Nome"); novo
+    campo "Nome Fantasia"; `editCnpj` pré-preenchido com o valor salvo e
+    incluído no payload do PATCH.
+  - Painel lateral do cliente: CNPJ exibido formatado (`XX.XXX.XXX/XXXX-XX`)
+    na seção Informações; nome fantasia como título principal com razão
+    social como subtítulo quando ambos preenchidos; tabela e busca também
+    usam `nome_fantasia` como nome primário.
+
 - **2026-06-01** — **App mobile: camada visual HUD "Painel de comando"**
   (`app/public/app.css`, só mobile — não toca admin/site). Bloco aditivo no fim
   do CSS + 6 tokens `--hud-*` no `:root`. Grid técnico + scanline de fundo

@@ -7,7 +7,7 @@ aliases:
 ---
 # Trabalho em Andamento
 
-> Branch atual: `feature/app-mobile`. Última sessão registrada: **2026-06-01**.
+> Branch atual: `feature/app-mobile`. Última sessão registrada: **2026-06-02**.
 > Roadmap completo em [`roadmap.md`](roadmap.md); decisões em [`decisions.md`](decisions.md).
 
 ## Foco atual — Preparação para deploy
@@ -60,6 +60,19 @@ Envs necessárias: `OPENAI_API_KEY`, `WHATSAPP_VERIFY_TOKEN`,
 5. Testar fluxo completo com número WhatsApp real.
 6. 10B — few-shot por categoria (aguardar volume de conversas curadas).
 7. 7J — publicação Play Store.
+
+## Melhorias recentes (sessão 2026-06-02)
+
+- **Cadastro de clientes — Nome Fantasia + CNPJ persistido.**
+  - Migration 044: `condominios.nome_fantasia TEXT` (nome principal de exibição).
+  - `nome` passa a ser tratado como razão social (obrigatório); `nome_fantasia`
+    é opcional e tem prioridade na UI (tabela, detalhe lateral, modal).
+  - CNPJ agora é **gravado no banco** (antes era só lookup): incluído nos
+    endpoints POST/GET/PATCH e no payload dos dois modais (novo e editar).
+  - Modal "Novo cliente" redesenhado em **dois painéis horizontais** (campos
+    em grid 2 col + mini-mapa ao lado); largura 1 100 px.
+  - Painel lateral: CNPJ formatado, razão social como subtítulo quando há
+    nome fantasia; busca por texto inclui `nome_fantasia`.
 
 ## Melhorias recentes (sessão 2026-06-01)
 

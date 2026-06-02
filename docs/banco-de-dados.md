@@ -14,7 +14,7 @@ variáveis `PG*` separadas. Pool: `max=20` (env `PG_POOL_MAX`), idle 30s,
 connection timeout 5s.
 
 - **Schema base:** `database/schema.sql` (dump das 7 tabelas originais).
-- **Evolução:** `migrations/001..043` (numeradas, **ativas**), aplicadas com
+- **Evolução:** `migrations/001..044` (numeradas, **ativas**), aplicadas com
   `node scripts/migrate.js NNN_nome.sql` (lê `DATABASE_URL`). Todas idempotentes
   (`IF NOT EXISTS` / `IF EXISTS`).
 - `database/migrations/` contém os arquivos datados do schema original
@@ -58,10 +58,11 @@ configuracoes (key-value dinâmico)           sla_definicoes (p1-p4)
 ### Núcleo (telemetria) — `database/schema.sql`
 
 **`condominios`** — entidade central (cliente B2B / PF).
-`id`, `nome`, `endereco`, `bairro`, `cidade`, `uf(2)`, `responsavel`,
-`telefone`, `observacoes`, `ativo`, `criado_em`.
+`id`, `nome` (razão social, obrigatório), `endereco`, `bairro`, `cidade`,
+`uf(2)`, `responsavel`, `telefone`, `observacoes`, `ativo`, `criado_em`.
 Migrations acrescentam: `lat`/`lng NUMERIC(9,6)` (002), `cep VARCHAR(8)` (003),
-`cnpj VARCHAR(18)` (025).
+`cnpj VARCHAR(18)`, `nome_fantasia TEXT` (044 — nome principal de exibição;
+quando preenchido substitui `nome` na UI; `nome` permanece como razão social).
 
 **`reservatorios`** — 1:N com condomínio. Calibração da sonda fica aqui.
 `id`, `condominio_id (FK CASCADE)`, `nome`, `tipo`, `device_id UNIQUE`,

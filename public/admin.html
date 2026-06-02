@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="/static/leaflet.css">
   <!-- ⚠️ Ao mexer em admin.js ou admin.css, bumpe o ?v=N aqui E no <script>
        lá embaixo. Ver CLAUDE.md raiz. -->
-  <link rel="stylesheet" href="/static/admin.css?v=76">
+  <link rel="stylesheet" href="/static/admin.css?v=77">
 </head>
 <body>
 
@@ -2411,7 +2411,8 @@
           </div>
         </div>
         <div id="msgCnpjEdit" style="grid-column:1/-1;font-size:11px;margin-top:-8px;margin-bottom:4px;"></div>
-        <label class="f"><span>Nome *</span><input id="editNome" required /></label>
+        <label class="f"><span>Razão Social *</span><input id="editNome" required /></label>
+        <label class="f"><span>Nome Fantasia</span><input id="editNomeFantasia" placeholder="Nome principal de exibição" /></label>
         <label class="f cep-field">
           <span>CEP <span style="font-weight:500;color:var(--muted);">— auto-preenche endereço</span></span>
           <input id="editCep" class="cep-input" maxlength="9" inputmode="numeric" placeholder="00000-000" data-cep-target-prefix="edit" />
@@ -2739,7 +2740,7 @@
   </div>
 </div>
 
-<script src="/static/admin.js?v=83" defer></script>
+<script src="/static/admin.js?v=91" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
 <script src="/static/register-sw.js?v=25" defer></script>
 </body>
