@@ -63,6 +63,14 @@ Envs necessárias: `OPENAI_API_KEY`, `WHATSAPP_VERIFY_TOKEN`,
 
 ## Melhorias recentes (sessão 2026-06-03 — tarde)
 
+- **Migrations 045 e 046 aplicadas.**
+  - 045: `condominios.email VARCHAR(255)` — campo de e-mail para envio de orçamentos.
+  - 046: remove `idx_contratos_ativo_uniq` — agora um condomínio pode ter múltiplos
+    contratos ativos simultaneamente.
+- **admin.css:** estilos para lista de contratos (`.ctr-list`, `.ctr-row`, etc.),
+  spinner de loading do mapa (`.mp-map-loading`), ajuste de cor do `thead` e
+  proporção da coluna `.cc-info` na lista de clientes.
+
 - **Remoção da aba "Contatos" do modal de cliente.**
   - Aba era exclusiva para pré-cadastro de contatos WhatsApp; sem WhatsApp ativo
     só gerava confusão. Removidos: tab/pane no HTML, modal wcOverlay, ~150 linhas

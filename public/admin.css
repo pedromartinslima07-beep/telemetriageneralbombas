@@ -2141,7 +2141,7 @@ th {
   position: sticky;
   top: 0;
   z-index: 5;
-  background: var(--surface2);
+  background: rgb(28, 32, 56);
   font-size: 10.5px;
   font-weight: 700;
   color: var(--muted);
@@ -3095,10 +3095,10 @@ select option { background: #14172a; color: #eef0fb; }
 .cc.cc-bad    { border-left-color: rgba(239,68,68,.8); }
 .cc.cc-ok     { border-left-color: rgba(34,197,94,.5); }
 
-/* coluna esquerda: nome + meta */
+/* coluna esquerda: nome + meta (CNPJ) */
 .cc-info {
   min-width: 0;
-  flex: 1.2;
+  flex: 1;
 }
 
 .cc-name {
@@ -3589,6 +3589,32 @@ select option { background: #14172a; color: #eef0fb; }
 .mp-map-canvas .leaflet-container {
   background: transparent;
   width: 100%; height: 100%;
+}
+
+.mp-map-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: rgba(8, 10, 20, 0.72);
+  border-radius: 10px;
+  z-index: 500;
+  color: var(--muted);
+  font-size: 13px;
+  pointer-events: none;
+}
+.mp-map-loading.hidden { display: none; }
+@keyframes mpSpin { to { transform: rotate(360deg); } }
+.mp-map-spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid rgba(240, 176, 20, 0.18);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: mpSpin 0.7s linear infinite;
 }
 
 /* Cabeçalho do mapa: ações alinhadas à direita */
@@ -5887,6 +5913,38 @@ body.role-viewer .viewer-only-hide-inline {
   padding: 14px 0;
   text-align: center;
 }
+
+/* Lista de contratos na aba Contrato do modal de edição */
+.ctr-list { display: flex; flex-direction: column; gap: 8px; }
+.ctr-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(255,255,255,.02);
+}
+.ctr-row-inativo { opacity: 0.45; }
+.ctr-row-info { flex: 1; min-width: 0; }
+.ctr-row-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 3px;
+  flex-wrap: wrap;
+}
+.ctr-numero { font-family: monospace; font-size: 12px; font-weight: 700; color: var(--text); }
+.ctr-tipo {
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 1px 7px;
+  background: rgba(255,255,255,.07);
+  border-radius: 4px;
+  color: var(--muted);
+}
+.ctr-st { font-size: 10.5px; font-weight: 700; }
+.ctr-row-meta { font-size: 11px; color: var(--muted2); }
 
 /* Badge de origem (IA / OS) — sinaliza pedidos vindos do WhatsApp ou da OS */
 .orc-origem-pill {

@@ -1,0 +1,2 @@
+ALTER TABLE condominios
+  ADD COLUMN IF NOT EXISTS email VARCHAR(255);

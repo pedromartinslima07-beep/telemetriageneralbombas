@@ -140,7 +140,7 @@ ESP32 (sonda 4-20mA + SCT-013)
 
 - `database/schema.sql` tem o schema base (condominios, reservatorios, leituras,
   alertas, usuarios, login_codes, trusted_devices).
-- **Toda a evolução está em `migrations/001..044`** (WhatsApp, mapa, chamados,
+- **Toda a evolução está em `migrations/001..046`** (WhatsApp, mapa, chamados,
   técnicos, O.S., orçamentos, SLA P1-P4, planos, contratos, state machine, etc.).
 - Aplicar com `node scripts/migrate.js NNN_nome.sql` (lê `DATABASE_URL`).
   `migrations/migrate.js` em `scripts/`.

@@ -62,6 +62,8 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
 | 042 | conversa_state_machine | `estado_conversa` + `pendente_acao JSONB` |
 | 043 | conversa_canal | `canal` (multi-canal futuro) |
 | 044 | condominios_nome_fantasia | `condominios.nome_fantasia TEXT` (nome principal de exibição) |
+| 045 | condominios_email | `condominios.email VARCHAR(255)` (e-mail para orçamentos) |
+| 046 | multi_contratos | remove `idx_contratos_ativo_uniq` — permite múltiplos contratos ativos por condomínio |
 
 ## Marcos de produto (fases do plano)
 
