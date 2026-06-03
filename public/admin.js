@@ -628,22 +628,17 @@ function _mcPinIcon(kind) {
   });
 }
 
-// Tiles servidos pelo nosso próprio backend (proxy em /tiles/{z}/{x}/{y}.png).
-// O proxy busca do Carto Dark com fallback pra OSM no servidor — assim
-// adblockers/firewalls do cliente não bloqueiam nada, já que os tiles
-// chegam pelo mesmo domínio do site.
+// Tiles carregados diretamente do CDN do Carto no browser.
+// O proxy via backend causava rate-limit no IP do servidor Railway.
 function _criarTileLayer(map) {
-  L.tileLayer("/tiles/{z}/{x}/{y}.png", {
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    subdomains: "abc",
     maxZoom: 19,
-    attribution: "© OpenStreetMap · © CARTO",
-    // keepBuffer alto = mantém tiles fora da viewport carregados, então
-    // pequenos arrastos não precisam baixar nada.
+    attribution: "© OpenStreetMap contributors",
     keepBuffer: 4,
-    // Atualiza tiles durante o pan/zoom (não só quando para) — sensação
-    // de carregamento mais rápida.
     updateWhenIdle: false,
-    // updateInterval baixo = mais responsivo durante o arrasto.
     updateInterval: 100,
+    className: "map-tiles-dark",
   }).addTo(map);
 }
 
@@ -2261,7 +2256,7 @@ function renderCondoCards() {
     // Reservoir bars
     let resHtml = "";
     if (reservs.length === 0) {
-      resHtml = `<div style="font-size:11px;color:var(--muted2);padding:4px 0;">Sem reservatórios ativos</div>`;
+      resHtml = `<span style="font-size:11px;color:var(--muted2);">Sem reservatórios</span>`;
     } else {
       for (const r of reservs) {
         const u = r.ultima_leitura;
@@ -2288,22 +2283,23 @@ function renderCondoCards() {
       }
     }
 
-    const offlineBanner = offlineCount > 0
-      ? `<div class="cc-offline-banner">⚠ ${offlineCount} dispositivo${offlineCount > 1 ? "s" : ""} offline</div>`
+    const offlineMeta = offlineCount > 0
+      ? ` · <span class="cc-offline-inline">⚠ ${offlineCount} offline</span>`
       : "";
 
     const div = document.createElement("div");
     div.className = `cc ${cardClass}`;
+    div.dataset.action = "ver-condo";
+    div.dataset.id = condoId;
     div.innerHTML = `
-      <div class="cc-header">
-        <div class="cc-name">${c.nome || "-"}</div>
-        <div class="cc-header-badges">${badgesHtml}</div>
+      <div class="cc-info">
+        <span class="cc-name">${c.nome || "-"}</span>
+        <span class="cc-meta">${lastSeen}${offlineMeta}</span>
       </div>
-      ${offlineBanner}
-      <div class="cc-res-list">${resHtml}</div>
-      <div class="cc-footer">
-        <span class="cc-last-seen">${lastSeen}</span>
-        <div style="display:flex;gap:6px;"><button class="btn btn-sm btnAccent" data-action="ver-condo" data-id="${condoId}">Detalhes</button></div>
+      <div class="cc-reservs">${resHtml}</div>
+      <div class="cc-side">
+        <div class="cc-header-badges">${badgesHtml}</div>
+        <span class="cc-chevron">›</span>
       </div>`;
     grid.appendChild(div);
   }
@@ -5835,6 +5831,9 @@ const _isMaster = _myRole === "admin";
 document.addEventListener("DOMContentLoaded", () => {
   const f = document.getElementById("filtroTexto");
   if (f) f.addEventListener("input", () => aplicarFiltros());
+
+  document.getElementById("filtroSomenteAlertas")?.addEventListener("change", aplicarFiltros);
+  document.getElementById("filtroSomenteOffline")?.addEventListener("change", aplicarFiltros);
 });
 
 let _modalKey = null;
@@ -6646,6 +6645,9 @@ function criarOuObterMiniMapa(prefixo) {
     zoom: temCoord ? 16 : SP_CENTRO.zoom,
     zoomControl: true,
     attributionControl: true,
+    // Desativa animação CSS de zoom — evita que os tiles sumam (cinza) durante
+    // a transição quando o container tem overflow:hidden ou parent transforms.
+    zoomAnimation: false,
   });
 
   // Mesma estratégia de fallback do mapa principal: tenta Carto dark, cai
@@ -6695,9 +6697,10 @@ function _miniMapaAplicarCoord(prefixo, lat, lng, { centralizar = true } = {}) {
 }
 
 function _miniMapaInvalidar(prefixo) {
-  // Leaflet precisa recalcular tamanho quando o container fica visível
   const ref = _miniMapas.get(prefixo);
-  if (ref) setTimeout(() => ref.map.invalidateSize(), 50);
+  if (!ref) return;
+  // Delay > animação sectionIn (220ms) para medir o container já estabilizado
+  setTimeout(() => ref.map.invalidateSize(), 260);
 }
 
 // Quando o user arrasta o pino, descobre o endereço daquele ponto e atualiza
@@ -9913,17 +9916,19 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // Mini-mapa do cadastro: inicializa quando a seção Cadastros é exibida
-  // (precisa do container estar visível para o Leaflet medir corretamente)
+  // Mini-mapa do cadastro: inicializa quando a seção Cadastros é exibida.
+  // O delay precisa ser > 220ms (duração da animação sectionIn) para o
+  // Leaflet medir o container depois que o transform chegou a translateY(0).
+  // Se invalidateSize() for chamado durante a animação, o offset interno fica
+  // errado e os tiles somem ao primeiro zoom.
   const _initMiniMapaCadastro = () => {
     if (!document.getElementById("novoMiniMapa")) return;
     criarOuObterMiniMapa("novo");
     _miniMapaInvalidar("novo");
   };
-  // Tenta na primeira renderização e ao trocar para a seção
-  setTimeout(_initMiniMapaCadastro, 200);
+  setTimeout(_initMiniMapaCadastro, 350);
   document.querySelectorAll('.nav-item[data-section="cadastros"]').forEach(item => {
-    item.addEventListener("click", () => setTimeout(_initMiniMapaCadastro, 100));
+    item.addEventListener("click", () => setTimeout(_initMiniMapaCadastro, 350));
   });
 
   // Bind do CEP nos dois formulários (auto-preenchimento de endereço)

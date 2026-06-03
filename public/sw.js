@@ -4,7 +4,7 @@
 // este SW. Sem essa lista, o SW intercepta o GET com cache first e serve
 // resposta antiga — sintoma clássico: dado aparece em Ctrl+Shift+R mas some
 // em F5. Ver CLAUDE.md raiz pro racional completo.
-const CACHE_NAME = "telemetria-v34";
+const CACHE_NAME = "telemetria-v36";
 
 // Permite que a página force a ativação imediata desta versão (sem esperar
 // todos os clients fecharem). Pareado com o postMessage no register-sw.js.
@@ -47,6 +47,11 @@ self.addEventListener("fetch", (e) => {
   if (e.request.method !== "GET") return;
 
   const url = new URL(e.request.url);
+
+  // Qualquer request cross-origin (ex: tiles de mapa do Carto CDN) passa
+  // direto para a rede — o SW não intercepta. Respostas opacas (status 0)
+  // do cache causavam o mapa sumir no F5.
+  if (url.origin !== self.location.origin) return;
 
   // HTML e API: sempre network first, sem cache
   const isHtml = e.request.headers.get("accept")?.includes("text/html");

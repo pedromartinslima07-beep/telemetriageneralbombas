@@ -84,7 +84,7 @@ ESP32 (sonda 4-20mA + SCT-013)
 **Painel admin "Mission Control"**
 - Redesign premium (sidebar colapsável, topbar, cards de métrica com sparkline,
   mission control grid, feed em tempo real, IA Insights).
-- **Mapa interativo Leaflet** (tiles dark Carto via proxy próprio): pinos por
+- **Mapa interativo Leaflet** (tiles OpenStreetMap + filtro CSS dark): pinos por
   status, painel lateral com tabs, KPIs, donuts, classificação por zona de SP.
 - Cadastro de coordenadas com **geocoding híbrido** (ViaCEP + BrasilAPI +
   AwesomeAPI + Nominatim) e reverse geocode ao arrastar o pino.

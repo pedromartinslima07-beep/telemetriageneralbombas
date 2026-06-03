@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="/static/leaflet.css">
   <!-- ⚠️ Ao mexer em admin.js ou admin.css, bumpe o ?v=N aqui E no <script>
        lá embaixo. Ver CLAUDE.md raiz. -->
-  <link rel="stylesheet" href="/static/admin.css?v=77">
+  <link rel="stylesheet" href="/static/admin.css?v=81">
 </head>
 <body>
 
@@ -314,46 +314,50 @@
 
         <!-- Filtros + Status -->
         <section class="card">
-          <div class="cardHead">
-            <h2>
+          <div class="condo-head">
+            <div class="condo-head-left">
               <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/>
               </svg>
-              Condomínios
-            </h2>
-            <span class="hint">Status em tempo real</span>
-          </div>
-
-          <div class="section-body" style="border-bottom:1px solid var(--border);">
-            <div class="filter-bar">
-              <div class="field" style="flex:1;min-width:220px;">
-                <span class="lbl">Buscar</span>
-                <input id="filtroTexto" class="input" placeholder="Nome do condomínio ou device ID…" />
+              <div>
+                <span class="condo-head-title">Condomínios</span>
+                <span class="condo-head-sub">status em tempo real</span>
               </div>
-              <label class="filter-check">
-                <input type="checkbox" id="filtroSomenteAlertas" />
-                Com alertas
-              </label>
-              <label class="filter-check">
-                <input type="checkbox" id="filtroSomenteOffline" />
-                Offline
-              </label>
-              <button class="btn btn-sm" id="btnAplicarFiltros">Aplicar</button>
-              <button class="btn btn-sm" id="btnLimparFiltros">Limpar</button>
             </div>
 
-            <div class="pagination">
-              <button class="btn btn-sm" id="btnPaginaAnterior">◀</button>
-              <span id="paginaInfo" class="page-info"></span>
-              <button class="btn btn-sm" id="btnProximaPagina">▶</button>
-              <span class="hint" style="margin-left:auto;">Por página:</span>
-              <select id="pageSize" class="select" style="width:auto;">
-                <option value="10">10</option>
-                <option value="25" selected>25</option>
-                <option value="50">50</option>
-              </select>
+            <div class="condo-toolbar">
+              <div class="condo-search-wrap">
+                <svg class="condo-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                </svg>
+                <input id="filtroTexto" class="condo-search" placeholder="Buscar condomínio ou device ID…" autocomplete="off" />
+                <button id="btnLimparFiltros" class="condo-search-clear" title="Limpar filtros">×</button>
+              </div>
+
+              <label class="condo-pill" title="Apenas com alertas abertos">
+                <input type="checkbox" id="filtroSomenteAlertas" />
+                <span>⚠ Alertas</span>
+              </label>
+              <label class="condo-pill" title="Apenas dispositivos offline">
+                <input type="checkbox" id="filtroSomenteOffline" />
+                <span>Offline</span>
+              </label>
+
+              <div class="condo-pag">
+                <span id="paginaInfo" class="condo-pag-info"></span>
+                <button class="condo-pag-btn" id="btnPaginaAnterior" title="Página anterior">‹</button>
+                <button class="condo-pag-btn" id="btnProximaPagina" title="Próxima página">›</button>
+                <select id="pageSize" class="condo-pag-size">
+                  <option value="10">10</option>
+                  <option value="25" selected>25</option>
+                  <option value="50">50</option>
+                </select>
+              </div>
             </div>
           </div>
+
+          <!-- mantido oculto para não quebrar event listener existente -->
+          <button id="btnAplicarFiltros" hidden></button>
 
           <div id="condoGrid" class="condo-grid"></div>
         </section>
@@ -2740,8 +2744,8 @@
   </div>
 </div>
 
-<script src="/static/admin.js?v=91" defer></script>
+<script src="/static/admin.js?v=97" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
-<script src="/static/register-sw.js?v=25" defer></script>
+<script src="/static/register-sw.js?v=27" defer></script>
 </body>
 </html>

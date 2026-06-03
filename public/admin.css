@@ -183,10 +183,10 @@ a { color: inherit; text-decoration: none; }
 .sidebar-brand-full,
 .sidebar-brand-mini {
   position: absolute;
-  left: 0; top: 50%;
-  transform: translateY(-50%);
+  left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
 }
-.sidebar-brand-full { height: 44px; opacity: 1; }
+.sidebar-brand-full { height: 54px; opacity: 1; }
 .sidebar-brand-mini { height: 36px; opacity: 0; }
 .sidebar.collapsed .sidebar-brand-full { opacity: 0; }
 .sidebar.collapsed .sidebar-brand-mini { opacity: 1; }
@@ -2100,6 +2100,9 @@ a { color: inherit; text-decoration: none; }
   color: var(--text);
 }
 
+/* Inverte tiles OSM para tema dark; marcadores estão em camada separada e não são afetados */
+.map-tiles-dark { filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%); }
+
 /* Tema dark do Leaflet — atenua o fundo branco dos controles */
 .leaflet-container {
   background: #0d1325 !important;
@@ -2889,13 +2892,187 @@ select option { background: #14172a; color: #eef0fb; }
 }
 
 /* ============================================================
-   CONDO CARDS (dashboard grid)
+   CONDO HEAD + TOOLBAR
+   ============================================================ */
+.condo-head {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 14px 16px 13px;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.condo-head-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.condo-head-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: .2px;
+  display: block;
+}
+
+.condo-head-sub {
+  display: block;
+  font-size: 10.5px;
+  color: var(--muted2);
+  margin-top: 2px;
+}
+
+.condo-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+/* search */
+.condo-search-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 160px;
+  max-width: 300px;
+}
+
+.condo-search-icon {
+  position: absolute;
+  left: 9px;
+  width: 13px;
+  height: 13px;
+  color: var(--muted2);
+  pointer-events: none;
+  flex-shrink: 0;
+}
+
+.condo-search {
+  width: 100%;
+  padding: 6px 28px 6px 30px;
+  background: rgba(255,255,255,.04);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 12.5px;
+  outline: none;
+  transition: border-color .15s, background .15s;
+}
+.condo-search::placeholder { color: var(--muted2); }
+.condo-search:focus {
+  border-color: rgba(240,176,20,.45);
+  background: rgba(255,255,255,.06);
+}
+
+.condo-search-clear {
+  position: absolute;
+  right: 5px;
+  background: none;
+  border: none;
+  color: var(--muted2);
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  opacity: .55;
+  transition: opacity .12s, color .12s;
+}
+.condo-search-clear:hover { opacity: 1; color: var(--text); }
+
+/* filter pills */
+.condo-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  transition: background .12s, border-color .12s, color .12s;
+}
+.condo-pill input[type="checkbox"] { display: none; }
+.condo-pill:hover { border-color: rgba(240,176,20,.45); color: var(--text); }
+.condo-pill:has(input:checked) {
+  background: rgba(240,176,20,.12);
+  border-color: rgba(240,176,20,.55);
+  color: var(--accent);
+}
+
+/* pagination */
+.condo-pag {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.condo-pag-info {
+  font-size: 11.5px;
+  color: var(--muted);
+  white-space: nowrap;
+  padding-right: 4px;
+}
+
+.condo-pag-btn {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 18px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  transition: background .12s, border-color .12s;
+}
+.condo-pag-btn:hover { background: rgba(255,255,255,.08); border-color: rgba(240,176,20,.45); }
+
+.condo-pag-size {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 12px;
+  padding: 4px 6px;
+  height: 28px;
+  cursor: pointer;
+  outline: none;
+  transition: border-color .15s;
+}
+.condo-pag-size:focus { border-color: rgba(240,176,20,.45); }
+
+@media (max-width: 768px) {
+  .condo-head { gap: 12px; }
+  .condo-toolbar { gap: 6px; }
+  .condo-search-wrap { max-width: none; }
+  .condo-pag { margin-left: 0; }
+}
+
+/* ============================================================
+   CONDO LIST (dashboard — lista de linhas)
    ============================================================ */
 .condo-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
-  gap: 12px;
-  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 8px 16px 16px;
   overflow-y: auto;
   max-height: 68vh;
 }
@@ -2903,33 +3080,69 @@ select option { background: #14172a; color: #eef0fb; }
 .cc {
   background: var(--surface);
   border: 1px solid var(--border);
+  border-left: 3px solid transparent;
   border-radius: var(--radius);
   display: flex;
-  flex-direction: column;
-  transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
-}
-
-.cc:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,.4); }
-
-.cc.cc-alerta { border-color: rgba(245,158,11,.35); }
-.cc.cc-bad    { border-color: rgba(239,68,68,.35); }
-.cc.cc-ok     { border-color: rgba(34,197,94,.2); }
-
-.cc-header {
-  display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 14px 16px 8px;
+  gap: 14px;
+  padding: 9px 14px;
+  cursor: pointer;
+  transition: background .12s ease;
+}
+.cc:hover { background: rgba(255,255,255,.04); }
+
+.cc.cc-alerta { border-left-color: rgba(245,158,11,.8); }
+.cc.cc-bad    { border-left-color: rgba(239,68,68,.8); }
+.cc.cc-ok     { border-left-color: rgba(34,197,94,.5); }
+
+/* coluna esquerda: nome + meta */
+.cc-info {
+  min-width: 0;
+  flex: 1.2;
 }
 
 .cc-name {
   font-size: 13px;
   font-weight: 700;
   color: var(--text);
-  flex: 1;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  display: block;
+}
+
+.cc-meta {
+  font-size: 10.5px;
+  color: var(--muted2);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cc-offline-inline { color: #f87171; font-weight: 700; }
+
+/* coluna central: reservatórios */
+.cc-reservs {
+  flex: 2;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* coluna direita: badges + chevron */
+.cc-side {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.cc-chevron {
+  font-size: 15px;
+  color: var(--muted2);
+  line-height: 1;
 }
 
 .cc-header-badges { display: flex; gap: 4px; flex-shrink: 0; }
@@ -2948,6 +3161,7 @@ select option { background: #14172a; color: #eef0fb; }
 .cc-count-chamado { background: rgba(245,158,11,.1); border-color: rgba(245,158,11,.28); color: #fbbf24; }
 .cc-count-wz      { background: rgba(34,197,94,.1);  border-color: rgba(34,197,94,.25);  color: #4ade80; }
 
+/* reservatórios — usados tanto na lista quanto em painéis de detalhe */
 .cc-res-list {
   padding: 6px 16px 8px;
   flex: 1;
@@ -2991,7 +3205,7 @@ select option { background: #14172a; color: #eef0fb; }
 
 .cc-level-bar {
   flex: 1;
-  height: 6px;
+  height: 5px;
   border-radius: 999px;
   background: rgba(255,255,255,.07);
   overflow: hidden;
@@ -3016,33 +3230,6 @@ select option { background: #14172a; color: #eef0fb; }
   white-space: nowrap;
   min-width: 30px;
   text-align: right;
-}
-
-.cc-offline-banner {
-  padding: 5px 16px;
-  background: rgba(239,68,68,.07);
-  font-size: 11px;
-  font-weight: 700;
-  color: #f87171;
-}
-
-.cc-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 10px 16px 14px;
-  border-top: 1px solid var(--border);
-  margin-top: auto;
-}
-
-.cc-last-seen {
-  font-size: 10.5px;
-  color: var(--muted2);
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 /* ============================================================
@@ -3345,9 +3532,10 @@ select option { background: #14172a; color: #eef0fb; }
 
 @media (max-width: 768px) {
   .condo-grid {
-    grid-template-columns: 1fr;
     max-height: none;
   }
+  .cc { flex-wrap: wrap; }
+  .cc-reservs { flex-basis: 100%; order: 3; }
   .drawer-panel {
     width: 100vw;
     border-left: none;

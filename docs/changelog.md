@@ -78,6 +78,19 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
 - **2026-05-28** — Migração do gateway WhatsApp Evolution → **Meta Business API**
   (código pronto, pendente configuração); remoção do role `master_admin`;
   Puppeteer singleton; ambiente limpo para deploy.
+- **2026-06-03** — **Mapa: migração de tiles CartoDB → OpenStreetMap**
+  - `_criarTileLayer` em `public/admin.js` trocado de
+    `basemaps.cartocdn.com/dark_all` para `tile.openstreetmap.org`.
+  - Tema dark mantido via `className: "map-tiles-dark"` + regra CSS
+    `filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%)`
+    em `public/admin.css` — aplica só ao container de tiles (pane separado),
+    marcadores e controles não são afetados.
+  - Motivação: CartoDB retornava erros intermitentes (rate-limit silencioso em
+    produção); o browser cacheava essas respostas de erro, causando mapa
+    completamente em branco no F5. OSM é sem limites de taxa para uso normal
+    e tem cobertura nativa até z=19.
+  - Versões bumpeadas: `admin.css?v=81`, `admin.js?v=97`.
+
 - **2026-06-02** — **Cadastro de clientes — Nome Fantasia e CNPJ persistido.**
   - Migration 044: coluna `nome_fantasia TEXT` em `condominios`.
   - Backend: `nome_fantasia` e `cnpj` incluídos em todos os endpoints

@@ -61,6 +61,16 @@ Envs necessárias: `OPENAI_API_KEY`, `WHATSAPP_VERIFY_TOKEN`,
 6. 10B — few-shot por categoria (aguardar volume de conversas curadas).
 7. 7J — publicação Play Store.
 
+## Melhorias recentes (sessão 2026-06-03)
+
+- **Mapa: troca de tiles CartoDB → OpenStreetMap.**
+  - CartoDB causava mapa em branco no F5 (rate-limit silencioso em prod → browser
+    cacheava respostas de erro) e tiles faltando em blocos no Ctrl+Shift+R.
+  - `_criarTileLayer` agora usa `tile.openstreetmap.org`; tema dark preservado
+    por `className: "map-tiles-dark"` + CSS `filter: invert/hue-rotate` só no
+    pane de tiles. Marcadores não são afetados.
+  - `admin.css?v=81`, `admin.js?v=97`.
+
 ## Melhorias recentes (sessão 2026-06-02)
 
 - **Cadastro de clientes — Nome Fantasia + CNPJ persistido.**
