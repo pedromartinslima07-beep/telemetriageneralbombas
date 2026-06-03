@@ -78,6 +78,14 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
 - **2026-05-28** — Migração do gateway WhatsApp Evolution → **Meta Business API**
   (código pronto, pendente configuração); remoção do role `master_admin`;
   Puppeteer singleton; ambiente limpo para deploy.
+- **2026-06-03** — **PDF de orçamento: correção de dois bugs**
+  - `buscarDadosAvulso` agora usa `COALESCE(nome_fantasia, nome)` — o PDF exibia
+    a razão social mesmo quando havia nome fantasia cadastrado (regressão pós-migration 044).
+    Quando os dois campos diferem, a razão social aparece como subtítulo no PDF.
+  - Puppeteer args em `orcamento-pdf.service.js` e `os-pdf.service.js`: adicionados
+    `--disable-gpu` e `--no-zygote`. Com Puppeteer v22+ (novo headless Chrome), ausência
+    de `--disable-gpu` em containers sem GPU (Railway) derrubava o processo do Chrome.
+
 - **2026-06-03** — **Mapa: migração de tiles CartoDB → OpenStreetMap**
   - `_criarTileLayer` em `public/admin.js` trocado de
     `basemaps.cartocdn.com/dark_all` para `tile.openstreetmap.org`.

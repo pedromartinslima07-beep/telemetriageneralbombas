@@ -63,6 +63,13 @@ Envs necessárias: `OPENAI_API_KEY`, `WHATSAPP_VERIFY_TOKEN`,
 
 ## Melhorias recentes (sessão 2026-06-03)
 
+- **PDF de orçamento: dois bugs corrigidos.**
+  - `buscarDadosAvulso` usava só `c.nome`; agora usa `COALESCE(nome_fantasia, nome)` —
+    regressão pós-migration 044 que fazia o PDF mostrar a razão social como nome principal.
+  - Puppeteer v22+ (novo headless) precisa de `--disable-gpu` + `--no-zygote` em
+    containers sem GPU; sem elas o Chrome crashava no Railway. Corrigido em
+    `orcamento-pdf.service.js` e `os-pdf.service.js`.
+
 - **Mapa: troca de tiles CartoDB → OpenStreetMap.**
   - CartoDB causava mapa em branco no F5 (rate-limit silencioso em prod → browser
     cacheava respostas de erro) e tiles faltando em blocos no Ctrl+Shift+R.

@@ -47,7 +47,8 @@ async function buscarDadosAvulso(orcamentoId) {
        o.disponibilidade,
        o.valido_ate,
        o.criado_em,
-       c.nome      AS condominio_nome,
+       COALESCE(c.nome_fantasia, c.nome) AS condominio_nome,
+       c.nome      AS condominio_razao_social,
        c.endereco, c.bairro, c.cidade, c.uf, c.cep,
        c.cnpj      AS condominio_cnpj
      FROM orcamentos o
@@ -342,6 +343,7 @@ ${timbradoTag}
 <div class="cliente-box">
   <div class="sec-title">Cliente</div>
   <div class="cliente-nome">${escapeHtml(os.condominio_nome || "—")}</div>
+  ${os.condominio_razao_social && os.condominio_razao_social !== os.condominio_nome ? `<div class="cliente-det">Razão social: ${escapeHtml(os.condominio_razao_social)}</div>` : ""}
   ${os.condominio_cnpj ? `<div class="cliente-det">CNPJ: ${escapeHtml(os.condominio_cnpj)}</div>` : ""}
   ${enderecoStr ? `<div class="cliente-det">${escapeHtml(enderecoStr)}</div>` : ""}
 </div>
@@ -401,7 +403,13 @@ ${timbradoTag}
 </body></html>`;
 }
 
-const PUPPETEER_ARGS = ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"];
+const PUPPETEER_ARGS = [
+  "--no-sandbox",
+  "--disable-setuid-sandbox",
+  "--disable-dev-shm-usage",
+  "--disable-gpu",
+  "--no-zygote",
+];
 
 let _browser = null;
 

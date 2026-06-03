@@ -583,7 +583,13 @@ async function gerarPdfOS(osId) {
   const urlPublic = `/uploads/os/${osId}/${filename}`;
 
   const browser = await puppeteer.launch({
-    args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
+    args: [
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+      "--disable-dev-shm-usage",
+      "--disable-gpu",
+      "--no-zygote",
+    ],
     headless: true,
   });
   try {
