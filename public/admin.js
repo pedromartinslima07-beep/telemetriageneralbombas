@@ -70,7 +70,7 @@ function showSection(name) {
     // O Leaflet pode não ter sido criado ainda (seção estava display:none e
     // a primeira chamada de renderSecaoMapa fez early-return). Garante que
     // tenta de novo agora que o container está visível e com dimensões.
-    setTimeout(() => renderSecaoMapa(), 0);
+    setTimeout(() => renderSecaoMapa(), 260);
   }
   if (name === "ordens-servico") {
     renderSecaoOS();
@@ -630,8 +630,8 @@ function _mcPinIcon(kind) {
 
 // Tiles carregados diretamente do CDN do Carto no browser.
 // O proxy via backend causava rate-limit no IP do servidor Railway.
-function _criarTileLayer(map) {
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+function _criarTileLayer(map, onLoad) {
+  const layer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     subdomains: "abc",
     maxZoom: 19,
     attribution: "© OpenStreetMap contributors",
@@ -640,6 +640,8 @@ function _criarTileLayer(map) {
     updateInterval: 100,
     className: "map-tiles-dark",
   }).addTo(map);
+  if (onLoad) layer.once("load", onLoad);
+  return layer;
 }
 
 function renderMcMap() {
@@ -2253,35 +2255,9 @@ function renderCondoCards() {
     if (chamadosAbertos > 0) badgesHtml += `<span class="cc-count cc-count-chamado">📋 ${chamadosAbertos}</span>`;
     if (conversasAbertas > 0) badgesHtml += `<span class="cc-count cc-count-wz">💬 ${conversasAbertas}</span>`;
 
-    // Reservoir bars
-    let resHtml = "";
-    if (reservs.length === 0) {
-      resHtml = `<span style="font-size:11px;color:var(--muted2);">Sem reservatórios</span>`;
-    } else {
-      for (const r of reservs) {
-        const u = r.ultima_leitura;
-        const pct = u?.nivel_pct ?? null;
-        const n = String(u?.nivel || "").toLowerCase();
-        const lvClass = n === "alto" ? "lv-alto" : n === "medio" ? "lv-medio" : n === "baixo" ? "lv-baixo" : n === "muito_baixo" ? "lv-muito-baixo" : "lv-unknown";
-        const pctWidth = pct != null ? pct : 0;
-        const pctDisplay = pct != null ? pct + "%" : "-";
-        const bombaClass = u?.bomba_ligada === true ? "on" : u?.bomba_ligada === false ? "off" : "uk";
-        const bombaLabel = u?.bomba_ligada === true ? "LIGADA" : u?.bomba_ligada === false ? "DESLIG." : "—";
-        resHtml += `
-          <div class="cc-res">
-            <div class="cc-res-header">
-              <span class="cc-res-name">${r.nome || "Reservatório"}</span>
-              <span class="cc-res-bomba ${bombaClass}">${bombaLabel}</span>
-            </div>
-            <div class="cc-level-row">
-              <div class="cc-level-bar">
-                <div class="cc-level-fill ${lvClass}" style="width:${pctWidth}%"></div>
-              </div>
-              <span class="cc-level-pct">${pctDisplay}</span>
-            </div>
-          </div>`;
-      }
-    }
+    const cnpjDisplay = c.cnpj
+      ? String(c.cnpj).replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5")
+      : null;
 
     const offlineMeta = offlineCount > 0
       ? ` · <span class="cc-offline-inline">⚠ ${offlineCount} offline</span>`
@@ -2293,10 +2269,9 @@ function renderCondoCards() {
     div.dataset.id = condoId;
     div.innerHTML = `
       <div class="cc-info">
-        <span class="cc-name">${c.nome || "-"}</span>
-        <span class="cc-meta">${lastSeen}${offlineMeta}</span>
+        <span class="cc-name">${c.nome_fantasia || c.nome || "-"}</span>
+        <span class="cc-meta">${cnpjDisplay ? cnpjDisplay + " · " : ""}${lastSeen}${offlineMeta}</span>
       </div>
-      <div class="cc-reservs">${resHtml}</div>
       <div class="cc-side">
         <div class="cc-header-badges">${badgesHtml}</div>
         <span class="cc-chevron">›</span>
@@ -2465,7 +2440,7 @@ function renderMcContratos() {
     el.textContent = v;
     if (color) el.style.color = color;
   };
-  const fmtMoeda = (v) => Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
+  const fmtMoeda = (v) => Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2, maximumFractionDigits: 2 });
   set("mcContrMrr",      fmtMoeda(m.mrr || 0), "var(--accent)");
   set("mcContrAtivos",   m.ativos || 0);
   set("mcContrVencendo", m.vencendo_30d || 0, m.vencendo_30d > 0 ? "var(--warn)" : null);
@@ -2499,7 +2474,7 @@ function renderCliKpis() {
   const chAbertos = chamados.filter(ch => ch.status !== "fechado").length;
 
   const m = _contratosMetricas?.total || { mrr: 0, ativos: 0, vencendo_30d: 0, vencidos: 0 };
-  const fmtMoeda = (v) => Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
+  const fmtMoeda = (v) => Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   const kpi = (icon, val, label, kindCls) => `
     <div class="rc ${kindCls} rc-static">
@@ -2534,6 +2509,10 @@ function _cliFiltrados() {
                  !c.cidade?.toLowerCase().includes(busca) &&
                  !c.responsavel?.toLowerCase().includes(busca)) return false;
     return true;
+  }).sort((a, b) => {
+    const nA = (a.nome_fantasia || a.nome || "").toLowerCase();
+    const nB = (b.nome_fantasia || b.nome || "").toLowerCase();
+    return nA.localeCompare(nB, "pt-BR");
   });
 }
 
@@ -2549,15 +2528,12 @@ function renderCliTabela() {
 
   const lista = _cliFiltrados();
   if (!lista.length) {
-    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:32px;">Nenhum cliente encontrado.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:32px;">Nenhum cliente encontrado.</td></tr>`;
     return;
   }
 
   tbody.innerHTML = lista.map(c => {
     const sel = _cliSelecionadoId === c.id ? " is-selected" : "";
-    const statusBadge = c.ativo
-      ? `<span class="ch-st ch-st-aberto">Ativo</span>`
-      : `<span class="ch-st ch-st-fechado">Inativo</span>`;
     const cidade = c.cidade ? _waEscaparHtml(c.cidade + (c.uf ? "/" + c.uf : "")) : "—";
     const contrato = _contratosByCondoId.get(Number(c.id));
     const st = _ctrStatusVisual(contrato);
@@ -2568,16 +2544,15 @@ function renderCliTabela() {
       <td><div style="font-weight:500;font-size:12px;">${_waEscaparHtml(c.nome_fantasia || c.nome || "—")}</div></td>
       <td style="font-size:11px;color:var(--muted);">${cidade}</td>
       <td style="font-size:11px;">${_waEscaparHtml(c.responsavel || "—")}</td>
-      <td style="font-size:11px;text-align:center;">${c.total_reservatorios ?? 0}</td>
+      <td style="font-size:11px;font-family:monospace;color:var(--muted);">${c.cnpj ? String(c.cnpj).replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5") : "—"}</td>
       <td>${ctrBadge}</td>
-      <td>${statusBadge}</td>
     </tr>`;
   }).join("");
 }
 
 // ─── Contratos: cache + render do card no detalhe do cliente ────────────────
 const _cliContratoCache = new Map(); // condoId → { contrato, loaded, loading, error }
-const _ctrTipoLabel = { mensal: "Mensal", anual: "Anual", avulso: "Avulso" };
+const _ctrTipoLabel = { mensal: "Mensal", semestral: "Semestral", anual: "Anual" };
 const _ctrFormaLabel = { pix: "PIX", boleto: "Boleto", transferencia: "Transferência", cartao: "Cartão", outro: "Outro" };
 
 function _ctrStatusVisual(contrato) {
@@ -2606,27 +2581,31 @@ function _ctrFmtData(s) {
 
 function _cliRenderContratoCard(condoId) {
   const cache = _cliContratoCache.get(condoId);
+  const lista = cache?.contratos || [];
   let inner;
   if (!cache || cache.loading) {
-    inner = `<div style="font-size:11px;color:var(--muted);padding:6px 0;">Carregando contrato…</div>`;
+    inner = `<div style="font-size:11px;color:var(--muted);padding:6px 0;">Carregando contratos…</div>`;
   } else if (cache.error) {
-    inner = `<div style="font-size:11px;color:var(--danger);padding:6px 0;">Erro ao carregar contrato</div>`;
-  } else if (!cache.contrato) {
-    inner = `<div style="font-size:11px;color:var(--muted);padding:6px 0 10px;">Sem contrato cadastrado. Use o botão Editar abaixo (aba Contrato) pra cadastrar.</div>`;
+    inner = `<div style="font-size:11px;color:var(--danger);padding:6px 0;">Erro ao carregar contratos</div>`;
+  } else if (!lista.length) {
+    inner = `<div style="font-size:11px;color:var(--muted);padding:6px 0 10px;">Sem contrato cadastrado. Use o botão Editar (aba Contrato) para cadastrar.</div>`;
   } else {
-    const c = cache.contrato;
-    const st = _ctrStatusVisual(c);
-    inner = `<div class="ch-det-meta">
-      <div class="ch-met-row"><span class="ch-met-lbl">Tipo</span><span style="font-size:12px;">${_ctrTipoLabel[c.tipo] || c.tipo}</span></div>
-      <div class="ch-met-row"><span class="ch-met-lbl">Valor mensal</span><span style="font-size:13px;font-weight:600;color:var(--accent);">${_ctrFmtMoeda(c.valor_mensal)}</span></div>
-      <div class="ch-met-row"><span class="ch-met-lbl">Vigência</span><span style="font-size:12px;">${_ctrFmtData(c.inicio_em)} → ${c.fim_em ? _ctrFmtData(c.fim_em) : "sem fim"}</span></div>
-      <div class="ch-met-row"><span class="ch-met-lbl">Status</span><span style="font-size:11px;font-weight:700;color:${st.cor};">${st.texto}</span></div>
-      ${c.forma_pagamento ? `<div class="ch-met-row"><span class="ch-met-lbl">Pagamento</span><span style="font-size:12px;">${_ctrFormaLabel[c.forma_pagamento] || c.forma_pagamento}${c.dia_vencimento ? ` · dia ${c.dia_vencimento}` : ""}</span></div>` : ""}
-      ${c.numero ? `<div class="ch-met-row"><span class="ch-met-lbl">Número</span><span style="font-size:12px;">${_waEscaparHtml(c.numero)}</span></div>` : ""}
-    </div>`;
+    inner = lista.map(c => {
+      const st = _ctrStatusVisual(c);
+      return `<div style="padding:6px 0;border-bottom:1px solid var(--border);">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px;flex-wrap:wrap;">
+          <span style="font-size:11.5px;font-weight:700;">${_ctrTipoLabel[c.tipo] || c.tipo}</span>
+          ${c.numero ? `<span style="font-size:10.5px;font-family:monospace;color:var(--muted);">${_waEscaparHtml(c.numero)}</span>` : ""}
+          <span style="font-size:10.5px;font-weight:700;color:${st.cor};">${st.texto}</span>
+          <span style="font-size:11.5px;font-weight:600;color:var(--accent);margin-left:auto;">${_ctrFmtMoeda(c.valor_mensal)}</span>
+        </div>
+        <div style="font-size:11px;color:var(--muted2);">${_ctrFmtData(c.inicio_em)} → ${c.fim_em ? _ctrFmtData(c.fim_em) : "sem fim"}</div>
+      </div>`;
+    }).join("");
   }
+  const titulo = lista.length > 1 ? `Contratos (${lista.length})` : "Contrato";
   return `<div class="ch-det-section" id="cliContratoSec-${condoId}">
-    <div class="ch-det-sec-title">Contrato</div>
+    <div class="ch-det-sec-title">${titulo}</div>
     ${inner}
   </div>`;
 }
@@ -2634,14 +2613,14 @@ function _cliRenderContratoCard(condoId) {
 async function _cliCarregarContrato(condoId) {
   const cache = _cliContratoCache.get(condoId);
   if (cache && (cache.loaded || cache.loading)) return;
-  _cliContratoCache.set(condoId, { contrato: null, loaded: false, loading: true });
+  _cliContratoCache.set(condoId, { contratos: [], loaded: false, loading: true });
   try {
     const r = await fetch(`/contratos?condominio_id=${condoId}&ativo=true`, { headers: authHeaders() });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const lista = await r.json();
-    _cliContratoCache.set(condoId, { contrato: lista[0] || null, loaded: true, loading: false });
+    _cliContratoCache.set(condoId, { contratos: lista, loaded: true, loading: false });
   } catch (e) {
-    _cliContratoCache.set(condoId, { contrato: null, loaded: true, loading: false, error: e.message });
+    _cliContratoCache.set(condoId, { contratos: [], loaded: true, loading: false, error: e.message });
   }
   if (_cliSelecionadoId === condoId) {
     const sec = document.getElementById(`cliContratoSec-${condoId}`);
@@ -2653,82 +2632,6 @@ function _cliInvalidarContrato(condoId) {
   _cliContratoCache.delete(condoId);
 }
 
-// ─── Contatos WhatsApp: cache + render do card no detalhe do cliente ────────
-const _cliContatosWppCache = new Map(); // condoId → { contatos, loaded, loading, error }
-
-function _wcTipoLabel(tipo) {
-  if (tipo === "gestao_condominio") return "Gestão";
-  if (tipo === "pessoa_fisica")     return "Particular";
-  return "?";
-}
-function _wcFmtTelefone(t) {
-  // 5511999998888 → +55 (11) 99999-8888
-  const d = String(t || "").replace(/\D+/g, "");
-  if (d.length === 13) return `+${d.slice(0,2)} (${d.slice(2,4)}) ${d.slice(4,9)}-${d.slice(9)}`;
-  if (d.length === 12) return `+${d.slice(0,2)} (${d.slice(2,4)}) ${d.slice(4,8)}-${d.slice(8)}`;
-  return t;
-}
-function _wcFmtDataRelativa(s) {
-  if (!s) return null;
-  const d = new Date(s); if (isNaN(d)) return null;
-  const ms = Date.now() - d.getTime();
-  const dias = Math.floor(ms / 86400000);
-  if (dias <= 0)  return "hoje";
-  if (dias === 1) return "ontem";
-  if (dias < 30)  return `há ${dias}d`;
-  if (dias < 365) return `há ${Math.floor(dias/30)}m`;
-  return `há ${Math.floor(dias/365)}a`;
-}
-
-function _cliRenderContatosWppCard(condoId) {
-  const cache = _cliContatosWppCache.get(condoId);
-  let inner;
-  if (!cache || cache.loading) {
-    inner = `<div style="font-size:11px;color:var(--muted);padding:6px 0;">Carregando contatos…</div>`;
-  } else if (cache.error) {
-    inner = `<div style="font-size:11px;color:var(--danger);padding:6px 0;">Erro ao carregar contatos</div>`;
-  } else if (!cache.contatos || !cache.contatos.length) {
-    inner = `<div style="font-size:11px;color:var(--muted);padding:6px 0 10px;">Nenhum contato cadastrado. A IA vai pedir identificação na primeira mensagem.</div>`;
-  } else {
-    const linhas = cache.contatos.map(ct => {
-      const ult = _wcFmtDataRelativa(ct.ultima_conversa_em);
-      const sub = ult ? `últ. ${ult}` : "sem conversa";
-      return `<div class="ch-met-row" style="align-items:flex-start;gap:8px;">
-        <div style="flex:1;min-width:0;">
-          <div style="font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_waEscaparHtml(ct.nome || "(sem nome)")}</div>
-          <div style="font-size:10px;color:var(--muted);">${_wcFmtTelefone(ct.telefone)} · ${sub}</div>
-        </div>
-      </div>`;
-    }).join("");
-    inner = `<div class="ch-det-meta">${linhas}</div>`;
-  }
-  return `<div class="ch-det-section" id="cliContatosWppSec-${condoId}">
-    <div class="ch-det-sec-title">Contatos</div>
-    ${inner}
-  </div>`;
-}
-
-async function _cliCarregarContatosWpp(condoId) {
-  const cache = _cliContatosWppCache.get(condoId);
-  if (cache && (cache.loaded || cache.loading)) return;
-  _cliContatosWppCache.set(condoId, { contatos: [], loaded: false, loading: true });
-  try {
-    const r = await fetch(`/admin/whatsapp/contatos?condominio_id=${condoId}`, { headers: authHeaders() });
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    const lista = await r.json();
-    _cliContatosWppCache.set(condoId, { contatos: lista, loaded: true, loading: false });
-  } catch (e) {
-    _cliContatosWppCache.set(condoId, { contatos: [], loaded: true, loading: false, error: e.message });
-  }
-  if (_cliSelecionadoId === condoId) {
-    const sec = document.getElementById(`cliContatosWppSec-${condoId}`);
-    if (sec) sec.outerHTML = _cliRenderContatosWppCard(condoId);
-  }
-}
-
-function _cliInvalidarContatosWpp(condoId) {
-  _cliContatosWppCache.delete(condoId);
-}
 
 function renderCliDetalhe(c) {
   const col = document.getElementById("cliDetailCol");
@@ -2817,8 +2720,6 @@ function renderCliDetalhe(c) {
 
     ${_cliRenderContratoCard(c.id)}
 
-    ${_cliRenderContatosWppCard(c.id)}
-
     ${telHtml}
 
     <div class="ch-det-section">
@@ -2840,9 +2741,7 @@ function renderCliDetalhe(c) {
     </div>
   </div>`;
 
-  // Lazy fetch do contrato e dos contatos WhatsApp — cache evita recarregar
   _cliCarregarContrato(c.id);
-  _cliCarregarContatosWpp(c.id);
 }
 
 
@@ -3307,6 +3206,10 @@ function abrirModalNovoCliente() {
             <span class="lbl">Telefone</span>
             <input id="cliModalTelefone" class="input" placeholder="(11) 99999-9999" />
           </div>
+          <div class="field" style="grid-column:1/-1;">
+            <span class="lbl">E-mail <span style="font-weight:400;color:var(--muted);">— para envio de orçamentos</span></span>
+            <input id="cliModalEmail" class="input" type="email" placeholder="contato@condominio.com.br" />
+          </div>
         </div>
 
         <!-- Painel direito: mapa -->
@@ -3425,6 +3328,7 @@ function abrirModalNovoCliente() {
     const cnpj         = (document.getElementById("cliModalCnpj")?.value || "").replace(/\D/g, "") || null;
     const responsavel  = (document.getElementById("cliModalResponsavel")?.value || "").trim() || null;
     const telefone     = (document.getElementById("cliModalTelefone")?.value || "").trim() || null;
+    const email        = (document.getElementById("cliModalEmail")?.value || "").trim().toLowerCase() || null;
     const cidade       = (document.getElementById("cliModalCidade")?.value || "").trim() || null;
     const uf           = (document.getElementById("cliModalUf")?.value || "").trim().toUpperCase() || null;
     const endereco     = (document.getElementById("cliModalEndereco")?.value || "").trim() || null;
@@ -3444,7 +3348,7 @@ function abrirModalNovoCliente() {
       const r = await fetch("/condominios", {
         method: "POST",
         headers: { ...authHeaders(), "Content-Type": "application/json" },
-        body: JSON.stringify({ nome, nome_fantasia, cnpj, responsavel, telefone, cidade, uf, endereco, bairro, cep, lat, lng })
+        body: JSON.stringify({ nome, nome_fantasia, cnpj, email, responsavel, telefone, cidade, uf, endereco, bairro, cep, lat, lng })
       });
       const data = await r.json();
       if (!r.ok) { if (msg) msg.textContent = data.error || "Erro ao criar."; return; }
@@ -4291,6 +4195,7 @@ function _ctrAbrirModal({ condoId, contratoId }) {
   document.getElementById("ctrId").value = "";
   document.getElementById("ctrCondoId").value = String(condoId);
   document.getElementById("ctrMsg").textContent = "";
+  document.getElementById("ctrBtnSalvar").disabled = false;
   document.getElementById("ctrBtnEncerrar").style.display = contratoId ? "" : "none";
 
   const condo = (_condominios || []).find(c => Number(c.id) === Number(condoId));
@@ -4390,14 +4295,14 @@ async function _ctrSalvar() {
 async function _ctrEncerrar() {
   const editandoId = document.getElementById("ctrId").value;
   if (!editandoId) return;
-  if (!confirm("Encerrar este contrato? Ele ficará inativo e você poderá cadastrar um novo no condomínio.")) return;
+  if (!confirm("Inativar este contrato? Ele ficará inativo mas poderá ser reativado depois.")) return;
   const msg = document.getElementById("ctrMsg");
-  msg.style.color = "var(--muted)"; msg.textContent = "Encerrando…";
+  msg.style.color = "var(--muted)"; msg.textContent = "Inativando…";
   try {
-    const r = await fetch(`/contratos/${editandoId}`, { method: "DELETE", headers: authHeaders() });
+    const r = await fetch(`/contratos/${editandoId}`, { method: "PATCH", headers: { ...authHeaders(), "Content-Type": "application/json" }, body: JSON.stringify({ ativo: false }) });
     if (!r.ok) {
       const e = await r.json().catch(() => ({}));
-      msg.style.color = "var(--danger)"; msg.textContent = e.error || "Erro ao encerrar";
+      msg.style.color = "var(--danger)"; msg.textContent = e.error || "Erro ao inativar";
       return;
     }
     const condoId = _ctrEditando?.condoId;
@@ -4427,128 +4332,6 @@ async function _ctrEncerrar() {
   overlay.addEventListener("click", e => { if (e.target === overlay) _ctrFecharModal(); });
 })();
 
-// ─── Modal: novo/editar contato WhatsApp ────────────────────────────────────
-let _wcEditando = null; // { condoId, contatoId? }
-
-function _wcAbrirModal({ condoId, contatoId, contato }) {
-  const overlay = document.getElementById("wcOverlay");
-  if (!overlay) return;
-  _wcEditando = { condoId, contatoId: contatoId || null };
-
-  document.getElementById("wcId").value       = contatoId ? String(contatoId) : "";
-  document.getElementById("wcCondoId").value  = condoId ? String(condoId) : "";
-  document.getElementById("wcTelefone").value = contato?.telefone || "";
-  document.getElementById("wcNome").value     = contato?.nome || "";
-  document.getElementById("wcTipo").value     = contato?.tipo || "gestao_condominio";
-  document.getElementById("wcObs").value      = contato?.observacoes || "";
-  document.getElementById("wcMsg").textContent = "";
-  document.getElementById("wcBtnRemover").style.display = contatoId ? "" : "none";
-  // Edição não troca o telefone (é a chave única que liga histórico de conversas)
-  document.getElementById("wcTelefone").disabled = !!contatoId;
-
-  const condo = (_condominios || []).find(c => Number(c.id) === Number(condoId));
-  document.getElementById("wcSub").textContent = condo ? condo.nome : "";
-  document.getElementById("wcTitulo").textContent = contatoId ? "Editar contato" : "Novo contato";
-
-  overlay.style.display = "flex";
-}
-
-function _wcFecharModal() {
-  const overlay = document.getElementById("wcOverlay");
-  if (overlay) overlay.style.display = "none";
-  _wcEditando = null;
-}
-
-async function _wcSalvar() {
-  if (!_wcEditando) return;
-  const msg = document.getElementById("wcMsg");
-  const btn = document.getElementById("wcBtnSalvar");
-
-  const id        = document.getElementById("wcId").value;
-  const telefone  = document.getElementById("wcTelefone").value.trim();
-  const nome      = document.getElementById("wcNome").value.trim() || null;
-  const tipo      = document.getElementById("wcTipo").value;
-  const obs       = document.getElementById("wcObs").value.trim() || null;
-  const condoId   = Number(document.getElementById("wcCondoId").value);
-
-  if (!id && !telefone) {
-    msg.style.color = "var(--danger)"; msg.textContent = "Telefone obrigatório"; return;
-  }
-  if (tipo === "gestao_condominio" && !condoId) {
-    msg.style.color = "var(--danger)"; msg.textContent = "Condomínio obrigatório pra gestão"; return;
-  }
-
-  msg.style.color = "var(--muted)"; msg.textContent = "Salvando…";
-  btn.disabled = true;
-
-  const url    = id ? `/admin/whatsapp/contatos/${id}` : "/admin/whatsapp/contatos";
-  const method = id ? "PATCH" : "POST";
-  const body   = id
-    ? { nome, tipo, observacoes: obs, condominio_id: tipo === "gestao_condominio" ? condoId : null }
-    : { telefone, nome, tipo, observacoes: obs, condominio_id: tipo === "gestao_condominio" ? condoId : null };
-
-  try {
-    const r = await fetch(url, {
-      method,
-      headers: { ...authHeaders(), "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    if (!r.ok) {
-      const e = await r.json().catch(() => ({}));
-      msg.style.color = "var(--danger)"; msg.textContent = e.error || "Erro ao salvar";
-      btn.disabled = false;
-      return;
-    }
-    _cliInvalidarContatosWpp(condoId);
-    _wcFecharModal();
-    if (_cliSelecionadoId === condoId) {
-      const c = (_condominios || []).find(x => Number(x.id) === Number(condoId));
-      if (c) renderCliDetalhe(c);
-    }
-    if (_editCondoIdAtivo === condoId) _editRenderTabContatos(condoId);
-  } catch (e) {
-    msg.style.color = "var(--danger)"; msg.textContent = "Erro de rede";
-    btn.disabled = false;
-  }
-}
-
-async function _wcRemover() {
-  const id = document.getElementById("wcId").value;
-  if (!id) return;
-  if (!confirm("Desvincular este contato? O histórico de conversas é preservado, mas a IA vai voltar a pedir identificação.")) return;
-  const msg = document.getElementById("wcMsg");
-  msg.style.color = "var(--muted)"; msg.textContent = "Desvinculando…";
-  try {
-    const r = await fetch(`/admin/whatsapp/contatos/${id}`, { method: "DELETE", headers: authHeaders() });
-    if (!r.ok) {
-      const e = await r.json().catch(() => ({}));
-      msg.style.color = "var(--danger)"; msg.textContent = e.error || "Erro";
-      return;
-    }
-    const condoId = _wcEditando?.condoId;
-    _wcFecharModal();
-    if (condoId != null) {
-      _cliInvalidarContatosWpp(condoId);
-      if (_cliSelecionadoId === condoId) {
-        const c = (_condominios || []).find(x => Number(x.id) === Number(condoId));
-        if (c) renderCliDetalhe(c);
-      }
-      if (_editCondoIdAtivo === condoId) _editRenderTabContatos(condoId);
-    }
-  } catch (e) {
-    msg.style.color = "var(--danger)"; msg.textContent = "Erro de rede";
-  }
-}
-
-(function _bindWcModal() {
-  const overlay = document.getElementById("wcOverlay");
-  if (!overlay) return;
-  document.getElementById("wcBtnFechar")?.addEventListener("click", _wcFecharModal);
-  document.getElementById("wcBtnCancelar")?.addEventListener("click", _wcFecharModal);
-  document.getElementById("wcBtnSalvar")?.addEventListener("click", _wcSalvar);
-  document.getElementById("wcBtnRemover")?.addEventListener("click", _wcRemover);
-  overlay.addEventListener("click", e => { if (e.target === overlay) _wcFecharModal(); });
-})();
 
 // ─── Tabs do modal Editar Condomínio (Dados / Contrato / Contatos) ──────────
 // Estado: condomínio atualmente editado (definido por abrirModalEditar)
@@ -4563,80 +4346,48 @@ function _editAtivarTab(tab, condoId) {
     else p.setAttribute("hidden", "");
   });
   if (tab === "contrato")  _editRenderTabContrato(condoId);
-  if (tab === "contatos")  _editRenderTabContatos(condoId);
 }
 
 function _editRenderTabContrato(condoId) {
   const body = document.getElementById("editTabContratoBody");
   if (!body || !condoId) return;
-  body.innerHTML = `<div class="edit-tab-empty">Carregando contrato…</div>`;
-  // Sempre refaz fetch (admin pode ter mexido em outra sessão) — invalida cache do painel direito.
+  body.innerHTML = `<div class="edit-tab-empty">Carregando contratos…</div>`;
   _cliInvalidarContrato(condoId);
-  fetch(`/contratos?condominio_id=${condoId}&ativo=true`, { headers: authHeaders() })
+  fetch(`/contratos?condominio_id=${condoId}`, { headers: authHeaders() })
     .then(r => r.ok ? r.json() : Promise.reject(r))
     .then(lista => {
-      const c = lista[0];
-      // Atualiza cache do painel direito junto
-      _cliContratoCache.set(condoId, { contrato: c || null, loaded: true, loading: false });
-      if (!c) {
-        body.innerHTML = `
-          <div class="edit-tab-empty">Nenhum contrato cadastrado para este condomínio.</div>
-          <div style="display:flex;justify-content:center;">
-            <button class="btn btnAccent viewer-only-hide" data-action="novo-contrato" data-condo-id="${condoId}">+ Cadastrar contrato</button>
-          </div>`;
-        return;
-      }
-      const st = _ctrStatusVisual(c);
-      body.innerHTML = `
-        <div class="ch-det-meta" style="padding:6px 0;">
-          <div class="ch-met-row"><span class="ch-met-lbl">Número</span><span style="font-size:12px;">${_waEscaparHtml(c.numero || "—")}</span></div>
-          <div class="ch-met-row"><span class="ch-met-lbl">Tipo</span><span style="font-size:12px;">${_ctrTipoLabel[c.tipo] || c.tipo}</span></div>
-          <div class="ch-met-row"><span class="ch-met-lbl">Valor mensal</span><span style="font-size:13px;font-weight:600;color:var(--accent);">${_ctrFmtMoeda(c.valor_mensal)}</span></div>
-          <div class="ch-met-row"><span class="ch-met-lbl">Vigência</span><span style="font-size:12px;">${_ctrFmtData(c.inicio_em)} → ${c.fim_em ? _ctrFmtData(c.fim_em) : "sem fim"}</span></div>
-          <div class="ch-met-row"><span class="ch-met-lbl">Status</span><span style="font-size:11px;font-weight:700;color:${st.cor};">${st.texto}</span></div>
-          ${c.forma_pagamento ? `<div class="ch-met-row"><span class="ch-met-lbl">Pagamento</span><span style="font-size:12px;">${_ctrFormaLabel[c.forma_pagamento] || c.forma_pagamento}${c.dia_vencimento ? ` · dia ${c.dia_vencimento}` : ""}</span></div>` : ""}
-          ${c.observacoes ? `<div class="ch-met-row" style="flex-direction:column;align-items:flex-start;"><span class="ch-met-lbl">Observações</span><span style="font-size:12px;white-space:pre-wrap;margin-top:4px;">${_waEscaparHtml(c.observacoes)}</span></div>` : ""}
-        </div>
-        <div style="display:flex;justify-content:flex-end;margin-top:14px;">
-          <button class="btn btnAccent viewer-only-hide" data-action="editar-contrato" data-contrato-id="${c.id}" data-condo-id="${condoId}">Editar contrato</button>
+      _cliContratoCache.set(condoId, { contratos: lista.filter(c => c.ativo), loaded: true, loading: false });
+      const rows = lista.map(c => {
+        const st = _ctrStatusVisual(c);
+        const acoesCtr = c.ativo
+          ? `<button class="btn btn-sm viewer-only-hide" data-action="editar-contrato" data-contrato-id="${c.id}" data-condo-id="${condoId}">Editar</button>
+             <button class="btn btn-sm btnDanger viewer-only-hide" data-action="inativar-contrato" data-contrato-id="${c.id}" data-condo-id="${condoId}">Inativar</button>`
+          : `<button class="btn btn-sm btnAccent viewer-only-hide" data-action="reativar-contrato" data-contrato-id="${c.id}" data-condo-id="${condoId}">Reativar</button>`;
+        return `<div class="ctr-row${c.ativo ? "" : " ctr-row-inativo"}">
+          <div class="ctr-row-info">
+            <div class="ctr-row-top">
+              ${c.numero ? `<span class="ctr-numero">${_waEscaparHtml(c.numero)}</span>` : ""}
+              <span class="ctr-tipo">${_ctrTipoLabel[c.tipo] || c.tipo}</span>
+              <span class="ctr-st" style="color:${st.cor};">${st.texto}</span>
+              <span style="margin-left:auto;font-size:12px;font-weight:600;color:var(--accent);">${_ctrFmtMoeda(c.valor_mensal)}</span>
+            </div>
+            <div class="ctr-row-meta">${_ctrFmtData(c.inicio_em)} → ${c.fim_em ? _ctrFmtData(c.fim_em) : "sem fim"}</div>
+          </div>
+          <div style="display:flex;gap:6px;flex-shrink:0;">
+            ${acoesCtr}
+            <button class="btn btn-sm btnDanger viewer-only-hide" data-action="excluir-contrato" data-contrato-id="${c.id}" data-condo-id="${condoId}">Excluir</button>
+          </div>
         </div>`;
+      }).join("");
+      body.innerHTML = `
+        <div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
+          <button class="btn btn-sm btnAccent viewer-only-hide" data-action="novo-contrato" data-condo-id="${condoId}">+ Novo contrato</button>
+        </div>
+        <div class="ctr-list">${lista.length ? rows : `<div style="font-size:12px;color:var(--muted);padding:8px 0;">Nenhum contrato cadastrado.</div>`}</div>`;
     })
-    .catch(() => { body.innerHTML = `<div class="edit-tab-empty" style="color:var(--danger);">Erro ao carregar contrato.</div>`; });
+    .catch(() => { body.innerHTML = `<div class="edit-tab-empty" style="color:var(--danger);">Erro ao carregar contratos.</div>`; });
 }
 
-function _editRenderTabContatos(condoId) {
-  const body = document.getElementById("editTabContatosBody");
-  if (!body || !condoId) return;
-  body.innerHTML = `<div class="edit-tab-empty">Carregando contatos…</div>`;
-  _cliInvalidarContatosWpp(condoId);
-  fetch(`/admin/whatsapp/contatos?condominio_id=${condoId}`, { headers: authHeaders() })
-    .then(r => r.ok ? r.json() : Promise.reject(r))
-    .then(lista => {
-      _cliContatosWppCache.set(condoId, { contatos: lista, loaded: true, loading: false });
-      const linhasHtml = lista.length
-        ? `<div class="ch-det-meta">${lista.map(ct => {
-            const ult = _wcFmtDataRelativa(ct.ultima_conversa_em);
-            const sub = ult ? `últ. ${ult}` : "sem conversa";
-            const tipoLabel = _wcTipoLabel(ct.tipo);
-            return `<div class="ch-met-row" style="align-items:flex-start;gap:8px;">
-              <div style="flex:1;min-width:0;">
-                <div style="font-size:13px;font-weight:600;color:var(--text);">${_waEscaparHtml(ct.nome || "(sem nome)")}
-                  <span style="font-size:9px;padding:1px 6px;border-radius:999px;background:rgba(255,255,255,.05);color:var(--muted);margin-left:6px;text-transform:uppercase;letter-spacing:.4px;">${tipoLabel}</span>
-                </div>
-                <div style="font-size:11px;color:var(--muted);margin-top:2px;">${_wcFmtTelefone(ct.telefone)} · ${sub}</div>
-                ${ct.observacoes ? `<div style="font-size:11px;color:var(--muted);margin-top:3px;font-style:italic;">${_waEscaparHtml(ct.observacoes)}</div>` : ""}
-              </div>
-              <button class="btn btn-sm viewer-only-hide" data-action="editar-contato-wpp" data-contato-id="${ct.id}" data-condo-id="${condoId}">Editar</button>
-            </div>`;
-          }).join("")}</div>`
-        : `<div class="edit-tab-empty">Nenhum contato cadastrado. A IA vai pedir identificação na primeira mensagem.</div>`;
-      body.innerHTML = `${linhasHtml}
-        <div style="display:flex;justify-content:flex-end;margin-top:14px;">
-          <button class="btn btnAccent viewer-only-hide" data-action="novo-contato-wpp" data-condo-id="${condoId}">+ Adicionar contato</button>
-        </div>`;
-    })
-    .catch(() => { body.innerHTML = `<div class="edit-tab-empty" style="color:var(--danger);">Erro ao carregar contatos.</div>`; });
-}
 
 // Bind do clique nas tabs do modal Editar
 (function _bindEditTabs() {
@@ -6132,6 +5883,7 @@ function abrirModalEditar(id) {
 
       document.getElementById("editResponsavel").value = c.responsavel || "";
       document.getElementById("editTelefone").value = c.telefone || "";
+      document.getElementById("editEmail").value = c.email || "";
       document.getElementById("editObs").value = c.observacoes || "";
 
       document.getElementById("editAtivo").checked = (c.ativo !== false);
@@ -6210,6 +5962,7 @@ async function salvarEdicao(event) {
     cep: cepRaw === "" ? null : cepRaw,
     responsavel: _valOrNull("editResponsavel"),
     telefone: _valOrNull("editTelefone"),
+    email: (document.getElementById("editEmail")?.value || "").trim().toLowerCase() || null,
     observacoes: _valOrNull("editObs"),
     ativo: document.getElementById("editAtivo").checked,
     lat: latRaw === "" ? null : Number(latRaw),
@@ -7141,7 +6894,10 @@ function _mpAtualizarMapa() {
       zoomControl: true,
       attributionControl: false,
     });
-    _criarTileLayer(_mpMap);
+    _criarTileLayer(_mpMap, () => {
+      const ld = document.getElementById("mpMapLoading");
+      if (ld) ld.classList.add("hidden");
+    });
     // Garante que os tiles renderizem corretamente após inserção tardia
     requestAnimationFrame(() => _mpMap.invalidateSize());
   }
@@ -10494,20 +10250,39 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    if (action === "novo-contato-wpp") {
+    if (action === "inativar-contrato") {
+      const contratoId = Number(btn.dataset.contratoId);
       const condoId = Number(btn.dataset.condoId);
-      if (condoId) _wcAbrirModal({ condoId });
+      if (!contratoId || !confirm("Inativar este contrato? Ele ficará inativo mas poderá ser reativado depois.")) return;
+      fetch(`/contratos/${contratoId}`, { method: "PATCH", headers: { ...authHeaders(), "Content-Type": "application/json" }, body: JSON.stringify({ ativo: false }) })
+        .then(r => r.ok ? r.json() : r.json().then(d => Promise.reject(d.error || "Erro")))
+        .then(() => { _cliInvalidarContrato(condoId); _editRenderTabContrato(condoId); _carregarContratosMetricas?.(); renderCliTabela?.(); })
+        .catch(e => alert("Erro ao inativar: " + e));
       return;
     }
 
-    if (action === "editar-contato-wpp") {
-      const contatoId = Number(btn.dataset.contatoId);
-      const condoId   = Number(btn.dataset.condoId);
-      const cache     = _cliContatosWppCache.get(condoId);
-      const contato   = cache?.contatos?.find(c => Number(c.id) === contatoId);
-      if (contatoId) _wcAbrirModal({ condoId, contatoId, contato });
+    if (action === "reativar-contrato") {
+      const contratoId = Number(btn.dataset.contratoId);
+      const condoId = Number(btn.dataset.condoId);
+      if (!contratoId || !confirm("Reativar este contrato?")) return;
+      fetch(`/contratos/${contratoId}`, { method: "PATCH", headers: { ...authHeaders(), "Content-Type": "application/json" }, body: JSON.stringify({ ativo: true }) })
+        .then(r => r.ok ? r.json() : r.json().then(d => Promise.reject(d.error || "Erro")))
+        .then(() => { _cliInvalidarContrato(condoId); _editRenderTabContrato(condoId); _carregarContratosMetricas?.(); renderCliTabela?.(); })
+        .catch(e => alert("Erro ao reativar: " + e));
       return;
     }
+
+    if (action === "excluir-contrato") {
+      const contratoId = Number(btn.dataset.contratoId);
+      const condoId = Number(btn.dataset.condoId);
+      if (!contratoId || !confirm("Excluir permanentemente este contrato? Esta ação não pode ser desfeita.")) return;
+      fetch(`/contratos/${contratoId}`, { method: "DELETE", headers: authHeaders() })
+        .then(r => r.ok ? r.json() : r.json().then(d => Promise.reject(d.error || "Erro")))
+        .then(() => { _cliInvalidarContrato(condoId); _editRenderTabContrato(condoId); _carregarContratosMetricas?.(); renderCliTabela?.(); })
+        .catch(e => alert("Erro ao excluir: " + e));
+      return;
+    }
+
 
     if (action === "novo-cliente") {
       abrirModalNovoCliente();

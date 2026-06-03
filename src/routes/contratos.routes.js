@@ -1,9 +1,8 @@
 // src/routes/contratos.routes.js
 //
 // CRUD de contratos por condomínio + endpoint de métricas (MRR, vencendo,
-// vencidos). 1 condomínio tem no máximo 1 contrato ativo por vez (UNIQUE
-// parcial em migration 035). Renovação = cria novo registro e o antigo
-// vira ativo=false.
+// vencidos). Um condomínio pode ter múltiplos contratos ativos simultâneos
+// (migration 046 removeu a restrição de unicidade).
 
 const express = require("express");
 const { pool } = require("../db");
@@ -13,7 +12,7 @@ const { masterAdminOnly } = require("../middleware/masterAdminOnly");
 
 const router = express.Router();
 
-const TIPOS = ["mensal", "anual", "avulso"];
+const TIPOS = ["mensal", "semestral", "anual"];
 const FORMAS_PAGAMENTO = ["boleto", "pix", "transferencia", "cartao", "outro"];
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -225,10 +224,6 @@ router.post("/", authRequired, masterAdminOnly, async (req, res) => {
     );
     return res.status(201).json(r.rows[0]);
   } catch (err) {
-    // Viola UNIQUE parcial: já tem ativo
-    if (err.code === "23505") {
-      return res.status(409).json({ error: "Já existe contrato ativo para este condomínio. Encerre o anterior antes de criar um novo." });
-    }
     console.error("[contratos] POST /:", err);
     return res.status(500).json({ error: "Erro ao criar contrato" });
   }
@@ -258,28 +253,25 @@ router.patch("/:id", authRequired, masterAdminOnly, async (req, res) => {
     if (!r.rows.length) return res.status(404).json({ error: "Contrato não encontrado" });
     return res.json(r.rows[0]);
   } catch (err) {
-    if (err.code === "23505") {
-      return res.status(409).json({ error: "Já existe contrato ativo para este condomínio." });
-    }
     console.error("[contratos] PATCH /:id:", err);
     return res.status(500).json({ error: "Erro ao atualizar contrato" });
   }
 });
 
-// DELETE /contratos/:id — soft delete (ativo=false)
+// DELETE /contratos/:id — exclusão permanente
 router.delete("/:id", authRequired, masterAdminOnly, async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
   try {
     const r = await pool.query(
-      `UPDATE contratos SET ativo = FALSE WHERE id = $1 RETURNING id`,
+      `DELETE FROM contratos WHERE id = $1 RETURNING id`,
       [id]
     );
     if (!r.rows.length) return res.status(404).json({ error: "Contrato não encontrado" });
     return res.json({ ok: true });
   } catch (err) {
     console.error("[contratos] DELETE /:id:", err);
-    return res.status(500).json({ error: "Erro ao encerrar contrato" });
+    return res.status(500).json({ error: "Erro ao excluir contrato" });
   }
 });
 

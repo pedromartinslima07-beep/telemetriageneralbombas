@@ -86,6 +86,17 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
     `--disable-gpu` e `--no-zygote`. Com Puppeteer v22+ (novo headless Chrome), ausência
     de `--disable-gpu` em containers sem GPU (Railway) derrubava o processo do Chrome.
 
+- **2026-06-03** — **Remoção da aba "Contatos" do modal de cliente**
+  - A aba "Contatos" no modal de edição de condomínio era exclusiva para pré-cadastro
+    de números WhatsApp. Como o módulo WhatsApp ainda não está ativo, a seção
+    gerava confusão (texto "A IA vai pedir identificação" sem contexto real).
+  - Removidos: tab + pane no `admin.html`, modal `wcOverlay`, ~150 linhas de JS
+    (`_cliContatosWppCache`, `_wcAbrirModal/Salvar/Remover`, `_editRenderTabContatos`,
+    handlers `novo/editar-contato-wpp`), e 4 rotas backend
+    `GET/POST/PATCH/DELETE /admin/whatsapp/contatos`.
+  - Tabela `clientes_whatsapp` preservada no banco para quando o WhatsApp for
+    ativado.
+
 - **2026-06-03** — **Mapa: migração de tiles CartoDB → OpenStreetMap**
   - `_criarTileLayer` em `public/admin.js` trocado de
     `basemaps.cartocdn.com/dark_all` para `tile.openstreetmap.org`.

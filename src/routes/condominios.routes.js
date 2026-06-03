@@ -28,7 +28,7 @@ function _normCep(v) {
 // POST /condominios (criar)
 router.post("/", authRequired, masterAdminOnly, async (req, res) => {
   const {
-    nome, nome_fantasia, cnpj, endereco, bairro, cidade, uf, cep,
+    nome, nome_fantasia, cnpj, email, endereco, bairro, cidade, uf, cep,
     responsavel, telefone, observacoes, ativo,
     lat, lng,
   } = req.body || {};
@@ -54,16 +54,17 @@ router.post("/", authRequired, masterAdminOnly, async (req, res) => {
   try {
     const result = await pool.query(
       `INSERT INTO condominios
-        (nome, nome_fantasia, cnpj, endereco, bairro, cidade, uf, cep, responsavel, telefone, observacoes, ativo, lat, lng)
+        (nome, nome_fantasia, cnpj, email, endereco, bairro, cidade, uf, cep, responsavel, telefone, observacoes, ativo, lat, lng)
        VALUES
-        ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+        ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
        RETURNING
-        id, nome, nome_fantasia, cnpj, endereco, bairro, cidade, uf, cep,
+        id, nome, nome_fantasia, cnpj, email, endereco, bairro, cidade, uf, cep,
         responsavel, telefone, observacoes, ativo, lat, lng, criado_em`,
       [
         nomeNorm,
         nome_fantasia ? String(nome_fantasia).trim() || null : null,
         cnpjNorm,
+        email ? String(email).trim().toLowerCase() || null : null,
         endereco ?? null,
         bairro ?? null,
         cidade ?? null,
@@ -90,7 +91,7 @@ router.get("/", authRequired, adminOnly, async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT
-        c.id, c.nome, c.nome_fantasia, c.cnpj, c.endereco, c.bairro, c.cidade, c.uf, c.cep,
+        c.id, c.nome, c.nome_fantasia, c.cnpj, c.email, c.endereco, c.bairro, c.cidade, c.uf, c.cep,
         c.responsavel, c.telefone, c.observacoes, c.ativo, c.lat, c.lng, c.criado_em,
         COUNT(r.id)::int AS total_reservatorios
       FROM condominios c
@@ -115,7 +116,7 @@ router.get("/:id", authRequired, adminOnly, async (req, res) => {
 
   try {
     const result = await pool.query(`
-      SELECT id, nome, nome_fantasia, cnpj, endereco, bairro, cidade, uf, cep,
+      SELECT id, nome, nome_fantasia, cnpj, email, endereco, bairro, cidade, uf, cep,
              responsavel, telefone, observacoes, ativo, lat, lng, criado_em
       FROM condominios
       WHERE id = $1
@@ -167,6 +168,7 @@ router.patch("/:id", authRequired, masterAdminOnly, async (req, res) => {
   add("nome", b.nome);
   add("nome_fantasia", "nome_fantasia" in b ? (b.nome_fantasia ? String(b.nome_fantasia).trim() || null : null) : undefined);
   add("cnpj", "cnpj" in b ? (b.cnpj ? String(b.cnpj).replace(/\D/g, "").slice(0, 14) || null : null) : undefined);
+  add("email", "email" in b ? (b.email ? String(b.email).trim().toLowerCase() || null : null) : undefined);
   add("endereco", b.endereco);
   add("bairro", b.bairro);
   add("cidade", b.cidade);
@@ -199,7 +201,7 @@ router.patch("/:id", authRequired, masterAdminOnly, async (req, res) => {
   try {
     const result = await pool.query(
       `UPDATE condominios SET ${sets.join(", ")} WHERE id = $1
-       RETURNING id, nome, nome_fantasia, cnpj, endereco, bairro, cidade, uf, cep,
+       RETURNING id, nome, nome_fantasia, cnpj, email, endereco, bairro, cidade, uf, cep,
                  responsavel, telefone, observacoes, ativo, lat, lng, criado_em`,
       values
     );

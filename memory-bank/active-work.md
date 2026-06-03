@@ -61,6 +61,13 @@ Envs necessárias: `OPENAI_API_KEY`, `WHATSAPP_VERIFY_TOKEN`,
 6. 10B — few-shot por categoria (aguardar volume de conversas curadas).
 7. 7J — publicação Play Store.
 
+## Melhorias recentes (sessão 2026-06-03 — tarde)
+
+- **Remoção da aba "Contatos" do modal de cliente.**
+  - Aba era exclusiva para pré-cadastro de contatos WhatsApp; sem WhatsApp ativo
+    só gerava confusão. Removidos: tab/pane no HTML, modal wcOverlay, ~150 linhas
+    de JS e 4 rotas backend. Tabela `clientes_whatsapp` preservada no banco.
+
 ## Melhorias recentes (sessão 2026-06-03)
 
 - **PDF de orçamento: dois bugs corrigidos.**

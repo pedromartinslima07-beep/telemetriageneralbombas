@@ -59,7 +59,7 @@ ESP32 (sonda 4-20mA + SCT-013)
 | **condominios / reservatorios** | CRUD + calibração + limiar + lat/lng/CEP/CNPJ/nome_fantasia |
 | **cliente** | Status e histórico do próprio condomínio |
 | **alertas** | Página unificada telemetria+chamados, comentários, análise IA |
-| **whatsapp** | Webhook Meta, conversas, central de atendimento, curadoria IA |
+| **whatsapp** | Webhook Meta, conversas, central de atendimento, curadoria IA (contatos WhatsApp removidos da UI até módulo ser ativado) |
 | **chamados** | Ciclo do chamado, P1–P4, SLA, recorrência, a-caminho/chegou |
 | **tecnicos / tecnicos-localizacao** | Cadastro técnicos + GPS + ETA |
 | **ordens-servico** | O.S. digital (fotos, assinatura, orçamento) + PDF |

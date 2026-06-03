@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="/static/leaflet.css">
   <!-- ⚠️ Ao mexer em admin.js ou admin.css, bumpe o ?v=N aqui E no <script>
        lá embaixo. Ver CLAUDE.md raiz. -->
-  <link rel="stylesheet" href="/static/admin.css?v=81">
+  <link rel="stylesheet" href="/static/admin.css?v=86">
 </head>
 <body>
 
@@ -617,9 +617,8 @@
                     <th>Nome</th>
                     <th>Cidade</th>
                     <th>Responsável</th>
-                    <th style="text-align:center;">Reserv.</th>
+                    <th style="font-family:monospace;">CNPJ</th>
                     <th>Contrato</th>
-                    <th>Status</th>
                   </tr>
                 </thead>
                 <tbody id="cliTableBody"></tbody>
@@ -1235,7 +1234,12 @@
                 </button>
               </div>
             </div>
-            <div class="mp-map-canvas" id="mpMapCanvas"></div>
+            <div class="mp-map-canvas" id="mpMapCanvas">
+              <div class="mp-map-loading" id="mpMapLoading">
+                <span class="mp-map-spinner"></span>
+                <span>Carregando mapa…</span>
+              </div>
+            </div>
           </section>
 
           <section class="card mp-panel">
@@ -2396,7 +2400,6 @@
     <div class="edit-tabs">
       <button type="button" class="edit-tab is-active" data-edit-tab="dados">Dados</button>
       <button type="button" class="edit-tab" data-edit-tab="contrato">Contrato</button>
-      <button type="button" class="edit-tab" data-edit-tab="contatos">Contatos</button>
     </div>
     <div class="modalBody">
       <div class="modalTools">
@@ -2428,6 +2431,7 @@
         <label class="f"><span>UF</span><input id="editUf" maxlength="2" /></label>
         <label class="f"><span>Responsável</span><input id="editResponsavel" /></label>
         <label class="f"><span>Telefone</span><input id="editTelefone" /></label>
+        <label class="f"><span>E-mail <span style="font-weight:400;color:var(--muted);">— orçamentos</span></span><input id="editEmail" type="email" placeholder="contato@condominio.com.br" /></label>
         <label class="f" style="grid-column:1/-1;"><span>Observações</span><input id="editObs" /></label>
         <label class="fCheck" style="grid-column:1/-1;">
           <input type="checkbox" id="editAtivo" />
@@ -2464,9 +2468,6 @@
       </div>
       <div class="edit-tab-pane" data-edit-pane="contrato" hidden>
         <div id="editTabContratoBody"></div>
-      </div>
-      <div class="edit-tab-pane" data-edit-pane="contatos" hidden>
-        <div id="editTabContatosBody"></div>
       </div>
     </div>
   </div>
@@ -2631,8 +2632,8 @@
           <span>Tipo <span style="color:var(--danger)">*</span></span>
           <select id="ctrTipo" class="select">
             <option value="mensal">Mensal</option>
+            <option value="semestral">Semestral</option>
             <option value="anual">Anual</option>
-            <option value="avulso">Avulso</option>
           </select>
         </label>
         <label class="f">
@@ -2687,7 +2688,7 @@
 
       <div style="display:flex;gap:8px;justify-content:flex-end;align-items:center;">
         <span id="ctrMsg" style="font-size:12px;color:var(--muted);"></span>
-        <button class="btn btn-sm btnDanger" id="ctrBtnEncerrar" style="display:none;">Encerrar contrato</button>
+        <button class="btn btn-sm btnDanger" id="ctrBtnEncerrar" style="display:none;">Inativar contrato</button>
         <button class="btn btn-sm" id="ctrBtnCancelar">Cancelar</button>
         <button class="btn btn-sm btnAccent" id="ctrBtnSalvar">Salvar</button>
       </div>
@@ -2695,56 +2696,8 @@
   </div>
 </div>
 
-<!-- Modal: novo/editar contato WhatsApp do condomínio -->
-<div id="wcOverlay" class="modalOverlay" style="display:none;">
-  <div class="modalBox" style="max-width:480px;">
-    <div class="modalHead">
-      <div>
-        <div class="modalTitle" id="wcTitulo">Novo contato</div>
-        <div class="modalSub" id="wcSub"></div>
-      </div>
-      <button class="btn btn-sm" id="wcBtnFechar">Fechar</button>
-    </div>
-    <div class="modalBody" style="padding:20px 24px 24px;display:flex;flex-direction:column;gap:14px;">
-      <input type="hidden" id="wcId" />
-      <input type="hidden" id="wcCondoId" />
 
-      <label class="f">
-        <span>Telefone <span style="color:var(--danger)">*</span></span>
-        <input id="wcTelefone" class="input" type="tel" placeholder="11 99999-8888" maxlength="20" />
-        <span style="font-size:10px;color:var(--muted);margin-top:2px;">DDD + número. O 55 é adicionado automaticamente se faltar.</span>
-      </label>
-
-      <label class="f">
-        <span>Nome</span>
-        <input id="wcNome" class="input" type="text" maxlength="120" placeholder="ex: Carlos (síndico)" />
-      </label>
-
-      <label class="f">
-        <span>Tipo <span style="color:var(--danger)">*</span></span>
-        <select id="wcTipo" class="select">
-          <option value="gestao_condominio">Gestão do condomínio</option>
-          <option value="pessoa_fisica">Pessoa física (particular)</option>
-          <option value="desconhecido">Desconhecido</option>
-        </select>
-      </label>
-
-      <label class="f">
-        <span>Observações <span style="font-size:10px;color:var(--muted);font-weight:400;">(opcional)</span></span>
-        <textarea id="wcObs" class="input" rows="2" maxlength="1000" style="resize:vertical;font-size:13px;padding:8px 10px;" placeholder="ex: prefere áudio, atende só de manhã…"></textarea>
-      </label>
-
-      <div style="display:flex;gap:8px;justify-content:flex-end;align-items:center;">
-        <span id="wcMsg" style="font-size:12px;color:var(--muted);"></span>
-        <button class="btn btn-sm btnDanger" id="wcBtnRemover" style="display:none;">Desvincular</button>
-        <button class="btn btn-sm" id="wcBtnCancelar">Cancelar</button>
-        <button class="btn btn-sm btnAccent" id="wcBtnSalvar">Salvar</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<script src="/static/admin.js?v=97" defer></script>
+<script src="/static/admin.js?v=107" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
 <script src="/static/register-sw.js?v=27" defer></script>
 </body>
