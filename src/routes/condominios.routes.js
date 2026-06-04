@@ -25,6 +25,21 @@ function _normCep(v) {
   return d;
 }
 
+// Normaliza lista de e-mails separados por vírgula (para envio de orçamentos).
+// Retorna null pra vazio, undefined se algum e-mail for inválido, ou a lista
+// limpa rejuntada por ", ".
+const _EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+function _normEmails(v) {
+  if (v === undefined || v === null || String(v).trim() === "") return null;
+  const lista = String(v)
+    .split(",")
+    .map(s => s.trim().toLowerCase())
+    .filter(Boolean);
+  if (!lista.length) return null;
+  if (lista.some(e => !_EMAIL_RE.test(e))) return undefined; // inválido
+  return lista.join(", ");
+}
+
 // POST /condominios (criar)
 router.post("/", authRequired, masterAdminOnly, async (req, res) => {
   const {
@@ -51,6 +66,9 @@ router.post("/", authRequired, masterAdminOnly, async (req, res) => {
   const cepNorm = _normCep(cep);
   if (cepNorm === undefined) return res.status(400).json({ error: "CEP inválido (precisa ter 8 dígitos)" });
 
+  const emailNorm = _normEmails(email);
+  if (emailNorm === undefined) return res.status(400).json({ error: "E-mail inválido (separe vários por vírgula)" });
+
   try {
     const result = await pool.query(
       `INSERT INTO condominios
@@ -64,7 +82,7 @@ router.post("/", authRequired, masterAdminOnly, async (req, res) => {
         nomeNorm,
         nome_fantasia ? String(nome_fantasia).trim() || null : null,
         cnpjNorm,
-        email ? String(email).trim().toLowerCase() || null : null,
+        emailNorm,
         endereco ?? null,
         bairro ?? null,
         cidade ?? null,
@@ -168,7 +186,11 @@ router.patch("/:id", authRequired, masterAdminOnly, async (req, res) => {
   add("nome", b.nome);
   add("nome_fantasia", "nome_fantasia" in b ? (b.nome_fantasia ? String(b.nome_fantasia).trim() || null : null) : undefined);
   add("cnpj", "cnpj" in b ? (b.cnpj ? String(b.cnpj).replace(/\D/g, "").slice(0, 14) || null : null) : undefined);
-  add("email", "email" in b ? (b.email ? String(b.email).trim().toLowerCase() || null : null) : undefined);
+  if ("email" in b) {
+    const emailNorm = _normEmails(b.email);
+    if (emailNorm === undefined) return res.status(400).json({ error: "E-mail inválido (separe vários por vírgula)" });
+    add("email", emailNorm);
+  }
   add("endereco", b.endereco);
   add("bairro", b.bairro);
   add("cidade", b.cidade);

@@ -5,6 +5,7 @@ const bcrypt = require("bcrypt");
 const path = require("path");
 const { pool } = require("../db");
 const { gerarPdfAvulso } = require("../services/orcamento-pdf.service");
+const { sendOrcamentoCliente } = require("../services/email");
 
 const { authRequired } = require("../middleware/authRequired");
 const { adminOnly } = require("../middleware/adminOnly");
@@ -1027,7 +1028,8 @@ router.get("/orcamentos/avulsos", authRequired, adminOnly, async (req, res) => {
               o.os_id, os.numero AS os_numero,
               o.constatacao, o.forma_pagamento, o.prazo_entrega,
               o.garantia, o.disponibilidade,
-              c.nome AS condominio_nome, c.id AS condominio_id,
+              c.nome AS condominio_nome, c.id AS condominio_id, c.email AS condominio_email,
+              o.enviado_em, o.enviado_para,
               COALESCE(
                 (SELECT SUM(l.quantidade * l.valor_unitario)
                  FROM orcamento_linhas l WHERE l.orcamento_id = o.id), 0
@@ -1204,6 +1206,80 @@ router.get("/orcamentos/avulsos/:id/pdf", authRequired, adminOnly, async (req, r
   } catch (err) {
     console.error("[admin] GET /orcamentos/avulsos/:id/pdf:", err);
     return res.status(500).json({ error: err.message || "Erro ao gerar PDF" });
+  }
+});
+
+// POST /admin/orcamentos/avulsos/:id/enviar-email — envia o PDF ao cliente
+const _EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+router.post("/orcamentos/avulsos/:id/enviar-email", authRequired, adminOnly, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
+  if (!process.env.RESEND_API_KEY) {
+    return res.status(503).json({ error: "Envio de e-mail indisponível (provedor não configurado)" });
+  }
+  try {
+    // Dados do orçamento + e-mail do cliente
+    const r = await pool.query(
+      `SELECT o.id, o.numero, o.valido_ate, o.condominio_id,
+              COALESCE(c.nome_fantasia, c.nome) AS condominio_nome,
+              c.email AS condominio_email,
+              COALESCE(
+                (SELECT SUM(l.quantidade * l.valor_unitario)
+                 FROM orcamento_linhas l WHERE l.orcamento_id = o.id), 0
+              ) AS valor_total
+       FROM orcamentos o
+       LEFT JOIN condominios c ON c.id = o.condominio_id
+       WHERE o.id = $1`,
+      [id]
+    );
+    if (!r.rows.length) return res.status(404).json({ error: "Orçamento não encontrado" });
+    const orc = r.rows[0];
+
+    // Destinatários: corpo (confirmação no modal) tem precedência; senão, do cadastro
+    const fonte = (req.body && req.body.emails != null && String(req.body.emails).trim() !== "")
+      ? req.body.emails
+      : orc.condominio_email;
+    const to = String(fonte || "")
+      .split(",")
+      .map(s => s.trim().toLowerCase())
+      .filter(Boolean);
+    if (!to.length) {
+      return res.status(400).json({ error: "Cliente sem e-mail cadastrado — preencha no cadastro ou informe um e-mail no envio." });
+    }
+    const invalidos = to.filter(e => !_EMAIL_RE.test(e));
+    if (invalidos.length) {
+      return res.status(400).json({ error: `E-mail(s) inválido(s): ${invalidos.join(", ")}` });
+    }
+
+    // Gera o PDF e lê como buffer pra anexar
+    const fs = require("fs");
+    const { fpath } = await gerarPdfAvulso(id);
+    if (!fs.existsSync(fpath)) return res.status(500).json({ error: "Falha ao gerar o PDF" });
+    const pdfBuffer = fs.readFileSync(fpath);
+
+    await sendOrcamentoCliente({
+      to,
+      numero: orc.numero,
+      condominioNome: orc.condominio_nome,
+      validoAte: orc.valido_ate,
+      valorTotal: orc.valor_total,
+      pdfBuffer,
+      filename: `orcamento-${orc.numero || id}.pdf`,
+    });
+
+    const enviadoPara = to.join(", ");
+    const upd = await pool.query(
+      `UPDATE orcamentos
+         SET status = 'enviado', enviado_em = now(), enviado_para = $2
+       WHERE id = $1
+       RETURNING enviado_em`,
+      [id, enviadoPara]
+    );
+
+    return res.json({ ok: true, enviado_para: enviadoPara, enviado_em: upd.rows[0]?.enviado_em });
+  } catch (err) {
+    console.error("[admin] POST /orcamentos/avulsos/:id/enviar-email:", err);
+    return res.status(500).json({ error: err.message || "Erro ao enviar e-mail" });
   }
 });
 

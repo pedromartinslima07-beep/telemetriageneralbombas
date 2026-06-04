@@ -63,6 +63,8 @@ configuracoes (key-value dinâmico)           sla_definicoes (p1-p4)
 Migrations acrescentam: `lat`/`lng NUMERIC(9,6)` (002), `cep VARCHAR(8)` (003),
 `cnpj VARCHAR(18)`, `nome_fantasia TEXT` (044 — nome principal de exibição;
 quando preenchido substitui `nome` na UI; `nome` permanece como razão social).
+`email` (045 `VARCHAR(255)` → 047 `TEXT`): um ou mais e-mails separados por
+vírgula, usados como destinatário no envio de orçamentos.
 
 **`reservatorios`** — 1:N com condomínio. Calibração da sonda fica aqui.
 `id`, `condominio_id (FK CASCADE)`, `nome`, `tipo`, `device_id UNIQUE`,
@@ -152,6 +154,8 @@ liga técnico ao login. 029: perfil (`foto_url`, `cpf`, `rg`,
 **`orcamentos`** (criada em 026) — `id`, `condominio_id`, `criado_por`,
 `status`, valores. 027: `os_id (FK SET NULL)`. 030 unificou: + `valor`,
 `aprovado_em`, `aprovado_por`, `motivo_rejeicao`. 036: `origem (admin|ia|os)`.
+047: `enviado_em TIMESTAMPTZ`, `enviado_para TEXT` (rastreio do envio do PDF por
+e-mail ao cliente).
 **`orcamento_linhas`** (026, CASCADE) — `quantidade`, `valor_unitario`.
 > A tabela `orcamento_itens` (025) foi migrada e **removida** em 030.
 

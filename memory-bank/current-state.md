@@ -116,6 +116,9 @@ ESP32 (sonda 4-20mA + SCT-013)
   PDF via Puppeteer; página de O.S. no admin.
 - Histórico de chamados, mensagens do chamado, avaliação.
 - **Orçamentos unificados** (Migration 030) + encaminhamento via IA por email.
+  **Envio do orçamento ao cliente por e-mail** (PDF anexo via Resend, botão no modal;
+  destinatário de `condominios.email` — múltiplos por vírgula; marca `enviado` +
+  `enviado_em/enviado_para`, migration 047). Remetente: `comercial@generalbombas.com`.
 - Planos de manutenção preventiva + contratos.
 
 **App mobile (Capacitor)** — `app/public/`

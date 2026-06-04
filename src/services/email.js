@@ -12,7 +12,7 @@ function getResend() {
 }
 
 function _emailFrom() {
-  return process.env.SMTP_FROM || "telemetria@generalbombas.com";
+  return process.env.SMTP_FROM || "comercial@generalbombas.com";
 }
 
 async function sendOTP(toEmail, code) {
@@ -251,4 +251,67 @@ async function sendOrcamentoIAEmail(dados) {
   }
 }
 
-module.exports = { sendOTP, sendAlertaEmail, sendChamadoAtrasoEmail, sendOrcamentoIAEmail };
+// Envia o orçamento (PDF anexado) diretamente ao cliente.
+//
+// dados: { to (array de e-mails), numero, condominioNome, validoAte (iso|null),
+//          valorTotal (number|null), pdfBuffer (Buffer), filename }
+async function sendOrcamentoCliente(dados) {
+  if (!process.env.RESEND_API_KEY) {
+    throw new Error("RESEND_API_KEY não configurada — envio de email indisponível");
+  }
+  const to = Array.isArray(dados.to) ? dados.to : [dados.to];
+  if (!to.length) throw new Error("Nenhum destinatário informado");
+
+  const numero  = dados.numero || "—";
+  const condo   = dados.condominioNome || "—";
+  const cor     = "#f0b014";
+  const validade = dados.validoAte
+    ? new Date(dados.validoAte).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })
+    : null;
+  const valorFmt = (dados.valorTotal != null && dados.valorTotal !== "")
+    ? Number(dados.valorTotal).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+    : null;
+  const filename = dados.filename || `orcamento-${numero}.pdf`;
+
+  await getResend().emails.send({
+    from: `General Bombas <${_emailFrom()}>`,
+    to,
+    subject: `Orçamento ${numero} — General Bombas`,
+    text: [
+      `Olá,`,
+      ``,
+      `Segue em anexo o orçamento ${numero} referente a ${condo}.`,
+      valorFmt ? `Valor total: ${valorFmt}` : null,
+      validade ? `Válido até: ${validade}` : null,
+      ``,
+      `Qualquer dúvida, estamos à disposição.`,
+      `General Bombas`,
+    ].filter(Boolean).join("\n"),
+    html: `
+      <div style="font-family:sans-serif;max-width:520px;margin:auto;padding:24px;background:#0b0f1f;color:#eef0fb;border-radius:12px;">
+        <div style="display:flex;align-items:center;gap:10px;padding-bottom:14px;border-bottom:1px solid rgba(255,255,255,.08);">
+          <div style="width:36px;height:36px;border-radius:8px;background:${cor};display:inline-flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:18px;">📄</div>
+          <div>
+            <div style="font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:.6px;">Orçamento</div>
+            <div style="font-size:16px;font-weight:700;color:${cor};">${numero}</div>
+          </div>
+        </div>
+        <p style="font-size:14px;line-height:1.6;margin-top:16px;">
+          Olá! Segue em anexo o orçamento <strong>${numero}</strong> referente a
+          <strong>${condo}</strong>.
+        </p>
+        <table style="width:100%;margin-top:8px;font-size:13.5px;line-height:1.6;border-collapse:collapse;">
+          ${valorFmt ? `<tr><td style="color:#94a3b8;padding:6px 0;width:130px;">Valor total</td><td style="font-weight:600;">${valorFmt}</td></tr>` : ""}
+          ${validade ? `<tr><td style="color:#94a3b8;padding:6px 0;">Válido até</td><td style="font-weight:600;">${validade}</td></tr>` : ""}
+        </table>
+        <p style="margin-top:18px;font-size:13px;color:#cbd5e1;">
+          O orçamento completo está no PDF em anexo. Qualquer dúvida, estamos à disposição.
+        </p>
+        <p style="margin-top:14px;font-size:12px;color:#6b7280;">General Bombas</p>
+      </div>
+    `,
+    attachments: [{ filename, content: dados.pdfBuffer }],
+  });
+}
+
+module.exports = { sendOTP, sendAlertaEmail, sendChamadoAtrasoEmail, sendOrcamentoIAEmail, sendOrcamentoCliente };

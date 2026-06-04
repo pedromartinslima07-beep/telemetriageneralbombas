@@ -163,8 +163,6 @@ function resumoCard(titulo, valorHtml, kind, cardKey) {
   const iconKey = meta.icon || (kind === 'bad' ? 'danger' : kind === 'warn' ? 'warn' : 'ok');
   const iconSvg = RC_ICONS[iconKey] || RC_ICONS.ok;
 
-  const sparkId = 'spark_' + cardKey + '_' + Math.random().toString(36).slice(2, 8);
-
   return `
     <button class="rc ${kindCls}" data-card="${cardKey}">
       <div class="rc-head">
@@ -172,7 +170,6 @@ function resumoCard(titulo, valorHtml, kind, cardKey) {
         <div class="rc-label">${titulo}</div>
       </div>
       <div class="rc-value">${valorHtml}</div>
-      <div class="rc-spark" id="${sparkId}"></div>
     </button>
   `;
 }
@@ -228,17 +225,20 @@ let pageSize = 25;
 
 // ===== filtros =====
 function aplicarFiltros() {
-  filtros.texto = (document.getElementById("filtroTexto").value || "").trim().toLowerCase();
-  filtros.somenteAlertas = !!document.getElementById("filtroSomenteAlertas").checked;
-  filtros.somenteOffline = !!document.getElementById("filtroSomenteOffline").checked;
+  filtros.texto = (document.getElementById("filtroTexto")?.value || "").trim().toLowerCase();
+  filtros.somenteAlertas = !!document.getElementById("filtroSomenteAlertas")?.checked;
+  filtros.somenteOffline = !!document.getElementById("filtroSomenteOffline")?.checked;
   page = 1;
   renderCondoCards();
 }
 
 function limparFiltros() {
-  document.getElementById("filtroTexto").value = "";
-  document.getElementById("filtroSomenteAlertas").checked = false;
-  document.getElementById("filtroSomenteOffline").checked = false;
+  const ft = document.getElementById("filtroTexto");
+  if (ft) ft.value = "";
+  const fa = document.getElementById("filtroSomenteAlertas");
+  if (fa) fa.checked = false;
+  const fo = document.getElementById("filtroSomenteOffline");
+  if (fo) fo.checked = false;
   filtros.texto = "";
   filtros.somenteAlertas = false;
   filtros.somenteOffline = false;
@@ -247,7 +247,7 @@ function limparFiltros() {
 }
 
 function mudarPageSize() {
-  const v = Number(document.getElementById("pageSize").value);
+  const v = Number(document.getElementById("pageSize")?.value);
   pageSize = Number.isFinite(v) ? v : 25;
   page = 1;
   renderCondoCards();
@@ -552,46 +552,6 @@ function renderResumo() {
   ];
 
   grid.innerHTML = cards.map(c => resumoCard(c.titulo, c.valor, c.kind, c.key)).join("");
-
-  // Render sparklines (visual, semi-randomized around current value)
-  cards.forEach(c => {
-    const sparkEl = grid.querySelector(`.rc[data-card="${c.key}"] .rc-spark`);
-    if (!sparkEl) return;
-    renderSparkline(sparkEl, c.valor, c.kind);
-  });
-}
-
-const RC_SPARK_COLORS = { ok: '#22c55e', warn: '#f59e0b', bad: '#ef4444', neutral: '#4a78f7' };
-
-function renderSparkline(el, currentValue, kind) {
-  if (typeof ApexCharts === 'undefined') return;
-  const color = RC_SPARK_COLORS[kind] || RC_SPARK_COLORS.neutral;
-
-  // Synth a 20-point series ending at currentValue
-  const base = Number(currentValue) || 0;
-  const series = [];
-  let v = Math.max(0, base + (Math.random() - .5) * 4);
-  for (let i = 0; i < 19; i++) {
-    v = Math.max(0, v + (Math.random() - .5) * Math.max(1.5, base * .3));
-    series.push(Number(v.toFixed(2)));
-  }
-  series.push(base);
-
-  el.innerHTML = '';
-  try {
-    const chart = new ApexCharts(el, {
-      chart: { type: 'area', height: 46, sparkline: { enabled: true }, animations: { enabled: true, easing: 'easeinout', speed: 400 } },
-      series: [{ data: series }],
-      stroke: { curve: 'smooth', width: 2 },
-      colors: [color],
-      fill: {
-        type: 'gradient',
-        gradient: { shadeIntensity: 1, opacityFrom: .45, opacityTo: 0, stops: [0, 95] }
-      },
-      tooltip: { enabled: false },
-    });
-    chart.render();
-  } catch (e) { /* silent */ }
 }
 
 // ===================================================================
@@ -1749,7 +1709,6 @@ function _alRenderKpis(todos) {
   const normal  = ativos.filter(it => it.severidade === "normal").length;
   const resolvidos = todos.filter(it => it.status === "resolvido");
 
-  // Tempo médio pra resolver (só dos resolvidos com fechado_em)
   let temposMs = [];
   for (const r of resolvidos) {
     if (r.fechado_em && r.criado_em) {
@@ -1761,14 +1720,27 @@ function _alRenderKpis(todos) {
     ? _alFmtDuracao(temposMs.reduce((s, v) => s + v, 0) / temposMs.length)
     : "—";
 
-  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-  set("alKpiCritico", critico);
-  set("alKpiAtencao", atencao);
-  set("alKpiNormal", normal);
-  set("alKpiResolvido", resolvidos.length);
-  set("alKpiTempoMedio", tempoMedio);
+  const kpi = (icon, val, label, kindCls, tab) => `
+    <div class="rc ${kindCls} rc-static" ${tab ? `data-al-kpi-tab="${tab}" style="cursor:pointer;"` : ""}>
+      <div class="rc-head"><div class="rc-icon">${icon}</div><div class="rc-label">${label}</div></div>
+      <div class="rc-value">${val}</div>
+    </div>`;
+
+  const el = document.getElementById("alKpiGrid");
+  if (el) el.innerHTML =
+    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
+        critico, "Críticos", critico > 0 ? "rc-bad" : "rc-neutral", "critico") +
+    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>`,
+        atencao, "Atenção", atencao > 0 ? "rc-warn" : "rc-neutral", "atencao") +
+    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`,
+        normal, "Normais", normal > 0 ? "rc-ok" : "rc-neutral", "normal") +
+    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>`,
+        resolvidos.length, "Resolvidos", resolvidos.length > 0 ? "rc-ok" : "rc-neutral", "resolvido") +
+    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
+        tempoMedio, "Tempo médio", "rc-neutral");
 
   // Contadores nas tabs
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
   set("alCountTodos",     ativos.length);
   set("alCountCritico",   critico);
   set("alCountAtencao",   atencao);
@@ -1796,7 +1768,7 @@ function _alRenderTabela(filtrados) {
   const pageItems = filtrados.slice(ini, ini + _alFiltros.pageSize);
 
   if (!pageItems.length) {
-    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--muted);">Nenhum alerta encontrado com esses filtros.</td></tr>`;
+    tbody.innerHTML = `<tr class="al-empty-row"><td colspan="8" style="text-align:center;padding:40px;color:var(--muted);">Nenhum alerta encontrado com esses filtros.</td></tr>`;
   } else {
     tbody.innerHTML = pageItems.map(it => {
       const agora = Date.now();
@@ -3207,8 +3179,8 @@ function abrirModalNovoCliente() {
             <input id="cliModalTelefone" class="input" placeholder="(11) 99999-9999" />
           </div>
           <div class="field" style="grid-column:1/-1;">
-            <span class="lbl">E-mail <span style="font-weight:400;color:var(--muted);">— para envio de orçamentos</span></span>
-            <input id="cliModalEmail" class="input" type="email" placeholder="contato@condominio.com.br" />
+            <span class="lbl">E-mail <span style="font-weight:400;color:var(--muted);">— para envio de orçamentos (separe vários por vírgula)</span></span>
+            <input id="cliModalEmail" class="input" type="text" placeholder="contato@condominio.com.br, sindico@condominio.com.br" />
           </div>
         </div>
 
@@ -5598,6 +5570,12 @@ function bindResumoInteracoes() {
   });
 }
 
+function _chamadosAbertosDoCondo(condoId) {
+  const id = Number(condoId);
+  if (!id) return 0;
+  return (_chamadosData || []).filter(ch => Number(ch.condominio_id) === id && ch.status !== "fechado").length;
+}
+
 function getListaPorKey(key) {
   const items = [];
 
@@ -5621,7 +5599,8 @@ function getListaPorKey(key) {
         nome: `${c.nome || "-"} • ${r.nome || "Reservatório"}`,
         device_id: r.device_id || "-",
         detalhe: `${r.minutos_sem_atualizar ?? "-"} min sem atualizar`,
-        kind: "bad"
+        kind: "bad",
+        condominio_id: c.id || null
       });
     }
   }
@@ -5633,9 +5612,10 @@ function getListaPorKey(key) {
       if ((resumo.alertas_abertos_total ?? 0) <= 0) continue;
       items.push({
         nome: c.nome || "-",
-        device_id: `Reservatórios: ${resumo.total_reservatorios ?? 0}`,
+        device_id: `${_chamadosAbertosDoCondo(c.id)} em aberto`,
         detalhe: `Alertas abertos: ${resumo.alertas_abertos_total ?? 0}`,
         kind: "warn",
+        condominio_id: c.id || null,
       });
       continue;
     }
@@ -5647,9 +5627,10 @@ function getListaPorKey(key) {
       if (al > 0) continue;
       items.push({
         nome: c.nome || "-",
-        device_id: `Reservatórios: ${resumo.total_reservatorios ?? 0}`,
+        device_id: `${_chamadosAbertosDoCondo(c.id)} em aberto`,
         detalhe: "Sem alertas • Online",
         kind: "ok",
+        condominio_id: c.id || null,
       });
       continue;
     }
@@ -5665,6 +5646,7 @@ function getListaPorKey(key) {
         device_id: a.device_id,
         detalhe: a.mensagem || tipo,
         kind: tipo === "nivel_muito_baixo" ? "bad" : "warn",
+        condominio_id: _alCondoIdDoDevice(a.device_id),
       });
     }
   }
@@ -5742,6 +5724,10 @@ function abrirModal(key) {
   document.getElementById("modalSub").textContent = "Use a busca para filtrar";
   document.getElementById("modalBusca").value = "";
 
+  // Coluna 2 muda conforme o tipo: condomínio → Chamados; dispositivo → Device
+  const th2 = document.getElementById("modalThCol2");
+  if (th2) th2.textContent = (key === "com_alerta" || key === "ok") ? "Chamados" : "Device";
+
   document.getElementById("modalOverlay").style.display = "flex";
   renderModalLista();
 }
@@ -5768,29 +5754,35 @@ function renderModalLista() {
   const tbody = document.getElementById("modalTbody");
   tbody.innerHTML = "";
 
+  if (!list.length) {
+    tbody.innerHTML = `
+      <tr class="m-empty-row">
+        <td colspan="5">
+          <div class="m-empty">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+            </svg>
+            <p>${busca ? "Nada encontrado para essa busca." : "Nada por aqui."}</p>
+          </div>
+        </td>
+      </tr>`;
+    return;
+  }
+
   for (const it of list) {
+    const kind = it.kind || "ok";
     const tr = document.createElement("tr");
     tr.innerHTML = `
-      <td>${it.nome}</td>
-      <td class="mono">${it.device_id}</td>
-      <td>${it.detalhe}</td>
+      <td class="m-stat"><span class="m-dot m-dot-${kind}" title="${kind}"></span></td>
+      <td class="m-condo">${it.nome}</td>
+      <td class="mono m-device">${it.device_id}</td>
+      <td class="m-det">${it.detalhe}</td>
       <td class="right">
-       <button class="btn" data-action="focar-condominio" data-device="${String(it.device_id).replaceAll('"', "&quot;")}">
-  Ver no status
-</button>
+        ${it.condominio_id ? `<button class="btn btn-sm m-detail-btn" data-action="ver-condo-modal" data-condo-id="${it.condominio_id}">Ver detalhes<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>` : ""}
+      </td>
     `;
     tbody.appendChild(tr);
   }
-}
-
-function focarCondominio(deviceId) {
-  document.getElementById("filtroTexto").value = deviceId;
-  document.getElementById("filtroSomenteAlertas").checked = false;
-  document.getElementById("filtroSomenteOffline").checked = false;
-  aplicarFiltros();
-  fecharModal();
-  const grid = document.getElementById("condoGrid");
-  if (grid) grid.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 // Fechar modal clicando fora
@@ -9791,13 +9783,12 @@ document.addEventListener("DOMContentLoaded", () => {
       renderAlertas();
     });
   });
-  // KPIs clicáveis (atalho pras tabs)
-  document.querySelectorAll("[data-al-kpi-tab]").forEach(card => {
-    card.addEventListener("click", () => {
-      const t = card.dataset.alKpiTab;
-      const tab = document.querySelector(`.al-tab[data-al-tab="${t}"]`);
-      tab?.click();
-    });
+  // KPIs clicáveis (atalho pras tabs) — delegação porque os cards são gerados dinamicamente
+  document.getElementById("alKpiGrid")?.addEventListener("click", (e) => {
+    const card = e.target.closest("[data-al-kpi-tab]");
+    if (!card) return;
+    const tab = document.querySelector(`.al-tab[data-al-tab="${card.dataset.alKpiTab}"]`);
+    tab?.click();
   });
   // Busca e filtros
   const debounce = (fn, ms) => {
@@ -10048,6 +10039,12 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
+    if (action === "ver-condo-modal") {
+      const id = Number(btn.dataset.condoId);
+      if (id) { fecharModal(); abrirDrawer(id); }
+      return;
+    }
+
     if (action === "drawer-tab") {
       switchDrawerTab(btn.dataset.tab);
       return;
@@ -10228,12 +10225,6 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!r.ok) { const e = await r.json().catch(() => ({})); alert(e.error || "Erro ao reativar"); return; }
         await carregarTudo();
       }).catch(() => alert("Erro de rede"));
-      return;
-    }
-
-    if (action === "focar-condominio") {
-      const device = btn.dataset.device;
-      if (device) focarCondominio(device);
       return;
     }
 
@@ -11323,17 +11314,20 @@ function _avRenderPainel() {
         </label>
       </div>
 
-      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:4px;">
-        <button class="btn btn-sm" data-av-action="salvar" style="flex-shrink:0;">Salvar</button>
-        <button class="btn btn-sm" data-av-action="gerar-pdf"
-          style="flex-shrink:0;background:rgba(240,176,20,.1);border-color:rgba(240,176,20,.4);color:#f0b014;">
-          ↓ Gerar PDF
-        </button>
-        <button class="btn btn-sm" data-av-action="deletar"
-          style="flex-shrink:0;background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.25);color:#f87171;">
-          Excluir
-        </button>
+      <div class="av-modal-footer">
+        <button class="btn btnDanger btn-sm" data-av-action="deletar">Excluir</button>
         <span class="orc-form-msg" id="avFormMsg"></span>
+        <div class="av-footer-actions">
+          <button class="btn btn-sm av-btn-pdf" data-av-action="gerar-pdf">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Gerar PDF
+          </button>
+          <button class="btn btn-sm av-btn-email" data-av-action="enviar-email">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+            Enviar por e-mail
+          </button>
+          <button class="btn btnAccent btn-sm" data-av-action="salvar">Salvar</button>
+        </div>
       </div>
     </div>`;
 
@@ -11423,6 +11417,70 @@ function _avRenderLinhas() {
     </div>`;
 }
 
+// Confirmação de envio do orçamento por e-mail (pré-preenche com o e-mail do cadastro)
+function _avAbrirEnvioEmail() {
+  if (!_avSelecionado) return;
+  const orc = _avSelecionado;
+  const pre = orc.condominio_email || "";
+
+  const ov = document.createElement("div");
+  ov.id = "avEnvioOverlay";
+  ov.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:300;display:flex;align-items:center;justify-content:center;padding:16px;";
+  ov.innerHTML = `
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:20px 22px;width:460px;max-width:96vw;box-shadow:0 24px 64px rgba(0,0,0,.6);">
+      <div style="font-size:14px;font-weight:700;margin-bottom:4px;">Enviar orçamento por e-mail</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:14px;">${_waEscaparHtml(orc.numero || "")} · ${_waEscaparHtml(orc.condominio_nome || "—")}</div>
+      <label class="lbl" style="display:block;margin-bottom:4px;">Para <span style="font-weight:400;color:var(--muted);">(separe vários por vírgula)</span></label>
+      <input id="avEnvioPara" class="input" type="text" value="${_waEscaparHtml(pre)}" placeholder="cliente@email.com" style="width:100%;" />
+      <div id="avEnvioMsg" class="hint" style="display:block;min-height:16px;margin-top:8px;"></div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:6px;">
+        <button class="btn btn-sm" id="avEnvioCancelar" type="button">Cancelar</button>
+        <button class="btn btnAccent btn-sm" id="avEnvioConfirmar" type="button">Enviar</button>
+      </div>
+    </div>`;
+  document.body.appendChild(ov);
+
+  const fechar = () => ov.remove();
+  ov.addEventListener("click", e => { if (e.target === ov) fechar(); });
+  document.getElementById("avEnvioCancelar").addEventListener("click", fechar);
+  setTimeout(() => document.getElementById("avEnvioPara")?.focus(), 30);
+
+  document.getElementById("avEnvioConfirmar").addEventListener("click", async () => {
+    const emails = (document.getElementById("avEnvioPara")?.value || "").trim();
+    const msg = document.getElementById("avEnvioMsg");
+    const btn = document.getElementById("avEnvioConfirmar");
+    if (msg) { msg.style.color = "var(--muted)"; msg.textContent = "Enviando…"; }
+    if (btn) btn.disabled = true;
+    try {
+      const r = await fetch(`/admin/orcamentos/avulsos/${orc.id}/enviar-email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders() },
+        body: JSON.stringify({ emails }),
+      });
+      const j = await r.json();
+      if (!r.ok) {
+        if (msg) { msg.style.color = "var(--danger)"; msg.textContent = j.error || "Erro ao enviar"; }
+        if (btn) btn.disabled = false;
+        return;
+      }
+      // Atualiza estado local → status "Enviado"
+      orc.status = "enviado";
+      orc.enviado_em = j.enviado_em;
+      orc.enviado_para = j.enviado_para;
+      const idx = _avData.findIndex(o => o.id === orc.id);
+      if (idx !== -1) Object.assign(_avData[idx], { status: "enviado", enviado_em: j.enviado_em, enviado_para: j.enviado_para });
+      fechar();
+      _avRenderTudo();
+      _avRenderPainel();
+      const fmsg = document.getElementById("avFormMsg");
+      if (fmsg) { fmsg.style.color = "var(--ok)"; fmsg.textContent = "✓ Orçamento enviado por e-mail"; setTimeout(() => { if (fmsg) fmsg.textContent = ""; }, 3000); }
+    } catch (e) {
+      if (msg) { msg.style.color = "var(--danger)"; msg.textContent = "Erro: " + e.message; }
+      if (btn) btn.disabled = false;
+    }
+  });
+}
+
 async function _avAcao(acao) {
   const msg = document.getElementById("avFormMsg");
 
@@ -11477,6 +11535,8 @@ async function _avAcao(acao) {
   }
 
   if (acao === "del-linha") return; // handled via data-av-del-linha
+
+  if (acao === "enviar-email") { _avAbrirEnvioEmail(); return; }
 
   if (acao === "gerar-pdf") {
     if (msg) msg.textContent = "Gerando PDF…";

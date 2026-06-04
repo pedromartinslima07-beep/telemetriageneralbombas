@@ -64,8 +64,25 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
 | 044 | condominios_nome_fantasia | `condominios.nome_fantasia TEXT` (nome principal de exibição) |
 | 045 | condominios_email | `condominios.email VARCHAR(255)` (e-mail para orçamentos) |
 | 046 | multi_contratos | remove `idx_contratos_ativo_uniq` — permite múltiplos contratos ativos por condomínio |
+| 047 | orcamento_envio_email | `orcamentos.enviado_em/enviado_para`; `condominios.email` → TEXT (múltiplos e-mails por vírgula) |
 
 ## Marcos de produto (fases do plano)
+
+- **2026-06-04** — **Envio de orçamento por e-mail ao cliente.**
+  - Novo endpoint `POST /admin/orcamentos/avulsos/:id/enviar-email` — gera o PDF
+    (`gerarPdfAvulso`), anexa e envia via Resend (`sendOrcamentoCliente` em
+    `src/services/email.js`), marca o orçamento como `enviado` e grava
+    `enviado_em`/`enviado_para` (migration 047).
+  - Destinatário vem de `condominios.email` (cadastro do cliente), que agora aceita
+    **múltiplos e-mails separados por vírgula** (normalização/validação no
+    `condominios.routes.js`; coluna virou TEXT). O modal de envio pré-preenche com
+    esses e-mails e permite editar antes de confirmar.
+  - Admin — modal de orçamento: botão **"Enviar por e-mail"** no footer + overlay de
+    confirmação. Versões: `admin.css?v=99`, `admin.js?v=122`.
+  - **Remetente padrão** alterado de `telemetria@generalbombas.com` para
+    `comercial@generalbombas.com` (`_emailFrom` em `email.js`; vale para todos os
+    envios — atualizar `SMTP_FROM` no ambiente para o mesmo valor).
+
 
 - **Fase 2** — IA com function calling (gpt-4o-mini) atendendo no WhatsApp.
 - **Fase 3** — Painel admin "Mission Control": dashboard, mapa Leaflet,
