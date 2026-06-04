@@ -217,13 +217,6 @@ function mostrarHome(user) {
   const roleEl = document.getElementById("homeRoleBadge");
   roleEl.innerHTML = `<span class="role-badge ${user.role}">${ROLE_LABEL[user.role] || user.role}</span>`;
 
-  if (user.condominio_id) {
-    document.getElementById("homeCondoRow").hidden = false;
-    document.getElementById("homeCondo").textContent = `#${user.condominio_id}`;
-  } else {
-    document.getElementById("homeCondoRow").hidden = true;
-  }
-
   showScreen("home");
 }
 
