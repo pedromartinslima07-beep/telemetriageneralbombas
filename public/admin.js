@@ -3082,18 +3082,6 @@ function abrirModalTecnico(tec = null) {
           </div>
         </div>
 
-        <!-- Seção: Login / senha -->
-        <div style="background:rgba(0,0,0,.2);border:1px solid var(--border);border-radius:10px;padding:16px;">
-          <div style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:12px;">Login do app</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-            <div class="field" style="grid-column:1/-1;">
-              <span class="lbl">${editing && temLogin ? "Nova senha do app" : "Senha do app"}</span>
-              <input id="tecModalSenha" class="input" type="text" autocomplete="new-password" placeholder="Mínimo 6 caracteres" />
-              <span class="hint" style="display:block;margin-top:4px;font-size:11px;color:var(--muted);">${senhaHint}</span>
-            </div>
-          </div>
-        </div>
-
       </div>
 
       <!-- Rodapé -->
