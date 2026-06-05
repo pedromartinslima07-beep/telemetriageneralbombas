@@ -758,6 +758,8 @@ a { color: inherit; text-decoration: none; }
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  display: flex;
+  flex-direction: column;
   padding: 22px;
   scrollbar-width: thin;
   scrollbar-color: rgba(255,255,255,.08) transparent;
@@ -831,6 +833,7 @@ a { color: inherit; text-decoration: none; }
 .section.is-active {
   display: flex;
   flex-direction: column;
+  flex: 1;
   gap: var(--gap);
   opacity: 1;                          /* fallback caso animação falhe */
   animation: sectionIn .22s ease both;
@@ -4730,7 +4733,7 @@ body.mp-fs-active { overflow: hidden; }
 .ch-layout {
   display: flex;
   gap: 14px;
-  align-items: stretch;
+  align-items: flex-start;
   flex: 1;
   min-height: calc(100vh - 220px);
 }
@@ -4738,6 +4741,7 @@ body.mp-fs-active { overflow: hidden; }
 .ch-list-col {
   flex: 1;
   min-width: 0;
+  align-self: stretch;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 14px;
@@ -4802,10 +4806,6 @@ body.mp-fs-active { overflow: hidden; }
   border: 1px solid var(--border);
   border-radius: 14px;
   overflow-y: auto;
-  position: sticky;
-  top: 16px;
-  max-height: calc(100vh - 100px);
-  align-self: flex-start;
 }
 
 .ch-detail-empty {

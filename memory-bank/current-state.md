@@ -133,7 +133,7 @@ ESP32 (sonda 4-20mA + SCT-013)
 
 **Segurança & operação**
 - Envs obrigatórias em produção (JWT_SECRET, CORS_ORIGINS) com `process.exit(1)`.
-- RBAC refinado (admin / admin_viewer / tecnico / cliente).
+- RBAC com 5 roles: **admin** (tudo), **gerente** (tudo exceto config → só "conta"), **operador** (Monitor + Chamados + config "conta"), **admin_viewer** (legado, viewer-only-hide), **tecnico**, **cliente**.
 - **Configurações dinâmicas** editáveis pelo admin (whitelist `CHAVES` em
   `config.service.js`) — intervalos de job, modelo IA, timeouts, sem deploy.
 - Email de alerta crítico (Resend).

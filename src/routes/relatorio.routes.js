@@ -499,7 +499,7 @@ ${chartScript}
 
 router.get("/pdf", authRequired, async (req, res) => {
   const role = req.user?.role;
-  if (role !== "cliente" && role !== "admin" && role !== "admin_viewer") {
+  if (role !== "cliente" && role !== "admin" && role !== "gerente") {
     return res.status(403).json({ error: "Acesso restrito" });
   }
 
@@ -513,7 +513,7 @@ router.get("/pdf", authRequired, async (req, res) => {
 
   try {
     // 1. Verify device ownership (cliente restrito ao próprio condomínio; admin acessa qualquer)
-    const isAdmin = role === "admin" || role === "admin_viewer";
+    const isAdmin = role === "admin" || role === "gerente";
     const condominioId = Number(req.user.condominio_id);
 
     const checkRes = isAdmin

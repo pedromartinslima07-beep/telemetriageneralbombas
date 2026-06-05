@@ -1,5 +1,5 @@
 ﻿// eslint-disable-next-line no-console
-console.log("[telemetria-admin] v15 carregado", new Date().toISOString());
+console.log("[telemetria-admin] v16 carregado", new Date().toISOString());
 function getToken() { return localStorage.getItem("token"); }
 function authHeaders() {
   const token = getToken();
@@ -28,7 +28,7 @@ const _sectionTitles = {
   "ordens-servico": "Ordens de Serviço",
   orcamentos:       "Orçamentos",
   cadastros:        "Clientes",
-  tecnicos:         "Técnicos",
+  tecnicos:         "Colaboradores",
   planos:           "Planos de manutenção",
   relatorios:       "Relatórios",
   config:           "Configurações",
@@ -473,10 +473,11 @@ async function criarCliente() {
 }
 
 async function criarAdminViewer() {
-  const nome = document.getElementById("avNome")?.value?.trim();
+  const nome  = document.getElementById("avNome")?.value?.trim();
   const email = document.getElementById("avEmail")?.value?.trim().toLowerCase();
   const senha = document.getElementById("avSenha")?.value?.trim();
-  const msg = document.getElementById("msgAdminViewer");
+  const role  = document.getElementById("avRole")?.value || "gerente";
+  const msg   = document.getElementById("msgAdminViewer");
 
   if (!nome || !email || !senha) {
     if (msg) msg.textContent = "Preencha todos os campos.";
@@ -487,15 +488,16 @@ async function criarAdminViewer() {
     const r = await fetch("/auth/registrar", {
       method: "POST",
       headers: { "Content-Type": "application/json", ...authHeaders() },
-      body: JSON.stringify({ nome, email, senha, role: "admin_viewer" }),
+      body: JSON.stringify({ nome, email, senha, role }),
     });
     if (!r.ok) {
       const e = await r.json().catch(() => ({}));
       if (msg) msg.textContent = e.error || "Erro ao criar acesso.";
       return;
     }
-    if (msg) msg.textContent = "Acesso de visualizador criado!";
-    document.getElementById("avNome").value = "";
+    const labels = { gerente: "Gerente", operador: "Operador" };
+    if (msg) msg.textContent = `Acesso ${labels[role] || role} criado!`;
+    document.getElementById("avNome").value  = "";
     document.getElementById("avEmail").value = "";
     document.getElementById("avSenha").value = "";
   } catch {
@@ -2745,69 +2747,51 @@ function _tecFiltrados() {
   const busca = (_tecFiltros.busca || "").toLowerCase().trim();
   return lista.filter(t => {
     if (!t.ativo) return false;
-    if (_tecFiltros.tab === "disponivel" && !t.disponivel) return false;
-    if (_tecFiltros.tab === "ocupado"    &&  t.disponivel) return false;
+    const tab = _tecFiltros.tab;
+    if (tab && tab !== "todos" && (t.cargo || "tecnico") !== tab) return false;
     if (busca && !t.nome?.toLowerCase().includes(busca) &&
                  !t.especialidade?.toLowerCase().includes(busca) &&
-                 !t.telefone?.includes(busca)) return false;
+                 !t.telefone?.includes(busca) &&
+                 !(_tecCargoLabel[t.cargo || "tecnico"] || "").toLowerCase().includes(busca)) return false;
     return true;
   });
 }
 
-function renderTecKpis() {
-  const el = document.getElementById("tecKpiGrid");
-  if (!el) return;
-  const lista = (Array.isArray(_tecnicosData) ? _tecnicosData : []).filter(t => t.ativo);
-  const total      = lista.length;
-  const disponiveis = lista.filter(t => t.disponivel).length;
-  const ocupados    = lista.filter(t => !t.disponivel).length;
-  const chAbertos   = lista.reduce((s, t) => s + Number(t.chamados_abertos || 0), 0);
-
-  const kpi = (icon, val, label, kindCls) => `
-    <div class="rc ${kindCls} rc-static">
-      <div class="rc-head"><div class="rc-icon">${icon}</div><div class="rc-label">${label}</div></div>
-      <div class="rc-value">${val}</div>
-    </div>`;
-
-  el.innerHTML =
-    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>`,
-        total, "Total técnicos", "rc-neutral") +
-    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`,
-        disponiveis, "Disponíveis", disponiveis > 0 ? "rc-ok" : "rc-neutral") +
-    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
-        ocupados, "Ocupados", ocupados > 0 ? "rc-warn" : "rc-neutral") +
-    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`,
-        chAbertos, "Chamados em aberto", chAbertos > 0 ? "rc-warn" : "rc-neutral");
-}
 
 function renderTecTabela() {
   const tbody = document.getElementById("tecTableBody");
   if (!tbody) return;
   const lista = (Array.isArray(_tecnicosData) ? _tecnicosData : []).filter(t => t.ativo);
+  const _ct = cargo => lista.filter(t => (t.cargo || "tecnico") === cargo).length;
 
-  document.getElementById("tecCtTodos").textContent = lista.length;
-  document.getElementById("tecCtDisp").textContent  = lista.filter(t => t.disponivel).length;
-  document.getElementById("tecCtOcup").textContent  = lista.filter(t => !t.disponivel).length;
+  document.getElementById("tecCtTodos").textContent    = lista.length;
+  document.getElementById("tecCtTecnico").textContent  = _ct("tecnico");
+  document.getElementById("tecCtAdm").textContent      = _ct("adm");
+  document.getElementById("tecCtGestor").textContent   = _ct("gestor");
+  document.getElementById("tecCtTi").textContent       = _ct("ti");
 
   const filtrados = _tecFiltrados();
   if (!filtrados.length) {
-    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:32px;">Nenhum técnico encontrado.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:32px;">Nenhum colaborador encontrado.</td></tr>`;
     return;
   }
 
   tbody.innerHTML = filtrados.map(t => {
     const sel = _tecSelecionadoId === t.id ? " is-selected" : "";
-    const dispBadge = t.disponivel
-      ? `<span class="ch-st ch-st-fechado">Disponível</span>`
-      : `<span class="ch-st ch-st-em_atendimento">Ocupado</span>`;
+    const cargo = t.cargo || "tecnico";
+    const cargoBadge = `<span class="ch-cat-badge">${_tecCargoLabel[cargo] || cargo}</span>`;
+    const dispBadge = cargo === "tecnico"
+      ? (t.disponivel
+          ? `<span class="ch-st ch-st-fechado">Disponível</span>`
+          : `<span class="ch-st ch-st-em_atendimento">Ocupado</span>`)
+      : `<span class="ch-st" style="opacity:.5;">—</span>`;
     const avatarHtml = t.foto_url
       ? `<span class="tec-row-avatar"><img src="${t.foto_url}" alt=""></span>`
       : `<span class="tec-row-avatar">${_tecIniciais(t.nome)}</span>`;
     return `<tr class="ch-row${sel}" data-tec-id="${t.id}" style="cursor:pointer;">
       <td style="font-weight:500;font-size:12px;display:flex;align-items:center;">${avatarHtml}${_waEscaparHtml(t.nome)}</td>
-      <td style="font-size:11px;color:var(--muted);">${_waEscaparHtml(t.telefone || "—")}</td>
-      <td><span class="ch-cat-badge">${_waEscaparHtml(t.especialidade || "—")}</span></td>
-      <td style="font-size:12px;text-align:center;">${t.chamados_abertos ?? 0}</td>
+      <td>${cargoBadge}</td>
+      <td style="font-size:11px;color:var(--muted);">${_waEscaparHtml(t.especialidade || "—")}</td>
       <td>${dispBadge}</td>
     </tr>`;
   }).join("");
@@ -2819,15 +2803,19 @@ function renderTecDetalhe(t) {
 
   if (!t) {
     col.innerHTML = `<div class="ch-detail-empty">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
-      <p>Selecione um técnico para ver os detalhes</p>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      <p>Selecione um colaborador para ver os detalhes</p>
     </div>`;
     return;
   }
 
-  const dispBadge = t.disponivel
-    ? `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;background:rgba(34,197,94,.15);color:var(--ok);">Disponível</span>`
-    : `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;background:rgba(251,146,60,.15);color:#fb923c;">Ocupado</span>`;
+  const cargo = t.cargo || "tecnico";
+  const cargoBadgedet = `<span class="ch-cat-badge">${_tecCargoLabel[cargo] || cargo}</span>`;
+  const dispBadge = cargo === "tecnico"
+    ? (t.disponivel
+        ? `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;background:rgba(34,197,94,.15);color:var(--ok);">Disponível</span>`
+        : `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;background:rgba(251,146,60,.15);color:#fb923c;">Ocupado</span>`)
+    : "";
 
   const avatarDet = t.foto_url
     ? `<div class="tec-det-avatar"><img src="${t.foto_url}" alt="foto"></div>`
@@ -2860,7 +2848,8 @@ function renderTecDetalhe(t) {
       <div class="tec-det-head-info">
         <div class="ch-det-title" style="margin-bottom:4px;">${_waEscaparHtml(t.nome)}</div>
         <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-          ${t.especialidade ? `<span class="ch-cat-badge">${_waEscaparHtml(t.especialidade)}</span>` : ""}
+          ${cargoBadgedet}
+          ${t.especialidade ? `<span class="ch-cat-badge" style="opacity:.7;">${_waEscaparHtml(t.especialidade)}</span>` : ""}
           ${dispBadge}
         </div>
       </div>
@@ -2890,6 +2879,7 @@ function renderTecDetalhe(t) {
       <div style="font-size:12px;color:var(--text);padding:8px;background:var(--surface3);border-radius:6px;">${_waEscaparHtml(t.observacoes)}</div>
     </div>` : ""}
 
+    ${cargo === "tecnico" ? `
     <div class="ch-det-section">
       <div class="ch-det-sec-title">Chamados</div>
       <div class="ch-det-meta" style="margin-bottom:8px;">
@@ -2897,12 +2887,13 @@ function renderTecDetalhe(t) {
         <div class="ch-met-row"><span class="ch-met-lbl">Resolvidos</span><span style="font-size:13px;font-weight:600;color:var(--ok);">${chFechados}</span></div>
       </div>
       ${chRecentesHtml}
-    </div>
+    </div>` : ""}
 
     <div class="ch-det-acoes">
+      ${cargo === "tecnico" ? `
       <button class="btn btn-sm viewer-only-hide ${t.disponivel ? "" : "btnAccent"}" data-action="toggle-tec-disp" data-id="${t.id}" data-disp="${t.disponivel ? "1" : "0"}">
         ${t.disponivel ? "Marcar ocupado" : "Marcar disponível"}
-      </button>
+      </button>` : ""}
       <button class="btn btn-sm viewer-only-hide" data-action="editar-tecnico" data-id="${t.id}">Editar</button>
       <button class="btn btn-sm btnDanger viewer-only-hide" data-action="excluir-tecnico" data-id="${t.id}" data-nome="${_waEscaparHtml(t.nome)}">Excluir</button>
     </div>
@@ -2910,7 +2901,6 @@ function renderTecDetalhe(t) {
 }
 
 function renderTecnicos() {
-  renderTecKpis();
   renderTecTabela();
   if (_tecSelecionadoId) {
     const t = (_tecnicosData || []).find(t => t.id === _tecSelecionadoId);
@@ -2940,6 +2930,8 @@ function _tecFotoBase64(file) {
     reader.readAsDataURL(file);
   });
 }
+
+const _tecCargoLabel = { tecnico: "Técnico", adm: "Adm", gestor: "Gestor", ti: "TI" };
 
 function _tecIniciais(nome) {
   if (!nome) return "?";
@@ -2971,7 +2963,7 @@ function abrirModalTecnico(tec = null) {
   overlay.innerHTML = `
     <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:24px;width:560px;max-width:95vw;box-shadow:0 24px 64px rgba(0,0,0,.6);margin:auto;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-        <div style="font-size:14px;font-weight:600;">${editing ? "Editar técnico" : "Novo técnico"}${loginBadge}</div>
+        <div style="font-size:14px;font-weight:600;">${editing ? "Editar colaborador" : "Novo colaborador"}${loginBadge}</div>
         <button class="btn btn-sm" data-action="fechar-modal-tecnico">✕</button>
       </div>
 
@@ -2992,16 +2984,25 @@ function abrirModalTecnico(tec = null) {
           <input id="tecModalNome" class="input" value="${tec ? _waEscaparHtml(tec.nome) : ""}" placeholder="Ex: Carlos Silva" />
         </div>
         <div class="field">
+          <span class="lbl">Cargo <span class="req">*</span></span>
+          <select id="tecModalCargo" class="input">
+            <option value="tecnico" ${(tec?.cargo || "tecnico") === "tecnico" ? "selected" : ""}>Técnico</option>
+            <option value="adm"     ${tec?.cargo === "adm"     ? "selected" : ""}>Adm</option>
+            <option value="gestor"  ${tec?.cargo === "gestor"  ? "selected" : ""}>Gestor</option>
+            <option value="ti"      ${tec?.cargo === "ti"      ? "selected" : ""}>TI</option>
+          </select>
+        </div>
+        <div class="field">
           <span class="lbl">Telefone</span>
           <input id="tecModalTel" class="input" value="${_waEscaparHtml(tec?.telefone || "")}" placeholder="(11) 99999-9999" />
         </div>
         <div class="field">
           <span class="lbl">Email</span>
-          <input id="tecModalEmail" class="input" value="${_waEscaparHtml(tec?.email || "")}" placeholder="tecnico@exemplo.com" />
+          <input id="tecModalEmail" class="input" value="${_waEscaparHtml(tec?.email || "")}" placeholder="colaborador@exemplo.com" />
         </div>
         <div class="field col-2">
-          <span class="lbl">Especialidade</span>
-          <input id="tecModalEsp" class="input" value="${_waEscaparHtml(tec?.especialidade || "")}" placeholder="Ex: Hidráulica, Elétrica…" />
+          <span class="lbl">Especialidade / Função</span>
+          <input id="tecModalEsp" class="input" value="${_waEscaparHtml(tec?.especialidade || "")}" placeholder="Ex: Hidráulica, Suporte TI, Gestão…" />
         </div>
 
         <!-- Documentos e nascimento -->
@@ -3035,7 +3036,7 @@ function abrirModalTecnico(tec = null) {
       </div>
 
       <div class="form-footer" style="margin-top:16px;">
-        <button class="btn btnAccent" id="btnSalvarTecnico">${editing ? "Salvar" : "Criar técnico"}</button>
+        <button class="btn btnAccent" id="btnSalvarTecnico">${editing ? "Salvar" : "Criar colaborador"}</button>
         <span id="msgTecnico" class="hint"></span>
       </div>
     </div>`;
@@ -3067,6 +3068,7 @@ function abrirModalTecnico(tec = null) {
 
   document.getElementById("btnSalvarTecnico")?.addEventListener("click", async () => {
     const nome  = (document.getElementById("tecModalNome")?.value  || "").trim();
+    const cargo = document.getElementById("tecModalCargo")?.value  || "tecnico";
     const tel   = (document.getElementById("tecModalTel")?.value   || "").trim();
     const email = (document.getElementById("tecModalEmail")?.value || "").trim();
     const esp   = (document.getElementById("tecModalEsp")?.value   || "").trim();
@@ -3084,7 +3086,7 @@ function abrirModalTecnico(tec = null) {
     if (msg) msg.textContent = "";
 
     const body = {
-      nome, telefone: tel || null, email: email || null, especialidade: esp || null,
+      nome, cargo, telefone: tel || null, email: email || null, especialidade: esp || null,
       foto_url: _fotoBase64Pendente || null,
       cpf: cpf || null, rg: rg || null,
       data_nascimento: nasc || null, endereco: end || null, observacoes: obs || null,
@@ -5548,8 +5550,9 @@ function getMyRole() {
     return JSON.parse(atob(token.split(".")[1])).role;
   } catch { return null; }
 }
-const _myRole = getMyRole();
-const _isMaster = _myRole === "admin";
+const _myRole     = getMyRole();
+const _isMaster   = _myRole === "admin";
+const _isOperador = _myRole === "operador";
 
 document.addEventListener("DOMContentLoaded", () => {
   const f = document.getElementById("filtroTexto");
@@ -9375,7 +9378,7 @@ async function _cfgCarregarUsuarios() {
 }
 
 function _cfgRoleLabel(role) {
-  return { admin: "Admin Master", admin_viewer: "Admin Visualizador", cliente: "Cliente", tecnico: "Técnico" }[role] || role || "-";
+  return { admin: "Admin Master", gerente: "Gerente", operador: "Operador", cliente: "Cliente", tecnico: "Técnico" }[role] || role || "-";
 }
 
 function _cfgRenderUsuarios() {
@@ -9393,7 +9396,7 @@ function _cfgRenderUsuarios() {
     return `<tr>
       <td>${_waEscaparHtml(u.nome || "-")}${meTag}</td>
       <td style="font-family:ui-monospace,monospace;font-size:12px;">${_waEscaparHtml(u.email || "-")}</td>
-      <td><span class="badge ${u.role === "admin" ? "b-warn" : u.role === "admin_viewer" ? "b-ok" : ""}">${_cfgRoleLabel(u.role)}</span></td>
+      <td><span class="badge ${u.role === "admin" ? "b-warn" : ["gerente","operador"].includes(u.role) ? "b-ok" : ""}">${_cfgRoleLabel(u.role)}</span></td>
       <td>${condo}</td>
       <td>${dataCad}</td>
       <td>
@@ -9421,12 +9424,13 @@ function _cfgAbrirModalUsuario(usuario) {
       ${!isEdit ? `<div class="field"><label class="lbl">Senha inicial</label><input id="mdUsrSenha" class="input" type="text" placeholder="Mínimo 6 caracteres"></div>` : ""}
       <div class="field"><label class="lbl">Tipo</label>
         <select id="mdUsrRole" class="input">
-          <option value="admin"        ${usuario?.role === "admin" ? "selected" : ""}>Admin Master</option>
-          <option value="admin_viewer" ${usuario?.role === "admin_viewer" ? "selected" : ""}>Admin Visualizador</option>
-          <option value="cliente"      ${(!usuario || usuario?.role === "cliente") ? "selected" : ""}>Cliente</option>
-          <option value="tecnico"      ${usuario?.role === "tecnico" ? "selected" : ""}>Técnico</option>
+          <option value="admin"    ${usuario?.role === "admin"    ? "selected" : ""}>Admin Master</option>
+          <option value="gerente"  ${usuario?.role === "gerente"  ? "selected" : ""}>Gerente</option>
+          <option value="operador" ${usuario?.role === "operador" ? "selected" : ""}>Operador</option>
+          <option value="cliente"  ${(!usuario || usuario?.role === "cliente") ? "selected" : ""}>Cliente</option>
+          <option value="tecnico"  ${usuario?.role === "tecnico"  ? "selected" : ""}>Técnico</option>
         </select>
-        <p class="cfg-hint" style="margin-top:6px;font-size:11px;">Pra gerenciar atribuições, GPS e telefone do técnico, use também a seção <strong>Técnicos</strong> no menu lateral.</p>
+        <p class="cfg-hint" style="margin-top:6px;font-size:11px;">Pra gerenciar atribuições, GPS e telefone do técnico, use também a seção <strong>Colaboradores</strong> no menu lateral.</p>
       </div>
       <div class="field"><label class="lbl">Condomínio (clientes)</label>
         <select id="mdUsrCondo" class="input">${condoOpts}</select>
@@ -9693,15 +9697,13 @@ document.addEventListener("DOMContentLoaded", () => {
   // Começa expandida; respeita preferência salva
   _applySidebar(localStorage.getItem("sidebarCollapsed") === "true");
 
-  // Admin_viewer vê todas as seções igual ao master, só não tem botões de escrita.
-  // O CSS .viewer-only-hide esconde elementos sensíveis quando body tem .role-viewer.
-  if (!_isMaster) {
-    document.body.classList.add("role-viewer");
-  }
-  // Mostra card de criar admin_viewer apenas para master admin
-  if (_isMaster) {
-    const cardAV = document.getElementById("cardCriarAdminViewer");
-    if (cardAV) cardAV.style.display = "";
+  // operador: só vê Monitor + Chamados + Config (sem Atendimento exceto chamados, sem Gestão exceto config)
+  if (_isOperador) {
+    const _navHide = ["whatsapp", "ordens-servico", "orcamentos", "planos", "cadastros", "tecnicos", "relatorios"];
+    _navHide.forEach(s => {
+      const el = document.querySelector(`.nav-item[data-section="${s}"]`);
+      if (el) el.style.display = "none";
+    });
   }
 
   function _onToggle() {
@@ -9991,7 +9993,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   document.getElementById("btnCadastrarCondominio")?.addEventListener("click", criarCondominio);
   document.getElementById("btnCriarCliente")?.addEventListener("click", criarCliente);
-  document.getElementById("btnCriarAdminViewer")?.addEventListener("click", criarAdminViewer);
 
   document.getElementById("btnFecharDrawer")?.addEventListener("click", fecharDrawer);
   document.getElementById("drawerOverlay")?.addEventListener("click", fecharDrawer);

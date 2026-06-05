@@ -30,7 +30,7 @@ function clearError() {
 }
 
 function redirectByRole(role) {
-  if (role === "admin" || role === "admin_viewer") {
+  if (role === "admin" || role === "gerente" || role === "operador") {
     window.location.href = "/admin/painel";
   } else if (role === "tecnico") {
     window.location.href = "/tecnico/painel";

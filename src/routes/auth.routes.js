@@ -59,8 +59,8 @@ router.post("/registrar", authRequired, masterAdminOnly, async (req, res) => {
     return res.status(400).json({ error: "senha deve ter no mínimo 6 caracteres" });
   }
 
-  if (!["admin", "admin_viewer", "cliente", "tecnico"].includes(role)) {
-    return res.status(400).json({ error: "role deve ser 'admin', 'admin_viewer', 'cliente' ou 'tecnico'" });
+  if (!["admin", "gerente", "operador", "cliente", "tecnico"].includes(role)) {
+    return res.status(400).json({ error: "role deve ser 'admin', 'gerente', 'operador', 'cliente' ou 'tecnico'" });
   }
 
   if (role === "cliente" && !condominio_id) {

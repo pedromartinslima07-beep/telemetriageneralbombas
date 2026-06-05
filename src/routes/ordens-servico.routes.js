@@ -22,12 +22,12 @@ const FOTO_TIPOS = ["antes", "depois", "geral"];
 
 const UPLOAD_ROOT = path.join(__dirname, "../../uploads/os");
 
-// Middleware fábrica: permite admin/admin_viewer OU o técnico dono da O.S.
+// Middleware fábrica: permite admin/gerente OU o técnico dono da O.S.
 // `forWrite=true` bloqueia escrita em O.S. finalizada / chamado fechado.
 function osDonoOuAdmin({ forWrite = false } = {}) {
   return async function (req, res, next) {
     const role = req.user?.role;
-    if (role === "admin" || role === "admin_viewer") return next();
+    if (role === "admin" || role === "gerente") return next();
     if (role !== "tecnico") {
       return res.status(403).json({ error: "Apenas técnicos ou admin" });
     }
@@ -630,7 +630,7 @@ router.post("/:id/finalizar", authRequired, osDonoOuAdmin({ forWrite: true }), a
 
 // GET /ordens-servico/:id/pdf — serve o PDF.
 // Se ainda não foi gerado (ou o arquivo sumiu do disco), gera on-demand.
-// Só admin/admin_viewer OU técnico dono.
+// Só admin/gerente OU técnico dono.
 router.get("/:id/pdf", authRequired, osDonoOuAdmin(), async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });

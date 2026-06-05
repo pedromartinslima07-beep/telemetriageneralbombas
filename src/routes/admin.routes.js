@@ -374,7 +374,7 @@ router.post("/usuarios", authRequired, masterAdminOnly, async (req, res) => {
   const bcrypt = require("bcrypt");
   const { nome, email, senha, role, condominio_id } = req.body || {};
   if (!nome || !email || !senha) return res.status(400).json({ error: "nome, email e senha obrigatórios" });
-  const ROLES = ["cliente", "admin", "admin_viewer", "tecnico"];
+  const ROLES = ["cliente", "admin", "gerente", "operador", "tecnico"];
   if (role && !ROLES.includes(role)) return res.status(400).json({ error: "role inválido" });
   try {
     const hash = await bcrypt.hash(String(senha), 10);
@@ -398,7 +398,7 @@ router.patch("/usuarios/:id", authRequired, masterAdminOnly, async (req, res) =>
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
 
   const { nome, email, role, condominio_id } = req.body || {};
-  const ROLES = ["cliente", "admin", "admin_viewer", "tecnico"];
+  const ROLES = ["cliente", "admin", "gerente", "operador", "tecnico"];
   if (role && !ROLES.includes(role)) return res.status(400).json({ error: "role inválido" });
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: "email inválido" });
 

@@ -7,7 +7,7 @@ aliases:
 ---
 # Trabalho em Andamento
 
-> Branch atual: `feature/app-mobile`. Última sessão registrada: **2026-06-02**.
+> Branch atual: `feature/app-mobile`. Última sessão registrada: **2026-06-05**.
 > Roadmap completo em [`roadmap.md`](roadmap.md); decisões em [`decisions.md`](decisions.md).
 
 ## Foco atual — Preparação para deploy
@@ -60,6 +60,21 @@ Envs necessárias: `OPENAI_API_KEY`, `WHATSAPP_VERIFY_TOKEN`,
 5. Testar fluxo completo com número WhatsApp real.
 6. 10B — few-shot por categoria (aguardar volume de conversas curadas).
 7. 7J — publicação Play Store.
+
+## Melhorias recentes (sessão 2026-06-05)
+
+- **Ajustes de layout — ch-layout (Alertas, Chamados, Clientes, Colaboradores).**
+  - `.content` virou flex container; `.section.is-active` ganhou `flex: 1`.
+  - Lista da esquerda (`.ch-list-col`) vai até o fundo da página via `align-self: stretch`.
+  - Painel de detalhes (`.ch-detail-col`) tem altura do conteúdo — pequeno quando vazio.
+  - `admin.css?v=101`.
+
+- **Seção "Técnicos" virou "Colaboradores".** Migration 048 adicionou `cargo` (tecnico | adm | gestor | ti) à tabela `tecnicos`. Tabs de filtro por cargo, modal com select de cargo, detalhe e KPIs adaptados. Chamados/disponibilidade só aparecem para cargo=tecnico.
+
+- **RBAC: 3 tipos de login no painel admin.**
+  - Novos roles: `gerente` (acesso total + config restrita a "conta") e `operador` (só Monitor + Chamados + config "conta").
+  - `admin_viewer` removido do fluxo de cadastro; roles TEXT livres na tabela `usuarios`.
+  - Card de criação de acesso atualizado para selecionar o role.
 
 ## Melhorias recentes (sessão 2026-06-03 — tarde)
 

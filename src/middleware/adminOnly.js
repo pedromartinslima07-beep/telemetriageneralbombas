@@ -1,9 +1,12 @@
+const ADMIN_ROLES = ["admin", "gerente", "operador"];
+
 function adminOnly(req, res, next) {
-  const r = req.user?.role;
-  if (r !== "admin" && r !== "admin_viewer") {
+  if (!ADMIN_ROLES.includes(req.user?.role)) {
     return res.status(403).json({ error: "Acesso restrito (admin)" });
   }
   next();
 }
+
+module.exports.ADMIN_ROLES = ADMIN_ROLES;
 
 module.exports = { adminOnly };

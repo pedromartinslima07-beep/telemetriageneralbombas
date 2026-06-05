@@ -28,7 +28,7 @@ router.get("/", authRequired, adminOnly, async (req, res) => {
     const result = await pool.query(`
       SELECT
         t.id, t.nome, t.email, t.telefone, t.especialidade,
-        t.disponivel, t.ativo, t.criado_em, t.usuario_id,
+        t.cargo, t.disponivel, t.ativo, t.criado_em, t.usuario_id,
         t.foto_url, t.cpf, t.rg, t.data_nascimento, t.endereco, t.observacoes,
         (t.usuario_id IS NOT NULL) AS tem_login,
         COUNT(ch.id) FILTER (WHERE ch.status != 'fechado') AS chamados_abertos,
@@ -50,8 +50,10 @@ router.get("/", authRequired, adminOnly, async (req, res) => {
 // e vincula via `tecnicos.usuario_id` na mesma transação. Email vira obrigatório
 // nesse caso (é o login do técnico).
 router.post("/", authRequired, masterAdminOnly, async (req, res) => {
-  const { nome, email, telefone, especialidade, senha, foto_url, cpf, rg, data_nascimento, endereco, observacoes } = req.body || {};
+  const { nome, email, telefone, especialidade, cargo, senha, foto_url, cpf, rg, data_nascimento, endereco, observacoes } = req.body || {};
   if (!nome) return res.status(400).json({ error: "nome é obrigatório" });
+  const CARGOS = ["tecnico", "adm", "gestor", "ti"];
+  if (cargo && !CARGOS.includes(cargo)) return res.status(400).json({ error: "cargo inválido" });
 
   const querSenha = !!(senha && String(senha).trim());
 
@@ -70,10 +72,10 @@ router.post("/", authRequired, masterAdminOnly, async (req, res) => {
     }
 
     const result = await client.query(
-      `INSERT INTO tecnicos (nome, email, telefone, especialidade, usuario_id, foto_url, cpf, rg, data_nascimento, endereco, observacoes)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      `INSERT INTO tecnicos (nome, email, telefone, especialidade, cargo, usuario_id, foto_url, cpf, rg, data_nascimento, endereco, observacoes)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
        RETURNING *, (usuario_id IS NOT NULL) AS tem_login`,
-      [nome, email || null, telefone || null, especialidade || null, usuarioId,
+      [nome, email || null, telefone || null, especialidade || null, cargo || "tecnico", usuarioId,
        foto_url || null, cpf || null, rg || null, data_nascimento || null, endereco || null, observacoes || null]
     );
 
@@ -97,7 +99,7 @@ router.patch("/:id", authRequired, masterAdminOnly, async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
 
-  const { nome, email, telefone, especialidade, disponivel, ativo, senha, foto_url, cpf, rg, data_nascimento, endereco, observacoes } = req.body || {};
+  const { nome, email, telefone, especialidade, cargo, disponivel, ativo, senha, foto_url, cpf, rg, data_nascimento, endereco, observacoes } = req.body || {};
   const querSenha = !!(senha && String(senha).trim());
 
   const client = await pool.connect();
@@ -161,6 +163,7 @@ router.patch("/:id", authRequired, masterAdminOnly, async (req, res) => {
     if (data_nascimento !== undefined) { values.push(data_nascimento || null); sets.push(`data_nascimento = $${values.length}`); }
     if (endereco !== undefined)        { values.push(endereco || null);        sets.push(`endereco = $${values.length}`); }
     if (observacoes !== undefined)     { values.push(observacoes || null);     sets.push(`observacoes = $${values.length}`); }
+    if (cargo !== undefined)           { values.push(cargo || "tecnico");      sets.push(`cargo = $${values.length}`); }
 
     let updated;
     if (sets.length) {

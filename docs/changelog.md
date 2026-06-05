@@ -68,6 +68,35 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
 
 ## Marcos de produto (fases do plano)
 
+- **2026-06-05** — **Ajustes de layout — painel de detalhes e lista ch-layout**
+  - `.content` passou a ser flex container (`display: flex; flex-direction: column`) para propagar altura às seções filhas.
+  - `.section.is-active` ganhou `flex: 1` — ocupa todo o espaço disponível no `.content`.
+  - `.ch-layout` mudou de `align-items: stretch` para `align-items: flex-start`; `.ch-list-col` recebeu `align-self: stretch` explícito.
+  - Resultado: lista (esquerda) vai até o fundo da página; painel de detalhes (direita) tem apenas a altura do conteúdo — pequeno quando vazio, cresce com o item selecionado.
+  - Aplica a todas as telas com `.ch-layout`: Alertas, Chamados, Clientes, Colaboradores.
+  - `admin.css?v=101`.
+
+- **2026-06-05** — **Seção Técnicos → Colaboradores**
+  - Migration 048: `tecnicos.cargo TEXT NOT NULL DEFAULT 'tecnico'` — valores: `tecnico | adm | gestor | ti`.
+  - Nav/seção renomeada de "Técnicos" para "Colaboradores".
+  - Tabs de filtro alteradas para cargo (Todos / Técnico / Adm / Gestor / TI).
+  - Modal agora tem campo "Cargo" (select); "Especialidade" renomeada para "Especialidade / Função".
+  - Tabela: coluna Cargo substituiu Telefone+Chamados; Status (disponível/ocupado) mostra apenas para técnicos.
+  - Detalhe: seção "Chamados" e botão "Marcar disponível/ocupado" visíveis só para técnicos.
+  - KPIs: Total colaboradores | Técnicos | Técnicos disponíveis | Chamados em aberto.
+  - Backend: `GET /tecnicos` inclui `cargo`; `POST` e `PATCH` aceitam e persistem `cargo`.
+  - `admin.js?v=124`.
+  - **Rodar migration:** `node scripts/migrate.js 048_colaboradores_cargo.sql`.
+
+- **2026-06-05** — **RBAC 3 tipos de login no painel admin**
+  - Adicionados roles `gerente` e `operador` ao sistema.
+  - **Gerente**: acesso total ao painel (todas as seções, escrita habilitada), porém em Configurações enxerga apenas a aba "Conta" (sem acesso a Usuários, IA, Notificações, Operacional, SLA, Manutenção, Integrações).
+  - **Operador**: acesso restrito a Monitor (Dashboard, Telemetria, Mapa, Alertas) + Chamados + Configurações → "Conta". Seções ocultas: Atendimento (exceto Chamados), O.S., Orçamentos, Planos, Clientes, Técnicos, Relatórios.
+  - Role `admin_viewer` mantido para compatibilidade retroativa (viewer-only-hide).
+  - Arquivos alterados: `src/middleware/adminOnly.js`, `src/routes/auth.routes.js`, `src/routes/admin.routes.js`, `src/routes/ordens-servico.routes.js`, `src/routes/relatorio.routes.js`, `public/login.js`, `public/admin.js?v=123`, `public/admin.html`.
+  - Card de criação de acesso no painel (Clientes) agora tem select de role (Gerente / Operador / Visualizador legado) em vez de criar sempre `admin_viewer`.
+
+
 - **2026-06-04** — **Envio de orçamento por e-mail ao cliente.**
   - Novo endpoint `POST /admin/orcamentos/avulsos/:id/enviar-email` — gera o PDF
     (`gerarPdfAvulso`), anexa e envia via Resend (`sendOrcamentoCliente` em
