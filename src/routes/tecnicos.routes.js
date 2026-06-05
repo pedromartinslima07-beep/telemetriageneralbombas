@@ -99,7 +99,7 @@ router.patch("/:id", authRequired, masterAdminOnly, async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
 
-  const { nome, email, telefone, especialidade, cargo, disponivel, ativo, senha, foto_url, cpf, rg, data_nascimento, endereco, observacoes } = req.body || {};
+  const { nome, email, telefone, especialidade, cargo, disponivel, ativo, senha, foto_url, cpf, rg, data_nascimento, endereco, observacoes, usuario_id: usuarioIdExterno } = req.body || {};
   const querSenha = !!(senha && String(senha).trim());
 
   const client = await pool.connect();
@@ -156,7 +156,8 @@ router.patch("/:id", authRequired, masterAdminOnly, async (req, res) => {
     if (especialidade !== undefined) { values.push(especialidade); sets.push(`especialidade = $${values.length}`); }
     if (disponivel !== undefined)      { values.push(!!disponivel);      sets.push(`disponivel = $${values.length}`); }
     if (ativo !== undefined)           { values.push(!!ativo);           sets.push(`ativo = $${values.length}`); }
-    if (novoUsuarioId)                 { values.push(novoUsuarioId);     sets.push(`usuario_id = $${values.length}`); }
+    const uidFinal = novoUsuarioId || (usuarioIdExterno ? Number(usuarioIdExterno) : undefined);
+    if (uidFinal)                       { values.push(uidFinal);           sets.push(`usuario_id = $${values.length}`); }
     if (foto_url !== undefined)        { values.push(foto_url || null);        sets.push(`foto_url = $${values.length}`); }
     if (cpf !== undefined)             { values.push(cpf || null);             sets.push(`cpf = $${values.length}`); }
     if (rg !== undefined)              { values.push(rg || null);              sets.push(`rg = $${values.length}`); }

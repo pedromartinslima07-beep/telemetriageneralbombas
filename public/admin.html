@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="/static/leaflet.css">
   <!-- ⚠️ Ao mexer em admin.js ou admin.css, bumpe o ?v=N aqui E no <script>
        lá embaixo. Ver CLAUDE.md raiz. -->
-  <link rel="stylesheet" href="/static/admin.css?v=101">
+  <link rel="stylesheet" href="/static/admin.css?v=102">
 </head>
 <body>
 
@@ -1300,10 +1300,19 @@
       <!-- Modal de plano (criar/editar) — usa pmModal próprio pra não conflitar com overlay global -->
       <div id="pmModal" class="av-modal" style="display:none;" role="dialog" aria-modal="true">
         <div class="av-modal-backdrop" id="pmModalBackdrop"></div>
-        <div class="av-modal-dialog" style="max-width:560px;">
-          <button class="av-modal-close" id="pmModalClose" type="button" aria-label="Fechar">×</button>
-          <h3 id="pmModalTitulo" style="margin:0 0 16px;font-size:16px;font-weight:600;">Novo plano</h3>
-          <div id="pmModalBody"></div>
+        <div class="av-modal-dialog" style="max-width:560px;padding:0;overflow:hidden;">
+          <!-- Cabeçalho -->
+          <div style="padding:20px 24px 16px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;justify-content:space-between;">
+            <div>
+              <div id="pmModalTitulo" style="font-size:15px;font-weight:700;color:var(--text);line-height:1.2;">Novo plano</div>
+              <div id="pmModalSubtitulo" style="font-size:12px;color:var(--muted);margin-top:3px;">Preencha os dados para criar um plano de manutenção</div>
+            </div>
+            <button class="btn btn-sm" id="pmModalClose" type="button" aria-label="Fechar">✕</button>
+          </div>
+          <!-- Corpo injetado pelo JS -->
+          <div id="pmModalBody" style="padding:16px 24px;"></div>
+          <!-- Rodapé com botões -->
+          <div id="pmModalFooter" style="padding:14px 24px;border-top:1px solid var(--border);background:rgba(0,0,0,.2);display:flex;align-items:center;justify-content:flex-end;gap:8px;"></div>
         </div>
       </div>
 
@@ -2192,80 +2201,101 @@
 
 <!-- Modal: novo chamado (admin) -->
 <div id="novoChamadoOverlay" class="modalOverlay" style="display:none;">
-  <div class="modalBox" style="max-width:520px;">
-    <div class="modalHead">
-      <div class="modalTitle">Novo chamado</div>
-      <button class="btn btn-sm" id="btnFecharNovoChamado">Fechar</button>
+  <div class="modalBox" style="max-width:560px;">
+    <div class="modalHead" style="align-items:flex-start;">
+      <div>
+        <div class="modalTitle">Novo chamado</div>
+        <div class="modalSub">Preencha os dados para registrar um chamado</div>
+      </div>
+      <button class="btn btn-sm" id="btnFecharNovoChamado">✕</button>
     </div>
-    <div class="modalBody" style="padding:20px 24px 24px;display:flex;flex-direction:column;gap:14px;">
-      <label class="f">
-        <span>Título <span style="color:var(--danger)">*</span></span>
-        <input id="ncTitulo" class="input" type="text" maxlength="255" placeholder="Ex: Bomba parou de funcionar">
-      </label>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+    <div class="modalBody" style="padding:16px 20px;display:flex;flex-direction:column;gap:10px;">
+
+      <!-- Identificação -->
+      <div style="background:rgba(0,0,0,.2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;">
+        <div style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:10px;">Identificação</div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <label class="f">
+            <span>Título <span style="color:var(--danger)">*</span></span>
+            <input id="ncTitulo" class="input" type="text" maxlength="255" placeholder="Ex: Bomba parou de funcionar">
+          </label>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <label class="f">
+              <span>Condomínio</span>
+              <select id="ncCondo" class="select"><option value="">Sem condomínio</option></select>
+            </label>
+            <label class="f">
+              <span>Categoria</span>
+              <select id="ncCategoria" class="select">
+                <option value="outro">Outro</option>
+                <option value="vazamento">Vazamento</option>
+                <option value="bomba_falha">Falha de bomba</option>
+                <option value="nivel_baixo">Nível baixo</option>
+                <option value="sem_agua">Sem água</option>
+                <option value="ruido">Ruído</option>
+                <option value="manutencao">Manutenção</option>
+              </select>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Triagem e prioridade -->
+      <div style="background:rgba(0,0,0,.2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;">
+        <div style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:10px;">Triagem e prioridade</div>
+        <div id="ncTriagem" style="background:rgba(240,176,20,.06);border:1px solid rgba(240,176,20,.2);border-radius:8px;padding:12px 14px;margin-bottom:10px;">
+          <div style="font-size:11px;font-weight:700;color:var(--accent);letter-spacing:.04em;margin-bottom:10px;">TRIAGEM — CRITICIDADE</div>
+          <div class="nc-tq" id="ncQ1" style="margin-bottom:8px;">
+            <div style="font-size:12px;color:var(--fg);margin-bottom:4px;">Q1 — Sem água, alagamento, esgoto subindo, cheiro de queimado ou risco de incêndio?</div>
+            <div style="display:flex;gap:6px;">
+              <button type="button" class="btn btn-sm nc-tq-btn" data-q="q1" data-v="sim" style="font-size:11px;">Sim → P1</button>
+              <button type="button" class="btn btn-sm nc-tq-btn" data-q="q1" data-v="nao" style="font-size:11px;">Não</button>
+            </div>
+          </div>
+          <div class="nc-tq" id="ncQ2" style="margin-bottom:8px;display:none;">
+            <div style="font-size:12px;color:var(--fg);margin-bottom:4px;">Q2 — Sistema funciona em modo parcial, manual ou com redundância comprometida?</div>
+            <div style="display:flex;gap:6px;">
+              <button type="button" class="btn btn-sm nc-tq-btn" data-q="q2" data-v="sim" style="font-size:11px;">Sim → P2</button>
+              <button type="button" class="btn btn-sm nc-tq-btn" data-q="q2" data-v="nao" style="font-size:11px;">Não</button>
+            </div>
+          </div>
+          <div class="nc-tq" id="ncQ3" style="margin-bottom:8px;display:none;">
+            <div style="font-size:12px;color:var(--fg);margin-bottom:4px;">Q3 — Funciona normalmente mas precisa de inspeção, ajuste ou pequena correção?</div>
+            <div style="display:flex;gap:6px;">
+              <button type="button" class="btn btn-sm nc-tq-btn" data-q="q3" data-v="sim" style="font-size:11px;">Sim → P3</button>
+              <button type="button" class="btn btn-sm nc-tq-btn" data-q="q3" data-v="nao" style="font-size:11px;">Não → P4</button>
+            </div>
+          </div>
+          <div id="ncTriagemResultado" style="display:none;font-size:12px;color:var(--muted);margin-top:6px;"></div>
+        </div>
         <label class="f">
-          <span>Condomínio</span>
-          <select id="ncCondo" class="select"><option value="">Sem condomínio</option></select>
-        </label>
-        <label class="f">
-          <span>Categoria</span>
-          <select id="ncCategoria" class="select">
-            <option value="outro">Outro</option>
-            <option value="vazamento">Vazamento</option>
-            <option value="bomba_falha">Falha de bomba</option>
-            <option value="nivel_baixo">Nível baixo</option>
-            <option value="sem_agua">Sem água</option>
-            <option value="ruido">Ruído</option>
-            <option value="manutencao">Manutenção</option>
+          <span>Prioridade <span style="font-size:10px;color:var(--muted);font-weight:400;">(sugerida pelo wizard acima)</span></span>
+          <select id="ncPrioridade" class="select">
+            <option value="p1">P1 Crítico (≤ 3h)</option>
+            <option value="p2">P2 Alta (24–48h)</option>
+            <option value="p3" selected>P3 Controlado (≤ 72h)</option>
+            <option value="p4">P4 Agendado (conforme agenda)</option>
           </select>
         </label>
       </div>
-      <!-- Wizard de triagem Q1→Q4 -->
-      <div id="ncTriagem" style="background:rgba(240,176,20,.06);border:1px solid rgba(240,176,20,.2);border-radius:8px;padding:12px 14px;margin-bottom:4px;">
-        <div style="font-size:11px;font-weight:700;color:var(--accent);letter-spacing:.04em;margin-bottom:10px;">TRIAGEM — CRITICIDADE</div>
-        <div class="nc-tq" id="ncQ1" style="margin-bottom:8px;">
-          <div style="font-size:12px;color:var(--fg);margin-bottom:4px;">Q1 — Sem água, alagamento, esgoto subindo, cheiro de queimado ou risco de incêndio?</div>
-          <div style="display:flex;gap:6px;">
-            <button type="button" class="btn btn-sm nc-tq-btn" data-q="q1" data-v="sim" style="font-size:11px;">Sim → P1</button>
-            <button type="button" class="btn btn-sm nc-tq-btn" data-q="q1" data-v="nao" style="font-size:11px;">Não</button>
-          </div>
-        </div>
-        <div class="nc-tq" id="ncQ2" style="margin-bottom:8px;display:none;">
-          <div style="font-size:12px;color:var(--fg);margin-bottom:4px;">Q2 — Sistema funciona em modo parcial, manual ou com redundância comprometida?</div>
-          <div style="display:flex;gap:6px;">
-            <button type="button" class="btn btn-sm nc-tq-btn" data-q="q2" data-v="sim" style="font-size:11px;">Sim → P2</button>
-            <button type="button" class="btn btn-sm nc-tq-btn" data-q="q2" data-v="nao" style="font-size:11px;">Não</button>
-          </div>
-        </div>
-        <div class="nc-tq" id="ncQ3" style="margin-bottom:8px;display:none;">
-          <div style="font-size:12px;color:var(--fg);margin-bottom:4px;">Q3 — Funciona normalmente mas precisa de inspeção, ajuste ou pequena correção?</div>
-          <div style="display:flex;gap:6px;">
-            <button type="button" class="btn btn-sm nc-tq-btn" data-q="q3" data-v="sim" style="font-size:11px;">Sim → P3</button>
-            <button type="button" class="btn btn-sm nc-tq-btn" data-q="q3" data-v="nao" style="font-size:11px;">Não → P4</button>
-          </div>
-        </div>
-        <div id="ncTriagemResultado" style="display:none;font-size:12px;color:var(--muted);margin-top:6px;"></div>
+
+      <!-- Detalhes -->
+      <div style="background:rgba(0,0,0,.2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;">
+        <div style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:10px;">Detalhes</div>
+        <label class="f">
+          <span>Descrição <span style="color:var(--danger)">*</span></span>
+          <textarea id="ncDescricao" class="input" rows="4" maxlength="4000"
+            style="resize:vertical;font-size:13px;padding:8px 10px;"
+            placeholder="Descreva o problema em detalhes…"></textarea>
+        </label>
       </div>
-      <label class="f">
-        <span>Prioridade <span style="font-size:10px;color:var(--muted);font-weight:400;">(sugerida pelo wizard acima)</span></span>
-        <select id="ncPrioridade" class="select">
-          <option value="p1">P1 Crítico (≤ 3h)</option>
-          <option value="p2">P2 Alta (24–48h)</option>
-          <option value="p3" selected>P3 Controlado (≤ 72h)</option>
-          <option value="p4">P4 Agendado (conforme agenda)</option>
-        </select>
-      </label>
-      <label class="f">
-        <span>Descrição <span style="color:var(--danger)">*</span></span>
-        <textarea id="ncDescricao" class="input" rows="4" maxlength="4000"
-          style="resize:vertical;font-size:13px;padding:8px 10px;"
-          placeholder="Descreva o problema em detalhes…"></textarea>
-      </label>
-      <div style="display:flex;gap:8px;justify-content:flex-end;align-items:center;">
-        <span id="ncMsg" style="font-size:12px;color:var(--muted);"></span>
-        <button class="btn btn-sm" id="btnCancelarNovoChamado">Cancelar</button>
-        <button class="btn btn-sm btnAccent" id="btnSalvarNovoChamado">Criar chamado</button>
-      </div>
+
+    </div>
+    <!-- Rodapé -->
+    <div style="padding:12px 20px;border-top:1px solid var(--border);background:rgba(0,0,0,.2);display:flex;align-items:center;gap:8px;">
+      <span id="ncMsg" style="font-size:12px;color:var(--muted);flex:1;"></span>
+      <button class="btn btn-sm" id="btnCancelarNovoChamado">Cancelar</button>
+      <button class="btn btn-sm btnAccent" id="btnSalvarNovoChamado">Criar chamado</button>
     </div>
   </div>
 </div>
@@ -2580,7 +2610,7 @@
 </div>
 
 
-<script src="/static/admin.js?v=125" defer></script>
+<script src="/static/admin.js?v=144" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
 <script src="/static/register-sw.js?v=27" defer></script>
 </body>

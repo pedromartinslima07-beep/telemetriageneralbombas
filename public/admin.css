@@ -5159,6 +5159,13 @@ body.mp-fs-active { overflow: hidden; }
   color: var(--muted); font-size: 12px;
 }
 
+.cfg-icon-btn {
+  width: 28px; height: 28px;
+  padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+
 /* Cards de integrações */
 .cfg-int-grid {
   display: grid;

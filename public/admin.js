@@ -495,7 +495,7 @@ async function criarAdminViewer() {
       if (msg) msg.textContent = e.error || "Erro ao criar acesso.";
       return;
     }
-    const labels = { gerente: "Gerente", operador: "Operador" };
+    const labels = { gerente: "Administrador", operador: "Operador" };
     if (msg) msg.textContent = `Acesso ${labels[role] || role} criado!`;
     document.getElementById("avNome").value  = "";
     document.getElementById("avEmail").value = "";
@@ -571,7 +571,8 @@ function _mcStatusKind(item) {
 // ---- Mapa do dashboard (mini Leaflet) ----
 // Singleton: criado uma vez ao primeiro renderMcMap, depois apenas atualiza markers.
 let _mcMap = null;
-let _mcMarkers = new Map(); // condoId → L.Marker
+let _mcMarkers = new Map();    // condoId → L.Marker
+let _mcTecMarkers = new Map(); // tecnico_id → L.Marker (técnicos no mc map)
 
 function _mcPinIcon(kind) {
   // Pino de condomínio: ícone de prédio (SVG branco) sobre fundo colorido
@@ -664,6 +665,27 @@ function renderMcMap() {
   if (bounds.length > 0 && !_mcMap._fitAplicado) {
     _mcMap.fitBounds(bounds, { padding: [30, 30], maxZoom: 13 });
     _mcMap._fitAplicado = true;
+  }
+
+  // Técnicos ativos com localização conhecida
+  const tecIdsAgora = new Set();
+  for (const t of (Array.isArray(_tecLocs) ? _tecLocs : [])) {
+    const lat = Number(t.lat), lng = Number(t.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+    tecIdsAgora.add(t.tecnico_id);
+    const iniciais = _tecIconeIniciais(t.nome);
+    let tm = _mcTecMarkers.get(t.tecnico_id);
+    if (!tm) {
+      tm = L.marker([lat, lng], { icon: _tecPinIcon(iniciais), zIndexOffset: 1000 }).addTo(_mcMap);
+      _mcTecMarkers.set(t.tecnico_id, tm);
+    } else {
+      tm.setLatLng([lat, lng]);
+      tm.setIcon(_tecPinIcon(iniciais));
+    }
+    tm.bindTooltip(`${t.nome || "Técnico"}`, { direction: "top", offset: [0, -8] });
+  }
+  for (const [id, tm] of _mcTecMarkers) {
+    if (!tecIdsAgora.has(id)) { _mcMap.removeLayer(tm); _mcTecMarkers.delete(id); }
   }
 }
 
@@ -2788,8 +2810,10 @@ function renderTecTabela() {
     const avatarHtml = t.foto_url
       ? `<span class="tec-row-avatar"><img src="${t.foto_url}" alt=""></span>`
       : `<span class="tec-row-avatar">${_tecIniciais(t.nome)}</span>`;
+    const locEntry = (Array.isArray(_tecLocs) ? _tecLocs : []).find(l => l.tecnico_id === t.id);
+    const onlineDot = `<span title="${locEntry ? "Online agora" : "Offline"}" style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${locEntry ? "#22c55e" : "var(--muted)"};margin-right:6px;flex-shrink:0;"></span>`;
     return `<tr class="ch-row${sel}" data-tec-id="${t.id}" style="cursor:pointer;">
-      <td style="font-weight:500;font-size:12px;display:flex;align-items:center;">${avatarHtml}${_waEscaparHtml(t.nome)}</td>
+      <td style="font-weight:500;font-size:12px;display:flex;align-items:center;">${avatarHtml}${onlineDot}${_waEscaparHtml(t.nome)}</td>
       <td>${cargoBadge}</td>
       <td style="font-size:11px;color:var(--muted);">${_waEscaparHtml(t.especialidade || "—")}</td>
       <td>${dispBadge}</td>
@@ -2821,6 +2845,15 @@ function renderTecDetalhe(t) {
     ? `<div class="tec-det-avatar"><img src="${t.foto_url}" alt="foto"></div>`
     : `<div class="tec-det-avatar">${_tecIniciais(t.nome)}</div>`;
 
+  const locEntry = (Array.isArray(_tecLocs) ? _tecLocs : []).find(l => l.tecnico_id === t.id);
+  const onlineStatusHtml = locEntry
+    ? `<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;background:rgba(34,197,94,.15);color:#22c55e;">
+        <span style="width:6px;height:6px;border-radius:50%;background:#22c55e;display:inline-block;"></span>Online agora
+       </span>`
+    : `<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;background:rgba(100,116,139,.12);color:var(--muted);">
+        <span style="width:6px;height:6px;border-radius:50%;background:var(--muted);display:inline-block;"></span>Offline
+       </span>`;
+
   // Chamados atribuídos a este técnico
   const chamadosTec = (Array.isArray(_chamadosData) ? _chamadosData : [])
     .filter(ch => Number(ch.tecnico_id) === Number(t.id));
@@ -2851,6 +2884,7 @@ function renderTecDetalhe(t) {
           ${cargoBadgedet}
           ${t.especialidade ? `<span class="ch-cat-badge" style="opacity:.7;">${_waEscaparHtml(t.especialidade)}</span>` : ""}
           ${dispBadge}
+          ${onlineStatusHtml}
         </div>
       </div>
     </div>
@@ -2961,84 +2995,113 @@ function abrirModalTecnico(tec = null) {
   const fmtNasc = tec?.data_nascimento ? tec.data_nascimento.slice(0, 10) : "";
 
   overlay.innerHTML = `
-    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:24px;width:560px;max-width:95vw;box-shadow:0 24px 64px rgba(0,0,0,.6);margin:auto;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-        <div style="font-size:14px;font-weight:600;">${editing ? "Editar colaborador" : "Novo colaborador"}${loginBadge}</div>
-        <button class="btn btn-sm" data-action="fechar-modal-tecnico">✕</button>
-      </div>
+    <div style="background:var(--surface2);border:1px solid var(--border-strong);border-radius:14px;width:840px;max-width:96vw;box-shadow:0 32px 80px rgba(0,0,0,.75);margin:auto;overflow:hidden;">
 
-      <!-- Foto de perfil -->
-      <div class="tec-avatar-wrap">
-        <div class="tec-avatar-circle" id="tecModalAvatarCircle" title="Clique para trocar a foto">
-          ${avatarInner}
-          <div class="tec-avatar-overlay">Trocar<br>foto</div>
-        </div>
-        <span class="tec-avatar-hint">Clique para escolher foto (JPG/PNG)</span>
-        <input type="file" id="tecModalFotoInput" accept="image/jpeg,image/png,image/webp" style="display:none;">
-      </div>
-
-      <div class="grid-2">
-        <!-- Dados básicos -->
-        <div class="field col-2">
-          <span class="lbl">Nome <span class="req">*</span></span>
-          <input id="tecModalNome" class="input" value="${tec ? _waEscaparHtml(tec.nome) : ""}" placeholder="Ex: Carlos Silva" />
-        </div>
-        <div class="field">
-          <span class="lbl">Cargo <span class="req">*</span></span>
-          <select id="tecModalCargo" class="input">
-            <option value="tecnico" ${(tec?.cargo || "tecnico") === "tecnico" ? "selected" : ""}>Técnico</option>
-            <option value="adm"     ${tec?.cargo === "adm"     ? "selected" : ""}>Adm</option>
-            <option value="gestor"  ${tec?.cargo === "gestor"  ? "selected" : ""}>Gestor</option>
-            <option value="ti"      ${tec?.cargo === "ti"      ? "selected" : ""}>TI</option>
-          </select>
-        </div>
-        <div class="field">
-          <span class="lbl">Telefone</span>
-          <input id="tecModalTel" class="input" value="${_waEscaparHtml(tec?.telefone || "")}" placeholder="(11) 99999-9999" />
-        </div>
-        <div class="field">
-          <span class="lbl">Email</span>
-          <input id="tecModalEmail" class="input" value="${_waEscaparHtml(tec?.email || "")}" placeholder="colaborador@exemplo.com" />
-        </div>
-        <div class="field col-2">
-          <span class="lbl">Especialidade / Função</span>
-          <input id="tecModalEsp" class="input" value="${_waEscaparHtml(tec?.especialidade || "")}" placeholder="Ex: Hidráulica, Suporte TI, Gestão…" />
-        </div>
-
-        <!-- Documentos e nascimento -->
-        <div class="field" style="border-top:1px solid var(--border);padding-top:14px;margin-top:4px;">
-          <span class="lbl">CPF</span>
-          <input id="tecModalCpf" class="input" value="${_waEscaparHtml(tec?.cpf || "")}" placeholder="000.000.000-00" maxlength="14" />
-        </div>
-        <div class="field" style="border-top:1px solid var(--border);padding-top:14px;margin-top:4px;">
-          <span class="lbl">RG</span>
-          <input id="tecModalRg" class="input" value="${_waEscaparHtml(tec?.rg || "")}" placeholder="00.000.000-0" maxlength="12" />
-        </div>
-        <div class="field">
-          <span class="lbl">Data de nascimento</span>
-          <input id="tecModalNasc" class="input" type="date" value="${fmtNasc}" />
-        </div>
-        <div class="field">
-          <span class="lbl">Endereço</span>
-          <input id="tecModalEnd" class="input" value="${_waEscaparHtml(tec?.endereco || "")}" placeholder="Rua, número, cidade" />
-        </div>
-        <div class="field col-2">
-          <span class="lbl">Observações internas</span>
-          <textarea id="tecModalObs" class="input" rows="2" style="resize:vertical;">${_waEscaparHtml(tec?.observacoes || "")}</textarea>
-        </div>
-
-        <!-- Login / senha -->
-        <div class="field col-2" style="border-top:1px solid var(--border);padding-top:14px;margin-top:4px;">
-          <span class="lbl">${editing && temLogin ? "Nova senha do app" : "Senha do app"}</span>
-          <input id="tecModalSenha" class="input" type="text" autocomplete="new-password" placeholder="Mínimo 6 caracteres" />
-          <span class="hint" style="display:block;margin-top:4px;font-size:11px;color:var(--muted);">${senhaHint}</span>
+      <!-- Cabeçalho -->
+      <div style="padding:20px 24px 16px;border-bottom:1px solid var(--border);">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;">
+          <div>
+            <div style="font-size:15px;font-weight:700;color:var(--text);line-height:1.2;">${editing ? "Editar colaborador" : "Novo colaborador"}</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:3px;">${editing ? "Atualize os dados abaixo e salve" : "Preencha os dados para cadastrar no sistema"}${loginBadge}</div>
+          </div>
+          <button class="btn btn-sm" data-action="fechar-modal-tecnico" style="margin-top:2px;">✕</button>
         </div>
       </div>
 
-      <div class="form-footer" style="margin-top:16px;">
-        <button class="btn btnAccent" id="btnSalvarTecnico">${editing ? "Salvar" : "Criar colaborador"}</button>
+      <!-- Corpo -->
+      <div style="padding:16px 24px;display:flex;flex-direction:column;gap:10px;">
+
+        <!-- Seção: Dados pessoais -->
+        <div style="background:rgba(0,0,0,.2);border:1px solid var(--border);border-radius:10px;padding:16px;">
+          <div style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:12px;">Dados pessoais</div>
+          <div style="display:flex;gap:16px;align-items:flex-start;">
+            <!-- Avatar -->
+            <div class="tec-avatar-wrap" style="flex-shrink:0;min-width:84px;gap:5px;padding:0;">
+              <div class="tec-avatar-circle" id="tecModalAvatarCircle" title="Clique para trocar a foto">
+                ${avatarInner}
+                <div class="tec-avatar-overlay">Trocar<br>foto</div>
+              </div>
+              <span class="tec-avatar-hint" style="text-align:center;line-height:1.5;">Foto<br>JPG/PNG</span>
+              <input type="file" id="tecModalFotoInput" accept="image/jpeg,image/png,image/webp" style="display:none;">
+            </div>
+            <!-- Grid -->
+            <div style="flex:1;display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+              <div class="field" style="grid-column:1/3;">
+                <span class="lbl">Nome <span class="req">*</span></span>
+                <input id="tecModalNome" class="input" value="${tec ? _waEscaparHtml(tec.nome) : ""}" placeholder="Ex: Carlos Silva" />
+              </div>
+              <div class="field">
+                <span class="lbl">Cargo <span class="req">*</span></span>
+                <select id="tecModalCargo" class="input">
+                  <option value="tecnico" ${(tec?.cargo || "tecnico") === "tecnico" ? "selected" : ""}>Técnico</option>
+                  <option value="adm"     ${tec?.cargo === "adm"     ? "selected" : ""}>Adm</option>
+                  <option value="gestor"  ${tec?.cargo === "gestor"  ? "selected" : ""}>Gestor</option>
+                  <option value="ti"      ${tec?.cargo === "ti"      ? "selected" : ""}>TI</option>
+                </select>
+              </div>
+              <div class="field">
+                <span class="lbl">Telefone</span>
+                <input id="tecModalTel" class="input" value="${_waEscaparHtml(tec?.telefone || "")}" placeholder="(11) 99999-9999" />
+              </div>
+              <div class="field">
+                <span class="lbl">Email</span>
+                <input id="tecModalEmail" class="input" value="${_waEscaparHtml(tec?.email || "")}" placeholder="colaborador@exemplo.com" />
+              </div>
+              <div class="field">
+                <span class="lbl">Especialidade / Função</span>
+                <input id="tecModalEsp" class="input" value="${_waEscaparHtml(tec?.especialidade || "")}" placeholder="Hidráulica, Suporte TI…" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Seção: Documentos -->
+        <div style="background:rgba(0,0,0,.2);border:1px solid var(--border);border-radius:10px;padding:16px;">
+          <div style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:12px;">Documentos e localização</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+            <div class="field">
+              <span class="lbl">CPF</span>
+              <input id="tecModalCpf" class="input" value="${_waEscaparHtml(tec?.cpf || "")}" placeholder="000.000.000-00" maxlength="14" />
+            </div>
+            <div class="field">
+              <span class="lbl">RG</span>
+              <input id="tecModalRg" class="input" value="${_waEscaparHtml(tec?.rg || "")}" placeholder="00.000.000-0" maxlength="12" />
+            </div>
+            <div class="field">
+              <span class="lbl">Data de nascimento</span>
+              <input id="tecModalNasc" class="input" type="date" value="${fmtNasc}" />
+            </div>
+            <div class="field" style="grid-column:1/-1;">
+              <span class="lbl">Endereço</span>
+              <input id="tecModalEnd" class="input" value="${_waEscaparHtml(tec?.endereco || "")}" placeholder="Rua, número, cidade" />
+            </div>
+            <div class="field" style="grid-column:1/-1;">
+              <span class="lbl">Observações internas</span>
+              <textarea id="tecModalObs" class="input" rows="2" style="resize:vertical;">${_waEscaparHtml(tec?.observacoes || "")}</textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- Seção: Login / senha -->
+        <div style="background:rgba(0,0,0,.2);border:1px solid var(--border);border-radius:10px;padding:16px;">
+          <div style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:12px;">Login do app</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div class="field" style="grid-column:1/-1;">
+              <span class="lbl">${editing && temLogin ? "Nova senha do app" : "Senha do app"}</span>
+              <input id="tecModalSenha" class="input" type="text" autocomplete="new-password" placeholder="Mínimo 6 caracteres" />
+              <span class="hint" style="display:block;margin-top:4px;font-size:11px;color:var(--muted);">${senhaHint}</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Rodapé -->
+      <div style="padding:14px 24px;border-top:1px solid var(--border);background:rgba(0,0,0,.2);display:flex;align-items:center;gap:12px;">
+        <button class="btn btnAccent" id="btnSalvarTecnico" style="min-width:148px;">${editing ? "Salvar alterações" : "Criar colaborador"}</button>
         <span id="msgTecnico" class="hint"></span>
       </div>
+
     </div>`;
   document.body.appendChild(overlay);
 
@@ -3509,11 +3572,13 @@ async function carregarTudo() {
       carregarConversas().catch(() => {}),
       carregarUsuarios().catch(() => {}),
       carregarTecnicos().catch(() => {}),
+      carregarTecnicosLocalizacao().catch(() => {}),
     ]);
     detectarChamadosNovos();
     renderTelemetriaVisuais();
     renderAtendimentoVisuais();
     renderVisuaisCombinados();
+    _mpRenderTecnicos();
     _carregarContratosMetricas?.();
     renderClientes();
     renderTecnicos();
@@ -7012,6 +7077,7 @@ function _mpRenderTecnicos() {
         <div style="color:#9ca3af;font-size:10.5px;margin-top:6px;">
           Última atualização ${_tempoRelativo(t.capturada_em)}
           ${t.bateria_pct != null ? ` · 🔋 ${t.bateria_pct}%` : ""}
+          ${t.precisao_m != null ? ` · precisão ~${t.precisao_m < 1000 ? Math.round(t.precisao_m)+"m" : (t.precisao_m/1000).toFixed(1)+"km"}` : ""}
         </div>
       </div>`;
     marker.bindPopup(popupHtml);
@@ -9378,7 +9444,7 @@ async function _cfgCarregarUsuarios() {
 }
 
 function _cfgRoleLabel(role) {
-  return { admin: "Admin Master", gerente: "Gerente", operador: "Operador", cliente: "Cliente", tecnico: "Técnico" }[role] || role || "-";
+  return { admin: "Admin Master", gerente: "Administrador", operador: "Operador", cliente: "Cliente", tecnico: "Técnico" }[role] || role || "-";
 }
 
 function _cfgRenderUsuarios() {
@@ -9400,49 +9466,170 @@ function _cfgRenderUsuarios() {
       <td>${condo}</td>
       <td>${dataCad}</td>
       <td>
-        <button class="btn btn-sm" data-cfg-action="editar-usuario"   data-id="${u.id}">Editar</button>
-        <button class="btn btn-sm" data-cfg-action="reset-senha"      data-id="${u.id}">Resetar senha</button>
-        ${u.id !== meId ? `<button class="btn btn-sm" data-cfg-action="remover-usuario" data-id="${u.id}" style="border-color:rgba(248,113,113,.3);color:#f87171;">Remover</button>` : ''}
+        <div style="display:flex;gap:4px;align-items:center;">
+          <button class="btn btn-sm cfg-icon-btn" data-cfg-action="editar-usuario" data-id="${u.id}" title="Editar usuário">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </button>
+          <button class="btn btn-sm cfg-icon-btn" data-cfg-action="reset-senha" data-id="${u.id}" title="Resetar senha">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          </button>
+          ${u.id !== meId ? `<button class="btn btn-sm cfg-icon-btn" data-cfg-action="remover-usuario" data-id="${u.id}" title="Remover usuário" style="color:#f87171;border-color:rgba(248,113,113,.25);">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+          </button>` : ''}
+        </div>
       </td>
     </tr>`;
   }).join("");
 }
 
-function _cfgAbrirModalUsuario(usuario) {
+async function _cfgAbrirModalUsuario(usuario) {
   const isEdit = !!usuario;
   const condos = Array.isArray(_condominios) ? _condominios : [];
   const condoOpts = '<option value="">— sem condomínio —</option>' +
     condos.map(c => `<option value="${c.id}" ${usuario?.condominio_id === c.id ? "selected" : ""}>${_waEscaparHtml(c.nome)}</option>`).join("");
   const overlay = document.getElementById("cfgModalOverlay");
   if (!overlay) return;
+
+  // Carrega colaboradores se ainda não foram carregados
+  let tecs = _tecnicosData || [];
+  if (!tecs.length) {
+    try {
+      const r = await fetch("/tecnicos", { headers: authHeaders() });
+      if (r.ok) tecs = await r.json();
+    } catch {}
+  }
+  const tecOpts = tecs
+    .slice().sort((a, b) => a.nome.localeCompare(b.nome))
+    .map(t => `<option value="${t.id}" data-nome="${_waEscaparHtml(t.nome)}" data-email="${_waEscaparHtml(t.email || '')}">${_waEscaparHtml(t.nome)}${t.cargo && t.cargo !== "tecnico" ? ` — ${t.cargo}` : ""}</option>`)
+    .join("");
+
+  const initialRole = usuario?.role || "";
+  const isCliente   = initialRole === "cliente";
+
   const box = document.getElementById("cfgModalBox");
+  box.style.maxWidth = "520px";
   box.innerHTML = `
-    <h3 style="margin:0 0 16px;font-size:16px;">${isEdit ? "Editar usuário" : "Novo usuário"}</h3>
-    <div style="display:flex;flex-direction:column;gap:12px;">
-      <div class="field"><label class="lbl">Nome</label><input id="mdUsrNome" class="input" value="${_waEscaparHtml(usuario?.nome || "")}"></div>
-      <div class="field"><label class="lbl">Email</label><input id="mdUsrEmail" class="input" type="email" value="${_waEscaparHtml(usuario?.email || "")}"></div>
-      ${!isEdit ? `<div class="field"><label class="lbl">Senha inicial</label><input id="mdUsrSenha" class="input" type="text" placeholder="Mínimo 6 caracteres"></div>` : ""}
-      <div class="field"><label class="lbl">Tipo</label>
-        <select id="mdUsrRole" class="input">
-          <option value="admin"    ${usuario?.role === "admin"    ? "selected" : ""}>Admin Master</option>
-          <option value="gerente"  ${usuario?.role === "gerente"  ? "selected" : ""}>Gerente</option>
-          <option value="operador" ${usuario?.role === "operador" ? "selected" : ""}>Operador</option>
-          <option value="cliente"  ${(!usuario || usuario?.role === "cliente") ? "selected" : ""}>Cliente</option>
-          <option value="tecnico"  ${usuario?.role === "tecnico"  ? "selected" : ""}>Técnico</option>
-        </select>
-        <p class="cfg-hint" style="margin-top:6px;font-size:11px;">Pra gerenciar atribuições, GPS e telefone do técnico, use também a seção <strong>Colaboradores</strong> no menu lateral.</p>
+    <!-- Cabeçalho -->
+    <div style="padding:20px 24px 16px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;justify-content:space-between;">
+      <div>
+        <div style="font-size:15px;font-weight:700;color:var(--text);line-height:1.2;">${isEdit ? "Editar usuário" : "Novo usuário"}</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:3px;">${isEdit ? "Atualize os dados de acesso ao sistema" : "Preencha os dados para criar um acesso ao sistema"}</div>
       </div>
-      <div class="field"><label class="lbl">Condomínio (clientes)</label>
-        <select id="mdUsrCondo" class="input">${condoOpts}</select>
+      <button class="btn btn-sm" data-cfg-action="cancel-modal-usuario">✕</button>
+    </div>
+
+    <!-- Corpo -->
+    <div style="padding:16px 24px;display:flex;flex-direction:column;gap:10px;">
+
+      <!-- 1. Tipo de acesso — sempre primeiro -->
+      <div style="background:rgba(0,0,0,.2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;">
+        <div style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:10px;">Tipo de acesso</div>
+        <div class="field">
+          <select id="mdUsrRole" class="input">
+            ${!isEdit ? `<option value="">Selecione o tipo…</option>` : ""}
+            <option value="gerente"  ${initialRole === "gerente"  ? "selected" : ""}>Administrador</option>
+            <option value="operador" ${initialRole === "operador" ? "selected" : ""}>Operador</option>
+            <option value="cliente"  ${initialRole === "cliente"  ? "selected" : ""}>Cliente</option>
+            <option value="tecnico"  ${initialRole === "tecnico"  ? "selected" : ""}>Técnico</option>
+          </select>
+        </div>
       </div>
+
+      <!-- 2a. Seção colaborador (não-clientes) -->
+      <div id="mdSecColaborador" style="background:rgba(0,0,0,.2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;display:${!isEdit && !isCliente && !initialRole ? 'none' : (!isCliente && initialRole ? '' : 'none')};">
+        <div style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:10px;">Colaborador</div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          ${!isEdit ? `<div class="field">
+            <select id="mdUsrColaborador" class="input">
+              <option value="">Selecione um colaborador…</option>
+              ${tecOpts}
+            </select>
+          </div>` : ""}
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;" id="mdUsrNomeEmailWrap" ${isEdit ? "" : ""}>
+            <div class="field">
+              <span class="lbl">Nome</span>
+              <input id="mdUsrNome" class="input" value="${_waEscaparHtml(usuario?.nome || "")}">
+            </div>
+            <div class="field">
+              <span class="lbl">Email</span>
+              <input id="mdUsrEmail" class="input" type="email" value="${_waEscaparHtml(usuario?.email || "")}">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2b. Seção cliente -->
+      <div id="mdSecCliente" style="background:rgba(0,0,0,.2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;display:${isCliente ? '' : 'none'};">
+        <div style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:10px;">Dados do cliente</div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div class="field">
+              <span class="lbl">Nome</span>
+              <input id="mdUsrNomeCliente" class="input" value="${isCliente ? _waEscaparHtml(usuario?.nome || "") : ""}">
+            </div>
+            <div class="field">
+              <span class="lbl">Email</span>
+              <input id="mdUsrEmailCliente" class="input" type="email" value="${isCliente ? _waEscaparHtml(usuario?.email || "") : ""}">
+            </div>
+          </div>
+          <div class="field">
+            <span class="lbl">Condomínio</span>
+            <select id="mdUsrCondo" class="input">${condoOpts}</select>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. Senha (apenas criação) -->
+      ${!isEdit ? `
+      <div style="background:rgba(0,0,0,.2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;">
+        <div style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:10px;">Acesso</div>
+        <div class="field">
+          <span class="lbl">Senha inicial</span>
+          <input id="mdUsrSenha" class="input" type="text" placeholder="Mínimo 6 caracteres">
+        </div>
+      </div>` : ""}
+
       <div id="mdUsrMsg" class="cfg-msg"></div>
-      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:6px;">
-        <button class="btn btn-sm" data-cfg-action="cancel-modal-usuario">Cancelar</button>
-        <button class="btn btnAccent btn-sm" data-cfg-action="${isEdit ? "patch-usuario" : "post-usuario"}" data-id="${usuario?.id || ''}">${isEdit ? "Salvar" : "Criar"}</button>
-      </div>
+    </div>
+
+    <!-- Rodapé -->
+    <div style="padding:14px 24px;border-top:1px solid var(--border);background:rgba(0,0,0,.2);display:flex;align-items:center;justify-content:flex-end;gap:8px;">
+      <button class="btn btn-sm" data-cfg-action="cancel-modal-usuario">Cancelar</button>
+      <button class="btn btnAccent btn-sm" data-cfg-action="${isEdit ? "patch-usuario" : "post-usuario"}" data-id="${usuario?.id || ''}">${isEdit ? "Salvar alterações" : "Criar usuário"}</button>
     </div>
   `;
   overlay.style.display = "flex";
+
+  // Troca de tipo: mostra/esconde seções
+  document.getElementById("mdUsrRole")?.addEventListener("change", function () {
+    const secColab   = document.getElementById("mdSecColaborador");
+    const secCliente = document.getElementById("mdSecCliente");
+    if (this.value === "cliente") {
+      if (secColab)   secColab.style.display   = "none";
+      if (secCliente) secCliente.style.display = "";
+    } else if (this.value) {
+      if (secColab)   secColab.style.display   = "";
+      if (secCliente) secCliente.style.display = "none";
+    } else {
+      if (secColab)   secColab.style.display   = "none";
+      if (secCliente) secCliente.style.display = "none";
+    }
+  });
+
+  // Ao selecionar colaborador: preenche nome/email e esconde os campos
+  document.getElementById("mdUsrColaborador")?.addEventListener("change", function () {
+    const wrap = document.getElementById("mdUsrNomeEmailWrap");
+    const opt  = this.options[this.selectedIndex];
+    if (this.value) {
+      document.getElementById("mdUsrNome").value  = opt.dataset.nome  || "";
+      document.getElementById("mdUsrEmail").value = opt.dataset.email || "";
+      if (wrap) wrap.style.display = "none";
+    } else {
+      document.getElementById("mdUsrNome").value  = "";
+      document.getElementById("mdUsrEmail").value = "";
+      if (wrap) wrap.style.display = "";
+    }
+  });
 }
 
 function _cfgFecharModalUsuario() {
@@ -9451,16 +9638,24 @@ function _cfgFecharModalUsuario() {
 }
 
 async function _cfgSalvarUsuario(id) {
+  const role = document.getElementById("mdUsrRole")?.value;
+  const isCliente = role === "cliente";
+  const nomeEl  = isCliente ? document.getElementById("mdUsrNomeCliente")  : document.getElementById("mdUsrNome");
+  const emailEl = isCliente ? document.getElementById("mdUsrEmailCliente") : document.getElementById("mdUsrEmail");
+
   const payload = {
-    nome:  document.getElementById("mdUsrNome")?.value?.trim(),
-    email: document.getElementById("mdUsrEmail")?.value?.trim().toLowerCase(),
-    role:  document.getElementById("mdUsrRole")?.value,
-    condominio_id: document.getElementById("mdUsrCondo")?.value || null,
+    nome:  nomeEl?.value?.trim(),
+    email: emailEl?.value?.trim().toLowerCase(),
+    role,
+    condominio_id: isCliente ? (document.getElementById("mdUsrCondo")?.value || null) : null,
   };
   if (!id) payload.senha = document.getElementById("mdUsrSenha")?.value;
 
+  if (!payload.role) return _cfgMostrarMsg("mdUsrMsg", "Selecione o tipo de acesso", "err");
   if (!payload.nome || !payload.email) return _cfgMostrarMsg("mdUsrMsg", "Nome e email obrigatórios", "err");
   if (!id && (!payload.senha || payload.senha.length < 6)) return _cfgMostrarMsg("mdUsrMsg", "Senha mínima de 6 caracteres", "err");
+
+  const tecnicoSelecionadoId = !id ? (Number(document.getElementById("mdUsrColaborador")?.value) || null) : null;
 
   try {
     const url = id ? `/admin/usuarios/${id}` : "/admin/usuarios";
@@ -9472,6 +9667,16 @@ async function _cfgSalvarUsuario(id) {
     });
     const data = await r.json();
     if (!r.ok) return _cfgMostrarMsg("mdUsrMsg", data.error || "Erro", "err");
+
+    // Se for técnico com colaborador selecionado, vincula o usuario_id ao registro de técnico
+    if (!id && payload.role === "tecnico" && tecnicoSelecionadoId && data.id) {
+      await fetch(`/tecnicos/${tecnicoSelecionadoId}`, {
+        method: "PATCH",
+        headers: { ...authHeaders(), "Content-Type": "application/json" },
+        body: JSON.stringify({ usuario_id: data.id }),
+      });
+    }
+
     _cfgFecharModalUsuario();
     _cfgCarregarUsuarios();
   } catch (e) {
@@ -11246,15 +11451,15 @@ function _avRenderPainel() {
   ).join("");
 
   wrap.innerHTML = `
-    <div class="ap-head">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--border);">
       <div>
-        <div class="ap-title">${_waEscaparHtml(o.numero || "Novo orçamento")}</div>
-        <div class="ap-sub">
+        <div style="font-size:15px;font-weight:700;color:var(--text);line-height:1.2;">${_waEscaparHtml(o.numero || "Novo orçamento")}</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px;display:flex;align-items:center;gap:6px;">
           <span class="orc-status-pill ${_avStatusCls(o.status)}">${_avStatusLabel(o.status)}</span>
-          · ${_orcFmtData(o.criado_em)}
+          <span>· ${_orcFmtData(o.criado_em)}</span>
         </div>
       </div>
-      <button class="ap-close" data-av-action="fechar" title="Fechar">×</button>
+      <button class="ap-close" data-av-action="fechar" title="Fechar" style="margin-top:2px;">×</button>
     </div>
 
     <div class="ap-section orc-form-section">
@@ -12367,6 +12572,7 @@ async function _pmAbrirModal(plano) {
   await _pmCarregarCondos();
   const isEdit = !!plano;
   document.getElementById("pmModalTitulo").textContent = isEdit ? "Editar plano" : "Novo plano";
+  document.getElementById("pmModalSubtitulo").textContent = isEdit ? "Atualize os dados do plano de manutenção" : "Preencha os dados para criar um plano de manutenção";
 
   const condoOpts = _pmCondosCache.map(c =>
     `<option value="${c.id}" ${plano?.condominio_id === c.id ? "selected" : ""}>${_waEscaparHtml(c.nome)}</option>`
@@ -12387,38 +12593,55 @@ async function _pmAbrirModal(plano) {
 
   const body = document.getElementById("pmModalBody");
   body.innerHTML = `
-    <div style="display:flex;flex-direction:column;gap:12px;">
-      <label style="font-size:11px;color:var(--muted);">Condomínio
-        <select id="pmFCondo" class="input">
-          <option value="">— escolha —</option>
-          ${condoOpts}
-        </select>
-      </label>
-      <label style="font-size:11px;color:var(--muted);">Título do plano
-        <input id="pmFTitulo" class="input" type="text" maxlength="255" placeholder="Ex: Limpeza de caixa d'água" value="${_waEscaparHtml(plano?.titulo || "")}">
-      </label>
-      <label style="font-size:11px;color:var(--muted);">Descrição (opcional)
-        <textarea id="pmFDescricao" class="input" rows="3" maxlength="2000" placeholder="Detalhes do serviço a executar">${_waEscaparHtml(plano?.descricao || "")}</textarea>
-      </label>
-      <div style="display:flex;gap:12px;">
-        <label style="font-size:11px;color:var(--muted);flex:1;">Periodicidade
-          <select id="pmFPeriodPreset" class="input">${periodOpts}</select>
-        </label>
-        <label id="pmFPeriodCustomLabel" style="font-size:11px;color:var(--muted);flex:1;${periodCustom ? "" : "display:none;"}">Dias
-          <input id="pmFPeriodDias" class="input" type="number" min="1" max="3650" value="${periodAtual}">
-        </label>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+
+      <!-- Seção: informações -->
+      <div style="background:rgba(0,0,0,.2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;">
+        <div style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:10px;">Informações do plano</div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <div class="field">
+            <span class="lbl">Condomínio</span>
+            <select id="pmFCondo" class="input">
+              <option value="">— escolha —</option>
+              ${condoOpts}
+            </select>
+          </div>
+          <div class="field">
+            <span class="lbl">Título do plano</span>
+            <input id="pmFTitulo" class="input" type="text" maxlength="255" placeholder="Ex: Limpeza de caixa d'água" value="${_waEscaparHtml(plano?.titulo || "")}">
+          </div>
+          <div class="field">
+            <span class="lbl">Descrição (opcional)</span>
+            <textarea id="pmFDescricao" class="input" rows="2" maxlength="2000" placeholder="Detalhes do serviço a executar" style="resize:vertical;">${_waEscaparHtml(plano?.descricao || "")}</textarea>
+          </div>
+        </div>
       </div>
-      <label style="font-size:11px;color:var(--muted);">Próxima execução
-        <input id="pmFProxima" class="input" type="date" value="${proxVal}">
-      </label>
-      ${isEdit ? `<label style="font-size:11px;color:var(--muted);display:flex;gap:8px;align-items:center;cursor:pointer;">
-        <input id="pmFAtivo" type="checkbox" ${plano.ativo ? "checked" : ""}> Plano ativo
-      </label>` : ""}
-      <div id="pmFErr" style="font-size:11px;color:var(--danger);min-height:14px;"></div>
-      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:4px;">
-        <button class="btn btn-sm" id="pmFCancelar" type="button">Cancelar</button>
-        <button class="btn btnAccent btn-sm" id="pmFSalvar" type="button">${isEdit ? "Salvar" : "Criar plano"}</button>
+
+      <!-- Seção: periodicidade -->
+      <div style="background:rgba(0,0,0,.2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;">
+        <div style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:10px;">Periodicidade e agendamento</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div class="field">
+            <span class="lbl">Periodicidade</span>
+            <select id="pmFPeriodPreset" class="input">${periodOpts}</select>
+          </div>
+          <div class="field" id="pmFPeriodCustomLabel" style="${periodCustom ? "" : "display:none;"}">
+            <span class="lbl">Dias</span>
+            <input id="pmFPeriodDias" class="input" type="number" min="1" max="3650" value="${periodAtual}">
+          </div>
+          <div class="field" style="grid-column:1/-1;">
+            <span class="lbl">Próxima execução</span>
+            <input id="pmFProxima" class="input" type="date" value="${proxVal}">
+          </div>
+          ${isEdit ? `<div class="field" style="grid-column:1/-1;">
+            <label style="display:flex;gap:8px;align-items:center;cursor:pointer;font-size:12px;color:var(--text-dim);">
+              <input id="pmFAtivo" type="checkbox" ${plano.ativo ? "checked" : ""}> Plano ativo
+            </label>
+          </div>` : ""}
+        </div>
       </div>
+
+      <div id="pmFErr" style="font-size:11px;color:var(--danger);min-height:14px;padding:0 2px;"></div>
     </div>
   `;
 
@@ -12427,6 +12650,14 @@ async function _pmAbrirModal(plano) {
     document.getElementById("pmFPeriodCustomLabel").style.display = isCustom ? "block" : "none";
     if (!isCustom) document.getElementById("pmFPeriodDias").value = Number(ev.target.value);
   });
+
+  const footer = document.getElementById("pmModalFooter");
+  if (footer) {
+    footer.innerHTML = `
+      <button class="btn btn-sm" id="pmFCancelar" type="button">Cancelar</button>
+      <button class="btn btnAccent btn-sm" id="pmFSalvar" type="button">${isEdit ? "Salvar alterações" : "Criar plano"}</button>
+    `;
+  }
 
   document.getElementById("pmFCancelar")?.addEventListener("click", _pmFecharModal);
   document.getElementById("pmFSalvar")?.addEventListener("click", () => _pmSalvar(plano?.id));

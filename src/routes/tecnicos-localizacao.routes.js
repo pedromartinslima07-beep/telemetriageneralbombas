@@ -6,6 +6,22 @@ const { getConfigInt } = require("../services/config.service");
 
 const router = express.Router();
 
+// GET /tecnicos/me — perfil do técnico logado (usado pelo app mobile)
+router.get("/me", authRequired, async (req, res) => {
+  try {
+    const r = await pool.query(
+      `SELECT id, nome, email, telefone, especialidade, cargo, foto_url, disponivel
+         FROM tecnicos WHERE usuario_id = $1 AND ativo = true LIMIT 1`,
+      [req.user.id]
+    );
+    if (!r.rows.length) return res.status(404).json({ error: "Técnico não encontrado" });
+    return res.json(r.rows[0]);
+  } catch (err) {
+    console.error("[tecnicos] GET /me:", err);
+    return res.status(500).json({ error: "Erro ao buscar perfil" });
+  }
+});
+
 // GET /tecnicos/config — config operacional consumida pelo app no boot do
 // técnico. Aberto pra qualquer usuário autenticado (não vaza nada sensível).
 // Hoje só expõe a frequência do GPS, mas é o lugar pra adicionar futuros
@@ -39,6 +55,10 @@ router.post("/localizacao", authRequired, async (req, res) => {
   const precN = precisao_m != null ? Number(precisao_m) : null;
   if (precN !== null && !Number.isFinite(precN)) {
     return res.status(400).json({ error: "precisao_m inválido" });
+  }
+  // Rejeita geolocalização por IP puro (>15 km) — imprecisa demais pro mapa.
+  if (precN !== null && precN > 15000) {
+    return res.json({ ok: true });
   }
   const batN = bateria_pct != null ? Number(bateria_pct) : null;
   if (batN !== null && (!Number.isInteger(batN) || batN < 0 || batN > 100)) {
@@ -88,6 +108,22 @@ router.post("/localizacao", authRequired, async (req, res) => {
   }
 });
 
+// DELETE /tecnicos/localizacao — técnico avisa logout; remove posição do mapa imediatamente
+router.delete("/localizacao", authRequired, async (req, res) => {
+  try {
+    const tec = await pool.query(
+      `SELECT id FROM tecnicos WHERE usuario_id = $1 AND ativo = true LIMIT 1`,
+      [req.user.id]
+    );
+    if (tec.rows.length === 0) return res.json({ ok: true });
+    await pool.query(`DELETE FROM tecnico_localizacoes WHERE tecnico_id = $1`, [tec.rows[0].id]);
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("[tecnicos-localizacao] DELETE /localizacao:", err);
+    return res.status(500).json({ error: "Erro ao remover localização" });
+  }
+});
+
 // GET /tecnicos/localizacao — admin lê posição atual de todos os técnicos ativos
 router.get("/localizacao", authRequired, adminOnly, async (req, res) => {
   try {
@@ -112,6 +148,7 @@ router.get("/localizacao", authRequired, adminOnly, async (req, res) => {
         ORDER BY criado_em DESC
         LIMIT 1
       ) ch ON true
+      WHERE tl.atualizada_em > NOW() - INTERVAL '30 minutes'
       ORDER BY tl.atualizada_em DESC
     `);
     return res.json(result.rows);

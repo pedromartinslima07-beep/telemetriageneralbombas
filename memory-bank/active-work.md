@@ -61,6 +61,17 @@ Envs necessárias: `OPENAI_API_KEY`, `WHATSAPP_VERIFY_TOKEN`,
 6. 10B — few-shot por categoria (aguardar volume de conversas curadas).
 7. 7J — publicação Play Store.
 
+## Melhorias recentes (sessão 2026-06-05 — tarde)
+
+- **GPS técnicos — correções e UX de sinal fraco.**
+  - Conflito de rotas corrigido: `tecnicosLocalizacaoRouter` antes de `tecnicosRouter` em `app.js`.
+  - `GPS.lastError = "low_accuracy"` quando `acc > 15 km`; chip "Sinal fraco" + banner orientando o técnico.
+  - `maximumAge` revertido para 30 000 ms.
+  - Ícone de pin de técnico unificado entre MC map e mapa normal (`_tecPinIcon()`).
+  - Botões de ações em Configurações → Usuários viram ícones 28×28 px.
+  - `<meta name="mobile-web-app-capable">` adicionado ao app mobile.
+  - `admin.js?v=144`, `admin.css?v=102`.
+
 ## Melhorias recentes (sessão 2026-06-05)
 
 - **Ajustes de layout — ch-layout (Alertas, Chamados, Clientes, Colaboradores).**

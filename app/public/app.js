@@ -249,6 +249,11 @@ function abrirTelaTecnico(user) {
   showScreen("tecnico-chamados");
   carregarMeusChamados();
   iniciarPollingTecnico();
+  // Busca perfil completo (foto_url, especialidade) da tabela tecnicos
+  api("/tecnicos/me").then(perfil => {
+    TC.user = { ...TC.user, ...perfil };
+    document.getElementById("tcUserName").textContent = TC.user.nome || "Técnico";
+  }).catch(() => {});
   // Busca config operacional (frequência do GPS) — não bloqueia o resto.
   // Se falhar, GPS usa o default de 60s já hardcoded no módulo.
   aplicarConfigOperacional();
@@ -1451,6 +1456,9 @@ function gpsStop() {
   GPS.lastError = null;
   gpsRenderChip();
   gpsRenderAviso();
+  // Avisa o servidor para remover o marcador do mapa imediatamente.
+  // Fire-and-forget: logout não deve esperar resposta de rede.
+  api("/tecnicos/localizacao", { method: "DELETE" }).catch(() => {});
 }
 
 // Avalia a janela de operação e abre/fecha o watchPosition conforme.
@@ -1492,14 +1500,29 @@ function _gpsAbrirWatch() {
   GPS.watchId = navigator.geolocation.watchPosition(
     (pos) => {
       GPS.lastError = null;
-      GPS.last = {
-        lat: pos.coords.latitude,
-        lng: pos.coords.longitude,
-        precisao_m: pos.coords.accuracy,
-        ts: Date.now(),
-      };
-      gpsRenderAviso(); // some o banner se voltou a permissão
-      // Envia o primeiro imediatamente; daí em diante respeita PING_MS
+      const acc = pos.coords.accuracy;
+      // Descarta geolocalização por IP puro (>15 km) — imprecisa demais pro mapa.
+      if (acc > 15000) {
+        console.warn("[gps] descartado (IP-based):", Math.round(acc), "m");
+        GPS.lastError = "low_accuracy";
+        gpsRenderAviso();
+        return;
+      }
+      GPS.lastError = null;
+      // Só atualiza GPS.last se a nova posição for melhor OU a anterior tiver
+      // mais de 90 s (evita sumir em área sem GPS).
+      const anterior = GPS.last;
+      const maisRecente = !anterior || (Date.now() - anterior.ts) > 90000;
+      const maisExata   = !anterior || acc < anterior.precisao_m;
+      if (maisRecente || maisExata) {
+        GPS.last = {
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          precisao_m: acc,
+          ts: Date.now(),
+        };
+      }
+      gpsRenderAviso();
       const agora = Date.now();
       if (agora - GPS.lastSentTs >= GPS.PING_MS) gpsEnviar();
     },
@@ -1565,7 +1588,11 @@ function gpsRenderChip() {
     chip.className = "gps-chip";
     document.body.appendChild(chip);
   }
-  if (GPS.active) {
+  if (GPS.active && GPS.lastError === "low_accuracy") {
+    chip.title = "GPS ativo mas sinal fraco demais para o mapa";
+    chip.classList.add("gps-chip-paused");
+    chip.innerHTML = `<span class="gps-dot"></span><span class="gps-text">Sinal fraco</span>`;
+  } else if (GPS.active) {
     chip.title = "Localização ativa";
     chip.classList.remove("gps-chip-paused");
     chip.innerHTML = `<span class="gps-dot"></span><span class="gps-text">GPS ativo</span>`;
@@ -1594,7 +1621,10 @@ function gpsRenderAviso() {
   }
 
   let msg, cta;
-  if (err === 1) { // PERMISSION_DENIED
+  if (err === "low_accuracy") {
+    msg = "GPS com precisão baixa demais (sinal por IP). Ative o GPS do celular e vá para um local ao ar livre.";
+    cta = "Tentar novamente";
+  } else if (err === 1) { // PERMISSION_DENIED
     msg = "Permissão de localização negada. O escritório não consegue te localizar.";
     cta = "Permitir GPS";
   } else if (err === 2) { // POSITION_UNAVAILABLE
@@ -4480,9 +4510,6 @@ function renderContaTec() {
         <span class="cli-info-row-label">Janela ativa</span>
         <span class="cli-info-row-value">${String(GPS_HORA_INI).padStart(2,"0")}:00 às ${String(GPS_HORA_FIM).padStart(2,"0")}:00</span>
       </div>
-      <p class="hint" style="font-size:11.5px;color:var(--muted);margin:6px 2px 0;">
-        O rastreio é obrigatório enquanto você estiver logado e dentro do expediente. Fora do horário, nada é enviado.
-      </p>
     </section>
 
     <section class="card tec-card">
