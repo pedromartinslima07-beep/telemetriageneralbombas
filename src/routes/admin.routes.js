@@ -486,29 +486,46 @@ router.patch("/me/email-template", authRequired, async (req, res) => {
   }
 });
 
-// POST /admin/me/assinatura — upload de imagem de assinatura (base64)
-// Body: { base64: "data:image/png;base64,...", ext: "png" }
+// POST /admin/me/assinatura — upload de imagem de assinatura (base64 → banco)
+// Filesystem do Railway é efêmero; armazena em bytea no Postgres.
 router.post("/me/assinatura", authRequired, async (req, res) => {
   const { base64 } = req.body || {};
   if (!base64 || !base64.startsWith("data:image/")) {
     return res.status(400).json({ error: "Envie a imagem em base64 (data:image/...)" });
   }
   try {
-    const fs   = require("fs");
-    const path = require("path");
     const matches = base64.match(/^data:image\/(\w+);base64,(.+)$/s);
     if (!matches) return res.status(400).json({ error: "Formato base64 inválido" });
-    const ext    = matches[1].replace("jpeg", "jpg");
-    const buffer = Buffer.from(matches[2], "base64");
-    const dir    = path.join(__dirname, "../../public/assinaturas");
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    const filename = `user-${req.user.id}.${ext}`;
-    fs.writeFileSync(path.join(dir, filename), buffer);
-    const url = `/static/assinaturas/${filename}`;
-    return res.json({ url }); // salvamento no banco só via PATCH /me/email-template
+    const mimetype = `image/${matches[1]}`;
+    const buffer   = Buffer.from(matches[2], "base64");
+    await pool.query(
+      `UPDATE usuarios SET assinatura_blob = $2, assinatura_mimetype = $3 WHERE id = $1`,
+      [req.user.id, buffer, mimetype]
+    );
+    const url = `/admin/assinatura/${req.user.id}`;
+    return res.json({ url });
   } catch (err) {
     console.error("[admin] POST /me/assinatura:", err);
     return res.status(500).json({ error: "Erro ao salvar assinatura" });
+  }
+});
+
+// GET /admin/assinatura/:userId — serve a imagem de assinatura (pública, para e-mails)
+router.get("/assinatura/:userId", async (req, res) => {
+  const id = Number(req.params.userId);
+  if (!Number.isInteger(id) || id <= 0) return res.status(404).end();
+  try {
+    const r = await pool.query(
+      `SELECT assinatura_blob, assinatura_mimetype FROM usuarios WHERE id = $1`,
+      [id]
+    );
+    const row = r.rows[0];
+    if (!row?.assinatura_blob) return res.status(404).end();
+    res.setHeader("Content-Type", row.assinatura_mimetype || "image/png");
+    res.setHeader("Cache-Control", "public, max-age=86400");
+    return res.send(row.assinatura_blob);
+  } catch (err) {
+    return res.status(500).end();
   }
 });
 
