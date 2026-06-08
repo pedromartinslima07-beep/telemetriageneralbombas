@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">General Bombas</string>
+    <string name="title_activity_main">General Bombas</string>
+    <string name="package_name">com.generalbombas.app</string>
+    <string name="custom_url_scheme">com.generalbombas.app</string>
+</resources>
