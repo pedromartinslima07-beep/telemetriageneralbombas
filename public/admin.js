@@ -7803,12 +7803,10 @@ async function gerarRelChamados() {
   const condoMap = {};
   dados.forEach(d => {
     const n = d.condominio_nome || "Sem condomínio";
-    if (!condoMap[n]) condoMap[n] = { total:0, abertos:0, slaArr:[] };
+    if (!condoMap[n]) condoMap[n] = { total:0, abertos:0 };
     condoMap[n].total++;
     if (d.status !== "fechado") condoMap[n].abertos++;
-    if (d.sla_horas != null) condoMap[n].slaArr.push(Number(d.sla_horas));
   });
-  const top5 = Object.entries(condoMap).sort(([,a],[,b])=>b.total-a.total).slice(0,5);
   const top5problemas = Object.entries(condoMap)
     .map(([nome,d]) => ({ nome, score: d.abertos*3 + d.total, abertos: d.abertos, total: d.total }))
     .sort((a,b) => b.score-a.score).slice(0,5);
@@ -7840,24 +7838,6 @@ async function gerarRelChamados() {
       if (el) el.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted);font-size:12px;">Sem chamados com categoria</div>`;
     }
   });
-
-  const top5tbody = document.getElementById("relChTop5Body");
-  if (top5tbody) {
-    const maxT5 = top5.length ? top5[0][1].total : 1;
-    top5tbody.innerHTML = top5.map(([nome, d]) => {
-      const slaM = d.slaArr.length ? d.slaArr.reduce((a,b)=>a+b,0)/d.slaArr.length : null;
-      const pct  = Math.round((d.total / maxT5) * 100);
-      return `<tr>
-        <td>
-          <div style="font-size:12px;line-height:1.3;">${_waEscaparHtml(nome)}</div>
-          <div class="rel-prog"><div class="rel-prog-fill" style="width:${pct}%;"></div></div>
-        </td>
-        <td style="text-align:right;">${d.total}</td>
-        <td style="text-align:right;">${d.abertos>0?`<span class="badge b-bad">${d.abertos}</span>`:`<span class="badge b-ok">0</span>`}</td>
-        <td style="text-align:right;">${slaM!=null?_relSlaFmt(slaM):"-"}</td>
-      </tr>`;
-    }).join("");
-  }
 
   const problemasTbody = document.getElementById("relChProblemaBody");
   if (problemasTbody) {
