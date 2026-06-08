@@ -1342,13 +1342,16 @@ router.post("/orcamentos/avulsos/:id/enviar-email", authRequired, adminOnly, asy
 
     // Template do usuário logado (fallback para defaults do serviço de e-mail)
     const tplR = await pool.query(
-      `SELECT email_mensagem, assinatura_email_url FROM usuarios WHERE id = $1`,
+      `SELECT email_mensagem, assinatura_blob, assinatura_mimetype FROM usuarios WHERE id = $1`,
       [req.user.id]
     );
     const tpl = tplR.rows[0] || {};
     // O body pode sobrescrever por orçamento específico
-    const mensagem       = req.body?.mensagem       ?? tpl.email_mensagem       ?? null;
-    const assinaturaUrl  = req.body?.assinatura_url ?? tpl.assinatura_email_url ?? null;
+    const mensagem = req.body?.mensagem ?? tpl.email_mensagem ?? null;
+    // Embute a imagem como data URI para não depender de URL externa (bloqueada por clientes de email)
+    const assinaturaDataUrl = tpl.assinatura_blob
+      ? `data:${tpl.assinatura_mimetype || "image/png"};base64,${tpl.assinatura_blob.toString("base64")}`
+      : null;
 
     // Gera o PDF e lê como buffer pra anexar
     const fs = require("fs");
@@ -1365,7 +1368,7 @@ router.post("/orcamentos/avulsos/:id/enviar-email", authRequired, adminOnly, asy
       pdfBuffer,
       filename: `orcamento-${orc.numero || id}.pdf`,
       mensagem,
-      assinaturaUrl,
+      assinaturaDataUrl,
     });
 
     const enviadoPara = to.join(", ");

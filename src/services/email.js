@@ -270,13 +270,8 @@ async function sendOrcamentoCliente(dados) {
     ? String(dados.mensagem).trim()
     : `Segue em anexo o orçamento ${numero} referente a ${condo}.\n\nQualquer dúvida, estamos à disposição.`;
 
-  const baseUrl = process.env.APP_URL || "https://telemetria.generalbombas.com";
-  const assinaturaAbsoluta = dados.assinaturaUrl
-    ? (dados.assinaturaUrl.startsWith("http") ? dados.assinaturaUrl : `${baseUrl}${dados.assinaturaUrl}`)
-    : null;
-
-  const assinaturaHtml = assinaturaAbsoluta
-    ? `<div style="margin-top:24px;"><img src="${assinaturaAbsoluta}" alt="Assinatura" style="max-width:100%;height:auto;display:block;" /></div>`
+  const assinaturaHtml = dados.assinaturaDataUrl
+    ? `<div style="margin-top:24px;"><img src="${dados.assinaturaDataUrl}" alt="Assinatura" style="max-width:100%;height:auto;display:block;" /></div>`
     : `<p style="margin-top:24px;font-size:12px;color:#6b7280;">General Bombas</p>`;
 
   const mensagemHtml = mensagem
