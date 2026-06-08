@@ -398,59 +398,19 @@
       <div class="section" data-section="alertas">
 
         <!-- KPIs -->
-        <div class="al-kpis al-kpis-3col">
-          <div class="rc rc-bad rc-static" data-al-kpi-tab="critico" title="Filtrar críticos">
-            <div class="rc-head">
-              <div class="rc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
-              <div class="rc-label">Críticos</div>
-            </div>
-            <div class="rc-value" id="alKpiCritico">—</div>
-            <div class="rc-hint">Ativos agora</div>
-          </div>
-          <div class="rc rc-warn rc-static" data-al-kpi-tab="atencao" title="Filtrar atenção">
-            <div class="rc-head">
-              <div class="rc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg></div>
-              <div class="rc-label">Atenção</div>
-            </div>
-            <div class="rc-value" id="alKpiAtencao">—</div>
-            <div class="rc-hint">Ativos agora</div>
-          </div>
-          <div class="rc rc-neutral rc-static">
-            <div class="rc-head">
-              <div class="rc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
-              <div class="rc-label">Total</div>
-            </div>
-            <div class="rc-value" id="alKpiTotal">—</div>
-            <div class="rc-hint">Abertos no momento</div>
-          </div>
-        </div>
+        <div class="resumo-grid" id="alKpiGrid" style="margin-bottom:16px;"></div>
 
-        <section class="card al-card">
-          <div class="cardHead">
-            <h2>
-              <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-                <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-              </svg>
-              Alertas
-            </h2>
-            <span class="hint">Somente do seu condomínio</span>
-          </div>
-
-          <div class="al-toolbar">
-            <div class="al-tabs" role="tablist">
-              <button class="al-tab is-active" data-al-tab="todos" type="button">Todos <span class="al-count" id="alCountTodos">0</span></button>
-              <button class="al-tab" data-al-tab="critico" type="button">Críticos <span class="al-count" id="alCountCritico">0</span></button>
-              <button class="al-tab" data-al-tab="atencao" type="button">Atenção <span class="al-count" id="alCountAtencao">0</span></button>
-            </div>
-            <div class="al-filters">
+        <div class="ch-layout">
+          <div class="ch-list-col">
+            <div class="ch-toolbar">
+              <div class="wa-tabs al-tabs" role="tablist">
+                <button class="wa-tab al-tab is-active" data-al-tab="todos" type="button">Todos <span class="wa-count al-count" id="alCountTodos">0</span></button>
+                <button class="wa-tab al-tab" data-al-tab="critico" type="button">Críticos <span class="wa-count al-count" id="alCountCritico">0</span></button>
+                <button class="wa-tab al-tab" data-al-tab="atencao" type="button">Atenção <span class="wa-count al-count" id="alCountAtencao">0</span></button>
+              </div>
               <input id="alBusca" class="input" placeholder="Buscar por tipo ou mensagem…">
-              <button class="btn btn-sm" id="alBtnLimpar" type="button">Limpar</button>
             </div>
-          </div>
-
-          <div class="al-grid">
-            <div class="al-tableWrap">
+            <div class="tableWrap ch-table-wrap al-tableWrap">
               <table class="al-table">
                 <thead>
                   <tr>
@@ -463,7 +423,6 @@
                 </thead>
                 <tbody id="tbodyAlertasCliente"></tbody>
               </table>
-
               <div id="semAlertas" class="al-empty" style="display:none;">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
@@ -471,17 +430,17 @@
                 <p>Nenhum alerta ativo no momento.</p>
               </div>
             </div>
-
-            <aside class="al-painel" id="alPainel">
-              <div class="al-empty">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                  <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
-                </svg>
-                <p>Clique numa linha pra ver os detalhes</p>
-              </div>
-            </aside>
           </div>
-        </section>
+
+          <aside class="ch-detail-col al-painel" id="alPainel">
+            <div class="al-empty">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+              <p>Clique numa linha pra ver os detalhes</p>
+            </div>
+          </aside>
+        </div>
       </div><!-- /section alertas -->
 
       <!-- ===== SECTION: CHAMADOS ===== -->
@@ -736,7 +695,7 @@
 <script src="/static/chart.umd.min.js"></script>
 <script src="/static/apexcharts.min.js"></script>
 <script src="/static/inatividade.js" defer></script>
-<script src="/static/cliente.js?v=17" defer></script>
+<script src="/static/cliente.js?v=18" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
 <script src="/static/register-sw.js" defer></script>
 </body>

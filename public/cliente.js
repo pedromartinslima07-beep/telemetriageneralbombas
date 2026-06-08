@@ -943,10 +943,22 @@ function _alRender() {
   const atencao  = _alAlertas.filter(a => _alSeveridade(a.tipo) === "atencao").length;
   const total    = _alAlertas.length;
 
+  const kpiGrid = document.getElementById("alKpiGrid");
+  if (kpiGrid) kpiGrid.innerHTML = `
+    <div class="rc rc-bad rc-static">
+      <div class="rc-head"><div class="rc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div><div class="rc-label">Críticos</div></div>
+      <div class="rc-value">${criticos}</div><div class="rc-hint">Ativos agora</div>
+    </div>
+    <div class="rc rc-warn rc-static">
+      <div class="rc-head"><div class="rc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg></div><div class="rc-label">Atenção</div></div>
+      <div class="rc-value">${atencao}</div><div class="rc-hint">Ativos agora</div>
+    </div>
+    <div class="rc rc-neutral rc-static">
+      <div class="rc-head"><div class="rc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div><div class="rc-label">Total</div></div>
+      <div class="rc-value">${total}</div><div class="rc-hint">Abertos no momento</div>
+    </div>`;
+
   const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
-  set("alKpiCritico", criticos);
-  set("alKpiAtencao", atencao);
-  set("alKpiTotal",   total);
   set("alCountTodos",    total);
   set("alCountCritico",  criticos);
   set("alCountAtencao",  atencao);
@@ -1089,13 +1101,8 @@ function _alBindEventos() {
 
   // Busca
   document.getElementById("alBusca")?.addEventListener("input", _alRender);
-  document.getElementById("alBtnLimpar")?.addEventListener("click", () => {
-    const b = document.getElementById("alBusca");
-    if (b) b.value = "";
-    _alTabAtiva = "todos";
-    document.querySelectorAll(".al-tab[data-al-tab]").forEach(t => t.classList.toggle("is-active", t.dataset.alTab === "todos"));
-    _alSelecionadoId = null;
-    _alRender();
+  document.getElementById("alBusca")?.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") { e.target.value = ""; _alRender(); }
   });
 
   // Click na linha → seleciona e mostra painel
