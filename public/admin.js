@@ -2813,7 +2813,10 @@ function renderTecTabela() {
       ? `<span class="tec-row-avatar"><img src="${t.foto_url}" alt=""></span>`
       : `<span class="tec-row-avatar">${_tecIniciais(t.nome)}</span>`;
     const locEntry = (Array.isArray(_tecLocs) ? _tecLocs : []).find(l => l.tecnico_id === t.id);
-    const onlineDot = `<span title="${locEntry ? "Online agora" : "Offline"}" style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${locEntry ? "#22c55e" : "var(--muted)"};margin-right:6px;flex-shrink:0;"></span>`;
+    const _locStale = locEntry ? _tecStale(locEntry.capturada_em) : false;
+    const _dotColor = !locEntry ? "var(--muted)" : _locStale ? "#f59e0b" : "#22c55e";
+    const _dotTitle = !locEntry ? "Offline" : _locStale ? "Sem sinal" : "Online agora";
+    const onlineDot = `<span title="${_dotTitle}" style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${_dotColor};margin-right:6px;flex-shrink:0;"></span>`;
     return `<tr class="ch-row${sel}" data-tec-id="${t.id}" style="cursor:pointer;">
       <td style="font-weight:500;font-size:12px;display:flex;align-items:center;">${avatarHtml}${onlineDot}${_waEscaparHtml(t.nome)}</td>
       <td>${cargoBadge}</td>
@@ -2848,12 +2851,17 @@ function renderTecDetalhe(t) {
     : `<div class="tec-det-avatar">${_tecIniciais(t.nome)}</div>`;
 
   const locEntry = (Array.isArray(_tecLocs) ? _tecLocs : []).find(l => l.tecnico_id === t.id);
-  const onlineStatusHtml = locEntry
-    ? `<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;background:rgba(34,197,94,.15);color:#22c55e;">
-        <span style="width:6px;height:6px;border-radius:50%;background:#22c55e;display:inline-block;"></span>Online agora
-       </span>`
-    : `<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;background:rgba(100,116,139,.12);color:var(--muted);">
+  const locStale = locEntry ? _tecStale(locEntry.capturada_em) : false;
+  const onlineStatusHtml = !locEntry
+    ? `<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;background:rgba(100,116,139,.12);color:var(--muted);">
         <span style="width:6px;height:6px;border-radius:50%;background:var(--muted);display:inline-block;"></span>Offline
+       </span>`
+    : locStale
+    ? `<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;background:rgba(245,158,11,.12);color:#f59e0b;">
+        <span style="width:6px;height:6px;border-radius:50%;background:#f59e0b;display:inline-block;"></span>Sem sinal · ${_tempoRelativo(locEntry.capturada_em)}
+       </span>`
+    : `<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;background:rgba(34,197,94,.15);color:#22c55e;">
+        <span style="width:6px;height:6px;border-radius:50%;background:#22c55e;display:inline-block;"></span>Online agora
        </span>`;
 
   // Chamados atribuídos a este técnico
