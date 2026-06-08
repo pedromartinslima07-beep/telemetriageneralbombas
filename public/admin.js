@@ -11636,7 +11636,6 @@ function _avRenderLinhas() {
 
 // Modal "Configurar e-mail" — salva mensagem e assinatura padrão do usuário logado
 async function _avAbrirConfigurarEmail() {
-  // Carrega template atual
   let tpl = {};
   try {
     const r = await fetch("/admin/me/email-template", { headers: authHeaders() });
@@ -11644,36 +11643,45 @@ async function _avAbrirConfigurarEmail() {
   } catch (_) {}
 
   const ov = document.createElement("div");
-  ov.id = "avCfgEmailOverlay";
-  ov.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:300;display:flex;align-items:center;justify-content:center;padding:16px;";
+  ov.className = "modalOverlay";
+  ov.style.display = "flex";
   ov.innerHTML = `
-    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:22px 24px;width:520px;max-width:96vw;box-shadow:0 24px 64px rgba(0,0,0,.6);">
-      <div style="font-size:15px;font-weight:700;margin-bottom:4px;">Configurar e-mail padrão</div>
-      <div style="font-size:12px;color:var(--muted);margin-bottom:16px;">Salvo por usuário — pré-preenchido ao enviar qualquer orçamento</div>
-
-      <label class="lbl" style="display:block;margin-bottom:4px;">Mensagem</label>
-      <textarea id="avCfgMsg" class="input" rows="5" placeholder="Segue em anexo o orçamento..." style="width:100%;resize:vertical;">${_waEscaparHtml(tpl.email_mensagem || "")}</textarea>
-
-      <label class="lbl" style="display:block;margin-top:14px;margin-bottom:4px;">Assinatura (imagem PNG/JPG)</label>
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
-        <input id="avCfgAssinaturaFile" type="file" accept="image/png,image/jpeg,image/jpg" style="flex:1;font-size:12px;" />
-        <span id="avCfgAssinaturaStatus" style="font-size:11px;color:var(--muted);"></span>
+    <div class="modalBox" style="max-width:500px;">
+      <div class="modalHead">
+        <div>
+          <div class="modalTitle">Configurar e-mail padrão</div>
+          <div class="modalSub">Salvo por usuário — pré-preenchido ao enviar qualquer orçamento</div>
+        </div>
+        <button class="btn btn-sm" id="avCfgEmailFechar">Fechar</button>
       </div>
-      ${tpl.assinatura_email_url ? `<img id="avCfgAssinaturaPreview" src="${_waEscaparHtml(tpl.assinatura_email_url)}" alt="Assinatura atual" style="max-width:100%;max-height:80px;object-fit:contain;border:1px solid var(--border);border-radius:6px;padding:6px;background:white;" />` : `<div id="avCfgAssinaturaPreview" style="display:none;"></div>`}
-
-      <div id="avCfgEmailMsg" style="min-height:16px;font-size:12px;margin-top:10px;"></div>
-      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px;">
-        <button class="btn btn-sm" id="avCfgEmailCancelar">Cancelar</button>
-        <button class="btn btnAccent btn-sm" id="avCfgEmailSalvar">Salvar padrão</button>
+      <div class="modalBody">
+        <div class="modalTools"><div class="modalCount" id="avCfgEmailMsg"></div></div>
+        <form class="formGrid" style="grid-template-columns:1fr;" onsubmit="return false;">
+          <label class="f">
+            <span>Mensagem</span>
+            <textarea id="avCfgMsg" class="input" rows="6" placeholder="Segue em anexo o orçamento..." style="resize:vertical;">${_waEscaparHtml(tpl.email_mensagem || "")}</textarea>
+          </label>
+          <label class="f">
+            <span>Assinatura <small style="font-weight:400;color:var(--muted);">(PNG ou JPG)</small></span>
+            <input id="avCfgAssinaturaFile" type="file" accept="image/png,image/jpeg,image/jpg" class="input" style="padding:6px;" />
+          </label>
+          ${tpl.assinatura_email_url
+            ? `<div><div class="hint" style="margin-bottom:6px;">Assinatura atual:</div><img id="avCfgAssinaturaPreview" src="${_waEscaparHtml(tpl.assinatura_email_url)}" alt="Assinatura" style="max-height:80px;object-fit:contain;border:1px solid var(--border);border-radius:6px;padding:8px;background:#fff;display:block;" /></div>`
+            : `<img id="avCfgAssinaturaPreview" style="display:none;max-height:80px;object-fit:contain;border:1px solid var(--border);border-radius:6px;padding:8px;background:#fff;" />`}
+          <div class="formActions">
+            <button class="btn" type="button" id="avCfgEmailCancelar">Cancelar</button>
+            <button class="btn btnAccent" type="button" id="avCfgEmailSalvar">Salvar padrão</button>
+          </div>
+        </form>
       </div>
     </div>`;
   document.body.appendChild(ov);
 
   const fechar = () => ov.remove();
   ov.addEventListener("click", e => { if (e.target === ov) fechar(); });
+  document.getElementById("avCfgEmailFechar").addEventListener("click", fechar);
   document.getElementById("avCfgEmailCancelar").addEventListener("click", fechar);
 
-  // Preview ao escolher arquivo
   document.getElementById("avCfgAssinaturaFile").addEventListener("change", (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -11686,9 +11694,8 @@ async function _avAbrirConfigurarEmail() {
   });
 
   document.getElementById("avCfgEmailSalvar").addEventListener("click", async () => {
-    const statusEl = document.getElementById("avCfgAssinaturaStatus");
-    const msgEl    = document.getElementById("avCfgEmailMsg");
-    const salvar   = document.getElementById("avCfgEmailSalvar");
+    const msgEl  = document.getElementById("avCfgEmailMsg");
+    const salvar = document.getElementById("avCfgEmailSalvar");
     salvar.disabled = true;
     msgEl.style.color = "var(--muted)";
     msgEl.textContent = "Salvando…";
@@ -11696,10 +11703,9 @@ async function _avAbrirConfigurarEmail() {
     try {
       let assinatura_email_url = tpl.assinatura_email_url || null;
 
-      // Upload da imagem se selecionada
       const file = document.getElementById("avCfgAssinaturaFile").files[0];
       if (file) {
-        if (statusEl) statusEl.textContent = "Enviando imagem…";
+        msgEl.textContent = "Enviando imagem…";
         const base64 = await new Promise((res, rej) => {
           const r = new FileReader();
           r.onload = e => res(e.target.result);
@@ -11714,10 +11720,8 @@ async function _avAbrirConfigurarEmail() {
         const upJ = await up.json();
         if (!up.ok) throw new Error(upJ.error || "Erro no upload");
         assinatura_email_url = upJ.url;
-        if (statusEl) statusEl.textContent = "✓";
       }
 
-      // Salva mensagem (e URL se já veio do upload acima)
       const mensagem = document.getElementById("avCfgMsg").value;
       const patch = await fetch("/admin/me/email-template", {
         method: "PATCH",
@@ -11741,9 +11745,7 @@ async function _avAbrirConfigurarEmail() {
 async function _avAbrirEnvioEmail() {
   if (!_avSelecionado) return;
   const orc = _avSelecionado;
-  const pre = orc.condominio_email || "";
 
-  // Carrega template salvo do usuário
   let tpl = {};
   try {
     const r = await fetch("/admin/me/email-template", { headers: authHeaders() });
@@ -11752,41 +11754,54 @@ async function _avAbrirEnvioEmail() {
 
   const msgPadrao = tpl.email_mensagem || `Prezado(a),\n\nSegue em anexo o orçamento ${orc.numero || ""} referente ao seu condomínio.\n\nQualquer dúvida, estamos à disposição.`;
   const assinaturaUrl = tpl.assinatura_email_url || "";
+  const assinaturaHtml = assinaturaUrl
+    ? `<div><div class="hint" style="margin-bottom:6px;">Assinatura:</div><img src="${_waEscaparHtml(assinaturaUrl)}" alt="Assinatura" style="max-height:60px;object-fit:contain;border:1px solid var(--border);border-radius:6px;padding:6px;background:#fff;display:block;" /></div>`
+    : `<p class="hint">Sem assinatura configurada — use o botão <strong>E-mail</strong> (engrenagem) para definir.</p>`;
 
   const ov = document.createElement("div");
-  ov.id = "avEnvioOverlay";
-  ov.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:300;display:flex;align-items:center;justify-content:center;padding:16px;";
+  ov.className = "modalOverlay";
+  ov.style.display = "flex";
   ov.innerHTML = `
-    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:22px 24px;width:540px;max-width:96vw;box-shadow:0 24px 64px rgba(0,0,0,.6);">
-      <div style="font-size:15px;font-weight:700;margin-bottom:4px;">Enviar orçamento por e-mail</div>
-      <div style="font-size:12px;color:var(--muted);margin-bottom:16px;">${_waEscaparHtml(orc.numero || "")} · ${_waEscaparHtml(orc.condominio_nome || "—")}</div>
-
-      <label class="lbl" style="display:block;margin-bottom:4px;">Para <span style="font-weight:400;color:var(--muted);">(separe vários por vírgula)</span></label>
-      <input id="avEnvioPara" class="input" type="text" value="${_waEscaparHtml(pre)}" placeholder="cliente@email.com" style="width:100%;margin-bottom:12px;" />
-
-      <label class="lbl" style="display:block;margin-bottom:4px;">Mensagem</label>
-      <textarea id="avEnvioMsgTexto" class="input" rows="5" style="width:100%;resize:vertical;">${_waEscaparHtml(msgPadrao)}</textarea>
-
-      ${assinaturaUrl ? `<div style="margin-top:10px;"><div style="font-size:11px;color:var(--muted);margin-bottom:4px;">Assinatura:</div><img src="${_waEscaparHtml(assinaturaUrl)}" alt="Assinatura" style="max-height:60px;object-fit:contain;border:1px solid var(--border);border-radius:6px;padding:6px;background:white;" /></div>` : `<div style="margin-top:8px;font-size:11px;color:var(--muted);">Sem assinatura — configure em <strong>E-mail</strong> (ícone engrenagem).</div>`}
-
-      <div id="avEnvioMsg" class="hint" style="display:block;min-height:16px;margin-top:10px;"></div>
-      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:6px;">
-        <button class="btn btn-sm" id="avEnvioCancelar" type="button">Cancelar</button>
-        <button class="btn btnAccent btn-sm" id="avEnvioConfirmar" type="button">Enviar</button>
+    <div class="modalBox" style="max-width:520px;">
+      <div class="modalHead">
+        <div>
+          <div class="modalTitle">Enviar orçamento por e-mail</div>
+          <div class="modalSub">${_waEscaparHtml(orc.numero || "")} · ${_waEscaparHtml(orc.condominio_nome || "—")}</div>
+        </div>
+        <button class="btn btn-sm" id="avEnvioFechar">Fechar</button>
+      </div>
+      <div class="modalBody">
+        <div class="modalTools"><div class="modalCount" id="avEnvioMsg"></div></div>
+        <form class="formGrid" style="grid-template-columns:1fr;" onsubmit="return false;">
+          <label class="f">
+            <span>Para <small style="font-weight:400;color:var(--muted);">(separe vários por vírgula)</small></span>
+            <input id="avEnvioPara" class="input" type="text" value="${_waEscaparHtml(orc.condominio_email || "")}" placeholder="cliente@email.com" />
+          </label>
+          <label class="f">
+            <span>Mensagem</span>
+            <textarea id="avEnvioMsgTexto" class="input" rows="6" style="resize:vertical;">${_waEscaparHtml(msgPadrao)}</textarea>
+          </label>
+          ${assinaturaHtml}
+          <div class="formActions">
+            <button class="btn" type="button" id="avEnvioCancelar">Cancelar</button>
+            <button class="btn btnAccent" type="button" id="avEnvioConfirmar">Enviar</button>
+          </div>
+        </form>
       </div>
     </div>`;
   document.body.appendChild(ov);
 
   const fechar = () => ov.remove();
   ov.addEventListener("click", e => { if (e.target === ov) fechar(); });
+  document.getElementById("avEnvioFechar").addEventListener("click", fechar);
   document.getElementById("avEnvioCancelar").addEventListener("click", fechar);
   setTimeout(() => document.getElementById("avEnvioPara")?.focus(), 30);
 
   document.getElementById("avEnvioConfirmar").addEventListener("click", async () => {
-    const emails    = (document.getElementById("avEnvioPara")?.value || "").trim();
-    const mensagem  = (document.getElementById("avEnvioMsgTexto")?.value || "").trim();
-    const msg       = document.getElementById("avEnvioMsg");
-    const btn       = document.getElementById("avEnvioConfirmar");
+    const emails   = (document.getElementById("avEnvioPara")?.value || "").trim();
+    const mensagem = (document.getElementById("avEnvioMsgTexto")?.value || "").trim();
+    const msg      = document.getElementById("avEnvioMsg");
+    const btn      = document.getElementById("avEnvioConfirmar");
     if (msg) { msg.style.color = "var(--muted)"; msg.textContent = "Enviando…"; }
     if (btn) btn.disabled = true;
     try {
