@@ -2989,6 +2989,24 @@ select option { background: #14172a; color: #eef0fb; }
   /* Bombas: oculta "Atualização" */
   .layout-cli .tel-bombas-table th:nth-child(4),
   .layout-cli .tel-bombas-table td:nth-child(4) { display: none; }
+
+  /* ── ch-toolbar: empilha verticalmente ── */
+  .layout-cli .ch-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding: 8px 0;
+  }
+  .layout-cli .ch-toolbar .wa-tabs { flex: none; margin-top: 0; }
+  .layout-cli .ch-toolbar .input   { width: 100%; }
+  .layout-cli .ch-toolbar .btn     { margin-bottom: 0; }
+
+  /* ── Painel de detalhe: oculto até selecionado ── */
+  .layout-cli .ch-detail-col             { display: none; }
+  .layout-cli .ch-detail-col.is-open     { display: flex; flex-direction: column; }
+
+  /* ── KPIs chamados: 3 colunas (3 cards, sem linha quebrada) ── */
+  .layout-cli #chCliKpiGrid { grid-template-columns: repeat(3, minmax(0,1fr)) !important; }
 }
 
 /* ============================================================

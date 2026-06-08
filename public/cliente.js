@@ -1001,6 +1001,8 @@ function _alRenderPainel() {
   const wrap = document.getElementById("alPainel");
   if (!wrap) return;
 
+  wrap.classList.toggle("is-open", _alSelecionadoId != null);
+
   if (_alSelecionadoId == null) {
     wrap.innerHTML = `
       <div class="al-empty">
@@ -1453,6 +1455,8 @@ async function _chCliSelecionar(id) {
 function _chCliRenderDetalhe() {
   const col = document.getElementById("chCliDetailCol");
   if (!col) return;
+
+  col.classList.toggle("is-open", _chCliSelecionadoId != null);
 
   if (_chCliSelecionadoId == null) {
     col.innerHTML = `<div class="ch-detail-empty">
