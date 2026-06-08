@@ -301,34 +301,88 @@ router.delete("/:id/hard", authRequired, masterAdminOnly, async (req, res) => {
   try {
     await client.query("BEGIN");
 
-    // pega os device_ids dos reservatórios deste condomínio
-    const resRes = await client.query(
-      "SELECT device_id FROM reservatorios WHERE condominio_id = $1",
-      [idNum]
+    // Verifica existência
+    const existeRes = await client.query(
+      "SELECT id FROM condominios WHERE id = $1 LIMIT 1", [idNum]
     );
-    const deviceIds = resRes.rows.map((r) => r.device_id);
-
-    if (deviceIds.length > 0) {
-      await client.query(
-        "DELETE FROM leituras WHERE device_id = ANY($1::varchar[])",
-        [deviceIds]
-      );
-      await client.query(
-        "DELETE FROM alertas WHERE device_id = ANY($1::varchar[])",
-        [deviceIds]
-      );
-    }
-
-    // ON DELETE CASCADE remove reservatorios; ON DELETE SET NULL limpa usuarios
-    const del = await client.query(
-      "DELETE FROM condominios WHERE id = $1 RETURNING id",
-      [idNum]
-    );
-
-    if (del.rows.length === 0) {
+    if (existeRes.rows.length === 0) {
       await client.query("ROLLBACK");
       return res.status(404).json({ error: "Condomínio não encontrado" });
     }
+
+    // 1. IDs auxiliares necessários antes de deletar
+    const chamadosRes = await client.query(
+      "SELECT id FROM chamados WHERE condominio_id = $1", [idNum]
+    );
+    const chamadoIds = chamadosRes.rows.map((r) => r.id);
+
+    const osRes = await client.query(
+      `SELECT id FROM ordens_servico WHERE condominio_id = $1
+       ${chamadoIds.length ? "OR chamado_id = ANY($2::int[])" : ""}`,
+      chamadoIds.length ? [idNum, chamadoIds] : [idNum]
+    );
+    const osIds = osRes.rows.map((r) => r.id);
+
+    const deviceRes = await client.query(
+      "SELECT device_id FROM reservatorios WHERE condominio_id = $1", [idNum]
+    );
+    const deviceIds = deviceRes.rows.map((r) => r.device_id);
+
+    // 2. alerta_comentarios (sem FK — vínculo lógico com chamados e alertas)
+    if (chamadoIds.length) {
+      await client.query(
+        "DELETE FROM alerta_comentarios WHERE chamado_id = ANY($1::int[])",
+        [chamadoIds]
+      );
+    }
+    if (deviceIds.length) {
+      await client.query(
+        `DELETE FROM alerta_comentarios
+         WHERE alerta_id IN (SELECT id FROM alertas WHERE device_id = ANY($1::varchar[]))`,
+        [deviceIds]
+      );
+    }
+
+    // 3. orcamentos + orcamento_linhas (CASCADE de orcamentos)
+    await client.query(
+      "DELETE FROM orcamentos WHERE condominio_id = $1", [idNum]
+    );
+    if (osIds.length) {
+      await client.query(
+        "DELETE FROM orcamentos WHERE os_id = ANY($1::int[])", [osIds]
+      );
+    }
+
+    // 4. ordens_servico (CASCADE: os_fotos, os_pecas)
+    if (osIds.length) {
+      await client.query(
+        "DELETE FROM ordens_servico WHERE id = ANY($1::int[])", [osIds]
+      );
+    }
+
+    // 5. chamados (CASCADE: historico_chamados)
+    await client.query(
+      "DELETE FROM chamados WHERE condominio_id = $1", [idNum]
+    );
+
+    // 6. clientes_whatsapp (CASCADE: conversas_whatsapp → mensagens, qualidade)
+    await client.query(
+      "DELETE FROM clientes_whatsapp WHERE condominio_id = $1", [idNum]
+    );
+
+    // 7. telemetria
+    if (deviceIds.length) {
+      await client.query(
+        "DELETE FROM leituras WHERE device_id = ANY($1::varchar[])", [deviceIds]
+      );
+      await client.query(
+        "DELETE FROM alertas WHERE device_id = ANY($1::varchar[])", [deviceIds]
+      );
+    }
+
+    // 8. condomínio — CASCADE: reservatorios, planos_manutencao, contratos
+    //    SET NULL: usuarios.condominio_id (usuários não são deletados)
+    await client.query("DELETE FROM condominios WHERE id = $1", [idNum]);
 
     await client.query("COMMIT");
     return res.json({ ok: true });
