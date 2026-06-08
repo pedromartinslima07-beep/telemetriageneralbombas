@@ -7,13 +7,22 @@ function authHeaders() {
 }
 if (!getToken()) window.location.href = "/login";
 
+// Aplica role imediatamente do cache local para evitar flash de conteúdo restrito
+const _cachedRole = localStorage.getItem("userRole");
+if (_cachedRole) document.body.classList.add(`role-${_cachedRole}`);
+
 // Aplica body.role-{role} e preenche nome/foto do usuário logado no header
 (async () => {
   try {
     const r = await fetch("/admin/me", { headers: authHeaders() });
     if (!r.ok) return;
     const me = await r.json();
-    if (me.role) document.body.classList.add(`role-${me.role}`);
+    if (me.role) {
+      // Remove classe antiga se o role mudou, aplica a nova e persiste
+      if (_cachedRole && _cachedRole !== me.role) document.body.classList.remove(`role-${_cachedRole}`);
+      document.body.classList.add(`role-${me.role}`);
+      localStorage.setItem("userRole", me.role);
+    }
 
     const roleLabel = { admin: "Admin", gerente: "Admin", operador: "Admin", admin_viewer: "Visualizador", tecnico: "Técnico", cliente: "Cliente" }[me.role] || (me.role || "");
     const nome = me.nome || "Usuário";
@@ -129,6 +138,7 @@ function showSection(name) {
 function logout() {
   localStorage.removeItem("token");
   localStorage.removeItem("user");
+  localStorage.removeItem("userRole");
   window.location.href = "/login";
 }
 
