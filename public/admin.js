@@ -7,6 +7,17 @@ function authHeaders() {
 }
 if (!getToken()) window.location.href = "/login";
 
+// Aplica body.role-{role} para controle de visibilidade por CSS
+(async () => {
+  try {
+    const r = await fetch("/admin/me", { headers: authHeaders() });
+    if (r.ok) {
+      const me = await r.json();
+      if (me.role) document.body.classList.add(`role-${me.role}`);
+    }
+  } catch (_) {}
+})();
+
 function escapeHtml(s) {
   if (s == null) return "";
   return String(s)

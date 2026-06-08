@@ -5307,9 +5307,27 @@ body.mp-fs-active { overflow: hidden; }
 
 /* ============================================================
    ROLE-BASED VISIBILITY
-   Admin_viewer vê o sistema igual ao master, mas com botões de
-   escrita escondidos. body.role-viewer é setado no boot do admin.js.
+   body.role-{role} é setado no boot do admin.js via GET /admin/me.
+
+   Hierarquia:
+     admin    → acesso total
+     gerente  → acesso total exceto ações destrutivas (master-only-hide)
+     operador → acesso limitado: viewer-only-hide + master-only-hide ocultos
    ============================================================ */
+
+/* master-only-hide: só admin vê (ex: excluir permanentemente condomínio) */
+body.role-gerente .master-only-hide,
+body.role-operador .master-only-hide {
+  display: none !important;
+}
+
+/* viewer-only-hide: operador não vê ações de escrita */
+body.role-operador .viewer-only-hide,
+body.role-operador .viewer-only-hide-inline {
+  display: none !important;
+}
+
+/* Compatibilidade com role admin_viewer legado */
 body.role-viewer .viewer-only-hide,
 body.role-viewer .viewer-only-hide-inline {
   display: none !important;

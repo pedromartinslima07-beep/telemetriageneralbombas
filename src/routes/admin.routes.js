@@ -442,6 +442,19 @@ router.delete("/usuarios/:id", authRequired, masterAdminOnly, async (req, res) =
   }
 });
 
+// GET /admin/me — dados do usuário logado (role, nome, email)
+router.get("/me", authRequired, async (req, res) => {
+  try {
+    const r = await pool.query(
+      `SELECT id, nome, email, role FROM usuarios WHERE id = $1`,
+      [req.user.id]
+    );
+    return res.json(r.rows[0] || {});
+  } catch (err) {
+    return res.status(500).json({ error: "Erro ao buscar perfil" });
+  }
+});
+
 // GET /admin/me/email-template — retorna template de e-mail do usuário logado
 router.get("/me/email-template", authRequired, async (req, res) => {
   try {
