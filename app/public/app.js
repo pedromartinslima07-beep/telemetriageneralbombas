@@ -5,10 +5,11 @@
 // ============== CONFIG ==============
 const API_BASE = (() => {
   const proto = window.location.protocol;
-  if (proto === "capacitor:" || proto === "file:") {
-    return window.GB_API_BASE || "https://general-bombas.app";
+  const origin = window.location.origin;
+  if (proto === "capacitor:" || proto === "file:" || origin === "https://localhost") {
+    return window.GB_API_BASE || "https://telemetria.generalbombas.com";
   }
-  return window.location.origin;
+  return origin;
 })();
 
 const IS_CAPACITOR = window.location.protocol === "capacitor:";
@@ -1521,6 +1522,7 @@ function _gpsAbrirWatch() {
           precisao_m: acc,
           ts: Date.now(),
         };
+        TC.geo = { lat: GPS.last.lat, lng: GPS.last.lng, capturada_em: GPS.last.ts };
       }
       gpsRenderAviso();
       const agora = Date.now();

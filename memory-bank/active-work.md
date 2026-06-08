@@ -61,6 +61,15 @@ Envs necessárias: `OPENAI_API_KEY`, `WHATSAPP_VERIFY_TOKEN`,
 6. 10B — few-shot por categoria (aguardar volume de conversas curadas).
 7. 7J — publicação Play Store.
 
+## Melhorias recentes (sessão 2026-06-08 — APK de teste)
+
+- **Projeto Android gerado** (`app/android/`) — `@capacitor/android@6.1.0`, permissões GPS no manifesto, ícone via `@capacitor/assets` (favicon.png).
+- **`API_BASE` corrigido:** `androidScheme: "https"` fazia o protocolo ser `"https:"` em vez de `"capacitor:"`, desviando todas as chamadas para `https://localhost`. Fix: `|| origin === "https://localhost"` no detector em `app/public/app.js`.
+- **Chip GPS reposicionado:** `top: 10px` sobrepunha o header do técnico → `top: calc(env(safe-area-inset-top, 0px) + 72px)`.
+- **Footer "GPS aguardando..." corrigido:** `watchPosition` não atualizava `TC.geo`; agora sincroniza a cada fix válido.
+- **`OTP_DISABLED` sem guarda de prod** — temporário para testes, reverter após.
+- **Railway** configurado para branch `feature/app-mobile`; `CORS_ORIGINS` inclui `https://localhost`.
+
 ## Melhorias recentes (sessão 2026-06-05 — tarde)
 
 - **GPS técnicos — correções e UX de sinal fraco.**

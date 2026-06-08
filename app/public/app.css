@@ -2365,7 +2365,7 @@ body:has(.screen-auth[data-active])::before { display: none; }
    Não é clicável (política: técnico não pode pausar o rastreamento). ===== */
 .gps-chip {
   position: fixed;
-  top: 10px;
+  top: calc(env(safe-area-inset-top, 0px) + 72px);
   right: 10px;
   display: inline-flex;
   align-items: center;
