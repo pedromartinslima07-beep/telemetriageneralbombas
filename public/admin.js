@@ -12876,7 +12876,7 @@ function _pmBindEventos() {
 
   function _gsNavegar(item) {
     if (item.type === "condo") {
-      showSection("clientes");
+      showSection("cadastros");
       _cliFiltros.busca = "";
       _cliSelecionadoId = item.id;
       renderClientes();
