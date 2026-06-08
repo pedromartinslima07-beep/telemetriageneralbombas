@@ -12877,17 +12877,19 @@ function _pmBindEventos() {
   function _gsNavegar(item) {
     if (item.type === "condo") {
       showSection("cadastros");
-      _cliFiltros.busca = "";
+      _cliFiltros.busca = item.title;
       _cliSelecionadoId = item.id;
       renderClientes();
     } else if (item.type === "chamado") {
       showSection("chamados");
       _chSelecionadoId = item.id;
       renderChamados();
+      setTimeout(() => document.querySelector(`[data-ch-id="${item.id}"]`)?.scrollIntoView({ block: "nearest" }), 80);
     } else if (item.type === "tecnico") {
       showSection("tecnicos");
       _tecSelecionadoId = item.id;
       renderTecnicos();
+      setTimeout(() => document.querySelector(`[data-tec-id="${item.id}"]`)?.scrollIntoView({ block: "nearest" }), 80);
     } else if (item.type === "alerta") {
       showSection("alertas");
       _alSelecionadoKey = item.key;
