@@ -9470,7 +9470,7 @@ async function _cfgAbrirModalUsuario(usuario) {
   const isEdit = !!usuario;
   const condos = Array.isArray(_condominios) ? _condominios : [];
   const condoOpts = '<option value="">— sem condomínio —</option>' +
-    condos.map(c => `<option value="${c.id}" ${usuario?.condominio_id === c.id ? "selected" : ""}>${_waEscaparHtml(c.nome)}</option>`).join("");
+    condos.map(c => `<option value="${c.id}" ${usuario?.condominio_id === c.id ? "selected" : ""} data-responsavel="${_waEscaparHtml(c.responsavel || '')}" data-email="${_waEscaparHtml(c.email || '')}">${_waEscaparHtml(c.nome_fantasia || c.nome)}</option>`).join("");
   const overlay = document.getElementById("cfgModalOverlay");
   if (!overlay) return;
 
@@ -9597,6 +9597,17 @@ async function _cfgAbrirModalUsuario(usuario) {
     } else {
       if (secColab)   secColab.style.display   = "none";
       if (secCliente) secCliente.style.display = "none";
+    }
+  });
+
+  // Ao selecionar condomínio (cliente): preenche nome/email do responsável
+  document.getElementById("mdUsrCondo")?.addEventListener("change", function () {
+    const opt = this.options[this.selectedIndex];
+    if (this.value) {
+      const nomeField  = document.getElementById("mdUsrNomeCliente");
+      const emailField = document.getElementById("mdUsrEmailCliente");
+      if (nomeField  && !nomeField.value)  nomeField.value  = opt.dataset.responsavel || "";
+      if (emailField && !emailField.value) emailField.value = opt.dataset.email        || "";
     }
   });
 
