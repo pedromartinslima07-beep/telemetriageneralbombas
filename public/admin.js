@@ -9470,7 +9470,8 @@ async function _cfgAbrirModalUsuario(usuario) {
   const isEdit = !!usuario;
   const condos = Array.isArray(_condominios) ? _condominios : [];
   const condoOpts = '<option value="">— sem condomínio —</option>' +
-    condos.map(c => `<option value="${c.id}" ${usuario?.condominio_id === c.id ? "selected" : ""} data-responsavel="${_waEscaparHtml(c.responsavel || '')}" data-email="${_waEscaparHtml(c.email || '')}">${_waEscaparHtml(c.nome_fantasia || c.nome)}</option>`).join("");
+    condos.slice().sort((a, b) => (a.nome_fantasia || a.nome).localeCompare(b.nome_fantasia || b.nome, "pt-BR"))
+    .map(c => `<option value="${c.id}" ${usuario?.condominio_id === c.id ? "selected" : ""} data-responsavel="${_waEscaparHtml(c.responsavel || '')}" data-email="${_waEscaparHtml(c.email || '')}">${_waEscaparHtml(c.nome_fantasia || c.nome)}</option>`).join("");
   const overlay = document.getElementById("cfgModalOverlay");
   if (!overlay) return;
 
