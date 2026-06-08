@@ -1404,17 +1404,22 @@ function _chCliRender() {
   const tbody = document.getElementById("chCliTableBody");
   const empty = document.getElementById("chCliEmpty");
   if (!tbody) return;
+  const tableWrap = tbody.closest(".tableWrap");
 
   const lista = _chCliFiltrados();
   if (lista.length === 0) {
     tbody.innerHTML = "";
-    if (empty) empty.style.display = data.length === 0 ? "flex" : "none";
-    // Se filtrou mas não está vazio o dataset, mostra dentro da tabela
-    if (data.length > 0) {
+    if (data.length === 0) {
+      if (empty) empty.style.display = "flex";
+      if (tableWrap) tableWrap.style.display = "none";
+    } else {
+      if (empty) empty.style.display = "none";
+      if (tableWrap) tableWrap.style.display = "";
       tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px;">Nenhum chamado nesse filtro.</td></tr>`;
     }
   } else {
     if (empty) empty.style.display = "none";
+    if (tableWrap) tableWrap.style.display = "";
     tbody.innerHTML = lista.map(c => {
       const sel = _chCliSelecionadoId === c.id ? " is-selected" : "";
       return `<tr class="ch-row${sel}" data-ch-cli-id="${c.id}">
