@@ -442,6 +442,68 @@ router.delete("/usuarios/:id", authRequired, masterAdminOnly, async (req, res) =
   }
 });
 
+// GET /admin/me/email-template — retorna template de e-mail do usuário logado
+router.get("/me/email-template", authRequired, async (req, res) => {
+  try {
+    const r = await pool.query(
+      `SELECT email_mensagem, assinatura_email_url FROM usuarios WHERE id = $1`,
+      [req.user.id]
+    );
+    return res.json(r.rows[0] || {});
+  } catch (err) {
+    return res.status(500).json({ error: "Erro ao buscar template" });
+  }
+});
+
+// PATCH /admin/me/email-template — salva mensagem e/ou URL de assinatura
+router.patch("/me/email-template", authRequired, async (req, res) => {
+  const { email_mensagem, assinatura_email_url } = req.body || {};
+  try {
+    const r = await pool.query(
+      `UPDATE usuarios
+          SET email_mensagem       = COALESCE($2, email_mensagem),
+              assinatura_email_url = COALESCE($3, assinatura_email_url)
+        WHERE id = $1
+        RETURNING email_mensagem, assinatura_email_url`,
+      [req.user.id, email_mensagem ?? null, assinatura_email_url ?? null]
+    );
+    return res.json(r.rows[0]);
+  } catch (err) {
+    return res.status(500).json({ error: "Erro ao salvar template" });
+  }
+});
+
+// POST /admin/me/assinatura — upload de imagem de assinatura (base64)
+// Body: { base64: "data:image/png;base64,...", ext: "png" }
+router.post("/me/assinatura", authRequired, async (req, res) => {
+  const { base64 } = req.body || {};
+  if (!base64 || !base64.startsWith("data:image/")) {
+    return res.status(400).json({ error: "Envie a imagem em base64 (data:image/...)" });
+  }
+  try {
+    const fs   = require("fs");
+    const path = require("path");
+    const matches = base64.match(/^data:image\/(\w+);base64,(.+)$/s);
+    if (!matches) return res.status(400).json({ error: "Formato base64 inválido" });
+    const ext    = matches[1].replace("jpeg", "jpg");
+    const buffer = Buffer.from(matches[2], "base64");
+    const dir    = path.join(__dirname, "../../public/assinaturas");
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    const filename = `user-${req.user.id}.${ext}`;
+    fs.writeFileSync(path.join(dir, filename), buffer);
+    const url = `/static/assinaturas/${filename}`;
+    // Persiste URL no banco
+    await pool.query(
+      `UPDATE usuarios SET assinatura_email_url = $2 WHERE id = $1`,
+      [req.user.id, url]
+    );
+    return res.json({ url });
+  } catch (err) {
+    console.error("[admin] POST /me/assinatura:", err);
+    return res.status(500).json({ error: "Erro ao salvar assinatura" });
+  }
+});
+
 // POST /admin/usuarios/:id/reset-senha — gera senha temporária aleatória (master admin)
 // Retorna a senha gerada em texto puro UMA vez — admin deve compartilhar com o usuário.
 router.post("/usuarios/:id/reset-senha", authRequired, masterAdminOnly, async (req, res) => {
@@ -1251,6 +1313,16 @@ router.post("/orcamentos/avulsos/:id/enviar-email", authRequired, adminOnly, asy
       return res.status(400).json({ error: `E-mail(s) inválido(s): ${invalidos.join(", ")}` });
     }
 
+    // Template do usuário logado (fallback para defaults do serviço de e-mail)
+    const tplR = await pool.query(
+      `SELECT email_mensagem, assinatura_email_url FROM usuarios WHERE id = $1`,
+      [req.user.id]
+    );
+    const tpl = tplR.rows[0] || {};
+    // O body pode sobrescrever por orçamento específico
+    const mensagem       = req.body?.mensagem       ?? tpl.email_mensagem       ?? null;
+    const assinaturaUrl  = req.body?.assinatura_url ?? tpl.assinatura_email_url ?? null;
+
     // Gera o PDF e lê como buffer pra anexar
     const fs = require("fs");
     const { fpath } = await gerarPdfAvulso(id);
@@ -1265,6 +1337,8 @@ router.post("/orcamentos/avulsos/:id/enviar-email", authRequired, adminOnly, asy
       valorTotal: orc.valor_total,
       pdfBuffer,
       filename: `orcamento-${orc.numero || id}.pdf`,
+      mensagem,
+      assinaturaUrl,
     });
 
     const enviadoPara = to.join(", ");

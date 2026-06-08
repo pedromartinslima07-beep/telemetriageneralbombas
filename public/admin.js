@@ -11524,6 +11524,10 @@ function _avRenderPainel() {
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             Gerar PDF
           </button>
+          <button class="btn btn-sm" data-av-action="configurar-email" title="Configurar mensagem e assinatura padrão do e-mail">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            E-mail
+          </button>
           <button class="btn btn-sm av-btn-email" data-av-action="enviar-email">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
             Enviar por e-mail
@@ -11619,22 +11623,142 @@ function _avRenderLinhas() {
     </div>`;
 }
 
-// Confirmação de envio do orçamento por e-mail (pré-preenche com o e-mail do cadastro)
-function _avAbrirEnvioEmail() {
+// Modal "Configurar e-mail" — salva mensagem e assinatura padrão do usuário logado
+async function _avAbrirConfigurarEmail() {
+  // Carrega template atual
+  let tpl = {};
+  try {
+    const r = await fetch("/admin/me/email-template", { headers: authHeaders() });
+    if (r.ok) tpl = await r.json();
+  } catch (_) {}
+
+  const ov = document.createElement("div");
+  ov.id = "avCfgEmailOverlay";
+  ov.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:300;display:flex;align-items:center;justify-content:center;padding:16px;";
+  ov.innerHTML = `
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:22px 24px;width:520px;max-width:96vw;box-shadow:0 24px 64px rgba(0,0,0,.6);">
+      <div style="font-size:15px;font-weight:700;margin-bottom:4px;">Configurar e-mail padrão</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:16px;">Salvo por usuário — pré-preenchido ao enviar qualquer orçamento</div>
+
+      <label class="lbl" style="display:block;margin-bottom:4px;">Mensagem</label>
+      <textarea id="avCfgMsg" class="input" rows="5" placeholder="Segue em anexo o orçamento..." style="width:100%;resize:vertical;">${_waEscaparHtml(tpl.email_mensagem || "")}</textarea>
+
+      <label class="lbl" style="display:block;margin-top:14px;margin-bottom:4px;">Assinatura (imagem PNG/JPG)</label>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+        <input id="avCfgAssinaturaFile" type="file" accept="image/png,image/jpeg,image/jpg" style="flex:1;font-size:12px;" />
+        <span id="avCfgAssinaturaStatus" style="font-size:11px;color:var(--muted);"></span>
+      </div>
+      ${tpl.assinatura_email_url ? `<img id="avCfgAssinaturaPreview" src="${_waEscaparHtml(tpl.assinatura_email_url)}" alt="Assinatura atual" style="max-width:100%;max-height:80px;object-fit:contain;border:1px solid var(--border);border-radius:6px;padding:6px;background:white;" />` : `<div id="avCfgAssinaturaPreview" style="display:none;"></div>`}
+
+      <div id="avCfgEmailMsg" style="min-height:16px;font-size:12px;margin-top:10px;"></div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px;">
+        <button class="btn btn-sm" id="avCfgEmailCancelar">Cancelar</button>
+        <button class="btn btnAccent btn-sm" id="avCfgEmailSalvar">Salvar padrão</button>
+      </div>
+    </div>`;
+  document.body.appendChild(ov);
+
+  const fechar = () => ov.remove();
+  ov.addEventListener("click", e => { if (e.target === ov) fechar(); });
+  document.getElementById("avCfgEmailCancelar").addEventListener("click", fechar);
+
+  // Preview ao escolher arquivo
+  document.getElementById("avCfgAssinaturaFile").addEventListener("change", (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const prev = document.getElementById("avCfgAssinaturaPreview");
+      if (prev) { prev.src = ev.target.result; prev.style.display = "block"; }
+    };
+    reader.readAsDataURL(file);
+  });
+
+  document.getElementById("avCfgEmailSalvar").addEventListener("click", async () => {
+    const statusEl = document.getElementById("avCfgAssinaturaStatus");
+    const msgEl    = document.getElementById("avCfgEmailMsg");
+    const salvar   = document.getElementById("avCfgEmailSalvar");
+    salvar.disabled = true;
+    msgEl.style.color = "var(--muted)";
+    msgEl.textContent = "Salvando…";
+
+    try {
+      let assinatura_email_url = tpl.assinatura_email_url || null;
+
+      // Upload da imagem se selecionada
+      const file = document.getElementById("avCfgAssinaturaFile").files[0];
+      if (file) {
+        if (statusEl) statusEl.textContent = "Enviando imagem…";
+        const base64 = await new Promise((res, rej) => {
+          const r = new FileReader();
+          r.onload = e => res(e.target.result);
+          r.onerror = rej;
+          r.readAsDataURL(file);
+        });
+        const up = await fetch("/admin/me/assinatura", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...authHeaders() },
+          body: JSON.stringify({ base64 }),
+        });
+        const upJ = await up.json();
+        if (!up.ok) throw new Error(upJ.error || "Erro no upload");
+        assinatura_email_url = upJ.url;
+        if (statusEl) statusEl.textContent = "✓";
+      }
+
+      // Salva mensagem (e URL se já veio do upload acima)
+      const mensagem = document.getElementById("avCfgMsg").value;
+      const patch = await fetch("/admin/me/email-template", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", ...authHeaders() },
+        body: JSON.stringify({ email_mensagem: mensagem, assinatura_email_url }),
+      });
+      if (!patch.ok) { const j = await patch.json(); throw new Error(j.error || "Erro ao salvar"); }
+
+      msgEl.style.color = "var(--ok)";
+      msgEl.textContent = "✓ Padrão salvo!";
+      setTimeout(fechar, 900);
+    } catch (err) {
+      msgEl.style.color = "var(--danger)";
+      msgEl.textContent = err.message;
+      salvar.disabled = false;
+    }
+  });
+}
+
+// Envio do orçamento — pré-carrega template do usuário e permite editar
+async function _avAbrirEnvioEmail() {
   if (!_avSelecionado) return;
   const orc = _avSelecionado;
   const pre = orc.condominio_email || "";
+
+  // Carrega template salvo do usuário
+  let tpl = {};
+  try {
+    const r = await fetch("/admin/me/email-template", { headers: authHeaders() });
+    if (r.ok) tpl = await r.json();
+  } catch (_) {}
+
+  const msgPadrao = tpl.email_mensagem || `Prezado(a),\n\nSegue em anexo o orçamento ${orc.numero || ""} referente ao seu condomínio.\n\nQualquer dúvida, estamos à disposição.`;
+  const assinaturaUrl = tpl.assinatura_email_url || "";
 
   const ov = document.createElement("div");
   ov.id = "avEnvioOverlay";
   ov.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:300;display:flex;align-items:center;justify-content:center;padding:16px;";
   ov.innerHTML = `
-    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:20px 22px;width:460px;max-width:96vw;box-shadow:0 24px 64px rgba(0,0,0,.6);">
-      <div style="font-size:14px;font-weight:700;margin-bottom:4px;">Enviar orçamento por e-mail</div>
-      <div style="font-size:12px;color:var(--muted);margin-bottom:14px;">${_waEscaparHtml(orc.numero || "")} · ${_waEscaparHtml(orc.condominio_nome || "—")}</div>
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:22px 24px;width:540px;max-width:96vw;box-shadow:0 24px 64px rgba(0,0,0,.6);">
+      <div style="font-size:15px;font-weight:700;margin-bottom:4px;">Enviar orçamento por e-mail</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:16px;">${_waEscaparHtml(orc.numero || "")} · ${_waEscaparHtml(orc.condominio_nome || "—")}</div>
+
       <label class="lbl" style="display:block;margin-bottom:4px;">Para <span style="font-weight:400;color:var(--muted);">(separe vários por vírgula)</span></label>
-      <input id="avEnvioPara" class="input" type="text" value="${_waEscaparHtml(pre)}" placeholder="cliente@email.com" style="width:100%;" />
-      <div id="avEnvioMsg" class="hint" style="display:block;min-height:16px;margin-top:8px;"></div>
+      <input id="avEnvioPara" class="input" type="text" value="${_waEscaparHtml(pre)}" placeholder="cliente@email.com" style="width:100%;margin-bottom:12px;" />
+
+      <label class="lbl" style="display:block;margin-bottom:4px;">Mensagem</label>
+      <textarea id="avEnvioMsgTexto" class="input" rows="5" style="width:100%;resize:vertical;">${_waEscaparHtml(msgPadrao)}</textarea>
+
+      ${assinaturaUrl ? `<div style="margin-top:10px;"><div style="font-size:11px;color:var(--muted);margin-bottom:4px;">Assinatura:</div><img src="${_waEscaparHtml(assinaturaUrl)}" alt="Assinatura" style="max-height:60px;object-fit:contain;border:1px solid var(--border);border-radius:6px;padding:6px;background:white;" /></div>` : `<div style="margin-top:8px;font-size:11px;color:var(--muted);">Sem assinatura — configure em <strong>E-mail</strong> (ícone engrenagem).</div>`}
+
+      <div id="avEnvioMsg" class="hint" style="display:block;min-height:16px;margin-top:10px;"></div>
       <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:6px;">
         <button class="btn btn-sm" id="avEnvioCancelar" type="button">Cancelar</button>
         <button class="btn btnAccent btn-sm" id="avEnvioConfirmar" type="button">Enviar</button>
@@ -11648,16 +11772,17 @@ function _avAbrirEnvioEmail() {
   setTimeout(() => document.getElementById("avEnvioPara")?.focus(), 30);
 
   document.getElementById("avEnvioConfirmar").addEventListener("click", async () => {
-    const emails = (document.getElementById("avEnvioPara")?.value || "").trim();
-    const msg = document.getElementById("avEnvioMsg");
-    const btn = document.getElementById("avEnvioConfirmar");
+    const emails    = (document.getElementById("avEnvioPara")?.value || "").trim();
+    const mensagem  = (document.getElementById("avEnvioMsgTexto")?.value || "").trim();
+    const msg       = document.getElementById("avEnvioMsg");
+    const btn       = document.getElementById("avEnvioConfirmar");
     if (msg) { msg.style.color = "var(--muted)"; msg.textContent = "Enviando…"; }
     if (btn) btn.disabled = true;
     try {
       const r = await fetch(`/admin/orcamentos/avulsos/${orc.id}/enviar-email`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...authHeaders() },
-        body: JSON.stringify({ emails }),
+        body: JSON.stringify({ emails, mensagem, assinatura_url: assinaturaUrl || undefined }),
       });
       const j = await r.json();
       if (!r.ok) {
@@ -11665,7 +11790,6 @@ function _avAbrirEnvioEmail() {
         if (btn) btn.disabled = false;
         return;
       }
-      // Atualiza estado local → status "Enviado"
       orc.status = "enviado";
       orc.enviado_em = j.enviado_em;
       orc.enviado_para = j.enviado_para;
@@ -11738,6 +11862,7 @@ async function _avAcao(acao) {
 
   if (acao === "del-linha") return; // handled via data-av-del-linha
 
+  if (acao === "configurar-email") { _avAbrirConfigurarEmail(); return; }
   if (acao === "enviar-email") { _avAbrirEnvioEmail(); return; }
 
   if (acao === "gerar-pdf") {
