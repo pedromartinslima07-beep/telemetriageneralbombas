@@ -6443,7 +6443,7 @@ body.role-viewer .viewer-only-hide-inline {
 .tec-det-head-info { flex: 1; min-width: 0; }
 
 /* ============================================================
-   APP LOADER — tela de carregamento inicial
+   APP LOADER — tela de carregamento inicial (igual ao splash do app)
    ============================================================ */
 #appLoader {
   position: fixed;
@@ -6457,18 +6457,23 @@ body.role-viewer .viewer-only-hide-inline {
 }
 #appLoader.fade-out { opacity: 0; pointer-events: none; }
 .app-loader-inner { display: flex; flex-direction: column; align-items: center; gap: 24px; }
-.app-loader-logo {
-  font-size: 22px;
-  font-weight: 800;
-  letter-spacing: 4px;
-  color: #f0b014;
-  opacity: .9;
-}
+.app-loader-logo { height: 70px; width: auto; display: block; border-radius: 10px; }
 .app-loader-spinner {
+  position: relative;
   width: 28px; height: 28px;
-  border: 2.5px solid rgba(240,176,20,.2);
+  border: 3px solid rgba(240,176,20,.18);
   border-top-color: #f0b014;
   border-radius: 50%;
   animation: loaderSpin .7s linear infinite;
 }
+.app-loader-spinner::after {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border: 1px solid rgba(240,176,20,.22);
+  border-radius: 50%;
+  animation: loaderPing 1.8s ease-out infinite;
+}
 @keyframes loaderSpin { to { transform: rotate(360deg); } }
+@keyframes loaderPing { 0% { transform: scale(.8); opacity: 1; } 100% { transform: scale(1.5); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .app-loader-spinner::after { animation: none; } }
