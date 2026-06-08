@@ -12747,3 +12747,192 @@ function _pmBindEventos() {
   document.getElementById("pmModalBackdrop")?.addEventListener("click", _pmFecharModal);
   document.getElementById("pmModalClose")?.addEventListener("click", _pmFecharModal);
 }
+
+// ============================================================
+// BUSCA GLOBAL (topbar)
+// ============================================================
+
+(function () {
+  const ICONS = {
+    condo:    `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`,
+    chamado:  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg>`,
+    tecnico:  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`,
+    alerta:   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
+  };
+
+  let _gsActive = -1;
+  let _gsResults = [];
+  let _gsDropdown = null;
+
+  function _gsMatch(text, q) {
+    return String(text || "").toLowerCase().includes(q);
+  }
+
+  function _gsColeta(q) {
+    const res = [];
+    const MAX = 4;
+
+    // Condomínios
+    const condos = (Array.isArray(_condominios) ? _condominios : [])
+      .filter(c => _gsMatch(c.nome_fantasia || c.nome, q) || _gsMatch(c.responsavel, q) || _gsMatch(c.cnpj, q))
+      .slice(0, MAX);
+    for (const c of condos) {
+      res.push({ type: "condo", id: c.id, title: c.nome_fantasia || c.nome, sub: c.responsavel || c.cidade || "" });
+    }
+
+    // Chamados
+    const chamados = (Array.isArray(_chamadosData) ? _chamadosData : [])
+      .filter(c => _gsMatch(c.id, q) || _gsMatch(c.titulo, q) || _gsMatch(c.descricao, q))
+      .slice(0, MAX);
+    for (const c of chamados) {
+      res.push({ type: "chamado", id: c.id, title: `#${c.id} — ${c.titulo || "Sem título"}`, sub: c.condo_nome || c.categoria || "" });
+    }
+
+    // Colaboradores
+    const tecs = (Array.isArray(_tecnicosData) ? _tecnicosData : [])
+      .filter(t => _gsMatch(t.nome, q) || _gsMatch(t.especialidade, q))
+      .slice(0, MAX);
+    for (const t of tecs) {
+      res.push({ type: "tecnico", id: t.id, title: t.nome, sub: t.especialidade || t.cargo || "" });
+    }
+
+    // Alertas
+    const alertas = (Array.isArray(_alertasAbertos) ? _alertasAbertos : [])
+      .filter(a => _gsMatch(a.tipo, q) || _gsMatch(a.mensagem, q) || _gsMatch(a.device_id, q))
+      .slice(0, MAX);
+    for (const a of alertas) {
+      res.push({ type: "alerta", key: a.key || a.id, title: a.tipo || "Alerta", sub: a.mensagem || a.device_id || "" });
+    }
+
+    return res;
+  }
+
+  function _gsRender(q) {
+    const wrap = document.querySelector(".topbar-search");
+    if (!wrap) return;
+
+    // Remove dropdown anterior
+    _gsDropdown = wrap.querySelector(".gs-dropdown");
+    if (_gsDropdown) _gsDropdown.remove();
+
+    if (!q) return;
+
+    _gsResults = _gsColeta(q);
+    _gsActive = -1;
+
+    _gsDropdown = document.createElement("div");
+    _gsDropdown.className = "gs-dropdown";
+
+    if (!_gsResults.length) {
+      _gsDropdown.innerHTML = `<div class="gs-empty">Nenhum resultado para "<strong>${_waEscaparHtml(q)}</strong>"</div>`;
+      wrap.appendChild(_gsDropdown);
+      return;
+    }
+
+    const groups = [
+      { type: "condo",   label: "Condomínios" },
+      { type: "chamado", label: "Chamados"     },
+      { type: "tecnico", label: "Colaboradores"},
+      { type: "alerta",  label: "Alertas"      },
+    ];
+
+    let first = true;
+    let idx = 0;
+    for (const g of groups) {
+      const items = _gsResults.filter(r => r.type === g.type);
+      if (!items.length) continue;
+      if (!first) _gsDropdown.insertAdjacentHTML("beforeend", `<div class="gs-sep"></div>`);
+      first = false;
+      _gsDropdown.insertAdjacentHTML("beforeend", `<div class="gs-group-label">${g.label}</div>`);
+      for (const item of items) {
+        const i = idx++;
+        const el = document.createElement("div");
+        el.className = "gs-item";
+        el.dataset.gsIdx = i;
+        el.innerHTML = `
+          <div class="gs-item-icon">${ICONS[item.type]}</div>
+          <div class="gs-item-body">
+            <div class="gs-item-title">${_waEscaparHtml(item.title)}</div>
+            ${item.sub ? `<div class="gs-item-sub">${_waEscaparHtml(item.sub)}</div>` : ""}
+          </div>`;
+        el.addEventListener("mousedown", (e) => { e.preventDefault(); _gsNavegar(item); _gsFechar(); });
+        _gsDropdown.appendChild(el);
+      }
+    }
+
+    wrap.appendChild(_gsDropdown);
+  }
+
+  function _gsSetActive(n) {
+    if (!_gsDropdown) return;
+    const items = _gsDropdown.querySelectorAll(".gs-item");
+    items.forEach(el => el.classList.remove("is-active"));
+    _gsActive = Math.max(-1, Math.min(n, items.length - 1));
+    if (_gsActive >= 0) {
+      items[_gsActive].classList.add("is-active");
+      items[_gsActive].scrollIntoView({ block: "nearest" });
+    }
+  }
+
+  function _gsNavegar(item) {
+    if (item.type === "condo") {
+      showSection("clientes");
+      _cliFiltros.busca = "";
+      _cliSelecionadoId = item.id;
+      renderClientes();
+    } else if (item.type === "chamado") {
+      showSection("chamados");
+      _chSelecionadoId = item.id;
+      renderChamados();
+    } else if (item.type === "tecnico") {
+      showSection("tecnicos");
+      _tecSelecionadoId = item.id;
+      renderTecnicos();
+    } else if (item.type === "alerta") {
+      showSection("alertas");
+      _alSelecionadoKey = item.key;
+      renderAlertas();
+    }
+  }
+
+  function _gsFechar() {
+    const input = document.getElementById("topbarSearch");
+    if (input) input.value = "";
+    if (_gsDropdown) { _gsDropdown.remove(); _gsDropdown = null; }
+    _gsResults = [];
+    _gsActive = -1;
+  }
+
+  function _gsInit() {
+    const input = document.getElementById("topbarSearch");
+    if (!input) return;
+
+    let _timer;
+    input.addEventListener("input", () => {
+      clearTimeout(_timer);
+      _timer = setTimeout(() => _gsRender(input.value.trim().toLowerCase()), 120);
+    });
+
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowDown")  { e.preventDefault(); _gsSetActive(_gsActive + 1); }
+      else if (e.key === "ArrowUp")   { e.preventDefault(); _gsSetActive(_gsActive - 1); }
+      else if (e.key === "Enter") {
+        if (_gsActive >= 0 && _gsResults[_gsActive]) { _gsNavegar(_gsResults[_gsActive]); _gsFechar(); }
+      }
+      else if (e.key === "Escape") { _gsFechar(); input.blur(); }
+    });
+
+    input.addEventListener("blur", () => setTimeout(_gsFechar, 150));
+
+    // Ctrl+K / Cmd+K abre a busca
+    document.addEventListener("keydown", (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+        e.preventDefault();
+        input.focus();
+        input.select();
+      }
+    });
+  }
+
+  document.addEventListener("DOMContentLoaded", _gsInit);
+})();
