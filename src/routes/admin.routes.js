@@ -523,6 +523,8 @@ router.get("/assinatura/:userId", async (req, res) => {
     if (!row?.assinatura_blob) return res.status(404).end();
     res.setHeader("Content-Type", row.assinatura_mimetype || "image/png");
     res.setHeader("Cache-Control", "public, max-age=86400");
+    // Permite carregamento por clientes de e-mail (origins externos)
+    res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
     return res.send(row.assinatura_blob);
   } catch (err) {
     return res.status(500).end();
