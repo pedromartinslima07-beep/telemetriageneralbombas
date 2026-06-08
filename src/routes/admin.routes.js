@@ -1310,11 +1310,10 @@ router.post("/orcamentos/avulsos/:id/enviar-email", authRequired, adminOnly, asy
     return res.status(503).json({ error: "Envio de e-mail indisponível (provedor não configurado)" });
   }
   try {
-    // Dados do orçamento + e-mail do cliente
+    // Dados do orçamento
     const r = await pool.query(
       `SELECT o.id, o.numero, o.valido_ate, o.condominio_id,
               COALESCE(c.nome_fantasia, c.nome) AS condominio_nome,
-              c.email AS condominio_email,
               COALESCE(
                 (SELECT SUM(l.quantidade * l.valor_unitario)
                  FROM orcamento_linhas l WHERE l.orcamento_id = o.id), 0
@@ -1327,16 +1326,14 @@ router.post("/orcamentos/avulsos/:id/enviar-email", authRequired, adminOnly, asy
     if (!r.rows.length) return res.status(404).json({ error: "Orçamento não encontrado" });
     const orc = r.rows[0];
 
-    // Destinatários: corpo (confirmação no modal) tem precedência; senão, do cadastro
-    const fonte = (req.body && req.body.emails != null && String(req.body.emails).trim() !== "")
-      ? req.body.emails
-      : orc.condominio_email;
-    const to = String(fonte || "")
+    // Destinatários: obrigatório no corpo da requisição
+    const emailsRaw = req.body?.emails != null ? String(req.body.emails).trim() : "";
+    const to = emailsRaw
       .split(",")
       .map(s => s.trim().toLowerCase())
       .filter(Boolean);
     if (!to.length) {
-      return res.status(400).json({ error: "Cliente sem e-mail cadastrado — preencha no cadastro ou informe um e-mail no envio." });
+      return res.status(400).json({ error: "Informe o e-mail do destinatário." });
     }
     const invalidos = to.filter(e => !_EMAIL_RE.test(e));
     if (invalidos.length) {

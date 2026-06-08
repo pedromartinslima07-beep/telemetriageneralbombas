@@ -11682,7 +11682,7 @@ async function _avAbrirEnvioEmail() {
         <form class="formGrid" style="grid-template-columns:1fr;" onsubmit="return false;">
           <label class="f">
             <span>Para <small style="font-weight:400;color:var(--muted);">(separe vários por vírgula)</small></span>
-            <input id="avEnvioPara" class="input" type="text" value="${_waEscaparHtml(orc.condominio_email || "")}" placeholder="cliente@email.com" />
+            <input id="avEnvioPara" class="input" type="text" value="" placeholder="cliente@email.com" />
           </label>
           <label class="f">
             <span>Mensagem</span>
