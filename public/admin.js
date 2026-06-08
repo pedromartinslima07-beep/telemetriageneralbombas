@@ -15,7 +15,7 @@ if (!getToken()) window.location.href = "/login";
     const me = await r.json();
     if (me.role) document.body.classList.add(`role-${me.role}`);
 
-    const roleLabel = { admin: "Admin", admin_viewer: "Visualizador", tecnico: "Técnico", cliente: "Cliente" }[me.role] || (me.role || "");
+    const roleLabel = { admin: "Admin", gerente: "Admin", operador: "Admin", admin_viewer: "Visualizador", tecnico: "Técnico", cliente: "Cliente" }[me.role] || (me.role || "");
     const nome = me.nome || "Usuário";
 
     const el = id => document.getElementById(id);
