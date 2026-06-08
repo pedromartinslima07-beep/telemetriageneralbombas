@@ -61,6 +61,13 @@ Envs necessárias: `OPENAI_API_KEY`, `WHATSAPP_VERIFY_TOKEN`,
 6. 10B — few-shot por categoria (aguardar volume de conversas curadas).
 7. 7J — publicação Play Store.
 
+## Melhorias recentes (sessão 2026-06-08 — GPS staleness + ajustes admin)
+
+- **Pin de técnico "stale":** `_tecStale()` retorna `true` quando `capturada_em` tem mais de 3 min. Pin cinza/opaco + sem pulse. Tooltip/popup indicam quando foi o último sinal. Aplicado tanto no MC map quanto na seção Mapa.
+- **"Top 5 condomínios" removido** (redundante com "Condomínios mais problemáticos").
+- **Hard delete de condomínio:** cascata completa — chamados, OS, orçamentos, leituras, alertas, WhatsApp. Usuários recebem `SET NULL` (não deletados).
+- `admin.js?v=147`, `admin.css?v=103`.
+
 ## Melhorias recentes (sessão 2026-06-08 — APK de teste)
 
 - **Projeto Android gerado** (`app/android/`) — `@capacitor/android@6.1.0`, permissões GPS no manifesto, ícone via `@capacitor/assets` (favicon.png).

@@ -1257,6 +1257,12 @@ a { color: inherit; text-decoration: none; }
   animation: pinPulse 2.4s ease-out infinite;
   z-index: -1;
 }
+.tec-pin.is-stale {
+  background: linear-gradient(135deg, #64748b 0%, #475569 100%);
+  box-shadow: 0 0 0 2px #fff, 0 2px 8px rgba(0,0,0,.4);
+  opacity: .75;
+}
+.tec-pin.is-stale::before { animation: none; }
 
 /* ── Alerts list ── */
 .mc-alerts-list, .mc-activity-list {

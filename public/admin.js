@@ -674,15 +674,17 @@ function renderMcMap() {
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
     tecIdsAgora.add(t.tecnico_id);
     const iniciais = _tecIconeIniciais(t.nome);
+    const stale = _tecStale(t.capturada_em);
     let tm = _mcTecMarkers.get(t.tecnico_id);
     if (!tm) {
-      tm = L.marker([lat, lng], { icon: _tecPinIcon(iniciais), zIndexOffset: 1000 }).addTo(_mcMap);
+      tm = L.marker([lat, lng], { icon: _tecPinIcon(iniciais, stale), zIndexOffset: 1000 }).addTo(_mcMap);
       _mcTecMarkers.set(t.tecnico_id, tm);
     } else {
       tm.setLatLng([lat, lng]);
-      tm.setIcon(_tecPinIcon(iniciais));
+      tm.setIcon(_tecPinIcon(iniciais, stale));
     }
-    tm.bindTooltip(`${t.nome || "Técnico"}`, { direction: "top", offset: [0, -8] });
+    const staleLabel = stale ? ` · ⚠ sem sinal (${_tempoRelativo(t.capturada_em)})` : "";
+    tm.bindTooltip(`${t.nome || "Técnico"}${staleLabel}`, { direction: "top", offset: [0, -8] });
   }
   for (const [id, tm] of _mcTecMarkers) {
     if (!tecIdsAgora.has(id)) { _mcMap.removeLayer(tm); _mcTecMarkers.delete(id); }
@@ -7006,13 +7008,17 @@ function _tecIconeIniciais(nome) {
     .map(s => s[0]?.toUpperCase() || "")
     .join("") || "?";
 }
-function _tecPinIcon(iniciais) {
+function _tecPinIcon(iniciais, stale = false) {
   return L.divIcon({
     className: "tec-pin-leaflet",
-    html: `<div class="tec-pin"><span>${iniciais}</span></div>`,
+    html: `<div class="tec-pin${stale ? " is-stale" : ""}"><span>${iniciais}</span></div>`,
     iconSize: [32, 32],
     iconAnchor: [16, 16],
   });
+}
+function _tecStale(capturadaEm) {
+  if (!capturadaEm) return true;
+  return (Date.now() - new Date(capturadaEm).getTime()) > 3 * 60 * 1000;
 }
 function _tempoRelativo(iso) {
   if (!iso) return "—";
@@ -7034,13 +7040,14 @@ function _mpRenderTecnicos() {
     idsAgora.add(t.tecnico_id);
 
     const iniciais = _tecIconeIniciais(t.nome);
+    const stale = _tecStale(t.capturada_em);
     let marker = _mpTecMarkers.get(t.tecnico_id);
     if (!marker) {
-      marker = L.marker([lat, lng], { icon: _tecPinIcon(iniciais), zIndexOffset: 1000 }).addTo(_mpMap);
+      marker = L.marker([lat, lng], { icon: _tecPinIcon(iniciais, stale), zIndexOffset: 1000 }).addTo(_mpMap);
       _mpTecMarkers.set(t.tecnico_id, marker);
     } else {
       marker.setLatLng([lat, lng]);
-      marker.setIcon(_tecPinIcon(iniciais));
+      marker.setIcon(_tecPinIcon(iniciais, stale));
     }
 
     // Popup com dados (re-bind sempre porque última atualização muda)
@@ -7062,11 +7069,12 @@ function _mpRenderTecnicos() {
         ` : `
           <div style="color:#6b7280;margin-top:4px;">Sem chamado em atendimento</div>
         `}
+        ${stale ? `<div style="color:#ef4444;font-size:11px;font-weight:600;margin-top:6px;">⚠ Sem sinal — última atualização ${_tempoRelativo(t.capturada_em)}</div>` : `
         <div style="color:#9ca3af;font-size:10.5px;margin-top:6px;">
           Última atualização ${_tempoRelativo(t.capturada_em)}
           ${t.bateria_pct != null ? ` · 🔋 ${t.bateria_pct}%` : ""}
           ${t.precisao_m != null ? ` · precisão ~${t.precisao_m < 1000 ? Math.round(t.precisao_m)+"m" : (t.precisao_m/1000).toFixed(1)+"km"}` : ""}
-        </div>
+        </div>`}
       </div>`;
     marker.bindPopup(popupHtml);
 
