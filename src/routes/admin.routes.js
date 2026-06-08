@@ -442,11 +442,14 @@ router.delete("/usuarios/:id", authRequired, masterAdminOnly, async (req, res) =
   }
 });
 
-// GET /admin/me — dados do usuário logado (role, nome, email)
+// GET /admin/me — dados do usuário logado (role, nome, email, foto)
 router.get("/me", authRequired, async (req, res) => {
   try {
     const r = await pool.query(
-      `SELECT id, nome, email, role FROM usuarios WHERE id = $1`,
+      `SELECT u.id, u.nome, u.email, u.role, t.foto_url
+       FROM usuarios u
+       LEFT JOIN tecnicos t ON t.usuario_id = u.id
+       WHERE u.id = $1`,
       [req.user.id]
     );
     return res.json(r.rows[0] || {});

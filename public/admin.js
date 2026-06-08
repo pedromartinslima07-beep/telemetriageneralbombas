@@ -7,13 +7,34 @@ function authHeaders() {
 }
 if (!getToken()) window.location.href = "/login";
 
-// Aplica body.role-{role} para controle de visibilidade por CSS
+// Aplica body.role-{role} e preenche nome/foto do usuário logado no header
 (async () => {
   try {
     const r = await fetch("/admin/me", { headers: authHeaders() });
-    if (r.ok) {
-      const me = await r.json();
-      if (me.role) document.body.classList.add(`role-${me.role}`);
+    if (!r.ok) return;
+    const me = await r.json();
+    if (me.role) document.body.classList.add(`role-${me.role}`);
+
+    const roleLabel = { admin: "Admin", admin_viewer: "Visualizador", tecnico: "Técnico", cliente: "Cliente" }[me.role] || (me.role || "");
+    const nome = me.nome || "Usuário";
+
+    const el = id => document.getElementById(id);
+    const sidebarRole  = el("sidebarUserRole");
+    const sidebarLabel = el("sidebarUserLabel");
+    const sidebarAv    = el("sidebarUserAvatar");
+    const topbarName   = el("topbarUserName");
+    const topbarRole   = el("topbarUserRole");
+    const topbarAv     = el("topbarUserAvatar");
+
+    if (sidebarRole)  sidebarRole.textContent  = roleLabel;
+    if (sidebarLabel) sidebarLabel.textContent = nome;
+    if (topbarName)   topbarName.textContent   = nome;
+    if (topbarRole)   topbarRole.textContent   = roleLabel;
+
+    if (me.foto_url) {
+      const img = `<img src="${escapeHtml(me.foto_url)}" alt="${escapeHtml(nome)}">`;
+      if (sidebarAv) sidebarAv.innerHTML = img;
+      if (topbarAv)  topbarAv.innerHTML  = img;
     }
   } catch (_) {}
 })();

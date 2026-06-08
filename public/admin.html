@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="/static/leaflet.css">
   <!-- ⚠️ Ao mexer em admin.js ou admin.css, bumpe o ?v=N aqui E no <script>
        lá embaixo. Ver CLAUDE.md raiz. -->
-  <link rel="stylesheet" href="/static/admin.css?v=108">
+  <link rel="stylesheet" href="/static/admin.css?v=109">
 </head>
 <body>
 
@@ -173,14 +173,14 @@
           </div>
         </div>
         <div class="sidebar-user">
-          <div class="sidebar-user-avatar">
+          <div class="sidebar-user-avatar" id="sidebarUserAvatar">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
               <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
             </svg>
           </div>
           <div class="sidebar-user-info">
-            <div class="sidebar-user-role">Admin</div>
-            <div class="sidebar-user-label">Painel Geral</div>
+            <div class="sidebar-user-role" id="sidebarUserRole">Admin</div>
+            <div class="sidebar-user-label" id="sidebarUserLabel">Painel Geral</div>
           </div>
         </div>
         <button class="nav-item nav-item-logout" id="btnSair" data-label="Sair">
@@ -233,14 +233,14 @@
           </svg>
         </button>
         <div class="topbar-user">
-          <div class="topbar-user-avatar">
+          <div class="topbar-user-avatar" id="topbarUserAvatar">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
               <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
             </svg>
           </div>
           <div class="topbar-user-meta">
-            <span class="topbar-user-name">Admin</span>
-            <span class="topbar-user-role">Painel Geral</span>
+            <span class="topbar-user-name" id="topbarUserName">Admin</span>
+            <span class="topbar-user-role" id="topbarUserRole">Painel Geral</span>
           </div>
         </div>
         <span class="statusMsg" id="statusMsg"></span>
@@ -2599,7 +2599,7 @@
 </div>
 
 
-<script src="/static/admin.js?v=157" defer></script>
+<script src="/static/admin.js?v=158" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
 <script src="/static/register-sw.js?v=27" defer></script>
 </body>
