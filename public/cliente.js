@@ -1684,7 +1684,7 @@ async function _chCliSubmitNovo(event) {
     const novo = await r.json();
     if (novo?.id) {
       _chCliTabAtiva = "aberto";
-      document.querySelectorAll(".wa-tab[data-ch-cli-tab]").forEach(t => t.classList.toggle("is-active", t.dataset.chCliTab === "aberto"));
+      document.querySelectorAll(".al-tab[data-ch-cli-tab]").forEach(t => t.classList.toggle("is-active", t.dataset.chCliTab === "aberto"));
       _chCliSelecionar(novo.id);
     }
   } catch (err) {
@@ -1697,10 +1697,10 @@ function _chCliBindEventos() {
   _chCliBindFeito = true;
 
   // Tabs
-  document.querySelectorAll(".wa-tab[data-ch-cli-tab]").forEach(tab => {
+  document.querySelectorAll(".al-tab[data-ch-cli-tab]").forEach(tab => {
     tab.addEventListener("click", () => {
       _chCliTabAtiva = tab.dataset.chCliTab;
-      document.querySelectorAll(".wa-tab[data-ch-cli-tab]").forEach(t => t.classList.toggle("is-active", t === tab));
+      document.querySelectorAll(".al-tab[data-ch-cli-tab]").forEach(t => t.classList.toggle("is-active", t === tab));
       _chCliRender();
     });
   });
