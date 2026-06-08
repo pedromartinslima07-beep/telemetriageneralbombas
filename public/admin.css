@@ -6441,3 +6441,34 @@ body.role-viewer .viewer-only-hide-inline {
   display: flex; align-items: center; gap: 12px; margin-bottom: 12px;
 }
 .tec-det-head-info { flex: 1; min-width: 0; }
+
+/* ============================================================
+   APP LOADER — tela de carregamento inicial
+   ============================================================ */
+#appLoader {
+  position: fixed;
+  inset: 0;
+  background: #06070f;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 99999;
+  transition: opacity .25s ease;
+}
+#appLoader.fade-out { opacity: 0; pointer-events: none; }
+.app-loader-inner { display: flex; flex-direction: column; align-items: center; gap: 24px; }
+.app-loader-logo {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 4px;
+  color: #f0b014;
+  opacity: .9;
+}
+.app-loader-spinner {
+  width: 28px; height: 28px;
+  border: 2.5px solid rgba(240,176,20,.2);
+  border-top-color: #f0b014;
+  border-radius: 50%;
+  animation: loaderSpin .7s linear infinite;
+}
+@keyframes loaderSpin { to { transform: rotate(360deg); } }

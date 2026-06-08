@@ -7,9 +7,15 @@ function authHeaders() {
 }
 if (!getToken()) window.location.href = "/login";
 
-// Aplica role imediatamente do cache local para evitar flash de conteúdo restrito
-const _cachedRole = localStorage.getItem("userRole");
-if (_cachedRole) document.body.classList.add(`role-${_cachedRole}`);
+// Remove o loader inicial com fade
+function _ocultarLoader() {
+  const el = document.getElementById("appLoader");
+  if (!el) return;
+  el.classList.add("fade-out");
+  setTimeout(() => el.remove(), 260);
+}
+// Fallback: garante que o loader some mesmo se o fetch travar
+const _loaderTimeout = setTimeout(_ocultarLoader, 4000);
 
 // Aplica body.role-{role} e preenche nome/foto do usuário logado no header
 (async () => {
@@ -18,8 +24,6 @@ if (_cachedRole) document.body.classList.add(`role-${_cachedRole}`);
     if (!r.ok) return;
     const me = await r.json();
     if (me.role) {
-      // Remove classe antiga se o role mudou, aplica a nova e persiste
-      if (_cachedRole && _cachedRole !== me.role) document.body.classList.remove(`role-${_cachedRole}`);
       document.body.classList.add(`role-${me.role}`);
       localStorage.setItem("userRole", me.role);
     }
@@ -46,6 +50,10 @@ if (_cachedRole) document.body.classList.add(`role-${_cachedRole}`);
       if (topbarAv)  topbarAv.innerHTML  = img;
     }
   } catch (_) {}
+  finally {
+    clearTimeout(_loaderTimeout);
+    _ocultarLoader();
+  }
 })();
 
 function escapeHtml(s) {
