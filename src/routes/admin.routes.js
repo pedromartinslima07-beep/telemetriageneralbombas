@@ -505,12 +505,7 @@ router.post("/me/assinatura", authRequired, async (req, res) => {
     const filename = `user-${req.user.id}.${ext}`;
     fs.writeFileSync(path.join(dir, filename), buffer);
     const url = `/static/assinaturas/${filename}`;
-    // Persiste URL no banco
-    await pool.query(
-      `UPDATE usuarios SET assinatura_email_url = $2 WHERE id = $1`,
-      [req.user.id, url]
-    );
-    return res.json({ url });
+    return res.json({ url }); // salvamento no banco só via PATCH /me/email-template
   } catch (err) {
     console.error("[admin] POST /me/assinatura:", err);
     return res.status(500).json({ error: "Erro ao salvar assinatura" });
