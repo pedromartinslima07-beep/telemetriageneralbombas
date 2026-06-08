@@ -446,90 +446,49 @@
       <!-- ===== SECTION: CHAMADOS ===== -->
       <div class="section" data-section="chamados">
 
-        <!-- KPIs -->
-        <div class="al-kpis al-kpis-3col">
-          <div class="rc rc-warn rc-static">
-            <div class="rc-head">
-              <div class="rc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>
-              <div class="rc-label">Abertos</div>
-            </div>
-            <div class="rc-value" id="chCliKpiAbertos">—</div>
-            <div class="rc-hint">Aguardando atendimento</div>
-          </div>
-          <div class="rc rc-bad rc-static">
-            <div class="rc-head">
-              <div class="rc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
-              <div class="rc-label">Em atendimento</div>
-            </div>
-            <div class="rc-value" id="chCliKpiAtend">—</div>
-            <div class="rc-hint">Técnico designado</div>
-          </div>
-          <div class="rc rc-ok rc-static">
-            <div class="rc-head">
-              <div class="rc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
-              <div class="rc-label">Resolvidos</div>
-            </div>
-            <div class="rc-value" id="chCliKpiFechados">—</div>
-            <div class="rc-hint">Histórico</div>
-          </div>
-        </div>
+        <div class="resumo-grid" id="chCliKpiGrid" style="margin-bottom:16px;"></div>
 
-        <section class="card al-card">
-          <div class="cardHead">
-            <h2>
-              <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                <polyline points="14 2 14 8 20 8"/>
-              </svg>
-              Chamados
-            </h2>
-            <button class="btn btn-sm btnAccent" id="chCliBtnNovo" type="button">+ Abrir chamado</button>
-          </div>
-
-          <div class="al-toolbar">
-            <div class="al-tabs" role="tablist">
-              <button class="al-tab is-active" data-ch-cli-tab="todos" type="button">Todos <span class="al-count" id="chCliCtTodos">0</span></button>
-              <button class="al-tab" data-ch-cli-tab="aberto" type="button">Abertos <span class="al-count" id="chCliCtAbertos">0</span></button>
-              <button class="al-tab" data-ch-cli-tab="em_atendimento" type="button">Em atend. <span class="al-count" id="chCliCtAtend">0</span></button>
-              <button class="al-tab" data-ch-cli-tab="fechado" type="button">Resolvidos <span class="al-count" id="chCliCtFechados">0</span></button>
-            </div>
-            <div class="al-filters">
+        <div class="ch-layout">
+          <div class="ch-list-col">
+            <div class="ch-toolbar">
+              <div class="wa-tabs" role="tablist">
+                <button class="wa-tab is-active" data-ch-cli-tab="todos" type="button">Todos <span class="wa-count" id="chCliCtTodos">0</span></button>
+                <button class="wa-tab" data-ch-cli-tab="aberto" type="button">Abertos <span class="wa-count" id="chCliCtAbertos">0</span></button>
+                <button class="wa-tab" data-ch-cli-tab="em_atendimento" type="button">Em atend. <span class="wa-count" id="chCliCtAtend">0</span></button>
+                <button class="wa-tab" data-ch-cli-tab="fechado" type="button">Resolvidos <span class="wa-count" id="chCliCtFechados">0</span></button>
+              </div>
               <input id="chCliBusca" class="input" placeholder="Buscar por título, categoria…">
+              <button class="btn btn-sm btnAccent" id="chCliBtnNovo" type="button">+ Abrir chamado</button>
+            </div>
+            <div class="tableWrap ch-table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th style="width:64px">ID</th>
+                    <th>Título</th>
+                    <th style="width:100px">Categoria</th>
+                    <th style="width:90px">Status</th>
+                    <th style="width:64px">Data</th>
+                  </tr>
+                </thead>
+                <tbody id="chCliTableBody"></tbody>
+              </table>
+            </div>
+            <div id="chCliEmpty" class="al-empty" style="display:none;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+              </svg>
+              <p>Você ainda não tem chamados. Clique em "Abrir chamado" pra começar.</p>
             </div>
           </div>
 
-          <div class="ch-layout">
-            <div class="ch-list-col">
-              <div class="tableWrap ch-table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th style="width:64px">ID</th>
-                      <th>Título</th>
-                      <th style="width:100px">Categoria</th>
-                      <th style="width:90px">Status</th>
-                      <th style="width:64px">Data</th>
-                    </tr>
-                  </thead>
-                  <tbody id="chCliTableBody"></tbody>
-                </table>
-              </div>
-              <div id="chCliEmpty" class="al-empty" style="display:none;">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
-                </svg>
-                <p>Você ainda não tem chamados. Clique em "Abrir chamado" pra começar.</p>
-              </div>
+          <aside class="ch-detail-col" id="chCliDetailCol">
+            <div class="ch-detail-empty">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg>
+              <p>Selecione um chamado para ver os detalhes</p>
             </div>
-
-            <aside class="ch-detail-col" id="chCliDetailCol">
-              <div class="ch-detail-empty">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg>
-                <p>Selecione um chamado para ver os detalhes</p>
-              </div>
-            </aside>
-          </div>
-        </section>
+          </aside>
+        </div>
       </div><!-- /section chamados -->
 
     </div><!-- /content -->
@@ -695,7 +654,7 @@
 <script src="/static/chart.umd.min.js"></script>
 <script src="/static/apexcharts.min.js"></script>
 <script src="/static/inatividade.js" defer></script>
-<script src="/static/cliente.js?v=18" defer></script>
+<script src="/static/cliente.js?v=19" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
 <script src="/static/register-sw.js" defer></script>
 </body>

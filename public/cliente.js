@@ -1368,9 +1368,23 @@ function _chCliRender() {
   const atend    = data.filter(c => c.status === "em_atendimento").length;
   const fechados = data.filter(c => c.status === "fechado").length;
 
-  set("chCliKpiAbertos",  abertos);
-  set("chCliKpiAtend",    atend);
-  set("chCliKpiFechados", fechados);
+  const kpiGrid = document.getElementById("chCliKpiGrid");
+  if (kpiGrid) {
+    const kpis = [
+      { cls: "rc-warn", icon: `<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>`, label: "Abertos", value: abertos, hint: "Aguardando atendimento" },
+      { cls: "rc-bad",  icon: `<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>`, label: "Em atendimento", value: atend, hint: "Técnico designado" },
+      { cls: "rc-ok",   icon: `<polyline points="20 6 9 17 4 12"/>`, label: "Resolvidos", value: fechados, hint: "Histórico" },
+    ];
+    kpiGrid.innerHTML = kpis.map(k => `
+      <div class="rc ${k.cls} rc-static">
+        <div class="rc-head">
+          <div class="rc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${k.icon}</svg></div>
+          <div class="rc-label">${k.label}</div>
+        </div>
+        <div class="rc-value">${k.value}</div>
+        <div class="rc-hint">${k.hint}</div>
+      </div>`).join("");
+  }
 
   set("chCliCtTodos",    data.length);
   set("chCliCtAbertos",  abertos);
@@ -1691,7 +1705,7 @@ async function _chCliSubmitNovo(event) {
     const novo = await r.json();
     if (novo?.id) {
       _chCliTabAtiva = "aberto";
-      document.querySelectorAll(".al-tab[data-ch-cli-tab]").forEach(t => t.classList.toggle("is-active", t.dataset.chCliTab === "aberto"));
+      document.querySelectorAll(".wa-tab[data-ch-cli-tab]").forEach(t => t.classList.toggle("is-active", t.dataset.chCliTab === "aberto"));
       _chCliSelecionar(novo.id);
     }
   } catch (err) {
@@ -1704,10 +1718,10 @@ function _chCliBindEventos() {
   _chCliBindFeito = true;
 
   // Tabs
-  document.querySelectorAll(".al-tab[data-ch-cli-tab]").forEach(tab => {
+  document.querySelectorAll(".wa-tab[data-ch-cli-tab]").forEach(tab => {
     tab.addEventListener("click", () => {
       _chCliTabAtiva = tab.dataset.chCliTab;
-      document.querySelectorAll(".al-tab[data-ch-cli-tab]").forEach(t => t.classList.toggle("is-active", t === tab));
+      document.querySelectorAll(".wa-tab[data-ch-cli-tab]").forEach(t => t.classList.toggle("is-active", t === tab));
       _chCliRender();
     });
   });
