@@ -48,6 +48,7 @@ Como cada coisa funciona ponta a ponta. Índice em [`modulos/README.md`](docs/mo
 - [`chamados-sla.md`](docs/modulos/chamados-sla.md) — criticidade P1–P4 e SLA `#fluxo`
 - [`ordens-servico.md`](docs/modulos/ordens-servico.md) — O.S., orçamentos, GPS `#fluxo`
 - [`mapa-geocoding.md`](docs/modulos/mapa-geocoding.md) — geocoding híbrido + proxy de tiles `#fluxo`
+- [`app-mobile.md`](docs/modulos/app-mobile.md) — Capacitor, GPS background (limitação + solução pendente) `#fluxo`
 
 ## ⚙️ Convenções
 
