@@ -1105,6 +1105,9 @@ function _alBindEventos() {
     const id = Number(row.dataset.alId);
     _alSelecionadoId = (_alSelecionadoId === id) ? null : id; // toggle
     _alRender();
+    if (_alSelecionadoId && window.innerWidth <= 768) {
+      setTimeout(() => document.getElementById("alPainel")?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+    }
   });
 
   // Fechar painel
@@ -1711,6 +1714,9 @@ function _chCliBindEventos() {
     if (!row) return;
     const id = Number(row.dataset.chCliId);
     _chCliSelecionar(id);
+    if (window.innerWidth <= 768) {
+      setTimeout(() => document.getElementById("chCliDetailCol")?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
+    }
   });
 
   // Modal abrir chamado

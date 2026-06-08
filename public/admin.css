@@ -2929,6 +2929,22 @@ select option { background: #14172a; color: #eef0fb; }
   /* Tanque */
   .tank { width: 22px; height: 42px; }
   .tank-pct { font-size: 9.5px; }
+
+  /* ── Painel do cliente: tabelas compactas ── */
+  .layout-cli table { min-width: 0; }
+  /* Alertas: oculta "Aberto há" e "Atualizado" */
+  .layout-cli .al-table th:nth-child(4),
+  .layout-cli .al-table th:nth-child(5),
+  .layout-cli .al-table td:nth-child(4),
+  .layout-cli .al-table td:nth-child(5) { display: none; }
+  /* Chamados: oculta "Categoria" e "Data" */
+  .layout-cli .ch-table-wrap table th:nth-child(3),
+  .layout-cli .ch-table-wrap table th:nth-child(5),
+  .layout-cli .ch-table-wrap table td:nth-child(3),
+  .layout-cli .ch-table-wrap table td:nth-child(5) { display: none; }
+  /* Bombas: oculta "Atualização" */
+  .layout-cli .tel-bombas-table th:nth-child(4),
+  .layout-cli .tel-bombas-table td:nth-child(4) { display: none; }
 }
 
 /* ============================================================
