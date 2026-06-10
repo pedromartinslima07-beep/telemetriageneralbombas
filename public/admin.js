@@ -7076,7 +7076,9 @@ function _tecPinIcon(iniciais, stale = false) {
 }
 function _tecStale(capturadaEm) {
   if (!capturadaEm) return true;
-  return (Date.now() - new Date(capturadaEm).getTime()) > 3 * 60 * 1000;
+  // 10 min — plugin de background no Android pode demorar entre callbacks
+  // devido à otimização de bateria dos fabricantes.
+  return (Date.now() - new Date(capturadaEm).getTime()) > 10 * 60 * 1000;
 }
 function _tempoRelativo(iso) {
   if (!iso) return "—";

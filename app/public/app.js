@@ -1524,6 +1524,11 @@ function _gpsAbrirWatch() {
             ts: location.time || Date.now(),
           };
           TC.geo = { lat: GPS.last.lat, lng: GPS.last.lng, capturada_em: GPS.last.ts };
+        } else if (GPS.last) {
+          // Posição não melhorou, mas GPS está vivo — atualiza ts para evitar pin cinza
+          // no mapa do admin (o pin fica cinza se capturada_em > 3 min atrás).
+          GPS.last = { ...GPS.last, ts: Date.now() };
+          if (TC.geo) TC.geo = { ...TC.geo, capturada_em: GPS.last.ts };
         }
         gpsRenderAviso();
         if (Date.now() - GPS.lastSentTs >= GPS.PING_MS) gpsEnviar();
@@ -1569,7 +1574,7 @@ function _gpsAbrirWatch() {
         return;
       }
       GPS.lastError = null;
-      // Só atualiza GPS.last se a nova posição for melhor OU a anterior tiver
+      // Só atualiza lat/lng se a nova posição for melhor OU a anterior tiver
       // mais de 90 s (evita sumir em área sem GPS).
       const anterior = GPS.last;
       const maisRecente = !anterior || (Date.now() - anterior.ts) > 90000;
@@ -1582,6 +1587,10 @@ function _gpsAbrirWatch() {
           ts: Date.now(),
         };
         TC.geo = { lat: GPS.last.lat, lng: GPS.last.lng, capturada_em: GPS.last.ts };
+      } else if (GPS.last) {
+        // Posição não melhorou, mas GPS está vivo — atualiza ts para evitar pin cinza
+        GPS.last = { ...GPS.last, ts: Date.now() };
+        if (TC.geo) TC.geo = { ...TC.geo, capturada_em: GPS.last.ts };
       }
       gpsRenderAviso();
       const agora = Date.now();
@@ -1640,6 +1649,32 @@ async function gpsEnviar() {
     console.warn("[gps] ping falhou:", err.message);
   }
 }
+
+// Quando o app volta ao primeiro plano (técnico pega o celular), força ping
+// imediato para corrigir o pin cinza causado pela suspensão do JS em background.
+(function _gpsSetupForegroundResume() {
+  // Visibilidade do documento (funciona no WebView e no browser)
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState !== "visible") return;
+    if (!GPS.scheduled || !GPS.last) return;
+    GPS.last = { ...GPS.last, ts: Date.now() };
+    if (TC.geo) TC.geo = { ...TC.geo, capturada_em: GPS.last.ts };
+    GPS.lastSentTs = 0; // força envio imediato
+    gpsEnviar();
+  });
+  // Capacitor App plugin — mais confiável que visibilitychange no APK nativo
+  const CapApp = window.Capacitor?.Plugins?.App;
+  if (CapApp) {
+    CapApp.addListener("appStateChange", (state) => {
+      if (!state?.isActive) return;
+      if (!GPS.scheduled || !GPS.last) return;
+      GPS.last = { ...GPS.last, ts: Date.now() };
+      if (TC.geo) TC.geo = { ...TC.geo, capturada_em: GPS.last.ts };
+      GPS.lastSentTs = 0;
+      gpsEnviar();
+    });
+  }
+})();
 
 function gpsRenderChip() {
   let chip = document.getElementById("gpsChip");
