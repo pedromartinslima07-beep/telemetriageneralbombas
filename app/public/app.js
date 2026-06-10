@@ -272,6 +272,9 @@ function abrirTelaTecnico(user) {
   // onde o técnico está para decidir designação por proximidade, não só
   // durante atendimento. Para no logout.
   gpsStart();
+  // Solicita isenção de bateria só para técnicos (clientes não precisam).
+  // Diálogo aparece uma única vez; depois de concedido, a chamada é no-op.
+  window.Capacitor?.Plugins?.NativeGpsTracker?.requestBatteryExemption?.();
   // GPS rápido (one-shot) só pra ordenar a lista por proximidade
   pedirGPSOportunista();
 }
