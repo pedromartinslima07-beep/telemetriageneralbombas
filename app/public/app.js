@@ -26,6 +26,10 @@ const Storage = {
   },
   setUser(u) { localStorage.setItem("gb_user", JSON.stringify(u)); },
   clearUser() { localStorage.removeItem("gb_user"); },
+  // device_token persiste entre sessões — NÃO é limpo no logout.
+  // Só o admin pode revogar via painel.
+  getDeviceToken() { return localStorage.getItem("gb_device_token") || null; },
+  setDeviceToken(t) { localStorage.setItem("gb_device_token", t); },
   clear() { this.clearToken(); this.clearUser(); },
 };
 
@@ -120,10 +124,10 @@ formLogin.addEventListener("submit", async (e) => {
 
   setBtnLoading(loginBtn, true);
   try {
-    const r = await api("/auth/login", {
-      method: "POST",
-      body: { email, senha },
-    });
+    const body = { email, senha };
+    const dt = Storage.getDeviceToken();
+    if (dt) body.device_token = dt;
+    const r = await api("/auth/login", { method: "POST", body });
 
     if (r.pending && r.otp_token) {
       otpContext = { otp_token: r.otp_token, email };
@@ -182,13 +186,19 @@ formOtp.addEventListener("submit", async (e) => {
   try {
     const r = await api("/auth/verify-otp", {
       method: "POST",
-      body: { otp_token: otpContext.otp_token, code, confiar },
+      body: {
+        otp_token: otpContext.otp_token,
+        code,
+        confiar,
+        nome_dispositivo: "App General Bombas",
+      },
     });
 
     Storage.setToken(r.token);
     Storage.setUser(r.user);
+    if (r.device_token) Storage.setDeviceToken(r.device_token);
     otpContext = null;
-    mostrarHome(r.user);
+    mostrarPosLogin(r.user);
   } catch (err) {
     showAlert(otpAlert, err.message);
   } finally {

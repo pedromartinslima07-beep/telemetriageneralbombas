@@ -7,7 +7,6 @@ const { pool } = require("../db");
 const crypto = require("crypto");
 const { sendOTP } = require("../services/email");
 
-const TRUSTED_DEVICE_DAYS = 30;
 const TRUSTED_COOKIE = "td_token";
 const isProd = process.env.NODE_ENV === "production";
 
@@ -186,11 +185,11 @@ router.post("/login", loginLimiter, async (req, res) => {
       return res.status(401).json({ error: "Email ou senha inválidos" });
     }
 
-    // Verifica dispositivo confiável (cookie)
-    const deviceToken = req.cookies?.[TRUSTED_COOKIE];
+    // Verifica dispositivo confiável — cookie (web) ou body (app mobile Capacitor)
+    const deviceToken = req.cookies?.[TRUSTED_COOKIE] || req.body?.device_token;
     if (deviceToken) {
       const td = await pool.query(
-        "SELECT id FROM trusted_devices WHERE token = $1 AND usuario_id = $2 AND expires_at > NOW() LIMIT 1",
+        "SELECT id FROM trusted_devices WHERE token = $1 AND usuario_id = $2 AND (expires_at IS NULL OR expires_at > NOW()) LIMIT 1",
         [deviceToken, u.id]
       );
       if (td.rows.length > 0) {
@@ -293,25 +292,30 @@ router.post("/verify-otp", otpLimiter, async (req, res) => {
       { expiresIn: JWT_EXPIRES_IN }
     );
 
-    // Salva dispositivo confiável se solicitado
+    // Salva dispositivo confiável se solicitado — validade indefinida
+    let deviceTokenOut = undefined;
     if (confiar) {
       const deviceToken = crypto.randomBytes(32).toString("hex");
-      const expiresAt = new Date(Date.now() + TRUSTED_DEVICE_DAYS * 24 * 60 * 60 * 1000);
+      const nomeDisp = req.body?.nome_dispositivo
+        || _nomePeloUA(req.headers["user-agent"] || "");
       await pool.query(
-        "INSERT INTO trusted_devices (usuario_id, token, expires_at) VALUES ($1, $2, $3)",
-        [u.id, deviceToken, expiresAt]
+        "INSERT INTO trusted_devices (usuario_id, token, expires_at, nome) VALUES ($1, $2, NULL, $3)",
+        [u.id, deviceToken, nomeDisp]
       );
+      // Cookie para web
       res.cookie(TRUSTED_COOKIE, deviceToken, {
         httpOnly: true,
         secure: isProd,
         sameSite: "lax",
-        expires: expiresAt,
+        maxAge: 10 * 365 * 24 * 60 * 60 * 1000, // 10 anos (indefinido na prática)
       });
+      deviceTokenOut = deviceToken;
     }
 
     return res.json({
       token,
       user: { id: u.id, nome: u.nome, email: u.email, role: u.role, condominio_id: u.condominio_id },
+      ...(deviceTokenOut ? { device_token: deviceTokenOut } : {}),
     });
   } catch (error) {
     console.error("Erro /auth/verify-otp:", error);
@@ -380,10 +384,10 @@ router.post("/trocar-senha", authRequired, async (req, res) => {
 router.get("/dispositivos", authRequired, async (req, res) => {
   try {
     const r = await pool.query(
-      `SELECT id, criado_em, expires_at,
+      `SELECT id, nome, criado_em,
               (token = $2) AS atual
        FROM trusted_devices
-       WHERE usuario_id = $1 AND expires_at > NOW()
+       WHERE usuario_id = $1 AND (expires_at IS NULL OR expires_at > NOW())
        ORDER BY criado_em DESC`,
       [req.user.id, req.cookies?.[TRUSTED_COOKIE] || ""]
     );
@@ -428,5 +432,17 @@ router.delete("/dispositivos", authRequired, async (req, res) => {
     return res.status(500).json({ error: "Erro ao revogar dispositivos" });
   }
 });
+
+// Extrai nome legível do dispositivo a partir do User-Agent
+function _nomePeloUA(ua) {
+  if (!ua) return "Dispositivo desconhecido";
+  if (/android/i.test(ua))  return "Android";
+  if (/iphone/i.test(ua))   return "iPhone";
+  if (/ipad/i.test(ua))     return "iPad";
+  if (/chrome/i.test(ua))   return "Chrome";
+  if (/firefox/i.test(ua))  return "Firefox";
+  if (/safari/i.test(ua))   return "Safari";
+  return "Navegador";
+}
 
 module.exports = { authRouter: router };

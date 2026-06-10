@@ -9506,6 +9506,9 @@ function _cfgRenderUsuarios() {
           <button class="btn btn-sm cfg-icon-btn" data-cfg-action="editar-usuario" data-id="${u.id}" title="Editar usuário">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
           </button>
+          <button class="btn btn-sm cfg-icon-btn" data-cfg-action="dispositivos-usuario" data-id="${u.id}" title="Dispositivos confiáveis">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+          </button>
           <button class="btn btn-sm cfg-icon-btn" data-cfg-action="reset-senha" data-id="${u.id}" title="Resetar senha">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
           </button>
@@ -9765,6 +9768,73 @@ function _cfgMostrarSenhaTemporaria(nome, senha) {
   overlay.style.display = "flex";
 }
 
+async function _cfgVerDispositivosUsuario(id) {
+  const u = _cfgUsuariosDados.find(x => x.id === id);
+  if (!u) return;
+  const overlay = document.getElementById("cfgModalOverlay");
+  const box = document.getElementById("cfgModalBox");
+  if (!overlay || !box) return;
+
+  box.style.maxWidth = "460px";
+  box.innerHTML = `
+    <div style="padding:20px 24px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+      <div>
+        <div style="font-size:15px;font-weight:700;color:var(--text);">Dispositivos confiáveis</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:3px;">${_waEscaparHtml(u.nome)}</div>
+      </div>
+      <button class="btn btn-sm" data-cfg-action="cancel-modal-usuario">✕</button>
+    </div>
+    <div style="padding:16px 24px;" id="cfgDispList">
+      <div style="color:var(--muted);font-size:13px;">Carregando…</div>
+    </div>
+    <div style="padding:0 24px 20px;display:flex;justify-content:flex-end;gap:8px;">
+      <button class="btn btn-sm" id="cfgDispRevogarTodos" style="color:#f87171;border-color:rgba(248,113,113,.3);">Revogar todos</button>
+      <button class="btn btn-sm btnAccent" data-cfg-action="cancel-modal-usuario">Fechar</button>
+    </div>`;
+  overlay.style.display = "flex";
+
+  const renderLista = async () => {
+    const listEl = document.getElementById("cfgDispList");
+    try {
+      const r = await fetch(`/admin/usuarios/${id}/dispositivos`, { headers: authHeaders() });
+      const data = await r.json();
+      if (!r.ok) { listEl.innerHTML = `<div style="color:#f87171;font-size:13px;">${_waEscaparHtml(data.error || "Erro")}</div>`; return; }
+      if (!data.length) {
+        listEl.innerHTML = `<div style="color:var(--muted);font-size:13px;">Nenhum dispositivo confiável registrado.</div>`;
+        return;
+      }
+      listEl.innerHTML = data.map(d => `
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);" data-td-id="${d.id}">
+          <div>
+            <div style="font-size:13px;color:var(--text);">${_waEscaparHtml(d.nome || "Dispositivo")}</div>
+            <div style="font-size:11px;color:var(--muted);">Adicionado em ${new Date(d.criado_em).toLocaleDateString("pt-BR")}</div>
+          </div>
+          <button class="btn btn-sm cfg-disp-revogar" data-td-id="${d.id}" style="color:#f87171;border-color:rgba(248,113,113,.3);font-size:11px;">Revogar</button>
+        </div>`).join("");
+
+      listEl.querySelectorAll(".cfg-disp-revogar").forEach(btn => {
+        btn.addEventListener("click", async () => {
+          const tdId = btn.dataset.tdId;
+          btn.disabled = true;
+          const rv = await fetch(`/admin/usuarios/${id}/dispositivos/${tdId}`, { method: "DELETE", headers: authHeaders() });
+          if (rv.ok) renderLista();
+          else btn.disabled = false;
+        });
+      });
+    } catch {
+      listEl.innerHTML = `<div style="color:#f87171;font-size:13px;">Erro de conexão.</div>`;
+    }
+  };
+
+  renderLista();
+
+  document.getElementById("cfgDispRevogarTodos")?.addEventListener("click", async () => {
+    if (!confirm(`Revogar todos os dispositivos confiáveis de ${u.nome}?`)) return;
+    await fetch(`/admin/usuarios/${id}/dispositivos`, { method: "DELETE", headers: authHeaders() });
+    renderLista();
+  });
+}
+
 async function _cfgRemoverUsuario(id) {
   const u = _cfgUsuariosDados.find(x => x.id === id);
   if (!u) return;
@@ -9844,8 +9914,9 @@ document.addEventListener("DOMContentLoaded", () => {
     if (action === "testar-integracoes")  return _cfgCarregarIntegracoes();
     if (action === "novo-usuario")        return _cfgAbrirModalUsuario(null);
     if (action === "editar-usuario")      return _cfgAbrirModalUsuario(_cfgUsuariosDados.find(u => u.id === id));
-    if (action === "reset-senha")         return _cfgResetSenha(id);
-    if (action === "remover-usuario")     return _cfgRemoverUsuario(id);
+    if (action === "reset-senha")             return _cfgResetSenha(id);
+    if (action === "dispositivos-usuario")    return _cfgVerDispositivosUsuario(id);
+    if (action === "remover-usuario")         return _cfgRemoverUsuario(id);
   });
 
   // Modal exclusivo da seção Configurações

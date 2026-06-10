@@ -557,6 +557,58 @@ router.post("/usuarios/:id/reset-senha", authRequired, masterAdminOnly, async (r
   }
 });
 
+// GET /admin/usuarios/:id/dispositivos — lista dispositivos confiáveis de um usuário
+router.get("/usuarios/:id/dispositivos", authRequired, masterAdminOnly, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
+  try {
+    const r = await pool.query(
+      `SELECT id, nome, criado_em
+       FROM trusted_devices
+       WHERE usuario_id = $1 AND (expires_at IS NULL OR expires_at > NOW())
+       ORDER BY criado_em DESC`,
+      [id]
+    );
+    return res.json(r.rows);
+  } catch (err) {
+    console.error("[admin] GET /usuarios/:id/dispositivos:", err);
+    return res.status(500).json({ error: "Erro ao listar dispositivos" });
+  }
+});
+
+// DELETE /admin/usuarios/:id/dispositivos/:tdId — revoga dispositivo específico
+router.delete("/usuarios/:id/dispositivos/:tdId", authRequired, masterAdminOnly, async (req, res) => {
+  const id   = Number(req.params.id);
+  const tdId = Number(req.params.tdId);
+  if (!Number.isInteger(id) || id <= 0 || !Number.isInteger(tdId) || tdId <= 0) {
+    return res.status(400).json({ error: "ids inválidos" });
+  }
+  try {
+    const r = await pool.query(
+      "DELETE FROM trusted_devices WHERE id = $1 AND usuario_id = $2",
+      [tdId, id]
+    );
+    if (r.rowCount === 0) return res.status(404).json({ error: "Dispositivo não encontrado" });
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("[admin] DELETE /usuarios/:id/dispositivos/:tdId:", err);
+    return res.status(500).json({ error: "Erro ao revogar dispositivo" });
+  }
+});
+
+// DELETE /admin/usuarios/:id/dispositivos — revoga todos os dispositivos de um usuário
+router.delete("/usuarios/:id/dispositivos", authRequired, masterAdminOnly, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
+  try {
+    const r = await pool.query("DELETE FROM trusted_devices WHERE usuario_id = $1", [id]);
+    return res.json({ ok: true, revogados: r.rowCount });
+  } catch (err) {
+    console.error("[admin] DELETE /usuarios/:id/dispositivos:", err);
+    return res.status(500).json({ error: "Erro ao revogar dispositivos" });
+  }
+});
+
 // GET /admin/configuracoes — lê todas as chaves whitelistadas + metadata
 router.get("/configuracoes", authRequired, masterAdminOnly, async (req, res) => {
   try {
