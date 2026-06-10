@@ -62,6 +62,14 @@ Envs necessárias: `OPENAI_API_KEY`, `WHATSAPP_VERIFY_TOKEN`,
 6. 10B — few-shot por categoria (aguardar volume de conversas curadas).
 7. 7J — publicação Play Store.
 
+## Melhorias recentes (sessão 2026-06-10 — UX admin e app mobile)
+
+- **Modal de O.S. (admin) redesenhado:** layout flat com `os-vsec-title` (border-bottom, uppercase) em vez de cards com borda. 2 colunas para Identificação+Check-in e Itens+Correntes. `admin.css?v=113`, `admin.js?v=174`.
+- **Novo chamado — seletor P1-P4:** wizard Q1-Q3 removido; 4 cards diretos com cor e prazo. `admin.js?v=173`.
+- **Atribuir técnico no mapa:** filtrado por `cargo=tecnico`; feedback visual; estado "Técnico: Nome [Alterar]". `admin.js?v=176`.
+- **Hard delete de condomínio corrigido:** bug na coluna `alerta_comentarios.chamado_id` (não existe; correto é `alerta_origem + alerta_id`).
+- **App mobile — 4 melhorias:** card de mensagens oculto quando vazio; botão "Chegou ao local" removido (iniciar atendimento registra chegada); foto na O.S. abre câmera ou galeria; GPS oculto na tela de assinatura fullscreen.
+
 ## Melhorias recentes (sessão 2026-06-08 — GPS staleness + ajustes admin)
 
 - **Pin de técnico "stale":** `_tecStale()` retorna `true` quando `capturada_em` tem mais de 3 min. Pin cinza/opaco + sem pulse. Tooltip/popup indicam quando foi o último sinal. Aplicado tanto no MC map quanto na seção Mapa.
