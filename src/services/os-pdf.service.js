@@ -70,7 +70,11 @@ function logoBase64() {
   } catch { return null; }
 }
 
-function fotoToDataUrl(urlPublica) {
+function fotoToDataUrl(foto) {
+  // Caminho preferencial: base64 armazenado no banco (sobrevive a restarts).
+  if (foto.dados_base64 && foto.dados_base64.startsWith("data:")) return foto.dados_base64;
+  // Fallback legacy: tenta ler do disco (só funciona se o arquivo ainda existir).
+  const urlPublica = foto.url;
   if (!urlPublica || !urlPublica.startsWith("/uploads/")) return null;
   const rel = urlPublica.replace(/^\/+/, "");
   const fpath = path.join(__dirname, "../../", rel);
@@ -177,7 +181,7 @@ function renderHTML({ os, fotos, pecas }) {
   const fotosHtml = (() => {
     if (!fotos.length) return "";
     const items = fotos.map(f => {
-      const data = fotoToDataUrl(f.url);
+      const data = fotoToDataUrl(f);
       if (!data) return "";
       const tl  = { antes: "Antes", depois: "Depois", geral: "Geral" }[f.tipo] || "Foto";
       const leg = f.legenda ? `: ${escapeHtml(f.legenda)}` : "";

@@ -65,8 +65,23 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
 | 045 | condominios_email | `condominios.email VARCHAR(255)` (e-mail para orçamentos) |
 | 046 | multi_contratos | remove `idx_contratos_ativo_uniq` — permite múltiplos contratos ativos por condomínio |
 | 047 | orcamento_envio_email | `orcamentos.enviado_em/enviado_para`; `condominios.email` → TEXT (múltiplos e-mails por vírgula) |
+| 048 | colaboradores_cargo | `tecnicos.cargo` (tecnico/adm/gestor/ti) |
+| 049 | usuarios_roles_novos | novos roles; `usuarios.condominio_id` |
+| 050 | usuarios_email_template | template de e-mail por usuário |
+| 051 | usuarios_assinatura_blob | assinatura digital em blob |
+| 052 | trusted_devices_indefinido | trusted_devices sem expiração (permanente) |
+| 053 | os_fotos_dados_base64 | `os_fotos.dados_base64 TEXT` — persiste imagem no banco para sobreviver a restarts do Railway (antes era salvo em disco efêmero) |
 
 ## Marcos de produto (fases do plano)
+
+- **2026-06-10** — **Fotos de OS persistidas no banco de dados**
+  - `os_fotos.dados_base64 TEXT` adicionado (migration 053).
+  - Upload (`POST /ordens-servico/:id/fotos/upload`) salva o conteúdo base64 no banco em vez de gravar em disco.
+  - Novo endpoint público `GET /ordens-servico/:osId/fotos/:fotoId/imagem` serve a imagem a partir do banco — compatível com `<img src="...">` sem header de auth.
+  - URL armazenada na coluna `url` agora aponta para esse endpoint (`/ordens-servico/{osId}/fotos/{fotoId}/imagem`).
+  - PDF (`os-pdf.service.js`): `fotoToDataUrl` usa `dados_base64` do row; fallback para disco (registros legados).
+  - `GET /ordens-servico/:id` exclui `dados_base64` da query de fotos para não inflar respostas.
+  - **Motivo:** Railway usa sistema de arquivos efêmero — `uploads/` é apagado a cada deploy/restart, perdendo todas as fotos.
 
 - **2026-06-10** — **GPS background no APK (Fase 7G-pre)**
   - Instalado `@capacitor-community/background-geolocation@1.2.26` em `app/`.

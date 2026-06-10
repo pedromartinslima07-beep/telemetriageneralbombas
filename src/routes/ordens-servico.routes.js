@@ -1,7 +1,6 @@
 const express = require("express");
 const path = require("path");
 const fs = require("fs/promises");
-const crypto = require("crypto");
 const { pool } = require("../db");
 const { authRequired } = require("../middleware/authRequired");
 const { adminOnly } = require("../middleware/adminOnly");
@@ -175,7 +174,7 @@ router.get("/:id", authRequired, osDonoOuAdmin(), async (req, res) => {
     if (osRes.rows.length === 0) return res.status(404).json({ error: "O.S. não encontrada" });
 
     const [fotos, pecas] = await Promise.all([
-      pool.query(`SELECT * FROM os_fotos WHERE os_id = $1 ORDER BY criado_em ASC`, [id]),
+      pool.query(`SELECT id, os_id, url, tipo, legenda, criado_em FROM os_fotos WHERE os_id = $1 ORDER BY criado_em ASC`, [id]),
       pool.query(`SELECT * FROM os_pecas WHERE os_id = $1 ORDER BY id ASC`, [id]),
     ]);
 
@@ -313,9 +312,10 @@ router.patch("/:id", authRequired, osDonoOuAdmin({ forWrite: true }), async (req
   }
 });
 
-// POST /ordens-servico/:id/fotos/upload — recebe foto em base64, salva no disco
-// e registra metadado em os_fotos. Body: { image_base64, tipo?, legenda? }
+// POST /ordens-servico/:id/fotos/upload — recebe foto em base64, persiste no banco.
+// Body: { image_base64, tipo?, legenda? }
 // image_base64 deve ser data URL ("data:image/jpeg;base64,...") ou só o base64.
+// Armazenamos no banco (não em disco) para sobreviver a restarts do Railway.
 router.post("/:id/fotos/upload", authRequired, osDonoOuAdmin({ forWrite: true }), async (req, res) => {
   const id = Number(req.params.id);
   const { image_base64, tipo, legenda } = req.body || {};
@@ -341,33 +341,59 @@ router.post("/:id/fotos/upload", authRequired, osDonoOuAdmin({ forWrite: true })
     return res.status(413).json({ error: "Foto muito grande (limite ~4 MB)" });
   }
 
-  let buf;
   try {
-    buf = Buffer.from(b64, "base64");
+    const buf = Buffer.from(b64, "base64");
     if (buf.length < 1024) throw new Error("imagem inválida ou muito pequena");
   } catch (e) {
     return res.status(400).json({ error: "image_base64 inválido" });
   }
 
-  const ext = mime === "image/png" ? "png" : mime === "image/webp" ? "webp" : "jpg";
-  const dir = path.join(UPLOAD_ROOT, String(id));
-  const fname = `${crypto.randomBytes(8).toString("hex")}.${ext}`;
-  const fpath = path.join(dir, fname);
-  const urlPublic = `/uploads/os/${id}/${fname}`;
+  const dataUrl = `data:${mime};base64,${b64}`;
 
   try {
-    await fs.mkdir(dir, { recursive: true });
-    await fs.writeFile(fpath, buf);
-
-    const result = await pool.query(
-      `INSERT INTO os_fotos (os_id, url, legenda, tipo)
-       VALUES ($1, $2, $3, $4) RETURNING *`,
-      [id, urlPublic, legenda || null, tipo || "geral"]
+    // Insere sem URL; atualiza logo após para incluir o ID gerado no path.
+    const r1 = await pool.query(
+      `INSERT INTO os_fotos (os_id, url, dados_base64, legenda, tipo)
+       VALUES ($1, '', $2, $3, $4) RETURNING id, os_id, tipo, legenda, criado_em`,
+      [id, dataUrl, legenda || null, tipo || "geral"]
     );
-    return res.status(201).json(result.rows[0]);
+    const fotoId = r1.rows[0].id;
+    const urlServico = `/ordens-servico/${id}/fotos/${fotoId}/imagem`;
+    await pool.query(`UPDATE os_fotos SET url = $1 WHERE id = $2`, [urlServico, fotoId]);
+    return res.status(201).json({ ...r1.rows[0], url: urlServico });
   } catch (err) {
     console.error("[ordens-servico] POST /:id/fotos/upload:", err);
     return res.status(500).json({ error: "Erro ao salvar foto" });
+  }
+});
+
+// GET /ordens-servico/:osId/fotos/:fotoId/imagem — serve a imagem armazenada no banco.
+// Público (sem authRequired) para compatibilidade com <img src="..."> sem header de auth.
+router.get("/:osId/fotos/:fotoId/imagem", async (req, res) => {
+  const osId   = Number(req.params.osId);
+  const fotoId = Number(req.params.fotoId);
+  if (!Number.isFinite(osId) || !Number.isFinite(fotoId)) {
+    return res.status(400).json({ error: "id inválido" });
+  }
+  try {
+    const result = await pool.query(
+      `SELECT dados_base64 FROM os_fotos WHERE id = $1 AND os_id = $2`,
+      [fotoId, osId]
+    );
+    if (!result.rows.length || !result.rows[0].dados_base64) {
+      return res.status(404).json({ error: "Foto não encontrada" });
+    }
+    const dataUrl = result.rows[0].dados_base64;
+    const match = dataUrl.match(/^data:(image\/[^;]+);base64,(.+)$/s);
+    if (!match) return res.status(500).json({ error: "Dados corrompidos" });
+    const [, mimetype, encoded] = match;
+    const buf = Buffer.from(encoded, "base64");
+    res.set("Content-Type", mimetype);
+    res.set("Cache-Control", "private, max-age=86400");
+    return res.send(buf);
+  } catch (err) {
+    console.error("[ordens-servico] GET foto imagem:", err);
+    return res.status(500).json({ error: "Erro ao servir foto" });
   }
 });
 

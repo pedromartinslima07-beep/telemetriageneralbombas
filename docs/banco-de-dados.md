@@ -147,7 +147,9 @@ liga técnico ao login. 029: perfil (`foto_url`, `cpf`, `rg`,
 `condominio_id`, `tecnico_id (SET NULL)`, dados de execução, `finalizada_em`.
 018: `orcamento_necessario BOOL`, `orcamento_observacoes`. (As colunas
 `orcamento_*` formais de 024/025 foram removidas em 030 — ver orçamentos.)
-**`os_fotos`** (015, CASCADE) e **`os_pecas`** (015, CASCADE).
+**`os_fotos`** (015, CASCADE) — `id`, `os_id`, `url`, `tipo`, `legenda`, `criado_em`.
+053: `dados_base64 TEXT` — conteúdo da imagem como data URL (`data:image/jpeg;base64,...`). Armazenado no banco para sobreviver a restarts do Railway (filesystem efêmero). Upload salva aqui; novo endpoint `GET /ordens-servico/:osId/fotos/:fotoId/imagem` serve o binário.
+**`os_pecas`** (015, CASCADE).
 
 ### Orçamentos — sistema unificado (migration 030)
 

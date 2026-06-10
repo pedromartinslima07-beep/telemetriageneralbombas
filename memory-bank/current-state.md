@@ -62,7 +62,7 @@ ESP32 (sonda 4-20mA + SCT-013)
 | **whatsapp** | Webhook Meta, conversas, central de atendimento, curadoria IA (contatos WhatsApp removidos da UI até módulo ser ativado) |
 | **chamados** | Ciclo do chamado, P1–P4, SLA, recorrência, a-caminho/chegou |
 | **tecnicos / tecnicos-localizacao** | Cadastro técnicos + GPS + ETA |
-| **ordens-servico** | O.S. digital (fotos, assinatura, orçamento) + PDF |
+| **ordens-servico** | O.S. digital (fotos, assinatura, orçamento) + PDF. Fotos persistidas em `os_fotos.dados_base64` (banco), servidas via `GET /ordens-servico/:osId/fotos/:fotoId/imagem` — não dependem mais de disco efêmero. |
 | **planos-manutencao** | Planos preventivos recorrentes |
 | **contratos** | Contratos por condomínio |
 | **orçamentos** | Sistema unificado (tabela `orcamentos` + `orcamento_linhas`) |
