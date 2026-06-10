@@ -10426,16 +10426,24 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!chamadoId) return;
       const sel = document.querySelector(`.mp-tec-select[data-chamado-id="${chamadoId}"]`);
       const tecnicoId = sel?.value ? Number(sel.value) : null;
+      const tecNome = sel ? sel.options[sel.selectedIndex]?.text : "Sem técnico";
       btn.disabled = true;
+      btn.textContent = "Salvando…";
       fetch(`/chamados/${chamadoId}`, {
         method: "PATCH",
         headers: { ...authHeaders(), "Content-Type": "application/json" },
         body: JSON.stringify({ tecnico_id: tecnicoId }),
       }).then(async r => {
-        if (!r.ok) { const e = await r.json().catch(() => ({})); alert(e.error || "Erro ao atribuir técnico"); btn.disabled = false; return; }
+        if (!r.ok) { const e = await r.json().catch(() => ({})); alert(e.error || "Erro ao atribuir técnico"); btn.disabled = false; btn.textContent = "Atribuir"; return; }
+        btn.textContent = "✓ Atribuído";
+        btn.style.cssText += ";background:var(--accent);color:#000;border-color:var(--accent);";
+        if (sel) sel.replaceWith(Object.assign(document.createElement("span"), {
+          textContent: tecNome,
+          style: "font-size:11px;font-weight:600;color:var(--accent);",
+        }));
         await carregarTudo();
         _mpAtualizarPainel();
-      }).catch(() => { alert("Erro de rede ao atribuir técnico"); btn.disabled = false; });
+      }).catch(() => { alert("Erro de rede ao atribuir técnico"); btn.disabled = false; btn.textContent = "Atribuir"; });
       return;
     }
 
