@@ -7336,7 +7336,8 @@ function _mpRenderChamados(g) {
   const lista = (Array.isArray(_chamadosData) ? _chamadosData : []).filter(ch => ch.condominio_id === condoId);
   if (lista.length === 0) return `<div class="mp-empty">Nenhum chamado para este condomínio.</div>`;
 
-  const tecs = (Array.isArray(_tecnicosData) ? _tecnicosData : []);
+  const tecs = (Array.isArray(_tecnicosData) ? _tecnicosData : [])
+    .filter(t => t.ativo !== false && (!t.cargo || t.cargo === 'tecnico'));
   const tecsOptions = `<option value="">— sem técnico —</option>` +
     tecs.map(t => `<option value="${t.id}">${escapeHtml(t.nome)}</option>`).join("");
 
