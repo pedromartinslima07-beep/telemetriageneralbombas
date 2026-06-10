@@ -2211,7 +2211,7 @@ function sectionFotos() {
             <circle cx="12" cy="13" r="4"/>
           </svg>
           Foto
-          <input type="file" accept="image/*" capture="environment" id="osFotoInput">
+          <input type="file" accept="image/*" id="osFotoInput">
         </label>
       </div>`,
   });
