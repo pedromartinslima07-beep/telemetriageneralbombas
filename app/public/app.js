@@ -2218,15 +2218,16 @@ function sectionFotos() {
       </div>
       <div class="os-foto-list" id="osFotos">
         ${fotos.map(renderFotoCard).join("")}
-        <label class="os-foto-add">
+        <button type="button" class="os-foto-add" id="osFotoAddBtn">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
             <circle cx="12" cy="13" r="4"/>
           </svg>
           Foto
-          <input type="file" accept="image/*" id="osFotoInput">
-        </label>
-      </div>`,
+        </button>
+      </div>
+      <input type="file" accept="image/*" capture="environment" id="osFotoInputCamera" hidden>
+      <input type="file" accept="image/*" id="osFotoInputGaleria" hidden>`,
   });
 }
 function renderFotoCard(f) {
@@ -2247,46 +2248,15 @@ function bindFotos() {
     });
   });
 
-  // Upload com compressão client-side
-  document.getElementById("osFotoInput")?.addEventListener("change", async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    e.target.value = ""; // permite re-enviar a mesma foto
-
-    const tipo = document.querySelector("#osFotoTipo .os-foto-tipo-opt.is-on")?.dataset.tipo || "geral";
-
-    try {
-      const dataUrl = await comprimirFoto(file, 1600, 0.75);
-
-      if (IS_DEMO) {
-        const fakeFoto = {
-          id: Date.now(),
-          url: dataUrl, // no demo usa o próprio dataUrl pra exibir
-          tipo,
-        };
-        OS.data.fotos.push(fakeFoto);
-      } else {
-        const created = await api(`/ordens-servico/${OS.data.id}/fotos/upload`, {
-          method: "POST",
-          body: { image_base64: dataUrl, tipo },
-        });
-        OS.data.fotos.push(created);
-      }
-
-      // Re-render da seção
-      const sec = document.querySelector('[data-section="fotos"]');
-      const open = sec.classList.contains("is-open");
-      sec.outerHTML = sectionFotos();
-      const newSec = document.querySelector('[data-section="fotos"]');
-      if (open) newSec.classList.add("is-open");
-      newSec.querySelector(".os-section-head").addEventListener("click", () =>
-        newSec.classList.toggle("is-open"));
-      bindFotos();
-      atualizarProgresso();
-    } catch (err) {
-      showAlert(document.getElementById("osAlert"),
-        "Falha ao enviar foto: " + err.message, "error");
-    }
+  // Botão principal → chooser câmera / galeria
+  document.getElementById("osFotoAddBtn")?.addEventListener("click", _mostrarFotoChooser);
+  // Input câmera (capture="environment") e galeria (sem capture) — separados para
+  // garantir que o usuário sempre tenha as duas opções no Android WebView.
+  document.getElementById("osFotoInputCamera")?.addEventListener("change", (e) => {
+    const f = e.target.files?.[0]; e.target.value = ""; if (f) _uploadFotoFile(f);
+  });
+  document.getElementById("osFotoInputGaleria")?.addEventListener("change", (e) => {
+    const f = e.target.files?.[0]; e.target.value = ""; if (f) _uploadFotoFile(f);
   });
 
   // Remover foto
@@ -2310,8 +2280,72 @@ function bindFotos() {
       atualizarProgresso();
     } catch (err) {
       showAlert(document.getElementById("osAlert"),
-        "Falha ao remover: " + err.message, "error");
+        "Falha ao remover: " + (err?.message || "erro desconhecido"), "error");
     }
+  });
+}
+
+async function _uploadFotoFile(file) {
+  const tipo = document.querySelector("#osFotoTipo .os-foto-tipo-opt.is-on")?.dataset.tipo || "geral";
+  const btn = document.getElementById("osFotoAddBtn");
+  const _SVG_CAMERA = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>`;
+  if (btn) { btn.disabled = true; btn.innerHTML = `${_SVG_CAMERA} Enviando…`; }
+
+  try {
+    const dataUrl = await comprimirFoto(file, 1200, 0.72);
+
+    if (IS_DEMO) {
+      OS.data.fotos.push({ id: Date.now(), url: dataUrl, tipo });
+    } else {
+      const created = await api(`/ordens-servico/${OS.data.id}/fotos/upload`, {
+        method: "POST",
+        body: { image_base64: dataUrl, tipo },
+      });
+      OS.data.fotos.push(created);
+    }
+
+    const sec = document.querySelector('[data-section="fotos"]');
+    const open = sec.classList.contains("is-open");
+    sec.outerHTML = sectionFotos();
+    const newSec = document.querySelector('[data-section="fotos"]');
+    if (open) newSec.classList.add("is-open");
+    newSec.querySelector(".os-section-head").addEventListener("click", () =>
+      newSec.classList.toggle("is-open"));
+    bindFotos();
+    atualizarProgresso();
+  } catch (err) {
+    if (btn) { btn.disabled = false; btn.innerHTML = `${_SVG_CAMERA} Foto`; }
+    showAlert(document.getElementById("osAlert"),
+      "Falha ao enviar foto: " + (err?.message || "erro desconhecido"), "error");
+  }
+}
+
+function _mostrarFotoChooser() {
+  const existing = document.getElementById("osFotoSrcSheet");
+  if (existing) { existing.remove(); return; }
+  const sheet = document.createElement("div");
+  sheet.id = "osFotoSrcSheet";
+  sheet.className = "os-foto-src-sheet";
+  sheet.innerHTML = `
+    <div class="os-foto-src-backdrop"></div>
+    <div class="os-foto-src-body">
+      <button type="button" class="os-foto-src-btn" data-src="camera">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        Câmera
+      </button>
+      <button type="button" class="os-foto-src-btn" data-src="galeria">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+        Galeria
+      </button>
+    </div>`;
+  document.body.appendChild(sheet);
+  sheet.querySelector(".os-foto-src-backdrop").addEventListener("click", () => sheet.remove());
+  sheet.querySelectorAll(".os-foto-src-btn").forEach((b) => {
+    b.addEventListener("click", () => {
+      sheet.remove();
+      const id = b.dataset.src === "camera" ? "osFotoInputCamera" : "osFotoInputGaleria";
+      document.getElementById(id)?.click();
+    });
   });
 }
 
@@ -2322,10 +2356,10 @@ async function comprimirFoto(file, maxDim, quality) {
     r.onload = () => {
       const i = new Image();
       i.onload = () => resolve(i);
-      i.onerror = reject;
+      i.onerror = () => reject(new Error("Falha ao carregar a imagem"));
       i.src = r.result;
     };
-    r.onerror = reject;
+    r.onerror = () => reject(new Error("Falha ao ler o arquivo"));
     r.readAsDataURL(file);
   });
 

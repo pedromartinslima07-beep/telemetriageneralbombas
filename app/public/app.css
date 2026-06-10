@@ -2088,28 +2088,63 @@ body:has(.screen-auth[data-active])::before { display: none; }
 .os-foto-del:hover { background: var(--danger); }
 
 .os-foto-add {
-  position: relative;
   aspect-ratio: 1;
   border-radius: var(--radius-sm);
   border: 1px dashed var(--border-strong);
   background: var(--surface2);
   color: var(--muted);
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 4px;
   cursor: pointer;
   font-size: 11px;
   font-weight: 600;
+  font-family: inherit;
   transition: border-color .15s, color .15s;
 }
-.os-foto-add:hover {
-  border-color: var(--accent);
-  color: var(--accent);
+.os-foto-add:hover { border-color: var(--accent); color: var(--accent); }
+.os-foto-add:disabled { opacity: .55; cursor: default; }
+
+/* Bottom sheet: escolha câmera / galeria */
+.os-foto-src-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 600;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
 }
-.os-foto-add svg { display: block; margin: 0 auto 4px; }
-.os-foto-add input[type="file"] {
-  position: absolute; inset: 0; opacity: 0; cursor: pointer;
+.os-foto-src-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,.5);
 }
+.os-foto-src-body {
+  position: relative;
+  z-index: 1;
+  background: var(--surface);
+  border-radius: 16px 16px 0 0;
+  padding: 12px 16px calc(env(safe-area-inset-bottom, 0px) + 20px);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.os-foto-src-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--surface2);
+  color: var(--text);
+  font-size: 15px;
+  font-family: inherit;
+  cursor: pointer;
+}
+.os-foto-src-btn:active { background: var(--border); }
 
 .os-foto-tipo-picker {
   display: flex;
