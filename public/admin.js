@@ -7348,6 +7348,11 @@ function _mpRenderChamados(g) {
     const statusLabel = (ch.status || "").replaceAll("_", " ");
     const isFechado = ch.status === "fechado";
     const tecNome = ch.tecnico_nome ? escapeHtml(ch.tecnico_nome) : (ch.tecnico_id ? `Técnico #${ch.tecnico_id}` : "");
+    const deslocamento = ch.tecnico_chegou_em
+      ? `<span style="color:var(--ok);">📍 chegou ${_mpRelTime(ch.tecnico_chegou_em)}</span>`
+      : ch.tecnico_a_caminho_em
+        ? `<span style="color:var(--warn);">🚗 a caminho ${_mpRelTime(ch.tecnico_a_caminho_em)}</span>`
+        : "";
 
     const atribuirHtml = !isFechado ? `
       <div style="display:flex;gap:6px;align-items:center;margin-top:6px;padding-left:18px;">
@@ -7365,7 +7370,7 @@ function _mpRenderChamados(g) {
           <span class="mli-dot ${kind}" style="flex-shrink:0;margin-top:2px;"></span>
           <div class="mli-main">
             <div class="mli-title">${escapeHtml(ch.titulo || "Chamado #" + ch.id)}</div>
-            <div class="mli-sub">${statusLabel} • ${ch.prioridade || "p3"} ${tecNome ? "• " + tecNome : ""}</div>
+            <div class="mli-sub">${statusLabel} • ${ch.prioridade || "p3"} ${tecNome ? "• " + tecNome : ""} ${deslocamento ? "• " : ""}${deslocamento}</div>
           </div>
           <span class="mli-right">${_mpRelTime(ch.criado_em)}</span>
         </div>
