@@ -5428,6 +5428,9 @@ body.role-viewer .viewer-only-hide-inline {
 
 /* ---------- Modal ---------- */
 #osModalOverlay .modalBody { padding: 0; }
+#osModalOverlay .modalHead > div:first-child { flex: 1 1 auto; min-width: 0; overflow: hidden; }
+#osModalOverlay .modalHead > div:first-child .modalSub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#osModalOverlay .modalHead > div:last-child { flex-shrink: 0; }
 
 /* OS view redesign */
 .os-view-hero {

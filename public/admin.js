@@ -11201,18 +11201,6 @@ function _osRenderView(os) {
     : `<span class="os-muted">Não assinada.</span>`;
 
   return `
-    <div class="os-view-hero">
-      <div class="os-view-hero-num">${_waEscaparHtml(os.numero || "O.S.")}</div>
-      <div class="os-view-hero-meta">
-        <span class="os-result-pill ${os.finalizada_em ? "os-status-final" : "os-status-rascunho"}">${os.finalizada_em ? "Finalizada" : "Rascunho"}</span>
-        <span class="os-view-dot">·</span>
-        <span>${_waEscaparHtml(os.condominio_nome || "—")}</span>
-        <span class="os-view-dot">·</span>
-        <span>${_waEscaparHtml(os.tecnico_nome || "Sem técnico")}</span>
-        ${os.finalizada_em ? `<span class="os-view-dot">·</span><span>${_osFmtDataCurta(os.finalizada_em)}</span>` : ""}
-      </div>
-    </div>
-
     <div class="os-view-body">
       <div class="os-view-cols">
         <div>
