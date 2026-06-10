@@ -1495,8 +1495,53 @@ function _gpsAbrirWatch() {
     return;
   }
 
-  // No APK nativo usa o plugin background-geolocation, que sobrevive com a tela
-  // apagada. O watchPosition abaixo é o fallback para o browser/PWA.
+  // No APK nativo usa NativeGpsTracker: ForegroundService Java que coleta GPS
+  // E faz o HTTP POST diretamente, sem depender do WebView (que o Android
+  // pausa com a tela apagada). O BgGeo abaixo é fallback se o plugin nativo
+  // não estiver disponível (APK antigo). watchPosition é fallback final (browser).
+  const NativeGps = window.Capacitor?.isNativePlatform?.() &&
+    window.Capacitor?.Plugins?.NativeGpsTracker;
+  if (NativeGps) {
+    GPS.active = true;
+    GPS.lastError = null;
+    NativeGps.start({
+      endpoint: API_BASE + "/tecnicos/localizacao",
+      token: Storage.getToken(),
+      intervalMs: GPS.PING_MS,
+      notificationTitle: "GPS ativo",
+      notificationMessage: "General Bombas está monitorando sua localização.",
+    }).catch((e) => {
+      console.warn("[gps] NativeGpsTracker.start falhou:", e);
+      GPS.active = false;
+    });
+    // Escuta eventos de localização para manter a UI sincronizada quando
+    // o app está em primeiro plano. O envio HTTP é feito pelo Java.
+    NativeGps.addListener("locationUpdate", (loc) => {
+      if (!loc) return;
+      const acc = loc.accuracy;
+      if (acc > 15000) { GPS.lastError = "low_accuracy"; gpsRenderAviso(); return; }
+      GPS.lastError = null;
+      const anterior = GPS.last;
+      const maisRecente = !anterior || (Date.now() - anterior.ts) > 90000;
+      const maisExata   = !anterior || acc < anterior.precisao_m;
+      if (maisRecente || maisExata) {
+        GPS.last = { lat: loc.lat, lng: loc.lng, precisao_m: acc, ts: Date.now() };
+        TC.geo = { lat: loc.lat, lng: loc.lng, capturada_em: GPS.last.ts };
+      } else if (GPS.last) {
+        GPS.last = { ...GPS.last, ts: Date.now() };
+        if (TC.geo) TC.geo = { ...TC.geo, capturada_em: GPS.last.ts };
+      }
+      GPS.lastSentTs = Date.now(); // evita que o pingTimer mande duplicata via JS
+      gpsRenderAviso();
+    });
+    // pingTimer mantido para o foreground-resume handler (visibilitychange)
+    // mas com guarda: só envia se o nativo não atualizou recentemente.
+    GPS.pingTimer = setInterval(() => {
+      if (gpsAtivo() && GPS.last && (Date.now() - GPS.lastSentTs) >= GPS.PING_MS) gpsEnviar();
+    }, GPS.PING_MS);
+    return;
+  }
+
   const BgGeo = window.Capacitor?.isNativePlatform?.() &&
     window.Capacitor?.Plugins?.BackgroundGeolocation;
   if (BgGeo) {
@@ -1535,8 +1580,6 @@ function _gpsAbrirWatch() {
           };
           TC.geo = { lat: GPS.last.lat, lng: GPS.last.lng, capturada_em: GPS.last.ts };
         } else if (GPS.last) {
-          // Posição não melhorou, mas GPS está vivo — atualiza ts para evitar pin cinza
-          // no mapa do admin (o pin fica cinza se capturada_em > 3 min atrás).
           GPS.last = { ...GPS.last, ts: Date.now() };
           if (TC.geo) TC.geo = { ...TC.geo, capturada_em: GPS.last.ts };
         }
@@ -1621,12 +1664,18 @@ function _gpsAbrirWatch() {
 }
 
 function _gpsFecharWatch() {
+  const NativeGps = window.Capacitor?.isNativePlatform?.() &&
+    window.Capacitor?.Plugins?.NativeGpsTracker;
+  if (NativeGps) {
+    NativeGps.stop().catch(() => {});
+    NativeGps.removeAllListeners().catch(() => {});
+  }
   const BgGeo = window.Capacitor?.isNativePlatform?.() &&
     window.Capacitor?.Plugins?.BackgroundGeolocation;
   if (BgGeo && GPS.bgWatcherId != null) {
     BgGeo.removeWatcher({ id: GPS.bgWatcherId }).catch(() => {});
     GPS.bgWatcherId = null;
-  } else if (GPS.watchId != null && navigator.geolocation) {
+  } else if (!NativeGps && GPS.watchId != null && navigator.geolocation) {
     navigator.geolocation.clearWatch(GPS.watchId);
   }
   if (GPS.pingTimer) clearInterval(GPS.pingTimer);
