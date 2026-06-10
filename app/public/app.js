@@ -2775,6 +2775,8 @@ async function abrirAssinaturaFullscreen() {
     </div>`;
 
   document.body.appendChild(overlay);
+  const _gpsEl = document.getElementById("tcFooterGps");
+  if (_gpsEl) _gpsEl.style.display = "none";
 
   const canvas    = overlay.querySelector("#signFsCanvas");
   const wrap      = overlay.querySelector("#signFsWrap");
@@ -2860,6 +2862,7 @@ async function abrirAssinaturaFullscreen() {
     cleanups.forEach(fn => fn());
     try { screen.orientation?.unlock?.(); } catch (_) {}
     overlay.remove();
+    if (_gpsEl) _gpsEl.style.display = "";
   }
 
   overlay.querySelector("#signFsClear").addEventListener("click", () => {
