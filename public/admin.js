@@ -611,10 +611,13 @@ function renderResumo() {
 // ===================================================================
 
 function _mcStatusKind(item) {
+  const condoId = item?.condominio?.id;
   const off = item?.resumo?.offline_count ?? 0;
   const al  = item?.resumo?.alertas_abertos_total ?? 0;
-  if (off > 0) return 'bad';
-  if (al > 0)  return 'warn';
+  const chAbertos = (Array.isArray(_chamadosData) ? _chamadosData : [])
+    .filter(ch => ch.condominio_id === condoId && ch.status !== 'fechado');
+  if (off > 0 || chAbertos.some(ch => ch.prioridade === 'p1')) return 'bad';
+  if (al > 0 || chAbertos.length > 0) return 'warn';
   return 'ok';
 }
 
@@ -7283,39 +7286,87 @@ function _mpRenderBombas(g) {
 }
 
 function _mpRenderAlertas(g) {
+  const condoId = g.condominio?.id;
   const deviceIds = new Set((g.reservatorios || []).map(r => r.device_id));
-  const lista = (_alertasAbertos || []).filter(a => deviceIds.has(a.device_id));
-  if (lista.length === 0) return `<div class="mp-empty">Nenhum alerta aberto neste condomínio.</div>`;
-  return `<div class="mp-list">${lista.map(a => {
-    const tipo = String(a.tipo || "").replaceAll("_", " ");
-    const kind = (a.tipo === "dispositivo_offline" || a.tipo === "nivel_muito_baixo") ? "bad" : "warn";
-    return `
-      <div class="mp-list-item">
-        <span class="mli-dot ${kind}"></span>
-        <div class="mli-main">
-          <div class="mli-title">${tipo}</div>
-          <div class="mli-sub">${a.device_id || ""} ${a.mensagem ? "• " + a.mensagem : ""}</div>
-        </div>
-        <span class="mli-right">${_mpRelTime(a.criado_em)}</span>
-      </div>`;
-  }).join("")}</div>`;
+  const alertas = (_alertasAbertos || []).filter(a => deviceIds.has(a.device_id));
+  const chamados = (Array.isArray(_chamadosData) ? _chamadosData : [])
+    .filter(ch => ch.condominio_id === condoId && ch.status !== 'fechado');
+
+  if (alertas.length === 0 && chamados.length === 0) {
+    return `<div class="mp-empty">Nenhum alerta ou chamado aberto neste condomínio.</div>`;
+  }
+
+  const alertasHtml = alertas.length === 0 ? "" : `
+    <div style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:2px 4px 6px;">Alertas de telemetria</div>
+    <div class="mp-list">${alertas.map(a => {
+      const tipo = String(a.tipo || "").replaceAll("_", " ");
+      const kind = (a.tipo === "dispositivo_offline" || a.tipo === "nivel_muito_baixo") ? "bad" : "warn";
+      return `
+        <div class="mp-list-item">
+          <span class="mli-dot ${kind}"></span>
+          <div class="mli-main">
+            <div class="mli-title">${tipo}</div>
+            <div class="mli-sub">${a.device_id || ""} ${a.mensagem ? "• " + a.mensagem : ""}</div>
+          </div>
+          <span class="mli-right">${_mpRelTime(a.criado_em)}</span>
+        </div>`;
+    }).join("")}</div>`;
+
+  const chamadosHtml = chamados.length === 0 ? "" : `
+    <div style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:${alertas.length ? "14px" : "2px"} 4px 6px;">Chamados abertos</div>
+    <div class="mp-list">${chamados.map(ch => {
+      const kind = ch.prioridade === "p1" ? "bad" : ch.prioridade === "p2" ? "warn" : "ok";
+      const prioLabel = { p1: "P1 Crítico", p2: "P2 Alta", p3: "P3 Normal", p4: "P4 Baixa" };
+      return `
+        <div class="mp-list-item">
+          <span class="mli-dot ${kind}"></span>
+          <div class="mli-main">
+            <div class="mli-title">${escapeHtml(ch.titulo || "Chamado #" + ch.id)}</div>
+            <div class="mli-sub">${prioLabel[ch.prioridade] || ch.prioridade} • ${(ch.status || "").replaceAll("_", " ")}</div>
+          </div>
+          <span class="mli-right">${_mpRelTime(ch.criado_em)}</span>
+        </div>`;
+    }).join("")}</div>`;
+
+  return alertasHtml + chamadosHtml;
 }
 
 function _mpRenderChamados(g) {
   const condoId = g.condominio?.id;
   const lista = (Array.isArray(_chamadosData) ? _chamadosData : []).filter(ch => ch.condominio_id === condoId);
   if (lista.length === 0) return `<div class="mp-empty">Nenhum chamado para este condomínio.</div>`;
+
+  const tecs = (Array.isArray(_tecnicosData) ? _tecnicosData : []);
+  const tecsOptions = `<option value="">— sem técnico —</option>` +
+    tecs.map(t => `<option value="${t.id}">${escapeHtml(t.nome)}</option>`).join("");
+
   return `<div class="mp-list">${lista.slice(0, 20).map(ch => {
     const kind = ch.prioridade === "p1" ? "bad" : ch.prioridade === "p2" ? "warn" : "ok";
     const statusLabel = (ch.status || "").replaceAll("_", " ");
+    const isFechado = ch.status === "fechado";
+    const tecNome = ch.tecnico_nome ? escapeHtml(ch.tecnico_nome) : (ch.tecnico_id ? `Técnico #${ch.tecnico_id}` : "");
+
+    const atribuirHtml = !isFechado ? `
+      <div style="display:flex;gap:6px;align-items:center;margin-top:6px;padding-left:18px;">
+        <select class="mp-tec-select" data-chamado-id="${ch.id}"
+          style="flex:1;font-size:11px;background:var(--surface2);border:1px solid var(--border);color:var(--fg);border-radius:6px;padding:3px 6px;">
+          ${tecsOptions.replace(`value="${ch.tecnico_id || ''}"`, `value="${ch.tecnico_id || ''}" selected`)}
+        </select>
+        <button class="btn btn-sm viewer-only-hide" data-action="mp-atribuir-tecnico" data-chamado-id="${ch.id}"
+          style="white-space:nowrap;font-size:11px;padding:3px 8px;">Atribuir</button>
+      </div>` : "";
+
     return `
-      <div class="mp-list-item">
-        <span class="mli-dot ${kind}"></span>
-        <div class="mli-main">
-          <div class="mli-title">${ch.titulo || "Chamado #" + ch.id}</div>
-          <div class="mli-sub">${statusLabel} • ${ch.prioridade || "p3"} ${ch.categoria ? "• " + ch.categoria : ""}</div>
+      <div class="mp-list-item" style="flex-direction:column;align-items:stretch;">
+        <div style="display:flex;gap:8px;align-items:center;">
+          <span class="mli-dot ${kind}" style="flex-shrink:0;margin-top:2px;"></span>
+          <div class="mli-main">
+            <div class="mli-title">${escapeHtml(ch.titulo || "Chamado #" + ch.id)}</div>
+            <div class="mli-sub">${statusLabel} • ${ch.prioridade || "p3"} ${tecNome ? "• " + tecNome : ""}</div>
+          </div>
+          <span class="mli-right">${_mpRelTime(ch.criado_em)}</span>
         </div>
-        <span class="mli-right">${_mpRelTime(ch.criado_em)}</span>
+        ${atribuirHtml}
       </div>`;
   }).join("")}</div>`;
 }
@@ -10384,6 +10435,24 @@ document.addEventListener("DOMContentLoaded", () => {
     if (action === "reabrir-chamado") {
       const id = Number(btn.dataset.id);
       if (id) reabrirChamadoAction(id);
+      return;
+    }
+
+    if (action === "mp-atribuir-tecnico") {
+      const chamadoId = Number(btn.dataset.chamadoId);
+      if (!chamadoId) return;
+      const sel = document.querySelector(`.mp-tec-select[data-chamado-id="${chamadoId}"]`);
+      const tecnicoId = sel?.value ? Number(sel.value) : null;
+      btn.disabled = true;
+      fetch(`/chamados/${chamadoId}`, {
+        method: "PATCH",
+        headers: { ...authHeaders(), "Content-Type": "application/json" },
+        body: JSON.stringify({ tecnico_id: tecnicoId }),
+      }).then(async r => {
+        if (!r.ok) { const e = await r.json().catch(() => ({})); alert(e.error || "Erro ao atribuir técnico"); btn.disabled = false; return; }
+        await carregarTudo();
+        _mpAtualizarPainel();
+      }).catch(() => { alert("Erro de rede ao atribuir técnico"); btn.disabled = false; });
       return;
     }
 
