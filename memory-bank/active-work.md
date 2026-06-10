@@ -68,8 +68,9 @@ Envs necessárias: `OPENAI_API_KEY`, `WHATSAPP_VERIFY_TOKEN`,
 - **Novo chamado — seletor P1-P4:** wizard Q1-Q3 removido; 4 cards diretos com cor e prazo. `admin.js?v=173`.
 - **Atribuir técnico no mapa:** filtrado por `cargo=tecnico`; feedback visual; estado "Técnico: Nome [Alterar]". `admin.js?v=176`.
 - **Hard delete de condomínio corrigido:** bug na coluna `alerta_comentarios.chamado_id` (não existe; correto é `alerta_origem + alerta_id`).
-- **App mobile — 4 melhorias:** card de mensagens oculto quando vazio; botão "Chegou ao local" removido (iniciar atendimento registra chegada); foto na O.S. abre câmera ou galeria; GPS oculto na tela de assinatura fullscreen.
+- **App mobile — 4 melhorias:** card de mensagens oculto quando vazio; botão "Chegou ao local" removido (iniciar atendimento registra chegada); GPS oculto na tela de assinatura fullscreen.
 - **App mobile — crash GPS Android 14 corrigido:** `_gpsAbrirWatch()` verifica permissão via `navigator.permissions.query` antes de chamar `NativeGps.start()` — evita `SecurityException` nativa que derrubava o app.
+- **App mobile — foto na O.S. (chooser + loading + erro):** bottom sheet com opções Câmera/Galeria; estado "Enviando…" durante upload; compressão 1200px/72%; erros agora exibem mensagem legível.
 
 ## Melhorias recentes (sessão 2026-06-08 — GPS staleness + ajustes admin)
 
