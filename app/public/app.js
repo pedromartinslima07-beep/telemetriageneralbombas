@@ -1190,14 +1190,8 @@ function configurarCTA(c) {
       btn.style.borderColor = "rgba(74,120,247,.5)";
       btn.style.color = "#93c5fd";
       btn.onclick = () => registrarACaminho(c.id);
-    } else if (!c.tecnico_chegou_em) {
-      // Fase 2: a caminho → "Chegou"
-      lbl.textContent = "Chegou ao local";
-      btn.className = "btn btnAccent btn-lg";
-      btn.style = "";
-      btn.onclick = () => registrarChegou(c.id);
     } else {
-      // Fase 3: chegou → iniciar atendimento
+      // Fase 2: a caminho → iniciar atendimento (registra chegada automaticamente)
       lbl.textContent = "Iniciar atendimento";
       btn.className = "btn btnAccent btn-lg";
       btn.style = "";
@@ -1208,16 +1202,6 @@ function configurarCTA(c) {
     btn.className = "btn btnAccent btn-lg";
     btn.style = "";
     btn.onclick = () => abrirFormularioOS(c.id, c.ordem_servico?.id);
-    // Se ainda não registrou chegada, mostra botão secundário
-    if (!c.tecnico_chegou_em) {
-      const sec = document.createElement("button");
-      sec.id = "tdCtaBtnSec";
-      sec.className = "btn btn-lg";
-      sec.style.cssText = "font-size:12px;margin-top:6px;width:100%;background:rgba(240,176,20,.1);border-color:rgba(240,176,20,.3);color:var(--accent);";
-      sec.textContent = "Registrar chegada (SLA)";
-      sec.onclick = () => registrarChegou(c.id);
-      bar.appendChild(sec);
-    }
   }
 }
 
@@ -1282,15 +1266,21 @@ async function iniciarAtendimento(id) {
       });
     })();
 
+    // Registra chegada para SLA se ainda não foi registrada
+    if (!TD.chamado.tecnico_chegou_em && !IS_DEMO) {
+      await api(`/chamados/${id}/chegou`, { method: "POST" }).catch(() => {});
+      TD.chamado.tecnico_chegou_em = new Date().toISOString();
+    }
+
     if (IS_DEMO) {
       // Modo demo: simula a resposta do servidor
       TD.chamado.status = "em_atendimento";
+      TD.chamado.tecnico_chegou_em = TD.chamado.tecnico_chegou_em || new Date().toISOString();
       TD.chamado.ordem_servico = {
         id: 999, numero: "OS-2026-DEMO",
         chegada_em: new Date().toISOString(),
         chegada_lat: geo.lat, chegada_lng: geo.lng,
       };
-      // também reflete na lista
       const c = TC.chamados.find((x) => x.id === id);
       if (c) c.status = "em_atendimento";
     } else {
