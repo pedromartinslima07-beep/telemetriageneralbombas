@@ -67,6 +67,29 @@ aliases:
   pré-cadastro de contatos WhatsApp (037).
 - State machine de conversa (042), anti-loop (041), canal (043).
 
+## Nota fiscal (NFS-e) — planejado 📋
+
+**Contexto:** emissão de NFS-e (Nota Fiscal de Serviço Eletrônica) vinculada
+ao orçamento aprovado. Viável via gateway que abstrai as APIs municipais.
+
+**Como funcionaria no sistema:**
+- Botão "Emitir NFS-e" no orçamento aprovado → chama API do gateway → salva número, XML e PDF da nota vinculados ao orçamento/cliente.
+- Reenvio por e-mail junto com o PDF do orçamento (Resend já integrado).
+- Campo `nota_fiscal_numero`, `nota_fiscal_pdf_url`, `nota_fiscal_emitida_em` na tabela `orcamentos` (nova migration).
+
+**Gateways candidatos:** Focus NFe, eNotas, NFe.io (~R$0,10–0,50/nota).
+Todos expõem REST simples; a integração no backend é de 1–2 dias após setup.
+
+**Pré-requisitos externos (fora do código):**
+1. CNPJ ativo com regime tributário definido (contador).
+2. Contratação e configuração do gateway (chave API + dados fiscais).
+3. Credenciais do município (alguns exigem login no portal da prefeitura).
+
+**NF-e de produto:** possível no futuro se houver venda de peças além do
+serviço. Mais padronizada (SEFAZ federal) mas exige certificado digital A1.
+
+---
+
 ## Backlog futuro (ideias não-MVP já mapeadas)
 
 Itens levantados durante o desenvolvimento, conscientemente deixados para
