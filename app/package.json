@@ -4,12 +4,19 @@
   "private": true,
   "description": "App mobile General Bombas (Capacitor) — tecnicos e clientes",
   "scripts": {
+    "//cap": "Atalho direto para o CLI do Capacitor",
     "cap": "cap",
+    "//cap:sync": "Copia os arquivos web (app/public/) para dentro do projeto Android",
     "cap:sync": "cap sync",
+    "//cap:android": "Abre o projeto Android no Android Studio",
     "cap:android": "cap open android",
-    "cap:ios": "cap open ios"
+    "//cap:ios": "Abre o projeto iOS no Xcode",
+    "cap:ios": "cap open ios",
+    "//build:apk": "Sincroniza e compila o APK de debug — saída em android/app/build/outputs/apk/debug/app-debug.apk",
+    "build:apk": "cap sync android && cd android && set \"JAVA_HOME=C:\\Program Files\\Android\\Android Studio\\jbr\" && gradlew.bat assembleDebug"
   },
   "dependencies": {
+    "@capacitor-community/background-geolocation": "^1.2.26",
     "@capacitor/android": "^6.2.1",
     "@capacitor/core": "^6.1.0"
   },

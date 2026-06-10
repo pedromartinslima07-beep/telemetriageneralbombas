@@ -37,36 +37,25 @@ Código em `app/public/app.js` a partir do comentário `GPS TRACKING (Fase 7F)`,
 funções principais: `gpsStart()`, `_gpsAbrirWatch()`, `_gpsFecharWatch()`,
 `gpsEnviar()`.
 
-### Limitação conhecida — GPS para com tela apagada
+### GPS background — implementação atual (2026-06-10)
 
-**Sintoma:** após ~3 minutos com a tela apagada, o admin mostra o técnico como
-"não rastreando".
+O plugin `@capacitor-community/background-geolocation@1.2.26` está instalado e
+integrado. Ao rodar no APK nativo, `_gpsAbrirWatch()` usa
+`BackgroundGeolocation.addWatcher()` em vez de `watchPosition`; no browser/PWA
+cai no `watchPosition` como fallback.
 
-**Causa:** `watchPosition` roda dentro de uma WebView Android. Quando a tela
-apaga, o OS pausa a WebView — mesmo no APK. O `@capacitor/android` sozinho não
-muda esse comportamento; é necessário o plugin nativo de background geolocation.
+**Como funciona:**
+- `window.Capacitor.isNativePlatform()` detecta o ambiente
+- `window.Capacitor.Plugins.BackgroundGeolocation` é a ponte para o plugin Java
+- O Android exibe uma notificação persistente ("GPS ativo") obrigatória para
+  serviços foreground de localização
+- O usuário verá um segundo diálogo de permissão pedindo "permitir o tempo todo"
+  (necessário para background real)
 
-**Solução pendente:** instalar e integrar
-`@capacitor-community/background-geolocation`.
-
-```bash
-cd app
-npm install @capacitor-community/background-geolocation
-npx cap sync android
-```
-
-Permissões a adicionar em
-`app/android/app/src/main/AndroidManifest.xml`:
-
-```xml
-<uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
-<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-<uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
-```
-
-No `app.js`, a função `_gpsAbrirWatch()` deve detectar se o plugin está
-disponível (ambiente Capacitor nativo) e usá-lo; caso contrário, cair no
-`watchPosition` padrão como fallback web.
+**Permissões no manifest:**
+- `ACCESS_BACKGROUND_LOCATION` — declarado em `AndroidManifest.xml`
+- `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_LOCATION`, `POST_NOTIFICATIONS` —
+  mergeados automaticamente pelo Gradle a partir do manifest do plugin
 
 > Ver também [`../../memory-bank/decisions.md`](../../memory-bank/decisions.md)
 > para o raciocínio de usar Capacitor em vez de React Native.

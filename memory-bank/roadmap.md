@@ -29,6 +29,7 @@ aliases:
 | 5 | Polimento e gestão de conversas | ✅ |
 | 6 | Hardening de segurança + configurações dinâmicas | ✅ |
 | 7A-7F, 7H, 7I-A, 7K | App mobile Capacitor (técnico + cliente) + O.S. + GPS | ✅ |
+| 7F-bg | GPS background no APK (`@capacitor-community/background-geolocation`) | ✅ |
 | 7 (UI) | App mobile: camada visual HUD "Painel de comando" | ✅ |
 | 8 | Analytics e SLA (métricas, SLA configurável, dashboard) | ✅ |
 | 9C, 9E | Política de retenção + limpeza retroativa | ✅ |

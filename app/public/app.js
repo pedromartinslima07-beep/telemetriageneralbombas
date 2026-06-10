@@ -1416,6 +1416,7 @@ const GPS_HORA_FIM = 18;
 
 const GPS = {
   watchId: null,
+  bgWatcherId: null,      // ID do watcher do plugin background-geolocation (APK nativo)
   pingTimer: null,
   last: null,             // { lat, lng, precisao_m, ts }
   lastSentTs: 0,
@@ -1483,6 +1484,64 @@ function _gpsAbrirWatch() {
     gpsRenderAviso();
     return;
   }
+
+  // No APK nativo usa o plugin background-geolocation, que sobrevive com a tela
+  // apagada. O watchPosition abaixo é o fallback para o browser/PWA.
+  const BgGeo = window.Capacitor?.isNativePlatform?.() &&
+    window.Capacitor?.Plugins?.BackgroundGeolocation;
+  if (BgGeo) {
+    GPS.active = true;
+    GPS.lastError = null;
+    BgGeo.addWatcher(
+      {
+        backgroundMessage: "General Bombas está monitorando sua localização.",
+        backgroundTitle: "GPS ativo",
+        requestPermissions: true,
+        stale: false,
+      },
+      (location, error) => {
+        if (error) {
+          GPS.lastError = error.code || 2;
+          gpsRenderAviso();
+          return;
+        }
+        if (!location) return;
+        const acc = location.accuracy;
+        if (acc > 15000) {
+          GPS.lastError = "low_accuracy";
+          gpsRenderAviso();
+          return;
+        }
+        GPS.lastError = null;
+        const anterior = GPS.last;
+        const maisRecente = !anterior || (Date.now() - anterior.ts) > 90000;
+        const maisExata   = !anterior || acc < anterior.precisao_m;
+        if (maisRecente || maisExata) {
+          GPS.last = {
+            lat: location.latitude,
+            lng: location.longitude,
+            precisao_m: acc,
+            ts: location.time || Date.now(),
+          };
+          TC.geo = { lat: GPS.last.lat, lng: GPS.last.lng, capturada_em: GPS.last.ts };
+        }
+        gpsRenderAviso();
+        if (Date.now() - GPS.lastSentTs >= GPS.PING_MS) gpsEnviar();
+      }
+    ).then((id) => {
+      GPS.bgWatcherId = id;
+    }).catch((e) => {
+      console.warn("[gps] plugin background indisponível, usando watchPosition:", e);
+      GPS.active = false;
+      GPS.bgWatcherId = null;
+      if (GPS.pingTimer) { clearInterval(GPS.pingTimer); GPS.pingTimer = null; }
+    });
+    GPS.pingTimer = setInterval(() => {
+      if (gpsAtivo() && GPS.last) gpsEnviar();
+    }, GPS.PING_MS);
+    return;
+  }
+
   if (!navigator.geolocation) {
     GPS.lastError = "no_api";
     gpsRenderAviso();
@@ -1543,7 +1602,12 @@ function _gpsAbrirWatch() {
 }
 
 function _gpsFecharWatch() {
-  if (GPS.watchId != null && navigator.geolocation) {
+  const BgGeo = window.Capacitor?.isNativePlatform?.() &&
+    window.Capacitor?.Plugins?.BackgroundGeolocation;
+  if (BgGeo && GPS.bgWatcherId != null) {
+    BgGeo.removeWatcher({ id: GPS.bgWatcherId }).catch(() => {});
+    GPS.bgWatcherId = null;
+  } else if (GPS.watchId != null && navigator.geolocation) {
     navigator.geolocation.clearWatch(GPS.watchId);
   }
   if (GPS.pingTimer) clearInterval(GPS.pingTimer);

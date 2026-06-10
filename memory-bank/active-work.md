@@ -46,7 +46,7 @@ Envs necessárias: `OPENAI_API_KEY`, `WHATSAPP_VERIFY_TOKEN`,
   (guardrails) — aguardando massa crítica de conversas.
 
 ### Itens adiados conscientemente
-- **GPS background no APK** ⏸️ `watchPosition` pausa quando tela apaga (limitação da WebView Android). Solução: instalar `@capacitor-community/background-geolocation` e adaptar `_gpsAbrirWatch()` em `app/public/app.js`. Detalhes em [docs/modulos/app-mobile.md](../docs/modulos/app-mobile.md).
+- **GPS background no APK** ✅ `@capacitor-community/background-geolocation@1.2.26` instalado; `_gpsAbrirWatch()` usa o plugin nativo no APK e `watchPosition` como fallback web. Detalhes em [docs/modulos/app-mobile.md](../docs/modulos/app-mobile.md).
 - **7G — Push notifications nativas** ⏸️ depende da 7J (publicação nas lojas).
 - **7J — Publicação Play Store** — pendente.
 - **WebSocket no WhatsApp** — adiado; polling de 5s suficiente para o volume.
