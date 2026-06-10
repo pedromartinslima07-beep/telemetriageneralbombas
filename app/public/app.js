@@ -991,6 +991,7 @@ let _tdEnviandoMsg = false;
 let _tdFotoMsgPending = null; // data URL aguardando envio
 
 function tdRenderMensagensCard() {
+  if (TD.mensagens.length === 0) return "";
   const svgChat = `<svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
   return `
     <section class="card tec-card cli-msg-card">
