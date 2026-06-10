@@ -1786,7 +1786,7 @@ body:has(.screen-auth[data-active])::before { display: none; }
   font-family: ui-monospace, "SF Mono", Menlo, Monaco, Consolas, monospace;
 }
 
-/* ===== Accordion ===== */
+/* ===== Accordion — inspirado no modal de orçamento ===== */
 .os-section {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -1794,20 +1794,33 @@ body:has(.screen-auth[data-active])::before { display: none; }
   overflow: hidden;
   margin-bottom: 10px;
   box-shadow: var(--shadow-sm);
-  transition: border-color .15s;
+  position: relative;
+  transition: border-color .18s, box-shadow .18s;
+}
+/* Barra lateral de destaque — igual ao separador de seção do orçamento */
+.os-section::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: var(--accent);
+  opacity: 0;
+  transition: opacity .2s;
+  z-index: 1;
 }
 .os-section.is-open {
-  border-color: rgba(240,176,20,.25);
+  border-color: rgba(240,176,20,.28);
+  box-shadow: var(--shadow-sm), 0 0 0 1px rgba(240,176,20,.06);
 }
-.os-section.is-complete {
-  border-color: rgba(34,197,94,.25);
-}
+.os-section.is-open::before   { opacity: 1; }
+.os-section.is-complete       { border-color: rgba(34,197,94,.22); }
+.os-section.is-complete::before { background: var(--ok); opacity: 1; }
 
 .os-section-head {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 14px 16px;
+  padding: 13px 14px 13px 16px;
   cursor: pointer;
   background: transparent;
   border: none;
@@ -1817,64 +1830,80 @@ body:has(.screen-auth[data-active])::before { display: none; }
   color: var(--text);
   transition: background .15s;
 }
-.os-section-head:hover { background: rgba(255,255,255,.03); }
+.os-section-head:active { background: rgba(255,255,255,.035); }
 
+/* Ícone contextual — neutro→amber→verde conforme estado */
 .os-section-icon {
-  width: 28px; height: 28px;
+  width: 30px; height: 30px;
   border-radius: 8px;
-  background: rgba(240,176,20,.1);
-  border: 1px solid rgba(240,176,20,.2);
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.07);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--accent);
+  color: var(--muted);
   flex-shrink: 0;
-  transition: background .15s, border-color .15s, color .15s;
+  transition: background .18s, border-color .18s, color .18s;
+}
+.os-section.is-open .os-section-icon {
+  background: rgba(240,176,20,.1);
+  border-color: rgba(240,176,20,.25);
+  color: var(--accent);
 }
 .os-section.is-complete .os-section-icon {
-  background: rgba(34,197,94,.14);
-  border-color: rgba(34,197,94,.3);
+  background: rgba(34,197,94,.1);
+  border-color: rgba(34,197,94,.25);
   color: var(--ok);
 }
 
-.os-section-title {
-  flex: 1;
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: .1px;
-  min-width: 0;
+/* Título: uppercase/muted quando fechado — igual ao ap-section-title do orçamento */
+.os-section-title { flex: 1; min-width: 0; }
+.os-section-label {
+  display: block;
+  font-size: 10.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .55px;
+  color: var(--muted);
+  line-height: 1;
+  transition: color .15s;
 }
+.os-section.is-open .os-section-label,
+.os-section.is-complete .os-section-label { color: var(--text); }
 .os-section-title small {
   display: block;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
-  color: var(--muted);
-  margin-top: 1px;
+  color: var(--text);
+  margin-top: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .os-section-required {
   font-size: 9px;
   font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: .8px;
+  letter-spacing: .4px;
   padding: 2px 6px;
   border-radius: 4px;
-  background: rgba(239,68,68,.12);
+  background: rgba(239,68,68,.08);
   color: #f87171;
-  border: 1px solid rgba(239,68,68,.25);
+  border: 1px solid rgba(239,68,68,.18);
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 .os-section.is-complete .os-section-required { display: none; }
 
 .os-section-chev {
-  width: 18px; height: 18px;
+  width: 16px; height: 16px;
   color: var(--muted);
   flex-shrink: 0;
-  transition: transform .2s;
+  transition: transform .2s, color .18s;
 }
-.os-section.is-open .os-section-chev {
-  transform: rotate(180deg);
-  color: var(--accent);
-}
+.os-section.is-open    .os-section-chev { transform: rotate(180deg); color: var(--accent); }
+.os-section.is-complete .os-section-chev { color: var(--ok); }
 
 .os-section-body {
   display: none;

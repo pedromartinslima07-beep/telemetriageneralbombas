@@ -2035,17 +2035,30 @@ function renderOSSections() {
   atualizarProgresso();
 }
 
+const OS_SECTION_ICONS = {
+  tipos:        `<path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 0 2-2h2a2 2 0 0 0 2 2m-6 7h6m-6 4h4"/>`,
+  equipamentos: `<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>`,
+  correntes:    `<polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>`,
+  fotos:        `<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>`,
+  pecas:        `<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>`,
+  observacoes:  `<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>`,
+  orcamento:    `<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>`,
+  resolucao:    `<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>`,
+  recebido:     `<path d="m12 19 7-7 3 3-7 7-3-3z"/><path d="m18 13-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/>`,
+};
+
 function sectionTemplate({ id, title, subtitle, required, complete, body, open }) {
+  const checkSvg = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+  const iconPaths = OS_SECTION_ICONS[id] || "";
+  const iconSvg = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${iconPaths}</svg>`;
   return `
     <div class="os-section${complete ? " is-complete" : ""}${open ? " is-open" : ""}" data-section="${id}">
       <button type="button" class="os-section-head">
         <div class="os-section-icon">
-          ${complete
-            ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`
-            : `<span style="font-size:11px;font-weight:800">${OS_SECTION_NUMBER[id] || "•"}</span>`}
+          ${complete ? checkSvg : iconSvg}
         </div>
         <div class="os-section-title">
-          ${title}
+          <span class="os-section-label">${title}</span>
           ${subtitle ? `<small>${subtitle}</small>` : ""}
         </div>
         ${required && !complete ? `<span class="os-section-required">Obrig.</span>` : ""}
@@ -2056,11 +2069,6 @@ function sectionTemplate({ id, title, subtitle, required, complete, body, open }
       <div class="os-section-body">${body}</div>
     </div>`;
 }
-
-const OS_SECTION_NUMBER = {
-  tipos: "1", equipamentos: "2", correntes: "3", fotos: "4",
-  pecas: "5", observacoes: "6", resolucao: "7", recebido: "8",
-};
 
 // ---- Seção 1: Tipos de serviço ----
 function sectionTipos() {
