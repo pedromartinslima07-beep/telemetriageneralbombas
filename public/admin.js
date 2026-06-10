@@ -4234,10 +4234,20 @@ function renderChamados() {
   overlay.addEventListener("click", e => {
     const btn = e.target.closest(".nc-tq-btn");
     if (!btn) return;
+
+    if (btn.id === "ncTriagemAlterar") {
+      document.getElementById("ncQ1").style.display = "";
+      document.getElementById("ncQ2").style.display = "none";
+      document.getElementById("ncQ3").style.display = "none";
+      document.getElementById("ncTriagemResultado").style.display = "none";
+      document.getElementById("ncPrioridade").value = "p3";
+      document.querySelectorAll(".nc-tq-btn").forEach(b => b.classList.remove("btnAccent"));
+      return;
+    }
+
     const q = btn.dataset.q;
     const v = btn.dataset.v;
 
-    // Destaca botão selecionado
     document.querySelectorAll(`[data-q="${q}"]`).forEach(b => b.classList.remove("btnAccent"));
     btn.classList.add("btnAccent");
 
@@ -4263,8 +4273,8 @@ function renderChamados() {
       document.getElementById("ncPrioridade").value = sugestao;
       const res = document.getElementById("ncTriagemResultado");
       if (res) {
-        res.style.display = "";
-        res.innerHTML = `✓ Sugestão: <strong style="color:var(--accent)">${_prioLabel[sugestao]}</strong> — confirme ou ajuste no select abaixo.`;
+        res.style.display = "flex";
+        res.innerHTML = `<span style="color:var(--accent);font-weight:700;">✓ ${_prioLabel[sugestao]}</span><button type="button" class="btn btn-sm nc-tq-btn" id="ncTriagemAlterar" style="font-size:10px;padding:2px 8px;margin-left:auto;">Alterar</button>`;
       }
     }
   });
