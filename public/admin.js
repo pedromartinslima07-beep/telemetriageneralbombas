@@ -11201,46 +11201,60 @@ function _osRenderView(os) {
     : `<span class="os-muted">Não assinada.</span>`;
 
   return `
-    <div class="os-grid">
-      <section class="os-section">
-        <h3 class="os-sec-title">Identificação</h3>
-        <div class="os-rows">
-          <div class="os-row-info"><span class="os-key">Número</span><span class="os-val"><strong>${_waEscaparHtml(os.numero || "—")}</strong></span></div>
-          <div class="os-row-info"><span class="os-key">Criada em</span><span class="os-val">${_osFmtData(os.criado_em)}</span></div>
-          <div class="os-row-info"><span class="os-key">Finalizada</span><span class="os-val">${os.finalizada_em ? _osFmtData(os.finalizada_em) : "—"}</span></div>
-          <div class="os-row-info"><span class="os-key">Chamado</span><span class="os-val">${os.chamado_id ? `#${os.chamado_id}` : "—"}</span></div>
-          <div class="os-row-info"><span class="os-key">Condomínio</span><span class="os-val">${_waEscaparHtml(os.condominio_nome || "—")}</span></div>
-          <div class="os-row-info"><span class="os-key">Endereço</span><span class="os-val">${_waEscaparHtml(endereco)}</span></div>
-          <div class="os-row-info"><span class="os-key">Técnico</span><span class="os-val">${_waEscaparHtml(os.tecnico_nome || "—")}${os.tecnico_telefone ? ` · ${_waEscaparHtml(os.tecnico_telefone)}` : ""}</span></div>
-        </div>
-      </section>
+    <div class="os-view-hero">
+      <div class="os-view-hero-num">${_waEscaparHtml(os.numero || "O.S.")}</div>
+      <div class="os-view-hero-meta">
+        <span class="os-result-pill ${os.finalizada_em ? "os-status-final" : "os-status-rascunho"}">${os.finalizada_em ? "Finalizada" : "Rascunho"}</span>
+        <span class="os-view-dot">·</span>
+        <span>${_waEscaparHtml(os.condominio_nome || "—")}</span>
+        <span class="os-view-dot">·</span>
+        <span>${_waEscaparHtml(os.tecnico_nome || "Sem técnico")}</span>
+        ${os.finalizada_em ? `<span class="os-view-dot">·</span><span>${_osFmtDataCurta(os.finalizada_em)}</span>` : ""}
+      </div>
+    </div>
 
-      <section class="os-section">
-        <h3 class="os-sec-title">Check-in / Check-out</h3>
-        <div class="os-rows">
-          <div class="os-row-info"><span class="os-key">Chegada</span><span class="os-val">${_osFmtData(os.chegada_em)}${os.chegada_lat ? ` · ${Number(os.chegada_lat).toFixed(5)}, ${Number(os.chegada_lng).toFixed(5)}` : ""}</span></div>
-          <div class="os-row-info"><span class="os-key">Saída</span><span class="os-val">${_osFmtData(os.saida_em)}${os.saida_lat ? ` · ${Number(os.saida_lat).toFixed(5)}, ${Number(os.saida_lng).toFixed(5)}` : ""}</span></div>
-          <div class="os-row-info"><span class="os-key">Recebido por</span><span class="os-val">${_waEscaparHtml(os.recebido_nome || "—")}${os.recebido_tipo ? ` (${_OS_RECEBIDO_TIPOS[os.recebido_tipo] || os.recebido_tipo})` : ""}</span></div>
+    <div class="os-view-body">
+      <div class="os-view-cols">
+        <div>
+          <div class="os-vsec-title">Identificação</div>
+          <div class="os-rows">
+            <div class="os-row-info"><span class="os-key">Número</span><span class="os-val"><strong>${_waEscaparHtml(os.numero || "—")}</strong></span></div>
+            <div class="os-row-info"><span class="os-key">Criada em</span><span class="os-val">${_osFmtData(os.criado_em)}</span></div>
+            <div class="os-row-info"><span class="os-key">Finalizada</span><span class="os-val">${os.finalizada_em ? _osFmtData(os.finalizada_em) : "—"}</span></div>
+            <div class="os-row-info"><span class="os-key">Chamado</span><span class="os-val">${os.chamado_id ? `#${os.chamado_id}` : "—"}</span></div>
+            <div class="os-row-info"><span class="os-key">Condomínio</span><span class="os-val">${_waEscaparHtml(os.condominio_nome || "—")}</span></div>
+            <div class="os-row-info"><span class="os-key">Endereço</span><span class="os-val">${_waEscaparHtml(endereco)}</span></div>
+            <div class="os-row-info"><span class="os-key">Técnico</span><span class="os-val">${_waEscaparHtml(os.tecnico_nome || "—")}${os.tecnico_telefone ? ` · ${_waEscaparHtml(os.tecnico_telefone)}` : ""}</span></div>
+          </div>
         </div>
-      </section>
+        <div>
+          <div class="os-vsec-title">Check-in / Check-out</div>
+          <div class="os-rows">
+            <div class="os-row-info"><span class="os-key">Chegada</span><span class="os-val">${_osFmtData(os.chegada_em)}${os.chegada_lat ? ` · ${Number(os.chegada_lat).toFixed(5)}, ${Number(os.chegada_lng).toFixed(5)}` : ""}</span></div>
+            <div class="os-row-info"><span class="os-key">Saída</span><span class="os-val">${_osFmtData(os.saida_em)}${os.saida_lat ? ` · ${Number(os.saida_lat).toFixed(5)}, ${Number(os.saida_lng).toFixed(5)}` : ""}</span></div>
+            <div class="os-row-info"><span class="os-key">Recebido por</span><span class="os-val">${_waEscaparHtml(os.recebido_nome || "—")}${os.recebido_tipo ? ` (${_OS_RECEBIDO_TIPOS[os.recebido_tipo] || os.recebido_tipo})` : ""}</span></div>
+          </div>
+        </div>
+      </div>
 
-      <section class="os-section os-section-full">
-        <h3 class="os-sec-title">Tipos de serviço</h3>
+      <div>
+        <div class="os-vsec-title">Tipos de serviço</div>
         <div class="os-chips-wrap">${tiposHtml}</div>
-      </section>
+      </div>
 
-      <section class="os-section">
-        <h3 class="os-sec-title">Itens verificados</h3>
-        ${itensHtml}
-      </section>
+      <div class="os-view-cols">
+        <div>
+          <div class="os-vsec-title">Itens verificados</div>
+          ${itensHtml}
+        </div>
+        <div>
+          <div class="os-vsec-title">Correntes elétricas</div>
+          ${correntesHtml}
+        </div>
+      </div>
 
-      <section class="os-section">
-        <h3 class="os-sec-title">Correntes elétricas</h3>
-        ${correntesHtml}
-      </section>
-
-      <section class="os-section os-section-full">
-        <h3 class="os-sec-title">Resultado do serviço</h3>
+      <div>
+        <div class="os-vsec-title">Resultado do serviço</div>
         <div class="os-result-row">
           ${resultado}
           ${os.necessario_retorno ? `<span class="os-status-pill os-status-rascunho">Necessita retorno${os.retorno_sugerido_em ? ` em ${_osFmtDataCurta(os.retorno_sugerido_em)}` : ""}</span>` : ""}
@@ -11248,22 +11262,22 @@ function _osRenderView(os) {
         </div>
         ${os.observacoes ? `<p class="os-obs">${_waEscaparHtml(os.observacoes)}</p>` : ""}
         ${os.orcamento_observacoes ? `<p class="os-obs"><strong>Orçamento:</strong> ${_waEscaparHtml(os.orcamento_observacoes)}</p>` : ""}
-      </section>
+      </div>
 
-      <section class="os-section os-section-full">
-        <h3 class="os-sec-title">Peças usadas</h3>
+      <div>
+        <div class="os-vsec-title">Peças usadas</div>
         ${pecasHtml}
-      </section>
+      </div>
 
-      <section class="os-section os-section-full">
-        <h3 class="os-sec-title">Fotos</h3>
+      <div>
+        <div class="os-vsec-title">Fotos${fotos.length ? ` (${fotos.length})` : ""}</div>
         ${fotosHtml}
-      </section>
+      </div>
 
-      <section class="os-section os-section-full">
-        <h3 class="os-sec-title">Assinatura de quem recebeu</h3>
+      <div>
+        <div class="os-vsec-title">Assinatura de quem recebeu</div>
         ${assin}
-      </section>
+      </div>
     </div>`;
 }
 
