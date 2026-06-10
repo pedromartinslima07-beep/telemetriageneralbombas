@@ -496,10 +496,14 @@ function atualizarFooterTecnico(totalVisiveis) {
   const gpsOn = typeof gpsAtivo === "function" && gpsAtivo();
   const dentroJanela = typeof gpsDentroDoHorario === "function" ? gpsDentroDoHorario() : true;
 
-  if (gpsOn && TC.geo) {
-    const idade = Math.floor((Date.now() - TC.geo.capturada_em) / 60000);
+  if (gpsOn) {
     elGps.classList.add("tec-footer-gps-on");
-    elGps.querySelector("span").textContent = idade < 1 ? "GPS ativo" : `GPS · há ${idade}m`;
+    if (TC.geo) {
+      const idade = Math.floor((Date.now() - TC.geo.capturada_em) / 60000);
+      elGps.querySelector("span").textContent = idade < 1 ? "GPS ativo" : `GPS · há ${idade}m`;
+    } else {
+      elGps.querySelector("span").textContent = "GPS ativo";
+    }
   } else if (GPS.scheduled && !dentroJanela) {
     elGps.classList.remove("tec-footer-gps-on");
     elGps.querySelector("span").textContent = "Fora do expediente";
