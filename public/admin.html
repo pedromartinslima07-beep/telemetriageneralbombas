@@ -2235,33 +2235,30 @@
         </div>
       </div>
 
-      <!-- Triagem e prioridade -->
+      <!-- Prioridade -->
       <div style="background:rgba(0,0,0,.2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;">
-        <div style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:10px;">Triagem e prioridade</div>
-        <div id="ncTriagem" style="background:rgba(240,176,20,.06);border:1px solid rgba(240,176,20,.2);border-radius:8px;padding:12px 14px;margin-bottom:10px;">
-          <div style="font-size:11px;font-weight:700;color:var(--accent);letter-spacing:.04em;margin-bottom:10px;">TRIAGEM — CRITICIDADE</div>
-          <div class="nc-tq" id="ncQ1" style="margin-bottom:8px;">
-            <div style="font-size:12px;color:var(--fg);margin-bottom:4px;">Q1 — Sem água, alagamento, esgoto subindo, cheiro de queimado ou risco de incêndio?</div>
-            <div style="display:flex;gap:6px;">
-              <button type="button" class="btn btn-sm nc-tq-btn" data-q="q1" data-v="sim" style="font-size:11px;">Sim → P1</button>
-              <button type="button" class="btn btn-sm nc-tq-btn" data-q="q1" data-v="nao" style="font-size:11px;">Não</button>
-            </div>
-          </div>
-          <div class="nc-tq" id="ncQ2" style="margin-bottom:8px;display:none;">
-            <div style="font-size:12px;color:var(--fg);margin-bottom:4px;">Q2 — Sistema funciona em modo parcial, manual ou com redundância comprometida?</div>
-            <div style="display:flex;gap:6px;">
-              <button type="button" class="btn btn-sm nc-tq-btn" data-q="q2" data-v="sim" style="font-size:11px;">Sim → P2</button>
-              <button type="button" class="btn btn-sm nc-tq-btn" data-q="q2" data-v="nao" style="font-size:11px;">Não</button>
-            </div>
-          </div>
-          <div class="nc-tq" id="ncQ3" style="margin-bottom:8px;display:none;">
-            <div style="font-size:12px;color:var(--fg);margin-bottom:4px;">Q3 — Funciona normalmente mas precisa de inspeção, ajuste ou pequena correção?</div>
-            <div style="display:flex;gap:6px;">
-              <button type="button" class="btn btn-sm nc-tq-btn" data-q="q3" data-v="sim" style="font-size:11px;">Sim → P3</button>
-              <button type="button" class="btn btn-sm nc-tq-btn" data-q="q3" data-v="nao" style="font-size:11px;">Não → P4</button>
-            </div>
-          </div>
-          <div id="ncTriagemResultado" style="display:none;margin-top:8px;padding:8px 12px;background:rgba(240,176,20,.1);border:1px solid rgba(240,176,20,.3);border-radius:6px;display:none;align-items:center;gap:10px;font-size:12px;"></div>
+        <div style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:10px;">Prioridade</div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">
+          <button type="button" class="nc-prio-btn" data-prio="p1" style="border:1px solid var(--border);border-radius:8px;padding:10px 6px;background:var(--surface2);cursor:pointer;text-align:center;">
+            <div style="font-size:13px;font-weight:800;color:#ef4444;">P1</div>
+            <div style="font-size:10px;color:var(--muted);margin-top:2px;">Crítico</div>
+            <div style="font-size:9px;color:var(--muted);margin-top:1px;">≤ 3h</div>
+          </button>
+          <button type="button" class="nc-prio-btn" data-prio="p2" style="border:1px solid var(--border);border-radius:8px;padding:10px 6px;background:var(--surface2);cursor:pointer;text-align:center;">
+            <div style="font-size:13px;font-weight:800;color:#f97316;">P2</div>
+            <div style="font-size:10px;color:var(--muted);margin-top:2px;">Alta</div>
+            <div style="font-size:9px;color:var(--muted);margin-top:1px;">24–48h</div>
+          </button>
+          <button type="button" class="nc-prio-btn nc-prio-sel" data-prio="p3" style="border:1px solid var(--border);border-radius:8px;padding:10px 6px;background:var(--surface2);cursor:pointer;text-align:center;">
+            <div style="font-size:13px;font-weight:800;color:#eab308;">P3</div>
+            <div style="font-size:10px;color:var(--muted);margin-top:2px;">Controlado</div>
+            <div style="font-size:9px;color:var(--muted);margin-top:1px;">≤ 72h</div>
+          </button>
+          <button type="button" class="nc-prio-btn" data-prio="p4" style="border:1px solid var(--border);border-radius:8px;padding:10px 6px;background:var(--surface2);cursor:pointer;text-align:center;">
+            <div style="font-size:13px;font-weight:800;color:var(--muted);">P4</div>
+            <div style="font-size:10px;color:var(--muted);margin-top:2px;">Agendado</div>
+            <div style="font-size:9px;color:var(--muted);margin-top:1px;">Conforme agenda</div>
+          </button>
         </div>
         <input type="hidden" id="ncPrioridade" value="p3">
       </div>
@@ -2597,7 +2594,7 @@
 </div>
 
 
-<script src="/static/admin.js?v=172" defer></script>
+<script src="/static/admin.js?v=173" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
 <script src="/static/register-sw.js?v=27" defer></script>
 </body>

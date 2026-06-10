@@ -4173,14 +4173,14 @@ function renderChamados() {
     document.getElementById("ncPrioridade").value = "p3";
     document.getElementById("ncCondo").value = "";
     if (msg) msg.textContent = "";
-    // Reset wizard
-    ["ncQ1","ncQ2","ncQ3"].forEach((id,i) => {
-      const el = document.getElementById(id);
-      if (el) { el.style.display = i === 0 ? "" : "none"; }
-      document.querySelectorAll(`[data-q="${["q1","q2","q3"][i]}"]`).forEach(b => b.classList.remove("btnAccent"));
+    // Reset seletor de prioridade — marca P3 como padrão
+    overlay.querySelectorAll(".nc-prio-btn").forEach(b => {
+      b.classList.remove("nc-prio-sel");
+      b.style.borderColor = "var(--border)";
+      b.style.background  = "var(--surface2)";
     });
-    const res = document.getElementById("ncTriagemResultado");
-    if (res) { res.style.display = "none"; res.textContent = ""; }
+    const p3btn = overlay.querySelector(".nc-prio-btn[data-prio='p3']");
+    if (p3btn) { p3btn.classList.add("nc-prio-sel"); p3btn.style.borderColor = "var(--accent)"; p3btn.style.background = "rgba(240,176,20,.08)"; }
     overlay.style.display = "flex";
   }
 
@@ -4229,54 +4229,19 @@ function renderChamados() {
   btnSalv.addEventListener("click",  _ncSalvar);
   overlay.addEventListener("click",  e => { if (e.target === overlay) _ncFechar(); });
 
-  // Wizard de triagem Q1→Q4
-  const _prioLabel = { p1:"P1 Crítico (≤ 3h)", p2:"P2 Alta (24–48h)", p3:"P3 Controlado (≤ 72h)", p4:"P4 Agendado" };
+  // Seletor de prioridade P1–P4
   overlay.addEventListener("click", e => {
-    const btn = e.target.closest(".nc-tq-btn");
+    const btn = e.target.closest(".nc-prio-btn");
     if (!btn) return;
-
-    if (btn.id === "ncTriagemAlterar") {
-      document.getElementById("ncQ1").style.display = "";
-      document.getElementById("ncQ2").style.display = "none";
-      document.getElementById("ncQ3").style.display = "none";
-      document.getElementById("ncTriagemResultado").style.display = "none";
-      document.getElementById("ncPrioridade").value = "p3";
-      document.querySelectorAll(".nc-tq-btn").forEach(b => b.classList.remove("btnAccent"));
-      return;
-    }
-
-    const q = btn.dataset.q;
-    const v = btn.dataset.v;
-
-    document.querySelectorAll(`[data-q="${q}"]`).forEach(b => b.classList.remove("btnAccent"));
-    btn.classList.add("btnAccent");
-
-    let sugestao = null;
-    if (q === "q1") {
-      if (v === "sim") { sugestao = "p1"; }
-      else {
-        document.getElementById("ncQ2").style.display = "";
-        document.getElementById("ncQ3").style.display = "none";
-        return;
-      }
-    } else if (q === "q2") {
-      if (v === "sim") { sugestao = "p2"; }
-      else {
-        document.getElementById("ncQ3").style.display = "";
-        return;
-      }
-    } else if (q === "q3") {
-      sugestao = v === "sim" ? "p3" : "p4";
-    }
-
-    if (sugestao) {
-      document.getElementById("ncPrioridade").value = sugestao;
-      const res = document.getElementById("ncTriagemResultado");
-      if (res) {
-        res.style.display = "flex";
-        res.innerHTML = `<span style="color:var(--accent);font-weight:700;">✓ ${_prioLabel[sugestao]}</span><button type="button" class="btn btn-sm nc-tq-btn" id="ncTriagemAlterar" style="font-size:10px;padding:2px 8px;margin-left:auto;">Alterar</button>`;
-      }
-    }
+    overlay.querySelectorAll(".nc-prio-btn").forEach(b => {
+      b.classList.remove("nc-prio-sel");
+      b.style.borderColor = "var(--border)";
+      b.style.background  = "var(--surface2)";
+    });
+    btn.classList.add("nc-prio-sel");
+    btn.style.borderColor = "var(--accent)";
+    btn.style.background  = "rgba(240,176,20,.08)";
+    document.getElementById("ncPrioridade").value = btn.dataset.prio;
   });
 })();
 
