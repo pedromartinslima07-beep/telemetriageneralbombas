@@ -10484,7 +10484,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (action === "vincular-ch-tecnico") {
       const chId = Number(btn.dataset.chId);
-      const lista = Array.isArray(_tecnicosData) ? _tecnicosData.filter(t => t.ativo) : [];
+      const lista = Array.isArray(_tecnicosData) ? _tecnicosData.filter(t => t.ativo && (!t.cargo || t.cargo === "tecnico")) : [];
       if (!lista.length) { alert("Nenhum técnico cadastrado."); return; }
       const row = document.getElementById(`chTecnicoRow-${chId}`);
       if (!row) return;
