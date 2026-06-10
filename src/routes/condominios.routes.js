@@ -328,17 +328,18 @@ router.delete("/:id/hard", authRequired, masterAdminOnly, async (req, res) => {
     );
     const deviceIds = deviceRes.rows.map((r) => r.device_id);
 
-    // 2. alerta_comentarios (sem FK — vínculo lógico com chamados e alertas)
+    // 2. alerta_comentarios (sem FK — vínculo lógico por alerta_origem + alerta_id)
     if (chamadoIds.length) {
       await client.query(
-        "DELETE FROM alerta_comentarios WHERE chamado_id = ANY($1::int[])",
+        "DELETE FROM alerta_comentarios WHERE alerta_origem = 'chamado' AND alerta_id = ANY($1::int[])",
         [chamadoIds]
       );
     }
     if (deviceIds.length) {
       await client.query(
         `DELETE FROM alerta_comentarios
-         WHERE alerta_id IN (SELECT id FROM alertas WHERE device_id = ANY($1::varchar[]))`,
+         WHERE alerta_origem = 'telemetria'
+           AND alerta_id IN (SELECT id FROM alertas WHERE device_id = ANY($1::varchar[]))`,
         [deviceIds]
       );
     }
