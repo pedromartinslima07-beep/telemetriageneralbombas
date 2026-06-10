@@ -1484,7 +1484,7 @@ function _gpsAplicarJanela() {
   gpsRenderChip();
 }
 
-function _gpsAbrirWatch() {
+async function _gpsAbrirWatch() {
   // Geolocation só funciona em https/localhost. Em produção sem TLS o navegador
   // bloqueia silenciosamente — avisa o usuário.
   if (typeof window !== "undefined" && window.isSecureContext === false) {
@@ -1500,6 +1500,19 @@ function _gpsAbrirWatch() {
   const NativeGps = window.Capacitor?.isNativePlatform?.() &&
     window.Capacitor?.Plugins?.NativeGpsTracker;
   if (NativeGps) {
+    // Verifica permissão ANTES de chamar o plugin — no Android 14 chamar
+    // NativeGps.start() sem permissão lança SecurityException na camada Java
+    // e derruba o app (não é capturado pelo .catch() do JS).
+    try {
+      const perm = await navigator.permissions?.query({ name: "geolocation" });
+      if (perm?.state === "denied") {
+        GPS.active = false;
+        GPS.lastError = 1; // PERMISSION_DENIED — gpsRenderAviso já trata com msg + botão
+        gpsRenderAviso();
+        return;
+      }
+    } catch (_) { /* navigator.permissions indisponível — tenta mesmo assim */ }
+
     GPS.active = true;
     GPS.lastError = null;
     NativeGps.start({

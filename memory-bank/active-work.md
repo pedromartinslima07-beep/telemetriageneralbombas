@@ -69,6 +69,7 @@ Envs necessárias: `OPENAI_API_KEY`, `WHATSAPP_VERIFY_TOKEN`,
 - **Atribuir técnico no mapa:** filtrado por `cargo=tecnico`; feedback visual; estado "Técnico: Nome [Alterar]". `admin.js?v=176`.
 - **Hard delete de condomínio corrigido:** bug na coluna `alerta_comentarios.chamado_id` (não existe; correto é `alerta_origem + alerta_id`).
 - **App mobile — 4 melhorias:** card de mensagens oculto quando vazio; botão "Chegou ao local" removido (iniciar atendimento registra chegada); foto na O.S. abre câmera ou galeria; GPS oculto na tela de assinatura fullscreen.
+- **App mobile — crash GPS Android 14 corrigido:** `_gpsAbrirWatch()` verifica permissão via `navigator.permissions.query` antes de chamar `NativeGps.start()` — evita `SecurityException` nativa que derrubava o app.
 
 ## Melhorias recentes (sessão 2026-06-08 — GPS staleness + ajustes admin)
 

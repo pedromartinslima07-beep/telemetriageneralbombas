@@ -83,6 +83,7 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
   - **App mobile — fluxo de atendimento simplificado:** botão "Chegou ao local" removido. "Iniciar atendimento" registra a chegada automaticamente via `POST /chegou` para SLA antes de chamar `/iniciar-atendimento`.
   - **App mobile — foto na O.S.:** removido `capture="environment"` do input — Android agora exibe seletor padrão (câmera ou galeria).
   - **App mobile — tela de assinatura:** ícone flutuante `#tcFooterGps` ocultado ao abrir o overlay fullscreen; restaurado ao fechar.
+  - **App mobile — crash GPS no Android 14:** `_gpsAbrirWatch()` agora verifica `navigator.permissions.query({name:'geolocation'})` antes de chamar `NativeGps.start()`. Se `state === 'denied'`, define `GPS.lastError = 1` e chama `gpsRenderAviso()` sem acionar o plugin nativo — evita a `SecurityException` da camada Java que derrubava o app inteiro quando o técnico negava permissão de localização.
 
 - **2026-06-10** — **Fotos de OS persistidas no banco de dados**
   - `os_fotos.dados_base64 TEXT` adicionado (migration 053).
