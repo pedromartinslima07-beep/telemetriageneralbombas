@@ -7330,13 +7330,20 @@ function _mpRenderChamados(g) {
         : "";
 
     const atribuirHtml = !isFechado ? `
-      <div style="display:flex;gap:6px;align-items:center;margin-top:6px;padding-left:18px;">
-        <select class="mp-tec-select" data-chamado-id="${ch.id}"
-          style="flex:1;font-size:11px;background:var(--surface2);border:1px solid var(--border);color:var(--fg);border-radius:6px;padding:3px 6px;">
-          ${tecsOptions.replace(`value="${ch.tecnico_id || ''}"`, `value="${ch.tecnico_id || ''}" selected`)}
-        </select>
-        <button class="btn btn-sm viewer-only-hide" data-action="mp-atribuir-tecnico" data-chamado-id="${ch.id}"
-          style="white-space:nowrap;font-size:11px;padding:3px 8px;">Atribuir</button>
+      <div class="mp-tec-wrap" data-chamado-id="${ch.id}" style="margin-top:6px;padding-left:18px;">
+        ${ch.tecnico_id
+          ? `<div style="display:flex;gap:8px;align-items:center;font-size:11px;">
+               <span style="color:var(--muted);">Técnico:</span>
+               <span style="font-weight:600;">${tecNome || "—"}</span>
+               <button class="btn btn-sm viewer-only-hide" data-action="mp-alterar-tecnico" data-chamado-id="${ch.id}" style="font-size:10px;padding:2px 7px;margin-left:2px;">Alterar</button>
+             </div>`
+          : `<div style="display:flex;gap:6px;align-items:center;">
+               <select class="mp-tec-select" data-chamado-id="${ch.id}" style="flex:1;font-size:11px;background:var(--surface2);border:1px solid var(--border);color:var(--fg);border-radius:6px;padding:3px 6px;">
+                 ${tecsOptions}
+               </select>
+               <button class="btn btn-sm viewer-only-hide" data-action="mp-atribuir-tecnico" data-chamado-id="${ch.id}" style="white-space:nowrap;font-size:11px;padding:3px 8px;">Atribuir</button>
+             </div>`
+        }
       </div>` : "";
 
     return `
@@ -10421,12 +10428,44 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
+    if (action === "mp-alterar-tecnico") {
+      const chamadoId = Number(btn.dataset.chamadoId);
+      const wrap = document.querySelector(`.mp-tec-wrap[data-chamado-id="${chamadoId}"]`);
+      if (!wrap) return;
+      const tecs = (Array.isArray(_tecnicosData) ? _tecnicosData : []).filter(t => t.ativo && (!t.cargo || t.cargo === "tecnico"));
+      const ch = (_chamadosData || []).find(c => c.id === chamadoId);
+      const opts = `<option value="">— sem técnico —</option>` + tecs.map(t =>
+        `<option value="${t.id}"${t.id === ch?.tecnico_id ? " selected" : ""}>${_waEscaparHtml(t.nome)}</option>`
+      ).join("");
+      wrap.innerHTML = `<div style="display:flex;gap:6px;align-items:center;">
+        <select class="mp-tec-select" data-chamado-id="${chamadoId}" style="flex:1;font-size:11px;background:var(--surface2);border:1px solid var(--border);color:var(--fg);border-radius:6px;padding:3px 6px;">${opts}</select>
+        <button class="btn btn-sm viewer-only-hide" data-action="mp-atribuir-tecnico" data-chamado-id="${chamadoId}" style="white-space:nowrap;font-size:11px;padding:3px 8px;">Salvar</button>
+        <button class="btn btn-sm" data-action="mp-cancelar-tecnico" data-chamado-id="${chamadoId}" style="font-size:11px;padding:3px 8px;">✕</button>
+      </div>`;
+      return;
+    }
+
+    if (action === "mp-cancelar-tecnico") {
+      const chamadoId = Number(btn.dataset.chamadoId);
+      const ch = (_chamadosData || []).find(c => c.id === chamadoId);
+      const wrap = document.querySelector(`.mp-tec-wrap[data-chamado-id="${chamadoId}"]`);
+      if (!wrap || !ch) return;
+      const nome = ch.tecnico_nome ? escapeHtml(ch.tecnico_nome) : (ch.tecnico_id ? `Técnico #${ch.tecnico_id}` : "");
+      wrap.innerHTML = `<div style="display:flex;gap:8px;align-items:center;font-size:11px;">
+        <span style="color:var(--muted);">Técnico:</span>
+        <span style="font-weight:600;">${nome || "—"}</span>
+        <button class="btn btn-sm viewer-only-hide" data-action="mp-alterar-tecnico" data-chamado-id="${chamadoId}" style="font-size:10px;padding:2px 7px;margin-left:2px;">Alterar</button>
+      </div>`;
+      return;
+    }
+
     if (action === "mp-atribuir-tecnico") {
       const chamadoId = Number(btn.dataset.chamadoId);
       if (!chamadoId) return;
       const sel = document.querySelector(`.mp-tec-select[data-chamado-id="${chamadoId}"]`);
       const tecnicoId = sel?.value ? Number(sel.value) : null;
-      const tecNome = sel ? sel.options[sel.selectedIndex]?.text : "Sem técnico";
+      const tecNome = sel ? (sel.options[sel.selectedIndex]?.text || "Sem técnico") : "Sem técnico";
+      const wrap = document.querySelector(`.mp-tec-wrap[data-chamado-id="${chamadoId}"]`);
       btn.disabled = true;
       btn.textContent = "Salvando…";
       fetch(`/chamados/${chamadoId}`, {
@@ -10434,16 +10473,15 @@ document.addEventListener("DOMContentLoaded", () => {
         headers: { ...authHeaders(), "Content-Type": "application/json" },
         body: JSON.stringify({ tecnico_id: tecnicoId }),
       }).then(async r => {
-        if (!r.ok) { const e = await r.json().catch(() => ({})); alert(e.error || "Erro ao atribuir técnico"); btn.disabled = false; btn.textContent = "Atribuir"; return; }
-        btn.textContent = "✓ Atribuído";
-        btn.style.cssText += ";background:var(--accent);color:#000;border-color:var(--accent);";
-        if (sel) sel.replaceWith(Object.assign(document.createElement("span"), {
-          textContent: tecNome,
-          style: "font-size:11px;font-weight:600;color:var(--accent);",
-        }));
+        if (!r.ok) { const e = await r.json().catch(() => ({})); alert(e.error || "Erro ao atribuir técnico"); btn.disabled = false; btn.textContent = "Salvar"; return; }
+        if (wrap) wrap.innerHTML = `<div style="display:flex;gap:8px;align-items:center;font-size:11px;">
+          <span style="color:var(--muted);">Técnico:</span>
+          <span style="font-weight:600;color:var(--accent);">✓ ${_waEscaparHtml(tecNome)}</span>
+          <button class="btn btn-sm viewer-only-hide" data-action="mp-alterar-tecnico" data-chamado-id="${chamadoId}" style="font-size:10px;padding:2px 7px;margin-left:2px;">Alterar</button>
+        </div>`;
         await carregarTudo();
         _mpAtualizarPainel();
-      }).catch(() => { alert("Erro de rede ao atribuir técnico"); btn.disabled = false; btn.textContent = "Atribuir"; });
+      }).catch(() => { alert("Erro de rede ao atribuir técnico"); btn.disabled = false; btn.textContent = "Salvar"; });
       return;
     }
 
