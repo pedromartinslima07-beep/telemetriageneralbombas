@@ -299,10 +299,6 @@ function renderHTML(ct) {
 <meta charset="utf-8">
 <title>Contrato ${numero}</title>
 <style>
-/* @page garante margens em TODAS as páginas (logo topo + rodapé) */
-@page {
-  margin: 42mm 22mm 22mm 22mm;
-}
 * { box-sizing:border-box; }
 html, body { margin:0; padding:0; }
 body {
@@ -311,10 +307,17 @@ body {
   line-height: 1.55;
   color: #1a1f2e;
 }
+/* Mesmo padrão do orçamento: fixed cobre a página física inteira em todas as páginas.
+   Margens por página vêm do parâmetro margin do Puppeteer (não de body padding ou @page). */
 .timbrado-bg {
-  position: fixed; top:0; left:0; right:0; bottom:0; z-index:-1;
-  background-size:100% 100%; background-repeat:no-repeat;
-  -webkit-print-color-adjust:exact; print-color-adjust:exact;
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  z-index: -1;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  background-position: top left;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
 }
 
 /* Título do documento */
@@ -500,7 +503,7 @@ async function gerarPdfBuffer(contratoId) {
     const pdfBuf = await page.pdf({
       format: "A4",
       printBackground: true,
-      margin: { top: "0", right: "0", bottom: "0", left: "0" },
+      margin: { top: "42mm", right: "22mm", bottom: "22mm", left: "22mm" },
       displayHeaderFooter: false,
     });
     return { buf: Buffer.isBuffer(pdfBuf) ? pdfBuf : Buffer.from(pdfBuf), ct };
