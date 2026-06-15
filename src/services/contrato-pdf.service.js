@@ -299,6 +299,10 @@ function renderHTML(ct) {
 <meta charset="utf-8">
 <title>Contrato ${numero}</title>
 <style>
+/* @page garante margens em TODAS as páginas (logo topo + rodapé) */
+@page {
+  margin: 42mm 22mm 22mm 22mm;
+}
 * { box-sizing:border-box; }
 html, body { margin:0; padding:0; }
 body {
@@ -306,7 +310,6 @@ body {
   font-size: 11px;
   line-height: 1.55;
   color: #1a1f2e;
-  padding: 44mm 22mm 36mm 22mm;
 }
 .timbrado-bg {
   position: fixed; top:0; left:0; right:0; bottom:0; z-index:-1;
@@ -314,7 +317,7 @@ body {
   -webkit-print-color-adjust:exact; print-color-adjust:exact;
 }
 
-/* Título do documento (sem borda — papel já tem header) */
+/* Título do documento */
 .doc-titulo {
   text-align: center;
   margin-bottom: 16px;
@@ -348,7 +351,6 @@ body {
   padding: 12px 16px;
   margin-bottom: 18px;
   background: rgba(248,250,252,0.92);
-  page-break-inside: avoid;
 }
 .partes-title {
   font-size: 9.5px;
@@ -370,17 +372,16 @@ body {
 .partes-val { color: #1a1f2e; }
 .partes-full { grid-column: 1 / -1; }
 
-/* Cláusulas */
-.clausula {
-  margin-bottom: 14px;
-  page-break-inside: avoid;
-}
+/* Cláusulas — sem page-break-inside para não deixar buracos */
+.clausula { margin-bottom: 14px; }
 .clausula-titulo {
   font-size: 11px;
   font-weight: bold;
   color: #1a1f2e;
   margin-bottom: 6px;
   text-decoration: underline;
+  /* título não fica órfão no fim da página */
+  page-break-after: avoid;
 }
 .clausula p {
   margin: 0 0 5px 0;
@@ -396,7 +397,7 @@ body {
 /* Página de assinaturas */
 .assinaturas-page {
   page-break-before: always;
-  padding-top: 20mm;
+  padding-top: 10mm;
   text-align: center;
 }
 .assinaturas-intro {
