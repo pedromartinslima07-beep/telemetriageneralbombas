@@ -2530,7 +2530,21 @@
       <!-- Dados do contrato -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
         <label class="f">
-          <span>Tipo <span style="color:var(--danger)">*</span></span>
+          <span>Tipo de serviço <span style="color:var(--danger)">*</span></span>
+          <select id="ctrServicoTipo" class="select">
+            <option value="bombas">Bombas hidráulicas</option>
+            <option value="piscina">Piscina</option>
+          </select>
+        </label>
+        <label class="f" id="ctrQtdBombasWrap">
+          <span>Qtd. de bombas</span>
+          <input id="ctrQtdBombas" class="input" type="number" min="1" max="100" placeholder="ex: 4" />
+        </label>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <label class="f">
+          <span>Periodicidade <span style="color:var(--danger)">*</span></span>
           <select id="ctrTipo" class="select">
             <option value="mensal">Mensal</option>
             <option value="semestral">Semestral</option>
@@ -2654,7 +2668,7 @@
 </div>
 
 
-<script src="/static/admin.js?v=180" defer></script>
+<script src="/static/admin.js?v=181" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
 <script src="/static/register-sw.js?v=27" defer></script>
 </body>

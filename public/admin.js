@@ -4272,9 +4272,11 @@ function _ctrAbrirModal({ condoId, contratoId }) {
   // Limpa form
   ["ctrNumero","ctrValor","ctrInicio","ctrFim","ctrDiaVenc","ctrObs",
    "ctrDescServico","ctrSignNome","ctrSignEmail","ctrSignGeralNome","ctrSignGeralEmail",
-   "ctrUrlCliente","ctrUrlGeral"].forEach(id => {
+   "ctrUrlCliente","ctrUrlGeral","ctrQtdBombas"].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = "";
   });
+  document.getElementById("ctrServicoTipo").value = "bombas";
+  document.getElementById("ctrQtdBombasWrap").style.display = "";
   document.getElementById("ctrTipo").value = "mensal";
   document.getElementById("ctrFormaPagto").value = "";
   document.getElementById("ctrRenovAuto").checked = false;
@@ -4311,6 +4313,10 @@ function _ctrAbrirModal({ condoId, contratoId }) {
         document.getElementById("ctrObs").value             = c.observacoes || "";
         document.getElementById("ctrDescServico").value     = c.descricao_servico || "";
         document.getElementById("ctrRenovAuto").checked     = !!c.renovacao_automatica;
+        const st = c.servico_tipo || "bombas";
+        document.getElementById("ctrServicoTipo").value = st;
+        document.getElementById("ctrQtdBombas").value   = c.qtd_bombas || "";
+        document.getElementById("ctrQtdBombasWrap").style.display = st === "piscina" ? "none" : "";
         document.getElementById("ctrSignNome").value        = c.signatario_nome || "";
         document.getElementById("ctrSignEmail").value       = c.signatario_email || "";
         document.getElementById("ctrSignGeralNome").value   = c.signatario_geral_nome || "Ana Paula Martins Lima";
@@ -4372,6 +4378,8 @@ async function _ctrSalvar() {
     observacoes:             document.getElementById("ctrObs").value.trim() || null,
     descricao_servico:       document.getElementById("ctrDescServico").value.trim() || null,
     renovacao_automatica:    document.getElementById("ctrRenovAuto").checked,
+    servico_tipo:            document.getElementById("ctrServicoTipo").value || "bombas",
+    qtd_bombas:              document.getElementById("ctrQtdBombas").value ? Number(document.getElementById("ctrQtdBombas").value) : null,
     signatario_nome:         document.getElementById("ctrSignNome").value.trim() || null,
     signatario_email:        document.getElementById("ctrSignEmail").value.trim() || null,
     signatario_geral_nome:   document.getElementById("ctrSignGeralNome").value.trim() || null,
@@ -4521,6 +4529,10 @@ async function _ctrAtualizarStatus() {
   document.getElementById("ctrBtnCancelar")?.addEventListener("click", _ctrFecharModal);
   document.getElementById("ctrBtnSalvar")?.addEventListener("click", _ctrSalvar);
   document.getElementById("ctrBtnEncerrar")?.addEventListener("click", _ctrEncerrar);
+  document.getElementById("ctrServicoTipo")?.addEventListener("change", function() {
+    document.getElementById("ctrQtdBombasWrap").style.display = this.value === "piscina" ? "none" : "";
+    if (this.value === "piscina") document.getElementById("ctrQtdBombas").value = "";
+  });
   document.getElementById("ctrBtnEnviarAssinatura")?.addEventListener("click", _ctrEnviarAssinatura);
   document.getElementById("ctrBtnAtualizarStatus")?.addEventListener("click", _ctrAtualizarStatus);
   document.getElementById("ctrBtnPdf")?.addEventListener("click", async () => {

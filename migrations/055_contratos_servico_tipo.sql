@@ -1,0 +1,3 @@
+ALTER TABLE contratos
+  ADD COLUMN IF NOT EXISTS servico_tipo VARCHAR(20) NOT NULL DEFAULT 'bombas',
+  ADD COLUMN IF NOT EXISTS qtd_bombas   INTEGER;

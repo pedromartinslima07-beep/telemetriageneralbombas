@@ -107,6 +107,21 @@ function _validar(b, { exigirObrigatorios }) {
     out.descricao_servico = b.descricao_servico ? String(b.descricao_servico).trim().slice(0, 4000) : null;
   }
 
+  if (b.servico_tipo !== undefined) {
+    if (!["bombas", "piscina"].includes(b.servico_tipo)) errs.push("servico_tipo deve ser 'bombas' ou 'piscina'");
+    else out.servico_tipo = b.servico_tipo;
+  }
+
+  if (b.qtd_bombas !== undefined) {
+    if (b.qtd_bombas == null || b.qtd_bombas === "") {
+      out.qtd_bombas = null;
+    } else {
+      const n = Number(b.qtd_bombas);
+      if (!Number.isInteger(n) || n < 1 || n > 100) errs.push("qtd_bombas deve ser entre 1 e 100");
+      else out.qtd_bombas = n;
+    }
+  }
+
   return { errs, out };
 }
 
@@ -231,8 +246,8 @@ router.post("/", authRequired, masterAdminOnly, async (req, res) => {
          (condominio_id, numero, tipo, valor_mensal, inicio_em, fim_em,
           renovacao_automatica, forma_pagamento, dia_vencimento, observacoes,
           signatario_nome, signatario_email, signatario_geral_nome, signatario_geral_email,
-          descricao_servico, criado_por)
-       VALUES ($1, $2, $3, $4, $5, $6, COALESCE($7, false), $8, $9, $10, $11, $12, $13, $14, $15, $16)
+          descricao_servico, servico_tipo, qtd_bombas, criado_por)
+       VALUES ($1,$2,$3,$4,$5,$6,COALESCE($7,false),$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
        RETURNING *`,
       [
         out.condominio_id, out.numero || null, out.tipo, out.valor_mensal,
@@ -241,7 +256,8 @@ router.post("/", authRequired, masterAdminOnly, async (req, res) => {
         out.observacoes || null,
         out.signatario_nome || null, out.signatario_email || null,
         out.signatario_geral_nome || null, out.signatario_geral_email || null,
-        out.descricao_servico || null, req.user.id,
+        out.descricao_servico || null,
+        out.servico_tipo || "bombas", out.qtd_bombas || null, req.user.id,
       ]
     );
     return res.status(201).json(r.rows[0]);
