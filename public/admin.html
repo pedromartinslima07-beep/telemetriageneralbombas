@@ -2512,18 +2512,22 @@
 
 <!-- Modal: novo/editar contrato do condomínio -->
 <div id="ctrOverlay" class="modalOverlay" style="display:none;">
-  <div class="modalBox" style="max-width:560px;">
+  <div class="modalBox" style="max-width:600px;">
     <div class="modalHead">
       <div>
         <div class="modalTitle" id="ctrTitulo">Novo contrato</div>
         <div class="modalSub" id="ctrSub"></div>
       </div>
-      <button class="btn btn-sm" id="ctrBtnFechar">Fechar</button>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <span id="ctrStatusBadge" style="display:none;"></span>
+        <button class="btn btn-sm" id="ctrBtnFechar">Fechar</button>
+      </div>
     </div>
     <div class="modalBody" style="padding:20px 24px 24px;display:flex;flex-direction:column;gap:14px;">
       <input type="hidden" id="ctrId" />
       <input type="hidden" id="ctrCondoId" />
 
+      <!-- Dados do contrato -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
         <label class="f">
           <span>Tipo <span style="color:var(--danger)">*</span></span>
@@ -2568,23 +2572,79 @@
         </label>
       </div>
 
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <label class="f">
+          <span>Número do contrato <span style="font-size:10px;color:var(--muted);font-weight:400;">(opcional)</span></span>
+          <input id="ctrNumero" class="input" type="text" maxlength="40" placeholder="ex: CT-2026-0001" />
+        </label>
+        <label class="check-field" style="align-self:flex-end;padding-bottom:10px;">
+          <input type="checkbox" id="ctrRenovAuto" />
+          Renovação automática
+        </label>
+      </div>
+
       <label class="f">
-        <span>Número do contrato <span style="font-size:10px;color:var(--muted);font-weight:400;">(opcional)</span></span>
-        <input id="ctrNumero" class="input" type="text" maxlength="40" placeholder="ex: CT-2026-0001" />
-      </label>
-
-      <label class="check-field">
-        <input type="checkbox" id="ctrRenovAuto" />
-        Renovação automática
+        <span>Descrição dos serviços <span style="font-size:10px;color:var(--muted);font-weight:400;">(aparece no contrato)</span></span>
+        <textarea id="ctrDescServico" class="input" rows="2" maxlength="4000" style="resize:vertical;font-size:13px;padding:8px 10px;" placeholder="Ex: Manutenção preventiva e corretiva de 8 bombas de recalque, 2 de incêndio…"></textarea>
       </label>
 
       <label class="f">
-        <span>Observações</span>
-        <textarea id="ctrObs" class="input" rows="3" maxlength="4000" style="resize:vertical;font-size:13px;padding:8px 10px;" placeholder="Detalhes do contrato, cláusulas especiais…"></textarea>
+        <span>Observações internas</span>
+        <textarea id="ctrObs" class="input" rows="2" maxlength="4000" style="resize:vertical;font-size:13px;padding:8px 10px;" placeholder="Notas internas, não aparecem no contrato…"></textarea>
       </label>
 
-      <div style="display:flex;gap:8px;justify-content:flex-end;align-items:center;">
-        <span id="ctrMsg" style="font-size:12px;color:var(--muted);"></span>
+      <!-- Signatários -->
+      <div style="border-top:1px solid var(--border);padding-top:14px;">
+        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;">Signatários para assinatura digital</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <label class="f">
+            <span>Representante do cliente (nome)</span>
+            <input id="ctrSignNome" class="input" type="text" maxlength="200" placeholder="Nome do responsável" />
+          </label>
+          <label class="f">
+            <span>E-mail do representante <span style="color:var(--danger)">*</span></span>
+            <input id="ctrSignEmail" class="input" type="email" maxlength="200" placeholder="email@condominio.com.br" />
+          </label>
+          <label class="f">
+            <span>Representante General Bombas</span>
+            <input id="ctrSignGeralNome" class="input" type="text" maxlength="200" placeholder="Ana Paula Martins Lima" />
+          </label>
+          <label class="f">
+            <span>E-mail General Bombas</span>
+            <input id="ctrSignGeralEmail" class="input" type="email" maxlength="200" placeholder="comercial@generalbombas.com" />
+          </label>
+        </div>
+      </div>
+
+      <!-- Painel de assinatura (só em edição com zapsign_status) -->
+      <div id="ctrAssinaturaPainel" style="display:none;border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px;background:rgba(255,255,255,.03);">
+        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;">Assinatura digital</div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <div id="ctrUrlClienteRow" style="display:none;">
+            <div style="font-size:11px;color:var(--muted);margin-bottom:3px;">Link do cliente</div>
+            <div style="display:flex;gap:6px;align-items:center;">
+              <input id="ctrUrlCliente" class="input" style="font-size:11px;" readonly />
+              <button class="btn btn-sm" onclick="navigator.clipboard.writeText(document.getElementById('ctrUrlCliente').value)">Copiar</button>
+            </div>
+          </div>
+          <div id="ctrUrlGeralRow" style="display:none;">
+            <div style="font-size:11px;color:var(--muted);margin-bottom:3px;">Link General Bombas</div>
+            <div style="display:flex;gap:6px;align-items:center;">
+              <input id="ctrUrlGeral" class="input" style="font-size:11px;" readonly />
+              <button class="btn btn-sm" onclick="navigator.clipboard.writeText(document.getElementById('ctrUrlGeral').value)">Copiar</button>
+            </div>
+          </div>
+          <div id="ctrDocUrlRow" style="display:none;">
+            <a id="ctrDocUrlLink" class="btn btn-sm btnAccent" href="#" target="_blank">⬇ Baixar contrato assinado</a>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:8px;justify-content:flex-end;align-items:center;flex-wrap:wrap;">
+        <span id="ctrMsg" style="font-size:12px;color:var(--muted);flex:1;"></span>
+        <button class="btn btn-sm" id="ctrBtnPdf" style="display:none;">⬇ PDF</button>
+        <button class="btn btn-sm" id="ctrBtnAtualizarStatus" style="display:none;">↻ Status</button>
+        <button class="btn btn-sm btnAccent" id="ctrBtnEnviarAssinatura" style="display:none;">✉ Enviar para assinatura</button>
         <button class="btn btn-sm btnDanger" id="ctrBtnEncerrar" style="display:none;">Inativar contrato</button>
         <button class="btn btn-sm" id="ctrBtnCancelar">Cancelar</button>
         <button class="btn btn-sm btnAccent" id="ctrBtnSalvar">Salvar</button>
@@ -2594,7 +2654,7 @@
 </div>
 
 
-<script src="/static/admin.js?v=178" defer></script>
+<script src="/static/admin.js?v=179" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
 <script src="/static/register-sw.js?v=27" defer></script>
 </body>

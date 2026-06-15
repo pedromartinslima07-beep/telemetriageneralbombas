@@ -4248,14 +4248,33 @@ function renderChamados() {
 // ─── Modal: novo/editar contrato ────────────────────────────────────────────
 let _ctrEditando = null; // { condoId, contratoId? }
 
+const _CtrStatusCfg = {
+  rascunho:  { texto: "Rascunho",   cor: "var(--muted)",   bg: "rgba(255,255,255,.07)" },
+  aguardando:{ texto: "Aguardando assinatura", cor: "#f59e0b", bg: "rgba(245,158,11,.12)" },
+  assinado:  { texto: "Assinado",   cor: "var(--ok)",      bg: "rgba(34,197,94,.12)" },
+  recusado:  { texto: "Recusado",   cor: "var(--danger)",  bg: "rgba(239,68,68,.12)" },
+  cancelado: { texto: "Cancelado",  cor: "var(--muted)",   bg: "rgba(255,255,255,.05)" },
+};
+
+function _ctrAtualizarBadge(status) {
+  const badge = document.getElementById("ctrStatusBadge");
+  if (!badge) return;
+  const cfg = _CtrStatusCfg[status] || _CtrStatusCfg.rascunho;
+  badge.textContent = cfg.texto;
+  badge.style.cssText = `display:inline-flex;align-items:center;padding:2px 10px;border-radius:999px;font-size:11px;font-weight:700;color:${cfg.cor};background:${cfg.bg};`;
+}
+
 function _ctrAbrirModal({ condoId, contratoId }) {
   const overlay = document.getElementById("ctrOverlay");
   if (!overlay) return;
   _ctrEditando = { condoId, contratoId: contratoId || null };
 
   // Limpa form
-  const ids = ["ctrNumero","ctrValor","ctrInicio","ctrFim","ctrDiaVenc","ctrObs"];
-  ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
+  ["ctrNumero","ctrValor","ctrInicio","ctrFim","ctrDiaVenc","ctrObs",
+   "ctrDescServico","ctrSignNome","ctrSignEmail","ctrSignGeralNome","ctrSignGeralEmail",
+   "ctrUrlCliente","ctrUrlGeral"].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = "";
+  });
   document.getElementById("ctrTipo").value = "mensal";
   document.getElementById("ctrFormaPagto").value = "";
   document.getElementById("ctrRenovAuto").checked = false;
@@ -4264,6 +4283,14 @@ function _ctrAbrirModal({ condoId, contratoId }) {
   document.getElementById("ctrMsg").textContent = "";
   document.getElementById("ctrBtnSalvar").disabled = false;
   document.getElementById("ctrBtnEncerrar").style.display = contratoId ? "" : "none";
+  document.getElementById("ctrBtnPdf").style.display = "none";
+  document.getElementById("ctrBtnEnviarAssinatura").style.display = "none";
+  document.getElementById("ctrBtnAtualizarStatus").style.display = "none";
+  document.getElementById("ctrAssinaturaPainel").style.display = "none";
+  document.getElementById("ctrStatusBadge").style.display = "none";
+  document.getElementById("ctrUrlClienteRow").style.display = "none";
+  document.getElementById("ctrUrlGeralRow").style.display = "none";
+  document.getElementById("ctrDocUrlRow").style.display = "none";
 
   const condo = (_condominios || []).find(c => Number(c.id) === Number(condoId));
   document.getElementById("ctrSub").textContent = condo ? condo.nome : "";
@@ -4273,16 +4300,48 @@ function _ctrAbrirModal({ condoId, contratoId }) {
     fetch(`/contratos/${contratoId}`, { headers: authHeaders() })
       .then(r => r.ok ? r.json() : Promise.reject(r))
       .then(c => {
-        document.getElementById("ctrId").value         = String(c.id);
-        document.getElementById("ctrTipo").value       = c.tipo;
-        document.getElementById("ctrValor").value      = c.valor_mensal != null ? Number(c.valor_mensal).toFixed(2) : "";
-        document.getElementById("ctrInicio").value     = c.inicio_em ? String(c.inicio_em).slice(0,10) : "";
-        document.getElementById("ctrFim").value        = c.fim_em ? String(c.fim_em).slice(0,10) : "";
-        document.getElementById("ctrFormaPagto").value = c.forma_pagamento || "";
-        document.getElementById("ctrDiaVenc").value    = c.dia_vencimento || "";
-        document.getElementById("ctrNumero").value     = c.numero || "";
-        document.getElementById("ctrObs").value        = c.observacoes || "";
-        document.getElementById("ctrRenovAuto").checked = !!c.renovacao_automatica;
+        document.getElementById("ctrId").value              = String(c.id);
+        document.getElementById("ctrTipo").value            = c.tipo;
+        document.getElementById("ctrValor").value           = c.valor_mensal != null ? Number(c.valor_mensal).toFixed(2) : "";
+        document.getElementById("ctrInicio").value          = c.inicio_em ? String(c.inicio_em).slice(0,10) : "";
+        document.getElementById("ctrFim").value             = c.fim_em ? String(c.fim_em).slice(0,10) : "";
+        document.getElementById("ctrFormaPagto").value      = c.forma_pagamento || "";
+        document.getElementById("ctrDiaVenc").value         = c.dia_vencimento || "";
+        document.getElementById("ctrNumero").value          = c.numero || "";
+        document.getElementById("ctrObs").value             = c.observacoes || "";
+        document.getElementById("ctrDescServico").value     = c.descricao_servico || "";
+        document.getElementById("ctrRenovAuto").checked     = !!c.renovacao_automatica;
+        document.getElementById("ctrSignNome").value        = c.signatario_nome || "";
+        document.getElementById("ctrSignEmail").value       = c.signatario_email || "";
+        document.getElementById("ctrSignGeralNome").value   = c.signatario_geral_nome || "Ana Paula Martins Lima";
+        document.getElementById("ctrSignGeralEmail").value  = c.signatario_geral_email || "comercial@generalbombas.com";
+
+        // Botões de PDF/assinatura sempre visíveis em edição
+        document.getElementById("ctrBtnPdf").style.display = "";
+        document.getElementById("ctrBtnEnviarAssinatura").style.display = "";
+        document.getElementById("ctrBtnAtualizarStatus").style.display = c.zapsign_token ? "" : "none";
+
+        // Badge de status
+        const status = c.zapsign_status || "rascunho";
+        _ctrAtualizarBadge(status);
+
+        // Painel de assinatura
+        const temToken = !!c.zapsign_token;
+        document.getElementById("ctrAssinaturaPainel").style.display = temToken ? "" : "none";
+        if (temToken) {
+          if (c.zapsign_url_cliente) {
+            document.getElementById("ctrUrlClienteRow").style.display = "";
+            document.getElementById("ctrUrlCliente").value = c.zapsign_url_cliente;
+          }
+          if (c.zapsign_url_geral) {
+            document.getElementById("ctrUrlGeralRow").style.display = "";
+            document.getElementById("ctrUrlGeral").value = c.zapsign_url_geral;
+          }
+          if (c.zapsign_doc_url) {
+            document.getElementById("ctrDocUrlRow").style.display = "";
+            document.getElementById("ctrDocUrlLink").href = c.zapsign_doc_url;
+          }
+        }
       })
       .catch(() => { document.getElementById("ctrMsg").textContent = "Erro ao carregar contrato"; });
   }
@@ -4302,16 +4361,21 @@ async function _ctrSalvar() {
   const btn = document.getElementById("ctrBtnSalvar");
 
   const body = {
-    condominio_id:        Number(document.getElementById("ctrCondoId").value),
-    tipo:                 document.getElementById("ctrTipo").value,
-    valor_mensal:         Number(document.getElementById("ctrValor").value),
-    inicio_em:            document.getElementById("ctrInicio").value || null,
-    fim_em:               document.getElementById("ctrFim").value || null,
-    forma_pagamento:      document.getElementById("ctrFormaPagto").value || null,
-    dia_vencimento:       document.getElementById("ctrDiaVenc").value ? Number(document.getElementById("ctrDiaVenc").value) : null,
-    numero:               document.getElementById("ctrNumero").value.trim() || null,
-    observacoes:          document.getElementById("ctrObs").value.trim() || null,
-    renovacao_automatica: document.getElementById("ctrRenovAuto").checked,
+    condominio_id:           Number(document.getElementById("ctrCondoId").value),
+    tipo:                    document.getElementById("ctrTipo").value,
+    valor_mensal:            Number(document.getElementById("ctrValor").value),
+    inicio_em:               document.getElementById("ctrInicio").value || null,
+    fim_em:                  document.getElementById("ctrFim").value || null,
+    forma_pagamento:         document.getElementById("ctrFormaPagto").value || null,
+    dia_vencimento:          document.getElementById("ctrDiaVenc").value ? Number(document.getElementById("ctrDiaVenc").value) : null,
+    numero:                  document.getElementById("ctrNumero").value.trim() || null,
+    observacoes:             document.getElementById("ctrObs").value.trim() || null,
+    descricao_servico:       document.getElementById("ctrDescServico").value.trim() || null,
+    renovacao_automatica:    document.getElementById("ctrRenovAuto").checked,
+    signatario_nome:         document.getElementById("ctrSignNome").value.trim() || null,
+    signatario_email:        document.getElementById("ctrSignEmail").value.trim() || null,
+    signatario_geral_nome:   document.getElementById("ctrSignGeralNome").value.trim() || null,
+    signatario_geral_email:  document.getElementById("ctrSignGeralEmail").value.trim() || null,
   };
 
   if (!body.valor_mensal && body.valor_mensal !== 0) {
@@ -4340,19 +4404,23 @@ async function _ctrSalvar() {
       btn.disabled = false;
       return;
     }
+    const saved = await r.json();
+    msg.style.color = "var(--ok)"; msg.textContent = "Salvo!";
+    btn.disabled = false;
+    // Habilita botões de PDF/assinatura após criar
+    document.getElementById("ctrId").value = String(saved.id);
+    document.getElementById("ctrBtnPdf").style.display = "";
+    document.getElementById("ctrBtnEnviarAssinatura").style.display = "";
     const condoId = _ctrEditando.condoId;
     _cliInvalidarContrato(condoId);
-    _ctrFecharModal();
-    // Re-renderiza o detalhe se ainda for o cliente selecionado
     if (_cliSelecionadoId === condoId) {
       const c = (_condominios || []).find(x => Number(x.id) === Number(condoId));
       if (c) renderCliDetalhe(c);
     }
-    // Se o modal Editar está aberto na aba Contrato deste condomínio, refresh
     if (_editCondoIdAtivo === condoId) _editRenderTabContrato(condoId);
-    // Recarrega KPIs e tabela
     _carregarContratosMetricas?.();
     renderCliTabela?.();
+    setTimeout(() => { msg.textContent = ""; }, 2500);
   } catch (e) {
     msg.style.color = "var(--danger)"; msg.textContent = "Erro de rede";
     btn.disabled = false;
@@ -4389,6 +4457,63 @@ async function _ctrEncerrar() {
   }
 }
 
+async function _ctrEnviarAssinatura() {
+  const id = document.getElementById("ctrId").value;
+  if (!id) return;
+  const msg = document.getElementById("ctrMsg");
+  const btn = document.getElementById("ctrBtnEnviarAssinatura");
+  msg.style.color = "var(--muted)"; msg.textContent = "Enviando para assinatura…";
+  btn.disabled = true;
+  try {
+    const r = await fetch(`/contratos/${id}/enviar-assinatura`, { method: "POST", headers: authHeaders() });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      msg.style.color = "var(--danger)"; msg.textContent = data.error || "Erro ao enviar";
+      btn.disabled = false;
+      return;
+    }
+    msg.style.color = "var(--ok)"; msg.textContent = "Enviado! E-mails de assinatura disparados.";
+    btn.disabled = false;
+    // Atualiza painel de URLs
+    document.getElementById("ctrAssinaturaPainel").style.display = "";
+    document.getElementById("ctrBtnAtualizarStatus").style.display = "";
+    if (data.zapsign_url_cliente) {
+      document.getElementById("ctrUrlClienteRow").style.display = "";
+      document.getElementById("ctrUrlCliente").value = data.zapsign_url_cliente;
+    }
+    if (data.zapsign_url_geral) {
+      document.getElementById("ctrUrlGeralRow").style.display = "";
+      document.getElementById("ctrUrlGeral").value = data.zapsign_url_geral;
+    }
+    _ctrAtualizarBadge("aguardando");
+    setTimeout(() => { msg.textContent = ""; }, 3000);
+  } catch (e) {
+    msg.style.color = "var(--danger)"; msg.textContent = "Erro de rede";
+    btn.disabled = false;
+  }
+}
+
+async function _ctrAtualizarStatus() {
+  const id = document.getElementById("ctrId").value;
+  if (!id) return;
+  const msg = document.getElementById("ctrMsg");
+  msg.style.color = "var(--muted)"; msg.textContent = "Consultando ZapSign…";
+  try {
+    const r = await fetch(`/contratos/${id}/status-assinatura`, { headers: authHeaders() });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) { msg.style.color = "var(--danger)"; msg.textContent = data.error || "Erro"; return; }
+    _ctrAtualizarBadge(data.zapsign_status);
+    if (data.doc_url) {
+      document.getElementById("ctrDocUrlRow").style.display = "";
+      document.getElementById("ctrDocUrlLink").href = data.doc_url;
+    }
+    msg.style.color = "var(--ok)"; msg.textContent = "Status atualizado.";
+    setTimeout(() => { msg.textContent = ""; }, 2500);
+  } catch (e) {
+    msg.style.color = "var(--danger)"; msg.textContent = "Erro de rede";
+  }
+}
+
 (function _bindCtrModal() {
   const overlay = document.getElementById("ctrOverlay");
   if (!overlay) return;
@@ -4396,6 +4521,12 @@ async function _ctrEncerrar() {
   document.getElementById("ctrBtnCancelar")?.addEventListener("click", _ctrFecharModal);
   document.getElementById("ctrBtnSalvar")?.addEventListener("click", _ctrSalvar);
   document.getElementById("ctrBtnEncerrar")?.addEventListener("click", _ctrEncerrar);
+  document.getElementById("ctrBtnEnviarAssinatura")?.addEventListener("click", _ctrEnviarAssinatura);
+  document.getElementById("ctrBtnAtualizarStatus")?.addEventListener("click", _ctrAtualizarStatus);
+  document.getElementById("ctrBtnPdf")?.addEventListener("click", () => {
+    const id = document.getElementById("ctrId").value;
+    if (id) window.open(`/contratos/${id}/pdf`, "_blank");
+  });
   overlay.addEventListener("click", e => { if (e.target === overlay) _ctrFecharModal(); });
 })();
 

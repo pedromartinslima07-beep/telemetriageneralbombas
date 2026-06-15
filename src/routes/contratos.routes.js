@@ -1,14 +1,15 @@
 // src/routes/contratos.routes.js
 //
-// CRUD de contratos por condomínio + endpoint de métricas (MRR, vencendo,
-// vencidos). Um condomínio pode ter múltiplos contratos ativos simultâneos
-// (migration 046 removeu a restrição de unicidade).
+// CRUD de contratos por condomínio + métricas (MRR, vencendo, vencidos)
+// + geração de PDF e integração ZapSign para assinatura digital.
 
 const express = require("express");
 const { pool } = require("../db");
 const { authRequired } = require("../middleware/authRequired");
 const { adminOnly } = require("../middleware/adminOnly");
 const { masterAdminOnly } = require("../middleware/masterAdminOnly");
+const { gerarPdfBuffer } = require("../services/contrato-pdf.service");
+const zapsign = require("../services/zapsign.service");
 
 const router = express.Router();
 
@@ -88,6 +89,22 @@ function _validar(b, { exigirObrigatorios }) {
 
   if (b.ativo !== undefined) {
     out.ativo = !!b.ativo;
+  }
+
+  if (b.signatario_nome !== undefined) {
+    out.signatario_nome = b.signatario_nome ? String(b.signatario_nome).trim().slice(0, 200) : null;
+  }
+  if (b.signatario_email !== undefined) {
+    out.signatario_email = b.signatario_email ? String(b.signatario_email).trim().slice(0, 200) : null;
+  }
+  if (b.signatario_geral_nome !== undefined) {
+    out.signatario_geral_nome = b.signatario_geral_nome ? String(b.signatario_geral_nome).trim().slice(0, 200) : null;
+  }
+  if (b.signatario_geral_email !== undefined) {
+    out.signatario_geral_email = b.signatario_geral_email ? String(b.signatario_geral_email).trim().slice(0, 200) : null;
+  }
+  if (b.descricao_servico !== undefined) {
+    out.descricao_servico = b.descricao_servico ? String(b.descricao_servico).trim().slice(0, 4000) : null;
   }
 
   return { errs, out };
@@ -212,14 +229,19 @@ router.post("/", authRequired, masterAdminOnly, async (req, res) => {
     const r = await pool.query(
       `INSERT INTO contratos
          (condominio_id, numero, tipo, valor_mensal, inicio_em, fim_em,
-          renovacao_automatica, forma_pagamento, dia_vencimento, observacoes, criado_por)
-       VALUES ($1, $2, $3, $4, $5, $6, COALESCE($7, false), $8, $9, $10, $11)
+          renovacao_automatica, forma_pagamento, dia_vencimento, observacoes,
+          signatario_nome, signatario_email, signatario_geral_nome, signatario_geral_email,
+          descricao_servico, criado_por)
+       VALUES ($1, $2, $3, $4, $5, $6, COALESCE($7, false), $8, $9, $10, $11, $12, $13, $14, $15, $16)
        RETURNING *`,
       [
         out.condominio_id, out.numero || null, out.tipo, out.valor_mensal,
         out.inicio_em, out.fim_em || null, out.renovacao_automatica,
         out.forma_pagamento || null, out.dia_vencimento || null,
-        out.observacoes || null, req.user.id,
+        out.observacoes || null,
+        out.signatario_nome || null, out.signatario_email || null,
+        out.signatario_geral_nome || null, out.signatario_geral_email || null,
+        out.descricao_servico || null, req.user.id,
       ]
     );
     return res.status(201).json(r.rows[0]);
@@ -272,6 +294,134 @@ router.delete("/:id", authRequired, masterAdminOnly, async (req, res) => {
   } catch (err) {
     console.error("[contratos] DELETE /:id:", err);
     return res.status(500).json({ error: "Erro ao excluir contrato" });
+  }
+});
+
+// ─── PDF e ZapSign ──────────────────────────────────────────────────────────
+
+// GET /contratos/:id/pdf — gera e baixa o PDF do contrato
+router.get("/:id/pdf", authRequired, adminOnly, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
+  try {
+    const { buf, ct } = await gerarPdfBuffer(id);
+    const numero = ct.numero || String(id);
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="contrato-${numero}.pdf"`);
+    res.send(buf);
+  } catch (err) {
+    console.error("[contratos] GET /:id/pdf:", err);
+    res.status(500).json({ error: "Erro ao gerar PDF: " + err.message });
+  }
+});
+
+// POST /contratos/:id/enviar-assinatura — gera PDF e envia ao ZapSign
+router.post("/:id/enviar-assinatura", authRequired, masterAdminOnly, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
+
+  try {
+    // Busca contrato para verificar campos de signatário
+    const cr = await pool.query("SELECT * FROM contratos WHERE id = $1", [id]);
+    if (!cr.rows.length) return res.status(404).json({ error: "Contrato não encontrado" });
+    const ct = cr.rows[0];
+
+    if (!ct.signatario_email) return res.status(400).json({ error: "Preencha o e-mail do signatário do cliente antes de enviar" });
+    if (!ct.signatario_geral_email) return res.status(400).json({ error: "Preencha o e-mail do signatário da General Bombas" });
+
+    // Gera PDF
+    const { buf } = await gerarPdfBuffer(id);
+    const pdfBase64 = buf.toString("base64");
+
+    // Envia ao ZapSign
+    const resp = await zapsign.criarDocumento({
+      nome:        `Contrato ${ct.numero || id}`,
+      pdfBase64,
+      externalId:  `contrato-${id}`,
+      signatarios: [
+        { nome: ct.signatario_nome || "Representante do Contratante", email: ct.signatario_email },
+        { nome: ct.signatario_geral_nome || "Ana Paula Martins Lima",    email: ct.signatario_geral_email },
+      ],
+    });
+
+    // Persiste token e URLs
+    const urlCliente = resp.signatarios[0]?.signUrl || null;
+    const urlGeral   = resp.signatarios[1]?.signUrl || null;
+
+    await pool.query(
+      `UPDATE contratos SET
+         zapsign_token = $1, zapsign_status = 'aguardando',
+         zapsign_url_cliente = $2, zapsign_url_geral = $3,
+         enviado_assinatura_em = NOW()
+       WHERE id = $4`,
+      [resp.docToken, urlCliente, urlGeral, id]
+    );
+
+    res.json({
+      ok: true,
+      zapsign_token:       resp.docToken,
+      zapsign_url_cliente: urlCliente,
+      zapsign_url_geral:   urlGeral,
+    });
+  } catch (err) {
+    console.error("[contratos] POST /:id/enviar-assinatura:", err);
+    res.status(500).json({ error: "Erro ao enviar para assinatura: " + err.message });
+  }
+});
+
+// GET /contratos/:id/status-assinatura — atualiza status consultando ZapSign
+router.get("/:id/status-assinatura", authRequired, adminOnly, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
+  try {
+    const cr = await pool.query("SELECT zapsign_token, zapsign_status FROM contratos WHERE id = $1", [id]);
+    if (!cr.rows.length) return res.status(404).json({ error: "Contrato não encontrado" });
+    const { zapsign_token: docToken, zapsign_status } = cr.rows[0];
+
+    if (!docToken) return res.json({ zapsign_status: zapsign_status || "rascunho" });
+
+    const info = await zapsign.buscarDocumento(docToken);
+    const novoStatus = zapsign.mapStatus(info.status);
+
+    await pool.query(
+      `UPDATE contratos SET
+         zapsign_status = $1,
+         zapsign_doc_url = COALESCE($2, zapsign_doc_url),
+         assinado_em = CASE WHEN $1 = 'assinado' AND assinado_em IS NULL THEN NOW() ELSE assinado_em END
+       WHERE id = $3`,
+      [novoStatus, info.docUrl, id]
+    );
+
+    res.json({ zapsign_status: novoStatus, doc_url: info.docUrl, signatarios: info.signatarios });
+  } catch (err) {
+    console.error("[contratos] GET /:id/status-assinatura:", err);
+    res.status(500).json({ error: "Erro ao consultar status: " + err.message });
+  }
+});
+
+// POST /contratos/webhook/zapsign — callback do ZapSign ao assinar/recusar
+// Não exige auth (ZapSign chama de fora); valida pelo token do documento no body.
+router.post("/webhook/zapsign", async (req, res) => {
+  res.sendStatus(200); // responde rápido para o ZapSign não retentar
+
+  try {
+    const { document } = req.body || {};
+    if (!document?.token) return;
+
+    const docToken  = document.token;
+    const status    = zapsign.mapStatus(document.status);
+    const docUrl    = document.signed_file || null;
+
+    await pool.query(
+      `UPDATE contratos SET
+         zapsign_status  = $1,
+         zapsign_doc_url = COALESCE($2, zapsign_doc_url),
+         assinado_em     = CASE WHEN $1 = 'assinado' AND assinado_em IS NULL THEN NOW() ELSE assinado_em END
+       WHERE zapsign_token = $3`,
+      [status, docUrl, docToken]
+    );
+  } catch (err) {
+    console.error("[contratos] webhook ZapSign:", err);
   }
 });
 

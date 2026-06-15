@@ -10,10 +10,17 @@ aliases:
 > Branch atual: `feature/app-mobile`. Última sessão registrada: **2026-06-15**.
 > Roadmap completo em [`roadmap.md`](roadmap.md); decisões em [`decisions.md`](decisions.md).
 
-## Foco atual — Preparação para deploy
+## Foco atual — Contratos ZapSign + preparação para deploy
 
-O grosso das funcionalidades está concluído. O trabalho ativo é colocar o
-sistema em produção real com WhatsApp ligado.
+O grosso das funcionalidades está concluído. Novo módulo de assinatura digital
+de contratos via ZapSign foi implementado nesta sessão — falta rodar a migration
+e configurar o token no Railway.
+
+### Pendente pós-sessão 2026-06-15
+- Rodar `node scripts/migrate.js 054_contratos_zapsign.sql` em produção.
+- Criar conta ZapSign e adicionar `ZAPSIGN_API_TOKEN` no Railway.
+- Configurar webhook ZapSign: `POST /contratos/webhook/zapsign` (sem auth).
+- Reverter `OTP_DISABLED` para produção (ver `memory/project_otp_disabled.md`).
 
 - **Banco de produção (Railway) limpo** de dados de teste — sobrevivem apenas
   logins e configurações. Scripts: `migrations/limpar-dados-teste.sql` (DELETE
@@ -61,6 +68,13 @@ Envs necessárias: `OPENAI_API_KEY`, `WHATSAPP_VERIFY_TOKEN`,
 5. Testar fluxo completo com número WhatsApp real.
 6. 10B — few-shot por categoria (aguardar volume de conversas curadas).
 7. 7J — publicação Play Store.
+
+## Melhorias recentes (sessão 2026-06-15 — contratos ZapSign + sidebar)
+
+- **Módulo de contratos + assinatura digital (ZapSign):** migration 054, `contrato-pdf.service.js` (PDF com papel timbrado, 11 cláusulas), `zapsign.service.js` (API), 4 novos endpoints em `contratos.routes.js`, modal admin expandido com signatários/descrição/painel de assinatura. `admin.js?v=179`.
+- **Sidebar animation:** choreografia redesenhada; `is-animating` desabilita backdrop-filter no CSS durante a transição. `admin.css?v=117`.
+- **Texto "30 dias" trusted devices corrigido** em `login.html` e `admin.html`.
+- **Email OTP separado:** `SMTP_FROM_OTP` env var para remetente do OTP.
 
 ## Melhorias recentes (sessão 2026-06-15 — correções de crash APK)
 
