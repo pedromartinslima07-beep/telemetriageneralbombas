@@ -4523,9 +4523,30 @@ async function _ctrAtualizarStatus() {
   document.getElementById("ctrBtnEncerrar")?.addEventListener("click", _ctrEncerrar);
   document.getElementById("ctrBtnEnviarAssinatura")?.addEventListener("click", _ctrEnviarAssinatura);
   document.getElementById("ctrBtnAtualizarStatus")?.addEventListener("click", _ctrAtualizarStatus);
-  document.getElementById("ctrBtnPdf")?.addEventListener("click", () => {
+  document.getElementById("ctrBtnPdf")?.addEventListener("click", async () => {
     const id = document.getElementById("ctrId").value;
-    if (id) window.open(`/contratos/${id}/pdf`, "_blank");
+    if (!id) return;
+    const btn = document.getElementById("ctrBtnPdf");
+    const msg = document.getElementById("ctrMsg");
+    btn.disabled = true;
+    msg.style.color = "var(--muted)"; msg.textContent = "Gerando PDF…";
+    try {
+      const r = await fetch(`/contratos/${id}/pdf`, { headers: authHeaders() });
+      if (!r.ok) {
+        const e = await r.json().catch(() => ({}));
+        msg.style.color = "var(--danger)"; msg.textContent = e.error || "Erro ao gerar PDF";
+        btn.disabled = false; return;
+      }
+      const blob = await r.blob();
+      const url  = URL.createObjectURL(blob);
+      const w = window.open(url, "_blank");
+      if (!w) { const a = document.createElement("a"); a.href = url; a.download = `contrato-${id}.pdf`; a.click(); }
+      setTimeout(() => URL.revokeObjectURL(url), 30000);
+      msg.textContent = "";
+    } catch (err) {
+      msg.style.color = "var(--danger)"; msg.textContent = "Erro: " + err.message;
+    }
+    btn.disabled = false;
   });
   overlay.addEventListener("click", e => { if (e.target === overlay) _ctrFecharModal(); });
 })();
