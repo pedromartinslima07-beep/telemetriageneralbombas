@@ -1525,6 +1525,7 @@ async function _gpsAbrirWatch() {
     }).catch((e) => {
       console.warn("[gps] NativeGpsTracker.start falhou:", e);
       GPS.active = false;
+      gpsRenderChip();
     });
     // Escuta eventos de localização para manter a UI sincronizada quando
     // o app está em primeiro plano. O envio HTTP é feito pelo Java.
