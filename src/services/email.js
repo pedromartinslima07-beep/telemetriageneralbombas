@@ -15,9 +15,13 @@ function _emailFrom() {
   return process.env.SMTP_FROM || "comercial@generalbombas.com";
 }
 
+function _emailFromOTP() {
+  return process.env.SMTP_FROM_OTP || _emailFrom();
+}
+
 async function sendOTP(toEmail, code) {
   await getResend().emails.send({
-    from: `General Telemetria <${_emailFrom()}>`,
+    from: `General Telemetria <${_emailFromOTP()}>`,
     to: toEmail,
     subject: "Seu código de acesso — General Telemetria",
     text: [
