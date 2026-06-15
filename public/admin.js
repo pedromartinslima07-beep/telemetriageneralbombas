@@ -10073,8 +10073,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function _onToggle() {
     const next = !_sidebar.classList.contains("collapsed");
+    _sidebar.classList.add("is-animating");
     _applySidebar(next);
     localStorage.setItem("sidebarCollapsed", next);
+    setTimeout(() => _sidebar.classList.remove("is-animating"), 320);
   }
 
   document.getElementById("btnSidebarToggleIn")?.addEventListener("click", _onToggle);
