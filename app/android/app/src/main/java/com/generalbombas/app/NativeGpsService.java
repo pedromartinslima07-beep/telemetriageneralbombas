@@ -61,8 +61,12 @@ public class NativeGpsService extends Service {
             NativeGpsService.this.token      = tk;
             NativeGpsService.this.intervalMs = intMs > 0 ? intMs : 60_000L;
             NativeGpsService.this.lastSentTs = 0L;
-            startForeground(NOTIF_ID, buildNotification(notifTitle, notifMessage));
-            startLocationUpdates();
+            try {
+                startForeground(NOTIF_ID, buildNotification(notifTitle, notifMessage));
+                startLocationUpdates();
+            } catch (Exception e) {
+                android.util.Log.w("NativeGps", "startForeground falhou: " + e.getMessage());
+            }
         }
         void updateToken(String newToken) { NativeGpsService.this.token = newToken; }
         void stop() { NativeGpsService.this.stopTracking(); }

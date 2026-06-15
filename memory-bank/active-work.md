@@ -7,7 +7,7 @@ aliases:
 ---
 # Trabalho em Andamento
 
-> Branch atual: `feature/app-mobile`. Última sessão registrada: **2026-06-05**.
+> Branch atual: `feature/app-mobile`. Última sessão registrada: **2026-06-15**.
 > Roadmap completo em [`roadmap.md`](roadmap.md); decisões em [`decisions.md`](decisions.md).
 
 ## Foco atual — Preparação para deploy
@@ -61,6 +61,16 @@ Envs necessárias: `OPENAI_API_KEY`, `WHATSAPP_VERIFY_TOKEN`,
 5. Testar fluxo completo com número WhatsApp real.
 6. 10B — few-shot por categoria (aguardar volume de conversas curadas).
 7. 7J — publicação Play Store.
+
+## Melhorias recentes (sessão 2026-06-15 — correções de crash APK)
+
+- **Crash no primeiro login corrigido:** `NativeGpsService.configure()` chamava `startForeground()` na binder thread sem try-catch. Exceções Java escapavam para o processo e matavam o app silenciosamente. Envolvido em try-catch.
+- **Permissões Android faltando adicionadas:** `FOREGROUND_SERVICE` e `FOREGROUND_SERVICE_LOCATION` ausentes do `AndroidManifest.xml` causavam `SecurityException` no `startForeground()`. Ambas adicionadas.
+- **`NativeGpsPlugin.start()` protegido:** try-catch para converter exceções em `call.reject()` em vez de crash.
+- **`requestBatteryExemption` com try-catch:** previne crash em ROMs sem suporte a `ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`.
+- **Chip GPS "Fora do expediente" durante inicialização corrigido:** `gpsRenderChip()` agora distingue "fora do horário" de "dentro do horário aguardando GPS".
+- **Chip GPS demora atualizar corrigido:** `gpsRenderChip()` adicionado após `GPS.active = true` nos três caminhos de `_gpsAbrirWatch()`.
+- **Auto-login com retry:** tenta `/auth/me` até 2 vezes com 2s de espera entre tentativas.
 
 ## Melhorias recentes (sessão 2026-06-10 — UX admin e app mobile)
 

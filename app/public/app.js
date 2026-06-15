@@ -1515,6 +1515,7 @@ async function _gpsAbrirWatch() {
 
     GPS.active = true;
     GPS.lastError = null;
+    gpsRenderChip();
     NativeGps.start({
       endpoint: API_BASE + "/tecnicos/localizacao",
       token: Storage.getToken(),
@@ -1558,6 +1559,7 @@ async function _gpsAbrirWatch() {
   if (BgGeo) {
     GPS.active = true;
     GPS.lastError = null;
+    gpsRenderChip();
     BgGeo.addWatcher(
       {
         backgroundMessage: "General Bombas está monitorando sua localização.",
@@ -1620,6 +1622,7 @@ async function _gpsAbrirWatch() {
 
   GPS.active = true;
   GPS.lastError = null;
+  gpsRenderChip();
 
   // Tenta abrir o BatteryManager (não suportado em iOS Safari — null-safe abaixo).
   if (!GPS.battery && navigator.getBattery) {
@@ -1767,11 +1770,14 @@ function gpsRenderChip() {
     chip.title = "Localização ativa";
     chip.classList.remove("gps-chip-paused");
     chip.innerHTML = `<span class="gps-dot"></span><span class="gps-text">GPS ativo</span>`;
-  } else {
-    // Agendado mas fora da janela 8h–18h
+  } else if (!gpsDentroDoHorario()) {
     chip.title = `GPS opera apenas das ${String(GPS_HORA_INI).padStart(2,"0")}:00 às ${String(GPS_HORA_FIM).padStart(2,"0")}:00`;
     chip.classList.add("gps-chip-paused");
     chip.innerHTML = `<span class="gps-dot"></span><span class="gps-text">Fora do expediente</span>`;
+  } else {
+    chip.title = "Aguardando sinal de GPS…";
+    chip.classList.add("gps-chip-paused");
+    chip.innerHTML = `<span class="gps-dot"></span><span class="gps-text">GPS aguardando…</span>`;
   }
   chip.hidden = false;
 }
@@ -4999,12 +5005,21 @@ function entrarModoDemoCliente() {
     showScreen("login");
     return;
   }
-  try {
-    const user = await api("/auth/me");
-    Storage.setUser(user);
-    mostrarPosLogin(user);
-  } catch {
-    // 401 já limpou o storage no api()
-    showScreen("login");
+  // Tenta até 2 vezes com 2s de espera — cobre o caso do WebView volcar após
+  // diálogo do sistema (bateria) com rede ainda estabilizando.
+  for (let tentativa = 0; tentativa < 2; tentativa++) {
+    try {
+      const user = await api("/auth/me");
+      Storage.setUser(user);
+      mostrarPosLogin(user);
+      return;
+    } catch (e) {
+      const sessaoExpirada = e.message === "Sessão expirada. Faça login novamente.";
+      if (sessaoExpirada || tentativa === 1) {
+        showScreen("login");
+        return;
+      }
+      await new Promise((r) => setTimeout(r, 2000));
+    }
   }
 })();

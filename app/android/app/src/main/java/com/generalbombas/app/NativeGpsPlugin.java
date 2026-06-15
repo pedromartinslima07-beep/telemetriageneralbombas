@@ -55,15 +55,19 @@ public class NativeGpsPlugin extends Plugin {
             call.reject("Service not bound yet.");
             return;
         }
-        String endpoint      = call.getString("endpoint", "");
-        String token         = call.getString("token", "");
-        long   intervalMs    = call.getLong("intervalMs", 60_000L);
-        String notifTitle    = call.getString("notificationTitle", "GPS ativo");
-        String notifMessage  = call.getString("notificationMessage",
-                "General Bombas está monitorando sua localização.");
+        try {
+            String endpoint      = call.getString("endpoint", "");
+            String token         = call.getString("token", "");
+            long   intervalMs    = call.getLong("intervalMs", 60_000L);
+            String notifTitle    = call.getString("notificationTitle", "GPS ativo");
+            String notifMessage  = call.getString("notificationMessage",
+                    "General Bombas está monitorando sua localização.");
 
-        service.configure(endpoint, token, intervalMs, notifTitle, notifMessage);
-        call.resolve();
+            service.configure(endpoint, token, intervalMs, notifTitle, notifMessage);
+            call.resolve();
+        } catch (Exception e) {
+            call.reject("Erro ao iniciar GPS: " + e.getMessage());
+        }
     }
 
     @PluginMethod
@@ -80,11 +84,15 @@ public class NativeGpsPlugin extends Plugin {
 
     @PluginMethod
     public void requestBatteryExemption(PluginCall call) {
-        PowerManager pm = (PowerManager) getContext().getSystemService(Context.POWER_SERVICE);
-        if (pm != null && !pm.isIgnoringBatteryOptimizations(getContext().getPackageName())) {
-            Intent intent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
-            intent.setData(Uri.parse("package:" + getContext().getPackageName()));
-            getActivity().startActivity(intent);
+        try {
+            PowerManager pm = (PowerManager) getContext().getSystemService(Context.POWER_SERVICE);
+            if (pm != null && !pm.isIgnoringBatteryOptimizations(getContext().getPackageName())) {
+                Intent intent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
+                intent.setData(Uri.parse("package:" + getContext().getPackageName()));
+                getActivity().startActivity(intent);
+            }
+        } catch (Exception ignored) {
+            // Alguns ROMs (MIUI, OneUI) não suportam esse intent — ignora silenciosamente.
         }
         call.resolve();
     }
