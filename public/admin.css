@@ -116,12 +116,17 @@ a { color: inherit; text-decoration: none; }
   width: var(--sb-open);
   flex-shrink: 0;
   border-radius: var(--radius-lg);
-  transition: width .28s cubic-bezier(.4,0,.2,1);
+  /* EXPANDINDO: sidebar abre imediatamente */
+  transition: width .22s cubic-bezier(.2,0,.4,1);
   z-index: 50;
   will-change: width;
 }
 
-.sidebar.collapsed { width: var(--sb-rail); }
+.sidebar.collapsed {
+  width: var(--sb-rail);
+  /* FECHANDO: espera .05s pra labels sumirem antes de encolher */
+  transition: width .14s cubic-bezier(.6,0,.8,1) .05s;
+}
 
 .sidebar-inner {
   position: relative;
@@ -246,9 +251,10 @@ a { color: inherit; text-decoration: none; }
   opacity: 1;
   max-height: 40px;
   overflow: hidden;
-  transition: max-height .28s cubic-bezier(.4,0,.2,1),
-              padding .28s cubic-bezier(.4,0,.2,1),
-              opacity .28s cubic-bezier(.4,0,.2,1);
+  /* EXPANDINDO: geometria abre junto com sidebar, texto aparece depois */
+  transition: max-height .22s cubic-bezier(.2,0,.4,1),
+              padding .22s cubic-bezier(.2,0,.4,1),
+              opacity .12s ease .16s;
 }
 .sidebar.collapsed .nav-section-label {
   opacity: 0;
@@ -256,6 +262,10 @@ a { color: inherit; text-decoration: none; }
   padding-top: 0;
   padding-bottom: 0;
   pointer-events: none;
+  /* FECHANDO: texto some rápido, geometria colapsa com delay */
+  transition: opacity .05s ease,
+              max-height .14s cubic-bezier(.6,0,.8,1) .05s,
+              padding .14s cubic-bezier(.6,0,.8,1) .05s;
 }
 
 .nav-item {
@@ -276,8 +286,9 @@ a { color: inherit; text-decoration: none; }
     background .14s ease,
     color .14s ease,
     border-color .14s ease,
-    gap .28s cubic-bezier(.4,0,.2,1),
-    padding .28s cubic-bezier(.4,0,.2,1);
+    /* EXPANDINDO: gap/padding voltam na hora (label vai aparecer em cima) */
+    gap .001s linear,
+    padding .001s linear;
   white-space: nowrap;
   text-align: left;
   position: relative;
@@ -318,10 +329,8 @@ a { color: inherit; text-decoration: none; }
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 200px;
-  transition:
-    max-width .28s cubic-bezier(.4,0,.2,1),
-    opacity .22s cubic-bezier(.4,0,.2,1);
-  will-change: max-width, opacity;
+  /* EXPANDINDO: max-width volta na hora, label aparece com delay (sidebar já abriu) */
+  transition: max-width .001s linear, opacity .13s ease .15s;
 }
 
 .nav-badge {
@@ -355,15 +364,22 @@ a { color: inherit; text-decoration: none; }
 .sidebar.collapsed .nav-item {
   padding: 0;
   justify-content: center;
-}
-.sidebar.collapsed .nav-item {
   gap: 0;
+  /* FECHANDO: ícone centraliza só depois que label sumiu */
+  transition:
+    background .14s ease,
+    color .14s ease,
+    border-color .14s ease,
+    gap .001s linear .05s,
+    padding .001s linear .05s;
 }
 .sidebar.collapsed .nav-item .nav-item-label {
   opacity: 0;
   max-width: 0;
   flex: 0 0 0;
   pointer-events: none;
+  /* FECHANDO: label some rápido; max-width colapsa instantaneamente depois */
+  transition: opacity .05s ease, max-width .001s linear .05s;
 }
 
 /* Active highlight no rail: tint centralizado, sem barra lateral */
@@ -430,9 +446,14 @@ a { color: inherit; text-decoration: none; }
   background: rgba(34,197,94,.06);
   border: 1px solid rgba(34,197,94,.18);
   overflow: hidden;
-  transition: gap .28s cubic-bezier(.4,0,.2,1);
+  /* EXPANDINDO: gap volta imediatamente */
+  transition: gap .001s linear;
 }
-.sidebar.collapsed .sidebar-status { gap: 0; }
+.sidebar.collapsed .sidebar-status {
+  gap: 0;
+  /* FECHANDO: gap some depois que texto sumiu */
+  transition: gap .001s linear .05s;
+}
 .sidebar-status-dot {
   width: 8px; height: 8px;
   border-radius: 50%;
@@ -460,13 +481,15 @@ a { color: inherit; text-decoration: none; }
   overflow: hidden;
   opacity: 1;
   max-width: 160px;
-  transition: max-width .28s cubic-bezier(.4,0,.2,1),
-              opacity .18s cubic-bezier(.4,0,.2,1);
+  /* EXPANDINDO: aparece com delay */
+  transition: max-width .001s linear, opacity .13s ease .13s;
 }
 .sidebar.collapsed .sidebar-status-text {
   opacity: 0;
   max-width: 0;
   pointer-events: none;
+  /* FECHANDO: some rápido, max-width colapsa depois */
+  transition: opacity .05s ease, max-width .001s linear .05s;
 }
 .sidebar-status-label {
   font-size: 9.5px;
@@ -493,10 +516,15 @@ a { color: inherit; text-decoration: none; }
   border: 1px solid var(--border);
   white-space: nowrap;
   overflow: hidden;
-  transition: gap .28s cubic-bezier(.4,0,.2,1),
-              padding .28s cubic-bezier(.4,0,.2,1);
+  /* EXPANDINDO: volta imediatamente */
+  transition: gap .001s linear, padding .001s linear;
 }
-.sidebar.collapsed .sidebar-user { gap: 0; padding: 6px; }
+.sidebar.collapsed .sidebar-user {
+  gap: 0;
+  padding: 6px;
+  /* FECHANDO: snap depois que texto sumiu */
+  transition: gap .001s linear .05s, padding .001s linear .05s;
+}
 
 .sidebar-user-avatar {
   width: 30px;
@@ -519,13 +547,15 @@ a { color: inherit; text-decoration: none; }
   overflow: hidden;
   opacity: 1;
   max-width: 200px;
-  transition: max-width .28s cubic-bezier(.4,0,.2,1),
-              opacity .18s cubic-bezier(.4,0,.2,1);
+  /* EXPANDINDO: aparece com delay */
+  transition: max-width .001s linear, opacity .13s ease .13s;
 }
 .sidebar.collapsed .sidebar-user-info {
   opacity: 0;
   max-width: 0;
   pointer-events: none;
+  /* FECHANDO: some rápido, colapsa depois */
+  transition: opacity .05s ease, max-width .001s linear .05s;
 }
 
 .sidebar-user-role {

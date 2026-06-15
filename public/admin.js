@@ -10076,7 +10076,7 @@ document.addEventListener("DOMContentLoaded", () => {
     _sidebar.classList.add("is-animating");
     _applySidebar(next);
     localStorage.setItem("sidebarCollapsed", next);
-    setTimeout(() => _sidebar.classList.remove("is-animating"), 320);
+    setTimeout(() => _sidebar.classList.remove("is-animating"), 220);
   }
 
   document.getElementById("btnSidebarToggleIn")?.addEventListener("click", _onToggle);
