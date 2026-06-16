@@ -10,7 +10,31 @@ aliases:
 > Branch atual: `feature/app-mobile`. Última sessão registrada: **2026-06-15**.
 > Roadmap completo em [`roadmap.md`](roadmap.md); decisões em [`decisions.md`](decisions.md).
 
-## Foco atual — Contratos ZapSign + preparação para deploy
+## Foco atual — PDF orçamento: paginação definitiva (próxima sessão)
+
+### Pendente: renderização em duas passagens no `orcamento-pdf.service.js`
+
+A paginação manual atual estima a altura do texto da constatação via contagem
+de caracteres (`estimarMmTexto`). A estimativa é aproximada e pode errar ±1-2
+itens dependendo do conteúdo real.
+
+**Solução definitiva planejada:** duas passagens no Puppeteer:
+
+1. **Passagem 1 (medição):** renderizar só o cabeçalho fixo (doc-info + cliente +
+   constatação) sem itens, e usar `page.evaluate()` para medir a altura real
+   renderizada em px → converter para mm.
+2. **Passagem 2 (PDF final):** com a altura real em mãos, calcular `AREA_P1`
+   exato (`220 - altura_real_mm`), paginar os itens corretamente e gerar o PDF.
+
+Isso garante que o rodapé **nunca** é invadido independente do tamanho da
+constatação ou do endereço do cliente, sem precisar de constantes mágicas.
+
+Arquivo: `src/services/orcamento-pdf.service.js` — funções `renderHTML` e
+`_gerarPdf`.
+
+---
+
+## Foco anterior — Contratos ZapSign + preparação para deploy
 
 O grosso das funcionalidades está concluído. Novo módulo de assinatura digital
 de contratos via ZapSign foi implementado nesta sessão — falta rodar a migration

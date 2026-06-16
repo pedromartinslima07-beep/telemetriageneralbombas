@@ -95,10 +95,24 @@ function renderHTML({ os, itens }) {
   const validadeStr = os.orcamento_valido_ate ? `60 dias (até ${fmtDateBR(os.orcamento_valido_ate)})` : "60 dias";
 
   // ── Paginação manual ────────────────────────────────────────────────────────
-  const MM_ITEM   = 7;   // altura estimada por linha de item (fonte menor, ~7mm com padding 4px)
-  const AREA_P1   = 108; // mm úteis na pág 1 para itens (padding-bottom da pág1 é 49mm, margem extra)
-  const AREA_P2   = 185; // mm úteis nas páginas seguintes (297 - 48 topo - 45 rodapé = 204mm, com margem)
-  const MM_RODAPE = 50;  // mm para total + condições
+  const MM_ITEM   = 7;   // altura estimada por linha de item (~7mm com padding 4px)
+  const AREA_P2   = 185; // mm para itens nas págs seguintes (297 - 48 topo - 45 rodapé = 204mm)
+  const MM_RODAPE = 55;  // mm para bloco total + condições comerciais
+
+  // Estima altura da constatação (texto variável) para calcular AREA_P1 dinamicamente
+  function estimarMmTexto(texto, larguraMm) {
+    const CHAR_W = 1.85; // largura média por caractere a 10px Arial em mm
+    const charsPorLinha = Math.floor(larguraMm / CHAR_W);
+    const linhas = (texto || "").split("\n").reduce((acc, l) => {
+      return acc + Math.max(1, Math.ceil((l.length || 1) / charsPorLinha));
+    }, 0);
+    return Math.max(8, linhas * 3.7 + 8); // 3.7mm/linha + padding/borda
+  }
+
+  // Pág 1: área útil = 220mm; cabeçalho fixo (doc-info + cliente-box + títulos) ~100mm
+  // Garantia: 100 + MM_CONSTATA + AREA_P1 ≤ 220 sempre, independente do texto
+  const MM_CONSTATA = estimarMmTexto(os.orcamento_constatacao || "", 170);
+  const AREA_P1 = Math.min(91, Math.max(14, Math.round(134 - MM_CONSTATA)));
 
   function paginar(lista) {
     const pags = [];
@@ -302,6 +316,8 @@ function renderHTML({ os, itens }) {
     font-size: 10px;
     color: #2d3748;
     white-space: pre-wrap;
+    word-break: break-word;
+    overflow-wrap: break-word;
     padding: 4px 6px;
     border: 1px dashed #cbd5e0;
     border-radius: 4px;
