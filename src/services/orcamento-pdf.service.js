@@ -87,250 +87,59 @@ async function buscarDadosAvulso(orcamentoId) {
 function renderHTML({ os, itens }) {
   const timbrado = timbradoBase64();
 
-  // número do orçamento: campo próprio ou fallback para OS numero
-  const orcNumero = os.orcamento_numero || os.os_numero || String(os.id);
-  const dataOrc   = fmtDateBR(os.finalizada_em || os.criado_em);
-
-  // endereço do cliente
-  const endParts = [os.endereco, os.bairro, os.cidade && os.uf ? `${os.cidade}/${os.uf}` : (os.cidade || ""), os.cep ? `CEP ${os.cep}` : ""].filter(Boolean);
+  const orcNumero   = os.orcamento_numero || os.os_numero || String(os.id);
+  const dataOrc     = fmtDateBR(os.finalizada_em || os.criado_em);
+  const endParts    = [os.endereco, os.bairro, os.cidade && os.uf ? `${os.cidade}/${os.uf}` : (os.cidade || ""), os.cep ? `CEP ${os.cep}` : ""].filter(Boolean);
   const enderecoStr = endParts.join(" – ");
+  const totalGeral  = itens.reduce((acc, it) => acc + Number(it.valor_unitario) * Number(it.quantidade), 0);
+  const validadeStr = os.orcamento_valido_ate ? `60 dias (até ${fmtDateBR(os.orcamento_valido_ate)})` : "60 dias";
 
-  // total geral
-  const totalGeral = itens.reduce((acc, it) => acc + (Number(it.valor_unitario) * Number(it.quantidade)), 0);
+  // ── Paginação manual ────────────────────────────────────────────────────────
+  const MM_ITEM   = 7;   // altura estimada por linha de item (fonte menor, ~7mm com padding 4px)
+  const AREA_P1   = 108; // mm úteis na pág 1 para itens (padding-bottom da pág1 é 49mm, margem extra)
+  const AREA_P2   = 185; // mm úteis nas páginas seguintes (297 - 48 topo - 45 rodapé = 204mm, com margem)
+  const MM_RODAPE = 50;  // mm para total + condições
 
-  // itens HTML
-  const itensHtml = itens.map((it, idx) => {
-    const total = Number(it.valor_unitario) * Number(it.quantidade);
-    const fichaHtml = it.ficha_tecnica
-      ? `<div class="ficha">${escapeHtml(it.ficha_tecnica).replace(/\n/g, "<br>")}</div>`
-      : "";
-    return `
-      <tr>
-        <td class="it-idx">${idx + 1}</td>
-        <td class="it-desc">
-          <div class="it-desc-text">${escapeHtml(it.descricao)}</div>
-          ${fichaHtml}
-        </td>
-        <td class="it-num">${it.quantidade}</td>
-        <td class="it-num">${fmtMoeda(it.valor_unitario)}</td>
-        <td class="it-num">${fmtMoeda(total)}</td>
-      </tr>`;
-  }).join("");
+  function paginar(lista) {
+    const pags = [];
+    let rest = lista.slice();
 
-  const semItens = itens.length === 0
-    ? `<tr><td colspan="5" class="it-vazio">Nenhum item adicionado ao orçamento.</td></tr>`
-    : "";
+    // Página 1
+    const cap1 = Math.floor(AREA_P1 / MM_ITEM);
+    const p1   = rest.splice(0, cap1);
+    if (rest.length === 0 && (p1.length * MM_ITEM + MM_RODAPE) <= AREA_P1) {
+      pags.push({ itens: p1, showRodape: true });
+      return pags;
+    }
+    pags.push({ itens: p1, showRodape: false });
 
-  const validadeStr = os.orcamento_valido_ate
-    ? `60 dias (até ${fmtDateBR(os.orcamento_valido_ate)})`
-    : "60 dias";
+    // Páginas seguintes
+    while (rest.length > 0) {
+      if ((rest.length * MM_ITEM + MM_RODAPE) <= AREA_P2) {
+        pags.push({ itens: rest.splice(0), showRodape: true });
+      } else {
+        pags.push({ itens: rest.splice(0, Math.floor(AREA_P2 / MM_ITEM)), showRodape: false });
+      }
+    }
 
-  const timbradoTag = timbrado
-    ? `<div class="timbrado-bg" style="background-image:url('${timbrado}');"></div>`
-    : "";
-
-  return `<!doctype html>
-<html lang="pt-BR"><head>
-<meta charset="utf-8">
-<title>Orçamento ${escapeHtml(orcNumero)}</title>
-<style>
-  * { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; }
-  body {
-    font-family: Arial, Helvetica, sans-serif;
-    color: #1a1f2e;
-    font-size: 11px;
-    line-height: 1.4;
-    padding: 44mm 20mm 32mm 20mm;
+    // Página extra para rodapé se não coube
+    if (!pags[pags.length - 1].showRodape) {
+      pags.push({ itens: [], showRodape: true });
+    }
+    return pags;
   }
 
-  /* ── Papel timbrado como fundo fixo (repete em cada página) ── */
-  .timbrado-bg {
-    position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
-    z-index: -1;
-    background-size: 100% 100%;
-    background-repeat: no-repeat;
-    background-position: top left;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-  }
+  const estrutura = paginar(itens);
+  const bgStyle   = timbrado ? `background-image:url('${timbrado}');` : "";
+  let   itemIdx   = 0;
 
-  /* ── Número / data do orçamento ── */
-  .doc-info {
-    display: flex;
-    justify-content: flex-end;
-    margin-bottom: 14px;
-  }
-  .doc-info-box {
-    text-align: right;
-  }
-  .doc-info-box .doc-title {
-    font-size: 16px;
-    font-weight: bold;
-    color: #1a1f2e;
-    letter-spacing: 1px;
-  }
-  .doc-info-box .doc-num {
-    font-size: 12px;
-    color: #c07a00;
-    font-weight: bold;
-    margin-top: 2px;
-  }
-  .doc-info-box .doc-date {
-    font-size: 10px;
-    color: #4a5568;
-    margin-top: 4px;
-  }
+  // ── HTML de cada página ────────────────────────────────────────────────────
+  const paginasHtml = estrutura.map((pag, pgIdx) => {
+    const isFirst = pgIdx === 0;
+    let c = "";
 
-  /* ── Cliente ── */
-  .cliente-box {
-    border: 1px solid #e2e8f0;
-    border-radius: 6px;
-    padding: 10px 14px;
-    margin-bottom: 14px;
-    background: rgba(248,250,252,0.92);
-  }
-  .cliente-box .sec-title {
-    font-size: 10px;
-    font-weight: bold;
-    color: #1e3a5f;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin-bottom: 6px;
-  }
-  .cliente-nome {
-    font-size: 13px;
-    font-weight: bold;
-    color: #1a1f2e;
-  }
-  .cliente-det {
-    font-size: 10px;
-    color: #4a5568;
-    margin-top: 3px;
-  }
-
-  /* ── Seções ── */
-  .sec {
-    margin-bottom: 14px;
-    page-break-inside: avoid;
-  }
-  .sec-title {
-    font-size: 10px;
-    font-weight: bold;
-    color: #1e3a5f;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    padding: 4px 0;
-    border-bottom: 1.5px solid #f0b014;
-    margin-bottom: 8px;
-  }
-  .sec-num {
-    display: inline-block;
-    background: #f0b014;
-    color: #fff;
-    font-size: 9px;
-    font-weight: bold;
-    padding: 1px 5px;
-    border-radius: 3px;
-    margin-right: 5px;
-  }
-
-  /* ── Constatação ── */
-  .constata-text {
-    font-size: 11px;
-    color: #2d3748;
-    white-space: pre-wrap;
-    padding: 6px 8px;
-    border: 1px dashed #cbd5e0;
-    border-radius: 4px;
-    background: rgba(250,251,252,0.92);
-    min-height: 36px;
-  }
-
-  /* ── Tabela de itens ── */
-  .tabela-itens {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 10.5px;
-  }
-  .tabela-itens thead tr {
-    background: #1e3a5f;
-    color: #fff;
-  }
-  .tabela-itens th {
-    padding: 6px 8px;
-    text-align: left;
-    font-size: 9.5px;
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
-  }
-  .tabela-itens th.it-num { text-align: right; }
-  .tabela-itens tbody tr:nth-child(even) { background: rgba(247,250,252,0.9); }
-  .tabela-itens td {
-    padding: 6px 8px;
-    border-bottom: 1px solid #e2e8f0;
-    vertical-align: top;
-  }
-  .it-idx { width: 24px; text-align: center; color: #718096; }
-  .it-desc { }
-  .it-desc-text { font-weight: 500; }
-  .it-num { text-align: right; white-space: nowrap; }
-  .ficha {
-    margin-top: 4px;
-    font-size: 9.5px;
-    color: #4a5568;
-    background: rgba(240,244,248,0.95);
-    border-left: 3px solid #f0b014;
-    padding: 3px 6px;
-    border-radius: 0 3px 3px 0;
-  }
-  .it-vazio {
-    text-align: center;
-    color: #a0aec0;
-    font-style: italic;
-    padding: 20px;
-  }
-
-  /* ── Total ── */
-  .total-row {
-    display: flex;
-    justify-content: flex-end;
-    margin-top: 8px;
-  }
-  .total-box {
-    background: #1e3a5f;
-    color: #fff;
-    padding: 8px 20px;
-    border-radius: 6px;
-    font-size: 13px;
-    font-weight: bold;
-    letter-spacing: 0.5px;
-  }
-  .total-box span { color: #f0b014; margin-left: 12px; }
-
-  /* ── Condições ── */
-  .cond-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px 20px;
-  }
-  .cond-item { font-size: 10.5px; }
-  .cond-key {
-    color: #4a5568;
-    font-weight: bold;
-    font-size: 9.5px;
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
-  }
-  .cond-val { color: #1a1f2e; margin-top: 1px; }
-</style>
-</head>
-<body>
-
-${timbradoTag}
-
-<!-- Número e data do orçamento -->
+    if (isFirst) {
+      c += `
 <div class="doc-info">
   <div class="doc-info-box">
     <div class="doc-title">ORÇAMENTO</div>
@@ -338,8 +147,6 @@ ${timbradoTag}
     <div class="doc-date">Data: ${escapeHtml(dataOrc)}</div>
   </div>
 </div>
-
-<!-- Cliente -->
 <div class="cliente-box">
   <div class="sec-title">Cliente</div>
   <div class="cliente-nome">${escapeHtml(os.condominio_nome || "—")}</div>
@@ -347,38 +154,53 @@ ${timbradoTag}
   ${os.condominio_cnpj ? `<div class="cliente-det">CNPJ: ${escapeHtml(os.condominio_cnpj)}</div>` : ""}
   ${enderecoStr ? `<div class="cliente-det">${escapeHtml(enderecoStr)}</div>` : ""}
 </div>
-
-<!-- Seção 1: Constatação -->
 <div class="sec">
   <div class="sec-title"><span class="sec-num">1</span>Constatação</div>
   <div class="constata-text">${escapeHtml(os.orcamento_constatacao || "")}</div>
-</div>
+</div>`;
+    }
 
-<!-- Seção 2: Itens -->
-<div class="sec">
-  <div class="sec-title"><span class="sec-num">2</span>Itens do Orçamento</div>
-  <table class="tabela-itens">
-    <thead>
-      <tr>
-        <th class="it-idx">#</th>
-        <th>Descrição / Especificações</th>
-        <th class="it-num" style="width:44px;">Qtd</th>
-        <th class="it-num" style="width:90px;">Valor Unit.</th>
-        <th class="it-num" style="width:90px;">Total</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${itensHtml}
-      ${semItens}
-    </tbody>
-  </table>
-  <div class="total-row">
-    <div class="total-box">VALOR TOTAL<span>${escapeHtml(fmtMoeda(totalGeral))}</span></div>
-  </div>
-</div>
+    // Tabela de itens
+    if (pag.itens.length > 0 || isFirst) {
+      c += `<div class="sec">`;
+      if (isFirst) c += `<div class="sec-title"><span class="sec-num">2</span>Itens do Orçamento</div>`;
+      c += `<table class="tabela-itens">
+<thead><tr>
+  <th class="it-idx">#</th>
+  <th>Descrição / Especificações</th>
+  <th class="it-num" style="width:44px;">Qtd</th>
+  <th class="it-num" style="width:90px;">Valor Unit.</th>
+  <th class="it-num" style="width:90px;">Total</th>
+</tr></thead>
+<tbody>`;
+      if (itens.length === 0) {
+        c += `<tr><td colspan="5" class="it-vazio">Nenhum item adicionado ao orçamento.</td></tr>`;
+      } else {
+        pag.itens.forEach(it => {
+          itemIdx++;
+          const tot = Number(it.valor_unitario) * Number(it.quantidade);
+          const fichaHtml = it.ficha_tecnica
+            ? `<div class="ficha">${escapeHtml(it.ficha_tecnica).replace(/\n/g, "<br>")}</div>`
+            : "";
+          c += `<tr>
+  <td class="it-idx">${itemIdx}</td>
+  <td class="it-desc"><div class="it-desc-text">${escapeHtml(it.descricao)}</div>${fichaHtml}</td>
+  <td class="it-num">${it.quantidade}</td>
+  <td class="it-num">${fmtMoeda(it.valor_unitario)}</td>
+  <td class="it-num">${fmtMoeda(tot)}</td>
+</tr>`;
+        });
+      }
+      c += `</tbody></table>`;
+      if (pag.showRodape) {
+        c += `<div class="total-row"><div class="total-box">VALOR TOTAL<span>${escapeHtml(fmtMoeda(totalGeral))}</span></div></div>`;
+      }
+      c += `</div>`;
+    }
 
-<!-- Seção 3: Condições Comerciais -->
-<div class="sec">
+    // Condições Comerciais (última página)
+    if (pag.showRodape) {
+      c += `<div class="sec">
   <div class="sec-title"><span class="sec-num">3</span>Condições Comerciais</div>
   <div class="cond-grid">
     <div class="cond-item">
@@ -398,8 +220,144 @@ ${timbradoTag}
       <div class="cond-val">${escapeHtml(validadeStr)}</div>
     </div>
   </div>
-</div>
+</div>`;
+    }
 
+    const extraClass = isFirst ? " pagina--primeira" : "";
+    return `<div class="pagina${extraClass}" style="${bgStyle}">${c}</div>`;
+  }).join("\n");
+
+  // ── Documento completo ─────────────────────────────────────────────────────
+  return `<!doctype html>
+<html lang="pt-BR"><head>
+<meta charset="utf-8">
+<title>Orçamento ${escapeHtml(orcNumero)}</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #ccc; }
+
+  .pagina {
+    width: 210mm;
+    height: 297mm;
+    overflow: hidden;
+    position: relative;
+    background-size: 100% 100%;
+    background-repeat: no-repeat;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    padding: 48mm 20mm 45mm 20mm;
+    page-break-after: always;
+    font-family: Arial, Helvetica, sans-serif;
+    color: #1a1f2e;
+    font-size: 10px;
+    line-height: 1.4;
+  }
+  .pagina:last-child { page-break-after: avoid; }
+  .pagina--primeira { padding-top: 28mm; padding-bottom: 49mm; }
+
+  /* ── Número / data do orçamento ── */
+  .doc-info { display: flex; justify-content: flex-end; margin-bottom: 24px; }
+  .doc-info-box { text-align: right; }
+  .doc-info-box .doc-title { font-size: 14px; font-weight: bold; color: #1a1f2e; letter-spacing: 1px; }
+  .doc-info-box .doc-num   { font-size: 11px; color: #c07a00; font-weight: bold; margin-top: 2px; }
+  .doc-info-box .doc-date  { font-size: 9px; color: #4a5568; margin-top: 2px; }
+
+  /* ── Cliente ── */
+  .cliente-box {
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 7px 11px;
+    margin-bottom: 8px;
+    background: rgba(248,250,252,0.92);
+  }
+  .cliente-box .sec-title { font-size: 9px; font-weight: bold; color: #1e3a5f; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 3px; }
+  .cliente-nome { font-size: 12px; font-weight: bold; color: #1a1f2e; }
+  .cliente-det  { font-size: 9px; color: #4a5568; margin-top: 2px; }
+
+  /* ── Seções ── */
+  .sec { margin-bottom: 8px; }
+  .sec-title {
+    font-size: 9px;
+    font-weight: bold;
+    color: #1e3a5f;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 3px 0;
+    border-bottom: 1.5px solid #f0b014;
+    margin-bottom: 5px;
+  }
+  .sec-num {
+    display: inline-block;
+    background: #f0b014;
+    color: #fff;
+    font-size: 8px;
+    font-weight: bold;
+    padding: 1px 4px;
+    border-radius: 3px;
+    margin-right: 4px;
+  }
+
+  /* ── Constatação ── */
+  .constata-text {
+    font-size: 10px;
+    color: #2d3748;
+    white-space: pre-wrap;
+    padding: 4px 6px;
+    border: 1px dashed #cbd5e0;
+    border-radius: 4px;
+    background: rgba(250,251,252,0.92);
+    min-height: 24px;
+  }
+
+  /* ── Tabela de itens ── */
+  .tabela-itens { width: 100%; border-collapse: collapse; font-size: 9.5px; }
+  .tabela-itens thead tr { background: #1e3a5f; color: #fff; }
+  .tabela-itens th {
+    padding: 4px 6px;
+    text-align: left;
+    font-size: 8.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+  .tabela-itens th.it-num { text-align: right; }
+  .tabela-itens tbody tr:nth-child(even) { background: rgba(247,250,252,0.9); }
+  .tabela-itens td { padding: 4px 6px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
+  .it-idx  { width: 22px; text-align: center; color: #718096; }
+  .it-desc-text { font-weight: 500; }
+  .it-num  { text-align: right; white-space: nowrap; }
+  .ficha {
+    margin-top: 2px;
+    font-size: 8.5px;
+    color: #4a5568;
+    background: rgba(240,244,248,0.95);
+    border-left: 3px solid #f0b014;
+    padding: 2px 4px;
+    border-radius: 0 3px 3px 0;
+  }
+  .it-vazio { text-align: center; color: #a0aec0; font-style: italic; padding: 14px; }
+
+  /* ── Total ── */
+  .total-row { display: flex; justify-content: flex-end; margin-top: 5px; }
+  .total-box {
+    background: #1e3a5f;
+    color: #fff;
+    padding: 6px 16px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: bold;
+    letter-spacing: 0.5px;
+  }
+  .total-box span { color: #f0b014; margin-left: 10px; }
+
+  /* ── Condições ── */
+  .cond-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px 16px; }
+  .cond-item { font-size: 9.5px; }
+  .cond-key  { color: #4a5568; font-weight: bold; font-size: 8.5px; text-transform: uppercase; letter-spacing: 0.3px; }
+  .cond-val  { color: #1a1f2e; margin-top: 1px; }
+</style>
+</head>
+<body>
+${paginasHtml}
 </body></html>`;
 }
 
