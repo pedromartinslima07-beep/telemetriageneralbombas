@@ -73,6 +73,12 @@ Envs necessárias: `OPENAI_API_KEY`, `WHATSAPP_VERIFY_TOKEN`,
 6. 10B — few-shot por categoria (aguardar volume de conversas curadas).
 7. 7J — publicação Play Store.
 
+## Melhorias recentes (sessão 2026-06-17 — Seção Contratos no admin)
+
+- **Nova seção "Contratos"** na sidebar (entre Orçamentos e Planos): tabela com filtros (status + tipo + busca), 4 KPIs (Ativos / Vencendo / Vencidos / MRR), badge de alertas na nav. `admin.js?v=183`.
+- **"+ Novo contrato"** via mini-modal picker de cliente (av-modal). Clique na linha abre modal de edição existente.
+- Seção recarrega automaticamente ao salvar/encerrar contrato.
+
 ## Melhorias recentes (sessão 2026-06-17 — PDF orçamento: paginação por medição real)
 
 - **Puppeteer two-pass em `orcamento-pdf.service.js`:** passagem 1 mede 5 valores reais via DOM (altura do cabeçalho, overhead seção itens pág 1 e pág 2+, altura de linha com/sem ficha); passagem 2 usa esses valores em `renderHTML(dados, areaP1, medidas)` — zero constantes chutadas.

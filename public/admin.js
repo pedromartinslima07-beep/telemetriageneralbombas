@@ -76,6 +76,7 @@ const _sectionTitles = {
   chamados:         "Chamados",
   "ordens-servico": "Ordens de Serviço",
   orcamentos:       "Orçamentos",
+  contratos:        "Contratos",
   cadastros:        "Clientes",
   tecnicos:         "Colaboradores",
   planos:           "Planos de manutenção",
@@ -134,6 +135,10 @@ function showSection(name) {
     _orcBindEventos();
     carregarAvulsos();
     carregarOrcamentos();
+  }
+  if (name === "contratos") {
+    _ctrsBindEventos();
+    _ctrsCarregar();
   }
   // Dashboard também tem Leaflet (mc-map). Quando o user volta pra dashboard,
   // revalida o tamanho — pode ter ficado com tiles travados se foi criado
@@ -4428,6 +4433,7 @@ async function _ctrSalvar() {
     if (_editCondoIdAtivo === condoId) _editRenderTabContrato(condoId);
     _carregarContratosMetricas?.();
     renderCliTabela?.();
+    if (document.querySelector(".section[data-section='contratos'].is-active")) _ctrsCarregar();
     setTimeout(() => { msg.textContent = ""; }, 2500);
   } catch (e) {
     msg.style.color = "var(--danger)"; msg.textContent = "Erro de rede";
@@ -4459,6 +4465,7 @@ async function _ctrEncerrar() {
       if (_editCondoIdAtivo === condoId) _editRenderTabContrato(condoId);
       _carregarContratosMetricas?.();
       renderCliTabela?.();
+      if (document.querySelector(".section[data-section='contratos'].is-active")) _ctrsCarregar();
     }
   } catch (e) {
     msg.style.color = "var(--danger)"; msg.textContent = "Erro de rede";
@@ -4562,6 +4569,196 @@ async function _ctrAtualizarStatus() {
   });
   overlay.addEventListener("click", e => { if (e.target === overlay) _ctrFecharModal(); });
 })();
+
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SEÇÃO CONTRATOS — tabela dedicada com filtros
+// ═══════════════════════════════════════════════════════════════════════════════
+
+let _ctrsLista         = [];
+let _ctrsTabAtual      = "todos";
+let _ctrsTipoFiltro    = "";
+let _ctrsBuscaStr      = "";
+let _ctrsBindFeito     = false;
+
+const _ctrsServicoLabel = { bombas: "Bombas", piscina: "Piscina" };
+
+function _ctrsGetStatusKey(ct) {
+  if (!ct.ativo) return "inativo";
+  const dias = Number(ct.dias_para_vencer);
+  if (ct.fim_em == null) return "ativo";
+  if (Number.isFinite(dias)) {
+    if (dias < 0)  return "vencido";
+    if (dias <= 30) return "vencendo";
+  }
+  return "ativo";
+}
+
+async function _ctrsCarregar() {
+  const tbody = document.getElementById("ctrsTbody");
+  const empty = document.getElementById("ctrsEmpty");
+  if (tbody) tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:20px;">Carregando…</td></tr>`;
+  if (empty) empty.style.display = "none";
+
+  try {
+    const r = await fetch("/contratos", { headers: authHeaders() });
+    if (!r.ok) throw new Error(r.status);
+    _ctrsLista = await r.json();
+  } catch (e) {
+    if (tbody) tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--danger);padding:20px;">Erro ao carregar contratos.</td></tr>`;
+    return;
+  }
+  _ctrsRender();
+  _ctrsRenderKpi();
+}
+
+function _ctrsRender() {
+  const q = _ctrsBuscaStr.toLowerCase();
+
+  const lista = _ctrsLista.filter(ct => {
+    const sk = _ctrsGetStatusKey(ct);
+    if (_ctrsTabAtual !== "todos" && sk !== _ctrsTabAtual) return false;
+    if (_ctrsTipoFiltro && ct.servico_tipo !== _ctrsTipoFiltro) return false;
+    if (q && !(ct.condominio_nome || "").toLowerCase().includes(q)) return false;
+    return true;
+  });
+
+  const count = key => _ctrsLista.filter(ct => _ctrsGetStatusKey(ct) === key).length;
+  document.getElementById("ctrsCtTodos").textContent    = _ctrsLista.length;
+  document.getElementById("ctrsCtAtivo").textContent    = count("ativo");
+  document.getElementById("ctrsCtVencendo").textContent = count("vencendo");
+  document.getElementById("ctrsCtVencido").textContent  = count("vencido");
+
+  const navBadge = document.getElementById("navBadgeContratos");
+  const vencendo = count("vencendo") + count("vencido");
+  if (navBadge) {
+    navBadge.textContent = vencendo;
+    navBadge.style.display = vencendo > 0 ? "" : "none";
+  }
+
+  const tbody = document.getElementById("ctrsTbody");
+  const empty = document.getElementById("ctrsEmpty");
+  if (!lista.length) {
+    if (tbody) tbody.innerHTML = "";
+    if (empty) empty.style.display = "";
+    return;
+  }
+  if (empty) empty.style.display = "none";
+
+  const _clsPill = { ok: "orc-status-ok", warn: "orc-status-pend", bad: "orc-status-bad" };
+  tbody.innerHTML = lista.map(ct => {
+    const st = _ctrStatusVisual(ct);
+    return `<tr class="orc-row" data-ctrs-row="${ct.id}" data-ctrs-condo="${ct.condominio_id}" style="cursor:pointer;">
+      <td>${_waEscaparHtml(ct.condominio_nome || "—")}</td>
+      <td>${_ctrsServicoLabel[ct.servico_tipo] || ct.servico_tipo || "—"}</td>
+      <td>${_ctrTipoLabel[ct.tipo] || ct.tipo || "—"}</td>
+      <td>${_ctrFmtMoeda(ct.valor_mensal)}</td>
+      <td>${_ctrFmtData(ct.inicio_em)}</td>
+      <td>${_ctrFmtData(ct.fim_em)}</td>
+      <td><span class="orc-status-pill ${_clsPill[st.cls] || "orc-status-pend"}">${st.texto}</span></td>
+    </tr>`;
+  }).join("");
+}
+
+function _ctrsRenderKpi() {
+  const grid = document.getElementById("ctrsKpiGrid");
+  if (!grid) return;
+  const ativos   = _ctrsLista.filter(ct => _ctrsGetStatusKey(ct) === "ativo");
+  const vencendo = _ctrsLista.filter(ct => _ctrsGetStatusKey(ct) === "vencendo");
+  const vencidos = _ctrsLista.filter(ct => _ctrsGetStatusKey(ct) === "vencido");
+  const mrr      = _ctrsLista.filter(ct => ct.ativo).reduce((s, ct) => s + (Number(ct.valor_mensal) || 0), 0);
+
+  const kpi = (icon, val, label, cls) => `
+    <div class="rc ${cls} rc-static">
+      <div class="rc-head"><div class="rc-icon">${icon}</div><div class="rc-label">${label}</div></div>
+      <div class="rc-value">${val}</div>
+    </div>`;
+
+  grid.innerHTML =
+    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`,
+        ativos.length, "Ativos", "rc-ok") +
+    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
+        vencendo.length, "Vencendo em 30d", vencendo.length > 0 ? "rc-warn" : "rc-neutral") +
+    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>`,
+        vencidos.length, "Vencidos", vencidos.length > 0 ? "rc-bad" : "rc-neutral") +
+    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>`,
+        mrr.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), "MRR (contratos ativos)", "rc-neutral");
+}
+
+function _ctrsAbrirPicker() {
+  const modal = document.getElementById("ctrsPickerModal");
+  if (!modal) return;
+  modal.style.display = "";
+  const busca = document.getElementById("ctrsPickerBusca");
+  if (busca) { busca.value = ""; busca.focus(); }
+  _ctrsRenderPickerList("");
+}
+
+function _ctrsFecharPicker() {
+  const modal = document.getElementById("ctrsPickerModal");
+  if (modal) modal.style.display = "none";
+}
+
+function _ctrsRenderPickerList(q) {
+  const list = document.getElementById("ctrsPickerList");
+  if (!list) return;
+  const condos = Array.isArray(_condominios) ? _condominios : [];
+  const items = q
+    ? condos.filter(c => (c.nome || "").toLowerCase().includes(q.toLowerCase()))
+    : condos;
+  if (!items.length) {
+    list.innerHTML = `<div style="padding:12px;color:var(--muted);font-size:13px;text-align:center;">Nenhum cliente encontrado.</div>`;
+    return;
+  }
+  list.innerHTML = items.map(c => `
+    <button type="button" data-ctrs-pick="${c.id}"
+      style="display:block;width:100%;text-align:left;padding:9px 10px;border:none;background:transparent;color:var(--text);font-size:13px;border-radius:6px;cursor:pointer;"
+      onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='transparent'">
+      ${_waEscaparHtml(c.nome)}
+    </button>`).join("");
+}
+
+function _ctrsBindEventos() {
+  if (_ctrsBindFeito) return;
+  _ctrsBindFeito = true;
+
+  const section = document.querySelector(".section[data-section='contratos']");
+  if (!section) return;
+
+  section.addEventListener("click", e => {
+    const tab = e.target.closest("[data-ctrs-tab]");
+    if (tab) {
+      _ctrsTabAtual = tab.dataset.ctrsTab;
+      section.querySelectorAll("[data-ctrs-tab]").forEach(t => t.classList.toggle("is-active", t === tab));
+      _ctrsRender();
+      return;
+    }
+    const row = e.target.closest("[data-ctrs-row]");
+    if (row) {
+      _ctrAbrirModal({ condoId: Number(row.dataset.ctrsCondo), contratoId: Number(row.dataset.ctrsRow) });
+      return;
+    }
+  });
+
+  document.getElementById("ctrsTipoFilter")?.addEventListener("change", e => {
+    _ctrsTipoFiltro = e.target.value;
+    _ctrsRender();
+  });
+  document.getElementById("ctrsBusca")?.addEventListener("input", e => {
+    _ctrsBuscaStr = e.target.value;
+    _ctrsRender();
+  });
+  document.getElementById("ctrsBtnNovo")?.addEventListener("click", _ctrsAbrirPicker);
+  document.getElementById("ctrsPickerClose")?.addEventListener("click", _ctrsFecharPicker);
+  document.getElementById("ctrsPickerBackdrop")?.addEventListener("click", _ctrsFecharPicker);
+  document.getElementById("ctrsPickerBusca")?.addEventListener("input", e => _ctrsRenderPickerList(e.target.value));
+  document.getElementById("ctrsPickerList")?.addEventListener("click", e => {
+    const btn = e.target.closest("[data-ctrs-pick]");
+    if (!btn) return;
+    _ctrsFecharPicker();
+    _ctrAbrirModal({ condoId: Number(btn.dataset.ctrsPick) });
+  });
+}
 
 
 // ─── Tabs do modal Editar Condomínio (Dados / Contrato / Contatos) ──────────
