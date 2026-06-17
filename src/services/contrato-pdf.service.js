@@ -217,6 +217,140 @@ function clausulasPiscina(ct) {
 </div>`;
 }
 
+function clausulasDedetizacao(ct) {
+  const descServ = escHtml(
+    ct.descricao_servico ||
+    "Serviços de dedetização (controle de insetos urbanos) nas áreas comuns do CONTRATANTE, incluindo baratas, formigas, aranhas, grilos, mosquitos e demais pragas urbanas."
+  );
+  const formaStr    = _formaStr(ct.forma_pagamento);
+  const diaVenc     = ct.dia_vencimento ? `todo dia ${ct.dia_vencimento}` : "a combinar";
+  const valorMensal = fmtMoeda(ct.valor_mensal);
+  const fimEm       = ct.fim_em ? fmtBR(ct.fim_em) : "indeterminado";
+
+  return `
+<div class="clausula">
+  <div class="clausula-titulo">Cláusula Primeira – Objeto do Contrato</div>
+  <p><strong>1.1</strong> – Prestar serviços de controle de pragas urbanas (dedetização) com mão de obra especializada ao "CONTRATANTE", utilizando produtos saneantes registrados no Ministério da Saúde e no Ministério da Agricultura, Pecuária e Abastecimento (MAPA).</p>
+  <p><strong>1.2</strong> – ${descServ}</p>
+</div>
+
+<div class="clausula">
+  <div class="clausula-titulo">Cláusula Segunda – Obrigações e Responsabilidades da CONTRATADA</div>
+  <p><strong>2.1</strong> – Realizar visitas periódicas conforme frequência acordada entre as partes, aplicando produtos saneantes registrados nos órgãos competentes, em conformidade com a legislação sanitária vigente.</p>
+  <p><strong>2.1.1</strong> – Cada visita compreenderá: vistoria prévia das áreas tratadas; aplicação dos produtos adequados ao tipo de praga identificada; emissão de relatório técnico com data, hora, áreas tratadas, produtos aplicados (nome comercial, registro e concentração) e recomendações preventivas.</p>
+  <p><strong>2.1.2</strong> – Em caso de reinfestação dentro do período de garantia de cada aplicação, a CONTRATADA realizará retratamento sem custo adicional.</p>
+  <p><strong>2.1.3</strong> – Os acionamentos deverão ser feitos pelos telefones <strong>(11) 2038-8679</strong> (horário comercial) ou de plantão <strong>(11) 9 6653-6110</strong>, sem custo para o CONTRATANTE.</p>
+  <p><strong>2.2</strong> – Utilizar apenas produtos devidamente registrados, fornecendo Ficha de Informação de Segurança de Produto Químico (FISPQ) quando solicitado.</p>
+  <p><strong>2.3</strong> – Garantir que todos os profissionais envolvidos possuam certificação exigida pela vigilância sanitária local.</p>
+  <p><strong>2.4</strong> – Caberá à CONTRATADA indenizar o CONTRATANTE e/ou terceiros por danos causados por si ou por seus prepostos que estiverem sob sua responsabilidade.</p>
+  <p><strong>2.5</strong> – Manter sempre preços compatíveis ao mercado e flexibilidade nos pagamentos.</p>
+  <p><strong>2.6</strong> – Arcar com todos os tributos e encargos que incidam sobre os serviços, inclusive os trabalhistas, sociais, securitários e previdenciários.</p>
+  <p><strong>2.7</strong> – Fornecer todos os EPIs e EPCs aos seus empregados.</p>
+  <p><strong>2.8</strong> – Todos os profissionais deverão executar os serviços devidamente uniformizados e portando identificação fornecida pela CONTRATADA.</p>
+  <p><strong>2.9</strong> – A CONTRATADA não poderá ceder ou transferir as obrigações pactuadas, salvo anuência expressa do CONTRATANTE.</p>
+</div>
+
+<div class="clausula">
+  <div class="clausula-titulo">Cláusula Terceira – Obrigações e Responsabilidades do CONTRATANTE</div>
+  <p><strong>3.1</strong> – Manter os pagamentos das faturas em dia.</p>
+  <p><strong>3.2</strong> – Garantir acesso às áreas a serem tratadas nas datas e horários previamente agendados, providenciando o esvaziamento dos espaços quando necessário.</p>
+  <p><strong>3.3</strong> – Comunicar à CONTRATADA, com a maior brevidade possível, qualquer reinfestação ou surgimento de nova praga entre as visitas programadas.</p>
+  <p><strong>3.4</strong> – Cumprir e divulgar aos moradores/funcionários as orientações fornecidas pela CONTRATADA (armazenamento de alimentos, descarte de lixo, eliminação de focos de umidade etc.).</p>
+  <p class="paragrafo-unico">Parágrafo Único: O CONTRATANTE não terá qualquer responsabilidade sobre a guarda de materiais e equipamentos da CONTRATADA, não sendo obrigado a indenizá-la por eventuais danos, roubos ou furtos.</p>
+</div>
+
+<div class="clausula">
+  <div class="clausula-titulo">Cláusula Quarta – Exclusões de Cobertura</div>
+  <p><strong>4.1</strong> – Infestações originadas por condições estruturais do imóvel (infiltrações, rachaduras, falta de vedação) que não sejam corrigidas pelo CONTRATANTE após comunicação pela CONTRATADA.</p>
+  <p><strong>4.2</strong> – Áreas de uso exclusivo de unidades privativas, salvo acordo específico entre as partes.</p>
+  <p><strong>4.3</strong> – Controle de pragas não urbanas ou exóticas (serpentes, escorpiões em larga escala, animais silvestres), que demandam protocolo diferenciado e orçamento específico.</p>
+  <p><strong>4.4</strong> – Reinfestações decorrentes do não cumprimento das medidas preventivas recomendadas pela CONTRATADA.</p>
+</div>
+
+<div class="clausula">
+  <div class="clausula-titulo">Cláusula Quinta – Valor e Formas de Pagamento</div>
+  <p>O valor mensal do contrato é de <strong>${valorMensal}</strong>, com pagamento ${diaVenc} de cada mês.</p>
+  <p><strong>5.1</strong> – Os pagamentos deverão ser efetuados através de <strong>${formaStr}</strong>, com pelo menos 10 dias de antecedência.</p>
+  <p><strong>5.2</strong> – No atraso do pagamento, sem motivo justificado, será devida multa moratória de <strong>2% (dois por cento)</strong> e juros de <strong>1% (um por cento) ao mês</strong>.</p>
+  <p><strong>5.3</strong> – O valor deverá ser pago somente após a entrega da nota fiscal, com todos os impostos, taxas e encargos recolhidos.</p>
+</div>
+
+<div class="clausula">
+  <div class="clausula-titulo">Cláusula Sexta – Reajuste e Vigência</div>
+  <p><strong>6.1</strong> – O prazo de vigência deste contrato é de <strong>12 (doze) meses</strong>, com início em <strong>${fmtBR(ct.inicio_em)}</strong> e término em <strong>${fimEm}</strong>, podendo ser prorrogado por igual período mediante termo aditivo, caso o CONTRATANTE não se manifeste de forma contrária no prazo de 30 (trinta) dias antes da data final.</p>
+  <p><strong>6.2</strong> – Os valores serão reajustados anualmente pelo <strong>IPCA</strong>, acumulado do período.</p>
+  <p><strong>6.3</strong> – Caso os valores estejam defasados em relação ao mercado, a CONTRATADA poderá propor readequação, a ser efetivada somente mediante anuência do CONTRATANTE após negociação.</p>
+</div>`;
+}
+
+function clausulasDesratizacao(ct) {
+  const descServ = escHtml(
+    ct.descricao_servico ||
+    "Serviços de desratização (controle de roedores) nas áreas comuns do CONTRATANTE, incluindo ratos (Rattus norvegicus e Rattus rattus) e camundongos (Mus musculus), por meio de instalação e monitoramento de iscas raticidas registradas e/ou armadilhas mecânicas."
+  );
+  const formaStr    = _formaStr(ct.forma_pagamento);
+  const diaVenc     = ct.dia_vencimento ? `todo dia ${ct.dia_vencimento}` : "a combinar";
+  const valorMensal = fmtMoeda(ct.valor_mensal);
+  const fimEm       = ct.fim_em ? fmtBR(ct.fim_em) : "indeterminado";
+
+  return `
+<div class="clausula">
+  <div class="clausula-titulo">Cláusula Primeira – Objeto do Contrato</div>
+  <p><strong>1.1</strong> – Prestar serviços de controle de roedores (desratização) com mão de obra especializada ao "CONTRATANTE", utilizando produtos raticidas registrados no Ministério da Saúde e no MAPA, e/ou armadilhas mecânicas.</p>
+  <p><strong>1.2</strong> – ${descServ}</p>
+</div>
+
+<div class="clausula">
+  <div class="clausula-titulo">Cláusula Segunda – Obrigações e Responsabilidades da CONTRATADA</div>
+  <p><strong>2.1</strong> – Realizar visitas periódicas conforme frequência acordada, efetuando inspeção das áreas, instalação/reposição de iscas e armadilhas, coleta e destinação ambientalmente adequada dos roedores capturados e das embalagens de raticidas.</p>
+  <p><strong>2.1.1</strong> – Cada visita compreenderá: vistoria das iscas e armadilhas instaladas; reposição ou substituição de iscas consumidas ou deterioradas; identificação e registro de evidências de atividade de roedores (fezes, roeduras, pegadas); emissão de relatório técnico com os pontos inspecionados, quantidade de iscas repostas e recomendações preventivas.</p>
+  <p><strong>2.1.2</strong> – Os raticidas utilizados serão de uso restrito, manipulados exclusivamente por profissionais habilitados, em conformidade com as normas da ANVISA e legislação sanitária vigente.</p>
+  <p><strong>2.1.3</strong> – Os acionamentos deverão ser feitos pelos telefones <strong>(11) 2038-8679</strong> (horário comercial) ou de plantão <strong>(11) 9 6653-6110</strong>, sem custo para o CONTRATANTE.</p>
+  <p><strong>2.2</strong> – Garantir que todos os profissionais envolvidos possuam a qualificação técnica exigida pela vigilância sanitária local.</p>
+  <p><strong>2.3</strong> – Caberá à CONTRATADA indenizar o CONTRATANTE e/ou terceiros por danos causados por si ou por seus prepostos que estiverem sob sua responsabilidade.</p>
+  <p><strong>2.4</strong> – Manter sempre preços compatíveis ao mercado e flexibilidade nos pagamentos.</p>
+  <p><strong>2.5</strong> – Arcar com todos os tributos e encargos que incidam sobre os serviços, inclusive os trabalhistas, sociais, securitários e previdenciários.</p>
+  <p><strong>2.6</strong> – Fornecer todos os EPIs e EPCs aos seus empregados.</p>
+  <p><strong>2.7</strong> – Todos os profissionais deverão executar os serviços devidamente uniformizados e portando identificação fornecida pela CONTRATADA.</p>
+  <p><strong>2.8</strong> – A CONTRATADA não poderá ceder ou transferir as obrigações pactuadas, salvo anuência expressa do CONTRATANTE.</p>
+</div>
+
+<div class="clausula">
+  <div class="clausula-titulo">Cláusula Terceira – Obrigações e Responsabilidades do CONTRATANTE</div>
+  <p><strong>3.1</strong> – Manter os pagamentos das faturas em dia.</p>
+  <p><strong>3.2</strong> – Garantir acesso às áreas a serem tratadas nas datas e horários previamente agendados.</p>
+  <p><strong>3.3</strong> – Não manusear, remover ou danificar as iscas e armadilhas instaladas pela CONTRATADA.</p>
+  <p><strong>3.4</strong> – Manter fora do alcance das iscas raticidas crianças, animais domésticos e alimentos expostos, seguindo rigorosamente as orientações de segurança fornecidas pela CONTRATADA.</p>
+  <p><strong>3.5</strong> – Comunicar à CONTRATADA, com a maior brevidade possível, qualquer evidência de atividade intensa de roedores entre as visitas programadas.</p>
+  <p><strong>3.6</strong> – Cumprir as medidas preventivas recomendadas pela CONTRATADA (vedação de frestas, descarte correto de lixo, eliminação de focos de abrigo para roedores).</p>
+  <p class="paragrafo-unico">Parágrafo Único: O CONTRATANTE não terá qualquer responsabilidade sobre a guarda de materiais e equipamentos da CONTRATADA, não sendo obrigado a indenizá-la por eventuais danos, roubos ou furtos.</p>
+</div>
+
+<div class="clausula">
+  <div class="clausula-titulo">Cláusula Quarta – Exclusões de Cobertura</div>
+  <p><strong>4.1</strong> – Infestações originadas por condições estruturais do imóvel (frestas, buracos, ausência de vedação em tubulações) que não sejam corrigidas pelo CONTRATANTE após comunicação pela CONTRATADA.</p>
+  <p><strong>4.2</strong> – Reinfestações decorrentes do não cumprimento das medidas preventivas recomendadas pela CONTRATADA.</p>
+  <p><strong>4.3</strong> – Áreas de uso exclusivo de unidades privativas, salvo acordo específico entre as partes.</p>
+  <p><strong>4.4</strong> – Controle de animais silvestres (gambás, morcegos etc.), que demandam autorização ambiental específica e orçamento à parte.</p>
+  <p><strong>4.5</strong> – Danos causados aos bens do CONTRATANTE por roedores ocorridos após remoção das iscas/armadilhas instaladas pelo CONTRATANTE sem autorização da CONTRATADA.</p>
+</div>
+
+<div class="clausula">
+  <div class="clausula-titulo">Cláusula Quinta – Valor e Formas de Pagamento</div>
+  <p>O valor mensal do contrato é de <strong>${valorMensal}</strong>, com pagamento ${diaVenc} de cada mês.</p>
+  <p><strong>5.1</strong> – Os pagamentos deverão ser efetuados através de <strong>${formaStr}</strong>, com pelo menos 10 dias de antecedência.</p>
+  <p><strong>5.2</strong> – No atraso do pagamento, sem motivo justificado, será devida multa moratória de <strong>2% (dois por cento)</strong> e juros de <strong>1% (um por cento) ao mês</strong>.</p>
+  <p><strong>5.3</strong> – O valor deverá ser pago somente após a entrega da nota fiscal, com todos os impostos, taxas e encargos recolhidos.</p>
+</div>
+
+<div class="clausula">
+  <div class="clausula-titulo">Cláusula Sexta – Reajuste e Vigência</div>
+  <p><strong>6.1</strong> – O prazo de vigência deste contrato é de <strong>12 (doze) meses</strong>, com início em <strong>${fmtBR(ct.inicio_em)}</strong> e término em <strong>${fimEm}</strong>, podendo ser prorrogado por igual período mediante termo aditivo, caso o CONTRATANTE não se manifeste de forma contrária no prazo de 30 (trinta) dias antes da data final.</p>
+  <p><strong>6.2</strong> – Os valores serão reajustados anualmente pelo <strong>IPCA</strong>, acumulado do período.</p>
+  <p><strong>6.3</strong> – Caso os valores estejam defasados em relação ao mercado, a CONTRATADA poderá propor readequação, a ser efetivada somente mediante anuência do CONTRATANTE após negociação.</p>
+</div>`;
+}
+
 // Cláusulas comuns (Rescisão, Tolerância, Disposições Gerais, Penalidades, Foro)
 function clausulasComuns(ct) {
   const valorAnual = ct.valor_mensal ? fmtMoeda(Number(ct.valor_mensal) * 12) : "—";
@@ -282,13 +416,24 @@ function renderHTML(ct, timbrado) {
   const numero   = escHtml(ct.numero || String(ct.id));
   const dataDoc  = fmtBR(ct.inicio_em || ct.criado_em);
   const sigNome  = escHtml(ct.signatario_nome || "");
-  const geralNome = escHtml(ct.signatario_geral_nome || "Ana Paula Martins Lima");
+  const geralNome = escHtml(ct.signatario_geral_nome || "");
 
   const endParts = [ct.cliente_endereco, ct.cliente_bairro, ct.cliente_cidade, ct.cliente_cep ? `CEP: ${ct.cliente_cep}` : ""].filter(Boolean);
   const endStr   = endParts.join(", ");
 
-  const clausulasEspecificas = tipo === "piscina" ? clausulasPiscina(ct) : clausulasBombas(ct);
-  const tipoLabel = tipo === "piscina" ? "Piscina" : "Motobombas Hidráulicas";
+  const _tipoLabels = {
+    bombas:       "Motobombas Hidráulicas",
+    piscina:      "Piscina",
+    dedetizacao:  "Dedetização",
+    desratizacao: "Desratização",
+  };
+  const _clausulasFn = {
+    piscina:      clausulasPiscina,
+    dedetizacao:  clausulasDedetizacao,
+    desratizacao: clausulasDesratizacao,
+  };
+  const clausulasEspecificas = (_clausulasFn[tipo] || clausulasBombas)(ct);
+  const tipoLabel = _tipoLabels[tipo] || "Prestação de Serviços";
 
   /* O timbrado é dividido em 3 fatias alinhadas às margens do Puppeteer (42mm topo, 40mm rodapé):
      - fatia superior (42mm): renderizada pelo headerTemplate do Puppeteer
@@ -539,4 +684,12 @@ async function gerarPdfBuffer(contratoId) {
   }
 }
 
-module.exports = { gerarPdfBuffer };
+// Conta páginas do PDF pelo número de objetos /Page no binário.
+// Usado para determinar a última página (onde fica a assinatura).
+function contarPaginasPdf(buf) {
+  const s = buf.toString("binary");
+  const m = s.match(/\/Type\s*\/Page[^s]/g);
+  return m ? m.length : 1;
+}
+
+module.exports = { gerarPdfBuffer, contarPaginasPdf };

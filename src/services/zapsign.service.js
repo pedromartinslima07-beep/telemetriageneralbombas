@@ -42,16 +42,39 @@ function request(method, path, body) {
   });
 }
 
+// Posições fixas na página de assinaturas (sempre a última página do contrato).
+// Dois blocos lado a lado: CONTRATANTE (esquerda) e CONTRATADA (direita).
+// x, y, w, h em percentual (0–100) da largura/altura da página.
+// Ajustar se o ZapSign renderizar fora do lugar após teste real.
+const _POSICAO_ASSINATURA = {
+  esquerda: { x: "8",  y: "42", w: "35", h: "12" },
+  direita:  { x: "54", y: "42", w: "35", h: "12" },
+};
+
 // Cria um documento no ZapSign e retorna token + links de assinatura.
 // pdfBase64: string base64 do PDF
-// signatarios: [{ nome, email, papel }]  (papel = label exibido no documento)
+// signatarios: [{ nome, email, lado, pagina }]
+//   lado: "esquerda" | "direita" — bloco de assinatura na página de assinaturas
+//   pagina: número da última página do PDF (onde fica a página de assinatura)
 async function criarDocumento({ nome, pdfBase64, signatarios, externalId }) {
-  const signers = signatarios.map((s) => ({
-    name:          s.nome,
-    email:         s.email,
-    send_automatic_email: true,
-    // ZapSign não tem campo "papel" na criação — enviamos como "auth_mode"
-  }));
+  const signers = signatarios.map((s) => {
+    const pos = _POSICAO_ASSINATURA[s.lado];
+    return {
+      name:                s.nome,
+      email:               s.email,
+      send_automatic_email: true,
+      ...(pos && s.pagina ? {
+        positions: [{
+          type: "signature",
+          page: s.pagina,
+          x:    pos.x,
+          y:    pos.y,
+          w:    pos.w,
+          h:    pos.h,
+        }],
+      } : {}),
+    };
+  });
 
   const body = {
     name:        nome,

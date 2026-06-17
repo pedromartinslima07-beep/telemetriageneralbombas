@@ -8,7 +8,7 @@ const { pool } = require("../db");
 const { authRequired } = require("../middleware/authRequired");
 const { adminOnly } = require("../middleware/adminOnly");
 const { masterAdminOnly } = require("../middleware/masterAdminOnly");
-const { gerarPdfBuffer } = require("../services/contrato-pdf.service");
+const { gerarPdfBuffer, contarPaginasPdf } = require("../services/contrato-pdf.service");
 const zapsign = require("../services/zapsign.service");
 
 const router = express.Router();
@@ -108,7 +108,8 @@ function _validar(b, { exigirObrigatorios }) {
   }
 
   if (b.servico_tipo !== undefined) {
-    if (!["bombas", "piscina"].includes(b.servico_tipo)) errs.push("servico_tipo deve ser 'bombas' ou 'piscina'");
+    if (!["bombas", "piscina", "dedetizacao", "desratizacao"].includes(b.servico_tipo))
+      errs.push("servico_tipo deve ser 'bombas', 'piscina', 'dedetizacao' ou 'desratizacao'");
     else out.servico_tipo = b.servico_tipo;
   }
 
@@ -345,9 +346,10 @@ router.post("/:id/enviar-assinatura", authRequired, masterAdminOnly, async (req,
     if (!ct.signatario_email) return res.status(400).json({ error: "Preencha o e-mail do signatário do cliente antes de enviar" });
     if (!ct.signatario_geral_email) return res.status(400).json({ error: "Preencha o e-mail do signatário da General Bombas" });
 
-    // Gera PDF
+    // Gera PDF e conta páginas (assinaturas ficam sempre na última)
     const { buf } = await gerarPdfBuffer(id);
-    const pdfBase64 = buf.toString("base64");
+    const pdfBase64    = buf.toString("base64");
+    const ultimaPagina = contarPaginasPdf(buf);
 
     // Envia ao ZapSign
     const resp = await zapsign.criarDocumento({
@@ -355,8 +357,8 @@ router.post("/:id/enviar-assinatura", authRequired, masterAdminOnly, async (req,
       pdfBase64,
       externalId:  `contrato-${id}`,
       signatarios: [
-        { nome: ct.signatario_nome || "Representante do Contratante", email: ct.signatario_email },
-        { nome: ct.signatario_geral_nome || "Ana Paula Martins Lima",    email: ct.signatario_geral_email },
+        { nome: ct.signatario_nome || "Representante do Contratante", email: ct.signatario_email,        lado: "esquerda", pagina: ultimaPagina },
+        { nome: ct.signatario_geral_nome || "General Bombas",         email: ct.signatario_geral_email, lado: "direita",  pagina: ultimaPagina },
       ],
     });
 

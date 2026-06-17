@@ -948,6 +948,7 @@
                     <th style="width:85px">Início</th>
                     <th style="width:90px">Vencimento</th>
                     <th style="width:120px">Status</th>
+                    <th style="width:44px"></th>
                   </tr>
                 </thead>
                 <tbody id="ctrsTbody"></tbody>
@@ -2627,6 +2628,8 @@
           <select id="ctrServicoTipo" class="select">
             <option value="bombas">Bombas hidráulicas</option>
             <option value="piscina">Piscina</option>
+            <option value="dedetizacao">Dedetização</option>
+            <option value="desratizacao">Desratização</option>
           </select>
         </label>
         <label class="f" id="ctrQtdBombasWrap">
@@ -2760,8 +2763,50 @@
   </div>
 </div>
 
+<!-- ═══ Modal: visualizar contrato assinado (somente leitura) ═══ -->
+<div id="ctrViewerOverlay" class="modalOverlay" style="display:none;">
+  <div class="modalBox" style="max-width:560px;">
+    <div class="modalHead">
+      <div>
+        <div class="modalTitle" id="ctrViewerTitulo">Contrato</div>
+        <div class="modalSub" id="ctrViewerSub"></div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <span id="ctrViewerBadge" style="display:none;"></span>
+        <button class="btn btn-sm" id="ctrViewerBtnFechar">Fechar</button>
+      </div>
+    </div>
+    <div class="modalBody" style="padding:20px 24px 24px;display:flex;flex-direction:column;gap:16px;">
 
-<script src="/static/admin.js?v=183" defer></script>
+      <!-- Grid de dados do contrato -->
+      <div id="ctrViewerGrid" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px 16px;"></div>
+
+      <!-- Descrição dos serviços -->
+      <div id="ctrViewerDescWrap" style="display:none;">
+        <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-bottom:6px;">Descrição dos serviços</div>
+        <div id="ctrViewerDesc" style="font-size:13px;color:var(--text);line-height:1.55;white-space:pre-wrap;background:var(--surface2);border-radius:var(--radius-sm);padding:10px 12px;"></div>
+      </div>
+
+      <!-- Assinatura digital -->
+      <div id="ctrViewerSignWrap" style="display:none;border-top:1px solid var(--border);padding-top:14px;">
+        <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-bottom:10px;">Assinatura digital</div>
+        <div id="ctrViewerSignInfo" style="display:flex;flex-direction:column;gap:4px;font-size:13px;"></div>
+      </div>
+
+      <!-- Rodapé -->
+      <div style="display:flex;gap:8px;justify-content:flex-end;align-items:center;flex-wrap:wrap;border-top:1px solid var(--border);padding-top:14px;">
+        <span id="ctrViewerMsg" style="font-size:12px;color:var(--muted);flex:1;"></span>
+        <a id="ctrViewerDownload" class="btn btn-sm btnAccent" href="#" target="_blank" style="display:none;">⬇ Baixar contrato assinado</a>
+        <button class="btn btn-sm" id="ctrViewerBtnPdf">⬇ PDF</button>
+        <button class="btn btn-sm" id="ctrViewerBtnFechar2">Fechar</button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+
+<script src="/static/admin.js?v=186" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
 <script src="/static/register-sw.js?v=27" defer></script>
 </body>
