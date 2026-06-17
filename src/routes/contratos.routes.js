@@ -1,15 +1,16 @@
 // src/routes/contratos.routes.js
 //
 // CRUD de contratos por condomínio + métricas (MRR, vencendo, vencidos)
-// + geração de PDF e integração ZapSign para assinatura digital.
+// + geração de PDF e fluxo de assinatura por e-mail.
 
+const crypto = require("crypto");
 const express = require("express");
 const { pool } = require("../db");
 const { authRequired } = require("../middleware/authRequired");
 const { adminOnly } = require("../middleware/adminOnly");
 const { masterAdminOnly } = require("../middleware/masterAdminOnly");
-const { gerarPdfBuffer, contarPaginasPdf } = require("../services/contrato-pdf.service");
-const zapsign = require("../services/zapsign.service");
+const { gerarPdfBuffer } = require("../services/contrato-pdf.service");
+const { sendContratoAssinatura } = require("../services/email");
 
 const router = express.Router();
 
@@ -314,7 +315,7 @@ router.delete("/:id", authRequired, masterAdminOnly, async (req, res) => {
   }
 });
 
-// ─── PDF e ZapSign ──────────────────────────────────────────────────────────
+// ─── PDF e D4Sign ───────────────────────────────────────────────────────────
 
 // GET /contratos/:id/pdf — gera e baixa o PDF do contrato
 router.get("/:id/pdf", authRequired, adminOnly, async (req, res) => {
@@ -332,52 +333,75 @@ router.get("/:id/pdf", authRequired, adminOnly, async (req, res) => {
   }
 });
 
-// POST /contratos/:id/enviar-assinatura — gera PDF e envia ao ZapSign
+// POST /contratos/:id/enviar-assinatura — gera tokens e envia links por e-mail
 router.post("/:id/enviar-assinatura", authRequired, masterAdminOnly, async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
 
   try {
-    // Busca contrato para verificar campos de signatário
-    const cr = await pool.query("SELECT * FROM contratos WHERE id = $1", [id]);
+    const cr = await pool.query(
+      `SELECT c.*, cond.nome AS condominio_nome
+       FROM contratos c LEFT JOIN condominios cond ON cond.id = c.condominio_id
+       WHERE c.id = $1`, [id]
+    );
     if (!cr.rows.length) return res.status(404).json({ error: "Contrato não encontrado" });
     const ct = cr.rows[0];
 
     if (!ct.signatario_email) return res.status(400).json({ error: "Preencha o e-mail do signatário do cliente antes de enviar" });
     if (!ct.signatario_geral_email) return res.status(400).json({ error: "Preencha o e-mail do signatário da General Bombas" });
 
-    // Gera PDF e conta páginas (assinaturas ficam sempre na última)
-    const { buf } = await gerarPdfBuffer(id);
-    const pdfBase64    = buf.toString("base64");
-    const ultimaPagina = contarPaginasPdf(buf);
+    // Gera tokens únicos de 32 bytes (64 hex chars)
+    const tokenCliente = crypto.randomBytes(32).toString("hex");
+    const tokenGeral   = crypto.randomBytes(32).toString("hex");
 
-    // Envia ao ZapSign
-    const resp = await zapsign.criarDocumento({
-      nome:        `Contrato ${ct.numero || id}`,
-      pdfBase64,
-      externalId:  `contrato-${id}`,
-      signatarios: [
-        { nome: ct.signatario_nome || "Representante do Contratante", email: ct.signatario_email,        lado: "esquerda", pagina: ultimaPagina },
-        { nome: ct.signatario_geral_nome || "General Bombas",         email: ct.signatario_geral_email, lado: "direita",  pagina: ultimaPagina },
-      ],
-    });
+    const appUrl     = (process.env.APP_URL || "").replace(/\/$/, "");
+    const urlCliente = `${appUrl}/assinar/${tokenCliente}`;
+    const urlGeral   = `${appUrl}/assinar/${tokenGeral}`;
 
-    // Persiste token e URLs
-    const urlCliente = resp.signatarios[0]?.signUrl || null;
-    const urlGeral   = resp.signatarios[1]?.signUrl || null;
-
+    // Persiste tokens e URLs
     await pool.query(
       `UPDATE contratos SET
-         zapsign_token = $1, zapsign_status = 'aguardando',
-         zapsign_url_cliente = $2, zapsign_url_geral = $3,
+         assinatura_token_cliente = $1,
+         assinatura_token_geral   = $2,
+         assinatura_cliente_nome  = NULL, assinatura_cliente_ip = NULL, assinatura_cliente_em = NULL,
+         assinatura_geral_nome    = NULL, assinatura_geral_ip   = NULL, assinatura_geral_em   = NULL,
+         zapsign_token       = $3,
+         zapsign_status      = 'aguardando',
+         zapsign_url_cliente = $4,
+         zapsign_url_geral   = $5,
          enviado_assinatura_em = NOW()
-       WHERE id = $4`,
-      [resp.docToken, urlCliente, urlGeral, id]
+       WHERE id = $6`,
+      [tokenCliente, tokenGeral, tokenCliente, urlCliente, urlGeral, id]
     );
 
+    // Envia e-mails (falha silenciosa — links ficam disponíveis no painel)
+    let emailsEnviados = false;
+    try {
+      await sendContratoAssinatura({
+        to:              ct.signatario_email,
+        nomeDestinatario: ct.signatario_nome || ct.signatario_email,
+        papel:           "CONTRATANTE",
+        contratoNumero:  ct.numero || String(id),
+        condominioNome:  ct.condominio_nome || "—",
+        linkAssinatura:  urlCliente,
+      });
+      await sendContratoAssinatura({
+        to:              ct.signatario_geral_email,
+        nomeDestinatario: ct.signatario_geral_nome || "General Bombas",
+        papel:           "CONTRATADA",
+        contratoNumero:  ct.numero || String(id),
+        condominioNome:  ct.condominio_nome || "—",
+        linkAssinatura:  urlGeral,
+      });
+      emailsEnviados = true;
+    } catch (emailErr) {
+      console.warn("[contratos] e-mail de assinatura não enviado:", emailErr.message);
+    }
+
     res.json({
-      ok: true,
-      zapsign_token:       resp.docToken,
+      ok:                  true,
+      emails_enviados:     emailsEnviados,
+      zapsign_token:       tokenCliente,
       zapsign_url_cliente: urlCliente,
       zapsign_url_geral:   urlGeral,
     });
@@ -387,59 +411,30 @@ router.post("/:id/enviar-assinatura", authRequired, masterAdminOnly, async (req,
   }
 });
 
-// GET /contratos/:id/status-assinatura — atualiza status consultando ZapSign
+// GET /contratos/:id/status-assinatura — lê status do contrato (sem chamar API externa)
 router.get("/:id/status-assinatura", authRequired, adminOnly, async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
   try {
-    const cr = await pool.query("SELECT zapsign_token, zapsign_status FROM contratos WHERE id = $1", [id]);
-    if (!cr.rows.length) return res.status(404).json({ error: "Contrato não encontrado" });
-    const { zapsign_token: docToken, zapsign_status } = cr.rows[0];
-
-    if (!docToken) return res.json({ zapsign_status: zapsign_status || "rascunho" });
-
-    const info = await zapsign.buscarDocumento(docToken);
-    const novoStatus = zapsign.mapStatus(info.status);
-
-    await pool.query(
-      `UPDATE contratos SET
-         zapsign_status = $1,
-         zapsign_doc_url = COALESCE($2, zapsign_doc_url),
-         assinado_em = CASE WHEN $1 = 'assinado' AND assinado_em IS NULL THEN NOW() ELSE assinado_em END
-       WHERE id = $3`,
-      [novoStatus, info.docUrl, id]
+    const cr = await pool.query(
+      `SELECT zapsign_status,
+              assinatura_cliente_nome, assinatura_cliente_em,
+              assinatura_geral_nome,   assinatura_geral_em
+       FROM contratos WHERE id = $1`, [id]
     );
+    if (!cr.rows.length) return res.status(404).json({ error: "Contrato não encontrado" });
+    const row = cr.rows[0];
 
-    res.json({ zapsign_status: novoStatus, doc_url: info.docUrl, signatarios: info.signatarios });
+    res.json({
+      zapsign_status: row.zapsign_status || "rascunho",
+      signatarios: [
+        { nome: row.assinatura_cliente_nome, assinadoEm: row.assinatura_cliente_em, status: row.assinatura_cliente_em ? "signed" : "pending" },
+        { nome: row.assinatura_geral_nome,   assinadoEm: row.assinatura_geral_em,   status: row.assinatura_geral_em   ? "signed" : "pending" },
+      ],
+    });
   } catch (err) {
     console.error("[contratos] GET /:id/status-assinatura:", err);
     res.status(500).json({ error: "Erro ao consultar status: " + err.message });
-  }
-});
-
-// POST /contratos/webhook/zapsign — callback do ZapSign ao assinar/recusar
-// Não exige auth (ZapSign chama de fora); valida pelo token do documento no body.
-router.post("/webhook/zapsign", async (req, res) => {
-  res.sendStatus(200); // responde rápido para o ZapSign não retentar
-
-  try {
-    const { document } = req.body || {};
-    if (!document?.token) return;
-
-    const docToken  = document.token;
-    const status    = zapsign.mapStatus(document.status);
-    const docUrl    = document.signed_file || null;
-
-    await pool.query(
-      `UPDATE contratos SET
-         zapsign_status  = $1,
-         zapsign_doc_url = COALESCE($2, zapsign_doc_url),
-         assinado_em     = CASE WHEN $1 = 'assinado' AND assinado_em IS NULL THEN NOW() ELSE assinado_em END
-       WHERE zapsign_token = $3`,
-      [status, docUrl, docToken]
-    );
-  } catch (err) {
-    console.error("[contratos] webhook ZapSign:", err);
   }
 });
 

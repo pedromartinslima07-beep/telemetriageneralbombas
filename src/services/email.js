@@ -298,4 +298,58 @@ async function sendOrcamentoCliente(dados) {
   });
 }
 
-module.exports = { sendOTP, sendAlertaEmail, sendChamadoAtrasoEmail, sendOrcamentoIAEmail, sendOrcamentoCliente };
+// Envia e-mail de solicitação de assinatura de contrato.
+// dados: { to, nomeDestinatario, papel, contratoNumero, condominioNome, linkAssinatura }
+async function sendContratoAssinatura(dados) {
+  if (!process.env.RESEND_API_KEY) {
+    throw new Error("RESEND_API_KEY não configurada — configure para enviar e-mails de assinatura");
+  }
+  const { to, nomeDestinatario, papel, contratoNumero, condominioNome, linkAssinatura } = dados;
+
+  await getResend().emails.send({
+    from:    `General Bombas <${_emailFrom()}>`,
+    to,
+    subject: `Contrato ${contratoNumero} — Pendente de assinatura`,
+    text: [
+      `Olá${nomeDestinatario ? ", " + nomeDestinatario : ""},`,
+      "",
+      `O contrato ${contratoNumero} de prestação de serviços para ${condominioNome} está pendente de sua assinatura.`,
+      "",
+      `Clique no link abaixo para visualizar o contrato e confirmar sua assinatura:`,
+      linkAssinatura,
+      "",
+      `Se você não esperava este e-mail, por favor ignore ou entre em contato: comercial@generalbombas.com`,
+    ].join("\n"),
+    html: `
+      <div style="font-family:sans-serif;max-width:520px;margin:auto;padding:0;background:#f5f5f5;">
+        <div style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.06);">
+          <div style="background:#f0b014;padding:24px 28px;">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div style="width:36px;height:36px;border-radius:8px;background:rgba(0,0,0,.15);display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;color:#fff;">G</div>
+              <div style="color:#fff;font-weight:700;font-size:16px;">General Bombas</div>
+            </div>
+          </div>
+          <div style="padding:28px;">
+            <h2 style="font-size:18px;font-weight:700;color:#111;margin:0 0 6px;">Contrato pendente de assinatura</h2>
+            <p style="font-size:13px;color:#888;margin:0 0 20px;">Você está assinando como: <strong style="color:#111;">${papel}</strong></p>
+            <table style="width:100%;border-collapse:collapse;margin-bottom:20px;font-size:14px;">
+              <tr><td style="padding:7px 0;color:#888;width:120px;">Contrato</td><td style="font-weight:600;">${contratoNumero}</td></tr>
+              <tr><td style="padding:7px 0;color:#888;">Condomínio</td><td style="font-weight:600;">${condominioNome}</td></tr>
+            </table>
+            <a href="${linkAssinatura}" style="display:block;background:#f0b014;color:#fff;text-align:center;padding:14px;border-radius:8px;text-decoration:none;font-weight:700;font-size:15px;margin-bottom:20px;">
+              Visualizar e assinar contrato
+            </a>
+            <p style="font-size:12px;color:#9ca3af;text-align:center;margin:0;">
+              Ou copie o link: <span style="word-break:break-all;">${linkAssinatura}</span>
+            </p>
+          </div>
+          <div style="padding:16px 28px;background:#f9fafb;border-top:1px solid #eee;font-size:11px;color:#9ca3af;text-align:center;">
+            Este e-mail foi enviado automaticamente pelo sistema General Bombas. Dúvidas: comercial@generalbombas.com
+          </div>
+        </div>
+      </div>
+    `,
+  });
+}
+
+module.exports = { sendOTP, sendAlertaEmail, sendChamadoAtrasoEmail, sendOrcamentoIAEmail, sendOrcamentoCliente, sendContratoAssinatura };

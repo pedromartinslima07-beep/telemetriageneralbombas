@@ -4512,7 +4512,7 @@ async function _ctrAtualizarStatus() {
   const id = document.getElementById("ctrId").value;
   if (!id) return;
   const msg = document.getElementById("ctrMsg");
-  msg.style.color = "var(--muted)"; msg.textContent = "Consultando ZapSign…";
+  msg.style.color = "var(--muted)"; msg.textContent = "Consultando status…";
   try {
     const r = await fetch(`/contratos/${id}/status-assinatura`, { headers: authHeaders() });
     const data = await r.json().catch(() => ({}));
