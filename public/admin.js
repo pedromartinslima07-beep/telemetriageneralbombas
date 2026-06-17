@@ -11711,7 +11711,7 @@ async function carregarAvulsos() {
   try {
     const [rAv, rCond] = await Promise.all([
       fetch("/admin/orcamentos/avulsos", { headers: authHeaders() }),
-      _avCondos.length ? null : fetch("/admin/condominios/lista", { headers: authHeaders() }),
+      fetch("/admin/condominios/lista", { headers: authHeaders() }),
     ]);
     if (!rAv.ok) return;
     _avData = await rAv.json();

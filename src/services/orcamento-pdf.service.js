@@ -10,6 +10,8 @@ const { pool } = require("../db");
 const UPLOAD_ROOT = path.join(__dirname, "../../uploads/orcamentos");
 const PUBLIC_ROOT  = path.join(__dirname, "../../public");
 
+const MM_PER_PX = 25.4 / 96; // 1 CSS px = 0.2646mm (96dpi)
+
 function escapeHtml(s) {
   if (s == null) return "";
   return String(s)
@@ -84,7 +86,7 @@ async function buscarDadosAvulso(orcamentoId) {
   return { os, itens: linhasRes.rows };
 }
 
-function renderHTML({ os, itens }) {
+function renderHTML({ os, itens }, areaP1, medidas = {}) {
   const timbrado = timbradoBase64();
 
   const orcNumero   = os.orcamento_numero || os.os_numero || String(os.id);
@@ -94,49 +96,62 @@ function renderHTML({ os, itens }) {
   const totalGeral  = itens.reduce((acc, it) => acc + Number(it.valor_unitario) * Number(it.quantidade), 0);
   const validadeStr = os.orcamento_valido_ate ? `60 dias (até ${fmtDateBR(os.orcamento_valido_ate)})` : "60 dias";
 
-  // ── Paginação manual ────────────────────────────────────────────────────────
-  const MM_ITEM   = 7;   // altura estimada por linha de item (~7mm com padding 4px)
-  const AREA_P2   = 185; // mm para itens nas págs seguintes (297 - 48 topo - 45 rodapé = 204mm)
-  const MM_RODAPE = 55;  // mm para bloco total + condições comerciais
+  // ── Paginação ────────────────────────────────────────────────────────────────
+  // AREA_P1 vem medido em mm pela passagem 1 do Puppeteer (altura real do cabeçalho)
+  const AREA_P2   = 224; // mm = pagina-body das págs seguintes (297-48-25)
+  const RODAPE_MM = 30;  // total-box + sec condições + margens
 
-  // Estima altura da constatação (texto variável) para calcular AREA_P1 dinamicamente
-  function estimarMmTexto(texto, larguraMm) {
-    const CHAR_W = 1.85; // largura média por caractere a 10px Arial em mm
-    const charsPorLinha = Math.floor(larguraMm / CHAR_W);
-    const linhas = (texto || "").split("\n").reduce((acc, l) => {
-      return acc + Math.max(1, Math.ceil((l.length || 1) / charsPorLinha));
-    }, 0);
-    return Math.max(8, linhas * 3.7 + 8); // 3.7mm/linha + padding/borda
+  // Usa medidas reais do Puppeteer se disponíveis; fallback conservador caso contrário
+  const ohP1       = medidas.ohP1       ?? 15;
+  const ohPn       = medidas.ohPn       ?? 7;
+  const mmBase     = medidas.mmItemBase  ?? 6;
+  const mmFicha1   = medidas.mmItemFicha1 ?? 5;
+
+  function mmItem(it) {
+    if (!it.ficha_tecnica) return mmBase;
+    return mmBase + it.ficha_tecnica.trim().split("\n").length * mmFicha1;
   }
-
-  // Pág 1: área útil = 220mm; cabeçalho fixo (doc-info + cliente-box + títulos) ~100mm
-  // Garantia: 100 + MM_CONSTATA + AREA_P1 ≤ 220 sempre, independente do texto
-  const MM_CONSTATA = estimarMmTexto(os.orcamento_constatacao || "", 170);
-  const AREA_P1 = Math.min(91, Math.max(14, Math.round(134 - MM_CONSTATA)));
 
   function paginar(lista) {
     const pags = [];
     let rest = lista.slice();
 
-    // Página 1
-    const cap1 = Math.floor(AREA_P1 / MM_ITEM);
-    const p1   = rest.splice(0, cap1);
-    if (rest.length === 0 && (p1.length * MM_ITEM + MM_RODAPE) <= AREA_P1) {
+    const rowsP1 = Math.max(7, areaP1 - ohP1);
+
+    let acc1 = 0;
+    const p1 = [];
+    for (const it of rest) {
+      const h = mmItem(it);
+      if (acc1 + h > rowsP1) break;
+      p1.push(it);
+      acc1 += h;
+    }
+    rest = rest.slice(p1.length);
+
+    if (rest.length === 0 && acc1 + RODAPE_MM <= rowsP1) {
       pags.push({ itens: p1, showRodape: true });
       return pags;
     }
     pags.push({ itens: p1, showRodape: false });
 
-    // Páginas seguintes
+    const rowsPN = Math.max(7, AREA_P2 - ohPn);
     while (rest.length > 0) {
-      if ((rest.length * MM_ITEM + MM_RODAPE) <= AREA_P2) {
+      const alturaRest = rest.reduce((s, it) => s + mmItem(it), 0);
+      if (alturaRest + RODAPE_MM <= rowsPN) {
         pags.push({ itens: rest.splice(0), showRodape: true });
       } else {
-        pags.push({ itens: rest.splice(0, Math.floor(AREA_P2 / MM_ITEM)), showRodape: false });
+        let accN = 0;
+        let count = 0;
+        for (const it of rest) {
+          const h = mmItem(it);
+          if (accN + h > rowsPN) break;
+          accN += h;
+          count++;
+        }
+        pags.push({ itens: rest.splice(0, Math.max(1, count)), showRodape: false });
       }
     }
 
-    // Página extra para rodapé se não coube
     if (!pags[pags.length - 1].showRodape) {
       pags.push({ itens: [], showRodape: true });
     }
@@ -238,7 +253,7 @@ function renderHTML({ os, itens }) {
     }
 
     const extraClass = isFirst ? " pagina--primeira" : "";
-    return `<div class="pagina${extraClass}" style="${bgStyle}">${c}</div>`;
+    return `<div class="pagina${extraClass}" style="${bgStyle}"><div class="pagina-body">${c}</div></div>`;
   }).join("\n");
 
   // ── Documento completo ─────────────────────────────────────────────────────
@@ -259,7 +274,7 @@ function renderHTML({ os, itens }) {
     background-repeat: no-repeat;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
-    padding: 48mm 20mm 45mm 20mm;
+    padding: 48mm 20mm 25mm 20mm;
     page-break-after: always;
     font-family: Arial, Helvetica, sans-serif;
     color: #1a1f2e;
@@ -267,7 +282,10 @@ function renderHTML({ os, itens }) {
     line-height: 1.4;
   }
   .pagina:last-child { page-break-after: avoid; }
-  .pagina--primeira { padding-top: 28mm; padding-bottom: 49mm; }
+  .pagina--primeira { padding-top: 28mm; padding-bottom: 25mm; }
+  /* Garante que o conteúdo nunca invade o endereço do timbrado (padding-bottom) */
+  .pagina--primeira .pagina-body { height: 244mm; overflow: hidden; }
+  .pagina:not(.pagina--primeira) .pagina-body { height: 224mm; overflow: hidden; }
 
   /* ── Número / data do orçamento ── */
   .doc-info { display: flex; justify-content: flex-end; margin-bottom: 24px; }
@@ -377,6 +395,112 @@ ${paginasHtml}
 </body></html>`;
 }
 
+// Renderiza apenas o cabeçalho fixo da pág 1 (doc-info + cliente + constatação)
+// num div #measure de 170mm de largura para medir a altura real via page.evaluate().
+function renderMeasureHTML({ os }) {
+  const orcNumero   = os.orcamento_numero || os.os_numero || String(os.id);
+  const dataOrc     = fmtDateBR(os.finalizada_em || os.criado_em);
+  const endParts    = [os.endereco, os.bairro, os.cidade && os.uf ? `${os.cidade}/${os.uf}` : (os.cidade || ""), os.cep ? `CEP ${os.cep}` : ""].filter(Boolean);
+  const enderecoStr = endParts.join(" – ");
+
+  const theadHtml = `<thead><tr>
+    <th class="it-idx">#</th>
+    <th>Descrição / Especificações</th>
+    <th class="it-num" style="width:44px;">Qtd</th>
+    <th class="it-num" style="width:90px;">Valor Unit.</th>
+    <th class="it-num" style="width:90px;">Total</th>
+  </tr></thead>`;
+
+  return `<!doctype html><html lang="pt-BR"><head>
+<meta charset="utf-8">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { width: 210mm; background: white; font-family: Arial, Helvetica, sans-serif; color: #1a1f2e; font-size: 10px; line-height: 1.4; }
+.measure-box { width: 170mm; overflow: hidden; }
+.doc-info { display: flex; justify-content: flex-end; margin-bottom: 24px; }
+.doc-info-box { text-align: right; }
+.doc-info-box .doc-title { font-size: 14px; font-weight: bold; letter-spacing: 1px; }
+.doc-info-box .doc-num   { font-size: 11px; color: #c07a00; font-weight: bold; margin-top: 2px; }
+.doc-info-box .doc-date  { font-size: 9px; color: #4a5568; margin-top: 2px; }
+.cliente-box { border: 1px solid #e2e8f0; border-radius: 6px; padding: 7px 11px; margin-bottom: 8px; background: rgba(248,250,252,0.92); }
+.cliente-box .sec-title { font-size: 9px; font-weight: bold; color: #1e3a5f; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 3px; }
+.cliente-nome { font-size: 12px; font-weight: bold; }
+.cliente-det  { font-size: 9px; color: #4a5568; margin-top: 2px; }
+.sec { margin-bottom: 8px; }
+.sec-title { font-size: 9px; font-weight: bold; color: #1e3a5f; text-transform: uppercase; letter-spacing: 0.5px; padding: 3px 0; border-bottom: 1.5px solid #f0b014; margin-bottom: 5px; }
+.sec-num { display: inline-block; background: #f0b014; color: #fff; font-size: 8px; font-weight: bold; padding: 1px 4px; border-radius: 3px; margin-right: 4px; }
+.constata-text { font-size: 10px; color: #2d3748; white-space: pre-wrap; word-break: break-word; overflow-wrap: break-word; padding: 4px 6px; border: 1px dashed #cbd5e0; border-radius: 4px; background: rgba(250,251,252,0.92); min-height: 24px; }
+.tabela-itens { width: 100%; border-collapse: collapse; font-size: 9.5px; }
+.tabela-itens th { padding: 4px 6px; text-align: left; font-size: 8.5px; text-transform: uppercase; letter-spacing: 0.3px; }
+.tabela-itens th.it-num { text-align: right; }
+.tabela-itens td { padding: 4px 6px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
+.it-idx { width: 22px; text-align: center; color: #718096; }
+.it-desc-text { font-weight: 500; }
+.it-num { text-align: right; white-space: nowrap; }
+.ficha { margin-top: 2px; font-size: 8.5px; color: #4a5568; background: rgba(240,244,248,0.95); border-left: 3px solid #f0b014; padding: 2px 4px; border-radius: 0 3px 3px 0; }
+</style>
+</head>
+<body>
+<div id="measure" class="measure-box">
+<div class="doc-info">
+  <div class="doc-info-box">
+    <div class="doc-title">ORÇAMENTO</div>
+    <div class="doc-num">Nº ${escapeHtml(orcNumero)}</div>
+    <div class="doc-date">Data: ${escapeHtml(dataOrc)}</div>
+  </div>
+</div>
+<div class="cliente-box">
+  <div class="sec-title">Cliente</div>
+  <div class="cliente-nome">${escapeHtml(os.condominio_nome || "—")}</div>
+  ${os.condominio_razao_social && os.condominio_razao_social !== os.condominio_nome ? `<div class="cliente-det">Razão social: ${escapeHtml(os.condominio_razao_social)}</div>` : ""}
+  ${os.condominio_cnpj ? `<div class="cliente-det">CNPJ: ${escapeHtml(os.condominio_cnpj)}</div>` : ""}
+  ${enderecoStr ? `<div class="cliente-det">${escapeHtml(enderecoStr)}</div>` : ""}
+</div>
+<div class="sec">
+  <div class="sec-title"><span class="sec-num">1</span>Constatação</div>
+  <div class="constata-text">${escapeHtml(os.orcamento_constatacao || "")}</div>
+</div>
+</div>
+
+<!-- Overhead da seção de itens na pág 1: sec-title + thead (sem margin-bottom do .sec — ela fica na cauda e é clipada pelo overflow:hidden) -->
+<div id="items-oh-p1" class="measure-box">
+  <div class="sec" style="margin-bottom:0">
+    <div class="sec-title"><span class="sec-num">2</span>Itens do Orçamento</div>
+    <table class="tabela-itens">${theadHtml}</table>
+  </div>
+</div>
+
+<!-- Overhead da seção de itens nas págs 2+: só thead (sem sec-title, sem margin-bottom) -->
+<div id="items-oh-pn" class="measure-box">
+  <div class="sec" style="margin-bottom:0">
+    <table class="tabela-itens">${theadHtml}</table>
+  </div>
+</div>
+
+<!-- Linha de item sem ficha técnica -->
+<div id="item-base" class="measure-box">
+  <table class="tabela-itens">
+    <tbody><tr>
+      <td class="it-idx">1</td>
+      <td class="it-desc"><div class="it-desc-text">Serviço de manutenção preventiva</div></td>
+      <td class="it-num">1</td><td class="it-num">R$&nbsp;0,00</td><td class="it-num">R$&nbsp;0,00</td>
+    </tr></tbody>
+  </table>
+</div>
+
+<!-- Linha de item com 1 linha de ficha técnica -->
+<div id="item-ficha1" class="measure-box">
+  <table class="tabela-itens">
+    <tbody><tr>
+      <td class="it-idx">1</td>
+      <td class="it-desc"><div class="it-desc-text">Serviço de manutenção preventiva</div><div class="ficha">Especificação técnica do serviço realizado na unidade</div></td>
+      <td class="it-num">1</td><td class="it-num">R$&nbsp;0,00</td><td class="it-num">R$&nbsp;0,00</td>
+    </tr></tbody>
+  </table>
+</div>
+</body></html>`;
+}
+
 const PUPPETEER_ARGS = [
   "--no-sandbox",
   "--disable-setuid-sandbox",
@@ -405,7 +529,6 @@ async function _gerarPdf(dados, subdir, idStr) {
   const { os } = dados;
   const orcNumero = os.orcamento_numero || os.os_numero || idStr;
 
-  const html = renderHTML(dados);
   const dir  = path.join(UPLOAD_ROOT, subdir, idStr);
   await fsp.mkdir(dir, { recursive: true });
   const filename   = `orcamento-${orcNumero}.pdf`;
@@ -415,6 +538,25 @@ async function _gerarPdf(dados, subdir, idStr) {
   const browser = await getBrowser();
   const page = await browser.newPage();
   try {
+    // Passagem 1: medir alturas reais via DOM (cabeçalho, overhead itens, item row)
+    await page.setViewport({ width: 794, height: 2000, deviceScaleFactor: 1 });
+    await page.setContent(renderMeasureHTML(dados), { waitUntil: "domcontentloaded", timeout: 30000 });
+    const m = await page.evaluate(() => ({
+      headerPx:    document.getElementById("measure").offsetHeight,
+      ohP1Px:      document.getElementById("items-oh-p1").offsetHeight,
+      ohPnPx:      document.getElementById("items-oh-pn").offsetHeight,
+      itemBasePx:  document.getElementById("item-base").offsetHeight,
+      itemFichaPx: document.getElementById("item-ficha1").offsetHeight,
+    }));
+    const areaP1       = Math.max(14, Math.round(244 - m.headerPx * MM_PER_PX));
+    const ohP1         = m.ohP1Px   * MM_PER_PX;
+    const ohPn         = m.ohPnPx   * MM_PER_PX;
+    const mmItemBase   = m.itemBasePx  * MM_PER_PX;
+    const mmItemFicha1 = (m.itemFichaPx - m.itemBasePx) * MM_PER_PX;
+    console.log(`[orcamento-pdf] headerMm=${(m.headerPx*MM_PER_PX).toFixed(1)} areaP1=${areaP1} ohP1=${ohP1.toFixed(1)} ohPn=${ohPn.toFixed(1)} itemBase=${mmItemBase.toFixed(1)} itemFicha1=${mmItemFicha1.toFixed(1)} itens=${dados.itens.length}`);
+
+    // Passagem 2: gerar PDF com medidas exatas
+    const html = renderHTML(dados, areaP1, { ohP1, ohPn, mmItemBase, mmItemFicha1 });
     await page.setViewport({ width: 1200, height: 1600, deviceScaleFactor: 2 });
     await page.setContent(html, { waitUntil: "domcontentloaded", timeout: 30000 });
     const pdfBuf = await page.pdf({

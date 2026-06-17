@@ -276,11 +276,7 @@ function _numExtenso(n) {
 
 // ─── Renderização principal ──────────────────────────────────────────────────
 
-function renderHTML(ct) {
-  const timbrado = timbradoBase64();
-  const timbradoTag = timbrado
-    ? `<div class="timbrado-bg" style="background-image:url('${timbrado}');"></div>`
-    : "";
+function renderHTML(ct, timbrado) {
 
   const tipo     = ct.servico_tipo || "bombas";
   const numero   = escHtml(ct.numero || String(ct.id));
@@ -294,6 +290,16 @@ function renderHTML(ct) {
   const clausulasEspecificas = tipo === "piscina" ? clausulasPiscina(ct) : clausulasBombas(ct);
   const tipoLabel = tipo === "piscina" ? "Piscina" : "Motobombas Hidráulicas";
 
+  /* O timbrado é dividido em 3 fatias alinhadas às margens do Puppeteer (42mm topo, 40mm rodapé):
+     - fatia superior (42mm): renderizada pelo headerTemplate do Puppeteer
+     - fatia inferior (40mm): renderizada pelo footerTemplate do Puppeteer
+     - fatia do meio: este div fixed mostra a porção central do timbrado na área de conteúdo
+     A imagem é deslocada para -42mm/−22mm para que a porção visível coincida exatamente
+     com a área central (y[42..257] x[22..188] da imagem A4 original). */
+  const timbradoTag = timbrado
+    ? `<div class="timbrado-bg"><img class="timbrado-img" src="${timbrado}" /></div>`
+    : "";
+
   return `<!doctype html>
 <html lang="pt-BR"><head>
 <meta charset="utf-8">
@@ -306,16 +312,22 @@ body {
   font-size: 11px;
   line-height: 1.55;
   color: #1a1f2e;
+  padding: 0 22mm;
 }
-/* Mesmo padrão do orçamento: fixed cobre a página física inteira em todas as páginas.
-   Margens por página vêm do parâmetro margin do Puppeteer (não de body padding ou @page). */
+
 .timbrado-bg {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
+  overflow: hidden;
   z-index: -1;
-  background-size: 100% 100%;
-  background-repeat: no-repeat;
-  background-position: top left;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+.timbrado-img {
+  position: absolute;
+  top: -42mm; left: 0;
+  width: 210mm; height: 297mm;
+  display: block;
   -webkit-print-color-adjust: exact;
   print-color-adjust: exact;
 }
@@ -492,8 +504,21 @@ ${clausulasComuns(ct)}
 }
 
 async function gerarPdfBuffer(contratoId) {
-  const ct  = await buscarDados(contratoId);
-  const html = renderHTML(ct);
+  const ct       = await buscarDados(contratoId);
+  const timbrado = timbradoBase64();
+  const html     = renderHTML(ct, timbrado);
+
+  const pc = "-webkit-print-color-adjust:exact;print-color-adjust:exact;";
+
+  // Fatia superior (42mm): mostra o topo do timbrado na zona do header
+  const headerTemplate = timbrado
+    ? `<style>*{margin:0!important;padding:0!important;}</style><div style="width:210mm;height:42mm;overflow:hidden;${pc}"><img src="${timbrado}" style="width:210mm;height:297mm;display:block;${pc}" /></div>`
+    : "<span></span>";
+
+  // Fatia inferior (40mm): mostra o rodapé do timbrado na zona do footer
+  const footerTemplate = timbrado
+    ? `<style>*{margin:0!important;padding:0!important;}</style><div style="width:210mm;height:40mm;overflow:hidden;position:relative;${pc}"><img src="${timbrado}" style="position:absolute;bottom:0;left:0;width:210mm;height:297mm;display:block;${pc}" /></div>`
+    : "<span></span>";
 
   const browser = await getBrowser();
   const page = await browser.newPage();
@@ -503,8 +528,10 @@ async function gerarPdfBuffer(contratoId) {
     const pdfBuf = await page.pdf({
       format: "A4",
       printBackground: true,
-      margin: { top: "42mm", right: "22mm", bottom: "22mm", left: "22mm" },
-      displayHeaderFooter: false,
+      margin: { top: "42mm", right: "0", bottom: "40mm", left: "0" },
+      displayHeaderFooter: true,
+      headerTemplate,
+      footerTemplate,
     });
     return { buf: Buffer.isBuffer(pdfBuf) ? pdfBuf : Buffer.from(pdfBuf), ct };
   } finally {

@@ -7,30 +7,10 @@ aliases:
 ---
 # Trabalho em Andamento
 
-> Branch atual: `feature/app-mobile`. Última sessão registrada: **2026-06-15**.
+> Branch atual: `feature/app-mobile`. Última sessão registrada: **2026-06-17**.
 > Roadmap completo em [`roadmap.md`](roadmap.md); decisões em [`decisions.md`](decisions.md).
 
-## Foco atual — PDF orçamento: paginação definitiva (próxima sessão)
-
-### Pendente: renderização em duas passagens no `orcamento-pdf.service.js`
-
-A paginação manual atual estima a altura do texto da constatação via contagem
-de caracteres (`estimarMmTexto`). A estimativa é aproximada e pode errar ±1-2
-itens dependendo do conteúdo real.
-
-**Solução definitiva planejada:** duas passagens no Puppeteer:
-
-1. **Passagem 1 (medição):** renderizar só o cabeçalho fixo (doc-info + cliente +
-   constatação) sem itens, e usar `page.evaluate()` para medir a altura real
-   renderizada em px → converter para mm.
-2. **Passagem 2 (PDF final):** com a altura real em mãos, calcular `AREA_P1`
-   exato (`220 - altura_real_mm`), paginar os itens corretamente e gerar o PDF.
-
-Isso garante que o rodapé **nunca** é invadido independente do tamanho da
-constatação ou do endereço do cliente, sem precisar de constantes mágicas.
-
-Arquivo: `src/services/orcamento-pdf.service.js` — funções `renderHTML` e
-`_gerarPdf`.
+## Foco atual — Pendentes pós-sessão 2026-06-15 (ZapSign + deploy)
 
 ---
 
@@ -92,6 +72,11 @@ Envs necessárias: `OPENAI_API_KEY`, `WHATSAPP_VERIFY_TOKEN`,
 5. Testar fluxo completo com número WhatsApp real.
 6. 10B — few-shot por categoria (aguardar volume de conversas curadas).
 7. 7J — publicação Play Store.
+
+## Melhorias recentes (sessão 2026-06-17 — PDF orçamento: paginação por medição real)
+
+- **Puppeteer two-pass em `orcamento-pdf.service.js`:** passagem 1 mede 5 valores reais via DOM (altura do cabeçalho, overhead seção itens pág 1 e pág 2+, altura de linha com/sem ficha); passagem 2 usa esses valores em `renderHTML(dados, areaP1, medidas)` — zero constantes chutadas.
+- **Correção raiz do espaço branco:** `padding-bottom` estava em 49mm/45mm mas o endereço do timbrado fica a ~22mm do fundo. Reduzido para 25mm → `pagina-body` 244mm (pág 1) e 224mm (pág 2+). `AREA_P2 = 224mm`.
 
 ## Melhorias recentes (sessão 2026-06-15 — contratos ZapSign + sidebar)
 
