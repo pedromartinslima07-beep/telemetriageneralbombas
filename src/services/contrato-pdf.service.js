@@ -147,7 +147,7 @@ function clausulasBombas(ct) {
 
 <div class="clausula">
   <div class="clausula-titulo">Cláusula Sexta – Reajuste e Vigência</div>
-  <p><strong>6.1</strong> – O prazo de vigência deste contrato é de <strong>12 (doze) meses</strong>, com início em <strong>${fmtBR(ct.inicio_em)}</strong> e término em <strong>${fimEm}</strong>, podendo ser prorrogado por igual período mediante termo aditivo, caso o CONTRATANTE não se manifeste de forma contrária no prazo de 30 (trinta) dias antes da data final.</p>
+  <p><strong>6.1</strong> – O prazo de vigência deste contrato é de <strong>${ct.tipo === "semestral" ? "6 (seis)" : "12 (doze)"} meses</strong>, com início em <strong>${fmtBR(ct.inicio_em)}</strong> e término em <strong>${fimEm}</strong>, podendo ser prorrogado por igual período mediante termo aditivo, caso o CONTRATANTE não se manifeste de forma contrária no prazo de 30 (trinta) dias antes da data final.</p>
   <p><strong>6.2</strong> – Os valores serão reajustados anualmente pelo <strong>IPCA</strong>, acumulado do período.</p>
   <p><strong>6.3</strong> – Caso os valores estejam defasados em relação ao mercado, a CONTRATADA poderá propor readequação, a ser efetivada somente mediante anuência do CONTRATANTE após negociação.</p>
 </div>`;
@@ -218,7 +218,7 @@ function clausulasPiscina(ct) {
 
 <div class="clausula">
   <div class="clausula-titulo">Cláusula Sexta – Reajuste e Vigência</div>
-  <p><strong>6.1</strong> – O prazo de vigência deste contrato é de <strong>12 (doze) meses</strong>, com início em <strong>${fmtBR(ct.inicio_em)}</strong> e término em <strong>${fimEm}</strong>, podendo ser prorrogado por igual período mediante termo aditivo, caso o CONTRATANTE não se manifeste de forma contrária no prazo de 30 (trinta) dias antes da data final.</p>
+  <p><strong>6.1</strong> – O prazo de vigência deste contrato é de <strong>${ct.tipo === "semestral" ? "6 (seis)" : "12 (doze)"} meses</strong>, com início em <strong>${fmtBR(ct.inicio_em)}</strong> e término em <strong>${fimEm}</strong>, podendo ser prorrogado por igual período mediante termo aditivo, caso o CONTRATANTE não se manifeste de forma contrária no prazo de 30 (trinta) dias antes da data final.</p>
   <p><strong>6.2</strong> – Os valores serão reajustados anualmente pelo <strong>IPCA</strong>, acumulado do período.</p>
   <p><strong>6.3</strong> – Caso os valores estejam defasados em relação ao mercado, a CONTRATADA poderá propor readequação, a ser efetivada somente mediante anuência do CONTRATANTE após negociação.</p>
 </div>`;
@@ -284,7 +284,7 @@ function clausulasDedetizacao(ct) {
 
 <div class="clausula">
   <div class="clausula-titulo">Cláusula Sexta – Reajuste e Vigência</div>
-  <p><strong>6.1</strong> – O prazo de vigência deste contrato é de <strong>12 (doze) meses</strong>, com início em <strong>${fmtBR(ct.inicio_em)}</strong> e término em <strong>${fimEm}</strong>, podendo ser prorrogado por igual período mediante termo aditivo, caso o CONTRATANTE não se manifeste de forma contrária no prazo de 30 (trinta) dias antes da data final.</p>
+  <p><strong>6.1</strong> – O prazo de vigência deste contrato é de <strong>${ct.tipo === "semestral" ? "6 (seis)" : "12 (doze)"} meses</strong>, com início em <strong>${fmtBR(ct.inicio_em)}</strong> e término em <strong>${fimEm}</strong>, podendo ser prorrogado por igual período mediante termo aditivo, caso o CONTRATANTE não se manifeste de forma contrária no prazo de 30 (trinta) dias antes da data final.</p>
   <p><strong>6.2</strong> – Os valores serão reajustados anualmente pelo <strong>IPCA</strong>, acumulado do período.</p>
   <p><strong>6.3</strong> – Caso os valores estejam defasados em relação ao mercado, a CONTRATADA poderá propor readequação, a ser efetivada somente mediante anuência do CONTRATANTE após negociação.</p>
 </div>`;
@@ -352,7 +352,7 @@ function clausulasDesratizacao(ct) {
 
 <div class="clausula">
   <div class="clausula-titulo">Cláusula Sexta – Reajuste e Vigência</div>
-  <p><strong>6.1</strong> – O prazo de vigência deste contrato é de <strong>12 (doze) meses</strong>, com início em <strong>${fmtBR(ct.inicio_em)}</strong> e término em <strong>${fimEm}</strong>, podendo ser prorrogado por igual período mediante termo aditivo, caso o CONTRATANTE não se manifeste de forma contrária no prazo de 30 (trinta) dias antes da data final.</p>
+  <p><strong>6.1</strong> – O prazo de vigência deste contrato é de <strong>${ct.tipo === "semestral" ? "6 (seis)" : "12 (doze)"} meses</strong>, com início em <strong>${fmtBR(ct.inicio_em)}</strong> e término em <strong>${fimEm}</strong>, podendo ser prorrogado por igual período mediante termo aditivo, caso o CONTRATANTE não se manifeste de forma contrária no prazo de 30 (trinta) dias antes da data final.</p>
   <p><strong>6.2</strong> – Os valores serão reajustados anualmente pelo <strong>IPCA</strong>, acumulado do período.</p>
   <p><strong>6.3</strong> – Caso os valores estejam defasados em relação ao mercado, a CONTRATADA poderá propor readequação, a ser efetivada somente mediante anuência do CONTRATANTE após negociação.</p>
 </div>`;
@@ -424,6 +424,8 @@ function renderHTML(ct, timbrado) {
   const dataDoc  = fmtBR(ct.inicio_em || ct.criado_em);
   const sigNome   = escHtml(ct.signatario_nome || "");
   const geralNome = escHtml(ct.signatario_geral_nome || "");
+  const _tipoContratoLabel = { mensal: "Mensal", anual: "Anual", semestral: "Semestral" };
+  const tipoContrato = _tipoContratoLabel[ct.tipo] || "";
   const imgCliente = ct.assinatura_cliente_img || null;
   const imgGeral   = ct.assinatura_geral_img   || null;
 
@@ -600,7 +602,7 @@ ${timbradoTag}
 
 <div class="doc-titulo">
   <h1>Contrato de Prestação de Serviços</h1>
-  <div class="doc-sub">Nº ${numero} &nbsp;·&nbsp; ${tipoLabel} &nbsp;·&nbsp; São Paulo, ${dataDoc}</div>
+  <div class="doc-sub">Nº ${numero} &nbsp;·&nbsp; ${tipoLabel}${tipoContrato ? ` &nbsp;·&nbsp; ${tipoContrato}` : ""} &nbsp;·&nbsp; São Paulo, ${dataDoc}</div>
 </div>
 
 <p class="intro">
