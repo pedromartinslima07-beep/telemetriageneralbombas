@@ -462,7 +462,7 @@ function renderHTML(ct, timbrado) {
     ? `<div class="timbrado-bg"><img class="timbrado-img" src="${timbrado}" /></div>`
     : "";
 
-  return `<!doctype html>
+  const html = `<!doctype html>
 <html lang="pt-BR"><head>
 <meta charset="utf-8">
 <title>Contrato ${numero}</title>
