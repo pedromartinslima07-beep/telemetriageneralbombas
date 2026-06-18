@@ -431,6 +431,11 @@ function renderHTML(ct, timbrado) {
   const docCliente = escHtml(ct.assinatura_cliente_doc || "");
   const docGeral   = escHtml(ct.assinatura_geral_doc   || "");
 
+  const _iniciais = nome => (nome || "").trim().split(/\s+/).filter(Boolean).map(p => p[0].toUpperCase()).join(".");
+  const iniciaisCliente = _iniciais(ct.assinatura_cliente_nome || ct.signatario_nome || "");
+  const iniciaisGeral   = _iniciais(ct.assinatura_geral_nome   || ct.signatario_geral_nome || "General Bombas");
+  const rubricaTexto = [iniciaisCliente, iniciaisGeral].filter(Boolean).join(" / ");
+
   const endParts = [ct.cliente_endereco, ct.cliente_bairro, ct.cliente_cidade, ct.cliente_cep ? `CEP: ${ct.cliente_cep}` : ""].filter(Boolean);
   const endStr   = endParts.join(", ");
 
@@ -602,10 +607,23 @@ body {
 .assinatura-nome { font-size: 10.5px; font-weight: bold; color: #1a1f2e; }
 .assinatura-papel { font-size: 9.5px; color: #4a5568; margin-top: 2px; }
 .data-local { margin-top: 40px; font-size: 10.5px; color: #4a5568; text-align: right; }
+.rubrica {
+  position: fixed;
+  bottom: 6mm;
+  right: 6mm;
+  font-size: 7.5px;
+  color: #6b7280;
+  border: 1px solid #d1d5db;
+  border-radius: 3px;
+  padding: 2px 6px;
+  background: #fff;
+  letter-spacing: .4px;
+}
 </style>
 </head>
 <body>
 
+${rubricaTexto ? `<div class="rubrica">${escHtml(rubricaTexto)}</div>` : ""}
 ${timbradoTag}
 
 <div class="doc-titulo">
