@@ -259,7 +259,7 @@ function _paginaAssinatura({ ct, token, ehCliente, erro }) {
         tctx.fillStyle = "#1a1f2e";
         tctx.textAlign = "center";
         tctx.textBaseline = "alphabetic";
-        tctx.fillText(nome, typeCanvas.width / 2, typeCanvas.height - 12);
+        tctx.fillText(nome, typeCanvas.width / 2, typeCanvas.height - 4);
       }
 
       document.fonts.ready.then(() => { if (modoAtual === "digitar") renderCursivo(); });

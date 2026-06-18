@@ -580,8 +580,10 @@ body {
   justify-content: space-around;
   gap: 40px;
   margin-top: 30px;
+  align-items: flex-end;
 }
-.assinatura-bloco { flex: 1; text-align: center; display: flex; flex-direction: column; justify-content: flex-end; }
+.assinatura-bloco { flex: 1; text-align: center; }
+.assinatura-spacer { min-height: 80px; }
 .assinatura-linha {
   border-top: 1px solid #1a1f2e;
   margin: 0 10px 8px 10px;
@@ -637,20 +639,22 @@ ${clausulasComuns(ct)}
 
   <div class="assinaturas-grid">
     <div class="assinatura-bloco">
+      <div class="assinatura-spacer"></div>
       ${imgCliente ? `<img class="assinatura-img" src="${imgCliente}" />` : ""}
       <div class="assinatura-linha"></div>
       <div class="assinatura-nome">${escHtml(ct.cliente_nome)}</div>
       <div class="assinatura-papel">CONTRATANTE</div>
       ${sigNome ? `<div class="assinatura-papel">${sigNome}</div>` : ""}
-      ${ct.assinatura_cliente_em ? `<div class="assinatura-papel" style="color:#888;font-size:8.5px;">Assinado em ${fmtBR(ct.assinatura_cliente_em)}</div>` : ""}
+      <div class="assinatura-papel" style="color:#888;font-size:8.5px;">${ct.assinatura_cliente_em ? `Assinado em ${fmtBR(ct.assinatura_cliente_em)}` : "&nbsp;"}</div>
     </div>
     <div class="assinatura-bloco">
+      <div class="assinatura-spacer"></div>
       ${imgGeral ? `<img class="assinatura-img" src="${imgGeral}" />` : ""}
       <div class="assinatura-linha"></div>
       <div class="assinatura-nome">GENERAL BOMBAS, ENGENHARIA DA MANUTENÇÃO E SERVIÇOS LTDA.</div>
       <div class="assinatura-papel">CONTRATADA</div>
       <div class="assinatura-papel">${geralNome}</div>
-      ${ct.assinatura_geral_em ? `<div class="assinatura-papel" style="color:#888;font-size:8.5px;">Assinado em ${fmtBR(ct.assinatura_geral_em)}</div>` : ""}
+      <div class="assinatura-papel" style="color:#888;font-size:8.5px;">${ct.assinatura_geral_em ? `Assinado em ${fmtBR(ct.assinatura_geral_em)}` : "&nbsp;"}</div>
     </div>
   </div>
 
