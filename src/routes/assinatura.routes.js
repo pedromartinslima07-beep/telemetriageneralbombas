@@ -88,7 +88,8 @@ function _shell(titulo, corpo) {
     .sign-tab.active{background:rgba(255,255,255,.06);color:#e1e3ef}
     .sign-canvas-wrap{border:1px solid rgba(255,255,255,.15);border-radius:9px;position:relative;margin-bottom:8px;touch-action:none}
     .sign-canvas-wrap canvas{display:block;width:100%;border-radius:8px;cursor:crosshair;background:#fff}
-    .sign-clear{font-size:12px;color:#44455a;background:none;border:none;cursor:pointer;padding:0;float:right;margin-bottom:4px;font-family:inherit}
+    .sign-canvas-header{display:flex;justify-content:flex-end;margin-bottom:4px}
+    .sign-clear{font-size:12px;color:#44455a;background:none;border:none;cursor:pointer;padding:0;font-family:inherit}
     .sign-clear:hover{color:#9094ae}
     .sign-name-input{width:100%;padding:11px 14px;border:1px solid rgba(255,255,255,.08);border-radius:9px;font-size:14px;outline:none;transition:border-color .15s,box-shadow .15s;margin-bottom:10px;background:rgba(255,255,255,.04);color:#e1e3ef;font-family:inherit}
     .sign-name-input::placeholder{color:#44455a}
@@ -142,7 +143,9 @@ function _paginaAssinatura({ ct, token, ehCliente, erro }) {
 
     <label>Seu nome completo</label>
     <input class="sign-name-input" id="nomeInput" type="text" placeholder="${_esc(nome)}" autocomplete="name" />
-    <div class="hint" style="margin-bottom:14px;">Digite exatamente como consta no contrato.</div>
+
+    <label>CPF ou RG</label>
+    <input class="sign-name-input" id="docInput" type="text" placeholder="000.000.000-00 ou RG" autocomplete="off" maxlength="30" style="margin-bottom:14px;" />
 
     <div class="sign-tabs">
       <button class="sign-tab active" data-tab="desenhar" type="button">✍️ Desenhar assinatura</button>
@@ -150,7 +153,7 @@ function _paginaAssinatura({ ct, token, ehCliente, erro }) {
     </div>
 
     <div id="tab-desenhar">
-      <button class="sign-clear" type="button" id="clearDraw">Limpar</button>
+      <div class="sign-canvas-header"><button class="sign-clear" type="button" id="clearDraw">Limpar</button></div>
       <div class="sign-canvas-wrap">
         <canvas id="drawCanvas" height="140"></canvas>
       </div>
@@ -158,7 +161,7 @@ function _paginaAssinatura({ ct, token, ehCliente, erro }) {
     </div>
 
     <div id="tab-digitar" style="display:none">
-      <button class="sign-clear" type="button" id="clearType">Limpar</button>
+      <div class="sign-canvas-header"><button class="sign-clear" type="button" id="clearType">Limpar</button></div>
       <div class="sign-canvas-wrap">
         <canvas id="typeCanvas" height="140"></canvas>
       </div>
@@ -279,7 +282,6 @@ function _paginaAssinatura({ ct, token, ehCliente, erro }) {
         if (modoAtual === "digitar" && fontsReady) renderCursivo();
       });
       document.getElementById("clearType").addEventListener("click", () => {
-        document.getElementById("nomeInput").value = "";
         tctx.clearRect(0, 0, typeCanvas.width, typeCanvas.height);
       });
 
@@ -313,6 +315,7 @@ function _paginaAssinatura({ ct, token, ehCliente, erro }) {
       // ── Submit ──
       document.getElementById("btnConfirmar").addEventListener("click", async () => {
         const nome = document.getElementById("nomeInput").value.trim();
+        const doc  = document.getElementById("docInput").value.trim();
         const erroEl = document.getElementById("erroMsg");
         erroEl.style.display = "none";
 
@@ -342,7 +345,7 @@ function _paginaAssinatura({ ct, token, ehCliente, erro }) {
           const resp = await fetch("/assinar/" + TOKEN, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ nome, img }),
+            body: JSON.stringify({ nome, doc, img }),
           });
           const html = await resp.text();
           document.open(); document.write(html); document.close();
@@ -463,6 +466,7 @@ router.post("/:token", express.json({ limit: "2mb" }), async (req, res) => {
   try {
     const { token } = req.params;
     const nome = String(req.body?.nome || "").trim();
+    const doc  = String(req.body?.doc  || "").trim().slice(0, 30);
     const img  = typeof req.body?.img === "string" && req.body.img.startsWith("data:image/") ? req.body.img : null;
 
     const r = await pool.query(
@@ -491,13 +495,13 @@ router.post("/:token", express.json({ limit: "2mb" }), async (req, res) => {
 
     if (ehCliente) {
       await pool.query(
-        `UPDATE contratos SET assinatura_cliente_nome = $1, assinatura_cliente_ip = $2, assinatura_cliente_em = NOW(), assinatura_cliente_img = $4 WHERE id = $3`,
-        [nome, ip, ct.id, img]
+        `UPDATE contratos SET assinatura_cliente_nome = $1, assinatura_cliente_ip = $2, assinatura_cliente_em = NOW(), assinatura_cliente_img = $4, assinatura_cliente_doc = $5 WHERE id = $3`,
+        [nome, ip, ct.id, img, doc || null]
       );
     } else {
       await pool.query(
-        `UPDATE contratos SET assinatura_geral_nome = $1, assinatura_geral_ip = $2, assinatura_geral_em = NOW(), assinatura_geral_img = $4 WHERE id = $3`,
-        [nome, ip, ct.id, img]
+        `UPDATE contratos SET assinatura_geral_nome = $1, assinatura_geral_ip = $2, assinatura_geral_em = NOW(), assinatura_geral_img = $4, assinatura_geral_doc = $5 WHERE id = $3`,
+        [nome, ip, ct.id, img, doc || null]
       );
     }
 
