@@ -428,6 +428,8 @@ function renderHTML(ct, timbrado) {
   const tipoContrato = _tipoContratoLabel[ct.tipo] || "";
   const imgCliente = ct.assinatura_cliente_img || null;
   const imgGeral   = ct.assinatura_geral_img   || null;
+  const docCliente = escHtml(ct.assinatura_cliente_doc || "");
+  const docGeral   = escHtml(ct.assinatura_geral_doc   || "");
 
   const endParts = [ct.cliente_endereco, ct.cliente_bairro, ct.cliente_cidade, ct.cliente_cep ? `CEP: ${ct.cliente_cep}` : ""].filter(Boolean);
   const endStr   = endParts.join(", ");
@@ -566,7 +568,7 @@ body {
 .paragrafo-unico { font-weight: bold; margin-top: 4px; }
 
 /* Página de assinaturas */
-.assinatura-img { max-width: 200px; max-height: 80px; display: block; margin: 0 auto 0; }
+.assinatura-img { max-width: 160px; max-height: 60px; display: block; margin: 0 auto 0; }
 .assinaturas-page {
   page-break-before: always;
   padding-top: 10mm;
@@ -662,13 +664,15 @@ ${clausulasComuns(ct)}
     <div class="assinatura-info">
       <div class="assinatura-nome">${escHtml(ct.cliente_nome)}</div>
       <div class="assinatura-papel">CONTRATANTE</div>
-      ${sigNome ? `<div class="assinatura-papel">${escHtml(sigNome)}</div>` : ""}
+      ${sigNome ? `<div class="assinatura-papel">${sigNome}</div>` : ""}
+      ${docCliente ? `<div class="assinatura-papel">Doc.: ${docCliente}</div>` : ""}
       <div class="assinatura-papel" style="color:#888;font-size:8.5px;">${ct.assinatura_cliente_em ? `Assinado em ${fmtBR(ct.assinatura_cliente_em)}` : "&nbsp;"}</div>
     </div>
     <div class="assinatura-info">
       <div class="assinatura-nome">GENERAL BOMBAS, ENGENHARIA DA MANUTENÇÃO E SERVIÇOS LTDA.</div>
       <div class="assinatura-papel">CONTRATADA</div>
-      <div class="assinatura-papel">${escHtml(geralNome)}</div>
+      <div class="assinatura-papel">${geralNome}</div>
+      ${docGeral ? `<div class="assinatura-papel">Doc.: ${docGeral}</div>` : ""}
       <div class="assinatura-papel" style="color:#888;font-size:8.5px;">${ct.assinatura_geral_em ? `Assinado em ${fmtBR(ct.assinatura_geral_em)}` : "&nbsp;"}</div>
     </div>
   </div>
