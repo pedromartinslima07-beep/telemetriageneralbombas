@@ -116,16 +116,14 @@ a { color: inherit; text-decoration: none; }
   width: var(--sb-open);
   flex-shrink: 0;
   border-radius: var(--radius-lg);
-  /* EXPANDINDO: sidebar abre imediatamente */
-  transition: width .22s cubic-bezier(.2,0,.4,1);
+  transition: width .12s ease-out;
   z-index: 50;
   will-change: width;
 }
 
 .sidebar.collapsed {
   width: var(--sb-rail);
-  /* FECHANDO: espera .05s pra labels sumirem antes de encolher */
-  transition: width .14s cubic-bezier(.6,0,.8,1) .05s;
+  transition: width .09s ease-in .03s;
 }
 
 .sidebar-inner {
@@ -197,8 +195,8 @@ a { color: inherit; text-decoration: none; }
   left: 50%; top: 50%;
   transform: translate(-50%, -50%);
 }
-.sidebar-brand-full { height: 54px; opacity: 1; transition: opacity .2s cubic-bezier(.4,0,.2,1); }
-.sidebar-brand-mini { height: 36px; opacity: 0; transition: opacity .2s cubic-bezier(.4,0,.2,1); }
+.sidebar-brand-full { height: 54px; opacity: 1; transition: opacity .08s ease; }
+.sidebar-brand-mini { height: 36px; opacity: 0; transition: opacity .08s ease; }
 .sidebar.collapsed .sidebar-brand-full { opacity: 0; }
 .sidebar.collapsed .sidebar-brand-mini { opacity: 1; }
 
@@ -249,23 +247,13 @@ a { color: inherit; text-decoration: none; }
   padding: 14px 12px 6px;
   white-space: nowrap;
   opacity: 1;
-  max-height: 40px;
   overflow: hidden;
-  /* EXPANDINDO: geometria abre junto com sidebar, texto aparece depois */
-  transition: max-height .22s cubic-bezier(.2,0,.4,1),
-              padding .22s cubic-bezier(.2,0,.4,1),
-              opacity .12s ease .16s;
+  transition: opacity .08s ease .06s;
 }
 .sidebar.collapsed .nav-section-label {
   opacity: 0;
-  max-height: 0;
-  padding-top: 0;
-  padding-bottom: 0;
   pointer-events: none;
-  /* FECHANDO: texto some rápido, geometria colapsa com delay */
-  transition: opacity .05s ease,
-              max-height .14s cubic-bezier(.6,0,.8,1) .05s,
-              padding .14s cubic-bezier(.6,0,.8,1) .05s;
+  transition: opacity .04s ease;
 }
 
 .nav-item {
@@ -329,8 +317,7 @@ a { color: inherit; text-decoration: none; }
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 200px;
-  /* EXPANDINDO: max-width volta na hora, label aparece com delay (sidebar já abriu) */
-  transition: max-width .001s linear, opacity .13s ease .15s;
+  transition: max-width .001s linear, opacity .08s ease .06s;
 }
 
 .nav-badge {
@@ -365,21 +352,19 @@ a { color: inherit; text-decoration: none; }
   padding: 0;
   justify-content: center;
   gap: 0;
-  /* FECHANDO: ícone centraliza só depois que label sumiu */
   transition:
     background .14s ease,
     color .14s ease,
     border-color .14s ease,
-    gap .001s linear .05s,
-    padding .001s linear .05s;
+    gap .001s linear .04s,
+    padding .001s linear .04s;
 }
 .sidebar.collapsed .nav-item .nav-item-label {
   opacity: 0;
   max-width: 0;
   flex: 0 0 0;
   pointer-events: none;
-  /* FECHANDO: label some rápido; max-width colapsa instantaneamente depois */
-  transition: opacity .05s ease, max-width .001s linear .05s;
+  transition: opacity .04s ease, max-width .001s linear .04s;
 }
 
 /* Active highlight no rail: tint centralizado, sem barra lateral */

@@ -18,7 +18,14 @@ const PUPPETEER_ARGS = [
 let _browser = null;
 async function getBrowser() {
   if (_browser) {
-    try { await _browser.version(); return _browser; } catch { _browser = null; }
+    try {
+      const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error("ping timeout")), 3000));
+      await Promise.race([_browser.version(), timeout]);
+      return _browser;
+    } catch {
+      try { _browser.process()?.kill(); } catch {}
+      _browser = null;
+    }
   }
   _browser = await puppeteer.launch({ args: PUPPETEER_ARGS, headless: true });
   return _browser;
