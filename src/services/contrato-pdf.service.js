@@ -467,6 +467,8 @@ function renderHTML(ct, timbrado) {
 <html lang="pt-BR"><head>
 <meta charset="utf-8">
 <title>Contrato ${numero}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Great+Vibes&display=block" rel="stylesheet">
 <style>
 * { box-sizing:border-box; }
 html, body { margin:0; padding:0; }
@@ -609,15 +611,12 @@ body {
 .data-local { margin-top: 40px; font-size: 10.5px; color: #4a5568; text-align: right; }
 .rubrica {
   position: fixed;
-  bottom: 6mm;
-  right: 6mm;
-  font-size: 7.5px;
-  color: #6b7280;
-  border: 1px solid #d1d5db;
-  border-radius: 3px;
-  padding: 2px 6px;
-  background: #fff;
-  letter-spacing: .4px;
+  bottom: 5mm;
+  right: 7mm;
+  font-family: 'Great Vibes', cursive;
+  font-size: 18px;
+  color: #1a1f2e;
+  line-height: 1;
 }
 </style>
 </head>
@@ -722,7 +721,7 @@ async function gerarPdfBuffer(contratoId) {
   const page = await browser.newPage();
   try {
     await page.setViewport({ width: 1200, height: 1600, deviceScaleFactor: 2 });
-    await page.setContent(html, { waitUntil: "domcontentloaded", timeout: 30_000 });
+    await page.setContent(html, { waitUntil: "networkidle0", timeout: 30_000 });
     const pdfBuf = await page.pdf({
       format: "A4",
       printBackground: true,
