@@ -4431,7 +4431,6 @@ async function _ctrSalvar() {
       const c = (_condominios || []).find(x => Number(x.id) === Number(condoId));
       if (c) renderCliDetalhe(c);
     }
-    if (_editCondoIdAtivo === condoId) _editRenderTabContrato(condoId);
     _carregarContratosMetricas?.();
     renderCliTabela?.();
     if (document.querySelector(".section[data-section='contratos'].is-active")) _ctrsCarregar();
@@ -4463,8 +4462,7 @@ async function _ctrEncerrar() {
         const c = (_condominios || []).find(x => Number(x.id) === Number(condoId));
         if (c) renderCliDetalhe(c);
       }
-      if (_editCondoIdAtivo === condoId) _editRenderTabContrato(condoId);
-      _carregarContratosMetricas?.();
+        _carregarContratosMetricas?.();
       renderCliTabela?.();
       if (document.querySelector(".section[data-section='contratos'].is-active")) _ctrsCarregar();
     }
@@ -4915,47 +4913,6 @@ function _editAtivarTab(tab, condoId) {
     if (p.dataset.editPane === tab) p.removeAttribute("hidden");
     else p.setAttribute("hidden", "");
   });
-  if (tab === "contrato")  _editRenderTabContrato(condoId);
-}
-
-function _editRenderTabContrato(condoId) {
-  const body = document.getElementById("editTabContratoBody");
-  if (!body || !condoId) return;
-  body.innerHTML = `<div class="edit-tab-empty">Carregando contratos…</div>`;
-  _cliInvalidarContrato(condoId);
-  fetch(`/contratos?condominio_id=${condoId}`, { headers: authHeaders() })
-    .then(r => r.ok ? r.json() : Promise.reject(r))
-    .then(lista => {
-      _cliContratoCache.set(condoId, { contratos: lista.filter(c => c.ativo), loaded: true, loading: false });
-      const rows = lista.map(c => {
-        const st = _ctrStatusVisual(c);
-        const acoesCtr = c.ativo
-          ? `<button class="btn btn-sm viewer-only-hide" data-action="editar-contrato" data-contrato-id="${c.id}" data-condo-id="${condoId}">Editar</button>
-             <button class="btn btn-sm btnDanger viewer-only-hide" data-action="inativar-contrato" data-contrato-id="${c.id}" data-condo-id="${condoId}">Inativar</button>`
-          : `<button class="btn btn-sm btnAccent viewer-only-hide" data-action="reativar-contrato" data-contrato-id="${c.id}" data-condo-id="${condoId}">Reativar</button>`;
-        return `<div class="ctr-row${c.ativo ? "" : " ctr-row-inativo"}">
-          <div class="ctr-row-info">
-            <div class="ctr-row-top">
-              ${c.numero ? `<span class="ctr-numero">${_waEscaparHtml(c.numero)}</span>` : ""}
-              <span class="ctr-tipo">${_ctrTipoLabel[c.tipo] || c.tipo}</span>
-              <span class="ctr-st" style="color:${st.cor};">${st.texto}</span>
-              <span style="margin-left:auto;font-size:12px;font-weight:600;color:var(--accent);">${_ctrFmtMoeda(c.valor_mensal)}</span>
-            </div>
-            <div class="ctr-row-meta">${_ctrFmtData(c.inicio_em)} → ${c.fim_em ? _ctrFmtData(c.fim_em) : "sem fim"}</div>
-          </div>
-          <div style="display:flex;gap:6px;flex-shrink:0;">
-            ${acoesCtr}
-            <button class="btn btn-sm btnDanger viewer-only-hide" data-action="excluir-contrato" data-contrato-id="${c.id}" data-condo-id="${condoId}">Excluir</button>
-          </div>
-        </div>`;
-      }).join("");
-      body.innerHTML = `
-        <div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
-          <button class="btn btn-sm btnAccent viewer-only-hide" data-action="novo-contrato" data-condo-id="${condoId}">+ Novo contrato</button>
-        </div>
-        <div class="ctr-list">${lista.length ? rows : `<div style="font-size:12px;color:var(--muted);padding:8px 0;">Nenhum contrato cadastrado.</div>`}</div>`;
-    })
-    .catch(() => { body.innerHTML = `<div class="edit-tab-empty" style="color:var(--danger);">Erro ao carregar contratos.</div>`; });
 }
 
 
@@ -11157,53 +11114,6 @@ document.addEventListener("DOMContentLoaded", () => {
       }).catch(() => alert("Erro de rede"));
       return;
     }
-
-    if (action === "novo-contrato") {
-      const condoId = Number(btn.dataset.condoId);
-      if (condoId) _ctrAbrirModal({ condoId });
-      return;
-    }
-
-    if (action === "editar-contrato") {
-      const contratoId = Number(btn.dataset.contratoId);
-      const condoId = Number(btn.dataset.condoId);
-      if (contratoId) _ctrAbrirModal({ condoId, contratoId });
-      return;
-    }
-
-    if (action === "inativar-contrato") {
-      const contratoId = Number(btn.dataset.contratoId);
-      const condoId = Number(btn.dataset.condoId);
-      if (!contratoId || !confirm("Inativar este contrato? Ele ficará inativo mas poderá ser reativado depois.")) return;
-      fetch(`/contratos/${contratoId}`, { method: "PATCH", headers: { ...authHeaders(), "Content-Type": "application/json" }, body: JSON.stringify({ ativo: false }) })
-        .then(r => r.ok ? r.json() : r.json().then(d => Promise.reject(d.error || "Erro")))
-        .then(() => { _cliInvalidarContrato(condoId); _editRenderTabContrato(condoId); _carregarContratosMetricas?.(); renderCliTabela?.(); })
-        .catch(e => alert("Erro ao inativar: " + e));
-      return;
-    }
-
-    if (action === "reativar-contrato") {
-      const contratoId = Number(btn.dataset.contratoId);
-      const condoId = Number(btn.dataset.condoId);
-      if (!contratoId || !confirm("Reativar este contrato?")) return;
-      fetch(`/contratos/${contratoId}`, { method: "PATCH", headers: { ...authHeaders(), "Content-Type": "application/json" }, body: JSON.stringify({ ativo: true }) })
-        .then(r => r.ok ? r.json() : r.json().then(d => Promise.reject(d.error || "Erro")))
-        .then(() => { _cliInvalidarContrato(condoId); _editRenderTabContrato(condoId); _carregarContratosMetricas?.(); renderCliTabela?.(); })
-        .catch(e => alert("Erro ao reativar: " + e));
-      return;
-    }
-
-    if (action === "excluir-contrato") {
-      const contratoId = Number(btn.dataset.contratoId);
-      const condoId = Number(btn.dataset.condoId);
-      if (!contratoId || !confirm("Excluir permanentemente este contrato? Esta ação não pode ser desfeita.")) return;
-      fetch(`/contratos/${contratoId}`, { method: "DELETE", headers: authHeaders() })
-        .then(r => r.ok ? r.json() : r.json().then(d => Promise.reject(d.error || "Erro")))
-        .then(() => { _cliInvalidarContrato(condoId); _editRenderTabContrato(condoId); _carregarContratosMetricas?.(); renderCliTabela?.(); })
-        .catch(e => alert("Erro ao excluir: " + e));
-      return;
-    }
-
 
     if (action === "novo-cliente") {
       abrirModalNovoCliente();
