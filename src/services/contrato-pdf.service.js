@@ -433,8 +433,7 @@ function renderHTML(ct, timbrado) {
 
   const _iniciais = nome => (nome || "").trim().split(/\s+/).filter(Boolean).map(p => p[0].toUpperCase()).join(".");
   const iniciaisCliente = _iniciais(ct.assinatura_cliente_nome || ct.signatario_nome || "");
-  const iniciaisGeral   = _iniciais(ct.assinatura_geral_nome   || ct.signatario_geral_nome || "General Bombas");
-  const rubricaTexto = [iniciaisCliente, iniciaisGeral].filter(Boolean).join(" / ");
+  const rubricaTexto = [iniciaisCliente, "G.B."].filter(Boolean).join(" / ");
 
   const endParts = [ct.cliente_endereco, ct.cliente_bairro, ct.cliente_cidade, ct.cliente_cep ? `CEP: ${ct.cliente_cep}` : ""].filter(Boolean);
   const endStr   = endParts.join(", ");
@@ -472,6 +471,7 @@ function renderHTML(ct, timbrado) {
 <style>
 * { box-sizing:border-box; }
 html, body { margin:0; padding:0; }
+body { position:relative; }
 body {
   font-family: Arial, Helvetica, sans-serif;
   font-size: 11px;
@@ -609,20 +609,10 @@ body {
 .assinatura-nome { font-size: 10.5px; font-weight: bold; color: #1a1f2e; }
 .assinatura-papel { font-size: 9.5px; color: #4a5568; margin-top: 2px; }
 .data-local { margin-top: 40px; font-size: 10.5px; color: #4a5568; text-align: right; }
-.rubrica {
-  position: fixed;
-  bottom: 5mm;
-  right: 7mm;
-  font-family: 'Great Vibes', cursive;
-  font-size: 18px;
-  color: #1a1f2e;
-  line-height: 1;
-}
 </style>
 </head>
 <body>
 
-${rubricaTexto ? `<div class="rubrica">${escHtml(rubricaTexto)}</div>` : ""}
 ${timbradoTag}
 
 <div class="doc-titulo">
@@ -722,6 +712,27 @@ async function gerarPdfBuffer(contratoId) {
   try {
     await page.setViewport({ width: 1200, height: 1600, deviceScaleFactor: 2 });
     await page.setContent(html, { waitUntil: "networkidle0", timeout: 30_000 });
+
+    // Injeta rubricas em posição absoluta — uma por página de conteúdo,
+    // excluindo a última página (assinaturas). Viewport 1200px → A4 210mm.
+    if (rubricaTexto) {
+      const SCALE      = 1200 / 210;                          // px por mm
+      const PAGE_H     = Math.round((297 - 42 - 40) * SCALE); // 215mm em px
+      const MARGIN_TOP = Math.round(42 * SCALE);
+      await page.evaluate(({ texto, pageH, marginTop }) => {
+        const sig    = document.querySelector(".assinaturas-page");
+        const sigTop = sig ? sig.offsetTop : Infinity;
+        let y = marginTop + pageH - 32;
+        while (y < sigTop - 60) {
+          const el = document.createElement("div");
+          el.textContent = texto;
+          el.style.cssText = `position:absolute;top:${y}px;right:30px;font-family:'Great Vibes',cursive;font-size:22px;color:#1a1f2e;line-height:1;`;
+          document.body.appendChild(el);
+          y += pageH;
+        }
+      }, { texto: rubricaTexto, pageH: PAGE_H, marginTop: MARGIN_TOP });
+    }
+
     const pdfBuf = await page.pdf({
       format: "A4",
       printBackground: true,
