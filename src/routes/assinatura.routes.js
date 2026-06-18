@@ -10,6 +10,20 @@ const { gerarPdfBuffer } = require("../services/contrato-pdf.service");
 
 const router = express.Router();
 
+// CSP permissiva para esta rota pública: precisa de script inline (canvas/pad)
+// e Google Fonts. O helmet global bloqueia inline scripts por padrão.
+router.use((req, res, next) => {
+  res.setHeader("Content-Security-Policy",
+    "default-src 'self'; " +
+    "script-src 'self' 'unsafe-inline'; " +
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
+    "font-src 'self' https://fonts.gstatic.com; " +
+    "img-src 'self' data: blob:; " +
+    "connect-src 'self';"
+  );
+  next();
+});
+
 // ─── Helpers HTML ────────────────────────────────────────────────────────────
 
 function _esc(s) {
@@ -167,7 +181,7 @@ function _paginaAssinatura({ ct, token, ehCliente, erro }) {
           btn.classList.add("active");
           document.getElementById("tab-desenhar").style.display = modoAtual === "desenhar" ? "" : "none";
           document.getElementById("tab-digitar").style.display  = modoAtual === "digitar"  ? "" : "none";
-          if (modoAtual === "digitar") renderCursivo();
+          if (modoAtual === "digitar") { resizeCanvas(document.getElementById("typeCanvas")); renderCursivo(); }
         });
       });
 
