@@ -578,19 +578,25 @@ body {
   margin-bottom: 60px;
 }
 .assinaturas-grid {
-  display: flex;
-  justify-content: space-around;
-  gap: 40px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 40px;
   margin-top: 30px;
-  align-items: flex-end;
 }
-.assinatura-bloco { flex: 1; text-align: center; }
-.assinatura-spacer { min-height: 80px; }
+.assinatura-img-area {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  min-height: 100px;
+  text-align: center;
+}
+.assinatura-spacer { flex: 1; }
 .assinatura-linha {
   border-top: 1px solid #1a1f2e;
   margin: 0 10px 8px 10px;
-  padding-top: 6px;
+  padding-top: 4px;
 }
+.assinatura-info { text-align: center; }
 .assinatura-nome { font-size: 10.5px; font-weight: bold; color: #1a1f2e; }
 .assinatura-papel { font-size: 9.5px; color: #4a5568; margin-top: 2px; }
 .data-local { margin-top: 40px; font-size: 10.5px; color: #4a5568; text-align: right; }
@@ -640,22 +646,29 @@ ${clausulasComuns(ct)}
   </p>
 
   <div class="assinaturas-grid">
-    <div class="assinatura-bloco">
+    <!-- linha 1: área da imagem/espaçador -->
+    <div class="assinatura-img-area">
       <div class="assinatura-spacer"></div>
       ${imgCliente ? `<img class="assinatura-img" src="${imgCliente}" />` : ""}
-      <div class="assinatura-linha"></div>
-      <div class="assinatura-nome">${escHtml(ct.cliente_nome)}</div>
-      <div class="assinatura-papel">CONTRATANTE</div>
-      ${sigNome ? `<div class="assinatura-papel">${sigNome}</div>` : ""}
-      <div class="assinatura-papel" style="color:#888;font-size:8.5px;">${ct.assinatura_cliente_em ? `Assinado em ${fmtBR(ct.assinatura_cliente_em)}` : "&nbsp;"}</div>
     </div>
-    <div class="assinatura-bloco">
+    <div class="assinatura-img-area">
       <div class="assinatura-spacer"></div>
       ${imgGeral ? `<img class="assinatura-img" src="${imgGeral}" />` : ""}
-      <div class="assinatura-linha"></div>
+    </div>
+    <!-- linha 2: linhas de assinatura (mesmo row = mesma altura) -->
+    <div class="assinatura-linha"></div>
+    <div class="assinatura-linha"></div>
+    <!-- linha 3: info abaixo da linha -->
+    <div class="assinatura-info">
+      <div class="assinatura-nome">${escHtml(ct.cliente_nome)}</div>
+      <div class="assinatura-papel">CONTRATANTE</div>
+      ${sigNome ? `<div class="assinatura-papel">${escHtml(sigNome)}</div>` : ""}
+      <div class="assinatura-papel" style="color:#888;font-size:8.5px;">${ct.assinatura_cliente_em ? `Assinado em ${fmtBR(ct.assinatura_cliente_em)}` : "&nbsp;"}</div>
+    </div>
+    <div class="assinatura-info">
       <div class="assinatura-nome">GENERAL BOMBAS, ENGENHARIA DA MANUTENÇÃO E SERVIÇOS LTDA.</div>
       <div class="assinatura-papel">CONTRATADA</div>
-      <div class="assinatura-papel">${geralNome}</div>
+      <div class="assinatura-papel">${escHtml(geralNome)}</div>
       <div class="assinatura-papel" style="color:#888;font-size:8.5px;">${ct.assinatura_geral_em ? `Assinado em ${fmtBR(ct.assinatura_geral_em)}` : "&nbsp;"}</div>
     </div>
   </div>

@@ -86,8 +86,8 @@ function _shell(titulo, corpo) {
     .sign-tabs{display:flex;margin-bottom:12px;border:1px solid rgba(255,255,255,.08);border-radius:9px;overflow:hidden}
     .sign-tab{flex:1;padding:9px;font-size:13px;font-weight:600;background:transparent;border:none;cursor:pointer;color:#44455a;transition:background .15s,color .15s;font-family:inherit}
     .sign-tab.active{background:rgba(255,255,255,.06);color:#e1e3ef}
-    .sign-canvas-wrap{border:1px solid rgba(255,255,255,.08);border-radius:9px;background:rgba(255,255,255,.03);position:relative;margin-bottom:8px;touch-action:none}
-    .sign-canvas-wrap canvas{display:block;width:100%;border-radius:8px;cursor:crosshair}
+    .sign-canvas-wrap{border:1px solid rgba(255,255,255,.15);border-radius:9px;position:relative;margin-bottom:8px;touch-action:none}
+    .sign-canvas-wrap canvas{display:block;width:100%;border-radius:8px;cursor:crosshair;background:#fff}
     .sign-clear{font-size:12px;color:#44455a;background:none;border:none;cursor:pointer;padding:0;float:right;margin-bottom:4px;font-family:inherit}
     .sign-clear:hover{color:#9094ae}
     .sign-name-input{width:100%;padding:11px 14px;border:1px solid rgba(255,255,255,.08);border-radius:9px;font-size:14px;outline:none;transition:border-color .15s,box-shadow .15s;margin-bottom:10px;background:rgba(255,255,255,.04);color:#e1e3ef;font-family:inherit}
@@ -173,6 +173,11 @@ function _paginaAssinatura({ ct, token, ehCliente, erro }) {
     (function() {
       const TOKEN = "${_esc(token)}";
       let modoAtual = "desenhar";
+      let fontsReady = false;
+      document.fonts.ready.then(() => {
+        fontsReady = true;
+        if (modoAtual === "digitar") renderCursivo();
+      });
 
       // ── Tabs ──
       document.querySelectorAll(".sign-tab").forEach(btn => {
@@ -182,7 +187,13 @@ function _paginaAssinatura({ ct, token, ehCliente, erro }) {
           btn.classList.add("active");
           document.getElementById("tab-desenhar").style.display = modoAtual === "desenhar" ? "" : "none";
           document.getElementById("tab-digitar").style.display  = modoAtual === "digitar"  ? "" : "none";
-          if (modoAtual === "digitar") { resizeCanvas(document.getElementById("typeCanvas")); renderCursivo(); }
+          if (modoAtual === "digitar") {
+            // Força reflow para que clientWidth esteja correto após display=""
+            const tc = document.getElementById("typeCanvas");
+            tc.getBoundingClientRect();
+            resizeCanvas(tc);
+            if (fontsReady) renderCursivo();
+          }
         });
       });
 
@@ -196,11 +207,9 @@ function _paginaAssinatura({ ct, token, ehCliente, erro }) {
         canvas.width  = w;
       }
       resizeCanvas(drawCanvas);
-      resizeCanvas(document.getElementById("typeCanvas"));
       window.addEventListener("resize", () => {
         resizeCanvas(drawCanvas);
-        resizeCanvas(document.getElementById("typeCanvas"));
-        renderCursivo();
+        if (modoAtual === "digitar") { resizeCanvas(document.getElementById("typeCanvas")); if (fontsReady) renderCursivo(); }
       });
 
       function pos(e, canvas) {
@@ -215,7 +224,7 @@ function _paginaAssinatura({ ct, token, ehCliente, erro }) {
         [lastX, lastY] = pos(e, drawCanvas);
         dctx.beginPath();
         dctx.arc(lastX, lastY, 1.2, 0, Math.PI * 2);
-        dctx.fillStyle = "#e1e3ef";
+        dctx.fillStyle = "#1a1f2e";
         dctx.fill();
         e.preventDefault();
       }
@@ -225,7 +234,7 @@ function _paginaAssinatura({ ct, token, ehCliente, erro }) {
         dctx.beginPath();
         dctx.moveTo(lastX, lastY);
         dctx.lineTo(x, y);
-        dctx.strokeStyle = "#e1e3ef";
+        dctx.strokeStyle = "#1a1f2e";
         dctx.lineWidth = 2.2;
         dctx.lineCap = "round";
         dctx.lineJoin = "round";
@@ -257,15 +266,14 @@ function _paginaAssinatura({ ct, token, ehCliente, erro }) {
         if (!nome) return;
         const fontSize = Math.min(68, typeCanvas.width / (nome.length * 0.45 + 1));
         tctx.font = fontSize + "px 'Great Vibes', cursive";
-        tctx.fillStyle = "#e1e3ef";
+        tctx.fillStyle = "#1a1f2e";
         tctx.textAlign = "center";
         tctx.textBaseline = "alphabetic";
         tctx.fillText(nome, typeCanvas.width / 2, typeCanvas.height - 4);
       }
 
-      document.fonts.ready.then(() => { if (modoAtual === "digitar") renderCursivo(); });
       document.getElementById("nomeInput").addEventListener("input", () => {
-        if (modoAtual === "digitar") renderCursivo();
+        if (modoAtual === "digitar" && fontsReady) renderCursivo();
       });
       document.getElementById("clearType").addEventListener("click", () => {
         document.getElementById("nomeInput").value = "";
