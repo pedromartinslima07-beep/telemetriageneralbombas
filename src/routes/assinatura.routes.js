@@ -271,6 +271,33 @@ function _paginaAssinatura({ ct, token, ehCliente, erro }) {
         tctx.clearRect(0, 0, typeCanvas.width, typeCanvas.height);
       });
 
+      // Recorta o canvas ao bounding box do conteúdo (remove espaço transparente)
+      function _cropCanvas(src) {
+        const ctx = src.getContext("2d");
+        const { width, height } = src;
+        const data = ctx.getImageData(0, 0, width, height).data;
+        let top = height, bottom = 0, left = width, right = 0;
+        for (let y = 0; y < height; y++) {
+          for (let x = 0; x < width; x++) {
+            if (data[(y * width + x) * 4 + 3] > 0) {
+              if (y < top) top = y;
+              if (y > bottom) bottom = y;
+              if (x < left) left = x;
+              if (x > right) right = x;
+            }
+          }
+        }
+        if (top > bottom) return src.toDataURL("image/png");
+        const pad = 6;
+        const cx = Math.max(0, left - pad), cy = Math.max(0, top - pad);
+        const cw = Math.min(width, right + pad) - cx;
+        const ch = Math.min(height, bottom + pad) - cy;
+        const out = document.createElement("canvas");
+        out.width = cw; out.height = ch;
+        out.getContext("2d").drawImage(src, cx, cy, cw, ch, 0, 0, cw, ch);
+        return out.toDataURL("image/png");
+      }
+
       // ── Submit ──
       document.getElementById("btnConfirmar").addEventListener("click", async () => {
         const nome = document.getElementById("nomeInput").value.trim();
@@ -293,7 +320,7 @@ function _paginaAssinatura({ ct, token, ehCliente, erro }) {
         }
 
         if (modoAtual === "digitar") renderCursivo();
-        const img = canvas.toDataURL("image/png");
+        const img = _cropCanvas(canvas);
 
         const btn = document.getElementById("btnConfirmar");
         btn.disabled = true;
