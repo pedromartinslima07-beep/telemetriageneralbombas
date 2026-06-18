@@ -174,7 +174,10 @@ function _paginaAssinatura({ ct, token, ehCliente, erro }) {
       const TOKEN = "${_esc(token)}";
       let modoAtual = "desenhar";
       let fontsReady = false;
-      document.fonts.ready.then(() => {
+      document.fonts.load("48px 'Great Vibes'").then(() => {
+        fontsReady = true;
+        if (modoAtual === "digitar") renderCursivo();
+      }).catch(() => {
         fontsReady = true;
         if (modoAtual === "digitar") renderCursivo();
       });
@@ -188,11 +191,11 @@ function _paginaAssinatura({ ct, token, ehCliente, erro }) {
           document.getElementById("tab-desenhar").style.display = modoAtual === "desenhar" ? "" : "none";
           document.getElementById("tab-digitar").style.display  = modoAtual === "digitar"  ? "" : "none";
           if (modoAtual === "digitar") {
-            // Força reflow para que clientWidth esteja correto após display=""
-            const tc = document.getElementById("typeCanvas");
-            tc.getBoundingClientRect();
-            resizeCanvas(tc);
-            if (fontsReady) renderCursivo();
+            requestAnimationFrame(() => {
+              const tc = document.getElementById("typeCanvas");
+              resizeCanvas(tc);
+              if (fontsReady) renderCursivo();
+            });
           }
         });
       });
