@@ -4533,6 +4533,17 @@ async function _ctrAtualizarStatus() {
   if (!overlay) return;
   document.getElementById("ctrBtnFechar")?.addEventListener("click", _ctrFecharModal);
   document.getElementById("ctrBtnCancelar")?.addEventListener("click", _ctrFecharModal);
+  overlay.addEventListener("click", e => {
+    const btn = e.target.closest("[data-ctr-copy]");
+    if (!btn) return;
+    const val = document.getElementById(btn.dataset.ctrCopy)?.value || "";
+    if (!val) return;
+    navigator.clipboard.writeText(val).then(() => {
+      const orig = btn.textContent;
+      btn.textContent = "Copiado!";
+      setTimeout(() => { btn.textContent = orig; }, 1500);
+    });
+  });
   document.getElementById("ctrBtnSalvar")?.addEventListener("click", _ctrSalvar);
   document.getElementById("ctrBtnEncerrar")?.addEventListener("click", _ctrEncerrar);
   document.getElementById("ctrBtnExcluir")?.addEventListener("click", async () => {

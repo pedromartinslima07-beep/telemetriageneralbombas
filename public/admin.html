@@ -2730,14 +2730,14 @@
             <div style="font-size:11px;color:var(--muted);margin-bottom:3px;">Link do cliente</div>
             <div style="display:flex;gap:6px;align-items:center;">
               <input id="ctrUrlCliente" class="input" style="font-size:11px;" readonly />
-              <button class="btn btn-sm" onclick="navigator.clipboard.writeText(document.getElementById('ctrUrlCliente').value)">Copiar</button>
+              <button class="btn btn-sm" data-ctr-copy="ctrUrlCliente">Copiar</button>
             </div>
           </div>
           <div id="ctrUrlGeralRow" style="display:none;">
             <div style="font-size:11px;color:var(--muted);margin-bottom:3px;">Link General Bombas</div>
             <div style="display:flex;gap:6px;align-items:center;">
               <input id="ctrUrlGeral" class="input" style="font-size:11px;" readonly />
-              <button class="btn btn-sm" onclick="navigator.clipboard.writeText(document.getElementById('ctrUrlGeral').value)">Copiar</button>
+              <button class="btn btn-sm" data-ctr-copy="ctrUrlGeral">Copiar</button>
             </div>
           </div>
           <div id="ctrDocUrlRow" style="display:none;">
@@ -2803,7 +2803,7 @@
 </div>
 
 
-<script src="/static/admin.js?v=189" defer></script>
+<script src="/static/admin.js?v=190" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
 <script src="/static/register-sw.js?v=27" defer></script>
 </body>
