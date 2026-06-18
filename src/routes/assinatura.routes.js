@@ -254,12 +254,12 @@ function _paginaAssinatura({ ct, token, ehCliente, erro }) {
         const nome = document.getElementById("nomeInput").value.trim();
         tctx.clearRect(0, 0, typeCanvas.width, typeCanvas.height);
         if (!nome) return;
-        const fontSize = Math.min(52, typeCanvas.width / (nome.length * 0.55 + 1));
+        const fontSize = Math.min(68, typeCanvas.width / (nome.length * 0.45 + 1));
         tctx.font = fontSize + "px 'Great Vibes', cursive";
         tctx.fillStyle = "#1a1f2e";
         tctx.textAlign = "center";
-        tctx.textBaseline = "middle";
-        tctx.fillText(nome, typeCanvas.width / 2, typeCanvas.height / 2);
+        tctx.textBaseline = "alphabetic";
+        tctx.fillText(nome, typeCanvas.width / 2, typeCanvas.height - 12);
       }
 
       document.fonts.ready.then(() => { if (modoAtual === "digitar") renderCursivo(); });
