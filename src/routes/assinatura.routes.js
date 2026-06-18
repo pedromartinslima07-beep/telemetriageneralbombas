@@ -40,6 +40,8 @@ function _shell(titulo, corpo) {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${_esc(titulo)} — General Bombas</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600&display=swap" rel="stylesheet">
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
     body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f5;color:#111;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:24px 16px 48px}
@@ -67,6 +69,15 @@ function _shell(titulo, corpo) {
     .submit-btn{width:100%;padding:13px;background:#f0b014;border:none;border-radius:8px;font-size:15px;font-weight:700;color:#fff;cursor:pointer;transition:opacity .15s}
     .submit-btn:hover{opacity:.9}
     .submit-btn:disabled{opacity:.6;cursor:not-allowed}
+    .sign-tabs{display:flex;gap:0;margin-bottom:12px;border:1.5px solid #e5e7eb;border-radius:8px;overflow:hidden}
+    .sign-tab{flex:1;padding:9px;font-size:13px;font-weight:600;background:#f9fafb;border:none;cursor:pointer;color:#6b7280;transition:background .15s,color .15s}
+    .sign-tab.active{background:#fff;color:#111}
+    .sign-canvas-wrap{border:1.5px solid #d1d5db;border-radius:8px;background:#fafafa;position:relative;margin-bottom:8px;touch-action:none}
+    .sign-canvas-wrap canvas{display:block;width:100%;border-radius:6px;cursor:crosshair}
+    .sign-clear{font-size:12px;color:#9ca3af;background:none;border:none;cursor:pointer;padding:0;float:right;margin-bottom:4px}
+    .sign-clear:hover{color:#374151}
+    .sign-name-input{width:100%;padding:11px 14px;border:1.5px solid #d1d5db;border-radius:8px;font-size:14px;outline:none;transition:border .15s;margin-bottom:8px}
+    .sign-name-input:focus{border-color:#f0b014}
     .success{text-align:center;padding:12px 0}
     .success-icon{font-size:48px;margin-bottom:12px}
     .success h2{font-size:20px;font-weight:700;margin-bottom:6px;color:#16a34a}
@@ -113,12 +124,183 @@ function _paginaAssinatura({ ct, token, ehCliente, erro }) {
     <a class="pdf-btn" href="/assinar/${_esc(token)}/pdf" target="_blank">📄 Visualizar contrato em PDF</a>
     <hr class="divider">
     ${erro ? `<div class="error-msg">${_esc(erro)}</div>` : ""}
-    <form method="POST" action="/assinar/${_esc(token)}">
-      <label for="nome">Seu nome completo</label>
-      <input type="text" id="nome" name="nome" placeholder="${_esc(nome)}" autocomplete="name" required />
-      <div class="hint">Digite exatamente como consta no contrato. Este registro terá validade como assinatura eletrônica.</div>
-      <button type="submit" class="submit-btn">Confirmar assinatura</button>
-    </form>
+
+    <label>Seu nome completo</label>
+    <input class="sign-name-input" id="nomeInput" type="text" placeholder="${_esc(nome)}" autocomplete="name" />
+    <div class="hint" style="margin-bottom:14px;">Digite exatamente como consta no contrato.</div>
+
+    <div class="sign-tabs">
+      <button class="sign-tab active" data-tab="desenhar" type="button">✍️ Desenhar assinatura</button>
+      <button class="sign-tab" data-tab="digitar" type="button">⌨️ Assinar digitando</button>
+    </div>
+
+    <div id="tab-desenhar">
+      <button class="sign-clear" type="button" id="clearDraw">Limpar</button>
+      <div class="sign-canvas-wrap">
+        <canvas id="drawCanvas" height="140"></canvas>
+      </div>
+      <div class="hint">Desenhe sua assinatura acima com o mouse ou dedo.</div>
+    </div>
+
+    <div id="tab-digitar" style="display:none">
+      <button class="sign-clear" type="button" id="clearType">Limpar</button>
+      <div class="sign-canvas-wrap">
+        <canvas id="typeCanvas" height="140"></canvas>
+      </div>
+      <div class="hint">Sua assinatura aparecerá em caligrafia acima.</div>
+    </div>
+
+    <br>
+    <div id="erroMsg" class="error-msg" style="display:none"></div>
+    <button type="button" class="submit-btn" id="btnConfirmar">Confirmar assinatura</button>
+
+    <script>
+    (function() {
+      const TOKEN = "${_esc(token)}";
+      let modoAtual = "desenhar";
+
+      // ── Tabs ──
+      document.querySelectorAll(".sign-tab").forEach(btn => {
+        btn.addEventListener("click", () => {
+          modoAtual = btn.dataset.tab;
+          document.querySelectorAll(".sign-tab").forEach(b => b.classList.remove("active"));
+          btn.classList.add("active");
+          document.getElementById("tab-desenhar").style.display = modoAtual === "desenhar" ? "" : "none";
+          document.getElementById("tab-digitar").style.display  = modoAtual === "digitar"  ? "" : "none";
+          if (modoAtual === "digitar") renderCursivo();
+        });
+      });
+
+      // ── Canvas de desenho ──
+      const drawCanvas = document.getElementById("drawCanvas");
+      const dctx = drawCanvas.getContext("2d");
+      let drawing = false, lastX = 0, lastY = 0;
+
+      function resizeCanvas(canvas) {
+        const w = canvas.parentElement.clientWidth;
+        canvas.width  = w;
+      }
+      resizeCanvas(drawCanvas);
+      resizeCanvas(document.getElementById("typeCanvas"));
+      window.addEventListener("resize", () => {
+        resizeCanvas(drawCanvas);
+        resizeCanvas(document.getElementById("typeCanvas"));
+        renderCursivo();
+      });
+
+      function pos(e, canvas) {
+        const r = canvas.getBoundingClientRect();
+        const t = e.touches ? e.touches[0] : e;
+        return [(t.clientX - r.left) * (canvas.width / r.width),
+                (t.clientY - r.top)  * (canvas.height / r.height)];
+      }
+
+      function startDraw(e) {
+        drawing = true;
+        [lastX, lastY] = pos(e, drawCanvas);
+        dctx.beginPath();
+        dctx.arc(lastX, lastY, 1.2, 0, Math.PI * 2);
+        dctx.fillStyle = "#1a1f2e";
+        dctx.fill();
+        e.preventDefault();
+      }
+      function moveDraw(e) {
+        if (!drawing) return;
+        const [x, y] = pos(e, drawCanvas);
+        dctx.beginPath();
+        dctx.moveTo(lastX, lastY);
+        dctx.lineTo(x, y);
+        dctx.strokeStyle = "#1a1f2e";
+        dctx.lineWidth = 2.2;
+        dctx.lineCap = "round";
+        dctx.lineJoin = "round";
+        dctx.stroke();
+        [lastX, lastY] = [x, y];
+        e.preventDefault();
+      }
+      function endDraw() { drawing = false; }
+
+      drawCanvas.addEventListener("mousedown", startDraw);
+      drawCanvas.addEventListener("mousemove", moveDraw);
+      drawCanvas.addEventListener("mouseup", endDraw);
+      drawCanvas.addEventListener("mouseleave", endDraw);
+      drawCanvas.addEventListener("touchstart", startDraw, { passive: false });
+      drawCanvas.addEventListener("touchmove",  moveDraw,  { passive: false });
+      drawCanvas.addEventListener("touchend",   endDraw);
+
+      document.getElementById("clearDraw").addEventListener("click", () => {
+        dctx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+      });
+
+      // ── Canvas de texto cursivo ──
+      const typeCanvas = document.getElementById("typeCanvas");
+      const tctx = typeCanvas.getContext("2d");
+
+      function renderCursivo() {
+        const nome = document.getElementById("nomeInput").value.trim();
+        tctx.clearRect(0, 0, typeCanvas.width, typeCanvas.height);
+        if (!nome) return;
+        const fontSize = Math.min(52, typeCanvas.width / (nome.length * 0.55 + 1));
+        tctx.font = fontSize + "px 'Dancing Script', cursive";
+        tctx.fillStyle = "#1a1f2e";
+        tctx.textAlign = "center";
+        tctx.textBaseline = "middle";
+        tctx.fillText(nome, typeCanvas.width / 2, typeCanvas.height / 2);
+      }
+
+      document.getElementById("nomeInput").addEventListener("input", () => {
+        if (modoAtual === "digitar") renderCursivo();
+      });
+      document.getElementById("clearType").addEventListener("click", () => {
+        document.getElementById("nomeInput").value = "";
+        tctx.clearRect(0, 0, typeCanvas.width, typeCanvas.height);
+      });
+
+      // ── Submit ──
+      document.getElementById("btnConfirmar").addEventListener("click", async () => {
+        const nome = document.getElementById("nomeInput").value.trim();
+        const erroEl = document.getElementById("erroMsg");
+        erroEl.style.display = "none";
+
+        if (!nome || nome.length < 3) {
+          erroEl.textContent = "Digite seu nome completo (mínimo 3 caracteres).";
+          erroEl.style.display = "";
+          return;
+        }
+
+        const canvas = modoAtual === "desenhar" ? drawCanvas : typeCanvas;
+        const pixels = canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height).data;
+        const vazio  = !pixels.some((v, i) => i % 4 === 3 && v > 0);
+        if (vazio && modoAtual === "desenhar") {
+          erroEl.textContent = "Por favor desenhe sua assinatura antes de confirmar.";
+          erroEl.style.display = "";
+          return;
+        }
+
+        if (modoAtual === "digitar") renderCursivo();
+        const img = canvas.toDataURL("image/png");
+
+        const btn = document.getElementById("btnConfirmar");
+        btn.disabled = true;
+        btn.textContent = "Enviando...";
+
+        try {
+          const resp = await fetch("/assinar/" + TOKEN, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ nome, img }),
+          });
+          const html = await resp.text();
+          document.open(); document.write(html); document.close();
+        } catch(e) {
+          erroEl.textContent = "Erro ao enviar. Tente novamente.";
+          erroEl.style.display = "";
+          btn.disabled = false;
+          btn.textContent = "Confirmar assinatura";
+        }
+      });
+    })();
+    </script>
   `);
 }
 
@@ -222,11 +404,12 @@ router.get("/:token/pdf", async (req, res) => {
   }
 });
 
-// POST /assinar/:token — confirma assinatura
-router.post("/:token", express.urlencoded({ extended: false }), async (req, res) => {
+// POST /assinar/:token — confirma assinatura (JSON: { nome, img })
+router.post("/:token", express.json({ limit: "2mb" }), async (req, res) => {
   try {
     const { token } = req.params;
     const nome = String(req.body?.nome || "").trim();
+    const img  = typeof req.body?.img === "string" && req.body.img.startsWith("data:image/") ? req.body.img : null;
 
     const r = await pool.query(
       `SELECT c.*, cond.nome AS condominio_nome
@@ -254,13 +437,13 @@ router.post("/:token", express.urlencoded({ extended: false }), async (req, res)
 
     if (ehCliente) {
       await pool.query(
-        `UPDATE contratos SET assinatura_cliente_nome = $1, assinatura_cliente_ip = $2, assinatura_cliente_em = NOW() WHERE id = $3`,
-        [nome, ip, ct.id]
+        `UPDATE contratos SET assinatura_cliente_nome = $1, assinatura_cliente_ip = $2, assinatura_cliente_em = NOW(), assinatura_cliente_img = $4 WHERE id = $3`,
+        [nome, ip, ct.id, img]
       );
     } else {
       await pool.query(
-        `UPDATE contratos SET assinatura_geral_nome = $1, assinatura_geral_ip = $2, assinatura_geral_em = NOW() WHERE id = $3`,
-        [nome, ip, ct.id]
+        `UPDATE contratos SET assinatura_geral_nome = $1, assinatura_geral_ip = $2, assinatura_geral_em = NOW(), assinatura_geral_img = $4 WHERE id = $3`,
+        [nome, ip, ct.id, img]
       );
     }
 
