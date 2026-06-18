@@ -55,7 +55,7 @@ function _shell(titulo, corpo) {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${_esc(titulo)} — General Bombas</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&display=swap" rel="stylesheet">
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
     body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f5;color:#111;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:24px 16px 48px}
@@ -255,13 +255,14 @@ function _paginaAssinatura({ ct, token, ehCliente, erro }) {
         tctx.clearRect(0, 0, typeCanvas.width, typeCanvas.height);
         if (!nome) return;
         const fontSize = Math.min(52, typeCanvas.width / (nome.length * 0.55 + 1));
-        tctx.font = fontSize + "px 'Dancing Script', cursive";
+        tctx.font = fontSize + "px 'Great Vibes', cursive";
         tctx.fillStyle = "#1a1f2e";
         tctx.textAlign = "center";
         tctx.textBaseline = "middle";
         tctx.fillText(nome, typeCanvas.width / 2, typeCanvas.height / 2);
       }
 
+      document.fonts.ready.then(() => { if (modoAtual === "digitar") renderCursivo(); });
       document.getElementById("nomeInput").addEventListener("input", () => {
         if (modoAtual === "digitar") renderCursivo();
       });
