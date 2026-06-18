@@ -462,7 +462,7 @@ function renderHTML(ct, timbrado) {
     ? `<div class="timbrado-bg"><img class="timbrado-img" src="${timbrado}" /></div>`
     : "";
 
-  const html = `<!doctype html>
+  return `<!doctype html>
 <html lang="pt-BR"><head>
 <meta charset="utf-8">
 <title>Contrato ${numero}</title>
@@ -609,10 +609,13 @@ body {
 .assinatura-nome { font-size: 10.5px; font-weight: bold; color: #1a1f2e; }
 .assinatura-papel { font-size: 9.5px; color: #4a5568; margin-top: 2px; }
 .data-local { margin-top: 40px; font-size: 10.5px; color: #4a5568; text-align: right; }
+.rubrica { position:fixed; bottom:5mm; right:7mm; font-family:'Great Vibes',cursive; font-size:22px; color:#1a1f2e; line-height:1; }
+.rubrica-cover { position:absolute; bottom:-40mm; right:-7mm; width:60mm; height:22mm; background:#fff; z-index:9999; }
 </style>
 </head>
 <body>
 
+${rubricaTexto ? `<div class="rubrica">${escHtml(rubricaTexto)}</div>` : ""}
 ${timbradoTag}
 
 <div class="doc-titulo">
@@ -685,16 +688,16 @@ ${clausulasComuns(ct)}
   </div>
 
   <div class="data-local">São Paulo, ${dataDoc}</div>
+  ${rubricaTexto ? `<div class="rubrica-cover"></div>` : ""}
 </div>
 
 </body></html>`;
-  return { html, rubricaTexto };
 }
 
 async function gerarPdfBuffer(contratoId) {
   const ct       = await buscarDados(contratoId);
   const timbrado = timbradoBase64();
-  const { html, rubricaTexto } = renderHTML(ct, timbrado);
+  const html     = renderHTML(ct, timbrado);
 
   const pc = "-webkit-print-color-adjust:exact;print-color-adjust:exact;";
 
@@ -713,27 +716,6 @@ async function gerarPdfBuffer(contratoId) {
   try {
     await page.setViewport({ width: 1200, height: 1600, deviceScaleFactor: 2 });
     await page.setContent(html, { waitUntil: "networkidle0", timeout: 30_000 });
-
-    // Injeta rubricas em posição absoluta — uma por página de conteúdo,
-    // excluindo a última página (assinaturas). Viewport 1200px → A4 210mm.
-    if (rubricaTexto) {
-      const SCALE      = 1200 / 210;                          // px por mm
-      const PAGE_H     = Math.round((297 - 42 - 40) * SCALE); // 215mm em px
-      const MARGIN_TOP = Math.round(42 * SCALE);
-      await page.evaluate(({ texto, pageH, marginTop }) => {
-        const sig    = document.querySelector(".assinaturas-page");
-        const sigTop = sig ? sig.offsetTop : Infinity;
-        let y = marginTop + pageH - 32;
-        while (y < sigTop - 60) {
-          const el = document.createElement("div");
-          el.textContent = texto;
-          el.style.cssText = `position:absolute;top:${y}px;right:30px;font-family:'Great Vibes',cursive;font-size:22px;color:#1a1f2e;line-height:1;`;
-          document.body.appendChild(el);
-          y += pageH;
-        }
-      }, { texto: rubricaTexto, pageH: PAGE_H, marginTop: MARGIN_TOP });
-    }
-
     const pdfBuf = await page.pdf({
       format: "A4",
       printBackground: true,
