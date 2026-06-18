@@ -141,10 +141,10 @@ function _paginaAssinatura({ ct, token, ehCliente, erro }) {
     <hr class="divider">
     ${erro ? `<div class="error-msg">${_esc(erro)}</div>` : ""}
 
-    <label>Seu nome completo</label>
+    <label>Seu nome completo <span style="color:#f87171;">*</span></label>
     <input class="sign-name-input" id="nomeInput" type="text" placeholder="${_esc(nome)}" autocomplete="name" />
 
-    <label>CPF ou RG</label>
+    <label>CPF ou RG <span style="color:#f87171;">*</span></label>
     <input class="sign-name-input" id="docInput" type="text" placeholder="000.000.000-00 ou RG" autocomplete="off" maxlength="30" style="margin-bottom:14px;" />
 
     <div class="sign-tabs">
@@ -324,6 +324,11 @@ function _paginaAssinatura({ ct, token, ehCliente, erro }) {
           erroEl.style.display = "";
           return;
         }
+        if (!doc || doc.length < 3) {
+          erroEl.textContent = "Digite seu CPF ou RG.";
+          erroEl.style.display = "";
+          return;
+        }
 
         const canvas = modoAtual === "desenhar" ? drawCanvas : typeCanvas;
         const pixels = canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height).data;
@@ -483,6 +488,9 @@ router.post("/:token", express.json({ limit: "2mb" }), async (req, res) => {
 
     if (!nome || nome.length < 3) {
       return res.send(_paginaAssinatura({ ct, token, ehCliente, erro: "Digite seu nome completo (mínimo 3 caracteres)." }));
+    }
+    if (!doc || doc.length < 3) {
+      return res.send(_paginaAssinatura({ ct, token, ehCliente, erro: "Digite seu CPF ou RG." }));
     }
 
     const jaAssinou = ehCliente ? !!ct.assinatura_cliente_em : !!ct.assinatura_geral_em;
