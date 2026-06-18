@@ -688,12 +688,13 @@ ${clausulasComuns(ct)}
 </div>
 
 </body></html>`;
+  return { html, rubricaTexto };
 }
 
 async function gerarPdfBuffer(contratoId) {
   const ct       = await buscarDados(contratoId);
   const timbrado = timbradoBase64();
-  const html     = renderHTML(ct, timbrado);
+  const { html, rubricaTexto } = renderHTML(ct, timbrado);
 
   const pc = "-webkit-print-color-adjust:exact;print-color-adjust:exact;";
 
