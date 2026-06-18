@@ -431,10 +431,6 @@ function renderHTML(ct, timbrado) {
   const docCliente = escHtml(ct.assinatura_cliente_doc || "");
   const docGeral   = escHtml(ct.assinatura_geral_doc   || "");
 
-  const _iniciais = nome => (nome || "").trim().split(/\s+/).filter(Boolean).map(p => p[0].toUpperCase()).join(".");
-  const iniciaisCliente = _iniciais(ct.assinatura_cliente_nome || ct.signatario_nome || "");
-  const rubricaTexto = [iniciaisCliente, "G.B."].filter(Boolean).join(" / ");
-
   const endParts = [ct.cliente_endereco, ct.cliente_bairro, ct.cliente_cidade, ct.cliente_cep ? `CEP: ${ct.cliente_cep}` : ""].filter(Boolean);
   const endStr   = endParts.join(", ");
 
@@ -466,12 +462,9 @@ function renderHTML(ct, timbrado) {
 <html lang="pt-BR"><head>
 <meta charset="utf-8">
 <title>Contrato ${numero}</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Great+Vibes&display=block" rel="stylesheet">
 <style>
 * { box-sizing:border-box; }
 html, body { margin:0; padding:0; }
-body { position:relative; }
 body {
   font-family: Arial, Helvetica, sans-serif;
   font-size: 11px;
@@ -609,13 +602,10 @@ body {
 .assinatura-nome { font-size: 10.5px; font-weight: bold; color: #1a1f2e; }
 .assinatura-papel { font-size: 9.5px; color: #4a5568; margin-top: 2px; }
 .data-local { margin-top: 40px; font-size: 10.5px; color: #4a5568; text-align: right; }
-.rubrica { position:fixed; bottom:5mm; right:7mm; font-family:'Great Vibes',cursive; font-size:22px; color:#1a1f2e; line-height:1; }
-.rubrica-cover { position:absolute; bottom:-40mm; right:-7mm; width:60mm; height:22mm; background:#fff; z-index:9999; }
 </style>
 </head>
 <body>
 
-${rubricaTexto ? `<div class="rubrica">${escHtml(rubricaTexto)}</div>` : ""}
 ${timbradoTag}
 
 <div class="doc-titulo">
@@ -688,7 +678,6 @@ ${clausulasComuns(ct)}
   </div>
 
   <div class="data-local">São Paulo, ${dataDoc}</div>
-  ${rubricaTexto ? `<div class="rubrica-cover"></div>` : ""}
 </div>
 
 </body></html>`;
@@ -715,7 +704,7 @@ async function gerarPdfBuffer(contratoId) {
   const page = await browser.newPage();
   try {
     await page.setViewport({ width: 1200, height: 1600, deviceScaleFactor: 2 });
-    await page.setContent(html, { waitUntil: "networkidle0", timeout: 30_000 });
+    await page.setContent(html, { waitUntil: "domcontentloaded", timeout: 30_000 });
     const pdfBuf = await page.pdf({
       format: "A4",
       printBackground: true,
