@@ -4290,6 +4290,7 @@ function _ctrAbrirModal({ condoId, contratoId }) {
   document.getElementById("ctrMsg").textContent = "";
   document.getElementById("ctrBtnSalvar").disabled = false;
   document.getElementById("ctrBtnEncerrar").style.display = contratoId ? "" : "none";
+  document.getElementById("ctrBtnExcluir").style.display = contratoId ? "" : "none";
   document.getElementById("ctrBtnPdf").style.display = "none";
   document.getElementById("ctrBtnEnviarAssinatura").style.display = "none";
   document.getElementById("ctrBtnAtualizarStatus").style.display = "none";
@@ -4536,6 +4537,16 @@ async function _ctrAtualizarStatus() {
   document.getElementById("ctrBtnCancelar")?.addEventListener("click", _ctrFecharModal);
   document.getElementById("ctrBtnSalvar")?.addEventListener("click", _ctrSalvar);
   document.getElementById("ctrBtnEncerrar")?.addEventListener("click", _ctrEncerrar);
+  document.getElementById("ctrBtnExcluir")?.addEventListener("click", async () => {
+    const id = Number(document.getElementById("ctrId").value);
+    if (!id || !confirm("Excluir permanentemente este contrato? Esta ação não pode ser desfeita.")) return;
+    const r = await fetch(`/contratos/${id}`, { method: "DELETE", headers: authHeaders() });
+    const d = await r.json();
+    if (!r.ok) { alert(d.error || "Erro ao excluir"); return; }
+    _ctrFecharModal();
+    _carregarContratosMetricas?.();
+    renderCliTabela?.();
+  });
   document.getElementById("ctrServicoTipo")?.addEventListener("change", function() {
     const showQtd = this.value === "bombas";
     document.getElementById("ctrQtdBombasWrap").style.display = showQtd ? "" : "none";
