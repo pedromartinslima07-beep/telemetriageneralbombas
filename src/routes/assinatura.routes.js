@@ -54,66 +54,67 @@ function _shell(titulo, corpo) {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${_esc(titulo)} — General Bombas</title>
+  <link rel="icon" type="image/png" href="/static/favicon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&display=swap" rel="stylesheet">
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f5;color:#111;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:24px 16px 48px}
-    .card{background:#fff;border-radius:14px;box-shadow:0 2px 16px rgba(0,0,0,.08);max-width:520px;width:100%;padding:32px 28px}
-    .logo{display:flex;align-items:center;gap:10px;margin-bottom:24px}
-    .logo-badge{width:40px;height:40px;border-radius:10px;background:#f0b014;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;color:#fff;flex-shrink:0}
-    .logo-name{font-size:15px;font-weight:700;color:#111;line-height:1.2}
-    .logo-sub{font-size:11px;color:#888;font-weight:400}
-    h1{font-size:20px;font-weight:700;margin-bottom:4px}
-    .sub{font-size:13px;color:#666;margin-bottom:24px}
-    .badge{display:inline-block;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:20px}
-    .badge.cliente{background:#e0f2fe;color:#0369a1}
-    .badge.geral{background:#f0b01422;color:#92400e}
+    body{font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;font-size:14px;color:#e1e3ef;background:#090b18;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:32px 16px 56px;-webkit-font-smoothing:antialiased}
+    body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(240,176,20,.07) 0%,transparent 60%),radial-gradient(ellipse at 80% 80%,rgba(74,120,247,.05) 0%,transparent 55%);pointer-events:none}
+    .card{position:relative;width:100%;max-width:520px;background:#111326;border:1px solid rgba(255,255,255,.07);border-radius:16px;padding:40px 36px 36px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+    .card::before{content:'';position:absolute;top:0;left:24px;right:24px;height:2px;background:linear-gradient(90deg,transparent,#f0b014 30%,#4a78f7 70%,transparent);border-radius:0 0 2px 2px}
+    .logo-wrap{display:flex;justify-content:center;margin-bottom:28px}
+    .logo-wrap img{height:56px;width:auto;display:block}
+    h1{font-size:19px;font-weight:700;color:#e1e3ef;margin-bottom:4px}
+    .sub{font-size:13px;color:#60617e;margin-bottom:20px}
+    .badge{display:inline-block;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:20px}
+    .badge.cliente{background:rgba(74,120,247,.15);color:#7ba4f7;border:1px solid rgba(74,120,247,.25)}
+    .badge.geral{background:rgba(240,176,20,.12);color:#f0b014;border:1px solid rgba(240,176,20,.25)}
     table.info{width:100%;border-collapse:collapse;margin-bottom:20px}
-    table.info td{padding:8px 0;font-size:13.5px;line-height:1.5;vertical-align:top}
-    table.info td:first-child{color:#888;width:130px;flex-shrink:0}
-    table.info td:last-child{font-weight:600}
-    .divider{border:none;border-top:1px solid #eee;margin:20px 0}
-    .pdf-btn{display:block;width:100%;padding:12px;border:1px solid #e5e7eb;border-radius:8px;text-align:center;font-size:14px;font-weight:500;color:#374151;text-decoration:none;background:#f9fafb;margin-bottom:20px;transition:background .15s}
-    .pdf-btn:hover{background:#f3f4f6}
-    label{display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:6px}
-    input[type=text]{width:100%;padding:11px 14px;border:1.5px solid #d1d5db;border-radius:8px;font-size:14px;outline:none;transition:border .15s}
-    input[type=text]:focus{border-color:#f0b014}
-    .hint{font-size:12px;color:#9ca3af;margin-top:6px;margin-bottom:16px}
-    .submit-btn{width:100%;padding:13px;background:#f0b014;border:none;border-radius:8px;font-size:15px;font-weight:700;color:#fff;cursor:pointer;transition:opacity .15s}
-    .submit-btn:hover{opacity:.9}
-    .submit-btn:disabled{opacity:.6;cursor:not-allowed}
-    .sign-tabs{display:flex;gap:0;margin-bottom:12px;border:1.5px solid #e5e7eb;border-radius:8px;overflow:hidden}
-    .sign-tab{flex:1;padding:9px;font-size:13px;font-weight:600;background:#f9fafb;border:none;cursor:pointer;color:#6b7280;transition:background .15s,color .15s}
-    .sign-tab.active{background:#fff;color:#111}
-    .sign-canvas-wrap{border:1.5px solid #d1d5db;border-radius:8px;background:#fafafa;position:relative;margin-bottom:8px;touch-action:none}
-    .sign-canvas-wrap canvas{display:block;width:100%;border-radius:6px;cursor:crosshair}
-    .sign-clear{font-size:12px;color:#9ca3af;background:none;border:none;cursor:pointer;padding:0;float:right;margin-bottom:4px}
-    .sign-clear:hover{color:#374151}
-    .sign-name-input{width:100%;padding:11px 14px;border:1.5px solid #d1d5db;border-radius:8px;font-size:14px;outline:none;transition:border .15s;margin-bottom:8px}
-    .sign-name-input:focus{border-color:#f0b014}
-    .success{text-align:center;padding:12px 0}
-    .success-icon{font-size:48px;margin-bottom:12px}
-    .success h2{font-size:20px;font-weight:700;margin-bottom:6px;color:#16a34a}
-    .success p{font-size:14px;color:#555;line-height:1.6}
-    .success .dados{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:14px;text-align:left;margin-top:16px;font-size:13px;color:#166534;line-height:1.8}
-    .error-msg{color:#dc2626;font-size:13px;margin-bottom:12px}
+    table.info td{padding:7px 0;font-size:13px;line-height:1.5;vertical-align:top;border-bottom:1px solid rgba(255,255,255,.04)}
+    table.info td:first-child{color:#60617e;width:120px}
+    table.info td:last-child{font-weight:600;color:#e1e3ef}
+    .divider{border:none;border-top:1px solid rgba(255,255,255,.06);margin:20px 0}
+    .pdf-btn{display:block;width:100%;padding:11px;border:1px solid rgba(255,255,255,.1);border-radius:9px;text-align:center;font-size:13.5px;font-weight:500;color:#9094ae;text-decoration:none;background:rgba(255,255,255,.03);margin-bottom:20px;transition:border-color .15s,color .15s}
+    .pdf-btn:hover{border-color:rgba(255,255,255,.2);color:#e1e3ef}
+    label{display:block;font-size:11px;font-weight:700;color:#60617e;text-transform:uppercase;letter-spacing:.45px;margin-bottom:6px}
+    .hint{font-size:12px;color:#44455a;margin-top:5px;margin-bottom:14px}
+    .submit-btn{width:100%;padding:12px;background:#f0b014;border:none;border-radius:9px;font-size:14px;font-weight:800;color:#111;cursor:pointer;transition:background .15s,transform .08s;font-family:inherit;letter-spacing:.2px}
+    .submit-btn:hover{background:#d9a010}
+    .submit-btn:active{transform:translateY(1px)}
+    .submit-btn:disabled{opacity:.5;cursor:not-allowed}
+    .sign-tabs{display:flex;margin-bottom:12px;border:1px solid rgba(255,255,255,.08);border-radius:9px;overflow:hidden}
+    .sign-tab{flex:1;padding:9px;font-size:13px;font-weight:600;background:transparent;border:none;cursor:pointer;color:#44455a;transition:background .15s,color .15s;font-family:inherit}
+    .sign-tab.active{background:rgba(255,255,255,.06);color:#e1e3ef}
+    .sign-canvas-wrap{border:1px solid rgba(255,255,255,.08);border-radius:9px;background:rgba(255,255,255,.03);position:relative;margin-bottom:8px;touch-action:none}
+    .sign-canvas-wrap canvas{display:block;width:100%;border-radius:8px;cursor:crosshair}
+    .sign-clear{font-size:12px;color:#44455a;background:none;border:none;cursor:pointer;padding:0;float:right;margin-bottom:4px;font-family:inherit}
+    .sign-clear:hover{color:#9094ae}
+    .sign-name-input{width:100%;padding:11px 14px;border:1px solid rgba(255,255,255,.08);border-radius:9px;font-size:14px;outline:none;transition:border-color .15s,box-shadow .15s;margin-bottom:10px;background:rgba(255,255,255,.04);color:#e1e3ef;font-family:inherit}
+    .sign-name-input::placeholder{color:#44455a}
+    .sign-name-input:focus{border-color:rgba(240,176,20,.5);box-shadow:0 0 0 3px rgba(240,176,20,.08)}
+    .success{text-align:center;padding:8px 0}
+    .success-icon{font-size:44px;margin-bottom:12px}
+    .success h2{font-size:19px;font-weight:700;margin-bottom:6px;color:#4ade80}
+    .success p{font-size:13px;color:#60617e;line-height:1.6}
+    .success .dados{background:rgba(74,222,128,.06);border:1px solid rgba(74,222,128,.2);border-radius:9px;padding:14px;text-align:left;margin-top:16px;font-size:13px;color:#86efac;line-height:1.9}
+    .error-msg{color:#f87171;font-size:13px;margin-bottom:12px;padding:10px 14px;border-radius:8px;background:rgba(240,68,56,.1);border:1px solid rgba(240,68,56,.2)}
     .already{text-align:center;padding:8px 0}
     .already-icon{font-size:40px;margin-bottom:10px}
-    .already h2{font-size:18px;font-weight:700;color:#16a34a;margin-bottom:6px}
-    .already p{font-size:13px;color:#555}
-    .footer{font-size:11px;color:#aaa;text-align:center;margin-top:24px}
+    .already h2{font-size:18px;font-weight:700;color:#4ade80;margin-bottom:6px}
+    .already p{font-size:13px;color:#60617e}
+    .already .dados{background:rgba(74,222,128,.06);border:1px solid rgba(74,222,128,.2);border-radius:9px;padding:14px;text-align:left;margin-top:16px;font-size:13px;color:#86efac;line-height:1.9}
+    .footer{font-size:11.5px;color:#44455a;text-align:center;margin-top:24px}
   </style>
 </head>
 <body>
   <div class="card">
-    <div class="logo">
-      <div class="logo-badge">G</div>
-      <div><div class="logo-name">General Bombas</div><div class="logo-sub">Contrato de prestação de serviços</div></div>
+    <div class="logo-wrap">
+      <img src="/static/login-logo.png" alt="General Bombas" />
     </div>
     ${corpo}
   </div>
-  <div class="footer">General Bombas © ${new Date().getFullYear()} — Este documento tem validade jurídica como assinatura eletrônica</div>
+  <div class="footer">General Bombas © ${new Date().getFullYear()} — Assinatura eletrônica com validade jurídica</div>
 </body>
 </html>`;
 }
@@ -214,7 +215,7 @@ function _paginaAssinatura({ ct, token, ehCliente, erro }) {
         [lastX, lastY] = pos(e, drawCanvas);
         dctx.beginPath();
         dctx.arc(lastX, lastY, 1.2, 0, Math.PI * 2);
-        dctx.fillStyle = "#1a1f2e";
+        dctx.fillStyle = "#e1e3ef";
         dctx.fill();
         e.preventDefault();
       }
@@ -224,7 +225,7 @@ function _paginaAssinatura({ ct, token, ehCliente, erro }) {
         dctx.beginPath();
         dctx.moveTo(lastX, lastY);
         dctx.lineTo(x, y);
-        dctx.strokeStyle = "#1a1f2e";
+        dctx.strokeStyle = "#e1e3ef";
         dctx.lineWidth = 2.2;
         dctx.lineCap = "round";
         dctx.lineJoin = "round";
@@ -256,7 +257,7 @@ function _paginaAssinatura({ ct, token, ehCliente, erro }) {
         if (!nome) return;
         const fontSize = Math.min(68, typeCanvas.width / (nome.length * 0.45 + 1));
         tctx.font = fontSize + "px 'Great Vibes', cursive";
-        tctx.fillStyle = "#1a1f2e";
+        tctx.fillStyle = "#e1e3ef";
         tctx.textAlign = "center";
         tctx.textBaseline = "alphabetic";
         tctx.fillText(nome, typeCanvas.width / 2, typeCanvas.height - 4);
