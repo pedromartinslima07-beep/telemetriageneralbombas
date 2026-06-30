@@ -13343,55 +13343,49 @@ async function _pmAbrirModal(plano) {
 
   const body = document.getElementById("pmModalBody");
   body.innerHTML = `
-    <div style="display:flex;flex-direction:column;gap:10px;">
+    <div style="display:flex;flex-direction:column;gap:12px;">
 
-      <!-- Seção: informações -->
-      <div style="background:rgba(0,0,0,.2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;">
-        <div style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:10px;">Informações do plano</div>
-        <div style="display:flex;flex-direction:column;gap:10px;">
-          <div class="field">
-            <span class="lbl">Condomínio</span>
-            <select id="pmFCondo" class="input">
-              <option value="">— escolha —</option>
-              ${condoOpts}
-            </select>
-          </div>
-          <div class="field">
-            <span class="lbl">Título do plano</span>
-            <input id="pmFTitulo" class="input" type="text" maxlength="255" placeholder="Ex: Limpeza de caixa d'água" value="${_waEscaparHtml(plano?.titulo || "")}">
-          </div>
-          <div class="field">
-            <span class="lbl">Descrição (opcional)</span>
-            <textarea id="pmFDescricao" class="input" rows="2" maxlength="2000" placeholder="Detalhes do serviço a executar" style="resize:vertical;">${_waEscaparHtml(plano?.descricao || "")}</textarea>
-          </div>
+      <div class="field">
+        <span class="lbl">Condomínio</span>
+        <select id="pmFCondo" class="input">
+          <option value="">— escolha —</option>
+          ${condoOpts}
+        </select>
+      </div>
+
+      <div class="field">
+        <span class="lbl">Título</span>
+        <input id="pmFTitulo" class="input" type="text" maxlength="255" placeholder="Ex: Limpeza de caixa d'água" value="${_waEscaparHtml(plano?.titulo || "")}">
+      </div>
+
+      <div class="field">
+        <span class="lbl">Descrição <span style="color:var(--muted);font-weight:400;">(opcional)</span></span>
+        <textarea id="pmFDescricao" class="input" rows="2" maxlength="2000" placeholder="Detalhes do serviço a executar" style="resize:vertical;">${_waEscaparHtml(plano?.descricao || "")}</textarea>
+      </div>
+
+      <div style="border-top:1px solid var(--border);margin:2px 0;"></div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div class="field">
+          <span class="lbl">Periodicidade</span>
+          <select id="pmFPeriodPreset" class="input">${periodOpts}</select>
+        </div>
+        <div class="field" id="pmFPeriodCustomLabel" style="${periodCustom ? "" : "display:none;"}">
+          <span class="lbl">Qtd. dias</span>
+          <input id="pmFPeriodDias" class="input" type="number" min="1" max="3650" value="${periodAtual}">
+        </div>
+        <div class="field" style="${periodCustom ? "" : "grid-column:2/3;"}">
+          <span class="lbl">Próxima execução</span>
+          <input id="pmFProxima" class="input" type="date" value="${proxVal}">
         </div>
       </div>
 
-      <!-- Seção: periodicidade -->
-      <div style="background:rgba(0,0,0,.2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;">
-        <div style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:10px;">Periodicidade e agendamento</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-          <div class="field">
-            <span class="lbl">Periodicidade</span>
-            <select id="pmFPeriodPreset" class="input">${periodOpts}</select>
-          </div>
-          <div class="field" id="pmFPeriodCustomLabel" style="${periodCustom ? "" : "display:none;"}">
-            <span class="lbl">Dias</span>
-            <input id="pmFPeriodDias" class="input" type="number" min="1" max="3650" value="${periodAtual}">
-          </div>
-          <div class="field" style="grid-column:1/-1;">
-            <span class="lbl">Próxima execução</span>
-            <input id="pmFProxima" class="input" type="date" value="${proxVal}">
-          </div>
-          ${isEdit ? `<div class="field" style="grid-column:1/-1;">
-            <label style="display:flex;gap:8px;align-items:center;cursor:pointer;font-size:12px;color:var(--text-dim);">
-              <input id="pmFAtivo" type="checkbox" ${plano.ativo ? "checked" : ""}> Plano ativo
-            </label>
-          </div>` : ""}
-        </div>
-      </div>
+      ${isEdit ? `
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;color:var(--muted);">
+        <input id="pmFAtivo" type="checkbox" ${plano.ativo ? "checked" : ""}> Plano ativo
+      </label>` : ""}
 
-      <div id="pmFErr" style="font-size:11px;color:var(--danger);min-height:14px;padding:0 2px;"></div>
+      <div id="pmFErr" style="font-size:11px;color:var(--danger);min-height:14px;"></div>
     </div>
   `;
 
