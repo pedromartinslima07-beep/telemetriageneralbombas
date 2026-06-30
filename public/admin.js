@@ -13495,33 +13495,19 @@ function _pmRenderZonas(tecs) {
   ).join("");
 
   wrap.innerHTML = `
-    <table style="width:100%;border-collapse:collapse;">
-      <thead>
-        <tr>
-          <th style="text-align:left;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;padding:0 0 10px;border-bottom:1px solid var(--border);">Zona</th>
-          <th style="text-align:left;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;padding:0 0 10px 12px;border-bottom:1px solid var(--border);">Técnico responsável</th>
-          <th style="width:56px;border-bottom:1px solid var(--border);"></th>
-        </tr>
-      </thead>
-      <tbody>
-        ${_pmZonasCache.map(z => {
-          const esc = _waEscaparHtml(z.zona);
-          return `
-          <tr data-pm-zona-row="${esc}" style="border-bottom:1px solid var(--border);">
-            <td style="padding:9px 12px 9px 0;font-size:13px;font-weight:600;white-space:nowrap;vertical-align:middle;">${esc}</td>
-            <td style="padding:7px 12px;vertical-align:middle;">
-              <select class="input" style="font-size:12px;width:100%;max-width:320px;" data-pm-zona="${esc}">
-                <option value="">— Sem responsável —</option>
-                ${tecOpts}
-              </select>
-            </td>
-            <td style="padding:7px 0;vertical-align:middle;text-align:right;">
-              <span data-pm-zona-feedback="${esc}" style="font-size:11px;color:var(--muted);"></span>
-            </td>
-          </tr>`;
-        }).join("")}
-      </tbody>
-    </table>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:6px 20px;">
+      ${_pmZonasCache.map(z => {
+        const esc = _waEscaparHtml(z.zona);
+        return `
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;min-width:80px;">${esc}</span>
+          <select class="input" style="font-size:12px;flex:1;" data-pm-zona="${esc}">
+            <option value="">— sem responsável —</option>
+            ${tecOpts}
+          </select>
+        </div>`;
+      }).join("")}
+    </div>
   `;
 
   // Pré-seleciona o técnico atual em cada select
@@ -13537,7 +13523,6 @@ function _pmRenderZonas(tecs) {
       const tecnicoId = sel.value ? Number(sel.value) : null;
       const fb = wrap.querySelector(`[data-pm-zona-feedback="${zona}"]`);
       sel.disabled = true;
-      if (fb) { fb.textContent = "Salvando…"; fb.style.color = "var(--muted)"; }
       try {
         const r = await fetch(
           `/planos-manutencao/zonas-responsaveis/${encodeURIComponent(zona)}`,
@@ -13545,16 +13530,11 @@ function _pmRenderZonas(tecs) {
             body: JSON.stringify({ tecnico_id: tecnicoId }) }
         );
         if (!r.ok) throw new Error("Erro ao salvar");
-        if (fb) {
-          fb.textContent = "Salvo ✓";
-          fb.style.color = "var(--ok)";
-          setTimeout(() => { if (fb) { fb.textContent = ""; } }, 2000);
-        }
         _pmZonasCache = null;
         _pmTecnicosCache = null;
         await _pmCarregarZonas();
       } catch (e) {
-        if (fb) { fb.textContent = "Erro"; fb.style.color = "var(--danger)"; }
+        alert("Erro ao salvar responsável da zona");
       } finally {
         sel.disabled = false;
       }
