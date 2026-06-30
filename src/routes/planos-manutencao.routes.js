@@ -82,7 +82,8 @@ router.get("/", authRequired, masterAdminOnly, async (req, res) => {
       `SELECT pm.id, pm.condominio_id, pm.titulo, pm.descricao,
               pm.periodicidade_dias, pm.proxima_em, pm.ultima_em,
               pm.ativo, pm.criado_em,
-              c.nome AS condominio_nome
+              COALESCE(NULLIF(c.nome_fantasia,''), c.nome) AS condominio_nome,
+              c.zona AS condominio_zona
        FROM planos_manutencao pm
        LEFT JOIN condominios c ON c.id = pm.condominio_id
        ${whereSql}
@@ -209,6 +210,65 @@ router.post("/:id/executar-agora", authRequired, masterAdminOnly, async (req, re
     if (err.status) return res.status(err.status).json({ error: err.message });
     console.error("[planos-manutencao] POST /:id/executar-agora:", err);
     return res.status(500).json({ error: "Erro ao executar plano" });
+  }
+});
+
+// ─── Responsáveis por zona ───────────────────────────────────────────────────
+
+// GET /planos-manutencao/zonas-responsaveis
+// Lista todas as zonas distintas dos condomínios ativos + técnico atribuído (se houver)
+router.get("/zonas-responsaveis", authRequired, masterAdminOnly, async (req, res) => {
+  try {
+    const r = await pool.query(
+      `SELECT DISTINCT c.zona
+       FROM condominios c
+       WHERE c.ativo = TRUE AND c.zona IS NOT NULL AND c.zona <> ''
+       ORDER BY c.zona ASC`
+    );
+    const zonas = r.rows.map(row => row.zona);
+
+    const resp = await pool.query(
+      `SELECT pzr.zona, pzr.tecnico_id, t.nome AS tecnico_nome
+       FROM planos_zona_responsavel pzr
+       LEFT JOIN tecnicos t ON t.id = pzr.tecnico_id`
+    );
+    const mapaResp = {};
+    for (const row of resp.rows) mapaResp[row.zona] = row;
+
+    return res.json(zonas.map(zona => ({
+      zona,
+      tecnico_id:   mapaResp[zona]?.tecnico_id   ?? null,
+      tecnico_nome: mapaResp[zona]?.tecnico_nome  ?? null,
+    })));
+  } catch (err) {
+    console.error("[planos-manutencao] GET /zonas-responsaveis:", err);
+    return res.status(500).json({ error: "Erro ao listar zonas" });
+  }
+});
+
+// PUT /planos-manutencao/zonas-responsaveis/:zona
+// Define ou remove o técnico responsável de uma zona
+router.put("/zonas-responsaveis/:zona", authRequired, masterAdminOnly, async (req, res) => {
+  const zona = req.params.zona.trim();
+  if (!zona) return res.status(400).json({ error: "zona inválida" });
+
+  const tecnicoId = req.body?.tecnico_id ? Number(req.body.tecnico_id) : null;
+
+  try {
+    if (tecnicoId === null) {
+      await pool.query(`DELETE FROM planos_zona_responsavel WHERE zona = $1`, [zona]);
+    } else {
+      await pool.query(
+        `INSERT INTO planos_zona_responsavel (zona, tecnico_id, atualizado_em)
+         VALUES ($1, $2, NOW())
+         ON CONFLICT (zona) DO UPDATE SET tecnico_id = $2, atualizado_em = NOW()`,
+        [zona, tecnicoId]
+      );
+    }
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("[planos-manutencao] PUT /zonas-responsaveis/:zona:", err);
+    return res.status(500).json({ error: "Erro ao salvar responsável da zona" });
   }
 });
 

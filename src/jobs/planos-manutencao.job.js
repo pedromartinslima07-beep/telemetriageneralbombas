@@ -28,10 +28,12 @@ async function executarPlano(planoId) {
     await client.query("BEGIN");
 
     const planoRes = await client.query(
-      `SELECT id, condominio_id, titulo, descricao, periodicidade_dias, proxima_em
-       FROM planos_manutencao
-       WHERE id = $1 AND ativo = TRUE
-       FOR UPDATE`,
+      `SELECT pm.id, pm.condominio_id, pm.titulo, pm.descricao, pm.periodicidade_dias, pm.proxima_em,
+              c.zona AS condominio_zona
+       FROM planos_manutencao pm
+       JOIN condominios c ON c.id = pm.condominio_id
+       WHERE pm.id = $1 AND pm.ativo = TRUE
+       FOR UPDATE OF pm`,
       [planoId]
     );
     if (!planoRes.rows.length) {
@@ -63,12 +65,22 @@ async function executarPlano(planoId) {
       `Gerado automaticamente pelo plano de manutenção #${planoId}.`,
     ].filter(Boolean).join("\n\n");
 
+    // Busca técnico responsável pela zona do condomínio (se houver)
+    let tecnicoId = null;
+    if (plano.condominio_zona) {
+      const zr = await client.query(
+        `SELECT tecnico_id FROM planos_zona_responsavel WHERE zona = $1 LIMIT 1`,
+        [plano.condominio_zona]
+      );
+      if (zr.rows.length && zr.rows[0].tecnico_id) tecnicoId = zr.rows[0].tecnico_id;
+    }
+
     const chamadoRes = await client.query(
       `INSERT INTO chamados
-         (condominio_id, titulo, descricao, prioridade, categoria, status, plano_manutencao_id)
-       VALUES ($1, $2, $3, 'p4', 'manutencao', 'aberto', $4)
+         (condominio_id, titulo, descricao, prioridade, categoria, status, plano_manutencao_id, tecnico_id)
+       VALUES ($1, $2, $3, 'p4', 'manutencao', 'aberto', $4, $5)
        RETURNING id`,
-      [plano.condominio_id, plano.titulo, descricao, planoId]
+      [plano.condominio_id, plano.titulo, descricao, planoId, tecnicoId]
     );
 
     await registrarCriacao({

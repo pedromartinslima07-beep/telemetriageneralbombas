@@ -45,7 +45,7 @@ router.post("/", authRequired, masterAdminOnly, async (req, res) => {
   const {
     nome, nome_fantasia, cnpj, email, endereco, bairro, cidade, uf, cep,
     responsavel, telefone, observacoes, ativo,
-    lat, lng,
+    lat, lng, zona,
   } = req.body || {};
 
   const cnpjNorm = cnpj ? String(cnpj).replace(/\D/g, "").slice(0, 14) || null : null;
@@ -72,12 +72,12 @@ router.post("/", authRequired, masterAdminOnly, async (req, res) => {
   try {
     const result = await pool.query(
       `INSERT INTO condominios
-        (nome, nome_fantasia, cnpj, email, endereco, bairro, cidade, uf, cep, responsavel, telefone, observacoes, ativo, lat, lng)
+        (nome, nome_fantasia, cnpj, email, endereco, bairro, cidade, uf, cep, responsavel, telefone, observacoes, ativo, lat, lng, zona)
        VALUES
-        ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+        ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
        RETURNING
         id, nome, nome_fantasia, cnpj, email, endereco, bairro, cidade, uf, cep,
-        responsavel, telefone, observacoes, ativo, lat, lng, criado_em`,
+        responsavel, telefone, observacoes, ativo, lat, lng, zona, criado_em`,
       [
         nomeNorm,
         nome_fantasia ? String(nome_fantasia).trim() || null : null,
@@ -94,6 +94,7 @@ router.post("/", authRequired, masterAdminOnly, async (req, res) => {
         ativoNorm,
         latNorm,
         lngNorm,
+        zona ? String(zona).trim() || null : null,
       ]
     );
 
@@ -110,7 +111,7 @@ router.get("/", authRequired, adminOnly, async (req, res) => {
     const result = await pool.query(`
       SELECT
         c.id, c.nome, c.nome_fantasia, c.cnpj, c.email, c.endereco, c.bairro, c.cidade, c.uf, c.cep,
-        c.responsavel, c.telefone, c.observacoes, c.ativo, c.lat, c.lng, c.criado_em,
+        c.responsavel, c.telefone, c.observacoes, c.ativo, c.lat, c.lng, c.zona, c.criado_em,
         COUNT(r.id)::int AS total_reservatorios
       FROM condominios c
       LEFT JOIN reservatorios r ON r.condominio_id = c.id
@@ -135,7 +136,7 @@ router.get("/:id", authRequired, adminOnly, async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT id, nome, nome_fantasia, cnpj, email, endereco, bairro, cidade, uf, cep,
-             responsavel, telefone, observacoes, ativo, lat, lng, criado_em
+             responsavel, telefone, observacoes, ativo, lat, lng, zona, criado_em
       FROM condominios
       WHERE id = $1
       LIMIT 1
@@ -215,6 +216,7 @@ router.patch("/:id", authRequired, masterAdminOnly, async (req, res) => {
     if (lngNorm === undefined) return res.status(400).json({ error: "lng inválida (-180 a 180)" });
     add("lng", lngNorm);
   }
+  add("zona", "zona" in b ? (b.zona ? String(b.zona).trim() || null : null) : undefined);
 
   if (sets.length === 0) {
     return res.status(400).json({ error: "Nenhum campo para atualizar" });
@@ -224,7 +226,7 @@ router.patch("/:id", authRequired, masterAdminOnly, async (req, res) => {
     const result = await pool.query(
       `UPDATE condominios SET ${sets.join(", ")} WHERE id = $1
        RETURNING id, nome, nome_fantasia, cnpj, email, endereco, bairro, cidade, uf, cep,
-                 responsavel, telefone, observacoes, ativo, lat, lng, criado_em`,
+                 responsavel, telefone, observacoes, ativo, lat, lng, zona, criado_em`,
       values
     );
 

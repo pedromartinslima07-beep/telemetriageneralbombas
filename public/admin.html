@@ -589,6 +589,10 @@
                   <span class="lbl">Observações</span>
                   <input id="novoObs" class="input" placeholder="Informações adicionais…" />
                 </div>
+                <div class="field">
+                  <span class="lbl">Zona de atendimento</span>
+                  <input id="novoZona" class="input" placeholder="Ex: Zona Sul, Osasco, Guarulhos…" />
+                </div>
                 <label class="check-field col-2">
                   <input type="checkbox" id="novoAtivo" checked />
                   Ativo
@@ -1339,6 +1343,24 @@
       <div class="section" data-section="planos">
         <div class="resumo-grid" id="pmKpiGrid" style="margin-bottom:16px;"></div>
 
+        <!-- Painel: responsáveis por zona -->
+        <section class="card al-card" style="margin-bottom:14px;">
+          <div class="cardHead al-head">
+            <h2>
+              <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                <circle cx="9" cy="7" r="4"/>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+              </svg>
+              Responsáveis por zona
+            </h2>
+          </div>
+          <div id="pmZonasWrap" style="padding:12px 16px;">
+            <p style="color:var(--muted);font-size:12px;">Carregando…</p>
+          </div>
+        </section>
+
         <section class="card al-card">
           <div class="cardHead al-head">
             <h2>
@@ -1375,6 +1397,7 @@
                 <thead>
                   <tr>
                     <th>Condomínio</th>
+                    <th style="width:110px">Zona</th>
                     <th>Plano</th>
                     <th style="width:120px">Periodicidade</th>
                     <th style="width:110px">Última</th>
@@ -2423,6 +2446,7 @@
         <label class="f"><span>Telefone</span><input id="editTelefone" /></label>
         <label class="f"><span>E-mail <span style="font-weight:400;color:var(--muted);">— orçamentos (separe vários por vírgula)</span></span><input id="editEmail" type="text" placeholder="contato@condominio.com.br, sindico@condominio.com.br" /></label>
         <label class="f" style="grid-column:1/-1;"><span>Observações</span><input id="editObs" /></label>
+        <label class="f"><span>Zona de atendimento</span><input id="editZona" placeholder="Ex: Zona Sul, Osasco, Guarulhos…" /></label>
         <label class="fCheck" style="grid-column:1/-1;">
           <input type="checkbox" id="editAtivo" />
           <span>Ativo</span>
@@ -2803,7 +2827,7 @@
 </div>
 
 
-<script src="/static/admin.js?v=191" defer></script>
+<script src="/static/admin.js?v=192" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
 <script src="/static/register-sw.js?v=27" defer></script>
 </body>

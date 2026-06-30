@@ -128,6 +128,7 @@ function showSection(name) {
   if (name === "planos") {
     _pmBindEventos();
     carregarPlanos();
+    _pmCarregarZonas();
   }
   if (name === "orcamentos") {
     _orcModoBindEventos();
@@ -388,6 +389,7 @@ async function criarCondominio() {
   const responsavel = (document.getElementById("novoResponsavel")?.value || "").trim();
   const telefone = (document.getElementById("novoTelefone")?.value || "").trim();
   const observacoes = (document.getElementById("novoObs")?.value || "").trim();
+  const zona = (document.getElementById("novoZona")?.value || "").trim() || null;
   const ativo = document.getElementById("novoAtivo") ? !!document.getElementById("novoAtivo").checked : true;
 
   const msg = document.getElementById("msgCadastro");
@@ -413,6 +415,7 @@ async function criarCondominio() {
     responsavel: responsavel || null,
     telefone: telefone || null,
     observacoes: observacoes || null,
+    zona,
     ativo,
     lat,
     lng,
@@ -442,6 +445,7 @@ async function criarCondominio() {
   if (document.getElementById("novoResponsavel")) document.getElementById("novoResponsavel").value = "";
   if (document.getElementById("novoTelefone")) document.getElementById("novoTelefone").value = "";
   if (document.getElementById("novoObs")) document.getElementById("novoObs").value = "";
+  if (document.getElementById("novoZona")) document.getElementById("novoZona").value = "";
   if (document.getElementById("novoAtivo")) document.getElementById("novoAtivo").checked = true;
   if (document.getElementById("novoLat")) document.getElementById("novoLat").value = "";
   if (document.getElementById("novoLng")) document.getElementById("novoLng").value = "";
@@ -6444,6 +6448,8 @@ function abrirModalEditar(id) {
       document.getElementById("editTelefone").value = c.telefone || "";
       document.getElementById("editEmail").value = c.email || "";
       document.getElementById("editObs").value = c.observacoes || "";
+      const editZonaEl = document.getElementById("editZona");
+      if (editZonaEl) editZonaEl.value = c.zona || "";
 
       document.getElementById("editAtivo").checked = (c.ativo !== false);
 
@@ -6523,6 +6529,7 @@ async function salvarEdicao(event) {
     telefone: _valOrNull("editTelefone"),
     email: (document.getElementById("editEmail")?.value || "").trim().toLowerCase() || null,
     observacoes: _valOrNull("editObs"),
+    zona: _valOrNull("editZona"),
     ativo: document.getElementById("editAtivo").checked,
     lat: latRaw === "" ? null : Number(latRaw),
     lng: lngRaw === "" ? null : Number(lngRaw),
@@ -13262,8 +13269,10 @@ function _pmRenderTudo() {
 
   tbody.innerHTML = lista.map(p => {
     const st = _pmStatus(p);
+    const zona = p.condominio_zona || "—";
     return `<tr data-pm-id="${p.id}">
       <td>${_waEscaparHtml(p.condominio_nome || "—")}</td>
+      <td style="color:var(--muted);font-size:11.5px;">${_waEscaparHtml(zona)}</td>
       <td>${_waEscaparHtml(p.titulo || "—")}</td>
       <td style="color:var(--muted);font-size:11.5px;">${_pmPeriodLabel(p.periodicidade_dias)}</td>
       <td style="color:var(--muted);font-size:11.5px;">${_pmFmtData(p.ultima_em)}</td>
@@ -13443,6 +13452,93 @@ async function _pmAcao(acao, id) {
     } catch (e) { alert(e.message); }
     return;
   }
+}
+
+// ─── Painel de responsáveis por zona ─────────────────────────────────────────
+
+let _pmZonasCache = null; // { zona, tecnico_id, tecnico_nome }[]
+let _pmTecnicosCache = null;
+
+async function _pmCarregarTecnicos() {
+  if (_pmTecnicosCache) return _pmTecnicosCache;
+  try {
+    const r = await fetch("/tecnicos", { headers: authHeaders() });
+    _pmTecnicosCache = r.ok ? await r.json() : [];
+  } catch { _pmTecnicosCache = []; }
+  return _pmTecnicosCache;
+}
+
+async function _pmCarregarZonas() {
+  try {
+    const [rz, tecs] = await Promise.all([
+      fetch("/planos-manutencao/zonas-responsaveis", { headers: authHeaders() }),
+      _pmCarregarTecnicos(),
+    ]);
+    _pmZonasCache = rz.ok ? await rz.json() : [];
+    _pmRenderZonas(tecs);
+  } catch (e) {
+    console.error("_pmCarregarZonas:", e);
+  }
+}
+
+function _pmRenderZonas(tecs) {
+  const wrap = document.getElementById("pmZonasWrap");
+  if (!wrap) return;
+
+  if (!_pmZonasCache || !_pmZonasCache.length) {
+    wrap.innerHTML = `<p style="color:var(--muted);font-size:12px;">Nenhuma zona cadastrada. Defina a zona nos condomínios para usar este painel.</p>`;
+    return;
+  }
+
+  const tecOpts = (tecs || []).map(t =>
+    `<option value="${t.id}">${_waEscaparHtml(t.nome)}</option>`
+  ).join("");
+
+  wrap.innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px;">
+      ${_pmZonasCache.map(z => `
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 14px;display:flex;flex-direction:column;gap:8px;">
+          <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);">${_waEscaparHtml(z.zona)}</div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <select class="input" style="flex:1;font-size:12px;" data-pm-zona="${_waEscaparHtml(z.zona)}">
+              <option value="">— Sem responsável —</option>
+              ${tecOpts}
+            </select>
+            <button class="btn btn-sm btnAccent" data-pm-zona-salvar="${_waEscaparHtml(z.zona)}" style="flex-shrink:0;">Salvar</button>
+          </div>
+          ${z.tecnico_nome ? `<div style="font-size:11px;color:var(--ok);">Atual: ${_waEscaparHtml(z.tecnico_nome)}</div>` : `<div style="font-size:11px;color:var(--muted2);">Sem responsável definido</div>`}
+        </div>
+      `).join("")}
+    </div>
+  `;
+
+  // Pré-seleciona o técnico atual em cada select
+  _pmZonasCache.forEach(z => {
+    const sel = wrap.querySelector(`select[data-pm-zona="${z.zona}"]`);
+    if (sel && z.tecnico_id) sel.value = String(z.tecnico_id);
+  });
+
+  // Bind dos botões salvar
+  wrap.querySelectorAll("[data-pm-zona-salvar]").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const zona = btn.dataset.pmZonaSalvar;
+      const sel  = wrap.querySelector(`select[data-pm-zona="${zona}"]`);
+      const tecnicoId = sel?.value ? Number(sel.value) : null;
+      btn.disabled = true;
+      try {
+        const r = await fetch(
+          `/planos-manutencao/zonas-responsaveis/${encodeURIComponent(zona)}`,
+          { method: "PUT", headers: { ...authHeaders(), "Content-Type": "application/json" },
+            body: JSON.stringify({ tecnico_id: tecnicoId }) }
+        );
+        if (!r.ok) { alert("Erro ao salvar"); return; }
+        _pmTecnicosCache = null;
+        _pmZonasCache = null;
+        await _pmCarregarZonas();
+      } catch (e) { alert(e.message); }
+      finally { btn.disabled = false; }
+    });
+  });
 }
 
 function _pmBindEventos() {
