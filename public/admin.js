@@ -10544,12 +10544,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function _onToggle() {
     const next = !_sidebar.classList.contains("collapsed");
-    _sidebar.classList.add("is-animating");
     _applySidebar(next);
     localStorage.setItem("sidebarCollapsed", next);
-    const done = () => { _sidebar.classList.remove("is-animating"); };
-    _sidebar.addEventListener("transitionend", done, { once: true });
-    setTimeout(done, 200); // fallback caso transitionend não dispare
   }
 
   document.getElementById("btnSidebarToggleIn")?.addEventListener("click", _onToggle);
