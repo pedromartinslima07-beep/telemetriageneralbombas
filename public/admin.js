@@ -13267,12 +13267,31 @@ function _pmRenderTudo() {
   }
   if (empty) empty.style.display = "none";
 
-  tbody.innerHTML = lista.map(p => {
+  // Agrupa por zona mantendo a ordem de inserção (zonas sem nome ficam no final)
+  const grupos = new Map();
+  for (const p of lista) {
+    const z = p.condominio_zona || "Sem zona";
+    if (!grupos.has(z)) grupos.set(z, []);
+    grupos.get(z).push(p);
+  }
+  // Zona "Sem zona" sempre por último
+  const zonasOrdenadas = [...grupos.keys()].sort((a, b) => {
+    if (a === "Sem zona") return 1;
+    if (b === "Sem zona") return -1;
+    return a.localeCompare(b, "pt");
+  });
+
+  const linhaZona = zona => `
+    <tr>
+      <td colspan="7" style="padding:14px 8px 4px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);border-top:2px solid var(--border);">
+        ${_waEscaparHtml(zona)}
+      </td>
+    </tr>`;
+
+  const linhaPlano = p => {
     const st = _pmStatus(p);
-    const zona = p.condominio_zona || "—";
     return `<tr data-pm-id="${p.id}">
       <td>${_waEscaparHtml(p.condominio_nome || "—")}</td>
-      <td style="color:var(--muted);font-size:11.5px;">${_waEscaparHtml(zona)}</td>
       <td>${_waEscaparHtml(p.titulo || "—")}</td>
       <td style="color:var(--muted);font-size:11.5px;">${_pmPeriodLabel(p.periodicidade_dias)}</td>
       <td style="color:var(--muted);font-size:11.5px;">${_pmFmtData(p.ultima_em)}</td>
@@ -13284,7 +13303,11 @@ function _pmRenderTudo() {
         <button class="btn btn-sm viewer-only-hide" data-pm-action="excluir"  data-pm-id="${p.id}" title="Desativar"               style="font-size:10.5px;padding:3px 8px;color:var(--danger);">×</button>
       </td>
     </tr>`;
-  }).join("");
+  };
+
+  tbody.innerHTML = zonasOrdenadas
+    .flatMap(z => [linhaZona(z), ...grupos.get(z).map(linhaPlano)])
+    .join("");
 }
 
 function _pmAtualizarBadge() {
