@@ -67,12 +67,23 @@ function normalizar(s) {
     .toLowerCase().trim().replace(/\s+/g, " ");
 }
 
+const SP_VARIANTES = ["sao paulo", "são paulo", "s. paulo", "s.paulo", "sp"];
+
+function ehSaoPaulo(cidade) {
+  return SP_VARIANTES.includes(normalizar(cidade));
+}
+
 function zonaPara(c) {
-  // 1) Bairro no mapa
+  // 1) Bairro no mapa (só aplica se for SP)
   const bairroNorm = normalizar(c.bairro);
   if (bairroNorm && BAIRROS_ZONA[bairroNorm]) return BAIRROS_ZONA[bairroNorm];
 
-  // 2) Fallback geográfico por lat/lng
+  // 2) Cidade fora de SP → usa o nome da cidade como zona (Title Case)
+  if (c.cidade && !ehSaoPaulo(c.cidade)) {
+    return c.cidade.trim().toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
+  }
+
+  // 3) Fallback geográfico por lat/lng (SP com bairro desconhecido)
   if (c.lat == null || c.lng == null) return null; // sem coordenada → não preenche
   const dLat = Number(c.lat) - SE.lat;
   const dLng = Number(c.lng) - SE.lng;
@@ -87,13 +98,12 @@ async function main() {
   console.log(DRY_RUN ? "🔍 DRY RUN — nenhuma alteração será feita\n" : "✏️  Modo real — banco será atualizado\n");
 
   const { rows } = await pool.query(
-    `SELECT id, nome, nome_fantasia, bairro, cidade, uf, lat, lng
+    `SELECT id, nome, nome_fantasia, bairro, cidade, uf, lat, lng, zona
      FROM condominios
-     WHERE zona IS NULL OR zona = ''
      ORDER BY id`
   );
 
-  console.log(`${rows.length} condomínio(s) sem zona encontrado(s)\n`);
+  console.log(`${rows.length} condomínio(s) encontrado(s)\n`);
 
   if (!rows.length) {
     console.log("Nada a fazer.");
@@ -112,11 +122,13 @@ async function main() {
       continue;
     }
 
-    console.log(`  ✓  [${c.id}] ${nome} → ${zona}`);
-    if (!DRY_RUN) {
+    const mudou = zona !== c.zona;
+    const tag = mudou ? (c.zona ? `${c.zona} → ${zona}` : zona) : `${zona} (sem mudança)`;
+    console.log(`  ${mudou ? "✓" : "·"}  [${c.id}] ${nome} — ${tag}`);
+    if (!DRY_RUN && mudou) {
       await pool.query(`UPDATE condominios SET zona = $1 WHERE id = $2`, [zona, c.id]);
     }
-    atualizados++;
+    if (mudou) atualizados++;
   }
 
   console.log(`\n${DRY_RUN ? "Seriam atualizados" : "Atualizados"}: ${atualizados}`);
