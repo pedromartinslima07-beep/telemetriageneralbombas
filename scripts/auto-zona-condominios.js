@@ -89,8 +89,8 @@ function zonaPara(c) {
   const dLng = Number(c.lng) - SE.lng;
   const distKm = Math.sqrt((dLat * 111) ** 2 + (dLng * 102) ** 2);
   if (distKm <= 3)       return "Centro";
-  if (dLat < -0.072)     return "Zona Sul";
-  if (dLat >  0.072)     return "Zona Norte";
+  if (dLat < -0.032)    return "Zona Sul";  // ~3.5km cobre Moema, Brooklin, Vila Mariana
+  if (dLat >  0.032)    return "Zona Norte";
   return dLng > 0 ? "Zona Leste" : "Zona Oeste";
 }
 

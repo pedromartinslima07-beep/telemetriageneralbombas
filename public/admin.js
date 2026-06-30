@@ -7372,10 +7372,8 @@ function _mpZonaPara(c) {
   const dLng = c.lng - _MP_SE.lng;
   const distKm = Math.sqrt((dLat * 111) ** 2 + (dLng * 102) ** 2);
   if (distKm <= 3) return "Centro";
-  // Zona Sul abrange tudo bem ao sul, mesmo deslocado pra oeste
-  // (heurística: se está mais de 8km ao sul, é Sul independente da longitude)
-  if (dLat < -0.072) return "Zona Sul"; // ~8km ao sul
-  if (dLat > 0.072)  return "Zona Norte";
+  if (dLat < -0.032) return "Zona Sul";  // ~3.5km ao sul cobre Moema, Brooklin, Vila Mariana
+  if (dLat >  0.032) return "Zona Norte";
   return dLng > 0 ? "Zona Leste" : "Zona Oeste";
 }
 
