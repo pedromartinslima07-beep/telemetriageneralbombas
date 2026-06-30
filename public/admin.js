@@ -13463,7 +13463,8 @@ async function _pmCarregarTecnicos() {
   if (_pmTecnicosCache) return _pmTecnicosCache;
   try {
     const r = await fetch("/tecnicos", { headers: authHeaders() });
-    _pmTecnicosCache = r.ok ? await r.json() : [];
+    const todos = r.ok ? await r.json() : [];
+    _pmTecnicosCache = todos.filter(t => t.cargo === "tecnico" && t.ativo);
   } catch { _pmTecnicosCache = []; }
   return _pmTecnicosCache;
 }
