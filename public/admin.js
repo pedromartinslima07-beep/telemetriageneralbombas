@@ -13495,21 +13495,33 @@ function _pmRenderZonas(tecs) {
   ).join("");
 
   wrap.innerHTML = `
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px;">
-      ${_pmZonasCache.map(z => `
-        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 14px;display:flex;flex-direction:column;gap:8px;">
-          <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);">${_waEscaparHtml(z.zona)}</div>
-          <div style="display:flex;gap:8px;align-items:center;">
-            <select class="input" style="flex:1;font-size:12px;" data-pm-zona="${_waEscaparHtml(z.zona)}">
-              <option value="">— Sem responsável —</option>
-              ${tecOpts}
-            </select>
-            <button class="btn btn-sm btnAccent" data-pm-zona-salvar="${_waEscaparHtml(z.zona)}" style="flex-shrink:0;">Salvar</button>
-          </div>
-          ${z.tecnico_nome ? `<div style="font-size:11px;color:var(--ok);">Atual: ${_waEscaparHtml(z.tecnico_nome)}</div>` : `<div style="font-size:11px;color:var(--muted2);">Sem responsável definido</div>`}
-        </div>
-      `).join("")}
-    </div>
+    <table style="width:100%;border-collapse:collapse;">
+      <thead>
+        <tr>
+          <th style="text-align:left;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;padding:0 0 10px;border-bottom:1px solid var(--border);">Zona</th>
+          <th style="text-align:left;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;padding:0 0 10px 12px;border-bottom:1px solid var(--border);">Técnico responsável</th>
+          <th style="width:56px;border-bottom:1px solid var(--border);"></th>
+        </tr>
+      </thead>
+      <tbody>
+        ${_pmZonasCache.map(z => {
+          const esc = _waEscaparHtml(z.zona);
+          return `
+          <tr data-pm-zona-row="${esc}" style="border-bottom:1px solid var(--border);">
+            <td style="padding:9px 12px 9px 0;font-size:13px;font-weight:600;white-space:nowrap;vertical-align:middle;">${esc}</td>
+            <td style="padding:7px 12px;vertical-align:middle;">
+              <select class="input" style="font-size:12px;width:100%;max-width:320px;" data-pm-zona="${esc}">
+                <option value="">— Sem responsável —</option>
+                ${tecOpts}
+              </select>
+            </td>
+            <td style="padding:7px 0;vertical-align:middle;text-align:right;">
+              <span data-pm-zona-feedback="${esc}" style="font-size:11px;color:var(--muted);"></span>
+            </td>
+          </tr>`;
+        }).join("")}
+      </tbody>
+    </table>
   `;
 
   // Pré-seleciona o técnico atual em cada select
@@ -13518,25 +13530,34 @@ function _pmRenderZonas(tecs) {
     if (sel && z.tecnico_id) sel.value = String(z.tecnico_id);
   });
 
-  // Bind dos botões salvar
-  wrap.querySelectorAll("[data-pm-zona-salvar]").forEach(btn => {
-    btn.addEventListener("click", async () => {
-      const zona = btn.dataset.pmZonaSalvar;
-      const sel  = wrap.querySelector(`select[data-pm-zona="${zona}"]`);
-      const tecnicoId = sel?.value ? Number(sel.value) : null;
-      btn.disabled = true;
+  // Auto-save ao mudar o select
+  wrap.querySelectorAll("select[data-pm-zona]").forEach(sel => {
+    sel.addEventListener("change", async () => {
+      const zona = sel.dataset.pmZona;
+      const tecnicoId = sel.value ? Number(sel.value) : null;
+      const fb = wrap.querySelector(`[data-pm-zona-feedback="${zona}"]`);
+      sel.disabled = true;
+      if (fb) { fb.textContent = "Salvando…"; fb.style.color = "var(--muted)"; }
       try {
         const r = await fetch(
           `/planos-manutencao/zonas-responsaveis/${encodeURIComponent(zona)}`,
           { method: "PUT", headers: { ...authHeaders(), "Content-Type": "application/json" },
             body: JSON.stringify({ tecnico_id: tecnicoId }) }
         );
-        if (!r.ok) { alert("Erro ao salvar"); return; }
-        _pmTecnicosCache = null;
+        if (!r.ok) throw new Error("Erro ao salvar");
+        if (fb) {
+          fb.textContent = "Salvo ✓";
+          fb.style.color = "var(--ok)";
+          setTimeout(() => { if (fb) { fb.textContent = ""; } }, 2000);
+        }
         _pmZonasCache = null;
+        _pmTecnicosCache = null;
         await _pmCarregarZonas();
-      } catch (e) { alert(e.message); }
-      finally { btn.disabled = false; }
+      } catch (e) {
+        if (fb) { fb.textContent = "Erro"; fb.style.color = "var(--danger)"; }
+      } finally {
+        sel.disabled = false;
+      }
     });
   });
 }
