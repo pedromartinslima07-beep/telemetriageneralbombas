@@ -52,7 +52,7 @@ const BAIRROS_ZONA = {
   "butanta": "Zona Oeste", "pinheiros": "Zona Oeste", "lapa": "Zona Oeste",
   "vila madalena": "Zona Oeste", "perdizes": "Zona Oeste", "pompeia": "Zona Oeste",
   "barra funda": "Zona Oeste", "alto de pinheiros": "Zona Oeste",
-  "itaim bibi": "Zona Oeste", "vila leopoldina": "Zona Oeste",
+  "itaim bibi": "Zona Sul", "vila leopoldina": "Zona Oeste",
   "jaguare": "Zona Oeste", "rio pequeno": "Zona Oeste",
   "raposo tavares": "Zona Oeste", "vila sonia": "Zona Oeste",
   "jardim paulista": "Zona Oeste", "jardins": "Zona Oeste",
