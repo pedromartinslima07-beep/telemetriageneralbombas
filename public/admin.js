@@ -13495,51 +13495,65 @@ function _pmRenderZonas(tecs) {
     `<option value="${t.id}">${_waEscaparHtml(t.nome)}</option>`
   ).join("");
 
+  const zonaOpts = _pmZonasCache.map(z =>
+    `<option value="${_waEscaparHtml(z.zona)}">${_waEscaparHtml(z.zona)}</option>`
+  ).join("");
+
   wrap.innerHTML = `
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:6px 20px;">
-      ${_pmZonasCache.map(z => {
-        const esc = _waEscaparHtml(z.zona);
-        return `
-        <div style="display:flex;align-items:center;gap:8px;">
-          <span style="font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;min-width:80px;">${esc}</span>
-          <select class="input" style="font-size:12px;flex:1;" data-pm-zona="${esc}">
-            <option value="">— sem responsável —</option>
-            ${tecOpts}
-          </select>
-        </div>`;
-      }).join("")}
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+      <select id="pmZonaSelZona" class="input" style="font-size:12px;flex:1;min-width:140px;max-width:200px;">
+        <option value="">Selecione a zona…</option>
+        ${zonaOpts}
+      </select>
+      <select id="pmZonaSelTec" class="input" style="font-size:12px;flex:1;min-width:160px;max-width:240px;" disabled>
+        <option value="">— sem responsável —</option>
+        ${tecOpts}
+      </select>
+      <button id="pmZonaBtnSalvar" class="btn btnAccent btn-sm" disabled>Salvar</button>
+    </div>
+    <div id="pmZonaResumo" style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px;">
+      ${_pmZonasCache.filter(z => z.tecnico_nome).map(z => `
+        <span style="font-size:11px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:2px 8px;">
+          <span style="color:var(--muted);">${_waEscaparHtml(z.zona)}</span>
+          <span style="color:var(--text);margin-left:4px;">${_waEscaparHtml(z.tecnico_nome)}</span>
+        </span>`).join("")}
     </div>
   `;
 
-  // Pré-seleciona o técnico atual em cada select
-  _pmZonasCache.forEach(z => {
-    const sel = wrap.querySelector(`select[data-pm-zona="${z.zona}"]`);
-    if (sel && z.tecnico_id) sel.value = String(z.tecnico_id);
+  const selZona = wrap.querySelector("#pmZonaSelZona");
+  const selTec  = wrap.querySelector("#pmZonaSelTec");
+  const btnSalvar = wrap.querySelector("#pmZonaBtnSalvar");
+
+  selZona.addEventListener("change", () => {
+    const zona = selZona.value;
+    if (!zona) { selTec.disabled = true; selTec.value = ""; btnSalvar.disabled = true; return; }
+    const atual = _pmZonasCache.find(z => z.zona === zona);
+    selTec.disabled = false;
+    selTec.value = atual?.tecnico_id ? String(atual.tecnico_id) : "";
+    btnSalvar.disabled = false;
   });
 
-  // Auto-save ao mudar o select
-  wrap.querySelectorAll("select[data-pm-zona]").forEach(sel => {
-    sel.addEventListener("change", async () => {
-      const zona = sel.dataset.pmZona;
-      const tecnicoId = sel.value ? Number(sel.value) : null;
-      const fb = wrap.querySelector(`[data-pm-zona-feedback="${zona}"]`);
-      sel.disabled = true;
-      try {
-        const r = await fetch(
-          `/planos-manutencao/zonas-responsaveis/${encodeURIComponent(zona)}`,
-          { method: "PUT", headers: { ...authHeaders(), "Content-Type": "application/json" },
-            body: JSON.stringify({ tecnico_id: tecnicoId }) }
-        );
-        if (!r.ok) throw new Error("Erro ao salvar");
-        _pmZonasCache = null;
-        _pmTecnicosCache = null;
-        await _pmCarregarZonas();
-      } catch (e) {
-        alert("Erro ao salvar responsável da zona");
-      } finally {
-        sel.disabled = false;
-      }
-    });
+  btnSalvar.addEventListener("click", async () => {
+    const zona = selZona.value;
+    if (!zona) return;
+    const tecnicoId = selTec.value ? Number(selTec.value) : null;
+    btnSalvar.disabled = true;
+    btnSalvar.textContent = "Salvando…";
+    try {
+      const r = await fetch(
+        `/planos-manutencao/zonas-responsaveis/${encodeURIComponent(zona)}`,
+        { method: "PUT", headers: { ...authHeaders(), "Content-Type": "application/json" },
+          body: JSON.stringify({ tecnico_id: tecnicoId }) }
+      );
+      if (!r.ok) throw new Error();
+      _pmZonasCache = null;
+      _pmTecnicosCache = null;
+      await _pmCarregarZonas();
+    } catch {
+      alert("Erro ao salvar responsável da zona");
+      btnSalvar.disabled = false;
+      btnSalvar.textContent = "Salvar";
+    }
   });
 }
 
