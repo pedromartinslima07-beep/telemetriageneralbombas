@@ -13175,8 +13175,8 @@ function _pmStatus(p) {
   if (!p.ativo) return { cls: "orc-status-off", label: "INATIVO", kind: "inativo" };
   const d = _pmDiasAteProxima(p.proxima_em);
   if (d == null) return { cls: "orc-status-pend", label: "—", kind: "em-dia" };
-  if (d < 0)  return { cls: "orc-status-bad",  label: `VENCIDO ${-d}d`, kind: "vencidos" };
-  if (d <= 7) return { cls: "orc-status-pend", label: `EM ${d}d`,       kind: "vencendo" };
+  if (d < 0)  return { cls: "orc-status-bad",  label: `Vencido há ${-d}d`, kind: "vencidos" };
+  if (d <= 7) return { cls: "orc-status-pend", label: `Vence em ${d}d`,   kind: "vencendo" };
   return { cls: "orc-status-ok", label: "EM DIA", kind: "em-dia" };
 }
 
