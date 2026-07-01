@@ -1487,7 +1487,7 @@ router.get("/condominios/:id/historico", authRequired, adminOnly, async (req, re
 router.get("/condominios/lista", authRequired, adminOnly, async (req, res) => {
   try {
     const r = await pool.query(
-      `SELECT id, nome FROM condominios WHERE ativo = true ORDER BY nome ASC`
+      `SELECT id, COALESCE(NULLIF(nome_fantasia,''), nome) AS nome FROM condominios WHERE ativo = true ORDER BY nome ASC`
     );
     return res.json(r.rows);
   } catch (err) {
