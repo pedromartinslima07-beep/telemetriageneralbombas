@@ -1168,7 +1168,7 @@ router.get("/orcamentos/:os_id/pdf", authRequired, adminOnly, async (req, res) =
 router.get("/orcamentos/avulsos", authRequired, adminOnly, async (req, res) => {
   try {
     const r = await pool.query(
-      `SELECT o.id, o.numero, o.status, o.valido_ate, o.criado_em, o.origem,
+      `SELECT o.id, o.numero, o.status, o.valido_ate, o.data_documento, o.criado_em, o.origem, o.tipo,
               o.os_id, os.numero AS os_numero,
               o.constatacao, o.forma_pagamento, o.prazo_entrega,
               o.garantia, o.disponibilidade,
@@ -1193,7 +1193,9 @@ router.get("/orcamentos/avulsos", authRequired, adminOnly, async (req, res) => {
 
 // POST /admin/orcamentos/avulsos — criar novo
 router.post("/orcamentos/avulsos", authRequired, adminOnly, async (req, res) => {
-  const { condominio_id, numero, os_id, constatacao, forma_pagamento, prazo_entrega, garantia, disponibilidade, valido_ate } = req.body || {};
+  const { condominio_id, numero, os_id, tipo, constatacao, forma_pagamento, prazo_entrega, garantia, disponibilidade, valido_ate, data_documento } = req.body || {};
+  const TIPOS_VALIDOS = ["pecas", "limpeza_reservatorio", "dedetizacao", "limpeza_dedetizacao"];
+  if (tipo != null && !TIPOS_VALIDOS.includes(tipo)) return res.status(400).json({ error: "tipo inválido" });
   try {
     // número sequencial automático: OR-000001, OR-000002…
     const numSeq = (await pool.query(
@@ -1202,20 +1204,22 @@ router.post("/orcamentos/avulsos", authRequired, adminOnly, async (req, res) => 
     const num = numero ? String(numero).trim().slice(0, 30) : numSeq;
     const r = await pool.query(
       `INSERT INTO orcamentos
-         (numero, condominio_id, os_id, constatacao, forma_pagamento, prazo_entrega,
-          garantia, disponibilidade, valido_ate, criado_por)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::date,$10)
+         (numero, condominio_id, os_id, tipo, constatacao, forma_pagamento, prazo_entrega,
+          garantia, disponibilidade, valido_ate, data_documento, criado_por)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::date,$11::date,$12)
        RETURNING *`,
       [
         num,
         condominio_id ? Number(condominio_id) : null,
         os_id ? Number(os_id) : null,
+        tipo || "pecas",
         constatacao ? String(constatacao).slice(0, 1000) : null,
         forma_pagamento ? String(forma_pagamento).slice(0, 255) : "Via boleto bancário",
         prazo_entrega ? String(prazo_entrega).slice(0, 100) : "5 dias úteis após aprovação",
         garantia ? String(garantia).slice(0, 100) : "12 meses por defeito de fabricação",
         disponibilidade ? String(disponibilidade).slice(0, 100) : "Total",
         valido_ate || null,
+        data_documento || null,
         req.user.id,
       ]
     );
@@ -1231,7 +1235,7 @@ router.patch("/orcamentos/avulsos/:id", authRequired, adminOnly, async (req, res
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
 
-  const fields = ["numero","condominio_id","os_id","status","constatacao","forma_pagamento","prazo_entrega","garantia","disponibilidade","valido_ate"];
+  const fields = ["numero","condominio_id","os_id","status","tipo","constatacao","forma_pagamento","prazo_entrega","garantia","disponibilidade","valido_ate","data_documento"];
   const sets = []; const vals = [id];
 
   for (const f of fields) {
@@ -1239,9 +1243,14 @@ router.patch("/orcamentos/avulsos/:id", authRequired, adminOnly, async (req, res
     const v = req.body[f];
     if (f === "condominio_id") { vals.push(v ? Number(v) : null); sets.push(`${f} = $${vals.length}`); }
     else if (f === "valido_ate") { vals.push(v || null); sets.push(`valido_ate = $${vals.length}::date`); }
+    else if (f === "data_documento") { vals.push(v || null); sets.push(`data_documento = $${vals.length}::date`); }
     else if (f === "status") {
       if (!["rascunho","enviado","aprovado","rejeitado"].includes(v)) return res.status(400).json({ error: "status inválido" });
       vals.push(v); sets.push(`status = $${vals.length}`);
+    }
+    else if (f === "tipo") {
+      if (!["pecas","limpeza_reservatorio","dedetizacao","limpeza_dedetizacao"].includes(v)) return res.status(400).json({ error: "tipo inválido" });
+      vals.push(v); sets.push(`tipo = $${vals.length}`);
     }
     else {
       const max = f === "constatacao" ? 1000 : 255;
@@ -1255,8 +1264,8 @@ router.patch("/orcamentos/avulsos/:id", authRequired, adminOnly, async (req, res
   try {
     const r = await pool.query(
       `UPDATE orcamentos SET ${sets.join(",")} WHERE id = $1
-       RETURNING id, numero, status, condominio_id, constatacao,
-                 forma_pagamento, prazo_entrega, garantia, disponibilidade, valido_ate`,
+       RETURNING id, numero, status, condominio_id, tipo, constatacao,
+                 forma_pagamento, prazo_entrega, garantia, disponibilidade, valido_ate, data_documento`,
       vals
     );
     if (!r.rows.length) return res.status(404).json({ error: "Orçamento não encontrado" });
@@ -1320,6 +1329,45 @@ router.post("/orcamentos/avulsos/:id/linhas", authRequired, adminOnly, async (re
   } catch (err) {
     console.error("[admin] POST /orcamentos/avulsos/:id/linhas:", err);
     return res.status(500).json({ error: "Erro ao criar linha" });
+  }
+});
+
+// PATCH /admin/orcamentos/avulsos/linhas/:linha_id
+router.patch("/orcamentos/avulsos/linhas/:linha_id", authRequired, adminOnly, async (req, res) => {
+  const linhaId = Number(req.params.linha_id);
+  if (!Number.isInteger(linhaId) || linhaId <= 0) return res.status(400).json({ error: "linha_id inválido" });
+
+  const fields = ["descricao", "ficha_tecnica", "quantidade", "valor_unitario"];
+  const sets = []; const vals = [linhaId];
+
+  for (const f of fields) {
+    if (!(f in (req.body || {}))) continue;
+    const v = req.body[f];
+    if (f === "descricao") {
+      if (!v || !String(v).trim()) return res.status(400).json({ error: "descricao obrigatória" });
+      vals.push(String(v).trim().slice(0, 500)); sets.push(`descricao = $${vals.length}`);
+    } else if (f === "ficha_tecnica") {
+      vals.push(v ? String(v).trim().slice(0, 1000) : null); sets.push(`ficha_tecnica = $${vals.length}`);
+    } else if (f === "quantidade") {
+      vals.push(Math.max(1, Number(v) || 1)); sets.push(`quantidade = $${vals.length}`);
+    } else if (f === "valor_unitario") {
+      vals.push(Math.max(0, Number(v) || 0)); sets.push(`valor_unitario = $${vals.length}`);
+    }
+  }
+
+  if (!sets.length) return res.status(400).json({ error: "Nenhum campo para atualizar" });
+
+  try {
+    const r = await pool.query(
+      `UPDATE orcamento_linhas SET ${sets.join(",")} WHERE id = $1
+       RETURNING id, descricao, ficha_tecnica, quantidade, valor_unitario`,
+      vals
+    );
+    if (!r.rows.length) return res.status(404).json({ error: "Linha não encontrada" });
+    return res.json(r.rows[0]);
+  } catch (err) {
+    console.error("[admin] PATCH /orcamentos/avulsos/linhas/:linha_id:", err);
+    return res.status(500).json({ error: "Erro ao atualizar linha" });
   }
 });
 

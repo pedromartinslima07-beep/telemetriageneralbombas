@@ -65,7 +65,7 @@ ESP32 (sonda 4-20mA + SCT-013)
 | **ordens-servico** | O.S. digital (fotos, assinatura, orçamento) + PDF. Fotos persistidas em `os_fotos.dados_base64` (banco), servidas via `GET /ordens-servico/:osId/fotos/:fotoId/imagem` — não dependem mais de disco efêmero. |
 | **planos-manutencao** | Planos preventivos recorrentes |
 | **contratos** | Contratos por condomínio |
-| **orçamentos** | Sistema unificado (tabela `orcamentos` + `orcamento_linhas`) |
+| **orçamentos** | Sistema unificado (tabela `orcamentos` + `orcamento_linhas`); `tipo` (060) ramifica o PDF avulso entre tabela de peças (padrão) e layout descritivo por cláusulas para limpeza de reservatório/dedetização/combo, mesmo timbrado |
 | **relatorio / relatorios** | PDFs (Puppeteer) + dashboards de relatório |
 | **admin** | Usuários, status agregado, histórico, geocode, configurações |
 | **status / leituras / jobs** | Endpoints auxiliares e disparo manual de jobs |

@@ -72,8 +72,87 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
 | 052 | trusted_devices_indefinido | trusted_devices sem expiração (permanente) |
 | 053 | os_fotos_dados_base64 | `os_fotos.dados_base64 TEXT` — persiste imagem no banco para sobreviver a restarts do Railway (antes era salvo em disco efêmero) |
 | 054 | contratos_zapsign | colunas de assinatura digital: `signatario_nome/email`, `signatario_geral_nome/email`, `descricao_servico`, `zapsign_token/status/url_cliente/url_geral/doc_url`, `enviado_assinatura_em`, `assinado_em` |
+| 060 | orcamentos_tipo | `orcamentos.tipo` (`pecas` default \| `limpeza_reservatorio` \| `dedetizacao` \| `limpeza_dedetizacao`) — orçamento de serviço reaproveitando mesma tabela/PDF/timbrado |
+| 061 | orcamento_data_documento | `orcamentos.data_documento DATE` (nullable) — data exibida no PDF, editável no admin sem mexer em `criado_em` |
 
 ## Marcos de produto (fases do plano)
+
+- **2026-07-01** — **Orçamento avulso — tipo de serviço (limpeza de reservatório / dedetização)**
+  - Migration 060: `orcamentos.tipo` (`pecas` default | `limpeza_reservatorio` |
+    `dedetizacao` | `limpeza_dedetizacao`), com CHECK. Mesma tabela
+    `orcamentos`/`orcamento_linhas`, mesmo timbrado — mas o PDF ramifica pra
+    um layout diferente conforme o tipo.
+  - Backend (`src/routes/admin.routes.js`): rotas `POST`/`PATCH
+    /admin/orcamentos/avulsos[/:id]` aceitam e validam `tipo`; `GET` retorna
+    junto na listagem.
+  - PDF (`src/services/orcamento-pdf.service.js`): `tipo === 'pecas'` mantém
+    o fluxo original (tabela de itens, paginação two-pass via Puppeteer,
+    zero mudanças). Para os 3 tipos de serviço, novo caminho
+    `_gerarPdfServico`/`renderHTMLServico` — descritivo por **cláusulas**
+    (Objeto / Escopo dos Serviços / Normas e Garantia, fixas por tipo em
+    `clausulasLimpezaReservatorio()`/`clausulasDedetizacao()`), texto fluindo
+    naturalmente entre páginas via `headerTemplate`/`footerTemplate` do
+    Puppeteer (mesmo esquema de timbrado fatiado que `contrato-pdf.service.js`
+    já usava — sem paginação manual). No combo, os dois blocos de cláusulas
+    aparecem em sequência ("Serviço 1"/"Serviço 2"). Seção final "Valores dos
+    Serviços" lista cada linha (descrição + valor) e soma o total — valores
+    continuam separados por serviço, fora do texto das cláusulas.
+  - Margem do timbrado recalibrada medindo os pixels reais de
+    `papel-timbrado.png` (logo termina a ~36mm do topo, endereço do rodapé
+    começa a ~22,5mm do fundo): header/footer ajustados de `42mm`/`40mm`
+    (valor copiado do contrato, sem checar contra a imagem) pra `38mm`/`25mm`
+    — corrige um vão em branco visível no fim da página 1 antes do rodapé
+    quando o conteúdo (ex.: combo com 6 cláusulas) empurrava a seção de
+    valores inteira pra página seguinte por falta desse espaço.
+  - Especificação do reservatório (quantidade, superior/inferior etc.): campo
+    "ficha técnica" da linha de reservatório virou editável na tabela e é
+    inserido como parágrafo extra na Cláusula Primeira quando preenchido —
+    vazio, mantém o texto padrão sem nenhuma mudança.
+  - Removida a distinção Qtd/Valor Unit. da tabela de valores pra tipo de
+    serviço (não faz sentido "quantidade × unitário" pra um serviço) — fica
+    só "Valor", já como total daquele serviço. `quantidade` continua fixo em
+    1 no banco, nunca exposto na UI pra esses tipos. Tabela muda de formato
+    ao vivo conforme o "Tipo de orçamento" selecionado, antes de salvar.
+  - Migration 061: `orcamentos.data_documento DATE` — campo "Data do
+    orçamento" editável no modal, ao lado de "Válido até"; se vazio, o PDF
+    continua usando `criado_em` como sempre.
+  - Removido o formulário livre "+ Adicionar item" pra tipo de serviço (um
+    item digitado à mão ali não gera cláusula no PDF, só um valor solto) —
+    sobra só "+ Preencher item(ns) padrão do tipo" e o botão de remover linha.
+    Tipo `pecas` mantém o formulário normalmente.
+  - Seção "Valores dos Serviços" voltou a ser atômica (`page-break-inside:
+    avoid` no bloco título+caixa+total) — nunca mais quebra no meio entre
+    páginas. Só fazia sentido remover esse `avoid` quando a margem do rodapé
+    estava errada (40mm em vez de 25mm) e desperdiçava espaço; recalibrada a
+    margem, o vão que sobra ao empurrar a seção inteira pra página seguinte é
+    pequeno o bastante pra valer a pena nunca quebrar a tabela.
+  - Removido o botão manual "+ Preencher item(ns) padrão do tipo": a(s)
+    linha(s) de valor do serviço agora são adicionadas automaticamente ao
+    trocar o "Tipo de orçamento" (`_avPreencherPadrao`, `change` do
+    `#avInputTipo`), com deduplicação por descrição pra não duplicar nem
+    apagar nada ao alternar entre tipos. Roda também ao abrir um orçamento de
+    serviço salvo sem nenhuma linha (dado legado). Corrigida uma corrida
+    (trocar o tipo rápido demais duplicava a linha) com `_avLinhasPromise` +
+    `_avPreencherPadraoAtivo`.
+  - Modal de orçamento avulso compactado (`#avModal` em `admin.css`, escopado
+    só nele): campos do topo e Condições Comerciais viraram uma linha só cada
+    (eram 2), Constatação encolheu, padding reduzido — cabe em 1280×720 sem
+    precisar rolar. Reajustado em seguida (ficou apertado demais na primeira
+    versão) e corrigido um `margin-top:4px` inline redundante nos `<select>`
+    do modal que desalinhava a linha do topo (ex.: "Data do orçamento" vs
+    "Tipo de orçamento").
+  - PDF de peças: fonte da Constatação (`.constata-text`) 10px→11.5px e da
+    descrição do item (`.it-desc-text`) 9.5px→10.5px (estava herdando de
+    `.tabela-itens`, ganhou tamanho próprio) — mudança espelhada em
+    `renderHTML` e `renderMeasureHTML` (a paginação two-pass precisa medir
+    com o mesmo CSS do render final, senão desalinha).
+  - Admin (`public/admin.js`/`admin.html`, `?v=202`/`?v=121`): seletor "Tipo de
+    orçamento" no modal de orçamento avulso; seção "Itens" vira "Valores dos
+    Serviços" quando `tipo !== 'pecas'`; botão "+ Preencher item(ns) padrão do
+    tipo" adiciona apenas a linha de valor (descrição + valor unitário) — o
+    texto técnico não vem mais de input do admin, é fixo no PDF. No combo as
+    duas linhas entram separadas, cada uma com seu valor. Badge de tipo na
+    lista de orçamentos avulsos.
 
 - **2026-06-17** — **Admin — Seção dedicada de Contratos**
   - Nova seção `data-section="contratos"` na sidebar entre Orçamentos e Planos.

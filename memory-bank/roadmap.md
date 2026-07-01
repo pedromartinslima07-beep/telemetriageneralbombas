@@ -66,6 +66,10 @@ aliases:
 - Encaminhamento de orçamento via IA (036), contexto cliente B2B vs PF (037),
   pré-cadastro de contatos WhatsApp (037).
 - State machine de conversa (042), anti-loop (041), canal (043).
+- Orçamento avulso de serviço — limpeza de reservatório de água potável,
+  dedetização, ou combo dos dois (Migration 060, `orcamentos.tipo`),
+  mesma tabela/timbrado do orçamento de peças mas PDF descritivo por
+  cláusulas (Objeto/Escopo/Garantia) com valores separados no final.
 
 ## Nota fiscal (NFS-e) — planejado 📋
 

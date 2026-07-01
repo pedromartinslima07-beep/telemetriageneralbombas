@@ -7,8 +7,18 @@ aliases:
 ---
 # Trabalho em Andamento
 
-> Branch atual: `feature/app-mobile`. Última sessão registrada: **2026-06-17**.
+> Branch atual: `feature/app-mobile`. Última sessão registrada: **2026-07-01**.
 > Roadmap completo em [`roadmap.md`](roadmap.md); decisões em [`decisions.md`](decisions.md).
+
+## Sessão 2026-07-01 — Orçamento avulso: tipo de serviço
+
+Migration 060 (`orcamentos.tipo`) concluída e aplicada em produção. Orçamento
+avulso agora suporta peças/serviço (padrão), limpeza de reservatório de água
+potável, dedetização, ou os dois combinados — mesma tabela e timbrado do
+orçamento de peças, mas o PDF ramifica pra um layout descritivo por cláusulas
+(Objeto/Escopo/Garantia, fixas por tipo) com valores separados por serviço no
+final, em vez da tabela de itens. Ver [`../docs/changelog.md`](../docs/changelog.md) e
+[`../docs/modulos/ordens-servico.md`](../docs/modulos/ordens-servico.md).
 
 ## Foco atual — Pendentes pós-sessão 2026-06-15 (ZapSign + deploy)
 

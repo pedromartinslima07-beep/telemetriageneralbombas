@@ -42,12 +42,14 @@ async function buscarDadosAvulso(orcamentoId) {
        o.id,
        o.numero,
        o.status,
+       o.tipo,
        o.constatacao,
        o.forma_pagamento,
        o.prazo_entrega,
        o.garantia,
        o.disponibilidade,
        o.valido_ate,
+       o.data_documento,
        o.criado_em,
        COALESCE(c.nome_fantasia, c.nome) AS condominio_nome,
        c.nome      AS condominio_razao_social,
@@ -81,10 +83,18 @@ async function buscarDadosAvulso(orcamentoId) {
     orcamento_disponibilidade: o.disponibilidade,
     orcamento_valido_ate:     o.valido_ate,
     orcamento_status:         o.status,
-    finalizada_em:            o.criado_em,
+    // data_documento permite ao admin corrigir/definir a data exibida no PDF
+    // sem mexer em criado_em (auditoria — quando o registro foi criado).
+    finalizada_em:            o.data_documento || o.criado_em,
   };
   return { os, itens: linhasRes.rows };
 }
+
+const TIPO_SUBTITULO = {
+  limpeza_reservatorio: "Limpeza e Higienização de Reservatório de Água Potável",
+  dedetizacao: "Dedetização e Controle de Pragas Urbanas",
+  limpeza_dedetizacao: "Limpeza de Reservatório de Água Potável + Dedetização",
+};
 
 function renderHTML({ os, itens }, areaP1, medidas = {}) {
   const timbrado = timbradoBase64();
@@ -331,7 +341,7 @@ function renderHTML({ os, itens }, areaP1, medidas = {}) {
 
   /* ── Constatação ── */
   .constata-text {
-    font-size: 10px;
+    font-size: 11.5px;
     color: #2d3748;
     white-space: pre-wrap;
     word-break: break-word;
@@ -357,7 +367,7 @@ function renderHTML({ os, itens }, areaP1, medidas = {}) {
   .tabela-itens tbody tr:nth-child(even) { background: rgba(247,250,252,0.9); }
   .tabela-itens td { padding: 4px 6px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
   .it-idx  { width: 22px; text-align: center; color: #718096; }
-  .it-desc-text { font-weight: 500; }
+  .it-desc-text { font-weight: 500; font-size: 10.5px; }
   .it-num  { text-align: right; white-space: nowrap; }
   .ficha {
     margin-top: 2px;
@@ -429,13 +439,13 @@ body { width: 210mm; background: white; font-family: Arial, Helvetica, sans-seri
 .sec { margin-bottom: 8px; }
 .sec-title { font-size: 9px; font-weight: bold; color: #1e3a5f; text-transform: uppercase; letter-spacing: 0.5px; padding: 3px 0; border-bottom: 1.5px solid #f0b014; margin-bottom: 5px; }
 .sec-num { display: inline-block; background: #f0b014; color: #fff; font-size: 8px; font-weight: bold; padding: 1px 4px; border-radius: 3px; margin-right: 4px; }
-.constata-text { font-size: 10px; color: #2d3748; white-space: pre-wrap; word-break: break-word; overflow-wrap: break-word; padding: 4px 6px; border: 1px dashed #cbd5e0; border-radius: 4px; background: rgba(250,251,252,0.92); min-height: 24px; }
+.constata-text { font-size: 11.5px; color: #2d3748; white-space: pre-wrap; word-break: break-word; overflow-wrap: break-word; padding: 4px 6px; border: 1px dashed #cbd5e0; border-radius: 4px; background: rgba(250,251,252,0.92); min-height: 24px; }
 .tabela-itens { width: 100%; border-collapse: collapse; font-size: 9.5px; }
 .tabela-itens th { padding: 4px 6px; text-align: left; font-size: 8.5px; text-transform: uppercase; letter-spacing: 0.3px; }
 .tabela-itens th.it-num { text-align: right; }
 .tabela-itens td { padding: 4px 6px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
 .it-idx { width: 22px; text-align: center; color: #718096; }
-.it-desc-text { font-weight: 500; }
+.it-desc-text { font-weight: 500; font-size: 10.5px; }
 .it-num { text-align: right; white-space: nowrap; }
 .ficha { margin-top: 2px; font-size: 8.5px; color: #4a5568; background: rgba(240,244,248,0.95); border-left: 3px solid #f0b014; padding: 2px 4px; border-radius: 0 3px 3px 0; }
 </style>
@@ -498,6 +508,222 @@ body { width: 210mm; background: white; font-family: Arial, Helvetica, sans-seri
     </tr></tbody>
   </table>
 </div>
+</body></html>`;
+}
+
+// ─── Orçamento de serviço (limpeza de reservatório / dedetização / combo) ───
+// Diferente do orçamento de peças: em vez de tabela de itens, o conteúdo é
+// descritivo (cláusulas), com os valores aparecendo separados só no final.
+// Conteúdo flui naturalmente entre páginas (sem paginação manual) usando o
+// mesmo esquema de timbrado via header/footer do Puppeteer que
+// `contrato-pdf.service.js` já usa para conteúdo de tamanho variável.
+
+// `especificacao` é texto livre digitado pelo admin na "ficha técnica" da
+// linha do reservatório (ex.: "2 superiores e 1 inferior") — se vazio, a
+// cláusula fica com o texto genérico de sempre.
+function clausulasLimpezaReservatorio(especificacao) {
+  const espHtml = especificacao
+    ? `<p><strong>Especificação:</strong> ${escapeHtml(especificacao)}.</p>`
+    : "";
+  return `
+<div class="clausula">
+  <div class="clausula-titulo">Cláusula Primeira – Objeto</div>
+  <p>O presente orçamento tem por objeto a prestação de serviços de limpeza e higienização de reservatório(s) de água potável (caixa d'água) do condomínio acima identificado, com mão de obra especializada e produtos saneantes registrados nos órgãos competentes.</p>
+  ${espHtml}
+</div>
+<div class="clausula">
+  <div class="clausula-titulo">Cláusula Segunda – Escopo dos Serviços</div>
+  <p>Esvaziamento total do(s) reservatório(s); remoção mecânica de sedimentos, lodo e materiais depositados; escovação e lavagem das paredes, fundo e tampa; desinfecção com hipoclorito de sódio em dosagem técnica adequada; enxágue e preenchimento; verificação da vedação da tampa de acesso.</p>
+</div>
+<div class="clausula">
+  <div class="clausula-titulo">Cláusula Terceira – Normas, Periodicidade e Garantia</div>
+  <p>Serviço executado em conformidade com a NBR 5626 (instalações prediais de água fria) e normas da Vigilância Sanitária. Periodicidade recomendada: a cada 6 (seis) meses. Será emitido Laudo Técnico de Limpeza com ART (Anotação de Responsabilidade Técnica) ao final do serviço.</p>
+</div>`;
+}
+
+function clausulasDedetizacao() {
+  return `
+<div class="clausula">
+  <div class="clausula-titulo">Cláusula Primeira – Objeto</div>
+  <p>O presente orçamento tem por objeto a prestação de serviços de dedetização (controle de pragas urbanas) nas áreas comuns do condomínio acima identificado, com mão de obra especializada e produtos saneantes desinfestantes registrados nos órgãos competentes.</p>
+</div>
+<div class="clausula">
+  <div class="clausula-titulo">Cláusula Segunda – Escopo dos Serviços</div>
+  <p>Aplicação de produtos saneantes desinfestantes registrados no Ministério da Saúde e no MAPA (Ministério da Agricultura, Pecuária e Abastecimento), com foco no controle de baratas, formigas, aranhas, grilos, mosquitos e demais pragas urbanas nas áreas comuns.</p>
+</div>
+<div class="clausula">
+  <div class="clausula-titulo">Cláusula Terceira – Normas e Garantia</div>
+  <p>Serviço executado em conformidade com a legislação sanitária vigente. Será emitido Laudo Técnico com ART, relacionando os produtos aplicados (nome comercial, registro e concentração). Garantia de 90 (noventa) dias para retratamento sem custo adicional em caso de reinfestação.</p>
+</div>`;
+}
+
+// Acha a linha de "limpeza de reservatório" entre os itens do orçamento pra
+// puxar a especificação (ficha_tecnica) digitada pelo admin — funciona tanto
+// sozinho quanto no combo (a linha de dedetização não bate no regex).
+function acharEspecificacaoReservatorio(itens) {
+  const item = (itens || []).find(it => /reservat[oó]rio/i.test(it.descricao || ""));
+  return item?.ficha_tecnica ? String(item.ficha_tecnica).trim() : null;
+}
+
+const CLAUSULAS_POR_TIPO = {
+  limpeza_reservatorio: (itens) => clausulasLimpezaReservatorio(acharEspecificacaoReservatorio(itens)),
+  dedetizacao: () => clausulasDedetizacao(),
+  limpeza_dedetizacao: (itens) => `
+<div class="servico-header">Serviço 1 – Limpeza de Reservatório de Água Potável</div>
+${clausulasLimpezaReservatorio(acharEspecificacaoReservatorio(itens))}
+<div class="servico-header">Serviço 2 – Dedetização</div>
+${clausulasDedetizacao()}`,
+};
+
+function renderHTMLServico({ os, itens }, timbrado) {
+  const orcNumero     = os.orcamento_numero || os.os_numero || String(os.id);
+  const dataOrc       = fmtDateBR(os.finalizada_em || os.criado_em);
+  const endParts      = [os.endereco, os.bairro, os.cidade && os.uf ? `${os.cidade}/${os.uf}` : (os.cidade || ""), os.cep ? `CEP ${os.cep}` : ""].filter(Boolean);
+  const enderecoStr   = endParts.join(" – ");
+  const tipoSubtitulo = TIPO_SUBTITULO[os.tipo] || "";
+  const clausulasHtml = (CLAUSULAS_POR_TIPO[os.tipo] || (() => ""))(itens);
+  const validadeStr   = os.orcamento_valido_ate ? `60 dias (até ${fmtDateBR(os.orcamento_valido_ate)})` : "60 dias";
+  const totalGeral    = itens.reduce((acc, it) => acc + Number(it.valor_unitario) * Number(it.quantidade), 0);
+
+  const valoresHtml = itens.length
+    ? itens.map(it => {
+        const tot       = Number(it.valor_unitario) * Number(it.quantidade);
+        const qtdSuffix = Number(it.quantidade) > 1 ? ` (${it.quantidade}x)` : "";
+        return `<div class="valor-row"><span class="valor-desc">${escapeHtml(it.descricao)}${qtdSuffix}</span><span class="valor-num">${escapeHtml(fmtMoeda(tot))}</span></div>`;
+      }).join("")
+    : `<div class="valor-row valor-vazio">Nenhum valor lançado.</div>`;
+
+  const pc = "-webkit-print-color-adjust:exact;print-color-adjust:exact;";
+  const timbradoTag = timbrado
+    ? `<div class="timbrado-bg"><img class="timbrado-img" src="${timbrado}" /></div>`
+    : "";
+
+  return `<!doctype html>
+<html lang="pt-BR"><head>
+<meta charset="utf-8">
+<title>Orçamento ${escapeHtml(orcNumero)}</title>
+<style>
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 11px;
+  line-height: 1.55;
+  color: #1a1f2e;
+  padding: 0 22mm;
+}
+
+.timbrado-bg { position: fixed; top: 0; left: 0; right: 0; bottom: 0; overflow: hidden; z-index: -1; ${pc} }
+.timbrado-img { position: absolute; top: -38mm; left: 0; width: 210mm; height: 297mm; display: block; ${pc} }
+
+.doc-info { display: flex; justify-content: flex-end; margin-bottom: 16px; }
+.doc-info-box { text-align: right; }
+.doc-info-box .doc-title    { font-size: 14px; font-weight: bold; color: #1a1f2e; letter-spacing: 1px; }
+.doc-info-box .doc-subtitle { font-size: 9.5px; color: #1e3a5f; font-weight: 600; margin-top: 2px; }
+.doc-info-box .doc-num      { font-size: 11px; color: #c07a00; font-weight: bold; margin-top: 2px; }
+.doc-info-box .doc-date     { font-size: 9px; color: #4a5568; margin-top: 2px; }
+
+.cliente-box {
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 7px 11px;
+  margin-bottom: 14px;
+  background: rgba(248,250,252,0.92);
+}
+.cliente-box .sec-title { font-size: 9px; font-weight: bold; color: #1e3a5f; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 3px; }
+.cliente-nome { font-size: 12px; font-weight: bold; color: #1a1f2e; }
+.cliente-det  { font-size: 9px; color: #4a5568; margin-top: 2px; }
+
+.obs-box {
+  font-size: 10px; color: #2d3748; white-space: pre-wrap; word-break: break-word;
+  padding: 6px 8px; border: 1px dashed #cbd5e0; border-radius: 4px;
+  background: rgba(250,251,252,0.92); margin-bottom: 14px;
+}
+
+.servico-header {
+  font-size: 10.5px; font-weight: bold; color: #fff; background: #1e3a5f;
+  padding: 5px 10px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px;
+  margin: 16px 0 10px 0; page-break-after: avoid;
+}
+.servico-header:first-of-type { margin-top: 2px; }
+
+.clausula { margin-bottom: 12px; page-break-inside: avoid; }
+.clausula-titulo { font-size: 11px; font-weight: bold; color: #1a1f2e; margin-bottom: 4px; text-decoration: underline; page-break-after: avoid; }
+.clausula p { margin: 0; text-align: justify; }
+
+.sec { margin-bottom: 14px; }
+.sec-title {
+  font-size: 9.5px; font-weight: bold; color: #1e3a5f; text-transform: uppercase;
+  letter-spacing: 0.5px; padding: 3px 0; border-bottom: 1.5px solid #f0b014; margin-bottom: 8px;
+  page-break-after: avoid;
+}
+
+.valores-sec { page-break-inside: avoid; }
+.valores-box { border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 12px; background: rgba(248,250,252,0.92); }
+.valor-row { display: flex; justify-content: space-between; font-size: 10.5px; padding: 4px 0; border-bottom: 1px dashed #e2e8f0; page-break-inside: avoid; }
+.valor-row:last-child { border-bottom: none; }
+.valor-desc { color: #2d3748; }
+.valor-num  { font-weight: 600; color: #1a1f2e; white-space: nowrap; margin-left: 12px; }
+.valor-vazio { color: #a0aec0; font-style: italic; justify-content: center; }
+
+.total-row { display: flex; justify-content: flex-end; margin-top: 10px; page-break-inside: avoid; }
+.total-box { background: #1e3a5f; color: #fff; padding: 6px 16px; border-radius: 6px; font-size: 12px; font-weight: bold; letter-spacing: 0.5px; }
+.total-box span { color: #f0b014; margin-left: 10px; }
+
+.cond-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px 16px; page-break-inside: avoid; }
+.cond-item { font-size: 9.5px; }
+.cond-key  { color: #4a5568; font-weight: bold; font-size: 8.5px; text-transform: uppercase; letter-spacing: 0.3px; }
+.cond-val  { color: #1a1f2e; margin-top: 1px; }
+</style>
+</head>
+<body>
+${timbradoTag}
+
+<div class="doc-info">
+  <div class="doc-info-box">
+    <div class="doc-title">ORÇAMENTO</div>
+    ${tipoSubtitulo ? `<div class="doc-subtitle">${escapeHtml(tipoSubtitulo)}</div>` : ""}
+    <div class="doc-num">Nº ${escapeHtml(orcNumero)}</div>
+    <div class="doc-date">Data: ${escapeHtml(dataOrc)}</div>
+  </div>
+</div>
+
+<div class="cliente-box">
+  <div class="sec-title">Cliente</div>
+  <div class="cliente-nome">${escapeHtml(os.condominio_nome || "—")}</div>
+  ${os.condominio_razao_social && os.condominio_razao_social !== os.condominio_nome ? `<div class="cliente-det">Razão social: ${escapeHtml(os.condominio_razao_social)}</div>` : ""}
+  ${os.condominio_cnpj ? `<div class="cliente-det">CNPJ: ${escapeHtml(os.condominio_cnpj)}</div>` : ""}
+  ${enderecoStr ? `<div class="cliente-det">${escapeHtml(enderecoStr)}</div>` : ""}
+</div>
+
+${os.orcamento_constatacao ? `<div class="obs-box">${escapeHtml(os.orcamento_constatacao).replace(/\n/g, "<br>")}</div>` : ""}
+
+${clausulasHtml}
+
+<div class="sec valores-sec">
+  <div class="sec-title">Valores dos Serviços</div>
+  <div class="valores-box">${valoresHtml}</div>
+  <div class="total-row"><div class="total-box">VALOR TOTAL<span>${escapeHtml(fmtMoeda(totalGeral))}</span></div></div>
+</div>
+
+<div class="sec">
+  <div class="sec-title">Condições Comerciais</div>
+  <div class="cond-grid">
+    <div class="cond-item">
+      <div class="cond-key">Forma de Pagamento</div>
+      <div class="cond-val">${escapeHtml(os.orcamento_forma_pagamento || "Via boleto bancário")}</div>
+    </div>
+    <div class="cond-item">
+      <div class="cond-key">Prazo de Execução</div>
+      <div class="cond-val">${escapeHtml(os.orcamento_prazo_entrega || "5 dias úteis após aprovação")}</div>
+    </div>
+    <div class="cond-item">
+      <div class="cond-key">Validade da Proposta</div>
+      <div class="cond-val">${escapeHtml(validadeStr)}</div>
+    </div>
+  </div>
+</div>
+
 </body></html>`;
 }
 
@@ -574,8 +800,59 @@ async function _gerarPdf(dados, subdir, idStr) {
   return { pdf_url: urlPublica, fpath };
 }
 
+async function _gerarPdfServico(dados, subdir, idStr) {
+  const { os } = dados;
+  const orcNumero = os.orcamento_numero || os.os_numero || idStr;
+
+  const dir  = path.join(UPLOAD_ROOT, subdir, idStr);
+  await fsp.mkdir(dir, { recursive: true });
+  const filename   = `orcamento-${orcNumero}.pdf`;
+  const fpath      = path.join(dir, filename);
+  const urlPublica = `/uploads/orcamentos/${subdir}/${idStr}/${filename}`;
+
+  const timbrado = timbradoBase64();
+  const html     = renderHTMLServico(dados, timbrado);
+  const pc = "-webkit-print-color-adjust:exact;print-color-adjust:exact;";
+
+  // Timbrado dividido em header/footer do Puppeteer (conteúdo flui
+  // naturalmente entre páginas — mesmo esquema de contrato-pdf.service.js).
+  // Margens calibradas medindo os pixels reais de public/papel-timbrado.png:
+  // logo termina a ~36mm do topo, endereço do rodapé começa a ~22,5mm do
+  // fundo — 38mm/25mm dão folga sem desperdiçar espaço de conteúdo útil.
+  const headerTemplate = timbrado
+    ? `<style>*{margin:0!important;padding:0!important;}</style><div style="width:210mm;height:38mm;overflow:hidden;${pc}"><img src="${timbrado}" style="width:210mm;height:297mm;display:block;${pc}" /></div>`
+    : "<span></span>";
+  const footerTemplate = timbrado
+    ? `<style>*{margin:0!important;padding:0!important;}</style><div style="width:210mm;height:25mm;overflow:hidden;position:relative;${pc}"><img src="${timbrado}" style="position:absolute;bottom:0;left:0;width:210mm;height:297mm;display:block;${pc}" /></div>`
+    : "<span></span>";
+
+  const browser = await getBrowser();
+  const page = await browser.newPage();
+  try {
+    await page.setViewport({ width: 1200, height: 1600, deviceScaleFactor: 2 });
+    await page.setContent(html, { waitUntil: "domcontentloaded", timeout: 30000 });
+    const pdfBuf = await page.pdf({
+      format: "A4",
+      printBackground: true,
+      margin: { top: "38mm", right: "0", bottom: "25mm", left: "0" },
+      displayHeaderFooter: true,
+      headerTemplate,
+      footerTemplate,
+    });
+    const buf = Buffer.isBuffer(pdfBuf) ? pdfBuf : Buffer.from(pdfBuf);
+    await fsp.writeFile(fpath, buf);
+  } finally {
+    await page.close();
+  }
+
+  return { pdf_url: urlPublica, fpath };
+}
+
 async function gerarPdfAvulso(orcamentoId) {
   const dados = await buscarDadosAvulso(orcamentoId);
+  if (dados.os.tipo && dados.os.tipo !== "pecas") {
+    return _gerarPdfServico(dados, "avulso", String(orcamentoId));
+  }
   return _gerarPdf(dados, "avulso", String(orcamentoId));
 }
 

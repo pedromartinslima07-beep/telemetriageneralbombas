@@ -6179,6 +6179,22 @@ body.role-viewer .viewer-only-hide-inline {
 .orc-origem-ia { background: rgba(168,85,247,.14); color: #c4b5fd; border: 1px solid rgba(168,85,247,.32); }
 .orc-origem-os { background: rgba(56,189,248,.12); color: #7dd3fc; border: 1px solid rgba(56,189,248,.28); }
 
+/* Badge de tipo (Limpeza de Reservatório / Dedetização / combo) na lista de orçamentos */
+.orc-tipo-pill {
+  display: inline-block;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .4px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  text-transform: uppercase;
+  margin-left: 6px;
+  vertical-align: middle;
+  background: rgba(240,176,20,.14);
+  color: #f0b014;
+  border: 1px solid rgba(240,176,20,.32);
+}
+
 /* Tabela */
 .orc-table { width: 100%; }
 .orc-table th,
@@ -6335,6 +6351,9 @@ body.role-viewer .viewer-only-hide-inline {
   padding: 48px 20px 60px;
   overflow-y: auto;
 }
+/* Modal de orçamento avulso cresceu bastante (tipo, data, valores) —
+   compacta só este, sem afetar os outros modais que usam .av-modal */
+#avModal { padding: 28px 20px 32px; }
 .av-modal-backdrop {
   position: fixed;
   inset: 0;
@@ -6354,6 +6373,7 @@ body.role-viewer .viewer-only-hide-inline {
   box-shadow: 0 28px 80px rgba(0,0,0,.7);
   animation: avModalIn .18s ease;
 }
+#avModal .av-modal-dialog { padding: 28px 36px 32px; }
 @keyframes avModalIn {
   from { transform: translateY(18px); opacity: 0; }
   to   { transform: translateY(0);    opacity: 1; }

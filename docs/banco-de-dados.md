@@ -157,7 +157,13 @@ liga técnico ao login. 029: perfil (`foto_url`, `cpf`, `rg`,
 `status`, valores. 027: `os_id (FK SET NULL)`. 030 unificou: + `valor`,
 `aprovado_em`, `aprovado_por`, `motivo_rejeicao`. 036: `origem (admin|ia|os)`.
 047: `enviado_em TIMESTAMPTZ`, `enviado_para TEXT` (rastreio do envio do PDF por
-e-mail ao cliente).
+e-mail ao cliente). 060: `tipo (pecas|limpeza_reservatorio|dedetizacao|
+limpeza_dedetizacao)` DEFAULT `'pecas'` — mesma tabela/timbrado, mas o PDF
+ramifica pra um layout descritivo por cláusulas (Objeto/Escopo/Garantia) com
+valores separados no final, em vez da tabela de itens (ver [orçamentos
+avulsos](modulos/ordens-servico.md)). 061: `data_documento DATE` (nullable) —
+data exibida no PDF, editável no admin; se vazio, usa `criado_em` como
+sempre.
 **`orcamento_linhas`** (026, CASCADE) — `quantidade`, `valor_unitario`.
 > A tabela `orcamento_itens` (025) foi migrada e **removida** em 030.
 
