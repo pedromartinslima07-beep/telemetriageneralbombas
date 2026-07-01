@@ -141,11 +141,30 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
     versão) e corrigido um `margin-top:4px` inline redundante nos `<select>`
     do modal que desalinhava a linha do topo (ex.: "Data do orçamento" vs
     "Tipo de orçamento").
-  - PDF de peças: fonte da Constatação (`.constata-text`) 10px→11.5px e da
-    descrição do item (`.it-desc-text`) 9.5px→10.5px (estava herdando de
-    `.tabela-itens`, ganhou tamanho próprio) — mudança espelhada em
+  - PDF de peças: fontes aumentadas de novo (primeira leva ficou parecida
+    demais com o corpo do PDF de serviço — que usa 11px de base — e não deu
+    pra notar diferença). Valores finais: Constatação (`.constata-text`)
+    13.5px, descrição do item (`.it-desc-text`, agora `font-weight:700`)
+    12px, títulos de seção (`.sec-title` — Constatação/Itens/Condições
+    Comerciais) 9px→11px, badge numerado (`.sec-num`) 8px→9px, cabeçalho da
+    tabela (`.tabela-itens th`) 8.5px→10px, corpo da tabela (`.tabela-itens`)
+    9.5px→11px, ficha técnica (`.ficha`) 8.5px→9.5px — títulos cresceram
+    junto pra manter a hierarquia (título > conteúdo). Mudança espelhada em
     `renderHTML` e `renderMeasureHTML` (a paginação two-pass precisa medir
     com o mesmo CSS do render final, senão desalinha).
+  - Mesma leva, PDF de peças: data no topo (`.doc-date`) 9px→11px, nome do
+    cliente (`.cliente-nome`) 12px→14px, razão social/CNPJ/endereço
+    (`.cliente-det`) 9px→11px, condições comerciais (`.cond-item`/valores)
+    9.5px→11.5px e labels (`.cond-key`) 8.5px→10px. Só o template de peças —
+    o de serviço (`renderHTMLServico`) ficou com os tamanhos originais, não
+    foi pedido.
+  - Ajuste de hierarquia: os títulos de seção (`.sec-title` — Cliente/
+    Constatação/Itens/Condições Comerciais) tinham ficado *menores* que o
+    próprio conteúdo (11px de título vs 13.5px da Constatação, 12px da
+    descrição do item) — só pareciam maiores por causa do negrito/maiúsculo/
+    borda. Corrigido para 15px (`.sec-title` e `.cliente-box .sec-title`),
+    maior que qualquer conteúdo da seção; badge numerado (`.sec-num`)
+    9px→10px. Espelhado em `renderHTML` e `renderMeasureHTML`.
   - Admin (`public/admin.js`/`admin.html`, `?v=202`/`?v=121`): seletor "Tipo de
     orçamento" no modal de orçamento avulso; seção "Itens" vira "Valores dos
     Serviços" quando `tipo !== 'pecas'`; botão "+ Preencher item(ns) padrão do

@@ -302,7 +302,7 @@ function renderHTML({ os, itens }, areaP1, medidas = {}) {
   .doc-info-box { text-align: right; }
   .doc-info-box .doc-title { font-size: 14px; font-weight: bold; color: #1a1f2e; letter-spacing: 1px; }
   .doc-info-box .doc-num   { font-size: 11px; color: #c07a00; font-weight: bold; margin-top: 2px; }
-  .doc-info-box .doc-date  { font-size: 9px; color: #4a5568; margin-top: 2px; }
+  .doc-info-box .doc-date  { font-size: 11px; color: #4a5568; margin-top: 2px; }
 
   /* ── Cliente ── */
   .cliente-box {
@@ -312,14 +312,14 @@ function renderHTML({ os, itens }, areaP1, medidas = {}) {
     margin-bottom: 8px;
     background: rgba(248,250,252,0.92);
   }
-  .cliente-box .sec-title { font-size: 9px; font-weight: bold; color: #1e3a5f; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 3px; }
-  .cliente-nome { font-size: 12px; font-weight: bold; color: #1a1f2e; }
-  .cliente-det  { font-size: 9px; color: #4a5568; margin-top: 2px; }
+  .cliente-box .sec-title { font-size: 15px; font-weight: bold; color: #1e3a5f; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 3px; }
+  .cliente-nome { font-size: 14px; font-weight: bold; color: #1a1f2e; }
+  .cliente-det  { font-size: 11px; color: #4a5568; margin-top: 2px; }
 
   /* ── Seções ── */
   .sec { margin-bottom: 8px; }
   .sec-title {
-    font-size: 9px;
+    font-size: 15px;
     font-weight: bold;
     color: #1e3a5f;
     text-transform: uppercase;
@@ -332,7 +332,7 @@ function renderHTML({ os, itens }, areaP1, medidas = {}) {
     display: inline-block;
     background: #f0b014;
     color: #fff;
-    font-size: 8px;
+    font-size: 10px;
     font-weight: bold;
     padding: 1px 4px;
     border-radius: 3px;
@@ -341,7 +341,7 @@ function renderHTML({ os, itens }, areaP1, medidas = {}) {
 
   /* ── Constatação ── */
   .constata-text {
-    font-size: 11.5px;
+    font-size: 13.5px;
     color: #2d3748;
     white-space: pre-wrap;
     word-break: break-word;
@@ -354,12 +354,12 @@ function renderHTML({ os, itens }, areaP1, medidas = {}) {
   }
 
   /* ── Tabela de itens ── */
-  .tabela-itens { width: 100%; border-collapse: collapse; font-size: 9.5px; }
+  .tabela-itens { width: 100%; border-collapse: collapse; font-size: 11px; }
   .tabela-itens thead tr { background: #1e3a5f; color: #fff; }
   .tabela-itens th {
     padding: 4px 6px;
     text-align: left;
-    font-size: 8.5px;
+    font-size: 10px;
     text-transform: uppercase;
     letter-spacing: 0.3px;
   }
@@ -367,11 +367,11 @@ function renderHTML({ os, itens }, areaP1, medidas = {}) {
   .tabela-itens tbody tr:nth-child(even) { background: rgba(247,250,252,0.9); }
   .tabela-itens td { padding: 4px 6px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
   .it-idx  { width: 22px; text-align: center; color: #718096; }
-  .it-desc-text { font-weight: 500; font-size: 10.5px; }
+  .it-desc-text { font-weight: 700; font-size: 12px; }
   .it-num  { text-align: right; white-space: nowrap; }
   .ficha {
     margin-top: 2px;
-    font-size: 8.5px;
+    font-size: 9.5px;
     color: #4a5568;
     background: rgba(240,244,248,0.95);
     border-left: 3px solid #f0b014;
@@ -395,8 +395,8 @@ function renderHTML({ os, itens }, areaP1, medidas = {}) {
 
   /* ── Condições ── */
   .cond-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px 16px; }
-  .cond-item { font-size: 9.5px; }
-  .cond-key  { color: #4a5568; font-weight: bold; font-size: 8.5px; text-transform: uppercase; letter-spacing: 0.3px; }
+  .cond-item { font-size: 11.5px; }
+  .cond-key  { color: #4a5568; font-weight: bold; font-size: 10px; text-transform: uppercase; letter-spacing: 0.3px; }
   .cond-val  { color: #1a1f2e; margin-top: 1px; }
 </style>
 </head>
@@ -431,23 +431,23 @@ body { width: 210mm; background: white; font-family: Arial, Helvetica, sans-seri
 .doc-info-box { text-align: right; }
 .doc-info-box .doc-title { font-size: 14px; font-weight: bold; letter-spacing: 1px; }
 .doc-info-box .doc-num   { font-size: 11px; color: #c07a00; font-weight: bold; margin-top: 2px; }
-.doc-info-box .doc-date  { font-size: 9px; color: #4a5568; margin-top: 2px; }
+.doc-info-box .doc-date  { font-size: 11px; color: #4a5568; margin-top: 2px; }
 .cliente-box { border: 1px solid #e2e8f0; border-radius: 6px; padding: 7px 11px; margin-bottom: 8px; background: rgba(248,250,252,0.92); }
-.cliente-box .sec-title { font-size: 9px; font-weight: bold; color: #1e3a5f; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 3px; }
-.cliente-nome { font-size: 12px; font-weight: bold; }
-.cliente-det  { font-size: 9px; color: #4a5568; margin-top: 2px; }
+.cliente-box .sec-title { font-size: 15px; font-weight: bold; color: #1e3a5f; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 3px; }
+.cliente-nome { font-size: 14px; font-weight: bold; }
+.cliente-det  { font-size: 11px; color: #4a5568; margin-top: 2px; }
 .sec { margin-bottom: 8px; }
-.sec-title { font-size: 9px; font-weight: bold; color: #1e3a5f; text-transform: uppercase; letter-spacing: 0.5px; padding: 3px 0; border-bottom: 1.5px solid #f0b014; margin-bottom: 5px; }
-.sec-num { display: inline-block; background: #f0b014; color: #fff; font-size: 8px; font-weight: bold; padding: 1px 4px; border-radius: 3px; margin-right: 4px; }
-.constata-text { font-size: 11.5px; color: #2d3748; white-space: pre-wrap; word-break: break-word; overflow-wrap: break-word; padding: 4px 6px; border: 1px dashed #cbd5e0; border-radius: 4px; background: rgba(250,251,252,0.92); min-height: 24px; }
-.tabela-itens { width: 100%; border-collapse: collapse; font-size: 9.5px; }
-.tabela-itens th { padding: 4px 6px; text-align: left; font-size: 8.5px; text-transform: uppercase; letter-spacing: 0.3px; }
+.sec-title { font-size: 15px; font-weight: bold; color: #1e3a5f; text-transform: uppercase; letter-spacing: 0.5px; padding: 3px 0; border-bottom: 1.5px solid #f0b014; margin-bottom: 5px; }
+.sec-num { display: inline-block; background: #f0b014; color: #fff; font-size: 10px; font-weight: bold; padding: 1px 4px; border-radius: 3px; margin-right: 4px; }
+.constata-text { font-size: 13.5px; color: #2d3748; white-space: pre-wrap; word-break: break-word; overflow-wrap: break-word; padding: 4px 6px; border: 1px dashed #cbd5e0; border-radius: 4px; background: rgba(250,251,252,0.92); min-height: 24px; }
+.tabela-itens { width: 100%; border-collapse: collapse; font-size: 11px; }
+.tabela-itens th { padding: 4px 6px; text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: 0.3px; }
 .tabela-itens th.it-num { text-align: right; }
 .tabela-itens td { padding: 4px 6px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
 .it-idx { width: 22px; text-align: center; color: #718096; }
-.it-desc-text { font-weight: 500; font-size: 10.5px; }
+.it-desc-text { font-weight: 700; font-size: 12px; }
 .it-num { text-align: right; white-space: nowrap; }
-.ficha { margin-top: 2px; font-size: 8.5px; color: #4a5568; background: rgba(240,244,248,0.95); border-left: 3px solid #f0b014; padding: 2px 4px; border-radius: 0 3px 3px 0; }
+.ficha { margin-top: 2px; font-size: 9.5px; color: #4a5568; background: rgba(240,244,248,0.95); border-left: 3px solid #f0b014; padding: 2px 4px; border-radius: 0 3px 3px 0; }
 </style>
 </head>
 <body>
