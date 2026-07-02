@@ -12170,13 +12170,19 @@ function _avRenderPainel() {
         <div style="color:var(--muted);font-size:12px;padding:8px 0;">Carregando…</div>
       </div>
 
-      <div style="margin-top:8px;">
-        <label class="orc-form-label" style="max-width:260px;">
-          Valor total (manual)
-          <input id="avInputValorManual" class="input" type="number" min="0" step="0.01"
-            placeholder="Soma automática dos itens" value="${o.valor != null ? o.valor : ''}">
+      <div style="margin-top:10px;">
+        <label class="check-field" style="display:inline-flex;">
+          <input type="checkbox" id="avToggleValorManual" ${o.valor != null ? "checked" : ""}>
+          Definir valor total manualmente (em vez de somar os itens)
         </label>
-        <div class="hint" style="margin-top:5px;">Sobrepõe a soma dos itens no PDF. Deixe vazio para somar automaticamente.</div>
+        <div id="avValorManualWrap" style="margin-top:10px;${o.valor != null ? "" : "display:none;"}">
+          <label class="orc-form-label" style="max-width:260px;">
+            Valor total (manual)
+            <input id="avInputValorManual" class="input" type="number" min="0" step="0.01"
+              placeholder="0,00" value="${o.valor != null ? o.valor : ''}">
+          </label>
+          <div class="hint" style="margin-top:5px;">Sobrepõe a soma dos itens no PDF.</div>
+        </div>
       </div>
 
       <!-- Condições -->
@@ -12235,6 +12241,21 @@ function _avRenderPainel() {
   document.getElementById("avInputTipo")?.addEventListener("change", async e => {
     await _avPreencherPadrao(e.target.value);
     _avRenderLinhas();
+  });
+
+  // Toggle do valor manual: some/reaparece o campo e, ao desmarcar, limpa
+  // o valor pra voltar a somar os itens automaticamente.
+  document.getElementById("avToggleValorManual")?.addEventListener("change", e => {
+    const valorWrap  = document.getElementById("avValorManualWrap");
+    const valorInput = document.getElementById("avInputValorManual");
+    if (!valorWrap) return;
+    if (e.target.checked) {
+      valorWrap.style.display = "";
+      valorInput?.focus();
+    } else {
+      valorWrap.style.display = "none";
+      if (valorInput) valorInput.value = "";
+    }
   });
 }
 
