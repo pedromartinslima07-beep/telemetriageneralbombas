@@ -51,6 +51,7 @@ async function buscarDadosAvulso(orcamentoId) {
        o.valido_ate,
        o.data_documento,
        o.criado_em,
+       o.valor,
        COALESCE(c.nome_fantasia, c.nome) AS condominio_nome,
        c.nome      AS condominio_razao_social,
        c.endereco, c.bairro, c.cidade, c.uf, c.cep,
@@ -103,7 +104,9 @@ function renderHTML({ os, itens }, areaP1, medidas = {}) {
   const dataOrc     = fmtDateBR(os.finalizada_em || os.criado_em);
   const endParts    = [os.endereco, os.bairro, os.cidade && os.uf ? `${os.cidade}/${os.uf}` : (os.cidade || ""), os.cep ? `CEP ${os.cep}` : ""].filter(Boolean);
   const enderecoStr = endParts.join(" – ");
-  const totalGeral  = itens.reduce((acc, it) => acc + Number(it.valor_unitario) * Number(it.quantidade), 0);
+  const totalGeral  = os.valor != null
+    ? Number(os.valor)
+    : itens.reduce((acc, it) => acc + Number(it.valor_unitario || 0) * Number(it.quantidade), 0);
   const validadeStr = os.orcamento_valido_ate ? `60 dias (até ${fmtDateBR(os.orcamento_valido_ate)})` : "60 dias";
 
   // ── Paginação ────────────────────────────────────────────────────────────────
@@ -217,7 +220,7 @@ function renderHTML({ os, itens }, areaP1, medidas = {}) {
       } else {
         pag.itens.forEach(it => {
           itemIdx++;
-          const tot = Number(it.valor_unitario) * Number(it.quantidade);
+          const tot = it.valor_unitario == null ? null : Number(it.valor_unitario) * Number(it.quantidade);
           const fichaHtml = it.ficha_tecnica
             ? `<div class="ficha">${escapeHtml(it.ficha_tecnica).replace(/\n/g, "<br>")}</div>`
             : "";
@@ -583,11 +586,13 @@ function renderHTMLServico({ os, itens }, timbrado) {
   const tipoSubtitulo = TIPO_SUBTITULO[os.tipo] || "";
   const clausulasHtml = (CLAUSULAS_POR_TIPO[os.tipo] || (() => ""))(itens);
   const validadeStr   = os.orcamento_valido_ate ? `60 dias (até ${fmtDateBR(os.orcamento_valido_ate)})` : "60 dias";
-  const totalGeral    = itens.reduce((acc, it) => acc + Number(it.valor_unitario) * Number(it.quantidade), 0);
+  const totalGeral    = os.valor != null
+    ? Number(os.valor)
+    : itens.reduce((acc, it) => acc + Number(it.valor_unitario || 0) * Number(it.quantidade), 0);
 
   const valoresHtml = itens.length
     ? itens.map(it => {
-        const tot       = Number(it.valor_unitario) * Number(it.quantidade);
+        const tot       = it.valor_unitario == null ? null : Number(it.valor_unitario) * Number(it.quantidade);
         const qtdSuffix = Number(it.quantidade) > 1 ? ` (${it.quantidade}x)` : "";
         return `<div class="valor-row"><span class="valor-desc">${escapeHtml(it.descricao)}${qtdSuffix}</span><span class="valor-num">${escapeHtml(fmtMoeda(tot))}</span></div>`;
       }).join("")

@@ -12168,6 +12168,17 @@ function _avRenderPainel() {
         <div style="color:var(--muted);font-size:12px;padding:8px 0;">Carregando…</div>
       </div>
 
+      <div style="display:flex;align-items:flex-end;gap:10px;margin-top:8px;flex-wrap:wrap;">
+        <label class="orc-form-label" style="max-width:220px;">
+          Valor total (manual)
+          <input id="avInputValorManual" class="input" type="number" min="0" step="0.01"
+            placeholder="Soma automática dos itens" value="${o.valor != null ? o.valor : ''}">
+        </label>
+        <div style="font-size:10.5px;color:var(--muted);max-width:340px;padding-bottom:9px;">
+          Preencha para sobrepor a soma dos itens no PDF — útil quando algum item não tem valor unitário lançado. Deixe vazio para somar os itens automaticamente.
+        </div>
+      </div>
+
       <!-- Condições -->
       <div class="ap-section-title" style="margin-top:14px;margin-bottom:10px;">Condições Comerciais</div>
       <div class="orc-form-row" style="margin-bottom:14px;grid-template-columns:1fr 1fr 1fr 1fr;">
@@ -12272,11 +12283,18 @@ async function _avCarregarLinhas(orcId) {
   _avRenderLinhas();
 }
 
+// Total exibido para um orçamento avulso: `valor` manual (se preenchido)
+// sobrepõe a soma dos itens — mesma regra usada no PDF (orcamento-pdf.service.js).
+function _avComputeTotal(o, linhas) {
+  if (o && o.valor != null) return Number(o.valor);
+  return linhas.reduce((s, l) => s + Number(l.valor_unitario || 0) * Number(l.quantidade), 0);
+}
+
 function _avRenderLinhas() {
   const wrap = document.getElementById("avItensWrap");
   if (!wrap || _avLinhasId !== _avSelecionado?.id) return;
 
-  const total = _avLinhas.reduce((s, l) => s + Number(l.valor_unitario) * Number(l.quantidade), 0);
+  const total = _avLinhas.reduce((s, l) => s + Number(l.valor_unitario || 0) * Number(l.quantidade), 0);
 
   // Serviço (limpeza/dedetização/combo): não faz sentido qtd × unit., é
   // sempre o valor total daquele serviço — some a coluna Qtd/Unit., fica só Valor.
@@ -12287,26 +12305,27 @@ function _avRenderLinhas() {
   const colCount = isServico ? 3 : 5;
 
   const fileiras = _avLinhas.map(l => {
-    const tot = Number(l.valor_unitario) * Number(l.quantidade);
+    const vuVal = l.valor_unitario != null ? l.valor_unitario : "";
+    const tot   = l.valor_unitario == null ? null : Number(l.valor_unitario) * Number(l.quantidade);
     const descCell = `<td style="max-width:200px;">
         <div style="font-size:12px;font-weight:500;">${_waEscaparHtml(l.descricao)}</div>
-        <input class="input" type="text" value="${_waEscaparHtml(l.ficha_tecnica || "")}" placeholder="${fichaPlaceholder}"
+        <textarea class="input" rows="2" placeholder="${fichaPlaceholder}"
           data-av-linha-id="${l.id}" data-av-linha-field="ficha_tecnica"
-          style="width:100%;font-size:10.5px;padding:3px 6px;margin-top:3px;">
+          style="width:100%;font-size:10.5px;padding:3px 6px;margin-top:3px;resize:vertical;">${_waEscaparHtml(l.ficha_tecnica || "")}</textarea>
       </td>`;
     const delCell = `<td style="text-align:center;"><button class="orc-it-del" data-av-del-linha="${l.id}" title="Remover">✕</button></td>`;
 
     if (isServico) {
       return `<tr data-av-linha-id="${l.id}">
         ${descCell}
-        <td class="orc-it-num"><input class="input" type="number" min="0" step="0.01" value="${l.valor_unitario}" data-av-linha-id="${l.id}" data-av-linha-field="valor_unitario" style="width:90px;padding:4px 6px;text-align:right;"></td>
+        <td class="orc-it-num"><input class="input" type="number" min="0" step="0.01" value="${vuVal}" placeholder="R$" data-av-linha-id="${l.id}" data-av-linha-field="valor_unitario" style="width:90px;padding:4px 6px;text-align:right;"></td>
         ${delCell}
       </tr>`;
     }
     return `<tr data-av-linha-id="${l.id}">
       ${descCell}
       <td class="orc-it-num"><input class="input" type="number" min="1" step="1" value="${l.quantidade}" data-av-linha-id="${l.id}" data-av-linha-field="quantidade" style="width:52px;padding:4px 6px;text-align:right;"></td>
-      <td class="orc-it-num"><input class="input" type="number" min="0" step="0.01" value="${l.valor_unitario}" data-av-linha-id="${l.id}" data-av-linha-field="valor_unitario" style="width:82px;padding:4px 6px;text-align:right;"></td>
+      <td class="orc-it-num"><input class="input" type="number" min="0" step="0.01" value="${vuVal}" placeholder="R$" data-av-linha-id="${l.id}" data-av-linha-field="valor_unitario" style="width:82px;padding:4px 6px;text-align:right;"></td>
       <td class="orc-it-num" style="font-weight:600;">${_orcFmtValor(tot)}</td>
       ${delCell}
     </tr>`;
@@ -12341,7 +12360,10 @@ function _avRenderLinhas() {
       </thead>
       <tbody>${fileiras || `<tr><td colspan="${colCount}" style="text-align:center;color:var(--muted);padding:12px;font-size:12px;">Nenhum item ainda.</td></tr>`}</tbody>
     </table>
-    ${_avLinhas.length ? `<div style="text-align:right;font-size:12px;font-weight:700;padding:6px 8px 0;color:var(--accent);">Total: ${_orcFmtValor(total)}</div>` : ""}
+    ${_avLinhas.length ? `<div style="text-align:right;font-size:12px;font-weight:700;padding:6px 8px 0;color:var(--accent);">
+      Soma dos itens: ${_orcFmtValor(total)}
+      ${_avSelecionado?.valor != null ? `<span style="color:var(--muted);font-weight:400;"> (valor manual sobrepõe no PDF: ${_orcFmtValor(Number(_avSelecionado.valor))})</span>` : ""}
+    </div>` : ""}
 
     ${addItemForm}`;
 }
@@ -12535,7 +12557,7 @@ async function _avPreencherPadrao(tipo) {
     }
     _avRenderLinhas();
     const idx = _avData.findIndex(o => o.id === id);
-    if (idx !== -1) _avData[idx].valor_total = _avLinhas.reduce((s, l) => s + Number(l.valor_unitario) * Number(l.quantidade), 0);
+    if (idx !== -1) _avData[idx].valor_total = _avComputeTotal(_avData[idx], _avLinhas);
     if (msg) { msg.textContent = "✓ Valor(es) do serviço adicionado(s) — ajuste o valor"; setTimeout(() => { msg.textContent = ""; }, 3000); }
   } catch (e) { if (msg) msg.textContent = "Erro: " + e.message; }
   finally { _avPreencherPadraoAtivo = false; }
@@ -12567,10 +12589,11 @@ async function _avAcao(acao) {
   const id = _avSelecionado.id;
 
   if (acao === "add-linha") {
-    const desc  = document.getElementById("avNewDesc")?.value.trim();
-    const qtd   = Number(document.getElementById("avNewQtd")?.value) || 1;
-    const valor = Number(document.getElementById("avNewVal")?.value) || 0;
-    const ficha = document.getElementById("avNewFicha")?.value.trim() || null;
+    const desc     = document.getElementById("avNewDesc")?.value.trim();
+    const qtd      = Number(document.getElementById("avNewQtd")?.value) || 1;
+    const valorRaw = document.getElementById("avNewVal")?.value;
+    const valor    = valorRaw === "" || valorRaw == null ? null : Number(valorRaw);
+    const ficha    = document.getElementById("avNewFicha")?.value.trim() || null;
     if (!desc) { alert("Informe a descrição."); return; }
     if (msg) msg.textContent = "Adicionando…";
     try {
@@ -12589,7 +12612,7 @@ async function _avAcao(acao) {
       _avRenderLinhas();
       // Atualiza valor_total no _avData local
       const idx = _avData.findIndex(o => o.id === id);
-      if (idx !== -1) _avData[idx].valor_total = _avLinhas.reduce((s, l) => s + Number(l.valor_unitario) * Number(l.quantidade), 0);
+      if (idx !== -1) _avData[idx].valor_total = _avComputeTotal(_avData[idx], _avLinhas);
     } catch (e) { if (msg) msg.textContent = "Erro: " + e.message; }
     return;
   }
@@ -12628,6 +12651,7 @@ async function _avAcao(acao) {
 
   // salvar
   if (msg) msg.textContent = "Salvando…";
+  const valorManualRaw = document.getElementById("avInputValorManual")?.value;
   const body = {
     tipo:            document.getElementById("avInputTipo")?.value || "pecas",
     condominio_id:   document.getElementById("avInputCondo")?.value || null,
@@ -12639,6 +12663,7 @@ async function _avAcao(acao) {
     valido_ate:      document.getElementById("avInputValidade")?.value || null,
     data_documento:  document.getElementById("avInputDataDoc")?.value || null,
     status:          document.getElementById("avInputStatus")?.value || "rascunho",
+    valor:           valorManualRaw === "" || valorManualRaw == null ? null : Number(valorManualRaw),
   };
   try {
     const r = await fetch(`/admin/orcamentos/avulsos/${id}`, {
@@ -12672,7 +12697,7 @@ async function _avRemoverLinha(linhaId) {
     _avLinhas = _avLinhas.filter(l => l.id !== linhaId);
     // Atualiza total local
     const idx = _avData.findIndex(o => o.id === _avSelecionado?.id);
-    if (idx !== -1) _avData[idx].valor_total = _avLinhas.reduce((s, l) => s + Number(l.valor_unitario) * Number(l.quantidade), 0);
+    if (idx !== -1) _avData[idx].valor_total = _avComputeTotal(_avData[idx], _avLinhas);
     _avRenderLinhas();
   } catch (e) { alert("Erro: " + e.message); }
 }
@@ -12689,7 +12714,7 @@ async function _avEditarLinha(linhaId, field, value) {
     const idx = _avLinhas.findIndex(l => l.id === linhaId);
     if (idx !== -1) _avLinhas[idx] = j;
     const oIdx = _avData.findIndex(o => o.id === _avSelecionado?.id);
-    if (oIdx !== -1) _avData[oIdx].valor_total = _avLinhas.reduce((s, l) => s + Number(l.valor_unitario) * Number(l.quantidade), 0);
+    if (oIdx !== -1) _avData[oIdx].valor_total = _avComputeTotal(_avData[oIdx], _avLinhas);
     _avRenderLinhas();
     _avRenderTudo();
   } catch (e) { alert("Erro: " + e.message); }
@@ -12747,7 +12772,7 @@ function _avBindEventos() {
     const field   = inp.dataset.avLinhaField;
     let value;
     if (field === "quantidade") value = Math.max(1, Number(inp.value) || 1);
-    else if (field === "valor_unitario") value = Math.max(0, Number(inp.value) || 0);
+    else if (field === "valor_unitario") value = inp.value.trim() === "" ? null : Math.max(0, Number(inp.value) || 0);
     else value = inp.value.trim() || null;
     _avEditarLinha(linhaId, field, value);
   });
@@ -13035,10 +13060,10 @@ function _orcRenderItens() {
   const wrap = document.getElementById("orcItensWrap");
   if (!wrap || _orcItensOsId !== _orcSelecionado?.id) return;
 
-  const total = _orcItens.reduce((s, it) => s + Number(it.valor_unitario) * Number(it.quantidade), 0);
+  const total = _orcItens.reduce((s, it) => s + Number(it.valor_unitario || 0) * Number(it.quantidade), 0);
 
   const fileiras = _orcItens.map(it => {
-    const tot = Number(it.valor_unitario) * Number(it.quantidade);
+    const tot = it.valor_unitario == null ? null : Number(it.valor_unitario) * Number(it.quantidade);
     return `<tr data-orc-item-id="${it.id}">
       <td style="max-width:160px;">
         <div style="font-size:12px;font-weight:500;">${_waEscaparHtml(it.descricao)}</div>
@@ -13155,10 +13180,11 @@ async function _orcAdicionarItem() {
   const osId = _orcSelecionado?.id;
   if (!osId) return;
 
-  const desc  = document.getElementById("orcNewDescricao")?.value.trim();
-  const qtd   = Number(document.getElementById("orcNewQtd")?.value) || 1;
-  const valor = Number(document.getElementById("orcNewValor")?.value) || 0;
-  const ficha = document.getElementById("orcNewFicha")?.value.trim() || null;
+  const desc     = document.getElementById("orcNewDescricao")?.value.trim();
+  const qtd      = Number(document.getElementById("orcNewQtd")?.value) || 1;
+  const valorRaw = document.getElementById("orcNewValor")?.value;
+  const valor    = valorRaw === "" || valorRaw == null ? null : Number(valorRaw);
+  const ficha    = document.getElementById("orcNewFicha")?.value.trim() || null;
 
   if (!desc) {
     alert("Informe a descrição do item.");

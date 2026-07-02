@@ -163,8 +163,13 @@ ramifica pra um layout descritivo por cláusulas (Objeto/Escopo/Garantia) com
 valores separados no final, em vez da tabela de itens (ver [orçamentos
 avulsos](modulos/ordens-servico.md)). 061: `data_documento DATE` (nullable) —
 data exibida no PDF, editável no admin; se vazio, usa `criado_em` como
-sempre.
-**`orcamento_linhas`** (026, CASCADE) — `quantidade`, `valor_unitario`.
+sempre. `valor` (coluna original de 030, antes só usada na aprovação por O.S.)
+passa a servir também de **override manual do total** do PDF de orçamento
+avulso — quando preenchido, sobrepõe a soma de `orcamento_linhas`.
+**`orcamento_linhas`** (026, CASCADE) — `quantidade`, `valor_unitario`. 062:
+`valor_unitario` vira nullable (era `NOT NULL DEFAULT 0`) — item sem preço
+lançado fica `NULL` de verdade em vez de `0`, e o PDF omite a coluna de valor
+pra esse item em vez de mostrar "R$ 0,00".
 > A tabela `orcamento_itens` (025) foi migrada e **removida** em 030.
 
 ### Outras

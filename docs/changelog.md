@@ -74,6 +74,7 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
 | 054 | contratos_zapsign | colunas de assinatura digital: `signatario_nome/email`, `signatario_geral_nome/email`, `descricao_servico`, `zapsign_token/status/url_cliente/url_geral/doc_url`, `enviado_assinatura_em`, `assinado_em` |
 | 060 | orcamentos_tipo | `orcamentos.tipo` (`pecas` default \| `limpeza_reservatorio` \| `dedetizacao` \| `limpeza_dedetizacao`) — orçamento de serviço reaproveitando mesma tabela/PDF/timbrado |
 | 061 | orcamento_data_documento | `orcamentos.data_documento DATE` (nullable) — data exibida no PDF, editável no admin sem mexer em `criado_em` |
+| 062 | orcamento_valor_opcional | `orcamento_linhas.valor_unitario` vira nullable (era `NOT NULL DEFAULT 0`) — item sem preço some da coluna de valor no PDF em vez de virar "R$ 0,00" |
 
 ## Marcos de produto (fases do plano)
 
@@ -172,6 +173,40 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
     texto técnico não vem mais de input do admin, é fixo no PDF. No combo as
     duas linhas entram separadas, cada uma com seu valor. Badge de tipo na
     lista de orçamentos avulsos.
+
+- **2026-07-02** — **Orçamento de peças — valor unitário opcional + total manual**
+  - Migration 062: `orcamento_linhas.valor_unitario` deixa de ser `NOT NULL
+    DEFAULT 0` — vira nullable, sem default. Item sem preço lançado agora fica
+    `NULL` de verdade, em vez de virar `0` silenciosamente.
+  - PDF (`src/services/orcamento-pdf.service.js`, `renderHTML` — tipo `pecas` —
+    e `renderHTMLServico`): item com `valor_unitario == null` mostra "—" nas
+    colunas Valor Unit./Total em vez de "R$ 0,00" (`fmtMoeda` já tratava
+    `null` como "—", só faltava parar de coagir pra `0` antes de chegar lá).
+    `totalGeral` passa a usar `orcamentos.valor` como override manual quando
+    preenchido; senão soma os itens como antes (itens sem valor não entram na
+    soma).
+  - `orcamentos.valor` (coluna que já existia, herdada do fluxo antigo de
+    aprovação por O.S.) virou também o campo de "Valor total (manual)" do
+    orçamento avulso — não foi criada coluna nova pra isso.
+  - Backend (`src/routes/admin.routes.js`): rotas de item (`POST`/`PATCH
+    /admin/orcamentos/:os_id/itens`, `.../avulsos/:id/linhas`,
+    `.../avulsos/linhas/:linha_id`) aceitam `valor_unitario` vazio/`null` sem
+    coagir pra `0`. `PATCH /admin/orcamentos/avulsos/:id` ganhou o campo
+    `valor` (override manual, `null` volta a somar os itens). As 3 queries que
+    calculavam `valor_total` por `SUM(quantidade * valor_unitario)` (listagem,
+    envio de e-mail, histórico do condomínio) passaram a fazer
+    `COALESCE(o.valor, SUM(...), 0)`.
+  - Admin (`public/admin.js`, `?v=212`): campo "Valor total (manual)" no modal
+    de orçamento avulso, abaixo da tabela de itens — vazio usa a soma
+    automática. Inputs de "Unit." aceitam ficar em branco (antes só permitiam
+    número ≥ 0, forçando `0`). Label da soma dos itens mostra aviso quando o
+    valor manual está ativo e vai sobrepor no PDF.
+  - Ficha técnica com múltiplas linhas na edição de item já existente (`?v=213`):
+    o campo, na tabela de itens do modal avulso, era um `<input type="text">`
+    de uma linha só — trocado por `<textarea rows="2">` (mesmo padrão já usado
+    no formulário "+ Adicionar item"). O PDF já suportava múltiplas linhas
+    (`.replace(/\n/g, "<br>")` em `orcamento-pdf.service.js`); só faltava dar
+    pra digitar depois que o item já existia.
 
 - **2026-06-17** — **Admin — Seção dedicada de Contratos**
   - Nova seção `data-section="contratos"` na sidebar entre Orçamentos e Planos.

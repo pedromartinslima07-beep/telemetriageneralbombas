@@ -1067,9 +1067,9 @@ router.post("/orcamentos/:os_id/itens", authRequired, adminOnly, async (req, res
   if (!descricao || !String(descricao).trim()) return res.status(400).json({ error: "descricao obrigatória" });
 
   const qtd = Number(quantidade) || 1;
-  const vu  = Number(valor_unitario) || 0;
+  const vu  = (valor_unitario === "" || valor_unitario == null) ? null : Number(valor_unitario);
   if (qtd <= 0)  return res.status(400).json({ error: "quantidade inválida" });
-  if (vu < 0)    return res.status(400).json({ error: "valor_unitario inválido" });
+  if (vu != null && (isNaN(vu) || vu < 0)) return res.status(400).json({ error: "valor_unitario inválido" });
 
   try {
     const { id: orcId } = await _garantirOrcamentoDaOs(osId, req.user.id);
@@ -1109,9 +1109,13 @@ router.patch("/orcamentos/itens/:item_id", authRequired, adminOnly, async (req, 
     vals.push(q); sets.push(`quantidade = $${vals.length}`);
   }
   if (valor_unitario !== undefined) {
-    const v = Number(valor_unitario);
-    if (v < 0) return res.status(400).json({ error: "valor_unitario inválido" });
-    vals.push(v); sets.push(`valor_unitario = $${vals.length}`);
+    if (valor_unitario === "" || valor_unitario === null) {
+      vals.push(null); sets.push(`valor_unitario = $${vals.length}`);
+    } else {
+      const v = Number(valor_unitario);
+      if (isNaN(v) || v < 0) return res.status(400).json({ error: "valor_unitario inválido" });
+      vals.push(v); sets.push(`valor_unitario = $${vals.length}`);
+    }
   }
 
   if (!sets.length) return res.status(400).json({ error: "Nenhum campo para atualizar" });
@@ -1175,6 +1179,7 @@ router.get("/orcamentos/avulsos", authRequired, adminOnly, async (req, res) => {
               c.nome AS condominio_nome, c.id AS condominio_id, c.email AS condominio_email,
               o.enviado_em, o.enviado_para,
               COALESCE(
+                o.valor,
                 (SELECT SUM(l.quantidade * l.valor_unitario)
                  FROM orcamento_linhas l WHERE l.orcamento_id = o.id), 0
               ) AS valor_total
@@ -1235,7 +1240,7 @@ router.patch("/orcamentos/avulsos/:id", authRequired, adminOnly, async (req, res
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
 
-  const fields = ["numero","condominio_id","os_id","status","tipo","constatacao","forma_pagamento","prazo_entrega","garantia","disponibilidade","valido_ate","data_documento"];
+  const fields = ["numero","condominio_id","os_id","status","tipo","constatacao","forma_pagamento","prazo_entrega","garantia","disponibilidade","valido_ate","data_documento","valor"];
   const sets = []; const vals = [id];
 
   for (const f of fields) {
@@ -1252,6 +1257,17 @@ router.patch("/orcamentos/avulsos/:id", authRequired, adminOnly, async (req, res
       if (!["pecas","limpeza_reservatorio","dedetizacao","limpeza_dedetizacao"].includes(v)) return res.status(400).json({ error: "tipo inválido" });
       vals.push(v); sets.push(`tipo = $${vals.length}`);
     }
+    else if (f === "valor") {
+      // Override manual do valor total exibido no PDF — vazio/null volta a
+      // usar a soma automática dos itens (útil quando algum item não tem
+      // valor unitário lançado e a soma automática não reflete o total real).
+      if (v === "" || v == null) { vals.push(null); sets.push(`valor = $${vals.length}`); }
+      else {
+        const n = Number(v);
+        if (isNaN(n) || n < 0) return res.status(400).json({ error: "valor inválido" });
+        vals.push(n); sets.push(`valor = $${vals.length}`);
+      }
+    }
     else {
       const max = f === "constatacao" ? 1000 : 255;
       vals.push(v != null ? String(v).slice(0, max) : null);
@@ -1265,17 +1281,19 @@ router.patch("/orcamentos/avulsos/:id", authRequired, adminOnly, async (req, res
     const r = await pool.query(
       `UPDATE orcamentos SET ${sets.join(",")} WHERE id = $1
        RETURNING id, numero, status, condominio_id, tipo, constatacao,
-                 forma_pagamento, prazo_entrega, garantia, disponibilidade, valido_ate, data_documento`,
+                 forma_pagamento, prazo_entrega, garantia, disponibilidade, valido_ate, data_documento, valor`,
       vals
     );
     if (!r.rows.length) return res.status(404).json({ error: "Orçamento não encontrado" });
 
-    // Recalcula valor_total para retornar junto
+    // Recalcula valor_total (soma dos itens) para retornar junto; se houver
+    // override manual (`valor`), ele prevalece sobre a soma.
     const tot = await pool.query(
-      `SELECT COALESCE(SUM(quantidade * valor_unitario),0) AS valor_total
+      `SELECT COALESCE(SUM(quantidade * valor_unitario),0) AS soma_itens
        FROM orcamento_linhas WHERE orcamento_id = $1`, [id]
     );
-    return res.json({ ...r.rows[0], valor_total: tot.rows[0].valor_total });
+    const valorTotal = r.rows[0].valor != null ? Number(r.rows[0].valor) : Number(tot.rows[0].soma_itens);
+    return res.json({ ...r.rows[0], valor_total: valorTotal });
   } catch (err) {
     console.error("[admin] PATCH /orcamentos/avulsos/:id:", err);
     return res.status(500).json({ error: "Erro ao atualizar orçamento" });
@@ -1318,7 +1336,7 @@ router.post("/orcamentos/avulsos/:id/linhas", authRequired, adminOnly, async (re
   const { descricao, ficha_tecnica, quantidade, valor_unitario } = req.body || {};
   if (!descricao || !String(descricao).trim()) return res.status(400).json({ error: "descricao obrigatória" });
   const qtd = Math.max(1, Number(quantidade) || 1);
-  const vu  = Math.max(0, Number(valor_unitario) || 0);
+  const vu  = (valor_unitario === "" || valor_unitario == null) ? null : Math.max(0, Number(valor_unitario) || 0);
   try {
     const r = await pool.query(
       `INSERT INTO orcamento_linhas (orcamento_id, descricao, ficha_tecnica, quantidade, valor_unitario)
@@ -1351,7 +1369,8 @@ router.patch("/orcamentos/avulsos/linhas/:linha_id", authRequired, adminOnly, as
     } else if (f === "quantidade") {
       vals.push(Math.max(1, Number(v) || 1)); sets.push(`quantidade = $${vals.length}`);
     } else if (f === "valor_unitario") {
-      vals.push(Math.max(0, Number(v) || 0)); sets.push(`valor_unitario = $${vals.length}`);
+      vals.push(v === "" || v == null ? null : Math.max(0, Number(v) || 0));
+      sets.push(`valor_unitario = $${vals.length}`);
     }
   }
 
@@ -1415,6 +1434,7 @@ router.post("/orcamentos/avulsos/:id/enviar-email", authRequired, adminOnly, asy
       `SELECT o.id, o.numero, o.valido_ate, o.condominio_id,
               COALESCE(c.nome_fantasia, c.nome) AS condominio_nome,
               COALESCE(
+                o.valor,
                 (SELECT SUM(l.quantidade * l.valor_unitario)
                  FROM orcamento_linhas l WHERE l.orcamento_id = o.id), 0
               ) AS valor_total
@@ -1513,6 +1533,7 @@ router.get("/condominios/:id/historico", authRequired, adminOnly, async (req, re
         `SELECT o.id, o.numero, o.status, o.criado_em, o.valido_ate, o.os_id,
                 os.numero AS os_numero,
                 COALESCE(
+                  o.valor,
                   (SELECT SUM(l.quantidade * l.valor_unitario)
                    FROM orcamento_linhas l WHERE l.orcamento_id = o.id), 0
                 ) AS valor_total

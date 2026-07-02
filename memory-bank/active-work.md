@@ -7,8 +7,20 @@ aliases:
 ---
 # Trabalho em Andamento
 
-> Branch atual: `feature/app-mobile`. Última sessão registrada: **2026-07-01**.
+> Branch atual: `feature/app-mobile`. Última sessão registrada: **2026-07-02**.
 > Roadmap completo em [`roadmap.md`](roadmap.md); decisões em [`decisions.md`](decisions.md).
+
+## Sessão 2026-07-02 — Orçamento de peças: valor unitário opcional + total manual
+
+Migration 062 aplicada em produção: `orcamento_linhas.valor_unitario` deixou
+de ser `NOT NULL DEFAULT 0` (item sem preço lançado vira `NULL` de verdade,
+não `0`). PDF de peças (e de serviço) omite a coluna de valor pra item sem
+preço em vez de mostrar "R$ 0,00". `orcamentos.valor` (coluna que já
+existia) virou também o campo **"Valor total (manual)"** no modal de
+orçamento avulso — sobrepõe a soma dos itens no PDF e nas listagens quando
+preenchido; vazio, mantém a soma automática de sempre. Ver
+[`../docs/changelog.md`](../docs/changelog.md) e
+[`../docs/modulos/ordens-servico.md`](../docs/modulos/ordens-servico.md).
 
 ## Sessão 2026-07-01 — Orçamento avulso: tipo de serviço
 

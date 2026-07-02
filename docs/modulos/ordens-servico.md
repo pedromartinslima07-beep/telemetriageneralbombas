@@ -177,6 +177,31 @@ mesmo timbrado (`papel-timbrado.png`) e mesmo fluxo do admin (avulso).
 - Só existe no fluxo **avulso** (criado direto no admin) — orçamentos vindos
   de O.S./IA continuam com `tipo = 'pecas'`.
 
+### Valor unitário opcional + total manual (migration 062, tipo `pecas`)
+
+- **Item sem preço não vira "R$ 0,00" no PDF.** Antes, `valor_unitario` era
+  `NOT NULL DEFAULT 0` em `orcamento_linhas` — deixar o campo "Unit." em
+  branco no admin salvava `0`, indistinguível de um item realmente gratuito,
+  e o PDF mostrava "R$ 0,00" nas colunas Valor Unit./Total. Migration 062
+  tirou o `NOT NULL DEFAULT 0`; agora fica `NULL` de verdade, e
+  `fmtMoeda(null)` (que já tratava `null` como "—") passa a valer pro caso
+  real — a coluna de valor daquele item some, só sobra descrição/ficha
+  técnica/qtd.
+- **Total manual (override):** `orcamentos.valor` (coluna que já existia,
+  herdada do fluxo antigo de aprovação por O.S., nunca usada pelo avulso até
+  agora) virou o campo **"Valor total (manual)"** no modal — abaixo da
+  tabela de itens. Preenchido, sobrepõe a soma de `orcamento_linhas` tanto no
+  PDF (`totalGeral` em `renderHTML`/`renderHTMLServico`) quanto nas listagens
+  (`valor_total` em `GET /admin/orcamentos/avulsos`, envio por e-mail,
+  histórico do condomínio — todos viraram `COALESCE(o.valor, SUM(...), 0)`).
+  Vazio, comportamento idêntico a sempre (soma os itens). Existe justamente
+  pro caso de orçamento com item(ns) sem preço lançado, onde a soma
+  automática não reflete o total real cobrado.
+- Inputs de "Unit." no admin (`_avRenderLinhas`, tabela de itens do modal
+  avulso, e `orcNewValor`/`avNewVal` nos formulários "+ Adicionar item")
+  aceitam ficar em branco — antes só aceitavam número ≥ 0 e forçavam `0` via
+  `Math.max(0, Number(v) || 0)`.
+
 ## Rastreamento GPS dos técnicos
 
 - App do técnico envia posição periodicamente: `POST /tecnicos/localizacao`

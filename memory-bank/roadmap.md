@@ -70,6 +70,11 @@ aliases:
   dedetização, ou combo dos dois (Migration 060, `orcamentos.tipo`),
   mesma tabela/timbrado do orçamento de peças mas PDF descritivo por
   cláusulas (Objeto/Escopo/Garantia) com valores separados no final.
+- Valor unitário opcional em item de orçamento de peças + total manual
+  (Migration 062, `orcamento_linhas.valor_unitario` nullable) — item sem
+  preço lançado some da coluna de valor no PDF em vez de "R$ 0,00";
+  `orcamentos.valor` vira override manual do total quando a soma automática
+  não reflete o total real.
 
 ## Nota fiscal (NFS-e) — planejado 📋
 
