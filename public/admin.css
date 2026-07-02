@@ -6415,7 +6415,6 @@ body.role-viewer .viewer-only-hide-inline {
 /* Campos de texto mais confortáveis */
 .av-modal-dialog .input,
 .av-modal-dialog .select { font-size: 13px; padding: 7px 12px; }
-.av-modal-dialog textarea.input { min-height: 90px; }
 /* Seção de form sem borda de topo — usa separação visual própria */
 .av-modal-dialog .orc-form-section {
   border-top: none;
