@@ -12124,7 +12124,7 @@ function _avRenderPainel() {
     </div>
 
     <div class="ap-section orc-form-section">
-      <div class="orc-form-row" style="margin-bottom:14px;grid-template-columns:1.3fr 1fr 1fr .85fr .85fr;">
+      <div class="orc-form-row" style="margin-bottom:12px;grid-template-columns:1.4fr 1fr 1fr;">
         <label class="orc-form-label">Tipo de orçamento
           <select id="avInputTipo" class="select">
             <option value="pecas" ${(o.tipo||"pecas")==="pecas"?"selected":""}>Peças / Serviço (padrão)</option>
@@ -12144,6 +12144,9 @@ function _avRenderPainel() {
             <option value="">Nenhuma</option>
           </select>
         </label>
+      </div>
+
+      <div class="orc-form-row" style="margin-bottom:14px;grid-template-columns:1fr 1fr;max-width:400px;">
         <label class="orc-form-label">Data do orçamento
           <input id="avInputDataDoc" class="input" type="date" value="${dataDocVal}">
         </label>
@@ -12163,20 +12166,17 @@ function _avRenderPainel() {
       <div class="ap-section-title" style="margin-top:4px;margin-bottom:10px;">
         <span>${(o.tipo && o.tipo !== "pecas") ? "Valores dos Serviços" : "Itens"}</span>
       </div>
-      ${(o.tipo && o.tipo !== "pecas") ? `<div style="font-size:11px;color:var(--muted);margin-bottom:10px;">O texto descritivo do serviço (cláusulas de objeto, escopo e garantia) é gerado automaticamente no PDF. Aqui você só lança o valor de cada serviço — a linha do serviço é adicionada automaticamente ao escolher o tipo.</div>` : ""}
       <div id="avItensWrap">
         <div style="color:var(--muted);font-size:12px;padding:8px 0;">Carregando…</div>
       </div>
 
-      <div style="display:flex;align-items:flex-end;gap:10px;margin-top:8px;flex-wrap:wrap;">
-        <label class="orc-form-label" style="max-width:220px;">
+      <div style="margin-top:8px;">
+        <label class="orc-form-label" style="max-width:260px;">
           Valor total (manual)
           <input id="avInputValorManual" class="input" type="number" min="0" step="0.01"
             placeholder="Soma automática dos itens" value="${o.valor != null ? o.valor : ''}">
         </label>
-        <div style="font-size:10.5px;color:var(--muted);max-width:340px;padding-bottom:9px;">
-          Preencha para sobrepor a soma dos itens no PDF — útil quando algum item não tem valor unitário lançado. Deixe vazio para somar os itens automaticamente.
-        </div>
+        <div class="hint" style="margin-top:5px;">Sobrepõe a soma dos itens no PDF. Deixe vazio para somar automaticamente.</div>
       </div>
 
       <!-- Condições -->
@@ -12340,7 +12340,7 @@ function _avRenderLinhas() {
   // própria no PDF) — um item avulso digitado aqui não geraria cláusula
   // nenhuma, só um valor solto.
   const addItemForm = isServico
-    ? `<div style="font-size:11px;color:var(--muted);padding:8px 0;">As linhas de valor deste serviço são adicionadas automaticamente ao escolher o tipo de orçamento acima.</div>`
+    ? `<div class="hint" style="padding:6px 0;">As linhas são adicionadas automaticamente ao escolher o tipo acima.</div>`
     : `<div class="orc-add-item-form" id="avAddLinhaForm">
         <div class="orc-add-item-row">
           <input id="avNewDesc" class="input" type="text" placeholder="Descrição do item *" maxlength="500" style="flex:2;">
