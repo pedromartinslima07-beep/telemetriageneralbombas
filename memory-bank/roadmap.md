@@ -114,6 +114,12 @@ depois. Nenhum é bloqueante.
   status='rascunho'` (hoje só aparece na aba; falta email/push ativo).
 - **Histórico de contratos** do mesmo condomínio (listar inativos) — basta o
   filtro `?ativo=false&condominio_id=X` no endpoint atual.
+- **Carimbo do tempo de terceiro independente pra assinatura de contratos** —
+  hoje a evidência (protocolo/IP/hora) usa só o relógio do próprio servidor.
+  Toda autoridade certificadora acreditada ICP-Brasil (RFC 3161) é paga; se
+  quiser reforçar sem custo, dá pra avaliar algo como OpenTimestamps (âncora
+  em blockchain, gratuito, mas com confirmação não-instantânea). Ver
+  [`decisions.md`](decisions.md#segurança-e-rbac).
 
 ## Visão de produto de longo prazo
 

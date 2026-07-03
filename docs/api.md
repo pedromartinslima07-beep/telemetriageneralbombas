@@ -155,7 +155,28 @@ restringe escrita.
 GET (lista/`:id`), POST, PATCH, DELETE, `POST /:id/executar-agora`.
 
 **Contratos** (`/contratos`):
-GET `/`, `/metricas`, `/:id` (adminOnly); POST/PATCH/DELETE (masterAdmin).
+GET `/`, `/metricas`, `/:id`, `/:id/pdf` (adminOnly); POST/PATCH/DELETE
+(masterAdmin); `POST /:id/enviar-assinatura` (masterAdmin, gera tokens +
+manda e-mail); `GET /:id/status-assinatura` (adminOnly, lê status sem API
+externa — ver seção "Assinatura de contratos" abaixo).
+
+---
+
+## Assinatura de contratos
+
+Rotas públicas (sem JWT) em `/assinar`. Fluxo próprio de assinatura eletrônica
+por link de e-mail (migrations 056/063 — substitui dependência de
+ZapSign/D4Sign). O token UUID na URL identifica o signatário (cliente ou
+General Bombas); antes de assinar, é exigido um código de 6 dígitos enviado
+ao e-mail cadastrado (2FA equivalente ao do login).
+
+| Método | Rota | Descrição |
+|---|---|---|
+| GET | `/assinar/:token` | página do fluxo — gera/reenvia código se necessário e mostra a tela de verificação |
+| POST | `/assinar/:token/reenviar-codigo` | reenvia código (cooldown 60s); rate limit por IP |
+| POST | `/assinar/:token/verificar-codigo` | confirma o código (máx. 5 tentativas); emite `verify_token` (JWT, 15 min) e libera o formulário de assinatura |
+| GET | `/assinar/:token/pdf` | PDF do contrato sem autenticação |
+| POST | `/assinar/:token` | confirma a assinatura — exige `verify_token` válido; grava nome/doc/IP/imagem + `protocolo` (hash SHA-256 auditável, impresso no PDF) |
 
 ---
 

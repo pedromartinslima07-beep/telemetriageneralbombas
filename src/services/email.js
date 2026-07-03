@@ -48,6 +48,40 @@ async function sendOTP(toEmail, code) {
   });
 }
 
+// Código de verificação exigido antes de assinar um contrato (mesmo princípio
+// do 2FA de login) — confirma que quem está assinando tem acesso ao e-mail
+// cadastrado do signatário, não só ao link.
+async function sendAssinaturaCodigo(toEmail, nome, code) {
+  await getResend().emails.send({
+    from: `General Bombas <${_emailFromOTP()}>`,
+    to: toEmail,
+    subject: "Código para assinar seu contrato — General Bombas",
+    text: [
+      `Olá${nome ? ", " + nome : ""},`,
+      "",
+      `Seu código de verificação para assinar o contrato: ${code}`,
+      "",
+      "Ele expira em 10 minutos.",
+      "Se você não solicitou esta assinatura, ignore este email.",
+    ].join("\n"),
+    html: `
+      <div style="font-family:sans-serif;max-width:420px;margin:auto;padding:24px">
+        <h2 style="color:#1a1a2e;margin-bottom:4px">General Bombas</h2>
+        <p style="color:#555;margin-top:0">Verificação de assinatura de contrato</p>
+        <p>Use o código abaixo para confirmar sua identidade e assinar o contrato:</p>
+        <div style="font-size:34px;font-weight:bold;letter-spacing:10px;color:#1a1a2e;
+                    padding:18px;background:#f4f4f4;border-radius:8px;text-align:center">
+          ${code}
+        </div>
+        <p style="color:#888;font-size:13px;margin-top:16px">
+          Expira em <strong>10 minutos</strong>.<br>
+          Se você não solicitou esta assinatura, ignore este email.
+        </p>
+      </div>
+    `,
+  });
+}
+
 // Tradução dos tipos de alerta pra labels amigáveis no email
 const _TIPO_LABEL = {
   dispositivo_offline: "Dispositivo OFFLINE",
@@ -352,4 +386,4 @@ async function sendContratoAssinatura(dados) {
   });
 }
 
-module.exports = { sendOTP, sendAlertaEmail, sendChamadoAtrasoEmail, sendOrcamentoIAEmail, sendOrcamentoCliente, sendContratoAssinatura };
+module.exports = { sendOTP, sendAssinaturaCodigo, sendAlertaEmail, sendChamadoAtrasoEmail, sendOrcamentoIAEmail, sendOrcamentoCliente, sendContratoAssinatura };

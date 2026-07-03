@@ -43,6 +43,14 @@ function fmtBR(iso) {
   return d.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo", day:"2-digit", month:"2-digit", year:"numeric" });
 }
 
+// Data + hora (não só data) — usada no bloco de evidência da assinatura,
+// pra deixar o protocolo auditável mais preciso.
+function fmtBRDataHora(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  return d.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit" }) + " (horário de Brasília)";
+}
+
 function fmtMoeda(v) {
   if (v == null) return "—";
   return Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -430,6 +438,10 @@ function renderHTML(ct, timbrado) {
   const imgGeral   = ct.assinatura_geral_img   || null;
   const docCliente = escHtml(ct.assinatura_cliente_doc || "");
   const docGeral   = escHtml(ct.assinatura_geral_doc   || "");
+  const ipCliente        = escHtml(ct.assinatura_cliente_ip || "");
+  const ipGeral          = escHtml(ct.assinatura_geral_ip   || "");
+  const protocoloCliente = escHtml(ct.assinatura_cliente_protocolo || "");
+  const protocoloGeral   = escHtml(ct.assinatura_geral_protocolo   || "");
 
   const endParts = [ct.cliente_endereco, ct.cliente_bairro, ct.cliente_cidade, ct.cliente_cep ? `CEP: ${ct.cliente_cep}` : ""].filter(Boolean);
   const endStr   = endParts.join(", ");
@@ -601,7 +613,9 @@ body {
 .assinatura-info { text-align: center; }
 .assinatura-nome { font-size: 10.5px; font-weight: bold; color: #1a1f2e; }
 .assinatura-papel { font-size: 9.5px; color: #4a5568; margin-top: 2px; }
-.data-local { margin-top: 40px; font-size: 10.5px; color: #4a5568; text-align: right; }
+.assinatura-evidencia { margin-top: 6px; font-size: 8px; line-height: 1.5; color: #8a94a6; }
+.assinatura-nota { margin-top: 24px; font-size: 8px; line-height: 1.5; color: #8a94a6; text-align: justify; }
+.data-local { margin-top: 16px; font-size: 10.5px; color: #4a5568; text-align: right; }
 </style>
 </head>
 <body>
@@ -666,16 +680,36 @@ ${clausulasComuns(ct)}
       <div class="assinatura-papel">CONTRATANTE</div>
       ${sigNome ? `<div class="assinatura-papel">${sigNome}</div>` : ""}
       ${docCliente ? `<div class="assinatura-papel">Doc.: ${docCliente}</div>` : ""}
-      <div class="assinatura-papel" style="color:#888;font-size:8.5px;">${ct.assinatura_cliente_em ? `Assinado em ${fmtBR(ct.assinatura_cliente_em)}` : "&nbsp;"}</div>
+      ${ct.assinatura_cliente_em ? `
+      <div class="assinatura-evidencia">
+        Assinado em ${fmtBRDataHora(ct.assinatura_cliente_em)}<br>
+        IP: ${ipCliente || "—"}<br>
+        Protocolo: ${protocoloCliente || "—"}
+      </div>` : "&nbsp;"}
     </div>
     <div class="assinatura-info">
       <div class="assinatura-nome">GENERAL BOMBAS, ENGENHARIA DA MANUTENÇÃO E SERVIÇOS LTDA.</div>
       <div class="assinatura-papel">CONTRATADA</div>
       <div class="assinatura-papel">${geralNome}</div>
       ${docGeral ? `<div class="assinatura-papel">Doc.: ${docGeral}</div>` : ""}
-      <div class="assinatura-papel" style="color:#888;font-size:8.5px;">${ct.assinatura_geral_em ? `Assinado em ${fmtBR(ct.assinatura_geral_em)}` : "&nbsp;"}</div>
+      ${ct.assinatura_geral_em ? `
+      <div class="assinatura-evidencia">
+        Assinado em ${fmtBRDataHora(ct.assinatura_geral_em)}<br>
+        IP: ${ipGeral || "—"}<br>
+        Protocolo: ${protocoloGeral || "—"}
+      </div>` : "&nbsp;"}
     </div>
   </div>
+
+  ${(ct.assinatura_cliente_em || ct.assinatura_geral_em) ? `
+  <p class="assinatura-nota">
+    Assinatura eletrônica simples, com validade jurídica nos termos do art. 10, §2º, da
+    Medida Provisória nº 2.200-2/2001. A identidade de cada signatário foi confirmada por
+    código de verificação de 6 dígitos enviado ao e-mail cadastrado no contrato, exigido
+    antes da confirmação da assinatura. O protocolo acima é um hash (SHA-256) gerado a
+    partir do contrato, papel do signatário, nome, documento, IP e data/hora do evento —
+    permite auditar a assinatura mesmo fora do sistema.
+  </p>` : ""}
 
   <div class="data-local">São Paulo, ${dataDoc}</div>
 </div>

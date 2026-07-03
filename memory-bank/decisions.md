@@ -134,6 +134,21 @@ canônica do "porquê"; o "o quê" está em `../docs/` e em [`current-state.md`]
 - **`em_atendimento` só via app do técnico com GPS** (`/iniciar-atendimento`);
   `PATCH /chamados/:id` bloqueia esse status — garante que o status reflita
   presença física no campo.
+- **Assinatura de contrato não usa ZapSign nem D4Sign** (nem vai usar —
+  decisão explícita do dono do projeto: são pagos). O fluxo é próprio
+  (migration 056 + reforço em 063): link por e-mail com token único +
+  **código de 6 dígitos obrigatório antes de assinar** (2FA equivalente ao do
+  login, fecha a brecha de "quem tem o link assina") + **protocolo** (hash
+  SHA-256 de contrato+papel+nome+doc+ip+timestamp) impresso no PDF junto com
+  IP e data/hora completa — evidência que sobrevive mesmo se o banco for
+  alterado depois. Validade jurídica vem da MP 2.200-2/2001 art. 10 §2º
+  (assinatura eletrônica simples, não ICP-Brasil). Avaliamos a API de
+  assinatura do gov.br como alternativa gratuita: **hoje é só pra órgão
+  público** (exige domínio `gov.br`/`jus.br`/etc. e aval de Gestor Público),
+  não dá pra empresa privada integrar — só o site `assinador.iti.gov.br`
+  aceita qualquer pessoa, mas é manual (sem API), não automatiza no fluxo.
+  Um carimbo do tempo de autoridade certificadora (RFC 3161 acreditada
+  ICP-Brasil) também é sempre pago — não existe opção gratuita pra isso.
 
 ## Operação / banco
 

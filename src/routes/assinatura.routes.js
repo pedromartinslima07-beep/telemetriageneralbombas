@@ -5,10 +5,28 @@
 // Montado em /assinar/:token pelo app.js.
 
 const express = require("express");
+const crypto = require("crypto");
+const jwt = require("jsonwebtoken");
+const rateLimit = require("express-rate-limit");
 const { pool } = require("../db");
 const { gerarPdfBuffer } = require("../services/contrato-pdf.service");
+const { sendAssinaturaCodigo } = require("../services/email");
+
+const JWT_SECRET = process.env.JWT_SECRET;
+const CODIGO_TTL_MIN = 10;
+const CODIGO_MAX_TENTATIVAS = 5;
+const VERIFY_TOKEN_TTL = "15m";
 
 const router = express.Router();
+
+// Limita tentativas de código por IP — evita força bruta dos 6 dígitos
+const codigoLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Muitas tentativas. Tente novamente em alguns minutos." },
+});
 
 // CSP permissiva para esta rota pública: precisa de script inline (canvas/pad)
 // e Google Fonts. O helmet global bloqueia inline scripts por padrão.
@@ -33,6 +51,26 @@ function _esc(s) {
 function _fmtData(iso) {
   if (!iso) return "—";
   return new Date(iso).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
+}
+
+function _gerarCodigo() {
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
+
+// Mascara o e-mail cadastrado pra exibir na tela sem revelar por completo
+// (ex.: "jo***@dominio.com") — só confirma que o código foi pro lugar certo.
+function _mascaraEmail(email) {
+  const [user, dominio] = String(email || "").split("@");
+  if (!user || !dominio) return "seu e-mail cadastrado";
+  const visivel = user.slice(0, Math.min(2, user.length));
+  return `${visivel}${"*".repeat(Math.max(3, user.length - visivel.length))}@${dominio}`;
+}
+
+// Protocolo de assinatura: hash do evento (contrato+papel+nome+doc+ip+hora),
+// impresso no PDF final como evidência auditável independente do banco.
+function _gerarProtocolo({ contratoId, papel, nome, doc, ip, quando }) {
+  const base = `${contratoId}|${papel}|${nome}|${doc}|${ip}|${quando}`;
+  return crypto.createHash("sha256").update(base).digest("hex").slice(0, 32).toUpperCase();
 }
 
 function _fmtValor(v) {
@@ -94,6 +132,10 @@ function _shell(titulo, corpo) {
     .sign-name-input{width:100%;padding:11px 14px;border:1px solid rgba(255,255,255,.08);border-radius:9px;font-size:14px;outline:none;transition:border-color .15s,box-shadow .15s;margin-bottom:10px;background:rgba(255,255,255,.04);color:#e1e3ef;font-family:inherit}
     .sign-name-input::placeholder{color:#44455a}
     .sign-name-input:focus{border-color:rgba(240,176,20,.5);box-shadow:0 0 0 3px rgba(240,176,20,.08)}
+    .codigo-input{width:100%;padding:14px;border:1px solid rgba(255,255,255,.08);border-radius:9px;font-size:26px;font-weight:700;letter-spacing:10px;text-align:center;outline:none;background:rgba(255,255,255,.04);color:#e1e3ef;font-family:inherit;margin-bottom:14px}
+    .codigo-input:focus{border-color:rgba(240,176,20,.5);box-shadow:0 0 0 3px rgba(240,176,20,.08)}
+    .resend-link{display:block;width:100%;background:none;border:none;color:#7ba4f7;font-size:12.5px;cursor:pointer;font-family:inherit;margin-top:16px;text-align:center}
+    .resend-link:disabled{color:#44455a;cursor:not-allowed}
     .success{text-align:center;padding:8px 0}
     .success-icon{font-size:44px;margin-bottom:12px}
     .success h2{font-size:19px;font-weight:700;margin-bottom:6px;color:#4ade80}
@@ -120,7 +162,72 @@ function _shell(titulo, corpo) {
 </html>`;
 }
 
-function _paginaAssinatura({ ct, token, ehCliente, erro }) {
+function _paginaCodigo({ ct, token, ehCliente, emailMascarado, erro }) {
+  const papel = ehCliente ? "CONTRATANTE" : "CONTRATADA (General Bombas)";
+
+  return _shell("Verificar identidade", `
+    <h1>Verifique sua identidade</h1>
+    <div class="sub">${_esc(ct.condominio_nome || "—")}</div>
+    <span class="badge ${ehCliente ? "cliente" : "geral"}">${papel}</span>
+    <p style="font-size:13px;color:#9094ae;line-height:1.6;margin:16px 0 20px;">
+      Antes de assinar, confirme o código de 6 dígitos que enviamos para
+      <strong style="color:#e1e3ef;">${_esc(emailMascarado)}</strong>.
+      Isso garante que só quem tem acesso ao e-mail cadastrado do signatário
+      consegue assinar o contrato.
+    </p>
+    ${erro ? `<div class="error-msg">${_esc(erro)}</div>` : ""}
+
+    <label>Código de verificação</label>
+    <input class="codigo-input" id="codigoInput" type="text" inputmode="numeric" maxlength="6" placeholder="000000" autocomplete="one-time-code" />
+
+    <button type="button" class="submit-btn" id="btnVerificar">Confirmar código</button>
+    <button type="button" class="resend-link" id="btnReenviar">Não recebeu? Reenviar código</button>
+
+    <script>
+    (function() {
+      const TOKEN = "${_esc(token)}";
+      const btnVerificar = document.getElementById("btnVerificar");
+      const btnReenviar  = document.getElementById("btnReenviar");
+      const input        = document.getElementById("codigoInput");
+
+      btnVerificar.addEventListener("click", async () => {
+        const codigo = input.value.trim();
+        if (codigo.length !== 6) { input.focus(); return; }
+        btnVerificar.disabled = true;
+        btnVerificar.textContent = "Verificando...";
+        try {
+          const resp = await fetch("/assinar/" + TOKEN + "/verificar-codigo", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ codigo }),
+          });
+          const html = await resp.text();
+          document.open(); document.write(html); document.close();
+        } catch (e) {
+          btnVerificar.disabled = false;
+          btnVerificar.textContent = "Confirmar código";
+        }
+      });
+
+      btnReenviar.addEventListener("click", async () => {
+        btnReenviar.disabled = true;
+        btnReenviar.textContent = "Reenviando...";
+        try {
+          const resp = await fetch("/assinar/" + TOKEN + "/reenviar-codigo", { method: "POST" });
+          const data = await resp.json().catch(() => ({}));
+          btnReenviar.textContent = resp.ok ? "Código reenviado!" : (data.error || "Erro ao reenviar");
+          setTimeout(() => { btnReenviar.disabled = false; btnReenviar.textContent = "Não recebeu? Reenviar código"; }, 20000);
+        } catch (e) {
+          btnReenviar.disabled = false;
+          btnReenviar.textContent = "Não recebeu? Reenviar código";
+        }
+      });
+    })();
+    </script>
+  `);
+}
+
+function _paginaAssinatura({ ct, token, ehCliente, verifyToken, erro }) {
   const papel = ehCliente ? "CONTRATANTE" : "CONTRATADA (General Bombas)";
   const nome  = ehCliente
     ? (ct.signatario_nome || "Representante do contratante")
@@ -140,6 +247,7 @@ function _paginaAssinatura({ ct, token, ehCliente, erro }) {
     <a class="pdf-btn" href="/assinar/${_esc(token)}/pdf" target="_blank">📄 Visualizar contrato em PDF</a>
     <hr class="divider">
     ${erro ? `<div class="error-msg">${_esc(erro)}</div>` : ""}
+    <input type="hidden" id="verifyTokenInput" value="${_esc(verifyToken)}" />
 
     <label>Seu nome completo <span style="color:#f87171;">*</span></label>
     <input class="sign-name-input" id="nomeInput" type="text" placeholder="${_esc(nome)}" autocomplete="name" />
@@ -346,11 +454,13 @@ function _paginaAssinatura({ ct, token, ehCliente, erro }) {
         btn.disabled = true;
         btn.textContent = "Enviando...";
 
+        const verifyToken = document.getElementById("verifyTokenInput").value;
+
         try {
           const resp = await fetch("/assinar/" + TOKEN, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ nome, doc, img }),
+            body: JSON.stringify({ nome, doc, img, verify_token: verifyToken }),
           });
           const html = await resp.text();
           document.open(); document.write(html); document.close();
@@ -366,7 +476,7 @@ function _paginaAssinatura({ ct, token, ehCliente, erro }) {
   `);
 }
 
-function _paginaSucesso({ ct, nome, ehCliente, ambosAssinaram }) {
+function _paginaSucesso({ ct, nome, ehCliente, ambosAssinaram, protocolo }) {
   const papel = ehCliente ? "CONTRATANTE" : "CONTRATADA";
   return _shell("Assinatura confirmada", `
     <div class="success">
@@ -378,7 +488,8 @@ function _paginaSucesso({ ct, nome, ehCliente, ambosAssinaram }) {
         <strong>Papel:</strong> ${papel}<br>
         <strong>Contrato:</strong> ${_esc(ct.numero || ct.id)}<br>
         <strong>Condomínio:</strong> ${_esc(ct.condominio_nome || "—")}<br>
-        <strong>Data/hora:</strong> ${_esc(_fmtData(new Date().toISOString()))}
+        <strong>Data/hora:</strong> ${_esc(_fmtData(new Date().toISOString()))}<br>
+        <strong>Protocolo:</strong> ${_esc(protocolo || "—")}
       </div>
       ${ambosAssinaram
         ? `<p style="margin-top:16px;font-size:14px;color:#16a34a;font-weight:600;">Contrato totalmente assinado por ambas as partes.</p>`
@@ -416,7 +527,43 @@ function _pagina404() {
 
 // ─── Rotas ───────────────────────────────────────────────────────────────────
 
-// GET /assinar/:token — página de assinatura
+// Gera um código novo, salva no contrato e envia pro e-mail cadastrado do
+// signatário (nunca pra um e-mail vindo da requisição — só o já cadastrado).
+async function _enviarNovoCodigo({ ct, ehCliente }) {
+  const code  = _gerarCodigo();
+  const email = ehCliente ? ct.signatario_email : ct.signatario_geral_email;
+  const nome  = ehCliente ? ct.signatario_nome  : ct.signatario_geral_nome;
+
+  if (ehCliente) {
+    await pool.query(
+      `UPDATE contratos SET
+         assinatura_cliente_codigo = $1,
+         assinatura_cliente_codigo_expira = NOW() + ($2 * INTERVAL '1 minute'),
+         assinatura_cliente_codigo_tentativas = 0,
+         assinatura_cliente_codigo_enviado_em = NOW()
+       WHERE id = $3`,
+      [code, CODIGO_TTL_MIN, ct.id]
+    );
+  } else {
+    await pool.query(
+      `UPDATE contratos SET
+         assinatura_geral_codigo = $1,
+         assinatura_geral_codigo_expira = NOW() + ($2 * INTERVAL '1 minute'),
+         assinatura_geral_codigo_tentativas = 0,
+         assinatura_geral_codigo_enviado_em = NOW()
+       WHERE id = $3`,
+      [code, CODIGO_TTL_MIN, ct.id]
+    );
+  }
+
+  if (email) {
+    await sendAssinaturaCodigo(email, nome, code).catch(err => {
+      console.warn("[assinatura] falha ao enviar código:", err.message);
+    });
+  }
+}
+
+// GET /assinar/:token — pede o código de verificação antes do formulário
 router.get("/:token", async (req, res) => {
   try {
     const { token } = req.params;
@@ -438,9 +585,105 @@ router.get("/:token", async (req, res) => {
       return res.send(_paginaJaAssinou({ ct, nome: nomeReg, ehCliente }));
     }
 
-    res.send(_paginaAssinatura({ ct, token, ehCliente }));
+    const codigoExpira = ehCliente ? ct.assinatura_cliente_codigo_expira : ct.assinatura_geral_codigo_expira;
+    const codigoValido = codigoExpira && new Date(codigoExpira) > new Date();
+    if (!codigoValido) {
+      await _enviarNovoCodigo({ ct, ehCliente });
+    }
+
+    const emailDestino = ehCliente ? ct.signatario_email : ct.signatario_geral_email;
+    res.send(_paginaCodigo({ ct, token, ehCliente, emailMascarado: _mascaraEmail(emailDestino) }));
   } catch (err) {
     console.error("[assinatura] GET /:token:", err);
+    res.status(500).send(_pagina404());
+  }
+});
+
+// POST /assinar/:token/reenviar-codigo — reenvia um código novo (cooldown de 60s)
+router.post("/:token/reenviar-codigo", codigoLimiter, async (req, res) => {
+  try {
+    const { token } = req.params;
+    const r = await pool.query(
+      `SELECT * FROM contratos WHERE assinatura_token_cliente = $1 OR assinatura_token_geral = $1`,
+      [token]
+    );
+    if (!r.rows.length) return res.status(404).json({ error: "Link inválido" });
+
+    const ct        = r.rows[0];
+    const ehCliente  = ct.assinatura_token_cliente === token;
+    const jaAssinou  = ehCliente ? !!ct.assinatura_cliente_em : !!ct.assinatura_geral_em;
+    if (jaAssinou) return res.status(400).json({ error: "Este contrato já foi assinado." });
+
+    const enviadoEm = ehCliente ? ct.assinatura_cliente_codigo_enviado_em : ct.assinatura_geral_codigo_enviado_em;
+    if (enviadoEm && (Date.now() - new Date(enviadoEm).getTime()) < 60_000) {
+      return res.status(429).json({ error: "Aguarde um minuto antes de pedir outro código." });
+    }
+
+    const emailDestino = ehCliente ? ct.signatario_email : ct.signatario_geral_email;
+    if (!emailDestino) return res.status(400).json({ error: "E-mail do signatário não cadastrado." });
+
+    await _enviarNovoCodigo({ ct, ehCliente });
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("[assinatura] POST /:token/reenviar-codigo:", err);
+    return res.status(500).json({ error: "Erro ao reenviar código" });
+  }
+});
+
+// POST /assinar/:token/verificar-codigo — confirma o código e libera o formulário
+router.post("/:token/verificar-codigo", codigoLimiter, express.json(), async (req, res) => {
+  try {
+    const { token } = req.params;
+    const codigo = String(req.body?.codigo || "").trim();
+
+    const r = await pool.query(
+      `SELECT c.*, cond.nome AS condominio_nome
+       FROM contratos c LEFT JOIN condominios cond ON cond.id = c.condominio_id
+       WHERE c.assinatura_token_cliente = $1 OR c.assinatura_token_geral = $1`,
+      [token]
+    );
+    if (!r.rows.length) return res.status(404).send(_pagina404());
+
+    const ct        = r.rows[0];
+    const ehCliente = ct.assinatura_token_cliente === token;
+    const jaAssinou = ehCliente ? !!ct.assinatura_cliente_em : !!ct.assinatura_geral_em;
+    if (jaAssinou) {
+      const nomeReg = ehCliente ? ct.assinatura_cliente_nome : ct.assinatura_geral_nome;
+      return res.send(_paginaJaAssinou({ ct, nome: nomeReg, ehCliente }));
+    }
+
+    const emailDestino   = ehCliente ? ct.signatario_email : ct.signatario_geral_email;
+    const emailMascarado = _mascaraEmail(emailDestino);
+    const codigoSalvo    = ehCliente ? ct.assinatura_cliente_codigo : ct.assinatura_geral_codigo;
+    const codigoExpira   = ehCliente ? ct.assinatura_cliente_codigo_expira : ct.assinatura_geral_codigo_expira;
+    const tentativas     = ehCliente ? ct.assinatura_cliente_codigo_tentativas : ct.assinatura_geral_codigo_tentativas;
+    const campoTentativas = ehCliente ? "assinatura_cliente_codigo_tentativas" : "assinatura_geral_codigo_tentativas";
+
+    if (!codigoSalvo || !codigoExpira || new Date(codigoExpira) < new Date()) {
+      return res.send(_paginaCodigo({ ct, token, ehCliente, emailMascarado, erro: "Código expirado. Peça um novo código." }));
+    }
+    if (tentativas >= CODIGO_MAX_TENTATIVAS) {
+      return res.send(_paginaCodigo({ ct, token, ehCliente, emailMascarado, erro: "Muitas tentativas. Peça um novo código." }));
+    }
+    if (codigo !== codigoSalvo) {
+      await pool.query(`UPDATE contratos SET ${campoTentativas} = ${campoTentativas} + 1 WHERE id = $1`, [ct.id]);
+      return res.send(_paginaCodigo({ ct, token, ehCliente, emailMascarado, erro: "Código incorreto. Tente novamente." }));
+    }
+
+    // Código correto — invalida (não pode ser reusado) e libera o formulário
+    const campoCodigo = ehCliente ? "assinatura_cliente_codigo" : "assinatura_geral_codigo";
+    const campoExpira  = ehCliente ? "assinatura_cliente_codigo_expira" : "assinatura_geral_codigo_expira";
+    await pool.query(`UPDATE contratos SET ${campoCodigo} = NULL, ${campoExpira} = NULL WHERE id = $1`, [ct.id]);
+
+    const verifyToken = jwt.sign(
+      { contrato_id: ct.id, papel: ehCliente ? "cliente" : "geral", type: "assinatura_verificada" },
+      JWT_SECRET,
+      { expiresIn: VERIFY_TOKEN_TTL }
+    );
+
+    res.send(_paginaAssinatura({ ct, token, ehCliente, verifyToken }));
+  } catch (err) {
+    console.error("[assinatura] POST /:token/verificar-codigo:", err);
     res.status(500).send(_pagina404());
   }
 });
@@ -466,13 +709,14 @@ router.get("/:token/pdf", async (req, res) => {
   }
 });
 
-// POST /assinar/:token — confirma assinatura (JSON: { nome, img })
+// POST /assinar/:token — confirma assinatura (JSON: { nome, doc, img, verify_token })
 router.post("/:token", express.json({ limit: "2mb" }), async (req, res) => {
   try {
     const { token } = req.params;
     const nome = String(req.body?.nome || "").trim();
     const doc  = String(req.body?.doc  || "").trim().slice(0, 30);
     const img  = typeof req.body?.img === "string" && req.body.img.startsWith("data:image/") ? req.body.img : null;
+    const verifyTokenIn = String(req.body?.verify_token || "");
 
     const r = await pool.query(
       `SELECT c.*, cond.nome AS condominio_nome
@@ -486,30 +730,45 @@ router.post("/:token", express.json({ limit: "2mb" }), async (req, res) => {
     const ct        = r.rows[0];
     const ehCliente = ct.assinatura_token_cliente === token;
 
-    if (!nome || nome.length < 3) {
-      return res.send(_paginaAssinatura({ ct, token, ehCliente, erro: "Digite seu nome completo (mínimo 3 caracteres)." }));
-    }
-    if (!doc || doc.length < 3) {
-      return res.send(_paginaAssinatura({ ct, token, ehCliente, erro: "Digite seu CPF ou RG." }));
-    }
-
     const jaAssinou = ehCliente ? !!ct.assinatura_cliente_em : !!ct.assinatura_geral_em;
     if (jaAssinou) {
       const nomeReg = ehCliente ? ct.assinatura_cliente_nome : ct.assinatura_geral_nome;
       return res.send(_paginaJaAssinou({ ct, nome: nomeReg, ehCliente }));
     }
 
+    // Exige o verify_token emitido em /verificar-codigo — sem ele (ou expirado/
+    // trocado), quem só tem o link não consegue completar a assinatura.
+    let payload = null;
+    try { payload = jwt.verify(verifyTokenIn, JWT_SECRET); } catch { payload = null; }
+    const papel = ehCliente ? "cliente" : "geral";
+    if (!payload || payload.type !== "assinatura_verificada" || payload.contrato_id !== ct.id || payload.papel !== papel) {
+      const emailDestino = ehCliente ? ct.signatario_email : ct.signatario_geral_email;
+      return res.send(_paginaCodigo({
+        ct, token, ehCliente,
+        emailMascarado: _mascaraEmail(emailDestino),
+        erro: "Sessão de verificação expirada. Peça um novo código.",
+      }));
+    }
+
+    if (!nome || nome.length < 3) {
+      return res.send(_paginaAssinatura({ ct, token, ehCliente, verifyToken: verifyTokenIn, erro: "Digite seu nome completo (mínimo 3 caracteres)." }));
+    }
+    if (!doc || doc.length < 3) {
+      return res.send(_paginaAssinatura({ ct, token, ehCliente, verifyToken: verifyTokenIn, erro: "Digite seu CPF ou RG." }));
+    }
+
     const ip = (req.headers["x-forwarded-for"] || req.ip || "").split(",")[0].trim() || "desconhecido";
+    const protocolo = _gerarProtocolo({ contratoId: ct.id, papel, nome, doc, ip, quando: new Date().toISOString() });
 
     if (ehCliente) {
       await pool.query(
-        `UPDATE contratos SET assinatura_cliente_nome = $1, assinatura_cliente_ip = $2, assinatura_cliente_em = NOW(), assinatura_cliente_img = $4, assinatura_cliente_doc = $5 WHERE id = $3`,
-        [nome, ip, ct.id, img, doc || null]
+        `UPDATE contratos SET assinatura_cliente_nome = $1, assinatura_cliente_ip = $2, assinatura_cliente_em = NOW(), assinatura_cliente_img = $4, assinatura_cliente_doc = $5, assinatura_cliente_protocolo = $6 WHERE id = $3`,
+        [nome, ip, ct.id, img, doc || null, protocolo]
       );
     } else {
       await pool.query(
-        `UPDATE contratos SET assinatura_geral_nome = $1, assinatura_geral_ip = $2, assinatura_geral_em = NOW(), assinatura_geral_img = $4, assinatura_geral_doc = $5 WHERE id = $3`,
-        [nome, ip, ct.id, img, doc || null]
+        `UPDATE contratos SET assinatura_geral_nome = $1, assinatura_geral_ip = $2, assinatura_geral_em = NOW(), assinatura_geral_img = $4, assinatura_geral_doc = $5, assinatura_geral_protocolo = $6 WHERE id = $3`,
+        [nome, ip, ct.id, img, doc || null, protocolo]
       );
     }
 
@@ -526,7 +785,7 @@ router.post("/:token", express.json({ limit: "2mb" }), async (req, res) => {
       );
     }
 
-    res.send(_paginaSucesso({ ct, nome, ehCliente, ambosAssinaram: !!ambos }));
+    res.send(_paginaSucesso({ ct, nome, ehCliente, ambosAssinaram: !!ambos, protocolo }));
   } catch (err) {
     console.error("[assinatura] POST /:token:", err);
     res.status(500).send(_pagina404());

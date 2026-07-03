@@ -179,6 +179,13 @@ pra esse item em vez de mostrar "R$ 0,00".
 
 **`contratos`** (035) — `condominio_id (CASCADE)`, `tipo (mensal|anual|avulso)`,
 `valor_mensal`, `dia_vencimento (1-28)`. Índice único parcial de contrato ativo.
+Assinatura eletrônica própria por link de e-mail (054/056/057/058): tokens
+únicos (`assinatura_token_cliente/geral`), dados registrados na confirmação
+(`assinatura_cliente/geral_nome/ip/em/img/doc`). 063 adiciona verificação por
+código de 6 dígitos antes de assinar (`assinatura_cliente/geral_codigo` +
+`_expira` + `_tentativas` + `_enviado_em`) e `assinatura_cliente/geral_protocolo`
+(hash SHA-256 de contrato+papel+nome+doc+ip+timestamp, impresso no PDF como
+evidência auditável independente do banco). Ver [docs/api.md](api.md#assinatura-de-contratos).
 
 **`historico_chamados`** (033) — auditoria: `chamado_id (CASCADE)`,
 `alterado_por`, mudança de status, reabertura.

@@ -64,7 +64,7 @@ ESP32 (sonda 4-20mA + SCT-013)
 | **tecnicos / tecnicos-localizacao** | Cadastro técnicos + GPS + ETA |
 | **ordens-servico** | O.S. digital (fotos, assinatura, orçamento) + PDF. Fotos persistidas em `os_fotos.dados_base64` (banco), servidas via `GET /ordens-servico/:osId/fotos/:fotoId/imagem` — não dependem mais de disco efêmero. |
 | **planos-manutencao** | Planos preventivos recorrentes |
-| **contratos** | Contratos por condomínio |
+| **contratos** | Contratos por condomínio. Assinatura eletrônica própria por link de e-mail (sem ZapSign/D4Sign — ver `decisions.md`): exige código de 6 dígitos antes de assinar (2FA equivalente ao login) e grava um protocolo (hash SHA-256 auditável) impresso no PDF junto com IP e data/hora |
 | **orçamentos** | Sistema unificado (tabela `orcamentos` + `orcamento_linhas`); `tipo` (060) ramifica o PDF avulso entre tabela de peças (padrão) e layout descritivo por cláusulas para limpeza de reservatório/dedetização/combo, mesmo timbrado. Item sem `valor_unitario` some da coluna de valor no PDF em vez de virar "R$ 0,00"; `orcamentos.valor` serve de override manual do total (062) |
 | **relatorio / relatorios** | PDFs (Puppeteer) + dashboards de relatório |
 | **admin** | Usuários, status agregado, histórico, geocode, configurações |

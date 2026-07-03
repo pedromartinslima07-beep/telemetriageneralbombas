@@ -75,8 +75,25 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
 | 060 | orcamentos_tipo | `orcamentos.tipo` (`pecas` default \| `limpeza_reservatorio` \| `dedetizacao` \| `limpeza_dedetizacao`) — orçamento de serviço reaproveitando mesma tabela/PDF/timbrado |
 | 061 | orcamento_data_documento | `orcamentos.data_documento DATE` (nullable) — data exibida no PDF, editável no admin sem mexer em `criado_em` |
 | 062 | orcamento_valor_opcional | `orcamento_linhas.valor_unitario` vira nullable (era `NOT NULL DEFAULT 0`) — item sem preço some da coluna de valor no PDF em vez de virar "R$ 0,00" |
+| 063 | contratos_assinatura_verificacao | `contratos.assinatura_cliente/geral_codigo` + `_expira` + `_tentativas` + `_enviado_em` (código de 6 dígitos por e-mail antes de assinar) e `assinatura_cliente/geral_protocolo` (hash SHA-256 auditável, impresso no PDF) |
 
 ## Marcos de produto (fases do plano)
+
+- **2026-07-03** — **Assinatura de contratos: código de verificação + protocolo auditável**
+  - Fecha 3 pontos fracos do fluxo próprio de assinatura por e-mail (migration 056):
+    até então, só o link (sem 2FA) já bastava pra assinar, e o PDF final não
+    trazia nenhuma evidência (IP/data-hora/hash) — só ficava no banco.
+  - Migration 063 (ver acima). `src/services/email.js`: `sendAssinaturaCodigo`.
+  - `src/routes/assinatura.routes.js`: `GET /assinar/:token` agora sempre passa
+    por uma tela de código antes do formulário; novas rotas `POST
+    /:token/verificar-codigo` (máx. 5 tentativas, emite `verify_token` JWT de
+    15 min) e `POST /:token/reenviar-codigo` (cooldown 60s, rate limit por IP).
+    O `POST /:token` final exige o `verify_token` — sem ele, quem só tem o link
+    não completa a assinatura.
+  - `src/services/contrato-pdf.service.js`: bloco de assinatura passa a
+    imprimir data/hora completa, IP e protocolo (hash) de cada parte, mais uma
+    nota explicando a base legal (MP 2.200-2/2001, art. 10 §2º) e o método de
+    verificação usado.
 
 - **2026-07-01** — **Orçamento avulso — tipo de serviço (limpeza de reservatório / dedetização)**
   - Migration 060: `orcamentos.tipo` (`pecas` default | `limpeza_reservatorio` |

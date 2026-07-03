@@ -7,8 +7,36 @@ aliases:
 ---
 # Trabalho em Andamento
 
-> Branch atual: `feature/app-mobile`. Última sessão registrada: **2026-07-02**.
+> Branch atual: `feature/app-mobile`. Última sessão registrada: **2026-07-03**.
 > Roadmap completo em [`roadmap.md`](roadmap.md); decisões em [`decisions.md`](decisions.md).
+
+## Sessão 2026-07-03 — Assinatura de contratos: código de verificação + protocolo
+
+Reforça o fluxo próprio de assinatura por e-mail (migration 056) depois de
+mapear 3 pontos fracos: (1) só o link bastava pra assinar, sem 2FA; (2) o PDF
+final não trazia nenhuma evidência (IP/hora/hash), só o banco tinha; (3) sem
+carimbo do tempo de terceiro. Migration 063 aplicada em produção. Decisão de
+não usar ZapSign/D4Sign (pagos) nem a API de assinatura do gov.br (hoje só
+pra órgão público) documentada em [`decisions.md`](decisions.md#segurança-e-rbac).
+
+- `src/routes/assinatura.routes.js`: `GET /assinar/:token` agora sempre exige
+  código de 6 dígitos (enviado ao e-mail cadastrado, não a quem tiver o link)
+  antes de mostrar o formulário. Novo `POST /:token/verificar-codigo` (máx. 5
+  tentativas) emite um `verify_token` (JWT 15 min) exigido pelo `POST /:token`
+  final; `POST /:token/reenviar-codigo` com cooldown de 60s. Rate limit por
+  IP nas duas rotas novas.
+- `src/services/email.js`: `sendAssinaturaCodigo`.
+- `src/services/contrato-pdf.service.js`: bloco de assinatura passa a
+  imprimir data/hora completa + IP + protocolo (hash SHA-256) de cada parte,
+  com nota da base legal (MP 2.200-2/2001 art. 10 §2º).
+- Item pendente (avaliado, não implementado): carimbo do tempo de terceiro
+  independente do servidor. Toda autoridade certificadora acreditada
+  ICP-Brasil é paga; alternativa gratuita seria algo como OpenTimestamps
+  (âncora em blockchain) — não implementado por enquanto, considerado
+  desproporcional pro caso de uso atual.
+
+Ver [`../docs/changelog.md`](../docs/changelog.md), [`../docs/api.md`](../docs/api.md)
+e [`../docs/banco-de-dados.md`](../docs/banco-de-dados.md).
 
 ## Sessão 2026-07-02 — Orçamento de peças: valor unitário opcional + total manual
 
