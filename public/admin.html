@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="/static/leaflet.css">
   <!-- ⚠️ Ao mexer em admin.js ou admin.css, bumpe o ?v=N aqui E no <script>
        lá embaixo. Ver CLAUDE.md raiz. -->
-  <link rel="stylesheet" href="/static/admin.css?v=128">
+  <link rel="stylesheet" href="/static/admin.css?v=129">
 </head>
 <body>
   <div id="appLoader">
@@ -2625,7 +2625,7 @@
 
 <!-- Modal: novo/editar contrato do condomínio -->
 <div id="ctrOverlay" class="modalOverlay" style="display:none;">
-  <div class="modalBox" style="max-width:600px;">
+  <div class="modalBox" style="max-width:640px;">
     <div class="modalHead">
       <div>
         <div class="modalTitle" id="ctrTitulo">Novo contrato</div>
@@ -2772,16 +2772,19 @@
     </div>
 
     <div class="modalFoot">
-      <div class="modalFoot-danger">
-        <button class="btn btn-sm btnDanger" id="ctrBtnEncerrar" style="display:none;">Inativar contrato</button>
-        <button class="btn btn-sm btnDanger" id="ctrBtnExcluir" style="display:none;">Excluir</button>
-      </div>
       <span id="ctrMsg" class="modalFoot-msg"></span>
       <div class="modalFoot-actions">
-        <button class="btn btn-sm" id="ctrBtnPdf" style="display:none;">⬇ PDF</button>
-        <button class="btn btn-sm" id="ctrBtnAtualizarStatus" style="display:none;">↻ Status</button>
-        <button class="btn btn-sm btnAccent" id="ctrBtnEnviarAssinatura" style="display:none;">✉ Enviar para assinatura</button>
-        <span class="modalFoot-divider"></span>
+        <div class="ctr-more-wrap" id="ctrMoreWrap">
+          <button class="btn btn-sm" id="ctrBtnMais" type="button" style="display:none;">Mais ações ⌄</button>
+          <div class="ctr-more-menu" id="ctrMoreMenu">
+            <button class="ctr-more-item" id="ctrBtnPdf" style="display:none;">⬇ Baixar PDF</button>
+            <button class="ctr-more-item" id="ctrBtnAtualizarStatus" style="display:none;">↻ Atualizar status</button>
+            <button class="ctr-more-item" id="ctrBtnEnviarAssinatura" style="display:none;">✉ Enviar para assinatura</button>
+            <div class="ctr-more-sep"></div>
+            <button class="ctr-more-item ctr-more-item--danger" id="ctrBtnEncerrar" style="display:none;">Inativar contrato</button>
+            <button class="ctr-more-item ctr-more-item--danger" id="ctrBtnExcluir" style="display:none;">Excluir contrato</button>
+          </div>
+        </div>
         <button class="btn btn-sm" id="ctrBtnCancelar">Cancelar</button>
         <button class="btn btn-sm btnAccent" id="ctrBtnSalvar">Salvar</button>
       </div>
@@ -2832,7 +2835,7 @@
 </div>
 
 
-<script src="/static/admin.js?v=217" defer></script>
+<script src="/static/admin.js?v=218" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
 <script src="/static/register-sw.js?v=27" defer></script>
 </body>

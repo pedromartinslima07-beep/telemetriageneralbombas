@@ -2528,11 +2528,44 @@ select option { background: #14172a; color: #eef0fb; }
   background: var(--surface2);
   flex-shrink: 0;
 }
-.modalFoot-danger,
-.modalFoot-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.modalFoot-actions { margin-left: auto; }
+.modalFoot-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-left: auto; }
 .modalFoot-msg { font-size: 12px; color: var(--muted); }
-.modalFoot-divider { width: 1px; height: 20px; background: var(--border2); margin: 0 2px; }
+
+.ctr-more-wrap { position: relative; }
+.ctr-more-menu {
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 0;
+  min-width: 210px;
+  background: #0f1225;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 8px 32px rgba(0,0,0,.7);
+  padding: 6px;
+  z-index: 20;
+}
+.ctr-more-menu.is-open { display: flex; flex-direction: column; gap: 2px; }
+.ctr-more-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  color: var(--text);
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.ctr-more-item:hover { background: rgba(255,255,255,.07); }
+.ctr-more-item--danger { color: var(--danger); }
+.ctr-more-item--danger:hover { background: rgba(239,68,68,.12); }
+.ctr-more-sep { height: 1px; background: var(--border); margin: 4px 2px; }
 
 .modalTools { display: flex; gap: 10px; align-items: center; margin-bottom: 14px; }
 
@@ -3000,9 +3033,9 @@ select option { background: #14172a; color: #eef0fb; }
   .modalHead { padding: 12px 16px; }
   .modalBody { padding: 12px 16px; }
   .modalFoot { flex-wrap: wrap; padding: 12px 16px; }
-  .modalFoot-danger { order: 1; }
-  .modalFoot-actions { order: 2; width: 100%; margin-left: 0; justify-content: flex-end; }
-  .modalFoot-msg { order: 3; width: 100%; }
+  .modalFoot-actions { width: 100%; margin-left: 0; justify-content: flex-end; }
+  .modalFoot-msg { width: 100%; }
+  .ctr-more-menu { right: auto; left: 0; }
 
   /* Histórico */
   #histStats { grid-template-columns: repeat(2, minmax(0,1fr)) !important; }

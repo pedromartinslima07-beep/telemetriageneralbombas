@@ -4293,6 +4293,8 @@ function _ctrAbrirModal({ condoId, contratoId }) {
   document.getElementById("ctrCondoId").value = String(condoId);
   document.getElementById("ctrMsg").textContent = "";
   document.getElementById("ctrBtnSalvar").disabled = false;
+  document.getElementById("ctrBtnMais").style.display = contratoId ? "" : "none";
+  document.getElementById("ctrMoreMenu").classList.remove("is-open");
   document.getElementById("ctrBtnEncerrar").style.display = contratoId ? "" : "none";
   document.getElementById("ctrBtnExcluir").style.display = contratoId ? "" : "none";
   document.getElementById("ctrBtnPdf").style.display = "none";
@@ -4427,6 +4429,7 @@ async function _ctrSalvar() {
     btn.disabled = false;
     // Habilita botões de PDF/assinatura após criar
     document.getElementById("ctrId").value = String(saved.id);
+    document.getElementById("ctrBtnMais").style.display = "";
     document.getElementById("ctrBtnPdf").style.display = "";
     document.getElementById("ctrBtnEnviarAssinatura").style.display = "";
     const condoId = _ctrEditando.condoId;
@@ -4537,6 +4540,20 @@ async function _ctrAtualizarStatus() {
   if (!overlay) return;
   document.getElementById("ctrBtnFechar")?.addEventListener("click", _ctrFecharModal);
   document.getElementById("ctrBtnCancelar")?.addEventListener("click", _ctrFecharModal);
+
+  const ctrMoreMenu = document.getElementById("ctrMoreMenu");
+  document.getElementById("ctrBtnMais")?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    ctrMoreMenu.classList.toggle("is-open");
+  });
+  ctrMoreMenu?.querySelectorAll(".ctr-more-item").forEach(item => {
+    item.addEventListener("click", () => ctrMoreMenu.classList.remove("is-open"));
+  });
+  document.addEventListener("click", (e) => {
+    if (ctrMoreMenu?.classList.contains("is-open") && !e.target.closest("#ctrMoreWrap")) {
+      ctrMoreMenu.classList.remove("is-open");
+    }
+  });
   overlay.addEventListener("click", e => {
     const btn = e.target.closest("[data-ctr-copy]");
     if (!btn) return;
