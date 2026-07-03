@@ -205,8 +205,8 @@ router.post("/login", loginLimiter, async (req, res) => {
       }
     }
 
-    // 2FA desativado via env — TEMPORARIAMENTE sem guarda de prod (remover !isProd após teste do app mobile)
-    if (process.env.OTP_DISABLED?.trim() === "true") {
+    // 2FA desativado via env — só em dev
+    if (!isProd && process.env.OTP_DISABLED?.trim() === "true") {
       const token = jwt.sign(
         { id: u.id, role: u.role, condominio_id: u.condominio_id, email: u.email },
         JWT_SECRET,
