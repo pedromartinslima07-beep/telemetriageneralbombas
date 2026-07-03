@@ -10,6 +10,17 @@ aliases:
 > Branch atual: `feature/app-mobile`. Última sessão registrada: **2026-07-03**.
 > Roadmap completo em [`roadmap.md`](roadmap.md); decisões em [`decisions.md`](decisions.md).
 
+## Sessão 2026-07-03 — Remove nome fixo do representante General Bombas
+
+Migration 064: `contratos.signatario_geral_nome` tinha `DEFAULT 'Ana Paula
+Martins Lima'` (054) — todo contrato novo já nascia com esse nome de pessoa
+pré-preenchido no modal, sem ninguém ter escolhido isso. Removido o default
+e limpos os valores existentes que ainda carregavam o default sem confirmação
+de assinatura (nenhum contrato tinha sido assinado sob esse nome ainda,
+conferido antes de rodar). Campo `signatario_geral_email` mantém o default
+(`comercial@generalbombas.com`) — é e-mail real da empresa, não nome de
+pessoa.
+
 ## Sessão 2026-07-03 — Assinatura de contratos: código de verificação + protocolo
 
 Reforça o fluxo próprio de assinatura por e-mail (migration 056) depois de

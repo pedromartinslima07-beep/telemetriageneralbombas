@@ -186,6 +186,9 @@ código de 6 dígitos antes de assinar (`assinatura_cliente/geral_codigo` +
 `_expira` + `_tentativas` + `_enviado_em`) e `assinatura_cliente/geral_protocolo`
 (hash SHA-256 de contrato+papel+nome+doc+ip+timestamp, impresso no PDF como
 evidência auditável independente do banco). Ver [docs/api.md](api.md#assinatura-de-contratos).
+064: removido o `DEFAULT 'Ana Paula Martins Lima'` de `signatario_geral_nome`
+(054) — todo contrato novo nascia com esse nome de pessoa pré-preenchido sem
+ninguém ter escolhido isso; campo agora nasce vazio.
 
 **`historico_chamados`** (033) — auditoria: `chamado_id (CASCADE)`,
 `alterado_por`, mudança de status, reabertura.
