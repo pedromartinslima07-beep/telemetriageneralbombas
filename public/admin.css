@@ -2519,6 +2519,21 @@ select option { background: #14172a; color: #eef0fb; }
 
 .modalBody  { padding: 16px 20px; overflow-y: auto; flex: 1; }
 
+.modalFoot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 20px;
+  border-top: 1px solid var(--border);
+  background: var(--surface2);
+  flex-shrink: 0;
+}
+.modalFoot-danger,
+.modalFoot-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.modalFoot-actions { margin-left: auto; }
+.modalFoot-msg { font-size: 12px; color: var(--muted); }
+.modalFoot-divider { width: 1px; height: 20px; background: var(--border2); margin: 0 2px; }
+
 .modalTools { display: flex; gap: 10px; align-items: center; margin-bottom: 14px; }
 
 .modalBusca {
@@ -2984,6 +2999,10 @@ select option { background: #14172a; color: #eef0fb; }
   .modalBox { max-height: 96vh; border-radius: 12px 12px 0 0; width: 100%; }
   .modalHead { padding: 12px 16px; }
   .modalBody { padding: 12px 16px; }
+  .modalFoot { flex-wrap: wrap; padding: 12px 16px; }
+  .modalFoot-danger { order: 1; }
+  .modalFoot-actions { order: 2; width: 100%; margin-left: 0; justify-content: flex-end; }
+  .modalFoot-msg { order: 3; width: 100%; }
 
   /* Histórico */
   #histStats { grid-template-columns: repeat(2, minmax(0,1fr)) !important; }

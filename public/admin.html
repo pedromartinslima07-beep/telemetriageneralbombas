@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="/static/leaflet.css">
   <!-- ⚠️ Ao mexer em admin.js ou admin.css, bumpe o ?v=N aqui E no <script>
        lá embaixo. Ver CLAUDE.md raiz. -->
-  <link rel="stylesheet" href="/static/admin.css?v=127">
+  <link rel="stylesheet" href="/static/admin.css?v=128">
 </head>
 <body>
   <div id="appLoader">
@@ -2641,6 +2641,7 @@
       <input type="hidden" id="ctrCondoId" />
 
       <!-- Dados do contrato -->
+      <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;">Dados do contrato</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
         <label class="f">
           <span>Tipo de serviço <span style="color:var(--danger)">*</span></span>
@@ -2768,14 +2769,19 @@
           </div>
         </div>
       </div>
+    </div>
 
-      <div style="display:flex;gap:8px;justify-content:flex-end;align-items:center;flex-wrap:wrap;">
-        <span id="ctrMsg" style="font-size:12px;color:var(--muted);flex:1;"></span>
+    <div class="modalFoot">
+      <div class="modalFoot-danger">
+        <button class="btn btn-sm btnDanger" id="ctrBtnEncerrar" style="display:none;">Inativar contrato</button>
+        <button class="btn btn-sm btnDanger" id="ctrBtnExcluir" style="display:none;">Excluir</button>
+      </div>
+      <span id="ctrMsg" class="modalFoot-msg"></span>
+      <div class="modalFoot-actions">
         <button class="btn btn-sm" id="ctrBtnPdf" style="display:none;">⬇ PDF</button>
         <button class="btn btn-sm" id="ctrBtnAtualizarStatus" style="display:none;">↻ Status</button>
         <button class="btn btn-sm btnAccent" id="ctrBtnEnviarAssinatura" style="display:none;">✉ Enviar para assinatura</button>
-        <button class="btn btn-sm btnDanger" id="ctrBtnEncerrar" style="display:none;">Inativar contrato</button>
-        <button class="btn btn-sm btnDanger" id="ctrBtnExcluir" style="display:none;">Excluir</button>
+        <span class="modalFoot-divider"></span>
         <button class="btn btn-sm" id="ctrBtnCancelar">Cancelar</button>
         <button class="btn btn-sm btnAccent" id="ctrBtnSalvar">Salvar</button>
       </div>
