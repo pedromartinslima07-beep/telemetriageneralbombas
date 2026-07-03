@@ -3100,7 +3100,7 @@ function abrirModalTecnico(tec = null) {
             <div style="flex:1;display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
               <div class="field" style="grid-column:1/3;">
                 <span class="lbl">Nome <span class="req">*</span></span>
-                <input id="tecModalNome" class="input" value="${tec ? _waEscaparHtml(tec.nome) : ""}" placeholder="Ex: Carlos Silva" />
+                <input id="tecModalNome" class="input" value="${tec ? _waEscaparHtml(tec.nome) : ""}" placeholder="Nome completo" />
               </div>
               <div class="field">
                 <span class="lbl">Cargo <span class="req">*</span></span>
@@ -3268,11 +3268,11 @@ function abrirModalNovoCliente() {
         <div style="flex:1;min-width:0;display:grid;grid-template-columns:1fr 1fr;gap:8px 14px;">
           <div class="field">
             <span class="lbl">Razão Social <span class="req">*</span></span>
-            <input id="cliModalNome" class="input" placeholder="Ex: Jardins Condomínio LTDA" />
+            <input id="cliModalNome" class="input" placeholder="Razão social do condomínio" />
           </div>
           <div class="field">
             <span class="lbl">Nome Fantasia <span style="font-weight:400;color:var(--muted);">— exibição</span></span>
-            <input id="cliModalNomeFantasia" class="input" placeholder="Ex: Condomínio Jardins" />
+            <input id="cliModalNomeFantasia" class="input" placeholder="Nome de exibição do condomínio" />
           </div>
           <div class="field" style="grid-column:1/-1;">
             <span class="lbl">Endereço</span>
@@ -3280,7 +3280,7 @@ function abrirModalNovoCliente() {
           </div>
           <div class="field">
             <span class="lbl">Bairro</span>
-            <input id="cliModalBairro" class="input" placeholder="Ex: Tatuapé" />
+            <input id="cliModalBairro" class="input" placeholder="Nome do bairro" />
           </div>
           <div class="field">
             <span class="lbl">CEP</span>
@@ -3289,7 +3289,7 @@ function abrirModalNovoCliente() {
           </div>
           <div class="field">
             <span class="lbl">Cidade</span>
-            <input id="cliModalCidade" class="input" placeholder="Ex: São Paulo" />
+            <input id="cliModalCidade" class="input" placeholder="Nome da cidade" />
           </div>
           <div class="field">
             <span class="lbl">UF</span>
@@ -3297,7 +3297,7 @@ function abrirModalNovoCliente() {
           </div>
           <div class="field">
             <span class="lbl">Responsável</span>
-            <input id="cliModalResponsavel" class="input" placeholder="Ex: Síndico João Silva" />
+            <input id="cliModalResponsavel" class="input" placeholder="Nome do síndico ou responsável" />
           </div>
           <div class="field">
             <span class="lbl">Telefone</span>
@@ -3474,11 +3474,11 @@ function abrirModalNovoRepresentante(condoId) {
       <div class="grid-2">
         <div class="field">
           <span class="lbl">Nome <span class="req">*</span></span>
-          <input id="repModalNome" class="input" placeholder="Ex: João Silva" />
+          <input id="repModalNome" class="input" placeholder="Nome completo" />
         </div>
         <div class="field">
           <span class="lbl">Email <span class="req">*</span></span>
-          <input id="repModalEmail" class="input" placeholder="joao@exemplo.com" />
+          <input id="repModalEmail" class="input" placeholder="nome@exemplo.com" />
         </div>
         <div class="field col-2">
           <span class="lbl">Senha provisória <span class="req">*</span></span>
