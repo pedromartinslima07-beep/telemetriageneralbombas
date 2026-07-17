@@ -7,6 +7,26 @@ function authHeaders() {
 }
 if (!getToken()) window.location.href = "/login";
 
+// Se o token expirar/for invalidado (401 em request autenticado), a API
+// inteira volta 401 em loop silencioso — sem isso o usuário fica preso
+// num painel quebrado sem entender o porquê. Detecta pelo header
+// Authorization (não mexe em fetches sem auth, tipo brasilapi/viacep).
+(function _instalarRedirectSessaoExpirada() {
+  const _fetchNativo = window.fetch.bind(window);
+  let _redirecionando = false;
+  window.fetch = async function (input, init) {
+    const r = await _fetchNativo(input, init);
+    if (r.status === 401 && init && init.headers && init.headers.Authorization && !_redirecionando) {
+      _redirecionando = true;
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      localStorage.removeItem("userRole");
+      window.location.href = "/login?motivo=expirado";
+    }
+    return r;
+  };
+})();
+
 // Remove o loader inicial com fade
 function _ocultarLoader() {
   const el = document.getElementById("appLoader");
