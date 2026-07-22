@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="/static/leaflet.css">
   <!-- ⚠️ Ao mexer em admin.js ou admin.css, bumpe o ?v=N aqui E no <script>
        lá embaixo. Ver CLAUDE.md raiz. -->
-  <link rel="stylesheet" href="/static/admin.css?v=129">
+  <link rel="stylesheet" href="/static/admin.css?v=130">
 </head>
 <body>
   <div id="appLoader">
@@ -415,7 +415,7 @@
                   <li><span class="mc-ia-dot violet"></span>Sistema operacional dentro do esperado.</li>
                   <li><span class="mc-ia-dot cyan"></span>Carregando análise da telemetria…</li>
                 </ul>
-                <button class="btn-link mc-ia-cta" data-section-go="relatorios" data-rel-tab-go="insights">Ver análise completa →</button>
+                <button class="btn-link mc-ia-cta" data-section-go="relatorios">Ver análise completa →</button>
               </div>
             </div>
           </section>
@@ -1441,261 +1441,95 @@
       <!-- ===== SECTION: RELATÓRIOS ===== -->
       <div class="section" data-section="relatorios">
 
-        <!-- Tabs + filtros -->
+        <!-- Painel ao vivo — estado operacional agora, sem filtro de período -->
         <div class="card" style="padding:0;overflow:hidden;margin-bottom:12px;">
-          <div style="padding:12px 20px;border-bottom:1px solid var(--border);">
-            <div class="wa-tabs" id="relTabs" role="tablist" style="border-bottom:none;margin-top:0;">
-              <button class="wa-tab is-active" data-rel-tab="chamados">Chamados</button>
-              <button class="wa-tab" data-rel-tab="reservatorios">Reservatórios</button>
-              <button class="wa-tab" data-rel-tab="sla">Dashboard SLA</button>
-            </div>
+          <div class="rel-ct-head" style="display:flex;justify-content:space-between;align-items:center;">
+            <span>Painel ao vivo</span>
+            <button class="btn btn-sm" data-rel-action="atualizar-painel">Atualizar</button>
           </div>
-          <!-- filtros chamados -->
-          <div class="rel-tab-pane" id="relPaneChamados" style="padding:14px 20px;">
-            <div class="filter-bar">
-              <div class="field"><label class="lbl">De</label><input type="date" id="relChIni" class="input" style="width:136px;"></div>
-              <div class="field"><label class="lbl">Até</label><input type="date" id="relChFim" class="input" style="width:136px;"></div>
-              <div class="field"><label class="lbl">Condomínio</label><select id="relChCondo" class="input" style="width:158px;"><option value="">Todos</option></select></div>
-              <div class="field"><label class="lbl">Status</label>
-                <select id="relChStatus" class="input" style="width:130px;">
-                  <option value="">Todos</option><option value="aberto">Aberto</option>
-                  <option value="em_atendimento">Em atendimento</option><option value="fechado">Fechado</option>
-                </select>
-              </div>
-              <div class="field"><label class="lbl">Prioridade</label>
-                <select id="relChPrioridade" class="input" style="width:118px;">
-                  <option value="">Todas</option><option value="p4">P4 Agendado</option>
-                  <option value="p3">P3 Controlado</option><option value="p2">P2 Alta</option>
-                  <option value="p1">P1 Crítico</option>
-                </select>
-              </div>
-              <div class="field"><label class="lbl">Técnico</label><select id="relChTecnico" class="input" style="width:138px;"><option value="">Todos</option></select></div>
-              <button class="btn btn-sm" data-rel-action="gerar-chamados" style="align-self:flex-end;">Gerar</button>
-            </div>
-          </div>
-          <!-- filtros reservatórios (telemetria + alertas unificados) -->
-          <div class="rel-tab-pane" id="relPaneReservatorios" style="padding:14px 20px;display:none;">
-            <div class="filter-bar">
-              <div class="field"><label class="lbl">De</label><input type="date" id="relResIni" class="input" style="width:136px;"></div>
-              <div class="field"><label class="lbl">Até</label><input type="date" id="relResFim" class="input" style="width:136px;"></div>
-              <div class="field"><label class="lbl">Condomínio</label><select id="relResCondo" class="input" style="width:158px;"><option value="">Todos</option></select></div>
-              <div class="field"><label class="lbl">Device ID</label><input type="text" id="relResDevice" class="input" placeholder="Opcional" style="width:154px;"></div>
-              <button class="btn btn-sm" data-rel-action="gerar-reservatorios" style="align-self:flex-end;">Gerar</button>
-            </div>
-          </div>
-          <!-- filtros sla dashboard -->
-          <div class="rel-tab-pane" id="relPaneSla" style="padding:14px 20px;display:none;">
-            <div class="filter-bar">
-              <div class="field"><label class="lbl">De</label><input type="date" id="relSlIni" class="input" style="width:136px;"></div>
-              <div class="field"><label class="lbl">Até</label><input type="date" id="relSlFim" class="input" style="width:136px;"></div>
-              <div class="field"><label class="lbl">Condomínio</label><select id="relSlCondo" class="input" style="width:158px;"><option value="">Todos</option></select></div>
-              <div class="field"><label class="lbl">Prioridade</label>
-                <select id="relSlPrio" class="input" style="width:130px;">
-                  <option value="">Todas</option>
-                  <option value="p1">P1 Crítico</option>
-                  <option value="p2">P2 Alta</option>
-                  <option value="p3">P3 Controlado</option>
-                  <option value="p4">P4 Agendado</option>
-                </select>
-              </div>
-              <button class="btn btn-sm" data-rel-action="gerar-sla" style="align-self:flex-end;">Gerar</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- ── CORPO: CHAMADOS ── -->
-        <div class="rel-body" id="relBodyChamados" style="display:none;">
-          <div class="resumo-grid" id="relChKpis" style="margin-bottom:12px;"></div>
-          <div class="rel-charts-2" style="margin-bottom:12px;">
-            <div class="card" style="padding:0;overflow:hidden;">
-              <p class="rel-ct-head" id="relChHeadDia"><span>Chamados por dia</span></p>
-              <div id="relChChartDia" style="height:200px;"></div>
-            </div>
-            <div class="card" style="padding:0;overflow:hidden;">
-              <p class="rel-ct-head">Por status</p>
-              <div id="relChChartStatus" style="height:200px;"></div>
-            </div>
-          </div>
-          <div class="rel-charts-2b" style="margin-bottom:12px;">
-            <div class="card" style="padding:0;overflow:hidden;">
-              <p class="rel-ct-head">Por prioridade</p>
-              <div id="relChChartPrio" style="height:210px;"></div>
-            </div>
-            <div class="card" style="padding:0;overflow:hidden;">
-              <p class="rel-ct-head">Por categoria</p>
-              <div id="relChChartCat" style="height:210px;"></div>
-            </div>
-          </div>
-          <div style="margin-bottom:12px;">
-            <div class="card" style="padding:0;overflow:hidden;">
-              <p class="rel-ct-head">Condomínios mais problemáticos <span style="font-size:11px;color:var(--muted);">(chamados + alertas)</span></p>
-              <div style="padding:0 12px 12px;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;">
+            <div style="border-right:1px solid var(--border);">
+              <p class="rel-ct-head">Chamados em risco <span style="font-size:11px;color:var(--muted);">(≥ 50% do TTR usado)</span></p>
+              <div class="tableWrap" style="max-height:260px;">
                 <table><thead><tr>
-                  <th>Condomínio</th>
-                  <th style="width:52px;text-align:right;">Score</th>
-                  <th style="width:66px;text-align:right;">Chamados</th>
-                  <th style="width:54px;text-align:right;">Alertas</th>
-                </tr></thead><tbody id="relChProblemaBody"></tbody></table>
+                  <th>Chamado</th><th style="width:96px">Prioridade</th>
+                  <th style="width:148px">Condomínio</th><th style="width:120px">Técnico</th>
+                  <th style="width:90px">Uso do TTR</th>
+                </tr></thead><tbody id="relVivoRiscoBody"><tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px;">Carregando…</td></tr></tbody></table>
               </div>
             </div>
-          </div>
-          <div class="card" style="padding:0;overflow:hidden;margin-bottom:12px;">
-            <div class="rel-ct-head" style="display:flex;justify-content:space-between;align-items:center;">
-              <span>Todos os chamados</span>
-              <div style="display:flex;gap:8px;align-items:center;">
-                <span id="relChCount" style="font-size:11.5px;color:var(--text-dim);"></span>
-                <button class="btn btn-sm btnAccent" data-rel-action="exportar-pdf" style="margin-right:4px;">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>Exportar PDF
-                </button>
-              </div>
-            </div>
-            <div class="tableWrap" style="max-height:260px;">
-              <table><thead><tr>
-                <th style="width:64px">ID</th><th>Título</th>
-                <th style="width:148px">Condomínio</th><th style="width:120px">Técnico</th>
-                <th style="width:118px">Categoria</th>
-                <th style="width:96px">Prioridade</th><th style="width:96px">Status</th>
-                <th style="width:96px">Aberto em</th><th style="width:66px">SLA</th>
-              </tr></thead><tbody id="relChTbody"></tbody></table>
-            </div>
-          </div>
-        </div>
-
-        <!-- ── CORPO: RESERVATÓRIOS (telemetria + alertas unificados) ── -->
-        <div class="rel-body" id="relBodyReservatorios" style="display:none;">
-          <div class="resumo-grid" id="relResKpis" style="margin-bottom:12px;"></div>
-          <!-- linha 1: nível por dia + donut tipo alerta -->
-          <div class="rel-charts-2" style="margin-bottom:12px;">
-            <div class="card" style="padding:0;overflow:hidden;">
-              <p class="rel-ct-head" id="relResHeadNivel"><span>Tendência de nível — média diária</span></p>
-              <div id="relResChartNivel" style="height:220px;"></div>
-            </div>
-            <div class="card" style="padding:0;overflow:hidden;">
-              <p class="rel-ct-head">Alertas por tipo</p>
-              <div id="relResChartTipo" style="height:220px;"></div>
-            </div>
-          </div>
-          <!-- linha 2: nível por device + tabela saúde -->
-          <div class="rel-charts-2b" style="margin-bottom:12px;">
-            <div class="card" style="padding:0;overflow:hidden;">
-              <p class="rel-ct-head">Nível médio por reservatório</p>
-              <div id="relResChartDev" style="height:220px;"></div>
-            </div>
-            <div class="card" style="padding:0;overflow:hidden;">
-              <p class="rel-ct-head">Saúde por reservatório</p>
-              <div style="padding:0 12px 12px;">
+            <div>
+              <p class="rel-ct-head">Workload por técnico</p>
+              <div class="tableWrap" style="max-height:260px;">
                 <table><thead><tr>
-                  <th>Reservatório</th>
-                  <th style="width:64px;text-align:right;">Nível</th>
-                  <th style="width:60px;text-align:right;">Alertas</th>
-                  <th style="width:56px;text-align:right;">Ativos</th>
-                  <th style="width:76px;text-align:right;">Tempo méd</th>
-                </tr></thead><tbody id="relResSaudeBody"></tbody></table>
-              </div>
-            </div>
-          </div>
-          <!-- log de alertas -->
-          <div class="card" style="padding:0;overflow:hidden;margin-bottom:12px;">
-            <div class="rel-ct-head" style="display:flex;justify-content:space-between;align-items:center;">
-              <span>Log de incidentes</span>
-              <div style="display:flex;gap:8px;align-items:center;">
-                <span id="relResAlCount" style="font-size:11.5px;color:var(--text-dim);"></span>
-              </div>
-            </div>
-            <div class="tableWrap" style="max-height:260px;">
-              <table><thead><tr>
-                <th style="width:68px">ID</th><th style="width:160px">Tipo</th>
-                <th>Mensagem</th><th style="width:148px">Reservatório</th>
-                <th style="width:148px">Condomínio</th>
-                <th style="width:90px">Status</th><th style="width:96px">Criado em</th>
-                <th style="width:70px">Tempo</th>
-              </tr></thead><tbody id="relResAlTbody"></tbody></table>
-            </div>
-          </div>
-        </div>
-
-        <!-- ── CORPO: DASHBOARD SLA ── -->
-        <div class="rel-body" id="relBodySla" style="display:none;">
-          <!-- KPIs -->
-          <div class="resumo-grid" id="relSlKpis" style="margin-bottom:12px;"></div>
-
-          <!-- TTR + TTFR ao longo do tempo (side by side) -->
-          <div class="rel-charts-2b" style="margin-bottom:12px;">
-            <div class="card" style="padding:0;overflow:hidden;">
-              <p class="rel-ct-head">TTR médio <span style="font-size:11px;color:var(--muted);">(tempo até resolver)</span></p>
-              <div id="relSlChartTtr" style="height:300px;"></div>
-            </div>
-            <div class="card" style="padding:0;overflow:hidden;">
-              <p class="rel-ct-head">TTFR médio <span style="font-size:11px;color:var(--muted);">(tempo até 1ª resposta)</span></p>
-              <div id="relSlChartTtfr" style="height:300px;"></div>
-            </div>
-          </div>
-
-          <!-- Distribuição P1-P4 + conformidade SLA por nível -->
-          <div class="rel-charts-2b" style="margin-bottom:12px;">
-            <div class="card" style="padding:0;overflow:hidden;">
-              <p class="rel-ct-head">Distribuição por prioridade</p>
-              <div id="relSlChartPrio" style="height:220px;"></div>
-            </div>
-            <div class="card" style="padding:0;overflow:hidden;">
-              <p class="rel-ct-head">Conformidade SLA por nível</p>
-              <div style="padding:0 12px 12px;">
-                <table>
-                  <thead><tr>
-                    <th>Prioridade</th>
-                    <th style="text-align:right;width:64px;">Total</th>
-                    <th style="text-align:right;width:80px;">% no SLA</th>
-                    <th style="text-align:right;width:80px;">TTFR méd</th>
-                  </tr></thead>
-                  <tbody id="relSlPrioBody"><tr><td colspan="4" style="text-align:center;color:var(--muted);padding:20px;">Clique em Gerar</td></tr></tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-
-          <!-- Workload atual por técnico -->
-          <div class="card" style="padding:0;overflow:hidden;margin-bottom:12px;">
-            <p class="rel-ct-head">Workload atual <span style="font-size:11px;color:var(--muted);">(chamados abertos agora, independente do período)</span></p>
-            <div id="relSlChartWorkload" style="height:180px;"></div>
-          </div>
-
-          <!-- Grid 2 colunas: técnicos + em risco -->
-          <div class="rel-charts-2b" style="margin-bottom:12px;">
-            <!-- Tabela por técnico -->
-            <div class="card" style="padding:0;overflow:hidden;">
-              <p class="rel-ct-head"><span>Performance por técnico</span></p>
-              <div style="overflow-x:auto;">
-                <table>
-                  <thead><tr>
-                    <th>Técnico</th>
-                    <th style="text-align:right;">Chamados</th>
-                    <th style="text-align:right;">TTFR méd</th>
-                    <th style="text-align:right;">TTR méd</th>
-                    <th style="text-align:right;">% no SLA</th>
-                    <th style="text-align:right;">Nota</th>
-                  </tr></thead>
-                  <tbody id="relSlTecBody"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px;">Clique em Gerar</td></tr></tbody>
-                </table>
-              </div>
-            </div>
-            <!-- Chamados em risco -->
-            <div class="card" style="padding:0;overflow:hidden;">
-              <p class="rel-ct-head"><span>Chamados em risco <span style="font-size:11px;color:var(--muted);">(≥ 50% do TTR usado, estado atual)</span></span></p>
-              <div style="overflow-x:auto;">
-                <table>
-                  <thead><tr>
-                    <th>Chamado</th>
-                    <th>Prioridade</th>
-                    <th>Condomínio</th>
-                    <th>Uso do TTR</th>
-                  </tr></thead>
-                  <tbody id="relSlRiscoBody"><tr><td colspan="4" style="text-align:center;color:var(--muted);padding:20px;">Clique em Gerar</td></tr></tbody>
-                </table>
+                  <th>Técnico</th><th style="width:64px;text-align:right;">Abertos</th>
+                  <th style="width:48px;text-align:right;">P1</th><th style="width:48px;text-align:right;">P2</th>
+                  <th style="width:48px;text-align:right;">P3</th><th style="width:48px;text-align:right;">P4</th>
+                </tr></thead><tbody id="relVivoWorkloadBody"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px;">Carregando…</td></tr></tbody></table>
               </div>
             </div>
           </div>
         </div>
 
+        <!-- Exportar dados — filtro + CSV, sem gráfico/preview: análise fica no Excel -->
+        <div class="card" style="padding:14px 20px;margin-bottom:12px;">
+          <p class="rel-ct-head" style="padding:0 0 10px;">Exportar chamados</p>
+          <div class="filter-bar">
+            <div class="field"><label class="lbl">De</label><input type="date" id="relChIni" class="input" style="width:136px;"></div>
+            <div class="field"><label class="lbl">Até</label><input type="date" id="relChFim" class="input" style="width:136px;"></div>
+            <div class="field"><label class="lbl">Condomínio</label><select id="relChCondo" class="input" style="width:158px;"><option value="">Todos</option></select></div>
+            <div class="field"><label class="lbl">Status</label>
+              <select id="relChStatus" class="input" style="width:130px;">
+                <option value="">Todos</option><option value="aberto">Aberto</option>
+                <option value="em_atendimento">Em atendimento</option><option value="fechado">Fechado</option>
+              </select>
+            </div>
+            <div class="field"><label class="lbl">Prioridade</label>
+              <select id="relChPrioridade" class="input" style="width:118px;">
+                <option value="">Todas</option><option value="p4">P4 Agendado</option>
+                <option value="p3">P3 Controlado</option><option value="p2">P2 Alta</option>
+                <option value="p1">P1 Crítico</option>
+              </select>
+            </div>
+            <div class="field"><label class="lbl">Técnico</label><select id="relChTecnico" class="input" style="width:138px;"><option value="">Todos</option></select></div>
+            <button class="btn btn-sm btnAccent" data-rel-action="exportar-csv-chamados" style="align-self:flex-end;">Exportar CSV</button>
+          </div>
+        </div>
+
+        <div class="card" style="padding:14px 20px;margin-bottom:12px;">
+          <p class="rel-ct-head" style="padding:0 0 10px;">Exportar alertas</p>
+          <div class="filter-bar">
+            <div class="field"><label class="lbl">De</label><input type="date" id="relAlIni" class="input" style="width:136px;"></div>
+            <div class="field"><label class="lbl">Até</label><input type="date" id="relAlFim" class="input" style="width:136px;"></div>
+            <div class="field"><label class="lbl">Condomínio</label><select id="relAlCondo" class="input" style="width:158px;"><option value="">Todos</option></select></div>
+            <div class="field"><label class="lbl">Tipo</label>
+              <select id="relAlTipo" class="input" style="width:150px;">
+                <option value="">Todos</option>
+                <option value="offline">Offline</option>
+                <option value="nivel_critico">Nível crítico</option>
+                <option value="nivel_baixo">Nível baixo</option>
+                <option value="nivel_muito_baixo">Nível muito baixo</option>
+              </select>
+            </div>
+            <div class="field"><label class="lbl">Status</label>
+              <select id="relAlStatus" class="input" style="width:130px;">
+                <option value="">Todos</option><option value="ativo">Ativo</option><option value="resolvido">Resolvido</option>
+              </select>
+            </div>
+            <button class="btn btn-sm btnAccent" data-rel-action="exportar-csv-alertas" style="align-self:flex-end;">Exportar CSV</button>
+          </div>
+        </div>
+
+        <div class="card" style="padding:14px 20px;margin-bottom:12px;">
+          <p class="rel-ct-head" style="padding:0 0 10px;">Exportar telemetria <span style="font-size:11px;color:var(--muted);">(agregado diário por reservatório)</span></p>
+          <div class="filter-bar">
+            <div class="field"><label class="lbl">De</label><input type="date" id="relTelIni" class="input" style="width:136px;"></div>
+            <div class="field"><label class="lbl">Até</label><input type="date" id="relTelFim" class="input" style="width:136px;"></div>
+            <div class="field"><label class="lbl">Condomínio</label><select id="relTelCondo" class="input" style="width:158px;"><option value="">Todos</option></select></div>
+            <div class="field"><label class="lbl">Device ID</label><input type="text" id="relTelDevice" class="input" placeholder="Opcional" style="width:154px;"></div>
+            <button class="btn btn-sm btnAccent" data-rel-action="exportar-csv-telemetria" style="align-self:flex-end;">Exportar CSV</button>
+          </div>
+        </div>
 
       </div><!-- /section relatorios -->
 
@@ -2835,8 +2669,8 @@
 </div>
 
 
-<script src="/static/admin.js?v=219" defer></script>
+<script src="/static/admin.js?v=220" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
-<script src="/static/register-sw.js?v=27" defer></script>
+<script src="/static/register-sw.js?v=28" defer></script>
 </body>
 </html>

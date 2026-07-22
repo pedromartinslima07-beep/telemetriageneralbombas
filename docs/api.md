@@ -217,5 +217,10 @@ ao e-mail cadastrado (2FA equivalente ao do login).
 **`/relatorio/pdf`** — autenticado (admin geral; cliente restrito ao seu
 condomínio). Gera PDF de telemetria via Puppeteer.
 
-**`/relatorios`** (adminOnly): `/chamados`, `/pdf-chamados`, `/alertas`,
-`/telemetria`, `/insights`, `/sla-metricas`, `/sla-dashboard`.
+**`/relatorios`** (adminOnly): `/chamados`, `/alertas`, `/telemetria` — dados
+crus em JSON, usados pra exportar CSV no painel (ver
+[chamados-sla.md](modulos/chamados-sla.md)). `/chamados` inclui
+`primeira_resposta_em` e `tempo_resolucao_seg` pra permitir calcular
+TTFR/TTR/conformidade de SLA no Excel. `/painel-vivo` retorna o estado
+operacional agora (chamados em risco de estourar SLA + workload por
+técnico), sem filtro de período.

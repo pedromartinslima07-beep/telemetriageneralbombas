@@ -63,8 +63,12 @@ aberto → técnico atribuído → em_atendimento (GPS chegada)
 - `sla_definicoes` por prioridade: `ttfr_min` (1ª resposta), `ttr_min`
   (resolução), `sla_chegada_min` (chegada). Editável em `/admin/sla`.
 - `chamados.primeira_resposta_em`, `tempo_resolucao_seg` alimentam as métricas.
-- **Dashboard SLA:** `GET /relatorios/sla-metricas` e `/sla-dashboard` (por
-  técnico / prioridade / período).
+- **Painel ao vivo:** `GET /relatorios/painel-vivo` — chamados em risco
+  (≥ 50% do TTR usado) + workload por técnico, estado atual sem filtro de
+  período. Substituiu o antigo dashboard de gráficos por período — análise
+  histórica de SLA (por técnico, prioridade, TTFR/TTR) agora é feita fora do
+  app, a partir do CSV de `GET /relatorios/chamados` (que carrega
+  `primeira_resposta_em` e `tempo_resolucao_seg` crus pra isso).
 - **Alerta de atraso:** `chamados-atraso.job.js` envia email quando um chamado
   em atendimento estoura o prazo (`chamados.alerta_atraso_horas/_enabled`),
   registrando `alerta_atraso_enviado_em` para não duplicar.

@@ -80,6 +80,35 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
 
 ## Marcos de produto (fases do plano)
 
+- **2026-07-22** — **Relatórios: painel ao vivo + exportação CSV (fim do dashboard de gráficos)**
+  - Motivação: a aba Relatórios (3 abas — Chamados, Reservatórios, Dashboard
+    SLA — cada uma com KPI cards + ~10 gráficos ApexCharts) tinha ficado
+    confusa de usar. Decisão: manter só o que é estado operacional "agora"
+    num painel ao vivo, e deixar toda análise histórica pra fora do app via
+    CSV (Excel/planilha).
+  - Nova estrutura: card **Painel ao vivo** (chamados em risco de estourar
+    SLA + workload por técnico, sem filtro de período) + 3 cards **Exportar**
+    (Chamados / Alertas / Telemetria) — cada um só com os filtros de sempre e
+    um botão "Exportar CSV" (sem gráfico/preview na tela).
+  - Backend (`src/routes/relatorios.routes.js`): nova rota `GET
+    /relatorios/painel-vivo`; `GET /relatorios/chamados` passa a incluir
+    `primeira_resposta_em` e `tempo_resolucao_seg` (colunas cruas pra dar pra
+    montar TTFR/TTR/conformidade de SLA numa tabela dinâmica do Excel).
+    Removidas as rotas `/pdf-chamados`, `/insights`, `/sla-metricas` e
+    `/sla-dashboard` — as duas primeiras (`/insights`, e o link "Ver análise
+    completa" do Mission Control) já estavam órfãs, sem nenhum HTML
+    conectado; `/sla-dashboard` foi substituída pelo painel ao vivo +
+    exportação CSV; `/pdf-chamados` (e `src/services/relatorio-pdf.service.js`,
+    seu único consumidor) saiu porque CSV cobre a necessidade de análise —
+    apagado.
+  - Frontend: `public/admin.html`/`admin.js` — ~1240 linhas de estado, KPI
+    cards, gráficos ApexCharts e troca de abas trocadas por um módulo enxuto
+    (`renderRelatorios`, `_relCarregarPainelVivo`, `_relToCsv`,
+    `_relBaixarCsv`, `_relExportarCsv`). CSV usa `;` como separador e BOM
+    UTF-8 (Excel PT-BR usa `,` como separador decimal).
+  - `admin.css?v=130`, `admin.js?v=220`, `register-sw.js?v=28`,
+    `sw.js` `CACHE_NAME` `telemetria-v37`.
+
 - **2026-07-03** — **Assinatura de contratos: código de verificação + protocolo auditável**
   - Fecha 3 pontos fracos do fluxo próprio de assinatura por e-mail (migration 056):
     até então, só o link (sem 2FA) já bastava pra assinar, e o PDF final não

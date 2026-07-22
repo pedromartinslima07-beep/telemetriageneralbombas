@@ -7,8 +7,36 @@ aliases:
 ---
 # Trabalho em Andamento
 
-> Branch atual: `feature/app-mobile`. Última sessão registrada: **2026-07-03**.
+> Branch atual: `feature/app-mobile`. Última sessão registrada: **2026-07-22**.
 > Roadmap completo em [`roadmap.md`](roadmap.md); decisões em [`decisions.md`](decisions.md).
+
+## Sessão 2026-07-22 — Relatórios: painel ao vivo + exportação CSV
+
+Redesenho pedido pelo usuário: achava a aba Relatórios (3 abas, KPI cards,
+~10 gráficos ApexCharts) confusa e queria só exportar CSV pra analisar no
+Excel, mantendo um painel ao vivo enxuto pro que é estado operacional "agora"
+(não faz sentido virar CSV histórico).
+
+- **Painel ao vivo:** chamados em risco de estourar SLA (≥50% do TTR usado) +
+  workload por técnico, sem filtro de período — nova rota `GET
+  /relatorios/painel-vivo` (extraída do antigo `/sla-dashboard`).
+- **Exportar CSV:** 3 cards (Chamados / Alertas / Telemetria), cada um só com
+  filtros + botão, sem gráfico/preview na tela. `GET /relatorios/chamados`
+  ganhou `primeira_resposta_em`/`tempo_resolucao_seg` crus pra permitir
+  montar métricas de SLA (TTFR/TTR) via tabela dinâmica no Excel — decisão
+  de não duplicar essa agregação no backend.
+- **Removido:** rota + botão "Exportar PDF" de chamados (`/pdf-chamados`,
+  `src/services/relatorio-pdf.service.js` — apagado, único consumidor);
+  rotas órfãs `/insights` e `/sla-metricas` (já sem HTML conectado antes
+  desta sessão) e `/sla-dashboard`. Link "Ver análise completa" do card IA
+  Insights do Mission Control (`data-rel-tab-go="insights"`) corrigido —
+  apontava pra uma aba que não existia mais.
+- Cache bump: `admin.css?v=130`, `admin.js?v=220`, `register-sw.js?v=28`,
+  `sw.js` `CACHE_NAME` → `telemetria-v37`.
+
+Ver [`../docs/changelog.md`](../docs/changelog.md),
+[`../docs/api.md`](../docs/api.md) e
+[`../docs/modulos/chamados-sla.md`](../docs/modulos/chamados-sla.md).
 
 ## Sessão 2026-07-03 — Remove nome fixo do representante General Bombas
 

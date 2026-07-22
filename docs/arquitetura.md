@@ -105,7 +105,6 @@ App mobile (Capacitor) ──JWT──fetch───────────┤
 | `chamado-mensagens.service.js` | Chat interno do chamado |
 | `orcamento-pdf.service.js` | PDF de orçamento (Puppeteer) |
 | `os-pdf.service.js` | PDF de Ordem de Serviço (Puppeteer) |
-| `relatorio-pdf.service.js` | PDF de relatório de telemetria (Puppeteer) |
 
 ### Jobs (`src/jobs/`) — `setTimeout` recursivo
 

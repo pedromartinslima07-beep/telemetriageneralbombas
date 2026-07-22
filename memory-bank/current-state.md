@@ -24,8 +24,7 @@ ESP32 (sonda 4-20mA + SCT-013)
 │   planos-manutencao · contratos                                              │
 │                                                                              │
 │  Services: alertas · email · ia · evolution(Meta API) · config ·            │
-│   chamado-historico · chamado-mensagens · orcamento-pdf · os-pdf ·          │
-│   relatorio-pdf                                                              │
+│   chamado-historico · chamado-mensagens · orcamento-pdf · os-pdf            │
 │                                                                              │
 │  Controllers: whatsapp.controller (webhook → background → IA)               │
 │                                                                              │
@@ -66,7 +65,7 @@ ESP32 (sonda 4-20mA + SCT-013)
 | **planos-manutencao** | Planos preventivos recorrentes |
 | **contratos** | Contratos por condomínio. Assinatura eletrônica própria por link de e-mail (sem ZapSign/D4Sign — ver `decisions.md`): exige código de 6 dígitos antes de assinar (2FA equivalente ao login) e grava um protocolo (hash SHA-256 auditável) impresso no PDF junto com IP e data/hora |
 | **orçamentos** | Sistema unificado (tabela `orcamentos` + `orcamento_linhas`); `tipo` (060) ramifica o PDF avulso entre tabela de peças (padrão) e layout descritivo por cláusulas para limpeza de reservatório/dedetização/combo, mesmo timbrado. Item sem `valor_unitario` some da coluna de valor no PDF em vez de virar "R$ 0,00"; `orcamentos.valor` serve de override manual do total (062) |
-| **relatorio / relatorios** | PDFs (Puppeteer) + dashboards de relatório |
+| **relatorio / relatorios** | PDF de telemetria (Puppeteer) pro cliente/app; painel ao vivo (chamados em risco + workload) e exportação CSV de chamados/alertas/telemetria pro admin |
 | **admin** | Usuários, status agregado, histórico, geocode, configurações |
 | **status / leituras / jobs** | Endpoints auxiliares e disparo manual de jobs |
 
@@ -111,7 +110,9 @@ ESP32 (sonda 4-20mA + SCT-013)
 **Chamados, SLA e O.S.**
 - Criticidade **P1–P4** com SLA de chegada do técnico, regra de recorrência
   (mesma falha no mês sobe 1 nível), endpoints `/a-caminho` e `/chegou`.
-- **SLA configurável** + métricas TTFR/TTR + **Dashboard SLA**.
+- **SLA configurável** + métricas TTFR/TTR (`primeira_resposta_em`,
+  `tempo_resolucao_seg`) + **painel ao vivo** de chamados em risco/workload
+  na aba Relatórios; análise histórica de SLA é feita via export CSV.
 - **O.S. digital** completa (fotos base64 comprimidas, assinatura, orçamento) +
   PDF via Puppeteer; página de O.S. no admin.
 - Histórico de chamados, mensagens do chamado, avaliação.

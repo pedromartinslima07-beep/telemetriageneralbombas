@@ -260,11 +260,6 @@ let _conversasData = [];
 let _usuariosData = [];
 let _tecnicosData = [];
 
-// ===== RELATÓRIOS — estado =====
-let _relTab    = "chamados";
-let _relChDados = [], _relAlDados = [], _relTelDados = [];
-let _relInDados = { top_condominios: [], categorias_whatsapp: [], totais: {} };
-let _relResDados = null; // cache reservatórios (telemetria + alertas merged)
 
 // chamados já vistos — usado para detectar novos e disparar pulso/beep
 let _chamadosIdsVistos = new Set();
@@ -8145,47 +8140,6 @@ function renderSecaoMapa() {
 // ============================================================
 //  RELATÓRIOS
 // ============================================================
-let _relCharts  = {};  // instâncias ApexCharts — keyed by container id
-let _relGerado  = { chamados: false, reservatorios: false, sla: false };
-
-// Formatadores compartilhados (centralização — antes cada tabela formatava à sua maneira)
-const _relFmtData     = iso => iso ? new Date(iso).toLocaleDateString("pt-BR") : "-";
-const _relFmtTipo     = t   => (t || "").replaceAll("_", " ").replace(/\b\w/g, c => c.toUpperCase());
-const _relFmtTxt      = (t, max = 28) => { const s = String(t || ""); return s.length > max ? s.slice(0, max) + "…" : s; };
-const _relTipoClasse  = tipo => /muito_baixo|offline/i.test(tipo || "") ? "b-bad"
-                              : /baixo/i.test(tipo || "")              ? "b-warn"
-                              : "b-ok";
-const _relCategoriaLabel = c => ({
-  vazamento: "Vazamento", bomba_falha: "Falha de bomba", nivel_baixo: "Nível baixo",
-  sem_agua: "Sem água", ruido: "Ruído", manutencao: "Manutenção", outro: "Outro",
-  sem_classificacao: "Sem classificação",
-})[c] || _relFmtTipo(c);
-
-// Fetch comum: monta querystring a partir de IDs, gerencia botão "Aguarde…", trata erro.
-// Antes cada gerarRel* duplicava esse boilerplate.
-async function _relFetch({ endpoint, btnAction, ids }) {
-  const btn = document.querySelector(`[data-rel-action='${btnAction}']`);
-  if (btn) { btn.textContent = "Aguarde…"; btn.disabled = true; }
-  const params = new URLSearchParams();
-  const v = id => document.getElementById(id)?.value || "";
-  Object.entries(ids).forEach(([key, id]) => {
-    const val = v(id);
-    if (val) params.set(key, key === "device_id" ? val.trim() : val);
-  });
-  try {
-    const r = await fetch(`${endpoint}?${params}`, { headers: authHeaders() });
-    if (!r.ok) throw new Error(r.status);
-    return await r.json();
-  } catch (e) {
-    alert(`Erro ao gerar relatório (${endpoint}).`);
-    return null;
-  } finally {
-    if (btn) { btn.textContent = "Gerar"; btn.disabled = false; }
-  }
-}
-
-// Conta registros consistente em todas as abas (antes algumas diziam "linha", outras "registro")
-const _relCount = n => `${n} registro${n !== 1 ? "s" : ""}`;
 
 function _relDataPadrao() {
   const hoje = new Date();
@@ -8209,1174 +8163,145 @@ function _relPreencherTecnicoSelect() {
     tecs.map(t => `<option value="${t.id}">${_waEscaparHtml(t.nome)}</option>`).join("");
 }
 
-let _relSlaDados = null; // cache do último fetch do dashboard SLA
-
-// Mapa tab → { pane, body, hasData, fn } — centraliza o switch das abas
-const _REL_TABS = {
-  chamados:      { pane: "relPaneChamados",      body: "relBodyChamados",      has: () => _relChDados.length > 0,       fn: () => gerarRelChamados() },
-  reservatorios: { pane: "relPaneReservatorios", body: "relBodyReservatorios", has: () => _relResDados !== null,        fn: () => gerarRelReservatorios() },
-  sla:           { pane: "relPaneSla",           body: "relBodySla",           has: () => _relSlaDados !== null,        fn: () => gerarRelSla() },
-};
-
-function _relMostrarTab(tab, autoGerar) {
-  const conf = _REL_TABS[tab];
-  if (!conf) return;
-  _relTab = tab;
-
-  document.querySelectorAll("#relTabs .wa-tab").forEach(btn =>
-    btn.classList.toggle("is-active", btn.dataset.relTab === tab)
-  );
-  document.querySelectorAll(".rel-tab-pane").forEach(p => p.style.display = "none");
-  const filterPane = document.getElementById(conf.pane);
-  // "block" e não "" — string vazia volta pro CSS .rel-tab-pane { display:none }
-  if (filterPane) filterPane.style.display = "block";
-
-  // Body sempre visível ao entrar na aba — antes ficava em branco até dados chegarem
-  document.querySelectorAll(".rel-body").forEach(b => b.style.display = "none");
-  const bodyEl = document.getElementById(conf.body);
-  if (bodyEl) bodyEl.style.display = "";
-
-  // auto-gera na primeira visita a cada aba
-  if (autoGerar && !_relGerado[tab]) {
-    _relGerado[tab] = true;
-    conf.fn();
-  }
-}
-
 function renderRelatorios() {
   const { ini, fim } = _relDataPadrao();
-  ["relChIni","relResIni","relSlIni"].forEach(id => { const el = document.getElementById(id); if (el && !el.value) el.value = ini; });
-  ["relChFim","relResFim","relSlFim"].forEach(id => { const el = document.getElementById(id); if (el && !el.value) el.value = fim; });
-  _relPreencherCondoSelects(["relChCondo","relResCondo","relSlCondo"]);
+  ["relChIni", "relAlIni", "relTelIni"].forEach(id => { const el = document.getElementById(id); if (el && !el.value) el.value = ini; });
+  ["relChFim", "relAlFim", "relTelFim"].forEach(id => { const el = document.getElementById(id); if (el && !el.value) el.value = fim; });
+  _relPreencherCondoSelects(["relChCondo", "relAlCondo", "relTelCondo"]);
   _relPreencherTecnicoSelect();
-  _relMostrarTab(_relTab, true);
+  _relCarregarPainelVivo();
 }
 
-function _relKpiCard(iconSvg, label, value, cls, subtitle) {
-  const sub = subtitle ? `<div class="rc-sub">${subtitle}</div>` : "";
-  return `<div class="rc rc-${cls || "neutral"} rc-static">
-    <div class="rc-head">
-      <div class="rc-icon">${iconSvg}</div>
-      <div class="rc-label">${label}</div>
-    </div>
-    <div class="rc-value">${value}</div>
-    ${sub}
-  </div>`;
-}
+// ── Painel ao vivo — chamados em risco + workload por técnico, sem filtro de período ──
 
-// SVGs reutilizáveis nos cards de relatórios
-const _SVG_FILE    = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`;
-const _SVG_CLOCK   = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`;
-const _SVG_BAR     = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>`;
-const _SVG_ALERT   = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`;
-const _SVG_CHECK   = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
-const _SVG_DROP    = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>`;
-const _SVG_CPU     = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg>`;
-const _SVG_WAVE    = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>`;
-const _SVG_BOLT    = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`;
-const _SVG_REVERT  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>`;
+async function _relCarregarPainelVivo() {
+  const riscoBody = document.getElementById("relVivoRiscoBody");
+  const workBody  = document.getElementById("relVivoWorkloadBody");
+  if (riscoBody) riscoBody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px;">Carregando…</td></tr>';
+  if (workBody)  workBody.innerHTML  = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px;">Carregando…</td></tr>';
 
-function _relSlaFmt(h) {
-  if (h == null || isNaN(h)) return "-";
-  if (h < 1) return `${Math.round(h * 60)} min`;
-  if (h < 24) return `${Number(h).toFixed(1)} h`;
-  return `${(h / 24).toFixed(1)} d`;
-}
-
-function _relChart(containerId, opts) {
-  if (_relCharts[containerId]) {
-    try { _relCharts[containerId].destroy(); } catch (_) {}
-    delete _relCharts[containerId];
-  }
-  const el = document.getElementById(containerId);
-  if (!el) return;
-  el.innerHTML = "";
-
-  // Converte height: "100%" em altura numérica baseada no div pai.
-  // Sem isso, o ApexCharts renderiza ~43px além do parent (pra acomodar
-  // labels do eixo X) e o overflow:hidden dos cards corta o eixo.
-  if (opts && opts.chart && opts.chart.height === "100%") {
-    const h = el.offsetHeight;
-    if (h > 0) {
-      opts = { ...opts, chart: { ...opts.chart, height: h } };
-    }
-  }
-
-  const c = new ApexCharts(el, opts);
-  c.render();
-  _relCharts[containerId] = c;
-}
-
-const _REL_GRID  = { borderColor: "rgba(255,255,255,.05)", strokeDashArray: 3, padding: { left: 12, right: 12, bottom: 4, top: 4 } };
-const _REL_XLBL  = { style: { colors: "#7a7e9c", fontSize: "10px" } };
-const _REL_YLBL  = { style: { colors: "#7a7e9c", fontSize: "10px" } };
-
-function _relBadgePeriodo(iniId, fimId) {
-  const ini = document.getElementById(iniId)?.value;
-  const fim = document.getElementById(fimId)?.value;
-  if (!ini && !fim) return "";
-  const fmt = s => s ? new Date(s + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" }) : "?";
-  return `<span class="rel-ct-badge">${fmt(ini)} – ${fmt(fim)}</span>`;
-}
-
-function _relAreaOpts(name, seriesData, color) {
-  return {
-    chart: { type: "area", height: "100%", toolbar: { show: false }, background: "transparent", zoom: { enabled: false }, animations: { speed: 500, easing: "easeinout" } },
-    series: [{ name, data: seriesData }],
-    xaxis: { type: "datetime", labels: { ...(_REL_XLBL), datetimeFormatter: { day: "dd/MM" } }, axisBorder: { show: false }, axisTicks: { show: false } },
-    yaxis: { labels: _REL_YLBL, min: 0, forceNiceScale: true },
-    stroke: { curve: "smooth", width: 2.5 },
-    fill: { type: "gradient", gradient: { shade: "dark", type: "vertical", shadeIntensity: 0.5, gradientToColors: ["transparent"], opacityFrom: 0.5, opacityTo: 0, stops: [0, 85, 100] } },
-    colors: [color || "#f0b014"],
-    grid: { borderColor: "rgba(255,255,255,.04)", strokeDashArray: 3, padding: { left: 12, right: 12, bottom: 4, top: 4 } },
-    markers: { size: 0, hover: { size: 4 } },
-    tooltip: { theme: "dark", x: { format: "dd/MM/yyyy" } },
-    dataLabels: { enabled: false },
-  };
-}
-
-function _relDonutOpts(labels, values, colors) {
-  const totalVal = values.reduce((a,b) => a+b, 0);
-  return {
-    chart: { type: "donut", height: "100%", toolbar: { show: false }, background: "transparent", animations: { speed: 500 } },
-    series: values,
-    labels,
-    colors: colors || ["#f0b014","#4a78f7","#4ade80","#f97316","#ef4444"],
-    plotOptions: { pie: { donut: { size: "72%", labels: { show: true,
-      total: { show: true, label: "Total", color: "#6b7280", fontSize: "11px", fontWeight: "600", formatter: () => String(totalVal) },
-      value: { show: true, color: "#eef0fb", fontSize: "22px", fontWeight: "700", offsetY: 4 }
-    } } } },
-    stroke: { width: 3, colors: ["#111326"] },
-    dataLabels: { enabled: false },
-    legend: { position: "bottom", fontSize: "11px", labels: { colors: "#9094ae" }, itemMargin: { horizontal: 8, vertical: 4 }, offsetY: 4 },
-    tooltip: { theme: "dark" },
-  };
-}
-
-function _relBarOpts(categories, values, colors) {
-  return {
-    chart: { type: "bar", height: "100%", toolbar: { show: false }, background: "transparent", animations: { speed: 450 } },
-    series: [{ name: "Total", data: values }],
-    xaxis: { categories, labels: _REL_XLBL, axisBorder: { show: false }, axisTicks: { show: false } },
-    yaxis: { labels: _REL_YLBL },
-    plotOptions: { bar: { distributed: true, borderRadius: 6, columnWidth: "44%", dataLabels: { position: "top" } } },
-    dataLabels: { enabled: true, offsetY: -18, style: { fontSize: "11px", fontWeight: "700", colors: ["#eef0fb"] } },
-    colors: colors || ["#4ade80","#f0b014","#f97316","#ef4444"],
-    legend: { show: false },
-    grid: { borderColor: "rgba(255,255,255,.04)", strokeDashArray: 3, padding: { left: 12, right: 12, bottom: 4, top: 4 } },
-    tooltip: { theme: "dark" },
-  };
-}
-
-async function gerarRelChamados() {
-  const data = await _relFetch({
-    endpoint: "/relatorios/chamados",
-    btnAction: "gerar-chamados",
-    ids: {
-      data_ini: "relChIni", data_fim: "relChFim",
-      condominio_id: "relChCondo", status: "relChStatus",
-      prioridade: "relChPrioridade", tecnico_id: "relChTecnico",
-    },
-  });
-  if (!data) return;
-  _relChDados = data;
-
-  const dados = _relChDados;
-  const total    = dados.length;
-  const abertos  = dados.filter(d => d.status === "aberto" || d.status === "em_atendimento").length;
-  const fechados = dados.filter(d => d.status === "fechado").length;
-  const slaArr   = dados.filter(d => d.fechado_em && d.sla_horas != null).map(d => Number(d.sla_horas));
-  const slaMedia = slaArr.length ? slaArr.reduce((a,b) => a+b,0) / slaArr.length : null;
-
-  const criticos = dados.filter(d => d.prioridade === "p1" && d.status !== "fechado").length;
-  const taxa     = total > 0 ? Math.round(fechados / total * 100) : 0;
-
-  const kpiEl = document.getElementById("relChKpis");
-  if (kpiEl) kpiEl.innerHTML =
-    _relKpiCard(_SVG_FILE,  "Total no período",     total,                                          "neutral") +
-    _relKpiCard(_SVG_CLOCK, "SLA médio",            slaMedia != null ? _relSlaFmt(slaMedia) : "—", "neutral") +
-    _relKpiCard(_SVG_BAR,   "Taxa de resolução",    `${taxa}%`,    taxa>=70?"ok":taxa>=40?"warn":"bad") +
-    _relKpiCard(_SVG_ALERT, "Críticos em aberto",   criticos,      criticos>0?"bad":"neutral");
-
-  // — agregações para gráficos —
-  const porDiaMap = {};
-  dados.forEach(d => { const dia = (d.criado_em||"").split("T")[0]; if(dia) porDiaMap[dia] = (porDiaMap[dia]||0)+1; });
-  const dias = Object.keys(porDiaMap).sort();
-
-  const stMap = {};
-  dados.forEach(d => { const k = d.status||"outro"; stMap[k] = (stMap[k]||0)+1; });
-  const stLabels = Object.keys(stMap).map(l => l.replace("_"," "));
-  const stVals   = Object.values(stMap);
-  const stColors = Object.keys(stMap).map(l => l==="fechado"?"#4ade80":l==="em_atendimento"?"#f0b014":"#f87171");
-
-  const prioOrder  = ["p4","p3","p2","p1"];
-  const prioLabels = ["P4 Agendado","P3 Controlado","P2 Alta","P1 Crítico"];
-  const prioColors = ["#4ade80","#f0b014","#f97316","#ef4444"];
-  const prioVals   = prioOrder.map(p => dados.filter(d => d.prioridade===p).length);
-
-  const catOrder  = ["sem_agua","vazamento","bomba_falha","nivel_baixo","ruido","manutencao","outro"];
-  const catColors = ["#ef4444","#f97316","#f0b014","#4a78f7","#8b5cf6","#4ade80","#94a3b8"];
-  const catMap = {};
-  dados.forEach(d => { const c = d.categoria || "outro"; catMap[c] = (catMap[c]||0)+1; });
-  const catLabels = catOrder.filter(c => catMap[c]).map(c => _relCategoriaLabel(c));
-  const catVals   = catOrder.filter(c => catMap[c]).map(c => catMap[c]);
-  const catClrs   = catOrder.filter(c => catMap[c]).map((c,_,arr) => catColors[catOrder.indexOf(c)]);
-
-  const condoMap = {};
-  dados.forEach(d => {
-    const n = d.condominio_nome || "Sem condomínio";
-    if (!condoMap[n]) condoMap[n] = { total:0, abertos:0 };
-    condoMap[n].total++;
-    if (d.status !== "fechado") condoMap[n].abertos++;
-  });
-  const top5problemas = Object.entries(condoMap)
-    .map(([nome,d]) => ({ nome, score: d.abertos*3 + d.total, abertos: d.abertos, total: d.total }))
-    .sort((a,b) => b.score-a.score).slice(0,5);
-
-  const bodyEl = document.getElementById("relBodyChamados");
-  if (bodyEl) bodyEl.style.display = "";
-
-  const _chHeadDia = document.getElementById("relChHeadDia");
-  if (_chHeadDia) _chHeadDia.innerHTML = `<span>Chamados por dia</span>${_relBadgePeriodo("relChIni","relChFim")}`;
-
-  requestAnimationFrame(() => {
-    _relChart("relChChartDia", _relAreaOpts("Chamados",
-      dias.map(d => [new Date(d + "T12:00:00").getTime(), porDiaMap[d]]), "#f0b014"));
-
-    if (stVals.length && stVals.some(v => v > 0))
-      _relChart("relChChartStatus", _relDonutOpts(stLabels, stVals, stColors));
-
-    if (prioVals.some(v => v > 0))
-      _relChart("relChChartPrio", _relDonutOpts(prioLabels, prioVals, prioColors));
-    else {
-      const el = document.getElementById("relChChartPrio");
-      if (el) el.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted);font-size:12px;">Sem chamados no período</div>`;
-    }
-
-    if (catVals.length && catVals.some(v => v > 0))
-      _relChart("relChChartCat", _relDonutOpts(catLabels, catVals, catClrs));
-    else {
-      const el = document.getElementById("relChChartCat");
-      if (el) el.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted);font-size:12px;">Sem chamados com categoria</div>`;
-    }
-  });
-
-  const problemasTbody = document.getElementById("relChProblemaBody");
-  if (problemasTbody) {
-    const maxScore = top5problemas[0]?.score || 1;
-    problemasTbody.innerHTML = top5problemas.map(({ nome, score, abertos, total }) => {
-      const pct = Math.round((score / maxScore) * 100);
-      return `<tr>
-        <td>
-          <div style="font-size:12px;line-height:1.3;">${_waEscaparHtml(nome)}</div>
-          <div class="rel-prog"><div class="rel-prog-fill" style="width:${pct}%;background:#ef4444;"></div></div>
-        </td>
-        <td style="text-align:right;font-weight:700;">${score}</td>
-        <td style="text-align:right;">${abertos>0?`<span class="badge b-bad">${abertos}/${total}</span>`:total}</td>
-        <td style="text-align:right;color:var(--muted);">—</td>
-      </tr>`;
-    }).join("") || `<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:20px;font-size:12px;">Sem dados</td></tr>`;
-  }
-
-  const prioClass = p => (p==="p1"||p==="p2")?"b-bad":p==="p3"?"b-warn":"b-ok";
-  const stClass   = s => s==="fechado"?"b-ok":s==="em_atendimento"?"b-warn":"b-bad";
-  const tbody = document.getElementById("relChTbody");
-  if (tbody) tbody.innerHTML = dados.map(d => `<tr>
-    <td>CH-${d.id}</td>
-    <td>${_waEscaparHtml(d.titulo||"")}</td>
-    <td>${_waEscaparHtml(d.condominio_nome||"-")}</td>
-    <td>${_waEscaparHtml(d.tecnico_nome||"-")}</td>
-    <td>${d.categoria?_waEscaparHtml(_relCategoriaLabel(d.categoria)):"-"}</td>
-    <td><span class="badge ${prioClass(d.prioridade)}">${_relFmtTipo(d.prioridade)||"-"}</span></td>
-    <td><span class="badge ${stClass(d.status)}">${_relFmtTipo(d.status)||"-"}</span></td>
-    <td>${_relFmtData(d.criado_em)}</td>
-    <td>${d.sla_horas!=null?_relSlaFmt(Number(d.sla_horas)):"-"}</td>
-  </tr>`).join("");
-
-  const count = document.getElementById("relChCount");
-  if (count) count.textContent = _relCount(total);
-}
-
-async function gerarRelReservatorios() {
-  const v = id => document.getElementById(id)?.value || "";
-  const params = new URLSearchParams();
-  if (v("relResIni"))    params.set("data_ini",     v("relResIni"));
-  if (v("relResFim"))    params.set("data_fim",      v("relResFim"));
-  if (v("relResCondo"))  params.set("condominio_id", v("relResCondo"));
-  if (v("relResDevice")) params.set("device_id",     v("relResDevice").trim());
-
-  const btn = document.querySelector("[data-rel-action='gerar-reservatorios']");
-  if (btn) { btn.textContent = "Aguarde…"; btn.disabled = true; }
   try {
-    const [telRes, alRes] = await Promise.all([
-      fetch(`/relatorios/telemetria?${params}`, { headers: authHeaders() }).then(r => r.json()),
-      fetch(`/relatorios/alertas?${params}`,    { headers: authHeaders() }).then(r => r.json()),
-    ]);
-    _relResDados = { tel: telRes, al: alRes };
+    const r = await fetch("/relatorios/painel-vivo", { headers: authHeaders() });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const data = await r.json();
+
+    const risco = data.em_risco || [];
+    if (riscoBody) riscoBody.innerHTML = risco.length
+      ? risco.map(d => `<tr>
+          <td>${_waEscaparHtml(d.titulo || "")}</td>
+          <td><span class="badge ${(d.prioridade === "p1" || d.prioridade === "p2") ? "b-bad" : "b-warn"}">${(d.prioridade || "-").toUpperCase()}</span></td>
+          <td>${_waEscaparHtml(d.condominio_nome || "-")}</td>
+          <td>${_waEscaparHtml(d.tecnico_nome || "-")}</td>
+          <td><span class="badge ${d.pct_ttr >= 100 ? "b-bad" : "b-warn"}">${d.pct_ttr != null ? d.pct_ttr + "%" : "-"}</span></td>
+        </tr>`).join("")
+      : '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px;">Nenhum chamado em risco agora.</td></tr>';
+
+    const work = data.workload_tecnico || [];
+    if (workBody) workBody.innerHTML = work.length
+      ? work.map(d => `<tr>
+          <td>${_waEscaparHtml(d.tecnico_nome || "-")}</td>
+          <td style="text-align:right;">${d.abertos}</td>
+          <td style="text-align:right;">${d.p1}</td>
+          <td style="text-align:right;">${d.p2}</td>
+          <td style="text-align:right;">${d.p3}</td>
+          <td style="text-align:right;">${d.p4}</td>
+        </tr>`).join("")
+      : '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px;">Nenhum técnico com chamados abertos.</td></tr>';
   } catch (e) {
-    alert("Erro ao carregar dados de reservatórios.");
-    return;
-  } finally {
-    if (btn) { btn.textContent = "Gerar"; btn.disabled = false; }
+    if (riscoBody) riscoBody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px;">Erro ao carregar.</td></tr>';
+    if (workBody)  workBody.innerHTML  = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px;">Erro ao carregar.</td></tr>';
   }
+}
 
-  const tel = _relResDados.tel;
-  const al  = _relResDados.al;
-
-  // ── KPIs ─────────────────────────────────────────────────────────────────
-  const dispositivos  = new Set(tel.map(d => d.device_id)).size;
-  const nivelArr      = tel.filter(d => d.nivel_medio != null).map(d => Number(d.nivel_medio));
-  const nivelGlobal   = nivelArr.length ? Math.round(nivelArr.reduce((a,b)=>a+b,0)/nivelArr.length) : null;
-  const alAtivos      = al.filter(d => d.status === "ativo").length;
-  const alTotal       = al.length;
-  const offline       = al.filter(d => d.tipo === "dispositivo_offline" && d.status === "ativo").length;
-
-  // KPI extra de contratos com telemetria — info financeira do parque
-  const tel_m = _contratosMetricas?.com_telemetria || { ativos: 0, mrr: 0 };
-  const fmtMoedaCurta = (v) => {
-    const n = Number(v) || 0;
-    if (n >= 1000) return "R$ " + (n / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 }) + "k";
-    return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
+// ── Exportação CSV ───────────────────────────────────────────────────────────
+// Separador ";" e CRLF — Excel PT-BR usa "," como separador decimal, então
+// ";" evita que os dados quebrem em colunas erradas ao abrir o arquivo direto.
+function _relToCsv(rows, columns) {
+  const esc = v => {
+    if (v == null) return "";
+    const s = String(v);
+    return /[;"\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
-
-  const kpiEl = document.getElementById("relResKpis");
-  if (kpiEl) kpiEl.innerHTML =
-    _relKpiCard(_SVG_CPU,   "Dispositivos",    dispositivos,                              "neutral") +
-    _relKpiCard(_SVG_DROP,  "Nível médio",     nivelGlobal!=null?nivelGlobal+"%":"—",
-      nivelGlobal!=null&&nivelGlobal<30?"bad":nivelGlobal!=null&&nivelGlobal<60?"warn":"ok") +
-    _relKpiCard(_SVG_ALERT, "Alertas ativos",  alAtivos, alAtivos>0?"bad":"neutral") +
-    _relKpiCard(_SVG_WAVE,  "Dispositivos offline", offline, offline>0?"bad":"neutral") +
-    _relKpiCard(_SVG_CHECK, "Contratos c/ telemetria", `${tel_m.ativos} · ${fmtMoedaCurta(tel_m.mrr)}/mês`, "ok");
-
-  // ── Série nível por dia ──────────────────────────────────────────────────
-  const porDia = {};
-  tel.forEach(d => {
-    if (!porDia[d.dia]) porDia[d.dia] = { sum:0, cnt:0 };
-    porDia[d.dia].sum += Number(d.nivel_medio)||0;
-    porDia[d.dia].cnt++;
-  });
-  const dias = Object.keys(porDia).sort();
-  const nivelSerie = dias.map(d => [new Date(d+"T12:00:00").getTime(), Math.round(porDia[d].sum/porDia[d].cnt)]);
-
-  // Anotações de alertas sobre o gráfico de nível
-  const alertAnnotations = al
-    .filter(d => d.tipo !== "dispositivo_offline")
-    .reduce((acc, d) => {
-      const dia = (d.criado_em||"").split("T")[0];
-      if (dia && !acc.find(a => a.x === new Date(dia+"T12:00:00").getTime()))
-        acc.push({ x: new Date(dia+"T12:00:00").getTime(), borderColor: "#ef4444",
-          label: { borderColor: "#ef4444", style: { color: "#fff", background: "#ef4444", fontSize: "9px" }, text: "Alerta" } });
-      return acc;
-    }, []);
-
-  // ── Tipo de alerta ───────────────────────────────────────────────────────
-  const tipoMap = {};
-  al.forEach(d => { const t=(d.tipo||"outro").replaceAll("_"," "); tipoMap[t]=(tipoMap[t]||0)+1; });
-  const tipoLabels = Object.keys(tipoMap);
-  const tipoVals   = Object.values(tipoMap);
-  const tipoColors = ["#ef4444","#f97316","#94a3b8","#4a78f7","#4ade80"];
-
-  // ── Nível por device ─────────────────────────────────────────────────────
-  const devMap = {};
-  tel.forEach(d => {
-    if (!devMap[d.device_id]) devMap[d.device_id] = { sum:0, cnt:0, nome: d.reservatorio_nome||d.device_id, condo: d.condominio_nome||"-" };
-    devMap[d.device_id].sum += Number(d.nivel_medio)||0;
-    devMap[d.device_id].cnt++;
-  });
-  const devRank = Object.values(devMap)
-    .map(v => ({ ...v, avg: Math.round(v.sum/v.cnt) }))
-    .sort((a,b) => a.avg-b.avg).slice(0,8);
-
-  // ── Saúde por reservatório (merge tel + al) ──────────────────────────────
-  const saudeMap = {};
-  tel.forEach(d => {
-    const k = d.device_id;
-    if (!saudeMap[k]) saudeMap[k] = { nome: d.reservatorio_nome||d.device_id, condo: d.condominio_nome||"-", sumN:0, cntN:0, alTotal:0, alAtivos:0, tempoArr:[] };
-    saudeMap[k].sumN += Number(d.nivel_medio)||0;
-    saudeMap[k].cntN++;
-  });
-  al.forEach(d => {
-    const k = d.device_id;
-    if (!saudeMap[k]) saudeMap[k] = { nome: d.reservatorio_nome||d.device_id||k, condo: d.condominio_nome||"-", sumN:0, cntN:0, alTotal:0, alAtivos:0, tempoArr:[] };
-    saudeMap[k].alTotal++;
-    if (d.status==="ativo") saudeMap[k].alAtivos++;
-    if (d.tempo_horas!=null) saudeMap[k].tempoArr.push(Number(d.tempo_horas));
-  });
-  const saudeList = Object.values(saudeMap)
-    .map(v => ({ ...v, nivelMed: v.cntN ? Math.round(v.sumN/v.cntN) : null, tempoMed: v.tempoArr.length ? v.tempoArr.reduce((a,b)=>a+b,0)/v.tempoArr.length : null }))
-    .sort((a,b) => (b.alAtivos-a.alAtivos) || (a.nivelMed??101)-(b.nivelMed??101));
-
-  const bodyEl = document.getElementById("relBodyReservatorios");
-  if (bodyEl) bodyEl.style.display = "";
-
-  const headNivel = document.getElementById("relResHeadNivel");
-  if (headNivel) headNivel.innerHTML = `<span>Tendência de nível — média diária</span>${_relBadgePeriodo("relResIni","relResFim")}`;
-
-  requestAnimationFrame(() => {
-    _relChart("relResChartNivel", Object.assign(
-      _relAreaOpts("Nível médio (%)", nivelSerie, "#4a78f7"), {
-        yaxis: { min:0, max:100, labels: { ..._REL_YLBL, formatter: v=>v+"%" } },
-        grid:  { borderColor:"rgba(255,255,255,.04)", strokeDashArray:3, padding:{ left:12, right:12, bottom:16, top:4 } },
-        tooltip: { theme:"dark", x:{ format:"dd/MM/yyyy" }, y:{ formatter: v=>v+"%" } },
-        annotations: { xaxis: alertAnnotations.slice(0,10) },
-      }
-    ));
-    if (tipoVals.some(v=>v>0))
-      _relChart("relResChartTipo", _relDonutOpts(tipoLabels, tipoVals, tipoColors));
-    if (devRank.length)
-      _relChart("relResChartDev", {
-        chart: { type:"bar", height:"100%", toolbar:{ show:false }, background:"transparent", animations:{ speed:450 } },
-        series: [{ name:"Nível médio", data: devRank.map(d=>d.avg) }],
-        xaxis: { categories: devRank.map(d=>d.nome.length>16?d.nome.slice(0,16)+"…":d.nome),
-          labels:{ ..._REL_XLBL, rotate:-25, hideOverlappingLabels:false }, axisBorder:{show:false}, axisTicks:{show:false} },
-        yaxis: { min:0, max:100, labels:{ ..._REL_YLBL, formatter:v=>v+"%" } },
-        plotOptions:{ bar:{ distributed:true, borderRadius:6, columnWidth:"48%", dataLabels:{ position:"top" } } },
-        dataLabels:{ enabled:true, formatter:v=>v+"%", offsetY:-18, style:{ fontSize:"11px", fontWeight:"700", colors:["#eef0fb"] } },
-        colors: devRank.map(d=>d.avg<30?"#ef4444":d.avg<60?"#f0b014":"#4ade80"),
-        legend:{ show:false }, grid:{ ..._REL_GRID, padding:{ left:12, right:12, bottom:16, top:4 } }, tooltip:{ theme:"dark", y:{ formatter:v=>v+"%" } },
-      });
-  });
-
-  const saudeTbody = document.getElementById("relResSaudeBody");
-  if (saudeTbody) saudeTbody.innerHTML = saudeList.slice(0,10).map(d => {
-    const nvlCls = d.nivelMed==null?"":d.nivelMed<30?"b-bad":d.nivelMed<60?"b-warn":"b-ok";
-    return `<tr>
-      <td>
-        <div style="font-size:12px;font-weight:500;">${_waEscaparHtml(d.nome)}</div>
-        <div style="font-size:10px;color:var(--muted);">${_waEscaparHtml(d.condo)}</div>
-      </td>
-      <td style="text-align:right;">${d.nivelMed!=null?`<span class="badge ${nvlCls}">${d.nivelMed}%</span>`:"—"}</td>
-      <td style="text-align:right;">${d.alTotal}</td>
-      <td style="text-align:right;">${d.alAtivos>0?`<span class="badge b-bad">${d.alAtivos}</span>`:`<span class="badge b-ok">0</span>`}</td>
-      <td style="text-align:right;">${d.tempoMed!=null?_relSlaFmt(d.tempoMed):"—"}</td>
-    </tr>`;
-  }).join("") || `<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px;">Sem dados no período</td></tr>`;
-
-  const alCount = document.getElementById("relResAlCount");
-  if (alCount) alCount.textContent = _relCount(alTotal);
-
-  const alTbody = document.getElementById("relResAlTbody");
-  if (alTbody) alTbody.innerHTML = al.map(d => `<tr>
-    <td>TEL-${d.id}</td>
-    <td><span class="badge ${_relTipoClasse(d.tipo)}">${_relFmtTipo(d.tipo)||"-"}</span></td>
-    <td style="max-width:240px;white-space:normal;">${_waEscaparHtml(d.mensagem||"")}</td>
-    <td>${_waEscaparHtml(d.reservatorio_nome||"-")}</td>
-    <td>${_waEscaparHtml(d.condominio_nome||"-")}</td>
-    <td><span class="badge ${d.status==="resolvido"?"b-ok":"b-bad"}">${_relFmtTipo(d.status)||"-"}</span></td>
-    <td>${_relFmtData(d.criado_em)}</td>
-    <td>${d.tempo_horas!=null?_relSlaFmt(Number(d.tempo_horas)):"-"}</td>
-  </tr>`).join("");
-
-  _relAlDados = al;
-  _relTelDados = tel;
+  const header = columns.map(c => esc(c.label)).join(";");
+  const body   = rows.map(row => columns.map(c => esc(row[c.key])).join(";")).join("\r\n");
+  return header + "\r\n" + body;
 }
 
-async function gerarRelAlertas() {
-  const data = await _relFetch({
+function _relBaixarCsv(filename, csvText) {
+  const blob = new Blob(["﻿" + csvText], { type: "text/csv;charset=utf-8;" });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+const _REL_EXPORT = {
+  chamados: {
+    endpoint: "/relatorios/chamados",
+    ids: { data_ini: "relChIni", data_fim: "relChFim", condominio_id: "relChCondo", status: "relChStatus", prioridade: "relChPrioridade", tecnico_id: "relChTecnico" },
+    columns: [
+      { key: "id", label: "ID" }, { key: "titulo", label: "Título" },
+      { key: "status", label: "Status" }, { key: "prioridade", label: "Prioridade" },
+      { key: "categoria", label: "Categoria" }, { key: "condominio_nome", label: "Condomínio" },
+      { key: "tecnico_nome", label: "Técnico" }, { key: "responsavel_nome", label: "Responsável" },
+      { key: "criado_em", label: "Criado em" }, { key: "fechado_em", label: "Fechado em" },
+      { key: "primeira_resposta_em", label: "Primeira resposta em" },
+      { key: "tempo_resolucao_seg", label: "Tempo resolução (s)" },
+      { key: "sla_horas", label: "SLA (h)" },
+    ],
+  },
+  alertas: {
     endpoint: "/relatorios/alertas",
-    btnAction: "gerar-alertas",
-    ids: {
-      data_ini: "relAlIni", data_fim: "relAlFim",
-      condominio_id: "relAlCondo", tipo: "relAlTipo", status: "relAlStatus",
-    },
-  });
-  if (!data) return;
-  _relAlDados = data;
-
-  const dados = _relAlDados;
-  const total     = dados.length;
-  const ativos    = dados.filter(d => d.status === "ativo").length;
-  const resolvidos= dados.filter(d => d.status === "resolvido").length;
-  const tempoArr  = dados.filter(d => d.status==="resolvido"&&d.tempo_horas!=null).map(d=>Number(d.tempo_horas));
-  const tempoMed  = tempoArr.length ? tempoArr.reduce((a,b)=>a+b,0)/tempoArr.length : null;
-
-  const taxaAl = total > 0 ? Math.round(resolvidos / total * 100) : 0;
-
-  const kpiEl = document.getElementById("relAlKpis");
-  if (kpiEl) kpiEl.innerHTML =
-    _relKpiCard(_SVG_ALERT, "Total no período",    total,                                         "neutral") +
-    _relKpiCard(_SVG_WAVE,  "Ativos",              ativos,   ativos>0?"bad":"neutral") +
-    _relKpiCard(_SVG_BAR,   "Taxa de resolução",   `${taxaAl}%`, taxaAl>=70?"ok":taxaAl>=40?"warn":"bad") +
-    _relKpiCard(_SVG_CLOCK, "Tempo médio",         tempoMed!=null?_relSlaFmt(tempoMed):"—","neutral");
-
-  const porDiaMap = {};
-  dados.forEach(d => { const dia=(d.criado_em||"").split("T")[0]; if(dia) porDiaMap[dia]=(porDiaMap[dia]||0)+1; });
-  const dias = Object.keys(porDiaMap).sort();
-
-  const tipoMap = {};
-  dados.forEach(d => { const t=(d.tipo||"outro").replaceAll("_"," "); tipoMap[t]=(tipoMap[t]||0)+1; });
-  const tipoLabels = Object.keys(tipoMap);
-  const tipoVals   = Object.values(tipoMap);
-  const tipoColors = ["#ef4444","#f97316","#94a3b8","#4a78f7","#4ade80"];
-
-  const resMap = {};
-  dados.forEach(d => {
-    const n = d.reservatorio_nome || d.device_id || "?";
-    const condo = d.condominio_nome || "-";
-    if (!resMap[n]) resMap[n] = { total:0, ativos:0, condo, tempoArr:[] };
-    resMap[n].total++;
-    if (d.status==="ativo") resMap[n].ativos++;
-    if (d.tempo_horas!=null) resMap[n].tempoArr.push(Number(d.tempo_horas));
-  });
-  const top5res = Object.entries(resMap).sort(([,a],[,b])=>b.total-a.total).slice(0,5);
-
-  const bodyEl = document.getElementById("relBodyAlertas");
-  if (bodyEl) bodyEl.style.display = "";
-
-  const _alHeadDia = document.getElementById("relAlHeadDia");
-  if (_alHeadDia) _alHeadDia.innerHTML = `<span>Incidentes por dia</span>${_relBadgePeriodo("relAlIni","relAlFim")}`;
-
-  const top5nomes  = top5res.map(([n]) => n.length > 22 ? n.slice(0,22)+"…" : n);
-  const top5totais = top5res.map(([,d]) => d.total);
-
-  requestAnimationFrame(() => {
-    _relChart("relAlChartDia", _relAreaOpts("Incidentes",
-      dias.map(d=>[new Date(d+"T12:00:00").getTime(), porDiaMap[d]]), "#ef4444"));
-    if (tipoVals.length && tipoVals.some(v=>v>0))
-      _relChart("relAlChartTipo", _relDonutOpts(tipoLabels, tipoVals, tipoColors));
-    if (top5totais.length)
-      _relChart("relAlChartRes", {
-        chart: { type: "bar", height: "100%", toolbar: { show: false }, background: "transparent" },
-        series: [{ name: "Alertas", data: top5totais }],
-        xaxis: { categories: top5nomes, labels: _REL_XLBL, axisBorder: { show: false }, axisTicks: { show: false } },
-        yaxis: { labels: _REL_YLBL },
-        plotOptions: { bar: { distributed: true, horizontal: true, borderRadius: 3, barHeight: "42%" } },
-        dataLabels: { enabled: true, style: { fontSize: "11px", fontWeight: "700", colors: ["#fff"] }, textAnchor: "start", offsetX: 6 },
-        colors: ["#ef4444","#f97316","#f0b014","#4a78f7","#94a3b8"],
-        legend: { show: false },
-        grid: { borderColor: "rgba(255,255,255,.04)", strokeDashArray: 3, padding: { left: 12, right: 12, bottom: 4, top: 4 } },
-        tooltip: { theme: "dark" },
-      });
-  });
-
-  const top5tbody = document.getElementById("relAlTop5Body");
-  if (top5tbody) {
-    const maxT5al = top5res.length ? top5res[0][1].total : 1;
-    top5tbody.innerHTML = top5res.map(([nome,d]) => {
-      const tM  = d.tempoArr.length ? d.tempoArr.reduce((a,b)=>a+b,0)/d.tempoArr.length : null;
-      const pct = Math.round((d.total / maxT5al) * 100);
-      return `<tr>
-        <td>
-          <div style="font-size:12px;line-height:1.3;">${_waEscaparHtml(nome)}</div>
-          <div class="rel-prog"><div class="rel-prog-fill" style="width:${pct}%;background:#ef4444;"></div></div>
-        </td>
-        <td>${_waEscaparHtml(d.condo)}</td>
-        <td style="text-align:right;">${d.total}</td>
-        <td style="text-align:right;">${d.ativos>0?`<span class="badge b-bad">${d.ativos}</span>`:`<span class="badge b-ok">0</span>`}</td>
-        <td style="text-align:right;">${tM!=null?_relSlaFmt(tM):"-"}</td>
-      </tr>`;
-    }).join("");
-  }
-
-  const tbody = document.getElementById("relAlTbody");
-  if (tbody) tbody.innerHTML = dados.map(d => `<tr>
-    <td>TEL-${d.id}</td>
-    <td><span class="badge ${_relTipoClasse(d.tipo)}">${_relFmtTipo(d.tipo)||"-"}</span></td>
-    <td style="max-width:240px;white-space:normal;">${_waEscaparHtml(d.mensagem||"")}</td>
-    <td>${_waEscaparHtml(d.reservatorio_nome||"-")}</td>
-    <td>${_waEscaparHtml(d.condominio_nome||"-")}</td>
-    <td><span class="badge ${d.status==="resolvido"?"b-ok":"b-bad"}">${_relFmtTipo(d.status)||"-"}</span></td>
-    <td>${_relFmtData(d.criado_em)}</td>
-    <td>${d.tempo_horas!=null?_relSlaFmt(Number(d.tempo_horas)):"-"}</td>
-  </tr>`).join("");
-
-  const count = document.getElementById("relAlCount");
-  if (count) count.textContent = _relCount(total);
-}
-
-async function gerarRelTelemetria() {
-  const data = await _relFetch({
+    ids: { data_ini: "relAlIni", data_fim: "relAlFim", condominio_id: "relAlCondo", tipo: "relAlTipo", status: "relAlStatus" },
+    columns: [
+      { key: "id", label: "ID" }, { key: "tipo", label: "Tipo" }, { key: "mensagem", label: "Mensagem" },
+      { key: "status", label: "Status" }, { key: "reservatorio_nome", label: "Reservatório" },
+      { key: "condominio_nome", label: "Condomínio" }, { key: "criado_em", label: "Criado em" },
+      { key: "atualizado_em", label: "Atualizado em" }, { key: "tempo_horas", label: "Tempo (h)" },
+    ],
+  },
+  telemetria: {
     endpoint: "/relatorios/telemetria",
-    btnAction: "gerar-telemetria",
-    ids: {
-      data_ini: "relTelIni", data_fim: "relTelFim",
-      condominio_id: "relTelCondo", device_id: "relTelDevice",
-    },
-  });
-  if (!data) return;
-  _relTelDados = data;
-
-  const dados = _relTelDados;
-  const total      = dados.length;
-  const dispositivos = new Set(dados.map(d=>d.device_id)).size;
-  const nivelArr   = dados.filter(d=>d.nivel_medio!=null).map(d=>Number(d.nivel_medio));
-  const nivelGlobal= nivelArr.length?Math.round(nivelArr.reduce((a,b)=>a+b,0)/nivelArr.length):null;
-  const bombaOn    = dados.reduce((s,d)=>s+(Number(d.leituras_bomba_on)||0),0);
-
-  const diasCount = new Set(dados.map(d => d.dia)).size;
-  const totalLeit = dados.reduce((s,d) => s+(Number(d.leituras)||0), 0);
-
-  const kpiEl = document.getElementById("relTelKpis");
-  if (kpiEl) kpiEl.innerHTML =
-    _relKpiCard(_SVG_FILE,  "Dias com dados",  diasCount,                                   "neutral") +
-    _relKpiCard(_SVG_CPU,   "Dispositivos",    dispositivos,                                "neutral") +
-    _relKpiCard(_SVG_DROP,  "Nível médio",     nivelGlobal!=null?nivelGlobal+"%":"—",
-      nivelGlobal!=null&&nivelGlobal<30?"bad":nivelGlobal!=null&&nivelGlobal<60?"warn":"ok") +
-    _relKpiCard(_SVG_BAR,   "Total leituras",  totalLeit.toLocaleString("pt-BR"),           "neutral");
-
-  // agrega por dia (média de todos os devices)
-  const porDia = {};
-  dados.forEach(d => {
-    if (!porDia[d.dia]) porDia[d.dia] = { sum:0, count:0 };
-    porDia[d.dia].sum   += Number(d.nivel_medio)||0;
-    porDia[d.dia].count ++;
-  });
-  const dias = Object.keys(porDia).sort();
-  const seriesData = dias.map(d => [new Date(d+"T12:00:00").getTime(), Math.round(porDia[d].sum/porDia[d].count)]);
-
-  const bodyEl = document.getElementById("relBodyTelemetria");
-  if (bodyEl) bodyEl.style.display = "";
-
-  const _telHeadDia = document.getElementById("relTelHeadDia");
-  if (_telHeadDia) _telHeadDia.innerHTML = `<span>Tendência de nível — média diária</span>${_relBadgePeriodo("relTelIni","relTelFim")}`;
-
-  // ranking de dispositivos por nível médio (mais crítico primeiro)
-  const devMap = {};
-  dados.forEach(d => {
-    if (!devMap[d.device_id]) devMap[d.device_id] = { sum:0, count:0, nome: d.reservatorio_nome || d.device_id };
-    devMap[d.device_id].sum   += Number(d.nivel_medio) || 0;
-    devMap[d.device_id].count ++;
-  });
-  const devRank = Object.values(devMap)
-    .map(v => ({ nome: v.nome, avg: Math.round(v.sum / v.count) }))
-    .sort((a,b) => a.avg - b.avg)  // menor nível primeiro = mais críticos no topo
-    .slice(0, 8);
-
-  requestAnimationFrame(() => {
-    _relChart("relTelChartDia", Object.assign(_relAreaOpts("Nível médio (%)", seriesData, "#4a78f7"), {
-      yaxis: { min:0, max:100, labels: { ..._REL_YLBL, formatter: v=>v+"%" } },
-      tooltip: { theme:"dark", x:{ format:"dd/MM/yyyy" }, y:{ formatter: v=>v+"%" } },
-    }));
-    if (devRank.length)
-      _relChart("relTelChartDev", {
-        chart: { type: "bar", height: "100%", toolbar: { show: false }, background: "transparent", animations: { speed: 450 } },
-        series: [{ name: "Nível médio", data: devRank.map(d => d.avg) }],
-        xaxis: {
-          categories: devRank.map(d => d.nome.length>16 ? d.nome.slice(0,16)+"…" : d.nome),
-          labels: { ..._REL_XLBL, rotate: -25, hideOverlappingLabels: false, trim: false },
-          axisBorder: { show: false }, axisTicks: { show: false },
-        },
-        yaxis: { min: 0, max: 100, labels: { ..._REL_YLBL, formatter: v => v + "%" } },
-        plotOptions: { bar: { distributed: true, borderRadius: 6, columnWidth: "48%", dataLabels: { position: "top" } } },
-        dataLabels: { enabled: true, formatter: v => v + "%", offsetY: -18, style: { fontSize: "11px", fontWeight: "700", colors: ["#eef0fb"] } },
-        colors: devRank.map(d => d.avg < 30 ? "#ef4444" : d.avg < 60 ? "#f0b014" : "#4ade80"),
-        legend: { show: false },
-        grid: { borderColor: "rgba(255,255,255,.04)", strokeDashArray: 3, padding: { left: 12, right: 12, bottom: 4, top: 4 } },
-        tooltip: { theme: "dark", y: { formatter: v => v + "%" } },
-      });
-  });
-
-  const tbody = document.getElementById("relTelTbody");
-  if (tbody) tbody.innerHTML = dados.map(d => {
-    const med = Number(d.nivel_medio);
-    const cls = med<30?"b-bad":med<60?"b-warn":"b-ok";
-    return `<tr>
-      <td>${_relFmtData(d.dia)}</td>
-      <td style="font-family:monospace;font-size:11.5px;">${_waEscaparHtml(d.device_id||"-")}</td>
-      <td>${_waEscaparHtml(d.reservatorio_nome||"-")}</td>
-      <td>${_waEscaparHtml(d.condominio_nome||"-")}</td>
-      <td style="text-align:right;">${d.leituras??"-"}</td>
-      <td style="text-align:right;">${d.nivel_min!=null?d.nivel_min+"%":"-"}</td>
-      <td style="text-align:right;"><span class="badge ${cls}">${d.nivel_medio!=null?d.nivel_medio+"%":"-"}</span></td>
-      <td style="text-align:right;">${d.nivel_max!=null?d.nivel_max+"%":"-"}</td>
-      <td style="text-align:right;">${d.leituras_bomba_on??"-"}</td>
-    </tr>`;
-  }).join("");
-
-  const count = document.getElementById("relTelCount");
-  if (count) count.textContent = _relCount(total);
-}
-
-// ── DASHBOARD SLA (Fase 8C) ───────────────────────────────────────────────────
-
-const _fmtMin = (m) => {
-  if (m == null || isNaN(m)) return "—";
-  if (m < 60) return `${Math.round(m)} min`;
-  const h = Math.floor(m / 60);
-  const r = Math.round(m - h * 60);
-  return r > 0 ? `${h}h ${r}m` : `${h}h`;
+    ids: { data_ini: "relTelIni", data_fim: "relTelFim", condominio_id: "relTelCondo", device_id: "relTelDevice" },
+    columns: [
+      { key: "dia", label: "Dia" }, { key: "device_id", label: "Device ID" },
+      { key: "reservatorio_nome", label: "Reservatório" }, { key: "condominio_nome", label: "Condomínio" },
+      { key: "leituras", label: "Leituras" }, { key: "nivel_min", label: "Nível mín (%)" },
+      { key: "nivel_medio", label: "Nível médio (%)" }, { key: "nivel_max", label: "Nível máx (%)" },
+      { key: "leituras_bomba_on", label: "Leituras c/ bomba ligada" },
+    ],
+  },
 };
 
-async function gerarRelSla() {
-  const btn = document.querySelector("[data-rel-action='gerar-sla']");
-  if (btn) { btn.disabled = true; btn.textContent = "Carregando…"; }
-  const qs = new URLSearchParams();
-  const v = (id) => document.getElementById(id)?.value || "";
-  if (v("relSlIni"))   qs.set("data_ini",      v("relSlIni"));
-  if (v("relSlFim"))   qs.set("data_fim",       v("relSlFim"));
-  if (v("relSlCondo")) qs.set("condominio_id",  v("relSlCondo"));
-  if (v("relSlPrio"))  qs.set("prioridade",     v("relSlPrio"));
-
-  try {
-    const r = await fetch(`/relatorios/sla-dashboard?${qs}`, { headers: authHeaders() });
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    _relSlaDados = await r.json();
-    _relRenderSlaDashboard(_relSlaDados);
-  } catch (e) {
-    console.error("[sla-dashboard]", e);
-    alert("Erro ao carregar dashboard de SLA: " + e.message);
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = "Gerar"; }
-  }
-}
-
-function _relRenderSlaDashboard(d) {
-  _relRenderSlaKpisMain(d.kpis);
-  _relRenderSlaTtrChart(d.ttr_por_dia);
-  _relRenderSlaWorkload(d.workload_tecnico || []);
-  _relRenderSlaPorPrio(d.por_prioridade || []);
-  _relRenderSlaTecnicos(d.por_tecnico);
-  _relRenderSlaEmRisco(d.em_risco);
-}
-
-function _relRenderSlaWorkload(lista) {
-  const el = document.getElementById("relSlChartWorkload");
-  if (!el) return;
-  if (!lista || !lista.length) {
-    el.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--ok);font-size:12px;">✓ Nenhum chamado aberto no momento</div>`;
-    return;
-  }
-  requestAnimationFrame(() => {
-    _relChart("relSlChartWorkload", {
-      chart: { type: "bar", height: "100%", toolbar: { show: false }, background: "transparent", animations: { speed: 400 }, stacked: true },
-      series: [
-        { name: "P1 Crítico",    data: lista.map(t => t.p1), color: "#ef4444" },
-        { name: "P2 Alta",       data: lista.map(t => t.p2), color: "#f97316" },
-        { name: "P3 Controlado", data: lista.map(t => t.p3), color: "#f0b014" },
-        { name: "P4 Agendado",   data: lista.map(t => t.p4), color: "#4ade80" },
-      ],
-      xaxis: {
-        categories: lista.map(t => (t.tecnico_nome || "—").split(" ")[0]),
-        labels: _REL_XLBL, axisBorder: { show: false }, axisTicks: { show: false },
-      },
-      yaxis: { labels: _REL_YLBL, allowDecimals: false, min: 0 },
-      plotOptions: { bar: { borderRadius: 4, columnWidth: "44%", dataLabels: { position: "top" } } },
-      dataLabels: { enabled: false },
-      legend: { position: "top", fontSize: "11px", labels: { colors: "#9094ae" }, itemMargin: { horizontal: 8 } },
-      grid: { ..._REL_GRID, padding: { left: 12, right: 12, bottom: 16, top: 4 } },
-      tooltip: {
-        theme: "dark",
-        custom: ({ series, dataPointIndex }) => {
-          const t = lista[dataPointIndex];
-          return `<div style="padding:8px 12px;font-size:12px;">
-            <div style="font-weight:600;margin-bottom:4px;">${_waEscaparHtml(t.tecnico_nome || "—")}</div>
-            <div style="color:#ef4444;">P1: ${t.p1}</div>
-            <div style="color:#f97316;">P2: ${t.p2}</div>
-            <div style="color:#f0b014;">P3: ${t.p3}</div>
-            <div style="color:#4ade80;">P4: ${t.p4}</div>
-            <div style="margin-top:4px;border-top:1px solid rgba(255,255,255,.1);padding-top:4px;">Total: ${t.abertos}</div>
-          </div>`;
-        },
-      },
-    });
-  });
-}
-
-function _relRenderSlaPorPrio(lista) {
-  const PRIO_META = {
-    p1: { label: "P1 Crítico",    color: "#ef4444", sla: "≤ 3h chegada"  },
-    p2: { label: "P2 Alta",       color: "#f97316", sla: "≤ 24h chegada" },
-    p3: { label: "P3 Controlado", color: "#f0b014", sla: "≤ 72h chegada" },
-    p4: { label: "P4 Agendado",   color: "#4ade80", sla: "Agendado"      },
-  };
-  const ordem = ["p1","p2","p3","p4"];
-
-  // Build a map indexed by prioridade (backend returns only rows with data)
-  const map = {};
-  (lista || []).forEach(r => { map[r.prioridade] = r; });
-
-  // Donut chart — only prioridades with data
-  const chartData = ordem.map(p => ({ p, meta: PRIO_META[p], row: map[p] || null }))
-    .filter(x => x.row && x.row.total > 0);
-
-  const chartEl = document.getElementById("relSlChartPrio");
-  if (chartData.length) {
-    requestAnimationFrame(() => {
-      _relChart("relSlChartPrio", _relDonutOpts(
-        chartData.map(x => x.meta.label),
-        chartData.map(x => x.row.total),
-        chartData.map(x => x.meta.color),
-      ));
-    });
-  } else if (chartEl) {
-    chartEl.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:220px;color:var(--muted);font-size:12px;">Sem chamados no período</div>`;
-  }
-
-  // Conformidade table — all 4 levels
-  const tbody = document.getElementById("relSlPrioBody");
-  if (!tbody) return;
-  tbody.innerHTML = ordem.map(p => {
-    const meta = PRIO_META[p];
-    const row  = map[p];
-    if (!row) return `<tr>
-      <td><span class="badge" style="background:${meta.color}20;color:${meta.color};border:1px solid ${meta.color}40;">${meta.label}</span></td>
-      <td style="text-align:right;color:var(--muted);">0</td>
-      <td style="text-align:right;color:var(--muted);">—</td>
-      <td style="text-align:right;color:var(--muted);">—</td>
-    </tr>`;
-    const slaClass = row.pct_no_sla == null ? "" : row.pct_no_sla >= 80 ? "b-ok" : row.pct_no_sla >= 50 ? "b-warn" : "b-bad";
-    const slaText  = row.pct_no_sla != null ? `<span class="badge ${slaClass}">${row.pct_no_sla}%</span>` : `<span style="color:var(--muted);">—</span>`;
-    return `<tr>
-      <td><span class="badge" style="background:${meta.color}20;color:${meta.color};border:1px solid ${meta.color}40;">${meta.label}</span></td>
-      <td style="text-align:right;">${row.total}</td>
-      <td style="text-align:right;">${slaText}</td>
-      <td style="text-align:right;font-size:11px;">${row.ttfr_medio_min != null ? _fmtMin(row.ttfr_medio_min) : "—"}</td>
-    </tr>`;
-  }).join("");
-}
-
-function _relRenderSlaKpisMain(k) {
-  const el = document.getElementById("relSlKpis");
-  if (!el) return;
-  const slaStatus = k.pct_no_sla == null ? "neutral"
-    : k.pct_no_sla >= 80 ? "ok"
-    : k.pct_no_sla >= 50 ? "warn" : "bad";
-  const ttfrStatus = k.ttfr_mediano_min == null ? "neutral"
-    : k.ttfr_mediano_min <= 30  ? "ok"
-    : k.ttfr_mediano_min <= 120 ? "warn" : "bad";
-  const ttrStatus  = k.ttr_mediano_min == null ? "neutral"
-    : k.ttr_mediano_min <= 120  ? "ok"
-    : k.ttr_mediano_min <= 480  ? "warn" : "bad";
-  const riscoStatus = k.em_risco === 0 ? "ok" : k.em_risco <= 3 ? "warn" : "bad";
-  const reabStatus = k.taxa_reabertos == null ? "neutral"
-    : k.taxa_reabertos === 0  ? "ok"
-    : k.taxa_reabertos <= 10  ? "warn" : "bad";
-
-  el.innerHTML =
-    _relKpiCard(_SVG_CHECK, "% no SLA (TTFR)",
-      k.pct_no_sla != null ? `${k.pct_no_sla}%` : "—",
-      slaStatus,
-      `${k.total_com_sla_data} chamados com dados de SLA`) +
-    _relKpiCard(_SVG_CLOCK, "TTFR mediano",
-      _fmtMin(k.ttfr_mediano_min),
-      ttfrStatus,
-      `tempo até a 1ª resposta · ${k.fechados} de ${k.total}`) +
-    _relKpiCard(_SVG_BOLT,  "TTR mediano",
-      _fmtMin(k.ttr_mediano_min),
-      ttrStatus,
-      `tempo até resolver · ${k.fechados} chamados fechados`) +
-    _relKpiCard(_SVG_ALERT, "Em risco agora",
-      k.em_risco,
-      riscoStatus,
-      `abertos com ≥ 50% do TTR consumido`) +
-    _relKpiCard(_SVG_REVERT, "Chamados reabertos",
-      k.taxa_reabertos == null ? "—" : `${k.taxa_reabertos}%`,
-      reabStatus,
-      `${k.reabertos} de ${k.total} chamados`);
-}
-
-function _relRenderSlaTtrChart(porDia) {
-  // Calcula p90 dos valores não-nulos pra usar como cap da escala Y.
-  // Sem isso, um único chamado de 7 dias estoura a escala e achata o resto
-  // dos pontos pra zero (gráfico vira linha rente ao chão).
-  const _capP90 = (vals) => {
-    const sorted = vals.filter(v => v != null && v > 0).sort((a, b) => a - b);
-    if (!sorted.length) return null;
-    const idx = Math.floor(sorted.length * 0.9);
-    const p90 = sorted[Math.min(idx, sorted.length - 1)];
-    // Margem 15% acima do p90, mínimo de 60min pra evitar gráfico microscópico
-    return Math.max(p90 * 1.15, 60);
-  };
-
-  const _mkSlaAreaChart = (elId, seriesName, color, vals, cats) => {
-    if (!vals.some(v => v != null)) {
-      const el = document.getElementById(elId);
-      if (el) el.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted);font-size:12px;">Sem dados no período</div>`;
-      return;
-    }
-    const cap = _capP90(vals);
-    const outliers = cap ? vals.filter(v => v != null && v > cap).length : 0;
-    const yaxisCfg = { labels: { ..._REL_YLBL, formatter: v => _fmtMin(v) } };
-    if (cap != null) yaxisCfg.max = cap;
-
-    _relChart(elId, {
-      chart: {
-        type: "area",
-        height: "100%",  // _relChart converte em altura numérica do parent
-        toolbar: { show: false },
-        background: "transparent",
-        zoom: { enabled: false },
-        animations: { enabled: true, speed: 400 },
-      },
-      theme: { mode: "dark" },
-      series: [{ name: seriesName, data: vals }],
-      xaxis: {
-        categories: cats,
-        labels: {
-          ..._REL_XLBL,
-          formatter: v => {
-            if (!v) return "";
-            // Backend retorna DATE como ISO string "2026-05-27T03:00:00.000Z"
-            // ou só "2026-05-27" — extrai DD/MM em ambos os casos
-            const d = new Date(v);
-            if (isNaN(d.getTime())) return String(v);
-            return String(d.getUTCDate()).padStart(2, "0") + "/" +
-                   String(d.getUTCMonth() + 1).padStart(2, "0");
-          },
-          rotate: 0,
-          hideOverlappingLabels: true,
-          trim: false,
-        },
-        axisBorder: { show: false },
-        axisTicks: { show: false },
-        tickAmount: Math.min(8, cats.length),
-        tooltip: { enabled: false },
-      },
-      yaxis: yaxisCfg,
-      stroke: { curve: "smooth", width: 2 },
-      fill: { type: "gradient", gradient: { shadeIntensity: 1, opacityFrom: .35, opacityTo: .05, stops: [0, 100] } },
-      colors: [color],
-      markers: { size: 0, hover: { size: 4 } },
-      dataLabels: { enabled: false },
-      tooltip: { theme: "dark", y: { formatter: v => _fmtMin(v) } },
-      grid: { borderColor: "rgba(255,255,255,.05)", strokeDashArray: 3, padding: { left: 12, right: 12, top: 4, bottom: 4 } },
-      // Nota discreta no canto inferior se houver outlier acima do cap
-      ...(outliers > 0 ? {
-        subtitle: {
-          text: `${outliers} outlier${outliers > 1 ? "s" : ""} acima de ${_fmtMin(cap)} (fora da escala)`,
-          align: "right",
-          offsetY: 6,
-          style: { fontSize: "10px", color: "#9094ae" },
-        },
-      } : {}),
-    });
-  };
-
-  if (!porDia || !porDia.length) {
-    ["relSlChartTtr","relSlChartTtfr"].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted);font-size:12px;">Sem dados no período</div>`;
-    });
-    return;
-  }
-  const cats     = porDia.map(d => d.dia);
-  const ttrVals  = porDia.map(d => d.ttr_medio_min  != null ? Number(d.ttr_medio_min)  : null);
-  const ttfrVals = porDia.map(d => d.ttfr_medio_min != null ? Number(d.ttfr_medio_min) : null);
-  requestAnimationFrame(() => {
-    _mkSlaAreaChart("relSlChartTtr",  "TTR médio (min)",  "#f0b014", ttrVals,  cats);
-    _mkSlaAreaChart("relSlChartTtfr", "TTFR médio (min)", "#4a78f7", ttfrVals, cats);
-  });
-}
-
-function _relRenderSlaTecnicos(lista) {
-  const tbody = document.getElementById("relSlTecBody");
-  if (!tbody) return;
-  if (!lista || !lista.length) {
-    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px;">Nenhum técnico com chamados no período</td></tr>`;
-    return;
-  }
-  tbody.innerHTML = lista.map(t => {
-    const slaClass = t.pct_no_sla == null ? "" : t.pct_no_sla >= 80 ? "b-ok" : t.pct_no_sla >= 50 ? "b-warn" : "b-bad";
-    const stars = t.nota_media != null ? `${Number(t.nota_media).toFixed(1)} ★` : "—";
-    return `<tr>
-      <td style="font-size:12px;font-weight:500;">${_waEscaparHtml(t.tecnico_nome || "—")}</td>
-      <td style="text-align:right;">${t.total}</td>
-      <td style="text-align:right;">${_fmtMin(t.ttfr_medio_min)}</td>
-      <td style="text-align:right;">${_fmtMin(t.ttr_medio_min)}</td>
-      <td style="text-align:right;">${t.pct_no_sla != null ? `<span class="badge ${slaClass}">${t.pct_no_sla}%</span>` : "—"}</td>
-      <td style="text-align:right;color:var(--accent);">${stars}</td>
-    </tr>`;
-  }).join("");
-}
-
-function _relRenderSlaEmRisco(lista) {
-  const tbody = document.getElementById("relSlRiscoBody");
-  if (!tbody) return;
-  if (!lista || !lista.length) {
-    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--ok);padding:20px;">✓ Nenhum chamado em risco no momento</td></tr>`;
-    return;
-  }
-  tbody.innerHTML = lista.map(ch => {
-    const pct = Math.min(ch.pct_ttr, 999);
-    const barColor = pct >= 100 ? "#ef4444" : pct >= 75 ? "#f59e0b" : "#4a78f7";
-    const prioClass = { p1: "b-bad", p2: "b-warn", p3: "b-info", p4: "" }[ch.prioridade] || "";
-    const prioLabel = { p1: "P1 Crítico", p2: "P2 Alta", p3: "P3 Controlado", p4: "P4 Agendado" }[ch.prioridade] || ch.prioridade;
-    return `<tr>
-      <td>
-        <div style="font-size:12px;font-weight:500;">CH-${String(ch.id).padStart(4,"0")}</div>
-        <div style="font-size:11px;color:var(--muted);">${_waEscaparHtml(ch.titulo || "Sem título")}</div>
-      </td>
-      <td><span class="badge ${prioClass}">${prioLabel}</span></td>
-      <td style="font-size:12px;">${_waEscaparHtml(ch.condominio_nome || "—")}</td>
-      <td style="min-width:120px;">
-        <div style="display:flex;align-items:center;gap:6px;">
-          <div style="flex:1;height:6px;border-radius:3px;background:rgba(255,255,255,.1);overflow:hidden;">
-            <div style="height:100%;width:${Math.min(pct,100)}%;background:${barColor};border-radius:3px;transition:width .4s;"></div>
-          </div>
-          <span style="font-size:11px;font-weight:600;color:${barColor};white-space:nowrap;">${pct}%</span>
-        </div>
-        <div style="font-size:10px;color:var(--muted);margin-top:2px;">${_fmtMin(ch.minutos_abertos)} de ${_fmtMin(ch.ttr_min)}</div>
-      </td>
-    </tr>`;
-  }).join("");
-}
-
-
-async function gerarRelInsights() {
-  const data = await _relFetch({
-    endpoint: "/relatorios/insights",
-    btnAction: "gerar-insights",
-    ids: { data_ini: "relInIni", data_fim: "relInFim", condominio_id: "relInCondo" },
-  });
-  if (!data) return;
-  _relInDados = data;
-
-  const { top_condominios = [], categorias_whatsapp = [], totais = {} } = data;
-
-  const bodyEl = document.getElementById("relBodyInsights");
-  if (bodyEl) bodyEl.style.display = "";
-
-  // KPIs do header
-  const kpiEl = document.getElementById("relInKpis");
-  if (kpiEl) kpiEl.innerHTML =
-    _relKpiCard(_SVG_FILE,  "Chamados no período", totais.chamados_total ?? 0, "neutral") +
-    _relKpiCard(_SVG_ALERT, "Alertas no período",  totais.alertas_total  ?? 0, totais.alertas_total > 0 ? "warn" : "neutral") +
-    _relKpiCard(_SVG_BAR,   "Msgs Atendimento",     totais.msgs_total     ?? 0, "neutral") +
-    _relKpiCard(_SVG_CPU,   "Condomínios c/ problemas", top_condominios.length, top_condominios.length > 0 ? "warn" : "ok");
-
-  // Header com badge de período
-  const headTop = document.getElementById("relInHeadTop");
-  if (headTop) headTop.innerHTML = `<span>Condomínios mais problemáticos</span>${_relBadgePeriodo("relInIni","relInFim")}`;
-  const headCat = document.getElementById("relInHeadCat");
-  if (headCat) headCat.innerHTML = `<span>Categorias mais comuns no atendimento</span>${_relBadgePeriodo("relInIni","relInFim")}`;
-
-  // Top condomínios — tabela com barra de score
-  const tbodyTop = document.getElementById("relInTopBody");
-  if (tbodyTop) {
-    if (top_condominios.length === 0) {
-      tbodyTop.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--text-dim);padding:24px 0;font-size:12px;">Sem dados no período</td></tr>`;
-    } else {
-      const maxScore = top_condominios[0].score || 1;
-      tbodyTop.innerHTML = top_condominios.slice(0, 5).map(c => {
-        const pct = Math.round((c.score / maxScore) * 100);
-        return `<tr>
-          <td>
-            <div style="font-size:12px;line-height:1.3;">${_waEscaparHtml(c.nome)}</div>
-            <div class="rel-prog"><div class="rel-prog-fill" style="width:${pct}%;background:#ef4444;"></div></div>
-          </td>
-          <td style="text-align:right;font-weight:700;">${c.score}</td>
-          <td style="text-align:right;">${c.chamados_abertos > 0 ? `<span class="badge b-bad">${c.chamados_abertos}/${c.chamados_total}</span>` : c.chamados_total}</td>
-          <td style="text-align:right;">${c.alertas_ativos > 0 ? `<span class="badge b-warn">${c.alertas_ativos}/${c.alertas_total}</span>` : c.alertas_total}</td>
-          <td style="text-align:right;">${c.sla_horas > 0 ? _relSlaFmt(Number(c.sla_horas)) : "-"}</td>
-        </tr>`;
-      }).join("");
-    }
-  }
-
-  // Donut de categorias
-  requestAnimationFrame(() => {
-    if (categorias_whatsapp.length === 0) {
-      const el = document.getElementById("relInChartCat");
-      if (el) el.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-dim);font-size:12px;">Sem mensagens classificadas no período</div>`;
-      return;
-    }
-    const labels = categorias_whatsapp.map(c => _relCategoriaLabel(c.categoria));
-    const values = categorias_whatsapp.map(c => c.total);
-    const colors = ["#ef4444","#f0b014","#4a78f7","#8b5cf6","#4ade80","#f97316","#06b6d4","#94a3b8"];
-    _relChart("relInChartCat", _relDonutOpts(labels, values, colors));
-  });
-
-  // KPIs de SLA — busca em paralelo, falhas só logam (não bloqueiam Insights)
-  _relCarregarSlaMetricas();
-}
-
-// ── Fase 8A: KPIs de SLA na aba Insights ─────────────────────────────────
-async function _relCarregarSlaMetricas() {
-  const wrap = document.getElementById("relInSlaKpis");
-  if (!wrap) return;
-  const ini = document.getElementById("relInIni")?.value || "";
-  const fim = document.getElementById("relInFim")?.value || "";
-  const cnd = document.getElementById("relInCondo")?.value || "";
-  const qs = new URLSearchParams();
-  if (ini) qs.set("data_ini", ini);
-  if (fim) qs.set("data_fim", fim);
-  if (cnd) qs.set("condominio_id", cnd);
-  try {
-    const r = await fetch(`/relatorios/sla-metricas?${qs}`, { headers: authHeaders() });
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    const k = await r.json();
-    wrap.innerHTML = _relRenderSlaKpis(k);
-  } catch (e) {
-    console.warn("[insights] sla-metricas:", e.message);
-    wrap.innerHTML = `<div class="rel-sla-empty">Sem dados de SLA no período</div>`;
-  }
-}
-
-function _relRenderSlaKpis(k) {
-  // Formatadores: minutos viram "Xm" ou "Xh Ym" se > 60
-  const fmtMin = (m) => {
-    if (m == null) return "—";
-    if (m < 60)  return `${Math.round(m)} min`;
-    const h = Math.floor(m / 60);
-    const r = Math.round(m - h * 60);
-    return r > 0 ? `${h}h ${r}m` : `${h}h`;
-  };
-  const ttfrStatus = k.ttfr_mediano_min == null ? "neutral"
-    : k.ttfr_mediano_min <= 30  ? "ok"
-    : k.ttfr_mediano_min <= 120 ? "warn" : "bad";
-  const ttrStatus = k.ttr_mediano_min == null ? "neutral"
-    : k.ttr_mediano_min <= 120  ? "ok"
-    : k.ttr_mediano_min <= 480  ? "warn" : "bad";
-  const lt1hStatus = k.taxa_resolucao_lt1h == null ? "neutral"
-    : k.taxa_resolucao_lt1h >= 60 ? "ok"
-    : k.taxa_resolucao_lt1h >= 30 ? "warn" : "bad";
-  const reabStatus = k.taxa_reabertos == null ? "neutral"
-    : k.taxa_reabertos === 0  ? "ok"
-    : k.taxa_reabertos <= 10  ? "warn" : "bad";
-
-  return (
-    _relKpiCard(_SVG_CLOCK, "Primeira resposta (TTFR)",
-      fmtMin(k.ttfr_mediano_min),
-      ttfrStatus,
-      `mediana · ${k.com_resposta} de ${k.total} chamados`) +
-    _relKpiCard(_SVG_CHECK, "Resolução (TTR)",
-      fmtMin(k.ttr_mediano_min),
-      ttrStatus,
-      `mediana · ${k.fechados} chamados fechados`) +
-    _relKpiCard(_SVG_BOLT, "Resolvidos em < 1h",
-      k.taxa_resolucao_lt1h == null ? "—" : `${k.taxa_resolucao_lt1h}%`,
-      lt1hStatus,
-      `${k.resolvidos_lt1h} de ${k.fechados} fechados`) +
-    _relKpiCard(_SVG_REVERT, "Chamados reabertos",
-      k.taxa_reabertos == null ? "—" : `${k.taxa_reabertos}%`,
-      reabStatus,
-      `${k.reabertos_pendentes} de ${k.total} chamados`)
-  );
-}
-
-async function exportarRelPdf() {
-  const ini   = document.getElementById("relChIni")?.value        || "";
-  const fim   = document.getElementById("relChFim")?.value        || "";
-  const condo = document.getElementById("relChCondo")?.value      || "";
-  const prio  = document.getElementById("relChPrioridade")?.value || "";
-  const st    = document.getElementById("relChStatus")?.value     || "";
-  const tec   = document.getElementById("relChTecnico")?.value    || "";
-
-  const params = new URLSearchParams();
-  if (ini)   params.set("data_ini", ini);
-  if (fim)   params.set("data_fim", fim);
-  if (condo) params.set("condominio_id", condo);
-  if (prio)  params.set("prioridade", prio);
-  if (st)    params.set("status", st);
-  if (tec)   params.set("tecnico_id", tec);
-
-  const btn = document.querySelector("[data-rel-action='exportar-pdf']");
+async function _relExportarCsv(kind) {
+  const conf = _REL_EXPORT[kind];
+  if (!conf) return;
+  const btn = document.querySelector(`[data-rel-action='exportar-csv-${kind}']`);
   if (btn) { btn.disabled = true; btn.textContent = "Gerando…"; }
 
+  const params = new URLSearchParams();
+  const v = id => document.getElementById(id)?.value || "";
+  Object.entries(conf.ids).forEach(([key, id]) => {
+    const val = v(id);
+    if (val) params.set(key, key === "device_id" ? val.trim() : val);
+  });
+
   try {
-    const res = await fetch(`/relatorios/pdf-chamados?${params}`, { headers: authHeaders() });
-    if (!res.ok) throw new Error("Falha ao gerar PDF");
-    const blob = await res.blob();
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement("a");
-    a.href = url;
-    a.download = `relatorio-chamados-${ini || "todos"}-${fim || "todos"}.pdf`;
-    a.click();
-    URL.revokeObjectURL(url);
-  } catch (err) {
-    alert("Erro ao gerar PDF: " + err.message);
+    const r = await fetch(`${conf.endpoint}?${params}`, { headers: authHeaders() });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const rows = await r.json();
+    const csv  = _relToCsv(rows, conf.columns);
+    const ini  = v(conf.ids.data_ini) || "todos";
+    const fim  = v(conf.ids.data_fim) || "todos";
+    _relBaixarCsv(`relatorio-${kind}-${ini}-${fim}.csv`, csv);
+  } catch (e) {
+    alert(`Erro ao exportar CSV (${kind}).`);
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = "Exportar PDF"; }
+    if (btn) { btn.disabled = false; btn.textContent = "Exportar CSV"; }
   }
 }
 
@@ -10415,21 +9340,15 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("btnSair")?.addEventListener("click", logout);
 
   // ===== RELATÓRIOS =====
-  document.getElementById("relTabs")?.addEventListener("click", e => {
-    const tab = e.target.closest("[data-rel-tab]")?.dataset.relTab;
-    if (tab) _relMostrarTab(tab, true);
-  });
-
   document.querySelector(".section[data-section='relatorios']")?.addEventListener("click", e => {
     const btn = e.target.closest("[data-rel-action]");
     if (!btn || btn.disabled) return;
     const action = btn.dataset.relAction;
 
-    if (action === "gerar-chamados")      { gerarRelChamados(); return; }
-    if (action === "gerar-reservatorios") { gerarRelReservatorios(); return; }
-    if (action === "gerar-sla")           { gerarRelSla(); return; }
-
-    if (action === "exportar-pdf") { exportarRelPdf(); return; }
+    if (action === "atualizar-painel")        { _relCarregarPainelVivo(); return; }
+    if (action === "exportar-csv-chamados")   { _relExportarCsv("chamados"); return; }
+    if (action === "exportar-csv-alertas")    { _relExportarCsv("alertas"); return; }
+    if (action === "exportar-csv-telemetria") { _relExportarCsv("telemetria"); return; }
   });
 
   // ===== CONFIGURAÇÕES =====
@@ -10495,11 +9414,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const go = e.target.closest("[data-section-go]");
     if (go) {
       showSection(go.dataset.sectionGo);
-      // Suporte a abrir uma aba específica dentro de Relatórios (ex: Mission Control → Insights)
-      const relTab = go.dataset.relTabGo;
-      if (relTab && go.dataset.sectionGo === "relatorios") {
-        _relMostrarTab(relTab, true);
-      }
       return;
     }
     const gotoAlertas = e.target.closest('[data-action="goto-alertas"]');
