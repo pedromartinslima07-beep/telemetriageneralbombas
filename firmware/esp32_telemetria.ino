@@ -4,15 +4,15 @@
 #include <ArduinoJson.h>
 
 // WiFi
-const char* WIFI_SSID     = "Julia";
-const char* WIFI_PASSWORD = "58190488jC";
+const char* WIFI_SSID     = "CONTABIL";
+const char* WIFI_PASSWORD = "Bsi9725945";
 
 // Servidor
 const char* SERVER_URL = "https://telemetria.generalbombas.com/telemetria";
 
 // Dispositivo
 const char* DEVICE_ID  = "RES_TESTE_SUP";
-const char* DEVICE_KEY = "0624e7fcf31d483cb115d12c1b0d82c3d8f97bb9daefb2fb";
+const char* DEVICE_KEY = "f3b1533d4c0ffdfab022cd246249c858dd18b5b9df26db94";
 
 // Pino da sonda 4-20mA
 #define PINO_SONDA 34
