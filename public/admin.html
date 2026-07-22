@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="/static/leaflet.css">
   <!-- ⚠️ Ao mexer em admin.js ou admin.css, bumpe o ?v=N aqui E no <script>
        lá embaixo. Ver CLAUDE.md raiz. -->
-  <link rel="stylesheet" href="/static/admin.css?v=130">
+  <link rel="stylesheet" href="/static/admin.css?v=131">
 </head>
 <body>
   <div id="appLoader">
@@ -1391,11 +1391,20 @@
             </div>
           </div>
 
+          <!-- Barra de seleção em massa — some quando não há nada selecionado -->
+          <div id="pmBulkBar" class="viewer-only-hide" style="display:none;align-items:center;gap:10px;padding:8px 16px;background:var(--surface2);border-bottom:1px solid var(--border);font-size:12px;">
+            <span id="pmBulkCount" style="color:var(--text);font-weight:600;"></span>
+            <button class="btn btn-sm btnAccent" id="pmBulkAtivar" type="button">Ativar selecionados</button>
+            <button class="btn btn-sm" id="pmBulkDesativar" type="button">Desativar selecionados</button>
+            <button class="btn btn-sm" id="pmBulkLimpar" type="button" style="margin-left:auto;">Limpar seleção</button>
+          </div>
+
           <div class="al-grid" style="grid-template-columns: 1fr;">
             <div class="al-tableWrap">
               <table class="orc-table">
                 <thead>
                   <tr>
+                    <th style="width:32px"><input type="checkbox" id="pmChkAll" class="viewer-only-hide"></th>
                     <th>Condomínio</th>
                     <th>Plano</th>
                     <th style="width:120px">Periodicidade</th>
@@ -2669,8 +2678,8 @@
 </div>
 
 
-<script src="/static/admin.js?v=220" defer></script>
+<script src="/static/admin.js?v=221" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
-<script src="/static/register-sw.js?v=28" defer></script>
+<script src="/static/register-sw.js?v=29" defer></script>
 </body>
 </html>

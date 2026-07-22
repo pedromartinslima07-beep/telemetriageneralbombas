@@ -10,6 +10,16 @@ aliases:
 > Branch atual: `feature/app-mobile`. Última sessão registrada: **2026-07-22**.
 > Roadmap completo em [`roadmap.md`](roadmap.md); decisões em [`decisions.md`](decisions.md).
 
+## Sessão 2026-07-22 — Planos de manutenção: seleção em massa
+
+Pedido do usuário: reativar planos inativos só dava pra fazer um por um
+(modal de edição individual). Adicionado checkbox por linha + "selecionar
+todos" + barra de ações em massa (Ativar/Desativar selecionados) na tabela
+de Planos. Backend ganhou `PATCH /planos-manutencao/bulk` (`{ ids, ativo }`,
+uma única query `UPDATE ... WHERE id = ANY($1)`). Seleção limpa ao trocar de
+aba. `admin.css?v=131`, `admin.js?v=221`, `register-sw.js?v=29`,
+`CACHE_NAME` → `telemetria-v38`.
+
 ## Sessão 2026-07-22 — Relatórios: painel ao vivo + exportação CSV
 
 Redesenho pedido pelo usuário: achava a aba Relatórios (3 abas, KPI cards,

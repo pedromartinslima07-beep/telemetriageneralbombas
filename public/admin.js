@@ -12301,6 +12301,7 @@ let _pmData         = [];
 let _pmTabAtiva     = "todos";
 let _pmBindFeito    = false;
 let _pmCondosCache  = null;
+let _pmSelecionados = new Set(); // ids selecionados p/ ação em massa
 
 const PM_PERIOD_PRESETS = [
   { label: "Semanal",     dias: 7   },
@@ -12442,7 +12443,7 @@ function _pmRenderTudo() {
 
   const linhaZona = zona => `
     <tr>
-      <td colspan="7" style="padding:14px 8px 4px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);border-top:2px solid var(--border);">
+      <td colspan="8" style="padding:14px 8px 4px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);border-top:2px solid var(--border);">
         ${_waEscaparHtml(zona)}
       </td>
     </tr>`;
@@ -12450,6 +12451,7 @@ function _pmRenderTudo() {
   const linhaPlano = p => {
     const st = _pmStatus(p);
     return `<tr data-pm-id="${p.id}">
+      <td class="viewer-only-hide"><input type="checkbox" class="pm-chk" data-pm-chk="${p.id}" ${_pmSelecionados.has(p.id) ? "checked" : ""}></td>
       <td>${_waEscaparHtml(p.condominio_nome || "—")}</td>
       <td>${_waEscaparHtml(p.titulo || "—")}</td>
       <td style="color:var(--muted);font-size:11.5px;">${_pmPeriodLabel(p.periodicidade_dias)}</td>
@@ -12467,6 +12469,56 @@ function _pmRenderTudo() {
   tbody.innerHTML = zonasOrdenadas
     .flatMap(z => [linhaZona(z), ...grupos.get(z).map(linhaPlano)])
     .join("");
+
+  // remove da seleção ids que sumiram da lista carregada (ex: filtro/exclusão)
+  const idsAtuais = new Set(_pmData.map(p => p.id));
+  for (const id of _pmSelecionados) if (!idsAtuais.has(id)) _pmSelecionados.delete(id);
+
+  _pmAtualizarBulkBar();
+}
+
+function _pmAtualizarBulkBar() {
+  const bar = document.getElementById("pmBulkBar");
+  const chkAll = document.getElementById("pmChkAll");
+  if (!bar) return;
+
+  const n = _pmSelecionados.size;
+  bar.style.display = n > 0 ? "flex" : "none";
+  const count = document.getElementById("pmBulkCount");
+  if (count) count.textContent = `${n} selecionado${n === 1 ? "" : "s"}`;
+
+  if (chkAll) {
+    const visiveis = _pmFiltrados();
+    const todosMarcados = visiveis.length > 0 && visiveis.every(p => _pmSelecionados.has(p.id));
+    chkAll.checked = todosMarcados;
+    chkAll.indeterminate = !todosMarcados && visiveis.some(p => _pmSelecionados.has(p.id));
+  }
+}
+
+async function _pmAcaoBulk(ativo) {
+  const ids = [..._pmSelecionados];
+  if (!ids.length) return;
+  const verbo = ativo ? "ativar" : "desativar";
+  if (!confirm(`${ativo ? "Ativar" : "Desativar"} ${ids.length} plano${ids.length === 1 ? "" : "s"}?`)) return;
+
+  const btn = document.getElementById(ativo ? "pmBulkAtivar" : "pmBulkDesativar");
+  if (btn) { btn.disabled = true; btn.textContent = "Aguarde…"; }
+
+  try {
+    const r = await fetch("/planos-manutencao/bulk", {
+      method: "PATCH",
+      headers: { ...authHeaders(), "Content-Type": "application/json" },
+      body: JSON.stringify({ ids, ativo }),
+    });
+    const j = await r.json();
+    if (!r.ok) { alert(j.error || `Erro ao ${verbo} planos`); return; }
+    _pmSelecionados.clear();
+    await carregarPlanos();
+  } catch (e) {
+    alert(e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = ativo ? "Ativar selecionados" : "Desativar selecionados"; }
+  }
 }
 
 function _pmAtualizarBadge() {
@@ -12741,6 +12793,7 @@ function _pmBindEventos() {
     btn.addEventListener("click", () => {
       _pmTabAtiva = btn.dataset.pmTab;
       document.querySelectorAll("[data-pm-tab]").forEach(b => b.classList.toggle("is-active", b === btn));
+      _pmSelecionados.clear();
       _pmRenderTudo();
     });
   });
@@ -12752,6 +12805,31 @@ function _pmBindEventos() {
     const btn = e.target.closest("[data-pm-action]");
     if (!btn) return;
     _pmAcao(btn.dataset.pmAction, Number(btn.dataset.pmId));
+  });
+
+  document.getElementById("pmTableBody")?.addEventListener("change", (e) => {
+    const chk = e.target.closest("[data-pm-chk]");
+    if (!chk) return;
+    const id = Number(chk.dataset.pmChk);
+    if (chk.checked) _pmSelecionados.add(id);
+    else _pmSelecionados.delete(id);
+    _pmAtualizarBulkBar();
+  });
+
+  document.getElementById("pmChkAll")?.addEventListener("change", (e) => {
+    const marcar = e.target.checked;
+    for (const p of _pmFiltrados()) {
+      if (marcar) _pmSelecionados.add(p.id);
+      else _pmSelecionados.delete(p.id);
+    }
+    _pmRenderTudo();
+  });
+
+  document.getElementById("pmBulkAtivar")?.addEventListener("click", () => _pmAcaoBulk(true));
+  document.getElementById("pmBulkDesativar")?.addEventListener("click", () => _pmAcaoBulk(false));
+  document.getElementById("pmBulkLimpar")?.addEventListener("click", () => {
+    _pmSelecionados.clear();
+    _pmRenderTudo();
   });
 
   document.getElementById("pmModalBackdrop")?.addEventListener("click", _pmFecharModal);

@@ -208,6 +208,38 @@ router.post("/", authRequired, masterAdminOnly, async (req, res) => {
   }
 });
 
+// PATCH /planos-manutencao/bulk — ativa/desativa vários planos de uma vez
+// body: { ids: number[], ativo: boolean }
+router.patch("/bulk", authRequired, masterAdminOnly, async (req, res) => {
+  const idsRaw = req.body?.ids;
+  const ativo  = req.body?.ativo;
+
+  if (!Array.isArray(idsRaw) || idsRaw.length === 0) {
+    return res.status(400).json({ error: "ids deve ser uma lista não vazia" });
+  }
+  if (idsRaw.length > 500) {
+    return res.status(400).json({ error: "máximo de 500 ids por vez" });
+  }
+  const ids = idsRaw.map(Number);
+  if (ids.some(id => !Number.isInteger(id) || id <= 0)) {
+    return res.status(400).json({ error: "ids inválidos" });
+  }
+  if (typeof ativo !== "boolean") {
+    return res.status(400).json({ error: "ativo deve ser boolean" });
+  }
+
+  try {
+    const r = await pool.query(
+      `UPDATE planos_manutencao SET ativo = $1 WHERE id = ANY($2::int[]) RETURNING id`,
+      [ativo, ids]
+    );
+    return res.json({ ok: true, atualizados: r.rows.length });
+  } catch (err) {
+    console.error("[planos-manutencao] PATCH /bulk:", err);
+    return res.status(500).json({ error: "Erro ao atualizar planos em massa" });
+  }
+});
+
 // PATCH /planos-manutencao/:id
 router.patch("/:id", authRequired, masterAdminOnly, async (req, res) => {
   const id = Number(req.params.id);

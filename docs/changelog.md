@@ -80,6 +80,19 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
 
 ## Marcos de produto (fases do plano)
 
+- **2026-07-22** — **Planos de manutenção: seleção em massa (ativar/desativar vários de uma vez)**
+  - Motivação: reativar planos inativos só dava pra fazer um por um (abrir
+    modal de edição, marcar "Plano ativo", salvar, repetir).
+  - Checkbox por linha + "selecionar todos" no cabeçalho da tabela; barra de
+    ações aparece quando 1+ planos estão marcados, com "Ativar
+    selecionados" / "Desativar selecionados" / "Limpar seleção".
+  - Backend: nova rota `PATCH /planos-manutencao/bulk` (`{ ids, ativo }`,
+    até 500 ids por chamada, `UPDATE ... WHERE id = ANY($1)` — uma query só).
+  - Seleção é limpa ao trocar de aba (Todos/Vencidos/Vencendo/Em dia/Inativos)
+    pra evitar confusão com itens selecionados fora de vista.
+  - `admin.css?v=131`, `admin.js?v=221`, `register-sw.js?v=29`, `sw.js`
+    `CACHE_NAME` → `telemetria-v38`.
+
 - **2026-07-22** — **Relatórios: painel ao vivo + exportação CSV (fim do dashboard de gráficos)**
   - Motivação: a aba Relatórios (3 abas — Chamados, Reservatórios, Dashboard
     SLA — cada uma com KPI cards + ~10 gráficos ApexCharts) tinha ficado

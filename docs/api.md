@@ -152,7 +152,9 @@ restringe escrita.
 ## Planos de manutenção e contratos
 
 **Planos** (`/planos-manutencao`) — todos masterAdmin:
-GET (lista/`:id`), POST, PATCH, DELETE, `POST /:id/executar-agora`.
+GET (lista/`:id`), POST, PATCH, DELETE, `POST /:id/executar-agora`,
+`PATCH /bulk` (`{ ids: number[], ativo: boolean }` — ativa/desativa vários
+planos de uma vez, até 500 por chamada).
 
 **Contratos** (`/contratos`):
 GET `/`, `/metricas`, `/:id`, `/:id/pdf` (adminOnly); POST/PATCH/DELETE
