@@ -8,7 +8,7 @@ const char* WIFI_SSID     = "Julia";
 const char* WIFI_PASSWORD = "58190488jC";
 
 // Servidor
-const char* SERVER_URL = "https://telemetria.ggeneral.com.br/telemetria";
+const char* SERVER_URL = "https://telemetria.generalbombas.com/telemetria";
 
 // Dispositivo
 const char* DEVICE_ID  = "RES_TESTE_SUP";

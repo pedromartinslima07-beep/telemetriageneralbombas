@@ -27,7 +27,7 @@ Cobre as duas partes: **sonda de nível** e **sensor de corrente da bomba (SCT-0
 
 **Faça isso ANTES de gravar o firmware** — você vai precisar do `device_id` e da `device_key` que o sistema gera.
 
-1. Entre em `https://telemetria.ggeneral.com.br` como admin master.
+1. Entre em `https://telemetria.generalbombas.com` como admin master.
 2. Vá em **Cadastros** → **Novo reservatório**.
 3. Preencha:
    - **Condomínio**: selecione o condomínio.
@@ -290,7 +290,7 @@ Se algo dá errado, o Serial Monitor é a primeira coisa pra olhar — ele mostr
 ### "Painel mostra OFFLINE mesmo com ESP32 ligado"
 - O ESP32 não está conseguindo enviar (sem internet, certificado, firewall).
 - Olha o Serial Monitor pra ver o erro de HTTP.
-- Verifica se o domínio `telemetria.ggeneral.com.br` está acessível.
+- Verifica se o domínio `telemetria.generalbombas.com` está acessível.
 
 ### "Bomba mostra DESLIGADA mesmo com bomba ligada"
 - O limiar está alto demais. Olhe o Serial Monitor pra ver o RMS quando a bomba está ligada e ajuste o limiar pra um valor menor (entre o desligado e o ligado).

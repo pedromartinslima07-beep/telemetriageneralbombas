@@ -2,7 +2,7 @@
 
 Plataforma de **telemetria IoT + gestão de manutenção predial** para condomínios. Monitora reservatórios de água e bombas hidráulicas em tempo real (dispositivos ESP32 via HTTPS), gera alertas automáticos, e expande para todo o ciclo de manutenção: atendimento via **WhatsApp com IA**, **chamados com SLA P1–P4**, **Ordens de Serviço digitais**, **rastreamento GPS de técnicos** e **app mobile** (técnico e cliente).
 
-**Em produção:** [telemetria.ggeneral.com.br](https://telemetria.ggeneral.com.br) · Deploy no **Railway**.
+**Em produção:** [telemetria.generalbombas.com](https://telemetria.generalbombas.com) · Deploy no **Railway**.
 
 > A IA **interpreta, consulta e sugere — o backend executa**. Ações não-emergenciais só acontecem após confirmação explícita do cliente.
 

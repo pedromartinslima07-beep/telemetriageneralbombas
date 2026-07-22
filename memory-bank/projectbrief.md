@@ -32,7 +32,7 @@ A partir daí o sistema cresceu para cobrir **todo o ciclo de manutenção**:
   síndicos (acompanhamento + abertura de chamados).
 - **Orçamentos, contratos e planos de manutenção**.
 
-**Em produção:** telemetria.ggeneral.com.br (deploy no Railway).
+**Em produção:** telemetria.generalbombas.com (deploy no Railway).
 
 ## Público-alvo
 
