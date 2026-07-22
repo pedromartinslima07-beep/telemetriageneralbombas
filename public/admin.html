@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="/static/leaflet.css">
   <!-- ⚠️ Ao mexer em admin.js ou admin.css, bumpe o ?v=N aqui E no <script>
        lá embaixo. Ver CLAUDE.md raiz. -->
-  <link rel="stylesheet" href="/static/admin.css?v=131">
+  <link rel="stylesheet" href="/static/admin.css?v=132">
 </head>
 <body>
   <div id="appLoader">
@@ -1451,14 +1451,22 @@
       <div class="section" data-section="relatorios">
 
         <!-- Painel ao vivo — estado operacional agora, sem filtro de período -->
-        <div class="card" style="padding:0;overflow:hidden;margin-bottom:12px;">
+        <div class="card rel-card-vivo" style="padding:0;overflow:hidden;margin-bottom:12px;">
           <div class="rel-ct-head" style="display:flex;justify-content:space-between;align-items:center;">
-            <span>Painel ao vivo</span>
+            <span class="rel-card-title">
+              <span class="rel-card-icon rel-icon-vivo">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+              </span>
+              Painel ao vivo
+            </span>
             <button class="btn btn-sm" data-rel-action="atualizar-painel">Atualizar</button>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;">
             <div style="border-right:1px solid var(--border);">
-              <p class="rel-ct-head">Chamados em risco <span style="font-size:11px;color:var(--muted);">(≥ 50% do TTR usado)</span></p>
+              <p class="rel-ct-head">
+                <span>Chamados em risco <span style="font-size:11px;color:var(--muted);">(≥ 50% do TTR usado)</span></span>
+                <span id="relVivoRiscoCount" class="rel-count-badge rel-count-neutral">–</span>
+              </p>
               <div class="tableWrap" style="max-height:260px;">
                 <table><thead><tr>
                   <th>Chamado</th><th style="width:96px">Prioridade</th>
@@ -1468,7 +1476,10 @@
               </div>
             </div>
             <div>
-              <p class="rel-ct-head">Workload por técnico</p>
+              <p class="rel-ct-head">
+                <span>Workload por técnico</span>
+                <span id="relVivoWorkloadCount" class="rel-count-badge rel-count-neutral">–</span>
+              </p>
               <div class="tableWrap" style="max-height:260px;">
                 <table><thead><tr>
                   <th>Técnico</th><th style="width:64px;text-align:right;">Abertos</th>
@@ -1482,7 +1493,14 @@
 
         <!-- Exportar dados — filtro + CSV, sem gráfico/preview: análise fica no Excel -->
         <div class="card" style="padding:14px 20px;margin-bottom:12px;">
-          <p class="rel-ct-head" style="padding:0 0 10px;">Exportar chamados</p>
+          <p class="rel-ct-head" style="padding:0 0 10px;">
+            <span class="rel-card-title">
+              <span class="rel-card-icon rel-icon-chamados">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg>
+              </span>
+              Exportar chamados
+            </span>
+          </p>
           <div class="filter-bar">
             <div class="field"><label class="lbl">De</label><input type="date" id="relChIni" class="input" style="width:136px;"></div>
             <div class="field"><label class="lbl">Até</label><input type="date" id="relChFim" class="input" style="width:136px;"></div>
@@ -1506,7 +1524,14 @@
         </div>
 
         <div class="card" style="padding:14px 20px;margin-bottom:12px;">
-          <p class="rel-ct-head" style="padding:0 0 10px;">Exportar alertas</p>
+          <p class="rel-ct-head" style="padding:0 0 10px;">
+            <span class="rel-card-title">
+              <span class="rel-card-icon rel-icon-alertas">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              </span>
+              Exportar alertas
+            </span>
+          </p>
           <div class="filter-bar">
             <div class="field"><label class="lbl">De</label><input type="date" id="relAlIni" class="input" style="width:136px;"></div>
             <div class="field"><label class="lbl">Até</label><input type="date" id="relAlFim" class="input" style="width:136px;"></div>
@@ -1530,7 +1555,14 @@
         </div>
 
         <div class="card" style="padding:14px 20px;margin-bottom:12px;">
-          <p class="rel-ct-head" style="padding:0 0 10px;">Exportar telemetria <span style="font-size:11px;color:var(--muted);">(agregado diário por reservatório)</span></p>
+          <p class="rel-ct-head" style="padding:0 0 10px;">
+            <span class="rel-card-title">
+              <span class="rel-card-icon rel-icon-telemetria">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>
+              </span>
+              Exportar telemetria <span style="font-size:11px;color:var(--muted);font-weight:400;">(agregado diário por reservatório)</span>
+            </span>
+          </p>
           <div class="filter-bar">
             <div class="field"><label class="lbl">De</label><input type="date" id="relTelIni" class="input" style="width:136px;"></div>
             <div class="field"><label class="lbl">Até</label><input type="date" id="relTelFim" class="input" style="width:136px;"></div>
@@ -2678,8 +2710,8 @@
 </div>
 
 
-<script src="/static/admin.js?v=221" defer></script>
+<script src="/static/admin.js?v=222" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
-<script src="/static/register-sw.js?v=29" defer></script>
+<script src="/static/register-sw.js?v=30" defer></script>
 </body>
 </html>

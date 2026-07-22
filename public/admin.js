@@ -8174,6 +8174,14 @@ function renderRelatorios() {
 
 // ── Painel ao vivo — chamados em risco + workload por técnico, sem filtro de período ──
 
+// Atualiza o badge de contagem no cabeçalho — cls: "bad" | "ok" | "neutral"
+function _relSetCountBadge(id, texto, cls) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = texto;
+  el.className = `rel-count-badge rel-count-${cls}`;
+}
+
 async function _relCarregarPainelVivo() {
   const riscoBody = document.getElementById("relVivoRiscoBody");
   const workBody  = document.getElementById("relVivoWorkloadBody");
@@ -8186,6 +8194,7 @@ async function _relCarregarPainelVivo() {
     const data = await r.json();
 
     const risco = data.em_risco || [];
+    _relSetCountBadge("relVivoRiscoCount", String(risco.length), risco.length > 0 ? "bad" : "ok");
     if (riscoBody) riscoBody.innerHTML = risco.length
       ? risco.map(d => `<tr>
           <td>${_waEscaparHtml(d.titulo || "")}</td>
@@ -8197,6 +8206,8 @@ async function _relCarregarPainelVivo() {
       : '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px;">Nenhum chamado em risco agora.</td></tr>';
 
     const work = data.workload_tecnico || [];
+    const totalAbertos = work.reduce((s, d) => s + (Number(d.abertos) || 0), 0);
+    _relSetCountBadge("relVivoWorkloadCount", `${totalAbertos} aberto${totalAbertos === 1 ? "" : "s"}`, "neutral");
     if (workBody) workBody.innerHTML = work.length
       ? work.map(d => `<tr>
           <td>${_waEscaparHtml(d.tecnico_nome || "-")}</td>

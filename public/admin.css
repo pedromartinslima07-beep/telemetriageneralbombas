@@ -5107,6 +5107,57 @@ body.mp-fs-active { overflow: hidden; }
   border-bottom: 1px solid rgba(255,255,255,.05);
 }
 
+/* Card "Painel ao vivo" — borda de destaque, é a área que pede atenção agora */
+.rel-card-vivo { border-left: 3px solid var(--accent); }
+
+/* Bloco ícone+título dentro de um .rel-ct-head — precisa ficar como filho
+   único do flex pra não brigar com o justify-content:space-between dele
+   (senão ícone/título/subtítulo se espalham pelo cabeçalho inteiro). */
+.rel-card-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .45px;
+  color: var(--muted);
+}
+
+.rel-card-icon {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.rel-card-icon svg { width: 14px; height: 14px; }
+
+.rel-icon-vivo       { background: rgba(240,176,20,.16); color: var(--accent); }
+.rel-icon-chamados   { background: rgba(74,120,247,.14); color: var(--blue); }
+.rel-icon-alertas    { background: rgba(239,68,68,.14);  color: var(--danger); }
+.rel-icon-telemetria { background: rgba(34,211,238,.14); color: var(--cyan); }
+
+/* Badge de contagem no cabeçalho das tabelas do Painel ao vivo */
+.rel-count-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.rel-count-bad     { background: rgba(239,68,68,.16); color: var(--danger); }
+.rel-count-ok       { background: rgba(34,197,94,.16); color: var(--ok); }
+.rel-count-neutral { background: var(--surface3); color: var(--text-dim); }
+
 .rel-ct-badge {
   font-size: 10px;
   font-weight: 600;
