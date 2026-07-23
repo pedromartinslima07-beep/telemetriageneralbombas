@@ -80,6 +80,16 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
 
 ## Marcos de produto (fases do plano)
 
+- **2026-07-23** — **Chamado automático no alerta de nível baixo/muito baixo**
+  - `POST /telemetria` agora abre chamado automaticamente (via
+    `abrirChamadoAuto`, `src/services/chamados.service.js`) quando o alerta
+    de nível baixo/muito baixo é novo, além do e-mail já existente.
+    Categoria `nivel_baixo`, prioridade `p3` (baixo) / `p2` (muito baixo).
+  - Dedup por `condominio_id + categoria`: nunca abre um 2º chamado
+    enquanto já existir um aberto — se o nível piora de baixo pra muito
+    baixo com o chamado ainda aberto, só escalona a prioridade.
+  - Sem migration nova (categoria `nivel_baixo` já existia desde a 002).
+
 - **2026-07-22** — **Planos de manutenção: seleção em massa (ativar/desativar vários de uma vez)**
   - Motivação: reativar planos inativos só dava pra fazer um por um (abrir
     modal de edição, marcar "Plano ativo", salvar, repetir).

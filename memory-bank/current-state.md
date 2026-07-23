@@ -47,7 +47,10 @@ ESP32 (sonda 4-20mA + SCT-013)
   `X-Device-Key` → query única com `LEFT JOIN LATERAL` → conversão ADC→% por
   calibração → decisão da bomba por `limiar_bomba` → **write threshold** (só
   grava se Δ% ≥ threshold ou passou heartbeat) → CTE única (insert leitura +
-  update last_seen + auto-resolve offline) → geração/resolução de alertas.
+  update last_seen + auto-resolve offline) → geração/resolução de alertas →
+  nível baixo/muito baixo **novo** também abre chamado automático via
+  `abrirChamadoAuto` (categoria `nivel_baixo`, P3/P2, dedup por
+  condomínio+categoria — ver [chamados-sla.md](../docs/modulos/chamados-sla.md)).
 
 ## Módulos existentes (por router)
 

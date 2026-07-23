@@ -5,7 +5,7 @@ const { enviarMensagem } = require("../services/evolution.service");
 const { sendAlertaEmail } = require("../services/email");
 const { OFFLINE_MINUTES } = require("../config");
 const { getConfigInt } = require("../services/config.service");
-const { registrarCriacao } = require("../services/chamado-historico.service");
+const { abrirChamadoAuto } = require("../services/chamados.service");
 
 async function _notificarClienteWhatsApp(condominio_id, mensagem) {
   // Busca cliente + conversa aberta do condomínio
@@ -44,26 +44,6 @@ async function _notificarClienteWhatsApp(condominio_id, mensagem) {
   try { await enviarMensagem(telefone, mensagem); } catch (_) {}
 }
 
-async function _abrirChamadoAuto(condominio_id, titulo, descricao, prioridade, categoria) {
-  // Evita abrir chamado duplicado para o mesmo condomínio+categoria se já houver um aberto
-  const existente = await pool.query(
-    `SELECT id FROM chamados
-     WHERE condominio_id = $1 AND categoria = $2 AND status != 'fechado'
-     LIMIT 1`,
-    [condominio_id, categoria]
-  );
-  if (existente.rows.length > 0) return existente.rows[0].id;
-
-  const result = await pool.query(
-    `INSERT INTO chamados (condominio_id, titulo, descricao, prioridade, categoria)
-     VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-    [condominio_id, titulo, descricao, prioridade, categoria]
-  );
-  // Audit log: criado pelo job (alteradoPor=null = sistema)
-  registrarCriacao({ chamadoId: result.rows[0].id, alteradoPor: null });
-  return result.rows[0].id;
-}
-
 async function jobVerificarOffline() {
   const limiteMinutos = OFFLINE_MINUTES;
 
@@ -98,7 +78,13 @@ async function jobVerificarOffline() {
         const titulo = `[AUTO] Dispositivo offline: ${nomeRes}${tipoRes}`;
         const descricao = `Alerta automático — ${mensagemAlerta}`;
         try {
-          await _abrirChamadoAuto(r.condominio_id, titulo, descricao, 'p2', 'bomba_falha');
+          await abrirChamadoAuto({
+            condominio_id: r.condominio_id,
+            titulo,
+            descricao,
+            prioridade: 'p2',
+            categoria: 'bomba_falha',
+          });
         } catch (e) {
           console.error("[offline.job] erro ao abrir chamado automático:", e.message);
         }

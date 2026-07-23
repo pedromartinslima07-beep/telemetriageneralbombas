@@ -16,6 +16,12 @@ Origens possíveis:
 - **Cliente** (`POST /cliente/chamados`, app/painel).
 - **Admin** (`POST /chamados`, masterAdmin).
 - **Plano de manutenção** (job gera chamado P4 ao vencer).
+- **Automático via `abrirChamadoAuto`** (`src/services/chamados.service.js`):
+  dispositivo offline (`offline.job.js`, categoria `bomba_falha`, P2) e nível
+  de reservatório baixo/muito baixo (`POST /telemetria`, categoria
+  `nivel_baixo`, P3/P2). Faz dedup por `condominio_id + categoria` — se já
+  existe chamado aberto na mesma dupla, reaproveita e só escalona a
+  prioridade (nunca abre um 2º).
 
 Ao abrir, anexa automaticamente a última leitura de telemetria do condomínio
 (integração Fase 4). Campos-chave: `condominio_id`, `categoria`, `prioridade`,

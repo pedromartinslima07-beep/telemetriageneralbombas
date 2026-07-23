@@ -3,6 +3,7 @@ const express = require("express");
 const { pool } = require("../db");
 const { upsertAlertaAberto } = require("../services/alertas.service");
 const { sendAlertaEmail } = require("../services/email");
+const { abrirChamadoAuto } = require("../services/chamados.service");
 
 const router = express.Router();
 
@@ -195,9 +196,12 @@ router.post("/", telemetriaLimiter, async (req, res) => {
       }
     }
 
-    // Dispara email só quando o alerta é NOVO (inserted) — evita spam a cada leitura
-    // enquanto o nível continua baixo. updated = atualizou mensagem do existente.
-    const _notificarSeNovo = (resultado, tipo, mensagem) => {
+    // Dispara email + chamado automático só quando o alerta é NOVO (inserted) —
+    // evita spam a cada leitura enquanto o nível continua baixo. updated =
+    // atualizou mensagem do existente. abrirChamadoAuto já cuida da dedup por
+    // condomínio+categoria e escalona a prioridade se baixo virar muito_baixo
+    // com o chamado ainda aberto.
+    const _notificarSeNovo = (resultado, tipo, mensagem, prioridade) => {
       if (resultado?.action !== "inserted") return;
       sendAlertaEmail({
         tipo,
@@ -207,16 +211,24 @@ router.post("/", telemetriaLimiter, async (req, res) => {
         device_id,
         nivel_pct: nivelPct,
       }).catch(() => {}); // já loga internamente, não bloqueia a resposta
+
+      abrirChamadoAuto({
+        condominio_id: reservatorio.condominio_id,
+        titulo: `[AUTO] ${mensagem}`,
+        descricao: `Alerta automático de telemetria — ${mensagem} (reservatório ${reservatorio.reservatorio_nome}, ${nivelPct}%).`,
+        prioridade,
+        categoria: "nivel_baixo",
+      }).catch((e) => console.error("[telemetria] erro ao abrir chamado automático:", e.message));
     };
 
     if (nivelNormalizado === "baixo") {
       const msg = `Nível baixo detectado no dispositivo ${device_id}`;
       const r = await upsertAlertaAberto(device_id, "nivel_baixo", msg);
-      _notificarSeNovo(r, "nivel_baixo", msg);
+      _notificarSeNovo(r, "nivel_baixo", msg, "p3");
     } else if (nivelNormalizado === "muito_baixo") {
       const msg = `NÍVEL MUITO BAIXO detectado no dispositivo ${device_id}`;
       const r = await upsertAlertaAberto(device_id, "nivel_muito_baixo", msg);
-      _notificarSeNovo(r, "nivel_muito_baixo", msg);
+      _notificarSeNovo(r, "nivel_muito_baixo", msg, "p2");
     }
 
     return res.json({

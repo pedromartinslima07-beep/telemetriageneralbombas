@@ -7,8 +7,31 @@ aliases:
 ---
 # Trabalho em Andamento
 
-> Branch atual: `feature/app-mobile`. Última sessão registrada: **2026-07-22**.
+> Branch atual: `feature/app-mobile`. Última sessão registrada: **2026-07-23**.
 > Roadmap completo em [`roadmap.md`](roadmap.md); decisões em [`decisions.md`](decisions.md).
+
+## Sessão 2026-07-23 — Chamado automático no alerta de nível baixo
+
+Pedido do usuário (retomado após queda de conexão na sessão anterior):
+`POST /telemetria` abrir chamado automaticamente junto do alerta de
+reservatório com nível baixo/muito baixo, sem duplicar. A extração de
+`_abrirChamadoAuto` (antes local em `offline.job.js`) para o módulo genérico
+`src/services/chamados.service.js` — com dedup por `condominio_id +
+categoria` e escalonamento de prioridade — já tinha sido feita antes da
+queda; faltava só ligar isso na rota de telemetria.
+
+- `src/routes/telemetria.routes.js`: `_notificarSeNovo` (chamada só quando o
+  alerta é novo — `action === 'inserted'`, evita spam a cada leitura) agora
+  também chama `abrirChamadoAuto` além do e-mail. Categoria `nivel_baixo`
+  (único valor do enum pra nível, não existe `nivel_muito_baixo` separado);
+  prioridade `p3` pra "baixo" e `p2` pra "muito_baixo" — se o chamado de P3
+  ainda estiver aberto quando o nível cai pra muito_baixo, é escalonado pra
+  P2 em vez de abrir um segundo chamado (mecanismo já existente em
+  `abrirChamadoAuto`).
+- Nenhuma migration nova — categoria `nivel_baixo` já existia no CHECK
+  constraint desde a migration 002.
+
+Ver [`../docs/modulos/chamados-sla.md`](../docs/modulos/chamados-sla.md).
 
 ## Sessão 2026-07-22 — Planos de manutenção: seleção em massa
 
