@@ -80,6 +80,99 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
 
 ## Marcos de produto (fases do plano)
 
+- **2026-07-23** — **Dashboard e Telemetria: ajustes de layout**
+  - **Dashboard:** removido o card "IA Insights" (linha inferior) — mostrava
+    insights derivados genéricos ("IA pronta 24/7" etc.), baixo valor. A linha
+    ficou com 2 colunas (Conversas + Telemetria ao vivo). Removidos HTML, o
+    render `renderMcIaInsights` e todo o CSS `.mc-ia*`/`.mc-brain*`.
+  - **Telemetria — layout (mockup):** linha principal = card "Reservatórios
+    monitorados" (esq) + coluna direita com "Reservatórios Críticos" +
+    **"Últimos Eventos"** (feed derivado de leituras/alertas/offline). Cada
+    reservatório virou **card horizontal detalhado** (tanque SVG volumétrico +
+    `%` grande + badge Online + barra + nível + metadados última leitura/bomba/
+    device). KPIs mantidos (só a distribuição mudou).
+  - **Histórico de Níveis** virou **modal** (abre ao clicar num tanque / no
+    ícone de gráfico), em vez de card fixo — não ocupa altura na página.
+  - **Histórico (no modal):** título com o nome do reservatório clicado; linhas
+    de limiar (baixo 45% / crítico 20%, os mesmos `TEL_LIMIARES` dos tanques)
+    como anotações; chips de estatística (atual / mín / méd / máx em mono);
+    range 24h–60d, selects de condomínio/reservatório e export PDF; fecha no
+    X / backdrop / Esc. Gráfico com altura fixa (300px).
+
+- **2026-07-23** — **KPIs unificados em todas as abas (estilo único)**
+  - Só frontend. Os cards de KPI (`.rc`) de todas as seções — Dashboard,
+    Telemetria, Chamados, Alertas, Orçamentos, OS, Contratos, Planos, Clientes,
+    Mapa — passaram a compartilhar **um estilo único**: card neutro (mesma
+    borda, sem glow colorido `::before`), **número grande em mono** e a cor
+    semântica (ok/warn/bad/neutral) carregada **só pelo ícone**.
+  - Feito no CSS base (`.rc-value` + bloco de variantes `.rc-*`), sem precisar
+    editar as ~9 funções de render — todas já emitiam a mesma estrutura
+    (`.rc-head > .rc-icon + .rc-label` + `.rc-value`). Cards clicáveis
+    (Dashboard) mantêm o hover; os estáticos usam `rc-static`.
+  - **Dedup do markup:** as ~8 cópias locais do helper `kpi()` (uma por seção)
+    + `resumoCard` passaram a delegar pra um único `kpiCard()` — fonte única do
+    HTML do card. Sem mudança visual, só remove a duplicação (que era o risco de
+    os cards divergirem de novo).
+  - Motivação: os KPIs tinham fundos/bordas/valores coloridos que variavam
+    entre abas (e dentro da mesma aba), destoando entre si. Alinha com a
+    estética "sem gradientes chamativos, mono pra dados técnicos".
+
+- **2026-07-23** — **Telemetria: redesign da aba (tanques SVG no lugar do bar chart)**
+  - Só frontend (`public/admin.html`, `admin.css`, `admin.js`) — nenhum
+    endpoint ou lógica de backend mudou. Bar chart ApexCharts do card "Níveis
+    dos Reservatórios" **removido** (a lib segue no Histórico de Níveis).
+  - **Grade de caixas d'água cilíndricas em SVG**, uma por reservatório:
+    corpo com elipses topo/base, água preenchendo de baixo p/ cima com elipse
+    de superfície, `%` grande em mono, ticks 25/50/75/100, cor por faixa
+    (azul normal / âmbar baixo / vermelho crítico). Componente reutilizável
+    `_telTanqueSVG(pct, offline, thresholds)`; faixas alinhadas aos limiares
+    de alerta do backend (`nivelFromPct`: crítico `<20`, baixo `<45`) e
+    passadas como parâmetro (`TEL_LIMIARES`). Grid responsivo
+    `minmax(160px, 1fr)`; **modo compacto** (sem elipse de superfície nem
+    rótulos de tick) via `@container` quando o tile fica estreito.
+  - **Clicar num tanque** seleciona o reservatório no card "Histórico de
+    Níveis" (`_telSelecionarNoHistorico`) e rola até ele.
+  - **KPIs padronizados** (escopado a `.tel-kpi-grid`): mesmo fundo/borda
+    neutros, só o ícone com cor semântica, número em mono. "Bombas ativas"
+    exibe **0** em vez de traço quando nenhuma bomba ligada.
+  - **"Reservatórios Críticos"** vazio: empty state compacto com ícone de
+    check + texto secundário (antes ocupava altura fixa de 360px).
+  - **Selects nativos** dos filtros (topo + Histórico) viraram custom dark
+    (chevron SVG próprio), consistentes com a aba Relatórios.
+  - **Fusão dos cards "Níveis" + "Reservatórios":** a tabela de reservatórios
+    era redundante com os tanques (nome, condomínio, bomba, nível, atualização).
+    Removida; as ações de admin (Editar / Nova Key / Excluir) viraram ícones
+    em cada tanque (`.tel-tank-actions`, só master) e o "+ Novo" foi pro header
+    da grade. Clique de seleção isolado em `.tel-tank-hit` pra não conflitar
+    com os botões de ação. Histórico passou a ocupar a largura toda.
+  - **"Ver todos":** botão no header abre overlay em tela cheia com todos os
+    tanques (respeitando os filtros), fecha no X / backdrop / Esc / ao
+    selecionar um tanque.
+  - As classes `.tel-bombas-*` / `.tel-bomba-*` foram **mantidas** no CSS: o
+    painel do cliente (`cliente.html`/`cliente.js`, que carrega `admin.css`)
+    ainda renderiza a tabela.
+  - Cache bump: `admin.css?v=134`, `admin.js?v=224`. Sem `sw.js`.
+  - Unificação global dos KPIs feita em seguida (marco separado acima).
+
+- **2026-07-23** — **Relatórios: redesign da aba (card único de exportação + painel colapsável)**
+  - Só frontend (`public/admin.html`, `admin.css`, `admin.js`) — nenhum
+    endpoint, coluna de CSV ou lógica de backend mudou.
+  - Os 3 cards de exportação (Chamados/Alertas/Telemetria), que repetiam o
+    mesmo formulário, viraram **1 card "Exportar relatórios"** com segmented
+    control por tipo. De/Até/Condomínio são filtros comuns fixos; só os
+    específicos trocam por tab. Um único botão "Exportar CSV" primário.
+  - **Chips de preset** de período (7 dias, 30 dias, este mês, mês anterior)
+    acima dos date pickers; editar a data na mão desmarca o chip.
+  - **Selects e date inputs custom** (`appearance:none` + chevron/calendário
+    SVG próprios, datas em monospace) — some o controle nativo claro que
+    quebrava o tema escuro. Escopados sob `.filter-bar` só na aba Relatórios.
+  - **Painel ao vivo colapsável:** sem chamados em risco nem técnicos com
+    abertos, colapsa numa linha "Tudo operacional — 0 em risco · 0 abertos"
+    (com toggle pra expandir). Empty states com ícone + texto secundário no
+    lugar de célula de tabela vazia.
+  - Cache bump: `admin.css?v=133`, `admin.js?v=223`. Sem endpoint novo → não
+    mexe em `sw.js`/`register-sw.js`.
+
 - **2026-07-23** — **Chamado automático no alerta de nível baixo/muito baixo**
   - `POST /telemetria` agora abre chamado automaticamente (via
     `abrirChamadoAuto`, `src/services/chamados.service.js`) quando o alerta

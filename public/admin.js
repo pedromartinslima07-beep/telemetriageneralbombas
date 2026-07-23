@@ -117,8 +117,8 @@ function showSection(name) {
 
   _telSecaoAtiva = (name === "telemetria");
   if (_telSecaoAtiva) {
+    // O histórico agora é modal (abre ao clicar num tanque) — não carrega aqui.
     renderTelemetriaAvancada();
-    carregarHistoricoTelemetria();
   }
 
   if (name === "chamados") {
@@ -229,6 +229,21 @@ const RC_META = {
   ok:                { icon: 'ok',       label: 'Cond. OK' },
 };
 
+// Card de KPI unificado — fonte única do markup pra TODAS as abas. Estrutura:
+// ícone (cor semântica) + label + número em mono. `attrs` injeta atributos
+// extras no card (ex.: data-* de clique); `button=true` troca a tag pra
+// <button> clicável (sem rc-static). Os helpers locais `kpi(...)` de cada
+// seção delegam pra cá — não duplicar este markup.
+function kpiCard(icon, value, label, kindCls = "rc-neutral", attrs = "", button = false) {
+  const tag = button ? "button" : "div";
+  const staticCls = button ? "" : " rc-static";
+  return `
+    <${tag} class="rc ${kindCls}${staticCls}"${attrs ? " " + attrs : ""}>
+      <div class="rc-head"><div class="rc-icon">${icon}</div><div class="rc-label">${label}</div></div>
+      <div class="rc-value">${value}</div>
+    </${tag}>`;
+}
+
 function resumoCard(titulo, valorHtml, kind, cardKey) {
   const kindCls =
     kind === "bad"  ? "rc-bad"  :
@@ -239,15 +254,8 @@ function resumoCard(titulo, valorHtml, kind, cardKey) {
   const iconKey = meta.icon || (kind === 'bad' ? 'danger' : kind === 'warn' ? 'warn' : 'ok');
   const iconSvg = RC_ICONS[iconKey] || RC_ICONS.ok;
 
-  return `
-    <button class="rc ${kindCls}" data-card="${cardKey}">
-      <div class="rc-head">
-        <div class="rc-icon">${iconSvg}</div>
-        <div class="rc-label">${titulo}</div>
-      </div>
-      <div class="rc-value">${valorHtml}</div>
-    </button>
-  `;
+  // Card do Dashboard é clicável (filtra) → button, sem rc-static.
+  return kpiCard(iconSvg, valorHtml, titulo, kindCls, `data-card="${cardKey}"`, true);
 }
 
 // ===== estado =====
@@ -276,7 +284,6 @@ let _drawerGauges = new Map();
 let _telFiltroCondominioId = "";
 let _telFiltroTipo = "";
 let _telHistoricoHoras = 24;
-let _telBarChart = null;
 let _telHistoricoChart = null;
 let _telSecaoAtiva = false;
 let _telFiltrosInicializados = false;
@@ -989,43 +996,6 @@ function renderMcTelemetria() {
   }).join("");
 }
 
-function renderMcIaInsights() {
-  const wrap = document.getElementById("mcIaList");
-  if (!wrap) return;
-  // Insights derivados dos dados atuais
-  const insights = [];
-  const groups = _statusData || [];
-
-  const total = groups.length;
-  const offline = groups.reduce((s, g) => s + (g?.resumo?.offline_count ?? 0), 0);
-  const comAlerta = groups.filter(g => (g?.resumo?.alertas_abertos_total ?? 0) > 0).length;
-
-  const niveisBaixos = groups
-    .flatMap(g => (g.reservatorios || []).map(r => ({ g, r })))
-    .filter(({ r }) => r.ultima_leitura?.nivel_pct != null && r.ultima_leitura.nivel_pct < 30);
-
-  const chamadosEmergencia = (_chamadosData || []).filter(c => c.prioridade === "p1" && c.status !== "fechado").length;
-
-  if (offline > 0) {
-    insights.push({ color: 'violet', text: `${offline} reservatório${offline > 1 ? 's' : ''} offline — investigar conectividade.` });
-  }
-  if (niveisBaixos.length > 0) {
-    insights.push({ color: 'cyan', text: `${niveisBaixos.length} reservatório${niveisBaixos.length > 1 ? 's' : ''} abaixo de 30% — risco crescente.` });
-  }
-  if (chamadosEmergencia > 0) {
-    insights.push({ color: 'amber', text: `${chamadosEmergencia} chamado${chamadosEmergencia > 1 ? 's' : ''} de emergência em aberto.` });
-  }
-  if (insights.length < 3) {
-    insights.push({ color: 'cyan', text: `${total - comAlerta} de ${total} condomínios operando sem alertas.` });
-  }
-  if (insights.length < 3) {
-    insights.push({ color: 'violet', text: `IA pronta para abrir chamados via WhatsApp 24/7.` });
-  }
-
-  wrap.innerHTML = insights.slice(0, 4).map(i =>
-    `<li><span class="mc-ia-dot ${i.color}"></span>${i.text}</li>`
-  ).join("");
-}
 
 function atualizarStatusSistema() {
   const el = document.getElementById("sysStatusValue");
@@ -1076,30 +1046,19 @@ function _telAplicarFiltros(lista) {
   });
 }
 
-function _telCorPct(pct) {
-  if (pct == null) return "off";
-  if (pct < 20) return "bad";
-  if (pct < 40) return "warn";
-  return "ok";
-}
-
-function _telLvClassDeNivel(nivel) {
-  const n = String(nivel || "").toLowerCase();
-  return n === "alto" ? "lv-alto"
-    : n === "medio" ? "lv-medio"
-      : n === "baixo" ? "lv-baixo"
-        : n === "muito_baixo" ? "lv-muito-baixo" : "";
-}
-
 function renderTelemetriaAvancada() {
   if (!document.getElementById("telKpiGrid")) return;
 
   popularFiltrosTelemetria();
   popularFiltrosHistorico();
   renderTelKpis();
-  renderTelBarChart();
+  renderTelTanques();
   renderTelCriticos();
-  renderTelBombas();
+  renderTelUltimosEventos();
+
+  // "+ Novo reservatório" agora vive no header da grade de tanques (só master)
+  const btnNovo = document.getElementById("btnNovoReservatorio");
+  if (btnNovo) btnNovo.style.display = _isMaster ? "" : "none";
 }
 
 function renderTelKpis() {
@@ -1129,7 +1088,8 @@ function renderTelKpis() {
   const cards = [
     { key: "monitorados", label: "RESERVATÓRIOS MONITORADOS", value: total,                                kind: "neutral", icon: "monitorados" },
     { key: "nivel",       label: "NÍVEL MÉDIO GERAL",         value: nivelMedio != null ? nivelMedio + "%" : "—", kind: nivelMedio == null ? "neutral" : nivelMedio < 30 ? "bad" : nivelMedio < 50 ? "warn" : "ok", icon: "nivel" },
-    { key: "bombas",      label: "BOMBAS ATIVAS",             value: bombasConhecidas > 0 ? `${bombasAtivas}/${bombasConhecidas}` : "—", kind: bombasAtivas > 0 ? "ok" : "neutral", icon: "bombas" },
+    // Sempre exibe um número (0 quando nenhuma bomba ligada), nunca traço.
+    { key: "bombas",      label: "BOMBAS ATIVAS",             value: bombasAtivas, hint: bombasConhecidas > 0 ? `de ${bombasConhecidas} monitoradas` : "sem dados de bomba", kind: bombasAtivas > 0 ? "ok" : "neutral", icon: "bombas" },
     { key: "alertas",     label: "ALERTAS CRÍTICOS",          value: alertas,                              kind: alertas > 0 ? "bad" : "ok",  icon: "alertas" },
     { key: "offline",     label: "DISPOSITIVOS OFFLINE",      value: offline,                              kind: offline > 0 ? "bad" : "ok",  icon: "offline" },
   ];
@@ -1137,12 +1097,13 @@ function renderTelKpis() {
   grid.innerHTML = cards.map(c => {
     const kindCls = c.kind === "bad" ? "rc-bad" : c.kind === "warn" ? "rc-warn" : c.kind === "ok" ? "rc-ok" : "rc-neutral";
     return `
-      <div class="rc ${kindCls}" data-card="tel-${c.key}" style="cursor:default;">
+      <div class="rc ${kindCls} rc-static" data-card="tel-${c.key}">
         <div class="rc-head">
           <div class="rc-icon">${TEL_KPI_ICONS[c.icon] || ""}</div>
           <div class="rc-label">${c.label}</div>
         </div>
         <div class="rc-value">${c.value}</div>
+        ${c.hint ? `<div class="rc-hint">${c.hint}</div>` : ""}
       </div>`;
   }).join("");
 }
@@ -1171,96 +1132,308 @@ function popularFiltrosTelemetria() {
   if (!_telFiltrosInicializados) {
     selCond.addEventListener("change", () => {
       _telFiltroCondominioId = selCond.value;
-      renderTelBarChart();
+      renderTelTanques();
       renderTelCriticos();
-      renderTelBombas();
     });
     selTipo.addEventListener("change", () => {
       _telFiltroTipo = selTipo.value;
-      renderTelBarChart();
+      renderTelTanques();
       renderTelCriticos();
-      renderTelBombas();
     });
     _telFiltrosInicializados = true;
   }
 }
 
-function renderTelBarChart() {
+// ----- Grade de tanques (caixas d'água SVG) -----
+
+// Limiares de nível alinhados aos alertas do backend (nivelFromPct):
+//   < critico → muito_baixo (dispara alerta nivel_muito_baixo)
+//   < baixo   → baixo       (dispara alerta nivel_baixo)
+// Passados como parâmetro pro componente ser reutilizável e pronto pro dia em
+// que existir limiar configurável por reservatório.
+const TEL_LIMIARES = { critico: 20, baixo: 45 };
+
+// Faixa de cor da água a partir do nível (%) e dos limiares.
+function _telBandaAgua(pct, thresholds = TEL_LIMIARES) {
+  if (pct == null)                return { key: "off",   cor: "#5b6070" };
+  if (pct < thresholds.critico)   return { key: "crit",  cor: "#ef4444" };
+  if (pct < thresholds.baixo)     return { key: "baixo", cor: "#f59e0b" };
+  return { key: "ok", cor: "#22d3ee" };
+}
+
+// "há Xmin" / "há Xh" / data — mesma lógica da tabela de reservatórios.
+function _telAtualizadoTxt(u) {
+  if (!u?.criado_em) return "sem leitura";
+  const mins = Math.round((Date.now() - new Date(u.criado_em)) / 60000);
+  if (mins < 60)   return `há ${mins}min`;
+  if (mins < 1440) return `há ${Math.round(mins / 60)}h`;
+  return fmtData(u.criado_em);
+}
+
+// Caixa d'água cilíndrica em SVG (volumétrica): água de baixo p/ cima, elipse de
+// superfície, escala 0–100, cor por faixa. viewBox com folga à esquerda (-10)
+// pro rótulo "100" não ser cortado.
+function _telTanqueSVG(pct, offline, thresholds = TEL_LIMIARES) {
+  const nivel = offline || pct == null ? null : Math.max(0, Math.min(100, pct));
+  const cor   = _telBandaAgua(nivel, thresholds).cor;
+
+  const TOP = 20, BOT = 114, RX = 31, RY = 8, H = BOT - TOP;
+  const yAgua = nivel == null ? BOT : TOP + (1 - nivel / 100) * H;
+  const uid = "tk" + Math.random().toString(36).slice(2, 8);
+  const pctTxt = offline ? "OFF" : (nivel == null ? "—" : Math.round(nivel) + "%");
+
+  const ticks = [0, 25, 50, 75, 100].map(t => {
+    const y = TOP + (1 - t / 100) * H;
+    return `<line class="tank-tick" x1="10" y1="${y.toFixed(1)}" x2="15" y2="${y.toFixed(1)}"/>` +
+           `<text class="tank-tick-lbl" x="7.5" y="${(y + 2.4).toFixed(1)}" text-anchor="end">${t}</text>`;
+  }).join("");
+
+  const bodyPath = `M${50 - RX} ${TOP} A${RX} ${RY} 0 0 0 ${50 + RX} ${TOP} L${50 + RX} ${BOT} A${RX} ${RY} 0 0 1 ${50 - RX} ${BOT} Z`;
+
+  const agua = nivel == null ? "" : `
+      <g clip-path="url(#clip-${uid})">
+        <rect x="${50 - RX}" y="${yAgua.toFixed(1)}" width="${RX * 2}" height="${(BOT - yAgua + RY).toFixed(1)}" fill="url(#water-${uid})"/>
+        <ellipse class="tank-surface" cx="50" cy="${yAgua.toFixed(1)}" rx="${RX}" ry="${RY}" fill="${cor}"/>
+        <ellipse class="tank-surface" cx="50" cy="${yAgua.toFixed(1)}" rx="${RX}" ry="${RY}" fill="none" stroke="#fff" stroke-opacity=".3" stroke-width="1"/>
+      </g>`;
+
+  return `
+    <svg viewBox="-8 0 108 126" role="img" aria-label="Nível ${pctTxt}">
+      <defs>
+        <clipPath id="clip-${uid}">
+          <path d="${bodyPath}"/>
+        </clipPath>
+        <linearGradient id="body-${uid}" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0"   stop-color="#fff" stop-opacity=".12"/>
+          <stop offset=".45" stop-color="#fff" stop-opacity=".02"/>
+          <stop offset="1"   stop-color="#000" stop-opacity=".22"/>
+        </linearGradient>
+        <linearGradient id="water-${uid}" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="${cor}" stop-opacity=".95"/>
+          <stop offset="1" stop-color="${cor}" stop-opacity=".55"/>
+        </linearGradient>
+      </defs>
+      ${ticks}
+      <ellipse cx="50" cy="${BOT + 3}" rx="${RX - 3}" ry="4" fill="#000" opacity=".25"/>
+      <path d="${bodyPath}" fill="url(#body-${uid})"/>
+      ${agua}
+      <rect x="${50 - RX + 6}" y="${TOP + 5}" width="4" height="${H - 12}" rx="2" fill="#fff" opacity=".08"/>
+      <line class="tank-outline" x1="${50 - RX}" y1="${TOP}" x2="${50 - RX}" y2="${BOT}"/>
+      <line class="tank-outline" x1="${50 + RX}" y1="${TOP}" x2="${50 + RX}" y2="${BOT}"/>
+      <path class="tank-outline" d="M${50 - RX} ${BOT} A${RX} ${RY} 0 0 0 ${50 + RX} ${BOT}"/>
+      <ellipse class="tank-rim" cx="50" cy="${TOP}" rx="${RX}" ry="${RY}"/>
+      <ellipse class="tank-rim" cx="50" cy="${TOP - 3}" rx="${RX - 8}" ry="5" fill="rgba(255,255,255,.03)"/>
+      <text class="tank-pct" x="50" y="72">${pctTxt}</text>
+    </svg>`;
+}
+
+function renderTelTanques() {
   const el = document.getElementById("telNiveisChart");
   const empty = document.getElementById("telNiveisEmpty");
-  if (!el || typeof ApexCharts === "undefined") return;
+  if (!el) return;
 
   const reservs = _telAplicarFiltros(_telColetarReservatorios())
-    .filter(r => r.ultima_leitura?.nivel_pct != null)
     .sort((a, b) => (a.condominio_nome || "").localeCompare(b.condominio_nome || "") || (a.nome || "").localeCompare(b.nome || ""));
 
   if (reservs.length === 0) {
-    if (_telBarChart) { try { _telBarChart.destroy(); } catch (_) {} _telBarChart = null; }
     el.innerHTML = "";
     if (empty) empty.style.display = "block";
     return;
   }
   if (empty) empty.style.display = "none";
 
-  const labels = reservs.map(r => `${r.nome || "Res."} · ${r.condominio_nome.slice(0, 14)}`);
-  const data = reservs.map(r => Math.round(r.ultima_leitura.nivel_pct));
-  const cores = reservs.map(r => {
-    const pct = r.ultima_leitura.nivel_pct;
-    if (pct < 20) return "#ef4444";
-    if (pct < 40) return "#f59e0b";
-    if (pct < 70) return "#22d3ee";
-    return "#22c55e";
-  });
-
-  const opts = {
-    chart: { type: "bar", height: "100%", toolbar: { show: false }, background: "transparent", animations: { speed: 350 } },
-    series: [{ name: "Nível (%)", data }],
-    plotOptions: {
-      bar: {
-        borderRadius: 6,
-        borderRadiusApplication: "end",
-        columnWidth: "55%",
-        distributed: true,
-        dataLabels: { position: "top" },
-      },
-    },
-    dataLabels: {
-      enabled: true,
-      formatter: (v) => v + "%",
-      offsetY: -18,
-      style: { fontSize: "10px", fontWeight: "700", colors: ["#eef0fb"] },
-    },
-    colors: cores,
-    xaxis: {
-      categories: labels,
-      labels: { style: { colors: "#7a7e9c", fontSize: "10px" }, rotate: -32, hideOverlappingLabels: false, trim: true },
-      axisBorder: { color: "rgba(255,255,255,.06)" },
-      axisTicks: { color: "rgba(255,255,255,.06)" },
-    },
-    yaxis: {
-      min: 0, max: 100,
-      labels: { style: { colors: "#7a7e9c", fontSize: "10px" }, formatter: (v) => v + "%" },
-    },
-    grid: { borderColor: "rgba(255,255,255,.05)", strokeDashArray: 3, padding: { top: 10, right: 10, bottom: 0, left: 10 } },
-    legend: { show: false },
-    tooltip: {
-      theme: "dark",
-      y: { formatter: (v) => v + "%" },
-    },
-    fill: {
-      type: "gradient",
-      gradient: { shade: "dark", type: "vertical", shadeIntensity: .4, opacityFrom: .95, opacityTo: .7, stops: [0, 100] },
-    },
-  };
-
-  if (_telBarChart) {
-    _telBarChart.updateOptions(opts, false, true);
-  } else {
-    el.innerHTML = "";
-    _telBarChart = new ApexCharts(el, opts);
-    _telBarChart.render();
-  }
+  el.innerHTML = reservs.map(r => _telTanqueTile(r)).join("");
 }
+
+// Ícones das ações no tile do tanque
+const TEL_ACT_ICONS = {
+  editar:    `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>`,
+  historico: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3-9 4 18 3-9h4"/></svg>`,
+  excluir:   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`,
+};
+
+// Ícones dos metadados do card de reservatório
+const _TEL_META_IC = {
+  relogio: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
+  bomba:   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 4v2M12 18v2M4 12h2M18 12h2"/></svg>`,
+  device:  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 1v3M15 1v3M9 20v3M15 20v3M1 9h3M1 15h3M20 9h3M20 15h3"/></svg>`,
+};
+
+// Card detalhado de um reservatório (tanque + % grande + status + metadados +
+// ações). Layout horizontal — inspirado no mockup de 13:18.
+function _telTanqueTile(r, comAcoes = true) {
+  const u = r.ultima_leitura;
+  const pct = u?.nivel_pct;
+  const offline = !!r.offline;
+  const banda = _telBandaAgua(offline ? null : pct);
+  const cor = offline ? "var(--muted)" : banda.cor;
+  const bombaLbl = u?.bomba_ligada === true ? "ligada" : u?.bomba_ligada === false ? "desligada" : "—";
+  const nomeEsc = (r.nome || "").replaceAll('"', "&quot;");
+  const pctTxt = offline ? "OFF" : (pct != null ? Math.round(pct) + "%" : "—");
+  const larguraBar = offline || pct == null ? 0 : Math.round(pct);
+  const nivelLabel = offline ? "Dispositivo offline"
+    : pct == null ? "Sem leitura"
+    : pct < TEL_LIMIARES.critico ? "Nível crítico"
+    : pct < TEL_LIMIARES.baixo ? "Nível baixo"
+    : "Nível normal";
+  const selecionado = String(r.id) === String(_telHistReservatorioId)
+    && String(r.condominio_id) === String(_telHistCondominioId);
+
+  const acoes = `
+        <button class="tel-tank-act" data-action="tel-tanque" data-id="${r.id}" data-condo="${r.condominio_id}" title="Ver histórico">${TEL_ACT_ICONS.historico}</button>
+        ${(comAcoes && _isMaster) ? `
+        <button class="tel-tank-act" data-action="editar-reservatorio" data-id="${r.id}" title="Editar (inclui nova chave)">${TEL_ACT_ICONS.editar}</button>
+        <button class="tel-tank-act danger" data-action="excluir-reservatorio" data-id="${r.id}" data-nome="${nomeEsc}" title="Excluir">${TEL_ACT_ICONS.excluir}</button>` : ""}`;
+
+  return `
+    <div class="tel-resv-card ${banda.key}${selecionado ? " is-selected" : ""}">
+      <div class="tel-resv-left">
+        <div class="tel-resv-visual">${_telTanqueSVG(pct, offline)}</div>
+        <div class="tel-resv-actions">${acoes}</div>
+      </div>
+      <div class="tel-resv-body">
+        <div class="tel-resv-nome">${_waEscaparHtml(r.nome || "Reservatório")}</div>
+        <div class="tel-resv-condo">${_waEscaparHtml(r.condominio_nome || "—")}${r.tipo ? " · " + _waEscaparHtml(r.tipo) : ""}</div>
+        <span class="tel-resv-badge ${offline ? "off" : "on"}">● ${offline ? "Offline" : "Online"}</span>
+        <div class="tel-resv-pct" style="color:${cor}">${pctTxt}</div>
+        <div class="tel-resv-bar"><div class="tel-resv-bar-fill" style="width:${larguraBar}%;background:${cor}"></div></div>
+        <div class="tel-resv-nivel ${banda.key}">${nivelLabel}</div>
+      </div>
+      <div class="tel-resv-meta">
+        <div class="tel-resv-meta-row"><span class="tel-resv-meta-ic">${_TEL_META_IC.relogio}</span><span><em>Última leitura</em>${offline ? "sem sinal" : _telAtualizadoTxt(u)}</span></div>
+        <div class="tel-resv-meta-row"><span class="tel-resv-meta-ic">${_TEL_META_IC.bomba}</span><span><em>Bomba</em>${bombaLbl}</span></div>
+        <div class="tel-resv-meta-row"><span class="tel-resv-meta-ic">${_TEL_META_IC.device}</span><span><em>Device</em>${_waEscaparHtml(r.device_id || "—")}</span></div>
+      </div>
+    </div>`;
+}
+
+// ── Últimos eventos — feed derivado (leituras + alertas + offline) ──
+const _TEL_EVT_IC = {
+  leitura: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2c4 5 6 8 6 12a6 6 0 1 1-12 0c0-4 2-7 6-12z"/></svg>`,
+  alerta:  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
+  offline: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>`,
+};
+
+function _telHoraCurta(ts) {
+  const d = new Date(ts);
+  if (isNaN(d)) return "--:--";
+  return d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+}
+
+function renderTelUltimosEventos() {
+  const wrap = document.getElementById("telEventosList");
+  if (!wrap) return;
+
+  const eventos = [];
+  for (const r of _telColetarReservatorios()) {
+    const u = r.ultima_leitura;
+    const nome = r.nome || r.device_id || "Reservatório";
+    if (r.offline) {
+      eventos.push({ ts: u?.criado_em || Date.now(), ic: "offline", txt: `Dispositivo offline — ${nome}` });
+    } else if (u?.criado_em) {
+      const pctTxt = u.nivel_pct != null ? ` (${Math.round(u.nivel_pct)}%)` : "";
+      eventos.push({ ts: u.criado_em, ic: "leitura", txt: `Leitura recebida — ${nome}${pctTxt}` });
+    }
+  }
+  for (const a of (_alertasAbertos || [])) {
+    const ic = a.tipo === "dispositivo_offline" ? "offline" : "alerta";
+    const nome = typeof _mcDeviceCondoName === "function" ? _mcDeviceCondoName(a.device_id) : (a.device_id || "");
+    eventos.push({ ts: a.criado_em, ic, txt: `Alerta — ${String(a.tipo || "").replaceAll("_", " ")}${nome ? " · " + nome : ""}` });
+  }
+
+  eventos.sort((a, b) => new Date(b.ts) - new Date(a.ts));
+  const top = eventos.slice(0, 6);
+
+  wrap.innerHTML = top.length
+    ? top.map(e => `
+      <div class="tel-evt-row">
+        <span class="tel-evt-time">${_telHoraCurta(e.ts)}</span>
+        <span class="tel-evt-ic ${e.ic}">${_TEL_EVT_IC[e.ic] || _TEL_EVT_IC.leitura}</span>
+        <span class="tel-evt-txt">${_waEscaparHtml(e.txt)}</span>
+      </div>`).join("")
+    : `<div class="mc-empty" style="padding:20px;">Sem eventos recentes.</div>`;
+}
+
+// Clique num tanque → seleciona o reservatório no card "Histórico de Níveis".
+// Clique num tanque → abre o modal do histórico já com aquele reservatório.
+function _telSelecionarNoHistorico(condoId, resId) {
+  const selCond = document.getElementById("telHistCondominio");
+  const selRes  = document.getElementById("telHistReservatorio");
+  if (!selCond) return;
+
+  _telFecharVerTodos();     // se veio do overlay "Ver todos", fecha
+  _telAbrirHistorico();     // mostra o modal ANTES de renderizar o gráfico
+
+  _telHistCondominioId = String(condoId);
+  selCond.value = String(condoId);
+  _telPopularSelectReservatoriosHist();   // popula selRes p/ esse condomínio
+
+  _telHistReservatorioId = String(resId);
+  if (selRes) selRes.value = String(resId);
+
+  const reserv = _telColetarReservatorios().find(r => String(r.id) === String(resId));
+  const titulo = document.getElementById("telHistModalTitulo");
+  const sub = document.getElementById("telHistModalSub");
+  if (titulo) titulo.textContent = reserv?.nome || "Histórico de Níveis";
+  if (sub) {
+    const partes = [];
+    if (reserv?.condominio_nome) partes.push(reserv.condominio_nome);
+    if (reserv?.tipo) partes.push(reserv.tipo);
+    const u = reserv?.ultima_leitura;
+    if (u?.nivel_pct != null) partes.push(`${Math.round(u.nivel_pct)}% agora`);
+    sub.textContent = partes.join(" · ") || "Nível ao longo do tempo";
+  }
+
+  _telAtualizarBotaoPdf();
+  carregarHistoricoTelemetria();
+}
+
+function _telAbrirHistorico() {
+  const m = document.getElementById("telHistModal");
+  if (m) { m.classList.add("is-open"); document.body.style.overflow = "hidden"; }
+}
+function _telFecharHistorico() {
+  const m = document.getElementById("telHistModal");
+  if (m && m.classList.contains("is-open")) { m.classList.remove("is-open"); document.body.style.overflow = ""; }
+}
+
+// ----- "Ver todos" — overlay em tela cheia com todos os tanques -----
+function _telAbrirVerTodos() {
+  let ov = document.getElementById("telVerTodosOverlay");
+  if (!ov) {
+    ov = document.createElement("div");
+    ov.id = "telVerTodosOverlay";
+    ov.className = "tel-vt-overlay";
+    ov.innerHTML = `
+      <div class="tel-vt-head">
+        <span class="tel-vt-title">Níveis dos reservatórios</span>
+        <button class="tel-vt-close" data-action="tel-ver-todos-fechar" aria-label="Fechar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="tel-vt-grid" id="telVerTodosGrid"></div>`;
+    document.body.appendChild(ov);
+    ov.addEventListener("click", (e) => { if (e.target === ov) _telFecharVerTodos(); });
+  }
+  const grid = ov.querySelector("#telVerTodosGrid");
+  const reservs = _telAplicarFiltros(_telColetarReservatorios())
+    .sort((a, b) => (a.condominio_nome || "").localeCompare(b.condominio_nome || "") || (a.nome || "").localeCompare(b.nome || ""));
+  grid.innerHTML = reservs.length
+    ? reservs.map(r => _telTanqueTile(r, false)).join("")
+    : `<div class="mc-empty" style="grid-column:1/-1;padding:40px;">Nenhum reservatório para os filtros.</div>`;
+  ov.classList.add("is-open");
+  document.body.style.overflow = "hidden";
+}
+
+function _telFecharVerTodos() {
+  const ov = document.getElementById("telVerTodosOverlay");
+  if (!ov || !ov.classList.contains("is-open")) return;
+  ov.classList.remove("is-open");
+  document.body.style.overflow = "";
+}
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") { _telFecharVerTodos(); _telFecharHistorico(); } });
+// Fecha o modal do histórico ao clicar no backdrop (fora do card)
+document.addEventListener("click", (e) => { if (e.target.id === "telHistModal") _telFecharHistorico(); });
 
 function renderTelCriticos() {
   const list = document.getElementById("telCriticosList");
@@ -1284,10 +1457,17 @@ function renderTelCriticos() {
     .sort((a, b) => a.prioridade - b.prioridade || ((a.pct ?? 100) - (b.pct ?? 100)))
     .slice(0, 12);
 
+  const card = document.querySelector(".tel-card-criticos");
   if (criticos.length === 0) {
-    list.innerHTML = `<div class="mc-empty">Tudo dentro dos parâmetros ✓</div>`;
+    card?.classList.add("is-empty");
+    list.innerHTML = `
+      <div class="tel-criticos-empty">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        <span class="tel-criticos-empty-txt">Tudo dentro dos parâmetros — nenhum reservatório crítico agora.</span>
+      </div>`;
     return;
   }
+  card?.classList.remove("is-empty");
 
   const ICON_BAD  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`;
   const ICON_WARN = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
@@ -1310,65 +1490,6 @@ function renderTelCriticos() {
         </span>
         <span class="tel-crit-pct ${kind}">${pctTxt}</span>
       </button>`;
-  }).join("");
-}
-
-function renderTelBombas() {
-  const tbody = document.getElementById("telBombasBody");
-  const summary = document.getElementById("telBombasSummary");
-  if (!tbody) return;
-
-  // mostra/oculta coluna de ações e botão + Novo conforme permissão
-  const acoesHeader = document.getElementById("telBombasAcoesHeader");
-  const btnNovo = document.getElementById("btnNovoReservatorio");
-  if (acoesHeader) acoesHeader.style.display = _isMaster ? "" : "none";
-  if (btnNovo) btnNovo.style.display = _isMaster ? "" : "none";
-
-  const reservs = _telAplicarFiltros(_telColetarReservatorios())
-    .sort((a, b) => (a.condominio_nome || "").localeCompare(b.condominio_nome || "") || (a.nome || "").localeCompare(b.nome || ""));
-
-  if (summary) {
-    const on = reservs.filter(r => r.ultima_leitura?.bomba_ligada === true).length;
-    const known = reservs.filter(r => r.ultima_leitura?.bomba_ligada === true || r.ultima_leitura?.bomba_ligada === false).length;
-    summary.textContent = known > 0 ? `${on} de ${known} ligadas` : `${reservs.length} reservatórios`;
-  }
-
-  const cols = _isMaster ? 6 : 5;
-  if (reservs.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="${cols}" class="mc-empty" style="padding:24px;">Nenhum resultado para os filtros.</td></tr>`;
-    return;
-  }
-
-  tbody.innerHTML = reservs.map(r => {
-    const u = r.ultima_leitura;
-    const pct = u?.nivel_pct;
-    const corPct = _telCorPct(pct);
-    const bombaCls = u?.bomba_ligada === true ? "on" : u?.bomba_ligada === false ? "off" : "uk";
-    const bombaLbl = u?.bomba_ligada === true ? "LIGADA" : u?.bomba_ligada === false ? "DESLIGADA" : "—";
-    let atualizacao = "—";
-    if (u?.criado_em) {
-      const mins = Math.round((Date.now() - new Date(u.criado_em)) / 60000);
-      if (mins < 60) atualizacao = `há ${mins}min`;
-      else if (mins < 1440) atualizacao = `há ${Math.round(mins / 60)}h`;
-      else atualizacao = fmtData(u.criado_em);
-    }
-    const offlineTag = r.offline ? ` <span class="badge b-bad" style="margin-left:6px;font-size:9px;padding:1px 5px;">OFFLINE</span>` : "";
-    const acoesTd = _isMaster
-      ? `<td style="white-space:nowrap;">
-          <button class="btn btn-sm" data-action="editar-reservatorio" data-id="${r.id}">Editar</button>
-          <button class="btn btn-sm" data-action="regen-res-key" data-id="${r.id}" style="margin-left:4px;">Nova Key</button>
-          <button class="btn btn-sm btnDanger" data-action="excluir-reservatorio" data-id="${r.id}" data-nome="${(r.nome || "").replaceAll('"', "&quot;")}" style="margin-left:4px;">Excluir</button>
-        </td>`
-      : "";
-    return `
-      <tr>
-        <td><strong>${r.nome || "—"}</strong><div style="font-size:10.5px;color:var(--muted2);">${r.tipo || ""}</div></td>
-        <td>${r.condominio_nome || "—"}</td>
-        <td><span class="tel-bomba-pill ${bombaCls}">${bombaLbl}</span></td>
-        <td><span class="tel-bomba-pct ${corPct === "off" ? "" : corPct}">${pct != null ? pct + "%" : "—"}</span></td>
-        <td style="color:var(--muted);">${atualizacao}${offlineTag}</td>
-        ${acoesTd}
-      </tr>`;
   }).join("");
 }
 
@@ -1524,17 +1645,30 @@ async function exportarPdfHistorico() {
   }
 }
 
+const _TEL_HIST_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3-9 4 18 3-9h4"/></svg>`;
+
+// Empty state do histórico (ícone + texto); zera stats e legenda.
+function _telHistMostrarVazio(msg) {
+  const empty  = document.getElementById("telHistoricoEmpty");
+  const stats  = document.getElementById("telHistStats");
+  const legend = document.getElementById("telHistoricoLegend");
+  if (stats)  stats.innerHTML = "";
+  if (legend) legend.innerHTML = "";
+  if (empty)  { empty.innerHTML = `${_TEL_HIST_ICON}<span>${msg}</span>`; empty.style.display = "flex"; }
+}
+function _telHistEsconderVazio() {
+  const empty = document.getElementById("telHistoricoEmpty");
+  if (empty) empty.style.display = "none";
+}
+
 async function carregarHistoricoTelemetria() {
   const wrap = document.getElementById("telHistoricoChart");
-  const empty = document.getElementById("telHistoricoEmpty");
-  const legend = document.getElementById("telHistoricoLegend");
   if (!wrap) return;
 
   const escolhidos = _telEscolherReservatoriosParaHistorico();
 
   if (escolhidos.length === 0) {
-    if (empty) { empty.style.display = "block"; empty.textContent = "Sem reservatórios para o filtro selecionado."; }
-    if (legend) legend.innerHTML = "";
+    _telHistMostrarVazio("Sem reservatórios para o filtro selecionado.");
     if (_telHistoricoChart) { try { _telHistoricoChart.destroy(); } catch (_) {} _telHistoricoChart = null; }
     return;
   }
@@ -1551,14 +1685,14 @@ async function carregarHistoricoTelemetria() {
     renderTelHistoricoChart(escolhidos, data.series || {});
   } catch (e) {
     console.error("Erro histórico telemetria:", e);
-    if (empty) { empty.style.display = "block"; empty.textContent = "Erro ao carregar histórico."; }
+    _telHistMostrarVazio("Erro ao carregar histórico.");
   }
 }
 
 function renderTelHistoricoChart(reservatorios, seriesMap) {
   const wrap = document.getElementById("telHistoricoChart");
-  const empty = document.getElementById("telHistoricoEmpty");
   const legend = document.getElementById("telHistoricoLegend");
+  const stats = document.getElementById("telHistStats");
   if (!wrap || typeof ApexCharts === "undefined") return;
 
   const series = reservatorios.map((r, i) => ({
@@ -1569,13 +1703,12 @@ function renderTelHistoricoChart(reservatorios, seriesMap) {
 
   const total = series.reduce((s, x) => s + x.data.length, 0);
   if (total === 0) {
-    if (empty) { empty.style.display = "block"; empty.textContent = "Sem dados de histórico no período."; }
+    _telHistMostrarVazio("Sem dados de histórico no período.");
     wrap.innerHTML = "";
-    if (legend) legend.innerHTML = "";
     if (_telHistoricoChart) { try { _telHistoricoChart.destroy(); } catch (_) {} _telHistoricoChart = null; }
     return;
   }
-  if (empty) empty.style.display = "none";
+  _telHistEsconderVazio();
 
   if (legend) {
     legend.innerHTML = series.map((s, i) =>
@@ -1583,8 +1716,31 @@ function renderTelHistoricoChart(reservatorios, seriesMap) {
     ).join("");
   }
 
+  // Stats (atual/mín/méd/máx) só fazem sentido com 1 reservatório selecionado.
+  if (stats) {
+    const ys = series.length === 1 ? series[0].data.map(p => p.y).filter(v => v != null) : [];
+    if (ys.length > 0) {
+      const chip = (label, val) => `<div class="tel-hist-stat"><span class="tel-hist-stat-label">${label}</span><span class="tel-hist-stat-val">${val}%</span></div>`;
+      const avg = Math.round(ys.reduce((a, b) => a + b, 0) / ys.length);
+      stats.innerHTML = chip("Atual", Math.round(ys[ys.length - 1]))
+        + chip("Mín", Math.round(Math.min(...ys)))
+        + chip("Méd", avg)
+        + chip("Máx", Math.round(Math.max(...ys)));
+    } else {
+      stats.innerHTML = "";
+    }
+  }
+
   const opts = {
-    chart: { type: "area", height: "100%", toolbar: { show: false }, background: "transparent", animations: { speed: 300 }, zoom: { enabled: false } },
+    annotations: {
+      yaxis: [
+        { y: TEL_LIMIARES.baixo, borderColor: "rgba(245,158,11,.5)", strokeDashArray: 4,
+          label: { text: `baixo (${TEL_LIMIARES.baixo}%)`, position: "left", offsetX: 42, borderColor: "transparent", style: { color: "#fbbf24", background: "transparent", fontSize: "9px" } } },
+        { y: TEL_LIMIARES.critico, borderColor: "rgba(239,68,68,.55)", strokeDashArray: 4,
+          label: { text: `crítico (${TEL_LIMIARES.critico}%)`, position: "left", offsetX: 52, borderColor: "transparent", style: { color: "#f87171", background: "transparent", fontSize: "9px" } } },
+      ],
+    },
+    chart: { type: "area", height: 340, toolbar: { show: false }, background: "transparent", animations: { speed: 300 }, zoom: { enabled: false } },
     series,
     colors: series.map(s => s.color),
     stroke: { curve: "smooth", width: 2.4 },
@@ -1823,11 +1979,8 @@ function _alRenderKpis(todos) {
     ? _alFmtDuracao(temposMs.reduce((s, v) => s + v, 0) / temposMs.length)
     : "—";
 
-  const kpi = (icon, val, label, kindCls, tab) => `
-    <div class="rc ${kindCls} rc-static" ${tab ? `data-al-kpi-tab="${tab}" style="cursor:pointer;"` : ""}>
-      <div class="rc-head"><div class="rc-icon">${icon}</div><div class="rc-label">${label}</div></div>
-      <div class="rc-value">${val}</div>
-    </div>`;
+  const kpi = (icon, val, label, kindCls, tab) =>
+    kpiCard(icon, val, label, kindCls, tab ? `data-al-kpi-tab="${tab}" style="cursor:pointer;"` : "");
 
   const el = document.getElementById("alKpiGrid");
   if (el) el.innerHTML =
@@ -2436,7 +2589,6 @@ function renderAtendimentoVisuais() {
 function renderVisuaisCombinados() {
   // Visuais que combinam telemetria + atendimento
   renderMcActivity();
-  renderMcIaInsights();
   // Seção Mapa também combina telemetria + atendimento; atualiza só se o DOM existe
   if (document.getElementById("mpMapCanvas")) {
     renderSecaoMapa();
@@ -2551,11 +2703,7 @@ function renderCliKpis() {
   const m = _contratosMetricas?.total || { mrr: 0, ativos: 0, vencendo_30d: 0, vencidos: 0 };
   const fmtMoeda = (v) => Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-  const kpi = (icon, val, label, kindCls) => `
-    <div class="rc ${kindCls} rc-static">
-      <div class="rc-head"><div class="rc-icon">${icon}</div><div class="rc-label">${label}</div></div>
-      <div class="rc-value">${val}</div>
-    </div>`;
+  const kpi = (icon, val, label, kindCls) => kpiCard(icon, val, label, kindCls);
 
   el.innerHTML =
     kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`,
@@ -3849,14 +3997,7 @@ function renderChKpis() {
     tempoMedio = avgH < 1 ? `${Math.round(avgH * 60)}min` : `${avgH.toFixed(1)}h`;
   }
 
-  const kpi = (icon, val, hint, kindCls) => `
-    <div class="rc ${kindCls} rc-static">
-      <div class="rc-head">
-        <div class="rc-icon">${icon}</div>
-        <div class="rc-label">${hint}</div>
-      </div>
-      <div class="rc-value">${val}</div>
-    </div>`;
+  const kpi = (icon, val, hint, kindCls) => kpiCard(icon, val, hint, kindCls);
 
   el.innerHTML =
     kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`,
@@ -4841,11 +4982,7 @@ function _ctrsRenderKpi() {
   const vencidos = _ctrsLista.filter(ct => _ctrsGetStatusKey(ct) === "vencido");
   const mrr      = _ctrsLista.filter(ct => ct.ativo).reduce((s, ct) => s + (Number(ct.valor_mensal) || 0), 0);
 
-  const kpi = (icon, val, label, cls) => `
-    <div class="rc ${cls} rc-static">
-      <div class="rc-head"><div class="rc-icon">${icon}</div><div class="rc-label">${label}</div></div>
-      <div class="rc-value">${val}</div>
-    </div>`;
+  const kpi = (icon, val, label, cls) => kpiCard(icon, val, label, cls);
 
   grid.innerHTML =
     kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`,
@@ -8141,13 +8278,6 @@ function renderSecaoMapa() {
 //  RELATÓRIOS
 // ============================================================
 
-function _relDataPadrao() {
-  const hoje = new Date();
-  const fim  = hoje.toISOString().split("T")[0];
-  const ini  = new Date(hoje - 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
-  return { ini, fim };
-}
-
 function _relPreencherCondoSelects(ids) {
   const condos = Array.isArray(_condominios) ? _condominios : [];
   const opts = '<option value="">Todos</option>' +
@@ -8156,7 +8286,7 @@ function _relPreencherCondoSelects(ids) {
 }
 
 function _relPreencherTecnicoSelect() {
-  const el = document.getElementById("relChTecnico");
+  const el = document.getElementById("relExpChTecnico");
   if (!el) return;
   const tecs = Array.isArray(_tecnicosData) ? _tecnicosData : [];
   el.innerHTML = '<option value="">Todos</option>' +
@@ -8164,12 +8294,50 @@ function _relPreencherTecnicoSelect() {
 }
 
 function renderRelatorios() {
-  const { ini, fim } = _relDataPadrao();
-  ["relChIni", "relAlIni", "relTelIni"].forEach(id => { const el = document.getElementById(id); if (el && !el.value) el.value = ini; });
-  ["relChFim", "relAlFim", "relTelFim"].forEach(id => { const el = document.getElementById(id); if (el && !el.value) el.value = fim; });
-  _relPreencherCondoSelects(["relChCondo", "relAlCondo", "relTelCondo"]);
+  const elIni = document.getElementById("relExpIni");
+  const elFim = document.getElementById("relExpFim");
+  if (elIni && elFim && !elIni.value && !elFim.value) _relAplicarPreset("30d");
+  _relPreencherCondoSelects(["relExpCondo"]);
   _relPreencherTecnicoSelect();
   _relCarregarPainelVivo();
+}
+
+// ── Tabs do card de exportação — só os filtros específicos trocam ──
+let _relTabAtiva = "chamados";
+
+function _relMostrarTabExport(kind) {
+  if (!_REL_EXPORT[kind]) return;
+  _relTabAtiva = kind;
+  document.querySelectorAll("#relSeg .rel-seg-btn").forEach(b =>
+    b.classList.toggle("is-active", b.dataset.relTab === kind));
+  document.querySelectorAll(".rel-filtros-esp").forEach(d =>
+    d.classList.toggle("is-active", d.dataset.relEsp === kind));
+}
+
+// ── Presets de período — chips acima dos date pickers ──
+function _relAplicarPreset(preset) {
+  const iso = d => d.toISOString().split("T")[0];
+  const hoje = new Date();
+  let ini, fim = iso(hoje);
+  if (preset === "7d")  ini = iso(new Date(hoje - 7  * 864e5));
+  if (preset === "30d") ini = iso(new Date(hoje - 30 * 864e5));
+  if (preset === "mes") ini = iso(new Date(hoje.getFullYear(), hoje.getMonth(), 1));
+  if (preset === "mes-ant") {
+    ini = iso(new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1));
+    fim = iso(new Date(hoje.getFullYear(), hoje.getMonth(), 0));
+  }
+  if (!ini) return;
+  const elIni = document.getElementById("relExpIni");
+  const elFim = document.getElementById("relExpFim");
+  if (elIni) elIni.value = ini;
+  if (elFim) elFim.value = fim;
+  document.querySelectorAll(".rel-chip").forEach(c =>
+    c.classList.toggle("is-active", c.dataset.relPreset === preset));
+}
+
+// Editar a data na mão desmarca o chip — o período já não corresponde ao preset
+function _relLimparChips() {
+  document.querySelectorAll(".rel-chip.is-active").forEach(c => c.classList.remove("is-active"));
 }
 
 // ── Painel ao vivo — chamados em risco + workload por técnico, sem filtro de período ──
@@ -8182,11 +8350,23 @@ function _relSetCountBadge(id, texto, cls) {
   el.className = `rel-count-badge rel-count-${cls}`;
 }
 
+// Empty state dentro de um <td> — ícone sutil + texto secundário
+function _relEmptyCell(colspan, icone, texto) {
+  return `<tr><td colspan="${colspan}"><div class="rel-empty">${icone}<span>${texto}</span></div></td></tr>`;
+}
+
+const _REL_ICON_OK = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`;
+const _REL_ICON_USERS = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`;
+
+// Painel só é colapsado automaticamente uma vez (na 1ª carga sem pendências);
+// se o usuário expandir manualmente, respeita a escolha até recarregar a página.
+let _relVivoToggleManual = false;
+
 async function _relCarregarPainelVivo() {
   const riscoBody = document.getElementById("relVivoRiscoBody");
   const workBody  = document.getElementById("relVivoWorkloadBody");
-  if (riscoBody) riscoBody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px;">Carregando…</td></tr>';
-  if (workBody)  workBody.innerHTML  = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px;">Carregando…</td></tr>';
+  if (riscoBody) riscoBody.innerHTML = _relEmptyCell(5, "", "Carregando…");
+  if (workBody)  workBody.innerHTML  = _relEmptyCell(6, "", "Carregando…");
 
   try {
     const r = await fetch("/relatorios/painel-vivo", { headers: authHeaders() });
@@ -8203,7 +8383,7 @@ async function _relCarregarPainelVivo() {
           <td>${_waEscaparHtml(d.tecnico_nome || "-")}</td>
           <td><span class="badge ${d.pct_ttr >= 100 ? "b-bad" : "b-warn"}">${d.pct_ttr != null ? d.pct_ttr + "%" : "-"}</span></td>
         </tr>`).join("")
-      : '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px;">Nenhum chamado em risco agora.</td></tr>';
+      : _relEmptyCell(5, _REL_ICON_OK, "Nenhum chamado em risco agora.");
 
     const work = data.workload_tecnico || [];
     const totalAbertos = work.reduce((s, d) => s + (Number(d.abertos) || 0), 0);
@@ -8211,17 +8391,48 @@ async function _relCarregarPainelVivo() {
     if (workBody) workBody.innerHTML = work.length
       ? work.map(d => `<tr>
           <td>${_waEscaparHtml(d.tecnico_nome || "-")}</td>
-          <td style="text-align:right;">${d.abertos}</td>
-          <td style="text-align:right;">${d.p1}</td>
-          <td style="text-align:right;">${d.p2}</td>
-          <td style="text-align:right;">${d.p3}</td>
-          <td style="text-align:right;">${d.p4}</td>
+          <td style="text-align:right;" class="rel-num">${d.abertos}</td>
+          <td style="text-align:right;" class="rel-num">${d.p1}</td>
+          <td style="text-align:right;" class="rel-num">${d.p2}</td>
+          <td style="text-align:right;" class="rel-num">${d.p3}</td>
+          <td style="text-align:right;" class="rel-num">${d.p4}</td>
         </tr>`).join("")
-      : '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px;">Nenhum técnico com chamados abertos.</td></tr>';
+      : _relEmptyCell(6, _REL_ICON_USERS, "Nenhum técnico com chamados abertos.");
+
+    _relAtualizarColapso(risco.length, totalAbertos);
   } catch (e) {
-    if (riscoBody) riscoBody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px;">Erro ao carregar.</td></tr>';
-    if (workBody)  workBody.innerHTML  = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px;">Erro ao carregar.</td></tr>';
+    if (riscoBody) riscoBody.innerHTML = _relEmptyCell(5, "", "Erro ao carregar.");
+    if (workBody)  workBody.innerHTML  = _relEmptyCell(6, "", "Erro ao carregar.");
+    _relAtualizarColapso(-1, -1); // erro: mantém expandido
   }
+}
+
+// Colapsa o card pra linha de status quando não há nada pra olhar; atualiza o
+// texto/cor da linha de status independente de estar colapsado ou não.
+function _relAtualizarColapso(numRisco, numAbertos) {
+  const card = document.getElementById("relVivoCard");
+  const dot  = document.getElementById("relVivoDot");
+  const txt  = document.getElementById("relVivoStatusTxt");
+  if (!card) return;
+
+  const tudoOk = numRisco === 0 && numAbertos === 0;
+  if (dot) dot.className = "rel-vivo-dot " + (numRisco > 0 ? "is-bad" : tudoOk ? "is-ok" : "");
+  if (txt) {
+    txt.textContent = tudoOk
+      ? "Tudo operacional — 0 chamados em risco · 0 abertos"
+      : numRisco < 0
+        ? "Não foi possível carregar o painel."
+        : `${numRisco} em risco · ${numAbertos} aberto${numAbertos === 1 ? "" : "s"}`;
+  }
+  // Auto-colapsa só se o usuário não expandiu manualmente
+  card.classList.toggle("is-collapsed", tudoOk && !_relVivoToggleManual);
+}
+
+function _relTogglePainel() {
+  const card = document.getElementById("relVivoCard");
+  if (!card) return;
+  _relVivoToggleManual = true;
+  card.classList.toggle("is-collapsed");
 }
 
 // ── Exportação CSV ───────────────────────────────────────────────────────────
@@ -8250,10 +8461,14 @@ function _relBaixarCsv(filename, csvText) {
   URL.revokeObjectURL(url);
 }
 
+// Filtros comuns (De/Até/Condomínio) são fixos no card; cada tab só adiciona
+// os seus filtros específicos. As datas comuns são referenciadas por ID fixo.
+const _REL_IDS_COMUNS = { data_ini: "relExpIni", data_fim: "relExpFim", condominio_id: "relExpCondo" };
+
 const _REL_EXPORT = {
   chamados: {
     endpoint: "/relatorios/chamados",
-    ids: { data_ini: "relChIni", data_fim: "relChFim", condominio_id: "relChCondo", status: "relChStatus", prioridade: "relChPrioridade", tecnico_id: "relChTecnico" },
+    ids: { status: "relExpChStatus", prioridade: "relExpChPrioridade", tecnico_id: "relExpChTecnico" },
     columns: [
       { key: "id", label: "ID" }, { key: "titulo", label: "Título" },
       { key: "status", label: "Status" }, { key: "prioridade", label: "Prioridade" },
@@ -8267,7 +8482,7 @@ const _REL_EXPORT = {
   },
   alertas: {
     endpoint: "/relatorios/alertas",
-    ids: { data_ini: "relAlIni", data_fim: "relAlFim", condominio_id: "relAlCondo", tipo: "relAlTipo", status: "relAlStatus" },
+    ids: { tipo: "relExpAlTipo", status: "relExpAlStatus" },
     columns: [
       { key: "id", label: "ID" }, { key: "tipo", label: "Tipo" }, { key: "mensagem", label: "Mensagem" },
       { key: "status", label: "Status" }, { key: "reservatorio_nome", label: "Reservatório" },
@@ -8277,7 +8492,7 @@ const _REL_EXPORT = {
   },
   telemetria: {
     endpoint: "/relatorios/telemetria",
-    ids: { data_ini: "relTelIni", data_fim: "relTelFim", condominio_id: "relTelCondo", device_id: "relTelDevice" },
+    ids: { device_id: "relExpTelDevice" },
     columns: [
       { key: "dia", label: "Dia" }, { key: "device_id", label: "Device ID" },
       { key: "reservatorio_nome", label: "Reservatório" }, { key: "condominio_nome", label: "Condomínio" },
@@ -8288,15 +8503,17 @@ const _REL_EXPORT = {
   },
 };
 
-async function _relExportarCsv(kind) {
+async function _relExportarCsv() {
+  const kind = _relTabAtiva;
   const conf = _REL_EXPORT[kind];
   if (!conf) return;
-  const btn = document.querySelector(`[data-rel-action='exportar-csv-${kind}']`);
+  const btn = document.querySelector("[data-rel-action='exportar-csv']");
   if (btn) { btn.disabled = true; btn.textContent = "Gerando…"; }
 
   const params = new URLSearchParams();
   const v = id => document.getElementById(id)?.value || "";
-  Object.entries(conf.ids).forEach(([key, id]) => {
+  // Filtros comuns + específicos da tab ativa
+  Object.entries({ ..._REL_IDS_COMUNS, ...conf.ids }).forEach(([key, id]) => {
     const val = v(id);
     if (val) params.set(key, key === "device_id" ? val.trim() : val);
   });
@@ -8306,8 +8523,8 @@ async function _relExportarCsv(kind) {
     if (!r.ok) throw new Error("HTTP " + r.status);
     const rows = await r.json();
     const csv  = _relToCsv(rows, conf.columns);
-    const ini  = v(conf.ids.data_ini) || "todos";
-    const fim  = v(conf.ids.data_fim) || "todos";
+    const ini  = v(_REL_IDS_COMUNS.data_ini) || "todos";
+    const fim  = v(_REL_IDS_COMUNS.data_fim) || "todos";
     _relBaixarCsv(`relatorio-${kind}-${ini}-${fim}.csv`, csv);
   } catch (e) {
     alert(`Erro ao exportar CSV (${kind}).`);
@@ -9351,16 +9568,28 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("btnSair")?.addEventListener("click", logout);
 
   // ===== RELATÓRIOS =====
-  document.querySelector(".section[data-section='relatorios']")?.addEventListener("click", e => {
+  const _secRel = document.querySelector(".section[data-section='relatorios']");
+  _secRel?.addEventListener("click", e => {
+    // Tabs (segmented control) do card de exportação
+    const tab = e.target.closest("[data-rel-tab]")?.dataset.relTab;
+    if (tab) { _relMostrarTabExport(tab); return; }
+
+    // Chips de preset de período
+    const preset = e.target.closest("[data-rel-preset]")?.dataset.relPreset;
+    if (preset) { _relAplicarPreset(preset); return; }
+
     const btn = e.target.closest("[data-rel-action]");
     if (!btn || btn.disabled) return;
     const action = btn.dataset.relAction;
 
-    if (action === "atualizar-painel")        { _relCarregarPainelVivo(); return; }
-    if (action === "exportar-csv-chamados")   { _relExportarCsv("chamados"); return; }
-    if (action === "exportar-csv-alertas")    { _relExportarCsv("alertas"); return; }
-    if (action === "exportar-csv-telemetria") { _relExportarCsv("telemetria"); return; }
+    if (action === "atualizar-painel") { _relCarregarPainelVivo(); return; }
+    if (action === "toggle-painel")    { _relTogglePainel(); return; }
+    if (action === "exportar-csv")     { _relExportarCsv(); return; }
   });
+
+  // Editar data na mão desmarca o chip de preset ativo
+  ["relExpIni", "relExpFim"].forEach(id =>
+    document.getElementById(id)?.addEventListener("input", _relLimparChips));
 
   // ===== CONFIGURAÇÕES =====
   document.getElementById("cfgTabs")?.addEventListener("click", e => {
@@ -9814,6 +10043,10 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("btnFecharModalEditarRes")?.addEventListener("click", fecharModalEditarReservatorio);
   document.getElementById("btnCancelarEdicaoRes")?.addEventListener("click", fecharModalEditarReservatorio);
   document.getElementById("editResForm")?.addEventListener("submit", salvarEdicaoReservatorio);
+  document.getElementById("btnRegenKeyRes")?.addEventListener("click", () => {
+    const id = Number(document.getElementById("editResId").value);
+    if (id) regenerarDeviceKeyReservatorio(id);
+  });
 
   document.getElementById("btnCadastrarReservatorio")
     ?.addEventListener("click", criarReservatorio);
@@ -9842,6 +10075,15 @@ document.addEventListener("DOMContentLoaded", () => {
       if (id) abrirDrawer(id);
       return;
     }
+
+    if (action === "tel-tanque") {
+      _telSelecionarNoHistorico(btn.dataset.condo, btn.dataset.id);
+      return;
+    }
+
+    if (action === "tel-ver-todos")        { _telAbrirVerTodos(); return; }
+    if (action === "tel-ver-todos-fechar") { _telFecharVerTodos(); return; }
+    if (action === "tel-hist-fechar")      { _telFecharHistorico(); return; }
 
     if (action === "ver-condo-modal") {
       const id = Number(btn.dataset.condoId);
@@ -10048,9 +10290,8 @@ document.addEventListener("DOMContentLoaded", () => {
         _telFiltroCondominioId = String(condoId);
         const sel = document.getElementById("telFiltroCondominio");
         if (sel) sel.value = String(condoId);
-        renderTelBarChart?.();
+        renderTelTanques?.();
         renderTelCriticos?.();
-        renderTelBombas?.();
       }, 0);
       return;
     }
@@ -10322,11 +10563,7 @@ function _osRenderKpis() {
   inicioMes.setHours(0, 0, 0, 0);
   const esteMes = data.filter(o => o.criado_em && new Date(o.criado_em) >= inicioMes).length;
 
-  const kpi = (icon, val, hint, kindCls) => `
-    <div class="rc ${kindCls} rc-static">
-      <div class="rc-head"><div class="rc-icon">${icon}</div><div class="rc-label">${hint}</div></div>
-      <div class="rc-value">${val}</div>
-    </div>`;
+  const kpi = (icon, val, hint, kindCls) => kpiCard(icon, val, hint, kindCls);
 
   el.innerHTML =
     kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`,
@@ -10998,11 +11235,7 @@ function _avRenderTudo() {
   const ICO_SEND  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>`;
   const ICO_MONEY = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>`;
 
-  const kpi = (ico, val, label, cls) => `
-    <div class="rc ${cls} rc-static">
-      <div class="rc-head"><div class="rc-icon">${ico}</div><div class="rc-label">${label}</div></div>
-      <div class="rc-value">${val}</div>
-    </div>`;
+  const kpi = (ico, val, label, cls) => kpiCard(ico, val, label, cls);
 
   const grid = document.getElementById("avKpiGrid");
   if (grid) grid.innerHTML =
@@ -11840,11 +12073,7 @@ function _orcRenderTudo() {
   const ICO_X     = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>`;
   const ICO_MONEY = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>`;
 
-  const kpi = (ico, val, label, cls) => `
-    <div class="rc ${cls} rc-static">
-      <div class="rc-head"><div class="rc-icon">${ico}</div><div class="rc-label">${label}</div></div>
-      <div class="rc-value">${val}</div>
-    </div>`;
+  const kpi = (ico, val, label, cls) => kpiCard(ico, val, label, cls);
 
   const grid = document.getElementById("orcKpiGrid");
   if (grid) grid.innerHTML =
@@ -12404,11 +12633,7 @@ function _pmRenderTudo() {
   const ICO_CLK  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`;
   const ICO_OK   = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`;
 
-  const kpi = (ico, val, label, cls) => `
-    <div class="rc ${cls} rc-static">
-      <div class="rc-head"><div class="rc-icon">${ico}</div><div class="rc-label">${label}</div></div>
-      <div class="rc-value">${val}</div>
-    </div>`;
+  const kpi = (ico, val, label, cls) => kpiCard(ico, val, label, cls);
 
   const grid = document.getElementById("pmKpiGrid");
   if (grid) grid.innerHTML =

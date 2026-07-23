@@ -10,6 +10,178 @@ aliases:
 > Branch atual: `feature/app-mobile`. Última sessão registrada: **2026-07-23**.
 > Roadmap completo em [`roadmap.md`](roadmap.md); decisões em [`decisions.md`](decisions.md).
 
+## Sessão 2026-07-23 — Telemetria: redesign da aba (só frontend)
+
+Pedido do usuário: trocar o bar chart genérico do card "Níveis dos
+Reservatórios" por uma visualização de **caixas d'água cilíndricas em SVG**,
+mais melhorias secundárias na página. Aprovado remover o bar chart de vez e
+usar container query pro modo compacto.
+
+Descoberta: reservatórios **não têm limiar de nível configurável** no banco
+(só `limiar_bomba`, corrente da bomba). As faixas de alerta são fixas no
+backend (`nivelFromPct`: crítico `<20`, baixo `<45`). Aliei as cores da água a
+esses valores e passei como parâmetro (`TEL_LIMIARES`) pro componente já ficar
+pronto se um dia existir limiar por reservatório — sem inventar config no
+backend agora.
+
+- **`_telTanqueSVG(pct, offline, thresholds)`** (`admin.js`): SVG cilíndrico
+  reutilizável — clipPath do corpo, água (rect + elipse de superfície), `%`
+  em mono, ticks 25/50/75/100. `_telBandaAgua` decide a cor. `renderTelTanques`
+  substituiu `renderTelBarChart` (removida, junto da var `_telBarChart`).
+  Grid `minmax(160px,1fr)`; compacto via `@container (max-width:176px)` no tile
+  (`.tel-tank { container-type: inline-size }`) — some elipse/rótulos.
+- **Clique no tanque → Histórico** (`_telSelecionarNoHistorico`): seta os dois
+  selects, popula reservatórios, chama `carregarHistoricoTelemetria`, marca
+  `.is-selected` e rola até o card. Handler `tel-tanque` no delegation do body.
+- **KPIs padronizados** via `.tel-kpi-grid .rc` (fundo/borda neutros, `::before`
+  glow off, valor em mono) — sem tocar os `.rc` do Mapa/Dashboard. Ícone segue
+  semântico. "Bombas ativas" agora mostra `bombasAtivas` (0, nunca traço) +
+  hint "de N monitoradas".
+- **Críticos vazio:** `.tel-criticos-empty` (ícone check + texto), classe
+  `is-empty` no card reduz `min-height` no layout empilhado.
+- **`.tel-select`** ganhou chevron SVG custom (`appearance:none`), igual à aba
+  Relatórios.
+- `admin.css?v=134`, `admin.js?v=224`. Sem `sw.js` (nenhum endpoint novo).
+
+**Fusão dos cards + "Ver todos" (mesma sessão, depois do 1º corte):**
+- Tabela "Reservatórios" removida (redundante com os tanques). Ações de admin
+  viraram ícones por tanque (`.tel-tank-actions`, master); "+ Novo" foi pro
+  header dos tanques; `renderTelBombas` deletada (+ helpers órfãos `_telCorPct`
+  / `_telLvClassDeNivel`). Clique isolado em `.tel-tank-hit`.
+- "Ver todos": overlay fullscreen (`_telAbrirVerTodos`/`_telFecharVerTodos`),
+  fecha no X/backdrop/Esc/seleção. Tiles do overlay sem ações (`comAcoes=false`)
+  pra evitar z-index com modais.
+- **Pegadinha:** `.tel-bombas-*`/`.tel-bomba-*` NÃO são código morto — o painel
+  do cliente (`cliente.html`/`cliente.js`) carrega `admin.css` e usa. Removi por
+  engano e restaurei; deixei comentário no CSS avisando. `cliente.js` tem o
+  próprio `_telCliCorPct`, então independe do admin.
+
+**KPIs unificados (mesma sessão):** os `.rc` de todas as abas ganharam estilo
+único — card neutro, número em mono, cor semântica só no ícone. Feito no CSS
+base (`.rc-value` + variantes `.rc-*` reduzidas a só `.rc-X .rc-icon`), sem
+editar as ~9 funções de render (todas já emitiam `.rc-head/.rc-icon/.rc-value`).
+`renderTelKpis` passou a usar `rc-static`. As ~8 cópias do helper `kpi()`
+continuam duplicadas no JS (dedup fica pra depois; o alinhamento visual já veio
+todo do CSS).
+
+**Dashboard + Telemetria — ajustes de layout (mesma sessão):**
+- Dashboard: card "IA Insights" removido (HTML + `renderMcIaInsights` + CSS
+  `.mc-ia*`/`.mc-brain*`); `.mc-bottom` de 3 → 2 colunas. Estava ligado, mas o
+  conteúdo era filler derivado — o usuário pediu pra tirar.
+- Telemetria: Histórico ↔ Críticos trocados de lugar. Histórico agora em
+  `tel-row-main` (ao lado dos tanques — clique no tanque atualiza ali); Críticos
+  em `tel-row-bottom` largura total, com `.tel-criticos-list` virando grade
+  `auto-fill minmax(300px,1fr)`.
+- Histórico melhorado: `annotations.yaxis` com os limiares (`TEL_LIMIARES`),
+  chips `.tel-hist-stats` (atual/mín/méd/máx, só com 1 reservatório),
+  empty state com ícone (`_telHistMostrarVazio`/`_telHistEsconderVazio`).
+- Distribuição do container do histórico: PDF subiu pro `cardHead` (topo-dir);
+  botões de período viraram segmented full-width com `flex:1` (linha própria);
+  os 2 selects dividem o espaço igual (`flex:1`); chips de stats centralizados
+  (`justify-content:center`). Só HTML/CSS, sem tocar JS.
+- **Altura reduzida** (histórico + tanques estavam altos): como os dois estão
+  na mesma `tel-row` (grid stretch), o mais alto puxava o outro. Ajustes:
+  `.tel-tanques-grid` max-height 420→340, `.tel-row > .card` min-height
+  360→300, paddings dos controles apertados. "Ver todos" cobre muitos tanques.
+- **Espaço vazio embaixo dos tanques (screenshot 12:44):** causa real = o
+  ApexCharts do histórico estava com `height:"100%"`, que não resolve dentro do
+  flex e caía num padrão ~400px → card do histórico ~600px, e o card dos tanques
+  (grid stretch) esticava junto.
+
+**Reestruturação final (decisão do usuário):** o Histórico virou **modal** em
+vez de card fixo na página — resolve o problema de altura de vez.
+- Layout: `tel-row-main` agora = Tanques + **Reservatórios Críticos** lado a
+  lado (voltou pro layout tipo original); `tel-row-bottom` removida.
+- Histórico: `<div class="tel-hist-modal" id="telHistModal">` com o card dentro
+  (range + selects + stats + legenda + gráfico + PDF + botão X). Abre ao clicar
+  num tanque (`_telAbrirHistorico`/`_telFecharHistorico`; fecha no X/backdrop/
+  Esc). Título do modal mostra o nome do reservatório clicado.
+  `chart.height` fixo em **300px**. Não carrega no load da seção (só ao abrir).
+- Mantidos os selects e toda a lógica de `popularFiltrosHistorico` (agora dentro
+  do modal); `align-items:start` revertido (histórico saiu da linha).
+
+**Redesign do layout (mockup 13:18):**
+- Distribuição nova: linha principal = card "Reservatórios monitorados" (esq,
+  1.7fr) + coluna direita (1fr) com **Reservatórios Críticos** (cima) +
+  **Últimos Eventos** (baixo). KPIs intocados (só distribuição, como pedido).
+- Reservatório virou **card horizontal detalhado** (`.tel-resv-card`): tanque +
+  ações à esquerda; nome/condomínio/badge Online/`%` grande/barra/label de nível
+  no meio; metadados (última leitura/bomba/device com ícones) à direita.
+  `_telTanqueTile` reescrito; a grade virou pilha vertical (`.tel-tanques-grid`
+  flex column). Overlay "Ver todos" ajustado pra colunas de 440px.
+- **Tanque SVG melhorado** (`_telTanqueSVG`): gradiente de volume no corpo,
+  água com gradiente + brilho na superfície, sombra no chão, realce vertical,
+  escala 0–100. Não é foto 3D (precisaria de PNG) mas bem mais volumétrico.
+- **Últimos Eventos** (`renderTelUltimosEventos`): feed derivado (leituras +
+  alertas + offline), horário curto + ícone; "Ver todos os eventos" → alertas.
+  Não é log granular de eventos (não há endpoint) — deriva do estado atual.
+- Imagem do tanque: **abandonada** a pedido do usuário (o acabamento de render
+  3D com água azul volumétrica não dá pra reproduzir por código com nível
+  dinâmico). Removidos `_telTanqueImg`, CSS `.tel-tankimg*` e o PNG.
+- **Tanque:** o usuário propôs um SVG (água por `scaleY`), integramos, mas ele
+  **não gostou** → revertido pro **cilindro volumétrico** (`_telTanqueSVG` com
+  `.tank-*`, água por rect+clip, gradiente de corpo/água, escala 0–100).
+  Removidos `_TEL_AGUA_CORES` e o CSS `.tel-tanque*`.
+- **Fix do "100" cortado:** o rótulo da escala 100 vazava na borda esquerda.
+  viewBox agora `-8 0 108 126` (folga à esquerda) com ticks/labels em x=10-15/7.5.
+- **Tamanho dos containers:** `.tel-row-main` com `align-items: start` (card de
+  níveis na altura de conteúdo, não estica pra igualar a coluna direita).
+  Ajuste fino pendente de feedback visual do usuário.
+
+**Ajustes pós-feedback "tela vazia":**
+- Ações do tanque agora: Editar / **Ver histórico** / Excluir. O "Nova chave"
+  saiu do tanque e virou botão no rodapé do modal de editar reservatório
+  (`btnRegenKeyRes` → `regenerarDeviceKeyReservatorio(editResId)`). O ícone do
+  meio (`TEL_ACT_ICONS.historico`) dispara `tel-tanque` (abre o modal).
+- Tela menos vazia: grade de tanques `auto-fit minmax(170,210)` +
+  `justify-content:center` (centraliza quando há poucos), max-height 340→380.
+- Modal do histórico melhorado: mais largo (780→900px), gráfico 300→340px,
+  título com nome do reservatório · condomínio.
+- Handler de delegação `regen-res-key` (10189) ficou órfão mas inofensivo —
+  agora a chave é regerada pelo botão do modal (chamada direta).
+
+**Dedup dos helpers de KPI (feito):** criado `kpiCard(icon, value, label,
+kindCls, attrs, button)` — fonte única do markup. As ~8 cópias locais de
+`kpi()` (Dashboard/Alertas/Clientes/Chamados/Contratos/OS/Avulsos/Orçamentos/
+Planos) viraram aliases finos que delegam pra ele; `resumoCard` também delega
+(button clicável). `renderTelKpis` mantém template próprio (tem linha de hint).
+Zero mudança visual — só remove a duplicação de markup.
+
+**Pendentes desta linha de trabalho:**
+- **Validação visual:** `node -c` OK e revisão lógica, mas sem screenshot
+  (usuário não quer servidor em background — [[feedback_inline_questions]]).
+  Preview estático atualizado em scratchpad pra ele abrir. Falta conferir a
+  geometria do SVG e o overlay renderizados.
+
+## Sessão 2026-07-23 — Relatórios: redesign da aba (só frontend)
+
+Pedido do usuário: a aba Relatórios tinha 3 cards de exportação idênticos
+(Chamados/Alertas/Telemetria) ocupando muito espaço, controles nativos que
+quebravam o tema escuro, 3 botões amarelos sem hierarquia e um Painel ao Vivo
+enorme só pra mostrar 2 empty states. (Redesign começado com o modelo Fable,
+que ficou sem tokens no meio; terminado aqui.)
+
+Decisão de estética: manter HTML/CSS/JS vanilla + **fontes do sistema**
+(Segoe UI / Cascadia) em vez de baixar Inter/IBM Plex — o pedido citava essas
+fontes, mas o sistema inteiro já usa o stack nativo e o resultado visual é
+equivalente sem download. Ver [`decisions.md`](decisions.md) se virar recorrente.
+
+- **Card único "Exportar relatórios"**: segmented control (`.rel-seg`) troca
+  só os filtros específicos; De/Até/Condomínio comuns e fixos (ids únicos
+  `relExpIni`/`relExpFim`/`relExpCondo`). Um botão CSV primário. `_REL_EXPORT`
+  agora separa `_REL_IDS_COMUNS` dos ids por tab; `_relExportarCsv()` usa a
+  tab ativa (`_relTabAtiva`). **Endpoints e colunas intocados.**
+- **Chips de preset** de período (`_relAplicarPreset`); editar data desmarca.
+- **Controles custom** (`.rel-sel` chevron SVG, `.rel-date` calendário SVG +
+  mono) escopados sob `.filter-bar` pra vencer a especificidade de
+  `.filter-bar .input` (que zerava o background-image via shorthand).
+- **Painel ao vivo colapsável** (`.is-collapsed` + linha `.rel-vivo-status`
+  com dot verde/vermelho); auto-colapsa quando tudo operacional, respeitando
+  expansão manual. Empty states via `_relEmptyCell` (ícone + texto).
+- Validado visualmente com preview estático + screenshot (selects, chips,
+  datas, colapso e empty state renderizando certo no tema dark).
+- `admin.css?v=133`, `admin.js?v=223`. Sem `sw.js` (nenhum endpoint novo).
+
 ## Sessão 2026-07-23 — Chamado automático no alerta de nível baixo
 
 Pedido do usuário (retomado após queda de conexão na sessão anterior):
