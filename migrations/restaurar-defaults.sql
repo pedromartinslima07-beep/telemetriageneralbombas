@@ -31,8 +31,6 @@ INSERT INTO configuracoes (chave, valor) VALUES
   ('alertas.cleanup_dry_run',      'false'),
   ('conversas.retencao_dias',      '365'),
   ('conversas.cleanup_dry_run',    'false'),
-  ('chamados.alerta_atraso_horas',    '4'),
-  ('chamados.alerta_atraso_enabled',  'true'),
   ('planos.geracao_enabled',          'true'),
   ('whatsapp.sessao_timeout_horas',   '8')
 ON CONFLICT (chave) DO UPDATE SET valor = EXCLUDED.valor;

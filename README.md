@@ -191,7 +191,6 @@ usuarios ──┬── login_codes (OTP, expira 10min)
 `setTimeout` recursivo (não `setInterval`), auto-iniciados pelo `app.js`. Cada tick lê config dinâmica via `config.service.js` — permite ajustar intervalos no admin **sem deploy**.
 
 - `offline.job` — alerta `dispositivo_offline` após `OFFLINE_MINUTES` sem leitura
-- `chamados-atraso.job` — alerta de SLA estourado / email automático
 - `conversas-timeout.job` — fecha conversa WhatsApp inativa e pede avaliação
 - `planos-manutencao.job` — gera chamados preventivos
 - `gps-cleanup` · `leituras-cleanup` · `alertas-cleanup` · `conversas-cleanup` — retenção

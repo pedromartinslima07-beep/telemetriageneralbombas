@@ -47,7 +47,6 @@ const { startGpsCleanupScheduler } = require("./jobs/gps-cleanup.job");
 const { startLeiturasCleanupScheduler } = require("./jobs/leituras-cleanup.job");
 const { startAlertasCleanupScheduler } = require("./jobs/alertas-cleanup.job");
 const { startConversasCleanupScheduler } = require("./jobs/conversas-cleanup.job");
-const { startChamadosAtrasoScheduler } = require("./jobs/chamados-atraso.job");
 const { startConversasTimeoutScheduler } = require("./jobs/conversas-timeout.job");
 
 const app = express();
@@ -357,7 +356,6 @@ startGpsCleanupScheduler();
 startLeiturasCleanupScheduler();
 startAlertasCleanupScheduler();
 startConversasCleanupScheduler();
-startChamadosAtrasoScheduler();
 startPlanosManutencaoScheduler();
 startConversasTimeoutScheduler();
 

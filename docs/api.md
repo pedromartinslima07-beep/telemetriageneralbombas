@@ -191,7 +191,7 @@ ao e-mail cadastrado (2FA equivalente ao do login).
 | POST | `/admin/usuarios/:id/reset-senha` | masterAdmin |
 | GET/PATCH | `/admin/configuracoes` | masterAdmin (config dinâmica) |
 | GET | `/admin/integracoes/status` | masterAdmin (OpenAI/WhatsApp/Resend configurados?) |
-| POST | `/admin/jobs/{chamados-atraso,leituras-cleanup,alertas-cleanup,conversas-cleanup}/run` | masterAdmin |
+| POST | `/admin/jobs/{leituras-cleanup,alertas-cleanup,conversas-cleanup}/run` | masterAdmin |
 | GET/PATCH | `/admin/sla[/:prioridade]` | masterAdmin |
 | ... | `/admin/orcamentos*` e `/admin/orcamentos/avulsos*` | adminOnly (CRUD + PDF) |
 | POST | `/admin/orcamentos/avulsos/:id/enviar-email` | adminOnly — gera o PDF, envia ao cliente (Resend) e marca como `enviado`. Body `{ emails }` opcional (senão usa `condominios.email`) |

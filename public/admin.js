@@ -127,7 +127,7 @@ function showSection(name) {
   }
   if (name === "alertas") {
     for (const a  of (_alertasAbertos   || [])) _alertasIdsAck.add(`al-${a.id}`);
-    for (const ch of _chamadosP12Abertos())     _alertasIdsAck.add(`ch-${ch.id}`);
+    for (const ch of _chamadosAlertaAbertos())  _alertasIdsAck.add(`ch-${ch.id}`);
     _atualizarBadgeAlertas();
   }
   if (name === "relatorios") {
@@ -396,93 +396,6 @@ async function rodarJobOffline() {
   }
   const data = await r.json();
   alert("Verificação OFFLINE executada. Criados: " + data.criados + " | Já existia: " + data.ja_existia);
-  carregarTudo();
-}
-
-async function criarCondominio() {
-  const nome = (document.getElementById("novoNome").value || "").trim();
-
-  // novos campos (crie esses inputs depois no HTML)
-  const endereco = (document.getElementById("novoEndereco")?.value || "").trim();
-  const bairro = (document.getElementById("novoBairro")?.value || "").trim();
-  const cidade = (document.getElementById("novoCidade")?.value || "").trim();
-  const uf = (document.getElementById("novoUf")?.value || "").trim();
-  const cep = (document.getElementById("novoCep")?.value || "").replace(/\D/g, "");
-  const responsavel = (document.getElementById("novoResponsavel")?.value || "").trim();
-  const telefone = (document.getElementById("novoTelefone")?.value || "").trim();
-  const observacoes = (document.getElementById("novoObs")?.value || "").trim();
-  const zona = (document.getElementById("novoZona")?.value || "").trim() || null;
-  const ativo = document.getElementById("novoAtivo") ? !!document.getElementById("novoAtivo").checked : true;
-
-  const msg = document.getElementById("msgCadastro");
-  if (msg) msg.textContent = "";
-
-  if (!nome) {
-    if (msg) msg.textContent = "Preencha o Nome.";
-    return;
-  }
-
-  const latStr = (document.getElementById("novoLat")?.value || "").trim();
-  const lngStr = (document.getElementById("novoLng")?.value || "").trim();
-  const lat = latStr === "" ? null : Number(latStr);
-  const lng = lngStr === "" ? null : Number(lngStr);
-
-  const payload = {
-    nome,
-    endereco: endereco || null,
-    bairro: bairro || null,
-    cidade: cidade || null,
-    uf: uf || null,
-    cep: cep || null,
-    responsavel: responsavel || null,
-    telefone: telefone || null,
-    observacoes: observacoes || null,
-    zona,
-    ativo,
-    lat,
-    lng,
-  };
-
-  const r = await fetch("/condominios", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
-    body: JSON.stringify(payload),
-  });
-
-  const data = await r.json().catch(() => ({}));
-
-  if (!r.ok) {
-    if (msg) msg.textContent = data.error || ("Erro ao cadastrar (" + r.status + ")");
-    return;
-  }
-
-  if (msg) msg.textContent = `✅ Condomínio cadastrado: ${data.nome} (ID ${data.id})`;
-
-  // limpa apenas os obrigatórios (e os outros se existirem)
-  document.getElementById("novoNome").value = "";
-  if (document.getElementById("novoEndereco")) document.getElementById("novoEndereco").value = "";
-  if (document.getElementById("novoBairro")) document.getElementById("novoBairro").value = "";
-  if (document.getElementById("novoCidade")) document.getElementById("novoCidade").value = "";
-  if (document.getElementById("novoUf")) document.getElementById("novoUf").value = "";
-  if (document.getElementById("novoResponsavel")) document.getElementById("novoResponsavel").value = "";
-  if (document.getElementById("novoTelefone")) document.getElementById("novoTelefone").value = "";
-  if (document.getElementById("novoObs")) document.getElementById("novoObs").value = "";
-  if (document.getElementById("novoZona")) document.getElementById("novoZona").value = "";
-  if (document.getElementById("novoAtivo")) document.getElementById("novoAtivo").checked = true;
-  if (document.getElementById("novoLat")) document.getElementById("novoLat").value = "";
-  if (document.getElementById("novoLng")) document.getElementById("novoLng").value = "";
-  if (document.getElementById("novoCep")) document.getElementById("novoCep").value = "";
-  const cepMsg = document.getElementById("novoCepMsg");
-  if (cepMsg) { cepMsg.className = "cep-msg"; cepMsg.textContent = ""; }
-  const locMsg = document.getElementById("novoLocMsg");
-  if (locMsg) { locMsg.className = "loc-msg"; locMsg.textContent = ""; }
-  // reseta o pino do mini-mapa para o centro de SP
-  const ref = _miniMapas.get("novo");
-  if (ref) {
-    ref.marker.setLatLng([SP_CENTRO.lat, SP_CENTRO.lng]);
-    ref.map.setView([SP_CENTRO.lat, SP_CENTRO.lng], SP_CENTRO.zoom);
-  }
-
   carregarTudo();
 }
 
@@ -827,15 +740,18 @@ function renderMcAlerts() {
 
   const _iconChamado = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`;
 
-  // Chamados P1/P2 abertos
-  for (const ch of _chamadosP12Abertos()) {
-    const peso = ch.prioridade === "p1" ? 0 : 1;
+  // Chamados que contam como alerta: P1/P2 abertos + qualquer um com SLA estourado
+  for (const ch of _chamadosAlertaAbertos()) {
+    const slaEstourado = _chamadoSlaEstourado(ch);
+    const peso = (ch.prioridade === "p1" || slaEstourado) ? 0 : 1;
     itens.push({
       peso,
-      kind: ch.prioridade === "p1" ? "bad" : "warn",
+      kind: (ch.prioridade === "p1" || slaEstourado) ? "bad" : "warn",
       icon: _iconChamado,
       titulo: ch.titulo || `Chamado #${ch.id}`,
-      sub: `Chamado ${String(ch.prioridade || "").toUpperCase()} • ${ch.condominio_nome || "—"}`,
+      sub: slaEstourado
+        ? `SLA estourado • Chamado ${String(ch.prioridade || "").toUpperCase()} • ${ch.condominio_nome || "—"}`
+        : `Chamado ${String(ch.prioridade || "").toUpperCase()} • ${ch.condominio_nome || "—"}`,
       criado_em: ch.criado_em,
     });
   }
@@ -1081,7 +997,7 @@ function renderTelKpis() {
     alertas += r.alertas_abertos_count || 0;
     if (r.offline) offline++;
   }
-  alertas += _chamadosP12Abertos().length;
+  alertas += _chamadosAlertaAbertos().length;
 
   const nivelMedio = pctCount > 0 ? Math.round(pctSum / pctCount) : null;
 
@@ -1852,12 +1768,18 @@ function _alUnificar() {
   // Chamados (abertos, em_atendimento E fechados)
   for (const ch of (Array.isArray(_chamadosData) ? _chamadosData : [])) {
     const prio = String(ch.prioridade || "p3").toLowerCase();
-    const sev = prio === "p1" ? "critico"
-              : prio === "p2" ? "atencao"
-              : "normal";
-    const _PRIO_LABEL = { p1: "P1 · Crítico", p2: "P2 · Alta", p3: "P3 · Controlado", p4: "P4 · Agendado" };
-    const sevLabel = _PRIO_LABEL[prio] || _PRIO_LABEL.p3;
     const status = String(ch.status || "").toLowerCase();
+    const slaEstourado = _chamadoSlaEstourado(ch);
+
+    // SLA estourado eleva o chamado a alerta CRÍTICO, independente da prioridade.
+    let sev = prio === "p1" ? "critico"
+            : prio === "p2" ? "atencao"
+            : "normal";
+    if (slaEstourado) sev = "critico";
+
+    const _PRIO_LABEL = { p1: "P1 · Crítico", p2: "P2 · Alta", p3: "P3 · Controlado", p4: "P4 · Agendado" };
+    const sevLabel = slaEstourado ? "SLA estourado" : (_PRIO_LABEL[prio] || _PRIO_LABEL.p3);
+
     itens.push({
       key: `CH-${ch.id}`,
       origem: "chamado",
@@ -1870,6 +1792,7 @@ function _alUnificar() {
       device_id: null,
       severidade: sev,
       sevLabel,
+      slaEstourado,
       status: status === "fechado" ? "resolvido" : "ativo",
       criado_em: ch.criado_em,
       fechado_em: ch.fechado_em,
@@ -1879,11 +1802,22 @@ function _alUnificar() {
   return itens;
 }
 
-function _chamadosP12Abertos() {
+// Um chamado "estourou o SLA" quando, ainda aberto, passou do TTFR sem primeira
+// resposta OU passou do TTR (prazo de resolução). Campos vêm do GET /chamados.
+function _chamadoSlaEstourado(ch) {
+  const s = String(ch.status || "").toLowerCase();
+  if (s === "fechado") return false;
+  return !!(ch.sla_ttfr_estourado || ch.sla_ttr_risco);
+}
+
+// Chamados que contam como ALERTA: abertos e P1/P2, OU com SLA estourado
+// (independente da prioridade — um P3/P4 que estourou o SLA vira alerta).
+function _chamadosAlertaAbertos() {
   return (_chamadosData || []).filter(ch => {
     const p = String(ch.prioridade || "").toLowerCase();
     const s = String(ch.status || "").toLowerCase();
-    return (p === "p1" || p === "p2") && s !== "fechado";
+    if (s === "fechado") return false;
+    return p === "p1" || p === "p2" || _chamadoSlaEstourado(ch);
   });
 }
 
@@ -1891,7 +1825,7 @@ function _atualizarBadgeAlertas() {
   const badge = document.getElementById("navBadgeAlertas");
   if (!badge) return;
   const nAlertas  = (_alertasAbertos || []).filter(a => !_alertasIdsAck.has(`al-${a.id}`)).length;
-  const nChamados = _chamadosP12Abertos().filter(ch => !_alertasIdsAck.has(`ch-${ch.id}`)).length;
+  const nChamados = _chamadosAlertaAbertos().filter(ch => !_alertasIdsAck.has(`ch-${ch.id}`)).length;
   const total = nAlertas + nChamados;
   badge.textContent = total;
   badge.style.display = total > 0 ? "inline-flex" : "none";
@@ -7796,13 +7730,11 @@ function _mpAtualizarPainel() {
   const g = groups.find(x => x.condominio?.id === _mpCondoSelecionadoId);
   const nomeEl = document.getElementById("mpCondoNome");
   const subEl  = document.getElementById("mpCondoEndereco");
-  const btn    = document.getElementById("mpBtnAbrirPainel");
   const body   = document.getElementById("mpTabBody");
 
   if (!g) {
     if (nomeEl) nomeEl.textContent = "Selecione um condomínio";
     if (subEl)  subEl.textContent  = "Clique em um pino no mapa para ver detalhes";
-    if (btn)    btn.style.display  = "none";
     if (body)   body.innerHTML     = `<div class="mp-empty">Nenhum condomínio selecionado.</div>`;
     return;
   }
@@ -7810,7 +7742,6 @@ function _mpAtualizarPainel() {
   const c = g.condominio || {};
   if (nomeEl) nomeEl.textContent = c.nome || "Condomínio";
   if (subEl)  subEl.textContent  = _mpEndereco(c);
-  if (btn)    btn.style.display  = "";
 
   if (!body) return;
   if (_mpTabAtiva === "visao")          body.innerHTML = _mpRenderVisaoGeral(g);
@@ -7874,25 +7805,40 @@ function _mpRenderVisaoGeral(g) {
 function _mpRenderReservatorios(g) {
   const reservas = g.reservatorios || [];
   if (reservas.length === 0) return `<div class="mp-empty">Nenhum reservatório cadastrado.</div>`;
-  return `<div class="mp-list">${reservas.map(r => {
+  return `<div class="mp-tank-grid">${reservas.map(r => {
     const pct = r.ultima_leitura?.nivel_pct;
-    const pctCls = _mpPctClasse(pct);
-    const dot = r.offline ? "off" : (pct != null && pct < 30 ? "bad" : pct != null && pct < 60 ? "warn" : "ok");
+    const offline = !!r.offline;
     return `
-      <div class="mp-list-item">
-        <span class="mli-dot ${dot}"></span>
-        <div class="mli-main">
-          <div class="mli-title">${r.nome || r.device_id}</div>
-          <div class="mli-sub">${r.tipo || ""} ${r.offline ? "• OFFLINE" : ""}</div>
-        </div>
-        <span class="mli-pct ${pctCls}">${pct != null ? pct + "%" : "—"}</span>
+      <div class="mp-tank-cell" data-action="mp-ver-telemetria" data-condo="${g.condominio?.id ?? ""}" data-resv="${r.id}" title="Ver na Telemetria">
+        <div class="mp-tank-visual">${_telTanqueSVG(pct, offline)}</div>
+        <div class="mp-tank-nome">${_waEscaparHtml(r.nome || r.device_id || "Reservatório")}</div>
       </div>`;
   }).join("")}</div>`;
 }
 
+// Clique num tanque da aba Reservatórios (Mapa) → abre a Telemetria já
+// filtrada pelo condomínio escolhido e destaca o reservatório clicado.
+function _mpIrParaTelemetria(condoId, resvId) {
+  // Se o mapa estava em tela cheia, sai antes de trocar de seção.
+  if (document.getElementById("mpMapCard")?.classList.contains("is-fullscreen")) {
+    _mpToggleFullscreen(false);
+  }
+  showSection("telemetria");   // renderiza a Telemetria com os filtros padrão
+
+  if (condoId) {
+    const selCond = document.getElementById("telFiltroCondominio");
+    if (selCond) selCond.value = String(condoId);
+    _telFiltroCondominioId = String(condoId);
+    renderTelTanques();
+    renderTelCriticos();
+  }
+}
+
 function _mpRenderBombas(g) {
-  const reservas = g.reservatorios || [];
-  if (reservas.length === 0) return `<div class="mp-empty">Nenhum reservatório cadastrado.</div>`;
+  // Só exibe bombas de reservatórios com limiar cadastrado — sem limiar
+  // não há como determinar o estado da bomba de forma confiável.
+  const reservas = (g.reservatorios || []).filter(r => r.limiar_bomba != null);
+  if (reservas.length === 0) return `<div class="mp-empty">Nenhuma bomba com limiar cadastrado.</div>`;
   return `<div class="mp-list">${reservas.map(r => {
     const ligada = !!r.ultima_leitura?.bomba_ligada;
     return `
@@ -8703,8 +8649,6 @@ function _cfgAplicarConfigsUI() {
   // Operacional
   const gpsFreq = document.getElementById("cfgGpsFrequencia");        if (gpsFreq) gpsFreq.value = v["gps.frequencia_segundos"] || "60";
   const gpsRet  = document.getElementById("cfgGpsRetencaoHoras");     if (gpsRet)  gpsRet.value  = v["gps.retencao_horas"] || "24";
-  const atrEn   = document.getElementById("cfgAtrasoEnabled");        if (atrEn)   atrEn.checked = v["chamados.alerta_atraso_enabled"] !== "false"; // default ligado
-  const atrHr   = document.getElementById("cfgAtrasoHoras");          if (atrHr)   atrHr.value   = v["chamados.alerta_atraso_horas"] || "4";
 }
 
 async function _cfgSalvarIa() {
@@ -8803,36 +8747,13 @@ async function _cfgExportarCuradoria(btn) {
   }
 }
 
-// ── OPERACIONAL (Fase 7I — GPS + alerta de atraso) ───────────────────────────
+// ── OPERACIONAL (Fase 7I — GPS) ──────────────────────────────────────────────
 async function _cfgSalvarOperacional() {
   const payload = {
     "gps.frequencia_segundos":         document.getElementById("cfgGpsFrequencia")?.value || "60",
     "gps.retencao_horas":              document.getElementById("cfgGpsRetencaoHoras")?.value || "24",
-    "chamados.alerta_atraso_enabled":  document.getElementById("cfgAtrasoEnabled")?.checked ? "true" : "false",
-    "chamados.alerta_atraso_horas":    document.getElementById("cfgAtrasoHoras")?.value || "4",
   };
   await _cfgEnviarConfigs(payload, "cfgOperMsg", "Configurações operacionais salvas");
-}
-
-async function _cfgRodarChamadosAtraso() {
-  if (!confirm("Rodar verificação de chamados parados agora? Se houver alguém estourado, um email será enviado pra lista de destinatários.")) return;
-  _cfgMostrarMsg("cfgOperMsg", "Verificando…", "");
-  try {
-    const r = await fetch("/admin/jobs/chamados-atraso/run", { method: "POST", headers: authHeaders() });
-    const data = await r.json();
-    if (!r.ok) return _cfgMostrarMsg("cfgOperMsg", data.error || "Erro ao executar", "err");
-    if (!data.enabled) {
-      _cfgMostrarMsg("cfgOperMsg", "Alerta está desativado — ligue o toggle e salve antes de testar.", "err");
-      return;
-    }
-    _cfgMostrarMsg("cfgOperMsg",
-      data.avisados > 0
-        ? `${data.avisados} email(s) enviado(s). Limite: ${data.horas}h.`
-        : `Nenhum chamado estourado (limite ${data.horas}h).`,
-      "ok");
-  } catch (e) {
-    _cfgMostrarMsg("cfgOperMsg", "Erro de conexão", "err");
-  }
 }
 
 // ── SLA configurável (Fase 8B) ────────────────────────────────────────────────
@@ -9623,7 +9544,6 @@ document.addEventListener("DOMContentLoaded", () => {
     if (action === "salvar-conversas-retencao") return _cfgSalvarConversasRetencao();
     if (action === "rodar-limpeza-conversas")   return _cfgRodarLimpezaConversas();
     if (action === "salvar-operacional")     return _cfgSalvarOperacional();
-    if (action === "rodar-chamados-atraso")  return _cfgRodarChamadosAtraso();
     if (action === "testar-integracoes")  return _cfgCarregarIntegracoes();
     if (action === "novo-usuario")        return _cfgAbrirModalUsuario(null);
     if (action === "editar-usuario")      return _cfgAbrirModalUsuario(_cfgUsuariosDados.find(u => u.id === id));
@@ -9679,10 +9599,6 @@ document.addEventListener("DOMContentLoaded", () => {
       document.querySelectorAll('.mp-tab').forEach(t => t.classList.toggle('is-active', t === mpTab));
       _mpAtualizarPainel();
     }
-    // Botão "Abrir Painel" da seção Mapa
-    if (e.target.closest('#mpBtnAbrirPainel') && _mpCondoSelecionadoId) {
-      abrirDrawer(_mpCondoSelecionadoId);
-    }
     // Botão "Tela cheia" do mapa
     if (e.target.closest('[data-action="mp-fullscreen"]')) {
       _mpToggleFullscreen();
@@ -9690,6 +9606,11 @@ document.addEventListener("DOMContentLoaded", () => {
     // Botão X do painel flutuante (apenas em fullscreen)
     if (e.target.closest('[data-action="mp-fs-close"]')) {
       _mpFsPanelEsconder();
+    }
+    // Clique num tanque da aba Reservatórios → vai pra Telemetria já filtrada
+    const mpResv = e.target.closest('[data-action="mp-ver-telemetria"]');
+    if (mpResv) {
+      _mpIrParaTelemetria(mpResv.dataset.condo, mpResv.dataset.resv);
     }
   });
 
@@ -9700,23 +9621,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // Mini-mapa do cadastro: inicializa quando a seção Cadastros é exibida.
-  // O delay precisa ser > 220ms (duração da animação sectionIn) para o
-  // Leaflet medir o container depois que o transform chegou a translateY(0).
-  // Se invalidateSize() for chamado durante a animação, o offset interno fica
-  // errado e os tiles somem ao primeiro zoom.
-  const _initMiniMapaCadastro = () => {
-    if (!document.getElementById("novoMiniMapa")) return;
-    criarOuObterMiniMapa("novo");
-    _miniMapaInvalidar("novo");
-  };
-  setTimeout(_initMiniMapaCadastro, 350);
-  document.querySelectorAll('.nav-item[data-section="cadastros"]').forEach(item => {
-    item.addEventListener("click", () => setTimeout(_initMiniMapaCadastro, 350));
-  });
-
-  // Bind do CEP nos dois formulários (auto-preenchimento de endereço)
-  _bindCepInput("novo");
+  // Bind do CEP no formulário de edição de condomínio (auto-preenchimento).
   _bindCepInput("edit");
 
   // ===== SIDEBAR TOGGLE =====
@@ -10023,7 +9928,6 @@ document.addEventListener("DOMContentLoaded", () => {
     renderChDetalhe(ch || null);
   });
 
-  document.getElementById("btnCadastrarCondominio")?.addEventListener("click", criarCondominio);
   document.getElementById("btnCriarCliente")?.addEventListener("click", criarCliente);
 
   document.getElementById("btnFecharDrawer")?.addEventListener("click", fecharDrawer);
@@ -11164,6 +11068,8 @@ function _orcModoBindEventos() {
 let _avData        = [];
 let _avTabAtiva    = "todos";
 let _avSelecionado = null;
+let _avCondoSel    = null;   // chave do condomínio selecionado na coluna esquerda
+let _avNovoPendente = null;  // id de um orçamento recém-criado ainda NÃO salvo (descartável ao fechar)
 let _avLinhas      = [];
 let _avLinhasId    = null;
 let _avLinhasPromise = null;    // fetch de linhas em andamento, se houver
@@ -11251,26 +11157,99 @@ function _avRenderTudo() {
   set("avCtAprovado", aprov);
 
   const lista = _avFiltrados();
-  const tbody = document.getElementById("avTableBody");
-  const empty = document.getElementById("avEmpty");
-  if (!tbody) return;
+  const listEl = document.getElementById("avCondoList");
+  const empty  = document.getElementById("avEmpty");
+  if (!listEl) return;
 
-  if (!lista.length) {
-    tbody.innerHTML = "";
-    if (empty) empty.style.display = "flex";
-  } else {
-    if (empty) empty.style.display = "none";
-    tbody.innerHTML = lista.map(o => {
-      const sel = _avSelecionado?.id === o.id ? " is-selected" : "";
-      return `<tr class="${sel.trim()}" data-av-id="${o.id}" style="cursor:pointer;">
-        <td><span class="mono" style="font-size:11px;">${_waEscaparHtml(o.numero || "—")}</span>${_avOrigemBadge(o.origem)}</td>
-        <td>${_waEscaparHtml(o.condominio_nome || "—")}${_avTipoBadge(o.tipo)}</td>
-        <td style="font-weight:700;">${_orcFmtValor(o.valor_total)}</td>
-        <td><span class="orc-status-pill ${_avStatusCls(o.status)}">${_avStatusLabel(o.status)}</span></td>
-        <td style="color:var(--muted);font-size:11px;">${_orcFmtData(o.criado_em)}</td>
-      </tr>`;
-    }).join("");
+  // Agrupa os orçamentos por condomínio (ordem alfabética; itens de cada
+  // condomínio por data desc).
+  const grupos = new Map();
+  for (const o of lista) {
+    const key = o.condominio_id != null ? `id:${o.condominio_id}` : `nome:${o.condominio_nome || ""}`;
+    if (!grupos.has(key)) grupos.set(key, { key, nome: o.condominio_nome || "Sem condomínio", itens: [] });
+    grupos.get(key).itens.push(o);
   }
+  const gruposOrd = [...grupos.values()].sort((a, b) => a.nome.localeCompare(b.nome));
+  for (const g of gruposOrd) g.itens.sort((a, b) => new Date(b.criado_em) - new Date(a.criado_em));
+
+  if (!gruposOrd.length) {
+    listEl.innerHTML = "";
+    if (empty) empty.style.display = "flex";
+    _avCondoSel = null;
+    _avRenderCondoDetail(null);
+    return;
+  }
+  if (empty) empty.style.display = "none";
+
+  // Mantém o condomínio selecionado se ainda existe no filtro atual; senão
+  // seleciona o primeiro da lista.
+  if (!_avCondoSel || !gruposOrd.some(g => g.key === _avCondoSel)) {
+    _avCondoSel = gruposOrd[0].key;
+  }
+
+  listEl.innerHTML = gruposOrd.map(g => {
+    const totalGrupo = g.itens.reduce((s, o) => s + Number(o.valor_total || 0), 0);
+    const sel = g.key === _avCondoSel ? " is-selected" : "";
+    const nRasc = g.itens.filter(o => o.status === "rascunho").length;
+    const nEnv  = g.itens.filter(o => o.status === "enviado").length;
+    const nApr  = g.itens.filter(o => o.status === "aprovado").length;
+    const dot = (n, cls, lbl) => n ? `<span class="av-dot ${cls}" title="${n} ${lbl}">${n}</span>` : "";
+    return `
+      <div class="av-condo-row${sel}" data-av-condo="${_waEscaparHtml(g.key)}">
+        <div class="av-condo-main">
+          <div class="av-condo-name">${_waEscaparHtml(g.nome)}</div>
+          <div class="av-condo-sub">${g.itens.length} ${g.itens.length === 1 ? "orçamento" : "orçamentos"} · ${_orcFmtValor(totalGrupo)}</div>
+        </div>
+        <div class="av-condo-dots">${dot(nRasc, "off", "rascunho")}${dot(nEnv, "warn", "enviado")}${dot(nApr, "ok", "aprovado")}</div>
+      </div>`;
+  }).join("");
+
+  _avRenderCondoDetail(gruposOrd.find(g => g.key === _avCondoSel) || null);
+}
+
+// Painel direito: lista os orçamentos do condomínio selecionado. Clicar num
+// item abre o modal de detalhe/edição (_avRenderPainel).
+function _avRenderCondoDetail(g) {
+  const wrap = document.getElementById("avCondoDetail");
+  if (!wrap) return;
+
+  if (!g) {
+    wrap.innerHTML = `
+      <div class="ch-detail-empty">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+        </svg>
+        <p>Selecione um condomínio para ver os orçamentos</p>
+      </div>`;
+    return;
+  }
+
+  const totalGrupo = g.itens.reduce((s, o) => s + Number(o.valor_total || 0), 0);
+  const linhas = g.itens.map(o => {
+    const selc = _avSelecionado?.id === o.id ? " is-selected" : "";
+    const tipoLbl = _avTipoLabels[o.tipo];
+    return `
+      <div class="av-orc-item${selc}" data-av-id="${o.id}">
+        <div class="av-orc-item-main">
+          <div class="av-orc-item-top">
+            <span class="mono" style="font-size:11.5px;">${_waEscaparHtml(o.numero || "—")}</span>${_avOrigemBadge(o.origem)}
+            ${tipoLbl ? `<span class="orc-tipo-pill">${_waEscaparHtml(tipoLbl)}</span>` : ""}
+          </div>
+          <div class="av-orc-item-sub">${_orcFmtData(o.criado_em)}</div>
+        </div>
+        <div class="av-orc-item-right">
+          <span class="av-orc-item-val">${_orcFmtValor(o.valor_total)}</span>
+          <span class="orc-status-pill ${_avStatusCls(o.status)}">${_avStatusLabel(o.status)}</span>
+        </div>
+      </div>`;
+  }).join("");
+
+  wrap.innerHTML = `
+    <div class="av-orc-pane-head">
+      <div class="av-orc-pane-title">${_waEscaparHtml(g.nome)}</div>
+      <div class="av-orc-pane-sub">${g.itens.length} ${g.itens.length === 1 ? "orçamento" : "orçamentos"} · ${_orcFmtValor(totalGrupo)}</div>
+    </div>
+    <div class="av-orc-list">${linhas}</div>`;
 }
 
 function _avFecharModal() {
@@ -11278,8 +11257,29 @@ function _avFecharModal() {
   if (m) m.style.display = "none";
   document.body.style.overflow = "";
   _avSelecionado = null;
-  // Atualiza seleção visual na tabela
-  document.querySelectorAll("#avTableBody tr.is-selected").forEach(r => r.classList.remove("is-selected"));
+  // Atualiza seleção visual na lista de orçamentos do painel
+  document.querySelectorAll("#avCondoDetail .av-orc-item.is-selected").forEach(r => r.classList.remove("is-selected"));
+}
+
+// Fecha o modal, mas se for um orçamento recém-criado que nunca foi salvo,
+// avisa e o descarta (apaga do servidor) — assim não fica rascunho vazio.
+async function _avTentarFechar() {
+  if (_avNovoPendente != null && _avSelecionado?.id === _avNovoPendente) {
+    if (!confirm("Você não salvou este orçamento. Se sair agora ele será descartado e você perderá tudo o que preencheu. Deseja sair mesmo assim?")) {
+      return; // cancela o fechamento — mantém o modal aberto
+    }
+    const id = _avNovoPendente;
+    try {
+      await fetch(`/admin/orcamentos/avulsos/${id}`, { method: "DELETE", headers: authHeaders() });
+    } catch (_) { /* mesmo se falhar o DELETE, segue fechando */ }
+    _avData = _avData.filter(o => o.id !== id);
+    _avNovoPendente = null;
+    _avLinhas = []; _avLinhasId = null;
+    _avFecharModal();
+    _avRenderTudo();
+    return;
+  }
+  _avFecharModal();
 }
 
 function _avRenderPainel() {
@@ -11302,123 +11302,155 @@ function _avRenderPainel() {
   const o = _avSelecionado;
   const validadeVal = o.valido_ate ? new Date(o.valido_ate).toISOString().split("T")[0] : "";
   const dataDocVal  = o.data_documento ? new Date(o.data_documento).toISOString().split("T")[0] : "";
+  // Cliente avulso (pessoa física): sem condomínio vinculado e com algum dado
+  // de cliente livre preenchido.
+  const avulso = !o.condominio_id && !!(o.cliente_nome || o.cliente_documento || o.cliente_endereco || o.cliente_email);
   const condoOptions = _avCondos.map(c =>
     `<option value="${c.id}" ${String(c.id) === String(o.condominio_id) ? "selected" : ""}>${_waEscaparHtml(c.nome)}</option>`
   ).join("");
 
   wrap.innerHTML = `
-    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--border);">
-      <div>
-        <div style="font-size:15px;font-weight:700;color:var(--text);line-height:1.2;">${_waEscaparHtml(o.numero || "Novo orçamento")}</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:4px;display:flex;align-items:center;gap:6px;">
-          <span class="orc-status-pill ${_avStatusCls(o.status)}">${_avStatusLabel(o.status)}</span>
-          <span>· ${_orcFmtData(o.criado_em)}</span>
+    <div class="av-modal-head">
+      <div class="av-modal-head-info">
+        <div class="av-modal-head-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        </div>
+        <div>
+          <div class="av-modal-num">${_waEscaparHtml(o.numero || "Novo orçamento")}</div>
+          <div class="av-modal-meta">
+            <span class="orc-status-pill ${_avStatusCls(o.status)}">${_avStatusLabel(o.status)}</span>
+            <span class="av-modal-date">· ${_orcFmtData(o.criado_em)}</span>
+          </div>
         </div>
       </div>
-      <button class="ap-close" data-av-action="fechar" title="Fechar" style="margin-top:2px;">×</button>
+      <button class="ap-close" data-av-action="fechar" title="Fechar">×</button>
     </div>
 
-    <div class="ap-section orc-form-section">
-      <div class="orc-form-row" style="margin-bottom:12px;grid-template-columns:1.4fr 1fr 1fr;">
-        <label class="orc-form-label">Tipo de orçamento
-          <select id="avInputTipo" class="select">
-            <option value="pecas" ${(o.tipo||"pecas")==="pecas"?"selected":""}>Peças / Serviço (padrão)</option>
-            <option value="limpeza_reservatorio" ${o.tipo==="limpeza_reservatorio"?"selected":""}>Limpeza de Reservatório de Água Potável</option>
-            <option value="dedetizacao" ${o.tipo==="dedetizacao"?"selected":""}>Dedetização</option>
-            <option value="limpeza_dedetizacao" ${o.tipo==="limpeza_dedetizacao"?"selected":""}>Limpeza de Reservatório + Dedetização</option>
-          </select>
-        </label>
-        <label class="orc-form-label">Condomínio / Cliente
-          <select id="avInputCondo" class="select">
-            <option value="">Selecionar…</option>
-            ${condoOptions}
-          </select>
-        </label>
-        <label class="orc-form-label">O.S. vinculada
-          <select id="avInputOs" class="select">
-            <option value="">Nenhuma</option>
-          </select>
-        </label>
-      </div>
-
-      <div class="orc-form-row" style="margin-bottom:14px;grid-template-columns:1fr 1fr;max-width:400px;">
-        <label class="orc-form-label">Data do orçamento
-          <input id="avInputDataDoc" class="input" type="date" value="${dataDocVal}">
-        </label>
-        <label class="orc-form-label">Válido até
-          <input id="avInputValidade" class="input" type="date" value="${validadeVal}">
-        </label>
-      </div>
-
-      <label class="orc-form-label" style="display:flex;flex-direction:column;margin-bottom:14px;">
-        Constatação / Escopo do serviço
-        <textarea id="avInputConstatacao" class="input" rows="2" maxlength="1000"
-          style="resize:vertical;font-size:12px;padding:8px 10px;margin-top:4px;min-height:60px;"
-          placeholder="Descreva o serviço ou problema constatado…">${_waEscaparHtml(o.constatacao || '')}</textarea>
-      </label>
-
-      <!-- Itens / Valores dos serviços -->
-      <div class="ap-section-title" style="margin-top:4px;margin-bottom:10px;">
-        <span>${(o.tipo && o.tipo !== "pecas") ? "Valores dos Serviços" : "Itens"}</span>
-      </div>
-      <div id="avItensWrap">
-        <div style="color:var(--muted);font-size:12px;padding:8px 0;">Carregando…</div>
-      </div>
-
-      <div style="margin-top:10px;">
-        <label class="check-field" style="display:inline-flex;">
-          <input type="checkbox" id="avToggleValorManual" ${o.valor != null ? "checked" : ""}>
-          Definir valor total manualmente (em vez de somar os itens)
-        </label>
-        <div id="avValorManualWrap" style="margin-top:10px;${o.valor != null ? "" : "display:none;"}">
-          <label class="orc-form-label" style="max-width:260px;">
-            Valor total (manual)
-            <input id="avInputValorManual" class="input" type="number" min="0" step="0.01"
-              placeholder="0,00" value="${o.valor != null ? o.valor : ''}">
+    <div class="av-modal-sections">
+      <div class="ap-section">
+        <div class="ap-section-title">Dados gerais</div>
+        <div class="orc-form-row" style="grid-template-columns:1.4fr 1fr 1fr;">
+          <label class="orc-form-label">Tipo de orçamento
+            <select id="avInputTipo" class="select">
+              <option value="pecas" ${(o.tipo||"pecas")==="pecas"?"selected":""}>Peças / Serviço (padrão)</option>
+              <option value="limpeza_reservatorio" ${o.tipo==="limpeza_reservatorio"?"selected":""}>Limpeza de Reservatório de Água Potável</option>
+              <option value="dedetizacao" ${o.tipo==="dedetizacao"?"selected":""}>Dedetização</option>
+              <option value="limpeza_dedetizacao" ${o.tipo==="limpeza_dedetizacao"?"selected":""}>Limpeza de Reservatório + Dedetização</option>
+            </select>
           </label>
-          <div class="hint" style="margin-top:5px;">Sobrepõe a soma dos itens no PDF.</div>
+          <label class="orc-form-label">Data do orçamento
+            <input id="avInputDataDoc" class="input" type="date" value="${dataDocVal}">
+          </label>
+          <label class="orc-form-label">Válido até
+            <input id="avInputValidade" class="input" type="date" value="${validadeVal}">
+          </label>
+        </div>
+
+        <label class="check-field" style="display:inline-flex;margin-top:14px;">
+          <input type="checkbox" id="avToggleAvulso" ${avulso ? "checked" : ""}>
+          Cliente avulso (pessoa física / não cadastrado no sistema)
+        </label>
+
+        <!-- Cliente cadastrado (condomínio) -->
+        <div id="avClienteCadastrado" class="orc-form-row" style="grid-template-columns:1fr 1fr;margin-top:10px;${avulso ? "display:none;" : ""}">
+          <label class="orc-form-label">Condomínio / Cliente
+            <select id="avInputCondo" class="select">
+              <option value="">Selecionar…</option>
+              ${condoOptions}
+            </select>
+          </label>
+          <label class="orc-form-label">O.S. vinculada
+            <select id="avInputOs" class="select">
+              <option value="">Nenhuma</option>
+            </select>
+          </label>
+        </div>
+
+        <!-- Cliente avulso (pessoa física) -->
+        <div id="avClienteAvulso" class="orc-form-row" style="grid-template-columns:1fr 1fr;margin-top:10px;${avulso ? "" : "display:none;"}">
+          <label class="orc-form-label">Nome do cliente
+            <input id="avInputClienteNome" class="input" type="text" maxlength="200" placeholder="Nome completo" value="${_waEscaparHtml(o.cliente_nome || '')}">
+          </label>
+          <label class="orc-form-label">CPF / CNPJ
+            <input id="avInputClienteDoc" class="input" type="text" maxlength="30" placeholder="000.000.000-00" value="${_waEscaparHtml(o.cliente_documento || '')}">
+          </label>
+          <label class="orc-form-label" style="grid-column:1/-1;">Endereço
+            <input id="avInputClienteEndereco" class="input" type="text" maxlength="255" placeholder="Rua, nº, bairro, cidade/UF" value="${_waEscaparHtml(o.cliente_endereco || '')}">
+          </label>
+          <label class="orc-form-label" style="grid-column:1/-1;">E-mail (para envio do orçamento)
+            <input id="avInputClienteEmail" class="input" type="text" maxlength="255" placeholder="cliente@email.com" value="${_waEscaparHtml(o.cliente_email || '')}">
+          </label>
         </div>
       </div>
 
-      <!-- Condições -->
-      <div class="ap-section-title" style="margin-top:14px;margin-bottom:10px;">Condições Comerciais</div>
-      <div class="orc-form-row" style="margin-bottom:14px;grid-template-columns:1fr 1fr 1fr 1fr;">
-        <label class="orc-form-label">Forma de pagamento
-          <input id="avInputPagamento" class="input" type="text" maxlength="255"
-            placeholder="Via boleto bancário" value="${_waEscaparHtml(o.forma_pagamento || '')}">
-        </label>
-        <label class="orc-form-label">Prazo de entrega
-          <input id="avInputPrazo" class="input" type="text" maxlength="100"
-            placeholder="5 dias úteis após aprovação" value="${_waEscaparHtml(o.prazo_entrega || '')}">
-        </label>
-        <label class="orc-form-label">Garantia
-          <input id="avInputGarantia" class="input" type="text" maxlength="100"
-            placeholder="12 meses por defeito de fabricação" value="${_waEscaparHtml(o.garantia || '')}">
-        </label>
-        <label class="orc-form-label">Status
-          <select id="avInputStatus" class="select">
-            <option value="rascunho" ${o.status==="rascunho"?"selected":""}>Rascunho</option>
-            <option value="enviado"  ${o.status==="enviado" ?"selected":""}>Enviado ao cliente</option>
-            <option value="aprovado" ${o.status==="aprovado"?"selected":""}>Aprovado</option>
-            <option value="rejeitado"${o.status==="rejeitado"?"selected":""}>Rejeitado</option>
-          </select>
-        </label>
+      <div class="ap-section">
+        <div class="ap-section-title">Escopo do serviço</div>
+        <textarea id="avInputConstatacao" class="input" rows="2" maxlength="1000"
+          style="resize:vertical;font-size:12px;padding:8px 10px;min-height:60px;width:100%;"
+          placeholder="Descreva o serviço ou problema constatado…">${_waEscaparHtml(o.constatacao || '')}</textarea>
       </div>
 
-      <div class="av-modal-footer" style="margin-top:18px;padding-top:16px;">
-        <button class="btn btnDanger btn-sm" data-av-action="deletar">Excluir</button>
-        <span class="orc-form-msg" id="avFormMsg"></span>
-        <div class="av-footer-actions">
-          <button class="btn btn-sm av-btn-pdf" data-av-action="gerar-pdf">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            Gerar PDF
-          </button>
-          <button class="btn btn-sm av-btn-email" data-av-action="enviar-email">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-            Enviar por e-mail
-          </button>
-          <button class="btn btnAccent btn-sm" data-av-action="salvar">Salvar</button>
+      <div class="ap-section">
+        <div class="ap-section-title">${(o.tipo && o.tipo !== "pecas") ? "Valores dos Serviços" : "Itens"}</div>
+        <div id="avItensWrap">
+          <div style="color:var(--muted);font-size:12px;padding:8px 0;">Carregando…</div>
         </div>
+        <div style="margin-top:12px;">
+          <label class="check-field" style="display:inline-flex;">
+            <input type="checkbox" id="avToggleValorManual" ${o.valor != null ? "checked" : ""}>
+            Definir valor total manualmente (em vez de somar os itens)
+          </label>
+          <div id="avValorManualWrap" style="margin-top:10px;${o.valor != null ? "" : "display:none;"}">
+            <label class="orc-form-label" style="max-width:260px;">
+              Valor total (manual)
+              <input id="avInputValorManual" class="input" type="number" min="0" step="0.01"
+                placeholder="0,00" value="${o.valor != null ? o.valor : ''}">
+            </label>
+            <div class="hint" style="margin-top:5px;">Sobrepõe a soma dos itens no PDF.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="ap-section">
+        <div class="ap-section-title">Condições Comerciais</div>
+        <div class="orc-form-row" style="grid-template-columns:1fr 1fr 1fr 1fr;">
+          <label class="orc-form-label">Forma de pagamento
+            <input id="avInputPagamento" class="input" type="text" maxlength="255"
+              placeholder="Via boleto bancário" value="${_waEscaparHtml(o.forma_pagamento || '')}">
+          </label>
+          <label class="orc-form-label">Prazo de entrega
+            <input id="avInputPrazo" class="input" type="text" maxlength="100"
+              placeholder="5 dias úteis após aprovação" value="${_waEscaparHtml(o.prazo_entrega || '')}">
+          </label>
+          <label class="orc-form-label">Garantia
+            <input id="avInputGarantia" class="input" type="text" maxlength="100"
+              placeholder="12 meses por defeito de fabricação" value="${_waEscaparHtml(o.garantia || '')}">
+          </label>
+          <label class="orc-form-label">Status
+            <select id="avInputStatus" class="select">
+              <option value="rascunho" ${o.status==="rascunho"?"selected":""}>Rascunho</option>
+              <option value="enviado"  ${o.status==="enviado" ?"selected":""}>Enviado ao cliente</option>
+              <option value="aprovado" ${o.status==="aprovado"?"selected":""}>Aprovado</option>
+              <option value="rejeitado"${o.status==="rejeitado"?"selected":""}>Rejeitado</option>
+            </select>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div class="av-modal-footer">
+      <button class="btn btnDanger btn-sm" data-av-action="deletar">Excluir</button>
+      <span class="orc-form-msg" id="avFormMsg"></span>
+      <div class="av-footer-actions">
+        <button class="btn btn-sm av-btn-pdf" data-av-action="gerar-pdf">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Gerar PDF
+        </button>
+        <button class="btn btn-sm av-btn-email" data-av-action="enviar-email">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+          Enviar por e-mail
+        </button>
+        <button class="btn btnAccent btn-sm" data-av-action="salvar">Salvar</button>
       </div>
     </div>`;
 
@@ -11436,6 +11468,17 @@ function _avRenderPainel() {
   document.getElementById("avInputTipo")?.addEventListener("change", async e => {
     await _avPreencherPadrao(e.target.value);
     _avRenderLinhas();
+  });
+
+  // Toggle cliente avulso (pessoa física) × condomínio cadastrado: alterna qual
+  // bloco de campos aparece.
+  document.getElementById("avToggleAvulso")?.addEventListener("change", e => {
+    const av = e.target.checked;
+    const cad = document.getElementById("avClienteCadastrado");
+    const avu = document.getElementById("avClienteAvulso");
+    if (cad) cad.style.display = av ? "none" : "";
+    if (avu) avu.style.display = av ? "" : "none";
+    if (av) document.getElementById("avInputClienteNome")?.focus();
   });
 
   // Toggle do valor manual: some/reaparece o campo e, ao desmarcar, limpa
@@ -11598,6 +11641,13 @@ async function _avAbrirEnvioEmail() {
   const msgPadrao = tpl.email_mensagem || `Prezado(a),\n\nSegue em anexo o orçamento ${orc.numero || ""} referente ao seu condomínio.\n\nQualquer dúvida, estamos à disposição.`;
   let assinaturaUrl = tpl.assinatura_email_url || "";
 
+  // Pré-preenche "Para" com o(s) e-mail(s) cadastrado(s) do condomínio do
+  // orçamento (campo `condominios.email`, pode ter vários separados por
+  // vírgula). Fica editável — o operador pode trocar antes de enviar.
+  const emailPadrao = (orc.condominio_id
+    ? (_condominios || []).find(c => Number(c.id) === Number(orc.condominio_id))?.email
+    : orc.cliente_email) || "";
+
   const ov = document.createElement("div");
   ov.className = "modalOverlay";
   ov.style.display = "flex";
@@ -11615,7 +11665,7 @@ async function _avAbrirEnvioEmail() {
         <form class="formGrid" style="grid-template-columns:1fr;" onsubmit="return false;">
           <label class="f">
             <span>Para <small style="font-weight:400;color:var(--muted);">(separe vários por vírgula)</small></span>
-            <input id="avEnvioPara" class="input" type="text" value="" placeholder="cliente@email.com" />
+            <input id="avEnvioPara" class="input" type="text" value="${_waEscaparHtml(emailPadrao)}" placeholder="cliente@email.com" />
           </label>
           <label class="f">
             <span>Mensagem</span>
@@ -11794,6 +11844,8 @@ async function _avAcao(acao) {
       if (!r.ok) { alert(j.error || "Erro ao criar"); return; }
       _avData.unshift(j);
       _avSelecionado = j;
+      _avNovoPendente = j.id;   // marca como rascunho não-salvo (descartável ao fechar)
+      _avCondoSel = j.condominio_id != null ? `id:${j.condominio_id}` : `nome:${j.condominio_nome || ""}`;
       _avLinhas = []; _avLinhasId = j.id;
       _avRenderTudo();
       _avRenderPainel();
@@ -11859,6 +11911,7 @@ async function _avAcao(acao) {
       await fetch(`/admin/orcamentos/avulsos/${id}`, { method: "DELETE", headers: authHeaders() });
       _avData = _avData.filter(o => o.id !== id);
       _avSelecionado = null; _avLinhas = []; _avLinhasId = null;
+      if (_avNovoPendente === id) _avNovoPendente = null;
       _avFecharModal();
       _avRenderTudo();
     } catch (e) { alert("Erro: " + e.message); }
@@ -11868,10 +11921,9 @@ async function _avAcao(acao) {
   // salvar
   if (msg) msg.textContent = "Salvando…";
   const valorManualRaw = document.getElementById("avInputValorManual")?.value;
+  const isAvulso = !!document.getElementById("avToggleAvulso")?.checked;
   const body = {
     tipo:            document.getElementById("avInputTipo")?.value || "pecas",
-    condominio_id:   document.getElementById("avInputCondo")?.value || null,
-    os_id:           document.getElementById("avInputOs")?.value || null,
     constatacao:     document.getElementById("avInputConstatacao")?.value.trim() || null,
     forma_pagamento: document.getElementById("avInputPagamento")?.value.trim() || null,
     prazo_entrega:   document.getElementById("avInputPrazo")?.value.trim() || null,
@@ -11880,6 +11932,24 @@ async function _avAcao(acao) {
     data_documento:  document.getElementById("avInputDataDoc")?.value || null,
     status:          document.getElementById("avInputStatus")?.value || "rascunho",
     valor:           valorManualRaw === "" || valorManualRaw == null ? null : Number(valorManualRaw),
+    // Cliente: condomínio cadastrado OU cliente avulso (pessoa física) — nunca os dois.
+    ...(isAvulso
+      ? {
+          condominio_id:     null,
+          os_id:             null,
+          cliente_nome:      document.getElementById("avInputClienteNome")?.value.trim() || null,
+          cliente_documento: document.getElementById("avInputClienteDoc")?.value.trim() || null,
+          cliente_endereco:  document.getElementById("avInputClienteEndereco")?.value.trim() || null,
+          cliente_email:     document.getElementById("avInputClienteEmail")?.value.trim() || null,
+        }
+      : {
+          condominio_id:     document.getElementById("avInputCondo")?.value || null,
+          os_id:             document.getElementById("avInputOs")?.value || null,
+          cliente_nome:      null,
+          cliente_documento: null,
+          cliente_endereco:  null,
+          cliente_email:     null,
+        }),
   };
   try {
     const r = await fetch(`/admin/orcamentos/avulsos/${id}`, {
@@ -11889,16 +11959,26 @@ async function _avAcao(acao) {
     });
     const j = await r.json();
     if (!r.ok) { if (msg) msg.textContent = j.error || "Erro"; return; }
+    if (_avNovoPendente === id) _avNovoPendente = null;   // salvou de propósito → não é mais descartável
     const idx = _avData.findIndex(o => o.id === id);
     if (idx !== -1) {
       Object.assign(_avData[idx], j);
-      // preservar condominio_nome
+      // Nome exibido/agrupado: condomínio cadastrado usa o nome do condo;
+      // cliente avulso usa o nome digitado.
       if (body.condominio_id) {
         const c = _avCondos.find(c => String(c.id) === String(body.condominio_id));
         if (c) _avData[idx].condominio_nome = c.nome;
+      } else {
+        _avData[idx].condominio_nome = body.cliente_nome || null;
       }
     }
     _avSelecionado = _avData[idx] || _avSelecionado;
+    // Mantém o painel no condomínio do orçamento recém-editado
+    if (_avSelecionado) {
+      _avCondoSel = _avSelecionado.condominio_id != null
+        ? `id:${_avSelecionado.condominio_id}`
+        : `nome:${_avSelecionado.condominio_nome || ""}`;
+    }
     if (msg) msg.textContent = "✓ Salvo";
     setTimeout(() => { if (msg) msg.textContent = ""; }, 2000);
     _avRenderTudo();
@@ -11952,21 +12032,29 @@ function _avBindEventos() {
 
   document.getElementById("avBusca")?.addEventListener("input", _avRenderTudo);
 
-  document.getElementById("avTableBody")?.addEventListener("click", e => {
-    const row = e.target.closest("tr[data-av-id]");
+  // Clique num condomínio (coluna esquerda) → seleciona e mostra os orçamentos
+  document.getElementById("avCondoList")?.addEventListener("click", e => {
+    const row = e.target.closest("[data-av-condo]");
     if (!row) return;
-    const id = Number(row.dataset.avId);
-    _avSelecionado = _avData.find(o => o.id === id) || null;
-    _avRenderPainel();
-    // Atualiza visual de seleção na tabela
-    document.querySelectorAll("#avTableBody tr").forEach(r => r.classList.toggle("is-selected", r === row));
+    _avCondoSel = row.dataset.avCondo;
+    _avRenderTudo();
   });
 
-  document.getElementById("avModalBackdrop")?.addEventListener("click", _avFecharModal);
+  // Clique num orçamento (painel direito) → abre o modal de detalhe/edição
+  document.getElementById("avCondoDetail")?.addEventListener("click", e => {
+    const item = e.target.closest("[data-av-id]");
+    if (!item) return;
+    const id = Number(item.dataset.avId);
+    _avSelecionado = _avData.find(o => o.id === id) || null;
+    _avRenderPainel();
+    document.querySelectorAll("#avCondoDetail .av-orc-item").forEach(r => r.classList.toggle("is-selected", r === item));
+  });
+
+  document.getElementById("avModalBackdrop")?.addEventListener("click", () => _avTentarFechar());
 
   document.addEventListener("keydown", e => {
     if (e.key === "Escape" && document.getElementById("avModal")?.style.display === "flex") {
-      _avFecharModal();
+      _avTentarFechar();
     }
   });
 
@@ -11977,7 +12065,7 @@ function _avBindEventos() {
     const btn = e.target.closest("[data-av-action]");
     if (!btn) return;
     const acao = btn.dataset.avAction;
-    if (acao === "fechar") { _avFecharModal(); }
+    if (acao === "fechar") { _avTentarFechar(); }
     else _avAcao(acao);
   });
 

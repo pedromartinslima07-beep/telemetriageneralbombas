@@ -2,7 +2,6 @@ const OpenAI = require("openai");
 const { pool } = require("../db");
 const { getConfig, getConfigBool } = require("./config.service");
 const { registrarCriacao } = require("./chamado-historico.service");
-const { sendOrcamentoIAEmail } = require("./email");
 
 let _client = null;
 function getClient() {
@@ -213,20 +212,6 @@ async function _executarCriarOrcamento({ condominio_id, resumo_pedido, observaco
      RETURNING id, numero`,
     [numero, condominio_id || null, constatacao]
   );
-
-  let condominio_nome = null;
-  if (condominio_id) {
-    try {
-      const cn = await pool.query("SELECT nome FROM condominios WHERE id = $1", [condominio_id]);
-      condominio_nome = cn.rows[0]?.nome ?? null;
-    } catch (_) {}
-  }
-  sendOrcamentoIAEmail({
-    orcamento_id: r.rows[0].id,
-    numero: r.rows[0].numero,
-    condominio_nome,
-    resumo_pedido,
-  }).catch(() => {});
 
   return { orcamento_id: r.rows[0].id, numero: r.rows[0].numero };
 }

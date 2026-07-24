@@ -30,7 +30,7 @@ ESP32 (sonda 4-20mA + SCT-013)
 │                                                                              │
 │  Jobs (setTimeout recursivo, lêem config dinâmica a cada tick):             │
 │   offline · planos-manutencao · gps-cleanup · leituras-cleanup ·            │
-│   alertas-cleanup · conversas-cleanup · chamados-atraso · conversas-timeout │
+│   alertas-cleanup · conversas-cleanup · conversas-timeout                    │
 │                                                                              │
 │  Extras embutidos no app.js: proxy de tiles /tiles/:z/:x/:y.png (cache em   │
 │   memória + dedupe inflight) · página /admin/reset-cache (limpa PWA)        │

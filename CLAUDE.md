@@ -158,7 +158,7 @@ paralela — só CSS exclusivo de mobile (`.cli-nav`, `.cli-fab`, etc.).
 `setTimeout` recursivo (não `setInterval`). Lê config dinâmica via
 `config.service.js` a cada tick — permite ajustar intervalo no admin sem
 deploy. Exemplos: `src/jobs/offline.job.js`, `gps-cleanup.job.js`,
-`leituras-cleanup.job.js`, `chamados-atraso.job.js`.
+`leituras-cleanup.job.js`, `conversas-timeout.job.js`.
 
 Toda config dinâmica precisa estar na whitelist `CHAVES` em
 `src/services/config.service.js` (com tipo + min/max) pra ser editável via

@@ -52,10 +52,12 @@ async function buscarDadosAvulso(orcamentoId) {
        o.data_documento,
        o.criado_em,
        o.valor,
-       COALESCE(c.nome_fantasia, c.nome) AS condominio_nome,
+       o.condominio_id,
+       COALESCE(c.nome_fantasia, c.nome, o.cliente_nome) AS condominio_nome,
        c.nome      AS condominio_razao_social,
-       c.endereco, c.bairro, c.cidade, c.uf, c.cep,
-       c.cnpj      AS condominio_cnpj
+       COALESCE(c.endereco, o.cliente_endereco) AS endereco,
+       c.bairro, c.cidade, c.uf, c.cep,
+       COALESCE(c.cnpj, o.cliente_documento) AS condominio_cnpj
      FROM orcamentos o
      LEFT JOIN condominios c ON c.id = o.condominio_id
      WHERE o.id = $1`,
@@ -72,9 +74,14 @@ async function buscarDadosAvulso(orcamentoId) {
   );
 
   const o = r.rows[0];
+  // Rótulo do documento: condomínio sempre CNPJ; cliente avulso (sem
+  // condomínio) mostra CPF quando tem até 11 dígitos, senão CNPJ.
+  const docDigits = String(o.condominio_cnpj || "").replace(/\D/g, "");
+  const docLabel = o.condominio_id ? "CNPJ" : (docDigits.length > 0 && docDigits.length <= 11 ? "CPF" : "CNPJ");
   // normalise para mesmo formato que buscarDadosOrcamento usa
   const os = {
     ...o,
+    doc_label: docLabel,
     os_numero:                o.numero,
     orcamento_numero:         o.numero,
     orcamento_constatacao:    o.constatacao,
@@ -193,7 +200,7 @@ function renderHTML({ os, itens }, areaP1, medidas = {}) {
   <div class="sec-title">Cliente</div>
   <div class="cliente-nome">${escapeHtml(os.condominio_nome || "—")}</div>
   ${os.condominio_razao_social && os.condominio_razao_social !== os.condominio_nome ? `<div class="cliente-det">Razão social: ${escapeHtml(os.condominio_razao_social)}</div>` : ""}
-  ${os.condominio_cnpj ? `<div class="cliente-det">CNPJ: ${escapeHtml(os.condominio_cnpj)}</div>` : ""}
+  ${os.condominio_cnpj ? `<div class="cliente-det">${os.doc_label || "CNPJ"}: ${escapeHtml(os.condominio_cnpj)}</div>` : ""}
   ${enderecoStr ? `<div class="cliente-det">${escapeHtml(enderecoStr)}</div>` : ""}
 </div>
 <div class="sec">
@@ -466,7 +473,7 @@ body { width: 210mm; background: white; font-family: Arial, Helvetica, sans-seri
   <div class="sec-title">Cliente</div>
   <div class="cliente-nome">${escapeHtml(os.condominio_nome || "—")}</div>
   ${os.condominio_razao_social && os.condominio_razao_social !== os.condominio_nome ? `<div class="cliente-det">Razão social: ${escapeHtml(os.condominio_razao_social)}</div>` : ""}
-  ${os.condominio_cnpj ? `<div class="cliente-det">CNPJ: ${escapeHtml(os.condominio_cnpj)}</div>` : ""}
+  ${os.condominio_cnpj ? `<div class="cliente-det">${os.doc_label || "CNPJ"}: ${escapeHtml(os.condominio_cnpj)}</div>` : ""}
   ${enderecoStr ? `<div class="cliente-det">${escapeHtml(enderecoStr)}</div>` : ""}
 </div>
 <div class="sec">
@@ -697,7 +704,7 @@ ${timbradoTag}
   <div class="sec-title">Cliente</div>
   <div class="cliente-nome">${escapeHtml(os.condominio_nome || "—")}</div>
   ${os.condominio_razao_social && os.condominio_razao_social !== os.condominio_nome ? `<div class="cliente-det">Razão social: ${escapeHtml(os.condominio_razao_social)}</div>` : ""}
-  ${os.condominio_cnpj ? `<div class="cliente-det">CNPJ: ${escapeHtml(os.condominio_cnpj)}</div>` : ""}
+  ${os.condominio_cnpj ? `<div class="cliente-det">${os.doc_label || "CNPJ"}: ${escapeHtml(os.condominio_cnpj)}</div>` : ""}
   ${enderecoStr ? `<div class="cliente-det">${escapeHtml(enderecoStr)}</div>` : ""}
 </div>
 

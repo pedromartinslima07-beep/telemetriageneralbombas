@@ -4148,9 +4148,8 @@ body.mp-fs-active { overflow: hidden; }
   backdrop-filter: blur(12px);
   box-shadow: 0 20px 60px rgba(0,0,0,.6);
 }
-/* Em fullscreen, mostra o X e esconde o Abrir Painel */
+/* Em fullscreen, mostra o botão X de fechar o painel flutuante */
 .mp-map-card.is-fullscreen .mp-fs-close { display: inline-flex; }
-.mp-map-card.is-fullscreen #mpBtnAbrirPainel { display: none !important; }
 /* Painel flutuante escondido até clicar num pino */
 .mp-map-card.is-fullscreen .mp-panel.mp-fs-hidden { display: none; }
 @media (max-width: 540px) {
@@ -4299,6 +4298,42 @@ body.mp-fs-active { overflow: hidden; }
 }
 .mp-list-pill.on  { background: rgba(16,185,129,.12); color: var(--ok); border: 1px solid rgba(16,185,129,.25); }
 .mp-list-pill.off { background: rgba(239,68,68,.12); color: var(--danger); border: 1px solid rgba(239,68,68,.25); }
+
+/* Grade de tanques (aba Reservatórios) — ícones SVG iguais aos da Telemetria */
+.mp-tank-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+  gap: 12px;
+}
+.mp-tank-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 8px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: rgba(255,255,255,.02);
+  cursor: pointer;
+  transition: border-color .15s ease, background .15s ease, transform .15s ease;
+}
+.mp-tank-cell:hover {
+  border-color: var(--accent);
+  background: rgba(240,176,20,.06);
+  transform: translateY(-1px);
+}
+.mp-tank-visual { width: 100%; max-width: 104px; }
+.mp-tank-visual svg { width: 100%; height: auto; display: block; }
+.mp-tank-nome {
+  width: 100%;
+  text-align: center;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
 /* Linha inferior */
 .mp-bottom {
@@ -5173,6 +5208,17 @@ body.mp-fs-active { overflow: hidden; }
 }
 .ch-detail-empty svg { opacity: .3; }
 .ch-detail-empty p   { font-size: 12px; }
+
+/* "Solicitados pelos técnicos" (Orçamentos): reusa o painel .ap-* dentro do
+   card de detalhe do padrão Chamados. Mantém padding/scoping do .al-painel,
+   mas o visual (borda + raio + fundo) vem do .ch-detail-col. */
+.ch-detail-col.al-painel {
+  background: var(--surface);
+  padding: 18px;
+  max-height: none;
+}
+/* Filtro de condomínio na toolbar do padrão Chamados alinhado ao input */
+.ch-toolbar .select { width: 180px; flex-shrink: 0; margin-bottom: 10px; }
 
 .ch-detail { padding: 20px; display: flex; flex-direction: column; gap: 0; }
 
@@ -6659,6 +6705,56 @@ body.role-viewer .viewer-only-hide-inline {
 .orc-table tbody tr:hover { background: rgba(255,255,255,.03); }
 .orc-table tbody tr.is-selected { background: rgba(240,176,20,.06); }
 
+/* ── Orçamentos (Criar orçamento): master-detail condomínio → orçamentos ──
+   Mesma distribuição da aba "Solicitados pelos técnicos": lista larga à
+   esquerda (com toolbar dentro) + painel estreito (360px) à direita, via as
+   classes .ch-layout/.ch-list-col/.ch-detail-col (sem override de largura). */
+#orcModoAvulso .ch-toolbar .btn { margin-bottom: 10px; }
+
+/* Lista de condomínios (coluna esquerda) */
+.av-condo-list { display: flex; flex-direction: column; }
+.av-condo-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background .12s;
+}
+.av-condo-row:hover { background: rgba(255,255,255,.04); }
+.av-condo-row.is-selected { background: rgba(240,176,20,.08); }
+.av-condo-row.is-selected .av-condo-name { color: var(--accent); }
+.av-condo-main { flex: 1; min-width: 0; }
+.av-condo-name { font-size: 13px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.av-condo-sub  { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.av-condo-dots { display: flex; gap: 4px; flex-shrink: 0; }
+.av-dot {
+  font-size: 10px; font-weight: 700; min-width: 18px; text-align: center;
+  padding: 1px 5px; border-radius: 999px;
+}
+.av-dot.off  { background: rgba(148,163,184,.18); color: #94a3b8; }
+.av-dot.warn { background: rgba(245,158,11,.16); color: #f59e0b; }
+.av-dot.ok   { background: rgba(16,185,129,.16); color: #10b981; }
+
+/* Painel direito: orçamentos do condomínio */
+.av-orc-pane-head { padding: 14px 16px; border-bottom: 1px solid var(--border); }
+.av-orc-pane-title { font-size: 14px; font-weight: 700; color: var(--text); }
+.av-orc-pane-sub   { font-size: 11.5px; color: var(--muted); margin-top: 3px; }
+.av-orc-list { display: flex; flex-direction: column; }
+.av-orc-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background .12s;
+}
+.av-orc-item:hover { background: rgba(255,255,255,.04); }
+.av-orc-item.is-selected { background: rgba(240,176,20,.08); }
+.av-orc-item-main { flex: 1; min-width: 0; }
+.av-orc-item-top  { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.av-orc-item-sub  { font-size: 10.5px; color: var(--muted); margin-top: 3px; }
+.av-orc-item-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.av-orc-item-val  { font-size: 12.5px; font-weight: 700; color: var(--text); }
+
 /* Painel de detalhe — seção do form */
 .orc-form-section { border-top: 1px solid var(--border); padding-top: 12px; }
 .orc-form-row {
@@ -6857,13 +6953,37 @@ body.role-viewer .viewer-only-hide-inline {
   background: rgba(255,255,255,.1);
   color: var(--text);
 }
-/* Cabeçalho: não precisa reservar espaço pro botão (está absoluto) */
-.av-modal-dialog .ap-head {
+/* Cabeçalho do modal: ícone temático + número + status */
+.av-modal-head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 12px;
   margin-bottom: 20px;
-  padding-right: 48px;
+  padding: 0 44px 16px 0;
+  border-bottom: 1px solid var(--border);
 }
-.av-modal-dialog .ap-title { font-size: 18px; }
-.av-modal-dialog .ap-sub   { font-size: 12px; }
+.av-modal-head-info { display: flex; align-items: center; gap: 12px; }
+.av-modal-head-icon {
+  width: 40px; height: 40px; border-radius: 10px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(240,176,20,.12); color: var(--accent);
+  border: 1px solid rgba(240,176,20,.25);
+}
+.av-modal-head-icon svg { width: 20px; height: 20px; }
+.av-modal-num  { font-size: 17px; font-weight: 700; color: var(--text); line-height: 1.2; }
+.av-modal-meta { display: flex; align-items: center; gap: 6px; margin-top: 5px; font-size: 12px; color: var(--muted); }
+
+/* Seções do form em cards sutis */
+.av-modal-sections { display: flex; flex-direction: column; gap: 14px; }
+.av-modal-dialog .ap-section {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 16px 16px;
+  background: rgba(255,255,255,.015);
+  margin: 0;
+}
+.av-modal-sections .orc-form-row { margin-top: 0; }
+.av-modal-sections .orc-form-row + .orc-form-row { margin-top: 12px; }
+
 /* Form em 3 colunas onde cabia só 2 */
 .av-modal-dialog .orc-form-row {
   grid-template-columns: 1fr 1fr 1fr;
@@ -6888,7 +7008,8 @@ body.role-viewer .viewer-only-hide-inline {
   text-transform: uppercase;
   letter-spacing: .6px;
   color: var(--muted);
-  padding-bottom: 7px;
+  padding-bottom: 8px;
+  margin-bottom: 12px;
   border-bottom: 1px solid var(--border);
 }
 

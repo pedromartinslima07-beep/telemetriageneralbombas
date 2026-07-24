@@ -80,6 +80,155 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
 
 ## Marcos de produto (fases do plano)
 
+- **2026-07-24** — **Orçamento para cliente avulso (pessoa física, sem CNPJ)**
+  - Migration **065**: `orcamentos` ganha `cliente_nome`, `cliente_documento`
+    (CPF/CNPJ), `cliente_endereco`, `cliente_email`.
+  - No modal, toggle **"Cliente avulso (pessoa física / não cadastrado)"**:
+    ligado → some o select de condomínio + O.S. e aparecem os campos livres
+    (nome / CPF-CNPJ / endereço / e-mail). Salva `condominio_id` **ou** os
+    campos de cliente, nunca os dois.
+  - Backend (`admin.routes.js`): POST/PATCH aceitam os campos; GET lista devolve
+    e usa `COALESCE(c.nome, o.cliente_nome)` como nome de exibição (agrupa o
+    avulso pelo nome do cliente no master-detail). PDF (`orcamento-pdf.service`):
+    bloco "Cliente" usa os dados avulsos quando não há condomínio, com rótulo
+    `CPF`/`CNPJ` automático. Envio por e-mail pré-preenche com `cliente_email`.
+
+- **2026-07-24** — **Orçamento novo: rascunho descartável (não fica salvo vazio)**
+  - Só frontend (`admin.js`). "Novo orçamento" ainda cria o registro no servidor
+    (necessário porque itens/PDF dependem do `id`), mas ele passa a ser um
+    **rascunho descartável**: se o usuário **fechar sem salvar** (× / backdrop /
+    Esc), aparece um `confirm` avisando que vai perder tudo e, se confirmar, o
+    orçamento é **apagado** (DELETE). Só "gruda" de verdade ao clicar **Salvar**.
+  - Estado `_avNovoPendente` (id do rascunho não-salvo); nova função
+    `_avTentarFechar` substitui `_avFecharModal` nos gatilhos de fechar; limpo ao
+    salvar/excluir. Assim não sobra mais orçamento vazio na lista.
+
+- **2026-07-24** — **Modal de orçamento: reorganizado em seções (cards)**
+  - Só frontend (`admin.js`, `admin.css`). O modal de criação/edição
+    (`_avRenderPainel`) era um bloco único; virou **cabeçalho com ícone
+    temático** (número + status + data) e **4 seções em cards** — "Dados
+    gerais", "Escopo do serviço", "Itens/Valores", "Condições Comerciais" —
+    seguindo o visual `.ap-section` do painel do OS. Rodapé de ações (Excluir /
+    PDF / E-mail / Salvar) virou faixa própria fora das seções. Todos os IDs e
+    `data-av-action` preservados (nenhuma lógica mudou). Novos estilos
+    `.av-modal-head*` / `.av-modal-sections` / `.av-modal-dialog .ap-section`.
+
+- **2026-07-24** — **Orçamentos (Criar orçamento): master-detail condomínio → orçamentos**
+  - Evolução do agrupamento anterior. O modo avulso deixou de ser uma tabela
+    única (com cabeçalhos de grupo) e virou **duas colunas** no padrão
+    Chamados/OS (`ch-layout`): **esquerda** = lista de condomínios (nome +
+    contagem + total + dots de status rascunho/enviado/aprovado); **direita** =
+    orçamentos do condomínio selecionado. Clicar num orçamento abre o modal de
+    detalhe/edição de sempre (`avModal`). Barra de filtros (tabs de status +
+    busca + "+ Novo orçamento") virou uma faixa acima das colunas.
+  - Estado `_avCondoSel` guarda o condomínio selecionado (auto-seleciona o
+    primeiro; segue o condomínio ao criar/editar um orçamento). Removidos o
+    `#avFiltroCondo` (a lista à esquerda substitui o filtro), a tabela
+    `#avTableBody`, o `_avPopularFiltroCondos` e o CSS `.orc-group-*` (órfão).
+    Novos: `_avRenderCondoDetail`, `.av-condo-*`, `.av-orc-*`.
+  - **Distribuição alinhada à aba "Solicitados pelos técnicos":** toolbar (tabs
+    + busca + "+ Novo") movida pra dentro do card da lista (`.ch-toolbar`, não
+    mais uma faixa flutuante) e proporções padrão do `ch-layout` (lista larga à
+    esquerda + painel 360px à direita), sem override de largura.
+
+- **2026-07-24** — **Envio de orçamento: "Para" pré-preenchido com o e-mail do cliente**
+  - Só frontend (`admin.js`). O modal "Enviar orçamento por e-mail" (`avEnvioPara`)
+    começava vazio; agora vem preenchido com o(s) e-mail(s) cadastrado(s) do
+    condomínio do orçamento (`_condominios[...].email`, que o `GET /condominios`
+    já retorna). Continua editável. Fallback pra vazio se o condomínio não tiver
+    e-mail. O backend já aparava espaços (`split(",").map(trim)`), então vírgula
+    com ou sem espaço tanto faz.
+
+- **2026-07-24** — **Removido form legado oculto de "novo condomínio"**
+  - Só frontend. O `<section>` "Cadastro de condomínio" (inputs `novo*` +
+    `btnCadastrarCondominio`) vivia dentro do bloco `display:none`
+    ("mantidos para compatibilidade") e não aparecia na tela — criar cliente é
+    feito pelo modal "Criar cliente" (`cliModalEmail`, com e-mail). Removidos o
+    HTML, a função órfã `criarCondominio()`, o binding do botão, o init do
+    mini-mapa `"novo"` e o `_bindCepInput("novo")` (todos mortos). O form oculto
+    de **reservatório** (`res*`, ainda usado por `criarReservatorio()`) foi
+    mantido.
+
+- **2026-07-24** — **Removidos 2 e-mails automáticos (atraso de chamado + orçamento IA)**
+  - **Chamado em atraso:** feature inteira removida (existia só pra mandar
+    e-mail). Deletado `src/jobs/chamados-atraso.job.js`; removidos o scheduler
+    no `app.js`, o endpoint `POST /admin/jobs/chamados-atraso/run` + status
+    `job_chamados_atraso` (`admin.routes.js`), as chaves de config
+    `chamados.alerta_atraso_horas/_enabled` (`config.service.js` +
+    `restaurar-defaults.sql`), o card "Alerta de chamado parado" da UI de
+    Configurações (`admin.html`) e o load/save/handler correspondentes
+    (`admin.js`). A coluna `chamados.alerta_atraso_enviado_em` fica no schema
+    (histórica, sem uso). Monitorar chamado que passou do prazo agora é só via
+    **SLA estourado → alerta crítico** (mudança anterior).
+  - **Orçamento via IA:** removido o disparo `sendOrcamentoIAEmail` em
+    `ia.service.js` (o pedido continua sendo registrado como rascunho normal).
+  - Ambas as funções (`sendChamadoAtrasoEmail`, `sendOrcamentoIAEmail`) saíram
+    de `src/services/email.js`. E-mails automáticos que **permanecem**: alerta
+    de telemetria (offline / nível baixo), OTP de login, código de assinatura,
+    solicitação de assinatura de contrato e envio de orçamento ao cliente.
+
+- **2026-07-24** — **Chamado com SLA estourado vira alerta crítico**
+  - Só frontend (`public/admin.js`). Antes, um chamado que estourava o SLA
+    (TTFR sem primeira resposta / TTR além do prazo — flags `sla_ttfr_estourado`
+    / `sla_ttr_risco`, já calculadas em tempo real pelo `GET /chamados`) só
+    aparecia como badge na página de Chamados; na agregação de Alertas a
+    severidade vinha só da prioridade, então um P3/P4 estourado ficava "normal".
+  - Agora `_chamadoSlaEstourado(ch)` centraliza a regra e o chamado estourado é
+    elevado a **crítico** em toda a agregação: página **Alertas** (`_alUnificar`
+    — severidade crítica + pill "SLA estourado"), **badge** do menu, **feed do
+    Mission Control** (kind "bad" + "SLA estourado" no subtítulo) e **KPI de
+    alertas** do Dashboard. Novo helper `_chamadosAlertaAbertos()` (P1/P2 abertos
+    **ou** SLA estourado) substitui o antigo `_chamadosP12Abertos()`.
+  - Atualiza a cada ~20s junto com `carregarAtendimento` (que refaz o
+    `GET /chamados`). Sem mudança de backend/schema — as flags de SLA já
+    existiam.
+
+- **2026-07-24** — **Orçamentos (Criar orçamento): lista agrupada por condomínio**
+  - Só frontend (`public/admin.html`, `admin.css`, `admin.js`). A lista de
+    orçamentos criados (modo **avulso**) era plana e misturava todos os
+    condomínios. Agora as linhas são **agrupadas por condomínio**: cada grupo
+    tem um cabeçalho (`.orc-group-row`) com nome do condomínio + contagem +
+    **soma dos valores** do grupo; itens do grupo ordenados por data (mais
+    recentes primeiro) e grupos em ordem alfabética.
+  - **Filtro de condomínio** (`#avFiltroCondo`) adicionado à toolbar do modo
+    avulso — derivado dos próprios orçamentos, igual ao do modo OS. Bind em
+    `_avBindEventos`; populado em `_avPopularFiltroCondos`.
+  - A coluna redundante "Condomínio" da tabela virou **"Tipo"** (o grupo já
+    mostra o condomínio); tipo exibido como pill quando houver.
+
+- **2026-07-24** — **Orçamentos "Solicitados pelos técnicos": layout igual ao de Chamados**
+  - Só frontend (`public/admin.html`, `admin.css`). O container do modo **OS**
+    (`#orcModoOS`) estava com o padrão `.al-*` (card único envolvendo header +
+    toolbar + grid tabela/painel), destoando do resto. Passou a espelhar o
+    **padrão de Chamados**: `.ch-layout` com `.ch-list-col` (card da lista +
+    `.ch-toolbar` com abas/busca/filtro) e `.ch-detail-col` (card de detalhe),
+    dois cards separados lado a lado. KPIs (`#orcKpiGrid`) seguem acima.
+  - O painel de detalhe reusa os estilos `.ap-*` (escopados a `.al-painel`):
+    o `<aside id="orcPainel">` leva **as duas classes** (`ch-detail-col
+    al-painel`) e um override (`.ch-detail-col.al-painel`) dá o visual de card
+    do padrão Chamados mantendo o padding/scoping do painel. Nenhum JS mudou —
+    todos os IDs preservados (`orcTableBody`, `orcPainel`, `orcBusca`,
+    `orcFiltroCondo`, `orcCt*`, `orcEmpty`).
+  - Removidos o `<h2>` "Solicitados pelos técnicos" + hint de dentro do card
+    (a aba principal já rotula o modo), para ficar igual a Chamados.
+
+- **2026-07-24** — **Mapa: painel lateral do condomínio (3 ajustes)**
+  - **Botão "Abrir Painel" removido** do cabeçalho do painel lateral (HTML +
+    handler + referências no `_mpAtualizarPainel` + CSS órfão de fullscreen).
+    Abrir o drawer completo pelo mapa deixou de existir; o painel lateral já
+    traz o essencial.
+  - **Aba Reservatórios:** lista texto (nome + `%`) trocada por **grade de
+    ícones de tanque SVG** reusando `_telTanqueSVG(pct, offline)` da Telemetria
+    (novo `.mp-tank-grid`/`.mp-tank-cell`/`.mp-tank-visual`/`.mp-tank-nome`).
+    O `%` já aparece dentro do tanque; nome do reservatório abaixo. **Clicar
+    num tanque** leva pra aba **Telemetria já filtrada** pelo condomínio
+    escolhido (`_mpIrParaTelemetria` → `showSection('telemetria')` +
+    `telFiltroCondominio`). Ícone maior e card com hover (cursor pointer).
+  - **Aba Bombas:** passa a listar **apenas reservatórios com `limiar_bomba`
+    cadastrado** (sem limiar não há como inferir o estado da bomba com
+    confiança). Backend: `GET /admin/status` agora inclui `limiar_bomba` no
+    objeto de cada reservatório.
+
 - **2026-07-23** — **Dashboard e Telemetria: ajustes de layout**
   - **Dashboard:** removido o card "IA Insights" (linha inferior) — mostrava
     insights derivados genéricos ("IA pronta 24/7" etc.), baixo valor. A linha

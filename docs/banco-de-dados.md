@@ -165,7 +165,11 @@ avulsos](modulos/ordens-servico.md)). 061: `data_documento DATE` (nullable) —
 data exibida no PDF, editável no admin; se vazio, usa `criado_em` como
 sempre. `valor` (coluna original de 030, antes só usada na aprovação por O.S.)
 passa a servir também de **override manual do total** do PDF de orçamento
-avulso — quando preenchido, sobrepõe a soma de `orcamento_linhas`.
+avulso — quando preenchido, sobrepõe a soma de `orcamento_linhas`. 065:
+`cliente_nome`, `cliente_documento` (CPF/CNPJ), `cliente_endereco`,
+`cliente_email` — **cliente avulso (pessoa física)** não cadastrado: usados no
+bloco "Cliente" do PDF quando `condominio_id` é NULL (senão prevalece o
+condomínio). No PDF o rótulo do documento vira `CPF` (≤11 dígitos) ou `CNPJ`.
 **`orcamento_linhas`** (026, CASCADE) — `quantidade`, `valor_unitario`. 062:
 `valor_unitario` vira nullable (era `NOT NULL DEFAULT 0`) — item sem preço
 lançado fica `NULL` de verdade em vez de `0`, e o PDF omite a coluna de valor

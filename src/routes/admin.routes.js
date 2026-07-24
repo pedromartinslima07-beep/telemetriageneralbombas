@@ -19,7 +19,6 @@ const { getGpsCleanupStatus } = require("../jobs/gps-cleanup.job");
 const { getLeiturasCleanupStatus, jobLimparLeituras } = require("../jobs/leituras-cleanup.job");
 const { getAlertasCleanupStatus, jobLimparAlertas } = require("../jobs/alertas-cleanup.job");
 const { getConversasCleanupStatus, jobLimparConversas } = require("../jobs/conversas-cleanup.job");
-const { getChamadosAtrasoStatus, jobVerificarChamadosAtraso } = require("../jobs/chamados-atraso.job");
 
 const router = express.Router();
 
@@ -46,6 +45,7 @@ router.get("/status", authRequired, adminOnly, async (req, res) => {
         r.nome      AS reservatorio_nome,
         r.tipo      AS reservatorio_tipo,
         r.device_id AS reservatorio_device_id,
+        r.limiar_bomba AS reservatorio_limiar_bomba,
         r.last_seen AS last_seen,
 
         ul.nivel        AS ultima_nivel,
@@ -123,6 +123,7 @@ router.get("/status", authRequired, adminOnly, async (req, res) => {
         nome: row.reservatorio_nome,
         tipo: row.reservatorio_tipo,
         device_id: row.reservatorio_device_id,
+        limiar_bomba: row.reservatorio_limiar_bomba,
 
         ultima_leitura: row.ultima_criado_em
           ? {
@@ -679,22 +680,8 @@ router.get("/integracoes/status", authRequired, masterAdminOnly, async (req, res
   out.job_leituras_cleanup = getLeiturasCleanupStatus();
   out.job_alertas_cleanup = getAlertasCleanupStatus();
   out.job_conversas_cleanup = getConversasCleanupStatus();
-  out.job_chamados_atraso = getChamadosAtrasoStatus();
 
   return res.json(out);
-});
-
-// POST /admin/jobs/chamados-atraso/run — dispara verificação de chamados
-// atrasados imediatamente (em vez de esperar o ciclo de 15 min). Útil pra
-// testar configuração e ver se o email chega.
-router.post("/jobs/chamados-atraso/run", authRequired, masterAdminOnly, async (req, res) => {
-  try {
-    const resultado = await jobVerificarChamadosAtraso();
-    return res.json(resultado);
-  } catch (err) {
-    console.error("[admin] /jobs/chamados-atraso/run:", err);
-    return res.status(500).json({ error: "Erro ao executar verificação", detalhe: err.message });
-  }
 });
 
 // POST /admin/jobs/leituras-cleanup/run — dispara a limpeza de leituras
@@ -1176,7 +1163,8 @@ router.get("/orcamentos/avulsos", authRequired, adminOnly, async (req, res) => {
               o.os_id, os.numero AS os_numero,
               o.constatacao, o.forma_pagamento, o.prazo_entrega,
               o.garantia, o.disponibilidade,
-              c.nome AS condominio_nome, c.id AS condominio_id, c.email AS condominio_email,
+              COALESCE(c.nome, o.cliente_nome) AS condominio_nome, c.id AS condominio_id, c.email AS condominio_email,
+              o.cliente_nome, o.cliente_documento, o.cliente_endereco, o.cliente_email,
               o.enviado_em, o.enviado_para,
               COALESCE(
                 o.valor,
@@ -1198,7 +1186,8 @@ router.get("/orcamentos/avulsos", authRequired, adminOnly, async (req, res) => {
 
 // POST /admin/orcamentos/avulsos — criar novo
 router.post("/orcamentos/avulsos", authRequired, adminOnly, async (req, res) => {
-  const { condominio_id, numero, os_id, tipo, constatacao, forma_pagamento, prazo_entrega, garantia, disponibilidade, valido_ate, data_documento } = req.body || {};
+  const { condominio_id, numero, os_id, tipo, constatacao, forma_pagamento, prazo_entrega, garantia, disponibilidade, valido_ate, data_documento,
+          cliente_nome, cliente_documento, cliente_endereco, cliente_email } = req.body || {};
   const TIPOS_VALIDOS = ["pecas", "limpeza_reservatorio", "dedetizacao", "limpeza_dedetizacao"];
   if (tipo != null && !TIPOS_VALIDOS.includes(tipo)) return res.status(400).json({ error: "tipo inválido" });
   try {
@@ -1210,8 +1199,9 @@ router.post("/orcamentos/avulsos", authRequired, adminOnly, async (req, res) => 
     const r = await pool.query(
       `INSERT INTO orcamentos
          (numero, condominio_id, os_id, tipo, constatacao, forma_pagamento, prazo_entrega,
-          garantia, disponibilidade, valido_ate, data_documento, criado_por)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::date,$11::date,$12)
+          garantia, disponibilidade, valido_ate, data_documento, criado_por,
+          cliente_nome, cliente_documento, cliente_endereco, cliente_email)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::date,$11::date,$12,$13,$14,$15,$16)
        RETURNING *`,
       [
         num,
@@ -1226,6 +1216,10 @@ router.post("/orcamentos/avulsos", authRequired, adminOnly, async (req, res) => 
         valido_ate || null,
         data_documento || null,
         req.user.id,
+        cliente_nome ? String(cliente_nome).slice(0, 200) : null,
+        cliente_documento ? String(cliente_documento).slice(0, 30) : null,
+        cliente_endereco ? String(cliente_endereco).slice(0, 255) : null,
+        cliente_email ? String(cliente_email).slice(0, 255) : null,
       ]
     );
     return res.status(201).json(r.rows[0]);
@@ -1240,7 +1234,7 @@ router.patch("/orcamentos/avulsos/:id", authRequired, adminOnly, async (req, res
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
 
-  const fields = ["numero","condominio_id","os_id","status","tipo","constatacao","forma_pagamento","prazo_entrega","garantia","disponibilidade","valido_ate","data_documento","valor"];
+  const fields = ["numero","condominio_id","os_id","status","tipo","constatacao","forma_pagamento","prazo_entrega","garantia","disponibilidade","valido_ate","data_documento","valor","cliente_nome","cliente_documento","cliente_endereco","cliente_email"];
   const sets = []; const vals = [id];
 
   for (const f of fields) {
@@ -1269,7 +1263,7 @@ router.patch("/orcamentos/avulsos/:id", authRequired, adminOnly, async (req, res
       }
     }
     else {
-      const max = f === "constatacao" ? 1000 : 255;
+      const max = f === "constatacao" ? 1000 : f === "cliente_documento" ? 30 : f === "cliente_nome" ? 200 : 255;
       vals.push(v != null ? String(v).slice(0, max) : null);
       sets.push(`${f} = $${vals.length}`);
     }
@@ -1281,7 +1275,8 @@ router.patch("/orcamentos/avulsos/:id", authRequired, adminOnly, async (req, res
     const r = await pool.query(
       `UPDATE orcamentos SET ${sets.join(",")} WHERE id = $1
        RETURNING id, numero, status, condominio_id, tipo, constatacao,
-                 forma_pagamento, prazo_entrega, garantia, disponibilidade, valido_ate, data_documento, valor`,
+                 forma_pagamento, prazo_entrega, garantia, disponibilidade, valido_ate, data_documento, valor,
+                 cliente_nome, cliente_documento, cliente_endereco, cliente_email`,
       vals
     );
     if (!r.rows.length) return res.status(404).json({ error: "Orçamento não encontrado" });
@@ -1432,7 +1427,7 @@ router.post("/orcamentos/avulsos/:id/enviar-email", authRequired, adminOnly, asy
     // Dados do orçamento
     const r = await pool.query(
       `SELECT o.id, o.numero, o.valido_ate, o.condominio_id,
-              COALESCE(c.nome_fantasia, c.nome) AS condominio_nome,
+              COALESCE(c.nome_fantasia, c.nome, o.cliente_nome) AS condominio_nome,
               COALESCE(
                 o.valor,
                 (SELECT SUM(l.quantidade * l.valor_unitario)

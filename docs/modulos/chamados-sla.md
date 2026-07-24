@@ -75,9 +75,12 @@ aberto → técnico atribuído → em_atendimento (GPS chegada)
   histórica de SLA (por técnico, prioridade, TTFR/TTR) agora é feita fora do
   app, a partir do CSV de `GET /relatorios/chamados` (que carrega
   `primeira_resposta_em` e `tempo_resolucao_seg` crus pra isso).
-- **Alerta de atraso:** `chamados-atraso.job.js` envia email quando um chamado
-  em atendimento estoura o prazo (`chamados.alerta_atraso_horas/_enabled`),
-  registrando `alerta_atraso_enviado_em` para não duplicar.
+- **SLA estourado vira alerta:** um chamado que estoura o SLA (TTFR sem primeira
+  resposta / TTR além do prazo — flags `sla_ttfr_estourado`/`sla_ttr_risco`) é
+  elevado a **alerta crítico** na página de Alertas (agregação frontend),
+  badge do menu e KPI do Dashboard. Não há e-mail automático de atraso (o antigo
+  `chamados-atraso.job.js` foi removido); a coluna `alerta_atraso_enviado_em`
+  permanece no schema mas não é mais usada.
 
 ## Avaliação
 

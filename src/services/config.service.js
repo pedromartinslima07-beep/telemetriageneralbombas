@@ -34,8 +34,6 @@ const CHAVES = {
   "alertas.cleanup_dry_run":     { tipo: "boolean" },
   "conversas.retencao_dias":     { tipo: "int", min: 30, max: 3650 }, // Fase 9E — conversas WhatsApp fechadas (default 365)
   "conversas.cleanup_dry_run":   { tipo: "boolean" },
-  "chamados.alerta_atraso_horas":   { tipo: "int", min: 1, max: 24 }, // Fase 7I — chamado em_atendimento sem fechar (default 4)
-  "chamados.alerta_atraso_enabled": { tipo: "boolean" }, // Fase 7I — liga/desliga o alerta por email
   "planos.geracao_enabled":         { tipo: "boolean" }, // gera chamado P4 automático quando plano de manutenção vence (default true)
   "whatsapp.sessao_timeout_horas":  { tipo: "int", min: 1, max: 72 }, // inatividade que encerra a sessão e abre nova na próxima msg (default 8h)
 };

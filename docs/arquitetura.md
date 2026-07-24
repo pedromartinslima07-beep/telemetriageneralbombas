@@ -111,7 +111,6 @@ App mobile (Capacitor) ──JWT──fetch───────────┤
 | Job | Função | Config dinâmica |
 |---|---|---|
 | `offline.job.js` | Alerta `dispositivo_offline` após N min sem leitura | `jobs.offline_intervalo_min` |
-| `chamados-atraso.job.js` | Email quando chamado em atendimento estoura prazo | `chamados.alerta_atraso_horas/_enabled` |
 | `conversas-timeout.job.js` | Fecha conversa WhatsApp inativa + pede avaliação | `whatsapp.sessao_timeout_horas` |
 | `planos-manutencao.job.js` | Gera chamado P4 quando plano vence | `planos.geracao_enabled` |
 | `gps-cleanup.job.js` | Limpa histórico GPS antigo | `gps.retencao_horas` |
@@ -132,7 +131,6 @@ cache em memória de 30s. Chaves atuais:
 `gps.retencao_horas`, `gps.frequencia_segundos`, `leituras.retencao_dias`,
 `leituras.cleanup_dry_run`, `alertas.retencao_dias`, `alertas.cleanup_dry_run`,
 `conversas.retencao_dias`, `conversas.cleanup_dry_run`,
-`chamados.alerta_atraso_horas`, `chamados.alerta_atraso_enabled`,
 `planos.geracao_enabled`, `whatsapp.sessao_timeout_horas`.
 
 > Ao adicionar config dinâmica nova, registrar em `CHAVES` com tipo + limites.

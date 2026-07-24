@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="/static/leaflet.css">
   <!-- ⚠️ Ao mexer em admin.js ou admin.css, bumpe o ?v=N aqui E no <script>
        lá embaixo. Ver CLAUDE.md raiz. -->
-  <link rel="stylesheet" href="/static/admin.css?v=134">
+  <link rel="stylesheet" href="/static/admin.css?v=141">
 </head>
 <body>
   <div id="appLoader">
@@ -512,85 +512,6 @@
 
         <!-- Formulários de infraestrutura (ocultos, mantidos para compatibilidade) -->
         <div style="display:none;">
-          <!-- Cadastro de condomínio -->
-          <section class="card">
-            <div class="section-body">
-              <div class="grid-2">
-                <div class="field">
-                  <span class="lbl">Nome <span class="req">*</span></span>
-                  <input id="novoNome" class="input" placeholder="Nome do condomínio" />
-                </div>
-                <div class="field">
-                  <span class="lbl">Responsável</span>
-                  <input id="novoResponsavel" class="input" placeholder="Nome do síndico ou responsável" />
-                </div>
-                <div class="field col-2 cep-field">
-                  <span class="lbl">CEP</span>
-                  <input id="novoCep" class="input cep-input" maxlength="9" inputmode="numeric" placeholder="00000-000" data-cep-target-prefix="novo" />
-                  <span class="cep-msg" id="novoCepMsg"></span>
-                </div>
-                <div class="field col-2">
-                  <span class="lbl">Endereço</span>
-                  <input id="novoEndereco" class="input" placeholder="Rua, número" />
-                </div>
-                <div class="field">
-                  <span class="lbl">Bairro</span>
-                  <input id="novoBairro" class="input" placeholder="Nome do bairro" />
-                </div>
-                <div class="field">
-                  <span class="lbl">Cidade</span>
-                  <input id="novoCidade" class="input" placeholder="Nome da cidade" />
-                </div>
-                <div class="field">
-                  <span class="lbl">UF</span>
-                  <input id="novoUf" class="input" maxlength="2" placeholder="SP" />
-                </div>
-                <div class="field">
-                  <span class="lbl">Telefone</span>
-                  <input id="novoTelefone" class="input" placeholder="(11) 99999-9999" />
-                </div>
-                <div class="field col-2">
-                  <span class="lbl">Observações</span>
-                  <input id="novoObs" class="input" placeholder="Informações adicionais…" />
-                </div>
-                <div class="field">
-                  <span class="lbl">Zona de atendimento</span>
-                  <input id="novoZona" class="input" placeholder="Ex: Zona Norte, Zona Sul, Centro…" />
-                </div>
-                <label class="check-field col-2">
-                  <input type="checkbox" id="novoAtivo" checked />
-                  Ativo
-                </label>
-                <div class="loc-block col-2">
-                  <div class="loc-head">
-                    <span class="lbl" style="margin:0;">Localização no mapa</span>
-                    <button type="button" class="btn btn-sm" data-action="buscar-coords" data-prefix="novo">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                      Buscar pelo endereço
-                    </button>
-                  </div>
-                  <div class="loc-coords">
-                    <div class="field">
-                      <span class="lbl">Latitude</span>
-                      <input id="novoLat" class="input" type="number" step="any" placeholder="-23.550520" />
-                    </div>
-                    <div class="field">
-                      <span class="lbl">Longitude</span>
-                      <input id="novoLng" class="input" type="number" step="any" placeholder="-46.633308" />
-                    </div>
-                  </div>
-                  <div class="loc-msg" id="novoLocMsg"></div>
-                  <div class="mini-mapa" id="novoMiniMapa"></div>
-                  <div class="loc-hint">Arraste o pino para ajustar a posição manualmente.</div>
-                </div>
-              </div>
-              <div class="form-footer" style="margin-top:16px;">
-                <button class="btn btnAccent" id="btnCadastrarCondominio">Cadastrar condomínio</button>
-                <span id="msgCadastro" class="hint"></span>
-              </div>
-            </div>
-          </section>
-
           <!-- Cadastro de reservatório (inputs mantidos para criarReservatorio()) -->
           <section class="card">
             <div class="section-body">
@@ -743,46 +664,24 @@
           <!-- KPIs -->
           <div class="resumo-grid" id="avKpiGrid" style="margin-bottom:16px;"></div>
 
-          <section class="card al-card">
-            <div class="cardHead al-head">
-              <h2>
-                <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <line x1="12" y1="1" x2="12" y2="23"/>
-                  <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
-                </svg>
-                Orçamentos
-              </h2>
-              <button class="btn btnAccent btn-sm viewer-only-hide" id="avBtnNovo" type="button">
-                + Novo orçamento
-              </button>
-            </div>
-
-            <div class="al-toolbar">
-              <div class="wa-tabs" role="tablist">
-                <button class="wa-tab is-active" data-av-tab="todos" type="button">Todos <span class="wa-count" id="avCtTodos">0</span></button>
-                <button class="wa-tab" data-av-tab="rascunho" type="button">Rascunho <span class="wa-count" id="avCtRascunho">0</span></button>
-                <button class="wa-tab" data-av-tab="enviado" type="button">Enviado <span class="wa-count" id="avCtEnviado">0</span></button>
-                <button class="wa-tab" data-av-tab="aprovado" type="button">Aprovado <span class="wa-count" id="avCtAprovado">0</span></button>
-              </div>
-              <div class="al-filters">
+          <!-- Master-detail: condomínios (esq) → orçamentos do condomínio (dir).
+               Mesma distribuição da aba "Solicitados pelos técnicos": toolbar
+               dentro do card da lista + lista larga / painel estreito. -->
+          <div class="ch-layout">
+            <!-- Coluna: lista de condomínios -->
+            <div class="ch-list-col">
+              <div class="ch-toolbar">
+                <div class="wa-tabs" role="tablist">
+                  <button class="wa-tab is-active" data-av-tab="todos" type="button">Todos <span class="wa-count" id="avCtTodos">0</span></button>
+                  <button class="wa-tab" data-av-tab="rascunho" type="button">Rascunho <span class="wa-count" id="avCtRascunho">0</span></button>
+                  <button class="wa-tab" data-av-tab="enviado" type="button">Enviado <span class="wa-count" id="avCtEnviado">0</span></button>
+                  <button class="wa-tab" data-av-tab="aprovado" type="button">Aprovado <span class="wa-count" id="avCtAprovado">0</span></button>
+                </div>
                 <input id="avBusca" class="input" placeholder="Buscar condomínio ou Nº…">
+                <button class="btn btnAccent btn-sm viewer-only-hide" id="avBtnNovo" type="button">+ Novo orçamento</button>
               </div>
-            </div>
-
-            <div class="al-grid" style="grid-template-columns: 1fr;">
-              <div class="al-tableWrap">
-                <table class="orc-table">
-                  <thead>
-                    <tr>
-                      <th style="width:110px">Nº</th>
-                      <th>Condomínio</th>
-                      <th style="width:110px">Valor</th>
-                      <th style="width:90px">Status</th>
-                      <th style="width:90px">Data</th>
-                    </tr>
-                  </thead>
-                  <tbody id="avTableBody"></tbody>
-                </table>
+              <div class="tableWrap ch-table-wrap">
+                <div id="avCondoList" class="av-condo-list"></div>
                 <div id="avEmpty" class="al-empty" style="display:none;">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                     <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
@@ -790,44 +689,41 @@
                   <p>Nenhum orçamento. Clique em "+ Novo orçamento".</p>
                 </div>
               </div>
-
             </div>
-          </section>
+
+            <!-- Painel: orçamentos do condomínio selecionado -->
+            <aside class="ch-detail-col" id="avCondoDetail">
+              <div class="ch-detail-empty">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                </svg>
+                <p>Selecione um condomínio para ver os orçamentos</p>
+              </div>
+            </aside>
+          </div>
         </div><!-- /avulso -->
 
         <!-- ===== MODO OS ===== -->
+        <!-- Layout espelha o de Chamados: KPIs + lista e detalhe em cards separados -->
         <div id="orcModoOS" style="display:none;">
           <div class="resumo-grid" id="orcKpiGrid" style="margin-bottom:16px;"></div>
 
-          <section class="card al-card">
-            <div class="cardHead al-head">
-              <h2>
-                <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <line x1="12" y1="1" x2="12" y2="23"/>
-                  <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
-                </svg>
-                Solicitados pelos técnicos
-              </h2>
-              <span class="hint">O técnico marcou "necessário orçamento" na O.S.</span>
-            </div>
-
-            <div class="al-toolbar">
-              <div class="wa-tabs" role="tablist">
-                <button class="wa-tab is-active" data-orc-tab="todos" type="button">Todos <span class="wa-count" id="orcCtTodos">0</span></button>
-                <button class="wa-tab" data-orc-tab="pendente" type="button">Pendentes <span class="wa-count" id="orcCtPendente">0</span></button>
-                <button class="wa-tab" data-orc-tab="aprovado" type="button">Aprovados <span class="wa-count" id="orcCtAprovado">0</span></button>
-                <button class="wa-tab" data-orc-tab="rejeitado" type="button">Rejeitados <span class="wa-count" id="orcCtRejeitado">0</span></button>
-              </div>
-              <div class="al-filters">
+          <div class="ch-layout">
+            <!-- Coluna lista -->
+            <div class="ch-list-col">
+              <div class="ch-toolbar">
+                <div class="wa-tabs" role="tablist">
+                  <button class="wa-tab is-active" data-orc-tab="todos" type="button">Todos <span class="wa-count" id="orcCtTodos">0</span></button>
+                  <button class="wa-tab" data-orc-tab="pendente" type="button">Pendentes <span class="wa-count" id="orcCtPendente">0</span></button>
+                  <button class="wa-tab" data-orc-tab="aprovado" type="button">Aprovados <span class="wa-count" id="orcCtAprovado">0</span></button>
+                  <button class="wa-tab" data-orc-tab="rejeitado" type="button">Rejeitados <span class="wa-count" id="orcCtRejeitado">0</span></button>
+                </div>
                 <input id="orcBusca" class="input" placeholder="Buscar condomínio ou técnico…">
-                <select id="orcFiltroCondo" class="select" style="width:180px;">
+                <select id="orcFiltroCondo" class="select">
                   <option value="">Todos os condomínios</option>
                 </select>
               </div>
-            </div>
-
-            <div class="al-grid">
-              <div class="al-tableWrap">
+              <div class="tableWrap ch-table-wrap">
                 <table class="orc-table">
                   <thead>
                     <tr>
@@ -849,17 +745,18 @@
                   <p>Nenhum orçamento encontrado.</p>
                 </div>
               </div>
-
-              <aside class="al-painel" id="orcPainel">
-                <div class="al-empty">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                    <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
-                  </svg>
-                  <p>Selecione um orçamento para ver os detalhes</p>
-                </div>
-              </aside>
             </div>
-          </section>
+
+            <!-- Painel de detalhe -->
+            <aside class="ch-detail-col al-painel" id="orcPainel">
+              <div class="al-empty">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                </svg>
+                <p>Selecione um orçamento para ver os detalhes</p>
+              </div>
+            </aside>
+          </div>
         </div><!-- /os -->
 
       </div><!-- /section orcamentos -->
@@ -1188,7 +1085,6 @@
                 <span id="mpCondoEndereco" class="mp-panel-sub">Clique em um pino no mapa para ver detalhes</span>
               </div>
               <div class="mp-panel-actions">
-                <button class="btn btn-sm btnAccent" id="mpBtnAbrirPainel" style="display:none;">Abrir Painel</button>
                 <button class="mp-fs-close" id="mpBtnFsClose" data-action="mp-fs-close" title="Fechar" aria-label="Fechar painel">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                 </button>
@@ -1790,35 +1686,10 @@
               </div>
             </div>
 
-            <!-- 3. Alerta de chamado parado -->
-            <div class="card cfg-card">
-              <div class="cfg-card-head">
-                <svg class="cfg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-                <div>
-                  <h3>Alerta de chamado parado</h3>
-                  <p>Se um chamado ficar em "Em atendimento" por muito tempo, o sistema avisa por email. Pode ser que o técnico esqueceu de fechar ou precisa de ajuda.</p>
-                </div>
-              </div>
-              <div class="cfg-form">
-                <div class="field">
-                  <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
-                    <input type="checkbox" id="cfgAtrasoEnabled">
-                    <span><strong>Ativar alerta por email</strong></span>
-                  </label>
-                  <p class="cfg-hint">Usa a mesma lista de destinatários configurada em "Emails de alerta" (aba Notificações).</p>
-                </div>
-                <div class="field">
-                  <label class="lbl">Limite (horas)</label>
-                  <input type="number" id="cfgAtrasoHoras" class="input" min="1" max="24" style="max-width:120px;">
-                  <p class="cfg-hint">Entre 1 e 24 horas. Padrão: 4. O sistema re-avisa a cada janela completa pra não esquecer.</p>
-                </div>
-              </div>
-            </div>
           </div>
 
           <div class="cfg-actions" style="margin-top:12px;">
             <span id="cfgOperMsg" class="cfg-msg"></span>
-            <button class="btn btn-sm" data-cfg-action="rodar-chamados-atraso">▶ Testar verificação agora</button>
             <button class="btn btnAccent btn-sm" data-cfg-action="salvar-operacional">Salvar</button>
           </div>
         </div>
@@ -2665,7 +2536,7 @@
 </div>
 
 
-<script src="/static/admin.js?v=224" defer></script>
+<script src="/static/admin.js?v=235" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
 <script src="/static/register-sw.js?v=30" defer></script>
 </body>
