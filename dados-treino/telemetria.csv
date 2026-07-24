@@ -1,0 +1,722 @@
+﻿Dia;Device ID;Reservatório;Condomínio;Leituras;Nível mín (%);Nível médio (%);Nível máx (%);Leituras c/ bomba ligada
+2026-07-24T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;55;62;71;25
+2026-07-24T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;96;60;67;78;23
+2026-07-24T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;16;32;48;61;4
+2026-07-24T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;51;65;80;24
+2026-07-24T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;0;18;24;58
+2026-07-24T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;58;70;75;21
+2026-07-24T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;44;61;77;29
+2026-07-24T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;42;52;57;92
+2026-07-23T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;42;55;67;25
+2026-07-23T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;96;57;72;81;23
+2026-07-23T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;40;44;53;27
+2026-07-23T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;42;57;68;24
+2026-07-23T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;0;10;25;57
+2026-07-23T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;54;60;64;21
+2026-07-23T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;49;60;73;29
+2026-07-23T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;35;51;63;89
+2026-07-22T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;46;62;72;25
+2026-07-22T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;96;45;58;68;23
+2026-07-22T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;26;41;55;27
+2026-07-22T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;52;67;77;24
+2026-07-22T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;0;9;15;57
+2026-07-22T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;54;67;78;21
+2026-07-22T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;42;58;65;29
+2026-07-22T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;50;56;67;91
+2026-07-21T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;34;49;58;25
+2026-07-21T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;12;49;66;77;3
+2026-07-21T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;37;50;60;27
+2026-07-21T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;74;79;86;24
+2026-07-21T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;12;19;30;57
+2026-07-21T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;56;60;64;21
+2026-07-21T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;54;62;69;29
+2026-07-21T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;36;47;65;92
+2026-07-20T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;35;52;57;25
+2026-07-20T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;96;52;65;80;23
+2026-07-20T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;27;45;50;27
+2026-07-20T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;68;76;88;24
+2026-07-20T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;9;17;27;57
+2026-07-20T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;54;67;82;21
+2026-07-20T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;60;65;82;29
+2026-07-20T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;34;50;59;90
+2026-07-19T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;29;51;63;67;8
+2026-07-19T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;96;62;74;84;23
+2026-07-19T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;44;48;59;27
+2026-07-19T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;47;62;80;24
+2026-07-19T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;1;13;28;56
+2026-07-19T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;56;63;67;21
+2026-07-19T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;42;55;64;29
+2026-07-19T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;46;50;67;95
+2026-07-18T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;46;59;77;25
+2026-07-18T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;96;63;72;86;23
+2026-07-18T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;28;48;53;63;8
+2026-07-18T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;49;65;73;24
+2026-07-18T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;0;16;22;56
+2026-07-18T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;57;71;86;21
+2026-07-18T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;30;44;49;29
+2026-07-18T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;38;52;59;91
+2026-07-17T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;51;59;70;25
+2026-07-17T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;96;55;65;76;23
+2026-07-17T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;30;42;54;27
+2026-07-17T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;63;70;79;24
+2026-07-17T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;16;21;35;56
+2026-07-17T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;37;53;65;21
+2026-07-17T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;43;58;64;29
+2026-07-17T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;35;52;64;93
+2026-07-16T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;54;61;68;25
+2026-07-16T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;37;59;64;69;9
+2026-07-16T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;43;49;55;27
+2026-07-16T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;65;69;80;24
+2026-07-16T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;12;19;36;56
+2026-07-16T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;52;63;71;21
+2026-07-16T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;47;59;70;29
+2026-07-16T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;48;57;75;87
+2026-07-15T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;32;48;60;71;8
+2026-07-15T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;96;60;64;72;23
+2026-07-15T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;34;49;59;27
+2026-07-15T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;51;61;70;24
+2026-07-15T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;10;20;25;55
+2026-07-15T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;50;66;82;21
+2026-07-15T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;37;51;58;29
+2026-07-15T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;49;56;60;91
+2026-07-14T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;35;48;66;74;9
+2026-07-14T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;96;43;57;67;23
+2026-07-14T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;46;54;62;27
+2026-07-14T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;58;65;81;24
+2026-07-14T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;6;21;27;55
+2026-07-14T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;57;67;71;21
+2026-07-14T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;42;55;69;29
+2026-07-14T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;42;57;73;92
+2026-07-13T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;53;65;76;25
+2026-07-13T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;96;42;57;65;23
+2026-07-13T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;44;50;66;27
+2026-07-13T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;50;68;79;24
+2026-07-13T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;8;24;31;55
+2026-07-13T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;58;62;68;21
+2026-07-13T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;34;50;63;29
+2026-07-13T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;40;51;65;86
+2026-07-12T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;45;60;69;25
+2026-07-12T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;20;38;52;57;5
+2026-07-12T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;52;56;63;27
+2026-07-12T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;52;69;76;24
+2026-07-12T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;12;23;28;55
+2026-07-12T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;45;56;67;21
+2026-07-12T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;39;56;60;29
+2026-07-12T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;17;38;55;71;16
+2026-07-11T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;55;73;86;25
+2026-07-11T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;96;41;50;68;23
+2026-07-11T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;39;52;56;27
+2026-07-11T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;50;58;67;24
+2026-07-11T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;6;24;39;55
+2026-07-11T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;63;69;79;21
+2026-07-11T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;43;53;65;29
+2026-07-11T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;46;52;56;90
+2026-07-10T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;65;72;89;25
+2026-07-10T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;20;37;48;52;5
+2026-07-10T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;37;46;58;72;10
+2026-07-10T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;62;73;84;24
+2026-07-10T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;15;23;35;54
+2026-07-10T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;60;64;69;21
+2026-07-10T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;60;64;69;21
+2026-07-10T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;38;53;71;29
+2026-07-10T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;55;60;76;94
+2026-07-09T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;53;66;76;25
+2026-07-09T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;96;58;63;77;23
+2026-07-09T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;51;59;73;27
+2026-07-09T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;50;62;78;24
+2026-07-09T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;17;21;28;54
+2026-07-09T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;54;66;83;21
+2026-07-09T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;42;52;66;29
+2026-07-09T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;56;61;70;89
+2026-07-08T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;24;66;71;75;6
+2026-07-08T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;96;46;59;69;23
+2026-07-08T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;41;57;69;27
+2026-07-08T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;51;63;77;24
+2026-07-08T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;11;24;40;54
+2026-07-08T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;42;59;71;21
+2026-07-08T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;45;53;65;29
+2026-07-08T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;46;55;63;92
+2026-07-07T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;58;69;76;25
+2026-07-07T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;96;36;50;58;23
+2026-07-07T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;43;51;58;27
+2026-07-07T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;53;59;74;24
+2026-07-07T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;12;24;33;54
+2026-07-07T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;46;62;79;21
+2026-07-07T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;36;46;61;29
+2026-07-07T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;59;69;86;91
+2026-07-06T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;64;69;78;25
+2026-07-06T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;22;44;56;61;5
+2026-07-06T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;38;52;62;27
+2026-07-06T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;40;58;75;24
+2026-07-06T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;5;22;34;53
+2026-07-06T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;49;60;67;21
+2026-07-06T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;49;57;69;29
+2026-07-06T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;57;69;85;92
+2026-07-05T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;31;60;72;84;8
+2026-07-05T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;96;45;55;59;23
+2026-07-05T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;44;52;63;27
+2026-07-05T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;51;60;74;24
+2026-07-05T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;25;29;43;53
+2026-07-05T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;53;59;67;21
+2026-07-05T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;29;44;62;29
+2026-07-05T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;54;66;75;94
+2026-07-04T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;55;72;81;25
+2026-07-04T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;31;41;58;74;7
+2026-07-04T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;15;50;56;72;4
+2026-07-04T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;46;63;73;24
+2026-07-04T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;11;27;37;53
+2026-07-04T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;46;53;60;21
+2026-07-04T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;41;50;63;29
+2026-07-04T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;55;68;78;91
+2026-07-03T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;42;59;68;83;11
+2026-07-03T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;96;40;56;63;23
+2026-07-03T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;46;64;68;27
+2026-07-03T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;45;54;58;24
+2026-07-03T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;16;25;30;53
+2026-07-03T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;57;62;69;21
+2026-07-03T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;34;48;66;29
+2026-07-03T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;49;57;67;90
+2026-07-02T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;56;67;74;25
+2026-07-02T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;96;41;57;62;23
+2026-07-02T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;50;59;75;27
+2026-07-02T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;46;56;70;24
+2026-07-02T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;22;34;38;52
+2026-07-02T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;63;67;77;21
+2026-07-02T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;34;48;55;29
+2026-07-02T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;44;58;70;91
+2026-07-01T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;58;68;79;25
+2026-07-01T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;96;46;63;72;23
+2026-07-01T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;47;55;70;27
+2026-07-01T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;56;65;77;24
+2026-07-01T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;10;27;43;52
+2026-07-01T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;58;72;77;21
+2026-07-01T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;28;43;58;29
+2026-07-01T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;46;63;81;91
+2026-06-30T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;67;78;83;25
+2026-06-30T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;96;43;60;71;23
+2026-06-30T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;47;57;67;27
+2026-06-30T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;42;47;63;24
+2026-06-30T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;10;25;36;52
+2026-06-30T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;45;62;77;21
+2026-06-30T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;41;59;75;29
+2026-06-30T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;52;66;82;92
+2026-06-29T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;59;69;77;25
+2026-06-29T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;16;49;57;75;4
+2026-06-29T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;47;59;66;27
+2026-06-29T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;44;57;73;24
+2026-06-29T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;18;27;37;52
+2026-06-29T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;55;65;76;21
+2026-06-29T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;48;52;64;29
+2026-06-29T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;48;55;63;93
+2026-06-28T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;60;68;79;25
+2026-06-28T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;96;55;64;76;23
+2026-06-28T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;47;62;76;27
+2026-06-28T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;55;60;75;24
+2026-06-28T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;21;30;39;51
+2026-06-28T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;69;74;79;21
+2026-06-28T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;36;49;56;29
+2026-06-28T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;56;69;81;95
+2026-06-27T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;52;60;74;25
+2026-06-27T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;96;52;64;82;23
+2026-06-27T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;55;60;66;27
+2026-06-27T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;49;63;70;24
+2026-06-27T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;21;30;40;51
+2026-06-27T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;59;69;76;21
+2026-06-27T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;39;49;67;29
+2026-06-27T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;55;62;79;91
+2026-06-26T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;45;59;63;25
+2026-06-26T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;96;47;62;72;23
+2026-06-26T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;37;43;60;27
+2026-06-26T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;48;63;70;24
+2026-06-26T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;18;32;49;51
+2026-06-26T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;55;68;79;21
+2026-06-26T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;50;59;69;29
+2026-06-26T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;48;61;65;89
+2026-06-25T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;50;60;73;25
+2026-06-25T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;96;56;64;73;23
+2026-06-25T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;45;54;58;27
+2026-06-25T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;44;54;64;24
+2026-06-25T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;17;30;40;51
+2026-06-25T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;45;63;76;21
+2026-06-25T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;45;60;76;29
+2026-06-25T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;48;65;71;90
+2026-06-24T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;50;63;71;25
+2026-06-24T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;96;49;62;71;23
+2026-06-24T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;38;46;61;27
+2026-06-24T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;42;46;64;24
+2026-06-24T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;19;31;45;50
+2026-06-24T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;65;76;83;21
+2026-06-24T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;58;66;70;29
+2026-06-24T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;54;58;66;92
+2026-06-23T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;21;49;63;79;5
+2026-06-23T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;96;53;64;68;23
+2026-06-23T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;43;47;53;27
+2026-06-23T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;59;64;77;24
+2026-06-23T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;24;30;41;50
+2026-06-23T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;61;69;83;21
+2026-06-23T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;62;68;81;29
+2026-06-23T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;42;57;71;92
+2026-06-22T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;42;55;59;25
+2026-06-22T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;96;41;59;73;23
+2026-06-22T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;7;43;56;74;2
+2026-06-22T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;59;64;80;24
+2026-06-22T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;14;31;39;50
+2026-06-22T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;66;70;87;21
+2026-06-22T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;46;55;59;29
+2026-06-22T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;48;55;59;92
+2026-06-21T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;43;60;78;25
+2026-06-21T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;96;49;63;68;23
+2026-06-21T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;38;50;66;27
+2026-06-21T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;40;55;70;24
+2026-06-21T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;13;29;43;50
+2026-06-21T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;67;72;90;21
+2026-06-21T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;39;56;68;29
+2026-06-21T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;43;52;59;92
+2026-06-20T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;57;71;84;25
+2026-06-20T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;96;59;74;90;23
+2026-06-20T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;47;55;68;27
+2026-06-20T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;61;69;85;24
+2026-06-20T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;18;35;52;50
+2026-06-20T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;69;73;78;21
+2026-06-20T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;54;62;71;29
+2026-06-20T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;41;59;63;88
+2026-06-19T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;59;65;71;25
+2026-06-19T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;22;50;64;80;5
+2026-06-19T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;29;50;55;71;8
+2026-06-19T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;60;71;86;24
+2026-06-19T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;29;36;50;49
+2026-06-19T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;65;78;85;21
+2026-06-19T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;52;57;73;29
+2026-06-19T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;39;57;64;93
+2026-06-18T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;50;62;76;25
+2026-06-18T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;96;54;67;83;23
+2026-06-18T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;36;44;51;68;10
+2026-06-18T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;46;57;71;24
+2026-06-18T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;23;38;47;49
+2026-06-18T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;63;68;77;21
+2026-06-18T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;37;51;58;29
+2026-06-18T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;36;54;66;90
+2026-06-17T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;49;61;66;25
+2026-06-17T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;96;56;72;79;23
+2026-06-17T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;45;51;65;27
+2026-06-17T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;60;67;73;24
+2026-06-17T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;16;34;44;49
+2026-06-17T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;68;75;82;21
+2026-06-17T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;57;64;68;29
+2026-06-17T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;50;58;63;88
+2026-06-16T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;48;60;68;25
+2026-06-16T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;96;56;67;84;23
+2026-06-16T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;37;45;54;27
+2026-06-16T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;51;58;65;24
+2026-06-16T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;28;40;51;49
+2026-06-16T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;56;65;76;21
+2026-06-16T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;51;60;68;29
+2026-06-16T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;52;57;72;89
+2026-06-15T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;51;58;72;25
+2026-06-15T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;96;56;69;84;23
+2026-06-15T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;39;47;60;27
+2026-06-15T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;51;67;71;24
+2026-06-15T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;30;38;50;48
+2026-06-15T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;54;68;82;21
+2026-06-15T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;38;56;67;29
+2026-06-15T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;41;55;66;92
+2026-06-14T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;49;61;79;25
+2026-06-14T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;96;51;65;81;23
+2026-06-14T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;39;49;66;27
+2026-06-14T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;51;65;70;24
+2026-06-14T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;23;34;49;48
+2026-06-14T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;46;61;68;21
+2026-06-14T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;61;65;82;29
+2026-06-14T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;45;61;74;90
+2026-06-13T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;42;50;57;66;11
+2026-06-13T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;96;52;65;82;23
+2026-06-13T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;35;49;65;27
+2026-06-13T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;58;67;74;24
+2026-06-13T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;31;42;47;48
+2026-06-13T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;40;42;58;73;9
+2026-06-13T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;52;62;79;29
+2026-06-13T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;39;51;61;93
+2026-06-12T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;45;57;63;25
+2026-06-12T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;96;66;70;87;23
+2026-06-12T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;55;66;70;24
+2026-06-12T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;28;41;56;48
+2026-06-12T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;45;57;74;21
+2026-06-12T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;54;61;69;29
+2026-06-12T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;55;66;82;89
+2026-06-11T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;21;47;64;69;5
+2026-06-11T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;96;48;63;71;23
+2026-06-11T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;56;73;78;24
+2026-06-11T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;26;42;50;47
+2026-06-11T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;53;59;67;21
+2026-06-11T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;35;50;66;29
+2026-06-11T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;34;43;57;92
+2026-06-10T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;48;54;70;25
+2026-06-10T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;96;55;65;78;23
+2026-06-10T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;36;45;59;27
+2026-06-10T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;30;62;70;86;8
+2026-06-10T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;35;43;60;47
+2026-06-10T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;46;52;58;21
+2026-06-10T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;41;57;75;29
+2026-06-10T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;33;49;65;91
+2026-06-09T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;53;67;80;25
+2026-06-09T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;96;69;74;81;23
+2026-06-09T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;30;42;54;27
+2026-06-09T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;56;65;74;24
+2026-06-09T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;38;44;62;47
+2026-06-09T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;57;69;85;21
+2026-06-09T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;34;52;61;29
+2026-06-09T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;41;52;59;94
+2026-06-08T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;48;57;63;25
+2026-06-08T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;96;53;61;68;23
+2026-06-08T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;29;36;52;58;8
+2026-06-08T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;62;66;74;24
+2026-06-08T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;33;40;50;47
+2026-06-08T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;52;67;78;21
+2026-06-08T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;43;49;67;29
+2026-06-08T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;42;53;66;90
+2026-06-07T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;45;59;71;25
+2026-06-07T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;96;59;70;87;23
+2026-06-07T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;39;54;69;27
+2026-06-07T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;55;66;72;24
+2026-06-07T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;28;44;62;46
+2026-06-07T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;67;72;77;21
+2026-06-07T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;46;62;78;29
+2026-06-07T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;48;58;67;93
+2026-06-06T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;60;66;75;25
+2026-06-06T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;96;53;61;75;23
+2026-06-06T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;44;49;66;27
+2026-06-06T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;64;68;73;24
+2026-06-06T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;35;43;59;46
+2026-06-06T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;56;64;71;21
+2026-06-06T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;42;48;66;29
+2026-06-06T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;44;60;78;88
+2026-06-05T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;47;60;65;25
+2026-06-05T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;96;49;58;71;23
+2026-06-05T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;48;59;64;27
+2026-06-05T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;58;71;85;24
+2026-06-05T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;38;45;63;46
+2026-06-05T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;47;64;80;21
+2026-06-05T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;42;55;70;29
+2026-06-05T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;55;61;67;93
+2026-06-04T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;56;67;79;25
+2026-06-04T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;96;42;50;64;23
+2026-06-04T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;40;48;57;27
+2026-06-04T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;43;56;68;24
+2026-06-04T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;38;46;61;46
+2026-06-04T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;44;55;59;21
+2026-06-04T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;38;54;66;29
+2026-06-04T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;47;63;76;92
+2026-06-03T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;56;71;86;25
+2026-06-03T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;96;42;53;71;23
+2026-06-03T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;44;53;67;27
+2026-06-03T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;45;63;69;24
+2026-06-03T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;37;45;60;45
+2026-06-03T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;57;70;79;21
+2026-06-03T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;45;50;59;29
+2026-06-03T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;42;60;72;88
+2026-06-02T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;39;47;65;70;10
+2026-06-02T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;96;45;56;64;23
+2026-06-02T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;41;51;61;27
+2026-06-02T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;48;64;74;24
+2026-06-02T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;31;46;59;45
+2026-06-02T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;46;58;74;21
+2026-06-02T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;40;58;67;29
+2026-06-02T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;64;69;81;93
+2026-06-01T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;51;63;69;25
+2026-06-01T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;96;40;54;62;23
+2026-06-01T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;42;59;70;27
+2026-06-01T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;44;58;72;24
+2026-06-01T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;36;46;57;45
+2026-06-01T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;42;58;64;21
+2026-06-01T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;24;41;45;29
+2026-06-01T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;51;57;63;91
+2026-05-31T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;56;65;77;25
+2026-05-31T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;21;52;63;81;5
+2026-05-31T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;19;41;51;62;5
+2026-05-31T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;44;52;62;24
+2026-05-31T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;40;47;53;45
+2026-05-31T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;41;55;67;21
+2026-05-31T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;49;53;61;29
+2026-05-31T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;48;57;73;96
+2026-05-30T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;59;70;74;25
+2026-05-30T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;96;50;60;73;23
+2026-05-30T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;45;61;73;27
+2026-05-30T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;53;64;71;24
+2026-05-30T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;42;47;53;45
+2026-05-30T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;61;69;86;21
+2026-05-30T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;34;44;50;29
+2026-05-30T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;56;60;69;89
+2026-05-29T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;58;63;70;25
+2026-05-29T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;96;56;62;68;23
+2026-05-29T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;44;59;64;27
+2026-05-29T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;39;54;66;24
+2026-05-29T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;31;47;54;44
+2026-05-29T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;52;58;70;21
+2026-05-29T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;41;45;62;29
+2026-05-29T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;39;61;66;80;36
+2026-05-28T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;52;64;71;25
+2026-05-28T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;96;43;57;73;23
+2026-05-28T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;46;51;67;27
+2026-05-28T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;55;67;82;24
+2026-05-28T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;32;47;52;44
+2026-05-28T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;53;65;81;21
+2026-05-28T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;50;56;68;29
+2026-05-28T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;46;62;71;93
+2026-05-27T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;46;64;79;25
+2026-05-27T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;29;50;60;66;7
+2026-05-27T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;42;54;62;27
+2026-05-27T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;50;60;77;24
+2026-05-27T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;41;49;62;44
+2026-05-27T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;62;66;81;21
+2026-05-27T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;46;51;56;29
+2026-05-27T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;47;62;67;90
+2026-05-26T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;63;78;93;25
+2026-05-26T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;96;58;66;75;23
+2026-05-26T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;41;51;64;27
+2026-05-26T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;38;46;62;24
+2026-05-26T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;40;53;63;44
+2026-05-26T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;55;61;72;21
+2026-05-26T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;30;42;46;29
+2026-05-26T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;53;67;82;93
+2026-05-25T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;37;57;69;77;10
+2026-05-25T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;25;33;51;55;6
+2026-05-25T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;48;61;75;27
+2026-05-25T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;44;57;67;24
+2026-05-25T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;40;50;61;43
+2026-05-25T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;55;71;85;21
+2026-05-25T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;44;50;65;29
+2026-05-25T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;54;67;81;90
+2026-05-24T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;62;77;82;25
+2026-05-24T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;12;49;60;66;3
+2026-05-24T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;10;58;64;72;3
+2026-05-24T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;39;57;73;24
+2026-05-24T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;34;50;62;43
+2026-05-24T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;57;73;81;21
+2026-05-24T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;45;59;67;29
+2026-05-24T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;46;64;77;95
+2026-05-24T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;46;64;77;95
+2026-05-23T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;52;66;83;25
+2026-05-23T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;11;46;56;61;3
+2026-05-23T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;34;53;58;76;10
+2026-05-23T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;44;60;73;24
+2026-05-23T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;44;54;67;43
+2026-05-23T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;50;64;79;21
+2026-05-23T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;42;50;54;29
+2026-05-23T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;50;60;68;93
+2026-05-22T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;67;72;88;25
+2026-05-22T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;96;52;59;74;23
+2026-05-22T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;39;54;72;27
+2026-05-22T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;55;65;83;24
+2026-05-22T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;43;55;71;43
+2026-05-22T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;37;54;58;21
+2026-05-22T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;44;54;71;29
+2026-05-22T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;61;70;75;92
+2026-05-21T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;56;67;73;25
+2026-05-21T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;10;45;52;66;2
+2026-05-21T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;42;59;69;27
+2026-05-21T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;50;61;71;24
+2026-05-21T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;41;54;62;42
+2026-05-21T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;41;54;62;42
+2026-05-21T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;49;62;73;21
+2026-05-21T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;33;51;69;29
+2026-05-21T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;42;56;69;93
+2026-05-20T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;24;53;70;75;6
+2026-05-20T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;96;60;64;77;23
+2026-05-20T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;38;42;53;27
+2026-05-20T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;48;57;69;24
+2026-05-20T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;48;54;70;42
+2026-05-20T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;56;66;76;21
+2026-05-20T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;41;52;60;29
+2026-05-20T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;40;58;66;90
+2026-05-19T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;56;71;89;25
+2026-05-19T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;96;43;58;76;23
+2026-05-19T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;44;56;64;27
+2026-05-19T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;52;58;73;24
+2026-05-19T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;51;56;69;42
+2026-05-19T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;54;60;76;21
+2026-05-19T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;55;62;76;29
+2026-05-19T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;45;57;69;86
+2026-05-18T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;51;64;72;25
+2026-05-18T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;96;53;62;76;23
+2026-05-18T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;44;61;75;27
+2026-05-18T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;50;60;75;24
+2026-05-18T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;42;52;63;42
+2026-05-18T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;65;71;85;21
+2026-05-18T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;40;55;64;29
+2026-05-18T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;62;66;73;93
+2026-05-17T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;56;64;80;25
+2026-05-17T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;96;53;62;79;23
+2026-05-17T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;39;46;59;27
+2026-05-17T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;36;54;66;24
+2026-05-17T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;49;57;74;41
+2026-05-17T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;62;73;78;21
+2026-05-17T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;47;59;65;29
+2026-05-17T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;58;67;82;94
+2026-05-16T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;46;58;63;25
+2026-05-16T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;96;58;63;80;23
+2026-05-16T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;12;41;52;64;3
+2026-05-16T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;49;58;67;24
+2026-05-16T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;49;55;59;41
+2026-05-16T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;63;69;81;21
+2026-05-16T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;55;60;75;29
+2026-05-16T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;49;53;64;90
+2026-05-15T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;50;65;71;25
+2026-05-15T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;96;57;65;74;23
+2026-05-15T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;10;42;53;64;3
+2026-05-15T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;43;54;59;24
+2026-05-15T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;43;56;64;41
+2026-05-15T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;52;70;83;21
+2026-05-15T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;48;53;71;29
+2026-05-15T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;55;62;71;90
+2026-05-14T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;54;59;63;25
+2026-05-14T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;96;55;66;82;23
+2026-05-14T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;45;57;62;27
+2026-05-14T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;54;61;69;24
+2026-05-14T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;44;61;65;41
+2026-05-14T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;55;68;78;21
+2026-05-14T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;38;56;70;29
+2026-05-14T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;60;64;75;90
+2026-05-13T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;52;61;71;25
+2026-05-13T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;15;61;71;88;4
+2026-05-13T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;39;45;53;27
+2026-05-13T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;56;64;80;24
+2026-05-13T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;54;60;74;41
+2026-05-13T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;62;69;84;21
+2026-05-13T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;47;59;63;29
+2026-05-13T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;38;51;63;90
+2026-05-12T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;51;57;69;25
+2026-05-12T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;96;52;63;67;23
+2026-05-12T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;40;49;53;27
+2026-05-12T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;37;54;68;24
+2026-05-12T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;53;61;76;40
+2026-05-12T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;68;76;82;21
+2026-05-12T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;40;56;70;29
+2026-05-12T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;41;46;59;87
+2026-05-11T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;34;49;58;67;9
+2026-05-11T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;96;61;78;95;23
+2026-05-11T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;50;54;63;27
+2026-05-11T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;43;60;71;24
+2026-05-11T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;56;62;70;40
+2026-05-11T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;58;68;86;21
+2026-05-11T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;51;62;79;29
+2026-05-11T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;50;58;63;92
+2026-05-10T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;54;60;74;25
+2026-05-10T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;27;61;78;83;6
+2026-05-10T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;46;50;56;27
+2026-05-10T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;63;69;84;24
+2026-05-10T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;45;60;72;40
+2026-05-10T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;60;74;85;21
+2026-05-10T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;55;63;69;29
+2026-05-10T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;41;52;63;92
+2026-05-09T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;52;61;71;25
+2026-05-09T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;15;53;64;68;4
+2026-05-09T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;40;38;46;62;11
+2026-05-09T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;58;68;85;24
+2026-05-09T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;50;58;65;40
+2026-05-09T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;47;65;78;21
+2026-05-09T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;49;58;76;29
+2026-05-09T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;33;46;50;89
+2026-05-08T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;47;61;70;25
+2026-05-08T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;96;56;70;86;23
+2026-05-08T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;50;56;62;27
+2026-05-08T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;39;57;69;24
+2026-05-08T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;40;57;64;39
+2026-05-08T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;66;71;78;21
+2026-05-08T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;47;53;71;29
+2026-05-08T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;39;50;61;93
+2026-05-07T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;48;59;63;25
+2026-05-07T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;36;49;64;82;9
+2026-05-07T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;25;43;56;27
+2026-05-07T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;38;54;72;24
+2026-05-07T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;50;66;78;39
+2026-05-07T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;59;76;80;21
+2026-05-07T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;53;58;63;29
+2026-05-07T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;30;47;61;89
+2026-05-06T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;39;45;59;75;10
+2026-05-06T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;96;62;71;86;23
+2026-05-06T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;43;49;65;27
+2026-05-06T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;47;60;69;24
+2026-05-06T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;49;64;77;39
+2026-05-06T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;60;64;71;21
+2026-05-06T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;46;59;72;29
+2026-05-06T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;28;41;55;93
+2026-05-05T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;47;62;76;25
+2026-05-05T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;96;46;56;63;23
+2026-05-05T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;43;50;67;27
+2026-05-05T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;61;77;88;24
+2026-05-05T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;60;66;73;39
+2026-05-05T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;71;78;92;21
+2026-05-05T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;44;62;78;29
+2026-05-05T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;28;44;57;91
+2026-05-04T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;31;54;66;82;8
+2026-05-04T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;96;68;75;88;23
+2026-05-04T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;48;55;68;27
+2026-05-04T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;57;68;74;24
+2026-05-04T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;51;67;82;38
+2026-05-04T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;49;64;76;21
+2026-05-04T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;50;61;70;29
+2026-05-04T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;35;51;65;90
+2026-05-03T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;58;74;78;25
+2026-05-03T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;96;54;72;81;23
+2026-05-03T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;31;44;51;27
+2026-05-03T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;75;79;91;24
+2026-05-03T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;60;67;76;38
+2026-05-03T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;49;60;70;21
+2026-05-03T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;55;63;73;29
+2026-05-03T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;39;55;71;94
+2026-05-02T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;42;50;64;25
+2026-05-02T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;96;50;60;71;23
+2026-05-02T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;43;49;65;27
+2026-05-02T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;62;74;85;24
+2026-05-02T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;61;66;81;38
+2026-05-02T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;52;59;65;21
+2026-05-02T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;45;54;61;29
+2026-05-02T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;49;55;63;90
+2026-05-01T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;43;49;66;84;11
+2026-05-01T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;96;48;59;68;23
+2026-05-01T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;47;51;55;27
+2026-05-01T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;49;59;66;24
+2026-05-01T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;54;69;80;38
+2026-05-01T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;51;56;69;21
+2026-05-01T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;48;57;75;29
+2026-05-01T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;38;55;69;89
+2026-04-30T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;54;65;69;25
+2026-04-30T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;15;44;55;67;4
+2026-04-30T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;39;53;66;27
+2026-04-30T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;62;67;83;24
+2026-04-30T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;55;64;73;37
+2026-04-30T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;44;58;72;21
+2026-04-30T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;46;59;71;29
+2026-04-30T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;44;51;69;89
+2026-04-29T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;52;67;77;25
+2026-04-29T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;25;43;60;73;6
+2026-04-29T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;36;53;64;27
+2026-04-29T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;63;67;85;24
+2026-04-29T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;59;71;80;37
+2026-04-29T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;55;64;71;21
+2026-04-29T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;45;49;62;29
+2026-04-29T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;53;58;70;94
+2026-04-28T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;52;63;76;25
+2026-04-28T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;96;43;51;66;23
+2026-04-28T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;51;56;73;27
+2026-04-28T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;49;63;78;24
+2026-04-28T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;57;68;80;37
+2026-04-28T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;46;52;61;21
+2026-04-28T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;44;57;70;29
+2026-04-28T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;51;66;75;93
+2026-04-27T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;60;65;70;25
+2026-04-27T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;96;50;68;84;23
+2026-04-27T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;96;44;58;67;27
+2026-04-27T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;54;69;79;24
+2026-04-27T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;53;68;75;37
+2026-04-27T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;49;59;67;21
+2026-04-27T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;41;51;56;29
+2026-04-27T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;53;63;75;92
+2026-04-26T00:00:00.000Z;RES_BVISTA_SUP;Caixa Superior;Condomínio Bela Vista;96;62;70;79;25
+2026-04-26T00:00:00.000Z;RES_IPE_SUP;Caixa Superior;Condomínio Parque Ipê;96;47;57;66;23
+2026-04-26T00:00:00.000Z;RES_IPE_INF;Cisterna;Condomínio Parque Ipê;29;42;54;72;8
+2026-04-26T00:00:00.000Z;RES_MONTE_SUP;Caixa Superior;Edifício Monte Belo;96;52;59;74;24
+2026-04-26T00:00:00.000Z;RES_MONTE_INF;Cisterna;Edifício Monte Belo;96;63;70;80;36
+2026-04-26T00:00:00.000Z;RES_ACAC_SUP;Caixa Superior;Residencial Jardim das Acácias;96;53;70;75;21
+2026-04-26T00:00:00.000Z;RES_ACAC_INF;Cisterna;Residencial Jardim das Acácias;96;34;51;58;29
+2026-04-26T00:00:00.000Z;RES_VVERDE_SUP;Caixa Superior;Residencial Vista Verde;96;48;58;75;90

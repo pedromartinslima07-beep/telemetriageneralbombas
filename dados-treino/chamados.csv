@@ -1,0 +1,121 @@
+﻿ID;Técnico;Condomínio;Categoria;Prioridade;Status;Criado em;Primeira resposta em;Fechado em;Tempo resolução (s);SLA (h);SLA estourado
+120;Carlos Nogueira;Residencial Vista Verde;ruido;p3;aberto;2026-07-24T19:31:08.884Z;;;;3.5;Não
+119;Eduardo Pinto;Edifício Monte Belo;outro;p2;em_atendimento;2026-07-24T17:59:24.675Z;2026-07-24T19:03:51.121Z;;;5.0;Não
+118;;Residencial Vista Verde;nivel_baixo;p4;aberto;2026-07-24T16:27:41.765Z;;;;6.5;Não
+117;Carlos Nogueira;Edifício Monte Belo;vazamento;p2;aberto;2026-07-24T12:34:25.235Z;;;;10.4;Sim
+116;Carlos Nogueira;Condomínio Parque Ipê;vazamento;p2;fechado;2026-07-22T21:41:11.457Z;2026-07-22T23:00:59.801Z;2026-07-23T22:24:10.716Z;88979;24.7;Não
+115;Anderson Souza;Residencial Jardim das Acácias;vazamento;p2;fechado;2026-07-22T16:51:54.972Z;2026-07-22T17:11:15.165Z;2026-07-22T22:20:28.102Z;19714;5.5;Não
+114;Bruno Carvalho;Edifício Monte Belo;sem_agua;p2;fechado;2026-07-22T16:38:28.219Z;2026-07-22T17:47:37.520Z;2026-07-22T20:51:32.410Z;15184;4.2;Não
+113;Eduardo Pinto;Condomínio Bela Vista;bomba_falha;p2;fechado;2026-07-21T18:14:44.804Z;2026-07-21T18:53:25.346Z;2026-07-22T00:48:54.820Z;23650;6.6;Não
+112;Carlos Nogueira;Residencial Jardim das Acácias;nivel_baixo;p2;fechado;2026-07-19T19:03:44.563Z;2026-07-19T19:42:36.628Z;2026-07-20T16:33:21.713Z;77377;21.5;Não
+111;Carlos Nogueira;Residencial Vista Verde;manutencao;p4;fechado;2026-07-19T13:14:08.700Z;;2026-07-20T05:17:20.723Z;57792;16.1;Não
+110;Eduardo Pinto;Condomínio Parque Ipê;manutencao;p3;fechado;2026-07-18T16:02:35.053Z;2026-07-18T17:56:35.164Z;2026-07-18T22:29:17.398Z;23202;6.4;Não
+109;Anderson Souza;Condomínio Parque Ipê;vazamento;p2;fechado;2026-07-17T22:18:16.987Z;2026-07-17T23:08:42.651Z;2026-07-18T03:36:08.005Z;19072;5.3;Não
+108;Diego Ramos;Condomínio Parque Ipê;nivel_baixo;p3;fechado;2026-07-16T13:22:35.823Z;;2026-07-17T18:35:30.093Z;105175;29.2;Não
+107;Eduardo Pinto;Residencial Jardim das Acácias;sem_agua;p2;fechado;2026-07-15T18:27:25.843Z;2026-07-15T19:00:09.148Z;2026-07-15T21:38:33.482Z;11468;3.2;Não
+106;Eduardo Pinto;Residencial Vista Verde;manutencao;p1;fechado;2026-07-15T17:20:58.948Z;2026-07-15T17:51:16.614Z;2026-07-15T20:27:02.445Z;11164;3.1;Não
+105;Eduardo Pinto;Edifício Monte Belo;vazamento;p3;fechado;2026-07-14T18:15:30.090Z;2026-07-14T19:46:30.065Z;2026-07-14T23:38:48.269Z;19398;5.4;Não
+104;Eduardo Pinto;Edifício Monte Belo;vazamento;p2;fechado;2026-07-14T13:06:31.227Z;2026-07-14T14:16:39.379Z;2026-07-14T17:44:28.081Z;16677;4.6;Não
+103;Eduardo Pinto;Edifício Monte Belo;nivel_baixo;p3;fechado;2026-07-13T18:48:13.623Z;2026-07-13T18:57:26.038Z;2026-07-14T00:15:36.741Z;19643;5.5;Não
+102;;Residencial Jardim das Acácias;bomba_falha;p2;aberto;2026-07-13T14:13:51.393Z;;;;272.8;Sim
+101;Eduardo Pinto;Condomínio Bela Vista;bomba_falha;p3;fechado;2026-07-10T19:52:25.953Z;2026-07-10T20:51:06.410Z;2026-07-11T03:33:42.628Z;27677;7.7;Não
+100;Eduardo Pinto;Edifício Monte Belo;vazamento;p3;fechado;2026-07-10T13:07:15.671Z;2026-07-10T13:34:12.533Z;2026-07-10T17:54:08.293Z;17213;4.8;Não
+99;Anderson Souza;Condomínio Bela Vista;sem_agua;p4;fechado;2026-07-09T20:30:03.728Z;2026-07-09T20:59:05.986Z;2026-07-09T22:04:07.611Z;5644;1.6;Não
+98;Eduardo Pinto;Edifício Monte Belo;vazamento;p3;em_atendimento;2026-07-08T23:36:02.058Z;2026-07-08T23:55:07.968Z;;;383.4;Sim
+97;Diego Ramos;Edifício Monte Belo;vazamento;p2;fechado;2026-07-08T20:11:23.792Z;2026-07-09T02:38:26.839Z;2026-07-09T03:35:22.179Z;26639;7.4;Não
+96;Diego Ramos;Residencial Jardim das Acácias;vazamento;p2;fechado;2026-07-08T18:44:15.655Z;2026-07-09T04:35:59.506Z;2026-07-09T06:02:49.449Z;40714;11.3;Não
+95;Fábio Tavares;Residencial Vista Verde;bomba_falha;p3;fechado;2026-07-07T16:51:19.010Z;2026-07-07T17:28:50.206Z;2026-07-07T20:13:58.870Z;12159;3.4;Não
+94;Fábio Tavares;Edifício Monte Belo;vazamento;p2;em_atendimento;2026-07-06T14:58:21.672Z;2026-07-06T15:47:03.953Z;;;440.0;Sim
+93;Fábio Tavares;Edifício Monte Belo;ruido;p2;fechado;2026-07-06T13:08:47.823Z;2026-07-06T15:37:39.530Z;2026-07-06T18:07:30.292Z;17923;5.0;Não
+92;Diego Ramos;Residencial Jardim das Acácias;bomba_falha;p3;fechado;2026-07-02T23:34:50.199Z;2026-07-03T06:05:24.034Z;2026-07-03T07:43:49.802Z;29339;8.1;Não
+91;Bruno Carvalho;Residencial Vista Verde;outro;p3;em_atendimento;2026-06-30T18:55:20.613Z;2026-06-30T19:12:34.522Z;;;580.1;Sim
+90;Diego Ramos;Edifício Monte Belo;vazamento;p2;fechado;2026-06-30T18:21:59.528Z;2026-07-01T01:57:58.715Z;2026-07-01T04:00:37.237Z;34718;9.6;Não
+89;Carlos Nogueira;Edifício Monte Belo;sem_agua;p2;fechado;2026-06-29T17:25:05.629Z;2026-06-29T17:38:44.173Z;2026-06-30T01:03:03.690Z;27478;7.6;Não
+88;Fábio Tavares;Edifício Monte Belo;vazamento;p3;aberto;2026-06-27T16:02:04.036Z;;;;655.0;Sim
+87;Eduardo Pinto;Edifício Monte Belo;vazamento;p3;fechado;2026-06-26T19:38:23.368Z;2026-06-26T20:54:11.244Z;2026-06-27T02:46:03.670Z;25660;7.1;Não
+86;Fábio Tavares;Condomínio Bela Vista;vazamento;p3;fechado;2026-06-25T21:11:59.000Z;2026-06-25T22:25:54.999Z;2026-06-26T01:03:21.161Z;13882;3.9;Não
+85;Anderson Souza;Residencial Jardim das Acácias;vazamento;p3;em_atendimento;2026-06-25T18:28:20.088Z;2026-06-25T19:44:49.282Z;;;700.5;Sim
+84;Diego Ramos;Residencial Vista Verde;outro;p3;fechado;2026-06-25T16:49:08.798Z;2026-06-25T18:50:09.409Z;2026-06-25T19:15:12.361Z;8764;2.4;Não
+83;Anderson Souza;Residencial Vista Verde;bomba_falha;p3;em_atendimento;2026-06-23T19:38:30.685Z;2026-06-23T20:19:34.404Z;;;747.4;Sim
+82;Diego Ramos;Residencial Vista Verde;vazamento;p3;fechado;2026-06-23T15:59:56.415Z;2026-06-25T00:51:45.600Z;2026-06-25T02:04:44.205Z;122688;34.1;Não
+81;Diego Ramos;Residencial Vista Verde;vazamento;p4;fechado;2026-06-22T16:43:37.530Z;2026-06-22T19:53:39.015Z;2026-06-22T20:26:08.754Z;13351;3.7;Não
+80;Fábio Tavares;Condomínio Bela Vista;nivel_baixo;p2;em_atendimento;2026-06-22T16:16:14.720Z;2026-06-22T17:15:39.070Z;;;774.7;Sim
+79;Anderson Souza;Edifício Monte Belo;nivel_baixo;p2;fechado;2026-06-19T19:48:15.941Z;2026-06-19T20:30:25.092Z;2026-06-20T03:17:48.562Z;26973;7.5;Não
+78;Diego Ramos;Condomínio Bela Vista;bomba_falha;p4;fechado;2026-06-19T16:14:58.291Z;2026-06-19T22:31:16.743Z;2026-06-19T23:10:03.849Z;24905;6.9;Não
+77;Eduardo Pinto;Residencial Jardim das Acácias;nivel_baixo;p3;fechado;2026-06-19T13:17:41.572Z;2026-06-19T14:12:22.936Z;2026-06-19T18:32:49.596Z;18908;5.3;Não
+76;Eduardo Pinto;Condomínio Bela Vista;ruido;p3;fechado;2026-06-18T19:23:16.356Z;2026-06-18T19:48:38.355Z;2026-06-18T22:20:14.986Z;10618;2.9;Não
+75;Eduardo Pinto;Residencial Jardim das Acácias;manutencao;p3;fechado;2026-06-18T18:43:37.835Z;2026-06-18T19:18:32.283Z;2026-06-19T02:25:20.231Z;27703;7.7;Não
+74;Fábio Tavares;Condomínio Parque Ipê;bomba_falha;p3;fechado;2026-06-18T14:14:24.620Z;2026-06-18T14:40:33.986Z;2026-06-18T18:02:33.199Z;13689;3.8;Não
+73;Anderson Souza;Condomínio Parque Ipê;outro;p2;fechado;2026-06-18T13:36:37.465Z;2026-06-18T14:08:39.952Z;2026-06-18T16:18:09.413Z;9692;2.7;Não
+72;Anderson Souza;Condomínio Bela Vista;bomba_falha;p3;fechado;2026-06-16T16:18:49.588Z;2026-06-16T16:44:00.004Z;2026-06-17T02:04:40.267Z;35151;9.8;Não
+71;Anderson Souza;Condomínio Bela Vista;vazamento;p3;fechado;2026-06-15T21:12:37.179Z;2026-06-15T22:18:58.416Z;2026-06-16T03:02:49.518Z;21012;5.8;Não
+70;Diego Ramos;Condomínio Bela Vista;vazamento;p3;fechado;2026-06-15T18:16:52.109Z;2026-06-16T01:01:41.572Z;2026-06-16T02:03:23.074Z;27991;7.8;Não
+69;Bruno Carvalho;Edifício Monte Belo;bomba_falha;p3;fechado;2026-06-15T16:27:11.515Z;2026-06-15T16:59:12.301Z;2026-06-15T20:35:19.348Z;14888;4.1;Não
+68;Carlos Nogueira;Condomínio Bela Vista;nivel_baixo;p3;fechado;2026-06-15T10:42:53.969Z;2026-06-15T11:15:12.119Z;2026-06-16T20:15:38.822Z;120765;33.5;Não
+67;Diego Ramos;Condomínio Bela Vista;ruido;p1;fechado;2026-06-12T19:17:46.525Z;2026-06-13T00:03:50.979Z;2026-06-13T01:16:04.263Z;21498;6.0;Não
+66;Eduardo Pinto;Condomínio Bela Vista;sem_agua;p1;em_atendimento;2026-06-12T18:59:39.897Z;2026-06-12T19:36:25.550Z;;;1012.0;Sim
+65;Fábio Tavares;Residencial Jardim das Acácias;ruido;p4;fechado;2026-06-11T20:10:23.832Z;2026-06-11T21:16:02.812Z;2026-06-12T00:47:52.588Z;16649;4.6;Não
+64;Eduardo Pinto;Condomínio Parque Ipê;bomba_falha;p2;fechado;2026-06-11T18:56:30.256Z;2026-06-11T19:08:51.710Z;2026-06-11T21:21:46.453Z;8716;2.4;Não
+63;Bruno Carvalho;Condomínio Parque Ipê;nivel_baixo;p3;fechado;2026-06-11T17:03:53.989Z;2026-06-11T17:41:47.386Z;2026-06-12T00:09:48.576Z;25555;7.1;Não
+62;Bruno Carvalho;Condomínio Parque Ipê;nivel_baixo;p2;fechado;2026-06-11T12:52:42.495Z;2026-06-11T13:21:43.788Z;2026-06-11T16:34:18.249Z;13296;3.7;Não
+61;Anderson Souza;Condomínio Bela Vista;nivel_baixo;p3;fechado;2026-06-10T18:31:11.775Z;2026-06-10T19:05:42.347Z;2026-06-10T20:24:54.984Z;6823;1.9;Não
+60;Anderson Souza;Residencial Jardim das Acácias;outro;p4;fechado;2026-06-09T23:25:33.794Z;2026-06-10T00:35:05.469Z;2026-06-10T05:21:27.697Z;21354;5.9;Não
+59;Diego Ramos;Edifício Monte Belo;vazamento;p4;fechado;2026-06-09T16:53:04.471Z;2026-06-10T04:27:22.918Z;2026-06-10T05:48:07.600Z;46503;12.9;Não
+58;Anderson Souza;Edifício Monte Belo;vazamento;p3;fechado;2026-06-05T20:36:26.882Z;2026-06-05T21:06:56.028Z;2026-06-06T00:27:16.493Z;13850;3.8;Não
+57;Bruno Carvalho;Edifício Monte Belo;manutencao;p2;fechado;2026-06-04T18:46:22.119Z;2026-06-04T19:18:00.264Z;2026-06-04T23:55:45.069Z;18563;5.2;Não
+56;Carlos Nogueira;Residencial Vista Verde;outro;p2;fechado;2026-06-03T20:54:44.391Z;2026-06-03T22:24:03.648Z;2026-06-04T17:41:40.807Z;74816;20.8;Não
+55;Bruno Carvalho;Condomínio Parque Ipê;ruido;p4;fechado;2026-06-02T21:36:20.225Z;2026-06-02T22:12:30.693Z;2026-06-03T03:28:11.718Z;21111;5.9;Não
+54;Bruno Carvalho;Residencial Jardim das Acácias;sem_agua;p3;fechado;2026-06-02T16:24:47.235Z;2026-06-02T16:51:38.819Z;2026-06-02T23:54:22.323Z;26975;7.5;Não
+53;Anderson Souza;Residencial Vista Verde;nivel_baixo;p2;fechado;2026-06-01T16:47:49.422Z;2026-06-01T17:06:23.978Z;2026-06-02T02:15:15.361Z;34046;9.5;Não
+52;Anderson Souza;Residencial Vista Verde;outro;p4;fechado;2026-05-31T23:33:22.528Z;2026-05-31T23:55:17.548Z;2026-06-01T03:48:11.009Z;15289;4.2;Não
+51;Carlos Nogueira;Residencial Vista Verde;ruido;p3;fechado;2026-05-29T20:29:06.717Z;2026-05-29T21:43:32.852Z;2026-05-30T08:14:47.269Z;42341;11.8;Não
+50;Diego Ramos;Residencial Vista Verde;ruido;p1;fechado;2026-05-29T18:22:16.254Z;2026-05-30T06:38:44.294Z;2026-05-30T07:13:43.095Z;46287;12.9;Não
+49;Bruno Carvalho;Residencial Jardim das Acácias;sem_agua;p3;fechado;2026-05-28T18:41:10.408Z;2026-05-28T19:22:58.689Z;2026-05-28T22:02:57.766Z;12107;3.4;Não
+48;Anderson Souza;Condomínio Parque Ipê;sem_agua;p3;fechado;2026-05-27T21:01:14.840Z;2026-05-27T22:21:24.350Z;2026-05-28T02:35:27.077Z;20053;5.6;Não
+47;Eduardo Pinto;Edifício Monte Belo;vazamento;p3;fechado;2026-05-26T13:27:50.567Z;2026-05-26T13:56:47.953Z;2026-05-26T18:36:48.182Z;18538;5.1;Não
+46;Fábio Tavares;Edifício Monte Belo;vazamento;p2;fechado;2026-05-26T12:27:07.487Z;2026-05-26T13:27:01.321Z;2026-05-26T16:02:39.362Z;12932;3.6;Não
+45;Carlos Nogueira;Condomínio Parque Ipê;sem_agua;p3;em_atendimento;2026-05-24T19:23:43.223Z;2026-05-24T20:46:05.915Z;;;1467.6;Sim
+44;Bruno Carvalho;Condomínio Parque Ipê;manutencao;p2;fechado;2026-05-24T16:21:58.587Z;2026-05-24T18:22:44.275Z;2026-05-24T22:15:45.187Z;21227;5.9;Não
+43;Anderson Souza;Residencial Jardim das Acácias;vazamento;p3;fechado;2026-05-21T20:04:46.969Z;2026-05-21T21:05:12.764Z;2026-05-22T01:41:22.699Z;20196;5.6;Não
+42;Anderson Souza;Residencial Jardim das Acácias;nivel_baixo;p2;fechado;2026-05-21T19:06:09.952Z;2026-05-21T20:24:22.931Z;2026-05-21T22:38:36.194Z;12747;3.5;Não
+41;Fábio Tavares;Residencial Vista Verde;nivel_baixo;p1;fechado;2026-05-20T20:57:25.510Z;2026-05-20T21:33:18.754Z;2026-05-20T23:12:01.204Z;8076;2.2;Não
+40;Diego Ramos;Edifício Monte Belo;vazamento;p3;fechado;2026-05-20T14:43:04.240Z;;2026-05-20T18:34:54.753Z;13910;3.9;Não
+39;Anderson Souza;Residencial Vista Verde;bomba_falha;p2;fechado;2026-05-19T17:52:07.247Z;;2026-05-19T20:45:34.893Z;10407;2.9;Não
+38;Bruno Carvalho;Condomínio Parque Ipê;bomba_falha;p3;fechado;2026-05-18T17:56:59.271Z;2026-05-18T18:26:12.211Z;2026-05-18T21:51:36.234Z;14077;3.9;Não
+37;Fábio Tavares;Residencial Vista Verde;manutencao;p1;fechado;2026-05-18T17:51:47.207Z;;2026-05-19T03:41:33.854Z;35386;9.8;Não
+36;Bruno Carvalho;Condomínio Bela Vista;vazamento;p2;fechado;2026-05-18T16:37:41.255Z;2026-05-18T17:23:46.856Z;2026-05-19T01:55:00.633Z;33439;9.3;Não
+35;Eduardo Pinto;Condomínio Bela Vista;outro;p3;fechado;2026-05-18T16:31:03.364Z;2026-05-18T16:57:09.159Z;2026-05-18T19:12:25.797Z;9682;2.7;Não
+34;Carlos Nogueira;Edifício Monte Belo;vazamento;p1;fechado;2026-05-18T16:08:11.109Z;2026-05-18T17:39:39.122Z;2026-05-19T01:36:07.942Z;34076;9.5;Não
+33;Carlos Nogueira;Residencial Jardim das Acácias;sem_agua;p3;aberto;2026-05-18T14:52:08.080Z;;;;1616.1;Sim
+32;Carlos Nogueira;Edifício Monte Belo;vazamento;p3;fechado;2026-05-18T13:09:15.692Z;2026-05-18T14:03:21.978Z;2026-05-19T18:16:32.679Z;104837;29.1;Não
+31;Eduardo Pinto;Residencial Jardim das Acácias;bomba_falha;p3;fechado;2026-05-17T18:03:54.504Z;2026-05-17T18:46:53.628Z;2026-05-17T21:59:35.006Z;14141;3.9;Não
+30;Bruno Carvalho;Residencial Vista Verde;nivel_baixo;p3;fechado;2026-05-16T18:25:08.782Z;2026-05-16T19:33:52.877Z;2026-05-16T22:11:21.554Z;13573;3.8;Não
+29;Carlos Nogueira;Residencial Vista Verde;sem_agua;p4;fechado;2026-05-15T21:38:03.980Z;2026-05-15T22:17:13.043Z;2026-05-16T05:06:03.868Z;26880;7.5;Não
+28;Anderson Souza;Residencial Jardim das Acácias;vazamento;p2;fechado;2026-05-15T18:02:05.493Z;2026-05-15T18:34:57.380Z;2026-05-15T20:52:48.635Z;10243;2.8;Não
+27;Fábio Tavares;Edifício Monte Belo;nivel_baixo;p3;fechado;2026-05-15T15:32:58.322Z;2026-05-15T17:14:35.504Z;2026-05-15T21:30:00.919Z;21422;6.0;Não
+26;Eduardo Pinto;Residencial Vista Verde;bomba_falha;p3;fechado;2026-05-15T14:49:37.902Z;2026-05-15T15:08:41.918Z;2026-05-15T22:59:10.588Z;29373;8.2;Não
+25;Fábio Tavares;Condomínio Bela Vista;outro;p2;fechado;2026-05-15T14:26:36.889Z;2026-05-15T15:08:04.281Z;2026-05-15T18:26:23.502Z;14387;4.0;Não
+24;Fábio Tavares;Residencial Jardim das Acácias;bomba_falha;p2;fechado;2026-05-14T17:39:41.187Z;2026-05-14T18:08:16.782Z;2026-05-15T06:26:25.937Z;46004;12.8;Não
+23;Bruno Carvalho;Edifício Monte Belo;manutencao;p3;fechado;2026-05-13T20:22:48.523Z;2026-05-13T21:08:01.286Z;2026-05-14T08:25:52.407Z;43384;12.1;Não
+22;Carlos Nogueira;Condomínio Parque Ipê;vazamento;p3;fechado;2026-05-13T17:44:12.227Z;2026-05-13T18:05:11.768Z;2026-05-14T06:30:07.590Z;45955;12.8;Não
+21;Eduardo Pinto;Residencial Jardim das Acácias;nivel_baixo;p3;fechado;2026-05-13T14:21:41.131Z;2026-05-13T15:07:09.055Z;2026-05-13T17:04:54.538Z;9793;2.7;Não
+20;Eduardo Pinto;Residencial Vista Verde;sem_agua;p3;fechado;2026-05-12T18:53:15.818Z;2026-05-12T19:42:12.433Z;2026-05-12T23:04:41.489Z;15086;4.2;Não
+19;Fábio Tavares;Condomínio Parque Ipê;vazamento;p4;fechado;2026-05-11T18:57:38.962Z;2026-05-11T20:04:45.553Z;2026-05-11T23:09:33.033Z;15115;4.2;Não
+18;Carlos Nogueira;Edifício Monte Belo;vazamento;p2;fechado;2026-05-09T13:42:03.514Z;2026-05-09T14:31:02.355Z;2026-05-09T21:24:31.403Z;27748;7.7;Não
+17;Fábio Tavares;Condomínio Parque Ipê;manutencao;p3;fechado;2026-05-08T22:26:44.881Z;2026-05-08T23:04:53.702Z;2026-05-09T00:22:44.794Z;6960;1.9;Não
+16;Fábio Tavares;Condomínio Parque Ipê;bomba_falha;p3;fechado;2026-05-08T12:12:20.178Z;;2026-05-08T16:06:32.468Z;14052;3.9;Não
+15;Eduardo Pinto;Edifício Monte Belo;vazamento;p1;fechado;2026-05-07T16:27:25.999Z;2026-05-07T16:49:40.123Z;2026-05-07T18:46:36.715Z;8351;2.3;Não
+14;Eduardo Pinto;Edifício Monte Belo;nivel_baixo;p3;fechado;2026-05-07T14:54:33.530Z;2026-05-07T15:33:44.471Z;2026-05-07T18:19:13.323Z;12280;3.4;Não
+13;Diego Ramos;Edifício Monte Belo;vazamento;p2;fechado;2026-05-07T13:38:50.705Z;2026-05-08T05:16:30.008Z;2026-05-08T05:43:37.012Z;57887;16.1;Não
+12;Eduardo Pinto;Condomínio Parque Ipê;nivel_baixo;p3;fechado;2026-05-06T20:02:32.690Z;;2026-05-06T22:50:33.215Z;10081;2.8;Não
+11;Fábio Tavares;Residencial Jardim das Acácias;sem_agua;p3;fechado;2026-05-06T14:42:22.388Z;2026-05-06T15:48:27.594Z;2026-05-06T19:04:58.103Z;15756;4.4;Não
+10;Anderson Souza;Condomínio Parque Ipê;ruido;p2;fechado;2026-05-05T13:45:50.333Z;2026-05-05T14:09:56.370Z;2026-05-05T17:02:36.627Z;11806;3.3;Não
+9;Anderson Souza;Residencial Jardim das Acácias;manutencao;p3;fechado;2026-05-01T19:29:01.882Z;2026-05-01T20:36:31.265Z;2026-05-02T02:11:44.191Z;24163;6.7;Não
+8;Eduardo Pinto;Residencial Jardim das Acácias;vazamento;p4;fechado;2026-05-01T18:20:32.561Z;2026-05-01T18:58:35.269Z;2026-05-01T20:48:42.242Z;8890;2.5;Não
+7;Bruno Carvalho;Condomínio Parque Ipê;manutencao;p2;fechado;2026-05-01T17:08:40.275Z;2026-05-01T17:42:44.482Z;2026-05-01T22:19:08.981Z;18628;5.2;Não
+6;;Edifício Monte Belo;vazamento;p2;aberto;2026-05-01T16:04:16.627Z;;;;2022.9;Sim
+5;Fábio Tavares;Edifício Monte Belo;outro;p2;fechado;2026-05-01T13:41:10.351Z;2026-05-01T14:11:30.374Z;2026-05-01T20:33:47.188Z;24757;6.9;Não
+4;Carlos Nogueira;Residencial Vista Verde;bomba_falha;p3;fechado;2026-04-30T16:39:38.510Z;2026-04-30T17:27:57.434Z;2026-05-01T05:44:02.215Z;47064;13.1;Não
+3;Anderson Souza;Residencial Vista Verde;vazamento;p3;fechado;2026-04-28T13:00:41.429Z;2026-04-28T13:37:29.717Z;2026-04-28T18:32:07.770Z;19886;5.5;Não
+2;Bruno Carvalho;Edifício Monte Belo;nivel_baixo;p3;fechado;2026-04-27T17:59:21.381Z;2026-04-27T19:23:13.373Z;2026-04-27T22:30:46.874Z;16285;4.5;Não
+1;Diego Ramos;Edifício Monte Belo;vazamento;p1;fechado;2026-04-27T15:07:55.410Z;2026-04-27T18:27:04.286Z;2026-04-27T19:00:11.461Z;13936;3.9;Não
