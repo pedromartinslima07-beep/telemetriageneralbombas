@@ -259,6 +259,9 @@ function abrirTelaTecnico(user) {
   document.getElementById("tcUserName").textContent = user.nome || "Técnico";
   showScreen("tecnico-chamados");
   carregarMeusChamados();
+  // Carrega o roteiro em silêncio já no login: é o que alimenta o badge da
+  // aba Roteiro (quantas preventivas esperam por ele) sem precisar abrir a tela.
+  carregarRoteiro(true);
   iniciarPollingTecnico();
   // Busca perfil completo (foto_url, especialidade) da tabela tecnicos
   api("/tecnicos/me").then(perfil => {
@@ -298,6 +301,18 @@ async function aplicarConfigOperacional() {
           _gpsAbrirWatch();
         }
       }
+    }
+
+    // Janela de expediente do GPS (ambiente de teste roda 0–24, sem janela)
+    const ini = Number(cfg?.gps?.expediente_inicio);
+    const fim = Number(cfg?.gps?.expediente_fim);
+    if (Number.isInteger(ini) && Number.isInteger(fim) && ini >= 0 && fim <= 24 && ini < fim) {
+      GPS_HORA_INI = ini;
+      GPS_HORA_FIM = fim;
+      // Reavalia a janela na hora. Sem isto quem corrige é o horarioTimer, que
+      // só roda a cada 60s — o app ficava até um minuto dizendo "fora do
+      // expediente" depois de já ter recebido a config que diz o contrário.
+      if (typeof _gpsAplicarJanela === "function") _gpsAplicarJanela();
     }
   } catch (e) {
     console.warn("[cfg] tecnicos/config:", e.message);
@@ -1419,8 +1434,11 @@ document.getElementById("tdBack").addEventListener("click", () => {
 // local do dispositivo). Fora desse intervalo o watchPosition fica
 // desligado (poupa bateria + privacidade do técnico). Um timer de 60s
 // reavalia a janela e religa/desliga sem precisar de logout.
-const GPS_HORA_INI = 8;
-const GPS_HORA_FIM = 18;
+// Valores padrão; o boot sobrescreve com o que vier de GET /tecnicos/config
+// (chaves gps.expediente_inicio / gps.expediente_fim). 0 e 24 desligam a
+// janela — é como o ambiente de teste roda, pra não depender do relógio.
+let GPS_HORA_INI = 8;
+let GPS_HORA_FIM = 18;
 
 const GPS = {
   watchId: null,
@@ -4810,15 +4828,301 @@ async function submitTrocarSenhaTec() {
   }
 }
 
+// ============== TÉCNICO — ROTEIRO DE PREVENTIVAS ==============
+//
+// O roteiro lista PLANOS de manutenção, não chamados. O chamado P4 só nasce
+// quando o técnico chega no prédio e toca "Iniciar" (POST /:id/executar-agora),
+// o que evita chamado fantasma pro que não foi feito e faz `ultima_em` guardar
+// a data real do serviço. Agrupa por condomínio porque um prédio costuma ter
+// 2-3 planos (caixa, bomba, elétrica) resolvidos na mesma visita.
+const RT = {
+  planos: [],
+  zonas: [],
+  antecedencia: 7,
+  sort: "proximidade",   // proximidade | atrasados
+  syncedAt: null,
+};
+
+const RT_LIMITE_LONGE_KM = 1; // acima disso, "Iniciar" avisa (mas não bloqueia)
+
+function rtDiasAte(iso) {
+  if (!iso) return null;
+  const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+  const alvo = new Date(String(iso).slice(0, 10) + "T00:00:00");
+  return Math.round((alvo - hoje) / 86400000);
+}
+
+function rtPrazoLabel(iso) {
+  const d = rtDiasAte(iso);
+  if (d == null) return { txt: "sem data", cls: "" };
+  const dias = (n) => `${n} ${n === 1 ? "dia" : "dias"}`;
+  if (d < 0)   return { txt: `atrasado ${dias(-d)}`, cls: "is-atrasado" };
+  if (d === 0) return { txt: "vence hoje", cls: "is-hoje" };
+  return { txt: `em ${dias(d)}`, cls: "" };
+}
+
+function rtDistanciaKm(p) {
+  if (!TC.geo || p.lat == null || p.lng == null) return null;
+  return haversineKm(Number(TC.geo.lat), Number(TC.geo.lng), Number(p.lat), Number(p.lng));
+}
+
+function rtDistLabel(km) {
+  if (km == null) return null;
+  return km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1)} km`;
+}
+
+// Agrupa os planos por condomínio — a unidade do roteiro é a visita, não o plano.
+function rtAgrupar() {
+  const mapa = new Map();
+  for (const p of RT.planos) {
+    if (!mapa.has(p.condominio_id)) {
+      mapa.set(p.condominio_id, {
+        condominio_id: p.condominio_id,
+        nome: p.condominio_nome,
+        endereco: p.endereco, bairro: p.bairro, cidade: p.cidade,
+        zona: p.zona, lat: p.lat, lng: p.lng,
+        planos: [],
+      });
+    }
+    mapa.get(p.condominio_id).planos.push(p);
+  }
+
+  const grupos = [...mapa.values()].map((g) => {
+    const dist = rtDistanciaKm(g);
+    // O grupo herda o pior prazo entre seus planos (o mais atrasado manda).
+    const piorDias = g.planos.reduce((min, p) => {
+      const d = rtDiasAte(p.proxima_em);
+      return d != null && (min == null || d < min) ? d : min;
+    }, null);
+    return { ...g, dist, piorDias };
+  });
+
+  grupos.sort((a, b) => {
+    if (RT.sort === "atrasados") {
+      const da = a.piorDias ?? 999;
+      const db = b.piorDias ?? 999;
+      if (da !== db) return da - db;
+    }
+    if (a.dist == null && b.dist == null) return (a.piorDias ?? 999) - (b.piorDias ?? 999);
+    if (a.dist == null) return 1;
+    if (b.dist == null) return -1;
+    return a.dist - b.dist;
+  });
+
+  return grupos;
+}
+
+async function carregarRoteiro(silent = false) {
+  if (IS_DEMO) return; // demo não tem backend — evita request que sempre falha
+  const lista = document.getElementById("rtList");
+  const empty = document.getElementById("rtEmpty");
+  const alertEl = document.getElementById("rtAlert");
+  const refresh = document.getElementById("rtRefresh");
+  if (!lista) return;
+
+  if (!silent) {
+    lista.innerHTML = Array.from({ length: 3 }).map(() => `<div class="tc-skel"></div>`).join("");
+    empty.hidden = true;
+    hideAlert(alertEl);
+  }
+  refresh?.classList.add("is-refreshing");
+
+  try {
+    const data = await api("/planos-manutencao/meu-roteiro");
+    RT.planos       = Array.isArray(data?.planos) ? data.planos : [];
+    RT.zonas        = Array.isArray(data?.zonas) ? data.zonas : [];
+    RT.antecedencia = Number(data?.antecedencia_dias) || 7;
+    RT.syncedAt     = new Date();
+    renderRoteiro();
+  } catch (err) {
+    if (!silent) showAlert(alertEl, err.message, "error");
+  } finally {
+    refresh?.classList.remove("is-refreshing");
+  }
+}
+
+function renderRoteiro() {
+  const lista = document.getElementById("rtList");
+  const empty = document.getElementById("rtEmpty");
+  if (!lista) return;
+
+  const grupos = rtAgrupar();
+
+  // Cabeçalho: zonas do técnico + janela do roteiro
+  const sub = document.getElementById("rtSub");
+  if (sub) {
+    const zonaTxt = RT.zonas.length ? RT.zonas.join(" · ") : "sem zona atribuída";
+    sub.textContent = `${zonaTxt} — próximos ${RT.antecedencia} dias`;
+  }
+
+  const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  setTxt("rtFooterTotal", `${RT.planos.length} preventiva${RT.planos.length === 1 ? "" : "s"}`);
+  setTxt("rtFooterPredios", `${grupos.length} prédio${grupos.length === 1 ? "" : "s"}`);
+  setTxt("rtSync", RT.syncedAt ? syncLabel(RT.syncedAt) : "—");
+
+  rtRenderDesvio();
+  rtAtualizarBadge();
+
+  if (!grupos.length) {
+    lista.innerHTML = "";
+    empty.hidden = false;
+    return;
+  }
+  empty.hidden = true;
+
+  lista.innerHTML = grupos.map((g, i) => rtCardPredio(g, i + 1)).join("");
+}
+
+function rtCardPredio(g, ordem) {
+  const distLabel = rtDistLabel(g.dist);
+  const endereco = escapeHtml([g.endereco, g.bairro].filter(Boolean).join(", ") || "Endereço não cadastrado");
+  const proxima = g.planos.reduce((min, p) => (!min || p.proxima_em < min ? p.proxima_em : min), null);
+  const prazo = rtPrazoLabel(proxima);
+
+  // Plano que já tem chamado aberto não pode ser iniciado de novo (o
+  // executar-agora barra por anti-duplicidade) — a UI mostra o motivo e linka.
+  const linhas = g.planos.map((p) => {
+    const emAndamento = !!p.chamado_aberto_id;
+    return `
+      <li class="rt-plano${emAndamento ? " is-andamento" : ""}">
+        <span class="rt-plano-nome">${escapeHtml(p.titulo || "—")}</span>
+        ${emAndamento
+          ? `<button type="button" class="rt-plano-tag is-link" data-chamado="${p.chamado_aberto_id}">chamado #${p.chamado_aberto_id}</button>`
+          : `<span class="rt-plano-tag">${escapeHtml(rtPrazoLabel(p.proxima_em).txt)}</span>`}
+      </li>`;
+  }).join("");
+
+  const pendentes = g.planos.filter((p) => !p.chamado_aberto_id);
+
+  return `
+    <article class="rt-card" data-rt-condo="${g.condominio_id}">
+      <div class="rt-card-head">
+        <span class="rt-ordem">${ordem}</span>
+        <div class="rt-card-title">
+          <span class="rt-nome">${escapeHtml(g.nome || "—")}</span>
+          <span class="rt-end">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            ${endereco}
+          </span>
+        </div>
+        ${distLabel ? `<span class="rt-dist">${distLabel}</span>` : ""}
+      </div>
+
+      <ul class="rt-planos">${linhas}</ul>
+
+      <div class="rt-card-foot">
+        <span class="rt-prazo ${prazo.cls}">${escapeHtml(prazo.txt)}</span>
+        ${pendentes.length
+          ? `<button type="button" class="btn btnAccent btn-sm rt-iniciar" data-rt-iniciar="${g.condominio_id}">Iniciar${pendentes.length > 1 ? ` (${pendentes.length})` : ""}</button>`
+          : `<span class="rt-prazo">em andamento</span>`}
+      </div>
+    </article>`;
+}
+
+// Faixa de desvio: o técnico largou o roteiro pra atender urgência (P1/P2 em
+// atendimento). Mostra o caminho de volta em vez de deixar ele se perder.
+function rtRenderDesvio() {
+  const el = document.getElementById("rtDesvio");
+  if (!el) return;
+  const urgente = (TC.chamados || []).find((c) =>
+    c.status === "em_atendimento" && (c.prioridade === "p1" || c.prioridade === "p2")
+  );
+  if (!urgente) { el.hidden = true; return; }
+
+  el.hidden = false;
+  el.dataset.chamado = urgente.id;
+  el.innerHTML = `
+    <span class="rt-desvio-ico">⚠</span>
+    <span class="rt-desvio-txt">
+      <strong>Atendendo #${urgente.id} (${escapeHtml((urgente.prioridade || "").toUpperCase())})</strong>
+      <span>${escapeHtml(urgente.condominio_nome || "")} — toque para abrir</span>
+    </span>
+    <span class="rt-desvio-seta">›</span>`;
+}
+
+function rtAtualizarBadge() {
+  const pendentes = RT.planos.filter((p) => !p.chamado_aberto_id).length;
+  document.querySelectorAll("[data-roteiro-badge]").forEach((b) => {
+    b.textContent = pendentes;
+    b.hidden = pendentes === 0;
+  });
+}
+
+// "Iniciar": cria os chamados P4 dos planos pendentes daquele prédio e leva
+// direto pro detalhe do primeiro — dali pra frente o fluxo é o de sempre.
+async function rtIniciarPredio(condominioId) {
+  const grupo = rtAgrupar().find((g) => g.condominio_id === condominioId);
+  if (!grupo) return;
+
+  const pendentes = grupo.planos.filter((p) => !p.chamado_aberto_id);
+  if (!pendentes.length) return;
+
+  const longe = grupo.dist != null && grupo.dist > RT_LIMITE_LONGE_KM;
+  const aviso = longe ? `\n\nVocê está a ${rtDistLabel(grupo.dist)} do prédio.` : "";
+  const quais = pendentes.map((p) => `• ${p.titulo}`).join("\n");
+  if (!confirm(`Iniciar ${pendentes.length} preventiva(s) em ${grupo.nome}?\n\n${quais}${aviso}`)) return;
+
+  const btn = document.querySelector(`[data-rt-iniciar="${condominioId}"]`);
+  if (btn) { btn.disabled = true; btn.textContent = "Abrindo…"; }
+
+  const criados = [];
+  const erros = [];
+  for (const p of pendentes) {
+    try {
+      const r = await api(`/planos-manutencao/${p.id}/executar-agora`, { method: "POST" });
+      if (r?.chamado_id) criados.push(r.chamado_id);
+    } catch (e) {
+      erros.push(`${p.titulo}: ${e.message}`);
+    }
+  }
+
+  await carregarRoteiro(true);
+  await carregarMeusChamados(true);
+
+  if (erros.length) showAlert(document.getElementById("rtAlert"), erros.join(" · "), "error");
+  if (criados.length) abrirDetalheChamado(criados[0]);
+}
+
+function abrirTelaRoteiro() {
+  showScreen("tecnico-roteiro");
+  carregarRoteiro();
+  pedirGPSOportunista();
+}
+
+function _bindRoteiroUI() {
+  document.getElementById("rtRefresh")?.addEventListener("click", () => carregarRoteiro());
+
+  document.getElementById("rtSort")?.addEventListener("change", (e) => {
+    RT.sort = e.target.value;
+    renderRoteiro();
+  });
+
+  document.getElementById("rtDesvio")?.addEventListener("click", (e) => {
+    const id = Number(e.currentTarget.dataset.chamado);
+    if (id) abrirDetalheChamado(id);
+  });
+
+  document.getElementById("rtList")?.addEventListener("click", (e) => {
+    const iniciar = e.target.closest("[data-rt-iniciar]");
+    if (iniciar) { rtIniciarPredio(Number(iniciar.dataset.rtIniciar)); return; }
+
+    const chamado = e.target.closest("[data-chamado]");
+    if (chamado) abrirDetalheChamado(Number(chamado.dataset.chamado));
+  });
+}
+_bindRoteiroUI();
+
 // Wire das tabs do técnico (bottom nav). Igual padrão do cliente.
 function _bindTecnicoUI() {
   document.querySelectorAll(
-    '[data-screen="tecnico-chamados"] [data-tec-tab], [data-screen="tecnico-conta"] [data-tec-tab]'
+    '[data-screen="tecnico-chamados"] [data-tec-tab], [data-screen="tecnico-conta"] [data-tec-tab], [data-screen="tecnico-roteiro"] [data-tec-tab]'
   ).forEach((b) => {
     b.addEventListener("click", () => {
       const tab = b.dataset.tecTab;
       if (tab === "chamados") {
         showScreen("tecnico-chamados");
+      } else if (tab === "roteiro") {
+        abrirTelaRoteiro();
       } else if (tab === "conta") {
         abrirTelaContaTec();
       }

@@ -3,7 +3,7 @@
   "appName": "General Bombas",
   "webDir": "public",
   "android": {
-    "allowMixedContent": false
+    "allowMixedContent": true
   },
   "server": {
     "androidScheme": "https",

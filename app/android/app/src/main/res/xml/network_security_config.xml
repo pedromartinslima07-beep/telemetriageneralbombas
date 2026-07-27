@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  TEMPORÁRIO — libera HTTP (sem TLS) apenas para os endereços de desenvolvimento,
+  necessário enquanto o app aponta para o servidor local (ver app/public/config.js).
+
+  O resto da internet continua exigindo HTTPS: o padrão abaixo é
+  cleartextTrafficPermitted="false", então produção não é afetada.
+
+  Se o IP da máquina mudar, atualize aqui e em app/public/config.js.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false" />
+
+    <domain-config cleartextTrafficPermitted="true">
+        <!-- Máquina de desenvolvimento na rede local -->
+        <domain includeSubdomains="false">192.168.1.80</domain>
+        <!-- Emulador do Android Studio enxergando o localhost do host -->
+        <domain includeSubdomains="false">10.0.2.2</domain>
+        <domain includeSubdomains="false">localhost</domain>
+    </domain-config>
+</network-security-config>

@@ -16,3 +16,9 @@ desktop.ini
 Thumbs.db
 public/uploads/
 uploads/
+# IDE do Android Studio (gerado ao abrir app/android)
+.idea/
+*.iml
+
+# Backups locais de .env
+*.bak

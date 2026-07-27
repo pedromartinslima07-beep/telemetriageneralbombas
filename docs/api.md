@@ -153,8 +153,10 @@ restringe escrita.
 
 **Planos** (`/planos-manutencao`) — todos masterAdmin:
 GET (lista/`:id`), POST, PATCH, DELETE, `POST /:id/executar-agora`,
-`PATCH /bulk` (`{ ids: number[], ativo: boolean }` — ativa/desativa vários
-planos de uma vez, até 500 por chamada).
+`PATCH /bulk` — edição em massa: `{ ids: number[], ativo?, periodicidade_dias?,
+proxima_em? }`, até 500 ids por chamada e pelo menos 1 campo além de `ids`.
+Campos ausentes ficam intocados; só esses 3 são editáveis em massa (o body é
+filtrado antes de validar). Responde `{ ok, atualizados, campos }`.
 
 **Contratos** (`/contratos`):
 GET `/`, `/metricas`, `/:id`, `/:id/pdf` (adminOnly); POST/PATCH/DELETE

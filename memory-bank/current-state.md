@@ -123,7 +123,9 @@ ESP32 (sonda 4-20mA + SCT-013)
   **Envio do orçamento ao cliente por e-mail** (PDF anexo via Resend, botão no modal;
   destinatário de `condominios.email` — múltiplos por vírgula; marca `enviado` +
   `enviado_em/enviado_para`, migration 047). Remetente: `comercial@generalbombas.com`.
-- Planos de manutenção preventiva + contratos.
+- Planos de manutenção preventiva + contratos. Na aba Planos, seleção múltipla
+  (checkbox por linha + "todos" no cabeçalho) com **edição em massa** de
+  periodicidade / próxima execução / status via `PATCH /planos-manutencao/bulk`.
 
 **App mobile (Capacitor)** — `app/public/`
 - Telas técnico: chamados, detalhe, O.S., conta; ciclo com GPS.

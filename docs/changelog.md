@@ -80,6 +80,28 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
 
 ## Marcos de produto (fases do plano)
 
+- **2026-07-27** — **Planos de manutenção: edição em massa (periodicidade, próxima execução, status)**
+  - Motivação: a seleção múltipla de 2026-07-22 só ativava/desativava. Mudar a
+    periodicidade ou reagendar a próxima execução de uma zona inteira ainda
+    era um plano por vez, no modal individual.
+  - Barra de seleção ganhou **"Editar selecionados"**, que abre o `#pmModal`
+    (mesmo modal do criar/editar) em modo massa: periodicidade (presets +
+    personalizado), próxima execução e status — **todos opcionais**, com
+    "— manter atual —" como default. Só o que muda entra no PATCH.
+  - O modal mostra um resumo do que está selecionado (nº de planos,
+    condomínios, periodicidade atual ou "N periodicidades diferentes") pra
+    não sobrescrever no escuro.
+  - Backend: `PATCH /planos-manutencao/bulk` deixa de ser só `{ ids, ativo }` e
+    passa a aceitar `periodicidade_dias` e `proxima_em` (pelo menos 1 campo).
+    Reusa o `_validarPayload` do PATCH individual e **filtra o body** pros 3
+    campos editáveis em massa — `condominio_id`/`titulo` não passam, pra um
+    body errado não mover 500 planos de prédio. `SET` montado dinamicamente,
+    ainda uma query só (`WHERE id = ANY($1::int[])`).
+  - "Ativar/Desativar selecionados" continuam como atalho; ambos passaram a
+    usar o helper `_pmBulkPatch(campos)`.
+  - `admin.css?v=142`, `admin.js?v=236`. Sem endpoint GET novo → `sw.js` e
+    `register-sw.js` intocados.
+
 - **2026-07-24** — **Orçamento para cliente avulso (pessoa física, sem CNPJ)**
   - Migration **065**: `orcamentos` ganha `cliente_nome`, `cliente_documento`
     (CPF/CNPJ), `cliente_endereco`, `cliente_email`.

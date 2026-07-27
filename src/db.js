@@ -6,9 +6,15 @@ const poolConfig = {
   connectionTimeoutMillis: 5_000,
 };
 
+// Fora de produção o servidor usa o banco de TESTE (ver src/db-url.js).
+const { resolverDatabaseUrl, descreverAlvo } = require("./db-url");
+
 function _buildPoolConfig() {
-  const url = process.env.DATABASE_URL;
+  const { url, alvo } = resolverDatabaseUrl();
   if (url) {
+    // Log explícito no boot: o custo de não saber em qual banco você está
+    // mexendo é alto demais pra deixar implícito.
+    console.log(`🗄️  Banco: ${alvo} — ${descreverAlvo(url)}`);
     // Extrai componentes da URL para evitar que pg leia PGPASSWORD do ambiente
     const u = new URL(url);
     return {

@@ -21,8 +21,15 @@ let _running = false;
 
 // Executa um plano específico (criando o chamado P4 + atualizando datas).
 // Usado pelo job (em loop) e pelo endpoint POST /:id/executar-agora.
+//
+// `tecnicoId` = quem está de fato assumindo o serviço (o técnico que tocou
+// "Iniciar" no roteiro). Quando não vem — job automático ou ▶ do admin — cai no
+// responsável da zona, e só se houver exatamente um: desde a migration 066 a
+// zona pode ter vários, e escolher um deles no chute colocaria o chamado no app
+// da pessoa errada. Com mais de um, nasce sem técnico e o admin distribui.
+//
 // Retorna { ok, plano_id, chamado_id, duplicado? }.
-async function executarPlano(planoId) {
+async function executarPlano(planoId, { tecnicoId = null } = {}) {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
@@ -65,14 +72,15 @@ async function executarPlano(planoId) {
       `Gerado automaticamente pelo plano de manutenção #${planoId}.`,
     ].filter(Boolean).join("\n\n");
 
-    // Busca técnico responsável pela zona do condomínio (se houver)
-    let tecnicoId = null;
-    if (plano.condominio_zona) {
+    // Quem assume: o técnico que iniciou o serviço tem precedência. Sem ele,
+    // só atribui automaticamente quando a zona tem um único responsável.
+    let atribuidoA = tecnicoId;
+    if (!atribuidoA && plano.condominio_zona) {
       const zr = await client.query(
-        `SELECT tecnico_id FROM planos_zona_responsavel WHERE zona = $1 LIMIT 1`,
+        `SELECT tecnico_id FROM planos_zona_responsavel WHERE zona = $1`,
         [plano.condominio_zona]
       );
-      if (zr.rows.length && zr.rows[0].tecnico_id) tecnicoId = zr.rows[0].tecnico_id;
+      if (zr.rows.length === 1) atribuidoA = zr.rows[0].tecnico_id;
     }
 
     const chamadoRes = await client.query(
@@ -80,7 +88,7 @@ async function executarPlano(planoId) {
          (condominio_id, titulo, descricao, prioridade, categoria, status, plano_manutencao_id, tecnico_id)
        VALUES ($1, $2, $3, 'p4', 'manutencao', 'aberto', $4, $5)
        RETURNING id`,
-      [plano.condominio_id, plano.titulo, descricao, planoId, tecnicoId]
+      [plano.condominio_id, plano.titulo, descricao, planoId, atribuidoA]
     );
 
     await registrarCriacao({
@@ -89,10 +97,28 @@ async function executarPlano(planoId) {
       alteradoPor: null,
     });
 
+    // Reagendamento ancorado no calendário do plano, não no dia em que o job
+    // rodou. Antes era `CURRENT_DATE + periodicidade`, o que fazia todo atraso
+    // virar deslocamento permanente (uma semestral gerada 4 dias atrasada
+    // passava a vencer 4 dias depois, pra sempre — e a tela mostrava "em dia",
+    // porque medía contra a data já escorregada).
+    //
+    //   k = menor inteiro >= 1 tal que proxima_em + k*periodicidade > hoje
+    //
+    // O LEAST cobre a execução antecipada (▶ Executar agora com proxima_em no
+    // futuro): aí o serviço aconteceu HOJE, então o próximo tem que sair de
+    // hoje — senão o intervalo real entre execuções fica maior que a
+    // periodicidade contratada. Nos demais casos o LEAST não tem efeito, já
+    // que a data ancorada nunca passa de hoje + periodicidade.
     await client.query(
       `UPDATE planos_manutencao
-       SET ultima_em = CURRENT_DATE,
-           proxima_em = CURRENT_DATE + ($1 || ' days')::interval
+       SET ultima_em  = CURRENT_DATE,
+           proxima_em = LEAST(
+             proxima_em + (
+               GREATEST(1, FLOOR((CURRENT_DATE - proxima_em)::numeric / $1::int) + 1) * $1::int
+             )::int,
+             CURRENT_DATE + $1::int
+           )
        WHERE id = $2`,
       [plano.periodicidade_dias, planoId]
     );

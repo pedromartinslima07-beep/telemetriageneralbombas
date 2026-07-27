@@ -7,8 +7,30 @@ aliases:
 ---
 # Trabalho em Andamento
 
-> Branch atual: `feature/app-mobile`. Última sessão registrada: **2026-07-23**.
+> Branch atual: `feature/app-mobile`. Última sessão registrada: **2026-07-27**.
 > Roadmap completo em [`roadmap.md`](roadmap.md); decisões em [`decisions.md`](decisions.md).
+
+## Sessão 2026-07-27 — Planos: edição em massa
+
+Pedido do usuário: na aba Planos, poder selecionar vários (ou todos) e editar
+periodicidade, próxima execução e se o plano está ativo.
+
+A seleção múltipla já existia desde 2026-07-22, mas só servia pra
+ativar/desativar — o que faltava era o **edit**.
+
+- **`PATCH /planos-manutencao/bulk`** virou edição genérica:
+  `{ ids, ativo?, periodicidade_dias?, proxima_em? }`, pelo menos 1 campo.
+  Reusa `_validarPayload(..., { exigirObrigatorios: false })` do PATCH
+  individual e monta o `SET` dinamicamente (continua 1 query só).
+  O body é **filtrado** pros 3 campos antes de validar — `condominio_id` e
+  `titulo` não entram em massa de propósito (são individuais por natureza).
+- **Modal em massa** (`_pmAbrirModalBulk` / `_pmSalvarBulk`, `admin.js`) reusa
+  o `#pmModal` do criar/editar: todo campo com "— manter atual —" e só o que
+  muda vai no PATCH. Cabeçalho do modal resume a seleção (nº de planos,
+  condomínios, periodicidade atual ou "N periodicidades diferentes").
+- `_pmBulkPatch(campos)` centralizou o fetch; "Ativar/Desativar selecionados"
+  agora chamam esse helper (atalho mantido, não foi removido).
+- `admin.css?v=142`, `admin.js?v=236`. Sem endpoint GET novo → `sw.js` intocado.
 
 ## Sessão 2026-07-23 — Telemetria: redesign da aba (só frontend)
 

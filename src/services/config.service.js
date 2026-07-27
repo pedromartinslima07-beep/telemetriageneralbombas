@@ -28,6 +28,8 @@ const CHAVES = {
   "jobs.offline_intervalo_min":  { tipo: "int", min: 1, max: 60 },
   "gps.retencao_horas":          { tipo: "int", min: 1, max: 720 }, // Fase 7F — 1h a 30 dias
   "gps.frequencia_segundos":     { tipo: "int", min: 30, max: 300 }, // Fase 7I — app pinga GPS a cada N segundos (default 60)
+  "gps.expediente_inicio":       { tipo: "int", min: 0, max: 23 },   // hora em que o GPS liga (default 8)
+  "gps.expediente_fim":          { tipo: "int", min: 1, max: 24 },   // hora em que desliga (default 18; 0 e 24 = sem janela)
   "leituras.retencao_dias":      { tipo: "int", min: 7, max: 3650 }, // Fase 9C — 7 dias a 10 anos (default 60)
   "leituras.cleanup_dry_run":    { tipo: "boolean" }, // se "true", só conta sem deletar (verificação inicial)
   "alertas.retencao_dias":       { tipo: "int", min: 30, max: 3650 }, // Fase 9E — alertas resolvidos (default 365)
@@ -35,6 +37,7 @@ const CHAVES = {
   "conversas.retencao_dias":     { tipo: "int", min: 30, max: 3650 }, // Fase 9E — conversas WhatsApp fechadas (default 365)
   "conversas.cleanup_dry_run":   { tipo: "boolean" },
   "planos.geracao_enabled":         { tipo: "boolean" }, // gera chamado P4 automático quando plano de manutenção vence (default true)
+  "planos.roteiro_antecedencia_dias": { tipo: "int", min: 0, max: 60 }, // janela do roteiro do técnico no app: planos vencendo em até N dias (default 7)
   "whatsapp.sessao_timeout_horas":  { tipo: "int", min: 1, max: 72 }, // inatividade que encerra a sessão e abre nova na próxima msg (default 8h)
 };
 

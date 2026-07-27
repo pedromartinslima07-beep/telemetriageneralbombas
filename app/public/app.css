@@ -2666,8 +2666,13 @@ body:has(.screen-auth[data-active])::before { display: none; }
 .cli-nav button:hover  { color: var(--text); }
 
 /* Bottom nav do técnico: só 2 abas (Chamados/Conta) — colunas se adaptam */
+/* Nav do técnico: 3 abas (Chamados / Roteiro / Conta). O default do .cli-nav é
+   5 colunas, pensado no nav do cliente — sem esta regra os 3 botões ficam
+   espremidos à esquerda, e com o valor antigo (2 colunas) o terceiro quebrava
+   pra uma segunda linha. */
 [data-screen="tecnico-chamados"] .cli-nav,
-[data-screen="tecnico-conta"]    .cli-nav { grid-template-columns: repeat(2, 1fr); }
+[data-screen="tecnico-roteiro"]  .cli-nav,
+[data-screen="tecnico-conta"]    .cli-nav { grid-template-columns: repeat(3, 1fr); }
 
 /* ===== FAB (Floating Action Button) ===== */
 .cli-fab {
@@ -3315,3 +3320,120 @@ body::after {
   .login-card::before { animation: none; }
   .splash-spinner::after { animation: none; }
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   TÉCNICO — ROTEIRO DE PREVENTIVAS
+   Card por prédio (a unidade do roteiro é a visita, não o plano). Herda os
+   tokens e o peso visual do admin, como o resto do app.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* Badge de pendentes no bottom nav */
+.cli-nav-badge {
+  position: absolute;
+  top: 4px; left: 50%;
+  transform: translateX(6px);
+  min-width: 16px; height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #0b0d16;
+  font-size: 9.5px; font-weight: 800; line-height: 16px;
+  text-align: center;
+}
+
+/* Faixa de desvio — some quando não há urgência em atendimento */
+.rt-desvio {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%;
+  margin-bottom: 12px;
+  padding: 11px 13px;
+  border: 1px solid rgba(239,68,68,.35);
+  border-radius: var(--radius, 12px);
+  background: rgba(239,68,68,.1);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+.rt-desvio-ico { font-size: 15px; color: #f87171; }
+.rt-desvio-txt { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.rt-desvio-txt strong { font-size: 12.5px; }
+.rt-desvio-txt span { font-size: 11px; color: var(--muted); }
+.rt-desvio-seta { color: var(--muted); font-size: 18px; line-height: 1; }
+
+/* Lista de prédios */
+.rt-list { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; }
+
+.rt-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius, 12px);
+  background: var(--surface2);
+  overflow: hidden;
+}
+
+.rt-card-head {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 12px 13px 10px;
+}
+.rt-ordem {
+  flex: none;
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: rgba(240,176,20,.16);
+  border: 1px solid rgba(240,176,20,.4);
+  color: var(--accent);
+  font-size: 11px; font-weight: 800;
+  display: grid; place-content: center;
+}
+.rt-card-title { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.rt-nome {
+  font-size: 13.5px; font-weight: 700; color: var(--text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.rt-end {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 11px; color: var(--muted);
+}
+.rt-end svg { flex: none; opacity: .7; }
+.rt-dist {
+  flex: none;
+  font-size: 11px; font-weight: 700; color: var(--accent);
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+}
+
+/* Planos daquele prédio */
+.rt-planos {
+  list-style: none; margin: 0;
+  padding: 0 13px 10px 45px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.rt-plano {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  font-size: 12px; color: var(--text);
+}
+.rt-plano::before {
+  content: "";
+  flex: none;
+  width: 5px; height: 5px; border-radius: 50%;
+  background: var(--muted);
+}
+.rt-plano-nome { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rt-plano-tag { flex: none; font-size: 10.5px; color: var(--muted); }
+.rt-plano-tag.is-link {
+  background: none; border: none; padding: 0;
+  color: var(--blue, #4a78f7); font: inherit; font-size: 10.5px;
+  text-decoration: underline; text-decoration-style: dotted;
+  cursor: pointer;
+}
+.rt-plano.is-andamento .rt-plano-nome { color: var(--muted); }
+
+/* Rodapé do card: prazo + ação */
+.rt-card-foot {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 9px 13px;
+  border-top: 1px solid var(--border);
+  background: rgba(0,0,0,.18);
+}
+.rt-prazo { font-size: 11px; color: var(--muted); }
+.rt-prazo.is-atrasado { color: #f87171; font-weight: 700; }
+.rt-prazo.is-hoje     { color: #fbbf24; font-weight: 700; }
+.rt-iniciar { min-width: 92px; }

@@ -9,8 +9,19 @@ const { pool } = require("../db");
 const { authRequired } = require("../middleware/authRequired");
 const { masterAdminOnly } = require("../middleware/masterAdminOnly");
 const { executarPlano } = require("../jobs/planos-manutencao.job");
+const { getConfigInt } = require("../services/config.service");
 
 const router = express.Router();
+
+// Técnico logado → id na tabela `tecnicos` (mesma checagem de /chamados/meus).
+// Retorna null se a conta não estiver vinculada a um técnico ativo.
+async function _tecnicoDoUsuario(usuarioId) {
+  const r = await pool.query(
+    `SELECT id FROM tecnicos WHERE usuario_id = $1 AND ativo = TRUE LIMIT 1`,
+    [usuarioId]
+  );
+  return r.rows.length ? r.rows[0].id : null;
+}
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -78,17 +89,33 @@ router.get("/", authRequired, masterAdminOnly, async (req, res) => {
   const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
 
   try {
+    // O LATERAL traz o chamado da preventiva que ainda está aberto. Sem isso a
+    // UI marcava como "vencido" um plano que na verdade está em execução: o job
+    // pula quem já tem chamado aberto (anti-duplicidade) e NÃO avança as datas,
+    // então o plano fica parado em `proxima_em` passada até o chamado fechar.
+    // Mesmo predicado do job, de propósito — se o job pula, a tela explica.
     const r = await pool.query(
       `SELECT pm.id, pm.condominio_id, pm.titulo, pm.descricao,
               pm.periodicidade_dias, pm.proxima_em, pm.ultima_em,
               pm.ativo, pm.criado_em,
               COALESCE(NULLIF(c.nome_fantasia,''), c.nome) AS condominio_nome,
-              c.zona AS condominio_zona
+              c.zona AS condominio_zona,
+              cha.id     AS chamado_aberto_id,
+              cha.status AS chamado_aberto_status
        FROM planos_manutencao pm
        LEFT JOIN condominios c ON c.id = pm.condominio_id
+       LEFT JOIN LATERAL (
+         SELECT ch.id, ch.status
+         FROM chamados ch
+         WHERE ch.plano_manutencao_id = pm.id
+           AND ch.status NOT IN ('fechado', 'cancelado')
+         ORDER BY ch.id DESC
+         LIMIT 1
+       ) cha ON TRUE
        ${whereSql}
        ORDER BY
-         CASE WHEN pm.ativo AND pm.proxima_em <= CURRENT_DATE THEN 0 ELSE 1 END,
+         CASE WHEN pm.ativo AND pm.proxima_em <= CURRENT_DATE AND cha.id IS NULL
+              THEN 0 ELSE 1 END,
          pm.proxima_em ASC NULLS LAST
        LIMIT 500`,
       vals
@@ -100,10 +127,68 @@ router.get("/", authRequired, masterAdminOnly, async (req, res) => {
   }
 });
 
+// ─── Roteiro do técnico (app mobile) ─────────────────────────────────────────
+
+// GET /planos-manutencao/meu-roteiro
+// Preventivas das zonas em que o técnico logado é o responsável, vencendo em
+// até `planos.roteiro_antecedencia_dias` (default 7).
+//
+// Devolve PLANOS, não chamados: o chamado P4 só nasce quando o técnico chega no
+// prédio e toca "Iniciar" (POST /:id/executar-agora). Assim o que não foi feito
+// não vira chamado fantasma aberto, e `ultima_em` guarda a data real do serviço.
+router.get("/meu-roteiro", authRequired, async (req, res) => {
+  if (req.user.role !== "tecnico") {
+    return res.status(403).json({ error: "Apenas técnicos" });
+  }
+
+  try {
+    const tecnicoId = await _tecnicoDoUsuario(req.user.id);
+    if (!tecnicoId) {
+      return res.status(403).json({ error: "Sua conta não está vinculada a um técnico ativo" });
+    }
+
+    const antecedencia = await getConfigInt("planos.roteiro_antecedencia_dias", 7);
+
+    // Um técnico pode responder por mais de uma zona — o roteiro soma todas.
+    const r = await pool.query(
+      `SELECT pm.id, pm.titulo, pm.descricao, pm.periodicidade_dias,
+              pm.proxima_em, pm.ultima_em,
+              c.id AS condominio_id,
+              COALESCE(NULLIF(c.nome_fantasia,''), c.nome) AS condominio_nome,
+              c.endereco, c.bairro, c.cidade, c.lat, c.lng, c.zona,
+              cha.id AS chamado_aberto_id
+       FROM planos_manutencao pm
+       JOIN condominios c            ON c.id = pm.condominio_id AND c.ativo = TRUE
+       JOIN planos_zona_responsavel pzr ON pzr.zona = c.zona
+       LEFT JOIN LATERAL (
+         SELECT ch.id
+         FROM chamados ch
+         WHERE ch.plano_manutencao_id = pm.id
+           AND ch.status NOT IN ('fechado', 'cancelado')
+         ORDER BY ch.id DESC
+         LIMIT 1
+       ) cha ON TRUE
+       WHERE pm.ativo = TRUE
+         AND pzr.tecnico_id = $1
+         AND pm.proxima_em <= CURRENT_DATE + $2::int
+       ORDER BY pm.proxima_em ASC, c.id`,
+      [tecnicoId, antecedencia]
+    );
+
+    const zonas = [...new Set(r.rows.map(p => p.zona))];
+    return res.json({ antecedencia_dias: antecedencia, zonas, planos: r.rows });
+  } catch (err) {
+    console.error("[planos-manutencao] GET /meu-roteiro:", err);
+    return res.status(500).json({ error: "Erro ao montar roteiro" });
+  }
+});
+
 // ─── Responsáveis por zona ───────────────────────────────────────────────────
 
 // GET /planos-manutencao/zonas-responsaveis
-// Lista todas as zonas distintas dos condomínios ativos + técnico atribuído (se houver)
+// Zonas distintas dos condomínios ativos + os técnicos responsáveis de cada uma.
+// Desde a migration 066 a zona aceita VÁRIOS técnicos (dupla saindo junta), por
+// isso a resposta traz `tecnicos: [{ id, nome }]` em vez de um único campo.
 router.get("/zonas-responsaveis", authRequired, masterAdminOnly, async (req, res) => {
   try {
     const r = await pool.query(
@@ -117,16 +202,15 @@ router.get("/zonas-responsaveis", authRequired, masterAdminOnly, async (req, res
     const resp = await pool.query(
       `SELECT pzr.zona, pzr.tecnico_id, t.nome AS tecnico_nome
        FROM planos_zona_responsavel pzr
-       LEFT JOIN tecnicos t ON t.id = pzr.tecnico_id`
+       JOIN tecnicos t ON t.id = pzr.tecnico_id
+       ORDER BY t.nome ASC`
     );
-    const mapaResp = {};
-    for (const row of resp.rows) mapaResp[row.zona] = row;
+    const porZona = {};
+    for (const row of resp.rows) {
+      (porZona[row.zona] ||= []).push({ id: row.tecnico_id, nome: row.tecnico_nome });
+    }
 
-    return res.json(zonas.map(zona => ({
-      zona,
-      tecnico_id:   mapaResp[zona]?.tecnico_id   ?? null,
-      tecnico_nome: mapaResp[zona]?.tecnico_nome  ?? null,
-    })));
+    return res.json(zonas.map(zona => ({ zona, tecnicos: porZona[zona] || [] })));
   } catch (err) {
     console.error("[planos-manutencao] GET /zonas-responsaveis:", err);
     return res.status(500).json({ error: "Erro ao listar zonas" });
@@ -134,28 +218,47 @@ router.get("/zonas-responsaveis", authRequired, masterAdminOnly, async (req, res
 });
 
 // PUT /planos-manutencao/zonas-responsaveis/:zona
-// Define ou remove o técnico responsável de uma zona
+// Substitui a lista de responsáveis da zona. body: { tecnico_ids: number[] }
+// Lista vazia = zona sem responsável.
 router.put("/zonas-responsaveis/:zona", authRequired, masterAdminOnly, async (req, res) => {
   const zona = req.params.zona.trim();
   if (!zona) return res.status(400).json({ error: "zona inválida" });
 
-  const tecnicoId = req.body?.tecnico_id ? Number(req.body.tecnico_id) : null;
+  const brutos = req.body?.tecnico_ids;
+  if (!Array.isArray(brutos)) {
+    return res.status(400).json({ error: "tecnico_ids deve ser uma lista (vazia para remover todos)" });
+  }
+  const ids = [...new Set(brutos.map(Number))];
+  if (ids.some(id => !Number.isInteger(id) || id <= 0)) {
+    return res.status(400).json({ error: "tecnico_ids inválidos" });
+  }
 
+  const client = await pool.connect();
   try {
-    if (tecnicoId === null) {
-      await pool.query(`DELETE FROM planos_zona_responsavel WHERE zona = $1`, [zona]);
-    } else {
-      await pool.query(
+    await client.query("BEGIN");
+    // Substituição atômica: apaga quem saiu e insere quem entrou de uma vez,
+    // pra a zona nunca ficar momentaneamente sem responsável nenhum.
+    await client.query(
+      `DELETE FROM planos_zona_responsavel
+       WHERE zona = $1 AND NOT (tecnico_id = ANY($2::int[]))`,
+      [zona, ids]
+    );
+    if (ids.length) {
+      await client.query(
         `INSERT INTO planos_zona_responsavel (zona, tecnico_id, atualizado_em)
-         VALUES ($1, $2, NOW())
-         ON CONFLICT (zona) DO UPDATE SET tecnico_id = $2, atualizado_em = NOW()`,
-        [zona, tecnicoId]
+         SELECT $1, id, NOW() FROM unnest($2::int[]) AS id
+         ON CONFLICT (zona, tecnico_id) DO UPDATE SET atualizado_em = NOW()`,
+        [zona, ids]
       );
     }
-    return res.json({ ok: true });
+    await client.query("COMMIT");
+    return res.json({ ok: true, tecnicos: ids.length });
   } catch (err) {
+    await client.query("ROLLBACK").catch(() => {});
     console.error("[planos-manutencao] PUT /zonas-responsaveis/:zona:", err);
-    return res.status(500).json({ error: "Erro ao salvar responsável da zona" });
+    return res.status(500).json({ error: "Erro ao salvar responsáveis da zona" });
+  } finally {
+    client.release();
   }
 });
 
@@ -208,11 +311,12 @@ router.post("/", authRequired, masterAdminOnly, async (req, res) => {
   }
 });
 
-// PATCH /planos-manutencao/bulk — ativa/desativa vários planos de uma vez
-// body: { ids: number[], ativo: boolean }
+// PATCH /planos-manutencao/bulk — edita vários planos de uma vez
+// body: { ids: number[], ativo?: boolean, periodicidade_dias?: number,
+//         proxima_em?: "YYYY-MM-DD" } — pelo menos um campo além de ids.
+// Campos ausentes ficam intocados (a UI manda só o que o usuário alterou).
 router.patch("/bulk", authRequired, masterAdminOnly, async (req, res) => {
   const idsRaw = req.body?.ids;
-  const ativo  = req.body?.ativo;
 
   if (!Array.isArray(idsRaw) || idsRaw.length === 0) {
     return res.status(400).json({ error: "ids deve ser uma lista não vazia" });
@@ -224,16 +328,40 @@ router.patch("/bulk", authRequired, masterAdminOnly, async (req, res) => {
   if (ids.some(id => !Number.isInteger(id) || id <= 0)) {
     return res.status(400).json({ error: "ids inválidos" });
   }
-  if (typeof ativo !== "boolean") {
+
+  // Só estes 3 campos são editáveis em massa (condomínio/título/descrição são
+  // por definição individuais) — filtra antes de validar pra ninguém colar
+  // condominio_id no body e mover 500 planos de prédio sem querer.
+  const b = req.body || {};
+  const filtrado = {};
+  for (const k of ["ativo", "periodicidade_dias", "proxima_em"]) {
+    if (b[k] !== undefined) filtrado[k] = b[k];
+  }
+  if (filtrado.ativo !== undefined && typeof filtrado.ativo !== "boolean") {
     return res.status(400).json({ error: "ativo deve ser boolean" });
+  }
+
+  const { out, errs } = _validarPayload(filtrado, { exigirObrigatorios: false });
+  if (errs.length) return res.status(400).json({ error: errs.join("; ") });
+
+  const campos = Object.keys(out);
+  if (!campos.length) {
+    return res.status(400).json({ error: "Nenhum campo para atualizar" });
+  }
+
+  const sets = [];
+  const vals = [ids];
+  for (const k of campos) {
+    vals.push(out[k]);
+    sets.push(k === "proxima_em" ? `${k} = $${vals.length}::date` : `${k} = $${vals.length}`);
   }
 
   try {
     const r = await pool.query(
-      `UPDATE planos_manutencao SET ativo = $1 WHERE id = ANY($2::int[]) RETURNING id`,
-      [ativo, ids]
+      `UPDATE planos_manutencao SET ${sets.join(", ")} WHERE id = ANY($1::int[]) RETURNING id`,
+      vals
     );
-    return res.json({ ok: true, atualizados: r.rows.length });
+    return res.json({ ok: true, atualizados: r.rows.length, campos });
   } catch (err) {
     console.error("[planos-manutencao] PATCH /bulk:", err);
     return res.status(500).json({ error: "Erro ao atualizar planos em massa" });
@@ -290,12 +418,43 @@ router.delete("/:id", authRequired, masterAdminOnly, async (req, res) => {
 });
 
 // POST /planos-manutencao/:id/executar-agora — dispara o plano manualmente
-router.post("/:id/executar-agora", authRequired, masterAdminOnly, async (req, res) => {
+// (botão ▶ do admin e "Iniciar" do roteiro no app do técnico)
+router.post("/:id/executar-agora", authRequired, async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
 
   try {
-    const resultado = await executarPlano(id);
+    // Técnico que está assumindo o serviço — o chamado nasce no nome dele.
+    // Fica null quando quem dispara é o admin pelo ▶.
+    let executor = null;
+
+    // Admin master executa qualquer plano. Técnico só os das zonas em que ele
+    // é responsável — é o que sustenta o "Iniciar" do roteiro sem abrir a
+    // rota pra qualquer técnico disparar preventiva de qualquer prédio.
+    if (req.user.role !== "admin") {
+      if (req.user.role !== "tecnico") {
+        return res.status(403).json({ error: "Acesso restrito" });
+      }
+      const tecnicoId = await _tecnicoDoUsuario(req.user.id);
+      if (!tecnicoId) {
+        return res.status(403).json({ error: "Sua conta não está vinculada a um técnico ativo" });
+      }
+      const permitido = await pool.query(
+        `SELECT 1
+         FROM planos_manutencao pm
+         JOIN condominios c               ON c.id = pm.condominio_id
+         JOIN planos_zona_responsavel pzr ON pzr.zona = c.zona
+         WHERE pm.id = $1 AND pzr.tecnico_id = $2
+         LIMIT 1`,
+        [id, tecnicoId]
+      );
+      if (!permitido.rows.length) {
+        return res.status(403).json({ error: "Você não é o responsável pela zona deste plano" });
+      }
+      executor = tecnicoId;
+    }
+
+    const resultado = await executarPlano(id, { tecnicoId: executor });
     return res.json(resultado);
   } catch (err) {
     if (err.status) return res.status(err.status).json({ error: err.message });

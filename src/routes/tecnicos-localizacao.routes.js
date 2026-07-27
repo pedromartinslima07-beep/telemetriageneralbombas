@@ -29,8 +29,16 @@ router.get("/me", authRequired, async (req, res) => {
 router.get("/config", authRequired, async (req, res) => {
   try {
     const gps_frequencia_segundos = await getConfigInt("gps.frequencia_segundos", 60);
+    // Janela de expediente do GPS. Vem do banco pra poder ser desligada por
+    // ambiente (0–24 = rastreia o tempo todo) sem recompilar o app.
+    const expediente_inicio = await getConfigInt("gps.expediente_inicio", 8);
+    const expediente_fim    = await getConfigInt("gps.expediente_fim", 18);
     return res.json({
-      gps: { frequencia_segundos: gps_frequencia_segundos },
+      gps: {
+        frequencia_segundos: gps_frequencia_segundos,
+        expediente_inicio,
+        expediente_fim,
+      },
     });
   } catch (err) {
     console.error("[tecnicos-localizacao] GET /config:", err);

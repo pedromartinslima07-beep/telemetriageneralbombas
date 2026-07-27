@@ -209,11 +209,16 @@
         </section>
       </div>
 
-      <!-- Bottom nav do técnico: 2 abas (Chamados / Conta) -->
+      <!-- Bottom nav do técnico: 3 abas (Chamados / Roteiro / Conta) -->
       <nav class="cli-nav">
         <button data-tec-tab="chamados" class="active">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
           <span>Chamados</span>
+        </button>
+        <button data-tec-tab="roteiro">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="19" r="3"/><circle cx="18" cy="5" r="3"/><path d="M9 19h5a4 4 0 0 0 0-8H10a4 4 0 0 1 0-8h5"/></svg>
+          <span>Roteiro</span>
+          <span class="cli-nav-badge" data-roteiro-badge hidden>0</span>
         </button>
         <button data-tec-tab="conta">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
@@ -241,7 +246,92 @@
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
           <span>Chamados</span>
         </button>
+        <button data-tec-tab="roteiro">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="19" r="3"/><circle cx="18" cy="5" r="3"/><path d="M9 19h5a4 4 0 0 0 0-8H10a4 4 0 0 1 0-8h5"/></svg>
+          <span>Roteiro</span>
+          <span class="cli-nav-badge" data-roteiro-badge hidden>0</span>
+        </button>
         <button data-tec-tab="conta" class="active">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          <span>Conta</span>
+        </button>
+      </nav>
+    </section>
+
+    <!-- ========== TÉCNICO — Roteiro de preventivas ==========
+         Lista PLANOS (não chamados) das zonas do técnico vencendo na janela de
+         antecedência, agrupados por condomínio e ordenados por proximidade.
+         O chamado P4 só nasce no "Iniciar", já no prédio. -->
+    <section class="screen" data-screen="tecnico-roteiro">
+      <header class="app-header cli-header">
+        <div class="brand">
+          <img src="login-logo.png" class="app-brand-logo" alt="GENERAL" />
+          <div class="brand-text">
+            <div class="brand-name">Roteiro</div>
+            <div class="brand-sub" id="rtSub">—</div>
+          </div>
+        </div>
+      </header>
+
+      <div class="tec-shell">
+        <!-- Desvio: só aparece quando o técnico largou o roteiro por uma urgência -->
+        <button type="button" class="rt-desvio" id="rtDesvio" hidden></button>
+
+        <section class="card tec-card">
+          <div class="cardHead">
+            <h2>
+              <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="6" cy="19" r="3"/><circle cx="18" cy="5" r="3"/>
+                <path d="M9 19h5a4 4 0 0 0 0-8H10a4 4 0 0 1 0-8h5"/>
+              </svg>
+              Preventivas da região
+            </h2>
+            <button class="btn btn-sm" id="rtRefresh" aria-label="Atualizar">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"/><path d="M20.49 15a9 9 0 0 1-14.85 3.36L1 14"/>
+              </svg>
+            </button>
+          </div>
+
+          <div class="ch-toolbar tec-toolbar">
+            <div class="tec-toolbar-bottom">
+              <select id="rtSort" class="input tc-sort" aria-label="Ordenar roteiro">
+                <option value="proximidade">📍 Mais próximos</option>
+                <option value="atrasados">⚠️ Atrasados primeiro</option>
+              </select>
+              <span class="tc-sync hint" id="rtSync">—</span>
+            </div>
+          </div>
+
+          <div class="rt-list" id="rtList"></div>
+          <div class="tc-empty" id="rtEmpty" hidden>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+            </svg>
+            <p id="rtEmptyMsg">Nenhuma preventiva na sua região por enquanto</p>
+          </div>
+          <div class="alert error" id="rtAlert" hidden></div>
+
+          <div class="tec-footer" id="rtFooter">
+            <span class="tec-footer-cell"><span id="rtFooterTotal">0 preventivas</span></span>
+            <span class="tec-footer-sep"></span>
+            <span class="tec-footer-cell" id="rtFooterPredios">0 prédios</span>
+          </div>
+        </section>
+      </div>
+
+      <nav class="cli-nav">
+        <button data-tec-tab="chamados">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          <span>Chamados</span>
+        </button>
+        <button data-tec-tab="roteiro" class="active">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="19" r="3"/><circle cx="18" cy="5" r="3"/><path d="M9 19h5a4 4 0 0 0 0-8H10a4 4 0 0 1 0-8h5"/></svg>
+          <span>Roteiro</span>
+          <span class="cli-nav-badge" data-roteiro-badge hidden>0</span>
+        </button>
+        <button data-tec-tab="conta">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
           <span>Conta</span>
         </button>
@@ -656,6 +746,7 @@
 
   </div>
 
+  <script src="config.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

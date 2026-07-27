@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="/static/leaflet.css">
   <!-- ⚠️ Ao mexer em admin.js ou admin.css, bumpe o ?v=N aqui E no <script>
        lá embaixo. Ver CLAUDE.md raiz. -->
-  <link rel="stylesheet" href="/static/admin.css?v=141">
+  <link rel="stylesheet" href="/static/admin.css?v=146">
 </head>
 <body>
   <div id="appLoader">
@@ -1192,23 +1192,8 @@
       <div class="section" data-section="planos">
         <div class="resumo-grid" id="pmKpiGrid" style="margin-bottom:16px;"></div>
 
-        <!-- Painel: responsáveis por zona -->
-        <section class="card al-card" style="margin-bottom:14px;">
-          <div class="cardHead al-head">
-            <h2>
-              <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-                <circle cx="9" cy="7" r="4"/>
-                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-              </svg>
-              Responsáveis por zona
-            </h2>
-          </div>
-          <div id="pmZonasWrap" style="padding:12px 16px;">
-            <p style="color:var(--muted);font-size:12px;">Carregando…</p>
-          </div>
-        </section>
+        <!-- Responsáveis por zona não têm card próprio: aparecem (e são editados)
+             no cabeçalho de cada grupo de zona da tabela abaixo. -->
 
         <section class="card al-card">
           <div class="cardHead al-head">
@@ -1231,6 +1216,7 @@
             <div class="wa-tabs" role="tablist">
               <button class="wa-tab is-active" data-pm-tab="todos" type="button">Todos <span class="wa-count" id="pmCtTodos">0</span></button>
               <button class="wa-tab" data-pm-tab="vencidos" type="button">Vencidos <span class="wa-count" id="pmCtVencidos">0</span></button>
+              <button class="wa-tab" data-pm-tab="andamento" type="button">Em andamento <span class="wa-count" id="pmCtAndamento">0</span></button>
               <button class="wa-tab" data-pm-tab="vencendo" type="button">Próximos 7d <span class="wa-count" id="pmCtVencendo">0</span></button>
               <button class="wa-tab" data-pm-tab="em-dia" type="button">Em dia <span class="wa-count" id="pmCtEmDia">0</span></button>
               <button class="wa-tab" data-pm-tab="inativos" type="button">Inativos <span class="wa-count" id="pmCtInativos">0</span></button>
@@ -1243,24 +1229,22 @@
           <!-- Barra de seleção em massa — some quando não há nada selecionado -->
           <div id="pmBulkBar" class="viewer-only-hide" style="display:none;align-items:center;gap:10px;padding:8px 16px;background:var(--surface2);border-bottom:1px solid var(--border);font-size:12px;">
             <span id="pmBulkCount" style="color:var(--text);font-weight:600;"></span>
-            <button class="btn btn-sm btnAccent" id="pmBulkAtivar" type="button">Ativar selecionados</button>
+            <button class="btn btn-sm btnAccent" id="pmBulkEditar" type="button">Editar selecionados</button>
+            <button class="btn btn-sm" id="pmBulkAtivar" type="button">Ativar selecionados</button>
             <button class="btn btn-sm" id="pmBulkDesativar" type="button">Desativar selecionados</button>
             <button class="btn btn-sm" id="pmBulkLimpar" type="button" style="margin-left:auto;">Limpar seleção</button>
           </div>
 
           <div class="al-grid" style="grid-template-columns: 1fr;">
             <div class="al-tableWrap">
-              <table class="orc-table">
+              <table class="orc-table pm-table">
                 <thead>
                   <tr>
                     <th style="width:32px"><input type="checkbox" id="pmChkAll" class="viewer-only-hide"></th>
-                    <th>Condomínio</th>
                     <th>Plano</th>
                     <th style="width:120px">Periodicidade</th>
-                    <th style="width:110px">Última</th>
-                    <th style="width:110px">Próxima</th>
-                    <th style="width:110px">Status</th>
-                    <th style="width:120px">Ações</th>
+                    <th style="width:150px">Próxima</th>
+                    <th style="width:104px"><span class="sr-only">Ações</span></th>
                   </tr>
                 </thead>
                 <tbody id="pmTableBody"></tbody>
@@ -2536,7 +2520,7 @@
 </div>
 
 
-<script src="/static/admin.js?v=235" defer></script>
+<script src="/static/admin.js?v=240" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
 <script src="/static/register-sw.js?v=30" defer></script>
 </body>

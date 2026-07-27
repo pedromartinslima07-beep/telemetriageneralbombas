@@ -1,5 +1,9 @@
-// Script de migration — roda um arquivo .sql contra o DATABASE_URL do .env
+// Script de migration — roda um arquivo .sql contra o banco resolvido em
+// src/db-url.js (o mesmo que o servidor usa: TESTE em dev, produção só com
+// --prod ou NODE_ENV=production).
+//
 // Uso:  node scripts/migrate.js 002_mapa_categoria.sql
+//       node scripts/migrate.js 002_mapa_categoria.sql --prod   ← produção
 //       (procura em ./migrations/ por padrão)
 
 require("dotenv").config();
@@ -7,17 +11,21 @@ require("dotenv").config();
 const fs = require("fs");
 const path = require("path");
 const { Pool } = require("pg");
+const { resolverDatabaseUrl, descreverAlvo } = require("../src/db-url");
 
 async function main() {
-  const arg = process.argv[2];
+  const args = process.argv.slice(2);
+  const forcarProducao = args.includes("--prod");
+  const arg = args.find(a => !a.startsWith("--"));
   if (!arg) {
-    console.error("Uso: node scripts/migrate.js <arquivo.sql>");
+    console.error("Uso: node scripts/migrate.js <arquivo.sql> [--prod]");
     console.error("Ex.: node scripts/migrate.js 002_mapa_categoria.sql");
     process.exit(1);
   }
 
-  if (!process.env.DATABASE_URL) {
-    console.error("DATABASE_URL não está definida no .env");
+  const { url: databaseUrl, alvo } = resolverDatabaseUrl({ forcarProducao });
+  if (!databaseUrl) {
+    console.error("Nenhum banco resolvido — confira DATABASE_URL/DATABASE_URL_TESTE no .env");
     process.exit(1);
   }
 
@@ -33,14 +41,13 @@ async function main() {
   }
 
   const sql = fs.readFileSync(candidate, "utf8");
-  const urlMasked = process.env.DATABASE_URL.replace(/:[^:@/]+@/, ":***@");
 
   console.log(`→ Migration: ${candidate}`);
-  console.log(`→ DATABASE_URL: ${urlMasked}`);
+  console.log(`→ Banco: ${alvo} — ${descreverAlvo(databaseUrl)}`);
   console.log(`→ ${sql.split("\n").length} linhas\n`);
 
   const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
+    connectionString: databaseUrl,
     ssl: { rejectUnauthorized: false },
   });
 

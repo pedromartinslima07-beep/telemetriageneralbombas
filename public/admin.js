@@ -12661,13 +12661,31 @@ function _pmDiasAteProxima(iso) {
   return Math.round((prox - hoje) / (1000 * 60 * 60 * 24));
 }
 
+// Status do plano. `kind` alimenta tabs/KPIs/badge; `delta`/`deltaCls` são a
+// frase que aparece embaixo da data na coluna "Próxima" (substituiu a coluna
+// Status, que só repetia o que a data já dizia).
 function _pmStatus(p) {
-  if (!p.ativo) return { cls: "orc-status-off", label: "INATIVO", kind: "inativo" };
+  const dias = d => `${d} ${d === 1 ? "dia" : "dias"}`;
+  if (!p.ativo) return { kind: "inativo", delta: "pausado", deltaCls: "is-off" };
+
+  // Chamado da preventiva ainda aberto tem precedência sobre a data: o job não
+  // vai gerar outro nem mexer em `proxima_em` enquanto ele não fechar, então
+  // "vencido há N dias" seria mentira — o serviço está em execução.
+  if (p.chamado_aberto_id) {
+    return {
+      kind: "andamento",
+      delta: `chamado #${p.chamado_aberto_id} em andamento`,
+      deltaCls: "is-andamento",
+      chamadoId: p.chamado_aberto_id,
+    };
+  }
+
   const d = _pmDiasAteProxima(p.proxima_em);
-  if (d == null) return { cls: "orc-status-pend", label: "—", kind: "em-dia" };
-  if (d < 0)  return { cls: "orc-status-bad",  label: `Vencido há ${-d}d`, kind: "vencidos" };
-  if (d <= 7) return { cls: "orc-status-pend", label: `Vence em ${d}d`,   kind: "vencendo" };
-  return { cls: "orc-status-ok", label: "EM DIA", kind: "em-dia" };
+  if (d == null) return { kind: "em-dia",   delta: "—", deltaCls: "is-off" };
+  if (d < 0)     return { kind: "vencidos", delta: `vencido há ${dias(-d)}`, deltaCls: "is-bad" };
+  if (d === 0)   return { kind: "vencendo", delta: "vence hoje",             deltaCls: "is-warn" };
+  if (d <= 7)    return { kind: "vencendo", delta: `vence em ${dias(d)}`,    deltaCls: "is-warn" };
+  return { kind: "em-dia", delta: `em ${dias(d)}`, deltaCls: "is-ok" };
 }
 
 async function carregarPlanos() {
@@ -12695,9 +12713,10 @@ function _pmFiltrados() {
   const q = (document.getElementById("pmBusca")?.value || "").trim().toLowerCase();
   return _pmData.filter(p => {
     const st = _pmStatus(p).kind;
-    if (_pmTabAtiva === "vencidos" && st !== "vencidos") return false;
-    if (_pmTabAtiva === "vencendo" && st !== "vencendo") return false;
-    if (_pmTabAtiva === "em-dia"   && st !== "em-dia")   return false;
+    if (_pmTabAtiva === "vencidos"  && st !== "vencidos")  return false;
+    if (_pmTabAtiva === "andamento" && st !== "andamento") return false;
+    if (_pmTabAtiva === "vencendo"  && st !== "vencendo")  return false;
+    if (_pmTabAtiva === "em-dia"    && st !== "em-dia")    return false;
     if (_pmTabAtiva === "inativos" && p.ativo)           return false;
     if (_pmTabAtiva === "todos"    && !p.ativo)          return false; // "todos" mostra só ativos
     if (q) {
@@ -12711,6 +12730,7 @@ function _pmFiltrados() {
 function _pmRenderTudo() {
   const ativos    = _pmData.filter(p => p.ativo);
   const vencidos  = ativos.filter(p => _pmStatus(p).kind === "vencidos").length;
+  const andamento = ativos.filter(p => _pmStatus(p).kind === "andamento").length;
   const vencendo  = ativos.filter(p => _pmStatus(p).kind === "vencendo").length;
   const emDia     = ativos.filter(p => _pmStatus(p).kind === "em-dia").length;
   const inativos  = _pmData.filter(p => !p.ativo).length;
@@ -12732,9 +12752,10 @@ function _pmRenderTudo() {
 
   // Contadores das tabs
   const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-  set("pmCtTodos",    ativos.length);
-  set("pmCtVencidos", vencidos);
-  set("pmCtVencendo", vencendo);
+  set("pmCtTodos",     ativos.length);
+  set("pmCtVencidos",  vencidos);
+  set("pmCtAndamento", andamento);
+  set("pmCtVencendo",  vencendo);
   set("pmCtEmDia",    emDia);
   set("pmCtInativos", inativos);
 
@@ -12765,27 +12786,76 @@ function _pmRenderTudo() {
     return a.localeCompare(b, "pt");
   });
 
-  const linhaZona = zona => `
-    <tr>
-      <td colspan="8" style="padding:14px 8px 4px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);border-top:2px solid var(--border);">
-        ${_waEscaparHtml(zona)}
-      </td>
-    </tr>`;
+  // Cabeçalho de grupo: nome da zona + técnico responsável, editável inline.
+  // (Era um card separado no topo da aba; aqui fica junto dos planos que a
+  // pessoa de fato atende.)
+  const linhaZona = zona => {
+    const temZona = zona !== "Sem zona";
+    const info    = (_pmZonasCache || []).find(z => z.zona === zona);
+    const zonaAttr = _waEscaparHtml(zona);
+
+    // A zona aceita vários técnicos (migration 066) — dois saem juntos pra
+    // rodar as preventivas da região e ambos precisam ver o roteiro.
+    const responsaveis = info?.tecnicos || [];
+
+    if (temZona && _pmZonaEditando === zona) {
+      const marcados = new Set(responsaveis.map(t => t.id));
+      const checks = (_pmTecnicosCache || []).map(t => `
+        <label class="pm-zona-chk">
+          <input type="checkbox" class="pm-chk" data-pm-zona-tec="${t.id}" ${marcados.has(t.id) ? "checked" : ""}>
+          ${_waEscaparHtml(t.nome)}
+        </label>`).join("");
+      return `
+        <tr class="pm-zona-row is-editando">
+          <td colspan="5">
+            <span class="pm-zona-nome">${zonaAttr}</span>
+            <span class="pm-zona-chks">${checks || `<span class="pm-zona-resp is-vazio">nenhum técnico cadastrado</span>`}</span>
+            <button class="btn btnAccent btn-sm" data-pm-zona-acao="salvar" data-pm-zona="${zonaAttr}">Salvar</button>
+            <button class="btn btn-sm" data-pm-zona-acao="cancelar">Cancelar</button>
+          </td>
+        </tr>`;
+    }
+
+    const nomes = responsaveis.map(t => _waEscaparHtml(t.nome)).join(" · ");
+    return `
+      <tr class="pm-zona-row">
+        <td colspan="5">
+          <span class="pm-zona-nome">${zonaAttr}</span>
+          ${temZona ? `
+            <span class="pm-zona-resp ${nomes ? "" : "is-vazio"}">${nomes || "sem responsável"}</span>
+            <button class="pm-zona-edit viewer-only-hide" data-pm-zona-edit="${zonaAttr}"
+                    title="Definir técnicos responsáveis pela zona" aria-label="Definir responsáveis de ${zonaAttr}">✎</button>
+          ` : ""}
+        </td>
+      </tr>`;
+  };
 
   const linhaPlano = p => {
-    const st = _pmStatus(p);
-    return `<tr data-pm-id="${p.id}">
-      <td class="viewer-only-hide"><input type="checkbox" class="pm-chk" data-pm-chk="${p.id}" ${_pmSelecionados.has(p.id) ? "checked" : ""}></td>
-      <td>${_waEscaparHtml(p.condominio_nome || "—")}</td>
-      <td>${_waEscaparHtml(p.titulo || "—")}</td>
-      <td style="color:var(--muted);font-size:11.5px;">${_pmPeriodLabel(p.periodicidade_dias)}</td>
-      <td style="color:var(--muted);font-size:11.5px;">${_pmFmtData(p.ultima_em)}</td>
-      <td style="font-weight:600;">${_pmFmtData(p.proxima_em)}</td>
-      <td><span class="orc-status-pill ${st.cls}">${st.label}</span></td>
+    const st  = _pmStatus(p);
+    const sub = `${_waEscaparHtml(p.condominio_nome || "—")} · ${p.ultima_em ? `última ${_pmFmtData(p.ultima_em)}` : "nunca executado"}`;
+    return `<tr data-pm-id="${p.id}" class="pm-row${p.ativo ? "" : " is-inativo"}">
+      <td><input type="checkbox" class="pm-chk viewer-only-hide" data-pm-chk="${p.id}" ${_pmSelecionados.has(p.id) ? "checked" : ""}></td>
       <td>
-        <button class="btn btn-sm viewer-only-hide" data-pm-action="executar" data-pm-id="${p.id}" title="Gerar chamado P4 agora" style="font-size:10.5px;padding:3px 8px;">▶</button>
-        <button class="btn btn-sm viewer-only-hide" data-pm-action="editar"   data-pm-id="${p.id}" title="Editar"                  style="font-size:10.5px;padding:3px 8px;">✎</button>
-        <button class="btn btn-sm viewer-only-hide" data-pm-action="excluir"  data-pm-id="${p.id}" title="Desativar"               style="font-size:10.5px;padding:3px 8px;color:var(--danger);">×</button>
+        <div class="pm-plano-title">
+          ${_waEscaparHtml(p.titulo || "—")}
+          ${p.ativo ? "" : `<span class="pm-pill-off">inativo</span>`}
+        </div>
+        <div class="pm-plano-sub">${sub}</div>
+      </td>
+      <td class="pm-period">${_pmPeriodLabel(p.periodicidade_dias)}</td>
+      <td>
+        <div class="pm-prox-data">${_pmFmtData(p.proxima_em)}</div>
+        ${st.chamadoId
+          ? `<button type="button" class="pm-prox-delta ${st.deltaCls} pm-link-chamado"
+                     data-pm-chamado="${st.chamadoId}" title="Abrir chamado #${st.chamadoId}">${st.delta}</button>`
+          : `<div class="pm-prox-delta ${st.deltaCls}">${st.delta}</div>`}
+      </td>
+      <td>
+        <div class="pm-acoes viewer-only-hide">
+          <button class="btn btn-sm" data-pm-action="executar" data-pm-id="${p.id}" title="Gerar chamado P4 agora">▶</button>
+          <button class="btn btn-sm" data-pm-action="editar"   data-pm-id="${p.id}" title="Editar">✎</button>
+          <button class="btn btn-sm pm-btn-danger" data-pm-action="excluir" data-pm-id="${p.id}" title="Desativar">×</button>
+        </div>
       </td>
     </tr>`;
   };
@@ -12819,29 +12889,167 @@ function _pmAtualizarBulkBar() {
   }
 }
 
+// Manda um PATCH /bulk com os ids selecionados + só os campos informados.
+// Retorna true se salvou (aí quem chamou decide o que fazer com a UI).
+async function _pmBulkPatch(campos) {
+  const ids = [..._pmSelecionados];
+  if (!ids.length) return false;
+
+  const r = await fetch("/planos-manutencao/bulk", {
+    method: "PATCH",
+    headers: { ...authHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify({ ids, ...campos }),
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || "Erro ao atualizar planos");
+  return true;
+}
+
 async function _pmAcaoBulk(ativo) {
   const ids = [..._pmSelecionados];
   if (!ids.length) return;
-  const verbo = ativo ? "ativar" : "desativar";
   if (!confirm(`${ativo ? "Ativar" : "Desativar"} ${ids.length} plano${ids.length === 1 ? "" : "s"}?`)) return;
 
   const btn = document.getElementById(ativo ? "pmBulkAtivar" : "pmBulkDesativar");
   if (btn) { btn.disabled = true; btn.textContent = "Aguarde…"; }
 
   try {
-    const r = await fetch("/planos-manutencao/bulk", {
-      method: "PATCH",
-      headers: { ...authHeaders(), "Content-Type": "application/json" },
-      body: JSON.stringify({ ids, ativo }),
-    });
-    const j = await r.json();
-    if (!r.ok) { alert(j.error || `Erro ao ${verbo} planos`); return; }
+    await _pmBulkPatch({ ativo });
     _pmSelecionados.clear();
     await carregarPlanos();
   } catch (e) {
     alert(e.message);
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = ativo ? "Ativar selecionados" : "Desativar selecionados"; }
+  }
+}
+
+// Modal de edição em massa — reusa o #pmModal do criar/editar.
+// Todo campo é opcional: o que ficar em "manter atual" não vai no PATCH.
+function _pmAbrirModalBulk() {
+  const selecionados = _pmData.filter(p => _pmSelecionados.has(p.id));
+  if (!selecionados.length) return;
+
+  const n = selecionados.length;
+  document.getElementById("pmModalTitulo").textContent = `Editar ${n} plano${n === 1 ? "" : "s"}`;
+  document.getElementById("pmModalSubtitulo").textContent = "Só os campos alterados são aplicados; o resto continua como está";
+
+  const periodOpts = PM_PERIOD_PRESETS.map(p =>
+    `<option value="${p.dias}">${p.label} (${p.dias}d)</option>`
+  ).join("");
+
+  // Resumo do que está selecionado, pra dar contexto antes de sobrescrever
+  const condos = [...new Set(selecionados.map(p => p.condominio_nome || "—"))];
+  const resumoCondos = condos.length <= 3
+    ? condos.join(", ")
+    : `${condos.slice(0, 3).join(", ")} +${condos.length - 3}`;
+  const periodsAtuais = [...new Set(selecionados.map(p => Number(p.periodicidade_dias)))];
+  const periodResumo = periodsAtuais.length === 1
+    ? _pmPeriodLabel(periodsAtuais[0])
+    : `${periodsAtuais.length} periodicidades diferentes`;
+
+  const body = document.getElementById("pmModalBody");
+  body.innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:12px;">
+
+      <div style="padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;font-size:11.5px;color:var(--muted);line-height:1.5;">
+        <strong style="color:var(--text);">${n} plano${n === 1 ? "" : "s"}</strong> em ${_waEscaparHtml(resumoCondos)}<br>
+        Periodicidade atual: ${_waEscaparHtml(periodResumo)}
+      </div>
+
+      <div class="field">
+        <span class="lbl">Periodicidade</span>
+        <select id="pmBFPeriodPreset" class="input">
+          <option value="">— manter atual —</option>
+          ${periodOpts}
+          <option value="custom">Personalizado…</option>
+        </select>
+      </div>
+
+      <div class="field" id="pmBFPeriodCustomLabel" style="display:none;">
+        <span class="lbl">Qtd. dias</span>
+        <input id="pmBFPeriodDias" class="input" type="number" min="1" max="3650" value="30">
+      </div>
+
+      <div class="field">
+        <span class="lbl">Próxima execução <span style="color:var(--muted);font-weight:400;">(vazio = manter)</span></span>
+        <input id="pmBFProxima" class="input" type="date">
+      </div>
+
+      <div class="field">
+        <span class="lbl">Status</span>
+        <select id="pmBFAtivo" class="input">
+          <option value="">— manter atual —</option>
+          <option value="true">Ativo</option>
+          <option value="false">Inativo</option>
+        </select>
+      </div>
+
+      <div id="pmBFErr" style="font-size:11px;color:var(--danger);min-height:14px;"></div>
+    </div>
+  `;
+
+  document.getElementById("pmBFPeriodPreset")?.addEventListener("change", (ev) => {
+    const isCustom = ev.target.value === "custom";
+    document.getElementById("pmBFPeriodCustomLabel").style.display = isCustom ? "block" : "none";
+  });
+
+  const footer = document.getElementById("pmModalFooter");
+  if (footer) {
+    footer.innerHTML = `
+      <button class="btn btn-sm" id="pmBFCancelar" type="button">Cancelar</button>
+      <button class="btn btnAccent btn-sm" id="pmBFSalvar" type="button">Aplicar aos ${n}</button>
+    `;
+  }
+
+  document.getElementById("pmBFCancelar")?.addEventListener("click", _pmFecharModal);
+  document.getElementById("pmBFSalvar")?.addEventListener("click", _pmSalvarBulk);
+
+  document.getElementById("pmModal").style.display = "flex";
+}
+
+async function _pmSalvarBulk() {
+  const errEl = document.getElementById("pmBFErr");
+  errEl.textContent = "";
+
+  const campos = {};
+
+  const preset = document.getElementById("pmBFPeriodPreset").value;
+  if (preset) {
+    const dias = preset === "custom"
+      ? Number(document.getElementById("pmBFPeriodDias").value)
+      : Number(preset);
+    if (!Number.isInteger(dias) || dias <= 0 || dias > 3650) {
+      errEl.textContent = "Periodicidade deve ser um inteiro entre 1 e 3650 dias.";
+      return;
+    }
+    campos.periodicidade_dias = dias;
+  }
+
+  const prox = document.getElementById("pmBFProxima").value;
+  if (prox) campos.proxima_em = prox;
+
+  const ativo = document.getElementById("pmBFAtivo").value;
+  if (ativo) campos.ativo = ativo === "true";
+
+  if (!Object.keys(campos).length) {
+    errEl.textContent = "Altere pelo menos um campo.";
+    return;
+  }
+
+  const n = _pmSelecionados.size;
+  const btn = document.getElementById("pmBFSalvar");
+  if (btn) { btn.disabled = true; btn.textContent = "Aplicando…"; }
+
+  try {
+    await _pmBulkPatch(campos);
+    _pmFecharModal();
+    _pmSelecionados.clear();
+    await carregarPlanos();
+  } catch (e) {
+    errEl.textContent = e.message;
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = `Aplicar aos ${n}`; }
   }
 }
 
@@ -13006,10 +13214,14 @@ async function _pmAcao(acao, id) {
   }
 }
 
-// ─── Painel de responsáveis por zona ─────────────────────────────────────────
+// ─── Responsáveis por zona ───────────────────────────────────────────────────
+//
+// Não existe painel próprio: o responsável é mostrado e editado no cabeçalho
+// de cada grupo de zona da tabela (ver `linhaZona` em _pmRenderTudo).
 
-let _pmZonasCache = null; // { zona, tecnico_id, tecnico_nome }[]
+let _pmZonasCache = null;    // { zona, tecnico_id, tecnico_nome }[]
 let _pmTecnicosCache = null;
+let _pmZonaEditando = null;  // zona com o editor inline aberto (só uma por vez)
 
 async function _pmCarregarTecnicos() {
   if (_pmTecnicosCache) return _pmTecnicosCache;
@@ -13023,90 +13235,33 @@ async function _pmCarregarTecnicos() {
 
 async function _pmCarregarZonas() {
   try {
-    const [rz, tecs] = await Promise.all([
+    const [rz] = await Promise.all([
       fetch("/planos-manutencao/zonas-responsaveis", { headers: authHeaders() }),
       _pmCarregarTecnicos(),
     ]);
     _pmZonasCache = rz.ok ? await rz.json() : [];
-    _pmRenderZonas(tecs);
+    _pmRenderTudo(); // os responsáveis moram nos cabeçalhos de zona da tabela
   } catch (e) {
     console.error("_pmCarregarZonas:", e);
   }
 }
 
-function _pmRenderZonas(tecs) {
-  const wrap = document.getElementById("pmZonasWrap");
-  if (!wrap) return;
-
-  if (!_pmZonasCache || !_pmZonasCache.length) {
-    wrap.innerHTML = `<p style="color:var(--muted);font-size:12px;">Nenhuma zona cadastrada. Defina a zona nos condomínios para usar este painel.</p>`;
-    return;
+async function _pmSalvarZona(zona, tecnicoIds, btn) {
+  if (btn) { btn.disabled = true; btn.textContent = "Salvando…"; }
+  try {
+    const r = await fetch(
+      `/planos-manutencao/zonas-responsaveis/${encodeURIComponent(zona)}`,
+      { method: "PUT", headers: { ...authHeaders(), "Content-Type": "application/json" },
+        body: JSON.stringify({ tecnico_ids: tecnicoIds }) }
+    );
+    if (!r.ok) throw new Error("Erro ao salvar responsável da zona");
+    _pmZonaEditando = null;
+    _pmZonasCache = null;
+    await _pmCarregarZonas();
+  } catch (e) {
+    alert(e.message);
+    if (btn) { btn.disabled = false; btn.textContent = "Salvar"; }
   }
-
-  const tecOpts = (tecs || []).map(t =>
-    `<option value="${t.id}">${_waEscaparHtml(t.nome)}</option>`
-  ).join("");
-
-  const zonaOpts = _pmZonasCache.map(z =>
-    `<option value="${_waEscaparHtml(z.zona)}">${_waEscaparHtml(z.zona)}</option>`
-  ).join("");
-
-  wrap.innerHTML = `
-    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-      <select id="pmZonaSelZona" class="input" style="font-size:12px;flex:1;min-width:140px;max-width:200px;">
-        <option value="">Selecione a zona…</option>
-        ${zonaOpts}
-      </select>
-      <select id="pmZonaSelTec" class="input" style="font-size:12px;flex:1;min-width:160px;max-width:240px;" disabled>
-        <option value="">— sem responsável —</option>
-        ${tecOpts}
-      </select>
-      <button id="pmZonaBtnSalvar" class="btn btnAccent btn-sm" disabled>Salvar</button>
-    </div>
-    <div id="pmZonaResumo" style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px;">
-      ${_pmZonasCache.filter(z => z.tecnico_nome).map(z => `
-        <span style="font-size:11px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:2px 8px;">
-          <span style="color:var(--muted);">${_waEscaparHtml(z.zona)}</span>
-          <span style="color:var(--text);margin-left:4px;">${_waEscaparHtml(z.tecnico_nome)}</span>
-        </span>`).join("")}
-    </div>
-  `;
-
-  const selZona = wrap.querySelector("#pmZonaSelZona");
-  const selTec  = wrap.querySelector("#pmZonaSelTec");
-  const btnSalvar = wrap.querySelector("#pmZonaBtnSalvar");
-
-  selZona.addEventListener("change", () => {
-    const zona = selZona.value;
-    if (!zona) { selTec.disabled = true; selTec.value = ""; btnSalvar.disabled = true; return; }
-    const atual = _pmZonasCache.find(z => z.zona === zona);
-    selTec.disabled = false;
-    selTec.value = atual?.tecnico_id ? String(atual.tecnico_id) : "";
-    btnSalvar.disabled = false;
-  });
-
-  btnSalvar.addEventListener("click", async () => {
-    const zona = selZona.value;
-    if (!zona) return;
-    const tecnicoId = selTec.value ? Number(selTec.value) : null;
-    btnSalvar.disabled = true;
-    btnSalvar.textContent = "Salvando…";
-    try {
-      const r = await fetch(
-        `/planos-manutencao/zonas-responsaveis/${encodeURIComponent(zona)}`,
-        { method: "PUT", headers: { ...authHeaders(), "Content-Type": "application/json" },
-          body: JSON.stringify({ tecnico_id: tecnicoId }) }
-      );
-      if (!r.ok) throw new Error();
-      _pmZonasCache = null;
-      _pmTecnicosCache = null;
-      await _pmCarregarZonas();
-    } catch {
-      alert("Erro ao salvar responsável da zona");
-      btnSalvar.disabled = false;
-      btnSalvar.textContent = "Salvar";
-    }
-  });
 }
 
 function _pmBindEventos() {
@@ -13127,8 +13282,42 @@ function _pmBindEventos() {
 
   document.getElementById("pmTableBody")?.addEventListener("click", (e) => {
     const btn = e.target.closest("[data-pm-action]");
-    if (!btn) return;
-    _pmAcao(btn.dataset.pmAction, Number(btn.dataset.pmId));
+    if (btn) {
+      _pmAcao(btn.dataset.pmAction, Number(btn.dataset.pmId));
+      return;
+    }
+
+    // "chamado #N em andamento" → abre o chamado na aba Chamados
+    const link = e.target.closest("[data-pm-chamado]");
+    if (link) {
+      const chamadoId = Number(link.dataset.pmChamado);
+      showSection("chamados");
+      _chSelecionadoId = chamadoId;
+      renderChamados();
+      setTimeout(() => document.querySelector(`[data-ch-id="${chamadoId}"]`)?.scrollIntoView({ block: "nearest" }), 80);
+      return;
+    }
+
+    // Responsável da zona — editor inline no cabeçalho do grupo
+    const editar = e.target.closest("[data-pm-zona-edit]");
+    if (editar) {
+      _pmZonaEditando = editar.dataset.pmZonaEdit;
+      _pmRenderTudo();
+      document.getElementById("pmZonaSelTec")?.focus();
+      return;
+    }
+
+    const acaoZona = e.target.closest("[data-pm-zona-acao]");
+    if (acaoZona) {
+      if (acaoZona.dataset.pmZonaAcao === "cancelar") {
+        _pmZonaEditando = null;
+        _pmRenderTudo();
+        return;
+      }
+      const ids = [...document.querySelectorAll("[data-pm-zona-tec]:checked")]
+        .map(el => Number(el.dataset.pmZonaTec));
+      _pmSalvarZona(acaoZona.dataset.pmZona, ids, acaoZona);
+    }
   });
 
   document.getElementById("pmTableBody")?.addEventListener("change", (e) => {
@@ -13149,6 +13338,7 @@ function _pmBindEventos() {
     _pmRenderTudo();
   });
 
+  document.getElementById("pmBulkEditar")?.addEventListener("click", _pmAbrirModalBulk);
   document.getElementById("pmBulkAtivar")?.addEventListener("click", () => _pmAcaoBulk(true));
   document.getElementById("pmBulkDesativar")?.addEventListener("click", () => _pmAcaoBulk(false));
   document.getElementById("pmBulkLimpar")?.addEventListener("click", () => {
