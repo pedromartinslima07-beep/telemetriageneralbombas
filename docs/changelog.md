@@ -836,6 +836,30 @@ er sem animação.
   - Diagnóstico confirmado no aparelho: fechar e reabrir o app restaura os
     botões (o estado sujo vive só em memória).
 
+- **2026-07-28** — **Orçamentos · aba "Solicitados pelos técnicos": formulário
+  sai do painel lateral e vai para o modal de tela cheia.** A aba herdou o
+  master-detail da aba "Criar orçamento" para manter a identidade visual, mas o
+  painel da direita acabou recebendo o formulário inteiro do orçamento formal
+  (nº, validade, constatação, tabela de itens e 4 campos de condições
+  comerciais) espremido numa coluna estreita.
+  - `public/admin.js`: o bloco do formulário saiu de `_orcRenderPainel` para
+    `_orcFormalHtml(o)`, renderizado no **mesmo `#avModal`** usado pela aba
+    "Criar orçamento" (`_orcAbrirFormal` / `_orcFecharFormal`). O painel lateral
+    passa a mostrar só o resumo (nº, validade, valor) + botão "Preencher/Editar
+    orçamento", mantendo dados, observação do técnico e as ações
+    aprovar/rejeitar — conteúdo que cabe na coluna.
+  - Os ids dos campos foram preservados (`orcInputNumero` etc.): `_orcAcao` lê
+    tudo por `getElementById`, então trocar de container não afetou o
+    salvamento. A delegação de clique foi extraída para `_orcTratarClique` e
+    ligada ao painel **e** ao `#avModalBody`; fecha no backdrop e no Esc.
+  - Os itens do orçamento passaram a ser buscados só ao abrir o modal — antes
+    havia um `GET /admin/orcamentos/:id/itens` a cada seleção na lista, mesmo
+    sem ninguém editar.
+  - Fix junto: `orcamento_valido_ate` é `DATE` (sem fuso) e passava por
+    `new Date()`, o que exibiria **um dia a menos** no Brasil. Novo
+    `_orcFmtDataSemFuso` fatia a string, mesmo tratamento de `_pmFmtData`.
+  - `admin.js?v=243`, `admin.css?v=149`. Sem endpoint novo → `sw.js` intocado.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

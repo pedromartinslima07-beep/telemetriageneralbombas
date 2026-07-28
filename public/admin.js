@@ -12183,6 +12183,15 @@ function _orcFmtData(iso) {
   return new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
+// `orcamento_valido_ate` é DATE (YYYY-MM-DD), sem fuso. Passar por `new Date()`
+// interpreta como meia-noite UTC e exibe um dia a menos no Brasil — mesmo motivo
+// pelo qual _pmFmtData fatia a string em vez de parsear.
+function _orcFmtDataSemFuso(iso) {
+  if (!iso) return "—";
+  const [y, m, d] = String(iso).slice(0, 10).split("-");
+  return `${d}/${m}/${y}`;
+}
+
 function _orcStatusCls(s) {
   if (!s)                return "orc-status-req"; // técnico pediu, orçamento ainda não existe
   if (s === "aprovado")  return "orc-status-ok";
@@ -12284,54 +12293,32 @@ function _orcRenderTudo() {
   _orcRenderPainel();
 }
 
-function _orcRenderPainel() {
-  const wrap = document.getElementById("orcPainel");
-  if (!wrap) return;
-
-  if (!_orcSelecionado) {
-    wrap.innerHTML = `<div class="al-empty">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-        <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
-      </svg>
-      <p>Selecione um orçamento para ver os detalhes</p>
-    </div>`;
-    return;
-  }
-
-  const o = _orcSelecionado;
-  const isPend  = o.orcamento_status === "rascunho";
-  const isAprov = o.orcamento_status === "aprovado";
-
+// Formulário do orçamento formal. Vive no modal de tela cheia (#avModal), não
+// no painel lateral: com nº, constatação, tabela de itens e 4 campos de
+// condições comerciais, ele não cabia na coluna estreita do master-detail.
+// Os ids são os mesmos de antes — `_orcAcao` lê tudo por getElementById, então
+// mudar de container não afeta o salvamento.
+function _orcFormalHtml(o) {
   const validadeVal = o.orcamento_valido_ate
     ? new Date(o.orcamento_valido_ate).toISOString().split("T")[0]
     : "";
 
-  wrap.innerHTML = `
-    <div class="ap-head">
+  return `
+    <button class="ap-close" data-orc-action="fechar-formal" title="Fechar">&times;</button>
+
+    <div class="av-modal-head">
       <div>
-        <div class="ap-title">OS ${o.numero || o.id}</div>
-        <div class="ap-sub"><span class="orc-status-pill ${_orcStatusCls(o.orcamento_status)}">${_orcStatusLabel(o.orcamento_status)}</span> · ${_orcFmtData(o.finalizada_em || o.criado_em)}</div>
-      </div>
-      <button class="ap-close" data-orc-action="fechar" title="Fechar">×</button>
-    </div>
-
-    <div class="ap-section">
-      <div class="ap-section-title">Dados</div>
-      <div class="ap-kv">
-        <div><span class="k">Condomínio</span><span class="v">${_waEscaparHtml(o.condominio_nome || "—")}</span></div>
-        <div><span class="k">Técnico</span><span class="v">${_waEscaparHtml(o.tecnico_nome || "—")}</span></div>
-        ${o.chamado_id ? `<div><span class="k">Chamado</span><span class="v">#${o.chamado_id}</span></div>` : ""}
+        <h3 style="margin:0;font-size:16px;">Orçamento formal · OS ${o.numero || o.id}</h3>
+        <p style="margin:4px 0 0;font-size:12.5px;color:var(--muted);">${_waEscaparHtml(o.condominio_nome || "—")}${o.tecnico_nome ? ` · solicitado por ${_waEscaparHtml(o.tecnico_nome)}` : ""}</p>
       </div>
     </div>
 
-    <div class="ap-section">
-      <div class="ap-section-title">Observação do técnico</div>
-      <div style="font-size:12px;line-height:1.6;color:var(--text);margin-top:4px;white-space:pre-wrap;">${o.orcamento_observacoes ? _waEscaparHtml(o.orcamento_observacoes) : '<span style="color:var(--muted)">Sem observação registrada.</span>'}</div>
-    </div>
-
-    <!-- Orçamento Formal -->
-    <div class="ap-section orc-form-section">
-      <div class="ap-section-title">Orçamento Formal</div>
+    <div class="orc-form-section">
+      ${o.orcamento_observacoes ? `
+      <div class="ap-section" style="margin-top:0;">
+        <div class="ap-section-title">Observação do técnico</div>
+        <div style="font-size:12px;line-height:1.6;color:var(--text);margin-top:4px;white-space:pre-wrap;">${_waEscaparHtml(o.orcamento_observacoes)}</div>
+      </div>` : ""}
 
       <div class="orc-form-row" style="margin-bottom:10px;">
         <label class="orc-form-label">Nº Orçamento
@@ -12350,13 +12337,11 @@ function _orcRenderPainel() {
           placeholder="Descreva o problema constatado…">${_waEscaparHtml(o.orcamento_constatacao || '')}</textarea>
       </label>
 
-      <!-- Itens -->
       <div class="ap-section-title" style="margin-top:4px;margin-bottom:8px;">Itens</div>
       <div id="orcItensWrap">
         <div class="orc-itens-loading" style="color:var(--muted);font-size:12px;padding:8px 0;">Carregando itens…</div>
       </div>
 
-      <!-- Condições comerciais -->
       <div class="ap-section-title" style="margin-top:12px;margin-bottom:8px;">Condições Comerciais</div>
       <div class="orc-form-row" style="margin-bottom:8px;">
         <label class="orc-form-label">Forma de pagamento
@@ -12382,15 +12367,107 @@ function _orcRenderPainel() {
             value="${_waEscaparHtml(o.orcamento_disponibilidade || '')}">
         </label>
       </div>
+    </div>
 
-      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:4px;">
-        <button class="btn btn-sm viewer-only-hide" data-orc-action="salvar" style="flex-shrink:0;">Salvar orçamento</button>
+    <div class="av-modal-footer">
+      <span class="orc-form-msg" id="orcFormMsg"></span>
+      <div class="av-footer-actions">
+        <button class="btn btn-sm" data-orc-action="fechar-formal">Fechar</button>
         <button class="btn btn-sm viewer-only-hide" data-orc-action="gerar-pdf"
-          style="flex-shrink:0;background:rgba(240,176,20,.1);border-color:rgba(240,176,20,.4);color:#f0b014;">
+          style="background:rgba(240,176,20,.1);border-color:rgba(240,176,20,.4);color:#f0b014;">
           ↓ Gerar PDF
         </button>
-        <span class="orc-form-msg" id="orcFormMsg"></span>
+        <button class="btn btn-sm btnAccent viewer-only-hide" data-orc-action="salvar">Salvar orçamento</button>
       </div>
+    </div>`;
+}
+
+function _orcFormalAberto() {
+  const m = document.getElementById("avModal");
+  return !!m && m.style.display !== "none" && !!document.getElementById("orcInputNumero");
+}
+
+function _orcAbrirFormal() {
+  const o = _orcSelecionado;
+  const modal = document.getElementById("avModal");
+  const body  = document.getElementById("avModalBody");
+  if (!o || !modal || !body) return;
+
+  body.innerHTML = _orcFormalHtml(o);
+  modal.style.display = "flex";   // mesma convenção do modal da aba "Criar orçamento"
+  document.body.style.overflow = "hidden";
+  // Itens só são buscados agora: antes o painel pedia a cada seleção da lista,
+  // mesmo quando ninguém ia editar nada.
+  _orcCarregarItens(o.id);
+}
+
+// Espelha _avFecharModal: fecha direto, sem rastrear campo alterado. O aviso do
+// modal avulso (_avTentarFechar) existe só para orçamento recém-criado que nunca
+// foi salvo — situação que não existe aqui, porque o registro já existe antes de
+// o modal abrir. Quem edita salva pelo botão do rodapé, como no avulso.
+function _orcFecharFormal() {
+  const modal = document.getElementById("avModal");
+  if (modal) modal.style.display = "none";
+  document.body.style.overflow = "";
+  const body = document.getElementById("avModalBody");
+  if (body) body.innerHTML = "";
+}
+
+function _orcRenderPainel() {
+  const wrap = document.getElementById("orcPainel");
+  if (!wrap) return;
+
+  if (!_orcSelecionado) {
+    wrap.innerHTML = `<div class="al-empty">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+      </svg>
+      <p>Selecione um orçamento para ver os detalhes</p>
+    </div>`;
+    return;
+  }
+
+  const o = _orcSelecionado;
+  const isPend  = o.orcamento_status === "rascunho";
+  const isAprov = o.orcamento_status === "aprovado";
+
+  wrap.innerHTML = `
+    <div class="ap-head">
+      <div>
+        <div class="ap-title">OS ${o.numero || o.id}</div>
+        <div class="ap-sub"><span class="orc-status-pill ${_orcStatusCls(o.orcamento_status)}">${_orcStatusLabel(o.orcamento_status)}</span> · ${_orcFmtData(o.finalizada_em || o.criado_em)}</div>
+      </div>
+      <button class="ap-close" data-orc-action="fechar" title="Fechar">×</button>
+    </div>
+
+    <div class="ap-section">
+      <div class="ap-section-title">Dados</div>
+      <div class="ap-kv">
+        <div><span class="k">Condomínio</span><span class="v">${_waEscaparHtml(o.condominio_nome || "—")}</span></div>
+        <div><span class="k">Técnico</span><span class="v">${_waEscaparHtml(o.tecnico_nome || "—")}</span></div>
+        ${o.chamado_id ? `<div><span class="k">Chamado</span><span class="v">#${o.chamado_id}</span></div>` : ""}
+      </div>
+    </div>
+
+    <div class="ap-section">
+      <div class="ap-section-title">Observação do técnico</div>
+      <div style="font-size:12px;line-height:1.6;color:var(--text);margin-top:4px;white-space:pre-wrap;">${o.orcamento_observacoes ? _waEscaparHtml(o.orcamento_observacoes) : '<span style="color:var(--muted)">Sem observação registrada.</span>'}</div>
+    </div>
+
+    <!-- Orçamento Formal — o formulário completo (nº, constatação, itens,
+         condições comerciais) mora no modal de tela cheia #avModal, o mesmo da
+         aba "Criar orçamento". Ele não cabia nesta coluna estreita: o painel
+         existe pro resumo e pras ações de aprovação. -->
+    <div class="ap-section">
+      <div class="ap-section-title">Orçamento Formal</div>
+      <div class="ap-kv" style="margin-bottom:10px;">
+        <div><span class="k">Nº</span><span class="v">${o.orcamento_numero ? _waEscaparHtml(o.orcamento_numero) : "—"}</span></div>
+        <div><span class="k">Válido até</span><span class="v">${_orcFmtDataSemFuso(o.orcamento_valido_ate)}</span></div>
+        <div><span class="k">Valor</span><span class="v">${_orcFmtValor(o.orcamento_valor)}</span></div>
+      </div>
+      <button class="btn btn-sm btnAccent viewer-only-hide" data-orc-action="abrir-formal" style="width:100%;">
+        ${o.orcamento_numero ? "Editar orçamento" : "Preencher orçamento"}
+      </button>
     </div>
 
     <!-- Aprovação -->
@@ -12414,8 +12491,21 @@ function _orcRenderPainel() {
       <button class="btn btn-sm orc-btn-approve" data-orc-action="aprovar">✓ Aprovar</button>
     </div>`;
 
-  // Carregar itens async
-  _orcCarregarItens(o.id);
+  // Os itens agora são carregados por _orcAbrirFormal, junto com o modal — é o
+  // único lugar que os exibe. Se o modal estiver aberto (ex.: re-render após
+  // salvar), reconstrói o conteúdo dele com os dados novos.
+  if (_orcFormalAberto()) {
+    const body = document.getElementById("avModalBody");
+    if (body) {
+      // _orcAcao escreve "✓ Salvo" e só depois chama _orcRenderTudo; sem isto a
+      // confirmação sumiria no mesmo instante em que aparece.
+      const msgAntes = document.getElementById("orcFormMsg")?.textContent || "";
+      body.innerHTML = _orcFormalHtml(o);
+      const msgEl = document.getElementById("orcFormMsg");
+      if (msgEl && msgAntes) msgEl.textContent = msgAntes;
+      _orcRenderItens();
+    }
+  }
 }
 
 async function _orcCarregarItens(osId) {
@@ -12684,16 +12774,32 @@ function _orcBindEventos() {
   });
 
   // Ações no painel (delegated)
-  document.getElementById("orcPainel")?.addEventListener("click", e => {
-    // Remover item
+  // Mesmo tratamento para o painel lateral e para o modal do orçamento formal:
+  // depois que o formulário saiu do painel, os botões de salvar/PDF/itens vivem
+  // dentro de #avModalBody, fora do alcance da delegação antiga.
+  const _orcTratarClique = e => {
     const delBtn = e.target.closest("[data-orc-del-item]");
     if (delBtn) { _orcRemoverItem(Number(delBtn.dataset.orcDelItem)); return; }
 
     const btn = e.target.closest("[data-orc-action]");
     if (!btn) return;
     const acao = btn.dataset.orcAction;
-    if (acao === "fechar") { _orcSelecionado = null; _orcRenderTudo(); }
+    // Fechar o painel fecha o modal junto, senão ele ficaria aberto sobre um
+    // painel já vazio.
+    if (acao === "fechar") { _orcFecharFormal(); _orcSelecionado = null; _orcRenderTudo(); }
+    else if (acao === "abrir-formal")  _orcAbrirFormal();
+    else if (acao === "fechar-formal") _orcFecharFormal();
     else _orcAcao(acao);
+  };
+
+  document.getElementById("orcPainel")?.addEventListener("click", _orcTratarClique);
+  document.getElementById("avModalBody")?.addEventListener("click", _orcTratarClique);
+  // Fechar no backdrop e no Esc, igual ao modal da aba "Criar orçamento".
+  document.getElementById("avModalBackdrop")?.addEventListener("click", () => {
+    if (_orcFormalAberto()) _orcFecharFormal();
+  });
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape" && _orcFormalAberto()) _orcFecharFormal();
   });
 }
 
