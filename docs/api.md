@@ -30,6 +30,16 @@ API Express montada em `src/app.js`. Todas as respostas são JSON salvo PDFs
 `express-rate-limit` em: `/auth/login` (loginLimiter), `/auth/verify-otp`
 (otpLimiter) e `/telemetria` (telemetriaLimiter).
 
+## Erros e 404
+
+No fim de `src/app.js` há um handler de 404 e um handler de erro que sempre
+respondem `{ error }` em JSON — inclusive nos erros que nunca chegam às rotas:
+`entity.too.large` (413, body acima do limite de 8 mb do `express.json`) e
+`entity.parse.failed` (400, JSON malformado). Sem eles o Express responde a
+página HTML padrão e o front quebra com `Unexpected token '<', "<!DOCTYPE "`,
+escondendo o erro real. Só o 404 de **página** (GET com `Accept: text/html`)
+segue no comportamento padrão do Express.
+
 ---
 
 ## Públicas (sem JWT)
@@ -197,6 +207,9 @@ ao e-mail cadastrado (2FA equivalente ao do login).
 | GET/PATCH | `/admin/sla[/:prioridade]` | masterAdmin |
 | ... | `/admin/orcamentos*` e `/admin/orcamentos/avulsos*` | adminOnly (CRUD + PDF) |
 | POST | `/admin/orcamentos/avulsos/:id/enviar-email` | adminOnly — gera o PDF, envia ao cliente (Resend) e marca como `enviado`. Body `{ emails }` opcional (senão usa `condominios.email`) |
+| GET/PATCH | `/admin/me/email-template` | mensagem padrão + URL da assinatura do usuário logado |
+| POST | `/admin/me/assinatura` | upload da assinatura em base64 (`data:image/...`) → `usuarios.assinatura_blob`. O admin **reduz a imagem no navegador** antes de enviar (máx. 600 px / ~180 KB): o limite do `express.json` é 8 mb e o e-mail embute a imagem como data URI |
+| GET | `/admin/assinatura/:userId` | serve a imagem de assinatura (pública, usada nos e-mails) |
 | GET | `/admin/condominios/:id/historico` · `/condominios/lista` | adminOnly |
 | GET/POST/PATCH/DELETE | `/admin/whatsapp/contatos[/:id]` | adminOnly (pré-cadastro) |
 

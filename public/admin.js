@@ -27,6 +27,28 @@ if (!getToken()) window.location.href = "/login";
   };
 })();
 
+// Lê o corpo de uma resposta como JSON sem quebrar quando ela vem em HTML.
+// Erros que não passam pelas rotas (413 do body-parser, 404 do Express, 502
+// do proxy) respondem uma página HTML — chamar `.json()` direto vira o
+// clássico "Unexpected token '<', "<!DOCTYPE "... is not valid JSON", que
+// esconde o erro real. Aqui a mensagem devolvida diz o que de fato aconteceu.
+async function lerRespostaJson(resp, contexto) {
+  const txt = await resp.text();
+  try {
+    return txt ? JSON.parse(txt) : {};
+  } catch (_) {
+    const porStatus = {
+      413: "Arquivo grande demais para o servidor.",
+      404: "Endpoint não encontrado no servidor.",
+      502: "Servidor indisponível no momento.",
+      503: "Servidor indisponível no momento.",
+      504: "O servidor demorou demais para responder.",
+    };
+    const base = porStatus[resp.status] || `Resposta inesperada do servidor (HTTP ${resp.status}).`;
+    throw new Error(contexto ? `${contexto}: ${base}` : base);
+  }
+}
+
 // Remove o loader inicial com fade
 function _ocultarLoader() {
   const el = document.getElementById("appLoader");
@@ -11627,6 +11649,48 @@ function _avRenderLinhas() {
     ${addItemForm}`;
 }
 
+// Assinatura de e-mail: reduz a imagem no navegador antes de subir.
+// Os arquivos de assinatura da empresa são artes grandes (a "Nati 500.png"
+// tem 7,6 MB) — em base64 o POST passa de 10 MB e estoura o limite de 8mb do
+// `express.json`, que responde uma página HTML de erro. Além do upload, o
+// e-mail embute a imagem como data URI: acima de ~100 KB o Gmail apara a
+// mensagem. Reduzir aqui resolve os dois de uma vez.
+const _ASSIN_LARGURA_MAX = 600;          // corpo do e-mail tem 560px úteis
+const _ASSIN_ALVO_BYTES  = 180 * 1024;
+
+function _avPrepararAssinatura(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("não foi possível ler o arquivo"));
+    reader.onload = ev => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("arquivo de imagem inválido"));
+      img.onload = () => {
+        const escala = Math.min(1, _ASSIN_LARGURA_MAX / img.width);
+        const w = Math.max(1, Math.round(img.width  * escala));
+        const h = Math.max(1, Math.round(img.height * escala));
+        const cv = document.createElement("canvas");
+        cv.width = w; cv.height = h;
+        const ctx = cv.getContext("2d");
+        // Fundo branco: o corpo do e-mail é branco e o JPEG não tem alfa.
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, w, h);
+        ctx.drawImage(img, 0, 0, w, h);
+        // PNG quando já couber (preserva traço nítido); senão JPEG, baixando
+        // a qualidade até chegar perto do alvo.
+        let out = cv.toDataURL("image/png");
+        for (const q of [0.9, 0.8, 0.7, 0.6]) {
+          if (out.length * 0.75 <= _ASSIN_ALVO_BYTES) break;
+          out = cv.toDataURL("image/jpeg", q);
+        }
+        resolve(out);
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 // Envio do orçamento — carrega template, permite editar mensagem/assinatura e salvar como padrão
 async function _avAbrirEnvioEmail() {
   if (!_avSelecionado) return;
@@ -11697,16 +11761,23 @@ async function _avAbrirEnvioEmail() {
   document.getElementById("avEnvioCancelar").addEventListener("click", fechar);
   setTimeout(() => document.getElementById("avEnvioPara")?.focus(), 30);
 
-  // Preview ao trocar assinatura
-  document.getElementById("avEnvioAssinaturaFile").addEventListener("change", (e) => {
+  // Preview ao trocar assinatura — já redimensiona aqui, então o que aparece
+  // no preview é exatamente o que vai ser enviado.
+  let assinaturaNovaB64 = null;
+  document.getElementById("avEnvioAssinaturaFile").addEventListener("change", async (e) => {
     const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = ev => {
+    const msgEl = document.getElementById("avEnvioMsg");
+    if (!file) { assinaturaNovaB64 = null; return; }
+    try {
+      assinaturaNovaB64 = await _avPrepararAssinatura(file);
       const prev = document.getElementById("avEnvioAssinaturaPreview");
-      if (prev) { prev.src = ev.target.result; prev.style.display = "block"; }
-    };
-    reader.readAsDataURL(file);
+      if (prev) { prev.src = assinaturaNovaB64; prev.style.display = "block"; }
+      const kb = Math.round(assinaturaNovaB64.length * 0.75 / 1024);
+      if (msgEl) { msgEl.style.color = "var(--muted)"; msgEl.textContent = `Assinatura pronta (${kb} KB após redimensionar).`; }
+    } catch (err) {
+      assinaturaNovaB64 = null;
+      if (msgEl) { msgEl.style.color = "var(--danger)"; msgEl.textContent = "Erro na assinatura: " + err.message; }
+    }
   });
 
   document.getElementById("avEnvioConfirmar").addEventListener("click", async () => {
@@ -11718,19 +11789,17 @@ async function _avAbrirEnvioEmail() {
     if (msg) { msg.style.color = "var(--muted)"; msg.textContent = "Enviando…"; }
     if (btn) btn.disabled = true;
     try {
-      // Upload de nova assinatura se selecionada
+      // Upload de nova assinatura se selecionada (já redimensionada no change)
       const file = document.getElementById("avEnvioAssinaturaFile").files[0];
       if (file) {
         if (msg) msg.textContent = "Enviando assinatura…";
-        const base64 = await new Promise((res, rej) => {
-          const r = new FileReader(); r.onload = e => res(e.target.result); r.onerror = rej; r.readAsDataURL(file);
-        });
+        const base64 = assinaturaNovaB64 || await _avPrepararAssinatura(file);
         const up = await fetch("/admin/me/assinatura", {
           method: "POST",
           headers: { "Content-Type": "application/json", ...authHeaders() },
           body: JSON.stringify({ base64 }),
         });
-        const upJ = await up.json();
+        const upJ = await lerRespostaJson(up, "Upload da assinatura");
         if (!up.ok) throw new Error(upJ.error || "Erro no upload");
         assinaturaUrl = upJ.url;
       }
@@ -11750,7 +11819,7 @@ async function _avAbrirEnvioEmail() {
         headers: { "Content-Type": "application/json", ...authHeaders() },
         body: JSON.stringify({ emails, mensagem, assinatura_url: assinaturaUrl || undefined }),
       });
-      const j = await r.json();
+      const j = await lerRespostaJson(r, "Envio do e-mail");
       if (!r.ok) {
         if (msg) { msg.style.color = "var(--danger)"; msg.textContent = j.error || "Erro ao enviar"; }
         if (btn) btn.disabled = false;

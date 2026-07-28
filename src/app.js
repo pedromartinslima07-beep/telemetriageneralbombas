@@ -351,6 +351,33 @@ app.use("/planos-manutencao", planosManutencaoRouter);
 app.use("/contratos", contratosRouter);
 app.use("/assinar", assinaturaRouter);
 
+// 404 e erros em JSON — sem isto o Express responde a página HTML padrão
+// (`<!DOCTYPE html>…`) e o front, que faz `.json()` na resposta, morre com
+// "Unexpected token '<'" escondendo o erro de verdade. O caso mais comum é o
+// 413 do body-parser em upload de imagem grande (limite de 8mb acima).
+// Requests de página (GET aceitando text/html) seguem com o 404 padrão.
+app.use((req, res, next) => {
+  const querHtml = req.method === "GET" && (req.headers.accept || "").includes("text/html");
+  if (querHtml) return next();
+  return res.status(404).json({ error: `Rota não encontrada: ${req.method} ${req.path}` });
+});
+
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, next) => {
+  if (res.headersSent) return next(err);
+  if (err.type === "entity.too.large") {
+    return res.status(413).json({ error: "Arquivo muito grande — o limite é 8 MB por requisição." });
+  }
+  if (err.type === "entity.parse.failed") {
+    return res.status(400).json({ error: "Corpo da requisição não é um JSON válido." });
+  }
+  const status = err.status || err.statusCode || 500;
+  console.error(`[app] erro não tratado em ${req.method} ${req.originalUrl}:`, err);
+  return res.status(status).json({
+    error: status >= 500 ? "Erro interno do servidor" : (err.message || "Requisição inválida"),
+  });
+});
+
 startOfflineScheduler();
 startGpsCleanupScheduler();
 startLeiturasCleanupScheduler();

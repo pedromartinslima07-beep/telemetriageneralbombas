@@ -122,6 +122,24 @@ bump do `?v=N` no HTML também volta a quebrar.
 
 ---
 
+## `Unexpected token '<', "<!DOCTYPE "` = o servidor respondeu HTML
+
+Sempre que o front estourar `... is not valid JSON`, **não é bug de parse**:
+alguma request recebeu uma página HTML de erro em vez de JSON. Cheque o
+**status HTTP** e o **content-type** na aba Network antes de qualquer coisa.
+
+Fontes comuns: 413 do body-parser (payload acima do limite de 8mb do
+`express.json` — upload de imagem base64 grande), 404 de rota inexistente,
+502/504 do proxy. Hoje `src/app.js` tem handlers finais de 404 e de erro que
+respondem JSON — **não remova**, eles são o que torna esses casos legíveis.
+
+Ao subir imagem em base64 pelo front, **redimensione no navegador antes**
+(ver `_avPrepararAssinatura` em `public/admin.js`): as artes de assinatura da
+empresa têm 7-8 MB, e imagem embutida em e-mail como data URI acima de ~100 KB
+faz o Gmail aparar a mensagem.
+
+---
+
 ## Stack: HTML/CSS/JS puro
 
 Backend Node/Express + Postgres (Railway). Frontend é HTML/CSS/JS vanilla
