@@ -479,12 +479,23 @@ function renderTecnicoChamados() {
   if (ordenados.length === 0) {
     list.innerHTML = "";
     const msg = document.getElementById("tcEmptyMsg");
+    const sub = document.getElementById("tcEmptySub");
     if (msg) {
       msg.textContent = TC.tab === "historico"
         ? "Nenhum chamado resolvido ainda"
         : TC.tab === "proximos"
           ? "Nenhum chamado aguardando"
           : "Você está em dia";
+    }
+    // Linha secundária: sem chamado, o trabalho do dia está no roteiro —
+    // é a única pista na tela de que existe algo pendente em outro lugar.
+    if (sub) {
+      const pendentes = typeof RT !== "undefined"
+        ? (RT.planos || []).filter(p => !p.chamado_aberto_id).length
+        : 0;
+      sub.textContent = (TC.tab === "hoje" && pendentes > 0)
+        ? `${pendentes} preventiva${pendentes === 1 ? "" : "s"} esperando no roteiro`
+        : "";
     }
     empty.hidden = false;
     return;
@@ -494,46 +505,15 @@ function renderTecnicoChamados() {
   list.innerHTML = ordenados.map(renderCardChamado).join("");
 }
 
-function atualizarFooterTecnico(totalVisiveis) {
-  const elTotal = document.getElementById("tcFooterTotal");
-  const elGps   = document.getElementById("tcFooterGps");
-  const elClock = document.getElementById("tcFooterClock");
-  if (!elTotal || !elGps || !elClock) return;
-
-  const total = TC.chamados.length;
-  elTotal.textContent = totalVisiveis === total
-    ? `${total} ${total === 1 ? "chamado" : "chamados"}`
-    : `${totalVisiveis} de ${total}`;
-
-  // Footer do GPS espelha o estado real do watchPosition (não só a
-  // existência de uma posição cacheada). Caso contrário, depois das 18h
-  // o GPS desliga mas o footer continuaria mostrando "GPS ativo".
-  const gpsOn = typeof gpsAtivo === "function" && gpsAtivo();
-  const dentroJanela = typeof gpsDentroDoHorario === "function" ? gpsDentroDoHorario() : true;
-
-  if (gpsOn) {
-    elGps.classList.add("tec-footer-gps-on");
-    if (TC.geo) {
-      const idade = Math.floor((Date.now() - TC.geo.capturada_em) / 60000);
-      elGps.querySelector("span").textContent = idade < 1 ? "GPS ativo" : `GPS · há ${idade}m`;
-    } else {
-      elGps.querySelector("span").textContent = "GPS ativo";
-    }
-  } else if (GPS.scheduled && !dentroJanela) {
-    elGps.classList.remove("tec-footer-gps-on");
-    elGps.querySelector("span").textContent = "Fora do expediente";
-  } else {
-    elGps.classList.remove("tec-footer-gps-on");
-    elGps.querySelector("span").textContent = "GPS aguardando…";
-  }
-
-  const now = new Date();
-  elClock.textContent = now.toLocaleTimeString("pt-BR", {
-    hour: "2-digit", minute: "2-digit"
-  });
+// A contagem de chamados saiu do rodapé (os contadores das tabs já dizem
+// quantos são em cada aba); o que sobrou aqui é manter a linha de status do
+// cabeçalho em dia a cada render da lista.
+function atualizarFooterTecnico() {
+  gpsRenderChip();
+  atualizarRelogio();
 }
 
-// KPIs no topo — mesma estrutura .rc do admin
+// KPIs no topo — faixa compacta de 4 números
 function renderTecnicoKpis() {
   const el = document.getElementById("tcKpiGrid");
   if (!el) return;
@@ -551,25 +531,22 @@ function renderTecnicoKpis() {
         && d.getDate() === t.getDate();
   }).length;
 
-  const kpi = (icon, val, hint, kindCls) => `
-    <div class="rc ${kindCls} rc-static">
-      <div class="rc-head">
-        <div class="rc-icon">${icon}</div>
-        <div class="rc-label">${hint}</div>
-      </div>
-      <div class="rc-value">${val}</div>
+  // Faixa compacta em vez de 4 cards: com a operação zerada os cards ocupavam
+  // 40% da tela pra dizer "0" quatro vezes, empurrando a lista de chamados —
+  // que é a razão da tela existir — pra baixo da dobra.
+  const kpi = (val, label, kindCls) => `
+    <div class="tk-cell ${val > 0 ? kindCls : ""}">
+      <div class="tk-value">${val}</div>
+      <div class="tk-label">${label}</div>
     </div>`;
 
-  const svgAlert = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`;
-  const svgClock = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`;
-  const svgBolt  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`;
-  const svgCheck = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
-
+  // "Fechados hoje" com o período no rótulo: o número sempre foi do dia, e um
+  // rótulo só "Fechados" faz o técnico procurar chamados que não estão ali.
   el.innerHTML =
-    kpi(svgAlert, abertos,  "Abertos",        abertos  > 0 ? "rc-warn"   : "rc-neutral") +
-    kpi(svgClock, atend,    "Em atendimento", atend    > 0 ? "rc-warn"   : "rc-neutral") +
-    kpi(svgBolt,  criticos, "Críticos",       criticos > 0 ? "rc-bad"    : "rc-neutral") +
-    kpi(svgCheck, fechHoje, "Fechados hoje",  fechHoje > 0 ? "rc-ok"     : "rc-neutral");
+    kpi(abertos,  "Abertos",       "is-warn") +
+    kpi(atend,    "Atend.",        "is-warn") +
+    kpi(criticos, "Críticos",      "is-bad")  +
+    kpi(fechHoje, "Fechados hoje", "is-ok");
 }
 
 // Renderiza um chamado: ícone de prédio colorido por prioridade à esquerda,
@@ -653,9 +630,9 @@ async function obterGPS({ force = false } = {}) {
 }
 
 // Eventos da tela do técnico
-document.querySelectorAll('[data-screen="tecnico-chamados"] .wa-tab').forEach((tab) => {
+document.querySelectorAll('[data-screen="tecnico-chamados"] .tec-tab').forEach((tab) => {
   tab.addEventListener("click", () => {
-    document.querySelectorAll('[data-screen="tecnico-chamados"] .wa-tab')
+    document.querySelectorAll('[data-screen="tecnico-chamados"] .tec-tab')
       .forEach((t) => t.classList.remove("is-active"));
     tab.classList.add("is-active");
     TC.tab = tab.dataset.tab;
@@ -731,6 +708,10 @@ function atualizarRelogio() {
   const now = new Date();
   const el = document.getElementById("now");
   if (el) el.textContent = `${now.toLocaleDateString("pt-BR")} ${now.toLocaleTimeString("pt-BR")}`;
+
+  // Relógio da linha de status do técnico (veio do rodapé do card)
+  const hdr = document.getElementById("tcHdrClock");
+  if (hdr) hdr.textContent = now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 }
 atualizarRelogio();
 setInterval(atualizarRelogio, 1000);
@@ -1768,37 +1749,43 @@ async function gpsEnviar() {
   }
 })();
 
+// Estado do GPS na linha de status do cabeçalho. Era um chip flutuante
+// (position:fixed) que pousava por cima dos KPIs e ainda repetia o que o
+// rodapé do card já dizia — agora é um lugar só.
 function gpsRenderChip() {
-  let chip = document.getElementById("gpsChip");
-  // Sem usuário logado pedindo rastreio → some
+  const el = document.getElementById("tcHdrGps");
+  if (!el) return;
+
+  // Sem usuário logado pedindo rastreio → não mostra nada
   if (!GPS.scheduled) {
-    if (chip) chip.hidden = true;
+    el.textContent = "";
+    el.className = "tec-hdr-gps is-off";
+    el.title = "";
     return;
   }
-  if (!chip) {
-    chip = document.createElement("div");
-    chip.id = "gpsChip";
-    chip.className = "gps-chip";
-    document.body.appendChild(chip);
-  }
+
+  let texto, cls, dica;
   if (GPS.active && GPS.lastError === "low_accuracy") {
-    chip.title = "GPS ativo mas sinal fraco demais para o mapa";
-    chip.classList.add("gps-chip-paused");
-    chip.innerHTML = `<span class="gps-dot"></span><span class="gps-text">Sinal fraco</span>`;
+    texto = "Sinal fraco"; cls = "is-warn";
+    dica = "GPS ativo mas sinal fraco demais para o mapa";
   } else if (GPS.active) {
-    chip.title = "Localização ativa";
-    chip.classList.remove("gps-chip-paused");
-    chip.innerHTML = `<span class="gps-dot"></span><span class="gps-text">GPS ativo</span>`;
+    // Com posição em mãos, mostra a idade dela — é o dado que importa quando
+    // o rastreio trava sem erro (a tela dizia "ativo" mesmo parado há minutos).
+    const idade = TC.geo ? Math.floor((Date.now() - TC.geo.capturada_em) / 60000) : null;
+    texto = (idade && idade >= 1) ? `GPS · há ${idade}m` : "GPS ativo";
+    cls = (idade && idade >= 10) ? "is-warn" : "is-on";
+    dica = "Localização ativa";
   } else if (!gpsDentroDoHorario()) {
-    chip.title = `GPS opera apenas das ${String(GPS_HORA_INI).padStart(2,"0")}:00 às ${String(GPS_HORA_FIM).padStart(2,"0")}:00`;
-    chip.classList.add("gps-chip-paused");
-    chip.innerHTML = `<span class="gps-dot"></span><span class="gps-text">Fora do expediente</span>`;
+    texto = "Fora do expediente"; cls = "is-warn";
+    dica = `GPS opera apenas das ${String(GPS_HORA_INI).padStart(2,"0")}:00 às ${String(GPS_HORA_FIM).padStart(2,"0")}:00`;
   } else {
-    chip.title = "Aguardando sinal de GPS…";
-    chip.classList.add("gps-chip-paused");
-    chip.innerHTML = `<span class="gps-dot"></span><span class="gps-text">GPS aguardando…</span>`;
+    texto = "GPS aguardando…"; cls = "is-off";
+    dica = "Aguardando sinal de GPS…";
   }
-  chip.hidden = false;
+
+  el.textContent = texto;
+  el.className = `tec-hdr-gps ${cls}`;
+  el.title = dica;
 }
 
 // Banner persistente quando o GPS está indisponível ou negado. Some
@@ -1883,6 +1870,7 @@ const OS = {
   data: null,      // O.S. completa (chamado_id, condominio_id, campos, fotos, peças...)
   chamadoId: null, // pra voltar pra detalhe
   saveDebounce: null,
+  pendingPatch: null, // campos alterados aguardando o debounce (ver salvarOSDebounced)
   timer: null,
   sign: { ctx: null, canvas: null, drawing: false, lastX: 0, lastY: 0, hasInk: false },
 };
@@ -1975,7 +1963,10 @@ async function abrirFormularioOS(chamadoId, osId) {
 
 function sairFormularioOS() {
   pararTimerOS();
-  if (OS.saveDebounce) clearTimeout(OS.saveDebounce);
+  // Antes o timer era simplesmente cancelado: sair da tela em menos de 600ms
+  // depois de mexer num campo descartava a edição em silêncio. Agora ela vai
+  // embora em background (não trava a navegação).
+  _osEnviarPatchPendente().catch(() => {});
   OS.data = null;
   showScreen("tecnico-detalhe");
 }
@@ -2004,22 +1995,38 @@ function pararTimerOS() {
 }
 
 // ---- Auto-save debounced ----
+//
+// Os campos alterados vão se acumulando em OS.pendingPatch até o debounce
+// vencer. Antes cada chamada substituía o timer E o corpo do PATCH, então
+// mexer em dois campos dentro de 600ms fazia o primeiro nunca chegar ao
+// servidor — ficava certo na tela e errado no banco.
 function salvarOSDebounced(patch) {
   if (!OS.data) return;
   // aplica localmente primeiro pro feedback instantâneo
   Object.assign(OS.data, patch);
+  OS.pendingPatch = { ...(OS.pendingPatch || {}), ...patch };
   if (OS.saveDebounce) clearTimeout(OS.saveDebounce);
-  OS.saveDebounce = setTimeout(async () => {
-    if (IS_DEMO) return; // demo não persiste
-    try {
-      await api(`/ordens-servico/${OS.data.id}`, { method: "PATCH", body: patch });
-    } catch (err) {
-      console.warn("[os] auto-save falhou:", err.message);
-      showAlert(document.getElementById("osAlert"),
-        "Não foi possível salvar: " + err.message, "error");
-    }
-  }, 600);
+  OS.saveDebounce = setTimeout(_osEnviarPatchPendente, 600);
   atualizarProgresso();
+}
+
+// Manda agora o que estiver pendente. Chamado pelo debounce e, de propósito,
+// antes de finalizar: sem isso o PATCH atrasado caía numa O.S. já finalizada,
+// o backend recusava ("não pode ser editada") e a última edição se perdia.
+async function _osEnviarPatchPendente() {
+  if (OS.saveDebounce) { clearTimeout(OS.saveDebounce); OS.saveDebounce = null; }
+  const patch = OS.pendingPatch;
+  OS.pendingPatch = null;
+  if (!patch || IS_DEMO || !OS.data) return;
+  const osId = OS.data.id; // capturado agora: quem chama pode limpar OS.data em seguida
+  try {
+    await api(`/ordens-servico/${osId}`, { method: "PATCH", body: patch });
+  } catch (err) {
+    console.warn("[os] auto-save falhou:", err.message);
+    showAlert(document.getElementById("osAlert"),
+      "Não foi possível salvar: " + err.message, "error");
+    throw err; // deixa quem chamou (finalizarOS) abortar antes de fechar a O.S.
+  }
 }
 
 // ---- Render das seções ----
@@ -2660,7 +2667,7 @@ function bindResolucao() {
 function sectionRecebidoAssinatura() {
   const nome = OS.data.recebido_nome || "";
   const tipo = OS.data.recebido_tipo || "";
-  const tem = !!OS.data.assinatura_b64;
+  const tem = !!(OS.data.assinatura_b64 || OS.data.tem_assinatura);
   return sectionTemplate({
     id: "recebido",
     title: "Quem recebeu + Assinatura",
@@ -2715,7 +2722,7 @@ function bindRecebidoAssinatura() {
 function avaliarRecebidoComplete() {
   const nome = document.getElementById("osRecNome")?.value || "";
   const tipo = document.querySelector('#osRecTipo input:checked')?.value || "";
-  const tem = OS.sign.hasInk || !!OS.data.assinatura_b64;
+  const tem = OS.sign.hasInk || !!OS.data.assinatura_b64 || !!OS.data.tem_assinatura;
   const sec = document.querySelector('[data-section="recebido"]');
   if (sec) {
     sec.classList.toggle("is-complete", !!(nome && tipo && tem));
@@ -2746,13 +2753,30 @@ function iniciarCanvasAssinatura() {
 
   OS.sign.canvas = canvas;
   OS.sign.ctx = ctx;
-  OS.sign.hasInk = !!OS.data.assinatura_b64;
+  // `tem_assinatura` vem do GET /:id; a imagem em si é buscada à parte, porque
+  // são ~120KB que não fazem sentido baixar em toda abertura da O.S.
+  OS.sign.hasInk = !!(OS.data.assinatura_b64 || OS.data.tem_assinatura);
 
-  if (OS.data.assinatura_b64) {
+  if (OS.sign.hasInk) {
+    wrap?.classList.add("has-signature");
+    _osDesenharAssinatura(ctx, rect);
+  }
+}
+
+// Desenha a assinatura existente, baixando-a se ainda não estiver em memória.
+async function _osDesenharAssinatura(ctx, rect) {
+  try {
+    if (!OS.data.assinatura_b64) {
+      if (IS_DEMO || !OS.data.tem_assinatura) return;
+      const r = await api(`/ordens-servico/${OS.data.id}/assinatura`);
+      if (!r?.assinatura_b64) return;
+      OS.data.assinatura_b64 = r.assinatura_b64; // cacheia pra não rebaixar
+    }
     const img = new Image();
     img.onload = () => ctx.drawImage(img, 0, 0, rect.width, rect.height);
     img.src = OS.data.assinatura_b64;
-    wrap?.classList.add("has-signature");
+  } catch (e) {
+    console.warn("[os] assinatura não carregou:", e.message);
   }
 }
 
@@ -2793,6 +2817,7 @@ function bindCanvasAssinatura() {
     OS.sign.drawing = false;
     if (OS.sign.hasInk) {
       const dataUrl = canvas.toDataURL("image/png");
+      OS.data.tem_assinatura = true;
       salvarOSDebounced({ assinatura_b64: dataUrl });
       avaliarRecebidoComplete();
     }
@@ -2813,6 +2838,7 @@ function limparAssinatura() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   OS.sign.hasInk = false;
   document.getElementById("osSignWrap")?.classList.remove("has-signature");
+  OS.data.tem_assinatura = false;
   salvarOSDebounced({ assinatura_b64: null });
   avaliarRecebidoComplete();
 }
@@ -2821,7 +2847,7 @@ async function abrirAssinaturaFullscreen() {
   const overlay = document.createElement("div");
   overlay.className = "sign-fs-overlay";
 
-  const jaTemAssinatura = OS.sign.hasInk || !!OS.data.assinatura_b64;
+  const jaTemAssinatura = OS.sign.hasInk || !!OS.data.assinatura_b64 || !!OS.data.tem_assinatura;
 
   overlay.innerHTML = `
     <div class="sign-fs-bar">
@@ -2953,6 +2979,7 @@ async function abrirAssinaturaFullscreen() {
       OS.sign.hasInk = true;
       document.getElementById("osSignWrap")?.classList.add("has-signature");
       iniciarCanvasAssinatura();
+      OS.data.tem_assinatura = true;
       salvarOSDebounced({ assinatura_b64: dataUrl });
       avaliarRecebidoComplete();
     }
@@ -2987,6 +3014,11 @@ async function finalizarOS() {
   setBtnLoading(btn, true);
   hideAlert(document.getElementById("osAlert"));
   try {
+    // Descarrega o auto-save pendente ANTES de finalizar. Se o técnico clicou
+    // menos de 600ms depois de mexer num campo, o PATCH atrasado chegaria com
+    // a O.S. já fechada — erro na tela e edição perdida.
+    await _osEnviarPatchPendente();
+
     // Pré-validação: fotos obrigatórias quando tipo é instalacao_pecas
     // ou chamado_emergencial (backend valida de novo, mas damos feedback rápido).
     const tipos = OS.data.tipos_servico || [];
@@ -3807,11 +3839,11 @@ function renderClienteChamados() {
         <span class="hint">${counts.todos} ${counts.todos === 1 ? "chamado" : "chamados"}</span>
       </div>
       <div class="ch-toolbar tec-toolbar">
-        <div class="wa-tabs" role="tablist">
-          <button class="wa-tab ${_cliChTab === "todos"          ? "is-active" : ""}" data-tab="todos">Todos <span class="wa-count">${counts.todos}</span></button>
-          <button class="wa-tab ${_cliChTab === "aberto"         ? "is-active" : ""}" data-tab="aberto">Abertos <span class="wa-count">${counts.aberto}</span></button>
-          <button class="wa-tab ${_cliChTab === "em_atendimento" ? "is-active" : ""}" data-tab="em_atendimento">Em atend. <span class="wa-count">${counts.em_atendimento}</span></button>
-          <button class="wa-tab ${_cliChTab === "fechado"        ? "is-active" : ""}" data-tab="fechado">Fechados <span class="wa-count">${counts.fechado}</span></button>
+        <div class="tec-tabs" role="tablist">
+          <button class="tec-tab ${_cliChTab === "todos"          ? "is-active" : ""}" data-tab="todos">Todos <span class="tec-tab-count">${counts.todos}</span></button>
+          <button class="tec-tab ${_cliChTab === "aberto"         ? "is-active" : ""}" data-tab="aberto">Abertos <span class="tec-tab-count">${counts.aberto}</span></button>
+          <button class="tec-tab ${_cliChTab === "em_atendimento" ? "is-active" : ""}" data-tab="em_atendimento">Em atend. <span class="tec-tab-count">${counts.em_atendimento}</span></button>
+          <button class="tec-tab ${_cliChTab === "fechado"        ? "is-active" : ""}" data-tab="fechado">Fechados <span class="tec-tab-count">${counts.fechado}</span></button>
         </div>
       </div>
       ${filtrados.length === 0
@@ -3827,7 +3859,7 @@ function renderClienteChamados() {
   main.querySelectorAll("[data-kpi-tab]").forEach((b) => {
     b.addEventListener("click", () => { _cliChTab = b.dataset.kpiTab; renderClienteChamados(); });
   });
-  main.querySelectorAll(".wa-tab").forEach((b) => {
+  main.querySelectorAll(".tec-tab").forEach((b) => {
     b.addEventListener("click", () => { _cliChTab = b.dataset.tab; renderClienteChamados(); });
   });
   main.querySelectorAll("[data-chamado]").forEach((el) => {
@@ -4956,9 +4988,25 @@ function renderRoteiro() {
   }
 
   const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-  setTxt("rtFooterTotal", `${RT.planos.length} preventiva${RT.planos.length === 1 ? "" : "s"}`);
-  setTxt("rtFooterPredios", `${grupos.length} prédio${grupos.length === 1 ? "" : "s"}`);
   setTxt("rtSync", RT.syncedAt ? syncLabel(RT.syncedAt) : "—");
+
+  // Painel de números no topo — mesma faixa da home do técnico, pra as duas
+  // telas lerem como irmãs. Substituiu o rodapé de contagem do card antigo.
+  const strip = document.getElementById("rtKpiStrip");
+  if (strip) {
+    const atrasadas = RT.planos.filter(p => !p.chamado_aberto_id && rtDiasAte(p.proxima_em) < 0).length;
+    const emCurso   = RT.planos.filter(p => p.chamado_aberto_id).length;
+    const cell = (val, label, cls) => `
+      <div class="tk-cell ${val > 0 ? cls : ""}">
+        <div class="tk-value">${val}</div>
+        <div class="tk-label">${label}</div>
+      </div>`;
+    strip.innerHTML =
+      cell(grupos.length,     "Prédios",   "is-neutral") +
+      cell(RT.planos.length,  "Serviços",  "is-neutral") +
+      cell(atrasadas,         "Atrasadas", "is-bad")     +
+      cell(emCurso,           "Em curso",  "is-ok");
+  }
 
   rtRenderDesvio();
   rtAtualizarBadge();

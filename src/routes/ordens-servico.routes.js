@@ -158,9 +158,18 @@ router.get("/:id", authRequired, osDonoOuAdmin(), async (req, res) => {
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
 
   try {
+    // `assinatura_b64` fica DE FORA de propósito: é uma imagem base64 de ~120KB
+    // que o os.* arrastava em toda abertura da O.S. — no 4G do técnico isso é
+    // download puro a cada visita. Aqui vai só o "existe ou não"; a imagem em si
+    // sai por GET /:id/assinatura, quando a seção de assinatura precisa dela.
     const osRes = await pool.query(
       `SELECT
-         os.*,
+         os.id, os.numero, os.chamado_id, os.condominio_id, os.tecnico_id,
+         os.tipos_servico, os.itens_verificados, os.correntes,
+         os.servico_realizado, os.observacoes, os.recebido_nome, os.recebido_tipo,
+         os.orcamento_necessario, os.orcamento_observacoes, os.retorno_sugerido_em,
+         os.chegada_em, os.finalizada_em, os.criado_em, os.pdf_url,
+         (os.assinatura_b64 IS NOT NULL) AS tem_assinatura,
          c.nome AS condominio_nome,
          c.endereco, c.bairro, c.cidade, c.uf, c.cep,
          t.nome AS tecnico_nome,
@@ -182,6 +191,22 @@ router.get("/:id", authRequired, osDonoOuAdmin(), async (req, res) => {
   } catch (err) {
     console.error("[ordens-servico] GET /:id:", err);
     return res.status(500).json({ error: "Erro ao buscar O.S." });
+  }
+});
+
+// GET /ordens-servico/:id/assinatura — imagem da assinatura, sob demanda.
+// Separada do GET /:id porque são ~120KB que só a seção de assinatura usa.
+router.get("/:id/assinatura", authRequired, osDonoOuAdmin(), async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
+
+  try {
+    const r = await pool.query("SELECT assinatura_b64 FROM ordens_servico WHERE id = $1", [id]);
+    if (!r.rows.length) return res.status(404).json({ error: "O.S. não encontrada" });
+    return res.json({ assinatura_b64: r.rows[0].assinatura_b64 || null });
+  } catch (err) {
+    console.error("[ordens-servico] GET /:id/assinatura:", err);
+    return res.status(500).json({ error: "Erro ao buscar assinatura" });
   }
 });
 

@@ -846,7 +846,11 @@ router.get("/orcamentos", authRequired, adminOnly, async (req, res) => {
   const { status: rawStatus, condominio_id, data_ini, data_fim } = req.query;
   const status = _orcStatusIn(rawStatus);
 
-  const where = ["o.os_id IS NOT NULL", "os.orcamento_necessario = TRUE"];
+  // Só o pedido do técnico é obrigatório aqui. O orçamento em si pode ainda
+  // não existir: era um INNER JOIN com `orcamentos`, então a O.S. marcada como
+  // "precisa de orçamento" ficava invisível justamente enquanto ninguém tinha
+  // criado o orçamento — que é o estado que esta aba precisa mostrar.
+  const where = ["os.orcamento_necessario = TRUE"];
   const vals  = [];
 
   if (status && ORC_STATUS_VALIDOS.includes(status)) {
@@ -896,13 +900,15 @@ router.get("/orcamentos", authRequired, adminOnly, async (req, res) => {
          os.servico_realizado,
          os.tipos_servico
        FROM ordens_servico os
-       JOIN orcamentos o       ON o.os_id = os.id
+       LEFT JOIN orcamentos o  ON o.os_id = os.id
        LEFT JOIN condominios c ON c.id = os.condominio_id
        LEFT JOIN tecnicos t    ON t.id = os.tecnico_id
        LEFT JOIN usuarios ua   ON ua.id = o.aprovado_por
        WHERE ${where.join(" AND ")}
        ORDER BY
-         CASE o.status WHEN 'rascunho' THEN 0 ELSE 1 END,
+         CASE WHEN o.id IS NULL THEN 0
+              WHEN o.status = 'rascunho' THEN 1
+              ELSE 2 END,
          os.finalizada_em DESC NULLS LAST
        LIMIT 200`,
       vals

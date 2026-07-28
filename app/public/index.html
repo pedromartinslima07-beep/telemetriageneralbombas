@@ -120,62 +120,62 @@
           <img src="login-logo.png" class="app-brand-logo" alt="GENERAL" />
           <div class="brand-text">
             <div class="brand-name" id="tcUserName">—</div>
-            <div class="brand-sub">
+            <!-- Linha de status: situação do dia · GPS · relógio.
+                 O GPS morava num chip flutuante que cobria os KPIs, e o
+                 relógio no rodapé do card — juntos aqui viram uma coisa só. -->
+            <div class="brand-sub tec-hdr-status">
               <span class="brand-dot" id="tcStatusDot"></span>
               <span id="tcStatusText">Em campo</span>
+              <span class="tec-hdr-sep">·</span>
+              <span id="tcHdrGps" class="tec-hdr-gps">GPS aguardando…</span>
+              <span class="tec-hdr-sep">·</span>
+              <span id="tcHdrClock" class="tec-hdr-clock">—</span>
             </div>
           </div>
         </div>
       </header>
 
-      <div class="tec-shell">
-        <!-- KPIs no topo (rc cards copiados do admin) -->
-        <div class="resumo-grid tec-kpi" id="tcKpiGrid"></div>
+      <!-- Sem card em volta da lista: no celular a lista É a tela, e uma
+           moldura interna só rouba largura e cria caixa dentro de caixa.
+           O título saiu junto — a aba ativa no menu inferior já diz "Chamados". -->
+      <div class="tec-shell tec-home">
+        <div class="tec-kpi-strip" id="tcKpiGrid"></div>
 
-        <!-- Container principal — estilo .card do admin com cardHead -->
-        <section class="card tec-card">
-          <div class="cardHead">
-            <h2>
-              <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                <polyline points="14 2 14 8 20 8"/>
-                <line x1="9" y1="13" x2="15" y2="13"/>
-                <line x1="9" y1="17" x2="13" y2="17"/>
-              </svg>
-              Meus chamados
-            </h2>
-            <button class="btn btn-sm" id="tcRefresh" aria-label="Atualizar">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <!-- Tabs em sublinhado, largura total -->
+        <div class="tec-tabs" role="tablist">
+          <button class="tec-tab is-active" data-tab="hoje">
+            Hoje <span class="tec-tab-count" id="tcCountHoje">0</span>
+          </button>
+          <button class="tec-tab" data-tab="proximos">
+            Próximos <span class="tec-tab-count" id="tcCountProximos">0</span>
+          </button>
+          <button class="tec-tab" data-tab="historico">
+            Histórico <span class="tec-tab-count" id="tcCountHistorico">0</span>
+          </button>
+        </div>
+
+        <!-- Linha de contexto: ordenação + quando sincronizou + atualizar -->
+        <div class="tec-sortbar">
+          <select id="tcSort" class="tc-sort" aria-label="Ordenar por">
+            <option value="proximidade">📍 Mais próximos</option>
+            <option value="prioridade">🔥 Prioridade</option>
+            <option value="data">🕒 Mais recentes</option>
+          </select>
+          <span class="tec-sortbar-meta">
+            <span class="tc-sync" id="tcSync">—</span>
+            <button class="tec-refresh" id="tcRefresh" aria-label="Atualizar">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="23 4 23 10 17 10"/>
                 <polyline points="1 20 1 14 7 14"/>
                 <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"/>
                 <path d="M20.49 15a9 9 0 0 1-14.85 3.36L1 14"/>
               </svg>
             </button>
-          </div>
+          </span>
+        </div>
 
-          <div class="ch-toolbar tec-toolbar">
-            <div class="wa-tabs" role="tablist">
-              <button class="wa-tab is-active" data-tab="hoje">
-                Hoje <span class="wa-count" id="tcCountHoje">0</span>
-              </button>
-              <button class="wa-tab" data-tab="proximos">
-                Próximos <span class="wa-count" id="tcCountProximos">0</span>
-              </button>
-              <button class="wa-tab" data-tab="historico">
-                Histórico <span class="wa-count" id="tcCountHistorico">0</span>
-              </button>
-            </div>
-            <div class="tec-toolbar-bottom">
-              <select id="tcSort" class="input tc-sort" aria-label="Ordenar por">
-                <option value="proximidade">📍 Mais próximos</option>
-                <option value="prioridade">🔥 Prioridade</option>
-                <option value="data">🕒 Mais recentes</option>
-              </select>
-              <span class="tc-sync hint" id="tcSync">—</span>
-            </div>
-          </div>
-
+        <!-- Área de conteúdo: ocupa o que sobra, então o vazio some -->
+        <div class="tec-content">
           <div class="ch-list-mob" id="tcList"></div>
           <div class="tc-empty" id="tcEmpty" hidden>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -183,30 +183,10 @@
               <polyline points="22 4 12 14.01 9 11.01"/>
             </svg>
             <p id="tcEmptyMsg">Nenhum chamado nesta aba</p>
+            <p class="tc-empty-sub" id="tcEmptySub"></p>
           </div>
           <div class="alert error" id="tcAlert" hidden></div>
-
-          <!-- Rodapé da lista — total + GPS + relógio -->
-          <div class="tec-footer" id="tcFooter">
-            <span class="tec-footer-cell">
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                <polyline points="14 2 14 8 20 8"/>
-              </svg>
-              <span id="tcFooterTotal">0 chamados</span>
-            </span>
-            <span class="tec-footer-sep"></span>
-            <span class="tec-footer-cell" id="tcFooterGps">
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-                <circle cx="12" cy="10" r="3"/>
-              </svg>
-              <span>GPS aguardando…</span>
-            </span>
-            <span class="tec-footer-sep"></span>
-            <span class="tec-footer-cell tec-footer-clock" id="tcFooterClock">—</span>
-          </div>
-        </section>
+        </div>
       </div>
 
       <!-- Bottom nav do técnico: 3 abas (Chamados / Roteiro / Conta) -->
@@ -273,52 +253,41 @@
         </div>
       </header>
 
-      <div class="tec-shell">
+      <!-- Mesma estrutura da home do técnico: painel de números colado ao
+           cabeçalho, barra de contexto rebaixada e lista full-bleed. -->
+      <div class="tec-shell tec-home">
+        <div class="tec-kpi-strip" id="rtKpiStrip"></div>
+
         <!-- Desvio: só aparece quando o técnico largou o roteiro por uma urgência -->
         <button type="button" class="rt-desvio" id="rtDesvio" hidden></button>
 
-        <section class="card tec-card">
-          <div class="cardHead">
-            <h2>
-              <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="6" cy="19" r="3"/><circle cx="18" cy="5" r="3"/>
-                <path d="M9 19h5a4 4 0 0 0 0-8H10a4 4 0 0 1 0-8h5"/>
-              </svg>
-              Preventivas da região
-            </h2>
-            <button class="btn btn-sm" id="rtRefresh" aria-label="Atualizar">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <div class="tec-sortbar">
+          <select id="rtSort" class="tc-sort" aria-label="Ordenar roteiro">
+            <option value="proximidade">📍 Mais próximos</option>
+            <option value="atrasados">⚠️ Atrasados primeiro</option>
+          </select>
+          <span class="tec-sortbar-meta">
+            <span class="tc-sync" id="rtSync">—</span>
+            <button class="tec-refresh" id="rtRefresh" aria-label="Atualizar">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
                 <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"/><path d="M20.49 15a9 9 0 0 1-14.85 3.36L1 14"/>
               </svg>
             </button>
-          </div>
+          </span>
+        </div>
 
-          <div class="ch-toolbar tec-toolbar">
-            <div class="tec-toolbar-bottom">
-              <select id="rtSort" class="input tc-sort" aria-label="Ordenar roteiro">
-                <option value="proximidade">📍 Mais próximos</option>
-                <option value="atrasados">⚠️ Atrasados primeiro</option>
-              </select>
-              <span class="tc-sync hint" id="rtSync">—</span>
-            </div>
-          </div>
-
+        <div class="tec-content">
           <div class="rt-list" id="rtList"></div>
           <div class="tc-empty" id="rtEmpty" hidden>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
               <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
             </svg>
             <p id="rtEmptyMsg">Nenhuma preventiva na sua região por enquanto</p>
+            <p class="tc-empty-sub" id="rtEmptySub"></p>
           </div>
           <div class="alert error" id="rtAlert" hidden></div>
-
-          <div class="tec-footer" id="rtFooter">
-            <span class="tec-footer-cell"><span id="rtFooterTotal">0 preventivas</span></span>
-            <span class="tec-footer-sep"></span>
-            <span class="tec-footer-cell" id="rtFooterPredios">0 prédios</span>
-          </div>
-        </section>
+        </div>
       </div>
 
       <nav class="cli-nav">

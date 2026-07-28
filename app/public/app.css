@@ -12,9 +12,12 @@
   /* Backgrounds */
   --bg:       #06070f;
   --bg-soft:  #0a0c18;
-  --surface:  rgba(20, 23, 42, .65);
-  --surface2: rgba(28, 32, 56, .72);
-  --surface3: rgba(36, 40, 70, .55);
+  /* Superfícies OPACAS. Eram translúcidas (.55–.72) e deixavam o fundo
+     aparecer através de cada painel — no celular isso lê como "lavado",
+     sem nenhuma superfície sólida onde apoiar o conteúdo. */
+  --surface:  #101425;
+  --surface2: #151a2e;
+  --surface3: #1d2340;
 
   /* Borders */
   --border:        rgba(255,255,255,.06);
@@ -58,13 +61,12 @@
   --gap:       16px;
 
   /* ── HUD — camada "Painel de comando" (só app mobile) ──
-     fonte mono para dados + cores da moldura/grid/scanline.        */
+     fonte mono para dados + cores das molduras âmbar.
+     Os tokens de grid/scanline saíram em 2026-07-27 junto com o
+     quadriculado de fundo (ver bloco HUD lá embaixo).              */
   --font-mono:   ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Monaco, Consolas, monospace;
-  --hud-grid:    rgba(120,140,200,.045);   /* linhas frias do grid  */
-  --hud-grid-2:  rgba(240,176,20,.022);    /* linhas âmbar do grid  */
   --hud-line:    rgba(240,176,20,.55);     /* cantos/brackets       */
   --hud-line-dim:rgba(240,176,20,.22);     /* hairline de molduras  */
-  --hud-scan:    rgba(0,0,0,.10);          /* scanline CRT sutil    */
 }
 
 /* Aurora sutil — copiado de admin.css body::before */
@@ -1008,19 +1010,6 @@ body:has(.screen-auth[data-active])::before { display: none; }
   gap: 10px;
   padding: 0;
 }
-.tec-kpi { grid-template-columns: repeat(2, 1fr); }
-
-/* (.rc completo já existe acima no app.css — só ajusto pro mobile) */
-.tec-kpi .rc {
-  padding: 12px 14px;
-  min-height: 92px;
-}
-.tec-kpi .rc-value { font-size: 24px; letter-spacing: -1px; margin-top: 2px; }
-.tec-kpi .rc-label { font-size: 9.5px; letter-spacing: .8px; }
-.tec-kpi .rc-icon  { width: 26px; height: 26px; }
-.tec-kpi .rc-icon svg { width: 14px; height: 14px; }
-.tec-kpi .rc-hint  { font-size: 10px; }
-
 /* ===== Card principal — copiado de admin.css .card + .cardHead ===== */
 .tec-card {
   background: var(--surface);
@@ -1196,18 +1185,18 @@ body:has(.screen-auth[data-active])::before { display: none; }
   background: var(--muted2);
   transition: box-shadow .15s;
 }
-.ch-row-mob[data-pri="emergencia"]::before {
+.ch-row-mob[data-pri="p1"]::before {
   background: var(--danger);
   box-shadow: 0 0 12px rgba(239,68,68,.5);
 }
-.ch-row-mob[data-pri="alta"]::before {
+.ch-row-mob[data-pri="p2"]::before {
   background: var(--warn);
   box-shadow: 0 0 10px rgba(245,158,11,.4);
 }
-.ch-row-mob[data-pri="media"]::before {
+.ch-row-mob[data-pri="p3"]::before {
   background: var(--blue);
 }
-.ch-row-mob[data-pri="baixa"]::before {
+.ch-row-mob[data-pri="p4"]::before {
   background: var(--muted);
 }
 .ch-row-mob:hover {
@@ -1233,24 +1222,24 @@ body:has(.screen-auth[data-active])::before { display: none; }
   margin-top: 2px;
 }
 .ch-row-mob-icon svg { width: 18px; height: 18px; }
-.ch-row-mob[data-pri="emergencia"] .ch-row-mob-icon {
+.ch-row-mob[data-pri="p1"] .ch-row-mob-icon {
   background: rgba(239,68,68,.14);
   border-color: rgba(239,68,68,.32);
   color: #f87171;
   box-shadow: inset 0 0 18px rgba(239,68,68,.10);
 }
-.ch-row-mob[data-pri="alta"] .ch-row-mob-icon {
+.ch-row-mob[data-pri="p2"] .ch-row-mob-icon {
   background: rgba(245,158,11,.12);
   border-color: rgba(245,158,11,.3);
   color: #fbbf24;
   box-shadow: inset 0 0 18px rgba(245,158,11,.08);
 }
-.ch-row-mob[data-pri="media"] .ch-row-mob-icon {
+.ch-row-mob[data-pri="p3"] .ch-row-mob-icon {
   background: rgba(74,120,247,.14);
   border-color: rgba(74,120,247,.32);
   color: #93c5fd;
 }
-.ch-row-mob[data-pri="baixa"] .ch-row-mob-icon {
+.ch-row-mob[data-pri="p4"] .ch-row-mob-icon {
   background: rgba(255,255,255,.05);
   border-color: var(--border);
   color: var(--muted);
@@ -2396,56 +2385,6 @@ body:has(.screen-auth[data-active])::before { display: none; }
   100% { background-position: -200% 0; }
 }
 
-/* ===== GPS chip (Fase 7F) — indicador read-only enquanto técnico está em atendimento.
-   Não é clicável (política: técnico não pode pausar o rastreamento). ===== */
-.gps-chip {
-  position: fixed;
-  top: calc(env(safe-area-inset-top, 0px) + 72px);
-  right: 10px;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px 10px 5px 8px;
-  border-radius: 999px;
-  background: rgba(15, 23, 42, 0.85);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(34, 197, 94, 0.4);
-  color: #4ade80;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.2px;
-  z-index: 9999;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-  user-select: none;
-  -webkit-user-select: none;
-  pointer-events: none;
-}
-.gps-chip[hidden] { display: none; }
-.gps-chip .gps-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #22c55e;
-  box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.6);
-  animation: gpsPulse 1.6s ease-in-out infinite;
-}
-@keyframes gpsPulse {
-  0%   { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.6); }
-  60%  { box-shadow: 0 0 0 8px rgba(34, 197, 94, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
-}
-/* Variante "fora do expediente" — GPS está agendado mas a janela 8h–18h
-   ainda não abriu (ou já fechou). Cinza, sem pulso. */
-.gps-chip.gps-chip-paused {
-  border-color: rgba(148, 163, 184, 0.45);
-  color: #94a3b8;
-}
-.gps-chip.gps-chip-paused .gps-dot {
-  background: #64748b;
-  animation: none;
-  box-shadow: none;
-}
-
 /* Banner persistente quando o GPS falha (negado, indisponível, etc).
    Fica no topo da tela, acima de tudo, até a permissão voltar. */
 .gps-aviso {
@@ -3181,34 +3120,25 @@ body:has(.screen-auth[data-active])::before { display: none; }
    propaga pra todas as telas sem reescrever cada uma.
 
    Princípios de perf (memória redesign-guidelines):
-   - grid, scanline e corner-brackets são ESTÁTICOS (sem repaint).
+   - corner-brackets e molduras são ESTÁTICOS (sem repaint).
    - única animação contínua nova = fluxo na linha de dados do auth,
      desligada em prefers-reduced-motion.
-   Pra reverter o HUD: basta remover este bloco (e os 6 tokens --hud-*).
+   Pra reverter o HUD: remover este bloco e os 2 tokens --hud-line*.
    ============================================================ */
 
-/* ── 1. Grid técnico + scanline de fundo ───────────────────
-   Um overlay fixo, atrás de tudo, somando ao body::before (aurora).
-   Grid 30px (frio + âmbar) dá a malha de telemetria; a scanline 3px
-   dá textura CRT. Tudo estático → custo de pintura praticamente nulo. */
+/* ── 1. Fundo ──────────────────────────────────────────────
+   Era um grid técnico de 30px + scanline CRT, removidos em 2026-07-27: o
+   quadriculado atravessava as superfícies (que na época eram translúcidas) e
+   deixava a tela com cara de suja, sem camadas. Ficou só um brilho âmbar no
+   topo, que dá profundidade sem textura. Os tokens --hud-grid/-2/--hud-scan
+   foram removidos junto; refazer o grid exige recriá-los. */
 body::after {
   content: '';
   position: fixed;
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  background:
-    /* scanline CRT */
-    repeating-linear-gradient(0deg, var(--hud-scan) 0 1px, transparent 1px 3px),
-    /* grid vertical/horizontal frio */
-    linear-gradient(90deg, var(--hud-grid) 1px, transparent 1px) 0 0 / 30px 30px,
-    linear-gradient(0deg,  var(--hud-grid) 1px, transparent 1px) 0 0 / 30px 30px,
-    /* grid âmbar mais largo (sobreposição de "setor") */
-    linear-gradient(90deg, var(--hud-grid-2) 1px, transparent 1px) 0 0 / 150px 150px,
-    linear-gradient(0deg,  var(--hud-grid-2) 1px, transparent 1px) 0 0 / 150px 150px;
-  /* fade radial: grid mais visível no topo, some embaixo */
-  -webkit-mask-image: radial-gradient(120% 90% at 50% 0%, #000 35%, transparent 92%);
-          mask-image: radial-gradient(120% 90% at 50% 0%, #000 35%, transparent 92%);
+  background: radial-gradient(120% 60% at 50% 0%, rgba(240,176,20,.05) 0%, transparent 60%);
 }
 
 /* ── 3. Tipografia mono nos dados ──────────────────────────
@@ -3437,3 +3367,236 @@ body::after {
 .rt-prazo.is-atrasado { color: #f87171; font-weight: 700; }
 .rt-prazo.is-hoje     { color: #fbbf24; font-weight: 700; }
 .rt-iniciar { min-width: 92px; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   TÉCNICO — HOME (Meus chamados): limpeza de 2026-07-27
+   Os 4 KPIs em card ocupavam ~40% da tela pra mostrar zeros e empurravam a
+   lista pra baixo da dobra; viraram uma faixa de 4 números. E o estado do GPS,
+   que era um chip flutuante por cima dos cards E se repetia no rodapé, virou
+   parte da linha de status do cabeçalho, junto do relógio.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Faixa de KPIs — painel de instrumentos colado ao cabeçalho ───────────
+   Full-bleed e sem cantos arredondados de propósito: assim ela lê como
+   continuação do header (um "cockpit" só) em vez de um card solto boiando.
+   O hairline âmbar embaixo e os brackets nos cantos são o mesmo vocabulário
+   HUD do .cardHead que existia aqui antes. */
+.tec-kpi-strip {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.035) 0%, transparent 70%),
+    var(--surface2);
+  border-bottom: 1px solid var(--hud-line-dim, var(--border));
+  overflow: hidden;
+}
+/* Brackets âmbar nos cantos inferiores — assinatura visual do HUD */
+.tec-kpi-strip::before,
+.tec-kpi-strip::after {
+  content: "";
+  position: absolute; bottom: 0;
+  width: 14px; height: 8px;
+  border-bottom: 2px solid var(--hud-line, var(--accent));
+  opacity: .75;
+  pointer-events: none;
+}
+.tec-kpi-strip::before { left: 0;  border-left: 2px solid var(--hud-line, var(--accent)); }
+.tec-kpi-strip::after  { right: 0; border-right: 2px solid var(--hud-line, var(--accent)); }
+
+.tk-cell {
+  padding: 12px 4px 11px;
+  text-align: center;
+  border-left: 1px solid var(--border);
+}
+.tk-cell:first-child { border-left: none; }
+.tk-value {
+  font-size: 23px; font-weight: 800; line-height: 1;
+  color: var(--muted2, var(--muted));
+  font-family: var(--font-mono, ui-monospace, "Cascadia Code", Consolas, monospace);
+  font-feature-settings: "tnum" 1;
+  letter-spacing: -.5px;
+  transition: color .2s, text-shadow .2s;
+}
+.tk-label {
+  margin-top: 5px;
+  font-size: 8.5px; font-weight: 700;
+  letter-spacing: .9px; text-transform: uppercase;
+  color: var(--muted);
+  /* Rótulos com período ("Fechados hoje") quebram em duas linhas em telas
+     estreitas em vez de estourar a célula. */
+  line-height: 1.25;
+  padding: 0 2px;
+}
+/* Zero fica apagado; o que exige atenção acende — com glow, como o resto do HUD */
+.tk-cell.is-neutral .tk-value { color: var(--text); }
+.tk-cell.is-warn .tk-value { color: #fbbf24; text-shadow: 0 0 14px rgba(251,191,36,.45); }
+.tk-cell.is-bad  .tk-value { color: #f87171; text-shadow: 0 0 14px rgba(248,113,113,.5); }
+.tk-cell.is-ok   .tk-value { color: #4ade80; text-shadow: 0 0 14px rgba(74,222,128,.4); }
+.tk-cell.is-bad  .tk-label { color: #f87171; }
+
+/* ── Linha de status do cabeçalho: dia · GPS · relógio ───────────────────── */
+.tec-hdr-status {
+  display: flex; align-items: center; gap: 6px;
+  flex-wrap: wrap;
+}
+.tec-hdr-sep { color: var(--muted2, var(--muted)); opacity: .6; }
+.tec-hdr-gps { font-weight: 600; }
+.tec-hdr-gps.is-on   { color: #4ade80; }
+.tec-hdr-gps.is-warn { color: #fbbf24; }
+.tec-hdr-gps.is-off  { color: var(--muted); font-weight: 400; }
+.tec-hdr-clock {
+  color: var(--muted);
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+}
+/* Sem GPS a mostrar (deslogado), o separador sobrando some junto */
+.tec-hdr-gps:empty,
+.tec-hdr-gps:empty + .tec-hdr-sep { display: none; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   TÉCNICO — HOME sem moldura
+   A lista deixou de morar dentro de um .card: no celular ela É a tela, e a
+   caixa interna roubava largura, criava moldura dentro de moldura e forçava
+   uma altura fixa que deixava ~400px mortos acima do menu. Agora a coluna
+   inteira é flex e a área de conteúdo cresce até o nav.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.tec-home {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;          /* deixa o filho com overflow encolher de verdade */
+  gap: 0;
+  padding: 0;             /* tudo full-bleed: a lista vai de borda a borda */
+}
+
+/* ── Tabs em sublinhado, largura total ────────────────────────────────────── */
+.tec-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border-bottom: 1px solid var(--border);
+}
+.tec-tab {
+  position: relative;
+  background: none; border: 0;
+  padding: 11px 4px 10px;
+  color: var(--muted);
+  font-size: 12px; font-weight: 600;
+  cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  transition: color .15s;
+}
+.tec-tab::after {
+  content: "";
+  position: absolute; left: 18%; right: 18%; bottom: -1px;
+  height: 2px; border-radius: 2px;
+  background: transparent;
+  transition: background .15s;
+}
+.tec-tab.is-active { color: var(--accent); }
+/* Glow no sublinhado: mesmo tratamento do tique âmbar do .cardHead */
+.tec-tab.is-active::after {
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+}
+
+.tec-tab-count {
+  font-size: 10px; font-weight: 700;
+  min-width: 17px; padding: 1px 5px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.07);
+  color: var(--muted);
+}
+.tec-tab.is-active .tec-tab-count {
+  background: rgba(240,176,20,.18);
+  color: var(--accent);
+}
+
+/* ── Linha de ordenação / sync / atualizar ────────────────────────────────── */
+/* Rebaixada em relação à lista — cria a terceira camada (cockpit > filtros >
+   conteúdo) que a moldura do card dava de graça. */
+.tec-sortbar {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 8px 14px;
+  background: rgba(0,0,0,.18);
+  border-bottom: 1px solid var(--border);
+}
+.tec-sortbar .tc-sort {
+  appearance: none; -webkit-appearance: none;
+  background: transparent;
+  border: 0;
+  color: var(--text);
+  font-size: 12px; font-weight: 600;
+  padding: 2px 18px 2px 0;
+  cursor: pointer;
+  /* chevron desenhado, pra não depender do controle nativo claro */
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237a7e9c' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right center;
+  background-size: 13px;
+}
+.tec-sortbar-meta { display: inline-flex; align-items: center; gap: 8px; }
+.tec-sortbar .tc-sync {
+  font-size: 10.5px; color: var(--muted);
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+}
+.tec-refresh {
+  background: none; border: 0; padding: 4px;
+  color: var(--muted); cursor: pointer;
+  display: inline-flex; line-height: 0;
+  border-radius: 6px;
+}
+.tec-refresh svg { width: 14px; height: 14px; }
+.tec-refresh:active { color: var(--accent); }
+.tec-refresh.is-refreshing svg { animation: tecSpin .8s linear infinite; }
+@keyframes tecSpin { to { transform: rotate(360deg); } }
+
+/* ── Área de conteúdo ─────────────────────────────────────────────────────── */
+/* Superfície sólida sob a lista: sem isto, o espaço abaixo do último chamado
+   mostrava o fundo da página e a área parecia inacabada. */
+.tec-content {
+  flex: 1; min-height: 0;
+  display: flex; flex-direction: column;
+  overflow-y: auto;
+  background: var(--bg-soft);
+}
+.tec-content .ch-list-mob { padding: 0; }
+
+/* Empty state centralizado no espaço que sobra, não numa caixa de altura fixa.
+   O ícone ganha anel + glow pra ter presença — vazio não precisa ser sem graça. */
+.tec-content .tc-empty {
+  flex: 1;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 10px;
+  padding: 24px;
+  text-align: center;
+}
+.tec-content .tc-empty[hidden] { display: none; }
+/* Sem escopo em .tec-content: o mesmo empty state é usado nas telas do
+   cliente, e antes só a home do técnico ganhava o tratamento novo. */
+.tc-empty svg {
+  width: 56px; height: 56px;
+  padding: 14px;
+  border-radius: 50%;
+  color: var(--accent);
+  opacity: 1;
+  background: radial-gradient(circle, rgba(240,176,20,.12) 0%, transparent 70%);
+  border: 1px solid rgba(240,176,20,.25);
+  box-shadow: 0 0 24px rgba(240,176,20,.12);
+  margin-bottom: 2px;
+}
+.tc-empty p {
+  font-size: 13.5px; font-weight: 600;
+  color: var(--text-dim, var(--text));
+}
+.tc-empty-sub {
+  font-size: 11.5px !important;
+  color: var(--accent) !important;
+  font-weight: 600;
+}
+.tc-empty-sub:empty { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .tec-refresh.is-refreshing svg { animation: none; }
+}

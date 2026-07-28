@@ -12115,6 +12115,7 @@ function _orcFmtData(iso) {
 }
 
 function _orcStatusCls(s) {
+  if (!s)                return "orc-status-req"; // técnico pediu, orçamento ainda não existe
   if (s === "aprovado")  return "orc-status-ok";
   if (s === "rejeitado") return "orc-status-bad";
   if (s === "expirado")  return "orc-status-off";
@@ -12123,6 +12124,10 @@ function _orcStatusCls(s) {
 }
 
 function _orcStatusLabel(s) {
+  // Sem status = não há linha em `orcamentos`: a O.S. foi marcada como
+  // "precisa de orçamento" e ninguém começou. É o estado que mais precisa
+  // aparecer nesta aba, e era justamente o que ficava invisível.
+  if (!s)                return "SOLICITADO";
   if (s === "aprovado")  return "APROVADO";
   if (s === "rejeitado") return "REJEITADO";
   if (s === "expirado")  return "EXPIRADO";
