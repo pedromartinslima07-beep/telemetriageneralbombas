@@ -1172,6 +1172,14 @@ function configurarCTA(c) {
     return;
   }
   bar.hidden = false;
+  // A tela "O.S. finalizada!" esconde esta barra com `style.display = "none"`
+  // inline e só restaura no clique de "Voltar pra minha lista". Saindo de lá por
+  // qualquer outro caminho (gesto de voltar, bottom-nav), o inline sobrevive — e
+  // como só existe UMA .td-cta-bar no index.html, reusada por todos os chamados,
+  // o `hidden = false` acima não vence o display inline e NENHUM chamado voltava
+  // a mostrar botão até reiniciar o app. Limpar aqui torna esta função a fonte
+  // única da verdade, independente de como a tela anterior foi abandonada.
+  bar.style.display = "";
 
   // Remove botão secundário anterior se existir
   const secExist = document.getElementById("tdCtaBtnSec");

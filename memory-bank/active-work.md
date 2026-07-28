@@ -46,6 +46,13 @@ descartado: não faz background.
   `admin.html`, `src/app.js`) herdado de `feature/app-mobile`.
 
 **Achados do teste em produção (mesma sessão):**
+- **Barra de ações do chamado sumia pra sempre depois de finalizar uma O.S.**
+  Corrigido — detalhes no [changelog](../docs/changelog.md). Lição de
+  diagnóstico: eu chutei duas causas erradas (fluxo de 2 estágios, chamado
+  fechado) antes de simplesmente **procurar todas as referências ao elemento**
+  (`grep tdCtaBar`), que revelou os dois mecanismos concorrentes de esconder
+  (`hidden` vs `style.display`) em 1 minuto. Num SPA com DOM reaproveitado,
+  buscar o elemento vem antes de deduzir pelo fluxo.
 - **Preventiva de plano não apareceu no app.** Não era regressão do Capacitor 8:
   o chamado do plano nasce sem `tecnico_id` quando o condomínio não tem `zona`
   (ou a zona não tem exatamente 1 responsável), e `/chamados/meus` filtra por

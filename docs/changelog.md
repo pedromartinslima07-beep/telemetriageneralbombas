@@ -815,6 +815,27 @@ er sem animação.
   - ⚠️ `minSdk 24` **derruba Android 5.0/5.1** (era 22). Sem impacto conhecido,
     mas é perda de compatibilidade.
 
+- **2026-07-28** — **Fix (app mobile): barra de ações do chamado sumia pra sempre
+  depois de finalizar uma O.S.** Sintoma: o técnico abria qualquer chamado
+  `aberto` e não aparecia botão nenhum — nem "A caminho", nem "Iniciar
+  atendimento". Reiniciar o app resolvia até a próxima O.S. finalizada.
+  - Causa: a tela "O.S. finalizada!" esconde a barra com
+    `document.querySelector(".td-cta-bar").style.display = "none"`
+    (`app/public/app.js`) e **só restaura dentro do clique do botão "Voltar pra
+    minha lista"**. Saindo por qualquer outro caminho (gesto de voltar,
+    bottom-nav), o `display` inline sobrevivia. Como o app é página única e há
+    **uma só** `.td-cta-bar` no `index.html`, reusada por todos os chamados, o
+    `bar.hidden = false` de `configurarCTA` não vencia o inline — e a barra
+    ficava morta pro app inteiro.
+  - Correção em `configurarCTA`: limpa `bar.style.display` ao exibir, tornando
+    essa função a fonte única da verdade independente de como a tela anterior
+    foi abandonada. A tela de sucesso ficou como estava (o fix cobre todos os
+    caminhos de saída, inclusive os que ainda não existem).
+  - **Não tem relação com o upgrade do Capacitor 8** — defeito pré-existente,
+    exposto ao rodar o ciclo completo de O.S. pela primeira vez em produção.
+  - Diagnóstico confirmado no aparelho: fechar e reabrir o app restaura os
+    botões (o estado sujo vive só em memória).
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em
