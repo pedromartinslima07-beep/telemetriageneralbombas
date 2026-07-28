@@ -122,6 +122,28 @@ canônica do "porquê"; o "o quê" está em `../docs/` e em [`current-state.md`]
 - **Classificação por zona de SP** usa mapa de ~80 bairros conhecidos (a divisão
   oficial não é simétrica; quadrante lat/lng puro falhava — ex: Capão Redondo).
 
+## App mobile
+
+- **Push via FCM, não notificação local** (Fase 7G, decidido em 2026-07-28).
+  A alternativa barata seria `@capacitor/local-notifications` disparado pelo
+  polling de 30s que já existe. Descartada: o Android congela os timers de
+  JavaScript da WebView quando o app vai pro segundo plano, então ela funciona
+  com o app aberto ou recém-minimizado e **falha exatamente no caso que motivou
+  o pedido** — celular no bolso, tela apagada. Entregar "às vezes notifica" é
+  pior que não notificar, porque o técnico passa a confiar e perde chamado.
+- **7G não depende da 7J.** O roadmap marcava push como bloqueado pela
+  publicação nas lojas; é falso — FCM funciona em APK instalado na mão. A
+  dependência errada manteve a fase parada sem motivo.
+- **Terceira via considerada e descartada:** fazer o `NativeGpsService` (o
+  ForegroundService próprio, que já fica vivo das 8h às 18h) pesquisar chamados
+  e postar notificação nativa, dispensando o Firebase. Descartada por só
+  funcionar dentro da janela de expediente e com GPS ligado, custar bateria e
+  significar mais código nativo próprio pra manter — enquanto o FCM é
+  infraestrutura pronta e gratuita nesse volume.
+- **`targetSdk` não é preferência, é prazo** — ver
+  [`roadmap.md`](roadmap.md) (7J). A Play Store sobe o piso todo ano; ficar pra
+  trás não degrada nada no app instalado, mas impede publicar atualização.
+
 ## Segurança e RBAC
 
 - **Envs obrigatórias em produção** com `process.exit(1)` se ausentes
@@ -230,3 +252,17 @@ desenho em camadas original continua válido.
   digitação na retenção poderia apagar tudo; o piso protege.
 - **`OTP_DISABLED` precisa de `.trim()`** — comentário inline no `.env`
   (`OTP_DISABLED=true   # ...`) quebrava a flag.
+- **`Unexpected token '<', "<!DOCTYPE "` no front = o Express respondeu HTML.**
+  Erros que não chegam às rotas (413/400 do body-parser, 404, 502 do proxy)
+  caíam no handler padrão do Express, que responde uma página HTML — o
+  `.json()` do front estourava e escondia o erro real. Custou tempo no envio de
+  orçamento por e-mail: a assinatura de 7,6 MB virava POST de 10,1 MB e batia
+  no limite de 8 mb do `express.json`. Hoje `src/app.js` tem handlers finais de
+  404/erro em JSON. **Ao debugar "não é JSON válido", olhe o status HTTP e o
+  `content-type` antes de suspeitar do front.**
+- **Imagem grande: reduzir no cliente > aumentar o limite do servidor.**
+  Subir o limite do `express.json` resolveria só o upload — o e-mail embute a
+  assinatura como data URI e o Gmail apara mensagens acima de ~100 KB. Por
+  isso `_avPrepararAssinatura` (canvas, 600 px, PNG com fallback JPEG)
+  redimensiona antes de enviar: 7,6 MB → 89 KB, e o blob no banco também
+  fica pequeno.

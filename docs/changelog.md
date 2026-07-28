@@ -760,6 +760,61 @@ er sem animação.
   animação contínua nova é cheap e desligada em `prefers-reduced-motion`).
   Reversível removendo o bloco + tokens.
 
+- **2026-07-28** — **Fix: envio de orçamento por e-mail quebrava com
+  "Unexpected token '<', "<!DOCTYPE "... is not valid JSON"**. A assinatura
+  usada pela empresa (`Nati 500.png`, 7,6 MB) virava um POST de 10,1 MB em
+  base64 para `/admin/me/assinatura`, estourando o limite de 8 mb do
+  `express.json`; o body-parser respondia 413 em **HTML** e o `.json()` do
+  front morria escondendo o erro real.
+  - `public/admin.js`: a assinatura agora é redimensionada no navegador antes
+    do upload (`_avPrepararAssinatura` — canvas, largura máx. 600 px, PNG e
+    fallback JPEG até ~180 KB). Medido: 7,6 MB → 89 KB. Isso também evita o
+    "[Mensagem aparada]" do Gmail, já que o e-mail embute a imagem como data
+    URI. O preview do modal passa a mostrar a imagem já reduzida.
+  - `public/admin.js`: helper `lerRespostaJson(resp, contexto)` — lê a
+    resposta como texto e traduz HTML de erro em mensagem legível
+    (413/404/502/503/504) em vez de estourar no `JSON.parse`.
+  - `src/app.js`: handler de 404 e handler de erro finais respondendo
+    **JSON** (`entity.too.large` → 413 legível, `entity.parse.failed` → 400).
+    Requests de página (GET com `Accept: text/html`) seguem no 404 padrão.
+  - `public/admin.html`: `admin.js`/`admin.css` → `?v=242`/`?v=148`.
+
+- **2026-07-28** — **App mobile: upgrade Capacitor 6 → 8 (preparação da Fase 7J)**.
+  Motivador: a Play Store passa a exigir **target API 36** para apps novos e
+  atualizações a partir de **31/08/2026** (apps já publicados precisam de no
+  mínimo API 35 para continuar visíveis). O projeto estava em `targetSdk 34`,
+  abaixo dos dois patamares — sem isso não há publicação.
+  - `app/package.json`: `@capacitor/core`, `@capacitor/android` e
+    `@capacitor/cli` → **8.4.2** (eram 6.x).
+  - `app/android/variables.gradle`: `minSdk 22 → 24`, `compileSdk`/`targetSdk`
+    `34 → 36`, e as libs androidx alinhadas aos defaults do Capacitor 8
+    (activity 1.11.0, appcompat 1.7.1, coordinatorlayout 1.3.0, core 1.17.0,
+    fragment 1.8.9, webkit 1.14.0, junit-ext 1.3.0, espresso 3.7.0,
+    cordova-android 14.0.1). Valores lidos de
+    `node_modules/@capacitor/android/capacitor/build.gradle`, não escolhidos à mão.
+  - `app/android/build.gradle`: AGP `8.2.1 → 8.13.0`.
+  - `app/android/gradle/wrapper/`: Gradle `8.2.1 → 8.14.3`.
+  - `app/android/app/capacitor.build.gradle` (**gerado**, não editar):
+    o `cap sync` mudou `sourceCompatibility`/`targetCompatibility` de **17 para
+    21** sozinho. Não é preciso declarar `compileOptions` no
+    `app/android/app/build.gradle` — esse arquivo gerado é aplicado depois e
+    já cobre o módulo `app`.
+  - **Sem alteração no código nativo próprio.** `NativeGpsPlugin` /
+    `NativeGpsService` usam só APIs estáveis do bridge (`Plugin`, `PluginCall`,
+    `notifyListeners`), que não mudaram de 6 para 8.
+    `@capacitor-community/background-geolocation@1.2.26` seguiu compatível
+    (peer `@capacitor/core >=3.0.0`), sem troca de plugin.
+  - Verificado: `assembleDebug` OK e **manifesto final** conferido —
+    `targetSdkVersion="36"`, `minSdkVersion="24"`, `NativeGpsService` com
+    `foregroundServiceType="location"` e as permissões
+    `ACCESS_BACKGROUND_LOCATION` / `FOREGROUND_SERVICE_LOCATION` /
+    `POST_NOTIFICATIONS` mergeadas.
+  - ⚠️ **Falta teste em aparelho real** — build passar não prova que o
+    rastreamento em background sobreviveu à mudança de target API (as regras de
+    localização com tela apagada endurecem a cada versão do Android).
+  - ⚠️ `minSdk 24` **derruba Android 5.0/5.1** (era 22). Sem impacto conhecido,
+    mas é perda de compatibilidade.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

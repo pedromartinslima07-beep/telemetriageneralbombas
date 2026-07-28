@@ -7,8 +7,64 @@ aliases:
 ---
 # Trabalho em Andamento
 
-> Branch atual: `feature/app-mobile`. Última sessão registrada: **2026-07-27**.
+> Branch atual: `chore/capacitor-8` (saiu de `feature/app-mobile`).
+> Última sessão registrada: **2026-07-28**.
 > Roadmap completo em [`roadmap.md`](roadmap.md); decisões em [`decisions.md`](decisions.md).
+
+## Sessão 2026-07-28 — App mobile: Capacitor 6 → 8 (prep Play Store)
+
+Começou como um erro do Android Studio (*"Invalid Gradle JDK configuration ...
+jbr-21"*) e virou o upgrade da Fase 7J ao descobrir que `targetSdk 34` bloqueia
+a publicação a partir de 31/08/2026.
+
+**Correções de ambiente (locais, não versionadas):**
+- `app/android/.idea/gradle.xml` apontava `gradleJvm` para `jbr-21`, ausente do
+  `jdk.table.xml` do Studio; `.idea/misc.xml` apontava o Project JDK para
+  `jbr-17`, que também não existia. Ambos → `jbr-21` (JBR 21.0.10 embutido).
+- `app/android/local.properties` não existia (o Gradle não achava o SDK). Criado
+  com `sdk.dir`. É gitignored — cada máquina precisa do seu.
+
+**Upgrade (detalhes completos no [changelog](../docs/changelog.md)):**
+Capacitor 8.4.2, `minSdk 24`, `compileSdk`/`targetSdk 36`, AGP 8.13.0,
+Gradle 8.14.3, Java 21 no módulo `app`. Valores tirados de
+`node_modules/@capacitor/android/capacitor/build.gradle` (fonte da própria lib),
+não do meu chute.
+
+**Por que não trocamos o plugin de GPS:** avaliado
+`@transistorsoft/capacitor-background-geolocation` (pago, US$ 399+, padrão de
+mercado pra rastreamento em campo). Decisão do usuário: **não mexer nos dois ao
+mesmo tempo** — subir a versão primeiro, testar, e só considerar a troca se o
+rastreamento falhar no teste real. O plugin oficial `@capacitor/geolocation` foi
+descartado: não faz background.
+
+**Pendente desta sessão (bloqueia o merge):**
+- ⚠️ **Teste em aparelho real do GPS em background** — o build passar não prova
+  nada aqui. Testar com tela apagada, celular no bolso, deslocamento real, e
+  conferir se os pontos chegam em `POST /tecnicos/localizacao`.
+- ⚠️ `minSdk 22 → 24` derruba Android 5.0/5.1 — confirmar que nenhum técnico usa.
+- Nada foi commitado; a branch tem também WIP não relacionado (`admin.js`,
+  `admin.html`, `src/app.js`) herdado de `feature/app-mobile`.
+
+**Achados do teste em produção (mesma sessão):**
+- **Preventiva de plano não apareceu no app.** Não era regressão do Capacitor 8:
+  o chamado do plano nasce sem `tecnico_id` quando o condomínio não tem `zona`
+  (ou a zona não tem exatamente 1 responsável), e `/chamados/meus` filtra por
+  dono. Definir o responsável **depois** não retroage. Documentado em
+  [`../docs/modulos/app-mobile.md`](../docs/modulos/app-mobile.md).
+  📋 **A verificar em produção:** quantos condomínios reais estão sem `zona`
+  preenchida — cada um é uma preventiva que nunca chega sozinha no celular.
+- **Pedido do usuário: notificação de chamado novo.** Virou escopo fechado da
+  Fase 7G no [`roadmap.md`](roadmap.md) (push via FCM). Descoberto no caminho
+  que a 7G estava marcada como dependente da 7J sem motivo real — destravada.
+
+**`app/public/config.js` apontava pro emulador.** Estava em
+`http://10.0.2.2:3001` — endereço que **só existe dentro do emulador** do
+Android Studio; em aparelho físico o app não alcançaria API nenhuma. Trocado
+para `https://telemetria.generalbombas.com` (produção), porque o teste de GPS em
+background exige o celular fora do Wi-Fi e nenhum servidor local sobrevive a
+isso. **Efeito colateral:** o APK de teste grava no banco de produção — logar com
+conta de técnico de teste. Pra voltar ao fluxo de dev diário, reverter essa linha
+(os valores de dev estão comentados no próprio arquivo).
 
 ## Sessão 2026-07-27 — Planos: edição em massa
 

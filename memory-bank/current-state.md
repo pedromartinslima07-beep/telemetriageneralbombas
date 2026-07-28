@@ -33,7 +33,8 @@ ESP32 (sonda 4-20mA + SCT-013)
 │   alertas-cleanup · conversas-cleanup · conversas-timeout                    │
 │                                                                              │
 │  Extras embutidos no app.js: proxy de tiles /tiles/:z/:x/:y.png (cache em   │
-│   memória + dedupe inflight) · página /admin/reset-cache (limpa PWA)        │
+│   memória + dedupe inflight) · página /admin/reset-cache (limpa PWA) ·      │
+│   handlers finais de 404 e de erro respondendo JSON (413/400 do body-parser)│
 └──────────────────────────────────┬───────────────────────────────────────┘
                                     ▼
                               PostgreSQL (multi-tenant por condominio_id)
@@ -123,11 +124,18 @@ ESP32 (sonda 4-20mA + SCT-013)
   **Envio do orçamento ao cliente por e-mail** (PDF anexo via Resend, botão no modal;
   destinatário de `condominios.email` — múltiplos por vírgula; marca `enviado` +
   `enviado_em/enviado_para`, migration 047). Remetente: `comercial@generalbombas.com`.
+  A assinatura do e-mail (`POST /admin/me/assinatura` → `usuarios.assinatura_blob`,
+  embutida como data URI) é **redimensionada no navegador** antes do upload —
+  máx. 600 px de largura / ~180 KB. As artes originais têm 7-8 MB, o que
+  estourava o limite de 8 mb do `express.json` e faria o Gmail aparar a mensagem.
 - Planos de manutenção preventiva + contratos. Na aba Planos, seleção múltipla
   (checkbox por linha + "todos" no cabeçalho) com **edição em massa** de
   periodicidade / próxima execução / status via `PATCH /planos-manutencao/bulk`.
 
-**App mobile (Capacitor)** — `app/public/`
+**App mobile (Capacitor 8)** — `app/public/`
+- **Capacitor 8.4.2** desde 2026-07-28 (`targetSdk 36`, `minSdk 24`, AGP 8.13.0,
+  Gradle 8.14.3, Java 21) — piso exigido pela Play Store a partir de 31/08/2026.
+  Requisitos de build em [app-mobile.md](../docs/modulos/app-mobile.md).
 - Telas técnico: chamados, detalhe, O.S., conta; ciclo com GPS.
 - Telas cliente/síndico: home, telemetria, chamados (KPIs clicáveis), conta,
   suporte, novo chamado, detalhe.

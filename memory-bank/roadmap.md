@@ -42,8 +42,17 @@ aliases:
   (ver [`active-work.md`](active-work.md)).
 - **Fase 10 (treinar IA)** 🟡 — 10A feito; 10B-E aguardam ~500+ conversas
   curadas.
-- **7G — Push notifications nativas** ⏸️ — depende da 7J.
-- **7J — Publicação Play Store** 📋.
+- **7G — Push notifications nativas** 📋 — **destravada**: não depende da 7J
+  (ver seção própria abaixo). Pedido do usuário em 2026-07-28.
+- **7J — Publicação Play Store** 🟡 — **prazo firme: 31/08/2026** (target API 36
+  obrigatório para apps novos e atualizações; extensão possível até 01/11/2026).
+  - ✅ Upgrade Capacitor 6 → 8 feito em 2026-07-28 (`targetSdk 36`, AGP 8.13.0,
+    Gradle 8.14.3) — ver [`../docs/changelog.md`](../docs/changelog.md).
+  - 📋 Pendente: teste do GPS background em aparelho real; keystore de release +
+    `signingConfig`; `versionCode`/`versionName` reais (hoje `1` / `"1.0"`);
+    build `bundleRelease` (.aab); política de privacidade; e o **formulário de
+    declaração de permissão de localização em background da Play Store**, que
+    exige vídeo demonstrativo e passa por revisão manual.
 
 ## Descartado (decisões conscientes)
 
@@ -75,6 +84,47 @@ aliases:
   preço lançado some da coluna de valor no PDF em vez de "R$ 0,00";
   `orcamentos.valor` vira override manual do total quando a soma automática
   não reflete o total real.
+
+## Push notifications no app (Fase 7G) — planejado 📋
+
+**Contexto:** pedido do usuário em 2026-07-28 — o técnico não fica sabendo de
+chamado novo. Hoje o app **não tem notificação nenhuma**: o único mecanismo é o
+polling de 30s em `app/public/app.js` (`TC.polling`), que só roda **enquanto a
+tela de chamados está aberta**. Celular no bolso = técnico não sabe de nada.
+
+**Correção de premissa:** esta fase estava marcada como "⏸️ depende da 7J
+(publicação nas lojas)". **Não depende** — FCM funciona em APK instalado na mão,
+sem loja. A dependência era falsa e travava a fase à toa.
+
+**Decisão de abordagem:** push real via **FCM**, não notificação local disparada
+pelo polling. O porquê está em [`decisions.md`](decisions.md#app-mobile).
+
+**Escopo no código:**
+- Plugin `@capacitor/push-notifications`; registro do token do aparelho no login
+  e limpeza no logout.
+- Migration nova: tabela de tokens por técnico (um técnico pode ter mais de um
+  aparelho; token do FCM rotaciona, então precisa de upsert + expurgo dos
+  inválidos devolvidos pelo envio).
+- Serviço de envio no backend, disparado quando um chamado **ganha
+  `tecnico_id`**. São **três** caminhos, todos precisam do gatilho:
+  1. atribuição manual (`PATCH /chamados/:id`);
+  2. chamado automático de telemetria (`abrirChamadoAuto` em
+     `src/services/chamados.service.js`);
+  3. preventiva de plano (`executarPlano` em `src/jobs/planos-manutencao.job.js`,
+     quando a zona resolve um responsável).
+- Permissão `POST_NOTIFICATIONS` em runtime — obrigatória desde o Android 13 e
+  inescapável agora que o app targeta API 36.
+
+**Pré-requisitos externos (fora do código):**
+1. Projeto no Firebase + `google-services.json` em `app/android/app/`.
+2. Credencial de servidor do FCM nas envs do Railway.
+
+Facilitador já pronto: `app/android/app/build.gradle` aplica o plugin
+`com.google.gms.google-services` **se** o `google-services.json` existir — o
+bloco está lá desde o início, nunca foi usado.
+
+**Ordem sugerida:** fechar a 7J primeiro (o app precisa estar publicável e com o
+GPS validado); push é feature nova e não deve competir com o prazo de 31/08.
 
 ## Nota fiscal (NFS-e) — planejado 📋
 
