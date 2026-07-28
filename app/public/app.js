@@ -2219,7 +2219,10 @@ function bindCorrentes() {
     const lim = tipo === "mono" ? 1 : tipo === "bi" ? 2 : 3;
     inputs.forEach((inp, i) => {
       inp.disabled = !tipo || i >= lim;
-      if (i >= lim) inp.value = "";
+      // Sem tipo a seção inteira volta ao zero: limpar só os índices acima do
+      // limite deixaria números visíveis (desabilitados) de um tipo que foi
+      // desmarcado, dando a impressão de que a medição continua registrada.
+      if (!tipo || i >= lim) inp.value = "";
     });
     const valores = [...inputs].map((inp) => inp.value === "" ? null : Number(inp.value));
     const correntes = tipo ? { tipo, valores: valores.slice(0, lim) } : null;
@@ -2235,7 +2238,24 @@ function bindCorrentes() {
       sec.classList.remove("is-complete");
     }
   };
-  document.querySelectorAll('#osCorTipo input').forEach((r) => r.addEventListener("change", aplicar));
+  // Radio não desmarca sozinho — uma vez tocado, o técnico ficava preso a um
+  // tipo de corrente que talvez tenha sido clicado por engano (a seção é
+  // opcional, então "nenhum" é um estado legítimo). Aqui o clique no item já
+  // selecionado desmarca. `tipoAtual` guarda o estado ANTES do clique, porque
+  // no momento em que o handler roda o navegador já marcou o radio.
+  let tipoAtual = document.querySelector('#osCorTipo input:checked')?.value || null;
+  document.querySelectorAll('#osCorTipo input').forEach((r) => {
+    r.addEventListener("click", () => {
+      if (r.value === tipoAtual) {
+        r.checked = false;
+        tipoAtual = null;
+      } else {
+        tipoAtual = r.value;
+      }
+      // Desmarcar via script não dispara "change", então chamamos direto.
+      aplicar();
+    });
+  });
   document.querySelectorAll('#osCorVals input').forEach((i) => i.addEventListener("input", aplicar));
   // estado inicial: desabilita campos não usados
   aplicar();
@@ -3017,6 +3037,54 @@ function atualizarProgresso() {
 }
 
 // ---- Finalizar ----
+// Espelha as validações de POST /ordens-servico/:id/finalizar, mas amarra cada
+// uma à seção onde o campo mora. Antes o backend devolvia a mensagem certa
+// ("Resultado do serviço é obrigatório") e o técnico ficava olhando pra ela sem
+// saber qual sanfona abrir — as seções nascem fechadas. Retorna o primeiro
+// pendente na ordem em que as seções aparecem na tela, pra levar sempre ao de
+// cima. Se as regras do backend mudarem, este bloco precisa acompanhar.
+function _osPrimeiroPendente() {
+  const tipos = OS.data.tipos_servico || [];
+  if (tipos.length === 0) {
+    return { secao: "tipos", msg: "Selecione pelo menos 1 tipo de serviço." };
+  }
+
+  const exigeFoto = tipos.includes("instalacao_pecas") || tipos.includes("chamado_emergencial");
+  const temFoto = Array.isArray(OS.data.fotos) && OS.data.fotos.length > 0;
+  if (exigeFoto && !temFoto) {
+    return {
+      secao: "fotos",
+      msg: "Anexe pelo menos 1 foto — os tipos selecionados (Instalação de peças / Chamado emergencial) exigem.",
+    };
+  }
+
+  if (!OS.data.servico_realizado) {
+    return { secao: "resolucao", msg: "Informe o resultado do serviço (resolvido / paliativo / agravado)." };
+  }
+
+  // Ao recarregar do servidor a assinatura volta como flag `tem_assinatura`,
+  // não como base64 — checar só `assinatura_b64` acusaria falta indevida.
+  const temAssinatura = !!(OS.data.assinatura_b64 || OS.data.tem_assinatura);
+  if (!temAssinatura || !OS.data.recebido_nome) {
+    return { secao: "recebido", msg: "Preencha o nome de quem recebeu e colha a assinatura." };
+  }
+
+  return null;
+}
+
+// Abre a seção, rola até ela e pisca a borda. Sem isso a mensagem de erro fica
+// no rodapé e o campo que falta continua escondido dentro de uma sanfona.
+function _osIrParaSecao(id) {
+  const sec = document.querySelector(`[data-section="${id}"]`);
+  if (!sec) return;
+  sec.classList.add("is-open");
+  // Mesmo cuidado do clique no cabeçalho: o canvas só mede certo quando visível.
+  if (id === "recebido") requestAnimationFrame(() => iniciarCanvasAssinatura());
+  sec.scrollIntoView({ behavior: "smooth", block: "center" });
+  sec.classList.add("os-section-pendente");
+  setTimeout(() => sec.classList.remove("os-section-pendente"), 2400);
+}
+
 async function finalizarOS() {
   const btn = document.getElementById("osFinalizar");
   setBtnLoading(btn, true);
@@ -3027,13 +3095,12 @@ async function finalizarOS() {
     // a O.S. já fechada — erro na tela e edição perdida.
     await _osEnviarPatchPendente();
 
-    // Pré-validação: fotos obrigatórias quando tipo é instalacao_pecas
-    // ou chamado_emergencial (backend valida de novo, mas damos feedback rápido).
-    const tipos = OS.data.tipos_servico || [];
-    const exigeFoto = tipos.includes("instalacao_pecas") || tipos.includes("chamado_emergencial");
-    const temFoto = Array.isArray(OS.data.fotos) && OS.data.fotos.length > 0;
-    if (exigeFoto && !temFoto) {
-      throw new Error("Anexe pelo menos 1 foto antes de finalizar. Os tipos selecionados (Instalação de peças / Chamado emergencial) exigem foto.");
+    // Pré-validação completa: o backend valida de novo, mas aqui conseguimos
+    // levar o técnico até o campo que falta em vez de só mostrar o texto.
+    const pendente = _osPrimeiroPendente();
+    if (pendente) {
+      _osIrParaSecao(pendente.secao);
+      throw new Error(pendente.msg);
     }
 
     // GPS de saída: usa posição recente do watch se disponível (opcional — não bloqueia)
@@ -3124,10 +3191,35 @@ async function baixarPdfOS(osId, numero) {
     throw new Error(msg);
   }
   const blob = await r.blob();
+  const nome = `os-${numero || osId}.pdf`;
+
+  // No APK o caminho do navegador não funciona: a WebView do Android ignora
+  // `<a download>` com URL `blob:` — o clique não faz nada e não gera erro, que
+  // era exatamente o sintoma ("o download não funciona no app"). Aqui gravamos
+  // o arquivo no cache e entregamos ao sistema, que abre o visualizador de PDF
+  // ou deixa salvar/compartilhar.
+  if (window.Capacitor?.isNativePlatform?.()) {
+    const { Filesystem, Share } = window.Capacitor.Plugins;
+    // writeFile espera base64 puro; readAsDataURL devolve "data:...;base64,XXX".
+    const base64 = await new Promise((resolve, reject) => {
+      const fr = new FileReader();
+      fr.onload = () => resolve(String(fr.result).split(",")[1]);
+      fr.onerror = () => reject(new Error("Falha ao ler o PDF gerado."));
+      fr.readAsDataURL(blob);
+    });
+    const escrito = await Filesystem.writeFile({
+      path: nome,
+      data: base64,
+      directory: "CACHE",   // não pede permissão e o Android limpa sozinho
+    });
+    await Share.share({ title: nome, files: [escrito.uri] });
+    return;
+  }
+
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `os-${numero || osId}.pdf`;
+  a.download = nome;
   document.body.appendChild(a);
   a.click();
   a.remove();

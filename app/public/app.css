@@ -1791,6 +1791,21 @@ body:has(.screen-auth[data-active])::before { display: none; }
 .os-section.is-complete {
   border-color: rgba(34,197,94,.25);
 }
+/* Aplicada por _osIrParaSecao quando o técnico tenta finalizar com campo
+   obrigatório em branco: a seção é aberta, rolada até o centro e pisca em
+   vermelho por ~2,4s. Vence .is-open/.is-complete por vir depois com a mesma
+   especificidade. */
+.os-section.os-section-pendente {
+  border-color: var(--danger);
+  animation: osPendentePulse 1.2s ease-in-out 2;
+}
+@keyframes osPendentePulse {
+  0%, 100% { box-shadow: var(--shadow-sm); }
+  50%      { box-shadow: 0 0 0 3px rgba(239,68,68,.22); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .os-section.os-section-pendente { animation: none; }
+}
 
 .os-section-head {
   display: flex;
