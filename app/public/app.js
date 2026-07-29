@@ -5280,9 +5280,6 @@ function _bindTecnicoUI() {
 _bindTecnicoUI();
 
 // ============== BOOTSTRAP ==============
-// Footer de diagnóstico no login
-document.getElementById("apiBase").textContent = API_BASE;
-document.getElementById("envInfo").textContent = IS_CAPACITOR ? "Capacitor (nativo)" : "Browser (dev)";
 
 // ============== MODO DEMO ==============
 // /app/?demo=1 ou ?demo=tecnico → tela do técnico com dados fake
