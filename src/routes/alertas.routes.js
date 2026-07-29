@@ -4,7 +4,6 @@ const { pool } = require("../db");
 
 const { authRequired } = require("../middleware/authRequired");
 const { adminOnly } = require("../middleware/adminOnly");
-const { masterAdminOnly } = require("../middleware/masterAdminOnly");
 
 const router = express.Router();
 
@@ -30,9 +29,9 @@ router.get("/alertas-abertos", authRequired, adminOnly, async (req, res) => {
 });
 
 /**
- * PATCH /alertas/:id/fechar  (admin only)
+ * PATCH /alertas/:id/fechar  (admin, gerente, operador)
  */
-router.patch("/alertas/:id/fechar", authRequired, masterAdminOnly, async (req, res) => {
+router.patch("/alertas/:id/fechar", authRequired, adminOnly, async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) {
     return res.status(400).json({ error: "id inválido" });

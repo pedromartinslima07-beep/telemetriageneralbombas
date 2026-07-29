@@ -2,7 +2,6 @@ const express = require("express");
 const { pool } = require("../db");
 const { authRequired } = require("../middleware/authRequired");
 const { adminOnly } = require("../middleware/adminOnly");
-const { masterAdminOnly } = require("../middleware/masterAdminOnly");
 const { salvarFotoMensagemChamado } = require("../services/chamado-mensagens.service");
 const { registrarCriacao, registrarMudancas } = require("../services/chamado-historico.service");
 
@@ -11,8 +10,8 @@ const router = express.Router();
 const CATEGORIAS = ["vazamento", "bomba_falha", "nivel_baixo", "sem_agua", "ruido", "manutencao", "outro"];
 const PRIORIDADES = ["p1", "p2", "p3", "p4"];
 
-// POST /chamados — cria chamado manualmente (admin)
-router.post("/", authRequired, masterAdminOnly, async (req, res) => {
+// POST /chamados — cria chamado manualmente (admin, gerente, operador)
+router.post("/", authRequired, adminOnly, async (req, res) => {
   const { titulo, descricao, categoria, prioridade, condominio_id, responsavel_id } = req.body || {};
 
   if (!titulo || typeof titulo !== "string" || !titulo.trim())
@@ -716,7 +715,7 @@ router.get("/:id", authRequired, adminOnly, async (req, res) => {
 });
 
 // PATCH /chamados/:id — atualiza status, prioridade ou responsável
-router.patch("/:id", authRequired, masterAdminOnly, async (req, res) => {
+router.patch("/:id", authRequired, adminOnly, async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) {
     return res.status(400).json({ error: "id inválido" });

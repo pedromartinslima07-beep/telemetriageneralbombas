@@ -140,6 +140,10 @@ ESP32 (sonda 4-20mA + SCT-013)
 - Telas cliente/síndico: home, telemetria, chamados (KPIs clicáveis), conta,
   suporte, novo chamado, detalhe.
 - Auth + onboarding; rastreamento GPS; herda visual do admin.
+- **Login e OTP são só logo + formulário** (jul/2026): sem título `TELEMETRIA`,
+  sem subtítulo e sem o rodapé de diagnóstico que exibia a URL da API. O login
+  do **site** (`public/login.html`) mantém os textos — as duas telas deixaram de
+  ser espelhadas de propósito.
 - **Camada visual HUD "Painel de comando"** (jun/2026): grid técnico + scanline
   de fundo, dados em monospace, headers
   uppercase tracked, indicador de aba no bottom-nav. Bloco aditivo no fim de
@@ -147,7 +151,16 @@ ESP32 (sonda 4-20mA + SCT-013)
 
 **Segurança & operação**
 - Envs obrigatórias em produção (JWT_SECRET, CORS_ORIGINS) com `process.exit(1)`.
-- RBAC com 5 roles: **admin** (tudo), **gerente** (tudo exceto config → só "conta"), **operador** (Monitor + Chamados + config "conta"), **admin_viewer** (legado, viewer-only-hide), **tecnico**, **cliente**.
+- RBAC com **5 roles ativas**: **admin** (master — tudo), **gerente** (operação
+  do negócio, sem as partes irreversíveis), **operador** (Monitor + Chamados +
+  config "conta"), **tecnico**, **cliente**. `admin_viewer` continua no CHECK do
+  banco mas está **morto** — sumiu de `src/`, quem tiver essa role toma 403 no
+  painel inteiro.
+- **Três níveis no painel** (jul/2026): `adminOnly` (admin+gerente+operador) ·
+  `gestaoOnly` (admin+gerente) · `masterAdminOnly` (só admin). Divisão em
+  [autenticacao.md](../docs/modulos/autenticacao.md).
+- ⚠️ A restrição do **operador** é só de UI — no backend ele passa em `adminOnly`
+  e alcança orçamentos/O.S./relatórios pela API.
 - **Configurações dinâmicas** editáveis pelo admin (whitelist `CHAVES` em
   `config.service.js`) — intervalos de job, modelo IA, timeouts, sem deploy.
 - Email de alerta crítico (Resend).

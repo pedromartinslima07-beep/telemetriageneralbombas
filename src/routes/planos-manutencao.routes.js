@@ -7,7 +7,7 @@
 const express = require("express");
 const { pool } = require("../db");
 const { authRequired } = require("../middleware/authRequired");
-const { masterAdminOnly } = require("../middleware/masterAdminOnly");
+const { gestaoOnly } = require("../middleware/gestaoOnly");
 const { executarPlano } = require("../jobs/planos-manutencao.job");
 const { getConfigInt } = require("../services/config.service");
 
@@ -73,7 +73,7 @@ function _validarPayload(b, { exigirObrigatorios }) {
 // ─── Rotas ──────────────────────────────────────────────────────────────────
 
 // GET /planos-manutencao?condominio_id=&ativo=true|false
-router.get("/", authRequired, masterAdminOnly, async (req, res) => {
+router.get("/", authRequired, gestaoOnly, async (req, res) => {
   const where = [];
   const vals  = [];
 
@@ -189,7 +189,7 @@ router.get("/meu-roteiro", authRequired, async (req, res) => {
 // Zonas distintas dos condomínios ativos + os técnicos responsáveis de cada uma.
 // Desde a migration 066 a zona aceita VÁRIOS técnicos (dupla saindo junta), por
 // isso a resposta traz `tecnicos: [{ id, nome }]` em vez de um único campo.
-router.get("/zonas-responsaveis", authRequired, masterAdminOnly, async (req, res) => {
+router.get("/zonas-responsaveis", authRequired, gestaoOnly, async (req, res) => {
   try {
     const r = await pool.query(
       `SELECT DISTINCT c.zona
@@ -220,7 +220,7 @@ router.get("/zonas-responsaveis", authRequired, masterAdminOnly, async (req, res
 // PUT /planos-manutencao/zonas-responsaveis/:zona
 // Substitui a lista de responsáveis da zona. body: { tecnico_ids: number[] }
 // Lista vazia = zona sem responsável.
-router.put("/zonas-responsaveis/:zona", authRequired, masterAdminOnly, async (req, res) => {
+router.put("/zonas-responsaveis/:zona", authRequired, gestaoOnly, async (req, res) => {
   const zona = req.params.zona.trim();
   if (!zona) return res.status(400).json({ error: "zona inválida" });
 
@@ -263,7 +263,7 @@ router.put("/zonas-responsaveis/:zona", authRequired, masterAdminOnly, async (re
 });
 
 // GET /planos-manutencao/:id
-router.get("/:id", authRequired, masterAdminOnly, async (req, res) => {
+router.get("/:id", authRequired, gestaoOnly, async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
 
@@ -284,7 +284,7 @@ router.get("/:id", authRequired, masterAdminOnly, async (req, res) => {
 });
 
 // POST /planos-manutencao
-router.post("/", authRequired, masterAdminOnly, async (req, res) => {
+router.post("/", authRequired, gestaoOnly, async (req, res) => {
   const { out, errs } = _validarPayload(req.body || {}, { exigirObrigatorios: true });
   if (errs.length) return res.status(400).json({ error: errs.join("; ") });
 
@@ -315,7 +315,7 @@ router.post("/", authRequired, masterAdminOnly, async (req, res) => {
 // body: { ids: number[], ativo?: boolean, periodicidade_dias?: number,
 //         proxima_em?: "YYYY-MM-DD" } — pelo menos um campo além de ids.
 // Campos ausentes ficam intocados (a UI manda só o que o usuário alterou).
-router.patch("/bulk", authRequired, masterAdminOnly, async (req, res) => {
+router.patch("/bulk", authRequired, gestaoOnly, async (req, res) => {
   const idsRaw = req.body?.ids;
 
   if (!Array.isArray(idsRaw) || idsRaw.length === 0) {
@@ -369,7 +369,7 @@ router.patch("/bulk", authRequired, masterAdminOnly, async (req, res) => {
 });
 
 // PATCH /planos-manutencao/:id
-router.patch("/:id", authRequired, masterAdminOnly, async (req, res) => {
+router.patch("/:id", authRequired, gestaoOnly, async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
 
@@ -400,7 +400,7 @@ router.patch("/:id", authRequired, masterAdminOnly, async (req, res) => {
 });
 
 // DELETE /planos-manutencao/:id  — soft delete (ativo = false)
-router.delete("/:id", authRequired, masterAdminOnly, async (req, res) => {
+router.delete("/:id", authRequired, gestaoOnly, async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
 

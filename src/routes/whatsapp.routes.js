@@ -5,7 +5,7 @@ const { receberWebhook, verificarWebhook } = require("../controllers/whatsapp.co
 const { enviarMensagem } = require("../services/evolution.service");
 const { authRequired } = require("../middleware/authRequired");
 const { adminOnly } = require("../middleware/adminOnly");
-const { masterAdminOnly } = require("../middleware/masterAdminOnly");
+const { gestaoOnly } = require("../middleware/gestaoOnly");
 
 let _openai = null;
 function getOpenAI() {
@@ -437,7 +437,7 @@ function scrubPII(texto) {
 // GET /whatsapp/conversas/export?qualidade=excelente,boa&desde=YYYY-MM-DD
 // Retorna application/x-ndjson — uma linha JSON por conversa no formato
 // {messages:[{role:'system',...},{role:'user',...},...]} pronto pra fine-tuning.
-router.get("/conversas/export", authRequired, masterAdminOnly, async (req, res) => {
+router.get("/conversas/export", authRequired, gestaoOnly, async (req, res) => {
   const qParam = String(req.query.qualidade || "excelente,boa").split(",").map(s => s.trim()).filter(Boolean);
   const qualidades = qParam.filter(q => QUALIDADES_VALIDAS.includes(q));
   if (!qualidades.length) return res.status(400).json({ error: "qualidade inválida" });

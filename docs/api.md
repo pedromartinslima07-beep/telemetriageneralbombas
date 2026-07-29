@@ -18,12 +18,16 @@ API Express montada em `src/app.js`. Todas as respostas são JSON salvo PDFs
   pulam o OTP.
 - Middlewares (`src/middleware/`):
   - `authRequired` — exige JWT válido; popula `req.user`.
-  - `adminOnly` — `admin` ou `admin_viewer` (leitura).
-  - `masterAdminOnly` — apenas `admin` (escrita/admin sensível; o nome é
+  - `adminOnly` — `admin`, `gerente` ou `operador` (acesso ao painel).
+  - `gestaoOnly` — `admin` ou `gerente` (operação do negócio, sem o operador).
+  - `masterAdminOnly` — apenas `admin` (sensível/irreversível; o nome é
     histórico, hoje equivale a `admin`).
   - `clienteOnly` — role `cliente`, escopo do próprio `condominio_id`.
-- Convenção observada: **GET de admin** usa `adminOnly` (viewer enxerga);
-  **POST/PATCH/DELETE** sensíveis usam `masterAdminOnly` (só admin escreve).
+- Convenção: o que é **irreversível** (apagar cliente, mexer em reservatório,
+  usuários, config) é `masterAdminOnly`; o que é **operação do negócio**
+  (planos, contratos, cadastro de cliente) é `gestaoOnly`; o resto do painel é
+  `adminOnly`. Divisão completa em
+  [modulos/autenticacao.md](modulos/autenticacao.md).
 
 ## Rate limiting
 
@@ -77,8 +81,9 @@ segue no comportamento padrão do Express.
 | Método | Rota | Acesso |
 |---|---|---|
 | GET | `/condominios` · `/condominios/:id` | adminOnly |
-| POST | `/condominios` | masterAdmin (aceita lat/lng/cep/cnpj) |
-| PATCH/DELETE | `/condominios/:id` | masterAdmin (DELETE = soft/inativar) |
+| POST | `/condominios` | **gestao** (aceita lat/lng/cep/cnpj) |
+| PATCH | `/condominios/:id` | **gestao** |
+| DELETE | `/condominios/:id` | masterAdmin (soft/inativar) |
 | DELETE | `/condominios/:id/hard` | masterAdmin (remoção física) |
 
 **Reservatórios** (`/reservatorios`)
@@ -97,7 +102,7 @@ segue no comportamento padrão do Express.
 
 | GET | `/alertas-abertos` | adminOnly |
 | GET | `/alertas/:device_id` | adminOnly (histórico do device) |
-| PATCH | `/alertas/:id/fechar` | masterAdmin |
+| PATCH | `/alertas/:id/fechar` | **adminOnly** |
 | GET | `/alertas/comentarios/:origem/:id` | adminOnly |
 | POST | `/alertas/comentarios` | adminOnly |
 | POST | `/alertas/analisar-ia` | adminOnly (análise sob demanda, gpt-4o-mini) |
@@ -116,16 +121,16 @@ Webhook em **Públicas**. Demais exigem admin:
 | POST | `/conversas/:id/resumir` · `/sugerir-resposta` | adminOnly (IA assistiva) |
 | PATCH | `/conversas/:id/qualidade` | adminOnly (curadoria) |
 | GET | `/conversas/curadoria/stats` | adminOnly |
-| GET | `/conversas/export` | masterAdmin (NDJSON + PII scrubbing) |
+| GET | `/conversas/export` | **gestao** (NDJSON + PII scrubbing) |
 | DELETE | `/conversas/:id` | adminOnly |
 
 ---
 
 ## Chamados (`/chamados`)
 
-| POST | `/chamados` | masterAdmin (criação manual) |
+| POST | `/chamados` | **adminOnly** (criação manual) |
 | GET | `/chamados` · `/chamados/:id` · `/:id/historico` | adminOnly |
-| PATCH | `/chamados/:id` | masterAdmin (status/responsável; bloqueia `em_atendimento`) |
+| PATCH | `/chamados/:id` | **adminOnly** (status/responsável; bloqueia `em_atendimento`) |
 | GET | `/chamados/meus` · `/meus/:id` | técnico autenticado |
 | GET/POST | `/chamados/meus/:id/mensagens` | técnico (chat do chamado) |
 | POST | `/chamados/:id/iniciar-atendimento` | técnico (com GPS → `em_atendimento`) |
@@ -161,7 +166,7 @@ restringe escrita.
 
 ## Planos de manutenção e contratos
 
-**Planos** (`/planos-manutencao`) — todos masterAdmin:
+**Planos** (`/planos-manutencao`) — todos **gestao** (admin + gerente):
 GET (lista/`:id`), POST, PATCH, DELETE, `POST /:id/executar-agora`,
 `PATCH /bulk` — edição em massa: `{ ids: number[], ativo?, periodicidade_dias?,
 proxima_em? }`, até 500 ids por chamada e pelo menos 1 campo além de `ids`.
@@ -170,7 +175,7 @@ filtrado antes de validar). Responde `{ ok, atualizados, campos }`.
 
 **Contratos** (`/contratos`):
 GET `/`, `/metricas`, `/:id`, `/:id/pdf` (adminOnly); POST/PATCH/DELETE
-(masterAdmin); `POST /:id/enviar-assinatura` (masterAdmin, gera tokens +
+(**gestao**); `POST /:id/enviar-assinatura` (**gestao**, gera tokens +
 manda e-mail); `GET /:id/status-assinatura` (adminOnly, lê status sem API
 externa — ver seção "Assinatura de contratos" abaixo).
 

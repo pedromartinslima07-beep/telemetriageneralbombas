@@ -5,6 +5,7 @@ const { pool } = require("../db");
 const { authRequired } = require("../middleware/authRequired");
 const { adminOnly } = require("../middleware/adminOnly");
 const { masterAdminOnly } = require("../middleware/masterAdminOnly");
+const { gestaoOnly } = require("../middleware/gestaoOnly");
 
 const router = express.Router();
 
@@ -40,8 +41,9 @@ function _normEmails(v) {
   return lista.join(", ");
 }
 
-// POST /condominios (criar)
-router.post("/", authRequired, masterAdminOnly, async (req, res) => {
+// POST /condominios (criar) — rotina comercial: admin + gerente.
+// Exclusão continua só do master (ver DELETE abaixo).
+router.post("/", authRequired, gestaoOnly, async (req, res) => {
   const {
     nome, nome_fantasia, cnpj, email, endereco, bairro, cidade, uf, cep,
     responsavel, telefone, observacoes, ativo,
@@ -153,8 +155,8 @@ router.get("/:id", authRequired, adminOnly, async (req, res) => {
   }
 });
 
-// PATCH /condominios/:id (editar)
-router.patch("/:id", authRequired, masterAdminOnly, async (req, res) => {
+// PATCH /condominios/:id (editar) — rotina comercial: admin + gerente
+router.patch("/:id", authRequired, gestaoOnly, async (req, res) => {
   const idNum = Number(req.params.id);
   if (!Number.isInteger(idNum) || idNum <= 0) {
     return res.status(400).json({ error: "id inválido" });

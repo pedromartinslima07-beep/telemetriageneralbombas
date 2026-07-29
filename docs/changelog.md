@@ -860,6 +860,54 @@ er sem animação.
     `_orcFmtDataSemFuso` fatia a string, mesmo tratamento de `_pmFmtData`.
   - `admin.js?v=243`, `admin.css?v=149`. Sem endpoint novo → `sw.js` intocado.
 
+- **2026-07-29** — **App · telas de login e OTP ficam só com a logo.** Removidos
+  o título `TELEMETRIA`, o subtítulo "Sistema de monitoramento de
+  reservatórios" (bloco `.login-title`) e o rodapé "General Engenharia da
+  Manutenção" com a linha de diagnóstico (`.login-footer` + `.diag-line`, que
+  mostrava a URL da API e `Capacitor (nativo)` / `Browser (dev)`). O card de
+  autenticação passa a ser logo + formulário.
+  - **Pegadinha:** o rodapé de diagnóstico era preenchido no bootstrap do
+    `app/public/app.js` com `document.getElementById("apiBase").textContent`
+    **sem guard de null**. Apagar só o HTML derrubaria o app inteiro no boot
+    (`TypeError`) — nem a tela de login apareceria. As duas linhas foram
+    removidas junto; eram meramente informativas, nenhuma lógica dependia
+    delas.
+  - Aplicado nas **duas** telas do fluxo (`data-screen="login"` e
+    `data-screen="otp"`) para não ficar inconsistente no meio do login.
+  - CSS órfão removido de `app/public/app.css`: `.login-title`,
+    `.login-footer`, `.diag-line` e a entrada de `.diag-line` na regra de fonte
+    monoespaçada. O espaçamento se resolve pelo `margin-bottom: 36px` que a
+    `.login-logo-wrap` já tinha.
+  - **Só o app.** O login do site (`public/login.html` / `public/login.css`)
+    tem marcação equivalente e ficou **intacto**.
+  - Verificado no navegador (login e OTP renderizando, console sem erros) e
+    APK `assembleDebug` reconstruído após `npx cap sync android`.
+
+- **2026-07-29** — **RBAC: novo nível `gestaoOnly` e redivisão admin master ×
+  gerente.** O master passa a guardar só o que é irreversível; a operação do
+  negócio fica com o gerente.
+  - **Novo `src/middleware/gestaoOnly.js`** (`admin` + `gerente`). Existe porque
+    `adminOnly` **também deixa o operador passar** — usar `adminOnly` para
+    "liberar pro gerente" liberaria pro operador junto. Hierarquia final:
+    `adminOnly` (3 roles) ⊃ `gestaoOnly` (2) ⊃ `masterAdminOnly` (1).
+  - **Liberado pro gerente:** planos de manutenção (9 rotas — estava tudo em
+    master **inclusive o `GET`**, então o gerente via o menu e tomava 403 ao
+    abrir); contratos, inclusive `enviar-assinatura`; criar/editar condomínio;
+    export de conversas do WhatsApp.
+  - **Liberado pro gerente + operador** (`adminOnly`): criar e editar chamado
+    (era master — o gerente não conseguia mudar status nem atribuir técnico) e
+    `PATCH /alertas/:id/fechar` (o operador via o Monitor sem poder fechar).
+  - **Continua master:** reservatórios (criar/editar/excluir/device-key),
+    **excluir** condomínio (`DELETE` e `/hard`), usuários + `/auth/registrar`,
+    técnicos, configurações, SLA, integrações e jobs de manutenção.
+  - Orçamentos e O.S. já eram `adminOnly` — nada mudou lá.
+  - `public/admin.js` **não foi tocado** → sem bump de `?v=N`. Muda só backend,
+    logo **só vale após deploy**.
+  - Fica registrado: a restrição do **operador** é só de UI (`display:none` no
+    menu); no backend ele passa em `adminOnly` e alcança orçamentos, O.S. e
+    relatórios pela API. Não foi alterado porque **restringir** quebraria quem
+    usa hoje — decisão pendente.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

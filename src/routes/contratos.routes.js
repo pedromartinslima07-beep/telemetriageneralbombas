@@ -8,7 +8,7 @@ const express = require("express");
 const { pool } = require("../db");
 const { authRequired } = require("../middleware/authRequired");
 const { adminOnly } = require("../middleware/adminOnly");
-const { masterAdminOnly } = require("../middleware/masterAdminOnly");
+const { gestaoOnly } = require("../middleware/gestaoOnly");
 const { gerarPdfBuffer } = require("../services/contrato-pdf.service");
 const { sendContratoAssinatura } = require("../services/email");
 
@@ -238,7 +238,7 @@ router.get("/:id", authRequired, adminOnly, async (req, res) => {
 });
 
 // POST /contratos — cria. Se o condomínio já tem contrato ativo, retorna 409.
-router.post("/", authRequired, masterAdminOnly, async (req, res) => {
+router.post("/", authRequired, gestaoOnly, async (req, res) => {
   const { errs, out } = _validar(req.body || {}, { exigirObrigatorios: true });
   if (errs.length) return res.status(400).json({ error: errs.join("; ") });
 
@@ -270,7 +270,7 @@ router.post("/", authRequired, masterAdminOnly, async (req, res) => {
 });
 
 // PATCH /contratos/:id — atualiza (não permite mudar condominio_id)
-router.patch("/:id", authRequired, masterAdminOnly, async (req, res) => {
+router.patch("/:id", authRequired, gestaoOnly, async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
 
@@ -299,7 +299,7 @@ router.patch("/:id", authRequired, masterAdminOnly, async (req, res) => {
 });
 
 // DELETE /contratos/:id — exclusão permanente
-router.delete("/:id", authRequired, masterAdminOnly, async (req, res) => {
+router.delete("/:id", authRequired, gestaoOnly, async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
   try {
@@ -334,7 +334,7 @@ router.get("/:id/pdf", authRequired, adminOnly, async (req, res) => {
 });
 
 // POST /contratos/:id/enviar-assinatura — gera tokens e envia links por e-mail
-router.post("/:id/enviar-assinatura", authRequired, masterAdminOnly, async (req, res) => {
+router.post("/:id/enviar-assinatura", authRequired, gestaoOnly, async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
 
