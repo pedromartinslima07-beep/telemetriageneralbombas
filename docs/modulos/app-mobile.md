@@ -69,6 +69,20 @@ funções principais: `gpsStart()`, `_gpsAbrirWatch()`, `_gpsFecharWatch()`,
    APK. Um ForegroundService Java coleta a posição e faz o POST direto,
    independente da WebView; expõe `start`/`stop`/`updateToken`/
    `requestBatteryExemption` e emite o evento `locationUpdate`.
+   - ⚠️ **É um *started service*, nunca bound.** O plugin fala com ele por
+     `startForegroundService()` + `Intent` com ação (`GPS_START` / `GPS_STOP` /
+     `GPS_UPDATE_TOKEN`); `onBind` retorna `null` de propósito. Até jul/2026 o
+     serviço era criado só com `bindService(BIND_AUTO_CREATE)` e o rastreamento
+     morria com a tela apagada — ver a lição em
+     [`../../memory-bank/decisions.md`](../../memory-bank/decisions.md).
+   - `onStartCommand` devolve **`START_STICKY`**, e o sistema recria o serviço
+     com **Intent nulo**. Por isso endpoint/token/intervalo ficam em
+     `SharedPreferences` (`native_gps_prefs`) e são restaurados no restart —
+     sem isso o serviço volta com a notificação na tela e sem enviar nada.
+   - `startForeground` declara `FOREGROUND_SERVICE_TYPE_LOCATION` no Android
+     10+ (obrigatório no 14+; falhar derruba o app).
+   - Falha de POST é logada em `Log.w("NativeGps", ...)`. Diagnóstico no
+     aparelho: `adb logcat -s NativeGps`.
 2. **`@capacitor-community/background-geolocation@1.2.26`** — instalado e
    integrado como alternativa (`BackgroundGeolocation.addWatcher()`).
 3. **`navigator.geolocation.watchPosition()`** — fallback no browser/PWA.

@@ -1,15 +1,12 @@
 package com.generalbombas.app;
 
 import android.content.BroadcastReceiver;
-import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.ServiceConnection;
 import android.location.Location;
 import android.net.Uri;
 import android.os.Build;
-import android.os.IBinder;
 import android.os.PowerManager;
 import android.provider.Settings;
 
@@ -26,44 +23,47 @@ import com.getcapacitor.annotation.CapacitorPlugin;
  *   NativeGpsTracker.start({ endpoint, token, intervalMs, notificationTitle, notificationMessage })
  *   NativeGpsTracker.stop()
  *   NativeGpsTracker.addListener('locationUpdate', callback)
+ *
+ * O serviço é *started* (startForegroundService), não bound: ele precisa
+ * sobreviver à Activity ser destruída com a tela apagada. Por isso este plugin
+ * não guarda referência ao serviço e não o desliga quando a Activity morre —
+ * só o `stop()` explícito do JS (logout / fora da janela de horário) para o
+ * rastreamento. Ver o comentário no topo de NativeGpsService.
  */
 @CapacitorPlugin(name = "NativeGpsTracker")
 public class NativeGpsPlugin extends Plugin {
 
-    private NativeGpsService.LocalBinder service = null;
-    private BroadcastReceiver locationReceiver   = null;
+    private BroadcastReceiver locationReceiver = null;
 
     // ── Capacitor lifecycle ───────────────────────────────────────────────
     @Override
     public void load() {
         super.load();
-        bindToService();
         registerLocationReceiver();
     }
 
     @Override
     protected void handleOnDestroy() {
+        // Só o receiver de UI é desfeito. O serviço de GPS continua rodando de
+        // propósito — era exatamente o `service.stop()` daqui que derrubava o
+        // rastreamento quando o Android reciclava a Activity.
         unregisterLocationReceiver();
-        if (service != null) service.stop();
         super.handleOnDestroy();
     }
 
     // ── Plugin methods ────────────────────────────────────────────────────
     @PluginMethod
     public void start(PluginCall call) {
-        if (service == null) {
-            call.reject("Service not bound yet.");
-            return;
-        }
         try {
-            String endpoint      = call.getString("endpoint", "");
-            String token         = call.getString("token", "");
-            long   intervalMs    = call.getLong("intervalMs", 60_000L);
-            String notifTitle    = call.getString("notificationTitle", "GPS ativo");
-            String notifMessage  = call.getString("notificationMessage",
-                    "General Bombas está monitorando sua localização.");
-
-            service.configure(endpoint, token, intervalMs, notifTitle, notifMessage);
+            Intent i = new Intent(getContext(), NativeGpsService.class);
+            i.setAction(NativeGpsService.ACTION_START);
+            i.putExtra(NativeGpsService.EXTRA_ENDPOINT,  call.getString("endpoint", ""));
+            i.putExtra(NativeGpsService.EXTRA_TOKEN,     call.getString("token", ""));
+            i.putExtra(NativeGpsService.EXTRA_INTERVAL,  call.getLong("intervalMs", 60_000L));
+            i.putExtra(NativeGpsService.EXTRA_NOTIF_TIT, call.getString("notificationTitle", "GPS ativo"));
+            i.putExtra(NativeGpsService.EXTRA_NOTIF_MSG, call.getString("notificationMessage",
+                    "General Bombas está monitorando sua localização."));
+            iniciar(i);
             call.resolve();
         } catch (Exception e) {
             call.reject("Erro ao iniciar GPS: " + e.getMessage());
@@ -72,13 +72,24 @@ public class NativeGpsPlugin extends Plugin {
 
     @PluginMethod
     public void stop(PluginCall call) {
-        if (service != null) service.stop();
+        try {
+            Intent i = new Intent(getContext(), NativeGpsService.class);
+            i.setAction(NativeGpsService.ACTION_STOP);
+            // stop nunca usa startForegroundService: o serviço vai justamente
+            // sair do foreground e se encerrar.
+            getContext().startService(i);
+        } catch (Exception ignored) {}
         call.resolve();
     }
 
     @PluginMethod
     public void updateToken(PluginCall call) {
-        if (service != null) service.updateToken(call.getString("token", ""));
+        try {
+            Intent i = new Intent(getContext(), NativeGpsService.class);
+            i.setAction(NativeGpsService.ACTION_UPDATE_TOKEN);
+            i.putExtra(NativeGpsService.EXTRA_TOKEN, call.getString("token", ""));
+            iniciar(i);
+        } catch (Exception ignored) {}
         call.resolve();
     }
 
@@ -97,19 +108,12 @@ public class NativeGpsPlugin extends Plugin {
         call.resolve();
     }
 
-    // ── Service binding ───────────────────────────────────────────────────
-    private void bindToService() {
-        Intent intent = new Intent(getContext(), NativeGpsService.class);
-        getContext().bindService(intent, new ServiceConnection() {
-            @Override
-            public void onServiceConnected(ComponentName name, IBinder binder) {
-                service = (NativeGpsService.LocalBinder) binder;
-            }
-            @Override
-            public void onServiceDisconnected(ComponentName name) {
-                service = null;
-            }
-        }, Context.BIND_AUTO_CREATE);
+    private void iniciar(Intent i) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            getContext().startForegroundService(i);
+        } else {
+            getContext().startService(i);
+        }
     }
 
     // ── Location broadcast → JS event ────────────────────────────────────

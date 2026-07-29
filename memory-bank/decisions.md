@@ -143,6 +143,18 @@ canônica do "porquê"; o "o quê" está em `../docs/` e em [`current-state.md`]
 - **`targetSdk` não é preferência, é prazo** — ver
   [`roadmap.md`](roadmap.md) (7J). A Play Store sobe o piso todo ano; ficar pra
   trás não degrada nada no app instalado, mas impede publicar atualização.
+- **Lição (jul/2026): `startForeground()` não salva um bound service.** O
+  `NativeGpsService` nasceu criado só por `bindService(BIND_AUTO_CREATE)`, e por
+  isso morria com a tela apagada por mais correto que estivesse o resto
+  (manifest com `foregroundServiceType`, todas as permissões, plugin registrado).
+  Serviço que precisa sobreviver à Activity **tem que ser *started***
+  (`startForegroundService()` + `onStartCommand` + `START_STICKY`); binding é só
+  um canal de conversa, não um ciclo de vida. Corolário: com `START_STICKY` o
+  sistema recria o serviço com **Intent nulo** — toda config precisa estar
+  persistida, senão ele volta vivo e inútil.
+- **Sintoma diagnóstico que economiza horas:** se a notificação persistente do
+  ForegroundService **some** da barra, o problema é ciclo de vida do serviço, não
+  GPS/permissão/rede. Se ela **fica** e o dado não chega, aí sim é rede ou POST.
 
 ## Segurança e RBAC
 

@@ -908,6 +908,38 @@ er sem animação.
     relatórios pela API. Não foi alterado porque **restringir** quebraria quem
     usa hoje — decisão pendente.
 
+- **2026-07-29** — **GPS parava com a tela apagada: `NativeGpsService` era um
+  bound service.** Sintoma: o pin do técnico congelava no mapa, e ao abrir o app
+  aparecia "localização a 76 min" seguida de "GPS ativo" logo depois. A
+  notificação persistente **sumia** da barra com a tela apagada — prova de que o
+  serviço estava sendo encerrado, não de que o GPS falhava.
+  - Causa: o serviço só era criado por `bindService(..., BIND_AUTO_CREATE)`,
+    nunca por `startForegroundService()`. Um serviço **apenas-bound** tem o
+    ciclo de vida preso à Activity, e chamar `startForeground()` dentro dele
+    **não** muda isso. Quando o Android reciclava a Activity (Doze / gerenciador
+    de bateria do fabricante), o serviço morria junto.
+  - Pior: dois caminhos desligavam o rastreio **de propósito** —
+    `NativeGpsPlugin.handleOnDestroy()` chamava `service.stop()` e
+    `NativeGpsService.onUnbind()` chamava `stopTracking()` + `stopSelf()`.
+  - Correção: virou *started service*. Binder removido (`onBind` → `null`),
+    comunicação por `Intent` com ação (`GPS_START`/`GPS_STOP`/
+    `GPS_UPDATE_TOKEN`), `onStartCommand` devolvendo **`START_STICKY`**.
+    `handleOnDestroy` não para mais o serviço — só o `stop()` explícito do JS
+    (logout, fora da janela 8h–18h) encerra o rastreio.
+  - Detalhe que era fácil errar: com `START_STICKY` o sistema recria o serviço
+    com **Intent nulo**. A config (endpoint, token, intervalo) foi para
+    `SharedPreferences`; sem isso o serviço voltaria com a notificação na tela
+    e sem mandar nada.
+  - `startForeground` passou a declarar `FOREGROUND_SERVICE_TYPE_LOCATION` no
+    Android 10+ — obrigatório no 14+ (`targetSdk 36`).
+  - `postLocation` engolia tudo em `catch (Exception ignored)`: um 401 de token
+    expirado ou queda de rede congelava o pin **sem deixar rastro**. Agora loga
+    status HTTP fora de 2xx e falhas em `Log.w("NativeGps", ...)`
+    (`adb logcat -s NativeGps`).
+  - **Nada mudou no JS** — a API `start`/`stop`/`addListener` é a mesma.
+    Exige APK novo. Não confundir com a janela de operação **8h–18h**
+    (`app.js`), em que o GPS desliga por design.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em
