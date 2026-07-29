@@ -977,6 +977,23 @@ er sem animação.
     passam por PDF (`data_nascimento`, `proxima_em`, `ultima_em`) ficam
     registradas em [`../memory-bank/active-work.md`](../memory-bank/active-work.md).
 
+- **2026-07-29** — **PDF de orçamento dizia "60 dias" fixo, qualquer que fosse
+  a validade.** O texto estava literal no template
+  (`` `60 dias (até ${...})` ``), então um orçamento com validade de 30 dias
+  saía com o **texto e a data se contradizendo**.
+  - Não existe coluna de "validade em dias" — o banco só tem `valido_ate`
+    (`DATE`). O prazo agora é **derivado**: dias de calendário entre a data do
+    documento (`data_documento`, ou `criado_em` quando vazia) e `valido_ate`.
+  - A subtração usa `Date.UTC` sobre os componentes `[ano, mês, dia]` dos dois
+    lados, para que fuso e horário de verão não entrem na conta. O lado
+    `timestamptz` é primeiro reduzido ao dia de calendário **em São Paulo**
+    (via `toLocaleDateString("en-CA", { timeZone })`), senão um orçamento criado
+    de madrugada contaria um dia a mais.
+  - Casos de borda cobertos: singular ("1 dia"), virada de ano, ano bissexto,
+    e validade no passado ou no mesmo dia — nesses dois últimos afirmar "X dias"
+    seria errado, então imprime só "até DD/MM/AAAA". Sem `valido_ate`, mantém o
+    padrão comercial "60 dias".
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

@@ -55,6 +55,51 @@ function fmtDataDocumento(os) {
     : fmtDateBR(os.finalizada_em || os.criado_em);
 }
 
+// ── Validade do orçamento ───────────────────────────────────────────────────
+// Não existe coluna de "validade em dias": o banco só guarda `valido_ate`
+// (DATE). O prazo em dias é derivado da data do documento até essa data.
+// Antes o template dizia "60 dias" fixo, então um orçamento com validade de 30
+// dias saía com o texto e a data se contradizendo.
+
+// [ano, mês(0-11), dia] de uma coluna DATE — sem conversão de fuso.
+function _ymdDeDate(v) {
+  if (!v) return null;
+  if (v instanceof Date) return [v.getFullYear(), v.getMonth(), v.getDate()];
+  const m = String(v).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? [+m[1], +m[2] - 1, +m[3]] : null;
+}
+
+// [ano, mês(0-11), dia] de um timestamptz, no dia de calendário em São Paulo.
+// "en-CA" formata como YYYY-MM-DD, o que torna o parse trivial.
+function _ymdDeTimestamptz(v) {
+  if (!v) return null;
+  const s = new Date(v).toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? [+m[1], +m[2] - 1, +m[3]] : null;
+}
+
+// Diferença em dias de calendário. Date.UTC evita que fuso ou horário de verão
+// entrem na subtração — os dois lados viram meia-noite UTC do respectivo dia.
+function _diasEntre(a, b) {
+  return Math.round((Date.UTC(...b) - Date.UTC(...a)) / 86_400_000);
+}
+
+function validadeTexto(os) {
+  const ate = _ymdDeDate(os.orcamento_valido_ate);
+  // Sem data definida, mantém o prazo comercial padrão da empresa.
+  if (!ate) return "60 dias";
+
+  const base = _ymdDeDate(os.data_documento) || _ymdDeTimestamptz(os.criado_em);
+  const dataStr = fmtDateOnlyBR(os.orcamento_valido_ate);
+  if (!base) return `até ${dataStr}`;
+
+  const dias = _diasEntre(base, ate);
+  // Validade no passado (orçamento antigo) ou no mesmo dia: afirmar "X dias"
+  // seria errado, então imprime só a data.
+  if (dias <= 0) return `até ${dataStr}`;
+  return `${dias} ${dias === 1 ? "dia" : "dias"} (até ${dataStr})`;
+}
+
 function fmtMoeda(v) {
   if (v == null || v === "") return "—";
   return Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -145,7 +190,7 @@ function renderHTML({ os, itens }, areaP1, medidas = {}) {
   const totalGeral  = os.valor != null
     ? Number(os.valor)
     : itens.reduce((acc, it) => acc + Number(it.valor_unitario || 0) * Number(it.quantidade), 0);
-  const validadeStr = os.orcamento_valido_ate ? `60 dias (até ${fmtDateOnlyBR(os.orcamento_valido_ate)})` : "60 dias";
+  const validadeStr = validadeTexto(os);
 
   // ── Paginação ────────────────────────────────────────────────────────────────
   // AREA_P1 vem medido em mm pela passagem 1 do Puppeteer (altura real do cabeçalho)
@@ -623,7 +668,7 @@ function renderHTMLServico({ os, itens }, timbrado) {
   const enderecoStr   = endParts.join(" – ");
   const tipoSubtitulo = TIPO_SUBTITULO[os.tipo] || "";
   const clausulasHtml = (CLAUSULAS_POR_TIPO[os.tipo] || (() => ""))(itens);
-  const validadeStr   = os.orcamento_valido_ate ? `60 dias (até ${fmtDateOnlyBR(os.orcamento_valido_ate)})` : "60 dias";
+  const validadeStr   = validadeTexto(os);
   const totalGeral    = os.valor != null
     ? Number(os.valor)
     : itens.reduce((acc, it) => acc + Number(it.valor_unitario || 0) * Number(it.quantidade), 0);
