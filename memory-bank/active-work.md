@@ -624,7 +624,12 @@ Envs necessárias: `OPENAI_API_KEY`, `WHATSAPP_VERIFY_TOKEN`,
   - Colunas `DATE` que **ainda não** passam por PDF e valem auditoria se forem
     exibidas: `data_nascimento` (perfil do técnico), `proxima_em` e `ultima_em`
     (planos de manutenção).
-- **Técnicos (`POST`/`PATCH`/`DELETE /tecnicos`) seguem em `masterAdminOnly`** —
-  ficou sem decisão na redivisão de RBAC de 29/07.
+- **`DELETE /tecnicos/:id` é hard delete sem rede de proteção.** Agora está
+  liberado ao gerente (decisão de 29/07), e o endpoint faz
+  `DELETE FROM tecnicos` direto — sem soft-delete, sem checar vínculos, sem
+  confirmação no backend. As FKs salvam o histórico de negócio
+  (chamados/O.S./zonas são `ON DELETE SET NULL`), mas `tecnico_localizacoes` e o
+  histórico de GPS são `ON DELETE CASCADE` e **somem junto**. Se um dia precisar
+  de auditoria de rastro, virar soft-delete (`ativo = false`) é o caminho.
 - **Restrição do operador é só de UI** — no backend ele passa em `adminOnly` e
   alcança orçamentos/O.S./relatórios pela API.

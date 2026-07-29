@@ -3,7 +3,7 @@ const bcrypt = require("bcrypt");
 const { pool } = require("../db");
 const { authRequired } = require("../middleware/authRequired");
 const { adminOnly } = require("../middleware/adminOnly");
-const { masterAdminOnly } = require("../middleware/masterAdminOnly");
+const { gestaoOnly } = require("../middleware/gestaoOnly");
 
 const router = express.Router();
 
@@ -49,7 +49,7 @@ router.get("/", authRequired, adminOnly, async (req, res) => {
 // Aceita campo opcional `senha`. Se presente, cria também o usuário (role=tecnico)
 // e vincula via `tecnicos.usuario_id` na mesma transação. Email vira obrigatório
 // nesse caso (é o login do técnico).
-router.post("/", authRequired, masterAdminOnly, async (req, res) => {
+router.post("/", authRequired, gestaoOnly, async (req, res) => {
   const { nome, email, telefone, especialidade, cargo, senha, foto_url, cpf, rg, data_nascimento, endereco, observacoes } = req.body || {};
   if (!nome) return res.status(400).json({ error: "nome é obrigatório" });
   const CARGOS = ["tecnico", "adm", "gestor", "ti"];
@@ -95,7 +95,7 @@ router.post("/", authRequired, masterAdminOnly, async (req, res) => {
 // Se vier `senha`:
 //   - técnico sem usuario_id ainda → cria usuário e linka (precisa email)
 //   - técnico já com usuario_id    → atualiza só a senha do usuário existente
-router.patch("/:id", authRequired, masterAdminOnly, async (req, res) => {
+router.patch("/:id", authRequired, gestaoOnly, async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
 
@@ -197,7 +197,7 @@ router.patch("/:id", authRequired, masterAdminOnly, async (req, res) => {
 });
 
 // DELETE /tecnicos/:id
-router.delete("/:id", authRequired, masterAdminOnly, async (req, res) => {
+router.delete("/:id", authRequired, gestaoOnly, async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
   try {

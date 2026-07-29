@@ -141,7 +141,7 @@ Webhook em **Públicas**. Demais exigem admin:
 ## Técnicos (`/tecnicos`)
 
 | GET | `/tecnicos` | adminOnly |
-| POST · PATCH · DELETE | `/tecnicos[/:id]` | masterAdmin |
+| POST · PATCH · DELETE | `/tecnicos[/:id]` | **gestao** (DELETE e hard delete; GPS do técnico vai junto por CASCADE) |
 | GET | `/tecnicos/config` | autenticado (frequência de GPS) |
 | POST | `/tecnicos/localizacao` | autenticado (app envia GPS) |
 | GET | `/tecnicos/localizacao` | adminOnly (posições atuais) |

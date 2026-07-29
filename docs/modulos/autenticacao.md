@@ -72,13 +72,20 @@ engano:
 - **Excluir condomínio** — `DELETE /condominios/:id` e `/:id/hard`.
   (Criar e editar são `gestaoOnly` — rotina comercial.)
 - **Usuários** — criar, editar, excluir, reset de senha, dispositivos;
-  `POST /auth/registrar`.
-- **Técnicos** — criar, editar, excluir.
+  `POST /auth/registrar`. É a fronteira: **credencial de login é do master**.
 - **Configurações**, **SLA**, **integrações** e os **jobs de manutenção**.
 
 O que o **gerente** faz junto com o master: orçamentos, ordens de serviço,
 planos de manutenção, contratos (inclusive `enviar-assinatura`), cadastro e
-edição de cliente, export de conversas do WhatsApp, chamados e fechar alerta.
+edição de cliente, **cadastro/edição/exclusão de técnico**, export de conversas
+do WhatsApp, chamados e fechar alerta.
+
+> ⚠️ `DELETE /tecnicos/:id` é **hard delete** (`DELETE FROM tecnicos`), sem
+> soft-delete e sem checar vínculos. O banco protege o histórico: chamados,
+> O.S. e zonas têm `ON DELETE SET NULL` (o registro fica, perde o técnico), mas
+> `tecnico_localizacoes` e o histórico de GPS são `ON DELETE CASCADE` — **o
+> rastro de localização some junto**. Liberado ao gerente por decisão de
+> 29/07/2026.
 
 > O role `master_admin` foi removido — `masterAdminOnly` hoje equivale a `admin`.
 

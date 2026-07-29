@@ -899,7 +899,13 @@ er sem animação.
     `PATCH /alertas/:id/fechar` (o operador via o Monitor sem poder fechar).
   - **Continua master:** reservatórios (criar/editar/excluir/device-key),
     **excluir** condomínio (`DELETE` e `/hard`), usuários + `/auth/registrar`,
-    técnicos, configurações, SLA, integrações e jobs de manutenção.
+    configurações, SLA, integrações e jobs de manutenção. A fronteira que
+    sobrou é limpa: **credencial de login é do master**.
+  - **Técnicos** (`POST`/`PATCH`/`DELETE`) também foram para `gestaoOnly` —
+    decisão tomada depois, no mesmo dia. Vale registrar que
+    `DELETE /tecnicos/:id` é **hard delete** sem checar vínculos: chamados,
+    O.S. e zonas sobrevivem (`ON DELETE SET NULL`), mas `tecnico_localizacoes`
+    e o histórico de GPS são `ON DELETE CASCADE` e **somem junto**.
   - Orçamentos e O.S. já eram `adminOnly` — nada mudou lá.
   - `public/admin.js` **não foi tocado** → sem bump de `?v=N`. Muda só backend,
     logo **só vale após deploy**.
