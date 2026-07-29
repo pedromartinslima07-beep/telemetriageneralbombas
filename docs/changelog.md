@@ -940,6 +940,37 @@ er sem animação.
     Exige APK novo. Não confundir com a janela de operação **8h–18h**
     (`app.js`), em que o GPS desliga por design.
 
+- **2026-07-29** — **PDF de orçamento saía com a data um dia atrasada.**
+  `fmtDateBR` aplicava `toLocaleDateString("pt-BR", { timeZone:
+  "America/Sao_Paulo" })` em **todas** as datas, inclusive nas colunas `DATE`.
+  - `orcamentos.valido_ate` e `orcamentos.data_documento` são **`DATE`** — dia
+    de calendário, sem fuso. O servidor roda em **UTC**, o driver entrega
+    `2026-07-29` como meia-noite UTC, e converter para `America/Sao_Paulo`
+    (UTC-3) devolve **28/07**. Reproduzido: banco `2026-07-29` → PDF
+    `28/07/2026`; na virada de mês, `01/08` virava `31/07`.
+  - Novo `fmtDateOnlyBR` lê os componentes crus (sem conversão), tratando tanto
+    `Date` quanto string `YYYY-MM-DD`. `fmtDateBR` **continua** sendo usado para
+    `criado_em` (`timestamptz`), onde converter fuso é o comportamento correto.
+  - `data_documento` (DATE) e `criado_em` (timestamptz) eram coalescidos com um
+    `||` cru e formatados igual — tipos diferentes exigem formatadores
+    diferentes, agora separados em `fmtDataDocumento`.
+  - Mesmo defeito que `_orcFmtDataSemFuso` já resolvia no `admin.js`: a correção
+    tinha sido feita só no front, o gerador de PDF ficou para trás.
+  - **O mesmo defeito foi corrigido em `contrato-pdf.service.js` e
+    `os-pdf.service.js`** na mesma passagem:
+    - **Contrato** — `inicio_em` e `fim_em` (`DATE`) apareciam um dia atrasados
+      na **cláusula 6.1, a de vigência**: um contrato de 01/08/2026 a
+      31/07/2027 era impresso como 31/07/2026 a 30/07/2027. Novo
+      `fmtBRDateOnly`; o placeholder `___/___/______` de campo vazio foi
+      preservado. Seguro de aplicar porque **ainda não há contratos
+      assinados** — do contrário, regenerar o PDF mudaria a data de um
+      documento já firmado.
+    - **O.S.** — `retorno_sugerido_em` (`DATE`). `chegada_em` e `criado_em` são
+      `timestamptz` e continuam com o formatador de fuso.
+  - Auditoria conferiu os três serviços de PDF; colunas `DATE` que ainda não
+    passam por PDF (`data_nascimento`, `proxima_em`, `ultima_em`) ficam
+    registradas em [`../memory-bank/active-work.md`](../memory-bank/active-work.md).
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

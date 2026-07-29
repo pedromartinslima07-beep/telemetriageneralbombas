@@ -19,9 +19,40 @@ function escapeHtml(s) {
     .replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
+// Para colunas timestamptz (criado_em): o valor É um instante, então converter
+// para o fuso de São Paulo está certo.
 function fmtDateBR(iso) {
   if (!iso) return "—";
   return new Date(iso).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
+}
+
+// Para colunas DATE (valido_ate, data_documento): o valor NÃO tem fuso — é um
+// dia de calendário. Passá-lo por toLocaleDateString com timeZone joga a data
+// um dia pra trás: o servidor roda em UTC, o driver entrega 2026-07-29 como
+// meia-noite UTC, e converter pra America/Sao_Paulo (UTC-3) devolve 28/07.
+// Por isso aqui os componentes são lidos crus, sem conversão nenhuma.
+// Mesmo problema que `_orcFmtDataSemFuso` resolve no admin.js.
+function fmtDateOnlyBR(v) {
+  if (!v) return "—";
+  // O driver pg entrega DATE como Date à meia-noite LOCAL do processo, então
+  // os getters locais devolvem exatamente o dia gravado, seja qual for o TZ.
+  if (v instanceof Date) {
+    const d = String(v.getDate()).padStart(2, "0");
+    const m = String(v.getMonth() + 1).padStart(2, "0");
+    return `${d}/${m}/${v.getFullYear()}`;
+  }
+  const m = String(v).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : String(v);
+}
+
+// A data impressa no PDF vem de data_documento (DATE, definida pelo admin) e
+// cai em criado_em (timestamptz, auditoria) quando não preenchida. São tipos
+// diferentes e cada um exige seu formatador — por isso a escolha não pode ser
+// um `||` cru.
+function fmtDataDocumento(os) {
+  return os.data_documento
+    ? fmtDateOnlyBR(os.data_documento)
+    : fmtDateBR(os.finalizada_em || os.criado_em);
 }
 
 function fmtMoeda(v) {
@@ -108,13 +139,13 @@ function renderHTML({ os, itens }, areaP1, medidas = {}) {
   const timbrado = timbradoBase64();
 
   const orcNumero   = os.orcamento_numero || os.os_numero || String(os.id);
-  const dataOrc     = fmtDateBR(os.finalizada_em || os.criado_em);
+  const dataOrc     = fmtDataDocumento(os);
   const endParts    = [os.endereco, os.bairro, os.cidade && os.uf ? `${os.cidade}/${os.uf}` : (os.cidade || ""), os.cep ? `CEP ${os.cep}` : ""].filter(Boolean);
   const enderecoStr = endParts.join(" – ");
   const totalGeral  = os.valor != null
     ? Number(os.valor)
     : itens.reduce((acc, it) => acc + Number(it.valor_unitario || 0) * Number(it.quantidade), 0);
-  const validadeStr = os.orcamento_valido_ate ? `60 dias (até ${fmtDateBR(os.orcamento_valido_ate)})` : "60 dias";
+  const validadeStr = os.orcamento_valido_ate ? `60 dias (até ${fmtDateOnlyBR(os.orcamento_valido_ate)})` : "60 dias";
 
   // ── Paginação ────────────────────────────────────────────────────────────────
   // AREA_P1 vem medido em mm pela passagem 1 do Puppeteer (altura real do cabeçalho)
@@ -419,7 +450,7 @@ ${paginasHtml}
 // num div #measure de 170mm de largura para medir a altura real via page.evaluate().
 function renderMeasureHTML({ os }) {
   const orcNumero   = os.orcamento_numero || os.os_numero || String(os.id);
-  const dataOrc     = fmtDateBR(os.finalizada_em || os.criado_em);
+  const dataOrc     = fmtDataDocumento(os);
   const endParts    = [os.endereco, os.bairro, os.cidade && os.uf ? `${os.cidade}/${os.uf}` : (os.cidade || ""), os.cep ? `CEP ${os.cep}` : ""].filter(Boolean);
   const enderecoStr = endParts.join(" – ");
 
@@ -587,12 +618,12 @@ ${clausulasDedetizacao()}`,
 
 function renderHTMLServico({ os, itens }, timbrado) {
   const orcNumero     = os.orcamento_numero || os.os_numero || String(os.id);
-  const dataOrc       = fmtDateBR(os.finalizada_em || os.criado_em);
+  const dataOrc       = fmtDataDocumento(os);
   const endParts      = [os.endereco, os.bairro, os.cidade && os.uf ? `${os.cidade}/${os.uf}` : (os.cidade || ""), os.cep ? `CEP ${os.cep}` : ""].filter(Boolean);
   const enderecoStr   = endParts.join(" – ");
   const tipoSubtitulo = TIPO_SUBTITULO[os.tipo] || "";
   const clausulasHtml = (CLAUSULAS_POR_TIPO[os.tipo] || (() => ""))(itens);
-  const validadeStr   = os.orcamento_valido_ate ? `60 dias (até ${fmtDateBR(os.orcamento_valido_ate)})` : "60 dias";
+  const validadeStr   = os.orcamento_valido_ate ? `60 dias (até ${fmtDateOnlyBR(os.orcamento_valido_ate)})` : "60 dias";
   const totalGeral    = os.valor != null
     ? Number(os.valor)
     : itens.reduce((acc, it) => acc + Number(it.valor_unitario || 0) * Number(it.quantidade), 0);

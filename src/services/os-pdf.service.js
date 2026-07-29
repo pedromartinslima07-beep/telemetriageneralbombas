@@ -52,9 +52,27 @@ function escapeHtml(s) {
     .replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
+// Para timestamptz (criado_em, chegada_em): o valor é um instante, então
+// converter para o fuso de São Paulo está certo.
 function fmtDateBR(iso) {
   if (!iso) return "—";
   return new Date(iso).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
+}
+
+// Para colunas DATE (retorno_sugerido_em): dia de calendário, sem fuso.
+// Convertê-lo com timeZone joga a data um dia pra trás — o servidor roda em UTC
+// e America/Sao_Paulo é UTC-3. Mesma correção feita em orcamento-pdf.service.js.
+function fmtDateOnlyBR(v) {
+  if (!v) return "—";
+  // O driver pg entrega DATE como Date à meia-noite LOCAL do processo, então os
+  // getters locais devolvem exatamente o dia gravado, seja qual for o TZ.
+  if (v instanceof Date) {
+    const d = String(v.getDate()).padStart(2, "0");
+    const m = String(v.getMonth() + 1).padStart(2, "0");
+    return `${d}/${m}/${v.getFullYear()}`;
+  }
+  const m = String(v).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : String(v);
 }
 function fmtTimeBR(iso) {
   if (!iso) return "—";
@@ -552,7 +570,7 @@ function renderHTML({ os, fotos, pecas }) {
       <span class="chk-lbl">Necessário Retorno:</span>
       <span class="chk-opt">${checkbox(!!os.necessario_retorno)} Sim</span>
       <span class="chk-opt">${checkbox(!os.necessario_retorno)} Não</span>
-      ${os.retorno_sugerido_em ? `<span style="font-size:9.5px;color:#666;margin-left:10px;">Sugerido: ${escapeHtml(fmtDateBR(os.retorno_sugerido_em))}</span>` : ""}
+      ${os.retorno_sugerido_em ? `<span style="font-size:9.5px;color:#666;margin-left:10px;">Sugerido: ${escapeHtml(fmtDateOnlyBR(os.retorno_sugerido_em))}</span>` : ""}
     </div>
     <div class="check-row">
       <span class="chk-lbl">Serviço Realizado:</span>

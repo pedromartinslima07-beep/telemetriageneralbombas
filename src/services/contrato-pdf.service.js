@@ -37,10 +37,37 @@ function escHtml(s) {
                   .replace(/"/g,"&quot;").replace(/'/g,"&#39;");
 }
 
+// Para timestamptz (criado_em, assinatura_*_em): o valor é um instante, então
+// converter para o fuso de São Paulo está certo.
 function fmtBR(iso) {
   if (!iso) return "___/___/______";
   const d = new Date(iso);
   return d.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo", day:"2-digit", month:"2-digit", year:"numeric" });
+}
+
+// Para colunas DATE (inicio_em, fim_em): dia de calendário, sem fuso. Convertê-lo
+// com timeZone joga a data um dia pra trás — o servidor roda em UTC, o driver
+// entrega 2026-07-29 como meia-noite UTC e America/Sao_Paulo (UTC-3) devolve
+// 28/07. Isso saía impresso na cláusula 6.1 (vigência do contrato).
+// Mesma correção feita em orcamento-pdf.service.js.
+function fmtBRDateOnly(v) {
+  if (!v) return "___/___/______";
+  // O driver pg entrega DATE como Date à meia-noite LOCAL do processo, então os
+  // getters locais devolvem exatamente o dia gravado, seja qual for o TZ.
+  if (v instanceof Date) {
+    const d = String(v.getDate()).padStart(2, "0");
+    const m = String(v.getMonth() + 1).padStart(2, "0");
+    return `${d}/${m}/${v.getFullYear()}`;
+  }
+  const m = String(v).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : String(v);
+}
+
+// A data do documento usa inicio_em (DATE) e cai em criado_em (timestamptz).
+// Tipos diferentes exigem formatadores diferentes — não dá pra resolver com um
+// `||` cru e uma função só.
+function fmtDataDocumento(ct) {
+  return ct.inicio_em ? fmtBRDateOnly(ct.inicio_em) : fmtBR(ct.criado_em);
 }
 
 // Data + hora (não só data) — usada no bloco de evidência da assinatura,
@@ -93,7 +120,7 @@ function clausulasBombas(ct) {
   const formaStr = _formaStr(ct.forma_pagamento);
   const diaVenc  = ct.dia_vencimento ? `todo dia ${ct.dia_vencimento}` : "a combinar";
   const valorMensal = fmtMoeda(ct.valor_mensal);
-  const fimEm    = ct.fim_em ? fmtBR(ct.fim_em) : "indeterminado";
+  const fimEm    = ct.fim_em ? fmtBRDateOnly(ct.fim_em) : "indeterminado";
 
   return `
 <div class="clausula">
@@ -155,7 +182,7 @@ function clausulasBombas(ct) {
 
 <div class="clausula">
   <div class="clausula-titulo">Cláusula Sexta – Reajuste e Vigência</div>
-  <p><strong>6.1</strong> – O prazo de vigência deste contrato é de <strong>${ct.tipo === "semestral" ? "6 (seis)" : "12 (doze)"} meses</strong>, com início em <strong>${fmtBR(ct.inicio_em)}</strong> e término em <strong>${fimEm}</strong>, podendo ser prorrogado por igual período mediante termo aditivo, caso o CONTRATANTE não se manifeste de forma contrária no prazo de 30 (trinta) dias antes da data final.</p>
+  <p><strong>6.1</strong> – O prazo de vigência deste contrato é de <strong>${ct.tipo === "semestral" ? "6 (seis)" : "12 (doze)"} meses</strong>, com início em <strong>${fmtBRDateOnly(ct.inicio_em)}</strong> e término em <strong>${fimEm}</strong>, podendo ser prorrogado por igual período mediante termo aditivo, caso o CONTRATANTE não se manifeste de forma contrária no prazo de 30 (trinta) dias antes da data final.</p>
   <p><strong>6.2</strong> – Os valores serão reajustados anualmente pelo <strong>IPCA</strong>, acumulado do período.</p>
   <p><strong>6.3</strong> – Caso os valores estejam defasados em relação ao mercado, a CONTRATADA poderá propor readequação, a ser efetivada somente mediante anuência do CONTRATANTE após negociação.</p>
 </div>`;
@@ -169,7 +196,7 @@ function clausulasPiscina(ct) {
   const formaStr = _formaStr(ct.forma_pagamento);
   const diaVenc  = ct.dia_vencimento ? `todo dia ${ct.dia_vencimento}` : "a combinar";
   const valorMensal = fmtMoeda(ct.valor_mensal);
-  const fimEm    = ct.fim_em ? fmtBR(ct.fim_em) : "indeterminado";
+  const fimEm    = ct.fim_em ? fmtBRDateOnly(ct.fim_em) : "indeterminado";
 
   return `
 <div class="clausula">
@@ -226,7 +253,7 @@ function clausulasPiscina(ct) {
 
 <div class="clausula">
   <div class="clausula-titulo">Cláusula Sexta – Reajuste e Vigência</div>
-  <p><strong>6.1</strong> – O prazo de vigência deste contrato é de <strong>${ct.tipo === "semestral" ? "6 (seis)" : "12 (doze)"} meses</strong>, com início em <strong>${fmtBR(ct.inicio_em)}</strong> e término em <strong>${fimEm}</strong>, podendo ser prorrogado por igual período mediante termo aditivo, caso o CONTRATANTE não se manifeste de forma contrária no prazo de 30 (trinta) dias antes da data final.</p>
+  <p><strong>6.1</strong> – O prazo de vigência deste contrato é de <strong>${ct.tipo === "semestral" ? "6 (seis)" : "12 (doze)"} meses</strong>, com início em <strong>${fmtBRDateOnly(ct.inicio_em)}</strong> e término em <strong>${fimEm}</strong>, podendo ser prorrogado por igual período mediante termo aditivo, caso o CONTRATANTE não se manifeste de forma contrária no prazo de 30 (trinta) dias antes da data final.</p>
   <p><strong>6.2</strong> – Os valores serão reajustados anualmente pelo <strong>IPCA</strong>, acumulado do período.</p>
   <p><strong>6.3</strong> – Caso os valores estejam defasados em relação ao mercado, a CONTRATADA poderá propor readequação, a ser efetivada somente mediante anuência do CONTRATANTE após negociação.</p>
 </div>`;
@@ -240,7 +267,7 @@ function clausulasDedetizacao(ct) {
   const formaStr    = _formaStr(ct.forma_pagamento);
   const diaVenc     = ct.dia_vencimento ? `todo dia ${ct.dia_vencimento}` : "a combinar";
   const valorMensal = fmtMoeda(ct.valor_mensal);
-  const fimEm       = ct.fim_em ? fmtBR(ct.fim_em) : "indeterminado";
+  const fimEm       = ct.fim_em ? fmtBRDateOnly(ct.fim_em) : "indeterminado";
 
   return `
 <div class="clausula">
@@ -292,7 +319,7 @@ function clausulasDedetizacao(ct) {
 
 <div class="clausula">
   <div class="clausula-titulo">Cláusula Sexta – Reajuste e Vigência</div>
-  <p><strong>6.1</strong> – O prazo de vigência deste contrato é de <strong>${ct.tipo === "semestral" ? "6 (seis)" : "12 (doze)"} meses</strong>, com início em <strong>${fmtBR(ct.inicio_em)}</strong> e término em <strong>${fimEm}</strong>, podendo ser prorrogado por igual período mediante termo aditivo, caso o CONTRATANTE não se manifeste de forma contrária no prazo de 30 (trinta) dias antes da data final.</p>
+  <p><strong>6.1</strong> – O prazo de vigência deste contrato é de <strong>${ct.tipo === "semestral" ? "6 (seis)" : "12 (doze)"} meses</strong>, com início em <strong>${fmtBRDateOnly(ct.inicio_em)}</strong> e término em <strong>${fimEm}</strong>, podendo ser prorrogado por igual período mediante termo aditivo, caso o CONTRATANTE não se manifeste de forma contrária no prazo de 30 (trinta) dias antes da data final.</p>
   <p><strong>6.2</strong> – Os valores serão reajustados anualmente pelo <strong>IPCA</strong>, acumulado do período.</p>
   <p><strong>6.3</strong> – Caso os valores estejam defasados em relação ao mercado, a CONTRATADA poderá propor readequação, a ser efetivada somente mediante anuência do CONTRATANTE após negociação.</p>
 </div>`;
@@ -306,7 +333,7 @@ function clausulasDesratizacao(ct) {
   const formaStr    = _formaStr(ct.forma_pagamento);
   const diaVenc     = ct.dia_vencimento ? `todo dia ${ct.dia_vencimento}` : "a combinar";
   const valorMensal = fmtMoeda(ct.valor_mensal);
-  const fimEm       = ct.fim_em ? fmtBR(ct.fim_em) : "indeterminado";
+  const fimEm       = ct.fim_em ? fmtBRDateOnly(ct.fim_em) : "indeterminado";
 
   return `
 <div class="clausula">
@@ -360,7 +387,7 @@ function clausulasDesratizacao(ct) {
 
 <div class="clausula">
   <div class="clausula-titulo">Cláusula Sexta – Reajuste e Vigência</div>
-  <p><strong>6.1</strong> – O prazo de vigência deste contrato é de <strong>${ct.tipo === "semestral" ? "6 (seis)" : "12 (doze)"} meses</strong>, com início em <strong>${fmtBR(ct.inicio_em)}</strong> e término em <strong>${fimEm}</strong>, podendo ser prorrogado por igual período mediante termo aditivo, caso o CONTRATANTE não se manifeste de forma contrária no prazo de 30 (trinta) dias antes da data final.</p>
+  <p><strong>6.1</strong> – O prazo de vigência deste contrato é de <strong>${ct.tipo === "semestral" ? "6 (seis)" : "12 (doze)"} meses</strong>, com início em <strong>${fmtBRDateOnly(ct.inicio_em)}</strong> e término em <strong>${fimEm}</strong>, podendo ser prorrogado por igual período mediante termo aditivo, caso o CONTRATANTE não se manifeste de forma contrária no prazo de 30 (trinta) dias antes da data final.</p>
   <p><strong>6.2</strong> – Os valores serão reajustados anualmente pelo <strong>IPCA</strong>, acumulado do período.</p>
   <p><strong>6.3</strong> – Caso os valores estejam defasados em relação ao mercado, a CONTRATADA poderá propor readequação, a ser efetivada somente mediante anuência do CONTRATANTE após negociação.</p>
 </div>`;
@@ -429,7 +456,7 @@ function renderHTML(ct, timbrado) {
 
   const tipo     = ct.servico_tipo || "bombas";
   const numero   = escHtml(ct.numero || String(ct.id));
-  const dataDoc  = fmtBR(ct.inicio_em || ct.criado_em);
+  const dataDoc  = fmtDataDocumento(ct);
   const sigNome   = escHtml(ct.signatario_nome || "");
   const geralNome = escHtml(ct.signatario_geral_nome || "");
   const _tipoContratoLabel = { mensal: "Mensal", anual: "Anual", semestral: "Semestral" };

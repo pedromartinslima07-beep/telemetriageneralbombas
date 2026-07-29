@@ -609,3 +609,22 @@ Envs necessárias: `OPENAI_API_KEY`, `WHATSAPP_VERIFY_TOKEN`,
   + `waitUntil: domcontentloaded`.
 - Auth: `OTP_DISABLED` lido com `.trim()`; `redirectByRole` inclui
   `tecnico → /tecnico/painel`.
+
+## Pendências conhecidas (2026-07-29)
+
+- **Bug de fuso em colunas `DATE`: os três PDFs foram corrigidos** (orçamento,
+  contrato e O.S. — ver [changelog](../docs/changelog.md)). Guardar o **padrão
+  do defeito**, que tende a reaparecer: passar coluna `DATE` por
+  `toLocaleDateString(..., { timeZone })` com o servidor em UTC devolve **um dia
+  a menos**. `DATE` é dia de calendário e não deve sofrer conversão de fuso;
+  `timestamptz` deve.
+  - Regra prática ao escrever qualquer formatação nova: confira o tipo da coluna
+    antes de escolher o formatador, e nunca coalesça `DATE` com `timestamptz`
+    num `||` cru — cada um precisa do seu.
+  - Colunas `DATE` que **ainda não** passam por PDF e valem auditoria se forem
+    exibidas: `data_nascimento` (perfil do técnico), `proxima_em` e `ultima_em`
+    (planos de manutenção).
+- **Técnicos (`POST`/`PATCH`/`DELETE /tecnicos`) seguem em `masterAdminOnly`** —
+  ficou sem decisão na redivisão de RBAC de 29/07.
+- **Restrição do operador é só de UI** — no backend ele passa em `adminOnly` e
+  alcança orçamentos/O.S./relatórios pela API.
