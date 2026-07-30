@@ -233,6 +233,10 @@ a { color: inherit; text-decoration: none; }
 
 .nav-section-label {
   display: block;
+  /* Mesmo motivo do `flex-shrink: 0` no .nav-item: em tela baixa o flexbox
+     esmagava o rótulo (32px viravam 20px) e o `overflow: hidden` daqui
+     cortava "MONITOR"/"ATENDIMENTO" no meio da altura. */
+  flex-shrink: 0;
   font-size: 9.5px;
   font-weight: 800;
   color: var(--muted2);
@@ -255,6 +259,15 @@ a { color: inherit; text-decoration: none; }
   align-items: center;
   justify-content: flex-start;
   height: 38px;
+  /* ⚠️ Sem isto o `height` acima é só uma sugestão. `.nav` é flex column com
+     `overflow-y: auto`; como todo flex item nasce com `flex-shrink: 1`, numa
+     tela baixa o flexbox ESMAGA os itens em vez de deixar a lista rolar —
+     38px viravam 27px em 768px de altura e 23px em 720px, com o ícone de
+     18px quase encostando nas bordas. Em monitor 1080p nada disso aparecia,
+     que é por que o problema só era visto em notebook.
+     Com `flex-shrink: 0` a altura é respeitada e o `overflow-y` da .nav faz
+     o que deveria fazer desde o começo: rolar. */
+  flex-shrink: 0;
   padding: 0 12px;
   gap: 12px;
   border: 1px solid transparent;
@@ -993,11 +1006,31 @@ a { color: inherit; text-decoration: none; }
 /* ============================================================
    STAT CARDS (resumo) — mission-control hero cards
    ============================================================ */
+/* Piso mantido em 190px de propósito. Subir para 210 resolvia o rótulo
+   cortado em 1366px, mas trocava um problema por outro: os 5 KPIs do
+   dashboard viravam 4 + 1 sozinho na linha de baixo. O corte do texto é
+   tratado no `.rc-label` (quebra em duas linhas), que resolve sem mexer na
+   contagem de colunas. */
 .resumo-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
   gap: 14px;
   padding: 0;
+}
+
+/* Faixa de KPIs do dashboard do ADMIN — são 5 cards fixos.
+   Entre ~1025px e ~1350px o `auto-fit` acomoda 4 colunas e o 5º card fica
+   sozinho na segunda linha, o que lê como layout quebrado (notebooks de
+   1280px caem exatamente aí). Forçar 3 colunas dá 3 + 2, que parece
+   divisão intencional. Acima disso os 5 cabem numa linha só.
+   Tentei resolver mexendo no piso do minmax: em 1280 falta 4px para as 5
+   colunas entrarem — limiar frágil demais para depender dele.
+   `:not(.layout-cli)` porque o painel do cliente usa o mesmo id com 4 KPIs,
+   onde 2 x 2 já resolve. */
+@media (min-width: 1025px) and (max-width: 1350px) {
+  .layout:not(.layout-cli) #resumoGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 .rc {
@@ -1069,15 +1102,23 @@ a { color: inherit; text-decoration: none; }
 }
 .rc-icon svg { width: 16px; height: 16px; }
 
+/* Quebra em duas linhas em vez de truncar. O `min-height: 104px` do .rc
+   absorve a segunda linha sem mexer no alinhamento da faixa, e um rótulo
+   cortado ("COND. COM ALE…") não informa nada — é o pior resultado possível
+   num card cuja única função é rotular um número. O piso maior da
+   .resumo-grid faz isso raramente ser necessário; aqui é a rede de proteção
+   para larguras que não dá pra prever. */
 .rc-label {
   font-size: 10.5px;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 1px;
   color: var(--muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.25;
+  /* Sem `overflow-wrap: anywhere` de propósito: ele quebrava DENTRO da
+     palavra ("RESERVATÓ-RIOS") e criava uma terceira linha, engordando o
+     card de 58 para 77px no mobile do cliente. Os rótulos têm espaço
+     ("COND. COM ALERTA"), então a quebra normal já basta. */
 }
 
 .rc-value {

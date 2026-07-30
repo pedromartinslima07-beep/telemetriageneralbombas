@@ -228,9 +228,15 @@
   .layout-cli .rc-head { display: contents; }
 
   /* Ocupa todas as linhas da direita — 2 sem hint (dashboard), 3 com hint
-     (Alertas e Chamados). */
+     (Alertas e Chamados).
+
+     ⚠️ `span 3`, não `1 / -1`. O `-1` aponta para o fim do grid EXPLÍCITO, e
+     aqui não há `grid-template-rows` — as linhas são implícitas. Com isso o
+     `-1` colapsava para a linha 1, o ícone parava de atravessar e a primeira
+     linha era forçada aos 30px dele: o card ia de 58px para 77px. Nos cards
+     de 2 linhas o terceiro trilho fica vazio e colapsa para 0. */
   .layout-cli .rc-icon {
-    grid-row: 1 / -1;
+    grid-row: 1 / span 3;
     align-self: center;
     width: 30px;
     height: 30px;

@@ -80,6 +80,42 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
 
 ## Marcos de produto (fases do plano)
 
+- **2026-07-30** — **Admin em tela de notebook: menu esmagado e KPI cortado**
+  - **Menu com os ícones colados — a causa não era espaçamento.** `.nav-item`
+    tem `height: 38px`, mas `.nav` é flex column e todo flex item nasce com
+    `flex-shrink: 1`: em tela baixa o flexbox **espremia os itens** em vez de
+    deixar a lista rolar. Medido: 38px em 1080p, 29px em 800, **27px em 768**,
+    **23px em 720** — com ícone de 18px, sobravam 2,5px de cada lado. Em
+    monitor 1080p nada aparecia, e é por isso que só se via em notebook.
+    `flex-shrink: 0` no `.nav-item` e no `.nav-section-label` (que sofria do
+    mesmo mal — 32px viravam 20px e o `overflow: hidden` cortava "MONITOR"
+    no meio). O `overflow-y: auto` que a `.nav` já tinha passa a funcionar.
+  - **`.rc-label` quebra em vez de truncar** — era `white-space: nowrap` +
+    ellipsis, e "COND. COM ALERTA" virava "COND. COM ALE…" em 1366px (coluna
+    de 194px) e em 1152px. Rótulo cortado num card cujo único papel é rotular
+    um número não informa nada.
+  - **KPI órfão:** com 5 cards no dashboard do admin, entre ~1025px e ~1350px
+    o `auto-fit` acomodava 4 colunas e o 5º caía sozinho na linha de baixo
+    (1280px cai exatamente aí). Passa a 3 colunas nessa faixa — 3 + 2 lê como
+    divisão intencional. Escopado em `.layout:not(.layout-cli) #resumoGrid`
+    porque o painel do cliente usa o mesmo id com 4 KPIs.
+    Tentativa descartada: subir o piso do `minmax`. Em 1280 falta 4px para as
+    5 colunas entrarem — limiar frágil demais para depender dele.
+  - **Verificado** em 1920×1080, 1440×900, 1366×768, 1280×720, 1152×864 e
+    1024×768, nos **dois** painéis: item de menu 38px em todos, nenhum rótulo
+    cortado, nenhum card órfão.
+  - `admin.css?v=154`, `cliente.css?v=9`.
+
+- **2026-07-30** — **Card de KPI do cliente engordou de 58px para 77px (regressão)**
+  - Introduzida ao dar suporte ao `.rc-hint`: troquei o `grid-row` do ícone de
+    `1 / span 2` para `1 / -1`. **`-1` aponta para o fim do grid explícito** —
+    e ali não há `grid-template-rows`, as linhas são implícitas. O `-1`
+    colapsava para a linha 1, o ícone deixava de atravessar e forçava a
+    primeira linha aos seus 30px.
+  - Corrigido para `1 / span 3`; nos cards de 2 linhas o terceiro trilho fica
+    vazio e colapsa. Dashboard voltou a 58px e Alertas/Chamados (3 linhas)
+    ficaram em 72px.
+
 - **2026-07-30** — **Service worker respondia 200 quando estava sem conexão**
   - **Sintoma:** com o servidor fora do ar, o painel do admin cuspia uma pilha
     de erros de tipo sem relação aparente com rede —
