@@ -80,6 +80,26 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
 
 ## Marcos de produto (fases do plano)
 
+- **2026-07-30** — **Service worker respondia 200 quando estava sem conexão**
+  - **Sintoma:** com o servidor fora do ar, o painel do admin cuspia uma pilha
+    de erros de tipo sem relação aparente com rede —
+    `TypeError: _alertasAbertos is not iterable`,
+    `TypeError: _chamadosData.filter is not a function`.
+  - **Causa:** o fallback offline do `sw.js` monta
+    `new Response(JSON.stringify({error:"Sem conexão"}), { headers })`.
+    **`new Response` sem `status` responde 200.** Então `r.ok` era `true`, o
+    `if (!r.ok) throw ...` que já existe em `carregarAlertas`/`carregarChamados`
+    passava batido, e `{error:"Sem conexão"}` era atribuído a variáveis que o
+    resto do código trata como array.
+  - **Correção:** `status: 503` + `statusText` no fallback. `r.ok` passa a ser
+    `false` e todo o tratamento de erro existente volta a funcionar — a tela
+    mostra o erro de carga em vez de quebrar em `TypeError`.
+  - **Alcance:** vale para admin, cliente e app — o fallback é o mesmo para
+    todos os prefixos da lista network-first. Ninguém consumia o payload
+    `"Sem conexão"`, então não há dependência quebrada.
+  - `CACHE_NAME` → `telemetria-v41` e `register-sw.js?v=32` nos três HTMLs,
+    conforme o checklist de cache do `CLAUDE.md`.
+
 - **2026-07-30** — **Job de offline derrubava o processo em soluço do banco**
   - **Sintoma:** o servidor morreu inteiro com
     `Error: Connection terminated due to connection timeout`, empilhado em

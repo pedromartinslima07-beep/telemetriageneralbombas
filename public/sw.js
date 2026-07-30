@@ -4,7 +4,7 @@
 // este SW. Sem essa lista, o SW intercepta o GET com cache first e serve
 // resposta antiga — sintoma clássico: dado aparece em Ctrl+Shift+R mas some
 // em F5. Ver CLAUDE.md raiz pro racional completo.
-const CACHE_NAME = "telemetria-v40";
+const CACHE_NAME = "telemetria-v41";
 
 // Permite que a página force a ativação imediata desta versão (sem esperar
 // todos os clients fecharem). Pareado com o postMessage no register-sw.js.
@@ -77,9 +77,20 @@ self.addEventListener("fetch", (e) => {
       url.pathname.startsWith("/contratos") ||
       url.pathname.startsWith("/tiles") ||
       url.pathname.startsWith("/app")) {
+    // ⚠️ O status 503 é essencial. `new Response(body)` sem status responde
+    // 200 — e aí todo `if (!r.ok) throw` do front passa batido, o código
+    // segue e atribui `{error:"Sem conexão"}` a variáveis que deveriam ser
+    // array. O sintoma vira uma pilha de TypeError sem relação aparente com
+    // rede ("_alertasAbertos is not iterable", "_chamadosData.filter is not
+    // a function"), e ninguém descobre que o problema era o servidor fora.
+    // Com 503, `r.ok` é false e o tratamento de erro que já existe funciona.
     e.respondWith(fetch(e.request).catch(() => new Response(
       JSON.stringify({ error: "Sem conexão" }),
-      { headers: { "Content-Type": "application/json" } }
+      {
+        status: 503,
+        statusText: "Service Unavailable",
+        headers: { "Content-Type": "application/json" },
+      }
     )));
     return;
   }
