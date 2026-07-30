@@ -1981,6 +1981,9 @@
       <p style="margin:0 0 16px;line-height:1.5;color:var(--danger);font-size:13px;font-weight:600;">
         Esta ação apagará permanentemente o condomínio, todos os reservatórios, leituras e alertas. Não é reversível.
       </p>
+      <!-- Preenchido por _hardDeleteCarregarLogins(): lista os logins de cliente
+           que serão apagados junto. Fica oculto quando não há nenhum. -->
+      <div id="hardDeleteLogins" style="display:none;margin:0 0 16px;padding:12px;border:1px solid var(--danger);border-radius:8px;line-height:1.5;font-size:13px;"></div>
       <label class="f" style="margin-bottom:20px;">
         <span>Confirme sua senha de acesso</span>
         <input type="password" id="hardDeleteSenha" placeholder="Senha" autocomplete="current-password" />
@@ -2520,8 +2523,8 @@
 </div>
 
 
-<script src="/static/admin.js?v=243" defer></script>
+<script src="/static/admin.js?v=245" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
-<script src="/static/register-sw.js?v=30" defer></script>
+<script src="/static/register-sw.js?v=31" defer></script>
 </body>
 </html>

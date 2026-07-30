@@ -154,6 +154,13 @@ function setStatusMsg(msg) {
   if (el) el.textContent = msg || "";
 }
 
+// Extrai o campo `error` do corpo da resposta (todo handler do backend responde
+// JSON). Cai pro texto cru se não for JSON — ex.: página HTML de erro do proxy.
+async function _erroDaResposta(r) {
+  const txt = await r.text().catch(() => "");
+  try { return JSON.parse(txt).error || txt; } catch { return txt; }
+}
+
 // ============================================================
 // DASHBOARD — funções de renderização modernas
 // ============================================================
@@ -746,8 +753,15 @@ async function carregarHistorico() {
       headers: authHeaders(),
     });
     if (!r.ok) {
-      if (r.status === 401 || r.status === 403) { window.location.href = "/login"; return; }
-      if (semEl) { semEl.style.display = "block"; semEl.textContent = "Erro ao carregar histórico."; }
+      if (r.status === 401) {
+        localStorage.removeItem("token");
+        window.location.href = "/login?motivo=expirado";
+        return;
+      }
+      if (semEl) {
+        semEl.style.display = "block";
+        semEl.textContent = "Erro ao carregar histórico (" + r.status + "): " + await _erroDaResposta(r);
+      }
       return;
     }
 
@@ -830,14 +844,18 @@ async function carregar() {
   ]);
 
   if (!r.ok) {
-  if (r.status === 401 || r.status === 403) {
-    window.location.href = "/login";
+    // 401 = sessão expirada/inválida → volta pro login.
+    // 403 NÃO é sessão inválida: é role diferente de 'cliente' ou cliente sem
+    // condominio_id vinculado. Mandar 403 pro login criava um vai-e-volta
+    // silencioso (login → painel → login) sem nenhuma mensagem na tela.
+    if (r.status === 401) {
+      localStorage.removeItem("token");
+      window.location.href = "/login?motivo=expirado";
+      return;
+    }
+    setStatusMsg("Erro no /cliente/status (" + r.status + "): " + await _erroDaResposta(r));
     return;
   }
-  const txt = await r.text().catch(() => "");
-  setStatusMsg("Erro no /cliente/status (" + r.status + "): " + txt);
-  return;
-}
 
   const data = await r.json();
 

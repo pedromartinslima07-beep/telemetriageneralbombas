@@ -80,6 +80,128 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
 
 ## Marcos de produto (fases do plano)
 
+- **2026-07-30** — **Soft delete de condomínio passa a revogar o acesso do cliente**
+  - **Motivação:** `DELETE /condominios/:id` marcava `condominios.ativo = false`
+    e não tocava em mais nada. O cliente do condomínio "excluído" continuava
+    logando normalmente — `/cliente/status` nunca filtrou por `ativo`. Você
+    excluía o cliente no painel e ele seguia com acesso.
+  - **`clienteOnly` deixa de ser síncrono** e passa a validar o condomínio a cada
+    request: 403 se `ativo = false` **ou** se o id não existe mais (JWT antigo
+    apontando pra condomínio que sofreu hard delete). Mensagem única exportada
+    como `MSG_INATIVO`.
+  - ⚠️ **Por que a cada request e não só no login:** o JWT vale 7 dias e carrega
+    o `condominio_id` de quando foi emitido. Revogar só no login deixaria um
+    cliente já logado com acesso por até uma semana depois da exclusão. O custo
+    é um `SELECT ativo ... WHERE id = $1` (PK) por request de `/cliente/*`.
+  - **`condominio_id` nulo continua caindo no handler da rota**, que responde
+    "Cliente sem condomínio vinculado". Barrar no middleware daria a mensagem
+    errada (falaria em cadastro encerrado, quando nunca houve vínculo).
+  - **`POST /auth/login`** barra o cliente antes de emitir qualquer sessão.
+    ⚠️ A checagem vem **antes do atalho de dispositivo confiável** — senão quem
+    marcou "lembrar deste dispositivo" pularia direto pro JWT e a revogação não
+    valeria nada. Também evita mandar e-mail de OTP pra quem não vai entrar.
+  - **`POST /auth/verify-otp`** recheca: o condomínio pode ser encerrado nos 15
+    min de validade do `otp_token`, entre a senha e o código.
+  - **Admin:** o `confirm()` de "Inativar" agora diz que os logins de cliente
+    perdem o acesso na hora e que "Reativar" devolve. `admin.js?v=245`.
+  - **Reativação já existia** e volta a liberar o acesso sozinha — o botão
+    "Reativar" manda `PATCH /condominios/:id {ativo:true}`.
+  - **Verificado** contra o banco de teste chamando o middleware real (não uma
+    cópia da lógica): admin barrado por role, cliente ativo passa, inativo e
+    inexistente tomam 403, `condominio_id` nulo segue pro handler, e — o caso
+    que importa — **o mesmo JWT perde o acesso logo após o soft delete e o
+    recupera após reativar**, sem novo login.
+  - **Não fechado:** reativar o condomínio **não reativa os reservatórios**
+    (o soft delete desativa os dois, o `PATCH` só mexe no condomínio). O cliente
+    volta a entrar mas vê o painel vazio até alguém reativar os reservatórios.
+    Comportamento anterior à mudança, apenas mais visível agora.
+
+- **2026-07-30** — **Hard delete de condomínio apaga também os logins de cliente**
+  - **Motivação:** a FK `usuarios_condominio_id_fkey` é `ON DELETE SET NULL`, então
+    "excluir permanentemente" um condomínio **não apagava o usuário** — deixava uma
+    credencial válida apontando pra lugar nenhum. A pessoa logava normalmente
+    (e-mail + senha + OTP) e só então tomava 403 `Cliente sem condomínio vinculado`.
+    Órfão invisível: não aparecia em nenhuma tela do cadastro de condomínios.
+  - **`DELETE /condominios/:id/hard`** ganha a etapa 8, `DELETE FROM usuarios`,
+    **antes** do `DELETE FROM condominios` (etapa 9, renumerada).
+  - ⚠️ **A ordem é obrigatória.** Depois que o condomínio sai, o `SET NULL` já
+    zerou `usuarios.condominio_id` e não há mais como saber quem era de lá.
+  - **Escopo estreito de propósito** — `WHERE condominio_id = $1 AND role =
+    'cliente' AND id <> req.user.id`. O filtro de `role` protege admin/gerente/
+    operador/técnico que tenham `condominio_id` preenchido por dado antigo; o
+    `id <>` impede o master de se auto-apagar.
+  - **`login_codes` e `trusted_devices` saem por CASCADE** — a exclusão também
+    revoga os dispositivos confiáveis do cliente.
+  - **Erro 23503 (foreign_key_violation)** passa a responder **409** com texto
+    explicando que nada foi apagado, em vez de 500 genérico. Cobre o caso de um
+    login referenciado por coluna de autoria sem `ON DELETE` (`orcamentos
+    .criado_por`, `contratos.criado_por`, `sla_definicoes.atualizado_por` — todas
+    `NO ACTION`). Não deve acontecer (são ações de admin), mas o rollback
+    preserva tudo e o master fica sabendo o porquê.
+  - **Consentimento informado no modal:** `_hardDeleteCarregarLogins()` busca
+    `/admin/usuarios?role=cliente` ao abrir a confirmação e lista nome + e-mail
+    de cada login que será apagado, em destaque vermelho. Sem isso o master
+    confirmaria uma exclusão de credencial sem ver que ela existia.
+    `admin.js?v=244`.
+  - **Resposta** passa a incluir `usuarios_removidos` (contagem) e `usuarios`
+    (id/nome/e-mail); o servidor também loga os e-mails removidos.
+  - **Verificado** contra o banco de teste em transação com `ROLLBACK`: os 2
+    clientes do condomínio saem; gerente com `condominio_id`, o admin executor e
+    cliente de outro condomínio ficam; `trusted_devices` e `login_codes` somem
+    por CASCADE.
+  - **Não fechado:** o **soft delete** (`DELETE /condominios/:id`) continua sem
+    revogar acesso — marca `ativo = false` e o cliente segue logando (o
+    `/cliente/status` não filtra `condominios.ativo`). Ver
+    [`../memory-bank/active-work.md`](../memory-bank/active-work.md).
+
+- **2026-07-30** — **Painel do cliente: 403 deixa de virar logout silencioso**
+  - **Sintoma:** o cliente fazia login, digitava o OTP, o painel abria por um
+    instante e voltava sozinho para a tela de login — sem nenhuma mensagem de
+    erro. Loop infinito, impossível de diagnosticar pela tela.
+  - **Causa:** `public/cliente.js` tratava **401 e 403 como a mesma coisa** nos
+    dois pontos que consomem a API (`carregar()` → `/cliente/status` e o
+    histórico → `/cliente/historico`): qualquer um dos dois fazia
+    `location.href = "/login"`. Mas 403 não é sessão inválida — vem do
+    `clienteOnly` (role diferente de `cliente`) ou do guard
+    `condominio_id` ausente em `cliente.routes.js` ("Cliente sem condomínio
+    vinculado"). Como `/cliente/status` é a primeira chamada do
+    `DOMContentLoaded`, o 403 derrubava o painel antes de renderizar qualquer
+    coisa, e o `redirectByRole` mandava de volta pro painel no login seguinte.
+  - **Correção:** só **401** desloga (agora limpando o `token` e indo para
+    `/login?motivo=expirado`, que já tem mensagem em `login.js`). **403** passa
+    a exibir o `error` do backend na tela via `setStatusMsg`. Novo helper
+    `_erroDaResposta(r)` extrai o campo `error` do JSON com fallback pro texto
+    cru (cobre o caso de HTML de erro do proxy). `cliente.js?v=22`.
+  - **Nota:** a correção torna o problema visível, mas não cria o vínculo
+    faltante — se a mensagem for "Cliente sem condomínio vinculado", o usuário
+    precisa de `usuarios.condominio_id` preenchido. Ver
+    [`modulos/autenticacao.md`](modulos/autenticacao.md).
+
+- **2026-07-30** — **Login avisa quando o usuário não tem painel (fim do `else` catch-all)**
+  - **Origem:** desdobramento do item acima. Corrigir o `cliente.js` mostra o
+    403, mas tarde demais — a pessoa já digitou senha e código pra só então
+    receber um erro. O lugar certo de barrar é o roteamento pós-login.
+  - **Causa:** `redirectByRole` em `public/login.js` terminava num `else` que
+    mandava **qualquer role não mapeada** pra `/cliente/painel`. Uma role sem
+    painel próprio (caso do `admin_viewer`, morto em `src/` mas ainda aceito no
+    CHECK de `usuarios.role`) virava "cliente" por omissão e batia no 403 do
+    `clienteOnly`.
+  - **Correção:** `else` substituído pelo mapa explícito `PAINEL_POR_ROLE`
+    (`admin`/`gerente`/`operador` → admin, `tecnico`, `cliente`). Role fora do
+    mapa **não redireciona**: `_abortarLogin()` limpa `token`/`user`, volta pro
+    passo 1 e mostra *"Seu usuário não tem um painel liberado (perfil: X)"*.
+  - **Segundo guard:** `role === "cliente"` sem `condominio_id` também para no
+    login, com *"Seu usuário não está vinculado a nenhum condomínio"*. Dá pra
+    checar aí porque o `condominio_id` vem no payload de `/auth/login` e
+    `/auth/verify-otp`.
+  - **Mensagem deliberadamente não é "usuário não encontrado":** o usuário
+    existe e a senha conferiu. Dizer que a credencial falhou mandaria a pessoa
+    resetar senha atrás de um problema que é de cadastro.
+  - **Versionamento:** `login.js` não tinha `?v=` nenhum e está no
+    `STATIC_ASSETS` do `sw.js` (precache) — agora `login.js?v=2`. `CACHE_NAME`
+    → `telemetria-v40` e `register-sw.js?v=31` nos três HTMLs (`login`,
+    `admin`, `cliente` — os dois últimos também estavam sem `?v=`).
+
 - **2026-07-27** — **Planos de manutenção: edição em massa (periodicidade, próxima execução, status)**
   - Motivação: a seleção múltipla de 2026-07-22 só ativava/desativava. Mudar a
     periodicidade ou reagendar a próxima execução de uma zona inteira ainda

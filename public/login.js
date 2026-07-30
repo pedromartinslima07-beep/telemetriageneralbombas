@@ -36,14 +36,56 @@ function clearError() {
   erroMsg.classList.remove("visible");
 }
 
-function redirectByRole(role) {
-  if (role === "admin" || role === "gerente" || role === "operador") {
-    window.location.href = "/admin/painel";
-  } else if (role === "tecnico") {
-    window.location.href = "/tecnico/painel";
-  } else {
-    window.location.href = "/cliente/painel";
+// Mapa explícito role → painel. O `else` que existia aqui era catch-all pro
+// painel do cliente: qualquer role sem painel próprio (ex.: `admin_viewer`,
+// morta no backend mas ainda aceita no CHECK do banco) era mandada pra
+// /cliente/painel, tomava 403 do `clienteOnly` e voltava pro login — loop sem
+// mensagem. Role desconhecida agora para aqui, com aviso.
+const PAINEL_POR_ROLE = {
+  admin:    "/admin/painel",
+  gerente:  "/admin/painel",
+  operador: "/admin/painel",
+  tecnico:  "/tecnico/painel",
+  cliente:  "/cliente/painel",
+};
+
+// Não redireciona se o login não tem como dar certo do outro lado. A senha
+// estava certa — o problema é o cadastro —, então a mensagem diz isso em vez
+// de fingir que a credencial falhou.
+function redirectByRole(user) {
+  const role = user?.role;
+  const destino = PAINEL_POR_ROLE[role];
+
+  if (!destino) {
+    _abortarLogin(
+      `Seu usuário não tem um painel liberado (perfil: ${role || "indefinido"}). ` +
+      `Fale com o administrador.`
+    );
+    return;
   }
+
+  // Cliente sem condomínio vinculado passa no login mas leva 403 em todo
+  // /cliente/* ("Cliente sem condomínio vinculado"). O condominio_id vem
+  // dentro do JWT, então dá pra barrar aqui e explicar.
+  if (role === "cliente" && !user.condominio_id) {
+    _abortarLogin(
+      "Seu usuário não está vinculado a nenhum condomínio. " +
+      "Fale com o administrador para liberar o acesso."
+    );
+    return;
+  }
+
+  window.location.href = destino;
+}
+
+// Descarta a sessão e volta pro passo 1 com o motivo na tela.
+function _abortarLogin(msg) {
+  localStorage.removeItem("token");
+  localStorage.removeItem("user");
+  otpStep.style.display   = "none";
+  loginForm.style.display = "block";
+  _otpToken = null;
+  showError(msg);
 }
 
 // --- Passo 1: email + senha ---
@@ -71,7 +113,7 @@ loginForm.addEventListener("submit", async (e) => {
     if (data.token) {
       localStorage.setItem("token", data.token);
       localStorage.setItem("user", JSON.stringify(data.user));
-      redirectByRole(data.user.role);
+      redirectByRole(data.user);
       return;
     }
 
@@ -113,7 +155,7 @@ otpBtn.addEventListener("click", async () => {
 
     localStorage.setItem("token", data.token);
     localStorage.setItem("user", JSON.stringify(data.user));
-    redirectByRole(data.user.role);
+    redirectByRole(data.user);
   } catch {
     showError("Erro de conexão com servidor");
   }

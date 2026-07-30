@@ -6740,7 +6740,12 @@ function mostrarDeviceKeyModal(chave) {
 
 // ===== INATIVAR CONDOMÍNIO (soft delete) =====
 async function inativarCondominio(id, nome) {
-  if (!confirm(`Inativar "${nome}"?\n\nO condomínio e seus reservatórios serão desativados, mas os dados serão mantidos.`)) return;
+  if (!confirm(
+    `Inativar "${nome}"?\n\n` +
+    `O condomínio e seus reservatórios serão desativados, mas os dados serão mantidos.\n\n` +
+    `Os logins de cliente deste condomínio perdem o acesso ao painel imediatamente ` +
+    `(as contas continuam existindo). O botão "Reativar" devolve o acesso.`
+  )) return;
 
   const r = await fetch(`/condominios/${id}`, { method: "DELETE", headers: authHeaders() });
   const data = await r.json().catch(() => ({}));
@@ -6762,8 +6767,41 @@ function excluirCondominio(id, nome) {
     `Você está prestes a excluir permanentemente o condomínio "${nome}" e todos os dados relacionados.`;
   document.getElementById("hardDeleteSenha").value = "";
   document.getElementById("hardDeleteErr").style.display = "none";
+  document.getElementById("hardDeleteLogins").style.display = "none";
   document.getElementById("hardDeleteOverlay").style.display = "flex";
   setTimeout(() => document.getElementById("hardDeleteSenha").focus(), 80);
+  // Sem await: o modal abre na hora e o aviso entra quando a lista chegar.
+  _hardDeleteCarregarLogins(id);
+}
+
+// O hard delete apaga junto os logins de cliente do condomínio. Isso precisa
+// estar na tela ANTES de confirmar — é a parte irreversível que não aparece em
+// lugar nenhum do cadastro de condomínio.
+async function _hardDeleteCarregarLogins(id) {
+  const box = document.getElementById("hardDeleteLogins");
+  try {
+    const r = await fetch("/admin/usuarios?role=cliente", { headers: authHeaders() });
+    if (!r.ok) return;
+    const todos = await r.json();
+    const doCondominio = (Array.isArray(todos) ? todos : [])
+      .filter((u) => Number(u.condominio_id) === Number(id));
+
+    // Race: o master pode ter fechado e reaberto o modal em outro condomínio
+    // enquanto a request estava no ar.
+    if (_hardDeleteId !== id) return;
+    if (!doCondominio.length) return;
+
+    const plural = doCondominio.length > 1;
+    box.innerHTML =
+      `<strong style="color:var(--danger);">` +
+      `${doCondominio.length} login${plural ? "s" : ""} de cliente ser${plural ? "ão" : "á"} apagado${plural ? "s" : ""} junto:` +
+      `</strong><ul style="margin:8px 0 0;padding-left:18px;color:var(--text-muted);">` +
+      doCondominio.map((u) => `<li>${escapeHtml(u.nome)} — ${escapeHtml(u.email)}</li>`).join("") +
+      `</ul>`;
+    box.style.display = "block";
+  } catch {
+    // Falha ao listar não bloqueia a exclusão — o backend é quem decide.
+  }
 }
 
 async function confirmarHardDelete() {

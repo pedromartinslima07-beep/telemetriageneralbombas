@@ -385,15 +385,63 @@ router.delete("/:id/hard", authRequired, masterAdminOnly, async (req, res) => {
       );
     }
 
-    // 8. condomínio — CASCADE: reservatorios, planos_manutencao, contratos
-    //    SET NULL: usuarios.condominio_id (usuários não são deletados)
+    // 8. logins de cliente deste condomínio.
+    //
+    // ⚠️ ORDEM: tem que ser ANTES do DELETE do condomínio. A FK
+    // `usuarios_condominio_id_fkey` é ON DELETE SET NULL — depois que o
+    // condomínio sai, `usuarios.condominio_id` vira NULL e não há mais como
+    // achar quem era daqui. Antes desta etapa o usuário sobrevivia órfão:
+    // login funcionava (e-mail + senha + OTP) e o painel respondia 403
+    // "Cliente sem condomínio vinculado", num loop sem mensagem.
+    //
+    // Escopo deliberadamente estreito — nunca apaga um login de operação:
+    //   role = 'cliente'  → admin/gerente/operador/tecnico ficam de fora mesmo
+    //                       se tiverem condominio_id preenchido por dado antigo
+    //   id <> req.user.id → o master que está excluindo nunca se auto-apaga
+    //
+    // CASCADE cuida de `login_codes` e `trusted_devices` (a exclusão também
+    // revoga os dispositivos confiáveis do cliente).
+    const usuariosRes = await client.query(
+      `DELETE FROM usuarios
+        WHERE condominio_id = $1 AND role = 'cliente' AND id <> $2
+        RETURNING id, nome, email`,
+      [idNum, req.user.id]
+    );
+    const usuariosRemovidos = usuariosRes.rows;
+
+    // 9. condomínio — CASCADE: reservatorios, planos_manutencao, contratos
     await client.query("DELETE FROM condominios WHERE id = $1", [idNum]);
 
     await client.query("COMMIT");
-    return res.json({ ok: true });
+
+    if (usuariosRemovidos.length) {
+      console.log(
+        `[hard delete] condomínio ${idNum}: ${usuariosRemovidos.length} login(s) de cliente removido(s) —`,
+        usuariosRemovidos.map((u) => u.email).join(", ")
+      );
+    }
+
+    return res.json({
+      ok: true,
+      usuarios_removidos: usuariosRemovidos.length,
+      usuarios: usuariosRemovidos,
+    });
   } catch (e) {
     await client.query("ROLLBACK");
     console.error("Erro no hard delete:", e);
+    // 23503 = foreign_key_violation. Acontece se um login de cliente estiver
+    // referenciado por uma coluna de autoria sem ON DELETE (ex.:
+    // `orcamentos.criado_por`, `contratos.criado_por`, `sla_definicoes
+    // .atualizado_por`, que são NO ACTION). Não deveria ocorrer — essas
+    // colunas registram ação de admin —, mas se ocorrer o rollback já
+    // preservou tudo e o master precisa saber o porquê.
+    if (e?.code === "23503") {
+      return res.status(409).json({
+        error:
+          "Não foi possível excluir: um login deste condomínio está referenciado " +
+          "em outro registro (orçamento, contrato ou configuração). Nada foi apagado.",
+      });
+    }
     return res.status(500).json({ error: "Erro ao excluir permanentemente" });
   } finally {
     client.release();

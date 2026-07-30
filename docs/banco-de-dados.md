@@ -85,6 +85,17 @@ status='aberto'` — garante 1 alerta aberto por device+tipo (upsert idempotente
 
 **`usuarios`** — `id`, `nome`, `email UNIQUE`, `senha_hash` (bcrypt), `role`,
 `condominio_id (FK SET NULL)`, `criado_em`, `telefone` (migration 001).
+
+> ⚠️ `condominio_id` é `ON DELETE SET NULL`: **apagar o condomínio não apaga o
+> login**. Sem tratamento, sobra uma credencial válida sem vínculo — a pessoa
+> autentica e o painel responde 403 "Cliente sem condomínio vinculado".
+> Por isso `DELETE /condominios/:id/hard` apaga os `role = 'cliente'` do
+> condomínio **antes** de apagar o condomínio: depois do `SET NULL` não há mais
+> como saber quem era de lá. Detalhes em
+> [`modulos/autenticacao.md`](modulos/autenticacao.md).
+>
+> O `condominio_id` também viaja **dentro do JWT**, então alterá-lo no banco só
+> vale para a próxima sessão — a atual continua com o valor antigo.
 CHECK role: `admin | admin_viewer | cliente | tecnico` (migration 017 adicionou
 `tecnico`; o antigo `master_admin` foi removido).
 

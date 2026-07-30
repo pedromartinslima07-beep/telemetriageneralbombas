@@ -22,7 +22,9 @@ API Express montada em `src/app.js`. Todas as respostas são JSON salvo PDFs
   - `gestaoOnly` — `admin` ou `gerente` (operação do negócio, sem o operador).
   - `masterAdminOnly` — apenas `admin` (sensível/irreversível; o nome é
     histórico, hoje equivale a `admin`).
-  - `clienteOnly` — role `cliente`, escopo do próprio `condominio_id`.
+  - `clienteOnly` — role `cliente`, escopo do próprio `condominio_id`. É
+    **async**: consulta `condominios.ativo` a cada request e responde 403 se o
+    condomínio foi inativado ou apagado.
 - Convenção: o que é **irreversível** (apagar cliente, mexer em reservatório,
   usuários, config) é `masterAdminOnly`; o que é **operação do negócio**
   (planos, contratos, cadastro de cliente) é `gestaoOnly`; o resto do painel é
@@ -83,8 +85,8 @@ segue no comportamento padrão do Express.
 | GET | `/condominios` · `/condominios/:id` | adminOnly |
 | POST | `/condominios` | **gestao** (aceita lat/lng/cep/cnpj) |
 | PATCH | `/condominios/:id` | **gestao** |
-| DELETE | `/condominios/:id` | masterAdmin (soft/inativar) |
-| DELETE | `/condominios/:id/hard` | masterAdmin (remoção física) |
+| DELETE | `/condominios/:id` | masterAdmin (soft/inativar). `ativo = false` no condomínio e nos reservatórios — **revoga o acesso dos logins de cliente** (contas preservadas). `PATCH {ativo:true}` devolve |
+| DELETE | `/condominios/:id/hard` | masterAdmin (remoção física). Exige `{ senha }` do admin logado. **Apaga junto os `usuarios` com `role='cliente'` do condomínio** (e por CASCADE seus `login_codes`/`trusted_devices`) — responde `{ ok, usuarios_removidos, usuarios[] }`. `409` se alguma FK de autoria bloquear (nada é apagado) |
 
 **Reservatórios** (`/reservatorios`)
 | GET | `/reservatorios` · `/reservatorios/:id` | adminOnly |

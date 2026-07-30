@@ -12,6 +12,7 @@ const isProd = process.env.NODE_ENV === "production";
 
 const { authRequired } = require("../middleware/authRequired");
 const { masterAdminOnly } = require("../middleware/masterAdminOnly");
+const { MSG_INATIVO } = require("../middleware/clienteOnly");
 
 const router = express.Router();
 
@@ -185,6 +186,17 @@ router.post("/login", loginLimiter, async (req, res) => {
       return res.status(401).json({ error: "Email ou senha inválidos" });
     }
 
+    // Cliente de condomínio encerrado para aqui.
+    //
+    // ⚠️ Tem que ser ANTES do atalho de dispositivo confiável — senão quem já
+    // marcou "lembrar deste dispositivo" pula direto pro JWT e a revogação não
+    // vale nada. Vir antes do OTP também evita mandar e-mail de código pra
+    // alguém que não vai conseguir entrar.
+    if (u.role === "cliente") {
+      const bloqueio = await _bloqueioDeCliente(u.condominio_id);
+      if (bloqueio) return res.status(403).json({ error: bloqueio });
+    }
+
     // Verifica dispositivo confiável — cookie (web) ou body (app mobile Capacitor)
     const deviceToken = req.cookies?.[TRUSTED_COOKIE] || req.body?.device_token;
     if (deviceToken) {
@@ -285,6 +297,13 @@ router.post("/verify-otp", otpLimiter, async (req, res) => {
       [payload.id]
     );
     const u = uRes.rows[0];
+
+    // Recheca: o condomínio pode ter sido encerrado nos 15 min de validade do
+    // otp_token, entre o passo da senha e o do código.
+    if (u.role === "cliente") {
+      const bloqueio = await _bloqueioDeCliente(u.condominio_id);
+      if (bloqueio) return res.status(403).json({ error: bloqueio });
+    }
 
     const token = jwt.sign(
       { id: u.id, role: u.role, condominio_id: u.condominio_id, email: u.email },
@@ -432,6 +451,24 @@ router.delete("/dispositivos", authRequired, async (req, res) => {
     return res.status(500).json({ error: "Erro ao revogar dispositivos" });
   }
 });
+
+// Motivo pelo qual este cliente não pode entrar, ou null se pode.
+// Os dois JWTs de sessão (login com dispositivo confiável e verify-otp) passam
+// por aqui; a mesma regra é reaplicada a cada request em `clienteOnly`.
+async function _bloqueioDeCliente(condominioId) {
+  const id = Number(condominioId);
+  if (!id) {
+    return "Seu usuário não está vinculado a nenhum condomínio. Fale com a administradora.";
+  }
+  const r = await pool.query(
+    "SELECT ativo FROM condominios WHERE id = $1 LIMIT 1",
+    [id]
+  );
+  if (r.rows.length === 0 || r.rows[0].ativo === false) {
+    return MSG_INATIVO;
+  }
+  return null;
+}
 
 // Extrai nome legível do dispositivo a partir do User-Agent
 function _nomePeloUA(ua) {

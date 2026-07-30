@@ -11,6 +11,67 @@ aliases:
 > Última sessão registrada: **2026-07-28**.
 > Roadmap completo em [`roadmap.md`](roadmap.md); decisões em [`decisions.md`](decisions.md).
 
+## Sessão 2026-07-30 — Painel do cliente voltava sozinho pro login
+
+**Sintoma:** login + OTP passavam, o painel do cliente abria e em seguida
+voltava pra tela de login, sem mensagem nenhuma.
+
+**Causa:** `public/cliente.js` tratava 401 e 403 igual (`location.href =
+"/login"`) nos dois consumos de API. Como `/cliente/status` é a primeira
+chamada da página, um 403 derrubava tudo antes de renderizar; o `redirectByRole`
+devolvia pro painel no login seguinte, fechando o loop.
+
+**Feito:** só 401 desloga (limpa `token`, vai pra `/login?motivo=expirado`);
+403 mostra o `error` do backend via `setStatusMsg`. Helper `_erroDaResposta(r)`.
+`cliente.js?v=22`. Detalhes no [changelog](../docs/changelog.md) e a regra
+401≠403 documentada em [`autenticacao.md`](../docs/modulos/autenticacao.md).
+
+**Feito (2ª parte) — avisar no login, não no painel:** `redirectByRole`
+(`login.js`) tinha um `else` que mandava qualquer role não mapeada pro painel do
+cliente — era a origem do loop. Virou o mapa explícito `PAINEL_POR_ROLE`, sem
+destino padrão: role desconhecida e `cliente` sem `condominio_id` abortam o
+login (`_abortarLogin`) com mensagem na tela. `login.js?v=2` (não tinha `?v=`
+nenhum e está no precache do `sw.js`), `CACHE_NAME` → `telemetria-v40`,
+`register-sw.js?v=31` nos três HTMLs.
+
+**Em aberto:** falta confirmar *qual* dos dois casos é o do usuário real —
+role diferente de `cliente` ou `condominio_id` nulo. As correções tornam o
+motivo visível, mas nenhuma delas **cria** o vínculo faltante. Lembrar que o
+`condominio_id` vai dentro do JWT: preencher no banco exige **novo login** pra
+surtir efeito.
+
+**Feito (3ª parte) — hard delete apaga os logins de cliente junto:** era a
+causa provável do caso real. `usuarios_condominio_id_fkey` é `ON DELETE SET
+NULL`, então excluir o condomínio deixava a credencial viva e sem vínculo.
+`DELETE /condominios/:id/hard` agora apaga `role = 'cliente'` do condomínio
+**antes** do `DELETE FROM condominios` (a ordem é obrigatória — depois o SET
+NULL já apagou o vínculo). Escopo protege não-clientes e o próprio executor;
+409 no lugar de 500 em `23503`; o modal de confirmação lista nome + e-mail dos
+logins que serão apagados (`admin.js?v=244`).
+
+**Verificado:** transação com `ROLLBACK` contra o banco de TESTE, 9 asserções
+(escopo, CASCADE de `trusted_devices`/`login_codes`, não-clientes preservados).
+Banco conferido depois — sem sobras. O resto (`login.js`, `cliente.js`) só
+levou `node --check`: não dá pra rodar o app aqui, o `.env` local não tem
+`DATABASE_URL` e o banco de teste não tem usuário `cliente`.
+
+**Feito (4ª parte) — soft delete revoga acesso (opção C):** `DELETE
+/condominios/:id` marcava `ativo = false` e o cliente continuava logando.
+`clienteOnly` virou **async** e valida `condominios.ativo` a cada request; o
+`/auth/login` barra antes de emitir sessão **e antes do atalho de dispositivo
+confiável** (senão trusted device fura a revogação); `verify-otp` recheca.
+`condominio_id` nulo continua indo pro handler, que dá a mensagem certa.
+Aviso no `confirm()` de Inativar. `admin.js?v=245`.
+
+**Verificado:** middleware real (módulo importado, não cópia) contra o banco de
+TESTE, 7 asserções — inclusive "mesmo JWT perde acesso após soft delete e
+recupera após reativar". Módulos carregam sem import circular. Sem sobras.
+
+**Ponto em aberto (menor):** reativar o condomínio **não reativa os
+reservatórios** — o soft delete desativa os dois, o `PATCH {ativo:true}` só
+mexe no condomínio. O cliente volta a entrar e vê painel vazio. Já era assim
+antes; a mudança só deixou mais visível.
+
 ## Sessão 2026-07-28 — App mobile: Capacitor 6 → 8 (prep Play Store)
 
 Começou como um erro do Android Studio (*"Invalid Gradle JDK configuration ...
