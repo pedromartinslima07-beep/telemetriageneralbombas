@@ -1018,17 +1018,31 @@ a { color: inherit; text-decoration: none; }
   padding: 0;
 }
 
-/* Faixa de KPIs do dashboard do ADMIN — são 5 cards fixos.
-   Entre ~1025px e ~1350px o `auto-fit` acomoda 4 colunas e o 5º card fica
-   sozinho na segunda linha, o que lê como layout quebrado (notebooks de
-   1280px caem exatamente aí). Forçar 3 colunas dá 3 + 2, que parece
-   divisão intencional. Acima disso os 5 cabem numa linha só.
-   Tentei resolver mexendo no piso do minmax: em 1280 falta 4px para as 5
-   colunas entrarem — limiar frágil demais para depender dele.
-   `:not(.layout-cli)` porque o painel do cliente usa o mesmo id com 4 KPIs,
-   onde 2 x 2 já resolve. */
-@media (min-width: 1025px) and (max-width: 1350px) {
-  .layout:not(.layout-cli) #resumoGrid {
+/* ── Faixas de KPI: evitar a última linha "quebrada" ──────────────
+   O `auto-fit` escolhe quantas colunas cabem, sem saber quantos cards
+   existem. Quando a conta não fecha sobra uma última linha com 1 ou 2 cards
+   e um buraco ao lado — 5 KPIs em 4 colunas viram 4 + 1; 6 viram 4 + 2.
+   Em notebook (1280–1366px) isso acontecia em quase toda seção.
+
+   O admin tem faixas de 4, 5 e 6 KPIs, então regra por id não resolve.
+   `:has(> .rc:nth-child(N):last-child)` = "esta grade tem exatamente N
+   cards", o que permite escolher uma divisão exata: 5 → 3 + 2, 6 → 3 + 3.
+   Grades de 4 ficam de fora porque 4 colunas já fecham certo.
+
+   Os limites vêm da conta do próprio `auto-fit` (piso de 190px + gap de
+   14px, descontando sidebar e respiro): 5 cards só entram numa linha a
+   partir de ~1300px; 6 cards, a partir de ~1500px. Abaixo disso, 3 colunas.
+
+   O painel do cliente não é afetado: as faixas dele têm 3 e 4 cards. */
+@media (min-width: 1025px) and (max-width: 1300px) {
+  .resumo-grid:has(> .rc:nth-child(5):last-child),
+  .resumo-grid:has(> .rc:nth-child(6):last-child) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1301px) and (max-width: 1500px) {
+  .resumo-grid:has(> .rc:nth-child(6):last-child) {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }

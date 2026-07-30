@@ -94,13 +94,20 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
     ellipsis, e "COND. COM ALERTA" virava "COND. COM ALE…" em 1366px (coluna
     de 194px) e em 1152px. Rótulo cortado num card cujo único papel é rotular
     um número não informa nada.
-  - **KPI órfão:** com 5 cards no dashboard do admin, entre ~1025px e ~1350px
-    o `auto-fit` acomodava 4 colunas e o 5º caía sozinho na linha de baixo
-    (1280px cai exatamente aí). Passa a 3 colunas nessa faixa — 3 + 2 lê como
-    divisão intencional. Escopado em `.layout:not(.layout-cli) #resumoGrid`
-    porque o painel do cliente usa o mesmo id com 4 KPIs.
-    Tentativa descartada: subir o piso do `minmax`. Em 1280 falta 4px para as
-    5 colunas entrarem — limiar frágil demais para depender dele.
+  - **Última linha quebrada nas faixas de KPI.** O `auto-fit` decide quantas
+    colunas cabem sem saber quantos cards existem: 5 KPIs em 4 colunas viram
+    4 + 1, e 6 viram 4 + 2, sempre com um buraco ao lado. Em notebook
+    (1280–1366px) isso pegava quase toda seção do admin.
+  - O admin tem faixas de **4, 5 e 6** KPIs, então regra por id não resolvia
+    (a primeira tentativa mirou só o `#resumoGrid` e deixou Chamados, com 6,
+    quebrado). A regra passou a detectar a quantidade com
+    `:has(> .rc:nth-child(N):last-child)` e escolher uma divisão exata:
+    **5 → 3 + 2**, **6 → 3 + 3**. Grades de 4 ficam de fora, porque 4 colunas
+    já fecham certo. Os limites (1300px e 1500px) saem da conta do próprio
+    `auto-fit` — piso de 190px + gap de 14px, descontando sidebar e respiro.
+  - Tentativa descartada: subir o piso do `minmax`. Em 1280 falta **4px** para
+    as 5 colunas entrarem — limiar frágil demais para depender dele.
+  - O painel do cliente não é afetado: as faixas dele têm 3 e 4 cards.
   - **Verificado** em 1920×1080, 1440×900, 1366×768, 1280×720, 1152×864 e
     1024×768, nos **dois** painéis: item de menu 38px em todos, nenhum rótulo
     cortado, nenhum card órfão.
