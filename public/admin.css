@@ -1034,16 +1034,28 @@ a { color: inherit; text-decoration: none; }
    partir de ~1300px; 6 cards, a partir de ~1500px. Abaixo disso, 3 colunas.
 
    O painel do cliente não é afetado: as faixas dele têm 3 e 4 cards. */
-@media (min-width: 1025px) and (max-width: 1300px) {
+@media (min-width: 1025px) and (max-width: 1320px) {
   .resumo-grid:has(> .rc:nth-child(5):last-child),
   .resumo-grid:has(> .rc:nth-child(6):last-child) {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
-@media (min-width: 1301px) and (max-width: 1500px) {
+@media (min-width: 1321px) and (max-width: 1520px) {
   .resumo-grid:has(> .rc:nth-child(6):last-child) {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* Grades de 4 (O.S., Contratos, Planos, Orçamentos avulsos) também quebram —
+   só que mais estreito, quando o `auto-fit` desce para 3 colunas e sobra
+   3 + 1. Aí 2 + 2 é a divisão exata.
+   O `!important` é necessário: o bloco de tablet (769–1024px) força
+   `repeat(3, …) !important` em toda `.resumo-grid`, e é justamente ele que
+   produz o órfão nesta faixa. */
+@media (min-width: 769px) and (max-width: 1100px) {
+  .resumo-grid:has(> .rc:nth-child(4):last-child) {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
 }
 

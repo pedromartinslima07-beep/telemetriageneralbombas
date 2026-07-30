@@ -107,7 +107,19 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
     `auto-fit` — piso de 190px + gap de 14px, descontando sidebar e respiro.
   - Tentativa descartada: subir o piso do `minmax`. Em 1280 falta **4px** para
     as 5 colunas entrarem — limiar frágil demais para depender dele.
-  - O painel do cliente não é afetado: as faixas dele têm 3 e 4 cards.
+  - **Grades de 4 também quebram**, só que mais estreito: quando o `auto-fit`
+    desce para 3 colunas sobra 3 + 1. Vale para O.S., Contratos, Planos e
+    Orçamentos avulsos. Entre 769px e 1100px passam a 2 + 2 — com
+    `!important`, porque o próprio bloco de tablet (769–1024px) força
+    `repeat(3, …) !important` em toda `.resumo-grid` e é ele que produz o
+    órfão nessa faixa.
+  - **Cobertura final** (harness isolado, 4/5/6 KPIs × 12 larguras de 900 a
+    1920px): **nenhum órfão em nenhuma combinação**. 4 cards ficam em 4
+    colunas até 1152 e 2 + 2 abaixo; 5 numa linha até 1366 e 3 + 2 abaixo;
+    6 numa linha a partir de 1600 e 3 + 3 abaixo. Conferido também no app
+    real (seção Planos em 1024px → 2 + 2).
+  - O painel do cliente não é afetado: as faixas dele têm 3 e 4 cards, e as
+    de 4 só entram na regra abaixo de 1100px, onde 2 + 2 já era o desejado.
   - **Verificado** em 1920×1080, 1440×900, 1366×768, 1280×720, 1152×864 e
     1024×768, nos **dois** painéis: item de menu 38px em todos, nenhum rótulo
     cortado, nenhum card órfão.
