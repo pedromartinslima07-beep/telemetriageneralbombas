@@ -114,6 +114,9 @@ function getOfflineJobStatus() {
   return { ultima_execucao: _ultimaExecucao, ultimo_resultado: _ultimoResultado };
 }
 
+// Intervalo usado no boot e sempre que a config não puder ser lida.
+const INTERVALO_PADRAO_MIN = 1;
+
 // Scheduler com auto-ajuste do intervalo via config 'jobs.offline_intervalo_min'.
 // Em vez de setInterval fixo, usa setTimeout recursivo que lê a config a cada tick.
 function startOfflineScheduler() {
@@ -131,8 +134,30 @@ function startOfflineScheduler() {
       scheduleProximo();
     }
   }
+  // ⚠️ Este é o único ponto async do job que roda FORA da proteção do tick():
+  // ele é chamado de dentro do `finally`, já com o try/catch encerrado. Sem o
+  // try/catch daqui, uma falha na leitura da config vira unhandled rejection e
+  // derruba o processo inteiro — aconteceu em 30/07/2026, quando a conexão com
+  // o Postgres caiu ("Connection terminated due to connection timeout") e
+  // levou o servidor junto.
+  //
+  // Falhar a leitura também não pode PARAR o job: sem chegar no setTimeout,
+  // ele nunca mais reagenda e o sistema deixa de detectar dispositivo offline
+  // silenciosamente. Por isso o setTimeout fica fora do try, com o intervalo
+  // caindo no padrão quando a config não pôde ser lida.
+  //
+  // Os outros jobs (gps-cleanup, alertas-cleanup, etc.) não têm esse risco:
+  // o scheduleProximo deles é síncrono, com intervalo fixo.
   async function scheduleProximo() {
-    const minutos = await getConfigInt("jobs.offline_intervalo_min", 1);
+    let minutos = INTERVALO_PADRAO_MIN;
+    try {
+      minutos = await getConfigInt("jobs.offline_intervalo_min", INTERVALO_PADRAO_MIN);
+    } catch (e) {
+      console.error(
+        `❌ Job OFFLINE: falha ao ler o intervalo na config, seguindo com ${INTERVALO_PADRAO_MIN}min:`,
+        e.message
+      );
+    }
     setTimeout(tick, Math.max(1, minutos) * 60_000);
   }
   // Primeira execução imediata, depois agenda pela config

@@ -119,6 +119,15 @@ App mobile (Capacitor) ──JWT──fetch───────────┤
 | `alertas-cleanup.job.js` | Retenção de alertas resolvidos | `alertas.retencao_dias`, `_dry_run` |
 | `conversas-cleanup.job.js` | Retenção de conversas fechadas | `conversas.retencao_dias`, `_dry_run` |
 
+> ⚠️ **O reagendamento também precisa de try/catch.** O `tick()` de cada job é
+> protegido, mas ele chama `scheduleProximo()` de dentro do `finally` — já fora
+> do try. Se esse `scheduleProximo` for `async` (só o `offline.job.js` é, por
+> ler o intervalo na config), uma falha vira `unhandledRejection` e derruba o
+> processo inteiro. Pior: sem chegar no `setTimeout`, o job **para de
+> reagendar** silenciosamente. Regra: o `setTimeout` fica **fora** do `try`, e
+> falha de config cai num intervalo padrão. Ver o caso de 30/07/2026 no
+> [changelog](changelog.md).
+
 ---
 
 ## Configuração dinâmica (`config.service.js`)

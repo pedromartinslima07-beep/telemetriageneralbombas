@@ -80,6 +80,30 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
 
 ## Marcos de produto (fases do plano)
 
+- **2026-07-30** — **Job de offline derrubava o processo em soluço do banco**
+  - **Sintoma:** o servidor morreu inteiro com
+    `Error: Connection terminated due to connection timeout`, empilhado em
+    `scheduleProximo → getConfigInt → getConfig`. Apareceu rodando local contra
+    o Postgres da Railway (conexão ociosa derrubada pelo proxy), mas a falha
+    não é exclusiva de dev.
+  - **Causa:** `scheduleProximo()` (`src/jobs/offline.job.js`) é `async` e era
+    chamado de dentro do `finally` do `tick()` — ou seja, **fora** do try/catch
+    que protege o job. Uma rejeição ali virava `unhandledRejection` e derrubava
+    o processo. Havia um segundo efeito, pior e silencioso: sem chegar no
+    `setTimeout`, o job **nunca mais reagendava**, e a detecção de dispositivo
+    offline parava sem ninguém perceber.
+  - **Correção:** `try/catch` na leitura da config, com o `setTimeout` **fora**
+    do `try` — falhar a leitura passa a só usar `INTERVALO_PADRAO_MIN` (1 min)
+    e registrar o erro, nunca interromper o ciclo.
+  - **Só este job tinha o problema.** `gps-cleanup`, `alertas-cleanup`,
+    `conversas-cleanup` e `leituras-cleanup` têm `scheduleProximo` **síncrono**
+    com intervalo fixo; `offline.job` é o único que lê config para decidir o
+    intervalo, e por isso o único com `await` nesse ponto.
+  - **Verificado** apontando o banco para um host inalcançável e rodando o
+    scheduler real: com a correção o processo sobrevive e reagenda em 60000ms;
+    com o código anterior (via `git stash`) morre em `unhandledRejection` e não
+    reagenda.
+
 - **2026-07-30** — **Painel do cliente: dashboard, identidade e mobile**
   - **Contexto:** o painel do cliente ficou parado enquanto o foco esteve no
     admin. Foco definido: **navegador** (o app Capacitor não tem previsão de
