@@ -11,6 +11,41 @@ aliases:
 > Última sessão registrada: **2026-07-28**.
 > Roadmap completo em [`roadmap.md`](roadmap.md); decisões em [`decisions.md`](decisions.md).
 
+## Sessão 2026-07-30 (parte 2) — Redesenho do painel do cliente
+
+**Direção definida pelo Pedro:** foco no **navegador**, não no app Capacitor
+(sem previsão de chegar aos clientes). Mobile é prioridade; desktop precisa
+parar de parecer largado. Identidade visual colada no admin.
+
+**Ambiente de trabalho:** servidor local (`node server.js`, porta **3001**)
+contra o banco de **TESTE**, com dois clientes demo semeados —
+`demo-cliente@teste.local` (4 reservatórios, alertas, chamados) e
+`demo-semtel@teste.local` (sem telemetria). Senha `demo1234`. Script em
+scratchpad, prefixo `DEMO`/`demo-`, com `--limpar`. `OTP_DISABLED=true` em dev
+faz o login pular o código.
+
+**Feito:** ver [changelog](../docs/changelog.md) para o detalhe. Resumo do que
+não é óbvio pelo diff:
+
+- `public/cliente.css` novo — overrides do cliente, para não editar o
+  `admin.css` compartilhado.
+- O painel do cliente estava **defasado**, não mal desenhado: CSS preso em
+  `?v=107` (admin em 149), tanque em divs enquanto o admin já tinha o SVG,
+  placeholder "Meu Condomínio" fixo no HTML.
+- Dois remendos antigos do `admin.css` (seletor de ID + `!important`) foram
+  neutralizados por override, não removidos.
+
+**Lição da sessão:** corrigi o mobile e quebrei o desktop — a regra do KPI
+órfão ficou fora do media query e virou um card de 1606px. Desde então, medir
+**os dois tamanhos** antes de dar por pronto.
+
+**Aberto:**
+- Extrair o SVG do tanque para `public/tanque.js` (hoje duplicado em
+  `admin.js` e `cliente.js`). Combinado: **depois** do redesenho, em commit
+  isolado, porque encosta no `admin.js`.
+- Seções **Alertas** e **Chamados** do cliente: só levaram ajuste de KPI.
+- Remover os dados demo do banco de teste quando não forem mais necessários.
+
 ## Sessão 2026-07-30 — Painel do cliente voltava sozinho pro login
 
 **Sintoma:** login + OTP passavam, o painel do cliente abria e em seguida

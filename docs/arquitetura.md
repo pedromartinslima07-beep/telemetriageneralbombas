@@ -66,6 +66,7 @@ App mobile (Capacitor) ──JWT──fetch───────────┤
 ├── public/                   # frontend web (servido em /static e nas rotas HTML)
 │   ├── admin.html/.js/.css   # painel admin "Mission Control"
 │   ├── cliente.html/.js      # painel do cliente
+│   ├── cliente.css           # overrides do cliente (carrega após admin.css)
 │   ├── login.html/.js/.css   # login + OTP
 │   ├── sw.js, register-sw.js, manifest.json   # PWA
 │   ├── leaflet.*, apexcharts.min.js, chart.umd.min.js, lucide.min.js  # libs locais

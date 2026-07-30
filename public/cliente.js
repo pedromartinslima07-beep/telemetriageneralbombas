@@ -116,25 +116,6 @@ function nivelBadge(nivel) {
   return badge(n || "-", "warn");
 }
 
-function tankHtml(nivel, nivelPct) {
-  const n = String(nivel || "").toLowerCase();
-  const map = {
-    alto:        { fallbackPct: 85,  cls: "tank-alto"        },
-    medio:       { fallbackPct: 60,  cls: "tank-medio"       },
-    baixo:       { fallbackPct: 30,  cls: "tank-baixo"       },
-    muito_baixo: { fallbackPct: 10,  cls: "tank-muito-baixo" },
-  };
-  const cfg = map[n];
-  if (!cfg) return `<span style="color:var(--muted)">-</span>`;
-  const pct = nivelPct != null ? nivelPct : cfg.fallbackPct;
-  return `
-    <div class="tank-wrap">
-      <div class="tank">
-        <div class="tank-fill ${cfg.cls}" style="height:${pct}%"></div>
-      </div>
-      <span class="tank-pct">${pct}%</span>
-    </div>`;
-}
 
 function bombaBadge(ligada) {
   if (ligada === true) return badge("LIGADA", "warn");
@@ -152,6 +133,30 @@ function tipoBadge(tipo) {
 function setStatusMsg(msg) {
   const el = document.getElementById("statusMsg");
   if (el) el.textContent = msg || "";
+}
+
+// Troca o placeholder "Cliente / Meu Condomínio" pelos dados reais. O nome do
+// usuário vem do localStorage (gravado no login) e o do condomínio do
+// /cliente/status — o JWT só carrega o id.
+function _aplicarIdentidade(condominio) {
+  let usuario = {};
+  try { usuario = JSON.parse(localStorage.getItem("user")) || {}; } catch {}
+
+  const nomeUsuario = usuario.nome || "Cliente";
+  const nomeCondo   = condominio?.nome || "Meu Condomínio";
+  const local       = [condominio?.bairro, condominio?.cidade].filter(Boolean).join(" · ");
+
+  const set = (sel, txt, title) => {
+    const el = document.querySelector(sel);
+    if (!el) return;
+    el.textContent = txt;
+    if (title) el.title = title;           // nome longo fica acessível no hover
+  };
+
+  set(".topbar-user-name", nomeUsuario);
+  set(".topbar-user-role", nomeCondo, nomeCondo);
+  set(".sidebar-user-role", nomeUsuario);
+  set(".sidebar-user-label", nomeCondo, local ? `${nomeCondo} — ${local}` : nomeCondo);
 }
 
 // Extrai o campo `error` do corpo da resposta (todo handler do backend responde
@@ -183,8 +188,12 @@ function _dashRenderChamados() {
   const PRIO_NOME = { baixa:"Baixa", media:"Média", alta:"Alta", emergencia:"Emergência", p1:"P1 Crítico", p2:"P2 Alta", p3:"P3 Controlado", p4:"P4 Agendado" };
   const ST_NOME   = { aberto:"Aberto", em_atendimento:"Em atendimento", fechado:"Resolvido" };
 
+  // A classe cli-tbl-cards + os data-label fazem a tabela virar lista de cards
+  // no mobile (regra em cliente.css). Tabela de 4 colunas em 414px espremia o
+  // título em duas linhas e ainda gastava largura com o id, que o síndico não
+  // usa pra nada.
   listaEl.innerHTML = `
-    <table class="tel-bombas-table">
+    <table class="tel-bombas-table cli-tbl-cards">
       <thead>
         <tr>
           <th>#</th>
@@ -196,10 +205,10 @@ function _dashRenderChamados() {
       <tbody>
         ${recentes.map(c => `
           <tr>
-            <td style="color:var(--muted);font-size:11px;">${c.id}</td>
-            <td><strong>${_chCliEscapar(c.titulo || "—")}</strong></td>
-            <td><span class="ch-st ch-st-${c.status||"aberto"}">${ST_NOME[c.status] || c.status || "—"}</span></td>
-            <td style="color:var(--muted);font-size:11px;">${_chCliFmtDataCurta(c.criado_em)}</td>
+            <td class="cli-col-id" style="color:var(--muted);font-size:11px;">${c.id}</td>
+            <td class="cli-col-titulo"><strong>${_chCliEscapar(c.titulo || "—")}</strong></td>
+            <td class="cli-col-status"><span class="ch-st ch-st-${c.status||"aberto"}">${ST_NOME[c.status] || c.status || "—"}</span></td>
+            <td class="cli-col-data" style="color:var(--muted);font-size:11px;">${_chCliFmtDataCurta(c.criado_em)}</td>
           </tr>`).join("")}
       </tbody>
     </table>`;
@@ -226,74 +235,178 @@ function _dashRenderKpis(list) {
   const ICO_BELL = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>`;
   const ICO_FILE = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`;
   const ICO_TOOL = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>`;
+  const ICO_CHECK = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`;
+  const ICO_CLOCK = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`;
+
+  // Sem telemetria contratada, "0 Online" em verde e "0 alertas" não querem
+  // dizer nada — são zeros de quem não tem o produto, não de quem está bem.
+  // Nesse caso a faixa vira 100% sobre chamados, que todo cliente tem.
+  if (list.length === 0) {
+    const resolvidos = chamados.filter(c => c.status === "fechado").length;
+    el.innerHTML =
+      kpi(ICO_FILE, abertos,        "Chamados abertos", abertos === 0 ? "rc-ok" : "rc-warn") +
+      kpi(ICO_TOOL, emAtend,        "Em atendimento",   emAtend > 0 ? "rc-cyan" : "rc-neutral") +
+      kpi(ICO_CHECK, resolvidos,    "Resolvidos",       "rc-ok") +
+      kpi(ICO_CLOCK, _kpiUltimoMov(chamados), "Última movimentação", "rc-neutral");
+    return;
+  }
 
   el.innerHTML =
-    kpi(ICO_WIFI, online,  "Online",           offline === 0 ? "rc-ok" : (online > 0 ? "rc-warn" : "rc-bad")) +
+    kpi(ICO_WIFI, `${online}<span class="rc-sub">/${list.length}</span>`, "Reservatórios online",
+        offline === 0 ? "rc-ok" : (online > 0 ? "rc-warn" : "rc-bad")) +
     kpi(ICO_BELL, alertas, "Alertas ativos",   alertas === 0 ? "rc-ok" : "rc-bad") +
     kpi(ICO_FILE, abertos, "Chamados abertos", abertos === 0 ? "rc-ok" : "rc-warn") +
     kpi(ICO_TOOL, emAtend, "Em atendimento",   emAtend  > 0 ? "rc-cyan" : "rc-neutral");
 }
 
+// "há 3h" / "há 2d" do chamado mexido mais recentemente. Cabe num stat card
+// e diz mais pro síndico do que repetir uma contagem.
+function _kpiUltimoMov(chamados) {
+  if (!chamados.length) return "—";
+  const ts = Math.max(...chamados.map(c => new Date(c.atualizado_em || c.criado_em).getTime()));
+  if (!Number.isFinite(ts)) return "—";
+  const min = Math.floor((Date.now() - ts) / 60000);
+  if (min < 60)   return `${Math.max(min, 1)}<span class="rc-sub">min</span>`;
+  if (min < 1440) return `${Math.floor(min / 60)}<span class="rc-sub">h</span>`;
+  return `${Math.floor(min / 1440)}<span class="rc-sub">d</span>`;
+}
+
+// ============================================================
+// TANQUE SVG — mesmo componente do painel admin
+// ------------------------------------------------------------
+// Portado de `_telTanqueSVG` / `_telBandaAgua` em admin.js. O cliente estava
+// para trás: o dashboard dele mostrava um gráfico de barras do ApexCharts e o
+// `tankHtml()` daqui era a versão antiga em divs (.tank-fill com height:%),
+// que nem chegou a ser usada. O admin já tinha evoluído pro desenho
+// volumétrico e o painel do cliente nunca recebeu.
+//
+// As classes (.tank-outline, .tank-rim, .tank-surface, .tank-pct, .tel-tank-*)
+// vêm do admin.css, que esta página já carrega — inclusive o
+// `@container (max-width: 176px)` que enxuga o tanque quando o tile fica
+// estreito, o que resolve o mobile sozinho.
+//
+// Se mexer no desenho, mexer nos dois: não há módulo compartilhado entre
+// admin.js e cliente.js.
+// ============================================================
+
+const TEL_LIMIARES = { critico: 20, baixo: 45 };
+
+function _telBandaAgua(pct, thresholds = TEL_LIMIARES) {
+  if (pct == null)              return { key: "off",   cor: "#5b6070" };
+  if (pct < thresholds.critico) return { key: "crit",  cor: "#ef4444" };
+  if (pct < thresholds.baixo)   return { key: "baixo", cor: "#f59e0b" };
+  return { key: "ok", cor: "#22d3ee" };
+}
+
+function _telTanqueSVG(pct, offline, thresholds = TEL_LIMIARES) {
+  const nivel = offline || pct == null ? null : Math.max(0, Math.min(100, pct));
+  const cor   = _telBandaAgua(nivel, thresholds).cor;
+
+  const TOP = 20, BOT = 114, RX = 31, RY = 8, H = BOT - TOP;
+  const yAgua = nivel == null ? BOT : TOP + (1 - nivel / 100) * H;
+  const uid = "tk" + Math.random().toString(36).slice(2, 8);
+  const pctTxt = offline ? "OFF" : (nivel == null ? "\u2014" : Math.round(nivel) + "%");
+
+  const ticks = [0, 25, 50, 75, 100].map(t => {
+    const y = TOP + (1 - t / 100) * H;
+    return `<line class="tank-tick" x1="10" y1="${y.toFixed(1)}" x2="15" y2="${y.toFixed(1)}"/>` +
+           `<text class="tank-tick-lbl" x="7.5" y="${(y + 2.4).toFixed(1)}" text-anchor="end">${t}</text>`;
+  }).join("");
+
+  const bodyPath = `M${50 - RX} ${TOP} A${RX} ${RY} 0 0 0 ${50 + RX} ${TOP} L${50 + RX} ${BOT} A${RX} ${RY} 0 0 1 ${50 - RX} ${BOT} Z`;
+
+  const agua = nivel == null ? "" : `
+      <g clip-path="url(#clip-${uid})">
+        <rect x="${50 - RX}" y="${yAgua.toFixed(1)}" width="${RX * 2}" height="${(BOT - yAgua + RY).toFixed(1)}" fill="url(#water-${uid})"/>
+        <ellipse class="tank-surface" cx="50" cy="${yAgua.toFixed(1)}" rx="${RX}" ry="${RY}" fill="${cor}"/>
+        <ellipse class="tank-surface" cx="50" cy="${yAgua.toFixed(1)}" rx="${RX}" ry="${RY}" fill="none" stroke="#fff" stroke-opacity=".3" stroke-width="1"/>
+      </g>`;
+
+  return `
+    <svg viewBox="-8 0 108 126" role="img" aria-label="N\u00edvel ${pctTxt}">
+      <defs>
+        <clipPath id="clip-${uid}"><path d="${bodyPath}"/></clipPath>
+        <linearGradient id="body-${uid}" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0"   stop-color="#fff" stop-opacity=".12"/>
+          <stop offset=".45" stop-color="#fff" stop-opacity=".02"/>
+          <stop offset="1"   stop-color="#000" stop-opacity=".22"/>
+        </linearGradient>
+        <linearGradient id="water-${uid}" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="${cor}" stop-opacity=".95"/>
+          <stop offset="1" stop-color="${cor}" stop-opacity=".55"/>
+        </linearGradient>
+      </defs>
+      ${ticks}
+      <ellipse cx="50" cy="${BOT + 3}" rx="${RX - 3}" ry="4" fill="#000" opacity=".25"/>
+      <path d="${bodyPath}" fill="url(#body-${uid})"/>
+      ${agua}
+      <rect x="${50 - RX + 6}" y="${TOP + 5}" width="4" height="${H - 12}" rx="2" fill="#fff" opacity=".08"/>
+      <line class="tank-outline" x1="${50 - RX}" y1="${TOP}" x2="${50 - RX}" y2="${BOT}"/>
+      <line class="tank-outline" x1="${50 + RX}" y1="${TOP}" x2="${50 + RX}" y2="${BOT}"/>
+      <path class="tank-outline" d="M${50 - RX} ${BOT} A${RX} ${RY} 0 0 0 ${50 + RX} ${BOT}"/>
+      <ellipse class="tank-rim" cx="50" cy="${TOP}" rx="${RX}" ry="${RY}"/>
+      <ellipse class="tank-rim" cx="50" cy="${TOP - 3}" rx="${RX - 8}" ry="5" fill="rgba(255,255,255,.03)"/>
+      <text class="tank-pct" x="50" y="72">${pctTxt}</text>
+    </svg>`;
+}
+
+// "h\u00e1 Xmin" / "h\u00e1 Xh" / data
+function _telAtualizadoTxt(u) {
+  if (!u?.criado_em) return "sem leitura";
+  const mins = Math.round((Date.now() - new Date(u.criado_em)) / 60000);
+  if (mins < 60)   return `h\u00e1 ${mins}min`;
+  if (mins < 1440) return `h\u00e1 ${Math.round(mins / 60)}h`;
+  return new Date(u.criado_em).toLocaleDateString("pt-BR");
+}
+
+// Tile de um reservatorio: desenho + nome + bomba + ultima leitura.
+// Usado no dashboard E na aba Telemetria — os dois mostram a mesma coisa e
+// nao ha motivo pra divergirem.
+function _cliTanqueTile(r) {
+  const u        = r.ultima_leitura;
+  const pct      = u?.nivel_pct;
+  const offline  = !!r.offline;
+  const banda    = _telBandaAgua(offline ? null : pct);
+  const bombaOn  = u?.bomba_ligada;
+  const bombaCls = bombaOn === true ? "on" : bombaOn === false ? "off" : "uk";
+  const bombaTxt = bombaOn === true ? "Bomba ON" : bombaOn === false ? "Bomba OFF" : "Bomba \u2014";
+  const nome     = _chCliEscapar(r.nome || "Reservat\u00f3rio");
+
+  return `
+      <div class="tel-tank cli-tank ${banda.key}">
+        <div class="tel-tank-svg">${_telTanqueSVG(pct, offline)}</div>
+        <div class="tel-tank-nome" title="${nome}">${nome}</div>
+        <div class="tel-tank-sub">${offline ? "Offline" : (r.tipo ? _chCliEscapar(r.tipo) : "\u2014")}</div>
+        <div class="tel-tank-foot">
+          <span class="tel-tank-bomba ${bombaCls}">${bombaTxt}</span>
+          <span class="tel-tank-upd">${_telAtualizadoTxt(u)}</span>
+        </div>
+      </div>`;
+}
+
+// Grade de tanques do dashboard. Substitui o gr\u00e1fico de barras: o s\u00edndico
+// reconhece uma caixa d'\u00e1gua na hora, e o desenho carrega n\u00edvel, bomba e
+// \u00faltima leitura no mesmo tile \u2014 a barra s\u00f3 mostrava o percentual.
 function _dashRenderNiveis(list) {
   const el    = document.getElementById("dashNiveisChart");
   const empty = document.getElementById("dashNiveisEmpty");
-  if (!el || typeof ApexCharts === "undefined") return;
+  if (!el) return;
 
-  const reservs = list
-    .filter(r => r.ultima_leitura?.nivel_pct != null)
-    .sort((a, b) => (a.nome || "").localeCompare(b.nome || ""));
+  // Sem `nivel_pct` n\u00e3o d\u00e1 pra desenhar \u00e1gua, mas o reservat\u00f3rio offline
+  // precisa aparecer \u2014 \u00e9 justamente o que o s\u00edndico tem de ver.
+  const reservs = [...list].sort((a, b) => (a.nome || "").localeCompare(b.nome || ""));
 
   if (reservs.length === 0) {
-    if (_dashNiveisChart) { try { _dashNiveisChart.destroy(); } catch (_) {} _dashNiveisChart = null; }
     el.innerHTML = "";
     if (empty) empty.style.display = "flex";
     return;
   }
   if (empty) empty.style.display = "none";
 
-  const labels = reservs.map(r => `${r.nome || "Res."}${r.tipo ? " · " + r.tipo : ""}`);
-  const data   = reservs.map(r => Math.round(r.ultima_leitura.nivel_pct));
-  const cores  = reservs.map(r => {
-    const pct = r.ultima_leitura.nivel_pct;
-    if (pct < 20) return "#ef4444";
-    if (pct < 40) return "#f59e0b";
-    if (pct < 70) return "#22d3ee";
-    return "#22c55e";
-  });
+  // O gr\u00e1fico Apex antigo deixava uma inst\u00e2ncia viva presa ao container.
+  if (_dashNiveisChart) { try { _dashNiveisChart.destroy(); } catch (_) {} _dashNiveisChart = null; }
 
-  const opts = {
-    chart: { type: "bar", height: "100%", toolbar: { show: false }, background: "transparent", animations: { speed: 350 } },
-    series: [{ name: "Nível (%)", data }],
-    plotOptions: {
-      bar: { borderRadius: 6, borderRadiusApplication: "end", columnWidth: "55%", distributed: true, dataLabels: { position: "top" } },
-    },
-    dataLabels: {
-      enabled: true,
-      formatter: v => v + "%",
-      offsetY: -18,
-      style: { fontSize: "10px", fontWeight: "700", colors: ["#eef0fb"] },
-    },
-    colors: cores,
-    xaxis: {
-      categories: labels,
-      labels: { style: { colors: "#7a7e9c", fontSize: "10.5px" }, rotate: -25, hideOverlappingLabels: false, trim: true },
-      axisBorder: { color: "rgba(255,255,255,.06)" },
-      axisTicks:  { color: "rgba(255,255,255,.06)" },
-    },
-    yaxis: { min: 0, max: 100, labels: { style: { colors: "#7a7e9c", fontSize: "10px" }, formatter: v => v + "%" } },
-    grid: { borderColor: "rgba(255,255,255,.05)", strokeDashArray: 3, padding: { top: 10, right: 10, bottom: 0, left: 10 } },
-    legend: { show: false },
-    tooltip: { theme: "dark", y: { formatter: v => v + "%" } },
-    fill: { type: "gradient", gradient: { shade: "dark", type: "vertical", shadeIntensity: .4, opacityFrom: .95, opacityTo: .7, stops: [0, 100] } },
-  };
-
-  if (_dashNiveisChart) {
-    _dashNiveisChart.updateOptions(opts, false, true);
-  } else {
-    el.innerHTML = "";
-    _dashNiveisChart = new ApexCharts(el, opts);
-    _dashNiveisChart.render();
-  }
+  el.innerHTML = reservs.map(_cliTanqueTile).join("");
 }
 
 function _dashRenderCriticos(list) {
@@ -521,15 +634,17 @@ function _telCliRenderKpis(list) {
         _telCliFmtTempoRel(ultimaIso), "Última leitura", "rc-neutral");
 }
 
-// --- Bar chart de níveis (ApexCharts) ---
+// --- Niveis na aba Telemetria: mesma grade de tanques do dashboard ---
+// Antes esta aba tinha um bar chart do ApexCharts enquanto o dashboard ja
+// mostrava o desenho. Duas telas do mesmo cliente, para o mesmo dado, com
+// componentes diferentes.
 function _telCliRenderNiveisChart(list) {
-  const el = document.getElementById("telCliNiveisChart");
+  const el    = document.getElementById("telCliNiveisChart");
   const empty = document.getElementById("telCliNiveisEmpty");
-  if (!el || typeof ApexCharts === "undefined") return;
+  if (!el) return;
 
-  const reservs = list
-    .filter(r => r.ultima_leitura?.nivel_pct != null)
-    .sort((a, b) => (a.nome || "").localeCompare(b.nome || ""));
+  // Offline entra na lista: e justamente o que o sindico precisa ver.
+  const reservs = [...list].sort((a, b) => (a.nome || "").localeCompare(b.nome || ""));
 
   if (reservs.length === 0) {
     if (_telCliBarChart) { try { _telCliBarChart.destroy(); } catch (_) {} _telCliBarChart = null; }
@@ -539,61 +654,10 @@ function _telCliRenderNiveisChart(list) {
   }
   if (empty) empty.style.display = "none";
 
-  const labels = reservs.map(r => `${r.nome || "Res."}${r.tipo ? " · " + r.tipo : ""}`);
-  const data   = reservs.map(r => Math.round(r.ultima_leitura.nivel_pct));
-  const cores  = reservs.map(r => {
-    const pct = r.ultima_leitura.nivel_pct;
-    if (pct < 20) return "#ef4444";
-    if (pct < 40) return "#f59e0b";
-    if (pct < 70) return "#22d3ee";
-    return "#22c55e";
-  });
+  // Sobra do bar chart: sem destruir, a instancia fica presa ao container.
+  if (_telCliBarChart) { try { _telCliBarChart.destroy(); } catch (_) {} _telCliBarChart = null; }
 
-  const opts = {
-    chart: { type: "bar", height: "100%", toolbar: { show: false }, background: "transparent", animations: { speed: 350 } },
-    series: [{ name: "Nível (%)", data }],
-    plotOptions: {
-      bar: {
-        borderRadius: 6,
-        borderRadiusApplication: "end",
-        columnWidth: "55%",
-        distributed: true,
-        dataLabels: { position: "top" },
-      },
-    },
-    dataLabels: {
-      enabled: true,
-      formatter: (v) => v + "%",
-      offsetY: -18,
-      style: { fontSize: "10px", fontWeight: "700", colors: ["#eef0fb"] },
-    },
-    colors: cores,
-    xaxis: {
-      categories: labels,
-      labels: { style: { colors: "#7a7e9c", fontSize: "10.5px" }, rotate: -25, hideOverlappingLabels: false, trim: true },
-      axisBorder: { color: "rgba(255,255,255,.06)" },
-      axisTicks:  { color: "rgba(255,255,255,.06)" },
-    },
-    yaxis: {
-      min: 0, max: 100,
-      labels: { style: { colors: "#7a7e9c", fontSize: "10px" }, formatter: (v) => v + "%" },
-    },
-    grid: { borderColor: "rgba(255,255,255,.05)", strokeDashArray: 3, padding: { top: 10, right: 10, bottom: 0, left: 10 } },
-    legend: { show: false },
-    tooltip: { theme: "dark", y: { formatter: (v) => v + "%" } },
-    fill: {
-      type: "gradient",
-      gradient: { shade: "dark", type: "vertical", shadeIntensity: .4, opacityFrom: .95, opacityTo: .7, stops: [0, 100] },
-    },
-  };
-
-  if (_telCliBarChart) {
-    _telCliBarChart.updateOptions(opts, false, true);
-  } else {
-    el.innerHTML = "";
-    _telCliBarChart = new ApexCharts(el, opts);
-    _telCliBarChart.render();
-  }
+  el.innerHTML = reservs.map(_cliTanqueTile).join("");
 }
 
 // --- Lista de "em atenção" ---
@@ -867,16 +931,25 @@ async function carregar() {
   // ===== Alertas =====
   _alAlertas = Array.isArray(data.alertas_abertos) ? data.alertas_abertos : [];
 
+  // Nome real do condomínio no topo e na sidebar — antes ficava o placeholder
+  // "Cliente / Meu Condomínio" fixo no HTML, igual pra todo mundo.
+  _aplicarIdentidade(data.condominio);
+
   // ===== Dashboard =====
   const temTelemetria = reservatorios.length > 0;
   const dashConteudo  = document.getElementById("dashConteudo");
   if (dashConteudo) dashConteudo.style.display = temTelemetria ? "" : "none";
 
-  // Chamados sempre visíveis no dashboard
+  // Bloco que só aparece pra quem não tem telemetria. Sem ele o dashboard
+  // desse cliente ficava com uma tabela de chamados e o resto da tela vazio.
+  const semTel = document.getElementById("dashSemTelemetria");
+  if (semTel) semTel.style.display = temTelemetria ? "none" : "";
+
+  // KPIs e chamados valem pros dois casos — os KPIs é que mudam de conteúdo.
+  _dashRenderKpis(reservatorios);
   _dashRenderChamados();
 
   if (temTelemetria) {
-    _dashRenderKpis(reservatorios);
     _dashRenderNiveis(reservatorios);
     _dashRenderCriticos(reservatorios);
     _dashRenderActivity(_alAlertas, reservatorios);

@@ -80,6 +80,64 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
 
 ## Marcos de produto (fases do plano)
 
+- **2026-07-30** — **Painel do cliente: dashboard, identidade e mobile**
+  - **Contexto:** o painel do cliente ficou parado enquanto o foco esteve no
+    admin. Foco definido: **navegador** (o app Capacitor não tem previsão de
+    chegar aos clientes), com prioridade em tela pequena.
+  - **`public/cliente.css` (novo)** — só overrides, carregado depois do
+    `admin.css` e usando os mesmos tokens. Existe para as proporções do
+    cliente divergirem sem risco de mexer no painel do admin, que compartilha
+    o `admin.css`.
+  - **CSS do cliente estava 42 versões atrás:** `cliente.html` pedia
+    `admin.css?v=107`, `admin.html` pedia `v=149`. Mesmo arquivo, chave de
+    cache diferente (a query faz parte da URL) — quem tinha o v107 salvo nunca
+    recebeu nenhum refinamento posterior. Sincronizado.
+  - **Identidade real:** topbar e sidebar mostravam "Cliente / Meu Condomínio"
+    fixo no HTML, igual pra todo cliente. `_aplicarIdentidade()` preenche com
+    nome do usuário (localStorage) e do condomínio (`/cliente/status`).
+  - **Tanque SVG do admin no cliente** — `_telTanqueSVG`/`_telBandaAgua`
+    portados de `admin.js`. O dashboard usava bar chart do ApexCharts e o
+    `tankHtml()` do `cliente.js` era a versão antiga em divs, **nunca chamada**
+    (removida). A aba **Telemetria** recebeu a mesma grade; markup unificado em
+    `_cliTanqueTile()`. O ApexCharts continua no **Histórico de níveis**, onde
+    série temporal é o componente certo.
+    ⚠️ O SVG ficou **duplicado** em `admin.js` e `cliente.js` (não há módulo
+    compartilhado). Extrair para `public/tanque.js` ficou acordado para depois.
+  - **Cliente sem telemetria tinha dashboard vazio:** `_dashRenderKpis` só era
+    chamado `if (temTelemetria)`, então sobrava a tabela de chamados e ~70% de
+    tela preta. Agora os KPIs sempre aparecem e **mudam de conteúdo** — sem
+    telemetria viram abertos/em atendimento/resolvidos/última movimentação, em
+    vez de "0 Online" em verde, que é o zero de quem não tem o produto. Somado
+    a isso, bloco `#dashSemTelemetria` com dois cards (o que é o monitoramento
+    + atalho para Chamados).
+  - **Altura da linha do Mission Control:** os três cards herdavam a altura de
+    "Atividade recente", que cresce com o número de eventos, e o card de
+    tanques (conteúdo de altura fixa) ficava com um vão morto. Altura fixa de
+    330px + `align-content: stretch`; as listas passam a rolar pelo
+    `overflow-y` que já tinham.
+  - **Mobile:** stat card de **104px → 58px** — `display: contents` no
+    `.rc-head` dissolve o wrapper e reorganiza em grid (ícone à esquerda,
+    label+valor à direita) **sem tocar no HTML que o admin também usa**.
+    Tabela de chamados vira lista de cards. `admin.css` escondia a coluna de
+    data no `.layout-cli` (remendo de quando era tabela apertada) — revertido,
+    a data volta.
+  - **Dois remendos antigos do `admin.css` neutralizados** (por override, sem
+    editar o arquivo): `.layout-cli #chCliKpiGrid { repeat(3,…) !important }`,
+    que em 414px dava colunas de 122px e cortava "Em atendimento"; e o
+    `nth-child(4) { display:none }` da tabela de bombas. Como são seletores de
+    ID/`!important`, o override repete o ID e depende de `cliente.css` carregar
+    depois.
+  - **KPI órfão:** Alertas e Chamados têm 3 KPIs; em 2 colunas o terceiro ficava
+    com meia linha vazia. `:last-child:nth-child(odd)` estica ele.
+    ⚠️ A regra é **exclusiva do mobile** — solta, ela pega o desktop (onde o
+    `auto-fit` cria 7 trilhas) e o "órfão" vira um card de 1606px cruzando a
+    tela. Foi um bug real introduzido e corrigido nesta sessão.
+  - **Verificado no navegador** (servidor local + banco de TESTE) em 1920px,
+    414px e 360px, nos dois perfis (com e sem telemetria).
+  - Versões: `cliente.css?v=8`, `cliente.js?v=26`, `admin.css?v=149` no cliente.
+  - **Não feito ainda:** as seções **Alertas** e **Chamados** só receberam o
+    ajuste de KPI — o conteúdo delas não foi repensado.
+
 - **2026-07-30** — **Soft delete de condomínio passa a revogar o acesso do cliente**
   - **Motivação:** `DELETE /condominios/:id` marcava `condominios.ativo = false`
     e não tocava em mais nada. O cliente do condomínio "excluído" continuava

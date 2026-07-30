@@ -1,0 +1,378 @@
+/* ============================================================
+   CLIENTE — overrides do painel do síndico
+   ============================================================
+
+   Carrega DEPOIS de admin.css e só contém o que precisa divergir. Não define
+   token, cor ou componente novo: usa as variáveis do Mission Control
+   (--accent, --muted, --card, --line…) para os dois painéis não separarem.
+
+   Por que existir em vez de editar admin.css: o admin tem mapa, WhatsApp,
+   técnicos, O.S. e orçamentos para preencher a tela; o cliente tem
+   reservatórios e chamados. Os mesmos grids, com menos dados, leem como
+   abandono — as proporções precisam mudar só aqui, sem risco de mexer no
+   painel do admin, que compartilha o arquivo.
+   ============================================================ */
+
+
+/* ============================================================
+   1. STAT CARDS — mais densos
+   ------------------------------------------------------------
+   O padrão do admin empilha ícone+label em cima e o valor embaixo, o que dá
+   ~110px de altura. Com 4 cards isso comia a primeira dobra inteira no mobile
+   (~390px de 700px) antes de qualquer conteúdo. Aqui o valor sobe para a
+   mesma linha do label.
+   ============================================================ */
+
+/* Escopo é .layout-cli (o painel inteiro), não só o dashboard: Alertas e
+   Chamados usam a mesma .resumo-grid e ficavam de fora, com o card alto e o
+   label cortado. */
+.layout-cli .resumo-grid {
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 12px;
+}
+
+.layout-cli .rc {
+  padding: 14px 16px;
+}
+
+.layout-cli .rc-value {
+  font-size: 30px;
+  line-height: 1.1;
+  margin-top: 6px;
+}
+
+/* No desktop o `auto-fit` já distribui os 3 KPIs em 3 colunas iguais — não
+   existe card órfão aqui. A regra que estica o último é EXCLUSIVA do mobile
+   (ver bloco 768px); aplicá-la aqui criava 7 trilhas de 219px e um card de
+   1606px atravessando a tela. */
+
+/* Unidade/denominador ("/4", "min", "h") junto do número, sem competir com ele.
+   O .rc-value tem line-height apertado; sem alinhar pelo baseline a unidade
+   escorrega para baixo do número. */
+.rc-sub {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+  margin-left: 2px;
+  vertical-align: baseline;
+  line-height: 1;
+}
+
+
+/* ============================================================
+   2. GRID DO DASHBOARD — proporções para os dados do cliente
+   ------------------------------------------------------------
+   .mc-grid do admin é 2fr | 1fr | 1fr porque o slot largo guarda o mapa
+   Leaflet. No cliente esse slot recebe um gráfico de barras com 3-5
+   reservatórios: num monitor de 1680px sobrava metade do card vazio, e o
+   min-height de 420px multiplicava isso por três.
+   ============================================================ */
+
+.section[data-section="dashboard"] .mc-grid {
+  grid-template-columns: minmax(0, 1.35fr) minmax(240px, 1fr) minmax(240px, 1fr);
+}
+
+/* Altura fixa nos três cards da linha.
+   Sem isso a "Atividade recente" cresce com a quantidade de eventos, o grid
+   iguala a altura das três colunas pela mais alta, e o card de tanques —
+   que tem conteúdo de altura fixa — fica com um vão morto embaixo. Com
+   altura definida, as listas usam o `overflow-y: auto` que já têm no
+   admin.css e rolam por dentro. */
+.section[data-section="dashboard"] .mc-map,
+.section[data-section="dashboard"] .mc-alerts,
+.section[data-section="dashboard"] .mc-activity {
+  min-height: 0;
+  /* 330px = o que o tile de tanque realmente pede (desenho 137 + nome + bomba
+     + leitura + respiros ≈ 230) mais o cabeçalho do card. Acima disso vira ar.
+     As outras duas colunas são listas: encurtar só faz elas rolarem antes. */
+  height: 330px;
+}
+
+/* Grade de tanques (substituiu o gráfico de barras do ApexCharts).
+   `auto-fit` com mínimo de 132px: o admin.css tem
+   `@container (max-width: 176px)` no .tel-tank, então abaixo disso o desenho
+   entra sozinho em modo compacto (some a elipse de superfície e os rótulos
+   dos ticks). Não é preciso breakpoint aqui — o tile se adapta à própria
+   largura, não à da janela. */
+.layout-cli .tel-niveis-chart {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  gap: 12px;
+  align-content: stretch;   /* estica as linhas p/ ocupar a altura do card */
+  overflow-y: auto;         /* muitos reservatórios rolam em vez de esticar */
+  padding: 4px 2px 2px;
+}
+
+/* O desenho não pode crescer junto com o tile: o SVG é `width:100%` e num
+   tile largo viraria um tanque gigante. Travado aqui, o tile fica largo e o
+   desenho mantém proporção, centralizado. */
+.layout-cli .tel-tank-svg {
+  max-width: 118px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+/* Empurra nome/bomba/leitura pro rodapé do tile quando sobra altura —
+   o vão fica distribuído em vez de acumulado embaixo. */
+.layout-cli .cli-tank {
+  justify-content: center;
+}
+
+/* Borda colorida pela faixa de nível — o card inteiro comunica o estado,
+   não só a água dentro do desenho. */
+.cli-tank.crit  { border-color: rgba(239, 68, 68, .40); }
+.cli-tank.baixo { border-color: rgba(245, 158, 11, .38); }
+.cli-tank.off   { opacity: .72; }
+
+
+/* ============================================================
+   3. CLIENTE SEM TELEMETRIA
+   ------------------------------------------------------------
+   Antes o dashboard desse cliente era só a tabela de chamados — o resto da
+   tela ficava preto. Dois cards lado a lado ocupam a dobra com algo útil.
+   ============================================================ */
+
+.cli-sem-tel {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.cli-sem-tel-card {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  padding: 20px;
+}
+
+.cli-sem-tel-icone {
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+}
+.cli-sem-tel-icone svg { width: 22px; height: 22px; }
+
+/* O segundo card é serviço, não oferta — não compete com o primeiro. */
+.cli-sem-tel-ajuda .cli-sem-tel-icone {
+  background: rgba(255, 255, 255, .06);
+  color: var(--muted);
+}
+
+.cli-sem-tel-texto h3 {
+  margin: 0 0 6px;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.cli-sem-tel-texto p {
+  margin: 0 0 14px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--muted);
+  max-width: 46ch;
+}
+
+
+/* ============================================================
+   4. MOBILE  (≤ 768px)
+   ------------------------------------------------------------
+   Prioridade do projeto: o cliente usa o navegador do celular.
+   ============================================================ */
+
+@media (max-width: 768px) {
+
+  /* --- Stat cards: ícone à esquerda, label+valor à direita -----
+     O card do admin empilha (ícone+label em cima, número embaixo) e tem
+     `min-height: 104px` fixo — com 4 cards isso comia ~210px da primeira
+     dobra só em moldura.
+
+     `display: contents` no .rc-head dissolve o wrapper e promove ícone e
+     label a filhos diretos do grid, sem precisar mexer no HTML que o admin
+     também usa. O ícone ocupa as duas linhas à esquerda; label e valor
+     empilham à direita. Resultado: ~60px por card. */
+  .layout-cli .resumo-grid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px;
+  }
+
+  /* `admin.css` (bloco 768px) tem `.layout-cli #chCliKpiGrid { repeat(3,…)
+     !important }` — a tentativa antiga de evitar o card órfão socando os 3
+     KPIs numa linha. Em 414px isso dava colunas de 122px e cortava
+     "Em atendimento" no meio. Seletor de ID vence qualquer classe, então o
+     override precisa repetir o ID; `cliente.css` carrega depois do
+     `admin.css`, o que resolve o empate de especificidade.
+     A distribuição 2 + 1-em-linha-cheia vem da regra :last-child:nth-child(odd). */
+  .layout-cli #chCliKpiGrid,
+  .layout-cli #alKpiGrid {
+    grid-template-columns: 1fr 1fr !important;
+  }
+
+  .layout-cli .rc {
+    min-height: 0;                 /* o piso de 104px é o que trava a altura */
+    padding: 10px 12px;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    column-gap: 10px;
+    row-gap: 0;
+  }
+
+  .layout-cli .rc-head { display: contents; }
+
+  /* Ocupa todas as linhas da direita — 2 sem hint (dashboard), 3 com hint
+     (Alertas e Chamados). */
+  .layout-cli .rc-icon {
+    grid-row: 1 / -1;
+    align-self: center;
+    width: 30px;
+    height: 30px;
+  }
+
+  /* Era o `white-space: nowrap` + ellipsis do admin que cortava
+     "CHAMADOS ABER…" e "Em atendimento". Agora quebra em duas linhas. */
+  .layout-cli .rc-label {
+    grid-column: 2;
+    font-size: 9px;
+    letter-spacing: .4px;
+    line-height: 1.2;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+  }
+
+  .layout-cli .rc-value {
+    grid-column: 2;
+    font-size: 22px;
+    margin-top: 1px;
+    letter-spacing: -.5px;
+  }
+  .rc-sub { font-size: 11px; }
+
+  /* Legenda de apoio ("Aguardando atendimento", "Técnico designado"). Cabe,
+     desde que não tente competir com o número. */
+  .layout-cli .rc-hint {
+    grid-column: 2;
+    font-size: 9.5px;
+    line-height: 1.25;
+    margin-top: 2px;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+  }
+
+  /* Alertas e Chamados têm 3 KPIs; em 2 colunas o terceiro sobra sozinho com
+     metade da linha vazia ao lado. Aqui ele ocupa a linha inteira.
+     `:last-child:nth-child(odd)` = é o último E está em posição ímpar, logo
+     ficou sem par. Com os 4 KPIs do dashboard não dispara.
+
+     ⚠️ Esta regra só vale dentro do media query. Solta, ela pega o desktop —
+     onde o grid tem 7 trilhas — e o "órfão" vira um card de 1606px cruzando
+     a tela inteira. */
+  .layout-cli .resumo-grid > .rc:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+  .layout-cli .resumo-grid > .rc:last-child:nth-child(odd) .rc-label {
+    font-size: 9.5px;
+  }
+
+
+  /* --- Tabela → cards -----------------------------------------
+     Tabela de 4 colunas em 414px quebrava o título em duas linhas e ainda
+     reservava largura pro id. Vira uma lista: título em cima, status e data
+     numa linha de rodapé, id fora. */
+  .cli-tbl-cards thead { display: none; }
+
+  .cli-tbl-cards,
+  .cli-tbl-cards tbody,
+  .cli-tbl-cards tr,
+  .cli-tbl-cards td {
+    display: block;
+    width: auto;
+  }
+
+  .cli-tbl-cards tr {
+    background: rgba(255, 255, 255, .02);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+  }
+
+  .cli-tbl-cards td {
+    border: none;
+    padding: 0;
+  }
+
+  /* O id não diz nada pro síndico — ele identifica o chamado pelo título. */
+  .cli-tbl-cards .cli-col-id { display: none; }
+
+  .cli-tbl-cards .cli-col-titulo {
+    font-size: 13.5px;
+    line-height: 1.35;
+    margin-bottom: 8px;
+  }
+
+  /* Status e data dividem a linha de baixo.
+     O !important é necessário: `admin.css` (bloco 768px) esconde a 4ª coluna
+     de .tel-bombas-table dentro de .layout-cli — remendo de quando isto era
+     tabela e a data não cabia. Como card ela cabe, e a data é justamente o
+     que o síndico procura pra saber se o chamado é de hoje. */
+  .layout-cli .cli-tbl-cards td.cli-col-status,
+  .layout-cli .cli-tbl-cards td.cli-col-data {
+    display: inline-block !important;
+    vertical-align: middle;
+  }
+  .cli-tbl-cards .cli-col-data {
+    float: right;
+    line-height: 20px;
+  }
+
+
+  /* --- Cards em geral: menos respiro, mais conteúdo ----------- */
+  .section[data-section="dashboard"] .card {
+    padding: 14px;
+    margin-bottom: 12px;
+  }
+
+  .section[data-section="dashboard"] .mc-map,
+  .section[data-section="dashboard"] .mc-alerts,
+  .section[data-section="dashboard"] .mc-activity {
+    min-height: 0;
+  }
+
+  /* Gráfico de barras: as legendas do eixo X vinham truncadas e giradas
+     ("Caixa Superi…", "Reserva Incê…"), ilegíveis. Menos altura + rótulo
+     tratado no JS resolve; aqui só garantimos que o card não estique. */
+  .section[data-section="dashboard"] .tel-niveis-chart {
+    min-height: 230px;
+  }
+
+  /* --- Sem telemetria: empilha --- */
+  .cli-sem-tel {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .cli-sem-tel-card { padding: 16px; gap: 12px; }
+  .cli-sem-tel-texto p { font-size: 12.5px; margin-bottom: 12px; }
+
+  /* Espaço pro bottom nav não cobrir o fim da página */
+  .content { padding-bottom: 76px; }
+}
+
+
+/* Telas bem estreitas (≤ 360px): stat cards em coluna única, senão o número
+   fica espremido contra o label. */
+@media (max-width: 360px) {
+  .layout-cli .resumo-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
