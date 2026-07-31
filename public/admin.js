@@ -1425,15 +1425,17 @@ function renderTelCriticos() {
         ? `${r.condominio_nome}${alertas > 0 ? ` · ${alertas} alerta${alertas > 1 ? "s" : ""}` : ""}`
         : `${r.condominio_nome}${alertas > 0 ? ` · ${alertas} alerta${alertas > 1 ? "s" : ""}` : ""}`;
     const pctTxt = offline ? "OFF" : (pct != null ? pct + "%" : "—");
+    // Linha informativa, não botão: clicar num crítico abria o modal do
+    // condomínio, o que não é o que se espera ao clicar num reservatório.
     return `
-      <button class="tel-crit-row" data-action="ver-condo" data-id="${r.condominio_id}">
+      <div class="tel-crit-row">
         <span class="tel-crit-icon ${kind}">${icone}</span>
         <span class="tel-crit-main">
           <span class="tel-crit-title">${r.nome || "Reservatório"}</span>
           <span class="tel-crit-sub">${sub}</span>
         </span>
         <span class="tel-crit-pct ${kind}">${pctTxt}</span>
-      </button>`;
+      </div>`;
   }).join("");
 }
 

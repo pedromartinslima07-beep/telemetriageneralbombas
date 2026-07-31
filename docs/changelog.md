@@ -107,7 +107,17 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
     rabisco. Trocadas pela arte do Lucide atual, com os arcos **recortados em
     volta da diagonal** e a diagonal parando em `2,2 → 22,22`. Fonte única:
     `ICON_WIFI_OFF` (`admin.js`) e `ICO_WIFI_OFF` (`cliente.js`).
-  - Assets bumpados: `admin.css?v=157`, `admin.js?v=246`, `cliente.js?v=27`.
+  - **Linha travada em 300px com o card largo** — a lista usava
+    `repeat(auto-fill, ...)`, e o `auto-fill` **mantém as trilhas vazias**: com
+    1 ou 2 críticos o item ficava preso na primeira trilha de 300px e sobrava
+    um vão enorme à direita. `auto-fit` colapsa a trilha vazia e o item estica
+    até a largura do card.
+  - **A linha deixou de ser `<button>`.** Clicar num reservatório crítico abria
+    o modal do **condomínio** (`data-action="ver-condo"`), que não é o que se
+    espera do clique. Virou `<div>` informativo; `cursor: pointer` e o `:hover`
+    com `translateX` saíram junto — no painel do cliente a linha já era `<div>`
+    e herdava esse hover sem ter clique nenhum.
+  - Assets bumpados: `admin.css?v=158`, `admin.js?v=247`, `cliente.js?v=27`.
 
 - **2026-07-30** — **Admin em tela de notebook: menu esmagado e KPI cortado**
   - **Menu com os ícones colados — a causa não era espaçamento.** `.nav-item`

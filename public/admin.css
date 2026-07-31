@@ -2003,9 +2003,12 @@ a { color: inherit; text-decoration: none; }
 .tel-criticos-list {
   flex: 1;
   display: grid;
-  /* min(300px, 100%) — sem o min(), a coluna direita (1fr de 1.7fr/1fr) fica
+  /* auto-FIT, não auto-fill: o auto-fill mantém as trilhas vazias, então com 1
+     ou 2 críticos a linha ficava travada em 300px e sobrava um vão enorme à
+     direita. O auto-fit colapsa a trilha vazia e o item estica.
+     min(300px, 100%) — sem o min(), a coluna direita (1fr de 1.7fr/1fr) fica
      mais estreita que 300px em notebook e a trilha vaza pra fora do card. */
-  grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
   gap: 8px;
   padding: 12px;
   overflow-y: auto;
@@ -2041,18 +2044,11 @@ a { color: inherit; text-decoration: none; }
   gap: 10px;
   align-items: center;
   min-width: 0;
-  text-align: left;   /* <button> centraliza texto por padrão */
+  text-align: left;
   padding: 10px 12px;
   border-radius: 10px;
   background: rgba(255,255,255,.025);
   border: 1px solid var(--border);
-  cursor: pointer;
-  transition: background .15s, border-color .15s, transform .15s;
-}
-.tel-crit-row:hover {
-  background: rgba(255,255,255,.05);
-  border-color: var(--border-strong);
-  transform: translateX(2px);
 }
 .tel-crit-icon {
   width: 32px; height: 32px;
