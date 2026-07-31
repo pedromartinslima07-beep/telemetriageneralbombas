@@ -80,6 +80,35 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
 
 ## Marcos de produto (fases do plano)
 
+- **2026-07-31** — **"Reservatórios Críticos" vazando do card + ícone de
+  offline ilegível**
+  - **Texto escapando da linha — duas causas somadas.**
+    - `.tel-crit-title` e `.tel-crit-sub` são `<span>`, e `overflow`/
+      `text-overflow` **não se aplicam a elemento inline**. O `white-space:
+      nowrap`, esse sim, se aplica — então o nome do reservatório e o subtítulo
+      ("condomínio · OFFLINE há Xmin") ficavam numa linha só, sem nunca
+      reticenciar. `display: block` nos dois resolve.
+    - A trilha do meio era `1fr`, cujo mínimo automático é o **min-content** —
+      com o texto em nowrap, isso equivale à largura do texto inteiro, e a
+      linha crescia empurrando o `%` pra fora do card. Passou a
+      `minmax(0, 1fr)`.
+  - **A grade da lista também vazava**: `minmax(300px, 1fr)` numa coluna
+    (`.tel-col-right`, o `1fr` de `1.7fr/1fr`) que fica **abaixo de 300px** em
+    notebook. `minmax(min(300px, 100%), 1fr)` limita a trilha à largura
+    disponível.
+  - `.tel-crit-row` é `<button>`, que centraliza texto por padrão —
+    `text-align: left` explícito.
+  - **Mesmo par de bugs em "Últimos Eventos"** (`.tel-evt-row` com `1fr` +
+    `.tel-evt-txt` inline), corrigido junto.
+  - **Ícone de dispositivo offline.** Havia **cinco** variantes do wi-fi
+    cortado espalhadas por `admin.html`/`admin.js`/`cliente.js`, três delas
+    com os arcos externos removidos — sobrava um arco solto, um ponto e um
+    risco de canto a canto (`1,1 → 23,23`), que em 14–15px lia como um
+    rabisco. Trocadas pela arte do Lucide atual, com os arcos **recortados em
+    volta da diagonal** e a diagonal parando em `2,2 → 22,22`. Fonte única:
+    `ICON_WIFI_OFF` (`admin.js`) e `ICO_WIFI_OFF` (`cliente.js`).
+  - Assets bumpados: `admin.css?v=157`, `admin.js?v=246`, `cliente.js?v=27`.
+
 - **2026-07-30** — **Admin em tela de notebook: menu esmagado e KPI cortado**
   - **Menu com os ícones colados — a causa não era espaçamento.** `.nav-item`
     tem `height: 38px`, mas `.nav` é flex column e todo flex item nasce com

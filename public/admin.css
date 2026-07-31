@@ -1820,7 +1820,7 @@ a { color: inherit; text-decoration: none; }
 .tel-eventos-list::-webkit-scrollbar { width: 4px; }
 .tel-eventos-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,.08); border-radius: 99px; }
 .tel-evt-row {
-  display: grid; grid-template-columns: auto auto 1fr; gap: 12px; align-items: center;
+  display: grid; grid-template-columns: auto auto minmax(0, 1fr); gap: 12px; align-items: center;
   padding: 9px 10px; border-radius: 8px;
 }
 .tel-evt-row:hover { background: rgba(255,255,255,.03); }
@@ -1833,7 +1833,9 @@ a { color: inherit; text-decoration: none; }
 .tel-evt-ic.leitura { background: rgba(34,211,238,.12); color: var(--cyan); }
 .tel-evt-ic.alerta  { background: rgba(245,158,11,.12); color: #fbbf24; }
 .tel-evt-ic.offline { background: rgba(239,68,68,.12);  color: #f87171; }
-.tel-evt-txt { font-size: 12.5px; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* mesmo motivo do .tel-crit-title: é <span>, precisa de display:block pra
+   reticenciar em vez de escapar da linha. */
+.tel-evt-txt { display: block; font-size: 12.5px; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tel-eventos-foot { padding: 10px 14px 14px; }
 
 /* Na coluna direita, a lista de críticos não precisa ser tão alta */
@@ -2001,7 +2003,9 @@ a { color: inherit; text-decoration: none; }
 .tel-criticos-list {
   flex: 1;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  /* min(300px, 100%) — sem o min(), a coluna direita (1fr de 1.7fr/1fr) fica
+     mais estreita que 300px em notebook e a trilha vaza pra fora do card. */
+  grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr));
   gap: 8px;
   padding: 12px;
   overflow-y: auto;
@@ -2030,9 +2034,14 @@ a { color: inherit; text-decoration: none; }
 
 .tel-crit-row {
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  /* minmax(0,...) no lugar de 1fr: o mínimo automático de uma trilha 1fr é o
+     min-content, e com nome/subtítulo em nowrap isso empurra a linha pra fora
+     do card em vez de reticenciar. */
+  grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 10px;
   align-items: center;
+  min-width: 0;
+  text-align: left;   /* <button> centraliza texto por padrão */
   padding: 10px 12px;
   border-radius: 10px;
   background: rgba(255,255,255,.025);
@@ -2057,14 +2066,19 @@ a { color: inherit; text-decoration: none; }
 .tel-crit-icon.warn { background: rgba(245,158,11,.12); border-color: rgba(245,158,11,.3); color: #fbbf24; }
 .tel-crit-icon.off  { background: rgba(122,126,156,.14); border-color: rgba(122,126,156,.3); color: #9ca0bf; }
 
-.tel-crit-main { min-width: 0; }
+/* display:block nos dois filhos é obrigatório: são <span>, e overflow/
+   text-overflow não têm efeito em elemento inline — sem isso o nowrap corta
+   nada e o texto escapa da linha. */
+.tel-crit-main { min-width: 0; display: block; }
 .tel-crit-title {
+  display: block;
   font-size: 13px;
   font-weight: 700;
   color: var(--text);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .tel-crit-sub {
+  display: block;
   font-size: 11px;
   color: var(--muted);
   margin-top: 2px;
