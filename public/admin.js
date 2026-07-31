@@ -1443,7 +1443,9 @@ function renderTelCriticos() {
   list.innerHTML = criticos.map(({ r, pct, offline, alertas, kind }) => {
     const icone = kind === "bad" ? ICON_BAD : kind === "off" ? ICON_OFF : ICON_WARN;
     const sub = offline
-      ? `${r.condominio_nome} · OFFLINE há ${r.minutos_sem_atualizar ?? "?"}min`
+      // minutos_sem_atualizar vem null quando o reservatório nunca recebeu
+      // leitura (last_seen vazio) — aí "OFFLINE há ?min" não quer dizer nada.
+      ? `${r.condominio_nome} · ${r.minutos_sem_atualizar == null ? "SEM LEITURA" : `OFFLINE há ${r.minutos_sem_atualizar}min`}`
       : pct != null
         ? `${r.condominio_nome}${alertas > 0 ? ` · ${alertas} alerta${alertas > 1 ? "s" : ""}` : ""}`
         : `${r.condominio_nome}${alertas > 0 ? ` · ${alertas} alerta${alertas > 1 ? "s" : ""}` : ""}`;
@@ -6325,7 +6327,9 @@ function getListaPorKey(key) {
       items.push({
         nome: `${c.nome || "-"} • ${r.nome || "Reservatório"}`,
         device_id: r.device_id || "-",
-        detalhe: `${r.minutos_sem_atualizar ?? "-"} min sem atualizar`,
+        detalhe: r.minutos_sem_atualizar == null
+          ? "nunca enviou leitura"
+          : `${r.minutos_sem_atualizar} min sem atualizar`,
         kind: "bad",
         condominio_id: c.id || null
       });

@@ -697,7 +697,8 @@ function _telCliRenderCriticos(list) {
   wrap.innerHTML = criticos.map(({ r, pct, offline, alertas, kind }) => {
     const icone = kind === "bad" ? ICON_BAD : kind === "off" ? ICON_OFF : ICON_WARN;
     const sub = offline
-      ? `${r.tipo || "Reservatório"} · OFFLINE há ${r.minutos_sem_atualizar ?? "?"} min`
+      // null = reservatório nunca recebeu leitura (ver mesma regra no admin)
+      ? `${r.tipo || "Reservatório"} · ${r.minutos_sem_atualizar == null ? "SEM LEITURA" : `OFFLINE há ${r.minutos_sem_atualizar} min`}`
       : `${r.tipo || "Reservatório"}${alertas > 0 ? ` · ${alertas} alerta${alertas > 1 ? "s" : ""}` : ""}`;
     const pctTxt = offline ? "OFF" : (pct != null ? Math.round(pct) + "%" : "—");
     return `

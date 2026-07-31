@@ -141,7 +141,16 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
     espera do clique. Virou `<div>` informativo; `cursor: pointer` e o `:hover`
     com `translateX` saíram junto — no painel do cliente a linha já era `<div>`
     e herdava esse hover sem ter clique nenhum.
-  - Assets bumpados: `admin.css?v=158`, `admin.js?v=247`, `cliente.js?v=27`.
+  - **"OFFLINE há ?min"** — `minutos_sem_atualizar` vem `null` do
+    `/admin/status` quando o reservatório **nunca recebeu leitura**
+    (`last_seen` vazio); o front imprimia o fallback `"?"` e afirmava um tempo
+    que não existe. Passa a dizer **"SEM LEITURA"** nesse caso. Mesma correção
+    no painel do cliente e no detalhe da lista de offline
+    ("nunca enviou leitura" no lugar de "- min sem atualizar").
+  - **Verificado no painel real** (Telemetria, 1568px): linha ocupando os
+    558px úteis do card, `scrollWidth == clientWidth`, elemento `DIV`,
+    `cursor: auto` e sem `data-action`.
+  - Assets bumpados: `admin.css?v=158`, `admin.js?v=249`, `cliente.js?v=28`.
 
 - **2026-07-30** — **Admin em tela de notebook: menu esmagado e KPI cortado**
   - **Menu com os ícones colados — a causa não era espaçamento.** `.nav-item`
