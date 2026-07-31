@@ -616,18 +616,41 @@ function _mcPinIcon(kind) {
   });
 }
 
-// Tiles carregados diretamente do CDN do Carto no browser.
+// Tiles carregados direto do servidor do OpenStreetMap no browser.
 // O proxy via backend causava rate-limit no IP do servidor Railway.
+const TILE_MAX_TENTATIVAS = 3;
+
 function _criarTileLayer(map, onLoad) {
   const layer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     subdomains: "abc",
     maxZoom: 19,
     attribution: "© OpenStreetMap contributors",
-    keepBuffer: 4,
+    // keepBuffer no padrão (2). Com 4, o Leaflet pede um anel extra de tiles
+    // de uma vez só; o excesso de requests simultâneas é justamente o que faz
+    // o servidor recusar (ou o browser abortar) algumas delas.
+    keepBuffer: 2,
     updateWhenIdle: false,
     updateInterval: 100,
     className: "map-tiles-dark",
   }).addTo(map);
+
+  // Tile que falha fica preta PARA SEMPRE — o Leaflet não repete o pedido.
+  // Basta uma request recusada/abortada na rajada inicial pra deixar o buraco
+  // retangular no meio do mapa. Reagenda a mesma tile, com backoff e teto.
+  // O `?r=N` existe porque reatribuir a src idêntica nem sempre faz o browser
+  // pedir de novo; o servidor de tiles ignora o parâmetro.
+  layer.on("tileerror", (e) => {
+    const img = e.tile;
+    if (!img || !img.src) return;
+    const n = (Number(img.dataset.tentativa) || 0) + 1;
+    if (n > TILE_MAX_TENTATIVAS) return;
+    img.dataset.tentativa = String(n);
+    const base = img.src.split("?")[0];
+    setTimeout(() => {
+      if (img.isConnected) img.src = `${base}?r=${n}`;   // tile já removida do mapa: não insiste
+    }, 400 * n);
+  });
+
   if (onLoad) layer.once("load", onLoad);
   return layer;
 }

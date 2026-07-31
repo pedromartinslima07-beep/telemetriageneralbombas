@@ -80,6 +80,30 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
 
 ## Marcos de produto (fases do plano)
 
+- **2026-07-31** — **Buracos pretos retangulares no mapa de condomínios**
+  - O padrão delatou a causa: os vãos são **do tamanho de uma tile (256px)** e
+    ficam no meio do mapa, não nas bordas — então não era container sem
+    dimensão nem `invalidateSize` faltando, e sim **tile que falhou e nunca
+    mais foi pedida**. O Leaflet não repete o request de uma tile com erro; o
+    `<img>` fica vazio pelo resto da sessão.
+  - Sondado o servidor de tiles em sequência: 12/12 respostas `200`. O que
+    derruba é a **rajada simultânea** na abertura do mapa — request recusada
+    pelo servidor ou abortada pelo browser (limite de conexões por host).
+  - **Correção em `_criarTileLayer`** (compartilhado pelos 3 mapas: Mission
+    Control, mini-mapas e o mapa do modal de perfil): handler de `tileerror`
+    que reagenda a mesma tile até 3 vezes, com backoff de 400ms × tentativa.
+    O `?r=N` na URL é necessário porque reatribuir a `src` idêntica nem sempre
+    faz o browser pedir de novo; guarda de `isConnected` evita insistir em
+    tile que o Leaflet já removeu.
+  - **`keepBuffer` voltou ao padrão (4 → 2)** — com 4 o Leaflet pede um anel
+    extra de tiles de uma vez, engrossando exatamente a rajada que causa o
+    problema.
+  - Corrigido também um comentário que dizia "CDN do Carto" enquanto a URL é
+    a do OpenStreetMap.
+  - **Em aberto:** o servidor público do OSM não é destinado a aplicação em
+    produção. Se os buracos persistirem, a saída durável é um provedor com
+    chave (Carto, MapTiler) — o retry só cobre falha esporádica.
+
 - **2026-07-31** — **"Reservatórios Críticos" vazando do card + ícone de
   offline ilegível**
   - **Texto escapando da linha — duas causas somadas.**
