@@ -80,6 +80,52 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
 
 ## Marcos de produto (fases do plano)
 
+- **2026-07-31** — **KPI do dashboard vira atalho de navegação (sai o modal do
+  meio do caminho)**
+  - **O caminho era:** KPI → tooltip de prévia → **modal-tabela** → botão "Ver
+    detalhes" → **drawer**. Três camadas sobrepostas pra mesma informação, com
+    dois padrões visuais empilhados (modal centralizado, depois drawer lateral).
+    No caso mais comum — 1 item — o modal era uma tabela de **uma linha**, com
+    busca e contador: um clique a mais pra chegar onde já se queria. E ao abrir
+    o drawer o modal fechava, sem caminho de volta pra lista.
+  - **Agora o KPI leva direto à seção que já sabe listar aquilo, filtrada.**
+    Some uma camada, cai-se num lugar onde dá pra trabalhar (buscar, ordenar,
+    abrir vários) e o "voltar" existe de graça: fechar o drawer devolve a lista.
+  - Destinos escolhidos pra que **o número clicado seja o número de linhas**:
+    `offline` → Telemetria com "Somente offline" (mesmo `_statusData` do KPI);
+    `nivel_baixo`/`nivel_muito_baixo` → Alertas filtrado por tipo (mesmo
+    `_alertasAbertos`); `com_alerta` → Alertas sem filtro de tipo.
+    Não derivar o filtro de telemetria de `nivel_pct`: os KPIs de nível contam
+    alertas abertos e a conta daria diferente.
+  - **Filtros novos, permanentes** (servem sozinhos, não só como destino):
+    select de **tipo** em Alertas e de **situação** em Telemetria.
+  - Os contadores das tabs de Alertas passaram a respeitar o filtro de tipo —
+    senão a tab dizia "Todos 2" ao lado de uma tabela com 1 linha. Verificado no
+    painel real: sem filtro 2/2, muito baixo 1/1, offline 0/0, chamados 1/1.
+  - **"Condomínios OK" deixou de ser clicável** e sai como `<div rc-static>`:
+    não existe drill-down útil pra "está tudo certo", e mandar pra uma lista sem
+    filtro correspondente seria mentir sobre o número do card. A prévia no hover
+    continua.
+  - O rodapé do tooltip virou "Clique para abrir em «destino»" no lugar de
+    "Clique para ver a lista completa".
+  - ⚠️ **Código morto assumido:** `abrirModal`/`fecharModal`/`renderModalLista`
+    e o `#modalOverlay` do HTML ficaram sem uso, marcados com comentário. Não
+    foram apagados no mesmo commit por serem um componente inteiro — decisão à
+    parte. `getListaPorKey` **não** é órfã: alimenta a prévia do hover.
+
+- **2026-07-31** — **Mapa do dashboard abre em zoom fixo 11**
+  - O enquadramento inicial era `fitBounds` sobre todos os condomínios com teto
+    de zoom 13. Medido no painel real: dava **zoom 9** — região metropolitana
+    inteira, com os 80 pinos empilhados num nó ilegível. Um único condomínio
+    isolado ao norte (Bragança) estica o retângulo e afasta os outros 79.
+  - Agora **zoom fixo 11**, centrado na **mediana** das coordenadas — não no
+    centro do retângulo, que sofre do mesmo outlier. A mediana o ignora.
+  - Medido no painel real, centro `[-23.5605, -46.6631]`: zoom 11 deixa **79
+    dos 80** no enquadramento, com bairros legíveis. Referência descartada:
+    zoom 10 pegava 71 e ainda ficava largo; zoom 12 só 50.
+  - `MC_ZOOM_INICIAL` é constante no topo de `renderMcMap()` — trocar o
+    enquadramento é mudar um número.
+
 - **2026-07-31** — **Menu lateral com barra de rolagem em notebook + card
   "Status do sistema" removido**
   - **Medido no painel real** (harness montado na própria origem, com o

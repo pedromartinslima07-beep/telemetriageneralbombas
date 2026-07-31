@@ -417,6 +417,13 @@
                 <button class="wa-tab al-tab" data-al-tab="normal">Normais <span class="wa-count al-count" id="alCountNormal">0</span></button>
                 <button class="wa-tab al-tab" data-al-tab="resolvido">Resolvidos <span class="wa-count al-count" id="alCountResolvido">0</span></button>
               </div>
+              <select id="alFiltroTipo" class="input" style="width:180px;">
+                <option value="">Todos os tipos</option>
+                <option value="dispositivo_offline">Dispositivo offline</option>
+                <option value="nivel_baixo">Nível baixo</option>
+                <option value="nivel_muito_baixo">Nível muito baixo</option>
+                <option value="chamado">Chamados</option>
+              </select>
               <input id="alBusca" class="input" placeholder="Buscar por condomínio, tipo…">
             </div>
             <div class="tableWrap ch-table-wrap al-tableWrap">
@@ -923,6 +930,11 @@
                 </select>
                 <select id="telFiltroTipo" class="tel-select">
                   <option value="">Todos os tipos</option>
+                </select>
+                <select id="telFiltroSituacao" class="tel-select">
+                  <option value="">Todas as situações</option>
+                  <option value="offline">Somente offline</option>
+                  <option value="com_alerta">Somente com alerta</option>
                 </select>
                 <button class="btn btn-sm" data-action="tel-ver-todos" id="btnTelVerTodos" title="Ver todos em tela cheia">Ver todos</button>
                 <button class="btn btnAccent btn-sm" data-action="novo-reservatorio" id="btnNovoReservatorio" style="display:none;">+ Novo</button>
@@ -2520,7 +2532,7 @@
 </div>
 
 
-<script src="/static/admin.js?v=251" defer></script>
+<script src="/static/admin.js?v=253" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
 <script src="/static/register-sw.js?v=32" defer></script>
 </body>

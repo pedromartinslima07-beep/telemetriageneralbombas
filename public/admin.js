@@ -282,8 +282,10 @@ function resumoCard(titulo, valorHtml, kind, cardKey) {
   const iconKey = meta.icon || (kind === 'bad' ? 'danger' : kind === 'warn' ? 'warn' : 'ok');
   const iconSvg = RC_ICONS[iconKey] || RC_ICONS.ok;
 
-  // Card do Dashboard é clicável (filtra) → button, sem rc-static.
-  return kpiCard(iconSvg, valorHtml, titulo, kindCls, `data-card="${cardKey}"`, true);
+  // Só vira <button> quem tem destino de drill-down (ver _DASH_DRILL). O card
+  // "Condomínios OK" não tem, então sai como <div rc-static>: não é focável
+  // nem clicável, em vez de um botão que não faz nada.
+  return kpiCard(iconSvg, valorHtml, titulo, kindCls, `data-card="${cardKey}"`, !!_DASH_DRILL[cardKey]);
 }
 
 // ===== estado =====
@@ -311,6 +313,11 @@ let _drawerGauges = new Map();
 // ===== TELEMETRIA AVANÇADA — estado =====
 let _telFiltroCondominioId = "";
 let _telFiltroTipo = "";
+// "" | "offline" | "com_alerta" — as duas situações saem do MESMO _statusData que
+// alimenta os KPIs do dashboard, então o número que se clica lá é o número de
+// linhas que aparece aqui. Não derivar de nivel_pct: os KPIs de nível contam
+// alertas abertos, e a conta daria diferente.
+let _telFiltroSituacao = "";
 let _telHistoricoHoras = 24;
 let _telHistoricoChart = null;
 let _telSecaoAtiva = false;
@@ -654,6 +661,28 @@ function _criarTileLayer(map, onLoad) {
   return layer;
 }
 
+// Enquadramento inicial do mapa do dashboard.
+// Antes era `fitBounds` em todos os condomínios com teto de zoom 13, e o
+// resultado medido no painel real era **zoom 9**: a região metropolitana
+// inteira, com os pinos empilhados num nó ilegível. Culpa de um condomínio
+// isolado ao norte (Bragança) — basta ele pra esticar o retângulo e afastar
+// os outros 79.
+// Por isso zoom fixo e centro na MEDIANA das coordenadas, não no centro do
+// retângulo: a mediana ignora o outlier, o centro do retângulo não. Medido:
+// no zoom 11 ficam 79 dos 80 condomínios no enquadramento (o de Bragança fica
+// de fora — que é exatamente o que se quer). Para referência, zoom 10 pegava
+// 71 e zoom 12 só 50.
+const MC_ZOOM_INICIAL = 11;
+
+function _mcCentroMediano(pontos) {
+  const mediana = (nums) => {
+    const s = [...nums].sort((a, b) => a - b);
+    const i = s.length >> 1;
+    return s.length % 2 ? s[i] : (s[i - 1] + s[i]) / 2;
+  };
+  return [mediana(pontos.map(p => p[0])), mediana(pontos.map(p => p[1]))];
+}
+
 function renderMcMap() {
   const el = document.getElementById("mcMapCanvas");
   if (!el || typeof L === "undefined") return;
@@ -715,9 +744,9 @@ function renderMcMap() {
     }
   }
 
-  // Ajusta zoom apenas na 1ª vez ou quando os bounds mudaram significativamente
+  // Enquadramento inicial, só na 1ª vez.
   if (bounds.length > 0 && !_mcMap._fitAplicado) {
-    _mcMap.fitBounds(bounds, { padding: [30, 30], maxZoom: 13 });
+    _mcMap.setView(_mcCentroMediano(bounds), MC_ZOOM_INICIAL);
     _mcMap._fitAplicado = true;
   }
 
@@ -1004,6 +1033,8 @@ function _telAplicarFiltros(lista) {
   return lista.filter(r => {
     if (_telFiltroCondominioId && String(r.condominio_id) !== String(_telFiltroCondominioId)) return false;
     if (_telFiltroTipo && r.tipo !== _telFiltroTipo) return false;
+    if (_telFiltroSituacao === "offline"    && !r.offline) return false;
+    if (_telFiltroSituacao === "com_alerta" && (r.alertas_abertos_count ?? 0) <= 0) return false;
     return true;
   });
 }
@@ -1099,6 +1130,11 @@ function popularFiltrosTelemetria() {
     });
     selTipo.addEventListener("change", () => {
       _telFiltroTipo = selTipo.value;
+      renderTelTanques();
+      renderTelCriticos();
+    });
+    document.getElementById("telFiltroSituacao")?.addEventListener("change", (e) => {
+      _telFiltroSituacao = e.target.value;
       renderTelTanques();
       renderTelCriticos();
     });
@@ -1750,6 +1786,8 @@ function renderTelHistoricoChart(reservatorios, seriesMap) {
 
 let _alFiltros = {
   tab: "todos",       // todos | critico | atencao | normal | resolvido
+  // "" | dispositivo_offline | nivel_baixo | nivel_muito_baixo | chamado
+  tipo: "",
   busca: "",
   dataIni: "",
   dataFim: "",
@@ -1890,6 +1928,15 @@ function _alCondoIdDoDevice(deviceId) {
   return null;
 }
 
+// Alerta de telemetria casa pelo tipo do registro cru; "chamado" é a origem.
+// Usado tanto na lista quanto nos contadores das tabs — se só a lista filtrasse,
+// a tab mostraria "Todos 2" ao lado de uma tabela com 1 linha.
+function _alMatchTipo(it, tipo = _alFiltros.tipo) {
+  if (!tipo) return true;
+  if (tipo === "chamado") return it.origem === "chamado";
+  return it.origem === "telemetria" && it.raw?.tipo === tipo;
+}
+
 function _alAplicarFiltros(lista) {
   const f = _alFiltros;
   return lista.filter(it => {
@@ -1903,6 +1950,7 @@ function _alAplicarFiltros(lista) {
       // "todos" mostra só ativos por padrão (resolvidos têm tab própria)
       if (it.status !== "ativo") return false;
     }
+    if (!_alMatchTipo(it, f.tipo)) return false;
     // Busca
     if (f.busca) {
       const q = f.busca.toLowerCase();
@@ -1946,11 +1994,14 @@ function _alFmtHora(iso) {
 }
 
 function _alRenderKpis(todos) {
-  const ativos = todos.filter(it => it.status === "ativo");
+  // KPIs e contadores de tab respeitam o filtro de tipo, senão o número da tab
+  // não bate com o número de linhas da tabela.
+  const doTipo = todos.filter(it => _alMatchTipo(it));
+  const ativos = doTipo.filter(it => it.status === "ativo");
   const critico = ativos.filter(it => it.severidade === "critico").length;
   const atencao = ativos.filter(it => it.severidade === "atencao").length;
   const normal  = ativos.filter(it => it.severidade === "normal").length;
-  const resolvidos = todos.filter(it => it.status === "resolvido");
+  const resolvidos = doTipo.filter(it => it.status === "resolvido");
 
   let temposMs = [];
   for (const r of resolvidos) {
@@ -6284,12 +6335,66 @@ document.addEventListener("DOMContentLoaded", () => {
 
 let _modalKey = null;
 
+// Drill-down dos KPIs do dashboard.
+//
+// Antes: KPI → tooltip de prévia → MODAL com uma tabela → botão "Ver detalhes"
+// → drawer. Três camadas sobrepostas pra mesma informação, sendo que no caso
+// mais comum (1 item) o modal era uma tabela de uma linha só — um clique a
+// mais pra chegar onde já se queria. E o modal fechava ao abrir o drawer, sem
+// caminho de volta pra lista.
+//
+// Agora o KPI é um ATALHO DE NAVEGAÇÃO: leva à seção que já sabe listar aquilo,
+// com o filtro aplicado. Sai uma camada inteira, o usuário cai num lugar onde
+// dá pra trabalhar (buscar, ordenar, abrir vários) e o "voltar" passa a existir
+// de graça — fechar o drawer devolve a lista, que continua lá atrás.
+//
+// Os destinos são escolhidos pra que o NÚMERO CLICADO seja o número de linhas
+// que aparece: offline sai do mesmo `_statusData` do KPI; os de nível saem do
+// mesmo `_alertasAbertos`.
+const _DASH_DRILL = {
+  offline:           { secao: "telemetria", rotulo: "Telemetria · offline" },
+  nivel_baixo:       { secao: "alertas",    rotulo: "Alertas · nível baixo" },
+  nivel_muito_baixo: { secao: "alertas",    rotulo: "Alertas · muito baixo" },
+  com_alerta:        { secao: "alertas",    rotulo: "Alertas" },
+};
+
+function _dashDrillDown(key) {
+  const destino = _DASH_DRILL[key];
+  if (!destino) return;
+
+  if (destino.secao === "telemetria") {
+    _telFiltroSituacao = "offline";
+    _telFiltroCondominioId = "";
+    _telFiltroTipo = "";
+    const sel = document.getElementById("telFiltroSituacao");
+    if (sel) sel.value = "offline";
+  } else {
+    // com_alerta cai em "todos os tipos": o KPI conta condomínios, e o que
+    // interessa ver é o conjunto de alertas ativos deles.
+    _alFiltros.tipo = key === "com_alerta" ? "" : key;
+    _alFiltros.tab = "todos";
+    _alFiltros.busca = "";
+    _alFiltros.page = 1;
+    const sel = document.getElementById("alFiltroTipo");
+    if (sel) sel.value = _alFiltros.tipo;
+    const busca = document.getElementById("alBusca");
+    if (busca) busca.value = "";
+    document.querySelectorAll(".al-tab").forEach(t => t.classList.toggle("is-active", t.dataset.alTab === "todos"));
+  }
+
+  hideTip();
+  showSection(destino.secao);
+}
+
 function bindResumoInteracoes() {
   document.querySelectorAll(".rc[data-card]").forEach(btn => {
+    const temDestino = !!_DASH_DRILL[btn.dataset.card];
     btn.addEventListener("mouseenter", (e) => showTip(e.currentTarget));
     btn.addEventListener("mousemove", (e) => moveTip(e));
     btn.addEventListener("mouseleave", () => hideTip());
-    btn.addEventListener("click", () => abrirModal(btn.dataset.card));
+    // Sem destino (Condomínios OK) o card já sai como <div rc-static> do
+    // resumoCard() — só a prévia no hover, sem clique que não leva a nada.
+    if (temDestino) btn.addEventListener("click", () => _dashDrillDown(btn.dataset.card));
   });
 }
 
@@ -6406,7 +6511,10 @@ function showTip(el) {
         </div>
       `;
     }
-    html += `<div class="tEmpty">Clique para ver a lista completa</div>`;
+    // O rodapé anuncia o destino real. Sem destino (Condomínios OK) o card não
+    // é clicável, então não promete clique nenhum.
+    const destino = _DASH_DRILL[key];
+    if (destino) html += `<div class="tEmpty">Clique para abrir em ${destino.rotulo}</div>`;
   }
 
   tip.innerHTML = html;
@@ -6434,6 +6542,12 @@ function hideTip() {
 }
 
 /* ===== Modal (click) ===== */
+// ⚠️ SEM USO desde 2026-07-31. Era o modal-tabela que os KPIs do dashboard
+// abriam; virou navegação direta pra seção filtrada (ver _DASH_DRILL). Ficou
+// aqui, junto com fecharModal/renderModalLista e o #modalOverlay do HTML, por
+// ser um componente inteiro — apagar é decisão à parte. Se ninguém religar até
+// a próxima limpeza, pode ir embora. `getListaPorKey` NÃO é órfã: continua
+// alimentando a prévia do hover em showTip().
 function abrirModal(key) {
   _modalKey = key;
 
@@ -9839,8 +9953,14 @@ document.addEventListener("DOMContentLoaded", () => {
     _alFiltros.page = 1;
     renderAlertas();
   });
+  document.getElementById("alFiltroTipo")?.addEventListener("change", (e) => {
+    _alFiltros.tipo = e.target.value;
+    _alFiltros.page = 1;
+    renderAlertas();
+  });
   document.getElementById("alBtnLimpar")?.addEventListener("click", () => {
-    _alFiltros = { tab: "todos", busca: "", dataIni: "", dataFim: "", page: 1, pageSize: _alFiltros.pageSize };
+    _alFiltros = { tab: "todos", tipo: "", busca: "", dataIni: "", dataFim: "", page: 1, pageSize: _alFiltros.pageSize };
+    const tipo = document.getElementById("alFiltroTipo"); if (tipo) tipo.value = "";
     const busca = document.getElementById("alBusca"); if (busca) busca.value = "";
     const di = document.getElementById("alDataIni"); if (di) di.value = "";
     const df = document.getElementById("alDataFim"); if (df) df.value = "";
