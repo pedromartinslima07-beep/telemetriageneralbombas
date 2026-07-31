@@ -625,20 +625,19 @@ function _criarTileLayer(map, onLoad) {
     subdomains: "abc",
     maxZoom: 19,
     attribution: "© OpenStreetMap contributors",
-    // keepBuffer no padrão (2). Com 4, o Leaflet pede um anel extra de tiles
-    // de uma vez só; o excesso de requests simultâneas é justamente o que faz
-    // o servidor recusar (ou o browser abortar) algumas delas.
-    keepBuffer: 2,
+    keepBuffer: 4,
     updateWhenIdle: false,
     updateInterval: 100,
     className: "map-tiles-dark",
   }).addTo(map);
 
-  // Tile que falha fica preta PARA SEMPRE — o Leaflet não repete o pedido.
-  // Basta uma request recusada/abortada na rajada inicial pra deixar o buraco
-  // retangular no meio do mapa. Reagenda a mesma tile, com backoff e teto.
-  // O `?r=N` existe porque reatribuir a src idêntica nem sempre faz o browser
-  // pedir de novo; o servidor de tiles ignora o parâmetro.
+  // Rede instável: tile que falha fica preta PARA SEMPRE, porque o Leaflet não
+  // repete o pedido. Reagenda a mesma tile, com backoff e teto. O `?r=N` existe
+  // porque reatribuir a src idêntica nem sempre faz o browser pedir de novo; o
+  // servidor de tiles ignora o parâmetro.
+  // NÃO é a causa dos retângulos pretos que apareciam no mapa — aquilo era o
+  // fade em aba de fundo (ver `fadeAnimation` em renderMcMap). Medido no
+  // painel real: 8 de 8 tiles carregadas, zero erros, todas em opacity 0.
   layer.on("tileerror", (e) => {
     const img = e.tile;
     if (!img || !img.src) return;
@@ -672,6 +671,13 @@ function renderMcMap() {
       zoomControl: true,
       attributionControl: false,
       scrollWheelZoom: false, // não captura scroll da página
+      // fadeAnimation: false — ESTE é o motivo dos retângulos pretos no mapa.
+      // Com o fade ligado, o Leaflet cria cada tile em opacity:0 e sobe pra 1
+      // dentro de um loop de requestAnimationFrame. Se a página renderiza com
+      // a aba em segundo plano, o Chrome não dispara rAF, o ramp nunca roda e
+      // as tiles ficam invisíveis — carregadas, posicionadas e em opacity:0.
+      // Sem o fade, o tile aparece assim que carrega, sem depender de rAF.
+      fadeAnimation: false,
     });
     _criarTileLayer(_mcMap);
     requestAnimationFrame(() => _mcMap.invalidateSize());
@@ -7165,6 +7171,7 @@ function criarOuObterMiniMapa(prefixo) {
     // Desativa animação CSS de zoom — evita que os tiles sumam (cinza) durante
     // a transição quando o container tem overflow:hidden ou parent transforms.
     zoomAnimation: false,
+    fadeAnimation: false,   // tile invisível em aba de fundo — ver renderMcMap()
   });
 
   // Mesma estratégia de fallback do mapa principal: tenta Carto dark, cai
@@ -7655,6 +7662,7 @@ function _mpAtualizarMapa() {
       zoom: SP_CENTRO.zoom,
       zoomControl: true,
       attributionControl: false,
+      fadeAnimation: false,   // tile invisível em aba de fundo — ver renderMcMap()
     });
     _criarTileLayer(_mpMap, () => {
       const ld = document.getElementById("mpMapLoading");
