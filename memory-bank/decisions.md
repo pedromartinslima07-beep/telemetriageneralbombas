@@ -155,6 +155,35 @@ canônica do "porquê"; o "o quê" está em `../docs/` e em [`current-state.md`]
 - **Sintoma diagnóstico que economiza horas:** se a notificação persistente do
   ForegroundService **some** da barra, o problema é ciclo de vida do serviço, não
   GPS/permissão/rede. Se ela **fica** e o dado não chega, aí sim é rede ou POST.
+- **Lição (31/07/2026): quando a coleta muda de camada, a regra tem que ir
+  junto.** A janela de expediente do GPS (8h–18h) nasceu correta em 22/05: o
+  `watchPosition` da WebView coletava, postava **e** era desligado pelo timer da
+  própria WebView — uma camada só. Em 10/06 a coleta migrou pro
+  `NativeGpsService` (Java) pra sobreviver à tela apagada, e **a janela ficou pra
+  trás no JS**. O timer continuou existindo e continuou *parecendo* funcionar,
+  mas agora só mandava um `stop()` pra um serviço que o Android mantém vivo
+  enquanto congela a WebView. Resultado descoberto 7 semanas depois: pin de
+  técnico no mapa às 19h.
+  - **O que torna esse erro caro:** o commit que quebrou entregava exatamente o
+    que prometia, e o teste natural ("o GPS continua funcionando com a tela
+    apagada?") passa. O sintoma só aparece à noite, quando ninguém olha o mapa.
+  - **Regra prática:** ao mover coleta/envio de camada, listar as regras que
+    dependiam da camada antiga e mover cada uma explicitamente. Se a regra é de
+    negócio (horário, limite, permissão), o destino certo é o **backend** — a
+    única camada que o Android não congela, não mata e não recria sem contexto.
+  - **Invariante espalhada em N camadas é dívida.** A janela do GPS mora hoje em
+    três (backend, Java, JS) por necessidade; por isso o backend é declarado
+    fonte da verdade e o mapa das três está em
+    [`../docs/modulos/app-mobile.md`](../docs/modulos/app-mobile.md), num lugar
+    só.
+- **Config inválida cai no default, nunca em "sem restrição".** `inicio >= fim`
+  na janela do GPS resolve pra 8–18, não pra "rastreia sempre": um valor errado
+  no banco não pode desligar uma proteção em silêncio. Desligar continua
+  possível, mas só pela forma explícita e documentada (`0`–`24`).
+- **Fuso da operação é fixo (`America/Sao_Paulo`), não o do servidor nem o do
+  aparelho.** O Railway roda em UTC — às 19h de SP um `getHours()` cru dá 22, e
+  a janela inteira desliza 3 horas. No aparelho, relógio fora de hora deslocaria
+  a janela por técnico.
 
 ## Segurança e RBAC
 

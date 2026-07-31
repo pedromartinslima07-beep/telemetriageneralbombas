@@ -60,6 +60,35 @@ Código em `app/public/app.js` a partir do comentário `GPS TRACKING (Fase 7F)`,
 funções principais: `gpsStart()`, `_gpsAbrirWatch()`, `_gpsFecharWatch()`,
 `gpsEnviar()`.
 
+### ⚠️ A janela de expediente vive em três camadas — e a que vale é o backend
+
+Regra: `gps.expediente_inicio` / `gps.expediente_fim` (default 8–18, `0`–`24`
+desliga), sempre avaliada em `America/Sao_Paulo`.
+
+| Camada | Onde | Papel |
+|---|---|---|
+| **Backend** | `src/routes/tecnicos-localizacao.routes.js` (`janelaExpediente`, `dentroDoExpediente`) | **Fonte da verdade.** POST fora da janela não grava; GET devolve `[]` |
+| **Serviço Java** | `NativeGpsService.dentroDoExpediente()` | Barra o POST na origem (economia de rede) |
+| **JS do app** | `_gpsAplicarJanela()`, timer de 60 s | UX (chip "Fora do expediente") e desligar o serviço quando a WebView está viva |
+
+**Por que não basta a camada JS** (bug de 31/07/2026): a janela nasceu no JS
+quando era o próprio `watchPosition` que coletava e postava — uma camada só,
+coerente. Quando a coleta migrou pro `NativeGpsService` (10/06/2026), a janela
+ficou pra trás: o timer da WebView só manda um `stop()`, e o Android **congela
+os timers da WebView com o app em background**. Resultado: o serviço postava a
+noite inteira e o pin do técnico aparecia no mapa às 19h. Como o serviço é
+`START_STICKY`, ele ainda se recria sozinho sem WebView nenhuma.
+
+**Ao mexer na janela, mexa nas três** — e lembre que o Java só recebe valores
+novos no `NativeGps.start()`: `aplicarConfigOperacional` reabre o watch quando a
+config muda, senão o serviço segue com a janela antiga do `SharedPreferences`.
+
+**Não recupera bateria:** fora da janela o GPS continua ligado, só não posta.
+Desligar o hardware e religar às 08h exigiria `AlarmManager`
+(`setExactAndAllowWhileIdle`) — `Handler.postDelayed` usa `uptimeMillis`, que
+congela em deep sleep, e religar tarde custaria rastreamento em horário de
+trabalho.
+
 ### GPS background — implementação atual
 
 `_gpsAbrirWatch()` tenta três caminhos, nesta ordem:

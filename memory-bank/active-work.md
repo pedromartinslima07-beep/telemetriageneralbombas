@@ -11,6 +11,37 @@ aliases:
 > Última sessão registrada: **2026-07-28**.
 > Roadmap completo em [`roadmap.md`](roadmap.md); decisões em [`decisions.md`](decisions.md).
 
+## Sessão 2026-07-31 — GPS rastreava fora do expediente (pin às 19h)
+
+**Sintoma (relatado pelo Pedro, 19:32):** pin de técnico no mapa fora das
+08h–18h, que estava especificado desde 22/05.
+
+**Causa:** regressão de 10/06 (`975a30a`) — a janela ficou só no JS da WebView
+quando a coleta migrou pro `NativeGpsService` (Java). Detalhe completo no
+[changelog](../docs/changelog.md) e a lição em [`decisions.md`](decisions.md).
+
+**Feito:** janela virou regra do **backend** (fonte única), com o serviço Java
+barrando o POST na origem e o JS mantendo só a UX. Fuso fixo
+`America/Sao_Paulo`. `restaurar-defaults.sql` ganhou as duas chaves que faltavam.
+
+**Verificado:** 22 asserções sobre a lógica de janela (conversão UTC→SP, bordas
+07:59/08:00/17:59/18:00, meia-noite, 0–24, configs inválidas) + `node --check`
+nos dois JS. **Não rodei contra banco nem aparelho** — esta máquina não tem
+`node_modules` nem `.env`, e o Java não foi compilado.
+
+**Pendente:**
+- ⚠️ **Conferir `gps.expediente_*` no banco de produção.** Descartado como causa
+  principal (o guard de prod do `seed-teste.js` entrou no mesmo commit que o
+  write de 0/24, então o seed nunca rodou desprotegido), mas as chaves são
+  editáveis pelo admin e valem uma olhada:
+  `SELECT chave, valor FROM configuracoes WHERE chave LIKE 'gps.expediente%';`
+- ⚠️ **Build do APK + teste em aparelho** — as mudanças em `NativeGpsService`,
+  `NativeGpsPlugin` e `app.js` não foram compiladas nem rodadas.
+- O backend sozinho já tira o pin do mapa **sem** APK novo (o `GET` filtra e o
+  `POST` não grava); o APK novo é o que evita o tráfego inútil.
+- Bateria **não** foi recuperada: fora da janela o GPS segue ligado, só não
+  posta. Religar por `AlarmManager` ficou de fora — justificativa no changelog.
+
 ## Sessão 2026-07-30 (parte 2) — Redesenho do painel do cliente
 
 **Direção definida pelo Pedro:** foco no **navegador**, não no app Capacitor

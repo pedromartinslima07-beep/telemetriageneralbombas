@@ -64,7 +64,7 @@ ESP32 (sonda 4-20mA + SCT-013)
 | **alertas** | Página unificada telemetria+chamados, comentários, análise IA |
 | **whatsapp** | Webhook Meta, conversas, central de atendimento, curadoria IA (contatos WhatsApp removidos da UI até módulo ser ativado) |
 | **chamados** | Ciclo do chamado, P1–P4, SLA, recorrência, a-caminho/chegou |
-| **tecnicos / tecnicos-localizacao** | Cadastro técnicos + GPS + ETA |
+| **tecnicos / tecnicos-localizacao** | Cadastro técnicos + GPS + ETA. A **janela de expediente** (`gps.expediente_*`, default 8–18, fuso `America/Sao_Paulo`) é aplicada **no backend**: fora dela o POST não grava e o GET devolve `[]`. App e serviço Java também a aplicam, mas só o backend é fonte da verdade — ver [app-mobile.md](../docs/modulos/app-mobile.md) |
 | **ordens-servico** | O.S. digital (fotos, assinatura, orçamento) + PDF. Fotos persistidas em `os_fotos.dados_base64` (banco), servidas via `GET /ordens-servico/:osId/fotos/:fotoId/imagem` — não dependem mais de disco efêmero. |
 | **planos-manutencao** | Planos preventivos recorrentes |
 | **contratos** | Contratos por condomínio. Assinatura eletrônica própria por link de e-mail (sem ZapSign/D4Sign — ver `decisions.md`): exige código de 6 dígitos antes de assinar (2FA equivalente ao login) e grava um protocolo (hash SHA-256 auditável) impresso no PDF junto com IP e data/hora |

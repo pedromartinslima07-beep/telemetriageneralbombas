@@ -80,6 +80,51 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
 
 ## Marcos de produto (fases do plano)
 
+- **2026-07-31** — **Janela de expediente do GPS sai do WebView e vira regra do
+  backend** (pin de técnico aparecia no mapa às 19h)
+  - **Sintoma:** pin de técnico no mapa fora das 08h–18h. Como
+    `GET /tecnicos/localizacao` filtra por `atualizada_em > NOW() - 30 min`, o
+    pin visível às 19:32 significava ping recente — não resíduo das 18h.
+  - **Causa (regressão de 2026-06-10, `975a30a`):** a janela nasceu correta em
+    22/05, quando quem coletava GPS era o `watchPosition` da própria WebView —
+    JS coletava, JS postava, JS policiava o horário, uma camada só. Ao mover a
+    coleta pro `NativeGpsService` (Java) pra sobreviver à tela apagada, **a
+    janela ficou pra trás no JS**: o `setInterval` de 60s só manda um `stop()`
+    pro serviço, e o Android congela os timers da WebView com o app em
+    background. Pior, o serviço é `START_STICKY` — se o sistema mata o processo,
+    ele volta sozinho a partir do SharedPreferences, sem WebView pra pará-lo.
+  - **Backend passou a ser a fonte única** (`tecnicos-localizacao.routes.js`):
+    `janelaExpediente()` + `dentroDoExpediente()`. `POST /tecnicos/localizacao`
+    fora da janela responde `{ok:true, ignorado:"fora_do_expediente"}` **sem
+    gravar** — 200 de propósito, como o ramo de precisão ruim, pra não pôr o
+    serviço Java em retry. `GET /tecnicos/localizacao` devolve `[]` fora da
+    janela (senão uma posição das 17:59 ficava pinada até 18:29).
+  - **Fuso fixo em `America/Sao_Paulo`**, via `Intl.DateTimeFormat` com
+    `hourCycle: "h23"` (sem ele meia-noite vira "24" em algumas versões do ICU).
+    O Railway roda em UTC — `getHours()` daria 22 às 19h de SP.
+  - **Config inválida (`inicio >= fim`) cai no default 8–18, nunca em "sem
+    janela"** — um valor errado no banco não pode desligar o rastreamento em
+    silêncio. `0–24` continua sendo a forma documentada de desligar.
+    `GET /tecnicos/config` passou a servir pelo mesmo helper, pra app e servidor
+    não discordarem sobre o que é config inválida.
+  - **`NativeGpsService` ganhou a janela** (`EXTRA_EXP_INI`/`EXTRA_EXP_FIM`,
+    persistidos em SharedPreferences junto do resto, senão o START_STICKY
+    ressuscitaria o serviço sem janela): `dentroDoExpediente()` com
+    `Calendar` em `America/Sao_Paulo` barra o POST na origem. O JS passa os
+    valores no `NativeGps.start()` e **reabre o watch** quando a janela muda em
+    `aplicarConfigOperacional` — sem isso o serviço seguiria com a janela antiga
+    gravada, e é ele quem posta em background.
+  - `migrations/restaurar-defaults.sql` passou a incluir `gps.expediente_inicio`
+    e `gps.expediente_fim`: eram o caminho documentado de voltar ao padrão, mas
+    não tocavam nessas duas chaves (que `seed-teste.js` grava como 0/24).
+  - ⚠️ **Não recupera bateria:** o serviço continua com o GPS ligado fora da
+    janela, só não posta. Desligar o hardware e religar às 08h exige
+    `AlarmManager` (`setExactAndAllowWhileIdle`) — `Handler.postDelayed` usa
+    `uptimeMillis`, que congela em deep sleep, e um religamento tardio custaria
+    rastreamento em horário de trabalho. Ficou como escolha conservadora.
+  - Validado com 22 asserções sobre a lógica de janela (conversão UTC→SP,
+    bordas 07:59/08:00/17:59/18:00, meia-noite, 0–24, configs inválidas).
+
 - **2026-07-31** — **KPI do dashboard vira atalho de navegação (sai o modal do
   meio do caminho)**
   - **O caminho era:** KPI → tooltip de prévia → **modal-tabela** → botão "Ver

@@ -6,6 +6,46 @@ const { getConfigInt } = require("../services/config.service");
 
 const router = express.Router();
 
+// ── Janela de expediente do GPS ────────────────────────────────────────────
+// Fonte única da regra. Antes ela só existia no JS do app: um setInterval de
+// 60s no WebView chamava NativeGpsTracker.stop() às 18h. Só que quem coleta e
+// posta no APK é um ForegroundService Java, e o Android congela os timers do
+// WebView com o app em background — ninguém mandava parar, e o serviço (que é
+// START_STICKY, se recria sozinho) seguia postando de madrugada. O backend é a
+// única camada que o Android não congela nem mata.
+//
+// Fuso fixo de propósito: a janela é regra de negócio da operação em São
+// Paulo, não do relógio do servidor (Railway roda em UTC — às 19h de SP um
+// `getHours()` daria 22) nem do aparelho do técnico.
+const TZ_OPERACAO = "America/Sao_Paulo";
+
+const _fmtHoraOperacao = new Intl.DateTimeFormat("pt-BR", {
+  timeZone: TZ_OPERACAO,
+  hour: "numeric",
+  hourCycle: "h23", // sem isto, meia-noite vira "24" em algumas versões do ICU
+});
+
+function horaDaOperacao(quando = new Date()) {
+  return Number(_fmtHoraOperacao.format(quando));
+}
+
+// `inicio >= fim` é config inválida e cai no default 8–18, nunca em "sem
+// janela": um valor errado no banco não pode desligar o rastreamento em
+// silêncio. Para desligar de verdade existe a forma documentada, 0–24.
+async function janelaExpediente() {
+  const inicio = await getConfigInt("gps.expediente_inicio", 8);
+  const fim = await getConfigInt("gps.expediente_fim", 18);
+  if (!Number.isInteger(inicio) || !Number.isInteger(fim) || inicio >= fim) {
+    return { inicio: 8, fim: 18 };
+  }
+  return { inicio, fim };
+}
+
+function dentroDoExpediente({ inicio, fim }, quando = new Date()) {
+  const h = horaDaOperacao(quando);
+  return h >= inicio && h < fim;
+}
+
 // GET /tecnicos/me — perfil do técnico logado (usado pelo app mobile)
 router.get("/me", authRequired, async (req, res) => {
   try {
@@ -30,14 +70,15 @@ router.get("/config", authRequired, async (req, res) => {
   try {
     const gps_frequencia_segundos = await getConfigInt("gps.frequencia_segundos", 60);
     // Janela de expediente do GPS. Vem do banco pra poder ser desligada por
-    // ambiente (0–24 = rastreia o tempo todo) sem recompilar o app.
-    const expediente_inicio = await getConfigInt("gps.expediente_inicio", 8);
-    const expediente_fim    = await getConfigInt("gps.expediente_fim", 18);
+    // ambiente (0–24 = rastreia o tempo todo) sem recompilar o app. Passa pelo
+    // mesmo `janelaExpediente()` que o POST usa pra validar — assim app e
+    // servidor nunca discordam sobre o que é uma config inválida.
+    const { inicio, fim } = await janelaExpediente();
     return res.json({
       gps: {
         frequencia_segundos: gps_frequencia_segundos,
-        expediente_inicio,
-        expediente_fim,
+        expediente_inicio: inicio,
+        expediente_fim: fim,
       },
     });
   } catch (err) {
@@ -78,6 +119,15 @@ router.post("/localizacao", authRequired, async (req, res) => {
   }
 
   try {
+    // Descarte fora do expediente. Responde 200 de propósito, igual ao ramo de
+    // precisão ruim acima: um erro faria o ForegroundService Java entrar em
+    // retry por algo que não é falha. `ignorado` deixa o motivo visível pra
+    // quem estiver depurando com o app na mão.
+    const janela = await janelaExpediente();
+    if (!dentroDoExpediente(janela)) {
+      return res.json({ ok: true, ignorado: "fora_do_expediente" });
+    }
+
     const tec = await pool.query(
       `SELECT id FROM tecnicos WHERE usuario_id = $1 AND ativo = true LIMIT 1`,
       [req.user.id]
@@ -135,6 +185,12 @@ router.delete("/localizacao", authRequired, async (req, res) => {
 // GET /tecnicos/localizacao — admin lê posição atual de todos os técnicos ativos
 router.get("/localizacao", authRequired, adminOnly, async (req, res) => {
   try {
+    // Fora da janela o mapa não mostra ninguém. Sem isto, uma posição gravada
+    // às 17:59 continuaria pinada até 18:29 por causa do filtro de 30 min — e
+    // qualquer ping que furasse a barreira do POST viraria pin.
+    const janela = await janelaExpediente();
+    if (!dentroDoExpediente(janela)) return res.json([]);
+
     const result = await pool.query(`
       SELECT
         tl.tecnico_id,

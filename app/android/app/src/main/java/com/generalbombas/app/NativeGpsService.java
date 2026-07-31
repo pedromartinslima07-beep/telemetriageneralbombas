@@ -70,8 +70,14 @@ public class NativeGpsService extends Service {
     static final String EXTRA_INTERVAL   = "intervalMs";
     static final String EXTRA_NOTIF_TIT  = "notificationTitle";
     static final String EXTRA_NOTIF_MSG  = "notificationMessage";
+    static final String EXTRA_EXP_INI    = "expedienteInicio";
+    static final String EXTRA_EXP_FIM    = "expedienteFim";
 
     private static final String PREFS = "native_gps_prefs";
+
+    // Fuso da operação — o mesmo que o backend usa. Não é o fuso do aparelho de
+    // propósito: técnico com relógio fora de hora não deve deslocar a janela.
+    private static final String TZ_OPERACAO = "America/Sao_Paulo";
 
     private FusedLocationProviderClient locationClient;
     private LocationCallback            locationCallback;
@@ -82,6 +88,13 @@ public class NativeGpsService extends Service {
     private volatile String token;
     private volatile long   intervalMs = 60_000L;
     private volatile long   lastSentTs = 0L;
+
+    // Janela de expediente. O JS manda os valores vindos de GET /tecnicos/config;
+    // 0 e 24 desligam a janela. Ficam em SharedPreferences junto do resto porque
+    // o START_STICKY recria o serviço com Intent nulo — sem persistir, o serviço
+    // voltaria sem janela nenhuma, que é exatamente o bug que isto corrige.
+    private volatile int expedienteInicio = 8;
+    private volatile int expedienteFim    = 18;
 
     private String notifTitle   = "GPS ativo";
     private String notifMessage = "General Bombas está monitorando sua localização.";
@@ -128,6 +141,17 @@ public class NativeGpsService extends Service {
             long inter        = intent.getLongExtra(EXTRA_INTERVAL, 60_000L);
             this.intervalMs   = inter > 0 ? inter : 60_000L;
             this.lastSentTs   = 0L;
+            int ini = intent.getIntExtra(EXTRA_EXP_INI, 8);
+            int fim = intent.getIntExtra(EXTRA_EXP_FIM, 18);
+            // Config inválida cai no default 8-18, nunca em "sem janela" —
+            // mesma regra do backend (janelaExpediente).
+            if (ini >= 0 && fim <= 24 && ini < fim) {
+                this.expedienteInicio = ini;
+                this.expedienteFim    = fim;
+            } else {
+                this.expedienteInicio = 8;
+                this.expedienteFim    = 18;
+            }
             String t = intent.getStringExtra(EXTRA_NOTIF_TIT);
             String m = intent.getStringExtra(EXTRA_NOTIF_MSG);
             if (t != null) notifTitle   = t;
@@ -185,6 +209,8 @@ public class NativeGpsService extends Service {
                 .putLong(EXTRA_INTERVAL, intervalMs)
                 .putString(EXTRA_NOTIF_TIT, notifTitle)
                 .putString(EXTRA_NOTIF_MSG, notifMessage)
+                .putInt(EXTRA_EXP_INI, expedienteInicio)
+                .putInt(EXTRA_EXP_FIM, expedienteFim)
                 .apply();
     }
 
@@ -204,6 +230,8 @@ public class NativeGpsService extends Service {
         intervalMs   = p.getLong(EXTRA_INTERVAL, 60_000L);
         notifTitle   = p.getString(EXTRA_NOTIF_TIT, notifTitle);
         notifMessage = p.getString(EXTRA_NOTIF_MSG, notifMessage);
+        expedienteInicio = p.getInt(EXTRA_EXP_INI, 8);
+        expedienteFim    = p.getInt(EXTRA_EXP_FIM, 18);
         lastSentTs   = 0L;
         return endpoint != null && !endpoint.isEmpty()
                 && token != null && !token.isEmpty();
@@ -226,6 +254,12 @@ public class NativeGpsService extends Service {
                 broadcast.putExtra("location", loc);
                 sendBroadcast(broadcast);
 
+                // Fora do expediente não posta. O JS também desliga o serviço
+                // pela janela, mas só consegue quando a WebView está viva — com
+                // o app em background o Android congela aqueles timers, e este
+                // serviço continua de pé. Esta checagem é a que vale no bolso.
+                if (!dentroDoExpediente()) return;
+
                 // POST em background thread, respeitando o intervalo configurado
                 long now = System.currentTimeMillis();
                 if (now - lastSentTs >= intervalMs) {
@@ -246,6 +280,17 @@ public class NativeGpsService extends Service {
         } catch (SecurityException e) {
             android.util.Log.w(TAG, "sem permissao de localizacao: " + e.getMessage());
         }
+    }
+
+    /**
+     * Hora atual no fuso da operação está dentro da janela de expediente?
+     * `expedienteInicio = 0` + `expedienteFim = 24` = sempre true (sem janela).
+     */
+    private boolean dentroDoExpediente() {
+        java.util.Calendar c = java.util.Calendar.getInstance(
+                TimeZone.getTimeZone(TZ_OPERACAO));
+        int h = c.get(java.util.Calendar.HOUR_OF_DAY);
+        return h >= expedienteInicio && h < expedienteFim;
     }
 
     private void stopTracking() {

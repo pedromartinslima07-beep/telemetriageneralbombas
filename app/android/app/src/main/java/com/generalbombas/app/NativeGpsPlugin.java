@@ -60,6 +60,10 @@ public class NativeGpsPlugin extends Plugin {
             i.putExtra(NativeGpsService.EXTRA_ENDPOINT,  call.getString("endpoint", ""));
             i.putExtra(NativeGpsService.EXTRA_TOKEN,     call.getString("token", ""));
             i.putExtra(NativeGpsService.EXTRA_INTERVAL,  call.getLong("intervalMs", 60_000L));
+            // Janela de expediente: o serviço precisa dela pra se policiar
+            // sozinho quando a WebView estiver congelada.
+            i.putExtra(NativeGpsService.EXTRA_EXP_INI,   call.getInt("expedienteInicio", 8));
+            i.putExtra(NativeGpsService.EXTRA_EXP_FIM,   call.getInt("expedienteFim", 18));
             i.putExtra(NativeGpsService.EXTRA_NOTIF_TIT, call.getString("notificationTitle", "GPS ativo"));
             i.putExtra(NativeGpsService.EXTRA_NOTIF_MSG, call.getString("notificationMessage",
                     "General Bombas está monitorando sua localização."));

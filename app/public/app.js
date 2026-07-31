@@ -307,12 +307,26 @@ async function aplicarConfigOperacional() {
     const ini = Number(cfg?.gps?.expediente_inicio);
     const fim = Number(cfg?.gps?.expediente_fim);
     if (Number.isInteger(ini) && Number.isInteger(fim) && ini >= 0 && fim <= 24 && ini < fim) {
+      const mudou = ini !== GPS_HORA_INI || fim !== GPS_HORA_FIM;
+      // Lido ANTES do _gpsAplicarJanela: ele pode abrir o watch (que já sai com
+      // a janela nova) e aí um restart aqui seria redundante. `_gpsAbrirWatch`
+      // é async e só liga `GPS.active` depois de um await, então checar depois
+      // daria um resultado dependente de timing.
+      const jaEstavaAtivo = GPS.active;
       GPS_HORA_INI = ini;
       GPS_HORA_FIM = fim;
       // Reavalia a janela na hora. Sem isto quem corrige é o horarioTimer, que
       // só roda a cada 60s — o app ficava até um minuto dizendo "fora do
       // expediente" depois de já ter recebido a config que diz o contrário.
       if (typeof _gpsAplicarJanela === "function") _gpsAplicarJanela();
+      // Reabre o watch pra levar a janela nova até o serviço nativo, que a
+      // recebe por Intent no start(). Sem isto ele seguiria com a janela antiga
+      // gravada em SharedPreferences — e como ele é quem posta em background,
+      // seria a antiga que valeria de verdade.
+      if (mudou && jaEstavaAtivo && GPS.active) {
+        _gpsFecharWatch();
+        _gpsAbrirWatch();
+      }
     }
   } catch (e) {
     console.warn("[cfg] tecnicos/config:", e.message);
@@ -1527,6 +1541,11 @@ async function _gpsAbrirWatch() {
       endpoint: API_BASE + "/tecnicos/localizacao",
       token: Storage.getToken(),
       intervalMs: GPS.PING_MS,
+      // O serviço nativo precisa da janela pra se policiar sozinho: o timer
+      // daqui só roda com a WebView acordada, e ela dorme com o app em
+      // background (era assim que o GPS varava a noite).
+      expedienteInicio: GPS_HORA_INI,
+      expedienteFim: GPS_HORA_FIM,
       notificationTitle: "GPS ativo",
       notificationMessage: "General Bombas está monitorando sua localização.",
     }).catch((e) => {

@@ -25,6 +25,11 @@ INSERT INTO configuracoes (chave, valor) VALUES
   ('jobs.offline_intervalo_min',   '1'),
   ('gps.retencao_horas',           '72'),
   ('gps.frequencia_segundos',      '60'),
+  -- Janela de expediente do GPS. Estavam faltando aqui: `seed-teste.js` grava
+  -- 0/24 (sem janela) e este script era o caminho documentado pra voltar ao
+  -- padrão, mas não tocava nessas duas chaves.
+  ('gps.expediente_inicio',        '8'),
+  ('gps.expediente_fim',           '18'),
   ('leituras.retencao_dias',       '60'),
   ('leituras.cleanup_dry_run',     'false'),
   ('alertas.retencao_dias',        '365'),

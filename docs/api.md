@@ -144,9 +144,23 @@ Webhook em **Públicas**. Demais exigem admin:
 
 | GET | `/tecnicos` | adminOnly |
 | POST · PATCH · DELETE | `/tecnicos[/:id]` | **gestao** (DELETE e hard delete; GPS do técnico vai junto por CASCADE) |
-| GET | `/tecnicos/config` | autenticado (frequência de GPS) |
+| GET | `/tecnicos/config` | autenticado (frequência de GPS + janela de expediente) |
 | POST | `/tecnicos/localizacao` | autenticado (app envia GPS) |
 | GET | `/tecnicos/localizacao` | adminOnly (posições atuais) |
+
+**Janela de expediente do GPS** — os três endpoints acima respeitam
+`gps.expediente_inicio` / `gps.expediente_fim` (default 8–18, `0`–`24` desliga),
+avaliados em `America/Sao_Paulo`, **não** no fuso do servidor:
+
+- `POST /tecnicos/localizacao` fora da janela responde `200 {ok:true,
+  ignorado:"fora_do_expediente"}` **sem gravar**. É 200 de propósito — um erro
+  colocaria o ForegroundService Java em retry por algo que não é falha.
+- `GET /tecnicos/localizacao` devolve `[]` fora da janela.
+- Config inválida (`inicio >= fim`) cai no default 8–18, nunca em "sem janela".
+
+O backend é a fonte única dessa regra: o app também a aplica, mas o Android
+congela os timers da WebView em background. Ver
+[`modulos/app-mobile.md`](modulos/app-mobile.md).
 | GET | `/tecnicos/:id/historico-gps` | adminOnly |
 
 ---
