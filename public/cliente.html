@@ -14,7 +14,7 @@
   <!-- Mesmo arquivo do admin — manter o ?v= sincronizado com admin.html, senão
        o navegador serve ao cliente uma cópia velha do CSS (a chave de cache é a
        URL inteira, query incluída) e os dois painéis divergem visualmente. -->
-  <link rel="stylesheet" href="/static/admin.css?v=158">
+  <link rel="stylesheet" href="/static/admin.css?v=159">
   <!-- Só os overrides do painel do cliente — carrega depois do admin.css -->
   <link rel="stylesheet" href="/static/cliente.css?v=9">
 </head>
@@ -77,13 +77,6 @@
       </nav>
 
       <div class="sidebar-footer">
-        <div class="sidebar-status">
-          <div class="sidebar-status-dot"></div>
-          <div class="sidebar-status-text">
-            <span class="sidebar-status-label">Status</span>
-            <span class="sidebar-status-value">Operacional</span>
-          </div>
-        </div>
         <div class="sidebar-user">
           <div class="sidebar-user-avatar">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">

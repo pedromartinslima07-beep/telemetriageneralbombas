@@ -428,73 +428,13 @@ a { color: inherit; text-decoration: none; }
   flex-shrink: 0;
 }
 
-.sidebar-status {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  padding: 8px 10px;
-  border-radius: var(--radius-sm);
-  background: rgba(34,197,94,.06);
-  border: 1px solid rgba(34,197,94,.18);
-  overflow: hidden;
-  /* EXPANDINDO: gap volta imediatamente */
-  transition: gap .001s linear;
-}
-.sidebar.collapsed .sidebar-status {
-  gap: 0;
-  /* FECHANDO: gap some depois que texto sumiu */
-  transition: gap .001s linear .05s;
-}
-.sidebar-status-dot {
-  width: 8px; height: 8px;
-  border-radius: 50%;
-  background: var(--ok);
-  box-shadow: 0 0 12px var(--ok);
-  position: relative;
-  flex-shrink: 0;
-}
-.sidebar-status-dot::before {
-  content: '';
-  position: absolute; inset: -3px;
-  border-radius: 50%;
-  background: var(--ok);
-  opacity: .35;
-  animation: statusPulse 1.8s ease-out infinite;
-}
+/* O card "Status do sistema" (.sidebar-status*) foi removido do rodapé dos dois
+   painéis em 2026-07-31 — ver changelog. O CSS saiu junto por não ter mais
+   nenhum uso. O keyframe abaixo NÃO era exclusivo dele: continua animando o
+   ponto de alerta da topbar (.icon-btn-dot::before). */
 @keyframes statusPulse {
   0%   { transform: scale(.6); opacity: .6; }
   100% { transform: scale(2.2); opacity: 0; }
-}
-.sidebar-status-text {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.15;
-  overflow: hidden;
-  opacity: 1;
-  max-width: 160px;
-  /* EXPANDINDO: aparece com delay */
-  transition: max-width .001s linear, opacity .13s ease .13s;
-}
-.sidebar.collapsed .sidebar-status-text {
-  opacity: 0;
-  max-width: 0;
-  pointer-events: none;
-  /* FECHANDO: some rápido, max-width colapsa depois */
-  transition: opacity .05s ease, max-width .001s linear .05s;
-}
-.sidebar-status-label {
-  font-size: 9.5px;
-  font-weight: 800;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-.sidebar-status-value {
-  font-size: 11.5px;
-  font-weight: 700;
-  color: #86efac;
-  white-space: nowrap;
 }
 
 .sidebar-user {
@@ -575,6 +515,40 @@ a { color: inherit; text-decoration: none; }
   border-color: rgba(239,68,68,.22);
 }
 .nav-item.nav-item-logout:hover svg { color: var(--danger); }
+
+/* ---- Sidebar compacta em tela baixa ----------------------------------
+   Medido no painel real: a nav precisa de 643px de conteúdo, mais 60 de
+   header e 169 de rodapé = 872px de viewport pra caber sem rolar. Um
+   notebook 1366×768 entrega ~660px, ou seja, faltavam ~212px — e a lista
+   caía no `overflow-y: auto` da .nav, que é o certo como rede de segurança
+   mas não como experiência: menu lateral com barra de rolagem não faz
+   sentido quando o problema é só respiro sobrando.
+
+   Aqui a altura é reduzida DE PROPÓSITO, com `height` explícito. Não
+   confundir com o bug de 2026-07-30, em que o flexbox ESMAGAVA os itens
+   sem ninguém mandar (38px viravam 23px); o `flex-shrink: 0` do .nav-item
+   continua no lugar e é o que garante que só estes valores mandem.
+
+   Verificado no painel real com o CSS de produção: faixa 1 precisa de
+   707px, faixa 2 de 628px (cabe nos ~660px do notebook, com 32px de
+   folga). */
+@media (max-height: 900px) {
+  .sidebar-header { height: 56px; }
+  .nav { padding: 8px 8px 4px; gap: 1px; }
+  .nav-item { height: 34px; }
+  .nav-section-label { padding: 8px 12px 4px; }
+  .sidebar-footer { padding: 8px; gap: 6px; }
+  .sidebar-user { padding: 5px 10px; }
+  .sidebar-user-avatar { width: 26px; height: 26px; }
+}
+@media (max-height: 760px) {
+  .sidebar-header { height: 50px; }
+  .nav { padding: 6px 8px 4px; }
+  .nav-item { height: 30px; font-size: 12.5px; }
+  .nav-item svg { width: 17px; height: 17px; }
+  .nav-section-label { padding: 6px 12px 2px; }
+  .sidebar-footer { padding: 7px; gap: 5px; }
+}
 
 /* ============================================================
    LAYOUT CLIENTE (layout-cli) — diferenças visuais específicas

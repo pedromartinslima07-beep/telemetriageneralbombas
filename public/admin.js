@@ -970,17 +970,6 @@ function renderMcTelemetria() {
 }
 
 
-function atualizarStatusSistema() {
-  const el = document.getElementById("sysStatusValue");
-  if (!el) return;
-  const groups = _statusData || [];
-  const offline = groups.reduce((s, g) => s + (g?.resumo?.offline_count ?? 0), 0);
-  const comAlerta = groups.filter(g => (g?.resumo?.alertas_abertos_total ?? 0) > 0).length;
-  if (offline > 0) el.textContent = `${offline} offline`;
-  else if (comAlerta > 0) el.textContent = `${comAlerta} alerta${comAlerta > 1 ? 's' : ''}`;
-  else el.textContent = "Operacional";
-}
-
 // ============================================================
 // TELEMETRIA AVANÇADA
 // ============================================================
@@ -2562,7 +2551,6 @@ function renderTelemetriaVisuais() {
   renderMcMap();
   renderMcAlerts();
   renderMcTelemetria();
-  atualizarStatusSistema();
   atualizarGaugesDrawerSeAberto();
   if (_telSecaoAtiva) renderTelemetriaAvancada();
 }

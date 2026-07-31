@@ -80,6 +80,38 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
 
 ## Marcos de produto (fases do plano)
 
+- **2026-07-31** — **Menu lateral com barra de rolagem em notebook + card
+  "Status do sistema" removido**
+  - **Medido no painel real** (harness montado na própria origem, com o
+    `admin.css` de produção): a `.nav` precisa de **643px** de conteúdo, mais
+    **60px** de header e **169px** de rodapé = **872px de viewport** pra caber
+    sem rolar. Notebook 1366×768 entrega ~660px → faltavam **212px**. Em
+    monitor 1080p (~945px) nunca aparecia, o que explica só se ver em
+    notebook.
+  - O `overflow-y: auto` da `.nav` continua como rede de segurança, mas
+    rolagem em menu lateral não é experiência aceitável quando o que sobra é
+    respiro. Duas faixas de **modo compacto por altura de viewport**:
+    `max-height: 900px` (item 34px, header 56px) e `max-height: 760px`
+    (item 30px, ícone 17px, header 50px).
+  - **Não confundir com o bug de 2026-07-30**, em que o flexbox *esmagava* os
+    itens sem ninguém mandar (38px viravam 23px). Aqui a redução é explícita e
+    o `flex-shrink: 0` do `.nav-item` continua no lugar — é justamente ele que
+    garante que só estes valores mandem.
+  - **Verificado**: faixa 1 precisa de 707px, faixa 2 de **628px** — cabe nos
+    ~660px do notebook com 32px de folga.
+  - **Card "Status do sistema" removido do admin** (economiza 50px do rodapé).
+    Era um resumo de `offline_count`/alertas com dois problemas: a bolinha era
+    verde fixa em CSS, então exibia verde pulsante ao lado de "1 offline", e o
+    card não era clicável, não levando a lugar nenhum. `atualizarStatusSistema()`
+    saiu junto.
+  - **Saiu do painel do cliente também**, onde era pior: "Operacional" escrito
+    no HTML, sem nada atualizando — afirmava que estava tudo bem mesmo com o
+    reservatório offline. Com os dois painéis sem o card, o CSS
+    `.sidebar-status*` foi removido.
+  - ⚠️ O `@keyframes statusPulse` **ficou**: apesar do nome, não era exclusivo
+    do card — anima também o ponto de alerta da topbar
+    (`.icon-btn-dot::before`). Removê-lo junto quebraria essa animação.
+
 - **2026-07-31** — **Buracos pretos retangulares no mapa de condomínios**
   - **Causa real: o fade de tile do Leaflet em aba de segundo plano.** Com
     `fadeAnimation` ligado (o padrão), cada tile nasce em `opacity: 0` e sobe
