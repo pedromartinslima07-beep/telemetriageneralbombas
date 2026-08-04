@@ -4576,6 +4576,17 @@ body.mp-fs-active { overflow: hidden; }
   display: flex; align-items: center; gap: 8px;
   flex-wrap: wrap;
 }
+
+/* Contratos e Planos reusam .wa-tabs (nascida na sidebar do WhatsApp) dentro
+   da .al-toolbar. Lá ela fica sob um campo de busca e o margin-top faz sentido;
+   aqui, num flex row com align-items:center, ele desce as abas 10px e desalinha
+   tudo em relação aos filtros. O flex:1 replica o que .al-tabs já fazia —
+   empurra .al-filters pra borda direita em vez de deixar tudo amontoado. */
+.al-toolbar .wa-tabs {
+  margin-top: 0;
+  flex: 1;
+  min-width: 0;
+}
 .al-filters .input { font-size: 12px; padding: 6px 10px; }
 .al-filters #alBusca { min-width: 200px; }
 .al-date { width: 130px; }

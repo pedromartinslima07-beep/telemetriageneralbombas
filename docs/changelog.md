@@ -1486,6 +1486,20 @@ er sem animação.
     altura definida ele preenche por `flex: 1`, e o mínimo antigo só criaria
     overflow.
 
+- **2026-08-04** — **Filtros desalinhados na toolbar de Contratos e Planos.**
+  As duas telas reusam `.wa-tabs`, classe nascida na sidebar do WhatsApp, onde
+  ela fica sob um campo de busca e por isso carrega `margin-top: 10px`. Dentro
+  da `.al-toolbar` — um flex row com `align-items: center` — essa margem
+  derrubava as abas 10px abaixo do eixo dos filtros.
+  - Efeito colateral: `.wa-tabs` não tem `flex: 1` (a `.al-tabs`, feita pra
+    essa toolbar, tem — mas não é usada em nenhum lugar do HTML). Sem isso
+    `.al-filters` não era empurrada pra direita e ficava espremida ao lado das
+    abas, a ponto de `select` e `input` quebrarem em duas linhas mesmo sobrando
+    largura na tela.
+  - Correção escopada em `.al-toolbar .wa-tabs` (`margin-top: 0`, `flex: 1`,
+    `min-width: 0`), pra não afetar a sidebar do WhatsApp, que é o uso original
+    e legítimo da classe.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em
