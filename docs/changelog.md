@@ -1468,6 +1468,24 @@ er sem animação.
     seria errado, então imprime só "até DD/MM/AAAA". Sem `valido_ate`, mantém o
     padrão comercial "60 dias".
 
+- **2026-08-04** — **Cards do dashboard esticavam com o conteúdo e
+  desalinhavam a linha inteira.** Com 52 chamados abertos de uma vez, o card
+  "Alertas Críticos" cresceu, o grid igualou a altura da linha e o mapa foi
+  junto — layout todo torto.
+  - Causa real não era o `overflow-y: auto` (já existia nas listas): era o
+    `flex: 1` delas herdando **`min-height: auto`**, que impede um item flex de
+    encolher abaixo do próprio conteúdo. A lista empurrava o card, que só tinha
+    `min-height` e nenhum teto. O scroll interno nunca chegava a disparar.
+  - Correção: `min-height` → **`height` fixo** nos seis cards (`.mc-map`,
+    `.mc-alerts`, `.mc-activity` = 420px; `.mc-conv`, `.mc-telem` = 320px),
+    `min-height: 0` nas listas e `flex: 0 0 auto` nos `.cardHead`.
+  - No breakpoint mobile a regra também passou de `min-height` para `height`
+    — `min-height` não vence altura fixa, então os cards empilhados ficariam
+    presos nos 420px do desktop.
+  - `.mc-map-canvas` perdeu o `min-height: 240px` do mobile: com o card em
+    altura definida ele preenche por `flex: 1`, e o mínimo antigo só criaria
+    overflow.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em
