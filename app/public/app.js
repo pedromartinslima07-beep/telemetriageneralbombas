@@ -1453,7 +1453,7 @@ const GPS = {
   scheduled: false,       // técnico está logado e quer rastreio (mas pode estar fora do horário)
   horarioTimer: null,     // setInterval que reavalia a janela 8h–18h
   chamadoId: null,
-  lastError: null,        // code do PositionError ou "no_api" / "no_secure_context"
+  lastError: null,        // code do PositionError ou "no_api" / "no_secure_context" / "sem_permissao_bg"
   battery: null,          // BatteryManager cacheado
   PING_MS: 60 * 1000,
 };
@@ -1557,6 +1557,10 @@ async function _gpsAbrirWatch() {
     // o app está em primeiro plano. O envio HTTP é feito pelo Java.
     NativeGps.addListener("locationUpdate", (loc) => {
       if (!loc) return;
+      // Posição chegando prova que o serviço voltou a coletar — reabilita o
+      // chip caso um gpsError anterior o tenha desligado (o técnico pode ter
+      // corrigido a permissão com o app aberto).
+      GPS.active = true;
       const acc = loc.accuracy;
       if (acc > 15000) { GPS.lastError = "low_accuracy"; gpsRenderAviso(); return; }
       GPS.lastError = null;
@@ -1571,6 +1575,18 @@ async function _gpsAbrirWatch() {
         if (TC.geo) TC.geo = { ...TC.geo, capturada_em: GPS.last.ts };
       }
       GPS.lastSentTs = Date.now(); // evita que o pingTimer mande duplicata via JS
+      gpsRenderAviso();
+    });
+    // Falha vinda do serviço Java. O pre-check de permissão acima consulta
+    // `navigator.permissions`, que só enxerga a permissão de primeiro plano —
+    // com "só ao usar o app" ele responde "granted" e deixa passar, mas o
+    // serviço não consegue coletar quando o Android o recria em background.
+    // Sem este listener a UI ficava dizendo "GPS ativo" com zero coleta.
+    NativeGps.addListener("gpsError", (e) => {
+      GPS.active = false;
+      GPS.lastError = e?.code === "sem_permissao" ? "sem_permissao_bg" : (e?.code || 2);
+      console.warn("[gps] serviço nativo reportou falha:", e?.code, e?.message);
+      gpsRenderChip();
       gpsRenderAviso();
     });
     // pingTimer mantido para o foreground-resume handler (visibilitychange)
@@ -1802,6 +1818,12 @@ function gpsRenderChip() {
     texto = (idade && idade >= 1) ? `GPS · há ${idade}m` : "GPS ativo";
     cls = (idade && idade >= 10) ? "is-warn" : "is-on";
     dica = "Localização ativa";
+  } else if (GPS.lastError === "sem_permissao_bg") {
+    // Antes caía no "GPS aguardando…" abaixo, que sugere problema de sinal —
+    // some sozinho em minutos. Aqui nada vai chegar até o técnico mexer na
+    // permissão, então o chip precisa dizer isso.
+    texto = "Sem permissão"; cls = "is-warn";
+    dica = "O app não tem permissão de localização em segundo plano";
   } else if (!gpsDentroDoHorario()) {
     texto = "Fora do expediente"; cls = "is-warn";
     dica = `GPS opera apenas das ${String(GPS_HORA_INI).padStart(2,"0")}:00 às ${String(GPS_HORA_FIM).padStart(2,"0")}:00`;
@@ -1834,6 +1856,14 @@ function gpsRenderAviso() {
   if (err === "low_accuracy") {
     msg = "GPS com precisão baixa demais (sinal por IP). Ative o GPS do celular e vá para um local ao ar livre.";
     cta = "Tentar novamente";
+  } else if (err === "sem_permissao_bg") {
+    // Sem CTA de propósito: `getCurrentPosition` (o que o botão faz) pede
+    // permissão de primeiro plano, que aqui já está concedida — ele voltaria
+    // "sucesso" sem resolver nada. No Android 11+ o "o tempo todo" só existe
+    // dentro das Configurações do sistema, então o caminho vai no texto.
+    msg = "Localização permitida apenas “ao usar o app”. O rastreamento para quando " +
+          "a tela apaga — mude para “Permitir o tempo todo” nas permissões do aplicativo.";
+    cta = null;
   } else if (err === 1) { // PERMISSION_DENIED
     msg = "Permissão de localização negada. O escritório não consegue te localizar.";
     cta = "Permitir GPS";

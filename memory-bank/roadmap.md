@@ -54,6 +54,15 @@ aliases:
     declaração de permissão de localização em background da Play Store**, que
     exige vídeo demonstrativo e passa por revisão manual.
 
+- **Onboarding de permissão de localização em background** 📋 — em 2026-08-04 o
+  app passou a **avisar** quando a permissão é só "ao usar o app" (chip "Sem
+  permissão" + texto com o caminho). Falta a outra metade: detectar na abertura
+  e oferecer um atalho para as Configurações do sistema
+  (`ACTION_APPLICATION_DETAILS_SETTINGS`, como já é feito em
+  `requestBatteryExemption`). Sem isso cada técnico precisa ser instruído na
+  mão — hoje só o técnico de teste (id 9) tem a permissão correta. Encosta no
+  formulário de declaração da Play Store da 7J.
+
 ## Descartado (decisões conscientes)
 
 - **9A — Tabela agregada horária** ❌ — write-threshold já reduz volume o

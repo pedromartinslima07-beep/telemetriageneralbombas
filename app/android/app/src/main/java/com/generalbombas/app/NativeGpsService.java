@@ -59,6 +59,9 @@ public class NativeGpsService extends Service {
     static final String CHANNEL_ID  = "com.generalbombas.app.native_gps";
     static final int    NOTIF_ID    = 28353;
     static final String ACTION_LOC  = "com.generalbombas.app.NATIVE_GPS_UPDATE";
+    // Falhas que o JS precisa saber. Sem isto o serviço subia, mostrava a
+    // notificação "GPS ativo" e não coletava nada — a UI mentia pro técnico.
+    static final String ACTION_ERR  = "com.generalbombas.app.NATIVE_GPS_ERROR";
 
     // Ações aceitas via Intent
     static final String ACTION_START        = "com.generalbombas.app.GPS_START";
@@ -279,6 +282,21 @@ public class NativeGpsService extends Service {
             locationClient.requestLocationUpdates(req, locationCallback, Looper.getMainLooper());
         } catch (SecurityException e) {
             android.util.Log.w(TAG, "sem permissao de localizacao: " + e.getMessage());
+            // Antes isto morria no Log.w: o serviço seguia de pé com a
+            // notificação "GPS ativo" enquanto o FusedLocation nunca entregava
+            // nada. Caso clássico: permissão em "só ao usar o app" — a WebView
+            // vê `geolocation: granted` (é a permissão de primeiro plano) e o
+            // pre-check do JS passa, mas o serviço, recriado em background pelo
+            // START_STICKY, não tem direito a localização e cai aqui.
+            //
+            // Cada ACTION_START passa por este método, então reabrir o app
+            // reemite o erro se a permissão continuar insuficiente — não
+            // precisa persistir estado.
+            Intent erro = new Intent(ACTION_ERR);
+            erro.setPackage(getPackageName());
+            erro.putExtra("code", "sem_permissao");
+            erro.putExtra("message", String.valueOf(e.getMessage()));
+            sendBroadcast(erro);
         }
     }
 

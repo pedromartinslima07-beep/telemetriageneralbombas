@@ -97,7 +97,12 @@ trabalho.
    `NativeGpsService.java`, registrado em `MainActivity`). É o caminho usado no
    APK. Um ForegroundService Java coleta a posição e faz o POST direto,
    independente da WebView; expõe `start`/`stop`/`updateToken`/
-   `requestBatteryExemption` e emite o evento `locationUpdate`.
+   `requestBatteryExemption` e emite os eventos `locationUpdate` e `gpsError`.
+   - `gpsError` (`{ code, message }`) nasce do `SecurityException` de
+     `requestLocationUpdates`. Antes ele morria num `Log.w` e o serviço seguia
+     de pé com a notificação "GPS ativo" sem coletar nada. É emitido com
+     `retainUntilConsumed`, porque o `start()` é assíncrono pela bridge e o erro
+     pode acontecer antes de o JS registrar o listener.
    - ⚠️ **É um *started service*, nunca bound.** O plugin fala com ele por
      `startForegroundService()` + `Intent` com ação (`GPS_START` / `GPS_STOP` /
      `GPS_UPDATE_TOKEN`); `onBind` retorna `null` de propósito. Até jul/2026 o
@@ -123,6 +128,17 @@ trabalho.
   serviços foreground de localização
 - O usuário verá um segundo diálogo de permissão pedindo "permitir o tempo todo"
   (necessário para background real)
+
+> ⚠️ **"Ao usar o app" não basta, e o pre-check do JS não detecta.** O
+> `navigator.permissions.query({name:"geolocation"})` de `_gpsAbrirWatch()` só
+> enxerga a permissão de **primeiro plano**: com "ao usar o app" ele responde
+> `granted` e deixa o fluxo seguir. O serviço até coleta enquanto está vivo em
+> foreground, mas quando o `START_STICKY` o recria **a partir do background** o
+> Android nega a localização e o `requestLocationUpdates` lança
+> `SecurityException`. Hoje isso vira o evento `gpsError` → chip
+> **"Sem permissão"** + aviso com o caminho da correção. O app **não** leva o
+> técnico até as Configurações: no Android 11+ o "o tempo todo" não pode ser
+> pedido por diálogo, só escolhido manualmente lá.
 
 **Permissões no manifest:**
 - `ACCESS_BACKGROUND_LOCATION` — declarado em `AndroidManifest.xml`

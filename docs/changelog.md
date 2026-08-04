@@ -1500,6 +1500,31 @@ er sem animação.
     `min-width: 0`), pra não afetar a sidebar do WhatsApp, que é o uso original
     e legítimo da classe.
 
+- **2026-08-04** — **App dizia "GPS ativo" sem coletar nada quando a permissão
+  era "só ao usar o app".** Investigação partiu de "a localização parou": o
+  backend estava íntegro (janela 8–18 no default, 12h em SP, POST chegando), o
+  que descartava regressão do `d05a0ac`.
+  - Causa: `NativeGpsService.startLocationUpdates()` engolia o
+    `SecurityException` de `requestLocationUpdates` num `Log.w`. O serviço
+    subia, mostrava a notificação obrigatória e nunca entregava posição.
+  - O pre-check de `_gpsAbrirWatch()` não pega o caso: `navigator.permissions`
+    só reporta a permissão de primeiro plano, que com "ao usar o app" está
+    concedida. O que falha é o serviço recriado **em background** pelo
+    `START_STICKY` — aí o Android nega localização.
+  - Agora o serviço emite o broadcast `ACTION_ERR`, o plugin relaia como evento
+    `gpsError` (com `retainUntilConsumed`, pois o `start()` é assíncrono e o
+    erro pode preceder o listener) e o JS mostra chip **"Sem permissão"** +
+    aviso explicando trocar para "Permitir o tempo todo".
+  - Aviso sem botão de propósito: o CTA existente chama `getCurrentPosition`,
+    que pede permissão de **primeiro plano** — já concedida aqui, retornaria
+    sucesso sem resolver. No Android 11+ o "o tempo todo" só existe nas
+    Configurações do sistema.
+  - `locationUpdate` passou a religar `GPS.active`: sem isso o chip ficaria
+    preso em "aguardando" depois de o técnico corrigir a permissão.
+  - Escopo deliberado: **não** foi implementada a detecção na abertura do app
+    com atalho para as Configurações — fica em
+    [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md).
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

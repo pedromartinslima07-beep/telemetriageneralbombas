@@ -23,6 +23,7 @@ import com.getcapacitor.annotation.CapacitorPlugin;
  *   NativeGpsTracker.start({ endpoint, token, intervalMs, notificationTitle, notificationMessage })
  *   NativeGpsTracker.stop()
  *   NativeGpsTracker.addListener('locationUpdate', callback)
+ *   NativeGpsTracker.addListener('gpsError', callback)  // { code, message }
  *
  * O serviço é *started* (startForegroundService), não bound: ele precisa
  * sobreviver à Activity ser destruída com a tela apagada. Por isso este plugin
@@ -125,6 +126,17 @@ public class NativeGpsPlugin extends Plugin {
         locationReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
+                if (NativeGpsService.ACTION_ERR.equals(intent.getAction())) {
+                    JSObject erro = new JSObject();
+                    erro.put("code",    intent.getStringExtra("code"));
+                    erro.put("message", intent.getStringExtra("message"));
+                    // retainUntilConsumed: o serviço pode falhar antes de o JS
+                    // chegar a registrar o listener (o start() é assíncrono pela
+                    // bridge). Sem reter, o erro se perderia e o chip seguiria
+                    // dizendo "GPS ativo" — exatamente o que isto corrige.
+                    notifyListeners("gpsError", erro, true);
+                    return;
+                }
                 Location loc = intent.getParcelableExtra("location");
                 if (loc == null) return;
                 JSObject data = new JSObject();
@@ -137,6 +149,7 @@ public class NativeGpsPlugin extends Plugin {
         };
 
         IntentFilter filter = new IntentFilter(NativeGpsService.ACTION_LOC);
+        filter.addAction(NativeGpsService.ACTION_ERR);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             getContext().registerReceiver(locationReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
         } else {
