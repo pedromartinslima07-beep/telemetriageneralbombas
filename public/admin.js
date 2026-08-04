@@ -11778,7 +11778,9 @@ function _avRenderLinhas() {
     const vuVal = l.valor_unitario != null ? l.valor_unitario : "";
     const tot   = l.valor_unitario == null ? null : Number(l.valor_unitario) * Number(l.quantidade);
     const descCell = `<td style="max-width:200px;">
-        <div style="font-size:12px;font-weight:500;">${_waEscaparHtml(l.descricao)}</div>
+        <input class="input" type="text" maxlength="500" value="${_waEscaparHtml(l.descricao)}"
+          data-av-linha-id="${l.id}" data-av-linha-field="descricao"
+          style="width:100%;font-size:12px;font-weight:500;padding:3px 6px;">
         <textarea class="input" rows="2" placeholder="${fichaPlaceholder}"
           data-av-linha-id="${l.id}" data-av-linha-field="ficha_tecnica"
           style="width:100%;font-size:10.5px;padding:3px 6px;margin-top:3px;resize:vertical;">${_waEscaparHtml(l.ficha_tecnica || "")}</textarea>
@@ -12333,9 +12335,23 @@ function _avBindEventos() {
     const linhaId = Number(inp.dataset.avLinhaId);
     const field   = inp.dataset.avLinhaField;
     let value;
-    if (field === "quantidade") value = Math.max(1, Number(inp.value) || 1);
-    else if (field === "valor_unitario") value = inp.value.trim() === "" ? null : Math.max(0, Number(inp.value) || 0);
-    else value = inp.value.trim() || null;
+    if (field === "quantidade") {
+      value = Math.max(1, Number(inp.value) || 1);
+      inp.value = value; // devolve o valor saneado pro campo
+    } else if (field === "valor_unitario") {
+      value = inp.value.trim() === "" ? null : Math.max(0, Number(inp.value) || 0);
+    } else if (field === "descricao") {
+      // Backend rejeita descrição vazia — restaura a anterior em vez de deixar
+      // o erro voltar do servidor.
+      value = inp.value.trim();
+      if (!value) {
+        const atual = _avLinhas.find(l => l.id === linhaId);
+        inp.value = atual ? atual.descricao : "";
+        return;
+      }
+    } else {
+      value = inp.value.trim() || null;
+    }
     _avEditarLinha(linhaId, field, value);
   });
 }
@@ -12709,21 +12725,56 @@ async function _orcCarregarItens(osId) {
   }
 }
 
+// Papéis sem permissão de escrita. Lê das classes que o login põe no <body> —
+// as mesmas que alimentam o `viewer-only-hide` da CSS.
+function _orcSomenteLeitura() {
+  return document.body.classList.contains("role-viewer")
+      || document.body.classList.contains("role-operador");
+}
+
 function _orcRenderItens() {
   const wrap = document.getElementById("orcItensWrap");
   if (!wrap || _orcItensOsId !== _orcSelecionado?.id) return;
 
   const total = _orcItens.reduce((s, it) => s + Number(it.valor_unitario || 0) * Number(it.quantidade), 0);
 
+  // Operador/visualizador continua vendo texto puro. A mesma origem que a CSS
+  // usa pro `viewer-only-hide`, pra os dois nunca discordarem — aqui não dá pra
+  // só esconder o campo com CSS, senão o dado sumiria da tela junto.
+  const somenteLeitura = _orcSomenteLeitura();
+
   const fileiras = _orcItens.map(it => {
     const tot = it.valor_unitario == null ? null : Number(it.valor_unitario) * Number(it.quantidade);
+    const vuVal = it.valor_unitario != null ? it.valor_unitario : "";
+
+    if (somenteLeitura) {
+      return `<tr data-orc-item-id="${it.id}">
+        <td style="max-width:160px;">
+          <div style="font-size:12px;font-weight:500;">${_waEscaparHtml(it.descricao)}</div>
+          ${it.ficha_tecnica ? `<div style="font-size:10.5px;color:var(--muted);margin-top:2px;white-space:pre-line;">${_waEscaparHtml(it.ficha_tecnica)}</div>` : ""}
+        </td>
+        <td class="orc-it-num">${it.quantidade}</td>
+        <td class="orc-it-num">${_orcFmtValor(it.valor_unitario)}</td>
+        <td class="orc-it-num" style="font-weight:600;">${_orcFmtValor(tot)}</td>
+        <td class="viewer-only-hide" style="text-align:center;"></td>
+      </tr>`;
+    }
+
     return `<tr data-orc-item-id="${it.id}">
       <td style="max-width:160px;">
-        <div style="font-size:12px;font-weight:500;">${_waEscaparHtml(it.descricao)}</div>
-        ${it.ficha_tecnica ? `<div style="font-size:10.5px;color:var(--muted);margin-top:2px;white-space:pre-line;">${_waEscaparHtml(it.ficha_tecnica)}</div>` : ""}
+        <input class="input" type="text" maxlength="500" value="${_waEscaparHtml(it.descricao)}"
+          data-orc-item-id="${it.id}" data-orc-item-field="descricao"
+          style="width:100%;font-size:12px;font-weight:500;padding:3px 6px;">
+        <textarea class="input" rows="2" maxlength="1000" placeholder="Ficha técnica (opcional)"
+          data-orc-item-id="${it.id}" data-orc-item-field="ficha_tecnica"
+          style="width:100%;font-size:10.5px;padding:3px 6px;margin-top:3px;resize:vertical;">${_waEscaparHtml(it.ficha_tecnica || "")}</textarea>
       </td>
-      <td class="orc-it-num">${it.quantidade}</td>
-      <td class="orc-it-num">${_orcFmtValor(it.valor_unitario)}</td>
+      <td class="orc-it-num"><input class="input" type="number" min="1" step="1" value="${it.quantidade}"
+        data-orc-item-id="${it.id}" data-orc-item-field="quantidade"
+        style="width:52px;padding:4px 6px;text-align:right;"></td>
+      <td class="orc-it-num"><input class="input" type="number" min="0" step="0.01" value="${vuVal}" placeholder="R$"
+        data-orc-item-id="${it.id}" data-orc-item-field="valor_unitario"
+        style="width:82px;padding:4px 6px;text-align:right;"></td>
       <td class="orc-it-num" style="font-weight:600;">${_orcFmtValor(tot)}</td>
       <td class="viewer-only-hide" style="text-align:center;">
         <button class="orc-it-del" data-orc-del-item="${it.id}" title="Remover">✕</button>
@@ -12884,6 +12935,27 @@ async function _orcRemoverItem(itemId) {
   }
 }
 
+// Edita um item já lançado. Salva campo a campo no `change` (blur/Enter), igual
+// ao avulso — sem botão "salvar item" pra não criar um segundo estado sujo
+// dentro de um formulário que já tem o seu.
+async function _orcEditarItem(itemId, field, value) {
+  const msg = document.getElementById("orcFormMsg");
+  try {
+    const r = await fetch(`/admin/orcamentos/itens/${itemId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      body: JSON.stringify({ [field]: value }),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { if (msg) msg.textContent = j.error || "Erro ao atualizar item"; return; }
+    const idx = _orcItens.findIndex(it => it.id === itemId);
+    if (idx !== -1) _orcItens[idx] = j;
+    _orcRenderItens();
+  } catch (e) {
+    if (msg) msg.textContent = "Erro: " + e.message;
+  }
+}
+
 async function _orcGerarPdf() {
   const osId = _orcSelecionado?.id;
   if (!osId) return;
@@ -12983,6 +13055,36 @@ function _orcBindEventos() {
 
   document.getElementById("orcPainel")?.addEventListener("click", _orcTratarClique);
   document.getElementById("avModalBody")?.addEventListener("click", _orcTratarClique);
+
+  // Edição inline dos itens. Nos mesmos dois contêineres do clique: o
+  // formulário do orçamento formal vive em #avModalBody, fora do #orcPainel.
+  const _orcTratarChange = e => {
+    const inp = e.target.closest("[data-orc-item-field]");
+    if (!inp) return;
+    const itemId = Number(inp.dataset.orcItemId);
+    const field  = inp.dataset.orcItemField;
+    let value;
+    if (field === "quantidade") {
+      value = Math.max(1, Number(inp.value) || 1);
+      inp.value = value; // devolve o valor saneado pro campo
+    } else if (field === "valor_unitario") {
+      value = inp.value.trim() === "" ? null : Math.max(0, Number(inp.value) || 0);
+    } else if (field === "descricao") {
+      // O backend rejeita descrição vazia. Em vez de deixar o erro voltar do
+      // servidor, restaura o valor anterior — o item continua existindo.
+      value = inp.value.trim();
+      if (!value) {
+        const atual = _orcItens.find(it => it.id === itemId);
+        inp.value = atual ? atual.descricao : "";
+        return;
+      }
+    } else {
+      value = inp.value.trim() || null;
+    }
+    _orcEditarItem(itemId, field, value);
+  };
+  document.getElementById("orcPainel")?.addEventListener("change", _orcTratarChange);
+  document.getElementById("avModalBody")?.addEventListener("change", _orcTratarChange);
   // Fechar no backdrop e no Esc, igual ao modal da aba "Criar orçamento".
   document.getElementById("avModalBackdrop")?.addEventListener("click", () => {
     if (_orcFormalAberto()) _orcFecharFormal();

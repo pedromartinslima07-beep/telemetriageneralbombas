@@ -1525,6 +1525,25 @@ er sem animação.
     com atalho para as Configurações — fica em
     [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md).
 
+- **2026-08-04** — **Edição de itens já lançados no orçamento.** Os endpoints
+  `PATCH /admin/orcamentos/itens/:item_id` e
+  `PATCH /admin/orcamentos/avulsos/linhas/:linha_id` já existiam e já aceitavam
+  os quatro campos — **a lacuna era só de UI**. Nenhuma mudança de backend.
+  - **Avulso**: `descricao` era uma `<div>` fixa. Dava pra editar ficha técnica,
+    quantidade e valor, mas não o nome do item. Virou `<input>`.
+  - **Por O.S.**: não deixava editar **nada** — a linha era texto puro com um
+    `✕` de remover. Agora descrição, ficha técnica, quantidade e valor são
+    editáveis, no mesmo padrão do avulso (salva no `change`, sem botão próprio,
+    pra não criar um segundo estado sujo dentro de um formulário que já tem o
+    seu).
+  - Descrição vazia restaura o valor anterior no próprio campo em vez de deixar
+    o 400 do backend voltar — o item não pode ficar sem nome.
+  - Operador e visualizador continuam vendo texto puro: `viewer-only-hide` é
+    CSS e aqui esconderia o dado junto com o campo, então a checagem virou
+    `_orcSomenteLeitura()`, lendo as mesmas classes de `<body>` que a CSS usa.
+  - Ambas as tabelas já usavam `.orc-itens-table`, então os inputs herdaram o
+    estilo existente — sem CSS novo.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em
