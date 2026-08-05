@@ -1320,7 +1320,7 @@ router.get("/orcamentos/avulsos/:id/linhas", authRequired, adminOnly, async (req
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
   try {
     const r = await pool.query(
-      `SELECT id, descricao, ficha_tecnica, quantidade, valor_unitario
+      `SELECT id, descricao, ficha_tecnica, quantidade, valor_unitario, tipo_servico
        FROM orcamento_linhas WHERE orcamento_id = $1 ORDER BY id ASC`, [id]
     );
     return res.json(r.rows);
@@ -1331,18 +1331,25 @@ router.get("/orcamentos/avulsos/:id/linhas", authRequired, adminOnly, async (req
 });
 
 // POST /admin/orcamentos/avulsos/:id/linhas
+// `tipo_servico` (migration 068) marca a linha que representa um serviço, para
+// o PDF achar a especificação da cláusula por chave em vez de por regex na
+// descrição. Só o preset do tipo manda esse campo; item avulso vem sem ele.
+const TIPOS_SERVICO_LINHA = new Set(["limpeza_reservatorio", "dedetizacao"]);
 router.post("/orcamentos/avulsos/:id/linhas", authRequired, adminOnly, async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
-  const { descricao, ficha_tecnica, quantidade, valor_unitario } = req.body || {};
+  const { descricao, ficha_tecnica, quantidade, valor_unitario, tipo_servico } = req.body || {};
   if (!descricao || !String(descricao).trim()) return res.status(400).json({ error: "descricao obrigatória" });
   const qtd = Math.max(1, Number(quantidade) || 1);
   const vu  = (valor_unitario === "" || valor_unitario == null) ? null : Math.max(0, Number(valor_unitario) || 0);
+  // Valor fora da lista vira NULL em vez de estourar o CHECK do banco.
+  const ts  = TIPOS_SERVICO_LINHA.has(tipo_servico) ? tipo_servico : null;
   try {
     const r = await pool.query(
-      `INSERT INTO orcamento_linhas (orcamento_id, descricao, ficha_tecnica, quantidade, valor_unitario)
-       VALUES ($1,$2,$3,$4,$5) RETURNING id, descricao, ficha_tecnica, quantidade, valor_unitario`,
-      [id, String(descricao).trim(), ficha_tecnica ? String(ficha_tecnica).trim() : null, qtd, vu]
+      `INSERT INTO orcamento_linhas (orcamento_id, descricao, ficha_tecnica, quantidade, valor_unitario, tipo_servico)
+       VALUES ($1,$2,$3,$4,$5,$6)
+       RETURNING id, descricao, ficha_tecnica, quantidade, valor_unitario, tipo_servico`,
+      [id, String(descricao).trim(), ficha_tecnica ? String(ficha_tecnica).trim() : null, qtd, vu, ts]
     );
     return res.status(201).json(r.rows[0]);
   } catch (err) {
@@ -1554,10 +1561,14 @@ router.get("/condominios/:id/historico", authRequired, adminOnly, async (req, re
 });
 
 // GET /admin/condominios/lista — lista simples para selects
+// `email` entra aqui porque o modal de orçamento mostra o destinatário do
+// envio ANTES do clique, e precisa atualizá-lo quando o operador troca o
+// condomínio no select — sem isso só daria pra saber depois de salvar.
 router.get("/condominios/lista", authRequired, adminOnly, async (req, res) => {
   try {
     const r = await pool.query(
-      `SELECT id, COALESCE(NULLIF(nome_fantasia,''), nome) AS nome FROM condominios WHERE ativo = true ORDER BY nome ASC`
+      `SELECT id, COALESCE(NULLIF(nome_fantasia,''), nome) AS nome, email
+         FROM condominios WHERE ativo = true ORDER BY nome ASC`
     );
     return res.json(r.rows);
   } catch (err) {

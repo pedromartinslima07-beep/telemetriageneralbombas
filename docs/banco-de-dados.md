@@ -185,6 +185,14 @@ condomínio). No PDF o rótulo do documento vira `CPF` (≤11 dígitos) ou `CNPJ
 `valor_unitario` vira nullable (era `NOT NULL DEFAULT 0`) — item sem preço
 lançado fica `NULL` de verdade em vez de `0`, e o PDF omite a coluna de valor
 pra esse item em vez de mostrar "R$ 0,00".
+068: **`tipo_servico`** (`NULL` | `limpeza_reservatorio` | `dedetizacao`) — marca
+a linha que representa um serviço nos orçamentos por cláusulas. O
+`ficha_tecnica` **dessa** linha é o texto injetado na Cláusula Primeira do PDF;
+antes o `orcamento-pdf.service` achava a linha por **regex na descrição**
+(`/reservat[oó]rio/i`), então reescrever a descrição fazia a especificação
+sumir do documento em silêncio. O regex segue no código como fallback para
+linhas anteriores à migration; o backfill marcou as que ainda casavam com o
+padrão. Linha de peça continua `NULL`.
 > A tabela `orcamento_itens` (025) foi migrada e **removida** em 030.
 
 ### Outras

@@ -942,10 +942,15 @@ a { color: inherit; text-decoration: none; }
   box-shadow: 0 1px 3px rgba(0,0,0,.3), inset 0 1px 0 rgba(255,255,255,.025);
 }
 
+/* flex-wrap: o .card acima tem overflow:hidden, então tudo que não coubesse
+   nesta linha era recortado *sem scroll* — o controle simplesmente sumia da
+   tela (era o caso do "+ Novo" da telemetria entre ~1280px e 1536px). Deixar
+   quebrar joga os filtros pra uma segunda linha em vez de escondê-los. */
 .cardHead {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 12px;
   padding: 14px 20px;
   border-bottom: 1px solid var(--border);
@@ -1697,15 +1702,32 @@ a { color: inherit; text-decoration: none; }
 }
 
 /* Filtros */
+/* 3 selects + 2 botões = ~610px na largura natural. Em notebook o .cardHead só
+   oferece ~590-690px, então o grupo precisa poder quebrar sozinho, senão
+   estoura a linha e o .card recorta. */
 .tel-filtros {
   display: flex;
   gap: 8px;
   align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  min-width: 0;
+  /* flex-basis ~= largura natural do grupo inteiro. Faz o grupo descer de uma
+     vez pra segunda linha quando não cabe ao lado do título, em vez de ficar
+     na primeira e largar só o último botão embaixo. O wrap acima continua
+     como rede de segurança pra telas onde nem a linha inteira basta.
+     Nada de margin-left:auto aqui: margem automática consome o espaço livre
+     antes do flex-grow, o grupo ficava 40px mais estreito que a linha e o
+     "+ Novo" quebrava sozinho. O justify-content já encosta tudo à direita. */
+  flex: 1 1 600px;
 }
 .tel-select {
   appearance: none;
   -webkit-appearance: none;
-  background-color: rgba(255,255,255,.04);
+  /* Mesmo tratamento de poço do .input/.select (ver seção FORM ELEMENTS) —
+     sem isto o select da telemetria era o único campo claro do painel. */
+  background-color: var(--bg-soft);
+  box-shadow: inset 0 -2px 0 var(--border-strong);
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237a7e9c' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 9px center;
@@ -1718,12 +1740,23 @@ a { color: inherit; text-decoration: none; }
   font-weight: 600;
   outline: none;
   cursor: pointer;
-  transition: border-color .15s, background-color .15s;
+  transition: border-color .15s, background-color .15s, box-shadow .15s;
   min-width: 130px;
   max-width: 180px;
 }
+/* O empacotamento em linhas do flexbox acontece ANTES do encolhimento: ele
+   consulta o flex-basis, não o quanto o item poderia espremer. Com basis auto
+   (~162px por select) o grupo media 599px, estourava a linha de 549px de um
+   1280 e empurrava o "+ Novo" pra uma terceira linha — sem nunca tentar
+   encolher os selects. Com basis 115px o grupo mede 513px, cabe numa linha só,
+   e o flex-grow devolve a sobra aos selects (limitado pelo max-width de 180px).
+   Os botões ficam fixos pra que a folga saia dos selects, não deles.
+   Escopado pra não afetar o modal de histórico, que tem regra própria. */
+.tel-filtros .tel-select { flex: 1 1 115px; min-width: 0; }
+.tel-filtros .btn        { flex: 0 0 auto; }
+
 .tel-select:hover  { border-color: var(--border-strong); }
-.tel-select:focus  { border-color: var(--accent); background-color: rgba(240,176,20,.06); }
+.tel-select:focus  { border-color: var(--border-strong); background-color: var(--surface2); box-shadow: inset 0 -2px 0 var(--accent); }
 .tel-select option { background: #14172a; color: var(--text); }
 
 /* Grade de tanques (caixas d'água SVG) — substitui o bar chart */
@@ -1833,6 +1866,14 @@ a { color: inherit; text-decoration: none; }
 .tel-tanques-grid::-webkit-scrollbar { width: 4px; }
 .tel-tanques-grid::-webkit-scrollbar-thumb { background: rgba(255,255,255,.08); border-radius: 99px; }
 .tel-niveis-empty { padding: 32px; text-align: center; }
+
+/* Rodapé do card de níveis. Só texto: o botão "Ver todos" da toolbar já
+   cobre a ação, e repetir aqui era redundância. */
+.tel-resto {
+  padding: 12px 4px 2px;
+  font-size: 12px;
+  color: var(--muted);
+}
 
 /* Tile de um tanque — vira container p/ o modo compacto. O clique de seleção
    fica em .tel-tank-hit (não no tile inteiro) pra não conflitar com os botões
@@ -2130,17 +2171,28 @@ a { color: inherit; text-decoration: none; }
 /* Histórico (line chart) */
 /* Seletor de período — segmented control em linha própria, largura total,
    botões distribuídos igualmente (flex:1). */
-.tel-historico-ctrls {
+/* Faixa única: período à esquerda, números à direita. Antes eram duas linhas
+   empilhadas que somavam ~150px — quase metade da altura útil do modal, sendo
+   que o gráfico é a razão dele existir. */
+.tel-hist-barra {
   display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin: 10px 16px 0;
+}
+.tel-historico-ctrls {
+  display: inline-flex;
   gap: 4px;
   background: rgba(255,255,255,.04);
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 3px;
-  margin: 8px 16px 0;
+  flex: none;
 }
 .tel-range-btn {
-  flex: 1;
+  /* Sem `flex: 1`: esticados, cada botão ficava com ~210px para um rótulo de
+     três caracteres ("3d"), e a faixa parecia uma barra de navegação. */
   text-align: center;
   background: transparent;
   border: none;
@@ -2195,23 +2247,24 @@ a { color: inherit; text-decoration: none; }
 /* Chips de estatística do histórico (atual / mín / méd / máx) — só aparecem
    quando há um único reservatório selecionado. `:empty` some quando o JS
    não preenche (vários reservatórios / sem dados). */
+/* Números viram uma linha de leitura, não quatro cartões. Cada cartão gastava
+   265px de largura e 46px de altura para exibir "31%". */
 .tel-hist-stats {
   display: flex;
+  align-items: baseline;
   flex-wrap: wrap;
-  justify-content: center;
-  gap: 8px;
-  padding: 4px 16px 2px;
+  gap: 18px;
+  margin-left: auto;
+  padding: 0;
 }
 .tel-hist-stats:empty { display: none; }
 .tel-hist-stat {
   display: flex;
-  flex-direction: column;
-  gap: 1px;
-  padding: 5px 11px;
-  border-radius: 8px;
-  background: rgba(255,255,255,.03);
-  border: 1px solid var(--border);
-  min-width: 58px;
+  align-items: baseline;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
 }
 .tel-hist-stat-label { font-size: 9px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); }
 .tel-hist-stat-val {
@@ -2236,6 +2289,11 @@ a { color: inherit; text-decoration: none; }
 
 .tel-historico-chart {
   padding: 0 8px 8px;
+  /* Absorve a altura liberada pela faixa única. O ApexCharts recebe a altura
+     por opção (chart.height), então quem manda de verdade é o JS — isto aqui
+     garante que o contêiner não limite. */
+  flex: 1;
+  min-height: 0;
 }
 
 /* Modal do Histórico de Níveis — abre ao clicar num tanque */
@@ -2262,25 +2320,37 @@ a { color: inherit; text-decoration: none; }
   background: #14172a;
 }
 
-/* Período (segmented) no topo do corpo */
-.modalBody > .tel-historico-ctrls { margin: 0 0 16px; }
-
-/* Stats: 4 chips ocupando a largura */
+/* Faixa única: período à esquerda, números à direita.
+   Eram duas linhas — os 5 botões esticados pela largura toda (cada um com
+   ~210px para um rótulo de 3 caracteres) e, abaixo, 4 cartões de 265×46px
+   para exibir "31%". Somavam ~150px, contra 320px de gráfico: quase metade
+   do modal gasta em moldura. */
+.tel-hist-modal .tel-hist-barra { margin: 0 0 14px; }
 .tel-hist-modal .tel-hist-stats {
-  justify-content: stretch;
-  gap: 12px;
-  padding: 0 0 16px;
+  margin-left: auto;
+  gap: 20px;
+  padding: 0;
 }
 .tel-hist-modal .tel-hist-stat {
-  flex: 1; min-width: 0;
-  align-items: center; gap: 3px;
-  padding: 13px 10px;
-  background: rgba(255,255,255,.025);
+  flex: none;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 7px;
+  padding: 0;
+  background: none;
+  border: 0;
 }
 .tel-hist-modal .tel-hist-stat-label { font-size: 10px; letter-spacing: .6px; }
-.tel-hist-modal .tel-hist-stat-val { font-size: 23px; }
+.tel-hist-modal .tel-hist-stat-val { font-size: 17px; }
 
-.tel-hist-modal .tel-historico-chart { padding: 0; min-height: 320px; }
+/* O gráfico fica com a altura liberada. */
+.tel-hist-modal .modalBody { display: flex; flex-direction: column; }
+.tel-hist-modal .tel-historico-chart { padding: 0; flex: 1; min-height: 380px; }
+
+/* Estado vazio ocupa a mesma altura do gráfico. Sem o piso, o modal encolhia
+   de 644px para 264px quando o período não tinha dados — alternar 24h/7d dava
+   um solavanco de tamanho na tela. */
+.tel-hist-modal .tel-historico-empty { min-height: 380px; }
 .tel-historico-empty {
   display: none;   /* JS liga como flex quando há mensagem */
   flex-direction: column;
@@ -2556,21 +2626,46 @@ tbody tr:nth-child(even):hover td { background: rgba(255,255,255,.04); }
 /* ============================================================
    FORM ELEMENTS
    ============================================================ */
+/* Campo = poço, não relevo. O fundo é mais ESCURO que o card (era mais claro,
+   com branco a 4%): campo vazio é espaço a preencher, e afundar lê melhor que
+   levantar. O foco acende um sublinhado amber em vez do anel de 3px — o anel
+   engordava a caixa visualmente e brigava com campos vizinhos em formulário
+   denso, que é o caso do modal de orçamento.
+
+   O sublinhado é `box-shadow: inset`, não `border-bottom`, de propósito:
+   borda de 2px mudaria a altura do campo em 1px e desalinharia as filter-bars
+   que põem input e botão na mesma linha. `inset` não ocupa espaço.
+
+   Quase todos os seletores que sobrescrevem .input/.select (al-filters,
+   wa-list-head, ch-toolbar, cfg-form, os-form, orc-form-label, av-modal-dialog)
+   só mexem em font-size/padding/width e herdam isto sem conflito.
+   As exceções, ajustadas junto: `.filter-bar .input/.select` e `.tel-select`,
+   que definiam fundo próprio.
+
+   Vale pra <textarea class="input"> também — descrição de chamado, prompt da
+   IA, observação de O.S. e o campo de mensagem do WhatsApp usam a mesma
+   classe. */
 .input, .select {
   width: 100%;
   padding: 9px 12px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border);
-  background: rgba(255,255,255,.04);
+  background-color: var(--bg-soft);
+  box-shadow: inset 0 -2px 0 var(--border-strong);
   color: var(--text);
   font-size: 13px;
   outline: none;
-  transition: border-color .15s, box-shadow .15s;
+  transition: border-color .15s, background-color .15s, box-shadow .15s;
+}
+
+.input:hover:not(:focus), .select:hover:not(:focus) {
+  border-color: var(--border-strong);
 }
 
 .input:focus, .select:focus {
-  border-color: rgba(240,176,20,.5);
-  box-shadow: 0 0 0 3px rgba(240,176,20,.08);
+  border-color: var(--border-strong);
+  background-color: var(--surface2);
+  box-shadow: inset 0 -2px 0 var(--accent);
 }
 
 .input::placeholder { color: var(--muted); }
@@ -2655,7 +2750,9 @@ select option { background: #14172a; color: #eef0fb; }
   padding: 7px 10px;
   font-size: 12.5px;
   min-height: 34px;
-  background: rgba(255,255,255,.05);
+  /* O .filter-bar tem fundo próprio (degradê), então aqui o poço precisa ser
+     ainda mais fundo pra continuar lendo como campo, e não como painel. */
+  background-color: var(--bg);
 }
 /* Botão Gerar do filter bar fica destacado em amber */
 .filter-bar [data-rel-action^="gerar-"] {
@@ -2770,39 +2867,153 @@ select option { background: #14172a; color: #eef0fb; }
   overflow: hidden;
   border-radius: 14px;
   border: 1px solid var(--border);
+  /* Fio no topo: o modal é o foco da tela enquanto está aberto, mesmo sinal
+     do modal de orçamento. Vale pros 11 que usam .modalBox sem tocar em
+     marcação nenhuma.
+     ⚠️ Amber é a cor de MARCA E AÇÃO. Num modal de exclusão permanente ele
+     manda o sinal oposto do que a tela quer dizer — por isso o modificador
+     `.is-perigo` abaixo, aplicado nos modais destrutivos. */
+  border-top: 2px solid var(--accent);
   background: var(--surface);
   box-shadow: var(--shadow-lg);
   display: flex;
   flex-direction: column;
 }
 
+/* Modal cuja ação principal é irreversível: o fio do topo vira vermelho. */
+.modalBox.is-perigo { border-top-color: var(--danger); }
+
+/* Aviso forte dentro do corpo do modal — para o que o usuário não pode
+   deixar passar (chave exibida uma única vez, por exemplo). */
+.modal-alerta {
+  margin: 0;
+  padding: 10px 14px;
+  background: rgba(239,68,68,.12);
+  border: 1px solid var(--danger);
+  border-radius: var(--radius-sm);
+  color: var(--danger);
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+/* Modal que abre POR CIMA de outro modal.
+   Todos os `.modalOverlay` têm o mesmo `z-index: 9998`, e no empate quem vence
+   é quem vem depois no HTML. `deviceKeyOverlay` está na linha 2187 e
+   `editResOverlay` na 2207 — então a chave nova nascia ATRÁS do modal do
+   reservatório, e o usuário só via o painel travado.
+   O `osFotoLightbox` já contornava isso com z-index inline; esta classe
+   generaliza. Aplicar em qualquer modal disparado de dentro de outro. */
+.modalOverlay.is-sobreposto { z-index: 10000; }
+
 .modalHead {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 16px 20px;
+  padding: 14px 20px;
   border-bottom: 1px solid var(--border);
   background: var(--surface2);
   flex-shrink: 0;
 }
 
-.modalTitle { font-size: 14px; font-weight: 800; letter-spacing: .1px; }
+.modalTitle { font-size: 14px; font-weight: 700; letter-spacing: .1px; }
 .modalSub   { margin-top: 3px; color: var(--muted); font-size: 12px; }
 
 .modalBody  { padding: 16px 20px; overflow-y: auto; flex: 1; }
+
+/* Rótulo de seção com régua embaixo — mesmo tratamento do modal de orçamento.
+   Estava escopado só em `.av-modal-dialog`; disponível aqui, qualquer modal
+   pode trocar um <div> de rótulo com estilo inline por esta classe. */
+.modalBody .ap-section-title,
+.modal-sec-title {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .6px;
+  color: var(--muted);
+  padding-bottom: 8px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+.modalBody .ap-section-title + .ap-section-title,
+.modal-sec-title:not(:first-child) { margin-top: 20px; }
+
+/* Corpo dividido em seções, cada uma num wrapper próprio (porque o JS
+   mostra/esconde algumas). Como cada `.modal-sec-title` é o primeiro filho do
+   seu wrapper, o `:not(:first-child)` acima não pega — o respiro vem daqui. */
+.modalBody.modal-secoes { display: flex; flex-direction: column; gap: 18px; }
+.modalBody.modal-secoes > .modal-sec-title:not(:first-child) { margin-top: 0; }
 
 .modalFoot {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 14px 20px;
+  padding: 13px 20px;
   border-top: 1px solid var(--border);
   background: var(--surface2);
   flex-shrink: 0;
 }
 .modalFoot-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-left: auto; }
 .modalFoot-msg { font-size: 12px; color: var(--muted); }
+
+/* Ação destrutiva no rodapé: sai do caminho e perde cara de botão, como o
+   "Excluir orçamento" do trilho. Aplicar a classe onde hoje há um .btnDanger
+   solto à esquerda do rodapé. */
+.modalFoot-danger {
+  border: 0; background: none; color: var(--muted);
+  font-size: 11.5px; cursor: pointer; padding: 4px 0; font-family: inherit;
+}
+.modalFoot-danger:hover { color: var(--danger); text-decoration: underline; }
+
+/* Bloco de ação com consequência externa (envio de e-mail ao cliente, por
+   exemplo): declara PRA QUEM vai antes do clique, em vez de o operador
+   descobrir depois. Mesmo padrão do "Enviar ao cliente" do orçamento. */
+.modal-consequencia {
+  border: 1px solid rgba(240,176,20,.3);
+  background: rgba(240,176,20,.05);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-top: 14px;
+  font-size: 11.5px;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+.modal-consequencia b { color: var(--text); font-weight: 600; }
+/* Sem texto não deve virar uma faixa amber vazia — o bloco é preenchido por
+   JS e nasce vazio no HTML. */
+.modal-consequencia:empty { display: none; }
+
+/* Formulário de modal em duas colunas. Para os modais que hoje empilham 12+
+   campos numa coluna estreita e rolam, desperdiçando a largura da tela — o
+   mesmo problema que o modal de orçamento tinha antes de ser reorganizado. */
+.modal-2col {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+.modal-col { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.modal-fields-2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+
+/* Abaixo de 900px a divisão em duas colunas deixa cada campo estreito demais;
+   volta a ser coluna única, como era antes. */
+@media (max-width: 900px) {
+  .modal-2col { grid-template-columns: 1fr; gap: 16px; }
+  .modal-fields-2 { grid-template-columns: 1fr; }
+}
+
+/* Tela baixa (notebook 1366×768): só folga encolhe — nenhuma fonte, nenhum
+   alvo de clique. Mesmo racional do modal de orçamento, aplicado a todos. */
+@media (max-height: 820px) {
+  .modalOverlay { padding: 10px; }
+  .modalBox { max-height: 95vh; }
+  .modalHead { padding: 10px 20px; }
+  .modalBody { padding: 12px 20px; }
+  .modalFoot { padding: 10px 20px; }
+  .modalBody .ap-section-title,
+  .modal-sec-title { padding-bottom: 6px; margin-bottom: 8px; }
+}
 
 .ctr-more-wrap { position: relative; }
 .ctr-more-menu {
@@ -2841,6 +3052,11 @@ select option { background: #14172a; color: #eef0fb; }
 .ctr-more-sep { height: 1px; background: var(--border); margin: 4px 2px; }
 
 .modalTools { display: flex; gap: 10px; align-items: center; margin-bottom: 14px; }
+/* A barra existe só pra receber mensagem de erro/status por JS. Enquanto está
+   vazia — que é a maior parte do tempo — abria ~40px de vão entre o cabeçalho
+   e a primeira seção. `:has()` cobre o caso de ela conter só um filho vazio. */
+.modalTools:empty,
+.modalTools:has(> :only-child:empty) { display: none; }
 
 .modalBusca {
   flex: 1;
@@ -4244,9 +4460,11 @@ body.mp-fs-active { overflow: hidden; }
 .mp-panel-title h3 { margin: 0; font-size: 16px; font-weight: 700; color: var(--text); }
 .mp-panel-sub { display: block; margin-top: 4px; font-size: 11.5px; color: var(--muted); }
 
+/* Mesmo caso do .wa-tabs: a aba "Chamados" ficava fora da vista até 1440px. */
 .mp-tabs {
   display: flex;
   gap: 4px;
+  flex-wrap: wrap;
   padding: 10px 12px 0;
   border-bottom: 1px solid var(--border);
   overflow-x: auto;
@@ -4884,8 +5102,13 @@ body.mp-fs-active { overflow: hidden; }
   background: rgba(0,0,0,.15);
 }
 .wa-list-head .input { font-size: 12px; padding: 7px 10px; width: 100%; }
+/* flex-wrap: o overflow-x:auto sozinho "funcionava" (dava scroll), mas sem
+   nenhuma affordance visual — filtros como "P1 Crítico", "Resolvidos" e "TI"
+   ficavam fora da vista em notebook e ninguém descobria que dava pra rolar.
+   Com wrap eles caem pra segunda linha e o scroll deixa de ser necessário. */
 .wa-tabs {
   display: flex; gap: 4px;
+  flex-wrap: wrap;
   margin-top: 10px;
   overflow-x: auto;
   scrollbar-width: thin;
@@ -6113,6 +6336,21 @@ body.role-viewer .viewer-only-hide-inline {
 
 .os-chips-wrap { display: flex; flex-wrap: wrap; gap: 6px; }
 
+/* Bloco do veredito, no topo da O.S.: destaca o que decide o próximo passo
+   (resultado, retorno, orçamento) do que é registro do atendimento. */
+.os-veredito {
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: rgba(255,255,255,.02);
+}
+.os-veredito .os-obs { background: transparent; border-left: 0; padding: 0; margin-top: 10px; }
+.os-veredito .os-obs + .os-obs { margin-top: 6px; }
+/* Tipos de serviço passaram a conviver na mesma linha do resultado — ocupavam
+   uma seção inteira para dois chips. */
+.os-chips-inline { margin-left: auto; }
+
 .os-result-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .os-obs {
   margin: 10px 0 0;
@@ -6997,6 +7235,10 @@ body.role-viewer .viewer-only-hide-inline {
   z-index: 1;
   background: #0e1022;
   border: 1px solid var(--border);
+  /* Mesmo fio dos modais que usam .modalBox. Sem isto os três que usam
+     .av-modal (orçamento, planos, seletor de contratos) ficavam de fora do
+     padrão — inclusive o de orçamento, que serviu de referência pra ele. */
+  border-top: 2px solid var(--accent);
   border-radius: 16px;
   width: 100%;
   max-width: 900px;
@@ -7127,6 +7369,315 @@ body.role-viewer .viewer-only-hide-inline {
   border-color: rgba(240,176,20,.45);
   background: rgba(240,176,20,.08);
   color: var(--text);
+}
+
+/* ============================================================
+   ORÇAMENTO AVULSO — reestruturação do modal (2026-08-05)
+
+   Só estrutura e hierarquia. Paleta, fontes e raios são os mesmos
+   do resto do painel — nada de token novo.
+
+   O que motivou:
+   - O total, que é o número que decide o orçamento, não aparecia em
+     lugar nenhum: era a soma no rodapé da tabela de itens, ou ficava
+     escondido atrás do checkbox "definir valor total manualmente".
+   - O tipo do orçamento tinha o mesmo peso visual que "data", mas é
+     ele que ramifica o PDF entre tabela de peças e texto por cláusulas.
+   - As 4 ações do rodapé eram indistinguíveis: "Gerar PDF" (inócuo) e
+     "Enviar por e-mail" (sai pra cliente real) tinham o mesmo botão.
+
+   ⚠️ CONTRATO COM O JS: `avInputTipo`, `avToggleAvulso` e
+   `avToggleValorManual` continuam existindo como <select>/<checkbox>,
+   só que ocultos (.av-hidden-ctl). Os cards e o segmentado apenas
+   setam o valor e disparam `change`. Isso mantém intactos os 6
+   listeners e o `_avAcao`, que leem tudo por getElementById.
+   ============================================================ */
+.av-hidden-ctl { position: absolute; opacity: 0; pointer-events: none; width: 0; height: 0; }
+
+/* ── Janela: ocupa a tela, não uma coluna de 900px ──────────────────────────
+   O modal é de tela cheia, então rolar uma coluna estreita até o fim pra ver
+   o formulário inteiro desperdiçava a largura disponível. A janela agora tem
+   altura fixa e só a ZONA DE ITENS rola por dentro — tipo, cliente, condições
+   comerciais e o trilho ficam sempre à vista, em qualquer quantidade de itens.
+   ⚠️ Estas 3 regras sobrescrevem as de `.av-modal` / `#avModal` lá em cima;
+   por isso vêm depois no arquivo. */
+#avModal { padding: 18px; align-items: center; overflow: hidden; }
+#avModal .av-modal-dialog {
+  max-width: 1360px;
+  height: min(92vh, 880px);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+/* ⚠️ `#avModalBody` é um wrapper que o JS reusa entre os dois modais de
+   orçamento, e fica ENTRE o diálogo e o layout. Sem torná-lo flex também, a
+   cadeia de altura quebra aqui: o diálogo é flex, mas seu único filho é este
+   div, e o `flex:1` do `.av-layout` não alcança. Era o que fazia o formulário
+   vazar 240px pra fora da janela de altura fixa. */
+#avModal .av-modal-dialog > #avModalBody {
+  flex: 1; min-height: 0; display: flex; flex-direction: column;
+}
+#avModal .av-modal-head { padding: 13px 20px; margin: 0; flex-shrink: 0; }
+
+/* ── Corpo: formulário + trilho ── */
+.av-layout {
+  flex: 1; min-height: 0;
+  display: grid; grid-template-columns: minmax(0, 1fr) 300px;
+}
+/* ⚠️ `min-height: 0` é obrigatório: item de grid nasce com `min-height: auto`
+   e se recusa a encolher abaixo do conteúdo. Sem isto o formulário estourava
+   246px pra fora do diálogo de altura fixa — as condições comerciais ficavam
+   embaixo da borda de baixo, invisíveis. */
+.av-col-form {
+  min-width: 0; min-height: 0; display: flex; flex-direction: column;
+  padding: 14px 18px 14px 20px; gap: 14px;
+}
+.av-sec-hint { font-size: 11.5px; color: var(--muted2); margin: 2px 0 10px; line-height: 1.5; }
+
+/* Faixa de configuração: tipo à esquerda, cliente + constatação à direita.
+   Duas colunas porque nenhuma delas precisa da largura inteira, e juntas
+   liberam a altura que a tabela de itens vai usar. */
+/* Cliente + constatação pedem mais largura que os 4 cards de tipo — medido:
+   com 1fr/1fr os cards ficavam com 228px e sobrava espaço do lado direito. */
+.av-setup {
+  display: grid; grid-template-columns: minmax(0, .82fr) minmax(0, 1.18fr);
+  gap: 20px; flex-shrink: 0;
+}
+/* Sem caixa nas seções do topo. `.av-modal-dialog .ap-section` desenha borda +
+   fundo + 16px de padding, mas `.ap-section-title` JÁ tem régua embaixo — era
+   moldura dupla, e ainda desalinhava do bloco de Itens/Condições, que não são
+   `.ap-section`. Com tudo régua-sob-título, as 5 zonas alinham no mesmo eixo. */
+.av-setup .ap-section {
+  margin: 0; border: 0; background: none; padding: 0; border-radius: 0;
+}
+.av-setup-col { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+
+/* A coluna do tipo é mais curta que a de cliente+constatação e sobrava ~80px
+   de vazio embaixo dela. Em vez de deixar o buraco, os 4 cards esticam pra
+   preencher a faixa — mata o espaço morto e dá respiro pros cards no mesmo
+   movimento. `max-height` evita que fiquem gigantes quando o modo "avulso"
+   alonga a coluna da direita com mais 4 campos. */
+.av-setup-col:first-child > .ap-section {
+  display: flex; flex-direction: column; height: 100%; min-height: 0;
+}
+.av-setup-col:first-child .av-tipos { flex: 1; }
+.av-setup-col:first-child .av-tipo { flex: 1 1 0; max-height: 58px; }
+
+/* Zona de itens: é ela que absorve a sobra de altura e rola por dentro. */
+.av-itens-zone {
+  flex: 1; min-height: 140px;
+  display: flex; flex-direction: column;
+  border-top: 1px solid var(--border2); padding-top: 14px;
+  position: relative;
+}
+
+/* Troca de tipo: a zona inteira pisca em amber por 1,2s. É a única animação
+   do modal, e o único sinal — a tabela mudando de forma na frente do operador
+   já explica o resto. A versão anterior tinha também uma nota em prosa aqui,
+   dizendo o mesmo que a descrição do card e o título da seção: três vezes a
+   mesma frase. */
+@keyframes avTrocaTipo {
+  0%   { background: rgba(240,176,20,.12); box-shadow: inset 0 0 0 1px rgba(240,176,20,.5); }
+  100% { background: transparent;          box-shadow: inset 0 0 0 1px transparent; }
+}
+.av-itens-zone.is-trocado { animation: avTrocaTipo 1.2s ease-out; border-radius: 8px; }
+
+@keyframes avTrocaTipoRail {
+  0%   { color: var(--accent); }
+  100% { color: var(--text); }
+}
+#avRailTipo.is-trocado { animation: avTrocaTipoRail 1.2s ease-out; }
+
+@media (prefers-reduced-motion: reduce) {
+  .av-itens-zone.is-trocado, #avRailTipo.is-trocado { animation: none; }
+}
+.av-itens-scroll { flex: 1; overflow-y: auto; min-height: 0; margin-top: 8px; padding-right: 4px; }
+
+/* "+ Adicionar item" gruda no pé da área rolável. Sem isto ele fica abaixo da
+   última linha e, a partir de ~4 itens, some da vista — a ação mais frequente
+   da tela exigiria rolar até o fim toda vez. */
+.av-itens-scroll .orc-add-item-form {
+  position: sticky; bottom: 0; z-index: 2;
+  background: #0e1022;
+  box-shadow: 0 -10px 14px -8px rgba(0,0,0,.7);
+  padding: 9px 0 2px; margin-top: 0;
+}
+/* Grid com as MESMAS colunas do <colgroup> da tabela (84 / 122 / 122+40), e
+   8px de margem em cada campo — o mesmo `padding: 6px 8px` das células. Assim
+   os campos de adicionar caem na vertical exata das colunas que preenchem.
+   Como flex com gap, ficavam ~59px deslocados: o botão consumia largura no
+   fim da linha e empurrava tudo. Medido no harness. */
+.av-itens-scroll .orc-add-item-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 84px 122px 162px;
+  gap: 0;
+  align-items: center;
+}
+.av-itens-scroll .orc-add-item-row > * { margin: 0 8px; min-width: 0; width: auto; }
+
+/* Nome de linha de serviço: texto, não campo. O nome é o do documento — as
+   cláusulas, o cabeçalho "Serviço 1/2 –" e o subtítulo do PDF derivam do tipo,
+   não desta linha, então editar aqui só criava contradição. Renderizado como
+   texto (e não input desabilitado) porque campo cinza convida a clicar. */
+.orc-it-nome-fixo {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  padding: 5px 0 4px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.orc-it-nome-fixo::before {
+  content: '';
+  width: 3px;
+  align-self: stretch;
+  background: var(--accent);
+  opacity: .55;
+  flex-shrink: 0;
+}
+
+/* Condições comerciais: rodapé do formulário, 5 campos numa linha só. */
+.av-cond {
+  flex-shrink: 0; border-top: 1px solid var(--border2); padding-top: 14px;
+}
+.av-cond-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+
+/* ── Tipo: escolha de documento ── */
+/* Uma coluna, não 2×2. Em 2 colunas cada card ficava com 184px e os títulos
+   quebravam em duas linhas — cards de alturas diferentes, borda serrilhada. */
+.av-tipos { display: flex; flex-direction: column; gap: 5px; }
+.av-tipo {
+  display: flex; gap: 9px; align-items: center; text-align: left;
+  padding: 8px 11px; border-radius: 8px; cursor: pointer; min-width: 0;
+  border: 1px solid var(--border); background: rgba(130,170,255,.02);
+  color: var(--text-dim); font-family: inherit;
+  transition: border-color .14s, background .14s, color .14s;
+}
+.av-tipo:hover { border-color: var(--border-strong); background: rgba(130,170,255,.04); }
+.av-tipo.is-on { border-color: rgba(240,176,20,.45); background: rgba(240,176,20,.07); color: var(--text); }
+.av-tipo-dot {
+  width: 13px; height: 13px; border-radius: 50%; flex-shrink: 0;
+  border: 1.5px solid var(--muted2); position: relative;
+}
+.av-tipo.is-on .av-tipo-dot { border-color: var(--accent); }
+.av-tipo.is-on .av-tipo-dot::after {
+  content: ''; position: absolute; inset: 2.5px; border-radius: 50%; background: var(--accent);
+}
+.av-tipo b {
+  font-size: 12.5px; font-weight: 600; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* ── Segmentado (cliente cadastrado × avulso) ── */
+.av-seg {
+  display: inline-flex; padding: 3px; gap: 3px; margin-bottom: 12px;
+  background: rgba(0,0,0,.3); border: 1px solid var(--border); border-radius: 9px;
+}
+.av-seg button {
+  padding: 6px 14px; border-radius: 7px; border: 0; background: none;
+  color: var(--muted); font-size: 12px; font-weight: 600; cursor: pointer;
+  font-family: inherit; transition: background .14s, color .14s;
+}
+.av-seg button.is-on { background: rgba(240,176,20,.14); color: var(--accent); }
+
+/* ── Trilho: o total nunca sai da tela ── */
+.av-rail {
+  border-left: 1px solid var(--border); background: rgba(0,0,0,.22);
+  padding: 16px 20px; display: flex; flex-direction: column; gap: 14px;
+  overflow-y: auto; min-height: 0;
+}
+.av-total-lbl {
+  font-size: 10.5px; font-weight: 800; text-transform: uppercase;
+  letter-spacing: 1.1px; color: var(--muted);
+}
+.av-total {
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  font-size: 29px; font-weight: 800; letter-spacing: -1px; line-height: 1.1;
+  margin-top: 5px; color: var(--text);
+}
+.av-total.is-manual { color: var(--accent); }
+.av-total-sub { font-size: 11.5px; color: var(--muted); margin-top: 5px; }
+.av-total-sub button {
+  border: 0; background: none; color: var(--accent); cursor: pointer; font-family: inherit;
+  font-size: 11.5px; padding: 0; text-decoration: underline; text-underline-offset: 2px;
+}
+.av-rail-kv { display: flex; justify-content: space-between; gap: 10px; font-size: 12px; padding: 5px 0; }
+.av-rail-kv > span { color: var(--muted); }
+.av-rail-kv > b { font-weight: 600; text-align: right; }
+.av-rail-hr { height: 1px; background: var(--border); }
+.av-rail-acts { display: flex; flex-direction: column; gap: 8px; }
+.av-rail-acts .btn { width: 100%; justify-content: center; }
+
+/* Enviar por e-mail é a única ação com consequência externa: mostra o
+   destinatário ANTES do clique, em vez de o operador descobrir depois. */
+.av-envio {
+  border: 1px solid rgba(240,176,20,.3); background: rgba(240,176,20,.05);
+  border-radius: 10px; padding: 11px 12px;
+}
+.av-envio-t {
+  font-size: 10.5px; font-weight: 800; text-transform: uppercase;
+  letter-spacing: .8px; color: var(--accent);
+}
+.av-envio-to {
+  font-size: 11.5px; color: var(--text-dim); margin: 6px 0 9px;
+  word-break: break-word; line-height: 1.5;
+}
+.av-envio-to b { color: var(--text); font-weight: 600; }
+.av-envio .btn { width: 100%; justify-content: center; }
+
+/* Excluir sai do caminho, mas SEM `margin-top: auto`: empurrar pro pé abria um
+   vão de ~280px no meio do trilho (visto no harness). Fica logo abaixo do
+   envio, discreto, e o trilho termina onde o conteúdo termina. */
+.av-rail-danger { padding-top: 12px; border-top: 1px solid var(--border2); }
+.av-rail-danger button {
+  border: 0; background: none; color: var(--muted); font-size: 11.5px;
+  cursor: pointer; padding: 4px 0; font-family: inherit;
+}
+.av-rail-danger button:hover { color: var(--danger); text-decoration: underline; }
+
+/* Notebook: 5 condições numa linha ficam apertadas — 3 + 2. */
+@media (max-width: 1280px) {
+  .av-cond-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+/* Tela BAIXA (notebook 1366×768 é o caso). A janela é fatia da altura da
+   viewport, então tudo que é folga sai da zona de itens — a última a receber.
+   Medido: em 768px de altura sobravam 153px pros itens, e um orçamento de
+   combo com 2 serviços já nascia rolando, com a especificação do segundo
+   cortada. Apertando padding, gaps e a altura dos cards, a zona vai pra ~235px
+   e os 2 serviços cabem inteiros.
+   Só folga é reduzida — nenhum tamanho de fonte ou alvo de clique encolhe. */
+@media (max-height: 820px) {
+  #avModal { padding: 10px; }
+  #avModal .av-modal-dialog { height: 95vh; }
+  #avModal .av-modal-head { padding: 10px 20px; }
+  .av-col-form { padding: 10px 18px 10px 20px; gap: 10px; }
+  .av-setup { gap: 16px; }
+  .av-setup-col { gap: 10px; }
+  .av-setup-col:first-child .av-tipo { max-height: 42px; }
+  .av-tipo { padding: 6px 11px; }
+  .av-itens-zone { padding-top: 10px; }
+  .av-cond { padding-top: 10px; }
+  .av-rail { padding: 10px 20px; gap: 10px; }
+  .av-modal-dialog .ap-section-title { padding-bottom: 6px; margin-bottom: 8px; }
+}
+
+/* Abaixo de 1080px a janela de altura fixa deixa de compensar: volta a ser
+   uma coluna só com rolagem de página, como qualquer modal. */
+@media (max-width: 1080px) {
+  #avModal { padding: 24px 16px; align-items: flex-start; overflow-y: auto; }
+  #avModal .av-modal-dialog { height: auto; max-width: 900px; overflow: visible; }
+  .av-layout { grid-template-columns: 1fr; }
+  .av-setup { grid-template-columns: 1fr; gap: 16px; }
+  .av-itens-zone { min-height: 0; }
+  .av-itens-scroll { overflow: visible; }
+  .av-cond-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .av-rail {
+    border-left: 0; border-top: 1px solid var(--border); overflow: visible;
+  }
+  .av-tipos { grid-template-columns: 1fr; }
 }
 
 /* ── Técnico: foto de perfil ── */

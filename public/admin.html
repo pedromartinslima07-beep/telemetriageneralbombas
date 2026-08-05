@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="/static/leaflet.css">
   <!-- ⚠️ Ao mexer em admin.js ou admin.css, bumpe o ?v=N aqui E no <script>
        lá embaixo. Ver CLAUDE.md raiz. -->
-  <link rel="stylesheet" href="/static/admin.css?v=162">
+  <link rel="stylesheet" href="/static/admin.css?v=186">
 </head>
 <body>
   <div id="appLoader">
@@ -836,9 +836,9 @@
         <div id="ctrsPickerModal" class="av-modal" style="display:none;" role="dialog" aria-modal="true">
           <div class="av-modal-backdrop" id="ctrsPickerBackdrop"></div>
           <div class="av-modal-dialog" style="max-width:400px;padding:0;overflow:hidden;">
-            <div style="padding:16px 20px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
-              <div style="font-size:15px;font-weight:700;color:var(--text);">Selecionar cliente</div>
-              <button class="btn btn-sm" id="ctrsPickerClose" type="button">✕</button>
+            <div class="modalHead">
+              <div class="modalTitle">Selecionar cliente</div>
+              <button class="btn btn-sm" id="ctrsPickerClose" type="button">Fechar</button>
             </div>
             <div style="padding:12px 16px 8px;">
               <input id="ctrsPickerBusca" class="input" placeholder="Buscar cliente…" style="width:100%;" autocomplete="off">
@@ -999,14 +999,18 @@
               </div>
             </div>
             <div class="modalBody">
-              <div class="tel-historico-ctrls">
-                <button class="tel-range-btn is-active" data-range="24" data-action="tel-range">24h</button>
-                <button class="tel-range-btn" data-range="72" data-action="tel-range">3d</button>
-                <button class="tel-range-btn" data-range="168" data-action="tel-range">7d</button>
-                <button class="tel-range-btn" data-range="720" data-action="tel-range">30d</button>
-                <button class="tel-range-btn" data-range="1440" data-action="tel-range">60d</button>
+              <!-- Período e números na MESMA faixa: eram duas linhas somando
+                   ~150px num modal cujo gráfico tinha 320px. -->
+              <div class="tel-hist-barra">
+                <div class="tel-historico-ctrls">
+                  <button class="tel-range-btn is-active" data-range="24" data-action="tel-range">24h</button>
+                  <button class="tel-range-btn" data-range="72" data-action="tel-range">3d</button>
+                  <button class="tel-range-btn" data-range="168" data-action="tel-range">7d</button>
+                  <button class="tel-range-btn" data-range="720" data-action="tel-range">30d</button>
+                  <button class="tel-range-btn" data-range="1440" data-action="tel-range">60d</button>
+                </div>
+                <div class="tel-hist-stats" id="telHistStats"></div>
               </div>
-              <div class="tel-hist-stats" id="telHistStats"></div>
               <div class="tel-historico-chart" id="telHistoricoChart"></div>
               <div class="tel-historico-empty" id="telHistoricoEmpty" style="display:none;"></div>
             </div>
@@ -1272,19 +1276,22 @@
       <!-- Modal de plano (criar/editar) — usa pmModal próprio pra não conflitar com overlay global -->
       <div id="pmModal" class="av-modal" style="display:none;" role="dialog" aria-modal="true">
         <div class="av-modal-backdrop" id="pmModalBackdrop"></div>
+        <!-- Casca compartilhada em vez de estilo inline: assim herda o fio do
+             topo, o respiro do cabeçalho/rodapé e o aperto de tela baixa,
+             como os outros modais. Ids preservados (o JS injeta corpo e
+             rodapé por getElementById). -->
         <div class="av-modal-dialog" style="max-width:560px;padding:0;overflow:hidden;">
-          <!-- Cabeçalho -->
-          <div style="padding:20px 24px 16px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;justify-content:space-between;">
+          <div class="modalHead">
             <div>
-              <div id="pmModalTitulo" style="font-size:15px;font-weight:700;color:var(--text);line-height:1.2;">Novo plano</div>
-              <div id="pmModalSubtitulo" style="font-size:12px;color:var(--muted);margin-top:3px;">Preencha os dados para criar um plano de manutenção</div>
+              <div id="pmModalTitulo" class="modalTitle">Novo plano</div>
+              <div id="pmModalSubtitulo" class="modalSub">Preencha os dados para criar um plano de manutenção</div>
             </div>
-            <button class="btn btn-sm" id="pmModalClose" type="button" aria-label="Fechar">✕</button>
+            <button class="btn btn-sm" id="pmModalClose" type="button" aria-label="Fechar">Fechar</button>
           </div>
           <!-- Corpo injetado pelo JS -->
-          <div id="pmModalBody" style="padding:16px 24px;"></div>
-          <!-- Rodapé com botões -->
-          <div id="pmModalFooter" style="padding:14px 24px;border-top:1px solid var(--border);background:rgba(0,0,0,.2);display:flex;align-items:center;justify-content:flex-end;gap:8px;"></div>
+          <div id="pmModalBody" class="modalBody"></div>
+          <!-- Rodapé com botões, injetados pelo JS -->
+          <div id="pmModalFooter" class="modalFoot"></div>
         </div>
       </div>
 
@@ -1979,7 +1986,7 @@
 
 <!-- Modal: exclusão permanente de condomínio -->
 <div id="hardDeleteOverlay" class="modalOverlay" style="display:none;">
-  <div class="modalBox" style="max-width:440px;">
+  <div class="modalBox is-perigo" style="max-width:440px;">
     <div class="modalHead">
       <div class="modalTitle" style="color:var(--danger);">&#9888; Exclusão permanente</div>
       <button class="btn btn-sm" id="btnFecharHardDelete">Fechar</button>
@@ -2019,7 +2026,7 @@
 
       <!-- Identificação -->
       <div style="background:rgba(0,0,0,.2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;">
-        <div style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:10px;">Identificação</div>
+        <div class="modal-sec-title">Identificação</div>
         <div style="display:flex;flex-direction:column;gap:10px;">
           <label class="f">
             <span>Título <span style="color:var(--danger)">*</span></span>
@@ -2048,7 +2055,7 @@
 
       <!-- Prioridade -->
       <div style="background:rgba(0,0,0,.2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;">
-        <div style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:10px;">Prioridade</div>
+        <div class="modal-sec-title">Prioridade</div>
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">
           <button type="button" class="nc-prio-btn" data-prio="p1" style="border:1px solid var(--border);border-radius:8px;padding:10px 6px;background:var(--surface2);cursor:pointer;text-align:center;">
             <div style="font-size:13px;font-weight:800;color:#ef4444;">P1</div>
@@ -2076,7 +2083,7 @@
 
       <!-- Detalhes -->
       <div style="background:rgba(0,0,0,.2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;">
-        <div style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:10px;">Detalhes</div>
+        <div class="modal-sec-title">Detalhes</div>
         <label class="f">
           <span>Descrição <span style="color:var(--danger)">*</span></span>
           <textarea id="ncDescricao" class="input" rows="4" maxlength="4000"
@@ -2132,10 +2139,12 @@
           <input id="editCep" class="cep-input" maxlength="9" inputmode="numeric" placeholder="00000-000" data-cep-target-prefix="edit" />
           <span class="cep-msg" id="editCepMsg"></span>
         </label>
+        <div class="modal-sec-title" style="grid-column:1/-1;">Endereço</div>
         <label class="f"><span>Endereço</span><input id="editEndereco" /></label>
         <label class="f"><span>Bairro</span><input id="editBairro" /></label>
         <label class="f"><span>Cidade</span><input id="editCidade" /></label>
         <label class="f"><span>UF</span><input id="editUf" maxlength="2" /></label>
+        <div class="modal-sec-title" style="grid-column:1/-1;">Contato e operação</div>
         <label class="f"><span>Responsável</span><input id="editResponsavel" /></label>
         <label class="f"><span>Telefone</span><input id="editTelefone" /></label>
         <label class="f"><span>E-mail <span style="font-weight:400;color:var(--muted);">— orçamentos (separe vários por vírgula)</span></span><input id="editEmail" type="text" placeholder="contato@condominio.com.br, sindico@condominio.com.br" /></label>
@@ -2179,28 +2188,13 @@
 </div>
 
 <!-- Modal: nova device key -->
-<div id="deviceKeyOverlay" class="modalOverlay" style="display:none;">
-  <div class="modalBox" style="max-width:480px;">
-    <div class="modalHead">
-      <div class="modalTitle">Nova Device Key gerada</div>
-      <button class="btn btn-sm" id="btnFecharDeviceKey">Fechar</button>
-    </div>
-    <div class="modalBody" style="padding:20px 24px 24px;display:flex;flex-direction:column;gap:16px;">
-      <p style="margin:0;padding:10px 14px;background:rgba(239,68,68,.12);border:1px solid var(--danger);border-radius:6px;color:var(--danger);font-size:13px;font-weight:600;">
-        &#9888; Salve esta chave agora! Ela não será exibida novamente.
-      </p>
-      <div style="display:flex;gap:8px;align-items:center;">
-        <input id="deviceKeyValue" class="input" readonly style="font-family:monospace;font-size:13px;flex:1;cursor:text;" />
-        <button class="btn btnAccent" id="btnCopiarDeviceKey" style="white-space:nowrap;min-width:80px;">Copiar</button>
-      </div>
-      <div id="deviceKeyCopiadoMsg" style="display:none;font-size:12px;color:#4ade80;font-weight:600;">&#10003; Copiado!</div>
-    </div>
-  </div>
-</div>
 
 <!-- Modal: editar reservatório -->
 <div id="editResOverlay" class="modalOverlay" style="display:none;">
-  <div class="modalBox">
+  <!-- Largura fixada em 720px: com os 1100px padrão do .modalBox, sete campos
+       (a maioria numérica) esticavam para ~520px cada — "ADC zero" ocupava
+       meia tela. -->
+  <div class="modalBox" style="max-width:720px;">
     <div class="modalHead">
       <div>
         <div class="modalTitle">Editar reservatório</div>
@@ -2214,6 +2208,7 @@
       </div>
       <form id="editResForm" class="formGrid">
         <input type="hidden" id="editResId" />
+        <div class="modal-sec-title" style="grid-column:1/-1;">Identificação</div>
         <label class="f"><span>Nome *</span><input id="editResNome" required /></label>
         <label class="f"><span>Tipo *</span>
           <select id="editResTipo" class="select">
@@ -2226,19 +2221,52 @@
           <input type="checkbox" id="editResAtivo" />
           <span>Ativo</span>
         </label>
-        <div style="grid-column:1/-1;margin-top:8px;padding-top:12px;border-top:1px solid var(--border);font-size:13px;font-weight:600;color:var(--text-muted);">Calibração da sonda</div>
+
+        <!-- Os dois rótulos abaixo tinham estilo inline em caixa baixa, sem
+             régua — destoavam do resto do sistema. (Evitar escrever nomes de
+             tag entre sinais de menor/maior dentro de comentário: as
+             ferramentas que contam tags por regex leem como tag real.) -->
+        <div class="modal-sec-title" style="grid-column:1/-1;">Calibração da sonda</div>
         <label class="f"><span>Altura total (m)</span><input id="editResAlturaTotalM" type="number" step="0.01" min="0" /></label>
         <label class="f"><span>ADC zero</span><input id="editResAdcZero" type="number" step="1" min="0" /></label>
         <label class="f"><span>ADC por metro</span><input id="editResAdcPorMetro" type="number" step="1" min="1" /></label>
         <label class="f"><span>Faixa sonda (m)</span><input id="editResFaixaSondaM" type="number" step="0.01" min="0" /></label>
-        <div style="grid-column:1/-1;margin-top:8px;padding-top:12px;border-top:1px solid var(--border);font-size:13px;font-weight:600;color:var(--text-muted);">Detecção da bomba</div>
+
+        <div class="modal-sec-title" style="grid-column:1/-1;">Detecção da bomba</div>
         <label class="f" style="grid-column:1/-1;"><span>Limiar do sensor (RMS)</span><input id="editResLimiarBomba" type="number" step="1" min="0" placeholder="Ex: 50" /></label>
-        <div class="formActions" style="grid-column:1/-1;">
-          <button class="btn" type="button" id="btnRegenKeyRes" style="margin-right:auto;" title="Gera uma nova device key (o ESP antigo para de enviar)">Nova chave (device key)</button>
-          <button class="btn" type="button" id="btnCancelarEdicaoRes">Cancelar</button>
-          <button class="btn btnAccent" type="submit">Salvar alterações</button>
+
+        <!-- A chave nova aparece AQUI, no mesmo modal do botão que a gera.
+             Antes abria um segundo modal (deviceKeyOverlay) que, por ter o
+             mesmo z-index e vir antes no HTML, nascia atrás deste — o usuário
+             via o painel travado e nenhuma chave. Nasce escondido; quem mostra
+             é mostrarDeviceKeyModal(). -->
+        <div id="editResKeyBloco" style="grid-column:1/-1;display:none;">
+          <div class="modal-sec-title">Nova chave gerada</div>
+          <p class="modal-alerta">Salve esta chave agora — ela não será exibida novamente.</p>
+          <div style="display:flex;gap:8px;align-items:center;margin-top:10px;">
+            <input id="deviceKeyValue" class="input" readonly
+                   style="font-family:ui-monospace,Consolas,monospace;font-size:13px;flex:1;cursor:text;" />
+            <button class="btn btnAccent" type="button" id="btnCopiarDeviceKey"
+                    style="white-space:nowrap;min-width:80px;">Copiar</button>
+          </div>
+          <div id="deviceKeyCopiadoMsg" style="display:none;font-size:12px;color:var(--ok);font-weight:600;margin-top:8px;">✓ Copiado!</div>
         </div>
       </form>
+    </div>
+
+    <!-- Os botões viviam soltos dentro do corpo (`.formActions`), então este
+         era o único modal do sistema sem rodapé fixo.
+         "Nova chave" invalida a chave atual e o ESP32 **para de enviar** até
+         ser regravado — consequência que só existia num `title=`, invisível.
+         Vai para a esquerda, discreta, com o aviso ao lado. -->
+    <div class="modalFoot">
+      <button class="modalFoot-danger" type="button" id="btnRegenKeyRes"
+              form="editResForm">Gerar nova chave (device key)</button>
+      <span class="modalFoot-msg">o ESP32 para de enviar até ser regravado</span>
+      <div class="modalFoot-actions">
+        <button class="btn btn-sm" type="button" id="btnCancelarEdicaoRes">Cancelar</button>
+        <button class="btn btnAccent btn-sm" type="submit" form="editResForm">Salvar alterações</button>
+      </div>
     </div>
   </div>
 </div>
@@ -2322,7 +2350,11 @@
 
 <!-- Modal: novo/editar contrato do condomínio -->
 <div id="ctrOverlay" class="modalOverlay" style="display:none;">
-  <div class="modalBox" style="max-width:640px;">
+  <!-- Largura 640 → 1000 e corpo em duas colunas: eram 12+ campos empilhados
+       numa coluna estreita, rolando, numa tela de 1440. Mesmo problema (e
+       mesma correção) do modal de orçamento. Todos os ids preservados — o
+       JS de contratos lê 69 deles por getElementById. -->
+  <div class="modalBox" style="max-width:1000px;">
     <div class="modalHead">
       <div>
         <div class="modalTitle" id="ctrTitulo">Novo contrato</div>
@@ -2333,13 +2365,15 @@
         <button class="btn btn-sm" id="ctrBtnFechar">Fechar</button>
       </div>
     </div>
-    <div class="modalBody" style="padding:20px 24px 24px;display:flex;flex-direction:column;gap:14px;">
+    <div class="modalBody">
       <input type="hidden" id="ctrId" />
       <input type="hidden" id="ctrCondoId" />
 
-      <!-- Dados do contrato -->
-      <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;">Dados do contrato</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      <div class="modal-2col">
+      <div class="modal-col">
+
+      <div class="modal-sec-title">Dados do contrato</div>
+      <div class="modal-fields-2">
         <label class="f">
           <span>Tipo de serviço <span style="color:var(--danger)">*</span></span>
           <select id="ctrServicoTipo" class="select">
@@ -2355,7 +2389,7 @@
         </label>
       </div>
 
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      <div class="modal-fields-2">
         <label class="f">
           <span>Periodicidade <span style="color:var(--danger)">*</span></span>
           <select id="ctrTipo" class="select">
@@ -2370,7 +2404,7 @@
         </label>
       </div>
 
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      <div class="modal-fields-2">
         <label class="f">
           <span>Início <span style="color:var(--danger)">*</span></span>
           <input id="ctrInicio" class="input" type="date" />
@@ -2381,7 +2415,7 @@
         </label>
       </div>
 
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      <div class="modal-fields-2">
         <label class="f">
           <span>Forma de pagamento</span>
           <select id="ctrFormaPagto" class="select">
@@ -2399,7 +2433,7 @@
         </label>
       </div>
 
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      <div class="modal-fields-2">
         <label class="f">
           <span>Número do contrato <span style="font-size:10px;color:var(--muted);font-weight:400;">(opcional)</span></span>
           <input id="ctrNumero" class="input" type="text" maxlength="40" placeholder="ex: CT-2026-0001" />
@@ -2410,20 +2444,29 @@
         </label>
       </div>
 
-      <label class="f">
-        <span>Descrição dos serviços <span style="font-size:10px;color:var(--muted);font-weight:400;">(aparece no contrato)</span></span>
-        <textarea id="ctrDescServico" class="input" rows="2" maxlength="4000" style="resize:vertical;font-size:13px;padding:8px 10px;" placeholder="Ex: Manutenção preventiva e corretiva de 8 bombas de recalque, 2 de incêndio…"></textarea>
-      </label>
+      </div><!-- /modal-col esquerda -->
 
-      <label class="f">
-        <span>Observações internas</span>
-        <textarea id="ctrObs" class="input" rows="2" maxlength="4000" style="resize:vertical;font-size:13px;padding:8px 10px;" placeholder="Notas internas, não aparecem no contrato…"></textarea>
-      </label>
+      <div class="modal-col">
+
+      <!-- Os dois textos vieram da coluna esquerda: lá ela ficava ~380px mais
+           alta que esta, e a divisão passa a ser "termos comerciais" à
+           esquerda, "conteúdo e partes" à direita. -->
+      <div>
+        <div class="modal-sec-title">Conteúdo do contrato</div>
+        <label class="f" style="margin-bottom:12px;">
+          <span>Descrição dos serviços <span style="font-size:10px;color:var(--muted);font-weight:400;">(aparece no contrato)</span></span>
+          <textarea id="ctrDescServico" class="input" rows="2" maxlength="4000" style="resize:vertical;font-size:13px;padding:8px 10px;" placeholder="Ex: Manutenção preventiva e corretiva de 8 bombas de recalque, 2 de incêndio…"></textarea>
+        </label>
+        <label class="f">
+          <span>Observações internas</span>
+          <textarea id="ctrObs" class="input" rows="2" maxlength="4000" style="resize:vertical;font-size:13px;padding:8px 10px;" placeholder="Notas internas, não aparecem no contrato…"></textarea>
+        </label>
+      </div>
 
       <!-- Signatários -->
-      <div style="border-top:1px solid var(--border);padding-top:14px;">
-        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;">Signatários para assinatura digital</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      <div>
+        <div class="modal-sec-title">Signatários para assinatura digital</div>
+        <div class="modal-fields-2">
           <label class="f">
             <span>Representante do cliente (nome)</span>
             <input id="ctrSignNome" class="input" type="text" maxlength="200" placeholder="Nome do responsável" />
@@ -2441,11 +2484,15 @@
             <input id="ctrSignGeralEmail" class="input" type="email" maxlength="200" placeholder="comercial@generalbombas.com" />
           </label>
         </div>
+        <!-- "Enviar para assinatura" dispara e-mail para pessoas reais e está
+             escondido dentro de "Mais ações". Este bloco diz PRA QUEM vai,
+             antes do clique. Preenchido por _ctrAtualizarDestinatarios(). -->
+        <div class="modal-consequencia" id="ctrEnvioDest"></div>
       </div>
 
       <!-- Painel de assinatura (só em edição com zapsign_status) -->
       <div id="ctrAssinaturaPainel" style="display:none;border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px;background:rgba(255,255,255,.03);">
-        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;">Assinatura digital</div>
+        <div class="modal-sec-title">Assinatura digital</div>
         <div style="display:flex;flex-direction:column;gap:8px;">
           <div id="ctrUrlClienteRow" style="display:none;">
             <div style="font-size:11px;color:var(--muted);margin-bottom:3px;">Link do cliente</div>
@@ -2466,6 +2513,9 @@
           </div>
         </div>
       </div>
+
+      </div><!-- /modal-col direita -->
+      </div><!-- /modal-2col -->
     </div>
 
     <div class="modalFoot">
@@ -2509,13 +2559,13 @@
 
       <!-- Descrição dos serviços -->
       <div id="ctrViewerDescWrap" style="display:none;">
-        <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-bottom:6px;">Descrição dos serviços</div>
+        <div class="modal-sec-title">Descrição dos serviços</div>
         <div id="ctrViewerDesc" style="font-size:13px;color:var(--text);line-height:1.55;white-space:pre-wrap;background:var(--surface2);border-radius:var(--radius-sm);padding:10px 12px;"></div>
       </div>
 
       <!-- Assinatura digital -->
       <div id="ctrViewerSignWrap" style="display:none;border-top:1px solid var(--border);padding-top:14px;">
-        <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-bottom:10px;">Assinatura digital</div>
+        <div class="modal-sec-title">Assinatura digital</div>
         <div id="ctrViewerSignInfo" style="display:flex;flex-direction:column;gap:4px;font-size:13px;"></div>
       </div>
 
@@ -2532,7 +2582,7 @@
 </div>
 
 
-<script src="/static/admin.js?v=256" defer></script>
+<script src="/static/admin.js?v=277" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
 <script src="/static/register-sw.js?v=32" defer></script>
 </body>

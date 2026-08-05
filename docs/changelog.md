@@ -1544,6 +1544,357 @@ er sem animação.
   - Ambas as tabelas já usavam `.orc-itens-table`, então os inputs herdaram o
     estilo existente — sem CSS novo.
 
+- **2026-08-05** — **Controles sumindo em tela de notebook (toolbars que não
+  quebravam linha).** Sintoma relatado: na aba de Reservatórios o botão
+  "+ Novo" simplesmente não aparecia. Não era `display:none` nem permissão —
+  era **recorte silencioso**.
+  - **Medido** com harness estático (markup real do `admin.html` + `admin.css`
+    real, sem backend, Chrome headless via Puppeteer) em 1280/1366/1440/1536px.
+    Em 1366px o card "Níveis dos Reservatórios" termina em `x=936`, mas o
+    `.cardHead` precisava de **764px** pra 643px disponíveis — o "+ Novo"
+    começava em `x=992`, **56px além da borda**. Como `.card` tem
+    `overflow: hidden` e o `.cardHead` só ganhava `flex-wrap` em
+    `max-width: 768px`, entre ~1280px e 1536px o botão era cortado inteiro,
+    **sem scroll pra alcançá-lo**.
+  - **Não era só a telemetria.** A varredura achou o mesmo padrão em 6 abas:
+    `.wa-tabs` (Chamados, Orçamentos, WhatsApp, Colaboradores, Clientes) e
+    `.mp-tabs` (Mapa) escondiam filtros como "P1 Crítico", "Resolvidos", "TI",
+    "Gestor", "Aprovado", "Em atendimento" e a aba "Chamados". Nesses casos o
+    `overflow-x: auto` dava scroll, mas **sem nenhuma affordance visual** —
+    na prática ninguém descobria que dava pra rolar. WhatsApp quebrava até em
+    1536px.
+  - **Correção:** `flex-wrap: wrap` em `.cardHead`, `.wa-tabs` e `.mp-tabs`.
+    Recorte nunca é o comportamento desejado; quebrar linha é estritamente
+    melhor e só entra em ação quando o conteúdo não caberia mesmo.
+  - **Pegadinha do flexbox** (custou duas tentativas): o empacotamento em
+    linhas acontece **antes** do encolhimento e consulta o `flex-basis`, não o
+    quanto o item poderia espremer. Com `basis: auto` o grupo `.tel-filtros`
+    media 599px, estourava a linha e empurrava o "+ Novo" pra uma **terceira**
+    linha sem nunca tentar encolher os selects. Baixar pra `flex: 1 1 115px`
+    (com o `max-width: 180px` que já existia) faz o grupo medir 513px, caber
+    numa linha só, e o `flex-grow` devolver a sobra.
+  - **Segunda pegadinha:** `margin-left: auto` no `.tel-filtros` consumia o
+    espaço livre **antes** do `flex-grow`, deixando o grupo 40px mais estreito
+    que a linha — o "+ Novo" quebrava por 7px. Trocado por
+    `justify-content: flex-end`, que alinha à direita sem roubar espaço.
+  - **Verificado:** zero controles cortados em 1280/1366/1440/1536px, contra
+    13 antes. Os dois "achados" restantes da varredura são falsos positivos
+    conhecidos e propositais: `.rc::before` (brilho decorativo com
+    `right: -20%`, recortado de propósito) e `.sr-only` (1px, leitor de tela).
+  - Cache-bust: `admin.css` v163, `admin.js` v257.
+
+- **2026-08-05** — **Modal de orçamento avulso reestruturado + polimento dos
+  campos de formulário.** Só estrutura e hierarquia: paleta, fontes e raios
+  continuam os mesmos do painel.
+  - **Campos (`.input` / `.select`, globais).** O fundo era `rgba(255,255,255,.04)`,
+    mais claro que o card; virou `var(--bg-soft)`, mais escuro — campo vazio é
+    espaço a preencher, e afundar lê melhor que levantar. O foco trocou o anel
+    de 3px por um sublinhado amber, porque o anel engordava a caixa e brigava
+    com campos vizinhos em formulário denso (o modal de orçamento era o caso
+    pior). Hover passou a acender a borda, que antes não dava retorno nenhum.
+    O sublinhado é `box-shadow: inset`, **não** `border-bottom`: 2px de borda
+    mudariam a altura do campo em 1px e desalinhariam as filter-bars que põem
+    input e botão na mesma linha. Alcança também os `<textarea class="input">`.
+    Ajustados junto os dois seletores que definiam fundo próprio e ficariam
+    destoando: `.filter-bar .input/.select` e `.tel-select`.
+  - **Modal (`_avRenderPainel`).** Problemas corrigidos:
+    1. **O total não aparecia.** O número que decide o orçamento só existia
+       como "Soma dos itens" no rodapé da tabela, ou escondido atrás do
+       checkbox "definir valor total manualmente". Agora tem um **trilho
+       sticky** à direita com o total em corpo grande, sempre visível.
+    2. **O tipo tinha o peso de um campo qualquer**, num grid `1.4fr 1fr 1fr`
+       ao lado de "data" — mas é ele que ramifica o PDF entre tabela de peças
+       e texto por cláusulas. Virou escolha de documento no topo, 4 cards com
+       uma linha dizendo o que cada um gera.
+    3. **"Status" morava em Condições Comerciais** e duplicava a pill do
+       cabeçalho. Foi pro trilho, junto de validade e tipo.
+    4. **As 4 ações do rodapé eram indistinguíveis.** "Gerar PDF" (inócuo) e
+       "Enviar por e-mail" (sai pra cliente real) tinham o mesmo botão, e
+       "Excluir" ficava no canto esquerdo, no caminho. Agora: Salvar (amber) e
+       Gerar PDF no trilho; envio em bloco próprio; Excluir discreto no pé.
+    5. **"Cliente avulso" era checkbox** para uma troca de modo — virou
+       segmentado Cadastrado / Avulso.
+  - **Envio mostra o destinatário antes do clique** (`Vai para X com o PDF
+    anexo`), e o botão fica desabilitado sem e-mail. Para isso o
+    `GET /admin/condominios/lista` passou a devolver `email` — sem esse campo o
+    destinatário ficaria congelado no condomínio original e mostraria o e-mail
+    errado quando o operador trocasse o select.
+  - **⚠️ Contrato preservado:** `avInputTipo`, `avToggleAvulso` e
+    `avToggleValorManual` continuam existindo como `<select>`/`<checkbox>`, só
+    que ocultos (`.av-hidden-ctl`). Os cards e o segmentado apenas setam o
+    valor e disparam `change`. Todos os 20 ids que `_avAcao` lê por
+    `getElementById` e as 5 `data-av-action` seguem idênticos — o salvamento
+    não foi tocado.
+  - A "Soma dos itens" do rodapé da tabela saiu: seria a mesma informação que
+    o trilho, em dois lugares.
+  - **Layout em zonas, não coluna vertical.** Primeira versão ainda era uma
+    coluna rolável de 900px dentro de um modal de tela cheia — desperdiçava a
+    largura e obrigava a rolar até o fim pra ver tudo. Reorganizado em:
+    faixa de configuração no topo (tipo | cliente + constatação, duas colunas),
+    **itens com a largura toda** absorvendo a sobra de altura, e condições
+    comerciais em 5 campos numa linha no rodapé. A janela tem altura fixa
+    (`min(92vh, 880px)`) e **só a zona de itens rola por dentro** — tipo,
+    cliente, condições e trilho ficam sempre à vista, com 3 ou 30 itens.
+    Largura foi de 900px para 1360px.
+    Abaixo de 1280px as condições viram 3+2; abaixo de 1080px a altura fixa
+    deixa de compensar e tudo volta a ser coluna única com rolagem de página.
+  - **Ajuste fino medido no harness** (Puppeteer + markup real extraído do
+    `admin.js`, mesmo padrão da varredura de responsividade). Sete correções,
+    todas encontradas *olhando o render*, não lendo o código:
+    1. **O conteúdo vazava 246px pra fora do diálogo.** `#avModalBody` é um
+       wrapper entre o diálogo e o layout; sem torná-lo flex, o `flex:1` do
+       `.av-layout` não alcançava e as condições comerciais ficavam abaixo da
+       borda inferior. Some `min-height: 0` no `.av-col-form` — item de grid
+       nasce com `min-height: auto` e se recusa a encolher.
+    2. **320px de espaço morto na tabela de itens.** Qtd tinha 148px pra um
+       input de 52px; Unit. 213px pra 82px; Total 183px pra um texto de ~90px —
+       larguras fixas do tempo em que o modal tinha 900px. Com `<colgroup>`
+       (84/122/122/40) a descrição foi de 434px para 648px.
+    3. **Moldura dupla.** `.av-modal-dialog .ap-section` desenha borda + fundo,
+       mas `.ap-section-title` já tem régua embaixo — e só as 3 seções do topo
+       eram `.ap-section`, então elas viravam caixa e Itens/Condições não.
+       Agora é régua-sob-título nas 5 zonas, alinhadas no mesmo eixo.
+    4. **Cards de tipo em 2×2 ficavam com 184px**, títulos quebrando em duas
+       linhas e descrições em três, alturas desiguais. Em coluna única usam os
+       410px inteiros numa linha só — e a faixa de configuração caiu de 323px
+       para 257px, altura que foi direto pra zona de itens.
+    5. **Vão de ~280px no meio do trilho**, causado por `margin-top: auto` no
+       bloco de excluir.
+    6. **"+ Adicionar item" saía da vista** a partir do 3º item. Virou barra
+       sticky no pé da área rolável — e, pra caber, perdeu o textarea de ficha
+       técnica, que a linha criada já tem logo abaixo da descrição.
+       `_avAcao` lê `avNewFicha` com `?.` + `|| null`, então some sem quebrar.
+    7. **A linha de adicionar ficava 59px fora do eixo das colunas.** Virou
+       grid com o mesmo template do `<colgroup>` e 8px de margem por campo —
+       o mesmo `padding: 6px 8px` das células.
+    Resultado medido em 1440px: colunas da faixa equilibradas (257/257
+    cadastrado, 319/319 avulso), zona de itens com 275px (212px no avulso),
+    nada vazando o diálogo. Conferido também em 1920, 1600 e 1366.
+  - Cache-bust: `admin.css` v167, `admin.js` v261.
+
+- **2026-08-05** — **Migration 068: `orcamento_linhas.tipo_servico` + a troca de
+  tipo passa a ser visível.**
+  - **O bug silencioso.** Nos orçamentos por cláusulas (limpeza / dedetização /
+    combo), o `ficha_tecnica` da linha do serviço é o texto injetado na
+    **Cláusula Primeira** do PDF. O `orcamento-pdf.service` achava essa linha
+    por **regex na descrição** (`/reservat[oó]rio/i`). Bastava alguém reescrever
+    "Limpeza e Higienização de Reservatório…" como "Higienização da caixa
+    d'água" e a especificação **sumia do PDF sem erro e sem aviso** — o cliente
+    recebia a cláusula incompleta. A coluna `tipo_servico` dá à linha uma chave
+    estável; o regex fica como fallback pras linhas antigas, e a migration faz
+    backfill das que ainda casam com o padrão.
+    **Verificado** contra o banco de teste, com a query real do serviço:
+    descrição padrão + chave ✓ · **descrição reescrita + chave ✓** (era o caso
+    que quebrava) · descrição reescrita sem chave ✗ (legado, comportamento
+    inalterado).
+  - **Escopo:** migration 068 (coluna + CHECK + backfill + índice parcial);
+    `POST /admin/orcamentos/avulsos/:id/linhas` aceita e valida o campo (valor
+    fora da lista vira `NULL` em vez de estourar o CHECK); `GET .../linhas` e a
+    query do PDF passam a devolvê-lo; o preset `_avItensPadrao` grava a chave
+    (o combo herda, porque é composto dos dois presets).
+  - **A troca de tipo virou visível.** Escolher outro tipo reorganiza a tabela
+    (colunas Qtd/Unit. somem, o formulário de adicionar vira aviso) **e grava
+    linhas novas no servidor** — tudo isso acontecia sem sinal nenhum e parecia
+    bug. Sinal: a zona de itens pisca em amber por 1,2s (única animação do
+    modal, com `prefers-reduced-motion` respeitado), o valor "Tipo" do trilho
+    pisca junto, e o título alterna entre "Itens" e "Valores dos serviços".
+  - **Excesso de texto explicativo, cortado no mesmo dia.** A primeira versão
+    dizia a mesma coisa em quatro lugares — descrição sob cada card de tipo,
+    subtítulo "· define o layout do PDF", nota em prosa na zona de itens e o
+    aviso da tabela. Repetição vira ruído, não ajuda. Ficou: card só com o
+    título; nenhuma nota; uma frase curta onde a ausência do formulário de
+    adicionar seria confusa ("Linhas definidas pelo tipo do documento"); e a
+    Cláusula Primeira mencionada **só** no placeholder do campo que a alimenta.
+    Efeito colateral bom: os cards viraram uma linha e a faixa de configuração
+    encolheu.
+  - **Trocar de tipo agora limpa as linhas do tipo antigo.** Antes, escolher
+    "Limpeza de reservatório" e voltar para "Peças" deixava a linha
+    "Limpeza e Higienização de Reservatório…" na tabela como se fosse item de
+    peça — somando no total e saindo no PDF. `_avLimparServicosForaDoTipo`
+    remove pela **chave** `tipo_servico`, com uma regra que evita os dois erros
+    opostos:
+    • linha **intocada** (sem valor e sem especificação) é a que o sistema
+      inseriu e ninguém preencheu — sai calada, não há nada a perder;
+    • linha **com valor ou especificação** é trabalho de alguém — só sai depois
+      de um confirm que **lista o que será removido**.
+    A pergunta vem **antes** de mexer em qualquer coisa: cancelar não deixa
+    rastro (o tipo não muda, o card não troca). "Continuar?" significa
+    continuar a troca inteira, não só a exclusão.
+    Linha sem `tipo_servico` (peça comum, ou serviço anterior à migration 068)
+    nunca é tocada — apagar por heurística de texto seria o mesmo erro que a
+    068 veio corrigir.
+    **8 cenários testados** com as funções reais extraídas do `admin.js`:
+    intocada · com valor · com especificação · limpeza→combo (não sai) ·
+    combo→dedetização (só a limpeza sai) · peça comum · linha legado ·
+    cancelar bloqueia. Todos passaram.
+  - **`_avPreencherPadrao` deduplica pela chave**, não pela descrição. Comparar
+    texto tinha o mesmo defeito do regex do PDF: renomear a linha e ir para o
+    combo inseria o preset duplicado. `descricao` segue como fallback pras
+    linhas sem chave.
+  - **O campo "especificação" agora é decidido por LINHA, não por tipo** — e o
+    de dedetização sumiu, porque não fazia nada. Levantamento do papel real do
+    `ficha_tecnica` no `orcamento-pdf.service`:
+    | linha | o que o PDF faz com o texto |
+    |---|---|
+    | peça | imprime sob o item (`renderHTML`) |
+    | limpeza de reservatório | injeta na Cláusula Primeira |
+    | **dedetização** | **nada** — `clausulasDedetizacao()` não recebe argumento, e `renderHTMLServico` monta o bloco de valores só com descrição e total |
+    O texto digitado numa linha de dedetização era gravado no banco e **nunca
+    saía em lugar nenhum**, enquanto o placeholder afirmava que ia para a
+    Cláusula Primeira. Agora: linha de limpeza mantém o placeholder da
+    cláusula; linha de dedetização **não mostra o campo**, a menos que já
+    tenha texto gravado — nesse caso aparece com "Anotação interna — não sai
+    no PDF", para que dado antigo não fique inacessível nem minta sobre o
+    próprio destino. No combo isso é obrigatório: as duas linhas convivem na
+    mesma tabela com papéis diferentes.
+    A detecção espelha a do PDF (chave `tipo_servico` primeiro, regex na
+    descrição como fallback pras linhas anteriores à 068). **5 cenários
+    testados** com a função real: peça · limpeza com chave · limpeza legado ·
+    dedetização vazia (oculta) · dedetização com texto legado.
+  - ⚠️ **Migration aplicada só no banco de TESTE.** Rodar em produção com
+    `node scripts/migrate.js 068_orcamento_linha_tipo_servico.sql --prod`.
+  - Cache-bust: `admin.css` v169→v170, `admin.js` v263→v265.
+
+- **2026-08-05** — **Orçamentos por cláusulas: nome do serviço travado e
+  especificação da dedetização passando a existir no PDF.**
+  - **O problema.** A descrição da linha de serviço vira o rótulo ao lado do
+    preço no PDF — e **só isso**. Outros três pontos do documento derivam do
+    `orcamentos.tipo`, não da linha: o texto das cláusulas
+    (`clausulasDedetizacao` / `clausulasLimpezaReservatorio`), o cabeçalho
+    "Serviço 1/2 –" do combo, e o subtítulo (`TIPO_SUBTITULO`). Dava para
+    emitir um orçamento com o valor rotulado "Controle de cupins" enquanto as
+    cláusulas falavam de baratas e formigas e o subtítulo dizia "Dedetização e
+    Controle de Pragas Urbanas" — três afirmações se contradizendo no mesmo
+    documento, sem nenhum erro no caminho.
+  - **A — nome travado.** Em linha de serviço a descrição vira texto, não
+    campo. Renderizado como texto e não como input desabilitado: campo cinza
+    convida a clicar e frustra. Trava **só quando há `tipo_servico`** — a chave
+    é sinal confiável; linha anterior à migration 068 continua editável, porque
+    é justamente a que pode precisar de conserto, e restringir por heurística
+    de texto seria o erro que a 068 veio corrigir.
+  - **C — a dedetização ganhou especificação de verdade.**
+    `clausulasDedetizacao()` não recebia argumento: o texto digitado ia pro
+    banco e nunca saía. Agora recebe e imprime na **Cláusula Primeira**, no
+    mesmo formato `<strong>Especificação:</strong>` que a limpeza já usava — as
+    duas ficam simétricas no combo. Busca via `acharEspecificacaoDedetizacao`
+    (chave `dedetizacao`, com regex `/dedetiza|praga/i` de fallback pras linhas
+    antigas); a lógica comum saiu para `_especificacaoDaLinha`.
+  - O campo de especificação, que na versão anterior ficava oculto na
+    dedetização por não alimentar nada, voltou — agora com destino real. O
+    exemplo do placeholder muda por serviço ("2 superiores e 1 inferior" para
+    reservatório, "3 blocos e garagem" para dedetização).
+  - **10 cenários testados** com as funções reais dos dois arquivos: chave ·
+    fallback legado · ausência de especificação · combo (cada serviço pega a
+    sua, sem trocar) · trava por chave · legado editável · peça editável.
+  - **Modo serviço visto pela primeira vez no harness.** Até aqui o harness
+    cravava `tipoAtivo = "pecas"`, então tudo que é exclusivo do modo serviço
+    (tabela de 3 colunas, aviso no lugar do formulário de adicionar, nome
+    travado, placeholder da especificação) tinha sido escrito sem nunca ter
+    sido renderizado. Um `shot-servico.js` cobre o combo agora.
+  - **Notebook 1366×768 estava apertado demais.** A janela é fatia da altura da
+    viewport, então toda folga sai da zona de itens — a última a receber.
+    Medido: **153px** para os itens, e um combo com apenas 2 serviços já
+    nascia rolando, com a especificação do segundo cortada. Um
+    `@media (max-height: 820px)` reduz padding, gaps e a altura dos cards de
+    tipo; a zona vai para **234px** e os 2 serviços cabem inteiros. Só folga
+    encolhe — nenhum tamanho de fonte ou alvo de clique muda (menor alvo
+    continua 24px em peças, 27px em serviço).
+  - Cache-bust: `admin.css` v172, `admin.js` v266.
+
+- **2026-08-05** — **Camada de modal compartilhada (etapa 1 de 2).** O modal de
+  orçamento virou referência; esta etapa leva pros outros 13 tudo que dá pra
+  levar **por CSS, sem tocar em marcação**.
+  - **Ponto de partida melhor que o esperado:** os 11 `.modalOverlay` já
+    compartilham `.modalBox / .modalHead / .modalBody / .modalFoot`, com a
+    estrutura certa (flex column, corpo rolando por dentro, `max-height: 90vh`).
+    Faltava tratamento, não arquitetura.
+  - **Fio no topo** marcando o modal como foco da tela. ⚠️ Amber é cor de
+    **marca e ação** — num modal de exclusão permanente ele diz o oposto do que
+    a tela quer dizer. Por isso `.modalBox.is-perigo` deixa o fio vermelho;
+    aplicado no `hardDeleteOverlay`. (`osFotoLightbox` apareceu como destrutivo
+    numa varredura minha e era **falso positivo** — é lightbox de foto, nem tem
+    `.modalBox`; o recorte de 1800 caracteres pegou o texto do modal seguinte.)
+  - **`@media (max-height: 820px)` para todos os modais**, mesmo racional do
+    orçamento: só folga encolhe, nenhuma fonte e nenhum alvo de clique.
+    Verificado — `ctrOverlay` vai de 810px para 730px em viewport de 768 e
+    passa a caber inteiro na tela.
+  - **Ferramentas prontas para a etapa 2**, ainda **não aplicadas** em nenhum
+    modal: `.modal-sec-title` (rótulo de seção com régua, hoje cada modal usa
+    `<div>` com estilo inline), `.modalFoot-danger` (destrutivo discreto, fora
+    do caminho) e `.modal-consequencia` (bloco que declara o destino de uma
+    ação externa antes do clique).
+  - **Etapa 2 (marcação, por modal) — não feita.** O caso pior é o
+    `ctrOverlay`: **12 campos empilhados numa coluna de 640px**, rolando, numa
+    tela de 1440 — o mesmo problema que o orçamento tinha. E "Enviar para
+    assinatura", que dispara e-mail para o cliente, está escondido dentro de
+    "Mais ações" sem declarar destinatário.
+  - Cache-bust: `admin.css` v173.
+
+- **2026-08-05** — **Camada de modal, etapa 2: `ctrOverlay` reorganizado.**
+  - **Era o pior caso do sistema:** 12+ campos empilhados numa coluna de 640px,
+    rolando, numa tela de 1440 — o mesmo problema que o modal de orçamento
+    tinha. Passou a **1000px em duas colunas**: "Dados do contrato" (termos
+    comerciais) à esquerda, "Conteúdo do contrato" + "Signatários" +
+    "Assinatura digital" à direita.
+    **Medido: de 640×810 rolando para 1000×558 sem rolagem** — e continua sem
+    rolar em viewport de 768px (1000×530).
+  - Os 3 rótulos de seção com estilo inline viraram `.modal-sec-title`; os 5
+    grids `1fr 1fr` inline viraram `.modal-fields-2`; **43 ids preservados**.
+  - **"Enviar para assinatura" agora declara os destinatários.** A ação dispara
+    e-mail para pessoas reais e vive escondida dentro do menu "Mais ações".
+    `_ctrAtualizarDestinatarios()` preenche um `.modal-consequencia` lendo dos
+    **campos** (não do contrato salvo), então quem acabou de digitar o e-mail vê
+    o destino na hora. `.modal-consequencia:empty` esconde o bloco enquanto não
+    há texto, pra não virar faixa amber vazia.
+  - `novoChamadoOverlay`: 3 rótulos inline → `.modal-sec-title`.
+  - `hardDeleteOverlay`: `.modalBox.is-perigo` (fio vermelho).
+
+  > ⚠️ **Cicatriz desta sessão — recorte de string com índices invertidos.**
+  > Um `s[:ini] + s[ini:fim] + s[fim:]` em que `fim` vinha **antes** de `ini`
+  > (`ctrsPickerModal` na linha 836, `ctrOverlay` na 2324) produziu `trecho`
+  > vazio e concatenou `P + Q + Q + R`: **1.488 linhas duplicadas** e 268 ids
+  > repetidos no `admin.html`. Não deu erro nenhum — o script imprimiu
+  > "grids convertidos: 0" e seguiu. Só apareceu numa varredura de ids
+  > duplicados feita por outro motivo.
+  > **Lição:** ao fatiar arquivo por marcadores de texto, **afirmar
+  > `ini < fim`** antes de concatenar, e conferir contagem de linhas depois.
+  > Um `assert` de duas palavras teria evitado. Reparado removendo uma cópia
+  > do bloco; verificado: 0 ids duplicados, 588 `<div>` para 588 `</div>`,
+  > diff contra HEAD com apenas as 49 inserções pretendidas.
+  - Cache-bust: `admin.css` v175, `admin.js` v267.
+
+- **2026-08-05** — **Camada de modal, etapa 3: os 13 no mesmo padrão.** As
+  etapas 1 e 2 tinham deixado 11 modais só com a casca (fio no topo e respiro),
+  sem o tratamento de verdade. Esta etapa fecha isso.
+  - **A causa raiz:** 5 modais **reimplementavam a casca** com estilo inline
+    (`padding:20px 24px 16px;border-bottom…` para cabeçalho,
+    `padding:14px 24px;border-top…` para rodapé) em vez de usar
+    `.modalHead` / `.modalBody` / `.modalFoot`. Por isso não herdavam nada.
+    Convertidos: modal de **usuário**, **dispositivos confiáveis**, **senha
+    temporária**, **colaborador** (`admin.js`) e **planos** + **seletor de
+    cliente** (`admin.html`). Restam **0** cascas inline nos dois arquivos.
+  - **19 rótulos de seção** com estilo inline viraram `.modal-sec-title`
+    (9 no `admin.js`, 10 no `admin.html`), ganhando a régua embaixo. Restou 1
+    no JS, e de propósito: é rótulo de campo ("Reservatório"), não de seção.
+  - **`.av-modal-dialog` ganhou o fio amber** — sem isso os três que usam
+    `.av-modal` (orçamento, planos, seletor) ficavam fora do padrão, **inclusive
+    o de orçamento, que serviu de referência para ele**.
+  - **`ctrViewerOverlay`**: 2 rótulos inline convertidos.
+  - **`editOverlay`**: ganhou seções "Endereço" e "Contato e operação" — eram
+    13 campos seguidos sem nenhuma divisão.
+  - **`.modalFoot-danger` aplicado pela primeira vez:** "Revogar todos os
+    dispositivos" derruba o acesso de todos os aparelhos do usuário e dividia
+    peso visual com o botão de fechar; agora sai do caminho, à esquerda.
+  - **`.modalBody.modal-secoes`**: corpo dividido em seções cujos wrappers são
+    mostrados/escondidos por JS. Como cada `.modal-sec-title` é primeiro filho
+    do seu wrapper, o `:not(:first-child)` não pegava e as seções ficavam
+    coladas.
+  - **Limite do harness estático, declarado:** a auditoria mede o HTML servido;
+    dos 13 modais, 7 têm o corpo montado por JS e aparecem com "0 seções"
+    porque a casca nasce vazia. Para esses, a verificação foi feita contando
+    as classes nos **templates** do `admin.js`, não no render.
+  - Cache-bust: `admin.css` v178, `admin.js` v269.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

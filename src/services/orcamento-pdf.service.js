@@ -142,7 +142,7 @@ async function buscarDadosAvulso(orcamentoId) {
   if (!r.rows.length) throw new Error("Orçamento não encontrado");
 
   const linhasRes = await pool.query(
-    `SELECT id, descricao, ficha_tecnica, quantidade, valor_unitario
+    `SELECT id, descricao, ficha_tecnica, quantidade, valor_unitario, tipo_servico
      FROM orcamento_linhas
      WHERE orcamento_id = $1
      ORDER BY id ASC`,
@@ -627,11 +627,18 @@ function clausulasLimpezaReservatorio(especificacao) {
 </div>`;
 }
 
-function clausulasDedetizacao() {
+// Recebe especificação pelo mesmo caminho da limpeza. Antes não recebia nada,
+// e o campo que o admin oferecia para dedetização não aparecia em lugar nenhum
+// do documento — o texto ia pro banco e morria ali.
+function clausulasDedetizacao(especificacao) {
+  const espHtml = especificacao
+    ? `<p><strong>Especificação:</strong> ${escapeHtml(especificacao)}.</p>`
+    : "";
   return `
 <div class="clausula">
   <div class="clausula-titulo">Cláusula Primeira – Objeto</div>
   <p>O presente orçamento tem por objeto a prestação de serviços de dedetização (controle de pragas urbanas) nas áreas comuns do condomínio acima identificado, com mão de obra especializada e produtos saneantes desinfestantes registrados nos órgãos competentes.</p>
+  ${espHtml}
 </div>
 <div class="clausula">
   <div class="clausula-titulo">Cláusula Segunda – Escopo dos Serviços</div>
@@ -646,19 +653,39 @@ function clausulasDedetizacao() {
 // Acha a linha de "limpeza de reservatório" entre os itens do orçamento pra
 // puxar a especificação (ficha_tecnica) digitada pelo admin — funciona tanto
 // sozinho quanto no combo (a linha de dedetização não bate no regex).
-function acharEspecificacaoReservatorio(itens) {
-  const item = (itens || []).find(it => /reservat[oó]rio/i.test(it.descricao || ""));
+// A especificação que entra na Cláusula Primeira mora no `ficha_tecnica` da
+// linha do serviço. Achá-la por REGEX na descrição era frágil: bastava alguém
+// reescrever "Limpeza e Higienização de Reservatório…" como "Higienização da
+// caixa d'água" e a especificação sumia do PDF em silêncio — sem erro, sem
+// aviso, e o cliente recebia a cláusula incompleta.
+//
+// Desde a migration 068 a linha carrega `tipo_servico`, então a busca é por
+// chave. O regex fica como fallback para as linhas gravadas antes da migration
+// que o backfill não alcançou (descrição fora do padrão) — exatamente os casos
+// em que ele já era a única pista disponível.
+function _especificacaoDaLinha(itens, chave, regexLegado) {
+  const lista = itens || [];
+  const porChave = lista.find(it => it.tipo_servico === chave);
+  const item = porChave || lista.find(it => regexLegado.test(it.descricao || ""));
   return item?.ficha_tecnica ? String(item.ficha_tecnica).trim() : null;
+}
+
+function acharEspecificacaoReservatorio(itens) {
+  return _especificacaoDaLinha(itens, "limpeza_reservatorio", /reservat[oó]rio/i);
+}
+
+function acharEspecificacaoDedetizacao(itens) {
+  return _especificacaoDaLinha(itens, "dedetizacao", /dedetiza|praga/i);
 }
 
 const CLAUSULAS_POR_TIPO = {
   limpeza_reservatorio: (itens) => clausulasLimpezaReservatorio(acharEspecificacaoReservatorio(itens)),
-  dedetizacao: () => clausulasDedetizacao(),
+  dedetizacao: (itens) => clausulasDedetizacao(acharEspecificacaoDedetizacao(itens)),
   limpeza_dedetizacao: (itens) => `
 <div class="servico-header">Serviço 1 – Limpeza de Reservatório de Água Potável</div>
 ${clausulasLimpezaReservatorio(acharEspecificacaoReservatorio(itens))}
 <div class="servico-header">Serviço 2 – Dedetização</div>
-${clausulasDedetizacao()}`,
+${clausulasDedetizacao(acharEspecificacaoDedetizacao(itens))}`,
 };
 
 function renderHTMLServico({ os, itens }, timbrado) {

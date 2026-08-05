@@ -63,6 +63,18 @@ aliases:
   mão — hoje só o técnico de teste (id 9) tem a permissão correta. Encosta no
   formulário de declaração da Play Store da 7J.
 
+- **Varredura de responsividade do admin em telas pequenas** 🟡 — em 2026-08-05
+  foi corrigido o **recorte de controles** em toolbars (`.cardHead`,
+  `.wa-tabs`, `.mp-tabs`), que escondia botões e filtros entre ~1280px e
+  1536px em 6 abas. A varredura automatizada (harness estático + Puppeteer,
+  ver [`../docs/changelog.md`](../docs/changelog.md)) cobriu **overflow
+  horizontal**; ficou de fora o que ela não mede:
+  - **Altura** — tabelas e modais longos em 768px de viewport.
+  - **Painel do cliente** (`public/cliente.css`) — a varredura só rodou no
+    admin, e o redesenho do painel do cliente mira justamente o navegador.
+  - Faixa estreita entre ~1100px e ~1223px, onde a toolbar de telemetria
+    ainda usa 3 linhas (nada some, só fica mais alta).
+
 ## Descartado (decisões conscientes)
 
 - **9A — Tabela agregada horária** ❌ — write-threshold já reduz volume o

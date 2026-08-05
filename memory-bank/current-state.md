@@ -149,6 +149,14 @@ ESP32 (sonda 4-20mA + SCT-013)
   uppercase tracked, indicador de aba no bottom-nav. Bloco aditivo no fim de
   `app/public/app.css` + tokens `--hud-*`; só mobile, não afeta admin/site.
 
+- **Toolbars do admin quebram linha** (ago/2026): `.cardHead`, `.wa-tabs` e
+  `.mp-tabs` têm `flex-wrap: wrap`. Antes só quebravam em `max-width: 768px` e,
+  entre ~1280px e 1536px, o `overflow: hidden` do `.card` **recortava
+  controles inteiros sem deixar scroll** — o "+ Novo" da telemetria era o caso
+  visível. Ao acrescentar filtro/botão numa toolbar, confira em 1366px: é a
+  largura de notebook onde a folga acaba primeiro. Medição em
+  [changelog.md](../docs/changelog.md) (2026-08-05).
+
 **Segurança & operação**
 - Envs obrigatórias em produção (JWT_SECRET, CORS_ORIGINS) com `process.exit(1)`.
 - RBAC com **5 roles ativas**: **admin** (master — tudo), **gerente** (operação

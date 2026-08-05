@@ -1225,13 +1225,35 @@ function _telTanqueSVG(pct, offline, thresholds = TEL_LIMIARES) {
     </svg>`;
 }
 
+// Gravidade de um reservatório. Menor = pior.
+//
+// Offline vem ANTES de qualquer nível baixo: sem leitura você não sabe se o
+// tanque está em 80% ou em 0%, e desconhecido é pior que conhecido-e-baixo.
+// Online mas sem leitura fica logo depois, pelo mesmo motivo.
+function _telGravidade(r) {
+  if (r.offline) return -2;
+  const pct = r.ultima_leitura?.nivel_pct;
+  return pct == null ? -1 : pct;
+}
+
+// O card "Níveis dos Reservatórios" mostra UM reservatório: o que está na pior
+// situação agora, dentro dos filtros ativos.
+//
+// Antes empilhava todos, um debaixo do outro. Com 42 reservatórios isso dava
+// 11.524px (~15 telas) e só 2,8 cards visíveis por vez — e ordenado por nome
+// de condomínio, então o crítico podia estar na tela 30. Um reservatório a 97%
+// ocupava o mesmo espaço de um a 4%.
+//
+// Para ver os outros já existem dois caminhos, e nenhum precisou mudar:
+// o botão "Ver todos" (tela cheia com a lista completa) e o filtro de
+// condomínio, que troca qual condomínio o card está representando.
 function renderTelTanques() {
   const el = document.getElementById("telNiveisChart");
   const empty = document.getElementById("telNiveisEmpty");
   if (!el) return;
 
   const reservs = _telAplicarFiltros(_telColetarReservatorios())
-    .sort((a, b) => (a.condominio_nome || "").localeCompare(b.condominio_nome || "") || (a.nome || "").localeCompare(b.nome || ""));
+    .sort((a, b) => _telGravidade(a) - _telGravidade(b));
 
   if (reservs.length === 0) {
     el.innerHTML = "";
@@ -1240,7 +1262,13 @@ function renderTelTanques() {
   }
   if (empty) empty.style.display = "none";
 
-  el.innerHTML = reservs.map(r => _telTanqueTile(r)).join("");
+  // Uma linha, sem botão: o "Ver todos" da toolbar já está logo acima e faz
+  // exatamente isso — repetir a ação aqui era redundância. O que a toolbar
+  // NÃO diz é por que só há um card e de quantos ele foi escolhido.
+  const pior = reservs[0];
+  el.innerHTML = _telTanqueTile(pior) + (reservs.length > 1
+    ? `<div class="tel-resto">Pior situação entre ${reservs.length} reservatórios.</div>`
+    : "");
 }
 
 // Ícones das ações no tile do tanque
@@ -1650,17 +1678,28 @@ async function exportarPdfHistorico() {
 const _TEL_HIST_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3-9 4 18 3-9h4"/></svg>`;
 
 // Empty state do histórico (ícone + texto); zera stats e legenda.
+// Vazio e gráfico são irmãos e disputam a mesma área. O contêiner do gráfico
+// tem altura própria (`flex: 1`), então, se ficar visível sem dados, ele
+// segura o espaço e empurra a mensagem para o rodapé do modal — a mensagem
+// parece descentralizada porque está centralizada no que sobrou, não na área.
+// Esconder o gráfico devolve a área inteira para o vazio.
 function _telHistMostrarVazio(msg) {
   const empty  = document.getElementById("telHistoricoEmpty");
   const stats  = document.getElementById("telHistStats");
   const legend = document.getElementById("telHistoricoLegend");
+  const chart  = document.getElementById("telHistoricoChart");
   if (stats)  stats.innerHTML = "";
   if (legend) legend.innerHTML = "";
+  if (chart)  chart.style.display = "none";
   if (empty)  { empty.innerHTML = `${_TEL_HIST_ICON}<span>${msg}</span>`; empty.style.display = "flex"; }
 }
 function _telHistEsconderVazio() {
   const empty = document.getElementById("telHistoricoEmpty");
+  const chart = document.getElementById("telHistoricoChart");
   if (empty) empty.style.display = "none";
+  // Devolve o gráfico; sem isto ele fica oculto depois do primeiro período
+  // sem dados e o modal aparece em branco ao voltar para um período com dados.
+  if (chart) chart.style.display = "";
 }
 
 async function carregarHistoricoTelemetria() {
@@ -1742,7 +1781,11 @@ function renderTelHistoricoChart(reservatorios, seriesMap) {
           label: { text: `crítico (${TEL_LIMIARES.critico}%)`, position: "left", offsetX: 52, borderColor: "transparent", style: { color: "#f87171", background: "transparent", fontSize: "9px" } } },
       ],
     },
-    chart: { type: "area", height: 340, toolbar: { show: false }, background: "transparent", animations: { speed: 300 }, zoom: { enabled: false } },
+    // Altura vem do contêiner: no modal ele agora absorve o espaço liberado
+    // pela faixa única de período+números. "100%" exige que o pai tenha altura
+    // definida — `.tel-hist-modal .tel-historico-chart` garante isso com
+    // `flex:1` dentro de um `.modalBody` em coluna.
+    chart: { type: "area", height: "100%", toolbar: { show: false }, background: "transparent", animations: { speed: 300 }, zoom: { enabled: false } },
     series,
     colors: series.map(s => s.color),
     stroke: { curve: "smooth", width: 2.4 },
@@ -3264,25 +3307,23 @@ function abrirModalTecnico(tec = null) {
   const fmtNasc = tec?.data_nascimento ? tec.data_nascimento.slice(0, 10) : "";
 
   overlay.innerHTML = `
-    <div style="background:var(--surface2);border:1px solid var(--border-strong);border-radius:14px;width:840px;max-width:96vw;box-shadow:0 32px 80px rgba(0,0,0,.75);margin:auto;overflow:hidden;">
+    <!-- Casca compartilhada: era a última que reimplementava cabeçalho, corpo
+         e rodapé com estilo inline, e por isso ficava fora do padrão. -->
+    <div class="modalBox" style="width:840px;max-width:96vw;margin:auto;">
 
-      <!-- Cabeçalho -->
-      <div style="padding:20px 24px 16px;border-bottom:1px solid var(--border);">
-        <div style="display:flex;align-items:flex-start;justify-content:space-between;">
-          <div>
-            <div style="font-size:15px;font-weight:700;color:var(--text);line-height:1.2;">${editing ? "Editar colaborador" : "Novo colaborador"}</div>
-            <div style="font-size:12px;color:var(--muted);margin-top:3px;">${editing ? "Atualize os dados abaixo e salve" : "Preencha os dados para cadastrar no sistema"}${loginBadge}</div>
-          </div>
-          <button class="btn btn-sm" data-action="fechar-modal-tecnico" style="margin-top:2px;">✕</button>
+      <div class="modalHead">
+        <div>
+          <div class="modalTitle">${editing ? "Editar colaborador" : "Novo colaborador"}</div>
+          <div class="modalSub">${editing ? "Atualize os dados abaixo e salve" : "Preencha os dados para cadastrar no sistema"}${loginBadge}</div>
         </div>
+        <button class="btn btn-sm" data-action="fechar-modal-tecnico">Fechar</button>
       </div>
 
-      <!-- Corpo -->
-      <div style="padding:16px 24px;display:flex;flex-direction:column;gap:10px;">
+      <div class="modalBody modal-secoes">
 
         <!-- Seção: Dados pessoais -->
         <div style="background:rgba(0,0,0,.2);border:1px solid var(--border);border-radius:10px;padding:16px;">
-          <div style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:12px;">Dados pessoais</div>
+          <div class="modal-sec-title">Dados pessoais</div>
           <div style="display:flex;gap:16px;align-items:flex-start;">
             <!-- Avatar -->
             <div class="tec-avatar-wrap" style="flex-shrink:0;min-width:84px;gap:5px;padding:0;">
@@ -3326,7 +3367,7 @@ function abrirModalTecnico(tec = null) {
 
         <!-- Seção: Documentos -->
         <div style="background:rgba(0,0,0,.2);border:1px solid var(--border);border-radius:10px;padding:16px;">
-          <div style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:12px;">Documentos e localização</div>
+          <div class="modal-sec-title">Documentos e localização</div>
           <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
             <div class="field">
               <span class="lbl">CPF</span>
@@ -3353,10 +3394,11 @@ function abrirModalTecnico(tec = null) {
 
       </div>
 
-      <!-- Rodapé -->
-      <div style="padding:14px 24px;border-top:1px solid var(--border);background:rgba(0,0,0,.2);display:flex;align-items:center;gap:12px;">
-        <button class="btn btnAccent" id="btnSalvarTecnico" style="min-width:148px;">${editing ? "Salvar alterações" : "Criar colaborador"}</button>
-        <span id="msgTecnico" class="hint"></span>
+      <div class="modalFoot">
+        <span id="msgTecnico" class="modalFoot-msg"></span>
+        <div class="modalFoot-actions">
+          <button class="btn btnAccent" id="btnSalvarTecnico" style="min-width:148px;">${editing ? "Salvar alterações" : "Criar colaborador"}</button>
+        </div>
       </div>
 
     </div>`;
@@ -3434,104 +3476,133 @@ function abrirModalTecnico(tec = null) {
 }
 
 function abrirModalNovoCliente() {
+  // Casca compartilhada. Antes montava overlay, caixa, cabeçalho e rodapé do
+  // zero com estilo inline — sem fio no topo, sem .modalHead/.modalFoot — e
+  // os 11 campos vinham corridos, sem nenhuma divisão.
   const overlay = document.createElement("div");
   overlay.id = "modalNovoCliente";
-  overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;";
+  overlay.className = "modalOverlay";
+  overlay.style.display = "flex";
   overlay.innerHTML = `
-    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:20px 28px;width:1100px;max-width:98vw;box-shadow:0 24px 64px rgba(0,0,0,.6);">
-
-      <!-- Cabeçalho -->
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-        <div style="font-size:14px;font-weight:600;">Novo cliente</div>
-        <button class="btn btn-sm" data-action="fechar-modal-cliente">✕</button>
+    <div class="modalBox" style="max-width:1100px;">
+      <div class="modalHead">
+        <div>
+          <div class="modalTitle">Novo cliente</div>
+          <div class="modalSub">Comece pelo CNPJ para preencher o endereço automaticamente</div>
+        </div>
+        <button class="btn btn-sm" data-action="fechar-modal-cliente">Fechar</button>
       </div>
 
-      <!-- CNPJ -->
-      <div style="display:flex;gap:8px;margin-bottom:6px;padding-bottom:12px;border-bottom:1px solid var(--border);">
-        <div style="flex:1;">
-          <span class="lbl" style="display:block;margin-bottom:4px;">CNPJ — preenche campos automaticamente</span>
-          <input id="cliModalCnpj" class="input" placeholder="00.000.000/0001-00" maxlength="18" style="font-family:monospace;" />
+      <div class="modalBody">
+        <!-- align-items stretch (e não flex-start) para o mapa acompanhar a
+             altura da coluna de campos: com altura fixa sobravam ~200px de
+             vazio embaixo dele, e mapa maior ajuda a posicionar o pino.
+             (Sem crase aqui dentro: estamos num template literal.) -->
+        <div style="display:flex;gap:20px;align-items:stretch;">
+
+          <!-- Painel esquerdo: campos, agora em três seções -->
+          <div style="flex:1;min-width:0;">
+
+            <div class="modal-sec-title">Identificação</div>
+            <div class="modal-fields-2" style="margin-bottom:8px;">
+              <div class="field">
+                <span class="lbl">CNPJ <span style="font-weight:400;color:var(--muted);">— preenche o resto</span></span>
+                <div style="display:flex;gap:8px;">
+                  <input id="cliModalCnpj" class="input" placeholder="00.000.000/0001-00" maxlength="18" style="font-family:ui-monospace,Consolas,monospace;" />
+                  <button class="btn btn-sm" id="btnBuscarCnpj" style="white-space:nowrap;flex:none;">Buscar</button>
+                </div>
+                <span id="msgCnpj" class="hint" style="display:block;min-height:14px;margin-top:3px;"></span>
+              </div>
+              <div class="field">
+                <span class="lbl">Razão Social <span class="req">*</span></span>
+                <input id="cliModalNome" class="input" placeholder="Razão social do condomínio" />
+              </div>
+              <div class="field" style="grid-column:1/-1;">
+                <span class="lbl">Nome Fantasia <span style="font-weight:400;color:var(--muted);">— nome de exibição no painel</span></span>
+                <input id="cliModalNomeFantasia" class="input" placeholder="Nome de exibição do condomínio" />
+              </div>
+            </div>
+
+            <div class="modal-sec-title" style="margin-top:16px;">Endereço</div>
+            <div class="modal-fields-2">
+              <div class="field" style="grid-column:1/-1;">
+                <span class="lbl">Logradouro</span>
+                <input id="cliModalEndereco" class="input" placeholder="Rua, número" />
+              </div>
+              <div class="field">
+                <span class="lbl">Bairro</span>
+                <input id="cliModalBairro" class="input" placeholder="Nome do bairro" />
+              </div>
+              <div class="field">
+                <span class="lbl">CEP</span>
+                <input id="cliModalCep" class="input" placeholder="00000-000" maxlength="9" />
+                <span class="cep-msg" id="cliModalCepMsg" style="margin-top:3px;display:block;"></span>
+              </div>
+              <div class="field">
+                <span class="lbl">Cidade</span>
+                <input id="cliModalCidade" class="input" placeholder="Nome da cidade" />
+              </div>
+              <div class="field">
+                <span class="lbl">UF</span>
+                <input id="cliModalUf" class="input" maxlength="2" placeholder="SP" />
+              </div>
+            </div>
+
+            <div class="modal-sec-title" style="margin-top:16px;">Contato</div>
+            <div class="modal-fields-2">
+              <div class="field">
+                <span class="lbl">Responsável</span>
+                <input id="cliModalResponsavel" class="input" placeholder="Nome do síndico ou responsável" />
+              </div>
+              <div class="field">
+                <span class="lbl">Telefone</span>
+                <input id="cliModalTelefone" class="input" placeholder="(11) 99999-9999" />
+              </div>
+              <div class="field" style="grid-column:1/-1;">
+                <span class="lbl">E-mail <span style="font-weight:400;color:var(--muted);">— destino dos orçamentos; separe vários por vírgula</span></span>
+                <input id="cliModalEmail" class="input" type="text" placeholder="contato@condominio.com.br, sindico@condominio.com.br" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Painel direito: mapa -->
+          <div style="width:420px;flex-shrink:0;display:flex;flex-direction:column;">
+            <div class="modal-sec-title" style="display:flex;align-items:center;gap:10px;">
+              Localização
+              <button type="button" class="btn btn-sm" data-action="buscar-coords" data-prefix="cliModal" style="margin-left:auto;font-size:11px;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                Buscar pelo endereço
+              </button>
+            </div>
+            <div id="cliModalLocMsg" class="loc-msg" style="font-size:10px;"></div>
+            <div class="mini-mapa" id="cliModalMiniMapa" style="flex:1;min-height:400px;border-radius:6px;overflow:hidden;"></div>
+            <div style="font-size:10px;color:var(--muted);margin-top:5px;">Arraste o pino para ajustar.</div>
+          </div>
+
         </div>
-        <div style="display:flex;align-items:flex-end;">
-          <button class="btn btn-sm" id="btnBuscarCnpj" style="height:34px;white-space:nowrap;">Buscar dados</button>
-        </div>
+
+        <input type="hidden" id="cliModalLat" />
+        <input type="hidden" id="cliModalLng" />
       </div>
-      <span id="msgCnpj" class="hint" style="display:block;min-height:14px;margin-bottom:8px;"></span>
 
-      <!-- Layout dois painéis: campos | mapa -->
-      <div style="display:flex;gap:20px;align-items:flex-start;">
-
-        <!-- Painel esquerdo: campos -->
-        <div style="flex:1;min-width:0;display:grid;grid-template-columns:1fr 1fr;gap:8px 14px;">
-          <div class="field">
-            <span class="lbl">Razão Social <span class="req">*</span></span>
-            <input id="cliModalNome" class="input" placeholder="Razão social do condomínio" />
-          </div>
-          <div class="field">
-            <span class="lbl">Nome Fantasia <span style="font-weight:400;color:var(--muted);">— exibição</span></span>
-            <input id="cliModalNomeFantasia" class="input" placeholder="Nome de exibição do condomínio" />
-          </div>
-          <div class="field" style="grid-column:1/-1;">
-            <span class="lbl">Endereço</span>
-            <input id="cliModalEndereco" class="input" placeholder="Rua, número" />
-          </div>
-          <div class="field">
-            <span class="lbl">Bairro</span>
-            <input id="cliModalBairro" class="input" placeholder="Nome do bairro" />
-          </div>
-          <div class="field">
-            <span class="lbl">CEP</span>
-            <input id="cliModalCep" class="input" placeholder="00000-000" maxlength="9" />
-            <span class="cep-msg" id="cliModalCepMsg" style="margin-top:3px;display:block;"></span>
-          </div>
-          <div class="field">
-            <span class="lbl">Cidade</span>
-            <input id="cliModalCidade" class="input" placeholder="Nome da cidade" />
-          </div>
-          <div class="field">
-            <span class="lbl">UF</span>
-            <input id="cliModalUf" class="input" maxlength="2" placeholder="SP" />
-          </div>
-          <div class="field">
-            <span class="lbl">Responsável</span>
-            <input id="cliModalResponsavel" class="input" placeholder="Nome do síndico ou responsável" />
-          </div>
-          <div class="field">
-            <span class="lbl">Telefone</span>
-            <input id="cliModalTelefone" class="input" placeholder="(11) 99999-9999" />
-          </div>
-          <div class="field" style="grid-column:1/-1;">
-            <span class="lbl">E-mail <span style="font-weight:400;color:var(--muted);">— para envio de orçamentos (separe vários por vírgula)</span></span>
-            <input id="cliModalEmail" class="input" type="text" placeholder="contato@condominio.com.br, sindico@condominio.com.br" />
-          </div>
+      <div class="modalFoot">
+        <span id="msgClienteModal" class="modalFoot-msg"></span>
+        <div class="modalFoot-actions">
+          <button class="btn btn-sm" data-action="fechar-modal-cliente">Cancelar</button>
+          <button class="btn btnAccent btn-sm" id="btnCriarClienteModal">Criar cliente</button>
         </div>
-
-        <!-- Painel direito: mapa -->
-        <div style="width:420px;flex-shrink:0;display:flex;flex-direction:column;gap:6px;">
-          <div style="display:flex;align-items:center;justify-content:space-between;">
-            <span class="lbl" style="margin:0;">Localização</span>
-            <button type="button" class="btn btn-sm" data-action="buscar-coords" data-prefix="cliModal" style="font-size:11px;">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-              Buscar
-            </button>
-          </div>
-          <div id="cliModalLocMsg" class="loc-msg" style="font-size:10px;"></div>
-          <div class="mini-mapa" id="cliModalMiniMapa" style="height:360px;border-radius:6px;overflow:hidden;"></div>
-          <div style="font-size:10px;color:var(--muted);">Arraste o pino para ajustar.</div>
-        </div>
-
-      </div>
-
-      <input type="hidden" id="cliModalLat" />
-      <input type="hidden" id="cliModalLng" />
-
-      <!-- Rodapé -->
-      <div class="form-footer" style="margin-top:14px;">
-        <button class="btn btnAccent" id="btnCriarClienteModal">Criar cliente</button>
-        <span id="msgClienteModal" class="hint"></span>
       </div>
     </div>`;
   document.body.appendChild(overlay);
+
+  // Fechar clicando fora e com Esc — antes só o "✕" fechava.
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.remove(); });
+  const aoEsc = (e) => {
+    if (e.key !== "Escape") return;
+    overlay.remove();
+    document.removeEventListener("keydown", aoEsc);
+  };
+  document.addEventListener("keydown", aoEsc);
 
   // Mini-mapa (precisa do elemento no DOM antes de inicializar)
   criarOuObterMiniMapa("cliModal");
@@ -3721,65 +3792,100 @@ function abrirModalNovoReservatorio() {
     .filter(c => c.ativo)
     .map(c => `<option value="${c.id}">${_waEscaparHtml(c.nome)}</option>`).join("");
 
+  // Casca compartilhada. Antes este modal era montado do zero com `cssText` e
+  // estilo inline — sem .modalOverlay, .modalBox, .modalHead nem .modalFoot —
+  // e era o mais fora do padrão do sistema.
+  //
+  // As seções são as MESMAS do modal de editar reservatório: criar e editar a
+  // mesma coisa tem que parecer a mesma tela. Só "Condomínio" e "Device ID"
+  // existem aqui, porque na edição eles não mudam.
   const overlay = document.createElement("div");
   overlay.id = "modalNovoRes";
-  overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9999;display:flex;align-items:center;justify-content:center;";
+  overlay.className = "modalOverlay";
+  overlay.style.display = "flex";
   overlay.innerHTML = `
-    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:24px;width:520px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 24px 64px rgba(0,0,0,.6);">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-        <div style="font-size:14px;font-weight:600;">Novo reservatório</div>
-        <button class="btn btn-sm" data-action="fechar-modal-res">✕</button>
+    <div class="modalBox" style="max-width:720px;">
+      <div class="modalHead">
+        <div>
+          <div class="modalTitle">Novo reservatório</div>
+          <div class="modalSub">A device key é gerada automaticamente ao cadastrar</div>
+        </div>
+        <button class="btn btn-sm" data-action="fechar-modal-res">Fechar</button>
       </div>
-      <div class="grid-2">
-        <div class="field">
-          <span class="lbl">Condomínio <span class="req">*</span></span>
-          <select id="resModalCondominio" class="select">
-            <option value="">Selecione…</option>
-            ${condosOpts}
-          </select>
-        </div>
-        <div class="field">
-          <span class="lbl">Tipo <span class="req">*</span></span>
-          <select id="resModalTipo" class="select">
-            <option value="superior">Superior</option>
-            <option value="inferior">Inferior</option>
-          </select>
-        </div>
-        <div class="field col-2">
-          <span class="lbl">Nome <span class="req">*</span></span>
-          <input id="resModalNome" class="input" placeholder="Ex: Reservatório Superior Bloco A" />
-        </div>
-        <div class="field col-2">
-          <span class="lbl">Device ID <span class="req">*</span></span>
-          <input id="resModalDeviceId" class="input" placeholder="Ex: RES_COND10_SUP" />
-        </div>
-        <div class="field">
-          <span class="lbl">Altura total (m)</span>
-          <input id="resModalAlturaM" class="input" type="number" step="0.01" min="0" />
-        </div>
-        <div class="field">
-          <span class="lbl">ADC zero</span>
-          <input id="resModalAdcZero" class="input" type="number" step="1" min="0" />
-        </div>
-        <div class="field">
-          <span class="lbl">ADC por metro</span>
-          <input id="resModalAdcPorMetro" class="input" type="number" step="1" min="1" />
-        </div>
-        <div class="field">
-          <span class="lbl">Faixa sonda (m)</span>
-          <input id="resModalFaixaM" class="input" type="number" step="0.01" min="0" />
-        </div>
-        <div class="field col-2">
-          <span class="lbl">Limiar bomba</span>
-          <input id="resModalLimiar" class="input" type="number" step="1" min="0" />
+
+      <div class="modalBody">
+        <div class="grid-2">
+          <div class="modal-sec-title col-2">Identificação</div>
+          <div class="field">
+            <span class="lbl">Condomínio <span class="req">*</span></span>
+            <select id="resModalCondominio" class="select">
+              <option value="">Selecione…</option>
+              ${condosOpts}
+            </select>
+          </div>
+          <div class="field">
+            <span class="lbl">Tipo <span class="req">*</span></span>
+            <select id="resModalTipo" class="select">
+              <option value="superior">Superior</option>
+              <option value="inferior">Inferior</option>
+            </select>
+          </div>
+          <div class="field">
+            <span class="lbl">Nome <span class="req">*</span></span>
+            <input id="resModalNome" class="input" placeholder="Ex: Reservatório Superior Bloco A" />
+          </div>
+          <div class="field">
+            <span class="lbl">Device ID <span class="req">*</span></span>
+            <input id="resModalDeviceId" class="input" placeholder="Ex: RES_COND10_SUP" />
+          </div>
+
+          <div class="modal-sec-title col-2">Calibração da sonda</div>
+          <div class="field">
+            <span class="lbl">Altura total (m)</span>
+            <input id="resModalAlturaM" class="input" type="number" step="0.01" min="0" />
+          </div>
+          <div class="field">
+            <span class="lbl">ADC zero</span>
+            <input id="resModalAdcZero" class="input" type="number" step="1" min="0" />
+          </div>
+          <div class="field">
+            <span class="lbl">ADC por metro</span>
+            <input id="resModalAdcPorMetro" class="input" type="number" step="1" min="1" />
+          </div>
+          <div class="field">
+            <span class="lbl">Faixa sonda (m)</span>
+            <input id="resModalFaixaM" class="input" type="number" step="0.01" min="0" />
+          </div>
+
+          <div class="modal-sec-title col-2">Detecção da bomba</div>
+          <div class="field col-2">
+            <span class="lbl">Limiar do sensor (RMS)</span>
+            <input id="resModalLimiar" class="input" type="number" step="1" min="0" placeholder="Ex: 50" />
+          </div>
         </div>
       </div>
-      <div class="form-footer" style="margin-top:16px;">
-        <button class="btn btnAccent" id="btnCriarResModal">Cadastrar</button>
-        <span id="msgResModal" class="hint"></span>
+
+      <div class="modalFoot">
+        <span id="msgResModal" class="modalFoot-msg"></span>
+        <div class="modalFoot-actions">
+          <button class="btn btn-sm" data-action="fechar-modal-res">Cancelar</button>
+          <button class="btn btnAccent btn-sm" id="btnCriarResModal">Cadastrar reservatório</button>
+        </div>
       </div>
     </div>`;
   document.body.appendChild(overlay);
+
+  // Fechar clicando fora e com Esc — os outros modais já fazem isso, este era
+  // o único em que só o "✕" funcionava.
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) overlay.remove();
+  });
+  const aoEsc = (e) => {
+    if (e.key !== "Escape") return;
+    overlay.remove();
+    document.removeEventListener("keydown", aoEsc);
+  };
+  document.addEventListener("keydown", aoEsc);
 
   const _numOrNull = (id) => { const v = (document.getElementById(id)?.value || "").trim(); return v ? Number(v) : null; };
 
@@ -4463,6 +4569,25 @@ function _ctrAtualizarBadge(status) {
   badge.style.cssText = `display:inline-flex;align-items:center;padding:2px 10px;border-radius:999px;font-size:11px;font-weight:700;color:${cfg.cor};background:${cfg.bg};`;
 }
 
+// "Enviar para assinatura" manda e-mail para pessoas reais e vive escondido
+// dentro do menu "Mais ações". Este bloco declara os destinatários ANTES do
+// clique, lendo dos CAMPOS (não do contrato salvo) — quem acabou de digitar o
+// e-mail precisa ver o destino atualizado na hora.
+function _ctrAtualizarDestinatarios() {
+  const alvo = document.getElementById("ctrEnvioDest");
+  if (!alvo) return;
+  const cliente = (document.getElementById("ctrSignEmail")?.value || "").trim();
+  const geral   = (document.getElementById("ctrSignGeralEmail")?.value || "").trim();
+
+  if (!cliente) {
+    alvo.innerHTML = "Preencha o <b>e-mail do representante</b> para poder enviar o contrato para assinatura.";
+    return;
+  }
+  const linhas = [`Ao enviar para assinatura, o link vai para <b>${_waEscaparHtml(cliente)}</b>`];
+  if (geral) linhas.push(`e para <b>${_waEscaparHtml(geral)}</b>`);
+  alvo.innerHTML = linhas.join(" ") + ".";
+}
+
 function _ctrAbrirModal({ condoId, contratoId }) {
   const overlay = document.getElementById("ctrOverlay");
   if (!overlay) return;
@@ -4499,6 +4624,7 @@ function _ctrAbrirModal({ condoId, contratoId }) {
   const condo = (_condominios || []).find(c => Number(c.id) === Number(condoId));
   document.getElementById("ctrSub").textContent = condo ? condo.nome : "";
   document.getElementById("ctrTitulo").textContent = contratoId ? "Editar contrato" : "Novo contrato";
+  _ctrAtualizarDestinatarios();
 
   if (contratoId) {
     fetch(`/contratos/${contratoId}`, { headers: authHeaders() })
@@ -4523,6 +4649,7 @@ function _ctrAbrirModal({ condoId, contratoId }) {
         document.getElementById("ctrSignEmail").value       = c.signatario_email || "";
         document.getElementById("ctrSignGeralNome").value   = c.signatario_geral_nome || "";
         document.getElementById("ctrSignGeralEmail").value  = c.signatario_geral_email || "";
+        _ctrAtualizarDestinatarios();
 
         // Botões de PDF/assinatura sempre visíveis em edição
         document.getElementById("ctrBtnPdf").style.display = "";
@@ -4774,6 +4901,9 @@ async function _ctrAtualizarStatus() {
   });
   document.getElementById("ctrBtnEnviarAssinatura")?.addEventListener("click", _ctrEnviarAssinatura);
   document.getElementById("ctrBtnAtualizarStatus")?.addEventListener("click", _ctrAtualizarStatus);
+  // Destinatário acompanha o que está digitado, não o que está salvo.
+  document.getElementById("ctrSignEmail")?.addEventListener("input", _ctrAtualizarDestinatarios);
+  document.getElementById("ctrSignGeralEmail")?.addEventListener("input", _ctrAtualizarDestinatarios);
   document.getElementById("ctrBtnPdf")?.addEventListener("click", async () => {
     const id = document.getElementById("ctrId").value;
     if (!id) return;
@@ -4834,7 +4964,7 @@ async function _ctrAbrirVisualizacao(contratoId, condoId) {
     badge.style.cssText = `display:inline-flex;align-items:center;padding:2px 10px;border-radius:999px;font-size:11px;font-weight:700;color:${badgeCfg.cor};background:${badgeCfg.bg};`;
 
     const field = (label, value) => !value ? "" :
-      `<div><div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-bottom:3px;">${label}</div>` +
+      `<div><div class="modal-sec-title">${label}</div>` +
       `<div style="font-size:13px;color:var(--text);">${_waEscaparHtml(String(value))}</div></div>`;
 
     const servicoLabel = { bombas: "Bombas hidráulicas", piscina: "Piscina", dedetizacao: "Dedetização", desratizacao: "Desratização" };
@@ -6856,18 +6986,28 @@ async function salvarEdicao(event) {
   carregarTudo(); // atualiza painel
 }
 
+// A chave é mostrada DENTRO do modal do reservatório, logo abaixo do botão que
+// a gerou. Antes isto abria um segundo modal (`deviceKeyOverlay`): como todos
+// os `.modalOverlay` compartilham `z-index: 9998` e o de chave vinha antes no
+// HTML, ele nascia ATRÁS do modal do reservatório — na prática o usuário via a
+// tela travada e nenhuma chave.
+//
+// Mostrar no lugar onde a ação foi disparada resolve o empilhamento e mantém o
+// contexto: dá pra conferir a chave sem perder de vista qual reservatório é.
 function mostrarDeviceKeyModal(chave) {
-  const overlay = document.getElementById("deviceKeyOverlay");
+  const bloco   = document.getElementById("editResKeyBloco");
   const input   = document.getElementById("deviceKeyValue");
   const btnCopy = document.getElementById("btnCopiarDeviceKey");
   const msgCopy = document.getElementById("deviceKeyCopiadoMsg");
+  if (!bloco || !input || !btnCopy) return;
 
   input.value = chave;
   msgCopy.style.display = "none";
   btnCopy.textContent = "Copiar";
-  overlay.style.display = "flex";
-
-  document.getElementById("btnFecharDeviceKey").onclick = () => { overlay.style.display = "none"; };
+  bloco.style.display = "";
+  // O bloco nasce no fim do formulário; sem isto ele pode ficar fora da área
+  // visível num modal já rolado.
+  bloco.scrollIntoView({ block: "nearest", behavior: "smooth" });
 
   btnCopy.onclick = async () => {
     try {
@@ -7023,6 +7163,10 @@ function abrirModalEditarReservatorio(id) {
 
   msg.textContent = "Carregando...";
   sub.textContent = `ID: ${id}`;
+  // Esconde a chave da edição anterior: sem isto, a chave gerada para um
+  // reservatório reapareceria ao abrir outro, como se fosse dele.
+  const blocoKey = document.getElementById("editResKeyBloco");
+  if (blocoKey) blocoKey.style.display = "none";
   overlay.style.display = "flex";
 
   fetch(`/reservatorios/${id}`, { headers: authHeaders() })
@@ -8070,7 +8214,7 @@ function _mpRenderAlertas(g) {
   }
 
   const alertasHtml = alertas.length === 0 ? "" : `
-    <div style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:2px 4px 6px;">Alertas de telemetria</div>
+    <div class="modal-sec-title">Alertas de telemetria</div>
     <div class="mp-list">${alertas.map(a => {
       const tipo = String(a.tipo || "").replaceAll("_", " ");
       const kind = (a.tipo === "dispositivo_offline" || a.tipo === "nivel_muito_baixo") ? "bad" : "warn";
@@ -8086,7 +8230,7 @@ function _mpRenderAlertas(g) {
     }).join("")}</div>`;
 
   const chamadosHtml = chamados.length === 0 ? "" : `
-    <div style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:${alertas.length ? "14px" : "2px"} 4px 6px;">Chamados abertos</div>
+    <div class="modal-sec-title">Chamados abertos</div>
     <div class="mp-list">${chamados.map(ch => {
       const kind = ch.prioridade === "p1" ? "bad" : ch.prioridade === "p2" ? "warn" : "ok";
       const prioLabel = { p1: "P1 Crítico", p2: "P2 Alta", p3: "P3 Normal", p4: "P4 Baixa" };
@@ -9381,22 +9525,26 @@ async function _cfgAbrirModalUsuario(usuario) {
 
   const box = document.getElementById("cfgModalBox");
   box.style.maxWidth = "520px";
+  // Usa a casca compartilhada (.modalHead / .modalBody / .modalFoot) em vez de
+  // reimplementá-la com estilo inline — era por isso que este modal não
+  // herdava nada da padronização e destoava dos outros.
+  // As seções perderam a caixa (fundo + borda + raio): o rótulo já tem régua
+  // embaixo, e caixa + régua é moldura dupla. Os <div> com id continuam,
+  // porque `mdSecColaborador` e `mdSecCliente` são mostrados/escondidos por JS.
   box.innerHTML = `
-    <!-- Cabeçalho -->
-    <div style="padding:20px 24px 16px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;justify-content:space-between;">
+    <div class="modalHead">
       <div>
-        <div style="font-size:15px;font-weight:700;color:var(--text);line-height:1.2;">${isEdit ? "Editar usuário" : "Novo usuário"}</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:3px;">${isEdit ? "Atualize os dados de acesso ao sistema" : "Preencha os dados para criar um acesso ao sistema"}</div>
+        <div class="modalTitle">${isEdit ? "Editar usuário" : "Novo usuário"}</div>
+        <div class="modalSub">${isEdit ? "Atualize os dados de acesso ao sistema" : "Preencha os dados para criar um acesso ao sistema"}</div>
       </div>
-      <button class="btn btn-sm" data-cfg-action="cancel-modal-usuario">✕</button>
+      <button class="btn btn-sm" data-cfg-action="cancel-modal-usuario">Fechar</button>
     </div>
 
-    <!-- Corpo -->
-    <div style="padding:16px 24px;display:flex;flex-direction:column;gap:10px;">
+    <div class="modalBody modal-secoes">
 
       <!-- 1. Tipo de acesso — sempre primeiro -->
-      <div style="background:rgba(0,0,0,.2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;">
-        <div style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:10px;">Tipo de acesso</div>
+      <div>
+        <div class="modal-sec-title">Tipo de acesso</div>
         <div class="field">
           <select id="mdUsrRole" class="input">
             ${!isEdit ? `<option value="">Selecione o tipo…</option>` : ""}
@@ -9409,8 +9557,8 @@ async function _cfgAbrirModalUsuario(usuario) {
       </div>
 
       <!-- 2a. Seção colaborador (não-clientes) -->
-      <div id="mdSecColaborador" style="background:rgba(0,0,0,.2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;display:${!isEdit && !isCliente && !initialRole ? 'none' : (!isCliente && initialRole ? '' : 'none')};">
-        <div style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:10px;">Colaborador</div>
+      <div id="mdSecColaborador" style="display:${!isEdit && !isCliente && !initialRole ? 'none' : (!isCliente && initialRole ? '' : 'none')};">
+        <div class="modal-sec-title">Colaborador</div>
         <div style="display:flex;flex-direction:column;gap:10px;">
           ${!isEdit ? `<div class="field">
             <select id="mdUsrColaborador" class="input">
@@ -9418,7 +9566,7 @@ async function _cfgAbrirModalUsuario(usuario) {
               ${tecOpts}
             </select>
           </div>` : ""}
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;" id="mdUsrNomeEmailWrap" ${isEdit ? "" : ""}>
+          <div class="modal-fields-2" id="mdUsrNomeEmailWrap">
             <div class="field">
               <span class="lbl">Nome</span>
               <input id="mdUsrNome" class="input" value="${_waEscaparHtml(usuario?.nome || "")}">
@@ -9432,10 +9580,10 @@ async function _cfgAbrirModalUsuario(usuario) {
       </div>
 
       <!-- 2b. Seção cliente -->
-      <div id="mdSecCliente" style="background:rgba(0,0,0,.2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;display:${isCliente ? '' : 'none'};">
-        <div style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:10px;">Dados do cliente</div>
+      <div id="mdSecCliente" style="display:${isCliente ? '' : 'none'};">
+        <div class="modal-sec-title">Dados do cliente</div>
         <div style="display:flex;flex-direction:column;gap:10px;">
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div class="modal-fields-2">
             <div class="field">
               <span class="lbl">Nome</span>
               <input id="mdUsrNomeCliente" class="input" value="${isCliente ? _waEscaparHtml(usuario?.nome || "") : ""}">
@@ -9454,8 +9602,8 @@ async function _cfgAbrirModalUsuario(usuario) {
 
       <!-- 3. Senha (apenas criação) -->
       ${!isEdit ? `
-      <div style="background:rgba(0,0,0,.2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;">
-        <div style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:10px;">Acesso</div>
+      <div>
+        <div class="modal-sec-title">Acesso</div>
         <div class="field">
           <span class="lbl">Senha inicial</span>
           <input id="mdUsrSenha" class="input" type="text" placeholder="Mínimo 6 caracteres">
@@ -9465,10 +9613,11 @@ async function _cfgAbrirModalUsuario(usuario) {
       <div id="mdUsrMsg" class="cfg-msg"></div>
     </div>
 
-    <!-- Rodapé -->
-    <div style="padding:14px 24px;border-top:1px solid var(--border);background:rgba(0,0,0,.2);display:flex;align-items:center;justify-content:flex-end;gap:8px;">
-      <button class="btn btn-sm" data-cfg-action="cancel-modal-usuario">Cancelar</button>
-      <button class="btn btnAccent btn-sm" data-cfg-action="${isEdit ? "patch-usuario" : "post-usuario"}" data-id="${usuario?.id || ''}">${isEdit ? "Salvar alterações" : "Criar usuário"}</button>
+    <div class="modalFoot">
+      <div class="modalFoot-actions">
+        <button class="btn btn-sm" data-cfg-action="cancel-modal-usuario">Cancelar</button>
+        <button class="btn btnAccent btn-sm" data-cfg-action="${isEdit ? "patch-usuario" : "post-usuario"}" data-id="${usuario?.id || ''}">${isEdit ? "Salvar alterações" : "Criar usuário"}</button>
+      </div>
     </div>
   `;
   overlay.style.display = "flex";
@@ -9587,16 +9736,23 @@ function _cfgMostrarSenhaTemporaria(nome, senha) {
   if (!overlay) return;
   const box = document.getElementById("cfgModalBox");
   box.innerHTML = `
-    <h3 style="margin:0 0 8px;font-size:16px;">Senha temporária gerada</h3>
-    <p style="color:var(--text-dim);font-size:13px;margin:0 0 6px;">Compartilhe esta senha com <strong>${_waEscaparHtml(nome)}</strong>. Ela só será exibida uma vez.</p>
+    <div class="modalHead">
+      <div>
+        <div class="modalTitle">Senha temporária gerada</div>
+        <div class="modalSub">Ela só será exibida uma vez</div>
+      </div>
+    </div>
+    <div class="modalBody">
+    <p style="color:var(--text-dim);font-size:13px;margin:0 0 10px;">Compartilhe esta senha com <strong>${_waEscaparHtml(nome)}</strong>.</p>
     <div class="cfg-temp-pass">
       <div class="cfg-temp-pass-val" id="cfgTempPass">${_waEscaparHtml(senha)}</div>
       <button class="btn btn-sm" data-cfg-action="copiar-senha">Copiar</button>
     </div>
     <p style="color:var(--muted);font-size:11.5px;margin-top:10px;">Recomende ao usuário trocar a senha no primeiro acesso, em Configurações → Conta.</p>
-    <div style="display:flex;justify-content:flex-end;margin-top:14px;">
-      <button class="btn btnAccent btn-sm" data-cfg-action="cancel-modal-usuario">Fechar</button>
     </div>
+    <div class="modalFoot"><div class="modalFoot-actions">
+      <button class="btn btnAccent btn-sm" data-cfg-action="cancel-modal-usuario">Fechar</button>
+    </div></div>
   `;
   overlay.style.display = "flex";
 }
@@ -9610,19 +9766,24 @@ async function _cfgVerDispositivosUsuario(id) {
 
   box.style.maxWidth = "460px";
   box.innerHTML = `
-    <div style="padding:20px 24px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+    <div class="modalHead">
       <div>
-        <div style="font-size:15px;font-weight:700;color:var(--text);">Dispositivos confiáveis</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:3px;">${_waEscaparHtml(u.nome)}</div>
+        <div class="modalTitle">Dispositivos confiáveis</div>
+        <div class="modalSub">${_waEscaparHtml(u.nome)}</div>
       </div>
-      <button class="btn btn-sm" data-cfg-action="cancel-modal-usuario">✕</button>
+      <button class="btn btn-sm" data-cfg-action="cancel-modal-usuario">Fechar</button>
     </div>
-    <div style="padding:16px 24px;" id="cfgDispList">
+    <div class="modalBody" id="cfgDispList">
       <div style="color:var(--muted);font-size:13px;">Carregando…</div>
     </div>
-    <div style="padding:0 24px 20px;display:flex;justify-content:flex-end;gap:8px;">
-      <button class="btn btn-sm" id="cfgDispRevogarTodos" style="color:#f87171;border-color:rgba(248,113,113,.3);">Revogar todos</button>
-      <button class="btn btn-sm btnAccent" data-cfg-action="cancel-modal-usuario">Fechar</button>
+    <div class="modalFoot">
+      <!-- "Revogar todos" derruba o acesso de todos os aparelhos do usuário:
+           destrutivo, então sai do caminho à esquerda em vez de dividir peso
+           com o botão de fechar. -->
+      <button class="modalFoot-danger" id="cfgDispRevogarTodos">Revogar todos os dispositivos</button>
+      <div class="modalFoot-actions">
+        <button class="btn btn-sm btnAccent" data-cfg-action="cancel-modal-usuario">Fechar</button>
+      </div>
     </div>`;
   overlay.style.display = "flex";
 
@@ -10964,56 +11125,46 @@ function _osRenderView(os) {
     ? `<img class="os-assin-img" src="${_waEscaparHtml(os.assinatura_b64.startsWith("data:") ? os.assinatura_b64 : "data:image/png;base64," + os.assinatura_b64)}" alt="Assinatura" />`
     : `<span class="os-muted">Não assinada.</span>`;
 
+  // ⚠️ Número, Condomínio, Técnico e "Finalizada" NÃO entram no corpo: o
+  // cabeçalho do modal já os exibe (`osModalTitle` = número, `osModalSub` =
+  // condomínio · técnico · status). Eram 4 das 7 linhas de "Identificação"
+  // repetindo o que estava 40px acima.
   return `
     <div class="os-view-body">
-      <div class="os-view-cols">
-        <div>
-          <div class="os-vsec-title">Identificação</div>
-          <div class="os-rows">
-            <div class="os-row-info"><span class="os-key">Número</span><span class="os-val"><strong>${_waEscaparHtml(os.numero || "—")}</strong></span></div>
-            <div class="os-row-info"><span class="os-key">Criada em</span><span class="os-val">${_osFmtData(os.criado_em)}</span></div>
-            <div class="os-row-info"><span class="os-key">Finalizada</span><span class="os-val">${os.finalizada_em ? _osFmtData(os.finalizada_em) : "—"}</span></div>
-            <div class="os-row-info"><span class="os-key">Chamado</span><span class="os-val">${os.chamado_id ? `#${os.chamado_id}` : "—"}</span></div>
-            <div class="os-row-info"><span class="os-key">Condomínio</span><span class="os-val">${_waEscaparHtml(os.condominio_nome || "—")}</span></div>
-            <div class="os-row-info"><span class="os-key">Endereço</span><span class="os-val">${_waEscaparHtml(endereco)}</span></div>
-            <div class="os-row-info"><span class="os-key">Técnico</span><span class="os-val">${_waEscaparHtml(os.tecnico_nome || "—")}${os.tecnico_telefone ? ` · ${_waEscaparHtml(os.tecnico_telefone)}` : ""}</span></div>
-          </div>
-        </div>
-        <div>
-          <div class="os-vsec-title">Check-in / Check-out</div>
-          <div class="os-rows">
-            <div class="os-row-info"><span class="os-key">Chegada</span><span class="os-val">${_osFmtData(os.chegada_em)}${os.chegada_lat ? ` · ${Number(os.chegada_lat).toFixed(5)}, ${Number(os.chegada_lng).toFixed(5)}` : ""}</span></div>
-            <div class="os-row-info"><span class="os-key">Saída</span><span class="os-val">${_osFmtData(os.saida_em)}${os.saida_lat ? ` · ${Number(os.saida_lat).toFixed(5)}, ${Number(os.saida_lng).toFixed(5)}` : ""}</span></div>
-            <div class="os-row-info"><span class="os-key">Recebido por</span><span class="os-val">${_waEscaparHtml(os.recebido_nome || "—")}${os.recebido_tipo ? ` (${_OS_RECEBIDO_TIPOS[os.recebido_tipo] || os.recebido_tipo})` : ""}</span></div>
-          </div>
-        </div>
-      </div>
 
-      <div>
-        <div class="os-vsec-title">Tipos de serviço</div>
-        <div class="os-chips-wrap">${tiposHtml}</div>
-      </div>
-
-      <div class="os-view-cols">
-        <div>
-          <div class="os-vsec-title">Itens verificados</div>
-          ${itensHtml}
-        </div>
-        <div>
-          <div class="os-vsec-title">Correntes elétricas</div>
-          ${correntesHtml}
-        </div>
-      </div>
-
-      <div>
-        <div class="os-vsec-title">Resultado do serviço</div>
+      <!-- O veredito primeiro. Estava na 5ª seção, depois de "itens
+           verificados" e "correntes elétricas" — mas ao abrir uma O.S. o que
+           se quer saber é se deu certo, se precisa voltar e se precisa
+           orçamento. Isso decide o próximo passo; o resto é registro. -->
+      <div class="os-veredito">
         <div class="os-result-row">
           ${resultado}
           ${os.necessario_retorno ? `<span class="os-status-pill os-status-rascunho">Necessita retorno${os.retorno_sugerido_em ? ` em ${_osFmtDataCurta(os.retorno_sugerido_em)}` : ""}</span>` : ""}
           ${os.orcamento_necessario ? `<span class="os-status-pill os-status-rascunho">Orçamento necessário</span>` : ""}
+          <span class="os-chips-wrap os-chips-inline">${tiposHtml}</span>
         </div>
         ${os.observacoes ? `<p class="os-obs">${_waEscaparHtml(os.observacoes)}</p>` : ""}
         ${os.orcamento_observacoes ? `<p class="os-obs"><strong>Orçamento:</strong> ${_waEscaparHtml(os.orcamento_observacoes)}</p>` : ""}
+      </div>
+
+      <div class="os-view-cols">
+        <div>
+          <div class="os-vsec-title">Atendimento</div>
+          <div class="os-rows">
+            <div class="os-row-info"><span class="os-key">Criada em</span><span class="os-val">${_osFmtData(os.criado_em)}</span></div>
+            <div class="os-row-info"><span class="os-key">Chegada</span><span class="os-val">${_osFmtData(os.chegada_em)}${os.chegada_lat ? ` · ${Number(os.chegada_lat).toFixed(5)}, ${Number(os.chegada_lng).toFixed(5)}` : ""}</span></div>
+            <div class="os-row-info"><span class="os-key">Saída</span><span class="os-val">${_osFmtData(os.saida_em)}${os.saida_lat ? ` · ${Number(os.saida_lat).toFixed(5)}, ${Number(os.saida_lng).toFixed(5)}` : ""}</span></div>
+            <div class="os-row-info"><span class="os-key">Recebido por</span><span class="os-val">${_waEscaparHtml(os.recebido_nome || "—")}${os.recebido_tipo ? ` (${_OS_RECEBIDO_TIPOS[os.recebido_tipo] || os.recebido_tipo})` : ""}</span></div>
+            <div class="os-row-info"><span class="os-key">Endereço</span><span class="os-val">${_waEscaparHtml(endereco)}</span></div>
+            <div class="os-row-info"><span class="os-key">Chamado</span><span class="os-val">${os.chamado_id ? `#${os.chamado_id}` : "—"}</span></div>
+          </div>
+        </div>
+        <div>
+          <div class="os-vsec-title">Verificações</div>
+          ${itensHtml}
+          <div class="os-vsec-title" style="margin-top:16px;">Correntes elétricas</div>
+          ${correntesHtml}
+        </div>
       </div>
 
       <div>
@@ -11021,14 +11172,15 @@ function _osRenderView(os) {
         ${pecasHtml}
       </div>
 
-      <div>
-        <div class="os-vsec-title">Fotos${fotos.length ? ` (${fotos.length})` : ""}</div>
-        ${fotosHtml}
-      </div>
-
-      <div>
-        <div class="os-vsec-title">Assinatura de quem recebeu</div>
-        ${assin}
+      <div class="os-view-cols">
+        <div>
+          <div class="os-vsec-title">Fotos${fotos.length ? ` (${fotos.length})` : ""}</div>
+          ${fotosHtml}
+        </div>
+        <div>
+          <div class="os-vsec-title">Assinatura de quem recebeu</div>
+          ${assin}
+        </div>
       </div>
     </div>`;
 }
@@ -11520,6 +11672,26 @@ function _avRenderPainel() {
     `<option value="${c.id}" ${String(c.id) === String(o.condominio_id) ? "selected" : ""}>${_waEscaparHtml(c.nome)}</option>`
   ).join("");
 
+  // Destinatário do e-mail: condomínio usa `condominios.email` (pode ter vários
+  // separados por vírgula); cliente avulso usa o campo livre. Mostrado no
+  // trilho ANTES do clique — antes disso só se descobria pra quem foi depois.
+  const tipoLabels = {
+    pecas: "Peças / Serviço",
+    limpeza_reservatorio: "Limpeza de reservatório",
+    dedetizacao: "Dedetização",
+    limpeza_dedetizacao: "Limpeza + dedetização",
+  };
+  const tipoAtivo = o.tipo || "pecas";
+  // Sem descrição por card, de propósito. Os títulos já dizem o que são, e a
+  // diferença de formato do PDF fica óbvia na tabela abaixo, que muda de forma
+  // na hora. A versão anterior explicava isso em quatro lugares ao mesmo tempo
+  // (descrição do card, título da seção, nota da zona de itens e aviso da
+  // tabela) — a mesma frase repetida vira ruído, não ajuda.
+  const cardTipo = (val, titulo) => `
+    <button type="button" class="av-tipo ${tipoAtivo === val ? "is-on" : ""}" data-av-tipo="${val}">
+      <span class="av-tipo-dot"></span><b>${titulo}</b>
+    </button>`;
+
   wrap.innerHTML = `
     <div class="av-modal-head">
       <div class="av-modal-head-info">
@@ -11537,132 +11709,174 @@ function _avRenderPainel() {
       <button class="ap-close" data-av-action="fechar" title="Fechar">×</button>
     </div>
 
-    <div class="av-modal-sections">
-      <div class="ap-section">
-        <div class="ap-section-title">Dados gerais</div>
-        <div class="orc-form-row" style="grid-template-columns:1.4fr 1fr 1fr;">
-          <label class="orc-form-label">Tipo de orçamento
-            <select id="avInputTipo" class="select">
-              <option value="pecas" ${(o.tipo||"pecas")==="pecas"?"selected":""}>Peças / Serviço (padrão)</option>
-              <option value="limpeza_reservatorio" ${o.tipo==="limpeza_reservatorio"?"selected":""}>Limpeza de Reservatório de Água Potável</option>
-              <option value="dedetizacao" ${o.tipo==="dedetizacao"?"selected":""}>Dedetização</option>
-              <option value="limpeza_dedetizacao" ${o.tipo==="limpeza_dedetizacao"?"selected":""}>Limpeza de Reservatório + Dedetização</option>
-            </select>
-          </label>
-          <label class="orc-form-label">Data do orçamento
-            <input id="avInputDataDoc" class="input" type="date" value="${dataDocVal}">
-          </label>
-          <label class="orc-form-label">Válido até
-            <input id="avInputValidade" class="input" type="date" value="${validadeVal}">
-          </label>
+    <div class="av-layout">
+      <div class="av-col-form">
+
+        <!-- Faixa de configuração: duas colunas, altura mínima. Nenhuma destas
+             seções precisa da largura inteira, e juntas liberam a altura que a
+             tabela de itens vai usar. -->
+        <div class="av-setup">
+          <div class="av-setup-col">
+            <div class="ap-section">
+              <div class="ap-section-title">Tipo de documento</div>
+              <div class="av-tipos">
+                ${cardTipo("pecas", "Peças / Serviço")}
+                ${cardTipo("limpeza_reservatorio", "Limpeza de reservatório")}
+                ${cardTipo("dedetizacao", "Dedetização")}
+                ${cardTipo("limpeza_dedetizacao", "Limpeza + dedetização")}
+              </div>
+              <select id="avInputTipo" class="av-hidden-ctl" tabindex="-1" aria-hidden="true">
+                <option value="pecas" ${tipoAtivo==="pecas"?"selected":""}>Peças / Serviço</option>
+                <option value="limpeza_reservatorio" ${tipoAtivo==="limpeza_reservatorio"?"selected":""}>Limpeza de Reservatório de Água Potável</option>
+                <option value="dedetizacao" ${tipoAtivo==="dedetizacao"?"selected":""}>Dedetização</option>
+                <option value="limpeza_dedetizacao" ${tipoAtivo==="limpeza_dedetizacao"?"selected":""}>Limpeza de Reservatório + Dedetização</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="av-setup-col">
+            <div class="ap-section">
+              <div class="ap-section-title">Cliente</div>
+              <div class="av-seg">
+                <button type="button" class="${avulso ? "" : "is-on"}" data-av-cliente="cadastrado">Cadastrado</button>
+                <button type="button" class="${avulso ? "is-on" : ""}" data-av-cliente="avulso">Avulso (pessoa física)</button>
+              </div>
+              <input type="checkbox" id="avToggleAvulso" class="av-hidden-ctl" tabindex="-1" aria-hidden="true" ${avulso ? "checked" : ""}>
+
+              <div id="avClienteCadastrado" class="orc-form-row" style="grid-template-columns:1fr 1fr;${avulso ? "display:none;" : ""}">
+                <label class="orc-form-label">Condomínio / Cliente
+                  <select id="avInputCondo" class="select">
+                    <option value="">Selecionar…</option>
+                    ${condoOptions}
+                  </select>
+                </label>
+                <label class="orc-form-label">O.S. vinculada
+                  <select id="avInputOs" class="select">
+                    <option value="">Nenhuma</option>
+                  </select>
+                </label>
+              </div>
+
+              <div id="avClienteAvulso" class="orc-form-row" style="grid-template-columns:1fr 1fr;${avulso ? "" : "display:none;"}">
+                <label class="orc-form-label">Nome do cliente
+                  <input id="avInputClienteNome" class="input" type="text" maxlength="200" placeholder="Nome completo" value="${_waEscaparHtml(o.cliente_nome || '')}">
+                </label>
+                <label class="orc-form-label">CPF / CNPJ
+                  <input id="avInputClienteDoc" class="input" type="text" maxlength="30" placeholder="000.000.000-00" value="${_waEscaparHtml(o.cliente_documento || '')}">
+                </label>
+                <!-- Sem grid-column 1/-1 nestes dois (crase é proibida aqui,
+                     estamos dentro de um template literal): em linha cheia
+                     eles faziam o bloco ocupar 3 linhas e, no modo avulso, a
+                     zona de itens caía pra 148px. Lado a lado são 2 linhas. -->
+                <label class="orc-form-label">Endereço
+                  <input id="avInputClienteEndereco" class="input" type="text" maxlength="255" placeholder="Rua, nº, bairro, cidade/UF" value="${_waEscaparHtml(o.cliente_endereco || '')}">
+                </label>
+                <label class="orc-form-label">E-mail (para envio)
+                  <input id="avInputClienteEmail" class="input" type="text" maxlength="255" placeholder="cliente@email.com" value="${_waEscaparHtml(o.cliente_email || '')}">
+                </label>
+              </div>
+            </div>
+
+            <div class="ap-section">
+              <div class="ap-section-title">Constatação</div>
+              <textarea id="avInputConstatacao" class="input" rows="2" maxlength="1000"
+                style="resize:vertical;font-size:12px;padding:8px 10px;min-height:52px;width:100%;"
+                placeholder="Descreva o serviço ou problema constatado… (sai impresso no PDF, acima da tabela)">${_waEscaparHtml(o.constatacao || '')}</textarea>
+            </div>
+          </div>
         </div>
 
-        <label class="check-field" style="display:inline-flex;margin-top:14px;">
-          <input type="checkbox" id="avToggleAvulso" ${avulso ? "checked" : ""}>
-          Cliente avulso (pessoa física / não cadastrado no sistema)
-        </label>
-
-        <!-- Cliente cadastrado (condomínio) -->
-        <div id="avClienteCadastrado" class="orc-form-row" style="grid-template-columns:1fr 1fr;margin-top:10px;${avulso ? "display:none;" : ""}">
-          <label class="orc-form-label">Condomínio / Cliente
-            <select id="avInputCondo" class="select">
-              <option value="">Selecionar…</option>
-              ${condoOptions}
-            </select>
-          </label>
-          <label class="orc-form-label">O.S. vinculada
-            <select id="avInputOs" class="select">
-              <option value="">Nenhuma</option>
-            </select>
-          </label>
+        <!-- Itens: largura cheia e a sobra de altura. É a única zona que rola. -->
+        <div class="av-itens-zone" id="avItensZone">
+          <div class="ap-section-title" id="avItensTitulo">${tipoAtivo !== "pecas" ? "Valores dos serviços" : "Itens"}</div>
+          <div class="av-itens-scroll">
+            <div id="avItensWrap">
+              <div style="color:var(--muted);font-size:12px;padding:8px 0;">Carregando…</div>
+            </div>
+          </div>
         </div>
 
-        <!-- Cliente avulso (pessoa física) -->
-        <div id="avClienteAvulso" class="orc-form-row" style="grid-template-columns:1fr 1fr;margin-top:10px;${avulso ? "" : "display:none;"}">
-          <label class="orc-form-label">Nome do cliente
-            <input id="avInputClienteNome" class="input" type="text" maxlength="200" placeholder="Nome completo" value="${_waEscaparHtml(o.cliente_nome || '')}">
-          </label>
-          <label class="orc-form-label">CPF / CNPJ
-            <input id="avInputClienteDoc" class="input" type="text" maxlength="30" placeholder="000.000.000-00" value="${_waEscaparHtml(o.cliente_documento || '')}">
-          </label>
-          <label class="orc-form-label" style="grid-column:1/-1;">Endereço
-            <input id="avInputClienteEndereco" class="input" type="text" maxlength="255" placeholder="Rua, nº, bairro, cidade/UF" value="${_waEscaparHtml(o.cliente_endereco || '')}">
-          </label>
-          <label class="orc-form-label" style="grid-column:1/-1;">E-mail (para envio do orçamento)
-            <input id="avInputClienteEmail" class="input" type="text" maxlength="255" placeholder="cliente@email.com" value="${_waEscaparHtml(o.cliente_email || '')}">
-          </label>
-        </div>
-      </div>
-
-      <div class="ap-section">
-        <div class="ap-section-title">Escopo do serviço</div>
-        <textarea id="avInputConstatacao" class="input" rows="2" maxlength="1000"
-          style="resize:vertical;font-size:12px;padding:8px 10px;min-height:60px;width:100%;"
-          placeholder="Descreva o serviço ou problema constatado…">${_waEscaparHtml(o.constatacao || '')}</textarea>
-      </div>
-
-      <div class="ap-section">
-        <div class="ap-section-title">${(o.tipo && o.tipo !== "pecas") ? "Valores dos Serviços" : "Itens"}</div>
-        <div id="avItensWrap">
-          <div style="color:var(--muted);font-size:12px;padding:8px 0;">Carregando…</div>
-        </div>
-        <div style="margin-top:12px;">
-          <label class="check-field" style="display:inline-flex;">
-            <input type="checkbox" id="avToggleValorManual" ${o.valor != null ? "checked" : ""}>
-            Definir valor total manualmente (em vez de somar os itens)
-          </label>
-          <div id="avValorManualWrap" style="margin-top:10px;${o.valor != null ? "" : "display:none;"}">
-            <label class="orc-form-label" style="max-width:260px;">
-              Valor total (manual)
-              <input id="avInputValorManual" class="input" type="number" min="0" step="0.01"
-                placeholder="0,00" value="${o.valor != null ? o.valor : ''}">
+        <div class="av-cond">
+          <div class="ap-section-title">Condições comerciais</div>
+          <div class="av-cond-grid">
+            <label class="orc-form-label">Forma de pagamento
+              <input id="avInputPagamento" class="input" type="text" maxlength="255"
+                placeholder="Via boleto bancário" value="${_waEscaparHtml(o.forma_pagamento || '')}">
             </label>
-            <div class="hint" style="margin-top:5px;">Sobrepõe a soma dos itens no PDF.</div>
+            <label class="orc-form-label">Prazo de entrega
+              <input id="avInputPrazo" class="input" type="text" maxlength="100"
+                placeholder="5 dias úteis" value="${_waEscaparHtml(o.prazo_entrega || '')}">
+            </label>
+            <label class="orc-form-label">Garantia
+              <input id="avInputGarantia" class="input" type="text" maxlength="100"
+                placeholder="12 meses" value="${_waEscaparHtml(o.garantia || '')}">
+            </label>
+            <label class="orc-form-label">Data do orçamento
+              <input id="avInputDataDoc" class="input" type="date" value="${dataDocVal}">
+            </label>
+            <label class="orc-form-label">Válido até
+              <input id="avInputValidade" class="input" type="date" value="${validadeVal}">
+            </label>
           </div>
         </div>
       </div>
 
-      <div class="ap-section">
-        <div class="ap-section-title">Condições Comerciais</div>
-        <div class="orc-form-row" style="grid-template-columns:1fr 1fr 1fr 1fr;">
-          <label class="orc-form-label">Forma de pagamento
-            <input id="avInputPagamento" class="input" type="text" maxlength="255"
-              placeholder="Via boleto bancário" value="${_waEscaparHtml(o.forma_pagamento || '')}">
+      <aside class="av-rail">
+        <div>
+          <div class="av-total-lbl">Total do orçamento</div>
+          <div class="av-total" id="avRailTotal">—</div>
+          <div class="av-total-sub" id="avRailTotalSub"></div>
+        </div>
+
+        <div id="avValorManualWrap" style="${o.valor != null ? "" : "display:none;"}">
+          <label class="orc-form-label">Valor total (manual)
+            <input id="avInputValorManual" class="input" type="number" min="0" step="0.01"
+              placeholder="0,00" value="${o.valor != null ? o.valor : ''}">
           </label>
-          <label class="orc-form-label">Prazo de entrega
-            <input id="avInputPrazo" class="input" type="text" maxlength="100"
-              placeholder="5 dias úteis após aprovação" value="${_waEscaparHtml(o.prazo_entrega || '')}">
-          </label>
-          <label class="orc-form-label">Garantia
-            <input id="avInputGarantia" class="input" type="text" maxlength="100"
-              placeholder="12 meses por defeito de fabricação" value="${_waEscaparHtml(o.garantia || '')}">
-          </label>
-          <label class="orc-form-label">Status
-            <select id="avInputStatus" class="select">
+          <div class="hint" style="margin-top:5px;">Sobrepõe a soma dos itens no PDF.</div>
+        </div>
+        <input type="checkbox" id="avToggleValorManual" class="av-hidden-ctl" tabindex="-1" aria-hidden="true" ${o.valor != null ? "checked" : ""}>
+
+        <div class="av-rail-hr"></div>
+
+        <div>
+          <div class="av-rail-kv">
+            <span>Situação</span>
+            <b><select id="avInputStatus" class="select" style="width:auto;padding:4px 8px;font-size:11.5px;">
               <option value="rascunho" ${o.status==="rascunho"?"selected":""}>Rascunho</option>
-              <option value="enviado"  ${o.status==="enviado" ?"selected":""}>Enviado ao cliente</option>
+              <option value="enviado"  ${o.status==="enviado" ?"selected":""}>Enviado</option>
               <option value="aprovado" ${o.status==="aprovado"?"selected":""}>Aprovado</option>
               <option value="rejeitado"${o.status==="rejeitado"?"selected":""}>Rejeitado</option>
-            </select>
-          </label>
+            </select></b>
+          </div>
+          <div class="av-rail-kv"><span>Validade</span><b>${validadeVal ? _orcFmtData(o.valido_ate) : "—"}</b></div>
+          <div class="av-rail-kv"><span>Tipo</span><b id="avRailTipo">${tipoLabels[tipoAtivo] || "—"}</b></div>
         </div>
-      </div>
-    </div>
 
-    <div class="av-modal-footer">
-      <button class="btn btnDanger btn-sm" data-av-action="deletar">Excluir</button>
-      <span class="orc-form-msg" id="avFormMsg"></span>
-      <div class="av-footer-actions">
-        <button class="btn btn-sm av-btn-pdf" data-av-action="gerar-pdf">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          Gerar PDF
-        </button>
-        <button class="btn btn-sm av-btn-email" data-av-action="enviar-email">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-          Enviar por e-mail
-        </button>
-        <button class="btn btnAccent btn-sm" data-av-action="salvar">Salvar</button>
-      </div>
+        <div class="av-rail-hr"></div>
+
+        <div class="av-rail-acts">
+          <button class="btn btnAccent" data-av-action="salvar">Salvar orçamento</button>
+          <button class="btn av-btn-pdf" data-av-action="gerar-pdf">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Gerar PDF
+          </button>
+        </div>
+
+        <div class="av-envio">
+          <div class="av-envio-t">Enviar ao cliente</div>
+          <div class="av-envio-to" id="avEnvioDest"></div>
+          <button class="btn btn-sm av-btn-email" id="avBtnEmail" data-av-action="enviar-email">
+            Enviar por e-mail
+          </button>
+        </div>
+
+        <span class="orc-form-msg" id="avFormMsg"></span>
+
+        <div class="av-rail-danger">
+          <button type="button" data-av-action="deletar">Excluir orçamento</button>
+        </div>
+      </aside>
     </div>`;
 
   _avCarregarLinhas(o.id);
@@ -11671,12 +11885,17 @@ function _avRenderPainel() {
   // Quando troca o condomínio, recarrega lista de OS
   document.getElementById("avInputCondo")?.addEventListener("change", e => {
     _avCarregarOsDoModal(e.target.value, null);
+    _avAtualizarDestinatario();
   });
+  document.getElementById("avInputClienteEmail")?.addEventListener("input", _avAtualizarDestinatario);
 
   // Quando troca o tipo: a tabela de itens muda de formato (peças tem Qtd/Unit.,
   // serviço só tem Valor) e, se for tipo de serviço, já adiciona a(s) linha(s)
   // padrão automaticamente (sem duplicar o que já existir).
   document.getElementById("avInputTipo")?.addEventListener("change", async e => {
+    // Limpa ANTES de preencher: trocar limpeza → dedetização precisa tirar a
+    // linha de limpeza e pôr a de dedetização, nessa ordem.
+    await _avLimparServicosForaDoTipo(e.target.value);
     await _avPreencherPadrao(e.target.value);
     _avRenderLinhas();
   });
@@ -11705,7 +11924,144 @@ function _avRenderPainel() {
       valorWrap.style.display = "none";
       if (valorInput) valorInput.value = "";
     }
+    _avAtualizarTotalRail();
   });
+
+  // ── Fiação dos controles visuais ──────────────────────────────────────────
+  // Os cards de tipo e o segmentado de cliente NÃO guardam estado: eles setam
+  // o <select>/<checkbox> oculto e disparam `change`. Todos os listeners
+  // acima (e o _avAcao, que lê por getElementById) continuam valendo — foi o
+  // que permitiu trocar a apresentação sem tocar no salvamento.
+  wrap.querySelectorAll("[data-av-tipo]").forEach(card => {
+    card.addEventListener("click", () => {
+      const sel = document.getElementById("avInputTipo");
+      const novo = card.dataset.avTipo;
+      if (!sel || sel.value === novo) return;
+      // A pergunta vem primeiro: cancelar aqui não deixa rastro nenhum na tela.
+      if (!_avConfirmarTrocaDeTipo(novo)) return;
+      sel.value = novo;
+      wrap.querySelectorAll("[data-av-tipo]").forEach(c => c.classList.toggle("is-on", c === card));
+      _avRefletirTipo(novo, card.querySelector("b")?.textContent);
+      sel.dispatchEvent(new Event("change"));
+    });
+  });
+
+  wrap.querySelectorAll("[data-av-cliente]").forEach(bt => {
+    bt.addEventListener("click", () => {
+      const chk = document.getElementById("avToggleAvulso");
+      const querAvulso = bt.dataset.avCliente === "avulso";
+      if (!chk || chk.checked === querAvulso) return;
+      chk.checked = querAvulso;
+      wrap.querySelectorAll("[data-av-cliente]").forEach(b => b.classList.toggle("is-on", b === bt));
+      chk.dispatchEvent(new Event("change"));
+      _avAtualizarDestinatario();
+    });
+  });
+
+  // O link "definir manualmente" do trilho é injetado por _avAtualizarTotalRail,
+  // então a delegação fica no wrap em vez de no botão.
+  wrap.addEventListener("click", e => {
+    if (!e.target.closest("[data-av-total-manual]")) return;
+    const chk = document.getElementById("avToggleValorManual");
+    if (!chk) return;
+    chk.checked = !chk.checked;
+    chk.dispatchEvent(new Event("change"));
+  });
+
+  document.getElementById("avInputValorManual")?.addEventListener("input", _avAtualizarTotalRail);
+
+  _avAtualizarTotalRail();
+  _avAtualizarDestinatario();
+}
+
+// Destinatário do envio, lido dos CAMPOS (não do objeto salvo): quem troca o
+// condomínio no select precisa ver o e-mail novo na hora. `condominios.email`
+// aceita vários separados por vírgula — todos são mostrados, porque é isso que
+// o backend vai usar. Enquanto não houver e-mail, o botão fica desabilitado:
+// enviar é ação irreversível que sai pra cliente real.
+function _avAtualizarDestinatario() {
+  const alvo = document.getElementById("avEnvioDest");
+  const btn  = document.getElementById("avBtnEmail");
+  if (!alvo) return;
+
+  const avulso = !!document.getElementById("avToggleAvulso")?.checked;
+  let email = "";
+  if (avulso) {
+    email = (document.getElementById("avInputClienteEmail")?.value || "").trim();
+  } else {
+    const condoId = document.getElementById("avInputCondo")?.value;
+    const condo = _avCondos.find(c => String(c.id) === String(condoId));
+    email = (condo?.email || "").trim();
+  }
+
+  if (email) {
+    const lista = email.split(",").map(s => s.trim()).filter(Boolean);
+    alvo.innerHTML = `Vai para <b>${_waEscaparHtml(lista.join(", "))}</b> com o PDF anexo.`;
+  } else {
+    alvo.textContent = avulso
+      ? "Preencha o e-mail do cliente para habilitar o envio."
+      : "Este condomínio não tem e-mail cadastrado. Cadastre em Clientes para habilitar o envio.";
+  }
+
+  if (btn) {
+    btn.disabled = !email;
+    btn.style.opacity = email ? "" : ".5";
+    btn.style.cursor = email ? "" : "not-allowed";
+  }
+}
+
+// Reflete a troca de tipo na tela. A mudança reorganiza a tabela inteira — as
+// colunas Qtd/Unit. somem, o formulário de adicionar vira aviso — e ainda
+// GRAVA linhas novas no servidor. Sem sinal nenhum, parecia bug.
+//
+// O sinal é só o pulso + o título mudando. Texto explicativo saiu: a tabela
+// mudando de forma na frente do operador já é a explicação.
+//
+// A limpeza das linhas do tipo antigo é do `_avLimparServicosForaDoTipo`,
+// chamado pelo listener de `change` do select oculto.
+function _avRefletirTipo(tipo, rotulo) {
+  const titulo = document.getElementById("avItensTitulo");
+  if (titulo) titulo.textContent = tipo !== "pecas" ? "Valores dos serviços" : "Itens";
+
+  const railTipo = document.getElementById("avRailTipo");
+  if (railTipo && rotulo) railTipo.textContent = rotulo;
+
+  // `void offsetWidth` reinicia a animação quando se troca duas vezes seguidas
+  // — sem isso o segundo clique não pisca.
+  for (const el of [document.getElementById("avItensZone"), railTipo]) {
+    if (!el) continue;
+    el.classList.remove("is-trocado");
+    void el.offsetWidth;
+    el.classList.add("is-trocado");
+  }
+}
+
+// Total no trilho. O número que decide o orçamento não pode depender de o
+// operador rolar até o rodapé da tabela de itens — antes desta reestruturação
+// era o único lugar onde ele aparecia.
+function _avAtualizarTotalRail() {
+  const el = document.getElementById("avRailTotal");
+  const sub = document.getElementById("avRailTotalSub");
+  if (!el) return;
+
+  const manualChk = document.getElementById("avToggleValorManual");
+  const manualVal = document.getElementById("avInputValorManual")?.value;
+  const usaManual = !!manualChk?.checked && String(manualVal ?? "").trim() !== "";
+
+  const soma = _avLinhasId === _avSelecionado?.id
+    ? _avLinhas.reduce((s, l) => s + Number(l.valor_unitario || 0) * Number(l.quantidade), 0)
+    : 0;
+
+  const valor = usaManual ? Number(manualVal) : soma;
+  el.textContent = _orcFmtValor(valor);
+  el.classList.toggle("is-manual", usaManual);
+
+  if (!sub) return;
+  const n = _avLinhasId === _avSelecionado?.id ? _avLinhas.length : 0;
+  const itens = `${n} ${n === 1 ? "item" : "itens"}`;
+  sub.innerHTML = usaManual
+    ? `valor manual · <button type="button" data-av-total-manual>voltar a somar os itens</button>`
+    : `${itens} · <button type="button" data-av-total-manual>definir manualmente</button>`;
 }
 
 async function _avCarregarOsDoModal(condoId, osIdSelecionado) {
@@ -11764,80 +12120,148 @@ function _avRenderLinhas() {
   const wrap = document.getElementById("avItensWrap");
   if (!wrap || _avLinhasId !== _avSelecionado?.id) return;
 
-  const total = _avLinhas.reduce((s, l) => s + Number(l.valor_unitario || 0) * Number(l.quantidade), 0);
+  // (a soma dos itens virou responsabilidade do _avAtualizarTotalRail, que
+  // desenha o total no trilho — aqui ela não é mais usada)
 
   // Serviço (limpeza/dedetização/combo): não faz sentido qtd × unit., é
   // sempre o valor total daquele serviço — some a coluna Qtd/Unit., fica só Valor.
   // Lê o valor atual do select (não _avSelecionado.tipo, que só atualiza após "Salvar")
   const tipoAtual = document.getElementById("avInputTipo")?.value || _avSelecionado?.tipo || "pecas";
   const isServico = tipoAtual !== "pecas";
-  const fichaPlaceholder = isServico ? "Especificação (opcional) — ex: 2 superiores e 1 inferior" : "Ficha técnica (opcional)";
+  // ⚠️ O papel do `ficha_tecnica` muda POR LINHA, não por tipo de documento:
+  //
+  //   peça                    → impresso sob o item no PDF (renderHTML)
+  //   limpeza de reservatório → injetado na Cláusula Primeira
+  //                             (clausulasLimpezaReservatorio recebe o texto)
+  //   dedetização             → NÃO É USADO EM LUGAR NENHUM. Conferido no
+  //                             orcamento-pdf.service: `clausulasDedetizacao()`
+  //                             não recebe argumento, e `renderHTMLServico`
+  //                             monta o bloco de valores só com descrição e
+  //                             total. O texto fica no banco e nunca sai.
+  //
+  // Por isso o campo é decidido linha a linha. No combo isso é obrigatório:
+  // as duas linhas convivem na mesma tabela com papéis diferentes.
+  const fichaDaLinha = (l) => {
+    if (!isServico) return { placeholder: "Ficha técnica (opcional)" };
+    // Desde que `clausulasDedetizacao` passou a receber especificação, as duas
+    // linhas de serviço alimentam a Cláusula Primeira do mesmo jeito. O exemplo
+    // muda porque o que se qualifica em cada serviço é diferente.
+    const ehLimpeza = l.tipo_servico === "limpeza_reservatorio"
+      || (!l.tipo_servico && /reservat[oó]rio/i.test(l.descricao || ""));
+    return {
+      placeholder: ehLimpeza
+        ? "Especificação — vai para a Cláusula Primeira (ex: 2 superiores e 1 inferior)"
+        : "Especificação — vai para a Cláusula Primeira (ex: 3 blocos e garagem)",
+    };
+  };
+
+  // A descrição de uma linha de serviço é o NOME do serviço no documento, e
+  // outros três pontos do PDF derivam do tipo, não dela: o texto das cláusulas,
+  // o cabeçalho "Serviço 1/2 –" do combo e o subtítulo (`TIPO_SUBTITULO`).
+  // Editando só a linha, dava pra emitir um orçamento com o valor rotulado
+  // "Controle de cupins" e as cláusulas falando de baratas e formigas — três
+  // afirmações se contradizendo no mesmo documento.
+  //
+  // Trava só quando há `tipo_servico`: a chave é sinal confiável. Linha antiga
+  // sem chave continua editável, porque é justamente a que pode precisar de
+  // conserto — e restringir por heurística de texto seria o erro que a
+  // migration 068 veio corrigir.
+  const nomeTravado = l => isServico && !!l.tipo_servico;
   const colCount = isServico ? 3 : 5;
 
   const fileiras = _avLinhas.map(l => {
     const vuVal = l.valor_unitario != null ? l.valor_unitario : "";
     const tot   = l.valor_unitario == null ? null : Number(l.valor_unitario) * Number(l.quantidade);
-    const descCell = `<td style="max-width:200px;">
-        <input class="input" type="text" maxlength="500" value="${_waEscaparHtml(l.descricao)}"
+    // Sem `max-width` aqui: a descrição é quem deve absorver a sobra de
+    // largura da tabela. As colunas numéricas têm largura fixa no <colgroup>
+    // — antes elas dividiam a folga entre si e ficavam com ~100px de vazio
+    // cada uma, enquanto a descrição espremia.
+    const ficha = fichaDaLinha(l);
+    // Texto puro em vez de input desabilitado: campo cinza convida a clicar e
+    // frustra. Se não dá pra editar, não deve parecer editável.
+    const nomeHtml = nomeTravado(l)
+      ? `<div class="orc-it-nome-fixo" title="Nome definido pelo tipo do documento — as cláusulas do PDF dependem dele">${_waEscaparHtml(l.descricao)}</div>`
+      : `<input class="input" type="text" maxlength="500" value="${_waEscaparHtml(l.descricao)}"
           data-av-linha-id="${l.id}" data-av-linha-field="descricao"
-          style="width:100%;font-size:12px;font-weight:500;padding:3px 6px;">
-        <textarea class="input" rows="2" placeholder="${fichaPlaceholder}"
+          style="width:100%;font-size:12px;font-weight:500;padding:4px 8px;">`;
+    const descCell = `<td>
+        ${nomeHtml}
+        <textarea class="input" rows="2" placeholder="${ficha.placeholder}"
           data-av-linha-id="${l.id}" data-av-linha-field="ficha_tecnica"
-          style="width:100%;font-size:10.5px;padding:3px 6px;margin-top:3px;resize:vertical;">${_waEscaparHtml(l.ficha_tecnica || "")}</textarea>
+          style="width:100%;font-size:10.5px;padding:4px 8px;margin-top:4px;resize:vertical;">${_waEscaparHtml(l.ficha_tecnica || "")}</textarea>
       </td>`;
     const delCell = `<td style="text-align:center;"><button class="orc-it-del" data-av-del-linha="${l.id}" title="Remover">✕</button></td>`;
 
     if (isServico) {
       return `<tr data-av-linha-id="${l.id}">
         ${descCell}
-        <td class="orc-it-num"><input class="input" type="number" min="0" step="0.01" value="${vuVal}" placeholder="R$" data-av-linha-id="${l.id}" data-av-linha-field="valor_unitario" style="width:90px;padding:4px 6px;text-align:right;"></td>
+        <td class="orc-it-num"><input class="input" type="number" min="0" step="0.01" value="${vuVal}" placeholder="R$" data-av-linha-id="${l.id}" data-av-linha-field="valor_unitario" style="width:100%;padding:4px 8px;text-align:right;"></td>
         ${delCell}
       </tr>`;
     }
     return `<tr data-av-linha-id="${l.id}">
       ${descCell}
-      <td class="orc-it-num"><input class="input" type="number" min="1" step="1" value="${l.quantidade}" data-av-linha-id="${l.id}" data-av-linha-field="quantidade" style="width:52px;padding:4px 6px;text-align:right;"></td>
-      <td class="orc-it-num"><input class="input" type="number" min="0" step="0.01" value="${vuVal}" placeholder="R$" data-av-linha-id="${l.id}" data-av-linha-field="valor_unitario" style="width:82px;padding:4px 6px;text-align:right;"></td>
+      <td class="orc-it-num"><input class="input" type="number" min="1" step="1" value="${l.quantidade}" data-av-linha-id="${l.id}" data-av-linha-field="quantidade" style="width:100%;padding:4px 8px;text-align:right;"></td>
+      <td class="orc-it-num"><input class="input" type="number" min="0" step="0.01" value="${vuVal}" placeholder="R$" data-av-linha-id="${l.id}" data-av-linha-field="valor_unitario" style="width:100%;padding:4px 8px;text-align:right;"></td>
       <td class="orc-it-num" style="font-weight:600;">${_orcFmtValor(tot)}</td>
       ${delCell}
     </tr>`;
   }).join("");
 
+  // <colgroup> fixa as colunas numéricas e deixa a descrição com `auto`, que
+  // então absorve toda a sobra. Sem ele o `table-layout` distribui a folga
+  // igualmente e sobra vazio em Qtd/Unit./Total.
+  const colGroup = isServico
+    ? `<colgroup><col><col style="width:150px"><col style="width:40px"></colgroup>`
+    : `<colgroup><col><col style="width:84px"><col style="width:122px"><col style="width:122px"><col style="width:40px"></colgroup>`;
+
   const theadCols = isServico
-    ? `<th>Descrição / Especificação</th><th class="orc-it-num">Valor</th><th style="width:30px;"></th>`
-    : `<th>Descrição / Ficha técnica</th><th class="orc-it-num">Qtd</th><th class="orc-it-num">Unit.</th><th class="orc-it-num">Total</th><th style="width:30px;"></th>`;
+    ? `<th>Descrição / Especificação</th><th class="orc-it-num">Valor</th><th></th>`
+    : `<th>Descrição / Ficha técnica</th><th class="orc-it-num">Qtd</th><th class="orc-it-num">Unit.</th><th class="orc-it-num">Total</th><th></th>`;
 
   // Serviço não tem formulário livre de "adicionar item": só as linhas do
   // "Preencher item(ns) padrão do tipo" fazem sentido (cada uma tem cláusula
   // própria no PDF) — um item avulso digitado aqui não geraria cláusula
   // nenhuma, só um valor solto.
+  // A linha existe só porque a ausência do formulário de adicionar é confusa
+  // sem ela — é a única frase que sobrou, e responde uma pergunta real
+  // ("como eu adiciono?"), não repete o que a tela já mostra.
   const addItemForm = isServico
-    ? `<div class="hint" style="padding:6px 0;">As linhas são adicionadas automaticamente ao escolher o tipo acima.</div>`
+    ? `<div class="hint" style="padding:6px 0;">Linhas definidas pelo tipo do documento.</div>`
+    // Uma linha só, com as MESMAS larguras do <colgroup> — o campo de adicionar
+    // fica na vertical exata da coluna que ele preenche.
+    //
+    // O textarea de ficha técnica saiu daqui: cada linha criada já tem o seu,
+    // logo abaixo da descrição, que é onde ela acaba sendo editada de qualquer
+    // forma. Era o campo que fazia o formulário ter ~150px e, com ele grudado
+    // no pé da área rolável, sobrava menos da metade do espaço pros itens.
+    // `_avAcao("add-linha")` lê `avNewFicha` com `?.` + `|| null`, então some
+    // sem quebrar nada — o item nasce sem ficha, como já acontecia quando o
+    // campo ficava vazio.
     : `<div class="orc-add-item-form" id="avAddLinhaForm">
         <div class="orc-add-item-row">
-          <input id="avNewDesc" class="input" type="text" placeholder="Descrição do item *" maxlength="500" style="flex:2;">
-          <input id="avNewQtd"  class="input" type="number" min="1" step="1" placeholder="Qtd" value="1" style="width:60px;">
-          <input id="avNewVal"  class="input" type="number" min="0" step="0.01" placeholder="R$ unit." style="width:90px;">
+          <input id="avNewDesc" class="input" type="text" placeholder="Descrição do novo item *" maxlength="500">
+          <input id="avNewQtd"  class="input" type="number" min="1" step="1" placeholder="Qtd" value="1" style="text-align:right;">
+          <input id="avNewVal"  class="input" type="number" min="0" step="0.01" placeholder="R$ unit." style="text-align:right;">
+          <button class="btn btn-sm btnAccent" data-av-action="add-linha" style="justify-content:center;">+ Adicionar</button>
         </div>
-        <textarea id="avNewFicha" class="input" rows="2" maxlength="1000"
-          placeholder="${fichaPlaceholder}"
-          style="font-size:11.5px;resize:vertical;margin-top:6px;"></textarea>
-        <button class="btn btn-sm" data-av-action="add-linha" style="margin-top:6px;align-self:flex-start;">+ Adicionar item</button>
       </div>`;
 
   wrap.innerHTML = `
     <table class="orc-itens-table">
+      ${colGroup}
       <thead>
         <tr>${theadCols}</tr>
       </thead>
       <tbody>${fileiras || `<tr><td colspan="${colCount}" style="text-align:center;color:var(--muted);padding:12px;font-size:12px;">Nenhum item ainda.</td></tr>`}</tbody>
     </table>
-    ${_avLinhas.length ? `<div style="text-align:right;font-size:12px;font-weight:700;padding:6px 8px 0;color:var(--accent);">
-      Soma dos itens: ${_orcFmtValor(total)}
-      ${_avSelecionado?.valor != null ? `<span style="color:var(--muted);font-weight:400;"> (valor manual sobrepõe no PDF: ${_orcFmtValor(Number(_avSelecionado.valor))})</span>` : ""}
-    </div>` : ""}
 
     ${addItemForm}`;
+
+  // A "Soma dos itens" que ficava aqui saiu: o trilho mostra o total o tempo
+  // todo, em corpo maior, e ainda diz quando o valor manual está sobrepondo.
+  // Manter os dois seria a mesma informação em dois lugares.
+  _avAtualizarTotalRail();
 }
 
 // Assinatura de e-mail: reduz a imagem no navegador antes de subir.
@@ -12035,14 +12459,17 @@ async function _avAbrirEnvioEmail() {
 
 // O texto técnico (objeto/escopo/normas) agora é gerado como cláusulas fixas
 // no PDF (src/services/orcamento-pdf.service.js) — aqui só o valor do serviço.
+// `tipo_servico` (migration 068) é o que liga a linha à cláusula do PDF. Antes
+// o vínculo era regex na descrição, e editar o texto quebrava em silêncio.
+// Com a chave, a descrição volta a ser texto livre sem efeito colateral.
 const _avItensPadrao = {
   limpeza_reservatorio: [{
     descricao: "Limpeza e Higienização de Reservatório de Água Potável",
-    quantidade: 1, valor_unitario: 0,
+    quantidade: 1, valor_unitario: 0, tipo_servico: "limpeza_reservatorio",
   }],
   dedetizacao: [{
     descricao: "Dedetização e Controle de Pragas Urbanas",
-    quantidade: 1, valor_unitario: 0,
+    quantidade: 1, valor_unitario: 0, tipo_servico: "dedetizacao",
   }],
 };
 _avItensPadrao.limpeza_dedetizacao = [..._avItensPadrao.limpeza_reservatorio, ..._avItensPadrao.dedetizacao];
@@ -12056,6 +12483,74 @@ _avItensPadrao.limpeza_dedetizacao = [..._avItensPadrao.limpeza_reservatorio, ..
 // espera qualquer fetch de linhas em andamento e usa uma trava síncrona
 // (sem await entre checar e marcar) pra garantir que só uma delas de fato
 // insere as linhas — a outra vê a trava ativa e desiste sem duplicar.
+// Quais serviços cada tipo de documento comporta. `pecas` não comporta nenhum.
+const _avServicosDoTipo = {
+  pecas: [],
+  limpeza_reservatorio: ["limpeza_reservatorio"],
+  dedetizacao: ["dedetizacao"],
+  limpeza_dedetizacao: ["limpeza_reservatorio", "dedetizacao"],
+};
+
+// Tira as linhas de serviço que não pertencem mais ao tipo escolhido.
+//
+// Antes disto, escolher "Limpeza de reservatório" e voltar para "Peças"
+// deixava a linha "Limpeza e Higienização de Reservatório…" na tabela como se
+// fosse um item de peça — e ela continuava somando no total e saindo no PDF.
+//
+// A regra evita os dois erros opostos:
+//   • linha intocada (sem valor e sem especificação) é a que o próprio sistema
+//     inseriu e ninguém preencheu — sai calada, o operador não perde nada;
+//   • linha com valor ou especificação foi trabalho de alguém — só sai com
+//     confirmação explícita, dizendo o que será perdido.
+//
+// Só alcança linhas com `tipo_servico` (migration 068). Orçamento criado antes
+// da migration tem linha de serviço sem a chave e não é tocado — apagar por
+// heurística de texto seria justamente o tipo de coisa que a 068 veio matar.
+function _avServicosSobrando(novoTipo) {
+  const permitidos = _avServicosDoTipo[novoTipo] || [];
+  return _avLinhas.filter(l => l.tipo_servico && !permitidos.includes(l.tipo_servico));
+}
+
+// Pergunta ANTES de mexer em qualquer coisa. Se o operador cancelar, nada
+// muda — nem o tipo, nem o card marcado, nem as linhas. "Continuar?" tem que
+// significar continuar a troca inteira, não só a exclusão.
+function _avConfirmarTrocaDeTipo(novoTipo) {
+  const temDado = l =>
+    (l.valor_unitario != null && Number(l.valor_unitario) > 0) ||
+    !!String(l.ficha_tecnica || "").trim();
+
+  const preenchidas = _avServicosSobrando(novoTipo).filter(temDado);
+  if (!preenchidas.length) return true;   // nada de valor a perder
+
+  const uma = preenchidas.length === 1;
+  return confirm(
+    `Ao mudar o tipo, ${uma ? "esta linha sai" : "estas linhas saem"} do orçamento:\n\n`
+    + preenchidas.map(l => `• ${l.descricao}`).join("\n")
+    + `\n\n${uma ? "Ela tem" : "Elas têm"} valor ou especificação preenchidos. Continuar?`
+  );
+}
+
+async function _avLimparServicosForaDoTipo(novoTipo) {
+  if (!_avSelecionado) return;
+  const sobrando = _avServicosSobrando(novoTipo);
+  if (!sobrando.length) return;
+
+  const msg = document.getElementById("avFormMsg");
+  for (const l of sobrando) {
+    try {
+      await fetch(`/admin/orcamentos/avulsos/linhas/${l.id}`, {
+        method: "DELETE", headers: authHeaders(),
+      });
+      _avLinhas = _avLinhas.filter(x => x.id !== l.id);
+    } catch (e) {
+      if (msg) msg.textContent = "Erro ao remover linha: " + e.message;
+      return;
+    }
+  }
+  const idx = _avData.findIndex(o => o.id === _avSelecionado.id);
+  if (idx !== -1) _avData[idx].valor_total = _avComputeTotal(_avData[idx], _avLinhas);
+}
+
 async function _avPreencherPadrao(tipo) {
   if (!_avSelecionado) return;
   if (_avLinhasPromise) await _avLinhasPromise;
@@ -12064,8 +12559,16 @@ async function _avPreencherPadrao(tipo) {
   const preset = _avItensPadrao[tipo];
   if (!preset) return; // "pecas" não tem preset — nada a fazer
   const id = _avSelecionado.id;
-  const descsExistentes = new Set(_avLinhas.map(l => l.descricao));
-  const faltando = preset.filter(item => !descsExistentes.has(item.descricao));
+  // Dedupe pela CHAVE, não pela descrição. Comparar texto tinha o mesmo
+  // problema do regex do PDF: bastava alguém renomear a linha e, ao trocar
+  // limpeza → combo, o preset entrava duplicado. `descricao` segue como
+  // fallback pras linhas anteriores à migration 068, que não têm chave.
+  const chavesExistentes = new Set(_avLinhas.map(l => l.tipo_servico).filter(Boolean));
+  const descsExistentes  = new Set(_avLinhas.map(l => l.descricao));
+  const faltando = preset.filter(item =>
+    !(item.tipo_servico && chavesExistentes.has(item.tipo_servico)) &&
+    !descsExistentes.has(item.descricao)
+  );
   if (!faltando.length) return;
 
   _avPreencherPadraoAtivo = true;
@@ -13468,8 +13971,10 @@ function _pmAbrirModalBulk() {
   const footer = document.getElementById("pmModalFooter");
   if (footer) {
     footer.innerHTML = `
-      <button class="btn btn-sm" id="pmBFCancelar" type="button">Cancelar</button>
-      <button class="btn btnAccent btn-sm" id="pmBFSalvar" type="button">Aplicar aos ${n}</button>
+      <div class="modalFoot-actions">
+        <button class="btn btn-sm" id="pmBFCancelar" type="button">Cancelar</button>
+        <button class="btn btnAccent btn-sm" id="pmBFSalvar" type="button">Aplicar aos ${n}</button>
+      </div>
     `;
   }
 
@@ -13612,8 +14117,10 @@ async function _pmAbrirModal(plano) {
   const footer = document.getElementById("pmModalFooter");
   if (footer) {
     footer.innerHTML = `
-      <button class="btn btn-sm" id="pmFCancelar" type="button">Cancelar</button>
-      <button class="btn btnAccent btn-sm" id="pmFSalvar" type="button">${isEdit ? "Salvar alterações" : "Criar plano"}</button>
+      <div class="modalFoot-actions">
+        <button class="btn btn-sm" id="pmFCancelar" type="button">Cancelar</button>
+        <button class="btn btnAccent btn-sm" id="pmFSalvar" type="button">${isEdit ? "Salvar alterações" : "Criar plano"}</button>
+      </div>
     `;
   }
 
