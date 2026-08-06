@@ -183,6 +183,16 @@ ESP32 (sonda 4-20mA + SCT-013)
     `.f span em` (dica dentro do rótulo), `.f span b` (asterisco de
     obrigatório), `.modalFoot-danger` (ação destrutiva sem cara de botão).
 
+- **Nas telas master-detail (`.ch-layout`), quem rola é o `.content`, não a
+  lista** (ago/2026). `.ch-list-col .tableWrap` tem `overflow-y: auto`, mas
+  `.ch-list-col` é `align-self: stretch` numa linha de altura automática —
+  nada limita a altura dele, então o `auto` nunca engata e a página inteira
+  rola. Por isso o painel de detalhe é `position: sticky; top: 0` com teto de
+  viewport: sem isso ele saía da tela junto com a rolagem da lista. Vale para
+  Alertas, Clientes, Chamados, Orçamentos (2 modos) e Colaboradores.
+  Se um dia a lista precisar rolar por dentro, é a altura da coluna esquerda
+  que muda — e isso mexe nas 5 telas de uma vez.
+
 - **Gráfico dentro de contêiner rolável precisa de `overflow-x: hidden`**
   (ago/2026). `overflow-y: auto` sozinho **também** torna o eixo X rolável — a
   regra do CSS diz que, quando um eixo não é `visible`, o outro computa de

@@ -5594,7 +5594,22 @@ body.mp-fs-active { overflow: hidden; }
 .ch-st-em_atendimento { background: rgba(251,146,60,.15); color: #fb923c; }
 .ch-st-fechado        { background: rgba(34,197,94,.15);  color: #4ade80; }
 
-/* Painel de detalhe */
+/* Painel de detalhe.
+   GRUDA NO TOPO (06/08). Antes era estático e ficava no alto da linha
+   (`.ch-layout` tem `align-items: flex-start`), então rolar a lista pra achar
+   um item lá embaixo levava o painel junto pra fora da tela — e ver o que foi
+   selecionado exigia rolar tudo de volta pra cima. Medido no harness com 28
+   condomínios na aba Orçamentos: depois de rolar até o fim, o painel ficava em
+   `top: -430px`, com 56px de 486 visíveis.
+   ⚠️ A lista NÃO rola por dentro, apesar do `overflow-y: auto` em
+   `.ch-list-col .tableWrap`: `.ch-list-col` é `align-self: stretch` numa linha
+   de altura automática, então nada limita a altura dele e o `auto` nunca
+   engata — quem rola é o `.content`. Por isso a correção é `sticky` e não
+   "deixa a lista rolar sozinha": mexer na altura da coluna esquerda mudaria as
+   6 telas que usam `.ch-layout`.
+   O `top: 0` é relativo ao scrollport do `.content` (que já começa abaixo da
+   topbar); o `max-height` impede que um painel comprido nasça com o rodapé
+   fora da tela, e o `overflow-y: auto` faz ele rolar por dentro. */
 .ch-detail-col {
   width: 360px;
   flex-shrink: 0;
@@ -5602,6 +5617,9 @@ body.mp-fs-active { overflow: hidden; }
   border: 1px solid var(--border);
   border-radius: 14px;
   overflow-y: auto;
+  position: sticky;
+  top: 0;
+  max-height: calc(100vh - var(--topbar-h) - 44px);
 }
 
 .ch-detail-empty {
@@ -5614,10 +5632,14 @@ body.mp-fs-active { overflow: hidden; }
 /* "Solicitados pelos técnicos" (Orçamentos): reusa o painel .ap-* dentro do
    card de detalhe do padrão Chamados. Mantém padding/scoping do .al-painel,
    mas o visual (borda + raio + fundo) vem do .ch-detail-col. */
+/* O `max-height: 700px` vem do `.al-painel`, que nasceu para a página de
+   Alertas. Aqui quem manda é o teto de viewport do `.ch-detail-col` — herdar
+   700px fixos deixaria o painel passando do rodapé em tela baixa e, agora que
+   ele é sticky, o pedaço de baixo ficaria inalcançável. */
 .ch-detail-col.al-painel {
   background: var(--surface);
   padding: 18px;
-  max-height: none;
+  max-height: calc(100vh - var(--topbar-h) - 44px);
 }
 /* Filtro de condomínio na toolbar do padrão Chamados alinhado ao input */
 .ch-toolbar .select { width: 180px; flex-shrink: 0; margin-bottom: 10px; }

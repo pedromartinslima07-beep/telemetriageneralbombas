@@ -80,6 +80,36 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
 
 ## Marcos de produto (fases do plano)
 
+- **2026-08-06** — **Painel de detalhe gruda no topo nas 5 telas master-detail**
+  (só CSS)
+  - **Sintoma (relatado pelo Pedro, na aba Orçamentos):** para ver os
+    orçamentos salvos é preciso clicar no condomínio e ler o painel da direita.
+    Se o condomínio estiver lá embaixo, rolar até ele levava o painel junto
+    para fora da tela — e ver o resultado do clique exigia rolar tudo de volta.
+  - **Medido no harness** (cadeia real `.content > .section.is-active >
+    .ch-layout`, `admin.css` real, 28 condomínios, 1440×900): depois de rolar
+    até o fim, o painel ficava em `top: -430px`, com **56px de 486 visíveis**.
+  - ⚠️ **Achado do diagnóstico:** a lista **não rola por dentro**, apesar do
+    `overflow-y: auto` em `.ch-list-col .tableWrap`. `.ch-list-col` é
+    `align-self: stretch` numa linha de altura automática, então nada limita a
+    altura dele e o `auto` nunca engata — quem rola é o `.content`. Foi por
+    isso que a correção é `position: sticky` no painel, e não "fazer a lista
+    rolar sozinha": mexer na altura da coluna esquerda mudaria as 5 telas.
+  - **Correção:** `.ch-detail-col` ganhou `position: sticky; top: 0` e
+    `max-height: calc(100vh - var(--topbar-h) - 44px)` (com o `overflow-y:
+    auto` que já tinha, painel comprido rola por dentro em vez de nascer com o
+    rodapé fora da tela). `.ch-detail-col.al-painel` trocou `max-height: none`
+    pelo mesmo teto — 700px fixos herdados de `.al-painel` deixariam o pé do
+    painel inalcançável agora que ele é sticky.
+  - **Depois:** 486 de 486px visíveis com a lista rolada até o fim. Com painel
+    comprido (14 orçamentos) o teto segura tudo dentro da viewport e o painel
+    rola por dentro — conferido em 1440×900, 1366×768 e 1280×700.
+  - **Vale para as 5 telas que usam `.ch-layout`:** Alertas, Clientes,
+    Chamados, Orçamentos (os dois modos) e Colaboradores. O `@media
+    (max-width: 1100px)` que já existia neutraliza `sticky` e o teto quando o
+    layout empilha — conferido a 1024×800.
+  - Cache-bust: `admin.css?v=189`, `admin.js?v=280`.
+
 - **2026-08-06** — **Modal do histórico tremia com o mouse na ponta direita do
   gráfico** (só frontend)
   - **Sintoma (relatado pelo Pedro):** passando o mouse na extrema direita do
