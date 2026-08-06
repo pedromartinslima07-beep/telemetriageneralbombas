@@ -80,6 +80,133 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
 
 ## Marcos de produto (fases do plano)
 
+- **2026-08-06** — **Um nível baixo parava de virar dezenas de alertas** (3
+  correções independentes)
+  - **Sintoma relatado:** o reservatório de teste gerava "2 alertas diferentes"
+    ao chegar em percentual baixo.
+  - **(1) Alerta de telemetria + chamado `[AUTO]` eram o mesmo evento em duas
+    linhas.** `POST /telemetria` grava o alerta e chama `abrirChamadoAuto`; a
+    página de Alertas listava os dois sem correlacionar (`TEL-1783` e `CH-65`
+    lado a lado). Agora `_alChamadoDoAlerta` agrupa por condomínio+categoria: o
+    chamado é o card, com selo "+ telemetria". Badge e KPI passaram a contar
+    pela mesma lista (`_alertasAtivosUnificados`) — antes diziam 2 para o que a
+    tela mostrava como 1. Chamado que absorve telemetria conta como alerta
+    mesmo sendo P3/P4 e herda a maior severidade das duas origens.
+  - **(2) `nivel_baixo` e `nivel_muito_baixo` ficavam abertos ao mesmo tempo.**
+    O `if (nivelMudou)` comparava com `last_nivel` — o nível da última leitura
+    **gravada** — mas o write-threshold descarta a maioria das leituras, então
+    o UPDATE de "resolvido" era pulado. Confirmado: 5 pares coexistindo em
+    produção, o maior por 2min40s. O estado de nível agora vem dos **alertas
+    abertos do device** (carregados na mesma query, sem round-trip extra) e a
+    resolução roda em toda leitura. Auto-cura os registros já inconsistentes.
+  - **(3) Histerese de 5 pontos** (`TELEMETRIA_HISTERESE_PCT`): piorar de faixa
+    vale na fronteira nua, melhorar exige folga. Sem ela, um nível parado sobre
+    uma fronteira gera alerta a cada ~10s, porque os alertas são reprocessados
+    em toda request e o ruído do ADC decide o lado. Medido: uma descida de 37%
+    a 0% criou **17 alertas** (deveriam ser 2); em simulação a lógica nova fica
+    em 2, e no cenário "parado na fronteira por 20 min" cai de 35 para 1.
+    `leituras.nivel` continua cru — a histerese governa só os alertas.
+  - Sem migration. `POST /telemetria` passou a devolver também `nivel_alerta`.
+  - **Diagnóstico de hardware (não virou código):** o ruído do ADC é de ±1,7%,
+    não os ±6,9% que a tabela `leituras` sugeria — ela só guarda amostras que
+    saltaram ≥5%, o que enviesa qualquer estatística tirada dela. A série crua
+    do Serial Monitor mostra ruído branco (autocorrelação -0,127), então **não
+    há aliasing** e a amostragem do firmware está correta. Fica pendente só a
+    recalibração: 25 de 76 amostras cruas passam do topo da escala e são
+    achatadas em 100% pelo `Math.min` de `calcularNivelPct`.
+
+- **2026-08-06** — **Modal "Editar condomínio" ganha o padrão de trilho do
+  orçamento** (só frontend, sem migration e sem endpoint novo)
+  - **Medido antes:** 14 campos em `.formGrid` de 2 colunas dentro de um
+    `.modalBox` de 1100px, com o mini-mapa de 280px empilhado no fim. O corpo
+    rolava ~520px, e as duas coisas mais usadas da tela — o mapa e o "Salvar
+    alterações" — só apareciam depois de rolar até o fim. Conferir se o pino
+    bateu com o endereço digitado exigia subir, corrigir e descer de novo.
+  - **Casca compartilhada nova:** `.modalBox.is-split` + `.modal-split` +
+    `.modal-split-form` + `.modal-rail` (em `admin.css`, ao lado do
+    `.modal-2col`) generalizam o que o modal de orçamento fez em `#avModal`:
+    janela de altura fixa, uma coluna que rola e um trilho que não sai da
+    vista. Serve pra qualquer modal com muito campo e uma ou duas coisas que
+    precisam ficar sempre visíveis. Disponível pros outros; aplicada só aqui.
+  - **O trilho recebeu o mapa, o status e as ações.** O mapa absorve a sobra de
+    altura do trilho (`flex: 1`, mín. 190px) — é o bloco que mais ganha com
+    espaço e o único que encolhe sem perder função. Lat/lng viraram leitura em
+    mono embaixo dele, como todo dado numérico do painel.
+  - **"Ativo" saiu do meio do formulário** (estava entre "Zona" e
+    "Observações") e virou a primeira coisa do trilho, com a consequência
+    declarada antes do clique: desmarcar tira o condomínio do painel **e**
+    derruba o login do cliente (`clienteOnly` valida `condominios.ativo` a cada
+    request desde 30/07). Antes era uma checkbox sem nenhum aviso.
+  - **"Excluir permanentemente" perdeu a cara de botão** — era um `.btnDanger`
+    sólido do mesmo tamanho do "Salvar", duas ações de peso visual igual e
+    consequências opostas. Virou `.modalFoot-danger` no pé do trilho, como o
+    "Excluir orçamento". O aviso "esta ação é irreversível" saiu: quem clica
+    cai no modal de confirmação, que já lista os logins que serão apagados.
+  - **Grade de 6 colunas** no lugar das 2 iguais: "UF" (2 caracteres) ganhava
+    os mesmos ~520px que "E-mail". Agora cada campo ocupa a largura que o
+    conteúdo pede (UF 1/6, CEP 2/6, Logradouro 4/6, Observações 6/6).
+  - **A faixa de abas com uma aba só ("Dados") saiu** — 37px de altura para
+    nenhuma escolha. O `.edit-tab-pane` e o `_editAtivarTab` continuam no
+    lugar, intactos, para quando voltar a existir mais de uma aba.
+  - **Mensagem de estado foi pro trilho, ao lado do botão que a provoca**
+    (estava no topo do corpo, fora da vista de quem acabou de clicar em
+    Salvar) e ganhou cor: `_editMsg(texto, tipo)` pinta erro em vermelho e
+    sucesso em verde. Antes o erro do backend saía em cinza claro do lado de
+    um botão amber. Textos reescritos na voz da interface — "Não deu para
+    salvar (erro 409)" no lugar de "Erro ao salvar (409)", "Preencha a razão
+    social" no lugar de "Nome é obrigatório", "Alterações salvas."
+  - **Camada compartilhada, efeito em todos os `.f`:** `.f span em` (dica
+    dentro do rótulo, fora da caixa alta), `.f span b` (asterisco de
+    obrigatório em amber) e `.f span.cep-msg` — esta última corrige o retorno
+    do CEP, que herdava caixa alta e peso 700 do rótulo e saía gritando mais
+    que o nome do campo.
+  - **Removidos** `.loc-block` / `.loc-head` / `.loc-coords` do `admin.css`:
+    o bloco de localização virou o trilho e o modal de novo cliente já montava
+    o próprio painel. Sem consumidor em `public/`, `app/public/` ou nos
+    serviços de PDF — conferido por grep no repo inteiro antes de remover.
+  - **Contrato com o JS preservado:** todos os ids continuam os mesmos
+    (`editCnpj`, `editCep` com `data-cep-target-prefix`, `editMiniMapa`,
+    `editLat`/`editLng`, `editAtivo`, `btnHardDeleteNoEdit`…). O "Salvar"
+    ficou dentro do `<form id="editForm">`, que agora envolve as duas colunas —
+    submit nativo, sem atributo `form=`.
+  - ⚠️ **Pegadinha repetida:** `.edit-tab-pane` fica **entre** o `.modalBody` e
+    o `.modal-split`. Sem repassar o flex nele, o `flex: 1` do layout não
+    alcança e o formulário vaza pra fora da janela de altura fixa — exatamente
+    o que o `#avModalBody` fez no modal de orçamento. Vale pra qualquer
+    wrapper intermediário que entrar nessa cadeia.
+  - **Verificado em harness estático** (Puppeteer + o markup real recortado do
+    `admin.html`, com o `admin.css` real): 1440×900, 1366×768, 1440×720 e
+    1024×900. Em 1440×900 e 1366×768 **nada rola** — os 14 campos e o trilho
+    inteiro cabem na janela. Em 1440×720 sobram 37px de rolagem no formulário.
+    Abaixo de 1080px vira coluna única: o `.modalBody` volta a `display: block`
+    porque, como flex, a compressão da janela fixa criava **dois** scrollers
+    empilhados (522px presos no formulário + o trilho rolando por conta
+    própria). Nada rodou com backend real nem com o Leaflet carregado.
+  - Cache-bust: `admin.css?v=187`, `admin.js?v=278`. Nenhum endpoint novo →
+    `sw.js` e `register-sw.js` intocados.
+
+- **2026-08-06** — **Atribuir técnico/responsável passa a contar como primeira
+  resposta (TTFR)**
+  - **Sintoma:** chamado atribuído a um técnico continuava com badge `⚠ SLA` e
+    aparecia como alerta crítico, porque `primeira_resposta_em` seguia `NULL`.
+  - **Causa:** em `PATCH /chamados/:id` (`src/routes/chamados.routes.js`), o
+    hook de `primeira_resposta_em` estava dentro do `if (status)`. Como o PATCH
+    só aceita status `aberto`/`fechado` (`em_atendimento` é exclusivo de
+    `/iniciar-atendimento`), na prática **só fechar o chamado** marcava TTFR
+    por essa rota — e o front manda a atribuição num PATCH com apenas
+    `tecnico_id` no body.
+  - **Correção:** flag `tocouOChamado` acumulada ao montar o UPDATE; além da
+    transição de status, `tecnico_id` e `responsavel_id` **não-nulos** marcam
+    TTFR. Desatribuir (`null`) não marca — ninguém passou a olhar pro chamado
+    por causa disso. O `COALESCE(primeira_resposta_em, NOW())` continua
+    garantindo que reatribuição não sobrescreve o primeiro toque.
+  - Alinha o comportamento ao que a própria UI já prometia em Configurações ›
+    SLA ("atribuir, responder, iniciar atendimento"). Sem migration.
+  - ⚠️ **Pendência conhecida:** `sla_definicoes.sla_chegada_min` (criado na 028)
+    continua sem uso — não é editável na tela de SLA e nenhuma query calcula
+    estouro de chegada, apesar de `docs/modulos/chamados-sla.md` dizer que o
+    SLA mede chegada do técnico.
+
 - **2026-07-31** — **Janela de expediente do GPS sai do WebView e vira regra do
   backend** (pin de técnico aparecia no mapa às 19h)
   - **Sintoma:** pin de técnico no mapa fora das 08h–18h. Como

@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="/static/leaflet.css">
   <!-- ⚠️ Ao mexer em admin.js ou admin.css, bumpe o ?v=N aqui E no <script>
        lá embaixo. Ver CLAUDE.md raiz. -->
-  <link rel="stylesheet" href="/static/admin.css?v=186">
+  <link rel="stylesheet" href="/static/admin.css?v=187">
 </head>
 <body>
   <div id="appLoader">
@@ -2102,9 +2102,17 @@
   </div>
 </div>
 
-<!-- Modal: editar condomínio -->
+<!-- Modal: editar condomínio ───────────────────────────────────────────────────
+     Janela de altura fixa com trilho (`.modalBox.is-split`), mesmo padrão do
+     modal de orçamento: só a coluna de campos rola. Antes o mapa era o último
+     bloco de um formulário de 14 campos em coluna única, e "Salvar alterações"
+     vinha depois dele — as duas coisas mais usadas da tela só apareciam
+     rolando até o fim. Agora mapa, status e ações moram no trilho e não saem
+     da vista.
+     A faixa de abas com uma aba só ("Dados") saiu; o pane e o `_editAtivarTab`
+     continuam no lugar para quando voltar a existir mais de uma. -->
 <div id="editOverlay" class="modalOverlay" style="display:none;">
-  <div class="modalBox">
+  <div class="modalBox is-split edit-box">
     <div class="modalHead">
       <div>
         <div class="modalTitle">Editar condomínio</div>
@@ -2112,76 +2120,92 @@
       </div>
       <button class="btn btn-sm" id="btnFecharModalEditar">Fechar</button>
     </div>
-    <div class="edit-tabs">
-      <button type="button" class="edit-tab is-active" data-edit-tab="dados">Dados</button>
-    </div>
     <div class="modalBody">
-      <div class="modalTools">
-        <div class="modalCount" id="editMsg"></div>
-      </div>
+      <!-- ⚠️ `.edit-tab-pane` fica ENTRE o corpo e o layout: precisa ser flex
+           também, senão a cadeia de altura quebra aqui e o formulário vaza
+           pra fora da janela — mesma pegadinha do `#avModalBody` no modal de
+           orçamento. O CSS de `.edit-box .edit-tab-pane` cuida disso. -->
       <div class="edit-tab-pane" data-edit-pane="dados">
-      <form id="editForm" class="formGrid">
-        <input type="hidden" id="editId" />
-        <div class="f" style="grid-column:1/-1;display:flex;gap:8px;padding-bottom:16px;border-bottom:1px solid var(--border);margin-bottom:4px;">
-          <div style="flex:1;">
-            <span class="lbl" style="display:block;margin-bottom:4px;">CNPJ <span style="font-weight:400;color:var(--muted);">— preenche campos automaticamente</span></span>
-            <input id="editCnpj" class="input" placeholder="00.000.000/0001-00" maxlength="18" style="font-family:monospace;width:100%;" />
-          </div>
-          <div style="display:flex;align-items:flex-end;">
-            <button type="button" class="btn btn-sm" id="btnBuscarCnpjEdit" style="height:34px;white-space:nowrap;">Buscar dados</button>
-          </div>
-        </div>
-        <div id="msgCnpjEdit" style="grid-column:1/-1;font-size:11px;margin-top:-8px;margin-bottom:4px;"></div>
-        <label class="f"><span>Razão Social *</span><input id="editNome" required /></label>
-        <label class="f"><span>Nome Fantasia</span><input id="editNomeFantasia" placeholder="Nome principal de exibição" /></label>
-        <label class="f cep-field">
-          <span>CEP <span style="font-weight:500;color:var(--muted);">— auto-preenche endereço</span></span>
-          <input id="editCep" class="cep-input" maxlength="9" inputmode="numeric" placeholder="00000-000" data-cep-target-prefix="edit" />
-          <span class="cep-msg" id="editCepMsg"></span>
-        </label>
-        <div class="modal-sec-title" style="grid-column:1/-1;">Endereço</div>
-        <label class="f"><span>Endereço</span><input id="editEndereco" /></label>
-        <label class="f"><span>Bairro</span><input id="editBairro" /></label>
-        <label class="f"><span>Cidade</span><input id="editCidade" /></label>
-        <label class="f"><span>UF</span><input id="editUf" maxlength="2" /></label>
-        <div class="modal-sec-title" style="grid-column:1/-1;">Contato e operação</div>
-        <label class="f"><span>Responsável</span><input id="editResponsavel" /></label>
-        <label class="f"><span>Telefone</span><input id="editTelefone" /></label>
-        <label class="f"><span>E-mail <span style="font-weight:400;color:var(--muted);">— orçamentos (separe vários por vírgula)</span></span><input id="editEmail" type="text" placeholder="contato@condominio.com.br, sindico@condominio.com.br" /></label>
-        <label class="f" style="grid-column:1/-1;"><span>Observações</span><input id="editObs" /></label>
-        <label class="f"><span>Zona de atendimento</span><input id="editZona" placeholder="Ex: Zona Norte, Zona Sul, Centro…" /></label>
-        <label class="fCheck" style="grid-column:1/-1;">
-          <input type="checkbox" id="editAtivo" />
-          <span>Ativo</span>
-        </label>
+        <form id="editForm" class="modal-split">
+          <input type="hidden" id="editId" />
 
-        <!-- Localização no mapa -->
-        <div class="loc-block" style="grid-column:1/-1;">
-          <div class="loc-head">
-            <span class="lbl" style="margin:0;">Localização no mapa</span>
-            <button type="button" class="btn btn-sm" data-action="buscar-coords" data-prefix="edit">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-              Buscar pelo endereço
-            </button>
-          </div>
-          <div class="loc-coords">
-            <label class="f"><span>Latitude</span><input id="editLat" type="number" step="any" /></label>
-            <label class="f"><span>Longitude</span><input id="editLng" type="number" step="any" /></label>
-          </div>
-          <div class="loc-msg" id="editLocMsg"></div>
-          <div class="mini-mapa" id="editMiniMapa"></div>
-          <div class="loc-hint">Arraste o pino para ajustar.</div>
-        </div>
+          <!-- ── Coluna que rola: os campos ── -->
+          <div class="modal-split-form">
+            <div class="modal-sec-title">Identificação</div>
+            <div class="edit-grid">
+              <div class="f eg-3">
+                <span>CNPJ <em>preenche o resto</em></span>
+                <div class="edit-cnpj">
+                  <input id="editCnpj" class="cep-input" placeholder="00.000.000/0001-00" maxlength="18" />
+                  <button type="button" class="btn btn-sm" id="btnBuscarCnpjEdit">Buscar dados</button>
+                </div>
+                <div class="edit-field-msg" id="msgCnpjEdit"></div>
+              </div>
+              <label class="f eg-3"><span>Razão social <b>*</b></span><input id="editNome" required /></label>
+              <label class="f eg-6"><span>Nome fantasia <em>é este que o painel mostra</em></span><input id="editNomeFantasia" placeholder="Nome principal de exibição" /></label>
+            </div>
 
-        <div class="formActions" style="grid-column:1/-1;">
-          <button class="btn" type="button" id="btnCancelarEdicao">Cancelar</button>
-          <button class="btn btnAccent" type="submit">Salvar alterações</button>
-        </div>
-        <div class="master-only-hide" style="grid-column:1/-1;margin-top:8px;padding-top:16px;border-top:1px solid var(--border);display:flex;align-items:center;gap:12px;">
-          <span style="font-size:12px;color:var(--text-muted);flex:1;">Zona de perigo — esta ação é irreversível.</span>
-          <button class="btn btn-sm btnDanger" type="button" id="btnHardDeleteNoEdit">Excluir permanentemente</button>
-        </div>
-      </form>
+            <div class="modal-sec-title">Endereço</div>
+            <div class="edit-grid">
+              <label class="f eg-2 cep-field">
+                <span>CEP <em>auto-preenche</em></span>
+                <input id="editCep" class="cep-input" maxlength="9" inputmode="numeric" placeholder="00000-000" data-cep-target-prefix="edit" />
+                <span class="cep-msg" id="editCepMsg"></span>
+              </label>
+              <label class="f eg-4"><span>Logradouro</span><input id="editEndereco" placeholder="Rua, número" /></label>
+              <label class="f eg-3"><span>Bairro</span><input id="editBairro" /></label>
+              <label class="f eg-2"><span>Cidade</span><input id="editCidade" /></label>
+              <label class="f eg-1"><span>UF</span><input id="editUf" maxlength="2" /></label>
+            </div>
+
+            <div class="modal-sec-title">Contato e operação</div>
+            <div class="edit-grid">
+              <label class="f eg-3"><span>Responsável</span><input id="editResponsavel" placeholder="Síndico ou responsável" /></label>
+              <label class="f eg-3"><span>Telefone</span><input id="editTelefone" placeholder="(11) 99999-9999" /></label>
+              <label class="f eg-4"><span>E-mail <em>destino dos orçamentos; separe vários por vírgula</em></span><input id="editEmail" type="text" placeholder="contato@condominio.com.br" /></label>
+              <label class="f eg-2"><span>Zona de atendimento</span><input id="editZona" placeholder="Ex: Zona Norte" /></label>
+              <label class="f eg-6"><span>Observações</span><input id="editObs" /></label>
+            </div>
+          </div>
+
+          <!-- ── Trilho: mapa, status e ações ── -->
+          <aside class="modal-rail edit-rail">
+            <div class="edit-status">
+              <label class="fCheck">
+                <input type="checkbox" id="editAtivo" />
+                <span>Ativo</span>
+              </label>
+              <p class="edit-status-hint">Desmarcado, o condomínio some do painel e o login do cliente para de funcionar.</p>
+            </div>
+
+            <div class="edit-loc">
+              <div class="modal-sec-title edit-loc-title">
+                <span>Localização</span>
+                <button type="button" class="btn btn-sm" data-action="buscar-coords" data-prefix="edit">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                  Buscar pelo endereço
+                </button>
+              </div>
+              <div class="mini-mapa" id="editMiniMapa"></div>
+              <div class="loc-hint">Arraste o pino para ajustar.</div>
+              <div class="edit-coords">
+                <label class="f"><span>Latitude</span><input id="editLat" type="number" step="any" /></label>
+                <label class="f"><span>Longitude</span><input id="editLng" type="number" step="any" /></label>
+              </div>
+              <div class="loc-msg" id="editLocMsg"></div>
+            </div>
+
+            <div class="edit-acoes">
+              <div class="edit-msg" id="editMsg"></div>
+              <button class="btn btnAccent" type="submit">Salvar alterações</button>
+              <button class="btn" type="button" id="btnCancelarEdicao">Cancelar</button>
+            </div>
+
+            <div class="edit-danger master-only-hide">
+              <button class="modalFoot-danger" type="button" id="btnHardDeleteNoEdit">Excluir permanentemente</button>
+            </div>
+          </aside>
+        </form>
       </div>
     </div>
   </div>
@@ -2582,7 +2606,7 @@
 </div>
 
 
-<script src="/static/admin.js?v=277" defer></script>
+<script src="/static/admin.js?v=278" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
 <script src="/static/register-sw.js?v=32" defer></script>
 </body>

@@ -69,6 +69,20 @@ aberto → técnico atribuído → em_atendimento (GPS chegada)
 - `sla_definicoes` por prioridade: `ttfr_min` (1ª resposta), `ttr_min`
   (resolução), `sla_chegada_min` (chegada). Editável em `/admin/sla`.
 - `chamados.primeira_resposta_em`, `tempo_resolucao_seg` alimentam as métricas.
+- **O que marca `primeira_resposta_em` (TTFR).** Todos os hooks gravam
+  `COALESCE(primeira_resposta_em, NOW())` — a primeira escrita ganha e nada
+  depois sobrescreve:
+  - `PATCH /chamados/:id` — transição de status saindo de `aberto`,
+    **atribuição de técnico** (`tecnico_id`) ou **de responsável**
+    (`responsavel_id`). Desatribuir (mandar `null`) **não** conta.
+  - Técnico manda mensagem no chat do chamado.
+  - Admin comenta no chamado (`POST /alertas/chamado/:id/comentarios`).
+  - `POST /chamados/:id/iniciar-atendimento` e `/chegou`.
+  - Finalização da O.S. (backfill defensivo — a essa altura já deveria estar
+    preenchido).
+
+  Não contam: mensagem do cliente, resposta da IA no WhatsApp e apenas abrir/ler
+  o chamado no painel.
 - **Painel ao vivo:** `GET /relatorios/painel-vivo` — chamados em risco
   (≥ 50% do TTR usado) + workload por técnico, estado atual sem filtro de
   período. Substituiu o antigo dashboard de gráficos por período — análise

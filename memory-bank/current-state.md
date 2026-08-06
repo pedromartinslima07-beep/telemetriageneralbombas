@@ -52,6 +52,12 @@ ESP32 (sonda 4-20mA + SCT-013)
   nível baixo/muito baixo **novo** também abre chamado automático via
   `abrirChamadoAuto` (categoria `nivel_baixo`, P3/P2, dedup por
   condomínio+categoria — ver [chamados-sla.md](../docs/modulos/chamados-sla.md)).
+- **Alertas de nível são estado, não histórico:** rodam em toda request (mesmo
+  nas que o threshold não gravou), o nível vigente sai dos **alertas abertos**
+  do device — nunca da última leitura gravada — e sair de faixa exige histerese
+  de 5 pontos (`TELEMETRIA_HISTERESE_PCT`). Na página de Alertas o alerta de
+  telemetria e o chamado `[AUTO]` do mesmo evento aparecem **como um item só**.
+  Ver [telemetria.md](../docs/modulos/telemetria.md).
 
 ## Módulos existentes (por router)
 
@@ -117,6 +123,9 @@ ESP32 (sonda 4-20mA + SCT-013)
 - **SLA configurável** + métricas TTFR/TTR (`primeira_resposta_em`,
   `tempo_resolucao_seg`) + **painel ao vivo** de chamados em risco/workload
   na aba Relatórios; análise histórica de SLA é feita via export CSV.
+  O TTFR é marcado por qualquer primeiro toque da equipe — atribuir técnico ou
+  responsável, mudar status, mensagem/comentário, iniciar atendimento ou chegar
+  (lista completa em [chamados-sla.md](../docs/modulos/chamados-sla.md)).
 - **O.S. digital** completa (fotos base64 comprimidas, assinatura, orçamento) +
   PDF via Puppeteer; página de O.S. no admin.
 - Histórico de chamados, mensagens do chamado, avaliação.
@@ -156,6 +165,23 @@ ESP32 (sonda 4-20mA + SCT-013)
   visível. Ao acrescentar filtro/botão numa toolbar, confira em 1366px: é a
   largura de notebook onde a folga acaba primeiro. Medição em
   [changelog.md](../docs/changelog.md) (2026-08-05).
+
+- **Duas cascas de modal, não uma** (ago/2026). Ao criar ou reformar um modal
+  do admin, escolha antes de escrever markup:
+  - **`.modalBox`** (padrão) — `.modalHead` / `.modalBody` que rola inteiro /
+    `.modalFoot`. Serve pra tabela, detalhe e formulário curto.
+  - **`.modalBox.is-split`** — janela de **altura fixa** com `.modal-split`
+    (grid), `.modal-split-form` (rola) e `.modal-rail` (fixo, 360px). Para
+    formulário longo que tem algo que não pode sair da vista: o total no
+    orçamento, o mapa e o "Salvar" no Editar condomínio. Colapsa em coluna
+    única abaixo de 1080px.
+  - ⚠️ **Todo wrapper entre `.modalBody` e `.modal-split` precisa repassar o
+    flex** (`flex: 1; min-height: 0; display: flex`), senão o formulário vaza
+    pra fora da janela. Já mordeu duas vezes: `#avModalBody` no orçamento e
+    `.edit-tab-pane` no Editar condomínio.
+  - Rótulo de campo tem gramática própria: `.modal-sec-title` (seção),
+    `.f span em` (dica dentro do rótulo), `.f span b` (asterisco de
+    obrigatório), `.modalFoot-danger` (ação destrutiva sem cara de botão).
 
 **Segurança & operação**
 - Envs obrigatórias em produção (JWT_SECRET, CORS_ORIGINS) com `process.exit(1)`.

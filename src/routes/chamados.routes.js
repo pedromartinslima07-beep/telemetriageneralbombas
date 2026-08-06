@@ -739,6 +739,11 @@ router.patch("/:id", authRequired, adminOnly, async (req, res) => {
   const sets = ["atualizado_em = NOW()"];
   const values = [];
 
+  // Fase 8A: o que conta como "primeira resposta da equipe" (TTFR). Marcado
+  // no fim, uma vez só — o COALESCE no SQL garante que a primeira escrita
+  // ganha, então reatribuições posteriores não mexem no valor já gravado.
+  let tocouOChamado = false;
+
   if (status) {
     values.push(status);
     sets.push(`status = $${values.length}`);
@@ -752,10 +757,8 @@ router.patch("/:id", authRequired, adminOnly, async (req, res) => {
       // memória do último fechamento.
       sets.push("tempo_resolucao_seg = CASE WHEN status = 'fechado' THEN NULL ELSE tempo_resolucao_seg END");
     }
-    // Fase 8A: qualquer transição saindo de 'aberto' conta como primeira resposta.
-    if (status !== "aberto") {
-      sets.push("primeira_resposta_em = COALESCE(primeira_resposta_em, NOW())");
-    }
+    // Qualquer transição saindo de 'aberto' conta como primeira resposta.
+    if (status !== "aberto") tocouOChamado = true;
   }
   if (prioridade) {
     values.push(prioridade);
@@ -768,6 +771,9 @@ router.patch("/:id", authRequired, adminOnly, async (req, res) => {
   if (responsavel_id !== undefined) {
     values.push(responsavel_id || null);
     sets.push(`responsavel_id = $${values.length}`);
+    // Assumir o chamado é toque humano tanto quanto responder. Desatribuir
+    // (null) não conta — ninguém passou a olhar pro chamado por causa disso.
+    if (responsavel_id) tocouOChamado = true;
   }
   if (condominio_id !== undefined) {
     const cid = condominio_id ? Number(condominio_id) : null;
@@ -784,6 +790,12 @@ router.patch("/:id", authRequired, adminOnly, async (req, res) => {
     }
     values.push(tid);
     sets.push(`tecnico_id = $${values.length}`);
+    // Idem: atribuir técnico marca o TTFR, tirar o técnico não.
+    if (tid !== null) tocouOChamado = true;
+  }
+
+  if (tocouOChamado) {
+    sets.push("primeira_resposta_em = COALESCE(primeira_resposta_em, NOW())");
   }
 
   if (values.length === 0) {

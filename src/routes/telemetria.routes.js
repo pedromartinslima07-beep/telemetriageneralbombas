@@ -23,6 +23,29 @@ const nivelFromPct = (pct) => {
   return "muito_baixo";
 };
 
+// Gravidade crescente — usada pra decidir se uma leitura piorou ou melhorou.
+const NIVEL_ORDEM = { muito_baixo: 0, baixo: 1, medio: 2, alto: 3 };
+
+// Margem (em pontos percentuais) exigida pra o nível MELHORAR de faixa.
+// Dimensionada em ~3x o desvio medido do ADC no device de teste (±1,7% de
+// nível): sem ela, um nível parado em cima de uma fronteira gera dezenas de
+// travessias, porque os alertas são reprocessados a cada leitura (10s) e o
+// ruído joga cada amostra pra um lado. Medido em 05/08: uma única descida de
+// 37% a 0% criou 17 alertas onde deveriam ser 2.
+const HISTERESE_PCT = Number(process.env.TELEMETRIA_HISTERESE_PCT ?? 5);
+
+// Aplica histerese: PIORAR vale na fronteira nua (alerta cedo, sem atraso),
+// MELHORAR exige HISTERESE_PCT de folga. `nivelAtual` é o nível que os alertas
+// abertos do device dizem estar valendo — não o da última leitura gravada,
+// que o write-threshold pode ter descartado.
+const nivelComHisterese = (pct, nivelAtual) => {
+  const cru = nivelFromPct(pct);
+  if (!nivelAtual || cru === nivelAtual) return cru;
+  if (NIVEL_ORDEM[cru] < NIVEL_ORDEM[nivelAtual]) return cru; // piorou: aceita já
+  // Melhorou: só confirma se ainda estaria na faixa nova descontando a margem.
+  return nivelFromPct(pct - HISTERESE_PCT) === cru ? cru : nivelAtual;
+};
+
 // Calcula nivel_pct a partir do valor ADC bruto + calibração do reservatório
 const calcularNivelPct = (adcRaw, calibracao) => {
   const { adc_zero, adc_por_metro, altura_total_m } = calibracao;
@@ -78,10 +101,22 @@ router.post("/", telemetriaLimiter, async (req, res) => {
               r.altura_total_m, r.adc_zero, r.adc_por_metro,
               r.limiar_bomba,
               c.nome AS condominio_nome,
-              ul.nivel        AS last_nivel,
+              -- last_nivel_pct/bomba_ligada/criado_em alimentam só o
+              -- write-threshold. O nível da última leitura NÃO serve pra
+              -- decidir alerta (ver abaixo) e por isso não é mais buscado.
               ul.nivel_pct    AS last_nivel_pct,
               ul.bomba_ligada AS last_bomba_ligada,
-              ul.criado_em    AS last_criado_em
+              ul.criado_em    AS last_criado_em,
+              -- Fonte de verdade do nível que já foi notificado. Vem dos
+              -- alertas abertos, não da última leitura: o write-threshold
+              -- descarta a maioria das leituras, então o nível gravado fica
+              -- velho e os dois tipos de alerta ficavam abertos juntos.
+              (SELECT array_agg(al.tipo)
+                 FROM alertas al
+                WHERE al.device_id = r.device_id
+                  AND al.status = 'aberto'
+                  AND al.tipo IN ('nivel_baixo', 'nivel_muito_baixo')
+              ) AS alertas_nivel_abertos
        FROM reservatorios r
        LEFT JOIN condominios c ON c.id = r.condominio_id
        LEFT JOIN LATERAL (
@@ -117,7 +152,18 @@ router.post("/", telemetriaLimiter, async (req, res) => {
     }
 
     const nivelPct = calcularNivelPct(adcRaw, reservatorio);
+    // Gravado cru em `leituras` — dado é dado, o histórico não leva histerese.
     const nivelNormalizado = nivelFromPct(nivelPct);
+
+    // Nível que os alertas abertos dizem estar valendo. Se os dois tipos
+    // estiverem abertos (estado inconsistente deixado pelo bug antigo), assume
+    // o pior e o bloco de alertas abaixo resolve o outro — auto-cura.
+    const tiposAbertos = reservatorio.alertas_nivel_abertos || [];
+    const nivelAlertado = tiposAbertos.includes("nivel_muito_baixo") ? "muito_baixo"
+                        : tiposAbertos.includes("nivel_baixo")       ? "baixo"
+                        : null;
+    // Nível que governa os ALERTAS (com histerese) — pode diferir do cru.
+    const nivelAlerta = nivelComHisterese(nivelPct, nivelAlertado);
 
     // ── Decide bomba_ligada ──
     // Se o ESP32 enviou bomba_rms, compara com limiar_bomba do reservatório.
@@ -172,28 +218,24 @@ router.post("/", telemetriaLimiter, async (req, res) => {
     }
 
     // ── Alertas de nível ──
-    // Pula UPDATEs de "resolvido" quando o nível não mudou (são no-op nesse caso).
-    // upsertAlertaAberto roda sempre que nivel é baixo/muito_baixo, preservando
-    // a auto-reabertura caso um admin tenha fechado o alerta manualmente.
-    const nivelMudou = reservatorio.last_nivel !== nivelNormalizado;
+    // O tipo de alerta que DEVE estar aberto agora (no máximo um). Tudo que
+    // não for ele é resolvido — inclusive quando nada mudou, porque é
+    // justamente aí que os dois tipos ficavam abertos juntos: o `if
+    // (nivelMudou)` de antes comparava com a última leitura GRAVADA, e o
+    // write-threshold descarta a maioria delas.
+    const tipoAlertaAlvo = nivelAlerta === "baixo"       ? "nivel_baixo"
+                         : nivelAlerta === "muito_baixo" ? "nivel_muito_baixo"
+                         : null;
 
-    if (nivelMudou) {
-      if (nivelNormalizado === "medio" || nivelNormalizado === "alto") {
-        await pool.query(
-          "UPDATE alertas SET status = 'resolvido' WHERE device_id = $1 AND tipo IN ('nivel_baixo','nivel_muito_baixo') AND status = 'aberto'",
-          [device_id]
-        );
-      } else if (nivelNormalizado === "baixo") {
-        await pool.query(
-          "UPDATE alertas SET status = 'resolvido' WHERE device_id = $1 AND tipo = 'nivel_muito_baixo' AND status = 'aberto'",
-          [device_id]
-        );
-      } else if (nivelNormalizado === "muito_baixo") {
-        await pool.query(
-          "UPDATE alertas SET status = 'resolvido' WHERE device_id = $1 AND tipo = 'nivel_baixo' AND status = 'aberto'",
-          [device_id]
-        );
-      }
+    const tiposParaResolver = ["nivel_baixo", "nivel_muito_baixo"]
+      .filter((t) => t !== tipoAlertaAlvo);
+
+    if (tiposParaResolver.some((t) => tiposAbertos.includes(t))) {
+      await pool.query(
+        `UPDATE alertas SET status = 'resolvido'
+          WHERE device_id = $1 AND tipo = ANY($2::text[]) AND status = 'aberto'`,
+        [device_id, tiposParaResolver]
+      );
     }
 
     // Dispara email + chamado automático só quando o alerta é NOVO (inserted) —
@@ -221,11 +263,11 @@ router.post("/", telemetriaLimiter, async (req, res) => {
       }).catch((e) => console.error("[telemetria] erro ao abrir chamado automático:", e.message));
     };
 
-    if (nivelNormalizado === "baixo") {
+    if (tipoAlertaAlvo === "nivel_baixo") {
       const msg = `Nível baixo detectado no dispositivo ${device_id}`;
       const r = await upsertAlertaAberto(device_id, "nivel_baixo", msg);
       _notificarSeNovo(r, "nivel_baixo", msg, "p3");
-    } else if (nivelNormalizado === "muito_baixo") {
+    } else if (tipoAlertaAlvo === "nivel_muito_baixo") {
       const msg = `NÍVEL MUITO BAIXO detectado no dispositivo ${device_id}`;
       const r = await upsertAlertaAberto(device_id, "nivel_muito_baixo", msg);
       _notificarSeNovo(r, "nivel_muito_baixo", msg, "p2");
@@ -236,6 +278,7 @@ router.post("/", telemetriaLimiter, async (req, res) => {
       gravado: deveGravar,
       nivel_pct: nivelPct,
       nivel: nivelNormalizado,
+      nivel_alerta: nivelAlerta, // com histerese — pode diferir de `nivel`
     });
   } catch (error) {
     console.error("Erro no /telemetria:", error);

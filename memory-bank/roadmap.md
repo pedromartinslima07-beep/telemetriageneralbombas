@@ -75,6 +75,51 @@ aliases:
   - Faixa estreita entre ~1100px e ~1223px, onde a toolbar de telemetria
     ainda usa 3 linhas (nada some, só fica mais alta).
 
+- **Padronização visual dos modais do admin** 🟡 — o modal de orçamento é a
+  referência e o padrão está se espalhando um modal por vez.
+  - ✅ 2026-08-05: camada compartilhada (`.modalBox` com fio no topo,
+    `.is-perigo`, `.modal-sec-title`, `.modalFoot-danger`, `.modal-2col`,
+    `.is-sobreposto`) + 8 cascas inline convertidas. Restam 0 cascas inline.
+  - ✅ 2026-08-06: **Editar condomínio** reestruturado; nasceu daí a casca
+    `.modalBox.is-split` / `.modal-split` / `.modal-rail` — janela de altura
+    fixa com trilho, generalizada a partir do `#avModal`.
+  - 📋 **Próximos candidatos ao trilho** (muito campo + algo que precisa ficar
+    à vista): **Contrato** (`#ctrOverlay`, 1000px, o painel de assinatura rola
+    junto), **O.S.** (`#osModalOverlay`) e **Editar reservatório**
+    (`#editResOverlay`, onde a device key e o "Nova chave" competem com 7
+    campos de calibração).
+  - 📋 Falta rodar os modais reestruturados **contra o backend real** — tudo
+    até aqui foi verificado em harness estático (markup real + CSS real, sem
+    Leaflet e sem dados do banco).
+
+- **SLA de chegada nunca saiu do papel** 📋 — a Migration 028 criou
+  `sla_definicoes.sla_chegada_min` (P1=180min, P2/P3=1440/4320, P4=NULL) e as
+  colunas `tecnico_a_caminho_em`/`tecnico_chegou_em`, mas nada consome: a tela
+  Configurações › SLA só edita TTFR/TTR (o PATCH manda só os dois) e nenhuma
+  query calcula estouro de chegada. Enquanto isso
+  [`../docs/modulos/chamados-sla.md`](../docs/modulos/chamados-sla.md) afirma
+  que "SLA mede chegada do técnico, não resolução" — hoje o código mede o
+  contrário. Achado em 2026-08-06, ao corrigir o TTFR de atribuição.
+
+- **Recalibrar o reservatório de teste (`Res_Gen_Sup`)** 📋 — a escala satura:
+  `adc_zero=603` + `adc_por_metro=462` × `altura_total_m=0.50` faz **ADC 834 já
+  ser 100%**, e 25 de 76 amostras cruas do Serial Monitor passam disso (máx.
+  850 ≈ 107%), achatadas pelo `Math.min` de `calcularNivelPct`. Em 48h foram 75
+  leituras acima do topo, até 35 counts (~7,6 cm de coluna d'água). O método de
+  calibração usado está correto (sonda fora d'água para o zero,
+  `(cheio − vazio) / 0,50` para a inclinação) — o ponto "cheio" é que foi
+  capturado com a caixa abaixo do máximo de operação. Efeito: escala ~13%
+  comprimida, o sistema alerta aos ~17% reais em vez de 20% (conservador, não
+  perigoso). Correção: refazer o ponto "cheio" com a caixa no máximo e tirar
+  cada ponto como **média de ~10 leituras** (uma leitura isolada carrega ±3,9
+  counts de ruído = ±1,7% de nível). Achado em 2026-08-06.
+  - ❌ **Não é** ruído de amostragem do firmware: a série crua dá autocorrelação
+    -0,127 (ruído branco) e tem amostras consecutivas idênticas — não há
+    aliasing, o `delay(20)` do `lerSonda()` está adequado.
+  - ⚠️ **Armadilha:** não medir ruído pela tabela `leituras`. O write-threshold
+    só grava o que saltou ≥5%, o que inflou a estimativa de ±1,7% para ±6,9% e
+    fabricou uma falsa "alternância sistemática" (autocorrelação -0,434).
+
 ## Descartado (decisões conscientes)
 
 - **9A — Tabela agregada horária** ❌ — write-threshold já reduz volume o

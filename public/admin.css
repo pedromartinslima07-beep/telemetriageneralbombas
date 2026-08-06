@@ -2401,31 +2401,11 @@ a { color: inherit; text-decoration: none; }
 /* ============================================================
    LOCALIZAÇÃO / MINI-MAPA (cadastro e edição de condomínio)
    ============================================================ */
-.loc-block {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 14px;
-  border-radius: 12px;
-  background: rgba(255,255,255,.02);
-  border: 1px solid var(--border);
-  margin-top: 4px;
-}
-.loc-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-.loc-coords {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-.loc-coords .field,
-.loc-coords .f {
-  margin: 0;
-}
+/* `.loc-block` / `.loc-head` / `.loc-coords` saíram com a reestruturação do
+   modal de editar condomínio (06/08): o bloco de localização virou o trilho
+   (`.edit-loc`) e o de novo cliente já montava o próprio painel. Sem
+   consumidor em `public/`, `app/public/` ou nos serviços de PDF — conferido
+   por grep no repo inteiro antes de remover. */
 .loc-msg {
   font-size: 11.5px;
   color: var(--muted);
@@ -2996,6 +2976,70 @@ select option { background: #14172a; color: #eef0fb; }
 .modal-col { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
 .modal-fields-2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
 
+/* ── Modal com trilho: janela de altura fixa, só o formulário rola ───────────
+   Generalização do que o modal de orçamento fez em `#avModal`. Serve pro modal
+   que tem MUITO campo e, ao mesmo tempo, uma ou duas coisas que precisam ficar
+   sempre à vista (o total lá; o mapa e o "Salvar" aqui). Com `.modalBody`
+   rolando inteiro, essas coisas somem assim que o operador desce a página.
+
+   Uso: `.modalBox.is-split` > `.modalBody` > `.modal-split` (grid), com
+   `.modal-split-form` (rola) e `.modal-rail` (fixo) como filhos.
+
+   ⚠️ `min-height: 0` em toda a cadeia é obrigatório: item de grid/flex nasce
+   com `min-height: auto` e se recusa a encolher abaixo do conteúdo — sem isso
+   o formulário vaza pra fora da janela em vez de rolar por dentro. */
+.modalBox.is-split { height: min(88vh, 780px); max-height: none; }
+.modalBox.is-split > .modalBody {
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  min-height: 0;
+}
+.modal-split {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+}
+.modal-split-form {
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px 20px 20px;
+}
+.modal-rail {
+  border-left: 1px solid var(--border);
+  background: rgba(0,0,0,.22);
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+}
+.modal-rail .btn { width: 100%; justify-content: center; }
+
+/* Abaixo de 1080px o trilho deixa de compensar (mesmo corte do orçamento):
+   volta a ser coluna única com rolagem de página, como qualquer modal.
+   ⚠️ `.modalBody` volta a `display: block`. Deixá-lo flex aqui mantinha a
+   compressão de altura da janela fixa: as duas colunas viravam DOIS scrollers
+   empilhados (medido: 522px presos no formulário e o trilho rolando por
+   conta própria). Como bloco, o corpo inteiro rola de uma vez só. */
+@media (max-width: 1080px) {
+  .modalBox.is-split { height: auto; max-height: 90vh; }
+  .modalBox.is-split > .modalBody { display: block; overflow-y: auto; }
+  .modal-split { display: block; }
+  .modal-split-form { overflow: visible; padding-bottom: 4px; }
+  .modal-rail {
+    border-left: 0;
+    border-top: 1px solid var(--border);
+    overflow: visible;
+    padding: 16px 20px 20px;
+  }
+}
+
 /* Abaixo de 900px a divisão em duas colunas deixa cada campo estreito demais;
    volta a ser coluna única, como era antes. */
 @media (max-width: 900px) {
@@ -3008,6 +3052,7 @@ select option { background: #14172a; color: #eef0fb; }
 @media (max-height: 820px) {
   .modalOverlay { padding: 10px; }
   .modalBox { max-height: 95vh; }
+  .modalBox.is-split { height: 95vh; }
   .modalHead { padding: 10px 20px; }
   .modalBody { padding: 12px 20px; }
   .modalFoot { padding: 10px 20px; }
@@ -3171,6 +3216,25 @@ select option { background: #14172a; color: #eef0fb; }
   text-transform: uppercase;
   letter-spacing: .4px;
 }
+
+/* Dica de campo dentro do rótulo. Substitui o
+   `<span style="font-weight:400;color:var(--muted)">` que estava repetido nos
+   rótulos — o rótulo é caixa alta e a dica é uma frase, então precisa sair da
+   caixa alta pra não competir com o nome do campo. */
+.f span em {
+  font-style: normal;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--muted2);
+}
+.f span em::before { content: '— '; }
+/* Asterisco de obrigatório na cor de ação, como no `.lbl .req`. */
+.f span b { color: var(--accent); font-weight: 700; }
+/* A mensagem do CEP mora DENTRO do `<label class="f">`, então herdava caixa
+   alta e peso 700 do rótulo: "Vila Mariana, São Paulo/SP" saía gritando mais
+   que o nome do campo. É frase, não rótulo. */
+.f span.cep-msg { text-transform: none; font-weight: 500; letter-spacing: 0; }
 
 .f input, .f select {
   width: 100%;
@@ -4901,6 +4965,19 @@ body.mp-fs-active { overflow: hidden; }
 }
 .al-origem.telemetria { background: rgba(99,102,241,.18); color: #c4b5fd; }
 .al-origem.chamado    { background: rgba(34,211,238,.18); color: #67e8f9; }
+
+/* Selo no chamado que absorveu o alerta de telemetria do mesmo evento — o
+   card de telemetria some da lista, o selo indica que a origem está ali. */
+.al-tel-tag {
+  display: inline-block;
+  font-size: 9.5px; font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(99,102,241,.14);
+  color: #c4b5fd;
+  vertical-align: middle;
+  white-space: nowrap;
+}
 
 /* Botões de ação */
 .al-actions { display: inline-flex; gap: 4px; }
@@ -6949,6 +7026,195 @@ body.role-viewer .viewer-only-hide-inline {
   color: var(--muted);
   padding: 14px 0;
   text-align: center;
+}
+
+/* ============================================================
+   MODAL "EDITAR CONDOMÍNIO" — reestruturação (2026-08-06)
+
+   Herda a casca compartilhada `.modalBox.is-split` / `.modal-split` /
+   `.modal-rail`, que saiu do modal de orçamento. Aqui ficam só as decisões
+   deste modal.
+
+   O que motivou:
+   - 14 campos em coluna dupla de 1100px + mini-mapa de 280px empilhado
+     embaixo: o corpo rolava ~520px, e o mapa (o campo mais difícil de
+     preencher) só aparecia no fim. Pra conferir se o pino bateu com o
+     endereço, era rolar pra cima, corrigir, rolar pra baixo de novo.
+   - "Salvar alterações" rolava junto, porque estava dentro do formulário.
+   - "Excluir permanentemente" era um `.btnDanger` sólido do mesmo tamanho
+     do "Salvar" — duas ações de peso visual igual e consequências opostas.
+   - A faixa de abas tinha UMA aba ("Dados"): 37px de altura para nenhuma
+     escolha.
+
+   Todos os ids continuam os mesmos — `abrirModalEditar`, `salvarEdicao`,
+   o CEP (`data-cep-target-prefix`), o mini-mapa (`criarOuObterMiniMapa`) e
+   `_editAtivarTab` leem tudo por getElementById/querySelector e não sabem
+   que o layout mudou.
+   ============================================================ */
+.edit-box { width: min(1180px, 96vw); }
+
+/* ⚠️ O pane das abas fica ENTRE `.modalBody` e `.modal-split`. Sem repassar
+   o flex aqui, o `flex: 1` do `.modal-split` não alcança e o formulário
+   estoura a janela de altura fixa — mesma pegadinha documentada no
+   `#avModalBody` do modal de orçamento. */
+.edit-box .edit-tab-pane {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+}
+
+/* Grade de 6 colunas: deixa cada campo ocupar a largura que o CONTEÚDO pede.
+   Com as 2 colunas iguais do `.formGrid` antigo, "UF" (2 caracteres) ganhava
+   os mesmos ~520px que "E-mail". */
+.edit-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 12px 14px;
+  margin-bottom: 20px;
+}
+.edit-grid:last-child { margin-bottom: 0; }
+/* O respiro entre seções vem do `margin-bottom` da grade. Sem zerar aqui, o
+   `margin-top: 20px` que `.modal-sec-title` traz de fábrica soma com ele e
+   abre 40px entre "Identificação" e "Endereço". */
+.modal-split-form .modal-sec-title:not(:first-child) { margin-top: 0; }
+.eg-1 { grid-column: span 1; }
+.eg-2 { grid-column: span 2; }
+.eg-3 { grid-column: span 3; }
+.eg-4 { grid-column: span 4; }
+.eg-6 { grid-column: span 6; }
+
+/* CNPJ + "Buscar dados" na mesma linha: o botão é o passo seguinte imediato
+   do campo, não uma ação separada. */
+.edit-cnpj { display: flex; gap: 8px; }
+.edit-cnpj input { min-width: 0; }
+.edit-cnpj .btn { flex: none; }
+.edit-field-msg {
+  font-size: 11px;
+  color: var(--muted);
+  min-height: 14px;
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+/* ── Trilho ── */
+.edit-rail { gap: 16px; }
+
+/* Status primeiro: é o que muda o comportamento do registro inteiro, e a
+   consequência vem declarada antes do clique (mesmo padrão do "Enviar ao
+   cliente" do orçamento). Estava perdido entre "Zona" e "Observações". */
+.edit-status .fCheck { cursor: pointer; }
+.edit-status-hint {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.5;
+  margin-top: 7px;
+}
+
+/* Localização: o mapa absorve a sobra de altura do trilho. É o bloco que mais
+   se beneficia de espaço — pino arrastável — e o único que pode encolher sem
+   perder função. */
+.edit-loc { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.edit-loc-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.edit-loc-title .btn {
+  width: auto;
+  margin-left: auto;
+  font-size: 11px;
+  padding: 4px 9px;
+}
+.edit-box .mini-mapa {
+  flex: 1;
+  height: auto;
+  min-height: 190px;
+}
+.edit-box .loc-hint { margin-top: 6px; flex-shrink: 0; }
+
+/* Coordenadas em mono, como todo dado numérico do painel (`.av-total`, CEP,
+   IDs). São conferidas contra o mapa, não digitadas à mão. */
+.edit-coords {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 10px;
+  flex-shrink: 0;
+}
+.edit-coords input {
+  font-family: ui-monospace, "Cascadia Code", "Fira Code", Consolas, monospace;
+  font-size: 12px;
+  padding: 7px 10px;
+}
+/* As setinhas do number roubam ~16px de um campo que já é estreito. */
+.edit-coords input::-webkit-outer-spin-button,
+.edit-coords input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.edit-coords input { -moz-appearance: textfield; appearance: textfield; }
+.edit-box .loc-msg { margin-top: 7px; flex-shrink: 0; }
+
+/* Ações no pé do trilho: sempre visíveis, empilhadas, com "Salvar" primeiro. */
+.edit-acoes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+/* Mensagem de estado ("Salvando…", erro do backend) ao lado do botão que a
+   provoca. Estava no topo do corpo, fora da vista de quem acabou de clicar. */
+.edit-msg {
+  font-size: 11.5px;
+  color: var(--muted);
+  line-height: 1.45;
+  min-height: 16px;
+}
+.edit-msg.is-ok   { color: var(--ok); }
+.edit-msg.is-erro { color: var(--danger); font-weight: 600; }
+
+/* Excluir sai do caminho e perde cara de botão — igual ao "Excluir orçamento"
+   do trilho do orçamento. O aviso de irreversibilidade some daqui: quem clica
+   cai no modal de confirmação, que já lista o que será apagado. */
+.edit-danger {
+  padding-top: 12px;
+  border-top: 1px solid var(--border2);
+  flex-shrink: 0;
+}
+.edit-danger .modalFoot-danger { width: auto; }
+
+/* Notebook 1366×768: a janela é fatia da altura da viewport e a sobra sai do
+   mapa, que é o último a receber. Só folga encolhe — nenhuma fonte, nenhum
+   alvo de clique. */
+@media (max-height: 820px) {
+  .modal-split-form { padding: 12px 18px 16px; }
+  .modal-rail { padding: 12px 16px; }
+  .edit-rail { gap: 12px; }
+  .edit-grid { gap: 10px 12px; margin-bottom: 16px; }
+  .edit-box .mini-mapa { min-height: 130px; }
+  .edit-acoes { padding-top: 10px; }
+}
+
+/* Coluna única. A grade de 6 NÃO muda aqui: sem o trilho ao lado, o
+   formulário fica mais largo do que era (medido: 818px → 941px), então
+   remapear os spans só criava linhas órfãs — "Logradouro" e "UF" sozinhos
+   numa linha inteira. O mapa deixa de esticar e volta à altura fixa. */
+@media (max-width: 1080px) {
+  .edit-box .edit-tab-pane { display: block; }
+  .edit-loc { flex: none; }
+  .edit-box .mini-mapa { height: 260px; flex: none; }
+}
+/* Abaixo de 640px seis colunas dariam ~70px cada: aí sim vira 2, e depois 1. */
+@media (max-width: 640px) {
+  .edit-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .eg-1, .eg-2, .eg-3 { grid-column: span 1; }
+  .eg-4, .eg-6 { grid-column: span 2; }
+  .edit-cnpj { flex-direction: column; align-items: stretch; }
+}
+@media (max-width: 460px) {
+  .edit-grid { grid-template-columns: 1fr; }
+  .eg-4, .eg-6 { grid-column: span 1; }
 }
 
 /* Lista de contratos na aba Contrato do modal de edição */

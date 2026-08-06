@@ -39,20 +39,70 @@ remotamente pelo painel.
    - `INSERT` em `leituras`,
    - `UPDATE reservatorios.last_seen`,
    - auto-resolve de alerta `dispositivo_offline` aberto.
-8. **Geração/resolução de alertas de nível** por transição de estado
-   (alto / médio / baixo / muito_baixo), via `alertas.service.js`.
+8. **Geração/resolução de alertas de nível**, via `alertas.service.js`. Roda em
+   **toda** request, inclusive nas que o threshold não gravou — o alerta é
+   estado atual, não histórico.
 
 ## Alertas
 
 - Tabela `alertas`, chaveada por `device_id` + `tipo`, com índice **parcial
   único** `uniq_alerta_aberto WHERE status='aberto'` → garante no máximo 1
-  alerta aberto por device+tipo (upsert idempotente).
+  alerta aberto por device+tipo (upsert idempotente). O índice **não** impede
+  `nivel_baixo` e `nivel_muito_baixo` abertos ao mesmo tempo — isso é
+  responsabilidade da lógica abaixo.
+
+### Estado de nível vem dos alertas abertos, não da última leitura
+
+O tipo de alerta que deve estar aberto sai de `nivelComHisterese(pct,
+nivelAlertado)`, onde `nivelAlertado` é derivado dos **alertas abertos do
+device** (carregados na mesma query do reservatório). Tudo que não for o alvo é
+resolvido em toda leitura — inclusive quando nada mudou.
+
+**Por que não usar o nível da última leitura:** era o que se fazia
+(`if (nivelMudou)` comparando com `last_nivel`), e como o write-threshold
+descarta a maioria das leituras, `last_nivel` fica velho — o `UPDATE ... SET
+status='resolvido'` era pulado e os dois tipos ficavam abertos juntos.
+Confirmado em produção: 5 pares coexistindo, o maior por 2min40s. Como efeito
+colateral bom, a lógica nova **auto-cura** esse estado: ao ver os dois abertos,
+assume o pior e resolve o outro na leitura seguinte.
+
+### Histerese (`TELEMETRIA_HISTERESE_PCT`, default 5)
+
+Piorar de faixa vale na fronteira nua (alerta sem atraso); **melhorar exige 5
+pontos percentuais de folga**. Sem isso um nível parado em cima de uma fronteira
+gera dezenas de alertas: os alertas são reprocessados a cada leitura (~10s) e o
+ruído do ADC (±1,7% medido no device de teste) joga cada amostra para um lado.
+Medido em 05/08/2026: uma única descida de 37% a 0% criou **17 alertas** onde
+deveriam ser 2. Em simulação do mesmo cenário, a lógica nova fica em 2; com o
+nível parado na fronteira por 20 min, cai de 35 alertas para 1.
+
+O nível gravado em `leituras.nivel` continua **cru** — a histerese governa só os
+alertas. A resposta do `POST /telemetria` expõe os dois: `nivel` (cru) e
+`nivel_alerta` (com histerese).
 - **Job offline** (`offline.job.js`): compara `last_seen` com `OFFLINE_MINUTES`;
   se estourou, faz upsert do alerta `dispositivo_offline`. Intervalo ajustável
   via `jobs.offline_intervalo_min`. Disparo manual: `POST /jobs/verificar-offline`.
 - **Alerta crítico → ação automática**: alerta de telemetria crítico pode
   disparar abertura de chamado pela IA + notificação ao cliente via WhatsApp
   (integração Fase 4). Email de alerta crítico via `alertas.email_destinatario`.
+- **Um evento, duas linhas no banco:** um nível baixo novo grava o alerta **e**
+  abre chamado `[AUTO]` via `abrirChamadoAuto` (`nivel_baixo` → categoria
+  `nivel_baixo`; `dispositivo_offline` do job → `bomba_falha`). Na página de
+  Alertas os dois são **agrupados**: o chamado é o item exibido, com o selo
+  "+ telemetria", e o alerta não gera card próprio (`_alChamadoDoAlerta` em
+  `public/admin.js`). Badge do menu e KPI "Alertas críticos" contam pela mesma
+  lista, senão diriam 2 para o que a tela mostra como 1. Um chamado que absorveu
+  telemetria conta como alerta mesmo sendo P3/P4, e herda a maior severidade
+  entre as duas origens.
+- **Vários reservatórios no mesmo condomínio:** `abrirChamadoAuto` deduplica por
+  `condominio_id + categoria`, então 2 reservatórios em nível baixo no mesmo
+  condomínio geram **1 chamado**, e o agrupamento absorve os dois alertas nele.
+  A lista mostra `+ telemetria ×2` e "N reservatórios"; o painel lateral lista
+  device + tipo de cada um. É condensação intencional — o backend já trata os
+  dois como o mesmo problema.
+- **Fechar o chamado não fecha o alerta de telemetria.** O alerta é estado
+  físico: some quando o nível normaliza (ou reabre em ~10s se ainda estiver
+  baixo). Fechado o chamado, o alerta volta a aparecer como card próprio.
 
 ## Consumo
 

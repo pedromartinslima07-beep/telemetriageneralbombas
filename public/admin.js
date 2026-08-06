@@ -1071,10 +1071,11 @@ function renderTelKpis() {
     if (u?.nivel_pct != null) { pctSum += u.nivel_pct; pctCount++; }
     if (u?.bomba_ligada === true) bombasAtivas++;
     if (u?.bomba_ligada === true || u?.bomba_ligada === false) bombasConhecidas++;
-    alertas += r.alertas_abertos_count || 0;
     if (r.offline) offline++;
   }
-  alertas += _chamadosAlertaAbertos().length;
+  // Mesma fonte da página de Alertas e do badge: um nível baixo gera alerta de
+  // telemetria E chamado [AUTO], e antes os dois eram somados aqui.
+  alertas = _alertasAtivosUnificados().length;
 
   const nivelMedio = pctCount > 0 ? Math.round(pctSum / pctCount) : null;
 
@@ -1871,11 +1872,47 @@ function _alAcoesFixasPara(it) {
 // Lista todos os alertas (telemetria + chamados) num formato normalizado.
 // Inclui resolvidos (alertas fechados são pegues separadamente — por enquanto
 // só temos os abertos; resolvidos vêm dos chamados fechados).
+// Um alerta de telemetria e o chamado [AUTO] que ele mesmo abriu são o MESMO
+// evento: POST /telemetria grava o alerta e chama abrirChamadoAuto, e o
+// offline.job faz igual. Sem isso a lista mostrava os dois lado a lado.
+// Mapeia tipo de alerta -> categoria do chamado gerado (ver
+// telemetria.routes.js e jobs/offline.job.js).
+const _AL_SEV_PESO = { normal: 0, atencao: 1, critico: 2 };
+
+const _AL_TIPO_PARA_CATEGORIA = {
+  nivel_baixo:         "nivel_baixo",
+  nivel_muito_baixo:   "nivel_baixo",
+  dispositivo_offline: "bomba_falha",
+};
+
+// Chamado ainda aberto do mesmo condomínio+categoria que o alerta teria gerado.
+function _alChamadoDoAlerta(a) {
+  const categoria = _AL_TIPO_PARA_CATEGORIA[a.tipo];
+  if (!categoria) return null;
+  const condoId = _alCondoIdDoDevice(a.device_id);
+  if (!condoId) return null;
+  return (Array.isArray(_chamadosData) ? _chamadosData : []).find(
+    (ch) => ch.condominio_id === condoId
+         && ch.categoria === categoria
+         && String(ch.status || "").toLowerCase() !== "fechado"
+  ) || null;
+}
+
 function _alUnificar() {
   const itens = [];
+  // chamado.id -> alertas de telemetria absorvidos por ele
+  const absorvidos = new Map();
 
   // Telemetria (todos os que temos em _alertasAbertos = só abertos)
   for (const a of (_alertasAbertos || [])) {
+    // Já existe chamado aberto pro mesmo evento? Então ele é o item acionável;
+    // o alerta vira só um selo nele, em vez de um card duplicado.
+    const chamado = _alChamadoDoAlerta(a);
+    if (chamado) {
+      if (!absorvidos.has(chamado.id)) absorvidos.set(chamado.id, []);
+      absorvidos.get(chamado.id).push(a);
+      continue;
+    }
     const sev = (a.tipo === "dispositivo_offline" || a.tipo === "nivel_muito_baixo")
       ? "critico"
       : a.tipo === "nivel_baixo" ? "atencao" : "normal";
@@ -1909,7 +1946,22 @@ function _alUnificar() {
     if (slaEstourado) sev = "critico";
 
     const _PRIO_LABEL = { p1: "P1 · Crítico", p2: "P2 · Alta", p3: "P3 · Controlado", p4: "P4 · Agendado" };
-    const sevLabel = slaEstourado ? "SLA estourado" : (_PRIO_LABEL[prio] || _PRIO_LABEL.p3);
+    let sevLabel = slaEstourado ? "SLA estourado" : (_PRIO_LABEL[prio] || _PRIO_LABEL.p3);
+
+    const telemetria = absorvidos.get(ch.id) || [];
+
+    // Absorver não pode rebaixar: um nivel_muito_baixo (crítico) caindo num
+    // chamado P3 continua crítico. Fica a maior severidade entre os dois, e o
+    // label acompanha — senão a linha mostra "P3 · Controlado" em vermelho.
+    for (const a of telemetria) {
+      const sevTel = (a.tipo === "dispositivo_offline" || a.tipo === "nivel_muito_baixo")
+        ? "critico"
+        : a.tipo === "nivel_baixo" ? "atencao" : "normal";
+      if (_AL_SEV_PESO[sevTel] > _AL_SEV_PESO[sev]) {
+        sev = sevTel;
+        if (!slaEstourado) sevLabel = _alSevLabel(sevTel);
+      }
+    }
 
     itens.push({
       key: `CH-${ch.id}`,
@@ -1920,7 +1972,10 @@ function _alUnificar() {
       descricao: ch.descricao || "",
       condominio_id: ch.condominio_id || null,
       condominio_nome: ch.condominio_nome || "—",
-      device_id: null,
+      // Device do alerta absorvido — o card do chamado passa a carregar essa
+      // informação, que antes só existia no card de telemetria duplicado.
+      device_id: telemetria[0]?.device_id || null,
+      telemetriaAbsorvida: telemetria,
       severidade: sev,
       sevLabel,
       slaEstourado,
@@ -1952,12 +2007,29 @@ function _chamadosAlertaAbertos() {
   });
 }
 
+// Itens ATIVOS que contam como alerta, já sem a duplicata telemetria+chamado.
+// Contadores e badge saem daqui pra não divergirem da lista que a página
+// renderiza — antes o badge dizia 2 e a tela mostrava o mesmo evento 2 vezes.
+// Um chamado que absorveu um alerta de telemetria conta como alerta mesmo
+// sendo P3/P4, senão o evento sumiria da contagem ao ser agrupado.
+function _alertasAtivosUnificados() {
+  return _alUnificar().filter((it) => {
+    if (it.status !== "ativo") return false;
+    if (it.origem === "telemetria") return true;
+    const p = String(it.raw?.prioridade || "").toLowerCase();
+    return p === "p1" || p === "p2" || it.slaEstourado
+        || (it.telemetriaAbsorvida || []).length > 0;
+  });
+}
+
 function _atualizarBadgeAlertas() {
   const badge = document.getElementById("navBadgeAlertas");
   if (!badge) return;
-  const nAlertas  = (_alertasAbertos || []).filter(a => !_alertasIdsAck.has(`al-${a.id}`)).length;
-  const nChamados = _chamadosAlertaAbertos().filter(ch => !_alertasIdsAck.has(`ch-${ch.id}`)).length;
-  const total = nAlertas + nChamados;
+  const total = _alertasAtivosUnificados().filter((it) =>
+    it.origem === "telemetria"
+      ? !_alertasIdsAck.has(`al-${it.rawId}`)
+      : !_alertasIdsAck.has(`ch-${it.rawId}`)
+  ).length;
   badge.textContent = total;
   badge.style.display = total > 0 ? "inline-flex" : "none";
 }
@@ -2117,9 +2189,13 @@ function _alRenderTabela(filtrados) {
           <td class="al-condo">
             <span class="al-origem ${it.origem}">${it.origem === "telemetria" ? "Tel" : "Cham"}</span>
             ${it.condominio_nome}
-            ${it.device_id ? `<small>${it.device_id}</small>` : ""}
+            ${(it.telemetriaAbsorvida || []).length > 1
+              ? `<small>${it.telemetriaAbsorvida.length} reservatórios</small>`
+              : it.device_id ? `<small>${it.device_id}</small>` : ""}
           </td>
-          <td>${_alCapitalize(it.titulo)}</td>
+          <td>${_alCapitalize(it.titulo)}${(it.telemetriaAbsorvida || []).length
+            ? ` <span class="al-tel-tag" title="Alerta de telemetria deste mesmo evento: ${it.telemetriaAbsorvida.map(a => `${a.device_id} (${a.tipo})`).join(" · ")}">+ telemetria${it.telemetriaAbsorvida.length > 1 ? ` ×${it.telemetriaAbsorvida.length}` : ""}</span>`
+            : ""}</td>
           <td><span class="al-sev ${it.severidade}">${it.sevLabel || _alSevLabel(it.severidade)}</span></td>
           <td class="al-data">${_alFmtData(it.criado_em)}<small>${_alFmtHora(it.criado_em)}</small></td>
           <td class="al-tempo">${tempoStr}</td>
@@ -2236,7 +2312,21 @@ async function _alRenderPainel() {
         </div>
         ${r.cliente_nome ? `<div style="margin-top:10px;font-size:11.5px;"><b>Cliente:</b> ${r.cliente_nome} ${r.cliente_telefone ? `<span style="color:var(--muted);">(${r.cliente_telefone})</span>` : ""}</div>` : ""}
         ${it.descricao ? `<div style="margin-top:10px;font-size:11.5px;color:var(--muted);max-height:80px;overflow-y:auto;">${it.descricao}</div>` : ""}
-      </div>`;
+      </div>
+      ${(it.telemetriaAbsorvida || []).length ? `
+      <div class="ap-section">
+        <div class="ap-section-title">Telemetria deste evento</div>
+        <div class="ap-kv">
+          ${it.telemetriaAbsorvida.map(a =>
+            kv(a.device_id, _alCapitalize(String(a.tipo || "").replaceAll("_", " ")))
+          ).join("")}
+        </div>
+        <div style="margin-top:8px;font-size:11px;color:var(--muted);">
+          O alerta de telemetria não aparece como item separado porque este
+          chamado foi aberto por ele. Ele se resolve sozinho quando o nível
+          normalizar — fechar o chamado não o fecha.
+        </div>
+      </div>` : ""}`;
   }
 
   const tempoStr = it.status === "resolvido" && it.fechado_em
@@ -6760,14 +6850,24 @@ document.addEventListener("click", (e) => {
   if (ov && ov.style.display !== "none" && e.target === ov) fecharModal();
 });
 
+// Mensagem de estado do modal de editar condomínio. Agora ela vive no trilho,
+// colada no "Salvar alterações" — e o erro do backend em cinza, do lado de um
+// botão amber, passava batido. `tipo` pinta: "" neutro, "ok" verde, "erro"
+// vermelho (classes em `.edit-msg`).
+function _editMsg(texto, tipo = "") {
+  const el = document.getElementById("editMsg");
+  if (!el) return;
+  el.textContent = texto;
+  el.className = "edit-msg" + (tipo ? " is-" + tipo : "");
+}
+
 function abrirModalEditar(id) {
   if (!id) return;
 
   const overlay = document.getElementById("editOverlay");
-  const msg = document.getElementById("editMsg");
   const sub = document.getElementById("editSub");
 
-  msg.textContent = "Carregando...";
+  _editMsg("Carregando…");
   sub.textContent = `ID: ${id}`;
   overlay.style.display = "flex";
 
@@ -6878,18 +6978,18 @@ function abrirModalEditar(id) {
         }
       }, 80);
 
-      msg.textContent = "";
+      _editMsg("");
       sub.textContent = `${c.nome_fantasia || c.nome || "Condomínio"} • ID: ${c.id}`;
     })
     .catch((e) => {
-      msg.textContent = "Erro: " + e.message;
+      _editMsg("Não deu para carregar o condomínio: " + e.message, "erro");
     });
 }
 
 function fecharModalEditar() {
   const overlay = document.getElementById("editOverlay");
   overlay.style.display = "none";
-  document.getElementById("editMsg").textContent = "";
+  _editMsg("");
   _editCondoIdAtivo = null;
 }
 
@@ -6902,11 +7002,10 @@ async function salvarEdicao(event) {
   event.preventDefault();
 
   const id = Number(document.getElementById("editId").value);
-  const msg = document.getElementById("editMsg");
-  msg.textContent = "";
+  _editMsg("");
 
   if (!id) {
-    msg.textContent = "ID inválido.";
+    _editMsg("ID inválido.", "erro");
     return;
   }
 
@@ -6934,12 +7033,13 @@ async function salvarEdicao(event) {
   };
 
   if (!payload.nome) {
-    msg.textContent = "Nome é obrigatório.";
+    _editMsg("Preencha a razão social.", "erro");
+    document.getElementById("editNome")?.focus();
     return;
   }
 
   try {
-    msg.textContent = "Salvando...";
+    _editMsg("Salvando…");
 
     const r = await fetch("/condominios/" + id, {
       method: "PATCH",
@@ -6950,16 +7050,16 @@ async function salvarEdicao(event) {
     const data = await r.json().catch(() => ({}));
 
     if (!r.ok) {
-      msg.textContent = data.error || ("Erro ao salvar (" + r.status + ")");
+      _editMsg(data.error || ("Não deu para salvar (erro " + r.status + ")"), "erro");
       return;
     }
 
-    msg.textContent = "✅ Salvo com sucesso!";
+    _editMsg("Alterações salvas.", "ok");
     await carregarTudo();
     setTimeout(fecharModalEditar, 400);
 
   } catch (e) {
-    msg.textContent = "Erro: " + e.message;
+    _editMsg("Não deu para salvar: " + e.message, "erro");
   }
 }
 

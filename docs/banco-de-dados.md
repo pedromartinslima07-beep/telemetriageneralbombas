@@ -141,7 +141,10 @@ Evolução:
 - 009: `tecnico_id (FK tecnicos)`
 - 020: `avaliacao_nota (1-5)`, `avaliacao_comentario`, `avaliacao_em`
 - 021: `alerta_atraso_enviado_em`
-- 022: `primeira_resposta_em`, `tempo_resolucao_seg` (SLA)
+- 022: `primeira_resposta_em`, `tempo_resolucao_seg` (SLA). `primeira_resposta_em`
+  é escrita sempre com `COALESCE(primeira_resposta_em, NOW())` — primeira
+  escrita ganha; a lista de gatilhos está em
+  [chamados-sla.md](modulos/chamados-sla.md)
 - 028: prioridade CHECK migra para `p1|p2|p3|p4` (default `p3`) +
   `tecnico_a_caminho_em`, `tecnico_chegou_em` (SLA de chegada)
 - 032: `plano_manutencao_id`

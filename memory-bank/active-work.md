@@ -11,6 +11,46 @@ aliases:
 > Última sessão registrada: **2026-07-28**.
 > Roadmap completo em [`roadmap.md`](roadmap.md); decisões em [`decisions.md`](decisions.md).
 
+## Sessão 2026-08-06 — Modal "Editar condomínio" (continuação da padronização)
+
+Pedido do Pedro: seguir a linha de 05/08, atacando o modal de **editar
+cliente/condomínio** com o de **orçamento** como referência.
+
+**Feito:** ver [changelog](../docs/changelog.md) para o detalhe. O que não é
+óbvio pelo diff:
+
+- O padrão que importava do orçamento não era paleta nem raio de borda (já
+  eram os mesmos) — era a **janela de altura fixa com trilho**. Virou casca
+  compartilhada (`.modalBox.is-split` / `.modal-split` / `.modal-rail`), não
+  CSS exclusivo deste modal; os próximos candidatos estão no
+  [`roadmap.md`](roadmap.md).
+- O trilho do orçamento guarda o **total**; aqui guarda o **mapa**. Mesmo
+  papel: é o que decide o registro e o que não pode sair da vista enquanto se
+  edita o endereço logo ao lado.
+- `.loc-block` / `.loc-head` / `.loc-coords` foram removidos do `admin.css`.
+  Grep no repo inteiro (`public/`, `app/public/`, serviços de PDF) antes de
+  remover — lembrando do episódio `.tel-bombas-*`, que parecia morto e era
+  usado pelo painel do cliente.
+- ⚠️ **`public/cliente.html` ainda carrega `admin.css?v=159`** (o admin está em
+  187). As mudanças desta sessão não afetam o painel do cliente (as regras
+  novas em `.f span` são aditivas e o `.loc-block` não tinha consumidor lá),
+  mas os dois painéis vêm servindo **cópias diferentes do mesmo arquivo** há
+  algumas sessões. Vale alinhar quando o redesenho do cliente for retomado.
+
+**Verificado:** harness estático (Puppeteer + markup real recortado do
+`admin.html` + `admin.css` real) em 1440×900, 1366×768, 1440×720 e 1024×900,
+com medição de rolagem por coluna. `node --check` no `admin.js`.
+**Nada rodou com backend real** — o mapa é um stand-in no harness, o Leaflet
+não carregou e nenhum condomínio veio do banco.
+
+**Pendente:**
+- ⚠️ **Abrir o modal no painel de verdade** e conferir o mini-mapa: o container
+  passou de altura fixa (280px) para `flex: 1`, e o `_miniMapaInvalidar("edit")`
+  de 80ms é quem resolve o tamanho. É o único ponto do redesenho que o harness
+  não consegue provar.
+- Conferir o fluxo de erro do `_editMsg` com o backend (409 de CNPJ duplicado,
+  por exemplo) — as cores novas só foram vistas em estático.
+
 ## Sessão 2026-07-31 — GPS rastreava fora do expediente (pin às 19h)
 
 **Sintoma (relatado pelo Pedro, 19:32):** pin de técnico no mapa fora das
