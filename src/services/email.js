@@ -258,4 +258,54 @@ async function sendContratoAssinatura(dados) {
   });
 }
 
-module.exports = { sendOTP, sendAssinaturaCodigo, sendAlertaEmail, sendOrcamentoCliente, sendContratoAssinatura };
+// Avisa o comercial que entrou um lead pela landing pública.
+// dados: { nome, condominio, email, telefone, unidades, mensagem }
+//
+// Diferente dos outros envios daqui, este é interno (equipe → equipe), então o
+// `reply_to` aponta pro lead: responder o e-mail já responde a pessoa certa.
+async function sendLeadNovo(dados) {
+  const destino = process.env.LEADS_EMAIL_DESTINO || _emailFrom();
+
+  const linhas = [
+    ["Nome",       dados.nome],
+    ["Condomínio", dados.condominio],
+    ["E-mail",     dados.email],
+    ["Telefone",   dados.telefone],
+    ["Unidades",   dados.unidades],
+    ["Mensagem",   dados.mensagem],
+  ].filter(([, v]) => v);
+
+  await getResend().emails.send({
+    from: `General Telemetria <${_emailFrom()}>`,
+    to: destino,
+    reply_to: dados.email,
+    subject: `Novo lead: ${dados.condominio || dados.nome}`,
+    text: linhas.map(([k, v]) => `${k}: ${v}`).join("\n"),
+    html: `
+      <div style="font-family:sans-serif;max-width:560px;margin:auto;padding:32px 28px;background:#ffffff;color:#111827;">
+        <h2 style="margin:0 0 20px;font-size:18px;">Novo contato pela landing</h2>
+        <table style="width:100%;border-collapse:collapse;font-size:14px;">
+          ${linhas.map(([k, v]) => `
+            <tr>
+              <td style="padding:8px 12px 8px 0;color:#6b7280;vertical-align:top;white-space:nowrap;">${k}</td>
+              <td style="padding:8px 0;color:#111827;">${_escaparHtml(v)}</td>
+            </tr>`).join("")}
+        </table>
+        <p style="margin:24px 0 0;font-size:12px;color:#6b7280;">
+          Responder este e-mail responde direto para o contato.
+        </p>
+      </div>
+    `,
+  });
+}
+
+// O conteúdo vem de formulário público — nunca interpolar cru no HTML.
+function _escaparHtml(v) {
+  return String(v ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+module.exports = { sendOTP, sendAssinaturaCodigo, sendAlertaEmail, sendOrcamentoCliente, sendContratoAssinatura, sendLeadNovo };

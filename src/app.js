@@ -41,6 +41,7 @@ const { ordensServicoRouter } = require("./routes/ordens-servico.routes");
 const { planosManutencaoRouter } = require("./routes/planos-manutencao.routes");
 const { contratosRouter } = require("./routes/contratos.routes");
 const { assinaturaRouter } = require("./routes/assinatura.routes");
+const { leadsRouter } = require("./routes/leads.routes");
 const { startOfflineScheduler } = require("./jobs/offline.job");
 const { startPlanosManutencaoScheduler } = require("./jobs/planos-manutencao.job");
 const { startGpsCleanupScheduler } = require("./jobs/gps-cleanup.job");
@@ -317,7 +318,14 @@ function _htmlNoCache(req, res, next) {
   res.setHeader("Cache-Control", "no-cache");
   next();
 }
-app.get("/", (req, res) => res.redirect("/login"));
+// `/` é a landing pública (apresentação do produto para síndicos), não mais um
+// redirect para /login. Quem chega por indicação/anúncio precisa entender o que
+// é o produto antes de ver um formulário de senha.
+// O login continua em /login — e é ele que o `manifest.json` usa como
+// `start_url`, então o PWA instalado não passa por aqui.
+app.get("/", _htmlNoCache, (req, res) =>
+  res.sendFile(path.join(__dirname, "../public/index.html"))
+);
 app.get("/login", _htmlNoCache, (req, res) =>
   res.sendFile(path.join(__dirname, "../public/login.html"))
 );
@@ -350,6 +358,9 @@ app.use("/ordens-servico", ordensServicoRouter);
 app.use("/planos-manutencao", planosManutencaoRouter);
 app.use("/contratos", contratosRouter);
 app.use("/assinar", assinaturaRouter);
+// Contatos da landing. `POST /leads` é público (rate-limited + honeypot);
+// a leitura exige gestão. Ver src/routes/leads.routes.js.
+app.use("/leads", leadsRouter);
 
 // 404 e erros em JSON — sem isto o Express responde a página HTML padrão
 // (`<!DOCTYPE html>…`) e o front, que faz `.json()` na resposta, morre com

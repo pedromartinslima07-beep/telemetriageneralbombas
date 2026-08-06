@@ -1,0 +1,841 @@
+/* ============================================================
+   LANDING PÚBLICA — public/index.html
+
+   Arquivo autônomo de propósito: NÃO importa o admin.css. O admin carrega o
+   design system inteiro do painel (sidebar, modais, tabelas, mapa, ApexCharts)
+   e nada disso é usado aqui — numa página cujo trabalho é converter visitante,
+   esse peso sai caro.
+
+   DIREÇÃO — "a linha d'água"
+   O painel é um campo escuro único com destaques. Aqui a página tem DOIS
+   territórios: ar (acima da linha) e água (abaixo). O âmbar da marca deixa de
+   ser enfeite e passa a ser cor de instrumento e de alerta — que é o papel que
+   ele tem no produto de verdade.
+
+   O âmbar `#f0b014` é o mesmo do admin.css, como manda o CLAUDE.md. O que muda
+   é o entorno: os neutros aqui são azulados (estão submersos), não violeta.
+   ============================================================ */
+
+/* ── Fontes (self-hosted; CSP é font-src 'self') ─────────────────────────── */
+
+@font-face {
+  font-family: "Barlow";
+  src: url("/static/fonts/barlow-400.woff2") format("woff2");
+  font-weight: 400; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "Barlow";
+  src: url("/static/fonts/barlow-500.woff2") format("woff2");
+  font-weight: 500; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "Barlow";
+  src: url("/static/fonts/barlow-600.woff2") format("woff2");
+  font-weight: 600; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "Barlow Condensed";
+  src: url("/static/fonts/barlow-cond-500.woff2") format("woff2");
+  font-weight: 500; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "Barlow Condensed";
+  src: url("/static/fonts/barlow-cond-600.woff2") format("woff2");
+  font-weight: 600; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "Barlow Condensed";
+  src: url("/static/fonts/barlow-cond-700.woff2") format("woff2");
+  font-weight: 700; font-style: normal; font-display: swap;
+}
+
+/* ── Tokens ──────────────────────────────────────────────────────────────── */
+
+:root {
+  color-scheme: dark;
+
+  /* Territórios */
+  --ar:      #070a12;   /* acima da linha d'água */
+  --agua:    #06202b;   /* abaixo — azul-petróleo submerso */
+  --agua-2:  #041823;   /* fundo do reservatório, mais denso */
+
+  /* Superfícies */
+  --caixa:   rgba(12, 32, 44, .58);
+  --caixa-2: rgba(16, 42, 56, .72);
+
+  --fio:      rgba(140, 200, 220, .14);
+  --fio-forte: rgba(140, 200, 220, .30);
+
+  /* Texto — neutros azulados, não violeta (estamos submersos) */
+  --tinta:    #e9f1f6;
+  --tinta-2:  #a3b8c4;
+  --tinta-3:  #6c8494;
+
+  /* Marca e sinal */
+  --ambar:    #f0b014;   /* idêntico ao admin.css — instrumento e ação */
+  --ambar-2:  #ffd451;
+  --superf:   #3ee0f0;   /* a linha d'água */
+  --ok:       #34d399;
+  --critico:  #ef4444;
+
+  --serif: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
+  --sans:  "Barlow", "Segoe UI", system-ui, -apple-system, sans-serif;
+
+  --topo-h: 62px;
+  --trilho: 74px;   /* largura do medidor lateral */
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: calc(var(--topo-h) + 20px);
+}
+
+body {
+  background: var(--ar);
+  color: var(--tinta);
+  font-family: var(--sans);
+  font-size: 17px;
+  line-height: 1.62;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+img { max-width: 100%; display: block; }
+a { color: inherit; text-decoration: none; }
+
+.wrap {
+  width: min(1200px, 100% - 48px);
+  margin-inline: auto;
+}
+.wrap-estreito { width: min(780px, 100% - 48px); }
+
+/* Em telas com o medidor lateral, o conteúdo se afasta dele. */
+@media (min-width: 941px) {
+  .wrap { margin-left: max(var(--trilho), calc((100vw - 1200px) / 2)); margin-right: auto; }
+  .wrap-estreito { margin-left: max(var(--trilho), calc((100vw - 780px) / 2)); }
+}
+
+/* ── Tipografia ──────────────────────────────────────────────────────────── */
+
+h1, h2, h3 {
+  font-family: var(--serif);
+  font-weight: 700;
+  line-height: 1.02;
+  letter-spacing: -.005em;
+}
+
+.rotulo {
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  color: var(--ambar);
+  margin-bottom: 18px;
+}
+
+.h2 {
+  font-size: clamp(32px, 4.4vw, 54px);
+  margin-bottom: 46px;
+  max-width: 20ch;
+  text-wrap: balance;
+}
+
+/* Números de instrumento: tabular, sempre. */
+.etiq-val, .gauge-ticks li, .gauge-marca, .lt-hora, .mock-pct {
+  font-variant-numeric: tabular-nums;
+  font-family: var(--serif);
+}
+
+/* ── Botões ──────────────────────────────────────────────────────────────── */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 20px 9px;
+  font-family: var(--serif);
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background .18s ease, color .18s ease, border-color .18s ease;
+}
+
+.btn-cheio { background: var(--ambar); color: #14100a; }
+.btn-cheio:hover { background: var(--ambar-2); }
+
+.btn-linha { border-color: var(--fio-forte); color: var(--tinta); }
+.btn-linha:hover { border-color: var(--ambar); color: var(--ambar); }
+
+.btn-g { padding: 14px 28px 12px; font-size: 19px; }
+.btn-bloco { width: 100%; padding: 15px; font-size: 19px; }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+
+:where(a, button, input, select, textarea, summary):focus-visible {
+  outline: 2px solid var(--ambar);
+  outline-offset: 3px;
+}
+
+/* ── Medidor lateral (a assinatura) ──────────────────────────────────────── */
+
+.gauge {
+  position: fixed;
+  left: 0; top: 0;
+  z-index: 40;
+  width: var(--trilho);
+  height: 100vh;
+  padding: calc(var(--topo-h) + 26px) 0 30px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  pointer-events: none;
+  border-right: 1px solid var(--fio);
+  background: linear-gradient(180deg, rgba(7,10,18,.9), rgba(4,20,28,.6));
+}
+
+.gauge-cap {
+  font-family: var(--serif);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .28em;
+  text-transform: uppercase;
+  color: var(--tinta-3);
+}
+
+.gauge-corpo { position: relative; flex: 1; width: 100%; }
+
+.gauge-trilho {
+  position: absolute;
+  left: 26px; top: 0; bottom: 0;
+  width: 2px;
+  background: var(--fio);
+}
+
+/* A "água" do medidor é o que já foi lido. */
+.gauge-agua {
+  position: absolute;
+  left: 26px; top: 0;
+  width: 2px;
+  height: 0;
+  background: var(--superf);
+  box-shadow: 0 0 10px rgba(62,224,240,.5);
+  transition: background .35s ease, box-shadow .35s ease;
+}
+
+.gauge-marca {
+  position: absolute;
+  left: 14px;
+  top: 0;
+  width: 26px; height: 26px;
+  margin-top: -13px;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ar);
+  background: var(--superf);
+  border-radius: 2px;
+  transition: background .35s ease;
+}
+.gauge-marca::after {
+  content: '';
+  position: absolute;
+  left: 26px;
+  width: 12px; height: 1px;
+  background: currentColor;
+  opacity: .5;
+}
+
+/* left maior que a borda direita da marca (14px + 26px), senão o rótulo "100"
+   do topo fica embaixo do próprio marcador quando o nível está cheio. */
+.gauge-ticks { list-style: none; position: absolute; inset: 0; left: 46px; }
+.gauge-ticks li {
+  position: absolute;
+  top: calc(var(--t) * 1%);
+  transform: translateY(-50%);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--tinta-3);
+}
+
+/* Faixas: as MESMAS do backend (baixo < 45, crítico < 20). */
+.gauge.is-baixo   .gauge-agua { background: var(--ambar); box-shadow: 0 0 10px rgba(240,176,20,.5); }
+.gauge.is-baixo   .gauge-marca { background: var(--ambar); }
+.gauge.is-critico .gauge-agua { background: var(--critico); box-shadow: 0 0 10px rgba(239,68,68,.5); }
+.gauge.is-critico .gauge-marca { background: var(--critico); }
+
+/* Abaixo de 940px o medidor vira uma barra fina no topo. */
+.gauge-mob {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  z-index: 60;
+  display: none;
+}
+.gauge-mob i { display: block; height: 100%; width: 0; background: var(--superf); }
+.gauge-mob.is-baixo   i { background: var(--ambar); }
+.gauge-mob.is-critico i { background: var(--critico); }
+
+/* ── Topo ────────────────────────────────────────────────────────────────── */
+
+.topo {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  height: var(--topo-h);
+  background: rgba(7, 10, 18, .86);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--fio);
+}
+
+.topo-in { display: flex; align-items: center; gap: 30px; height: 100%; }
+
+.marca { display: flex; align-items: center; gap: 11px; margin-right: auto; }
+.marca img { height: 24px; width: auto; }
+.marca span {
+  font-family: var(--serif);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: var(--tinta-2);
+  padding-left: 11px;
+  border-left: 1px solid var(--fio-forte);
+}
+
+.topo-nav { display: flex; gap: 28px; }
+.topo-nav a {
+  font-family: var(--serif);
+  font-size: 17px;
+  font-weight: 500;
+  letter-spacing: .04em;
+  color: var(--tinta-2);
+  transition: color .18s ease;
+}
+.topo-nav a:hover { color: var(--ambar); }
+
+.topo-acoes { display: flex; align-items: center; gap: 10px; }
+
+/* ── Hero ────────────────────────────────────────────────────────────────── */
+
+.hero { padding: clamp(48px, 6vw, 84px) 0 clamp(56px, 7vw, 96px); }
+
+.hero-in {
+  display: grid;
+  grid-template-columns: 1fr minmax(320px, 460px);
+  gap: clamp(32px, 5vw, 72px);
+  align-items: center;
+}
+
+.hero-txt h1 {
+  font-size: clamp(48px, 7.4vw, 96px);
+  line-height: .96;
+  letter-spacing: -.018em;
+  margin-bottom: 26px;
+  text-wrap: balance;
+}
+/* A palavra que carrega a promessa recebe a cor de instrumento e a linha
+   d'água por baixo — é o único grifo da página. */
+.hero-txt h1 span {
+  color: var(--ambar);
+  position: relative;
+  white-space: nowrap;
+}
+.hero-txt h1 span::after {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; bottom: .1em;
+  height: 2px;
+  background: var(--superf);
+  opacity: .55;
+}
+
+.hero-sub {
+  font-size: clamp(17px, 1.5vw, 19px);
+  color: var(--tinta-2);
+  max-width: 46ch;
+  margin-bottom: 34px;
+}
+
+.hero-acoes { display: flex; flex-wrap: wrap; gap: 12px; }
+
+.corte { position: relative; }
+.corte svg { width: 100%; height: auto; max-height: 74vh; }
+
+.corte figcaption {
+  margin-top: 12px;
+  font-size: 12.5px;
+  letter-spacing: .04em;
+  color: var(--tinta-3);
+  text-align: center;
+}
+
+/* Corte do prédio */
+.solo      { stroke: var(--fio-forte); stroke-width: 1.5; }
+.hachura line { stroke: var(--fio); stroke-width: 1; }
+
+.predio-corpo { fill: rgba(255,255,255,.03);  stroke: var(--fio-forte); stroke-width: 1.5; }
+.laje         { fill: rgba(255,255,255,.06);  stroke: var(--fio-forte); stroke-width: 1.5; }
+.janelas rect { fill: rgba(140, 200, 220, .11); }
+
+.tanque       { fill: rgba(0,0,0,.34); stroke: none; }
+.tanque-borda { fill: none; stroke: var(--fio-forte); stroke-width: 1.8; }
+.superficie   { stroke: #8ff2ff; stroke-width: 1.5; }
+
+/* ⚠️ `transform-box: fill-box` é obrigatório. Sem ele, o `translateY(100%)`
+   resolve contra o viewBox inteiro (700px) em vez da caixa do próprio grupo,
+   e a água some do desenho em vez de descer até a base do tanque. */
+.agua-g {
+  transform-box: fill-box;
+  transform-origin: center;
+  transform: translateY(100%);
+}
+#predio.is-pronto .agua-g { transition: transform 1.15s cubic-bezier(.32,.72,.3,1); }
+
+/* O cano é o mecanismo da história (a bomba empurra a água pra cima), então
+   ele é mais presente que o resto da estrutura do desenho. */
+.tubo    { fill: none; stroke: rgba(140,200,220,.42); stroke-width: 3.5; stroke-linecap: round; }
+.prumada { stroke: rgba(140,200,220,.42); }
+#predio.is-fluindo .prumada { stroke: var(--superf); transition: stroke .5s ease; }
+
+.bomba      { fill: rgba(240,176,20,.12); stroke: var(--ambar); stroke-width: 1.8; }
+.bomba-seta { fill: var(--ambar); }
+#predio.is-fluindo .bomba { fill: rgba(240,176,20,.28); transition: fill .5s ease; }
+
+.etiq line { stroke: var(--fio-forte); stroke-width: 1; }
+.etiq text {
+  fill: var(--tinta-2);
+  font-family: var(--serif);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: .06em;
+}
+.etiq .etiq-val { fill: var(--superf); font-weight: 700; font-size: 14px; }
+
+/* ── Seções ──────────────────────────────────────────────────────────────── */
+
+.sec { padding: clamp(64px, 8vw, 118px) 0; position: relative; }
+
+/* Território submerso. A borda superior é a própria linha d'água. */
+.sec-agua {
+  background: linear-gradient(180deg, var(--agua) 0%, var(--agua-2) 100%);
+  border-top: 1px solid rgba(62, 224, 240, .28);
+}
+.sec-agua::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 90px;
+  background: linear-gradient(180deg, rgba(62,224,240,.07), transparent);
+  pointer-events: none;
+}
+
+.sec-fundo { background: var(--agua-2); border-top: 1px solid var(--fio); }
+
+/* ── Linha do tempo ──────────────────────────────────────────────────────── */
+
+.linha-tempo { display: grid; gap: 0; }
+
+.lt-cab,
+.lt-linha {
+  display: grid;
+  grid-template-columns: 1fr 88px 1fr;
+  align-items: stretch;
+}
+
+.lt-cab { margin-bottom: 14px; }
+.lt-col-t {
+  font-family: var(--serif);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  padding-bottom: 10px;
+}
+.lt-sem { color: var(--critico); text-align: right; padding-right: 26px; }
+.lt-com { color: var(--superf); padding-left: 26px; }
+
+.lt-linha { min-height: 72px; }
+
+.lt-hora {
+  display: grid;
+  place-items: center;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: .06em;
+  color: var(--tinta-3);
+  border-left: 1px solid var(--fio);
+  border-right: 1px solid var(--fio);
+  background: rgba(0,0,0,.16);
+}
+
+.lt-sem-c, .lt-com-c { display: flex; align-items: center; padding: 16px 26px; }
+.lt-sem-c { justify-content: flex-end; text-align: right; }
+
+.lt-sem-c p, .lt-com-c p { font-size: 16px; color: var(--tinta-2); max-width: 40ch; }
+.lt-sem-c strong, .lt-com-c strong { color: var(--tinta); font-weight: 600; }
+
+/* Só as células com conteúdo ganham peso — as vazias são silêncio de verdade,
+   e o contraste entre as duas colunas é o argumento da seção. */
+.lt-sem-c.is-ruim { background: rgba(239, 68, 68, .07); border-left: 2px solid rgba(239,68,68,.5); }
+.lt-com-c.is-ok   { background: rgba(52, 211, 153, .07); border-right: 2px solid rgba(52,211,153,.5); }
+.lt-com-c:not(:empty) { border-right: 2px solid rgba(62,224,240,.32); }
+.lt-com-c.is-ok       { border-right-color: rgba(52,211,153,.5); }
+
+.lt-linha + .lt-linha .lt-sem-c,
+.lt-linha + .lt-linha .lt-com-c,
+.lt-linha + .lt-linha .lt-hora { border-top: 1px solid var(--fio); }
+
+.lt-fim .lt-hora { color: var(--tinta-2); }
+
+/* ── Peças instaladas ────────────────────────────────────────────────────── */
+
+.pecas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--fio); }
+
+.peca { background: var(--ar); padding: 34px 30px 38px; }
+
+.peca-tag {
+  font-family: var(--serif);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: var(--tinta-3);
+  margin-bottom: 14px;
+}
+.peca h3 { font-size: 27px; margin-bottom: 12px; color: var(--tinta); }
+.peca p  { font-size: 16px; color: var(--tinta-2); }
+
+/* ── Painel ──────────────────────────────────────────────────────────────── */
+
+.painel-in {
+  display: grid;
+  grid-template-columns: 1fr minmax(300px, 400px);
+  gap: clamp(32px, 5vw, 68px);
+  align-items: center;
+}
+
+.lista { display: grid; gap: 0; }
+.lista > div { padding: 20px 0; border-top: 1px solid var(--fio); }
+.lista > div:last-child { border-bottom: 1px solid var(--fio); }
+.lista dt {
+  font-family: var(--serif);
+  font-size: 22px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.lista dd { font-size: 16px; color: var(--tinta-2); max-width: 48ch; }
+
+.mock {
+  background: var(--caixa-2);
+  border: 1px solid var(--fio-forte);
+  border-radius: 3px;
+  padding: 16px;
+}
+
+.mock-cab {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding-bottom: 13px;
+  margin-bottom: 15px;
+  border-bottom: 1px solid var(--fio);
+}
+.mock-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+.mock-tit {
+  font-family: var(--serif);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--tinta-2);
+}
+.mock-tag {
+  margin-left: auto;
+  font-family: var(--serif);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--tinta-3);
+  border: 1px solid var(--fio);
+  padding: 2px 8px;
+}
+
+.mock-tanques { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+
+.mock-tanque {
+  background: rgba(0,0,0,.26);
+  border: 1px solid var(--fio);
+  border-radius: 2px;
+  padding: 11px 6px 9px;
+  text-align: center;
+}
+.mock-tanque.is-alerta { border-color: rgba(240,176,20,.45); background: rgba(240,176,20,.06); }
+.mock-tanque svg { width: 100%; height: auto; max-height: 118px; }
+
+.mock-pct { font-size: 21px; font-weight: 700; line-height: 1.1; margin-top: 6px; }
+.mock-nome {
+  font-size: 12px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--tinta-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mock-alerta {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  margin-top: 13px;
+  padding: 11px 13px;
+  background: rgba(240,176,20,.08);
+  border: 1px solid rgba(240,176,20,.32);
+  border-radius: 2px;
+}
+.mock-alerta-ic {
+  flex: none;
+  width: 25px; height: 25px;
+  display: grid;
+  place-items: center;
+  background: var(--ambar);
+  color: #14100a;
+  font-family: var(--serif);
+  font-weight: 700;
+  border-radius: 2px;
+}
+.mock-alerta span { display: flex; flex-direction: column; line-height: 1.35; min-width: 0; }
+.mock-alerta strong { font-size: 14.5px; font-weight: 600; }
+.mock-alerta em { font-style: normal; font-size: 13px; color: var(--tinta-2); }
+
+/* ── FAQ ─────────────────────────────────────────────────────────────────── */
+
+.faq { border-top: 1px solid var(--fio); }
+.faq:last-of-type { border-bottom: 1px solid var(--fio); }
+
+.faq summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 22px 44px 22px 0;
+  position: relative;
+  font-family: var(--serif);
+  font-size: 24px;
+  font-weight: 600;
+  transition: color .18s ease;
+}
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary::after {
+  content: '';
+  position: absolute;
+  right: 8px; top: 50%;
+  width: 13px; height: 13px;
+  margin-top: -7px;
+  border-right: 2px solid var(--ambar);
+  border-bottom: 2px solid var(--ambar);
+  transform: rotate(45deg);
+  transition: transform .22s ease;
+}
+.faq[open] summary::after { transform: rotate(-135deg); }
+.faq summary:hover { color: var(--ambar); }
+
+.faq div { padding: 0 0 24px; }
+.faq p { font-size: 16.5px; color: var(--tinta-2); max-width: 68ch; }
+
+/* ── Piloto / formulário ─────────────────────────────────────────────────── */
+
+.piloto-in {
+  display: grid;
+  grid-template-columns: 1fr minmax(320px, 430px);
+  gap: clamp(32px, 5vw, 64px);
+  align-items: start;
+}
+
+.piloto-lead { font-size: 17.5px; color: var(--tinta-2); max-width: 50ch; }
+
+.marcas { list-style: none; margin: 26px 0 20px; display: grid; gap: 11px; }
+.marcas li {
+  position: relative;
+  padding-left: 28px;
+  font-size: 16.5px;
+  color: var(--tinta-2);
+}
+.marcas li::before {
+  content: '';
+  position: absolute;
+  left: 0; top: .62em;
+  width: 14px; height: 1px;
+  background: var(--ambar);
+}
+
+.piloto-nota { font-size: 15px; color: var(--tinta-3); }
+
+.form {
+  background: var(--caixa);
+  border: 1px solid var(--fio-forte);
+  border-radius: 3px;
+  padding: 30px 28px 26px;
+}
+.form h3 {
+  font-size: 28px;
+  margin-bottom: 22px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--fio);
+}
+
+.f { margin-bottom: 15px; }
+.f label {
+  display: block;
+  font-family: var(--serif);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--tinta-2);
+  margin-bottom: 6px;
+}
+.f label b { color: var(--ambar); }
+
+.f input, .f select, .f textarea {
+  width: 100%;
+  padding: 11px 13px;
+  background: rgba(0,0,0,.34);
+  border: 1px solid var(--fio-forte);
+  border-radius: 2px;
+  color: var(--tinta);
+  font-family: var(--sans);
+  font-size: 16px;
+  transition: border-color .18s ease, box-shadow .18s ease;
+}
+.f textarea { resize: vertical; min-height: 78px; }
+
+.f input:focus, .f select:focus, .f textarea:focus {
+  outline: none;
+  border-color: var(--ambar);
+  box-shadow: 0 0 0 3px rgba(240,176,20,.15);
+}
+.f input.is-erro, .f select.is-erro { border-color: var(--critico); }
+
+.f-par { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+/* Honeypot — fora da tela SEM display:none, que alguns bots detectam.
+   Nada aqui pode virar visível em nenhum breakpoint. */
+.hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+
+.form-msg { font-size: 15px; margin-top: 13px; min-height: 22px; text-align: center; }
+.form-msg.is-ok   { color: var(--ok); }
+.form-msg.is-erro { color: var(--critico); }
+
+.form-nota { font-size: 13px; color: var(--tinta-3); text-align: center; margin-top: 10px; }
+
+/* ── Rodapé ──────────────────────────────────────────────────────────────── */
+
+.rodape { border-top: 1px solid var(--fio); background: var(--ar); }
+
+.rodape-in {
+  display: flex;
+  justify-content: space-between;
+  gap: 34px;
+  flex-wrap: wrap;
+  padding: 44px 0 30px;
+}
+.rodape-logo { height: 24px; width: auto; margin-bottom: 14px; }
+.rodape-nome { font-family: var(--serif); font-size: 20px; font-weight: 600; }
+.rodape-sub  { font-size: 15px; color: var(--tinta-3); }
+
+.rodape-col { display: flex; flex-direction: column; gap: 9px; }
+.rodape-col a { font-size: 15.5px; color: var(--tinta-2); transition: color .18s ease; }
+.rodape-col a:hover { color: var(--ambar); }
+
+.rodape-fim {
+  border-top: 1px solid var(--fio);
+  padding: 16px 0;
+  font-size: 13.5px;
+  color: var(--tinta-3);
+}
+
+/* ── Responsivo ──────────────────────────────────────────────────────────── */
+
+@media (max-width: 1100px) {
+  .hero-in { grid-template-columns: 1fr minmax(280px, 380px); }
+  .pecas   { grid-template-columns: 1fr; }
+  .peca    { padding: 26px 24px 30px; }
+}
+
+@media (max-width: 940px) {
+  .gauge { display: none; }
+  .gauge-mob { display: block; }
+  .topo-nav { display: none; }
+
+  .hero-in, .painel-in, .piloto-in { grid-template-columns: 1fr; }
+  .corte { max-width: 400px; margin-inline: auto; width: 100%; }
+  .corte svg { max-height: none; }
+  .h2 { max-width: none; }
+
+  /* A linha do tempo perde as duas colunas: vira sequência única com a hora
+     como cabeçalho de cada bloco. */
+  .lt-cab { display: none; }
+  .lt-linha { grid-template-columns: 1fr; min-height: 0; }
+  .lt-hora {
+    place-items: start;
+    padding: 16px 0 4px;
+    border: none;
+    background: none;
+    border-top: 1px solid var(--fio);
+    font-size: 17px;
+    color: var(--ambar);
+  }
+  .lt-sem-c, .lt-com-c { padding: 8px 0 8px 16px; justify-content: flex-start; text-align: left; }
+  .lt-sem-c:empty, .lt-com-c:empty { display: none; }
+  .lt-sem-c { border-left: 2px solid rgba(239,68,68,.5); background: rgba(239,68,68,.06); }
+  .lt-com-c:not(:empty) { border-right: none; border-left: 2px solid rgba(62,224,240,.4); background: rgba(62,224,240,.05); }
+  .lt-com-c.is-ok { border-left-color: rgba(52,211,153,.55); background: rgba(52,211,153,.06); }
+  .lt-linha + .lt-linha .lt-sem-c,
+  .lt-linha + .lt-linha .lt-com-c { border-top: none; }
+  /* Sem as colunas, cada bloco precisa dizer de qual cenário é. */
+  .lt-sem-c:not(:empty)::before,
+  .lt-com-c:not(:empty)::before {
+    font-family: var(--serif);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    display: block;
+    margin-bottom: 3px;
+  }
+  .lt-sem-c:not(:empty)::before { content: 'Sem monitoramento'; color: var(--critico); }
+  .lt-com-c:not(:empty)::before { content: 'Com a General';      color: var(--superf); }
+  .lt-sem-c, .lt-com-c { flex-direction: column; align-items: flex-start; }
+}
+
+@media (max-width: 620px) {
+  body { font-size: 16px; }
+  .wrap, .wrap-estreito { width: calc(100% - 32px); }
+  /* O CTA do topo não cabe ao lado de "Entrar" e estourava a viewport em
+     390px. O botão do hero fica logo abaixo, então nada se perde. */
+  .topo-acoes .btn-cheio { display: none; }
+  .f-par { grid-template-columns: 1fr; }
+  .hero-acoes .btn { flex: 1 1 100%; }
+  .form { padding: 24px 20px 22px; }
+  .faq summary { font-size: 21px; padding-right: 36px; }
+  .lista dt { font-size: 20px; }
+  .peca h3 { font-size: 24px; }
+}
+
+/* Motion é decorativo aqui: quem pediu menos, recebe o estado final parado. */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: .001ms !important;
+    transition-duration: .001ms !important;
+  }
+}

@@ -1,0 +1,448 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>General Telemetria — seu prédio avisa antes de faltar água</title>
+  <meta name="description" content="Sonda no reservatório, sensor na bomba, leitura a cada 10 segundos. Quando o nível entra na faixa de risco, o alerta sai sozinho — de madrugada, no fim de semana, no feriado." />
+
+  <!-- Ícone pequeno de propósito: `favicon.png` tem 3,9 MB e é baixado antes da
+       primeira pintura. Numa página cujo trabalho é converter visitante, isso
+       custa caro. As demais páginas (login/admin/cliente) seguem no favicon.png
+       — são pós-login, onde o custo é pago uma vez. -->
+  <link rel="icon" type="image/png" sizes="96x96"   href="/static/icons/icon-96x96.png" />
+  <link rel="icon" type="image/png" sizes="192x192" href="/static/icons/icon-192x192.png" />
+  <link rel="apple-touch-icon" href="/static/apple-touch-icon.png" />
+  <meta name="theme-color" content="#070a12" />
+
+  <!-- Fontes hospedadas aqui: o CSP do helmet é `font-src 'self'`, então CDN
+       de fonte é bloqueado. Só o subset latin, que já cobre o português. -->
+  <link rel="preload" href="/static/fonts/barlow-cond-700.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="/static/fonts/barlow-400.woff2" as="font" type="font/woff2" crossorigin />
+
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="General Telemetria — seu prédio avisa antes de faltar água" />
+  <meta property="og:description" content="Monitoramento 24h dos reservatórios e bombas do seu condomínio." />
+  <meta property="og:image" content="/static/logo.png" />
+  <meta property="og:locale" content="pt_BR" />
+
+  <link rel="stylesheet" href="/static/landing.css?v=2" />
+</head>
+<body>
+
+<!-- ─── Trilho de nível ─────────────────────────────────────────────────────
+     A assinatura da página: régua graduada de reservatório que serve de
+     indicador de rolagem. O nível cai conforme se lê, e cruza as MESMAS faixas
+     de alerta do produto (45% e 20%). Escondido abaixo de 940px, onde vira a
+     barra fina no topo. -->
+<div class="gauge" id="gauge" aria-hidden="true">
+  <span class="gauge-cap">Nível</span>
+  <div class="gauge-corpo">
+    <div class="gauge-trilho"></div>
+    <div class="gauge-agua" id="gaugeAgua"></div>
+    <div class="gauge-marca" id="gaugeMarca"><span id="gaugePct">100</span></div>
+    <ul class="gauge-ticks">
+      <li style="--t:0">100</li>
+      <li style="--t:25">75</li>
+      <li style="--t:50">50</li>
+      <li style="--t:75">25</li>
+      <li style="--t:100">0</li>
+    </ul>
+  </div>
+</div>
+<div class="gauge-mob" id="gaugeMob" aria-hidden="true"><i id="gaugeMobFill"></i></div>
+
+<!-- ─── Topo ───────────────────────────────────────────────────────────────── -->
+<header class="topo">
+  <div class="wrap topo-in">
+    <a href="#inicio" class="marca">
+      <img src="/static/logo.png" alt="General" />
+      <span>Telemetria</span>
+    </a>
+    <nav class="topo-nav">
+      <a href="#madrugada">A madrugada</a>
+      <a href="#instalado">O que é instalado</a>
+      <a href="#duvidas">Dúvidas</a>
+    </nav>
+    <div class="topo-acoes">
+      <a href="/login" class="btn btn-linha">Entrar</a>
+      <a href="#piloto" class="btn btn-cheio">Falar com a gente</a>
+    </div>
+  </div>
+</header>
+
+<main id="inicio">
+
+  <!-- ─── Hero ─────────────────────────────────────────────────────────────── -->
+  <section class="hero">
+    <div class="wrap hero-in">
+
+      <div class="hero-txt">
+        <p class="rotulo">Reservatórios e bombas · Grande São Paulo</p>
+        <h1>Seu prédio avisa <span>antes</span> de faltar água.</h1>
+        <p class="hero-sub">
+          Sonda no reservatório, sensor na bomba, leitura a cada 10 segundos.
+          Quando o nível entra na faixa de risco, o alerta sai sozinho — de
+          madrugada, no fim de semana, no feriado.
+        </p>
+        <div class="hero-acoes">
+          <a href="#piloto" class="btn btn-cheio btn-g">Quero no meu prédio</a>
+          <a href="#madrugada" class="btn btn-linha btn-g">Ver como muda a noite</a>
+        </div>
+      </div>
+
+      <!-- Corte esquemático do prédio: cisterna → bomba → prumada → caixa
+           superior. É a topologia real da instalação. -->
+      <figure class="corte">
+        <svg id="predio" viewBox="0 0 460 700" role="img"
+             aria-label="Corte de um prédio: cisterna no subsolo, bomba, prumada e caixa d'água superior">
+          <defs>
+            <clipPath id="cxClip"><rect x="162" y="62" width="130" height="80" rx="3"/></clipPath>
+            <clipPath id="ciClip"><rect x="112" y="524" width="180" height="112" rx="3"/></clipPath>
+            <linearGradient id="gAgua" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0"   stop-color="#3ee0f0" stop-opacity=".92"/>
+              <stop offset="100%" stop-color="#0e7f96" stop-opacity=".78"/>
+            </linearGradient>
+          </defs>
+
+          <!-- terreno -->
+          <line class="solo" x1="0" y1="500" x2="460" y2="500"/>
+          <g class="hachura">
+            <line x1="8"   y1="500" x2="0"   y2="512"/><line x1="38"  y1="500" x2="30"  y2="512"/>
+            <line x1="68"  y1="500" x2="60"  y2="512"/><line x1="98"  y1="500" x2="90"  y2="512"/>
+            <line x1="128" y1="500" x2="120" y2="512"/><line x1="158" y1="500" x2="150" y2="512"/>
+            <line x1="188" y1="500" x2="180" y2="512"/><line x1="218" y1="500" x2="210" y2="512"/>
+            <line x1="248" y1="500" x2="240" y2="512"/><line x1="278" y1="500" x2="270" y2="512"/>
+            <line x1="308" y1="500" x2="300" y2="512"/><line x1="338" y1="500" x2="330" y2="512"/>
+            <line x1="368" y1="500" x2="360" y2="512"/><line x1="398" y1="500" x2="390" y2="512"/>
+            <line x1="428" y1="500" x2="420" y2="512"/><line x1="458" y1="500" x2="450" y2="512"/>
+          </g>
+
+          <!-- corpo do prédio -->
+          <rect class="predio-corpo" x="108" y="152" width="244" height="348"/>
+          <rect class="laje" x="100" y="142" width="260" height="12" rx="2"/>
+          <g class="janelas" id="janelas"></g>
+
+          <!-- caixa d'água superior -->
+          <rect class="tanque" x="162" y="62" width="130" height="80" rx="3"/>
+          <g clip-path="url(#cxClip)">
+            <g id="cxAgua" class="agua-g">
+              <rect x="162" y="62" width="130" height="80" fill="url(#gAgua)"/>
+              <line class="superficie" x1="162" y1="62.5" x2="292" y2="62.5"/>
+            </g>
+          </g>
+          <rect class="tanque-borda" x="162" y="62" width="130" height="80" rx="3"/>
+
+          <!-- cisterna -->
+          <rect class="tanque" x="112" y="524" width="180" height="112" rx="3"/>
+          <g clip-path="url(#ciClip)">
+            <g id="ciAgua" class="agua-g">
+              <rect x="112" y="524" width="180" height="112" fill="url(#gAgua)"/>
+              <line class="superficie" x1="112" y1="524.5" x2="292" y2="524.5"/>
+            </g>
+          </g>
+          <rect class="tanque-borda" x="112" y="524" width="180" height="112" rx="3"/>
+
+          <!-- sucção + bomba + prumada -->
+          <path class="tubo" d="M292 592 H372"/>
+          <path class="tubo prumada" id="prumada" d="M372 592 V95 H292"/>
+          <circle class="bomba" cx="372" cy="592" r="17"/>
+          <path class="bomba-seta" d="M366 598 L378 592 L366 586 Z"/>
+
+          <!-- cotas e etiquetas -->
+          <g class="etiq">
+            <!-- À esquerda de propósito: a prumada entra pela direita da caixa,
+                 e a linha de chamada ficava paralela ao cano a 7px dele. -->
+            <line x1="162" y1="92" x2="122" y2="92"/>
+            <text x="116" y="89" text-anchor="end">Caixa superior</text>
+            <text x="116" y="103" text-anchor="end" class="etiq-val" id="cxPct">62%</text>
+
+            <line x1="112" y1="580" x2="72" y2="580"/>
+            <text x="66" y="577" text-anchor="end">Cisterna</text>
+            <text x="66" y="591" text-anchor="end" class="etiq-val">78%</text>
+
+            <line x1="389" y1="592" x2="424" y2="592"/>
+            <text x="428" y="589">Bomba</text>
+            <text x="428" y="603" class="etiq-val">ligada</text>
+          </g>
+        </svg>
+        <figcaption>Esquema da instalação — os percentuais são ilustrativos.</figcaption>
+      </figure>
+
+    </div>
+  </section>
+
+  <!-- ─── A madrugada ──────────────────────────────────────────────────────── -->
+  <section class="sec sec-agua" id="madrugada">
+    <div class="wrap">
+      <p class="rotulo">A mesma madrugada</p>
+      <h2 class="h2">A boia travou às duas da manhã.<br />O que acontece depois é escolha sua.</h2>
+
+      <div class="linha-tempo" id="linhaTempo">
+
+        <header class="lt-cab">
+          <span class="lt-col-t lt-sem">Sem monitoramento</span>
+          <span class="lt-col-h"></span>
+          <span class="lt-col-t lt-com">Com a General</span>
+        </header>
+
+        <div class="lt-linha">
+          <div class="lt-sem-c"><p>A boia trava. O nível começa a cair e nada indica isso.</p></div>
+          <div class="lt-hora">02:10</div>
+          <div class="lt-com-c"><p>A sonda registra a queda na leitura seguinte.</p></div>
+        </div>
+
+        <div class="lt-linha">
+          <div class="lt-sem-c"></div>
+          <div class="lt-hora">02:40</div>
+          <div class="lt-com-c"><p>O nível cruza 45%. Alerta aberto e chamado criado, sem ninguém acordado.</p></div>
+        </div>
+
+        <div class="lt-linha">
+          <div class="lt-sem-c"></div>
+          <div class="lt-hora">03:05</div>
+          <div class="lt-com-c"><p>Técnico acionado já com o endereço e o histórico do reservatório.</p></div>
+        </div>
+
+        <div class="lt-linha">
+          <div class="lt-sem-c"></div>
+          <div class="lt-hora">05:30</div>
+          <div class="lt-com-c is-ok"><p>Reservatório reabastecido. Ninguém no prédio percebeu nada.</p></div>
+        </div>
+
+        <div class="lt-linha">
+          <div class="lt-sem-c is-ruim"><p>O primeiro morador abre a torneira e não sai água.</p></div>
+          <div class="lt-hora">06:20</div>
+          <div class="lt-com-c"></div>
+        </div>
+
+        <div class="lt-linha">
+          <div class="lt-sem-c is-ruim"><p>O interfone não para. O zelador sobe para conferir a caixa.</p></div>
+          <div class="lt-hora">06:45</div>
+          <div class="lt-com-c"></div>
+        </div>
+
+        <div class="lt-linha">
+          <div class="lt-sem-c is-ruim"><p>Caminhão-pipa de emergência, sem cotação, no preço do dia.</p></div>
+          <div class="lt-hora">08:00</div>
+          <div class="lt-com-c"></div>
+        </div>
+
+        <div class="lt-linha lt-fim">
+          <div class="lt-sem-c is-ruim"><p><strong>Assembleia para explicar o que aconteceu.</strong></p></div>
+          <div class="lt-hora">depois</div>
+          <div class="lt-com-c"><p><strong>Uma linha no relatório do mês.</strong></p></div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── O que é instalado ────────────────────────────────────────────────── -->
+  <section class="sec" id="instalado">
+    <div class="wrap">
+      <p class="rotulo">O que é instalado</p>
+      <h2 class="h2">Três peças na casa de máquinas. Nenhuma obra no reservatório.</h2>
+
+      <div class="pecas">
+        <article class="peca">
+          <p class="peca-tag">No reservatório</p>
+          <h3>Sonda de nível 4–20&nbsp;mA</h3>
+          <p>Mede a coluna d'água de verdade, em centímetros. É outra coisa que a boia, que só sabe dizer "cheio" ou "não cheio" — e nada quando ela mesma falha.</p>
+        </article>
+
+        <article class="peca">
+          <p class="peca-tag">Na bomba</p>
+          <h3>Sensor de corrente</h3>
+          <p>Lê a corrente que passa pelo motor. Sabe se a bomba está girando, não apenas se o disjuntor está ligado.</p>
+        </article>
+
+        <article class="peca">
+          <p class="peca-tag">No quadro</p>
+          <h3>Central de leitura</h3>
+          <p>Envia as medições pela internet a cada 10 segundos. Se ela parar de enviar, o silêncio também vira alerta.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── O painel ─────────────────────────────────────────────────────────── -->
+  <section class="sec sec-agua" id="painel">
+    <div class="wrap painel-in">
+
+      <div class="painel-txt">
+        <p class="rotulo">O que você acompanha</p>
+        <h2 class="h2">O prédio inteiro cabe na tela do celular.</h2>
+
+        <dl class="lista">
+          <div>
+            <dt>Nível de cada reservatório</dt>
+            <dd>Quanto tem em cada caixa, agora, sem ligar para ninguém.</dd>
+          </div>
+          <div>
+            <dt>Alerta automático</dt>
+            <dd>Nível baixo, bomba parada ou sensor sem sinal avisam na hora.</dd>
+          </div>
+          <div>
+            <dt>Chamado com prazo</dt>
+            <dd>Cada urgência tem classificação e prazo de chegada. Nada fica no "a gente passa lá qualquer dia".</dd>
+          </div>
+          <div>
+            <dt>Relatório em PDF</dt>
+            <dd>Histórico do período, pronto para a prestação de contas e para a assembleia.</dd>
+          </div>
+        </dl>
+      </div>
+
+      <div class="mock">
+        <div class="mock-cab">
+          <span class="mock-dot"></span>
+          <span class="mock-tit">Painel do condomínio</span>
+          <span class="mock-tag">Exemplo</span>
+        </div>
+        <div class="mock-tanques" id="mockTanques"></div>
+        <div class="mock-alerta">
+          <span class="mock-alerta-ic">!</span>
+          <span><strong>Nível baixo — Caixa superior</strong><em>Chamado aberto automaticamente · P3</em></span>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ─── Dúvidas ──────────────────────────────────────────────────────────── -->
+  <section class="sec" id="duvidas">
+    <div class="wrap wrap-estreito">
+      <p class="rotulo">Dúvidas</p>
+      <h2 class="h2">As perguntas que todo síndico faz.</h2>
+
+      <details class="faq">
+        <summary>Meu prédio já tem boia. Não resolve?</summary>
+        <div><p>A boia liga e desliga a bomba — é um automatismo, não um aviso. Ela não conta quando trava, quando a bomba para, quando o consumo dispara por um vazamento, nem quando o nível está caindo mais rápido que o normal. A telemetria não substitui a boia: ela informa o que está acontecendo enquanto a boia trabalha.</p></div>
+      </details>
+
+      <details class="faq">
+        <summary>Precisa de obra ou mexer no reservatório?</summary>
+        <div><p>Não. A instalação é feita na casa de máquinas, com a sonda posicionada no reservatório. A estrutura da caixa d'água não é alterada e o abastecimento não é interrompido.</p></div>
+      </details>
+
+      <details class="faq">
+        <summary>E se a internet do prédio cair?</summary>
+        <div><p>O sistema trata a ausência de leitura como um evento próprio: se o sensor para de reportar, um alerta de dispositivo offline é aberto automaticamente. Você fica sabendo que parou de saber — que é exatamente o que uma planilha ou uma conferência manual nunca avisam.</p></div>
+      </details>
+
+      <details class="faq">
+        <summary>Quem instala e quem faz a manutenção?</summary>
+        <div><p>A própria General. Equipamento, instalação, calibração e acompanhamento são nossos. O condomínio não contrata terceiros nem precisa de alguém de TI para operar nada.</p></div>
+      </details>
+
+      <details class="faq">
+        <summary>Quem do condomínio consegue acessar?</summary>
+        <div><p>O acesso é do condomínio, com login próprio e verificação em duas etapas. Síndico e quem mais for autorizado enxergam os dados do próprio prédio — e apenas dele.</p></div>
+      </details>
+
+      <details class="faq">
+        <summary>Quanto custa?</summary>
+        <div><p>Depende de quantos reservatórios e bombas serão monitorados. Estamos formando o grupo piloto agora, com condições específicas para os primeiros condomínios. Preencha o formulário abaixo e apresentamos a proposta para o seu caso.</p></div>
+      </details>
+    </div>
+  </section>
+
+  <!-- ─── Piloto ───────────────────────────────────────────────────────────── -->
+  <section class="sec sec-fundo" id="piloto">
+    <div class="wrap piloto-in">
+
+      <div class="piloto-txt">
+        <p class="rotulo">Programa piloto</p>
+        <h2 class="h2">Estamos escolhendo os primeiros prédios.</h2>
+        <p class="piloto-lead">
+          O sistema está pronto e rodando. Agora queremos instalar em um grupo
+          pequeno de condomínios para ajustar o serviço com uso real — e por isso
+          as condições do piloto são diferentes das que valerão depois.
+        </p>
+        <ul class="marcas">
+          <li>Instalação e calibração pela nossa equipe</li>
+          <li>Acompanhamento próximo durante todo o período</li>
+          <li>Sem compromisso de continuidade ao final</li>
+        </ul>
+        <p class="piloto-nota">Atendemos condomínios na Grande São Paulo.</p>
+      </div>
+
+      <form class="form" id="lpForm" novalidate>
+        <h3>Fale com a gente</h3>
+
+        <div class="f">
+          <label for="lpNome">Seu nome <b>*</b></label>
+          <input id="lpNome" name="nome" type="text" autocomplete="name" required />
+        </div>
+
+        <div class="f">
+          <label for="lpCondominio">Condomínio</label>
+          <input id="lpCondominio" name="condominio" type="text" autocomplete="organization" />
+        </div>
+
+        <div class="f-par">
+          <div class="f">
+            <label for="lpEmail">E-mail <b>*</b></label>
+            <input id="lpEmail" name="email" type="email" autocomplete="email" required />
+          </div>
+          <div class="f">
+            <label for="lpTelefone">WhatsApp</label>
+            <input id="lpTelefone" name="telefone" type="tel" autocomplete="tel" inputmode="tel" />
+          </div>
+        </div>
+
+        <div class="f">
+          <label for="lpUnidades">Tamanho do condomínio</label>
+          <select id="lpUnidades" name="unidades">
+            <option value="">Selecione</option>
+            <option value="ate-50">Até 50 unidades</option>
+            <option value="51-150">51 a 150 unidades</option>
+            <option value="151-300">151 a 300 unidades</option>
+            <option value="acima-300">Acima de 300 unidades</option>
+          </select>
+        </div>
+
+        <div class="f">
+          <label for="lpMensagem">Alguma observação?</label>
+          <textarea id="lpMensagem" name="mensagem" rows="3"></textarea>
+        </div>
+
+        <!-- Honeypot: escondido no CSS, validado no backend. Não remover. -->
+        <div class="hp" aria-hidden="true">
+          <label for="lpSite">Não preencha este campo</label>
+          <input id="lpSite" name="site" type="text" tabindex="-1" autocomplete="off" />
+        </div>
+
+        <button type="submit" class="btn btn-cheio btn-bloco" id="lpSubmit">Enviar</button>
+
+        <p class="form-msg" id="lpMsg" role="status"></p>
+        <p class="form-nota">Usamos seus dados apenas para responder este contato.</p>
+      </form>
+
+    </div>
+  </section>
+
+</main>
+
+<footer class="rodape">
+  <div class="wrap rodape-in">
+    <div>
+      <img src="/static/logo.png" alt="General" class="rodape-logo" />
+      <p class="rodape-nome">General Engenharia da Manutenção</p>
+      <p class="rodape-sub">Monitoramento e manutenção hidráulica predial</p>
+    </div>
+    <div class="rodape-col">
+      <a href="mailto:comercial@generalbombas.com">comercial@generalbombas.com</a>
+      <a href="/login">Acessar o painel</a>
+    </div>
+  </div>
+  <div class="wrap rodape-fim">
+    <span>&copy; <span id="lpAno">2026</span> General Engenharia da Manutenção</span>
+  </div>
+</footer>
+
+<!-- CSP do helmet é `script-src 'self'` — script inline é bloqueado. -->
+<script src="/static/landing.js?v=2" defer></script>
+</body>
+</html>
