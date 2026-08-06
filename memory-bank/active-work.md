@@ -31,11 +31,9 @@ cliente/condomínio** com o de **orçamento** como referência.
   Grep no repo inteiro (`public/`, `app/public/`, serviços de PDF) antes de
   remover — lembrando do episódio `.tel-bombas-*`, que parecia morto e era
   usado pelo painel do cliente.
-- ⚠️ **`public/cliente.html` ainda carrega `admin.css?v=159`** (o admin está em
-  187). As mudanças desta sessão não afetam o painel do cliente (as regras
-  novas em `.f span` são aditivas e o `.loc-block` não tinha consumidor lá),
-  mas os dois painéis vêm servindo **cópias diferentes do mesmo arquivo** há
-  algumas sessões. Vale alinhar quando o redesenho do cliente for retomado.
+- ⚠️ **`public/cliente.html` carregava `admin.css?v=159`** enquanto o admin
+  estava em 189 — **resolvido no fim da sessão**, alinhado em 189. Detalhe do
+  raciocínio na terceira parte, abaixo.
 
 **Verificado:** harness estático (Puppeteer + markup real recortado do
 `admin.html` + `admin.css` real) em 1440×900, 1366×768, 1440×720 e 1024×900,
@@ -61,6 +59,29 @@ Reportado pelo Pedro na mesma sessão. Detalhe no
   eixos com `overflow: hidden` **cortou a linha de datas** e foi descartada.
   Se um dia esse modal virar altura fixa, esses 47px precisam de plano.
 
+**Terceira parte — painel de detalhe grudado, e o alinhamento do cliente.**
+
+O `sticky` no `.ch-detail-col` (commit `cc52af8`) já valeu para as **5 telas do
+admin** que usam `.ch-layout`, porque a correção foi na classe compartilhada.
+O que faltava era o **painel do cliente**, que usa as MESMAS classes
+(`.ch-layout` / `.ch-list-col` / `.ch-detail-col`) em Alertas e Chamados e
+carrega o mesmo `admin.css`.
+
+- **Não era uma correção de CSS, era de cache-bust.** O servidor sempre entrega
+  o `admin.css` atual, o `?v=` é só chave de cache — então quem chegava com
+  cache frio no painel do cliente **já estava** recebendo o arquivo novo. O
+  `v=159` só prendia quem tinha cópia velha. Alinhado em `v=189`.
+- ⚠️ **Efeito colateral esperado:** ao alinhar, quem estava preso no `v=159`
+  pula 30 versões de `admin.css` de uma vez. As mudanças compartilhadas desde
+  então que o painel do cliente consome: `.modalBox` (fio âmbar no topo),
+  `.modalBody` / `.modalTools` / `.modal-sec-title`, `.f span`, `.input`,
+  `.tel-select` / `.tel-historico-ctrls` / `.tel-filtros`. Nada disso foi
+  conferido **no painel do cliente** — vale uma passada visual nele.
+- **Medido no harness** (markup real do `cliente.html`, `admin.css` +
+  `cliente.css` na ordem real, 80 alertas): sem o fix o painel ia para
+  `top: -2717px`, **0 de 381px visíveis**; com o fix fica em `top: 110`, **381
+  de 381 visíveis**. Igual em Alertas e Chamados, a 1440×900 e 1366×768.
+
 **Pendente:**
 - ⚠️ **Abrir o modal no painel de verdade** e conferir o mini-mapa: o container
   passou de altura fixa (280px) para `flex: 1`, e o `_miniMapaInvalidar("edit")`
@@ -68,11 +89,23 @@ Reportado pelo Pedro na mesma sessão. Detalhe no
   não consegue provar.
 - Conferir o fluxo de erro do `_editMsg` com o backend (409 de CNPJ duplicado,
   por exemplo) — as cores novas só foram vistas em estático.
+- ⚠️ **Passada visual no painel do cliente** depois do salto de `v=159` → 189
+  (lista de classes afetadas acima).
 - 📋 **Painel do cliente tem o mesmo `xaxis.tooltip` duplicado**
   (`telCliHistChart` em `public/cliente.js`). Não treme — o gráfico está num
   `.card` com `overflow: hidden`, não num contêiner rolável — mas o rótulo é
-  cortado na borda. Ficou de fora porque `cliente.html` carrega
-  `admin.css?v=159` e tem cache-bust próprio.
+  cortado na borda. Continua fora: é mudança de JS do cliente, não de CSS.
+- 📋 **Central de Atendimento (WhatsApp) tem o mesmo defeito e ficou de fora.**
+  Ela usa `.wa-grid` (grid de 3 colunas), não `.ch-layout`, então não herdou
+  nada. Medido com 60 conversas: a página rola 3087px, a coluna da lista **não
+  rola por dentro** (3838px de altura) e a coluna de info estica junto — depois
+  de rolar até o fim ela fica em `top: -2975px`. Não corrigido porque (a) a
+  seção está **escondida do menu** desde `c825f66` (`style="display:none"` no
+  `nav-item`), logo é UI morta hoje, e (b) o conserto ali não é "gruda o aside":
+  as 3 colunas esticam juntas, então é preciso **limitar a altura do
+  `.wa-grid`** para cada coluna rolar por dentro — mudança maior, que pede o
+  módulo rodando com conversas reais para validar. Quando o Atendimento voltar
+  ao menu, é o primeiro item a resolver.
 
 ## Sessão 2026-07-31 — GPS rastreava fora do expediente (pin às 19h)
 

@@ -108,7 +108,32 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
     Chamados, Orçamentos (os dois modos) e Colaboradores. O `@media
     (max-width: 1100px)` que já existia neutraliza `sticky` e o teto quando o
     layout empilha — conferido a 1024×800.
-  - Cache-bust: `admin.css?v=189`, `admin.js?v=280`.
+  - **Painel do cliente entrou junto.** Usa as mesmas classes em Alertas e
+    Chamados e carrega o mesmo `admin.css`, mas estava preso em
+    `admin.css?v=159` — alinhado em `v=189`. O `?v=` é só chave de cache (o
+    servidor sempre entrega o arquivo atual), então quem chegava com cache
+    frio **já recebia** o CSS novo; o alinhamento serve para quem tinha cópia
+    velha. Medido com 80 alertas: sem o fix o painel ia para `top: -2717px`,
+    **0 de 381px visíveis**; com o fix, 381 de 381. Igual em Alertas e
+    Chamados, a 1440×900 e 1366×768.
+    ⚠️ Quem estava preso no `v=159` pula 30 versões de `admin.css` de uma vez.
+    Compartilhado e consumido pelo cliente: `.modalBox` (fio âmbar no topo),
+    `.modalBody`/`.modalTools`/`.modal-sec-title`, `.f span`, `.input`,
+    `.tel-select`/`.tel-historico-ctrls`/`.tel-filtros`. Nada disso foi
+    conferido no painel do cliente — vale uma passada visual.
+  - ⚠️ **Central de Atendimento (WhatsApp) tem o mesmo defeito e ficou de
+    fora.** Usa `.wa-grid` (grid de 3 colunas), não `.ch-layout`, então não
+    herdou nada. Medido com 60 conversas: a página rola 3087px, a coluna da
+    lista não rola por dentro (3838px) e a de info estica junto — depois de
+    rolar até o fim ela fica em `top: -2975px`. Não corrigido porque a seção
+    está escondida do menu desde `c825f66` e porque o conserto ali não é
+    "gruda o aside": as 3 colunas esticam juntas, é preciso limitar a altura
+    do `.wa-grid` para cada uma rolar por dentro — mudança maior, que pede o
+    módulo rodando para validar.
+  - `sw.js` intocado: `.css`/`.js` já são **network first** lá (`cache:
+    "reload"`), então mudança de conteúdo de CSS não exige bump de
+    `CACHE_NAME` nem de `register-sw.js`.
+  - Cache-bust: `admin.css?v=189` (admin **e** cliente), `admin.js?v=280`.
 
 - **2026-08-06** — **Modal do histórico tremia com o mouse na ponta direita do
   gráfico** (só frontend)
