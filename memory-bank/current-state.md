@@ -183,6 +183,18 @@ ESP32 (sonda 4-20mA + SCT-013)
     `.f span em` (dica dentro do rótulo), `.f span b` (asterisco de
     obrigatório), `.modalFoot-danger` (ação destrutiva sem cara de botão).
 
+- **Gráfico dentro de contêiner rolável precisa de `overflow-x: hidden`**
+  (ago/2026). `overflow-y: auto` sozinho **também** torna o eixo X rolável — a
+  regra do CSS diz que, quando um eixo não é `visible`, o outro computa de
+  `visible` para `auto`. Os overlays do ApexCharts (`.apexcharts-xaxistooltip`
+  em especial) são posicionados no cursor e vazam nas bordas: bastam 5px pra
+  abrir uma barra de rolagem, que come altura, que redimensiona o gráfico
+  (`height: "100%"`), que perde o hover — e o modal treme. Diagnóstico completo
+  em [changelog.md](../docs/changelog.md) (2026-08-06).
+  ⚠️ Não feche o eixo Y junto: o canvas do Apex é ~47px mais alto que o
+  contêiner com `height: "100%"`, e é a rolagem vertical que mantém a linha de
+  datas alcançável.
+
 **Segurança & operação**
 - Envs obrigatórias em produção (JWT_SECRET, CORS_ORIGINS) com `process.exit(1)`.
 - RBAC com **5 roles ativas**: **admin** (master — tudo), **gerente** (operação

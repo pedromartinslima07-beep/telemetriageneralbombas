@@ -43,6 +43,24 @@ com medição de rolagem por coluna. `node --check` no `admin.js`.
 **Nada rodou com backend real** — o mapa é um stand-in no harness, o Leaflet
 não carregou e nenhum condomínio veio do banco.
 
+**Segunda parte — modal do histórico tremia na ponta direita do gráfico.**
+Reportado pelo Pedro na mesma sessão. Detalhe no
+[changelog](../docs/changelog.md); o que vale guardar:
+
+- **A regra de CSS que ninguém lembra:** `overflow-y: auto` sozinho **também
+  torna o eixo X rolável** — quando um eixo não é `visible`, o outro computa de
+  `visible` para `auto`. Foi isso que deixou um overlay vazando 5px virar um
+  laço de rolagem ⇄ resize ⇄ redraw. Vale para qualquer contêiner de rolagem
+  que hospede gráfico, mapa ou tooltip posicionado por JS.
+- **Overlay do ApexCharts não respeita a caixa do gráfico.** O
+  `.apexcharts-xaxistooltip` é centrado no cursor e vaza nas bordas. Ao pôr um
+  gráfico dentro de contêiner rolável, bloqueie o eixo que não deve rolar.
+- **O canvas do Apex é ~47px mais alto que o contêiner** com `height: "100%"`
+  (constante; `parentHeightOffset` não muda). Quem "segura" esses 47px hoje é
+  a rolagem vertical do `.modalBody` — por isso a tentativa de fechar os dois
+  eixos com `overflow: hidden` **cortou a linha de datas** e foi descartada.
+  Se um dia esse modal virar altura fixa, esses 47px precisam de plano.
+
 **Pendente:**
 - ⚠️ **Abrir o modal no painel de verdade** e conferir o mini-mapa: o container
   passou de altura fixa (280px) para `flex: 1`, e o `_miniMapaInvalidar("edit")`
@@ -50,6 +68,11 @@ não carregou e nenhum condomínio veio do banco.
   não consegue provar.
 - Conferir o fluxo de erro do `_editMsg` com o backend (409 de CNPJ duplicado,
   por exemplo) — as cores novas só foram vistas em estático.
+- 📋 **Painel do cliente tem o mesmo `xaxis.tooltip` duplicado**
+  (`telCliHistChart` em `public/cliente.js`). Não treme — o gráfico está num
+  `.card` com `overflow: hidden`, não num contêiner rolável — mas o rótulo é
+  cortado na borda. Ficou de fora porque `cliente.html` carrega
+  `admin.css?v=159` e tem cache-bust próprio.
 
 ## Sessão 2026-07-31 — GPS rastreava fora do expediente (pin às 19h)
 

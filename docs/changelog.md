@@ -80,6 +80,46 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
 
 ## Marcos de produto (fases do plano)
 
+- **2026-08-06** — **Modal do histórico tremia com o mouse na ponta direita do
+  gráfico** (só frontend)
+  - **Sintoma (relatado pelo Pedro):** passando o mouse na extrema direita do
+    gráfico, o modal tremia e a informação do tooltip aparecia e sumia.
+  - **Causa, medida em harness (markup real + `admin.css` real + ApexCharts
+    real, 1440×900):** o `.apexcharts-xaxistooltip` — o rótulo de data que o
+    Apex desenha **abaixo** do eixo X — é centrado no cursor e o Apex não o
+    prende à caixa do gráfico. Na ponta direita ele saía **5px pela direita**
+    e 14px por baixo do `.modalBody`.
+  - **O que transformou 5px num laço:** `.modalBody` tem `overflow-y: auto`, e
+    pela regra do CSS, quando um eixo não é `visible`, o outro computa de
+    `visible` para **`auto`** — confirmado com `getComputedStyle`
+    (`overflowX: "auto"`). Então o corpo era rolável na horizontal também.
+    Ciclo: barra de rolagem aparece → come ~15px de altura → o
+    `.tel-historico-chart` (`flex: 1`) encolhe → o ApexCharts (`height:
+    "100%"`) se redesenha → o hover se perde → o rótulo some → o overflow
+    acaba → a barra some → tudo cresce de volta → recomeça. Em Windows a
+    barra clássica ocupa espaço de layout, por isso o efeito aparece lá.
+  - **Correção (duas linhas):** `xaxis.tooltip.enabled: false` no `admin.js` —
+    o rótulo repetia a data que o cabeçalho do tooltip já mostra em
+    `dd MMM HH:mm` — e `.tel-hist-modal .modalBody { overflow-x: hidden }`
+    como rede, para qualquer outro overlay do Apex que resolva vazar.
+  - **Medição antes → depois**, mesmo harness, varrendo o gráfico até a borda
+    e parando 1,5s na ponta: frames com overflow horizontal **90 → 0**,
+    vertical **92 → 0**, `scrollHeight == clientHeight`, tooltip sem piscar.
+    Repetido em 1440×900, 1366×768 e 1280×720.
+  - ⚠️ **Tentativa descartada, e por quê:** a primeira correção deu altura fixa
+    à `.tel-hist-box` e `overflow: hidden` no corpo. Matava o tremor, mas
+    **cortava a linha de datas do eixo X** — o canvas do Apex é **47px mais
+    alto que o contêiner** com `height: "100%"` (constante, medido em 4
+    combinações; `chart.parentHeightOffset` não altera isso), e era a rolagem
+    vertical do corpo que mantinha esses 47px alcançáveis. Por isso a rolagem
+    vertical continua `auto` de propósito: só a horizontal foi bloqueada.
+  - ⚠️ **O mesmo `xaxis.tooltip` duplicado existe no painel do cliente**
+    (`telCliHistChart`, `public/cliente.js`). Lá **não treme** — o gráfico mora
+    num `.card`, que tem `overflow: hidden` e não é contêiner de rolagem — mas
+    o rótulo é cortado na borda. Não mexido nesta sessão: `cliente.html` tem
+    cache-bust próprio (`admin.css?v=159`) e pede a sua própria conferência.
+  - Cache-bust: `admin.css?v=188`, `admin.js?v=279`.
+
 - **2026-08-06** — **Um nível baixo parava de virar dezenas de alertas** (3
   correções independentes)
   - **Sintoma relatado:** o reservatório de teste gerava "2 alertas diferentes"

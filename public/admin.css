@@ -2320,6 +2320,29 @@ a { color: inherit; text-decoration: none; }
   background: #14172a;
 }
 
+/* ⚠️ NADA AQUI DENTRO ROLA NA HORIZONTAL — e não pode rolar.
+   Sintoma (06/08): com o mouse na extrema direita do gráfico, o modal tremia
+   e a informação piscava.
+   Causa, medida no harness a 1440×900: o `.apexcharts-xaxistooltip` — o
+   rótulo de data que o ApexCharts desenha ABAIXO do eixo X — é centrado no
+   cursor e o Apex não o prende à caixa do gráfico. Na ponta direita ele saía
+   5px pela direita do `.modalBody`. E `.modalBody` tem `overflow-y: auto`:
+   pela regra do CSS, quando um eixo não é `visible`, o outro computa de
+   `visible` para `auto` — então o corpo era rolável NA HORIZONTAL também.
+   O laço: barra de rolagem aparece → come ~15px de altura → o
+   `.tel-historico-chart` (`flex: 1`) encolhe → o ApexCharts (`height:"100%"`)
+   se redesenha → o hover se perde → o rótulo some → o overflow acaba → a
+   barra some → tudo cresce de volta → recomeça.
+   `overflow-x: hidden` corta o laço sem mexer em altura nenhuma. A rolagem
+   VERTICAL continua `auto` de propósito: o canvas do Apex é ~47px mais alto
+   que o contêiner (comportamento dele com `height: "100%"`), e é essa rolagem
+   que mantém os rótulos do eixo X alcançáveis. Trocar por `overflow: hidden`
+   corta a linha de datas — testado.
+   O `xaxis.tooltip` também foi desligado no `admin.js` (era data repetida do
+   cabeçalho do tooltip); esta regra é a rede embaixo, para qualquer outro
+   overlay do Apex que resolva vazar pela direita. */
+.tel-hist-modal .modalBody { overflow-x: hidden; }
+
 /* Faixa única: período à esquerda, números à direita.
    Eram duas linhas — os 5 botões esticados pela largura toda (cada um com
    ~210px para um rótulo de 3 caracteres) e, abaixo, 4 cartões de 265×46px

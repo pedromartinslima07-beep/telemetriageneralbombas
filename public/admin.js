@@ -1801,6 +1801,13 @@ function renderTelHistoricoChart(reservatorios, seriesMap) {
       labels: { style: { colors: "#7a7e9c", fontSize: "10px" }, datetimeUTC: false },
       axisBorder: { color: "rgba(255,255,255,.06)" },
       axisTicks: { color: "rgba(255,255,255,.06)" },
+      // Desligado por dois motivos, e o segundo é o que importa:
+      // 1. repetia a data — o cabeçalho do tooltip já mostra `dd MMM HH:mm`;
+      // 2. o ApexCharts desenha esse rótulo ABAIXO do eixo e centrado no
+      //    cursor, sem prendê-lo à caixa do gráfico. Na ponta direita ele
+      //    vazava do `.modalBody` e disparava o laço de rolagem/resize que
+      //    fazia o modal tremer (detalhe no `admin.css`, `.tel-hist-modal`).
+      tooltip: { enabled: false },
     },
     yaxis: {
       min: 0, max: 100,
