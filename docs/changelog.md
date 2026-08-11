@@ -2117,6 +2117,48 @@ er sem animação.
     as classes nos **templates** do `admin.js`, não no render.
   - Cache-bust: `admin.css` v178, `admin.js` v269.
 
+- **2026-08-11** — **Landing pública redesenhada ("Chapa").** A primeira versão
+  da página `/` (commit `446d1c7`) foi rejeitada pelo Pedro: tinha sido
+  construída como um **demonstrativo de despesas de condomínio** — folha de
+  papel, tabela de conta, carimbo "documento ilustrativo", Courier Prime. O
+  pedido foi "mais bonito, com animações mais bonitas", mais a observação de
+  que o logo aparecia 3× e as três minúsculas (26px, 30px, 30px).
+  - **Direção nova:** o wordmark da General já é chapa de aço cortada — cantos
+    chanfrados, contraformas quadradas, a lasca amarela dentro do G. Essa lógica
+    de corte virou a gramática da página inteira: chanfro de 45° em placa,
+    botão, foto e campo; fios de 1px como usinagem; marinho `#071b5c` como
+    material; amarelo `#fbb329` tomando a seção de fecho inteira.
+  - **Fontes trocadas:** saíram Barlow e Courier Prime; entraram **Archivo
+    variável** (peso 400–900, largura 62–125%) para display e corpo e **Martian
+    Mono** só para leitura de instrumento e etiqueta. Auto-hospedadas em
+    `public/fonts/` (a CSP não permite CDN).
+  - **Peças novas construídas:** o instrumento do hero (coluna d'água viva com
+    roteiro de uma madrugada, respeitando as faixas reais de 45%/20%), o corte
+    esquemático do prédio em SVG ligando as 3 peças ao lugar onde são
+    instaladas, a foto anotada com linhas-guia e as engrenagens da marca em SVG
+    próprio (não há vetor da marca).
+  - **`public/logo-topo.png` (novo, gerado):** o lockup oficial traz
+    "ENGENHARIA DA MANUTENÇÃO" embaixo, que a 40px vira borrão cinza. O arquivo
+    novo é o mesmo logo com essa linha apagada por cor, preservando as
+    engrenagens. Detalhe em
+    [`modulos/landing-publica.md`](modulos/landing-publica.md).
+  - **Bugs corrigidos durante o build** (todos com comentário no fonte):
+    máscara de revelação que não cobria elemento alto e deixava faixa
+    translúcida sobre o botão "Enviar"; dois tweens concorrentes do instrumento
+    brigando pelo mesmo número; `box-shadow: inset` recortado pelo `clip-path`,
+    apagando a borda do botão exatamente nos chanfros; `.peca dd p` vencendo
+    `.peca-onde` por especificidade e jogando a etiqueta para 20px; ausência de
+    rótulo "sem monitoramento"/"com a General" para leitor de tela em qualquer
+    largura; "Entrar" sumindo abaixo de 760px e obrigando cliente a rolar a
+    página toda para achar o painel.
+  - **Backend intocado.** `POST /leads` e o contrato do formulário são os
+    mesmos; `/login` continua funcionando; a landing segue sem registrar o
+    service worker.
+  - **Documentação:** [`modulos/landing-publica.md`](modulos/landing-publica.md)
+    (novo — a landing nunca tinha sido documentada), `PRODUCT.md` e `DESIGN.md`
+    na raiz.
+  - Cache-bust: `landing.css` v5, `landing.js` v5.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

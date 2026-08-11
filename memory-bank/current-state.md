@@ -78,6 +78,7 @@ ESP32 (sonda 4-20mA + SCT-013)
 | **relatorio / relatorios** | PDF de telemetria (Puppeteer) pro cliente/app; painel ao vivo (chamados em risco + workload) e exportação CSV de chamados/alertas/telemetria pro admin |
 | **admin** | Usuários, status agregado, histórico, geocode, configurações |
 | **status / leituras / jobs** | Endpoints auxiliares e disparo manual de jobs |
+| **leads** | Contatos da landing pública. `POST /leads` é público (rate limit + honeypot `site` + truncagem); leitura e funil exigem `gestaoOnly`. Fluxo em [landing-publica.md](../docs/modulos/landing-publica.md) |
 
 ## Funcionalidades prontas (✅)
 
@@ -204,6 +205,21 @@ ESP32 (sonda 4-20mA + SCT-013)
   ⚠️ Não feche o eixo Y junto: o canvas do Apex é ~47px mais alto que o
   contêiner com `height: "100%"`, e é a rolagem vertical que mantém a linha de
   datas alcançável.
+
+**Landing pública** — `public/index.html` + `landing.css` + `landing.js`
+- Rota `/` é a página de apresentação para síndicos (não é mais redirect para
+  `/login`). Formulário posta em `POST /leads`; o funil é lido no admin.
+- Sistema visual **próprio**, chamado "Chapa" — derivado do chanfro do wordmark
+  da General. **Não compartilha nada com `admin.css`** e não deve passar a
+  compartilhar: o admin é ferramenta de operação, a landing é peça de venda.
+- Fontes auto-hospedadas (Archivo variável + Martian Mono) em `public/fonts/`,
+  porque a CSP `script-src 'self'` do helmet não permite CDN.
+- ⚠️ **Não registra service worker**, de propósito. Mas o `?v=N` de
+  `landing.css`/`landing.js` continua valendo.
+- ⚠️ O painel do hero é **demonstração com dados simulados** e diz isso na
+  própria placa. As faixas 45% / 20% são as mesmas do backend — se mudarem lá,
+  mudam aqui. Detalhe e demais pegadinhas em
+  [landing-publica.md](../docs/modulos/landing-publica.md).
 
 **Segurança & operação**
 - Envs obrigatórias em produção (JWT_SECRET, CORS_ORIGINS) com `process.exit(1)`.

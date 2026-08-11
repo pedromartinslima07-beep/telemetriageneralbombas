@@ -1,0 +1,261 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-11T00:00:00.000Z",
+  "title": "Design System: General Telemetria — Landing Pública",
+  "extensions": {
+    "scope": "Somente a superfície pública (public/index.html, public/landing.css, public/landing.js, rota /). O painel interno (public/admin.css, 'Mission Control', âmbar #f0b014) é um sistema separado por decisão registrada e não deve ser unificado com este.",
+    "colorMeta": {
+      "marinho-700": {
+        "role": "secondary",
+        "displayName": "Marinho Institucional",
+        "canonical": "#071b5c",
+        "tonalRamp": ["#020817", "#030f2e", "#051545", "#071b5c", "#0d2775", "#1a3a9e", "#5f7bd0", "#c3cef0"]
+      },
+      "marinho-800": {
+        "role": "secondary",
+        "displayName": "Marinho Profundo (o campo)",
+        "canonical": "#050f38",
+        "tonalRamp": ["#01040f", "#030a26", "#050f38", "#07164f", "#0b2071", "#1330a4", "#5570cd", "#c0cbef"]
+      },
+      "marinho-900": {
+        "role": "secondary",
+        "displayName": "Marinho Fundo",
+        "canonical": "#030a26",
+        "tonalRamp": ["#010309", "#020617", "#030a26", "#051038", "#07184f", "#0d2775", "#4763bd", "#bcc8ee"]
+      },
+      "marinho-600": {
+        "role": "secondary",
+        "displayName": "Marinho de Máquina",
+        "canonical": "#0d2775",
+        "tonalRamp": ["#020616", "#04102f", "#071b4c", "#0d2775", "#1234a0", "#2049c9", "#6a86e0", "#c9d5f6"]
+      },
+      "marinho-500": {
+        "role": "secondary",
+        "displayName": "Azul de Água",
+        "canonical": "#1a3a9e",
+        "tonalRamp": ["#040a20", "#08153c", "#0e2560", "#143084", "#1a3a9e", "#2f55c8", "#7a94e4", "#d0dbf8"]
+      },
+      "amarelo": {
+        "role": "primary",
+        "displayName": "Amarelo de Segurança",
+        "canonical": "#fbb329",
+        "tonalRamp": ["#2c1d00", "#4d3400", "#6f4c00", "#9a6a05", "#d99411", "#fbb329", "#ffcb60", "#ffe6b6"]
+      },
+      "amarelo-claro": {
+        "role": "primary",
+        "displayName": "Amarelo de Crista",
+        "canonical": "#ffcb60",
+        "tonalRamp": ["#2e2100", "#503a00", "#735400", "#9c7409", "#d09c1c", "#f5b83c", "#ffcb60", "#ffeac0"]
+      },
+      "amarelo-escuro": {
+        "role": "primary",
+        "displayName": "Amarelo Recuado",
+        "canonical": "#d99411",
+        "tonalRamp": ["#251700", "#412a00", "#5f3e00", "#83570a", "#ac7510", "#d99411", "#f2b647", "#ffdfa4"]
+      },
+      "risco": {
+        "role": "tertiary",
+        "displayName": "Vermelho de Risco",
+        "canonical": "#ff5a4d",
+        "tonalRamp": ["#2a0508", "#4a1220", "#711c1c", "#9c2b23", "#c93a2e", "#ff5a4d", "#ff8f80", "#ffc0b8"]
+      },
+      "chapa": {
+        "role": "neutral",
+        "displayName": "Chapa Clara",
+        "canonical": "#e8ebf2",
+        "tonalRamp": ["#151a26", "#252c3f", "#3a4358", "#5a6479", "#8f98ac", "#d5dae6", "#e8ebf2", "#f5f7fb"]
+      },
+      "chapa-clara": {
+        "role": "neutral",
+        "displayName": "Chapa de Painel",
+        "canonical": "#f5f7fb",
+        "tonalRamp": ["#171b25", "#282d3c", "#3d4557", "#5d6679", "#9199ab", "#d9dee9", "#eceff5", "#f5f7fb"]
+      },
+      "chapa-escura": {
+        "role": "neutral",
+        "displayName": "Chapa Sombreada",
+        "canonical": "#d5dae6",
+        "tonalRamp": ["#121722", "#212838", "#353e51", "#535d74", "#8891a6", "#b8c0d3", "#d5dae6", "#eef1f7"]
+      },
+      "tinta": {
+        "role": "neutral",
+        "displayName": "Tinta Marinho",
+        "canonical": "#061033",
+        "tonalRamp": ["#010309", "#030817", "#061033", "#0a1a4e", "#10286f", "#2a49a8", "#7188d6", "#ccd6f2"]
+      },
+      "tinta-2": {
+        "role": "neutral",
+        "displayName": "Tinta Secundária",
+        "canonical": "#414f74",
+        "tonalRamp": ["#0c101a", "#171d2e", "#252f48", "#333f5d", "#414f74", "#697aa4", "#9ba8c8", "#d5dbe9"]
+      },
+      "sobre-2": {
+        "role": "neutral",
+        "displayName": "Secundário sobre Marinho",
+        "canonical": "#a6b5dc",
+        "tonalRamp": ["#131a2c", "#212b47", "#324063", "#465783", "#6478a7", "#8698c6", "#a6b5dc", "#dde4f4"]
+      },
+      "fio": {
+        "role": "neutral",
+        "displayName": "Fio de Usinagem",
+        "canonical": "rgba(255, 255, 255, .17)",
+        "tonalRamp": ["rgba(255,255,255,.04)", "rgba(255,255,255,.08)", "rgba(255,255,255,.12)", "rgba(255,255,255,.17)", "rgba(255,255,255,.24)", "rgba(255,255,255,.34)", "rgba(255,255,255,.5)", "rgba(255,255,255,.75)"]
+      },
+      "fio-escuro": {
+        "role": "neutral",
+        "displayName": "Fio sobre Chapa",
+        "canonical": "rgba(6, 16, 51, .16)",
+        "tonalRamp": ["rgba(6,16,51,.04)", "rgba(6,16,51,.08)", "rgba(6,16,51,.12)", "rgba(6,16,51,.16)", "rgba(6,16,51,.24)", "rgba(6,16,51,.32)", "rgba(6,16,51,.5)", "rgba(6,16,51,.75)"]
+      }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Manchete", "purpose": "Só o h1 do hero. Archivo 900, largura 116%, text-wrap: balance." },
+      "headline": { "displayName": "Abertura de seção", "purpose": "h2. Archivo 800, largura 112%." },
+      "title": { "displayName": "Título de placa", "purpose": "h3 da ficha e dt das peças." },
+      "lede": { "displayName": "Lede", "purpose": "Parágrafo de entrada, máx. 56ch, secundário tingido de azul." },
+      "body": { "displayName": "Corpo", "purpose": "19px por decisão de público (síndico, com frequência mais velho). Máx. 68ch." },
+      "label": { "displayName": "Etiqueta gravada", "purpose": "Martian Mono caixa alta: identificação de instrumento, hora, 'onde fica', rótulos de chamada e de rodapé." },
+      "reading": { "displayName": "Leitura de instrumento", "purpose": "Números do painel demonstrativo, tabular-nums, com unidade menor ao lado." }
+    },
+    "shadows": [
+      { "name": "sem-elevacao", "value": "none", "purpose": "Padrão absoluto. Nenhuma superfície projeta sombra; profundidade é tonal e por fio de 1px." },
+      { "name": "fio-placa-escura", "value": "inset 0 0 0 1px rgba(255,255,255,.17)", "purpose": "Aresta de placa sobre marinho, em chanfro pequeno (<= 14px)." },
+      { "name": "fio-placa-clara", "value": "inset 0 0 0 1.5px rgba(6,16,51,.16)", "purpose": "Aresta de campo de formulário sobre chapa clara." },
+      { "name": "fio-foco", "value": "inset 0 0 0 2.5px #071b5c", "purpose": "Campo em foco, por dentro; o anel amarelo de :focus-visible fica por fora." },
+      { "name": "halo-crista", "value": "0 0 14px 1px color-mix(in srgb, #fbb329 55%, transparent)", "purpose": "Luz da crista da lâmina d'água. É luz, não elevação." },
+      { "name": "halo-guia", "value": "0 0 16px 2px color-mix(in srgb, #fbb329 42%, transparent)", "purpose": "Brilho do indicador que desce o trilho da madrugada." },
+      { "name": "halo-lampada", "value": "0 0 0 4px color-mix(in srgb, #63d8a0 22%, transparent)", "purpose": "Anel em volta da lâmpada de estado; troca de cor por data-estado." }
+    ],
+    "motion": [
+      { "name": "saida", "value": "cubic-bezier(.16, .84, .32, 1)", "purpose": "Easing único de todas as transições de estado do sistema." },
+      { "name": "rev-corte", "value": "mask-image: linear-gradient(108deg, #000 0 40%, rgba(0,0,0,.4) 46%, transparent 52%); mask-size: 500% 100%; mask-position: 100% 0 -> 0 0; 1.15s", "purpose": "Revelação por corte. Reservada a quatro elementos: manchete do hero, instrumento, ficha e foto anotada. Cobre até altura ~5x a largura." },
+      { "name": "sobe", "value": "opacity .5s + translateY(14px -> 0) .7s", "purpose": "Entrada padrão de todo o resto. Uma entrada só repetida trinta vezes vira tique." },
+      { "name": "entrada-lateral", "value": "translateX(+-26px -> 0) .72s, atraso .1s no lado direito", "purpose": "Eventos da madrugada: cada lado chega do seu lado do trilho." },
+      { "name": "varrimento-botao", "value": "clip-path: polygon(0 0, 0 0, 0 100%, -30% 100%) -> polygon(0 0, 130% 0, 100% 100%, -30% 100%) .42s", "purpose": "Hover de botão: o amarelo entra pelo chanfro, no sentido do corte." },
+      { "name": "girar", "value": "rotate(360deg) linear infinite, 64s / 96s / 120s", "purpose": "Engrenagens da marca em escala arquitetônica, sentidos opostos, sempre atrás do conteúdo." },
+      { "name": "atraso-escalonado", "value": "--atraso: i * .09s, i limitado a 4", "purpose": "Escalonamento por grupo de irmãos; teto evita dois segundos de espera no último item de uma lista longa." }
+    ],
+    "breakpoints": [
+      { "name": "colunas", "value": "1080px" },
+      { "name": "nav", "value": "900px" },
+      { "name": "mobile", "value": "760px" },
+      { "name": "acoes-empilhadas", "value": "460px" }
+    ],
+    "shape": {
+      "radius": "0 em tudo; a única curva é a lâmpada de estado e a engrenagem da marca.",
+      "chanfro": "clip-path: polygon(--ch 0, 100% 0, 100% calc(100% - --ch), calc(100% - --ch) 100%, 0 100%, 0 --ch) — 45 graus nos cantos superior esquerdo e inferior direito.",
+      "escalas": { "grande": "22px (16px abaixo de 760px)", "pequena": "10px", "locais": "botão 10px · botão grande 13px · peça 14px · dúvida 14px · evento 12px · campo 9px · tubo 8px · instrumento 20px · ficha 22px · foto 20–26px" }
+    }
+  },
+  "components": [
+    {
+      "name": "Botão Primário",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Ação primária amarela chanfrada; o hover entra pelo chanfro no sentido do corte.",
+      "html": "<a class=\"ds-btn ds-btn-amarelo\" href=\"#assinar\">Quero no meu prédio</a>",
+      "css": ".ds-btn { --ds-ch: 10px; position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 50px; padding: 13px 26px; font-family: \"Archivo\", ui-sans-serif, system-ui, sans-serif; font-size: 1rem; font-weight: 700; font-stretch: 108%; letter-spacing: -.005em; text-decoration: none; cursor: pointer; border: 0; background: transparent; clip-path: polygon(var(--ds-ch) 0, 100% 0, 100% calc(100% - var(--ds-ch)), calc(100% - var(--ds-ch)) 100%, 0 100%, 0 var(--ds-ch)); isolation: isolate; transition: color .2s cubic-bezier(.16,.84,.32,1); } .ds-btn::before { content: \"\"; position: absolute; inset: 0; z-index: -1; background: var(--ds-bg, transparent); } .ds-btn::after { content: \"\"; position: absolute; inset: 0; z-index: -1; background: var(--ds-hover, #ffcb60); clip-path: polygon(0 0, 0 0, 0 100%, -30% 100%); transition: clip-path .42s cubic-bezier(.16,.84,.32,1); } .ds-btn:hover::after, .ds-btn:focus-visible::after { clip-path: polygon(0 0, 130% 0, 100% 100%, -30% 100%); } .ds-btn:focus-visible { outline: 3px solid #fbb329; outline-offset: 3px; } .ds-btn-amarelo { color: #030a26; --ds-bg: #fbb329; --ds-hover: #fff; }"
+    },
+    {
+      "name": "Botão de Fio",
+      "kind": "button",
+      "refersTo": "button-fio",
+      "description": "Ação secundária com contorno em chapa de duas camadas — fundo do elemento é o anel, o ::before embutido 1,5px é a placa interna. box-shadow: inset seria recortado nos chanfros.",
+      "html": "<a class=\"ds-btn ds-btn-fio\" href=\"#noite\">Ver como funciona</a>",
+      "css": ".ds-btn { --ds-ch: 10px; position: relative; display: inline-flex; align-items: center; justify-content: center; min-height: 50px; padding: 13px 26px; font-family: \"Archivo\", ui-sans-serif, system-ui, sans-serif; font-size: 1rem; font-weight: 700; font-stretch: 108%; text-decoration: none; cursor: pointer; border: 0; clip-path: polygon(var(--ds-ch) 0, 100% 0, 100% calc(100% - var(--ds-ch)), calc(100% - var(--ds-ch)) 100%, 0 100%, 0 var(--ds-ch)); isolation: isolate; transition: color .2s cubic-bezier(.16,.84,.32,1), background .2s cubic-bezier(.16,.84,.32,1); } .ds-btn-fio { color: #fff; background: rgba(255,255,255,.34); } .ds-btn-fio::before { content: \"\"; position: absolute; inset: 1.5px; z-index: -1; background: #030a26; clip-path: polygon(var(--ds-ch) 0, 100% 0, 100% calc(100% - var(--ds-ch)), calc(100% - var(--ds-ch)) 100%, 0 100%, 0 var(--ds-ch)); } .ds-btn-fio::after { content: \"\"; position: absolute; inset: 0; z-index: -1; background: #fbb329; clip-path: polygon(0 0, 0 0, 0 100%, -30% 100%); transition: clip-path .42s cubic-bezier(.16,.84,.32,1); } .ds-btn-fio:hover { color: #030a26; background: #fbb329; } .ds-btn-fio:hover::after { clip-path: polygon(0 0, 130% 0, 100% 100%, -30% 100%); } .ds-btn-fio:focus-visible { outline: 3px solid #fbb329; outline-offset: 3px; }"
+    },
+    {
+      "name": "Campo de Formulário",
+      "kind": "input",
+      "refersTo": "input-field",
+      "description": "Campo branco chanfrado dentro da placa clara; contorno é inset, não border. Foco engrossa em marinho por dentro e o anel amarelo fica por fora.",
+      "html": "<div class=\"ds-f\"><label for=\"ds-nome\">Seu nome</label><input id=\"ds-nome\" type=\"text\" placeholder=\"Nome do síndico\" /></div>",
+      "css": ".ds-f { font-family: \"Archivo\", ui-sans-serif, system-ui, sans-serif; } .ds-f label { display: block; margin-bottom: 7px; font-size: .95rem; font-weight: 700; color: #061033; } .ds-f input { --ds-ch: 9px; width: 100%; min-height: 54px; padding: 14px 16px; clip-path: polygon(var(--ds-ch) 0, 100% 0, 100% calc(100% - var(--ds-ch)), calc(100% - var(--ds-ch)) 100%, 0 100%, 0 var(--ds-ch)); background: #fff; color: #061033; border: 0; box-shadow: inset 0 0 0 1.5px rgba(6,16,51,.16); font-family: inherit; font-size: 1.05rem; line-height: 1.4; caret-color: #071b5c; transition: box-shadow .2s cubic-bezier(.16,.84,.32,1); } .ds-f input::placeholder { color: #414f74; opacity: .7; } .ds-f input:hover { box-shadow: inset 0 0 0 1.5px rgba(6,16,51,.32); } .ds-f input:focus { outline: 0; box-shadow: inset 0 0 0 2.5px #071b5c; } .ds-f input:focus-visible { outline: 3px solid #fbb329; outline-offset: 2px; }"
+    },
+    {
+      "name": "Navegação da Barra",
+      "kind": "nav",
+      "refersTo": null,
+      "description": "Barra fixa marinho com desfoque no topo; o link ganha sublinhado amarelo que cresce da esquerda.",
+      "html": "<header class=\"ds-barra\"><nav class=\"ds-nav\"><a href=\"#noite\">A noite</a><a href=\"#equipe\">Quem instala</a><a href=\"#duvidas\">Dúvidas</a></nav></header>",
+      "css": ".ds-barra { height: 74px; display: flex; align-items: center; padding: 0 24px; background: color-mix(in srgb, #030a26 88%, transparent); backdrop-filter: blur(14px); border-bottom: 1px solid rgba(255,255,255,.17); } .ds-nav { display: flex; gap: 30px; font-family: \"Archivo\", ui-sans-serif, system-ui, sans-serif; } .ds-nav a { position: relative; font-size: .95rem; font-weight: 600; color: #a6b5dc; text-decoration: none; padding: 6px 0; transition: color .2s cubic-bezier(.16,.84,.32,1); } .ds-nav a::after { content: \"\"; position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: #fbb329; transform: scaleX(0); transform-origin: left; transition: transform .3s cubic-bezier(.16,.84,.32,1); } .ds-nav a:hover { color: #fff; } .ds-nav a:hover::after { transform: scaleX(1); } .ds-nav a:focus-visible { outline: 3px solid #fbb329; outline-offset: 3px; }"
+    },
+    {
+      "name": "Placa de Peça",
+      "kind": "card",
+      "refersTo": "placa-escura",
+      "description": "Placa chanfrada sobre marinho, com numerador amarelo cortado e etiqueta mono de localização. Hover sobe o tom, acende o fio em amarelo e desliza 6px.",
+      "html": "<div class=\"ds-peca\" tabindex=\"0\"><h4><span class=\"ds-peca-n\">1</span>Sonda de nível</h4><p>Fica dentro do reservatório e mede a coluna d'água em centímetros.</p><p class=\"ds-peca-onde\">No reservatório superior e na cisterna</p></div>",
+      "css": ".ds-peca { --ds-ch: 14px; padding: 22px 26px; clip-path: polygon(var(--ds-ch) 0, 100% 0, 100% calc(100% - var(--ds-ch)), calc(100% - var(--ds-ch)) 100%, 0 100%, 0 var(--ds-ch)); background: color-mix(in srgb, #071b5c 42%, transparent); box-shadow: inset 0 0 0 1px rgba(255,255,255,.17); font-family: \"Archivo\", ui-sans-serif, system-ui, sans-serif; color: #fff; transition: background .3s cubic-bezier(.16,.84,.32,1), box-shadow .3s cubic-bezier(.16,.84,.32,1), transform .35s cubic-bezier(.16,.84,.32,1); } .ds-peca:hover, .ds-peca:focus-visible { background: color-mix(in srgb, #071b5c 78%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, #fbb329 55%, transparent); transform: translateX(6px); outline: none; } .ds-peca h4 { display: flex; align-items: center; gap: 14px; margin: 0 0 .5rem; font-size: 1.4rem; font-weight: 800; font-stretch: 108%; letter-spacing: -.02em; } .ds-peca-n { flex: 0 0 auto; display: grid; place-items: center; width: 30px; height: 30px; background: #fbb329; color: #030a26; font-family: \"Martian Mono\", ui-monospace, monospace; font-size: .8rem; font-weight: 700; clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px); } .ds-peca p { margin: 0; color: #a6b5dc; font-size: 1.04rem; } .ds-peca-onde { margin-top: .8rem !important; font-family: \"Martian Mono\", ui-monospace, monospace; font-size: .69rem !important; font-weight: 500; letter-spacing: .13em; text-transform: uppercase; color: #fbb329 !important; opacity: .92; }"
+    },
+    {
+      "name": "Acordeão de Dúvida",
+      "kind": "custom",
+      "refersTo": "placa-clara",
+      "description": "details/summary em placa clara. O indicador é marinho, nunca amarelo: amarelo sobre claro reprova contraste até como ícone.",
+      "html": "<details class=\"ds-duvida\"><summary><span>Meu prédio já tem boia. Não resolve?</span></summary><div class=\"ds-duvida-txt\"><p>A boia liga e desliga a bomba: é um automatismo, não um aviso.</p></div></details>",
+      "css": ".ds-duvida { --ds-ch: 14px; clip-path: polygon(var(--ds-ch) 0, 100% 0, 100% calc(100% - var(--ds-ch)), calc(100% - var(--ds-ch)) 100%, 0 100%, 0 var(--ds-ch)); background: #f5f7fb; box-shadow: inset 0 0 0 1px rgba(6,16,51,.16); font-family: \"Archivo\", ui-sans-serif, system-ui, sans-serif; transition: box-shadow .3s cubic-bezier(.16,.84,.32,1); } .ds-duvida[open] { box-shadow: inset 0 0 0 1px color-mix(in srgb, #061033 40%, transparent); } .ds-duvida summary { display: flex; align-items: center; gap: 18px; padding: 22px 26px; min-height: 62px; list-style: none; cursor: pointer; font-size: 1.22rem; font-weight: 700; font-stretch: 106%; letter-spacing: -.015em; color: #061033; } .ds-duvida summary::-webkit-details-marker { display: none; } .ds-duvida summary span { flex: 1; } .ds-duvida summary::after { content: \"\"; flex: 0 0 auto; width: 26px; height: 26px; background: #071b5c; clip-path: polygon(45% 12%, 55% 12%, 55% 45%, 88% 45%, 88% 55%, 55% 55%, 55% 88%, 45% 88%, 45% 55%, 12% 55%, 12% 45%, 45% 45%); transition: transform .38s cubic-bezier(.16,.84,.32,1), clip-path .38s cubic-bezier(.16,.84,.32,1); } .ds-duvida[open] summary::after { transform: rotate(135deg); clip-path: polygon(12% 45%, 88% 45%, 88% 55%, 12% 55%); } .ds-duvida summary:hover { background: color-mix(in srgb, #fbb329 16%, transparent); } .ds-duvida-txt { padding: 0 26px 24px; } .ds-duvida-txt p { margin: 0; color: #414f74; font-size: 1.06rem; }"
+    },
+    {
+      "name": "Instrumento",
+      "kind": "custom",
+      "refersTo": "instrumento",
+      "description": "Componente-assinatura: placa chanfrada com anel em chapa de duas camadas, coluna d'água com faixas de 45% e 20% (limiares reais do backend) e leituras em mono. O anel inteiro muda de cor por data-estado.",
+      "html": "<div class=\"ds-instr\" data-estado=\"baixo\"><div class=\"ds-instr-cab\"><span class=\"ds-instr-id\">Reservatório superior</span><span class=\"ds-instr-rel\">02:40</span></div><div class=\"ds-instr-corpo\"><div class=\"ds-tubo\"><div class=\"ds-faixa ds-faixa-baixo\"></div><div class=\"ds-faixa ds-faixa-critico\"></div><div class=\"ds-agua\" style=\"--n:44%\"><span class=\"ds-crista\"></span></div></div><dl class=\"ds-leituras\"><div><dt>Nível</dt><dd>44<i>%</i></dd></div><div><dt>Coluna d'água</dt><dd>132<i>cm</i></dd></div></dl></div><div class=\"ds-instr-estado\"><span class=\"ds-lampada\"></span><span>Nível baixo — alerta aberto</span></div><p class=\"ds-instr-nota\">Demonstração · leituras simuladas</p></div>",
+      "css": ".ds-instr { --ds-ch: 20px; position: relative; clip-path: polygon(var(--ds-ch) 0, 100% 0, 100% calc(100% - var(--ds-ch)), calc(100% - var(--ds-ch)) 100%, 0 100%, 0 var(--ds-ch)); background: rgba(255,255,255,.17); padding: 1.5px; font-family: \"Archivo\", ui-sans-serif, system-ui, sans-serif; color: #fff; max-width: 460px; transition: background .5s cubic-bezier(.16,.84,.32,1); } .ds-instr::before { content: \"\"; position: absolute; inset: 1.5px; clip-path: polygon(var(--ds-ch) 0, 100% 0, 100% calc(100% - var(--ds-ch)), calc(100% - var(--ds-ch)) 100%, 0 100%, 0 var(--ds-ch)); background: linear-gradient(168deg, #071b5c 0%, #030a26 100%); } .ds-instr > * { position: relative; z-index: 1; } .ds-instr[data-estado=\"baixo\"] { background: color-mix(in srgb, #fbb329 78%, transparent); } .ds-instr-cab { display: flex; align-items: baseline; justify-content: space-between; padding: 18px 24px 14px; border-bottom: 1px solid rgba(255,255,255,.17); } .ds-instr-id { font-family: \"Martian Mono\", ui-monospace, monospace; font-size: .69rem; font-weight: 500; letter-spacing: .13em; text-transform: uppercase; color: #a6b5dc; } .ds-instr-rel { font-family: \"Martian Mono\", ui-monospace, monospace; font-size: 1.05rem; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: .04em; } .ds-instr-corpo { display: grid; grid-template-columns: auto minmax(0,1fr); gap: 34px; padding: 26px 24px 22px; } .ds-tubo { --ds-ch: 8px; position: relative; width: 82px; height: 268px; clip-path: polygon(var(--ds-ch) 0, 100% 0, 100% calc(100% - var(--ds-ch)), calc(100% - var(--ds-ch)) 100%, 0 100%, 0 var(--ds-ch)); background: #030a26; box-shadow: inset 0 0 0 1px rgba(255,255,255,.17); overflow: hidden; } .ds-faixa { position: absolute; left: 0; right: 0; } .ds-faixa-baixo { bottom: 20%; height: 25%; background: color-mix(in srgb, #fbb329 11%, transparent); } .ds-faixa-critico { bottom: 0; height: 20%; background: color-mix(in srgb, #ff5a4d 13%, transparent); } .ds-agua { position: absolute; inset: 0; background: linear-gradient(180deg, #1a3a9e 0%, #0d2775 55%, #071b5c 100%); transform: translateY(calc(100% - var(--n, 78%))); } .ds-crista { position: absolute; left: 0; right: 0; top: 0; height: 3px; background: #ffcb60; box-shadow: 0 0 14px 1px color-mix(in srgb, #fbb329 55%, transparent); } .ds-leituras { margin: 0; display: flex; flex-direction: column; gap: 18px; } .ds-leituras dt { font-family: \"Martian Mono\", ui-monospace, monospace; font-size: .64rem; font-weight: 500; letter-spacing: .13em; text-transform: uppercase; color: #a6b5dc; } .ds-leituras dd { margin: 0; display: flex; align-items: baseline; gap: 5px; font-family: \"Martian Mono\", ui-monospace, monospace; font-weight: 700; font-variant-numeric: tabular-nums; font-size: 1.95rem; line-height: 1; letter-spacing: -.02em; } .ds-leituras dd i { font-style: normal; font-size: .72rem; font-weight: 500; letter-spacing: .06em; color: #a6b5dc; } .ds-instr-estado { display: flex; align-items: center; gap: 12px; padding: 15px 24px; border-top: 1px solid rgba(255,255,255,.17); font-weight: 700; font-size: 1rem; background: #fbb329; color: #030a26; } .ds-lampada { flex: 0 0 auto; width: 12px; height: 12px; border-radius: 50%; background: #030a26; box-shadow: 0 0 0 4px color-mix(in srgb, #030a26 26%, transparent); } .ds-instr-nota { margin: 0; padding: 12px 24px 18px; font-size: .92rem; line-height: 1.4; color: #a6b5dc; }"
+    },
+    {
+      "name": "Etiqueta Gravada",
+      "kind": "chip",
+      "refersTo": null,
+      "description": "A etiqueta mono em caixa alta do sistema, na variante rótulo de chamada (amarelo sobre marinho fundo, chanfro de 6px). Sobre superfície clara esta cor de texto é proibida.",
+      "html": "<span class=\"ds-rot\">Quadro de comando</span>",
+      "css": ".ds-rot { display: inline-block; padding: 7px 12px 6px; background: #030a26; color: #fbb329; font-family: \"Martian Mono\", ui-monospace, monospace; font-size: .6rem; font-weight: 500; letter-spacing: .13em; text-transform: uppercase; line-height: 1.5; white-space: nowrap; clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "A Chapa Cortada",
+    "overview": "O ponto de partida não foi uma paleta: foi o próprio wordmark da General, que já é chapa de aço cortada — cantos chanfrados a 45°, contraformas quadradas, a lasca amarela dentro do G. A página inteira é construída com esse mesmo gesto de corte. Placa, botão, foto, campo de formulário e etiqueta numerada perdem o mesmo canto superior esquerdo e o mesmo canto inferior direito; fios de 1px funcionam como usinagem, não como borda decorativa; e a engrenagem da marca aparece em escala arquitetônica, marinho sobre marinho, girando devagar atrás do texto.\n\nO marinho #071b5c é tratado como material, não como fundo: a tela é o campo, e as superfícies claras são placas pousadas sobre ele para os trechos de leitura densa. O amarelo de segurança #fbb329 não é sotaque pontual — ele toma regiões inteiras (a faixa listrada do hero, o campo de conversão inteiro no fecho). A densidade é alta, mas o corpo é grande de propósito (19px): o leitor é um síndico, com frequência mais velho, lendo no navegador.\n\nDuas recusas confirmadas e vigentes: nada de hero de SaaS de IoT com dashboard flutuando em perspectiva, sombras e gradiente roxo; e nada da papelada de condomínio da primeira versão rejeitada. O instrumento do hero não é um mockup de dashboard: é uma placa de aparelho com uma coluna d'água viva.",
+    "keyCharacteristics": [
+      "Chanfro de 45° em dois cantos opostos como única forma — raio zero em tudo.",
+      "Marinho como material corrido; placas claras pousadas para leitura densa.",
+      "Amarelo de segurança em região inteira, nunca como texto sobre claro.",
+      "Fios de 1px (usinagem) no lugar de sombras: profundidade é tonal.",
+      "Mono gravado só em medição e etiqueta; Archivo variável faz display e corpo.",
+      "Uma única inversão de campo na página inteira, no momento da conversão."
+    ],
+    "rules": [
+      { "name": "A Regra do Amarelo Cego", "body": "O amarelo nunca é texto nem ícone sobre superfície clara — reprova contraste mesmo como forma sólida (~2:1). Sobre claro ele só existe como preenchimento com tinta marinho por cima. Quando um indicador precisar existir numa placa clara, ele é marinho, e o amarelo entra no realce do painel inteiro. Sobre marinho o amarelo é livre.", "section": "colors" },
+      { "name": "A Regra do Campo Único", "body": "A página inverte o campo uma vez só: a seção de conversão vira amarela com tinta marinho (~9:1, o texto mais legível da página). Se uma segunda região virar campo amarelo, o gesto do 'aja aqui' morre.", "section": "colors" },
+      { "name": "A Regra do Crítico Silencioso", "body": "--risco não aparece em repouso. Ele só é ligado por estado (data-estado=\"critico\") ou para nomear a madrugada sem monitoramento.", "section": "colors" },
+      { "name": "A Regra do Mono de Instrumento", "body": "Martian Mono só aparece em medição ou em etiqueta gravada em caixa alta. Nunca em parágrafo, nunca em título, nunca 'para dar clima técnico'. Todo número que muda usa tabular-nums.", "section": "typography" },
+      { "name": "A Regra da Nota Honesta", "body": "A linha que declara o instrumento como demonstração simulada fica fora do grupo mono/caixa-alta, a .92rem em prosa normal. Aviso de honestidade não pode ser o texto menos legível da página — especialmente para um leitor mais velho.", "section": "typography" },
+      { "name": "A Regra da Largura Variável", "body": "O peso não é a única alavanca: títulos usam o eixo de largura (106%–116%) para ficarem estampados. font-synthesis-weight é desligado no body — nada de peso sintético.", "section": "typography" },
+      { "name": "A Regra da Chapa em Duas Camadas", "body": "clip-path recorta box-shadow: inset exatamente nos chanfros, e a borda some justo nos dois cantos cortados — lê como defeito, não como corte. Quando a aresta é estrutural (o instrumento, o botão de fio), o contorno é chapa de verdade: o fundo do próprio elemento é o anel, e um ::before embutido 1,5px e chanfrado de novo é a placa interna.", "section": "elevation" },
+      { "name": "A Regra do Plano Único", "body": "Nenhum elemento novo pode ganhar sombra projetada para se destacar. Se precisa de destaque, sobe um degrau de marinho, ganha fio mais forte ou ganha amarelo — nesta ordem.", "section": "elevation" },
+      { "name": "A Regra da Fonte Única", "body": "A posição da lâmina e o número da leitura são escritos pelo mesmo laço de requestAnimationFrame, quadro a quadro, a partir de --n. A coluna não pode voltar a ter transition no CSS: duas curvas diferentes fazem coluna e número discordarem no meio do percurso, e num instrumento isso destrói exatamente a peça que prova o produto.", "section": "components" },
+      { "name": "A Regra do Estado Padrão Visível", "body": "O estado escondido só é aplicado quando existe como animá-lo de volta: o JS adiciona .js-corte na raiz apenas se houver IntersectionObserver e suporte a mask-image. Sem isso, a página fica visível exatamente como está no HTML. Em prefers-reduced-motion: reduce toda máscara é removida, tudo volta a opacidade 1 e o instrumento é congelado no alerta crítico.", "section": "components" }
+    ],
+    "dos": [
+      "Do cortar todo elemento novo com --corte ou --corte-p, redeclarando --ch localmente conforme o tamanho da peça. Chanfro de 45° nos cantos superior esquerdo e inferior direito é a forma da casa.",
+      "Do usar o amarelo #fbb329 como preenchimento de região com tinta marinho por cima quando a superfície for clara.",
+      "Do construir aresta visível com a chapa de duas camadas (fundo = anel, ::before embutido 1,5px e re-chanfrado) sempre que o contorno for estrutural sob clip-path.",
+      "Do conduzir profundidade pela escada de marinho e por fios de 1px.",
+      "Do manter Martian Mono restrito a medições e etiquetas gravadas em caixa alta, com tabular-nums em todo número que muda.",
+      "Do manter o corpo em 19px e as medidas de linha declaradas em ch; o leitor é um síndico, com frequência mais velho.",
+      "Do escrever qualquer leitura e sua representação gráfica a partir da mesma variável, no mesmo quadro.",
+      "Do deixar o conteúdo visível por padrão e só esconder o que o JS comprovadamente consegue revelar."
+    ],
+    "donts": [
+      "Don't usar border-radius em nada. Raio zero; a única curva permitida é a lâmpada de estado e a engrenagem da marca.",
+      "Don't escrever amarelo como texto ou desenhar ícone amarelo sobre placa clara — reprova contraste até como forma sólida. O indicador é marinho.",
+      "Don't aplicar sombra projetada, elevação flutuante ou gradiente decorativo para destacar um elemento.",
+      "Don't confiar em box-shadow: inset para a borda de um elemento com clip-path cujo chanfro seja grande e estrutural — ela é recortada nos dois cantos e lê como defeito.",
+      "Don't espalhar a revelação por corte (.rev): ela é do hero, do instrumento, da ficha e da foto anotada. Todo o resto sobe em silêncio.",
+      "Don't inverter o campo para amarelo uma segunda vez na página.",
+      "Don't usar --risco fora de estado crítico real.",
+      "Don't alinhar à direita a coluna esquerda de um par comparativo: a simetria espelhada custa legibilidade justamente para quem este produto atende. A identidade de cada lado vem da etiqueta, não do alinhamento.",
+      "Don't importar tokens, componentes ou o âmbar do public/admin.css para esta superfície — e nem o contrário. São dois sistemas, por decisão."
+    ]
+  }
+}

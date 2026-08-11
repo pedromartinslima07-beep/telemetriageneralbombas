@@ -1,841 +1,1401 @@
-/* ============================================================
-   LANDING PÚBLICA — public/index.html
+/* ════════════════════════════════════════════════════════════════════════
+   landing.css — General Telemetria, landing pública (/)
+   ────────────────────────────────────────────────────────────────────────
+   MUNDO: "Chapa". O wordmark da General já é aço cortado — cantos
+   chanfrados, contraformas quadradas, a lasca amarela dentro do G. Toda a
+   página é construída com essa lógica: chanfro de 45° em placa, botão,
+   foto e campo; fios de 1px como usinagem; etiquetas em mono maiúscula
+   gravada; marinho como material e amarelo de segurança em região inteira.
 
-   Arquivo autônomo de propósito: NÃO importa o admin.css. O admin carrega o
-   design system inteiro do painel (sidebar, modais, tabelas, mapa, ApexCharts)
-   e nada disso é usado aqui — numa página cujo trabalho é converter visitante,
-   esse peso sai caro.
+   ⚠️ O amarelo NUNCA vira texto sobre fundo claro (contraste reprova).
+   Sobre claro ele só aparece como preenchimento com tinta marinho por cima.
+   ════════════════════════════════════════════════════════════════════════ */
 
-   DIREÇÃO — "a linha d'água"
-   O painel é um campo escuro único com destaques. Aqui a página tem DOIS
-   territórios: ar (acima da linha) e água (abaixo). O âmbar da marca deixa de
-   ser enfeite e passa a ser cor de instrumento e de alerta — que é o papel que
-   ele tem no produto de verdade.
-
-   O âmbar `#f0b014` é o mesmo do admin.css, como manda o CLAUDE.md. O que muda
-   é o entorno: os neutros aqui são azulados (estão submersos), não violeta.
-   ============================================================ */
-
-/* ── Fontes (self-hosted; CSP é font-src 'self') ─────────────────────────── */
+/* ─── Fontes ─────────────────────────────────────────────────────────────
+   Archivo variável (largura + peso) faz display e corpo: grotesca de
+   sinalização industrial, aguenta o wordmark ao lado. Martian Mono só nas
+   medições e etiquetas — mono aqui é leitura de instrumento, não fantasia. */
 
 @font-face {
-  font-family: "Barlow";
-  src: url("/static/fonts/barlow-400.woff2") format("woff2");
-  font-weight: 400; font-style: normal; font-display: swap;
+  font-family: "Archivo";
+  src: url("/static/fonts/archivo.woff2") format("woff2");
+  font-weight: 400 900;
+  font-stretch: 62% 125%;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 @font-face {
-  font-family: "Barlow";
-  src: url("/static/fonts/barlow-500.woff2") format("woff2");
-  font-weight: 500; font-style: normal; font-display: swap;
+  font-family: "Archivo";
+  src: url("/static/fonts/archivo-ext.woff2") format("woff2");
+  font-weight: 400 900;
+  font-stretch: 62% 125%;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
 }
 @font-face {
-  font-family: "Barlow";
-  src: url("/static/fonts/barlow-600.woff2") format("woff2");
-  font-weight: 600; font-style: normal; font-display: swap;
+  font-family: "Martian Mono";
+  src: url("/static/fonts/martianmono.woff2") format("woff2");
+  font-weight: 400 700;
+  font-stretch: 75% 112.5%;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 @font-face {
-  font-family: "Barlow Condensed";
-  src: url("/static/fonts/barlow-cond-500.woff2") format("woff2");
-  font-weight: 500; font-style: normal; font-display: swap;
-}
-@font-face {
-  font-family: "Barlow Condensed";
-  src: url("/static/fonts/barlow-cond-600.woff2") format("woff2");
-  font-weight: 600; font-style: normal; font-display: swap;
-}
-@font-face {
-  font-family: "Barlow Condensed";
-  src: url("/static/fonts/barlow-cond-700.woff2") format("woff2");
-  font-weight: 700; font-style: normal; font-display: swap;
+  font-family: "Martian Mono";
+  src: url("/static/fonts/martianmono-ext.woff2") format("woff2");
+  font-weight: 400 700;
+  font-stretch: 75% 112.5%;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
 }
 
-/* ── Tokens ──────────────────────────────────────────────────────────────── */
+/* ─── Tokens ──────────────────────────────────────────────────────────── */
 
 :root {
-  color-scheme: dark;
+  /* Marinho como material, não como fundo. */
+  --mar-900: #030a26;
+  --mar-800: #050f38;
+  --mar-700: #071b5c;   /* institucional, do favicon */
+  --mar-600: #0d2775;
+  --mar-500: #1a3a9e;
 
-  /* Territórios */
-  --ar:      #070a12;   /* acima da linha d'água */
-  --agua:    #06202b;   /* abaixo — azul-petróleo submerso */
-  --agua-2:  #041823;   /* fundo do reservatório, mais denso */
+  --amarelo:    #fbb329;   /* institucional, do wordmark */
+  --amarelo-cl: #ffcb60;
+  --amarelo-es: #d99411;
+  --risco:      #ff5a4d;   /* só estado crítico, sobre marinho */
 
-  /* Superfícies */
-  --caixa:   rgba(12, 32, 44, .58);
-  --caixa-2: rgba(16, 42, 56, .72);
+  --chapa:    #e8ebf2;   /* placa clara pousada sobre o marinho */
+  --chapa-cl: #f5f7fb;
+  --chapa-es: #d5dae6;
 
-  --fio:      rgba(140, 200, 220, .14);
-  --fio-forte: rgba(140, 200, 220, .30);
+  --tinta:    #061033;
+  --tinta-2:  #414f74;   /* secundário sobre claro — tingido do azul */
+  --sobre-2:  #a6b5dc;   /* secundário sobre marinho — tingido do azul */
 
-  /* Texto — neutros azulados, não violeta (estamos submersos) */
-  --tinta:    #e9f1f6;
-  --tinta-2:  #a3b8c4;
-  --tinta-3:  #6c8494;
+  --fio:       rgba(255, 255, 255, .17);
+  --fio-forte: rgba(255, 255, 255, .34);
+  --fio-esc:   rgba(6, 16, 51, .16);
 
-  /* Marca e sinal */
-  --ambar:    #f0b014;   /* idêntico ao admin.css — instrumento e ação */
-  --ambar-2:  #ffd451;
-  --superf:   #3ee0f0;   /* a linha d'água */
-  --ok:       #34d399;
-  --critico:  #ef4444;
+  --fonte: "Archivo", ui-sans-serif, system-ui, sans-serif;
+  --mono:  "Martian Mono", ui-monospace, "SFMono-Regular", monospace;
 
-  --serif: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
-  --sans:  "Barlow", "Segoe UI", system-ui, -apple-system, sans-serif;
+  /* Chanfro: o gesto de corte do wordmark, em duas escalas. */
+  --ch: 22px;
+  --ch-p: 10px;
+  --corte:   polygon(var(--ch) 0, 100% 0, 100% calc(100% - var(--ch)), calc(100% - var(--ch)) 100%, 0 100%, 0 var(--ch));
+  --corte-p: polygon(var(--ch-p) 0, 100% 0, 100% calc(100% - var(--ch-p)), calc(100% - var(--ch-p)) 100%, 0 100%, 0 var(--ch-p));
 
-  --topo-h: 62px;
-  --trilho: 74px;   /* largura do medidor lateral */
+  --saida: cubic-bezier(.16, .84, .32, 1);
+  --area-max: 1240px;
+  --barra-h: 74px;
 }
 
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+/* ─── Base ────────────────────────────────────────────────────────────── */
+
+*, *::before, *::after { box-sizing: border-box; }
 
 html {
   scroll-behavior: smooth;
-  scroll-padding-top: calc(var(--topo-h) + 20px);
+  scroll-padding-top: calc(var(--barra-h) + 20px);
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
-  background: var(--ar);
-  color: var(--tinta);
-  font-family: var(--sans);
-  font-size: 17px;
-  line-height: 1.62;
+  margin: 0;
+  background: var(--mar-800);
+  color: #fff;
+  font-family: var(--fonte);
+  font-size: 1.1875rem;      /* 19px — público envelhecido */
+  line-height: 1.65;
+  font-weight: 400;
+  font-synthesis-weight: none;
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
 }
 
 img { max-width: 100%; display: block; }
-a { color: inherit; text-decoration: none; }
 
-.wrap {
-  width: min(1200px, 100% - 48px);
-  margin-inline: auto;
-}
-.wrap-estreito { width: min(780px, 100% - 48px); }
+/* Superfícies que o navegador desenha: também são do projeto. */
+::selection { background: var(--amarelo); color: var(--mar-900); }
+:root { scrollbar-color: var(--mar-500) var(--mar-900); }
+::-webkit-scrollbar { width: 12px; height: 12px; }
+::-webkit-scrollbar-track { background: var(--mar-900); }
+::-webkit-scrollbar-thumb { background: var(--mar-500); border: 3px solid var(--mar-900); }
+::-webkit-scrollbar-thumb:hover { background: var(--amarelo-es); }
 
-/* Em telas com o medidor lateral, o conteúdo se afasta dele. */
-@media (min-width: 941px) {
-  .wrap { margin-left: max(var(--trilho), calc((100vw - 1200px) / 2)); margin-right: auto; }
-  .wrap-estreito { margin-left: max(var(--trilho), calc((100vw - 780px) / 2)); }
-}
-
-/* ── Tipografia ──────────────────────────────────────────────────────────── */
-
-h1, h2, h3 {
-  font-family: var(--serif);
-  font-weight: 700;
-  line-height: 1.02;
-  letter-spacing: -.005em;
-}
-
-.rotulo {
-  font-family: var(--serif);
-  font-weight: 600;
-  font-size: 14px;
-  letter-spacing: .22em;
-  text-transform: uppercase;
-  color: var(--ambar);
-  margin-bottom: 18px;
-}
-
-.h2 {
-  font-size: clamp(32px, 4.4vw, 54px);
-  margin-bottom: 46px;
-  max-width: 20ch;
-  text-wrap: balance;
-}
-
-/* Números de instrumento: tabular, sempre. */
-.etiq-val, .gauge-ticks li, .gauge-marca, .lt-hora, .mock-pct {
-  font-variant-numeric: tabular-nums;
-  font-family: var(--serif);
-}
-
-/* ── Botões ──────────────────────────────────────────────────────────────── */
-
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 10px 20px 9px;
-  font-family: var(--serif);
-  font-size: 17px;
-  font-weight: 600;
-  letter-spacing: .04em;
-  text-transform: uppercase;
-  border: 1px solid transparent;
-  border-radius: 2px;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background .18s ease, color .18s ease, border-color .18s ease;
-}
-
-.btn-cheio { background: var(--ambar); color: #14100a; }
-.btn-cheio:hover { background: var(--ambar-2); }
-
-.btn-linha { border-color: var(--fio-forte); color: var(--tinta); }
-.btn-linha:hover { border-color: var(--ambar); color: var(--ambar); }
-
-.btn-g { padding: 14px 28px 12px; font-size: 19px; }
-.btn-bloco { width: 100%; padding: 15px; font-size: 19px; }
-.btn:disabled { opacity: .5; cursor: not-allowed; }
-
-:where(a, button, input, select, textarea, summary):focus-visible {
-  outline: 2px solid var(--ambar);
+:where(a, button, summary, input, select, textarea, [tabindex]):focus-visible {
+  outline: 3px solid var(--amarelo);
   outline-offset: 3px;
 }
 
-/* ── Medidor lateral (a assinatura) ──────────────────────────────────────── */
-
-.gauge {
-  position: fixed;
-  left: 0; top: 0;
-  z-index: 40;
-  width: var(--trilho);
-  height: 100vh;
-  padding: calc(var(--topo-h) + 26px) 0 30px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 14px;
-  pointer-events: none;
-  border-right: 1px solid var(--fio);
-  background: linear-gradient(180deg, rgba(7,10,18,.9), rgba(4,20,28,.6));
+/* ⚠️ ARMADILHA DO CHANFRO: `clip-path` recorta TUDO que o elemento pinta,
+   inclusive o `outline` — que fica fora da caixa e portanto fora do polígono.
+   Em todo elemento chanfrado o anel de foco acima é calculado e simplesmente
+   não aparece. Isso não é cosmético: quem navega por teclado perde a única
+   pista de onde está, num produto cujo comprador é justamente o público mais
+   velho. Para esses o indicador vira `box-shadow: inset`, que é pintado dentro
+   do polígono e sobrevive ao corte (falta só nos dois chanfros, de ~10px).
+   O anel duplo garante contraste sobre fundo claro e escuro.
+   Ao criar elemento focável novo com `clip-path`, ele precisa entrar aqui. */
+   Os campos do formulário e `.peca` têm regras próprias mais abaixo, no lugar
+   onde o resto do estado deles é definido. */
+.btn:focus-visible,
+.pular:focus-visible,
+.duvida summary:focus-visible {
+  outline: none;
+}
+/* Sobre placa clara: amarelo por dentro, marinho por fora — o amarelo sozinho
+   sobre branco não alcança contraste de indicador. */
+.duvida summary:focus-visible {
+  box-shadow: inset 0 0 0 3px var(--amarelo), inset 0 0 0 6px var(--mar-700);
+}
+/* Sobre o próprio amarelo, o anel tem de ser marinho. */
+.btn-amarelo:focus-visible,
+.pular:focus-visible {
+  box-shadow: inset 0 0 0 3px var(--mar-900), inset 0 0 0 6px #fff;
+}
+/* Sobre marinho, amarelo. */
+.btn-fio:focus-visible {
+  box-shadow: inset 0 0 0 3px var(--amarelo);
 }
 
-.gauge-cap {
-  font-family: var(--serif);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: .28em;
-  text-transform: uppercase;
-  color: var(--tinta-3);
+.sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
+
+.pular {
+  position: fixed; top: -100px; left: 16px; z-index: 200;
+  background: var(--amarelo); color: var(--mar-900);
+  padding: 12px 20px; font-weight: 700; text-decoration: none;
+  clip-path: var(--corte-p);
+  transition: top .18s var(--saida);
 }
+.pular:focus { top: 12px; }
 
-.gauge-corpo { position: relative; flex: 1; width: 100%; }
-
-.gauge-trilho {
-  position: absolute;
-  left: 26px; top: 0; bottom: 0;
-  width: 2px;
-  background: var(--fio);
+.area {
+  width: 100%;
+  max-width: var(--area-max);
+  margin-inline: auto;
+  padding-inline: clamp(20px, 5vw, 56px);
 }
+.area-estreita { max-width: 880px; }
 
-/* A "água" do medidor é o que já foi lido. */
-.gauge-agua {
-  position: absolute;
-  left: 26px; top: 0;
-  width: 2px;
-  height: 0;
-  background: var(--superf);
-  box-shadow: 0 0 10px rgba(62,224,240,.5);
-  transition: background .35s ease, box-shadow .35s ease;
-}
+/* ─── Tipografia ──────────────────────────────────────────────────────── */
 
-.gauge-marca {
-  position: absolute;
-  left: 14px;
-  top: 0;
-  width: 26px; height: 26px;
-  margin-top: -13px;
-  display: grid;
-  place-items: center;
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--ar);
-  background: var(--superf);
-  border-radius: 2px;
-  transition: background .35s ease;
-}
-.gauge-marca::after {
-  content: '';
-  position: absolute;
-  left: 26px;
-  width: 12px; height: 1px;
-  background: currentColor;
-  opacity: .5;
-}
-
-/* left maior que a borda direita da marca (14px + 26px), senão o rótulo "100"
-   do topo fica embaixo do próprio marcador quando o nível está cheio. */
-.gauge-ticks { list-style: none; position: absolute; inset: 0; left: 46px; }
-.gauge-ticks li {
-  position: absolute;
-  top: calc(var(--t) * 1%);
-  transform: translateY(-50%);
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--tinta-3);
-}
-
-/* Faixas: as MESMAS do backend (baixo < 45, crítico < 20). */
-.gauge.is-baixo   .gauge-agua { background: var(--ambar); box-shadow: 0 0 10px rgba(240,176,20,.5); }
-.gauge.is-baixo   .gauge-marca { background: var(--ambar); }
-.gauge.is-critico .gauge-agua { background: var(--critico); box-shadow: 0 0 10px rgba(239,68,68,.5); }
-.gauge.is-critico .gauge-marca { background: var(--critico); }
-
-/* Abaixo de 940px o medidor vira uma barra fina no topo. */
-.gauge-mob {
-  position: fixed;
-  top: 0; left: 0; right: 0;
-  height: 2px;
-  z-index: 60;
-  display: none;
-}
-.gauge-mob i { display: block; height: 100%; width: 0; background: var(--superf); }
-.gauge-mob.is-baixo   i { background: var(--ambar); }
-.gauge-mob.is-critico i { background: var(--critico); }
-
-/* ── Topo ────────────────────────────────────────────────────────────────── */
-
-.topo {
-  position: sticky;
-  top: 0;
-  z-index: 50;
-  height: var(--topo-h);
-  background: rgba(7, 10, 18, .86);
-  backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--fio);
-}
-
-.topo-in { display: flex; align-items: center; gap: 30px; height: 100%; }
-
-.marca { display: flex; align-items: center; gap: 11px; margin-right: auto; }
-.marca img { height: 24px; width: auto; }
-.marca span {
-  font-family: var(--serif);
-  font-size: 15px;
-  font-weight: 600;
-  letter-spacing: .2em;
-  text-transform: uppercase;
-  color: var(--tinta-2);
-  padding-left: 11px;
-  border-left: 1px solid var(--fio-forte);
-}
-
-.topo-nav { display: flex; gap: 28px; }
-.topo-nav a {
-  font-family: var(--serif);
-  font-size: 17px;
-  font-weight: 500;
-  letter-spacing: .04em;
-  color: var(--tinta-2);
-  transition: color .18s ease;
-}
-.topo-nav a:hover { color: var(--ambar); }
-
-.topo-acoes { display: flex; align-items: center; gap: 10px; }
-
-/* ── Hero ────────────────────────────────────────────────────────────────── */
-
-.hero { padding: clamp(48px, 6vw, 84px) 0 clamp(56px, 7vw, 96px); }
-
-.hero-in {
-  display: grid;
-  grid-template-columns: 1fr minmax(320px, 460px);
-  gap: clamp(32px, 5vw, 72px);
-  align-items: center;
-}
-
-.hero-txt h1 {
-  font-size: clamp(48px, 7.4vw, 96px);
-  line-height: .96;
-  letter-spacing: -.018em;
-  margin-bottom: 26px;
+h1, h2, h3 {
+  margin: 0;
+  font-weight: 800;
+  font-stretch: 112%;
+  line-height: 1.02;
+  letter-spacing: -.028em;
   text-wrap: balance;
 }
-/* A palavra que carrega a promessa recebe a cor de instrumento e a linha
-   d'água por baixo — é o único grifo da página. */
-.hero-txt h1 span {
-  color: var(--ambar);
-  position: relative;
-  white-space: nowrap;
-}
-.hero-txt h1 span::after {
-  content: '';
-  position: absolute;
-  left: 0; right: 0; bottom: .1em;
-  height: 2px;
-  background: var(--superf);
-  opacity: .55;
+
+h1 {
+  font-size: clamp(2.2rem, 4.15vw, 3.7rem);
+  font-weight: 900;
+  font-stretch: 116%;
+  line-height: 1.04;
 }
 
-.hero-sub {
-  font-size: clamp(17px, 1.5vw, 19px);
-  color: var(--tinta-2);
-  max-width: 46ch;
-  margin-bottom: 34px;
+h2 {
+  font-size: clamp(1.95rem, 3.9vw, 3.3rem);
+  line-height: 1.06;
 }
 
-.hero-acoes { display: flex; flex-wrap: wrap; gap: 12px; }
-
-.corte { position: relative; }
-.corte svg { width: 100%; height: auto; max-height: 74vh; }
-
-.corte figcaption {
-  margin-top: 12px;
-  font-size: 12.5px;
-  letter-spacing: .04em;
-  color: var(--tinta-3);
-  text-align: center;
+h3 {
+  font-size: clamp(1.25rem, 1.9vw, 1.6rem);
+  line-height: 1.14;
+  letter-spacing: -.02em;
 }
 
-/* Corte do prédio */
-.solo      { stroke: var(--fio-forte); stroke-width: 1.5; }
-.hachura line { stroke: var(--fio); stroke-width: 1; }
+p { margin: 0 0 1.1em; max-width: 68ch; }
+p:last-child { margin-bottom: 0; }
 
-.predio-corpo { fill: rgba(255,255,255,.03);  stroke: var(--fio-forte); stroke-width: 1.5; }
-.laje         { fill: rgba(255,255,255,.06);  stroke: var(--fio-forte); stroke-width: 1.5; }
-.janelas rect { fill: rgba(140, 200, 220, .11); }
-
-.tanque       { fill: rgba(0,0,0,.34); stroke: none; }
-.tanque-borda { fill: none; stroke: var(--fio-forte); stroke-width: 1.8; }
-.superficie   { stroke: #8ff2ff; stroke-width: 1.5; }
-
-/* ⚠️ `transform-box: fill-box` é obrigatório. Sem ele, o `translateY(100%)`
-   resolve contra o viewBox inteiro (700px) em vez da caixa do próprio grupo,
-   e a água some do desenho em vez de descer até a base do tanque. */
-.agua-g {
-  transform-box: fill-box;
-  transform-origin: center;
-  transform: translateY(100%);
+.lede {
+  font-size: clamp(1.15rem, 1.45vw, 1.34rem);
+  line-height: 1.55;
+  color: var(--sobre-2);
+  max-width: 56ch;
 }
-#predio.is-pronto .agua-g { transition: transform 1.15s cubic-bezier(.32,.72,.3,1); }
+.secao-clara .lede { color: var(--tinta-2); }
+.lede-centro { margin-inline: auto; text-align: center; }
 
-/* O cano é o mecanismo da história (a bomba empurra a água pra cima), então
-   ele é mais presente que o resto da estrutura do desenho. */
-.tubo    { fill: none; stroke: rgba(140,200,220,.42); stroke-width: 3.5; stroke-linecap: round; }
-.prumada { stroke: rgba(140,200,220,.42); }
-#predio.is-fluindo .prumada { stroke: var(--superf); transition: stroke .5s ease; }
-
-.bomba      { fill: rgba(240,176,20,.12); stroke: var(--ambar); stroke-width: 1.8; }
-.bomba-seta { fill: var(--ambar); }
-#predio.is-fluindo .bomba { fill: rgba(240,176,20,.28); transition: fill .5s ease; }
-
-.etiq line { stroke: var(--fio-forte); stroke-width: 1; }
-.etiq text {
-  fill: var(--tinta-2);
-  font-family: var(--serif);
-  font-size: 13px;
+/* Etiqueta gravada — mono é medição e rótulo de painel, nunca decoração. */
+.eti,
+.instr-id, .noite-rot, .noite-h,
+.peca-onde, .rot, .opc, .rodape-contato dt, .rodape-fim,
+.hero-selo {
+  font-family: var(--mono);
+  font-size: .69rem;
   font-weight: 500;
-  letter-spacing: .06em;
-}
-.etiq .etiq-val { fill: var(--superf); font-weight: 700; font-size: 14px; }
-
-/* ── Seções ──────────────────────────────────────────────────────────────── */
-
-.sec { padding: clamp(64px, 8vw, 118px) 0; position: relative; }
-
-/* Território submerso. A borda superior é a própria linha d'água. */
-.sec-agua {
-  background: linear-gradient(180deg, var(--agua) 0%, var(--agua-2) 100%);
-  border-top: 1px solid rgba(62, 224, 240, .28);
-}
-.sec-agua::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 90px;
-  background: linear-gradient(180deg, rgba(62,224,240,.07), transparent);
-  pointer-events: none;
-}
-
-.sec-fundo { background: var(--agua-2); border-top: 1px solid var(--fio); }
-
-/* ── Linha do tempo ──────────────────────────────────────────────────────── */
-
-.linha-tempo { display: grid; gap: 0; }
-
-.lt-cab,
-.lt-linha {
-  display: grid;
-  grid-template-columns: 1fr 88px 1fr;
-  align-items: stretch;
-}
-
-.lt-cab { margin-bottom: 14px; }
-.lt-col-t {
-  font-family: var(--serif);
-  font-size: 15px;
-  font-weight: 600;
-  letter-spacing: .18em;
+  letter-spacing: .13em;
   text-transform: uppercase;
-  padding-bottom: 10px;
-}
-.lt-sem { color: var(--critico); text-align: right; padding-right: 26px; }
-.lt-com { color: var(--superf); padding-left: 26px; }
-
-.lt-linha { min-height: 72px; }
-
-.lt-hora {
-  display: grid;
-  place-items: center;
-  font-size: 15px;
-  font-weight: 600;
-  letter-spacing: .06em;
-  color: var(--tinta-3);
-  border-left: 1px solid var(--fio);
-  border-right: 1px solid var(--fio);
-  background: rgba(0,0,0,.16);
+  line-height: 1.5;
 }
 
-.lt-sem-c, .lt-com-c { display: flex; align-items: center; padding: 16px 26px; }
-.lt-sem-c { justify-content: flex-end; text-align: right; }
+a { color: inherit; }
 
-.lt-sem-c p, .lt-com-c p { font-size: 16px; color: var(--tinta-2); max-width: 40ch; }
-.lt-sem-c strong, .lt-com-c strong { color: var(--tinta); font-weight: 600; }
+/* ─── Revelação por corte ─────────────────────────────────────────────────
+   O gesto único da página: uma máscara diagonal varre o elemento como
+   chapa sendo cortada. Compõe com clip-path (são propriedades distintas),
+   por isso serve tanto para texto quanto para placa chanfrada. O estado
+   padrão é VISÍVEL — a classe só é aplicada pelo JS quando há suporte. */
 
-/* Só as células com conteúdo ganham peso — as vazias são silêncio de verdade,
-   e o contraste entre as duas colunas é o argumento da seção. */
-.lt-sem-c.is-ruim { background: rgba(239, 68, 68, .07); border-left: 2px solid rgba(239,68,68,.5); }
-.lt-com-c.is-ok   { background: rgba(52, 211, 153, .07); border-right: 2px solid rgba(52,211,153,.5); }
-.lt-com-c:not(:empty) { border-right: 2px solid rgba(62,224,240,.32); }
-.lt-com-c.is-ok       { border-right-color: rgba(52,211,153,.5); }
-
-.lt-linha + .lt-linha .lt-sem-c,
-.lt-linha + .lt-linha .lt-com-c,
-.lt-linha + .lt-linha .lt-hora { border-top: 1px solid var(--fio); }
-
-.lt-fim .lt-hora { color: var(--tinta-2); }
-
-/* ── Peças instaladas ────────────────────────────────────────────────────── */
-
-.pecas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--fio); }
-
-.peca { background: var(--ar); padding: 34px 30px 38px; }
-
-.peca-tag {
-  font-family: var(--serif);
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: .2em;
-  text-transform: uppercase;
-  color: var(--tinta-3);
-  margin-bottom: 14px;
+/* ⚠️ A geometria importa. O gradiente é diagonal, então o canto inferior
+   direito de um elemento ALTO projeta mais longe no eixo do gradiente que o
+   canto superior direito. Com máscara curta (300%) e parada opaca em 34%, a
+   placa da ficha (480×700) terminava a transição com uma faixa translúcida
+   atravessando o botão. 500% + parada em 40% cobre até H ≈ 5×W. */
+.js-corte .rev {
+  -webkit-mask-image: linear-gradient(108deg, #000 0 40%, rgba(0,0,0,.4) 46%, transparent 52%);
+  mask-image: linear-gradient(108deg, #000 0 40%, rgba(0,0,0,.4) 46%, transparent 52%);
+  -webkit-mask-size: 500% 100%;
+  mask-size: 500% 100%;
+  -webkit-mask-position: 100% 0;
+  mask-position: 100% 0;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  opacity: .001;
+  transform: translateY(18px);
 }
-.peca h3 { font-size: 27px; margin-bottom: 12px; color: var(--tinta); }
-.peca p  { font-size: 16px; color: var(--tinta-2); }
+.js-corte .rev.is-vis {
+  -webkit-mask-position: 0 0;
+  mask-position: 0 0;
+  opacity: 1;
+  transform: none;
+  transition:
+    -webkit-mask-position 1.15s var(--saida) var(--atraso, 0s),
+    mask-position 1.15s var(--saida) var(--atraso, 0s),
+    opacity .5s linear var(--atraso, 0s),
+    transform 1s var(--saida) var(--atraso, 0s);
+}
 
-/* ── Painel ──────────────────────────────────────────────────────────────── */
+/* O corte é reservado a três momentos (manchete, instrumento, ficha) mais a
+   foto anotada, que precisa dele para cronometrar as chamadas. Todo o resto
+   sobe em silêncio: uma entrada só, repetida trinta vezes, vira tique. */
+.js-corte .sobe { opacity: .001; transform: translateY(14px); }
+.js-corte .sobe.is-vis {
+  opacity: 1;
+  transform: none;
+  transition: opacity .5s var(--saida) var(--atraso, 0s),
+              transform .7s var(--saida) var(--atraso, 0s);
+}
 
-.painel-in {
-  display: grid;
-  grid-template-columns: 1fr minmax(300px, 400px);
-  gap: clamp(32px, 5vw, 68px);
+/* ─── Botões ──────────────────────────────────────────────────────────────
+   O amarelo entra pelo chanfro, no sentido do corte. */
+
+.btn {
+  --ch: var(--ch-p);
+  position: relative;
+  display: inline-flex;
   align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 50px;
+  padding: 13px 26px;
+  font-family: var(--fonte);
+  font-size: 1rem;
+  font-weight: 700;
+  font-stretch: 108%;
+  letter-spacing: -.005em;
+  text-decoration: none;
+  cursor: pointer;
+  border: 0;
+  /* <button> vem com background `buttonface` do agente do usuário; o
+     preenchimento real é o ::before, que pinta acima do fundo do elemento. */
+  background: transparent;
+  clip-path: var(--corte-p);
+  isolation: isolate;
+  transition: color .2s var(--saida);
 }
-
-.lista { display: grid; gap: 0; }
-.lista > div { padding: 20px 0; border-top: 1px solid var(--fio); }
-.lista > div:last-child { border-bottom: 1px solid var(--fio); }
-.lista dt {
-  font-family: var(--serif);
-  font-size: 22px;
-  font-weight: 600;
-  margin-bottom: 4px;
+.btn::before {
+  content: "";
+  position: absolute; inset: 0; z-index: -1;
+  background: var(--btn-bg, transparent);
 }
-.lista dd { font-size: 16px; color: var(--tinta-2); max-width: 48ch; }
-
-.mock {
-  background: var(--caixa-2);
-  border: 1px solid var(--fio-forte);
-  border-radius: 3px;
-  padding: 16px;
+.btn::after {
+  content: "";
+  position: absolute; inset: 0; z-index: -1;
+  background: var(--btn-hover, var(--amarelo-cl));
+  clip-path: polygon(0 0, 0 0, 0 100%, -30% 100%);
+  transition: clip-path .42s var(--saida);
 }
+.btn:hover::after { clip-path: polygon(0 0, 130% 0, 100% 100%, -30% 100%); }
 
-.mock-cab {
+.btn-amarelo { color: var(--mar-900); --btn-bg: var(--amarelo); --btn-hover: #fff; }
+
+/* ⚠️ `box-shadow: inset` é recortado junto com o clip-path, então a borda
+   sumia exatamente nos dois chanfros — lia como defeito, não como corte. O
+   contorno aqui é chapa de verdade: o fundo do próprio botão é o anel e o
+   ::before, embutido 1,5px e chanfrado de novo, é a placa interna. */
+.btn-fio {
+  color: #fff;
+  --btn-hover: var(--amarelo);
+  background: var(--fio-forte);
+}
+.btn-fio::before {
+  inset: 1.5px;
+  background: var(--mar-900);
+  clip-path: var(--corte-p);
+}
+.btn-fio:hover { color: var(--mar-900); background: var(--amarelo); }
+.secao-clara .btn-fio { color: var(--tinta); background: var(--fio-esc); }
+.secao-clara .btn-fio::before { background: var(--chapa); }
+
+.btn-g { --ch: 13px; min-height: 60px; padding: 16px 32px; font-size: 1.08rem; }
+.btn-bloco { width: 100%; min-height: 62px; font-size: 1.1rem; }
+
+.btn[disabled] { opacity: .55; cursor: not-allowed; }
+.btn[disabled]::after { clip-path: polygon(0 0, 0 0, 0 100%, -30% 100%); }
+
+/* ─── Barra ───────────────────────────────────────────────────────────── */
+
+.barra {
+  position: sticky; top: 0; z-index: 100;
+  height: var(--barra-h);
+  background: color-mix(in srgb, var(--mar-900) 88%, transparent);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid transparent;
+  transition: border-color .3s var(--saida), background .3s var(--saida);
+}
+.barra.is-rolada { border-bottom-color: var(--fio); background: var(--mar-900); }
+
+.barra-in {
+  height: 100%;
+  max-width: var(--area-max);
+  margin-inline: auto;
+  padding-inline: clamp(20px, 5vw, 56px);
   display: flex;
   align-items: center;
-  gap: 9px;
-  padding-bottom: 13px;
-  margin-bottom: 15px;
+  gap: clamp(16px, 3vw, 40px);
+}
+
+/* ⚠️ Usa `logo-topo.png`, não `login-logo.png`. O lockup completo traz
+   "ENGENHARIA DA MANUTENÇÃO" embaixo, que a esta altura fica com ~4px e vira
+   borrão cinza. `logo-topo.png` é o mesmo arquivo com aquela linha removida
+   (gerado do original; as engrenagens continuam lá). O lockup inteiro aparece
+   uma vez só, grande, no rodapé. */
+.marca { margin-right: auto; display: flex; align-items: center; }
+.marca img { height: 40px; width: auto; }
+
+.barra-nav { display: flex; gap: clamp(14px, 2vw, 30px); }
+.barra-nav a {
+  position: relative;
+  font-size: .95rem;
+  font-weight: 600;
+  color: var(--sobre-2);
+  text-decoration: none;
+  padding: 6px 0;
+  transition: color .2s var(--saida);
+}
+.barra-nav a::after {
+  content: "";
+  position: absolute; left: 0; right: 0; bottom: 0; height: 2px;
+  background: var(--amarelo);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform .3s var(--saida);
+}
+.barra-nav a:hover { color: #fff; }
+.barra-nav a:hover::after { transform: scaleX(1); }
+
+.barra-acoes { display: flex; align-items: center; gap: 10px; }
+.barra-acoes .btn { min-height: 44px; padding: 10px 20px; font-size: .95rem; }
+
+/* ─── Engrenagens ─────────────────────────────────────────────────────────
+   A marca em escala arquitetônica, marinho sobre marinho. Presença sem
+   repetir o logotipo. */
+
+.eng { position: absolute; fill-rule: evenodd; }
+.eng use { fill: currentColor; }
+
+@keyframes girar     { to { transform: rotate(360deg); } }
+@keyframes girar-inv { to { transform: rotate(-360deg); } }
+
+.hero-eng {
+  position: absolute;
+  top: -9vw; right: -11vw;
+  width: 54vw; height: 54vw;
+  max-width: 760px; max-height: 760px;
+  pointer-events: none;
+  z-index: 0;
+}
+/* Marinho-sobre-marinho a ~1,2:1 lia como artefato de compressão em vez de
+   marca. Sobe para ~1,45:1 — presente, ainda atrás do texto. */
+.eng-a {
+  inset: 0; width: 100%; height: 100%;
+  color: var(--mar-500);
+  opacity: .5;
+  animation: girar 96s linear infinite;
+}
+.eng-b {
+  left: -30%; bottom: -2%;
+  width: 44%; height: 44%;
+  color: var(--mar-500);
+  opacity: .38;
+  animation: girar-inv 64s linear infinite;
+}
+
+.fecho-eng {
+  position: absolute;
+  left: -13vw; bottom: -16vw;
+  width: 46vw; height: 46vw;
+  max-width: 620px; max-height: 620px;
+  pointer-events: none;
+  z-index: 0;
+}
+/* Sobre o campo amarelo a engrenagem vira amarelo escuro: marinho aqui
+   competiria com o texto em vez de ficar no fundo. */
+.eng-c {
+  inset: 0; width: 100%; height: 100%;
+  color: var(--amarelo-es);
+  opacity: .38;
+  animation: girar 120s linear infinite;
+}
+
+/* ─── Hero ────────────────────────────────────────────────────────────── */
+
+.hero {
+  position: relative;
+  overflow: hidden;
+  padding-block: clamp(44px, 5vw, 74px) clamp(56px, 6.5vw, 96px);
+  background: var(--mar-800);
+}
+/* Faixa de segurança: o amarelo assinando a base do campo. */
+.hero::after {
+  content: "";
+  position: absolute; left: 0; right: 0; bottom: 0; height: 6px;
+  background: repeating-linear-gradient(
+    -45deg, var(--amarelo) 0 18px, var(--mar-900) 18px 36px);
+  opacity: .9;
+  z-index: 2;
+}
+
+.hero-in {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1.12fr) minmax(310px, .88fr);
+  gap: clamp(30px, 4vw, 62px);
+  align-items: center;
+  min-height: min(70vh, 580px);
+}
+
+.hero-txt h1 { margin-bottom: .58em; }
+.hero-txt .lede { max-width: 46ch; margin-bottom: 1.9rem; }
+
+.hero-acoes { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 2.4rem; }
+
+.hero-selo {
+  display: flex; align-items: flex-start; gap: 14px;
+  color: var(--sobre-2);
+  max-width: none;
+}
+.hero-selo::before {
+  content: "";
+  flex: 0 0 34px; height: 2px;
+  margin-top: .62em;
+  background: var(--amarelo);
+}
+
+/* ─── Instrumento ─────────────────────────────────────────────────────────
+   Placa chanfrada com a coluna d'água viva. É a demonstração do mecanismo:
+   leitura, faixa de risco e estado. Dados simulados, rotulados como tal. */
+
+.instr {
+  --ch: 20px;
+  position: relative;
+  clip-path: var(--corte);
+  background: var(--fio);
+  padding: 1.5px;
+  transition: background .5s var(--saida);
+}
+.instr::before {
+  content: "";
+  position: absolute; inset: 1.5px;
+  clip-path: var(--corte);
+  background: linear-gradient(168deg, var(--mar-700) 0%, var(--mar-900) 100%);
+}
+.instr > * { position: relative; z-index: 1; }
+.instr[data-estado="baixo"]   { background: color-mix(in srgb, var(--amarelo) 78%, transparent); }
+.instr[data-estado="critico"] { background: color-mix(in srgb, var(--risco) 82%, transparent); }
+
+.instr-cab {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+  padding: 18px 24px 14px;
   border-bottom: 1px solid var(--fio);
 }
-.mock-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 8px var(--ok); }
-.mock-tit {
-  font-family: var(--serif);
-  font-size: 15px;
-  font-weight: 600;
-  letter-spacing: .14em;
-  text-transform: uppercase;
-  color: var(--tinta-2);
-}
-.mock-tag {
-  margin-left: auto;
-  font-family: var(--serif);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: .16em;
-  text-transform: uppercase;
-  color: var(--tinta-3);
-  border: 1px solid var(--fio);
-  padding: 2px 8px;
-}
-
-.mock-tanques { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-
-.mock-tanque {
-  background: rgba(0,0,0,.26);
-  border: 1px solid var(--fio);
-  border-radius: 2px;
-  padding: 11px 6px 9px;
-  text-align: center;
-}
-.mock-tanque.is-alerta { border-color: rgba(240,176,20,.45); background: rgba(240,176,20,.06); }
-.mock-tanque svg { width: 100%; height: auto; max-height: 118px; }
-
-.mock-pct { font-size: 21px; font-weight: 700; line-height: 1.1; margin-top: 6px; }
-.mock-nome {
-  font-size: 12px;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-  color: var(--tinta-3);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.mock-alerta {
-  display: flex;
-  align-items: center;
-  gap: 11px;
-  margin-top: 13px;
-  padding: 11px 13px;
-  background: rgba(240,176,20,.08);
-  border: 1px solid rgba(240,176,20,.32);
-  border-radius: 2px;
-}
-.mock-alerta-ic {
-  flex: none;
-  width: 25px; height: 25px;
-  display: grid;
-  place-items: center;
-  background: var(--ambar);
-  color: #14100a;
-  font-family: var(--serif);
+.instr-id { color: var(--sobre-2); }
+.instr-rel {
+  font-family: var(--mono);
+  font-size: 1.05rem;
   font-weight: 700;
-  border-radius: 2px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .04em;
+  color: #fff;
 }
-.mock-alerta span { display: flex; flex-direction: column; line-height: 1.35; min-width: 0; }
-.mock-alerta strong { font-size: 14.5px; font-weight: 600; }
-.mock-alerta em { font-style: normal; font-size: 13px; color: var(--tinta-2); }
 
-/* ── FAQ ─────────────────────────────────────────────────────────────────── */
-
-.faq { border-top: 1px solid var(--fio); }
-.faq:last-of-type { border-bottom: 1px solid var(--fio); }
-
-.faq summary {
-  cursor: pointer;
-  list-style: none;
-  padding: 22px 44px 22px 0;
-  position: relative;
-  font-family: var(--serif);
-  font-size: 24px;
-  font-weight: 600;
-  transition: color .18s ease;
-}
-.faq summary::-webkit-details-marker { display: none; }
-.faq summary::after {
-  content: '';
-  position: absolute;
-  right: 8px; top: 50%;
-  width: 13px; height: 13px;
-  margin-top: -7px;
-  border-right: 2px solid var(--ambar);
-  border-bottom: 2px solid var(--ambar);
-  transform: rotate(45deg);
-  transition: transform .22s ease;
-}
-.faq[open] summary::after { transform: rotate(-135deg); }
-.faq summary:hover { color: var(--ambar); }
-
-.faq div { padding: 0 0 24px; }
-.faq p { font-size: 16.5px; color: var(--tinta-2); max-width: 68ch; }
-
-/* ── Piloto / formulário ─────────────────────────────────────────────────── */
-
-.piloto-in {
+.instr-corpo {
   display: grid;
-  grid-template-columns: 1fr minmax(320px, 430px);
-  gap: clamp(32px, 5vw, 64px);
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: clamp(20px, 3vw, 34px);
+  padding: 26px 24px 22px;
+}
+
+.coluna-tubo {
+  --ch: 8px;
+  position: relative;
+  width: 82px;
+  height: 268px;
+  clip-path: var(--corte-p);
+  background: var(--mar-900);
+  box-shadow: inset 0 0 0 1px var(--fio);
+  overflow: hidden;
+}
+
+.coluna-faixa { position: absolute; left: 0; right: 0; }
+.coluna-faixa-baixo   { bottom: 20%; height: 25%; background: color-mix(in srgb, var(--amarelo) 11%, transparent); }
+.coluna-faixa-critico { bottom: 0;   height: 20%; background: color-mix(in srgb, var(--risco) 13%, transparent); }
+
+/* A lâmina d'água ocupa o tubo inteiro e desce por transform, não por height:
+   animar height é layout a cada quadro, e a crista de 3px se deformaria se a
+   coluna fosse escalada. translateY(%) é relativo à própria altura = a do tubo. */
+/* ⚠️ Sem `transition` no transform, de propósito. A posição da lâmina e o
+   número da leitura precisam sair da MESMA fonte: com transição CSS aqui e
+   tween em rAF no número, os dois usavam curvas diferentes e discordavam no
+   meio do percurso — num instrumento, coluna e leitura brigando destrói
+   exatamente a peça que prova o produto. Quem anima `--n` é o rAF do
+   `landing.js`, quadro a quadro, para os dois juntos. */
+.coluna-agua {
+  position: absolute; inset: 0;
+  background: linear-gradient(180deg, var(--mar-500) 0%, var(--mar-600) 55%, var(--mar-700) 100%);
+  transform: translateY(calc(100% - var(--n, 78%)));
+  transition: background .5s var(--saida);
+  will-change: transform;
+}
+.coluna-crista {
+  position: absolute; left: 0; right: 0; top: 0; height: 3px;
+  background: var(--amarelo-cl);
+  box-shadow: 0 0 14px 1px color-mix(in srgb, var(--amarelo) 55%, transparent);
+}
+.instr[data-estado="critico"] .coluna-agua {
+  background: linear-gradient(180deg, #7a1e2c 0%, #4a1220 100%);
+}
+.instr[data-estado="critico"] .coluna-crista {
+  background: var(--risco);
+  box-shadow: 0 0 14px 1px color-mix(in srgb, var(--risco) 60%, transparent);
+}
+
+.coluna-marca {
+  position: absolute; left: 0; right: 0;
+  border-top: 1px dashed var(--fio-forte);
+  pointer-events: none;
+}
+.coluna-marca span {
+  position: absolute; right: 5px; top: 3px;
+  font-family: var(--mono);
+  font-size: .58rem;
+  font-weight: 700;
+  letter-spacing: .06em;
+  color: #fff;
+  opacity: .8;
+}
+.coluna-marca-baixo   { bottom: 45%; }
+.coluna-marca-critico { bottom: 20%; border-top-color: color-mix(in srgb, var(--risco) 60%, transparent); }
+
+.instr-leituras { margin: 0; display: flex; flex-direction: column; gap: 18px; }
+.instr-leituras > div { display: flex; flex-direction: column; gap: 2px; }
+.instr-leituras dt {
+  font-family: var(--mono);
+  font-size: .64rem;
+  font-weight: 500;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+  color: var(--sobre-2);
+}
+.instr-leituras dd {
+  margin: 0;
+  display: flex; align-items: baseline; gap: 5px;
+  font-family: var(--mono);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  font-size: clamp(1.5rem, 2.3vw, 1.95rem);
+  line-height: 1;
+  letter-spacing: -.02em;
+  color: #fff;
+}
+.instr-leituras dd i {
+  font-style: normal;
+  font-size: .72rem;
+  font-weight: 500;
+  letter-spacing: .06em;
+  color: var(--sobre-2);
+}
+
+.instr-estado {
+  display: flex; align-items: center; gap: 12px;
+  padding: 15px 24px;
+  border-top: 1px solid var(--fio);
+  font-weight: 700;
+  font-size: 1rem;
+  transition: background .45s var(--saida), color .45s var(--saida);
+}
+.instr-lampada {
+  flex: 0 0 auto;
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  background: #63d8a0;
+  box-shadow: 0 0 0 4px color-mix(in srgb, #63d8a0 22%, transparent);
+  transition: background .3s var(--saida), box-shadow .3s var(--saida);
+}
+.instr[data-estado="baixo"] .instr-estado   { background: var(--amarelo); color: var(--mar-900); }
+.instr[data-estado="baixo"] .instr-lampada  { background: var(--mar-900); box-shadow: 0 0 0 4px color-mix(in srgb, var(--mar-900) 26%, transparent); }
+.instr[data-estado="critico"] .instr-estado { background: var(--risco); color: #2a0508; }
+.instr[data-estado="critico"] .instr-lampada{ background: #2a0508; box-shadow: 0 0 0 4px rgba(42, 5, 8, .3); animation: pisca 1s steps(1) infinite; }
+@keyframes pisca { 50% { opacity: .25; } }
+
+/* ⚠️ É a linha que mantém a demonstração honesta. Não pode ser o texto menos
+   legível da página — ainda mais para um leitor mais velho. Fora do grupo
+   mono/caixa-alta de propósito. */
+.instr-nota {
+  margin: 0;
+  padding: 12px 24px 18px;
+  font-size: .92rem;
+  line-height: 1.4;
+  color: var(--sobre-2);
+  max-width: none;
+}
+
+/* ─── Seções ──────────────────────────────────────────────────────────── */
+
+.secao {
+  position: relative;
+  padding-block: clamp(72px, 9vw, 132px);
+}
+.secao-escura { background: var(--mar-800); }
+.secao-clara  { background: var(--chapa); color: var(--tinta); }
+.secao-clara h2, .secao-clara h3 { color: var(--tinta); }
+
+.secao > .area > h2 { margin-bottom: .55em; }
+.secao > .area > .lede { margin-bottom: clamp(40px, 5vw, 66px); }
+
+/* ─── A noite ─────────────────────────────────────────────────────────── */
+
+.noite {
+  position: relative;
+  margin-top: clamp(40px, 5vw, 68px);
+}
+
+/* Trilho central: o indicador desce conforme o scroll. */
+.noite-rail {
+  position: absolute;
+  top: 12px; bottom: 0; left: 50%;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--fio);
+}
+.noite-guia {
+  position: absolute; left: -1px; top: 0;
+  width: 4px;
+  height: var(--g, 0%);
+  background: linear-gradient(180deg, transparent, var(--amarelo) 22%, var(--amarelo));
+  box-shadow: 0 0 16px 2px color-mix(in srgb, var(--amarelo) 42%, transparent);
+}
+
+.noite-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+
+.noite-ev {
+  display: grid;
+  grid-template-columns: 1fr 128px 1fr;
+  align-items: center;
+  min-height: 92px;
+}
+.noite-h {
+  grid-column: 2;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--sobre-2);
+  font-size: .7rem;
+  position: relative;
+  z-index: 1;
+}
+.noite-h::before {
+  content: "";
+  position: absolute; left: 50%; top: 50%;
+  width: 44px; height: 44px;
+  margin: -22px 0 0 -22px;
+  background: var(--mar-800);
+  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+  z-index: -1;
+}
+.noite-h time { font-variant-numeric: tabular-nums; }
+
+.noite-sem, .noite-com {
+  --ch: 12px;
+  padding: 16px 22px;
+  clip-path: var(--corte-p);
+}
+.noite-sem:not(:empty), .noite-com:not(:empty) {
+  background: color-mix(in srgb, var(--mar-700) 55%, transparent);
+  box-shadow: inset 0 0 0 1px var(--fio);
+}
+/* ⚠️ Nada de `text-align: right` na coluna esquerda. A simetria espelhada era
+   bonita e custava legibilidade justamente para o leitor mais velho que este
+   produto atende. A identidade de cada lado vem da etiqueta, não do alinhamento. */
+.noite-sem { grid-column: 1; }
+.noite-com { grid-column: 3; }
+.noite-sem p, .noite-com p { margin: 0; max-width: none; font-size: 1.04rem; line-height: 1.5; }
+.noite-sem:empty, .noite-com:empty { padding: 0; }
+
+/* Visível em toda largura. Com a linha de cabeçalho fora, é a etiqueta que diz
+   de que lado o bloco é — e o leitor de tela passa a receber a mesma coisa que
+   a pessoa que enxerga. */
+.noite-tag {
+  display: block;
+  margin-bottom: 7px;
+  font-family: var(--mono);
+  font-size: .62rem;
+  font-weight: 500;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+  color: var(--sobre-2);
+}
+.noite-ruim .noite-tag { color: #ffb3a8; }
+.noite-bom .noite-tag  { color: var(--amarelo); }
+
+.noite-ruim { color: #ffc0b8; }
+.noite-ruim:not(:empty) { background: color-mix(in srgb, var(--risco) 13%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--risco) 34%, transparent); }
+.noite-bom:not(:empty) { background: color-mix(in srgb, var(--amarelo) 13%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--amarelo) 40%, transparent); }
+.noite-bom { color: #ffe0a8; }
+
+/* O desfecho sai da grade de duas colunas: vira faixa cheia, porque é a
+   conclusão da seção e não mais um evento da madrugada. */
+.noite-fecho {
+  --ch: 20px;
+  margin-top: clamp(28px, 4vw, 48px);
+  padding: clamp(26px, 3.4vw, 40px) clamp(24px, 4vw, 52px);
+  clip-path: var(--corte);
+  background: color-mix(in srgb, var(--mar-700) 62%, transparent);
+  box-shadow: inset 0 0 0 1px var(--fio);
+  display: grid;
+  gap: 10px;
+}
+.noite-fecho p {
+  margin: 0;
+  max-width: 34ch;
+  font-size: clamp(1.3rem, 2.6vw, 2rem);
+  font-weight: 800;
+  font-stretch: 106%;
+  line-height: 1.22;
+  letter-spacing: -.025em;
+}
+.noite-fecho-sem { color: #ff8f80; }
+.noite-fecho-com { color: var(--amarelo); }
+
+/* Entrada lateral: cada lado chega do seu lado do trilho. */
+.js-corte .noite-ev .noite-sem { transform: translateX(26px); opacity: .001; }
+.js-corte .noite-ev .noite-com { transform: translateX(-26px); opacity: .001; }
+.js-corte .noite-ev.is-vis .noite-sem,
+.js-corte .noite-ev.is-vis .noite-com {
+  transform: none; opacity: 1;
+  transition: transform .72s var(--saida), opacity .55s var(--saida);
+}
+.js-corte .noite-ev.is-vis .noite-com { transition-delay: .1s; }
+
+/* ─── Quem instala ────────────────────────────────────────────────────── */
+
+.anotada {
+  display: grid;
+  grid-template-columns: minmax(0, .82fr) minmax(0, 1.18fr);
+  gap: clamp(28px, 4.5vw, 64px);
+  align-items: center;
+  margin-bottom: clamp(48px, 6vw, 84px);
+}
+.anotada-txt h2 { margin-bottom: .5em; }
+.anotada-txt .lede { margin-bottom: 1.2em; }
+.anotada-txt p:last-child { color: var(--tinta-2); font-size: 1.06rem; }
+
+.chapa { margin: 0; }
+.chapa-img {
+  --ch: 26px;
+  position: relative;
+  clip-path: var(--corte);
+  background: var(--mar-900);
+  aspect-ratio: 3 / 4;
+  overflow: hidden;
+}
+.chapa-img img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  transform: scale(1.045);
+  transition: transform 1.2s var(--saida), filter 1.2s var(--saida);
+}
+.chapa:hover .chapa-img img { transform: scale(1); }
+
+.chapa figcaption {
+  margin-top: 14px;
+  font-size: .95rem;
+  line-height: 1.5;
+  color: var(--tinta-2);
+  max-width: 42ch;
+}
+
+/* Chamada com linha-guia: ensina o que o síndico está vendo. */
+.calls { position: absolute; inset: 0; width: 100%; height: 100%; }
+.calls path {
+  fill: none;
+  stroke: var(--amarelo);
+  stroke-width: 3.5;
+  stroke-linecap: square;
+  stroke-linejoin: miter;
+}
+.calls circle { fill: none; stroke: var(--amarelo); stroke-width: 3.5; }
+
+.rot {
+  position: absolute;
+  left: 61.5%;
+  top: var(--y);
+  transform: translateY(-50%);
+  padding: 7px 12px 6px;
+  background: var(--mar-900);
+  color: var(--amarelo);
+  font-size: .6rem;
+  white-space: nowrap;
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+}
+
+.js-corte .call { opacity: .001; }
+.js-corte .rot  { opacity: .001; transform: translateY(-50%) translateX(-10px); }
+.js-corte .is-vis .call {
+  opacity: 1;
+  transition: opacity .5s var(--saida) calc(.45s + var(--i) * .16s);
+}
+.js-corte .is-vis .rot {
+  opacity: 1; transform: translateY(-50%);
+  transition: opacity .5s var(--saida) calc(.6s + var(--i) * .16s),
+              transform .6s var(--saida) calc(.6s + var(--i) * .16s);
+}
+
+.chapas {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(16px, 2.4vw, 30px);
+}
+.chapas .chapa-img { --ch: 20px; }
+/* Escalonamento vertical: as três placas não pousam na mesma linha. */
+.chapas .chapa:nth-child(2) { margin-top: clamp(18px, 3vw, 44px); }
+.chapas .chapa:nth-child(3) { margin-top: clamp(36px, 6vw, 88px); }
+
+/* ─── O que fica no prédio ────────────────────────────────────────────── */
+
+.pecas {
+  display: grid;
+  grid-template-columns: minmax(0, .92fr) minmax(0, 1.08fr);
+  gap: clamp(30px, 4vw, 56px);
+  align-items: center;
+  margin-top: clamp(40px, 5vw, 64px);
+}
+
+.predio svg {
+  display: block;
+  width: auto;
+  height: min(660px, 76vh);
+  max-width: 100%;
+  margin-inline: auto;
+}
+.pd-rotulos text {
+  font-family: var(--mono);
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  fill: var(--sobre-2);
+  opacity: .8;
+}
+
+.pd-corpo { fill: color-mix(in srgb, var(--mar-700) 62%, transparent); stroke: var(--fio-forte); stroke-width: 2; }
+.pd-andares path { stroke: var(--fio); stroke-width: 1.5; }
+.pd-tanque { fill: var(--mar-900); stroke: var(--fio-forte); stroke-width: 2; }
+.pd-agua-sup, .pd-agua-inf { fill: var(--mar-500); opacity: .85; }
+.pd-tubo { stroke: var(--sobre-2); stroke-width: 7; fill: none; opacity: .55; }
+.pd-tubo-fino { stroke-width: 3; }
+.pd-solo { stroke: var(--amarelo); stroke-width: 2.5; opacity: .55; }
+.pd-bomba { fill: var(--mar-600); stroke: var(--fio-forte); stroke-width: 2; }
+.pd-quadro { fill: var(--mar-900); stroke: var(--fio-forte); stroke-width: 2; }
+.pd-quadro-in { stroke: var(--sobre-2); stroke-width: 2.5; opacity: .5; }
+
+.pd-ponto { fill: var(--amarelo); stroke: var(--mar-900); stroke-width: 2.5; }
+.pd-marca text {
+  font-family: var(--mono);
+  font-size: 15px;
+  font-weight: 700;
+  fill: var(--mar-900);
+}
+.pd-fio { stroke: var(--amarelo); stroke-width: 2.5; stroke-dasharray: 5 5; fill: none; }
+.pd-pulso { fill: none; stroke: var(--amarelo); stroke-width: 2; opacity: 0; transform-origin: center; transform-box: fill-box; }
+
+@keyframes pulso {
+  0%   { opacity: .85; transform: scale(1); }
+  100% { opacity: 0;   transform: scale(2.6); }
+}
+.pecas[data-ativa] .pd-marca .pd-pulso { animation: none; }
+.pecas[data-ativa="1"] .pd-marca[data-peca="1"] .pd-pulso,
+.pecas[data-ativa="2"] .pd-marca[data-peca="2"] .pd-pulso,
+.pecas[data-ativa="3"] .pd-marca[data-peca="3"] .pd-pulso {
+  animation: pulso 1.5s var(--saida) infinite;
+}
+.pecas[data-ativa="1"] .pd-marca:not([data-peca="1"]) .pd-ponto,
+.pecas[data-ativa="2"] .pd-marca:not([data-peca="2"]) .pd-ponto,
+.pecas[data-ativa="3"] .pd-marca:not([data-peca="3"]) .pd-ponto {
+  fill: var(--sobre-2);
+  opacity: .45;
+}
+.pd-ponto { transition: fill .25s var(--saida), opacity .25s var(--saida); }
+
+.pecas-lista { margin: 0; display: grid; gap: 4px; }
+.peca {
+  --ch: 14px;
+  padding: 22px 26px;
+  clip-path: var(--corte-p);
+  background: color-mix(in srgb, var(--mar-700) 42%, transparent);
+  box-shadow: inset 0 0 0 1px var(--fio);
+  cursor: default;
+  transition: background .3s var(--saida), box-shadow .3s var(--saida), transform .35s var(--saida);
+}
+.peca:hover, .peca:focus-visible {
+  background: color-mix(in srgb, var(--mar-700) 78%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--amarelo) 55%, transparent);
+  transform: translateX(6px);
+}
+/* O fio de 1px do hover não serve de indicador de foco. Aqui o anel é cheio —
+   e por `box-shadow`, porque o bloco é chanfrado e comeria o `outline`. */
+.peca:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 3px var(--amarelo);
+}
+.peca dt {
+  display: flex; align-items: center; gap: 14px;
+  font-size: clamp(1.15rem, 1.6vw, 1.4rem);
+  font-weight: 800;
+  font-stretch: 108%;
+  letter-spacing: -.02em;
+  margin-bottom: .5rem;
+}
+.peca-n {
+  flex: 0 0 auto;
+  display: grid; place-items: center;
+  width: 30px; height: 30px;
+  background: var(--amarelo);
+  color: var(--mar-900);
+  font-family: var(--mono);
+  font-size: .8rem;
+  font-weight: 700;
+  clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px);
+}
+.peca dd { margin: 0; }
+.peca dd p { color: var(--sobre-2); font-size: 1.04rem; max-width: 54ch; }
+/* ⚠️ Precisa da mesma especificidade de `.peca dd p` (0,3,0): a regra de
+   etiqueta lá em cima é classe única e perdia o font-size, o que fazia o
+   rótulo sair a 20px — mais alto que o próprio título do bloco. */
+.peca dd p.peca-onde {
+  margin-top: .8rem;
+  font-size: .69rem;
+  color: var(--amarelo);
+  opacity: .92;
+}
+
+/* ─── Dúvidas ─────────────────────────────────────────────────────────── */
+
+.duvidas { display: grid; gap: 3px; margin-top: clamp(32px, 4vw, 52px); }
+
+.duvida {
+  --ch: 14px;
+  clip-path: var(--corte-p);
+  background: var(--chapa-cl);
+  box-shadow: inset 0 0 0 1px var(--fio-esc);
+  transition: box-shadow .3s var(--saida);
+}
+.duvida[open] { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tinta) 40%, transparent); }
+
+.duvida summary {
+  display: flex; align-items: center; gap: 18px;
+  padding: 22px 26px;
+  min-height: 62px;
+  list-style: none;
+  cursor: pointer;
+  font-size: clamp(1.05rem, 1.5vw, 1.22rem);
+  font-weight: 700;
+  font-stretch: 106%;
+  letter-spacing: -.015em;
+  color: var(--tinta);
+}
+.duvida summary::-webkit-details-marker { display: none; }
+.duvida summary span { flex: 1; }
+.duvida summary::after {
+  content: "";
+  flex: 0 0 auto;
+  width: 26px; height: 26px;
+  /* Amarelo sobre placa clara reprova em contraste até como ícone (2:1).
+     O indicador é marinho; o amarelo entra no realce do próprio painel. */
+  background: var(--mar-700);
+  clip-path: polygon(45% 12%, 55% 12%, 55% 45%, 88% 45%, 88% 55%, 55% 55%, 55% 88%, 45% 88%, 45% 55%, 12% 55%, 12% 45%, 45% 45%);
+  transition: transform .38s var(--saida), clip-path .38s var(--saida);
+}
+.duvida[open] summary::after {
+  transform: rotate(135deg);
+  clip-path: polygon(12% 45%, 88% 45%, 88% 55%, 12% 55%);
+}
+.duvida summary:hover { background: color-mix(in srgb, var(--amarelo) 16%, transparent); }
+
+.duvida-txt { padding: 0 26px 24px; }
+.duvida-txt p { color: var(--tinta-2); font-size: 1.06rem; }
+.duvida[open] .duvida-txt { animation: abrir .38s var(--saida); }
+@keyframes abrir {
+  from { opacity: 0; transform: translateY(-8px); }
+}
+
+/* ─── Fecho / assinatura ──────────────────────────────────────────────── */
+
+/* O fecho é o campo amarelo da página. O mundo é sinalização de segurança:
+   amarelo cobrindo região inteira com tinta marinho é o gesto do "aja aqui",
+   e é a única passagem em que a página inverte o campo. Marinho sobre
+   `#fbb329` dá ~9:1 — o texto fica mais legível aqui que em qualquer outra
+   seção, o que é bom justamente no momento da conversão. */
+.secao-fecho {
+  position: relative;
+  overflow: hidden;
+  background: var(--amarelo);
+  color: var(--mar-900);
+}
+.secao-fecho::before {
+  content: "";
+  position: absolute; left: 0; right: 0; top: 0; height: 6px;
+  background: repeating-linear-gradient(-45deg, var(--mar-900) 0 18px, var(--amarelo-es) 18px 36px);
+}
+.secao-fecho h2 { color: var(--mar-900); }
+.secao-fecho .lede { color: color-mix(in srgb, var(--mar-900) 76%, transparent); }
+
+.fecho-in {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(340px, 480px);
+  gap: clamp(36px, 5vw, 76px);
   align-items: start;
 }
 
-.piloto-lead { font-size: 17.5px; color: var(--tinta-2); max-width: 50ch; }
+.fecho-txt h2 { margin-bottom: .5em; }
+.fecho-txt .lede { margin-bottom: 1.8rem; }
 
-.marcas { list-style: none; margin: 26px 0 20px; display: grid; gap: 11px; }
-.marcas li {
+.fecho-lista { list-style: none; margin: 0 0 1.8rem; padding: 0; display: grid; gap: 12px; max-width: 50ch; }
+.fecho-lista li {
   position: relative;
-  padding-left: 28px;
-  font-size: 16.5px;
+  padding-left: 34px;
+  font-size: 1.06rem;
+  line-height: 1.5;
+}
+.fecho-lista li::before {
+  content: "";
+  position: absolute; left: 0; top: .5em;
+  width: 16px; height: 16px;
+  background: var(--mar-900);
+  clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px);
+}
+.fecho-nota { color: color-mix(in srgb, var(--mar-900) 68%, transparent); font-size: 1rem; }
+
+/* ─── Formulário ──────────────────────────────────────────────────────── */
+
+/* Placa de etiqueta sobre a máquina amarela: o botão de envio vira marinho,
+   senão amarelo-sobre-amarelo apagaria a ação principal. */
+.ficha {
+  --ch: 22px;
+  position: relative;
+  clip-path: var(--corte);
+  background: var(--chapa);
+  color: var(--tinta);
+  padding: clamp(26px, 3.4vw, 38px);
+}
+.ficha .btn-amarelo {
+  color: #fff;
+  --btn-bg: var(--mar-900);
+  /* O varrimento continua amarelo: é a última e mais importante ação da
+     página, e ela não pode sair da linguagem só porque o fundo virou o campo. */
+  --btn-hover: var(--amarelo);
+}
+.ficha .btn-amarelo:hover { color: var(--mar-900); }
+.ficha h3 { margin-bottom: .45em; color: var(--tinta); }
+.ficha-sub {
   color: var(--tinta-2);
-}
-.marcas li::before {
-  content: '';
-  position: absolute;
-  left: 0; top: .62em;
-  width: 14px; height: 1px;
-  background: var(--ambar);
+  font-size: 1.02rem;
+  line-height: 1.45;
+  margin-bottom: 1.7rem;
+  max-width: none;
 }
 
-.piloto-nota { font-size: 15px; color: var(--tinta-3); }
+.f { margin-bottom: 16px; }
+.f-par { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 
-.form {
-  background: var(--caixa);
-  border: 1px solid var(--fio-forte);
-  border-radius: 3px;
-  padding: 30px 28px 26px;
-}
-.form h3 {
-  font-size: 28px;
-  margin-bottom: 22px;
-  padding-bottom: 14px;
-  border-bottom: 1px solid var(--fio);
-}
-
-.f { margin-bottom: 15px; }
 .f label {
-  display: block;
-  font-family: var(--serif);
-  font-size: 15px;
-  font-weight: 600;
-  letter-spacing: .1em;
-  text-transform: uppercase;
-  color: var(--tinta-2);
-  margin-bottom: 6px;
+  display: flex; align-items: baseline; gap: 8px;
+  margin-bottom: 7px;
+  font-size: .95rem;
+  font-weight: 700;
+  color: var(--tinta);
 }
-.f label b { color: var(--ambar); }
+.opc { color: var(--tinta-2); font-weight: 500; opacity: .85; }
 
 .f input, .f select, .f textarea {
+  --ch: 9px;
   width: 100%;
-  padding: 11px 13px;
-  background: rgba(0,0,0,.34);
-  border: 1px solid var(--fio-forte);
-  border-radius: 2px;
+  min-height: 54px;
+  padding: 14px 16px;
+  clip-path: var(--corte-p);
+  background: #fff;
   color: var(--tinta);
-  font-family: var(--sans);
-  font-size: 16px;
-  transition: border-color .18s ease, box-shadow .18s ease;
+  border: 0;
+  box-shadow: inset 0 0 0 1.5px var(--fio-esc);
+  font-family: var(--fonte);
+  font-size: 1.05rem;
+  line-height: 1.4;
+  caret-color: var(--mar-700);
+  transition: box-shadow .2s var(--saida), background .2s var(--saida);
 }
-.f textarea { resize: vertical; min-height: 78px; }
-
+.f textarea { min-height: 104px; resize: vertical; }
+.f input::placeholder, .f textarea::placeholder { color: var(--tinta-2); opacity: .7; }
+.f input:hover, .f select:hover, .f textarea:hover { box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--tinta) 32%, transparent); }
 .f input:focus, .f select:focus, .f textarea:focus {
-  outline: none;
-  border-color: var(--ambar);
-  box-shadow: 0 0 0 3px rgba(240,176,20,.15);
+  outline: 0;
+  box-shadow: inset 0 0 0 2.5px var(--mar-700);
 }
-.f input.is-erro, .f select.is-erro { border-color: var(--critico); }
+/* ⚠️ Anel por `box-shadow`, não por `outline`: o campo é chanfrado e o
+   `clip-path` recorta o outline inteiro — ver a nota do foco lá em cima. */
+.f input:focus-visible, .f select:focus-visible, .f textarea:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 3px var(--amarelo), inset 0 0 0 6px var(--mar-700);
+}
+.f .is-erro { box-shadow: inset 0 0 0 2px #c2261c; background: #fff4f3; }
 
-.f-par { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.sel { position: relative; }
+.sel select { appearance: none; padding-right: 46px; cursor: pointer; }
+.sel-seta {
+  position: absolute; right: 16px; top: 50%;
+  width: 20px; height: 20px;
+  margin-top: -10px;
+  fill: none;
+  stroke: var(--tinta);
+  stroke-width: 2;
+  stroke-linecap: square;
+  pointer-events: none;
+}
 
-/* Honeypot — fora da tela SEM display:none, que alguns bots detectam.
-   Nada aqui pode virar visível em nenhum breakpoint. */
 .hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
 
-.form-msg { font-size: 15px; margin-top: 13px; min-height: 22px; text-align: center; }
-.form-msg.is-ok   { color: var(--ok); }
-.form-msg.is-erro { color: var(--critico); }
+.ficha .btn-bloco { margin-top: 8px; }
 
-.form-nota { font-size: 13px; color: var(--tinta-3); text-align: center; margin-top: 10px; }
-
-/* ── Rodapé ──────────────────────────────────────────────────────────────── */
-
-.rodape { border-top: 1px solid var(--fio); background: var(--ar); }
-
-.rodape-in {
-  display: flex;
-  justify-content: space-between;
-  gap: 34px;
-  flex-wrap: wrap;
-  padding: 44px 0 30px;
+.ficha-msg {
+  margin: 14px 0 0;
+  min-height: 1.5em;
+  font-size: 1rem;
+  font-weight: 600;
+  max-width: none;
 }
-.rodape-logo { height: 24px; width: auto; margin-bottom: 14px; }
-.rodape-nome { font-family: var(--serif); font-size: 20px; font-weight: 600; }
-.rodape-sub  { font-size: 15px; color: var(--tinta-3); }
+.ficha-msg.is-erro { color: #a81b12; }
+.ficha-msg.is-ok   { color: #145c33; }
 
-.rodape-col { display: flex; flex-direction: column; gap: 9px; }
-.rodape-col a { font-size: 15.5px; color: var(--tinta-2); transition: color .18s ease; }
-.rodape-col a:hover { color: var(--ambar); }
+.ficha-lgpd {
+  margin: 12px 0 0;
+  font-size: .95rem;
+  line-height: 1.45;
+  color: var(--tinta-2);
+  max-width: none;
+}
+
+.ficha-rodape {
+  margin: 14px 0 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--fio-esc);
+  font-size: 1rem;
+  color: var(--tinta-2);
+  max-width: none;
+}
+.ficha-rodape a {
+  color: var(--tinta);
+  font-weight: 700;
+  text-decoration-color: var(--amarelo-es);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+.ficha-rodape a:hover { color: var(--mar-700); }
+
+/* ─── Rodapé ──────────────────────────────────────────────────────────── */
+
+.rodape {
+  background: var(--mar-900);
+  border-top: 1px solid var(--fio);
+  padding-top: clamp(48px, 6vw, 76px);
+}
+.rodape-in {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+  gap: clamp(30px, 4vw, 60px);
+  padding-bottom: clamp(36px, 4vw, 56px);
+}
+/* Única aparição do lockup completo, em tamanho que deixa a assinatura legível. */
+.rodape-logo { height: 72px; width: auto; margin-bottom: 22px; }
+.rodape-empresa p { color: var(--sobre-2); font-size: 1.02rem; max-width: 38ch; }
+
+.rodape-contato {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 22px 26px;
+  align-content: start;
+}
+.rodape-contato dt { color: var(--sobre-2); opacity: .8; margin-bottom: 5px; }
+.rodape-contato dd { margin: 0; font-size: 1.06rem; font-weight: 600; }
+.rodape-contato dd a {
+  text-decoration: none;
+  border-bottom: 1px solid var(--fio-forte);
+  padding-bottom: 2px;
+  transition: color .2s var(--saida), border-color .2s var(--saida);
+}
+.rodape-contato dd a:hover { color: var(--amarelo); border-bottom-color: var(--amarelo); }
 
 .rodape-fim {
+  display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+  padding-block: 20px 26px;
   border-top: 1px solid var(--fio);
-  padding: 16px 0;
-  font-size: 13.5px;
-  color: var(--tinta-3);
+  color: var(--sobre-2);
+  opacity: .75;
 }
 
-/* ── Responsivo ──────────────────────────────────────────────────────────── */
+/* ─── Responsivo ──────────────────────────────────────────────────────── */
 
-@media (max-width: 1100px) {
-  .hero-in { grid-template-columns: 1fr minmax(280px, 380px); }
-  .pecas   { grid-template-columns: 1fr; }
-  .peca    { padding: 26px 24px 30px; }
+@media (max-width: 1080px) {
+  .hero-in { grid-template-columns: 1fr; gap: 44px; }
+  .instr { max-width: 520px; }
+  .anotada, .pecas { grid-template-columns: 1fr; }
+  .anotada .chapa-anot { max-width: 460px; }
+  .predio svg { max-height: 480px; }
+  .fecho-in { grid-template-columns: 1fr; }
+  .ficha { max-width: 560px; }
 }
 
-@media (max-width: 940px) {
-  .gauge { display: none; }
-  .gauge-mob { display: block; }
-  .topo-nav { display: none; }
+@media (max-width: 900px) {
+  .barra-nav { display: none; }
+  .rodape-in { grid-template-columns: 1fr; }
+}
 
-  .hero-in, .painel-in, .piloto-in { grid-template-columns: 1fr; }
-  .corte { max-width: 400px; margin-inline: auto; width: 100%; }
-  .corte svg { max-height: none; }
-  .h2 { max-width: none; }
+@media (max-width: 760px) {
+  :root { --ch: 16px; --barra-h: 64px; }
+  body { font-size: 1.09rem; }
 
-  /* A linha do tempo perde as duas colunas: vira sequência única com a hora
-     como cabeçalho de cada bloco. */
-  .lt-cab { display: none; }
-  .lt-linha { grid-template-columns: 1fr; min-height: 0; }
-  .lt-hora {
-    place-items: start;
-    padding: 16px 0 4px;
-    border: none;
+  .marca img { height: 32px; }
+  /* ⚠️ Esconder "Entrar" obrigava um síndico que já é cliente a rolar a
+     landing inteira até o rodapé para achar o painel. Vira link de texto. */
+  .barra-acoes .btn-fio {
     background: none;
-    border-top: 1px solid var(--fio);
-    font-size: 17px;
-    color: var(--ambar);
+    min-height: 44px;
+    padding: 10px 4px;
+    font-size: .95rem;
+    clip-path: none;
   }
-  .lt-sem-c, .lt-com-c { padding: 8px 0 8px 16px; justify-content: flex-start; text-align: left; }
-  .lt-sem-c:empty, .lt-com-c:empty { display: none; }
-  .lt-sem-c { border-left: 2px solid rgba(239,68,68,.5); background: rgba(239,68,68,.06); }
-  .lt-com-c:not(:empty) { border-right: none; border-left: 2px solid rgba(62,224,240,.4); background: rgba(62,224,240,.05); }
-  .lt-com-c.is-ok { border-left-color: rgba(52,211,153,.55); background: rgba(52,211,153,.06); }
-  .lt-linha + .lt-linha .lt-sem-c,
-  .lt-linha + .lt-linha .lt-com-c { border-top: none; }
-  /* Sem as colunas, cada bloco precisa dizer de qual cenário é. */
-  .lt-sem-c:not(:empty)::before,
-  .lt-com-c:not(:empty)::before {
-    font-family: var(--serif);
-    font-size: 12px;
-    font-weight: 600;
-    letter-spacing: .18em;
-    text-transform: uppercase;
-    display: block;
-    margin-bottom: 3px;
+  .barra-acoes .btn-fio::before,
+  .barra-acoes .btn-fio::after { display: none; }
+  .barra-acoes .btn-fio:hover { color: var(--amarelo); background: none; }
+  .barra-acoes .btn-amarelo { padding: 10px 16px; }
+
+  /* O instrumento é o que prova o produto; ele precisa alcançar a primeira
+     tela. Manchete e texto encolhem e as duas ações vão lado a lado. */
+  .hero { padding-block: 28px 56px; }
+  .hero-in { min-height: 0; gap: 30px; }
+  .hero-txt h1 { font-size: 2.05rem; margin-bottom: .5em; }
+  .hero-txt .lede { font-size: 1.06rem; margin-bottom: 1.4rem; }
+  .hero-acoes { gap: 10px; margin-bottom: 1.5rem; }
+  .hero-acoes .btn { flex: 1 1 0; min-width: 0; padding-inline: 14px; font-size: 1rem; }
+  .hero-selo { font-size: .6rem; }
+  .hero-eng { top: -30vw; right: -34vw; width: 110vw; height: 110vw; }
+
+  .instr-corpo { grid-template-columns: 1fr; gap: 22px; }
+  .coluna-tubo { width: 100%; height: 132px; }
+  /* Deitada: a lâmina desliza para a esquerda e a crista vira a borda direita. */
+  .coluna-tubo .coluna-agua {
+    background: linear-gradient(to left, var(--mar-500) 0%, var(--mar-600) 55%, var(--mar-700) 100%);
+    transform: translateX(calc(var(--n, 78%) - 100%));
   }
-  .lt-sem-c:not(:empty)::before { content: 'Sem monitoramento'; color: var(--critico); }
-  .lt-com-c:not(:empty)::before { content: 'Com a General';      color: var(--superf); }
-  .lt-sem-c, .lt-com-c { flex-direction: column; align-items: flex-start; }
+  .instr[data-estado="critico"] .coluna-agua {
+    background: linear-gradient(to left, #7a1e2c 0%, #4a1220 100%);
+  }
+  .coluna-crista { left: auto; right: 0; top: 0; bottom: 0; width: 3px; height: auto; }
+  .coluna-faixa { top: 0; bottom: 0; left: auto; right: auto; }
+  .coluna-faixa-baixo   { left: 20%; width: 25%; height: auto; }
+  .coluna-faixa-critico { left: 0;   width: 20%; height: auto; }
+  .coluna-marca { top: 0; bottom: 0; left: auto; right: auto; border-top: 0; border-left: 1px dashed var(--fio-forte); }
+  .coluna-marca-baixo   { left: 45%; }
+  .coluna-marca-critico { left: 20%; border-left-color: color-mix(in srgb, var(--risco) 60%, transparent); }
+  .coluna-marca span { right: auto; left: 5px; top: 5px; }
+  .instr-leituras {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(126px, 1fr));
+    gap: 16px 18px;
+  }
+
+  /* A noite vira coluna única: o trilho encosta na esquerda. */
+  .noite-rail { left: 12px; top: 0; }
+  .noite-ev { grid-template-columns: 1fr; min-height: 0; padding: 0 0 20px 42px; }
+  .noite-h { grid-column: 1; justify-content: flex-start; margin-bottom: 8px; }
+  .noite-h::before { left: -30px; width: 26px; height: 26px; margin: -13px 0 0 -13px; }
+  .noite-sem, .noite-com { grid-column: 1; text-align: left; }
+  .noite-sem:not(:empty) + .noite-com:not(:empty) { margin-top: 8px; }
+  .noite-fecho p { max-width: none; }
+  .js-corte .noite-ev .noite-sem,
+  .js-corte .noite-ev .noite-com { transform: translateX(-18px); }
+
+  .chapas { grid-template-columns: 1fr; gap: 26px; }
+  .chapas .chapa:nth-child(2), .chapas .chapa:nth-child(3) { margin-top: 0; }
+  .anotada .chapa-anot { max-width: none; }
+  /* O rótulo tem de continuar no fim da linha-guia (x=590 de 960 no viewBox),
+     senão a chamada aponta para o nada. Só encolhe. */
+  .rot { font-size: .53rem; padding: 5px 9px 4px; }
+
+  .f-par { grid-template-columns: 1fr; gap: 0; }
+  .rodape-fim { font-size: .62rem; }
 }
 
-@media (max-width: 620px) {
-  body { font-size: 16px; }
-  .wrap, .wrap-estreito { width: calc(100% - 32px); }
-  /* O CTA do topo não cabe ao lado de "Entrar" e estourava a viewport em
-     390px. O botão do hero fica logo abaixo, então nada se perde. */
-  .topo-acoes .btn-cheio { display: none; }
-  .f-par { grid-template-columns: 1fr; }
+/* ⚠️ 460px, e o número é medido, não chutado: "Quero no meu prédio" ocupa
+   170px de texto + 28px de padding = 198px de caixa mínima, o que exige 446px
+   de viewport para os dois botões caberem lado a lado. Abaixo disso o rótulo
+   da ação principal quebra em duas linhas. Se o texto do botão mudar, meça de
+   novo. */
+@media (max-width: 460px) {
   .hero-acoes .btn { flex: 1 1 100%; }
-  .form { padding: 24px 20px 22px; }
-  .faq summary { font-size: 21px; padding-right: 36px; }
-  .lista dt { font-size: 20px; }
-  .peca h3 { font-size: 24px; }
+  /* Rótulo e linha-guia saem juntos: linha sem rótulo aponta para o nada. */
+  .rot, .calls { display: none; }
 }
 
-/* Motion é decorativo aqui: quem pediu menos, recebe o estado final parado. */
+/* ─── Movimento reduzido ──────────────────────────────────────────────── */
+
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   *, *::before, *::after {
     animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
     transition-duration: .001ms !important;
   }
+  .js-corte .rev,
+  .js-corte .sobe,
+  .js-corte .noite-ev .noite-sem,
+  .js-corte .noite-ev .noite-com,
+  .js-corte .call,
+  .js-corte .rot {
+    -webkit-mask-image: none;
+    mask-image: none;
+    opacity: 1;
+    transform: none;
+  }
+  .js-corte .rot { transform: translateY(-50%); }
+  .noite-guia { height: 100% !important; }
 }

@@ -38,6 +38,20 @@ aliases:
 
 ## Em andamento / pendente
 
+- **Landing pública** 🟡 — redesenhada em 2026-08-11 na branch
+  `feature/landing-publica` (direção "Chapa"; a primeira versão, em formato de
+  demonstrativo de despesas, foi rejeitada). Fluxo e pegadinhas em
+  [`../docs/modulos/landing-publica.md`](../docs/modulos/landing-publica.md).
+  Pendente antes do merge:
+  - **Preço / termos da assinatura** — Pedro definiu "assinatura mensal, sem
+    vagas limitadas", mas o **valor não existe**. A página fala em proposta caso
+    a caso e **não cita número nenhum**. Não inventar.
+  - **Texto de LGPD** sob o botão de envio — escrito para descrever só o que
+    `leads.routes.js` faz; falta o Pedro validar.
+  - **"400+ avaliações cinco estrelas no Google"** continua não verificada e por
+    isso está fora da página (ver `PRODUCT.md`).
+  - `POST /leads` **não foi exercitado contra o backend real** nesta sessão —
+    só a validação de campo vazio no front.
 - **Gateway Meta WhatsApp** — código pronto, pendente configuração externa
   (ver [`active-work.md`](active-work.md)).
 - **Fase 10 (treinar IA)** 🟡 — 10A feito; 10B-E aguardam ~500+ conversas

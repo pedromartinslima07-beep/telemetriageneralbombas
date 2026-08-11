@@ -24,6 +24,27 @@ canônica do "porquê"; o "o quê" está em `../docs/` e em [`current-state.md`]
   tela herda a paleta dark do admin — **nunca criar paleta paralela**. Redesigns
   adaptam a referência visual ao Mission Control já implementado (preservar
   cores, performance de animação, logos, padrões de polling).
+- **A landing pública é a única exceção ao "Mission Control único"** — e é
+  deliberada. `public/landing.css` não importa nem herda nada de `admin.css`.
+  O motivo: são públicos e trabalhos diferentes. O admin é ferramenta de
+  operação usada todo dia por quem já foi convencido; a landing é peça de venda
+  para um síndico que nunca ouviu falar do produto e provavelmente não vai
+  voltar. Além disso, o `#f0b014` do admin é a **interpretação interna** da
+  marca; em material voltado ao cliente vale o `#fbb329` institucional
+  (ver `PRODUCT.md`). A regra "nunca criar paleta paralela" continua valendo
+  para tudo que é painel — admin, cliente e app mobile.
+- **Direção visual da landing: "Chapa" (2026-08-11).** A primeira versão foi
+  construída como um **demonstrativo de despesas de condomínio** (folha de
+  papel, tabela de conta com a linha do caminhão-pipa grifada, carimbo
+  "documento ilustrativo") e foi **rejeitada pelo Pedro**. A lição não é sobre
+  acabamento: o conceito se sustentava descrito em texto e não sobrevivia como
+  imagem — virava papelada, não peça de venda. A direção que ficou saiu do
+  **próprio wordmark**, que já é chapa de aço cortada (chanfro a 45°,
+  contraforma quadrada, a lasca amarela dentro do G); o chanfro virou a
+  gramática de placa, botão, foto e campo. **Descartadas** no caminho: hero
+  escuro de SaaS de IoT com dashboard flutuando (o padrão da categoria) e
+  tubos nixie / têxtil op-art (bonitos, mas o primeiro briga com marinho+amarelo
+  e o segundo é hostil para o leitor mais velho que o produto atende).
 - **Animações compositor-friendly.** Transições da sidebar usam `will-change` +
   `contain: layout paint`, opacity/max-width em vez de display none/block, tudo
   unificado em 280ms `cubic-bezier(.4,0,.2,1)` (material standard easing) para

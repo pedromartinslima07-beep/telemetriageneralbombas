@@ -7,9 +7,53 @@ aliases:
 ---
 # Trabalho em Andamento
 
-> Branch atual: `chore/capacitor-8` (saiu de `feature/app-mobile`).
-> Última sessão registrada: **2026-07-28**.
+> Branch atual: `feature/landing-publica` (saiu de `main`).
+> Última sessão registrada: **2026-08-11**.
 > Roadmap completo em [`roadmap.md`](roadmap.md); decisões em [`decisions.md`](decisions.md).
+
+## Sessão 2026-08-11 — Landing pública, segunda direção ("Chapa")
+
+A primeira versão da landing (commit `446d1c7`) foi **rejeitada**. O que não é
+óbvio pelo diff:
+
+- **O motivo da rejeição não foi acabamento, foi conceito.** A página tinha
+  sido construída como um demonstrativo de despesas de condomínio: folha de
+  papel, tabela de conta com a linha do caminhão-pipa grifada a marca-texto,
+  carimbo "documento ilustrativo". A ideia se sustentava no papel e não
+  sobreviveu à tela — virou papelada, não peça de venda. Pedro pediu "mais
+  bonito, com animações mais bonitas".
+- **A direção nova saiu do próprio logo, não de referência externa.** As letras
+  de GENERAL são chanfradas a 45°, com contraforma quadrada e uma lasca amarela
+  dentro do G — é chapa cortada. A versão anterior tratava isso como selo de
+  26px no canto e construía papel em volta. Agora o chanfro é a gramática de
+  placa, botão, foto e campo.
+- **"O logo aparece 3× e as 3 minúsculas"** virou: 2 aparições em escala
+  confiante (40px no topo, 72px no rodapé) + 1 presença gráfica (a engrenagem
+  gigante girando atrás do hero, em SVG próprio). Marca presente sem repetir
+  logotipo.
+- ⚠️ **Não existe vetor da marca.** Confirmado com o Pedro. Por isso as
+  engrenagens foram redesenhadas em SVG e `public/logo-topo.png` foi **gerado**
+  a partir de `login-logo.png` apagando a assinatura por cor. Se um SVG
+  aparecer, substitui os dois.
+- ⚠️ **Termos do piloto:** Pedro definiu que é **assinatura mensal, sem número
+  limitado de vagas**. Preço ainda **não definido** — a página fala em proposta
+  montada caso a caso e não cita valor. Não inventar.
+- **Fotos liberadas:** as 5 fotos reais da equipe podem ser usadas grandes, com
+  rostos. Autorização confirmada pelo Pedro.
+- **Verificado em navegador real** (servidor estático só de `public/`, para não
+  conectar no Postgres de produção nem acordar os jobs), em 1440×960 e
+  500×749. Formulário testado só na validação de campo vazio — **o `POST
+  /leads` não foi exercitado contra o backend real nesta sessão**.
+
+**Pendências desta sessão:**
+
+- Confirmar com o Pedro o texto de LGPD sob o botão ("Seus dados vão só para a
+  equipe comercial da General, para responder este contato"). Foi escrito para
+  descrever apenas o que `leads.routes.js` de fato faz, sem prometer
+  não-compartilhamento.
+- A claim "400+ avaliações cinco estrelas no Google" continua **não
+  verificada** e por isso **não** está na página (ver `PRODUCT.md`).
+- Merge para `main` ainda não feito.
 
 ## Sessão 2026-08-06 — Modal "Editar condomínio" (continuação da padronização)
 
