@@ -80,6 +80,12 @@
   --fio-forte: rgba(255, 255, 255, .34);
   --fio-esc:   rgba(6, 16, 51, .16);
 
+  /* Corte gravado: o par que faz uma divisão LER como rasgo na chapa em vez
+     de borda desenhada. `--rasgo` é o fundo do sulco, `--luz` é a aresta
+     virada para cima pegando luz. Sempre nesta ordem, sempre 1px cada. */
+  --rasgo: rgba(2, 6, 22, .55);
+  --luz:   rgba(255, 255, 255, .10);
+
   --fonte: "Archivo", ui-sans-serif, system-ui, sans-serif;
   --mono:  "Martian Mono", ui-monospace, "SFMono-Regular", monospace;
 
@@ -140,7 +146,7 @@ img { max-width: 100%; display: block; }
    velho. Para esses o indicador vira `box-shadow: inset`, que é pintado dentro
    do polígono e sobrevive ao corte (falta só nos dois chanfros, de ~10px).
    O anel duplo garante contraste sobre fundo claro e escuro.
-   Ao criar elemento focável novo com `clip-path`, ele precisa entrar aqui. */
+   Ao criar elemento focável novo com `clip-path`, ele precisa entrar aqui.
    Os campos do formulário e `.peca` têm regras próprias mais abaixo, no lugar
    onde o resto do estado deles é definido. */
 .btn:focus-visible,
@@ -221,11 +227,10 @@ p:last-child { margin-bottom: 0; }
   max-width: 56ch;
 }
 .secao-clara .lede { color: var(--tinta-2); }
-.lede-centro { margin-inline: auto; text-align: center; }
 
 /* Etiqueta gravada — mono é medição e rótulo de painel, nunca decoração. */
 .eti,
-.instr-id, .noite-rot, .noite-h,
+.instr-id,
 .peca-onde, .rot, .opc, .rodape-contato dt, .rodape-fim,
 .hero-selo {
   font-family: var(--mono);
@@ -683,127 +688,78 @@ a { color: inherit; }
 .secao > .area > h2 { margin-bottom: .55em; }
 .secao > .area > .lede { margin-bottom: clamp(40px, 5vw, 66px); }
 
-/* ─── A noite ─────────────────────────────────────────────────────────── */
+/* ─── Por que monitorar ───────────────────────────────────────────────── */
 
-.noite {
-  position: relative;
-  margin-top: clamp(40px, 5vw, 68px);
-}
+/* Substituiu a linha do tempo da madrugada (5 eventos + trilho preso ao
+   scroll), que era a seção mais alta da página para contar uma noite só.
 
-/* Trilho central: o indicador desce conforme o scroll. */
-.noite-rail {
-  position: absolute;
-  top: 12px; bottom: 0; left: 50%;
-  width: 2px;
-  margin-left: -1px;
-  background: var(--fio);
-}
-.noite-guia {
-  position: absolute; left: -1px; top: 0;
-  width: 4px;
-  height: var(--g, 0%);
-  background: linear-gradient(180deg, transparent, var(--amarelo) 22%, var(--amarelo));
-  box-shadow: 0 0 16px 2px color-mix(in srgb, var(--amarelo) 42%, transparent);
-}
-
-.noite-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
-
-.noite-ev {
-  display: grid;
-  grid-template-columns: 1fr 128px 1fr;
-  align-items: center;
-  min-height: 92px;
-}
-.noite-h {
-  grid-column: 2;
-  display: flex; align-items: center; justify-content: center;
-  color: var(--sobre-2);
-  font-size: .7rem;
-  position: relative;
-  z-index: 1;
-}
-.noite-h::before {
-  content: "";
-  position: absolute; left: 50%; top: 50%;
-  width: 44px; height: 44px;
-  margin: -22px 0 0 -22px;
-  background: var(--mar-800);
-  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
-  z-index: -1;
-}
-.noite-h time { font-variant-numeric: tabular-nums; }
-
-.noite-sem, .noite-com {
-  --ch: 12px;
-  padding: 16px 22px;
-  clip-path: var(--corte-p);
-}
-.noite-sem:not(:empty), .noite-com:not(:empty) {
+   ⚠️ Isto é UMA placa dividida por cortes gravados, não três cards lado a
+   lado. Três caixas iguais de título + parágrafo é o contêiner preguiçoso —
+   e era exatamente o vício da primeira versão rejeitada. A anatomia aqui é a
+   do instrumento (cabeçalho / corpo / estado separados por sulco): um objeto
+   usinado, com o fecho de 24 h como a faixa de baixo da mesma peça. */
+/* Sem margin-top: a lede da seção já entrega `clamp(40px, 5vw, 66px)` embaixo,
+   e as duas somavam 134px de vão. */
+.vigia {
+  --ch: 20px;
+  clip-path: var(--corte);
   background: color-mix(in srgb, var(--mar-700) 55%, transparent);
   box-shadow: inset 0 0 0 1px var(--fio);
 }
-/* ⚠️ Nada de `text-align: right` na coluna esquerda. A simetria espelhada era
-   bonita e custava legibilidade justamente para o leitor mais velho que este
-   produto atende. A identidade de cada lado vem da etiqueta, não do alinhamento. */
-.noite-sem { grid-column: 1; }
-.noite-com { grid-column: 3; }
-.noite-sem p, .noite-com p { margin: 0; max-width: none; font-size: 1.04rem; line-height: 1.5; }
-.noite-sem:empty, .noite-com:empty { padding: 0; }
 
-/* Visível em toda largura. Com a linha de cabeçalho fora, é a etiqueta que diz
-   de que lado o bloco é — e o leitor de tela passa a receber a mesma coisa que
-   a pessoa que enxerga. */
-.noite-tag {
-  display: block;
-  margin-bottom: 7px;
-  font-family: var(--mono);
-  font-size: .62rem;
-  font-weight: 500;
-  letter-spacing: .13em;
-  text-transform: uppercase;
-  color: var(--sobre-2);
-}
-.noite-ruim .noite-tag { color: #ffb3a8; }
-.noite-bom .noite-tag  { color: var(--amarelo); }
-
-.noite-ruim { color: #ffc0b8; }
-.noite-ruim:not(:empty) { background: color-mix(in srgb, var(--risco) 13%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--risco) 34%, transparent); }
-.noite-bom:not(:empty) { background: color-mix(in srgb, var(--amarelo) 13%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--amarelo) 40%, transparent); }
-.noite-bom { color: #ffe0a8; }
-
-/* O desfecho sai da grade de duas colunas: vira faixa cheia, porque é a
-   conclusão da seção e não mais um evento da madrugada. */
-.noite-fecho {
-  --ch: 20px;
-  margin-top: clamp(28px, 4vw, 48px);
-  padding: clamp(26px, 3.4vw, 40px) clamp(24px, 4vw, 52px);
-  clip-path: var(--corte);
-  background: color-mix(in srgb, var(--mar-700) 62%, transparent);
-  box-shadow: inset 0 0 0 1px var(--fio);
-  display: grid;
-  gap: 10px;
-}
-.noite-fecho p {
+.vigia-cels {
+  list-style: none;
   margin: 0;
-  max-width: 34ch;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+}
+.vigia-cel { padding: clamp(24px, 2.7vw, 36px); }
+
+/* O sulco: linha escura (o fundo do corte) + fio claro à direita dela (a
+   aresta pegando luz). Com uma linha só isto vira borda de card. */
+.vigia-cel + .vigia-cel {
+  border-left: 1px solid var(--rasgo);
+  box-shadow: inset 1px 0 0 var(--luz);
+}
+
+.vigia-cel b {
+  display: block;
+  margin-bottom: 11px;
+  font-size: clamp(1.08rem, 1.5vw, 1.32rem);
+  font-weight: 800;
+  font-stretch: 106%;
+  line-height: 1.2;
+  letter-spacing: -.018em;
+  color: var(--amarelo);
+}
+.vigia-cel p { margin: 0; max-width: none; font-size: 1.02rem; line-height: 1.55; }
+
+/* A chamada de 24 h — o que sobrou do foco na madrugada, de propósito.
+   É a faixa inferior da mesma placa, separada pelo mesmo sulco.
+   Duas colunas assimétricas: em coluna única a faixa mais larga da seção
+   ficava com a metade direita vazia. */
+.vigia-painel {
+  padding: clamp(26px, 3vw, 38px) clamp(24px, 2.7vw, 36px);
+  border-top: 1px solid var(--rasgo);
+  box-shadow: inset 0 1px 0 var(--luz);
+  display: grid;
+  grid-template-columns: minmax(0, .92fr) minmax(0, 1.08fr);
+  align-items: start;
+  gap: clamp(14px, 2.4vw, 40px);
+}
+/* Sem max-width: a coluna da grade já limita, e um `ch` por cima dela quebrava
+   o título em três linhas. */
+.vigia-painel-t {
+  margin: 0;
   font-size: clamp(1.3rem, 2.6vw, 2rem);
   font-weight: 800;
   font-stretch: 106%;
   line-height: 1.22;
   letter-spacing: -.025em;
+  color: var(--amarelo);
 }
-.noite-fecho-sem { color: #ff8f80; }
-.noite-fecho-com { color: var(--amarelo); }
-
-/* Entrada lateral: cada lado chega do seu lado do trilho. */
-.js-corte .noite-ev .noite-sem { transform: translateX(26px); opacity: .001; }
-.js-corte .noite-ev .noite-com { transform: translateX(-26px); opacity: .001; }
-.js-corte .noite-ev.is-vis .noite-sem,
-.js-corte .noite-ev.is-vis .noite-com {
-  transform: none; opacity: 1;
-  transition: transform .72s var(--saida), opacity .55s var(--saida);
-}
-.js-corte .noite-ev.is-vis .noite-com { transition-delay: .1s; }
+.vigia-painel-p { margin: 0; max-width: 62ch; font-size: 1.04rem; line-height: 1.55; }
 
 /* ─── Quem instala ────────────────────────────────────────────────────── */
 
@@ -899,10 +855,12 @@ a { color: inherit; }
   margin-top: clamp(40px, 5vw, 64px);
 }
 
+/* Altura menor que a antiga (660px) porque o viewBox encolheu de 700 para 520
+   ao cortar o miolo vazio da torre — manter 660 só voltaria a inflar a seção. */
 .predio svg {
   display: block;
   width: auto;
-  height: min(660px, 76vh);
+  height: min(500px, 62vh);
   max-width: 100%;
   margin-inline: auto;
 }
@@ -916,25 +874,35 @@ a { color: inherit; }
   opacity: .8;
 }
 
+/* Hierarquia de traço: 2px = aresta de estrutura, 1px = detalhe interno.
+   Antes era tudo 2px, e sem hierarquia nada parecia mais importante. */
 .pd-corpo { fill: color-mix(in srgb, var(--mar-700) 62%, transparent); stroke: var(--fio-forte); stroke-width: 2; }
-.pd-andares path { stroke: var(--fio); stroke-width: 1.5; }
+.pd-janelas { fill: color-mix(in srgb, var(--mar-900) 62%, transparent); stroke: var(--fio); stroke-width: 1; }
 .pd-tanque { fill: var(--mar-900); stroke: var(--fio-forte); stroke-width: 2; }
-.pd-agua-sup, .pd-agua-inf { fill: var(--mar-500); opacity: .85; }
+.pd-agua { fill: var(--mar-500); opacity: .85; }
+/* A lâmina do instrumento tem crista; a do diagrama não tinha, e por isso a
+   água lia como bloco chapado. Mesmo gesto, escala menor. */
+.pd-agua-topo { stroke: var(--amarelo-cl); stroke-width: 2; fill: none; opacity: .45; }
 .pd-tubo { stroke: var(--sobre-2); stroke-width: 7; fill: none; opacity: .55; }
-.pd-tubo-fino { stroke-width: 3; }
+/* Trecho embutido na parede: mesmo tubo, mais fino e mais fraco. */
+.pd-prumada { stroke-width: 4; opacity: .4; }
+.pd-cabo { stroke: var(--sobre-2); stroke-width: 2.5; fill: none; opacity: .4; }
 .pd-solo { stroke: var(--amarelo); stroke-width: 2.5; opacity: .55; }
-.pd-bomba { fill: var(--mar-600); stroke: var(--fio-forte); stroke-width: 2; }
+.pd-base   { fill: var(--mar-900); stroke: var(--fio-forte); stroke-width: 1.5; }
+.pd-motor  { fill: var(--mar-600); stroke: var(--fio-forte); stroke-width: 2; }
+.pd-borne  { fill: var(--mar-900); stroke: var(--fio-forte); stroke-width: 1.5; }
+.pd-bomba  { fill: var(--mar-600); stroke: var(--fio-forte); stroke-width: 2; }
 .pd-quadro { fill: var(--mar-900); stroke: var(--fio-forte); stroke-width: 2; }
-.pd-quadro-in { stroke: var(--sobre-2); stroke-width: 2.5; opacity: .5; }
+.pd-quadro-in { stroke: var(--sobre-2); stroke-width: 1.5; opacity: .5; }
 
 .pd-ponto { fill: var(--amarelo); stroke: var(--mar-900); stroke-width: 2.5; }
 .pd-marca text {
   font-family: var(--mono);
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 700;
   fill: var(--mar-900);
 }
-.pd-fio { stroke: var(--amarelo); stroke-width: 2.5; stroke-dasharray: 5 5; fill: none; }
+.pd-fio { stroke: var(--amarelo); stroke-width: 2; stroke-dasharray: 4 4; fill: none; }
 .pd-pulso { fill: none; stroke: var(--amarelo); stroke-width: 2; opacity: 0; transform-origin: center; transform-box: fill-box; }
 
 @keyframes pulso {
@@ -1282,6 +1250,7 @@ a { color: inherit; }
   .predio svg { max-height: 480px; }
   .fecho-in { grid-template-columns: 1fr; }
   .ficha { max-width: 560px; }
+  .vigia-painel { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 900px) {
@@ -1343,16 +1312,14 @@ a { color: inherit; }
     gap: 16px 18px;
   }
 
-  /* A noite vira coluna única: o trilho encosta na esquerda. */
-  .noite-rail { left: 12px; top: 0; }
-  .noite-ev { grid-template-columns: 1fr; min-height: 0; padding: 0 0 20px 42px; }
-  .noite-h { grid-column: 1; justify-content: flex-start; margin-bottom: 8px; }
-  .noite-h::before { left: -30px; width: 26px; height: 26px; margin: -13px 0 0 -13px; }
-  .noite-sem, .noite-com { grid-column: 1; text-align: left; }
-  .noite-sem:not(:empty) + .noite-com:not(:empty) { margin-top: 8px; }
-  .noite-fecho p { max-width: none; }
-  .js-corte .noite-ev .noite-sem,
-  .js-corte .noite-ev .noite-com { transform: translateX(-18px); }
+  /* A placa vira coluna única: o sulco deita junto, senão as células
+     empilhadas ficam sem divisão nenhuma. */
+  .vigia-cels { grid-template-columns: 1fr; }
+  .vigia-cel + .vigia-cel {
+    border-left: 0;
+    border-top: 1px solid var(--rasgo);
+    box-shadow: inset 0 1px 0 var(--luz);
+  }
 
   .chapas { grid-template-columns: 1fr; gap: 26px; }
   .chapas .chapa:nth-child(2), .chapas .chapa:nth-child(3) { margin-top: 0; }
@@ -1387,8 +1354,6 @@ a { color: inherit; }
   }
   .js-corte .rev,
   .js-corte .sobe,
-  .js-corte .noite-ev .noite-sem,
-  .js-corte .noite-ev .noite-com,
   .js-corte .call,
   .js-corte .rot {
     -webkit-mask-image: none;
@@ -1397,5 +1362,4 @@ a { color: inherit; }
     transform: none;
   }
   .js-corte .rot { transform: translateY(-50%); }
-  .noite-guia { height: 100% !important; }
 }

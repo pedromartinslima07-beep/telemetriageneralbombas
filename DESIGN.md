@@ -28,6 +28,8 @@ colors:
   fio: "rgba(255, 255, 255, .17)"
   fio-forte: "rgba(255, 255, 255, .34)"
   fio-escuro: "rgba(6, 16, 51, .16)"
+  rasgo: "rgba(2, 6, 22, .55)"
+  luz: "rgba(255, 255, 255, .10)"
 typography:
   display:
     fontFamily: "Archivo, ui-sans-serif, system-ui, sans-serif"
@@ -75,6 +77,78 @@ typography:
     lineHeight: 1
     letterSpacing: "-.02em"
     fontFeature: "tabular-nums"
+  # ── Rampa de UI (painel do cliente) ──────────────────────────────────────
+  # Fixa em rem e de razão apertada, ao contrário da rampa de peça de venda
+  # acima. Ver a seção "Rampa de UI" no corpo do documento.
+  ui-veredito:
+    fontFamily: "Archivo, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "clamp(1.35rem, 2.4vw, 1.85rem)"
+    fontWeight: 800
+    lineHeight: 1.22
+    letterSpacing: "-.022em"
+  ui-tela:
+    fontFamily: "Archivo, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "1.32rem"
+    fontWeight: 800
+    lineHeight: 1.2
+    letterSpacing: "-.02em"
+  ui-modal:
+    fontFamily: "Archivo, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "1.2rem"
+    fontWeight: 800
+    lineHeight: 1.25
+    letterSpacing: "-.02em"
+  ui-placa:
+    fontFamily: "Archivo, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "1.09rem"
+    fontWeight: 800
+    lineHeight: 1.25
+    letterSpacing: "-.015em"
+  ui-corpo:
+    fontFamily: "Archivo, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "1.0625rem"
+    fontWeight: 400
+    lineHeight: 1.55
+    letterSpacing: "normal"
+  ui-corpo-2:
+    fontFamily: "Archivo, ui-sans-serif, system-ui, sans-serif"
+    fontSize: ".95rem"
+    fontWeight: 400
+    lineHeight: 1.5
+    letterSpacing: "normal"
+  ui-apoio:
+    fontFamily: "Archivo, ui-sans-serif, system-ui, sans-serif"
+    fontSize: ".87rem"
+    fontWeight: 400
+    lineHeight: 1.45
+    letterSpacing: "normal"
+  ui-leitura:
+    fontFamily: "Martian Mono, ui-monospace, SFMono-Regular, monospace"
+    fontSize: "1.9rem"
+    fontWeight: 700
+    lineHeight: 1.1
+    letterSpacing: "-.03em"
+    fontFeature: "tabular-nums"
+  ui-leitura-2:
+    fontFamily: "Martian Mono, ui-monospace, SFMono-Regular, monospace"
+    fontSize: "1.6rem"
+    fontWeight: 700
+    lineHeight: 1
+    letterSpacing: "-.02em"
+    fontFeature: "tabular-nums"
+  ui-relogio:
+    fontFamily: "Martian Mono, ui-monospace, SFMono-Regular, monospace"
+    fontSize: ".95rem"
+    fontWeight: 700
+    lineHeight: 1.2
+    letterSpacing: ".04em"
+    fontFeature: "tabular-nums"
+  ui-etiqueta:
+    fontFamily: "Martian Mono, ui-monospace, SFMono-Regular, monospace"
+    fontSize: ".62rem"
+    fontWeight: 500
+    lineHeight: 1.35
+    letterSpacing: ".12em"
 rounded:
   nenhum: "0"
   chanfro: "22px"
@@ -135,16 +209,31 @@ components:
 
 # Design System: General Telemetria — Landing Pública
 
-> **Fronteira do documento.** Este arquivo descreve **apenas a superfície
-> pública** (`public/index.html`, `public/landing.css`, `public/landing.js`,
-> rota `/`). O painel interno (`public/admin.css`, "Mission Control", âmbar
-> `#f0b014`, escuro) é um sistema **separado e mais antigo**, e essa separação é
-> uma decisão registrada — não uma pendência. Nada aqui deve ser aplicado ao
-> admin, ao painel do cliente ou ao app mobile, e nenhum token do admin deve
-> ser importado para cá. **Não unificar os dois sistemas.**
+> **Fronteira do documento — revisada em 2026-08-13.** Este arquivo descreve o
+> sistema **"Chapa"**, que hoje veste **três superfícies voltadas ao cliente**:
+> a landing pública (`/`), a tela de login (`/login`) e o **painel do cliente**
+> (`/cliente/painel`). As três são a mesma jornada — conhecer, entrar, usar — e
+> não podem parecer três empresas.
 >
-> Contexto de produto: [PRODUCT.md](PRODUCT.md) · Fluxo:
-> [Landing pública](docs/modulos/landing-publica.md) · Índice:
+> O **painel admin** (`public/admin.css`, "Mission Control", âmbar `#f0b014`) e
+> o **app mobile do técnico** continuam num sistema **separado**, e essa
+> separação segue sendo decisão registrada, não pendência: o admin é ferramenta
+> de operação interna, com densidade de quem olha N condomínios. **Nenhum token
+> do admin entra aqui, e nenhum daqui entra lá.**
+>
+> ⚠️ Até 2026-08-13 esta fronteira dizia "nada aqui deve ser aplicado ao painel
+> do cliente". Aquilo foi escrito quando o painel do cliente não estava em
+> questão — e era justamente o que fazia o síndico sair de uma landing marinho
+> e cair num painel preto e âmbar. Mudança pedida pelo Pedro; o "porquê" está
+> em [decisions.md](memory-bank/decisions.md).
+>
+> As três superfícies **duplicam os tokens de propósito** (`landing.css`,
+> `login.css`, `cliente.css`), porque são servidas em páginas diferentes e não
+> compartilham CSS. **Mudou a paleta? Mude nos três.**
+>
+> Contexto de produto: [PRODUCT.md](PRODUCT.md) · Fluxos:
+> [Landing pública](docs/modulos/landing-publica.md) ·
+> [Painel do cliente](docs/modulos/painel-cliente.md) · Índice:
 > [Home](Home.md)
 
 ## Overview
@@ -220,8 +309,8 @@ reservado a estado crítico.
 ### Tertiary
 
 - **Vermelho de Risco** (`--risco`): apenas estado crítico, e apenas sobre
-  marinho — faixa crítica da coluna, anel do instrumento em crítico, bloco "sem
-  monitoramento" da madrugada. Nunca é decoração e nunca aparece em repouso.
+  marinho — faixa crítica da coluna e anel do instrumento em crítico. Nunca é
+  decoração e nunca aparece em repouso.
 
 ### Neutral
 
@@ -237,6 +326,10 @@ reservado a estado crítico.
 - **Fio / Fio Forte / Fio Escuro** (`--fio`, `--fio-forte`, `--fio-escuro`):
   hairlines de 1px a 1,5px. São a usinagem do sistema: separam sem pesar e
   desenham a aresta de toda placa.
+- **Rasgo / Luz** (`--rasgo`, `--luz`): o par do **corte gravado**. Sempre
+  juntos e sempre nesta ordem — `--rasgo` é o fundo do sulco, `--luz` é a
+  aresta virada para cima. Diferente de `--fio`, que desenha o contorno
+  *externo* de uma placa, este par divide o *interior* de uma peça só.
 
 ### Named Rules
 
@@ -246,14 +339,43 @@ claro ele só existe como **preenchimento com tinta marinho por cima**. Quando
 um indicador precisar existir numa placa clara, ele é marinho, e o amarelo
 entra no realce do painel inteiro. Sobre marinho o amarelo é livre.
 
+**A Regra dos Dois Campos de Estado.** A regra acima não é só do amarelo: no
+painel do cliente o dado é lido em **placa clara**, e ali `--risco` (`#ff5a4d`)
+e o verde de repouso também reprovam como texto. Por isso o estado tem **duas
+famílias**, e usar a errada é erro de contraste, não de gosto:
+
+| Estado | Sobre marinho | Tinta sobre placa clara |
+|---|---|---|
+| Crítico | `--risco` `#ff5a4d` | `--risco-t` `#b3241a` |
+| Atenção | `--amarelo` `#fbb329` | `--atencao-t` `#8a5300` |
+| Repouso | `--normal` `#63d8a0` | `--normal-t` `#145c33` |
+
+Quando o estado precisa de **forma**, e não de texto, ele vira **placa
+chanfrada preenchida com tinta legível por cima** — é o que fazem as badges de
+severidade, os pills de status e a placa do ícone do KPI.
+
+**A Regra da Água Visível.** A lâmina d'água abre em `--agua` (`#2f6fe0`) no
+painel e em `--mar-500` na landing. Não é inconsistência: na landing a coluna
+tem 268px e é o único objeto da placa; no painel são três tubos de 176px lado a
+lado sobre o mesmo gradiente marinho, e a rampa 500→700 lê como retângulo
+preto — a água some justo no reservatório mais baixo, que é o único que
+importa enxergar. Medido na tela, não deduzido.
+
 **A Regra do Campo Único.** A página inverte o campo **uma vez só**: a seção de
 conversão vira amarela com tinta marinho (~9:1, o texto mais legível da
 página). Se uma segunda região virar campo amarelo, o gesto do "aja aqui"
 morre.
 
 **A Regra do Crítico Silencioso.** `--risco` não aparece em repouso. Ele só é
-ligado por estado (`data-estado="critico"`) ou para nomear a madrugada sem
-monitoramento.
+ligado por estado real (`data-estado="critico"`) — hoje, exclusivamente no
+instrumento. Nenhum bloco de conteúdo estático usa vermelho.
+
+**A Regra do Corte Gravado.** Divisão interna de placa é feita com **duas**
+linhas de 1px, nunca uma: `--rasgo` (`rgba(2,6,22,.55)`, o fundo do sulco) e,
+imediatamente ao lado, `--luz` (`rgba(255,255,255,.10)`, a aresta pegando luz).
+Uma linha só lê como borda de card e transforma a placa em três cartõezinhos —
+que é o vício da versão rejeitada. É este par que faz a divisão ler como corte
+em chapa. Ver `.vigia-cel + .vigia-cel`.
 
 ## Typography
 
@@ -283,11 +405,39 @@ onde há medição ou rótulo de painel, e em lugar nenhum mais.
 - **Body** (400, 19px / 1.09rem no mobile, altura 1.65, máx. 68ch): corpo
   padrão. O tamanho é decisão de público, não sobra de escala.
 - **Label** (mono 500, .69rem, tracking .13em, caixa alta): etiqueta gravada —
-  identificação do instrumento, hora da madrugada, "onde fica" de cada peça,
-  rótulo do rodapé, selo do hero, rótulo das chamadas na foto.
+  identificação do instrumento, relógio do instrumento, "onde fica" de cada
+  peça, rótulo do rodapé, selo do hero, rótulo das chamadas na foto.
 - **Reading** (mono 700, `clamp(1.5rem, 2.3vw, 1.95rem)`, `tabular-nums`,
   altura 1): os números do instrumento. A unidade ao lado sai a .72rem em
   `--sobre-2`.
+
+### Rampa de UI (painel do cliente)
+
+A hierarquia acima é de **peça de venda**: fluida (`clamp`), com contraste
+grande entre passos. O painel do cliente é superfície de **tarefa**, e usa uma
+rampa própria — **fixa em `rem`, razão apertada**, porque ali existem muito
+mais elementos de tipo por tela e um `h1` que encolhe dentro de uma coluna fica
+pior, não melhor. Não é desvio do sistema; é o mesmo sistema no registro de
+operação. Só o **veredito** do instrumento mantém `clamp`, porque é a única
+peça retórica do painel.
+
+| Papel | Tamanho | Peso | Família |
+|---|---|---|---|
+| Veredito (instrumento) | `clamp(1.35rem, 2.4vw, 1.85rem)` | 800 | Archivo |
+| Título de tela (topbar) | 1.32rem | 800 | Archivo |
+| Título de modal | 1.2rem | 800 | Archivo |
+| Título de placa | 1.09rem | 800 | Archivo |
+| Corpo | **1.0625rem (17px)** | 400 | Archivo |
+| Corpo secundário | .93rem–.97rem | 400–700 | Archivo |
+| Apoio / legenda | .82rem–.88rem | 400 | Archivo |
+| Leitura grande (KPI, nível) | 1.6rem–1.9rem, `tabular-nums` | 700 | Martian Mono |
+| Relógio do instrumento | .95rem, `tabular-nums` | 700 | Martian Mono |
+| Etiqueta gravada | .55rem–.66rem, tracking .11–.14em, caixa alta | 500–700 | Martian Mono |
+
+⚠️ **O corpo é 17px e não encolhe no mobile.** É requisito de conversão do
+[PRODUCT.md](PRODUCT.md) (público envelhecido), não sobra de escala. O painel
+antigo tinha rótulo de KPI a 9px no celular — o aparelho em que o síndico mais
+lê era o que tinha o menor texto.
 
 ### Named Rules
 
@@ -315,24 +465,27 @@ nenhuma caia debaixo dela.
 As grades são sempre **assimétricas e nomeadas pelo conteúdo**, nunca um grid
 de 12 colunas: hero 1.12fr / 0.88fr (mínimo de 310px para o instrumento);
 foto anotada 0.82fr / 1.18fr; peças 0.92fr / 1.08fr; fecho 1fr / 340–480px;
-rodapé 1fr / 1.1fr. A madrugada usa três colunas (1fr / 128px / 1fr) com o
-trilho no centro. A tríade de fotos escalona verticalmente (2ª e 3ª descem
-`clamp(18px,3vw,44px)` e `clamp(36px,6vw,88px)`): as três placas não pousam na
-mesma linha.
+rodapé 1fr / 1.1fr. A placa do serviço é uma peça só: três células
+iguais em cima (`repeat(3, 1fr)` — são falhas equivalentes, e forçar
+assimetria aqui seria decoração) e a faixa de 24 h embaixo em `.92fr / 1.08fr`.
+A tríade de fotos escalona verticalmente (2ª e 3ª descem `clamp(18px,3vw,44px)`
+e `clamp(36px,6vw,88px)`): as três placas não pousam na mesma linha.
 
 Medidas de linha são explícitas: 68ch no corpo, 56ch na lede, 46ch na lede do
-hero, 54ch na descrição de peça, 42ch em legenda, 34ch no desfecho.
+hero, 54ch na descrição de peça, 42ch em legenda, 20ch na chamada de 24 h.
 
 **Responsivo — quatro quebras, cada uma com uma razão:**
 
 - **1080px** — todas as grades de duas colunas viram uma; instrumento e ficha
-  ganham largura máxima.
+  ganham largura máxima; a faixa de 24 h empilha.
 - **900px** — a navegação da barra sai; o rodapé empilha.
 - **760px** — o chanfro global cai de 22px para 16px e o corpo para 1.09rem; a
   coluna d'água **deita** (a lâmina desliza para a esquerda e a crista vira a
-  borda direita); a madrugada vira coluna única com o trilho encostado à
-  esquerda; o botão "Entrar" vira link de texto puro (esconder obrigava um
-  cliente a rolar a página inteira para achar o painel).
+  borda direita); a placa do serviço vira coluna única e **o sulco
+  deita junto** (o corte gravado passa de `border-left` para `border-top`,
+  senão as células empilhadas ficam sem divisão nenhuma); o botão "Entrar"
+  vira link de texto puro (esconder obrigava um cliente a rolar a página
+  inteira para achar o painel).
 - **460px** — as duas ações do hero empilham. O número é medido, não chutado:
   o rótulo da ação primária ocupa 198px de caixa mínima, o que exige 446px de
   viewport para caberem lado a lado. Se o texto do botão mudar, meça de novo.
@@ -349,8 +502,9 @@ desenha a borda de cada placa. Superfícies escuras usam
 virar outra cor.
 
 As únicas `box-shadow` do sistema são **halos de luz**, não elevação: o brilho
-da crista da coluna d'água, o brilho do indicador do trilho da madrugada e o
-anel em volta da lâmpada de estado. `backdrop-filter: blur(14px)` aparece uma
+da crista da coluna d'água e o anel em volta da lâmpada de estado. (`box-shadow:
+inset` de 1px também aparece como *aresta*, no anel das placas e no corte
+gravado — é usinagem, não elevação.) `backdrop-filter: blur(14px)` aparece uma
 vez, na barra fixa, e só até o primeiro scroll — depois ela vira marinho sólido
 com fio inferior.
 
@@ -375,14 +529,12 @@ mais forte ou ganha amarelo — nesta ordem.
 via `clip-path` a partir de dois polígonos-token: `--corte` (escala grande,
 `--ch: 22px`) e `--corte-p` (escala pequena, `--ch-p: 10px`). Cada componente
 redeclara `--ch` localmente e herda o polígono: botão 10px, botão grande 13px,
-peça 14px, dúvida 14px, evento da madrugada 12px, campo de formulário 9px,
-coluna d'água 8px, instrumento 20px, ficha 22px, foto 20–26px. No mobile o
-`--ch` global cai para 16px.
+peça 14px, dúvida 14px, campo de formulário 9px, coluna d'água 8px,
+instrumento 20px, placa do serviço 20px, ficha 22px, foto 20–26px. No
+mobile o `--ch` global cai para 16px.
 
 Formas menores repetem o mesmo corte a mão, com o mesmo ângulo: o numerador de
-peça (5px), o marcador de item do fecho (4px), o rótulo das chamadas (6px). O
-losango da hora da madrugada é a exceção declarada — quatro pontas, porque é um
-nó de trilho, não uma placa.
+peça (5px), o marcador de item do fecho (4px), o rótulo das chamadas (6px).
 
 Traço é sempre **esquadrado**: `stroke-linecap: square`, `stroke-linejoin:
 miter` nas chamadas, no diagrama do prédio e na seta do select. A única curva
@@ -427,14 +579,31 @@ Duas faixas listradas a −45° assinam limites de campo: 6px na base do hero
   prédio.
 - **Padding interno:** 22px 26px nas peças; `clamp(26px, 3.4vw, 38px)` na ficha.
 
+### A Placa Dividida (`.vigia`)
+
+Uma placa chanfrada de 20px com anel de 1px, dividida internamente por **cortes
+gravados** — três células de largura igual em cima e a faixa de conclusão
+embaixo. É deliberadamente **um objeto, não um conjunto de cards**: o conteúdo
+(três falhas que a boia não reporta + a chamada de 24 h) pediria naturalmente
+três caixas lado a lado, e é exatamente essa a forma proibida — foi o vício da
+primeira versão rejeitada, e é o contêiner preguiçoso por excelência.
+
+A anatomia é emprestada do instrumento (cabeçalho / corpo / estado / nota
+separados por sulco): quem já leu a placa do hero reconhece a peça. Título de
+célula em amarelo sobre marinho (livre, pela Regra do Amarelo Cego), corpo a
+1.02rem. Sem hover, sem estado — é leitura, não controle.
+
 ### Inputs / Fields
 
 - **Estilo:** fundo branco puro dentro da placa clara, chanfro de 9px, sem
   `border` — o contorno é `inset 0 0 0 1.5px` em `--fio-escuro`. Altura mínima
   54px, texto a 1.05rem, `caret-color` marinho.
 - **Hover:** o fio escurece para tinta a 32%.
-- **Foco:** o contorno engrossa para 2,5px em marinho institucional; o anel
-  amarelo de foco visível fica por fora, a 3px.
+- **Foco:** o contorno engrossa para 2,5px em marinho institucional. No
+  `:focus-visible` o anel vira duplo — amarelo a 3px com marinho a 6px — e
+  ⚠️ **os dois são `inset`**. Anel por `outline` ou por `box-shadow` normal é
+  pintado fora da caixa e o `clip-path` do chanfro recorta ele inteiro: o
+  indicador é calculado e simplesmente não aparece.
 - **Erro:** fio de 2px em `#c2261c` e fundo `#fff4f3`, com `aria-invalid`; sai
   assim que a pessoa começa a corrigir.
 - **Select:** aparência nativa removida, seta desenhada em SVG com traço
@@ -486,8 +655,9 @@ Duas entradas distintas, **de propósito**:
   transição com uma faixa translúcida atravessados.
 - **`.sobe` — a subida silenciosa.** Translado de 14px e opacidade, para todo o
   resto. Uma entrada só, repetida trinta vezes, vira tique.
-- **A madrugada tem entrada própria:** cada lado chega do seu lado do trilho
-  (±26px em X), com .1s de atraso no lado direito.
+- **A placa do serviço sobe inteira**, não célula por célula: animar
+  as três em sequência desmancharia a leitura de peça única e recriaria o
+  efeito de cards que a placa existe para evitar.
 - **Engrenagens:** rotação linear contínua e muito lenta (64s, 96s, 120s), em
   sentidos opostos, sempre atrás do conteúdo.
 - **Escalonamento:** `--atraso` de .09s por irmão, **limitado a 4 passos** —
@@ -499,9 +669,8 @@ Duas entradas distintas, **de propósito**:
 existe como animá-lo de volta: o JS adiciona `.js-corte` na raiz **apenas** se
 houver `IntersectionObserver` **e** suporte a `mask-image`. Sem isso, a página
 fica visível exatamente como está no HTML. E em `prefers-reduced-motion:
-reduce` toda máscara é removida, tudo volta a opacidade 1, o trilho da
-madrugada vai a 100% e o instrumento é congelado no momento que importa — o
-alerta crítico já aberto.
+reduce` toda máscara é removida, tudo volta a opacidade 1 e o instrumento é
+congelado no momento que importa — o alerta crítico já aberto.
 
 ## Do's and Don'ts
 
@@ -543,5 +712,23 @@ alerta crítico já aberto.
 - **Don't** alinhar à direita a coluna esquerda de um par comparativo: a
   simetria espelhada custa legibilidade justamente para quem este produto
   atende. A identidade de cada lado vem da etiqueta, não do alinhamento.
+- **Don't** resolver "três coisas paralelas" com três caixas iguais de título +
+  parágrafo lado a lado. Neste sistema isso vira **uma placa dividida por
+  cortes gravados** — um objeto usinado, não três cards flutuando.
+- **Don't** dividir o interior de uma placa com uma linha só: sem o par
+  `--rasgo` + `--luz` a divisão lê como borda de card e desfaz a peça única.
+- **Don't** pôr faixa de cor de 3px na borda de um card para indicar estado.
+  É o tell mais reconhecível de interface gerada por IA e, aqui, é gramática
+  estranha: neste sistema profundidade é **aresta e corte**, nunca barra. O
+  estado vai na placa do ícone, preenchida.
+- **Don't** usar o sinal claro (`--risco`, `--amarelo`, `--normal`) como texto
+  ou ícone sobre placa clara. Sobre claro é a família `-t`. Ver A Regra dos
+  Dois Campos de Estado.
+- **Don't** encolher o corpo de texto no mobile do painel. As quebras são
+  estruturais; o tamanho é requisito de público.
 - **Don't** importar tokens, componentes ou o âmbar do `public/admin.css`
-  para esta superfície — e nem o contrário. São dois sistemas, por decisão.
+  para estas superfícies — e nem o contrário. São dois sistemas, por decisão.
+- **Don't** fazer o painel do cliente voltar a carregar `admin.css`. Foi o
+  defeito central que este redesenho desfez: toda evolução do painel de
+  operação caía no painel do síndico sem revisão. Ver
+  [Painel do cliente](docs/modulos/painel-cliente.md).

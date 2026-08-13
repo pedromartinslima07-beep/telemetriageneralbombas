@@ -106,6 +106,18 @@
         "displayName": "Fio sobre Chapa",
         "canonical": "rgba(6, 16, 51, .16)",
         "tonalRamp": ["rgba(6,16,51,.04)", "rgba(6,16,51,.08)", "rgba(6,16,51,.12)", "rgba(6,16,51,.16)", "rgba(6,16,51,.24)", "rgba(6,16,51,.32)", "rgba(6,16,51,.5)", "rgba(6,16,51,.75)"]
+      },
+      "rasgo": {
+        "role": "neutral",
+        "displayName": "Rasgo (fundo do sulco)",
+        "canonical": "rgba(2, 6, 22, .55)",
+        "tonalRamp": ["rgba(2,6,22,.12)", "rgba(2,6,22,.2)", "rgba(2,6,22,.3)", "rgba(2,6,22,.42)", "rgba(2,6,22,.55)", "rgba(2,6,22,.68)", "rgba(2,6,22,.82)", "rgba(2,6,22,.95)"]
+      },
+      "luz": {
+        "role": "neutral",
+        "displayName": "Luz (aresta do sulco)",
+        "canonical": "rgba(255, 255, 255, .10)",
+        "tonalRamp": ["rgba(255,255,255,.03)", "rgba(255,255,255,.06)", "rgba(255,255,255,.10)", "rgba(255,255,255,.14)", "rgba(255,255,255,.2)", "rgba(255,255,255,.28)", "rgba(255,255,255,.4)", "rgba(255,255,255,.6)"]
       }
     },
     "typographyMeta": {
@@ -123,14 +135,14 @@
       { "name": "fio-placa-clara", "value": "inset 0 0 0 1.5px rgba(6,16,51,.16)", "purpose": "Aresta de campo de formulário sobre chapa clara." },
       { "name": "fio-foco", "value": "inset 0 0 0 2.5px #071b5c", "purpose": "Campo em foco, por dentro; o anel amarelo de :focus-visible fica por fora." },
       { "name": "halo-crista", "value": "0 0 14px 1px color-mix(in srgb, #fbb329 55%, transparent)", "purpose": "Luz da crista da lâmina d'água. É luz, não elevação." },
-      { "name": "halo-guia", "value": "0 0 16px 2px color-mix(in srgb, #fbb329 42%, transparent)", "purpose": "Brilho do indicador que desce o trilho da madrugada." },
+      { "name": "corte-gravado", "value": "border: 1px solid rgba(2,6,22,.55) + box-shadow: inset 1px 0 0 rgba(255,255,255,.10)", "purpose": "Divisão interna de placa: o par rasgo + luz faz ler como sulco em chapa. Uma linha só lê como borda de card." },
       { "name": "halo-lampada", "value": "0 0 0 4px color-mix(in srgb, #63d8a0 22%, transparent)", "purpose": "Anel em volta da lâmpada de estado; troca de cor por data-estado." }
     ],
     "motion": [
       { "name": "saida", "value": "cubic-bezier(.16, .84, .32, 1)", "purpose": "Easing único de todas as transições de estado do sistema." },
       { "name": "rev-corte", "value": "mask-image: linear-gradient(108deg, #000 0 40%, rgba(0,0,0,.4) 46%, transparent 52%); mask-size: 500% 100%; mask-position: 100% 0 -> 0 0; 1.15s", "purpose": "Revelação por corte. Reservada a quatro elementos: manchete do hero, instrumento, ficha e foto anotada. Cobre até altura ~5x a largura." },
       { "name": "sobe", "value": "opacity .5s + translateY(14px -> 0) .7s", "purpose": "Entrada padrão de todo o resto. Uma entrada só repetida trinta vezes vira tique." },
-      { "name": "entrada-lateral", "value": "translateX(+-26px -> 0) .72s, atraso .1s no lado direito", "purpose": "Eventos da madrugada: cada lado chega do seu lado do trilho." },
+      { "name": "placa-inteira", "value": "a placa .vigia entra com `sobe`, como um objeto só", "purpose": "Animar as três células em sequência desmancharia a leitura de peça única e recriaria o efeito de cards." },
       { "name": "varrimento-botao", "value": "clip-path: polygon(0 0, 0 0, 0 100%, -30% 100%) -> polygon(0 0, 130% 0, 100% 100%, -30% 100%) .42s", "purpose": "Hover de botão: o amarelo entra pelo chanfro, no sentido do corte." },
       { "name": "girar", "value": "rotate(360deg) linear infinite, 64s / 96s / 120s", "purpose": "Engrenagens da marca em escala arquitetônica, sentidos opostos, sempre atrás do conteúdo." },
       { "name": "atraso-escalonado", "value": "--atraso: i * .09s, i limitado a 4", "purpose": "Escalonamento por grupo de irmãos; teto evita dois segundos de espera no último item de uma lista longa." }
@@ -161,7 +173,7 @@
       "kind": "button",
       "refersTo": "button-fio",
       "description": "Ação secundária com contorno em chapa de duas camadas — fundo do elemento é o anel, o ::before embutido 1,5px é a placa interna. box-shadow: inset seria recortado nos chanfros.",
-      "html": "<a class=\"ds-btn ds-btn-fio\" href=\"#noite\">Ver como funciona</a>",
+      "html": "<a class=\"ds-btn ds-btn-fio\" href=\"#servico\">Ver como funciona</a>",
       "css": ".ds-btn { --ds-ch: 10px; position: relative; display: inline-flex; align-items: center; justify-content: center; min-height: 50px; padding: 13px 26px; font-family: \"Archivo\", ui-sans-serif, system-ui, sans-serif; font-size: 1rem; font-weight: 700; font-stretch: 108%; text-decoration: none; cursor: pointer; border: 0; clip-path: polygon(var(--ds-ch) 0, 100% 0, 100% calc(100% - var(--ds-ch)), calc(100% - var(--ds-ch)) 100%, 0 100%, 0 var(--ds-ch)); isolation: isolate; transition: color .2s cubic-bezier(.16,.84,.32,1), background .2s cubic-bezier(.16,.84,.32,1); } .ds-btn-fio { color: #fff; background: rgba(255,255,255,.34); } .ds-btn-fio::before { content: \"\"; position: absolute; inset: 1.5px; z-index: -1; background: #030a26; clip-path: polygon(var(--ds-ch) 0, 100% 0, 100% calc(100% - var(--ds-ch)), calc(100% - var(--ds-ch)) 100%, 0 100%, 0 var(--ds-ch)); } .ds-btn-fio::after { content: \"\"; position: absolute; inset: 0; z-index: -1; background: #fbb329; clip-path: polygon(0 0, 0 0, 0 100%, -30% 100%); transition: clip-path .42s cubic-bezier(.16,.84,.32,1); } .ds-btn-fio:hover { color: #030a26; background: #fbb329; } .ds-btn-fio:hover::after { clip-path: polygon(0 0, 130% 0, 100% 100%, -30% 100%); } .ds-btn-fio:focus-visible { outline: 3px solid #fbb329; outline-offset: 3px; }"
     },
     {
@@ -177,7 +189,7 @@
       "kind": "nav",
       "refersTo": null,
       "description": "Barra fixa marinho com desfoque no topo; o link ganha sublinhado amarelo que cresce da esquerda.",
-      "html": "<header class=\"ds-barra\"><nav class=\"ds-nav\"><a href=\"#noite\">A noite</a><a href=\"#equipe\">Quem instala</a><a href=\"#duvidas\">Dúvidas</a></nav></header>",
+      "html": "<header class=\"ds-barra\"><nav class=\"ds-nav\"><a href=\"#servico\">O serviço</a><a href=\"#equipe\">Quem instala</a><a href=\"#duvidas\">Dúvidas</a></nav></header>",
       "css": ".ds-barra { height: 74px; display: flex; align-items: center; padding: 0 24px; background: color-mix(in srgb, #030a26 88%, transparent); backdrop-filter: blur(14px); border-bottom: 1px solid rgba(255,255,255,.17); } .ds-nav { display: flex; gap: 30px; font-family: \"Archivo\", ui-sans-serif, system-ui, sans-serif; } .ds-nav a { position: relative; font-size: .95rem; font-weight: 600; color: #a6b5dc; text-decoration: none; padding: 6px 0; transition: color .2s cubic-bezier(.16,.84,.32,1); } .ds-nav a::after { content: \"\"; position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: #fbb329; transform: scaleX(0); transform-origin: left; transition: transform .3s cubic-bezier(.16,.84,.32,1); } .ds-nav a:hover { color: #fff; } .ds-nav a:hover::after { transform: scaleX(1); } .ds-nav a:focus-visible { outline: 3px solid #fbb329; outline-offset: 3px; }"
     },
     {
@@ -227,7 +239,8 @@
     "rules": [
       { "name": "A Regra do Amarelo Cego", "body": "O amarelo nunca é texto nem ícone sobre superfície clara — reprova contraste mesmo como forma sólida (~2:1). Sobre claro ele só existe como preenchimento com tinta marinho por cima. Quando um indicador precisar existir numa placa clara, ele é marinho, e o amarelo entra no realce do painel inteiro. Sobre marinho o amarelo é livre.", "section": "colors" },
       { "name": "A Regra do Campo Único", "body": "A página inverte o campo uma vez só: a seção de conversão vira amarela com tinta marinho (~9:1, o texto mais legível da página). Se uma segunda região virar campo amarelo, o gesto do 'aja aqui' morre.", "section": "colors" },
-      { "name": "A Regra do Crítico Silencioso", "body": "--risco não aparece em repouso. Ele só é ligado por estado (data-estado=\"critico\") ou para nomear a madrugada sem monitoramento.", "section": "colors" },
+      { "name": "A Regra do Crítico Silencioso", "body": "--risco não aparece em repouso. Ele só é ligado por estado real (data-estado=\"critico\") — hoje, exclusivamente no instrumento. Nenhum bloco de conteúdo estático usa vermelho.", "section": "colors" },
+      { "name": "A Regra do Corte Gravado", "body": "Divisão interna de placa é feita com duas linhas de 1px, nunca uma: --rasgo (rgba(2,6,22,.55), o fundo do sulco) e, imediatamente ao lado, --luz (rgba(255,255,255,.10), a aresta pegando luz). Uma linha só lê como borda de card e transforma a placa em três cartõezinhos — o vício da versão rejeitada. Ver .vigia-cel + .vigia-cel.", "section": "colors" },
       { "name": "A Regra do Mono de Instrumento", "body": "Martian Mono só aparece em medição ou em etiqueta gravada em caixa alta. Nunca em parágrafo, nunca em título, nunca 'para dar clima técnico'. Todo número que muda usa tabular-nums.", "section": "typography" },
       { "name": "A Regra da Nota Honesta", "body": "A linha que declara o instrumento como demonstração simulada fica fora do grupo mono/caixa-alta, a .92rem em prosa normal. Aviso de honestidade não pode ser o texto menos legível da página — especialmente para um leitor mais velho.", "section": "typography" },
       { "name": "A Regra da Largura Variável", "body": "O peso não é a única alavanca: títulos usam o eixo de largura (106%–116%) para ficarem estampados. font-synthesis-weight é desligado no body — nada de peso sintético.", "section": "typography" },

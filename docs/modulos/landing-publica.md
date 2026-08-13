@@ -29,7 +29,7 @@ pode contrariar está em [`../../PRODUCT.md`](../../PRODUCT.md).
 |---|---|
 | `public/index.html` | Markup da landing. Servido por `GET /` (`res.sendFile` em `src/app.js`) |
 | `public/landing.css` | Sistema visual completo da página. **Não compartilha nada com `admin.css`** |
-| `public/landing.js` | Revelação, instrumento do hero, trilho da madrugada, diagrama e envio do formulário |
+| `public/landing.js` | Revelação, instrumento do hero, diagrama e envio do formulário |
 | `public/fonts/archivo*.woff2` | Archivo variável (peso 400–900, largura 62–125%) — display e corpo |
 | `public/fonts/martianmono*.woff2` | Martian Mono — só leituras de instrumento e etiquetas |
 | `public/fotos/*.jpg` | Cinco fotos reais da equipe em serviço |
@@ -78,6 +78,95 @@ no backend** — `unidades` só aceita `ate-50`, `51-150`, `151-300`, `acima-300
 
 ## Pegadinhas da página
 
+### ⚠️ A página fala em primeira pessoa do plural — sempre
+
+"Monitoramos", "a gente sabe", "nossa equipe". **Nunca** "A General monitora"
+nem "a equipe da General instala". Falar de si na terceira pessoa faz a página
+soar como um terceiro apresentando a empresa, e isso contradiz o próprio
+argumento de venda: quem fala já é o fornecedor de confiança do prédio, não um
+intermediário descrevendo um serviço. O nome "General" fica onde a marca
+precisa ser **identificada** (topo, rodapé, metadados), nunca como sujeito.
+
+Regra registrada em [`../../PRODUCT.md`](../../PRODUCT.md) (Brand Commitments)
+e no comentário `VOZ:` no topo de `public/index.html`.
+
+### ⚠️ A boia não é vilã — o sistema não substitui boia
+
+Correção do Pedro em 2026-08-13. A página chegou a dizer que a boia "só sabe
+dizer cheio ou não cheio" e "não diz nada quando ela mesma falha". Errado por
+dois motivos: **o produto não serve para substituir boia**, e a própria General
+instala e mantém boia — pôr a boia como deficiente é depreciar o próprio
+serviço.
+
+O enquadramento correto é **a boia age, o monitoramento mostra**: ela liga e
+desliga a bomba sozinha; o sistema informa quanto tem agora, como o nível se
+comportou e se alguma peça — a boia entre elas — precisa de atenção. Responder
+"meu prédio já tem boia" continua sendo obrigatório (é dúvida real do síndico),
+só não nesses termos. Contrato em [`../../PRODUCT.md`](../../PRODUCT.md).
+
+### ⚠️ Cada frase precisa servir a quem NÃO conhece a General
+
+A página tem dois leitores: o síndico de um prédio que já é cliente da
+manutenção e o que está conhecendo a empresa agora. Frases como "a mesma
+equipe que já troca a sua bomba" ou "não somos o aplicativo de uma empresa que
+você nunca viu" pressupõem o primeiro e não servem ao segundo — que é
+exatamente quem a landing precisa converter. **O vínculo existente entra
+sempre como condicional** ("se já cuidamos do seu prédio, entra no mesmo
+contrato"). O diferencial que vale para os dois é o tipo de empresa:
+manutenção predial em casa de máquinas desde 2005, não software.
+
+### ⚠️ Mapa de donos — cada pergunta é respondida por UM bloco
+
+A página chegou a responder cada pergunta em três ou quatro lugares (a lede do
+hero e a de `#servico` eram o mesmo parágrafo com outras palavras; a célula 1
+narrava o que o instrumento já mostrava; a condicional "se já é cliente"
+aparecia em três seções). O critério que resolveu isso não é cortar palavra
+repetida — é decidir **quem é dono de cada pergunta** e calar os outros:
+
+| Pergunta | Dono |
+|---|---|
+| O que vigiamos | instrumento do hero + lede do hero |
+| Como funciona, o ciclo | `#servico` |
+| Quem instala e atende | `#equipe` |
+| O que fica no prédio / obra | `#instalado` |
+| Preço, contrato, "já sou cliente" | `#assinar` (o fecho) |
+| Painel do condomínio | `.vigia-painel` |
+| Credencial "desde 2005" | selo do hero + `#equipe` |
+
+Duas exceções **deliberadas**, não descuido: a **FAQ** pode repetir o que já
+foi dito (quem chega lá está procurando resposta pontual, não relendo a
+página) e a **lista do fecho** é resumo assumido antes do formulário. Por isso
+mesmo, nenhum outro bloco deve repetir o que essas duas já resumem.
+
+### ⚠️ `#servico` explica o SERVIÇO; `#instalado` explica o HARDWARE
+
+`#servico` é o bloco que segura o visitante que chegou agora — se ele não
+entender o serviço ali, não chega ao fim da página. Ele conta o **ciclo**:
+medimos a cada 10 s → avisamos sozinhos a qualquer hora → atendemos com equipe
+própria, mais o painel do condomínio.
+
+**Não descrever sensores aqui.** Uma versão intermediária listava "boia
+travada / bomba que não gira / consumo disparado", que é a mesma informação de
+`#instalado` (sonda / sensor de corrente / central) com outro nome — o Pedro
+apontou a redundância. Se for mexer, mantenha a divisão: um bloco é o que o
+serviço faz, o outro é o que fica instalado no prédio.
+
+### ⚠️ A placa de `#servico` é UMA peça, não três cards
+
+`.vigia` é uma peça chanfrada dividida por **cortes gravados** (`--rasgo` +
+`--luz`, sempre o par: linha escura = fundo do sulco, fio claro = aresta
+pegando luz). Três caixas iguais de título + parágrafo lado a lado é o
+contêiner preguiçoso e foi o vício da primeira versão rejeitada — se precisar
+mexer aqui, mantenha a peça única. No mobile o sulco **deita** (`border-left`
+→ `border-top`), senão as células empilhadas ficam sem divisão.
+
+A numeração 1/2/3 das células é intencional e é a única da página além das
+peças: aqui a ordem **é** a informação (não dá para atender antes de medir).
+
+Esta seção substituiu a linha do tempo da madrugada (5 eventos + trilho preso
+ao scroll), removida a pedido do Pedro: ver
+[`../../memory-bank/decisions.md`](../../memory-bank/decisions.md).
+
 ### ⚠️ Não registra service worker, de propósito
 
 O `sw.js` existe para o PWA do painel. Instalar um SW no navegador de um
@@ -109,7 +198,7 @@ Se algum dia aparecer um SVG da marca, ele substitui os dois.
 
 ### ⚠️ O instrumento do hero é demonstração, e precisa continuar dizendo isso
 
-O painel do hero roda um roteiro fixo de uma madrugada (78% → 18% → 84%), com
+O painel do hero roda um roteiro fixo (78% → 18% → 84%), com
 `data-estado` alternando `ok` / `baixo` / `critico`. **As faixas são as mesmas
 do backend** — baixo abaixo de 45%, crítico abaixo de 20%. Se as faixas mudarem
 em `src/services/alertas.service.js`, mudam aqui também (`roteiro` em
@@ -151,6 +240,37 @@ por isso que o indicador `+` das dúvidas virou marinho. Sobre claro, o amarelo
 só aparece como **preenchimento**, com tinta marinho por cima. Sobre marinho
 ele é texto normalmente (~9:1).
 
+### ⚠️ O prédio do diagrama é fora de escala de propósito
+
+O `viewBox` é `0 0 460 520` e a torre ocupa 230 unidades contra 180 da casa de
+máquinas. **Não "consertar" a proporção.** A versão em escala (torre de 410
+unidades, 7 linhas de andar, `viewBox` de 700) fazia com que mais da metade do
+desenho fosse retângulo vazio: as três peças moram só nas pontas — uma na
+caixa d'água, duas embaixo. Quatro linhas bastam para o desenho ler como
+prédio, e o assunto são as duas pontas. A seção caiu de 1077px para 1004px, e
+a altura passou a ser definida pela lista de peças, não pelo vão do desenho.
+
+Ao mexer em qualquer coordenada, lembre que **tudo abaixo da linha do solo
+(`y=340`) é um bloco solidário**: cisterna, bomba, quadro, sucção, a prumada
+de recalque e os marcadores 2 e 3. Mover o solo sem mover o resto junto
+desmonta a casa de máquinas.
+
+**Três regras de desenho que custaram tentativa:**
+
+1. **Chanfro nos equipamentos, canto reto na arquitetura.** Caixa, cisterna,
+   corpo da bomba, motor e quadro são placas e levam o corte de 45°; o prédio
+   leva o chanfro só no topo, como recorte de cobertura. Sem isso o diagrama
+   era o único elemento da página com cantos retos — contra a regra de forma
+   única do [`DESIGN.md`](../../DESIGN.md).
+2. **Marcador fora da peça quando a peça for menor que ~3× o marcador.** Com
+   `r=16` sobre um motor de 56 unidades, o círculo amarelo cobria justamente
+   o que apontava. Hoje `r=13`, e o marcador 2 fica embaixo do conjunto, com
+   fio pontilhado — o mesmo recurso que a sonda da caixa já usava.
+3. **A prumada é desenhada em dois traços.** Cheia dos dois lados, encostava
+   na borda do prédio e lia como estrutura; totalmente atrás do corpo, sumia e
+   a caixa perdia a ligação com a bomba. `.pd-prumada` (4px, opacidade .4)
+   dentro do prédio e `.pd-tubo` (7px, .55) na casa de máquinas.
+
 ### As linhas-guia da foto anotada são coordenadas do arquivo
 
 As chamadas ("Quadro de comando", "Vaso de pressão", "Bombas de recalque") são
@@ -170,10 +290,6 @@ técnica ([`../../PRODUCT.md`](../../PRODUCT.md)). Por isso:
 - corpo em 19px (`1.1875rem`), entrelinha 1.65;
 - alvos de toque ≥ 44px, campos do formulário com 54px de altura;
 - foco visível em amarelo com `outline-offset`, em tudo que é focável;
-- o rótulo "Sem monitoramento" / "Com a General" da madrugada existe no HTML em
-  **todas** as larguras — visualmente escondido no desktop (onde os cabeçalhos
-  de coluna dão o contexto) e visível no celular, onde a coluna é única. Leitor
-  de tela nunca teve o cabeçalho visual;
 - "Entrar" permanece na barra em qualquer largura: esconder obrigava um síndico
   que já é cliente a rolar a landing inteira até o rodapé para achar o painel.
 

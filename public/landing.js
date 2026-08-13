@@ -1,11 +1,13 @@
 // public/landing.js — landing pública (public/index.html)
 //
-// Cinco responsabilidades, sem dependência externa:
+// Quatro responsabilidades, sem dependência externa:
 //   1. revelação por corte (a máscara diagonal que varre placa e manchete);
 //   2. o instrumento do hero — roteiro de leituras simuladas;
-//   3. o trilho da madrugada, preso ao scroll;
-//   4. o diagrama do prédio ligado à lista de peças;
-//   5. envio do formulário para POST /leads.
+//   3. o diagrama do prédio ligado à lista de peças;
+//   4. envio do formulário para POST /leads.
+//
+// O trilho preso ao scroll saiu junto com a linha do tempo da madrugada; o
+// listener de scroll ficou, porque é ele que cola a barra do topo.
 //
 // ⚠️ Esta página NÃO registra o service worker de propósito. O sw.js existe
 // para o PWA do painel (admin/cliente/técnico); instalar um SW no navegador de
@@ -39,8 +41,10 @@
     // comum não entra em nenhum dos dois.
     var comCorte = ".hero-txt h1, .instr, .ficha, .chapa-anot";
     var comSubida =
-      "h2.corte-txt, .hero .lede, .hero-acoes, .hero-selo, .lede-centro," +
-      " .chapas .chapa, .predio, .peca, .duvida, .fecho-lista, .noite-fecho";
+      "h2.corte-txt, .hero .lede, .hero-acoes, .hero-selo, .secao > .area > .lede," +
+      // `.vigia` sobe inteira: é uma placa só, e animar célula por célula
+      // desmancharia justamente a leitura de peça única.
+      " .chapas .chapa, .predio, .peca, .duvida, .fecho-lista, .vigia";
 
     var alvos = [];
     [[comCorte, "rev"], [comSubida, "sobe"]].forEach(function (par) {
@@ -48,9 +52,6 @@
         el.classList.add(par[1]);
         alvos.push(el);
       });
-    });
-    [].forEach.call(document.querySelectorAll(".noite-ev"), function (el) {
-      alvos.push(el);
     });
 
     // O escalonamento é por grupo (irmãos com a mesma classe), não global:
@@ -78,9 +79,11 @@
 
   // ─── 2. O instrumento ─────────────────────────────────────────────────────
   //
-  // Roteiro fixo de uma madrugada: o nível cai, cruza 45 % e 20 % (as mesmas
-  // faixas do backend), a bomba é acionada e o reservatório normaliza. Os
-  // números são interpolados para que a leitura acompanhe a coluna.
+  // Roteiro fixo: o nível cai, cruza 45 % e 20 % (as mesmas faixas do
+  // backend), a bomba é acionada e o reservatório normaliza. Os números são
+  // interpolados para que a leitura acompanhe a coluna.
+  // O relógio marca horas de madrugada porque é quando uma falha passa
+  // despercebida — mas o roteiro não narra a noite, só mostra o mecanismo.
   // ⚠️ São dados SIMULADOS e a placa diz isso — nunca apresentar como real.
 
   var instr = document.getElementById("instr");
@@ -104,7 +107,7 @@
       { n: 18, a: 0,   h: "03:05", e: "critico", t: "Nível crítico — chamado aberto", d: 3200 },
       { n: 21, a: 6.4, h: "03:26", e: "critico", t: "Técnico no local, bomba ligada", d: 2800 },
       { n: 52, a: 6.4, h: "04:30", e: "baixo",   t: "Reservatório reabastecendo",     d: 2800 },
-      { n: 84, a: 0,   h: "05:30", e: "ok",      t: "Normalizado. Ninguém acordou",   d: 4200 }
+      { n: 84, a: 0,   h: "05:30", e: "ok",      t: "Reservatório normalizado",       d: 4200 }
     ];
 
     var passo = 0;
@@ -197,22 +200,13 @@
     }
   }
 
-  // ─── 3. Trilho da madrugada ───────────────────────────────────────────────
+  // ─── Barra do topo ────────────────────────────────────────────────────────
 
-  var trilho = document.getElementById("noiteTrilho");
-  var guia = document.getElementById("noiteGuia");
   var barra = document.getElementById("barra");
   var pendente = false;
 
   function aoRolar() {
     if (barra) barra.classList.toggle("is-rolada", window.scrollY > 12);
-
-    if (guia && trilho && !reduzido) {
-      var r = trilho.getBoundingClientRect();
-      var alvo = window.innerHeight * 0.62;
-      var p = (alvo - r.top) / r.height;
-      guia.style.height = Math.max(0, Math.min(1, p)) * 100 + "%";
-    }
     pendente = false;
   }
 
@@ -227,7 +221,7 @@
   );
   aoRolar();
 
-  // ─── 4. Diagrama do prédio ────────────────────────────────────────────────
+  // ─── 3. Diagrama do prédio ────────────────────────────────────────────────
 
   var pecas = document.querySelector(".pecas");
   if (pecas) {
@@ -244,7 +238,7 @@
     });
   }
 
-  // ─── 5. Formulário ────────────────────────────────────────────────────────
+  // ─── 4. Formulário ────────────────────────────────────────────────────────
 
   var form = document.getElementById("lpForm");
   var msg = document.getElementById("lpMsg");

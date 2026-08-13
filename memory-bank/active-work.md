@@ -8,8 +8,113 @@ aliases:
 # Trabalho em Andamento
 
 > Branch atual: `feature/landing-publica` (saiu de `main`).
-> Última sessão registrada: **2026-08-11**.
+> Última sessão registrada: **2026-08-13**.
 > Roadmap completo em [`roadmap.md`](roadmap.md); decisões em [`decisions.md`](decisions.md).
+
+## Sessão 2026-08-13 (parte 2) — Painel do cliente reconstruído
+
+Pedido do Pedro logo depois da landing e do login: *"hoje acredito que está
+muito ruim, e o principal problema foi tentar copiar o painel de admin"*. O
+"o quê" está no [changelog](../docs/changelog.md), o fluxo em
+[painel-cliente.md](../docs/modulos/painel-cliente.md) e o "porquê" em
+[`decisions.md`](decisions.md). O que não é óbvio pelo diff:
+
+- **O diagnóstico dele estava certo e era mais fundo que aparência.** O painel
+  **não era inspirado** no admin — ele carregava `admin.css` inteiro (265 KB) e
+  tinha 385 linhas de override por cima. Junto com a paleta vinha a
+  **arquitetura de informação**: *Dashboard* e *Telemetria* existem no admin
+  porque ele olha N condomínios; no cliente eram duas telas mostrando os mesmos
+  3–5 reservatórios, com componentes diferentes para o mesmo dado.
+- **A correção foi desacoplar, não repintar.** `cliente.css` virou folha
+  autônoma mantendo os ~225 nomes de classe que o `cliente.js` emite — trocou
+  o mundo sem tocar no contrato de markup. Isso é o que tornou o redesenho
+  viável numa sessão.
+- **A estrutura veio de sorteio, não do meu gosto.** Sete estruturas derivadas
+  do que o síndico faz; o seed do Impeccable (`06d85de2`) apontou a nº 6, a
+  linha do tempo. Ela venceu por razão de produto: o síndico precisa **prestar
+  contas**, e o painel antigo descartava toda a temporalidade menos um gráfico.
+- ⚠️ **Tirei o tanque cilíndrico em SVG** que o Pedro aprovou em julho, e pus a
+  coluna d'água da landing no lugar. O motivo é o mesmo do redesenho (o
+  cilindro é o componente do admin, portado), mas **é uma reversão de escolha
+  dele** — está avisado e pode voltar atrás.
+- ⚠️ **Quase perdi o `cliente.js`.** Um script meu de remoção de funções órfãs
+  varreu até o fim do arquivo e truncou 1.879 linhas para 41. Restaurado do git
+  e reaplicado. A lição virou cicatriz em [`decisions.md`](decisions.md):
+  remoção em lote por script se faz com parser ou não se faz.
+- **Bugs reais achados no caminho** (todos corrigidos): `wa.me` com número
+  inventado; `.mob-topbar` com `sticky` estando no fim do `<body>`, logo nunca
+  grudava; "Em atendimento" pintado de vermelho; tabelas sem tratamento mobile;
+  sidebar recolhida sem rótulo nenhum.
+- **Backend intocado.** Nenhuma rota, campo ou migration; e como não houve
+  endpoint novo, o `sw.js` não foi tocado.
+
+**Pendências desta sessão:**
+
+- ⚠️ **Nada rodou contra o backend real.** A verificação foi num harness
+  estático (arquivos reais, `fetch` dublado), a 1440px e num iframe de 390px.
+  Falta abrir com o servidor de teste e conta de cliente demo.
+- ⚠️ **Cliente sem telemetria contratada** (`#semTelemetria`) não foi visto
+  renderizado.
+- 📋 **`alertas_recentes` em `/cliente/status`.** Hoje a linha do tempo mostra
+  o alerta abrindo e nunca fechando, porque o endpoint só devolve os abertos.
+  É aditivo (sem rota nova, sem mexer no `sw.js`) — o Pedro ainda não respondeu
+  se posso encostar no backend.
+- 📋 Decidir se o **tanque cilíndrico** volta.
+- Merge para `main` ainda não feito (a branch acumula landing + login + painel).
+
+## Sessão 2026-08-13 — Landing: madrugada fora, voz em primeira pessoa
+
+Dois ajustes pedidos pelo Pedro sobre a página já redesenhada. O "o quê" está
+no [changelog](../docs/changelog.md); o "porquê" em
+[`decisions.md`](decisions.md). O que não é óbvio pelo diff:
+
+- **A seção nova levou três tentativas.** (1) Três cards iguais lado a lado —
+  o contêiner preguiçoso, vício da versão rejeitada em agosto; virou **uma
+  placa só** dividida por cortes gravados (`--rasgo` + `--luz`), com a
+  anatomia do instrumento do hero. (2) O conteúdo era "três falhas que a boia
+  não reporta", que o Pedro identificou como **a seção 'Três peças no prédio'
+  repetida com outro nome** — sonda / sensor de corrente / central. (3) Ficou
+  o **ciclo do serviço**: medimos → avisamos → atendemos, + o painel.
+  ⚠️ Duas coisas para não desfazer: não transformar a placa em cards, e não
+  voltar a descrever sensores em `#servico`.
+- ⚠️ **A landing tem dois leitores.** Muito texto estava escrito só para quem
+  já é cliente da manutenção ("a mesma equipe que já troca a sua bomba"). O
+  Pedro pegou isso. Vínculo existente agora entra sempre como condicional.
+- **A tela de login entrou no escopo.** O Pedro apontou o degrau: sair da
+  landing e cair num login âmbar do Mission Control parecia outra empresa.
+  Refeita em split screen no mundo "Chapa". ⚠️ Como `landing.css` só é servido
+  em `/`, o `login.css` **duplica** os tokens — mudança de paleta agora é em
+  dois arquivos.
+- ⚠️ **A `DESIGN.md` tinha uma descrição errada que me fez escrever bug.** Ela
+  dizia que o anel de foco amarelo "fica por fora, a 3px", mas o `landing.css`
+  sempre usou `inset` — porque `clip-path` recorta qualquer coisa pintada fora
+  da caixa. Segui a doc no login e o indicador de teclado não aparecia.
+  Corrigida. Se achar outra descrição da `DESIGN.md` que não bate com o CSS,
+  **o CSS é a verdade**.
+- ⚠️ **O contrato de posicionamento agora existe e está no `PRODUCT.md`.** Foi
+  o Pedro que parou o trabalho para fechá-lo, depois de quatro rodadas de
+  remendo. **Produto é protagonista** (os 20 anos são garantia, não abertura)
+  e **não nos posicionamos contra ninguém**. Isso inverteu um princípio que
+  estava no `PRODUCT.md` e que eu tinha derivado sozinho. Antes de escrever
+  qualquer copy nova, ler o contrato — não improvisar posicionamento.
+- **A pendência da revisão de 11/08 está resolvida.** O revisor pediu um olhar
+  ao vivo no instrumento mobile porque coluna e número pareciam discordar;
+  medido com o movimento rodando, eles **concordam** (`nível 47` /
+  `--n: 46.84%`). Era artefato de captura pausada, como ele suspeitava.
+- ⚠️ **`DESIGN.md` citava a madrugada em 9 pontos** (paleta, tipografia,
+  layout, sombras, formas, motion). Todos corrigidos — mas se aparecer alguma
+  referência a "trilho" ou "evento da madrugada" em doc que eu não peguei,
+  está morta.
+- **Não verificado nesta sessão:** o `POST /leads` continua exercitado só
+  contra um stub local, nunca contra o backend real.
+
+**Pendências desta sessão:**
+
+- Confirmar com o Pedro o texto de LGPD (agora "Seus dados vão só para a nossa
+  equipe comercial, para responder este contato").
+- Merge para `main` ainda não feito.
+- `public/alertas-front.png` e `tecnicos-front.png` estão deletados no working
+  tree sem commit; o `PRODUCT.md` ainda os cita como "não usar".
 
 ## Sessão 2026-08-11 — Landing pública, segunda direção ("Chapa")
 

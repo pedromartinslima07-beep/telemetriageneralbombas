@@ -3,22 +3,43 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>GENERAL • Painel do Cliente</title>
+  <title>GENERAL • Meu prédio</title>
   <link rel="icon" type="image/png" href="/static/favicon.png?v=3" />
   <link rel="manifest" href="/manifest.json">
-  <meta name="theme-color" content="#F5A623">
+  <meta name="theme-color" content="#050f38">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="Telemetria">
+  <meta name="apple-mobile-web-app-title" content="General">
   <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
-  <!-- Mesmo arquivo do admin — manter o ?v= sincronizado com admin.html, senão
-       o navegador serve ao cliente uma cópia velha do CSS (a chave de cache é a
-       URL inteira, query incluída) e os dois painéis divergem visualmente. -->
-  <link rel="stylesheet" href="/static/admin.css?v=189">
-  <!-- Só os overrides do painel do cliente — carrega depois do admin.css -->
-  <link rel="stylesheet" href="/static/cliente.css?v=9">
+
+  <!-- ⚠️ Esta página NÃO carrega mais o admin.css. O painel do cliente tem
+       folha própria, no mundo "Chapa" da landing e do login. Ver o cabeçalho
+       do cliente.css antes de reintroduzir qualquer dependência do admin. -->
+  <link rel="preload" href="/static/fonts/archivo.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/static/fonts/martianmono.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/static/cliente.css?v=10">
 </head>
 <body>
+
+<!--
+  DIRECTION CONTRACT — painel do cliente (seed 06d85de2, surface/operate)
+
+  THESIS: a vida do prédio é uma linha do tempo, não um mural de cards. Recusa
+  a grade de dashboard que o painel herdou do admin — o síndico tem UM prédio,
+  não uma carteira.
+  OWN-WORLD: "Chapa". Campo marinho como material, placas claras pousadas para
+  leitura, chanfro de 45° em dois cantos opostos, raio zero, fios de 1px no
+  lugar de sombra, amarelo #fbb329 só como região. Archivo + Martian Mono.
+  STORY: ele chega aflito, lê uma frase e sabe se pode dormir; se quiser
+  prestar contas, desce a linha e vê o que aconteceu e quem atendeu.
+  FIRST VIEWPORT: estação AGORA no topo do trilho — instrumento escuro com o
+  veredito em prosa grande, as colunas d'água reais ao lado, e as contagens do
+  que está aberto logo abaixo. A ação primária (abrir chamado) vive na seção
+  Chamados, não compete com o estado.
+  FORM: linha do tempo do prédio — candidata 6 da lista ordenada; seed 06d85de2.
+  FINISH: unreviewed and undocumented is unfinished; this build ends with the
+  finish review, the verdict, and DESIGN.md.
+-->
 
 <div class="layout layout-cli">
 
@@ -35,25 +56,18 @@
 
       <nav class="nav">
 
-        <span class="nav-section-label">Monitor</span>
+        <span class="nav-section-label">O prédio</span>
 
-        <button class="nav-item active" data-section="dashboard" data-label="Dashboard">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/>
-            <rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>
+        <button class="nav-item active" data-section="predio" data-label="Meu prédio">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter">
+            <path d="M4 21V6l8-3 8 3v15"/><path d="M9 21v-5h6v5"/>
+            <path d="M8 9h2M14 9h2M8 12.5h2M14 12.5h2"/>
           </svg>
-          <span class="nav-item-label">Dashboard</span>
-        </button>
-
-        <button class="nav-item" data-section="telemetria" data-label="Telemetria">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M3 12h4l3-9 4 18 3-9h4"/>
-          </svg>
-          <span class="nav-item-label">Telemetria</span>
+          <span class="nav-item-label">Meu prédio</span>
         </button>
 
         <button class="nav-item" data-section="alertas" data-label="Alertas">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter">
             <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
             <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
           </svg>
@@ -64,7 +78,7 @@
         <span class="nav-section-label">Atendimento</span>
 
         <button class="nav-item" data-section="chamados" data-label="Chamados">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
             <polyline points="14 2 14 8 20 8"/>
             <line x1="9" y1="13" x2="15" y2="13"/>
@@ -79,7 +93,7 @@
       <div class="sidebar-footer">
         <div class="sidebar-user">
           <div class="sidebar-user-avatar">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter">
               <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
             </svg>
           </div>
@@ -89,13 +103,13 @@
           </div>
         </div>
         <button class="nav-item" id="btnAbrirSenha" data-label="Alterar senha">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter">
+            <rect x="3" y="11" width="18" height="11"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
           </svg>
           <span class="nav-item-label">Alterar senha</span>
         </button>
         <button class="nav-item nav-item-logout" id="btnSairCliente" data-label="Sair">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter">
             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
             <polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
           </svg>
@@ -111,22 +125,23 @@
 
     <div class="content-header">
       <button class="topbar-toggle" id="btnSidebarToggleIn" aria-label="Abrir/fechar menu">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square">
           <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
         </svg>
       </button>
-      <h1 class="topbar-title" id="topbarTitleDesktop">Dashboard</h1>
+      <h1 class="topbar-title" id="topbarTitleDesktop">Meu prédio</h1>
 
       <div class="topbar-actions">
+        <span class="statusMsg" id="statusMsg"></span>
         <button class="icon-btn" id="btnAtualizarCliente" title="Atualizar">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter">
             <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
             <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
           </svg>
         </button>
         <div class="topbar-user">
           <div class="topbar-user-avatar">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter">
               <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
             </svg>
           </div>
@@ -135,252 +150,102 @@
             <span class="topbar-user-role">Meu Condomínio</span>
           </div>
         </div>
-        <span class="statusMsg" id="statusMsg"></span>
       </div>
     </div>
 
     <div class="content">
 
-      <!-- ===== SECTION: DASHBOARD ===== -->
-      <div class="section is-active" data-section="dashboard">
+      <!-- ═══════════════════════════════════════════════════════════════
+           SEÇÃO: MEU PRÉDIO
+           ───────────────────────────────────────────────────────────────
+           Funde o que eram duas seções (Dashboard e Telemetria). Elas
+           mostravam os MESMOS 3-5 reservatórios duas vezes — herança do
+           admin, que tem as duas porque olha N condomínios.
 
-        <!-- KPI stat cards -->
-        <div id="resumoGrid" class="resumo-grid"></div>
+           A estrutura é um trilho: o AGORA no topo, o passado descendo.
+           ═══════════════════════════════════════════════════════════════ -->
+      <div class="section is-active" data-section="predio">
 
-        <!-- Chamados — sempre visível independente de telemetria -->
-        <section class="card" style="margin-bottom:20px;">
-          <div class="cardHead">
-            <h2>
-              <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                <polyline points="14 2 14 8 20 8"/>
-                <line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/>
-              </svg>
-              Chamados
-            </h2>
-            <button class="btn-link" data-section-go="chamados">Ver todos →</button>
-          </div>
-          <div id="dashChamadosLista"></div>
-        </section>
-
-        <!-- Cliente sem telemetria: sem isto o dashboard dele terminava na
-             tabela de chamados, deixando ~70% da tela vazia. -->
-        <div id="dashSemTelemetria" class="cli-sem-tel" style="display:none;">
-          <section class="card cli-sem-tel-card">
-            <div class="cli-sem-tel-icone">
-              <!-- Mesmo traçado do item "Telemetria" no menu — o card fala do
-                   produto de telemetria, então usa o ícone dele. -->
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M3 12h4l3-9 4 18 3-9h4"/>
-              </svg>
-            </div>
-            <div class="cli-sem-tel-texto">
-              <h3>Monitoramento em tempo real</h3>
-              <p>
-                Seu condomínio ainda não tem telemetria instalada. Com ela você acompanha
-                o nível dos reservatórios e o funcionamento das bombas 24h por dia, e
-                recebe alerta automático antes da caixa esvaziar.
-              </p>
-              <a class="btn btn-sm btnAccent" href="https://wa.me/5511999990000" target="_blank" rel="noopener">
-                Falar com a General Bombas
-              </a>
-            </div>
-          </section>
-
-          <section class="card cli-sem-tel-card cli-sem-tel-ajuda">
-            <div class="cli-sem-tel-icone">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-              </svg>
-            </div>
-            <div class="cli-sem-tel-texto">
-              <h3>Precisa de atendimento?</h3>
-              <p>
-                Abra um chamado e acompanhe por aqui: você vê o status, quem foi designado
-                e conversa direto com a equipe pela própria tela do chamado.
-              </p>
-              <button class="btn btn-sm" data-section-go="chamados">Ir para Chamados</button>
-            </div>
-          </section>
-        </div>
-
-        <!-- Conteúdo de telemetria (visível somente quando há reservatórios) -->
-        <div id="dashConteudo" style="display:none;">
-
-        <!-- mc-grid: Níveis | Em atenção | Atividade -->
-        <div class="mc-grid">
-
-          <section class="card mc-map">
-            <div class="cardHead">
-              <h2>
-                <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M3 21h18"/><rect x="5" y="10" width="3" height="9"/><rect x="10" y="5" width="3" height="14"/><rect x="15" y="13" width="3" height="6"/>
-                </svg>
-                Níveis dos reservatórios
-              </h2>
-              <span class="hint">Atualiza em tempo real</span>
-            </div>
-            <div id="dashNiveisChart" class="tel-niveis-chart"></div>
-            <div id="dashNiveisEmpty" class="mc-empty" style="display:none;">Nenhuma leitura com nível % no momento.</div>
-          </section>
-
-          <section class="card mc-alerts">
-            <div class="cardHead">
-              <h2>
-                <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-                  <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
-                </svg>
-                Em atenção
-              </h2>
-              <button class="btn-link" data-section-go="alertas">Ver alertas →</button>
-            </div>
-            <div class="mc-alerts-list" id="dashCriticosList">
-              <div class="mc-empty">Carregando…</div>
-            </div>
-          </section>
-
-          <section class="card mc-activity">
-            <div class="cardHead">
-              <h2>
-                <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-                </svg>
-                Atividade recente
-              </h2>
-              <span class="mc-live"><span class="mc-live-dot"></span>LIVE</span>
-            </div>
-            <div class="mc-activity-list" id="dashActivityList">
-              <div class="mc-empty">Carregando…</div>
-            </div>
-          </section>
-
-        </div>
-
-        <!-- Status das bombas -->
-        <section class="card">
-          <div class="cardHead">
-            <h2>
-              <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="4"/>
-                <path d="M12 4v2M12 18v2M4 12h2M18 12h2M6.3 6.3l1.4 1.4M16.3 16.3l1.4 1.4M6.3 17.7l1.4-1.4M16.3 7.7l1.4-1.4"/>
-              </svg>
-              Status das bombas
-            </h2>
-            <span id="dashBombasSummary" class="tel-bombas-summary"></span>
-          </div>
-          <div class="tel-bombas-wrap">
-            <table class="tel-bombas-table">
-              <thead>
-                <tr>
-                  <th>Reservatório</th>
-                  <th>Bomba</th>
-                  <th>Nível</th>
-                  <th>Atualização</th>
-                </tr>
-              </thead>
-              <tbody id="dashBombasBody">
-                <tr><td colspan="4" class="mc-empty" style="padding:24px;">Carregando…</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        </div><!-- /dashConteudo -->
-
-      </div><!-- /section dashboard -->
-
-      <!-- ===== SECTION: TELEMETRIA ===== -->
-      <div class="section" data-section="telemetria">
-
-        <!-- Fallback: cliente sem produto -->
-        <div id="telCliFallback" class="tel-cli-fallback" style="display:none;">
+        <!-- Cliente sem telemetria contratada: bloco único (antes havia dois,
+             um no dashboard e outro na telemetria, dizendo a mesma coisa). -->
+        <div id="semTelemetria" class="tel-cli-fallback" hidden>
           <div class="tel-cli-fallback-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter">
               <path d="M3 12h4l3-9 4 18 3-9h4"/>
             </svg>
           </div>
-          <h2 class="tel-cli-fallback-title">Você ainda não tem telemetria contratada</h2>
+          <h2 class="tel-cli-fallback-title">Seu prédio ainda não tem monitoramento instalado</h2>
           <p class="tel-cli-fallback-text">
-            A telemetria da General Bombas mostra em tempo real o <strong>nível dos reservatórios</strong>,
-            <strong>status das bombas</strong> e dispara <strong>alertas automáticos</strong> antes do
-            problema chegar ao morador. Histórico completo, gráficos, relatórios em PDF e notificações
-            quando algo sai do esperado.
+            Com o monitoramento, o nível dos reservatórios e o funcionamento das bombas
+            aparecem aqui o tempo todo — e uma queda de nível vira alerta e chamado antes
+            de o morador perceber.
           </p>
           <ul class="tel-cli-fallback-list">
             <li>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-              <span>Acompanhamento 24/7 do reservatório</span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter"><polyline points="20 6 9 17 4 12"/></svg>
+              <span>Nível de cada reservatório, atualizado a cada poucos segundos</span>
             </li>
             <li>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-              <span>Alertas automáticos de nível baixo, vazamento e falha na bomba</span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter"><polyline points="20 6 9 17 4 12"/></svg>
+              <span>Alerta automático de nível baixo e de bomba que parou de responder</span>
             </li>
             <li>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-              <span>Histórico completo e relatórios em PDF pro síndico</span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter"><polyline points="20 6 9 17 4 12"/></svg>
+              <span>Histórico e relatório em PDF para levar à assembleia</span>
             </li>
             <li>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-              <span>Atendimento técnico mais rápido (a gente já chega sabendo o problema)</span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter"><polyline points="20 6 9 17 4 12"/></svg>
+              <span>O técnico chega sabendo o que aconteceu</span>
             </li>
           </ul>
           <div class="tel-cli-fallback-cta">
-            <a href="https://wa.me/5511966536110?text=Ol%C3%A1!%20Quero%20saber%20mais%20sobre%20a%20telemetria%20General%20Bombas" target="_blank" rel="noopener" class="btn btnAccent">
+            <a href="https://wa.me/5511966536110?text=Ol%C3%A1!%20Quero%20saber%20mais%20sobre%20o%20monitoramento%20de%20reservat%C3%B3rios." target="_blank" rel="noopener" class="btn btnAccent">
               Quero saber mais
             </a>
-            <span class="tel-cli-fallback-note">Resposta rápida pelo WhatsApp</span>
+            <button class="btn btn-sm" data-section-go="chamados" type="button">Ir para Chamados</button>
+            <span class="tel-cli-fallback-note">Resposta pelo WhatsApp</span>
           </div>
         </div>
 
-        <!-- Conteúdo real: aparece quando há reservatórios -->
-        <div id="telCliConteudo" style="display:none;">
+        <!-- O TRILHO -->
+        <div class="linha" id="predioLinha" hidden>
 
-          <!-- KPIs -->
-          <div class="al-kpis al-kpis-4col" id="telCliKpis"></div>
+          <!-- ─── Estação AGORA ─── -->
+          <div class="linha-estacao is-agora">
+            <div class="linha-marca"></div>
+            <span class="linha-quando">Agora</span>
 
-          <!-- Linha 1: Níveis (bar chart) + Em atenção (lista) -->
-          <div class="tel-row tel-row-main">
-            <section class="card">
-              <div class="cardHead">
-                <h2>
-                  <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M3 21h18"/><rect x="5"  y="10" width="3" height="9"/><rect x="10" y="5"  width="3" height="14"/><rect x="15" y="13" width="3" height="6"/>
-                  </svg>
-                  Níveis dos reservatórios
-                </h2>
-                <span class="hint">Atualiza em tempo real</span>
+            <!-- O instrumento. Mesma anatomia do da landing (cabeçalho /
+                 veredito / colunas / nota), mas ligado no sensor de verdade.
+                 ⚠️ As faixas de 45% e 20% desenhadas na coluna são as do
+                 backend (`nivelFromPct`). Mudou lá, muda aqui E na landing. -->
+            <div class="agora" id="agoraInstr" data-estado="normal">
+              <div class="agora-cab">
+                <span class="agora-id" id="agoraId">Reservatórios monitorados</span>
+                <span class="agora-rel" id="agoraRelogio">--:--:--</span>
               </div>
-              <div class="tel-niveis-chart" id="telCliNiveisChart"></div>
-              <div class="tel-niveis-empty mc-empty" id="telCliNiveisEmpty" style="display:none;">Nenhuma leitura com nível % no momento.</div>
-            </section>
+              <p class="agora-veredito" id="agoraVeredito">Lendo os sensores…</p>
+              <div class="agora-colunas" id="agoraColunas"></div>
+              <div class="agora-nota" id="agoraNota"></div>
+            </div>
 
-            <section class="card">
-              <div class="cardHead">
-                <h2>
-                  <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-                    <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
-                  </svg>
-                  Em atenção
-                </h2>
-                <button class="btn-link" data-section-go="alertas">Ver alertas →</button>
-              </div>
-              <div class="tel-criticos-list" id="telCliCriticosList">
-                <div class="mc-empty">Carregando…</div>
-              </div>
-            </section>
+            <!-- O que está aberto agora. Contagens de estado, não de história
+                 — por isso moram na estação AGORA e não numa faixa solta. -->
+            <div id="resumoGrid" class="resumo-grid"></div>
           </div>
 
-          <!-- Linha 2: Histórico (line chart) + Status das bombas -->
-          <div class="tel-row tel-row-bottom">
+          <!-- ─── Estação HISTÓRICO ─── -->
+          <div class="linha-estacao" id="estHistorico">
+            <div class="linha-marca"></div>
+            <span class="linha-quando" id="histRotulo">Últimas 24 horas</span>
+
             <section class="card">
               <div class="cardHead">
                 <h2>
-                  <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter">
                     <path d="M3 12h4l3-9 4 18 3-9h4"/>
                   </svg>
-                  Histórico de níveis
+                  Como o nível se comportou
                 </h2>
                 <div class="tel-historico-ctrls">
                   <button class="tel-range-btn is-active" data-dias="1" type="button">24h</button>
@@ -390,54 +255,30 @@
                 </div>
               </div>
               <div class="tel-historico-filtros">
-                <select class="tel-select" id="histReservatorio"></select>
+                <select class="tel-select" id="histReservatorio" aria-label="Reservatório"></select>
                 <button id="btnExportarPDF" class="btn-pdf" type="button" disabled>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" width="14" height="14">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
                   </svg>
-                  <span>PDF</span>
+                  <span>Baixar PDF</span>
                 </button>
               </div>
               <div class="tel-historico-chart" id="telCliHistChart"></div>
-              <div class="tel-historico-empty mc-empty" id="telCliHistEmpty" style="display:none;">Sem dados de histórico no período.</div>
-            </section>
-
-            <section class="card">
-              <div class="cardHead">
-                <h2>
-                  <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="12" cy="12" r="4"/>
-                    <path d="M12 4v2M12 18v2M4 12h2M18 12h2M6.3 6.3l1.4 1.4M16.3 16.3l1.4 1.4M6.3 17.7l1.4-1.4M16.3 7.7l1.4-1.4"/>
-                  </svg>
-                  Status das bombas
-                </h2>
-                <span class="tel-bombas-summary" id="telCliBombasSummary"></span>
-              </div>
-              <div class="tel-bombas-wrap">
-                <table class="tel-bombas-table">
-                  <thead>
-                    <tr>
-                      <th>Reservatório</th>
-                      <th>Bomba</th>
-                      <th>Nível</th>
-                      <th>Atualização</th>
-                    </tr>
-                  </thead>
-                  <tbody id="telCliBombasBody">
-                    <tr><td colspan="4" class="mc-empty" style="padding:24px;">Carregando…</td></tr>
-                  </tbody>
-                </table>
-              </div>
+              <div class="tel-historico-empty mc-empty" id="telCliHistEmpty" style="display:none;">Sem leituras registradas neste período.</div>
             </section>
           </div>
-        </div>
-      </div><!-- /section telemetria -->
 
-      <!-- ===== SECTION: ALERTAS ===== -->
+          <!-- ─── Estações de evento (montadas pelo cliente.js) ─── -->
+          <div id="linhaEventos"></div>
+
+        </div><!-- /linha -->
+
+      </div><!-- /section predio -->
+
+      <!-- ===== SEÇÃO: ALERTAS ===== -->
       <div class="section" data-section="alertas">
 
-        <!-- KPIs -->
-        <div class="resumo-grid" id="alKpiGrid" style="margin-bottom:16px;"></div>
+        <div class="resumo-grid" id="alKpiGrid"></div>
 
         <div class="ch-layout">
           <div class="ch-list-col">
@@ -463,29 +304,29 @@
                 <tbody id="tbodyAlertasCliente"></tbody>
               </table>
               <div id="semAlertas" class="al-empty" style="display:none;">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" stroke-linejoin="miter">
                   <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
                 </svg>
-                <p>Nenhum alerta ativo no momento.</p>
+                <p>Nenhum alerta ativo. O sistema segue lendo os sensores.</p>
               </div>
             </div>
           </div>
 
           <aside class="ch-detail-col al-painel" id="alPainel">
             <div class="al-empty">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" stroke-linejoin="miter">
                 <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
               </svg>
-              <p>Clique numa linha pra ver os detalhes</p>
+              <p>Toque num alerta para ver os detalhes</p>
             </div>
           </aside>
         </div>
       </div><!-- /section alertas -->
 
-      <!-- ===== SECTION: CHAMADOS ===== -->
+      <!-- ===== SEÇÃO: CHAMADOS ===== -->
       <div class="section" data-section="chamados">
 
-        <div class="resumo-grid" id="chCliKpiGrid" style="margin-bottom:16px;"></div>
+        <div class="resumo-grid" id="chCliKpiGrid"></div>
 
         <div class="ch-layout">
           <div class="ch-list-col">
@@ -497,34 +338,34 @@
                 <button class="wa-tab" data-ch-cli-tab="fechado" type="button">Resolvidos <span class="wa-count" id="chCliCtFechados">0</span></button>
               </div>
               <input id="chCliBusca" class="input" placeholder="Buscar por título, categoria…">
-              <button class="btn btn-sm btnAccent" id="chCliBtnNovo" type="button">+ Abrir chamado</button>
+              <button class="btn btn-sm btnAccent" id="chCliBtnNovo" type="button">Abrir chamado</button>
             </div>
             <div class="tableWrap ch-table-wrap">
               <table>
                 <thead>
                   <tr>
-                    <th style="width:64px">ID</th>
+                    <th style="width:64px">Nº</th>
                     <th>Título</th>
-                    <th style="width:100px">Categoria</th>
-                    <th style="width:90px">Status</th>
-                    <th style="width:64px">Data</th>
+                    <th style="width:110px">Categoria</th>
+                    <th style="width:100px">Status</th>
+                    <th style="width:70px">Data</th>
                   </tr>
                 </thead>
                 <tbody id="chCliTableBody"></tbody>
               </table>
-            </div>
-            <div id="chCliEmpty" class="al-empty" style="display:none;">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
-              </svg>
-              <p>Você ainda não tem chamados. Clique em "Abrir chamado" pra começar.</p>
+              <div id="chCliEmpty" class="al-empty" style="display:none;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" stroke-linejoin="miter">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+                </svg>
+                <p>Nenhum chamado por aqui. Se algo não estiver certo no prédio, clique em "Abrir chamado".</p>
+              </div>
             </div>
           </div>
 
           <aside class="ch-detail-col" id="chCliDetailCol">
             <div class="ch-detail-empty">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg>
-              <p>Selecione um chamado para ver os detalhes</p>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" stroke-linejoin="miter"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg>
+              <p>Selecione um chamado para acompanhar o atendimento</p>
             </div>
           </aside>
         </div>
@@ -546,7 +387,7 @@
     </div>
     <div class="modalBody">
       <div class="modalTools"><div class="modalCount" id="senhaMsg"></div></div>
-      <form id="formTrocarSenha" class="formGrid" style="grid-template-columns:1fr;">
+      <form id="formTrocarSenha" class="formGrid">
         <label class="f"><span>Senha atual</span><input id="senhaAtual" type="password" required /></label>
         <label class="f"><span>Nova senha</span><input id="senhaNova" type="password" required minlength="6" /></label>
         <label class="f"><span>Confirmar nova senha</span><input id="senhaNova2" type="password" required minlength="6" /></label>
@@ -561,33 +402,33 @@
 
 <!-- Modal: abrir chamado -->
 <div id="chCliNovoOverlay" class="modalOverlay" style="display:none;">
-  <div class="modalBox" style="max-width:520px;">
+  <div class="modalBox" style="max-width:540px;">
     <div class="modalHead">
       <div>
         <div class="modalTitle">Abrir chamado</div>
-        <div class="modalSub">Descreva o problema que sua equipe está enfrentando</div>
+        <div class="modalSub">Conte o que está acontecendo. Nossa equipe recebe na hora.</div>
       </div>
       <button class="btn btn-sm" id="chCliNovoFechar" type="button">Fechar</button>
     </div>
     <div class="modalBody">
       <div class="modalTools"><div class="modalCount" id="chCliNovoMsg"></div></div>
-      <form id="chCliNovoForm" class="formGrid" style="grid-template-columns:1fr;">
+      <form id="chCliNovoForm" class="formGrid">
         <label class="f">
-          <span>Categoria</span>
+          <span>O que está acontecendo?</span>
           <select id="chCliNovoCategoria" required>
             <option value="">Selecione…</option>
-            <option value="sem_agua">Sem água</option>
+            <option value="sem_agua">Está faltando água</option>
             <option value="vazamento">Vazamento</option>
-            <option value="bomba_falha">Falha na bomba</option>
-            <option value="nivel_baixo">Nível baixo</option>
-            <option value="ruido">Ruído</option>
+            <option value="bomba_falha">A bomba não está funcionando</option>
+            <option value="nivel_baixo">Nível baixo no reservatório</option>
+            <option value="ruido">Barulho na casa de máquinas</option>
             <option value="manutencao">Manutenção</option>
             <option value="outro">Outro</option>
           </select>
         </label>
         <label class="f">
           <span>Descrição</span>
-          <textarea id="chCliNovoDescricao" rows="5" required minlength="5" maxlength="4000" placeholder="O que está acontecendo? Quando começou? Mais detalhes ajudam o técnico a chegar preparado."></textarea>
+          <textarea id="chCliNovoDescricao" rows="5" required minlength="5" maxlength="4000" placeholder="Desde quando está assim? Alguém já mexeu? Quanto mais detalhe, mais preparado o técnico chega."></textarea>
         </label>
         <div class="formActions">
           <button class="btn" type="button" id="chCliNovoCancelar">Cancelar</button>
@@ -610,7 +451,7 @@
     </div>
     <div class="modalBody">
       <div class="modalTools"><div class="modalCount" id="chCliAvalMsg"></div></div>
-      <form id="chCliAvalForm" class="formGrid" style="grid-template-columns:1fr;">
+      <form id="chCliAvalForm" class="formGrid">
         <div class="f">
           <span>Sua nota</span>
           <div class="ch-stars-input" id="chCliAvalStars" role="radiogroup" aria-label="Avaliação">
@@ -622,7 +463,7 @@
           </div>
         </div>
         <label class="f">
-          <span>Comentário <small style="color:var(--muted);">(opcional)</small></span>
+          <span>Comentário <small>(opcional)</small></span>
           <textarea id="chCliAvalComentario" rows="4" maxlength="1000" placeholder="Conta pra gente como foi…"></textarea>
         </label>
         <div class="formActions">
@@ -634,40 +475,33 @@
   </div>
 </div>
 
-<!-- ===== MOBILE TOP BAR ===== -->
+<!-- ===== BARRA SUPERIOR (mobile) ===== -->
 <header class="mob-topbar">
   <img src="/static/login-logo.png" class="mob-top-logo" alt="GENERAL" />
-  <span class="mob-top-title" id="topbarTitle">Dashboard</span>
+  <span class="mob-top-title" id="topbarTitle">Meu prédio</span>
   <button class="mob-top-btn" id="mobBtnSenha" aria-label="Alterar senha" title="Alterar senha">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter">
+      <rect x="3" y="11" width="18" height="11"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
     </svg>
   </button>
   <button class="mob-top-btn" id="mobBtnAtualizar" aria-label="Atualizar">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter">
       <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
       <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
     </svg>
   </button>
 </header>
 
-<!-- ===== MOBILE BOTTOM NAV ===== -->
+<!-- ===== BARRA INFERIOR (mobile) ===== -->
 <nav class="mob-nav">
-  <button class="mob-nav-item active" data-mob-section="dashboard">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
-      <rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/>
-      <rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>
+  <button class="mob-nav-item active" data-mob-section="predio">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="square" stroke-linejoin="miter">
+      <path d="M4 21V6l8-3 8 3v15"/><path d="M9 21v-5h6v5"/>
     </svg>
-    <span>Dashboard</span>
-  </button>
-  <button class="mob-nav-item" data-mob-section="telemetria">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M3 12h4l3-9 4 18 3-9h4"/>
-    </svg>
-    <span>Telemetria</span>
+    <span>Meu prédio</span>
   </button>
   <button class="mob-nav-item" data-mob-section="alertas">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="square" stroke-linejoin="miter">
       <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
       <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
     </svg>
@@ -675,14 +509,14 @@
     <span class="mob-nav-badge" id="mobBadgeAlertas"></span>
   </button>
   <button class="mob-nav-item" data-mob-section="chamados">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="square" stroke-linejoin="miter">
       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
       <polyline points="14 2 14 8 20 8"/>
     </svg>
     <span>Chamados</span>
   </button>
   <button class="mob-nav-item" id="mobBtnSair">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="square" stroke-linejoin="miter">
       <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
       <polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
     </svg>
@@ -690,10 +524,9 @@
   </button>
 </nav>
 
-<script src="/static/chart.umd.min.js"></script>
 <script src="/static/apexcharts.min.js"></script>
 <script src="/static/inatividade.js" defer></script>
-<script src="/static/cliente.js?v=28" defer></script>
+<script src="/static/cliente.js?v=29" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
 <script src="/static/register-sw.js?v=33" defer></script>
 </body>

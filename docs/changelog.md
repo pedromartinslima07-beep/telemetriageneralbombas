@@ -2117,6 +2117,210 @@ er sem animação.
     as classes nos **templates** do `admin.js`, não no render.
   - Cache-bust: `admin.css` v178, `admin.js` v269.
 
+- **2026-08-13** — **Landing: fora o foco na madrugada, e a empresa passa a
+  falar em primeira pessoa.** Dois pedidos do Pedro sobre a página já
+  redesenhada.
+  - **A madrugada encolheu para uma chamada.** A seção `#noite` (cinco eventos
+    numa linha do tempo com trilho preso ao scroll) era a mais alta da página e
+    gastava tudo isso dramatizando uma noite. O Pedro: *"entendo o que quer
+    passar, mas não queria esse foco todo — uma chamada dizendo que o
+    atendimento é 24 h seria o suficiente."* Removidos: `#noiteTrilho`,
+    `.noite-*` (~120 linhas de CSS) e o handler de scroll do trilho — o
+    listener ficou, porque é ele que cola a barra do topo.
+  - **A seção que entrou no lugar passou por duas versões.** A primeira ("A
+    boia liga a bomba. / Ela não conta o que deu errado." + três falhas) foi
+    recusada pelo Pedro por escrita indireta *e* por redundância: as três
+    falhas eram sonda / sensor de corrente / central com outro nome, ou seja, a
+    seção "Três peças no prédio" repetida. A versão que ficou é `#servico` —
+    **"A gente mede, avisa e atende."**, o ciclo do serviço em três passos
+    numerados, com o painel do condomínio no fecho da placa (era a única parte
+    do serviço que o visitante só descobria lá embaixo, nas dúvidas).
+    ⚠️ **`#servico` é o serviço; `#instalado` é o hardware.** Não voltar a
+    descrever sensores no primeiro. Item de navegação "A noite" → "O serviço".
+  - **Nenhuma frase pode servir só a quem já é cliente.** *"Não somos o
+    aplicativo de uma empresa que você nunca viu"* foi recusada — *"pode ser
+    alguém que acabou de conhecer a empresa sim, e tem que servir pra ela
+    também"*. Todo texto que pressupunha vínculo existente ("a mesma equipe
+    que já troca a sua bomba", "o mesmo telefone que o seu prédio já usa",
+    "somado à manutenção que já fazemos") passou a **condicional**.
+  - **⚠️ Contrato de posicionamento fechado — a causa das quatro rodadas.** A
+    substituição seguinte ("Não somos uma empresa de software. Somos
+    manutenção predial desde 2005.") também foi recusada, e o Pedro parou o
+    trabalho: cada correção de frase estava expondo uma decisão de
+    posicionamento que nunca tinha sido tomada. Decidido por ele e gravado em
+    [`../PRODUCT.md`](../PRODUCT.md): **(1) o produto é o protagonista** — os
+    20 anos são garantia, não abertura, o que **inverte** o princípio anterior
+    "a credibilidade vem da empresa, não do produto"; **(2) a página não se
+    posiciona contra ninguém** — sem definição por negação e sem categoria
+    concorrente, mas explicar por que a boia não basta continua permitido.
+    Aplicado numa passada só: h2 de `#equipe` → **"Quem instala, calibra e
+    atende é a nossa equipe."**, `og:description`, o parágrafo do "aplicativo
+    que manda notificação", a comparação com planilha na FAQ de internet e a
+    comparação com o zelador em `#servico`.
+  - 🐛 **A página falava mal da boia, e isso estava errado.** Correção do
+    Pedro: *"o sistema não serve pra substituir boias"* — e a própria General
+    instala e mantém boia, então pôr a boia como vilã é falar mal do próprio
+    serviço. A causa não foi uma frase solta: o contrato de posicionamento no
+    `PRODUCT.md` tinha uma **exceção que eu inferi** ("explicar por que a boia
+    não basta não viola a regra de não se posicionar contra ninguém"), e foi
+    ela que autorizou o texto. Corrigidos o contrato e as duas ocorrências na
+    página:
+    - peça "Sonda de nível": saiu *"É outra coisa que a boia, que só sabe dizer
+      cheio ou não cheio — e não diz nada quando ela mesma falha"*; entrou a
+      descrição do que a sonda faz (medir sem parar, virar histórico);
+    - dúvida "Meu prédio já tem boia": reescrita sobre **a boia age / o
+      monitoramento mostra**, dizendo que a boia faz parte da manutenção que a
+      General já presta e que o sistema avisa quando alguma peça — ela
+      inclusive — precisa de atenção.
+  - **Tela de login redesenhada em split screen, no mundo "Chapa".** Pedido do
+    Pedro: *"não ficar estranho a pessoa entrar na landing com um visual e
+    parar em um login com outro completamente diferente"*. `/login` é a costura
+    entre o site e o painel, e usava o âmbar `#f0b014` do Mission Control,
+    cantos arredondados, sombra projetada, gradiente e fonte de sistema — tudo
+    o que o sistema visual da landing recusa. Agora: campo marinho com a marca
+    e a engrenagem em escala arquitetônica à esquerda, placa clara com o
+    formulário à direita, faixa listrada na costura das duas metades, chanfro
+    de 45° em campos e botões, Archivo + Martian Mono. No mobile empilha — a
+    marca vira faixa de 270px e o formulário fica inteiro na primeira dobra.
+    Ganhou também um link **"Voltar para o site"**, que não existia.
+    - 🐛 **`login.js` alternava os passos com `style.display`.** O `"block"`
+      inline sobrescrevia o `display` do CSS e o formulário voltava do passo do
+      código sem espaçamento entre os campos. Trocado por `_mostrarPasso()`,
+      que mexe só no atributo `hidden`.
+    - ⚠️ **Anel de foco:** os dois anéis precisam ser `inset`. `outline` e
+      `box-shadow` normal são pintados fora da caixa e o `clip-path` do chanfro
+      recorta ambos — o indicador é calculado e não aparece. Escrevi errado na
+      primeira vez seguindo a descrição do `DESIGN.md`, que dizia "o anel
+      amarelo fica por fora, a 3px" enquanto o `landing.css` sempre usou
+      `inset`. **A `DESIGN.md` foi corrigida** para não induzir ao mesmo erro.
+    - Cache: `login.css` e `login.js` → `?v=3`, `register-sw.js` → `?v=34`,
+      `CACHE_NAME` do `sw.js` → `telemetria-v43` (a tela de login registra o
+      service worker, diferente da landing).
+    - **Painel esquerdo, segunda passada.** A primeira versão era campo marinho
+      com a engrenagem girando — o Pedro apontou que a divisão parecia "meio a
+      meio" e pediu para pensar o lado esquerdo junto. Diagnóstico: 40% de vão
+      morto no topo, engrenagem como papel de parede (segunda aparição da mesma
+      peça, sem função aqui) e uma frase que era a lede do hero da landing pela
+      quarta vez. Resolvido com:
+      - **Foto real sangrada** (`public/fotos/reservatorios.jpg`, escolhida pelo
+        Pedro do Dropbox) com véu marinho, no lugar da engrenagem. É a única
+        foto do acervo que mostra **reservatório** e a única em retrato.
+      - **Texto no rodapé, à esquerda, e véu fechando forte no pé** — as duas
+        coisas são preferência do Pedro. Duas alternativas foram testadas e
+        recusadas: levar o texto ao topo, e clarear o pé do véu para `.68`/
+        `.78` (proposta minha, porque com `.90`/`.97` os últimos 25% viram
+        faixa preta e os dois técnicos ficam partidos ao meio pela frase).
+      - **O que resolveu foi subir o bloco, não mexer no véu.** O
+        `padding-bottom` do `.marca-lado` passou a ser maior que as outras
+        margens — `clamp(80px, 14vh, 130px)` contra 56px — e tira o texto de
+        dentro do trecho mais fechado: ele fecha a ~86% da altura em vez de
+        ~93%. ⚠️ Véu e `padding-bottom` agora são interdependentes; mexer nos
+        dois juntos. O wordmark ganhou `drop-shadow` e encolheu um pouco
+        (268px → 236px), o que também ajuda a encurtar o bloco.
+      - **Frase nova:** "O nível dos seus reservatórios, o estado das bombas e
+        os chamados do prédio" — diz o que há atrás da porta em vez de repetir
+        a promessa que o site já fez três vezes.
+      - **Proporção `1.12fr / .88fr`**, folga para a foto. Era `.86/1.14`:
+        perto demais de meio a meio para ler como decisão, e com o espaço no
+        lado errado — o formulário tinha 820px para uma placa de 440px.
+      - ⚠️ **Lição do enquadramento, que custou três tentativas.** A marca do
+        **fabricante do tanque** (dois telefones legíveis) fica no TOPO da
+        foto. Tentei cortá-la *pela lateral*, o que exigia ampliar a imagem;
+        somado ao recorte vertical que o `cover` já fazia num painel quase
+        quadrado, sobrava **menos da metade da foto** — virava close, sem os
+        tanques nem o corredor, que são o motivo de ela ter sido escolhida.
+        A solução é o contrário: **painel mais largo + `cover` puro alinhado
+        pela base**, e aí o recorte vertical cai justamente sobre a marca do
+        fabricante. Regra registrada: o recorte é vertical, a escala é
+        `cover`. A única exceção é o mobile, onde a faixa larga e baixa não
+        tem sobra horizontal e a ampliação de `112%` é obrigatória para aparar
+        o extintor.
+    - **Texto do painel, ajuste final do Pedro.** Saiu a etiqueta "Acesso do
+      condomínio e da equipe" (e a regra `.marca-eti`, que ficou sem uso). O
+      subtítulo do formulário passou de "Use o e-mail e a senha cadastrados no
+      sistema" para **"Entre com seu e-mail e senha"** — decisão do Pedro por
+      simplicidade. Cheguei a propor uma linha avisando do código por e-mail do
+      segundo passo; foi recusada, e o registro fica porque a ideia pode voltar
+      se aparecer abandono no passo do OTP.
+    - Documentado em [`modulos/autenticacao.md`](modulos/autenticacao.md).
+  - **Passada de redundância — mapa de donos.** O Pedro pediu para procurar
+    repetição; a primeira varredura foi lexical e achou pouco. A varredura
+    **funcional** (que pergunta cada bloco responde) mostrou que *nenhuma*
+    pergunta era respondida uma vez só. Corrigido definindo um dono por
+    pergunta (tabela em
+    [`modulos/landing-publica.md`](modulos/landing-publica.md)):
+    - a lede de `#servico` era a lede do hero reescrita — virou uma linha só
+      que apresenta as três etapas;
+    - a célula 1 narrava nível/coluna/corrente, que **o instrumento do hero já
+      mostra ao vivo** — passou a ser dona da frequência e do histórico;
+    - a célula 3 disputava "equipe própria" com `#equipe` — virou "Atendemos
+      sem você precisar ligar", sobre o chamado já nascer pronto;
+    - a condicional "se já é cliente, mesmo contrato" estava em `#equipe`, na
+      FAQ e no fecho → só no fecho;
+    - "proposta" 3× → 1×; "você fica sabendo que parou de saber" era literal
+      em duas seções → só na FAQ de internet; "desde 2005" 3× → 2×;
+    - duas legendas de foto de `#equipe` anunciavam peças de `#instalado`;
+    - o `aria-label` do diagrama enumerava as três posições que cada
+      `.peca-onde` repete logo depois — leitor de tela ouvia tudo duas vezes.
+    Mantidos de propósito: repetição dentro da **FAQ** e a **lista do fecho**
+    como resumo antes do formulário.
+  - **Diagrama do prédio redesenhado.** Eram oito retângulos lisos com cantos
+    retos — o único elemento da página que não falava a língua do chanfro,
+    contra a regra de forma única do `DESIGN.md`. Agora: chanfro de 45° nos
+    equipamentos (caixa, cisterna, motor, corpo da bomba, quadro) e só no topo
+    do prédio, como recorte de cobertura; **janelas** no lugar das quatro
+    linhas de andar, que davam "retângulo riscado" e não "prédio"; a bomba
+    virou **conjunto motobomba** (base, motor, caixa de bornes e corpo) em vez
+    de uma caixinha; a água ganhou **crista**, o mesmo gesto da lâmina do
+    instrumento; e o traço ganhou hierarquia (2px estrutura / 1–1,5px
+    detalhe), onde antes era tudo 2px. Marcadores de `r=16` → `r=13` e
+    **fora** das peças pequenas: sobre um motor de 56 unidades o círculo
+    amarelo cobria a peça que estava apontando.
+  - **Diagrama do prédio comprimido.** A torre estava em escala (410 unidades,
+    7 linhas de andar) e mais da metade do desenho era retângulo vazio — as
+    três peças moram nas pontas, uma na caixa e duas na casa de máquinas.
+    `viewBox` de `460 700` → `460 520`, torre de 410 → 230 unidades, 7 linhas
+    de andar → 4, e todo o bloco abaixo do solo subiu 180 unidades junto
+    (cisterna, bomba, quadro, sucção, prumada e marcadores 2 e 3). Altura do
+    SVG de 660px → 500px. A seção caiu de 1077px para 1004px e passou a ser
+    limitada pela lista de peças, não pelo vão do desenho. Hover e pulso dos
+    marcadores conferidos depois da mudança.
+  - 🐛 **Corrigido um `*/` a mais em `landing.css`** que vinha do commit
+    `6130562`: fechava o comentário da "armadilha do chanfro" cedo demais, e o
+    texto solto que sobrava era consumido como seletor inválido — levando junto
+    a regra `.btn:focus-visible, .pular:focus-visible, .duvida
+    summary:focus-visible { outline: none }`. Efeito prático pequeno (os
+    indicadores de foco reais são `box-shadow: inset` e continuavam
+    funcionando), mas o CSS estava malformado e a regra era descartada em
+    silêncio. Confirmado no CSSOM depois da correção.
+  - ⚠️ **`.vigia` é UMA placa, não três cards.** A primeira tentativa foi três
+    caixas iguais de título + parágrafo lado a lado, e isso é o contêiner
+    preguiçoso — o mesmo vício da versão rejeitada em agosto. A forma que ficou
+    é uma peça chanfrada dividida por **cortes gravados**: par `--rasgo`
+    (`rgba(2,6,22,.55)`, o fundo do sulco) + `--luz` (`rgba(255,255,255,.10)`,
+    a aresta pegando luz), sempre os dois — com uma linha só a divisão lê como
+    borda de card. Anatomia emprestada do instrumento do hero. No mobile o
+    sulco deita (`border-left` → `border-top`).
+  - **Toda a copy passou para primeira pessoa do plural.** "A General monitora"
+    → "Monitoramos"; "a equipe da General instala" → "Somos nós que
+    instalamos". O texto era **inconsistente** — abria em terceira pessoa e no
+    meio virava primeira ("a gente sabe", "Fale com a gente"). Motivo em
+    [`../memory-bank/decisions.md`](../memory-bank/decisions.md): a terceira
+    pessoa põe um narrador entre a empresa e o síndico, e o argumento de venda
+    é exatamente que quem fala já é o fornecedor de confiança do prédio.
+  - **Verificado no navegador** (servidor estático só de `public/`, 1440×960 e
+    500×860): coluna e leitura do instrumento **concordam** com o movimento
+    rodando (`nível 47` com `--n: 46.84%`) — resolve a única pendência que a
+    revisão de 11/08 deixou em aberto, que era um artefato de captura pausada.
+    Sem estouro horizontal no mobile.
+  - **Detector do Impeccable:** 54 achados, **nenhum do código novo** (as duas
+    faixas listradas já tinham sido julgadas e mantidas; os avisos de escala
+    tipográfica são pré-existentes).
+  - **Documentação:** `DESIGN.md` + `.impeccable/design.json` (a madrugada
+    aparecia em 9 pontos e ficou factualmente errada), `PRODUCT.md` (regra de
+    voz), [`modulos/landing-publica.md`](modulos/landing-publica.md).
+  - Cache-bust: `landing.css` v6, `landing.js` v6.
+
 - **2026-08-11** — **Landing pública redesenhada ("Chapa").** A primeira versão
   da página `/` (commit `446d1c7`) foi rejeitada pelo Pedro: tinha sido
   construída como um **demonstrativo de despesas de condomínio** — folha de
@@ -2159,7 +2363,80 @@ er sem animação.
     na raiz.
   - Cache-bust: `landing.css` v5, `landing.js` v5.
 
+
+### 2026-08-13 — Painel do cliente reconstruído: "Meu prédio" (frontend)
+
+Redesenho completo de `/cliente/painel`, pedido pelo Pedro logo depois da
+landing e do login. Diagnóstico dele: *"está muito ruim, e o principal problema
+foi tentar copiar o painel de admin"*. Estava certo, e o problema era mais
+estrutural que visual. O "porquê" em
+[`../memory-bank/decisions.md`](../memory-bank/decisions.md); o fluxo completo
+em [`modulos/painel-cliente.md`](modulos/painel-cliente.md).
+
+- **`cliente.html` não carrega mais `admin.css`.** Era a raiz de tudo: 265 KB
+  de Mission Control mais 385 linhas de override tentando desfazer proporções.
+  `cliente.css` virou **folha autônoma** no sistema "Chapa" — o mesmo da
+  landing e do login. Os ~225 nomes de classe que o `cliente.js` emite foram
+  mantidos, então **o contrato de markup não mudou**: trocou-se o mundo, não a
+  API. Ponte de tokens no bloco 2 do CSS (`--muted`/`--text`/`--accent`) para
+  os 15 `style=` que o JS ainda escreve.
+- **Quatro seções viraram três.** *Dashboard* e *Telemetria* mostravam os
+  MESMOS 3–5 reservatórios duas vezes, com componentes diferentes para o mesmo
+  dado — o admin tem as duas porque olha N condomínios; o cliente tem um.
+  Fundidas em **"Meu prédio"** (`data-section="predio"`). Nada removido:
+  histórico 24h/7d/30d/90d, seleção de reservatório e PDF continuam.
+- **A estrutura virou uma linha do tempo**, não uma grade de cards: trilho
+  vertical em corte gravado, com a estação **AGORA** no topo (instrumento +
+  contagens do que está aberto), a estação **HISTÓRICO** em seguida, e os
+  eventos reais descendo agrupados por dia (alerta aberto, chamado aberto,
+  técnico designado, atendimento concluído, O.S. finalizada). Clicar num evento
+  de chamado abre o chamado.
+- **O tanque cilíndrico em SVG saiu; entrou a coluna d'água da landing.**
+  O cilindro era o componente do admin, portado de `admin.js` — o sintoma que o
+  Pedro diagnosticou. A coluna já traz as faixas de 45%/20% desenhadas e é o
+  objeto que o síndico viu na página pública. ⚠️ A lâmina abre em `#2f6fe0`, e
+  não no `--mar-500` da landing: com três tubos de 176px lado a lado a rampa
+  original lia como retângulo preto.
+- **Funções removidas do `cliente.js` (todas duplicadas ou órfãs):**
+  `_dashRenderChamados`, `_dashRenderNiveis`, `_dashRenderCriticos`,
+  `_dashRenderActivity`, `_dashRenderBombas`, `_cliTanqueTile`,
+  `_telTanqueSVG`, `_telBandaAgua`, `_telCliAtualizar`, `_telCliRenderKpis`,
+  `_telCliRenderNiveisChart`, `_telCliRenderCriticos`, `_telCliRenderBombas`,
+  `histResumoCard`, `badge`/`nivelBadge`/`bombaBadge`/`tipoBadge`,
+  `pickMaisRecente`, `pickMaisCritico`, `algumOffline`, `_telCliCorPct`,
+  `_telCliFmtTempoRel`, `ICO_WIFI_OFF`. Novas: `_agoraRender`, `_agoraColuna`,
+  `_predioVeredito`, `_linhaRender`, `_predioKpis`, `_predioAtualizar`,
+  `_estadoDoReservatorio`, `_agoraRelogio`.
+- **Bugs reais corrigidos no caminho:**
+  - `cliente.html` mandava para `wa.me/5511999990000` — **número inventado**.
+    Trocado pelo real (`11966536110`).
+  - `.mob-topbar` era `position: sticky` estando no **fim do `<body>`**: ela só
+    aparecia depois de rolar a página inteira. Virou `fixed`.
+  - "Em atendimento" era `rc-bad` (vermelho) no KPI de Chamados. Chamado com
+    técnico designado é boa notícia; pintá-lo de vermelho ensina o síndico a se
+    assustar com o serviço funcionando.
+  - As tabelas de Alertas e Chamados não tinham tratamento mobile — cinco
+    colunas em 390px só se liam arrastando de lado. Viraram lista de placas.
+  - No modo recolhido a sidebar ficava só com ícones e **sem rótulo nenhum**.
+    Ganhou rótulo flutuante a partir do `data-label` que já existia no HTML.
+  - Faixa de cor de 3px na borda dos KPIs (o tell clássico de UI gerada por IA,
+    apontado pelo detector do Impeccable) trocada por placa de ícone
+    preenchida.
+- **`chart.umd.min.js` (Chart.js) saiu do `cliente.html`** — o painel só usa
+  ApexCharts. ~200 KB a menos por carga.
+- **`mob-sidebar.js`** (compartilhado com o admin) ganhou a chave `predio` no
+  mapa de títulos do topo mobile. Aditivo; o admin não tem essa seção.
+- **Backend intocado.** Nenhuma rota, nenhum campo, nenhuma migration. Como não
+  há endpoint novo, o **`sw.js` não foi tocado** — `/cliente` já é network-first
+  e `.css`/`.js` também.
+- Cache-bust: `cliente.css` v10, `cliente.js` v29.
+
+⚠️ **Verificação:** harness estático (o `cliente.html`/`cliente.css`/
+`cliente.js` reais, com `fetch` dublado), a 1440px e num iframe de 390px.
+**Nada rodou contra o backend real**, e o caminho do cliente sem telemetria
+contratada não foi visto renderizado.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em
-> [`modulos/`](modulos/README.md).
+> [`modulos/`](modulos/README.md).

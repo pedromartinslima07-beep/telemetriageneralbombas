@@ -167,3 +167,92 @@ devolve o acesso automaticamente.
 > `adminOnly` como qualquer admin. Chamando a API direto, o operador alcança
 > orçamentos, O.S. e relatórios. Para valer de verdade, essas rotas
 > precisariam de `gestaoOnly`.
+
+---
+
+## A tela de login (`public/login.html` + `login.css` + `login.js`)
+
+### Ela segue o mundo da landing, não o do painel
+
+`/login` é a **costura** entre a landing pública e o painel interno. Desde
+2026-08-13 ela usa o sistema visual **"Chapa"** — mesma paleta marinho +
+`#fbb329`, mesmo chanfro de 45°, mesmas fontes (Archivo + Martian Mono) —, em
+layout **split screen**: campo marinho com a marca à esquerda, placa clara com
+o formulário à direita.
+
+⚠️ **Não trazer o âmbar `#f0b014` do `admin.css` para cá.** Ele é a
+interpretação do painel interno; a cor institucional é `#fbb329`
+(ver [`../../PRODUCT.md`](../../PRODUCT.md)). Quem chega vindo do site não pode
+sentir que trocou de empresa no meio do caminho — foi exatamente esse degrau
+que motivou o redesenho.
+
+⚠️ **`login.css` duplica os tokens da landing de propósito.** As duas páginas
+não compartilham CSS (`landing.css` só é servido em `/`), então a paleta, o
+chanfro e as `@font-face` estão copiados. **Ao mudar a paleta, mudar nos dois.**
+
+### ⚠️ Nunca ampliar a foto para cortar na lateral
+
+`public/fotos/reservatorios.jpg` é a **única foto do acervo que mostra
+reservatório** (as outras são bomba, quadro ou barrilete) e a única em retrato
+(960×1280). Por isso ela é a imagem desta tela.
+
+A divisão é `1.12fr / .88fr` — o painel da foto é o maior, porque a placa do
+formulário fecha em 440px e não precisa de mais espaço. Nesse painel, mais
+largo do que a foto é alta, o `cover` **corta ~30% na vertical**. Isso é
+desejado: a marca do **fabricante do tanque, com dois telefones legíveis**,
+está no TOPO da foto, então `background-position: 50% 90%` (alinhado pela base)
+faz o recorte cair exatamente em cima dela. **O enquadramento resolve sozinho
+— não há sombra local nem zoom.**
+
+⚠️ **Foi tentando resolver isso de outro jeito que duas versões deram errado.**
+Cortar a marca do fabricante *pela lateral* exigia ampliar a imagem; somado ao
+recorte vertical que o `cover` já fazia, sobrava menos da metade da foto e ela
+virava close, sem os tanques nem o corredor — que são o motivo de ela ter sido
+escolhida. Regra: **o recorte é vertical, a escala é `cover`, e ponto.**
+
+Ao mexer no `90%`: conferir a foto ampliada. Os telefones voltam fácil e a 100%
+de zoom eles enganam.
+
+O texto do painel fica **no rodapé**, à esquerda, e o véu fecha forte no pé
+(`.90` em 84%, `.97` no fim) — as duas coisas são preferência declarada do
+Pedro. Uma versão intermediária levou o texto ao topo e outra clareou o pé para
+`.68`/`.78`; **as duas foram recusadas**, ele gosta do desbotamento no rodapé.
+
+⚠️ **O que equilibra isso é o `padding-bottom` do `.marca-lado`**, que é maior
+que as outras margens (`clamp(80px, 14vh, 130px)` contra 56px). Ele descola o
+bloco da borda e o tira de dentro do trecho mais fechado do véu: o texto fecha
+a ~86% da altura, não a ~93%. Sem essa folga o bloco fica deitado na parte
+preta e os dois técnicos ficam partidos ao meio pela frase.
+
+Se mexer no véu ou no `padding-bottom`, mexer nos dois juntos — um existe por
+causa do outro. No mobile o `padding` é redefinido pela media query e esse
+ajuste não se aplica.
+
+⚠️ **No mobile `cover` não serve, e aí a ampliação é obrigatória.** A faixa é
+larga e baixa e a foto é retrato: `cover` escala pela largura, a sobra é toda
+vertical e o `background-position-x` não faz efeito nenhum — o extintor da
+borda direita entra sempre. Por isso lá o valor é `112%`, o mínimo para existir
+sobra horizontal. É a única exceção à regra acima.
+
+### ⚠️ Os passos são alternados por `hidden`, nunca por `style.display`
+
+`login.js` alternava `loginForm.style.display` entre `"none"` e `"block"`. O
+`"block"` inline sobrescrevia o `display` do CSS, e o formulário voltava do
+passo do código como bloco simples — sem o espaçamento entre os campos. Hoje
+existe `_mostrarPasso("login" | "otp")`, que mexe só no atributo `hidden`, e o
+CSS tem `[hidden] { display: none !important }`. Não voltar a `style.display`.
+
+### ⚠️ Anel de foco em elemento chanfrado tem de ser `inset`
+
+Mesma armadilha da landing: `clip-path` recorta tudo que o elemento pinta,
+inclusive `outline` e `box-shadow` normal, que ficam fora da caixa. Em campo e
+botão chanfrado o indicador de foco é `box-shadow: inset` — **os dois anéis**.
+Elemento focável novo com chanfro precisa entrar na lista de `:focus-visible`
+no topo do `login.css`.
+
+### Cache
+
+A tela de login **registra o service worker** (`register-sw.js`), diferente da
+landing. Então `login.css`/`login.js` entram no cache do SW: ao alterá-los,
+bumpe o `?v=N` dos dois **e** o `CACHE_NAME` do `public/sw.js` **e** o `?v=N`
+do `register-sw.js`. Ver [`../../CLAUDE.md`](../../CLAUDE.md).

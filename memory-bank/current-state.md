@@ -220,6 +220,46 @@ ESP32 (sonda 4-20mA + SCT-013)
   própria placa. As faixas 45% / 20% são as mesmas do backend — se mudarem lá,
   mudam aqui. Detalhe e demais pegadinhas em
   [landing-publica.md](../docs/modulos/landing-publica.md).
+- ⚠️ **Toda a copy é primeira pessoa do plural** ("Monitoramos", "a gente
+  sabe"). Terceira pessoa ("A General monitora") faz a página soar como um
+  terceiro apresentando a empresa — ver [decisions.md](decisions.md).
+- ⚠️ A seção `#servico` (`.vigia`) é **uma placa dividida por cortes
+  gravados**, não três cards. Substituiu a linha do tempo da madrugada em
+  2026-08-13.
+
+**Painel do cliente "Meu prédio"** — `public/cliente.html` + `cliente.css` + `cliente.js`
+- Desde 2026-08-13 é **folha autônoma no sistema "Chapa"**: `cliente.html`
+  **não carrega mais `admin.css`**. Era o defeito central — o painel do síndico
+  não era inspirado no admin, era o admin, e herdava dele paleta, navegação e
+  densidade a cada deploy. Fluxo em
+  [painel-cliente.md](../docs/modulos/painel-cliente.md).
+- **Três seções** (eram quatro): **Meu prédio** (funde o antigo Dashboard +
+  Telemetria, que mostravam os mesmos reservatórios duas vezes), **Alertas** e
+  **Chamados**. Nenhuma funcionalidade saiu.
+- A seção principal é um **trilho vertical**: estação AGORA (instrumento com
+  veredito em prosa + colunas d'água reais + contagens do que está aberto),
+  estação HISTÓRICO (24h/7d/30d/90d + PDF) e os eventos descendo por dia.
+- O instrumento é **o mesmo objeto da landing**, ligado no sensor de verdade.
+  As faixas de 45%/20% são as do backend — mudou lá, muda na landing e aqui.
+- ⚠️ **Ponte de tokens** no `cliente.css` (`--muted`/`--text`/`--accent`): o
+  `cliente.js` ainda escreve esses tokens do admin em 15 `style=`. Não remover.
+- ⚠️ **Alerta resolvido não aparece na linha do tempo** — `/cliente/status` só
+  devolve os abertos. É buraco conhecido, não bug.
+- ⚠️ **Nada foi verificado contra o backend real**; a validação foi em harness
+  estático a 1440px e 390px.
+
+**Tela de login** — `public/login.html` + `login.css` + `login.js`
+- Desde 2026-08-13 segue o sistema **"Chapa"** da landing (split screen,
+  marinho + `#fbb329`, chanfro de 45°), **não** o âmbar do painel: `/login` é a
+  costura entre o site e o painel e não pode parecer outra empresa.
+- ⚠️ `login.css` **duplica** os tokens da landing de propósito (as páginas não
+  compartilham CSS). Mudou a paleta? Mude nos dois.
+- ⚠️ Os passos login/OTP alternam por atributo `hidden`, nunca por
+  `style.display`. Detalhes em
+  [autenticacao.md](../docs/modulos/autenticacao.md).
+- ⚠️ A foto do painel (`public/fotos/reservatorios.jpg`) tem a marca do
+  **fabricante do tanque com telefones legíveis** no canto superior esquerdo —
+  o enquadramento corta esse canto de propósito.
 
 **Segurança & operação**
 - Envs obrigatórias em produção (JWT_SECRET, CORS_ORIGINS) com `process.exit(1)`.

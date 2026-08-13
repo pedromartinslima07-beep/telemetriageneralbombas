@@ -78,12 +78,20 @@ function redirectByRole(user) {
   window.location.href = destino;
 }
 
+// ⚠️ Os dois passos são alternados pelo atributo `hidden`, NUNCA por
+// `style.display`. O inline `display:block` que existia aqui sobrescrevia o
+// display do CSS: o formulário voltava do passo do código como bloco simples e
+// perdia o espaçamento entre os campos. `hidden` deixa o layout com o CSS.
+function _mostrarPasso(qual) {
+  loginForm.hidden = qual !== "login";
+  otpStep.hidden   = qual !== "otp";
+}
+
 // Descarta a sessão e volta pro passo 1 com o motivo na tela.
 function _abortarLogin(msg) {
   localStorage.removeItem("token");
   localStorage.removeItem("user");
-  otpStep.style.display   = "none";
-  loginForm.style.display = "block";
+  _mostrarPasso("login");
   _otpToken = null;
   showError(msg);
 }
@@ -120,8 +128,7 @@ loginForm.addEventListener("submit", async (e) => {
     // Aguarda verificação de código
     if (data.pending) {
       _otpToken = data.otp_token;
-      loginForm.style.display = "none";
-      otpStep.style.display   = "block";
+      _mostrarPasso("otp");
       otpCode.value = "";
       otpCode.focus();
     }
@@ -170,6 +177,5 @@ otpCode.addEventListener("keydown", (e) => {
 otpBack.addEventListener("click", () => {
   clearError();
   _otpToken = null;
-  otpStep.style.display   = "none";
-  loginForm.style.display = "block";
+  _mostrarPasso("login");
 });

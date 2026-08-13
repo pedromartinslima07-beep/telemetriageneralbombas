@@ -40,7 +40,9 @@ aliases:
 
 - **Landing pública** 🟡 — redesenhada em 2026-08-11 na branch
   `feature/landing-publica` (direção "Chapa"; a primeira versão, em formato de
-  demonstrativo de despesas, foi rejeitada). Fluxo e pegadinhas em
+  demonstrativo de despesas, foi rejeitada). Em 2026-08-13 a linha do tempo da
+  madrugada foi trocada por uma chamada única de 24 h e toda a copy passou para
+  primeira pessoa do plural. Fluxo e pegadinhas em
   [`../docs/modulos/landing-publica.md`](../docs/modulos/landing-publica.md).
   Pendente antes do merge:
   - **Preço / termos da assinatura** — Pedro definiu "assinatura mensal, sem
@@ -52,6 +54,20 @@ aliases:
     isso está fora da página (ver `PRODUCT.md`).
   - `POST /leads` **não foi exercitado contra o backend real** nesta sessão —
     só a validação de campo vazio no front.
+- **Painel do cliente "Meu prédio"** 🟡 — reconstruído em 2026-08-13 na mesma
+  branch. Saiu do `admin.css`, entrou no sistema "Chapa"; quatro seções viraram
+  três e a estrutura virou uma linha do tempo. Fluxo e pegadinhas em
+  [`../docs/modulos/painel-cliente.md`](../docs/modulos/painel-cliente.md).
+  Pendente antes do merge:
+  - **Abrir com backend real** (servidor de teste + conta de cliente demo). A
+    validação foi feita só em harness estático, a 1440px e 390px.
+  - **Ver o caminho do cliente sem telemetria contratada** renderizado.
+  - **Decidir se o tanque cilíndrico volta** — ele foi substituído pela coluna
+    d'água da landing, revertendo uma escolha que o Pedro aprovou em julho.
+  - 📋 **`alertas_recentes` em `/cliente/status`** — devolver os alertas
+    resolvidos dos últimos 30 dias para a linha do tempo parar de mostrar
+    alerta que abre e nunca fecha. Aditivo: sem rota nova, sem tocar no
+    `sw.js`. Aguarda o Pedro liberar mexer no backend.
 - **Gateway Meta WhatsApp** — código pronto, pendente configuração externa
   (ver [`active-work.md`](active-work.md)).
 - **Fase 10 (treinar IA)** 🟡 — 10A feito; 10B-E aguardam ~500+ conversas

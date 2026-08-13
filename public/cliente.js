@@ -12,43 +12,33 @@ if (!getToken()) {
 }
 
 // ===== NAVEGAÇÃO POR SEÇÕES =====
-const _sectionTitles = { dashboard: "Dashboard", telemetria: "Telemetria", alertas: "Alertas", chamados: "Chamados" };
+// Três seções. "Dashboard" e "Telemetria" eram DUAS telas mostrando os mesmos
+// reservatórios — herança do admin, que tem as duas porque olha N condomínios.
+// Aqui viraram "Meu prédio".
+const _sectionTitles = { predio: "Meu prédio", alertas: "Alertas", chamados: "Chamados" };
 
 // ── Estado do histórico ──
 let _reservatorios = [];
 let _histDias = 1;
 
-// ── Estado do dashboard ──
-let _dashNiveisChart = null;
-
-// ── Estado dos alertas (modelo novo) ──
+// ── Estado dos alertas ──
 let _alAlertas = [];
 let _alTabAtiva = "todos";
 let _alBindFeito = false;
 let _alSelecionadoId = null;
 
-// ── Estado da telemetria ──
+// ── Estado de "Meu prédio" ──
 let _telCliUltimoStatus = null; // último payload de /cliente/status
-let _telCliBarChart    = null;  // ApexCharts (níveis - bar)
 let _telCliHistChart   = null;  // ApexCharts (histórico - area)
+let _relogioTimer      = null;
 
-const TEL_CLI_HIST_COLORS = ["#f0b014", "#22d3ee", "#a78bfa", "#34d399", "#fb7185", "#fbbf24"];
-
-// Wi-Fi off (dispositivo offline) — mesma arte do admin (ICON_WIFI_OFF em
-// admin.js): arcos recortados em volta da diagonal, que para antes dos cantos.
-// É o que mantém o ícone legível nos 14–15px em que ele é usado.
-const ICO_WIFI_OFF = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h.01"/><path d="M8.5 16.43a5 5 0 0 1 7 0"/><path d="M5 12.86a10 10 0 0 1 5.17-2.69"/><path d="M19 12.86a10 10 0 0 0-2.01-1.52"/><path d="M2 8.82a15 15 0 0 1 4.18-2.64"/><path d="M22 8.82a15 15 0 0 0-11.29-3.76"/><path d="m2 2 20 20"/></svg>`;
+// Faixas de alerta. ⚠️ São as MESMAS do backend (`nivelFromPct`) e as mesmas
+// desenhadas na coluna d'água da landing. Se mudarem lá, mudam nos três.
+const LIMIARES = { critico: 20, baixo: 45 };
 
 function _telCliTemReservatorios() {
   const list = Array.isArray(_telCliUltimoStatus?.reservatorios) ? _telCliUltimoStatus.reservatorios : [];
   return list.length > 0;
-}
-
-function _telCliCorPct(pct) {
-  if (pct == null) return "off";
-  if (pct < 20) return "bad";
-  if (pct < 40) return "warn";
-  return "ok";
 }
 
 function showSection(name) {
@@ -65,9 +55,8 @@ function showSection(name) {
   if (name === "chamados" && typeof renderSecaoChCli === "function") {
     renderSecaoChCli();
   }
-  if (name === "telemetria") {
-    // Re-render do conteúdo (KPIs + mini-cards) e carrega o histórico se houver dados
-    _telCliAtualizar(_telCliUltimoStatus);
+  if (name === "predio") {
+    _predioAtualizar(_telCliUltimoStatus);
     if (_telCliTemReservatorios()) carregarHistorico();
   }
 }
@@ -107,34 +96,6 @@ function fmtData(iso) {
   return new Date(iso).toLocaleString();
 }
 
-function badge(text, kind) {
-  const cls = kind === "ok" ? "b-ok" : (kind === "warn" ? "b-warn" : "b-bad");
-  return `<span class="badge ${cls}">${text}</span>`;
-}
-
-function nivelBadge(nivel) {
-  const n = String(nivel || "").toLowerCase();
-  if (n === "alto") return badge("ALTO", "ok");
-  if (n === "medio") return badge("MÉDIO", "warn");
-  if (n === "baixo") return badge("BAIXO", "warn");
-  if (n === "muito_baixo") return badge("MUITO BAIXO", "bad");
-  return badge(n || "-", "warn");
-}
-
-
-function bombaBadge(ligada) {
-  if (ligada === true) return badge("LIGADA", "warn");
-  if (ligada === false) return badge("DESLIGADA", "ok");
-  return badge("-", "warn");
-}
-
-function tipoBadge(tipo) {
-  if (tipo === "nivel_muito_baixo") return badge("NÍVEL MUITO BAIXO", "bad");
-  if (tipo === "nivel_baixo") return badge("NÍVEL BAIXO", "warn");
-  if (tipo === "dispositivo_offline") return badge("DISPOSITIVO OFFLINE", "bad");
-  return badge(String(tipo || "").replaceAll("_", " "), "warn");
-}
-
 function setStatusMsg(msg) {
   const el = document.getElementById("statusMsg");
   if (el) el.textContent = msg || "";
@@ -172,54 +133,286 @@ async function _erroDaResposta(r) {
 }
 
 // ============================================================
-// DASHBOARD — funções de renderização modernas
+// MEU PRÉDIO — o instrumento e o trilho
+// ------------------------------------------------------------
+// A estrutura desta seção é uma LINHA DO TEMPO: o AGORA no topo e o passado
+// descendo. Substituiu a grade de cards que o painel herdou do admin.
+//
+// O instrumento (.agora) é o MESMO objeto da landing pública — cabeçalho,
+// veredito, colunas d'água, nota — só que ligado no sensor de verdade. É
+// deliberado: o síndico reconhece a peça que viu antes de contratar. Se
+// mexer na anatomia aqui, olhar `.instr` em landing.css antes.
+//
+// ⚠️ Não voltar a desenhar o tanque cilíndrico em SVG. Ele veio do admin.js
+// (`_telTanqueSVG`), era duplicado lá e aqui, e é justamente a herança que
+// este redesenho existe para desfazer.
 // ============================================================
 
-function _dashRenderChamados() {
-  const listaEl = document.getElementById("dashChamadosLista");
-  if (!listaEl) return;
+function _estadoDoReservatorio(r) {
+  if (r.offline) return "offline";
+  const pct = r.ultima_leitura?.nivel_pct;
+  if (pct == null) return "offline";
+  if (pct < LIMIARES.critico) return "critico";
+  if (pct < LIMIARES.baixo)   return "atencao";
+  return "normal";
+}
 
-  const data = Array.isArray(_chCliData) ? _chCliData : [];
+// "há Xmin" / "há Xh" / data
+function _telAtualizadoTxt(u) {
+  if (!u?.criado_em) return "sem leitura";
+  const mins = Math.round((Date.now() - new Date(u.criado_em)) / 60000);
+  if (mins < 1)    return "agora mesmo";
+  if (mins < 60)   return `há ${mins} min`;
+  if (mins < 1440) return `há ${Math.round(mins / 60)}h`;
+  return new Date(u.criado_em).toLocaleDateString("pt-BR");
+}
 
-  if (data.length === 0) {
-    listaEl.innerHTML = `<div class="mc-empty" style="padding:16px 0;">Nenhum chamado registrado ainda.</div>`;
+// ─── O veredito ──────────────────────────────────────────────────────────
+// A frase que responde a visita de 5 segundos. Fica em prosa normal e
+// grande, fora do mono: quem chega aflito não deve ter que ler instrumento
+// para saber se pode dormir.
+//
+// ⚠️ Nenhuma frase aqui pode afirmar mais do que o dado sustenta. "Parou de
+// enviar leitura" não é "está sem água" — e essa distinção é literalmente o
+// produto. Não trocar por texto mais tranquilizador.
+function _predioVeredito(list, chamados) {
+  const nome  = r => _telCliEscapar(r.nome || "Um reservatório");
+  const pctDe = r => Math.round(r.ultima_leitura?.nivel_pct ?? 0);
+
+  const offline  = list.filter(r => r.offline || r.ultima_leitura?.nivel_pct == null);
+  const criticos = list.filter(r => _estadoDoReservatorio(r) === "critico");
+  const atencao  = list.filter(r => _estadoDoReservatorio(r) === "atencao");
+
+  const abertos = chamados.filter(c => c.status === "aberto" || c.status === "em_atendimento");
+  const comTecnico = chamados.find(c => c.status === "em_atendimento" && c.tecnico_nome);
+
+  const notaAtendimento = comTecnico
+    ? `${_telCliEscapar(comTecnico.tecnico_nome)} está designado para o atendimento.`
+    : abertos.length
+      ? "Já existe um chamado aberto para isso."
+      : "Nossa equipe é avisada automaticamente quando o nível chega aqui.";
+
+  if (criticos.length) {
+    return {
+      estado: "critico",
+      titulo: criticos.length === 1
+        ? `<strong>${nome(criticos[0])}</strong> está em ${pctDe(criticos[0])}%.`
+        : `<strong>${criticos.length} reservatórios</strong> estão abaixo de ${LIMIARES.critico}%.`,
+      nota: notaAtendimento,
+    };
+  }
+
+  if (offline.length) {
+    // ⚠️ Aqui NÃO entra o `notaAtendimento`: o técnico designado quase sempre
+    // está num chamado de OUTRO reservatório, e citá-lo nesta frase faz o
+    // síndico entender que alguém já está indo cuidar deste sensor. Não está.
+    return {
+      estado: "atencao",
+      titulo: offline.length === 1
+        ? `<strong>${nome(offline[0])}</strong> parou de enviar leitura.`
+        : `<strong>${offline.length} reservatórios</strong> pararam de enviar leitura.`,
+      nota: "Isso não quer dizer que falta água — quer dizer que não estamos conseguindo medir. Nossa equipe é avisada automaticamente quando um sensor para de responder.",
+    };
+  }
+
+  if (atencao.length) {
+    return {
+      estado: "atencao",
+      titulo: atencao.length === 1
+        ? `<strong>${nome(atencao[0])}</strong> está em ${pctDe(atencao[0])}%.`
+        : `<strong>${atencao.length} reservatórios</strong> estão abaixo de ${LIMIARES.baixo}%.`,
+      nota: `Abaixo de ${LIMIARES.baixo}% acompanhamos de perto. ` + notaAtendimento,
+    };
+  }
+
+  return {
+    estado: "normal",
+    titulo: "Tudo normal no seu prédio.",
+    nota: abertos.length
+      ? "Os níveis estão dentro do esperado. Há atendimento em andamento — acompanhe em Chamados."
+      : "Os níveis estão dentro do esperado e os sensores continuam medindo.",
+  };
+}
+
+// ─── Uma coluna d'água ───────────────────────────────────────────────────
+function _agoraColuna(r) {
+  const u       = r.ultima_leitura;
+  const pct     = u?.nivel_pct;
+  const estado  = _estadoDoReservatorio(r);
+  const nome    = _telCliEscapar(r.nome || "Reservatório");
+  const tipo    = _telCliEscapar(r.tipo || "Reservatório");
+
+  // A lâmina desce por transform a partir de --n. O número e a coluna saem
+  // da MESMA variável, no mesmo render — coluna e leitura discordando é o
+  // que destrói um instrumento.
+  const n       = pct == null ? 0 : Math.max(0, Math.min(100, pct));
+  const pctTxt  = estado === "offline" ? "—" : `${Math.round(n)}<small>%</small>`;
+
+  const bomba   = u?.bomba_ligada;
+  const bombaCls = bomba === true ? "on" : bomba === false ? "off" : "uk";
+  const bombaTxt = bomba === true ? "Bomba ligada" : bomba === false ? "Bomba desligada" : "Bomba sem informação";
+
+  const semLeitura = estado === "offline" && r.minutos_sem_atualizar == null;
+
+  return `
+    <div class="agora-cel" data-estado="${estado}">
+      <div class="agora-cel-nome" title="${nome}">${nome}</div>
+      <div class="agora-cel-tipo">${tipo}</div>
+      <div class="agora-cel-corpo">
+        <div class="coluna-tubo" role="img" aria-label="Nível ${estado === "offline" ? "sem leitura" : Math.round(n) + " por cento"}">
+          <span class="coluna-faixa coluna-faixa-baixo"></span>
+          <span class="coluna-faixa coluna-faixa-critico"></span>
+          <div class="coluna-agua" style="--n:${n}%"><span class="coluna-crista"></span></div>
+          <span class="coluna-marca coluna-marca-baixo"><span>${LIMIARES.baixo}</span></span>
+          <span class="coluna-marca coluna-marca-critico"><span>${LIMIARES.critico}</span></span>
+        </div>
+        <div class="agora-leituras">
+          <div>
+            <div class="agora-leitura-rot">Nível</div>
+            <div class="agora-leitura-val">${pctTxt}</div>
+          </div>
+          <div class="agora-bomba ${bombaCls}"><span class="agora-lamp"></span>${bombaTxt}</div>
+          <div class="agora-leitura-rot">${semLeitura ? "Nunca enviou leitura" : _telAtualizadoTxt(u)}</div>
+        </div>
+      </div>
+    </div>`;
+}
+
+// ─── A estação AGORA ─────────────────────────────────────────────────────
+function _agoraRender(list, chamados) {
+  const instr    = document.getElementById("agoraInstr");
+  const colunas  = document.getElementById("agoraColunas");
+  const veredito = document.getElementById("agoraVeredito");
+  const nota     = document.getElementById("agoraNota");
+  const idEl     = document.getElementById("agoraId");
+  if (!instr || !colunas) return;
+
+  const reservs = [...list].sort((a, b) => (a.nome || "").localeCompare(b.nome || ""));
+  const v = _predioVeredito(reservs, chamados);
+
+  instr.dataset.estado = v.estado;
+  if (veredito) veredito.innerHTML = `${v.titulo}<small>${v.nota}</small>`;
+  colunas.innerHTML = reservs.map(_agoraColuna).join("");
+
+  if (idEl) {
+    idEl.textContent = reservs.length === 1
+      ? "1 reservatório monitorado"
+      : `${reservs.length} reservatórios monitorados`;
+  }
+
+  if (nota) {
+    const ligadas = reservs.filter(r => r.ultima_leitura?.bomba_ligada === true).length;
+    let ultimaIso = null;
+    for (const r of reservs) {
+      const c = r.ultima_leitura?.criado_em;
+      if (c && (!ultimaIso || new Date(c) > new Date(ultimaIso))) ultimaIso = c;
+    }
+    nota.innerHTML =
+      `<span>Última leitura ${ultimaIso ? _telAtualizadoTxt({ criado_em: ultimaIso }) : "—"}</span>` +
+      `<span>${ligadas === 0 ? "Nenhuma bomba ligada agora" : ligadas === 1 ? "1 bomba ligada agora" : `${ligadas} bombas ligadas agora`}</span>`;
+  }
+}
+
+// Relógio do instrumento. Fora do render porque é evento, não medição —
+// chaveia a cada segundo e não pode arrastar o resto do painel junto.
+function _agoraRelogio() {
+  const el = document.getElementById("agoraRelogio");
+  if (!el) return;
+  el.textContent = new Date().toLocaleTimeString("pt-BR");
+}
+
+// ─── As estações de evento ───────────────────────────────────────────────
+// Material real, sem inventar nada: alertas abertos (que trazem `criado_em`)
+// e o ciclo completo dos chamados (aberto → técnico → concluído).
+//
+// ⚠️ Alerta RESOLVIDO não entra: `/cliente/status` só devolve os abertos, e
+// a linha prefere um buraco honesto a um evento fabricado. Se um dia o
+// endpoint passar a devolver os resolvidos, é aqui que eles entram.
+function _linhaRender(alertas, chamados, reservatorios) {
+  const wrap = document.getElementById("linhaEventos");
+  if (!wrap) return;
+
+  const nomeDoDevice = d =>
+    reservatorios.find(r => r.device_id === d)?.nome || d || "reservatório";
+
+  const ev = [];
+
+  for (const a of alertas || []) {
+    const grave = a.tipo === "nivel_muito_baixo" || a.tipo === "dispositivo_offline";
+    ev.push({
+      ts: a.criado_em,
+      tom: grave ? "critico" : "atencao",
+      titulo: _alTipoLabel(a.tipo),
+      sub: `${_telCliEscapar(nomeDoDevice(a.device_id))} · ainda aberto`,
+    });
+  }
+
+  for (const c of chamados || []) {
+    const ref = `#${c.id} — ${_telCliEscapar(c.titulo || "Chamado")}`;
+    ev.push({ ts: c.criado_em, tom: "atencao", titulo: "Chamado aberto", sub: ref, ir: c.id });
+
+    if (c.status === "fechado" && c.fechado_em) {
+      ev.push({ ts: c.fechado_em, tom: "ok", titulo: "Atendimento concluído", sub: ref, ir: c.id });
+    } else if (c.status === "em_atendimento") {
+      ev.push({
+        ts: c.atualizado_em || c.criado_em,
+        tom: "atencao",
+        titulo: c.tecnico_nome ? `Técnico designado — ${_telCliEscapar(c.tecnico_nome)}` : "Atendimento iniciado",
+        sub: ref,
+        ir: c.id,
+      });
+    }
+    if (c.os_finalizada_em) {
+      ev.push({ ts: c.os_finalizada_em, tom: "ok", titulo: "Ordem de serviço finalizada", sub: ref, ir: c.id });
+    }
+  }
+
+  ev.sort((a, b) => new Date(b.ts) - new Date(a.ts));
+
+  if (!ev.length) {
+    wrap.innerHTML = `<div class="linha-fim">Nada registrado ainda. Conforme o prédio for sendo monitorado e atendido, o histórico aparece aqui.</div>`;
     return;
   }
 
-  const recentes = [...data]
-    .sort((a, b) => new Date(b.criado_em) - new Date(a.criado_em))
-    .slice(0, 5);
+  // Agrupa por dia. O rótulo do dia é o que transforma uma lista em linha
+  // do tempo — sem ele o síndico lê "há 3 dias" e não sabe qual dia foi.
+  const hoje  = new Date(); hoje.setHours(0, 0, 0, 0);
+  const ontem = new Date(hoje); ontem.setDate(ontem.getDate() - 1);
 
-  const PRIO_NOME = { baixa:"Baixa", media:"Média", alta:"Alta", emergencia:"Emergência", p1:"P1 Crítico", p2:"P2 Alta", p3:"P3 Controlado", p4:"P4 Agendado" };
-  const ST_NOME   = { aberto:"Aberto", em_atendimento:"Em atendimento", fechado:"Resolvido" };
+  const rotuloDoDia = (d) => {
+    const dia = new Date(d); dia.setHours(0, 0, 0, 0);
+    if (dia.getTime() === hoje.getTime())  return "Hoje";
+    if (dia.getTime() === ontem.getTime()) return "Ontem";
+    return dia.toLocaleDateString("pt-BR", { day: "2-digit", month: "long" });
+  };
 
-  // A classe cli-tbl-cards + os data-label fazem a tabela virar lista de cards
-  // no mobile (regra em cliente.css). Tabela de 4 colunas em 414px espremia o
-  // título em duas linhas e ainda gastava largura com o id, que o síndico não
-  // usa pra nada.
-  listaEl.innerHTML = `
-    <table class="tel-bombas-table cli-tbl-cards">
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>Título</th>
-          <th>Status</th>
-          <th>Data</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${recentes.map(c => `
-          <tr>
-            <td class="cli-col-id" style="color:var(--muted);font-size:11px;">${c.id}</td>
-            <td class="cli-col-titulo"><strong>${_chCliEscapar(c.titulo || "—")}</strong></td>
-            <td class="cli-col-status"><span class="ch-st ch-st-${c.status||"aberto"}">${ST_NOME[c.status] || c.status || "—"}</span></td>
-            <td class="cli-col-data" style="color:var(--muted);font-size:11px;">${_chCliFmtDataCurta(c.criado_em)}</td>
-          </tr>`).join("")}
-      </tbody>
-    </table>`;
+  const hora = iso => new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+
+  let html = "";
+  let diaAtual = null;
+
+  for (const e of ev.slice(0, 40)) {
+    if (!e.ts) continue;
+    const rot = rotuloDoDia(e.ts);
+    if (rot !== diaAtual) {
+      diaAtual = rot;
+      html += `<div class="linha-dia">${rot}</div>`;
+    }
+    const clicavel = e.ir ? ` data-ch-ir="${e.ir}" style="cursor:pointer"` : "";
+    html += `
+      <div class="linha-evento is-${e.tom}"${clicavel}>
+        <span class="linha-evento-titulo">${e.titulo}</span>
+        <span class="linha-evento-sub">${e.sub}</span>
+        <span class="linha-evento-hora">${hora(e.ts)}</span>
+      </div>`;
+  }
+
+  html += `<div class="linha-fim">${ev.length > 40 ? "Mostrando os 40 registros mais recentes." : "Começo do histórico disponível."}</div>`;
+  wrap.innerHTML = html;
 }
 
-function _dashRenderKpis(list) {
+// ─── As contagens do que está aberto agora ───────────────────────────────
+function _predioKpis(list) {
   const el = document.getElementById("resumoGrid");
   if (!el) return;
 
@@ -230,335 +423,68 @@ function _dashRenderKpis(list) {
   const abertos  = chamados.filter(c => c.status === "aberto").length;
   const emAtend  = chamados.filter(c => c.status === "em_atendimento").length;
 
-  const kpi = (icon, val, hint, kindCls) => `
-    <div class="rc ${kindCls} rc-static">
-      <div class="rc-head"><div class="rc-icon">${icon}</div><div class="rc-label">${hint}</div></div>
+  const kpi = (icon, val, rotulo, kindCls, irPara) => `
+    <${irPara ? "button" : "div"} class="rc ${kindCls}${irPara ? "" : " rc-static"}"${irPara ? ` type="button" data-section-go="${irPara}"` : ""}>
+      <div class="rc-head"><div class="rc-icon">${icon}</div><div class="rc-label">${rotulo}</div></div>
       <div class="rc-value">${val}</div>
-    </div>`;
+    </${irPara ? "button" : "div"}>`;
 
-  const ICO_WIFI = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>`;
-  const ICO_BELL = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>`;
-  const ICO_FILE = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`;
-  const ICO_TOOL = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>`;
-  const ICO_CHECK = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`;
-  const ICO_CLOCK = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`;
+  const ICO_WIFI  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>`;
+  const ICO_BELL  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>`;
+  const ICO_FILE  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`;
+  const ICO_TOOL  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>`;
+  const ICO_CHECK = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`;
 
-  // Sem telemetria contratada, "0 Online" em verde e "0 alertas" não querem
+  // Sem telemetria contratada, "0 online" em verde e "0 alertas" não querem
   // dizer nada — são zeros de quem não tem o produto, não de quem está bem.
-  // Nesse caso a faixa vira 100% sobre chamados, que todo cliente tem.
   if (list.length === 0) {
     const resolvidos = chamados.filter(c => c.status === "fechado").length;
     el.innerHTML =
-      kpi(ICO_FILE, abertos,        "Chamados abertos", abertos === 0 ? "rc-ok" : "rc-warn") +
-      kpi(ICO_TOOL, emAtend,        "Em atendimento",   emAtend > 0 ? "rc-cyan" : "rc-neutral") +
-      kpi(ICO_CHECK, resolvidos,    "Resolvidos",       "rc-ok") +
-      kpi(ICO_CLOCK, _kpiUltimoMov(chamados), "Última movimentação", "rc-neutral");
+      kpi(ICO_FILE,  abertos,    "Chamados abertos", abertos === 0 ? "rc-ok" : "rc-warn", "chamados") +
+      kpi(ICO_TOOL,  emAtend,    "Em atendimento",   emAtend > 0 ? "rc-cyan" : "rc-neutral", "chamados") +
+      kpi(ICO_CHECK, resolvidos, "Já resolvidos",    "rc-ok", "chamados");
     return;
   }
 
   el.innerHTML =
-    kpi(ICO_WIFI, `${online}<span class="rc-sub">/${list.length}</span>`, "Reservatórios online",
+    kpi(ICO_WIFI, `${online}<span class="rc-sub">/${list.length}</span>`, "Reservatórios respondendo",
         offline === 0 ? "rc-ok" : (online > 0 ? "rc-warn" : "rc-bad")) +
-    kpi(ICO_BELL, alertas, "Alertas ativos",   alertas === 0 ? "rc-ok" : "rc-bad") +
-    kpi(ICO_FILE, abertos, "Chamados abertos", abertos === 0 ? "rc-ok" : "rc-warn") +
-    kpi(ICO_TOOL, emAtend, "Em atendimento",   emAtend  > 0 ? "rc-cyan" : "rc-neutral");
+    kpi(ICO_BELL, alertas, "Alertas ativos",   alertas === 0 ? "rc-ok" : "rc-bad", "alertas") +
+    kpi(ICO_FILE, abertos, "Chamados abertos", abertos === 0 ? "rc-ok" : "rc-warn", "chamados") +
+    kpi(ICO_TOOL, emAtend, "Em atendimento",   emAtend > 0 ? "rc-cyan" : "rc-neutral", "chamados");
 }
 
-// "há 3h" / "há 2d" do chamado mexido mais recentemente. Cabe num stat card
-// e diz mais pro síndico do que repetir uma contagem.
-function _kpiUltimoMov(chamados) {
-  if (!chamados.length) return "—";
-  const ts = Math.max(...chamados.map(c => new Date(c.atualizado_em || c.criado_em).getTime()));
-  if (!Number.isFinite(ts)) return "—";
-  const min = Math.floor((Date.now() - ts) / 60000);
-  if (min < 60)   return `${Math.max(min, 1)}<span class="rc-sub">min</span>`;
-  if (min < 1440) return `${Math.floor(min / 60)}<span class="rc-sub">h</span>`;
-  return `${Math.floor(min / 1440)}<span class="rc-sub">d</span>`;
-}
+// ─── Orquestrador da seção ───────────────────────────────────────────────
+function _predioAtualizar(data) {
+  const semTel = document.getElementById("semTelemetria");
+  const linha  = document.getElementById("predioLinha");
+  if (!linha || !semTel) return;
 
-// ============================================================
-// TANQUE SVG — mesmo componente do painel admin
-// ------------------------------------------------------------
-// Portado de `_telTanqueSVG` / `_telBandaAgua` em admin.js. O cliente estava
-// para trás: o dashboard dele mostrava um gráfico de barras do ApexCharts e o
-// `tankHtml()` daqui era a versão antiga em divs (.tank-fill com height:%),
-// que nem chegou a ser usada. O admin já tinha evoluído pro desenho
-// volumétrico e o painel do cliente nunca recebeu.
-//
-// As classes (.tank-outline, .tank-rim, .tank-surface, .tank-pct, .tel-tank-*)
-// vêm do admin.css, que esta página já carrega — inclusive o
-// `@container (max-width: 176px)` que enxuga o tanque quando o tile fica
-// estreito, o que resolve o mobile sozinho.
-//
-// Se mexer no desenho, mexer nos dois: não há módulo compartilhado entre
-// admin.js e cliente.js.
-// ============================================================
+  const list     = Array.isArray(data?.reservatorios) ? data.reservatorios : [];
+  const alertas  = Array.isArray(data?.alertas_abertos) ? data.alertas_abertos : [];
+  const chamados = Array.isArray(_chCliData) ? _chCliData : [];
 
-const TEL_LIMIARES = { critico: 20, baixo: 45 };
+  // Quem não tem o produto ainda vê os chamados e as contagens — o painel
+  // não pode virar um anúncio para quem já paga manutenção.
+  const temTelemetria = list.length > 0;
+  semTel.hidden = temTelemetria;
+  linha.hidden  = false;
 
-function _telBandaAgua(pct, thresholds = TEL_LIMIARES) {
-  if (pct == null)              return { key: "off",   cor: "#5b6070" };
-  if (pct < thresholds.critico) return { key: "crit",  cor: "#ef4444" };
-  if (pct < thresholds.baixo)   return { key: "baixo", cor: "#f59e0b" };
-  return { key: "ok", cor: "#22d3ee" };
-}
+  const estAgora = document.querySelector(".linha-estacao.is-agora .agora");
+  const estHist  = document.getElementById("estHistorico");
+  if (estAgora) estAgora.hidden = !temTelemetria;
+  if (estHist)  estHist.hidden  = !temTelemetria;
 
-function _telTanqueSVG(pct, offline, thresholds = TEL_LIMIARES) {
-  const nivel = offline || pct == null ? null : Math.max(0, Math.min(100, pct));
-  const cor   = _telBandaAgua(nivel, thresholds).cor;
+  _predioKpis(list);
 
-  const TOP = 20, BOT = 114, RX = 31, RY = 8, H = BOT - TOP;
-  const yAgua = nivel == null ? BOT : TOP + (1 - nivel / 100) * H;
-  const uid = "tk" + Math.random().toString(36).slice(2, 8);
-  const pctTxt = offline ? "OFF" : (nivel == null ? "\u2014" : Math.round(nivel) + "%");
-
-  const ticks = [0, 25, 50, 75, 100].map(t => {
-    const y = TOP + (1 - t / 100) * H;
-    return `<line class="tank-tick" x1="10" y1="${y.toFixed(1)}" x2="15" y2="${y.toFixed(1)}"/>` +
-           `<text class="tank-tick-lbl" x="7.5" y="${(y + 2.4).toFixed(1)}" text-anchor="end">${t}</text>`;
-  }).join("");
-
-  const bodyPath = `M${50 - RX} ${TOP} A${RX} ${RY} 0 0 0 ${50 + RX} ${TOP} L${50 + RX} ${BOT} A${RX} ${RY} 0 0 1 ${50 - RX} ${BOT} Z`;
-
-  const agua = nivel == null ? "" : `
-      <g clip-path="url(#clip-${uid})">
-        <rect x="${50 - RX}" y="${yAgua.toFixed(1)}" width="${RX * 2}" height="${(BOT - yAgua + RY).toFixed(1)}" fill="url(#water-${uid})"/>
-        <ellipse class="tank-surface" cx="50" cy="${yAgua.toFixed(1)}" rx="${RX}" ry="${RY}" fill="${cor}"/>
-        <ellipse class="tank-surface" cx="50" cy="${yAgua.toFixed(1)}" rx="${RX}" ry="${RY}" fill="none" stroke="#fff" stroke-opacity=".3" stroke-width="1"/>
-      </g>`;
-
-  return `
-    <svg viewBox="-8 0 108 126" role="img" aria-label="N\u00edvel ${pctTxt}">
-      <defs>
-        <clipPath id="clip-${uid}"><path d="${bodyPath}"/></clipPath>
-        <linearGradient id="body-${uid}" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0"   stop-color="#fff" stop-opacity=".12"/>
-          <stop offset=".45" stop-color="#fff" stop-opacity=".02"/>
-          <stop offset="1"   stop-color="#000" stop-opacity=".22"/>
-        </linearGradient>
-        <linearGradient id="water-${uid}" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stop-color="${cor}" stop-opacity=".95"/>
-          <stop offset="1" stop-color="${cor}" stop-opacity=".55"/>
-        </linearGradient>
-      </defs>
-      ${ticks}
-      <ellipse cx="50" cy="${BOT + 3}" rx="${RX - 3}" ry="4" fill="#000" opacity=".25"/>
-      <path d="${bodyPath}" fill="url(#body-${uid})"/>
-      ${agua}
-      <rect x="${50 - RX + 6}" y="${TOP + 5}" width="4" height="${H - 12}" rx="2" fill="#fff" opacity=".08"/>
-      <line class="tank-outline" x1="${50 - RX}" y1="${TOP}" x2="${50 - RX}" y2="${BOT}"/>
-      <line class="tank-outline" x1="${50 + RX}" y1="${TOP}" x2="${50 + RX}" y2="${BOT}"/>
-      <path class="tank-outline" d="M${50 - RX} ${BOT} A${RX} ${RY} 0 0 0 ${50 + RX} ${BOT}"/>
-      <ellipse class="tank-rim" cx="50" cy="${TOP}" rx="${RX}" ry="${RY}"/>
-      <ellipse class="tank-rim" cx="50" cy="${TOP - 3}" rx="${RX - 8}" ry="5" fill="rgba(255,255,255,.03)"/>
-      <text class="tank-pct" x="50" y="72">${pctTxt}</text>
-    </svg>`;
-}
-
-// "h\u00e1 Xmin" / "h\u00e1 Xh" / data
-function _telAtualizadoTxt(u) {
-  if (!u?.criado_em) return "sem leitura";
-  const mins = Math.round((Date.now() - new Date(u.criado_em)) / 60000);
-  if (mins < 60)   return `h\u00e1 ${mins}min`;
-  if (mins < 1440) return `h\u00e1 ${Math.round(mins / 60)}h`;
-  return new Date(u.criado_em).toLocaleDateString("pt-BR");
-}
-
-// Tile de um reservatorio: desenho + nome + bomba + ultima leitura.
-// Usado no dashboard E na aba Telemetria — os dois mostram a mesma coisa e
-// nao ha motivo pra divergirem.
-function _cliTanqueTile(r) {
-  const u        = r.ultima_leitura;
-  const pct      = u?.nivel_pct;
-  const offline  = !!r.offline;
-  const banda    = _telBandaAgua(offline ? null : pct);
-  const bombaOn  = u?.bomba_ligada;
-  const bombaCls = bombaOn === true ? "on" : bombaOn === false ? "off" : "uk";
-  const bombaTxt = bombaOn === true ? "Bomba ON" : bombaOn === false ? "Bomba OFF" : "Bomba \u2014";
-  const nome     = _chCliEscapar(r.nome || "Reservat\u00f3rio");
-
-  return `
-      <div class="tel-tank cli-tank ${banda.key}">
-        <div class="tel-tank-svg">${_telTanqueSVG(pct, offline)}</div>
-        <div class="tel-tank-nome" title="${nome}">${nome}</div>
-        <div class="tel-tank-sub">${offline ? "Offline" : (r.tipo ? _chCliEscapar(r.tipo) : "\u2014")}</div>
-        <div class="tel-tank-foot">
-          <span class="tel-tank-bomba ${bombaCls}">${bombaTxt}</span>
-          <span class="tel-tank-upd">${_telAtualizadoTxt(u)}</span>
-        </div>
-      </div>`;
-}
-
-// Grade de tanques do dashboard. Substitui o gr\u00e1fico de barras: o s\u00edndico
-// reconhece uma caixa d'\u00e1gua na hora, e o desenho carrega n\u00edvel, bomba e
-// \u00faltima leitura no mesmo tile \u2014 a barra s\u00f3 mostrava o percentual.
-function _dashRenderNiveis(list) {
-  const el    = document.getElementById("dashNiveisChart");
-  const empty = document.getElementById("dashNiveisEmpty");
-  if (!el) return;
-
-  // Sem `nivel_pct` n\u00e3o d\u00e1 pra desenhar \u00e1gua, mas o reservat\u00f3rio offline
-  // precisa aparecer \u2014 \u00e9 justamente o que o s\u00edndico tem de ver.
-  const reservs = [...list].sort((a, b) => (a.nome || "").localeCompare(b.nome || ""));
-
-  if (reservs.length === 0) {
-    el.innerHTML = "";
-    if (empty) empty.style.display = "flex";
-    return;
-  }
-  if (empty) empty.style.display = "none";
-
-  // O gr\u00e1fico Apex antigo deixava uma inst\u00e2ncia viva presa ao container.
-  if (_dashNiveisChart) { try { _dashNiveisChart.destroy(); } catch (_) {} _dashNiveisChart = null; }
-
-  el.innerHTML = reservs.map(_cliTanqueTile).join("");
-}
-
-function _dashRenderCriticos(list) {
-  const wrap = document.getElementById("dashCriticosList");
-  if (!wrap) return;
-
-  const ICO_BAD  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`;
-  const ICO_WARN = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
-  const ICO_OFF  = ICO_WIFI_OFF;
-
-  const criticos = list.map(r => {
-    const pct = r.ultima_leitura?.nivel_pct;
-    const offline = !!r.offline;
-    const alertas = Number(r.alertas_abertos_count || 0);
-    let kind = null, prioridade = 999;
-    if (offline)                      { kind = "bad";  prioridade = 0; }
-    else if (pct != null && pct < 20) { kind = "bad";  prioridade = 1; }
-    else if (pct != null && pct < 40) { kind = "warn"; prioridade = 2; }
-    else if (alertas > 0)             { kind = "warn"; prioridade = 3; }
-    return kind ? { r, pct, offline, alertas, kind, prioridade } : null;
-  }).filter(Boolean)
-    .sort((a, b) => a.prioridade - b.prioridade || ((a.pct ?? 100) - (b.pct ?? 100)))
-    .slice(0, 8);
-
-  if (criticos.length === 0) {
-    wrap.innerHTML = `<div class="mc-empty">Tudo dentro dos parâmetros ✓</div>`;
-    return;
+  if (temTelemetria) {
+    _agoraRender(list, chamados);
+    _agoraRelogio();
+    if (!_relogioTimer) _relogioTimer = setInterval(_agoraRelogio, 1000);
   }
 
-  wrap.innerHTML = criticos.map(({ r, pct, offline, alertas, kind }) => {
-    const icone = kind === "bad" && offline ? ICO_OFF : kind === "bad" ? ICO_BAD : ICO_WARN;
-    const sub = offline
-      ? `${r.tipo || "Reservatório"} · OFFLINE`
-      : `${r.tipo || "Reservatório"}${alertas > 0 ? ` · ${alertas} alerta${alertas > 1 ? "s" : ""}` : ""}`;
-    const pctTxt = offline ? "OFF" : (pct != null ? Math.round(pct) + "%" : "—");
-    return `
-      <div class="mc-alert-row">
-        <div class="mc-alert-icon ${kind}">${icone}</div>
-        <div class="mc-alert-main">
-          <div class="mc-alert-title">${_telCliEscapar(r.nome || "Reservatório")}</div>
-          <div class="mc-alert-sub">${_telCliEscapar(sub)}</div>
-        </div>
-        <div class="mc-alert-time">${pctTxt}</div>
-      </div>`;
-  }).join("");
+  _linhaRender(alertas, chamados, list);
 }
-
-function _dashRenderActivity(alertas, reservatorios) {
-  const wrap = document.getElementById("dashActivityList");
-  if (!wrap) return;
-
-  const events = [];
-
-  for (const a of alertas || []) {
-    const kind = (a.tipo === "dispositivo_offline" || a.tipo === "nivel_muito_baixo") ? "bad" : "warn";
-    const reserv = (reservatorios || []).find(r => r.device_id === a.device_id);
-    events.push({
-      ts: a.criado_em,
-      kind,
-      title: String(a.tipo || "").replaceAll("_", " "),
-      sub: reserv?.nome || a.device_id || "—",
-    });
-  }
-
-  for (const r of reservatorios || []) {
-    const u = r.ultima_leitura;
-    if (!u?.criado_em) continue;
-    events.push({
-      ts: u.criado_em,
-      kind: r.offline ? "bad" : (u.nivel_pct != null && u.nivel_pct < 20 ? "warn" : "ok"),
-      title: `Leitura — ${r.nome || r.device_id}`,
-      sub: u.nivel_pct != null ? Math.round(u.nivel_pct) + "% nível" : "—",
-    });
-  }
-
-  events.sort((a, b) => new Date(b.ts) - new Date(a.ts));
-  const top = events.slice(0, 12);
-
-  if (!top.length) {
-    wrap.innerHTML = `<div class="mc-empty">Aguardando eventos…</div>`;
-    return;
-  }
-
-  const relTime = iso => {
-    if (!iso) return "—";
-    const diff = Date.now() - new Date(iso).getTime();
-    const s = Math.floor(diff / 1000);
-    if (s < 60)  return `${s}s atrás`;
-    const m = Math.floor(s / 60);
-    if (m < 60)  return `${m} min atrás`;
-    const h = Math.floor(m / 60);
-    if (h < 24)  return `${h}h atrás`;
-    return `${Math.floor(h / 24)}d atrás`;
-  };
-
-  wrap.innerHTML = top.map(e => `
-    <div class="mc-act-row">
-      <div class="mc-act-stripe ${e.kind}"></div>
-      <div class="mc-act-main">
-        <div class="mc-act-title">${e.title}</div>
-        <div class="mc-act-sub">${_telCliEscapar(e.sub)} · ${relTime(e.ts)}</div>
-      </div>
-    </div>`).join("");
-}
-
-function _dashRenderBombas(list) {
-  const tbody   = document.getElementById("dashBombasBody");
-  const summary = document.getElementById("dashBombasSummary");
-  if (!tbody) return;
-
-  const reservs = [...list].sort((a, b) => (a.nome || "").localeCompare(b.nome || ""));
-
-  if (summary) {
-    const on    = reservs.filter(r => r.ultima_leitura?.bomba_ligada === true).length;
-    const known = reservs.filter(r => r.ultima_leitura?.bomba_ligada === true || r.ultima_leitura?.bomba_ligada === false).length;
-    summary.textContent = known > 0 ? `${on} de ${known} ligadas` : `${reservs.length} reservatórios`;
-  }
-
-  if (reservs.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="4" class="mc-empty" style="padding:24px;">Nenhum reservatório.</td></tr>`;
-    return;
-  }
-
-  tbody.innerHTML = reservs.map(r => {
-    const u = r.ultima_leitura;
-    const pct = u?.nivel_pct;
-    const corPct = _telCliCorPct(pct);
-    const bombaCls = u?.bomba_ligada === true ? "on" : u?.bomba_ligada === false ? "off" : "uk";
-    const bombaLbl = u?.bomba_ligada === true ? "LIGADA" : u?.bomba_ligada === false ? "DESLIGADA" : "—";
-    let atualizacao = "—";
-    if (u?.criado_em) {
-      const mins = Math.round((Date.now() - new Date(u.criado_em)) / 60000);
-      if (mins < 60)    atualizacao = `há ${mins} min`;
-      else if (mins < 1440) atualizacao = `há ${Math.round(mins / 60)}h`;
-      else atualizacao = fmtData(u.criado_em);
-    }
-    const offlineTag = r.offline ? ` <span class="badge b-bad" style="margin-left:6px;font-size:9px;padding:1px 5px;">OFFLINE</span>` : "";
-
-    return `<tr>
-      <td><strong>${_telCliEscapar(r.nome || "—")}</strong><div style="font-size:10.5px;color:var(--muted);">${_telCliEscapar(r.tipo || "")}</div></td>
-      <td><span class="tel-bomba-pill ${bombaCls}">${bombaLbl}</span></td>
-      <td><span class="tel-bomba-pct ${corPct === "off" ? "" : corPct}">${pct != null ? Math.round(pct) + "%" : "—"}</span></td>
-      <td style="color:var(--muted);">${atualizacao}${offlineTag}</td>
-    </tr>`;
-  }).join("");
-}
-
 // ============================================================
 // TELEMETRIA — página combinada (reservatórios + histórico)
 // ============================================================
@@ -567,222 +493,6 @@ function _telCliEscapar(s) {
   return String(s || "")
     .replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;")
     .replaceAll('"',"&quot;").replaceAll("'","&#39;");
-}
-
-function _telCliFmtTempoRel(iso) {
-  if (!iso) return "—";
-  const diff = Date.now() - new Date(iso).getTime();
-  if (diff < 0) return "agora";
-  const s = Math.floor(diff / 1000);
-  if (s < 60)    return `há ${s}s`;
-  const m = Math.floor(s / 60);
-  if (m < 60)   return `há ${m} min`;
-  const h = Math.floor(m / 60);
-  if (h < 24)   return `há ${h}h`;
-  return `há ${Math.floor(h / 24)} dia${h >= 48 ? "s" : ""}`;
-}
-
-function _telCliAtualizar(data) {
-  const fallback  = document.getElementById("telCliFallback");
-  const conteudo  = document.getElementById("telCliConteudo");
-  if (!fallback || !conteudo) return; // seção não está renderizada nesta página
-
-  const list = Array.isArray(data?.reservatorios) ? data.reservatorios : [];
-
-  if (list.length === 0) {
-    fallback.style.display = "flex";
-    conteudo.style.display = "none";
-    return;
-  }
-
-  fallback.style.display = "none";
-  conteudo.style.display = "block";
-
-  _telCliRenderKpis(list);
-  _telCliRenderNiveisChart(list);
-  _telCliRenderCriticos(list);
-  _telCliRenderBombas(list);
-  // O select do histórico é populado em populateHistSelect() chamado dentro de carregar()
-}
-
-function _telCliRenderKpis(list) {
-  const el = document.getElementById("telCliKpis");
-  if (!el) return;
-
-  const total       = list.length;
-  const offline     = list.filter(r => r.offline).length;
-  const online      = total - offline;
-  const alertas     = list.reduce((s, r) => s + (Number(r.alertas_abertos_count) || 0), 0);
-
-  // Última leitura: mais recente de todos
-  let ultimaIso = null;
-  for (const r of list) {
-    const c = r.ultima_leitura?.criado_em;
-    if (!c) continue;
-    if (!ultimaIso || new Date(c) > new Date(ultimaIso)) ultimaIso = c;
-  }
-
-  const kpi = (icon, val, hint, kindCls) => `
-    <div class="rc ${kindCls} rc-static">
-      <div class="rc-head"><div class="rc-icon">${icon}</div><div class="rc-label">${hint}</div></div>
-      <div class="rc-value">${val}</div>
-    </div>`;
-
-  el.innerHTML =
-    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/></svg>`,
-        total, "Reservatórios", "rc-neutral") +
-    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`,
-        online, "Online", online === total ? "rc-ok" : "rc-warn") +
-    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>`,
-        alertas, "Alertas abertos", alertas > 0 ? "rc-bad" : "rc-ok") +
-    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
-        _telCliFmtTempoRel(ultimaIso), "Última leitura", "rc-neutral");
-}
-
-// --- Niveis na aba Telemetria: mesma grade de tanques do dashboard ---
-// Antes esta aba tinha um bar chart do ApexCharts enquanto o dashboard ja
-// mostrava o desenho. Duas telas do mesmo cliente, para o mesmo dado, com
-// componentes diferentes.
-function _telCliRenderNiveisChart(list) {
-  const el    = document.getElementById("telCliNiveisChart");
-  const empty = document.getElementById("telCliNiveisEmpty");
-  if (!el) return;
-
-  // Offline entra na lista: e justamente o que o sindico precisa ver.
-  const reservs = [...list].sort((a, b) => (a.nome || "").localeCompare(b.nome || ""));
-
-  if (reservs.length === 0) {
-    if (_telCliBarChart) { try { _telCliBarChart.destroy(); } catch (_) {} _telCliBarChart = null; }
-    el.innerHTML = "";
-    if (empty) empty.style.display = "block";
-    return;
-  }
-  if (empty) empty.style.display = "none";
-
-  // Sobra do bar chart: sem destruir, a instancia fica presa ao container.
-  if (_telCliBarChart) { try { _telCliBarChart.destroy(); } catch (_) {} _telCliBarChart = null; }
-
-  el.innerHTML = reservs.map(_cliTanqueTile).join("");
-}
-
-// --- Lista de "em atenção" ---
-function _telCliRenderCriticos(list) {
-  const wrap = document.getElementById("telCliCriticosList");
-  if (!wrap) return;
-
-  const criticos = list.map(r => {
-    const u = r.ultima_leitura;
-    const pct = u?.nivel_pct;
-    const offline = !!r.offline;
-    const alertas = Number(r.alertas_abertos_count || 0);
-    let kind = null, prioridade = 999;
-    if (offline)                      { kind = "off";  prioridade = 0; }
-    else if (pct != null && pct < 20) { kind = "bad";  prioridade = 1; }
-    else if (pct != null && pct < 40) { kind = "warn"; prioridade = 2; }
-    else if (alertas > 0)             { kind = "warn"; prioridade = 3; }
-    return kind ? { r, pct, offline, alertas, kind, prioridade } : null;
-  }).filter(Boolean)
-    .sort((a, b) => a.prioridade - b.prioridade || ((a.pct ?? 100) - (b.pct ?? 100)))
-    .slice(0, 8);
-
-  if (criticos.length === 0) {
-    wrap.innerHTML = `<div class="mc-empty">Tudo dentro dos parâmetros ✓</div>`;
-    return;
-  }
-
-  const ICON_BAD  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`;
-  const ICON_WARN = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
-  const ICON_OFF  = ICO_WIFI_OFF;
-
-  wrap.innerHTML = criticos.map(({ r, pct, offline, alertas, kind }) => {
-    const icone = kind === "bad" ? ICON_BAD : kind === "off" ? ICON_OFF : ICON_WARN;
-    const sub = offline
-      // null = reservatório nunca recebeu leitura (ver mesma regra no admin)
-      ? `${r.tipo || "Reservatório"} · ${r.minutos_sem_atualizar == null ? "SEM LEITURA" : `OFFLINE há ${r.minutos_sem_atualizar} min`}`
-      : `${r.tipo || "Reservatório"}${alertas > 0 ? ` · ${alertas} alerta${alertas > 1 ? "s" : ""}` : ""}`;
-    const pctTxt = offline ? "OFF" : (pct != null ? Math.round(pct) + "%" : "—");
-    return `
-      <div class="tel-crit-row">
-        <span class="tel-crit-icon ${kind}">${icone}</span>
-        <span class="tel-crit-main">
-          <span class="tel-crit-title">${_telCliEscapar(r.nome || "Reservatório")}</span>
-          <span class="tel-crit-sub">${_telCliEscapar(sub)}</span>
-        </span>
-        <span class="tel-crit-pct ${kind}">${pctTxt}</span>
-      </div>`;
-  }).join("");
-}
-
-// --- Tabela de bombas ---
-function _telCliRenderBombas(list) {
-  const tbody   = document.getElementById("telCliBombasBody");
-  const summary = document.getElementById("telCliBombasSummary");
-  if (!tbody) return;
-
-  const reservs = [...list].sort((a, b) => (a.nome || "").localeCompare(b.nome || ""));
-
-  if (summary) {
-    const on    = reservs.filter(r => r.ultima_leitura?.bomba_ligada === true).length;
-    const known = reservs.filter(r => r.ultima_leitura?.bomba_ligada === true || r.ultima_leitura?.bomba_ligada === false).length;
-    summary.textContent = known > 0 ? `${on} de ${known} ligadas` : `${reservs.length} reservatórios`;
-  }
-
-  if (reservs.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="4" class="mc-empty" style="padding:24px;">Nenhum reservatório.</td></tr>`;
-    return;
-  }
-
-  tbody.innerHTML = reservs.map(r => {
-    const u = r.ultima_leitura;
-    const pct = u?.nivel_pct;
-    const corPct = _telCliCorPct(pct);
-    const bombaCls = u?.bomba_ligada === true ? "on" : u?.bomba_ligada === false ? "off" : "uk";
-    const bombaLbl = u?.bomba_ligada === true ? "LIGADA" : u?.bomba_ligada === false ? "DESLIGADA" : "—";
-    let atualizacao = "—";
-    if (u?.criado_em) {
-      const mins = Math.round((Date.now() - new Date(u.criado_em)) / 60000);
-      if (mins < 60)     atualizacao = `há ${mins} min`;
-      else if (mins < 1440) atualizacao = `há ${Math.round(mins / 60)}h`;
-      else atualizacao = fmtData(u.criado_em);
-    }
-    const offlineTag = r.offline ? ` <span class="badge b-bad" style="margin-left:6px;font-size:9px;padding:1px 5px;">OFFLINE</span>` : "";
-
-    return `<tr>
-      <td><strong>${_telCliEscapar(r.nome || "—")}</strong><div style="font-size:10.5px;color:var(--muted);">${_telCliEscapar(r.tipo || "")}</div></td>
-      <td><span class="tel-bomba-pill ${bombaCls}">${bombaLbl}</span></td>
-      <td><span class="tel-bomba-pct ${corPct === "off" ? "" : corPct}">${pct != null ? Math.round(pct) + "%" : "—"}</span></td>
-      <td style="color:var(--muted);">${atualizacao}${offlineTag}</td>
-    </tr>`;
-  }).join("");
-}
-
-function pickMaisRecente(reservatorios) {
-  let best = null;
-  for (const r of reservatorios) {
-    const u = r?.ultima_leitura;
-    if (!u?.criado_em) continue;
-    if (!best) best = r;
-    else if (new Date(u.criado_em) > new Date(best.ultima_leitura.criado_em)) best = r;
-  }
-  return best; // pode ser null
-}
-
-function pickMaisCritico(reservatorios) {
-  const peso = { muito_baixo: 4, baixo: 3, medio: 2, alto: 1 };
-  let best = null;
-
-  for (const r of reservatorios) {
-    const n = String(r?.ultima_leitura?.nivel || "").toLowerCase();
-    const p = peso[n] || 0;
-    if (!best) best = { r, p };
-    else if (p > best.p) best = { r, p };
-  }
-
-  return best?.r || null;
-}
-
-function algumOffline(reservatorios) {
-  return reservatorios.some(r => !!r.offline);
 }
 
 function populateHistSelect() {
@@ -797,14 +507,6 @@ function populateHistSelect() {
     sel.appendChild(opt);
   });
   if (prev) sel.value = prev;
-}
-
-function histResumoCard(titulo, valor, cor) {
-  return `
-    <div class="rc rc-neutral rc-static">
-      <div class="rc-label">${titulo}</div>
-      <div class="rc-value" style="font-size:24px; color:${cor || "var(--accent)"};">${valor}</div>
-    </div>`;
 }
 
 async function carregarHistorico() {
@@ -855,36 +557,40 @@ async function carregarHistorico() {
       data: leituras.map(l => ({ x: new Date(l.bucket).getTime(), y: Math.round(Number(l.nivel_pct_avg)) })),
     }];
 
+    // ⚠️ O gráfico agora vive dentro de PLACA CLARA, não mais no fundo escuro
+    // do Mission Control. Eixos, grade e tooltip são de tema claro; a série
+    // usa o marinho da lâmina d'água, e as linhas de limiar usam as tintas
+    // escuras — amarelo sobre claro reprova contraste (Regra do Amarelo Cego).
     const opts = {
-      chart: { type: "area", height: "100%", toolbar: { show: false }, background: "transparent", animations: { speed: 300 }, zoom: { enabled: false } },
+      chart: { type: "area", height: 300, toolbar: { show: false }, background: "transparent", animations: { speed: 300 }, zoom: { enabled: false }, fontFamily: "Archivo, sans-serif" },
       series,
-      colors: ["#f0b014"],
+      colors: ["#1a3a9e"],
       stroke: { curve: "smooth", width: 2.4 },
       fill: {
         type: "gradient",
-        gradient: { shade: "dark", type: "vertical", shadeIntensity: .4, opacityFrom: .45, opacityTo: 0, stops: [0, 90] },
+        gradient: { shade: "light", type: "vertical", shadeIntensity: .2, opacityFrom: .34, opacityTo: 0, stops: [0, 92] },
       },
       dataLabels: { enabled: false },
-      grid: { borderColor: "rgba(255,255,255,.05)", strokeDashArray: 3 },
+      grid: { borderColor: "rgba(6,16,51,.12)", strokeDashArray: 3 },
       xaxis: {
         type: "datetime",
-        labels: { style: { colors: "#7a7e9c", fontSize: "10px" }, datetimeUTC: false },
-        axisBorder: { color: "rgba(255,255,255,.06)" },
-        axisTicks:  { color: "rgba(255,255,255,.06)" },
+        labels: { style: { colors: "#414f74", fontSize: "11px" }, datetimeUTC: false },
+        axisBorder: { color: "rgba(6,16,51,.16)" },
+        axisTicks:  { color: "rgba(6,16,51,.16)" },
       },
       yaxis: {
         min: 0, max: 100,
-        labels: { style: { colors: "#7a7e9c", fontSize: "10px" }, formatter: (v) => v + "%" },
+        labels: { style: { colors: "#414f74", fontSize: "11px" }, formatter: (v) => v + "%" },
       },
       legend: { show: false },
       annotations: {
         yaxis: [
-          { y: 45, borderColor: "#D97706", strokeDashArray: 4, label: { borderColor: "#D97706", style: { color: "#fff", background: "#D97706", fontSize: "10px" }, text: "Atenção 45%" } },
-          { y: 20, borderColor: "#ef4444", strokeDashArray: 4, label: { borderColor: "#ef4444", style: { color: "#fff", background: "#ef4444", fontSize: "10px" }, text: "Crítico 20%" } },
+          { y: LIMIARES.baixo,   borderColor: "#8a5300", strokeDashArray: 4, label: { borderColor: "#8a5300", style: { color: "#fff", background: "#8a5300", fontSize: "10px" }, text: `Atenção ${LIMIARES.baixo}%` } },
+          { y: LIMIARES.critico, borderColor: "#b3241a", strokeDashArray: 4, label: { borderColor: "#b3241a", style: { color: "#fff", background: "#b3241a", fontSize: "10px" }, text: `Crítico ${LIMIARES.critico}%` } },
         ],
       },
       tooltip: {
-        theme: "dark",
+        theme: "light",
         x: { format: _histDias <= 1 ? "HH:mm" : "dd MMM HH:mm" },
         y: { formatter: (v) => v + "%" },
       },
@@ -941,30 +647,11 @@ async function carregar() {
   // "Cliente / Meu Condomínio" fixo no HTML, igual pra todo mundo.
   _aplicarIdentidade(data.condominio);
 
-  // ===== Dashboard =====
-  const temTelemetria = reservatorios.length > 0;
-  const dashConteudo  = document.getElementById("dashConteudo");
-  if (dashConteudo) dashConteudo.style.display = temTelemetria ? "" : "none";
-
-  // Bloco que só aparece pra quem não tem telemetria. Sem ele o dashboard
-  // desse cliente ficava com uma tabela de chamados e o resto da tela vazio.
-  const semTel = document.getElementById("dashSemTelemetria");
-  if (semTel) semTel.style.display = temTelemetria ? "none" : "";
-
-  // KPIs e chamados valem pros dois casos — os KPIs é que mudam de conteúdo.
-  _dashRenderKpis(reservatorios);
-  _dashRenderChamados();
-
-  if (temTelemetria) {
-    _dashRenderNiveis(reservatorios);
-    _dashRenderCriticos(reservatorios);
-    _dashRenderActivity(_alAlertas, reservatorios);
-    _dashRenderBombas(reservatorios);
-  }
-
-  // Telemetria (cliente sem produto cai no fallback dentro do _telCliAtualizar)
+  // ===== Meu prédio =====
+  // Uma seção só. O `_predioAtualizar` decide entre o trilho com instrumento
+  // e o bloco de quem ainda não tem monitoramento instalado.
   _telCliUltimoStatus = data;
-  _telCliAtualizar(data);
+  _predioAtualizar(data);
 
   // atualiza badge da sidebar
   const navBadge = document.getElementById("navBadgeAlertas");
@@ -1350,31 +1037,37 @@ document.addEventListener("DOMContentLoaded", () => {
   // Histórico: troca de reservatório
   document.getElementById("histReservatorio")?.addEventListener("change", carregarHistorico);
 
-  // Histórico: botões de período (.tel-range-btn no modelo novo)
+  // Histórico: botões de período. O rótulo da estação no trilho acompanha —
+  // é ele que diz a que trecho do tempo aquela placa se refere.
+  const _HIST_ROTULO = { 1: "Últimas 24 horas", 7: "Últimos 7 dias", 30: "Últimos 30 dias", 90: "Últimos 90 dias" };
   document.querySelectorAll(".tel-range-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
       document.querySelectorAll(".tel-range-btn").forEach((b) => b.classList.remove("is-active"));
       btn.classList.add("is-active");
       _histDias = Number(btn.dataset.dias);
+      const rot = document.getElementById("histRotulo");
+      if (rot) rot.textContent = _HIST_ROTULO[_histDias] || "Histórico";
       carregarHistorico();
     });
   });
 
-  // Carrega histórico quando entra na seção
-  const _origShowSection = showSection;
-  // eslint-disable-next-line no-global-assign
-  showSection = (name) => {
-    _origShowSection(name);
-    if (name === "telemetria") carregarHistorico();
-  };
+  // Ir do evento do trilho direto para o chamado que ele conta.
+  document.getElementById("linhaEventos")?.addEventListener("click", (e) => {
+    const alvo = e.target.closest("[data-ch-ir]");
+    if (!alvo) return;
+    showSection("chamados");
+    document.querySelectorAll(".mob-nav-item[data-mob-section]").forEach(b =>
+      b.classList.toggle("active", b.dataset.mobSection === "chamados"));
+    _chCliSelecionar(Number(alvo.dataset.chIr));
+  });
 
   // primeira carga + auto refresh
   carregar();
   setInterval(() => {
     carregar();
     const secAtiva = document.querySelector(".section.is-active");
-    if (secAtiva?.dataset.section === "telemetria") carregarHistorico();
-    if (secAtiva?.dataset.section === "chamados")  carregarChamadosCli();
+    if (secAtiva?.dataset.section === "predio")   carregarHistorico();
+    if (secAtiva?.dataset.section === "chamados") carregarChamadosCli();
   }, 10000);
 });
 
@@ -1471,7 +1164,10 @@ function _chCliRender() {
   if (kpiGrid) {
     const kpis = [
       { cls: "rc-warn", icon: `<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>`, label: "Abertos", value: abertos, hint: "Aguardando atendimento" },
-      { cls: "rc-bad",  icon: `<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>`, label: "Em atendimento", value: atend, hint: "Técnico designado" },
+      // ⚠️ "Em atendimento" NÃO é `rc-bad`. Chamado com técnico designado é
+      // boa notícia — pintá-lo de vermelho ensina o síndico a se assustar com
+      // o próprio serviço funcionando.
+      { cls: "rc-cyan", icon: `<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>`, label: "Em atendimento", value: atend, hint: "Técnico designado" },
       { cls: "rc-ok",   icon: `<polyline points="20 6 9 17 4 12"/>`, label: "Resolvidos", value: fechados, hint: "Histórico" },
     ];
     kpiGrid.innerHTML = kpis.map(k => `

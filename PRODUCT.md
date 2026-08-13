@@ -33,11 +33,46 @@ Sucesso do produto: a falta d'água deixa de ser descoberta pelo interfone.
 
 ## Positioning
 
-A General **já é a empresa que faz a manutenção hidráulica do prédio desde
-2005**. A telemetria não é um produto de um fornecedor novo pedindo confiança:
-é a mesma equipe que já troca a bomba passando a vigiá-la 24 horas. Um
-concorrente de software não consegue copiar isso, porque não tem a equipe de
-campo, o contrato de manutenção nem o histórico no prédio.
+> **Contrato de posicionamento — decidido pelo Pedro em 2026-08-13.** Estas
+> duas regras não são interpretação minha e não devem ser reabertas frase a
+> frase. Toda copy da landing tem de sair daqui.
+
+**1. O protagonista é o PRODUTO.** O que a página vende é o monitoramento:
+saber o nível do reservatório e o estado da bomba, o tempo todo, e ser avisado
+antes de faltar água. Os 20 anos de casa de máquinas **não são o assunto** —
+são a garantia de que quem instala e atende sabe o que está fazendo. A empresa
+entra como resposta à pergunta "quem cuida disso?", nunca como abertura.
+
+⚠️ Isto **inverte** o que este arquivo dizia antes ("a credibilidade vem da
+empresa, não do produto"). Aquilo tinha sido derivado por mim do fato de não
+existir cliente de telemetria, e não era a visão do Pedro. A ausência de prova
+do produto continua sendo restrição dura (ver "Ausências"), mas ela limita o
+que se pode **afirmar**, não define quem é o protagonista.
+
+**2. Não nos posicionamos contra ninguém.** Nada de "não somos uma empresa de
+software", "não é um aplicativo que manda notificação e some", "não é um
+fornecedor novo pedindo confiança". A página apresenta o serviço; não compara,
+não ataca categoria concorrente e não pressupõe que o síndico esteja avaliando
+alternativa nenhuma — na prática ele provavelmente nem sabe que existem.
+⚠️ **Isso vale para a boia também** — e essa é uma correção do Pedro, em
+2026-08-13, sobre uma regra que eu tinha inferido errado. O texto aqui
+autorizava "explicar por que a boia não basta", e a página passou a dizer que
+ela "só sabe dizer cheio ou não cheio" e "não diz nada quando ela mesma falha".
+Está errado por dois motivos: **o sistema não serve para substituir boia**, e a
+própria General instala e mantém boia — falar mal dela é falar mal do próprio
+serviço.
+
+O argumento certo não é deficiência da boia, é **ausência de quem olhe**:
+a boia **age** (liga e desliga a bomba sozinha), o monitoramento **mostra**
+(quanto tem agora, como se comportou, e se alguma peça — a boia inclusive —
+precisa de atenção). Uma trabalha, a outra conta o que está acontecendo.
+"Meu prédio já tem boia" continua sendo dúvida real do comprador e merece
+resposta — só não com a boia no papel de vilã.
+
+**Registro do que já foi recusado**, para não voltar: página em formato de
+demonstrativo de despesas; venda por medo (a madrugada dramatizada); manchete
+de construção indireta; qualquer frase que só faça sentido para quem já é
+cliente; e definição por negação.
 
 Mecanismo específico: mede a **coluna d'água real** por sonda 4–20 mA (não a
 posição da boia) e a **corrente do motor** por sensor SCT-013 (não se o
@@ -95,6 +130,26 @@ Pedro prefere. Marca gráfica: "G" com engrenagens amarelas
 
 **Voz:** direta e sem jargão. O comprador não é técnico.
 
+**A página precisa servir a dois leitores ao mesmo tempo.** O síndico de um
+prédio que **já é cliente** da manutenção, e o que está **conhecendo a General
+agora**. Frases como "a mesma equipe que já troca a sua bomba", "o mesmo
+telefone que o seu prédio já usa" ou "não somos o aplicativo de uma empresa
+que você nunca viu" pressupõem o primeiro e são inúteis — ou constrangedoras —
+para o segundo, que é justamente quem precisa ser convencido. O vínculo
+existente entra sempre como **condicional**: "se já cuidamos do seu prédio, o
+monitoramento entra no mesmo contrato". O diferencial que vale para os dois é
+o **tipo de empresa**: manutenção predial em casa de máquinas desde 2005, não
+uma fornecedora de software.
+
+**Pessoa: primeira do plural, sempre.** "Monitoramos", "a gente sabe", "nossa
+equipe" — nunca "A General monitora" nem "a equipe da General instala". Falar
+de si na terceira pessoa faz o material soar como *um terceiro apresentando a
+empresa*, e isso derruba justamente o posicionamento acima: o argumento é que
+quem fala já é o fornecedor de confiança do prédio, não um intermediário
+descrevendo um serviço. O nome "General" fica onde a marca precisa ser
+**identificada** (topo, rodapé, metadados, assinatura), nunca como sujeito da
+frase.
+
 ## Evidence on Hand
 
 **Real e usável:**
@@ -105,6 +160,13 @@ Pedro prefere. Marca gráfica: "G" com engrenagens amarelas
   bomba multiestágio; técnico experiente em quadro de comando; **técnico com
   alicate amperímetro medindo corrente** (liga diretamente ao sensor SCT-013 do
   produto); técnico em barrilete de tubulação verde.
+- **`public/fotos/reservatorios.jpg`** (copiada do Dropbox em 2026-08-13, a
+  pedido do Pedro): dois técnicos entre dois reservatórios de fibra de 27.000 L,
+  com prumadas e registros. É a **única foto do acervo que mostra
+  reservatório** — todas as outras mostram bomba, quadro ou barrilete —, e a
+  única em retrato. Por isso é a imagem da tela de login.
+  ⚠️ No canto superior esquerdo está a marca do **fabricante do tanque**, com
+  dois telefones legíveis. Qualquer uso precisa cortar ou cobrir esse canto.
 - Contatos: (11) 2038-8679 · WhatsApp `wa.me/11966536110` ·
   comercial@generalbombas.com
 - Um reservatório de teste real (`Res_Gen_Sup`) enviando leituras de verdade.
@@ -126,16 +188,19 @@ Pedro prefere. Marca gráfica: "G" com engrenagens amarelas
 
 ## Product Principles
 
-1. **A credibilidade vem da empresa, não do produto.** Zero clientes de
-   telemetria, mas 20 anos de casa de máquinas. Toda prova se apoia nisso.
+1. **O produto é o assunto; a empresa é a garantia.** O que se vende é o
+   monitoramento. Os 20 anos de casa de máquinas respondem "quem instala e
+   atende?", e é aí que entram — nunca como abertura. Ver o contrato em
+   Positioning.
 2. **O comprador é leigo e está cansado.** Clareza acima de sofisticação;
    nada que faça o síndico se sentir burro.
 3. **Vender o desfecho, não o sensor.** Ninguém quer telemetria; querem não
    ter assembleia para explicar falta d'água.
 4. **Nunca fabricar prova.** Sem depoimento, sem número inventado, sem
    screenshot que não seja do produto real.
-5. **A equipe de campo é o diferencial.** Instalação, calibração e
-   atendimento são da própria General — mostrar gente real fazendo isso.
+5. **A equipe de campo é o que sustenta a promessa.** Instalação, calibração e
+   atendimento são da própria General — mostrar gente real fazendo isso. Mas
+   isso é prova de que o serviço funciona, não o produto em si.
 
 ## Accessibility & Inclusion
 

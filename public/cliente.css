@@ -1,384 +1,1889 @@
-/* ============================================================
-   CLIENTE — overrides do painel do síndico
-   ============================================================
+/* ════════════════════════════════════════════════════════════════════════
+   cliente.css — Painel do síndico (/cliente/painel)
+   ────────────────────────────────────────────────────────────────────────
+   MUNDO: "Chapa", o mesmo da landing (/) e do login (/login).
 
-   Carrega DEPOIS de admin.css e só contém o que precisa divergir. Não define
-   token, cor ou componente novo: usa as variáveis do Mission Control
-   (--accent, --muted, --card, --line…) para os dois painéis não separarem.
+   ⚠️ ESTA FOLHA É AUTÔNOMA. O `cliente.html` NÃO carrega mais o `admin.css`.
+   Antes carregava, e era o defeito central do painel: o Mission Control é
+   ferramenta de operação interna (âmbar #f0b014, sala escura, densidade de
+   quem olha N condomínios), e o síndico é leigo, mais velho, com UM prédio,
+   lendo no celular. Toda evolução do admin caía aqui sem ninguém pedir.
+   **Não voltar a importar admin.css, nem tokens dele.**
 
-   Por que existir em vez de editar admin.css: o admin tem mapa, WhatsApp,
-   técnicos, O.S. e orçamentos para preencher a tela; o cliente tem
-   reservatórios e chamados. Os mesmos grids, com menos dados, leem como
-   abandono — as proporções precisam mudar só aqui, sem risco de mexer no
-   painel do admin, que compartilha o arquivo.
-   ============================================================ */
+   ⚠️ Os tokens abaixo são cópia dos da landing e do login. As três páginas
+   são servidas separadamente e não compartilham CSS — a duplicação é
+   deliberada. Mudou a paleta? Mude nos TRÊS arquivos.
+
+   ⚠️ PONTE DE TOKENS (bloco 2): o `cliente.js` escreve `style="color:
+   var(--muted)"` em 13 lugares e `var(--text)` / `var(--accent)` em mais
+   dois. Eram tokens do admin.css. Estão redefinidos aqui em valores Chapa
+   para que o JS continue válido sem ser reescrito. Não remover.
+   ════════════════════════════════════════════════════════════════════════ */
 
 
-/* ============================================================
-   1. STAT CARDS — mais densos
-   ------------------------------------------------------------
-   O padrão do admin empilha ícone+label em cima e o valor embaixo, o que dá
-   ~110px de altura. Com 4 cards isso comia a primeira dobra inteira no mobile
-   (~390px de 700px) antes de qualquer conteúdo. Aqui o valor sobe para a
-   mesma linha do label.
-   ============================================================ */
+/* ════════════════════════════════════════════════════════════════════════
+   1. FONTES  (self-hosted — a CSP `script-src 'self'` do helmet barra CDN)
+   ════════════════════════════════════════════════════════════════════════ */
 
-/* Escopo é .layout-cli (o painel inteiro), não só o dashboard: Alertas e
-   Chamados usam a mesma .resumo-grid e ficavam de fora, com o card alto e o
-   label cortado. */
-.layout-cli .resumo-grid {
-  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-  gap: 12px;
+@font-face {
+  font-family: "Archivo";
+  src: url("/static/fonts/archivo.woff2") format("woff2");
+  font-weight: 400 900;
+  font-stretch: 62% 125%;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
-
-.layout-cli .rc {
-  padding: 14px 16px;
+@font-face {
+  font-family: "Archivo";
+  src: url("/static/fonts/archivo-ext.woff2") format("woff2");
+  font-weight: 400 900;
+  font-stretch: 62% 125%;
+  font-display: swap;
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
 }
-
-.layout-cli .rc-value {
-  font-size: 30px;
-  line-height: 1.1;
-  margin-top: 6px;
-}
-
-/* No desktop o `auto-fit` já distribui os 3 KPIs em 3 colunas iguais — não
-   existe card órfão aqui. A regra que estica o último é EXCLUSIVA do mobile
-   (ver bloco 768px); aplicá-la aqui criava 7 trilhas de 219px e um card de
-   1606px atravessando a tela. */
-
-/* Unidade/denominador ("/4", "min", "h") junto do número, sem competir com ele.
-   O .rc-value tem line-height apertado; sem alinhar pelo baseline a unidade
-   escorrega para baixo do número. */
-.rc-sub {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--muted);
-  margin-left: 2px;
-  vertical-align: baseline;
-  line-height: 1;
+@font-face {
+  font-family: "Martian Mono";
+  src: url("/static/fonts/martianmono.woff2") format("woff2");
+  font-weight: 400 700;
+  font-stretch: 75% 112.5%;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
 
-/* ============================================================
-   2. GRID DO DASHBOARD — proporções para os dados do cliente
-   ------------------------------------------------------------
-   .mc-grid do admin é 2fr | 1fr | 1fr porque o slot largo guarda o mapa
-   Leaflet. No cliente esse slot recebe um gráfico de barras com 3-5
-   reservatórios: num monitor de 1680px sobrava metade do card vazio, e o
-   min-height de 420px multiplicava isso por três.
-   ============================================================ */
+/* ════════════════════════════════════════════════════════════════════════
+   2. TOKENS
+   ════════════════════════════════════════════════════════════════════════ */
 
-.section[data-section="dashboard"] .mc-grid {
-  grid-template-columns: minmax(0, 1.35fr) minmax(240px, 1fr) minmax(240px, 1fr);
+:root {
+  /* ─ Marinho: material, não fundo ─ */
+  --mar-900: #030a26;
+  --mar-800: #050f38;
+  --mar-700: #071b5c;
+  --mar-600: #0d2775;
+  --mar-500: #1a3a9e;
+
+  /* ─ Amarelo de segurança institucional ─ */
+  --amarelo:    #fbb329;
+  --amarelo-cl: #ffcb60;
+  --amarelo-es: #d99411;
+
+  /* ─ Placa clara: onde o dado é lido ─ */
+  --chapa:    #e8ebf2;
+  --chapa-cl: #f5f7fb;
+  --chapa-es: #d5dae6;
+
+  /* ─ Tinta ─ */
+  --tinta:   #061033;
+  --tinta-2: #414f74;
+  --sobre-2: #a6b5dc;
+
+  /* ─ Usinagem ─ */
+  --fio:       rgba(255, 255, 255, .17);
+  --fio-forte: rgba(255, 255, 255, .34);
+  --fio-esc:   rgba(6, 16, 51, .16);
+  --rasgo:     rgba(2, 6, 22, .55);
+  --luz:       rgba(255, 255, 255, .10);
+
+  /* ─ Estado ─
+     Duas famílias, porque há dois campos. Sobre marinho o sinal é claro e
+     saturado; sobre placa clara ele precisa ser TINTA escura — a Regra do
+     Amarelo Cego vale para o vermelho e o verde também: nenhum sinal claro
+     passa contraste como texto sobre #e8ebf2. */
+  --risco:      #ff5a4d;   /* crítico SOBRE MARINHO */
+  --atencao:    #fbb329;   /* atenção SOBRE MARINHO */
+  --normal:     #63d8a0;   /* repouso SOBRE MARINHO */
+  --agua:       #2f6fe0;   /* lâmina d'água em repouso */
+
+  --risco-t:    #b3241a;   /* crítico  — tinta sobre placa clara (5.9:1) */
+  --atencao-t:  #8a5300;   /* atenção  — tinta sobre placa clara (5.4:1) */
+  --normal-t:   #145c33;   /* repouso  — tinta sobre placa clara (6.4:1) */
+
+  /* ─ PONTE PARA O cliente.js ─ (ver cabeçalho) ─
+     Os três tokens do admin que sobraram em `style=` no JS. Todas as 15
+     ocorrências ficam DENTRO de placa clara, então o valor é a tinta. */
+  --muted:  var(--tinta-2);
+  --text:   var(--tinta);
+  --accent: var(--tinta);
+
+  /* ─ Tipografia ─ */
+  --fonte: "Archivo", ui-sans-serif, system-ui, sans-serif;
+  --mono:  "Martian Mono", ui-monospace, "SFMono-Regular", monospace;
+
+  /* ─ Forma: chanfro de 45° em dois cantos opostos, raio zero em tudo ─ */
+  --ch: 14px;
+  --ch-p: 9px;
+  --corte:   polygon(var(--ch) 0, 100% 0, 100% calc(100% - var(--ch)), calc(100% - var(--ch)) 100%, 0 100%, 0 var(--ch));
+  --corte-p: polygon(var(--ch-p) 0, 100% 0, 100% calc(100% - var(--ch-p)), calc(100% - var(--ch-p)) 100%, 0 100%, 0 var(--ch-p));
+
+  --saida: cubic-bezier(.16, .84, .32, 1);
+
+  /* ─ Medidas do chrome ─ */
+  --w-sidebar: 252px;
+  --w-sidebar-min: 76px;
+  --h-topbar: 68px;
+
+  scrollbar-color: var(--mar-500) var(--mar-900);
 }
 
-/* Altura fixa nos três cards da linha.
-   Sem isso a "Atividade recente" cresce com a quantidade de eventos, o grid
-   iguala a altura das três colunas pela mais alta, e o card de tanques —
-   que tem conteúdo de altura fixa — fica com um vão morto embaixo. Com
-   altura definida, as listas usam o `overflow-y: auto` que já têm no
-   admin.css e rolam por dentro. */
-.section[data-section="dashboard"] .mc-map,
-.section[data-section="dashboard"] .mc-alerts,
-.section[data-section="dashboard"] .mc-activity {
-  min-height: 0;
-  /* 330px = o que o tile de tanque realmente pede (desenho 137 + nome + bomba
-     + leitura + respiros ≈ 230) mais o cabeçalho do card. Acima disso vira ar.
-     As outras duas colunas são listas: encurtar só faz elas rolarem antes. */
-  height: 330px;
+
+/* ════════════════════════════════════════════════════════════════════════
+   3. BASE
+   ════════════════════════════════════════════════════════════════════════ */
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+[hidden] { display: none !important; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--mar-800);
+  color: #fff;
+  font-family: var(--fonte);
+  /* 17px de corpo. O leitor é um síndico, com frequência mais velho — é
+     requisito de conversão do PRODUCT.md, não sobra de escala. */
+  font-size: 1.0625rem;
+  line-height: 1.55;
+  font-synthesis-weight: none;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* Grade de tanques (substituiu o gráfico de barras do ApexCharts).
-   `auto-fit` com mínimo de 132px: o admin.css tem
-   `@container (max-width: 176px)` no .tel-tank, então abaixo disso o desenho
-   entra sozinho em modo compacto (some a elipse de superfície e os rótulos
-   dos ticks). Não é preciso breakpoint aqui — o tile se adapta à própria
-   largura, não à da janela. */
-.layout-cli .tel-niveis-chart {
-  flex: 1;
-  min-height: 0;
+img, svg { max-width: 100%; }
+img { display: block; }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { background: none; border: 0; cursor: pointer; }
+a { color: inherit; }
+::selection { background: var(--amarelo); color: var(--mar-900); }
+
+/* ⚠️ ARMADILHA DO CHANFRO (a mesma da landing e do login): `clip-path`
+   recorta tudo que o elemento pinta, e o `outline` é pintado FORA da caixa,
+   logo fora do polígono. Em elemento chanfrado o anel de foco é calculado e
+   simplesmente não aparece. Nesses o indicador vira `box-shadow: inset`.
+   Todo elemento chanfrado focável novo precisa entrar na lista abaixo. */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 3px solid var(--amarelo);
+  outline-offset: 2px;
+}
+.btn:focus-visible,
+.nav-item:focus-visible,
+.rc:focus-visible,
+.wa-tab:focus-visible,
+.tel-range-btn:focus-visible,
+.card:focus-visible { outline: none; }
+
+.btn:focus-visible          { box-shadow: inset 0 0 0 3px var(--mar-900), inset 0 0 0 6px #fff; }
+.btn:not(.btnAccent):focus-visible { box-shadow: inset 0 0 0 3px var(--amarelo); }
+.nav-item:focus-visible     { box-shadow: inset 0 0 0 2px var(--amarelo); }
+.rc:focus-visible,
+.wa-tab:focus-visible,
+.tel-range-btn:focus-visible { box-shadow: inset 0 0 0 2px var(--mar-700); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}
+
+
+/* ════════════════════════════════════════════════════════════════════════
+   4. CHROME — casca marinho
+   ------------------------------------------------------------------------
+   O painel inteiro é campo marinho; o conteúdo pousa nele como placa. A
+   casca não compete: ela é a moldura de aço em volta do que se lê.
+   ════════════════════════════════════════════════════════════════════════ */
+
+.layout {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
-  gap: 12px;
-  align-content: stretch;   /* estica as linhas p/ ocupar a altura do card */
-  overflow-y: auto;         /* muitos reservatórios rolam em vez de esticar */
-  padding: 4px 2px 2px;
+  grid-template-columns: var(--w-sidebar) minmax(0, 1fr);
+  min-height: 100vh;
+  min-height: 100dvh;
 }
+.layout.collapsed { grid-template-columns: var(--w-sidebar-min) minmax(0, 1fr); }
 
-/* O desenho não pode crescer junto com o tile: o SVG é `width:100%` e num
-   tile largo viraria um tanque gigante. Travado aqui, o tile fica largo e o
-   desenho mantém proporção, centralizado. */
-.layout-cli .tel-tank-svg {
-  max-width: 118px;
-  width: 100%;
-  margin: 0 auto;
+/* ─── Sidebar ─── */
+
+.sidebar {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  height: 100dvh;
+  background: var(--mar-900);
+  border-right: 1px solid var(--fio);
+  overflow: hidden;
 }
-
-/* Empurra nome/bomba/leitura pro rodapé do tile quando sobra altura —
-   o vão fica distribuído em vez de acumulado embaixo. */
-.layout-cli .cli-tank {
-  justify-content: center;
-}
-
-/* Borda colorida pela faixa de nível — o card inteiro comunica o estado,
-   não só a água dentro do desenho. */
-.cli-tank.crit  { border-color: rgba(239, 68, 68, .40); }
-.cli-tank.baixo { border-color: rgba(245, 158, 11, .38); }
-.cli-tank.off   { opacity: .72; }
-
-
-/* ============================================================
-   3. CLIENTE SEM TELEMETRIA
-   ------------------------------------------------------------
-   Antes o dashboard desse cliente era só a tabela de chamados — o resto da
-   tela ficava preto. Dois cards lado a lado ocupam a dobra com algo útil.
-   ============================================================ */
-
-.cli-sem-tel {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 14px;
-  margin-bottom: 20px;
-}
-
-.cli-sem-tel-card {
+.sidebar-inner {
+  height: 100%;
   display: flex;
-  gap: 16px;
-  align-items: flex-start;
-  padding: 20px;
+  flex-direction: column;
+  padding: 20px 14px 16px;
 }
 
-.cli-sem-tel-icone {
+.sidebar-header { padding: 0 6px 22px; }
+.sidebar-brand-logo { height: 34px; width: auto; }
+.sidebar-brand-mini { display: none; height: 30px; }
+.collapsed .sidebar-brand-full { display: none; }
+.collapsed .sidebar-brand-mini { display: block; margin: 0 auto; }
+
+.nav { display: flex; flex-direction: column; gap: 3px; flex: 1; min-height: 0; overflow-y: auto; }
+
+.nav-section-label {
+  font-family: var(--mono);
+  font-size: .6rem;
+  font-weight: 500;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+  color: var(--sobre-2);
+  padding: 18px 8px 7px;
+}
+.nav-section-label:first-child { padding-top: 0; }
+.collapsed .nav-section-label { text-align: center; font-size: 0; padding: 14px 0 6px; }
+.collapsed .nav-section-label::after {
+  content: "";
+  display: block;
+  height: 1px;
+  background: var(--fio);
+}
+
+.nav-item {
+  --ch-p: 8px;
+  clip-path: var(--corte-p);
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
+  text-align: left;
+  color: var(--sobre-2);
+  font-size: .97rem;
+  font-weight: 600;
+  transition: background .18s var(--saida), color .18s var(--saida);
+}
+.nav-item svg { flex: 0 0 auto; width: 20px; height: 20px; }
+.nav-item:hover { background: rgba(255, 255, 255, .06); color: #fff; }
+
+/* Item ativo: a lasca amarela do wordmark, encostada na borda esquerda.
+   Não é fundo amarelo — sobre marinho o amarelo é sinal, e um bloco inteiro
+   aceso na navegação roubaria o único gesto de "aja aqui" da tela. */
+.nav-item.active {
+  background: rgba(255, 255, 255, .09);
+  color: #fff;
+}
+.nav-item.active::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 50%;
+  transform: translateY(-50%);
+  width: 3px; height: 22px;
+  background: var(--amarelo);
+}
+.nav-item-logout:hover { color: var(--risco); }
+
+.collapsed .nav-item { justify-content: center; padding: 12px 0; }
+.collapsed .nav-item-label { display: none; }
+
+/* Rótulo flutuante no modo recolhido. Sem ele a navegação vira três ícones
+   sem nome — adivinhação para um leitor mais velho, que é exatamente o
+   público deste painel. O texto sai do `data-label`, que já existia no HTML.
+   ⚠️ `position: fixed`, não `absolute`: a `.sidebar` tem `overflow: hidden`
+   para o logo, e um rótulo absoluto seria recortado na borda dela. */
+.collapsed .nav-item::after {
+  content: attr(data-label);
+  position: fixed;
+  left: calc(var(--w-sidebar-min) + 8px);
+  z-index: 60;
+  padding: 7px 12px;
+  clip-path: var(--corte-p);
+  --ch-p: 6px;
+  background: var(--amarelo);
+  color: var(--mar-900);
+  font-size: .86rem;
+  font-weight: 700;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .14s var(--saida);
+}
+.collapsed .nav-item:hover::after,
+.collapsed .nav-item:focus-visible::after { opacity: 1; }
+
+.nav-badge {
+  margin-left: auto;
+  min-width: 21px;
+  padding: 1px 6px;
+  background: var(--amarelo);
+  color: var(--mar-900);
+  font-family: var(--mono);
+  font-size: .62rem;
+  font-weight: 700;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.collapsed .nav-badge {
+  position: absolute;
+  top: 6px; right: 8px;
+  margin: 0;
+  min-width: 0;
+  padding: 0;
+  width: 7px; height: 7px;
+  font-size: 0;
+}
+
+.sidebar-footer {
+  border-top: 1px solid var(--fio);
+  padding-top: 12px;
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.sidebar-user {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 4px 8px 12px;
+  min-width: 0;
+}
+.sidebar-user-avatar {
+  --ch-p: 7px;
+  clip-path: var(--corte-p);
   flex: 0 0 auto;
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
+  width: 36px; height: 36px;
   display: grid;
   place-items: center;
-  background: color-mix(in srgb, var(--accent) 14%, transparent);
-  color: var(--accent);
+  background: var(--amarelo);
+  color: var(--mar-900);
 }
-.cli-sem-tel-icone svg { width: 22px; height: 22px; }
-
-/* O segundo card é serviço, não oferta — não compete com o primeiro. */
-.cli-sem-tel-ajuda .cli-sem-tel-icone {
-  background: rgba(255, 255, 255, .06);
-  color: var(--muted);
-}
-
-.cli-sem-tel-texto h3 {
-  margin: 0 0 6px;
-  font-size: 15px;
+.sidebar-user-avatar svg { width: 19px; height: 19px; }
+.sidebar-user-info { min-width: 0; }
+.sidebar-user-role {
+  font-size: .93rem;
   font-weight: 700;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sidebar-user-label {
+  font-size: .78rem;
+  color: var(--sobre-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.collapsed .sidebar-user-info { display: none; }
+.collapsed .sidebar-user { justify-content: center; padding: 4px 0 12px; }
+
+/* ─── Topbar ─── */
+
+.content-header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  height: var(--h-topbar);
+  padding: 0 clamp(18px, 2.6vw, 34px);
+  background: var(--mar-900);
+  border-bottom: 1px solid var(--fio);
 }
 
-.cli-sem-tel-texto p {
-  margin: 0 0 14px;
-  font-size: 13px;
-  line-height: 1.55;
-  color: var(--muted);
+.topbar-toggle,
+.icon-btn {
+  --ch-p: 7px;
+  clip-path: var(--corte-p);
+  display: grid;
+  place-items: center;
+  width: 40px; height: 40px;
+  color: var(--sobre-2);
+  background: rgba(255, 255, 255, .06);
+  transition: background .18s var(--saida), color .18s var(--saida);
+}
+.topbar-toggle:hover,
+.icon-btn:hover { background: var(--amarelo); color: var(--mar-900); }
+.topbar-toggle svg,
+.icon-btn svg { width: 19px; height: 19px; }
+
+.topbar-title {
+  font-size: 1.32rem;
+  font-weight: 800;
+  font-stretch: 108%;
+  letter-spacing: -.02em;
+  color: #fff;
+}
+
+.topbar-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.topbar-user { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.topbar-user-avatar {
+  --ch-p: 7px;
+  clip-path: var(--corte-p);
+  flex: 0 0 auto;
+  width: 36px; height: 36px;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, .08);
+  color: var(--sobre-2);
+}
+.topbar-user-avatar svg { width: 18px; height: 18px; }
+.topbar-user-meta { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+.topbar-user-name { font-size: .9rem; font-weight: 700; color: #fff; }
+.topbar-user-role {
+  font-size: .77rem;
+  color: var(--sobre-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 22ch;
+}
+
+/* Some a cada 10s e volta — o auto-refresh reescreve esta linha. Em amarelo
+   ela piscava no canto do olho a cada ciclo, competindo com o veredito, que é
+   o texto que importa. Fica em `--sobre-2`; o amarelo é do sinal, não do
+   relatório de rotina. */
+.statusMsg {
+  font-family: var(--mono);
+  font-size: .66rem;
+  letter-spacing: .06em;
+  color: var(--sobre-2);
+  max-width: 34ch;
+}
+
+/* ─── Área de conteúdo ─── */
+
+.main { display: flex; flex-direction: column; min-width: 0; }
+
+.content {
+  flex: 1;
+  padding: clamp(20px, 2.6vw, 34px) clamp(18px, 2.6vw, 34px) 56px;
+  max-width: 1420px;
+  width: 100%;
+}
+
+.section { display: none; }
+.section.is-active { display: block; }
+
+/* Barras móveis: só existem no mobile (bloco 12). */
+.mob-topbar, .mob-nav { display: none; }
+
+
+/* ════════════════════════════════════════════════════════════════════════
+   5. PLACA  (.card) — a superfície de leitura
+   ------------------------------------------------------------------------
+   Chapa clara pousada sobre o campo marinho. Sem sombra: a profundidade é
+   tonal e por aresta (Regra do Plano Único). O anel é `box-shadow: inset`,
+   que sobrevive ao `clip-path` — `border` seria recortada nos chanfros.
+   ════════════════════════════════════════════════════════════════════════ */
+
+.card {
+  clip-path: var(--corte);
+  background: var(--chapa);
+  color: var(--tinta);
+  box-shadow: inset 0 0 0 1px var(--fio-esc);
+  padding: 22px 24px;
+  margin-bottom: 18px;
+}
+
+.cardHead {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  padding-bottom: 14px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--fio-esc);
+}
+.cardHead h2 {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 1.09rem;
+  font-weight: 800;
+  font-stretch: 106%;
+  letter-spacing: -.015em;
+  color: var(--tinta);
+}
+.head-icon { width: 19px; height: 19px; flex: 0 0 auto; color: var(--mar-700); }
+
+.hint {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: .62rem;
+  font-weight: 500;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--tinta-2);
+}
+
+
+/* ════════════════════════════════════════════════════════════════════════
+   6. BOTÕES
+   ════════════════════════════════════════════════════════════════════════ */
+
+.btn {
+  --ch-p: 9px;
+  clip-path: var(--corte-p);
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 46px;
+  padding: 11px 22px;
+  background: var(--mar-700);
+  color: #fff;
+  font-size: .95rem;
+  font-weight: 700;
+  font-stretch: 106%;
+  transition: background .2s var(--saida), color .2s var(--saida);
+}
+.btn:hover { background: var(--mar-600); }
+
+/* Ação primária: campo amarelo com tinta marinho. Sobre placa clara o
+   amarelo só existe como PREENCHIMENTO — nunca como texto ou ícone. */
+.btnAccent { background: var(--amarelo); color: var(--mar-900); }
+.btnAccent:hover { background: var(--amarelo-cl); }
+
+.btn-sm { min-height: 38px; padding: 8px 16px; font-size: .88rem; }
+
+.btn[disabled], .btn:disabled { opacity: .55; cursor: not-allowed; }
+
+.btn-pdf {
+  --ch-p: 7px;
+  clip-path: var(--corte-p);
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 40px;
+  padding: 9px 15px;
+  background: var(--mar-700);
+  color: #fff;
+  font-size: .84rem;
+  font-weight: 700;
+  transition: background .2s var(--saida);
+}
+.btn-pdf:hover:not(:disabled) { background: var(--amarelo); color: var(--mar-900); }
+.btn-pdf:disabled { opacity: .45; cursor: not-allowed; }
+
+
+/* ════════════════════════════════════════════════════════════════════════
+   7. KPIs  (.resumo-grid / .rc)
+   ------------------------------------------------------------------------
+   Placa clara pequena, número em mono tabular. A cor de estado vive na
+   ARESTA ESQUERDA e no ícone, nunca no fundo: quatro cards coloridos lado a
+   lado viram semáforo e nenhum deles significa nada.
+   ════════════════════════════════════════════════════════════════════════ */
+
+.resumo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+/* ⚠️ Sem faixa colorida na borda esquerda. Ela é o tell mais reconhecível de
+   interface gerada por IA, e — o que importa mais aqui — não pertence ao
+   vocabulário Chapa: neste sistema profundidade é aresta e corte, nunca barra
+   de cor. O estado mora na PLACA DO ÍCONE, preenchida com tinta por cima —
+   o mesmo recurso das badges de severidade e status. */
+.rc {
+  --ch-p: 10px;
+  clip-path: var(--corte-p);
+  position: relative;
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 15px 17px;
+  background: var(--chapa);
+  color: var(--tinta);
+  box-shadow: inset 0 0 0 1px var(--fio-esc);
+}
+button.rc { cursor: pointer; transition: background .18s var(--saida), box-shadow .18s var(--saida); }
+button.rc:hover { background: var(--chapa-cl); box-shadow: inset 0 0 0 1px rgba(6, 16, 51, .34); }
+.rc-static { cursor: default; }
+
+.rc-head { display: flex; align-items: center; gap: 10px; }
+.rc-icon {
+  --ch-p: 6px;
+  clip-path: var(--corte-p);
+  flex: 0 0 auto;
+  width: 28px; height: 28px;
+  display: grid;
+  place-items: center;
+  background: var(--chapa-es);
+  color: var(--tinta-2);
+}
+.rc-icon svg { width: 15px; height: 15px; }
+
+.rc-label {
+  font-family: var(--mono);
+  font-size: .6rem;
+  font-weight: 500;
+  letter-spacing: .11em;
+  text-transform: uppercase;
+  color: var(--tinta-2);
+  line-height: 1.35;
+}
+
+.rc-value {
+  font-family: var(--mono);
+  font-size: 1.9rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.03em;
+  line-height: 1.1;
+  margin-top: 8px;
+  color: var(--tinta);
+}
+.rc-sub {
+  font-family: var(--fonte);
+  font-size: .85rem;
+  font-weight: 600;
+  color: var(--tinta-2);
+  margin-left: 3px;
+  letter-spacing: 0;
+}
+.rc-hint {
+  font-size: .78rem;
+  color: var(--tinta-2);
+  margin-top: 3px;
+  line-height: 1.35;
+}
+
+/* Estados: a placa do ícone é preenchida, com tinta legível por cima.
+   Só `rc-bad` empresta a cor ao número — se todo estado colorir o valor, a
+   linha de KPIs vira semáforo e nenhum deles significa mais nada. */
+.rc-ok   .rc-icon { background: var(--normal-t); color: #fff; }
+.rc-warn .rc-icon { background: var(--amarelo);  color: var(--mar-900); }
+.rc-bad  .rc-icon { background: var(--risco-t);  color: #fff; }
+.rc-bad  .rc-value { color: var(--risco-t); }
+.rc-cyan .rc-icon { background: var(--mar-700);  color: #fff; }
+
+
+/* ════════════════════════════════════════════════════════════════════════
+   8. O TRILHO  (.linha) — estrutura primária de "Meu prédio"
+   ------------------------------------------------------------------------
+   A vida do prédio é uma linha do tempo: o AGORA no topo e o passado
+   descendo. O trilho é um CORTE GRAVADO no campo marinho — duas linhas de
+   1px, `--rasgo` (fundo do sulco) e `--luz` (a aresta pegando luz) —, nunca
+   uma borda só, que leria como divisória de card.
+
+   ⚠️ O par --rasgo/--luz sempre nesta ordem. Ver DESIGN.md, "A Regra do
+   Corte Gravado".
+   ════════════════════════════════════════════════════════════════════════ */
+
+.linha { position: relative; padding-left: 40px; }
+
+/* ⚠️ A `--luz` do trilho é mais forte que a das placas (.22 contra .10). Na
+   landing o corte gravado divide o INTERIOR de uma peça clara, onde .10 já
+   marca; aqui ele corre sobre o campo marinho aberto por a tela inteira, e a
+   .10 sumia — o trilho é a estrutura da seção, não pode ser invisível. */
+.linha::before {
+  content: "";
+  position: absolute;
+  left: 13px;
+  top: 10px;
+  bottom: 0;
+  width: 1px;
+  background: var(--rasgo);
+  box-shadow: 1px 0 0 rgba(255, 255, 255, .22);
+}
+
+.linha-estacao { position: relative; margin-bottom: 22px; }
+.linha-estacao:last-child { margin-bottom: 0; }
+
+/* A marca na chapa: quadrado chanfrado, alinhado ao trilho. */
+.linha-marca {
+  position: absolute;
+  left: -34px;
+  top: 12px;
+  width: 15px; height: 15px;
+  clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px);
+  background: var(--mar-500);
+  box-shadow: 0 0 0 4px var(--mar-800);
+}
+.linha-estacao.is-agora .linha-marca { background: var(--amarelo); }
+.linha-estacao.is-critico .linha-marca { background: var(--risco); }
+.linha-estacao.is-atencao .linha-marca { background: var(--amarelo); }
+.linha-estacao.is-ok .linha-marca { background: var(--normal); }
+
+/* A marca do AGORA respira no ritmo da leitura — é o único movimento
+   contínuo da tela, e ele significa "o sensor está vivo". */
+.linha-estacao.is-agora .linha-marca::after {
+  content: "";
+  position: absolute;
+  inset: -5px;
+  clip-path: inherit;
+  background: var(--amarelo);
+  opacity: .3;
+  animation: pulso-leitura 3.6s var(--saida) infinite;
+}
+@keyframes pulso-leitura {
+  0%, 70%, 100% { opacity: 0; transform: scale(.7); }
+  12%           { opacity: .38; transform: scale(1); }
+}
+
+/* Etiqueta gravada de quando. Mono, caixa alta — é rótulo de painel. */
+.linha-quando {
+  font-family: var(--mono);
+  font-size: .63rem;
+  font-weight: 500;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+  color: var(--sobre-2);
+  padding: 12px 0 8px;
+  display: block;
+}
+.linha-estacao.is-agora .linha-quando { color: var(--amarelo); }
+
+/* Cabeçalho de dia: separa os grupos da linha sem virar card. */
+.linha-dia {
+  position: relative;
+  font-family: var(--mono);
+  font-size: .66rem;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: #fff;
+  padding: 26px 0 12px;
+}
+.linha-dia:first-child { padding-top: 0; }
+.linha-dia::before {
+  content: "";
+  position: absolute;
+  left: -34px;
+  top: 50%;
+  width: 15px; height: 1px;
+  background: var(--fio-forte);
+}
+
+/* Evento simples: não é placa, é uma anotação na chapa. Placa é para
+   conteúdo que se lê demoradamente; um alerta que abriu é uma marca. */
+.linha-evento {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 11px 0 13px;
+  border-bottom: 1px solid var(--fio);
+}
+.linha-evento-titulo { font-size: 1rem; font-weight: 700; color: #fff; }
+.linha-evento-sub { font-size: .89rem; color: var(--sobre-2); }
+.linha-evento-hora {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: .68rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--sobre-2);
+}
+.linha-evento.is-critico .linha-evento-titulo { color: var(--risco); }
+.linha-evento.is-atencao .linha-evento-titulo { color: var(--amarelo); }
+
+.linha-fim {
+  position: relative;
+  padding: 20px 0 0;
+  font-size: .89rem;
+  color: var(--sobre-2);
+}
+.linha-fim::before {
+  content: "";
+  position: absolute;
+  left: -34px;
+  top: 26px;
+  width: 15px; height: 1px;
+  background: var(--fio);
+}
+
+
+/* ════════════════════════════════════════════════════════════════════════
+   9. A ESTAÇÃO AGORA  (.agora) — o instrumento real
+   ------------------------------------------------------------------------
+   A landing mostra este mesmo instrumento com dados simulados e diz isso na
+   placa. Aqui ele está ligado no sensor do prédio. É a costura: o síndico
+   reconhece o objeto que viu antes de comprar.
+
+   Construção de CHAPA EM DUAS CAMADAS: o fundo do elemento é o anel e o
+   `::before` embutido a 1,5px é a placa interna. É isso que permite trocar
+   a cor do anel por estado sem trocar a moldura.
+   ════════════════════════════════════════════════════════════════════════ */
+
+.agora {
+  --ch: 20px;
+  position: relative;
+  clip-path: var(--corte);
+  background: var(--fio);
+  padding: 1.5px;
+  margin-bottom: 8px;
+  transition: background .5s var(--saida);
+}
+.agora::before {
+  content: "";
+  position: absolute;
+  inset: 1.5px;
+  clip-path: var(--corte);
+  background: linear-gradient(168deg, var(--mar-700) 0%, var(--mar-900) 100%);
+}
+.agora > * { position: relative; z-index: 1; }
+
+.agora[data-estado="atencao"] { background: color-mix(in srgb, var(--amarelo) 78%, transparent); }
+.agora[data-estado="critico"] { background: color-mix(in srgb, var(--risco) 82%, transparent); }
+
+/* ─ Cabeçalho: identificação + relógio ─ */
+.agora-cab {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 17px 24px 14px;
+  border-bottom: 1px solid var(--fio);
+}
+.agora-id {
+  font-family: var(--mono);
+  font-size: .63rem;
+  font-weight: 500;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+  color: var(--sobre-2);
+}
+.agora-rel {
+  font-family: var(--mono);
+  font-size: .95rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .04em;
+  color: #fff;
+}
+
+/* ─ O veredito: a resposta em prosa, antes de qualquer número ─
+   Este é o texto que responde a visita de 5 segundos. Fica em prosa normal,
+   grande, fora do mono — quem chega aflito não deve ter que ler instrumento
+   para saber se pode dormir. */
+.agora-veredito {
+  padding: 24px 24px 20px;
+  font-size: clamp(1.35rem, 2.4vw, 1.85rem);
+  font-weight: 800;
+  font-stretch: 108%;
+  line-height: 1.22;
+  letter-spacing: -.022em;
+  color: #fff;
+  max-width: 30ch;
+  text-wrap: balance;
+}
+.agora-veredito small {
+  display: block;
+  margin-top: 9px;
+  font-size: .95rem;
+  font-weight: 400;
+  font-stretch: 100%;
+  letter-spacing: normal;
+  line-height: 1.5;
+  color: var(--sobre-2);
   max-width: 46ch;
 }
+.agora[data-estado="atencao"] .agora-veredito strong { color: var(--amarelo); }
+.agora[data-estado="critico"] .agora-veredito strong { color: var(--risco); }
 
+/* ─ As colunas d'água ─ */
+.agora-colunas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
+  gap: 2px;
+  border-top: 1px solid var(--fio);
+}
 
-/* ============================================================
-   4. MOBILE  (≤ 768px)
-   ------------------------------------------------------------
-   Prioridade do projeto: o cliente usa o navegador do celular.
-   ============================================================ */
+/* Célula separada por CORTE GRAVADO, não por borda: as colunas são uma peça
+   só dividida, não N cards lado a lado. */
+.agora-cel {
+  padding: 20px 18px 18px;
+  border-left: 1px solid var(--rasgo);
+  box-shadow: inset 1px 0 0 var(--luz);
+}
+.agora-cel:first-child { border-left: 0; box-shadow: none; }
 
-@media (max-width: 768px) {
+.agora-cel-nome {
+  font-size: .95rem;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.agora-cel-tipo {
+  font-family: var(--mono);
+  font-size: .58rem;
+  font-weight: 500;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--sobre-2);
+  margin-bottom: 14px;
+}
 
-  /* --- Stat cards: ícone à esquerda, label+valor à direita -----
-     O card do admin empilha (ícone+label em cima, número embaixo) e tem
-     `min-height: 104px` fixo — com 4 cards isso comia ~210px da primeira
-     dobra só em moldura.
+.agora-cel-corpo { display: flex; align-items: flex-end; gap: 14px; }
 
-     `display: contents` no .rc-head dissolve o wrapper e promove ícone e
-     label a filhos diretos do grid, sem precisar mexer no HTML que o admin
-     também usa. O ícone ocupa as duas linhas à esquerda; label e valor
-     empilham à direita. Resultado: ~60px por card. */
-  .layout-cli .resumo-grid {
-    grid-template-columns: 1fr 1fr !important;
-    gap: 8px;
-  }
+/* O tubo. Mesma anatomia da landing: faixas de 20% e 45% desenhadas no
+   vidro, marcas tracejadas, lâmina que desce por transform.
+   ⚠️ As faixas são as do BACKEND (`nivelFromPct`). Se mudarem lá, mudam
+   aqui e na landing. */
+.coluna-tubo {
+  --ch-p: 8px;
+  position: relative;
+  flex: 0 0 auto;
+  /* 72px, não 62. A 62 as marcas de 45/20 e seus números disputavam espaço
+     com a lâmina e o tubo lia como um retângulo escuro qualquer. */
+  width: 72px;
+  height: 176px;
+  clip-path: var(--corte-p);
+  background: var(--mar-900);
+  box-shadow: inset 0 0 0 1px var(--fio);
+  overflow: hidden;
+}
+.coluna-faixa { position: absolute; left: 0; right: 0; }
+.coluna-faixa-baixo   { bottom: 20%; height: 25%; background: color-mix(in srgb, var(--amarelo) 11%, transparent); }
+.coluna-faixa-critico { bottom: 0;   height: 20%; background: color-mix(in srgb, var(--risco) 13%, transparent); }
 
-  /* `admin.css` (bloco 768px) tem `.layout-cli #chCliKpiGrid { repeat(3,…)
-     !important }` — a tentativa antiga de evitar o card órfão socando os 3
-     KPIs numa linha. Em 414px isso dava colunas de 122px e cortava
-     "Em atendimento" no meio. Seletor de ID vence qualquer classe, então o
-     override precisa repetir o ID; `cliente.css` carrega depois do
-     `admin.css`, o que resolve o empate de especificidade.
-     A distribuição 2 + 1-em-linha-cheia vem da regra :last-child:nth-child(odd). */
-  .layout-cli #chCliKpiGrid,
-  .layout-cli #alKpiGrid {
-    grid-template-columns: 1fr 1fr !important;
-  }
+/* A lâmina ocupa o tubo inteiro e desce por transform, não por height:
+   animar height é layout a cada quadro. translateY(%) é relativo à própria
+   altura = a do tubo. */
+/* ⚠️ A lâmina abre em `--agua` (#2f6fe0), não em `--mar-500` como na landing.
+   Lá a coluna tem 268px de altura e é o único objeto da placa; aqui são três
+   tubos de 176px lado a lado sobre o mesmo gradiente marinho, e a rampa
+   500→700 lia como um retângulo preto — a água sumia justo no reservatório
+   mais baixo, que é o que o síndico precisa enxergar. Medido na tela. */
+.coluna-agua {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, var(--agua) 0%, var(--mar-500) 62%, var(--mar-600) 100%);
+  transform: translateY(calc(100% - var(--n, 0%)));
+  transition: transform .6s var(--saida), background .5s var(--saida);
+  will-change: transform;
+}
+.coluna-crista {
+  position: absolute;
+  left: 0; right: 0; top: 0;
+  height: 3px;
+  background: var(--amarelo-cl);
+  box-shadow: 0 0 14px 1px color-mix(in srgb, var(--amarelo) 55%, transparent);
+}
+.agora-cel[data-estado="critico"] .coluna-agua { background: linear-gradient(180deg, #7a1e2c 0%, #4a1220 100%); }
+.agora-cel[data-estado="critico"] .coluna-crista {
+  background: var(--risco);
+  box-shadow: 0 0 14px 1px color-mix(in srgb, var(--risco) 60%, transparent);
+}
+/* Offline: sem leitura não há lâmina. O tubo vazio com hachura diz "não sei",
+   que é diferente de "está vazio" — e essa diferença é o produto. */
+.agora-cel[data-estado="offline"] .coluna-agua { display: none; }
+.agora-cel[data-estado="offline"] .coluna-tubo {
+  background: repeating-linear-gradient(-45deg, var(--mar-900) 0 6px, var(--mar-800) 6px 12px);
+}
 
-  .layout-cli .rc {
-    min-height: 0;                 /* o piso de 104px é o que trava a altura */
-    padding: 10px 12px;
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
-    align-items: center;
-    column-gap: 10px;
-    row-gap: 0;
-  }
+.coluna-marca {
+  position: absolute;
+  left: 0; right: 0;
+  border-top: 1px dashed var(--fio-forte);
+  pointer-events: none;
+}
+.coluna-marca span {
+  position: absolute;
+  right: 5px; top: 3px;
+  font-family: var(--mono);
+  font-size: .55rem;
+  font-weight: 700;
+  letter-spacing: .04em;
+  color: #fff;
+  /* Sem opacidade: o número da faixa cai sobre a lâmina metade das vezes e a
+     .8 ele desaparecia contra a água. */
+  text-shadow: 0 1px 2px var(--mar-900);
+}
+.coluna-marca-baixo   { bottom: 45%; }
+.coluna-marca-critico { bottom: 20%; border-top-color: color-mix(in srgb, var(--risco) 60%, transparent); }
 
-  .layout-cli .rc-head { display: contents; }
+/* As leituras ao lado do tubo. */
+.agora-leituras { display: flex; flex-direction: column; gap: 13px; min-width: 0; }
+.agora-leitura-rot {
+  font-family: var(--mono);
+  font-size: .55rem;
+  font-weight: 500;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--sobre-2);
+}
+.agora-leitura-val {
+  font-family: var(--mono);
+  font-size: 1.6rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.02em;
+  line-height: 1;
+  color: #fff;
+}
+.agora-leitura-val small {
+  font-size: .68rem;
+  font-weight: 500;
+  color: var(--sobre-2);
+  margin-left: 2px;
+}
+.agora-cel[data-estado="critico"] .agora-leitura-val { color: var(--risco); }
+.agora-cel[data-estado="atencao"] .agora-leitura-val { color: var(--amarelo); }
+.agora-cel[data-estado="offline"] .agora-leitura-val { color: var(--sobre-2); }
 
-  /* Ocupa todas as linhas da direita — 2 sem hint (dashboard), 3 com hint
-     (Alertas e Chamados).
+/* Lâmpada-piloto da bomba. É a única curva do sistema, junto da engrenagem
+   da marca — porque é literalmente uma luz. */
+.agora-bomba { display: flex; align-items: center; gap: 8px; font-size: .87rem; color: var(--sobre-2); }
+.agora-lamp {
+  flex: 0 0 auto;
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  background: var(--sobre-2);
+}
+.agora-bomba.on  .agora-lamp { background: var(--normal); box-shadow: 0 0 9px 1px color-mix(in srgb, var(--normal) 65%, transparent); }
+.agora-bomba.on  { color: #fff; }
+.agora-bomba.off .agora-lamp { background: var(--sobre-2); opacity: .5; }
+.agora-bomba.uk  .agora-lamp { background: transparent; box-shadow: inset 0 0 0 1px var(--sobre-2); }
 
-     ⚠️ `span 3`, não `1 / -1`. O `-1` aponta para o fim do grid EXPLÍCITO, e
-     aqui não há `grid-template-rows` — as linhas são implícitas. Com isso o
-     `-1` colapsava para a linha 1, o ícone parava de atravessar e a primeira
-     linha era forçada aos 30px dele: o card ia de 58px para 77px. Nos cards
-     de 2 linhas o terceiro trilho fica vazio e colapsa para 0. */
-  .layout-cli .rc-icon {
-    grid-row: 1 / span 3;
-    align-self: center;
-    width: 30px;
-    height: 30px;
-  }
-
-  /* Era o `white-space: nowrap` + ellipsis do admin que cortava
-     "CHAMADOS ABER…" e "Em atendimento". Agora quebra em duas linhas. */
-  .layout-cli .rc-label {
-    grid-column: 2;
-    font-size: 9px;
-    letter-spacing: .4px;
-    line-height: 1.2;
-    white-space: normal;
-    overflow: visible;
-    text-overflow: clip;
-  }
-
-  .layout-cli .rc-value {
-    grid-column: 2;
-    font-size: 22px;
-    margin-top: 1px;
-    letter-spacing: -.5px;
-  }
-  .rc-sub { font-size: 11px; }
-
-  /* Legenda de apoio ("Aguardando atendimento", "Técnico designado"). Cabe,
-     desde que não tente competir com o número. */
-  .layout-cli .rc-hint {
-    grid-column: 2;
-    font-size: 9.5px;
-    line-height: 1.25;
-    margin-top: 2px;
-    white-space: normal;
-    overflow: visible;
-    text-overflow: clip;
-  }
-
-  /* Alertas e Chamados têm 3 KPIs; em 2 colunas o terceiro sobra sozinho com
-     metade da linha vazia ao lado. Aqui ele ocupa a linha inteira.
-     `:last-child:nth-child(odd)` = é o último E está em posição ímpar, logo
-     ficou sem par. Com os 4 KPIs do dashboard não dispara.
-
-     ⚠️ Esta regra só vale dentro do media query. Solta, ela pega o desktop —
-     onde o grid tem 7 trilhas — e o "órfão" vira um card de 1606px cruzando
-     a tela inteira. */
-  .layout-cli .resumo-grid > .rc:last-child:nth-child(odd) {
-    grid-column: 1 / -1;
-  }
-  .layout-cli .resumo-grid > .rc:last-child:nth-child(odd) .rc-label {
-    font-size: 9.5px;
-  }
-
-
-  /* --- Tabela → cards -----------------------------------------
-     Tabela de 4 colunas em 414px quebrava o título em duas linhas e ainda
-     reservava largura pro id. Vira uma lista: título em cima, status e data
-     numa linha de rodapé, id fora. */
-  .cli-tbl-cards thead { display: none; }
-
-  .cli-tbl-cards,
-  .cli-tbl-cards tbody,
-  .cli-tbl-cards tr,
-  .cli-tbl-cards td {
-    display: block;
-    width: auto;
-  }
-
-  .cli-tbl-cards tr {
-    background: rgba(255, 255, 255, .02);
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    padding: 10px 12px;
-    margin-bottom: 8px;
-  }
-
-  .cli-tbl-cards td {
-    border: none;
-    padding: 0;
-  }
-
-  /* O id não diz nada pro síndico — ele identifica o chamado pelo título. */
-  .cli-tbl-cards .cli-col-id { display: none; }
-
-  .cli-tbl-cards .cli-col-titulo {
-    font-size: 13.5px;
-    line-height: 1.35;
-    margin-bottom: 8px;
-  }
-
-  /* Status e data dividem a linha de baixo.
-     O !important é necessário: `admin.css` (bloco 768px) esconde a 4ª coluna
-     de .tel-bombas-table dentro de .layout-cli — remendo de quando isto era
-     tabela e a data não cabia. Como card ela cabe, e a data é justamente o
-     que o síndico procura pra saber se o chamado é de hoje. */
-  .layout-cli .cli-tbl-cards td.cli-col-status,
-  .layout-cli .cli-tbl-cards td.cli-col-data {
-    display: inline-block !important;
-    vertical-align: middle;
-  }
-  .cli-tbl-cards .cli-col-data {
-    float: right;
-    line-height: 20px;
-  }
-
-
-  /* --- Cards em geral: menos respiro, mais conteúdo ----------- */
-  .section[data-section="dashboard"] .card {
-    padding: 14px;
-    margin-bottom: 12px;
-  }
-
-  .section[data-section="dashboard"] .mc-map,
-  .section[data-section="dashboard"] .mc-alerts,
-  .section[data-section="dashboard"] .mc-activity {
-    min-height: 0;
-  }
-
-  /* Gráfico de barras: as legendas do eixo X vinham truncadas e giradas
-     ("Caixa Superi…", "Reserva Incê…"), ilegíveis. Menos altura + rótulo
-     tratado no JS resolve; aqui só garantimos que o card não estique. */
-  .section[data-section="dashboard"] .tel-niveis-chart {
-    min-height: 230px;
-  }
-
-  /* --- Sem telemetria: empilha --- */
-  .cli-sem-tel {
-    grid-template-columns: 1fr;
-    gap: 10px;
-  }
-
-  .cli-sem-tel-card { padding: 16px; gap: 12px; }
-  .cli-sem-tel-texto p { font-size: 12.5px; margin-bottom: 12px; }
-
-  /* Espaço pro bottom nav não cobrir o fim da página */
-  .content { padding-bottom: 76px; }
+/* Rodapé do instrumento: última leitura e device. Prosa pequena, honesta. */
+.agora-nota {
+  padding: 14px 24px 16px;
+  border-top: 1px solid var(--fio);
+  font-size: .87rem;
+  color: var(--sobre-2);
+  display: flex;
+  gap: 8px 20px;
+  flex-wrap: wrap;
 }
 
 
-/* Telas bem estreitas (≤ 360px): stat cards em coluna única, senão o número
-   fica espremido contra o label. */
-@media (max-width: 360px) {
-  .layout-cli .resumo-grid {
-    grid-template-columns: 1fr !important;
+/* ════════════════════════════════════════════════════════════════════════
+   10. HISTÓRICO — a estação de série temporal
+   ════════════════════════════════════════════════════════════════════════ */
+
+.tel-historico-ctrls {
+  margin-left: auto;
+  display: flex;
+  gap: 2px;
+  background: var(--chapa-es);
+  padding: 2px;
+  clip-path: var(--corte-p);
+  --ch-p: 7px;
+}
+.tel-range-btn {
+  --ch-p: 5px;
+  clip-path: var(--corte-p);
+  padding: 8px 15px;
+  font-family: var(--mono);
+  font-size: .68rem;
+  font-weight: 700;
+  letter-spacing: .05em;
+  color: var(--tinta-2);
+  transition: background .18s var(--saida), color .18s var(--saida);
+}
+.tel-range-btn:hover { color: var(--tinta); }
+.tel-range-btn.is-active { background: var(--mar-700); color: #fff; }
+
+.tel-historico-filtros {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.tel-select {
+  --ch-p: 8px;
+  clip-path: var(--corte-p);
+  flex: 1;
+  min-width: 180px;
+  min-height: 46px;
+  padding: 11px 38px 11px 14px;
+  background: #fff;
+  color: var(--tinta);
+  box-shadow: inset 0 0 0 1.5px var(--fio-esc);
+  border: 0;
+  appearance: none;
+  font-size: .95rem;
+  /* Seta desenhada, traço esquadrado — a única forma do sistema é o corte. */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8' fill='none' stroke='%23414f74' stroke-width='1.6'%3E%3Cpath d='M1 1.5 6 6.5 11 1.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  background-size: 12px 8px;
+}
+.tel-select:focus-visible { outline: none; box-shadow: inset 0 0 0 3px var(--amarelo), inset 0 0 0 6px var(--mar-700); }
+
+.tel-historico-chart { min-height: 300px; }
+.tel-historico-empty { min-height: 180px; }
+
+
+/* ════════════════════════════════════════════════════════════════════════
+   11. LISTAS DE ESTADO, TABELAS E VAZIOS
+   ════════════════════════════════════════════════════════════════════════ */
+
+.mc-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 84px;
+  padding: 18px;
+  font-size: .93rem;
+  color: var(--tinta-2);
+  text-align: center;
+}
+
+/* ─ Tabelas ─ */
+.tableWrap { overflow-x: auto; }
+
+table { width: 100%; border-collapse: collapse; }
+
+thead th {
+  text-align: left;
+  padding: 0 12px 10px;
+  font-family: var(--mono);
+  font-size: .58rem;
+  font-weight: 500;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--tinta-2);
+  border-bottom: 1px solid var(--fio-esc);
+  white-space: nowrap;
+}
+tbody td {
+  padding: 13px 12px;
+  font-size: .93rem;
+  color: var(--tinta);
+  border-bottom: 1px solid var(--fio-esc);
+  vertical-align: middle;
+}
+tbody tr:last-child td { border-bottom: 0; }
+tbody tr.is-selected { background: var(--chapa-cl); }
+tbody tr[data-al-id]:hover,
+tbody tr[data-ch-cli-id]:hover { background: var(--chapa-cl); }
+thead th:first-child, tbody td:first-child { padding-left: 0; }
+thead th:last-child,  tbody td:last-child  { padding-right: 0; }
+
+
+/* ════════════════════════════════════════════════════════════════════════
+   12. LISTA + DETALHE  (.ch-layout) — Alertas e Chamados
+   ------------------------------------------------------------------------
+   ⚠️ Quem rola aqui é o `.content`, não a lista. `.ch-list-col` está numa
+   linha de altura automática, então `overflow-y: auto` nela nunca engata e a
+   página inteira rola. Por isso o painel de detalhe é `sticky` com teto de
+   viewport: sem isso ele saía da tela junto com a rolagem da lista. Foi um
+   bug real, corrigido em 08/2026 — não desfazer.
+   ════════════════════════════════════════════════════════════════════════ */
+
+.ch-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 400px;
+  gap: 18px;
+  align-items: start;
+}
+
+.ch-list-col { min-width: 0; }
+
+.ch-detail-col {
+  position: sticky;
+  top: calc(var(--h-topbar) + 18px);
+  max-height: calc(100vh - var(--h-topbar) - 36px);
+  overflow-y: auto;
+  /* ⚠️ `overflow-y: auto` sozinho TAMBÉM torna o eixo X rolável: quando um
+     eixo não é `visible`, o outro computa de `visible` para `auto`. Sem esta
+     linha, overlay posicionado por JS vazando 5px abre barra horizontal,
+     que come altura, que redimensiona o gráfico, que perde o hover. */
+  overflow-x: hidden;
+  clip-path: var(--corte);
+  background: var(--chapa);
+  color: var(--tinta);
+  box-shadow: inset 0 0 0 1px var(--fio-esc);
+}
+
+/* Duas linhas explícitas, não `flex-wrap` improvisado: com a coluna de detalhe
+   ocupando 400px, quatro abas + busca + ação nunca coubaram numa linha só, e o
+   wrap jogava o "Abrir chamado" sozinho num terceiro nível. Abas em cima,
+   busca e ação embaixo. */
+.ch-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.ch-toolbar .wa-tabs { grid-column: 1 / -1; }
+
+.wa-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 2px;
+  background: rgba(255, 255, 255, .07);
+  clip-path: var(--corte-p);
+  --ch-p: 7px;
+}
+.wa-tab {
+  --ch-p: 5px;
+  clip-path: var(--corte-p);
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 15px;
+  font-size: .9rem;
+  font-weight: 700;
+  color: var(--sobre-2);
+  transition: background .18s var(--saida), color .18s var(--saida);
+}
+.wa-tab:hover { color: #fff; }
+.wa-tab.is-active { background: var(--amarelo); color: var(--mar-900); }
+
+.wa-count {
+  font-family: var(--mono);
+  font-size: .62rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  padding: 1px 6px;
+  background: rgba(255, 255, 255, .12);
+}
+.wa-tab.is-active .wa-count { background: rgba(6, 16, 51, .18); }
+
+.al-empty,
+.ch-detail-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 220px;
+  padding: 34px 24px;
+  text-align: center;
+  color: var(--tinta-2);
+}
+.al-empty svg,
+.ch-detail-empty svg { width: 38px; height: 38px; opacity: .5; }
+.al-empty p, .ch-detail-empty p { font-size: .95rem; max-width: 30ch; }
+
+/* A lista de alertas e a de chamados são tabelas dentro de placa clara. */
+.ch-list-col .tableWrap {
+  clip-path: var(--corte);
+  background: var(--chapa);
+  color: var(--tinta);
+  box-shadow: inset 0 0 0 1px var(--fio-esc);
+  padding: 18px 22px;
+}
+
+.al-sev {
+  --ch-p: 4px;
+  clip-path: var(--corte-p);
+  display: inline-block;
+  padding: 3px 9px;
+  font-family: var(--mono);
+  font-size: .58rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  background: var(--chapa-es);
+  color: var(--tinta-2);
+}
+.al-sev.critico { background: var(--risco-t); color: #fff; }
+.al-sev.atencao { background: var(--amarelo); color: var(--mar-900); }
+.al-sev.normal  { background: var(--chapa-es); color: var(--tinta-2); }
+
+.al-tempo, .al-data {
+  font-family: var(--mono);
+  font-size: .8rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--tinta-2);
+  white-space: nowrap;
+}
+
+/* ─ Painel do alerta ─ */
+.ap-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 20px 22px 16px;
+  border-bottom: 1px solid var(--fio-esc);
+}
+.ap-title { font-size: 1.08rem; font-weight: 800; letter-spacing: -.015em; }
+.ap-sub { font-size: .83rem; color: var(--tinta-2); margin-top: 2px; }
+.ap-close {
+  --ch-p: 6px;
+  clip-path: var(--corte-p);
+  margin-left: auto;
+  width: 32px; height: 32px;
+  display: grid;
+  place-items: center;
+  font-size: 1.3rem;
+  line-height: 1;
+  background: var(--chapa-es);
+  color: var(--tinta-2);
+  transition: background .18s var(--saida), color .18s var(--saida);
+}
+.ap-close:hover { background: var(--mar-700); color: #fff; }
+
+/* Mesma regra do `.rc`: nada de barra de cor na borda. O estado do alerta já
+   está dito pelo anel do medidor e pela badge de severidade logo acima. */
+.ap-banner {
+  margin: 18px 22px 0;
+  padding: 16px 18px;
+  clip-path: var(--corte-p);
+  --ch-p: 9px;
+  background: var(--chapa-cl);
+  box-shadow: inset 0 0 0 1px var(--fio-esc);
+}
+.ap-banner-row { display: flex; align-items: center; gap: 16px; }
+
+.ap-gauge-mini { position: relative; flex: 0 0 auto; width: 62px; height: 62px; }
+.ap-gauge-mini svg { width: 100%; height: 100%; }
+.ap-gauge-mini-val {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.1;
+}
+.ap-gauge-mini-val > div {
+  font-family: var(--mono);
+  font-size: .93rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.ap-gauge-mini-val small { font-size: .53rem; color: var(--tinta-2); }
+
+.ap-section { padding: 18px 22px; border-top: 1px solid var(--fio-esc); }
+.ap-section:first-of-type { border-top: 0; }
+.ap-section-title {
+  font-family: var(--mono);
+  font-size: .58rem;
+  font-weight: 500;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+  color: var(--tinta-2);
+  margin-bottom: 11px;
+}
+.ap-kv { display: flex; flex-direction: column; gap: 9px; }
+.ap-kv > div { display: flex; align-items: center; gap: 12px; }
+.ap-kv .k { flex: 0 0 96px; font-size: .82rem; color: var(--tinta-2); }
+.ap-kv .v { font-size: .9rem; font-weight: 600; min-width: 0; }
+
+
+/* ════════════════════════════════════════════════════════════════════════
+   13. DETALHE DO CHAMADO
+   ------------------------------------------------------------------------
+   A linha do tempo do chamado é O MESMO OBJETO do trilho do prédio, em
+   outra escala: mesmo sulco, mesma marca chanfrada. Quem entendeu a linha
+   da home não precisa aprender nada aqui.
+   ════════════════════════════════════════════════════════════════════════ */
+
+.ch-detail-head { padding: 20px 22px 16px; border-bottom: 1px solid var(--fio-esc); }
+.ch-detail-title { font-size: 1.08rem; font-weight: 800; letter-spacing: -.015em; line-height: 1.25; }
+.ch-detail-sub { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 9px; }
+
+.ch-cat-badge {
+  --ch-p: 4px;
+  clip-path: var(--corte-p);
+  padding: 3px 9px;
+  font-family: var(--mono);
+  font-size: .56rem;
+  font-weight: 700;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  background: var(--chapa-es);
+  color: var(--tinta-2);
+}
+
+.ch-st {
+  --ch-p: 4px;
+  clip-path: var(--corte-p);
+  display: inline-block;
+  padding: 3px 9px;
+  font-family: var(--mono);
+  font-size: .56rem;
+  font-weight: 700;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  background: var(--chapa-es);
+  color: var(--tinta-2);
+  white-space: nowrap;
+}
+.ch-st-aberto         { background: var(--amarelo);  color: var(--mar-900); }
+.ch-st-em_atendimento { background: var(--mar-700);  color: #fff; }
+.ch-st-fechado        { background: var(--normal-t); color: #fff; }
+
+.ch-detail-body { padding: 4px 0 18px; }
+.ch-detail-section { padding: 16px 22px; border-top: 1px solid var(--fio-esc); }
+.ch-detail-section:first-child { border-top: 0; }
+.ch-detail-sec-title {
+  font-family: var(--mono);
+  font-size: .58rem;
+  font-weight: 500;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+  color: var(--tinta-2);
+  margin-bottom: 11px;
+}
+.ch-detail-desc { font-size: .95rem; line-height: 1.6; max-width: 60ch; }
+
+.ch-os-info {
+  margin: 0 22px;
+  padding: 13px 16px;
+  clip-path: var(--corte-p);
+  --ch-p: 8px;
+  background: var(--chapa-cl);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 10px;
+  font-size: .9rem;
+}
+.ch-os-info .hint { margin-left: 0; }
+
+/* ─ A linha do chamado ─ */
+.ch-timeline { list-style: none; position: relative; padding-left: 26px; }
+.ch-timeline::before {
+  content: "";
+  position: absolute;
+  left: 6px; top: 6px; bottom: 6px;
+  width: 1px;
+  background: var(--fio-esc);
+  box-shadow: 1px 0 0 rgba(255, 255, 255, .5);
+}
+.ch-tl-step { position: relative; padding-bottom: 18px; }
+.ch-tl-step:last-child { padding-bottom: 0; }
+.ch-tl-dot {
+  position: absolute;
+  left: -26px; top: 3px;
+  width: 13px; height: 13px;
+  clip-path: polygon(3px 0, 100% 0, 100% calc(100% - 3px), calc(100% - 3px) 100%, 0 100%, 0 3px);
+  background: var(--chapa-es);
+  box-shadow: 0 0 0 4px var(--chapa);
+}
+.ch-tl-step-done .ch-tl-dot { background: var(--normal-t); }
+.ch-tl-step-curr .ch-tl-dot { background: var(--amarelo); }
+.ch-tl-title { font-size: .95rem; font-weight: 700; }
+.ch-tl-step-pending .ch-tl-title { color: var(--tinta-2); }
+.ch-tl-data {
+  font-family: var(--mono);
+  font-size: .72rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--tinta-2);
+  margin-top: 2px;
+}
+
+/* ─ Avaliação ─ */
+.ch-aval-cta {
+  margin: 16px 22px 0;
+  padding: 16px 18px;
+  clip-path: var(--corte-p);
+  --ch-p: 9px;
+  background: var(--mar-700);
+  color: #fff;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  font-size: .92rem;
+}
+.ch-aval-cta > div { flex: 1; min-width: 180px; }
+.ch-aval-done { background: var(--chapa-cl); color: var(--normal-t); font-weight: 700; }
+
+.ch-stars-input { display: flex; gap: 6px; }
+.ch-star-btn {
+  --ch-p: 5px;
+  clip-path: var(--corte-p);
+  width: 46px; height: 46px;
+  font-size: 1.5rem;
+  line-height: 1;
+  background: var(--chapa-es);
+  color: var(--tinta-2);
+  transition: background .15s var(--saida), color .15s var(--saida);
+}
+.ch-star-btn.is-active { background: var(--amarelo); color: var(--mar-900); }
+
+/* ─ Mensagens ─ */
+.ch-chat-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 320px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 4px;
+}
+.ch-chat-empty { font-size: .88rem; color: var(--tinta-2); padding: 12px 0; }
+.ch-chat-item { display: flex; }
+.ch-chat-item.is-mine { justify-content: flex-end; }
+.ch-chat-bubble {
+  --ch-p: 8px;
+  clip-path: var(--corte-p);
+  max-width: 88%;
+  padding: 10px 13px;
+  background: var(--chapa-cl);
+  box-shadow: inset 0 0 0 1px var(--fio-esc);
+}
+.ch-chat-item.is-mine .ch-chat-bubble { background: var(--mar-700); color: #fff; box-shadow: none; }
+.ch-chat-header { display: flex; gap: 10px; align-items: baseline; margin-bottom: 4px; }
+.ch-chat-author { font-size: .76rem; font-weight: 700; }
+.ch-chat-time {
+  font-family: var(--mono);
+  font-size: .6rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--tinta-2);
+  margin-left: auto;
+}
+.ch-chat-item.is-mine .ch-chat-time { color: var(--sobre-2); }
+.ch-chat-text { font-size: .91rem; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+.ch-chat-photo img { clip-path: var(--corte-p); --ch-p: 6px; margin-bottom: 6px; }
+.ch-chat-composer { display: flex; gap: 9px; margin-top: 12px; align-items: flex-end; }
+.ch-chat-composer .input { flex: 1; }
+
+.ch-titulo-text { font-weight: 700; }
+.ch-id-cell, .ch-data-cell {
+  font-family: var(--mono);
+  font-size: .78rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--tinta-2);
+  white-space: nowrap;
+}
+
+
+/* ════════════════════════════════════════════════════════════════════════
+   14. FORMULÁRIOS E MODAIS
+   ------------------------------------------------------------------------
+   ⚠️ O anel de foco dos campos é `inset` nos DOIS níveis. Anel por `outline`
+   ou `box-shadow` normal é pintado fora da caixa e o `clip-path` do chanfro
+   recorta ele inteiro: o indicador é calculado e não aparece. Esta armadilha
+   já custou um bug no login — está na DESIGN.md.
+   ════════════════════════════════════════════════════════════════════════ */
+
+.input,
+input[type="text"], input[type="password"], input[type="email"],
+select, textarea {
+  --ch-p: 8px;
+  clip-path: var(--corte-p);
+  width: 100%;
+  min-height: 50px;
+  padding: 13px 15px;
+  background: #fff;
+  color: var(--tinta);
+  border: 0;
+  box-shadow: inset 0 0 0 1.5px var(--fio-esc);
+  font-size: .98rem;
+  font-family: var(--fonte);
+  caret-color: var(--mar-700);
+  transition: box-shadow .18s var(--saida);
+}
+textarea { min-height: 92px; resize: vertical; line-height: 1.5; }
+::placeholder { color: var(--tinta-2); opacity: .75; }
+
+.input:hover,
+input:hover, select:hover, textarea:hover { box-shadow: inset 0 0 0 1.5px rgba(6, 16, 51, .32); }
+
+.input:focus, input:focus, select:focus, textarea:focus {
+  outline: none;
+  box-shadow: inset 0 0 0 2.5px var(--mar-700);
+}
+.input:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 3px var(--amarelo), inset 0 0 0 6px var(--mar-700);
+}
+
+/* A busca da toolbar vive sobre o campo marinho, não dentro de placa. */
+.ch-toolbar .input { min-width: 0; }
+
+.formGrid { display: grid; gap: 14px; }
+.f { display: flex; flex-direction: column; gap: 6px; }
+.f > span {
+  font-size: .84rem;
+  font-weight: 700;
+  color: var(--tinta-2);
+}
+.f > span small { font-weight: 400; }
+.formActions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 6px; }
+
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(3, 10, 38, .78);
+  backdrop-filter: blur(6px);
+}
+.modalBox {
+  --ch: 18px;
+  clip-path: var(--corte);
+  width: 100%;
+  max-height: calc(100vh - 40px);
+  display: flex;
+  flex-direction: column;
+  background: var(--chapa);
+  color: var(--tinta);
+  box-shadow: inset 0 0 0 1px var(--fio-esc);
+}
+.modalHead {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 22px 24px 18px;
+  border-bottom: 1px solid var(--fio-esc);
+}
+.modalHead > div { flex: 1; min-width: 0; }
+.modalTitle { font-size: 1.2rem; font-weight: 800; letter-spacing: -.02em; }
+.modalSub { font-size: .88rem; color: var(--tinta-2); margin-top: 3px; }
+.modalBody { padding: 20px 24px 24px; overflow-y: auto; overflow-x: hidden; }
+.modalTools { margin-bottom: 12px; }
+.modalCount { font-size: .87rem; color: var(--tinta-2); min-height: 1.2em; }
+
+
+/* ════════════════════════════════════════════════════════════════════════
+   15. CLIENTE SEM TELEMETRIA
+   ------------------------------------------------------------------------
+   Não é tela de erro: é o único cliente que vê o painel sem o produto. O
+   tom é de serviço, não de anúncio — quem paga manutenção e recebe oferta
+   no lugar do dado se sente cobrado, não atendido.
+   ════════════════════════════════════════════════════════════════════════ */
+
+.tel-cli-fallback {
+  clip-path: var(--corte);
+  background: var(--chapa);
+  color: var(--tinta);
+  box-shadow: inset 0 0 0 1px var(--fio-esc);
+  padding: clamp(26px, 3.4vw, 40px);
+  max-width: 760px;
+}
+.tel-cli-fallback-icon {
+  --ch-p: 10px;
+  clip-path: var(--corte-p);
+  width: 54px; height: 54px;
+  display: grid;
+  place-items: center;
+  background: var(--amarelo);
+  color: var(--mar-900);
+  margin-bottom: 20px;
+}
+.tel-cli-fallback-icon svg { width: 27px; height: 27px; }
+.tel-cli-fallback-title { font-size: clamp(1.4rem, 2.4vw, 1.85rem); font-weight: 800; letter-spacing: -.022em; line-height: 1.2; max-width: 22ch; }
+.tel-cli-fallback-text { font-size: 1rem; line-height: 1.6; color: var(--tinta-2); max-width: 60ch; margin-top: 14px; }
+.tel-cli-fallback-list { list-style: none; margin: 22px 0; display: flex; flex-direction: column; gap: 11px; }
+.tel-cli-fallback-list li { display: flex; gap: 11px; align-items: flex-start; font-size: .95rem; }
+.tel-cli-fallback-list svg { flex: 0 0 auto; width: 18px; height: 18px; margin-top: 3px; color: var(--normal-t); }
+.tel-cli-fallback-cta { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; }
+.tel-cli-fallback-note { font-size: .87rem; color: var(--tinta-2); }
+
+
+/* ════════════════════════════════════════════════════════════════════════
+   16. RESPONSIVO
+   ------------------------------------------------------------------------
+   Prioridade do projeto: o síndico usa o navegador do CELULAR. As quebras
+   são estruturais (a sidebar sai, a lista+detalhe empilha, a tabela vira
+   lista), nunca de tipografia — o corpo NÃO encolhe. O leitor é mais velho:
+   reduzir o texto no aparelho em que ele mais lê é o defeito exato do
+   painel antigo, que tinha rótulo de 9px aqui.
+   ════════════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 1180px) {
+  .ch-layout { grid-template-columns: minmax(0, 1fr); }
+  .ch-detail-col { position: static; max-height: none; }
+  /* Sem seleção o painel vazio não precisa ocupar meia tela no empilhado. */
+  .ch-detail-col:not(.is-open) { display: none; }
+}
+
+@media (max-width: 900px) {
+  :root { --w-sidebar: 76px; }
+  .sidebar-brand-full, .nav-item-label, .sidebar-user-info { display: none; }
+  .sidebar-brand-mini { display: block; margin: 0 auto; }
+  .nav-item { justify-content: center; padding: 12px 0; }
+  .sidebar-user { justify-content: center; }
+}
+
+@media (max-width: 768px) {
+  /* A casca de desktop sai inteira e entram as barras móveis. */
+  .sidebar, .content-header { display: none; }
+  .layout, .layout.collapsed { grid-template-columns: minmax(0, 1fr); }
+
+  /* ⚠️ `fixed`, não `sticky`. A `.mob-topbar` está no FIM do body (depois do
+     `.layout` e dos modais), então um `sticky; top: 0` gruda dentro do fluxo
+     dela — ou seja, ela só apareceria depois de rolar a página inteira. Com
+     `fixed` ela sai do fluxo e o `.content` compensa com padding-top. */
+  .mob-topbar {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 40;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    height: 60px;
+    padding: 0 16px;
+    background: var(--mar-900);
+    border-bottom: 1px solid var(--fio);
   }
+  .mob-top-logo { height: 26px; width: auto; }
+  .mob-top-title {
+    font-size: 1.05rem;
+    font-weight: 800;
+    letter-spacing: -.02em;
+    color: #fff;
+    margin-right: auto;
+  }
+  .mob-top-btn {
+    --ch-p: 6px;
+    clip-path: var(--corte-p);
+    width: 38px; height: 38px;
+    display: grid;
+    place-items: center;
+    background: rgba(255, 255, 255, .07);
+    color: var(--sobre-2);
+  }
+  .mob-top-btn svg { width: 18px; height: 18px; }
+
+  .mob-nav {
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    z-index: 40;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    background: var(--mar-900);
+    border-top: 1px solid var(--fio);
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+  .mob-nav-item {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    /* 58px de alvo de toque. Requisito de acessibilidade do PRODUCT.md, não
+       folga de layout. */
+    min-height: 58px;
+    padding: 9px 2px 8px;
+    color: var(--sobre-2);
+    font-size: .66rem;
+    font-weight: 600;
+  }
+  .mob-nav-item svg { width: 21px; height: 21px; stroke-width: 1.8; }
+  .mob-nav-item.active { color: #fff; }
+  .mob-nav-item.active::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 50%;
+    transform: translateX(-50%);
+    width: 26px; height: 3px;
+    background: var(--amarelo);
+  }
+  /* ⚠️ Quem liga este ponto é o `mob-sidebar.js`, que espelha o badge da
+     sidebar e alterna a classe `.is-visible`. Não trocar por `:empty`: o
+     script escreve "0" quando não há alerta, então o elemento nunca fica
+     vazio e o ponto ficaria aceso o tempo todo. */
+  .mob-nav-badge {
+    display: none;
+    position: absolute;
+    top: 6px; right: 50%;
+    margin-right: -18px;
+    width: 7px; height: 7px;
+    font-size: 0;
+    background: var(--amarelo);
+  }
+  .mob-nav-badge.is-visible { display: block; }
+
+  /* 60px da barra fixa em cima + 84px para o bottom nav não cobrir o fim. */
+  .content { padding: 78px 16px 84px; }
+
+  /* O trilho encolhe mas não some: é a estrutura da tela. */
+  .linha { padding-left: 28px; }
+  .linha::before { left: 8px; }
+  .linha-marca { left: -25px; width: 13px; height: 13px; }
+  .linha-dia::before, .linha-fim::before { left: -25px; width: 12px; }
+
+  .card { padding: 18px 17px; }
+  .agora-veredito { padding: 20px 18px 17px; }
+  .agora-cab, .agora-nota { padding-left: 18px; padding-right: 18px; }
+  .agora-colunas { grid-template-columns: 1fr; }
+  /* Empilhadas, as células perdem a divisão vertical — o sulco DEITA, senão
+     ficam sem divisão nenhuma. (Mesma regra da placa da landing.) */
+  .agora-cel {
+    border-left: 0;
+    box-shadow: inset 0 1px 0 var(--luz);
+    border-top: 1px solid var(--rasgo);
+  }
+  .agora-cel:first-child { border-top: 0; box-shadow: none; }
+
+  .resumo-grid { grid-template-columns: 1fr 1fr; gap: 9px; }
+  .rc { padding: 12px 13px 12px 16px; }
+  .rc-value { font-size: 1.6rem; margin-top: 5px; }
+  /* Três KPIs em duas colunas deixam o terceiro sozinho com meia linha vazia
+     ao lado. `:last-child:nth-child(odd)` = é o último E está em posição
+     ímpar, logo ficou sem par. Com quatro KPIs não dispara. */
+  .resumo-grid > .rc:last-child:nth-child(odd) { grid-column: 1 / -1; }
+
+  .ch-list-col .tableWrap { padding: 15px 16px; }
+  .ch-toolbar .input { max-width: none; }
+  .wa-tabs { width: 100%; }
+  .wa-tab { flex: 1; justify-content: center; padding: 10px 8px; }
+
+  .modalOverlay { padding: 0; align-items: flex-end; }
+  .modalBox { --ch: 14px; max-height: 92vh; }
+
+  .cli-sem-tel { grid-template-columns: 1fr; }
+
+  /* ─ Tabela → lista ─
+     Cinco colunas em 390px espremem o título em três linhas e ainda gastam
+     largura com o número do chamado. Rolagem lateral resolveria no papel,
+     mas o leitor deste painel é mais velho: tabela que só se lê arrastando
+     de lado é tabela que não se lê. Cada linha vira uma placa.
+
+     Vale para as DUAS listas (Alertas e Chamados) — as duas usam
+     `.ch-table-wrap`. */
+  .ch-table-wrap thead { display: none; }
+  .ch-table-wrap table,
+  .ch-table-wrap tbody,
+  .ch-table-wrap tr,
+  .ch-table-wrap td { display: block; width: auto; }
+
+  .ch-table-wrap tr {
+    --ch-p: 8px;
+    clip-path: var(--corte-p);
+    background: var(--chapa-cl);
+    padding: 12px 14px;
+    margin-bottom: 8px;
+  }
+  .ch-table-wrap tr.is-selected { background: #fff; box-shadow: inset 0 0 0 1.5px var(--mar-700); }
+  .ch-table-wrap td { border: 0; padding: 0; }
+  .ch-table-wrap td:empty { display: none; }
+
+  /* O número do chamado e a data ficam na mesma linha do rodapé da placa;
+     o título manda. */
+  .ch-table-wrap td:first-child { font-size: .78rem; margin-bottom: 2px; }
+  .ch-table-wrap .ch-titulo-cell,
+  .ch-table-wrap td:nth-child(2) { font-size: .97rem; line-height: 1.35; margin-bottom: 9px; }
+  .ch-table-wrap .ch-data-cell,
+  .ch-table-wrap .al-data { float: right; line-height: 24px; }
+  .ch-table-wrap .ch-st,
+  .ch-table-wrap .al-sev,
+  .ch-table-wrap .ch-cat-badge { margin-right: 5px; }
+  .ch-table-wrap td:has(.ch-st),
+  .ch-table-wrap td:has(.al-sev),
+  .ch-table-wrap td:has(.ch-cat-badge) { display: inline-block; vertical-align: middle; }
+  .ch-table-wrap td.al-tempo { display: inline-block; margin-left: 4px; }
+}
+
+/* Coluna única só nas telas realmente estreitas. Em 390px (iPhone padrão) duas
+   colunas de ~185px acomodam rótulo e número sem apertar, e quatro KPIs
+   empilhados um a um custavam meia rolagem antes do histórico. */
+@media (max-width: 360px) {
+  .resumo-grid { grid-template-columns: 1fr; }
+  .agora-cel-corpo { gap: 16px; }
+  .coluna-tubo { width: 60px; height: 156px; }
 }

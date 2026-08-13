@@ -24,15 +24,66 @@ canônica do "porquê"; o "o quê" está em `../docs/` e em [`current-state.md`]
   tela herda a paleta dark do admin — **nunca criar paleta paralela**. Redesigns
   adaptam a referência visual ao Mission Control já implementado (preservar
   cores, performance de animação, logos, padrões de polling).
-- **A landing pública é a única exceção ao "Mission Control único"** — e é
-  deliberada. `public/landing.css` não importa nem herda nada de `admin.css`.
-  O motivo: são públicos e trabalhos diferentes. O admin é ferramenta de
-  operação usada todo dia por quem já foi convencido; a landing é peça de venda
-  para um síndico que nunca ouviu falar do produto e provavelmente não vai
-  voltar. Além disso, o `#f0b014` do admin é a **interpretação interna** da
-  marca; em material voltado ao cliente vale o `#fbb329` institucional
-  (ver `PRODUCT.md`). A regra "nunca criar paleta paralela" continua valendo
-  para tudo que é painel — admin, cliente e app mobile.
+- **A fronteira não é "público × painel"; é "cliente × operação"
+  (revisado em 2026-08-13).** `public/landing.css` nunca herdou nada de
+  `admin.css`, e o motivo original continua de pé: o `#f0b014` do admin é a
+  **interpretação interna** da marca, e em material voltado ao cliente vale o
+  `#fbb329` institucional (ver `PRODUCT.md`).
+
+  O que estava **errado** era onde a linha passava. Ela dizia "landing de um
+  lado, todo painel do outro" — e com isso o **painel do cliente** ficava do
+  lado do admin. Resultado: o síndico saía de uma landing marinho, passava por
+  um login marinho e caía num painel preto e âmbar, que parecia outra empresa.
+  O Pedro pegou esse degrau duas vezes: primeiro no login (11/08) e depois no
+  painel (13/08).
+
+  A linha agora separa **quem é o leitor**:
+  - **Sistema "Chapa"** — landing (`/`), login (`/login`) e **painel do
+    cliente** (`/cliente/painel`). Marinho + `#fbb329` + chanfro de 45°.
+  - **Sistema "Mission Control"** — painel admin e app mobile do técnico.
+    Âmbar `#f0b014`, dark, densidade de operação. Segue **separado, por
+    decisão** — não é dívida a ser paga unificando.
+
+  ⚠️ A regra "nunca criar paleta paralela" continua valendo **dentro de cada
+  sistema**. E as três superfícies Chapa **duplicam os tokens de propósito**
+  (`landing.css`, `login.css`, `cliente.css`): são páginas servidas
+  separadamente, que não compartilham CSS. Mudou a paleta? Mude nos três.
+
+- **O painel do cliente carregava o `admin.css` — e esse era o defeito
+  (2026-08-13).** O Pedro pediu o redesenho dizendo *"o principal problema foi
+  tentar copiar o painel de admin"*. O diagnóstico dele estava certo, e o
+  problema era mais fundo que aparência: o painel **não era inspirado** no
+  admin, ele **era** o admin — 265 KB de `admin.css` mais 385 linhas de
+  override. Três consequências que valem como lição geral:
+  1. **Acoplamento invisível.** Toda evolução do admin caía no painel do
+     síndico sem ninguém pedir nem revisar. O salto de `?v=159` para `?v=189`
+     entregou 30 versões de mudanças de uma vez, e ficou meses como pendência
+     de "passada visual" que nunca aconteceu.
+  2. **A arquitetura de informação veio junto com o CSS.** O admin tem
+     *Dashboard* **e** *Telemetria* porque olha N condomínios. O cliente tem
+     um — e as duas seções mostravam os mesmos 3–5 reservatórios duas vezes,
+     com componentes diferentes para o mesmo dado. Copiar a folha de estilo
+     trouxe a estrutura de navegação de brinde.
+  3. **O tom veio junto também.** "LIVE", "Severidade", "Aberto há", rótulo de
+     KPI a 9px no celular. Densidade de quem olha carteira, para quem quer
+     saber se pode dormir.
+
+  A correção não foi repintar: foi **desacoplar**. `cliente.css` virou folha
+  autônoma, mantendo os ~225 nomes de classe que o `cliente.js` emite — trocou
+  o mundo sem tocar no contrato de markup. Detalhe em
+  [`../docs/modulos/painel-cliente.md`](../docs/modulos/painel-cliente.md).
+
+- **A estrutura do painel do cliente é uma linha do tempo, não uma grade de
+  cards (2026-08-13).** Sete estruturas foram derivadas do que o síndico
+  realmente faz e a escolha saiu por sorteio do Impeccable (seed `06d85de2`,
+  candidata 6) — deliberadamente fora do meu ranking, que é onde mora o vício
+  de sempre entregar o mesmo dashboard. Ela resistiu ao teste por um motivo de
+  produto: o síndico não tem só o problema de *"está tudo bem agora"*, ele tem
+  o de **prestar contas na assembleia**, e o painel antigo jogava fora toda a
+  temporalidade menos um gráfico.
+  ⚠️ **Alerta resolvido não entra na linha**, porque `/cliente/status` só
+  devolve os abertos. Ficou o buraco honesto em vez do evento fabricado; a
+  saída (campo `alertas_recentes`) está no roadmap.
 - **Direção visual da landing: "Chapa" (2026-08-11).** A primeira versão foi
   construída como um **demonstrativo de despesas de condomínio** (folha de
   papel, tabela de conta com a linha do caminhão-pipa grifada, carimbo
@@ -45,6 +96,78 @@ canônica do "porquê"; o "o quê" está em `../docs/` e em [`current-state.md`]
   escuro de SaaS de IoT com dashboard flutuando (o padrão da categoria) e
   tubos nixie / têxtil op-art (bonitos, mas o primeiro briga com marinho+amarelo
   e o segundo é hostil para o leitor mais velho que o produto atende).
+- **A landing fala em primeira pessoa do plural (2026-08-13).** O Pedro leu a
+  página pronta e apontou que "muitas vezes parece um terceiro apresentando a
+  empresa, e não a própria empresa se apresentando". Estava certo, e o texto
+  era **inconsistente**: abria em terceira pessoa ("A General monitora…", "a
+  equipe da General instala") e no meio virava primeira ("a gente sabe",
+  "Atendemos", "Fale com a gente"). O problema não é estilo — contradiz o
+  posicionamento: o argumento de venda é que quem fala **já é** o fornecedor
+  de confiança do prédio, e a terceira pessoa põe um narrador no meio. Regra
+  registrada em `PRODUCT.md` (Brand Commitments): "General" só onde a marca
+  precisa ser identificada, nunca como sujeito da frase.
+- **A linha do tempo da madrugada saiu (2026-08-13).** A seção `#noite` (cinco
+  eventos com trilho preso ao scroll) era a mais alta da página e gastava tudo
+  isso numa noite dramatizada; o Pedro pediu que o 24 h virasse **uma chamada
+  só**. Entrou `.vigia`: **uma placa** dividida por cortes gravados com três
+  falhas que a boia não reporta + a faixa de 24 h embaixo. ⚠️ **Não virou três
+  cards** de propósito — três caixas iguais de título + parágrafo é o
+  contêiner preguiçoso e era justamente o vício da primeira versão rejeitada;
+  a anatomia é a do instrumento do hero (cabeçalho / corpo / estado separados
+  por sulco), para ler como peça usinada única. O relógio do instrumento
+  continua marcando madrugada porque é quando a falha passa despercebida — mas
+  o roteiro não narra mais a noite.
+- **A segunda seção explica o serviço, não a falha (2026-08-13).** Primeira
+  tentativa depois de tirar a madrugada: h2 "A boia liga a bomba. / Ela não
+  conta o que deu errado." e três falhas. O Pedro recusou por dois motivos, os
+  dois corretos. (1) **Escrita indireta** — a construção monta um enigma antes
+  de dizer qualquer coisa, e quem entra pela primeira vez precisa entender o
+  serviço de cara, senão não chega ao fim da página. (2) **Redundância**: as
+  três falhas (boia travada / bomba parada / consumo) eram sonda / sensor de
+  corrente / central com outro nome, ou seja, a seção "Três peças no prédio"
+  repetida. Ficou "A gente mede, avisa e atende." — o **ciclo do serviço**,
+  com o painel do condomínio no fecho (era a única parte do serviço que só
+  aparecia lá embaixo, nas dúvidas).
+- **A landing tem dois leitores, e nenhuma frase pode servir só a um
+  (2026-08-13).** "Não somos o aplicativo de uma empresa que você nunca viu"
+  foi recusada pelo Pedro: *"pode ser alguém que acabou de conhecer a empresa
+  sim, e tem que servir pra ela também"*. Todo o texto que pressupunha vínculo
+  existente ("a mesma equipe que já troca a sua bomba", "o mesmo telefone que
+  o seu prédio já usa", "somado à manutenção que já fazemos") virou
+  **condicional**. O diferencial que funciona para os dois é o **tipo de
+  empresa**: manutenção predial desde 2005, não software. Regra em
+  `PRODUCT.md`.
+- **Contrato de posicionamento da landing (2026-08-13).** Depois de quatro
+  rodadas em que cada correção de frase expunha uma decisão de posicionamento
+  nunca tomada, o Pedro parou o trabalho: *"acha melhor a gente conversar
+  sobre qual visão vamos seguir em vez de ficar mudando toda hora?"* — estava
+  certo, e a causa era eu chutar uma resposta nova a cada rodada em vez de
+  fechar a pergunta. Decidido por ele, e **não deve ser reaberto frase a
+  frase**:
+  1. **O produto é o protagonista.** O que se vende é o monitoramento. Os 20
+     anos de casa de máquinas são a **garantia** de que quem instala e atende
+     sabe o que faz — respondem "quem cuida disso?", nunca abrem a página.
+     ⚠️ Isto **inverte** o que o `PRODUCT.md` dizia ("a credibilidade vem da
+     empresa, não do produto"): aquilo eu tinha derivado do fato de não haver
+     cliente de telemetria, e não era a visão do Pedro. A ausência de prova
+     continua restrição dura, mas limita o que se pode **afirmar** — não
+     define quem é o protagonista.
+  2. **Não nos posicionamos contra ninguém.** Nada de "não somos uma empresa
+     de software" (recusada explicitamente), "não é um aplicativo que manda
+     notificação e some", "não é um fornecedor novo pedindo confiança". O
+     síndico provavelmente nem sabe que existe categoria concorrente.
+     ⚠️ **Correção do Pedro, ainda em 13/08:** eu tinha aberto uma exceção
+     para a boia ("explicar por que ela não basta é permitido") e ela estava
+     errada. **O sistema não serve para substituir boia**, e a própria General
+     instala e mantém boia — pôr a boia como vilã é falar mal do próprio
+     serviço. O argumento certo não é deficiência dela, é ausência de quem
+     olhe: a boia **age**, o monitoramento **mostra**. "Meu prédio já tem
+     boia" continua sendo dúvida real e merece resposta, só não nesses termos.
+     Lição: exceção que eu invento a um contrato do usuário é inferência
+     minha, e precisa ser marcada como tal até ele confirmar.
+  **Lição de processo:** quando uma recusa de copy se repete em lugares
+  diferentes, o problema não é a frase — é que o contrato de posicionamento
+  não existe. Fechar o contrato primeiro sai mais barato que remendar.
 - **Animações compositor-friendly.** Transições da sidebar usam `will-change` +
   `contain: layout paint`, opacity/max-width em vez de display none/block, tudo
   unificado em 280ms `cubic-bezier(.4,0,.2,1)` (material standard easing) para
@@ -305,6 +428,21 @@ desenho em camadas original continua válido.
 
 ## Lições aprendidas (cicatrizes)
 
+- **Nunca varrer um arquivo até "a próxima linha que é só `}`" para apagar uma
+  função (2026-08-13).** Escrevi um script de limpeza de órfãos no `cliente.js`
+  que procurava o fechamento de cada função assim; ele não encontrou o
+  terminador que esperava, varreu até o fim do arquivo e **truncou 1.879 linhas
+  para 41**. Salvou o dia o arquivo estar versionado e as edições estarem todas
+  registradas na conversa — deu para restaurar do git e reaplicar a sequência.
+  A regra que fica: **remoção em lote por script se faz com um parser ou não se
+  faz.** Para apagar um punhado de funções, `Edit` com o texto exato de cada
+  uma é mais lento e não tem esse modo de falha. E antes de qualquer script que
+  reescreva um arquivo grande, commitar ou copiar.
+- **CSS compartilhado carrega arquitetura junto, não só aparência.** O painel do
+  cliente herdou do `admin.css` a paleta, mas também a navegação (duas seções
+  para o mesmo dado), a densidade e o vocabulário. Quando duas telas atendem
+  públicos diferentes, compartilhar a folha de estilo é uma decisão de produto
+  disfarçada de decisão técnica.
 - **Marcar fase como "concluída" antes de rodar a migration em produção** gera
   bug silencioso (código referencia tabela que não existe). Rodar
   `scripts/migrate.js` **imediatamente** ao mexer no schema, mesmo em dev.

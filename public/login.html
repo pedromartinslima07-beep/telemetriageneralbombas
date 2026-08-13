@@ -3,66 +3,111 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>GENERAL • Login</title>
+  <title>Entrar • General Telemetria</title>
   <link rel="icon" type="image/png" href="/static/favicon.png?v=3" />
   <link rel="manifest" href="/manifest.json">
-  <meta name="theme-color" content="#F5A623">
+  <meta name="theme-color" content="#050f38">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Telemetria">
   <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
-  <link rel="stylesheet" href="/static/login.css">
+
+  <link rel="preload" href="/static/fonts/archivo.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="/static/fonts/martianmono.woff2" as="font" type="font/woff2" crossorigin />
+
+  <link rel="stylesheet" href="/static/login.css?v=3">
 </head>
 <body>
+<!--
+Esta tela é a costura entre a landing pública (/) e o painel interno. O visual
+segue o mundo "Chapa" da landing — mesma paleta, mesmo chanfro de 45°, mesmas
+fontes —, e NÃO o âmbar do Mission Control que existe atrás dela. Motivo em
+DESIGN.md: #f0b014 é a interpretação do painel interno, não a cor
+institucional; quem chega aqui vindo do site não pode sentir que trocou de
+empresa no meio do caminho.
+-->
 
-  <div class="login-card">
+<div class="entrada">
 
-    <div class="login-logo-wrap">
-      <img src="/static/login-logo.png" class="loginLogo" alt="GENERAL" />
+  <!-- ─── Lado da marca ─────────────────────────────────────────────────── -->
+  <!-- ⚠️ A foto é `reservatorios.jpg` e a escolha não é estética: é a única do
+       acervo que mostra RESERVATÓRIO, que é o que o produto vigia — todas as
+       outras mostram bomba, quadro ou prumada. Ela também é a única em
+       retrato, que é a forma deste painel, e o azul dos tanques e o uniforme
+       azul-e-amarelo já são a paleta da marca.
+       ⚠️ O enquadramento corta o TOPO de propósito: lá está a marca do
+       FABRICANTE DO TANQUE, com dois telefones legíveis. Ao mexer no
+       `background-position`, conferir que eles continuam fora. -->
+  <section class="marca-lado">
+    <a class="marca-volta" href="/">
+      <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M12 4 L6 10 L12 16" /></svg>
+      Voltar para o site
+    </a>
+
+    <div class="marca-in">
+      <img src="/static/login-logo.png" alt="General Engenharia da Manutenção" class="marca-logo" width="867" height="288" />
+      <!-- Não repete a promessa do hero da landing (que já aparece no title, na
+           meta description e na lede): diz o que tem ATRÁS desta porta. -->
+      <p class="marca-txt">O nível dos seus reservatórios, o estado das bombas e os chamados do prédio.</p>
     </div>
+  </section>
 
-    <div class="login-title">
-      <h1>TELEMETRIA</h1>
-      <p>Sistema de monitoramento de reservatórios</p>
-    </div>
+  <!-- ─── Lado do formulário ────────────────────────────────────────────── -->
+  <section class="forma-lado">
+    <div class="placa">
+      <h1>Entrar</h1>
+      <p class="placa-sub">Entre com seu e-mail e senha.</p>
 
-    <form id="loginForm">
-      <div class="login-field">
-        <label for="email">Email</label>
-        <input type="email" id="email" placeholder="seu@email.com" required autocomplete="email" />
+      <form id="loginForm">
+        <div class="campo">
+          <label for="email">E-mail</label>
+          <input type="email" id="email" placeholder="seu@email.com" required autocomplete="email" />
+        </div>
+
+        <div class="campo">
+          <label for="senha">Senha</label>
+          <input type="password" id="senha" placeholder="••••••••" required autocomplete="current-password" />
+        </div>
+
+        <button type="submit" class="btn btn-amarelo">Entrar</button>
+      </form>
+
+      <!-- ⚠️ `hidden`, não `style="display:none"`. O login.js alternava
+           `style.display` entre "none" e "block", e o "block" sobrescrevia o
+           display do CSS — o formulário voltava do passo do código sem o
+           espaçamento entre os campos. -->
+      <div id="otpStep" hidden>
+        <p class="otp-info">
+          Enviamos um código de 6 dígitos para o seu e-mail. Confira a caixa de
+          entrada — e o spam, se não chegar.
+        </p>
+
+        <div class="campo">
+          <label for="otpCode">Código de verificação</label>
+          <input type="text" id="otpCode" placeholder="000000" maxlength="6" inputmode="numeric" autocomplete="one-time-code" />
+        </div>
+
+        <label class="confiar">
+          <input type="checkbox" id="otpConfiar" />
+          <span>Confiar neste dispositivo</span>
+        </label>
+
+        <button type="button" id="otpBtn" class="btn btn-amarelo">Verificar</button>
+        <button type="button" id="otpBack" class="btn btn-fio">Voltar</button>
       </div>
 
-      <div class="login-field">
-        <label for="senha">Senha</label>
-        <input type="password" id="senha" placeholder="••••••••" required autocomplete="current-password" />
-      </div>
+      <p id="erroMsg" class="erro" role="status" aria-live="polite"></p>
 
-      <button type="submit" class="login-btn">Entrar</button>
-    </form>
-
-    <div id="otpStep" style="display:none">
-      <p class="otp-info">Enviamos um código de 6 dígitos para o seu email.<br>Verifique sua caixa de entrada.</p>
-      <div class="login-field">
-        <label for="otpCode">Código de verificação</label>
-        <input type="text" id="otpCode" placeholder="000000" maxlength="6" inputmode="numeric" autocomplete="one-time-code" />
-      </div>
-      <label class="otp-trust-label">
-        <input type="checkbox" id="otpConfiar" />
-        Confiar neste dispositivo
-      </label>
-      <button type="button" id="otpBtn" class="login-btn">Verificar</button>
-      <button type="button" id="otpBack" class="login-btn-secondary">Voltar</button>
+      <p class="placa-pe">
+        Esqueceu a senha ou não consegue entrar?
+        <a href="https://wa.me/5511966536110">Fale com a gente no WhatsApp</a>
+      </p>
     </div>
+  </section>
 
-    <p id="erroMsg" class="erro"></p>
+</div>
 
-    <div class="login-footer">
-      General Engenharia da Manutenção
-    </div>
-
-  </div>
-
-  <script src="/static/login.js?v=2"></script>
-  <script src="/static/register-sw.js?v=33" defer></script>
+  <script src="/static/login.js?v=3"></script>
+  <script src="/static/register-sw.js?v=34" defer></script>
 </body>
 </html>

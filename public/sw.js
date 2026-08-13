@@ -4,7 +4,7 @@
 // este SW. Sem essa lista, o SW intercepta o GET com cache first e serve
 // resposta antiga — sintoma clássico: dado aparece em Ctrl+Shift+R mas some
 // em F5. Ver CLAUDE.md raiz pro racional completo.
-const CACHE_NAME = "telemetria-v42";
+const CACHE_NAME = "telemetria-v43";
 
 // Permite que a página force a ativação imediata desta versão (sem esperar
 // todos os clients fecharem). Pareado com o postMessage no register-sw.js.
