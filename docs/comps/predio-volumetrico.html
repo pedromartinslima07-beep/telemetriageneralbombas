@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ideia — o prédio volumétrico</title>
+<style>
+@font-face{font-family:"Archivo";src:url("../../public/fonts/archivo.woff2") format("woff2");font-weight:400 900;font-stretch:62% 125%;font-display:swap}
+@font-face{font-family:"Martian Mono";src:url("../../public/fonts/martianmono.woff2") format("woff2");font-weight:400 700;font-display:swap}
+
+:root{
+  --mar-900:#030a26; --mar-800:#050f38; --mar-700:#071b5c; --mar-500:#1a3a9e;
+  --agua:#2f6fe0; --crista:#8fb6ff; --amarelo:#fbb329; --risco:#ff5a4d;
+  --sobre-2:#a6b5dc; --fio:rgba(255,255,255,.14);
+  --rasgo:rgba(2,6,22,.55); --luz:rgba(255,255,255,.10);
+  --fonte:"Archivo",ui-sans-serif,system-ui,sans-serif;
+  --mono:"Martian Mono",ui-monospace,monospace;
+  --ch:10px;
+  --corte:polygon(var(--ch) 0,100% 0,100% calc(100% - var(--ch)),calc(100% - var(--ch)) 100%,0 100%,0 var(--ch));
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--mar-900);color:#fff;font-family:var(--fonte);font-size:1.0625rem;line-height:1.55;
+  -webkit-font-smoothing:antialiased;font-synthesis-weight:none;padding-top:46px}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+svg{display:block}
+::selection{background:var(--amarelo);color:var(--mar-900)}
+:focus-visible{outline:none;box-shadow:inset 0 0 0 2px var(--amarelo)}
+
+.andaime{position:fixed;top:0;left:0;right:0;z-index:99;display:flex;gap:8px;align-items:center;
+  padding:9px 14px;background:#11131a;border-bottom:1px solid #2a2e3a;
+  font-family:var(--mono);font-size:11px;color:#7c8496;flex-wrap:wrap}
+.andaime b{color:#c9cfdd;font-weight:400;margin-right:6px}
+.andaime button{padding:5px 11px;border:1px solid #2f3542;color:#9aa3b8;font-family:var(--mono);font-size:11px}
+.andaime button[aria-pressed="true"]{background:#2f3542;color:#fff}
+.andaime .sep{width:1px;height:18px;background:#2f3542;margin:0 6px}
+
+.folha{max-width:1180px;margin:0 auto;padding:clamp(28px,4vw,48px) clamp(22px,5vw,40px) 90px}
+.titulo{font-size:clamp(1.9rem,3.4vw,2.7rem);font-weight:800;font-stretch:110%;
+  letter-spacing:-.028em;line-height:1.06;max-width:22ch}
+.lede{margin-top:16px;font-size:1.12rem;color:var(--sobre-2);max-width:64ch}
+
+.placa{--ch:18px;position:relative;clip-path:var(--corte);background:var(--fio);padding:1.5px;
+  margin-top:clamp(26px,3.6vw,42px)}
+.placa::before{content:"";position:absolute;inset:1.5px;clip-path:var(--corte);
+  background:linear-gradient(168deg,var(--mar-700) 0%,var(--mar-900) 100%)}
+.placa > *{position:relative;z-index:1}
+.cel{padding:clamp(18px,2.4vw,32px)}
+
+.desenho{width:100%;height:auto}
+
+/* ─── o desenho ─── */
+.predio-linha{fill:none;stroke:rgba(255,255,255,.16);stroke-width:1.5}
+.predio-piso{fill:none;stroke:rgba(255,255,255,.055);stroke-width:1}
+.terra{fill:none;stroke:rgba(255,255,255,.26);stroke-width:1.5}
+.terra-hachura{stroke:rgba(255,255,255,.07);stroke-width:1}
+.tank-outline{stroke:rgba(255,255,255,.34);stroke-width:1.4;fill:none}
+.tank-rim{fill:#0a1746;stroke:rgba(255,255,255,.4);stroke-width:1.4}
+.prumo{fill:none;stroke:rgba(255,255,255,.18);stroke-width:1.6;stroke-dasharray:6 6}
+.bomba-cx{fill:#071b5c;stroke:rgba(255,255,255,.34);stroke-width:1.4}
+
+.nivel-eti{fill:var(--sobre-2);font-family:var(--mono);font-size:9px;letter-spacing:.16em}
+.rot-nome{fill:#dfe6f8;font-family:var(--fonte);font-size:12.5px;font-weight:700}
+.rot-pct{font-family:var(--mono);font-size:15px;font-weight:700;letter-spacing:-.02em;fill:#fff}
+.rot-pct.baixo{fill:var(--amarelo)}
+.rot-pct.critico{fill:var(--risco)}
+
+.lado{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:clamp(20px,2.6vw,34px);
+  margin-top:clamp(26px,3.6vw,42px)}
+.lado h2{font-size:1.06rem;font-weight:800;letter-spacing:-.015em}
+.lado p{margin-top:9px;font-size:.96rem;color:var(--sobre-2)}
+.lado .b{padding-top:20px;border-top:1px solid var(--fio)}
+
+@media (prefers-reduced-motion:reduce){*{transition-duration:.001ms!important}}
+</style>
+</head>
+<body>
+
+<div class="andaime">
+  <b>IDEIA EM ESTUDO</b>
+  <button data-predio="p3" aria-pressed="true">3 reservatórios</button>
+  <button data-predio="p11" aria-pressed="false">11 reservatórios</button>
+  <span class="sep"></span>
+  <button data-estado="ok" aria-pressed="true">Tudo normal</button>
+  <button data-estado="baixo" aria-pressed="false">Caixa em 38%</button>
+  <button data-estado="critico" aria-pressed="false">Caixa em 12%</button>
+</div>
+
+<div class="folha">
+
+  <h1 class="titulo">O mesmo corte, com volume de verdade</h1>
+  <p class="lede">Os tanques são o cilindro volumétrico que você aprovou em julho — gradiente de corpo, elipse de
+  superfície na água, realce especular e sombra no chão. Parece render, mas é SVG: o nível é dinâmico, muda com
+  o sensor. E os reservatórios se agrupam por <strong>papel</strong>, não por contagem — por isso onze cabem no
+  mesmo desenho de três.</p>
+
+  <div class="placa"><div class="cel">
+    <svg class="desenho" id="desenho" viewBox="0 0 1000 700" role="img" aria-label="Corte volumétrico do prédio"></svg>
+  </div></div>
+
+  <div class="lado">
+    <div>
+      <h2>Por que escala</h2>
+      <p>Reservatório de condomínio tem papel, e os papéis são poucos: caixa no telhado, reserva no térreo,
+      cisterna enterrada. Um prédio de três blocos tem onze reservatórios e continua tendo <strong>três
+      alturas</strong>. O eixo vertical não cresce — cresce só a fileira de cada nível.</p>
+    </div>
+    <div class="b" style="border-top:0">
+      <h2>O que ainda custa</h2>
+      <p>O banco não guarda o papel nem a posição. Hoje só existe o nome. Precisa de um campo
+      (<code>papel</code>: caixa / cisterna / reserva) preenchido no admin — sem ele o desenho não sabe onde pôr
+      nada. É a única coisa que separa isto de ser só CSS.</p>
+    </div>
+    <div class="b" style="border-top:0">
+      <h2>Onde o 3D real morre</h2>
+      <p>Um render tem a água congelada na altura em que foi pintado — foi por isso que a imagem de tanque foi
+      abandonada em julho. E modelar o prédio de cada cliente é impossível. O volume aqui é desenhado por
+      gradiente, então acompanha o sensor.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ── um cilindro volumétrico. mesma anatomia do _telTanqueSVG do admin.js:
+   corpo por path com elipses nas pontas, água por rect clipado + elipse de
+   superfície, realce especular, sombra no chão. ─────────────────────────── */
+let _uid = 0;
+function cilindro(cx, baseY, R, H, pct, estado){
+  const E = Math.round(R * 0.26);          // achatamento da elipse
+  const T = baseY - H, B = baseY;
+  const id = "t" + (_uid++);
+  const corAgua = estado === "critico" ? "#3f5fd8" : "#2f6fe0";
+  const body = `M${cx-R} ${T} A${R} ${E} 0 0 0 ${cx+R} ${T} L${cx+R} ${B} A${R} ${E} 0 0 1 ${cx-R} ${B} Z`;
+  const yA = T + (1 - pct/100) * H;
+  const agua = pct <= 0 ? "" : `
+    <g clip-path="url(#c${id})">
+      <rect x="${cx-R}" y="${yA.toFixed(1)}" width="${R*2}" height="${(B - yA + E).toFixed(1)}" fill="url(#w${id})"/>
+      <ellipse cx="${cx}" cy="${yA.toFixed(1)}" rx="${R}" ry="${E}" fill="${corAgua}"/>
+      <ellipse cx="${cx}" cy="${yA.toFixed(1)}" rx="${R}" ry="${E}" fill="none" stroke="#cfe0ff" stroke-opacity=".55" stroke-width="1.2"/>
+    </g>`;
+  return `
+    <defs>
+      <clipPath id="c${id}"><path d="${body}"/></clipPath>
+      <linearGradient id="w${id}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="${corAgua}" stop-opacity=".96"/>
+        <stop offset="1" stop-color="${corAgua}" stop-opacity=".5"/>
+      </linearGradient>
+      <linearGradient id="b${id}" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0"   stop-color="#fff" stop-opacity=".13"/>
+        <stop offset=".42" stop-color="#fff" stop-opacity=".02"/>
+        <stop offset="1"   stop-color="#000" stop-opacity=".26"/>
+      </linearGradient>
+    </defs>
+    <ellipse cx="${cx}" cy="${B + E + 4}" rx="${R - 2}" ry="${Math.max(3, E*0.6)}" fill="#000" opacity=".3"/>
+    <path d="${body}" fill="url(#b${id})"/>
+    ${agua}
+    <rect x="${cx - R + R*0.22}" y="${T + E}" width="${Math.max(3, R*0.14)}" height="${H - E*2}"
+          rx="${Math.max(1.5, R*0.07)}" fill="#fff" opacity=".09"/>
+    <line class="tank-outline" x1="${cx-R}" y1="${T}" x2="${cx-R}" y2="${B}"/>
+    <line class="tank-outline" x1="${cx+R}" y1="${T}" x2="${cx+R}" y2="${B}"/>
+    <path class="tank-outline" d="M${cx-R} ${B} A${R} ${E} 0 0 0 ${cx+R} ${B}"/>
+    <ellipse class="tank-rim" cx="${cx}" cy="${T}" rx="${R}" ry="${E}"/>`;
+}
+
+/* ── os prédios. o papel é o que decide a altura, não a contagem ───────────*/
+const PREDIOS = {
+  p3: [
+    {papel:"caixa",    nome:"Caixa Superior",       n:78},
+    {papel:"reserva",  nome:"Reserva de Incêndio",  n:91},
+    {papel:"cisterna", nome:"Cisterna",             n:82},
+  ],
+  p11: [
+    {papel:"caixa",    nome:"Caixa Bloco A",  n:78},
+    {papel:"caixa",    nome:"Caixa Bloco B",  n:74},
+    {papel:"caixa",    nome:"Caixa Bloco C",  n:69},
+    {papel:"caixa",    nome:"Caixa do Salão", n:61},
+    {papel:"reserva",  nome:"Reserva A",      n:91},
+    {papel:"reserva",  nome:"Reserva B",      n:93},
+    {papel:"reserva",  nome:"Reserva Técnica",n:88},
+    {papel:"cisterna", nome:"Cisterna A",     n:82},
+    {papel:"cisterna", nome:"Cisterna B",     n:86},
+    {papel:"cisterna", nome:"Cisterna C",     n:77},
+    {papel:"cisterna", nome:"Cisterna Aux.",  n:84},
+  ],
+};
+
+/* altura de cada papel no corte. TRÊS níveis, sempre — é isto que faz escalar.
+   As folgas são medidas: cada tanque precisa de ~52px abaixo da base para o
+   número e o nome, senão o rótulo cai dentro da laje. */
+const NIVEIS = {
+  caixa:    {baseY:150, etiY:40,  eti:"NO TELHADO"},
+  reserva:  {baseY:404, etiY:300, eti:"TÉRREO"},
+  cisterna: {baseY:600, etiY:516, eti:"ENTERRADA"},
+};
+const SOLO = 478;
+const EIXO = 500;   /* centro do prédio: (150+850)/2 */
+
+let _predio = "p3", _estado = "ok";
+
+function desenhar(){
+  const lista = PREDIOS[_predio];
+  const W = 1000;
+  let s = "";
+
+  /* terra */
+  s += `<defs><pattern id="terra" width="12" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+          <line class="terra-hachura" x1="0" y1="0" x2="0" y2="12"/></pattern></defs>`;
+  s += `<rect x="0" y="${SOLO}" width="${W}" height="${700-SOLO}" fill="url(#terra)"/>`;
+  s += `<line class="terra" x1="0" y1="${SOLO}" x2="${W}" y2="${SOLO}"/>`;
+  s += `<text class="nivel-eti" x="6" y="${SOLO+16}">NÍVEL DA RUA</text>`;
+
+  /* corpo do prédio — a laje começa abaixo dos rótulos da caixa */
+  s += `<polygon class="predio-linha" points="150,228 150,478 850,478 850,228"/>`;
+  s += `<line class="predio-linha" x1="136" y1="220" x2="864" y2="220"/>`;
+  s += `<line class="predio-linha" x1="136" y1="228" x2="864" y2="228"/>`;
+  /* pavimentos só na parte alta: o térreo fica limpo para os rótulos */
+  for (let y = 272; y <= 360; y += 44) s += `<line class="predio-piso" x1="150" y1="${y}" x2="850" y2="${y}"/>`;
+
+  /* prumo: cisterna -> bomba -> caixa (atrás dos tanques) */
+  s += `<path class="prumo" d="M900 556 L900 190 L830 190"/>`;
+  s += `<path class="prumo" d="M878 556 L900 556"/>`;
+  s += `<rect class="bomba-cx" x="900" y="538" width="46" height="34"/>`;
+  s += `<text class="nivel-eti" x="923" y="592" text-anchor="middle">BOMBA</text>`;
+
+  /* os tanques, por papel */
+  ["caixa","reserva","cisterna"].forEach(papel => {
+    const grupo = lista.filter(r => r.papel === papel);
+    if (!grupo.length) return;
+    const nv = NIVEIS[papel];
+
+    /* o tanque encolhe conforme a fileira cresce — o nível não muda de altura */
+    const R = grupo.length <= 1 ? 62 : grupo.length <= 3 ? 52 : 38;
+    const H = grupo.length <= 3 ? 108 : 88;
+    const gap = grupo.length <= 3 ? 58 : 34;
+    const larg = grupo.length * R * 2 + (grupo.length - 1) * gap;
+    let x = EIXO - larg / 2 + R;
+
+    s += `<text class="nivel-eti" x="6" y="${nv.etiY}">${nv.eti}</text>`;
+
+    grupo.forEach(r => {
+      let pct = r.n, cls = "";
+      if (papel === "caixa" && r === grupo[0]) {
+        if (_estado === "baixo")   { pct = 38; cls = "baixo"; }
+        if (_estado === "critico") { pct = 12; cls = "critico"; }
+      }
+      s += cilindro(x, nv.baseY, R, H, pct, cls);
+      s += `<text class="rot-pct ${cls}" x="${x}" y="${nv.baseY + R*0.26 + 32}" text-anchor="middle">${pct}%</text>`;
+      s += `<text class="rot-nome" x="${x}" y="${nv.baseY + R*0.26 + 50}" text-anchor="middle">${r.nome}</text>`;
+      x += R * 2 + gap;
+    });
+  });
+
+  document.getElementById("desenho").innerHTML = s;
+
+  document.querySelectorAll(".andaime [data-predio]").forEach(b =>
+    b.setAttribute("aria-pressed", String(b.dataset.predio === _predio)));
+  document.querySelectorAll(".andaime [data-estado]").forEach(b =>
+    b.setAttribute("aria-pressed", String(b.dataset.estado === _estado)));
+}
+
+document.querySelectorAll(".andaime [data-predio]").forEach(b =>
+  b.addEventListener("click", () => { _predio = b.dataset.predio; desenhar(); }));
+document.querySelectorAll(".andaime [data-estado]").forEach(b =>
+  b.addEventListener("click", () => { _estado = b.dataset.estado; desenhar(); }));
+
+desenhar();
+</script>
+</body>
+</html>

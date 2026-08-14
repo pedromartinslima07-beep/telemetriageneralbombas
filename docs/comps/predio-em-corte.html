@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ideia — o prédio em corte</title>
+<style>
+@font-face{font-family:"Archivo";src:url("../../public/fonts/archivo.woff2") format("woff2");font-weight:400 900;font-stretch:62% 125%;font-display:swap}
+@font-face{font-family:"Martian Mono";src:url("../../public/fonts/martianmono.woff2") format("woff2");font-weight:400 700;font-display:swap}
+
+:root{
+  --mar-900:#030a26; --mar-800:#050f38; --mar-700:#071b5c; --mar-500:#1a3a9e;
+  --agua:#2f6fe0; --crista:#8fb6ff; --amarelo:#fbb329; --risco:#ff5a4d;
+  --sobre-2:#a6b5dc; --fio:rgba(255,255,255,.14);
+  --rasgo:rgba(2,6,22,.55); --luz:rgba(255,255,255,.10);
+  --fonte:"Archivo",ui-sans-serif,system-ui,sans-serif;
+  --mono:"Martian Mono",ui-monospace,monospace;
+  --ch:10px;
+  --corte:polygon(var(--ch) 0,100% 0,100% calc(100% - var(--ch)),calc(100% - var(--ch)) 100%,0 100%,0 var(--ch));
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--mar-900);color:#fff;font-family:var(--fonte);font-size:1.0625rem;line-height:1.55;
+  -webkit-font-smoothing:antialiased;font-synthesis-weight:none;padding-top:46px}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+svg{display:block}
+::selection{background:var(--amarelo);color:var(--mar-900)}
+:focus-visible{outline:none;box-shadow:inset 0 0 0 2px var(--amarelo)}
+
+.andaime{position:fixed;top:0;left:0;right:0;z-index:99;display:flex;gap:8px;align-items:center;
+  padding:9px 14px;background:#11131a;border-bottom:1px solid #2a2e3a;
+  font-family:var(--mono);font-size:11px;color:#7c8496;flex-wrap:wrap}
+.andaime b{color:#c9cfdd;font-weight:400;margin-right:8px}
+.andaime button{padding:5px 11px;border:1px solid #2f3542;color:#9aa3b8;font-family:var(--mono);font-size:11px}
+.andaime button[aria-pressed="true"]{background:#2f3542;color:#fff}
+
+.folha{max-width:1080px;margin:0 auto;padding:clamp(30px,5vw,56px) clamp(22px,5vw,40px) 90px}
+
+.titulo{font-size:clamp(1.9rem,3.4vw,2.7rem);font-weight:800;font-stretch:110%;
+  letter-spacing:-.028em;line-height:1.06;max-width:20ch}
+.lede{margin-top:16px;font-size:1.12rem;color:var(--sobre-2);max-width:60ch}
+
+/* a mesma placa do painel */
+.placa{--ch:16px;position:relative;clip-path:var(--corte);background:var(--fio);padding:1.5px;
+  margin-top:clamp(28px,4vw,44px);display:grid;grid-template-columns:minmax(0,1fr) minmax(0,300px)}
+.placa::before{content:"";position:absolute;inset:1.5px;clip-path:var(--corte);
+  background:linear-gradient(168deg,var(--mar-700) 0%,var(--mar-900) 100%)}
+.placa > *{position:relative;z-index:1}
+.cel{padding:clamp(24px,3vw,40px)}
+.cel + .cel{border-left:1px solid var(--rasgo);box-shadow:inset 1px 0 0 var(--luz)}
+
+.desenho{width:100%;height:auto;max-height:74vh;margin-inline:auto}
+
+/* ─── o desenho ─── */
+.predio-linha{fill:none;stroke:rgba(255,255,255,.22);stroke-width:1.5}
+.predio-piso{fill:none;stroke:rgba(255,255,255,.07);stroke-width:1}
+.terra{fill:none;stroke:rgba(255,255,255,.3);stroke-width:1.5}
+.terra-hachura{stroke:rgba(255,255,255,.09);stroke-width:1}
+.tanque-fundo{fill:#030a26}
+.tanque-linha{fill:none;stroke:rgba(255,255,255,.34);stroke-width:1.5}
+.prumo{fill:none;stroke:rgba(255,255,255,.2);stroke-width:1.5;stroke-dasharray:5 5}
+.bomba{fill:none;stroke:rgba(255,255,255,.34);stroke-width:1.5}
+.guia{stroke:rgba(255,255,255,.16);stroke-width:1}
+
+.rot-nome{fill:#fff;font-family:var(--fonte);font-size:14px;font-weight:700}
+.rot-pct{fill:#fff;font-family:var(--mono);font-size:17px;font-weight:700;letter-spacing:-.02em}
+.rot-eti{fill:var(--sobre-2);font-family:var(--mono);font-size:8.5px;letter-spacing:.14em}
+.baixo .rot-pct{fill:var(--amarelo)}
+.critico .rot-pct{fill:var(--risco)}
+
+/* ─── a coluna de leitura ─── */
+.lado h2{font-size:1.12rem;font-weight:800;letter-spacing:-.015em}
+.lado p{margin-top:9px;font-size:.98rem;color:var(--sobre-2)}
+.lado .bloco + .bloco{margin-top:24px;padding-top:22px;border-top:1px solid var(--fio)}
+.lado ul{margin-top:10px;list-style:none;display:grid;gap:9px}
+.lado li{position:relative;padding-left:17px;font-size:.95rem;color:var(--sobre-2)}
+.lado li::before{content:"";position:absolute;left:0;top:.58em;width:7px;height:7px;background:var(--sobre-2)}
+.lado li.pro::before{background:var(--crista)}
+.lado li.contra::before{background:var(--amarelo)}
+
+@media (max-width:900px){
+  .placa{grid-template-columns:1fr}
+  .cel + .cel{border-left:0;border-top:1px solid var(--rasgo);box-shadow:inset 0 1px 0 var(--luz)}
+}
+@media (prefers-reduced-motion:reduce){*{transition-duration:.001ms!important}}
+</style>
+</head>
+<body>
+
+<div class="andaime">
+  <b>IDEIA EM ESTUDO — não é a comp aprovada</b>
+  <button data-estado="ok" aria-pressed="true">Tudo normal</button>
+  <button data-estado="baixo" aria-pressed="false">Caixa Superior em 38%</button>
+  <button data-estado="critico" aria-pressed="false">Caixa Superior em 12%</button>
+</div>
+
+<div class="folha">
+
+  <h1 class="titulo">E se a prova fosse o prédio dele?</h1>
+  <p class="lede">Hoje os reservatórios aparecem como três colunas lado a lado, na mesma base — isso é um
+  gráfico de barras. Num prédio eles não são pares: a caixa fica no telhado, a cisterna fica enterrada, e
+  a bomba liga uma na outra. Desenhados na posição real, deixam de ser um painel e viram o corte do prédio.</p>
+
+  <div class="placa">
+    <div class="cel">
+      <!-- viewBox começa em -110: o rótulo da Reserva de Incêndio sai pela
+           esquerda do desenho e era cortado na borda da caixa -->
+      <svg class="desenho" viewBox="-110 0 740 680" role="img"
+           aria-label="Corte esquemático do prédio: caixa superior no telhado, reserva de incêndio no térreo, cisterna enterrada, ligadas pelo prumo da bomba.">
+        <defs>
+          <linearGradient id="agua" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#2f6fe0"/><stop offset=".7" stop-color="#1a3a9e"/><stop offset="1" stop-color="#071b5c"/>
+          </linearGradient>
+          <linearGradient id="agua-baixa" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#2f6fe0"/><stop offset="1" stop-color="#123278"/>
+          </linearGradient>
+          <pattern id="terra" width="12" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+            <line class="terra-hachura" x1="0" y1="0" x2="0" y2="12"/>
+          </pattern>
+          <clipPath id="c-sup"><polygon points="266,44 420,44 420,110 412,118 258,118 258,52"/></clipPath>
+          <clipPath id="c-inc"><polygon points="154,392 250,392 250,466 244,472 148,472 148,398"/></clipPath>
+          <clipPath id="c-cis"><polygon points="154,520 350,520 350,626 344,632 148,632 148,526"/></clipPath>
+        </defs>
+
+        <!-- terra -->
+        <rect x="-110" y="486" width="740" height="194" fill="url(#terra)"/>
+        <line class="terra" x1="-110" y1="486" x2="630" y2="486"/>
+        <text class="rot-eti" x="-104" y="502">NÍVEL DA RUA</text>
+
+        <!-- corpo do prédio -->
+        <polygon class="predio-linha" points="130,150 130,486 440,486 440,150"/>
+        <line class="predio-linha" x1="118" y1="142" x2="452" y2="142"/>
+        <line class="predio-linha" x1="118" y1="150" x2="452" y2="150"/>
+        <line class="predio-piso" x1="130" y1="206" x2="440" y2="206"/>
+        <line class="predio-piso" x1="130" y1="262" x2="440" y2="262"/>
+        <line class="predio-piso" x1="130" y1="318" x2="440" y2="318"/>
+        <line class="predio-piso" x1="130" y1="374" x2="440" y2="374"/>
+
+        <!-- prumo da bomba: cisterna -> caixa superior -->
+        <!-- sucção (cisterna → bomba) e recalque (bomba → caixa superior):
+             é o que faz o desenho contar o mecanismo sozinho -->
+        <path class="prumo" d="M350 563 L366 563"/>
+        <path class="prumo" d="M392 546 L392 128 L340 128"/>
+        <rect class="bomba" x="366" y="546" width="52" height="34"/>
+        <text class="rot-eti" x="392" y="600" text-anchor="middle">BOMBA</text>
+
+        <!-- CAIXA SUPERIOR (telhado) -->
+        <g id="g-sup">
+          <polygon class="tanque-fundo" points="266,44 420,44 420,110 412,118 258,118 258,52"/>
+          <rect id="a-sup" clip-path="url(#c-sup)" x="258" y="60" width="162" height="58" fill="url(#agua)"/>
+          <rect id="k-sup" clip-path="url(#c-sup)" x="258" y="60" width="162" height="2.5" fill="#8fb6ff"/>
+          <polygon class="tanque-linha" points="266,44 420,44 420,110 412,118 258,118 258,52"/>
+          <line class="guia" x1="428" y1="72" x2="470" y2="72"/>
+          <text class="rot-nome" x="478" y="68">Caixa Superior</text>
+          <text class="rot-pct" id="p-sup" x="478" y="92">78%</text>
+          <text class="rot-eti" x="478" y="110">NO TELHADO</text>
+        </g>
+
+        <!-- RESERVA DE INCÊNDIO (térreo) -->
+        <g id="g-inc">
+          <polygon class="tanque-fundo" points="154,392 250,392 250,466 244,472 148,472 148,398"/>
+          <rect id="a-inc" clip-path="url(#c-inc)" x="148" y="399" width="102" height="73" fill="url(#agua)"/>
+          <rect id="k-inc" clip-path="url(#c-inc)" x="148" y="399" width="102" height="2.5" fill="#8fb6ff"/>
+          <polygon class="tanque-linha" points="154,392 250,392 250,466 244,472 148,472 148,398"/>
+          <line class="guia" x1="140" y1="416" x2="104" y2="416"/>
+          <text class="rot-nome" x="96" y="412" text-anchor="end">Reserva de Incêndio</text>
+          <text class="rot-pct" id="p-inc" x="96" y="436" text-anchor="end">91%</text>
+          <text class="rot-eti" x="96" y="454" text-anchor="end">TÉRREO</text>
+        </g>
+
+        <!-- CISTERNA (enterrada) -->
+        <g id="g-cis">
+          <polygon class="tanque-fundo" points="154,520 350,520 350,626 344,632 148,632 148,526"/>
+          <rect id="a-cis" clip-path="url(#c-cis)" x="148" y="540" width="202" height="92" fill="url(#agua)"/>
+          <rect id="k-cis" clip-path="url(#c-cis)" x="148" y="540" width="202" height="2.5" fill="#8fb6ff"/>
+          <polygon class="tanque-linha" points="154,520 350,520 350,626 344,632 148,632 148,526"/>
+          <line class="guia" x1="358" y1="548" x2="440" y2="548"/>
+          <text class="rot-nome" x="448" y="544">Cisterna</text>
+          <text class="rot-pct" id="p-cis" x="448" y="568">82%</text>
+          <text class="rot-eti" x="448" y="586">ENTERRADA</text>
+        </g>
+      </svg>
+    </div>
+
+    <div class="cel lado">
+      <div class="bloco">
+        <h2>O que isso resolve</h2>
+        <ul>
+          <li class="pro">A tela deixa de ser um plano só: existe altura de verdade, e a página para de ser um campo chapado sem eu precisar de um segundo chão claro.</li>
+          <li class="pro">O síndico reconhece a figura como o prédio dele. Ele não precisa aprender a ler o painel.</li>
+          <li class="pro">Explica o mecanismo de graça: dá para ver que a bomba puxa da cisterna para a caixa. Quando a caixa cai e a cisterna está cheia, o problema é a bomba — e isso o desenho conta sozinho.</li>
+          <li class="pro">Nenhum concorrente faz assim, porque nenhum sabe que o cliente tem um prédio só.</li>
+        </ul>
+      </div>
+
+      <div class="bloco">
+        <h2>O que isso custa</h2>
+        <ul>
+          <li class="contra">O banco não guarda a posição do reservatório. Deduzir do nome ("Caixa Superior") quebra no primeiro cliente que chamar de "Caixa 1" — precisa de um campo, preenchido no admin.</li>
+          <li class="contra">Prédio com 11 reservatórios não cabe num corte legível. Aí provavelmente convivem os dois: o corte para 2–4, a faixa de colunas acima disso.</li>
+          <li class="contra">É um desenho por prédio, não um componente genérico — mais superfície para dar errado com dado real.</li>
+        </ul>
+      </div>
+
+      <div class="bloco">
+        <h2>Onde eu não iria</h2>
+        <p>Nada de perspectiva, sombra ou render 3D. É desenho técnico em chapa — linha de 1px, chanfro de 45°, a mesma água da landing. O prédio é esquema, não ilustração.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* geometria de cada tanque no viewBox: topo, altura, x, largura */
+const T = {
+  sup: {y:44,  h:74,  x:258, w:162},
+  inc: {y:392, h:80,  x:148, w:102},
+  cis: {y:520, h:112, x:148, w:202},
+};
+
+const ESTADOS = {
+  ok:      {sup:78, inc:91, cis:82, cls:""},
+  baixo:   {sup:38, inc:91, cis:82, cls:"baixo"},
+  critico: {sup:12, inc:91, cis:82, cls:"critico"},
+};
+
+function nivel(id, pct){
+  const t = T[id];
+  const alturaAgua = t.h * pct / 100;
+  const topo = t.y + t.h - alturaAgua;
+  const agua = document.getElementById("a-" + id);
+  const crista = document.getElementById("k-" + id);
+  agua.setAttribute("y", topo);
+  agua.setAttribute("height", alturaAgua);
+  crista.setAttribute("y", topo);
+  document.getElementById("p-" + id).textContent = pct + "%";
+}
+
+function aplicar(k){
+  const e = ESTADOS[k];
+  ["sup","inc","cis"].forEach(id => nivel(id, e[id]));
+  document.getElementById("g-sup").setAttribute("class", e.cls);
+  document.querySelectorAll(".andaime button").forEach(b =>
+    b.setAttribute("aria-pressed", String(b.dataset.estado === k)));
+}
+document.querySelectorAll(".andaime button").forEach(b =>
+  b.addEventListener("click", () => aplicar(b.dataset.estado)));
+
+aplicar("ok");
+</script>
+</body>
+</html>

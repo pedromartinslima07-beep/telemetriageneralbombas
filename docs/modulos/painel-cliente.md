@@ -7,7 +7,7 @@ aliases:
   - Painel do Síndico
   - Meu prédio
 ---
-# Painel do Cliente — "Meu prédio"
+# Painel do Cliente
 
 Rota `/cliente/painel`. É a tela que o **síndico** usa no navegador (quase
 sempre do celular) para saber se pode dormir tranquilo, acompanhar um
@@ -16,15 +16,41 @@ atendimento e prestar contas na assembleia.
 Arquivos: `public/cliente.html` · `public/cliente.css` · `public/cliente.js`.
 Backend em [`../api.md`](../api.md) (router `cliente`), regras de nível em
 [`telemetria.md`](telemetria.md), ciclo do chamado em
-[`chamados-sla.md`](chamados-sla.md).
+[`chamados-sla.md`](chamados-sla.md). O "porquê" das escolhas está em
+[`../../memory-bank/decisions.md`](../../memory-bank/decisions.md); a
+estratégia durável da superfície em `.impeccable/surfaces/public-cliente-html.md`.
+
+Comp de referência: [`../comps/painel-cliente-v3.html`](../comps/painel-cliente-v3.html).
 
 ---
 
-## ⚠️ Este painel não carrega mais o `admin.css`
+## A tese: "a resposta, não o painel"
 
-**A mudança mais importante deste módulo, feita em 2026-08-13.** Até então
-`cliente.html` carregava `admin.css` (265 KB do Mission Control) e o
-`cliente.css` era só uma folha de *overrides* tentando desfazer proporções.
+**A primeira tela inteira é a resposta.** Uma frase que qualquer pessoa entende
+sem legenda ("Seu prédio está abastecido."), os reservatórios ao lado como
+prova, e **uma** ação ("Preciso de ajuda"). Abaixo, **a história**, escrita como
+um humano contaria — "Marcos Ferreira ficou responsável pelo atendimento" —,
+não "Chamado #412 · EM_ATENDIMENTO · P3".
+
+**Não existem seções.** Alertas e chamados deixaram de ser lugares para onde
+navegar: o que acontece agora está na frase, o que já aconteceu está na
+história, e o detalhe abre como **ficha** por cima.
+
+> ⚠️ **A v1 desta reconstrução foi REJEITADA em 13/08/2026** por trocar o mundo
+> visual e a estrutura de uma seção mantendo a casca inteira do admin — sidebar
+> com colapso, topbar, fileira de KPIs, lista+detalhe com abas, busca e
+> tabelas. Veredito do Pedro: *"ficou parecido com o painel admin só que
+> pior"*, *"muito poluído"*.
+>
+> **É a REMOÇÃO dessas peças, não a paleta, que separa este painel do admin.**
+> Nada disso volta sem autorização explícita.
+
+---
+
+## ⚠️ Este painel não carrega o `admin.css`
+
+**A mudança mais importante deste módulo, feita em 2026-08-13 e mantida na v3.**
+Até então `cliente.html` carregava `admin.css` (265 KB do Mission Control).
 
 Consequências que isso teve, e que não devem voltar:
 
@@ -33,159 +59,352 @@ Consequências que isso teve, e que não devem voltar:
   mudanças ao síndico sem revisão.
 - O cliente herdava a **arquitetura de informação** do admin. O admin tem
   *Dashboard* **e** *Telemetria* porque olha N condomínios; o cliente tem
-  **um** — e as duas seções mostravam os mesmos 3–5 reservatórios duas vezes,
-  com componentes diferentes para o mesmo dado.
-- Herdava a **linguagem de sala de controle**: fundo preto, âmbar `#f0b014`
-  (que não é a cor institucional — ver [`../../PRODUCT.md`](../../PRODUCT.md)),
-  selo "LIVE", tabelas de 5 colunas com "Severidade" e "Aberto há", rótulo de
-  KPI a 9px no mobile. O leitor é leigo e com frequência mais velho.
+  **um**.
+- Herdava a **linguagem de sala de controle**: âmbar `#f0b014` (que não é a cor
+  institucional — ver [`../../PRODUCT.md`](../../PRODUCT.md)), selo "LIVE",
+  tabelas de 5 colunas com "Severidade" e "Aberto há", rótulo de KPI a 9px no
+  mobile. O leitor é leigo e com frequência mais velho.
 
 Hoje `cliente.css` é **folha autônoma** no sistema visual **"Chapa"** — o mesmo
-da landing (`/`) e do login (`/login`). Ver [`../../DESIGN.md`](../../DESIGN.md).
+da landing (`/`) e do login (`/login`), **em volume mais baixo**: a landing é
+peça de venda e pode ser alta; este painel é onde o síndico vem se acalmar.
+Ver [`../../DESIGN.md`](../../DESIGN.md).
 
 > **Não reintroduzir `admin.css` aqui, nem tokens dele.** O admin é ferramenta
 > de operação interna; este painel é a continuação da página que vendeu o
-> serviço. São dois sistemas, por decisão — ver
-> [`../../memory-bank/decisions.md`](../../memory-bank/decisions.md).
+> serviço.
 
-### A ponte de tokens
-
-O `cliente.js` escreve `style="color:var(--muted)"` em 13 lugares, mais
-`var(--text)` e `var(--accent)`. Eram tokens do `admin.css`. Estão
-**redefinidos** no bloco 2 do `cliente.css`, em valores Chapa, para que o JS
-continue válido sem ser reescrito. As 15 ocorrências ficam dentro de placa
-clara, por isso `--muted` aponta para `--tinta-2`. **Não remover a ponte.**
+⚠️ A **ponte de tokens** da v1 (`--muted`/`--text`/`--accent` redefinidos para
+valores Chapa porque o JS escrevia `style="color:var(--muted)"`) **não existe
+mais** — o `cliente.js` foi reescrito e não usa mais nenhum token do admin.
 
 ---
 
-## As três seções
+## A estrutura
 
-| Seção | `data-section` | O que responde |
+```
+<div class="barra">           barra sticky: logo · nome do prédio · sua conta
+<main class="folha">
+  <section class="resposta">  ← a primeira tela inteira
+    .eng                        engrenagem marinho sobre marinho, sangra p/ margem
+    .placa                      o INSTRUMENTO (mesma peça da landing)
+      .placa-cel (texto)          .frase · .apoio · .linha-atend · .ajuda · .desde
+      .placa-cel (prova)          .colunas (cilindros/tubos) · .resto · .sem-sensor
+  <section class="historia">  ← o que aconteceu
+    .dia-bloco                  trilho de datas (numeral grande, sticky) + .ev
+    .relatorio                  o PDF
+<footer class="rodape">       lockup completo + telefone/WhatsApp/e-mail
++ 5 .ficha-fundo              os diálogos, montados pelo cliente.js
+```
+
+### A resposta
+
+É **o instrumento da landing**, não um card: mesma placa chanfrada, mesmo
+interior em `linear-gradient(168deg, --mar-700, --mar-900)`, mesma aresta de
+1,5px, mesmo corte gravado (`--rasgo` + `--luz`, **duas linhas, nunca uma**)
+separando o texto da prova. O que muda é o volume: chanfro de 16px em vez de
+20px e **sem o anel de estado**. É deliberado — o síndico reconhece a peça que
+viu antes de contratar. Se mexer aqui, olhar `.instr` em `public/landing.css`.
+
+**O veredito** (`veredito()` em `cliente.js`) decide em cinco ramos, nesta
+prioridade:
+
+| Ramo | Quando | Frase |
 |---|---|---|
-| **Meu prédio** | `predio` | "Está tudo bem agora?" e "o que aconteceu?" |
-| **Alertas** | `alertas` | Lista + detalhe dos alertas abertos |
-| **Chamados** | `chamados` | Lista + detalhe + abrir chamado + avaliar |
+| `semtel` | sem reservatórios | "Ainda não medimos o seu prédio." |
+| `critico` | algum < 20% | "A **Caixa Superior** está em 12%." (em vermelho) |
+| `mudo` | algum offline / sem leitura | "Um sensor parou de responder." |
+| `baixo` | algum < 45% | "A **Caixa Superior** está em 38%." (em âmbar) |
+| `ok` / `atendimento` | resto | "Seu prédio está abastecido." |
 
-Eram quatro (`dashboard`, `telemetria`, `alertas`, `chamados`). Dashboard e
-Telemetria foram **fundidas** em `predio`. Nada foi removido: histórico com
-24h/7d/30d/90d, seleção de reservatório e exportação em PDF continuam, agora
-numa estação só.
+⚠️ **A frase do dia normal está FECHADA.** Não reabrir frase a frase: se
+mudar, muda por **mudança de produto** (um ramo novo), não por preferência de
+redação. Ela nomeia algo concreto do prédio, como as outras quatro.
 
-⚠️ `mob-sidebar.js` é **compartilhado com o admin** e tem um mapa de títulos
-para o topo do celular. A chave `predio` foi acrescentada lá; o admin não tem
-essa seção, então a adição é inofensiva para ele.
+⚠️ **Nenhuma frase pode afirmar mais do que o dado sustenta.** "Parou de enviar
+leitura" **não** é "está sem água", e essa distinção é literalmente o produto.
+No ramo `mudo` a frase **não** promete que alguém está indo cuidar daquele
+sensor — o técnico designado quase sempre está num chamado de outro
+reservatório.
+
+**A linha de atendimento** (`.linha-atend`) é a correção do defeito que o ramo
+"normal" escondia: antes, chamado aberto **não tirava de "Tudo normal"**, e o
+atendimento em curso ficava rebaixado a texto de apoio. Ela aparece em **todo**
+estado com chamado aberto — crítico, baixo e mudo também afirmavam em prosa que
+o chamado tinha sido aberto e não davam objeto nenhum para tocar.
+
+- ⚠️ **O ponto é azul (`--crista`), não âmbar.** Âmbar neste sistema significa
+  *atenção*, e chamado em curso não é alarme — o painel já errou isso uma vez
+  pintando "Em atendimento" de vermelho.
+- ⚠️ **Ela cita o TÍTULO do chamado**, em `<small>` na segunda linha. Sem o
+  título, num prédio com sensor mudo e um chamado aberto sobre outra coisa,
+  "Marcos está atendendo" seria lido como "alguém já está cuidando do sensor".
+  Emendado numa frase corrida, porém, o título fazia a caixa quebrar em 3–4
+  linhas no celular e gastava 127px em cima do botão — daí as duas linhas.
+
+### ⚠️ No celular a AÇÃO sobe
+
+Empilhada, a coluna de texto é uma pilha, e tudo que vem antes empurra a única
+ação do painel para baixo. **Medido a 390px, antes da correção:** "Preciso de
+ajuda" começava a **787px** no estado sem sinal e a **729px** no de atenção —
+abaixo da dobra justamente nos estados em que o síndico está aflito, num painel
+cuja tese é *"a primeira tela é a resposta, com UMA ação"*.
+
+A correção tem três partes, e nenhuma mexe na direção aprovada:
+
+1. **`order` na quebra de 820px:** a `.rodape-resposta` (ação + "última
+   leitura") vai para `order: 1` e a `.linha-atend` para `order: 2`. A linha de
+   atendimento responde a **2ª** pergunta do público ("alguém está
+   resolvendo?"), não a 1ª, e continua na primeira tela, logo acima da prova.
+   **No desktop a ordem do DOM vale** — lá as duas colunas têm espaço de sobra.
+2. **O apoio encurtou**, e a nota "nossa equipe é avisada automaticamente" só
+   entra **quando não há chamado aberto**: havendo, a linha de atendimento já
+   diz quem está cuidando, e repetir custava duas linhas em cima do botão.
+3. **A linha de atendimento virou duas linhas** (título + `<small>`).
+
+Resultado medido a 390px — a base do botão em cada estado:
+
+| Estado | Antes | Depois |
+|---|---|---|
+| dia calmo | 522 | 462 |
+| normal + atendimento | 672 | 462 |
+| atenção <45% | 729 | 462 |
+| crítico <20% | 700 | 434 |
+| sem sinal | 787 | 491 |
+| sem telemetria | 579 | 564 |
+
+A 320px o pior caso fica em 569px. ⚠️ **Se alguém acrescentar qualquer coisa
+acima da ação, refazer esta medição** — é a garantia de que a tese do painel
+sobrevive no aparelho prioritário.
+
+### A prova são TRÊS colunas, no máximo
+
+Tenha o prédio 3 ou 30 reservatórios. Onze tubos lado a lado **voltam a ser um
+gráfico de barras** — o vício que derrubou a v1 —, e o síndico não audita onze
+números: ele quer saber se algum é problema.
+
+- Se algum está **fora do normal**, a prova são **esses**, e só eles.
+- Se está tudo normal, aparecem os **três mais baixos** — os únicos que podem
+  virar problema.
+- O resto vira uma frase honesta com a faixa real ("Mais 8 reservatórios, todos
+  entre 77% e 93% — ver todos"), que abre a ficha com a lista completa.
+- Na ficha a leitura é **barra horizontal, não tubo**: ali não é prova, é
+  inventário, e inventário se varre de cima para baixo.
+
+⚠️ `.colunas` é `justify-content:center` — com um tubo só ele ficava órfão,
+encostado na esquerda de uma célula larga.
+
+### O desenho do reservatório: cilindro no desktop, coluna no celular
+
+Escolha do Pedro em 14/08, vendo o estudo lado a lado em
+[`../comps/reservatorio-estudo.html`](../comps/reservatorio-estudo.html). A
+elipse da superfície dá ao nível uma linha grossa e inclinada, e o anel âmbar
+ou vermelho é muito mais visível que o fio de 2px da coluna chata.
+
+- **Reproporcionado** do `_telTanqueSVG` do admin: lá o corpo é 62×94 (razão
+  .66, atarracado como caixa d'água real) e três deles comiam a célula inteira.
+  Aqui é **50×94** (razão .5).
+- ⚠️ **Nenhum limiar é desenhado dentro do tanque** — nem ticks, nem faixa
+  preenchida, nem elipse tracejada. Faixa preenchida dá uma **borda reta
+  atravessando um corpo curvo** (num cilindro, plano horizontal é elipse); e
+  mesmo a elipse tracejada saiu, porque o limiar já está dito **três vezes** na
+  mesma tela — número colorido, anel da superfície e a frase. Régua que ninguém
+  mede é ruído, e ruído na primeira tela derrubou a v1. **O limiar vive na
+  linha de 45% do gráfico da ficha do reservatório**, que é o contexto de
+  análise.
+- **A água é sempre azul.** No nível baixo mudam o **número**, a **palavra** e
+  o **anel** — não a substância. Água amarela era imagem estranha.
+- **Offline não desenha lâmina:** hachura. "Não sei" é diferente de "está
+  vazio", e essa diferença é o produto.
+- **A boca é só contorno.** Com preenchimento (como no admin) ela tampava a
+  superfície da água no tanque cheio.
+- **A lâmina desce por `transform` num `<g>`**, não animando geometria — a
+  elipse da superfície desce junto sem deformar. As `defs` (gradiente de corpo,
+  de água, hachura de mudo e a área do gráfico) são **compartilhadas na
+  página**, no `<svg>` oculto do topo do `cliente.html`.
+- ⚠️ **`requestAnimationFrame` não dispara em aba invisível.** Se o nível
+  dependesse só dele, quem abrisse o painel numa aba de fundo veria os tanques
+  **vazios**. O rAF é o gatilho da animação, nunca a fonte do dado — um
+  `setTimeout` de 80ms escreve o mesmo valor. Vale como regra geral: nada de
+  correção de dado pendurada em quadro de animação.
+- **Sem telemetria** vira **um** cilindro em contorno puro. Três tubos vazios
+  leriam como "seus reservatórios estão secos", que é falso — e o backend nem
+  conhece os reservatórios desse cliente.
+
+### A história
+
+Material **real**, sem inventar nada: os alertas abertos (que trazem
+`criado_em`) e o ciclo completo dos chamados (aberto → técnico designado →
+concluído → O.S. finalizada), agrupados por dia, no máximo 40 eventos.
+
+O contraste da metade de baixo vem de **tipografia, não de cor**: a data é
+numeral estampado (Archivo 800) num trilho à esquerda, grudento enquanto os
+eventos do dia rolam. ⚠️ O numeral é **Archivo e não mono** — mono aqui é só
+medição e etiqueta gravada.
+
+Clicar num evento de chamado abre a ficha dele; clicar num evento de alerta
+abre a **ficha do reservatório** de que o alerta fala.
+
+⚠️ **Alerta resolvido não entra na história.** `/cliente/status` devolve
+**apenas** os alertas abertos, então o alerta abre e nunca fecha. Preferimos o
+buraco honesto ao evento fabricado. Se um dia o endpoint devolver os resolvidos
+(`alertas_recentes`), é em `montarEventos()` que eles entram — é aditivo e não
+exige rota nova, logo **não mexe no `sw.js`**.
+
+### As fichas
+
+Toda ficha é **placa clara** (`--chapa` + `--tinta`) pousada sobre o marinho.
+O painel em repouso é marinho do topo ao rodapé — **nenhuma seção clara dentro
+do scroll**, porque isso parte a página em dois sites. O contraste acontece no
+momento em que ele **age**; a tela de descanso continua descansando.
+
+| Ficha | O que hospeda | Endpoint |
+|---|---|---|
+| `#fAjuda` | 7 categorias como placas grandes + descrição | `POST /cliente/chamados` |
+| `#fChamado` | passos, conversa, compositor, avaliação | `GET/POST .../mensagens`, `.../avaliar` |
+| `#fTodos` | inventário completo (e escolha do PDF) | — |
+| `#fReservatorio` | gráfico com períodos + PDF do device | `GET /cliente/historico`, `/relatorio/pdf` |
+| `#fConta` | e-mail, troca de senha, sair | `POST /cliente/trocar-senha` |
+
+- ⚠️ **Uma ficha por vez, com pilha de UM nível.** "Ver todos" → tocar um
+  reservatório empilhava dois diálogos, e o X fechava os dois: o síndico
+  voltava ao painel em vez da lista. A ficha de origem é lembrada e o X devolve
+  para ela. Modal sobre modal era o vício do admin.
+- ⚠️ **Dentro da ficha o âmbar nunca é texto nem ícone.** Anel de foco vira
+  `--tinta`; a estrela cheia é **preenchimento âmbar com contorno de tinta**
+  (forma, não tinta); a linha de limiar do gráfico e seu rótulo usam
+  `--atencao-t`.
+- **A avaliação mora no pé da ficha do chamado**, quando ele está fechado e não
+  avaliado. Sem segundo modal.
+- **O compositor só existe com o chamado aberto** — é o que o backend aceita.
+  O chamado fechado diz por que não dá para responder e aponta para um novo
+  pedido.
 
 ---
 
-## A estrutura: um trilho, não uma grade
+## O PDF e o `device_id`
 
-A seção `predio` é uma **linha do tempo vertical** — um corte gravado no campo
-marinho (`--rasgo` + `--luz`), com as placas penduradas nele como estações.
+⚠️ **`GET /relatorio/pdf` exige `device_id`** — não existe relatório "do
+prédio". Por isso:
 
-```
-.linha
- ├── estação AGORA (.linha-estacao.is-agora)
- │     ├── .agora  — o instrumento (placa ESCURA)
- │     └── #resumoGrid — contagens do que está aberto agora
- ├── estação HISTÓRICO (#estHistorico)
- │     └── .card — gráfico + 24h/7d/30d/90d + PDF (placa CLARA)
- └── #linhaEventos — dias e eventos, montados pelo cliente.js
-```
+- O botão da **história** baixa direto quando o prédio tem **um**
+  reservatório; com dois ou mais, abre `#fTodos` em modo `pdf` para o síndico
+  escolher (últimos 30 dias).
+- O botão da **ficha do reservatório** usa o `device_id` daquela ficha e o
+  período selecionado ali.
+- No estado **sem telemetria** o bloco do PDF some.
 
-**Por que linha do tempo:** o síndico não tem só o problema de "está tudo bem
-agora" — ele tem o de **prestar contas**. O painel antigo jogava fora toda a
-temporalidade menos um gráfico.
+## O gráfico é SVG, não ApexCharts
 
-### A estação AGORA
+`cliente.html` **não carrega mais** `apexcharts.min.js` (nem `chart.umd.min.js`,
+que já tinha saído): o gráfico da ficha do reservatório são ~8 linhas de `path`
+desenhadas em `graficoSVG()`. ~200 KB a menos por carga. O custo é o tooltip
+interativo, que a comp não previa — quem dá o valor de agora é a `.estado-linha`
+no topo da ficha.
 
-É o **mesmo instrumento da landing pública**, com a mesma anatomia (cabeçalho /
-veredito / colunas / nota), só que ligado no sensor de verdade. É deliberado: o
-síndico reconhece a peça que viu antes de contratar. Se mexer aqui, olhar
-`.instr` em `public/landing.css` antes.
-
-- **O veredito** (`.agora-veredito`) é a frase em prosa grande que responde a
-  visita de 5 segundos. Prioridade: crítico → offline → atenção → normal.
-  ⚠️ **Nenhuma frase pode afirmar mais do que o dado sustenta.** "Parou de
-  enviar leitura" **não** é "está sem água", e essa distinção é literalmente o
-  produto. No caso offline a frase **não** cita o técnico designado: ele quase
-  sempre está num chamado de outro reservatório, e citá-lo faria o síndico
-  entender que alguém já está indo cuidar daquele sensor.
-- **As colunas d'água** (`.coluna-tubo`) trazem as faixas de **45%** e **20%**
-  desenhadas no vidro. ⚠️ São as do backend (`nivelFromPct`) e as mesmas da
-  landing — mudou lá, muda nos três.
-- **Offline** não desenha lâmina: o tubo fica hachurado. "Não sei" é diferente
-  de "está vazio", e essa diferença é o produto.
-- ⚠️ A lâmina abre em `--agua` (`#2f6fe0`), **não** em `--mar-500` como na
-  landing. Lá a coluna tem 268px e é o único objeto da placa; aqui são três
-  tubos de 176px e a rampa 500→700 lia como retângulo preto — a água sumia
-  justo no reservatório mais baixo, que é o que precisa ser visto.
-
-### As estações de evento
-
-Montadas por `_linhaRender()` a partir de material **real**: alertas abertos
-(que trazem `criado_em`) e o ciclo completo dos chamados (aberto → técnico
-designado → concluído → O.S. finalizada), agrupados por dia. Clicar num evento
-de chamado leva à seção Chamados com ele selecionado.
-
-⚠️ **Alerta resolvido não entra na linha.** `/cliente/status` devolve
-**apenas** os alertas abertos (`cliente.routes.js`), então o alerta abre e
-nunca fecha na linha. Preferimos o buraco honesto ao evento fabricado. Se um
-dia o endpoint devolver os resolvidos (`alertas_recentes`), é em
-`_linhaRender()` que eles entram — é aditivo e não exige rota nova, logo **não
-mexe no `sw.js`**.
+⚠️ **O rótulo "45% — LIMIAR" é HTML posicionado por cima, não `<text>` dentro
+do SVG**: dentro do `viewBox` ele encolhe junto com o gráfico e vira borrão a
+390px. E **malha e limiar são desenhados DEPOIS da área**, senão ela os cobre.
 
 ---
 
 ## Pegadinhas do CSS
 
-- **O anel de foco em elemento chanfrado precisa ser `inset`.** `clip-path`
-  recorta tudo que o elemento pinta, e `outline` é pintado *fora* da caixa: o
-  indicador é calculado e simplesmente não aparece. Todo elemento chanfrado
-  focável novo precisa entrar na lista do bloco 3.
-- **`.mob-topbar` é `fixed`, não `sticky`.** Ela está no fim do `<body>`
-  (depois do `.layout` e dos modais), então um `sticky; top: 0` gruda dentro do
-  próprio fluxo — ela só apareceria depois de rolar a página inteira. O
-  `.content` compensa com `padding-top`.
-- **Quem rola nas telas lista+detalhe é o `.content`, não a lista.**
-  `.ch-list-col` está numa linha de altura automática, então `overflow-y: auto`
-  nela nunca engata. Por isso `.ch-detail-col` é `sticky` com teto de viewport
-   — sem isso ele sai da tela junto com a rolagem.
-- **`overflow-y: auto` sozinho também torna o eixo X rolável.** Quando um eixo
-  não é `visible`, o outro computa de `visible` para `auto`. Em contêiner que
-  hospeda gráfico ou overlay posicionado por JS, bloquear o eixo que não deve
-  rolar (`overflow-x: hidden`).
+- ⚠️ **`overflow-x: clip` só no `body` não segura.** A engrenagem sangra para a
+  margem da página de propósito, e a página rolava de lado em **toda** largura
+  de telefone — 42px a 320, 59px a 390, 87px a 540 (medido). O corte precisa
+  estar em **`html` e `body`**. E precisa ser `clip`, nunca `hidden`: `hidden`
+  transforma o elemento em contêiner de rolagem e quebra o `position: sticky`
+  da barra e do trilho de datas.
+  ⚠️ **A comp tinha o mesmo defeito** e foi corrigida junto em 14/08 — foi
+  arrastando a comp para o lado no celular que o Pedro pegou o problema. Se
+  alguém criar uma comp nova a partir dela, o corte já vai junto.
+- ⚠️ **`container-type: inline-size` aplica CONTENÇÃO.** Ele existe só na
+  célula de **texto** da placa, para a frase se dimensionar por `cqi`. Posto
+  também na célula da prova, ele fez ela ignorar o próprio conteúdo no cálculo
+  de largura intrínseca: o `max-content` virou zero, a coluna colapsou para
+  88px e os cilindros ficaram com 43px.
+- ⚠️ **Trilha de grade da prova: nem `minmax(0,auto)` nem `auto`.** A primeira
+  encolhe abaixo do conteúdo e corta os cilindros; a segunda é pior — ao lado
+  de um `1fr`, a trilha `auto` colapsa para o **mínimo**. É `max-content`.
+- ⚠️ **`flex: 1 1 0` não funciona com o `<svg>` de largura 100%.** O SVG não
+  contribui largura intrínseca nenhuma, então a base precisa ser **explícita**
+  (`flex: 1 1 124px`) — é ela que informa a grade quanto a prova precisa.
+- ⚠️ **A frase é dimensionada por `cqi`, não por `vw`.** "abastecido." tem
+  ~6,8em e não quebra: por `vw`, a palavra vazava da célula e atravessava o
+  corte gravado sempre que a coluna de texto encolhia.
 - **Nada de faixa de cor de 3px na borda de card.** É o tell mais reconhecível
   de interface gerada por IA e não pertence ao vocabulário Chapa — aqui
-  profundidade é aresta e corte. Estado mora na **placa do ícone**, preenchida,
-  com tinta legível por cima.
-- **Sobre placa clara nenhum sinal saturado passa como texto.** Amarelo,
-  vermelho e verde claros reprovam contraste sobre `#e8ebf2`. Por isso existem
+  profundidade é aresta e corte.
+- **Sobre placa clara nenhum sinal saturado passa como texto.** Por isso as
   duas famílias de estado: `--risco/--atencao/--normal` (sobre marinho) e
   `--risco-t/--atencao-t/--normal-t` (tinta sobre placa clara).
-- **O corpo não encolhe no mobile.** As quebras são estruturais (a sidebar sai,
-  lista+detalhe empilha, tabela vira lista de placas). Reduzir o texto no
-  aparelho em que o síndico mais lê era o defeito exato do painel antigo, que
-  tinha rótulo de 9px.
+- ⚠️ **`place-items: stretch` sozinho não segura a ficha no celular.** A linha
+  do grid dimensiona pelo conteúdo, e a ficha ficava com 1013px num viewport de
+  744, transbordando em vez de rolar por dentro. A linha precisa de
+  `grid-template-rows: minmax(0, 1fr)`.
+- ⚠️ **A ficha usa `100svh`, não `100%`.** No Chrome Android o `inset: 0`
+  resolve contra o viewport **grande**, e o pé da ficha — onde ficam "Enviar
+  pedido" e "Salvar nova senha" — fica atrás da barra do navegador.
+- **O corpo não encolhe no mobile.** As quebras são estruturais (a placa
+  empilha, o cilindro vira coluna, o trilho de datas deita, a ficha vira tela
+  cheia). As **etiquetas gravadas sobem** para `.66rem` no celular: a `.58rem`
+  elas saem a 9,3px, e o menor texto no aparelho em que o síndico mais lê era o
+  defeito exato do painel antigo.
+- ⚠️ **No celular a barra NÃO gruda.** Em duas linhas ela tem ~108px (medido) e
+  grudada comeria 14% da tela para sempre. A barra da landing persegue a
+  rolagem porque carrega navegação e CTA; esta só identifica o prédio.
+- **Números do sistema, e eles mandam:** logo 40px na barra, 72px no rodapé;
+  barra de 74px no desktop. Se a marca parecer pequena ao lado do nome do
+  prédio, a alavanca é o **nome**, não o logo.
+- ⚠️ **A escada de marinho tem TRÊS degraus:** campo (`body`) `--mar-800`;
+  superfície (barra e rodapé) `--mar-900`; placa em gradiente `700→900`. Baixar
+  o campo para `--mar-900` faz barra e rodapé **sumirem** como superfície. Já
+  aconteceu.
+
+## Pegadinhas do JS
+
+- ⚠️ **A prova não pode ser reconstruída a cada tick de 10s.** O `innerHTML`
+  volta a lâmina para 0% e ela sobe de novo: o síndico veria os tanques
+  esvaziando e enchendo sozinhos a cada dez segundos, o que num painel de nível
+  de água é exatamente a leitura errada. `renderResposta()` compara uma
+  assinatura (`device:estado:n`) e só redesenha quando algo mudou. A história
+  faz o mesmo.
+- ⚠️ **`ja_avaliado` só vem do detalhe do chamado**, não da lista. Para não
+  disparar N requisições por tick, `lerAvaliacoes()` busca o detalhe dos **3
+  chamados fechados mais recentes** uma vez e guarda em `_avaliado`. Na dúvida
+  (erro na requisição) o convite **não** aparece.
+- **Tempo relativo usa piso, não arredondamento.** Com `round`, uma leitura de
+  40 segundos virava "há 1 min" — e o número que mais importa nesta tela é o
+  que diz que a medição está viva agora.
 
 ---
 
 ## Cache
 
 `cliente.css` e `cliente.js` são **network first** no `sw.js` (regra genérica
-de `.css`/`.js`), e `/cliente` já está na lista de prefixos network-first — não
-foi preciso mexer no service worker. O `?v=N` no `cliente.html` continua
-valendo. Racional completo em [`../../CLAUDE.md`](../../CLAUDE.md).
+de `.css`/`.js`), e `/cliente` e `/relatorio` já estão na lista de prefixos
+network-first — não foi preciso mexer no service worker. O `?v=N` no
+`cliente.html` continua valendo (hoje `cliente.css?v=12`, `cliente.js?v=31`).
+Racional completo em [`../../CLAUDE.md`](../../CLAUDE.md).
 
-⚠️ O `cliente.html` **não carrega mais** `chart.umd.min.js` (Chart.js): o
-painel só usa ApexCharts. São ~200 KB a menos por carga.
+⚠️ O `cliente.html` **não carrega mais** `apexcharts.min.js`, `chart.umd.min.js`
+nem `mob-sidebar.js`. A chave `predio` que o `mob-sidebar.js` ganhou para este
+painel ficou **órfã** lá — é inofensiva (o admin não tem essa seção) e não vale
+mexer num arquivo compartilhado só para removê-la.
 
 ---
 
 ## O que ainda não foi verificado
 
-- Nada rodou contra o backend real nesta reconstrução. A verificação foi feita
-  num harness estático (o `cliente.html`/`cliente.css`/`cliente.js` reais, com
-  o `fetch` dublado), em 1440px e num iframe de 390px.
-- O fluxo de erro (401/403, 503 do service worker offline) não foi exercitado.
-- Cliente **sem** telemetria contratada: o caminho existe (`#semTelemetria`),
-  mas não foi visto renderizado.
+- **Nada rodou contra o backend real.** A verificação foi num harness estático
+  (os `cliente.html`/`cliente.css`/`cliente.js` reais com o `fetch` dublado),
+  em contact sheet de 8 estados × 2 tamanhos (1920px e 390px), com geometria
+  medida por `getBoundingClientRect`.
+  ⚠️ **Não diagnosticar geometria por captura reduzida** — nesta reconstrução a
+  captura "mostrou" a barra fora de posição e o rodapé com sobra, e as duas
+  vezes a medição no DOM disse que estava correto.
+- O fluxo de erro real (401/403, 503 do service worker offline) só foi
+  exercitado pelo caminho do código, não contra o servidor.
+- O caminho do cliente **sem telemetria contratada** foi visto renderizado no
+  harness, mas não com um cliente real sem reservatórios.

@@ -73,14 +73,102 @@ canônica do "porquê"; o "o quê" está em `../docs/` e em [`current-state.md`]
   o mundo sem tocar no contrato de markup. Detalhe em
   [`../docs/modulos/painel-cliente.md`](../docs/modulos/painel-cliente.md).
 
-- **A estrutura do painel do cliente é uma linha do tempo, não uma grade de
-  cards (2026-08-13).** Sete estruturas foram derivadas do que o síndico
-  realmente faz e a escolha saiu por sorteio do Impeccable (seed `06d85de2`,
-  candidata 6) — deliberadamente fora do meu ranking, que é onde mora o vício
-  de sempre entregar o mesmo dashboard. Ela resistiu ao teste por um motivo de
-  produto: o síndico não tem só o problema de *"está tudo bem agora"*, ele tem
-  o de **prestar contas na assembleia**, e o painel antigo jogava fora toda a
-  temporalidade menos um gráfico.
+- **Trocar o mundo visual não é reimaginar — a v1 do painel do cliente foi
+  rejeitada por isso (2026-08-13).** Na mesma sessão em que o painel saiu do
+  `admin.css`, entreguei uma v1 que trocou a paleta, fundiu duas seções e pôs
+  uma linha do tempo numa delas — **mantendo a casca inteira do admin**:
+  sidebar com colapso, topbar com avatar e botão de atualizar, fileira de
+  cards de KPI, lista+detalhe com abas, busca e tabelas. O Pedro recusou:
+  *"ficou parecido com o painel admin só que pior"*, *"o menu colapsável não
+  funciona tão bem quanto no admin"*, *"o que parece que mudou de fato é o
+  visual, e achei muito poluído"*.
+
+  Três lições, e as três são gerais:
+  1. **Reimaginação parcial é repintura.** A skill escolheu a estrutura de uma
+     seção; eu não questionei se o painel devia ter navegação, KPIs, abas ou
+     tabelas. Governou uns 30% da superfície e o resto ficou sendo o admin.
+  2. **Herdar a casca herda a acusação.** Enquanto sidebar, topbar e KPIs
+     estiverem lá, é irrelevante que a paleta tenha mudado — o usuário lê
+     "mesmo painel, outra cor".
+  3. **Volume é parte da linguagem.** Importei o mundo "Chapa" da landing com o
+     volume dela: anel âmbar, marcas tracejadas, etiqueta mono em tudo. A
+     landing é peça de venda e pode ser alta; o painel é onde o síndico vem se
+     acalmar. Mesma língua, volume errado — e isso lê como "poluído".
+
+- **A direção aprovada do painel do cliente: "a resposta, não o painel"
+  (2026-08-13).** A primeira tela inteira é **uma frase** que qualquer pessoa
+  entende sem legenda ("Tem água."), com os reservatórios ao lado como prova e
+  **uma** ação. Abaixo, a história do prédio contada como um humano contaria,
+  onde cada linha abre a ficha do chamado, e o PDF no fim.
+
+  **Alertas e chamados deixam de ser lugares.** Não há navegação: o que
+  acontece agora está na frase, o que já aconteceu está na história, o detalhe
+  abre por cima. Isso remove sidebar, colapso, topbar, KPIs, tabelas, abas e
+  buscas de uma vez — e é essa remoção, não a paleta, que separa este painel do
+  admin.
+
+  Comp aprovada como norte em
+  [`../docs/comps/painel-cliente-v2.html`](../docs/comps/painel-cliente-v2.html),
+  refinada até a
+  [`v3`](../docs/comps/painel-cliente-v3.html) e **implementada em 14/08**;
+  estratégia durável em `.impeccable/surfaces/public-cliente-html.md`.
+
+- **Onde moram os órfãos: tudo que sobrou virou ficha (2026-08-14).** Tirar as
+  seções deixou sem casa a troca de senha, a avaliação do atendimento, o
+  cliente sem telemetria e o histórico com períodos. A resposta **não foi criar
+  seção nenhuma**: o "Sair" solto no topo virou o **nome do síndico**, que abre
+  a ficha *Sua conta*; a avaliação foi para o **pé da ficha do chamado** (nada
+  de modal sobre modal, que era o vício do admin); o cliente sem telemetria
+  virou **a mesma tela com outra resposta**, não tela de exceção; e o histórico
+  com períodos vive na ficha do reservatório — que é, não por acaso, o único
+  lugar de onde o `device_id` exigido por `/relatorio/pdf` tem como sair.
+
+- **A prova são três colunas, no máximo (2026-08-14).** O Pedro recusou a faixa
+  de onze tubos: *"não gosto muito como é mostrado muitos reservatórios"*. O
+  diagnóstico é o mesmo da v1 — onze colunas iguais lado a lado **voltam a ser
+  um gráfico de barras**, e o síndico não audita onze números: ele quer saber
+  se algum é problema. Aparecem os que estão fora do normal ou, se está tudo
+  normal, os três mais baixos; o resto vira uma frase com a faixa real. Ganho
+  colateral: **o layout deixou de ter uma variante** — sumiram o modo "muitos",
+  a grade de auto-fit e as regras móveis dela.
+
+- **O contraste mora no CLIQUE, não no scroll (2026-08-14).** Eu levei a
+  história para placa clara e o Pedro recusou: uma seção clara no meio da
+  rolagem parte a página em dois sites. Mas o diagnóstico dele era outro —
+  *"a tela toda ser azul, sem contraste"* — e o lugar certo eram **as fichas**.
+  Regra que ficou: o painel em repouso é marinho do topo ao rodapé, e **toda
+  ficha é placa clara**. O contraste acontece no momento em que ele age; a tela
+  de descanso continua descansando. É também o destino dos tokens
+  `--atencao-t`/`--risco-t`/`--normal-t`, que existiam sem uso desde a v1.
+
+- **O cilindro voltou, mas reproporcionado (2026-08-14).** Ele tinha saído na
+  v1 por ser componente do admin. Num estudo lado a lado
+  ([`../docs/comps/reservatorio-estudo.html`](../docs/comps/reservatorio-estudo.html))
+  com as mesmas três leituras em três candidatos, o Pedro escolheu o cilindro:
+  a elipse da superfície dá ao nível uma linha grossa e inclinada, e o anel
+  âmbar ou vermelho é muito mais visível que o fio de 2px da coluna chata. O
+  desenho não serve para cravar valor — o número faz isso — serve para dizer
+  *muito / pouco / crítico*.
+  ⚠️ **Nenhum limiar é desenhado dentro do tanque.** Faixa preenchida dá uma
+  borda reta atravessando um corpo curvo (num cilindro, plano horizontal é
+  elipse); e mesmo a elipse tracejada, que consertava a geometria, saiu porque
+  o limiar já está dito **três vezes** na mesma tela. Régua que ninguém mede é
+  ruído, e ruído na primeira tela derrubou a v1.
+
+- **O que não se afirma vale mais que o que se afirma (2026-08-14).** Duas
+  frases da comp foram amaciadas na implementação, pela regra de que nenhuma
+  frase pode afirmar mais do que o dado sustenta: *"Nossa equipe já foi
+  avisada"* virou *"é avisada automaticamente quando um sensor para de
+  responder"* (o alerta existe; o chamado nem sempre), e a linha de atendimento
+  passou a **citar o título do chamado** — sem isso, num prédio com sensor mudo
+  e um chamado aberto sobre outra coisa, "Marcos está atendendo" seria lido
+  como "alguém já está cuidando do sensor". Não está.
+
+- **O trecho aproveitável da v1: a linha do tempo.** A ideia de que o painel é
+  cronológico sobreviveu à rejeição e virou a metade de baixo da v2. O motivo
+  de produto continua valendo: o síndico não tem só o problema de *"está tudo
+  bem agora"*, ele tem o de **prestar contas na assembleia**, e o painel antigo
+  jogava fora toda a temporalidade menos um gráfico.
   ⚠️ **Alerta resolvido não entra na linha**, porque `/cliente/status` só
   devolve os abertos. Ficou o buraco honesto em vez do evento fabricado; a
   saída (campo `alertas_recentes`) está no roadmap.

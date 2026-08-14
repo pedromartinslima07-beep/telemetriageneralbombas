@@ -50,7 +50,7 @@ Como cada coisa funciona ponta a ponta. Índice em [`modulos/README.md`](docs/mo
 - [`mapa-geocoding.md`](docs/modulos/mapa-geocoding.md) — geocoding híbrido + proxy de tiles `#fluxo`
 - [`app-mobile.md`](docs/modulos/app-mobile.md) — Capacitor, GPS background (limitação + solução pendente) `#fluxo`
 - [`landing-publica.md`](docs/modulos/landing-publica.md) — página `/`, captação de lead, sistema visual "Chapa" `#fluxo`
-- [`painel-cliente.md`](docs/modulos/painel-cliente.md) — painel do síndico, o trilho "Meu prédio", desacople do `admin.css` `#fluxo`
+- [`painel-cliente.md`](docs/modulos/painel-cliente.md) — painel do síndico: "a resposta, não o painel", sem seções, tudo abre como ficha `#fluxo`
 
 ## ⚙️ Convenções
 

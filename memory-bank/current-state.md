@@ -227,26 +227,41 @@ ESP32 (sonda 4-20mA + SCT-013)
   gravados**, não três cards. Substituiu a linha do tempo da madrugada em
   2026-08-13.
 
-**Painel do cliente "Meu prédio"** — `public/cliente.html` + `cliente.css` + `cliente.js`
-- Desde 2026-08-13 é **folha autônoma no sistema "Chapa"**: `cliente.html`
-  **não carrega mais `admin.css`**. Era o defeito central — o painel do síndico
-  não era inspirado no admin, era o admin, e herdava dele paleta, navegação e
-  densidade a cada deploy. Fluxo em
-  [painel-cliente.md](../docs/modulos/painel-cliente.md).
-- **Três seções** (eram quatro): **Meu prédio** (funde o antigo Dashboard +
-  Telemetria, que mostravam os mesmos reservatórios duas vezes), **Alertas** e
-  **Chamados**. Nenhuma funcionalidade saiu.
-- A seção principal é um **trilho vertical**: estação AGORA (instrumento com
-  veredito em prosa + colunas d'água reais + contagens do que está aberto),
-  estação HISTÓRICO (24h/7d/30d/90d + PDF) e os eventos descendo por dia.
-- O instrumento é **o mesmo objeto da landing**, ligado no sensor de verdade.
-  As faixas de 45%/20% são as do backend — mudou lá, muda na landing e aqui.
-- ⚠️ **Ponte de tokens** no `cliente.css` (`--muted`/`--text`/`--accent`): o
-  `cliente.js` ainda escreve esses tokens do admin em 15 `style=`. Não remover.
-- ⚠️ **Alerta resolvido não aparece na linha do tempo** — `/cliente/status` só
+**Painel do cliente** — `public/cliente.html` + `cliente.css` + `cliente.js`
+
+É a **v3**, implementada em 2026-08-14 a partir da comp
+[`../docs/comps/painel-cliente-v3.html`](../docs/comps/painel-cliente-v3.html).
+A v1 (13/08) foi rejeitada por manter a casca do admin — ver
+[decisions.md](decisions.md). Fluxo e pegadinhas em
+[painel-cliente.md](../docs/modulos/painel-cliente.md).
+
+- **Folha autônoma no sistema "Chapa"**: `cliente.html` **não carrega
+  `admin.css`**, em volume mais baixo que a landing. Era o defeito central — o
+  painel do síndico não era inspirado no admin, era o admin.
+- **Não há seções nem navegação.** Sumiram sidebar, colapso, topbar, KPIs,
+  abas, buscas e tabelas. A página é: **a resposta** (uma frase + os
+  reservatórios como prova + uma ação) ocupando a primeira tela, **a história**
+  agrupada por dia abaixo, e um rodapé. Todo o resto abre como **ficha**
+  (placa clara sobre o marinho): pedir ajuda, chamado, todos os reservatórios,
+  reservatório e sua conta. **Nenhuma funcionalidade saiu.**
+- **O veredito tem cinco ramos** (semtel → crítico → mudo → baixo → normal), e
+  o ramo normal foi partido em dois: com chamado aberto aparece a **linha de
+  atendimento**, com ponto azul e o título do chamado.
+- **A prova são no máximo três colunas**, tenha o prédio 3 ou 30 reservatórios.
+  O resto vira frase com a faixa real, que abre a lista completa.
+- **Cilindro no desktop, coluna no celular.** Sem limiar desenhado dentro do
+  tanque — ele vive no gráfico da ficha do reservatório. As faixas de 45%/20%
+  são as do backend: mudou lá, muda na landing e aqui.
+- **Sem ApexCharts**: o gráfico da ficha é SVG no próprio `cliente.js`.
+- ⚠️ A **ponte de tokens** do admin (`--muted`/`--text`/`--accent`) **não
+  existe mais** — o JS foi reescrito e não usa token do admin.
+- ⚠️ **Alerta resolvido não aparece na história** — `/cliente/status` só
   devolve os abertos. É buraco conhecido, não bug.
+- ⚠️ **`ja_avaliado` só vem do detalhe do chamado**: o painel busca os 3
+  fechados mais recentes uma vez e guarda. Uma linha no SELECT da lista
+  elimina isso (roadmap).
 - ⚠️ **Nada foi verificado contra o backend real**; a validação foi em harness
-  estático a 1440px e 390px.
+  estático, contact sheet de 8 estados × 2 tamanhos (1920px e 390px).
 
 **Tela de login** — `public/login.html` + `login.css` + `login.js`
 - Desde 2026-08-13 segue o sistema **"Chapa"** da landing (split screen,

@@ -48,19 +48,108 @@ muito ruim, e o principal problema foi tentar copiar o painel de admin"*. O
 - **Backend intocado.** Nenhuma rota, campo ou migration; e como não houve
   endpoint novo, o `sw.js` não foi tocado.
 
+## Sessão 2026-08-14 — Painel do cliente: a v3 virou código
+
+A comp v3 (`docs/comps/painel-cliente-v3.html`), refinada ao longo de 14/08,
+foi **implementada** em `public/cliente.html` + `cliente.css` + `cliente.js`.
+Os três arquivos foram reescritos; o backend não foi tocado. Detalhe técnico em
+[`../docs/modulos/painel-cliente.md`](../docs/modulos/painel-cliente.md) e no
+[`../docs/changelog.md`](../docs/changelog.md).
+
+**O que mudou de verdade:** a navegação inteira saiu (sidebar, colapso, topbar,
+KPIs, abas, buscas, tabelas, as três seções). A página virou **resposta +
+história + rodapé**, e tudo que sobrou virou **ficha**: pedir ajuda, chamado
+(passos + conversa + avaliação no pé), todos os reservatórios, reservatório
+(gráfico + PDF) e sua conta (senha + sair). Nenhuma funcionalidade saiu.
+
+**Três bugs reais achados na verificação, e os três só apareceram medindo:**
+
+1. `overflow-x: clip` só no `body` **não segura** — a 390px a página rolava
+   66px para o lado por causa da engrenagem que sangra. Precisa estar em `html`
+   **e** `body`.
+2. A prova era reconstruída a cada tick de 10s e a **lâmina d'água voltava a
+   zero e subia de novo**. Num painel de nível de água, tanque esvaziando
+   sozinho a cada dez segundos é a leitura errada. Agora só redesenha quando a
+   assinatura da leitura muda.
+3. `desdeQuando` arredondava: 40 segundos viravam "há 1 min". Virou piso.
+
+⚠️ **Duas vezes a captura de tela mentiu** (barra "fora de posição", rodapé com
+sobra) e as duas vezes o `getBoundingClientRect` mostrou que estava certo. A
+regra do brief vale: medir, não olhar JPEG reduzido.
+
+**Passada de celular, no mesmo dia (o Pedro cobrou).** Ele arrastou a página
+para o lado no celular e mandou a captura. Era **a comp**, não o código: eu
+tinha corrigido o `overflow-x` em `public/cliente.css` e deixado
+`docs/comps/painel-cliente-v3.html` com o defeito. Corrigida — a comp é o
+artefato que ele abre para revisar.
+
+Mas a varredura em **oito larguras** (320→768), em vez de só 390, achou o
+defeito que importava: ⚠️ **"Preciso de ajuda" caía abaixo da dobra nos estados
+de alarme** (787px no sem sinal, 729px no de atenção, 700px no crítico, a
+390px). A tese do painel — "a primeira tela é a resposta, com UMA ação" —
+quebrava no aparelho prioritário, e eu não tinha visto porque só olhei o estado
+calmo com atenção. Corrigido com `order` na quebra de 820px (a ação sobe, a
+linha de atendimento desce para logo acima da prova), apoio mais curto e a
+linha de atendimento em duas linhas. Base do botão agora: 434–564px em todos os
+estados, a 390 e a 320.
+
+⚠️ **Regra que fica: uma largura só não é verificação de celular.** Medir a
+altura até a ação em todos os estados, em pelo menos 320 e 390.
+
 **Pendências desta sessão:**
 
-- ⚠️ **Nada rodou contra o backend real.** A verificação foi num harness
-  estático (arquivos reais, `fetch` dublado), a 1440px e num iframe de 390px.
-  Falta abrir com o servidor de teste e conta de cliente demo.
-- ⚠️ **Cliente sem telemetria contratada** (`#semTelemetria`) não foi visto
-  renderizado.
-- 📋 **`alertas_recentes` em `/cliente/status`.** Hoje a linha do tempo mostra
-  o alerta abrindo e nunca fechando, porque o endpoint só devolve os abertos.
-  É aditivo (sem rota nova, sem mexer no `sw.js`) — o Pedro ainda não respondeu
-  se posso encostar no backend.
-- 📋 Decidir se o **tanque cilíndrico** volta.
-- Merge para `main` ainda não feito (a branch acumula landing + login + painel).
+- ⚠️ **Nada rodou contra o backend real.** Harness estático com `fetch`
+  dublado, contact sheet de 8 estados × 2 tamanhos (1920px e 390px).
+- ❓ **O âmbar no estado "atenção"**: palavra + número + anel do tanque +
+  botão, quatro regiões âmbar contra a regra de "uma vez por tela". Veio assim
+  da comp aprovada — não mexi sozinho, precisa do teu veredito.
+- ❓ **O gráfico da ficha perdeu o tooltip** ao sair do ApexCharts (a comp não
+  previa tooltip; quem dá o valor de agora é a linha de estado no topo).
+- 📋 `ja_avaliado` no SELECT da lista de chamados — uma linha que elimina as
+  requisições de detalhe que hoje existem só para o convite a avaliar.
+- 📋 `alertas_recentes` em `/cliente/status` (alerta que abre e nunca fecha).
+- A branch `feature/landing-publica` acumula landing + login + painel v3 e
+  **ainda não foi mergeada**.
+
+---
+
+### ⚠️ Histórico: a v1 foi rejeitada; a v2 virou a v3
+
+> Esta seção é **registro do caminho**, não instrução. O código em
+> `public/cliente.*` é a **v3**, descrita na sessão de 14/08 acima. O que
+> continua valendo aqui é o diagnóstico da rejeição — por que reimaginação
+> parcial é repintura.
+
+**A v1 não era o alvo.** O Pedro a recusou no fim
+da sessão: *"ficou parecido com o painel admin só que pior"*, *"o menu
+colapsável não funciona tão bem quanto no admin"*, *"o que parece que mudou de
+fato é o visual, e achei muito poluído"*. Ele tem razão, e o diagnóstico é
+simples: **reimaginei uns 30% e repintei o resto** — a estrutura escolhida pela
+skill governou uma seção, e a casca do admin (sidebar com colapso, topbar,
+KPIs, abas, busca, tabelas) ficou inteira.
+
+**A v2 está aprovada como direção** ("não está perfeito, mas dá pra ser um
+norte"), e existe como comp:
+[`../docs/comps/painel-cliente-v2.html`](../docs/comps/painel-cliente-v2.html).
+A primeira tela inteira é uma frase ("Tem água.") com os reservatórios como
+prova e uma ação; abaixo, a história do prédio; sem seções, sem navegação —
+alerta e chamado abrem como ficha. Racional em [`decisions.md`](decisions.md),
+estratégia durável em `.impeccable/surfaces/public-cliente-html.md`.
+
+**O que a v2 abriu e a v3 fechou em 14/08:** a água ficou **sempre azul** (muda
+o número e a palavra, não a substância); a frase do dia normal virou **"Seu
+prédio está abastecido."**; o **cilindro voltou** (reproporcionado, sem limiar
+dentro do tanque); e os órfãos ganharam lugar — troca de senha e "sair" na
+ficha *Sua conta*, avaliação no **pé da ficha do chamado**, cliente sem
+telemetria como **a mesma tela com outra resposta**, e o histórico com períodos
+dentro da ficha do reservatório, que é onde o `device_id` do PDF tem de onde
+sair.
+
+⚠️ **A dúvida do merge deixou de existir**: a branch não carrega mais a v1
+rejeitada, e sim a v3. Os bugs que a v1 tinha corrigido (WhatsApp com número
+inventado, `.mob-topbar` que nunca grudava, "Em atendimento" em vermelho,
+tabelas sem mobile) continuam corrigidos — a maioria porque as peças que os
+hospedavam deixaram de existir.
 
 ## Sessão 2026-08-13 — Landing: madrugada fora, voz em primeira pessoa
 
@@ -606,7 +695,7 @@ Zero mudança visual — só remove a duplicação de markup.
 
 **Pendentes desta linha de trabalho:**
 - **Validação visual:** `node -c` OK e revisão lógica, mas sem screenshot
-  (usuário não quer servidor em background — [[feedback_inline_questions]]).
+  (usuário não quer servidor em background).
   Preview estático atualizado em scratchpad pra ele abrir. Falta conferir a
   geometria do SVG e o overlay renderizados.
 

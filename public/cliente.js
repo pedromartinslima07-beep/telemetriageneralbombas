@@ -1,89 +1,36 @@
-function getToken() {
-  return localStorage.getItem("token");
-}
+/* ════════════════════════════════════════════════════════════════════════
+   cliente.js — Painel do síndico (/cliente/painel) · v3
+   ────────────────────────────────────────────────────────────────────────
+   "A resposta, não o painel." A primeira tela inteira é uma frase, com os
+   reservatórios ao lado como prova e UMA ação. Abaixo, a história do
+   prédio. NÃO EXISTEM SEÇÕES: alertas e chamados deixaram de ser lugares
+   para onde navegar — o detalhe abre como ficha por cima.
 
+   ⚠️ Nenhuma frase desta tela pode afirmar mais do que o dado sustenta.
+   "Parou de enviar leitura" NÃO é "está sem água", e essa distinção é
+   literalmente o produto. Não trocar por texto mais tranquilizador.
+
+   ⚠️ O backend não mudou para viabilizar este desenho. Endpoints usados:
+     GET  /cliente/status          · reservatórios + alertas abertos
+     GET  /cliente/chamados        · lista
+     GET  /cliente/chamados/:id    · detalhe (é quem traz `ja_avaliado`)
+     GET  /cliente/chamados/:id/mensagens   · conversa
+     POST /cliente/chamados/:id/mensagens   · responder
+     POST /cliente/chamados/:id/avaliar     · nota + comentário
+     POST /cliente/chamados        · abrir (categoria + descrição)
+     GET  /cliente/historico       · gráfico da ficha do reservatório
+     POST /cliente/trocar-senha
+     GET  /relatorio/pdf           · ⚠️ exige device_id
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* ── Sessão ─────────────────────────────────────────────────────────────── */
+
+function getToken() { return localStorage.getItem("token"); }
 function authHeaders() {
-  const token = getToken();
-  return token ? { Authorization: "Bearer " + token } : {};
+  const t = getToken();
+  return t ? { Authorization: "Bearer " + t } : {};
 }
-
-if (!getToken()) {
-  window.location.href = "/login";
-}
-
-// ===== NAVEGAÇÃO POR SEÇÕES =====
-// Três seções. "Dashboard" e "Telemetria" eram DUAS telas mostrando os mesmos
-// reservatórios — herança do admin, que tem as duas porque olha N condomínios.
-// Aqui viraram "Meu prédio".
-const _sectionTitles = { predio: "Meu prédio", alertas: "Alertas", chamados: "Chamados" };
-
-// ── Estado do histórico ──
-let _reservatorios = [];
-let _histDias = 1;
-
-// ── Estado dos alertas ──
-let _alAlertas = [];
-let _alTabAtiva = "todos";
-let _alBindFeito = false;
-let _alSelecionadoId = null;
-
-// ── Estado de "Meu prédio" ──
-let _telCliUltimoStatus = null; // último payload de /cliente/status
-let _telCliHistChart   = null;  // ApexCharts (histórico - area)
-let _relogioTimer      = null;
-
-// Faixas de alerta. ⚠️ São as MESMAS do backend (`nivelFromPct`) e as mesmas
-// desenhadas na coluna d'água da landing. Se mudarem lá, mudam nos três.
-const LIMIARES = { critico: 20, baixo: 45 };
-
-function _telCliTemReservatorios() {
-  const list = Array.isArray(_telCliUltimoStatus?.reservatorios) ? _telCliUltimoStatus.reservatorios : [];
-  return list.length > 0;
-}
-
-function showSection(name) {
-  document.querySelectorAll(".section").forEach(s => s.classList.remove("is-active"));
-  document.querySelector(`.section[data-section="${name}"]`)?.classList.add("is-active");
-  document.querySelectorAll(".nav-item[data-section]").forEach(n => n.classList.remove("active"));
-  document.querySelector(`.nav-item[data-section="${name}"]`)?.classList.add("active");
-  const title = _sectionTitles[name] || name;
-  const t1 = document.getElementById("topbarTitle");        // mobile
-  const t2 = document.getElementById("topbarTitleDesktop"); // desktop
-  if (t1) t1.textContent = title;
-  if (t2) t2.textContent = title;
-
-  if (name === "chamados" && typeof renderSecaoChCli === "function") {
-    renderSecaoChCli();
-  }
-  if (name === "predio") {
-    _predioAtualizar(_telCliUltimoStatus);
-    if (_telCliTemReservatorios()) carregarHistorico();
-  }
-}
-
-function abrirModalSenha() {
-  document.getElementById("senhaMsg").textContent = "";
-  document.getElementById("senhaAtual").value = "";
-  document.getElementById("senhaNova").value = "";
-  document.getElementById("senhaNova2").value = "";
-  document.getElementById("senhaOverlay").style.display = "flex";
-}
-
-function fecharModalSenha() {
-  document.getElementById("senhaOverlay").style.display = "none";
-  document.getElementById("senhaMsg").textContent = "";
-}
-
-// fecha clicando fora
-document.addEventListener("click", (e) => {
-  const ov = document.getElementById("senhaOverlay");
-  if (ov && ov.style.display !== "none" && e.target === ov) fecharModalSenha();
-});
-
-// ESC fecha
-document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape") fecharModalSenha();
-});
+if (!getToken()) window.location.href = "/login";
 
 function logout() {
   localStorage.removeItem("token");
@@ -91,1486 +38,1161 @@ function logout() {
   window.location.href = "/login";
 }
 
-function fmtData(iso) {
-  if (!iso) return "-";
-  return new Date(iso).toLocaleString();
+function usuarioLocal() {
+  try { return JSON.parse(localStorage.getItem("user")) || {}; } catch { return {}; }
 }
 
-function setStatusMsg(msg) {
-  const el = document.getElementById("statusMsg");
-  if (el) el.textContent = msg || "";
+/* ── Faixas de alerta ───────────────────────────────────────────────────
+   ⚠️ São as MESMAS do backend (`nivelFromPct`) e as mesmas desenhadas na
+   coluna d'água da landing. Se mudarem lá, mudam nos três. */
+const LIMIARES = { critico: 20, baixo: 45 };
+
+/* ── Estado ─────────────────────────────────────────────────────────────── */
+
+let _status    = null;   // último payload de /cliente/status
+let _chamados  = [];     // último /cliente/chamados
+let _avaliado  = {};     // id do chamado -> ja_avaliado (cache, ver _lerAvaliacoes)
+let _primeiraCarga = true;
+
+/* ── Utilidades ─────────────────────────────────────────────────────────── */
+
+function esc(s) {
+  return String(s ?? "")
+    .replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;").replaceAll("'", "&#39;");
 }
 
-// Troca o placeholder "Cliente / Meu Condomínio" pelos dados reais. O nome do
-// usuário vem do localStorage (gravado no login) e o do condomínio do
-// /cliente/status — o JWT só carrega o id.
-function _aplicarIdentidade(condominio) {
-  let usuario = {};
-  try { usuario = JSON.parse(localStorage.getItem("user")) || {}; } catch {}
+const $ = id => document.getElementById(id);
 
-  const nomeUsuario = usuario.nome || "Cliente";
-  const nomeCondo   = condominio?.nome || "Meu Condomínio";
-  const local       = [condominio?.bairro, condominio?.cidade].filter(Boolean).join(" · ");
-
-  const set = (sel, txt, title) => {
-    const el = document.querySelector(sel);
-    if (!el) return;
-    el.textContent = txt;
-    if (title) el.title = title;           // nome longo fica acessível no hover
-  };
-
-  set(".topbar-user-name", nomeUsuario);
-  set(".topbar-user-role", nomeCondo, nomeCondo);
-  set(".sidebar-user-role", nomeUsuario);
-  set(".sidebar-user-label", nomeCondo, local ? `${nomeCondo} — ${local}` : nomeCondo);
+function hora(iso) {
+  return new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+}
+function dataHora(iso) {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 }
 
-// Extrai o campo `error` do corpo da resposta (todo handler do backend responde
-// JSON). Cai pro texto cru se não for JSON — ex.: página HTML de erro do proxy.
-async function _erroDaResposta(r) {
-  const txt = await r.text().catch(() => "");
-  try { return JSON.parse(txt).error || txt; } catch { return txt; }
-}
-
-// ============================================================
-// MEU PRÉDIO — o instrumento e o trilho
-// ------------------------------------------------------------
-// A estrutura desta seção é uma LINHA DO TEMPO: o AGORA no topo e o passado
-// descendo. Substituiu a grade de cards que o painel herdou do admin.
-//
-// O instrumento (.agora) é o MESMO objeto da landing pública — cabeçalho,
-// veredito, colunas d'água, nota — só que ligado no sensor de verdade. É
-// deliberado: o síndico reconhece a peça que viu antes de contratar. Se
-// mexer na anatomia aqui, olhar `.instr` em landing.css antes.
-//
-// ⚠️ Não voltar a desenhar o tanque cilíndrico em SVG. Ele veio do admin.js
-// (`_telTanqueSVG`), era duplicado lá e aqui, e é justamente a herança que
-// este redesenho existe para desfazer.
-// ============================================================
-
-function _estadoDoReservatorio(r) {
-  if (r.offline) return "offline";
-  const pct = r.ultima_leitura?.nivel_pct;
-  if (pct == null) return "offline";
-  if (pct < LIMIARES.critico) return "critico";
-  if (pct < LIMIARES.baixo)   return "atencao";
-  return "normal";
-}
-
-// "há Xmin" / "há Xh" / data
-function _telAtualizadoTxt(u) {
-  if (!u?.criado_em) return "sem leitura";
-  const mins = Math.round((Date.now() - new Date(u.criado_em)) / 60000);
+// "agora mesmo" / "há 12 min" / "há 3h" / "há 2 dias"
+// ⚠️ piso, não arredondamento: com `round`, uma leitura de 40 segundos atrás
+// virava "há 1 min" — e o número que mais importa nesta tela é justamente o
+// que diz que a medição está viva agora.
+function desdeQuando(iso) {
+  if (!iso) return null;
+  const mins = Math.floor((Date.now() - new Date(iso)) / 60000);
   if (mins < 1)    return "agora mesmo";
   if (mins < 60)   return `há ${mins} min`;
   if (mins < 1440) return `há ${Math.round(mins / 60)}h`;
-  return new Date(u.criado_em).toLocaleDateString("pt-BR");
+  const d = Math.round(mins / 1440);
+  return `há ${d} dia${d > 1 ? "s" : ""}`;
 }
 
-// ─── O veredito ──────────────────────────────────────────────────────────
-// A frase que responde a visita de 5 segundos. Fica em prosa normal e
-// grande, fora do mono: quem chega aflito não deve ter que ler instrumento
-// para saber se pode dormir.
-//
-// ⚠️ Nenhuma frase aqui pode afirmar mais do que o dado sustenta. "Parou de
-// enviar leitura" não é "está sem água" — e essa distinção é literalmente o
-// produto. Não trocar por texto mais tranquilizador.
-function _predioVeredito(list, chamados) {
-  const nome  = r => _telCliEscapar(r.nome || "Um reservatório");
-  const pctDe = r => Math.round(r.ultima_leitura?.nivel_pct ?? 0);
+async function pedir(url, opts = {}) {
+  const r = await fetch(url, { ...opts, headers: { ...authHeaders(), ...(opts.headers || {}) } });
+  if (r.status === 401) {
+    localStorage.removeItem("token");
+    window.location.href = "/login?motivo=expirado";
+    throw new Error("sessão expirada");
+  }
+  return r;
+}
 
-  const offline  = list.filter(r => r.offline || r.ultima_leitura?.nivel_pct == null);
-  const criticos = list.filter(r => _estadoDoReservatorio(r) === "critico");
-  const atencao  = list.filter(r => _estadoDoReservatorio(r) === "atencao");
+// Todo handler do backend responde JSON. Cai pro texto cru se não for —
+// ex.: página HTML de erro do proxy, que é a origem clássica do
+// "Unexpected token '<'".
+async function erroDe(r) {
+  const txt = await r.text().catch(() => "");
+  try { return JSON.parse(txt).error || txt; } catch { return txt || `erro ${r.status}`; }
+}
 
-  const abertos = chamados.filter(c => c.status === "aberto" || c.status === "em_atendimento");
-  const comTecnico = chamados.find(c => c.status === "em_atendimento" && c.tecnico_nome);
+const NUM = ["nenhum", "um", "dois", "três", "quatro", "cinco", "seis", "sete", "oito", "nove", "dez", "onze", "doze"];
+const porExtenso = n => NUM[n] || String(n);
 
-  const notaAtendimento = comTecnico
-    ? `${_telCliEscapar(comTecnico.tecnico_nome)} está designado para o atendimento.`
-    : abertos.length
-      ? "Já existe um chamado aberto para isso."
-      : "Nossa equipe é avisada automaticamente quando o nível chega aqui.";
+/* ── Leitura de um reservatório ─────────────────────────────────────────── */
+
+function estadoDo(r) {
+  if (r.offline) return "mudo";
+  const pct = r.ultima_leitura?.nivel_pct;
+  if (pct == null) return "mudo";
+  if (pct < LIMIARES.critico) return "critico";
+  if (pct < LIMIARES.baixo)   return "baixo";
+  return "ok";
+}
+
+function reservatorios() {
+  return Array.isArray(_status?.reservatorios) ? _status.reservatorios : [];
+}
+function alertasAbertos() {
+  return Array.isArray(_status?.alertas_abertos) ? _status.alertas_abertos : [];
+}
+function chamadosAbertos() {
+  return _chamados.filter(c => c.status === "aberto" || c.status === "em_atendimento");
+}
+
+// leitura normalizada, do jeito que a prova e a lista consomem
+function leituras() {
+  return reservatorios().map(r => {
+    const e = estadoDo(r);
+    return {
+      device_id: r.device_id,
+      nome: r.nome || "Reservatório",
+      tipo: r.tipo || "",
+      estado: e,
+      cls: e === "ok" ? "" : e,
+      n: e === "mudo" ? 0 : Math.max(0, Math.min(100, Math.round(r.ultima_leitura?.nivel_pct ?? 0))),
+      quando: r.ultima_leitura?.criado_em || null,
+    };
+  });
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   1. A RESPOSTA
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* ─── O veredito ─────────────────────────────────────────────────────────
+   Os ramos são os de prioridade do painel: crítico > sem sinal > atenção >
+   normal — com o ramo "normal" PARTIDO EM DOIS. Antes, o dia calmo e o dia
+   com técnico no prédio recebiam a mesma frase gigante ("Tudo normal") e a
+   única diferença ficava escondida na nota de apoio; agora o atendimento
+   em curso é um objeto clicável na primeira tela.
+
+   ⚠️ A frase do dia normal está FECHADA: "Seu prédio está abastecido."
+   Não reabrir frase a frase — se mudar, muda por mudança de produto (um
+   ramo novo aqui), não por preferência de redação. */
+function veredito(lst) {
+  const abertos = chamadosAbertos();
+  const nomeacao = r => `A <em>${esc(r.nome)}</em> está em ${r.n}%.`;
+
+  /* ⚠️ O apoio é texto de APOIO, e no celular ele empurra a única ação do
+     painel para baixo da dobra. Medido a 390px: com o apoio longo, "Preciso
+     de ajuda" começava a 787px no estado sem sinal — abaixo da dobra
+     justamente no estado em que o síndico está aflito.
+
+     Por isso a nota sobre atendimento só entra QUANDO NÃO HÁ CHAMADO ABERTO:
+     havendo, a linha de atendimento logo abaixo já diz quem está cuidando, e
+     repetir custava duas linhas em cima do botão. */
+  const notaSemChamado = abertos.length ? "" : " ";
+
+  const criticos = lst.filter(r => r.estado === "critico");
+  const mudos    = lst.filter(r => r.estado === "mudo");
+  const baixos   = lst.filter(r => r.estado === "baixo");
+
+  if (!lst.length) {
+    return {
+      chave: "semtel", risco: false,
+      frase: "Ainda não medimos o seu prédio.",
+      apoio: "Seu contrato de manutenção continua igual — o que falta é o sensor que mede o nível dos reservatórios e avisa antes de faltar água.",
+      desde: "",
+    };
+  }
 
   if (criticos.length) {
     return {
-      estado: "critico",
-      titulo: criticos.length === 1
-        ? `<strong>${nome(criticos[0])}</strong> está em ${pctDe(criticos[0])}%.`
-        : `<strong>${criticos.length} reservatórios</strong> estão abaixo de ${LIMIARES.critico}%.`,
-      nota: notaAtendimento,
+      chave: "critico", risco: true,
+      frase: criticos.length === 1
+        ? nomeacao(criticos[0])
+        : `<em>${criticos.length} reservatórios</em> estão abaixo de ${LIMIARES.critico}%.`,
+      apoio: `Abaixo de ${LIMIARES.critico}% tratamos como urgência.` + notaSemChamado +
+        (abertos.length ? "" : "Nossa equipe é avisada automaticamente quando o nível chega aqui."),
+      desde: ultimaLeituraTxt(lst),
     };
   }
 
-  if (offline.length) {
-    // ⚠️ Aqui NÃO entra o `notaAtendimento`: o técnico designado quase sempre
-    // está num chamado de OUTRO reservatório, e citá-lo nesta frase faz o
-    // síndico entender que alguém já está indo cuidar deste sensor. Não está.
+  if (mudos.length) {
+    // ⚠️ "Não sei" é diferente de "está vazio", e essa diferença é o
+    // produto. A frase não promete que alguém já está indo cuidar DESTE
+    // sensor: o técnico designado quase sempre está num chamado de outro
+    // reservatório, e dizer o contrário faria o síndico entender errado.
+    const nomes = mudos.slice(0, 2).map(r => esc(r.nome)).join(" e ");
+    const quais = mudos.length > 2 ? `${nomes} e mais ${mudos.length - 2}` : nomes;
+    // ⚠️ A frase nega a INFERÊNCIA ("não quer dizer que falta água"), nunca o
+    // fato — não sabemos se há água, e afirmar que há seria pior que o defeito
+    // que este ramo existe para evitar.
     return {
-      estado: "atencao",
-      titulo: offline.length === 1
-        ? `<strong>${nome(offline[0])}</strong> parou de enviar leitura.`
-        : `<strong>${offline.length} reservatórios</strong> pararam de enviar leitura.`,
-      nota: "Isso não quer dizer que falta água — quer dizer que não estamos conseguindo medir. Nossa equipe é avisada automaticamente quando um sensor para de responder.",
+      chave: "mudo", risco: true,
+      frase: mudos.length === 1
+        ? "Um sensor parou de responder."
+        : `${porExtenso(mudos.length)} sensores pararam de responder.`,
+      apoio: `Sem leitura de ${quais}. Isso não quer dizer que falta água — quer dizer que não estamos conseguindo medir.` + notaSemChamado +
+        (abertos.length ? "" : "Nossa equipe é avisada automaticamente."),
+      desde: semLeituraTxt(mudos),
     };
   }
 
-  if (atencao.length) {
+  if (baixos.length) {
     return {
-      estado: "atencao",
-      titulo: atencao.length === 1
-        ? `<strong>${nome(atencao[0])}</strong> está em ${pctDe(atencao[0])}%.`
-        : `<strong>${atencao.length} reservatórios</strong> estão abaixo de ${LIMIARES.baixo}%.`,
-      nota: `Abaixo de ${LIMIARES.baixo}% acompanhamos de perto. ` + notaAtendimento,
+      chave: "baixo", risco: false,
+      frase: baixos.length === 1
+        ? nomeacao(baixos[0])
+        : `<em>${baixos.length} reservatórios</em> estão abaixo de ${LIMIARES.baixo}%.`,
+      apoio: `Abaixo de ${LIMIARES.baixo}% a bomba costuma repor sozinha, e acompanhamos de perto.` + notaSemChamado +
+        (abertos.length ? "" : "Nossa equipe é avisada automaticamente quando o nível chega aqui."),
+      desde: ultimaLeituraTxt(lst),
     };
   }
 
+  // 4a e 4b: mesma frase de água (é verdade nos dois), mas só o 4b é um dia
+  // sem nada acontecendo. O que separa os dois é a linha de atendimento.
   return {
-    estado: "normal",
-    titulo: "Tudo normal no seu prédio.",
-    nota: abertos.length
-      ? "Os níveis estão dentro do esperado. Há atendimento em andamento — acompanhe em Chamados."
-      : "Os níveis estão dentro do esperado e os sensores continuam medindo.",
+    chave: abertos.length ? "atendimento" : "ok", risco: false,
+    frase: "Seu prédio está abastecido.",
+    apoio: lst.length === 1
+      ? "O reservatório está dentro do esperado e o sensor continua medindo."
+      : `Os ${porExtenso(lst.length)} reservatórios estão dentro do esperado e os sensores continuam medindo.`,
+    desde: ultimaLeituraTxt(lst),
   };
 }
 
-// ─── Uma coluna d'água ───────────────────────────────────────────────────
-function _agoraColuna(r) {
-  const u       = r.ultima_leitura;
-  const pct     = u?.nivel_pct;
-  const estado  = _estadoDoReservatorio(r);
-  const nome    = _telCliEscapar(r.nome || "Reservatório");
-  const tipo    = _telCliEscapar(r.tipo || "Reservatório");
-
-  // A lâmina desce por transform a partir de --n. O número e a coluna saem
-  // da MESMA variável, no mesmo render — coluna e leitura discordando é o
-  // que destrói um instrumento.
-  const n       = pct == null ? 0 : Math.max(0, Math.min(100, pct));
-  const pctTxt  = estado === "offline" ? "—" : `${Math.round(n)}<small>%</small>`;
-
-  const bomba   = u?.bomba_ligada;
-  const bombaCls = bomba === true ? "on" : bomba === false ? "off" : "uk";
-  const bombaTxt = bomba === true ? "Bomba ligada" : bomba === false ? "Bomba desligada" : "Bomba sem informação";
-
-  const semLeitura = estado === "offline" && r.minutos_sem_atualizar == null;
-
-  return `
-    <div class="agora-cel" data-estado="${estado}">
-      <div class="agora-cel-nome" title="${nome}">${nome}</div>
-      <div class="agora-cel-tipo">${tipo}</div>
-      <div class="agora-cel-corpo">
-        <div class="coluna-tubo" role="img" aria-label="Nível ${estado === "offline" ? "sem leitura" : Math.round(n) + " por cento"}">
-          <span class="coluna-faixa coluna-faixa-baixo"></span>
-          <span class="coluna-faixa coluna-faixa-critico"></span>
-          <div class="coluna-agua" style="--n:${n}%"><span class="coluna-crista"></span></div>
-          <span class="coluna-marca coluna-marca-baixo"><span>${LIMIARES.baixo}</span></span>
-          <span class="coluna-marca coluna-marca-critico"><span>${LIMIARES.critico}</span></span>
-        </div>
-        <div class="agora-leituras">
-          <div>
-            <div class="agora-leitura-rot">Nível</div>
-            <div class="agora-leitura-val">${pctTxt}</div>
-          </div>
-          <div class="agora-bomba ${bombaCls}"><span class="agora-lamp"></span>${bombaTxt}</div>
-          <div class="agora-leitura-rot">${semLeitura ? "Nunca enviou leitura" : _telAtualizadoTxt(u)}</div>
-        </div>
-      </div>
-    </div>`;
+function ultimaLeituraTxt(lst) {
+  let ultima = null;
+  for (const r of lst) {
+    if (!r.quando) continue;
+    if (!ultima || new Date(r.quando) > new Date(ultima)) ultima = r.quando;
+  }
+  return ultima ? `Última leitura ${desdeQuando(ultima)}` : "Sem leitura registrada ainda";
 }
 
-// ─── A estação AGORA ─────────────────────────────────────────────────────
-function _agoraRender(list, chamados) {
-  const instr    = document.getElementById("agoraInstr");
-  const colunas  = document.getElementById("agoraColunas");
-  const veredito = document.getElementById("agoraVeredito");
-  const nota     = document.getElementById("agoraNota");
-  const idEl     = document.getElementById("agoraId");
-  if (!instr || !colunas) return;
+function semLeituraTxt(mudos) {
+  const com = mudos.filter(r => r.quando);
+  if (!com.length) return "Esse sensor nunca enviou leitura";
+  let ultima = com[0].quando;
+  for (const r of com) if (new Date(r.quando) > new Date(ultima)) ultima = r.quando;
+  return `Última leitura desse sensor ${desdeQuando(ultima)}`;
+}
 
-  const reservs = [...list].sort((a, b) => (a.nome || "").localeCompare(b.nome || ""));
-  const v = _predioVeredito(reservs, chamados);
+/* ─── A linha de atendimento ─────────────────────────────────────────────
+   ⚠️ Ela cita o TÍTULO do chamado, não só quem atende. Sem isso, num
+   prédio com sensor mudo e um chamado aberto sobre outra coisa, "Marcos
+   está atendendo" seria lido como "alguém já está cuidando do sensor" —
+   que é justamente a leitura errada que este painel existe para evitar. */
+function atendimento() {
+  const abertos = chamadosAbertos();
+  if (!abertos.length) return null;
 
-  instr.dataset.estado = v.estado;
-  if (veredito) veredito.innerHTML = `${v.titulo}<small>${v.nota}</small>`;
-  colunas.innerHTML = reservs.map(_agoraColuna).join("");
+  /* ⚠️ Duas linhas, não uma frase corrida. Com o título do chamado emendado no
+     texto principal, ela quebrava em 3–4 linhas no celular e gastava 127px em
+     cima do botão. Título em cima, referência embaixo: menos altura e mais
+     fácil de varrer com o olho. */
+  if (abertos.length > 1) {
+    return {
+      titulo: `Há ${porExtenso(abertos.length)} chamados em andamento`,
+      sub: "Toque para ver o mais recente",
+      id: abertos[0].id,
+    };
+  }
+  const c = abertos[0];
+  const titulo = (c.status === "em_atendimento" && c.tecnico_nome)
+    ? `${esc(c.tecnico_nome)} está atendendo`
+    : "Chamado aberto, aguardando atendimento";
+  return {
+    titulo,
+    sub: `Nº ${c.id}${c.titulo ? ` — ${esc(c.titulo)}` : ""}`,
+    id: c.id,
+  };
+}
 
-  if (idEl) {
-    idEl.textContent = reservs.length === 1
-      ? "1 reservatório monitorado"
-      : `${reservs.length} reservatórios monitorados`;
+/* ─── O cilindro ─────────────────────────────────────────────────────────
+   viewBox 0 0 60 124. Corpo 50 × 94 (razão .5), elipses de ry 6.5. É o
+   `_telTanqueSVG` do admin reproporcionado: o de lá é 62×94 (razão .66) e
+   três deles comiam a célula inteira.
+
+   A água é um GRUPO no nível cheio, empurrado para baixo por transform —
+   assim a elipse da superfície desce junto sem deformar.
+
+   ⚠️ NENHUM limiar é desenhado aqui. Num cilindro, plano horizontal é
+   elipse, não retângulo; e mesmo a elipse tracejada saiu, porque o limiar
+   já está dito três vezes na mesma tela (número colorido, anel da
+   superfície e a frase). O limiar vive no gráfico da ficha. */
+const CIL = { cx: 30, rx: 25, ry: 6.5, topo: 9, base: 103 };
+CIL.h = CIL.base - CIL.topo;
+const _corpoCil =
+  `M${CIL.cx - CIL.rx} ${CIL.topo} A${CIL.rx} ${CIL.ry} 0 0 0 ${CIL.cx + CIL.rx} ${CIL.topo}` +
+  ` L${CIL.cx + CIL.rx} ${CIL.base} A${CIL.rx} ${CIL.ry} 0 0 1 ${CIL.cx - CIL.rx} ${CIL.base} Z`;
+
+let _idClip = 0;
+function cilindroSVG(pct, mudo) {
+  const { cx, rx, ry, topo, base, h } = CIL;
+  const id = "cl" + (_idClip++);
+  const desce = mudo ? h : (1 - pct / 100) * h;
+  const agua = mudo ? "" : `
+      <g class="agua-g" style="transform:translateY(${h}px)" data-desce="${desce.toFixed(2)}">
+        <rect class="agua-r" x="${cx - rx}" y="${topo}" width="${rx * 2}" height="${h + ry}"/>
+        <ellipse class="agua-e" cx="${cx}" cy="${topo}" rx="${rx}" ry="${ry}"/>
+        <ellipse class="agua-k" cx="${cx}" cy="${topo}" rx="${rx}" ry="${ry}"/>
+      </g>`;
+  return `<svg class="cil" viewBox="0 0 60 124" aria-hidden="true" focusable="false">
+      <defs><clipPath id="${id}"><path d="${_corpoCil}"/></clipPath></defs>
+      <ellipse class="chao" cx="${cx}" cy="${base + ry + 5}" rx="${rx - 3}" ry="4"/>
+      <path class="parede" d="${_corpoCil}"/>
+      <g clip-path="url(#${id})">${agua}</g>
+      <path class="volume" d="${_corpoCil}"/>
+      <rect class="brilho" x="${cx - rx + 6}" y="${topo + 9}" width="4" height="${h - 20}"/>
+      <line class="aresta" x1="${cx - rx}" y1="${topo}" x2="${cx - rx}" y2="${base}"/>
+      <line class="aresta" x1="${cx + rx}" y1="${topo}" x2="${cx + rx}" y2="${base}"/>
+      <path class="aresta" d="M${cx - rx} ${base} A${rx} ${ry} 0 0 0 ${cx + rx} ${base}"/>
+      <ellipse class="boca" cx="${cx}" cy="${topo}" rx="${rx}" ry="${ry}"/>
+    </svg>`;
+}
+
+/* ─── A prova são TRÊS, no máximo ────────────────────────────────────────
+   Quem aparece: o que está fora do normal. Se está tudo normal, os três
+   MAIS BAIXOS — os únicos que podem virar problema. Onze tubos lado a lado
+   voltam a ser um gráfico de barras, que é o vício que derrubou a v1: o
+   síndico não audita onze números, ele quer saber se algum é problema. */
+const MAX_PROVA = 3;
+function escolhidos(todas) {
+  const fora = todas.filter(r => r.cls);
+  const base = fora.length ? fora : [...todas].sort((a, b) => a.n - b.n);
+  return base.slice(0, MAX_PROVA);
+}
+
+function colunasHTML(mostrar) {
+  // os dois desenhos são emitidos juntos; a media query decide qual aparece
+  return mostrar.map(r => `<button class="res ${r.cls}" type="button"
+        data-abrir="reservatorio" data-device="${esc(r.device_id)}"
+        aria-label="${esc(r.nome)}: ${r.estado === "mudo" ? "sem leitura" : r.n + " por cento"}. Ver histórico.">
+      ${cilindroSVG(r.n, r.estado === "mudo")}
+      <span class="tubo" aria-hidden="true"><span class="agua" style="--n:0%"><span class="crista"></span></span></span>
+      <span class="pct">${r.estado === "mudo" ? "—" : r.n + "%"}</span>
+      <span class="nome">${esc(r.nome)}</span>
+    </button>`).join("");
+}
+
+/* a frase do resto: fala a faixa real, não "e outros N" seco */
+function restoHTML(todas, mostrar) {
+  const resto = todas.filter(r => !mostrar.includes(r));
+  if (!resto.length) return "";
+  const medidos = resto.filter(r => r.estado !== "mudo");
+  const plural = resto.length > 1;
+  let faixa;
+  if (!medidos.length) {
+    faixa = "sem leitura";
+  } else {
+    const min = Math.min(...medidos.map(r => r.n));
+    const max = Math.max(...medidos.map(r => r.n));
+    faixa = min === max ? `em ${min}%` : `entre ${min}% e ${max}%`;
+  }
+  return `<button class="resto" type="button" data-abrir="todos">Mais ${resto.length} ` +
+    `reservatóri${plural ? "os" : "o"}, ${plural && medidos.length ? "todos " : ""}${faixa}. <u>Ver todos</u></button>`;
+}
+
+/* na ficha a leitura é barra horizontal, não tubo: ali não é prova, é
+   inventário — e inventário se varre de cima para baixo */
+function listaHTML(todas, modo) {
+  return todas.map(r => `<li><button class="res-item ${r.cls}" type="button"
+      data-lista-device="${esc(r.device_id)}" data-lista-modo="${modo}">
+      <span class="nm">${esc(r.nome)}${r.tipo ? `<small>${esc(r.tipo)}</small>` : ""}</span>
+      <span class="brr"><i style="width:${r.estado === "mudo" ? 0 : r.n}%"></i></span>
+      <span class="vl">${r.estado === "mudo" ? "—" : r.n + "%"}</span>
+    </button></li>`).join("");
+}
+
+/* ⚠️ A prova NÃO pode ser reconstruída a cada tick de 10 s. O `innerHTML`
+   volta a lâmina para 0% e ela sobe de novo: o síndico veria os tanques
+   esvaziando e enchendo sozinhos a cada dez segundos, o que num painel de
+   nível de água é exatamente a leitura errada. Só redesenhamos quando a
+   leitura de fato mudou; caso contrário, atualizamos os valores no lugar. */
+let _assinaturaProva = null;
+
+function renderResposta() {
+  const todas = leituras();
+  const v = veredito(todas);
+  const at = atendimento();
+
+  document.body.dataset.estado = v.chave;
+  document.body.dataset.atend  = at ? "sim" : "nao";
+
+  const f = $("frase");
+  f.innerHTML = v.frase;
+  f.classList.toggle("risco", v.risco);
+  $("apoio").textContent = v.apoio;
+  $("desde").textContent = v.desde;
+
+  if (at) {
+    $("atendTxt").innerHTML = `${at.titulo}<small>${at.sub}</small>`;
+    $("linhaAtend").dataset.chamado = at.id;
   }
 
-  if (nota) {
-    const ligadas = reservs.filter(r => r.ultima_leitura?.bomba_ligada === true).length;
-    let ultimaIso = null;
-    for (const r of reservs) {
-      const c = r.ultima_leitura?.criado_em;
-      if (c && (!ultimaIso || new Date(c) > new Date(ultimaIso))) ultimaIso = c;
-    }
-    nota.innerHTML =
-      `<span>Última leitura ${ultimaIso ? _telAtualizadoTxt({ criado_em: ultimaIso }) : "—"}</span>` +
-      `<span>${ligadas === 0 ? "Nenhuma bomba ligada agora" : ligadas === 1 ? "1 bomba ligada agora" : `${ligadas} bombas ligadas agora`}</span>`;
+  const cols = $("colunas");
+  const mostrar = escolhidos(todas);
+  const assinatura = mostrar.map(r => `${r.device_id}:${r.estado}:${r.n}`).join("|") + `/${todas.length}`;
+
+  if (assinatura !== _assinaturaProva) {
+    _assinaturaProva = assinatura;
+    cols.innerHTML = colunasHTML(mostrar);
+    cols.dataset.n = mostrar.length;
+    $("resto").innerHTML = restoHTML(todas, mostrar);
+
+    /* A água sobe uma vez, na chegada — o único momento autoral da tela.
+       ⚠️ O rAF é só o GATILHO da animação, nunca a fonte do dado: ele não
+       dispara em aba invisível, e quem abrisse o painel numa aba de fundo
+       veria os tanques vazios. O setTimeout garante o valor final mesmo
+       sem quadro; os dois escrevem a mesma coisa, então rodar duas vezes é
+       inofensivo. Vale como regra: nada de correção de dado pendurada em
+       quadro de animação. */
+    const encher = () => {
+      cols.querySelectorAll(".agua-g").forEach(g => { g.style.transform = `translateY(${g.dataset.desce}px)`; });
+      cols.querySelectorAll(".res").forEach((el, i) => {
+        const r = mostrar[i];
+        if (r) el.querySelector(".agua")?.style.setProperty("--n", (r.estado === "mudo" ? 0 : r.n) + "%");
+      });
+    };
+    requestAnimationFrame(() => requestAnimationFrame(encher));
+    setTimeout(encher, 80);
+  }
+
+  // o cilindro em contorno de quem ainda não tem sensor
+  if (v.chave === "semtel" && !$("semSensor").querySelector(".cil")) {
+    $("semSensor").insertAdjacentHTML("afterbegin", cilindroSVG(0, true));
   }
 }
 
-// Relógio do instrumento. Fora do render porque é evento, não medição —
-// chaveia a cada segundo e não pode arrastar o resto do painel junto.
-function _agoraRelogio() {
-  const el = document.getElementById("agoraRelogio");
-  if (!el) return;
-  el.textContent = new Date().toLocaleTimeString("pt-BR");
+/* ════════════════════════════════════════════════════════════════════════
+   2. A HISTÓRIA
+   ────────────────────────────────────────────────────────────────────────
+   Material real, sem inventar nada: os alertas abertos (que trazem
+   `criado_em`) e o ciclo completo dos chamados.
+
+   ⚠️ Alerta RESOLVIDO não entra: `/cliente/status` só devolve os abertos,
+   então o alerta abre e nunca fecha na história. Preferimos o buraco
+   honesto ao evento fabricado. Se um dia o endpoint devolver os resolvidos
+   (`alertas_recentes`), é aqui que eles entram — é aditivo e não exige rota
+   nova, logo NÃO mexe no sw.js.
+   ════════════════════════════════════════════════════════════════════════ */
+
+const MAX_EVENTOS = 40;
+
+function nomeDoDevice(deviceId) {
+  return reservatorios().find(r => r.device_id === deviceId)?.nome || "um reservatório";
 }
 
-// ─── As estações de evento ───────────────────────────────────────────────
-// Material real, sem inventar nada: alertas abertos (que trazem `criado_em`)
-// e o ciclo completo dos chamados (aberto → técnico → concluído).
-//
-// ⚠️ Alerta RESOLVIDO não entra: `/cliente/status` só devolve os abertos, e
-// a linha prefere um buraco honesto a um evento fabricado. Se um dia o
-// endpoint passar a devolver os resolvidos, é aqui que eles entram.
-function _linhaRender(alertas, chamados, reservatorios) {
-  const wrap = document.getElementById("linhaEventos");
-  if (!wrap) return;
+function eventoDeAlerta(a) {
+  const nome = esc(nomeDoDevice(a.device_id));
+  if (a.tipo === "nivel_muito_baixo") {
+    return { tom: "grave",  oque: `${nome} passou abaixo de ${LIMIARES.critico}%`, sub: "Alerta ainda aberto" };
+  }
+  if (a.tipo === "nivel_baixo") {
+    return { tom: "alerta", oque: `${nome} passou abaixo de ${LIMIARES.baixo}%`,  sub: "Alerta ainda aberto" };
+  }
+  if (a.tipo === "dispositivo_offline") {
+    return { tom: "alerta", oque: `${nome} parou de enviar leitura`, sub: "Alerta ainda aberto" };
+  }
+  return { tom: "alerta", oque: `${nome}: ${esc(String(a.tipo || "").replaceAll("_", " "))}`, sub: "Alerta ainda aberto" };
+}
 
-  const nomeDoDevice = d =>
-    reservatorios.find(r => r.device_id === d)?.nome || d || "reservatório";
-
+function montarEventos() {
   const ev = [];
 
-  for (const a of alertas || []) {
-    const grave = a.tipo === "nivel_muito_baixo" || a.tipo === "dispositivo_offline";
-    ev.push({
-      ts: a.criado_em,
-      tom: grave ? "critico" : "atencao",
-      titulo: _alTipoLabel(a.tipo),
-      sub: `${_telCliEscapar(nomeDoDevice(a.device_id))} · ainda aberto`,
-    });
+  for (const a of alertasAbertos()) {
+    if (!a.criado_em) continue;
+    const e = eventoDeAlerta(a);
+    // clicar leva ao histórico do reservatório de que o alerta fala
+    ev.push({ ts: a.criado_em, ...e, device: a.device_id });
   }
 
-  for (const c of chamados || []) {
-    const ref = `#${c.id} — ${_telCliEscapar(c.titulo || "Chamado")}`;
-    ev.push({ ts: c.criado_em, tom: "atencao", titulo: "Chamado aberto", sub: ref, ir: c.id });
+  for (const c of _chamados) {
+    const ref = `Chamado nº ${c.id}${c.titulo ? ` — ${esc(c.titulo)}` : ""}`;
+
+    if (c.criado_em) {
+      ev.push({ ts: c.criado_em, tom: "", oque: "Um chamado foi aberto", sub: ref, chamado: c.id });
+    }
+
+    if (c.status === "em_atendimento" || c.status === "fechado") {
+      const quando = c.status === "em_atendimento" ? (c.atualizado_em || c.criado_em) : null;
+      if (quando) {
+        ev.push({
+          ts: quando, tom: "",
+          oque: c.tecnico_nome ? `${esc(c.tecnico_nome)} ficou responsável pelo atendimento` : "O atendimento começou",
+          sub: ref, chamado: c.id,
+        });
+      }
+    }
 
     if (c.status === "fechado" && c.fechado_em) {
-      ev.push({ ts: c.fechado_em, tom: "ok", titulo: "Atendimento concluído", sub: ref, ir: c.id });
-    } else if (c.status === "em_atendimento") {
       ev.push({
-        ts: c.atualizado_em || c.criado_em,
-        tom: "atencao",
-        titulo: c.tecnico_nome ? `Técnico designado — ${_telCliEscapar(c.tecnico_nome)}` : "Atendimento iniciado",
-        sub: ref,
-        ir: c.id,
+        ts: c.fechado_em, tom: "",
+        oque: c.os_finalizada_em ? "Serviço concluído e assinado" : "Serviço concluído",
+        sub: ref, chamado: c.id, avaliar: c.id,
       });
-    }
-    if (c.os_finalizada_em) {
-      ev.push({ ts: c.os_finalizada_em, tom: "ok", titulo: "Ordem de serviço finalizada", sub: ref, ir: c.id });
+    } else if (c.os_finalizada_em) {
+      ev.push({ ts: c.os_finalizada_em, tom: "", oque: "Ordem de serviço finalizada", sub: ref, chamado: c.id });
     }
   }
 
   ev.sort((a, b) => new Date(b.ts) - new Date(a.ts));
+  return ev.slice(0, MAX_EVENTOS);
+}
+
+function rotuloDoDia(iso) {
+  const hoje = new Date();  hoje.setHours(0, 0, 0, 0);
+  const ontem = new Date(hoje); ontem.setDate(ontem.getDate() - 1);
+  const d = new Date(iso); d.setHours(0, 0, 0, 0);
+  if (d.getTime() === hoje.getTime())  return { rot: "Hoje",  hoje: true };
+  if (d.getTime() === ontem.getTime()) return { rot: "Ontem", hoje: false };
+  return { rot: new Date(iso).toLocaleDateString("pt-BR", { month: "long" }), hoje: false };
+}
+
+const ICO_SETA = `<svg class="seta" viewBox="0 0 24 24" stroke-linecap="square" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>`;
+const ICO_ESTRELA = `<svg viewBox="0 0 24 24" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.2 4.1 1 5.8-5.3-2.8-5.3 2.8 1-5.8-4.2-4.1 5.9-.9z"/></svg>`;
+
+// mesma razão da prova: a cada 10 s não se reconstrói o que não mudou
+let _assinaturaHistoria = null;
+
+function renderHistoria() {
+  const wrap = $("historia");
+  const ev = montarEventos();
+
+  const assinatura = ev.map(e => `${e.ts}${e.oque}${e.avaliar ? _avaliado[e.avaliar] : ""}`).join("|");
+  if (assinatura === _assinaturaHistoria) return;
+  _assinaturaHistoria = assinatura;
 
   if (!ev.length) {
-    wrap.innerHTML = `<div class="linha-fim">Nada registrado ainda. Conforme o prédio for sendo monitorado e atendido, o histórico aparece aqui.</div>`;
+    wrap.innerHTML = `<p class="historia-vazio">Nada registrado ainda. Conforme o prédio for sendo monitorado e atendido, o que acontecer aparece aqui.</p>`;
     return;
   }
 
-  // Agrupa por dia. O rótulo do dia é o que transforma uma lista em linha
-  // do tempo — sem ele o síndico lê "há 3 dias" e não sabe qual dia foi.
-  const hoje  = new Date(); hoje.setHours(0, 0, 0, 0);
-  const ontem = new Date(hoje); ontem.setDate(ontem.getDate() - 1);
-
-  const rotuloDoDia = (d) => {
-    const dia = new Date(d); dia.setHours(0, 0, 0, 0);
-    if (dia.getTime() === hoje.getTime())  return "Hoje";
-    if (dia.getTime() === ontem.getTime()) return "Ontem";
-    return dia.toLocaleDateString("pt-BR", { day: "2-digit", month: "long" });
-  };
-
-  const hora = iso => new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-
   let html = "";
-  let diaAtual = null;
+  let diaAberto = null;
 
-  for (const e of ev.slice(0, 40)) {
-    if (!e.ts) continue;
-    const rot = rotuloDoDia(e.ts);
-    if (rot !== diaAtual) {
-      diaAtual = rot;
-      html += `<div class="linha-dia">${rot}</div>`;
+  for (const e of ev) {
+    const { rot, hoje } = rotuloDoDia(e.ts);
+    const chaveDia = new Date(e.ts).toDateString();
+    if (chaveDia !== diaAberto) {
+      if (diaAberto !== null) html += `</div></div>`;
+      diaAberto = chaveDia;
+      html += `<div class="dia-bloco${hoje ? " is-hoje" : ""}">
+        <div class="dia-marca"><span class="dia-num">${new Date(e.ts).getDate()}</span><span class="dia-rot">${rot}</span></div>
+        <div>`;
     }
-    const clicavel = e.ir ? ` data-ch-ir="${e.ir}" style="cursor:pointer"` : "";
-    html += `
-      <div class="linha-evento is-${e.tom}"${clicavel}>
-        <span class="linha-evento-titulo">${e.titulo}</span>
-        <span class="linha-evento-sub">${e.sub}</span>
-        <span class="linha-evento-hora">${hora(e.ts)}</span>
-      </div>`;
-  }
 
-  html += `<div class="linha-fim">${ev.length > 40 ? "Mostrando os 40 registros mais recentes." : "Começo do histórico disponível."}</div>`;
+    // o convite a avaliar mora na linha do serviço concluído — e só aparece
+    // quando o detalhe já disse que este chamado não foi avaliado
+    const convite = (e.avaliar && _avaliado[e.avaliar] === false)
+      ? `<span class="pede-nota">${ICO_ESTRELA} Você ainda não avaliou este atendimento</span>`
+      : "";
+
+    const alvo = e.chamado ? `data-abrir="chamado" data-chamado="${e.chamado}"`
+               : e.device  ? `data-abrir="reservatorio" data-device="${esc(e.device)}"` : "";
+
+    html += `<button class="ev ${e.tom}" type="button" ${alvo}>
+        <span class="quando">${hora(e.ts)}</span>
+        <span class="oque">${e.oque}<small>${e.sub}</small>${convite}</span>
+        ${ICO_SETA}
+      </button>`;
+  }
+  html += `</div></div>`;
   wrap.innerHTML = html;
 }
 
-// ─── As contagens do que está aberto agora ───────────────────────────────
-function _predioKpis(list) {
-  const el = document.getElementById("resumoGrid");
+/* ⚠️ `/cliente/chamados` (lista) NÃO devolve `ja_avaliado` — só o detalhe
+   devolve. Em vez de N requisições a cada tick, buscamos o detalhe dos 3
+   chamados fechados mais recentes uma única vez e guardamos a resposta:
+   é onde o convite a avaliar realmente importa, e o custo fica fixo. */
+async function lerAvaliacoes() {
+  const fechados = _chamados.filter(c => c.status === "fechado").slice(0, 3);
+  const faltando = fechados.filter(c => _avaliado[c.id] === undefined);
+  if (!faltando.length) return;
+  await Promise.all(faltando.map(async c => {
+    try {
+      const r = await pedir(`/cliente/chamados/${c.id}`);
+      if (!r.ok) { _avaliado[c.id] = true; return; }  // na dúvida, não convida
+      const d = await r.json();
+      _avaliado[c.id] = !!d.ja_avaliado;
+    } catch { _avaliado[c.id] = true; }
+  }));
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   3. AS FICHAS — tudo que abre por cima
+   ────────────────────────────────────────────────────────────────────────
+   ⚠️ NUNCA duas fichas abertas. "Ver todos" → tocar um reservatório
+   empilhava dois diálogos e o X fechava os dois de uma vez, devolvendo o
+   síndico ao painel em vez da lista. É o vício de modal-sobre-modal do
+   admin. Uma pilha de UM nível resolve: a ficha de origem é lembrada e o X
+   devolve para ela.
+   ════════════════════════════════════════════════════════════════════════ */
+
+const FICHAS = {
+  ajuda: "fAjuda", chamado: "fChamado", todos: "fTodos",
+  reservatorio: "fReservatorio", conta: "fConta",
+};
+
+let _origem = null;
+let _focoAnterior = null;
+
+function fichaAberta() {
+  return Object.values(FICHAS).map(id => $(id)).find(n => n && !n.hidden) || null;
+}
+
+function abrir(chave, ctx = {}) {
+  const el = $(FICHAS[chave]);
   if (!el) return;
 
-  const offline  = list.filter(r => r.offline).length;
-  const online   = list.length - offline;
-  const alertas  = list.reduce((s, r) => s + (Number(r.alertas_abertos_count) || 0), 0);
-  const chamados = Array.isArray(_chCliData) ? _chCliData : [];
-  const abertos  = chamados.filter(c => c.status === "aberto").length;
-  const emAtend  = chamados.filter(c => c.status === "em_atendimento").length;
+  const ja = fichaAberta();
+  if (ja && ja !== el) { _origem = { id: ja.id, ctx: ja._ctx }; ja.hidden = true; }
+  else if (!ja) { _origem = null; _focoAnterior = document.activeElement; }
 
-  const kpi = (icon, val, rotulo, kindCls, irPara) => `
-    <${irPara ? "button" : "div"} class="rc ${kindCls}${irPara ? "" : " rc-static"}"${irPara ? ` type="button" data-section-go="${irPara}"` : ""}>
-      <div class="rc-head"><div class="rc-icon">${icon}</div><div class="rc-label">${rotulo}</div></div>
-      <div class="rc-value">${val}</div>
-    </${irPara ? "button" : "div"}>`;
+  el._ctx = ctx;
+  el.hidden = false;
+  document.body.classList.add("com-ficha");
+  el.querySelector(".ficha")?.focus();
 
-  const ICO_WIFI  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>`;
-  const ICO_BELL  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>`;
-  const ICO_FILE  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`;
-  const ICO_TOOL  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>`;
-  const ICO_CHECK = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`;
+  if (chave === "ajuda")        prepararAjuda();
+  if (chave === "chamado")      abrirChamado(ctx.chamado);
+  if (chave === "todos")        prepararTodos(ctx.modo || "ver");
+  if (chave === "reservatorio") abrirReservatorio(ctx.device);
+  if (chave === "conta")        prepararConta();
+}
 
-  // Sem telemetria contratada, "0 online" em verde e "0 alertas" não querem
-  // dizer nada — são zeros de quem não tem o produto, não de quem está bem.
-  if (list.length === 0) {
-    const resolvidos = chamados.filter(c => c.status === "fechado").length;
-    el.innerHTML =
-      kpi(ICO_FILE,  abertos,    "Chamados abertos", abertos === 0 ? "rc-ok" : "rc-warn", "chamados") +
-      kpi(ICO_TOOL,  emAtend,    "Em atendimento",   emAtend > 0 ? "rc-cyan" : "rc-neutral", "chamados") +
-      kpi(ICO_CHECK, resolvidos, "Já resolvidos",    "rc-ok", "chamados");
-    return;
+function esconderTodas() {
+  Object.values(FICHAS).forEach(id => { const n = $(id); if (n) n.hidden = true; });
+}
+
+function fecharTudo() {
+  esconderTodas();
+  _origem = null;
+  document.body.classList.remove("com-ficha");
+  _focoAnterior?.focus?.();
+  _focoAnterior = null;
+}
+
+// o X volta para a ficha de origem quando ela existe
+function voltar() {
+  const de = _origem;
+  esconderTodas();
+  if (de) {
+    _origem = null;
+    const el = $(de.id);
+    el.hidden = false;
+    el.querySelector(".ficha")?.focus();
+  } else {
+    fecharTudo();
   }
-
-  el.innerHTML =
-    kpi(ICO_WIFI, `${online}<span class="rc-sub">/${list.length}</span>`, "Reservatórios respondendo",
-        offline === 0 ? "rc-ok" : (online > 0 ? "rc-warn" : "rc-bad")) +
-    kpi(ICO_BELL, alertas, "Alertas ativos",   alertas === 0 ? "rc-ok" : "rc-bad", "alertas") +
-    kpi(ICO_FILE, abertos, "Chamados abertos", abertos === 0 ? "rc-ok" : "rc-warn", "chamados") +
-    kpi(ICO_TOOL, emAtend, "Em atendimento",   emAtend > 0 ? "rc-cyan" : "rc-neutral", "chamados");
 }
 
-// ─── Orquestrador da seção ───────────────────────────────────────────────
-function _predioAtualizar(data) {
-  const semTel = document.getElementById("semTelemetria");
-  const linha  = document.getElementById("predioLinha");
-  if (!linha || !semTel) return;
+/* ─── Ficha: pedir ajuda (POST /cliente/chamados) ────────────────────── */
 
-  const list     = Array.isArray(data?.reservatorios) ? data.reservatorios : [];
-  const alertas  = Array.isArray(data?.alertas_abertos) ? data.alertas_abertos : [];
-  const chamados = Array.isArray(_chCliData) ? _chCliData : [];
+let _motivo = null;
 
-  // Quem não tem o produto ainda vê os chamados e as contagens — o painel
-  // não pode virar um anúncio para quem já paga manutenção.
-  const temTelemetria = list.length > 0;
-  semTel.hidden = temTelemetria;
-  linha.hidden  = false;
+function prepararAjuda() {
+  _motivo = null;
+  document.querySelectorAll("#motivos .motivo").forEach(b => b.setAttribute("aria-pressed", "false"));
+  $("ajudaTexto").value = "";
+  $("ajudaMsg").textContent = "";
+  $("ajudaMsg").className = "ficha-msg";
+  $("fAjudaId").textContent = _status?.condominio?.nome || "Seu prédio";
+}
 
-  const estAgora = document.querySelector(".linha-estacao.is-agora .agora");
-  const estHist  = document.getElementById("estHistorico");
-  if (estAgora) estAgora.hidden = !temTelemetria;
-  if (estHist)  estHist.hidden  = !temTelemetria;
+async function enviarAjuda() {
+  const msg = $("ajudaMsg");
+  const btn = $("ajudaEnviar");
+  const descricao = ($("ajudaTexto").value || "").trim();
 
-  _predioKpis(list);
+  msg.className = "ficha-msg ruim";
+  if (!_motivo)             { msg.textContent = "Escolha o que está acontecendo acima."; return; }
+  if (descricao.length < 5) { msg.textContent = "Conte um pouco mais — pelo menos 5 caracteres."; return; }
 
-  if (temTelemetria) {
-    _agoraRender(list, chamados);
-    _agoraRelogio();
-    if (!_relogioTimer) _relogioTimer = setInterval(_agoraRelogio, 1000);
+  btn.disabled = true;
+  msg.className = "ficha-msg";
+  msg.textContent = "Abrindo o chamado…";
+  try {
+    const r = await pedir("/cliente/chamados", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ categoria: _motivo, descricao }),
+    });
+    if (!r.ok) throw new Error(await erroDe(r));
+    const novo = await r.json();
+    await carregar();
+    _origem = null;
+    if (novo?.id) abrir("chamado", { chamado: novo.id });
+    else fecharTudo();
+  } catch (e) {
+    msg.className = "ficha-msg ruim";
+    msg.textContent = "Não deu para abrir o chamado: " + e.message;
+  } finally {
+    btn.disabled = false;
   }
-
-  _linhaRender(alertas, chamados, list);
-}
-// ============================================================
-// TELEMETRIA — página combinada (reservatórios + histórico)
-// ============================================================
-
-function _telCliEscapar(s) {
-  return String(s || "")
-    .replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;")
-    .replaceAll('"',"&quot;").replaceAll("'","&#39;");
 }
 
-function populateHistSelect() {
-  const sel = document.getElementById("histReservatorio");
-  if (!sel) return;
-  const prev = sel.value;
-  sel.innerHTML = "";
-  _reservatorios.forEach((r) => {
-    const opt = document.createElement("option");
-    opt.value = r.device_id;
-    opt.textContent = `${r.nome} (${r.tipo || r.device_id})`;
-    sel.appendChild(opt);
-  });
-  if (prev) sel.value = prev;
-}
+/* ─── Ficha: chamado ──────────────────────────────────────────────────────
+   Uma ficha só para aberto e fechado. O compositor existe apenas com o
+   chamado aberto (é o que o backend aceita); o chamado fechado diz por que
+   não dá para responder e aponta para um novo pedido. A avaliação mora no
+   PÉ desta ficha — nada de modal sobre modal, que era o vício do admin. */
 
-async function carregarHistorico() {
-  const sel    = document.getElementById("histReservatorio");
-  const wrapEl = document.getElementById("telCliHistChart");
-  const semEl  = document.getElementById("telCliHistEmpty");
-  const btnPdf = document.getElementById("btnExportarPDF");
-  if (!sel || !sel.value || !wrapEl) return;
+let _chamadoAtual = null;
+let _nota = 0;
 
-  const device_id = sel.value;
-  if (semEl) semEl.style.display = "none";
-  if (btnPdf) btnPdf.disabled = true;
+async function abrirChamado(id) {
+  const corpo = $("fChamadoCorpo");
+  $("fChamadoId").textContent = `Chamado nº ${id}`;
+  $("fChamadoT").textContent = "Carregando…";
+  corpo.innerHTML = `<p class="ficha-intro">Buscando o atendimento…</p>`;
+  _chamadoAtual = null;
+  _nota = 0;
 
   try {
-    const r = await fetch(`/cliente/historico?device_id=${encodeURIComponent(device_id)}&dias=${_histDias}`, {
-      headers: authHeaders(),
-    });
-    if (!r.ok) {
-      if (r.status === 401) {
-        localStorage.removeItem("token");
-        window.location.href = "/login?motivo=expirado";
-        return;
-      }
-      if (semEl) {
-        semEl.style.display = "block";
-        semEl.textContent = "Erro ao carregar histórico (" + r.status + "): " + await _erroDaResposta(r);
-      }
-      return;
-    }
-
-    const data = await r.json();
-    const leituras = Array.isArray(data.leituras) ? data.leituras : [];
-
-    if (leituras.length === 0) {
-      if (semEl) { semEl.style.display = "block"; semEl.textContent = "Sem dados de histórico no período."; }
-      if (_telCliHistChart) { try { _telCliHistChart.destroy(); } catch (_) {} _telCliHistChart = null; }
-      wrapEl.innerHTML = "";
-      return;
-    }
-    if (semEl) semEl.style.display = "none";
-    if (btnPdf) btnPdf.disabled = false;
-
-    // Nome do reservatório selecionado pra título da série
-    const reservNome = (sel.options[sel.selectedIndex]?.text || "Nível").split(" (")[0];
-
-    const series = [{
-      name: reservNome,
-      data: leituras.map(l => ({ x: new Date(l.bucket).getTime(), y: Math.round(Number(l.nivel_pct_avg)) })),
-    }];
-
-    // ⚠️ O gráfico agora vive dentro de PLACA CLARA, não mais no fundo escuro
-    // do Mission Control. Eixos, grade e tooltip são de tema claro; a série
-    // usa o marinho da lâmina d'água, e as linhas de limiar usam as tintas
-    // escuras — amarelo sobre claro reprova contraste (Regra do Amarelo Cego).
-    const opts = {
-      chart: { type: "area", height: 300, toolbar: { show: false }, background: "transparent", animations: { speed: 300 }, zoom: { enabled: false }, fontFamily: "Archivo, sans-serif" },
-      series,
-      colors: ["#1a3a9e"],
-      stroke: { curve: "smooth", width: 2.4 },
-      fill: {
-        type: "gradient",
-        gradient: { shade: "light", type: "vertical", shadeIntensity: .2, opacityFrom: .34, opacityTo: 0, stops: [0, 92] },
-      },
-      dataLabels: { enabled: false },
-      grid: { borderColor: "rgba(6,16,51,.12)", strokeDashArray: 3 },
-      xaxis: {
-        type: "datetime",
-        labels: { style: { colors: "#414f74", fontSize: "11px" }, datetimeUTC: false },
-        axisBorder: { color: "rgba(6,16,51,.16)" },
-        axisTicks:  { color: "rgba(6,16,51,.16)" },
-      },
-      yaxis: {
-        min: 0, max: 100,
-        labels: { style: { colors: "#414f74", fontSize: "11px" }, formatter: (v) => v + "%" },
-      },
-      legend: { show: false },
-      annotations: {
-        yaxis: [
-          { y: LIMIARES.baixo,   borderColor: "#8a5300", strokeDashArray: 4, label: { borderColor: "#8a5300", style: { color: "#fff", background: "#8a5300", fontSize: "10px" }, text: `Atenção ${LIMIARES.baixo}%` } },
-          { y: LIMIARES.critico, borderColor: "#b3241a", strokeDashArray: 4, label: { borderColor: "#b3241a", style: { color: "#fff", background: "#b3241a", fontSize: "10px" }, text: `Crítico ${LIMIARES.critico}%` } },
-        ],
-      },
-      tooltip: {
-        theme: "light",
-        x: { format: _histDias <= 1 ? "HH:mm" : "dd MMM HH:mm" },
-        y: { formatter: (v) => v + "%" },
-      },
-      markers: { size: 0, hover: { size: 5 } },
-    };
-
-    if (_telCliHistChart) {
-      _telCliHistChart.updateOptions(opts, false, true);
-    } else {
-      wrapEl.innerHTML = "";
-      _telCliHistChart = new ApexCharts(wrapEl, opts);
-      _telCliHistChart.render();
-    }
+    const [dR, mR] = await Promise.all([
+      pedir(`/cliente/chamados/${id}`),
+      pedir(`/cliente/chamados/${id}/mensagens`),
+    ]);
+    if (!dR.ok) throw new Error(await erroDe(dR));
+    const ch = await dR.json();
+    const msgs = mR.ok ? await mR.json() : [];
+    _chamadoAtual = ch;
+    _avaliado[ch.id] = !!ch.ja_avaliado;
+    renderChamado(ch, msgs);
   } catch (e) {
-    console.error("carregarHistorico:", e);
-    if (semEl) { semEl.style.display = "block"; semEl.textContent = "Erro: " + e.message; }
+    corpo.innerHTML = `<p class="ficha-msg ruim">Não deu para abrir este chamado: ${esc(e.message)}</p>`;
   }
+}
+
+function passosDoChamado(ch) {
+  const p = [];
+  if (ch.criado_em) p.push({ q: dataHora(ch.criado_em), t: "O chamado foi aberto", s: ch.descricao ? `“${esc(ch.descricao)}”` : "" });
+  if (ch.status === "em_atendimento" || ch.status === "fechado") {
+    p.push({
+      q: dataHora(ch.atualizado_em || ch.criado_em),
+      t: ch.tecnico_nome ? `${esc(ch.tecnico_nome)} ficou responsável pelo atendimento` : "O atendimento começou",
+      s: "",
+    });
+  }
+  if (ch.status === "fechado" && ch.fechado_em) {
+    p.push({
+      q: dataHora(ch.fechado_em),
+      t: ch.os_finalizada_em ? "Serviço concluído e assinado" : "Serviço concluído",
+      s: ch.servico_realizado ? esc(ch.servico_realizado) : (ch.os_numero ? `Ordem de serviço ${esc(ch.os_numero)}` : ""),
+    });
+  }
+  return p.reverse();
+}
+
+function renderChamado(ch, msgs) {
+  $("fChamadoId").textContent = `Chamado nº ${ch.id} · ${new Date(ch.criado_em).toLocaleDateString("pt-BR", { day: "2-digit", month: "long" })}`;
+  $("fChamadoT").textContent = ch.titulo || "Atendimento";
+
+  const estadoTxt = ch.status === "fechado"
+    ? (ch.os_finalizada_em ? "Concluído e assinado" : "Concluído")
+    : ch.status === "em_atendimento"
+      ? `Em atendimento${ch.tecnico_nome ? " — " + esc(ch.tecnico_nome) : ""}`
+      : "Aberto, aguardando atendimento";
+  // ⚠️ ponto azul, não âmbar: âmbar neste sistema significa ATENÇÃO, e
+  // chamado em curso não é alarme. O painel já errou isso uma vez pintando
+  // "Em atendimento" de vermelho.
+  const pontoCls = ch.status === "fechado" ? "" : "aberto";
+
+  const meuId = usuarioLocal().id;
+  const conversa = msgs.length
+    ? `<div class="conversa">${msgs.map(m => {
+        const meu = meuId && m.autor_id === meuId;
+        const quem = meu ? "Você" : esc(m.autor_nome || (m.autor_role === "tecnico" ? "Técnico" : "Equipe"));
+        const foto = m.foto_url ? `<img src="${esc(m.foto_url)}" alt="Foto enviada no atendimento">` : "";
+        return `<div class="fala${meu ? " minha" : ""}">
+          <span class="quem">${quem} · ${dataHora(m.criado_em)}</span>${esc(m.texto || "")}${foto}
+        </div>`;
+      }).join("")}</div>`
+    : `<p class="conversa-vazia">Ainda não há mensagens neste chamado.</p>`;
+
+  const composer = ch.status !== "fechado"
+    ? `<label class="campo"><span>Responder</span>
+         <textarea id="chatTexto" rows="3" maxlength="2000" placeholder="Escreva aqui…"></textarea></label>
+       <div class="acoes"><button class="btn-fio" id="chatEnviar" type="button">Enviar</button></div>
+       <p class="ficha-msg" id="chatMsg" role="status"></p>`
+    : `<p class="fechado-aviso">Este chamado foi fechado. Para falar de novo com a equipe, abra um novo pedido de ajuda.</p>`;
+
+  const avaliacao = (ch.status === "fechado" && !ch.ja_avaliado)
+    ? `<div class="bloco">
+         <h4>Como foi esse atendimento?</h4>
+         <p>Sua resposta vai direto para quem cuida da manutenção do prédio.</p>
+         <div class="estrelas" id="estrelas" role="radiogroup" aria-label="Nota do atendimento">
+           ${[1, 2, 3, 4, 5].map(n => `<button data-nota="${n}" role="radio" aria-checked="false" aria-label="${n} de 5" type="button">${ICO_ESTRELA}</button>`).join("")}
+         </div>
+         <label class="campo"><span>Quer contar alguma coisa? (opcional)</span>
+           <textarea id="avalTexto" rows="2" maxlength="1000" placeholder="O que foi bom, o que pode melhorar…"></textarea></label>
+         <div class="acoes"><button class="btn-fio" id="avalEnviar" type="button">Enviar avaliação</button></div>
+         <p class="ficha-msg" id="avalMsg" role="status"></p>
+       </div>`
+    : ch.ja_avaliado
+      ? `<div class="bloco"><h4>Obrigado pela avaliação</h4><p>Ela já chegou a quem cuida da manutenção do prédio.</p></div>`
+      : "";
+
+  $("fChamadoCorpo").innerHTML = `
+    <div class="estado-linha"><span class="ponto ${pontoCls}"></span> ${estadoTxt}</div>
+    <ul class="passos">${passosDoChamado(ch).map(p =>
+      `<li><span class="quando">${p.q}</span><span>${p.t}${p.s ? `<small>${p.s}</small>` : ""}</span></li>`).join("")}</ul>
+    <div class="bloco">
+      <h4>A conversa</h4>
+      ${conversa}
+      ${composer}
+    </div>
+    ${avaliacao}`;
+}
+
+async function enviarMensagem() {
+  const inp = $("chatTexto"), btn = $("chatEnviar"), msg = $("chatMsg");
+  const texto = (inp?.value || "").trim();
+  if (!texto || !_chamadoAtual) return;
+
+  btn.disabled = true;
+  msg.className = "ficha-msg";
+  msg.textContent = "Enviando…";
+  try {
+    const r = await pedir(`/cliente/chamados/${_chamadoAtual.id}/mensagens`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ texto }),
+    });
+    if (!r.ok) throw new Error(await erroDe(r));
+    await abrirChamado(_chamadoAtual.id);
+  } catch (e) {
+    msg.className = "ficha-msg ruim";
+    msg.textContent = "Não deu para enviar: " + e.message;
+    btn.disabled = false;
+  }
+}
+
+async function enviarAvaliacao() {
+  const msg = $("avalMsg"), btn = $("avalEnviar");
+  if (!_chamadoAtual) return;
+  if (!_nota) {
+    msg.className = "ficha-msg ruim";
+    msg.textContent = "Escolha de 1 a 5 estrelas.";
+    return;
+  }
+  const comentario = ($("avalTexto").value || "").trim();
+  btn.disabled = true;
+  msg.className = "ficha-msg";
+  msg.textContent = "Enviando…";
+  try {
+    const r = await pedir(`/cliente/chamados/${_chamadoAtual.id}/avaliar`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ nota: _nota, comentario: comentario || undefined }),
+    });
+    if (!r.ok) throw new Error(await erroDe(r));
+    _avaliado[_chamadoAtual.id] = true;
+    await abrirChamado(_chamadoAtual.id);
+    renderHistoria();
+  } catch (e) {
+    msg.className = "ficha-msg ruim";
+    msg.textContent = "Não deu para enviar a avaliação: " + e.message;
+    btn.disabled = false;
+  }
+}
+
+/* ─── Ficha: todos os reservatórios ───────────────────────────────────────
+   Serve em dois modos. "ver" é o inventário; "pdf" é a escolha de qual
+   reservatório vai no relatório — porque `/relatorio/pdf` exige um
+   `device_id` e a história fala do prédio inteiro. */
+function prepararTodos(modo) {
+  const todas = leituras();
+  $("resLista").innerHTML = listaHTML(todas, modo);
+  const intro = $("fTodosIntro");
+  $("fTodosId").textContent = _status?.condominio?.nome || "Seu prédio";
+  if (modo === "pdf") {
+    $("fTodosT").textContent = "Relatório em PDF";
+    intro.hidden = false;
+    intro.textContent = "O relatório é de um reservatório por vez. Escolha qual: baixamos os últimos 30 dias dele.";
+  } else {
+    $("fTodosT").textContent = "Todos os reservatórios";
+    intro.hidden = true;
+  }
+}
+
+/* ─── Ficha: reservatório (histórico + PDF) ───────────────────────────── */
+
+let _resDevice = null;
+let _resDias = 7;
+
+function abrirReservatorio(deviceId) {
+  _resDevice = deviceId;
+  const r = leituras().find(x => x.device_id === deviceId);
+  $("fResT").textContent = r?.nome || "Reservatório";
+  $("fResId").textContent = r?.tipo ? `Reservatório · ${r.tipo}` : "Reservatório";
+  $("fResMsg").textContent = "";
+  $("fResMsg").className = "ficha-msg";
+
+  const est = $("fResEstado");
+  est.querySelector(".ponto").className = "ponto" +
+    (r?.estado === "critico" ? " risco" : r?.estado === "baixo" ? " atencao" : r?.estado === "mudo" ? " aberto" : "");
+  $("fResEstadoTxt").textContent = !r ? "—"
+    : r.estado === "mudo"    ? "Sem leitura — o sensor parou de responder"
+    : r.estado === "critico" ? `${r.n}% agora — abaixo de ${LIMIARES.critico}%, tratamos como urgência`
+    : r.estado === "baixo"   ? `${r.n}% agora — abaixo de ${LIMIARES.baixo}%, acompanhando`
+    : `${r.n}% agora — dentro do esperado`;
+
+  aplicarPeriodo(_resDias);
+  carregarGrafico();
+}
+
+function aplicarPeriodo(dias) {
+  _resDias = dias;
+  document.querySelectorAll("#fResPeriodos button").forEach(b =>
+    b.setAttribute("aria-pressed", String(Number(b.dataset.dias) === dias)));
+  const rot = { 1: "24 horas", 7: "7 dias", 30: "30 dias", 90: "90 dias" }[dias];
+  $("fResPdf").textContent = `Baixar PDF de ${rot}`;
+}
+
+/* O gráfico é SVG desenhado aqui, não uma biblioteca: são oito linhas de
+   path para um traçado que o síndico olha por três segundos, e a página
+   deixou de carregar os ~200 KB do ApexCharts por causa disso.
+   ⚠️ O rótulo do limiar é HTML posicionado por cima, não `<text>` dentro
+   do viewBox: lá dentro ele encolhe junto com o gráfico e vira borrão no
+   celular. E a malha e o limiar são desenhados DEPOIS da área, senão ela
+   os cobre. */
+function graficoSVG(pontos, dias) {
+  const W = 600, H = 190;
+  const x = i => pontos.length === 1 ? W / 2 : (i / (pontos.length - 1)) * W;
+  const y = p => H - (Math.max(0, Math.min(100, p)) / 100) * H;
+
+  const d = pontos.map((p, i) => `${i ? "L" : "M"}${x(i).toFixed(1)} ${y(p).toFixed(1)}`).join(" ");
+  const area = `${d} L${W} ${H} L0 ${H} Z`;
+  const min = Math.min(...pontos), max = Math.max(...pontos);
+  const rot = { 1: "24 HORAS ATRÁS", 7: "7 DIAS ATRÁS", 30: "30 DIAS ATRÁS", 90: "90 DIAS ATRÁS" }[dias];
+
+  return `
+    <div class="grafico-caixa">
+      <svg class="grafico" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img"
+           aria-label="Nível nos últimos ${rot.toLowerCase()}, entre ${Math.round(min)}% e ${Math.round(max)}%">
+        <path class="area" d="${area}"/>
+        <line class="malha" x1="0" y1="${y(75)}" x2="${W}" y2="${y(75)}"/>
+        <line class="malha" x1="0" y1="${y(50)}" x2="${W}" y2="${y(50)}"/>
+        <line class="limiar" x1="0" y1="${y(LIMIARES.baixo)}" x2="${W}" y2="${y(LIMIARES.baixo)}"/>
+        <path class="linha" d="${d}"/>
+      </svg>
+      <span class="rot-limiar">${LIMIARES.baixo}% — LIMIAR</span>
+    </div>
+    <div class="eixo"><span>${rot}</span><span>AGORA</span></div>`;
+}
+
+async function carregarGrafico() {
+  const alvo = $("fResGrafico");
+  if (!_resDevice) return;
+  alvo.innerHTML = `<p class="grafico-vazio">Carregando as leituras…</p>`;
+  try {
+    const r = await pedir(`/cliente/historico?device_id=${encodeURIComponent(_resDevice)}&dias=${_resDias}`);
+    if (!r.ok) throw new Error(await erroDe(r));
+    const data = await r.json();
+    const pontos = (Array.isArray(data.leituras) ? data.leituras : [])
+      .map(l => Number(l.nivel_pct_avg))
+      .filter(n => Number.isFinite(n));
+    alvo.innerHTML = pontos.length
+      ? graficoSVG(pontos, _resDias)
+      : `<p class="grafico-vazio">Sem leituras registradas neste período.</p>`;
+  } catch (e) {
+    alvo.innerHTML = `<p class="grafico-vazio">Não deu para carregar o histórico: ${esc(e.message)}</p>`;
+  }
+}
+
+async function baixarPDF(deviceId, dias, btn, msgEl) {
+  const rotulo = btn?.textContent;
+  if (btn) { btn.disabled = true; btn.textContent = "Gerando PDF…"; }
+  if (msgEl) { msgEl.className = "ficha-msg"; msgEl.textContent = ""; }
+  try {
+    const r = await pedir(`/relatorio/pdf?device_id=${encodeURIComponent(deviceId)}&dias=${dias}`);
+    if (!r.ok) throw new Error(await erroDe(r));
+    const blob = await r.blob();
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    const cd = r.headers.get("Content-Disposition") || "";
+    a.download = (cd.match(/filename="?([^"]+)"?/) || [])[1] || "relatorio.pdf";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(a.href);
+  } catch (e) {
+    if (msgEl) { msgEl.className = "ficha-msg ruim"; msgEl.textContent = "Não deu para gerar o PDF: " + e.message; }
+    else alert("Não deu para gerar o PDF: " + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = rotulo; }
+  }
+}
+
+/* ─── Ficha: sua conta ────────────────────────────────────────────────── */
+
+function prepararConta() {
+  const u = usuarioLocal();
+  $("fContaId").textContent = _status?.condominio?.nome ? `Síndico · ${_status.condominio.nome}` : "Síndico";
+  $("contaEmail").textContent = u.email || u.nome || "Sua conta";
+  $("senhaAtual").value = ""; $("senhaNova").value = ""; $("senhaNova2").value = "";
+  $("senhaMsg").textContent = "";
+  $("senhaMsg").className = "ficha-msg";
+}
+
+async function trocarSenha(ev) {
+  ev.preventDefault();
+  const msg = $("senhaMsg");
+  const atual = ($("senhaAtual").value || "").trim();
+  const nova  = ($("senhaNova").value || "").trim();
+  const nova2 = ($("senhaNova2").value || "").trim();
+
+  msg.className = "ficha-msg ruim";
+  if (!atual || !nova || !nova2) { msg.textContent = "Preencha os três campos."; return; }
+  if (nova.length < 6)           { msg.textContent = "A nova senha precisa de pelo menos 6 caracteres."; return; }
+  if (nova !== nova2)            { msg.textContent = "A confirmação não confere com a nova senha."; return; }
+
+  msg.className = "ficha-msg";
+  msg.textContent = "Salvando…";
+  try {
+    const r = await pedir("/cliente/trocar-senha", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ senha_atual: atual, senha_nova: nova }),
+    });
+    if (!r.ok) throw new Error(await erroDe(r));
+    msg.className = "ficha-msg bom";
+    msg.textContent = "Senha alterada. Você continua conectado.";
+    $("senhaAtual").value = ""; $("senhaNova").value = ""; $("senhaNova2").value = "";
+  } catch (e) {
+    msg.className = "ficha-msg ruim";
+    msg.textContent = e.message;
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   4. CARGA
+   ════════════════════════════════════════════════════════════════════════ */
+
+function identidade() {
+  const u = usuarioLocal();
+  $("nomePredio").textContent = _status?.condominio?.nome || "Meu prédio";
+  $("nomeSindico").textContent = u.nome ? `${u.nome} — sua conta` : "Sua conta";
+  $("rodapeLinha").textContent = _status?.condominio?.nome
+    ? `Painel do síndico · ${_status.condominio.nome}`
+    : "Painel do síndico";
+  $("rodapeAno").textContent = String(new Date().getFullYear());
+}
+
+function mostrarAviso(txt) {
+  const el = $("aviso");
+  if (!txt) { el.hidden = true; return; }
+  $("avisoTxt").innerHTML = txt;
+  el.hidden = false;
 }
 
 async function carregar() {
-  setStatusMsg("Carregando...");
-
-  // Carrega status e chamados em paralelo para o dashboard ter ambos disponíveis
-  const [r] = await Promise.all([
-    fetch("/cliente/status",   { headers: authHeaders() }),
-    carregarChamadosCli().catch(() => {}),
-  ]);
-
-  if (!r.ok) {
-    // 401 = sessão expirada/inválida → volta pro login.
-    // 403 NÃO é sessão inválida: é role diferente de 'cliente' ou cliente sem
-    // condominio_id vinculado. Mandar 403 pro login criava um vai-e-volta
-    // silencioso (login → painel → login) sem nenhuma mensagem na tela.
-    if (r.status === 401) {
-      localStorage.removeItem("token");
-      window.location.href = "/login?motivo=expirado";
-      return;
-    }
-    setStatusMsg("Erro no /cliente/status (" + r.status + "): " + await _erroDaResposta(r));
-    return;
-  }
-
-  const data = await r.json();
-
-  
-  const reservatorios = Array.isArray(data.reservatorios) ? data.reservatorios : [];
-  _reservatorios = reservatorios;
-  populateHistSelect();
-
-  // ===== Alertas =====
-  _alAlertas = Array.isArray(data.alertas_abertos) ? data.alertas_abertos : [];
-
-  // Nome real do condomínio no topo e na sidebar — antes ficava o placeholder
-  // "Cliente / Meu Condomínio" fixo no HTML, igual pra todo mundo.
-  _aplicarIdentidade(data.condominio);
-
-  // ===== Meu prédio =====
-  // Uma seção só. O `_predioAtualizar` decide entre o trilho com instrumento
-  // e o bloco de quem ainda não tem monitoramento instalado.
-  _telCliUltimoStatus = data;
-  _predioAtualizar(data);
-
-  // atualiza badge da sidebar
-  const navBadge = document.getElementById("navBadgeAlertas");
-  if (navBadge) {
-    navBadge.textContent = _alAlertas.length;
-    navBadge.style.display = _alAlertas.length > 0 ? "inline-flex" : "none";
-  }
-
-  _alBindEventos();
-  _alRender();
-
-  setStatusMsg("Atualizado às " + new Date().toLocaleTimeString());
-}
-
-// ============================================================
-// ALERTAS (modelo novo Mission Control)
-// ============================================================
-
-function _alSeveridade(tipo) {
-  if (tipo === "nivel_muito_baixo" || tipo === "dispositivo_offline") return "critico";
-  if (tipo === "nivel_baixo") return "atencao";
-  return "normal";
-}
-
-function _alSeveridadeLabel(sev) {
-  if (sev === "critico") return "Crítico";
-  if (sev === "atencao") return "Atenção";
-  return "Normal";
-}
-
-function _alTipoLabel(tipo) {
-  if (tipo === "nivel_muito_baixo")   return "Nível muito baixo";
-  if (tipo === "nivel_baixo")         return "Nível baixo";
-  if (tipo === "dispositivo_offline") return "Dispositivo offline";
-  return String(tipo || "").replaceAll("_", " ");
-}
-
-function _alTempoAberto(iso) {
-  if (!iso) return "—";
-  const diff = Date.now() - new Date(iso).getTime();
-  if (diff < 0) return "—";
-  const min = Math.floor(diff / 60000);
-  if (min < 60)   return `${min} min`;
-  const h = Math.floor(min / 60);
-  if (h < 24)     return `${h}h`;
-  const d = Math.floor(h / 24);
-  return `${d} dia${d > 1 ? "s" : ""}`;
-}
-
-function _alFiltrados() {
-  const q = (document.getElementById("alBusca")?.value || "").trim().toLowerCase();
-  let lista = [..._alAlertas];
-
-  if (_alTabAtiva !== "todos") {
-    lista = lista.filter(a => _alSeveridade(a.tipo) === _alTabAtiva);
-  }
-  if (q) {
-    lista = lista.filter(a => {
-      const blob = `${_alTipoLabel(a.tipo)} ${a.mensagem || ""}`.toLowerCase();
-      return blob.includes(q);
-    });
-  }
-  return lista;
-}
-
-function _alRender() {
-  const tbody = document.getElementById("tbodyAlertasCliente");
-  const sem   = document.getElementById("semAlertas");
-  if (!tbody) return;
-
-  // KPIs
-  const criticos = _alAlertas.filter(a => _alSeveridade(a.tipo) === "critico").length;
-  const atencao  = _alAlertas.filter(a => _alSeveridade(a.tipo) === "atencao").length;
-  const total    = _alAlertas.length;
-
-  const kpiGrid = document.getElementById("alKpiGrid");
-  if (kpiGrid) kpiGrid.innerHTML = `
-    <div class="rc rc-bad rc-static">
-      <div class="rc-head"><div class="rc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div><div class="rc-label">Críticos</div></div>
-      <div class="rc-value">${criticos}</div><div class="rc-hint">Ativos agora</div>
-    </div>
-    <div class="rc rc-warn rc-static">
-      <div class="rc-head"><div class="rc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg></div><div class="rc-label">Atenção</div></div>
-      <div class="rc-value">${atencao}</div><div class="rc-hint">Ativos agora</div>
-    </div>
-    <div class="rc rc-neutral rc-static">
-      <div class="rc-head"><div class="rc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div><div class="rc-label">Total</div></div>
-      <div class="rc-value">${total}</div><div class="rc-hint">Abertos no momento</div>
-    </div>`;
-
-  const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
-  set("alCountTodos",    total);
-  set("alCountCritico",  criticos);
-  set("alCountAtencao",  atencao);
-
-  // Tabela
-  const lista = _alFiltrados();
-  if (lista.length === 0) {
-    tbody.innerHTML = "";
-    if (sem) sem.style.display = "flex";
-    return;
-  }
-  if (sem) sem.style.display = "none";
-
-  tbody.innerHTML = lista.map(a => {
-    const sev = _alSeveridade(a.tipo);
-    const sel = _alSelecionadoId === a.id ? " is-selected" : "";
-    return `<tr class="${sel.trim()}" data-al-id="${a.id}" style="cursor:pointer;">
-      <td><strong>${_alTipoLabel(a.tipo)}</strong></td>
-      <td>${a.mensagem ? a.mensagem.replace(/[<>&]/g, c => ({"<":"&lt;",">":"&gt;","&":"&amp;"}[c])) : "—"}</td>
-      <td><span class="al-sev ${sev}">${_alSeveridadeLabel(sev)}</span></td>
-      <td class="al-tempo">${_alTempoAberto(a.criado_em)}</td>
-      <td class="al-data">${fmtData(a.atualizado_em)}</td>
-    </tr>`;
-  }).join("");
-
-  // Mantém o painel em sincronia (alerta selecionado pode ter sumido)
-  _alRenderPainel();
-}
-
-function _alAchaPorId(id) {
-  return _alAlertas.find(a => a.id === id) || null;
-}
-
-function _alReservatorioPorDevice(deviceId) {
-  if (!deviceId || !Array.isArray(_reservatorios)) return null;
-  return _reservatorios.find(r => r.device_id === deviceId) || null;
-}
-
-function _alRenderPainel() {
-  const wrap = document.getElementById("alPainel");
-  if (!wrap) return;
-
-  wrap.classList.toggle("is-open", _alSelecionadoId != null);
-
-  if (_alSelecionadoId == null) {
-    wrap.innerHTML = `
-      <div class="al-empty">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
-        </svg>
-        <p>Clique numa linha pra ver os detalhes</p>
-      </div>`;
-    return;
-  }
-
-  const a = _alAchaPorId(_alSelecionadoId);
-  if (!a) {
-    _alSelecionadoId = null;
-    return _alRenderPainel();
-  }
-
-  const sev = _alSeveridade(a.tipo);
-  const sevLabel = _alSeveridadeLabel(sev);
-  const reserv = _alReservatorioPorDevice(a.device_id);
-  const pct = reserv?.ultima_leitura?.nivel_pct;
-
-  const kv = (k, v) => `<div><span class="k">${k}</span><span class="v">${v != null && v !== "" ? v : "—"}</span></div>`;
-
-  const banner = reserv ? `
-    <div class="ap-banner ${sev}">
-      <div class="ap-banner-row">
-        ${pct != null ? `
-        <div class="ap-gauge-mini">
-          <svg viewBox="0 0 60 60">
-            <circle cx="30" cy="30" r="26" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="6"/>
-            <circle cx="30" cy="30" r="26" fill="none"
-              stroke="${sev === "critico" ? "#ef4444" : sev === "atencao" ? "#f59e0b" : "#10b981"}"
-              stroke-width="6" stroke-linecap="round"
-              stroke-dasharray="${(Math.max(0, Math.min(100, pct)) / 100 * 163.36).toFixed(1)} 163.36"
-              transform="rotate(-90 30 30)"/>
-          </svg>
-          <div class="ap-gauge-mini-val"><div>${Math.round(pct)}%</div><small>Nível</small></div>
-        </div>` : ""}
-        <div style="flex:1;min-width:0;">
-          <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;">Reservatório</div>
-          <div style="font-size:14px;font-weight:700;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${reserv.nome || "—"}</div>
-          ${reserv.tipo ? `<div style="font-size:11px;color:var(--muted);margin-top:4px;">${reserv.tipo}</div>` : ""}
-        </div>
-      </div>
-    </div>` : "";
-
-  const tempoStr = `Aberto há ${_alTempoAberto(a.criado_em)}`;
-
-  wrap.innerHTML = `
-    <div class="ap-head">
-      <div>
-        <div class="ap-title">${_alTipoLabel(a.tipo)}</div>
-        <div class="ap-sub">Alerta #${a.id}${reserv?.nome ? ` • ${reserv.nome}` : ""}</div>
-      </div>
-      <button class="ap-close" data-al-action="fechar-painel" title="Fechar">×</button>
-    </div>
-    ${banner}
-    <div class="ap-section">
-      <div class="ap-section-title">Detalhes</div>
-      <div class="ap-kv">
-        ${kv("Severidade", `<span class="al-sev ${sev}" style="font-size:10.5px;">${sevLabel}</span>`)}
-        ${kv("Tipo", _alTipoLabel(a.tipo))}
-        ${kv("Device", a.device_id || "—")}
-        ${kv("Status", "Aberto")}
-      </div>
-      ${a.mensagem ? `<div style="margin-top:10px;font-size:11.5px;color:var(--muted);">${a.mensagem.replace(/[<>&]/g, c => ({"<":"&lt;",">":"&gt;","&":"&amp;"}[c]))}</div>` : ""}
-    </div>
-    <div class="ap-section">
-      <div class="ap-section-title">Linha do tempo</div>
-      <div style="font-size:11.5px;color:var(--text);">Criado em ${fmtData(a.criado_em)}</div>
-      <div style="font-size:11px;color:var(--muted);margin-top:3px;">${tempoStr}</div>
-      ${a.atualizado_em && a.atualizado_em !== a.criado_em ? `<div style="font-size:11px;color:var(--muted);margin-top:3px;">Última atualização: ${fmtData(a.atualizado_em)}</div>` : ""}
-    </div>`;
-}
-
-function _alBindEventos() {
-  if (_alBindFeito) return;
-  _alBindFeito = true;
-
-  // Tabs
-  document.querySelectorAll(".al-tab[data-al-tab]").forEach(tab => {
-    tab.addEventListener("click", () => {
-      _alTabAtiva = tab.dataset.alTab;
-      document.querySelectorAll(".al-tab[data-al-tab]").forEach(t => t.classList.toggle("is-active", t === tab));
-      _alRender();
-    });
-  });
-
-  // KPI cards clicáveis filtram a tab
-  document.querySelectorAll(".al-kpis .rc[data-al-kpi-tab]").forEach(card => {
-    card.addEventListener("click", () => {
-      const target = card.dataset.alKpiTab;
-      const tab = document.querySelector(`.al-tab[data-al-tab="${target}"]`);
-      if (tab) tab.click();
-    });
-  });
-
-  // Busca
-  document.getElementById("alBusca")?.addEventListener("input", _alRender);
-  document.getElementById("alBusca")?.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") { e.target.value = ""; _alRender(); }
-  });
-
-  // Click na linha → seleciona e mostra painel
-  document.getElementById("tbodyAlertasCliente")?.addEventListener("click", (e) => {
-    const row = e.target.closest("tr[data-al-id]");
-    if (!row) return;
-    const id = Number(row.dataset.alId);
-    _alSelecionadoId = (_alSelecionadoId === id) ? null : id; // toggle
-    _alRender();
-    if (_alSelecionadoId && window.innerWidth <= 768) {
-      setTimeout(() => document.getElementById("alPainel")?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
-    }
-  });
-
-  // Fechar painel
-  document.getElementById("alPainel")?.addEventListener("click", (e) => {
-    const close = e.target.closest('[data-al-action="fechar-painel"]');
-    if (close) {
-      _alSelecionadoId = null;
-      _alRender();
-    }
-  });
-}
-
-async function trocarSenha(event) {
-  event.preventDefault();
-
-  const msg = document.getElementById("senhaMsg");
-  msg.textContent = "";
-
-  const senha_atual = (document.getElementById("senhaAtual").value || "").trim();
-  const senha_nova = (document.getElementById("senhaNova").value || "").trim();
-  const senha_nova2 = (document.getElementById("senhaNova2").value || "").trim();
-
-  if (!senha_atual || !senha_nova || !senha_nova2) {
-    msg.textContent = "Preencha todos os campos.";
-    return;
-  }
-  if (senha_nova.length < 6) {
-    msg.textContent = "A nova senha deve ter pelo menos 6 caracteres.";
-    return;
-  }
-  if (senha_nova !== senha_nova2) {
-    msg.textContent = "A confirmação não confere.";
-    return;
-  }
-
   try {
-    msg.textContent = "Salvando...";
+    const [sR, cR] = await Promise.all([
+      pedir("/cliente/status"),
+      pedir("/cliente/chamados").catch(() => null),
+    ]);
 
-    const r = await fetch("/cliente/trocar-senha", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...authHeaders() },
-      body: JSON.stringify({ senha_atual, senha_nova }),
-    });
-
-    const data = await r.json().catch(() => ({}));
-
-    if (!r.ok) {
-      msg.textContent = data.error || ("Erro ao trocar senha (" + r.status + ")");
+    if (!sR.ok) {
+      // 403 NÃO é sessão inválida: é role diferente de 'cliente' ou cliente
+      // sem condominio_id vinculado. Mandar 403 pro login criava um
+      // vai-e-vem silencioso (login → painel → login) sem mensagem nenhuma.
+      const detalhe = await erroDe(sR);
+      mostrarAviso(`<b>Não consegui ler os sensores agora.</b> ${esc(detalhe)}`);
+      if (_primeiraCarga) {
+        $("frase").textContent = "Não consegui ler os sensores.";
+        $("apoio").textContent = "A leitura não chegou até aqui. Tente de novo em instantes — se continuar, ligue para (11) 2038-8679.";
+        document.body.dataset.estado = "erro";
+      }
       return;
     }
 
-    msg.textContent = "✅ Senha alterada com sucesso!";
-    setTimeout(fecharModalSenha, 600);
+    mostrarAviso(null);
+    _status = await sR.json();
+    if (cR?.ok) _chamados = await cR.json();
+
+    identidade();
+    renderResposta();
+    renderHistoria();
+    _primeiraCarga = false;
+
+    await lerAvaliacoes();
+    renderHistoria();
   } catch (e) {
-    msg.textContent = "Erro: " + e.message;
+    if (String(e.message).includes("sessão")) return;
+    mostrarAviso(`<b>Sem conexão com o servidor.</b> ${esc(e.message)}`);
   }
 }
 
-document.addEventListener("DOMContentLoaded", () => {
-  // nav sections
-  document.querySelectorAll(".nav-item[data-section]").forEach(item => {
-    item.addEventListener("click", () => showSection(item.dataset.section));
-  });
+/* ════════════════════════════════════════════════════════════════════════
+   5. LIGAÇÕES
+   ════════════════════════════════════════════════════════════════════════ */
 
-  // links internos data-section-go (ex: "Ver alertas →" no dashboard)
-  document.addEventListener("click", e => {
-    const btn = e.target.closest("[data-section-go]");
-    if (btn) showSection(btn.dataset.sectionGo);
-  });
-
-  document.getElementById("btnAtualizarCliente")?.addEventListener("click", carregar);
-
-  document.getElementById("btnExportarPDF")?.addEventListener("click", async () => {
-    const sel = document.getElementById("histReservatorio");
-    if (!sel || !sel.value) return;
-    const btn = document.getElementById("btnExportarPDF");
-    const origHtml = btn.innerHTML;
-    btn.disabled = true;
-    btn.textContent = "Gerando PDF...";
-    try {
-      const url = `/relatorio/pdf?device_id=${encodeURIComponent(sel.value)}&dias=${_histDias}`;
-      const r = await fetch(url, { headers: authHeaders() });
-      if (!r.ok) {
-        const txt = await r.text().catch(() => "");
-        alert("Erro ao gerar PDF: " + txt);
-        return;
-      }
-      const blob = await r.blob();
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      const cd = r.headers.get("Content-Disposition") || "";
-      const match = cd.match(/filename="?([^"]+)"?/);
-      a.download = match ? match[1] : "relatorio.pdf";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(a.href);
-    } catch (e) {
-      alert("Erro ao gerar PDF: " + e.message);
-    } finally {
-      btn.disabled = false;
-      btn.innerHTML = origHtml;
-    }
-  });
-  document.getElementById("btnAbrirSenha")?.addEventListener("click", abrirModalSenha);
-  document.getElementById("btnSairCliente")?.addEventListener("click", logout);
-
-  // ===== SIDEBAR TOGGLE =====
-  const _sidebar = document.getElementById("sidebar");
-
-  function _applySidebar(collapsed) {
-    _sidebar.classList.toggle("collapsed", collapsed);
-  }
-
-  // Começa aberta por padrão; mantém fechada só se o usuário fechou antes
-  _applySidebar(localStorage.getItem("sidebarCollapsed") === "true");
-
-  function _onToggle() {
-    const next = !_sidebar.classList.contains("collapsed");
-    _applySidebar(next);
-    localStorage.setItem("sidebarCollapsed", next);
-  }
-
-  document.getElementById("btnSidebarToggleIn")?.addEventListener("click", _onToggle);
-  document.getElementById("btnSidebarToggleOut")?.addEventListener("click", _onToggle);
-
-  // modal senha
-  document.getElementById("btnFecharSenhaTop")?.addEventListener("click", fecharModalSenha);
-  document.getElementById("btnCancelarSenha")?.addEventListener("click", fecharModalSenha);
-
-  // submit do form (precisa ter id="formTrocarSenha")
-  document.getElementById("formTrocarSenha")?.addEventListener("submit", trocarSenha);
-
-  // Histórico: troca de reservatório
-  document.getElementById("histReservatorio")?.addEventListener("change", carregarHistorico);
-
-  // Histórico: botões de período. O rótulo da estação no trilho acompanha —
-  // é ele que diz a que trecho do tempo aquela placa se refere.
-  const _HIST_ROTULO = { 1: "Últimas 24 horas", 7: "Últimos 7 dias", 30: "Últimos 30 dias", 90: "Últimos 90 dias" };
-  document.querySelectorAll(".tel-range-btn").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      document.querySelectorAll(".tel-range-btn").forEach((b) => b.classList.remove("is-active"));
-      btn.classList.add("is-active");
-      _histDias = Number(btn.dataset.dias);
-      const rot = document.getElementById("histRotulo");
-      if (rot) rot.textContent = _HIST_ROTULO[_histDias] || "Histórico";
-      carregarHistorico();
+document.addEventListener("click", ev => {
+  // qualquer coisa que abre ficha
+  const alvo = ev.target.closest("[data-abrir]");
+  if (alvo) {
+    abrir(alvo.dataset.abrir, {
+      chamado: alvo.dataset.chamado ? Number(alvo.dataset.chamado) : undefined,
+      device: alvo.dataset.device,
     });
-  });
+    return;
+  }
+  if (ev.target.closest("[data-fechar]")) { voltar(); return; }
+  // clique no fundo fecha (no celular a folha cobre o fundo e isso não existe
+  // — por isso o X tem 48px lá)
+  if (ev.target.classList.contains("ficha-fundo")) { voltar(); return; }
 
-  // Ir do evento do trilho direto para o chamado que ele conta.
-  document.getElementById("linhaEventos")?.addEventListener("click", (e) => {
-    const alvo = e.target.closest("[data-ch-ir]");
-    if (!alvo) return;
-    showSection("chamados");
-    document.querySelectorAll(".mob-nav-item[data-mob-section]").forEach(b =>
-      b.classList.toggle("active", b.dataset.mobSection === "chamados"));
-    _chCliSelecionar(Number(alvo.dataset.chIr));
-  });
+  const atend = ev.target.closest("#linhaAtend");
+  if (atend) { abrir("chamado", { chamado: Number(atend.dataset.chamado) }); return; }
 
-  // primeira carga + auto refresh
-  carregar();
-  setInterval(() => {
-    carregar();
-    const secAtiva = document.querySelector(".section.is-active");
-    if (secAtiva?.dataset.section === "predio")   carregarHistorico();
-    if (secAtiva?.dataset.section === "chamados") carregarChamadosCli();
-  }, 10000);
+  const motivo = ev.target.closest("#motivos .motivo");
+  if (motivo) {
+    document.querySelectorAll("#motivos .motivo").forEach(b => b.setAttribute("aria-pressed", "false"));
+    motivo.setAttribute("aria-pressed", "true");
+    _motivo = motivo.dataset.cat;
+    return;
+  }
+
+  const item = ev.target.closest("[data-lista-device]");
+  if (item) {
+    if (item.dataset.listaModo === "pdf") baixarPDF(item.dataset.listaDevice, 30, null, null);
+    else abrir("reservatorio", { device: item.dataset.listaDevice });
+    return;
+  }
+
+  const per = ev.target.closest("#fResPeriodos button");
+  if (per) { aplicarPeriodo(Number(per.dataset.dias)); carregarGrafico(); return; }
+
+  const estrela = ev.target.closest("#estrelas button");
+  if (estrela) {
+    _nota = Number(estrela.dataset.nota);
+    document.querySelectorAll("#estrelas button").forEach(b => {
+      const n = Number(b.dataset.nota);
+      b.classList.toggle("on", n <= _nota);
+      b.setAttribute("aria-checked", String(n === _nota));
+    });
+    return;
+  }
+
+  if (ev.target.closest("#ajudaEnviar")) { enviarAjuda(); return; }
+  if (ev.target.closest("#chatEnviar"))  { enviarMensagem(); return; }
+  if (ev.target.closest("#avalEnviar"))  { enviarAvaliacao(); return; }
+  if (ev.target.closest("#btnSair"))     { logout(); return; }
+  if (ev.target.closest("#avisoBtn"))    { carregar(); return; }
+
+  if (ev.target.closest("#btnPdf")) {
+    const todas = leituras();
+    if (todas.length === 1) baixarPDF(todas[0].device_id, 30, $("btnPdf"), null);
+    else if (todas.length) abrir("todos", { modo: "pdf" });
+    return;
+  }
 });
 
-// ============================================================
-// CHAMADOS — seção do cliente desktop
-// ============================================================
+document.addEventListener("keydown", ev => {
+  if (ev.key === "Escape" && fichaAberta()) voltar();
+});
 
-let _chCliData = [];
-let _chCliSelecionadoId = null;
-let _chCliSelecionado = null;
-let _chCliMensagens = [];
-let _chCliTabAtiva = "todos";
-let _chCliBindFeito = false;
-let _chCliAvalNotaSelecionada = 0;
+$("formSenha")?.addEventListener("submit", trocarSenha);
 
-const _chCliCatNome = {
-  vazamento:  "Vazamento",
-  bomba_falha:"Bomba",
-  nivel_baixo:"Nível baixo",
-  sem_agua:   "Sem água",
-  ruido:      "Ruído",
-  manutencao: "Manutenção",
-  outro:      "Outro",
-};
-const _chCliPrioNome = { baixa:"Baixa", media:"Média", alta:"Alta", emergencia:"Emergência" };
-const _chCliStNome   = { aberto:"Aberto", em_atendimento:"Em atend.", fechado:"Resolvido" };
-
-function _chCliEscapar(s) {
-  return String(s || "")
-    .replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;")
-    .replaceAll('"',"&quot;").replaceAll("'","&#39;");
-}
-
-function _chCliFmtData(iso) {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit" });
-}
-function _chCliFmtDataCurta(iso) {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("pt-BR", { day:"2-digit", month:"2-digit" });
-}
-
-async function carregarChamadosCli() {
-  try {
-    const r = await fetch("/cliente/chamados", { headers: authHeaders() });
-    if (!r.ok) return;
-    _chCliData = await r.json();
-    // Mantém detalhe sincronizado se houver selecionado
-    if (_chCliSelecionadoId != null) {
-      const existe = _chCliData.find(c => c.id === _chCliSelecionadoId);
-      if (!existe) {
-        _chCliSelecionadoId = null;
-        _chCliSelecionado = null;
-        _chCliMensagens = [];
-      }
-    }
-    _chCliRender();
-  } catch (e) {
-    console.warn("[cli-chamados] carregar:", e.message);
+// Enter envia a mensagem do chamado; Shift+Enter quebra linha
+document.addEventListener("keydown", ev => {
+  if (ev.target?.id === "chatTexto" && ev.key === "Enter" && !ev.shiftKey) {
+    ev.preventDefault();
+    enviarMensagem();
   }
-}
+});
 
-async function renderSecaoChCli() {
-  if (!_chCliData.length) {
-    await carregarChamadosCli();
-  } else {
-    _chCliRender();
-  }
-  _chCliBindEventos();
-}
+/* a barra ganha fundo e fio ao rolar — em repouso ela não pesa sobre o
+   campo. ⚠️ No celular ela é `position:static`, então isto não faz nada
+   lá, e é de propósito: em duas linhas, grudada, ela comeria 14% da tela. */
+addEventListener("scroll", () => {
+  $("barra").classList.toggle("is-rolada", scrollY > 8);
+}, { passive: true });
 
-function _chCliFiltrados() {
-  const q = (document.getElementById("chCliBusca")?.value || "").trim().toLowerCase();
-  let lista = Array.isArray(_chCliData) ? [..._chCliData] : [];
-  if (_chCliTabAtiva !== "todos") lista = lista.filter(c => c.status === _chCliTabAtiva);
-  if (q) {
-    lista = lista.filter(c => {
-      const blob = `${c.id} ${c.titulo||""} ${c.categoria||""} ${c.descricao||""}`.toLowerCase();
-      return blob.includes(q);
-    });
-  }
-  return lista;
-}
-
-function _chCliRender() {
-  const data = _chCliData;
-  const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
-
-  const abertos  = data.filter(c => c.status === "aberto").length;
-  const atend    = data.filter(c => c.status === "em_atendimento").length;
-  const fechados = data.filter(c => c.status === "fechado").length;
-
-  const kpiGrid = document.getElementById("chCliKpiGrid");
-  if (kpiGrid) {
-    const kpis = [
-      { cls: "rc-warn", icon: `<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>`, label: "Abertos", value: abertos, hint: "Aguardando atendimento" },
-      // ⚠️ "Em atendimento" NÃO é `rc-bad`. Chamado com técnico designado é
-      // boa notícia — pintá-lo de vermelho ensina o síndico a se assustar com
-      // o próprio serviço funcionando.
-      { cls: "rc-cyan", icon: `<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>`, label: "Em atendimento", value: atend, hint: "Técnico designado" },
-      { cls: "rc-ok",   icon: `<polyline points="20 6 9 17 4 12"/>`, label: "Resolvidos", value: fechados, hint: "Histórico" },
-    ];
-    kpiGrid.innerHTML = kpis.map(k => `
-      <div class="rc ${k.cls} rc-static">
-        <div class="rc-head">
-          <div class="rc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${k.icon}</svg></div>
-          <div class="rc-label">${k.label}</div>
-        </div>
-        <div class="rc-value">${k.value}</div>
-        <div class="rc-hint">${k.hint}</div>
-      </div>`).join("");
-  }
-
-  set("chCliCtTodos",    data.length);
-  set("chCliCtAbertos",  abertos);
-  set("chCliCtAtend",    atend);
-  set("chCliCtFechados", fechados);
-
-  // Badge na sidebar
-  const navBadge = document.getElementById("navBadgeChamados");
-  if (navBadge) {
-    const ativos = abertos + atend;
-    navBadge.textContent = ativos;
-    navBadge.style.display = ativos > 0 ? "inline-flex" : "none";
-  }
-
-  const tbody = document.getElementById("chCliTableBody");
-  const empty = document.getElementById("chCliEmpty");
-  if (!tbody) return;
-  const tableWrap = tbody.closest(".tableWrap");
-
-  const lista = _chCliFiltrados();
-  if (lista.length === 0) {
-    tbody.innerHTML = "";
-    if (data.length === 0) {
-      if (empty) empty.style.display = "flex";
-      if (tableWrap) tableWrap.style.display = "none";
-    } else {
-      if (empty) empty.style.display = "none";
-      if (tableWrap) tableWrap.style.display = "";
-      tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px;">Nenhum chamado nesse filtro.</td></tr>`;
-    }
-  } else {
-    if (empty) empty.style.display = "none";
-    if (tableWrap) tableWrap.style.display = "";
-    tbody.innerHTML = lista.map(c => {
-      const sel = _chCliSelecionadoId === c.id ? " is-selected" : "";
-      return `<tr class="ch-row${sel}" data-ch-cli-id="${c.id}">
-        <td class="ch-id-cell">#${c.id}</td>
-        <td class="ch-titulo-cell"><div class="ch-titulo-text">${_chCliEscapar(c.titulo || "—")}</div></td>
-        <td><span class="ch-cat-badge">${_chCliCatNome[c.categoria] || c.categoria || "—"}</span></td>
-        <td><span class="ch-st ch-st-${c.status||"aberto"}">${_chCliStNome[c.status] || c.status || "—"}</span></td>
-        <td class="ch-data-cell">${_chCliFmtDataCurta(c.criado_em)}</td>
-      </tr>`;
-    }).join("");
-  }
-
-  _chCliRenderDetalhe();
-}
-
-async function _chCliSelecionar(id) {
-  _chCliSelecionadoId = id;
-  _chCliSelecionado = null;
-  _chCliMensagens = [];
-
-  // Re-render lista pra marcar selecionado
-  _chCliRender();
-
-  // Busca detalhe + mensagens em paralelo
-  try {
-    const [chR, msR] = await Promise.all([
-      fetch(`/cliente/chamados/${id}`,           { headers: authHeaders() }),
-      fetch(`/cliente/chamados/${id}/mensagens`, { headers: authHeaders() }),
-    ]);
-    if (chR.ok) _chCliSelecionado = await chR.json();
-    if (msR.ok) _chCliMensagens   = await msR.json();
-  } catch (e) {
-    console.warn("[cli-chamados] selecionar:", e.message);
-  }
-  _chCliRenderDetalhe();
-}
-
-function _chCliRenderDetalhe() {
-  const col = document.getElementById("chCliDetailCol");
-  if (!col) return;
-
-  col.classList.toggle("is-open", _chCliSelecionadoId != null);
-
-  if (_chCliSelecionadoId == null) {
-    col.innerHTML = `<div class="ch-detail-empty">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg>
-      <p>Selecione um chamado para ver os detalhes</p>
-    </div>`;
-    return;
-  }
-  const ch = _chCliSelecionado;
-  if (!ch) {
-    col.innerHTML = `<div class="ch-detail-empty"><p>Carregando…</p></div>`;
-    return;
-  }
-
-  // Timeline 3 passos
-  const passos = ["aberto", "em_atendimento", "fechado"];
-  const idx = passos.indexOf(ch.status);
-  const labels = {
-    aberto:         { titulo: "Chamado registrado",      data: ch.criado_em },
-    em_atendimento: { titulo: ch.tecnico_nome ? `Em atendimento — ${ch.tecnico_nome}` : "Em atendimento", data: ch.atualizado_em },
-    fechado:        { titulo: "Atendimento concluído",   data: ch.fechado_em },
-  };
-  const timelineHtml = passos.map((p, i) => {
-    const ativo = i <= idx;
-    const atual = i === idx && ch.status !== "fechado";
-    const cls = ativo ? (atual ? "ch-tl-step-curr" : "ch-tl-step-done") : "ch-tl-step-pending";
-    const lbl = labels[p];
-    return `<li class="ch-tl-step ${cls}">
-      <div class="ch-tl-dot"></div>
-      <div class="ch-tl-content">
-        <div class="ch-tl-title">${lbl.titulo}</div>
-        <div class="ch-tl-data">${ativo && lbl.data ? _chCliFmtData(lbl.data) : ""}</div>
-      </div>
-    </li>`;
-  }).join("");
-
-  // Mensagens
-  const userId = JSON.parse(localStorage.getItem("user") || "{}")?.id;
-  const mensagensHtml = _chCliMensagens.length === 0
-    ? `<div class="ch-chat-empty">Nenhuma mensagem ainda. Envie a primeira.</div>`
-    : _chCliMensagens.map(m => {
-        const mine = userId && m.autor_id === userId;
-        const sideCls = mine ? "is-mine" : "is-other";
-        const author = mine ? "Você" : (m.autor_nome || (m.autor_role === "tecnico" ? "Técnico" : "—"));
-        const foto = m.foto_url ? `<div class="ch-chat-photo"><img src="${_chCliEscapar(m.foto_url)}" alt="Foto" /></div>` : "";
-        const texto = m.texto ? `<div class="ch-chat-text">${_chCliEscapar(m.texto)}</div>` : "";
-        return `<div class="ch-chat-item ${sideCls}">
-          <div class="ch-chat-bubble">
-            <div class="ch-chat-header">
-              <span class="ch-chat-author">${_chCliEscapar(author)}</span>
-              <span class="ch-chat-time">${_chCliFmtData(m.criado_em)}</span>
-            </div>
-            ${foto}
-            ${texto}
-          </div>
-        </div>`;
-      }).join("");
-
-  // Bloco de avaliação (só se fechado E não avaliado)
-  const podeAvaliar = ch.status === "fechado" && !ch.ja_avaliado;
-  const avalBlock = podeAvaliar
-    ? `<div class="ch-aval-cta">
-         <div>Como foi o atendimento? Sua avaliação ajuda a melhorar o serviço.</div>
-         <button class="btn btnAccent" id="chCliBtnAvaliar" type="button">Avaliar agora</button>
-       </div>`
-    : ch.ja_avaliado
-      ? `<div class="ch-aval-cta ch-aval-done">✓ Atendimento avaliado. Obrigado!</div>`
-      : "";
-
-  // OS finalizada → mostra info
-  const osBlock = ch.os_numero
-    ? `<div class="ch-os-info">
-         <span class="hint">Ordem de serviço:</span>
-         <strong>${_chCliEscapar(ch.os_numero)}</strong>
-         ${ch.os_finalizada_em ? `<small style="color:var(--muted);">Finalizada em ${_chCliFmtData(ch.os_finalizada_em)}</small>` : ""}
-       </div>`
-    : "";
-
-  col.innerHTML = `
-    <div class="ch-detail-head">
-      <div>
-        <div class="ch-detail-title">#${ch.id} — ${_chCliEscapar(ch.titulo || "—")}</div>
-        <div class="ch-detail-sub">
-          <span class="ch-cat-badge">${_chCliCatNome[ch.categoria] || ch.categoria || "—"}</span>
-          <span class="ch-st ch-st-${ch.status||"aberto"}">${_chCliStNome[ch.status] || ch.status || "—"}</span>
-        </div>
-      </div>
-    </div>
-
-    <div class="ch-detail-body">
-      <div class="ch-detail-section">
-        <div class="ch-detail-sec-title">Descrição</div>
-        <p class="ch-detail-desc">${_chCliEscapar(ch.descricao || "Sem descrição")}</p>
-      </div>
-
-      ${osBlock}
-
-      <div class="ch-detail-section">
-        <div class="ch-detail-sec-title">Linha do tempo</div>
-        <ol class="ch-timeline">${timelineHtml}</ol>
-      </div>
-
-      ${avalBlock}
-
-      <div class="ch-detail-section ch-chat-section">
-        <div class="ch-detail-sec-title">Mensagens</div>
-        <div class="ch-chat-list" id="chCliChatList">${mensagensHtml}</div>
-        ${ch.status !== "fechado" ? `
-          <div class="ch-chat-composer">
-            <textarea id="chCliChatInput" class="input" rows="2" placeholder="Escreva uma mensagem para o técnico…" maxlength="2000"></textarea>
-            <button class="btn btnAccent" id="chCliChatEnviar" type="button">Enviar</button>
-          </div>` : ""}
-      </div>
-    </div>`;
-
-  // Scroll do chat pro fim
-  const list = document.getElementById("chCliChatList");
-  if (list) list.scrollTop = list.scrollHeight;
-
-  _chCliBindDetalheEventos();
-}
-
-function _chCliBindDetalheEventos() {
-  document.getElementById("chCliChatEnviar")?.addEventListener("click", _chCliEnviarMensagem);
-  document.getElementById("chCliChatInput")?.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      _chCliEnviarMensagem();
-    }
-  });
-  document.getElementById("chCliBtnAvaliar")?.addEventListener("click", _chCliAbrirModalAvaliacao);
-}
-
-async function _chCliEnviarMensagem() {
-  const inp = document.getElementById("chCliChatInput");
-  const btn = document.getElementById("chCliChatEnviar");
-  if (!inp || !_chCliSelecionadoId) return;
-  const texto = (inp.value || "").trim();
-  if (!texto) return;
-
-  if (btn) { btn.disabled = true; btn.textContent = "…"; }
-  try {
-    const r = await fetch(`/cliente/chamados/${_chCliSelecionadoId}/mensagens`, {
-      method: "POST",
-      headers: { ...authHeaders(), "Content-Type": "application/json" },
-      body: JSON.stringify({ texto }),
-    });
-    if (!r.ok) {
-      const e = await r.json().catch(() => ({}));
-      throw new Error(e.error || "Erro ao enviar");
-    }
-    inp.value = "";
-    // Refetch só as mensagens
-    const msR = await fetch(`/cliente/chamados/${_chCliSelecionadoId}/mensagens`, { headers: authHeaders() });
-    if (msR.ok) _chCliMensagens = await msR.json();
-    _chCliRenderDetalhe();
-  } catch (err) {
-    alert("Erro: " + err.message);
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = "Enviar"; }
-  }
-}
-
-// ----- Avaliação -----
-function _chCliAbrirModalAvaliacao() {
-  if (!_chCliSelecionado) return;
-  _chCliAvalNotaSelecionada = 0;
-  document.getElementById("chCliAvalSub").textContent = `Chamado #${_chCliSelecionado.id} — ${_chCliSelecionado.titulo || ""}`;
-  document.getElementById("chCliAvalComentario").value = "";
-  document.getElementById("chCliAvalMsg").textContent = "";
-  _chCliAtualizarEstrelas(0);
-  document.getElementById("chCliAvalOverlay").style.display = "flex";
-}
-
-function _chCliFecharModalAvaliacao() {
-  document.getElementById("chCliAvalOverlay").style.display = "none";
-}
-
-function _chCliAtualizarEstrelas(nota) {
-  document.querySelectorAll("#chCliAvalStars .ch-star-btn").forEach(btn => {
-    const n = Number(btn.dataset.nota);
-    btn.classList.toggle("is-active", n <= nota);
-  });
-}
-
-async function _chCliSubmitAvaliacao(event) {
-  event.preventDefault();
-  const msg = document.getElementById("chCliAvalMsg");
-  if (!_chCliSelecionadoId) return;
-  if (!_chCliAvalNotaSelecionada || _chCliAvalNotaSelecionada < 1 || _chCliAvalNotaSelecionada > 5) {
-    msg.textContent = "Escolha uma nota de 1 a 5.";
-    return;
-  }
-  const comentario = (document.getElementById("chCliAvalComentario").value || "").trim();
-  msg.textContent = "Enviando…";
-
-  try {
-    const r = await fetch(`/cliente/chamados/${_chCliSelecionadoId}/avaliar`, {
-      method: "POST",
-      headers: { ...authHeaders(), "Content-Type": "application/json" },
-      body: JSON.stringify({ nota: _chCliAvalNotaSelecionada, comentario: comentario || undefined }),
-    });
-    if (!r.ok) {
-      const e = await r.json().catch(() => ({}));
-      throw new Error(e.error || "Erro ao avaliar");
-    }
-    _chCliFecharModalAvaliacao();
-    // Refetch detalhe pro `ja_avaliado` virar true
-    await _chCliSelecionar(_chCliSelecionadoId);
-  } catch (err) {
-    msg.textContent = "Erro: " + err.message;
-  }
-}
-
-// ----- Abrir novo chamado -----
-function _chCliAbrirModalNovo() {
-  document.getElementById("chCliNovoCategoria").value = "";
-  document.getElementById("chCliNovoDescricao").value = "";
-  document.getElementById("chCliNovoMsg").textContent = "";
-  document.getElementById("chCliNovoOverlay").style.display = "flex";
-}
-
-function _chCliFecharModalNovo() {
-  document.getElementById("chCliNovoOverlay").style.display = "none";
-}
-
-async function _chCliSubmitNovo(event) {
-  event.preventDefault();
-  const msg = document.getElementById("chCliNovoMsg");
-  const categoria = document.getElementById("chCliNovoCategoria").value;
-  const descricao = (document.getElementById("chCliNovoDescricao").value || "").trim();
-
-  if (!categoria) { msg.textContent = "Selecione uma categoria."; return; }
-  if (descricao.length < 5) { msg.textContent = "Descreva o problema com pelo menos 5 caracteres."; return; }
-
-  msg.textContent = "Abrindo chamado…";
-  try {
-    const r = await fetch("/cliente/chamados", {
-      method: "POST",
-      headers: { ...authHeaders(), "Content-Type": "application/json" },
-      body: JSON.stringify({ categoria, descricao }),
-    });
-    if (!r.ok) {
-      const e = await r.json().catch(() => ({}));
-      throw new Error(e.error || "Erro ao abrir chamado");
-    }
-    _chCliFecharModalNovo();
-    await carregarChamadosCli();
-    // Vai pra tab "Abertos" e seleciona o novo
-    const novo = await r.json();
-    if (novo?.id) {
-      _chCliTabAtiva = "aberto";
-      document.querySelectorAll(".wa-tab[data-ch-cli-tab]").forEach(t => t.classList.toggle("is-active", t.dataset.chCliTab === "aberto"));
-      _chCliSelecionar(novo.id);
-    }
-  } catch (err) {
-    msg.textContent = "Erro: " + err.message;
-  }
-}
-
-function _chCliBindEventos() {
-  if (_chCliBindFeito) return;
-  _chCliBindFeito = true;
-
-  // Tabs
-  document.querySelectorAll(".wa-tab[data-ch-cli-tab]").forEach(tab => {
-    tab.addEventListener("click", () => {
-      _chCliTabAtiva = tab.dataset.chCliTab;
-      document.querySelectorAll(".wa-tab[data-ch-cli-tab]").forEach(t => t.classList.toggle("is-active", t === tab));
-      _chCliRender();
-    });
-  });
-
-  // Busca
-  document.getElementById("chCliBusca")?.addEventListener("input", _chCliRender);
-
-  // Click na linha da tabela
-  document.getElementById("chCliTableBody")?.addEventListener("click", (e) => {
-    const row = e.target.closest("tr[data-ch-cli-id]");
-    if (!row) return;
-    const id = Number(row.dataset.chCliId);
-    _chCliSelecionar(id);
-    if (window.innerWidth <= 768) {
-      setTimeout(() => document.getElementById("chCliDetailCol")?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
-    }
-  });
-
-  // Modal abrir chamado
-  document.getElementById("chCliBtnNovo")?.addEventListener("click", _chCliAbrirModalNovo);
-  document.getElementById("chCliNovoFechar")?.addEventListener("click", _chCliFecharModalNovo);
-  document.getElementById("chCliNovoCancelar")?.addEventListener("click", _chCliFecharModalNovo);
-  document.getElementById("chCliNovoForm")?.addEventListener("submit", _chCliSubmitNovo);
-  document.getElementById("chCliNovoOverlay")?.addEventListener("click", (e) => {
-    if (e.target.id === "chCliNovoOverlay") _chCliFecharModalNovo();
-  });
-
-  // Modal avaliação
-  document.getElementById("chCliAvalFechar")?.addEventListener("click", _chCliFecharModalAvaliacao);
-  document.getElementById("chCliAvalCancelar")?.addEventListener("click", _chCliFecharModalAvaliacao);
-  document.getElementById("chCliAvalForm")?.addEventListener("submit", _chCliSubmitAvaliacao);
-  document.getElementById("chCliAvalOverlay")?.addEventListener("click", (e) => {
-    if (e.target.id === "chCliAvalOverlay") _chCliFecharModalAvaliacao();
-  });
-  document.querySelectorAll("#chCliAvalStars .ch-star-btn").forEach(btn => {
-    btn.addEventListener("click", () => {
-      _chCliAvalNotaSelecionada = Number(btn.dataset.nota);
-      _chCliAtualizarEstrelas(_chCliAvalNotaSelecionada);
-    });
-  });
-
-  // Esc fecha modais
-  document.addEventListener("keydown", (e) => {
-    if (e.key !== "Escape") return;
-    const ov1 = document.getElementById("chCliNovoOverlay");
-    const ov2 = document.getElementById("chCliAvalOverlay");
-    if (ov1 && ov1.style.display !== "none") _chCliFecharModalNovo();
-    if (ov2 && ov2.style.display !== "none") _chCliFecharModalAvaliacao();
-  });
-}
+carregar();
+setInterval(carregar, 10000);

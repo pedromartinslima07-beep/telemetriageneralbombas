@@ -54,20 +54,33 @@ aliases:
     isso está fora da página (ver `PRODUCT.md`).
   - `POST /leads` **não foi exercitado contra o backend real** nesta sessão —
     só a validação de campo vazio no front.
-- **Painel do cliente "Meu prédio"** 🟡 — reconstruído em 2026-08-13 na mesma
-  branch. Saiu do `admin.css`, entrou no sistema "Chapa"; quatro seções viraram
-  três e a estrutura virou uma linha do tempo. Fluxo e pegadinhas em
-  [`../docs/modulos/painel-cliente.md`](../docs/modulos/painel-cliente.md).
+- **Painel do cliente** 🟡 — **v3 implementada em 14/08**, a partir da comp
+  [`../docs/comps/painel-cliente-v3.html`](../docs/comps/painel-cliente-v3.html).
+  A v1 (13/08) foi rejeitada por manter a casca do admin; a v3 removeu
+  navegação, KPIs, abas, buscas e tabelas, e tudo que sobrou virou ficha.
+  Fluxo e pegadinhas em
+  [`../docs/modulos/painel-cliente.md`](../docs/modulos/painel-cliente.md);
+  estratégia em `.impeccable/surfaces/public-cliente-html.md`.
   Pendente antes do merge:
-  - **Abrir com backend real** (servidor de teste + conta de cliente demo). A
-    validação foi feita só em harness estático, a 1440px e 390px.
-  - **Ver o caminho do cliente sem telemetria contratada** renderizado.
-  - **Decidir se o tanque cilíndrico volta** — ele foi substituído pela coluna
-    d'água da landing, revertendo uma escolha que o Pedro aprovou em julho.
-  - 📋 **`alertas_recentes` em `/cliente/status`** — devolver os alertas
-    resolvidos dos últimos 30 dias para a linha do tempo parar de mostrar
-    alerta que abre e nunca fecha. Aditivo: sem rota nova, sem tocar no
-    `sw.js`. Aguarda o Pedro liberar mexer no backend.
+  - **Abrir com backend real** (servidor de teste + conta de cliente demo). Até
+    aqui só houve harness estático — 8 estados × 2 tamanhos, `fetch` dublado.
+  - **Ver o cliente sem telemetria contratada com um cliente real** (sem
+    reservatórios no banco). No harness o caminho renderiza.
+  - **Decidir o âmbar no estado "atenção"**: ali a palavra que nomeia o
+    problema, o número, o anel do tanque **e** o botão são todos âmbar — quatro
+    regiões, contra a regra de "uma vez por tela". Veio assim da comp aprovada;
+    não mexi sozinho.
+  - 📋 **`ja_avaliado` no `SELECT` de `GET /cliente/chamados`** — uma linha
+    (`(ch.avaliacao_nota IS NOT NULL) AS ja_avaliado`) elimina as requisições
+    de detalhe que hoje existem só para saber se o convite a avaliar aparece na
+    história. Aditivo, sem rota nova, sem tocar no `sw.js`.
+  - 📋 **`alertas_recentes` em `/cliente/status`** — alertas resolvidos dos
+    últimos 30 dias, para a história parar de mostrar alerta que abre e nunca
+    fecha. Aditivo: sem rota nova, sem tocar no `sw.js`. Aguarda o Pedro
+    liberar mexer no backend.
+  - 📋 **O prédio em corte** ([`../docs/comps/predio-em-corte.html`](../docs/comps/predio-em-corte.html))
+    continua como exploração, não como decisão: exige campo novo de posição do
+    reservatório no banco.
 - **Gateway Meta WhatsApp** — código pronto, pendente configuração externa
   (ver [`active-work.md`](active-work.md)).
 - **Fase 10 (treinar IA)** 🟡 — 10A feito; 10B-E aguardam ~500+ conversas

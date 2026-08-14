@@ -2436,6 +2436,104 @@ em [`modulos/painel-cliente.md`](modulos/painel-cliente.md).
 **Nada rodou contra o backend real**, e o caminho do cliente sem telemetria
 contratada não foi visto renderizado.
 
+### 2026-08-14 — Painel do cliente v3: "a resposta, não o painel" (frontend)
+
+A v1 acima foi **rejeitada** como direção em 13/08 (mantinha a casca do admin).
+A v2 virou comp, a v3 refinou a comp por várias passadas, e **esta entrada é a
+v3 virando código**: `public/cliente.html`, `cliente.css` e `cliente.js` foram
+reescritos a partir de
+[`comps/painel-cliente-v3.html`](comps/painel-cliente-v3.html).
+
+- **A navegação inteira saiu.** Não há mais sidebar, botão de colapso, topbar
+  com avatar e "atualizar", fileira de KPIs, abas, campos de busca nem tabelas.
+  As três seções (`predio`/`alertas`/`chamados`) deixaram de existir: **alertas
+  e chamados não são mais lugares para onde navegar**. É essa remoção, e não a
+  paleta, que separa este painel do admin.
+- **A página tem duas partes e um rodapé.** A **resposta** ocupa a primeira
+  tela (uma frase + os reservatórios como prova + uma ação); a **história**
+  vem abaixo, agrupada por dia num trilho de datas grudento; o rodapé fecha com
+  o lockup completo e os contatos reais.
+- **Tudo que sobrou virou ficha** (diálogo em placa clara sobre o marinho):
+  pedir ajuda, chamado (passos + conversa + avaliação), todos os
+  reservatórios, reservatório (histórico + PDF) e sua conta (troca de senha +
+  sair). **Uma ficha por vez**, com pilha de um nível: o X devolve para a ficha
+  de origem em vez de fechar as duas.
+- **O ramo "normal" do veredito foi partido em dois.** Antes, o dia calmo e o
+  dia com técnico no prédio recebiam a mesma frase gigante — chamado aberto não
+  tirava de "Tudo normal". Agora existe a **linha de atendimento**, com ponto
+  azul (`--crista`, não âmbar: chamado em curso não é alarme) e o **título do
+  chamado** junto, para que num prédio com sensor mudo e chamado sobre outra
+  coisa ninguém leia "alguém já está cuidando do sensor".
+- **A prova são no máximo três colunas**, tenha o prédio 3 ou 30
+  reservatórios: aparecem os que estão fora do normal ou, se tudo está normal,
+  os três mais baixos. O resto vira frase honesta com a faixa real ("Mais 8
+  reservatórios, todos entre 77% e 93%") que abre a lista completa.
+- **O cilindro voltou** — escolha do Pedro em 14/08, vendo o estudo lado a lado
+  ([`comps/reservatorio-estudo.html`](comps/reservatorio-estudo.html)). É o
+  `_telTanqueSVG` do admin **reproporcionado** (50×94 em vez de 62×94), sem os
+  ticks e **sem limiar desenhado dentro do tanque**. No celular ele dá lugar à
+  coluna chata: os dois markups são emitidos juntos e a media query decide.
+- **ApexCharts saiu do `cliente.html`.** O gráfico da ficha do reservatório é
+  SVG desenhado no próprio `cliente.js` (~8 linhas de path), como na comp.
+  ~200 KB a menos por carga; some o tooltip interativo do gráfico.
+- **Frases fechadas:** o dia normal é *"Seu prédio está abastecido."* Não
+  reabrir frase a frase — se mudar, muda por mudança de produto.
+- **Bugs reais corrigidos na verificação:**
+  - `overflow-x: clip` **só no `body` não segura**: a engrenagem que sangra
+    para a margem fazia a página rolar 66px na horizontal a 390px (medido).
+    Precisa estar em `html` **e** `body`. `clip`, nunca `hidden` — `hidden`
+    quebraria o `sticky` da barra e do trilho de datas.
+  - A prova era reconstruída a cada tick de 10s, e a lâmina d'água **voltava a
+    zero e subia de novo**: num painel de nível de água, tanques esvaziando
+    sozinhos a cada dez segundos é a leitura errada. Agora só redesenha quando
+    a assinatura da leitura muda.
+  - `desdeQuando` arredondava: leitura de 40 segundos virava "há 1 min". Virou
+    piso — "agora mesmo".
+- **Backend intocado.** Nenhuma rota, campo ou migration; e como não houve
+  endpoint novo, o **`sw.js` não foi tocado** (`/cliente` e `/relatorio` já são
+  network-first).
+
+#### Passada de celular, no mesmo dia
+
+O Pedro arrastou a página para o lado no celular e mandou a captura. Duas
+coisas saíram daí:
+
+- ⚠️ **A comp tinha o mesmo bug de rolagem horizontal** e ficou sem a correção
+  quando o código foi corrigido. Medido: 42px a 320, 59px a 390, 87px a 540.
+  `docs/comps/painel-cliente-v3.html` recebeu o mesmo `html,body{overflow-x:clip}`
+  — a comp é o artefato que ele abre para revisar e não podia continuar
+  mentindo. O painel implementado já estava correto (`scrollW === clientW` em
+  320/360/375/390/412/430/540/768).
+- ⚠️ **"Preciso de ajuda" caía abaixo da dobra no celular** nos estados de
+  alarme — a 390px começava a **787px** no sem sinal, **729px** no de atenção,
+  **700px** no crítico. Num painel cuja tese é *"a primeira tela é a resposta,
+  com UMA ação"*, a ação sumia justamente quando o síndico está aflito.
+  Corrigido em três frentes: `order` na quebra de 820px sobe a ação para antes
+  da linha de atendimento (que responde à 2ª pergunta, não à 1ª, e segue na
+  primeira tela); o apoio encurtou e a nota "nossa equipe é avisada
+  automaticamente" só aparece **quando não há chamado aberto** (havendo, a
+  linha de atendimento já diz quem cuida); e a linha de atendimento virou
+  **duas linhas** (título + referência do chamado em `<small>`) em vez de uma
+  frase corrida que quebrava em 3–4 linhas.
+  Base do botão a 390px, antes → depois: 522→462 (calmo), 672→462
+  (atendimento), 729→462 (atenção), 700→434 (crítico), 787→491 (sem sinal),
+  579→564 (sem telemetria). A 320px o pior caso fica em 569px.
+  ⚠️ **Quem acrescentar algo acima da ação precisa refazer essa medição.**
+
+- Cache-bust: `cliente.css` v12, `cliente.js` v31.
+
+⚠️ **O convite a avaliar na história depende de `ja_avaliado`, que só o
+detalhe devolve** — `GET /cliente/chamados` (lista) não traz o campo. Em vez de
+N requisições por tick, o painel busca o detalhe dos **3 chamados fechados mais
+recentes** uma vez e guarda a resposta. Com uma linha no SELECT da lista
+(`(ch.avaliacao_nota IS NOT NULL) AS ja_avaliado`) essas requisições somem —
+está no roadmap, aguardando liberação para mexer no backend.
+
+⚠️ **Verificação:** harness estático (os arquivos reais com `fetch` dublado),
+contact sheet de **8 estados × 2 tamanhos** (1920px e 390px), com geometria
+medida por `getBoundingClientRect` e não por captura reduzida. **Nada rodou
+contra o backend real.**
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

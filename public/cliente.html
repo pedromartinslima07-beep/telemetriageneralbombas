@@ -12,522 +12,328 @@
   <meta name="apple-mobile-web-app-title" content="General">
   <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
 
-  <!-- ⚠️ Esta página NÃO carrega mais o admin.css. O painel do cliente tem
-       folha própria, no mundo "Chapa" da landing e do login. Ver o cabeçalho
-       do cliente.css antes de reintroduzir qualquer dependência do admin. -->
+  <!-- ⚠️ Esta página NÃO carrega o admin.css. O painel do cliente tem folha
+       própria, no mundo "Chapa" da landing e do login. Ver o cabeçalho do
+       cliente.css antes de reintroduzir qualquer dependência do admin. -->
   <link rel="preload" href="/static/fonts/archivo.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="/static/fonts/martianmono.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="/static/cliente.css?v=10">
+  <link rel="stylesheet" href="/static/cliente.css?v=12">
 </head>
-<body>
+<body data-estado="carregando" data-atend="nao">
 
 <!--
-  DIRECTION CONTRACT — painel do cliente (seed 06d85de2, surface/operate)
+  DIRECTION CONTRACT — painel do cliente v3 (surface/operate)
 
-  THESIS: a vida do prédio é uma linha do tempo, não um mural de cards. Recusa
-  a grade de dashboard que o painel herdou do admin — o síndico tem UM prédio,
-  não uma carteira.
-  OWN-WORLD: "Chapa". Campo marinho como material, placas claras pousadas para
-  leitura, chanfro de 45° em dois cantos opostos, raio zero, fios de 1px no
-  lugar de sombra, amarelo #fbb329 só como região. Archivo + Martian Mono.
-  STORY: ele chega aflito, lê uma frase e sabe se pode dormir; se quiser
-  prestar contas, desce a linha e vê o que aconteceu e quem atendeu.
-  FIRST VIEWPORT: estação AGORA no topo do trilho — instrumento escuro com o
-  veredito em prosa grande, as colunas d'água reais ao lado, e as contagens do
-  que está aberto logo abaixo. A ação primária (abrir chamado) vive na seção
-  Chamados, não compete com o estado.
-  FORM: linha do tempo do prédio — candidata 6 da lista ordenada; seed 06d85de2.
-  FINISH: unreviewed and undocumented is unfinished; this build ends with the
-  finish review, the verdict, and DESIGN.md.
+  THESIS: "a resposta, não o painel". A primeira tela inteira é uma frase que
+  qualquer pessoa entende sem legenda, com os reservatórios ao lado como prova
+  e UMA ação. Abaixo, a história do prédio, contada como um humano contaria.
+  NÃO EXISTEM SEÇÕES: alertas e chamados deixaram de ser lugares para onde
+  navegar — o que acontece agora está na frase, o que já aconteceu está na
+  história, e o detalhe abre como ficha por cima.
+  OWN-WORLD: "Chapa", o mesmo da landing e do login, em VOLUME MAIS BAIXO.
+  Campo marinho como material, chanfro de 45° em dois cantos opostos, raio
+  zero, fios de 1px no lugar de sombra, amarelo #fbb329 uma vez por tela.
+  Archivo + Martian Mono.
+  ⚠️ A v1 desta reconstrução foi rejeitada por manter a casca do admin
+  (sidebar com colapso, topbar, KPIs, abas, busca, tabelas). Nada disso volta:
+  é a REMOÇÃO, não a paleta, que separa este painel do admin.
+  Comp aprovada: docs/comps/painel-cliente-v3.html
+  Estratégia durável: .impeccable/surfaces/public-cliente-html.md
 -->
 
-<div class="layout layout-cli">
+<!-- defs compartilhadas do cilindro: um só conjunto para todos os tanques da
+     página, em vez de um id novo por instância como faz o admin -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
+  <linearGradient id="g-corpo" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0"   stop-color="#fff" stop-opacity=".13"/>
+    <stop offset=".42" stop-color="#fff" stop-opacity=".02"/>
+    <stop offset="1"   stop-color="#000" stop-opacity=".26"/>
+  </linearGradient>
+  <linearGradient id="g-agua" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0"   stop-color="#2f6fe0"/>
+    <stop offset=".62" stop-color="#1a3a9e"/>
+    <stop offset="1"   stop-color="#071b5c"/>
+  </linearGradient>
+  <pattern id="g-mudo" width="9" height="9" patternUnits="userSpaceOnUse" patternTransform="rotate(-45)">
+    <rect width="9" height="9" fill="#050f38"/>
+    <line x1="0" y1="0" x2="0" y2="9" stroke="#0d1f5e" stroke-width="4"/>
+  </pattern>
+  <!-- ⚠️ id PRÓPRIO, não `g-agua`: o navegador resolve `url(#id)` pelo
+       PRIMEIRO do documento, e a área do gráfico saía com o gradiente OPACO
+       do tanque, enterrando a linha de limiar. -->
+  <linearGradient id="g-area-res" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#2f6fe0" stop-opacity=".38"/>
+    <stop offset="1" stop-color="#2f6fe0" stop-opacity="0"/>
+  </linearGradient>
+</defs></svg>
 
-  <!-- ===== SIDEBAR ===== -->
-  <aside class="sidebar" id="sidebar">
-    <div class="sidebar-inner">
+<!-- ═══ A BARRA — só identifica. Sem KPI, sem avatar, sem botão de atualizar ═══ -->
+<div class="barra" id="barra"><div class="barra-in">
+  <header class="topo">
+    <!-- logo-topo.png é o wordmark SEM a assinatura; a assinatura do
+         login-logo fica ilegível em qualquer escala de barra. O lockup
+         completo aparece uma vez só, no rodapé. -->
+    <img src="/static/logo-topo.png" alt="GENERAL">
+    <span class="fio-v"></span>
+    <span class="predio" id="nomePredio">Meu prédio</span>
+    <button class="conta" data-abrir="conta" type="button">
+      <svg viewBox="0 0 24 24" stroke-linecap="square" aria-hidden="true"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 20c0-3.6 3.4-5.6 7.5-5.6s7.5 2 7.5 5.6"/></svg>
+      <span class="conta-rot" id="nomeSindico">Sua conta</span>
+    </button>
+  </header>
+</div></div>
 
-      <div class="sidebar-header">
-        <div class="sidebar-brand">
-          <img class="sidebar-brand-logo sidebar-brand-full" src="/static/login-logo.png" alt="GENERAL" />
-          <img class="sidebar-brand-logo sidebar-brand-mini" src="/static/logo-menu.png" alt="GENERAL" />
-        </div>
-      </div>
+<main class="folha">
 
-      <nav class="nav">
-
-        <span class="nav-section-label">O prédio</span>
-
-        <button class="nav-item active" data-section="predio" data-label="Meu prédio">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter">
-            <path d="M4 21V6l8-3 8 3v15"/><path d="M9 21v-5h6v5"/>
-            <path d="M8 9h2M14 9h2M8 12.5h2M14 12.5h2"/>
-          </svg>
-          <span class="nav-item-label">Meu prédio</span>
-        </button>
-
-        <button class="nav-item" data-section="alertas" data-label="Alertas">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter">
-            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-          </svg>
-          <span class="nav-item-label">Alertas</span>
-          <span class="nav-badge" id="navBadgeAlertas" style="display:none;">0</span>
-        </button>
-
-        <span class="nav-section-label">Atendimento</span>
-
-        <button class="nav-item" data-section="chamados" data-label="Chamados">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-            <polyline points="14 2 14 8 20 8"/>
-            <line x1="9" y1="13" x2="15" y2="13"/>
-            <line x1="9" y1="17" x2="13" y2="17"/>
-          </svg>
-          <span class="nav-item-label">Chamados</span>
-          <span class="nav-badge" id="navBadgeChamados" style="display:none;">0</span>
-        </button>
-
-      </nav>
-
-      <div class="sidebar-footer">
-        <div class="sidebar-user">
-          <div class="sidebar-user-avatar">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter">
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
-            </svg>
-          </div>
-          <div class="sidebar-user-info">
-            <div class="sidebar-user-role">Cliente</div>
-            <div class="sidebar-user-label">Meu Condomínio</div>
-          </div>
-        </div>
-        <button class="nav-item" id="btnAbrirSenha" data-label="Alterar senha">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter">
-            <rect x="3" y="11" width="18" height="11"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-          </svg>
-          <span class="nav-item-label">Alterar senha</span>
-        </button>
-        <button class="nav-item nav-item-logout" id="btnSairCliente" data-label="Sair">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter">
-            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-            <polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
-          </svg>
-          <span class="nav-item-label">Sair</span>
-        </button>
-      </div>
-
+  <!-- ═══ 1. A RESPOSTA ═══ -->
+  <section class="resposta">
+    <div class="eng" aria-hidden="true">
+      <svg viewBox="0 0 200 200">
+        <circle cx="100" cy="100" r="62" fill="none" stroke="currentColor" stroke-width="27"/>
+        <g fill="currentColor">
+          <rect x="93" y="6" width="14" height="26"/>
+          <rect x="93" y="6" width="14" height="26" transform="rotate(30 100 100)"/>
+          <rect x="93" y="6" width="14" height="26" transform="rotate(60 100 100)"/>
+          <rect x="93" y="6" width="14" height="26" transform="rotate(90 100 100)"/>
+          <rect x="93" y="6" width="14" height="26" transform="rotate(120 100 100)"/>
+          <rect x="93" y="6" width="14" height="26" transform="rotate(150 100 100)"/>
+          <rect x="93" y="6" width="14" height="26" transform="rotate(180 100 100)"/>
+          <rect x="93" y="6" width="14" height="26" transform="rotate(210 100 100)"/>
+          <rect x="93" y="6" width="14" height="26" transform="rotate(240 100 100)"/>
+          <rect x="93" y="6" width="14" height="26" transform="rotate(270 100 100)"/>
+          <rect x="93" y="6" width="14" height="26" transform="rotate(300 100 100)"/>
+          <rect x="93" y="6" width="14" height="26" transform="rotate(330 100 100)"/>
+        </g>
+      </svg>
     </div>
-  </aside>
 
-  <!-- ===== MAIN ===== -->
-  <div class="main">
+    <div class="placa">
+      <div class="placa-cel">
+        <h1 class="frase" id="frase">Lendo os sensores…</h1>
+        <p class="apoio" id="apoio">Um instante — estamos buscando a leitura mais recente do seu prédio.</p>
 
-    <div class="content-header">
-      <button class="topbar-toggle" id="btnSidebarToggleIn" aria-label="Abrir/fechar menu">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square">
-          <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
-        </svg>
+        <!-- ⚠️ Aparece em TODO estado com chamado aberto, não só no dia
+             normal: crítico, baixo e mudo afirmavam em prosa que o chamado
+             tinha sido aberto e não davam objeto nenhum para tocar. -->
+        <button class="linha-atend" id="linhaAtend" type="button">
+          <span class="ponto aberto"></span>
+          <span id="atendTxt"></span>
+          <svg class="seta" viewBox="0 0 24 24" stroke-linecap="square" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
+        </button>
+
+        <a class="quero" id="quero" href="https://wa.me/5511966536110?text=Ol%C3%A1!%20Quero%20saber%20mais%20sobre%20o%20monitoramento%20de%20reservat%C3%B3rios." target="_blank" rel="noopener">Quero monitorar meu prédio</a>
+
+        <div class="rodape-resposta">
+          <button class="ajuda" data-abrir="ajuda" type="button">Preciso de ajuda</button>
+          <span class="desde" id="desde"></span>
+        </div>
+
+        <div class="aviso" id="aviso" hidden>
+          <span id="avisoTxt"></span>
+          <button type="button" id="avisoBtn">Tentar de novo</button>
+        </div>
+      </div>
+
+      <div class="placa-cel">
+        <div class="colunas" id="colunas"></div>
+        <div id="resto"></div>
+
+        <div class="sem-sensor" id="semSensor">
+          <span class="tubo"></span>
+          <div class="etiqueta">Sem medição</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ 2. A HISTÓRIA ═══ -->
+  <section class="historia">
+    <h2>O que aconteceu</h2>
+    <div id="historia"></div>
+
+    <div class="relatorio" id="relatorio">
+      <button class="btn-fio" id="btnPdf" type="button">Baixar relatório em PDF</button>
+      <span class="nota">Para levar à assembleia ou anexar à prestação de contas.</span>
+    </div>
+  </section>
+
+</main>
+
+<footer class="rodape">
+  <div class="rodape-in">
+    <!-- única aparição do lockup completo, com a assinatura -->
+    <img class="rodape-logo" src="/static/login-logo.png" alt="General Engenharia da Manutenção">
+    <dl class="rodape-contato">
+      <div><dt>Telefone</dt><dd><a href="tel:+551120388679">(11) 2038-8679</a></dd></div>
+      <div><dt>WhatsApp</dt><dd><a href="https://wa.me/5511966536110" target="_blank" rel="noopener">(11) 96653-6110</a></dd></div>
+      <div><dt>E-mail</dt><dd><a href="mailto:comercial@generalbombas.com">comercial@generalbombas.com</a></dd></div>
+    </dl>
+  </div>
+  <!-- sem repetir "General Engenharia da Manutenção" em texto: é exatamente
+       o que a assinatura do lockup diz, 40px acima -->
+  <div class="rodape-fim"><div>
+    <span id="rodapeLinha">Painel do síndico</span>
+    <span id="rodapeAno">2026</span>
+  </div></div>
+</footer>
+
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     AS FICHAS — tudo que "abre por cima".
+     O corpo de cada uma é montado pelo cliente.js; aqui fica só a casca.
+     ⚠️ Uma ficha por vez, sempre. Ficha sobre ficha era o vício de modal do
+     admin: o X fechava as duas e o síndico voltava ao painel em vez da lista.
+     ═══════════════════════════════════════════════════════════════════════ -->
+
+<!-- FICHA: pedir ajuda — é o POST /cliente/chamados (categoria + descrição) -->
+<div class="ficha-fundo" id="fAjuda" hidden>
+  <div class="ficha" role="dialog" aria-modal="true" aria-labelledby="fAjudaT" tabindex="-1">
+    <div class="ficha-topo">
+      <div>
+        <div class="id" id="fAjudaId">Seu prédio</div>
+        <h3 id="fAjudaT">O que está acontecendo?</h3>
+      </div>
+      <button class="fechar" data-fechar aria-label="Fechar" type="button">
+        <svg viewBox="0 0 24 24" stroke-linecap="square" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
       </button>
-      <h1 class="topbar-title" id="topbarTitleDesktop">Meu prédio</h1>
-
-      <div class="topbar-actions">
-        <span class="statusMsg" id="statusMsg"></span>
-        <button class="icon-btn" id="btnAtualizarCliente" title="Atualizar">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter">
-            <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
-            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
-          </svg>
-        </button>
-        <div class="topbar-user">
-          <div class="topbar-user-avatar">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter">
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
-            </svg>
-          </div>
-          <div class="topbar-user-meta">
-            <span class="topbar-user-name">Cliente</span>
-            <span class="topbar-user-role">Meu Condomínio</span>
-          </div>
-        </div>
-      </div>
     </div>
+    <div class="ficha-corpo">
+      <p class="ficha-intro">Escolha o mais parecido. Se não for nenhum, use “Outro”.</p>
 
-    <div class="content">
-
-      <!-- ═══════════════════════════════════════════════════════════════
-           SEÇÃO: MEU PRÉDIO
-           ───────────────────────────────────────────────────────────────
-           Funde o que eram duas seções (Dashboard e Telemetria). Elas
-           mostravam os MESMOS 3-5 reservatórios duas vezes — herança do
-           admin, que tem as duas porque olha N condomínios.
-
-           A estrutura é um trilho: o AGORA no topo, o passado descendo.
-           ═══════════════════════════════════════════════════════════════ -->
-      <div class="section is-active" data-section="predio">
-
-        <!-- Cliente sem telemetria contratada: bloco único (antes havia dois,
-             um no dashboard e outro na telemetria, dizendo a mesma coisa). -->
-        <div id="semTelemetria" class="tel-cli-fallback" hidden>
-          <div class="tel-cli-fallback-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter">
-              <path d="M3 12h4l3-9 4 18 3-9h4"/>
-            </svg>
-          </div>
-          <h2 class="tel-cli-fallback-title">Seu prédio ainda não tem monitoramento instalado</h2>
-          <p class="tel-cli-fallback-text">
-            Com o monitoramento, o nível dos reservatórios e o funcionamento das bombas
-            aparecem aqui o tempo todo — e uma queda de nível vira alerta e chamado antes
-            de o morador perceber.
-          </p>
-          <ul class="tel-cli-fallback-list">
-            <li>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter"><polyline points="20 6 9 17 4 12"/></svg>
-              <span>Nível de cada reservatório, atualizado a cada poucos segundos</span>
-            </li>
-            <li>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter"><polyline points="20 6 9 17 4 12"/></svg>
-              <span>Alerta automático de nível baixo e de bomba que parou de responder</span>
-            </li>
-            <li>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter"><polyline points="20 6 9 17 4 12"/></svg>
-              <span>Histórico e relatório em PDF para levar à assembleia</span>
-            </li>
-            <li>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter"><polyline points="20 6 9 17 4 12"/></svg>
-              <span>O técnico chega sabendo o que aconteceu</span>
-            </li>
-          </ul>
-          <div class="tel-cli-fallback-cta">
-            <a href="https://wa.me/5511966536110?text=Ol%C3%A1!%20Quero%20saber%20mais%20sobre%20o%20monitoramento%20de%20reservat%C3%B3rios." target="_blank" rel="noopener" class="btn btnAccent">
-              Quero saber mais
-            </a>
-            <button class="btn btn-sm" data-section-go="chamados" type="button">Ir para Chamados</button>
-            <span class="tel-cli-fallback-note">Resposta pelo WhatsApp</span>
-          </div>
-        </div>
-
-        <!-- O TRILHO -->
-        <div class="linha" id="predioLinha" hidden>
-
-          <!-- ─── Estação AGORA ─── -->
-          <div class="linha-estacao is-agora">
-            <div class="linha-marca"></div>
-            <span class="linha-quando">Agora</span>
-
-            <!-- O instrumento. Mesma anatomia do da landing (cabeçalho /
-                 veredito / colunas / nota), mas ligado no sensor de verdade.
-                 ⚠️ As faixas de 45% e 20% desenhadas na coluna são as do
-                 backend (`nivelFromPct`). Mudou lá, muda aqui E na landing. -->
-            <div class="agora" id="agoraInstr" data-estado="normal">
-              <div class="agora-cab">
-                <span class="agora-id" id="agoraId">Reservatórios monitorados</span>
-                <span class="agora-rel" id="agoraRelogio">--:--:--</span>
-              </div>
-              <p class="agora-veredito" id="agoraVeredito">Lendo os sensores…</p>
-              <div class="agora-colunas" id="agoraColunas"></div>
-              <div class="agora-nota" id="agoraNota"></div>
-            </div>
-
-            <!-- O que está aberto agora. Contagens de estado, não de história
-                 — por isso moram na estação AGORA e não numa faixa solta. -->
-            <div id="resumoGrid" class="resumo-grid"></div>
-          </div>
-
-          <!-- ─── Estação HISTÓRICO ─── -->
-          <div class="linha-estacao" id="estHistorico">
-            <div class="linha-marca"></div>
-            <span class="linha-quando" id="histRotulo">Últimas 24 horas</span>
-
-            <section class="card">
-              <div class="cardHead">
-                <h2>
-                  <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter">
-                    <path d="M3 12h4l3-9 4 18 3-9h4"/>
-                  </svg>
-                  Como o nível se comportou
-                </h2>
-                <div class="tel-historico-ctrls">
-                  <button class="tel-range-btn is-active" data-dias="1" type="button">24h</button>
-                  <button class="tel-range-btn" data-dias="7"  type="button">7d</button>
-                  <button class="tel-range-btn" data-dias="30" type="button">30d</button>
-                  <button class="tel-range-btn" data-dias="90" type="button">90d</button>
-                </div>
-              </div>
-              <div class="tel-historico-filtros">
-                <select class="tel-select" id="histReservatorio" aria-label="Reservatório"></select>
-                <button id="btnExportarPDF" class="btn-pdf" type="button" disabled>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" width="14" height="14">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
-                  </svg>
-                  <span>Baixar PDF</span>
-                </button>
-              </div>
-              <div class="tel-historico-chart" id="telCliHistChart"></div>
-              <div class="tel-historico-empty mc-empty" id="telCliHistEmpty" style="display:none;">Sem leituras registradas neste período.</div>
-            </section>
-          </div>
-
-          <!-- ─── Estações de evento (montadas pelo cliente.js) ─── -->
-          <div id="linhaEventos"></div>
-
-        </div><!-- /linha -->
-
-      </div><!-- /section predio -->
-
-      <!-- ===== SEÇÃO: ALERTAS ===== -->
-      <div class="section" data-section="alertas">
-
-        <div class="resumo-grid" id="alKpiGrid"></div>
-
-        <div class="ch-layout">
-          <div class="ch-list-col">
-            <div class="ch-toolbar">
-              <div class="wa-tabs al-tabs" role="tablist">
-                <button class="wa-tab al-tab is-active" data-al-tab="todos" type="button">Todos <span class="wa-count al-count" id="alCountTodos">0</span></button>
-                <button class="wa-tab al-tab" data-al-tab="critico" type="button">Críticos <span class="wa-count al-count" id="alCountCritico">0</span></button>
-                <button class="wa-tab al-tab" data-al-tab="atencao" type="button">Atenção <span class="wa-count al-count" id="alCountAtencao">0</span></button>
-              </div>
-              <input id="alBusca" class="input" placeholder="Buscar por tipo ou mensagem…">
-            </div>
-            <div class="tableWrap ch-table-wrap al-tableWrap">
-              <table class="al-table">
-                <thead>
-                  <tr>
-                    <th>Tipo</th>
-                    <th>Mensagem</th>
-                    <th>Severidade</th>
-                    <th>Aberto há</th>
-                    <th>Atualizado</th>
-                  </tr>
-                </thead>
-                <tbody id="tbodyAlertasCliente"></tbody>
-              </table>
-              <div id="semAlertas" class="al-empty" style="display:none;">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" stroke-linejoin="miter">
-                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
-                </svg>
-                <p>Nenhum alerta ativo. O sistema segue lendo os sensores.</p>
-              </div>
-            </div>
-          </div>
-
-          <aside class="ch-detail-col al-painel" id="alPainel">
-            <div class="al-empty">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" stroke-linejoin="miter">
-                <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
-              </svg>
-              <p>Toque num alerta para ver os detalhes</p>
-            </div>
-          </aside>
-        </div>
-      </div><!-- /section alertas -->
-
-      <!-- ===== SEÇÃO: CHAMADOS ===== -->
-      <div class="section" data-section="chamados">
-
-        <div class="resumo-grid" id="chCliKpiGrid"></div>
-
-        <div class="ch-layout">
-          <div class="ch-list-col">
-            <div class="ch-toolbar">
-              <div class="wa-tabs" role="tablist">
-                <button class="wa-tab is-active" data-ch-cli-tab="todos" type="button">Todos <span class="wa-count" id="chCliCtTodos">0</span></button>
-                <button class="wa-tab" data-ch-cli-tab="aberto" type="button">Abertos <span class="wa-count" id="chCliCtAbertos">0</span></button>
-                <button class="wa-tab" data-ch-cli-tab="em_atendimento" type="button">Em atend. <span class="wa-count" id="chCliCtAtend">0</span></button>
-                <button class="wa-tab" data-ch-cli-tab="fechado" type="button">Resolvidos <span class="wa-count" id="chCliCtFechados">0</span></button>
-              </div>
-              <input id="chCliBusca" class="input" placeholder="Buscar por título, categoria…">
-              <button class="btn btn-sm btnAccent" id="chCliBtnNovo" type="button">Abrir chamado</button>
-            </div>
-            <div class="tableWrap ch-table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th style="width:64px">Nº</th>
-                    <th>Título</th>
-                    <th style="width:110px">Categoria</th>
-                    <th style="width:100px">Status</th>
-                    <th style="width:70px">Data</th>
-                  </tr>
-                </thead>
-                <tbody id="chCliTableBody"></tbody>
-              </table>
-              <div id="chCliEmpty" class="al-empty" style="display:none;">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" stroke-linejoin="miter">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
-                </svg>
-                <p>Nenhum chamado por aqui. Se algo não estiver certo no prédio, clique em "Abrir chamado".</p>
-              </div>
-            </div>
-          </div>
-
-          <aside class="ch-detail-col" id="chCliDetailCol">
-            <div class="ch-detail-empty">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" stroke-linejoin="miter"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg>
-              <p>Selecione um chamado para acompanhar o atendimento</p>
-            </div>
-          </aside>
-        </div>
-      </div><!-- /section chamados -->
-
-    </div><!-- /content -->
-  </div><!-- /main -->
-</div><!-- /layout -->
-
-<!-- Modal: alterar senha -->
-<div id="senhaOverlay" class="modalOverlay" style="display:none;">
-  <div class="modalBox" style="max-width:440px;">
-    <div class="modalHead">
-      <div>
-        <div class="modalTitle">Alterar senha</div>
-        <div class="modalSub">Defina uma nova senha para sua conta</div>
+      <!-- placas grandes, não um <select> de 7 itens: público mais velho, no
+           celular — alvo de toque vence economia de espaço -->
+      <div class="motivos" id="motivos" role="group" aria-label="Motivo do chamado">
+        <button class="motivo" data-cat="sem_agua"    aria-pressed="false" type="button">Está faltando água</button>
+        <button class="motivo" data-cat="vazamento"   aria-pressed="false" type="button">Vazamento</button>
+        <button class="motivo" data-cat="bomba_falha" aria-pressed="false" type="button">A bomba não está funcionando</button>
+        <button class="motivo" data-cat="nivel_baixo" aria-pressed="false" type="button">Nível baixo no reservatório</button>
+        <button class="motivo" data-cat="ruido"       aria-pressed="false" type="button">Barulho na casa de máquinas</button>
+        <button class="motivo" data-cat="manutencao"  aria-pressed="false" type="button">Manutenção</button>
+        <button class="motivo" data-cat="outro"       aria-pressed="false" type="button">Outro</button>
       </div>
-      <button class="btn btn-sm" id="btnFecharSenhaTop">Fechar</button>
-    </div>
-    <div class="modalBody">
-      <div class="modalTools"><div class="modalCount" id="senhaMsg"></div></div>
-      <form id="formTrocarSenha" class="formGrid">
-        <label class="f"><span>Senha atual</span><input id="senhaAtual" type="password" required /></label>
-        <label class="f"><span>Nova senha</span><input id="senhaNova" type="password" required minlength="6" /></label>
-        <label class="f"><span>Confirmar nova senha</span><input id="senhaNova2" type="password" required minlength="6" /></label>
-        <div class="formActions">
-          <button class="btn" type="button" id="btnCancelarSenha">Cancelar</button>
-          <button class="btn btnAccent" type="submit">Salvar</button>
-        </div>
-      </form>
+
+      <label class="campo" style="margin-top:22px"><span>Conte o que está acontecendo</span>
+        <textarea id="ajudaTexto" rows="4" maxlength="4000" placeholder="Desde quando está assim? Alguém já mexeu? Quanto mais detalhe, mais preparado o técnico chega."></textarea></label>
+
+      <div class="acoes">
+        <button class="btn-fio" id="ajudaEnviar" type="button">Enviar pedido</button>
+        <span class="nota">Abrimos o chamado na hora e você acompanha por aqui.</span>
+      </div>
+      <p class="ficha-msg" id="ajudaMsg" role="status"></p>
     </div>
   </div>
 </div>
 
-<!-- Modal: abrir chamado -->
-<div id="chCliNovoOverlay" class="modalOverlay" style="display:none;">
-  <div class="modalBox" style="max-width:540px;">
-    <div class="modalHead">
+<!-- FICHA: chamado — hospeda os passos, a conversa e a avaliação.
+     Uma só para aberto e fechado: o compositor existe apenas com o chamado
+     aberto, e a avaliação apenas com ele fechado e ainda não avaliado. -->
+<div class="ficha-fundo" id="fChamado" hidden>
+  <div class="ficha" role="dialog" aria-modal="true" aria-labelledby="fChamadoT" tabindex="-1">
+    <div class="ficha-topo">
       <div>
-        <div class="modalTitle">Abrir chamado</div>
-        <div class="modalSub">Conte o que está acontecendo. Nossa equipe recebe na hora.</div>
+        <div class="id" id="fChamadoId">Chamado</div>
+        <h3 id="fChamadoT">Carregando…</h3>
       </div>
-      <button class="btn btn-sm" id="chCliNovoFechar" type="button">Fechar</button>
+      <button class="fechar" data-fechar aria-label="Fechar" type="button">
+        <svg viewBox="0 0 24 24" stroke-linecap="square" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
     </div>
-    <div class="modalBody">
-      <div class="modalTools"><div class="modalCount" id="chCliNovoMsg"></div></div>
-      <form id="chCliNovoForm" class="formGrid">
-        <label class="f">
-          <span>O que está acontecendo?</span>
-          <select id="chCliNovoCategoria" required>
-            <option value="">Selecione…</option>
-            <option value="sem_agua">Está faltando água</option>
-            <option value="vazamento">Vazamento</option>
-            <option value="bomba_falha">A bomba não está funcionando</option>
-            <option value="nivel_baixo">Nível baixo no reservatório</option>
-            <option value="ruido">Barulho na casa de máquinas</option>
-            <option value="manutencao">Manutenção</option>
-            <option value="outro">Outro</option>
-          </select>
-        </label>
-        <label class="f">
-          <span>Descrição</span>
-          <textarea id="chCliNovoDescricao" rows="5" required minlength="5" maxlength="4000" placeholder="Desde quando está assim? Alguém já mexeu? Quanto mais detalhe, mais preparado o técnico chega."></textarea>
-        </label>
-        <div class="formActions">
-          <button class="btn" type="button" id="chCliNovoCancelar">Cancelar</button>
-          <button class="btn btnAccent" type="submit">Abrir chamado</button>
-        </div>
-      </form>
+    <div class="ficha-corpo" id="fChamadoCorpo"></div>
+  </div>
+</div>
+
+<!-- FICHA: todos os reservatórios — o que não coube na prova.
+     Também serve de escolha quando o PDF da história precisa de um
+     `device_id` e o prédio tem mais de um reservatório. -->
+<div class="ficha-fundo" id="fTodos" hidden>
+  <div class="ficha" role="dialog" aria-modal="true" aria-labelledby="fTodosT" tabindex="-1">
+    <div class="ficha-topo">
+      <div>
+        <div class="id" id="fTodosId">Seu prédio</div>
+        <h3 id="fTodosT">Todos os reservatórios</h3>
+      </div>
+      <button class="fechar" data-fechar aria-label="Fechar" type="button">
+        <svg viewBox="0 0 24 24" stroke-linecap="square" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="ficha-corpo">
+      <p class="ficha-intro" id="fTodosIntro" hidden></p>
+      <ul class="res-lista" id="resLista"></ul>
     </div>
   </div>
 </div>
 
-<!-- Modal: avaliar atendimento -->
-<div id="chCliAvalOverlay" class="modalOverlay" style="display:none;">
-  <div class="modalBox" style="max-width:480px;">
-    <div class="modalHead">
+<!-- FICHA: reservatório — histórico com períodos + o PDF daquele device.
+     É onde o `device_id` que o /relatorio/pdf exige tem de onde sair. -->
+<div class="ficha-fundo" id="fReservatorio" hidden>
+  <div class="ficha" role="dialog" aria-modal="true" aria-labelledby="fResT" tabindex="-1">
+    <div class="ficha-topo">
       <div>
-        <div class="modalTitle">Como foi o atendimento?</div>
-        <div class="modalSub" id="chCliAvalSub">—</div>
+        <div class="id" id="fResId">Reservatório</div>
+        <h3 id="fResT">—</h3>
       </div>
-      <button class="btn btn-sm" id="chCliAvalFechar" type="button">Fechar</button>
+      <button class="fechar" data-fechar aria-label="Fechar" type="button">
+        <svg viewBox="0 0 24 24" stroke-linecap="square" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
     </div>
-    <div class="modalBody">
-      <div class="modalTools"><div class="modalCount" id="chCliAvalMsg"></div></div>
-      <form id="chCliAvalForm" class="formGrid">
-        <div class="f">
-          <span>Sua nota</span>
-          <div class="ch-stars-input" id="chCliAvalStars" role="radiogroup" aria-label="Avaliação">
-            <button type="button" class="ch-star-btn" data-nota="1" aria-label="1 estrela">★</button>
-            <button type="button" class="ch-star-btn" data-nota="2" aria-label="2 estrelas">★</button>
-            <button type="button" class="ch-star-btn" data-nota="3" aria-label="3 estrelas">★</button>
-            <button type="button" class="ch-star-btn" data-nota="4" aria-label="4 estrelas">★</button>
-            <button type="button" class="ch-star-btn" data-nota="5" aria-label="5 estrelas">★</button>
-          </div>
-        </div>
-        <label class="f">
-          <span>Comentário <small>(opcional)</small></span>
-          <textarea id="chCliAvalComentario" rows="4" maxlength="1000" placeholder="Conta pra gente como foi…"></textarea>
-        </label>
-        <div class="formActions">
-          <button class="btn" type="button" id="chCliAvalCancelar">Cancelar</button>
-          <button class="btn btnAccent" type="submit">Enviar avaliação</button>
-        </div>
-      </form>
+    <div class="ficha-corpo">
+      <div class="estado-linha" id="fResEstado"><span class="ponto"></span> <span id="fResEstadoTxt">—</span></div>
+
+      <div class="periodos" id="fResPeriodos" role="group" aria-label="Período">
+        <button data-dias="1"  aria-pressed="false" type="button">24 horas</button>
+        <button data-dias="7"  aria-pressed="true"  type="button">7 dias</button>
+        <button data-dias="30" aria-pressed="false" type="button">30 dias</button>
+        <button data-dias="90" aria-pressed="false" type="button">90 dias</button>
+      </div>
+
+      <div id="fResGrafico"></div>
+
+      <div class="bloco">
+        <h4>Relatório deste reservatório</h4>
+        <p>O período escolhido acima, em PDF, com as leituras e os chamados abertos por causa dele.</p>
+        <div class="acoes"><button class="btn-fio" id="fResPdf" type="button">Baixar PDF</button></div>
+        <p class="ficha-msg" id="fResMsg" role="status"></p>
+      </div>
     </div>
   </div>
 </div>
 
-<!-- ===== BARRA SUPERIOR (mobile) ===== -->
-<header class="mob-topbar">
-  <img src="/static/login-logo.png" class="mob-top-logo" alt="GENERAL" />
-  <span class="mob-top-title" id="topbarTitle">Meu prédio</span>
-  <button class="mob-top-btn" id="mobBtnSenha" aria-label="Alterar senha" title="Alterar senha">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter">
-      <rect x="3" y="11" width="18" height="11"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-    </svg>
-  </button>
-  <button class="mob-top-btn" id="mobBtnAtualizar" aria-label="Atualizar">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter">
-      <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
-      <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
-    </svg>
-  </button>
-</header>
+<!-- FICHA: sua conta — hospeda a troca de senha e o sair -->
+<div class="ficha-fundo" id="fConta" hidden>
+  <div class="ficha" role="dialog" aria-modal="true" aria-labelledby="fContaT" tabindex="-1">
+    <div class="ficha-topo">
+      <div>
+        <div class="id" id="fContaId">Síndico</div>
+        <h3 id="fContaT">Sua conta</h3>
+      </div>
+      <button class="fechar" data-fechar aria-label="Fechar" type="button">
+        <svg viewBox="0 0 24 24" stroke-linecap="square" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="ficha-corpo">
+      <div class="email-linha" id="contaEmail"></div>
 
-<!-- ===== BARRA INFERIOR (mobile) ===== -->
-<nav class="mob-nav">
-  <button class="mob-nav-item active" data-mob-section="predio">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="square" stroke-linejoin="miter">
-      <path d="M4 21V6l8-3 8 3v15"/><path d="M9 21v-5h6v5"/>
-    </svg>
-    <span>Meu prédio</span>
-  </button>
-  <button class="mob-nav-item" data-mob-section="alertas">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="square" stroke-linejoin="miter">
-      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-      <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-    </svg>
-    <span>Alertas</span>
-    <span class="mob-nav-badge" id="mobBadgeAlertas"></span>
-  </button>
-  <button class="mob-nav-item" data-mob-section="chamados">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="square" stroke-linejoin="miter">
-      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-      <polyline points="14 2 14 8 20 8"/>
-    </svg>
-    <span>Chamados</span>
-  </button>
-  <button class="mob-nav-item" id="mobBtnSair">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="square" stroke-linejoin="miter">
-      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-      <polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
-    </svg>
-    <span>Sair</span>
-  </button>
-</nav>
+      <form class="bloco" id="formSenha">
+        <h4>Trocar a senha</h4>
+        <p>Use pelo menos 6 caracteres. Você continua conectado depois de trocar.</p>
+        <label class="campo"><span>Senha atual</span><input id="senhaAtual" type="password" autocomplete="current-password" required></label>
+        <label class="campo"><span>Nova senha</span><input id="senhaNova" type="password" autocomplete="new-password" minlength="6" required></label>
+        <label class="campo"><span>Repita a nova senha</span><input id="senhaNova2" type="password" autocomplete="new-password" minlength="6" required></label>
+        <div class="acoes">
+          <button class="btn-fio" type="submit">Salvar nova senha</button>
+        </div>
+        <p class="ficha-msg" id="senhaMsg" role="status"></p>
+      </form>
 
-<script src="/static/apexcharts.min.js"></script>
+      <div class="bloco">
+        <button class="sair-link" id="btnSair" type="button">Sair da conta</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script src="/static/inatividade.js" defer></script>
-<script src="/static/cliente.js?v=29" defer></script>
-<script src="/static/mob-sidebar.js" defer></script>
+<script src="/static/cliente.js?v=31" defer></script>
 <script src="/static/register-sw.js?v=33" defer></script>
 </body>
 </html>
