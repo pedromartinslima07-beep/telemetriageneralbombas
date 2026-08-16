@@ -83,11 +83,12 @@ mais** — o `cliente.js` foi reescrito e não usa mais nenhum token do admin.
 ## A estrutura
 
 ```
-<div class="barra">           barra sticky: logo · nome do prédio · sua conta
+<header class="barra">        a MESMA barra da landing: .marca (logo) · .conta
 <main class="folha">
   <section class="resposta">  ← a primeira tela inteira
     .eng                        engrenagem marinho sobre marinho, sangra p/ margem
     .placa                      o INSTRUMENTO (mesma peça da landing)
+      .placa-topo                 cabeçalho: o nome do prédio, + sulco gravado
       .placa-cel (texto)          .frase · .apoio · .linha-atend · .ajuda · .desde
       .placa-cel (prova)          .colunas (cilindros/tubos) · .resto · .sem-sensor
   <section class="historia">  ← o que aconteceu
@@ -351,12 +352,27 @@ do SVG**: dentro do `viewBox` ele encolhe junto com o gráfico e vira borrão a
   cheia). As **etiquetas gravadas sobem** para `.66rem` no celular: a `.58rem`
   elas saem a 9,3px, e o menor texto no aparelho em que o síndico mais lê era o
   defeito exato do painel antigo.
-- ⚠️ **No celular a barra NÃO gruda.** Em duas linhas ela tem ~108px (medido) e
-  grudada comeria 14% da tela para sempre. A barra da landing persegue a
-  rolagem porque carrega navegação e CTA; esta só identifica o prédio.
-- **Números do sistema, e eles mandam:** logo 40px na barra, 72px no rodapé;
-  barra de 74px no desktop. Se a marca parecer pequena ao lado do nome do
-  prédio, a alavanca é o **nome**, não o logo.
+- **A barra é a MESMA da landing**, e desde 14/08 isso é literal: os tokens
+  têm os mesmos nomes e os mesmos valores (`--barra-h`, `--area-max`,
+  `--gut`, `--saida`), e as duas páginas trocam de escala na mesma quebra de
+  760px. Mudou aqui? Mude em `landing.css` e `login.css` também.
+  - ⚠️ **A altura é DECLARADA (`height: var(--barra-h)`), não derivada de
+    padding.** Ela já foi `17 + logo + 17`, que dava 74px por acidente:
+    bastava um elemento crescer dentro dela para a barra sair do número
+    documentado — foi assim que chegou a 85px uma vez.
+  - **Números do sistema, e eles mandam:** logo 40px na barra (32px abaixo de
+    760px), 72px no rodapé; barra de 74px no desktop e 64px no celular. Se a
+    marca parecer pequena, a alavanca **não** é o logo.
+- ⚠️ **O nome do prédio NÃO fica na barra.** Ele é o `.placa-topo`, o
+  cabeçalho do instrumento. Na barra ele forçava uma segunda linha no celular
+  (~107px contra os 64 documentados) e a única alternativa era truncá-lo com
+  reticências — que é esconder justamente o que precisa ter peso. Fora da
+  barra, ela volta a caber nos 64px **e a grudar no celular**, como a da
+  landing. Ver `.placa-topo` em `public/cliente.css`.
+  - ⚠️ Isso mudou o alvo da contenção: a célula de texto **não é mais
+    `:first-child`** da placa. O seletor é `.placa-topo + .placa-cel`. Se
+    voltar a `:first-child`, o `container-type: inline-size` cai na célula
+    errada e a `.frase` perde a referência de dimensionamento.
 - ⚠️ **A escada de marinho tem TRÊS degraus:** campo (`body`) `--mar-800`;
   superfície (barra e rodapé) `--mar-900`; placa em gradiente `700→900`. Baixar
   o campo para `--mar-900` faz barra e rodapé **sumirem** como superfície. Já

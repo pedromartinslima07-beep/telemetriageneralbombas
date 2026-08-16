@@ -2534,6 +2534,67 @@ contact sheet de **8 estados × 2 tamanhos** (1920px e 390px), com geometria
 medida por `getBoundingClientRect` e não por captura reduzida. **Nada rodou
 contra o backend real.**
 
+### 2026-08-14 — O cabeçalho do painel vira o cabeçalho da landing (frontend)
+
+Pedido do Pedro: *"deixar o cabeçalho igual o da landing page, mesmo tamanho,
+tamanho de logo etc"*. A barra do painel tinha nascido inspirada na da landing
+e havia divergido em sete pontos — o desktop batia em altura **por acidente**
+(padding 17 + logo 40 + 17), e o celular era outra construção.
+
+- **Tokens compartilhados, com os mesmos nomes do `landing.css`:** `--barra-h`
+  (74px / 64px abaixo de 760px), `--area-max`, `--gut`
+  (`clamp(20px, 5vw, 56px)`) e `--saida`. `--h-barra`, que era local e estava
+  com o nome trocado, virou `--barra-h`.
+  ⚠️ A altura agora é **declarada** (`height: var(--barra-h)`), não derivada de
+  padding: era exatamente assim que ela saía do número documentado sozinha.
+- **A coluna inteira foi alinhada à landing** — barra, `.folha` e rodapé
+  passaram de `clamp(22px, 5vw, 40px)` para `var(--gut)`. O conteúdo do painel
+  agora tem a mesma largura útil da `.area` da landing (1128px contra 1160px
+  antes). Escolha do Pedro entre alinhar a coluna ou manter o recuo antigo.
+- Alinhados também: fundo da barra (86% → **88%**), easing (`ease` → `--saida`),
+  limiar do `is-rolada` (8px → **12px**, o do `landing.js`), logo no celular
+  (34px → **32px**) e `scroll-padding-top`, que não existia.
+- ⚠️ **O nome do prédio saiu da barra** e virou `.placa-topo`, o **cabeçalho do
+  instrumento** — a anatomia que a DESIGN.md já descreve (cabeçalho / corpo /
+  estado / nota separados por sulco gravado), com o corte de duas linhas
+  (`--rasgo` + `--luz`) e o papel "título de tela" da rampa de UI (1.32rem /
+  800 / Archivo). Era ele que forçava a segunda linha no celular (~107px contra
+  os 64 documentados) e obrigava a barra a **não grudar**; a alternativa,
+  truncar com reticências, tinha sido recusada em 14/08 por esconder
+  justamente o que precisava ter peso.
+  **Com ele fora, a barra do celular volta aos 64px e volta a grudar**, como a
+  da landing. `.barra { position: static }` foi removida.
+- ⚠️ **Regressão silenciosa evitada:** com o cabeçalho novo, a célula de texto
+  deixou de ser `:first-child` da placa. `container-type: inline-size` e o
+  `padding-bottom` da placa empilhada foram remapeados para
+  `.placa-topo + .placa-cel`. Com `:first-child`, a contenção cairia na célula
+  errada e a `.frase` perderia a referência de `cqi`.
+- Cache-bust: `cliente.css` v13.
+
+⚠️ **Verificação — contra o backend real desta vez** (servidor local na 3001,
+banco de TESTE, `demo-cliente@teste.local`, estado "sem sinal"), com geometria
+por `getBoundingClientRect`, nunca por captura:
+
+| | Landing @1920 | Painel @1920 |
+|---|---|---|
+| Altura da barra | 74px | **74px** |
+| `.barra-in` | 1240px, `padding-left` 56px | **1240px, 56px** |
+| Logo | 40px | **40px** |
+
+No celular (iframes de largura real — `resize_window` do Chrome não pegou, de
+novo): barra **64px e `sticky`** de 320 a 760px, logo **32px**, e o logo
+alinhado com a borda da placa em todas as larguras (20 / 20 / 20 / 21,5 / 27 /
+38px). Sem transbordo horizontal em nenhuma.
+
+⚠️ **A medição de "altura até a ação" mudou** — a regra manda refazê-la a cada
+acréscimo acima do botão. Base de "Preciso de ajuda" no estado sem sinal:
+**568,9px a 390px** (era 491) e **586,1px a 320px** (o pior caso documentado
+era 569). O saldo é ~+5px a 390px e ~+17px a 320px: a barra devolveu 43px, o
+cabeçalho da placa consumiu ~50, e a 320px o nome do prédio quebra em duas
+linhas. A 390px folga; a 320px o botão fica parcialmente abaixo da dobra num
+viewport de 568px — **em aberto**, ver
+[`../memory-bank/active-work.md`](../memory-bank/active-work.md).
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

@@ -140,6 +140,11 @@ function leituras() {
       cls: e === "ok" ? "" : e,
       n: e === "mudo" ? 0 : Math.max(0, Math.min(100, Math.round(r.ultima_leitura?.nivel_pct ?? 0))),
       quando: r.ultima_leitura?.criado_em || null,
+      /* ⚠️ `?? null`, não `|| false`: "desligada" e "não informou" são
+         coisas diferentes, e a prova só mostra a linha da bomba quando o
+         reservatório de fato reportou. Num painel cujo produto é medir,
+         inventar um "desligada" que ninguém mediu é o pior erro possível. */
+      bomba: e === "mudo" ? null : (r.ultima_leitura?.bomba_ligada ?? null),
     };
   });
 }
@@ -290,89 +295,78 @@ function atendimento() {
   };
 }
 
-/* ─── O cilindro ─────────────────────────────────────────────────────────
-   viewBox 0 0 60 124. Corpo 50 × 94 (razão .5), elipses de ry 6.5. É o
-   `_telTanqueSVG` do admin reproporcionado: o de lá é 62×94 (razão .66) e
-   três deles comiam a célula inteira.
+/* ─── A PROVA É UMA SÓ ───────────────────────────────────────────────────
+   Quem aparece: O PIOR reservatório do prédio, pela MESMA prioridade que o
+   veredito usa — crítico (<20%) → sem sinal → atenção (<45%) → e, com tudo
+   normal, o mais baixo. Isso amarra a prova à frase: antes a frase nomeava
+   um reservatório e a prova mostrava três, e nem sempre o citado estava
+   entre eles.
 
-   A água é um GRUPO no nível cheio, empurrado para baixo por transform —
-   assim a elipse da superfície desce junto sem deformar.
+   ⚠️ Não voltar a mostrar N. Três objetos idênticos lado a lado leem como
+   gráfico de barras — o vício que derrubou a v1 e que sobreviveu ao corte
+   de onze para três. Os outros vivem na ficha `#fTodos`, atrás do botão. */
+const ORDEM_PIOR = { critico: 0, mudo: 1, baixo: 2, ok: 3 };
 
-   ⚠️ NENHUM limiar é desenhado aqui. Num cilindro, plano horizontal é
-   elipse, não retângulo; e mesmo a elipse tracejada saiu, porque o limiar
-   já está dito três vezes na mesma tela (número colorido, anel da
-   superfície e a frase). O limiar vive no gráfico da ficha. */
-const CIL = { cx: 30, rx: 25, ry: 6.5, topo: 9, base: 103 };
-CIL.h = CIL.base - CIL.topo;
-const _corpoCil =
-  `M${CIL.cx - CIL.rx} ${CIL.topo} A${CIL.rx} ${CIL.ry} 0 0 0 ${CIL.cx + CIL.rx} ${CIL.topo}` +
-  ` L${CIL.cx + CIL.rx} ${CIL.base} A${CIL.rx} ${CIL.ry} 0 0 1 ${CIL.cx - CIL.rx} ${CIL.base} Z`;
-
-let _idClip = 0;
-function cilindroSVG(pct, mudo) {
-  const { cx, rx, ry, topo, base, h } = CIL;
-  const id = "cl" + (_idClip++);
-  const desce = mudo ? h : (1 - pct / 100) * h;
-  const agua = mudo ? "" : `
-      <g class="agua-g" style="transform:translateY(${h}px)" data-desce="${desce.toFixed(2)}">
-        <rect class="agua-r" x="${cx - rx}" y="${topo}" width="${rx * 2}" height="${h + ry}"/>
-        <ellipse class="agua-e" cx="${cx}" cy="${topo}" rx="${rx}" ry="${ry}"/>
-        <ellipse class="agua-k" cx="${cx}" cy="${topo}" rx="${rx}" ry="${ry}"/>
-      </g>`;
-  return `<svg class="cil" viewBox="0 0 60 124" aria-hidden="true" focusable="false">
-      <defs><clipPath id="${id}"><path d="${_corpoCil}"/></clipPath></defs>
-      <ellipse class="chao" cx="${cx}" cy="${base + ry + 5}" rx="${rx - 3}" ry="4"/>
-      <path class="parede" d="${_corpoCil}"/>
-      <g clip-path="url(#${id})">${agua}</g>
-      <path class="volume" d="${_corpoCil}"/>
-      <rect class="brilho" x="${cx - rx + 6}" y="${topo + 9}" width="4" height="${h - 20}"/>
-      <line class="aresta" x1="${cx - rx}" y1="${topo}" x2="${cx - rx}" y2="${base}"/>
-      <line class="aresta" x1="${cx + rx}" y1="${topo}" x2="${cx + rx}" y2="${base}"/>
-      <path class="aresta" d="M${cx - rx} ${base} A${rx} ${ry} 0 0 0 ${cx + rx} ${base}"/>
-      <ellipse class="boca" cx="${cx}" cy="${topo}" rx="${rx}" ry="${ry}"/>
-    </svg>`;
+function oPior(todas) {
+  if (!todas.length) return null;
+  return [...todas].sort((a, b) =>
+    (ORDEM_PIOR[a.estado] ?? 9) - (ORDEM_PIOR[b.estado] ?? 9) || a.n - b.n
+  )[0];
 }
 
-/* ─── A prova são TRÊS, no máximo ────────────────────────────────────────
-   Quem aparece: o que está fora do normal. Se está tudo normal, os três
-   MAIS BAIXOS — os únicos que podem virar problema. Onze tubos lado a lado
-   voltam a ser um gráfico de barras, que é o vício que derrubou a v1: o
-   síndico não audita onze números, ele quer saber se algum é problema. */
-const MAX_PROVA = 3;
-function escolhidos(todas) {
-  const fora = todas.filter(r => r.cls);
-  const base = fora.length ? fora : [...todas].sort((a, b) => a.n - b.n);
-  return base.slice(0, MAX_PROVA);
+/* Por que ESTE está na tela. É subtítulo do nome, nunca etiqueta acima
+   dele — e some quando o prédio só tem um reservatório, porque aí não há
+   escolha nenhuma para justificar. */
+function motivoDoPior(r, todas) {
+  if (todas.length < 2) return "";
+  if (r.estado === "critico") return "abaixo de 20% — o mais urgente do prédio";
+  if (r.estado === "mudo")    return "sem leitura — por isso está na tela";
+  if (r.estado === "baixo")   return "abaixo de 45% — o que pede atenção";
+  return `o mais baixo dos ${todas.length}`;
 }
 
-function colunasHTML(mostrar) {
-  // os dois desenhos são emitidos juntos; a media query decide qual aparece
-  return mostrar.map(r => `<button class="res ${r.cls}" type="button"
-        data-abrir="reservatorio" data-device="${esc(r.device_id)}"
-        aria-label="${esc(r.nome)}: ${r.estado === "mudo" ? "sem leitura" : r.n + " por cento"}. Ver histórico.">
-      ${cilindroSVG(r.n, r.estado === "mudo")}
-      <span class="tubo" aria-hidden="true"><span class="agua" style="--n:0%"><span class="crista"></span></span></span>
-      <span class="pct">${r.estado === "mudo" ? "—" : r.n + "%"}</span>
-      <span class="nome">${esc(r.nome)}</span>
-    </button>`).join("");
+function provaHTML(r, todas) {
+  const mudo = r.estado === "mudo";
+  const bomba = r.bomba == null ? "" : `
+      <div>
+        <dt>Bomba</dt>
+        <dd class="bomba${r.bomba ? "" : " off"}">
+          <span class="lamp" aria-hidden="true"></span>${r.bomba ? "Ligada" : "Desligada"}
+        </dd>
+      </div>`;
+
+  return `<div class="prova-in">
+      <button class="res ${r.cls}" type="button"
+          data-abrir="reservatorio" data-device="${esc(r.device_id)}"
+          aria-label="${esc(r.nome)}: ${mudo ? "sem leitura" : r.n + " por cento"}. Ver histórico.">
+        <span class="tubo" aria-hidden="true">
+          <span class="faixa faixa-baixo"></span>
+          <span class="faixa faixa-critico"></span>
+          <span class="agua" style="--n:0%"><span class="crista"></span></span>
+          <span class="limiar limiar-baixo"><i>45</i></span>
+          <span class="limiar limiar-critico"><i>20</i></span>
+        </span>
+      </button>
+      <dl class="leituras res-estado ${r.cls}">
+        <div>
+          <dt>Nível</dt>
+          <dd>${mudo ? `<span class="num">—</span>` : `<span class="num">${r.n}</span><i>%</i>`}</dd>
+        </div>${bomba}
+      </dl>
+    </div>
+    <p class="qual">
+      <b>${esc(r.nome)}</b>
+      ${motivoDoPior(r, todas) ? `<small>${motivoDoPior(r, todas)}</small>` : ""}
+    </p>`;
 }
 
-/* a frase do resto: fala a faixa real, não "e outros N" seco */
-function restoHTML(todas, mostrar) {
-  const resto = todas.filter(r => !mostrar.includes(r));
-  if (!resto.length) return "";
-  const medidos = resto.filter(r => r.estado !== "mudo");
-  const plural = resto.length > 1;
-  let faixa;
-  if (!medidos.length) {
-    faixa = "sem leitura";
-  } else {
-    const min = Math.min(...medidos.map(r => r.n));
-    const max = Math.max(...medidos.map(r => r.n));
-    faixa = min === max ? `em ${min}%` : `entre ${min}% e ${max}%`;
-  }
-  return `<button class="resto" type="button" data-abrir="todos">Mais ${resto.length} ` +
-    `reservatóri${plural ? "os" : "o"}, ${plural && medidos.length ? "todos " : ""}${faixa}. <u>Ver todos</u></button>`;
+/* O botão dos outros. Não existe quando não há outros — um botão que abre
+   uma lista de um item só é mobília. */
+function restoHTML(todas) {
+  const n = todas.length - 1;
+  if (n < 1) return "";
+  return `<button class="resto" type="button" data-abrir="todos">` +
+    `Ver os outros ${n} reservatóri${n > 1 ? "os" : "o"}</button>`;
 }
 
 /* na ficha a leitura é barra horizontal, não tubo: ali não é prova, é
@@ -412,37 +406,28 @@ function renderResposta() {
     $("linhaAtend").dataset.chamado = at.id;
   }
 
-  const cols = $("colunas");
-  const mostrar = escolhidos(todas);
-  const assinatura = mostrar.map(r => `${r.device_id}:${r.estado}:${r.n}`).join("|") + `/${todas.length}`;
+  const box = $("prova");
+  const pior = oPior(todas);
+  const assinatura = pior
+    ? `${pior.device_id}:${pior.estado}:${pior.n}:${pior.bomba}/${todas.length}`
+    : `vazio/${todas.length}`;
 
-  if (assinatura !== _assinaturaProva) {
+  if (pior && assinatura !== _assinaturaProva) {
     _assinaturaProva = assinatura;
-    cols.innerHTML = colunasHTML(mostrar);
-    cols.dataset.n = mostrar.length;
-    $("resto").innerHTML = restoHTML(todas, mostrar);
+    box.innerHTML = provaHTML(pior, todas) + restoHTML(todas);
 
     /* A água sobe uma vez, na chegada — o único momento autoral da tela.
        ⚠️ O rAF é só o GATILHO da animação, nunca a fonte do dado: ele não
        dispara em aba invisível, e quem abrisse o painel numa aba de fundo
-       veria os tanques vazios. O setTimeout garante o valor final mesmo
-       sem quadro; os dois escrevem a mesma coisa, então rodar duas vezes é
+       veria o tubo vazio. O setTimeout garante o valor final mesmo sem
+       quadro; os dois escrevem a mesma coisa, então rodar duas vezes é
        inofensivo. Vale como regra: nada de correção de dado pendurada em
        quadro de animação. */
     const encher = () => {
-      cols.querySelectorAll(".agua-g").forEach(g => { g.style.transform = `translateY(${g.dataset.desce}px)`; });
-      cols.querySelectorAll(".res").forEach((el, i) => {
-        const r = mostrar[i];
-        if (r) el.querySelector(".agua")?.style.setProperty("--n", (r.estado === "mudo" ? 0 : r.n) + "%");
-      });
+      box.querySelector(".agua")?.style.setProperty("--n", (pior.estado === "mudo" ? 0 : pior.n) + "%");
     };
     requestAnimationFrame(() => requestAnimationFrame(encher));
     setTimeout(encher, 80);
-  }
-
-  // o cilindro em contorno de quem ainda não tem sensor
-  if (v.chave === "semtel" && !$("semSensor").querySelector(".cil")) {
-    $("semSensor").insertAdjacentHTML("afterbegin", cilindroSVG(0, true));
   }
 }
 
@@ -1188,10 +1173,10 @@ document.addEventListener("keydown", ev => {
 });
 
 /* a barra ganha fundo e fio ao rolar — em repouso ela não pesa sobre o
-   campo. ⚠️ No celular ela é `position:static`, então isto não faz nada
-   lá, e é de propósito: em duas linhas, grudada, ela comeria 14% da tela. */
+   campo. O limiar é o MESMO da landing (`landing.js`): as duas barras
+   trocam de estado na mesma rolagem. */
 addEventListener("scroll", () => {
-  $("barra").classList.toggle("is-rolada", scrollY > 8);
+  $("barra").classList.toggle("is-rolada", scrollY > 12);
 }, { passive: true });
 
 carregar();

@@ -76,11 +76,18 @@
   --mar-900: #030a26;
   --mar-800: #050f38;
   --mar-700: #071b5c;
+  --mar-600: #0d2775;
   --mar-500: #1a3a9e;
 
-  /* ─ Água e crista ─ */
-  --agua:   #2f6fe0;
+  /* ─ Água e crista ─
+     ⚠️ `--agua` era a lâmina quando a prova eram TRÊS tubos de 176px: a
+     rampa 500→700 da landing lia como retângulo preto naquele tamanho, e a
+     água sumia justo no reservatório mais baixo (Regra da Água Visível).
+     Com UMA coluna de 82×268 — a medida da landing — a rampa da landing
+     volta a valer, e é ela que a `.agua` usa. `--agua` segue vivo na barra
+     da ficha (`.res-item .brr i`), onde a peça é outra. */
   --crista: #8fb6ff;
+  --agua:   #2f6fe0;
 
   /* ─ Estado SOBRE MARINHO ─ */
   --amarelo: #fbb329;
@@ -91,6 +98,7 @@
   --sobre-2:   #a6b5dc;
   --fio:       rgba(255, 255, 255, .14);
   --fio-fraco: rgba(255, 255, 255, .07);
+  --fio-forte: rgba(255, 255, 255, .34);   /* marcas de limiar da coluna */
 
   /* O par do corte gravado — sempre juntos e nesta ordem. Duas linhas,
      nunca uma: uma só lê como borda de card. Valores do landing.css. */
@@ -118,10 +126,20 @@
   --ch: 10px;
   --corte: polygon(var(--ch) 0, 100% 0, 100% calc(100% - var(--ch)), calc(100% - var(--ch)) 100%, 0 100%, 0 var(--ch));
 
-  /* Altura da barra. 40 (logo) + 17 + 17 = 74px, o número da DESIGN.md.
-     ⚠️ Se a marca parecer pequena ao lado do nome do prédio, a alavanca é
-     o NOME, não o logo: ambos estão nos valores documentados. */
-  --h-barra: 74px;
+  /* ─ Barra e coluna: os MESMOS tokens e os MESMOS nomes do landing.css ─
+     A jornada é uma só (conhecer → entrar → usar) e o cabeçalho não pode
+     mudar de tamanho no meio dela. Mudou aqui? Mude nos três (landing,
+     login, cliente).
+     ⚠️ A altura é DECLARADA, não derivada de padding. Antes eram 17+40+17
+     que davam 74 por acidente: bastava um elemento crescer dentro da barra
+     para a altura sair do número documentado — que foi exatamente como ela
+     chegou a 85px uma vez.
+     ⚠️ Se a marca parecer pequena, a alavanca NÃO é o logo: 40px na barra e
+     72px no rodapé são os números do sistema. */
+  --barra-h: 74px;              /* 64px abaixo de 760px, como na landing */
+  --area-max: 1240px;
+  --gut: clamp(20px, 5vw, 56px);
+  --saida: cubic-bezier(.16, .84, .32, 1);
 }
 
 
@@ -140,6 +158,9 @@
    ⚠️ `clip`, nunca `hidden`: `hidden` transforma o elemento em contêiner de
    rolagem e quebra o `position:sticky` da barra e do trilho de datas. */
 html, body { overflow-x: clip; }
+
+/* a barra é `sticky`: sem isto, âncora nenhuma para debaixo dela */
+html { scroll-padding-top: calc(var(--barra-h) + 20px); }
 
 body {
   background: var(--mar-800);
@@ -174,46 +195,50 @@ a { color: inherit; text-decoration: none; }
   overflow: hidden; clip-path: inset(50%); white-space: nowrap;
 }
 
-/* 1240 é o --area-max da landing. */
-.folha { max-width: 1240px; margin: 0 auto; padding: 0 clamp(22px, 5vw, 40px); }
+/* A coluna do painel é a `.area` da landing — mesmo teto, mesmo recuo. */
+.folha { max-width: var(--area-max); margin: 0 auto; padding: 0 var(--gut); }
 
 
 /* ─── A barra ─────────────────────────────────────────────────────────────
-   Construção da landing: faixa de largura inteira, conteúdo centrado na
-   área. Nasce transparente sobre o campo e ganha fundo sólido + fio ao
-   rolar — é isso que a "marca" sem pesar em repouso. */
+   A MESMA barra da landing, regra por regra: faixa de largura inteira,
+   conteúdo centrado na área, altura declarada em `--barra-h`, marca à
+   esquerda e ações à direita. Nasce transparente sobre o campo e ganha
+   fundo sólido + fio ao rolar — é isso que a "marca" sem pesar em repouso.
+   O que muda da landing é só o CONTEÚDO da direita: lá são navegação e
+   CTA, aqui é a conta. A casca é idêntica de propósito. */
 .barra {
-  position: sticky; top: 0; z-index: 60;
-  background: color-mix(in srgb, var(--mar-900) 86%, transparent);
+  position: sticky; top: 0; z-index: 100;
+  height: var(--barra-h);
+  background: color-mix(in srgb, var(--mar-900) 88%, transparent);
   backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
   border-bottom: 1px solid transparent;
-  transition: border-color .3s ease, background .3s ease;
+  transition: border-color .3s var(--saida), background .3s var(--saida);
 }
 .barra.is-rolada { border-bottom-color: var(--fio); background: var(--mar-900); }
-.barra-in { max-width: 1240px; margin-inline: auto; padding: 17px clamp(22px, 5vw, 40px); }
-
-.topo { position: relative; z-index: 1; display: flex; align-items: center; gap: 14px; }
-.topo img { height: 40px; width: auto; }
-/* o fio separa duas caixas de ~15px de altura; a 30px ele era o dobro delas */
-.topo .fio-v { width: 1px; height: 22px; background: var(--fio); }
-
-/* O nome do prédio É o título da tela — papel que a DESIGN.md já define
-   (topbar: 1.32rem / 800 / Archivo). Estava a .95rem em --sobre-2, que é
-   escala de legenda: por isso sumia.
-   ⚠️ correção ÓPTICA de 2px: "Edifício Vila Mariana" e o nome do síndico
-   não têm letra descendente, então a caixa reserva embaixo um espaço que a
-   tinta não usa — centralizar a caixa joga a tinta para cima. */
-.topo .predio {
-  font-size: clamp(1.12rem, 1.5vw, 1.32rem); font-weight: 800; font-stretch: 106%;
-  letter-spacing: -.018em; color: #fff; line-height: 1.14;
-  position: relative; top: 2px;
-  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+.barra-in {
+  height: 100%;
+  max-width: var(--area-max);
+  margin-inline: auto;
+  padding-inline: var(--gut);
+  display: flex;
+  align-items: center;
+  gap: clamp(16px, 3vw, 40px);
 }
+
+/* ⚠️ `logo-topo.png`, não `login-logo.png`: o lockup completo traz
+   "ENGENHARIA DA MANUTENÇÃO" embaixo, que a 40px vira borrão cinza. O
+   lockup inteiro aparece uma vez só, grande, no rodapé. */
+.marca { margin-right: auto; display: flex; align-items: center; }
+.marca img { height: 40px; width: auto; }
+
 .conta {
-  margin-left: auto; display: inline-flex; align-items: center; gap: 9px;
+  display: inline-flex; align-items: center; gap: 9px;
   font-size: .95rem; color: var(--sobre-2); padding: 7px 2px;
   border-bottom: 1px solid transparent;
-  position: relative; top: 1px;   /* mesma correção óptica */
+  /* ⚠️ correção ÓPTICA de 2px: o nome do síndico não tem letra descendente,
+     então a caixa reserva embaixo um espaço que a tinta não usa —
+     centralizar a caixa joga a tinta para cima. */
+  position: relative; top: 1px;
 }
 .conta:hover { color: #fff; border-bottom-color: var(--fio); }
 .conta svg { width: 17px; height: 17px; stroke: currentColor; fill: none; stroke-width: 1.6; }
@@ -230,10 +255,29 @@ a { color: inherit; text-decoration: none; }
 
 .resposta {
   position: relative;
-  min-height: calc(100vh - var(--h-barra));
-  min-height: calc(100dvh - var(--h-barra));
+  min-height: calc(100vh - var(--barra-h));
+  min-height: calc(100dvh - var(--barra-h));
   display: grid; align-items: center;
   padding: 32px 0 clamp(30px, 3.4vw, 44px);
+}
+
+/* ─── A fita de segurança ───
+   O mesmo gesto que assina a base do hero na landing (`.hero::after` em
+   `landing.css`): 6px a -45°, amarelo sobre marinho fundo. Mesma geometria,
+   mesmos tokens — não é ornamento novo, é vocabulário emprestado.
+   Aqui ela marca a troca de registro: acima é AGORA, abaixo é O QUE
+   ACONTECEU. É o único limite de campo da página.
+   ⚠️ SANGRA para a margem, como a engrenagem. Presa dentro da coluna ela
+   vira um traço solto entre dois vazios, não uma fita atravessando o campo.
+   Quem apara a sobra é o `overflow-x: clip` de `html` E `body`. */
+.resposta::after {
+  content: "";
+  position: absolute; bottom: 0; left: 50%; transform: translateX(-50%);
+  width: 100vw; height: 6px;
+  background: repeating-linear-gradient(
+    -45deg, var(--amarelo) 0 18px, var(--mar-900) 18px 36px);
+  opacity: .9;
+  z-index: 2;
 }
 
 /* ⚠️ a trilha da prova é `max-content`. Com `minmax(0,auto)` ela encolhia
@@ -251,14 +295,41 @@ a { color: inherit; text-decoration: none; }
   background: linear-gradient(168deg, var(--mar-700) 0%, var(--mar-900) 100%);
 }
 .placa > * { position: relative; z-index: 1; }
+
+/* ─── O cabeçalho da placa ───
+   O instrumento se identifica antes de falar — a mesma anatomia que a
+   DESIGN.md descreve (cabeçalho / corpo / estado / nota separados por
+   sulco). É aqui que mora o nome do prédio desde que ele saiu da barra,
+   no papel "título de tela" da rampa de UI (1.32rem / 800 / Archivo).
+   ⚠️ NÃO é etiqueta acima de manchete: ele atravessa a placa inteira, tem
+   escala de título e o sulco o separa do corpo. Se algum dia encolher para
+   uma linha mono em caixa alta, virou eyebrow — e aí é para tirar. */
+.placa-topo {
+  grid-column: 1 / -1;
+  padding: clamp(18px, 2.2vw, 26px) clamp(30px, 4.2vw, 54px);
+  /* corte gravado, sempre DUAS linhas e nesta ordem: `--rasgo` é o fundo
+     do sulco e `--luz` a aresta virada para cima. Uma linha só leria como
+     borda de card e desfaria a peça única. */
+  background:
+    linear-gradient(var(--luz), var(--luz))     bottom / 100% 1px no-repeat,
+    linear-gradient(var(--rasgo), var(--rasgo)) bottom / 100% 2px no-repeat;
+}
+.placa-topo .predio {
+  font-size: 1.32rem; font-weight: 800; font-stretch: 106%;
+  letter-spacing: -.018em; line-height: 1.2; color: #fff;
+}
+
 /* as duas células centram na vertical: a de texto é sempre mais alta que a
    de prova, e com alinhamento ao topo a prova ficava pendurada */
 .placa-cel { padding: clamp(30px, 4.2vw, 54px); display: flex; flex-direction: column; justify-content: center; }
 /* ⚠️ SÓ na célula de texto. `container-type:inline-size` aplica contenção:
    o elemento passa a ignorar o próprio conteúdo ao calcular largura
    intrínseca. Na célula da prova isso zerava o max-content e a coluna
-   colapsava para 88px — os cilindros ficavam com 43px. */
-.placa-cel:first-child { container-type: inline-size; }
+   colapsava para 88px — os cilindros ficavam com 43px.
+   ⚠️ Alvo por `.placa-topo +`, NÃO por `:first-child`: desde que o
+   cabeçalho entrou, a célula de texto deixou de ser o primeiro filho e a
+   contenção caía silenciosamente na célula errada. */
+.placa-topo + .placa-cel { container-type: inline-size; }
 .placa-cel + .placa-cel { border-left: 1px solid var(--rasgo); box-shadow: inset 1px 0 0 var(--luz); }
 
 /* A marca em escala arquitetônica, marinho sobre marinho — presença sem
@@ -324,127 +395,196 @@ body[data-atend="sim"] .linha-atend { display: flex; }
 .desde { font-size: .95rem; color: var(--sobre-2); }
 
 
-/* ─── O CILINDRO ──────────────────────────────────────────────────────────
-   É o `_telTanqueSVG` do admin REPROPORCIONADO: o do admin é 62×94 (razão
-   .66, atarracado como caixa d'água real) e três deles comiam a célula
-   inteira. Aqui o corpo é 50×94 (razão .5) — continua lendo como cilindro
-   porque as elipses ficam.
+/* ─── A PROVA: UMA COLUNA D'ÁGUA, A DA LANDING ────────────────────────────
+   Decisão do Pedro, segunda passada de 14/08: a prova deixa de ser uma
+   fileira e vira UM instrumento — a `.coluna-tubo` do `landing.css`,
+   valor por valor — mostrando **o pior reservatório do prédio**. Os outros
+   abrem num botão.
 
-   ⚠️ NENHUM limiar é desenhado dentro do tanque. Nem ticks, nem faixa
-   preenchida, nem elipse tracejada. O limiar já está dito três vezes na
-   mesma tela — número colorido, anel da superfície e a frase — e uma régua
-   que ninguém mede é ruído. O limiar tem lugar: a linha de 45% no gráfico
-   da ficha do reservatório, que é o contexto de análise. */
-.colunas { display: flex; gap: clamp(12px, 2vw, 24px); align-items: flex-start; justify-content: center; }
-/* ⚠️ base do flex explícita, não `0`. O `<svg>` com width:100% não
-   contribui largura intrínseca nenhuma, então com `flex:1 1 0` a célula da
-   prova não sabia que precisava de ~420px e colapsava para 88. */
-.res { display: block; text-align: center; padding: 0; flex: 1 1 124px; max-width: 124px; }
-/* a prova cresce quando é menor: um reservatório sozinho não deve ter o
-   tamanho que teria se dividisse a célula com outros dois */
-.colunas[data-n="1"] .res { flex-basis: 176px; max-width: 176px; }
-.colunas[data-n="2"] .res { flex-basis: 140px; max-width: 140px; }
-.cil { display: block; width: 100%; height: auto; overflow: visible; }
+   Por que uma só: três objetos idênticos lado a lado voltavam a ler como
+   gráfico de barras. Esse é o vício que derrubou a v1, e ele SOBREVIVEU ao
+   corte de onze tubos para três — cortar a quantidade tratou o sintoma, não
+   a forma. Com um objeto o gráfico deixa de existir, o nome lidera porque é
+   o único, e a prova passa a falar sempre do MESMO reservatório que a frase
+   nomeia (antes a frase citava um e a prova mostrava três).
 
-/* ─── A coluna chata: o mesmo dado, para o celular ───
-   O cilindro precisa de largura para a elipse funcionar; num telefone a
-   coluna esbelta cabe melhor e lê igual. Os dois markups são emitidos
-   juntos e a media query decide qual aparece — os dois nunca chegam ao
-   mesmo leitor, então não há dialeto duplo. */
-.tubo {
-  display: none; --ch: 8px; clip-path: var(--corte); position: relative;
-  width: 100%; height: 172px; background: var(--mar-900);
-  box-shadow: inset 0 0 0 1px var(--fio); overflow: hidden;
+   ⚠️ O CILINDRO SAIU. Ele era o `_telTanqueSVG` do admin reproporcionado, e
+   o Pedro o havia escolhido no estudo de 14/08 — onde a "coluna chata da
+   landing" era uma das três candidatas. É aquela candidata que ele escolheu
+   agora. Junto com ele saíram as `defs` `g-corpo`, `g-agua` e `g-mudo` do
+   `cliente.html`; `g-area-res` FICA, é do gráfico da ficha.
+
+   ⚠️ Mudou `.coluna-tubo` no `landing.css`? Muda aqui. É a mesma peça, de
+   propósito: o síndico reencontra o instrumento que viu antes de contratar.
+*/
+/* ⚠️ A grade é da `.prova-in` (coluna | leituras), NÃO da `.prova`: a
+   `.prova` também carrega o nome e o botão, e com a grade nela o nome caía
+   na segunda trilha, ao lado do tubo, e as leituras iam para baixo. Mesma
+   construção da `.instr-corpo` da landing. */
+.prova-in {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: clamp(20px, 3vw, 34px);
+  align-items: start;
 }
+
+.res { display: block; padding: 0; text-align: left; }
+
+/* A peça da landing: 82×268, chanfro de 8px, fundo --mar-900, fio de 1px.
+   `overflow: hidden` é o que recorta a lâmina no chanfro. */
+/* ⚠️ `display:block` explícito: `.tubo` é um <span>, e em `inline` a
+   largura e a altura simplesmente não se aplicam — o tubo saía 0×0. */
+.tubo {
+  display: block;
+  --ch: 8px; position: relative; clip-path: var(--corte);
+  width: 82px; height: 268px;
+  background: var(--mar-900);
+  box-shadow: inset 0 0 0 1px var(--fio);
+  overflow: hidden;
+}
+
+/* As faixas ficam SOB a lâmina: aparecem conforme a água recua, e é isso
+   que EXPLICA por que 14% é urgência em vez de só afirmar. */
+.faixa { position: absolute; left: 0; right: 0; }
+.faixa-baixo   { bottom: 20%; height: 25%; background: color-mix(in srgb, var(--amarelo) 11%, transparent); }
+.faixa-critico { bottom: 0;   height: 20%; background: color-mix(in srgb, var(--risco) 13%, transparent); }
+
+/* ⚠️ A lâmina ocupa o tubo inteiro e DESCE por transform, não por height:
+   animar height é layout a cada quadro, e a crista de 3px se deformaria se
+   a coluna fosse escalada. translateY(%) é relativo à própria altura. */
 .agua {
-  display: block; position: absolute; inset: 0;
-  background: linear-gradient(180deg, var(--agua) 0%, var(--mar-500) 70%, var(--mar-700) 100%);
+  position: absolute; inset: 0;
+  background: linear-gradient(180deg, var(--mar-500) 0%, var(--mar-600) 55%, var(--mar-700) 100%);
   transform: translateY(calc(100% - var(--n, 0%)));
   transition: transform 1.15s cubic-bezier(.16, 1, .3, 1);
+  will-change: transform;
 }
-.crista { display: block; position: absolute; left: 0; right: 0; top: 0; height: 2px; background: var(--crista); }
-.res.baixo   .crista { background: var(--amarelo); height: 3px; }
-.res.critico .crista { background: var(--risco);   height: 3px; }
+
+/* O halo da crista é uma das duas ÚNICAS box-shadow do sistema, e é luz,
+   não elevação (DESIGN.md, Elevation & Depth).
+   ⚠️ A crista carrega o estado; a ÁGUA NÃO. A landing escurece a lâmina
+   para vinho no crítico — aqui não: "a água é sempre azul" é decisão do
+   Pedro de 14/08, e o argumento (água colorida vira imagem estranha) vale
+   para o vinho igual. Quem sinaliza é a crista e o número. */
+.crista {
+  position: absolute; left: 0; right: 0; top: 0; height: 3px;
+  background: var(--crista);
+  box-shadow: 0 0 14px 1px color-mix(in srgb, var(--crista) 55%, transparent);
+}
+.res.baixo .crista {
+  background: var(--amarelo);
+  box-shadow: 0 0 14px 1px color-mix(in srgb, var(--amarelo) 55%, transparent);
+}
+.res.critico .crista {
+  background: var(--risco);
+  box-shadow: 0 0 14px 1px color-mix(in srgb, var(--risco) 60%, transparent);
+}
+
+/* ⚠️ AS MARCAS DE LIMIAR VOLTARAM, e é uma reversão consciente da decisão
+   de 14/08. O motivo registrado para tirá-las era "os rótulos a 8px são
+   ilegíveis no celular" — e era verdade para TRÊS tubos de 88px. Com UM
+   tubo de 82px de largura elas saem no tamanho da landing, que é legível.
+   Sem elas as faixas de risco viram mancha sem explicação.
+   ⚠️ A classe é `.limiar`, NÃO `.marca`: `.marca` já é o lockup da barra, e
+   `position:absolute; left:0` aplicado a ele jogava o logo para fora da
+   coluna. Colisão de nome custou uma passada inteira. */
+.limiar {
+  position: absolute; left: 0; right: 0;
+  border-top: 1px dashed var(--fio-forte);
+  pointer-events: none;
+}
+.limiar i {
+  position: absolute; right: 5px; top: 3px; font-style: normal;
+  font-family: var(--mono); font-size: .58rem; font-weight: 700;
+  letter-spacing: .06em; color: #fff; opacity: .8;
+}
+.limiar-baixo   { bottom: 45%; }
+.limiar-critico { bottom: 20%; border-top-color: color-mix(in srgb, var(--risco) 60%, transparent); }
+
+/* Sensor mudo: SEM LEITURA, não sem água — hachura, nunca tubo vazio.
+   As faixas de risco também somem: sem leitura não há limiar com que
+   comparar, e a banda vermelha sugeria um estado que não existe. */
 .res.mudo .tubo { background: repeating-linear-gradient(-45deg, var(--mar-900) 0 7px, #08133f 7px 14px); }
-.res.mudo .agua { display: none; }
+.res.mudo .agua,
+.res.mudo .faixa,
+.res.mudo .limiar { display: none; }
 
-.cil .parede { fill: var(--mar-900); }
-.cil .volume { fill: url(#g-corpo); }
-/* a lâmina desce por transform num <g> — animar geometria quadro a quadro
-   deformaria a elipse da superfície */
-.cil .agua-g { transition: transform 1.15s cubic-bezier(.16, 1, .3, 1); }
-.cil .agua-r { fill: url(#g-agua); }
-.cil .agua-e { fill: var(--agua); }
-.cil .agua-k { fill: none; stroke: var(--crista); stroke-width: 1.4; }
-.cil .brilho { fill: #fff; opacity: .085; }
-.cil .aresta { fill: none; stroke: rgba(255,255,255,.3); stroke-width: 1.2; }
-/* a boca é só contorno: com preenchimento (como no admin) ela tampava a
-   superfície da água no tanque cheio */
-.cil .boca { fill: none; stroke: rgba(255,255,255,.42); stroke-width: 1.3; }
-/* ⚠️ contato tonal, não sombra projetada: a DESIGN.md diz "não há sombra
-   projetada em lugar nenhum", e o preto veio junto com o componente do
-   admin. Um degrau do próprio marinho apoia o cilindro sem inventar luz. */
-.cil .chao { fill: var(--mar-900); opacity: .55; }
-.res:hover .cil .boca { stroke: rgba(255,255,255,.7); }
-
-/* Nível baixo: a ÁGUA CONTINUA AZUL. Mudam o número, a palavra e a crista.
-   Água amarela era imagem estranha — decisão do Pedro em 14/08. */
-.res.baixo .cil .agua-k { stroke: var(--amarelo); stroke-width: 1.8; }
-.res.baixo .pct { color: var(--amarelo); }
-.res.critico .cil .agua-k { stroke: var(--risco); stroke-width: 1.8; }
-.res.critico .pct { color: var(--risco); }
-/* sensor mudo: sem leitura, não sem água — hachura, nunca tanque vazio */
-.res.mudo .cil .volume { fill: url(#g-mudo); }
-.res.mudo .pct { color: var(--sobre-2); }
-
-.pct {
-  display: block; margin-top: 14px; font-family: var(--mono); font-size: 1.32rem;
-  font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -.02em;
+/* ─── As leituras, ao lado da coluna ───
+   Duas, não as três da landing: o `/cliente/status` tem `nivel_pct` e
+   `bomba_ligada` reais, e não tem corrente em ampères. Não se inventa
+   leitura num painel cujo produto é medir. */
+.leituras { display: flex; flex-direction: column; gap: 20px; }
+.leituras > div { display: flex; flex-direction: column; gap: 3px; }
+.leituras dt {
+  font-family: var(--mono); font-size: .62rem; font-weight: 500;
+  letter-spacing: .12em; text-transform: uppercase; color: var(--sobre-2);
 }
-/* ⚠️ fio permanente sob o nome: a única pista de que o tanque abre
-   histórico e PDF era o `:hover` da boca, que NÃO EXISTE em toque — no
-   celular o caminho ficava invisível justo no aparelho prioritário. */
-.nome {
-  display: block; margin-top: 3px; font-size: .92rem; color: var(--sobre-2);
-  max-width: 11ch; margin-inline: auto; line-height: 1.3;
-  border-bottom: 1px solid var(--fio); padding-bottom: 3px; width: fit-content;
+.leituras dd {
+  margin: 0; display: flex; align-items: baseline; gap: 4px;
+  font-family: var(--mono); font-size: 1.6rem; font-weight: 700;
+  font-variant-numeric: tabular-nums; letter-spacing: -.02em; line-height: 1.1;
 }
-.res:hover .nome { border-bottom-color: var(--amarelo); color: #fff; }
+.leituras dd i { font-style: normal; font-size: .72rem; color: var(--sobre-2); }
+.res-estado.baixo   .num { color: var(--amarelo); }
+.res-estado.critico .num { color: var(--risco); }
+.res-estado.mudo    .num { color: var(--sobre-2); }
 
-/* ⚠️ Quando a placa empilha (a media query de 1000px), o sulco gravado
-   DEITA junto: vira border-top. Senão as duas células ficam sem divisão
-   nenhuma — a landing faz o mesmo a 760px. A regra está na quebra, no fim
-   desta folha; a prova nunca passa de três colunas, então não existe mais
-   o caso de empilhar por quantidade de reservatórios. */
+/* A bomba é chaveamento, não medição: o valor é palavra, e a luz-piloto é
+   a curva única do sistema (DESIGN.md, Shapes).
+   ⚠️ A lâmpada é AZUL, nunca âmbar: âmbar aqui significa atenção, e bomba
+   em funcionamento não é alarme — mesma razão pela qual o ponto de "em
+   atendimento" é azul. */
+.leituras .bomba { font-family: var(--fonte); font-size: 1.09rem; font-weight: 800; letter-spacing: -.015em; }
+.leituras .bomba .lamp {
+  width: 9px; height: 9px; border-radius: 50%; flex: 0 0 auto;
+  background: var(--crista); box-shadow: 0 0 0 4px color-mix(in srgb, var(--crista) 22%, transparent);
+  align-self: center;
+}
+.leituras .bomba.off .lamp { background: none; box-shadow: inset 0 0 0 1.5px var(--sobre-2); }
 
-/* ─── A linha do resto ───
-   A prova são no MÁXIMO três colunas, tenha o prédio 3 ou 30
-   reservatórios. Onze tubos lado a lado voltam a ser um gráfico de barras
-   — o vício que derrubou a v1 — e o síndico não audita onze números: ele
-   quer saber se algum é problema.
-   ⚠️ max-width em ch: a coluna da prova é dimensionada pelo CONTEÚDO, e
-   esta frase, sendo longa, definia sozinha a largura da célula inteira. */
+/* ─── Quem é este reservatório ───
+   ⚠️ O nome é TÍTULO, não legenda. Ele estava a .92rem em --sobre-2 debaixo
+   de um número grande — a hierarquia invertida que o Pedro apontou. Agora é
+   "título de placa" da rampa de UI, e a razão de ele estar sendo mostrado
+   vem embaixo, como subtítulo. Título + subtítulo, nunca etiqueta + título:
+   etiqueta acima de manchete é forma proibida. */
+.qual { margin-top: 24px; }
+.qual b {
+  display: block; font-size: 1.09rem; font-weight: 800; font-stretch: 106%;
+  letter-spacing: -.015em; color: #fff; line-height: 1.25;
+}
+.qual small {
+  display: block; margin-top: 3px; font-size: .87rem; color: var(--sobre-2); line-height: 1.45;
+}
+
+/* ─── O botão dos outros ───
+   A prova mostra UM. Os demais vivem na ficha `#fTodos`, que já existia —
+   ali a leitura é barra horizontal, porque ali não é prova, é inventário,
+   e inventário se varre de cima para baixo. */
 .resto {
-  display: block; margin: 26px auto 0; max-width: 34ch; text-align: center;
-  font-size: .95rem; color: var(--sobre-2); line-height: 1.5; text-wrap: balance;
+  --ch: 10px; clip-path: var(--corte); margin-top: 18px;
+  display: inline-flex; align-items: center; min-height: 46px; padding: 11px 20px;
+  background: var(--fio-forte); color: #fff;
+  font-size: .95rem; font-weight: 700; font-stretch: 104%;
+  position: relative; isolation: isolate;
 }
-/* ⚠️ o sublinhado é text-decoration, não border-bottom: quebrado em duas
-   linhas o border partia o traço no meio da frase */
-.resto u { text-decoration: underline; text-underline-offset: 4px; text-decoration-color: var(--fio); color: #fff; }
-.resto:hover u { text-decoration-color: var(--amarelo); }
+/* chapa de duas camadas: o fundo do próprio elemento é o anel, o ::before
+   embutido 1,5px é a placa interna. `box-shadow: inset` como borda seria
+   recortado nos dois chanfros e leria como defeito. */
+.resto::before {
+  content: ""; position: absolute; inset: 1.5px; z-index: -1;
+  clip-path: var(--corte); background: var(--mar-900);
+  transition: background .16s ease;
+}
+.resto:hover::before { background: var(--mar-700); }
 
-/* Sem telemetria: UM cilindro em contorno. Três tubos vazios leriam como
+/* Sem telemetria: UM tubo em contorno puro. Três tubos vazios leriam como
    "seus reservatórios estão secos", que é falso — e o backend nem conhece
    os reservatórios desse cliente. */
-.sem-sensor { display: none; text-align: center; }
+.sem-sensor { display: none; }
 body[data-estado="semtel"] .sem-sensor { display: block; }
-body[data-estado="semtel"] .colunas,
-body[data-estado="semtel"] .resto { display: none; }
-.sem-sensor .cil { width: clamp(130px, 15vw, 176px); margin-inline: auto; }
-.sem-sensor .cil .parede { fill: none; }
-.sem-sensor .cil .volume { fill: none; }
-.sem-sensor .cil .aresta,
-.sem-sensor .cil .boca { stroke: var(--fio); }
+body[data-estado="semtel"] .prova { display: none; }
+.sem-sensor .tubo { background: none; box-shadow: inset 0 0 0 1px var(--fio); }
 .sem-sensor .etiqueta {
   margin-top: 16px; font-family: var(--mono); font-size: .62rem; letter-spacing: .14em;
   text-transform: uppercase; color: var(--sobre-2);
@@ -461,8 +601,10 @@ body[data-estado="semtel"] .resto { display: none; }
    gravada; data grande em mono viraria costume.
    ════════════════════════════════════════════════════════════════════════ */
 
-/* quem fecha a página agora é o rodapé; a história não reserva respiro */
-.historia { padding: 0 0 clamp(28px, 4vw, 48px); }
+/* Quem fecha a página é o rodapé; a história não reserva respiro embaixo.
+   Em cima ela reserva: a fita de segurança fecha a resposta e o título não
+   pode nascer colado nela. Mais espaço acima do título do que abaixo. */
+.historia { padding: clamp(30px, 3.6vw, 46px) 0 clamp(28px, 4vw, 48px); }
 .historia h2 {
   font-size: 1.42rem; font-weight: 800; font-stretch: 108%; letter-spacing: -.02em;
   padding-bottom: 18px; border-bottom: 1px solid var(--fio);
@@ -555,8 +697,8 @@ body[data-estado="semtel"] .relatorio { display: none; }
 /* uma linha só: marca à esquerda, canais à direita. O rodapé da landing
    fecha uma peça de venda; o do painel só devolve o telefone. */
 .rodape-in {
-  max-width: 1240px; margin-inline: auto;
-  padding: clamp(20px, 2.4vw, 28px) clamp(22px, 5vw, 40px);
+  max-width: var(--area-max); margin-inline: auto;
+  padding: clamp(20px, 2.4vw, 28px) var(--gut);
   display: flex; align-items: center; justify-content: space-between;
   gap: clamp(20px, 3vw, 44px); flex-wrap: wrap;
 }
@@ -578,7 +720,7 @@ body[data-estado="semtel"] .relatorio { display: none; }
 .rodape-contato dd a:hover { color: var(--amarelo); border-bottom-color: var(--amarelo); }
 .rodape-fim { border-top: 1px solid var(--fio-fraco); }
 .rodape-fim > div {
-  max-width: 1240px; margin-inline: auto; padding: 13px clamp(22px, 5vw, 40px) 15px;
+  max-width: var(--area-max); margin-inline: auto; padding: 13px var(--gut) 15px;
   display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap;
   font-size: .86rem; color: var(--sobre-2);
 }
@@ -813,7 +955,7 @@ body[data-estado="carregando"] .frase { color: var(--sobre-2); }
   }
   /* ⚠️ empilhado, os dois paddings de 54px se somavam na costura: ~84px
      entre "Preciso de ajuda" e os tanques. Só o lado da junta encolhe. */
-  .placa-cel:first-child { padding-bottom: clamp(18px, 2.2vw, 26px); }
+  .placa-topo + .placa-cel { padding-bottom: clamp(18px, 2.2vw, 26px); }
   .placa-cel + .placa-cel { padding-top: clamp(20px, 2.4vw, 28px); }
   .resposta { padding: 32px 0 44px; }
   /* a manchete crescia ao empilhar (46–56px em duas colunas, 70px numa
@@ -824,6 +966,8 @@ body[data-estado="carregando"] .frase { color: var(--sobre-2); }
 @media (max-width: 820px) {
   .resposta { align-content: center; min-height: 0; padding: 24px 0 40px; }
   .placa-cel { padding: 24px 20px; }
+  .placa-topo { padding: 14px 20px; }
+  .placa-topo .predio { font-size: 1.18rem; }
   .eng { top: -8%; right: -24%; width: 78vw; height: 78vw; opacity: .2; }
 
   /* ⚠️ NO CELULAR A AÇÃO SOBE. Empilhado, tudo que vem antes dela a empurra:
@@ -839,44 +983,23 @@ body[data-estado="carregando"] .frase { color: var(--sobre-2); }
   .aviso { order: 3; }
   .apoio { margin-top: 18px; }
 
-  /* no celular manda a coluna, não o cilindro */
-  .cil { display: none; }
-  .tubo { display: block; }
-  .sem-sensor .tubo {
-    display: block; background: none; box-shadow: inset 0 0 0 1px var(--fio);
-    width: clamp(72px, 26vw, 100px); margin-inline: auto;
-  }
-  /* ⚠️ SEM teto de largura a coluna estica: com um só reservatório fora do
-     normal a prova virava um bloco listrado de 330px. O teto vale para
-     1, 2 ou 3. */
-  .res { flex: 1 1 104px; max-width: 104px; }
-  .colunas[data-n="1"] .res { flex-basis: 150px; max-width: 150px; }
-  .colunas[data-n="2"] .res { flex-basis: 124px; max-width: 124px; }
-  .colunas[data-n="1"] .tubo { height: 210px; }
-  .colunas { gap: 14px; }
+  /* A coluna encurta no celular, mas NÃO estreita: 82px é a medida da
+     landing e é ela que faz as marcas de 45 e 20 caberem legíveis. Quem
+     cede é a altura, que na landing também é o valor de desktop. */
+  .prova-in { gap: 20px; }
+  .tubo { height: 210px; }
+  .leituras { gap: 16px; }
 
   /* o cqi já dimensiona pela célula; aqui só o teto muda */
   .frase { font-size: clamp(1.9rem, 13cqi, 3rem); max-width: none; }
   .ev .quando { flex-basis: 44px; }
 
-  /* ⚠️ No celular a barra NÃO gruda. Em duas linhas ela tem ~107px, e
-     grudada comeria 14% da tela para sempre — contra os 64px que a
-     DESIGN.md manda. A barra da landing persegue a rolagem porque carrega
-     navegação e CTA; esta só identifica o prédio e guarda a conta. */
-  .barra { position: static; }
-  /* ⚠️ MESMO padding lateral da `.folha` e do `.rodape-in`. Fixo em 22px,
-     entre 441 e 820px o logo ficava até 18px à esquerda da placa. */
-  .barra-in { padding: 12px clamp(22px, 5vw, 40px); }
-
-  /* o topo quebra em duas linhas: marca e conta em cima, nome do prédio
-     inteiro embaixo. Truncar o título da tela com reticências era esconder
-     justamente o que precisava ganhar peso. */
-  .topo { gap: 12px; flex-wrap: wrap; }
-  .topo img { height: 34px; }
-  .topo .fio-v { display: none; }
-  .topo .predio { order: 3; flex: 1 0 100%; font-size: 1.18rem; white-space: normal; overflow: visible; }
+  /* ⚠️ A barra segue GRUDADA no celular, como a da landing — o que a
+     obrigava a soltar era a segunda linha do nome do prédio (~107px, 14%
+     da tela para sempre). Com o nome no cabeçalho da placa ela volta a
+     caber nos 64px documentados e pode perseguir a rolagem. */
   .conta {
-    order: 2; margin-left: auto; flex: 0 0 auto; gap: 0;
+    gap: 0;
     padding: 12px 8px; min-width: 48px; min-height: 48px; justify-content: center;
   }
   .conta svg { width: 24px; height: 24px; }
@@ -907,6 +1030,16 @@ body[data-estado="carregando"] .frase { color: var(--sobre-2); }
   .ficha { --ch: 0px; width: 100%; height: 100%; max-height: 100%; min-height: 0; }
   .ficha-topo, .ficha-corpo { padding-left: 20px; padding-right: 20px; }
   .passos .quando { flex-basis: 70px; }
+}
+
+/* ⚠️ 760px é a quebra da BARRA, e ela é de propósito diferente dos 820px
+   em que o resto do painel vira "celular": são os mesmos 760 do
+   landing.css, para que as duas páginas troquem de escala de cabeçalho na
+   mesma largura. Um síndico que sai da landing e entra no painel não pode
+   ver a marca pular de tamanho. */
+@media (max-width: 760px) {
+  :root { --barra-h: 64px; }
+  .marca img { height: 32px; }
 }
 
 @media (max-width: 520px) {

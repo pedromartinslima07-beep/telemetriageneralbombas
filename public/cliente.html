@@ -17,7 +17,7 @@
        cliente.css antes de reintroduzir qualquer dependência do admin. -->
   <link rel="preload" href="/static/fonts/archivo.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="/static/fonts/martianmono.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="/static/cliente.css?v=12">
+  <link rel="stylesheet" href="/static/cliente.css?v=17">
 </head>
 <body data-estado="carregando" data-atend="nao">
 
@@ -41,47 +41,39 @@
   Estratégia durável: .impeccable/surfaces/public-cliente-html.md
 -->
 
-<!-- defs compartilhadas do cilindro: um só conjunto para todos os tanques da
-     página, em vez de um id novo por instância como faz o admin -->
+<!-- Gradiente da área do gráfico da ficha do reservatório. Era um conjunto de
+     quatro defs, três delas do cilindro SVG; o cilindro saiu quando a prova
+     virou a coluna d'água da landing, e `g-corpo`, `g-agua` e `g-mudo` foram
+     com ele. Esta é a única que sobrou, e ela é do gráfico.
+     ⚠️ id PRÓPRIO, nunca `g-agua`: o navegador resolve `url(#id)` pelo
+     PRIMEIRO do documento, e a área do gráfico já saiu uma vez com o
+     gradiente OPACO do tanque, enterrando a linha de limiar. -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
-  <linearGradient id="g-corpo" x1="0" y1="0" x2="1" y2="0">
-    <stop offset="0"   stop-color="#fff" stop-opacity=".13"/>
-    <stop offset=".42" stop-color="#fff" stop-opacity=".02"/>
-    <stop offset="1"   stop-color="#000" stop-opacity=".26"/>
-  </linearGradient>
-  <linearGradient id="g-agua" x1="0" y1="0" x2="0" y2="1">
-    <stop offset="0"   stop-color="#2f6fe0"/>
-    <stop offset=".62" stop-color="#1a3a9e"/>
-    <stop offset="1"   stop-color="#071b5c"/>
-  </linearGradient>
-  <pattern id="g-mudo" width="9" height="9" patternUnits="userSpaceOnUse" patternTransform="rotate(-45)">
-    <rect width="9" height="9" fill="#050f38"/>
-    <line x1="0" y1="0" x2="0" y2="9" stroke="#0d1f5e" stroke-width="4"/>
-  </pattern>
-  <!-- ⚠️ id PRÓPRIO, não `g-agua`: o navegador resolve `url(#id)` pelo
-       PRIMEIRO do documento, e a área do gráfico saía com o gradiente OPACO
-       do tanque, enterrando a linha de limiar. -->
   <linearGradient id="g-area-res" x1="0" y1="0" x2="0" y2="1">
     <stop offset="0" stop-color="#2f6fe0" stop-opacity=".38"/>
     <stop offset="1" stop-color="#2f6fe0" stop-opacity="0"/>
   </linearGradient>
 </defs></svg>
 
-<!-- ═══ A BARRA — só identifica. Sem KPI, sem avatar, sem botão de atualizar ═══ -->
-<div class="barra" id="barra"><div class="barra-in">
-  <header class="topo">
-    <!-- logo-topo.png é o wordmark SEM a assinatura; a assinatura do
-         login-logo fica ilegível em qualquer escala de barra. O lockup
-         completo aparece uma vez só, no rodapé. -->
-    <img src="/static/logo-topo.png" alt="GENERAL">
-    <span class="fio-v"></span>
-    <span class="predio" id="nomePredio">Meu prédio</span>
-    <button class="conta" data-abrir="conta" type="button">
-      <svg viewBox="0 0 24 24" stroke-linecap="square" aria-hidden="true"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 20c0-3.6 3.4-5.6 7.5-5.6s7.5 2 7.5 5.6"/></svg>
-      <span class="conta-rot" id="nomeSindico">Sua conta</span>
-    </button>
-  </header>
-</div></div>
+<!-- ═══ A BARRA — só identifica. Sem KPI, sem avatar, sem botão de atualizar ═══
+     Mesma construção da landing (`index.html`): faixa de largura inteira,
+     conteúdo centrado na área, marca à esquerda e ações à direita. Altura,
+     recuo lateral e escala do logo saem dos mesmos tokens — ver `--barra-h`,
+     `--area-max` e `--gut` no cliente.css.
+     ⚠️ O nome do prédio NÃO mora aqui. Ele é o cabeçalho da placa, logo
+     abaixo: na barra ele obrigava a segunda linha no celular (107px contra
+     os 64 da landing) e a alternativa era truncá-lo, que é esconder
+     justamente o que precisa ter peso. -->
+<header class="barra" id="barra"><div class="barra-in">
+  <!-- logo-topo.png é o wordmark SEM a assinatura; a assinatura do
+       login-logo fica ilegível em qualquer escala de barra. O lockup
+       completo aparece uma vez só, no rodapé. -->
+  <span class="marca"><img src="/static/logo-topo.png" alt="GENERAL"></span>
+  <button class="conta" data-abrir="conta" type="button">
+    <svg viewBox="0 0 24 24" stroke-linecap="square" aria-hidden="true"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 20c0-3.6 3.4-5.6 7.5-5.6s7.5 2 7.5 5.6"/></svg>
+    <span class="conta-rot" id="nomeSindico">Sua conta</span>
+  </button>
+</div></header>
 
 <main class="folha">
 
@@ -108,6 +100,15 @@
     </div>
 
     <div class="placa">
+      <!-- Cabeçalho do instrumento: identifica a peça antes de ela falar.
+           É a anatomia que a DESIGN.md já descreve (cabeçalho / corpo /
+           estado / nota separados por sulco), e é o lugar do nome do prédio
+           desde que ele saiu da barra. Papel "título de tela" da rampa de
+           UI — não é etiqueta acima de uma manchete. -->
+      <div class="placa-topo">
+        <p class="predio" id="nomePredio">Meu prédio</p>
+      </div>
+
       <div class="placa-cel">
         <h1 class="frase" id="frase">Lendo os sensores…</h1>
         <p class="apoio" id="apoio">Um instante — estamos buscando a leitura mais recente do seu prédio.</p>
@@ -134,9 +135,12 @@
         </div>
       </div>
 
+      <!-- A prova é UMA coluna d'água: a `.coluna-tubo` da landing, mostrando
+           o PIOR reservatório do prédio. Os outros abrem no botão, na ficha
+           #fTodos. Três objetos idênticos lado a lado voltavam a ler como
+           gráfico de barras — ver o aviso em cliente.css, `.prova`. -->
       <div class="placa-cel">
-        <div class="colunas" id="colunas"></div>
-        <div id="resto"></div>
+        <div class="prova" id="prova"></div>
 
         <div class="sem-sensor" id="semSensor">
           <span class="tubo"></span>
@@ -333,7 +337,7 @@
 </div>
 
 <script src="/static/inatividade.js" defer></script>
-<script src="/static/cliente.js?v=31" defer></script>
+<script src="/static/cliente.js?v=32" defer></script>
 <script src="/static/register-sw.js?v=33" defer></script>
 </body>
 </html>

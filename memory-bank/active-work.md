@@ -8,8 +8,50 @@ aliases:
 # Trabalho em Andamento
 
 > Branch atual: `feature/landing-publica` (saiu de `main`).
-> Última sessão registrada: **2026-08-13**.
+> Última sessão registrada: **2026-08-14**.
 > Roadmap completo em [`roadmap.md`](roadmap.md); decisões em [`decisions.md`](decisions.md).
+
+## Sessão 2026-08-14 — O cabeçalho do painel vira o da landing
+
+Pedido do Pedro: *"deixar o cabeçalho igual o da landing page, mesmo tamanho,
+tamanho de logo etc"*. O "o quê" está no [changelog](../docs/changelog.md), o
+fluxo em [painel-cliente.md](../docs/modulos/painel-cliente.md). O que não é
+óbvio pelo diff:
+
+- **"Igual" era falso no desktop também.** As duas barras batiam em 74px, mas
+  a do painel chegava lá por `padding 17 + logo 40 + 17` — número derivado, não
+  declarado. Bastava um elemento crescer dentro dela para a altura sair do
+  documentado, e foi assim que ela virou 85px numa sessão anterior. Agora é
+  `height: var(--barra-h)`, com os mesmos nomes de token do `landing.css`.
+- **O bloqueio real estava no celular, e era o nome do prédio.** Ele obrigava a
+  barra a duas linhas (~107px) e, por isso, a não grudar. As duas saídas
+  possíveis conflitavam com decisões registradas: truncar tinha sido recusado
+  em 14/08, e manter as duas linhas mantinha a divergência. Perguntei em vez de
+  escolher; o Pedro tirou o nome da barra.
+- **Ele não perdeu o papel de título da tela, mudou de lugar:** virou
+  `.placa-topo`, o cabeçalho do instrumento, separado do corpo pelo sulco
+  gravado. Isso é o que impede a peça de virar **etiqueta acima de manchete**,
+  que é forma proibida. Se um dia encolher para mono em caixa alta, virou
+  eyebrow e é para tirar.
+- **A coluna inteira foi alinhada junto** (escolha dele): `.folha`, barra e
+  rodapé agora usam `var(--gut)`, o recuo da `.area` da landing. A largura útil
+  do painel caiu de 1160 para 1128px.
+- ⚠️ **Primeira vez que o painel rodou contra o backend real.** Servidor local
+  na 3001, banco de TESTE, `demo-cliente@teste.local` (estado "sem sinal").
+  Todas as medições anteriores eram harness estático com `fetch` dublado.
+
+**Aberto:**
+- ⚠️ **A ação a 320px.** "Preciso de ajuda" fecha em **586,1px** no estado sem
+  sinal, contra os 569 documentados — ~17px pior, porque o cabeçalho da placa
+  custou ~50px e a barra só devolveu 43. A 390px folga (568,9px). Num viewport
+  de 568px o botão fica parcialmente abaixo da dobra. **Não ajustei**: o
+  aparelho é praticamente extinto e micro-tunar padding contra ele custa mais
+  do que vale. Decisão a confirmar com o Pedro.
+- **A barra de rolagem da landing não é a do painel.** O painel estiliza
+  (`::-webkit-scrollbar`, 10px); a landing fica com a nativa (15,3px medidos).
+  Descoberto ao comparar as duas barras; fora do escopo do pedido.
+- Os quatro itens de 14/08 que continuam em aberto (âmbar quádruplo no estado
+  "atenção", crista amarela, prédio em corte) seguem sem veredito.
 
 ## Sessão 2026-08-13 (parte 2) — Painel do cliente reconstruído
 

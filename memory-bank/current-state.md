@@ -238,6 +238,11 @@ A v1 (13/08) foi rejeitada por manter a casca do admin — ver
 - **Folha autônoma no sistema "Chapa"**: `cliente.html` **não carrega
   `admin.css`**, em volume mais baixo que a landing. Era o defeito central — o
   painel do síndico não era inspirado no admin, era o admin.
+- **O cabeçalho é o mesmo da landing**, desde 14/08 literalmente: tokens com os
+  mesmos nomes e valores (`--barra-h`, `--area-max`, `--gut`, `--saida`),
+  mesma quebra de 760px, `sticky` também no celular. O nome do prédio **não
+  fica na barra** — é o `.placa-topo`, cabeçalho do instrumento. Mudou a barra?
+  Mude em `landing.css` e `login.css` também.
 - **Não há seções nem navegação.** Sumiram sidebar, colapso, topbar, KPIs,
   abas, buscas e tabelas. A página é: **a resposta** (uma frase + os
   reservatórios como prova + uma ação) ocupando a primeira tela, **a história**

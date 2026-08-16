@@ -297,9 +297,10 @@ Números do sistema, e eles mandam: **logo 40px na barra, 72px no rodapé; barra
 74px no desktop, 64px no celular.** Se a marca parecer pequena ao lado do nome
 do prédio, a alavanca é o **nome**, não o logo.
 
-⚠️ **No celular a barra não gruda.** Em duas linhas ela tem 107px, e grudada
-comeria 14% da tela para sempre. A barra da landing persegue a rolagem porque
-carrega navegação e CTA; esta só identifica o prédio e guarda a conta.
+~~⚠️ **No celular a barra não gruda.** Em duas linhas ela tem 107px, e grudada
+comeria 14% da tela para sempre.~~ **Revertido em 14/08** — ver "A barra é a
+barra da landing" abaixo. A causa das duas linhas era o nome do prédio; com ele
+no cabeçalho da placa, a barra cabe nos 64px e volta a grudar.
 
 ## A v3 VIROU CÓDIGO em 14/08/2026
 
@@ -621,3 +622,62 @@ fazia).
 ⚠️ No celular o topo **quebra em duas linhas** — marca e conta em cima, nome do
 prédio inteiro embaixo. A versão anterior truncava com reticências, o que era
 esconder justamente o que precisava ganhar peso.
+
+## A barra é a barra da landing — FECHADO em 14/08
+
+Pedido do Pedro: *"deixar o cabeçalho igual o da landing page, mesmo tamanho,
+tamanho de logo etc"*. A barra do painel tinha sido **inspirada** na da landing
+e divergido em sete pontos. No desktop as duas batiam em altura **por
+acidente** — 17 + logo 40 + 17 = 74 —, e no celular eram outra construção.
+
+Agora as duas folhas compartilham os mesmos tokens **com os mesmos nomes**:
+`--barra-h` (74px, 64px abaixo de 760px), `--area-max`, `--gut`
+(`clamp(20px, 5vw, 56px)`) e `--saida`. Mudou num, muda nos três (landing,
+login, cliente) — a jornada é uma só e o cabeçalho não pode trocar de tamanho
+no meio dela.
+
+⚠️ **Altura declarada, nunca derivada de padding.** Foi assim que a barra
+chegou a 85px uma vez: um elemento cresceu dentro dela e levou a altura junto.
+
+⚠️ **O nome do prédio saiu da barra.** Ele era a causa das duas linhas no
+celular, e a única alternativa — truncar com reticências — já tinha sido
+recusada em 14/08 (ver "O nome do condomínio é o título da tela"). Continua
+sendo o título da tela; mudou de lugar, não de papel: virou `.placa-topo`, o
+**cabeçalho do instrumento**, com o sulco gravado de duas linhas separando-o do
+corpo. Isso é a anatomia que a DESIGN.md já descreve (cabeçalho / corpo /
+estado / nota), e é o que impede a peça de virar **etiqueta acima de manchete**
+— forma proibida. Se algum dia ele encolher para uma linha mono em caixa alta,
+virou eyebrow e é para tirar.
+
+Decisão do Pedro no mesmo passo: **alinhar a coluna inteira** ao recuo da
+landing, e não só a barra. `.folha`, `.barra-in` e o rodapé usam `var(--gut)`;
+a largura útil do painel passou de 1160px para os **1128px** da `.area`.
+
+⚠️ **Regressão silenciosa que a estrutura nova cria:** a célula de texto não é
+mais `:first-child` da placa. `container-type: inline-size` e o `padding-bottom`
+da placa empilhada foram para `.placa-topo + .placa-cel`. Com `:first-child` a
+contenção cai na célula errada e a `.frase` perde a referência de `cqi`.
+
+**Medido contra o backend real** (servidor local na 3001, banco de TESTE,
+`demo-cliente@teste.local`, estado "sem sinal") — a primeira vez que este
+painel roda com dado de verdade. Landing e painel a 1920px: barra 74px,
+`.barra-in` 1240px com 56px de recuo, logo 40px — idênticos. No celular, de 320
+a 760px: barra 64px e `sticky`, logo 32px, logo alinhado com a borda da placa
+em todas as larguras, zero transbordo horizontal.
+
+⚠️ `resize_window` do Chrome **não pegou de novo**. A técnica do iframe de
+largura real continua sendo a saída — e `flex-shrink: 0` nos iframes, senão o
+contêiner os espreme e todos medem a mesma largura errada sem avisar.
+
+### O que a medição da ação diz — e o que ficou em aberto
+
+Regra da casa: medir a altura até "Preciso de ajuda" sempre que algo entra
+acima dela. Base do botão no estado sem sinal: **568,9px a 390px** e
+**586,1px a 320px** (o pior caso documentado era 569). A barra devolveu 43px e
+o cabeçalho da placa consumiu ~50; a 320px o nome do prédio ainda quebra em
+duas linhas.
+
+A 390px folga. **A 320px o botão fica parcialmente abaixo da dobra** num
+viewport de 568px — mesma situação de antes, ~17px pior. Não ajustei: o aparelho
+é praticamente extinto e micro-tunar padding contra ele custa mais do que vale.
+Fica registrado como escolha, não como descuido.
