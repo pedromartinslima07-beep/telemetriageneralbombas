@@ -67,10 +67,13 @@ Comp aprovada como norte: [`../comps/painel-cliente-v2.html`](../comps/painel-cl
 
 ## Decisões fechadas em 14/08/2026
 
-- **A água é sempre azul.** No nível baixo mudam o **número** e a **palavra**,
-  não a substância — água amarela era imagem estranha. Decidido pelo Pedro.
-  (A crista do tubo baixo também vira amarela, para amarrar o número ao tubo
-  certo quando há três lado a lado; é o único acréscimo meu, e é vetável.)
+- ~~**A água é sempre azul.**~~ No nível baixo mudam o **número** e a
+  **palavra**, não a substância — água amarela era imagem estranha. Decidido
+  pelo Pedro. (A crista do tubo baixo também vira amarela, para amarrar o
+  número ao tubo certo quando há três lado a lado; é o único acréscimo meu, e
+  é vetável.)
+  ⚠️ **REVERTIDA EM 17/08** — ver "O vinho do crítico volta", no fim deste
+  arquivo. A parte do **baixo** continua valendo: lá a água segue azul.
 - **"Tem água." saiu.** O Pedro preferiu as alternativas. **Ainda não está
   escolhido qual** — "Tudo normal." ou "Seu prédio está abastecido.";
   a comp v3 traz as duas numa chave do andaime. O argumento a favor da
@@ -747,20 +750,80 @@ reabrir, não minha.
 ### O selo de sem sinal (17/08)
 
 Pedido: *"era bom colocar um símbolo de sem sinal pra ficar mais visual"*.
-Chapa chanfrada de 44px carimbada no meio do tubo, com **barras de sinal
-cortadas** — o que parou foi o rádio do dispositivo, não a água, e barra de
-sinal é o único desenho que se lê sem legenda. Traço reto e esquadrado, corte
-no mesmo 45° do chanfro e da fita: o símbolo entra no vocabulário da casa em
-vez de importar um dialeto de biblioteca de ícones.
+Chapa chanfrada de 44px carimbada no meio do tubo, com o **`wifi-off` do
+Lucide** (a biblioteca já está no projeto). Literal: o ESP32 fala por wi-fi e
+o que parou foi o rádio dele, não a água.
 
-- ⚠️ **O corte desce.** Primeiro desenho subia da esquerda para a direita,
-  no mesmo sentido das barras — ampliado a 5×, lia como **seta de
-  crescimento**. É o tipo de erro que só aparece quando se amplia o ícone;
-  a 24px eu teria passado batido.
-- ⚠️ **O corte é desenhado duas vezes**: grosso na cor da chapa, para abrir
-  vala nas barras, e fino por cima. Sem a vala, três barras riscadas viram
-  borrão no tamanho real.
-- Chapa **opaca**, construção de duas camadas como a `.placa` e o `.resto`.
-  Translúcida, a hachura atravessa as barras e o símbolo some.
+⚠️ **A geometria é da biblioteca porque dois desenhos meus falharam**, e os
+dois só apareceram quando ampliei o ícone a 5× e 8× — na tela, a 44px, os
+dois passavam:
+
+1. **Três barras cortadas.** O corte tem de descer (subindo, acompanha as
+   barras e vira seta de crescimento). Descendo, **nenhuma reta cruza as
+   três**: passa por cima da barra baixa e retalha as outras em alturas
+   diferentes. Sobram tocos soltos. É geometricamente impossível, não é
+   ajuste fino.
+2. **Triângulo cheio com uma vala.** O corte de 45° cai no eixo de simetria
+   do triângulo retângulo e o parte em duas metades espelhadas —
+   gravata-borboleta.
+
+O Lucide resolve desenhando os arcos **já interrompidos** onde o corte passa:
+os vãos são parte da geometria, em vez de serem abertos por cima com um traço
+grosso da cor do fundo. **Não fechar esses vãos.**
+
+- **Lição de método:** ícone se revisa AMPLIADO. Nenhum dos dois defeitos era
+  visível no tamanho em que o ícone vive.
+- As curvas são exceção assumida ao "traço sempre esquadrado" — o ícone de
+  conta, na barra, já tem círculo e arco. A alternativa toda reta (`antenna`
+  do Lucide) recai no problema 1.
+- ⚠️ `stroke-linecap: square` não é estética: `M12 20h.01` é subcaminho de
+  comprimento zero e com `butt` **não é desenhado** — o ponto some sem erro
+  nenhum no console.
 - Ele passa onde a régua de limiar não passou porque **não tem altura**: um
   selo centralizado não se confunde com nível.
+
+### A coluna deita no celular (17/08)
+
+Pedido: *"na landing, quando vai para o mobile, o reservatório fica na
+horizontal — acho que ficaria melhor assim no painel também"*. Era
+inconsistência real: a landing tem o tratamento deitado desde 14/08 e este
+painel, que reusa **a mesma peça**, só encurtava a coluna de 268 para 210px.
+
+Abaixo de 820px (o ponto em que ESTE painel vira celular; na landing é 760) o
+tubo vira **100% × 132px** e as leituras viram fileira embaixo — os mesmos
+valores e a mesma construção do `landing.css`.
+
+⚠️ **Deitada, todo eixo troca**: lâmina por `translateX` em vez de
+`translateY`, crista na borda direita, faixas por `left/width`, limiar por
+`border-left`, gradiente `to left`. Cada regra tem par no `landing.css` —
+**mudou lá, muda aqui**. É o preço de "a mesma peça, valor por valor", e é
+mais barato que manter dois desenhos.
+
+⚠️ **A água não vira vinho no crítico**, ao contrário da landing: "a água é
+sempre azul" (Pedro, 14/08) vale nos dois eixos.
+
+A faixa 821–1000px (placa empilhada, tubo em pé) ficou como estava: iPad
+retrato é 768 e cai no deitado; paisagem é 1024 e cai nas duas colunas.
+
+### O vinho do crítico volta (17/08) — reversão de decisão
+
+Em 14/08 ficou fechado que **"a água é sempre azul"** neste painel, com o
+argumento de que água colorida vira imagem estranha e que quem sinaliza estado
+é a crista. Eu apliquei essa regra outra vez ao deitar a coluna, e o Pedro
+reabriu: *"pode mudar isso"*.
+
+Abaixo de 20% a lâmina volta a escurecer para `#7a1e2c → #4a1220` — os mesmos
+dois valores do `.coluna-agua` do `landing.css`, nos dois eixos (o gradiente
+inverte para `to left` quando a peça deita).
+
+- **Só no crítico.** No `baixo` a água continua azul e quem avisa é a crista
+  âmbar: abaixo de 45% a bomba costuma repor sozinha, e pintar a lâmina ali
+  transformaria rotina em alarme. A metade "baixo" da decisão de 14/08 segue
+  de pé; caiu só a metade do crítico.
+- **O que o argumento de 14/08 não previa:** a peça vista lado a lado com a
+  landing. Foi ao deitar a coluna, replicando a construção de lá, que a
+  divergência ficou visível — e "a mesma peça, valor por valor" pesou mais
+  que "água colorida é imagem estranha".
+- Sem `transition` de cor: a prova é reconstruída por `innerHTML` quando o
+  estado muda (a assinatura `device:estado:n` muda junto), então não há troca
+  de cor no mesmo elemento para animar.

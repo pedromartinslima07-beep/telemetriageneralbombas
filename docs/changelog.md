@@ -2694,7 +2694,7 @@ conceito (hachura, nunca tubo vazio; "não sei" ≠ "está vazio") continua igua
   conjunto.
 - `semSinalHa()` em `cliente.js` — o mesmo relógio do `desdeQuando`, partido em
   número e unidade porque no instrumento o tempo é medição, não frase.
-- Cache-bust: `cliente.css` v20, `cliente.js` v34.
+- Cache-bust: `cliente.css` v21, `cliente.js` v35.
 
 **O selo de sem sinal** (pedido do Pedro na sequência: *"era bom colocar um
 símbolo de sem sinal pra ficar mais visual"*) — uma chapa chanfrada de 44px
@@ -2702,21 +2702,39 @@ carimbada no meio do tubo, com barras de sinal cortadas. A hachura diz "não
 estamos medindo" para quem já conhece a peça; o selo diz para quem está vendo
 pela primeira vez, que é o caso do síndico.
 
-- **Barras de sinal, não antena/nuvem/emoji:** o que parou foi o **rádio** do
-  dispositivo, e barra de sinal é o único desenho que se lê sem legenda. Tudo
-  em traço reto e esquadrado, com o corte no mesmo 45° do chanfro e da fita —
-  o símbolo entra no vocabulário da casa em vez de importar um dialeto.
-- ⚠️ **O corte DESCE.** No primeiro desenho ele subia da esquerda para a
-  direita, acompanhando o sentido das barras: ampliado a 5×, o conjunto lia
-  como **seta de crescimento**, não como cancelamento. Descendo, contraria as
-  barras e volta a ser o que é.
-- ⚠️ **O corte é desenhado duas vezes** — grosso na cor da chapa (abre vala nas
-  barras) e fino no cinza por cima. Sem a vala, três barras riscadas viram
-  borrão a 24px.
+⚠️ **A geometria é a do `wifi-off` do Lucide** (já em `public/lucide.min.js`),
+e isso é a correção de **dois desenhos meus que saíram tortos** — os dois
+descobertos ampliando o ícone, não olhando a tela:
+
+- **Três barrinhas cortadas** (o Pedro: *"tá mal feito esse símbolo"*). O corte
+  tem de descer — subindo, acompanha as barras e o conjunto lê como **seta de
+  crescimento**. Só que, descendo, **nenhuma reta cruza as três**: ela passa
+  por cima da barra baixa sem tocá-la e retalha as outras duas em alturas
+  diferentes. A 8×, o que sobrava eram tocos soltos. Não é ajuste fino, é
+  impossível: barras que sobem e corte que desce não se encontram.
+- **Triângulo cheio com uma vala.** O corte de 45° cai exatamente no eixo de
+  simetria do triângulo retângulo e o parte em duas metades espelhadas — vira
+  **gravata-borboleta**, não medidor cancelado.
+
+O Lucide resolve o mesmo problema do jeito certo: os arcos são **desenhados
+já interrompidos** onde o corte passa. Os vãos fazem parte da geometria, em
+vez de serem abertos por cima com um traço grosso da cor do fundo. ⚠️ Não
+"arrumar" os arcos fechando os vãos.
+
+- **O leque de wi-fi é literal:** o ESP32 fala por wi-fi, e o que parou foi o
+  rádio dele — não a água. As curvas são exceção assumida ao "traço sempre
+  esquadrado" (o ícone de conta, na barra, já tem círculo e arco); a
+  alternativa toda reta (`antenna` do Lucide) recai no problema das barras.
+- ⚠️ **`stroke-linecap: square` é o que faz o ponto de baixo existir.**
+  `M12 20h.01` é subcaminho de comprimento zero: com `butt` ele simplesmente
+  não é desenhado, e some sem erro nenhum no console.
+- SVG a **22px** dentro da chapa de 44: o desenho vai de canto a canto do
+  viewBox e o `square` ainda avança meio traço em cada ponta — a 24px o corte
+  encostava no chanfro da chapa.
 - Chapa **opaca** e construção de duas camadas (fundo = fio, `::before`
   embutido 1px = chapa), como a `.placa` e o `.resto`: `box-shadow: inset`
   como borda sairia recortado nos dois chanfros, e chapa translúcida deixaria
-  a hachura atravessar as barras.
+  a hachura atravessar o desenho.
 
 ⚠️ **Nada de crista no tubo mudo.** Uma linha horizontal ali seria lida como
 nível — a confusão que este estado existe para evitar. O selo não tem esse
@@ -2753,6 +2771,52 @@ Agora, quando `os.valor != null`:
 
 Sem total manual, nada muda: as colunas voltam e `fmtMoeda(null)` segue
 imprimindo "—" no item sem preço (comportamento da migration 062).
+
+### 2026-08-17 — No celular a coluna DEITA, como na landing (frontend)
+
+Pedido do Pedro: *"no landing page quando vai para o mobile, o reservatório
+fica na horizontal, acho que ficaria melhor assim no painel também"*. Era
+inconsistência real — a landing tem o tratamento deitado desde 14/08 e o
+painel, que reusa a mesma peça, só encurtava a coluna de 268 para 210px.
+
+Abaixo de **820px** (onde este painel vira celular; na landing o ponto é 760)
+o tubo passa a **100% × 132px**, os mesmos valores do `landing.css`, e as
+leituras deixam de ser uma coluna ao lado para virar uma **fileira embaixo**
+(`repeat(auto-fit, minmax(126px, 1fr))`, o `.instr-leituras` de lá).
+
+⚠️ **Deitada, todo eixo do desenho troca** — cada regra tem par no
+`landing.css`, e mudou lá, muda aqui:
+
+| | Em pé | Deitada |
+|---|---|---|
+| lâmina | `translateY(100% - --n)` | `translateX(--n - 100%)` |
+| crista | borda de cima | borda da direita |
+| faixas | `bottom` / `height` | `left` / `width` |
+| limiar | `border-top` | `border-left` |
+
+- O gradiente da lâmina inverte para `to left`, senão o tom claro fica na
+  ponta errada e a crista perde o encaixe.
+- ⚠️ **O VINHO DO CRÍTICO VOLTOU, e isso reverte uma decisão.** De 14/08 a
+  17/08 valeu aqui "a água é sempre azul" (argumento: água colorida vira
+  imagem estranha, quem sinaliza é a crista). Eu apliquei a regra de novo ao
+  deitar a coluna e o Pedro reabriu — *"pode mudar isso"*. Abaixo de 20% a
+  lâmina volta a escurecer para `#7a1e2c → #4a1220`, os mesmos dois valores
+  do `.coluna-agua` da landing, nos dois eixos.
+  **Só no crítico:** no `baixo` a água continua azul e quem avisa é a crista
+  âmbar — abaixo de 45% a bomba costuma repor sozinha, e pintar a lâmina ali
+  transformaria rotina em alarme. Caiu metade da decisão de 14/08, não ela
+  inteira. O que o argumento original não previa era a peça vista **lado a
+  lado com a landing**, que foi o que a virada horizontal expôs.
+- Ganho de altura: a prova sai de 210px de tubo + coluna de leituras para
+  132px + fileira — sobra que vai direto para a dobra do celular.
+- Cache-bust: `cliente.css` v23.
+
+Medido a 390 / 760 / 900 / 1180 / 1440: deitada nas duas primeiras (297×132 e
+631×132, crista exatamente no percentual da leitura), em pé de 900 para cima
+(82×268, `prova-in` em duas trilhas), nenhum transbordo horizontal. A faixa de
+**821–1000px** — placa já empilhada, tubo ainda em pé — ficou como estava; é
+banda estreita (o iPad retrato tem 768 e cai no deitado, o paisagem tem 1024 e
+cai nas duas colunas).
 
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e

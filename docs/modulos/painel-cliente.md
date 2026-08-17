@@ -178,6 +178,33 @@ A 320px o pior caso fica em 569px. ⚠️ **Se alguém acrescentar qualquer cois
 acima da ação, refazer esta medição** — é a garantia de que a tese do painel
 sobrevive no aparelho prioritário.
 
+### ⚠️ No celular a COLUNA DEITA (a partir de 17/08)
+
+Abaixo de **820px** o tubo vira uma barra de **100% × 132px** — os mesmos
+valores do `landing.css`, onde o tratamento existe desde 14/08 (lá o ponto é
+760px, aqui é 820, que é onde este painel vira celular). As leituras saem da
+coluna ao lado e viram **fileira embaixo** (`repeat(auto-fit, minmax(126px,
+1fr))`, o `.instr-leituras` de lá). Em pé e estreita, a peça desperdiçava a
+largura da tela e gastava altura que o painel não tem no celular.
+
+⚠️ **Deitada, todo eixo do desenho troca**, e cada regra tem par no
+`landing.css` — mudou lá, muda aqui:
+
+| | Em pé | Deitada |
+|---|---|---|
+| lâmina | `translateY(100% - --n)` | `translateX(--n - 100%)` |
+| crista | borda de cima | borda da direita |
+| faixas | `bottom` / `height` | `left` / `width` |
+| limiar | `border-top` | `border-left` |
+
+⚠️ **A água não vira vinho no crítico**, ao contrário da landing: "a água é
+sempre azul" vale nos dois eixos, e quem sinaliza estado é a crista. O
+gradiente inverte para `to left`, senão o tom claro fica na ponta errada.
+
+A faixa de **821–1000px** (placa empilhada, tubo ainda em pé) ficou como
+estava — é banda estreita: o iPad retrato tem 768 e cai no deitado, o paisagem
+tem 1024 e cai nas duas colunas.
+
 ### A prova são TRÊS colunas, no máximo
 
 Tenha o prédio 3 ou 30 reservatórios. Onze tubos lado a lado **voltam a ser um
@@ -213,8 +240,16 @@ ou vermelho é muito mais visível que o fio de 2px da coluna chata.
   mede é ruído, e ruído na primeira tela derrubou a v1. **O limiar vive na
   linha de 45% do gráfico da ficha do reservatório**, que é o contexto de
   análise.
-- **A água é sempre azul.** No nível baixo mudam o **número**, a **palavra** e
-  o **anel** — não a substância. Água amarela era imagem estranha.
+- **No baixo a água é azul; no crítico, vinho.** Abaixo de 45% mudam o
+  **número**, a **palavra** e a **crista** — não a substância: água amarela
+  era imagem estranha, e abaixo de 45% a bomba costuma repor sozinha, então
+  pintar a lâmina transformaria rotina em alarme. Abaixo de 20% a lâmina
+  escurece para `#7a1e2c → #4a1220`, os mesmos dois valores do `.coluna-agua`
+  da landing.
+  ⚠️ **Isto reverte a regra "a água é sempre azul"**, que valeu de 14/08 a
+  17/08. Reaberto e liberado pelo Pedro em 17/08, vendo a peça deitada ao lado
+  da landing — que sempre teve o vinho. Não é descuido de quem escreveu:
+  é decisão trocada, com o painel voltando a ser a mesma peça dos dois lados.
 - **Offline não desenha lâmina:** hachura. "Não sei" é diferente de "está
   vazio", e essa diferença é o produto.
   ⚠️ E a hachura tem de **aparecer**: ela nasceu `#08133f` sobre `--mar-900`
@@ -225,13 +260,20 @@ ou vermelho é muito mais visível que o fio de 2px da coluna chata.
   horizontal ali é lida como nível, e a API traz sim a última leitura conhecida
   — mostrá-la esbarraria na mesma decisão de 14/08 que tirou faixa e elipse.
 - **O selo de sem sinal** (`ICO_SEM_SINAL` + `.selo-mudo`): chapa chanfrada de
-  44px carimbada no meio do tubo, com **barras de sinal cortadas** — o que
-  parou foi o rádio do dispositivo, não a água. É o que dá leitura imediata a
-  quem nunca viu a peça. Duas armadilhas registradas: o corte tem de **descer**
-  (subindo, acompanha as barras e o conjunto vira seta de crescimento) e
-  precisa ser desenhado **duas vezes**, grosso na cor da chapa e fino por cima,
-  senão vira borrão a 24px. Um selo centralizado não tem altura que se confunda
-  com nível — por isso ele passa onde a régua de limiar não passou.
+  44px carimbada no meio do tubo, com o **`wifi-off` do Lucide** dentro. É o
+  que dá leitura imediata a quem nunca viu a peça — e é literal, porque o
+  ESP32 fala por wi-fi e o que parou foi o rádio dele, não a água.
+  ⚠️ **Geometria da biblioteca, não desenhada à mão**, depois de dois desenhos
+  meus falharem: (a) três barras cortadas — barras sobem, o corte precisa
+  descer, e descendo **nenhuma reta cruza as três**, sobram tocos; (b)
+  triângulo cheio com uma vala — o corte de 45° cai no eixo de simetria e o
+  parte em gravata-borboleta. O Lucide desenha os arcos **já interrompidos**
+  onde o corte passa; **não fechar esses vãos**, são eles que deixam o corte
+  limpo.
+  ⚠️ `stroke-linecap: square` não é estética: `M12 20h.01` é subcaminho de
+  comprimento zero e com `butt` não é desenhado — o ponto some sem erro.
+  Um selo centralizado não tem altura que se confunda com nível — por isso ele
+  passa onde a régua de limiar não passou.
 - **No mudo a segunda leitura mede TEMPO.** Todo estado tem duas (Nível +
   Bomba); sem leitura não há bomba a reportar, e a coluna colapsava para um
   traço solto. Entra `SEM RESPOSTA HÁ / 3h` (`semSinalHa()`), no tratamento do
@@ -435,7 +477,7 @@ do SVG**: dentro do `viewBox` ele encolhe junto com o gráfico e vira borrão a
 `cliente.css` e `cliente.js` são **network first** no `sw.js` (regra genérica
 de `.css`/`.js`), e `/cliente` e `/relatorio` já estão na lista de prefixos
 network-first — não foi preciso mexer no service worker. O `?v=N` no
-`cliente.html` continua valendo (hoje `cliente.css?v=20`, `cliente.js?v=34`).
+`cliente.html` continua valendo (hoje `cliente.css?v=23`, `cliente.js?v=35`).
 Racional completo em [`../../CLAUDE.md`](../../CLAUDE.md).
 
 ⚠️ O `cliente.html` **não carrega mais** `apexcharts.min.js`, `chart.umd.min.js`

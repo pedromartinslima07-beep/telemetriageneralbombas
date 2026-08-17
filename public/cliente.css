@@ -469,12 +469,25 @@ body[data-atend="sim"] .linha-atend { display: flex; }
   will-change: transform;
 }
 
+/* ⚠️ NO CRÍTICO A LÂMINA ESCURECE PARA VINHO, e isto é uma REVERSÃO
+   consciente: de 14/08 a 17/08 valeu aqui "a água é sempre azul", com o
+   argumento de que água colorida vira imagem estranha e que quem sinaliza
+   estado é a crista. O Pedro reabriu e liberou em 17/08, vendo a peça
+   deitada ao lado da landing — que sempre teve o vinho.
+   São os MESMOS dois valores do `.coluna-agua` do `landing.css`; a peça
+   volta a ser a mesma nos dois lugares, que é o ponto dela.
+   ⚠️ Só no crítico. No `baixo` a água continua azul e quem avisa é a crista
+   âmbar — abaixo de 45% a bomba costuma repor sozinha, e pintar a água de
+   âmbar transformaria rotina em alarme.
+   ⚠️ Sem `transition` de cor: a prova é reconstruída por `innerHTML` quando o
+   estado muda (a assinatura `device:estado:n` muda junto), então não existe
+   troca de cor no mesmo elemento para animar. */
+.res.critico .agua {
+  background: linear-gradient(180deg, #7a1e2c 0%, #4a1220 100%);
+}
+
 /* O halo da crista é uma das duas ÚNICAS box-shadow do sistema, e é luz,
-   não elevação (DESIGN.md, Elevation & Depth).
-   ⚠️ A crista carrega o estado; a ÁGUA NÃO. A landing escurece a lâmina
-   para vinho no crítico — aqui não: "a água é sempre azul" é decisão do
-   Pedro de 14/08, e o argumento (água colorida vira imagem estranha) vale
-   para o vinho igual. Quem sinaliza é a crista e o número. */
+   não elevação (DESIGN.md, Elevation & Depth). */
 .crista {
   position: absolute; left: 0; right: 0; top: 0; height: 3px;
   background: var(--crista);
@@ -554,13 +567,10 @@ body[data-atend="sim"] .linha-atend { display: flex; }
   content: ""; position: absolute; inset: 1px; z-index: -1;
   clip-path: var(--corte); background: var(--mar-900);
 }
-.selo-mudo svg { width: 24px; height: 24px; fill: none; stroke: none; }
-/* o medidor: peça cheia, não contorno — a 24px um triângulo em fio de 1,5px
-   fica sem massa e o corte não tem o que cortar */
-.selo-mudo .sinal { fill: var(--sobre-2); }
-.selo-mudo .corte { stroke: var(--sobre-2); stroke-width: 1.9; stroke-linecap: butt; }
-/* a vala: o mesmo traço, grosso e na cor da chapa, por baixo do corte */
-.selo-mudo .vala  { stroke: var(--mar-900); stroke-width: 5.4; stroke-linecap: butt; }
+/* 22px dentro de uma chapa de 44: o desenho do Lucide vai de canto a canto do
+   viewBox, e com `linecap: square` cada ponta ainda avança meio traço. A 24px
+   o corte encostava no chanfro da chapa. */
+.selo-mudo svg { width: 22px; height: 22px; fill: none; stroke: var(--sobre-2); stroke-width: 2; }
 
 /* ─── As leituras, ao lado da coluna ───
    Duas, não as três da landing: o `/cliente/status` tem `nivel_pct` e
@@ -1050,12 +1060,50 @@ body[data-estado="carregando"] .frase { color: var(--sobre-2); }
   .aviso { order: 3; }
   .apoio { margin-top: 18px; }
 
-  /* A coluna encurta no celular, mas NÃO estreita: 82px é a medida da
-     landing e é ela que faz as marcas de 45 e 20 caberem legíveis. Quem
-     cede é a altura, que na landing também é o valor de desktop. */
-  .prova-in { gap: 20px; }
-  .tubo { height: 210px; }
-  .leituras { gap: 16px; }
+  /* ─── A COLUNA DEITA, como na landing ───
+     No celular a peça vira uma barra horizontal de largura cheia: 100×132,
+     os mesmos valores do `landing.css` (lá a virada é a 760px; aqui é a 820,
+     que é onde ESTE painel vira celular). É a mesma peça e a mesma decisão —
+     em pé e estreita ela desperdiça a largura da tela e empurra tudo que vem
+     depois para baixo da dobra; deitada, ganha a largura toda e devolve
+     ~80px de altura.
+     ⚠️ Deitada, TODO eixo do desenho troca. Cada regra abaixo tem par no
+     landing.css; mudou lá, muda aqui:
+       lâmina  desce por translateY  →  desliza por translateX (para a
+               ESQUERDA: `--n - 100%`, então a borda direita da lâmina para
+               em `--n`)
+       crista  borda de cima         →  borda da direita
+       faixas  bottom/height         →  left/width
+       limiar  border-top            →  border-left
+     ⚠️ O vinho do crítico deita junto — o gradiente dele também inverte. */
+  .prova-in { grid-template-columns: 1fr; gap: 20px; }
+  .tubo { width: 100%; height: 132px; }
+  .agua {
+    background: linear-gradient(to left, var(--mar-500) 0%, var(--mar-600) 55%, var(--mar-700) 100%);
+    transform: translateX(calc(var(--n, 0%) - 100%));
+  }
+  .res.critico .agua {
+    background: linear-gradient(to left, #7a1e2c 0%, #4a1220 100%);
+  }
+  .crista { left: auto; right: 0; top: 0; bottom: 0; width: 3px; height: auto; }
+  .faixa { top: 0; bottom: 0; left: auto; right: auto; }
+  .faixa-baixo   { left: 20%; width: 25%; height: auto; }
+  .faixa-critico { left: 0;   width: 20%; height: auto; }
+  .limiar {
+    top: 0; bottom: 0; left: auto; right: auto;
+    border-top: 0; border-left: 1px dashed var(--fio-forte);
+  }
+  .limiar-baixo   { left: 45%; }
+  .limiar-critico { left: 20%; border-left-color: color-mix(in srgb, var(--risco) 60%, transparent); }
+  .limiar i { right: auto; left: 5px; top: 5px; }
+
+  /* Com o tubo ocupando a linha inteira, as leituras deixam de ser uma
+     coluna ao lado e viram uma fileira embaixo — o mesmo `auto-fit` do
+     `.instr-leituras` da landing. */
+  .leituras {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(126px, 1fr));
+    gap: 16px 18px;
+  }
 
   /* o cqi já dimensiona pela célula; aqui só o teto muda */
   .frase { font-size: clamp(1.9rem, 13cqi, 3rem); max-width: none; }

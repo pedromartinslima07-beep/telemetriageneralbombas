@@ -316,30 +316,45 @@ function atendimento() {
 
 /* O selo de SEM SINAL, carimbado no meio do tubo mudo.
 
-   O desenho é o medidor de sinal — o que parou não foi a água, foi o RÁDIO
-   do dispositivo — reduzido a UMA peça: um triângulo retângulo de 45°, que é
-   a mesma forma do chanfro da casa, com uma vala em diagonal atravessando.
+   ⚠️ A GEOMETRIA É A DO `wifi-off` DO LUCIDE (`public/lucide.min.js`), não
+   desenho meu — e isso é a correção de dois desenhos meus que saíram tortos:
 
-   ⚠️ TRÊS BARRINHAS NÃO FUNCIONAM AQUI, e o motivo é geométrico, não de
-   gosto: barras sobem da esquerda para a direita e o corte tem de descer
-   (subindo, ele acompanha as barras e o conjunto lia como seta de
-   crescimento — verificado ampliando a 5×). Descendo, nenhuma reta cruza as
-   três: ela passa POR CIMA da barra baixa sem tocá-la e retalha as outras
-   duas em alturas diferentes. Ampliado a 8×, o que sobrava eram tocos
-   soltos. Com uma peça só há um corte só, e nada para sobrar.
-   ⚠️ A vala é desenhada ANTES do fio: primeiro o traço grosso na cor da
-   chapa, abrindo o sulco no triângulo, depois o fio fino no cinza. Sem o
-   sulco, o corte encosta no preenchimento e vira borrão a 24px.
-   ⚠️ O corte é perpendicular à hipotenusa, não paralelo: paralelo, ele
-   some contra a aresta do triângulo.
+   1. **Três barrinhas cortadas.** O corte tem de DESCER (subindo, acompanha
+      as barras e o conjunto lê como seta de crescimento — visto ampliando a
+      5×). Só que, descendo, nenhuma reta cruza as três: ela passa POR CIMA
+      da barra baixa sem tocá-la e retalha as outras duas em alturas
+      diferentes. A 8×, o que sobrava eram tocos soltos. É impossível de
+      acertar, não é questão de ajuste fino.
+   2. **Triângulo cheio com uma vala.** O corte de 45° cai exatamente no
+      eixo de simetria do triângulo retângulo e o parte em duas metades
+      espelhadas: vira gravata-borboleta, não medidor cancelado.
+
+   O Lucide resolve o mesmo problema do jeito certo: os arcos são
+   **interrompidos** onde o corte passa — os vãos fazem parte do desenho, em
+   vez de serem abertos por cima com um traço grosso na cor do fundo.
+   ⚠️ Não "arrumar" os arcos fechando os vãos: eles são o motivo de o corte
+   ficar limpo.
+
+   O leque de wi-fi é literal aqui: o ESP32 fala por wi-fi, e o que parou foi
+   o rádio dele — não a água. As curvas são a exceção assumida ao "traço
+   sempre esquadrado" (o ícone de conta, na barra, já tem círculo e arco); a
+   alternativa toda reta (o `antenna` do Lucide) não aceita corte sem cair no
+   problema 1.
+   ⚠️ `stroke-linecap: square` é o que faz o ponto de baixo (`M12 20h.01`,
+   subcaminho de comprimento zero) existir: com `butt` ele simplesmente NÃO
+   é desenhado, e some sem erro nenhum no console.
    ⚠️ Isto NÃO é a régua que a decisão de 14/08 baniu do tanque: aquilo eram
    marcas de limiar, que sugerem valor. Um selo centralizado não tem altura
    nenhuma para ser confundida com nível — e neste estado não há nível. */
 const ICO_SEM_SINAL = `<span class="selo-mudo" aria-hidden="true">
-            <svg viewBox="0 0 24 24">
-              <path class="sinal" d="M4 19.5h16V3.5z"/>
-              <path class="vala"  d="M5.5 4.5L20.5 19.5"/>
-              <path class="corte" d="M5.5 4.5L20.5 19.5"/>
+            <svg viewBox="0 0 24 24" stroke-linecap="square">
+              <path d="M12 20h.01"/>
+              <path d="M8.5 16.429a5 5 0 0 1 7 0"/>
+              <path d="M5 12.859a10 10 0 0 1 5.17-2.69"/>
+              <path d="M19 12.859a10 10 0 0 0-2.007-1.523"/>
+              <path d="M2 8.82a15 15 0 0 1 4.177-2.643"/>
+              <path d="M22 8.82a15 15 0 0 0-11.288-3.764"/>
+              <path d="m2 2 20 20"/>
             </svg>
           </span>`;
 
