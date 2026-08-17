@@ -86,6 +86,20 @@ function desdeQuando(iso) {
   return `há ${d} dia${d > 1 ? "s" : ""}`;
 }
 
+/* O mesmo relógio do `desdeQuando`, partido em número e unidade.
+   No instrumento o tempo sem resposta é MEDIÇÃO — recebe o tratamento do
+   nível (mono grande + unidade pequena), não o de frase. É o único número
+   honesto que sobra quando o sensor calou: o nível a gente não sabe, mas há
+   quanto tempo não sabe a gente sabe com precisão. */
+function semSinalHa(iso) {
+  if (!iso) return null;
+  const mins = Math.floor((Date.now() - new Date(iso)) / 60000);
+  if (mins < 60)   return { n: mins, u: "min" };
+  if (mins < 1440) return { n: Math.round(mins / 60), u: "h" };
+  const d = Math.round(mins / 1440);
+  return { n: d, u: d > 1 ? "dias" : "dia" };
+}
+
 async function pedir(url, opts = {}) {
   const r = await fetch(url, { ...opts, headers: { ...authHeaders(), ...(opts.headers || {}) } });
   if (r.status === 401) {
@@ -219,7 +233,12 @@ function veredito(lst) {
         : `${porExtenso(mudos.length)} sensores pararam de responder.`,
       apoio: `Sem leitura de ${quais}. Isso não quer dizer que falta água — quer dizer que não estamos conseguindo medir.` + notaSemChamado +
         (abertos.length ? "" : "Nossa equipe é avisada automaticamente."),
-      desde: semLeituraTxt(mudos),
+      /* ⚠️ Com UM sensor mudo esta linha some: o instrumento passou a dizer
+         "SEM RESPOSTA HÁ 3h", e ela repetia o mesmo dado a dois palmos de
+         distância, do outro lado da placa. Com DOIS ou mais ela volta —
+         aí o instrumento mostra só o pior, e ela é a única que fala do
+         conjunto. */
+      desde: mudos.length > 1 ? semLeituraTxt(mudos) : "",
     };
   }
 
@@ -295,6 +314,35 @@ function atendimento() {
   };
 }
 
+/* O selo de SEM SINAL, carimbado no meio do tubo mudo.
+
+   O desenho é o medidor de sinal — o que parou não foi a água, foi o RÁDIO
+   do dispositivo — reduzido a UMA peça: um triângulo retângulo de 45°, que é
+   a mesma forma do chanfro da casa, com uma vala em diagonal atravessando.
+
+   ⚠️ TRÊS BARRINHAS NÃO FUNCIONAM AQUI, e o motivo é geométrico, não de
+   gosto: barras sobem da esquerda para a direita e o corte tem de descer
+   (subindo, ele acompanha as barras e o conjunto lia como seta de
+   crescimento — verificado ampliando a 5×). Descendo, nenhuma reta cruza as
+   três: ela passa POR CIMA da barra baixa sem tocá-la e retalha as outras
+   duas em alturas diferentes. Ampliado a 8×, o que sobrava eram tocos
+   soltos. Com uma peça só há um corte só, e nada para sobrar.
+   ⚠️ A vala é desenhada ANTES do fio: primeiro o traço grosso na cor da
+   chapa, abrindo o sulco no triângulo, depois o fio fino no cinza. Sem o
+   sulco, o corte encosta no preenchimento e vira borrão a 24px.
+   ⚠️ O corte é perpendicular à hipotenusa, não paralelo: paralelo, ele
+   some contra a aresta do triângulo.
+   ⚠️ Isto NÃO é a régua que a decisão de 14/08 baniu do tanque: aquilo eram
+   marcas de limiar, que sugerem valor. Um selo centralizado não tem altura
+   nenhuma para ser confundida com nível — e neste estado não há nível. */
+const ICO_SEM_SINAL = `<span class="selo-mudo" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <path class="sinal" d="M4 19.5h16V3.5z"/>
+              <path class="vala"  d="M5.5 4.5L20.5 19.5"/>
+              <path class="corte" d="M5.5 4.5L20.5 19.5"/>
+            </svg>
+          </span>`;
+
 /* ─── A PROVA É UMA SÓ ───────────────────────────────────────────────────
    Quem aparece: O PIOR reservatório do prédio, pela MESMA prioridade que o
    veredito usa — crítico (<20%) → sem sinal → atenção (<45%) → e, com tudo
@@ -335,6 +383,23 @@ function provaHTML(r, todas) {
         </dd>
       </div>`;
 
+  /* ⚠️ A SEGUNDA LEITURA DO ESTADO MUDO. Sem ela a coluna do instrumento
+     colapsava para "NÍVEL —": um traço solto ao lado de um tubo hachurado,
+     que é o desenho de uma tela inacabada, não o de um estado. A anatomia
+     de duas leituras vale para TODOS os estados — o que muda é o que a
+     segunda mede. Aqui ela mede o tempo, que é o dado que sobra e o que o
+     síndico de fato quer ("desde quando estamos cegos?").
+     Não é leitura inventada: sai de `ultima_leitura.criado_em`, o mesmo
+     carimbo que alimenta a linha ao lado do botão. */
+  const ha = mudo ? semSinalHa(r.quando) : null;
+  const semSinal = !mudo ? "" : `
+      <div>
+        <dt>${ha ? "Sem resposta há" : "Sensor"}</dt>
+        ${ha
+          ? `<dd class="mudo-tempo">${ha.n}<i>${ha.u}</i></dd>`
+          : `<dd class="bomba off"><span class="lamp" aria-hidden="true"></span>Nunca respondeu</dd>`}
+      </div>`;
+
   return `<div class="prova-in">
       <button class="res ${r.cls}" type="button"
           data-abrir="reservatorio" data-device="${esc(r.device_id)}"
@@ -345,13 +410,14 @@ function provaHTML(r, todas) {
           <span class="agua" style="--n:0%"><span class="crista"></span></span>
           <span class="limiar limiar-baixo"><i>45</i></span>
           <span class="limiar limiar-critico"><i>20</i></span>
+          ${mudo ? ICO_SEM_SINAL : ""}
         </span>
       </button>
       <dl class="leituras res-estado ${r.cls}">
         <div>
           <dt>Nível</dt>
           <dd>${mudo ? `<span class="num">—</span>` : `<span class="num">${r.n}</span><i>%</i>`}</dd>
-        </div>${bomba}
+        </div>${bomba}${semSinal}
       </dl>
     </div>
     <p class="qual">

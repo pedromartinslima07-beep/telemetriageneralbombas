@@ -217,6 +217,28 @@ ou vermelho é muito mais visível que o fio de 2px da coluna chata.
   o **anel** — não a substância. Água amarela era imagem estranha.
 - **Offline não desenha lâmina:** hachura. "Não sei" é diferente de "está
   vazio", e essa diferença é o produto.
+  ⚠️ E a hachura tem de **aparecer**: ela nasceu `#08133f` sobre `--mar-900`
+  (1,1:1) e era invisível — o único gesto que carrega o sentido do estado era o
+  único que não se via. Hoje é `--sobre-2` a 20% (1,43:1), no mesmo −45° da
+  fita de segurança. Textura, não texto: o alvo aqui não é 4,5:1.
+  ⚠️ **Nada de crista e nada de nível fantasma no tubo mudo.** Uma linha
+  horizontal ali é lida como nível, e a API traz sim a última leitura conhecida
+  — mostrá-la esbarraria na mesma decisão de 14/08 que tirou faixa e elipse.
+- **O selo de sem sinal** (`ICO_SEM_SINAL` + `.selo-mudo`): chapa chanfrada de
+  44px carimbada no meio do tubo, com **barras de sinal cortadas** — o que
+  parou foi o rádio do dispositivo, não a água. É o que dá leitura imediata a
+  quem nunca viu a peça. Duas armadilhas registradas: o corte tem de **descer**
+  (subindo, acompanha as barras e o conjunto vira seta de crescimento) e
+  precisa ser desenhado **duas vezes**, grosso na cor da chapa e fino por cima,
+  senão vira borrão a 24px. Um selo centralizado não tem altura que se confunda
+  com nível — por isso ele passa onde a régua de limiar não passou.
+- **No mudo a segunda leitura mede TEMPO.** Todo estado tem duas (Nível +
+  Bomba); sem leitura não há bomba a reportar, e a coluna colapsava para um
+  traço solto. Entra `SEM RESPOSTA HÁ / 3h` (`semSinalHa()`), no tratamento do
+  nível — mono grande + unidade pequena. É o único número honesto que sobra: o
+  nível não se sabe, mas há quanto tempo não se sabe, sabe-se. Com essa
+  leitura no lugar, a linha `desde` ao lado do botão some — **exceto com 2+
+  sensores mudos**, quando ela volta a ser a única que fala do conjunto.
 - **A boca é só contorno.** Com preenchimento (como no admin) ela tampava a
   superfície da água no tanque cheio.
 - **A lâmina desce por `transform` num `<g>`**, não animando geometria — a
@@ -320,6 +342,18 @@ do SVG**: dentro do `viewBox` ele encolhe junto com o gráfico e vira borrão a
   ⚠️ **A comp tinha o mesmo defeito** e foi corrigida junto em 14/08 — foi
   arrastando a comp para o lado no celular que o Pedro pegou o problema. Se
   alguém criar uma comp nova a partir dela, o corte já vai junto.
+- ⚠️ **A primeira tela tem TETO, não só `100dvh`.** `min-height:
+  min(calc(100dvh - var(--barra-h)), 46rem)`. Sem o teto, a placa (altura de
+  conteúdo, 589px) boiava dentro de uma seção com a altura da janela e a banda
+  morta crescia 1:1 com o monitor — 67/79px numa tela de 809px, 137/149px numa
+  de 949px. Em troca, em tela alta o começo da história aparece abaixo da fita.
+- ⚠️ **Célula curta da placa = vazio simétrico.** Em duas colunas as células
+  têm a mesma altura (grade) e centram o conteúdo, então toda diferença entre
+  elas vira vazio dividido em dois. A pior é a do estado **sem telemetria**
+  (bloco de 299px contra 465 de texto), e é por isso que o tubo em contorno vai
+  a **105×344** acima de 1000px — proporção da peça escalada, nunca esticada.
+  Alinhar ao topo não resolve: só empurra o mesmo vazio todo para baixo (foi o
+  que se fez antes de 14/08).
 - ⚠️ **`container-type: inline-size` aplica CONTENÇÃO.** Ele existe só na
   célula de **texto** da placa, para a frase se dimensionar por `cqi`. Posto
   também na célula da prova, ele fez ela ignorar o próprio conteúdo no cálculo
@@ -401,13 +435,32 @@ do SVG**: dentro do `viewBox` ele encolhe junto com o gráfico e vira borrão a
 `cliente.css` e `cliente.js` são **network first** no `sw.js` (regra genérica
 de `.css`/`.js`), e `/cliente` e `/relatorio` já estão na lista de prefixos
 network-first — não foi preciso mexer no service worker. O `?v=N` no
-`cliente.html` continua valendo (hoje `cliente.css?v=12`, `cliente.js?v=31`).
+`cliente.html` continua valendo (hoje `cliente.css?v=20`, `cliente.js?v=34`).
 Racional completo em [`../../CLAUDE.md`](../../CLAUDE.md).
 
 ⚠️ O `cliente.html` **não carrega mais** `apexcharts.min.js`, `chart.umd.min.js`
 nem `mob-sidebar.js`. A chave `predio` que o `mob-sidebar.js` ganhou para este
 painel ficou **órfã** lá — é inofensiva (o admin não tem essa seção) e não vale
 mexer num arquivo compartilhado só para removê-la.
+
+---
+
+## Ambiente de teste
+
+`node server.js` sobe na 3001 contra `DATABASE_URL_TESTE`; `OTP_DISABLED=true`
+faz o login pular o código. Dois clientes de demonstração, senha `demo1234` —
+`demo-cliente@teste.local` (DEMO Residencial Aurora, 4 reservatórios) e
+`demo-semtel@teste.local` (DEMO Edifício Sem Telemetria, nenhum). Nenhum dos
+dois existe em produção.
+
+⚠️ Os reservatórios do seed nascem todos com o mesmo `last_seen`, que envelhece
+— **todos aparecem offline** e a tela vira quatro cards idênticos.
+`node scripts/seed-cenario-telemetria.js` regrava 72h de histórico dando um
+estado diferente a cada um (cheio · baixo com bomba enchendo · crítico ·
+offline há 3h), com os alertas correspondentes abertos. É idempotente, recusa
+rodar em produção e pode ser rodado quantas vezes precisar — inclusive porque
+o `offline.job` derruba os "online" depois de `OFFLINE_MINUTES` (default 10)
+com o servidor no ar. Detalhe em [`../changelog.md`](../changelog.md).
 
 ---
 

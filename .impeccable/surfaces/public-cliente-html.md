@@ -681,3 +681,86 @@ A 390px folga. **A 320px o botão fica parcialmente abaixo da dobra** num
 viewport de 568px — mesma situação de antes, ~17px pior. Não ajustei: o aparelho
 é praticamente extinto e micro-tunar padding contra ele custa mais do que vale.
 Fica registrado como escolha, não como descuido.
+
+## A primeira tela ganhou TETO (17/08/2026)
+
+O Pedro: *"em alguns casos o espaço em cima e em baixo do campo dos
+reservatórios está imenso"*, com uma captura do estado crítico. Medido com
+`getBoundingClientRect` nos seis estados, são **dois vazios diferentes** e a
+captura só mostra o primeiro:
+
+1. **Em volta da placa** — 137px acima e 149px abaixo, num viewport de 949px.
+   A placa tem altura de conteúdo (589px); a `.resposta` tinha a altura da
+   janela e centrava, então **a banda crescia 1:1 com o monitor**. Numa tela de
+   809px são 67/79px, e por isso ninguém tinha visto: o defeito só aparece em
+   tela grande. Agora `min-height: min(calc(100dvh - var(--barra-h)), 46rem)`.
+2. **Em volta do tubo, no estado sem telemetria** — 137px de cada lado. Em duas
+   colunas as células têm a mesma altura e centram, então a diferença entre
+   elas vira vazio simétrico; ali é a maior de todas (299 contra 465px). O tubo
+   vai a **105×344**: a proporção da peça (.306) **escalada, não esticada**.
+   Testei esticar só a altura (82×373) e o cilindro vira filete — pior que o
+   vazio que consertava.
+
+⚠️ **Isto relativiza "a primeira tela INTEIRA é a resposta".** Com o teto, em
+tela alta o começo da história aparece abaixo da fita. Foi escolha minha, com
+o argumento de que o vazio era o preço daquela afirmação e o convite a rolar
+vale mais que a banda morta — **mas é decisão do Pedro**, e volta em uma linha.
+
+⚠️ **Alinhar as células ao topo não é alternativa.** Já foi assim antes de
+14/08: o vazio não some, só migra inteiro para baixo do bloco mais curto.
+
+### Como medir sem sessão
+
+Harness que serve o `cliente.html/.css/.js` **reais** com `fetch` dublado e um
+`__usar(estado)` que troca o payload e re-renderiza. Duas armadilhas:
+
+- ⚠️ **CSP `script-src 'self'` mata script inline** — o dublê tem de ser um
+  arquivo servido (`/static/_medir.js`), não um `<script>` no HTML.
+- ⚠️ **`resize_window` não passa da altura física da tela.** Para larguras de
+  celular, iframe de largura real (390 / 900 / 1180 medidos assim).
+
+## O estado "sem sinal" ganhou instrumento (17/08/2026)
+
+Pedido do Pedro: *"acho q poderíamos melhorar o visual do caso de sem sinal"*.
+Nada do conceito mudou — hachura em vez de tubo vazio, sem limiar, sem faixa.
+O que mudou é que o desenho passou a **funcionar**:
+
+1. ⚠️ **A hachura era invisível** — `#08133f` sobre `--mar-900` dá **1,1:1**.
+   O único gesto que carrega o sentido do estado era o único que não se via.
+   Agora `--sobre-2` a 20% (1,43:1), no mesmo −45° da fita e do chanfro.
+   Alvo de textura, não de texto: 4,5:1 aqui viraria zebra.
+2. **A coluna de leituras colapsava para "NÍVEL —"** — um traço solto ao lado
+   de um tubo hachurado lê como tela inacabada, não como estado. A segunda
+   leitura volta medindo **tempo** (`SEM RESPOSTA HÁ / 3h`), no tratamento do
+   nível. A anatomia de duas leituras vale para todos os estados; o que muda
+   entre eles é o que a segunda mede.
+3. **A linha `desde` sai no caso de um sensor mudo** (o instrumento passou a
+   dizer o mesmo, do outro lado da placa) e **volta com dois ou mais**.
+
+⚠️ **O que NÃO fiz, e por quê.** A API traz o último nível conhecido do sensor
+mudo, e mostrá-lo como fantasma (contorno tracejado, "70% há 3h") seria o que
+um HMI industrial faria. Não entrou: esbarra na decisão de 14/08 de não pôr
+**nada** que sugira valor sobre a hachura, e o estado existe justamente para
+separar "não sei" de "está vazio". Fica registrado como opção — é do Pedro
+reabrir, não minha.
+
+### O selo de sem sinal (17/08)
+
+Pedido: *"era bom colocar um símbolo de sem sinal pra ficar mais visual"*.
+Chapa chanfrada de 44px carimbada no meio do tubo, com **barras de sinal
+cortadas** — o que parou foi o rádio do dispositivo, não a água, e barra de
+sinal é o único desenho que se lê sem legenda. Traço reto e esquadrado, corte
+no mesmo 45° do chanfro e da fita: o símbolo entra no vocabulário da casa em
+vez de importar um dialeto de biblioteca de ícones.
+
+- ⚠️ **O corte desce.** Primeiro desenho subia da esquerda para a direita,
+  no mesmo sentido das barras — ampliado a 5×, lia como **seta de
+  crescimento**. É o tipo de erro que só aparece quando se amplia o ícone;
+  a 24px eu teria passado batido.
+- ⚠️ **O corte é desenhado duas vezes**: grosso na cor da chapa, para abrir
+  vala nas barras, e fino por cima. Sem a vala, três barras riscadas viram
+  borrão no tamanho real.
+- Chapa **opaca**, construção de duas camadas como a `.placa` e o `.resto`.
+  Translúcida, a hachura atravessa as barras e o símbolo some.
+- Ele passa onde a régua de limiar não passou porque **não tem altura**: um
+  selo centralizado não se confunde com nível.

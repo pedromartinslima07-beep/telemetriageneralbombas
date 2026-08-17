@@ -2595,6 +2595,165 @@ linhas. A 390px folga; a 320px o botão fica parcialmente abaixo da dobra num
 viewport de 568px — **em aberto**, ver
 [`../memory-bank/active-work.md`](../memory-bank/active-work.md).
 
+### 2026-08-17 — Cenário de telemetria variado no banco de teste (tooling)
+
+`scripts/seed-cenario-telemetria.js` — novo. O `seed-teste.js` deixa os 4
+reservatórios do condomínio DEMO com o mesmo `last_seen`, e como ele envelhece,
+**todos aparecem offline**: a tela do cliente vira quatro cards idênticos e não
+dá pra avaliar layout, alerta nem gráfico. O script regrava 72h de leituras
+(1 a cada 10 min, com ruído de ±0,8 pp e PRNG determinístico) dando um estado
+diferente a cada reservatório:
+
+| Device | Reservatório | Estado | Alerta aberto |
+|---|---|---|---|
+| `DEMO-SUP1` | Caixa Superior 1 | online · ~88% · bomba desligada | — |
+| `DEMO-SUP2` | Caixa Superior 2 | online · ~34% · bomba enchendo | `nivel_baixo` |
+| `DEMO-CIST` | Cisterna | online · ~8% | `nivel_muito_baixo` |
+| `DEMO-INCE` | Reserva Incêndio | **offline há 3h** · última ~70% | `dispositivo_offline` |
+
+- **O offline é de verdade, não um flag** — cada cenário tem `ateHoras`, e o
+  `last_seen` sai da última leitura gerada. É o mesmo caminho que
+  `GET /cliente/status` e o `offline.job` leem.
+- As curvas são **piecewise explícitas** (dente de serra de consumo, queda
+  contínua na cisterna), não simulação: o valor final é previsível, que é o
+  ponto de um dado de demonstração.
+- Resolve os alertas abertos antes de abrir o alvo — o índice parcial
+  `uniq_alerta_aberto` só admite um aberto por (device, tipo), e é alerta velho
+  empilhado que polui a tela.
+- Recusa rodar em produção pelo mesmo resolvedor do servidor (`src/db-url.js`).
+- ⚠️ Com `node server.js` no ar, o `offline.job` derruba os três "online" depois
+  de `OFFLINE_MINUTES` (default 10). Rodar o script de novo antes de demonstrar,
+  ou subir com `OFFLINE_MINUTES=1440`.
+
+Nada de schema, nada de código de produção. Detalhe do ambiente em
+[`modulos/painel-cliente.md`](modulos/painel-cliente.md).
+
+### 2026-08-17 — A primeira tela ganha teto: a placa parou de boiar (frontend)
+
+O Pedro apontou que "em alguns casos o espaço em cima e em baixo do campo dos
+reservatórios está imenso". Medido no `getBoundingClientRect`, com o CSS real
+nos seis estados (nunca por captura), são **dois vazios diferentes**:
+
+| | Antes | Depois |
+|---|---|---|
+| Acima/abaixo da placa (viewport 949px) | 137 / 149px | **67 / 79px** |
+| Em volta do tubo, estado sem telemetria | 137 / 137px | **99 / 99px** |
+
+- ⚠️ **A banda em volta da placa crescia 1:1 com a altura do monitor.** A placa
+  tem altura de conteúdo (589px nos estados com telemetria); a `.resposta` tinha
+  a altura da janela (`100dvh - --barra-h`) e centrava — todo o resto virava
+  banda morta dividida em duas. Numa tela de 809px dava 67/79px e ninguém
+  reclamou; numa de 949px, 137/149px. Agora o `min-height` tem **teto de
+  46rem**: `min(calc(100dvh - var(--barra-h)), 46rem)`.
+  **Efeito colateral aceito:** em telas altas o começo da história aparece
+  abaixo da fita. Isso relativiza "a primeira tela INTEIRA é a resposta" — mas
+  o vazio era o preço dessa afirmação, e o convite a rolar é melhor que a
+  banda morta. Reversível em uma linha se o Pedro preferir o contrário.
+- **No estado sem telemetria o vazio era do tubo mesmo.** Em duas colunas as
+  células da placa têm a mesma altura (grade) e centram o conteúdo, então a
+  diferença entre elas vira vazio simétrico — e ali a diferença é a maior de
+  todas: bloco de 299px contra célula de texto de 465px. O tubo em contorno
+  cresce para **105×344**, a mesma proporção da peça (.306) **escalada, não
+  esticada** — esticar só a altura (testado a 82×373) transforma o cilindro
+  num filete.
+- É a **única regra `min-width` da folha** (`@media (min-width: 1001px)`), e o
+  comentário diz por quê: empilhado cada célula tem a sua altura e não há
+  disparidade, e no celular o `.tubo` de 210px vale para todos.
+- Cache-bust: `cliente.css` v18.
+
+⚠️ **Verificação** — seis estados × `getBoundingClientRect`, em harness que
+carrega o `cliente.html/.css/.js` **reais** com `fetch` dublado (o CSP
+`script-src 'self'` mata script inline: o dublê tem de ser arquivo servido).
+Larguras 390 / 900 / 1180 em iframes de largura real: no celular o tubo segue
+82×210 e a seção segue sem `min-height`; a 900px (empilhado) a placa é mais
+alta que o teto e ele nunca morde; nenhum transbordo horizontal em nenhuma.
+
+### 2026-08-17 — O estado "sem sinal" vira instrumento (frontend)
+
+Três defeitos no mesmo estado, todos de acabamento, nenhum de conceito — o
+conceito (hachura, nunca tubo vazio; "não sei" ≠ "está vazio") continua igual:
+
+- ⚠️ **A hachura era invisível.** `#08133f` sobre `--mar-900` (#030a26) dá
+  **1,1:1**: o tubo lia como um retângulo preto chapado, e o gesto que carrega
+  o sentido do estado era justamente o único que não aparecia. Agora é
+  `--sobre-2` a 20% (1,43:1 — textura, não texto), no mesmo −45° da fita de
+  segurança e do chanfro. O estado passa a usar o vocabulário da casa em vez
+  de um cinza herdado.
+- **A coluna de leituras colapsava para um traço solto.** Todo estado tem duas
+  leituras (Nível + Bomba); o mudo tinha só "NÍVEL —", porque sem leitura não
+  há bomba a reportar. Um traço sozinho ao lado de um tubo hachurado é o
+  desenho de uma tela inacabada. A segunda leitura volta medindo **tempo**:
+  `SEM RESPOSTA HÁ / 3h`, no mesmo tratamento do nível (mono grande + unidade
+  pequena). Não é leitura inventada — sai de `ultima_leitura.criado_em`, e é o
+  único número honesto que sobra: o nível não se sabe, mas há quanto tempo não
+  se sabe, sabe-se com precisão.
+- **A linha ao lado do botão saiu, e é remoção de duplicata.** Com o
+  instrumento dizendo "há 3h", `Última leitura desse sensor há 3h` repetia o
+  mesmo dado do outro lado da placa. ⚠️ Ela **volta quando há 2+ sensores
+  mudos**: aí o instrumento mostra só o pior e a linha é a única que fala do
+  conjunto.
+- `semSinalHa()` em `cliente.js` — o mesmo relógio do `desdeQuando`, partido em
+  número e unidade porque no instrumento o tempo é medição, não frase.
+- Cache-bust: `cliente.css` v20, `cliente.js` v34.
+
+**O selo de sem sinal** (pedido do Pedro na sequência: *"era bom colocar um
+símbolo de sem sinal pra ficar mais visual"*) — uma chapa chanfrada de 44px
+carimbada no meio do tubo, com barras de sinal cortadas. A hachura diz "não
+estamos medindo" para quem já conhece a peça; o selo diz para quem está vendo
+pela primeira vez, que é o caso do síndico.
+
+- **Barras de sinal, não antena/nuvem/emoji:** o que parou foi o **rádio** do
+  dispositivo, e barra de sinal é o único desenho que se lê sem legenda. Tudo
+  em traço reto e esquadrado, com o corte no mesmo 45° do chanfro e da fita —
+  o símbolo entra no vocabulário da casa em vez de importar um dialeto.
+- ⚠️ **O corte DESCE.** No primeiro desenho ele subia da esquerda para a
+  direita, acompanhando o sentido das barras: ampliado a 5×, o conjunto lia
+  como **seta de crescimento**, não como cancelamento. Descendo, contraria as
+  barras e volta a ser o que é.
+- ⚠️ **O corte é desenhado duas vezes** — grosso na cor da chapa (abre vala nas
+  barras) e fino no cinza por cima. Sem a vala, três barras riscadas viram
+  borrão a 24px.
+- Chapa **opaca** e construção de duas camadas (fundo = fio, `::before`
+  embutido 1px = chapa), como a `.placa` e o `.resto`: `box-shadow: inset`
+  como borda sairia recortado nos dois chanfros, e chapa translúcida deixaria
+  a hachura atravessar as barras.
+
+⚠️ **Nada de crista no tubo mudo.** Uma linha horizontal ali seria lida como
+nível — a confusão que este estado existe para evitar. O selo não tem esse
+risco: é centralizado, não tem altura que se leia como medida. Pelo mesmo
+motivo o nível da última leitura conhecida **não** volta como fantasma, ainda
+que a API o traga: a decisão de 14/08 (sem limiar, sem faixa, sem nada que
+sugira um valor sobre a hachura) continua valendo.
+
+Verificado nos seis estados e a 390px: o dt `SEM RESPOSTA HÁ` cabe em uma linha
+no celular, e a ação não se move — a leitura nova entra na célula da prova, que
+no empilhado vem **depois** de "Preciso de ajuda".
+
+### 2026-08-17 — Total manual tira as colunas de valor unitário do PDF (backend)
+
+Preencher **"Valor total (manual)"** (`orcamentos.valor`) sempre significou que
+o preço **não** vem da soma dos itens. Mas o PDF continuava imprimindo as
+colunas **Valor Unit.** e **Total** — cheias de "—" quando nenhum item tinha
+preço, ou pior: com valores parciais que não fechavam com o VALOR TOTAL logo
+abaixo, dando ao cliente uma conta que não bate.
+
+Agora, quando `os.valor != null`:
+
+- **Orçamento de peças** (`renderHTML`): a tabela de itens fica com `#`,
+  Descrição/Especificações e Qtd. O `colspan` do estado vazio acompanha (3 em
+  vez de 5). O box **VALOR TOTAL** continua igual.
+- **Orçamento de serviço** (`renderHTMLServico`): cada `.valor-row` perde o
+  `.valor-num` — a caixa vira a relação dos serviços cobertos, e o preço
+  aparece só no VALOR TOTAL.
+- ⚠️ **`renderMeasureHTML` espelha a condição** (thead + as duas linhas de
+  amostra `item-base`/`item-ficha1`). É ele que mede a altura real da linha pro
+  Puppeteer paginar; sem as colunas de moeda a descrição fica mais larga e a
+  linha encolhe — medir com as colunas e imprimir sem elas erraria a quebra de
+  página.
+
+Sem total manual, nada muda: as colunas voltam e `fmtMoeda(null)` segue
+imprimindo "—" no item sem preço (comportamento da migration 062).
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

@@ -74,7 +74,7 @@ ESP32 (sonda 4-20mA + SCT-013)
 | **ordens-servico** | O.S. digital (fotos, assinatura, orçamento) + PDF. Fotos persistidas em `os_fotos.dados_base64` (banco), servidas via `GET /ordens-servico/:osId/fotos/:fotoId/imagem` — não dependem mais de disco efêmero. |
 | **planos-manutencao** | Planos preventivos recorrentes |
 | **contratos** | Contratos por condomínio. Assinatura eletrônica própria por link de e-mail (sem ZapSign/D4Sign — ver `decisions.md`): exige código de 6 dígitos antes de assinar (2FA equivalente ao login) e grava um protocolo (hash SHA-256 auditável) impresso no PDF junto com IP e data/hora |
-| **orçamentos** | Sistema unificado (tabela `orcamentos` + `orcamento_linhas`); `tipo` (060) ramifica o PDF avulso entre tabela de peças (padrão) e layout descritivo por cláusulas para limpeza de reservatório/dedetização/combo, mesmo timbrado. Item sem `valor_unitario` some da coluna de valor no PDF em vez de virar "R$ 0,00"; `orcamentos.valor` serve de override manual do total (062) |
+| **orçamentos** | Sistema unificado (tabela `orcamentos` + `orcamento_linhas`); `tipo` (060) ramifica o PDF avulso entre tabela de peças (padrão) e layout descritivo por cláusulas para limpeza de reservatório/dedetização/combo, mesmo timbrado. Item sem `valor_unitario` some da coluna de valor no PDF em vez de virar "R$ 0,00"; `orcamentos.valor` serve de override manual do total (062) e, quando preenchido, **remove do PDF as colunas Valor Unit./Total por item** — só o box VALOR TOTAL aparece |
 | **relatorio / relatorios** | PDF de telemetria (Puppeteer) pro cliente/app; painel ao vivo (chamados em risco + workload) e exportação CSV de chamados/alertas/telemetria pro admin |
 | **admin** | Usuários, status agregado, histórico, geocode, configurações |
 | **status / leituras / jobs** | Endpoints auxiliares e disparo manual de jobs |
@@ -307,6 +307,12 @@ A v1 (13/08) foi rejeitada por manter a casca do admin — ver
 - Aplicar com `node scripts/migrate.js NNN_nome.sql` (lê `DATABASE_URL`).
   `migrations/migrate.js` em `scripts/`.
 - Scripts utilitários: `limpar-dados-teste.sql`, `restaurar-defaults.sql`.
+- **Banco de teste:** `scripts/seed-teste.js` monta o mínimo (admin, técnicos,
+  condomínios, planos) e `scripts/seed-cenario-telemetria.js` dá variedade à
+  telemetria do condomínio DEMO — sem ele os 4 reservatórios ficam todos
+  offline com o mesmo `last_seen`. Os dois recusam rodar em produção
+  (`src/db-url.js`). Ver
+  [`../docs/modulos/painel-cliente.md`](../docs/modulos/painel-cliente.md).
 
 > ⚠️ Há **duas** pastas de migrations: `migrations/` (numeradas 001-044, atuais)
 > e `database/migrations/` (datadas, do schema original de 2026-03/04). As ativas

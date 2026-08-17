@@ -253,10 +253,19 @@ a { color: inherit; text-decoration: none; }
    contratar. O que muda é o volume: chanfro menor e SEM anel de estado.
    ════════════════════════════════════════════════════════════════════════ */
 
+/* ⚠️ TETO na primeira tela — `100dvh` puro fazia a placa BOIAR. A altura da
+   placa é do conteúdo (589px nos estados com telemetria), a da seção era a
+   da janela, e todo o resto virava banda morta dividida em duas: medido a
+   949px de viewport, 137px acima e 149px abaixo. Pior: a banda cresce 1:1
+   com a altura do monitor, então quanto maior a tela, mais vazio.
+   Com o teto de 46rem ela para de crescer (67/79px a 949px, os mesmos
+   números que a tela de 809px já dava) e o começo da história aparece
+   embaixo da fita — o que convida a rolar em vez de esconder que há mais.
+   Abaixo de 820px o `min-height` já é 0 e nada disto vale. */
 .resposta {
   position: relative;
-  min-height: calc(100vh - var(--barra-h));
-  min-height: calc(100dvh - var(--barra-h));
+  min-height: min(calc(100vh - var(--barra-h)), 46rem);
+  min-height: min(calc(100dvh - var(--barra-h)), 46rem);
   display: grid; align-items: center;
   padding: 32px 0 clamp(30px, 3.4vw, 44px);
 }
@@ -503,11 +512,55 @@ body[data-atend="sim"] .linha-atend { display: flex; }
 
 /* Sensor mudo: SEM LEITURA, não sem água — hachura, nunca tubo vazio.
    As faixas de risco também somem: sem leitura não há limiar com que
-   comparar, e a banda vermelha sugeria um estado que não existe. */
-.res.mudo .tubo { background: repeating-linear-gradient(-45deg, var(--mar-900) 0 7px, #08133f 7px 14px); }
+   comparar, e a banda vermelha sugeria um estado que não existe.
+
+   ⚠️ A hachura era `#08133f` sobre `--mar-900` (#030a26) — **1,1:1**, ou
+   seja, invisível: o tubo lia como um retângulo preto chapado, e o gesto
+   que carrega o sentido do estado era justamente o único que não aparecia.
+   Agora é `--sobre-2` a 20% sobre o marinho, no MESMO -45° da fita de
+   segurança e do chanfro — o estado "não sei" passa a usar o vocabulário da
+   casa em vez de um cinza inventado.
+   ⚠️ Nada de crista, nada de lâmina: uma linha horizontal no tubo mudo
+   seria lida como nível, que é a confusão que este estado existe para
+   evitar. O tubo não tem leitura porque não HÁ leitura. */
+.res.mudo .tubo {
+  background:
+    repeating-linear-gradient(-45deg,
+      transparent 0 6px,
+      color-mix(in srgb, var(--sobre-2) 20%, transparent) 6px 12px),
+    var(--mar-900);
+}
 .res.mudo .agua,
 .res.mudo .faixa,
 .res.mudo .limiar { display: none; }
+
+/* ─── O selo de sem sinal ───
+   Uma chapa chanfrada CARIMBADA no meio do tubo — a hachura diz "não
+   estamos medindo" para quem já conhece a peça; o selo diz para quem
+   está vendo pela primeira vez, que é o caso do síndico.
+   ⚠️ Construção de duas camadas, como a do `.resto`: o fundo do próprio
+   elemento é o fio e o `::before` embutido 1px é a chapa. `box-shadow:
+   inset` como borda sairia recortado nos dois chanfros e leria como
+   defeito. Mesma técnica da `.placa`, na escala pequena.
+   ⚠️ A chapa é OPACA (`--mar-900`): sobre a hachura, um selo translúcido
+   deixa as listras atravessarem as barras e o símbolo some. */
+.selo-mudo {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  --ch: 6px; clip-path: var(--corte); background: var(--fio);
+  width: 44px; height: 44px; display: grid; place-items: center;
+  pointer-events: none; isolation: isolate;
+}
+.selo-mudo::before {
+  content: ""; position: absolute; inset: 1px; z-index: -1;
+  clip-path: var(--corte); background: var(--mar-900);
+}
+.selo-mudo svg { width: 24px; height: 24px; fill: none; stroke: none; }
+/* o medidor: peça cheia, não contorno — a 24px um triângulo em fio de 1,5px
+   fica sem massa e o corte não tem o que cortar */
+.selo-mudo .sinal { fill: var(--sobre-2); }
+.selo-mudo .corte { stroke: var(--sobre-2); stroke-width: 1.9; stroke-linecap: butt; }
+/* a vala: o mesmo traço, grosso e na cor da chapa, por baixo do corte */
+.selo-mudo .vala  { stroke: var(--mar-900); stroke-width: 5.4; stroke-linecap: butt; }
 
 /* ─── As leituras, ao lado da coluna ───
    Duas, não as três da landing: o `/cliente/status` tem `nivel_pct` e
@@ -944,6 +997,20 @@ body[data-estado="carregando"] .frase { color: var(--sobre-2); }
 /* ════════════════════════════════════════════════════════════════════════
    9. QUEBRAS
    ════════════════════════════════════════════════════════════════════════ */
+
+/* ⚠️ A ÚNICA regra `min-width` da folha, e ela existe por causa da célula
+   mais curta da placa. Em duas colunas as células têm a mesma altura (grade)
+   e centram o conteúdo, então a diferença entre elas vira vazio simétrico.
+   No estado SEM TELEMETRIA a conta é a pior de todas: 299px de bloco contra
+   465px de célula de texto, e o tubo em contorno ficava boiando com 137px
+   de nada em cima e embaixo. Ele cresce para 105×344 — a MESMA proporção da
+   peça (.306), escalada e não esticada, porque esticar transforma o cilindro
+   num filete — e o vazio cai para 99px.
+   Empilhado não existe disparidade nenhuma (cada célula tem a sua altura), e
+   no celular o `.tubo` de 210px vale para todos: por isso é `min-width`. */
+@media (min-width: 1001px) {
+  .sem-sensor .tubo { width: 105px; height: 344px; }
+}
 
 /* Abaixo de 1000px as duas colunas da placa não convivem: ou a frase
    espreme, ou a prova espreme. A placa empilha antes disso acontecer —
