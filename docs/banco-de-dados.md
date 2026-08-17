@@ -47,6 +47,10 @@ usuarios ─┬─ login_codes (OTP)         tecnicos ──> usuario_id (1:1)
           ├─ trusted_devices (cookie)      └─ tecnico_localizacoes (GPS atual)
           └─ (autor em vários históricos)  └─ tecnico_localizacoes_historico
 
+equipamentos ─┬─< equipamento_movimentacoes   (código do QR; condominio_id
+              ├─< equipamento_fotos            nullable até a etiqueta ser
+              └── (chamados.equipamento_id)    vinculada)
+
 alertas (telemetria; chave por device_id)   alerta_comentarios (telemetria|chamado)
 configuracoes (key-value dinâmico)           sla_definicoes (p1-p4)
 ```
@@ -197,6 +201,51 @@ sumir do documento em silêncio. O regex segue no código como fallback para
 linhas anteriores à migration; o backfill marcou as que ainda casavam com o
 padrão. Linha de peça continua `NULL`.
 > A tabela `orcamento_itens` (025) foi migrada e **removida** em 030.
+
+### Equipamentos e etiqueta QR — migration 070
+
+**`equipamentos`** — identidade permanente de bomba/motor/painel/quadro.
+`id`, `codigo VARCHAR(12) UNIQUE` (o que vai no QR — base32 Crockford de 8
+caracteres, **aleatório**: a URL da ficha não pode ser adivinhável, ela revela
+endereço de cliente), `lote` (rótulo da folha impressa, ex. `L2608A`),
+`condominio_id (SET NULL, nullable)`, `tipo`, `apelido`, `marca`, `modelo`,
+`numero_serie`, `potencia_cv`, `tensao`, `local_instalacao`, `defeito_relatado`,
+`observacoes`, `instalado_em`, `garantia_ate`, `status`, `ativo`, `criado_por`,
+`criado_em`, `vinculado_em`, `atualizado_em`.
+CHECK `status`: `etiqueta_livre | instalado | oficina | aguardando_orcamento |
+aguardando_peca | em_conserto | pronto | devolvido | baixado`.
+Índices: `idx_equip_condominio`, `idx_equip_status`, `idx_equip_lote`.
+
+> `condominio_id` é nullable **de propósito**: a etiqueta nasce em branco e é
+> colada na bomba antes de existir cadastro. O vínculo acontece no ato da
+> retirada. Os quatro estados de bancada (`aguardando_*`, `em_conserto`) já
+> estão no CHECK mas só ganham UI na Fase B. `devolvido` está no CHECK e não é
+> usado — após a devolução o estado verdadeiro é `instalado`.
+>
+> `status` é **denormalizado** a partir da última movimentação (mesma escolha de
+> `reservatorios.last_seen`): a listagem não precisa de `LATERAL`.
+
+**`equipamento_movimentacoes`** — linha do tempo; é o que responde "essa bomba
+já voltou 3 vezes". `equipamento_id (CASCADE)`, `tipo`, `status_novo`,
+`chamado_id`/`os_id`/`orcamento_id`/`condominio_id` (todos SET NULL),
+`usuario_id (SET NULL)`, **`usuario_nome`** (snapshot — histórico que perde o
+autor quando o usuário é apagado não serve como histórico), `observacao`,
+`criado_em`.
+CHECK `tipo`: `cadastro | retirada | entrada_oficina | diagnostico |
+orcamento_solicitado | orcamento_aprovado | em_conserto | aguardando_peca |
+pronto | devolucao | anotacao | baixa`.
+Índices: `idx_equip_mov_equip (equipamento_id, criado_em DESC)`,
+`idx_equip_mov_chamado`, `idx_equip_mov_os`.
+
+**`equipamento_fotos`** — `equipamento_id (CASCADE)`, `movimentacao_id (SET
+NULL)`, **`dados_base64`** (data URL), `legenda`, `criado_por`, `criado_em`.
+Imagem no banco, **não em disco**: o filesystem do Railway é efêmero e isso já
+mordeu em `os_fotos` (migration 053). Servida por
+`GET /equipamentos/:id/fotos/:fotoId/imagem`, que é **autenticada** — ao
+contrário da rota equivalente de `os_fotos`, que é pública.
+
+`chamados` ganha `equipamento_id (SET NULL)` + `idx_chamados_equipamento` —
+permite ver reincidência sem passar pela O.S.
 
 ### Outras
 

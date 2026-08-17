@@ -49,6 +49,24 @@ const PAINEL_POR_ROLE = {
   cliente:  "/cliente/painel",
 };
 
+// Destino pedido pela página que mandou pro login (`/login?next=/e/AB7K2M9X`).
+// Nasceu da etiqueta QR: sem isso o técnico escaneia a bomba, cai no login,
+// entra — e vai parar no painel, tendo que escanear de novo.
+//
+// Allowlist estreita em vez de "qualquer path que comece com /": um `next`
+// livre é open redirect (`//evil.com` é path válido pro navegador e sai do
+// domínio). Só entram aqui os destinos que de fato precisam voltar.
+const NEXT_PERMITIDO = /^\/e\/[0-9A-Za-z-]{1,20}$/;
+
+function destinoNext() {
+  try {
+    const next = new URLSearchParams(window.location.search).get("next");
+    return next && NEXT_PERMITIDO.test(next) ? next : null;
+  } catch (_) {
+    return null;
+  }
+}
+
 // Não redireciona se o login não tem como dar certo do outro lado. A senha
 // estava certa — o problema é o cadastro —, então a mensagem diz isso em vez
 // de fingir que a credencial falhou.
@@ -75,7 +93,11 @@ function redirectByRole(user) {
     return;
   }
 
-  window.location.href = destino;
+  // `next` só vale pra equipe interna: a ficha do equipamento é fechada pro
+  // cliente (403 do `equipeInterna`), e mandá-lo pra lá seria trocar o painel
+  // dele por uma tela de erro.
+  const next = destinoNext();
+  window.location.href = (next && role !== "cliente") ? next : destino;
 }
 
 // Descarta a sessão e volta pro passo 1 com o motivo na tela.

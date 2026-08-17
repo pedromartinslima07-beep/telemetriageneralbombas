@@ -76,6 +76,7 @@ ESP32 (sonda 4-20mA + SCT-013)
 | **contratos** | Contratos por condomínio. Assinatura eletrônica própria por link de e-mail (sem ZapSign/D4Sign — ver `decisions.md`): exige código de 6 dígitos antes de assinar (2FA equivalente ao login) e grava um protocolo (hash SHA-256 auditável) impresso no PDF junto com IP e data/hora |
 | **orçamentos** | Sistema unificado (tabela `orcamentos` + `orcamento_linhas`); `tipo` (060) ramifica o PDF avulso entre tabela de peças (padrão) e layout descritivo por cláusulas para limpeza de reservatório/dedetização/combo, mesmo timbrado. Item sem `valor_unitario` some da coluna de valor no PDF em vez de virar "R$ 0,00"; `orcamentos.valor` serve de override manual do total (062) |
 | **relatorio / relatorios** | PDF de telemetria (Puppeteer) pro cliente/app; painel ao vivo (chamados em risco + workload) e exportação CSV de chamados/alertas/telemetria pro admin |
+| **equipamentos** | Identidade permanente de bomba/motor/painel + etiqueta QR (migration 070). Guard próprio `equipeInterna` (inclui **técnico**, que não passa em `adminOnly`). Ficha em `/e/:codigo`, folha A4 de etiquetas via Puppeteer + `qrcode`. Fluxo em [equipamentos.md](../docs/modulos/equipamentos.md) |
 | **admin** | Usuários, status agregado, histórico, geocode, configurações |
 | **status / leituras / jobs** | Endpoints auxiliares e disparo manual de jobs |
 
@@ -140,6 +141,25 @@ ESP32 (sonda 4-20mA + SCT-013)
 - Planos de manutenção preventiva + contratos. Na aba Planos, seleção múltipla
   (checkbox por linha + "todos" no cabeçalho) com **edição em massa** de
   periodicidade / próxima execução / status via `PATCH /planos-manutencao/bulk`.
+
+**Equipamentos e etiqueta QR (Fase 12A)** — `migrations/070`,
+`src/routes/equipamentos.routes.js`, `src/services/etiquetas-pdf.service.js`,
+`public/equipamento.{html,css,js}`
+- Etiqueta **permanente do equipamento** (não da passagem pela oficina) e que
+  **nasce em branco** — a bomba chega antes do cadastro existir, então o vínculo
+  com o condomínio acontece no ato da retirada, com a bomba na mão.
+- Código do QR é **aleatório** (base32 Crockford, 8 caracteres, sem I/L/O/U): a
+  ficha revela endereço de cliente, e URL sequencial exporia o parque inteiro.
+- **Sem plugin de scanner** — a câmera nativa do Android abre a URL. Mexer no
+  build Android competiria com o prazo de 31/08 da Play Store.
+- Folha A4 em dois formatos (papel comum com marcas de corte · Pimaco 6180).
+  ⚠️ O gerador **recusa** QR com host local — etiqueta é física e permanente.
+  Depende de `PUBLIC_BASE_URL` nas envs.
+- ⚠️ **A foto usa rota autenticada** (`fetch` + object URL), diferente da
+  equivalente em `os_fotos`, que é pública: aqui o id é sequencial e o conteúdo
+  é o interior da casa de máquinas de um cliente.
+- ⚠️ **A migration 070 rodou só no banco de teste.** Falta produção.
+- Diagnóstico, peças, orçamento e painel da bancada são Fase 12B.
 
 **App mobile (Capacitor 8)** — `app/public/`
 - **Capacitor 8.4.2** desde 2026-07-28 (`targetSdk 36`, `minSdk 24`, AGP 8.13.0,

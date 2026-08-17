@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Equipamento — General Bombas</title>
+  <link rel="icon" href="/static/favicon.png">
+  <meta name="theme-color" content="#06070f">
+  <!-- Herda os tokens e componentes do Mission Control (admin.css). A ficha é
+       ferramenta de operação interna, como o app do técnico — não usa o sistema
+       "Chapa" da landing/painel do cliente, que é peça de venda. -->
+  <link rel="stylesheet" href="/static/admin.css?v=190">
+  <link rel="stylesheet" href="/static/equipamento.css?v=1">
+</head>
+<body class="eq-body">
+
+  <header class="eq-topo">
+    <div class="eq-topo-marca">GENERAL BOMBAS</div>
+    <div class="eq-topo-cod" id="eqTopoCodigo">—</div>
+    <a class="eq-topo-link" href="/admin/painel">Painel</a>
+  </header>
+
+  <main class="eq-main" id="eqRoot">
+    <div class="eq-carregando" id="eqCarregando">
+      <div class="eq-spin"></div>
+      <p>Lendo a etiqueta…</p>
+    </div>
+  </main>
+
+  <script src="/static/equipamento.js?v=1" defer></script>
+</body>
+</html>

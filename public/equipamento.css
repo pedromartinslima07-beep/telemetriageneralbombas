@@ -1,0 +1,353 @@
+/* ============================================================
+   FICHA DO EQUIPAMENTO — /e/:codigo
+   ============================================================
+   Camada aditiva sobre admin.css: usa os tokens do Mission Control
+   (--accent âmbar, --surface, --border) e não redefine nenhum. Layout é
+   mobile-first de verdade — quem abre esta tela está de pé na bancada ou na
+   casa de máquinas, com uma mão na bomba. Botão nunca abaixo de 44px de alto.
+   ============================================================ */
+
+.eq-body {
+  padding-bottom: 40px;
+}
+
+/* ---------- topo ---------- */
+.eq-topo {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  padding-top: max(12px, env(safe-area-inset-top));
+  background: rgba(10, 12, 24, .92);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+}
+.eq-topo-marca {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .14em;
+  color: var(--accent);
+}
+.eq-topo-cod {
+  margin-left: auto;
+  font-family: ui-monospace, "Consolas", monospace;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  color: var(--text-dim);
+}
+.eq-topo-link {
+  font-size: 12px;
+  color: var(--muted);
+  text-decoration: none;
+  border-left: 1px solid var(--border);
+  padding-left: 12px;
+}
+.eq-topo-link:hover { color: var(--text); }
+
+.eq-main {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* ---------- carregando / erro ---------- */
+.eq-carregando, .eq-erro {
+  text-align: center;
+  padding: 56px 20px;
+  color: var(--muted);
+}
+.eq-spin {
+  width: 28px; height: 28px;
+  margin: 0 auto 14px;
+  border: 2px solid var(--border-strong);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: eq-girar .8s linear infinite;
+}
+@keyframes eq-girar { to { transform: rotate(360deg); } }
+.eq-erro h2 { font-size: 17px; color: var(--text); margin-bottom: 8px; }
+.eq-erro p  { font-size: 13px; line-height: 1.6; }
+
+/* ---------- resposta principal ----------
+   A primeira coisa da tela responde a pergunta que fez alguém escanear:
+   de quem é essa bomba e o que ela tem. Tudo o mais vem depois. */
+.eq-resposta {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 18px;
+}
+.eq-resposta-rotulo {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+.eq-condominio {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--text);
+}
+.eq-endereco {
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+.eq-equip-nome {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+.eq-defeito {
+  margin-top: 10px;
+  padding: 12px 14px;
+  background: rgba(245, 158, 11, .08);
+  border-left: 3px solid var(--warn);
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--text);
+}
+.eq-defeito .eq-resposta-rotulo { color: var(--warn); }
+
+/* ---------- selo de status ---------- */
+.eq-selo {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  border: 1px solid var(--border-strong);
+  color: var(--text-dim);
+  background: var(--surface2);
+}
+.eq-selo::before {
+  content: '';
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.eq-selo.is-oficina  { color: var(--warn);   border-color: rgba(245,158,11,.4); }
+.eq-selo.is-ok       { color: var(--ok);     border-color: rgba(34,197,94,.4); }
+.eq-selo.is-espera   { color: var(--cyan);   border-color: rgba(34,211,238,.4); }
+.eq-selo.is-livre    { color: var(--muted);  }
+.eq-selo.is-baixado  { color: var(--danger); border-color: rgba(239,68,68,.4); }
+
+/* ---------- reincidência ----------
+   O número que justifica trocar a bomba em vez de consertar de novo. */
+.eq-reincidencia {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 14px;
+  border-radius: var(--radius-sm);
+  background: rgba(239, 68, 68, .09);
+  border: 1px solid rgba(239, 68, 68, .25);
+  font-size: 13px;
+  color: var(--text);
+}
+.eq-reincidencia b { color: var(--danger); }
+
+/* ---------- blocos ---------- */
+.eq-bloco {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+.eq-bloco-titulo {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 12px;
+}
+
+/* dados técnicos em pares rótulo/valor */
+.eq-dados {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px 16px;
+}
+.eq-dado-rot {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--muted2);
+  margin-bottom: 2px;
+}
+.eq-dado-val {
+  font-size: 13.5px;
+  color: var(--text);
+  word-break: break-word;
+}
+
+/* ---------- linha do tempo ---------- */
+.eq-linha { list-style: none; }
+.eq-linha li {
+  position: relative;
+  padding: 0 0 18px 22px;
+  border-left: 1px solid var(--border-strong);
+}
+.eq-linha li:last-child { padding-bottom: 0; border-left-color: transparent; }
+.eq-linha li::before {
+  content: '';
+  position: absolute;
+  left: -5px; top: 3px;
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  background: var(--muted2);
+  border: 2px solid var(--bg);
+}
+.eq-linha li.is-marco::before { background: var(--accent); }
+.eq-mov-tipo {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+.eq-mov-meta {
+  font-size: 11.5px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+.eq-mov-obs {
+  margin-top: 6px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-dim);
+  white-space: pre-wrap;
+}
+
+/* ---------- fotos ---------- */
+.eq-fotos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 8px;
+}
+.eq-fotos img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  cursor: zoom-in;
+}
+
+/* visor de foto em tela cheia */
+.eq-visor {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  background: rgba(0,0,0,.92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.eq-visor img { max-width: 100%; max-height: 100%; border-radius: var(--radius-sm); }
+
+/* ---------- formulário ---------- */
+.eq-campo { margin-bottom: 14px; }
+.eq-campo label {
+  display: block;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+.eq-campo input,
+.eq-campo select,
+.eq-campo textarea {
+  width: 100%;
+  /* 16px evita o zoom automático do iOS ao focar o campo — abaixo disso a
+     página salta de escala e o técnico perde o formulário de vista. */
+  font-size: 16px;
+  padding: 11px 12px;
+  color: var(--text);
+  background: var(--surface2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+}
+.eq-campo textarea { min-height: 88px; resize: vertical; line-height: 1.5; }
+.eq-campo input:focus,
+.eq-campo select:focus,
+.eq-campo textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(240, 176, 20, .14);
+}
+.eq-campo-dupla {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+/* ---------- ações ---------- */
+.eq-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.eq-btn {
+  flex: 1 1 auto;
+  min-height: 46px;          /* alvo de toque com luva, na bancada */
+  padding: 12px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: var(--surface2);
+  color: var(--text);
+  cursor: pointer;
+}
+.eq-btn:hover { background: var(--surface3); }
+.eq-btn:disabled { opacity: .55; cursor: default; }
+.eq-btn.is-primario {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #1a1400;
+}
+.eq-btn.is-primario:hover { background: var(--accent-2); }
+
+.eq-aviso {
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+.eq-aviso.is-erro { color: var(--danger); }
+
+.eq-vazio {
+  font-size: 13px;
+  color: var(--muted);
+  font-style: italic;
+}
+/* Dentro do grid de fotos o texto vazio cairia numa coluna de 96px e quebraria
+   em duas linhas ("Nenhuma foto / ainda."). Ocupa a faixa inteira. */
+.eq-fotos .eq-vazio { grid-column: 1 / -1; }
+
+@media (min-width: 620px) {
+  .eq-main { padding: 22px 16px 40px; }
+  .eq-condominio { font-size: 25px; }
+}

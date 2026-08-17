@@ -57,9 +57,9 @@ App mobile (Capacitor) ──JWT──fetch───────────┤
 │   ├── app.js                # Express: middleware, routers, jobs, proxy tiles, reset-cache
 │   ├── config.js             # constantes de ambiente (OFFLINE_MINUTES)
 │   ├── db.js                 # pool pg (DATABASE_URL ou PG*)
-│   ├── routes/               # 19 routers (ver docs/api.md)
+│   ├── routes/               # 20 routers (ver docs/api.md)
 │   ├── controllers/          # whatsapp.controller.js (webhook → background → IA)
-│   ├── middleware/           # authRequired, adminOnly, masterAdminOnly, clienteOnly
+│   ├── middleware/           # authRequired, equipeInterna, adminOnly, gestaoOnly, masterAdminOnly, clienteOnly
 │   ├── services/             # regras de negócio + integrações (ver abaixo)
 │   └── jobs/                 # 8 jobs em background
 │
@@ -67,7 +67,8 @@ App mobile (Capacitor) ──JWT──fetch───────────┤
 │   ├── admin.html/.js/.css   # painel admin "Mission Control"
 │   ├── cliente.html/.js      # painel do cliente
 │   ├── cliente.css           # overrides do cliente (carrega após admin.css)
-│   ├── login.html/.js/.css   # login + OTP
+│   ├── login.html/.js/.css   # login + OTP (aceita ?next= p/ a ficha do equipamento)
+│   ├── equipamento.html/.js/.css  # ficha do equipamento (/e/:codigo) — herda admin.css
 │   ├── sw.js, register-sw.js, manifest.json   # PWA
 │   ├── leaflet.*, apexcharts.min.js, chart.umd.min.js, lucide.min.js  # libs locais
 │   └── *.png                 # logos, ícones, mockups de referência (front-*.png)
@@ -166,6 +167,7 @@ cache em memória de 30s. Chaves atuais:
 | `openai` ^6 | IA (function calling, gpt-4o-mini) |
 | `resend` ^6 | Envio de email transacional |
 | `puppeteer` ^24 | Geração de PDFs (browser singleton) |
+| `qrcode` ^1 | QR das etiquetas de equipamento (SVG inline no HTML do PDF) |
 
 **Scripts npm:** `start` (`node server.js`), `dev` (`--watch`),
 `sim` (`simulador.js`), `migrate` (`scripts/migrate.js`).

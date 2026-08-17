@@ -35,8 +35,31 @@ aliases:
 | 9C, 9E | Política de retenção + limpeza retroativa | ✅ |
 | 10A | Curadoria de conversas resolvidas | ✅ |
 | 11 | Política de criticidade P1–P4 e SLA de chegada | ✅ |
+| 12A | Equipamentos: identidade + etiqueta QR + histórico | ✅ |
 
 ## Em andamento / pendente
+
+- **Fase 12 — Equipamentos e bancada da oficina** 🟡 — 12A entregue em
+  2026-08-17 na branch `feature/equipamentos-qr`. Fluxo e pegadinhas em
+  [`../docs/modulos/equipamentos.md`](../docs/modulos/equipamentos.md).
+  - ✅ **12A (identidade)**: migration 070, router `/equipamentos`, folha A4 de
+    etiquetas QR, ficha `/e/:codigo` e seção Equipamentos no admin. Responde
+    "de quem é essa bomba e o que ela tem", que era a dor original.
+  - ⚠️ **Migration 070 rodou só no banco de TESTE.** O `.env` aponta pra lá
+    hoje. Aplicar em produção antes do merge.
+  - 📋 **`PUBLIC_BASE_URL` nas envs do Railway** — sem ela o gerador de
+    etiquetas recusa imprimir (deriva a URL do request e barra host local).
+    É pré-requisito pra primeira folha real sair da impressora.
+  - 📋 **12B (bancada)**: diagnóstico, peças necessárias, botão "Solicitar
+    orçamento" criando `orcamentos` com `origem = 'bancada'`, e o painel por
+    estado com **dias parados** — a tela que responde "o que está parado na
+    oficina e por quê". Os estados já existem no CHECK da 070.
+  - 📋 **12C (fechar o ciclo com a O.S.)**: campo de equipamento na O.S. de
+    tipo `retirada_equipamento`/`devolucao`, gerando a movimentação
+    automaticamente. Hoje os dois lados existem mas não se falam.
+  - 📋 **12D (opcional, depois de 31/08)**: scanner dentro do app
+    (`@capacitor-mlkit/barcode-scanning`), inventário do parque instalado,
+    alerta de garantia.
 
 - **Gateway Meta WhatsApp** — código pronto, pendente configuração externa
   (ver [`active-work.md`](active-work.md)).
@@ -220,10 +243,6 @@ serviço. Mais padronizada (SEFAZ federal) mas exige certificado digital A1.
 Itens levantados durante o desenvolvimento, conscientemente deixados para
 depois. Nenhum é bloqueante.
 
-- **Tabela `equipamentos`** — hoje só `reservatorios` tem identidade no sistema;
-  bombas, motores e painéis não. `os_pecas` registra "trocou bomba X" mas não
-  vincula a um equipamento físico. Colunas sugeridas: `condominio_id`, `tipo`,
-  `marca`, `modelo`, `numero_serie`, `instalado_em`, `garantia_ate`.
 - **Job de email de renovação de contrato** (60/30/15 dias antes de `fim_em`) —
   Resend já integrado, é trivial adicionar.
 - **Notificação à equipe comercial** quando entra orçamento `origem='ia'

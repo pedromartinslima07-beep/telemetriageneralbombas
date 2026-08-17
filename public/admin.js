@@ -122,6 +122,7 @@ const _sectionTitles = {
   cadastros:        "Clientes",
   tecnicos:         "Colaboradores",
   planos:           "Planos de manutenção",
+  equipamentos:     "Equipamentos",
   relatorios:       "Relatórios",
   config:           "Configurações",
 };
@@ -182,6 +183,10 @@ function showSection(name) {
   if (name === "contratos") {
     _ctrsBindEventos();
     _ctrsCarregar();
+  }
+  if (name === "equipamentos") {
+    _eqBindEventos();
+    _eqCarregar();
   }
   // Dashboard também tem Leaflet (mc-map). Quando o user volta pra dashboard,
   // revalida o tamanho — pode ter ficado com tiles travados se foi criado
@@ -10109,7 +10114,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // operador: só vê Monitor + Chamados + Config (sem Atendimento exceto chamados, sem Gestão exceto config)
   if (_isOperador) {
-    const _navHide = ["whatsapp", "ordens-servico", "orcamentos", "planos", "cadastros", "tecnicos", "relatorios"];
+    const _navHide = ["whatsapp", "ordens-servico", "orcamentos", "planos", "cadastros", "tecnicos", "relatorios", "equipamentos"];
     _navHide.forEach(s => {
       const el = document.querySelector(`.nav-item[data-section="${s}"]`);
       if (el) el.style.display = "none";
@@ -14625,3 +14630,183 @@ function _pmBindEventos() {
 
   document.addEventListener("DOMContentLoaded", _gsInit);
 })();
+
+/* ============================================================
+   EQUIPAMENTOS — Fase A (identidade + etiqueta QR)
+   ============================================================
+   Aqui o admin só faz o que a ficha (/e/:codigo) não faz: gerar lote de
+   etiquetas em branco, imprimir a folha e enxergar o parque etiquetado. O
+   trabalho com a bomba na mão acontece na ficha, pelo celular.
+
+   A bancada de verdade — estados, dias parado, peças e orçamento — é Fase B.
+   Ver docs/modulos/equipamentos.md.
+   ============================================================ */
+
+const _EQ_STATUS_LABEL = {
+  etiqueta_livre:       ["Etiqueta em branco", ""],
+  instalado:            ["No condomínio", "b-ok"],
+  oficina:              ["Na oficina", "b-warn"],
+  aguardando_orcamento: ["Aguardando orçamento", "b-warn"],
+  aguardando_peca:      ["Aguardando peça", "b-warn"],
+  em_conserto:          ["Em conserto", "b-warn"],
+  pronto:               ["Pronta para devolver", "b-ok"],
+  devolvido:            ["Devolvida", "b-ok"],
+  baixado:              ["Baixada", "b-bad"],
+};
+
+let _eqDados = [];
+let _eqEventosLigados = false;
+
+function _eqEsc(s) {
+  return String(s == null ? "" : s)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function _eqFormatarCodigo(c) {
+  const s = String(c || "");
+  return s.length === 8 ? `${s.slice(0, 4)}-${s.slice(4)}` : s;
+}
+
+async function _eqCarregar() {
+  const busca  = document.getElementById("eqBusca")?.value.trim();
+  const status = document.getElementById("eqFiltroStatus")?.value;
+
+  const qs = new URLSearchParams();
+  if (busca)  qs.set("q", busca);
+  if (status) qs.set("status", status);
+
+  const tbody = document.getElementById("eqTableBody");
+  if (!tbody) return;
+
+  try {
+    const r = await fetch(`/equipamentos?${qs}`, { headers: authHeaders() });
+    const dados = await lerRespostaJson(r, "Equipamentos");
+    if (!r.ok) throw new Error(dados.error || "Erro ao listar equipamentos");
+    _eqDados = dados;
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="5" class="muted">${_eqEsc(e.message)}</td></tr>`;
+    return;
+  }
+
+  if (!_eqDados.length) {
+    tbody.innerHTML = `<tr><td colspan="5" class="muted">
+      Nenhum equipamento etiquetado ainda. Comece gerando um lote de etiquetas.
+    </td></tr>`;
+  } else {
+    tbody.innerHTML = _eqDados.map(eq => {
+      const [label, cls] = _EQ_STATUS_LABEL[eq.status] || [eq.status, ""];
+      const nome = eq.apelido || [eq.marca, eq.modelo].filter(Boolean).join(" ")
+                 || (eq.tipo ? eq.tipo[0].toUpperCase() + eq.tipo.slice(1) : "—");
+      return `<tr data-eq-codigo="${_eqEsc(eq.codigo)}" style="cursor:pointer;">
+        <td style="font-family:ui-monospace,Consolas,monospace;">${_eqFormatarCodigo(eq.codigo)}</td>
+        <td>${_eqEsc(nome)}</td>
+        <td>${_eqEsc(eq.condominio_nome || "—")}</td>
+        <td><span class="badge ${cls}">${_eqEsc(label)}</span></td>
+        <td class="muted">${_eqEsc(eq.lote || "—")}</td>
+      </tr>`;
+    }).join("");
+  }
+
+  _eqPreencherLotes();
+}
+
+/** Lotes existentes, dos mais novos pros mais antigos. */
+function _eqPreencherLotes() {
+  const sel = document.getElementById("eqLotePrint");
+  if (!sel) return;
+  const lotes = [...new Set(_eqDados.map(e => e.lote).filter(Boolean))].sort().reverse();
+  const atual = sel.value;
+  sel.innerHTML = lotes.length
+    ? lotes.map(l => `<option value="${_eqEsc(l)}">${_eqEsc(l)}</option>`).join("")
+    : `<option value="">Nenhum lote gerado</option>`;
+  if (atual && lotes.includes(atual)) sel.value = atual;
+}
+
+async function _eqNovoLote() {
+  const resp = prompt("Quantas etiquetas em branco? (1 a 200)", "20");
+  if (resp === null) return;
+  const quantidade = Number(resp);
+  if (!Number.isInteger(quantidade) || quantidade < 1 || quantidade > 200) {
+    alert("Informe um número inteiro de 1 a 200.");
+    return;
+  }
+
+  const btn = document.getElementById("btnEqNovoLote");
+  btn.disabled = true;
+  try {
+    const r = await fetch("/equipamentos/lote", {
+      method: "POST",
+      headers: { ...authHeaders(), "Content-Type": "application/json" },
+      body: JSON.stringify({ quantidade }),
+    });
+    const dados = await lerRespostaJson(r, "Gerar lote");
+    if (!r.ok) throw new Error(dados.error || "Erro ao gerar o lote");
+
+    await _eqCarregar();
+    const sel = document.getElementById("eqLotePrint");
+    if (sel) sel.value = dados.lote;
+    if (confirm(`Lote ${dados.lote} criado com ${dados.quantidade} etiquetas.\n\nAbrir o PDF para imprimir agora?`)) {
+      _eqImprimir();
+    }
+  } catch (e) {
+    alert(e.message);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// O PDF é gerado sob autenticação, então não dá pra simplesmente apontar uma
+// aba nova pra URL — `window.open` não manda o header Authorization e o
+// servidor responderia 401. Busca como blob e abre o object URL.
+async function _eqImprimir() {
+  const lote    = document.getElementById("eqLotePrint")?.value;
+  const formato = document.getElementById("eqFormatoPrint")?.value || "corte";
+  if (!lote) { alert("Gere um lote de etiquetas primeiro."); return; }
+
+  const btn = document.getElementById("btnEqImprimir");
+  btn.disabled = true;
+  btn.textContent = "Gerando…";
+  try {
+    const r = await fetch(
+      `/equipamentos/etiquetas.pdf?lote=${encodeURIComponent(lote)}&formato=${formato}`,
+      { headers: authHeaders() }
+    );
+    if (!r.ok) {
+      const erro = await lerRespostaJson(r, "Etiquetas");
+      throw new Error(erro.error || "Erro ao gerar as etiquetas");
+    }
+    const blob = await r.blob();
+    const url = URL.createObjectURL(blob);
+    window.open(url, "_blank");
+    // Revoga só depois que a aba nova terminou de carregar o blob.
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  } catch (e) {
+    alert(e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Abrir PDF";
+  }
+}
+
+function _eqBindEventos() {
+  if (_eqEventosLigados) return;
+  _eqEventosLigados = true;
+
+  document.getElementById("btnEqNovoLote")?.addEventListener("click", _eqNovoLote);
+  document.getElementById("btnEqImprimir")?.addEventListener("click", _eqImprimir);
+  document.getElementById("eqFiltroStatus")?.addEventListener("change", _eqCarregar);
+
+  let _debounce;
+  document.getElementById("eqBusca")?.addEventListener("input", () => {
+    clearTimeout(_debounce);
+    _debounce = setTimeout(_eqCarregar, 300);
+  });
+
+  // Clicar na linha abre a mesma ficha que o QR abre — uma tela só pros dois
+  // caminhos, sem versão "de escritório" que diverge da versão da bancada.
+  document.getElementById("eqTableBody")?.addEventListener("click", (ev) => {
+    const tr = ev.target.closest("tr[data-eq-codigo]");
+    if (tr) window.open(`/e/${tr.dataset.eqCodigo}`, "_blank");
+  });
+}

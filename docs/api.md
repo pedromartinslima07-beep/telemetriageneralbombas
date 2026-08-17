@@ -262,3 +262,31 @@ crus em JSON, usados pra exportar CSV no painel (ver
 TTFR/TTR/conformidade de SLA no Excel. `/painel-vivo` retorna o estado
 operacional agora (chamados em risco de estourar SLA + workload por
 técnico), sem filtro de período.
+
+---
+
+## Equipamentos (`/equipamentos`) — etiqueta QR
+
+Guard `equipeInterna` (admin, gerente, operador, **técnico**) na leitura e no
+registro; `cliente` toma 403 em tudo. Fluxo em
+[equipamentos.md](modulos/equipamentos.md).
+
+| Método | Rota | Acesso / observação |
+|---|---|---|
+| POST | `/equipamentos/lote` | gestaoOnly — cria N etiquetas em branco (1 a 200). Body `{ quantidade }`. Devolve `{ lote, quantidade, equipamentos }` |
+| GET | `/equipamentos/etiquetas.pdf?lote=…\|ids=…&formato=` | adminOnly — folha A4 em memória. `formato`: `corte` (padrão) ou `pimaco6180`. **Recusa** gerar se a URL pública for local (defina `PUBLIC_BASE_URL`; `&forcar=1` ignora, só para teste) |
+| GET | `/equipamentos?status=&condominio_id=&lote=&q=&limit=` | lista o parque etiquetado |
+| GET | `/equipamentos/condominios` | id + nome apenas — `GET /condominios` é adminOnly e o técnico não passa nele |
+| GET | `/equipamentos/codigo/:codigo` | **a ficha que o QR abre**. Aceita hífen e minúsculas; normaliza I/L→1, O→0, U→V |
+| GET | `/equipamentos/:id` | mesma ficha, por id |
+| POST | `/equipamentos/:id/vincular` | vincula a etiqueta em branco: `{ condominio_id, destino: 'oficina'\|'instalado', ...dados }`. Numa transação grava os dados **e** a primeira movimentação |
+| PATCH | `/equipamentos/:id` | corrige dados cadastrais. **Não** mexe em status — status só muda por movimentação, para nunca existir mudança sem rastro |
+| POST | `/equipamentos/:id/movimentacoes` | `{ tipo, observacao?, chamado_id?, os_id? }`. O status novo é derivado do tipo; `anotacao` não muda status e exige texto |
+| POST | `/equipamentos/:id/fotos` | `{ dados_base64 }` (data URL, máx. ~2 MB — o front comprime para 1280px antes) |
+| GET | `/equipamentos/:id/fotos/:fotoId/imagem` | **autenticada** (diferente da equivalente em `os_fotos`, que é pública) — o front busca com header e usa object URL |
+| DELETE | `/equipamentos/:id/fotos/:fotoId` | adminOnly |
+| DELETE | `/equipamentos/:id` | gestaoOnly — apaga de verdade só etiqueta nunca usada; com histórico, **inativa** e registra movimentação `baixa` |
+
+**`GET /e/:codigo`** (fora deste router) serve o HTML da ficha. Path curto de
+propósito: menos caractere na URL = QR com menos módulos = etiqueta legível
+mesmo suja. Sem sessão, a página manda para `/login?next=/e/CODIGO`.

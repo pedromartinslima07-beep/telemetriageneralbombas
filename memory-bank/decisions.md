@@ -257,6 +257,53 @@ canônica do "porquê"; o "o quê" está em `../docs/` e em [`current-state.md`]
 - **`alerta_comentarios` sem FK** para o alerta: a coluna `alerta_id` cobre duas
   origens (`telemetria` | `chamado`), então o vínculo é lógico, não FK. Por isso
   o cleanup de alertas precisa apagar os comentários de telemetria junto (CTE).
+- **`equipamentos.condominio_id` é nullable (migration 070).** A etiqueta nasce
+  em branco e é colada na bomba **antes** de existir cadastro — a bomba chega na
+  oficina primeiro. Exigir dono no INSERT obrigaria a cadastrar antes de
+  etiquetar, que é justamente o passo que ninguém faria na prática.
+- **`equipamento_movimentacoes.usuario_nome` é snapshot redundante.** Todas as
+  FKs da tabela são `ON DELETE SET NULL`; histórico que perde o autor quando o
+  usuário é apagado deixa de ser histórico. O nome é gravado junto no INSERT.
+- **`equipamentos.status` denormalizado** a partir da última movimentação (mesma
+  escolha de `reservatorios.last_seen`): a listagem da bancada é a tela mais
+  consultada do módulo e não deveria precisar de `LATERAL` por linha. Em troca,
+  status só muda por movimentação — nunca há mudança de estado sem rastro.
+
+## Equipamentos e etiqueta QR (Fase 12A)
+
+- **A etiqueta é do equipamento, não da ocorrência.** A mesma bomba volta várias
+  vezes à oficina, e é o histórico das vezes anteriores que se perde hoje —
+  etiqueta por passagem jogaria fora exatamente o ativo do módulo. Custo: exige
+  o fluxo de etiqueta em branco (acima), porque a identidade precisa existir
+  antes do cadastro.
+- **Sem plugin de scanner no app.** A câmera nativa do Android já lê QR e abre a
+  URL; um plugin (`@capacitor-mlkit/barcode-scanning`) mexeria no build Android,
+  que está sob o prazo de 31/08 da Play Store (7J). Também faz a ficha funcionar
+  para quem não tem o app instalado — pessoal da oficina, por exemplo. Scanner
+  in-app fica como 12D, depois da publicação.
+- **Código do QR aleatório, não sequencial.** A ficha revela endereço, contato e
+  histórico do condomínio; `/e/1`, `/e/2` exporia o parque inteiro a quem tem um
+  navegador. Base32 Crockford (sem I, L, O e U, que se confundem na digitação),
+  8 caracteres ≈ 1,1 trilhão de combinações. A ficha exige login por cima disso.
+- **Guard novo `equipeInterna` em vez de afrouxar `adminOnly`.** Quem escaneia na
+  bancada é o técnico, que não passa em `adminOnly` — mas `cliente` não pode
+  entrar de jeito nenhum. Allowlist explícita de 4 roles, não "authRequired sem
+  guard". Pelo mesmo motivo nasceu `GET /equipamentos/condominios`: o técnico
+  precisa apontar o prédio, mas `GET /condominios` (adminOnly) devolve endereço,
+  contato e CNPJ — a rota nova devolve só id e nome.
+- **A foto do equipamento fica atrás de autenticação.** A rota equivalente de
+  `os_fotos` é pública, com um comentário assumindo a escolha ("compatibilidade
+  com `<img src>`, que não manda header"). Aqui o id da foto é sequencial e o
+  conteúdo é o interior da casa de máquinas de um cliente, então o front busca
+  com `fetch` + object URL. O custo é um punhado de linhas em `equipamento.js`.
+- **O gerador de etiquetas recusa host local.** Etiqueta é física e permanente:
+  um QR apontando para `localhost` vira lixo colado numa bomba que ninguém vai
+  reetiquetar. Falhar antes de o papel sair da impressora é barato; depois, não.
+  `PUBLIC_BASE_URL` é a env que resolve; `&forcar=1` só para teste.
+- **A ficha herda `admin.css`, não o sistema "Chapa".** É ferramenta de operação
+  interna, como o app do técnico — a mesma razão pela qual a landing e o painel
+  do cliente **não** herdam do admin. O critério é quem usa e para quê, não a
+  plataforma.
 
 ## Decisões descartadas (e por quê)
 

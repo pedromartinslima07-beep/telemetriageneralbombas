@@ -41,6 +41,7 @@ const { ordensServicoRouter } = require("./routes/ordens-servico.routes");
 const { planosManutencaoRouter } = require("./routes/planos-manutencao.routes");
 const { contratosRouter } = require("./routes/contratos.routes");
 const { assinaturaRouter } = require("./routes/assinatura.routes");
+const { equipamentosRouter } = require("./routes/equipamentos.routes");
 const { startOfflineScheduler } = require("./jobs/offline.job");
 const { startPlanosManutencaoScheduler } = require("./jobs/planos-manutencao.job");
 const { startGpsCleanupScheduler } = require("./jobs/gps-cleanup.job");
@@ -327,6 +328,13 @@ app.get("/admin/painel", _htmlNoCache, (req, res) =>
 app.get("/cliente/painel", _htmlNoCache, (req, res) =>
   res.sendFile(path.join(__dirname, "../public/cliente.html"))
 );
+// Ficha do equipamento — é o que a etiqueta QR abre. O path é curto de
+// propósito: menos caractere na URL = QR com menos módulos = etiqueta legível
+// mesmo suja ou amassada. O código não é validado aqui (o HTML é estático);
+// quem resolve é o `equipamento.js` chamando GET /equipamentos/codigo/:codigo.
+app.get("/e/:codigo", _htmlNoCache, (req, res) =>
+  res.sendFile(path.join(__dirname, "../public/equipamento.html"))
+);
 
 // routers
 app.use("/auth", authRouter);
@@ -350,6 +358,7 @@ app.use("/ordens-servico", ordensServicoRouter);
 app.use("/planos-manutencao", planosManutencaoRouter);
 app.use("/contratos", contratosRouter);
 app.use("/assinar", assinaturaRouter);
+app.use("/equipamentos", equipamentosRouter);
 
 // 404 e erros em JSON — sem isto o Express responde a página HTML padrão
 // (`<!DOCTYPE html>…`) e o front, que faz `.json()` na resposta, morre com

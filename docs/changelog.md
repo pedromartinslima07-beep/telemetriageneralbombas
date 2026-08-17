@@ -77,8 +77,40 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
 | 062 | orcamento_valor_opcional | `orcamento_linhas.valor_unitario` vira nullable (era `NOT NULL DEFAULT 0`) — item sem preço some da coluna de valor no PDF em vez de virar "R$ 0,00" |
 | 063 | contratos_assinatura_verificacao | `contratos.assinatura_cliente/geral_codigo` + `_expira` + `_tentativas` + `_enviado_em` (código de 6 dígitos por e-mail antes de assinar) e `assinatura_cliente/geral_protocolo` (hash SHA-256 auditável, impresso no PDF) |
 | 064 | contratos_remove_signatario_geral_default | remove `DEFAULT 'Ana Paula Martins Lima'` de `signatario_geral_nome` (054) e limpa valores existentes ainda não assinados |
+| 070 | equipamentos | `equipamentos` (identidade permanente + `codigo` do QR), `equipamento_movimentacoes` (linha do tempo, com snapshot do autor), `equipamento_fotos` (`dados_base64` no banco); `chamados.equipamento_id`. Ver [equipamentos.md](modulos/equipamentos.md) |
+
+> As migrations 065-069 vivem na branch `feature/landing-publica` e ainda não
+> foram mergeadas — por isso o salto de 064 para 070 nesta lista.
 
 ## Marcos de produto (fases do plano)
+
+- **2026-08-17** — **Equipamentos com etiqueta QR (Fase A)**. Migration 070,
+  router `/equipamentos`, `etiquetas-pdf.service.js` (Puppeteer + `qrcode`),
+  ficha `/e/:codigo` e seção Equipamentos no admin. Fluxo e pegadinhas em
+  [equipamentos.md](modulos/equipamentos.md).
+  - **A dor**: bomba na bancada da oficina sem ninguém saber de qual prédio veio
+    nem qual era o defeito. Até aqui só `reservatorios` tinha identidade.
+  - **Etiqueta permanente do equipamento**, não da passagem pela oficina — a
+    mesma bomba volta várias vezes e é o histórico anterior que se perde.
+  - **Etiqueta nasce em branco**: a bomba chega antes do cadastro existir. O
+    lote é impresso e fica na van; o vínculo acontece na retirada.
+  - **Sem plugin de scanner**: a câmera nativa do Android abre a URL do QR.
+    Mexer no build Android competiria com o prazo da Play Store (7J).
+  - **Código aleatório** (base32 Crockford, 8 caracteres, sem I/L/O/U) — a ficha
+    revela endereço de cliente, uma URL sequencial exporia o parque inteiro.
+  - Novo guard **`equipeInterna`** (admin, gerente, operador, técnico): quem
+    escaneia na bancada é o técnico, que não passa em `adminOnly`.
+  - `?next=` no `login.js` com allowlist estreita — sem isso o técnico escaneia,
+    loga e cai no painel, tendo que escanear de novo.
+  - ⚠️ **Foto servida por rota autenticada**, carregada com `fetch` + object URL.
+    A rota equivalente de `os_fotos` é pública "para compatibilidade com
+    `<img src>`"; aqui não dava, porque o id da foto é sequencial e o conteúdo é
+    o interior da casa de máquinas de um cliente.
+  - ⚠️ O gerador de etiquetas **recusa** QR apontando para host local. Etiqueta
+    é física e permanente: um QR com `localhost` vira lixo colado numa bomba.
+  - Validado contra o backend real (banco de **teste**) e no navegador: lote,
+    PDF, vínculo, ciclo de movimentações, upload de foto e os guards de 401/403/404.
+    **A migration ainda não rodou em produção.**
 
 - **2026-08-06** — **Painel de detalhe gruda no topo nas 5 telas master-detail**
   (só CSS)

@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="/static/leaflet.css">
   <!-- ⚠️ Ao mexer em admin.js ou admin.css, bumpe o ?v=N aqui E no <script>
        lá embaixo. Ver CLAUDE.md raiz. -->
-  <link rel="stylesheet" href="/static/admin.css?v=189">
+  <link rel="stylesheet" href="/static/admin.css?v=190">
 </head>
 <body>
   <div id="appLoader">
@@ -159,6 +159,17 @@
             <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
           </svg>
           <span class="nav-item-label">Colaboradores</span>
+        </button>
+
+        <button class="nav-item" data-section="equipamentos" data-label="Equipamentos">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="7" height="7" rx="1"/>
+            <rect x="14" y="3" width="7" height="7" rx="1"/>
+            <rect x="3" y="14" width="7" height="7" rx="1"/>
+            <path d="M14 14h3v3h-3z"/>
+            <path d="M20 14v3M17 20h4"/>
+          </svg>
+          <span class="nav-item-label">Equipamentos</span>
         </button>
 
         <button class="nav-item" data-section="relatorios" data-label="Relatórios">
@@ -1197,6 +1208,66 @@
               <p>Selecione um colaborador para ver os detalhes</p>
             </div>
           </aside>
+        </div>
+      </div>
+
+      <!-- ===== SECTION: EQUIPAMENTOS ===== -->
+      <!-- Fase A do módulo: identidade + etiqueta QR. A bancada (estados,
+           dias parado, peças, orçamento) é Fase B. Ver docs/modulos/equipamentos.md -->
+      <div class="section" data-section="equipamentos">
+        <div class="card">
+          <div class="cardHead">
+            <h3>Equipamentos etiquetados</h3>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+              <input id="eqBusca" class="input" style="width:220px;" placeholder="Código, apelido, série…">
+              <select id="eqFiltroStatus" class="input" style="width:180px;">
+                <option value="">Todos os estados</option>
+                <option value="etiqueta_livre">Etiqueta em branco</option>
+                <option value="instalado">No condomínio</option>
+                <option value="oficina">Na oficina</option>
+                <option value="pronto">Pronta para devolver</option>
+                <option value="baixado">Baixada</option>
+              </select>
+              <button class="btn btnAccent btn-sm" id="btnEqNovoLote">+ Gerar etiquetas</button>
+            </div>
+          </div>
+          <div class="tableWrap">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width:120px;">Código</th>
+                  <th>Equipamento</th>
+                  <th>Condomínio</th>
+                  <th style="width:170px;">Estado</th>
+                  <th style="width:120px;">Lote</th>
+                </tr>
+              </thead>
+              <tbody id="eqTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:16px;">
+          <div class="cardHead"><h3>Imprimir folha de etiquetas</h3></div>
+          <div style="padding:16px;display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+            <label class="f" style="flex:1 1 180px;">
+              <span>Lote</span>
+              <select id="eqLotePrint" class="input"></select>
+            </label>
+            <label class="f" style="flex:1 1 240px;">
+              <span>Formato da folha</span>
+              <select id="eqFormatoPrint" class="input">
+                <option value="corte">Papel comum (com marcas de corte)</option>
+                <option value="pimaco6180">Pimaco 6180 / A4260 (10 por folha)</option>
+              </select>
+            </label>
+            <button class="btn btnAccent" id="btnEqImprimir">Abrir PDF</button>
+          </div>
+          <p class="muted" style="padding:0 16px 16px;font-size:12px;line-height:1.6;">
+            Papel comum descola em casa de máquinas (umidade, graxa, calor).
+            Use etiqueta adesiva de poliéster/vinil — ou papel adesivo com fita
+            transparente larga por cima.
+          </p>
         </div>
       </div>
 
@@ -2606,8 +2677,8 @@
 </div>
 
 
-<script src="/static/admin.js?v=280" defer></script>
+<script src="/static/admin.js?v=281" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
-<script src="/static/register-sw.js?v=32" defer></script>
+<script src="/static/register-sw.js?v=33" defer></script>
 </body>
 </html>

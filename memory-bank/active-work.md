@@ -7,9 +7,43 @@ aliases:
 ---
 # Trabalho em Andamento
 
-> Branch atual: `chore/capacitor-8` (saiu de `feature/app-mobile`).
-> Última sessão registrada: **2026-07-28**.
+> Branch atual: `feature/equipamentos-qr` (saiu de `main`).
+> Última sessão registrada: **2026-08-17**.
 > Roadmap completo em [`roadmap.md`](roadmap.md); decisões em [`decisions.md`](decisions.md).
+
+## Sessão 2026-08-17 — Equipamentos com etiqueta QR (Fase 12A)
+
+Pedido do Pedro: a oficina acumula bombas retiradas de condomínios e ninguém
+sabe de onde vieram nem qual era o problema. Solução desenhada: QR impresso e
+colado na bomba, que abre a ficha com todo o histórico.
+
+**Feito:** ver [changelog](../docs/changelog.md) e
+[equipamentos.md](../docs/modulos/equipamentos.md). O que não é óbvio pelo diff:
+
+- O `roadmap.md` já previa a tabela `equipamentos` no backlog futuro, com a
+  justificativa exata do pedido — o módulo saiu de lá, não do zero.
+- A O.S. **já tinha** os tipos `retirada_equipamento` e `devolucao`
+  (`src/routes/ordens-servico.routes.js`), sem nada do outro lado. Ligar os
+  dois é a Fase 12C.
+- O escopo foi cortado deliberadamente na identidade (12A). Bancada com
+  estados, dias parados, peças e orçamento é 12B — a Fase A por si já mata a
+  dor descrita ("de quem é e o que tem").
+
+**Verificado contra o backend real** (banco de **teste**, servidor local e
+navegador): geração de lote, PDF das duas folhas, vínculo da etiqueta em
+branco, ciclo `retirada → pronto → devolucao`, upload de foto com compressão
+client-side (2400px → 1280px) e os guards (401 sem token, 403 para `cliente`,
+404 para código inexistente). `node --check` em todos os arquivos tocados.
+
+**Pendências desta sessão:**
+- ⚠️ **Migration 070 não rodou em produção** — só no banco de teste, que é para
+  onde o `.env` aponta hoje.
+- ⚠️ **`PUBLIC_BASE_URL` precisa entrar nas envs do Railway** antes da primeira
+  folha real: sem ela o gerador recusa imprimir (barra host local de propósito).
+- A ficha nunca foi aberta em **aparelho real** escaneando uma etiqueta
+  **impressa** — o QR foi validado na tela, não no papel amassado da bancada.
+- O `?v=N` de `equipamento.css`/`equipamento.js` está em `1`; ao mexer neles,
+  bumpar como se faz com o admin.
 
 ## Sessão 2026-08-06 — Modal "Editar condomínio" (continuação da padronização)
 
