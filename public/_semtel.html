@@ -17,7 +17,7 @@
        cliente.css antes de reintroduzir qualquer dependência do admin. -->
   <link rel="preload" href="/static/fonts/archivo.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="/static/fonts/martianmono.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="/static/cliente.css?v=27">
+  <link rel="stylesheet" href="/static/cliente.css?v=26">
 </head>
 <body data-estado="carregando" data-atend="nao">
 
@@ -122,14 +122,14 @@
           <svg class="seta" viewBox="0 0 24 24" stroke-linecap="square" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
         </button>
 
-        <!-- ⚠️ A OFERTA VEM ANTES DA AJUDA NO DOM, e isso é de propósito: no
-             estado sem telemetria ela é a ação principal (leva o amarelo), e
-             ordem visual que não bate com ordem de tabulação é defeito de
-             teclado. Nos outros cinco estados ela é `display:none` e a linha
-             começa em "Preciso de ajuda", como sempre. -->
+        <!-- ⚠️ A oferta mora DENTRO da linha da ação, e só aparece no estado
+             sem telemetria. Era um link sublinhado solto acima do botão; com
+             a coluna da prova fora do ar nesse estado (ver `.sem-sensor` no
+             cliente.css), ela subiu para chapa ao lado de "Preciso de
+             ajuda" — a placa perdeu a prova, não a segunda ação. -->
         <div class="rodape-resposta">
-          <a class="quero" id="quero" href="https://wa.me/5511966536110?text=Ol%C3%A1!%20Quero%20saber%20mais%20sobre%20o%20monitoramento%20de%20reservat%C3%B3rios." target="_blank" rel="noopener">Quero monitorar meu prédio</a>
           <button class="ajuda" data-abrir="ajuda" type="button">Preciso de ajuda</button>
+          <a class="quero" id="quero" href="https://wa.me/5511966536110?text=Ol%C3%A1!%20Quero%20saber%20mais%20sobre%20o%20monitoramento%20de%20reservat%C3%B3rios." target="_blank" rel="noopener">Quero monitorar meu prédio</a>
           <span class="desde" id="desde"></span>
         </div>
 
@@ -145,26 +145,6 @@
            gráfico de barras — ver o aviso em cliente.css, `.prova`. -->
       <div class="placa-cel">
         <div class="prova" id="prova"></div>
-
-        <!-- ⚠️ NO ESTADO SEM TELEMETRIA A CÉLULA DA PROVA NÃO SOME: ela troca
-             o que prova. Antes daqui já passaram três tubos vazios, depois um
-             só, e por último nenhuma célula — os tubos porque um contorno
-             vazio afirma "seus reservatórios estão secos" (falso, e aqui o
-             backend nem conhece reservatório nenhum), e a célula inteira
-             porque sem prova ela virava buraco.
-             O que resolveu foi dar CONTEÚDO: este é o único estado em que o
-             produto ainda não foi entregue, então a prova é o que o sensor
-             passaria a mostrar. Escolha do Pedro em 17/08, entre quatro
-             caminhos postos lado a lado.
-             ⚠️ Não é leitura de exemplo. Nenhum número, nenhum tanque: um
-             instrumento com valor inventado no painel de um cliente é o pior
-             erro possível num produto cujo trabalho é medir. -->
-        <dl class="oferta">
-          <dt>Com o sensor, esta tela passa a mostrar</dt>
-          <div><dd>O nível de cada reservatório, o tempo todo</dd></div>
-          <div><dd>A bomba ligada ou parada</dd></div>
-          <div><dd>Um aviso antes de faltar água</dd></div>
-        </dl>
       </div>
     </div>
   </section>
@@ -355,8 +335,7 @@
   </div>
 </div>
 
-<script src="/static/inatividade.js" defer></script>
+<script src="/static/_semtel.js" defer></script>
 <script src="/static/cliente.js?v=35" defer></script>
-<script src="/static/register-sw.js?v=35" defer></script>
 </body>
 </html>

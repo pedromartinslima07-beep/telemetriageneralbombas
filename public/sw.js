@@ -4,7 +4,10 @@
 // este SW. Sem essa lista, o SW intercepta o GET com cache first e serve
 // resposta antiga — sintoma clássico: dado aparece em Ctrl+Shift+R mas some
 // em F5. Ver CLAUDE.md raiz pro racional completo.
-const CACHE_NAME = "telemetria-v42";
+// ⚠️ v44 = merge de duas gerações que existiram em paralelo: v42 (equipamentos
+// com QR) e v43 (landing pública + painel do cliente). Ficar com qualquer uma
+// das duas deixaria metade dos navegadores achando que já tem a versão nova.
+const CACHE_NAME = "telemetria-v44";
 
 // Permite que a página force a ativação imediata desta versão (sem esperar
 // todos os clients fecharem). Pareado com o postMessage no register-sw.js.
@@ -79,6 +82,7 @@ self.addEventListener("fetch", (e) => {
       // e a ficha muda a cada movimentação. Cache first aqui mostraria a bomba
       // no estado da semana passada — exatamente o que o módulo existe pra evitar.
       url.pathname.startsWith("/equipamentos") ||
+      url.pathname.startsWith("/leads") ||
       url.pathname.startsWith("/tiles") ||
       url.pathname.startsWith("/app")) {
     // ⚠️ O status 503 é essencial. `new Response(body)` sem status responde

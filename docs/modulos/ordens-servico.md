@@ -201,6 +201,14 @@ mesmo timbrado (`papel-timbrado.png`) e mesmo fluxo do admin (avulso).
   avulso, e `orcNewValor`/`avNewVal` nos formulários "+ Adicionar item")
   aceitam ficar em branco — antes só aceitavam número ≥ 0 e forçavam `0` via
   `Math.max(0, Number(v) || 0)`.
+- **Total manual esconde as colunas de valor por item no PDF.** Preencher
+  "Valor total (manual)" (`orcamentos.valor != null`) significa que o preço não
+  vem da soma dos itens — então `renderHTML` omite as colunas **Valor Unit.** e
+  **Total** da tabela (`#`, Descrição, Qtd apenas) e `renderHTMLServico` omite o
+  `.valor-num` de cada linha; só o box **VALOR TOTAL** aparece. Antes as colunas
+  vinham do mesmo jeito, cheias de "—" ou com valores parciais que não fechavam
+  com o total. `renderMeasureHTML` espelha a mesma condição (thead e linhas de
+  amostra) — se divergir, a medição de altura erra a paginação.
 
 ## Rastreamento GPS dos técnicos
 

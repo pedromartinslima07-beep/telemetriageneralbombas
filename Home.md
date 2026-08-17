@@ -50,11 +50,15 @@ Como cada coisa funciona ponta a ponta. Índice em [`modulos/README.md`](docs/mo
 - [`equipamentos.md`](docs/modulos/equipamentos.md) — identidade da bomba, etiqueta QR, oficina `#fluxo`
 - [`mapa-geocoding.md`](docs/modulos/mapa-geocoding.md) — geocoding híbrido + proxy de tiles `#fluxo`
 - [`app-mobile.md`](docs/modulos/app-mobile.md) — Capacitor, GPS background (limitação + solução pendente) `#fluxo`
+- [`landing-publica.md`](docs/modulos/landing-publica.md) — página `/`, captação de lead, sistema visual "Chapa" `#fluxo`
+- [`painel-cliente.md`](docs/modulos/painel-cliente.md) — painel do síndico: "a resposta, não o painel", sem seções, tudo abre como ficha `#fluxo`
 
 ## ⚙️ Convenções
 
 - [`CLAUDE.md`](CLAUDE.md) — fluxo de trabalho, cache em 3 camadas, pegadinhas
 - [`INSTALACAO.md`](INSTALACAO.md) — instalação física (sonda + sensor)
+- [`PRODUCT.md`](PRODUCT.md) — verdade de produto: público, posicionamento, provas reais e o que **não** pode ser inventado
+- [`DESIGN.md`](DESIGN.md) — sistema visual "Chapa": landing pública, login e painel do cliente
 
 ---
 

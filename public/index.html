@@ -1,0 +1,583 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>General Telemetria — monitoramento 24h dos reservatórios e bombas do seu condomínio</title>
+  <meta name="description" content="Monitoramos o nível dos reservatórios e o funcionamento das bombas do seu condomínio 24 horas por dia. Quando o nível começa a cair, a gente sabe antes do primeiro morador abrir a torneira." />
+
+  <link rel="icon" type="image/png" sizes="96x96"   href="/static/icons/icon-96x96.png" />
+  <link rel="icon" type="image/png" sizes="192x192" href="/static/icons/icon-192x192.png" />
+  <link rel="apple-touch-icon" href="/static/apple-touch-icon.png" />
+  <meta name="theme-color" content="#050f38" />
+
+  <link rel="preload" href="/static/fonts/archivo.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="/static/fonts/martianmono.woff2" as="font" type="font/woff2" crossorigin />
+
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="General Telemetria — monitoramento 24h dos reservatórios e bombas do seu condomínio" />
+  <meta property="og:description" content="Monitoramos o nível dos reservatórios e o funcionamento das bombas do seu condomínio 24 horas por dia, com alerta e chamado abertos automaticamente. Instalação e atendimento por equipe própria." />
+  <meta property="og:image" content="/static/fotos/equipe-bombas.jpg" />
+  <meta property="og:locale" content="pt_BR" />
+
+  <link rel="stylesheet" href="/static/landing.css?v=6" />
+</head>
+<body>
+<!--
+THESIS: o wordmark da General já é chapa de aço cortada — cantos chanfrados,
+contraformas quadradas, a lasca amarela dentro do G; esta página constrói tudo
+com essa mesma lógica de corte, e recusa tanto o hero de SaaS de IoT com
+dashboard flutuando quanto a papelada de condomínio da versão anterior.
+OWN-WORLD: campo marinho #071b5c tomando a tela como material, amarelo de
+segurança #fbb329 em regiões inteiras, placas claras chanfradas a 45° pousadas
+sobre o marinho para leitura densa, fios de 1px como usinagem, etiquetas em
+mono maiúscula gravada, engrenagem da marca em escala arquitetônica.
+STORY: o síndico vê a coluna d'água caindo sozinha, entende na seção seguinte
+o que o serviço faz (mede, avisa, atende), vê quem instala e atende, e entrega
+o contato.
+POSICIONAMENTO (contrato em PRODUCT.md, decidido pelo Pedro — não reabrir):
+o PRODUTO é o protagonista; os 20 anos de casa de máquinas são a garantia de
+que o serviço funciona, nunca a abertura. E a página NÃO se posiciona contra
+ninguém: nada de "não somos uma empresa de software" ou "não é um aplicativo
+que some". Explicar por que a boia não basta é permitido — a boia é a situação
+atual do prédio, não um concorrente.
+VOZ: a empresa fala em primeira pessoa do plural — "monitoramos", "a gente
+sabe", "nossa equipe". A página é a General falando, não um terceiro
+apresentando a General. O nome "General" só aparece onde a marca precisa ser
+identificada (topo, rodapé, metadados), nunca como sujeito das frases.
+DOIS LEITORES: cada frase precisa servir tanto ao síndico que já é cliente
+quanto ao que está conhecendo a General agora. Nada de "a mesma equipe que já
+troca a sua bomba" ou "o mesmo telefone que o seu prédio já usa" — o vínculo
+existente entra sempre como condicional ("se já cuidamos do seu prédio…").
+FIRST VIEWPORT: campo marinho sangrado; manchete pesada e expandida à
+esquerda; à direita a placa do instrumento com a coluna d'água viva cruzando as
+faixas de 45% e 20%; engrenagem gigante girando marinho-sobre-marinho atrás;
+ação primária amarela chanfrada abaixo da manchete.
+FORM: identidade industrial em chapa; candidato 5 da lista ordenada; seed 60e694cc.
+FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, and DESIGN.md
+-->
+
+<a class="pular" href="#topo">Pular para o conteúdo</a>
+
+<svg class="sprite" aria-hidden="true" focusable="false" width="0" height="0">
+  <defs>
+    <path id="eng12" d="M 195.30 88.47 L 195.30 111.53 L 173.26 110.43 L 168.66 127.60 L 188.30 137.66 L 176.77 157.64 L 158.23 145.66 L 145.66 158.23 L 157.64 176.77 L 137.66 188.30 L 127.60 168.66 L 110.43 173.26 L 111.53 195.30 L 88.47 195.30 L 89.57 173.26 L 72.40 168.66 L 62.34 188.30 L 42.36 176.77 L 54.34 158.23 L 41.77 145.66 L 23.23 157.64 L 11.70 137.66 L 31.34 127.60 L 26.74 110.43 L 4.70 111.53 L 4.70 88.47 L 26.74 89.57 L 31.34 72.40 L 11.70 62.34 L 23.23 42.36 L 41.77 54.34 L 54.34 41.77 L 42.36 23.23 L 62.34 11.70 L 72.40 31.34 L 89.57 26.74 L 88.47 4.70 L 111.53 4.70 L 110.43 26.74 L 127.60 31.34 L 137.66 11.70 L 157.64 23.23 L 145.66 41.77 L 158.23 54.34 L 176.77 42.36 L 188.30 62.34 L 168.66 72.40 L 173.26 89.57 Z M 140 100 A 40 40 0 1 0 60 100 A 40 40 0 1 0 140 100 Z" />
+    <path id="eng10" d="M 195.00 86.17 L 195.00 113.83 L 169.00 111.82 L 162.76 130.99 L 184.98 144.65 L 168.73 167.02 L 148.87 150.12 L 132.56 161.97 L 142.50 186.08 L 116.21 194.62 L 110.08 169.27 L 89.92 169.27 L 83.79 194.62 L 57.50 186.08 L 67.44 161.97 L 51.13 150.12 L 31.27 167.02 L 15.02 144.65 L 37.24 130.99 L 31.00 111.82 L 5.00 113.83 L 5.00 86.17 L 31.00 88.18 L 37.24 69.01 L 15.02 55.35 L 31.27 32.98 L 51.13 49.88 L 67.44 38.03 L 57.50 13.92 L 83.79 5.38 L 89.92 30.73 L 110.08 30.73 L 116.21 5.38 L 142.50 13.92 L 132.56 38.03 L 148.87 49.88 L 168.73 32.98 L 184.98 55.35 L 162.76 69.01 L 169.00 88.18 Z M 136 100 A 36 36 0 1 0 64 100 A 36 36 0 1 0 136 100 Z" />
+  </defs>
+</svg>
+
+<header class="barra" id="barra">
+  <div class="barra-in">
+    <a href="#topo" class="marca" aria-label="General Engenharia da Manutenção — início">
+      <!-- logo-topo.png = o mesmo lockup sem a linha "Engenharia da Manutenção",
+           que a 40px de altura vira borrão. O lockup completo fica no rodapé. -->
+      <img src="/static/logo-topo.png" alt="General Engenharia da Manutenção" width="826" height="180" />
+    </a>
+    <nav class="barra-nav" aria-label="Seções da página">
+      <a href="#servico">O serviço</a>
+      <a href="#equipe">Quem instala</a>
+      <a href="#instalado">O que fica no prédio</a>
+      <a href="#duvidas">Dúvidas</a>
+    </nav>
+    <div class="barra-acoes">
+      <a href="/login" class="btn btn-fio">Entrar</a>
+      <a href="#assinar" class="btn btn-amarelo">Falar com a gente</a>
+    </div>
+  </div>
+</header>
+
+<main id="topo">
+
+  <!-- ─── Hero ────────────────────────────────────────────────────────────── -->
+  <section class="hero">
+    <div class="hero-eng" aria-hidden="true">
+      <svg viewBox="0 0 200 200" class="eng eng-a"><use href="#eng12" /></svg>
+      <svg viewBox="0 0 200 200" class="eng eng-b"><use href="#eng10" /></svg>
+    </div>
+
+    <div class="area hero-in">
+      <div class="hero-txt">
+        <h1 class="corte-txt">Ninguém devia descobrir a falta d'água pelo interfone.</h1>
+        <p class="lede">
+          Monitoramos o nível dos reservatórios e o funcionamento das bombas do
+          seu prédio 24 horas por dia. Quando o nível começa a cair, a gente
+          sabe antes do primeiro morador abrir a torneira.
+        </p>
+        <div class="hero-acoes">
+          <a href="#assinar" class="btn btn-amarelo btn-g">Quero no meu prédio</a>
+          <a href="#servico" class="btn btn-fio btn-g">Ver como funciona</a>
+        </div>
+        <p class="hero-selo">
+          <span>Cuidamos de casa de máquinas de condomínio desde 2005</span>
+        </p>
+      </div>
+
+      <!-- Painel demonstrativo: leituras simuladas, roteirizadas em landing.js.
+           Decorativo para leitores de tela — o mecanismo está no texto acima. -->
+      <div class="instr" id="instr" aria-hidden="true">
+        <div class="instr-cab">
+          <span class="instr-id">Reservatório superior</span>
+          <span class="instr-rel" id="instrRelogio">02:38</span>
+        </div>
+
+        <div class="instr-corpo">
+          <div class="coluna">
+            <div class="coluna-tubo">
+              <div class="coluna-faixa coluna-faixa-baixo"></div>
+              <div class="coluna-faixa coluna-faixa-critico"></div>
+              <div class="coluna-agua" id="instrAgua"><span class="coluna-crista"></span></div>
+              <div class="coluna-marca coluna-marca-baixo"><span>45</span></div>
+              <div class="coluna-marca coluna-marca-critico"><span>20</span></div>
+            </div>
+          </div>
+
+          <dl class="instr-leituras">
+            <div>
+              <dt>Nível</dt>
+              <dd><span class="num" id="instrNivel">78</span><i>%</i></dd>
+            </div>
+            <div>
+              <dt>Coluna d'água</dt>
+              <dd><span class="num" id="instrColuna">234</span><i>cm</i></dd>
+            </div>
+            <div>
+              <dt>Corrente da bomba</dt>
+              <dd><span class="num" id="instrCorrente">6,4</span><i>A</i></dd>
+            </div>
+          </dl>
+        </div>
+
+        <div class="instr-estado" id="instrEstado" data-estado="ok">
+          <span class="instr-lampada"></span>
+          <span class="instr-estado-txt" id="instrEstadoTxt">Leitura normal</span>
+        </div>
+
+        <p class="instr-nota">Demonstração · leituras simuladas</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── O serviço ───────────────────────────────────────────────────────── -->
+  <!-- Este é o bloco que explica O SERVIÇO para quem chegou agora: se a pessoa
+       não entender aqui, não chega ao fim da página.
+       ⚠️ Ele descreve o CICLO (medir → avisar → atender), não o hardware. A
+       seção "Três peças no prédio" é que lista sonda, sensor e central — uma
+       versão anterior deste bloco falava de boia travada / bomba parada /
+       consumo, que é a mesma informação com outro nome. Não voltar a isso. -->
+  <section class="secao secao-escura" id="servico">
+    <div class="area">
+      <h2 class="corte-txt">A gente mede, avisa e atende.</h2>
+      <!-- ⚠️ Esta lede NÃO repete a promessa do hero ("monitoramos caixa e
+           bomba 24 h"). O hero é dono disso; aqui só apresenta as três etapas.
+           As duas ledes já foram o mesmo parágrafo com outras palavras. -->
+      <p class="lede">
+        São três etapas, e o condomínio não precisa operar nenhuma delas.
+      </p>
+
+      <!-- Uma placa só, dividida por sulcos. Não são três cards: ver o aviso
+           em landing.css, `.vigia`. -->
+      <div class="vigia">
+        <ul class="vigia-cels">
+          <li class="vigia-cel">
+            <b>1 · Medimos a cada 10 segundos</b>
+            <!-- Não descrever aqui O QUE é medido: a placa do hero já mostra
+                 nível, coluna e corrente ao vivo. Esta célula é dona da
+                 frequência e do histórico. -->
+            <p>
+              A leitura é contínua e cada uma fica gravada. Quando alguém
+              precisa entender um consumo fora do normal, o histórico do
+              prédio está lá.
+            </p>
+          </li>
+          <li class="vigia-cel">
+            <b>2 · Avisamos a qualquer hora</b>
+            <p>
+              Nível caindo fora do normal ou bomba parada abre alerta e chamado
+              automaticamente, três da tarde ou três da manhã.
+            </p>
+          </li>
+          <li class="vigia-cel">
+            <!-- "com a nossa equipe" saiu: `#equipe` é dona desse argumento e
+                 tem uma seção inteira para ele. Aqui o que é próprio da etapa
+                 é o chamado já nascer pronto. -->
+            <b>3 · Atendemos sem você precisar ligar</b>
+            <p>
+              O chamado nasce com o endereço, o histórico do reservatório e a
+              prioridade já definidos. O técnico sai sabendo o que vai
+              encontrar.
+            </p>
+          </li>
+        </ul>
+
+        <!-- O painel entra aqui de propósito: era a única parte do serviço que
+             o visitante só descobria lá embaixo, nas dúvidas. -->
+        <div class="vigia-painel">
+          <p class="vigia-painel-t">E o condomínio acompanha por um painel próprio.</p>
+          <!-- A verificação em duas etapas fica na dúvida "quem consegue
+               acessar?", que é onde ela responde alguma coisa. -->
+          <p class="vigia-painel-p">
+            Nível atual, histórico e todos os chamados do prédio, com login do
+            síndico. Não precisa instalar nada nem entender de tecnologia:
+            abre no navegador do celular.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── Quem instala ────────────────────────────────────────────────────── -->
+  <section class="secao secao-clara" id="equipe">
+    <div class="area">
+      <div class="anotada">
+        <figure class="chapa chapa-anot">
+          <div class="chapa-img">
+            <img src="/static/fotos/equipe-bombas.jpg" alt="Dois técnicos da General, de uniforme azul-marinho e amarelo, em manutenção de um conjunto de pressurização numa casa de máquinas" width="960" height="1280" loading="lazy" />
+            <svg class="calls" viewBox="0 0 960 1280" aria-hidden="true">
+              <g class="call" style="--i:0"><path d="M130 100 L300 90 L590 90" /><circle cx="130" cy="100" r="10" /></g>
+              <g class="call" style="--i:1"><path d="M300 395 L520 420 L590 420" /><circle cx="300" cy="395" r="10" /></g>
+              <g class="call" style="--i:2"><path d="M250 905 L560 980 L590 980" /><circle cx="250" cy="905" r="10" /></g>
+            </svg>
+            <span class="rot" style="--y:7.03%;--i:0" aria-hidden="true">Quadro de comando</span>
+            <span class="rot" style="--y:32.8%;--i:1" aria-hidden="true">Vaso de pressão</span>
+            <span class="rot" style="--y:76.6%;--i:2" aria-hidden="true">Bombas de recalque</span>
+          </div>
+          <figcaption>Conjunto de pressurização em manutenção — o trabalho que a equipe já fazia antes de existir telemetria no prédio.</figcaption>
+        </figure>
+
+        <div class="anotada-txt">
+          <!-- ⚠️ Esta seção precisa funcionar para DOIS leitores: o síndico
+               que já é cliente e o que está conhecendo a General agora. Uma
+               versão anterior dizia "a mesma equipe que já troca a sua bomba"
+               e "o mesmo telefone que o seu prédio já usa" — escrito só para
+               quem já é cliente, e portanto inútil para metade do público. -->
+          <h2 class="corte-txt">Quem instala, calibra e atende é a nossa equipe.</h2>
+          <p class="lede">
+            Fazemos manutenção hidráulica de condomínio desde 2005 — bomba,
+            barrilete, quadro de comando. São os mesmos técnicos que
+            posicionam a sonda no seu reservatório, ajustam a leitura para a
+            altura da sua caixa e vão até o prédio quando o alerta abre.
+          </p>
+          <!-- A condicional "se já é cliente, entra no mesmo contrato" vive no
+               fecho, que é dono de preço e contrato. Chegou a estar aqui, na
+               dúvida de cobrança e no fecho ao mesmo tempo. -->
+          <p>
+            Isso importa porque o monitoramento não termina no aviso: alguém
+            precisa entender de casa de máquinas para saber o que fazer com a
+            informação. E vale antes disso também — sonda mal posicionada mede
+            errado, e leitura errada vira alerta em que ninguém acredita.
+            Calibrar é parte do serviço, não etapa de montagem.
+          </p>
+        </div>
+      </div>
+
+      <div class="chapas">
+        <figure class="chapa">
+          <div class="chapa-img">
+            <img src="/static/fotos/medindo-corrente.jpg" alt="Técnico da General medindo corrente elétrica com alicate amperímetro dentro de um quadro de comando" width="960" height="1280" loading="lazy" />
+          </div>
+          <figcaption>Medição de corrente com alicate amperímetro. Ler o consumo elétrico de uma bomba é rotina antiga da equipe.</figcaption>
+        </figure>
+        <figure class="chapa">
+          <div class="chapa-img">
+            <img src="/static/fotos/quadro-comando.jpg" alt="Técnico experiente da General trabalhando na parte elétrica de um quadro de comando de bombas" width="1200" height="1600" loading="lazy" />
+          </div>
+          <figcaption>Manutenção elétrica em quadro de comando de bombas.</figcaption>
+        </figure>
+        <figure class="chapa">
+          <div class="chapa-img">
+            <img src="/static/fotos/barrilete.jpg" alt="Técnico da General operando registros em um barrilete de tubulação hidráulica" width="960" height="1280" loading="lazy" />
+          </div>
+          <figcaption>Barrilete de distribuição — registros e prumadas que levam a água aos andares.</figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── O que fica no prédio ────────────────────────────────────────────── -->
+  <section class="secao secao-escura" id="instalado">
+    <div class="area">
+      <h2 class="corte-txt">Três peças no prédio.<br />Nenhuma obra no reservatório.</h2>
+
+      <div class="pecas">
+        <div class="predio">
+          <!-- ⚠️ O aria-label NÃO enumera as posições: cada peça já declara a
+               sua em `.peca-onde`, e quem usa leitor de tela ouvia as três
+               localizações duas vezes seguidas. -->
+          <svg viewBox="0 0 460 520" role="img" aria-label="Corte esquemático de um prédio com três marcadores numerados, indicando onde cada peça do monitoramento é instalada. A posição de cada uma está na lista ao lado.">
+            <g class="pd-estrutura">
+              <!-- ⚠️ O corpo do prédio é DELIBERADAMENTE fora de escala: 230
+                   unidades para os andares e 180 para a casa de máquinas. Com
+                   a torre em escala real (410 unidades, 7 andares) mais da
+                   metade do desenho era retângulo vazio, porque as três peças
+                   moram só nas pontas — uma na caixa, duas embaixo. Quatro
+                   linhas bastam para ler "prédio"; o assunto é o que fica nas
+                   duas pontas. -->
+              <!-- ⚠️ Chanfro de 45° também aqui: o desenho era o único
+                   elemento da página com cantos retos, o que contraria a
+                   regra de forma única do DESIGN.md. Chanfram-se os
+                   EQUIPAMENTOS (caixa, cisterna, corpo da bomba, quadro),
+                   porque são placas; o prédio leva o corte só no topo, como
+                   recorte de cobertura — ele é arquitetura, não peça. -->
+              <path class="pd-corpo" d="M134 110 H360 V340 H120 V124 Z" />
+              <!-- Janelas no lugar das linhas de andar: quatro riscos
+                   horizontais não liam como prédio, liam como retângulo
+                   riscado. As janelas dão escala e dizem "tem gente aqui". -->
+              <path class="pd-janelas" d="M186 122h22v15h-22z M228 122h22v15h-22z M270 122h22v15h-22z M312 122h22v15h-22z M186 168h22v15h-22z M228 168h22v15h-22z M270 168h22v15h-22z M312 168h22v15h-22z M186 214h22v15h-22z M228 214h22v15h-22z M270 214h22v15h-22z M312 214h22v15h-22z M186 260h22v15h-22z M228 260h22v15h-22z M270 260h22v15h-22z M312 260h22v15h-22z M186 306h22v15h-22z M228 306h22v15h-22z M270 306h22v15h-22z M312 306h22v15h-22z" />
+
+              <!-- ⚠️ A prumada é desenhada em DOIS traços, não um. Cheia dos
+                   dois lados ela encostava na borda esquerda e lia como parte
+                   da estrutura; totalmente atrás do prédio ela sumia e a
+                   caixa perdia a ligação com a bomba. Atenuada dentro do
+                   prédio e cheia na casa de máquinas é o que um corte
+                   esquemático faz — o que está embutido na parede aparece
+                   mais fraco. -->
+              <path class="pd-tubo pd-prumada" d="M160 344 V110" />
+
+              <!-- caixa superior -->
+              <path class="pd-tanque" d="M160 30 H330 V100 L320 110 H150 V40 Z" />
+              <path class="pd-agua" d="M156 64 H325 V98 L318 105 H156 Z" />
+              <path class="pd-agua-topo" d="M156 64 H325" />
+
+              <!-- solo -->
+              <path class="pd-solo" d="M0 340 h460" />
+
+              <!-- cisterna -->
+              <path class="pd-tanque" d="M90 386 H240 V470 L230 480 H80 V396 Z" />
+              <path class="pd-agua" d="M86 418 H234 V468 L227 475 H86 Z" />
+              <path class="pd-agua-topo" d="M86 418 H234" />
+
+              <!-- Cabo do motor antes dos tubos, de propósito: no cruzamento
+                   quem passa na frente é a tubulação. -->
+              <path class="pd-cabo" d="M372 352 H288" />
+
+              <!-- recalque na casa de máquinas: do corpo da bomba até a prumada -->
+              <path class="pd-tubo" d="M322 356 V344 H160" />
+              <!-- sucção: da cisterna até o corpo da bomba -->
+              <path class="pd-tubo" d="M240 452 H356 V374 H340" />
+
+              <!-- conjunto motobomba: base, motor, caixa de bornes e corpo -->
+              <path class="pd-base" d="M244 396 h100 v7 h-100 z" />
+              <path class="pd-motor" d="M252 356 H302 V390 L296 396 H246 V362 Z" />
+              <path class="pd-borne" d="M268 348 h20 v8 h-20 z" />
+              <path class="pd-bomba" d="M311 356 H340 V385 L333 392 H304 V363 Z" />
+
+              <!-- quadro de comando -->
+              <path class="pd-quadro" d="M382 348 H436 V430 L426 440 H372 V358 Z" />
+              <path class="pd-quadro-in" d="M382 388h44M382 404h44M382 420h44" />
+            </g>
+
+            <g class="pd-rotulos">
+              <text x="240" y="20" text-anchor="middle">Caixa superior</text>
+              <text x="160" y="506" text-anchor="middle">Cisterna</text>
+              <text x="404" y="464" text-anchor="middle">Quadro</text>
+            </g>
+
+            <!-- ⚠️ Marcador com r=13, não 16, e FORA da peça sempre que ela
+                 for menor que ~3× o marcador. A versão anterior punha o
+                 círculo em cima do motor, que tem 56 unidades de largura — o
+                 amarelo cobria a peça inteira e o desenho perdia justamente o
+                 que estava tentando apontar. Quem não couber por dentro sai
+                 com fio pontilhado, como já fazia a sonda da caixa. -->
+            <g class="pd-marcas">
+              <g class="pd-marca" data-peca="1">
+                <path class="pd-fio" d="M240 40 V70" />
+                <circle class="pd-pulso" cx="240" cy="84" r="13" />
+                <circle class="pd-ponto" cx="240" cy="84" r="13" />
+                <text x="240" y="89" text-anchor="middle">1</text>
+              </g>
+              <g class="pd-marca" data-peca="2">
+                <path class="pd-fio" d="M274 415 V405" />
+                <circle class="pd-pulso" cx="274" cy="428" r="13" />
+                <circle class="pd-ponto" cx="274" cy="428" r="13" />
+                <text x="274" y="433" text-anchor="middle">2</text>
+              </g>
+              <g class="pd-marca" data-peca="3">
+                <circle class="pd-pulso" cx="404" cy="366" r="13" />
+                <circle class="pd-ponto" cx="404" cy="366" r="13" />
+                <text x="404" y="371" text-anchor="middle">3</text>
+              </g>
+            </g>
+          </svg>
+        </div>
+
+        <dl class="pecas-lista">
+          <div class="peca" data-peca="1" tabindex="0">
+            <dt><span class="peca-n">1</span>Sonda de nível</dt>
+            <dd>
+              <p>Fica dentro do reservatório e mede a coluna d'água em centímetros, sem parar. É o que transforma “tem água” em um número que dá para acompanhar hoje e comparar com ontem.</p>
+              <p class="peca-onde">No reservatório superior e na cisterna</p>
+            </dd>
+          </div>
+          <div class="peca" data-peca="2" tabindex="0">
+            <dt><span class="peca-n">2</span>Sensor de corrente</dt>
+            <dd>
+              <p>Abraça o cabo do motor e lê a corrente que passa por ele. Sabe se a bomba está girando de verdade, não apenas se o disjuntor está ligado.</p>
+              <p class="peca-onde">Na bomba de recalque</p>
+            </dd>
+          </div>
+          <div class="peca" data-peca="3" tabindex="0">
+            <dt><span class="peca-n">3</span>Central de leitura</dt>
+            <dd>
+              <p>Junta o que a sonda e o sensor leem e manda pela internet. Se ela parar de mandar, o próprio silêncio vira alerta.</p>
+              <p class="peca-onde">No quadro de comando</p>
+            </dd>
+          </div>
+        </dl>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── Dúvidas ─────────────────────────────────────────────────────────── -->
+  <section class="secao secao-clara" id="duvidas">
+    <div class="area area-estreita">
+      <h2 class="corte-txt">As perguntas que todo síndico faz.</h2>
+
+      <div class="duvidas">
+        <details class="duvida">
+          <summary><span>Meu prédio já tem boia. Não resolve?</span></summary>
+          <div class="duvida-txt"><p>São coisas diferentes, e uma não tira o lugar da outra — a boia inclusive faz parte da manutenção que a gente já faz. A boia <b>age</b>: liga e desliga a bomba sozinha. O monitoramento <b>mostra</b>: quanto tem no reservatório agora, como o nível se comportou nas últimas horas e se alguma coisa saiu do normal — inclusive quando alguma peça, a boia entre elas, precisa de atenção. Uma trabalha, a outra conta o que está acontecendo.</p></div>
+        </details>
+
+        <details class="duvida">
+          <summary><span>Precisa de obra ou mexer no reservatório?</span></summary>
+          <div class="duvida-txt"><p>Não. Instalamos na casa de máquinas, com a sonda posicionada dentro do reservatório. Não alteramos a estrutura da caixa d'água e não interrompemos o abastecimento.</p></div>
+        </details>
+
+        <details class="duvida">
+          <summary><span>E se a internet do prédio cair?</span></summary>
+          <div class="duvida-txt"><p>Tratamos a ausência de leitura como um evento próprio: se o sensor para de reportar, abrimos um alerta automaticamente. Você fica sabendo que parou de saber, em vez de achar que está tudo bem porque nada apareceu.</p></div>
+        </details>
+
+        <details class="duvida">
+          <summary><span>Quem instala e quem faz a manutenção?</span></summary>
+          <div class="duvida-txt"><p>Nós mesmos. Equipamento, instalação, calibração e acompanhamento são nossos. O condomínio não contrata terceiros nem precisa de alguém de informática para operar nada.</p></div>
+        </details>
+
+        <details class="duvida">
+          <summary><span>Quem do condomínio consegue acessar?</span></summary>
+          <div class="duvida-txt"><p>O acesso é do condomínio, com login próprio e verificação em duas etapas. Síndico e quem mais for autorizado enxergam os dados do próprio prédio, e apenas dele. Não abrimos esses dados para outros condomínios.</p></div>
+        </details>
+
+        <details class="duvida">
+          <summary><span>Como é cobrado?</span></summary>
+          <div class="duvida-txt"><p>Assinatura mensal, sem número limitado de vagas. O valor depende de quantos reservatórios e bombas entram no monitoramento, por isso não existe tabela fixa.</p></div>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── Assinar ─────────────────────────────────────────────────────────── -->
+  <section class="secao secao-fecho" id="assinar">
+    <div class="fecho-eng" aria-hidden="true">
+      <svg viewBox="0 0 200 200" class="eng eng-c"><use href="#eng12" /></svg>
+    </div>
+
+    <div class="area fecho-in">
+      <div class="fecho-txt">
+        <h2 class="corte-txt">Comece pelo seu prédio.</h2>
+        <p class="lede">
+          O monitoramento é um serviço por assinatura mensal — sozinho ou
+          somado à manutenção, se o seu prédio já for nosso cliente. O que
+          definimos caso a caso é quantos reservatórios e bombas entram, e é
+          por isso que montamos a proposta para o seu condomínio.
+        </p>
+        <ul class="fecho-lista">
+          <li>Instalamos, calibramos e mantemos com a nossa própria equipe</li>
+          <li>Sem obra no reservatório e sem interromper o abastecimento</li>
+          <li>Abrimos alerta e chamado automaticamente, a qualquer hora</li>
+          <li>Painel próprio do condomínio, com acesso do síndico</li>
+        </ul>
+        <p class="fecho-nota">Atendemos condomínios na Grande São Paulo.</p>
+      </div>
+
+      <form class="ficha" id="lpForm" novalidate>
+        <h3>Fale com a gente</h3>
+        <p class="ficha-sub">Quanto mais você contar do prédio, mais direta é a resposta.</p>
+
+        <div class="f">
+          <label for="lpNome">Seu nome</label>
+          <input id="lpNome" name="nome" type="text" autocomplete="name" required aria-describedby="lpMsg" />
+        </div>
+
+        <div class="f">
+          <label for="lpCondominio">Condomínio <span class="opc">opcional</span></label>
+          <input id="lpCondominio" name="condominio" type="text" autocomplete="organization" />
+        </div>
+
+        <div class="f-par">
+          <div class="f">
+            <label for="lpEmail">E-mail</label>
+            <input id="lpEmail" name="email" type="email" autocomplete="email" required aria-describedby="lpMsg" />
+          </div>
+          <div class="f">
+            <label for="lpTelefone">WhatsApp <span class="opc">opcional</span></label>
+            <input id="lpTelefone" name="telefone" type="tel" autocomplete="tel" inputmode="tel" />
+          </div>
+        </div>
+
+        <div class="f">
+          <label for="lpUnidades">Tamanho do condomínio <span class="opc">opcional</span></label>
+          <div class="sel">
+            <select id="lpUnidades" name="unidades">
+              <option value="">Selecione</option>
+              <option value="ate-50">Até 50 unidades</option>
+              <option value="51-150">51 a 150 unidades</option>
+              <option value="151-300">151 a 300 unidades</option>
+              <option value="acima-300">Acima de 300 unidades</option>
+            </select>
+            <svg class="sel-seta" viewBox="0 0 20 20" aria-hidden="true"><path d="M5 8l5 5 5-5" /></svg>
+          </div>
+        </div>
+
+        <div class="f">
+          <label for="lpMensagem">Alguma observação? <span class="opc">opcional</span></label>
+          <textarea id="lpMensagem" name="mensagem" rows="3"></textarea>
+        </div>
+
+        <!-- Honeypot: escondido no CSS, validado no backend. Não remover. -->
+        <div class="hp" aria-hidden="true">
+          <label for="lpSite">Não preencha este campo</label>
+          <input id="lpSite" name="site" type="text" tabindex="-1" autocomplete="off" />
+        </div>
+
+        <button type="submit" class="btn btn-amarelo btn-bloco" id="lpSubmit">Enviar</button>
+
+        <p class="ficha-msg" id="lpMsg" role="status" aria-live="polite"></p>
+
+        <p class="ficha-lgpd">
+          Seus dados vão só para a nossa equipe comercial, para responder este
+          contato.
+        </p>
+
+        <p class="ficha-rodape">
+          Prefere falar agora? <a href="https://wa.me/5511966536110">WhatsApp (11) 96653-6110</a>
+        </p>
+      </form>
+    </div>
+  </section>
+
+</main>
+
+<footer class="rodape">
+  <div class="area rodape-in">
+    <div class="rodape-empresa">
+      <img src="/static/login-logo.png" alt="General Engenharia da Manutenção" class="rodape-logo" width="867" height="288" />
+      <p>Manutenção hidráulica predial e monitoramento de reservatórios, na Grande São Paulo.</p>
+    </div>
+    <dl class="rodape-contato">
+      <div><dt>Telefone</dt><dd><a href="tel:+551120388679">(11) 2038-8679</a></dd></div>
+      <div><dt>WhatsApp</dt><dd><a href="https://wa.me/5511966536110">(11) 96653-6110</a></dd></div>
+      <div><dt>E-mail</dt><dd><a href="mailto:comercial@generalbombas.com">comercial@generalbombas.com</a></dd></div>
+      <div><dt>Painel</dt><dd><a href="/login">Acessar o sistema</a></dd></div>
+    </dl>
+  </div>
+  <div class="area rodape-fim">
+    <span>General Engenharia da Manutenção</span>
+    <span id="lpAno">2026</span>
+  </div>
+</footer>
+
+<!-- CSP do helmet é `script-src 'self'` — script inline é bloqueado. -->
+<script src="/static/landing.js?v=6" defer></script>
+</body>
+</html>

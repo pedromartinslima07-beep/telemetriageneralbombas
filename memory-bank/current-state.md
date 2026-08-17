@@ -74,11 +74,12 @@ ESP32 (sonda 4-20mA + SCT-013)
 | **ordens-servico** | O.S. digital (fotos, assinatura, orçamento) + PDF. Fotos persistidas em `os_fotos.dados_base64` (banco), servidas via `GET /ordens-servico/:osId/fotos/:fotoId/imagem` — não dependem mais de disco efêmero. |
 | **planos-manutencao** | Planos preventivos recorrentes |
 | **contratos** | Contratos por condomínio. Assinatura eletrônica própria por link de e-mail (sem ZapSign/D4Sign — ver `decisions.md`): exige código de 6 dígitos antes de assinar (2FA equivalente ao login) e grava um protocolo (hash SHA-256 auditável) impresso no PDF junto com IP e data/hora |
-| **orçamentos** | Sistema unificado (tabela `orcamentos` + `orcamento_linhas`); `tipo` (060) ramifica o PDF avulso entre tabela de peças (padrão) e layout descritivo por cláusulas para limpeza de reservatório/dedetização/combo, mesmo timbrado. Item sem `valor_unitario` some da coluna de valor no PDF em vez de virar "R$ 0,00"; `orcamentos.valor` serve de override manual do total (062) |
+| **orçamentos** | Sistema unificado (tabela `orcamentos` + `orcamento_linhas`); `tipo` (060) ramifica o PDF avulso entre tabela de peças (padrão) e layout descritivo por cláusulas para limpeza de reservatório/dedetização/combo, mesmo timbrado. Item sem `valor_unitario` some da coluna de valor no PDF em vez de virar "R$ 0,00"; `orcamentos.valor` serve de override manual do total (062) e, quando preenchido, **remove do PDF as colunas Valor Unit./Total por item** — só o box VALOR TOTAL aparece |
 | **relatorio / relatorios** | PDF de telemetria (Puppeteer) pro cliente/app; painel ao vivo (chamados em risco + workload) e exportação CSV de chamados/alertas/telemetria pro admin |
 | **equipamentos** | Identidade permanente de bomba/motor/painel + etiqueta QR (migration 070). Guard próprio `equipeInterna` (inclui **técnico**, que não passa em `adminOnly`). Ficha em `/e/:codigo`, folha A4 de etiquetas via Puppeteer + `qrcode`. Fluxo em [equipamentos.md](../docs/modulos/equipamentos.md) |
 | **admin** | Usuários, status agregado, histórico, geocode, configurações |
 | **status / leituras / jobs** | Endpoints auxiliares e disparo manual de jobs |
+| **leads** | Contatos da landing pública. `POST /leads` é público (rate limit + honeypot `site` + truncagem); leitura e funil exigem `gestaoOnly`. Fluxo em [landing-publica.md](../docs/modulos/landing-publica.md) |
 
 ## Funcionalidades prontas (✅)
 
@@ -225,6 +226,81 @@ ESP32 (sonda 4-20mA + SCT-013)
   contêiner com `height: "100%"`, e é a rolagem vertical que mantém a linha de
   datas alcançável.
 
+**Landing pública** — `public/index.html` + `landing.css` + `landing.js`
+- Rota `/` é a página de apresentação para síndicos (não é mais redirect para
+  `/login`). Formulário posta em `POST /leads`; o funil é lido no admin.
+- Sistema visual **próprio**, chamado "Chapa" — derivado do chanfro do wordmark
+  da General. **Não compartilha nada com `admin.css`** e não deve passar a
+  compartilhar: o admin é ferramenta de operação, a landing é peça de venda.
+- Fontes auto-hospedadas (Archivo variável + Martian Mono) em `public/fonts/`,
+  porque a CSP `script-src 'self'` do helmet não permite CDN.
+- ⚠️ **Não registra service worker**, de propósito. Mas o `?v=N` de
+  `landing.css`/`landing.js` continua valendo.
+- ⚠️ O painel do hero é **demonstração com dados simulados** e diz isso na
+  própria placa. As faixas 45% / 20% são as mesmas do backend — se mudarem lá,
+  mudam aqui. Detalhe e demais pegadinhas em
+  [landing-publica.md](../docs/modulos/landing-publica.md).
+- ⚠️ **Toda a copy é primeira pessoa do plural** ("Monitoramos", "a gente
+  sabe"). Terceira pessoa ("A General monitora") faz a página soar como um
+  terceiro apresentando a empresa — ver [decisions.md](decisions.md).
+- ⚠️ A seção `#servico` (`.vigia`) é **uma placa dividida por cortes
+  gravados**, não três cards. Substituiu a linha do tempo da madrugada em
+  2026-08-13.
+
+**Painel do cliente** — `public/cliente.html` + `cliente.css` + `cliente.js`
+
+É a **v3**, implementada em 2026-08-14 a partir da comp
+[`../docs/comps/painel-cliente-v3.html`](../docs/comps/painel-cliente-v3.html).
+A v1 (13/08) foi rejeitada por manter a casca do admin — ver
+[decisions.md](decisions.md). Fluxo e pegadinhas em
+[painel-cliente.md](../docs/modulos/painel-cliente.md).
+
+- **Folha autônoma no sistema "Chapa"**: `cliente.html` **não carrega
+  `admin.css`**, em volume mais baixo que a landing. Era o defeito central — o
+  painel do síndico não era inspirado no admin, era o admin.
+- **O cabeçalho é o mesmo da landing**, desde 14/08 literalmente: tokens com os
+  mesmos nomes e valores (`--barra-h`, `--area-max`, `--gut`, `--saida`),
+  mesma quebra de 760px, `sticky` também no celular. O nome do prédio **não
+  fica na barra** — é o `.placa-topo`, cabeçalho do instrumento. Mudou a barra?
+  Mude em `landing.css` e `login.css` também.
+- **Não há seções nem navegação.** Sumiram sidebar, colapso, topbar, KPIs,
+  abas, buscas e tabelas. A página é: **a resposta** (uma frase + os
+  reservatórios como prova + uma ação) ocupando a primeira tela, **a história**
+  agrupada por dia abaixo, e um rodapé. Todo o resto abre como **ficha**
+  (placa clara sobre o marinho): pedir ajuda, chamado, todos os reservatórios,
+  reservatório e sua conta. **Nenhuma funcionalidade saiu.**
+- **O veredito tem cinco ramos** (semtel → crítico → mudo → baixo → normal), e
+  o ramo normal foi partido em dois: com chamado aberto aparece a **linha de
+  atendimento**, com ponto azul e o título do chamado.
+- **A prova são no máximo três colunas**, tenha o prédio 3 ou 30 reservatórios.
+  O resto vira frase com a faixa real, que abre a lista completa.
+- **Cilindro no desktop, coluna no celular.** Sem limiar desenhado dentro do
+  tanque — ele vive no gráfico da ficha do reservatório. As faixas de 45%/20%
+  são as do backend: mudou lá, muda na landing e aqui.
+- **Sem ApexCharts**: o gráfico da ficha é SVG no próprio `cliente.js`.
+- ⚠️ A **ponte de tokens** do admin (`--muted`/`--text`/`--accent`) **não
+  existe mais** — o JS foi reescrito e não usa token do admin.
+- ⚠️ **Alerta resolvido não aparece na história** — `/cliente/status` só
+  devolve os abertos. É buraco conhecido, não bug.
+- ⚠️ **`ja_avaliado` só vem do detalhe do chamado**: o painel busca os 3
+  fechados mais recentes uma vez e guarda. Uma linha no SELECT da lista
+  elimina isso (roadmap).
+- ⚠️ **Nada foi verificado contra o backend real**; a validação foi em harness
+  estático, contact sheet de 8 estados × 2 tamanhos (1920px e 390px).
+
+**Tela de login** — `public/login.html` + `login.css` + `login.js`
+- Desde 2026-08-13 segue o sistema **"Chapa"** da landing (split screen,
+  marinho + `#fbb329`, chanfro de 45°), **não** o âmbar do painel: `/login` é a
+  costura entre o site e o painel e não pode parecer outra empresa.
+- ⚠️ `login.css` **duplica** os tokens da landing de propósito (as páginas não
+  compartilham CSS). Mudou a paleta? Mude nos dois.
+- ⚠️ Os passos login/OTP alternam por atributo `hidden`, nunca por
+  `style.display`. Detalhes em
+  [autenticacao.md](../docs/modulos/autenticacao.md).
+- ⚠️ A foto do painel (`public/fotos/reservatorios.jpg`) tem a marca do
+  **fabricante do tanque com telefones legíveis** no canto superior esquerdo —
+  o enquadramento corta esse canto de propósito.
+
 **Segurança & operação**
 - Envs obrigatórias em produção (JWT_SECRET, CORS_ORIGINS) com `process.exit(1)`.
 - RBAC com **5 roles ativas**: **admin** (master — tudo), **gerente** (operação
@@ -251,6 +327,12 @@ ESP32 (sonda 4-20mA + SCT-013)
 - Aplicar com `node scripts/migrate.js NNN_nome.sql` (lê `DATABASE_URL`).
   `migrations/migrate.js` em `scripts/`.
 - Scripts utilitários: `limpar-dados-teste.sql`, `restaurar-defaults.sql`.
+- **Banco de teste:** `scripts/seed-teste.js` monta o mínimo (admin, técnicos,
+  condomínios, planos) e `scripts/seed-cenario-telemetria.js` dá variedade à
+  telemetria do condomínio DEMO — sem ele os 4 reservatórios ficam todos
+  offline com o mesmo `last_seen`. Os dois recusam rodar em produção
+  (`src/db-url.js`). Ver
+  [`../docs/modulos/painel-cliente.md`](../docs/modulos/painel-cliente.md).
 
 > ⚠️ Há **duas** pastas de migrations: `migrations/` (numeradas 001-044, atuais)
 > e `database/migrations/` (datadas, do schema original de 2026-03/04). As ativas

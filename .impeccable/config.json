@@ -1,0 +1,20 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "design-system-font-size",
+        "value": ".58rem",
+        "createdAt": "2026-08-14T23:27:10.825Z",
+        "reason": "DESIGN.md documenta 'Etiqueta gravada' como FAIXA .55rem-.66rem na Rampa de UI; .58rem esta dentro dela. O detector compara com o valor discreto .62rem do sidecar e nao le a faixa."
+      },
+      {
+        "rule": "design-system-font-size",
+        "value": ".82rem",
+        "createdAt": "2026-08-14T23:27:10.911Z",
+        "reason": "DESIGN.md documenta 'Apoio / legenda' como FAIXA .82rem-.88rem na Rampa de UI; .82rem e o piso declarado da faixa."
+      }
+    ]
+  }
+}

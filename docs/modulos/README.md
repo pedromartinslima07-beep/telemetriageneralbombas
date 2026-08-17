@@ -21,6 +21,8 @@ faz, quais tabelas/serviços/jobs participam e as regras de decisão.
 | Equipamentos, etiqueta QR e oficina | [`equipamentos.md`](equipamentos.md) |
 | Mapa, geocoding e tiles | [`mapa-geocoding.md`](mapa-geocoding.md) |
 | App mobile (Capacitor) — GPS background pendente | [`app-mobile.md`](app-mobile.md) |
+| Landing pública e captação de lead | [`landing-publica.md`](landing-publica.md) |
+| Painel do cliente ("Meu prédio") | [`painel-cliente.md`](painel-cliente.md) |
 
 Referências cruzadas: [`../banco-de-dados.md`](../banco-de-dados.md),
 [`../api.md`](../api.md), [`../arquitetura.md`](../arquitetura.md).

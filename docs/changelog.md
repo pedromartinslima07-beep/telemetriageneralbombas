@@ -2149,7 +2149,827 @@ er sem animação.
     as classes nos **templates** do `admin.js`, não no render.
   - Cache-bust: `admin.css` v178, `admin.js` v269.
 
+- **2026-08-13** — **Landing: fora o foco na madrugada, e a empresa passa a
+  falar em primeira pessoa.** Dois pedidos do Pedro sobre a página já
+  redesenhada.
+  - **A madrugada encolheu para uma chamada.** A seção `#noite` (cinco eventos
+    numa linha do tempo com trilho preso ao scroll) era a mais alta da página e
+    gastava tudo isso dramatizando uma noite. O Pedro: *"entendo o que quer
+    passar, mas não queria esse foco todo — uma chamada dizendo que o
+    atendimento é 24 h seria o suficiente."* Removidos: `#noiteTrilho`,
+    `.noite-*` (~120 linhas de CSS) e o handler de scroll do trilho — o
+    listener ficou, porque é ele que cola a barra do topo.
+  - **A seção que entrou no lugar passou por duas versões.** A primeira ("A
+    boia liga a bomba. / Ela não conta o que deu errado." + três falhas) foi
+    recusada pelo Pedro por escrita indireta *e* por redundância: as três
+    falhas eram sonda / sensor de corrente / central com outro nome, ou seja, a
+    seção "Três peças no prédio" repetida. A versão que ficou é `#servico` —
+    **"A gente mede, avisa e atende."**, o ciclo do serviço em três passos
+    numerados, com o painel do condomínio no fecho da placa (era a única parte
+    do serviço que o visitante só descobria lá embaixo, nas dúvidas).
+    ⚠️ **`#servico` é o serviço; `#instalado` é o hardware.** Não voltar a
+    descrever sensores no primeiro. Item de navegação "A noite" → "O serviço".
+  - **Nenhuma frase pode servir só a quem já é cliente.** *"Não somos o
+    aplicativo de uma empresa que você nunca viu"* foi recusada — *"pode ser
+    alguém que acabou de conhecer a empresa sim, e tem que servir pra ela
+    também"*. Todo texto que pressupunha vínculo existente ("a mesma equipe
+    que já troca a sua bomba", "o mesmo telefone que o seu prédio já usa",
+    "somado à manutenção que já fazemos") passou a **condicional**.
+  - **⚠️ Contrato de posicionamento fechado — a causa das quatro rodadas.** A
+    substituição seguinte ("Não somos uma empresa de software. Somos
+    manutenção predial desde 2005.") também foi recusada, e o Pedro parou o
+    trabalho: cada correção de frase estava expondo uma decisão de
+    posicionamento que nunca tinha sido tomada. Decidido por ele e gravado em
+    [`../PRODUCT.md`](../PRODUCT.md): **(1) o produto é o protagonista** — os
+    20 anos são garantia, não abertura, o que **inverte** o princípio anterior
+    "a credibilidade vem da empresa, não do produto"; **(2) a página não se
+    posiciona contra ninguém** — sem definição por negação e sem categoria
+    concorrente, mas explicar por que a boia não basta continua permitido.
+    Aplicado numa passada só: h2 de `#equipe` → **"Quem instala, calibra e
+    atende é a nossa equipe."**, `og:description`, o parágrafo do "aplicativo
+    que manda notificação", a comparação com planilha na FAQ de internet e a
+    comparação com o zelador em `#servico`.
+  - 🐛 **A página falava mal da boia, e isso estava errado.** Correção do
+    Pedro: *"o sistema não serve pra substituir boias"* — e a própria General
+    instala e mantém boia, então pôr a boia como vilã é falar mal do próprio
+    serviço. A causa não foi uma frase solta: o contrato de posicionamento no
+    `PRODUCT.md` tinha uma **exceção que eu inferi** ("explicar por que a boia
+    não basta não viola a regra de não se posicionar contra ninguém"), e foi
+    ela que autorizou o texto. Corrigidos o contrato e as duas ocorrências na
+    página:
+    - peça "Sonda de nível": saiu *"É outra coisa que a boia, que só sabe dizer
+      cheio ou não cheio — e não diz nada quando ela mesma falha"*; entrou a
+      descrição do que a sonda faz (medir sem parar, virar histórico);
+    - dúvida "Meu prédio já tem boia": reescrita sobre **a boia age / o
+      monitoramento mostra**, dizendo que a boia faz parte da manutenção que a
+      General já presta e que o sistema avisa quando alguma peça — ela
+      inclusive — precisa de atenção.
+  - **Tela de login redesenhada em split screen, no mundo "Chapa".** Pedido do
+    Pedro: *"não ficar estranho a pessoa entrar na landing com um visual e
+    parar em um login com outro completamente diferente"*. `/login` é a costura
+    entre o site e o painel, e usava o âmbar `#f0b014` do Mission Control,
+    cantos arredondados, sombra projetada, gradiente e fonte de sistema — tudo
+    o que o sistema visual da landing recusa. Agora: campo marinho com a marca
+    e a engrenagem em escala arquitetônica à esquerda, placa clara com o
+    formulário à direita, faixa listrada na costura das duas metades, chanfro
+    de 45° em campos e botões, Archivo + Martian Mono. No mobile empilha — a
+    marca vira faixa de 270px e o formulário fica inteiro na primeira dobra.
+    Ganhou também um link **"Voltar para o site"**, que não existia.
+    - 🐛 **`login.js` alternava os passos com `style.display`.** O `"block"`
+      inline sobrescrevia o `display` do CSS e o formulário voltava do passo do
+      código sem espaçamento entre os campos. Trocado por `_mostrarPasso()`,
+      que mexe só no atributo `hidden`.
+    - ⚠️ **Anel de foco:** os dois anéis precisam ser `inset`. `outline` e
+      `box-shadow` normal são pintados fora da caixa e o `clip-path` do chanfro
+      recorta ambos — o indicador é calculado e não aparece. Escrevi errado na
+      primeira vez seguindo a descrição do `DESIGN.md`, que dizia "o anel
+      amarelo fica por fora, a 3px" enquanto o `landing.css` sempre usou
+      `inset`. **A `DESIGN.md` foi corrigida** para não induzir ao mesmo erro.
+    - Cache: `login.css` e `login.js` → `?v=3`, `register-sw.js` → `?v=34`,
+      `CACHE_NAME` do `sw.js` → `telemetria-v43` (a tela de login registra o
+      service worker, diferente da landing).
+    - **Painel esquerdo, segunda passada.** A primeira versão era campo marinho
+      com a engrenagem girando — o Pedro apontou que a divisão parecia "meio a
+      meio" e pediu para pensar o lado esquerdo junto. Diagnóstico: 40% de vão
+      morto no topo, engrenagem como papel de parede (segunda aparição da mesma
+      peça, sem função aqui) e uma frase que era a lede do hero da landing pela
+      quarta vez. Resolvido com:
+      - **Foto real sangrada** (`public/fotos/reservatorios.jpg`, escolhida pelo
+        Pedro do Dropbox) com véu marinho, no lugar da engrenagem. É a única
+        foto do acervo que mostra **reservatório** e a única em retrato.
+      - **Texto no rodapé, à esquerda, e véu fechando forte no pé** — as duas
+        coisas são preferência do Pedro. Duas alternativas foram testadas e
+        recusadas: levar o texto ao topo, e clarear o pé do véu para `.68`/
+        `.78` (proposta minha, porque com `.90`/`.97` os últimos 25% viram
+        faixa preta e os dois técnicos ficam partidos ao meio pela frase).
+      - **O que resolveu foi subir o bloco, não mexer no véu.** O
+        `padding-bottom` do `.marca-lado` passou a ser maior que as outras
+        margens — `clamp(80px, 14vh, 130px)` contra 56px — e tira o texto de
+        dentro do trecho mais fechado: ele fecha a ~86% da altura em vez de
+        ~93%. ⚠️ Véu e `padding-bottom` agora são interdependentes; mexer nos
+        dois juntos. O wordmark ganhou `drop-shadow` e encolheu um pouco
+        (268px → 236px), o que também ajuda a encurtar o bloco.
+      - **Frase nova:** "O nível dos seus reservatórios, o estado das bombas e
+        os chamados do prédio" — diz o que há atrás da porta em vez de repetir
+        a promessa que o site já fez três vezes.
+      - **Proporção `1.12fr / .88fr`**, folga para a foto. Era `.86/1.14`:
+        perto demais de meio a meio para ler como decisão, e com o espaço no
+        lado errado — o formulário tinha 820px para uma placa de 440px.
+      - ⚠️ **Lição do enquadramento, que custou três tentativas.** A marca do
+        **fabricante do tanque** (dois telefones legíveis) fica no TOPO da
+        foto. Tentei cortá-la *pela lateral*, o que exigia ampliar a imagem;
+        somado ao recorte vertical que o `cover` já fazia num painel quase
+        quadrado, sobrava **menos da metade da foto** — virava close, sem os
+        tanques nem o corredor, que são o motivo de ela ter sido escolhida.
+        A solução é o contrário: **painel mais largo + `cover` puro alinhado
+        pela base**, e aí o recorte vertical cai justamente sobre a marca do
+        fabricante. Regra registrada: o recorte é vertical, a escala é
+        `cover`. A única exceção é o mobile, onde a faixa larga e baixa não
+        tem sobra horizontal e a ampliação de `112%` é obrigatória para aparar
+        o extintor.
+    - **Texto do painel, ajuste final do Pedro.** Saiu a etiqueta "Acesso do
+      condomínio e da equipe" (e a regra `.marca-eti`, que ficou sem uso). O
+      subtítulo do formulário passou de "Use o e-mail e a senha cadastrados no
+      sistema" para **"Entre com seu e-mail e senha"** — decisão do Pedro por
+      simplicidade. Cheguei a propor uma linha avisando do código por e-mail do
+      segundo passo; foi recusada, e o registro fica porque a ideia pode voltar
+      se aparecer abandono no passo do OTP.
+    - Documentado em [`modulos/autenticacao.md`](modulos/autenticacao.md).
+  - **Passada de redundância — mapa de donos.** O Pedro pediu para procurar
+    repetição; a primeira varredura foi lexical e achou pouco. A varredura
+    **funcional** (que pergunta cada bloco responde) mostrou que *nenhuma*
+    pergunta era respondida uma vez só. Corrigido definindo um dono por
+    pergunta (tabela em
+    [`modulos/landing-publica.md`](modulos/landing-publica.md)):
+    - a lede de `#servico` era a lede do hero reescrita — virou uma linha só
+      que apresenta as três etapas;
+    - a célula 1 narrava nível/coluna/corrente, que **o instrumento do hero já
+      mostra ao vivo** — passou a ser dona da frequência e do histórico;
+    - a célula 3 disputava "equipe própria" com `#equipe` — virou "Atendemos
+      sem você precisar ligar", sobre o chamado já nascer pronto;
+    - a condicional "se já é cliente, mesmo contrato" estava em `#equipe`, na
+      FAQ e no fecho → só no fecho;
+    - "proposta" 3× → 1×; "você fica sabendo que parou de saber" era literal
+      em duas seções → só na FAQ de internet; "desde 2005" 3× → 2×;
+    - duas legendas de foto de `#equipe` anunciavam peças de `#instalado`;
+    - o `aria-label` do diagrama enumerava as três posições que cada
+      `.peca-onde` repete logo depois — leitor de tela ouvia tudo duas vezes.
+    Mantidos de propósito: repetição dentro da **FAQ** e a **lista do fecho**
+    como resumo antes do formulário.
+  - **Diagrama do prédio redesenhado.** Eram oito retângulos lisos com cantos
+    retos — o único elemento da página que não falava a língua do chanfro,
+    contra a regra de forma única do `DESIGN.md`. Agora: chanfro de 45° nos
+    equipamentos (caixa, cisterna, motor, corpo da bomba, quadro) e só no topo
+    do prédio, como recorte de cobertura; **janelas** no lugar das quatro
+    linhas de andar, que davam "retângulo riscado" e não "prédio"; a bomba
+    virou **conjunto motobomba** (base, motor, caixa de bornes e corpo) em vez
+    de uma caixinha; a água ganhou **crista**, o mesmo gesto da lâmina do
+    instrumento; e o traço ganhou hierarquia (2px estrutura / 1–1,5px
+    detalhe), onde antes era tudo 2px. Marcadores de `r=16` → `r=13` e
+    **fora** das peças pequenas: sobre um motor de 56 unidades o círculo
+    amarelo cobria a peça que estava apontando.
+  - **Diagrama do prédio comprimido.** A torre estava em escala (410 unidades,
+    7 linhas de andar) e mais da metade do desenho era retângulo vazio — as
+    três peças moram nas pontas, uma na caixa e duas na casa de máquinas.
+    `viewBox` de `460 700` → `460 520`, torre de 410 → 230 unidades, 7 linhas
+    de andar → 4, e todo o bloco abaixo do solo subiu 180 unidades junto
+    (cisterna, bomba, quadro, sucção, prumada e marcadores 2 e 3). Altura do
+    SVG de 660px → 500px. A seção caiu de 1077px para 1004px e passou a ser
+    limitada pela lista de peças, não pelo vão do desenho. Hover e pulso dos
+    marcadores conferidos depois da mudança.
+  - 🐛 **Corrigido um `*/` a mais em `landing.css`** que vinha do commit
+    `6130562`: fechava o comentário da "armadilha do chanfro" cedo demais, e o
+    texto solto que sobrava era consumido como seletor inválido — levando junto
+    a regra `.btn:focus-visible, .pular:focus-visible, .duvida
+    summary:focus-visible { outline: none }`. Efeito prático pequeno (os
+    indicadores de foco reais são `box-shadow: inset` e continuavam
+    funcionando), mas o CSS estava malformado e a regra era descartada em
+    silêncio. Confirmado no CSSOM depois da correção.
+  - ⚠️ **`.vigia` é UMA placa, não três cards.** A primeira tentativa foi três
+    caixas iguais de título + parágrafo lado a lado, e isso é o contêiner
+    preguiçoso — o mesmo vício da versão rejeitada em agosto. A forma que ficou
+    é uma peça chanfrada dividida por **cortes gravados**: par `--rasgo`
+    (`rgba(2,6,22,.55)`, o fundo do sulco) + `--luz` (`rgba(255,255,255,.10)`,
+    a aresta pegando luz), sempre os dois — com uma linha só a divisão lê como
+    borda de card. Anatomia emprestada do instrumento do hero. No mobile o
+    sulco deita (`border-left` → `border-top`).
+  - **Toda a copy passou para primeira pessoa do plural.** "A General monitora"
+    → "Monitoramos"; "a equipe da General instala" → "Somos nós que
+    instalamos". O texto era **inconsistente** — abria em terceira pessoa e no
+    meio virava primeira ("a gente sabe", "Fale com a gente"). Motivo em
+    [`../memory-bank/decisions.md`](../memory-bank/decisions.md): a terceira
+    pessoa põe um narrador entre a empresa e o síndico, e o argumento de venda
+    é exatamente que quem fala já é o fornecedor de confiança do prédio.
+  - **Verificado no navegador** (servidor estático só de `public/`, 1440×960 e
+    500×860): coluna e leitura do instrumento **concordam** com o movimento
+    rodando (`nível 47` com `--n: 46.84%`) — resolve a única pendência que a
+    revisão de 11/08 deixou em aberto, que era um artefato de captura pausada.
+    Sem estouro horizontal no mobile.
+  - **Detector do Impeccable:** 54 achados, **nenhum do código novo** (as duas
+    faixas listradas já tinham sido julgadas e mantidas; os avisos de escala
+    tipográfica são pré-existentes).
+  - **Documentação:** `DESIGN.md` + `.impeccable/design.json` (a madrugada
+    aparecia em 9 pontos e ficou factualmente errada), `PRODUCT.md` (regra de
+    voz), [`modulos/landing-publica.md`](modulos/landing-publica.md).
+  - Cache-bust: `landing.css` v6, `landing.js` v6.
+
+- **2026-08-11** — **Landing pública redesenhada ("Chapa").** A primeira versão
+  da página `/` (commit `446d1c7`) foi rejeitada pelo Pedro: tinha sido
+  construída como um **demonstrativo de despesas de condomínio** — folha de
+  papel, tabela de conta, carimbo "documento ilustrativo", Courier Prime. O
+  pedido foi "mais bonito, com animações mais bonitas", mais a observação de
+  que o logo aparecia 3× e as três minúsculas (26px, 30px, 30px).
+  - **Direção nova:** o wordmark da General já é chapa de aço cortada — cantos
+    chanfrados, contraformas quadradas, a lasca amarela dentro do G. Essa lógica
+    de corte virou a gramática da página inteira: chanfro de 45° em placa,
+    botão, foto e campo; fios de 1px como usinagem; marinho `#071b5c` como
+    material; amarelo `#fbb329` tomando a seção de fecho inteira.
+  - **Fontes trocadas:** saíram Barlow e Courier Prime; entraram **Archivo
+    variável** (peso 400–900, largura 62–125%) para display e corpo e **Martian
+    Mono** só para leitura de instrumento e etiqueta. Auto-hospedadas em
+    `public/fonts/` (a CSP não permite CDN).
+  - **Peças novas construídas:** o instrumento do hero (coluna d'água viva com
+    roteiro de uma madrugada, respeitando as faixas reais de 45%/20%), o corte
+    esquemático do prédio em SVG ligando as 3 peças ao lugar onde são
+    instaladas, a foto anotada com linhas-guia e as engrenagens da marca em SVG
+    próprio (não há vetor da marca).
+  - **`public/logo-topo.png` (novo, gerado):** o lockup oficial traz
+    "ENGENHARIA DA MANUTENÇÃO" embaixo, que a 40px vira borrão cinza. O arquivo
+    novo é o mesmo logo com essa linha apagada por cor, preservando as
+    engrenagens. Detalhe em
+    [`modulos/landing-publica.md`](modulos/landing-publica.md).
+  - **Bugs corrigidos durante o build** (todos com comentário no fonte):
+    máscara de revelação que não cobria elemento alto e deixava faixa
+    translúcida sobre o botão "Enviar"; dois tweens concorrentes do instrumento
+    brigando pelo mesmo número; `box-shadow: inset` recortado pelo `clip-path`,
+    apagando a borda do botão exatamente nos chanfros; `.peca dd p` vencendo
+    `.peca-onde` por especificidade e jogando a etiqueta para 20px; ausência de
+    rótulo "sem monitoramento"/"com a General" para leitor de tela em qualquer
+    largura; "Entrar" sumindo abaixo de 760px e obrigando cliente a rolar a
+    página toda para achar o painel.
+  - **Backend intocado.** `POST /leads` e o contrato do formulário são os
+    mesmos; `/login` continua funcionando; a landing segue sem registrar o
+    service worker.
+  - **Documentação:** [`modulos/landing-publica.md`](modulos/landing-publica.md)
+    (novo — a landing nunca tinha sido documentada), `PRODUCT.md` e `DESIGN.md`
+    na raiz.
+  - Cache-bust: `landing.css` v5, `landing.js` v5.
+
+
+### 2026-08-13 — Painel do cliente reconstruído: "Meu prédio" (frontend)
+
+Redesenho completo de `/cliente/painel`, pedido pelo Pedro logo depois da
+landing e do login. Diagnóstico dele: *"está muito ruim, e o principal problema
+foi tentar copiar o painel de admin"*. Estava certo, e o problema era mais
+estrutural que visual. O "porquê" em
+[`../memory-bank/decisions.md`](../memory-bank/decisions.md); o fluxo completo
+em [`modulos/painel-cliente.md`](modulos/painel-cliente.md).
+
+- **`cliente.html` não carrega mais `admin.css`.** Era a raiz de tudo: 265 KB
+  de Mission Control mais 385 linhas de override tentando desfazer proporções.
+  `cliente.css` virou **folha autônoma** no sistema "Chapa" — o mesmo da
+  landing e do login. Os ~225 nomes de classe que o `cliente.js` emite foram
+  mantidos, então **o contrato de markup não mudou**: trocou-se o mundo, não a
+  API. Ponte de tokens no bloco 2 do CSS (`--muted`/`--text`/`--accent`) para
+  os 15 `style=` que o JS ainda escreve.
+- **Quatro seções viraram três.** *Dashboard* e *Telemetria* mostravam os
+  MESMOS 3–5 reservatórios duas vezes, com componentes diferentes para o mesmo
+  dado — o admin tem as duas porque olha N condomínios; o cliente tem um.
+  Fundidas em **"Meu prédio"** (`data-section="predio"`). Nada removido:
+  histórico 24h/7d/30d/90d, seleção de reservatório e PDF continuam.
+- **A estrutura virou uma linha do tempo**, não uma grade de cards: trilho
+  vertical em corte gravado, com a estação **AGORA** no topo (instrumento +
+  contagens do que está aberto), a estação **HISTÓRICO** em seguida, e os
+  eventos reais descendo agrupados por dia (alerta aberto, chamado aberto,
+  técnico designado, atendimento concluído, O.S. finalizada). Clicar num evento
+  de chamado abre o chamado.
+- **O tanque cilíndrico em SVG saiu; entrou a coluna d'água da landing.**
+  O cilindro era o componente do admin, portado de `admin.js` — o sintoma que o
+  Pedro diagnosticou. A coluna já traz as faixas de 45%/20% desenhadas e é o
+  objeto que o síndico viu na página pública. ⚠️ A lâmina abre em `#2f6fe0`, e
+  não no `--mar-500` da landing: com três tubos de 176px lado a lado a rampa
+  original lia como retângulo preto.
+- **Funções removidas do `cliente.js` (todas duplicadas ou órfãs):**
+  `_dashRenderChamados`, `_dashRenderNiveis`, `_dashRenderCriticos`,
+  `_dashRenderActivity`, `_dashRenderBombas`, `_cliTanqueTile`,
+  `_telTanqueSVG`, `_telBandaAgua`, `_telCliAtualizar`, `_telCliRenderKpis`,
+  `_telCliRenderNiveisChart`, `_telCliRenderCriticos`, `_telCliRenderBombas`,
+  `histResumoCard`, `badge`/`nivelBadge`/`bombaBadge`/`tipoBadge`,
+  `pickMaisRecente`, `pickMaisCritico`, `algumOffline`, `_telCliCorPct`,
+  `_telCliFmtTempoRel`, `ICO_WIFI_OFF`. Novas: `_agoraRender`, `_agoraColuna`,
+  `_predioVeredito`, `_linhaRender`, `_predioKpis`, `_predioAtualizar`,
+  `_estadoDoReservatorio`, `_agoraRelogio`.
+- **Bugs reais corrigidos no caminho:**
+  - `cliente.html` mandava para `wa.me/5511999990000` — **número inventado**.
+    Trocado pelo real (`11966536110`).
+  - `.mob-topbar` era `position: sticky` estando no **fim do `<body>`**: ela só
+    aparecia depois de rolar a página inteira. Virou `fixed`.
+  - "Em atendimento" era `rc-bad` (vermelho) no KPI de Chamados. Chamado com
+    técnico designado é boa notícia; pintá-lo de vermelho ensina o síndico a se
+    assustar com o serviço funcionando.
+  - As tabelas de Alertas e Chamados não tinham tratamento mobile — cinco
+    colunas em 390px só se liam arrastando de lado. Viraram lista de placas.
+  - No modo recolhido a sidebar ficava só com ícones e **sem rótulo nenhum**.
+    Ganhou rótulo flutuante a partir do `data-label` que já existia no HTML.
+  - Faixa de cor de 3px na borda dos KPIs (o tell clássico de UI gerada por IA,
+    apontado pelo detector do Impeccable) trocada por placa de ícone
+    preenchida.
+- **`chart.umd.min.js` (Chart.js) saiu do `cliente.html`** — o painel só usa
+  ApexCharts. ~200 KB a menos por carga.
+- **`mob-sidebar.js`** (compartilhado com o admin) ganhou a chave `predio` no
+  mapa de títulos do topo mobile. Aditivo; o admin não tem essa seção.
+- **Backend intocado.** Nenhuma rota, nenhum campo, nenhuma migration. Como não
+  há endpoint novo, o **`sw.js` não foi tocado** — `/cliente` já é network-first
+  e `.css`/`.js` também.
+- Cache-bust: `cliente.css` v10, `cliente.js` v29.
+
+⚠️ **Verificação:** harness estático (o `cliente.html`/`cliente.css`/
+`cliente.js` reais, com `fetch` dublado), a 1440px e num iframe de 390px.
+**Nada rodou contra o backend real**, e o caminho do cliente sem telemetria
+contratada não foi visto renderizado.
+
+### 2026-08-14 — Painel do cliente v3: "a resposta, não o painel" (frontend)
+
+A v1 acima foi **rejeitada** como direção em 13/08 (mantinha a casca do admin).
+A v2 virou comp, a v3 refinou a comp por várias passadas, e **esta entrada é a
+v3 virando código**: `public/cliente.html`, `cliente.css` e `cliente.js` foram
+reescritos a partir de
+[`comps/painel-cliente-v3.html`](comps/painel-cliente-v3.html).
+
+- **A navegação inteira saiu.** Não há mais sidebar, botão de colapso, topbar
+  com avatar e "atualizar", fileira de KPIs, abas, campos de busca nem tabelas.
+  As três seções (`predio`/`alertas`/`chamados`) deixaram de existir: **alertas
+  e chamados não são mais lugares para onde navegar**. É essa remoção, e não a
+  paleta, que separa este painel do admin.
+- **A página tem duas partes e um rodapé.** A **resposta** ocupa a primeira
+  tela (uma frase + os reservatórios como prova + uma ação); a **história**
+  vem abaixo, agrupada por dia num trilho de datas grudento; o rodapé fecha com
+  o lockup completo e os contatos reais.
+- **Tudo que sobrou virou ficha** (diálogo em placa clara sobre o marinho):
+  pedir ajuda, chamado (passos + conversa + avaliação), todos os
+  reservatórios, reservatório (histórico + PDF) e sua conta (troca de senha +
+  sair). **Uma ficha por vez**, com pilha de um nível: o X devolve para a ficha
+  de origem em vez de fechar as duas.
+- **O ramo "normal" do veredito foi partido em dois.** Antes, o dia calmo e o
+  dia com técnico no prédio recebiam a mesma frase gigante — chamado aberto não
+  tirava de "Tudo normal". Agora existe a **linha de atendimento**, com ponto
+  azul (`--crista`, não âmbar: chamado em curso não é alarme) e o **título do
+  chamado** junto, para que num prédio com sensor mudo e chamado sobre outra
+  coisa ninguém leia "alguém já está cuidando do sensor".
+- **A prova são no máximo três colunas**, tenha o prédio 3 ou 30
+  reservatórios: aparecem os que estão fora do normal ou, se tudo está normal,
+  os três mais baixos. O resto vira frase honesta com a faixa real ("Mais 8
+  reservatórios, todos entre 77% e 93%") que abre a lista completa.
+- **O cilindro voltou** — escolha do Pedro em 14/08, vendo o estudo lado a lado
+  ([`comps/reservatorio-estudo.html`](comps/reservatorio-estudo.html)). É o
+  `_telTanqueSVG` do admin **reproporcionado** (50×94 em vez de 62×94), sem os
+  ticks e **sem limiar desenhado dentro do tanque**. No celular ele dá lugar à
+  coluna chata: os dois markups são emitidos juntos e a media query decide.
+- **ApexCharts saiu do `cliente.html`.** O gráfico da ficha do reservatório é
+  SVG desenhado no próprio `cliente.js` (~8 linhas de path), como na comp.
+  ~200 KB a menos por carga; some o tooltip interativo do gráfico.
+- **Frases fechadas:** o dia normal é *"Seu prédio está abastecido."* Não
+  reabrir frase a frase — se mudar, muda por mudança de produto.
+- **Bugs reais corrigidos na verificação:**
+  - `overflow-x: clip` **só no `body` não segura**: a engrenagem que sangra
+    para a margem fazia a página rolar 66px na horizontal a 390px (medido).
+    Precisa estar em `html` **e** `body`. `clip`, nunca `hidden` — `hidden`
+    quebraria o `sticky` da barra e do trilho de datas.
+  - A prova era reconstruída a cada tick de 10s, e a lâmina d'água **voltava a
+    zero e subia de novo**: num painel de nível de água, tanques esvaziando
+    sozinhos a cada dez segundos é a leitura errada. Agora só redesenha quando
+    a assinatura da leitura muda.
+  - `desdeQuando` arredondava: leitura de 40 segundos virava "há 1 min". Virou
+    piso — "agora mesmo".
+- **Backend intocado.** Nenhuma rota, campo ou migration; e como não houve
+  endpoint novo, o **`sw.js` não foi tocado** (`/cliente` e `/relatorio` já são
+  network-first).
+
+#### Passada de celular, no mesmo dia
+
+O Pedro arrastou a página para o lado no celular e mandou a captura. Duas
+coisas saíram daí:
+
+- ⚠️ **A comp tinha o mesmo bug de rolagem horizontal** e ficou sem a correção
+  quando o código foi corrigido. Medido: 42px a 320, 59px a 390, 87px a 540.
+  `docs/comps/painel-cliente-v3.html` recebeu o mesmo `html,body{overflow-x:clip}`
+  — a comp é o artefato que ele abre para revisar e não podia continuar
+  mentindo. O painel implementado já estava correto (`scrollW === clientW` em
+  320/360/375/390/412/430/540/768).
+- ⚠️ **"Preciso de ajuda" caía abaixo da dobra no celular** nos estados de
+  alarme — a 390px começava a **787px** no sem sinal, **729px** no de atenção,
+  **700px** no crítico. Num painel cuja tese é *"a primeira tela é a resposta,
+  com UMA ação"*, a ação sumia justamente quando o síndico está aflito.
+  Corrigido em três frentes: `order` na quebra de 820px sobe a ação para antes
+  da linha de atendimento (que responde à 2ª pergunta, não à 1ª, e segue na
+  primeira tela); o apoio encurtou e a nota "nossa equipe é avisada
+  automaticamente" só aparece **quando não há chamado aberto** (havendo, a
+  linha de atendimento já diz quem cuida); e a linha de atendimento virou
+  **duas linhas** (título + referência do chamado em `<small>`) em vez de uma
+  frase corrida que quebrava em 3–4 linhas.
+  Base do botão a 390px, antes → depois: 522→462 (calmo), 672→462
+  (atendimento), 729→462 (atenção), 700→434 (crítico), 787→491 (sem sinal),
+  579→564 (sem telemetria). A 320px o pior caso fica em 569px.
+  ⚠️ **Quem acrescentar algo acima da ação precisa refazer essa medição.**
+
+- Cache-bust: `cliente.css` v12, `cliente.js` v31.
+
+⚠️ **O convite a avaliar na história depende de `ja_avaliado`, que só o
+detalhe devolve** — `GET /cliente/chamados` (lista) não traz o campo. Em vez de
+N requisições por tick, o painel busca o detalhe dos **3 chamados fechados mais
+recentes** uma vez e guarda a resposta. Com uma linha no SELECT da lista
+(`(ch.avaliacao_nota IS NOT NULL) AS ja_avaliado`) essas requisições somem —
+está no roadmap, aguardando liberação para mexer no backend.
+
+⚠️ **Verificação:** harness estático (os arquivos reais com `fetch` dublado),
+contact sheet de **8 estados × 2 tamanhos** (1920px e 390px), com geometria
+medida por `getBoundingClientRect` e não por captura reduzida. **Nada rodou
+contra o backend real.**
+
+### 2026-08-14 — O cabeçalho do painel vira o cabeçalho da landing (frontend)
+
+Pedido do Pedro: *"deixar o cabeçalho igual o da landing page, mesmo tamanho,
+tamanho de logo etc"*. A barra do painel tinha nascido inspirada na da landing
+e havia divergido em sete pontos — o desktop batia em altura **por acidente**
+(padding 17 + logo 40 + 17), e o celular era outra construção.
+
+- **Tokens compartilhados, com os mesmos nomes do `landing.css`:** `--barra-h`
+  (74px / 64px abaixo de 760px), `--area-max`, `--gut`
+  (`clamp(20px, 5vw, 56px)`) e `--saida`. `--h-barra`, que era local e estava
+  com o nome trocado, virou `--barra-h`.
+  ⚠️ A altura agora é **declarada** (`height: var(--barra-h)`), não derivada de
+  padding: era exatamente assim que ela saía do número documentado sozinha.
+- **A coluna inteira foi alinhada à landing** — barra, `.folha` e rodapé
+  passaram de `clamp(22px, 5vw, 40px)` para `var(--gut)`. O conteúdo do painel
+  agora tem a mesma largura útil da `.area` da landing (1128px contra 1160px
+  antes). Escolha do Pedro entre alinhar a coluna ou manter o recuo antigo.
+- Alinhados também: fundo da barra (86% → **88%**), easing (`ease` → `--saida`),
+  limiar do `is-rolada` (8px → **12px**, o do `landing.js`), logo no celular
+  (34px → **32px**) e `scroll-padding-top`, que não existia.
+- ⚠️ **O nome do prédio saiu da barra** e virou `.placa-topo`, o **cabeçalho do
+  instrumento** — a anatomia que a DESIGN.md já descreve (cabeçalho / corpo /
+  estado / nota separados por sulco gravado), com o corte de duas linhas
+  (`--rasgo` + `--luz`) e o papel "título de tela" da rampa de UI (1.32rem /
+  800 / Archivo). Era ele que forçava a segunda linha no celular (~107px contra
+  os 64 documentados) e obrigava a barra a **não grudar**; a alternativa,
+  truncar com reticências, tinha sido recusada em 14/08 por esconder
+  justamente o que precisava ter peso.
+  **Com ele fora, a barra do celular volta aos 64px e volta a grudar**, como a
+  da landing. `.barra { position: static }` foi removida.
+- ⚠️ **Regressão silenciosa evitada:** com o cabeçalho novo, a célula de texto
+  deixou de ser `:first-child` da placa. `container-type: inline-size` e o
+  `padding-bottom` da placa empilhada foram remapeados para
+  `.placa-topo + .placa-cel`. Com `:first-child`, a contenção cairia na célula
+  errada e a `.frase` perderia a referência de `cqi`.
+- Cache-bust: `cliente.css` v13.
+
+⚠️ **Verificação — contra o backend real desta vez** (servidor local na 3001,
+banco de TESTE, `demo-cliente@teste.local`, estado "sem sinal"), com geometria
+por `getBoundingClientRect`, nunca por captura:
+
+| | Landing @1920 | Painel @1920 |
+|---|---|---|
+| Altura da barra | 74px | **74px** |
+| `.barra-in` | 1240px, `padding-left` 56px | **1240px, 56px** |
+| Logo | 40px | **40px** |
+
+No celular (iframes de largura real — `resize_window` do Chrome não pegou, de
+novo): barra **64px e `sticky`** de 320 a 760px, logo **32px**, e o logo
+alinhado com a borda da placa em todas as larguras (20 / 20 / 20 / 21,5 / 27 /
+38px). Sem transbordo horizontal em nenhuma.
+
+⚠️ **A medição de "altura até a ação" mudou** — a regra manda refazê-la a cada
+acréscimo acima do botão. Base de "Preciso de ajuda" no estado sem sinal:
+**568,9px a 390px** (era 491) e **586,1px a 320px** (o pior caso documentado
+era 569). O saldo é ~+5px a 390px e ~+17px a 320px: a barra devolveu 43px, o
+cabeçalho da placa consumiu ~50, e a 320px o nome do prédio quebra em duas
+linhas. A 390px folga; a 320px o botão fica parcialmente abaixo da dobra num
+viewport de 568px — **em aberto**, ver
+[`../memory-bank/active-work.md`](../memory-bank/active-work.md).
+
+### 2026-08-17 — Cenário de telemetria variado no banco de teste (tooling)
+
+`scripts/seed-cenario-telemetria.js` — novo. O `seed-teste.js` deixa os 4
+reservatórios do condomínio DEMO com o mesmo `last_seen`, e como ele envelhece,
+**todos aparecem offline**: a tela do cliente vira quatro cards idênticos e não
+dá pra avaliar layout, alerta nem gráfico. O script regrava 72h de leituras
+(1 a cada 10 min, com ruído de ±0,8 pp e PRNG determinístico) dando um estado
+diferente a cada reservatório:
+
+| Device | Reservatório | Estado | Alerta aberto |
+|---|---|---|---|
+| `DEMO-SUP1` | Caixa Superior 1 | online · ~88% · bomba desligada | — |
+| `DEMO-SUP2` | Caixa Superior 2 | online · ~34% · bomba enchendo | `nivel_baixo` |
+| `DEMO-CIST` | Cisterna | online · ~8% | `nivel_muito_baixo` |
+| `DEMO-INCE` | Reserva Incêndio | **offline há 3h** · última ~70% | `dispositivo_offline` |
+
+- **O offline é de verdade, não um flag** — cada cenário tem `ateHoras`, e o
+  `last_seen` sai da última leitura gerada. É o mesmo caminho que
+  `GET /cliente/status` e o `offline.job` leem.
+- As curvas são **piecewise explícitas** (dente de serra de consumo, queda
+  contínua na cisterna), não simulação: o valor final é previsível, que é o
+  ponto de um dado de demonstração.
+- Resolve os alertas abertos antes de abrir o alvo — o índice parcial
+  `uniq_alerta_aberto` só admite um aberto por (device, tipo), e é alerta velho
+  empilhado que polui a tela.
+- Recusa rodar em produção pelo mesmo resolvedor do servidor (`src/db-url.js`).
+- ⚠️ Com `node server.js` no ar, o `offline.job` derruba os três "online" depois
+  de `OFFLINE_MINUTES` (default 10). Rodar o script de novo antes de demonstrar,
+  ou subir com `OFFLINE_MINUTES=1440`.
+
+Nada de schema, nada de código de produção. Detalhe do ambiente em
+[`modulos/painel-cliente.md`](modulos/painel-cliente.md).
+
+### 2026-08-17 — A primeira tela ganha teto: a placa parou de boiar (frontend)
+
+O Pedro apontou que "em alguns casos o espaço em cima e em baixo do campo dos
+reservatórios está imenso". Medido no `getBoundingClientRect`, com o CSS real
+nos seis estados (nunca por captura), são **dois vazios diferentes**:
+
+| | Antes | Depois |
+|---|---|---|
+| Acima/abaixo da placa (viewport 949px) | 137 / 149px | **67 / 79px** |
+| Em volta do tubo, estado sem telemetria | 137 / 137px | **99 / 99px** |
+
+- ⚠️ **A banda em volta da placa crescia 1:1 com a altura do monitor.** A placa
+  tem altura de conteúdo (589px nos estados com telemetria); a `.resposta` tinha
+  a altura da janela (`100dvh - --barra-h`) e centrava — todo o resto virava
+  banda morta dividida em duas. Numa tela de 809px dava 67/79px e ninguém
+  reclamou; numa de 949px, 137/149px. Agora o `min-height` tem **teto de
+  46rem**: `min(calc(100dvh - var(--barra-h)), 46rem)`.
+  **Efeito colateral aceito:** em telas altas o começo da história aparece
+  abaixo da fita. Isso relativiza "a primeira tela INTEIRA é a resposta" — mas
+  o vazio era o preço dessa afirmação, e o convite a rolar é melhor que a
+  banda morta. Reversível em uma linha se o Pedro preferir o contrário.
+- **No estado sem telemetria o vazio era do tubo mesmo.** Em duas colunas as
+  células da placa têm a mesma altura (grade) e centram o conteúdo, então a
+  diferença entre elas vira vazio simétrico — e ali a diferença é a maior de
+  todas: bloco de 299px contra célula de texto de 465px. O tubo em contorno
+  cresce para **105×344**, a mesma proporção da peça (.306) **escalada, não
+  esticada** — esticar só a altura (testado a 82×373) transforma o cilindro
+  num filete.
+- É a **única regra `min-width` da folha** (`@media (min-width: 1001px)`), e o
+  comentário diz por quê: empilhado cada célula tem a sua altura e não há
+  disparidade, e no celular o `.tubo` de 210px vale para todos.
+- Cache-bust: `cliente.css` v18.
+
+⚠️ **Verificação** — seis estados × `getBoundingClientRect`, em harness que
+carrega o `cliente.html/.css/.js` **reais** com `fetch` dublado (o CSP
+`script-src 'self'` mata script inline: o dublê tem de ser arquivo servido).
+Larguras 390 / 900 / 1180 em iframes de largura real: no celular o tubo segue
+82×210 e a seção segue sem `min-height`; a 900px (empilhado) a placa é mais
+alta que o teto e ele nunca morde; nenhum transbordo horizontal em nenhuma.
+
+### 2026-08-17 — O estado "sem sinal" vira instrumento (frontend)
+
+Três defeitos no mesmo estado, todos de acabamento, nenhum de conceito — o
+conceito (hachura, nunca tubo vazio; "não sei" ≠ "está vazio") continua igual:
+
+- ⚠️ **A hachura era invisível.** `#08133f` sobre `--mar-900` (#030a26) dá
+  **1,1:1**: o tubo lia como um retângulo preto chapado, e o gesto que carrega
+  o sentido do estado era justamente o único que não aparecia. Agora é
+  `--sobre-2` a 20% (1,43:1 — textura, não texto), no mesmo −45° da fita de
+  segurança e do chanfro. O estado passa a usar o vocabulário da casa em vez
+  de um cinza herdado.
+- **A coluna de leituras colapsava para um traço solto.** Todo estado tem duas
+  leituras (Nível + Bomba); o mudo tinha só "NÍVEL —", porque sem leitura não
+  há bomba a reportar. Um traço sozinho ao lado de um tubo hachurado é o
+  desenho de uma tela inacabada. A segunda leitura volta medindo **tempo**:
+  `SEM RESPOSTA HÁ / 3h`, no mesmo tratamento do nível (mono grande + unidade
+  pequena). Não é leitura inventada — sai de `ultima_leitura.criado_em`, e é o
+  único número honesto que sobra: o nível não se sabe, mas há quanto tempo não
+  se sabe, sabe-se com precisão.
+- **A linha ao lado do botão saiu, e é remoção de duplicata.** Com o
+  instrumento dizendo "há 3h", `Última leitura desse sensor há 3h` repetia o
+  mesmo dado do outro lado da placa. ⚠️ Ela **volta quando há 2+ sensores
+  mudos**: aí o instrumento mostra só o pior e a linha é a única que fala do
+  conjunto.
+- `semSinalHa()` em `cliente.js` — o mesmo relógio do `desdeQuando`, partido em
+  número e unidade porque no instrumento o tempo é medição, não frase.
+- Cache-bust: `cliente.css` v21, `cliente.js` v35.
+
+**O selo de sem sinal** (pedido do Pedro na sequência: *"era bom colocar um
+símbolo de sem sinal pra ficar mais visual"*) — uma chapa chanfrada de 44px
+carimbada no meio do tubo, com barras de sinal cortadas. A hachura diz "não
+estamos medindo" para quem já conhece a peça; o selo diz para quem está vendo
+pela primeira vez, que é o caso do síndico.
+
+⚠️ **A geometria é a do `wifi-off` do Lucide** (já em `public/lucide.min.js`),
+e isso é a correção de **dois desenhos meus que saíram tortos** — os dois
+descobertos ampliando o ícone, não olhando a tela:
+
+- **Três barrinhas cortadas** (o Pedro: *"tá mal feito esse símbolo"*). O corte
+  tem de descer — subindo, acompanha as barras e o conjunto lê como **seta de
+  crescimento**. Só que, descendo, **nenhuma reta cruza as três**: ela passa
+  por cima da barra baixa sem tocá-la e retalha as outras duas em alturas
+  diferentes. A 8×, o que sobrava eram tocos soltos. Não é ajuste fino, é
+  impossível: barras que sobem e corte que desce não se encontram.
+- **Triângulo cheio com uma vala.** O corte de 45° cai exatamente no eixo de
+  simetria do triângulo retângulo e o parte em duas metades espelhadas — vira
+  **gravata-borboleta**, não medidor cancelado.
+
+O Lucide resolve o mesmo problema do jeito certo: os arcos são **desenhados
+já interrompidos** onde o corte passa. Os vãos fazem parte da geometria, em
+vez de serem abertos por cima com um traço grosso da cor do fundo. ⚠️ Não
+"arrumar" os arcos fechando os vãos.
+
+- **O leque de wi-fi é literal:** o ESP32 fala por wi-fi, e o que parou foi o
+  rádio dele — não a água. As curvas são exceção assumida ao "traço sempre
+  esquadrado" (o ícone de conta, na barra, já tem círculo e arco); a
+  alternativa toda reta (`antenna` do Lucide) recai no problema das barras.
+- ⚠️ **`stroke-linecap: square` é o que faz o ponto de baixo existir.**
+  `M12 20h.01` é subcaminho de comprimento zero: com `butt` ele simplesmente
+  não é desenhado, e some sem erro nenhum no console.
+- SVG a **22px** dentro da chapa de 44: o desenho vai de canto a canto do
+  viewBox e o `square` ainda avança meio traço em cada ponta — a 24px o corte
+  encostava no chanfro da chapa.
+- Chapa **opaca** e construção de duas camadas (fundo = fio, `::before`
+  embutido 1px = chapa), como a `.placa` e o `.resto`: `box-shadow: inset`
+  como borda sairia recortado nos dois chanfros, e chapa translúcida deixaria
+  a hachura atravessar o desenho.
+
+⚠️ **Nada de crista no tubo mudo.** Uma linha horizontal ali seria lida como
+nível — a confusão que este estado existe para evitar. O selo não tem esse
+risco: é centralizado, não tem altura que se leia como medida. Pelo mesmo
+motivo o nível da última leitura conhecida **não** volta como fantasma, ainda
+que a API o traga: a decisão de 14/08 (sem limiar, sem faixa, sem nada que
+sugira um valor sobre a hachura) continua valendo.
+
+Verificado nos seis estados e a 390px: o dt `SEM RESPOSTA HÁ` cabe em uma linha
+no celular, e a ação não se move — a leitura nova entra na célula da prova, que
+no empilhado vem **depois** de "Preciso de ajuda".
+
+### 2026-08-17 — Total manual tira as colunas de valor unitário do PDF (backend)
+
+Preencher **"Valor total (manual)"** (`orcamentos.valor`) sempre significou que
+o preço **não** vem da soma dos itens. Mas o PDF continuava imprimindo as
+colunas **Valor Unit.** e **Total** — cheias de "—" quando nenhum item tinha
+preço, ou pior: com valores parciais que não fechavam com o VALOR TOTAL logo
+abaixo, dando ao cliente uma conta que não bate.
+
+Agora, quando `os.valor != null`:
+
+- **Orçamento de peças** (`renderHTML`): a tabela de itens fica com `#`,
+  Descrição/Especificações e Qtd. O `colspan` do estado vazio acompanha (3 em
+  vez de 5). O box **VALOR TOTAL** continua igual.
+- **Orçamento de serviço** (`renderHTMLServico`): cada `.valor-row` perde o
+  `.valor-num` — a caixa vira a relação dos serviços cobertos, e o preço
+  aparece só no VALOR TOTAL.
+- ⚠️ **`renderMeasureHTML` espelha a condição** (thead + as duas linhas de
+  amostra `item-base`/`item-ficha1`). É ele que mede a altura real da linha pro
+  Puppeteer paginar; sem as colunas de moeda a descrição fica mais larga e a
+  linha encolhe — medir com as colunas e imprimir sem elas erraria a quebra de
+  página.
+
+Sem total manual, nada muda: as colunas voltam e `fmtMoeda(null)` segue
+imprimindo "—" no item sem preço (comportamento da migration 062).
+
+### 2026-08-17 — No celular a coluna DEITA, como na landing (frontend)
+
+Pedido do Pedro: *"no landing page quando vai para o mobile, o reservatório
+fica na horizontal, acho que ficaria melhor assim no painel também"*. Era
+inconsistência real — a landing tem o tratamento deitado desde 14/08 e o
+painel, que reusa a mesma peça, só encurtava a coluna de 268 para 210px.
+
+Abaixo de **820px** (onde este painel vira celular; na landing o ponto é 760)
+o tubo passa a **100% × 132px**, os mesmos valores do `landing.css`, e as
+leituras deixam de ser uma coluna ao lado para virar uma **fileira embaixo**
+(`repeat(auto-fit, minmax(126px, 1fr))`, o `.instr-leituras` de lá).
+
+⚠️ **Deitada, todo eixo do desenho troca** — cada regra tem par no
+`landing.css`, e mudou lá, muda aqui:
+
+| | Em pé | Deitada |
+|---|---|---|
+| lâmina | `translateY(100% - --n)` | `translateX(--n - 100%)` |
+| crista | borda de cima | borda da direita |
+| faixas | `bottom` / `height` | `left` / `width` |
+| limiar | `border-top` | `border-left` |
+
+- O gradiente da lâmina inverte para `to left`, senão o tom claro fica na
+  ponta errada e a crista perde o encaixe.
+- ⚠️ **O VINHO DO CRÍTICO VOLTOU, e isso reverte uma decisão.** De 14/08 a
+  17/08 valeu aqui "a água é sempre azul" (argumento: água colorida vira
+  imagem estranha, quem sinaliza é a crista). Eu apliquei a regra de novo ao
+  deitar a coluna e o Pedro reabriu — *"pode mudar isso"*. Abaixo de 20% a
+  lâmina volta a escurecer para `#7a1e2c → #4a1220`, os mesmos dois valores
+  do `.coluna-agua` da landing, nos dois eixos.
+  **Só no crítico:** no `baixo` a água continua azul e quem avisa é a crista
+  âmbar — abaixo de 45% a bomba costuma repor sozinha, e pintar a lâmina ali
+  transformaria rotina em alarme. Caiu metade da decisão de 14/08, não ela
+  inteira. O que o argumento original não previa era a peça vista **lado a
+  lado com a landing**, que foi o que a virada horizontal expôs.
+- Ganho de altura: a prova sai de 210px de tubo + coluna de leituras para
+  132px + fileira — sobra que vai direto para a dobra do celular.
+- Cache-bust: `cliente.css` v23.
+
+Medido a 390 / 760 / 900 / 1180 / 1440: deitada nas duas primeiras (297×132 e
+631×132, crista exatamente no percentual da leitura), em pé de 900 para cima
+(82×268, `prova-in` em duas trilhas), nenhum transbordo horizontal. A faixa de
+**821–1000px** — placa já empilhada, tubo ainda em pé — ficou como estava; é
+banda estreita (o iPad retrato tem 768 e cai no deitado, o paisagem tem 1024 e
+cai nas duas colunas).
+
+### 2026-08-17 — O tanque em branco do "sem telemetria" saiu (frontend)
+
+Pedido do Pedro: *"não faz sentido ficar um reservatório lá em branco"*. Saiu o
+`.sem-sensor` inteiro — o `<span class="tubo">` em contorno puro mais a
+etiqueta "Sem medição".
+
+**Por que ele não tinha conserto:** um contorno vazio no lugar do instrumento é
+exatamente a leitura que este painel gasta uma tela inteira evitando —
+*"seus reservatórios estão secos"*. A defesa registrada em 14/08 era ter
+cortado de três tubos para um, mas isso tratou a **quantidade**, não a
+**forma**: um tanque vazio afirma a mesma coisa falsa que três. E aqui é pior
+que no sensor mudo, onde ao menos existe um reservatório real que parou de
+responder — neste estado **o backend não conhece reservatório nenhum**, não há
+tanque para desenhar nem cheio nem vazio.
+
+- **Sem prova a mostrar, a célula da prova deixa de existir**: `display: none`
+  na segunda `.placa-cel` e `grid-column: 1 / -1` na primeira. A placa vira uma
+  peça só, e o estado passa a ser a frase + o motivo + as ações.
+- **A oferta subiu de link para chapa.** "Quero monitorar meu prédio" era um
+  link sublinhado solto acima do botão; agora é chapa de duas camadas ao lado
+  de "Preciso de ajuda", dentro da `.rodape-resposta`. A placa perdeu a prova,
+  não a segunda ação — e um link de uma linha não sustentava sozinho o estado.
+  ⚠️ Continua **secundária**: o amarelo aparece uma vez por tela e é da ação de
+  sempre. Quem separa as duas é a chapa contra o amarelo.
+- ⚠️ **Tipo e recuo idênticos aos do `.ajuda`**, não os do `.resto`: lado a
+  lado, .95rem contra 1,06rem davam 55 contra 56px de caixa e os dois chanfros
+  desalinhavam 1px na base. Medido, corrigido, medido de novo.
+- Saiu junto a **única regra `min-width` da folha** (o tubo do semtel crescendo
+  para 105×344 acima de 1000px, de manhã). A lição fica no comentário: o vazio
+  em volta era sintoma, o defeito era o tanque vazio existir.
+
+
+Verificado nos seis estados (só o `semtel` esconde a segunda célula) e a 390 /
+760 / 1180: os dois botões dividem a linha acima de 760px e quebram em duas no
+celular, sem transbordo.
+
+**Passada de composição na sequência** (`/impeccable onboard` — este estado é um
+empty state de ativação, não uma tela de operação):
+
+- ⚠️ **A placa encolhe para 720px.** Tirar a prova sem mexer na largura só
+  troca o vazio de lugar: 1240px de peça para um bloco de texto de 425px é a
+  mesma banda morta que o tanque deixava, agora dentro da placa. 720px é a
+  largura em que o elemento mais largo do estado — a linha das duas ações,
+  609px — enche a peça. A borda esquerda continua alinhada com a `.folha`:
+  ela **encurta, não se desloca**.
+- **Encolhendo, a placa descobre a engrenagem.** O que passa a ocupar a
+  direita da tela é a marca em escala arquitetônica, que já estava atrás. O
+  vazio virou material sem desenho novo e sem copy nova.
+- **O apoio vira a mensagem.** Sem número e sem tanque, é essa frase que diz o
+  que falta: sobe de 1,16rem/`--sobre-2` para 1,22rem/#cfd9f5, medida de 38ch,
+  três linhas. Nos outros cinco estados ela continua secundária de propósito,
+  porque lá quem fala é a leitura — verificado que a regra não vaza.
+- **A dobra do celular melhorou:** base de "Preciso de ajuda" a 390px caiu de
+  **564 para 543px** neste estado (o tanque removido devolveu mais altura do
+  que o apoio maior consumiu). A 320px fica em 570px. Regra da casa cumprida:
+  mexeu acima da ação, mediu de novo.
+- Cache-bust: `cliente.css` v26.
+
+⚠️ **Armadilha de sessão, não de código:** o service worker registrado em
+`localhost:3001` sequestrou o harness de conferência e devolveu
+`{"error":"Sem conexão"}` no lugar da página — a mesma armadilha de cache do
+[`../CLAUDE.md`](../CLAUDE.md), agora vista de fora do admin. Em página nova
+servida por `/static` durante desenvolvimento, se o conteúdo não bater com o
+arquivo, **conferir o SW antes de procurar bug**.
+
+### 2026-08-17 — Sem telemetria: a prova vira a OFERTA (frontend)
+
+Veredito do Pedro sobre a passada de composição de tarde: *"estou achando essa
+tela muito ruim"*. Ele estava certo, e o diagnóstico do que eu tinha feito:
+
+- **A engrenagem gigante não era "marca em escala arquitetônica", era
+  decoração tapando buraco.** Eu criei um vazio (tirando o tanque, o que
+  estava certo) e deixei um ornamento preencher.
+- **A manchete gritava uma AUSÊNCIA em 70px** — nos outros estados aquele
+  volume é a resposta sobre a água; aqui era o que o cliente NÃO tem, no topo
+  de uma tela cujo trabalho é tranquilizar.
+- **O estado não tinha conteúdo**, então qualquer composição virava buraco.
+  Isso não se resolve movendo caixa.
+
+Quatro caminhos foram postos lado a lado (mesmo método que decidiu o cilindro
+em 14/08), e **o Pedro escolheu o B — "a oferta"**:
+
+> A célula da prova **não some: ela troca o que prova.** Este é o único estado
+> em que o produto ainda não foi entregue, então a prova é o que o sensor
+> passaria a mostrar — e a tela deixa de ser sobre o que falta para ser sobre
+> o que vem.
+
+- **`.oferta`** no lugar da `.prova`: rótulo mono ("Com o sensor, esta tela
+  passa a mostrar") e três linhas — nível de cada reservatório · bomba ligada
+  ou parada · aviso antes de faltar água. Separadas pelo **sulco gravado da
+  casa** (`--luz` em cima, `--rasgo` embaixo), o mesmo par do cabeçalho da
+  placa.
+- ⚠️ **Nenhum número, nenhum tanque, nenhuma leitura de exemplo.** Um
+  instrumento com valor inventado no painel de um cliente é o pior erro
+  possível num produto que vende medição. A oferta é texto.
+- ⚠️ **A numeração 01/02/03 do estudo NÃO entrou**, por dois motivos: os três
+  itens são paralelos, não uma sequência — número que não ordena nada é
+  ornamento —, e em âmbar seriam o **segundo** amarelo da tela.
+- ⚠️ **O amarelo troca de botão.** Continua uma vez por tela, mas aqui a ação
+  que importa é a oferta, não o socorro: "Quero monitorar meu prédio" fica
+  âmbar e "Preciso de ajuda" vira contorno, do mesmo tamanho. **O DOM troca
+  junto** (`cliente.html`) — ordem visual que não bate com ordem de tabulação
+  é defeito de teclado, não detalhe.
+- **A manchete baixa de volume** para `clamp(2rem, 9cqi, 3rem)`: com a célula
+  da direita cheia, ela não precisa mais carregar a tela sozinha.
+- **Revertidos** a placa de 720px e o apoio de 1,22rem/#cfd9f5 da passada de
+  tarde. A placa volta a 1240 e a duas colunas, como em todos os outros
+  estados.
+- Cache-bust: `cliente.css` v27.
+
+**Dobra do celular a 390px** (a regra manda medir sempre que algo muda acima da
+ação): base da ação principal em **508px** — era 564 antes de hoje e 543 na
+passada de tarde. A ação secundária termina em 586 e a oferta começa em 625,
+abaixo da dobra de propósito: é conteúdo de apoio, não a ação.
+
+Verificado que nada vaza: nos outros cinco estados `.oferta` fica `none`,
+`.quero` fica `none`, "Preciso de ajuda" segue âmbar e a `.prova` segue no
+lugar. Sem transbordo horizontal a 320 / 390 / 760 / 1180.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em
-> [`modulos/`](modulos/README.md).
+> [`modulos/`](modulos/README.md).

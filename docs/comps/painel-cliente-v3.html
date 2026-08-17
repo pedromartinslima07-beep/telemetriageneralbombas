@@ -1,0 +1,1373 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Painel do cliente — comp v3</title>
+<style>
+@font-face{font-family:"Archivo";src:url("../../public/fonts/archivo.woff2") format("woff2");font-weight:400 900;font-stretch:62% 125%;font-display:swap}
+@font-face{font-family:"Martian Mono";src:url("../../public/fonts/martianmono.woff2") format("woff2");font-weight:400 700;font-display:swap}
+
+:root{
+  --mar-900:#030a26; --mar-800:#050f38; --mar-700:#071b5c; --mar-500:#1a3a9e;
+  --agua:#2f6fe0; --crista:#8fb6ff;
+  --amarelo:#fbb329; --risco:#ff5a4d; --normal:#63d8a0;
+  --sobre-2:#a6b5dc; --fio:rgba(255,255,255,.14); --fio-fraco:rgba(255,255,255,.07);
+  /* o par do corte gravado, valores do landing.css — sempre juntos e nesta ordem */
+  --rasgo:rgba(2,6,22,.55); --luz:rgba(255,255,255,.10);
+  /* a família clara — vive SÓ dentro das fichas (o que abre por cima).
+     --atencao-t/--risco-t/--normal-t já existiam no cliente.css sem uso: são a
+     tinta do estado sobre claro, porque âmbar e vermelho reprovam ali. */
+  --chapa:#e8ebf2; --chapa-cl:#f5f7fb; --chapa-es:#d5dae6;
+  --tinta:#061033; --tinta-2:#414f74; --fio-esc:rgba(6,16,51,.18);
+  --atencao-t:#8a5300; --risco-t:#b3241a; --normal-t:#145c33;
+  --fonte:"Archivo",ui-sans-serif,system-ui,sans-serif;
+  --mono:"Martian Mono",ui-monospace,monospace;
+  --ch:10px;
+  --corte:polygon(var(--ch) 0,100% 0,100% calc(100% - var(--ch)),calc(100% - var(--ch)) 100%,0 100%,0 var(--ch));
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+/* ⚠️ O campo é `--mar-800`, como na landing. Eu tinha baixado para `--mar-900`
+   para a placa se destacar, e com isso barra e rodapé — que são `--mar-900` —
+   ficaram da COR DO FUNDO e sumiram. A escada correta tem três degraus:
+   campo 800 · barra e rodapé 900 · placa em gradiente 700→900. */
+/* ⚠️ O corte precisa estar em `html` E `body`. Só no `body` ele NÃO segura: a
+   engrenagem, que sangra para a margem de propósito, fazia a página rolar de
+   lado em toda largura de telefone (42px a 320, 59px a 390 — medido). Foi
+   assim que o Pedro pegou o defeito, arrastando a comp para o lado no celular.
+   `clip`, nunca `hidden`: `hidden` vira contêiner de rolagem e quebra o
+   `position:sticky` da barra e do trilho de datas. */
+html,body{overflow-x:clip}
+body{background:var(--mar-800);color:#fff;font-family:var(--fonte);font-size:1.0625rem;line-height:1.55;
+  -webkit-font-smoothing:antialiased;font-synthesis-weight:none}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+input,textarea{font:inherit;color:inherit}
+svg{display:block}
+
+/* superfícies do navegador — não são "defaults", são do sistema */
+::selection{background:var(--amarelo);color:var(--mar-900)}
+:focus-visible{outline:none;box-shadow:inset 0 0 0 2px var(--amarelo)}
+*{scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.22) transparent}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,.22)}
+::-webkit-scrollbar-thumb:hover{background:var(--amarelo)}
+::-webkit-scrollbar-track{background:transparent}
+
+/* ─── andaime do comp (NÃO faz parte do desenho) ─── */
+/* ⚠️ ESTÁTICO, não fixo. Fixo, ele ficava colado por cima da barra do painel
+   e — sendo quase da mesma cor (#11131a contra #030a26) — era lido como o topo
+   da página, comendo o ar acima do logo. O comp mentia sobre o próprio
+   espaçamento. Ele rola junto; o topo do comp é o topo de verdade. */
+.andaime{position:static;z-index:99;
+  padding:6px 14px;background:#11131a;border-bottom:1px solid #2a2e3a;
+  font-family:var(--mono);font-size:11px;color:#7c8496}
+.andaime .lin{display:flex;gap:7px;align-items:center;flex-wrap:wrap;padding:2px 0}
+.andaime b{color:#c9cfdd;font-weight:400;flex:0 0 96px}
+.andaime button{padding:4px 10px;border:1px solid #2f3542;color:#9aa3b8;font-family:var(--mono);font-size:11px}
+.andaime button[aria-pressed="true"]{background:#2f3542;color:#fff}
+.andaime button:focus-visible{box-shadow:inset 0 0 0 2px #7c8496}
+
+/* ─── a folha ─── */
+/* 1240 é o --area-max da landing. O painel estava em 1080 e desperdiçava as
+   laterais enquanto a frase se espremia. */
+.folha{max-width:1240px;margin:0 auto;padding:0 clamp(22px,5vw,40px)}
+
+/* topo: só identifica. sem barra, sem KPI, sem avatar. */
+/* ─── a barra ───
+   Construção da landing: faixa de largura inteira, conteúdo centrado na área.
+   Nasce transparente sobre o campo e ganha fundo sólido + fio quando rola —
+   é isso que a "marca" sem pesar em repouso. */
+.barra{position:sticky;top:0;z-index:60;
+  background:color-mix(in srgb,var(--mar-900) 86%,transparent);
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  border-bottom:1px solid transparent;
+  transition:border-color .3s ease,background .3s ease}
+.barra.is-rolada{border-bottom-color:var(--fio);background:var(--mar-900)}
+/* 40 + 17 + 17 = 74px, a altura de barra da DESIGN.md */
+.barra-in{max-width:1240px;margin-inline:auto;padding:17px clamp(22px,5vw,40px)}
+.topo{position:relative;z-index:1;display:flex;align-items:center;gap:14px}
+/* 40px é o número da DESIGN.md ("40px no topo, 72px no rodapé"). Eu tinha
+   subido para 54 e depois 46 tentando compensar o fato de que, no
+   `logo-topo.png`, as letras GENERAL ocupam só 77 dos 180px de altura (o resto
+   é engrenagem) — mas o preço foi uma barra de 85px contra os 74 do sistema.
+   ⚠️ Se a marca voltar a parecer pequena ao lado do nome do prédio, a alavanca
+   é o NOME, não o logo: ambos estão nos valores documentados. */
+.topo img{height:40px;width:auto}
+/* o fio separa duas caixas de ~15px de altura; a 30px ele era o dobro delas */
+.topo .fio-v{width:1px;height:22px;background:var(--fio)}
+/* o nome do prédio É o título da tela — papel que a DESIGN.md já define
+   (topbar: 1.32rem / 800 / Archivo). Estava a .95rem em --sobre-2, que é
+   escala de legenda: por isso sumia. */
+/* ⚠️ correção ÓPTICA de 2px: "Edifício Vila Mariana" e "Pedro Martins" não têm
+   nenhuma letra descendente, então a caixa reserva embaixo um espaço que a
+   tinta não usa — centralizar a caixa joga a tinta para cima. Medido: centro
+   da tinta a 129,7 contra 131,5 do centro da barra. */
+.topo .predio{font-size:clamp(1.12rem,1.5vw,1.32rem);font-weight:800;font-stretch:106%;
+  letter-spacing:-.018em;color:#fff;line-height:1.14;position:relative;top:2px}
+.conta{margin-left:auto;display:inline-flex;align-items:center;gap:9px;
+  font-size:.95rem;color:var(--sobre-2);padding:7px 2px;border-bottom:1px solid transparent;
+  position:relative;top:1px}   /* mesma correção óptica: "Pedro Martins" não desce */
+.conta:hover{color:#fff;border-bottom-color:var(--fio)}
+.conta svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.6}
+
+/* ─── 1. A RESPOSTA — ocupa a primeira tela ───
+   A resposta é O INSTRUMENTO da landing, não um bloco de texto solto: mesma
+   placa chanfrada, mesmo interior em gradiente 168°, mesma aresta de 1,5px.
+   `cliente.js:141` já pedia isso — o síndico reconhece a peça que viu antes
+   de contratar. O que muda é o volume: chanfro menor, sem anel de estado. */
+.resposta{position:relative;min-height:calc(100vh - 174px);min-height:calc(100dvh - 174px);
+  display:grid;align-items:center;padding:32px 0 clamp(30px,3.4vw,44px)}
+
+/* ⚠️ a trilha da prova é `max-content`. Com `minmax(0,auto)` ela encolhia
+   abaixo do conteúdo e cortava os cilindros; com `auto` foi pior — ao lado de
+   um `1fr` a trilha `auto` colapsa para o MÍNIMO e a célula caiu para 88px.
+   Quem cede largura é o texto, e ele pode: a frase se dimensiona pela própria
+   célula (cqi). */
+.placa{--ch:16px;position:relative;clip-path:var(--corte);background:var(--fio);padding:1.5px;
+  display:grid;grid-template-columns:minmax(0,1fr) max-content}
+.placa::before{content:"";position:absolute;inset:1.5px;clip-path:var(--corte);
+  background:linear-gradient(168deg,var(--mar-700) 0%,var(--mar-900) 100%)}
+.placa > *{position:relative;z-index:1}
+/* as duas células centram o conteúdo na vertical: a de texto é sempre mais
+   alta que a de prova, e com alinhamento ao topo a prova ficava pendurada com
+   um vazio embaixo */
+.placa-cel{padding:clamp(30px,4.2vw,54px);display:flex;flex-direction:column;justify-content:center}
+/* ⚠️ SÓ na célula de texto. `container-type:inline-size` aplica contenção: o
+   elemento passa a ignorar o próprio conteúdo ao calcular largura intrínseca.
+   Na célula da prova isso zerava o max-content e a coluna colapsava para 88px
+   — os cilindros ficavam com 43px. A célula de texto é `1fr`, então a largura
+   intrínseca dela não importa. */
+.placa-cel:first-child{container-type:inline-size}
+/* corte gravado: DUAS linhas, nunca uma. uma só lê como borda de card. */
+.placa-cel + .placa-cel{border-left:1px solid var(--rasgo);box-shadow:inset 1px 0 0 var(--luz)}
+
+/* a marca em escala arquitetônica, marinho sobre marinho — presença sem
+   repetir o logotipo. mais apagada que na landing: aqui é painel, não venda. */
+/* a engrenagem SANGRA para a margem da página, envolvendo o canto superior
+   direito da placa. Presa dentro da coluna ela virava um bloco recortado na
+   faixa morta entre o cabeçalho e a placa — artefato, não marca. */
+.eng{position:absolute;top:-24%;right:-15vw;width:min(50vw,580px);aspect-ratio:1;
+  color:var(--mar-500);opacity:.26;pointer-events:none;z-index:0}
+@keyframes girar{to{transform:rotate(360deg)}}
+.eng svg{width:100%;height:100%;animation:girar 140s linear infinite}
+
+/* ⚠️ o tamanho vem da CÉLULA (cqi), não do viewport (vw). "abastecido." tem
+   ~6,8em e não quebra: dimensionada por vw, a palavra vazava da célula e
+   atravessava o corte gravado sempre que a coluna de texto encolhia. 13cqi
+   garante que a maior palavra caiba na largura disponível, seja ela qual for. */
+.frase{font-size:clamp(2rem,13cqi,4.4rem);font-weight:800;font-stretch:112%;
+  line-height:1.04;letter-spacing:-.032em;max-width:14ch;text-wrap:balance}
+.frase em{font-style:normal;color:var(--amarelo)}
+.frase.risco em{color:var(--risco)}
+
+.apoio{margin-top:22px;font-size:1.16rem;line-height:1.55;color:var(--sobre-2);max-width:42ch}
+
+/* ⚠️ align-self: sendo filho de um flex column ele esticaria para a largura
+   toda e o sublinhado atravessaria a célula inteira */
+.quero{display:none;align-self:flex-start;margin-top:16px;font-size:1.02rem;color:#fff;
+  border-bottom:1px solid var(--fio);padding-bottom:2px}
+.quero:hover{border-bottom-color:var(--amarelo)}
+body[data-estado="semtel"] .quero{display:inline-block}
+
+/* água normal COM atendimento em andamento: o dia calmo e o dia com técnico no
+   prédio deixam de ser o mesmo estado. o veredito da água não muda — muda o
+   fato de existir mais uma coisa acontecendo, e ela é um objeto clicável. */
+/* ⚠️ ela vale para TODO estado com chamado aberto, não só o 4a: crítico, baixo
+   e mudo afirmam em prosa que o chamado foi aberto e não davam objeto nenhum
+   para tocar. "Alguém está resolvendo?" é a 2ª pergunta do público. */
+.linha-atend{display:none;align-items:center;gap:12px;margin-top:22px;padding:14px 16px;
+  --ch:8px;clip-path:var(--corte);background:var(--mar-900);box-shadow:inset 0 0 0 1px var(--fio);
+  width:100%;max-width:56ch;text-align:left;font-size:1rem;transition:background .14s ease}
+body[data-atend="sim"] .linha-atend{display:flex}
+.linha-atend:hover{background:#0a1a52}
+.linha-atend .seta{margin-left:auto;flex:0 0 auto;width:16px;height:16px;
+  stroke:var(--sobre-2);fill:none;stroke-width:1.7}
+.linha-atend:hover .seta{stroke:#fff}
+
+.rodape-resposta{margin-top:36px;display:flex;align-items:center;gap:22px;flex-wrap:wrap}
+.ajuda{clip-path:var(--corte);background:var(--amarelo);color:var(--mar-900);
+  font-weight:700;font-stretch:106%;padding:15px 28px;min-height:54px;display:inline-flex;align-items:center;
+  transition:background .16s ease}
+.ajuda:hover{background:#ffcb60}
+.desde{font-size:.95rem;color:var(--sobre-2)}
+
+/* ─── as colunas d'água ─── */
+/* ─── O CILINDRO ───────────────────────────────────────────────────────────
+   Escolha do Pedro em 14/08. É o `_telTanqueSVG` do admin, mas **reproporcionado
+   para o painel**: o do admin é 62×94 (razão .66, atarracado como caixa d'água
+   real) e três deles lado a lado comiam a célula inteira. Aqui o corpo é 50×94
+   (razão .5) — continua lendo como cilindro porque as elipses ficam, e cabe em
+   três no celular.
+   ⚠️ Sem os ticks 0/25/50/75/100 do admin: três tanques × cinco rótulos são
+   quinze números na primeira tela. Limiar nenhum é desenhado aqui — quem diz
+   o estado é o número, o anel da superfície e a frase. A régua vive no gráfico
+   da ficha do reservatório, que é onde se analisa. */
+.colunas{display:flex;gap:clamp(12px,2vw,24px);align-items:flex-start;justify-content:center}
+/* ⚠️ base do flex explícita, não `0`. O `<svg>` com width:100% não contribui
+   largura intrínseca nenhuma, então com `flex:1 1 0` a célula da prova não
+   sabia que precisava de ~420px e colapsava para 88. A base é o que informa
+   a grade; o `1 1` deixa encolher se faltar espaço. */
+.res{display:block;text-align:center;padding:0;flex:1 1 124px;max-width:124px}
+/* a prova cresce quando é menor: um reservatório sozinho não deve ter o
+   tamanho que teria se dividisse a célula com outros dois */
+.colunas[data-n="1"] .res{flex-basis:176px;max-width:176px}
+.colunas[data-n="2"] .res{flex-basis:140px;max-width:140px}
+.cil{display:block;width:100%;height:auto;overflow:visible}
+
+/* ─── a coluna chata: o mesmo dado, para o celular ───
+   Decisão do Pedro em 14/08. O cilindro precisa de largura para a elipse
+   funcionar; num telefone a coluna esbelta cabe melhor e lê igual. Os dois
+   nunca aparecem juntos, então não há dialeto duplo para o mesmo leitor.
+   Fica escondida no desktop e ligada abaixo de 820px. */
+.tubo{display:none;--ch:8px;clip-path:var(--corte);position:relative;width:100%;height:172px;
+  background:var(--mar-900);box-shadow:inset 0 0 0 1px var(--fio);overflow:hidden}
+.agua{display:block;position:absolute;inset:0;
+  background:linear-gradient(180deg,var(--agua) 0%,var(--mar-500) 70%,var(--mar-700) 100%);
+  transform:translateY(calc(100% - var(--n,0%)));transition:transform 1.15s cubic-bezier(.16,1,.3,1)}
+.crista{display:block;position:absolute;left:0;right:0;top:0;height:2px;background:var(--crista)}
+.res.baixo .crista{background:var(--amarelo);height:3px}
+.res.critico .crista{background:var(--risco);height:3px}
+.res.mudo .tubo{background:repeating-linear-gradient(-45deg,var(--mar-900) 0 7px,#08133f 7px 14px)}
+.res.mudo .agua{display:none}
+
+.cil .parede{fill:var(--mar-900)}
+.cil .volume{fill:url(#g-corpo)}
+/* ⚠️ SEM marca de limiar dentro do tanque — nem faixa preenchida, nem elipse
+   tracejada. O limiar já está dito três vezes na mesma tela: no número
+   colorido, no anel da superfície e na frase ("abaixo de 20% tratamos como
+   urgência"). Uma régua que ninguém mede é ruído, e ruído na primeira tela é
+   o que derrubou a v1. O limiar tem lugar: a linha de 45% no gráfico da
+   ficha do reservatório, que é onde o síndico vai analisar. */
+/* a lâmina desce por transform, igual à coluna da landing — animar geometria
+   quadro a quadro deformaria a elipse da superfície */
+.cil .agua-g{transition:transform 1.15s cubic-bezier(.16,1,.3,1)}
+.cil .agua-r{fill:url(#g-agua)}
+.cil .agua-e{fill:var(--agua)}
+.cil .agua-k{fill:none;stroke:var(--crista);stroke-width:1.4}
+.cil .brilho{fill:#fff;opacity:.085}
+.cil .aresta{fill:none;stroke:rgba(255,255,255,.3);stroke-width:1.2}
+/* a boca é só contorno: com preenchimento ela tampava a superfície da água
+   quando o tanque está cheio */
+.cil .boca{fill:none;stroke:rgba(255,255,255,.42);stroke-width:1.3}
+/* ⚠️ contato tonal, não sombra projetada: a DESIGN.md diz "não há sombra
+   projetada em lugar nenhum" e o preto veio junto com o componente do admin.
+   Um degrau do próprio marinho apoia o cilindro sem inventar luz. */
+.cil .chao{fill:var(--mar-900);opacity:.55}
+.res:hover .cil .boca{stroke:rgba(255,255,255,.7)}
+
+/* nível baixo: a ÁGUA CONTINUA AZUL. muda o número, a palavra e a crista. */
+.res.baixo .cil .agua-k{stroke:var(--amarelo);stroke-width:1.8}
+.res.baixo .pct{color:var(--amarelo)}
+/* crítico (<20%): mesma regra, outro sinal */
+.res.critico .cil .agua-k{stroke:var(--risco);stroke-width:1.8}
+.res.critico .pct{color:var(--risco)}
+/* sensor mudo: sem leitura, não sem água — hachura, nunca tanque vazio */
+.res.mudo .cil .volume{fill:url(#g-mudo)}
+.res.mudo .pct{color:var(--sobre-2)}
+
+.pct{display:block;margin-top:14px;font-family:var(--mono);font-size:1.32rem;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+/* ⚠️ fio permanente sob o nome: a única pista de que o tanque abre histórico e
+   PDF era o `:hover` da boca, que NÃO EXISTE em toque — no celular o caminho
+   ficava invisível justo no aparelho prioritário */
+.nome{display:block;margin-top:3px;font-size:.92rem;color:var(--sobre-2);max-width:11ch;
+  margin-inline:auto;line-height:1.3;
+  border-bottom:1px solid var(--fio);padding-bottom:3px;width:fit-content}
+.res:hover .nome{border-bottom-color:var(--amarelo);color:#fff}
+
+/* ─── muitos reservatórios ───
+   até 4 o prédio cabe ao lado da frase. de 5 em diante a frase sobe e os tubos
+   viram uma FAIXA de largura inteira que quebra em linhas — nada de rolagem
+   horizontal, que esconde reservatório de quem menos vai procurar. */
+/* quando a placa empilha, o sulco DEITA junto: vira border-top, senão as duas
+   células ficam sem divisão nenhuma (mesma regra que a landing usa a 760px) */
+.placa.is-empilhada{grid-template-columns:1fr}
+.placa.is-empilhada .placa-cel + .placa-cel{border-left:0;box-shadow:inset 0 1px 0 var(--luz);
+  border-top:1px solid var(--rasgo)}
+
+/* ─── a linha do resto ───
+   A prova são no MÁXIMO três colunas, sempre, tenha o prédio 3 ou 30
+   reservatórios. Onze tubos lado a lado voltam a ser um gráfico de barras — o
+   vício que derrubou a v1 — e o síndico não audita onze números: ele quer
+   saber se algum é problema. O que não coube vira uma frase honesta com a
+   faixa real, e a lista inteira abre como ficha. */
+/* ⚠️ max-width em ch: a coluna da prova é dimensionada pelo CONTEÚDO, e esta
+   frase, sendo longa, definia sozinha a largura da célula inteira — sobrava ar
+   em volta dos cilindros e faltava largura para a frase do outro lado. */
+.resto{display:block;margin:26px auto 0;max-width:34ch;text-align:center;font-size:.95rem;
+  color:var(--sobre-2);line-height:1.5;text-wrap:balance}
+/* ⚠️ o sublinhado é text-decoration, não border-bottom: quebrado em duas
+   linhas o border partia o traço no meio da frase */
+.resto u{text-decoration:underline;text-underline-offset:4px;
+  text-decoration-color:var(--fio);color:#fff}
+.resto:hover u{text-decoration-color:var(--amarelo)}
+
+/* sem telemetria: UM cilindro em contorno. não invento reservatório que o
+   backend não conhece. */
+.sem-sensor{display:none;text-align:center}
+body[data-estado="semtel"] .sem-sensor{display:block}
+body[data-estado="semtel"] .colunas,body[data-estado="semtel"] .resto{display:none}
+.sem-sensor .cil{width:clamp(130px,15vw,176px);margin-inline:auto}
+.sem-sensor .cil .parede{fill:none}
+.sem-sensor .cil .volume{fill:none}
+.sem-sensor .cil .aresta,.sem-sensor .cil .boca{stroke:var(--fio)}
+.sem-sensor .etiqueta{margin-top:16px;font-family:var(--mono);font-size:.62rem;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--sobre-2)}
+
+/* ─── 2. HISTÓRIA ─── */
+/* o rodapé é que fecha a página agora — a história não precisa mais reservar
+   90px de respiro no fim */
+.historia{padding:0 0 clamp(28px,4vw,48px)}
+.historia h2{font-size:1.42rem;font-weight:800;font-stretch:108%;letter-spacing:-.02em;
+  padding-bottom:18px;border-bottom:1px solid var(--fio)}
+/* O contraste da metade de baixo vem de TIPOGRAFIA, não de cor: a data deixa
+   de ser etiqueta de 10px e vira numeral estampado num trilho à esquerda. A
+   lista uniforme ganha ritmo sem a página precisar de um segundo chão.
+   ⚠️ O numeral é Archivo, não mono: mono aqui é só medição e etiqueta gravada
+   (Regra do Mono de Instrumento) — data grande em mono viraria costume. */
+/* grupos apertados por dentro, separados por fora — o vão entre dias estava em
+   84px (42 de cada lado) e lia como se cada dia fosse uma seção */
+.dia-bloco{display:grid;grid-template-columns:clamp(76px,8vw,104px) minmax(0,1fr);
+  gap:clamp(16px,2.6vw,34px);padding:clamp(18px,2.2vw,26px) 0;border-top:1px solid var(--fio-fraco)}
+.dia-bloco:first-of-type{border-top:0;padding-top:clamp(14px,1.8vw,20px)}
+/* o numeral acompanha os eventos do próprio dia enquanto eles rolam.
+   o 90px folga a barra grudenta de 75px */
+.dia-marca{position:sticky;top:90px;align-self:start;text-align:right}
+.dia-num{display:block;font-size:clamp(2rem,3.3vw,2.9rem);font-weight:800;font-stretch:108%;
+  line-height:.92;letter-spacing:-.03em;color:var(--sobre-2)}
+.dia-rot{display:block;margin-top:7px;font-family:var(--mono);font-size:.58rem;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--sobre-2)}
+.dia-bloco.is-hoje .dia-num,.dia-bloco.is-hoje .dia-rot{color:#fff}
+.ev{display:flex;gap:18px;align-items:baseline;padding:14px 0;border-bottom:1px solid var(--fio-fraco);
+  width:100%;text-align:left;transition:background .14s ease}
+/* ⚠️ o último evento do dia não fecha com fio: o `.dia-bloco` seguinte já abre
+   com o seu, e os dois hairlines paralelos deixavam ~52px de nada entre eles —
+   era a maior parte da sensação de "campos distantes demais" na história */
+.dia-bloco > div > .ev:last-child{border-bottom:0;padding-bottom:0}
+.ev:hover{background:rgba(255,255,255,.03)}
+.ev .quando{flex:0 0 52px;font-family:var(--mono);font-size:.72rem;color:var(--sobre-2);font-variant-numeric:tabular-nums}
+.ev .oque{flex:1;min-width:0;font-size:1.02rem}
+.ev .oque small{display:block;font-size:.92rem;color:var(--sobre-2);margin-top:2px}
+.ev.alerta .oque{color:var(--amarelo)}
+.ev.grave .oque{color:var(--risco)}
+.ev .seta{flex:0 0 auto;width:16px;height:16px;stroke:var(--sobre-2);fill:none;stroke-width:1.7;align-self:center}
+.ev:hover .seta{stroke:#fff}
+
+/* o convite a avaliar mora na linha do serviço concluído */
+.pede-nota{display:inline-flex;align-items:center;gap:7px;margin-top:5px;
+  font-size:.92rem;color:var(--sobre-2);border-bottom:1px solid var(--fio)}
+.pede-nota svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.5}
+.ev:hover .pede-nota{color:#fff;border-bottom-color:var(--amarelo)}
+
+.relatorio{margin-top:26px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+/* O PDF é onde o produto se paga — o síndico prestando contas na assembleia.
+   Amarelo cheio com tinta marinho por cima. Ele e o "Preciso de ajuda" nunca
+   dividem a mesma tela, então a regra do amarelo uma vez por tela segue de pé. */
+.relatorio .btn-fio{background:var(--amarelo);color:var(--mar-900)}
+.relatorio .btn-fio::before{background:var(--amarelo)}
+.relatorio .btn-fio:hover,
+.relatorio .btn-fio:hover::before{background:#ffcb60}
+body[data-estado="semtel"] .relatorio{display:none}
+.btn-fio{clip-path:var(--corte);padding:14px 24px;min-height:52px;display:inline-flex;align-items:center;
+  background:var(--fio);position:relative;font-weight:700;isolation:isolate}
+.btn-fio::before{content:"";position:absolute;inset:1.5px;clip-path:var(--corte);background:var(--mar-800);z-index:-1;
+  transition:background .16s ease}
+.btn-fio:hover{background:var(--amarelo);color:var(--mar-900)}
+.btn-fio:hover::before{background:var(--amarelo)}
+.nota{font-size:.92rem;color:var(--sobre-2);max-width:46ch}
+
+/* ─── o rodapé ───
+   Fecha o bloco e devolve o canal humano: o painel abre chamado, mas quem
+   quiser falar liga. Construção da landing — fio no topo, e a ÚNICA aparição
+   do lockup completo (com assinatura), em tamanho que a deixa legível. */
+.rodape{background:var(--mar-900);border-top:1px solid var(--fio);margin-top:clamp(26px,4vw,44px)}
+/* uma linha só: marca à esquerda, canais à direita. O rodapé do painel não é
+   o da landing — lá ele fecha uma peça de venda, aqui só devolve o telefone. */
+.rodape-in{max-width:1240px;margin-inline:auto;padding:clamp(20px,2.4vw,28px) clamp(22px,5vw,40px);
+  display:flex;align-items:center;justify-content:space-between;gap:clamp(20px,3vw,44px);flex-wrap:wrap}
+/* ⚠️ 72px é o número da landing, e é o mínimo em que a assinatura
+   "ENGENHARIA DA MANUTENÇÃO" lê: ela ocupa ~9,4% da altura do PNG, então a
+   52px saía com ~4,9px de caixa — a única aparição do lockup completo estava
+   menor que o wordmark sem assinatura da barra. O `margin-block` negativo tira
+   da linha os 41% de transparência do arquivo, para o rodapé não inchar. */
+.rodape-logo{height:72px;width:auto;flex:0 0 auto;margin-block:-11px}
+.rodape-contato{margin:0;display:flex;gap:clamp(18px,2.8vw,40px);flex-wrap:wrap}
+.rodape-contato dt{font-family:var(--mono);font-size:.6rem;letter-spacing:.15em;
+  text-transform:uppercase;color:var(--sobre-2);margin-bottom:6px}
+.rodape-contato dd{margin:0;font-size:1.04rem;font-weight:600}
+.rodape-contato dd a{color:inherit;text-decoration:none;
+  border-bottom:1px solid var(--fio);padding-bottom:2px;transition:color .2s ease,border-color .2s ease}
+.rodape-contato dd a:hover{color:var(--amarelo);border-bottom-color:var(--amarelo)}
+.rodape-fim{border-top:1px solid var(--fio-fraco)}
+.rodape-fim div{max-width:1240px;margin-inline:auto;padding:13px clamp(22px,5vw,40px) 15px;
+  display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;
+  font-size:.86rem;color:var(--sobre-2)}
+
+/* ─── A FICHA — tudo que "abre por cima" ─── */
+/* ⚠️ 100svh, não 100%: no Chrome Android o `inset:0` resolve contra o viewport
+   GRANDE, e o pé da ficha — onde ficam "Enviar pedido" e "Salvar nova senha" —
+   fica atrás da barra do navegador. */
+.ficha-fundo{position:fixed;inset:0;height:100svh;z-index:200;background:rgba(2,6,22,.76);
+  display:grid;place-items:center;padding:clamp(0px,4vh,40px) clamp(0px,4vw,32px)}
+/* trava a página atrás: sem isso o toque encadeia e o painel rola por baixo */
+body.com-ficha{overflow:hidden}
+.ficha-fundo[hidden]{display:none}
+.ficha{--ch:14px;clip-path:var(--corte);position:relative;width:min(640px,100%);max-height:92vh;
+  display:flex;flex-direction:column;background:var(--mar-900);box-shadow:inset 0 0 0 1px var(--fio);
+  animation:sobe .22s cubic-bezier(.16,1,.3,1)}
+@keyframes sobe{from{opacity:0;transform:translateY(14px)}}
+.ficha-topo{display:flex;align-items:flex-start;gap:16px;padding:26px 28px 18px;border-bottom:1px solid var(--fio-fraco)}
+.ficha-topo .id{font-family:var(--mono);font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;color:var(--sobre-2)}
+.ficha-topo h3{margin-top:7px;font-size:1.42rem;font-weight:800;font-stretch:108%;letter-spacing:-.022em;line-height:1.16}
+/* 48px: no celular ele é a ÚNICA saída da ficha (a folha cobre o fundo, então
+   o clique no backdrop não existe, e não há tecla Escape) */
+.fechar{margin-left:auto;flex:0 0 auto;width:48px;height:48px;display:grid;place-items:center;
+  margin-right:-8px}
+.fechar svg{width:18px;height:18px;stroke:var(--sobre-2);fill:none;stroke-width:1.8}
+.fechar:hover svg{stroke:#fff}
+.ficha-corpo{padding:22px 28px 28px;overflow:auto;flex:1;min-height:0;overscroll-behavior:contain}
+
+.estado-linha{display:inline-flex;align-items:center;gap:9px;font-size:.95rem;color:var(--sobre-2);margin-bottom:20px}
+.ponto{width:9px;height:9px;flex:0 0 auto;background:var(--normal)}
+/* em atendimento NÃO é alarme: âmbar aqui significaria "atenção", e o painel já
+   errou isso uma vez pintando "Em atendimento" de vermelho. Azul = em curso. */
+.ponto.aberto{background:var(--crista)}
+
+.passos{list-style:none}
+.passos li{display:flex;gap:16px;padding:11px 0;border-bottom:1px solid var(--fio-fraco);font-size:1rem}
+.passos li:last-child{border-bottom:0}
+.passos .quando{flex:0 0 96px;font-family:var(--mono);font-size:.72rem;color:var(--sobre-2);font-variant-numeric:tabular-nums;padding-top:4px}
+.passos small{display:block;font-size:.92rem;color:var(--sobre-2);margin-top:2px}
+
+.bloco{margin-top:26px;padding-top:22px;border-top:1px solid var(--fio)}
+.bloco h4{font-size:1.09rem;font-weight:800;margin-bottom:6px}
+.bloco p{font-size:.95rem;color:var(--sobre-2);max-width:48ch}
+
+.campo{display:block;margin-top:14px}
+.campo span{display:block;font-size:.92rem;color:var(--sobre-2);margin-bottom:6px}
+.campo input,.campo textarea{width:100%;background:var(--mar-800);color:#fff;padding:13px 14px;
+  box-shadow:inset 0 0 0 1px var(--fio);clip-path:var(--corte);--ch:8px;min-height:50px;resize:vertical}
+.campo input::placeholder,.campo textarea::placeholder{color:var(--sobre-2)}
+.campo input:focus-visible,.campo textarea:focus-visible{box-shadow:inset 0 0 0 2px var(--amarelo)}
+
+/* categorias do chamado: placas grandes, não um <select> de 7 itens.
+   público mais velho, no celular — alvo de toque vence economia de espaço. */
+/* duas colunas fixas: com auto-fit os 7 motivos deixavam um buraco na última
+   linha. "Outro" ocupa a linha inteira e fecha a grade. */
+.motivos{display:grid;grid-template-columns:repeat(2,1fr);gap:9px;margin-top:16px}
+.motivos .motivo:last-child{grid-column:1/-1}
+@media (max-width:520px){.motivos{grid-template-columns:1fr}}
+.motivo{--ch:8px;clip-path:var(--corte);text-align:left;padding:15px 16px;min-height:56px;
+  background:var(--mar-800);box-shadow:inset 0 0 0 1px var(--fio);font-size:1rem;
+  display:flex;align-items:center;transition:background .14s ease}
+.motivo:hover{background:#0a1a52}
+.motivo[aria-pressed="true"]{background:var(--amarelo);color:var(--mar-900);font-weight:700;box-shadow:none}
+
+/* a conversa do chamado */
+.conversa{display:flex;flex-direction:column;gap:12px;margin-top:14px}
+.fala{--ch:8px;clip-path:var(--corte);max-width:82%;padding:12px 15px;font-size:1rem;
+  background:var(--mar-800);box-shadow:inset 0 0 0 1px var(--fio)}
+.fala.minha{align-self:flex-end;background:var(--mar-700);box-shadow:none}
+.fala .quem{display:block;font-family:var(--mono);font-size:.58rem;letter-spacing:.13em;
+  text-transform:uppercase;color:var(--sobre-2);margin-bottom:5px}
+.fechado-aviso{margin-top:14px;font-size:.95rem;color:var(--sobre-2);
+  padding-left:14px;border-left:1px solid var(--fio)}
+
+.estrelas{display:flex;gap:8px;margin-top:14px}
+.estrelas button{width:46px;height:46px;display:grid;place-items:center}
+.estrelas svg{width:30px;height:30px;stroke:var(--sobre-2);fill:none;stroke-width:1.5;transition:stroke .14s ease,fill .14s ease}
+.estrelas button.on svg{stroke:var(--amarelo);fill:var(--amarelo)}
+.estrelas button:hover svg{stroke:var(--amarelo)}
+
+/* ═══ A FICHA É PLACA CLARA ═══════════════════════════════════════════════
+   O painel em repouso continua marinho do topo ao rodapé. O contraste acontece
+   no CLIQUE: o que abre por cima é chapa clara pousada sobre o marinho — a
+   mesma peça da landing, e o lugar para onde os tokens de tinta do
+   `cliente.css` sempre apontaram. Detalhe abre; painel descansa. */
+.ficha{background:var(--chapa);color:var(--tinta);box-shadow:inset 0 0 0 1px var(--fio-esc);
+  scrollbar-color:rgba(6,16,51,.28) transparent}
+.ficha ::-webkit-scrollbar-thumb{background:rgba(6,16,51,.28)}
+.ficha ::-webkit-scrollbar-thumb:hover{background:var(--tinta-2)}
+/* ⚠️ anel de foco âmbar é ilegível sobre claro (Regra do Amarelo Cego) */
+.ficha :focus-visible{box-shadow:inset 0 0 0 2px var(--tinta)}
+
+.ficha-topo{border-bottom-color:var(--fio-esc)}
+.ficha-topo .id{color:var(--tinta-2)}
+.fechar svg{stroke:var(--tinta-2)}
+.fechar:hover svg{stroke:var(--tinta)}
+
+.ficha .estado-linha{color:var(--tinta-2)}
+.ficha .ponto{background:var(--normal-t)}
+.ficha .ponto.aberto{background:var(--agua)}
+
+.ficha .passos li{border-bottom-color:var(--fio-esc)}
+.ficha .passos .quando{color:var(--tinta-2)}
+.ficha .passos small{color:var(--tinta-2)}
+.ficha .bloco{border-top-color:var(--fio-esc)}
+.ficha .bloco p{color:var(--tinta-2)}
+.ficha .campo span{color:var(--tinta-2)}
+.ficha .campo input,.ficha .campo textarea{background:#fff;color:var(--tinta);
+  box-shadow:inset 0 0 0 1px var(--fio-esc)}
+.ficha .campo input::placeholder,.ficha .campo textarea::placeholder{color:var(--tinta-2)}
+.ficha .campo input:focus-visible,.ficha .campo textarea:focus-visible{box-shadow:inset 0 0 0 2px var(--tinta)}
+.ficha .email-linha{color:var(--tinta-2)}
+.ficha .nota{color:var(--tinta-2)}
+.ficha .sair-link{color:var(--tinta-2);border-bottom-color:var(--fio-esc)}
+.ficha .sair-link:hover{color:var(--risco-t);border-bottom-color:var(--risco-t)}
+
+/* botão de fio sobre claro: mesma receita da .secao-clara da landing */
+.ficha .btn-fio{color:var(--tinta);background:var(--fio-esc)}
+.ficha .btn-fio::before{background:var(--chapa)}
+/* a ação principal da ficha leva o amarelo cheio, tinta marinho por cima */
+.ficha .acoes .btn-fio{background:var(--amarelo);color:var(--mar-900)}
+.ficha .acoes .btn-fio::before{background:var(--amarelo)}
+.ficha .acoes .btn-fio:hover,
+.ficha .acoes .btn-fio:hover::before{background:#ffcb60}
+
+.ficha .motivo{background:var(--chapa-cl);box-shadow:inset 0 0 0 1px var(--fio-esc)}
+.ficha .motivo:hover{background:#fff}
+.ficha .motivo[aria-pressed="true"]{background:var(--amarelo);color:var(--mar-900)}
+
+.ficha .fala{background:var(--chapa-cl);box-shadow:inset 0 0 0 1px var(--fio-esc)}
+.ficha .fala.minha{background:var(--chapa-es);box-shadow:none}
+.ficha .fala .quem{color:var(--tinta-2)}
+.ficha .fechado-aviso{color:var(--tinta-2);border-left-color:var(--fio-esc)}
+
+/* estrela cheia: forma preenchida de amarelo com CONTORNO de tinta legível —
+   amarelo sozinho seria invisível sobre claro */
+.ficha .estrelas svg{stroke:var(--tinta-2)}
+.ficha .estrelas button.on svg{stroke:var(--tinta);fill:var(--amarelo)}
+.ficha .estrelas button:hover svg{stroke:var(--tinta)}
+
+/* a lista completa: barra horizontal, não tubo. aqui não é prova, é inventário
+   — e inventário se lê varrendo com o olho de cima para baixo. */
+.res-lista{list-style:none}
+.res-item{display:flex;align-items:center;gap:14px;width:100%;text-align:left;
+  padding:14px 0;border-bottom:1px solid var(--fio-esc);transition:background .14s ease}
+.res-item:hover{background:rgba(6,16,51,.05)}
+.res-item .nm{flex:1;min-width:0;font-size:1rem;color:var(--tinta)}
+.res-item .nm small{display:block;font-size:.82rem;color:var(--tinta-2);margin-top:1px}
+.res-item .brr{flex:0 0 clamp(70px,16vw,110px);height:9px;background:rgba(6,16,51,.13);position:relative}
+.res-item .brr i{position:absolute;top:0;bottom:0;left:0;background:var(--agua);display:block}
+.res-item.baixo .brr i{background:var(--atencao-t)}
+.res-item.critico .brr i{background:var(--risco-t)}
+.res-item .vl{flex:0 0 50px;text-align:right;font-family:var(--mono);font-size:.98rem;
+  font-weight:700;font-variant-numeric:tabular-nums;color:var(--tinta)}
+.res-item.baixo .vl{color:var(--atencao-t)}
+.res-item.critico .vl{color:var(--risco-t)}
+.res-item.mudo .vl{color:var(--tinta-2)}
+
+.ficha .periodos button{color:var(--tinta-2);box-shadow:inset 0 0 0 1px var(--fio-esc)}
+.ficha .periodos button[aria-pressed="true"]{color:var(--mar-900);background:var(--amarelo)}
+.ficha .grafico .malha{stroke:var(--fio-esc)}
+.ficha .grafico .limiar{stroke:var(--atencao-t);opacity:.7}
+.ficha .rot-limiar{color:var(--atencao-t)}
+.ficha .eixo{color:var(--tinta-2)}
+
+.acoes{margin-top:22px;display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+.sair-link{font-size:.95rem;color:var(--sobre-2);border-bottom:1px solid var(--fio)}
+.sair-link:hover{color:var(--risco);border-bottom-color:var(--risco)}
+.email-linha{font-family:var(--mono);font-size:.88rem;color:var(--sobre-2);word-break:break-all}
+
+/* histórico do reservatório */
+.periodos{display:flex;gap:0;margin:4px 0 20px}
+.periodos button{flex:1;padding:11px 8px;font-size:.92rem;color:var(--sobre-2);
+  box-shadow:inset 0 0 0 1px var(--fio);margin-left:-1px}
+.periodos button[aria-pressed="true"]{color:var(--mar-900);background:var(--amarelo);font-weight:700}
+.grafico{width:100%;height:190px;display:block}
+.grafico .malha{stroke:var(--fio-fraco);stroke-width:1}
+.grafico .limiar{stroke:var(--amarelo);stroke-width:1;stroke-dasharray:3 4;opacity:.55}
+.grafico .linha{stroke:var(--agua);stroke-width:2;fill:none;stroke-linejoin:round}
+.grafico .area{fill:url(#g-area-res)}
+.grafico-caixa{position:relative}
+/* 105 é o y do limiar no viewBox de 190 e a caixa tem 190px de altura fixa */
+.rot-limiar{position:absolute;right:3px;top:88px;font-family:var(--mono);
+  font-size:.58rem;letter-spacing:.12em;color:var(--amarelo);pointer-events:none}
+.eixo{display:flex;justify-content:space-between;margin-top:8px;
+  font-family:var(--mono);font-size:.62rem;letter-spacing:.1em;color:var(--sobre-2)}
+
+/* Abaixo de 1000px as duas colunas da placa não convivem: ou a frase espreme,
+   ou a prova espreme. A placa empilha antes disso acontecer — bem antes do
+   ponto em que o painel vira "celular" (820px). */
+@media (max-width:1000px){
+  .placa{grid-template-columns:1fr}
+  .placa-cel + .placa-cel{border-left:0;box-shadow:inset 0 1px 0 var(--luz);
+    border-top:1px solid var(--rasgo)}
+  /* ⚠️ empilhado, os dois paddings de 54px se somavam na costura: ~84px entre
+     "Preciso de ajuda" e os tanques, o mesmo vão de peça de venda que já tinha
+     sido derrubado. Só o lado da junta encolhe. */
+  .placa-cel:first-child{padding-bottom:clamp(18px,2.2vw,26px)}
+  .placa-cel + .placa-cel{padding-top:clamp(20px,2.4vw,28px)}
+  .resposta{padding:32px 0 44px}
+  /* a manchete crescia ao empilhar (46–56px em duas colunas, 70px numa só):
+     o piso sobe para a escala não andar para trás quando a tela encolhe */
+  .frase{font-size:clamp(2.3rem,9cqi,3.4rem)}
+}
+
+@media (max-width:820px){
+  /* o andaime deixa de flutuar no celular — ele quebra em 5 linhas e cobriria a tela */
+  .andaime{position:static}
+  body{padding-top:0}
+  .resposta{min-height:calc(100vh - 60px);min-height:calc(100dvh - 60px)}
+  .resposta{align-content:center;min-height:0;padding:24px 0 40px}
+  .placa{grid-template-columns:1fr}
+  .placa-cel + .placa-cel{border-left:0;box-shadow:inset 0 1px 0 var(--luz);border-top:1px solid var(--rasgo)}
+  .placa-cel{padding:26px 22px}
+  .eng{top:-8%;right:-24%;width:78vw;height:78vw;opacity:.2}
+  /* no celular manda a coluna, não o cilindro */
+  .cil{display:none}
+  .tubo{display:block}
+  .sem-sensor .tubo{display:block;background:none;box-shadow:inset 0 0 0 1px var(--fio);
+    width:clamp(72px,26vw,100px);margin-inline:auto}
+  /* ⚠️ SEM teto de largura a coluna estica: quando só um reservatório está
+     fora do normal, a prova é uma peça só e ela virava um bloco de 330px de
+     largura — deixa de parecer reservatório. O teto vale para 1, 2 ou 3. */
+  .res{flex:1 1 104px;max-width:104px}
+  .colunas[data-n="1"] .res{flex-basis:150px;max-width:150px}
+  .colunas[data-n="2"] .res{flex-basis:124px;max-width:124px}
+  .colunas[data-n="1"] .tubo{height:210px}
+  .colunas{gap:14px;justify-content:center}
+  /* o cqi já dimensiona pela célula; aqui só o teto muda */
+  .frase{font-size:clamp(1.9rem,13cqi,3rem);max-width:none}
+  .ev .quando{flex-basis:44px}
+  /* ⚠️ o topo era flex sem wrap: no celular o nome do prédio quebrava em três
+     linhas e o do síndico em duas. O nome do prédio trunca numa linha só e o
+     botão de conta fica só com o ícone — o nome dele já abre dentro da ficha. */
+  /* o topo quebra em duas linhas em vez de truncar: marca e conta em cima,
+     nome do prédio inteiro embaixo. Truncar o título da tela com reticências
+     era esconder justamente o que precisava ganhar peso. */
+  /* no celular o andaime não flutua, então a barra gruda no topo de verdade */
+  /* ⚠️ No celular a barra NÃO gruda. Em duas linhas ela tem 107px, e grudada
+     comeria 14% da tela para sempre — contra os 64px que a DESIGN.md manda.
+     A barra da landing persegue a rolagem porque carrega navegação e CTA; esta
+     só identifica o prédio e guarda a conta, e isso não precisa seguir junto. */
+  .barra{position:static}
+  /* ⚠️ MESMO padding lateral da `.folha` e do `.rodape-in`. Estava fixo em
+     22px e, entre 441 e 820px, o logo e o nome do prédio ficavam até 18px à
+     esquerda da placa e do rodapé — era esse o desalinhamento. */
+  .barra-in{padding:12px clamp(22px,5vw,40px)}
+  .rodape-in{flex-direction:column;align-items:flex-start;gap:20px}
+  .rodape-logo{height:64px;margin-block:-10px}
+  .rodape-contato{gap:16px 26px}
+  .topo{gap:12px;flex-wrap:wrap}
+  .topo img{height:34px}
+  /* ⚠️ era `.topo .barra`, seletor morto — o fio vertical sobrevivia no celular
+     separando o logo de nada, porque `.predio` já tinha ido para a linha de baixo */
+  .topo .fio-v{display:none}
+  .topo .predio{order:3;flex:1 0 100%;font-size:1.18rem}
+  .conta{order:2;margin-left:auto;flex:0 0 auto;gap:0;padding:12px 8px;min-width:48px;min-height:48px;
+    justify-content:center}
+  .conta svg{width:24px;height:24px}
+  /* ⚠️ `display:none` tirava o texto da árvore de acessibilidade e o botão era
+     anunciado só como "button". Oculto visualmente, presente para o leitor. */
+  .conta-rot{position:absolute;width:1px;height:1px;padding:0;margin:-1px;
+    overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+  /* no celular o trilho deita: a data vira uma linha acima dos eventos */
+  .dia-bloco{grid-template-columns:1fr;gap:10px}
+  .dia-marca{position:static;text-align:left;display:flex;align-items:baseline;gap:9px}
+  .dia-num{font-size:1.5rem}
+  /* ⚠️ etiquetas gravadas sobem no celular: a .58rem elas saem a 9,3px, e o
+     brief nomeia esse defeito ("o aparelho em que o síndico mais lê era o que
+     tinha o menor texto"). .66rem é o teto do sistema e cabe. */
+  .dia-rot{margin-top:0;font-size:.66rem}
+  .fala .quem,.rot-limiar,.ficha-topo .id,.etiqueta,.rodape-contato dt{font-size:.66rem}
+  /* ⚠️ `place-items:stretch` sozinho não segura: a linha do grid dimensiona
+     pelo CONTEÚDO, então a ficha ficava com 1013px num viewport de 744 e
+     transbordava a tela em vez de rolar por dentro. A linha precisa ser
+     travada em 1fr com minmax(0,...). */
+  .ficha-fundo{padding:0;place-items:stretch;grid-template-rows:minmax(0,1fr)}
+  .ficha{--ch:0px;width:100%;height:100%;max-height:100%;min-height:0}
+  .ficha-topo,.ficha-corpo{padding-left:20px;padding-right:20px}
+  .passos .quando{flex-basis:70px}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.001ms!important;transition-duration:.001ms!important}
+}
+</style>
+</head>
+<body data-estado="ok">
+
+<div class="andaime">
+  <div class="lin"><b>ESTADO</b>
+    <button data-estado="critico" aria-pressed="false">1 · Crítico &lt;20%</button>
+    <button data-estado="mudo" aria-pressed="false">2 · Sem sinal</button>
+    <button data-estado="baixo" aria-pressed="false">3 · Atenção &lt;45%</button>
+    <button data-estado="atendimento" aria-pressed="false">4a · Normal + atendimento</button>
+    <button data-estado="ok" aria-pressed="true">4b · Dia calmo</button>
+    <button data-estado="semtel" aria-pressed="false">Sem telemetria</button>
+  </div>
+  <div class="lin"><b>RESERVATÓRIOS</b>
+    <button data-nres="3" aria-pressed="true">3</button>
+    <button data-nres="6" aria-pressed="false">6</button>
+    <button data-nres="11" aria-pressed="false">11</button>
+  </div>
+  <div class="lin"><b>FICHAS</b>
+    <button data-abrir="ajuda">Pedir ajuda</button>
+    <button data-abrir="chamadoAberto">Chamado aberto (chat)</button>
+    <button data-abrir="chamado">Chamado fechado (avaliação)</button>
+    <button data-abrir="reservatorio">Reservatório (histórico + PDF)</button>
+    <button data-abrir="conta">Sua conta (senha)</button>
+  </div>
+</div>
+
+<!-- defs compartilhadas do cilindro: um só conjunto para todos os tanques da
+     página, em vez de um id novo por instância -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <linearGradient id="g-corpo" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0"   stop-color="#fff" stop-opacity=".13"/>
+    <stop offset=".42" stop-color="#fff" stop-opacity=".02"/>
+    <stop offset="1"   stop-color="#000" stop-opacity=".26"/>
+  </linearGradient>
+  <linearGradient id="g-agua" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0"   stop-color="#2f6fe0"/>
+    <stop offset=".62" stop-color="#1a3a9e"/>
+    <stop offset="1"   stop-color="#071b5c"/>
+  </linearGradient>
+  <pattern id="g-mudo" width="9" height="9" patternUnits="userSpaceOnUse" patternTransform="rotate(-45)">
+    <rect width="9" height="9" fill="#050f38"/>
+    <line x1="0" y1="0" x2="0" y2="9" stroke="#0d1f5e" stroke-width="4"/>
+  </pattern>
+</defs></svg>
+
+<div class="barra" id="barra"><div class="barra-in">
+  <header class="topo">
+    <!-- logo-topo.png é o wordmark sem a assinatura; a assinatura do login-logo
+         fica ilegível em qualquer escala de barra. O lockup completo aparece
+         uma vez só, no rodapé. -->
+    <img src="../../public/logo-topo.png" alt="GENERAL">
+    <span class="fio-v"></span>
+    <span class="predio">Edifício Vila Mariana</span>
+    <button class="conta" data-abrir="conta">
+      <svg viewBox="0 0 24 24" stroke-linecap="square"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 20c0-3.6 3.4-5.6 7.5-5.6s7.5 2 7.5 5.6"/></svg>
+      <span class="conta-rot">Pedro Martins</span>
+    </button>
+  </header>
+</div></div>
+
+<div class="folha">
+
+  <!-- 1. A RESPOSTA -->
+  <section class="resposta">
+    <div class="eng" aria-hidden="true">
+      <svg viewBox="0 0 200 200">
+        <circle cx="100" cy="100" r="62" fill="none" stroke="currentColor" stroke-width="27"/>
+        <g fill="currentColor">
+          <rect x="93" y="6" width="14" height="26"/>
+          <rect x="93" y="6" width="14" height="26" transform="rotate(30 100 100)"/>
+          <rect x="93" y="6" width="14" height="26" transform="rotate(60 100 100)"/>
+          <rect x="93" y="6" width="14" height="26" transform="rotate(90 100 100)"/>
+          <rect x="93" y="6" width="14" height="26" transform="rotate(120 100 100)"/>
+          <rect x="93" y="6" width="14" height="26" transform="rotate(150 100 100)"/>
+          <rect x="93" y="6" width="14" height="26" transform="rotate(180 100 100)"/>
+          <rect x="93" y="6" width="14" height="26" transform="rotate(210 100 100)"/>
+          <rect x="93" y="6" width="14" height="26" transform="rotate(240 100 100)"/>
+          <rect x="93" y="6" width="14" height="26" transform="rotate(270 100 100)"/>
+          <rect x="93" y="6" width="14" height="26" transform="rotate(300 100 100)"/>
+          <rect x="93" y="6" width="14" height="26" transform="rotate(330 100 100)"/>
+        </g>
+      </svg>
+    </div>
+
+    <div class="placa">
+    <div class="placa-cel">
+      <h1 class="frase" id="frase">Tudo normal.</h1>
+      <p class="apoio" id="apoio">Os três reservatórios estão dentro do esperado e os sensores continuam medindo.</p>
+      <button class="linha-atend" data-abrir="chamadoAberto">
+        <span class="ponto aberto"></span>
+        <span id="atendTxt">Marcos Ferreira está atendendo um chamado no seu prédio</span>
+        <svg class="seta" viewBox="0 0 24 24" stroke-linecap="square"><path d="M9 5l7 7-7 7"/></svg>
+      </button>
+      <a class="quero" href="#">Quero monitorar meu prédio</a>
+      <div class="rodape-resposta">
+        <button class="ajuda" data-abrir="ajuda">Preciso de ajuda</button>
+        <span class="desde" id="desde">Última leitura há 40 segundos</span>
+      </div>
+    </div>
+
+    <div class="placa-cel">
+      <div class="colunas" id="colunas"></div>
+      <div id="resto"></div>
+
+      <div class="sem-sensor" id="semSensor">
+        <span class="tubo"></span>
+        <div class="etiqueta">Sem medição</div>
+      </div>
+    </div>
+    </div>
+  </section>
+
+  <!-- 2. A HISTÓRIA -->
+  <section class="historia">
+    <h2>O que aconteceu</h2>
+
+    <div class="dia-bloco is-hoje">
+      <div class="dia-marca"><span class="dia-num">14</span><span class="dia-rot">Hoje</span></div>
+      <div>
+        <!-- nº 412 é o chamado ABERTO: estas duas abrem a ficha dele, não a do 408 -->
+        <button class="ev" data-abrir="chamadoAberto">
+          <span class="quando">14:02</span>
+          <span class="oque">Marcos Ferreira ficou responsável pelo atendimento<small>Chamado nº 412 — nível baixo na Caixa Superior</small></span>
+          <svg class="seta" viewBox="0 0 24 24" stroke-linecap="square"><path d="M9 5l7 7-7 7"/></svg>
+        </button>
+        <button class="ev alerta" data-abrir="chamadoAberto">
+          <span class="quando">10:32</span>
+          <span class="oque">Caixa Superior passou abaixo de 45%<small>Abrimos o chamado nº 412 automaticamente</small></span>
+          <svg class="seta" viewBox="0 0 24 24" stroke-linecap="square"><path d="M9 5l7 7-7 7"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="dia-bloco">
+      <div class="dia-marca"><span class="dia-num">10</span><span class="dia-rot">Agosto</span></div>
+      <div>
+        <button class="ev" data-abrir="chamado">
+          <span class="quando">16:32</span>
+          <span class="oque">Serviço concluído e assinado<small>Chamado nº 408 — bomba de recalque com ruído</small>
+            <span class="pede-nota">
+              <svg viewBox="0 0 24 24" stroke-linejoin="round"><path d="M12 3.5l2.6 5.3 5.9.9-4.2 4.1 1 5.8-5.3-2.8-5.3 2.8 1-5.8-4.2-4.1 5.9-.9z"/></svg>
+              Você ainda não avaliou este atendimento
+            </span>
+          </span>
+          <svg class="seta" viewBox="0 0 24 24" stroke-linecap="square"><path d="M9 5l7 7-7 7"/></svg>
+        </button>
+        <button class="ev" data-abrir="chamado">
+          <span class="quando">15:32</span>
+          <span class="oque">Anderson Luiz esteve no prédio<small>Chamado nº 408 — bomba de recalque com ruído</small></span>
+          <svg class="seta" viewBox="0 0 24 24" stroke-linecap="square"><path d="M9 5l7 7-7 7"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="dia-bloco">
+      <div class="dia-marca"><span class="dia-num">23</span><span class="dia-rot">Julho</span></div>
+      <div>
+        <button class="ev" data-abrir="chamado">
+          <span class="quando">15:32</span>
+          <span class="oque">Limpeza semestral do reservatório<small>Chamado nº 401 — preventiva programada</small></span>
+          <svg class="seta" viewBox="0 0 24 24" stroke-linecap="square"><path d="M9 5l7 7-7 7"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="relatorio">
+      <button class="btn-fio">Baixar relatório em PDF</button>
+      <span class="nota">Para levar à assembleia ou anexar à prestação de contas.</span>
+    </div>
+  </section>
+
+</div>
+
+<footer class="rodape">
+  <div class="rodape-in">
+    <!-- única aparição do lockup completo -->
+    <img class="rodape-logo" src="../../public/login-logo.png" alt="General Engenharia da Manutenção">
+    <dl class="rodape-contato">
+      <div><dt>Telefone</dt><dd><a href="tel:+551120388679">(11) 2038-8679</a></dd></div>
+      <div><dt>WhatsApp</dt><dd><a href="https://wa.me/5511966536110">(11) 96653-6110</a></dd></div>
+      <div><dt>E-mail</dt><dd><a href="mailto:comercial@generalbombas.com">comercial@generalbombas.com</a></dd></div>
+    </dl>
+  </div>
+  <!-- sem repetir "General Engenharia da Manutenção" em texto: é exatamente o
+       que a assinatura do lockup diz, 40px acima -->
+  <div class="rodape-fim"><div>
+    <span>Painel do síndico · Edifício Vila Mariana</span>
+    <span>2026</span>
+  </div></div>
+</footer>
+
+<!-- ═══ FICHA: CHAMADO (hospeda mensagens + avaliação) ═══ -->
+<div class="ficha-fundo" id="fChamado" hidden>
+  <div class="ficha" role="dialog" aria-modal="true" aria-labelledby="fChamadoT">
+    <div class="ficha-topo">
+      <div>
+        <div class="id">Chamado nº 408 · 10 de agosto</div>
+        <h3 id="fChamadoT">Bomba de recalque com ruído</h3>
+      </div>
+      <button class="fechar" data-fechar aria-label="Fechar">
+        <svg viewBox="0 0 24 24" stroke-linecap="square"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="ficha-corpo">
+      <div class="estado-linha"><span class="ponto"></span> Concluído e assinado</div>
+
+      <ul class="passos">
+        <li><span class="quando">10/08 16:32</span><span>Serviço concluído e assinado<small>Anderson trocou o rolamento e testou a bomba por 20 minutos.</small></span></li>
+        <li><span class="quando">10/08 15:32</span><span>Anderson Luiz esteve no prédio</span></li>
+        <li><span class="quando">10/08 09:14</span><span>Anderson Luiz ficou responsável pelo atendimento</span></li>
+        <li><span class="quando">09/08 18:40</span><span>Você abriu este chamado<small>"A bomba está fazendo um barulho alto desde ontem à noite."</small></span></li>
+      </ul>
+
+      <div class="bloco">
+        <h4>A conversa</h4>
+        <div class="conversa">
+          <div class="fala minha"><span class="quem">Você · 09/08 18:41</span>Consegue passar hoje ainda? O barulho está incomodando o 1º andar.</div>
+          <div class="fala"><span class="quem">Anderson Luiz · 09/08 19:02</span>Boa noite. Amanhã de manhã eu passo aí, por volta das 9h.</div>
+          <div class="fala minha"><span class="quem">Você · 10/08 16:40</span>Ficou silenciosa mesmo. Obrigado.</div>
+        </div>
+        <!-- chamado fechado NÃO tem compositor: é o que o cliente.js faz hoje -->
+        <p class="fechado-aviso">Este chamado foi fechado. Para falar de novo com a equipe, abra um novo pedido de ajuda.</p>
+      </div>
+
+      <!-- AVALIAÇÃO: aqui, no pé da ficha. Sem segundo modal. -->
+      <div class="bloco">
+        <h4>Como foi esse atendimento?</h4>
+        <p>Sua resposta vai direto para quem cuida da manutenção do prédio.</p>
+        <div class="estrelas" id="estrelas" role="radiogroup" aria-label="Nota do atendimento">
+          <button data-nota="1" role="radio" aria-checked="false" aria-label="1 de 5"><svg viewBox="0 0 24 24" stroke-linejoin="round"><path d="M12 3.5l2.6 5.3 5.9.9-4.2 4.1 1 5.8-5.3-2.8-5.3 2.8 1-5.8-4.2-4.1 5.9-.9z"/></svg></button>
+          <button data-nota="2" role="radio" aria-checked="false" aria-label="2 de 5"><svg viewBox="0 0 24 24" stroke-linejoin="round"><path d="M12 3.5l2.6 5.3 5.9.9-4.2 4.1 1 5.8-5.3-2.8-5.3 2.8 1-5.8-4.2-4.1 5.9-.9z"/></svg></button>
+          <button data-nota="3" role="radio" aria-checked="false" aria-label="3 de 5"><svg viewBox="0 0 24 24" stroke-linejoin="round"><path d="M12 3.5l2.6 5.3 5.9.9-4.2 4.1 1 5.8-5.3-2.8-5.3 2.8 1-5.8-4.2-4.1 5.9-.9z"/></svg></button>
+          <button data-nota="4" role="radio" aria-checked="false" aria-label="4 de 5"><svg viewBox="0 0 24 24" stroke-linejoin="round"><path d="M12 3.5l2.6 5.3 5.9.9-4.2 4.1 1 5.8-5.3-2.8-5.3 2.8 1-5.8-4.2-4.1 5.9-.9z"/></svg></button>
+          <button data-nota="5" role="radio" aria-checked="false" aria-label="5 de 5"><svg viewBox="0 0 24 24" stroke-linejoin="round"><path d="M12 3.5l2.6 5.3 5.9.9-4.2 4.1 1 5.8-5.3-2.8-5.3 2.8 1-5.8-4.2-4.1 5.9-.9z"/></svg></button>
+        </div>
+        <label class="campo"><span>Quer contar alguma coisa? (opcional)</span>
+          <textarea rows="2" placeholder="O que foi bom, o que pode melhorar…"></textarea></label>
+        <div class="acoes"><button class="btn-fio">Enviar avaliação</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ FICHA: PEDIR AJUDA (é o POST /cliente/chamados — categoria + descrição) ═══ -->
+<div class="ficha-fundo" id="fAjuda" hidden>
+  <div class="ficha" role="dialog" aria-modal="true" aria-labelledby="fAjudaT">
+    <div class="ficha-topo">
+      <div>
+        <div class="id">Edifício Vila Mariana</div>
+        <h3 id="fAjudaT">O que está acontecendo?</h3>
+      </div>
+      <button class="fechar" data-fechar aria-label="Fechar">
+        <svg viewBox="0 0 24 24" stroke-linecap="square"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="ficha-corpo">
+      <p style="font-size:.98rem;color:var(--sobre-2);max-width:48ch">Escolha o mais parecido. Se não for nenhum, use “Outro”.</p>
+      <div class="motivos" id="motivos" role="group" aria-label="Motivo do chamado">
+        <button class="motivo" data-cat="sem_agua" aria-pressed="false">Está faltando água</button>
+        <button class="motivo" data-cat="vazamento" aria-pressed="false">Vazamento</button>
+        <button class="motivo" data-cat="bomba_falha" aria-pressed="false">A bomba não está funcionando</button>
+        <button class="motivo" data-cat="nivel_baixo" aria-pressed="false">Nível baixo no reservatório</button>
+        <button class="motivo" data-cat="ruido" aria-pressed="false">Barulho na casa de máquinas</button>
+        <button class="motivo" data-cat="manutencao" aria-pressed="false">Manutenção</button>
+        <button class="motivo" data-cat="outro" aria-pressed="false">Outro</button>
+      </div>
+
+      <label class="campo" style="margin-top:22px"><span>Conte o que está acontecendo</span>
+        <textarea rows="4" placeholder="Desde quando está assim? Alguém já mexeu? Quanto mais detalhe, mais preparado o técnico chega."></textarea></label>
+
+      <div class="acoes">
+        <button class="btn-fio">Enviar pedido</button>
+        <span class="nota">Abrimos o chamado na hora e você acompanha por aqui.</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ FICHA: CHAMADO ABERTO (conversa viva — o compositor só existe aqui) ═══ -->
+<div class="ficha-fundo" id="fChamadoAberto" hidden>
+  <div class="ficha" role="dialog" aria-modal="true" aria-labelledby="fChAbT">
+    <div class="ficha-topo">
+      <div>
+        <div class="id">Chamado nº 412 · aberto hoje</div>
+        <h3 id="fChAbT">Nível baixo na Caixa Superior</h3>
+      </div>
+      <button class="fechar" data-fechar aria-label="Fechar">
+        <svg viewBox="0 0 24 24" stroke-linecap="square"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="ficha-corpo">
+      <div class="estado-linha"><span class="ponto aberto"></span> Em atendimento — Marcos Ferreira</div>
+
+      <ul class="passos">
+        <li><span class="quando">Hoje 14:02</span><span>Marcos Ferreira ficou responsável pelo atendimento</span></li>
+        <li><span class="quando">Hoje 10:32</span><span>Abrimos este chamado automaticamente<small>A Caixa Superior passou abaixo de 45%.</small></span></li>
+      </ul>
+
+      <div class="bloco">
+        <h4>A conversa</h4>
+        <div class="conversa">
+          <div class="fala"><span class="quem">Marcos Ferreira · 14:05</span>Bom dia. Estou vendo o nível daqui, a bomba está repondo. Se não subir até as 16h eu vou aí.</div>
+          <div class="fala minha"><span class="quem">Você · 14:20</span>Certo, obrigado. Aviso se algum morador reclamar.</div>
+        </div>
+        <label class="campo"><span>Responder</span>
+          <textarea rows="3" placeholder="Escreva aqui…"></textarea></label>
+        <div class="acoes"><button class="btn-fio">Enviar</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ FICHA: TODOS OS RESERVATÓRIOS (o que não coube na prova) ═══ -->
+<div class="ficha-fundo" id="fTodos" hidden>
+  <div class="ficha" role="dialog" aria-modal="true" aria-labelledby="fTodosT">
+    <div class="ficha-topo">
+      <div>
+        <div class="id" id="fTodosId">Edifício Vila Mariana</div>
+        <h3 id="fTodosT">Todos os reservatórios</h3>
+      </div>
+      <button class="fechar" data-fechar aria-label="Fechar">
+        <svg viewBox="0 0 24 24" stroke-linecap="square"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="ficha-corpo">
+      <ul class="res-lista" id="resLista"></ul>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ FICHA: RESERVATÓRIO (histórico com períodos + PDF) ═══ -->
+<div class="ficha-fundo" id="fReservatorio" hidden>
+  <div class="ficha" role="dialog" aria-modal="true" aria-labelledby="fResT">
+    <div class="ficha-topo">
+      <div>
+        <div class="id">Reservatório · leitura a cada 30 segundos</div>
+        <h3 id="fResT">Caixa Superior</h3>
+      </div>
+      <button class="fechar" data-fechar aria-label="Fechar">
+        <svg viewBox="0 0 24 24" stroke-linecap="square"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="ficha-corpo">
+      <div class="estado-linha"><span class="ponto"></span> 78% agora — dentro do esperado</div>
+
+      <div class="periodos" role="group" aria-label="Período">
+        <button aria-pressed="false">24 horas</button>
+        <button aria-pressed="true">7 dias</button>
+        <button aria-pressed="false">30 dias</button>
+      </div>
+
+      <div class="grafico-caixa">
+      <svg class="grafico" viewBox="0 0 600 190" preserveAspectRatio="none" role="img"
+           aria-label="Nível da Caixa Superior nos últimos 7 dias, entre 38% e 92%">
+        <!-- ⚠️ id PRÓPRIO. Chamava-se `g-agua`, igual ao gradiente do cilindro:
+             o navegador resolve `url(#id)` pelo PRIMEIRO do documento, então a
+             área saía com o gradiente OPACO do tanque e enterrava a linha de
+             limiar. O rótulo "45% — LIMIAR" apontava para nada. -->
+        <defs><linearGradient id="g-area-res" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#2f6fe0" stop-opacity=".38"/>
+          <stop offset="1" stop-color="#2f6fe0" stop-opacity="0"/>
+        </linearGradient></defs>
+        <path class="area" d="M0 40 L75 26 L150 62 L225 30 L300 118 L375 44 L450 22 L525 58 L600 34 L600 190 L0 190 Z"/>
+        <!-- malha e limiar DEPOIS da área, senão ela os cobre -->
+        <line class="malha" x1="0" y1="47" x2="600" y2="47"/>
+        <line class="malha" x1="0" y1="95" x2="600" y2="95"/>
+        <line class="limiar" x1="0" y1="105" x2="600" y2="105"/>
+        <path class="linha" d="M0 40 L75 26 L150 62 L225 30 L300 118 L375 44 L450 22 L525 58 L600 34"/>
+      </svg>
+      <!-- o rótulo é HTML, não <text> no SVG: dentro do viewBox ele encolhe
+           junto com o gráfico e vira borrão a 390px -->
+      <span class="rot-limiar">45% — LIMIAR</span>
+      </div>
+      <div class="eixo"><span>7 DIAS ATRÁS</span><span>AGORA</span></div>
+
+      <div class="bloco">
+        <h4>Relatório deste reservatório</h4>
+        <p>O período escolhido acima, em PDF, com as leituras e os chamados abertos por causa dele.</p>
+        <div class="acoes"><button class="btn-fio">Baixar PDF de 7 dias</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ FICHA: SUA CONTA (hospeda a troca de senha e o sair) ═══ -->
+<div class="ficha-fundo" id="fConta" hidden>
+  <div class="ficha" role="dialog" aria-modal="true" aria-labelledby="fContaT">
+    <div class="ficha-topo">
+      <div>
+        <div class="id">Síndico · Edifício Vila Mariana</div>
+        <h3 id="fContaT">Sua conta</h3>
+      </div>
+      <button class="fechar" data-fechar aria-label="Fechar">
+        <svg viewBox="0 0 24 24" stroke-linecap="square"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="ficha-corpo">
+      <div class="email-linha">pedro.martins@vilamariana.com.br</div>
+
+      <div class="bloco">
+        <h4>Trocar a senha</h4>
+        <p>Use pelo menos 6 caracteres. Você continua conectado depois de trocar.</p>
+        <label class="campo"><span>Senha atual</span><input type="password" autocomplete="current-password"></label>
+        <label class="campo"><span>Nova senha</span><input type="password" autocomplete="new-password"></label>
+        <label class="campo"><span>Repita a nova senha</span><input type="password" autocomplete="new-password"></label>
+        <div class="acoes">
+          <button class="btn-fio">Salvar nova senha</button>
+        </div>
+      </div>
+
+      <div class="bloco">
+        <button class="sair-link">Sair da conta</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* o prédio: até 11 reservatórios, para ver a faixa quebrar em linhas */
+const PREDIO = [
+  {nome:"Caixa Superior", n:78}, {nome:"Cisterna", n:82},
+  {nome:"Reserva de Incêndio", n:91}, {nome:"Caixa Bloco B", n:74},
+  {nome:"Cisterna Bloco B", n:88}, {nome:"Caixa Bloco C", n:69},
+  {nome:"Cisterna Bloco C", n:84}, {nome:"Reserva Técnica", n:93},
+  {nome:"Caixa do Salão", n:61}, {nome:"Caixa da Piscina", n:77},
+  {nome:"Cisterna Auxiliar", n:86},
+];
+
+const NUM = ["nenhum","um","dois","três","quatro","cinco","seis","sete","oito","nove","dez","onze"];
+
+/* Os ramos são os de _predioVeredito (cliente.js:178), na ordem de prioridade
+   dele — crítico > sem sinal > atenção > normal — com o ramo "normal" partido
+   em dois, que é a correção: hoje o dia calmo e o dia com técnico no prédio
+   recebem a mesma frase, e a única diferença fica escondida na nota de apoio. */
+const ESTADOS = {
+  critico: {
+    frase: "A <em>Caixa Superior</em> está em 12%.",
+    risco:true,
+    apoio: () => "Abaixo de 20% tratamos como urgência. O chamado já foi aberto e a equipe acionada.",
+    desde: "Última leitura há 40 segundos",
+    atend: "Marcos Ferreira está atendendo o chamado nº 412",
+  },
+  ok: {
+    frase: "Seu prédio está abastecido.", risco:false,
+    apoio: n => `Os ${NUM[n]} reservatórios estão dentro do esperado e os sensores continuam medindo.`,
+    desde: "Última leitura há 40 segundos",
+  },
+  atendimento: {
+    frase: "Seu prédio está abastecido.", risco:false,
+    apoio: n => `Os ${NUM[n]} reservatórios estão dentro do esperado e os sensores continuam medindo.`,
+    desde: "Última leitura há 40 segundos",
+    atend: "Marcos Ferreira está atendendo um chamado no seu prédio",
+  },
+  baixo: {
+    frase: "A <em>Caixa Superior</em> está em 38%.",
+    risco:false,
+    apoio: () => "Abaixo de 45% a bomba costuma repor sozinha. Já abrimos um chamado e estamos acompanhando.",
+    desde: "Última leitura há 40 segundos",
+    atend: "Marcos Ferreira está atendendo o chamado nº 412",
+  },
+  mudo: {
+    frase: "Um sensor parou de responder.",
+    risco:true,
+    atend: "Abrimos o chamado nº 412 — nossa equipe foi avisada",
+    apoio: () => "Isso não quer dizer que falta água — quer dizer que não estamos conseguindo medir. Nossa equipe já foi avisada.",
+    desde: "Sem leitura desse sensor há 3 horas",
+  },
+  semtel: {
+    frase: "Ainda não medimos o seu prédio.",
+    risco:false,
+    apoio: () => "Seu contrato de manutenção continua igual — o que falta é o sensor que mede o nível dos reservatórios e avisa antes de faltar água.",
+    desde: "Manutenção ativa desde março de 2024",
+  }
+};
+
+let _estado = "ok", _nres = 3;
+
+/* o prédio de hoje, com o estado já aplicado */
+function leituras(){
+  return PREDIO.slice(0, _nres).map((r,i) => {
+    let n = r.n, cls = "";
+    if (_estado === "critico" && i === 0) { n = 12; cls = "critico"; }
+    if (_estado === "baixo"   && i === 0) { n = 38; cls = "baixo"; }
+    if (_estado === "mudo"    && i === _nres - 1) { n = 0; cls = "mudo"; }
+    return {nome:r.nome, n, cls};
+  });
+}
+
+/* A PROVA SÃO TRÊS, NO MÁXIMO.
+   Quem aparece: o que está fora do normal (mudo, crítico, atenção). Se está
+   tudo normal, os três MAIS BAIXOS — que são os únicos que podem virar
+   problema. O resto vira uma frase. */
+const MAX_PROVA = 3;
+function escolhidos(todas){
+  const fora = todas.filter(r => r.cls);
+  const base = fora.length ? fora : [...todas].sort((a,b) => a.n - b.n);
+  return base.slice(0, MAX_PROVA);
+}
+
+/* ── o cilindro ──────────────────────────────────────────────────────────
+   viewBox 0 0 60 124. Corpo 50 × 94 (razão .5), elipses de ry 6.5.
+   A água é um GRUPO no nível cheio, empurrado para baixo por transform —
+   assim a elipse da superfície desce junto sem deformar. */
+const CIL = {cx:30, rx:25, ry:6.5, topo:9, base:103};
+CIL.h = CIL.base - CIL.topo;
+const _corpo = `M${CIL.cx-CIL.rx} ${CIL.topo} A${CIL.rx} ${CIL.ry} 0 0 0 ${CIL.cx+CIL.rx} ${CIL.topo}` +
+               ` L${CIL.cx+CIL.rx} ${CIL.base} A${CIL.rx} ${CIL.ry} 0 0 1 ${CIL.cx-CIL.rx} ${CIL.base} Z`;
+
+function cilindroSVG(pct, mudo, idClip){
+  const {cx, rx, ry, topo, base, h} = CIL;
+  const desce = mudo ? h : (1 - pct/100) * h;   /* quanto a lâmina cai */
+  const agua = mudo ? "" : `
+      <g class="agua-g" style="transform:translateY(${h}px)" data-desce="${desce.toFixed(2)}">
+        <rect class="agua-r" x="${cx-rx}" y="${topo}" width="${rx*2}" height="${h+ry}"/>
+        <ellipse class="agua-e" cx="${cx}" cy="${topo}" rx="${rx}" ry="${ry}"/>
+        <ellipse class="agua-k" cx="${cx}" cy="${topo}" rx="${rx}" ry="${ry}"/>
+      </g>`;
+  return `<svg class="cil" viewBox="0 0 60 124" aria-hidden="true">
+      <defs><clipPath id="${idClip}"><path d="${_corpo}"/></clipPath></defs>
+      <ellipse class="chao" cx="${cx}" cy="${base + ry + 5}" rx="${rx - 3}" ry="4"/>
+      <path class="parede" d="${_corpo}"/>
+      <g clip-path="url(#${idClip})">${agua}</g>
+      <path class="volume" d="${_corpo}"/>
+      <!-- sem rx: este mundo tem raio zero em tudo -->
+      <rect class="brilho" x="${cx-rx+6}" y="${topo+9}" width="4" height="${h-20}"/>
+      <line class="aresta" x1="${cx-rx}" y1="${topo}" x2="${cx-rx}" y2="${base}"/>
+      <line class="aresta" x1="${cx+rx}" y1="${topo}" x2="${cx+rx}" y2="${base}"/>
+      <path class="aresta" d="M${cx-rx} ${base} A${rx} ${ry} 0 0 0 ${cx+rx} ${base}"/>
+      <ellipse class="boca" cx="${cx}" cy="${topo}" rx="${rx}" ry="${ry}"/>
+    </svg>`;
+}
+
+let _idc = 0;
+function colunasHTML(mostrar){
+  /* os dois desenhos são emitidos juntos; a media query decide qual aparece */
+  return mostrar.map(r => `<button class="res ${r.cls}" data-abrir="reservatorio">
+        ${cilindroSVG(r.n, r.cls === "mudo", "cl" + (_idc++))}
+        <span class="tubo"><span class="agua" style="--n:0%"><span class="crista"></span></span></span>
+        <span class="pct">${r.cls === "mudo" ? "—" : r.n + "%"}</span>
+        <span class="nome">${r.nome}</span>
+      </button>`).join("");
+}
+
+/* a frase do resto: fala a faixa real, não "e outros N" seco */
+function restoHTML(todas, mostrar){
+  const resto = todas.filter(r => !mostrar.includes(r));
+  if (!resto.length) return "";
+  const medidos = resto.filter(r => r.cls !== "mudo");
+  const min = Math.min(...medidos.map(r => r.n));
+  const max = Math.max(...medidos.map(r => r.n));
+  const plural = resto.length > 1;
+  const faixa = min === max ? `em ${min}%` : `entre ${min}% e ${max}%`;
+  return `<button class="resto" data-abrir="todos">Mais ${resto.length} ` +
+    `reservatóri${plural ? "os" : "o"}, ${plural ? "todos" : ""} ${faixa}. <u>Ver todos</u></button>`;
+}
+
+function listaHTML(todas){
+  return todas.map(r => `<li><button class="res-item ${r.cls}" data-abrir="reservatorio">
+      <span class="nm">${r.nome}</span>
+      <span class="brr"><i style="width:${r.cls === "mudo" ? 0 : r.n}%"></i></span>
+      <span class="vl">${r.cls === "mudo" ? "—" : r.n + "%"}</span>
+    </button></li>`).join("");
+}
+
+function aplicar(){
+  const e = ESTADOS[_estado];
+  document.body.dataset.estado = _estado;
+
+  const f = document.getElementById("frase");
+  f.innerHTML = e.frase;
+  f.classList.toggle("risco", e.risco);
+  document.getElementById("apoio").textContent = e.apoio(_nres);
+  document.getElementById("desde").textContent = e.desde;
+  document.body.dataset.atend = e.atend ? "sim" : "nao";
+  if (e.atend) document.getElementById("atendTxt").textContent = e.atend;
+
+  const todas = leituras();
+  const mostrar = escolhidos(todas);
+  const cols = document.getElementById("colunas");
+  cols.innerHTML = colunasHTML(mostrar);
+  cols.dataset.n = mostrar.length;
+  document.getElementById("resto").innerHTML = restoHTML(todas, mostrar);
+  document.getElementById("semSensor").insertAdjacentHTML("afterbegin",
+    document.querySelector("#semSensor .cil") ? "" : cilindroSVG(0, true, "cl-sem"));
+  document.getElementById("resLista").innerHTML = listaHTML(todas);
+
+  /* a água sobe uma vez, na chegada — o único momento autoral da tela.
+     ⚠️ O rAF é só o gatilho da ANIMAÇÃO, nunca a fonte do dado: ele não
+     dispara em aba invisível, e o nível ficaria zerado até a aba aparecer.
+     O setTimeout garante o valor final mesmo sem quadro; os dois escrevem a
+     mesma coisa, então rodar duas vezes é inofensivo. */
+  const encher = () => {
+    cols.querySelectorAll(".agua-g").forEach(g =>
+      g.style.transform = `translateY(${g.dataset.desce}px)`);
+    cols.querySelectorAll(".res").forEach((el,i) =>
+      el.querySelector(".agua")?.style.setProperty("--n",
+        (mostrar[i].cls === "mudo" ? 0 : mostrar[i].n) + "%"));
+  };
+  requestAnimationFrame(()=>requestAnimationFrame(encher));
+  setTimeout(encher, 80);
+
+  document.querySelectorAll(".andaime [data-estado]").forEach(b=>
+    b.setAttribute("aria-pressed", String(b.dataset.estado === _estado)));
+  document.querySelectorAll(".andaime [data-nres]").forEach(b=>
+    b.setAttribute("aria-pressed", String(Number(b.dataset.nres) === _nres)));
+}
+
+document.querySelectorAll(".andaime [data-estado]").forEach(b=>
+  b.addEventListener("click", ()=>{ _estado = b.dataset.estado; aplicar(); }));
+document.querySelectorAll(".andaime [data-nres]").forEach(b=>
+  b.addEventListener("click", ()=>{ _nres = Number(b.dataset.nres); aplicar(); }));
+
+/* a barra ganha fundo e fio ao rolar — em repouso ela não pesa sobre o campo */
+const _barra = document.getElementById("barra");
+addEventListener("scroll", () =>
+  _barra.classList.toggle("is-rolada", scrollY > 8), {passive:true});
+
+/* motivos do chamado — escolha única */
+document.querySelectorAll("#motivos .motivo").forEach(b=>{
+  b.addEventListener("click", ()=>{
+    document.querySelectorAll("#motivos .motivo").forEach(o=>o.setAttribute("aria-pressed","false"));
+    b.setAttribute("aria-pressed","true");
+  });
+});
+
+/* fichas */
+const FICHAS = {ajuda:"fAjuda", chamadoAberto:"fChamadoAberto", chamado:"fChamado",
+                reservatorio:"fReservatorio", conta:"fConta", todos:"fTodos"};
+/* ⚠️ NUNCA duas fichas abertas. Antes `abrir()` só fazia hidden=false, então
+   "Ver todos" → tocar um reservatório empilhava dois diálogos, e o X fechava
+   os dois de uma vez — o síndico voltava ao painel em vez da lista. É o vício
+   de modal-sobre-modal que o brief proíbe. Uma pilha de um nível resolve: a
+   ficha de origem é lembrada e o X devolve para ela. */
+let _origem = null;
+function abrir(k){
+  const el = document.getElementById(FICHAS[k]); if (!el) return;
+  const jaAberta = Object.values(FICHAS).map(id=>document.getElementById(id)).find(n=>!n.hidden);
+  if (jaAberta && jaAberta !== el) { _origem = jaAberta.id; jaAberta.hidden = true; }
+  else if (!jaAberta) { _origem = null; }
+  el.hidden = false;
+  document.body.classList.add("com-ficha");
+  el.querySelector(".ficha")?.focus?.();
+}
+function fecharTudo(){
+  Object.values(FICHAS).forEach(id=>{ document.getElementById(id).hidden = true; });
+  _origem = null;
+  document.body.classList.remove("com-ficha");
+}
+/* o X volta para a ficha de origem quando ela existe */
+function voltar(){
+  const de = _origem;
+  Object.values(FICHAS).forEach(id=>{ document.getElementById(id).hidden = true; });
+  if (de) { _origem = null; document.getElementById(de).hidden = false; }
+  else fecharTudo();
+}
+
+document.addEventListener("click", ev=>{
+  const alvo = ev.target.closest("[data-abrir]");
+  if (alvo) { abrir(alvo.dataset.abrir); return; }
+  if (ev.target.closest("[data-fechar]")) { voltar(); return; }
+  if (ev.target.classList.contains("ficha-fundo")) voltar();
+});
+document.addEventListener("keydown", ev=>{ if (ev.key === "Escape") voltar(); });
+
+/* estrelas */
+document.querySelectorAll("#estrelas button").forEach(b=>{
+  b.addEventListener("click", ()=>{
+    const n = Number(b.dataset.nota);
+    document.querySelectorAll("#estrelas button").forEach(o=>{
+      const on = Number(o.dataset.nota) <= n;
+      o.classList.toggle("on", on);
+      o.setAttribute("aria-checked", String(Number(o.dataset.nota) === n));
+    });
+  });
+});
+
+/* períodos */
+document.querySelectorAll(".periodos button").forEach(b=>{
+  b.addEventListener("click", ()=>{
+    document.querySelectorAll(".periodos button").forEach(o=>o.setAttribute("aria-pressed","false"));
+    b.setAttribute("aria-pressed","true");
+  });
+});
+
+aplicar();
+</script>
+</body>
+</html>

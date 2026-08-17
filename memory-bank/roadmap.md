@@ -62,6 +62,49 @@ aliases:
     (`@capacitor-mlkit/barcode-scanning`), inventário do parque instalado,
     alerta de garantia.
 
+- **Landing pública** 🟡 — redesenhada em 2026-08-11 na branch
+  `feature/landing-publica` (direção "Chapa"; a primeira versão, em formato de
+  demonstrativo de despesas, foi rejeitada). Em 2026-08-13 a linha do tempo da
+  madrugada foi trocada por uma chamada única de 24 h e toda a copy passou para
+  primeira pessoa do plural. Fluxo e pegadinhas em
+  [`../docs/modulos/landing-publica.md`](../docs/modulos/landing-publica.md).
+  Pendente antes do merge:
+  - **Preço / termos da assinatura** — Pedro definiu "assinatura mensal, sem
+    vagas limitadas", mas o **valor não existe**. A página fala em proposta caso
+    a caso e **não cita número nenhum**. Não inventar.
+  - **Texto de LGPD** sob o botão de envio — escrito para descrever só o que
+    `leads.routes.js` faz; falta o Pedro validar.
+  - **"400+ avaliações cinco estrelas no Google"** continua não verificada e por
+    isso está fora da página (ver `PRODUCT.md`).
+  - `POST /leads` **não foi exercitado contra o backend real** nesta sessão —
+    só a validação de campo vazio no front.
+- **Painel do cliente** 🟡 — **v3 implementada em 14/08**, a partir da comp
+  [`../docs/comps/painel-cliente-v3.html`](../docs/comps/painel-cliente-v3.html).
+  A v1 (13/08) foi rejeitada por manter a casca do admin; a v3 removeu
+  navegação, KPIs, abas, buscas e tabelas, e tudo que sobrou virou ficha.
+  Fluxo e pegadinhas em
+  [`../docs/modulos/painel-cliente.md`](../docs/modulos/painel-cliente.md);
+  estratégia em `.impeccable/surfaces/public-cliente-html.md`.
+  Pendente antes do merge:
+  - **Abrir com backend real** (servidor de teste + conta de cliente demo). Até
+    aqui só houve harness estático — 8 estados × 2 tamanhos, `fetch` dublado.
+  - **Ver o cliente sem telemetria contratada com um cliente real** (sem
+    reservatórios no banco). No harness o caminho renderiza.
+  - **Decidir o âmbar no estado "atenção"**: ali a palavra que nomeia o
+    problema, o número, o anel do tanque **e** o botão são todos âmbar — quatro
+    regiões, contra a regra de "uma vez por tela". Veio assim da comp aprovada;
+    não mexi sozinho.
+  - 📋 **`ja_avaliado` no `SELECT` de `GET /cliente/chamados`** — uma linha
+    (`(ch.avaliacao_nota IS NOT NULL) AS ja_avaliado`) elimina as requisições
+    de detalhe que hoje existem só para saber se o convite a avaliar aparece na
+    história. Aditivo, sem rota nova, sem tocar no `sw.js`.
+  - 📋 **`alertas_recentes` em `/cliente/status`** — alertas resolvidos dos
+    últimos 30 dias, para a história parar de mostrar alerta que abre e nunca
+    fecha. Aditivo: sem rota nova, sem tocar no `sw.js`. Aguarda o Pedro
+    liberar mexer no backend.
+  - 📋 **O prédio em corte** ([`../docs/comps/predio-em-corte.html`](../docs/comps/predio-em-corte.html))
+    continua como exploração, não como decisão: exige campo novo de posição do
+    reservatório no banco.
 - **Gateway Meta WhatsApp** — código pronto, pendente configuração externa
   (ver [`active-work.md`](active-work.md)).
 - **Fase 10 (treinar IA)** 🟡 — 10A feito; 10B-E aguardam ~500+ conversas

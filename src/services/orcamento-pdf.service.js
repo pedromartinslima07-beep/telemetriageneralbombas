@@ -191,6 +191,10 @@ function renderHTML({ os, itens }, areaP1, medidas = {}) {
     ? Number(os.valor)
     : itens.reduce((acc, it) => acc + Number(it.valor_unitario || 0) * Number(it.quantidade), 0);
   const validadeStr = validadeTexto(os);
+  // Total definido manualmente (`orcamentos.valor`) = o preço não vem da soma
+  // dos itens. Nesse caso as colunas de valor unitário/total por item saem do
+  // PDF (ficariam vazias ou contradiriam o total) — só o VALOR TOTAL aparece.
+  const totalManual = os.valor != null;
 
   // ── Paginação ────────────────────────────────────────────────────────────────
   // AREA_P1 vem medido em mm pela passagem 1 do Puppeteer (altura real do cabeçalho)
@@ -294,12 +298,12 @@ function renderHTML({ os, itens }, areaP1, medidas = {}) {
   <th class="it-idx">#</th>
   <th>Descrição / Especificações</th>
   <th class="it-num" style="width:44px;">Qtd</th>
-  <th class="it-num" style="width:90px;">Valor Unit.</th>
-  <th class="it-num" style="width:90px;">Total</th>
+  ${totalManual ? "" : `<th class="it-num" style="width:90px;">Valor Unit.</th>
+  <th class="it-num" style="width:90px;">Total</th>`}
 </tr></thead>
 <tbody>`;
       if (itens.length === 0) {
-        c += `<tr><td colspan="5" class="it-vazio">Nenhum item adicionado ao orçamento.</td></tr>`;
+        c += `<tr><td colspan="${totalManual ? 3 : 5}" class="it-vazio">Nenhum item adicionado ao orçamento.</td></tr>`;
       } else {
         pag.itens.forEach(it => {
           itemIdx++;
@@ -311,8 +315,8 @@ function renderHTML({ os, itens }, areaP1, medidas = {}) {
   <td class="it-idx">${itemIdx}</td>
   <td class="it-desc"><div class="it-desc-text">${escapeHtml(it.descricao)}</div>${fichaHtml}</td>
   <td class="it-num">${it.quantidade}</td>
-  <td class="it-num">${fmtMoeda(it.valor_unitario)}</td>
-  <td class="it-num">${fmtMoeda(tot)}</td>
+  ${totalManual ? "" : `<td class="it-num">${fmtMoeda(it.valor_unitario)}</td>
+  <td class="it-num">${fmtMoeda(tot)}</td>`}
 </tr>`;
         });
       }
@@ -499,13 +503,20 @@ function renderMeasureHTML({ os }) {
   const endParts    = [os.endereco, os.bairro, os.cidade && os.uf ? `${os.cidade}/${os.uf}` : (os.cidade || ""), os.cep ? `CEP ${os.cep}` : ""].filter(Boolean);
   const enderecoStr = endParts.join(" – ");
 
+  // Precisa espelhar exatamente a tabela do renderHTML: com total manual as
+  // colunas de valor somem, a descrição fica mais larga e a altura da linha
+  // medida aqui muda — se divergir, a paginação erra.
+  const totalManual = os.valor != null;
+
   const theadHtml = `<thead><tr>
     <th class="it-idx">#</th>
     <th>Descrição / Especificações</th>
     <th class="it-num" style="width:44px;">Qtd</th>
-    <th class="it-num" style="width:90px;">Valor Unit.</th>
-    <th class="it-num" style="width:90px;">Total</th>
+    ${totalManual ? "" : `<th class="it-num" style="width:90px;">Valor Unit.</th>
+    <th class="it-num" style="width:90px;">Total</th>`}
   </tr></thead>`;
+
+  const tdsMoeda = totalManual ? "" : `<td class="it-num">R$&nbsp;0,00</td><td class="it-num">R$&nbsp;0,00</td>`;
 
   return `<!doctype html><html lang="pt-BR"><head>
 <meta charset="utf-8">
@@ -579,7 +590,7 @@ body { width: 210mm; background: white; font-family: Arial, Helvetica, sans-seri
     <tbody><tr>
       <td class="it-idx">1</td>
       <td class="it-desc"><div class="it-desc-text">Serviço de manutenção preventiva</div></td>
-      <td class="it-num">1</td><td class="it-num">R$&nbsp;0,00</td><td class="it-num">R$&nbsp;0,00</td>
+      <td class="it-num">1</td>${tdsMoeda}
     </tr></tbody>
   </table>
 </div>
@@ -590,7 +601,7 @@ body { width: 210mm; background: white; font-family: Arial, Helvetica, sans-seri
     <tbody><tr>
       <td class="it-idx">1</td>
       <td class="it-desc"><div class="it-desc-text">Serviço de manutenção preventiva</div><div class="ficha">Especificação técnica do serviço realizado na unidade</div></td>
-      <td class="it-num">1</td><td class="it-num">R$&nbsp;0,00</td><td class="it-num">R$&nbsp;0,00</td>
+      <td class="it-num">1</td>${tdsMoeda}
     </tr></tbody>
   </table>
 </div>
@@ -700,11 +711,16 @@ function renderHTMLServico({ os, itens }, timbrado) {
     ? Number(os.valor)
     : itens.reduce((acc, it) => acc + Number(it.valor_unitario || 0) * Number(it.quantidade), 0);
 
+  // Mesma regra do orçamento de peças: total manual (`orcamentos.valor`) tira o
+  // valor por linha — a lista vira só a relação dos serviços cobertos.
+  const totalManual = os.valor != null;
+
   const valoresHtml = itens.length
     ? itens.map(it => {
         const tot       = it.valor_unitario == null ? null : Number(it.valor_unitario) * Number(it.quantidade);
         const qtdSuffix = Number(it.quantidade) > 1 ? ` (${it.quantidade}x)` : "";
-        return `<div class="valor-row"><span class="valor-desc">${escapeHtml(it.descricao)}${qtdSuffix}</span><span class="valor-num">${escapeHtml(fmtMoeda(tot))}</span></div>`;
+        const numHtml   = totalManual ? "" : `<span class="valor-num">${escapeHtml(fmtMoeda(tot))}</span>`;
+        return `<div class="valor-row"><span class="valor-desc">${escapeHtml(it.descricao)}${qtdSuffix}</span>${numHtml}</div>`;
       }).join("")
     : `<div class="valor-row valor-vazio">Nenhum valor lançado.</div>`;
 

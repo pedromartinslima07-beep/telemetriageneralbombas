@@ -77,7 +77,10 @@
   // ── Título inicial do topbar ──
   var activeItem = document.querySelector('.mob-nav-item.active[data-mob-section]');
   if (activeItem) {
-    var titles = { dashboard: 'Dashboard', alertas: 'Alertas', cadastros: 'Cadastros', historico: 'Histórico', chamados: 'Chamados', whatsapp: 'WhatsApp' };
+    // `predio` é a seção inicial do painel do CLIENTE (o admin não tem essa
+    // seção, então a chave só é atingida lá). Sem ela o cliente abria com o
+    // título "Dashboard" no topo do celular, que não existe mais na navegação.
+    var titles = { predio: 'Meu prédio', dashboard: 'Dashboard', alertas: 'Alertas', cadastros: 'Cadastros', historico: 'Histórico', chamados: 'Chamados', whatsapp: 'WhatsApp' };
     var titleEl = document.getElementById('topbarTitle');
     if (titleEl) titleEl.textContent = titles[activeItem.dataset.mobSection] || 'Dashboard';
   }

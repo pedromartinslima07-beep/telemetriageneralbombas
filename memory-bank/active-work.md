@@ -7,7 +7,8 @@ aliases:
 ---
 # Trabalho em Andamento
 
-> Branch atual: `feature/equipamentos-qr` (saiu de `main`).
+> Branch atual: `feature/equipamentos-qr` — saiu de `main` e **já traz o `main` de 17/08**
+> (landing pública + painel do cliente v3, mergeados e publicados nesse dia).
 > Última sessão registrada: **2026-08-17**.
 > Roadmap completo em [`roadmap.md`](roadmap.md); decisões em [`decisions.md`](decisions.md).
 
@@ -44,6 +45,287 @@ client-side (2400px → 1280px) e os guards (401 sem token, 403 para `cliente`,
   **impressa** — o QR foi validado na tela, não no papel amassado da bancada.
 - O `?v=N` de `equipamento.css`/`equipamento.js` está em `1`; ao mexer neles,
   bumpar como se faz com o admin.
+
+
+## Sessão 2026-08-14 — O cabeçalho do painel vira o da landing
+
+Pedido do Pedro: *"deixar o cabeçalho igual o da landing page, mesmo tamanho,
+tamanho de logo etc"*. O "o quê" está no [changelog](../docs/changelog.md), o
+fluxo em [painel-cliente.md](../docs/modulos/painel-cliente.md). O que não é
+óbvio pelo diff:
+
+- **"Igual" era falso no desktop também.** As duas barras batiam em 74px, mas
+  a do painel chegava lá por `padding 17 + logo 40 + 17` — número derivado, não
+  declarado. Bastava um elemento crescer dentro dela para a altura sair do
+  documentado, e foi assim que ela virou 85px numa sessão anterior. Agora é
+  `height: var(--barra-h)`, com os mesmos nomes de token do `landing.css`.
+- **O bloqueio real estava no celular, e era o nome do prédio.** Ele obrigava a
+  barra a duas linhas (~107px) e, por isso, a não grudar. As duas saídas
+  possíveis conflitavam com decisões registradas: truncar tinha sido recusado
+  em 14/08, e manter as duas linhas mantinha a divergência. Perguntei em vez de
+  escolher; o Pedro tirou o nome da barra.
+- **Ele não perdeu o papel de título da tela, mudou de lugar:** virou
+  `.placa-topo`, o cabeçalho do instrumento, separado do corpo pelo sulco
+  gravado. Isso é o que impede a peça de virar **etiqueta acima de manchete**,
+  que é forma proibida. Se um dia encolher para mono em caixa alta, virou
+  eyebrow e é para tirar.
+- **A coluna inteira foi alinhada junto** (escolha dele): `.folha`, barra e
+  rodapé agora usam `var(--gut)`, o recuo da `.area` da landing. A largura útil
+  do painel caiu de 1160 para 1128px.
+- ⚠️ **Primeira vez que o painel rodou contra o backend real.** Servidor local
+  na 3001, banco de TESTE, `demo-cliente@teste.local` (estado "sem sinal").
+  Todas as medições anteriores eram harness estático com `fetch` dublado.
+
+**Aberto:**
+- ⚠️ **A ação a 320px.** "Preciso de ajuda" fecha em **586,1px** no estado sem
+  sinal, contra os 569 documentados — ~17px pior, porque o cabeçalho da placa
+  custou ~50px e a barra só devolveu 43. A 390px folga (568,9px). Num viewport
+  de 568px o botão fica parcialmente abaixo da dobra. **Não ajustei**: o
+  aparelho é praticamente extinto e micro-tunar padding contra ele custa mais
+  do que vale. Decisão a confirmar com o Pedro.
+- **A barra de rolagem da landing não é a do painel.** O painel estiliza
+  (`::-webkit-scrollbar`, 10px); a landing fica com a nativa (15,3px medidos).
+  Descoberto ao comparar as duas barras; fora do escopo do pedido.
+- Os quatro itens de 14/08 que continuam em aberto (âmbar quádruplo no estado
+  "atenção", crista amarela, prédio em corte) seguem sem veredito.
+
+## Sessão 2026-08-13 (parte 2) — Painel do cliente reconstruído
+
+Pedido do Pedro logo depois da landing e do login: *"hoje acredito que está
+muito ruim, e o principal problema foi tentar copiar o painel de admin"*. O
+"o quê" está no [changelog](../docs/changelog.md), o fluxo em
+[painel-cliente.md](../docs/modulos/painel-cliente.md) e o "porquê" em
+[`decisions.md`](decisions.md). O que não é óbvio pelo diff:
+
+- **O diagnóstico dele estava certo e era mais fundo que aparência.** O painel
+  **não era inspirado** no admin — ele carregava `admin.css` inteiro (265 KB) e
+  tinha 385 linhas de override por cima. Junto com a paleta vinha a
+  **arquitetura de informação**: *Dashboard* e *Telemetria* existem no admin
+  porque ele olha N condomínios; no cliente eram duas telas mostrando os mesmos
+  3–5 reservatórios, com componentes diferentes para o mesmo dado.
+- **A correção foi desacoplar, não repintar.** `cliente.css` virou folha
+  autônoma mantendo os ~225 nomes de classe que o `cliente.js` emite — trocou
+  o mundo sem tocar no contrato de markup. Isso é o que tornou o redesenho
+  viável numa sessão.
+- **A estrutura veio de sorteio, não do meu gosto.** Sete estruturas derivadas
+  do que o síndico faz; o seed do Impeccable (`06d85de2`) apontou a nº 6, a
+  linha do tempo. Ela venceu por razão de produto: o síndico precisa **prestar
+  contas**, e o painel antigo descartava toda a temporalidade menos um gráfico.
+- ⚠️ **Tirei o tanque cilíndrico em SVG** que o Pedro aprovou em julho, e pus a
+  coluna d'água da landing no lugar. O motivo é o mesmo do redesenho (o
+  cilindro é o componente do admin, portado), mas **é uma reversão de escolha
+  dele** — está avisado e pode voltar atrás.
+- ⚠️ **Quase perdi o `cliente.js`.** Um script meu de remoção de funções órfãs
+  varreu até o fim do arquivo e truncou 1.879 linhas para 41. Restaurado do git
+  e reaplicado. A lição virou cicatriz em [`decisions.md`](decisions.md):
+  remoção em lote por script se faz com parser ou não se faz.
+- **Bugs reais achados no caminho** (todos corrigidos): `wa.me` com número
+  inventado; `.mob-topbar` com `sticky` estando no fim do `<body>`, logo nunca
+  grudava; "Em atendimento" pintado de vermelho; tabelas sem tratamento mobile;
+  sidebar recolhida sem rótulo nenhum.
+- **Backend intocado.** Nenhuma rota, campo ou migration; e como não houve
+  endpoint novo, o `sw.js` não foi tocado.
+
+## Sessão 2026-08-14 — Painel do cliente: a v3 virou código
+
+A comp v3 (`docs/comps/painel-cliente-v3.html`), refinada ao longo de 14/08,
+foi **implementada** em `public/cliente.html` + `cliente.css` + `cliente.js`.
+Os três arquivos foram reescritos; o backend não foi tocado. Detalhe técnico em
+[`../docs/modulos/painel-cliente.md`](../docs/modulos/painel-cliente.md) e no
+[`../docs/changelog.md`](../docs/changelog.md).
+
+**O que mudou de verdade:** a navegação inteira saiu (sidebar, colapso, topbar,
+KPIs, abas, buscas, tabelas, as três seções). A página virou **resposta +
+história + rodapé**, e tudo que sobrou virou **ficha**: pedir ajuda, chamado
+(passos + conversa + avaliação no pé), todos os reservatórios, reservatório
+(gráfico + PDF) e sua conta (senha + sair). Nenhuma funcionalidade saiu.
+
+**Três bugs reais achados na verificação, e os três só apareceram medindo:**
+
+1. `overflow-x: clip` só no `body` **não segura** — a 390px a página rolava
+   66px para o lado por causa da engrenagem que sangra. Precisa estar em `html`
+   **e** `body`.
+2. A prova era reconstruída a cada tick de 10s e a **lâmina d'água voltava a
+   zero e subia de novo**. Num painel de nível de água, tanque esvaziando
+   sozinho a cada dez segundos é a leitura errada. Agora só redesenha quando a
+   assinatura da leitura muda.
+3. `desdeQuando` arredondava: 40 segundos viravam "há 1 min". Virou piso.
+
+⚠️ **Duas vezes a captura de tela mentiu** (barra "fora de posição", rodapé com
+sobra) e as duas vezes o `getBoundingClientRect` mostrou que estava certo. A
+regra do brief vale: medir, não olhar JPEG reduzido.
+
+**Passada de celular, no mesmo dia (o Pedro cobrou).** Ele arrastou a página
+para o lado no celular e mandou a captura. Era **a comp**, não o código: eu
+tinha corrigido o `overflow-x` em `public/cliente.css` e deixado
+`docs/comps/painel-cliente-v3.html` com o defeito. Corrigida — a comp é o
+artefato que ele abre para revisar.
+
+Mas a varredura em **oito larguras** (320→768), em vez de só 390, achou o
+defeito que importava: ⚠️ **"Preciso de ajuda" caía abaixo da dobra nos estados
+de alarme** (787px no sem sinal, 729px no de atenção, 700px no crítico, a
+390px). A tese do painel — "a primeira tela é a resposta, com UMA ação" —
+quebrava no aparelho prioritário, e eu não tinha visto porque só olhei o estado
+calmo com atenção. Corrigido com `order` na quebra de 820px (a ação sobe, a
+linha de atendimento desce para logo acima da prova), apoio mais curto e a
+linha de atendimento em duas linhas. Base do botão agora: 434–564px em todos os
+estados, a 390 e a 320.
+
+⚠️ **Regra que fica: uma largura só não é verificação de celular.** Medir a
+altura até a ação em todos os estados, em pelo menos 320 e 390.
+
+**Pendências desta sessão:**
+
+- ⚠️ **Nada rodou contra o backend real.** Harness estático com `fetch`
+  dublado, contact sheet de 8 estados × 2 tamanhos (1920px e 390px).
+- ❓ **O âmbar no estado "atenção"**: palavra + número + anel do tanque +
+  botão, quatro regiões âmbar contra a regra de "uma vez por tela". Veio assim
+  da comp aprovada — não mexi sozinho, precisa do teu veredito.
+- ❓ **O gráfico da ficha perdeu o tooltip** ao sair do ApexCharts (a comp não
+  previa tooltip; quem dá o valor de agora é a linha de estado no topo).
+- 📋 `ja_avaliado` no SELECT da lista de chamados — uma linha que elimina as
+  requisições de detalhe que hoje existem só para o convite a avaliar.
+- 📋 `alertas_recentes` em `/cliente/status` (alerta que abre e nunca fecha).
+- A branch `feature/landing-publica` acumula landing + login + painel v3 e
+  **ainda não foi mergeada**.
+
+---
+
+### ⚠️ Histórico: a v1 foi rejeitada; a v2 virou a v3
+
+> Esta seção é **registro do caminho**, não instrução. O código em
+> `public/cliente.*` é a **v3**, descrita na sessão de 14/08 acima. O que
+> continua valendo aqui é o diagnóstico da rejeição — por que reimaginação
+> parcial é repintura.
+
+**A v1 não era o alvo.** O Pedro a recusou no fim
+da sessão: *"ficou parecido com o painel admin só que pior"*, *"o menu
+colapsável não funciona tão bem quanto no admin"*, *"o que parece que mudou de
+fato é o visual, e achei muito poluído"*. Ele tem razão, e o diagnóstico é
+simples: **reimaginei uns 30% e repintei o resto** — a estrutura escolhida pela
+skill governou uma seção, e a casca do admin (sidebar com colapso, topbar,
+KPIs, abas, busca, tabelas) ficou inteira.
+
+**A v2 está aprovada como direção** ("não está perfeito, mas dá pra ser um
+norte"), e existe como comp:
+[`../docs/comps/painel-cliente-v2.html`](../docs/comps/painel-cliente-v2.html).
+A primeira tela inteira é uma frase ("Tem água.") com os reservatórios como
+prova e uma ação; abaixo, a história do prédio; sem seções, sem navegação —
+alerta e chamado abrem como ficha. Racional em [`decisions.md`](decisions.md),
+estratégia durável em `.impeccable/surfaces/public-cliente-html.md`.
+
+**O que a v2 abriu e a v3 fechou em 14/08:** a água ficou **sempre azul** (muda
+o número e a palavra, não a substância); a frase do dia normal virou **"Seu
+prédio está abastecido."**; o **cilindro voltou** (reproporcionado, sem limiar
+dentro do tanque); e os órfãos ganharam lugar — troca de senha e "sair" na
+ficha *Sua conta*, avaliação no **pé da ficha do chamado**, cliente sem
+telemetria como **a mesma tela com outra resposta**, e o histórico com períodos
+dentro da ficha do reservatório, que é onde o `device_id` do PDF tem de onde
+sair.
+
+⚠️ **A dúvida do merge deixou de existir**: a branch não carrega mais a v1
+rejeitada, e sim a v3. Os bugs que a v1 tinha corrigido (WhatsApp com número
+inventado, `.mob-topbar` que nunca grudava, "Em atendimento" em vermelho,
+tabelas sem mobile) continuam corrigidos — a maioria porque as peças que os
+hospedavam deixaram de existir.
+
+## Sessão 2026-08-13 — Landing: madrugada fora, voz em primeira pessoa
+
+Dois ajustes pedidos pelo Pedro sobre a página já redesenhada. O "o quê" está
+no [changelog](../docs/changelog.md); o "porquê" em
+[`decisions.md`](decisions.md). O que não é óbvio pelo diff:
+
+- **A seção nova levou três tentativas.** (1) Três cards iguais lado a lado —
+  o contêiner preguiçoso, vício da versão rejeitada em agosto; virou **uma
+  placa só** dividida por cortes gravados (`--rasgo` + `--luz`), com a
+  anatomia do instrumento do hero. (2) O conteúdo era "três falhas que a boia
+  não reporta", que o Pedro identificou como **a seção 'Três peças no prédio'
+  repetida com outro nome** — sonda / sensor de corrente / central. (3) Ficou
+  o **ciclo do serviço**: medimos → avisamos → atendemos, + o painel.
+  ⚠️ Duas coisas para não desfazer: não transformar a placa em cards, e não
+  voltar a descrever sensores em `#servico`.
+- ⚠️ **A landing tem dois leitores.** Muito texto estava escrito só para quem
+  já é cliente da manutenção ("a mesma equipe que já troca a sua bomba"). O
+  Pedro pegou isso. Vínculo existente agora entra sempre como condicional.
+- **A tela de login entrou no escopo.** O Pedro apontou o degrau: sair da
+  landing e cair num login âmbar do Mission Control parecia outra empresa.
+  Refeita em split screen no mundo "Chapa". ⚠️ Como `landing.css` só é servido
+  em `/`, o `login.css` **duplica** os tokens — mudança de paleta agora é em
+  dois arquivos.
+- ⚠️ **A `DESIGN.md` tinha uma descrição errada que me fez escrever bug.** Ela
+  dizia que o anel de foco amarelo "fica por fora, a 3px", mas o `landing.css`
+  sempre usou `inset` — porque `clip-path` recorta qualquer coisa pintada fora
+  da caixa. Segui a doc no login e o indicador de teclado não aparecia.
+  Corrigida. Se achar outra descrição da `DESIGN.md` que não bate com o CSS,
+  **o CSS é a verdade**.
+- ⚠️ **O contrato de posicionamento agora existe e está no `PRODUCT.md`.** Foi
+  o Pedro que parou o trabalho para fechá-lo, depois de quatro rodadas de
+  remendo. **Produto é protagonista** (os 20 anos são garantia, não abertura)
+  e **não nos posicionamos contra ninguém**. Isso inverteu um princípio que
+  estava no `PRODUCT.md` e que eu tinha derivado sozinho. Antes de escrever
+  qualquer copy nova, ler o contrato — não improvisar posicionamento.
+- **A pendência da revisão de 11/08 está resolvida.** O revisor pediu um olhar
+  ao vivo no instrumento mobile porque coluna e número pareciam discordar;
+  medido com o movimento rodando, eles **concordam** (`nível 47` /
+  `--n: 46.84%`). Era artefato de captura pausada, como ele suspeitava.
+- ⚠️ **`DESIGN.md` citava a madrugada em 9 pontos** (paleta, tipografia,
+  layout, sombras, formas, motion). Todos corrigidos — mas se aparecer alguma
+  referência a "trilho" ou "evento da madrugada" em doc que eu não peguei,
+  está morta.
+- **Não verificado nesta sessão:** o `POST /leads` continua exercitado só
+  contra um stub local, nunca contra o backend real.
+
+**Pendências desta sessão:**
+
+- Confirmar com o Pedro o texto de LGPD (agora "Seus dados vão só para a nossa
+  equipe comercial, para responder este contato").
+- Merge para `main` ainda não feito.
+- `public/alertas-front.png` e `tecnicos-front.png` estão deletados no working
+  tree sem commit; o `PRODUCT.md` ainda os cita como "não usar".
+
+## Sessão 2026-08-11 — Landing pública, segunda direção ("Chapa")
+
+A primeira versão da landing (commit `446d1c7`) foi **rejeitada**. O que não é
+óbvio pelo diff:
+
+- **O motivo da rejeição não foi acabamento, foi conceito.** A página tinha
+  sido construída como um demonstrativo de despesas de condomínio: folha de
+  papel, tabela de conta com a linha do caminhão-pipa grifada a marca-texto,
+  carimbo "documento ilustrativo". A ideia se sustentava no papel e não
+  sobreviveu à tela — virou papelada, não peça de venda. Pedro pediu "mais
+  bonito, com animações mais bonitas".
+- **A direção nova saiu do próprio logo, não de referência externa.** As letras
+  de GENERAL são chanfradas a 45°, com contraforma quadrada e uma lasca amarela
+  dentro do G — é chapa cortada. A versão anterior tratava isso como selo de
+  26px no canto e construía papel em volta. Agora o chanfro é a gramática de
+  placa, botão, foto e campo.
+- **"O logo aparece 3× e as 3 minúsculas"** virou: 2 aparições em escala
+  confiante (40px no topo, 72px no rodapé) + 1 presença gráfica (a engrenagem
+  gigante girando atrás do hero, em SVG próprio). Marca presente sem repetir
+  logotipo.
+- ⚠️ **Não existe vetor da marca.** Confirmado com o Pedro. Por isso as
+  engrenagens foram redesenhadas em SVG e `public/logo-topo.png` foi **gerado**
+  a partir de `login-logo.png` apagando a assinatura por cor. Se um SVG
+  aparecer, substitui os dois.
+- ⚠️ **Termos do piloto:** Pedro definiu que é **assinatura mensal, sem número
+  limitado de vagas**. Preço ainda **não definido** — a página fala em proposta
+  montada caso a caso e não cita valor. Não inventar.
+- **Fotos liberadas:** as 5 fotos reais da equipe podem ser usadas grandes, com
+  rostos. Autorização confirmada pelo Pedro.
+- **Verificado em navegador real** (servidor estático só de `public/`, para não
+  conectar no Postgres de produção nem acordar os jobs), em 1440×960 e
+  500×749. Formulário testado só na validação de campo vazio — **o `POST
+  /leads` não foi exercitado contra o backend real nesta sessão**.
+
+**Pendências desta sessão:**
+
+- Confirmar com o Pedro o texto de LGPD sob o botão ("Seus dados vão só para a
+  equipe comercial da General, para responder este contato"). Foi escrito para
+  descrever apenas o que `leads.routes.js` de fato faz, sem prometer
+  não-compartilhamento.
+- A claim "400+ avaliações cinco estrelas no Google" continua **não
+  verificada** e por isso **não** está na página (ver `PRODUCT.md`).
+- Merge para `main` ainda não feito.
 
 ## Sessão 2026-08-06 — Modal "Editar condomínio" (continuação da padronização)
 
@@ -491,7 +773,7 @@ Zero mudança visual — só remove a duplicação de markup.
 
 **Pendentes desta linha de trabalho:**
 - **Validação visual:** `node -c` OK e revisão lógica, mas sem screenshot
-  (usuário não quer servidor em background — [[feedback_inline_questions]]).
+  (usuário não quer servidor em background).
   Preview estático atualizado em scratchpad pra ele abrir. Falta conferir a
   geometria do SVG e o overlay renderizados.
 
