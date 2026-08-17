@@ -110,7 +110,7 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
     é física e permanente: um QR com `localhost` vira lixo colado numa bomba.
   - Validado contra o backend real (banco de **teste**) e no navegador: lote,
     PDF, vínculo, ciclo de movimentações, upload de foto e os guards de 401/403/404.
-    **A migration ainda não rodou em produção.**
+    Migration aplicada em **teste e produção** no mesmo dia.
 
 - **2026-08-06** — **Painel de detalhe gruda no topo nas 5 telas master-detail**
   (só CSS)

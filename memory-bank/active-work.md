@@ -36,8 +36,8 @@ client-side (2400px → 1280px) e os guards (401 sem token, 403 para `cliente`,
 404 para código inexistente). `node --check` em todos os arquivos tocados.
 
 **Pendências desta sessão:**
-- ⚠️ **Migration 070 não rodou em produção** — só no banco de teste, que é para
-  onde o `.env` aponta hoje.
+- ✅ Migration 070 aplicada em **teste e produção** (17/08). Em dev o
+  `migrate.js` vai para o banco de teste por padrão; produção exige `--prod`.
 - ⚠️ **`PUBLIC_BASE_URL` precisa entrar nas envs do Railway** antes da primeira
   folha real: sem ela o gerador recusa imprimir (barra host local de propósito).
 - A ficha nunca foi aberta em **aparelho real** escaneando uma etiqueta

@@ -158,7 +158,7 @@ ESP32 (sonda 4-20mA + SCT-013)
 - ⚠️ **A foto usa rota autenticada** (`fetch` + object URL), diferente da
   equivalente em `os_fotos`, que é pública: aqui o id é sequencial e o conteúdo
   é o interior da casa de máquinas de um cliente.
-- ⚠️ **A migration 070 rodou só no banco de teste.** Falta produção.
+- Migration 070 aplicada em **teste e produção** (2026-08-17).
 - Diagnóstico, peças, orçamento e painel da bancada são Fase 12B.
 
 **App mobile (Capacitor 8)** — `app/public/`

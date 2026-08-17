@@ -45,8 +45,9 @@ aliases:
   - ✅ **12A (identidade)**: migration 070, router `/equipamentos`, folha A4 de
     etiquetas QR, ficha `/e/:codigo` e seção Equipamentos no admin. Responde
     "de quem é essa bomba e o que ela tem", que era a dor original.
-  - ⚠️ **Migration 070 rodou só no banco de TESTE.** O `.env` aponta pra lá
-    hoje. Aplicar em produção antes do merge.
+  - ✅ **Migration 070 aplicada em teste e em produção** (2026-08-17,
+    `--prod`). Lembrete: em dev o `migrate.js` vai pro banco de teste por
+    padrão — produção exige a flag `--prod` (ver `src/db-url.js`).
   - 📋 **`PUBLIC_BASE_URL` nas envs do Railway** — sem ela o gerador de
     etiquetas recusa imprimir (deriva a URL do request e barra host local).
     É pré-requisito pra primeira folha real sair da impressora.
