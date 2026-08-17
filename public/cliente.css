@@ -363,14 +363,33 @@ a { color: inherit; text-decoration: none; }
 
 .apoio { margin-top: 22px; font-size: 1.16rem; line-height: 1.55; color: var(--sobre-2); max-width: 42ch; }
 
-/* ⚠️ align-self: sendo filho de um flex column ele esticaria para a largura
-   toda e o sublinhado atravessaria a célula inteira. */
+/* ─── A oferta, no estado sem telemetria ───
+   Era um link sublinhado solto acima do botão. Virou **chapa ao lado da ação
+   de sempre** quando a coluna da prova saiu desse estado: a placa perdeu a
+   prova, não a segunda ação, e um link de 1 linha não sustentava sozinho a
+   metade direita vazia.
+   ⚠️ Continua SECUNDÁRIA — o amarelo aparece uma vez por tela e é de
+   "Preciso de ajuda". Aqui vale a mesma chapa de duas camadas do `.resto`:
+   o fundo do elemento é o anel e o `::before` embutido 1,5px é a placa;
+   `box-shadow: inset` como borda sairia recortado nos dois chanfros. */
+/* ⚠️ Tipo e recuo IDÊNTICOS aos do `.ajuda`, não os do `.resto`: lado a lado,
+   .95rem contra 1,06rem dava 55 contra 56px de caixa e os dois chanfros
+   desalinhavam por 1px na base. Quem separa primária de secundária aqui é a
+   chapa contra o amarelo — não o tamanho da letra. */
 .quero {
-  display: none; align-self: flex-start; margin-top: 16px; font-size: 1.02rem; color: #fff;
-  border-bottom: 1px solid var(--fio); padding-bottom: 2px;
+  display: none; --ch: 10px; clip-path: var(--corte);
+  align-items: center; min-height: 54px; padding: 15px 28px;
+  background: var(--fio-forte); color: #fff;
+  font-weight: 700; font-stretch: 106%;
+  position: relative; isolation: isolate;
 }
-.quero:hover { border-bottom-color: var(--amarelo); }
-body[data-estado="semtel"] .quero { display: inline-block; }
+.quero::before {
+  content: ""; position: absolute; inset: 1.5px; z-index: -1;
+  clip-path: var(--corte); background: var(--mar-900);
+  transition: background .16s ease;
+}
+.quero:hover::before { background: var(--mar-700); }
+body[data-estado="semtel"] .quero { display: inline-flex; }
 
 /* ─── A linha de atendimento ───
    O dia calmo e o dia com técnico no prédio deixam de ser o mesmo estado.
@@ -641,17 +660,79 @@ body[data-atend="sim"] .linha-atend { display: flex; }
 }
 .resto:hover::before { background: var(--mar-700); }
 
-/* Sem telemetria: UM tubo em contorno puro. Três tubos vazios leriam como
-   "seus reservatórios estão secos", que é falso — e o backend nem conhece
-   os reservatórios desse cliente. */
-.sem-sensor { display: none; }
-body[data-estado="semtel"] .sem-sensor { display: block; }
+/* ═══ SEM TELEMETRIA: A PROVA VIRA A OFERTA ═════════════════════════════
+   Este estado passou por quatro formas em 17/08, e o histórico é a
+   documentação:
+
+   1. Três tubos em contorno · 2. um tubo só · 3. nenhuma célula de prova.
+      Os tubos caíram porque contorno vazio afirma "seus reservatórios estão
+      secos" — falso, e aqui o backend **não conhece reservatório nenhum**,
+      não há tanque para desenhar cheio nem vazio. Cortar de três para um
+      tratou a quantidade, não a forma.
+      A célula inteira caiu porque, sem prova, ela virava buraco — e o que eu
+      pus no buraco (placa estreita + engrenagem grande) o Pedro reprovou com
+      razão: *"estou achando essa tela muito ruim"*. Decoração no lugar de
+      conteúdo, e a manchete gritando uma AUSÊNCIA em 70px.
+   4. **A célula não some: ela troca o que prova.** Escolha do Pedro entre
+      quatro caminhos lado a lado. Este é o único estado em que o produto
+      ainda não foi entregue, então a prova é o que o sensor passaria a
+      mostrar — e o estado deixa de ser sobre o que falta para ser sobre o
+      que vem.
+
+   ⚠️ Nenhuma leitura de exemplo, nunca: um instrumento com valor inventado
+   no painel de um cliente é o pior erro possível num produto que vende
+   medição. A oferta é texto, não gráfico.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* A manchete baixa de volume: com a célula da direita cheia, ela não precisa
+   mais carregar a tela sozinha — e o que ela diz é uma ausência, que no
+   volume de 4,4rem soava como alarme. */
+body[data-estado="semtel"] .frase { font-size: clamp(2rem, 9cqi, 3rem); }
+body[data-estado="semtel"] .apoio { max-width: 40ch; }
+
+.oferta { display: none; min-width: 32ch; }
+body[data-estado="semtel"] .oferta { display: block; }
 body[data-estado="semtel"] .prova { display: none; }
-.sem-sensor .tubo { background: none; box-shadow: inset 0 0 0 1px var(--fio); }
-.sem-sensor .etiqueta {
-  margin-top: 16px; font-family: var(--mono); font-size: .62rem; letter-spacing: .14em;
-  text-transform: uppercase; color: var(--sobre-2);
+
+.oferta dt {
+  font-family: var(--mono); font-size: .6rem; font-weight: 500;
+  letter-spacing: .12em; text-transform: uppercase; color: var(--sobre-2);
+  padding-bottom: 16px;
 }
+/* ⚠️ Cada item é separado pelo SULCO GRAVADO da casa (`--rasgo` embaixo,
+   `--luz` em cima), o mesmo par do cabeçalho da placa. Duas linhas, nunca
+   uma: uma só lê como borda de lista.
+   ⚠️ E não há numeração 01/02/03. Ela existiu no estudo e saiu por dois
+   motivos: os três itens são paralelos, não uma sequência — número que não
+   ordena nada é ornamento —, e em âmbar eles seriam o SEGUNDO amarelo da
+   tela, contra a regra de um por tela, que aqui é do botão. */
+.oferta div {
+  padding: 15px 0;
+  background:
+    linear-gradient(var(--luz), var(--luz))     top / 100% 1px no-repeat,
+    linear-gradient(var(--rasgo), var(--rasgo)) top / 100% 2px no-repeat;
+}
+.oferta dd {
+  margin: 0; font-size: 1.05rem; font-weight: 700; font-stretch: 104%;
+  color: #fff; line-height: 1.35;
+}
+
+/* ⚠️ AQUI O AMARELO TROCA DE BOTÃO. Ele continua aparecendo UMA vez por
+   tela — mas neste estado a ação que importa é a oferta, não o socorro:
+   é o único caso em que o cliente ainda não tem o produto. "Preciso de
+   ajuda" vira contorno e continua ali, do mesmo tamanho.
+   O DOM também troca (ver `cliente.html`): ordem visual que não bate com
+   ordem de tabulação é defeito de teclado, não detalhe. */
+body[data-estado="semtel"] .quero {
+  background: var(--amarelo); color: var(--mar-900);
+  transition: background .16s ease;
+}
+body[data-estado="semtel"] .quero::before { display: none; }
+body[data-estado="semtel"] .quero:hover { background: #ffcb60; }
+body[data-estado="semtel"] .ajuda {
+  background: none; color: #fff; box-shadow: inset 0 0 0 1px var(--fio);
+}
+body[data-estado="semtel"] .ajuda:hover { background: var(--mar-700); }
 
 
 /* ════════════════════════════════════════════════════════════════════════
@@ -1008,21 +1089,15 @@ body[data-estado="carregando"] .frase { color: var(--sobre-2); }
    9. QUEBRAS
    ════════════════════════════════════════════════════════════════════════ */
 
-/* ⚠️ A ÚNICA regra `min-width` da folha, e ela existe por causa da célula
-   mais curta da placa. Em duas colunas as células têm a mesma altura (grade)
-   e centram o conteúdo, então a diferença entre elas vira vazio simétrico.
-   No estado SEM TELEMETRIA a conta é a pior de todas: 299px de bloco contra
-   465px de célula de texto, e o tubo em contorno ficava boiando com 137px
-   de nada em cima e embaixo. Ele cresce para 105×344 — a MESMA proporção da
-   peça (.306), escalada e não esticada, porque esticar transforma o cilindro
-   num filete — e o vazio cai para 99px.
-   Empilhado não existe disparidade nenhuma (cada célula tem a sua altura), e
-   no celular o `.tubo` de 210px vale para todos: por isso é `min-width`. */
-@media (min-width: 1001px) {
-  .sem-sensor .tubo { width: 105px; height: 344px; }
-}
+/* ⚠️ AQUI HAVIA A ÚNICA regra `min-width` da folha, de manhã: no estado sem
+   telemetria o tubo em contorno era o bloco mais curto da placa e boiava com
+   137px de vazio em cima e embaixo, então ele crescia para 105×344 acima de
+   1000px. Saiu junto com o próprio tubo. Fica registrado porque a lição
+   custou duas rodadas: **o vazio em volta era sintoma, o defeito era o tanque
+   vazio existir** — e depois, que o defeito seguinte era a célula não ter o
+   que dizer. Quem resolveu foi conteúdo (`.oferta`), não geometria.
 
-/* Abaixo de 1000px as duas colunas da placa não convivem: ou a frase
+   Abaixo de 1000px as duas colunas da placa não convivem: ou a frase
    espreme, ou a prova espreme. A placa empilha antes disso acontecer —
    bem antes do ponto em que o painel vira "celular" (820px). */
 @media (max-width: 1000px) {

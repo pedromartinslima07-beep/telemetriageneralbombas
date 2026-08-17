@@ -827,3 +827,130 @@ inverte para `to left` quando a peça deita).
 - Sem `transition` de cor: a prova é reconstruída por `innerHTML` quando o
   estado muda (a assinatura `device:estado:n` muda junto), então não há troca
   de cor no mesmo elemento para animar.
+
+### O tanque em branco do "sem telemetria" saiu (17/08)
+
+Pedido: *"não faz sentido ficar um reservatório lá em branco"*. Ele tinha
+razão, e o defeito era mais antigo do que parecia.
+
+O `.sem-sensor` (um tubo em contorno puro + etiqueta "Sem medição") era a
+sobra de uma correção pela metade: em 14/08 a varredura pegou que **três**
+tubos vazios liam como "seus reservatórios estão secos" e a resposta foi
+cortar para **um**. Isso tratou a quantidade, não a forma — um tanque vazio
+afirma exatamente a mesma coisa falsa que três. E aqui é pior que no sensor
+mudo, onde existe um reservatório real que calou: neste estado **o backend
+não conhece reservatório nenhum**, não há tanque para desenhar.
+
+**Sem prova a mostrar, a célula da prova deixa de existir.** A placa vira uma
+peça só e a oferta sobe de link sublinhado para chapa, ao lado da ação de
+sempre — a placa perdeu a prova, não a segunda ação.
+
+- ⚠️ Um link de uma linha não sustentava o estado sozinho. Promover a oferta
+  a botão foi o que evitou trocar um vazio (o tanque) por outro (a metade
+  direita da placa).
+- ⚠️ Tipo e recuo do `.quero` são os do `.ajuda`, não os do `.resto`: lado a
+  lado, .95rem contra 1,06rem davam 55 contra 56px de caixa e os chanfros
+  desalinhavam 1px na base.
+- **Padrão que se repetiu duas vezes hoje:** eu tratei o vazio em volta do
+  tubo (fazendo-o crescer para 105×344 de manhã) quando o defeito era o tubo
+  existir. Vazio em volta de um objeto costuma ser sintoma de o objeto não
+  ter o que dizer — perguntar isso primeiro.
+
+⚠️ **Armadilha de sessão:** o service worker de `localhost:3001` sequestrou o
+harness e devolveu `{"error":"Sem conexão"}` no lugar da página. É a armadilha
+de cache do CLAUDE.md fora do admin — em página nova servida por `/static`
+durante desenvolvimento, conferir o SW antes de procurar bug no código.
+
+### Passada de composição no "sem telemetria" (17/08) — `onboard`
+
+Tirado o tanque, o estado ficou honesto e **sem composição**: uma placa de
+1240px com um bloco de texto de 425px na esquerda. Trocar o vazio de lugar
+não é resolver o vazio.
+
+- ⚠️ **A placa encolhe para 720px** — a largura em que o elemento mais largo
+  do estado (a linha das duas ações, 609px) enche a peça. A borda esquerda
+  segue alinhada à `.folha`: ela **encurta, não se desloca**, senão passa a
+  flutuar em relação à história logo abaixo.
+- **Encolhendo, ela descobre a engrenagem.** A direita da tela passa a ser a
+  marca em escala arquitetônica, que já estava atrás da placa. Foi a saída
+  para dar peso visual ao estado **sem desenho novo e sem copy nova** — e é
+  melhor que a alternativa que testei (trazer a engrenagem para dentro da
+  placa a 50% de opacidade, que ficou alta demais para o volume deste painel).
+- **O apoio vira a mensagem** (1,22rem / #cfd9f5 / 38ch). Sem número e sem
+  tanque, é a frase que carrega o estado. Nos outros cinco ela continua
+  secundária — verificado que a regra não vaza.
+
+**O que o `onboard` pede e ainda falta:** "mostrar o que vai aparecer aqui".
+Não entrou, e a razão é dura: a única forma visual disso seria um instrumento
+com leitura de exemplo, e leitura falsa no painel de um cliente é justamente o
+que este produto não pode fazer — seria repor o tanque que acabou de sair, com
+um número inventado por cima.
+
+**Proposta em aberto, aguardando o Pedro** (é copy nova, não é minha para
+decidir): três linhas no lugar onde a prova ficava, dizendo o que o sensor
+traria — "Nível de cada reservatório, o tempo todo" · "A bomba ligada ou
+parada" · "Um aviso antes de faltar água". Não são claims novos (é a
+definição do produto no PRODUCT.md e na landing), mas são palavras novas
+nesta superfície.
+
+### ⚠️ ESTUDO ABERTO — sem telemetria, quatro caminhos (17/08)
+
+O Pedro sobre a versão que subiu de tarde: *"estou achando essa tela muito
+ruim"*. Ele está certo, e o diagnóstico honesto do que eu fiz é:
+
+- **A engrenagem gigante não é "marca em escala arquitetônica", é decoração
+  tapando um buraco.** Eu criei um vazio (tirando o tanque, corretamente) e
+  deixei um ornamento preencher — que é o anti-padrão que o craft floor chama
+  de decoração no lugar de conteúdo.
+- **A manchete grita uma AUSÊNCIA em 70px.** Nos outros estados a frase grande
+  é a resposta sobre a água; aqui ela usa o mesmo volume para dizer o que o
+  cliente NÃO tem. É a coisa mais alta de uma tela cujo trabalho é tranquilizar.
+- **O estado não tem conteúdo**, então qualquer composição vira buraco. Isso
+  não se resolve movendo caixa: resolve-se dando conteúdo ou encolhendo a tela.
+
+Estudo lado a lado (mesmo método que decidiu o cilindro em 14/08) em
+`public/_estudo.html`, com a tela real em iframes de largura real:
+
+| | Caminho | Aposta | Copy nova? |
+|---|---|---|---|
+| **Hoje** | placa de 720px + engrenagem | — | não |
+| **A** | **Silêncio** — a primeira tela deixa de reservar a janela e vira uma faixa (nome · frase curta · duas ações); a história sobe | para este cliente o conteúdo do painel É a história, e uma tela inteira dizendo o que ele não tem fica entre ele e o que interessa | não |
+| **B** | **A oferta** — a célula da prova recebe o que o sensor passaria a mostrar (3 linhas), e "Quero monitorar" leva o amarelo | este é o único estado em que o produto ainda não foi entregue: a tela é de conversão | **sim** (3 linhas) |
+| **C** | **O contrato** — a tela responde com o que ele TEM: última visita e chamados em aberto; a falta do sensor vira nota | a pergunta do síndico é "como está meu prédio?", e há resposta verdadeira mesmo sem sensor | **sim** (manchete + apoio) |
+
+**Minha recomendação: C, com o encolhimento de A como plano B.** C é o único
+que transforma a ausência em estado — e usa dado que o painel já busca
+(`/cliente/chamados`), sem mexer no backend. A é o mais barato e não depende
+de aprovação de copy nenhuma.
+
+⚠️ **O que está NO AR continua sendo "Hoje"** até o Pedro escolher. Nada do
+estudo foi para o `cliente.css`.
+
+### ✅ ESTUDO FECHADO — o Pedro escolheu **B, "a oferta"** (17/08)
+
+A célula da prova **não some: ela troca o que prova**. Este é o único estado
+em que o produto ainda não foi entregue, então a prova passa a ser o que o
+sensor mostraria — e a tela deixa de ser sobre o que falta para ser sobre o
+que vem.
+
+O que foi para o código, com as decisões que tomei ao implementar (todas
+reversíveis, todas anotadas no CSS):
+
+- **Sem a numeração 01/02/03 que estava no estudo.** Dois motivos: os três
+  itens são paralelos, não uma sequência — número que não ordena nada é
+  ornamento, e o craft floor bane isso —, e em âmbar eles seriam o **segundo**
+  amarelo da tela, contra a regra de um por tela.
+- **O amarelo troca de botão** (era o ponto do B) e **o DOM troca junto**:
+  ordem visual que não bate com ordem de tabulação é defeito de teclado.
+- **A manchete baixa para `clamp(2rem, 9cqi, 3rem)`** — com a direita cheia,
+  ela não precisa mais carregar a tela sozinha, e em 4,4rem uma ausência soa
+  como alarme.
+- **Revertidas** a placa de 720px e o apoio promovido da passada da tarde.
+
+**Dobra a 390px:** ação principal em 508px (era 564 antes de hoje). A oferta
+começa em 625, abaixo da dobra de propósito — é apoio, não ação.
+
+**O que este estado ensinou, e vale além dele:** eu tratei o vazio três vezes
+seguidas mexendo em geometria (tubo maior, placa menor, engrenagem maior) e as
+três falharam. O vazio era sintoma; o defeito era a célula não ter o que
+dizer. Quando o conteúdo entrou, a composição se resolveu sozinha.

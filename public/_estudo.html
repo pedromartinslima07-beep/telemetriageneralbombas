@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="pt-br"><head><meta charset="utf-8">
+<title>Estudo — sem telemetria</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin: 0; background: #05091c; color: #e8ecfb;
+         font: 400 15px/1.5 ui-sans-serif, system-ui, sans-serif; padding: 28px 22px 60px; }
+  h1 { font-size: 1.25rem; margin: 0 0 6px; letter-spacing: -.01em; }
+  .intro { color: #98a5cf; max-width: 82ch; margin: 0 0 26px; font-size: .95rem; }
+  .cand { margin-bottom: 34px; }
+  .cab { display: flex; align-items: baseline; gap: 14px; margin-bottom: 9px; flex-wrap: wrap; }
+  .cab h2 { font-size: 1rem; margin: 0; }
+  .cab p { margin: 0; color: #98a5cf; font-size: .88rem; max-width: 90ch; }
+  .moldura { border: 1px solid #2a3564; overflow: hidden; background: #050f38; }
+  iframe { width: 1440px; height: 900px; border: 0; display: block;
+           transform: scale(var(--z, .62)); transform-origin: top left; }
+  .moldura { height: calc(900px * var(--z, .62)); width: calc(1440px * var(--z, .62)); }
+  .fita { font: 600 11px/1 ui-monospace, monospace; color: #f0b014; letter-spacing: .08em; }
+</style></head><body>
+<h1>Sem telemetria — quatro caminhos</h1>
+<p class="intro">Cada quadro é a tela real (<code>cliente.html/.css/.js</code>) com o payload de um
+condomínio sem reservatórios. Escala 62% — para ver em tamanho real, abra
+<code>/static/_semtel.html#v=A</code> (ou B, C). ⚠️ Onde está escrito "copy nova", as palavras são
+proposta minha e não estão decididas.</p>
+
+<div class="cand">
+  <div class="cab"><span class="fita">HOJE</span><h2>Hoje</h2><p>O que está no ar: placa de 720px e a engrenagem tomando a direita.</p></div>
+  <div class="moldura"><iframe src="/static/_semtel.html#v=hoje" loading="lazy"></iframe></div>
+</div>
+<div class="cand">
+  <div class="cab"><span class="fita">A</span><h2>A · Silêncio</h2><p>A primeira tela para de reservar a janela. Vira uma faixa: nome, frase curta, as duas ações. A história — que para este cliente é o conteúdo de verdade — sobe.</p></div>
+  <div class="moldura"><iframe src="/static/_semtel.html#v=A" loading="lazy"></iframe></div>
+</div>
+<div class="cand">
+  <div class="cab"><span class="fita">B</span><h2>B · A oferta</h2><p>A célula da prova recebe o que o sensor passaria a mostrar. A oferta leva o amarelo e 'Preciso de ajuda' vira contorno. ⚠️ Copy nova.</p></div>
+  <div class="moldura"><iframe src="/static/_semtel.html#v=B" loading="lazy"></iframe></div>
+</div>
+<div class="cand">
+  <div class="cab"><span class="fita">C</span><h2>C · O contrato</h2><p>A tela responde com o que ele TEM: última visita e chamados em aberto. A falta do sensor vira nota. ⚠️ Copy nova, inclusive a manchete.</p></div>
+  <div class="moldura"><iframe src="/static/_semtel.html#v=C" loading="lazy"></iframe></div>
+</div>
+</body></html>

@@ -90,7 +90,7 @@ mais** — o `cliente.js` foi reescrito e não usa mais nenhum token do admin.
     .placa                      o INSTRUMENTO (mesma peça da landing)
       .placa-topo                 cabeçalho: o nome do prédio, + sulco gravado
       .placa-cel (texto)          .frase · .apoio · .linha-atend · .ajuda · .desde
-      .placa-cel (prova)          .colunas (cilindros/tubos) · .resto · .sem-sensor
+      .placa-cel (prova)          .prova (tubo + leituras) · .resto — vira .oferta no semtel
   <section class="historia">  ← o que aconteceu
     .dia-bloco                  trilho de datas (numeral grande, sticky) + .ev
     .relatorio                  o PDF
@@ -292,9 +292,27 @@ ou vermelho é muito mais visível que o fio de 2px da coluna chata.
   **vazios**. O rAF é o gatilho da animação, nunca a fonte do dado — um
   `setTimeout` de 80ms escreve o mesmo valor. Vale como regra geral: nada de
   correção de dado pendurada em quadro de animação.
-- **Sem telemetria** vira **um** cilindro em contorno puro. Três tubos vazios
-  leriam como "seus reservatórios estão secos", que é falso — e o backend nem
-  conhece os reservatórios desse cliente.
+- ⚠️ **Sem telemetria NÃO desenha tanque nenhum, e a prova vira a OFERTA**
+  (17/08). O estado passou por quatro formas no mesmo dia, e o histórico é a
+  documentação:
+  1. três tubos em contorno · 2. um tubo só · 3. nenhuma célula de prova ·
+  4. **a célula não some: ela troca o que prova.**
+  Os tubos caíram porque contorno vazio afirma "seus reservatórios estão
+  secos" — falso, e aqui **o backend não conhece reservatório nenhum**: não há
+  tanque para desenhar, nem cheio nem vazio. Cortar de três para um tratou a
+  quantidade, não a forma. Tirar a célula inteira deixou um buraco, e o que
+  eu pus nele (placa de 720px + engrenagem grande) o Pedro reprovou.
+  A forma 4 é escolha dele entre quatro caminhos lado a lado: este é o único
+  estado em que o produto ainda não foi entregue, então a prova é **o que o
+  sensor passaria a mostrar** (`.oferta`: rótulo mono + três linhas separadas
+  pelo sulco gravado).
+  ⚠️ **Nenhum número, nenhum tanque, nenhuma leitura de exemplo** — valor
+  inventado no painel de um cliente é o pior erro possível aqui.
+  ⚠️ **O amarelo troca de botão** neste estado: "Quero monitorar meu prédio"
+  fica âmbar e "Preciso de ajuda" vira contorno. Continua um amarelo por tela.
+  O **DOM troca junto**, senão a ordem de tabulação não bate com a visual.
+  ⚠️ **Sem numeração 01/02/03**: os três itens são paralelos, não uma
+  sequência, e em âmbar seriam o segundo amarelo da tela.
 
 ### A história
 
@@ -477,7 +495,7 @@ do SVG**: dentro do `viewBox` ele encolhe junto com o gráfico e vira borrão a
 `cliente.css` e `cliente.js` são **network first** no `sw.js` (regra genérica
 de `.css`/`.js`), e `/cliente` e `/relatorio` já estão na lista de prefixos
 network-first — não foi preciso mexer no service worker. O `?v=N` no
-`cliente.html` continua valendo (hoje `cliente.css?v=23`, `cliente.js?v=35`).
+`cliente.html` continua valendo (hoje `cliente.css?v=27`, `cliente.js?v=35`).
 Racional completo em [`../../CLAUDE.md`](../../CLAUDE.md).
 
 ⚠️ O `cliente.html` **não carrega mais** `apexcharts.min.js`, `chart.umd.min.js`

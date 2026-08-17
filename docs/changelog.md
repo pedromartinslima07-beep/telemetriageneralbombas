@@ -2818,6 +2818,125 @@ Medido a 390 / 760 / 900 / 1180 / 1440: deitada nas duas primeiras (297×132 e
 banda estreita (o iPad retrato tem 768 e cai no deitado, o paisagem tem 1024 e
 cai nas duas colunas).
 
+### 2026-08-17 — O tanque em branco do "sem telemetria" saiu (frontend)
+
+Pedido do Pedro: *"não faz sentido ficar um reservatório lá em branco"*. Saiu o
+`.sem-sensor` inteiro — o `<span class="tubo">` em contorno puro mais a
+etiqueta "Sem medição".
+
+**Por que ele não tinha conserto:** um contorno vazio no lugar do instrumento é
+exatamente a leitura que este painel gasta uma tela inteira evitando —
+*"seus reservatórios estão secos"*. A defesa registrada em 14/08 era ter
+cortado de três tubos para um, mas isso tratou a **quantidade**, não a
+**forma**: um tanque vazio afirma a mesma coisa falsa que três. E aqui é pior
+que no sensor mudo, onde ao menos existe um reservatório real que parou de
+responder — neste estado **o backend não conhece reservatório nenhum**, não há
+tanque para desenhar nem cheio nem vazio.
+
+- **Sem prova a mostrar, a célula da prova deixa de existir**: `display: none`
+  na segunda `.placa-cel` e `grid-column: 1 / -1` na primeira. A placa vira uma
+  peça só, e o estado passa a ser a frase + o motivo + as ações.
+- **A oferta subiu de link para chapa.** "Quero monitorar meu prédio" era um
+  link sublinhado solto acima do botão; agora é chapa de duas camadas ao lado
+  de "Preciso de ajuda", dentro da `.rodape-resposta`. A placa perdeu a prova,
+  não a segunda ação — e um link de uma linha não sustentava sozinho o estado.
+  ⚠️ Continua **secundária**: o amarelo aparece uma vez por tela e é da ação de
+  sempre. Quem separa as duas é a chapa contra o amarelo.
+- ⚠️ **Tipo e recuo idênticos aos do `.ajuda`**, não os do `.resto`: lado a
+  lado, .95rem contra 1,06rem davam 55 contra 56px de caixa e os dois chanfros
+  desalinhavam 1px na base. Medido, corrigido, medido de novo.
+- Saiu junto a **única regra `min-width` da folha** (o tubo do semtel crescendo
+  para 105×344 acima de 1000px, de manhã). A lição fica no comentário: o vazio
+  em volta era sintoma, o defeito era o tanque vazio existir.
+
+
+Verificado nos seis estados (só o `semtel` esconde a segunda célula) e a 390 /
+760 / 1180: os dois botões dividem a linha acima de 760px e quebram em duas no
+celular, sem transbordo.
+
+**Passada de composição na sequência** (`/impeccable onboard` — este estado é um
+empty state de ativação, não uma tela de operação):
+
+- ⚠️ **A placa encolhe para 720px.** Tirar a prova sem mexer na largura só
+  troca o vazio de lugar: 1240px de peça para um bloco de texto de 425px é a
+  mesma banda morta que o tanque deixava, agora dentro da placa. 720px é a
+  largura em que o elemento mais largo do estado — a linha das duas ações,
+  609px — enche a peça. A borda esquerda continua alinhada com a `.folha`:
+  ela **encurta, não se desloca**.
+- **Encolhendo, a placa descobre a engrenagem.** O que passa a ocupar a
+  direita da tela é a marca em escala arquitetônica, que já estava atrás. O
+  vazio virou material sem desenho novo e sem copy nova.
+- **O apoio vira a mensagem.** Sem número e sem tanque, é essa frase que diz o
+  que falta: sobe de 1,16rem/`--sobre-2` para 1,22rem/#cfd9f5, medida de 38ch,
+  três linhas. Nos outros cinco estados ela continua secundária de propósito,
+  porque lá quem fala é a leitura — verificado que a regra não vaza.
+- **A dobra do celular melhorou:** base de "Preciso de ajuda" a 390px caiu de
+  **564 para 543px** neste estado (o tanque removido devolveu mais altura do
+  que o apoio maior consumiu). A 320px fica em 570px. Regra da casa cumprida:
+  mexeu acima da ação, mediu de novo.
+- Cache-bust: `cliente.css` v26.
+
+⚠️ **Armadilha de sessão, não de código:** o service worker registrado em
+`localhost:3001` sequestrou o harness de conferência e devolveu
+`{"error":"Sem conexão"}` no lugar da página — a mesma armadilha de cache do
+[`../CLAUDE.md`](../CLAUDE.md), agora vista de fora do admin. Em página nova
+servida por `/static` durante desenvolvimento, se o conteúdo não bater com o
+arquivo, **conferir o SW antes de procurar bug**.
+
+### 2026-08-17 — Sem telemetria: a prova vira a OFERTA (frontend)
+
+Veredito do Pedro sobre a passada de composição de tarde: *"estou achando essa
+tela muito ruim"*. Ele estava certo, e o diagnóstico do que eu tinha feito:
+
+- **A engrenagem gigante não era "marca em escala arquitetônica", era
+  decoração tapando buraco.** Eu criei um vazio (tirando o tanque, o que
+  estava certo) e deixei um ornamento preencher.
+- **A manchete gritava uma AUSÊNCIA em 70px** — nos outros estados aquele
+  volume é a resposta sobre a água; aqui era o que o cliente NÃO tem, no topo
+  de uma tela cujo trabalho é tranquilizar.
+- **O estado não tinha conteúdo**, então qualquer composição virava buraco.
+  Isso não se resolve movendo caixa.
+
+Quatro caminhos foram postos lado a lado (mesmo método que decidiu o cilindro
+em 14/08), e **o Pedro escolheu o B — "a oferta"**:
+
+> A célula da prova **não some: ela troca o que prova.** Este é o único estado
+> em que o produto ainda não foi entregue, então a prova é o que o sensor
+> passaria a mostrar — e a tela deixa de ser sobre o que falta para ser sobre
+> o que vem.
+
+- **`.oferta`** no lugar da `.prova`: rótulo mono ("Com o sensor, esta tela
+  passa a mostrar") e três linhas — nível de cada reservatório · bomba ligada
+  ou parada · aviso antes de faltar água. Separadas pelo **sulco gravado da
+  casa** (`--luz` em cima, `--rasgo` embaixo), o mesmo par do cabeçalho da
+  placa.
+- ⚠️ **Nenhum número, nenhum tanque, nenhuma leitura de exemplo.** Um
+  instrumento com valor inventado no painel de um cliente é o pior erro
+  possível num produto que vende medição. A oferta é texto.
+- ⚠️ **A numeração 01/02/03 do estudo NÃO entrou**, por dois motivos: os três
+  itens são paralelos, não uma sequência — número que não ordena nada é
+  ornamento —, e em âmbar seriam o **segundo** amarelo da tela.
+- ⚠️ **O amarelo troca de botão.** Continua uma vez por tela, mas aqui a ação
+  que importa é a oferta, não o socorro: "Quero monitorar meu prédio" fica
+  âmbar e "Preciso de ajuda" vira contorno, do mesmo tamanho. **O DOM troca
+  junto** (`cliente.html`) — ordem visual que não bate com ordem de tabulação
+  é defeito de teclado, não detalhe.
+- **A manchete baixa de volume** para `clamp(2rem, 9cqi, 3rem)`: com a célula
+  da direita cheia, ela não precisa mais carregar a tela sozinha.
+- **Revertidos** a placa de 720px e o apoio de 1,22rem/#cfd9f5 da passada de
+  tarde. A placa volta a 1240 e a duas colunas, como em todos os outros
+  estados.
+- Cache-bust: `cliente.css` v27.
+
+**Dobra do celular a 390px** (a regra manda medir sempre que algo muda acima da
+ação): base da ação principal em **508px** — era 564 antes de hoje e 543 na
+passada de tarde. A ação secundária termina em 586 e a oferta começa em 625,
+abaixo da dobra de propósito: é conteúdo de apoio, não a ação.
+
+Verificado que nada vaza: nos outros cinco estados `.oferta` fica `none`,
+`.quero` fica `none`, "Preciso de ajuda" segue âmbar e a `.prova` segue no
+lugar. Sem transbordo horizontal a 320 / 390 / 760 / 1180.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em
