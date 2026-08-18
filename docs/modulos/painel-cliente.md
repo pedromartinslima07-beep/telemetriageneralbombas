@@ -69,6 +69,8 @@ rolando visível por trás dela. Relatado pelo Pedro em 2026-08-18.
   exige bump do `CACHE_NAME`, senão o PWA instalado segue servindo a versão
   antiga. Foi para `telemetria-v45`.
 - ⚠️ **Não foi verificado em iPhone** — não há aparelho iOS neste ambiente.
+- O **admin** tinha a mesma falha e foi corrigido no mesmo dia (`.mob-topbar` e `.drawer-head`). O mecanismo, que vale para as quatro
+  superfícies instaláveis, está em [`../arquitetura.md`](../arquitetura.md).
 
 ## ⚠️ Este painel não carrega o `admin.css`
 

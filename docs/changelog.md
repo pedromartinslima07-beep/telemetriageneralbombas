@@ -3035,6 +3035,26 @@ Verificado que nada vaza: nos outros cinco estados `.oferta` fica `none`,
 `.quero` fica `none`, "Preciso de ajuda" segue âmbar e a `.prova` segue no
 lugar. Sem transbordo horizontal a 320 / 390 / 760 / 1180.
 
+### 2026-08-18 · Área segura do iOS no admin
+
+Continuação do conserto feito no painel do cliente no mesmo dia. O `admin.html`
+declarava `black-translucent` sem `viewport-fit=cover` — mesma causa, mesma
+faixa descoberta acima da `.mob-topbar` no PWA instalado.
+
+- `viewport-fit=cover` no `<meta viewport>` do `admin.html`.
+- `.mob-topbar` cresce com `env(safe-area-inset-top)` e ganha `padding-top`
+  igual; `.main` e `.layout-cli .main` descontam a altura nova.
+- `.drawer-head` idem: no celular o drawer é tela cheia (`top: 0; bottom: 0`)
+  e o cabeçalho dele caía na mesma armadilha.
+- Cache-bust: `admin.css` v191, `register-sw.js` v37 nas três HTMLs que
+  registram o SW, `CACHE_NAME` → **telemetria-v46** (`admin.css` está no
+  precache).
+- ⚠️ **Não verificado em iPhone** — não há aparelho iOS neste ambiente. Em tela
+  sem entalhe `env()` vale 0 e o resultado é idêntico ao anterior.
+
+Detalhe do mecanismo em [`arquitetura.md`](arquitetura.md), seção "Área segura
+do iOS".
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

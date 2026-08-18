@@ -218,5 +218,35 @@ Bug mais comum do projeto. Resumo: (1) `?v=N` nos assets em `admin.html`;
 nas HTMLs (`_htmlNoCache`). Detalhes em [`../CLAUDE.md`](../CLAUDE.md). Saída de
 emergência: `GET /admin/reset-cache`.
 
+## Área segura do iOS (`env(safe-area-inset-*)`)
+
+As quatro HTMLs instaláveis (`admin.html`, `cliente.html`, `login.html`,
+`app/public/index.html`) declaram `apple-mobile-web-app-status-bar-style:
+black-translucent`. Isso faz o PWA instalado no iPhone estender a página **por
+baixo da barra de status** — e qualquer barra `fixed`/`sticky` em `top: 0`
+gruda no topo do viewport, deixando aquela faixa descoberta com o conteúdo
+rolando visível atrás.
+
+**A dependência que engana:** `env(safe-area-inset-*)` só devolve valor real se
+o `<meta viewport>` tiver **`viewport-fit=cover`**. Sem isso o iOS devolve `0` e
+todo o CSS de compensação vira inerte — sem erro, sem aviso.
+
+Regra: **quem é fixo no topo cresce; quem depende dessa altura desconta.**
+
+| Superfície | Quem cresce | Quem desconta |
+|---|---|---|
+| Painel do cliente | `.barra` | `html { scroll-padding-top }`, `.resposta { min-height }` |
+| Login | o próprio `body` (não há barra fixa) | — |
+| Admin (mobile) | `.mob-topbar`, `.drawer-head` | `.main`, `.layout-cli .main` |
+| App do técnico | já tratado em `app/public/app.css` | — |
+
+⚠️ `admin.css` e `login.css` estão no **precache** do `sw.js` (`STATIC_ASSETS`):
+mexer neles exige bump do `CACHE_NAME`, senão o PWA instalado segue servindo a
+folha antiga. Ver a seção de cache acima.
+
+⚠️ **Nada disto foi verificado em iPhone** — não há aparelho iOS neste
+ambiente. Em tela sem entalhe `env()` vale 0 e o resultado é idêntico ao de
+antes, o que foi conferido no desktop.
+
 Ver também: [`banco-de-dados.md`](banco-de-dados.md), [`api.md`](api.md),
 [`modulos/`](modulos/README.md) (fluxos de negócio), [`changelog.md`](changelog.md).

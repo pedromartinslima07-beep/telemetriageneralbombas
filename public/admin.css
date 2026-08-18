@@ -3426,23 +3426,34 @@ select option { background: #14172a; color: #eef0fb; }
     height: 100%;
     overflow-y: auto;         /* permite scroll no mobile */
     -webkit-overflow-scrolling: touch;
-    padding-top: 56px;
+    /* A .mob-topbar cresce com a área segura no PWA do iPhone (ver abaixo),
+       então o respiro do topo tem de acompanhar — senão o primeiro card fica
+       debaixo dela. Em tela sem entalhe env() vale 0 e isto é 56px. */
+    padding-top: calc(56px + env(safe-area-inset-top, 0px));
     padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px));
   }
 
   /* Cliente: garante padding-top mesmo com padding:0 no desktop */
   .layout-cli .main {
-    padding-top: 70px;
+    padding-top: calc(70px + env(safe-area-inset-top, 0px));
     padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px));
   }
 
   /* ── TOP BAR ── */
+  /* ⚠️ PWA no iPhone: o admin.html declara `apple-mobile-web-app-status-bar-
+     style: black-translucent`, que estende a página POR BAIXO da barra de
+     status. Sem crescer aqui, esta barra gruda no topo do viewport e a faixa
+     da status bar fica descoberta, com o conteúdo rolando visível atrás.
+     Depende de `viewport-fit=cover` no <meta viewport> — sem ele o iOS devolve
+     0 em env() e nada disto tem efeito. Em tela sem entalhe vale 0 e a barra
+     continua com os mesmos 56px. Mesmo tratamento da `.barra` do cliente. */
   .mob-topbar {
     display: flex;
     position: fixed;
     top: 0; left: 0; right: 0;
-    height: 56px;
+    height: calc(56px + env(safe-area-inset-top, 0px));
     padding: 0 16px;
+    padding-top: env(safe-area-inset-top, 0px);
     z-index: 100;
     background: var(--sidebar);
     border-bottom: 1px solid var(--border);
@@ -4028,11 +4039,15 @@ select option { background: #14172a; color: #eef0fb; }
 
 .drawer-panel.is-open { transform: translateX(0); }
 
+/* No celular o drawer vira tela cheia (`top: 0; bottom: 0`), então o
+   cabeçalho dele cai na mesma armadilha da .mob-topbar e precisa do mesmo
+   respiro. Em desktop e em tela sem entalhe env() vale 0. */
 .drawer-head {
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 16px 20px;
+  padding-top: calc(16px + env(safe-area-inset-top, 0px));
   border-bottom: 1px solid var(--border);
   background: var(--surface2);
   flex-shrink: 0;

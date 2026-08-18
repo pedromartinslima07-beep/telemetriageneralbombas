@@ -317,6 +317,10 @@ A v1 (13/08) foi rejeitada por manter a casca do admin — ver
   `config.service.js`) — intervalos de job, modelo IA, timeouts, sem deploy.
 - Email de alerta crítico (Resend).
 - Cache em 3 camadas documentado (ver [`../CLAUDE.md`](../CLAUDE.md)).
+- **Área segura do iOS tratada nas quatro superfícies instaláveis** (18/08/2026): admin, painel do cliente, login e app do técnico. A pegadinha
+  é que `env(safe-area-inset-*)` só devolve valor com `viewport-fit=cover` no
+  `<meta viewport>`. Mecanismo em [`../docs/arquitetura.md`](../docs/arquitetura.md). ⚠️ Não verificado em
+  iPhone — não há aparelho iOS no ambiente.
 
 ## Banco de dados
 
