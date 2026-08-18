@@ -219,6 +219,11 @@ HTML; estratégia em `.impeccable/surfaces/public-equipamento-html.md`.
 - **Mobile-first de verdade**: quem abre está de pé na bancada. Alvo de toque
   nunca abaixo de 44px; `font-size: 16px` nos campos, senão o iOS dá zoom ao
   focar e o formulário sai da vista.
+- ⚠️ **`<option>` precisa de cor própria.** A lista aberta do `<select>` é
+  desenhada pelo sistema: dar `background` ao select faz o Chrome no Windows
+  pintar o popup de branco, e as `<option>` seguem herdando o texto claro —
+  branco no branco. O `admin.css` já resolvia isso (`select option`, ~linha
+  2679) e a regra não veio junto quando esta folha virou autônoma.
 - ⚠️ **SVG inline precisa de largura declarada.** O chevron de "Outras ações"
   ficou do tamanho da página ao trocar de folha: sem `width`/`height` no CSS, o
   SVG assume o tamanho intrínseco (300×150).
