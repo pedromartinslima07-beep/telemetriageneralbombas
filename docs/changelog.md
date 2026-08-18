@@ -77,10 +77,12 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
 | 062 | orcamento_valor_opcional | `orcamento_linhas.valor_unitario` vira nullable (era `NOT NULL DEFAULT 0`) — item sem preço some da coluna de valor no PDF em vez de virar "R$ 0,00" |
 | 063 | contratos_assinatura_verificacao | `contratos.assinatura_cliente/geral_codigo` + `_expira` + `_tentativas` + `_enviado_em` (código de 6 dígitos por e-mail antes de assinar) e `assinatura_cliente/geral_protocolo` (hash SHA-256 auditável, impresso no PDF) |
 | 064 | contratos_remove_signatario_geral_default | remove `DEFAULT 'Ana Paula Martins Lima'` de `signatario_geral_nome` (054) e limpa valores existentes ainda não assinados |
+| 065 | orcamento_cliente_avulso | `orcamentos.cliente_nome/documento/endereco/email` — orçamento para pessoa física não cadastrada (sem condomínio) |
+| 066 | zona_multiplos_responsaveis | `planos_zona_responsavel` deixa de ter `zona` como PK — vários técnicos por zona |
+| 067 | idx_chamados_tecnico | índice para `GET /chamados/meus`, a consulta mais chamada do app do técnico |
+| 068 | orcamento_linha_tipo_servico | `orcamento_linhas.tipo_servico` — marca a linha que vira cláusula no PDF, no lugar do regex na descrição |
+| 069 | leads_landing | tabela `leads` — contatos da landing pública |
 | 070 | equipamentos | `equipamentos` (identidade permanente + `codigo` do QR), `equipamento_movimentacoes` (linha do tempo, com snapshot do autor), `equipamento_fotos` (`dados_base64` no banco); `chamados.equipamento_id`. Ver [equipamentos.md](modulos/equipamentos.md) |
-
-> As migrations 065-069 vivem na branch `feature/landing-publica` e ainda não
-> foram mergeadas — por isso o salto de 064 para 070 nesta lista.
 
 ## Marcos de produto (fases do plano)
 
@@ -2989,4 +2991,4 @@ lugar. Sem transbordo horizontal a 320 / 390 / 760 / 1180.
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em
-> [`modulos/`](modulos/README.md).
+> [`modulos/`](modulos/README.md).
