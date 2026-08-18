@@ -12,6 +12,58 @@ aliases:
 > Última sessão registrada: **2026-08-17**.
 > Roadmap completo em [`roadmap.md`](roadmap.md); decisões em [`decisions.md`](decisions.md).
 
+## Sessão 2026-08-18 — Área segura do iOS + estudo do painel admin
+
+Duas frentes, nenhuma delas fecha nesta sessão.
+
+### 1. Área segura do iOS no admin (código, pronto para commit)
+
+Continuação do conserto que o commit `f469204` fez no painel do cliente e no
+login no mesmo dia. O `admin.html` ficou de fora: declarava `black-translucent`
+sem `viewport-fit=cover`, e o `admin.css` não tinha **nenhum**
+`safe-area-inset-top` — só os três `inset-bottom` da bottom nav.
+
+Feito: `viewport-fit=cover` no `admin.html`; `.mob-topbar` cresce com
+`env(safe-area-inset-top)`; `.main` e `.layout-cli .main` descontam a altura
+nova; `.drawer-head` idem (no celular o drawer é tela cheia). Cache-bust:
+`admin.css` v191, `register-sw.js` v37 nas três HTMLs, `CACHE_NAME` →
+**telemetria-v46** (`admin.css` está no precache). Mecanismo documentado em
+[`../docs/arquitetura.md`](../docs/arquitetura.md), seção "Área segura do iOS".
+
+- ⚠️ **Não commitado ainda.**
+- ⚠️ **Não verificado em iPhone** — não há aparelho iOS neste ambiente. Em tela
+  sem entalhe `env()` vale 0 e o resultado é idêntico ao anterior, o que é
+  garantido por construção (`calc(56px + 0px)`).
+
+### 2. Estudo do painel admin (nada tocado no código)
+
+Pedido do Pedro: aproximar o visual do admin do Chapa da landing/painel do
+cliente, podendo reorganizar tudo, mas sem virar exercício teórico — tem de
+continuar funcionando como a ferramenta que é.
+
+As 15 telas foram percorridas no painel em execução contra o banco de teste. O
+levantamento e os defeitos medidos estão em
+[`../docs/modulos/painel-admin.md`](../docs/modulos/painel-admin.md); o "porquê"
+e as duas direções descartadas, em [`decisions.md`](decisions.md).
+
+**Pendências:**
+- Nada foi alterado em `public/admin.css` nem em `public/admin.html` por conta
+  do redesenho — só as mudanças de área segura acima.
+- `DESIGN.md` **não** foi reescrito, de propósito: ele descreve o que foi
+  construído, e no repo ainda não foi.
+- Falta decidir a paleta categórica dos gráficos ApexCharts (hoje ~20 hex do
+  Tailwind inline no `admin.js`) e se o app do técnico migra junto.
+- O reagrupamento da nav (Agora / Em curso / Cadastro / Análise) foi proposto
+  mas **não** entrou no mock — depende do uso diário, que é chamada do Pedro.
+- Mocks publicados como artifact (fora do repo): comparativo de camadas e as
+  quatro telas em Chapa (Chamados, Alertas, Dashboard, Configurações).
+
+⚠️ Achado colateral: o `.env` tem **`DATABASE_URL` duplicado** (as duas em
+produção, a segunda vence), e a senha de `DATABASE_URL_TESTE` foi exposta num
+transcript em 18/08 — convém rotacionar no Railway.
+
+---
+
 ## Sessão 2026-08-17 — Equipamentos com etiqueta QR (Fase 12A)
 
 Pedido do Pedro: a oficina acumula bombas retiradas de condomínios e ninguém

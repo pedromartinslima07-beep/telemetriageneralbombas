@@ -23,6 +23,7 @@ faz, quais tabelas/serviços/jobs participam e as regras de decisão.
 | App mobile (Capacitor) — GPS background pendente | [`app-mobile.md`](app-mobile.md) |
 | Landing pública e captação de lead | [`landing-publica.md`](landing-publica.md) |
 | Painel do cliente ("Meu prédio") | [`painel-cliente.md`](painel-cliente.md) |
+| Painel admin (operação interna) — 15 telas, 3 moldes | [`painel-admin.md`](painel-admin.md) |
 
 Referências cruzadas: [`../banco-de-dados.md`](../banco-de-dados.md),
 [`../api.md`](../api.md), [`../arquitetura.md`](../arquitetura.md).

@@ -537,6 +537,76 @@ canônica do "porquê"; o "o quê" está em `../docs/` e em [`current-state.md`]
   do cliente **não** herdam do admin. O critério é quem usa e para quê, não a
   plataforma.
 
+## Painel admin — aproximar do Chapa (18/08/2026)
+
+**O pedido do Pedro:** o sistema tem duas identidades visuais de propósito — a
+da landing/painel do cliente ("Chapa") e a do admin ("Mission Control", âmbar
+`#f0b014`). Isso foi decisão, não acaso. Mas o choque na transição
+`/login` → `/admin/painel` ficou grande demais, e ele pediu para aproximar.
+
+**O que a fronteira do [`DESIGN.md`](../DESIGN.md) diz hoje:** *"Nenhum token do
+admin entra aqui, e nenhum daqui entra lá."* Se a direção abaixo for
+implementada, essa frase muda: passam a ser **três registros do mesmo sistema**
+— venda (landing), leitura (painel do cliente) e operação (admin). O painel do
+cliente já provou que a troca de registro funciona sem trocar de identidade
+quando saiu do `admin.css` em 13/08.
+
+⚠️ **`DESIGN.md` não foi reescrito.** Pela disciplina da skill impeccable, ele é
+escrito a partir do que foi construído, não das intenções — e no repo nada foi
+construído ainda. Reescrever antes seria defender um documento contra a
+realidade.
+
+**O achado que orienta tudo:** o problema não é a cor, é o **nome**. `admin.css`
+tem 22 prefixos de classe próprios, mas o vocabulário compartilhado já existe
+batizado com o nome da tela que nasceu primeiro — `.wa-*` (WhatsApp) roda em 10
+das 15 telas e `.ch-*` (Chamados) em 6. Consolidar é renomear o que já é comum,
+não inventar componente novo. Evidências medidas em
+[`../docs/modulos/painel-admin.md`](../docs/modulos/painel-admin.md).
+
+**Regra de superfície, tirada da tela de login que já está em produção:**
+marinho é moldura; placa clara é onde se lê e se edita (ficha, modal,
+formulário). Isso corrige uma proposta anterior minha de deixar a superfície de
+trabalho inteira clara — o Chapa já tem resposta pronta para região densa, e ela
+está no ar desde o redesenho do login.
+
+**As cinco decisões** (detalhe e ordem de execução no doc do módulo): faixa de
+KPI em uma linha · ficha que só existe quando há ficha · um selo de estado ·
+rótulo que declara a unidade · `planos` como molde da tabela.
+
+**O que NÃO se aproxima, e por quê:** corpo de 17px e medida de linha em `ch`
+(densidade é a função do admin, não descuido); rampa fluida em `clamp`, que é de
+peça de venda; e os gestos retóricos da landing — revelação por corte,
+engrenagens girando, inversão de campo amarelo.
+
+**Ponto em aberto:** os gráficos ApexCharts separam séries com violeta, ciano e
+rosa (~20 hex do Tailwind espalhados inline no `admin.js`). O Chapa tem três
+cores de estado e nenhuma paleta categórica — isso precisa ser desenhado, não
+removido. E o app do técnico (`app/public/app.css`) tem cópia própria dos
+tokens com `--accent: #f0b014`: se o admin migrar e ele não, vira a quarta
+identidade.
+
+### Direções descartadas para o admin
+
+Duas foram exploradas com a skill impeccable antes de chegar na atual. Ficam
+registradas para não voltarem.
+
+- **"O livro de ocorrências" ❌ (18/08).** O admin como impresso pautado —
+  papel de livro-caixa, pauta vermelho-tijolo, abas de índice, carimbo no lugar
+  de pill, linha em branco para leitura ausente. Chegou a ser construída e
+  publicada. **Recusada pelo Pedro:** metafórica demais para uma ferramenta.
+  A lição vale além dela: numa superfície de operação, a metáfora só se paga se
+  cada peça dela fizer trabalho — e mesmo assim ela compete com o
+  reconhecimento de quem usa o painel todo dia.
+- **"O quadro de comando" ❌ (18/08).** Trilho DIN, etiqueta de baquelite,
+  lâmpada-piloto, diagrama unifilar como herói do dashboard. Descartada antes
+  de virar código: era o candidato nº 1 do meu próprio ranking, e a rolagem da
+  skill (que existe justamente para recusar o ranking do modelo) apontou para
+  outro. Mesmo problema de fundo da anterior.
+
+O caminho que sobrou não é um mundo novo: é o **Chapa que já existe**, em
+registro de operação. Mock de quatro telas construído em 18/08 sobre o dado
+real do banco de teste, sem tocar em `public/admin.css`.
+
 ## Decisões descartadas (e por quê)
 
 Registradas para não serem "redescobertas" e refeitas. Se o escopo mudar, o
