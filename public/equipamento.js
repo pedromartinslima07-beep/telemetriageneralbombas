@@ -360,6 +360,23 @@
     return lista;
   }
 
+  // Mesmos rótulos do PDF da O.S. (os-pdf.service.js).
+  const TIPO_OS = {
+    retirada_equipamento: "Retirada de equipamento",
+    devolucao:            "Devolução",
+    vistoria_contrato:    "Vistoria de contrato",
+    visita_tecnica:       "Visita técnica",
+    limpeza_piscina:      "Limpeza de piscina",
+    limpeza_caixas:       "Limpeza de caixas",
+    chamado_emergencial:  "Chamado emergencial",
+    preventiva_mensal:    "Preventiva mensal",
+    instalacao_pecas:     "Instalação de peças",
+  };
+
+  function dataCurta(iso) {
+    return iso ? new Date(iso).toLocaleDateString("pt-BR") : "—";
+  }
+
   const ORC_STATUS = {
     rascunho:  ["Rascunho", "livre"],
     enviado:   ["Enviado ao cliente", "pronta"],
@@ -478,6 +495,22 @@
           : `<p class="vazio">Nenhuma foto ainda. Vale a placa de identificação e o ponto do defeito.</p>`}
       </div>
       <input type="file" accept="image/*" capture="environment" id="inputFoto" hidden>
+
+      ${(ficha.ordens_servico || []).length ? `
+        <hr class="divider">
+        <div class="secao-titulo">Ordens de serviço</div>
+        <table class="info">
+          ${ficha.ordens_servico.map(os => `
+            <tr>
+              <td class="num">${esc(os.numero || "—")}</td>
+              <td>
+                ${esc((os.tipos_servico || []).map(t => TIPO_OS[t] || t).join(", ") || "—")}<br>
+                <span style="font-weight:400;color:#9094ae;font-size:12px">
+                  ${os.finalizada_em ? `finalizada ${dataCurta(os.finalizada_em)}` : "em aberto"}${
+                    os.tecnico_nome ? ` · ${esc(os.tecnico_nome)}` : ""}
+                </span>
+              </td></tr>`).join("")}
+        </table>` : ""}
 
       ${(ficha.orcamentos || []).length ? `
         <hr class="divider">

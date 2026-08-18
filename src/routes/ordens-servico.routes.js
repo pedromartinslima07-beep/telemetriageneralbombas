@@ -168,6 +168,7 @@ router.get("/:id", authRequired, osDonoOuAdmin(), async (req, res) => {
          os.tipos_servico, os.itens_verificados, os.correntes,
          os.servico_realizado, os.observacoes, os.recebido_nome, os.recebido_tipo,
          os.orcamento_necessario, os.orcamento_observacoes, os.retorno_sugerido_em,
+         os.equipamento_id,
          os.chegada_em, os.finalizada_em, os.criado_em, os.pdf_url,
          (os.assinatura_b64 IS NOT NULL) AS tem_assinatura,
          c.nome AS condominio_nome,
@@ -252,6 +253,14 @@ router.patch("/:id", authRequired, osDonoOuAdmin({ forWrite: true }), async (req
       values.push(n);
       sets.push(`${f} = $${values.length}`);
     }
+  }
+
+  // Equipamento desta O.S. (migration 072). É o vínculo que faz o orçamento
+  // nascido daqui chegar na bancada: `_garantirOrcamentoDaOs` propaga o
+  // `equipamento_id`, e a aprovação passa a mover a bomba.
+  if (b.equipamento_id !== undefined) {
+    values.push(b.equipamento_id ? Number(b.equipamento_id) : null);
+    sets.push(`equipamento_id = $${values.length}`);
   }
 
   if (b.recebido_nome !== undefined) {

@@ -149,6 +149,38 @@ HTML em ~1,3 MB por folha.
   calor). Poliéster/vinil adesivo, ou papel adesivo com fita transparente larga
   por cima.
 
+## O.S. ↔ equipamento ↔ orçamento (migration 072)
+
+O triângulo fechado. `chamados` e `orcamentos` já apontavam para
+`equipamentos`; faltava a **O.S.**, que é onde o técnico registra a retirada da
+bomba no campo.
+
+- `ordens_servico.equipamento_id` (SET NULL — dar baixa numa bomba não pode
+  apagar a O.S., que é documento assinado pelo cliente).
+- O seletor fica no **modal de O.S. do admin**, seção "Equipamento", listando
+  os equipamentos etiquetados daquele condomínio.
+- **`_garantirOrcamentoDaOs` propaga o `equipamento_id`** para o orçamento.
+  A partir daí, aprovar o orçamento de uma O.S. de conserto move a bomba para
+  `em_conserto` pelo mesmo `equipamento-bancada.service.js` — os dois caminhos
+  (bancada e O.S.) chegam no mesmo lugar.
+- A ficha lista as O.S. do equipamento: as vinculadas pela coluna **e** as que
+  aparecem nas movimentações, para não perder o que foi registrado antes da
+  coluna existir.
+
+- ⚠️ **O seletor sempre inclui o equipamento já vinculado**, mesmo que ele não
+  seja daquele condomínio (bomba trocada de prédio, dado antigo). Sem isso o
+  `<select>` não acha o valor, cai em "nenhum", e **salvar a O.S. apagaria o
+  vínculo em silêncio** — o defeito apareceu no primeiro teste.
+- ⚠️ Campo novo no detalhe da O.S. precisa entrar no **SELECT explícito** de
+  `GET /ordens-servico/:id`: ele lista coluna por coluna (o `os.*` foi trocado
+  de propósito, para não arrastar a assinatura base64 de ~120 KB em toda
+  abertura).
+
+**Correção adjacente da 072:** orçamento criado a partir de uma O.S. nascia com
+`origem = 'admin'` — o DEFAULT da coluna —, porque `_garantirOrcamentoDaOs`
+nunca setava o campo. O backfill da migration 036 acertou os antigos e os novos
+voltavam a errar desde então. Código corrigido e `UPDATE` de acerto na 072.
+
 ## Ficha (`/e/:codigo`)
 
 `public/equipamento.html` + `equipamento.css` + `equipamento.js`.

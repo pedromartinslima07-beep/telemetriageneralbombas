@@ -247,7 +247,7 @@ async function carregarFicha(where, val) {
   if (!eq.rows.length) return null;
   const equipamento = eq.rows[0];
 
-  const [movs, fotos, orcamentos] = await Promise.all([
+  const [movs, fotos, orcamentos, ordens] = await Promise.all([
     pool.query(
       `SELECT m.id, m.tipo, m.status_novo, m.observacao, m.criado_em,
               m.chamado_id, m.os_id, m.orcamento_id,
@@ -283,6 +283,20 @@ async function carregarFicha(where, val) {
         ORDER BY o.criado_em DESC`,
       [equipamento.id]
     ),
+    // O.S. desta bomba — tanto as vinculadas diretamente (migration 072)
+    // quanto as que aparecem nas movimentações, para não perder o que foi
+    // registrado antes da coluna existir.
+    pool.query(
+      `SELECT DISTINCT os.id, os.numero, os.criado_em, os.finalizada_em,
+              os.tipos_servico, t.nome AS tecnico_nome
+         FROM ordens_servico os
+         LEFT JOIN tecnicos t ON t.id = os.tecnico_id
+        WHERE os.equipamento_id = $1
+           OR os.id IN (SELECT m.os_id FROM equipamento_movimentacoes m
+                         WHERE m.equipamento_id = $1 AND m.os_id IS NOT NULL)
+        ORDER BY os.criado_em DESC`,
+      [equipamento.id]
+    ),
   ]);
 
   // Quantas vezes essa bomba já passou pela oficina — é o número que justifica
@@ -294,6 +308,7 @@ async function carregarFicha(where, val) {
     movimentacoes: movs.rows,
     fotos: fotos.rows,
     orcamentos: orcamentos.rows,
+    ordens_servico: ordens.rows,
     idas_oficina: idas,
   };
 }

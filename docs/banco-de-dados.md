@@ -249,6 +249,11 @@ ganha `equipamento_id (SET NULL)`: o caminho de volta do orçamento para a bomba
 `SET NULL` e não `CASCADE` porque dar baixa num equipamento não pode apagar um
 orçamento já enviado ao cliente. Índice `idx_orcamentos_equipamento`.
 
+**Migration 072** — `ordens_servico.equipamento_id (SET NULL)` +
+`idx_os_equipamento`: fecha o triângulo O.S. ↔ equipamento ↔ orçamento. Traz
+também o `UPDATE` que acerta `orcamentos.origem = 'os'` para os orçamentos
+nascidos de O.S. que ficaram com o DEFAULT `'admin'`.
+
 `chamados` ganha `equipamento_id (SET NULL)` + `idx_chamados_equipamento` —
 permite ver reincidência sem passar pela O.S.
 

@@ -817,7 +817,7 @@ async function _garantirOrcamentoDaOs(osId, userId) {
   if (existente.rows.length) return { id: existente.rows[0].id, criado: false };
 
   const osRow = await pool.query(
-    "SELECT id, condominio_id, orcamento_necessario FROM ordens_servico WHERE id = $1",
+    "SELECT id, condominio_id, orcamento_necessario, equipamento_id FROM ordens_servico WHERE id = $1",
     [osId]
   );
   if (!osRow.rows.length) throw Object.assign(new Error("O.S. não encontrada"), { status: 404 });
@@ -829,11 +829,16 @@ async function _garantirOrcamentoDaOs(osId, userId) {
     "SELECT 'OR-' || LPAD(nextval('orcamento_numero_seq')::text, 6, '0') AS n"
   )).rows[0].n;
 
+  // `equipamento_id` viaja junto (migration 072): sem ele, aprovar o orçamento
+  // de uma O.S. de conserto de bomba não moveria nada na bancada.
   const ins = await pool.query(
-    `INSERT INTO orcamentos (os_id, numero, condominio_id, status, criado_por)
-     VALUES ($1, $2, $3, 'rascunho', $4)
+    // `origem = 'os'` explícito: o DEFAULT da coluna é 'admin' (migration 036),
+    // então todo orçamento criado por aqui nascia marcado como avulso. O
+    // backfill da 036 acertou os antigos e os novos voltavam a errar.
+    `INSERT INTO orcamentos (os_id, numero, condominio_id, equipamento_id, origem, status, criado_por)
+     VALUES ($1, $2, $3, $4, 'os', 'rascunho', $5)
      RETURNING id`,
-    [osId, numSeq, osRow.rows[0].condominio_id, userId || null]
+    [osId, numSeq, osRow.rows[0].condominio_id, osRow.rows[0].equipamento_id || null, userId || null]
   );
   return { id: ins.rows[0].id, criado: true };
 }
@@ -1022,6 +1027,14 @@ router.patch("/orcamentos/:os_id", authRequired, adminOnly, async (req, res) => 
                  disponibilidade AS orcamento_disponibilidade`,
       vals
     );
+
+    // Mesmo reflexo do orçamento avulso: se esta O.S. tem equipamento
+    // vinculado, aprovar/rejeitar aqui move a bomba na bancada. Sem isto, o
+    // caminho "orçamento nasceu de O.S." ficaria mudo para a oficina.
+    if (acao === "aprovar" || acao === "rejeitar") {
+      refletirStatusOrcamento(orcId, acao === "aprovar" ? "aprovado" : "rejeitado", req.user);
+    }
+
     return res.json(r.rows[0]);
   } catch (err) {
     if (err.status) return res.status(err.status).json({ error: err.message });

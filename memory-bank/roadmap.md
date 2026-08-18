@@ -59,9 +59,11 @@ aliases:
   - 📋 **12B-2 (painel da bancada)**: a lista por estado com **dias parados** —
     a tela que responde "o que está parado na oficina e por quê" sem escanear
     bomba por bomba. Hoje isso só se vê uma bomba de cada vez, pela ficha.
-  - 📋 **12C (fechar o ciclo com a O.S.)**: campo de equipamento na O.S. de
-    tipo `retirada_equipamento`/`devolucao`, gerando a movimentação
-    automaticamente. Hoje os dois lados existem mas não se falam.
+  - ✅ **12C (O.S. no circuito)** — 2026-08-18, migration 072.
+    `ordens_servico.equipamento_id`, seletor no modal de O.S., propagação do
+    vínculo para o orçamento e reflexo da aprovação na bancada.
+    ⚠️ **A migration 072 ainda não rodou em produção.**
+
   - 📋 **12D (opcional, depois de 31/08)**: scanner dentro do app
     (`@capacitor-mlkit/barcode-scanning`), inventário do parque instalado,
     alerta de garantia.

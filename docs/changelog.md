@@ -82,10 +82,28 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
 | 067 | idx_chamados_tecnico | índice para `GET /chamados/meus`, a consulta mais chamada do app do técnico |
 | 068 | orcamento_linha_tipo_servico | `orcamento_linhas.tipo_servico` — marca a linha que vira cláusula no PDF, no lugar do regex na descrição |
 | 069 | leads_landing | tabela `leads` — contatos da landing pública |
+| 072 | os_equipamento | `ordens_servico.equipamento_id (SET NULL)` — fecha o triângulo O.S./equipamento/orçamento; + `UPDATE` acertando `orcamentos.origem = 'os'` nos orçamentos de O.S. que nasciam como `'admin'` |
 | 071 | orcamento_bancada | `orcamentos.origem` aceita `'bancada'`; `orcamentos.equipamento_id (SET NULL)` — liga a bomba na bancada ao orçamento, sem tabela de peças própria |
 | 070 | equipamentos | `equipamentos` (identidade permanente + `codigo` do QR), `equipamento_movimentacoes` (linha do tempo, com snapshot do autor), `equipamento_fotos` (`dados_base64` no banco); `chamados.equipamento_id`. Ver [equipamentos.md](modulos/equipamentos.md) |
 
 ## Marcos de produto (fases do plano)
+
+- **2026-08-18** — **Fase 12C: a O.S. entra no circuito**. `chamados` e
+  `orcamentos` já apontavam para `equipamentos`; a O.S., que é onde o técnico
+  registra a retirada no campo, não apontava — então orçamento nascido de uma
+  O.S. de conserto de bomba não movia nada na bancada.
+  - Seletor de equipamento no modal de O.S. do admin; `_garantirOrcamentoDaOs`
+    propaga o `equipamento_id`, e aprovar move a bomba pelo mesmo serviço que a
+    bancada já usava. Os dois caminhos chegam no mesmo lugar.
+  - ⚠️ O seletor **sempre inclui o equipamento já vinculado**, mesmo de outro
+    condomínio: sem isso o `<select>` caía em "nenhum" e salvar a O.S. apagava
+    o vínculo em silêncio. O defeito apareceu no primeiro teste.
+  - Campo novo no detalhe da O.S. precisa entrar no SELECT explícito de
+    `GET /ordens-servico/:id` — ele não usa `os.*`, para não arrastar a
+    assinatura base64 em toda abertura.
+  - **Bug pré-existente corrigido:** orçamento criado a partir de O.S. nascia
+    com `origem = 'admin'` desde a migration 036, porque o INSERT não setava o
+    campo. Código corrigido + `UPDATE` de acerto na 072.
 
 - **2026-08-18** — **Fase 12B: orçamento da bancada**. A ficha do equipamento
   passou a criar orçamento, e o orçamento passou a mover a bomba de volta.

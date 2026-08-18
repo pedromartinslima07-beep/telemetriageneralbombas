@@ -11355,6 +11355,7 @@ function _osEditsFromOS(os) {
     retorno_sugerido_em:  os.retorno_sugerido_em || "",
     orcamento_necessario: !!os.orcamento_necessario,
     orcamento_observacoes: os.orcamento_observacoes || "",
+    equipamento_id:       os.equipamento_id || "",
   };
 }
 
@@ -11381,6 +11382,7 @@ async function _osSalvarEdicao() {
     if (!payload.necessario_retorno) payload.retorno_sugerido_em = null;
     if (!payload.retorno_sugerido_em) delete payload.retorno_sugerido_em;
     if (!payload.recebido_tipo) payload.recebido_tipo = null;
+    if (!payload.equipamento_id) payload.equipamento_id = null;
     if (!payload.servico_realizado) payload.servico_realizado = null;
 
     const r = await fetch(`/ordens-servico/${_osSelecionadaId}`, {
@@ -11425,6 +11427,20 @@ function _osRenderForm(edits) {
       <section class="os-section os-section-full">
         <h3 class="os-sec-title">Tipos de serviço</h3>
         <div class="os-checks-grid">${tiposCheckboxes}</div>
+      </section>
+
+      <section class="os-section os-section-full">
+        <h3 class="os-sec-title">Equipamento</h3>
+        <label class="f">
+          <span>Bomba / motor desta O.S. <em>opcional</em></span>
+          <select id="osEdEquipamento" class="input">
+            <option value="">— nenhum —</option>
+          </select>
+        </label>
+        <p class="muted" style="font-size:12px;line-height:1.5;margin-top:6px;">
+          Vincular faz o orçamento desta O.S. chegar na ficha da bomba: aprovar
+          o orçamento move o equipamento para "em conserto" sozinho.
+        </p>
       </section>
 
       <section class="os-section">
@@ -11495,6 +11511,8 @@ function _osBindFormEventos() {
 
   document.getElementById("osEdRecebidoNome")?.addEventListener("input", (ev) => { e.recebido_nome = ev.target.value; });
   document.getElementById("osEdRecebidoTipo")?.addEventListener("change", (ev) => { e.recebido_tipo = ev.target.value; });
+  document.getElementById("osEdEquipamento")?.addEventListener("change", (ev) => { e.equipamento_id = ev.target.value; });
+  _osCarregarEquipamentos(e.equipamento_id);
 
   document.querySelectorAll('input[name="osEdResultado"]').forEach(r => {
     r.addEventListener("change", () => { if (r.checked) e.servico_realizado = r.value; });
@@ -14809,4 +14827,42 @@ function _eqBindEventos() {
     const tr = ev.target.closest("tr[data-eq-codigo]");
     if (tr) window.open(`/e/${tr.dataset.eqCodigo}`, "_blank");
   });
+}
+
+
+// Equipamentos etiquetados do condomínio desta O.S., para o seletor do form.
+// Carrega depois do render (o select nasce só com "— nenhum —") porque o modal
+// abre antes de a lista chegar, e travar o form por causa disso seria pior.
+async function _osCarregarEquipamentos(selecionado) {
+  const sel = document.getElementById("osEdEquipamento");
+  if (!sel || !_osSelecionada?.condominio_id) return;
+  try {
+    const r = await fetch(`/equipamentos?condominio_id=${_osSelecionada.condominio_id}`,
+      { headers: authHeaders() });
+    const lista = await lerRespostaJson(r, "Equipamentos");
+    if (!r.ok || !Array.isArray(lista)) return;
+    const nomeDe = (eq) => eq.apelido || [eq.marca, eq.modelo].filter(Boolean).join(" ")
+                 || (eq.tipo ? eq.tipo[0].toUpperCase() + eq.tipo.slice(1) : "Equipamento");
+    const addOpcao = (eq, sufixo) => {
+      const op = document.createElement("option");
+      op.value = eq.id;
+      op.textContent = `${_eqFormatarCodigo(eq.codigo)} · ${nomeDe(eq)}${sufixo || ""}`;
+      if (String(selecionado) === String(eq.id)) op.selected = true;
+      sel.appendChild(op);
+    };
+
+    for (const eq of lista) addOpcao(eq);
+
+    // O equipamento já vinculado precisa estar na lista mesmo que não seja
+    // deste condomínio (bomba trocada de prédio, dado antigo). Sem isto, o
+    // select não acha o valor, fica em "nenhum", e salvar a O.S. apagaria o
+    // vínculo em silêncio.
+    if (selecionado && !lista.some(eq => String(eq.id) === String(selecionado))) {
+      const rr = await fetch(`/equipamentos/${selecionado}`, { headers: authHeaders() });
+      const ficha = await lerRespostaJson(rr, "Equipamento vinculado");
+      if (rr.ok && ficha?.equipamento) {
+        addOpcao(ficha.equipamento, " (outro condomínio)");
+      }
+    }
+  } catch (_) { /* seletor fica só com "nenhum" — não trava a edição da O.S. */ }
 }
