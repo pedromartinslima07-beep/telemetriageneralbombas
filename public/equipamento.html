@@ -6,27 +6,52 @@
   <title>Equipamento — General Bombas</title>
   <link rel="icon" href="/static/favicon.png">
   <meta name="theme-color" content="#06070f">
-  <!-- Herda os tokens e componentes do Mission Control (admin.css). A ficha é
-       ferramenta de operação interna, como o app do técnico — não usa o sistema
-       "Chapa" da landing/painel do cliente, que é peça de venda. -->
+  <!-- Herda os tokens do Mission Control (admin.css). A ficha é ferramenta de
+       operação interna, como o app do técnico — não usa o sistema "Chapa" da
+       landing e do painel do cliente, que é peça de venda. Ver decisions.md. -->
   <link rel="stylesheet" href="/static/admin.css?v=190">
-  <link rel="stylesheet" href="/static/equipamento.css?v=1">
+  <link rel="stylesheet" href="/static/equipamento.css?v=2">
 </head>
 <body class="eq-body">
+<!--
+  THESIS: esta tela responde "o que aconteceu com essa bomba agora" e oferece
+  UMA ação. Recusa a pilha de caixas de peso igual (Registrar/Fotos/Dados/
+  Histórico) que qualquer CRUD produz e que era o defeito da versão anterior.
+  OWN-WORLD: Mission Control — fundo #06070f, superfície azul-violeta
+  translúcida, âmbar #f0b014 como única cor de ação, fios de 1px. Sem cards
+  aninhados: só o bloco de decisão é elevado; o resto são seções sobre o fundo,
+  separadas por fio. Mono tabular apenas onde há medida (código, dias, datas).
+  STORY: quem escaneia está de pé na bancada, com a bomba na frente. Lê de quem
+  é, há quanto tempo está parada e o que foi relatado; então age.
+  FIRST VIEWPORT: condomínio em 26px, o equipamento abaixo, o trilho do ciclo
+  (prédio → oficina → pronta → devolvida) com a posição acesa, o tempo no
+  estado em mono, o relato, e a ação primária em âmbar ocupando a largura.
+  FORM: "próxima ação única", candidato 3 de 7; seed key e87349e6.
+  FINISH: unreviewed and undocumented is unfinished; this build ends with the
+  finish review, the verdict, and DESIGN.md
+-->
 
   <header class="eq-topo">
-    <div class="eq-topo-marca">GENERAL BOMBAS</div>
+    <a class="eq-topo-marca" href="/admin/painel" title="Ir para o painel">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="3" y="3" width="7" height="7" rx="1"/>
+        <rect x="14" y="3" width="7" height="7" rx="1"/>
+        <rect x="3" y="14" width="7" height="7" rx="1"/>
+        <path d="M14 14h3v3h-3z"/><path d="M20 14v3M17 20h4"/>
+      </svg>
+      <span>General Bombas</span>
+    </a>
     <div class="eq-topo-cod" id="eqTopoCodigo">—</div>
-    <a class="eq-topo-link" href="/admin/painel">Painel</a>
   </header>
 
   <main class="eq-main" id="eqRoot">
     <div class="eq-carregando" id="eqCarregando">
-      <div class="eq-spin"></div>
+      <div class="eq-spin" aria-hidden="true"></div>
       <p>Lendo a etiqueta…</p>
     </div>
   </main>
 
-  <script src="/static/equipamento.js?v=1" defer></script>
+  <script src="/static/equipamento.js?v=2" defer></script>
 </body>
 </html>

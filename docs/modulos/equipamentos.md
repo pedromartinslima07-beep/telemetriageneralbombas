@@ -109,9 +109,32 @@ autônoma que **carrega `admin.css`** pelos tokens do Mission Control: é
 ferramenta de operação interna, como o app do técnico — não usa o sistema
 "Chapa" da landing e do painel do cliente, que é peça de venda.
 
-- **Mobile-first de verdade**: quem abre está de pé na bancada. Botão nunca
-  abaixo de 46px de altura; `font-size: 16px` nos campos, senão o iOS dá zoom
-  ao focar e o formulário sai da vista.
+**Direção: "próxima ação única"** (2026-08-18). A tela responde *o que aconteceu
+com essa bomba agora* e oferece **uma** ação, escolhida pelo estado; as demais
+ficam recolhidas em "Outras ações". A primeira versão era quatro caixas de peso
+igual (Registrar / Fotos / Dados / Histórico) — o layout que qualquer CRUD
+produz. O contrato da direção está no topo de `equipamento.html`, como comentário
+HTML; estratégia em `.impeccable/surfaces/public-equipamento-html.md`.
+
+- **Um bloco elevado, o resto sem casca.** Só a decisão é superfície; dados,
+  fotos e histórico são seções sobre o fundo separadas por fio. É o que cria
+  hierarquia — repor cards ali devolve o problema original.
+- **O trilho do ciclo** (No prédio → Oficina → Pronta → Devolvida) é conteúdo,
+  não enfeite: a posição sai das movimentações. É o único momento de movimento
+  da página (acende da esquerda até a posição atual, uma vez, respeitando
+  `prefers-reduced-motion`).
+- **Tempo no estado é sinal operacional:** 7 dias na oficina acende âmbar, 15
+  acende vermelho. Calculado pela movimentação mais recente cujo `status_novo`
+  é igual ao status atual — usar "a última que mexeu em status" mente quando o
+  estado foi ajustado por outro caminho.
+- **Mobile-first de verdade**: quem abre está de pé na bancada. Alvo de toque
+  nunca abaixo de 44px; `font-size: 16px` nos campos, senão o iOS dá zoom ao
+  focar e o formulário sai da vista.
+- ⚠️ O **detector do Impeccable acusa ~20 desvios de DESIGN.md** nesta página.
+  São falsos positivos estruturais: o `DESIGN.md` documenta o sistema "Chapa",
+  e esta superfície é Mission Control por decisão. Não "corrigir" trocando os
+  tokens — isso desfaz a fronteira registrada em
+  [`decisions.md`](../../memory-bank/decisions.md).
 - ⚠️ **A foto é carregada por `fetch` + blob, não por `<img src>` direto.** A
   rota da imagem é autenticada e `<img src>` não manda header `Authorization`.
   A saída fácil seria abrir a rota — é o que

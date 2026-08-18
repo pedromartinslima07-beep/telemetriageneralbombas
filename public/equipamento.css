@@ -1,14 +1,27 @@
 /* ============================================================
    FICHA DO EQUIPAMENTO — /e/:codigo
    ============================================================
-   Camada aditiva sobre admin.css: usa os tokens do Mission Control
-   (--accent âmbar, --surface, --border) e não redefine nenhum. Layout é
-   mobile-first de verdade — quem abre esta tela está de pé na bancada ou na
-   casa de máquinas, com uma mão na bomba. Botão nunca abaixo de 44px de alto.
+   Camada aditiva sobre admin.css: usa os tokens do Mission Control e não
+   redefine nenhum. A cena manda no layout — quem abre esta tela está de pé na
+   bancada da oficina, com a bomba na frente e uma mão ocupada.
+
+   A hierarquia é a decisão do desenho: UM bloco elevado (o que fazer agora) e
+   o resto como seções sobre o fundo, separadas por fio. A versão anterior era
+   quatro caixas de peso igual — o layout que qualquer CRUD produz.
    ============================================================ */
 
 .eq-body {
-  padding-bottom: 40px;
+  padding-bottom: 56px;
+  /* Superfícies do navegador que não desenhei, mas que fazem parte do desenho */
+  caret-color: var(--accent);
+  scrollbar-color: var(--surface3) transparent;
+  scrollbar-width: thin;
+}
+.eq-body ::selection { background: rgba(240, 176, 20, .28); color: #fff; }
+.eq-body :focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
 /* ---------- topo ---------- */
@@ -19,52 +32,45 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 16px;
-  padding-top: max(12px, env(safe-area-inset-top));
-  background: rgba(10, 12, 24, .92);
-  backdrop-filter: blur(12px);
+  padding: 11px 16px;
+  padding-top: max(11px, env(safe-area-inset-top));
+  background: rgba(8, 10, 20, .88);
+  backdrop-filter: blur(14px);
   border-bottom: 1px solid var(--border);
 }
 .eq-topo-marca {
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: .14em;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   color: var(--accent);
+  text-decoration: none;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
 }
+.eq-topo-marca svg { width: 15px; height: 15px; }
+.eq-topo-marca:hover { color: var(--accent-2); }
 .eq-topo-cod {
   margin-left: auto;
   font-family: ui-monospace, "Consolas", monospace;
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: .06em;
-  color: var(--text-dim);
-}
-.eq-topo-link {
-  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: .08em;
   color: var(--muted);
-  text-decoration: none;
-  border-left: 1px solid var(--border);
-  padding-left: 12px;
 }
-.eq-topo-link:hover { color: var(--text); }
 
 .eq-main {
-  max-width: 720px;
+  max-width: 660px;
   margin: 0 auto;
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
+  padding: 18px 16px 0;
 }
 
 /* ---------- carregando / erro ---------- */
-.eq-carregando, .eq-erro {
-  text-align: center;
-  padding: 56px 20px;
-  color: var(--muted);
-}
+.eq-carregando, .eq-erro { text-align: center; padding: 64px 20px; color: var(--muted); }
 .eq-spin {
-  width: 28px; height: 28px;
+  width: 26px; height: 26px;
   margin: 0 auto 14px;
   border: 2px solid var(--border-strong);
   border-top-color: var(--accent);
@@ -72,175 +78,287 @@
   animation: eq-girar .8s linear infinite;
 }
 @keyframes eq-girar { to { transform: rotate(360deg); } }
-.eq-erro h2 { font-size: 17px; color: var(--text); margin-bottom: 8px; }
-.eq-erro p  { font-size: 13px; line-height: 1.6; }
+.eq-erro h2 { font-size: 18px; color: var(--text); margin-bottom: 8px; letter-spacing: -.01em; }
+.eq-erro p  { font-size: 13.5px; line-height: 1.6; max-width: 42ch; margin: 0 auto; }
 
-/* ---------- resposta principal ----------
-   A primeira coisa da tela responde a pergunta que fez alguém escanear:
-   de quem é essa bomba e o que ela tem. Tudo o mais vem depois. */
-.eq-resposta {
-  background: var(--surface);
-  border: 1px solid var(--border);
+/* ============================================================
+   A DECISÃO — o único bloco elevado da página
+   ============================================================ */
+.eq-decisao {
+  background: linear-gradient(180deg, var(--surface2), var(--surface));
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-lg);
-  padding: 18px;
+  padding: 20px 18px 18px;
+  box-shadow: var(--shadow-md);
 }
-.eq-resposta-rotulo {
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: .12em;
+
+.eq-condominio {
+  font-size: 26px;
+  font-weight: 750;
+  line-height: 1.15;
+  letter-spacing: -.022em;
+  color: var(--text);
+  text-wrap: balance;
+}
+.eq-equip {
+  margin-top: 7px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-dim);
+}
+.eq-equip b { color: var(--text); font-weight: 600; }
+.eq-endereco {
+  margin-top: 3px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+/* ---------- trilho do ciclo ----------
+   O instrumento da tela: onde a bomba está no caminho que ela realmente
+   percorre. Conteúdo de verdade (vem das movimentações), não decoração. */
+.eq-trilho {
+  margin: 20px 0 16px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0;
+}
+.eq-parada {
+  position: relative;
+  padding-top: 16px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .07em;
   text-transform: uppercase;
   color: var(--muted);
-  margin-bottom: 6px;
+  text-align: center;
 }
-.eq-condominio {
-  font-size: 22px;
-  font-weight: 700;
-  line-height: 1.25;
+/* a linha do trilho */
+.eq-parada::before {
+  content: '';
+  position: absolute;
+  top: 4px; left: 0; right: 0;
+  height: 2px;
+  background: var(--border-strong);
+}
+.eq-parada:first-child::before { left: 50%; border-radius: 2px 0 0 2px; }
+.eq-parada:last-child::before  { right: 50%; border-radius: 0 2px 2px 0; }
+/* o ponto */
+.eq-parada::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 50%;
+  width: 10px; height: 10px;
+  margin-left: -5px;
+  border-radius: 50%;
+  background: var(--bg);
+  border: 2px solid var(--border-strong);
+}
+.eq-parada.is-feita { color: var(--text-dim); }
+.eq-parada.is-feita::before { background: var(--accent); }
+.eq-parada.is-feita::after  { background: var(--accent); border-color: var(--accent); }
+.eq-parada.is-aqui { color: var(--accent); }
+/* O trecho da parada atual acende até o ponto; sem isso o trilho abre um vão
+   cinza logo antes de onde a bomba está. */
+.eq-parada.is-aqui::before {
+  background: linear-gradient(90deg, var(--accent) 50%, var(--border-strong) 50%);
+}
+.eq-parada.is-aqui:last-child::before { background: var(--accent); }
+.eq-parada.is-aqui::after {
+  background: var(--accent);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px rgba(240, 176, 20, .18);
+}
+/* Um único momento de movimento: o trilho acende até a posição atual. */
+.eq-trilho.is-animando .eq-parada.is-feita::before,
+.eq-trilho.is-animando .eq-parada.is-aqui::before {
+  transform-origin: left center;
+  animation: eq-acender .62s cubic-bezier(.16, 1, .3, 1) both;
+}
+@keyframes eq-acender { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@media (prefers-reduced-motion: reduce) {
+  .eq-trilho.is-animando .eq-parada::before { animation: none; }
+  .eq-spin { animation-duration: 2s; }
+}
+
+/* ---------- estado + tempo ---------- */
+.eq-estado {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0 8px;
+  font-size: 16px;
+  font-weight: 600;
   color: var(--text);
+  letter-spacing: -.01em;
 }
-.eq-endereco {
-  margin-top: 6px;
-  font-size: 13px;
-  color: var(--text-dim);
-  line-height: 1.5;
+.eq-estado .eq-dias {
+  font-family: ui-monospace, "Consolas", monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--accent);
 }
-.eq-equip-nome {
+.eq-estado.is-parada .eq-dias { color: var(--warn); }
+.eq-estado.is-longa  .eq-dias { color: var(--danger); }
+
+/* ---------- o relato ----------
+   Sem barra colorida na lateral: o relato ganha peso por ser a única coisa em
+   itálico e por respirar, não por um adorno. */
+.eq-relato {
   margin-top: 14px;
   padding-top: 14px;
   border-top: 1px solid var(--border);
   font-size: 15px;
-  font-weight: 600;
+  line-height: 1.6;
   color: var(--text);
+  font-style: italic;
+  max-width: 62ch;
 }
-.eq-defeito {
-  margin-top: 10px;
-  padding: 12px 14px;
-  background: rgba(245, 158, 11, .08);
-  border-left: 3px solid var(--warn);
-  border-radius: var(--radius-sm);
-  font-size: 14px;
-  line-height: 1.55;
-  color: var(--text);
-}
-.eq-defeito .eq-resposta-rotulo { color: var(--warn); }
-
-/* ---------- selo de status ---------- */
-.eq-selo {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 5px 12px;
-  border-radius: 999px;
+.eq-relato-fonte {
+  display: block;
+  margin-top: 6px;
+  font-style: normal;
   font-size: 11.5px;
-  font-weight: 700;
-  letter-spacing: .04em;
-  text-transform: uppercase;
-  border: 1px solid var(--border-strong);
-  color: var(--text-dim);
-  background: var(--surface2);
+  color: var(--muted);
 }
-.eq-selo::before {
-  content: '';
-  width: 7px; height: 7px;
-  border-radius: 50%;
-  background: currentColor;
-}
-.eq-selo.is-oficina  { color: var(--warn);   border-color: rgba(245,158,11,.4); }
-.eq-selo.is-ok       { color: var(--ok);     border-color: rgba(34,197,94,.4); }
-.eq-selo.is-espera   { color: var(--cyan);   border-color: rgba(34,211,238,.4); }
-.eq-selo.is-livre    { color: var(--muted);  }
-.eq-selo.is-baixado  { color: var(--danger); border-color: rgba(239,68,68,.4); }
 
-/* ---------- reincidência ----------
-   O número que justifica trocar a bomba em vez de consertar de novo. */
+/* ---------- reincidência ---------- */
 .eq-reincidencia {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 11px 14px;
-  border-radius: var(--radius-sm);
-  background: rgba(239, 68, 68, .09);
-  border: 1px solid rgba(239, 68, 68, .25);
+  gap: 9px;
+  margin-top: 14px;
   font-size: 13px;
-  color: var(--text);
+  color: var(--text-dim);
 }
-.eq-reincidencia b { color: var(--danger); }
+.eq-reincidencia svg { width: 16px; height: 16px; flex: none; color: var(--danger); }
+.eq-reincidencia b { color: var(--text); font-weight: 650; }
 
-/* ---------- blocos ---------- */
-.eq-bloco {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 16px;
+/* ---------- ações ---------- */
+.eq-acao-principal {
+  display: block;
+  width: 100%;
+  min-height: 50px;
+  margin-top: 18px;
+  padding: 14px 20px;
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: -.005em;
+  color: #17120a;
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background .16s ease, transform .16s ease;
 }
-.eq-bloco-titulo {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: .12em;
+.eq-acao-principal:hover { background: var(--accent-2); }
+.eq-acao-principal:active { transform: translateY(1px); }
+.eq-acao-principal:disabled { opacity: .5; cursor: default; transform: none; }
+
+.eq-mais {
+  margin-top: 10px;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+.eq-mais summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-dim);
+  cursor: pointer;
+  list-style: none;
+  padding: 4px 0;
+}
+.eq-mais summary::-webkit-details-marker { display: none; }
+.eq-mais summary:hover { color: var(--text); }
+.eq-mais summary svg { width: 13px; height: 13px; transition: transform .18s ease; }
+.eq-mais[open] summary svg { transform: rotate(180deg); }
+.eq-mais-lista {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 0 2px;
+}
+.eq-btn {
+  flex: 1 1 auto;
+  min-height: 44px;
+  padding: 10px 16px;
+  font-size: 13.5px;
+  font-weight: 550;
+  color: var(--text-dim);
+  background: var(--surface3);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: color .16s ease, background .16s ease;
+}
+.eq-btn:hover { color: var(--text); background: var(--surface2); }
+.eq-btn:disabled { opacity: .5; cursor: default; }
+
+.eq-aviso { font-size: 12.5px; line-height: 1.55; color: var(--muted); }
+.eq-aviso.is-erro { color: var(--danger); }
+.eq-acao-erro:empty { display: none; }
+.eq-acao-erro { margin-top: 10px; }
+
+/* ============================================================
+   REFERÊNCIA — seções sobre o fundo, sem casca de card
+   ============================================================ */
+.eq-secao {
+  margin-top: 30px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+.eq-secao-cab {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.eq-secao-titulo {
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: .1em;
   text-transform: uppercase;
   color: var(--muted);
-  margin-bottom: 12px;
 }
+.eq-secao-acao {
+  font-size: 12.5px;
+  color: var(--muted);
+  background: none;
+  border: none;
+  padding: 4px 2px;
+  cursor: pointer;
+}
+.eq-secao-acao:hover { color: var(--accent); }
 
-/* dados técnicos em pares rótulo/valor */
+.eq-vazio { font-size: 13px; color: var(--muted); }
+
+/* dados técnicos: grade de pares, sem caixa */
 .eq-dados {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 12px 16px;
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  gap: 14px 18px;
 }
 .eq-dado-rot {
   font-size: 10.5px;
   text-transform: uppercase;
   letter-spacing: .08em;
-  color: var(--muted2);
-  margin-bottom: 2px;
-}
-.eq-dado-val {
-  font-size: 13.5px;
-  color: var(--text);
-  word-break: break-word;
-}
-
-/* ---------- linha do tempo ---------- */
-.eq-linha { list-style: none; }
-.eq-linha li {
-  position: relative;
-  padding: 0 0 18px 22px;
-  border-left: 1px solid var(--border-strong);
-}
-.eq-linha li:last-child { padding-bottom: 0; border-left-color: transparent; }
-.eq-linha li::before {
-  content: '';
-  position: absolute;
-  left: -5px; top: 3px;
-  width: 9px; height: 9px;
-  border-radius: 50%;
-  background: var(--muted2);
-  border: 2px solid var(--bg);
-}
-.eq-linha li.is-marco::before { background: var(--accent); }
-.eq-mov-tipo {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text);
-}
-.eq-mov-meta {
-  font-size: 11.5px;
   color: var(--muted);
-  margin-top: 2px;
+  margin-bottom: 3px;
 }
-.eq-mov-obs {
-  margin-top: 6px;
-  font-size: 13px;
-  line-height: 1.55;
-  color: var(--text-dim);
-  white-space: pre-wrap;
+.eq-dado-val { font-size: 13.5px; color: var(--text); word-break: break-word; }
+.eq-dado-val.is-num {
+  font-family: ui-monospace, "Consolas", monospace;
+  font-variant-numeric: tabular-nums;
 }
 
-/* ---------- fotos ---------- */
+/* fotos */
 .eq-fotos {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
   gap: 8px;
 }
 .eq-fotos img {
@@ -252,27 +370,89 @@
   background: var(--surface2);
   cursor: zoom-in;
 }
+.eq-fotos .eq-vazio { grid-column: 1 / -1; }
 
-/* visor de foto em tela cheia */
 .eq-visor {
   position: fixed;
   inset: 0;
   z-index: 90;
-  background: rgba(0,0,0,.92);
+  background: rgba(2, 3, 8, .94);
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 20px;
+  cursor: zoom-out;
 }
 .eq-visor img { max-width: 100%; max-height: 100%; border-radius: var(--radius-sm); }
 
-/* ---------- formulário ---------- */
-.eq-campo { margin-bottom: 14px; }
+/* linha do tempo */
+.eq-linha { list-style: none; }
+.eq-linha li {
+  position: relative;
+  padding: 0 0 20px 20px;
+  border-left: 1px solid var(--border-strong);
+}
+.eq-linha li:last-child { padding-bottom: 0; border-left-color: transparent; }
+.eq-linha li::before {
+  content: '';
+  position: absolute;
+  left: -4px; top: 4px;
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--muted2);
+  border: 2px solid var(--bg);
+}
+.eq-linha li.is-marco::before { background: var(--accent); }
+.eq-mov-tipo { font-size: 13.5px; font-weight: 600; color: var(--text); }
+.eq-mov-meta {
+  font-size: 11.5px;
+  color: var(--muted);
+  margin-top: 2px;
+  font-variant-numeric: tabular-nums;
+}
+.eq-mov-obs {
+  margin-top: 6px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-dim);
+  white-space: pre-wrap;
+  max-width: 62ch;
+}
+
+.eq-rodape {
+  margin-top: 34px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  font-size: 11.5px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .03em;
+}
+
+/* ============================================================
+   VÍNCULO — etiqueta em branco
+   ============================================================ */
+.eq-vinc-titulo {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -.02em;
+  color: var(--text);
+}
+.eq-vinc-lede {
+  margin-top: 8px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-dim);
+  max-width: 54ch;
+}
+
+.eq-campo { margin-bottom: 15px; }
 .eq-campo label {
   display: block;
-  font-size: 11.5px;
-  font-weight: 600;
-  letter-spacing: .06em;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: .08em;
   text-transform: uppercase;
   color: var(--muted);
   margin-bottom: 6px;
@@ -281,16 +461,18 @@
 .eq-campo select,
 .eq-campo textarea {
   width: 100%;
-  /* 16px evita o zoom automático do iOS ao focar o campo — abaixo disso a
-     página salta de escala e o técnico perde o formulário de vista. */
+  /* 16px evita o zoom automático do iOS ao focar — abaixo disso a página
+     salta de escala e o técnico perde o formulário de vista. */
   font-size: 16px;
   padding: 11px 12px;
   color: var(--text);
   background: var(--surface2);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
+  transition: border-color .16s ease, box-shadow .16s ease;
 }
-.eq-campo textarea { min-height: 88px; resize: vertical; line-height: 1.5; }
+.eq-campo textarea { min-height: 92px; resize: vertical; line-height: 1.55; }
+.eq-campo input::placeholder, .eq-campo textarea::placeholder { color: var(--muted); }
 .eq-campo input:focus,
 .eq-campo select:focus,
 .eq-campo textarea:focus {
@@ -298,56 +480,16 @@
   border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(240, 176, 20, .14);
 }
-.eq-campo-dupla {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
+.eq-campo-dupla { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 
-/* ---------- ações ---------- */
-.eq-acoes {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-.eq-btn {
-  flex: 1 1 auto;
-  min-height: 46px;          /* alvo de toque com luva, na bancada */
-  padding: 12px 18px;
-  font-size: 14px;
-  font-weight: 600;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border-strong);
-  background: var(--surface2);
-  color: var(--text);
-  cursor: pointer;
-}
-.eq-btn:hover { background: var(--surface3); }
-.eq-btn:disabled { opacity: .55; cursor: default; }
-.eq-btn.is-primario {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #1a1400;
-}
-.eq-btn.is-primario:hover { background: var(--accent-2); }
-
-.eq-aviso {
-  font-size: 12.5px;
-  line-height: 1.55;
-  color: var(--muted);
-}
-.eq-aviso.is-erro { color: var(--danger); }
-
-.eq-vazio {
-  font-size: 13px;
-  color: var(--muted);
-  font-style: italic;
-}
-/* Dentro do grid de fotos o texto vazio cairia numa coluna de 96px e quebraria
-   em duas linhas ("Nenhuma foto / ainda."). Ocupa a faixa inteira. */
-.eq-fotos .eq-vazio { grid-column: 1 / -1; }
+.eq-vinc-acoes { margin-top: 20px; }
+.eq-vinc-acoes .eq-btn { width: 100%; margin-top: 9px; }
 
 @media (min-width: 620px) {
-  .eq-main { padding: 22px 16px 40px; }
-  .eq-condominio { font-size: 25px; }
+  .eq-main { padding: 26px 16px 0; }
+  .eq-decisao { padding: 24px 22px 20px; }
+  .eq-condominio { font-size: 30px; }
+  .eq-acao-principal { width: auto; min-width: 260px; }
+  .eq-vinc-acoes { display: flex; gap: 10px; }
+  .eq-vinc-acoes .eq-btn { width: auto; margin-top: 0; }
 }

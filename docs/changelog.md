@@ -84,6 +84,23 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
 
 ## Marcos de produto (fases do plano)
 
+- **2026-08-18** — **Ficha do equipamento redesenhada: "próxima ação única"**.
+  A v1 era quatro caixas de peso igual (Registrar/Fotos/Dados/Histórico) — o
+  Pedro apontou como "100% genérico", e estava certo: é o layout que qualquer
+  CRUD produz. Agora um único bloco elevado responde *o que aconteceu com essa
+  bomba agora* e oferece **uma** ação, com as demais recolhidas.
+  - **Trilho do ciclo** (No prédio → Oficina → Pronta → Devolvida) como
+    conteúdo, não enfeite: a posição vem das movimentações e acende ao carregar.
+  - **Tempo no estado virou sinal**: 7 dias na oficina acende âmbar, 15 vermelho.
+  - O relato do defeito ganhou **procedência** ("relatado por X ao retirar") —
+    relato sem autor vira boato.
+  - Correções de craft: `--muted2` em texto dava ~2,5:1 de contraste (piso é
+    4,5:1); `<img>` sem `src` piscava ícone quebrado até o blob chegar;
+    delegado de clique em `$root` empilhava um handler por recarga.
+  - Continua **Mission Control**, não "Chapa": a fronteira é cliente × operação.
+    O detector do Impeccable acusa ~20 desvios de DESIGN.md por comparar com o
+    sistema errado — falsos positivos estruturais, documentados no módulo.
+
 - **2026-08-17** — **Equipamentos com etiqueta QR (Fase A)**. Migration 070,
   router `/equipamentos`, `etiquetas-pdf.service.js` (Puppeteer + `qrcode`),
   ficha `/e/:codigo` e seção Equipamentos no admin. Fluxo e pegadinhas em
