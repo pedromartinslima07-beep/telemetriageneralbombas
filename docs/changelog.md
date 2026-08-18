@@ -123,6 +123,12 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
     sem O.S. A aba passou a juntar duas fontes — O.S. com orçamento necessário
     e orçamentos `origem = 'bancada'` — via duas consultas concatenadas em JS,
     não UNION. Clicar numa linha da bancada abre o modal do avulso.
+  - **Um conserto, um orçamento** (18/08): a mesma bomba podia ser pedida pela
+    O.S. em campo E pela etiqueta na bancada, gerando dois orçamentos abertos
+    para o mesmo serviço — reproduzido em teste, três registros apontando a
+    mesma bomba. Agora a ficha reaproveita orçamento aberto, ou nasce vinculada
+    à O.S. pendente; e `_garantirOrcamentoDaOs` adota o pedido da bancada em vez
+    de abrir um segundo. Os três cenários verificados.
   - Ciclo verificado ponta a ponta no banco de teste: solicitar pela ficha →
     aparecer em Orçamentos › Avulsos com o condomínio certo → aprovar → bomba
     em `em_conserto` com a movimentação registrada.

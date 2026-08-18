@@ -825,6 +825,24 @@ async function _garantirOrcamentoDaOs(osId, userId) {
     throw Object.assign(new Error("Esta O.S. não tem orçamento solicitado"), { status: 400 });
   }
 
+  // A bancada pode ter pedido primeiro, pela etiqueta da bomba. Nesse caso o
+  // orçamento já existe solto: esta O.S. o ADOTA em vez de abrir um segundo
+  // para o mesmo serviço. É o espelho da checagem em
+  // `POST /equipamentos/:id/orcamento`.
+  if (osRow.rows[0].equipamento_id) {
+    const daBancada = await pool.query(
+      `SELECT id FROM orcamentos
+        WHERE equipamento_id = $1 AND os_id IS NULL AND status IN ('rascunho', 'enviado')
+        ORDER BY criado_em DESC LIMIT 1`,
+      [osRow.rows[0].equipamento_id]
+    );
+    if (daBancada.rows.length) {
+      await pool.query(`UPDATE orcamentos SET os_id = $1 WHERE id = $2`,
+        [osId, daBancada.rows[0].id]);
+      return { id: daBancada.rows[0].id, criado: false };
+    }
+  }
+
   const numSeq = (await pool.query(
     "SELECT 'OR-' || LPAD(nextval('orcamento_numero_seq')::text, 6, '0') AS n"
   )).rows[0].n;
@@ -928,7 +946,9 @@ router.get("/orcamentos", authRequired, adminOnly, async (req, res) => {
     // SELECT acima teriam de ser espelhadas com NULLs, e qualquer campo novo
     // passaria a exigir manutenção nos dois lados.
     const valsB = [];
-    const whereB = ["o.origem = 'bancada'"];
+    // `os_id IS NULL`: quando o pedido da bancada é adotado por uma O.S., ele
+    // passa a aparecer pela linha da O.S. — sem isto sairia duas vezes na aba.
+    const whereB = ["o.origem = 'bancada'", "o.os_id IS NULL"];
     if (status && ORC_STATUS_VALIDOS.includes(status)) {
       valsB.push(status);
       whereB.push(`o.status = $${valsB.length}`);

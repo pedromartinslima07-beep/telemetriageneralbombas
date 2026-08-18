@@ -566,6 +566,57 @@ router.post("/:id/orcamento", authRequired, equipeInterna, async (req, res) => {
     }
     const equip = eq.rows[0];
 
+    // ── Um conserto, um orçamento ────────────────────────────────────────
+    // A mesma bomba pode ter sido pedida por dois caminhos: o técnico marcou
+    // "precisa de orçamento" na O.S. em campo E pediu de novo pela etiqueta na
+    // bancada. Sem esta checagem nascem dois orçamentos abertos para o mesmo
+    // serviço, os dois aprováveis, cada um gerando sua movimentação.
+    const aberto = await client.query(
+      `SELECT id, numero, os_id FROM orcamentos
+        WHERE equipamento_id = $1 AND status IN ('rascunho', 'enviado')
+        ORDER BY criado_em DESC LIMIT 1`,
+      [id]
+    );
+    if (aberto.rows.length) {
+      const alvo = aberto.rows[0];
+      for (const item of lista) {
+        await client.query(
+          `INSERT INTO orcamento_linhas (orcamento_id, descricao, quantidade, valor_unitario, ficha_tecnica)
+           VALUES ($1, $2, $3, $4, $5)`,
+          [alvo.id, String(item.descricao).trim().slice(0, 255),
+           Number(item.quantidade) > 0 ? Number(item.quantidade) : 1,
+           item.valor_unitario === "" || item.valor_unitario == null ? null : Number(item.valor_unitario),
+           item.ficha_tecnica ? String(item.ficha_tecnica).slice(0, 1000) : null]
+        );
+      }
+      await client.query(
+        `INSERT INTO equipamento_movimentacoes
+           (equipamento_id, tipo, status_novo, orcamento_id, condominio_id,
+            usuario_id, usuario_nome, observacao)
+         VALUES ($1, 'anotacao', NULL, $2, $3, $4,
+                 (SELECT nome FROM usuarios WHERE id = $4), $5)`,
+        [id, alvo.id, equip.condominio_id, req.user.id,
+         `${lista.length} ${lista.length === 1 ? "item acrescentado" : "itens acrescentados"} ao ${alvo.numero}`]
+      );
+      await client.query("COMMIT");
+      return res.status(200).json({
+        id: alvo.id, numero: alvo.numero, status: "rascunho",
+        itens: lista.length, reaproveitado: true,
+      });
+    }
+
+    // Nenhum orçamento aberto: se existe uma O.S. desta bomba pedindo
+    // orçamento, o pedido nasce vinculado a ela — é o mesmo serviço, e a aba
+    // "Solicitados pelos técnicos" mostra uma linha só em vez de duas.
+    const osPendente = await client.query(
+      `SELECT os.id FROM ordens_servico os
+        WHERE os.equipamento_id = $1 AND os.orcamento_necessario = TRUE
+          AND NOT EXISTS (SELECT 1 FROM orcamentos o WHERE o.os_id = os.id)
+        ORDER BY os.criado_em DESC LIMIT 1`,
+      [id]
+    );
+    const osVinculada = osPendente.rows[0]?.id || null;
+
     const numero = (await client.query(
       "SELECT 'OR-' || LPAD(nextval('orcamento_numero_seq')::text, 6, '0') AS n"
     )).rows[0].n;
@@ -583,12 +634,12 @@ router.post("/:id/orcamento", authRequired, equipeInterna, async (req, res) => {
 
     const orc = await client.query(
       `INSERT INTO orcamentos
-         (numero, condominio_id, equipamento_id, origem, tipo, status, constatacao, criado_por)
-       VALUES ($1, $2, $3, 'bancada', 'pecas', 'rascunho', $4, $5)
+         (numero, condominio_id, equipamento_id, os_id, origem, tipo, status, constatacao, criado_por)
+       VALUES ($1, $2, $3, $6, $7, 'pecas', 'rascunho', $4, $5)
        RETURNING id, numero, status`,
       [numero, equip.condominio_id, id,
        `${identificacao}${constatacaoFinal ? `. ${constatacaoFinal}` : ""}`.slice(0, 1000),
-       req.user.id]
+       req.user.id, osVinculada, osVinculada ? "os" : "bancada"]
     );
     const orcamentoId = orc.rows[0].id;
 

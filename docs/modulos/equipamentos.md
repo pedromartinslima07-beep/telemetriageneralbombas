@@ -91,6 +91,26 @@ migration 030 levou meses para desfazer.
    volta para `oficina` (a bomba segue parada, mas agora aguardando a decisão
    de devolver sem conserto, não a resposta do cliente).
 
+### Um conserto, um orçamento
+
+A mesma bomba pode ser pedida por dois caminhos ao mesmo tempo: o técnico marca
+"precisa de orçamento" na O.S. em campo **e** pede de novo pela etiqueta, na
+bancada. Sem tratamento nasciam dois orçamentos abertos para o mesmo serviço,
+os dois aprováveis, cada um gerando sua movimentação. As duas pontas se
+protegem:
+
+- **`POST /equipamentos/:id/orcamento`** (ficha), na ordem:
+  1. Já existe orçamento **aberto** (`rascunho`/`enviado`) apontando esta bomba?
+     As peças entram **nele**, e a resposta traz `reaproveitado: true`.
+  2. Existe **O.S. desta bomba** com `orcamento_necessario` e ainda sem
+     orçamento? O pedido nasce **vinculado a ela** (`os_id`, `origem = 'os'`).
+  3. Nenhum dos dois: nasce como `origem = 'bancada'`, solto.
+- **`_garantirOrcamentoDaOs`** (admin) faz o espelho: se a O.S. tem equipamento
+  e existe orçamento aberto **da bancada** para ele (`os_id IS NULL`), a O.S.
+  **adota** esse orçamento em vez de abrir um segundo.
+- A listagem da bancada na aba filtra `os_id IS NULL` — adotado, ele aparece
+  pela linha da O.S., não duas vezes.
+
 - ⚠️ **O reflexo nunca derruba a atualização do orçamento.** O documento
   comercial é a fonte da verdade e o estado do equipamento é consequência: erro
   ali é logado, não lançado.
