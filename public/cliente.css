@@ -160,7 +160,7 @@
 html, body { overflow-x: clip; }
 
 /* a barra é `sticky`: sem isto, âncora nenhuma para debaixo dela */
-html { scroll-padding-top: calc(var(--barra-h) + 20px); }
+html { scroll-padding-top: calc(var(--barra-h) + env(safe-area-inset-top, 0px) + 20px); }
 
 body {
   background: var(--mar-800);
@@ -208,7 +208,15 @@ a { color: inherit; text-decoration: none; }
    CTA, aqui é a conta. A casca é idêntica de propósito. */
 .barra {
   position: sticky; top: 0; z-index: 100;
-  height: var(--barra-h);
+  /* ⚠️ PWA no iPhone: `apple-mobile-web-app-status-bar-style: black-translucent`
+     (no <head>) estende a página POR BAIXO da barra de status. Sem compensar
+     aqui, a barra gruda no topo do viewport e sobra uma faixa descoberta acima
+     dela — com o conteúdo rolando visível por trás. A barra cresce para cobrir
+     essa faixa e empurra o próprio conteúdo para baixo dela.
+     Depende do `viewport-fit=cover` no <meta viewport>: sem ele o iOS devolve
+     0 em `env()`. Em tela sem entalhe o valor é 0 e nada muda. */
+  height: calc(var(--barra-h) + env(safe-area-inset-top, 0px));
+  padding-top: env(safe-area-inset-top, 0px);
   background: color-mix(in srgb, var(--mar-900) 88%, transparent);
   backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
   border-bottom: 1px solid transparent;
@@ -264,8 +272,11 @@ a { color: inherit; text-decoration: none; }
    Abaixo de 820px o `min-height` já é 0 e nada disto vale. */
 .resposta {
   position: relative;
-  min-height: min(calc(100vh - var(--barra-h)), 46rem);
-  min-height: min(calc(100dvh - var(--barra-h)), 46rem);
+  /* A barra cresce com a área segura no PWA do iPhone (ver `.barra`), então o
+     que sobra de tela precisa descontar as duas coisas — senão a primeira tela
+     fica mais alta que o visível e a fita some abaixo da dobra. */
+  min-height: min(calc(100vh - var(--barra-h) - env(safe-area-inset-top, 0px)), 46rem);
+  min-height: min(calc(100dvh - var(--barra-h) - env(safe-area-inset-top, 0px)), 46rem);
   display: grid; align-items: center;
   padding: 32px 0 clamp(30px, 3.4vw, 44px);
 }

@@ -47,6 +47,29 @@ história, e o detalhe abre como **ficha** por cima.
 
 ---
 
+## PWA no iPhone: a área da barra de status
+
+`cliente.html` declara `apple-mobile-web-app-status-bar-style:
+black-translucent`, o que faz o PWA instalado no iOS estender a página **por
+baixo da barra de status**. Sem tratamento, a `.barra` (que é `sticky; top:0`)
+gruda no topo do viewport e deixa aquela faixa descoberta — com o conteúdo
+rolando visível por trás dela. Relatado pelo Pedro em 2026-08-18.
+
+- O `<meta viewport>` precisa de **`viewport-fit=cover`**: sem ele o iOS devolve
+  **0** em `env(safe-area-inset-*)`, e o CSS não tem como compensar.
+- A `.barra` **cresce** para cobrir a faixa (`height: calc(var(--barra-h) +
+  env(safe-area-inset-top))` + `padding-top` igual), empurrando o próprio
+  conteúdo para baixo dela.
+- Quem depende da altura da barra desconta as duas coisas: `scroll-padding-top`
+  do `html` e o `min-height` de `.resposta`.
+- `login.css` faz o equivalente no `body` (lá não há barra fixa para cobrir).
+- ⚠️ Em tela sem entalhe `env()` vale 0 e nada muda — verificado no desktop:
+  barra em 64px, `padding-top: 0`, `top: 0` ao rolar.
+- ⚠️ **`login.css` está no precache do `sw.js`** (`STATIC_ASSETS`): mexer nele
+  exige bump do `CACHE_NAME`, senão o PWA instalado segue servindo a versão
+  antiga. Foi para `telemetria-v45`.
+- ⚠️ **Não foi verificado em iPhone** — não há aparelho iOS neste ambiente.
+
 ## ⚠️ Este painel não carrega o `admin.css`
 
 **A mudança mais importante deste módulo, feita em 2026-08-13 e mantida na v3.**

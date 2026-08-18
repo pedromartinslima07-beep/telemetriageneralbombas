@@ -75,6 +75,12 @@
 body {
   min-height: 100vh;
   min-height: 100dvh;
+  /* PWA no iPhone: com `black-translucent` no <head>, a página passa por baixo
+     da barra de status. Aqui não há barra fixa para cobri-la (ao contrário do
+     painel do cliente), então o respiro entra no próprio body — senão o topo
+     do cartão fica sob o relógio. Vale 0 em tela sem entalhe. */
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
   background: var(--mar-800);
   color: #fff;
   font-family: var(--fonte);
