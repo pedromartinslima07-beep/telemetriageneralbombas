@@ -18,6 +18,8 @@
 const puppeteer = require("puppeteer");
 const QRCode = require("qrcode");
 const crypto = require("crypto");
+const fs = require("fs");
+const path = require("path");
 
 // Alfabeto Crockford base32: sem I, L, O e U. Os três primeiros porque se
 // confundem com 1/0 quando alguém digita o código da etiqueta suja na mão; o U
@@ -91,6 +93,22 @@ const FORMATOS = {
   },
 };
 
+// Wordmark branco com engrenagens amarelas e fundo transparente — é o que
+// pousa sobre a faixa marinho. Lido uma vez e injetado como data URI numa
+// classe CSS: repetir a imagem em cada célula inflaria o HTML em ~1,3 MB por
+// folha, e o navegador baixaria o mesmo asset dez vezes.
+let _logoCache;
+function logoBase64() {
+  if (_logoCache !== undefined) return _logoCache;
+  try {
+    const bin = fs.readFileSync(path.join(__dirname, "../../public/login-logo.png"));
+    _logoCache = `data:image/png;base64,${bin.toString("base64")}`;
+  } catch {
+    _logoCache = null; // sem logo a etiqueta ainda sai, só com o wordmark em texto
+  }
+  return _logoCache;
+}
+
 async function qrSvg(url) {
   // margin 0: a folga branca ao redor é dada pelo CSS, não pelo SVG — assim o
   // QR ocupa exatamente a caixa reservada e não encolhe sozinho.
@@ -102,15 +120,21 @@ async function qrSvg(url) {
 }
 
 function renderHTML(etiquetas, fmt) {
+  const logo = logoBase64();
+
   const celula = (e) => `
     <div class="et">
-      <div class="qr">${e.svg}</div>
-      <div class="txt">
-        <div class="marca">GENERAL BOMBAS</div>
-        <div class="cod">${formatarCodigo(e.codigo)}</div>
-        <div class="dica">Escaneie para ver o histórico<br>deste equipamento</div>
-        <div class="rodape">Propriedade de General Bombas</div>
+      <div class="cabeca">
+        ${logo ? `<div class="logo"></div>` : `<div class="wordmark">GENERAL BOMBAS</div>`}
       </div>
+      <div class="corpo">
+        <div class="qr">${e.svg}</div>
+        <div class="txt">
+          <div class="cod">${formatarCodigo(e.codigo)}</div>
+          <div class="dica">Escaneie para ver<br>o histórico deste equipamento</div>
+        </div>
+      </div>
+      <div class="pe">Propriedade de General Bombas · generalbombas.com</div>
     </div>`;
 
   // Pagina em blocos de cols × rows. A folha tem altura fixa (297mm) porque a
@@ -147,29 +171,72 @@ function renderHTML(etiquetas, fmt) {
     align-content: start;
   }
   .folha + .folha { page-break-before: always; }
+
+  /* A etiqueta é a marca em três faixas: cabeça marinho, campo branco com o
+     QR, e o pé. O QR fica SEMPRE em preto sobre branco — invertido (claro
+     sobre escuro) muitos leitores de celular não pegam, e uma etiqueta que
+     não escaneia é papel colado à toa numa bomba. */
   .et {
-    display: flex; align-items: center; gap: 3.5mm;
-    padding: 3mm 3.5mm;
-    ${fmt.borda ? "border: 0.3mm dashed #b0b0b0; border-radius: 1.5mm;" : ""}
+    display: flex; flex-direction: column;
+    ${fmt.borda ? "border: 0.3mm dashed #b0b0b0;" : ""}
+    border-radius: 1.5mm;
     overflow: hidden;
+    background: #fff;
   }
-  .et.is-vazia { border-color: transparent; }
-  .qr { width: 33mm; height: 33mm; flex: none; }
+  .et.is-vazia { border-color: transparent; background: none; }
+  .et.is-vazia > * { display: none; }
+
+  /* Cabeça: campo marinho com o chanfro de 45° do wordmark, que é a
+     assinatura da marca (ver DESIGN.md). */
+  .cabeca {
+    position: relative;
+    height: 13mm;
+    flex: none;
+    background: #0d2775;
+    padding: 2mm 4mm;
+    display: flex; align-items: center;
+    /* Chanfro de 45° cortando o canto inferior direito — a assinatura da
+       marca. 9mm para o corte ser lido como intenção, não como defeito de
+       impressão. */
+    clip-path: polygon(0 0, 100% 0, 100% 30%, calc(100% - 9mm) 100%, 0 100%);
+  }
+  .logo {
+    width: 54mm; height: 9.5mm;
+    background-image: url("${logo}");
+    background-repeat: no-repeat;
+    background-position: left center;
+    background-size: contain;
+  }
+  .wordmark {
+    font-size: 9pt; font-weight: 800; letter-spacing: .14em; color: #fff;
+  }
+
+  .corpo {
+    flex: 1;
+    display: flex; align-items: center; gap: 3.5mm;
+    padding: 2.5mm 4mm 1mm;
+    min-height: 0;
+  }
+  .qr { width: 26mm; height: 26mm; flex: none; }
   .qr svg { width: 100%; height: 100%; display: block; }
   .txt { min-width: 0; }
-  .marca {
-    font-size: 8pt; font-weight: 700; letter-spacing: .12em;
-    color: #111;
-  }
   .cod {
     font-family: "Consolas", "Courier New", monospace;
-    font-size: 17pt; font-weight: 700; letter-spacing: .04em;
-    color: #000; margin: 1.2mm 0 1.5mm;
+    font-size: 16pt; font-weight: 700; letter-spacing: .03em;
+    color: #061033;
+    padding-bottom: 1.2mm;
+    /* O fio amarelo é o acento da marca no único lugar onde não disputa com a
+       leitura do QR. */
+    border-bottom: 0.6mm solid #fbb329;
+    display: inline-block;
   }
-  .dica  { font-size: 7pt; color: #444; line-height: 1.35; }
-  .rodape {
-    font-size: 5.8pt; color: #777; margin-top: 2mm;
-    border-top: 0.2mm solid #ddd; padding-top: 1mm;
+  .dica {
+    font-size: 6.5pt; color: #4a5578; line-height: 1.4; margin-top: 1.6mm;
+  }
+  .pe {
+    flex: none;
+    padding: 1mm 4mm 2mm;
+    font-size: 5.5pt; letter-spacing: .04em; color: #8a93ad;
   }
 </style></head>
 <body>${folhas.join("")}</body></html>`;

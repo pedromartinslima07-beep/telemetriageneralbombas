@@ -88,6 +88,18 @@ só `id` e `nome`, nunca endereço, contato ou CNPJ.
 padrão de `orcamento-pdf.service.js`). O PDF sai em memória e vai direto na
 resposta — não persiste em disco, que é efêmero no Railway.
 
+**Desenho da etiqueta** (2026-08-18): a marca em três faixas — cabeça marinho
+(`#0d2775`) com o wordmark branco e o **chanfro de 45°** cortando o canto
+inferior direito, campo branco com o QR e o código sublinhado pelo fio amarelo
+(`#fbb329`), e o pé com a propriedade. O logo é `public/login-logo.png`
+(wordmark branco + engrenagens, fundo transparente), lido uma vez e injetado
+como data URI numa **classe CSS** — repetir a imagem em cada célula inflaria o
+HTML em ~1,3 MB por folha.
+
+- ⚠️ **O QR fica sempre preto sobre branco.** Invertido (claro sobre escuro)
+  muitos leitores de celular não pegam, e etiqueta que não escaneia é papel
+  colado à toa numa bomba. Por isso a cor da marca vive na cabeça e no fio, não
+  no campo do código.
 - **Correção de erro `H`** (~30% do código recuperável): etiqueta de casa de
   máquinas vive com graxa, respingo e sol. O código humano impresso ao lado é o
   plano B quando nem isso resolve.
