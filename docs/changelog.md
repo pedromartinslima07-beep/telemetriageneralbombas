@@ -104,6 +104,7 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
   - **Bug pré-existente corrigido:** orçamento criado a partir de O.S. nascia
     com `origem = 'admin'` desde a migration 036, porque o INSERT não setava o
     campo. Código corrigido + `UPDATE` de acerto na 072.
+  - Migrations 071 e 072 aplicadas em teste e **produção** em 18/08.
 
 - **2026-08-18** — **Fase 12B: orçamento da bancada**. A ficha do equipamento
   passou a criar orçamento, e o orçamento passou a mover a bomba de volta.
