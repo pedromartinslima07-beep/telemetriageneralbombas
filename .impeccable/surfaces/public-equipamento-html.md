@@ -51,11 +51,14 @@ parado aqui".
 
 ## Restrições
 
-- **Mission Control, não "Chapa".** A fronteira do projeto é *cliente ×
-  operação* (`decisions.md`), e esta é operação, como o app do técnico. O
-  detector acusa ~20 desvios de DESIGN.md porque o DESIGN.md documenta o Chapa;
-  são falsos positivos estruturais, não dívida.
-- Herda `admin.css` pelos tokens; não redefine nenhum.
+- **Padrão do cartão da assinatura de contrato** (`_shell` em
+  `src/routes/assinatura.routes.js`), pinado pelo Pedro em 2026-08-18: cartão
+  único de 520px, fio âmbar→azul, logo, `table.info`, botão âmbar full width,
+  rodapé fora. Folha autônoma — não carrega `admin.css`, como aquela tela.
+- A paleta é duplicada da tela de assinatura de propósito (as duas não
+  compartilham folha). Mudou uma, mude a outra.
+- O detector acusa desvios de DESIGN.md: ele compara com o sistema "Chapa" da
+  landing, e este cartão nunca esteve documentado lá. Falsos positivos.
 - Campos a 16px — abaixo disso o iOS dá zoom ao focar e o formulário sai da vista.
 - Alvos de toque ≥ 44px (mão com luva, tela suja).
 

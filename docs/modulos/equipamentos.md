@@ -104,10 +104,20 @@ resposta — não persiste em disco, que é efêmero no Railway.
 
 ## Ficha (`/e/:codigo`)
 
-`public/equipamento.html` + `equipamento.css` + `equipamento.js`. Página
-autônoma que **carrega `admin.css`** pelos tokens do Mission Control: é
-ferramenta de operação interna, como o app do técnico — não usa o sistema
-"Chapa" da landing e do painel do cliente, que é peça de venda.
+`public/equipamento.html` + `equipamento.css` + `equipamento.js`.
+
+**Segue o padrão da tela de assinatura de contrato** (`_shell` em
+`src/routes/assinatura.routes.js`), por decisão do Pedro em 2026-08-18: cartão
+único centrado de 520px sobre fundo escuro com halo, fio âmbar→azul no topo,
+logo centralizada, pares rótulo/valor em `table.info`, botão âmbar de largura
+total e rodapé fora do cartão.
+
+⚠️ Por isso **não carrega `admin.css`** — a tela de assinatura também não
+carrega, e tem paleta própria. A folha duplica essa paleta de propósito, mesma
+situação de `landing.css` e `login.css` entre si: são páginas servidas
+separadamente. **Mudou a paleta de uma, mude na outra.** Ganho colateral: a
+ficha deixou de baixar 265 KB de CSS do painel numa tela aberta pelo celular,
+na casa de máquinas, muitas vezes em rede ruim.
 
 **Direção: "próxima ação única"** (2026-08-18). A tela responde *o que aconteceu
 com essa bomba agora* e oferece **uma** ação, escolhida pelo estado; as demais
@@ -116,9 +126,9 @@ igual (Registrar / Fotos / Dados / Histórico) — o layout que qualquer CRUD
 produz. O contrato da direção está no topo de `equipamento.html`, como comentário
 HTML; estratégia em `.impeccable/surfaces/public-equipamento-html.md`.
 
-- **Um bloco elevado, o resto sem casca.** Só a decisão é superfície; dados,
-  fotos e histórico são seções sobre o fundo separadas por fio. É o que cria
-  hierarquia — repor cards ali devolve o problema original.
+- **Um cartão só, seções separadas por `hr.divider`.** Nada de caixa dentro de
+  caixa: a hierarquia vem da ordem e do peso tipográfico, não de molduras.
+  Repor cards ali devolve o problema original.
 - **O trilho do ciclo** (No prédio → Oficina → Pronta → Devolvida) é conteúdo,
   não enfeite: a posição sai das movimentações. É o único momento de movimento
   da página (acende da esquerda até a posição atual, uma vez, respeitando
@@ -130,11 +140,13 @@ HTML; estratégia em `.impeccable/surfaces/public-equipamento-html.md`.
 - **Mobile-first de verdade**: quem abre está de pé na bancada. Alvo de toque
   nunca abaixo de 44px; `font-size: 16px` nos campos, senão o iOS dá zoom ao
   focar e o formulário sai da vista.
-- ⚠️ O **detector do Impeccable acusa ~20 desvios de DESIGN.md** nesta página.
-  São falsos positivos estruturais: o `DESIGN.md` documenta o sistema "Chapa",
-  e esta superfície é Mission Control por decisão. Não "corrigir" trocando os
-  tokens — isso desfaz a fronteira registrada em
-  [`decisions.md`](../../memory-bank/decisions.md).
+- ⚠️ **SVG inline precisa de largura declarada.** O chevron de "Outras ações"
+  ficou do tamanho da página ao trocar de folha: sem `width`/`height` no CSS, o
+  SVG assume o tamanho intrínseco (300×150).
+- ⚠️ O **detector do Impeccable acusa desvios de DESIGN.md** nesta página. São
+  falsos positivos estruturais: o `DESIGN.md` documenta o sistema "Chapa" da
+  landing, e esta superfície segue o cartão da assinatura de contrato, que
+  nunca esteve documentado ali.
 - ⚠️ **A foto é carregada por `fetch` + blob, não por `<img src>` direto.** A
   rota da imagem é autenticada e `<img src>` não manda header `Authorization`.
   A saída fácil seria abrir a rota — é o que

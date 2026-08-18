@@ -4,54 +4,44 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Equipamento — General Bombas</title>
-  <link rel="icon" href="/static/favicon.png">
-  <meta name="theme-color" content="#06070f">
-  <!-- Herda os tokens do Mission Control (admin.css). A ficha é ferramenta de
-       operação interna, como o app do técnico — não usa o sistema "Chapa" da
-       landing e do painel do cliente, que é peça de venda. Ver decisions.md. -->
-  <link rel="stylesheet" href="/static/admin.css?v=190">
-  <link rel="stylesheet" href="/static/equipamento.css?v=2">
+  <link rel="icon" type="image/png" href="/static/favicon.png">
+  <meta name="theme-color" content="#090b18">
+  <!-- Segue o padrão da tela de assinatura de contrato (src/routes/assinatura.routes.js):
+       cartão único centrado, fio âmbar→azul no topo, logo, table.info e botão
+       âmbar de largura total. Por isso NÃO carrega admin.css — aquela tela
+       também não carrega, e tem paleta própria. Ver docs/modulos/equipamentos.md. -->
+  <link rel="stylesheet" href="/static/equipamento.css?v=3">
 </head>
-<body class="eq-body">
+<body>
 <!--
   THESIS: esta tela responde "o que aconteceu com essa bomba agora" e oferece
-  UMA ação. Recusa a pilha de caixas de peso igual (Registrar/Fotos/Dados/
-  Histórico) que qualquer CRUD produz e que era o defeito da versão anterior.
-  OWN-WORLD: Mission Control — fundo #06070f, superfície azul-violeta
-  translúcida, âmbar #f0b014 como única cor de ação, fios de 1px. Sem cards
-  aninhados: só o bloco de decisão é elevado; o resto são seções sobre o fundo,
-  separadas por fio. Mono tabular apenas onde há medida (código, dias, datas).
+  UMA ação. Recusa a pilha de caixas de peso igual que qualquer CRUD produz.
+  OWN-WORLD: o cartão da assinatura de contrato — ground #090b18 com halo
+  âmbar, cartão #111326 de 520px com fio âmbar→azul no topo, logo centralizada,
+  rótulo/valor em table.info, botão âmbar de largura total, rodapé fora do
+  cartão. Radius 16 no cartão, 9 nos controles.
   STORY: quem escaneia está de pé na bancada, com a bomba na frente. Lê de quem
   é, há quanto tempo está parada e o que foi relatado; então age.
-  FIRST VIEWPORT: condomínio em 26px, o equipamento abaixo, o trilho do ciclo
-  (prédio → oficina → pronta → devolvida) com a posição acesa, o tempo no
-  estado em mono, o relato, e a ação primária em âmbar ocupando a largura.
+  FIRST VIEWPORT: logo, condomínio, selo do estado, trilho do ciclo com a
+  posição acesa, o tempo no estado, o relato e a ação primária em âmbar.
   FORM: "próxima ação única", candidato 3 de 7; seed key e87349e6.
   FINISH: unreviewed and undocumented is unfinished; this build ends with the
   finish review, the verdict, and DESIGN.md
 -->
-
-  <header class="eq-topo">
-    <a class="eq-topo-marca" href="/admin/painel" title="Ir para o painel">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"
-           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <rect x="3" y="3" width="7" height="7" rx="1"/>
-        <rect x="14" y="3" width="7" height="7" rx="1"/>
-        <rect x="3" y="14" width="7" height="7" rx="1"/>
-        <path d="M14 14h3v3h-3z"/><path d="M20 14v3M17 20h4"/>
-      </svg>
-      <span>General Bombas</span>
-    </a>
-    <div class="eq-topo-cod" id="eqTopoCodigo">—</div>
-  </header>
-
-  <main class="eq-main" id="eqRoot">
-    <div class="eq-carregando" id="eqCarregando">
-      <div class="eq-spin" aria-hidden="true"></div>
-      <p>Lendo a etiqueta…</p>
+  <main class="card">
+    <div class="logo-wrap"><img src="/static/login-logo.png" alt="General Bombas"></div>
+    <!-- A logo fica fora de #eqRoot: é o JS que reescreve o corpo a cada
+         recarga da ficha, e ela não deve ser repintada junto. -->
+    <div id="eqRoot">
+      <div class="carregando">
+        <div class="spin" aria-hidden="true"></div>
+        <p>Lendo a etiqueta…</p>
+      </div>
     </div>
   </main>
 
-  <script src="/static/equipamento.js?v=2" defer></script>
+  <div class="footer" id="eqRodape">General Bombas — ficha do equipamento</div>
+
+  <script src="/static/equipamento.js?v=3" defer></script>
 </body>
 </html>

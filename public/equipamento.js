@@ -9,13 +9,14 @@
 //   • etiqueta livre  → formulário curto de vínculo (o técnico acabou de colar)
 //   • já vinculada    → a decisão + referência
 //
-// Página autônoma: carrega admin.css pelos tokens, mas não usa nada de admin.js.
+// Folha própria (equipamento.css), no padrão do cartão da tela de assinatura de
+// contrato. Não carrega admin.css nem usa nada de admin.js.
 
 (function () {
   "use strict";
 
   const $root = document.getElementById("eqRoot");
-  const $topoCod = document.getElementById("eqTopoCodigo");
+  const $rodape = document.getElementById("eqRodape");
 
   // ---------------------------------------------------------------------
   // Sessão
@@ -140,6 +141,13 @@
     em_conserto: 1, pronto: 2, devolvido: 3,
   };
 
+  const CLASSE_BADGE = {
+    instalado: "predio", devolvido: "predio",
+    oficina: "oficina", em_conserto: "oficina",
+    aguardando_orcamento: "oficina", aguardando_peca: "oficina",
+    pronto: "pronta", baixado: "baixada", etiqueta_livre: "livre",
+  };
+
   const PIXEL_VAZIO = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
 
   const ICONE_ALERTA = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"
@@ -196,7 +204,15 @@
   // ---------------------------------------------------------------------
 
   function telaErro(titulo, texto) {
-    $root.innerHTML = `<div class="eq-erro"><h2>${esc(titulo)}</h2><p>${texto}</p></div>`;
+    $root.innerHTML = `<div class="erro"><h1>${esc(titulo)}</h1><p>${texto}</p></div>`;
+  }
+
+  /** O rodapé fora do cartão carrega a identidade da etiqueta. */
+  function rodape(eq) {
+    if (!$rodape) return;
+    $rodape.textContent = eq
+      ? `Etiqueta ${formatarCodigo(eq.codigo)}${eq.lote ? ` · lote ${eq.lote}` : ""}`
+      : `Etiqueta ${formatarCodigo(CODIGO)}`;
   }
 
   let _condominios = null;
@@ -211,67 +227,65 @@
     try { lista = await condominios(); }
     catch (e) { telaErro("Não consegui carregar os condomínios", esc(e.message)); return; }
 
+    rodape(eq);
     $root.innerHTML = `
-      <div class="eq-decisao">
-        <h1 class="eq-vinc-titulo">Etiqueta ${formatarCodigo(eq.codigo)} ainda não tem equipamento</h1>
-        <p class="eq-vinc-lede">
-          Preencha o mínimo agora, com a bomba na mão. O resto dá para completar depois.
-        </p>
-      </div>
+      <h1>Etiqueta em branco</h1>
+      <div class="sub">Preencha o mínimo agora, com a bomba na mão — o resto dá para completar depois.</div>
+      <span class="badge livre">${formatarCodigo(eq.codigo)}</span>
 
-      <form class="eq-secao" id="eqFormVinc">
-        <div class="eq-campo">
-          <label for="fCondo">Condomínio *</label>
+      <form id="eqFormVinc">
+        <div class="campo">
+          <label for="fCondo">Condomínio <span class="obrigatorio">*</span></label>
           <select id="fCondo" required>
             <option value="">Selecione…</option>
             ${lista.map(c => `<option value="${c.id}">${esc(c.nome)}</option>`).join("")}
           </select>
         </div>
 
-        <div class="eq-campo-dupla">
-          <div class="eq-campo">
+        <div class="campo-duplo">
+          <div class="campo">
             <label for="fTipo">Tipo</label>
             <select id="fTipo">
               ${TIPOS.map(t => `<option value="${t}">${t[0].toUpperCase() + t.slice(1)}</option>`).join("")}
             </select>
           </div>
-          <div class="eq-campo">
+          <div class="campo">
             <label for="fApelido">Identificação</label>
             <input id="fApelido" placeholder="Bomba 2 — recalque" maxlength="120">
           </div>
         </div>
 
-        <div class="eq-campo">
+        <div class="campo">
           <label for="fLocal">Onde fica no prédio</label>
           <input id="fLocal" placeholder="Casa de máquinas, ao lado do quadro" maxlength="200">
         </div>
 
-        <div class="eq-campo">
+        <div class="campo">
           <label for="fDefeito">Qual é o problema</label>
           <textarea id="fDefeito" placeholder="Não liga. Zelador diz que parou depois da chuva de sábado."></textarea>
         </div>
 
-        <div class="eq-campo-dupla">
-          <div class="eq-campo">
+        <div class="campo-duplo">
+          <div class="campo">
             <label for="fMarca">Marca</label>
             <input id="fMarca" maxlength="120">
           </div>
-          <div class="eq-campo">
+          <div class="campo">
             <label for="fModelo">Modelo</label>
             <input id="fModelo" maxlength="120">
           </div>
         </div>
 
-        <div class="eq-campo">
+        <div class="campo">
           <label for="fSerie">Número de série</label>
           <input id="fSerie" maxlength="120">
         </div>
 
-        <p class="eq-aviso eq-acao-erro" id="eqVincErro"></p>
+        <div class="erro-msg" id="eqVincErro"></div>
 
-        <div class="eq-vinc-acoes">
-          <button type="submit" class="eq-acao-principal">Registrar retirada</button>
-          <button type="button" class="eq-btn" id="btnSoCadastrar">Só cadastrar (fica no prédio)</button>
+        <button type="submit" class="submit-btn">Registrar retirada</button>
+        <div style="margin-top:8px">
+          <button type="button" class="btn-linha" id="btnSoCadastrar">Só cadastrar (fica no prédio)</button>
         </div>
       </form>`;
 
@@ -282,12 +296,10 @@
       const condominio_id = Number(document.getElementById("fCondo").value);
       if (!condominio_id) {
         erro.textContent = "Escolha o condomínio de onde a bomba veio.";
-        erro.classList.add("is-erro");
         document.getElementById("fCondo").focus();
         return;
       }
       erro.textContent = "";
-      erro.classList.remove("is-erro");
       const botoes = form.querySelectorAll("button");
       botoes.forEach(b => (b.disabled = true));
 
@@ -309,7 +321,6 @@
         carregar();
       } catch (e) {
         erro.textContent = e.message;
-        erro.classList.add("is-erro");
         botoes.forEach(b => (b.disabled = false));
       }
     }
@@ -362,7 +373,7 @@
     // Parada demais é informação operacional, não enfeite: 7 dias acende
     // âmbar, 15 acende vermelho. Só vale enquanto ela está na oficina.
     const naOficina = ["oficina", "em_conserto", "aguardando_peca", "aguardando_orcamento"].includes(eq.status);
-    const classeTempo = naOficina && dias >= 15 ? "is-longa" : naOficina && dias >= 7 ? "is-parada" : "";
+    const classeTempo = naOficina && dias >= 15 ? "tarde" : naOficina && dias >= 7 ? "atencao" : "";
 
     const paradaAtual = eq.status === "instalado" && relatoDevolvida(ficha)
       ? 3
@@ -379,99 +390,91 @@
       ["Garantia até", eq.garantia_ate ? new Date(eq.garantia_ate).toLocaleDateString("pt-BR") : null, true],
     ].filter(([, v]) => v);
 
+    rodape(eq);
     $root.innerHTML = `
-      <section class="eq-decisao">
-        <h1 class="eq-condominio">${esc(eq.condominio_nome || "Sem condomínio vinculado")}</h1>
-        <p class="eq-equip"><b>${esc(nomeEquipamento(eq))}</b>${
-          eq.local_instalacao ? ` · ${esc(eq.local_instalacao)}` : ""}</p>
-        ${enderecoDe(eq) ? `<p class="eq-endereco">${esc(enderecoDe(eq))}</p>` : ""}
+      <h1>${esc(eq.condominio_nome || "Sem condomínio vinculado")}</h1>
+      <div class="sub">
+        <b>${esc(nomeEquipamento(eq))}</b>${eq.local_instalacao ? ` · ${esc(eq.local_instalacao)}` : ""}
+        ${enderecoDe(eq) ? `<br>${esc(enderecoDe(eq))}` : ""}
+      </div>
+      <span class="badge ${CLASSE_BADGE[eq.status] || "livre"}">${esc(ESTADO_FRASE[eq.status] || eq.status)}</span>
 
-        <div class="eq-trilho" id="eqTrilho" role="img"
-             aria-label="Ciclo: ${esc(PARADAS[paradaAtual] || "fora do ciclo")}">
-          ${PARADAS.map((p, i) => `
-            <div class="eq-parada ${i < paradaAtual ? "is-feita" : i === paradaAtual ? "is-aqui" : ""}">${p}</div>
-          `).join("")}
-        </div>
+      <div class="trilho" id="eqTrilho" role="img"
+           aria-label="Ciclo: ${esc(PARADAS[paradaAtual] || "fora do ciclo")}">
+        ${PARADAS.map((p, i) => `
+          <div class="parada ${i < paradaAtual ? "feita" : i === paradaAtual ? "aqui" : ""}">${p}</div>
+        `).join("")}
+      </div>
 
-        <p class="eq-estado ${classeTempo}">
-          <span>${esc(ESTADO_FRASE[eq.status] || eq.status)}</span>
-          ${dias != null ? `<span class="eq-dias">${esc(faz(dias))}</span>` : ""}
-        </p>
+      ${dias != null ? `
+        <p class="estado ${classeTempo}">
+          ${esc(ESTADO_FRASE[eq.status] || eq.status)} <span class="dias">${esc(faz(dias))}</span>
+        </p>` : ""}
 
-        ${eq.defeito_relatado ? `
-          <blockquote class="eq-relato">${esc(eq.defeito_relatado)}
-            ${relatoMov ? `<cite class="eq-relato-fonte">relatado por ${esc(relatoMov.autor || "—")} ao retirar</cite>` : ""}
-          </blockquote>` : ""}
+      ${eq.defeito_relatado ? `
+        <blockquote class="relato">${esc(eq.defeito_relatado)}
+          ${relatoMov ? `<cite>relatado por ${esc(relatoMov.autor || "—")} ao retirar</cite>` : ""}
+        </blockquote>` : ""}
 
-        ${ficha.idas_oficina >= 2 ? `
-          <p class="eq-reincidencia">${ICONE_ALERTA}
-            <span>Já foi retirada <b>${ficha.idas_oficina} vezes</b> para conserto.</span></p>` : ""}
+      ${ficha.idas_oficina >= 2 ? `
+        <p class="alerta">${ICONE_ALERTA}
+          <span>Já foi retirada <b>${ficha.idas_oficina} vezes</b> para conserto.</span></p>` : ""}
 
-        ${primaria
-          ? `<button class="eq-acao-principal" data-mov="${primaria.tipo}">${primaria.label}</button>`
-          : `<p class="eq-aviso" style="margin-top:16px">Equipamento baixado — fora de operação.</p>`}
+      <div class="erro-msg" id="eqAcaoErro"></div>
 
-        <p class="eq-aviso eq-acao-erro" id="eqAcaoErro"></p>
+      ${primaria
+        ? `<button class="submit-btn" data-mov="${primaria.tipo}">${primaria.label}</button>`
+        : `<p class="vazio">Equipamento baixado — fora de operação.</p>`}
 
-        ${secundarias.length ? `
-          <details class="eq-mais">
-            <summary>Outras ações ${ICONE_CHEVRON}</summary>
-            <div class="eq-mais-lista">
-              ${secundarias.map(a => `<button class="eq-btn" data-mov="${a.tipo}">${a.label}</button>`).join("")}
-            </div>
-          </details>` : ""}
-      </section>
-
-      <section class="eq-secao">
-        <div class="eq-secao-cab">
-          <h2 class="eq-secao-titulo">Fotos</h2>
-          <button class="eq-secao-acao" id="btnFoto">Adicionar</button>
-        </div>
-        <div class="eq-fotos" id="eqFotos">
-          ${ficha.fotos.length
-            // src transparente de 1x1 como estado inicial: a imagem real chega
-            // por blob (rota autenticada), e um <img> sem src pisca o ícone de
-            // imagem quebrada até lá.
-            ? ficha.fotos.map(f => `<img src="${PIXEL_VAZIO}"
-                alt="${esc(f.legenda || "Foto do equipamento")}" data-foto="${f.id}">`).join("")
-            : `<p class="eq-vazio">Nenhuma foto ainda. Vale a placa de identificação e o ponto do defeito.</p>`}
-        </div>
-        <input type="file" accept="image/*" capture="environment" id="inputFoto" hidden>
-      </section>
+      ${secundarias.length ? `
+        <details class="mais">
+          <summary>Outras ações ${ICONE_CHEVRON}</summary>
+          <div class="mais-lista">
+            ${secundarias.map(a => `<button class="btn-linha" data-mov="${a.tipo}">${a.label}</button>`).join("")}
+          </div>
+        </details>` : ""}
 
       ${dados.length ? `
-        <section class="eq-secao">
-          <div class="eq-secao-cab"><h2 class="eq-secao-titulo">Equipamento</h2></div>
-          <div class="eq-dados">
-            ${dados.map(([r, v, num]) => `
-              <div>
-                <div class="eq-dado-rot">${esc(r)}</div>
-                <div class="eq-dado-val ${num ? "is-num" : ""}">${esc(v)}</div>
-              </div>`).join("")}
-          </div>
-        </section>` : ""}
+        <hr class="divider">
+        <div class="secao-titulo">Equipamento</div>
+        <table class="info">
+          ${dados.map(([r, v, num]) => `
+            <tr><td>${esc(r)}</td><td class="${num ? "num" : ""}">${esc(v)}</td></tr>`).join("")}
+        </table>` : ""}
 
-      <section class="eq-secao">
-        <div class="eq-secao-cab"><h2 class="eq-secao-titulo">Histórico</h2></div>
-        ${ficha.movimentacoes.length ? `
-          <ul class="eq-linha">
-            ${ficha.movimentacoes.map(m => `
-              <li class="${MARCOS.has(m.tipo) ? "is-marco" : ""}">
-                <div class="eq-mov-tipo">${esc(MOV_LABEL[m.tipo] || m.tipo)}</div>
-                <div class="eq-mov-meta">
-                  ${dataHora(m.criado_em)}${m.autor ? ` · ${esc(m.autor)}` : ""}
-                  ${m.chamado_titulo ? ` · chamado #${m.chamado_id}` : ""}
-                  ${m.os_numero ? ` · O.S. ${esc(m.os_numero)}` : ""}
-                </div>
-                ${m.observacao ? `<div class="eq-mov-obs">${esc(m.observacao)}</div>` : ""}
-              </li>`).join("")}
-          </ul>`
-          : `<p class="eq-vazio">Sem movimentações registradas.</p>`}
-      </section>
+      <hr class="divider">
+      <div class="secao-cab">
+        <div class="secao-titulo">Fotos</div>
+        <button class="sign-clear" id="btnFoto"
+          style="font-size:12px;color:#7ba4f7;background:none;border:none;cursor:pointer;font-family:inherit;padding:0">Adicionar</button>
+      </div>
+      <div class="fotos" id="eqFotos">
+        ${ficha.fotos.length
+          // src transparente de 1x1 como estado inicial: a imagem real chega
+          // por blob (rota autenticada), e um <img> sem src pisca o ícone de
+          // imagem quebrada até lá.
+          ? ficha.fotos.map(f => `<img src="${PIXEL_VAZIO}"
+              alt="${esc(f.legenda || "Foto do equipamento")}" data-foto="${f.id}">`).join("")
+          : `<p class="vazio">Nenhuma foto ainda. Vale a placa de identificação e o ponto do defeito.</p>`}
+      </div>
+      <input type="file" accept="image/*" capture="environment" id="inputFoto" hidden>
 
-      <p class="eq-rodape">
-        Etiqueta ${formatarCodigo(eq.codigo)}${eq.lote ? ` · lote ${esc(eq.lote)}` : ""}
-      </p>`;
+      <hr class="divider">
+      <div class="secao-titulo">Histórico</div>
+      ${ficha.movimentacoes.length ? `
+        <ul class="linha">
+          ${ficha.movimentacoes.map(m => `
+            <li class="${MARCOS.has(m.tipo) ? "marco" : ""}">
+              <div class="mov-tipo">${esc(MOV_LABEL[m.tipo] || m.tipo)}</div>
+              <div class="mov-meta">
+                ${dataHora(m.criado_em)}${m.autor ? ` · ${esc(m.autor)}` : ""}
+                ${m.chamado_titulo ? ` · chamado #${m.chamado_id}` : ""}
+                ${m.os_numero ? ` · O.S. ${esc(m.os_numero)}` : ""}
+              </div>
+              ${m.observacao ? `<div class="mov-obs">${esc(m.observacao)}</div>` : ""}
+            </li>`).join("")}
+        </ul>`
+        : `<p class="vazio">Sem movimentações registradas.</p>`}`;
 
     ligarAcoes(ficha);
     carregarFotos(eq.id);
@@ -479,7 +482,7 @@
     // O único momento de movimento da página: o trilho acende até onde a bomba
     // está. Roda uma vez, depois da pintura.
     const trilho = document.getElementById("eqTrilho");
-    if (trilho && paradaAtual >= 0) requestAnimationFrame(() => trilho.classList.add("is-animando"));
+    if (trilho && paradaAtual >= 0) requestAnimationFrame(() => trilho.classList.add("animando"));
   }
 
   /** A bomba já completou um ciclo (voltou ao prédio depois de um conserto)? */
@@ -518,7 +521,6 @@
     const erro = document.getElementById("eqAcaoErro");
     if (!erro) return;
     erro.textContent = msg;
-    erro.classList.add("is-erro");
   }
 
   function travar(v) {
@@ -550,7 +552,7 @@
       if (tipo === "anotacao" && !String(texto || "").trim()) return;
 
       const erro = document.getElementById("eqAcaoErro");
-      if (erro) { erro.textContent = ""; erro.classList.remove("is-erro"); }
+      if (erro) erro.textContent = "";
       const rotulo = btn.textContent;
       btn.textContent = "Registrando…";
       travar(true);
@@ -603,7 +605,7 @@
       const img = ev.target.closest("img[data-foto]");
       if (!img || !img.src) return;
       const visor = document.createElement("div");
-      visor.className = "eq-visor";
+      visor.className = "visor";
       visor.innerHTML = `<img src="${img.src}" alt="">`;
       const fechar = () => { visor.remove(); document.removeEventListener("keydown", onEsc); };
       const onEsc = (e) => { if (e.key === "Escape") fechar(); };
@@ -638,7 +640,7 @@
   }
 
   // Início
-  $topoCod.textContent = formatarCodigo(CODIGO);
+  rodape(null);
   if (!CODIGO) {
     telaErro("Etiqueta sem código", "O endereço aberto não tem um código de equipamento.");
   } else if (!token()) {
