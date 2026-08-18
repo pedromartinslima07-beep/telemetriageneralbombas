@@ -51,10 +51,14 @@ aliases:
   - 📋 **`PUBLIC_BASE_URL` nas envs do Railway** — sem ela o gerador de
     etiquetas recusa imprimir (deriva a URL do request e barra host local).
     É pré-requisito pra primeira folha real sair da impressora.
-  - 📋 **12B (bancada)**: diagnóstico, peças necessárias, botão "Solicitar
-    orçamento" criando `orcamentos` com `origem = 'bancada'`, e o painel por
-    estado com **dias parados** — a tela que responde "o que está parado na
-    oficina e por quê". Os estados já existem no CHECK da 070.
+  - ✅ **12B (orçamento da bancada)** — 2026-08-18, migration 071. Botão
+    "Solicitar orçamento" na ficha cria `orcamentos` com `origem = 'bancada'` e
+    as peças como linhas; aprovar ou recusar no painel move a bomba de volta
+    (`em_conserto` / `oficina`). Verificado ponta a ponta no banco de teste.
+    ⚠️ **A migration 071 ainda não rodou em produção.**
+  - 📋 **12B-2 (painel da bancada)**: a lista por estado com **dias parados** —
+    a tela que responde "o que está parado na oficina e por quê" sem escanear
+    bomba por bomba. Hoje isso só se vê uma bomba de cada vez, pela ficha.
   - 📋 **12C (fechar o ciclo com a O.S.)**: campo de equipamento na O.S. de
     tipo `retirada_equipamento`/`devolucao`, gerando a movimentação
     automaticamente. Hoje os dois lados existem mas não se falam.
