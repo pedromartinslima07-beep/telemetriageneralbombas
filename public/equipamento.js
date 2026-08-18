@@ -347,12 +347,30 @@
     if (status === "instalado" || status === "devolvido") {
       lista.push({ tipo: "entrada_oficina", label: "Chegou na oficina" });
     }
+    // Pedir orçamento é ação da bancada: só faz sentido com a bomba aqui e
+    // ainda sem resposta do cliente.
+    if (["oficina", "em_conserto", "aguardando_peca"].includes(status)) {
+      lista.push({ acao: "orcamento", label: "Solicitar orçamento" });
+    }
     if (status === "oficina" || status === "em_conserto") {
       lista.push({ tipo: "aguardando_peca", label: "Aguardando peça" });
     }
     if (status === "aguardando_peca") lista.push({ tipo: "em_conserto", label: "Voltou pra bancada" });
     if (status !== "baixado") lista.push({ tipo: "anotacao", label: "Anotação" });
     return lista;
+  }
+
+  const ORC_STATUS = {
+    rascunho:  ["Rascunho", "livre"],
+    enviado:   ["Enviado ao cliente", "pronta"],
+    aprovado:  ["Aprovado", "predio"],
+    rejeitado: ["Recusado", "baixada"],
+  };
+
+  function moeda(v) {
+    const n = Number(v);
+    if (!n) return null;
+    return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   }
 
   /** Ficha de equipamento já vinculado. */
@@ -430,7 +448,9 @@
         <details class="mais">
           <summary>Outras ações ${ICONE_CHEVRON}</summary>
           <div class="mais-lista">
-            ${secundarias.map(a => `<button class="btn-linha" data-mov="${a.tipo}">${a.label}</button>`).join("")}
+            ${secundarias.map(a => a.acao
+              ? `<button class="btn-linha" data-acao="${a.acao}">${a.label}</button>`
+              : `<button class="btn-linha" data-mov="${a.tipo}">${a.label}</button>`).join("")}
           </div>
         </details>` : ""}
 
@@ -458,6 +478,24 @@
           : `<p class="vazio">Nenhuma foto ainda. Vale a placa de identificação e o ponto do defeito.</p>`}
       </div>
       <input type="file" accept="image/*" capture="environment" id="inputFoto" hidden>
+
+      ${(ficha.orcamentos || []).length ? `
+        <hr class="divider">
+        <div class="secao-titulo">Orçamentos</div>
+        <table class="info">
+          ${ficha.orcamentos.map(o => {
+            const [rot, cls] = ORC_STATUS[o.status] || [o.status, "livre"];
+            const val = moeda(o.valor_total);
+            return `<tr>
+              <td class="num">${esc(o.numero)}</td>
+              <td>
+                <span class="badge ${cls}" style="margin:0 0 3px">${esc(rot)}</span><br>
+                <span style="font-weight:400;color:#9094ae;font-size:12px">
+                  ${o.itens} ${Number(o.itens) === 1 ? "item" : "itens"}${val ? ` · ${esc(val)}` : " · sem valor lançado"}
+                </span>
+              </td></tr>`;
+          }).join("")}
+        </table>` : ""}
 
       <hr class="divider">
       <div class="secao-titulo">Histórico</div>
@@ -538,6 +576,12 @@
     _delegadoLigado = true;
 
     $root.addEventListener("click", async (ev) => {
+      const acao = ev.target.closest("[data-acao]");
+      if (acao && _equipamentoId) {
+        if (acao.dataset.acao === "orcamento") abrirOrcamento();
+        return;
+      }
+
       const btn = ev.target.closest("[data-mov]");
       if (!btn || !_equipamentoId) return;
       const tipo = btn.dataset.mov;
@@ -566,6 +610,83 @@
         falhar(e.message);
         btn.textContent = rotulo;
         travar(false);
+      }
+    });
+  }
+
+  // ---------------------------------------------------------------------
+  // Solicitar orçamento (Fase 12B)
+  // ---------------------------------------------------------------------
+
+  // Quem está na bancada sabe QUAL peça falta, não quanto ela custa — quem
+  // precifica é o comercial. Por isso o formulário pede descrição e quantidade,
+  // e o valor fica em branco: `orcamento_linhas.valor_unitario` é nullable
+  // desde a migration 062, e o PDF omite a coluna de valor do item sem preço.
+  function abrirOrcamento() {
+    const painel = document.createElement("div");
+    painel.className = "visor";
+    painel.style.cursor = "default";
+    painel.innerHTML = `
+      <div class="card" style="max-width:460px;padding:28px 26px 24px;max-height:88vh;overflow:auto">
+        <h1>Solicitar orçamento</h1>
+        <div class="sub">Liste o que a bomba precisa. O comercial põe os preços.</div>
+        <div id="orcItens"></div>
+        <button type="button" class="btn-linha" id="orcAddItem" style="margin-top:4px">+ Outra peça</button>
+        <div class="campo" style="margin-top:16px">
+          <label for="orcObs">Constatação (opcional)</label>
+          <textarea id="orcObs" placeholder="Rotor gasto e selo mecânico vazando."></textarea>
+        </div>
+        <div class="erro-msg" id="orcErro"></div>
+        <button type="button" class="submit-btn" id="orcEnviar">Solicitar orçamento</button>
+        <button type="button" class="btn-linha" id="orcCancelar" style="margin-top:8px">Cancelar</button>
+      </div>`;
+    document.body.appendChild(painel);
+
+    const lista = painel.querySelector("#orcItens");
+    function addItem() {
+      const linha = document.createElement("div");
+      linha.className = "campo-duplo";
+      linha.style.gridTemplateColumns = "1fr 64px";
+      linha.innerHTML = `
+        <div class="campo" style="margin-bottom:8px">
+          <input class="orc-desc" placeholder="Selo mecânico 1.1/4" maxlength="255">
+        </div>
+        <div class="campo" style="margin-bottom:8px">
+          <input class="orc-qtd" type="number" min="1" value="1" inputmode="numeric">
+        </div>`;
+      lista.appendChild(linha);
+      linha.querySelector(".orc-desc").focus();
+    }
+    addItem();
+
+    painel.querySelector("#orcAddItem").addEventListener("click", addItem);
+    painel.querySelector("#orcCancelar").addEventListener("click", () => painel.remove());
+
+    painel.querySelector("#orcEnviar").addEventListener("click", async () => {
+      const itens = [...lista.querySelectorAll(".campo-duplo")].map(l => ({
+        descricao: l.querySelector(".orc-desc").value.trim(),
+        quantidade: Number(l.querySelector(".orc-qtd").value) || 1,
+      })).filter(i => i.descricao);
+
+      const erro = painel.querySelector("#orcErro");
+      if (!itens.length) {
+        erro.textContent = "Descreva ao menos uma peça.";
+        return;
+      }
+      erro.textContent = "";
+      const botoes = painel.querySelectorAll("button");
+      botoes.forEach(b => (b.disabled = true));
+      try {
+        const r = await api(`/equipamentos/${_equipamentoId}/orcamento`, {
+          method: "POST",
+          body: JSON.stringify({ itens, constatacao: painel.querySelector("#orcObs").value.trim() }),
+        });
+        painel.remove();
+        carregar();
+        alert(`Orçamento ${r.numero} criado como rascunho.\n\nO comercial lança os preços e envia ao cliente pelo painel, em Orçamentos.`);
+      } catch (e) {
+        erro.textContent = e.message;
+        botoes.forEach(b => (b.disabled = false));
       }
     });
   }

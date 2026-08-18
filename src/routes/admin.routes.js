@@ -6,6 +6,7 @@ const path = require("path");
 const { pool } = require("../db");
 const { gerarPdfAvulso } = require("../services/orcamento-pdf.service");
 const { sendOrcamentoCliente } = require("../services/email");
+const { refletirStatusOrcamento } = require("../services/equipamento-bancada.service");
 
 const { authRequired } = require("../middleware/authRequired");
 const { adminOnly } = require("../middleware/adminOnly");
@@ -1294,6 +1295,14 @@ router.patch("/orcamentos/avulsos/:id", authRequired, adminOnly, async (req, res
        FROM orcamento_linhas WHERE orcamento_id = $1`, [id]
     );
     const valorTotal = r.rows[0].valor != null ? Number(r.rows[0].valor) : Number(tot.rows[0].soma_itens);
+
+    // Orçamento da bancada: aprovar/recusar aqui move a bomba lá. Não é
+    // aguardado nem quebra a resposta — o documento comercial é a fonte da
+    // verdade, o estado do equipamento é consequência dele.
+    if ("status" in (req.body || {})) {
+      refletirStatusOrcamento(id, req.body.status, req.user);
+    }
+
     return res.json({ ...r.rows[0], valor_total: valorTotal });
   } catch (err) {
     console.error("[admin] PATCH /orcamentos/avulsos/:id:", err);

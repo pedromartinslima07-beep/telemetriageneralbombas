@@ -244,6 +244,11 @@ mordeu em `os_fotos` (migration 053). Servida por
 `GET /equipamentos/:id/fotos/:fotoId/imagem`, que é **autenticada** — ao
 contrário da rota equivalente de `os_fotos`, que é pública.
 
+**Migration 071** — `orcamentos.origem` passa a aceitar `'bancada'` e a tabela
+ganha `equipamento_id (SET NULL)`: o caminho de volta do orçamento para a bomba.
+`SET NULL` e não `CASCADE` porque dar baixa num equipamento não pode apagar um
+orçamento já enviado ao cliente. Índice `idx_orcamentos_equipamento`.
+
 `chamados` ganha `equipamento_id (SET NULL)` + `idx_chamados_equipamento` —
 permite ver reincidência sem passar pela O.S.
 

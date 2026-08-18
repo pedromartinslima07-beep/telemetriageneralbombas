@@ -55,8 +55,43 @@ U, que se confundem na digitação) — 32⁸ ≈ 1,1 trilhão de combinações.
 5. **Registrar** — botões conforme o estado: pronta → devolver → instalado.
    Anotação é nota livre e **não** muda o status.
 
-Diagnóstico, peças, solicitação de orçamento e o painel da bancada (o que está
-parado e há quantos dias) são **Fase B** — ver [roadmap](../../memory-bank/roadmap.md).
+O painel da bancada (o que está parado e há quantos dias, em lista) continua
+na **Fase 12B-2** — ver [roadmap](../../memory-bank/roadmap.md).
+
+## Orçamento da bancada (migration 071)
+
+Liga o módulo ao sistema de orçamentos que já existia. **Nenhuma tabela nova**:
+o orçamento da bancada é um `orcamentos` comum, com as peças como
+`orcamento_linhas`. Criar um cadastro de peças paralelo repetiria o erro que a
+migration 030 levou meses para desfazer.
+
+1. Na ficha, com a bomba na oficina: **Outras ações → Solicitar orçamento**.
+   O técnico lista as peças e a quantidade — **não o preço**. Quem está na
+   bancada sabe qual peça falta; quem precifica é o comercial.
+2. `POST /equipamentos/:id/orcamento` cria, numa transação: o orçamento
+   (`origem = 'bancada'`, `equipamento_id`, status `rascunho`, número
+   `OR-XXXXXX` da mesma sequence), as linhas, a movimentação
+   `orcamento_solicitado` apontando o orçamento, e o status
+   `aguardando_orcamento`. Meio caminho aqui deixaria a bomba esperando um
+   orçamento que não existe.
+3. A **constatação já nasce identificando o equipamento** (apelido, marca,
+   modelo, série) — quem lê o PDF do outro lado não tem a etiqueta na mão.
+4. O orçamento cai na aba **Orçamentos › Avulsos** do painel como qualquer
+   outro: o comercial lança os preços, gera o PDF e envia ao cliente.
+5. **Aprovar ou recusar no painel move a bomba na bancada**
+   (`equipamento-bancada.service.js`, chamado pelo `PATCH
+   /admin/orcamentos/avulsos/:id`): aprovado → `em_conserto`; recusado →
+   volta para `oficina` (a bomba segue parada, mas agora aguardando a decisão
+   de devolver sem conserto, não a resposta do cliente).
+
+- ⚠️ **O reflexo nunca derruba a atualização do orçamento.** O documento
+  comercial é a fonte da verdade e o estado do equipamento é consequência: erro
+  ali é logado, não lançado.
+- ⚠️ **Bomba já devolvida ou baixada não volta para a bancada** porque um
+  orçamento antigo mudou de status.
+- `valor_unitario` fica `NULL` de verdade quando o técnico não lança preço
+  (migration 062) — o PDF omite a coluna de valor desse item em vez de mostrar
+  "R$ 0,00".
 
 ## Estados
 

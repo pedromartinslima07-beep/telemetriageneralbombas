@@ -247,7 +247,7 @@ async function carregarFicha(where, val) {
   if (!eq.rows.length) return null;
   const equipamento = eq.rows[0];
 
-  const [movs, fotos] = await Promise.all([
+  const [movs, fotos, orcamentos] = await Promise.all([
     pool.query(
       `SELECT m.id, m.tipo, m.status_novo, m.observacao, m.criado_em,
               m.chamado_id, m.os_id, m.orcamento_id,
@@ -270,6 +270,19 @@ async function carregarFicha(where, val) {
         ORDER BY criado_em DESC`,
       [equipamento.id]
     ),
+    // Orçamentos desta bomba. O total respeita o override manual
+    // (`orcamentos.valor`, migration 062) — mesma regra das outras listagens.
+    pool.query(
+      `SELECT o.id, o.numero, o.status, o.origem, o.criado_em, o.valido_ate,
+              COALESCE(o.valor, SUM(l.quantidade * l.valor_unitario), 0) AS valor_total,
+              COUNT(l.id) AS itens
+         FROM orcamentos o
+         LEFT JOIN orcamento_linhas l ON l.orcamento_id = o.id
+        WHERE o.equipamento_id = $1
+        GROUP BY o.id
+        ORDER BY o.criado_em DESC`,
+      [equipamento.id]
+    ),
   ]);
 
   // Quantas vezes essa bomba já passou pela oficina — é o número que justifica
@@ -280,6 +293,7 @@ async function carregarFicha(where, val) {
     equipamento,
     movimentacoes: movs.rows,
     fotos: fotos.rows,
+    orcamentos: orcamentos.rows,
     idas_oficina: idas,
   };
 }
@@ -493,6 +507,112 @@ router.post("/:id/movimentacoes", authRequired, equipeInterna, async (req, res) 
     }
     console.error("[equipamentos] POST /:id/movimentacoes:", err);
     return res.status(500).json({ error: "Erro ao registrar a movimentação" });
+  } finally {
+    client.release();
+  }
+});
+
+// ===========================================================================
+// Orçamento da bancada (Fase 12B)
+// ===========================================================================
+
+// POST /equipamentos/:id/orcamento — "essa bomba precisa de peça, quanto custa?"
+//
+// Cria um `orcamentos` comum com `origem = 'bancada'`, as peças como
+// `orcamento_linhas`, e amarra os dois lados: o orçamento aponta a bomba
+// (`equipamento_id`) e a movimentação aponta o orçamento. Tudo numa transação —
+// meio caminho aqui deixaria a bomba "aguardando orçamento" sem orçamento.
+//
+// Nenhuma tabela de peças própria: a linha do orçamento JÁ é o item, e o PDF,
+// o envio por e-mail e a aprovação vêm de graça do sistema que existe.
+router.post("/:id/orcamento", authRequired, equipeInterna, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
+
+  const { constatacao, itens } = req.body || {};
+  const lista = Array.isArray(itens) ? itens.filter(i => String(i?.descricao || "").trim()) : [];
+  if (!lista.length) {
+    return res.status(400).json({ error: "informe ao menos uma peça ou serviço" });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    const eq = await client.query(
+      `SELECT e.id, e.condominio_id, e.apelido, e.tipo, e.marca, e.modelo,
+              e.numero_serie, e.defeito_relatado, e.status
+         FROM equipamentos e WHERE e.id = $1 FOR UPDATE`,
+      [id]
+    );
+    if (!eq.rows.length) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "Equipamento não encontrado" });
+    }
+    const equip = eq.rows[0];
+
+    const numero = (await client.query(
+      "SELECT 'OR-' || LPAD(nextval('orcamento_numero_seq')::text, 6, '0') AS n"
+    )).rows[0].n;
+
+    // A constatação já nasce dizendo de qual equipamento se trata — quem lê o
+    // PDF do outro lado não tem a etiqueta na mão.
+    const identificacao = [
+      equip.apelido || equip.tipo || "Equipamento",
+      [equip.marca, equip.modelo].filter(Boolean).join(" "),
+      equip.numero_serie ? `série ${equip.numero_serie}` : null,
+    ].filter(Boolean).join(" · ");
+    const constatacaoFinal = String(
+      constatacao || equip.defeito_relatado || ""
+    ).trim();
+
+    const orc = await client.query(
+      `INSERT INTO orcamentos
+         (numero, condominio_id, equipamento_id, origem, tipo, status, constatacao, criado_por)
+       VALUES ($1, $2, $3, 'bancada', 'pecas', 'rascunho', $4, $5)
+       RETURNING id, numero, status`,
+      [numero, equip.condominio_id, id,
+       `${identificacao}${constatacaoFinal ? `. ${constatacaoFinal}` : ""}`.slice(0, 1000),
+       req.user.id]
+    );
+    const orcamentoId = orc.rows[0].id;
+
+    for (const item of lista) {
+      await client.query(
+        `INSERT INTO orcamento_linhas (orcamento_id, descricao, quantidade, valor_unitario, ficha_tecnica)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [orcamentoId,
+         String(item.descricao).trim().slice(0, 255),
+         Number(item.quantidade) > 0 ? Number(item.quantidade) : 1,
+         // Sem preço lançado fica NULL de verdade (migration 062): quem está na
+         // bancada sabe a peça, não o preço — quem precifica é o comercial.
+         item.valor_unitario === "" || item.valor_unitario == null
+           ? null : Number(item.valor_unitario),
+         item.ficha_tecnica ? String(item.ficha_tecnica).slice(0, 1000) : null]
+      );
+    }
+
+    await client.query(
+      `INSERT INTO equipamento_movimentacoes
+         (equipamento_id, tipo, status_novo, orcamento_id, condominio_id,
+          usuario_id, usuario_nome, observacao)
+       VALUES ($1, 'orcamento_solicitado', 'aguardando_orcamento', $2, $3, $4,
+               (SELECT nome FROM usuarios WHERE id = $4), $5)`,
+      [id, orcamentoId, equip.condominio_id, req.user.id,
+       `${lista.length} ${lista.length === 1 ? "item" : "itens"} · ${numero}`]
+    );
+
+    await client.query(
+      `UPDATE equipamentos SET status = 'aguardando_orcamento', atualizado_em = NOW() WHERE id = $1`,
+      [id]
+    );
+
+    await client.query("COMMIT");
+    return res.status(201).json({ ...orc.rows[0], itens: lista.length });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error("[equipamentos] POST /:id/orcamento:", err);
+    return res.status(500).json({ error: "Erro ao solicitar o orçamento" });
   } finally {
     client.release();
   }

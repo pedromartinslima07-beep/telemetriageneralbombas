@@ -82,9 +82,26 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
 | 067 | idx_chamados_tecnico | índice para `GET /chamados/meus`, a consulta mais chamada do app do técnico |
 | 068 | orcamento_linha_tipo_servico | `orcamento_linhas.tipo_servico` — marca a linha que vira cláusula no PDF, no lugar do regex na descrição |
 | 069 | leads_landing | tabela `leads` — contatos da landing pública |
+| 071 | orcamento_bancada | `orcamentos.origem` aceita `'bancada'`; `orcamentos.equipamento_id (SET NULL)` — liga a bomba na bancada ao orçamento, sem tabela de peças própria |
 | 070 | equipamentos | `equipamentos` (identidade permanente + `codigo` do QR), `equipamento_movimentacoes` (linha do tempo, com snapshot do autor), `equipamento_fotos` (`dados_base64` no banco); `chamados.equipamento_id`. Ver [equipamentos.md](modulos/equipamentos.md) |
 
 ## Marcos de produto (fases do plano)
+
+- **2026-08-18** — **Fase 12B: orçamento da bancada**. A ficha do equipamento
+  passou a criar orçamento, e o orçamento passou a mover a bomba de volta.
+  - **Sem tabela de peças própria**: o orçamento da bancada é um `orcamentos`
+    comum com as peças como `orcamento_linhas` — assim PDF, envio por e-mail e
+    aprovação vêm de graça do sistema que já existia (migration 030).
+  - O técnico lista **peça e quantidade, não preço**: quem está na bancada sabe
+    o que falta, quem precifica é o comercial. Sem valor lançado a linha fica
+    `NULL` (migration 062) e o PDF omite a coluna daquele item.
+  - **Aprovar/recusar no painel move a bomba** (`equipamento-bancada.service.js`):
+    aprovado → `em_conserto`, recusado → volta para `oficina`. O reflexo nunca
+    derruba a atualização do orçamento — o documento comercial é a fonte da
+    verdade, o estado do equipamento é consequência.
+  - Ciclo verificado ponta a ponta no banco de teste: solicitar pela ficha →
+    aparecer em Orçamentos › Avulsos com o condomínio certo → aprovar → bomba
+    em `em_conserto` com a movimentação registrada.
 
 - **2026-08-18** — **Ficha do equipamento redesenhada: "próxima ação única"**.
   A v1 era quatro caixas de peso igual (Registrar/Fotos/Dados/Histórico) — o
