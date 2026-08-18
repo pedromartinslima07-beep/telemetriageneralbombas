@@ -919,7 +919,79 @@ router.get("/orcamentos", authRequired, adminOnly, async (req, res) => {
        LIMIT 200`,
       vals
     );
-    return res.json(r.rows);
+
+    // Orçamentos pedidos na bancada (origem 'bancada', migration 071). Também
+    // foram solicitados por um técnico — só que sem O.S. por trás, então não
+    // cabem na query acima, que é ancorada em `ordens_servico`.
+    //
+    // Duas consultas e concatenação em JS, e não um UNION: as 28 colunas do
+    // SELECT acima teriam de ser espelhadas com NULLs, e qualquer campo novo
+    // passaria a exigir manutenção nos dois lados.
+    const valsB = [];
+    const whereB = ["o.origem = 'bancada'"];
+    if (status && ORC_STATUS_VALIDOS.includes(status)) {
+      valsB.push(status);
+      whereB.push(`o.status = $${valsB.length}`);
+    }
+    if (condominio_id) {
+      valsB.push(Number(condominio_id));
+      whereB.push(`o.condominio_id = $${valsB.length}`);
+    }
+    if (data_ini) { valsB.push(data_ini); whereB.push(`o.criado_em >= $${valsB.length}::date`); }
+    if (data_fim) { valsB.push(data_fim); whereB.push(`o.criado_em < ($${valsB.length}::date + interval '1 day')`); }
+
+    const rb = await pool.query(
+      `SELECT
+         NULL::int           AS id,
+         o.numero,
+         o.condominio_id,
+         c.nome              AS condominio_nome,
+         NULL::int           AS tecnico_id,
+         uc.nome             AS tecnico_nome,
+         NULL::int           AS chamado_id,
+         NULL::timestamptz   AS finalizada_em,
+         o.criado_em,
+         TRUE                AS orcamento_necessario,
+         o.constatacao       AS orcamento_observacoes,
+         o.id                AS orcamento_id,
+         COALESCE(o.valor, SUM(l.quantidade * l.valor_unitario)) AS orcamento_valor,
+         o.status            AS orcamento_status,
+         o.valido_ate        AS orcamento_valido_ate,
+         o.aprovado_em       AS orcamento_aprovado_em,
+         o.motivo_rejeicao   AS orcamento_motivo_rejeicao,
+         o.numero            AS orcamento_numero,
+         o.constatacao       AS orcamento_constatacao,
+         o.forma_pagamento   AS orcamento_forma_pagamento,
+         o.prazo_entrega     AS orcamento_prazo_entrega,
+         o.garantia          AS orcamento_garantia,
+         o.disponibilidade   AS orcamento_disponibilidade,
+         ua.nome             AS aprovado_por_nome,
+         NULL::varchar       AS servico_realizado,
+         NULL::text[]        AS tipos_servico,
+         'bancada'           AS fonte,
+         e.codigo            AS equipamento_codigo,
+         e.apelido           AS equipamento_apelido
+       FROM orcamentos o
+       LEFT JOIN condominios c       ON c.id = o.condominio_id
+       LEFT JOIN usuarios uc         ON uc.id = o.criado_por
+       LEFT JOIN usuarios ua         ON ua.id = o.aprovado_por
+       LEFT JOIN equipamentos e      ON e.id = o.equipamento_id
+       LEFT JOIN orcamento_linhas l  ON l.orcamento_id = o.id
+       WHERE ${whereB.join(" AND ")}
+       GROUP BY o.id, c.nome, uc.nome, ua.nome, e.codigo, e.apelido
+       ORDER BY o.criado_em DESC
+       LIMIT 200`,
+      valsB
+    );
+
+    // Sem orçamento ainda vem primeiro (é o que a aba existe para cobrar),
+    // depois rascunho, depois o resto — mesma regra do ORDER BY acima.
+    const peso = (x) => (!x.orcamento_id ? 0 : x.orcamento_status === "rascunho" ? 1 : 2);
+    const linhas = [...r.rows.map(x => ({ ...x, fonte: "os" })), ...rb.rows]
+      .sort((a, b) => peso(a) - peso(b) ||
+        new Date(b.finalizada_em || b.criado_em) - new Date(a.finalizada_em || a.criado_em));
+
+    return res.json(linhas);
   } catch (err) {
     console.error("[admin] GET /orcamentos:", err);
     return res.status(500).json({ error: "Erro ao buscar orçamentos" });

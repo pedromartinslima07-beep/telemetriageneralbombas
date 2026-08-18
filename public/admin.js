@@ -13117,9 +13117,16 @@ function _orcRenderTudo() {
     const obs = o.orcamento_observacoes
       ? o.orcamento_observacoes.slice(0, 80) + (o.orcamento_observacoes.length > 80 ? "…" : "")
       : "—";
-    return `<tr class="${sel.trim()}" data-orc-id="${o.id}" style="cursor:pointer;">
+    // Pedido da bancada (origem 'bancada'): não tem O.S. por trás, então a
+    // chave é o próprio orçamento e o clique abre o modal do avulso.
+    const daBancada = o.fonte === "bancada";
+    const rotulo = daBancada
+      ? `${_waEscaparHtml(o.condominio_nome || "—")} <span class="badge" style="font-size:9.5px;margin-left:6px;">OFICINA</span>`
+      : _waEscaparHtml(o.condominio_nome || "—");
+    return `<tr class="${sel.trim()}" data-orc-id="${o.id ?? ""}"
+      data-orc-fonte="${o.fonte || "os"}" data-orc-orcid="${o.orcamento_id ?? ""}" style="cursor:pointer;">
       <td><span class="mono" style="font-size:11px;">${o.numero || "—"}</span></td>
-      <td>${_waEscaparHtml(o.condominio_nome || "—")}</td>
+      <td>${rotulo}</td>
       <td style="color:var(--muted);font-size:11.5px;">${_waEscaparHtml(o.tecnico_nome || "—")}</td>
       <td style="color:var(--muted);font-size:11px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${_waEscaparHtml(obs)}</td>
       <td style="font-weight:700;">${_orcFmtValor(o.orcamento_valor)}</td>
@@ -13660,8 +13667,12 @@ function _orcBindEventos() {
 
   // Click na linha
   document.getElementById("orcTableBody")?.addEventListener("click", e => {
-    const row = e.target.closest("tr[data-orc-id]");
+    const row = e.target.closest("tr[data-orc-fonte]");
     if (!row) return;
+    if (row.dataset.orcFonte === "bancada") {
+      _orcAbrirDaBancada(Number(row.dataset.orcOrcid));
+      return;
+    }
     const id = Number(row.dataset.orcId);
     _orcSelecionado = _orcData.find(o => o.id === id) || null;
     _orcRenderTudo();
@@ -14865,4 +14876,24 @@ async function _osCarregarEquipamentos(selecionado) {
       }
     }
   } catch (_) { /* seletor fica só com "nenhum" — não trava a edição da O.S. */ }
+}
+
+
+// Pedido da bancada aberto a partir da aba "Solicitados pelos técnicos".
+// Reusa o modal do orçamento avulso, que é onde ele já vive: o painel de
+// detalhe desta aba é montado em cima de campos de O.S., que aqui não existem.
+async function _orcAbrirDaBancada(orcamentoId) {
+  if (!orcamentoId) return;
+  try {
+    if (!Array.isArray(_avData) || !_avData.length) await carregarAvulsos();
+    const alvo = (_avData || []).find(o => o.id === orcamentoId);
+    if (!alvo) {
+      alert("Orçamento não encontrado na lista de avulsos. Abra pela aba \"Criar orçamento\".");
+      return;
+    }
+    _avSelecionado = alvo;
+    _avRenderPainel();
+  } catch (err) {
+    alert("Erro ao abrir o orçamento: " + err.message);
+  }
 }

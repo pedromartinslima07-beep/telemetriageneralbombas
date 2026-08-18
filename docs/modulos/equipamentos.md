@@ -76,8 +76,15 @@ migration 030 levou meses para desfazer.
    orçamento que não existe.
 3. A **constatação já nasce identificando o equipamento** (apelido, marca,
    modelo, série) — quem lê o PDF do outro lado não tem a etiqueta na mão.
-4. O orçamento cai na aba **Orçamentos › Avulsos** do painel como qualquer
-   outro: o comercial lança os preços, gera o PDF e envia ao cliente.
+4. O orçamento aparece na aba **Orçamentos › "Solicitados pelos técnicos"**,
+   com o selo **OFICINA** e o código da etiqueta — foi um técnico que pediu,
+   ainda que sem O.S. por trás. Clicar na linha abre o modal do orçamento
+   avulso, que é onde ele de fato vive: o painel de detalhe daquela aba é
+   montado sobre campos de O.S. que aqui não existem.
+   - ⚠️ A aba é alimentada por **duas consultas concatenadas em JS**, não por
+     um UNION: as 28 colunas do SELECT de O.S. teriam de ser espelhadas com
+     `NULL`s, e todo campo novo passaria a exigir manutenção nos dois lados.
+     A linha traz `fonte` (`os` | `bancada`) para o front saber o que abrir.
 5. **Aprovar ou recusar no painel move a bomba na bancada**
    (`equipamento-bancada.service.js`, chamado pelo `PATCH
    /admin/orcamentos/avulsos/:id`): aprovado → `em_conserto`; recusado →

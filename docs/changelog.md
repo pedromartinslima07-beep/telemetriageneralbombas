@@ -118,6 +118,11 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
     aprovado → `em_conserto`, recusado → volta para `oficina`. O reflexo nunca
     derruba a atualização do orçamento — o documento comercial é a fonte da
     verdade, o estado do equipamento é consequência.
+  - **O pedido da bancada aparece em "Solicitados pelos técnicos"** (18/08, a
+    pedido do Pedro depois de ver o teste): foi um técnico que pediu, ainda que
+    sem O.S. A aba passou a juntar duas fontes — O.S. com orçamento necessário
+    e orçamentos `origem = 'bancada'` — via duas consultas concatenadas em JS,
+    não UNION. Clicar numa linha da bancada abre o modal do avulso.
   - Ciclo verificado ponta a ponta no banco de teste: solicitar pela ficha →
     aparecer em Orçamentos › Avulsos com o condomínio certo → aprovar → bomba
     em `em_conserto` com a movimentação registrada.
