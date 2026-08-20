@@ -82,6 +82,7 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
 | 067 | idx_chamados_tecnico | índice para `GET /chamados/meus`, a consulta mais chamada do app do técnico |
 | 068 | orcamento_linha_tipo_servico | `orcamento_linhas.tipo_servico` — marca a linha que vira cláusula no PDF, no lugar do regex na descrição |
 | 069 | leads_landing | tabela `leads` — contatos da landing pública |
+| 073 | fk_usuarios_on_delete_set_null | toda FK → `usuarios` que estava em NO ACTION vira `ON DELETE SET NULL` (autoria em `sla_definicoes`, `orcamentos`, `planos_manutencao`, `contratos`) — era o que travava a remoção de usuário |
 | 072 | os_equipamento | `ordens_servico.equipamento_id (SET NULL)` — fecha o triângulo O.S./equipamento/orçamento; + `UPDATE` acertando `orcamentos.origem = 'os'` nos orçamentos de O.S. que nasciam como `'admin'` |
 | 071 | orcamento_bancada | `orcamentos.origem` aceita `'bancada'`; `orcamentos.equipamento_id (SET NULL)` — liga a bomba na bancada ao orçamento, sem tabela de peças própria |
 | 070 | equipamentos | `equipamentos` (identidade permanente + `codigo` do QR), `equipamento_movimentacoes` (linha do tempo, com snapshot do autor), `equipamento_fotos` (`dados_base64` no banco); `chamados.equipamento_id`. Ver [equipamentos.md](modulos/equipamentos.md) |
@@ -3054,6 +3055,29 @@ faixa descoberta acima da `.mob-topbar` no PWA instalado.
 
 Detalhe do mecanismo em [`arquitetura.md`](arquitetura.md), seção "Área segura
 do iOS".
+
+### 2026-08-19 · Remover usuário voltou a funcionar
+
+`DELETE /admin/usuarios/:id` respondia **"Erro ao remover usuário"** (500) para
+qualquer usuário que já tivesse criado ou aprovado alguma coisa no sistema.
+
+- **Causa:** as colunas de autoria criadas nas migrations 023, 026, 030, 032 e
+  035 referenciavam `usuarios(id)` **sem cláusula `ON DELETE`**. O padrão do
+  Postgres é `NO ACTION`, que bloqueia o `DELETE` com erro `23503`; o `catch`
+  genérico do endpoint transformava isso num 500 sem explicação.
+- **Migration 073:** varre o catálogo (`pg_constraint`) e converte toda FK →
+  `usuarios` ainda em NO ACTION/RESTRICT para `ON DELETE SET NULL` — o
+  orçamento/contrato/plano continua existindo, só perde o autor. Varrer o
+  catálogo em vez de listar nomes fixos era necessário porque a coluna
+  `ordens_servico.orcamento_aprovado_por` (023) foi dropada pela 030 e os nomes
+  de constraint gerados pelo Postgres podem divergir entre bancos.
+- **Endpoint:** `23503` agora responde **409** nomeando a tabela que segura o
+  vínculo, em vez de 500 mudo. O front (`_cfgRemoverUsuario`) já exibia
+  `data.error`, então a mensagem chega na tela sem alteração no `admin.js` —
+  e sem bump de `?v=N`.
+
+Detalhe das FKs em [`banco-de-dados.md`](banco-de-dados.md), seção
+"Remoção de usuário".
 
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e

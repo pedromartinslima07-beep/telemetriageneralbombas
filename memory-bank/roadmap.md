@@ -225,6 +225,10 @@ aliases:
   `orcamentos.valor` vira override manual do total quando a soma automática
   não reflete o total real.
 
+- FKs de autoria → `usuarios` sem `ON DELETE` (023, 026, 030, 032, 035)
+  convertidas para `ON DELETE SET NULL` (Migration 073) — eram o que impedia
+  remover qualquer usuário que já tivesse criado ou aprovado algo.
+
 ## Push notifications no app (Fase 7G) — planejado 📋
 
 **Contexto:** pedido do usuário em 2026-07-28 — o técnico não fica sabendo de

@@ -439,6 +439,15 @@ router.delete("/usuarios/:id", authRequired, masterAdminOnly, async (req, res) =
     if (r.rowCount === 0) return res.status(404).json({ error: "Não encontrado" });
     return res.json({ ok: true });
   } catch (err) {
+    // 23503 = FK violation. A migration 073 converteu as FKs de autoria para
+    // ON DELETE SET NULL, mas se alguma nova nascer sem cláusula ON DELETE o
+    // erro volta — aqui ele vira mensagem legível em vez de 500 mudo.
+    if (err.code === "23503") {
+      console.error(`[admin] DELETE /usuarios/${id}: FK ${err.constraint} em ${err.table}`);
+      return res.status(409).json({
+        error: `Usuário vinculado a registros de "${err.table || "outra tabela"}" — não pode ser removido`,
+      });
+    }
     console.error("[admin] DELETE /usuarios/:id:", err);
     return res.status(500).json({ error: "Erro ao remover usuário" });
   }

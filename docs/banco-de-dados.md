@@ -14,7 +14,7 @@ variáveis `PG*` separadas. Pool: `max=20` (env `PG_POOL_MAX`), idle 30s,
 connection timeout 5s.
 
 - **Schema base:** `database/schema.sql` (dump das 7 tabelas originais).
-- **Evolução:** `migrations/001..044` (numeradas, **ativas**), aplicadas com
+- **Evolução:** `migrations/001..073` (numeradas, **ativas**), aplicadas com
   `node scripts/migrate.js NNN_nome.sql` (lê `DATABASE_URL`). Todas idempotentes
   (`IF NOT EXISTS` / `IF EXISTS`).
 - `database/migrations/` contém os arquivos datados do schema original
@@ -289,6 +289,31 @@ OU foto).
 **`configuracoes`** (010) — key-value dinâmico (`chave`, `valor`,
 `atualizado_em`, `atualizado_por`). Whitelist de chaves em
 `src/services/config.service.js` (ver [`arquitetura.md`](arquitetura.md)). Cache em memória 30s.
+
+---
+
+## Remoção de usuário — regra das FKs de autoria
+
+`DELETE /admin/usuarios/:id` só funciona se **nenhuma** FK que aponta para
+`usuarios(id)` estiver em `NO ACTION` (o padrão do Postgres quando se escreve
+`REFERENCES usuarios(id)` sem cláusula `ON DELETE`). Era exatamente esse o bug
+das migrations 023/026/030/032/035: o usuário que tinha criado um orçamento,
+plano de manutenção ou contrato ficava impossível de remover, com erro `23503`
+virando 500 na tela.
+
+A **migration 073** converteu todas elas para `ON DELETE SET NULL` — o registro
+sobrevive, só perde o autor. Padrão para colunas de autoria daqui pra frente:
+
+| tipo de vínculo | cláusula | exemplos |
+|---|---|---|
+| sessão/credencial do próprio usuário | `ON DELETE CASCADE` | `login_codes`, `trusted_devices` |
+| autoria / responsável em registro de negócio | `ON DELETE SET NULL` | `orcamentos.criado_por`, `contratos.criado_por`, `historico_chamados.alterado_por` |
+| nenhuma cláusula (`NO ACTION`) | ❌ **não usar** | trava a remoção do usuário |
+
+⚠️ **Ao criar coluna nova que referencia `usuarios(id)`, escreva a cláusula
+`ON DELETE` explicitamente.** Se alguma escapar, o endpoint hoje responde 409
+nomeando a tabela que segurou o vínculo (`src/routes/admin.routes.js`), em vez
+do 500 mudo de antes — mas a FK continua precisando de conserto.
 
 ---
 
