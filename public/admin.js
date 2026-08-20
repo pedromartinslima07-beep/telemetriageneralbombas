@@ -1030,7 +1030,15 @@ const TEL_KPI_ICONS = {
   offline:     ICON_WIFI_OFF,
 };
 
-const TEL_HIST_COLORS = ["#22d3ee", "#f59e0b", "#a78bfa"]; // cyan, accent, violet
+// Paleta CATEGÓRICA — identidade de série, em ordem fixa e nunca ciclada.
+// Os três valores e o motivo de serem só três estão documentados no `:root`
+// do admin.css (`--serie-1/2/3`): validados com o validador da skill dataviz
+// contra a superfície real do gráfico, e escolhidos para não colidir com as
+// três cores de estado.
+// ⚠️ Se um dia isto precisar de uma 4ª série, a resposta NÃO é acrescentar
+// uma cor: é "Outros", facetas, ou outro gráfico. Quatro matizes frias
+// colapsam em protanopia (ΔE 1.9).
+const TEL_HIST_COLORS = ["#2f6fe0", "#00a8af", "#bd3a80"];
 
 function _telColetarReservatorios() {
   const lista = [];
@@ -1098,13 +1106,22 @@ function renderTelKpis() {
 
   const nivelMedio = pctCount > 0 ? Math.round(pctSum / pctCount) : null;
 
+  // ⚠️ "ALERTAS CRÍTICOS" era rótulo ERRADO, não só ambíguo: o número vem de
+  // `_alertasAtivosUnificados()`, que conta TODOS os alertas ativos, de
+  // qualquer severidade. Era essa a origem do "8 aqui e 7 em Alertas" que o
+  // estudo registrou como contradição — não eram o mesmo número mal rotulado,
+  // eram medidas diferentes, e uma delas mentia. O rótulo agora diz o que a
+  // conta faz.
+  // A unidade vem ao lado do número (decisão nº 4), o que deixa o rótulo
+  // livre para dizer o estado: "OFFLINE · disp." aqui é exatamente o mesmo
+  // par do Dashboard, que é o ponto.
   const cards = [
-    { key: "monitorados", label: "RESERVATÓRIOS MONITORADOS", value: total,                                kind: "neutral", icon: "monitorados" },
-    { key: "nivel",       label: "NÍVEL MÉDIO GERAL",         value: nivelMedio != null ? nivelMedio + "%" : "—", kind: nivelMedio == null ? "neutral" : nivelMedio < 30 ? "bad" : nivelMedio < 50 ? "warn" : "ok", icon: "nivel" },
+    { key: "monitorados", label: "MONITORADOS", unid: "res.",  value: total,                                kind: "neutral", icon: "monitorados" },
+    { key: "nivel",       label: "NÍVEL MÉDIO", value: nivelMedio != null ? nivelMedio + "%" : "—", kind: nivelMedio == null ? "neutral" : nivelMedio < 30 ? "bad" : nivelMedio < 50 ? "warn" : "ok", icon: "nivel" },
     // Sempre exibe um número (0 quando nenhuma bomba ligada), nunca traço.
-    { key: "bombas",      label: "BOMBAS ATIVAS",             value: bombasAtivas, hint: bombasConhecidas > 0 ? `de ${bombasConhecidas} monitoradas` : "sem dados de bomba", kind: bombasAtivas > 0 ? "ok" : "neutral", icon: "bombas" },
-    { key: "alertas",     label: "ALERTAS CRÍTICOS",          value: alertas,                              kind: alertas > 0 ? "bad" : "ok",  icon: "alertas" },
-    { key: "offline",     label: "DISPOSITIVOS OFFLINE",      value: offline,                              kind: offline > 0 ? "bad" : "ok",  icon: "offline" },
+    { key: "bombas",      label: "BOMBAS",  value: bombasAtivas, hint: bombasConhecidas > 0 ? `de ${bombasConhecidas} monitoradas` : "sem dados de bomba", kind: bombasAtivas > 0 ? "ok" : "neutral", icon: "bombas" },
+    { key: "alertas",     label: "ALERTAS ATIVOS", unid: "abertos", value: alertas,                         kind: alertas > 0 ? "bad" : "ok",  icon: "alertas" },
+    { key: "offline",     label: "OFFLINE",     unid: "disp.", value: offline,                              kind: offline > 0 ? "bad" : "ok",  icon: "offline" },
   ];
 
   grid.innerHTML = cards.map(c => {
@@ -1115,7 +1132,7 @@ function renderTelKpis() {
           <div class="rc-icon">${TEL_KPI_ICONS[c.icon] || ""}</div>
           <div class="rc-label">${c.label}</div>
         </div>
-        <div class="rc-value">${c.value}</div>
+        <div class="rc-value">${c.value}${c.unid ? `<span class="rc-unid">${c.unid}</span>` : ""}</div>
         ${c.hint ? `<div class="rc-hint">${c.hint}</div>` : ""}
       </div>`;
   }).join("");
@@ -1795,10 +1812,13 @@ function renderTelHistoricoChart(reservatorios, seriesMap) {
   const opts = {
     annotations: {
       yaxis: [
-        { y: TEL_LIMIARES.baixo, borderColor: "rgba(245,158,11,.5)", strokeDashArray: 4,
-          label: { text: `baixo (${TEL_LIMIARES.baixo}%)`, position: "left", offsetX: 42, borderColor: "transparent", style: { color: "#fbbf24", background: "transparent", fontSize: "9px" } } },
-        { y: TEL_LIMIARES.critico, borderColor: "rgba(239,68,68,.55)", strokeDashArray: 4,
-          label: { text: `crítico (${TEL_LIMIARES.critico}%)`, position: "left", offsetX: 52, borderColor: "transparent", style: { color: "#f87171", background: "transparent", fontSize: "9px" } } },
+        // As duas linhas de limiar são ESTADO, não série — é o único lugar deste
+        // gráfico onde âmbar e vermelho podem aparecer, e por isso as séries não
+        // usam nenhum dos dois.
+        { y: TEL_LIMIARES.baixo, borderColor: "rgba(251,179,41,.55)", strokeDashArray: 4,
+          label: { text: `baixo (${TEL_LIMIARES.baixo}%)`, position: "left", offsetX: 42, borderColor: "transparent", style: { color: "#fbb329", background: "transparent", fontSize: "9px", fontFamily: "Martian Mono, ui-monospace, monospace" } } },
+        { y: TEL_LIMIARES.critico, borderColor: "rgba(255,90,77,.6)", strokeDashArray: 4,
+          label: { text: `crítico (${TEL_LIMIARES.critico}%)`, position: "left", offsetX: 52, borderColor: "transparent", style: { color: "#ff5a4d", background: "transparent", fontSize: "9px", fontFamily: "Martian Mono, ui-monospace, monospace" } } },
       ],
     },
     // Altura vem do contêiner: no modal ele agora absorve o espaço liberado
@@ -1817,7 +1837,7 @@ function renderTelHistoricoChart(reservatorios, seriesMap) {
     grid: { borderColor: "rgba(255,255,255,.05)", strokeDashArray: 3 },
     xaxis: {
       type: "datetime",
-      labels: { style: { colors: "#7a7e9c", fontSize: "10px" }, datetimeUTC: false },
+      labels: { style: { colors: "#8294c2", fontSize: "10px", fontFamily: "Martian Mono, ui-monospace, monospace" }, datetimeUTC: false },
       axisBorder: { color: "rgba(255,255,255,.06)" },
       axisTicks: { color: "rgba(255,255,255,.06)" },
       // Desligado por dois motivos, e o segundo é o que importa:
@@ -1830,7 +1850,7 @@ function renderTelHistoricoChart(reservatorios, seriesMap) {
     },
     yaxis: {
       min: 0, max: 100,
-      labels: { style: { colors: "#7a7e9c", fontSize: "10px" }, formatter: (v) => v + "%" },
+      labels: { style: { colors: "#8294c2", fontSize: "10px", fontFamily: "Martian Mono, ui-monospace, monospace" }, formatter: (v) => v + "%" },
     },
     legend: { show: false },
     tooltip: {
@@ -2462,7 +2482,9 @@ async function _alCarregarHistorico(deviceId) {
     _alHistoricoChart = new ApexCharts(el, {
       chart: { type: "area", height: 120, sparkline: { enabled: true }, animations: { enabled: false } },
       stroke: { curve: "smooth", width: 2 },
-      colors: ["#ef4444"],
+      // Série única = slot 1. Estava em vermelho, o que fazia um reservatório
+      // a 88% ser desenhado com a cor de emergência.
+      colors: ["#2f6fe0"],
       fill: { type: "gradient", gradient: { shadeIntensity: .6, opacityFrom: .4, opacityTo: 0 } },
       series: [{ name: "Nível %", data: serie }],
       tooltip: {

@@ -90,9 +90,17 @@
   --bg:       var(--mar-900);
   --bg-soft:  var(--mar-800);
   --sidebar:  var(--mar-800);
-  --surface:  rgba(7, 27, 92, .52);
-  --surface2: rgba(13, 39, 117, .58);
-  --surface3: rgba(26, 58, 158, .42);
+  /* ⚠️ OPACOS, e isso não é detalhe. Estes três eram translúcidos no Mission
+     Control e só funcionavam porque quase tudo tinha `backdrop-filter` por
+     baixo — tirado o vidro, um modal com fundo a 52% deixa a página inteira
+     aparecer através dele (aconteceu, no modal de histórico da Telemetria).
+     Os valores são a mistura já resolvida sobre o campo `--mar-800`, então
+     onde o fundo é o campo nada muda de aparência; onde o elemento pousa
+     sobre outra coisa, ele passa a esconder o que está atrás, que é o que
+     uma superfície deve fazer. */
+  --surface:  #06154b;
+  --surface2: #0a1d5b;
+  --surface3: #0e2163;
 
   /* ─ Usinagem: fios de 1px no lugar de borda decorativa ─ */
   --border:        rgba(255,255,255,.14);
@@ -127,10 +135,31 @@
   --agua:   #2f6fe0;
   --crista: #8fb6ff;
 
-  /* ⚠️ EM ABERTO: estes quatro seguem sendo Tailwind e só sobrevivem porque
-     separam SÉRIE em gráfico ApexCharts, não porque pertencem ao sistema. O
-     Chapa tem três cores de estado e nenhuma paleta categórica — ela precisa
-     ser desenhada. Não usar nenhum deles em cromo de UI. */
+  /* ─ PALETA CATEGÓRICA DE GRÁFICO ─────────────────────────────────────────
+     Identidade de série, e SÓ isso: nunca em cromo de UI, nunca para indicar
+     estado. As três cores de estado (--risco, --amarelo, --ok) são reservadas
+     e não entram aqui — série pintada de vermelho lê como emergência.
+
+     ⚠️ SÃO TRÊS SLOTS, EM ORDEM FIXA, E O TETO É REAL. Com vermelho, âmbar e
+     verde reservados, sobra só o lado frio do círculo, e ali duas matizes
+     quaisquer colapsam em deuteranopia — a separação teve de vir da
+     LUMINOSIDADE (L 0.564 · 0.665 · 0.555 em OKLCH). Quatro slots não passam:
+     azul e violeta ficam com ΔE 1.9 sob protanopia. Série nº 4 vira "Outros",
+     vira facetas, ou vira outro gráfico — não vira cor nova.
+
+     Medido, não escolhido no olho, com o validador da skill dataviz contra a
+     superfície real do gráfico (#051342, o fundo do .card):
+       · faixa de luminosidade, piso de croma e contraste ≥ 3:1 — PASS
+       · separação sob protanopia/deuteranopia, TODOS os pares: ΔE 10.0
+       · piso de visão normal, todos os pares: ΔE 19.1
+       · contra as três cores de estado, todos os pares: ΔE 10.0 / 16.0
+     Mudou alguma? Rode o validador de novo antes de commitar. */
+  --serie-1: #2f6fe0;   /* a água do sistema — L .564 · h 261 */
+  --serie-2: #00a8af;   /* ciano claro     — L .665 · h 200 */
+  --serie-3: #bd3a80;   /* magenta escuro  — L .555 · h 350 */
+
+  /* Herdados do Mission Control, ainda referenciados por telas não migradas.
+     Não usar em nada novo. */
   --blue:      #4a78f7;
   --cyan:      #22d3ee;
   --violet:    #a78bfa;
@@ -2311,13 +2340,18 @@ td, th, .mono, [class*="valor"], [class*="total"], [class*="count"] {
   display: flex; align-items: center; justify-content: center; gap: 8px;
   margin-top: 2px; flex-wrap: wrap;
 }
+/* Bomba ligada é a operação normal, não alarme — por isso ela é DE FIO, e
+   não placa cheia. A regra do selo se aplica igual aqui: só o que pede ação
+   é preenchido, e uma bomba funcionando não pede nada. */
 .tel-tank-bomba {
-  font-size: 8.5px; font-weight: 800; letter-spacing: .4px;
-  padding: 1px 6px; border-radius: 999px; text-transform: uppercase;
+  font-family: var(--mono);
+  font-size: 8px; font-weight: 500; letter-spacing: .07em;
+  padding: 2px 5px 1px; text-transform: uppercase;
+  --ch-p: 3px; clip-path: var(--corte-p);
 }
-.tel-tank-bomba.on  { background: rgba(34,197,94,.14);  color: #4ade80; }
-.tel-tank-bomba.off { background: rgba(122,126,156,.16); color: #9ca0bf; }
-.tel-tank-bomba.uk  { background: rgba(255,255,255,.05); color: var(--muted); }
+.tel-tank-bomba.on  { background: transparent; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ok) 55%, transparent); color: var(--ok); }
+.tel-tank-bomba.off { background: transparent; box-shadow: inset 0 0 0 1px var(--fio); color: var(--text-dim); }
+.tel-tank-bomba.uk  { background: transparent; box-shadow: inset 0 0 0 1px var(--fio-fraco); color: var(--muted); }
 .tel-tank-upd {
   font-size: 9.5px; color: var(--muted);
   font-family: var(--mono);
