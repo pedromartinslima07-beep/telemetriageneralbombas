@@ -4847,10 +4847,13 @@ select option { background: #050f38; color: #f2f5ff; }
 .chamado-status-em_atendimento { color: #fbbf24; font-weight: 700; }
 .chamado-status-fechado        { color: #4ade80; font-weight: 700; }
 
-/* Orçamento solicitado pelo técnico (Fase 7E) */
+/* Orçamento solicitado pelo técnico (Fase 7E).
+   ⚠️ Era barra amarela de 3px na borda. O que a linha precisa dizer é "esta
+   tem orçamento pedido" — isso é um SELO, e o selo deste sistema é placa
+   chanfrada, não faixa. O `.orc-pill` logo abaixo já carrega o rótulo; aqui
+   fica só o anel, que separa sem gritar. */
 .dp-chamado-orc {
-  border-left: 3px solid var(--accent);
-  box-shadow: 0 0 0 1px rgba(240,176,20,.15) inset;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--amarelo) 45%, transparent);
 }
 .orc-pill {
   display: inline-flex;
@@ -6659,8 +6662,14 @@ body.mp-fs-active { overflow: hidden; }
   border-bottom: 1px solid rgba(255,255,255,.05);
 }
 
-/* Card "Painel ao vivo" — borda de destaque, é a área que pede atenção agora */
-.rel-card-vivo { border-left: 3px solid var(--accent); }
+/* Card "Painel ao vivo".
+   ⚠️ Esta era a barra que o estudo citou pelo nome: 3px de âmbar na borda
+   esquerda, o único lugar do painel com isso, e o padrão que o DESIGN.md
+   proíbe por escrito. O card precisava se destacar dos outros da tela — e
+   neste sistema destaque é DEGRAU e ARESTA, nesta ordem: sobe um degrau de
+   marinho e ganha o fio mais forte. */
+.rel-card-vivo::before { background: color-mix(in srgb, var(--mar-600) 58%, var(--mar-900)); }
+.rel-card-vivo { background: var(--fio-forte); }
 
 /* Bloco ícone+título dentro de um .rel-ct-head — precisa ficar como filho
    único do flex pra não brigar com o justify-content:space-between dele
@@ -6798,8 +6807,7 @@ body.mp-fs-active { overflow: hidden; }
   gap: 2px;
   padding: 3px;
   background: rgba(0,0,0,.28);
-  border: 1px solid var(--border);
-  border-radius: 9px;
+  border: 1px solid var(--fio-fraco);
 }
 .rel-seg-btn {
   border: none;
@@ -6814,9 +6822,15 @@ body.mp-fs-active { overflow: hidden; }
   transition: background .15s, color .15s;
 }
 .rel-seg-btn:hover { color: var(--text); }
+/* Mesma língua do "você está aqui" do painel inteiro. Os dois grupos de
+   controle desta tela eram os últimos que ainda diziam isso com amarelo
+   translúcido e amarelo como texto. */
 .rel-seg-btn.is-active {
-  background: rgba(240,176,20,.16);
-  color: var(--accent-2);
+  background: var(--amarelo);
+  color: var(--mar-900);
+  font-weight: 700;
+  --ch-p: 4px;
+  clip-path: var(--corte-p);
 }
 
 /* Chips de preset de período */
@@ -6826,18 +6840,21 @@ body.mp-fs-active { overflow: hidden; }
   font-weight: 600;
   font-family: inherit;
   color: var(--text-dim);
-  background: rgba(255,255,255,.04);
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  padding: 4px 12px;
+  background: transparent;
+  border: none;
+  box-shadow: inset 0 0 0 1px var(--fio);
+  padding: 5px 12px;
+  --ch-p: 5px;
+  clip-path: var(--corte-p);
   cursor: pointer;
-  transition: background .15s, border-color .15s, color .15s;
+  transition: background .16s var(--saida), box-shadow .16s var(--saida), color .16s var(--saida);
 }
-.rel-chip:hover { background: rgba(255,255,255,.07); color: var(--text); }
+.rel-chip:hover { background: rgba(255,255,255,.06); color: var(--text); box-shadow: inset 0 0 0 1px var(--fio-forte); }
 .rel-chip.is-active {
-  background: rgba(240,176,20,.14);
-  border-color: rgba(240,176,20,.45);
-  color: var(--accent-2);
+  background: var(--amarelo);
+  box-shadow: none;
+  color: var(--mar-900);
+  font-weight: 700;
 }
 
 /* O card já é o container (header + chips + campos); a filter-bar aqui não
@@ -7206,44 +7223,53 @@ body.role-viewer .viewer-only-hide-inline {
 .os-acoes-cell { white-space: nowrap; }
 .os-acoes-cell .btn { padding: 4px 8px; font-size: 13px; }
 
+/* Tipo de serviço é CATEGORIA, não estado — "Retirada de equipamento" e
+   "Devolução" não pedem ação nenhuma de quem lê a lista. Estavam em âmbar,
+   que neste sistema quer dizer atenção, e por isso disputavam a leitura com
+   o resultado e o status na mesma linha. Neutro, como o chip de categoria de
+   Chamados. */
 .os-chip {
   display: inline-flex;
   align-items: center;
-  padding: 3px 8px;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 600;
-  background: rgba(240,176,20,.10);
-  color: var(--accent);
-  border: 1px solid rgba(240,176,20,.20);
+  font-family: var(--mono);
+  font-size: 8.5px; letter-spacing: .06em; text-transform: uppercase;
+  padding: 3px 6px 2px;
+  --ch-p: 3px; clip-path: var(--corte-p);
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--fio-fraco);
+  color: var(--muted);
+  border: none;
   white-space: nowrap;
 }
 .os-chip-more {
-  background: rgba(255,255,255,.05);
-  color: var(--muted);
-  border-color: var(--border);
+  background: transparent;
+  color: var(--muted2);
+  box-shadow: inset 0 0 0 1px var(--fio-fraco);
 }
 .os-chip-lg {
   padding: 6px 12px;
   font-size: 12px;
 }
 
+/* RESULTADO carrega o preenchimento (é ele que diz se o problema volta),
+   STATUS é de fio (é fase do trabalho) — a mesma divisão de papel de Chamados
+   e Alertas. */
 .os-result-pill,
 .os-status-pill {
   display: inline-flex;
   align-items: center;
-  padding: 3px 10px;
-  border-radius: 999px;
-  font-size: 11px;
+  padding: 3px 9px;
+  --ch-p: 4px; clip-path: var(--corte-p);
+  font-size: 10.5px;
   font-weight: 700;
   letter-spacing: .03em;
 }
-.os-result-ok    { background: rgba(34,197,94,.12);  color: #4ade80; border: 1px solid rgba(34,197,94,.22); }
-.os-result-warn  { background: rgba(240,176,20,.12); color: #f0b014; border: 1px solid rgba(240,176,20,.22); }
-.os-result-bad   { background: rgba(239,68,68,.12);  color: #f87171; border: 1px solid rgba(239,68,68,.22); }
+.os-result-ok    { background: transparent; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ok) 55%, transparent); color: var(--ok); }
+.os-result-warn  { background: var(--amarelo);  color: var(--mar-900); }
+.os-result-bad   { background: var(--vermelho); color: var(--mar-900); }
 
-.os-status-final    { background: rgba(34,197,94,.12);  color: #4ade80; border: 1px solid rgba(34,197,94,.22); }
-.os-status-rascunho { background: rgba(255,255,255,.05); color: var(--muted); border: 1px solid var(--border); }
+.os-status-final    { background: transparent; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ok) 45%, transparent); color: var(--ok); }
+.os-status-rascunho { background: transparent; box-shadow: inset 0 0 0 1px var(--fio); color: var(--text-dim); }
 
 .os-muted { color: var(--muted); font-size: 12px; }
 
@@ -7338,12 +7364,15 @@ body.role-viewer .viewer-only-hide-inline {
 
 /* Bloco do veredito, no topo da O.S.: destaca o que decide o próximo passo
    (resultado, retorno, orçamento) do que é registro do atendimento. */
+/* O veredito é a peça que decide o próximo passo — ele se destaca subindo um
+   degrau e ganhando corte, não com faixa de cor na borda. */
 .os-veredito {
   padding: 14px 16px;
-  border: 1px solid var(--border);
-  border-left: 3px solid var(--accent);
-  border-radius: var(--radius-sm);
-  background: rgba(255,255,255,.02);
+  border: none;
+  box-shadow: inset 0 0 0 1px var(--fio-forte);
+  background: rgba(255,255,255,.04);
+  --ch-p: 10px;
+  clip-path: var(--corte-p);
 }
 .os-veredito .os-obs { background: transparent; border-left: 0; padding: 0; margin-top: 10px; }
 .os-veredito .os-obs + .os-obs { margin-top: 6px; }
@@ -7352,15 +7381,18 @@ body.role-viewer .viewer-only-hide-inline {
 .os-chips-inline { margin-left: auto; }
 
 .os-result-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+/* Fala do técnico. Mesma construção da citação da avaliação em Chamados:
+   placa chanfrada, sem barra. */
 .os-obs {
   margin: 10px 0 0;
   font-size: 13px;
   line-height: 1.5;
   color: var(--text);
-  background: rgba(255,255,255,.025);
+  background: rgba(255,255,255,.04);
+  box-shadow: inset 0 0 0 1px var(--fio-fraco);
   padding: 10px 12px;
-  border-left: 2px solid var(--accent);
-  border-radius: 4px;
+  --ch-p: 8px;
+  clip-path: var(--corte-p);
 }
 
 .os-pecas-table {
