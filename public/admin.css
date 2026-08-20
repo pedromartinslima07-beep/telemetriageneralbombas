@@ -1,77 +1,199 @@
+/* ════════════════════════════════════════════════════════════════════════
+   admin.css — Painel de operação (/admin/painel)
+   ────────────────────────────────────────────────────────────────────────
+   MUNDO: "Chapa" — o mesmo da landing (/), do login e do painel do cliente,
+   em REGISTRO DE OPERAÇÃO. Direção contratada em 18/08 e aprovada em 19/08;
+   o "porquê" e as duas direções descartadas estão em
+   `memory-bank/decisions.md`; as evidências medidas, em
+   `docs/modulos/painel-admin.md`.
+
+   ⚠️ Isto SUBSTITUI o sistema "Mission Control" (âmbar #f0b014, aurora
+   radial, vidro, raio 12px). Não é polimento em cima dele — a paleta antiga
+   é anti-referência, não ponto de partida.
+
+   O QUE MUDA E O QUE NÃO MUDA em relação às outras três superfícies Chapa:
+     · muda  — a rampa de tipo é a de operação (13px de corpo, não 17px),
+               a densidade é alta e a medida de linha não é limitada em ch;
+     · não muda — a paleta, o chanfro de 45°, a ausência de sombra
+               projetada, o mono só em medição, o par rasgo+luz do corte.
+
+   REGRA DE SUPERFÍCIE (tirada do login, que já está em produção):
+   **marinho é moldura; placa clara é onde se lê e se edita** (ficha, modal,
+   formulário). A superfície de trabalho continua marinho — densidade é a
+   função desta tela.
+
+   ⚠️ Os tokens abaixo são cópia dos de `cliente.css`/`landing.css`. As
+   páginas são servidas separadamente e não compartilham CSS. Mudou a
+   paleta? Mude nos QUATRO arquivos.
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* ── FONTES (self-hosted — a CSP `script-src 'self'` do helmet barra CDN) ── */
+
+@font-face {
+  font-family: "Archivo";
+  src: url("/static/fonts/archivo.woff2") format("woff2");
+  font-weight: 400 900;
+  font-stretch: 62% 125%;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Archivo";
+  src: url("/static/fonts/archivo-ext.woff2") format("woff2");
+  font-weight: 400 900;
+  font-stretch: 62% 125%;
+  font-display: swap;
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Martian Mono";
+  src: url("/static/fonts/martianmono.woff2") format("woff2");
+  font-weight: 400 700;
+  font-stretch: 75% 112.5%;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Martian Mono";
+  src: url("/static/fonts/martianmono-ext.woff2") format("woff2");
+  font-weight: 400 700;
+  font-stretch: 75% 112.5%;
+  font-display: swap;
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
 /* ============================================================
-   DESIGN TOKENS — premium dark "mission control"
+   DESIGN TOKENS — sistema "Chapa", registro de operação
    ============================================================ */
 :root {
   /* Diz ao browser que a UI é dark — corrige dropdowns nativos (<option>),
      calendário do <input type="date">, scrollbars, etc, em TODAS as telas */
   color-scheme: dark;
 
-  /* Backgrounds — deep blue/violet, multi-layered */
-  --bg:       #06070f;
-  --bg-soft:  #0a0c18;
-  --sidebar:  rgba(12, 14, 28, .72);
-  --surface:  rgba(20, 23, 42, .65);
-  --surface2: rgba(28, 32, 56, .72);
-  --surface3: rgba(36, 40, 70, .55);
+  /* ─ A escada de marinho: material, não fundo ─
+     ⚠️ TRÊS DEGRAUS, e a ordem importa. Aqui a moldura é o degrau MAIS
+     BAIXO (o campo atrás dos painéis) e a superfície de trabalho pousa
+     sobre ela — o inverso do painel do cliente, onde o campo é o 800 e a
+     barra é o 900. Motivo: lá a barra pousa sobre o campo; aqui o painel
+     inteiro é uma placa recortada sobre a mesa. */
+  --mar-900: #030a26;
+  --mar-800: #050f38;
+  --mar-700: #071b5c;
+  --mar-600: #0d2775;
+  --mar-500: #1a3a9e;
 
-  /* Borders & dividers */
-  --border:   rgba(255,255,255,.06);
-  --border2:  rgba(255,255,255,.04);
-  --border-strong: rgba(255,255,255,.12);
+  /* Nomes herdados do Mission Control, apontando para o material novo.
+     Mantidos de propósito: são a interface que as 8.200 linhas abaixo já
+     usam. Renomear tudo de uma vez é o risco que `decisions.md` registra
+     (`.wa-*` roda em 10 telas, `.ch-*` em 6) — a consolidação é passo
+     próprio, com alias, não efeito colateral da troca de pele. */
+  --bg:       var(--mar-900);
+  --bg-soft:  var(--mar-800);
+  --sidebar:  var(--mar-800);
+  --surface:  rgba(7, 27, 92, .52);
+  --surface2: rgba(13, 39, 117, .58);
+  --surface3: rgba(26, 58, 158, .42);
 
-  /* Text */
-  --text:    #eef0fb;
-  --text-dim: #b9bcd4;
-  --muted:   #7a7e9c;
-  --muted2:  #4d5070;
+  /* ─ Usinagem: fios de 1px no lugar de borda decorativa ─ */
+  --border:        rgba(255,255,255,.14);
+  --border2:       rgba(255,255,255,.07);
+  --border-strong: rgba(255,255,255,.34);
+  --fio:       rgba(255,255,255,.14);
+  --fio-fraco: rgba(255,255,255,.07);
+  --fio-forte: rgba(255,255,255,.34);
 
-  /* Brand + accents — amber base, plus cyan/violet for IA & data */
-  --accent:    #f0b014;
-  --accent-2:  #ffd451;
+  /* O par do corte gravado — sempre juntos e nesta ordem. Duas linhas,
+     nunca uma: uma só lê como borda de card e desfaz a peça única. */
+  --rasgo: rgba(2, 6, 22, .55);
+  --luz:   rgba(255, 255, 255, .10);
+
+  /* ─ Texto sobre marinho ─ */
+  --text:     #f2f5ff;
+  --text-dim: #a6b5dc;   /* --sobre-2 do sistema */
+  --muted:    #8294c2;
+  --muted2:   #5b6c9e;
+  --sobre-2:  #a6b5dc;
+
+  /* ─ Marca ─
+     ⚠️ O âmbar #f0b014 SAIU. Ele era a interpretação interna da marca; o
+     institucional é o #fbb329 do wordmark, e o painel agora está na mesma
+     jornada das outras três superfícies. */
+  --accent:    #fbb329;
+  --accent-2:  #ffcb60;
+  --accent-3:  #d99411;   /* o amarelo quando precisa se apagar contra ele mesmo */
+  --amarelo:   #fbb329;
+
+  /* Água e crista — substância, não superfície */
+  --agua:   #2f6fe0;
+  --crista: #8fb6ff;
+
+  /* ⚠️ EM ABERTO: estes quatro seguem sendo Tailwind e só sobrevivem porque
+     separam SÉRIE em gráfico ApexCharts, não porque pertencem ao sistema. O
+     Chapa tem três cores de estado e nenhuma paleta categórica — ela precisa
+     ser desenhada. Não usar nenhum deles em cromo de UI. */
   --blue:      #4a78f7;
   --cyan:      #22d3ee;
   --violet:    #a78bfa;
   --pink:      #f472b6;
 
-  /* Status */
-  --ok:     #22c55e;
-  --warn:   #f59e0b;
-  --danger: #ef4444;
+  /* ─ Estado SOBRE MARINHO ─ */
+  --ok:     #63d8a0;
+  --warn:   #fbb329;
+  --danger: #ff5a4d;
+  --normal: #63d8a0;
+  --risco:  #ff5a4d;
 
-  /* Glows */
-  --glow-accent: 0 0 24px rgba(240,176,20,.35);
-  --glow-violet: 0 0 24px rgba(167,139,250,.35);
-  --glow-cyan:   0 0 24px rgba(34,211,238,.35);
-  --glow-danger: 0 0 24px rgba(239,68,68,.35);
+  /* ─ Estado SOBRE PLACA CLARA (família `-t`) ─
+     A Regra dos Dois Campos de Estado: sobre claro nenhum sinal saturado
+     passa contraste como texto. Usar a família errada é erro de contraste,
+     não de gosto. */
+  --ok-t:      #145c33;
+  --warn-t:    #8a5300;
+  --danger-t:  #b3241a;
+  --normal-t:  #145c33;
+  --atencao-t: #8a5300;
+  --risco-t:   #b3241a;
 
-  /* Shadows */
-  --shadow-sm: 0 2px 8px rgba(0,0,0,.35);
-  --shadow-md: 0 8px 24px rgba(0,0,0,.45);
-  --shadow-lg: 0 24px 64px rgba(0,0,0,.65);
+  /* ─ A família clara: vive nas fichas, modais e formulários ─ */
+  --chapa:    #e8ebf2;
+  --chapa-cl: #f5f7fb;
+  --chapa-es: #d5dae6;
+  --tinta:    #061033;
+  --tinta-2:  #414f74;
+  --fio-esc:  rgba(6, 16, 51, .18);
 
-  /* Geometry */
-  --radius:    12px;
-  --radius-sm: 8px;
-  --radius-lg: 16px;
+  /* ─ Tipografia ─ */
+  --fonte: "Archivo", ui-sans-serif, system-ui, sans-serif;
+  --mono:  "Martian Mono", ui-monospace, "SFMono-Regular", monospace;
+
+  /* ─ Profundidade: tonal e por aresta. Não há sombra projetada. ─
+     Os nomes seguem vivos porque 4 regras lá embaixo os consomem; o valor
+     é `none` para que nenhuma delas levante nada do plano. */
+  --glow-accent: none;
+  --glow-violet: none;
+  --glow-cyan:   none;
+  --glow-danger: none;
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-lg: none;
+
+  /* ─ Forma: chanfro de 45° em dois cantos opostos, raio zero em tudo ─
+     Cada componente redeclara `--ch` localmente e herda o polígono. */
+  --radius:    0;
+  --radius-sm: 0;
+  --radius-lg: 0;
+  --ch:   10px;
+  --ch-p: 6px;
+  --corte:   polygon(var(--ch) 0, 100% 0, 100% calc(100% - var(--ch)), calc(100% - var(--ch)) 100%, 0 100%, 0 var(--ch));
+  --corte-p: polygon(var(--ch-p) 0, 100% 0, 100% calc(100% - var(--ch-p)), calc(100% - var(--ch-p)) 100%, 0 100%, 0 var(--ch-p));
+
   --gap:       16px;
-
   --sb-open:  240px;
   --sb-rail:  68px;
   --topbar-h: 60px;
-}
 
-/* Subtle animated aurora background */
-body::before {
-  content: '';
-  position: fixed;
-  inset: -200px;
-  z-index: -1;
-  pointer-events: none;
-  background:
-    radial-gradient(900px 600px at 12% 8%, rgba(74,120,247,.10), transparent 60%),
-    radial-gradient(700px 500px at 88% 92%, rgba(167,139,250,.08), transparent 60%),
-    radial-gradient(600px 400px at 50% 50%, rgba(34,211,238,.04), transparent 70%);
-  filter: blur(8px);
+  /* Curva única de todas as transições de estado do sistema */
+  --saida: cubic-bezier(.16, .84, .32, 1);
 }
 
 /* ============================================================
@@ -80,7 +202,7 @@ body::before {
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  font-family: var(--fonte);
   font-size: 13px;
   line-height: 1.5;
   color: var(--text);
@@ -88,11 +210,92 @@ body {
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
+  /* Nada de peso sintético: o Archivo é variável e tem os pesos de verdade */
+  font-synthesis-weight: none;
 }
 
 button { font-family: inherit; font-size: inherit; }
 input, select, textarea { font-family: inherit; font-size: inherit; }
 a { color: inherit; text-decoration: none; }
+
+/* ── RAIO ZERO ─────────────────────────────────────────────────────────────
+   A única forma do sistema é o chanfro de 45°. São 268 `border-radius`
+   escritos à mão nas 8.200 linhas abaixo, de 15 telas construídas ao longo
+   de meses — zerar por token não alcança nenhum deles, e caçar um a um
+   espalharia a mudança por todas as telas de uma vez, que é justamente o que
+   esta migração tela a tela evita.
+   A lista de exceções é toda de coisa REDONDA DE VERDADE: foto de pessoa,
+   lâmpada-piloto, ponto de legenda de gráfico e o que o Leaflet e o
+   ApexCharts desenham por conta própria.
+   Ela sai dos 35 `border-radius: 50%` que já existiam — não é
+   chute, e por isso pode ser conferida. Ela mora DENTRO do `:not()` em vez de
+   virar regra própria de propósito: assim a declaração original de cada
+   redonda continua valendo intocada, e não há `!important` nenhum brigando
+   por especificidade. */
+body *:not(
+  .leaflet-container *, .apexcharts-canvas *,
+  .sidebar-user-avatar, .sidebar-user-avatar img,
+  .topbar-user-avatar, .topbar-user-avatar img,
+  .mc-conv-avatar, .wa-conv-avatar,
+  .tec-avatar-circle, .tec-avatar-overlay,
+  .tec-det-avatar, .tec-row-avatar, .tel-cli-fallback-icon,
+  .app-loader-spinner, .mp-map-spinner,
+  .al-status, .badge, .rc, .mc-leg, .al-acoes-list li,
+  .mc-live-dot, .m-dot, .ch-hist-dot, .rel-vivo-dot,
+  .dl-dot, .mli-dot, .av-tipo-dot, .icon-btn-dot, .cfg-slider,
+  .tec-pin, .tg-pin
+) {
+  border-radius: 0;
+}
+
+/* Os multi-classe que o `:not()` acima não alcança por especificidade.
+   Os de tela específica (mapa, orçamento avulso, painel de alertas) ficam
+   para a passada da própria tela. */
+.input, .select, .f input, .f select,
+.cardHead h2 .head-icon, .layout-cli .content { border-radius: 0; }
+
+/* ── SUPERFÍCIES DO NAVEGADOR ──────────────────────────────────────────────
+   As partes que não desenhamos também carregam o desenho. Sem isto, seleção,
+   cursor, foco e barra de rolagem chegam com o padrão do Chrome, que não
+   pertence a sistema nenhum. */
+::selection { background: var(--amarelo); color: var(--mar-900); }
+:root { accent-color: var(--amarelo); caret-color: var(--amarelo); }
+
+:focus-visible {
+  outline: 3px solid var(--amarelo);
+  outline-offset: 3px;
+}
+/* Mouse não pinta anel; teclado sim. */
+:focus:not(:focus-visible) { outline: none; }
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(166,181,220,.28) transparent;
+}
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  background: rgba(166,181,220,.24);
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover { background: var(--accent-3); background-clip: content-box; }
+*::-webkit-scrollbar-corner { background: transparent; }
+
+/* Todo número que muda é tabular — coluna de tabela não pode dançar a cada
+   atualização de polling. */
+td, th, .mono, [class*="valor"], [class*="total"], [class*="count"] {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
 
 /* ============================================================
    LAYOUT
@@ -126,30 +329,25 @@ a { color: inherit; text-decoration: none; }
   transition: width .09s ease-in .03s;
 }
 
+/* ⚠️ O CASCO NÃO É CHANFRADO, E ISSO É DECISÃO, NÃO ESQUECIMENTO.
+   `clip-path` faz do elemento um bloco de contenção para descendentes
+   `position: fixed` — um `fixed` lá dentro passa a se posicionar (e a ser
+   recortado) em relação a ELE, não à viewport. No `.main` isso quebrava duas
+   coisas de verdade: o `#cfgModalOverlay`, que mora dentro do `.main`, e o
+   mapa em tela cheia (`.mp-map-card.is-fullscreen`).
+   Então a divisão é: **a moldura é esquadrada, as peças são cortadas.** O
+   gesto da chapa vive na placa, na faixa de KPI, no botão, no selo e no item
+   de navegação — que é onde ele faz trabalho. */
 .sidebar-inner {
   position: relative;
   width: 100%;
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: var(--sidebar);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  background: var(--mar-800);
+  border: 1px solid var(--fio);
   overflow: hidden;
-  backdrop-filter: blur(20px) saturate(140%);
-  -webkit-backdrop-filter: blur(20px) saturate(140%);
-  box-shadow: 0 12px 48px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.04);
   will-change: transform;
-}
-
-/* Subtle inner glow line at top */
-.sidebar-inner::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 18%; right: 18%;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(167,139,250,.45), transparent);
-  pointer-events: none;
 }
 
 /* ---- Sidebar header ---- */
@@ -237,12 +435,16 @@ a { color: inherit; text-decoration: none; }
      esmagava o rótulo (32px viravam 20px) e o `overflow: hidden` daqui
      cortava "MONITOR"/"ATENDIMENTO" no meio da altura. */
   flex-shrink: 0;
-  font-size: 9.5px;
-  font-weight: 800;
-  color: var(--muted2);
-  letter-spacing: 1.4px;
+  /* Etiqueta gravada: mono em caixa alta é exatamente o lugar onde o Martian
+     Mono pode aparecer. Sobe de 9,5px para 10px porque o mono tem olho menor
+     que a grotesca que estava aqui. */
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--muted);
+  letter-spacing: .12em;
   text-transform: uppercase;
-  padding: 14px 12px 6px;
+  padding: 16px 12px 7px;
   white-space: nowrap;
   opacity: 1;
   overflow: hidden;
@@ -293,28 +495,27 @@ a { color: inherit; text-decoration: none; }
 }
 
 .nav-item:hover {
-  background: rgba(255,255,255,.045);
+  background: rgba(255,255,255,.05);
   color: var(--text);
-  border-color: var(--border);
+  border-color: var(--fio-fraco);
 }
 
+/* ONDE VOCÊ ESTÁ.
+   Preenchimento amarelo com tinta marinho por cima — a forma que a Regra do
+   Amarelo Cego manda usar quando o amarelo precisa carregar significado, e a
+   leitura mais inequívoca possível de "é esta a tela aberta".
+   ⚠️ A barra de 3px que morava aqui saiu: faixa de cor na borda para indicar
+   estado é gramática estranha a este sistema (profundidade é aresta e corte,
+   nunca barra) e o próprio DESIGN.md a proíbe por escrito. */
 .nav-item.active {
-  background: linear-gradient(90deg, rgba(240,176,20,.16), rgba(240,176,20,.04));
-  color: var(--text);
-  border-color: rgba(240,176,20,.28);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.05);
+  background: var(--amarelo);
+  color: var(--mar-900);
+  border-color: transparent;
+  font-weight: 700;
+  clip-path: var(--corte-p);
 }
-.nav-item.active svg { color: var(--accent); filter: drop-shadow(0 0 6px rgba(240,176,20,.45)); }
-.nav-item.active::before {
-  content: '';
-  position: absolute;
-  left: -10px;
-  top: 9px; bottom: 9px;
-  width: 3px;
-  border-radius: 0 3px 3px 0;
-  background: var(--accent);
-  box-shadow: 0 0 10px var(--accent);
-}
+.nav-item.active svg { color: var(--mar-900); }
+.nav-item.active:hover { background: var(--accent-2); color: var(--mar-900); }
 
 .nav-item svg { width: 18px; height: 18px; flex-shrink: 0; transition: color .14s; }
 
@@ -329,24 +530,30 @@ a { color: inherit; text-decoration: none; }
 
 .nav-badge {
   margin-left: auto;
-  background: linear-gradient(135deg, var(--danger), #b91c1c);
+  background: var(--risco);
   color: #fff;
-  font-size: 10px;
-  font-weight: 800;
-  padding: 1px 7px;
-  border-radius: 999px;
-  min-width: 18px;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  padding: 2px 6px 1px;
+  --ch-p: 4px;
+  clip-path: var(--corte-p);
+  min-width: 20px;
   text-align: center;
-  line-height: 1.6;
-  box-shadow: 0 0 10px rgba(239,68,68,.5);
+  line-height: 1.5;
 }
+/* Sobre o item aberto o campo é amarelo — vermelho ali reprova contraste e
+   some. A contagem vira placa marinho, que é o par legível deste campo. */
+.nav-item.active .nav-badge { background: var(--mar-900); color: #fff; }
 
-/* pulso ao detectar chamado/conversa novo(a) */
+/* pulso ao detectar chamado/conversa novo(a) — sem halo: o que pulsa é a
+   própria placa, não uma aura em volta dela */
 @keyframes badgeNovoPulse {
-  0%   { transform: scale(1);    box-shadow: 0 0 10px rgba(239,68,68,.5); }
-  30%  { transform: scale(1.25); box-shadow: 0 0 22px rgba(239,68,68,.95); }
-  60%  { transform: scale(1);    box-shadow: 0 0 14px rgba(239,68,68,.7); }
-  100% { transform: scale(1);    box-shadow: 0 0 10px rgba(239,68,68,.5); }
+  0%   { transform: scale(1);    }
+  30%  { transform: scale(1.28); }
+  60%  { transform: scale(1);    }
+  100% { transform: scale(1);    }
 }
 .nav-badge.pulse-novo,
 .mob-nav-badge.pulse-novo {
@@ -576,12 +783,14 @@ a { color: inherit; text-decoration: none; }
   flex-direction: column;
   height: 100%;
   overflow: hidden;
-  border-radius: var(--radius-lg);
-  background: linear-gradient(180deg, rgba(15,17,32,.65) 0%, rgba(8,10,20,.55) 100%);
-  border: 1px solid var(--border);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  box-shadow: 0 12px 48px rgba(0,0,0,.35);
+  /* Sem vidro, sem gradiente e sem sombra: a superfície de trabalho é
+     marinho corrido, e o que a separa da moldura é a aresta.
+     Esquadrada — ver a nota do `.sidebar-inner` sobre `clip-path` e
+     `position: fixed`. Aqui a razão é concreta: o `#cfgModalOverlay` e o
+     mapa em tela cheia vivem dentro deste elemento. */
+  position: relative;
+  background: var(--mar-800);
+  border: 1px solid var(--fio);
 }
 
 .content-header {
@@ -618,7 +827,8 @@ a { color: inherit; text-decoration: none; }
 .topbar-title {
   font-size: 18px;
   font-weight: 800;
-  letter-spacing: -.3px;
+  font-stretch: 108%;
+  letter-spacing: -.02em;
   color: var(--text);
   margin: 0;
   white-space: nowrap;
@@ -633,15 +843,14 @@ a { color: inherit; text-decoration: none; }
   align-items: center;
   height: 38px;
   padding: 0 14px 0 38px;
-  background: rgba(255,255,255,.03);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  transition: border-color .15s, background .15s;
+  background: color-mix(in srgb, var(--mar-900) 88%, #000);
+  border: 1px solid var(--fio);
+  transition: border-color .15s var(--saida), background .15s var(--saida);
 }
 .topbar-search:focus-within {
-  border-color: rgba(74,120,247,.45);
-  background: rgba(74,120,247,.06);
-  box-shadow: 0 0 0 3px rgba(74,120,247,.10);
+  border-color: var(--fio-forte);
+  background: var(--mar-900);
+  box-shadow: inset 0 -2px 0 var(--accent);
 }
 .topbar-search > svg {
   position: absolute;
@@ -660,14 +869,14 @@ a { color: inherit; text-decoration: none; }
 }
 .topbar-search input::placeholder { color: var(--muted); }
 .topbar-search-key {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: .5px;
-  color: var(--muted);
-  padding: 2px 6px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  background: rgba(255,255,255,.03);
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: .1em;
+  color: var(--text-dim);
+  padding: 3px 6px 2px;
+  border: 1px solid var(--fio);
+  background: transparent;
   white-space: nowrap;
 }
 
@@ -676,18 +885,17 @@ a { color: inherit; text-decoration: none; }
   position: absolute;
   top: calc(100% + 6px);
   left: 0; right: 0;
-  background: #0f1225;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  box-shadow: 0 8px 32px rgba(0,0,0,.7);
+  background: var(--mar-800);
+  border: 1px solid var(--fio-forte);
   z-index: 500;
   overflow: hidden;
   max-height: 420px;
   overflow-y: auto;
 }
 .gs-group-label {
-  font-size: 10px; font-weight: 700;
-  text-transform: uppercase; letter-spacing: .6px;
+  font-family: var(--mono);
+  font-size: 9.5px; font-weight: 500;
+  text-transform: uppercase; letter-spacing: .12em;
   color: var(--muted); padding: 10px 14px 4px;
 }
 .gs-sep { height: 1px; background: var(--border); margin: 4px 0; }
@@ -696,7 +904,7 @@ a { color: inherit; text-decoration: none; }
   padding: 8px 14px; cursor: pointer;
   transition: background .1s;
 }
-.gs-item:hover, .gs-item.is-active { background: rgba(74,120,247,.12); }
+.gs-item:hover, .gs-item.is-active { background: var(--mar-600); }
 .gs-item-icon {
   width: 28px; height: 28px; border-radius: 6px;
   background: rgba(255,255,255,.06);
@@ -894,52 +1102,101 @@ a { color: inherit; text-decoration: none; }
    ============================================================ */
 .btn {
   appearance: none;
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  border: 1px solid var(--border2);
-  background: rgba(255,255,255,.05);
+  border: none;
+  background: var(--fio);   /* o fundo é o anel — chapa de duas camadas */
   color: var(--text);
   padding: 7px 14px;
-  border-radius: var(--radius-sm);
+  --ch-p: 7px;
+  clip-path: var(--corte-p);
   cursor: pointer;
   font-size: 12.5px;
   font-weight: 600;
   letter-spacing: .1px;
-  transition: border-color .15s, background .15s, transform .08s;
+  transition: background .18s var(--saida), color .18s var(--saida);
   user-select: none;
   white-space: nowrap;
+  overflow: hidden;
+}
+/* A placa interna, embutida 1px e chanfrada de novo */
+.btn::before {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  --ch-p: 6px;
+  clip-path: var(--corte-p);
+  background: var(--mar-800);
+  transition: background .18s var(--saida);
+  /* Ver a nota da .sidebar-inner: negativo pousa entre o anel e o rótulo. */
+  z-index: -1;
 }
 
-.btn:hover  { border-color: rgba(255,255,255,.14); background: rgba(255,255,255,.08); }
-.btn:active { transform: translateY(1px); }
+.btn:hover          { background: var(--fio-forte); color: #fff; }
+.btn:hover::before  { background: var(--mar-700); }
+.btn:active         { transform: translateY(1px); }
+.btn:disabled, .btn[disabled] { opacity: .55; cursor: not-allowed; }
 
+/* ── AÇÃO PRIMÁRIA ────────────────────────────────────────────────────────
+   Preenchimento amarelo com tinta marinho. O hover não muda a cor: o amarelo
+   claro ENTRA PELO CHANFRO, no sentido do corte — um paralelogramo varrendo
+   da esquerda para a direita. É o gesto de marca do sistema, e é a única
+   coisa que o botão faz ao ser apontado. Sem escala, sem translado, sem
+   sombra. */
 .btnAccent {
-  border-color: var(--accent);
   background: var(--accent);
-  color: #111;
+  color: var(--mar-900);
   font-weight: 700;
 }
-.btnAccent:hover { background: #d9a010; border-color: #d9a010; color: #111; }
-
-.btnDanger {
-  border-color: rgba(239,68,68,.35);
-  background: rgba(239,68,68,.08);
-  color: var(--danger);
+.btnAccent::before { background: var(--accent); }
+.btnAccent::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--accent-2);
+  clip-path: polygon(-28% 0, 0 0, 28% 100%, 0 100%);
+  transform: translateX(-115%);
+  transition: transform .42s var(--saida);
+  z-index: -1;   /* depois do ::before na ordem da árvore, logo por cima dele */
 }
-.btnDanger:hover { background: rgba(239,68,68,.16); border-color: var(--danger); }
+.btnAccent:hover        { background: var(--accent); color: var(--mar-900); }
+.btnAccent:hover::before{ background: var(--accent); }
+.btnAccent:hover::after { transform: translateX(115%); }
+.btnAccent:disabled::after, .btnAccent[disabled]::after { transform: translateX(-115%); }
 
-.btn-sm { padding: 5px 10px; font-size: 11.5px; border-radius: var(--radius-sm); }
+.btnDanger { background: var(--risco); color: #fff; font-weight: 700; }
+.btnDanger::before { background: var(--risco); }
+.btnDanger:hover { background: #ff7365; }
+.btnDanger:hover::before { background: #ff7365; }
+
+.btn-sm { padding: 5px 10px; font-size: 11.5px; --ch-p: 5px; }
+.btn-sm::before { --ch-p: 4px; }
 
 /* ============================================================
    CARDS
    ============================================================ */
+/* A PLACA.
+   Chapa de duas camadas outra vez — 62 delas no HTML, e é a peça que mais
+   aparece no painel. Sem sombra: quem está na frente é quem subiu um degrau
+   de marinho, não quem flutua. */
 .card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  position: relative;
+  --ch: 12px;
+  background: var(--fio);
+  clip-path: var(--corte);
   overflow: hidden;
-  box-shadow: 0 1px 3px rgba(0,0,0,.3), inset 0 1px 0 rgba(255,255,255,.025);
+}
+.card::before {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  --ch: 11px;
+  background: color-mix(in srgb, var(--mar-700) 52%, var(--mar-900));
+  clip-path: var(--corte);
+  pointer-events: none;
+  z-index: -1;
 }
 
 /* flex-wrap: o .card acima tem overflow:hidden, então tudo que não coubesse
@@ -953,29 +1210,37 @@ a { color: inherit; text-decoration: none; }
   flex-wrap: wrap;
   gap: 12px;
   padding: 14px 20px;
-  border-bottom: 1px solid var(--border);
-  background: linear-gradient(to bottom, rgba(255,255,255,.015), transparent);
+  /* O CORTE GRAVADO: duas linhas, nunca uma. `--rasgo` é o fundo do sulco e
+     `--luz` é a aresta virada para cima. Uma linha só lê como borda de card e
+     transforma a placa em três cartõezinhos — que é justamente a forma que
+     este sistema recusa. */
+  border-bottom: 1px solid var(--rasgo);
+  box-shadow: 0 1px 0 var(--luz);
+  background: none;
 }
 
 .cardHead h2 {
   font-size: 13px;
   font-weight: 700;
-  letter-spacing: .2px;
+  letter-spacing: -.01em;
   color: var(--text);
   display: flex;
   align-items: center;
   gap: 10px;
 }
 
+/* Placa do ícone: preenchida em amarelo com tinta marinho por cima. É onde o
+   estado mora neste sistema — nunca numa faixa na borda do card. */
 .cardHead h2 .head-icon {
   width: 26px;
   height: 26px;
-  color: var(--accent);
+  color: var(--mar-900);
   flex-shrink: 0;
   padding: 5px;
-  background: rgba(240,176,20,.1);
-  border: 1px solid rgba(240,176,20,.18);
-  border-radius: var(--radius-sm);
+  background: var(--accent);
+  border: none;
+  --ch-p: 5px;
+  clip-path: var(--corte-p);
 }
 
 .hint { color: var(--muted); font-size: 11.5px; }
@@ -990,11 +1255,29 @@ a { color: inherit; text-decoration: none; }
    dashboard viravam 4 + 1 sozinho na linha de baixo. O corte do texto é
    tratado no `.rc-label` (quebra em duas linhas), que resolve sem mexer na
    contagem de colunas. */
+/* ── A FAIXA VIRA UMA LINHA ────────────────────────────────────────────────
+   Primeira das cinco decisões do plano. A faixa de KPI ocupava de 120 a
+   330px antes de qualquer conteúdo — em `chamados` eram 6 cards em duas
+   fileiras, ~330px, e sobravam 5 linhas de tabela na tela.
+
+   A forma nova não é "cards menores": é UMA PLACA DIVIDIDA. Seis coisas
+   paralelas viravam naturalmente seis caixas lado a lado, e essa é
+   exatamente a forma que este sistema recusa — a resposta dele para conteúdo
+   paralelo é um objeto usinado, com as células separadas por corte, não por
+   respiro. Por isso o `gap` caiu de 14px para 1px: o que separa as células é
+   a aresta, e é ela que faz a faixa ler como peça única.
+
+   O piso de 190px por célula continua sendo o que decide quantas cabem por
+   linha, e as regras de `:has()` logo abaixo continuam valendo — elas evitam
+   a última fileira órfã, que numa peça única seria pior ainda. */
 .resumo-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-  gap: 14px;
-  padding: 0;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1px;
+  padding: 1px;
+  --ch: 12px;
+  background: var(--fio);   /* anel externo e sulco entre células, de uma vez */
+  clip-path: var(--corte);
 }
 
 /* ── Faixas de KPI: evitar a última linha "quebrada" ──────────────
@@ -1013,14 +1296,12 @@ a { color: inherit; text-decoration: none; }
    partir de ~1300px; 6 cards, a partir de ~1500px. Abaixo disso, 3 colunas.
 
    O painel do cliente não é afetado: as faixas dele têm 3 e 4 cards. */
-@media (min-width: 1025px) and (max-width: 1320px) {
+/* ⚠️ Reescrito junto com a decisão nº 1. Estes blocos foram medidos para
+   cards de 190x104 e agora só valem onde a linha REALMENTE não cabe: abaixo
+   de 1025px de viewport. Acima disso, 5 ou 6 células de 150px entram numa
+   fileira só, que é o ponto da faixa em linha. */
+@media (min-width: 769px) and (max-width: 1024px) {
   .resumo-grid:has(> .rc:nth-child(5):last-child),
-  .resumo-grid:has(> .rc:nth-child(6):last-child) {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-
-@media (min-width: 1321px) and (max-width: 1520px) {
   .resumo-grid:has(> .rc:nth-child(6):last-child) {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
@@ -1038,74 +1319,56 @@ a { color: inherit; text-decoration: none; }
   }
 }
 
+/* A célula: 54px de altura, tudo numa linha só — placa do ícone, rótulo, e o
+   número encostado à direita. O `inset` escuro logo depois do sulco claro é
+   o par do corte gravado: duas linhas, nunca uma. */
 .rc {
   position: relative;
-  border-radius: var(--radius);
-  padding: 16px 18px;
+  height: 54px;
+  padding: 0 12px;
   overflow: hidden;
-  border: 1px solid var(--border);
-  background:
-    linear-gradient(180deg, rgba(255,255,255,.025) 0%, transparent 40%),
-    var(--surface);
-  transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease;
+  border: none;
+  background: color-mix(in srgb, var(--mar-700) 52%, var(--mar-900));
+  box-shadow: inset 1px 0 0 var(--rasgo), inset 0 1px 0 var(--rasgo);
+  transition: background .18s var(--saida);
   cursor: pointer;
   width: 100%;
   text-align: left;
   color: inherit;
   display: flex;
-  flex-direction: column;
-  gap: 6px;
-  min-height: 104px;
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  min-height: 0;
 }
 
-/* Color stripe (accent line behind) */
-.rc::before {
-  content: '';
-  position: absolute;
-  top: -40%;
-  right: -20%;
-  width: 200px;
-  height: 200px;
-  border-radius: 50%;
-  opacity: .14;
-  filter: blur(48px);
-  pointer-events: none;
-}
+.rc::before, .rc::after { content: none; }
 
-.rc::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: var(--radius);
-  border: 1px solid transparent;
-  pointer-events: none;
-  transition: border-color .22s;
-}
-
-.rc:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 14px 40px rgba(0,0,0,.5);
-}
+/* Nada levanta e nada projeta sombra: o que muda é o degrau de marinho. */
+.rc:hover { background: color-mix(in srgb, var(--mar-600) 62%, var(--mar-900)); }
 
 .rc-head {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 2px;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+  margin-bottom: 0;
 }
 
+/* A placa do ícone é onde o estado mora — preenchida, com tinta legível por
+   cima. Nunca uma faixa de cor na borda da célula. */
 .rc-icon {
-  width: 32px; height: 32px;
-  border-radius: 9px;
+  width: 24px; height: 24px;
+  --ch-p: 5px;
+  clip-path: var(--corte-p);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  border: 1px solid transparent;
+  border: none;
 }
-.rc-icon svg { width: 16px; height: 16px; }
+.rc-icon svg { width: 13px; height: 13px; }
 
 /* Quebra em duas linhas em vez de truncar. O `min-height: 104px` do .rc
    absorve a segunda linha sem mexer no alinhamento da faixa, e um rótulo
@@ -1114,25 +1377,43 @@ a { color: inherit; text-decoration: none; }
    .resumo-grid faz isso raramente ser necessário; aqui é a rede de proteção
    para larguras que não dá pra prever. */
 .rc-label {
-  font-size: 10.5px;
-  font-weight: 800;
+  font-family: var(--mono);
+  font-size: 8.5px;
+  font-weight: 500;
   text-transform: uppercase;
-  letter-spacing: 1px;
-  color: var(--muted);
+  /* ⚠️ O tracking é a alavanca, não o corpo. A .12em da etiqueta gravada do
+     sistema é medida para o painel do cliente, que tem 3 ou 4 KPIs; aqui são
+     6 numa linha só, e o Martian Mono já é largo por desenho — a .12em
+     truncava "EM ATENDIMENTO" e "TEMPO MÉDIO RESOLUÇÃO". */
+  letter-spacing: .055em;
+  color: var(--text-dim);
   line-height: 1.25;
+  /* Numa linha de 54px não há espaço para duas fileiras de rótulo; o que
+     não couber é cortado com reticências em vez de empurrar a altura.
+     ⚠️ Isto substitui a quebra em duas linhas que existia quando o card
+     tinha 104px — ver a nota histórica logo abaixo. */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   /* Sem `overflow-wrap: anywhere` de propósito: ele quebrava DENTRO da
      palavra ("RESERVATÓ-RIOS") e criava uma terceira linha, engordando o
      card de 58 para 77px no mobile do cliente. Os rótulos têm espaço
      ("COND. COM ALERTA"), então a quebra normal já basta. */
 }
 
+/* Leitura de instrumento: mono, tabular, encostada à direita da célula. De
+   32px para 19px — o número não precisava daquele tamanho para ser lido, e
+   era ele que sustentava os 104px de altura da faixa antiga. */
 .rc-value {
-  font-family: ui-monospace, "Cascadia Code", "Fira Code", Consolas, monospace;
-  font-size: 32px;
-  font-weight: 800;
-  line-height: 1.05;
-  letter-spacing: -1px;
-  margin-top: 6px;
+  font-family: var(--mono);
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -.03em;
+  font-variant-numeric: tabular-nums;
+  margin-top: 0;
+  margin-left: auto;
+  flex-shrink: 0;
   color: var(--text);
 }
 
@@ -1140,24 +1421,32 @@ a { color: inherit; text-decoration: none; }
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 10.5px;
-  font-weight: 700;
-  padding: 2px 7px;
-  border-radius: 999px;
-  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  font-weight: 500;
+  padding: 3px 6px 2px;
+  --ch-p: 4px;
+  clip-path: var(--corte-p);
+  order: 4;
+  margin-left: 8px;
 }
-.rc-trend.up   { background: rgba(34,197,94,.10);  color: #4ade80; border: 1px solid rgba(34,197,94,.25); }
-.rc-trend.down { background: rgba(239,68,68,.10);  color: #f87171; border: 1px solid rgba(239,68,68,.25); }
-.rc-trend.flat { background: rgba(255,255,255,.04); color: var(--muted); border: 1px solid var(--border); }
+.rc-trend.up   { background: transparent; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ok) 55%, transparent);    color: var(--ok); }
+.rc-trend.down { background: var(--risco); color: var(--mar-900); }
+.rc-trend.flat { background: transparent; box-shadow: inset 0 0 0 1px var(--fio); color: var(--text-dim); }
 .rc-trend svg  { width: 10px; height: 10px; }
 
+/* Numa linha de 54px o apoio deixa de morar embaixo do número e passa a
+   andar ao lado do rótulo — o número continua sendo a última coisa da
+   célula, encostado à direita, que é o que faz a faixa ler como coluna. */
 .rc-hint {
-  font-size: 11px;
+  font-size: 10.5px;
   color: var(--muted);
-  margin-top: 6px;
+  margin-top: 0;
+  order: 2;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  min-width: 0;
 }
 
 /* ── Variants — KPIs alinhados em TODAS as abas ──
@@ -1165,25 +1454,38 @@ a { color: inherit; text-decoration: none; }
    glow colorido) e o número usa a cor de texto padrão em mono. Antes cada
    variante tingia borda + glow (::before) + valor, o que fazia os cards
    "brigarem" entre si e entre abas. Agora a leitura de status vem do ícone. */
-.rc-ok      .rc-icon { background: rgba(34,197,94,.12);   border-color: rgba(34,197,94,.3);   color: #4ade80; box-shadow: inset 0 0 18px rgba(34,197,94,.08); }
-.rc-warn    .rc-icon { background: rgba(245,158,11,.12);  border-color: rgba(245,158,11,.3);  color: #fbbf24; box-shadow: inset 0 0 18px rgba(245,158,11,.08); }
-.rc-bad     .rc-icon { background: rgba(239,68,68,.14);   border-color: rgba(239,68,68,.32);  color: #f87171; box-shadow: inset 0 0 18px rgba(239,68,68,.10); }
-.rc-neutral .rc-icon { background: rgba(74,120,247,.14);  border-color: rgba(74,120,247,.32); color: #93c5fd; box-shadow: inset 0 0 18px rgba(74,120,247,.10); }
-.rc-violet  .rc-icon { background: rgba(167,139,250,.14); border-color: rgba(167,139,250,.32);color: #c4b5fd; box-shadow: inset 0 0 18px rgba(167,139,250,.10); }
-.rc-cyan    .rc-icon { background: rgba(34,211,238,.14);  border-color: rgba(34,211,238,.32); color: #67e8f9; box-shadow: inset 0 0 18px rgba(34,211,238,.10); }
+/* PREENCHIDA QUANDO PEDE AÇÃO, DE FIO EM REPOUSO — a mesma regra do selo de
+   estado das tabelas. Um painel com tudo em ordem fica calmo por construção;
+   o que exige alguém salta sozinho. */
+.rc-ok      .rc-icon { background: transparent; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ok) 55%, transparent); color: var(--ok); }
+.rc-neutral .rc-icon { background: transparent; box-shadow: inset 0 0 0 1px var(--fio-forte); color: var(--text-dim); }
+.rc-warn    .rc-icon { background: var(--warn);  color: var(--mar-900); }
+.rc-bad     .rc-icon { background: var(--risco); color: var(--mar-900); }
+/* ⚠️ Herdados do Mission Control e ainda usados pela telemetria e pelo mapa.
+   Ficam neutros até a passada dessas telas — violeta e ciano não pertencem a
+   este sistema, e o lugar deles é a paleta categórica de gráfico, que ainda
+   precisa ser desenhada. */
+.rc-violet  .rc-icon,
+.rc-cyan    .rc-icon { background: transparent; box-shadow: inset 0 0 0 1px var(--fio-forte); color: var(--text-dim); }
 
-/* Hover sutil uniforme (cards clicáveis, ex.: Dashboard) */
-.rc:hover { border-color: var(--border-strong); }
 .rc-static { cursor: default; }
-.rc-static:hover { transform: none; box-shadow: none; border-color: var(--border); }
+.rc-static:hover { background: color-mix(in srgb, var(--mar-700) 52%, var(--mar-900)); }
 
 /* Subtitle dos KPIs (Fase 8A — SLA metrics na aba Insights) */
 .rc-sub {
-  margin-top: 4px;
-  font-size: 11px;
+  margin-top: 0;
+  font-size: 10.5px;
   color: var(--muted);
   line-height: 1.3;
+  order: 2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
+/* A ordem dentro da célula: cabeça (ícone + rótulo) · apoio · número. */
+.rc-head  { order: 1; }
+.rc-value { order: 3; }
 
 /* Header da seção de SLA (Fase 8A) */
 .rel-sla-section { display: flex; flex-direction: column; gap: 8px; }
@@ -1804,7 +2106,7 @@ a { color: inherit; text-decoration: none; }
 .tel-resv-badge.on  { background: rgba(34,197,94,.13);  color: #4ade80; }
 .tel-resv-badge.off { background: rgba(122,126,156,.16); color: #9ca0bf; }
 .tel-resv-pct {
-  font-family: ui-monospace, "Cascadia Code", "Fira Code", Consolas, monospace;
+  font-family: var(--mono);
   font-size: 42px; font-weight: 800; letter-spacing: -2px; line-height: 1.05; margin-top: 8px;
 }
 .tel-resv-bar {
@@ -1847,7 +2149,7 @@ a { color: inherit; text-decoration: none; }
   padding: 9px 10px; border-radius: 8px;
 }
 .tel-evt-row:hover { background: rgba(255,255,255,.03); }
-.tel-evt-time { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: 11.5px; color: var(--muted); }
+.tel-evt-time { font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
 .tel-evt-ic {
   width: 28px; height: 28px; flex-shrink: 0;
   display: inline-flex; align-items: center; justify-content: center; border-radius: 8px;
@@ -1944,10 +2246,10 @@ a { color: inherit; text-decoration: none; }
 .tank-outline { stroke: var(--border-strong); stroke-width: 1.5; fill: none; stroke-linecap: round; }
 .tank-rim     { stroke: var(--border-strong); stroke-width: 1.5; fill: rgba(255,255,255,.02); }
 .tank-tick    { stroke: rgba(255,255,255,.18); stroke-width: 1; }
-.tank-tick-lbl { fill: var(--muted2); font-size: 7px; font-family: ui-monospace, "Cascadia Code", Consolas, monospace; }
+.tank-tick-lbl { fill: var(--muted2); font-size: 7px; font-family: var(--mono); }
 .tank-pct {
   fill: var(--text);
-  font-family: ui-monospace, "Cascadia Code", "Fira Code", Consolas, monospace;
+  font-family: var(--mono);
   font-size: 20px;
   font-weight: 700;
   text-anchor: middle;
@@ -1975,7 +2277,7 @@ a { color: inherit; text-decoration: none; }
 .tel-tank-bomba.uk  { background: rgba(255,255,255,.05); color: var(--muted); }
 .tel-tank-upd {
   font-size: 9.5px; color: var(--muted);
-  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  font-family: var(--mono);
 }
 
 /* Modo compacto — tanque renderizado pequeno em grid denso:
@@ -2268,7 +2570,7 @@ a { color: inherit; text-decoration: none; }
 }
 .tel-hist-stat-label { font-size: 9px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); }
 .tel-hist-stat-val {
-  font-family: ui-monospace, "Cascadia Code", "Fira Code", Consolas, monospace;
+  font-family: var(--mono);
   font-size: 14px; font-weight: 700; color: var(--text);
 }
 
@@ -2408,7 +2710,7 @@ a { color: inherit; text-decoration: none; }
 }
 .cep-input {
   letter-spacing: 1px;
-  font-family: ui-monospace, "Cascadia Code", "Fira Code", Consolas, monospace;
+  font-family: var(--mono);
 }
 .cep-msg {
   display: block;
@@ -2541,37 +2843,49 @@ table { width: 100%; border-collapse: collapse; }
 
 th, td {
   padding: 11px 16px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--fio-fraco);
   vertical-align: middle;
   text-align: left;
 }
 
+/* Cabeçalho de coluna = etiqueta gravada. Mono em caixa alta é um dos dois
+   lugares onde o Martian Mono pode aparecer neste sistema (o outro é
+   medição). O fundo é opaco de propósito: `position: sticky` sobre linha
+   translúcida deixa o conteúdo passar por baixo. */
 th {
   position: sticky;
   top: 0;
   z-index: 5;
-  background: rgb(28, 32, 56);
-  font-size: 10.5px;
-  font-weight: 700;
-  color: var(--muted);
-  letter-spacing: .6px;
+  background: color-mix(in srgb, var(--mar-700) 86%, var(--mar-900));
+  font-family: var(--mono);
+  font-size: 9.5px;
+  font-weight: 500;
+  color: var(--text-dim);
+  letter-spacing: .12em;
   text-transform: uppercase;
   white-space: nowrap;
-  box-shadow: 0 1px 0 var(--border);
+  border-bottom: 1px solid var(--rasgo);
+  box-shadow: 0 1px 0 var(--luz);
 }
 
 tr:last-child td { border-bottom: none; }
 
-tbody tr { transition: background .1s ease; }
-tbody tr:hover td { background: rgba(255,255,255,.035); }
+/* A linha inteira acende ao ser apontada — e o `--saida` é a mesma curva de
+   toda transição de estado do sistema. */
+tbody tr td { transition: background .16s var(--saida); }
+tbody tr:hover td { background: rgba(255,255,255,.05); }
 
-tbody tr:nth-child(even) td { background: rgba(255,255,255,.013); }
-tbody tr:nth-child(even):hover td { background: rgba(255,255,255,.04); }
+tbody tr:nth-child(even) td { background: rgba(255,255,255,.018); }
+tbody tr:nth-child(even):hover td { background: rgba(255,255,255,.055); }
 
 .mono {
-  font-family: ui-monospace, "Cascadia Code", "Fira Code", Consolas, monospace;
-  font-size: 12px;
-  letter-spacing: -.2px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: -.02em;
+  font-variant-numeric: tabular-nums;
+  /* Identificador não quebra linha. O Martian Mono é bem mais largo que a
+     mono de sistema que estava aqui, e "CH-0018" virava duas linhas. */
+  white-space: nowrap;
 }
 
 .right  { text-align: right; white-space: nowrap; }
@@ -2583,33 +2897,40 @@ tbody tr:nth-child(even):hover td { background: rgba(255,255,255,.04); }
 /* ============================================================
    BADGES
    ============================================================ */
+/* ── O SELO DE ESTADO ──────────────────────────────────────────────────────
+   Terceira das cinco decisões do plano. Placa chanfrada, e a diferença entre
+   os estados não é só a cor: **preenchida quando pede ação, de fio em
+   repouso.** Assim o painel com tudo em ordem fica calmo por construção, e
+   um chamado crítico salta de uma tabela de 40 linhas sem precisar piscar.
+
+   A pílula de raio 999px saiu — não existe raio neste sistema. */
 .badge {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 2px 9px;
-  border-radius: 999px;
-  font-size: 11px;
+  padding: 3px 9px;
+  --ch-p: 5px;
+  clip-path: var(--corte-p);
+  font-size: 10.5px;
   font-weight: 700;
-  letter-spacing: .25px;
+  letter-spacing: .04em;
   text-transform: uppercase;
   white-space: nowrap;
 }
 
-.badge::before {
-  content: '';
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
+/* O ponto era o sinal quando o selo era translúcido. Numa placa preenchida
+   ele vira ruído: a placa inteira já é o sinal. */
+.badge::before { content: none; }
 
-.b-ok   { border: 1px solid rgba(34,197,94,.3);   background: rgba(34,197,94,.08);   color: #4ade80; }
-.b-ok::before   { background: var(--ok); }
-.b-warn { border: 1px solid rgba(245,158,11,.3);  background: rgba(245,158,11,.08);  color: #fbbf24; }
-.b-warn::before { background: var(--warn); }
-.b-bad  { border: 1px solid rgba(239,68,68,.3);   background: rgba(239,68,68,.08);   color: #f87171; }
-.b-bad::before  { background: var(--danger); }
+/* Em repouso: fio, sem preenchimento. Nada a fazer aqui. */
+.b-ok {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ok) 55%, transparent);
+  color: var(--ok);
+}
+/* Pede atenção e pede ação: placa cheia, tinta marinho por cima. */
+.b-warn { background: var(--warn);   color: var(--mar-900); }
+.b-bad  { background: var(--risco);  color: var(--mar-900); }
 
 .pillCount {
   display: inline-flex;
@@ -2618,12 +2939,14 @@ tbody tr:nth-child(even):hover td { background: rgba(255,255,255,.04); }
   min-width: 22px;
   height: 20px;
   padding: 0 6px;
-  border-radius: 999px;
-  font-size: 11.5px;
-  font-weight: 800;
-  background: rgba(240,176,20,.1);
-  border: 1px solid rgba(240,176,20,.25);
-  color: var(--accent);
+  --ch-p: 4px;
+  clip-path: var(--corte-p);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  background: var(--accent);
+  color: var(--mar-900);
 }
 
 /* ============================================================
@@ -2648,45 +2971,55 @@ tbody tr:nth-child(even):hover td { background: rgba(255,255,255,.04); }
    Vale pra <textarea class="input"> também — descrição de chamado, prompt da
    IA, observação de O.S. e o campo de mensagem do WhatsApp usam a mesma
    classe. */
+/* ⚠️ O sublinhado de foco continua sendo `box-shadow: inset` pelo motivo
+   documentado acima, e agora tem uma segunda razão: sob `clip-path` um anel
+   desenhado FORA da caixa (`outline`, `box-shadow` normal) é recortado
+   inteiro pelo chanfro e simplesmente não aparece. Aqui o campo não é
+   chanfrado justamente para não pagar esse preço em formulário denso — o
+   corte fica nas peças, não em cada caixa de texto. */
 .input, .select {
   width: 100%;
   padding: 9px 12px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-  background-color: var(--bg-soft);
-  box-shadow: inset 0 -2px 0 var(--border-strong);
+  border: 1px solid var(--fio);
+  background-color: color-mix(in srgb, var(--mar-900) 88%, #000);
+  box-shadow: inset 0 -2px 0 var(--fio);
   color: var(--text);
   font-size: 13px;
   outline: none;
-  transition: border-color .15s, background-color .15s, box-shadow .15s;
+  transition: border-color .15s var(--saida), background-color .15s var(--saida), box-shadow .15s var(--saida);
 }
 
 .input:hover:not(:focus), .select:hover:not(:focus) {
-  border-color: var(--border-strong);
+  border-color: var(--fio-forte);
 }
 
 .input:focus, .select:focus {
-  border-color: var(--border-strong);
-  background-color: var(--surface2);
+  border-color: var(--fio-forte);
+  background-color: var(--mar-900);
   box-shadow: inset 0 -2px 0 var(--accent);
 }
 
 .input::placeholder { color: var(--muted); }
+.input[aria-invalid="true"], .select[aria-invalid="true"] {
+  border-color: var(--risco);
+  box-shadow: inset 0 -2px 0 var(--risco);
+}
 
-.select option { background: #18181b; color: var(--text); }
+.select option { background: var(--mar-800); color: var(--text); }
 
 /* Fallback universal pra <select> que não tem classe .select / .tel-select.
    Funciona em Chrome/Edge desktop. Combinado com color-scheme:dark cobre o resto. */
-select option { background: #14172a; color: #eef0fb; }
+select option { background: #050f38; color: #f2f5ff; }
 
 .field { display: flex; flex-direction: column; gap: 6px; }
 
 .lbl {
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 9.5px;
+  font-weight: 500;
+  color: var(--text-dim);
   text-transform: uppercase;
-  letter-spacing: .4px;
+  letter-spacing: .12em;
 }
 
 .lbl .req { color: var(--accent); margin-left: 2px; }
@@ -2730,9 +3063,8 @@ select option { background: #14172a; color: #eef0fb; }
   align-items: flex-end;
   flex-wrap: wrap;
   padding: 14px 16px;
-  background: linear-gradient(180deg, rgba(36,40,70,.35) 0%, rgba(20,23,42,.25) 100%);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  background: rgba(7,27,92,.42);
+  border: 1px solid var(--fio-fraco);
 }
 /* Quando .filter-bar está dentro de .rel-tab-pane (que já tem padding),
    anula o padding/borda duplicados */
@@ -4441,6 +4773,10 @@ select option { background: #14172a; color: #eef0fb; }
 
 /* Modo tela cheia: o card invade a viewport inteira e some o chrome do card.
    O cabeçalho vira overlay flutuante; o canvas do mapa ocupa 100% da viewport. */
+/* Em tela cheia o card deixa de ser peça e vira superfície: sem chanfro, e
+   sem o anel que o `.card` desenha. */
+.mp-map-card.is-fullscreen { clip-path: none; background: var(--mar-900); }
+.mp-map-card.is-fullscreen::before { content: none; }
 .mp-map-card.is-fullscreen {
   position: fixed;
   inset: 0;
@@ -4948,88 +5284,162 @@ body.mp-fs-active { overflow: hidden; }
 .al-table tbody tr.al-empty-row:hover,
 .al-table tbody tr.al-empty-row:hover td { background: none; }
 .al-table tbody tr:hover { background: rgba(255,255,255,.03); }
-.al-table tbody tr.is-selected {
-  background: rgba(34,197,94,.08);
-  border-left: 2px solid rgba(34,197,94,.6);
-}
+.al-table tbody tr.is-selected td { background: var(--mar-600); color: #fff; }
+.al-table tbody tr.is-selected:hover td { background: var(--mar-500); }
 .al-table tbody td {
   padding: 10px 12px;
   color: var(--text);
   vertical-align: middle;
 }
 .al-table tbody td.right { text-align: right; }
-.al-table .al-id { font-family: monospace; font-size: 11px; color: var(--muted); }
-.al-table .al-condo { font-weight: 600; }
-.al-table .al-condo small { display: block; color: var(--muted); font-weight: 400; font-size: 10.5px; margin-top: 2px; }
-.al-table .al-data { white-space: nowrap; }
-.al-table .al-data small { display: block; color: var(--muted); font-size: 10.5px; margin-top: 2px; }
-.al-table .al-tempo { color: var(--muted); white-space: nowrap; }
+.al-table .al-id {
+  font-family: var(--mono); font-size: 10px; color: var(--muted);
+  white-space: nowrap; vertical-align: top; padding-top: 14px;
+}
 
-/* Badges de severidade */
+/* A célula do alerta: o que aconteceu em cima, onde aconteceu embaixo.
+   Mesmo molde da célula de Chamados — as duas telas dividem `.ch-*` e agora
+   dividem também a forma da linha. */
+/* Leitura de instrumento na barra, no lugar do card que a faixa tinha. */
+.al-medida {
+  display: flex; flex-direction: column; gap: 1px;
+  margin-left: auto; margin-bottom: 10px;
+  padding-left: 14px;
+  border-left: 1px solid var(--rasgo);
+  box-shadow: inset 1px 0 0 var(--luz);
+}
+.al-medida-lbl {
+  font-family: var(--mono); font-size: 8.5px; font-weight: 500;
+  letter-spacing: .055em; text-transform: uppercase; color: var(--text-dim);
+}
+.al-medida-val {
+  font-family: var(--mono); font-size: 15px; font-weight: 700;
+  letter-spacing: -.03em; color: var(--text);
+  font-variant-numeric: tabular-nums; line-height: 1.1;
+}
+
+.al-table .al-alerta-titulo {
+  font-size: 12.5px; font-weight: 600;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.al-table .al-alerta-sub {
+  display: flex; align-items: center; gap: 6px;
+  margin-top: 3px;
+  font-size: 11px; color: var(--muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.al-table .al-sub-sep { color: var(--muted2); }
+
+.al-table .al-data { white-space: nowrap; }
+.al-table .al-data-abs {
+  font-family: var(--mono); font-size: 10.5px; color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+.al-table .al-data-hora { color: var(--muted); }
+/* A antiga coluna "Tempo" — sempre foi um delta, e agora mora embaixo da data
+   que ela mede. Alerta resolvido não recebe cor: a duração dele é histórico. */
+.al-table .al-data-delta { font-size: 10.5px; margin-top: 2px; }
+.al-table .al-data-delta.is-off  { color: var(--muted2); }
+.al-table .al-data-delta.is-ok   { color: var(--muted); }
+.al-table .al-data-delta.is-warn { color: var(--warn); }
+.al-table .al-data-delta.is-bad  { color: var(--risco); font-weight: 600; }
+
+/* SEVERIDADE carrega o preenchimento, STATUS é de fio — a mesma divisão de
+   papel de Chamados, para não ter duas placas cheias na mesma linha.
+   Resolvido, a severidade se apaga: continua sendo crítico, mas parou de
+   pedir alguém. */
 .al-sev {
   display: inline-block;
   font-size: 10px; font-weight: 700;
-  padding: 3px 9px;
-  border-radius: 999px;
+  padding: 3px 8px;
+  --ch-p: 4px; clip-path: var(--corte-p);
   text-transform: uppercase;
-  letter-spacing: .3px;
+  letter-spacing: .03em;
+  /* "SLA estourado" é o rótulo mais longo que passa por aqui e quebrava em
+     duas linhas, engordando a placa. A coluna foi medida para caber ele. */
+  white-space: nowrap;
 }
-.al-sev.critico { background: rgba(239,68,68,.15); color: #fca5a5; border: 1px solid rgba(239,68,68,.3); }
-.al-sev.atencao { background: rgba(245,158,11,.15); color: #fcd34d; border: 1px solid rgba(245,158,11,.3); }
-.al-sev.normal  { background: rgba(16,185,129,.15); color: #86efac; border: 1px solid rgba(16,185,129,.3); }
+.al-sev.critico { background: var(--risco);   color: var(--mar-900); }
+.al-sev.atencao { background: var(--amarelo); color: var(--mar-900); }
+.al-sev.normal  { background: transparent; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ok) 55%, transparent); color: var(--ok); }
+.al-sev.is-quieto {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--fio-fraco);
+  color: var(--muted);
+}
 
-/* Badges de status */
+/* A lâmpada-piloto é a única curva que este sistema permite, e é exatamente
+   este o caso: um alerta ativo é uma luz acesa. Sem halo — o que estava aqui
+   era `box-shadow` de brilho, e brilho é decoração neste mundo. */
 .al-status {
   display: inline-flex; align-items: center; gap: 5px;
   font-size: 10.5px; font-weight: 600;
+  vertical-align: middle;
 }
 .al-status::before {
   content: ''; width: 6px; height: 6px; border-radius: 50%;
 }
-.al-status.ativo::before     { background: var(--warn); box-shadow: 0 0 6px var(--warn); }
+.al-status.ativo::before     { background: var(--warn); }
 .al-status.resolvido::before { background: var(--ok); }
 .al-status.ativo     { color: var(--warn); }
 .al-status.resolvido { color: var(--ok); }
 
 /* Badges de origem (telemetria/chamado) */
+/* Origem não é estado — é procedência. Por isso as duas são de fio: violeta e
+   ciano estavam aqui só porque eram as cores que sobravam do Mission Control,
+   e nenhuma das duas queria dizer nada. O que distingue é o rótulo. */
 .al-origem {
   display: inline-block;
-  font-size: 9.5px; font-weight: 700;
-  padding: 2px 6px;
-  border-radius: 4px;
+  font-family: var(--mono);
+  font-size: 8.5px; font-weight: 500;
+  padding: 2px 5px 1px;
+  --ch-p: 3px; clip-path: var(--corte-p);
   text-transform: uppercase;
-  letter-spacing: .3px;
-  margin-right: 6px;
+  letter-spacing: .06em;
+  margin-right: 0;
+  box-shadow: inset 0 0 0 1px var(--fio-fraco);
+  color: var(--text-dim);
 }
-.al-origem.telemetria { background: rgba(99,102,241,.18); color: #c4b5fd; }
-.al-origem.chamado    { background: rgba(34,211,238,.18); color: #67e8f9; }
+.al-origem.telemetria { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--agua) 70%, transparent); color: var(--crista); }
+.al-origem.chamado    { box-shadow: inset 0 0 0 1px var(--fio); color: var(--text-dim); }
 
 /* Selo no chamado que absorveu o alerta de telemetria do mesmo evento — o
    card de telemetria some da lista, o selo indica que a origem está ali. */
 .al-tel-tag {
   display: inline-block;
-  font-size: 9.5px; font-weight: 700;
-  padding: 1px 5px;
-  border-radius: 4px;
-  background: rgba(99,102,241,.14);
-  color: #c4b5fd;
+  font-family: var(--mono);
+  font-size: 8.5px; font-weight: 500; letter-spacing: .06em;
+  padding: 2px 5px 1px;
+  --ch-p: 3px; clip-path: var(--corte-p);
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--fio);
+  color: var(--text-dim);
   vertical-align: middle;
   white-space: nowrap;
 }
 
 /* Botões de ação */
 .al-actions { display: inline-flex; gap: 4px; }
+/* Deixou de morar numa coluna própria (que ficava vazia em toda linha já
+   resolvida) e passou a andar junto do status que ele muda. Fica discreto até
+   a linha ser apontada — a ação existe, mas não disputa a leitura. */
 .al-act-btn {
-  background: rgba(255,255,255,.04);
-  border: 1px solid var(--border);
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--fio-fraco);
+  border: none;
   color: var(--muted);
-  width: 28px; height: 28px;
-  border-radius: 6px;
+  width: 22px; height: 22px;
+  --ch-p: 4px; clip-path: var(--corte-p);
   display: inline-flex; align-items: center; justify-content: center;
+  vertical-align: middle;
+  margin-left: 6px;
   cursor: pointer;
-  transition: background .15s, color .15s, border-color .15s;
+  opacity: .45;
+  transition: opacity .16s var(--saida), background .16s var(--saida), color .16s var(--saida);
 }
-.al-act-btn:hover { background: rgba(255,255,255,.08); color: var(--text); }
+.al-row:hover .al-act-btn { opacity: 1; }
+.al-act-btn:hover { background: var(--ok); color: var(--mar-900); opacity: 1; }
+.al-act-btn:focus-visible { opacity: 1; }
 .al-act-btn svg { width: 14px; height: 14px; }
 
 /* Paginação */
@@ -5143,27 +5553,34 @@ body.mp-fs-active { overflow: hidden; }
   background: var(--ok);
 }
 
+/* A leitura da IA é uma placa como qualquer outra — o gradiente violeta que
+   estava aqui vinha do Mission Control e não sobreviveu à troca de mundo. */
 .al-ia-card {
-  border: 1px solid rgba(168,85,247,.3);
-  background: linear-gradient(135deg, rgba(168,85,247,.06), rgba(99,102,241,.06));
-  border-radius: 8px;
+  box-shadow: inset 0 0 0 1px var(--fio);
+  background: rgba(7,27,92,.42);
+  --ch-p: 8px; clip-path: var(--corte-p);
   padding: 12px;
 }
 .al-ia-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
 .al-ia-badge {
-  background: linear-gradient(135deg, #a855f7, #6366f1);
-  color: white;
-  font-size: 10px; font-weight: 700;
-  padding: 2px 8px; border-radius: 4px;
+  background: var(--accent);
+  color: var(--mar-900);
+  font-family: var(--mono);
+  font-size: 8.5px; font-weight: 500; letter-spacing: .06em;
+  padding: 3px 6px 2px;
+  --ch-p: 3px; clip-path: var(--corte-p);
 }
 .al-ia-analise { font-size: 12px; color: var(--text); line-height: 1.5; margin-bottom: 8px; }
 .al-ia-acoes { list-style: none; padding: 0; margin: 0 0 10px 0; display: flex; flex-direction: column; gap: 4px; }
+/* Ação recomendada. A barra violeta de 2px na borda saiu — é o mesmo tell da
+   linha selecionada, e aqui ela nem indicava estado: era decoração. O que
+   marca cada item é o ponto de lista, que já existe (`.al-acoes-list li`). */
 .al-ia-acoes li {
   font-size: 11.5px; color: var(--text);
-  padding: 5px 9px;
-  background: rgba(168,85,247,.08);
-  border-radius: 5px;
-  border-left: 2px solid rgba(168,85,247,.5);
+  padding: 6px 9px;
+  background: rgba(255,255,255,.04);
+  box-shadow: inset 0 0 0 1px var(--fio-fraco);
+  --ch-p: 5px; clip-path: var(--corte-p);
 }
 .al-ia-refazer { font-size: 10.5px; opacity: .8; }
 
@@ -5221,6 +5638,10 @@ body.mp-fs-active { overflow: hidden; }
    nenhuma affordance visual — filtros como "P1 Crítico", "Resolvidos" e "TI"
    ficavam fora da vista em notebook e ninguém descobria que dava pra rolar.
    Com wrap eles caem pra segunda linha e o scroll deixa de ser necessário. */
+/* ⚠️ `flex-wrap: wrap` e `overflow-x: auto` juntos: o wrap vence e o scroll
+   nunca acontece. Era por isso que as 5 abas de Chamados viravam 5 fileiras
+   no celular (e 2 fileiras no desktop assim que a ficha abria e estreitava a
+   coluna) em vez de rolarem numa linha. */
 .wa-tabs {
   display: flex; gap: 4px;
   flex-wrap: wrap;
@@ -5228,33 +5649,55 @@ body.mp-fs-active { overflow: hidden; }
   overflow-x: auto;
   scrollbar-width: thin;
 }
+
+/* A barra é o contêiner de consulta, não a viewport: o gatilho certo é
+   "a barra ficou estreita", que acontece tanto no celular quanto no desktop
+   com a ficha aberta. Media query resolveria só o primeiro caso. */
+.ch-toolbar { container-type: inline-size; }
+@container (max-width: 640px) {
+  .wa-tabs {
+    flex-wrap: nowrap;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x proximity;
+    padding-bottom: 4px;
+  }
+  .wa-tabs .wa-tab { scroll-snap-align: start; }
+}
+/* ⚠️ `.wa-*` tem nome de WhatsApp e roda em 10 das 15 telas — mexer aqui
+   move o painel inteiro. Ver `docs/modulos/painel-admin.md`. */
 .wa-tab {
   background: transparent;
-  border: 1px solid var(--border);
-  color: var(--muted);
+  box-shadow: inset 0 0 0 1px var(--fio);
+  color: var(--text-dim);
   padding: 5px 10px;
-  border-radius: 6px;
+  --ch-p: 5px;
+  clip-path: var(--corte-p);
   font-size: 10.5px; font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
   display: inline-flex; align-items: center; gap: 5px;
-  transition: background .15s, border-color .15s, color .15s;
+  transition: background .16s var(--saida), box-shadow .16s var(--saida), color .16s var(--saida);
 }
-.wa-tab:hover { background: rgba(255,255,255,.04); color: var(--text); }
+.wa-tab:hover { background: rgba(255,255,255,.05); color: var(--text); box-shadow: inset 0 0 0 1px var(--fio-forte); }
+/* A aba aberta usa a MESMA forma do item de navegação aberto: placa amarela
+   com tinta marinho. Uma língua só para "você está aqui" no painel todo. */
 .wa-tab.is-active {
-  background: rgba(34,197,94,.15);
-  border-color: rgba(34,197,94,.4);
-  color: var(--text);
+  background: var(--accent);
+  box-shadow: none;
+  color: var(--mar-900);
+  font-weight: 700;
 }
 .wa-count {
-  font-size: 9.5px; font-weight: 700;
-  background: rgba(255,255,255,.08);
-  color: var(--text);
-  padding: 1px 5px;
-  border-radius: 999px;
+  font-family: var(--mono);
+  font-size: 9px; font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--fio);
+  color: var(--text-dim);
+  padding: 2px 5px 1px;
   min-width: 16px; text-align: center;
 }
-.wa-tab.is-active .wa-count { background: rgba(34,197,94,.3); }
+.wa-tab.is-active .wa-count { background: var(--mar-900); box-shadow: none; color: #fff; }
 
 .wa-list { flex: 1; overflow-y: auto; }
 .wa-list-foot {
@@ -5273,11 +5716,7 @@ body.mp-fs-active { overflow: hidden; }
   position: relative;
 }
 .wa-conv-row:hover { background: rgba(255,255,255,.03); }
-.wa-conv-row.is-selected {
-  background: rgba(34,197,94,.08);
-  border-left: 3px solid rgba(34,197,94,.7);
-  padding-left: 11px;
-}
+.wa-conv-row.is-selected { background: var(--mar-600); }
 
 .wa-conv-avatar {
   width: 38px; height: 38px;
@@ -5553,12 +5992,23 @@ body.mp-fs-active { overflow: hidden; }
   flex: 1;
   min-width: 0;
   align-self: stretch;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 14px;
+  position: relative;
+  --ch: 12px;
+  background: var(--fio);
+  clip-path: var(--corte);
   overflow: hidden;
   display: flex;
   flex-direction: column;
+}
+.ch-list-col::before {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  --ch: 11px;
+  background: color-mix(in srgb, var(--mar-700) 52%, var(--mar-900));
+  clip-path: var(--corte);
+  pointer-events: none;
+  z-index: -1;
 }
 
 .ch-list-col .tableWrap,
@@ -5583,31 +6033,83 @@ body.mp-fs-active { overflow: hidden; }
 
 .ch-row { cursor: pointer; transition: background .12s; }
 .ch-row:hover { background: rgba(255,255,255,.04); }
-.ch-row.is-selected { background: rgba(139,92,246,.1); }
-.ch-row.is-selected td { border-left: none; }
-.ch-row.is-selected td:first-child { border-left: 2px solid var(--accent); }
+/* LINHA SELECIONADA — sem barra na borda.
+   Faixa de cor de 2-3px indicando estado é o tell mais reconhecível de
+   interface gerada por IA, e neste sistema é gramática estranha: profundidade
+   é aresta e corte, nunca barra. Quem está selecionado SOBE UM DEGRAU de
+   marinho e tem o identificador em amarelo — mesma língua do item de
+   navegação e da aba abertos. */
+.ch-row.is-selected td { background: var(--mar-600); color: #fff; }
+.ch-row.is-selected td:first-child { color: var(--accent); }
+.ch-row.is-selected:hover td { background: var(--mar-500); }
 
-.ch-id-cell    { font-family: monospace; font-size: 11px; color: var(--muted); }
-.ch-titulo-text { font-size: 12.5px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
-.ch-condo-cell { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ch-data-cell  { font-size: 11.5px; color: var(--muted); }
+.ch-id-cell    { font-family: var(--mono); font-size: 10px; color: var(--muted); white-space: nowrap; vertical-align: top; padding-top: 14px; }
+
+/* A célula do chamado: título + linha de apoio, como em `planos`. O título
+   deixa de ter `max-width: 260px` porque agora ele tem as duas colunas que
+   Condomínio e Categoria ocupavam. */
+.ch-titulo-text { font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ch-titulo-sub {
+  display: flex; align-items: center; gap: 7px;
+  margin-top: 3px;
+  font-size: 11px; color: var(--muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.ch-data-cell  { font-size: 11.5px; color: var(--muted); white-space: nowrap; }
+.ch-data-abs   { font-family: var(--mono); font-size: 10.5px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.ch-data-delta { font-size: 10.5px; margin-top: 2px; }
+.ch-data-delta.is-off  { color: var(--muted2); }
+.ch-data-delta.is-ok   { color: var(--muted); }
+.ch-data-delta.is-warn { color: var(--warn); }
+.ch-data-delta.is-bad  { color: var(--risco); font-weight: 600; }
 
 .ch-cat-badge {
-  font-size: 10px; padding: 2px 7px; border-radius: 4px;
-  background: rgba(255,255,255,.06); color: var(--muted);
+  font-family: var(--mono);
+  font-size: 8.5px; letter-spacing: .06em; text-transform: uppercase;
+  padding: 2px 5px 1px;
+  --ch-p: 3px; clip-path: var(--corte-p);
+  box-shadow: inset 0 0 0 1px var(--fio-fraco);
+  color: var(--muted);
   white-space: nowrap;
 }
 
-.ch-prio          { font-size: 10.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
-.ch-prio-p4 { background: rgba(148,163,184,.15); color: #94a3b8; }
-.ch-prio-p3 { background: rgba(34,211,238,.15);  color: #22d3ee; }
-.ch-prio-p2 { background: rgba(251,146,60,.15);  color: #fb923c; }
-.ch-prio-p1 { background: rgba(239,68,68,.18);   color: #f87171; }
+/* ── UM SELO DE ESTADO, DUAS FUNÇÕES ───────────────────────────────────────
+   O estudo achou SEIS vocabulários para a mesma ideia nesta tela. A regra que
+   os une: **preenchido quando pede ação, de fio em repouso** — e, para não
+   ter duas placas cheias brigando na mesma linha, a divisão é de papel:
 
-.ch-st            { font-size: 10.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
-.ch-st-aberto         { background: rgba(96,165,250,.15); color: #60a5fa; }
-.ch-st-em_atendimento { background: rgba(251,146,60,.15); color: #fb923c; }
-.ch-st-fechado        { background: rgba(34,197,94,.15);  color: #4ade80; }
+     · PRIORIDADE carrega o preenchimento — é a urgência, é o que grita;
+     · STATUS é sempre de fio — é fase do trabalho, não alarme.
+
+   Resolvido, a prioridade se apaga (`.is-quieto`): continua sendo P1, mas
+   deixa de disputar atenção com quem ainda precisa de alguém. */
+.ch-prio {
+  font-size: 10px; font-weight: 700; letter-spacing: .03em;
+  padding: 3px 8px;
+  --ch-p: 4px; clip-path: var(--corte-p);
+  white-space: nowrap;
+}
+.ch-prio-p1 { background: var(--risco);  color: var(--mar-900); }
+.ch-prio-p2 { background: var(--amarelo); color: var(--mar-900); }
+.ch-prio-p3 { background: transparent; box-shadow: inset 0 0 0 1px var(--fio); color: var(--text-dim); }
+.ch-prio-p4 { background: transparent; box-shadow: inset 0 0 0 1px var(--fio-fraco); color: var(--muted); }
+.ch-prio.is-quieto {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--fio-fraco);
+  color: var(--muted);
+}
+
+.ch-st {
+  font-size: 10px; font-weight: 600; letter-spacing: .03em;
+  padding: 3px 8px;
+  --ch-p: 4px; clip-path: var(--corte-p);
+  background: transparent;
+  white-space: nowrap;
+}
+.ch-st-aberto         { box-shadow: inset 0 0 0 1px var(--fio-forte); color: var(--text); }
+.ch-st-em_atendimento { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--amarelo) 55%, transparent); color: var(--amarelo); }
+.ch-st-fechado        { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ok) 45%, transparent); color: var(--ok); }
 
 /* Painel de detalhe.
    GRUDA NO TOPO (06/08). Antes era estático e ficava no alto da linha
@@ -5625,17 +6127,55 @@ body.mp-fs-active { overflow: hidden; }
    O `top: 0` é relativo ao scrollport do `.content` (que já começa abaixo da
    topbar); o `max-height` impede que um painel comprido nasça com o rodapé
    fora da tela, e o `overflow-y: auto` faz ele rolar por dentro. */
+/* ── A FICHA SÓ EXISTE QUANDO HÁ FICHA ─────────────────────────────────────
+   Segunda das cinco decisões do plano. A coluna nascia sempre, ocupando ~28%
+   da largura, e o que preenchia esse espaço era um ícone-placeholder de
+   130-160px — documento em `chamados`, avatar em `cadastros`, chave em
+   `tecnicos`. Era o maior desperdício de área do painel, e em `chamados`
+   ainda empurrava a coluna PRIORIDADE para fora da tela.
+
+   Agora ela colapsa a zero e **abre na seleção**, deslizando. O gatilho é o
+   próprio placeholder: `:has()` detecta que o conteúdo é o estado vazio, sem
+   precisar de classe nova no JS — o que faz a regra valer de imediato nas
+   seis telas que compartilham o vocabulário `.ch-*`.
+
+   ⚠️ `:has()` não pode ser aninhado dentro de `:has()`, por isso o `gap` do
+   `.ch-layout` é resolvido em regra própria logo abaixo, olhando o
+   placeholder direto. */
 .ch-detail-col {
   width: 360px;
   flex-shrink: 0;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 14px;
+  position: relative;
+  --ch: 12px;
+  background: var(--fio);
+  clip-path: var(--corte);
   overflow-y: auto;
   position: sticky;
   top: 0;
   max-height: calc(100vh - var(--topbar-h) - 44px);
+  transition: width .34s var(--saida), opacity .22s var(--saida);
 }
+.ch-detail-col::before {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  --ch: 11px;
+  background: color-mix(in srgb, var(--mar-700) 52%, var(--mar-900));
+  clip-path: var(--corte);
+  pointer-events: none;
+  z-index: -1;
+}
+
+.ch-detail-col:has(> .ch-detail-empty),
+.ch-detail-col:has(> .al-empty) {
+  width: 0;
+  opacity: 0;
+  padding: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.ch-layout:has(.ch-detail-empty),
+.ch-layout:has(.al-empty) { gap: 0; }
 
 .ch-detail-empty {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -5684,12 +6224,16 @@ body.mp-fs-active { overflow: hidden; }
 .ch-aval-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .ch-aval-nota { font-size: 13px; font-weight: 600; color: var(--text); }
 .ch-aval-quando { font-size: 11px; color: var(--muted); margin-left: auto; }
+/* Citação do morador. A barra amarela de 3px na borda saiu (mesma razão da
+   linha selecionada); o que marca o trecho como fala de outra pessoa é a
+   placa chanfrada com o itálico dentro. */
 .ch-aval-coment {
   margin-top: 10px;
   padding: 10px 12px;
-  background: rgba(255,255,255,.03);
-  border-left: 3px solid var(--accent);
-  border-radius: 4px;
+  background: rgba(255,255,255,.04);
+  box-shadow: inset 0 0 0 1px var(--fio-fraco);
+  --ch-p: 8px;
+  clip-path: var(--corte-p);
   font-size: 12.5px;
   line-height: 1.5;
   color: var(--text);
@@ -6008,7 +6552,7 @@ body.mp-fs-active { overflow: hidden; }
 
 /* Date input — data em mono + ícone de calendário próprio */
 .filter-bar .rel-date {
-  font-family: ui-monospace, "Cascadia Code", "Fira Code", Consolas, monospace;
+  font-family: var(--mono);
   font-size: 12px;
 }
 .rel-date::-webkit-calendar-picker-indicator {
@@ -6018,7 +6562,7 @@ body.mp-fs-active { overflow: hidden; }
 }
 
 /* Números das tabelas do painel em mono */
-.rel-num { font-family: ui-monospace, "Cascadia Code", "Fira Code", Consolas, monospace; font-size: 12px; }
+.rel-num { font-family: var(--mono); font-size: 12px; }
 
 /* Painel ao vivo — colapsa pra linha de status quando tudo operacional */
 .rel-vivo-grid { display: grid; grid-template-columns: 1fr 1fr; }
@@ -6895,11 +7439,11 @@ body.role-viewer .viewer-only-hide-inline {
   font-size: 10px;
   font-weight: 700;
   letter-spacing: .3px;
-  padding: 2px 6px;
-  border-radius: 4px;
-  background: rgba(239,68,68,.15);
-  color: #f87171;
-  border: 1px solid rgba(239,68,68,.3);
+  padding: 3px 6px 2px;
+  --ch-p: 3px; clip-path: var(--corte-p);
+  background: var(--risco);
+  color: var(--mar-900);
+  border: none;
   margin-left: 5px;
   vertical-align: middle;
   white-space: nowrap;
@@ -6912,11 +7456,11 @@ body.role-viewer .viewer-only-hide-inline {
   font-size: 10px;
   font-weight: 700;
   letter-spacing: .3px;
-  padding: 2px 6px;
-  border-radius: 4px;
-  background: rgba(245,158,11,.15);
-  color: #fbbf24;
-  border: 1px solid rgba(245,158,11,.3);
+  padding: 3px 6px 2px;
+  --ch-p: 3px; clip-path: var(--corte-p);
+  background: var(--amarelo);
+  color: var(--mar-900);
+  border: none;
   margin-left: 5px;
   vertical-align: middle;
   white-space: nowrap;
@@ -7204,7 +7748,7 @@ body.role-viewer .viewer-only-hide-inline {
   flex-shrink: 0;
 }
 .edit-coords input {
-  font-family: ui-monospace, "Cascadia Code", "Fira Code", Consolas, monospace;
+  font-family: var(--mono);
   font-size: 12px;
   padding: 7px 10px;
 }
@@ -7919,7 +8463,7 @@ body.role-viewer .viewer-only-hide-inline {
   letter-spacing: 1.1px; color: var(--muted);
 }
 .av-total {
-  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  font-family: var(--mono);
   font-size: 29px; font-weight: 800; letter-spacing: -1px; line-height: 1.1;
   margin-top: 5px; color: var(--text);
 }
@@ -8159,7 +8703,7 @@ body.role-viewer .viewer-only-hide-inline {
 
 .pm-prox-data {
   font-size: 12px; font-weight: 600;
-  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  font-family: var(--mono);
 }
 .pm-prox-delta { font-size: 10.5px; margin-top: 3px; }
 .pm-prox-delta.is-bad  { color: #f87171; font-weight: 600; }

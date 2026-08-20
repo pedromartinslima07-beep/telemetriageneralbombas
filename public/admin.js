@@ -2141,21 +2141,11 @@ function _alRenderKpis(todos) {
     ? _alFmtDuracao(temposMs.reduce((s, v) => s + v, 0) / temposMs.length)
     : "—";
 
-  const kpi = (icon, val, label, kindCls, tab) =>
-    kpiCard(icon, val, label, kindCls, tab ? `data-al-kpi-tab="${tab}" style="cursor:pointer;"` : "");
-
-  const el = document.getElementById("alKpiGrid");
-  if (el) el.innerHTML =
-    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
-        critico, "Críticos", critico > 0 ? "rc-bad" : "rc-neutral", "critico") +
-    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>`,
-        atencao, "Atenção", atencao > 0 ? "rc-warn" : "rc-neutral", "atencao") +
-    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`,
-        normal, "Normais", normal > 0 ? "rc-ok" : "rc-neutral", "normal") +
-    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>`,
-        resolvidos.length, "Resolvidos", resolvidos.length > 0 ? "rc-ok" : "rc-neutral", "resolvido") +
-    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
-        tempoMedio, "Tempo médio", "rc-neutral");
+  // ⚠️ A faixa de KPI saiu daqui — ver a nota no `admin.html`, na seção
+  // alertas. Ela repetia as abas card a card. Sobrou o tempo médio, que virou
+  // leitura na barra de ferramentas.
+  const tm = document.getElementById("alTempoMedio");
+  if (tm) tm.textContent = tempoMedio;
 
   // Contadores nas tabs
   const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
@@ -2186,7 +2176,7 @@ function _alRenderTabela(filtrados) {
   const pageItems = filtrados.slice(ini, ini + _alFiltros.pageSize);
 
   if (!pageItems.length) {
-    tbody.innerHTML = `<tr class="al-empty-row"><td colspan="8" style="text-align:center;padding:40px;color:var(--muted);">Nenhum alerta encontrado com esses filtros.</td></tr>`;
+    tbody.innerHTML = `<tr class="al-empty-row"><td colspan="5" style="text-align:center;padding:40px;color:var(--muted);">Nenhum alerta encontrado com esses filtros.</td></tr>`;
   } else {
     tbody.innerHTML = pageItems.map(it => {
       const agora = Date.now();
@@ -2195,30 +2185,41 @@ function _alRenderTabela(filtrados) {
         : agora - new Date(it.criado_em).getTime();
       const tempoStr = _alFmtDuracao(ref);
       const isSelected = _alSelecionadoKey === it.key ? " is-selected" : "";
+      // "há 2 dias" / "3h" já é o delta — a antiga coluna Tempo sempre foi
+      // isto, só que separada da data que ela mede. Junto embaixo dela, vira
+      // a mesma leitura que `planos` faz na coluna Próxima.
+      const tempoCls = it.status === "resolvido" ? "is-off"
+        : ref >= 172800000 ? "is-bad"      // 48h
+        : ref >= 43200000  ? "is-warn"     // 12h
+        : "is-ok";
+      const subs = [];
+      if ((it.telemetriaAbsorvida || []).length > 1) subs.push(`${it.telemetriaAbsorvida.length} reservatórios`);
+      else if (it.device_id) subs.push(it.device_id);
+
       return `
         <tr class="al-row${isSelected}" data-al-key="${it.key}">
           <td class="al-id">${it.key}</td>
-          <td class="al-condo">
-            <span class="al-origem ${it.origem}">${it.origem === "telemetria" ? "Tel" : "Cham"}</span>
-            ${it.condominio_nome}
-            ${(it.telemetriaAbsorvida || []).length > 1
-              ? `<small>${it.telemetriaAbsorvida.length} reservatórios</small>`
-              : it.device_id ? `<small>${it.device_id}</small>` : ""}
-          </td>
-          <td>${_alCapitalize(it.titulo)}${(it.telemetriaAbsorvida || []).length
-            ? ` <span class="al-tel-tag" title="Alerta de telemetria deste mesmo evento: ${it.telemetriaAbsorvida.map(a => `${a.device_id} (${a.tipo})`).join(" · ")}">+ telemetria${it.telemetriaAbsorvida.length > 1 ? ` ×${it.telemetriaAbsorvida.length}` : ""}</span>`
-            : ""}</td>
-          <td><span class="al-sev ${it.severidade}">${it.sevLabel || _alSevLabel(it.severidade)}</span></td>
-          <td class="al-data">${_alFmtData(it.criado_em)}<small>${_alFmtHora(it.criado_em)}</small></td>
-          <td class="al-tempo">${tempoStr}</td>
-          <td><span class="al-status ${it.status}">${_alStatusLabel(it.status)}</span></td>
-          <td class="right">
-            <div class="al-actions">
-              ${it.status === "ativo" ? `
-              <button class="al-act-btn viewer-only-hide" data-al-action="resolver" data-al-key="${it.key}" title="Marcar como resolvido">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-              </button>` : ""}
+          <td class="al-alerta-cell">
+            <div class="al-alerta-titulo">${_alCapitalize(it.titulo)}${(it.telemetriaAbsorvida || []).length
+              ? ` <span class="al-tel-tag" title="Alerta de telemetria deste mesmo evento: ${it.telemetriaAbsorvida.map(a => `${a.device_id} (${a.tipo})`).join(" · ")}">+ telemetria${it.telemetriaAbsorvida.length > 1 ? ` ×${it.telemetriaAbsorvida.length}` : ""}</span>`
+              : ""}</div>
+            <div class="al-alerta-sub">
+              <span class="al-origem ${it.origem}">${it.origem === "telemetria" ? "Tel" : "Cham"}</span>
+              ${it.condominio_nome}
+              ${subs.length ? `<span class="al-sub-sep">·</span>${subs.join("")}` : ""}
             </div>
+          </td>
+          <td><span class="al-sev ${it.severidade}${it.status === "resolvido" ? " is-quieto" : ""}">${it.sevLabel || _alSevLabel(it.severidade)}</span></td>
+          <td>
+            <span class="al-status ${it.status}">${_alStatusLabel(it.status)}</span>
+            ${it.status === "ativo" ? `
+            <button class="al-act-btn viewer-only-hide" data-al-action="resolver" data-al-key="${it.key}" title="Marcar como resolvido">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            </button>` : ""}
+          </td>
+          <td class="al-data">
+            <div class="al-data-abs">${_alFmtData(it.criado_em)} <span class="al-data-hora">${_alFmtHora(it.criado_em)}</span></div>
+            <div class="al-data-delta ${tempoCls}">${tempoStr}</div>
           </td>
         </tr>`;
     }).join("");
@@ -4220,6 +4221,27 @@ function _chFmtDataCurta(iso) {
   return new Date(iso).toLocaleDateString("pt-BR", { day:"2-digit", month:"2-digit" });
 }
 
+// Data absoluta E relativa, como na coluna "Próxima" de `planos` — que é a
+// melhor tabela do painel e a que virou molde. "30/07" sozinho não diz se o
+// chamado está parado há três semanas; "há 21 dias" diz, e é essa a leitura
+// que interessa numa lista de chamados abertos.
+// Chamado fechado não recebe cor de urgência: a idade dele é histórico.
+function _chIdade(iso, status) {
+  if (!iso) return { texto: "—", cls: "is-off" };
+  const dias = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+  const plural = d => `${d} ${d === 1 ? "dia" : "dias"}`;
+
+  let texto;
+  if (dias <= 0)      texto = "hoje";
+  else if (dias === 1) texto = "ontem";
+  else                texto = `há ${plural(dias)}`;
+
+  if (status === "fechado") return { texto, cls: "is-off" };
+  if (dias >= 14) return { texto, cls: "is-bad" };
+  if (dias >= 7)  return { texto, cls: "is-warn" };
+  return { texto, cls: "is-ok" };
+}
+
 function renderChKpis() {
   const el = document.getElementById("chKpiGrid");
   if (!el) return;
@@ -4241,19 +4263,21 @@ function renderChKpis() {
 
   const kpi = (icon, val, hint, kindCls) => kpiCard(icon, val, hint, kindCls);
 
+  // ⚠️ Abertos / Em atendimento / Resolvidos NÃO entram aqui.
+  // As abas logo abaixo mostram exatamente os mesmos três números, com a
+  // vantagem de também filtrarem a lista — a faixa só os repetia. A divisão
+  // agora é de pergunta: as ABAS respondem "o que está na lista", a FAIXA
+  // responde "como estamos indo".
+  // Para trazê-los de volta, basta reinserir as três chamadas de `kpi(...)`
+  // — as contagens (`abertos`, `atend`, `fechados`) seguem calculadas acima
+  // porque as abas usam as mesmas.
   el.innerHTML =
-    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`,
-        abertos, "Abertos", abertos > 0 ? "rc-warn" : "rc-neutral") +
-    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
-        atend, "Em atendimento", atend > 0 ? "rc-warn" : "rc-neutral") +
-    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`,
-        fechados, "Resolvidos", fechados > 0 ? "rc-ok" : "rc-neutral") +
     kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
-        criticos, "Críticos abertos", criticos > 0 ? "rc-bad" : "rc-neutral") +
+        criticos, "Críticos", criticos > 0 ? "rc-bad" : "rc-neutral") +
     kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>`,
-        `${taxa}%`, "Taxa de resolução", taxa >= 70 ? "rc-ok" : taxa >= 40 ? "rc-warn" : "rc-neutral") +
+        `${taxa}%`, "% resolvido", taxa >= 70 ? "rc-ok" : taxa >= 40 ? "rc-warn" : "rc-neutral") +
     kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
-        tempoMedio, "Tempo médio resolução", "rc-neutral");
+        tempoMedio, "Tempo médio", "rc-neutral");
 }
 
 function renderChTabela() {
@@ -4270,20 +4294,27 @@ function renderChTabela() {
 
   const lista = _chFiltrados();
   if (!lista.length) {
-    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:32px;">Nenhum chamado encontrado.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:32px;">Nenhum chamado encontrado.</td></tr>`;
     return;
   }
 
   tbody.innerHTML = lista.map(ch => {
     const sel = _chSelecionadoId === ch.id ? " is-selected" : "";
+    const idade = _chIdade(ch.criado_em, ch.status);
+    // Só o chamado ainda em aberto acende a prioridade. Um P1 já resolvido
+    // continua sendo P1, mas não é mais alarme — e placa vermelha cheia numa
+    // linha resolvida disputa atenção com quem realmente precisa.
+    const prioQuieta = ch.status === "fechado" ? " is-quieto" : "";
     return `<tr class="ch-row${sel}" data-ch-id="${ch.id}">
       <td class="ch-id-cell">CH-${String(ch.id).padStart(4,"0")}</td>
       <td class="ch-titulo-cell">
         <div class="ch-titulo-text">${_waEscaparHtml(ch.titulo || "—")}</div>
+        <div class="ch-titulo-sub">
+          ${_waEscaparHtml(ch.condominio_nome || "—")}
+          <span class="ch-cat-badge">${_chCatNome[ch.categoria] || ch.categoria || "—"}</span>
+        </div>
       </td>
-      <td class="ch-condo-cell">${_waEscaparHtml(ch.condominio_nome || "—")}</td>
-      <td><span class="ch-cat-badge">${_chCatNome[ch.categoria] || ch.categoria || "—"}</span></td>
-      <td><span class="ch-prio ch-prio-${ch.prioridade||"p3"}">${_chPrioNome[ch.prioridade]||ch.prioridade||"—"}</span></td>
+      <td><span class="ch-prio ch-prio-${ch.prioridade||"p3"}${prioQuieta}">${_chPrioNome[ch.prioridade]||ch.prioridade||"—"}</span></td>
       <td>
         <span class="ch-st ch-st-${ch.status||"aberto"}">${_chStNome[ch.status]||ch.status||"—"}</span>
         ${(ch.status === "fechado" && ch.avaliacao_nota != null)
@@ -4292,7 +4323,10 @@ function renderChTabela() {
         ${ch.sla_ttfr_estourado ? `<span class="ch-sla-badge" title="Sem resposta há mais de ${ch.sla_ttfr_min} min (TTFR)">⚠ SLA</span>` : ""}
         ${(!ch.sla_ttfr_estourado && ch.sla_ttr_risco) ? `<span class="ch-sla-ttr-badge" title="Aberto há mais de ${ch.sla_ttr_min} min (TTR)">⏱ TTR</span>` : ""}
       </td>
-      <td class="ch-data-cell">${_chFmtDataCurta(ch.criado_em)}</td>
+      <td class="ch-data-cell">
+        <div class="ch-data-abs">${_chFmtDataCurta(ch.criado_em)}</div>
+        <div class="ch-data-delta ${idade.cls}">${idade.texto}</div>
+      </td>
     </tr>`;
   }).join("");
 }
@@ -10112,7 +10146,9 @@ document.addEventListener("DOMContentLoaded", () => {
   // Começa expandida; respeita preferência salva
   _applySidebar(localStorage.getItem("sidebarCollapsed") === "true");
 
-  // operador: só vê Monitor + Chamados + Config (sem Atendimento exceto chamados, sem Gestão exceto config)
+  // operador: sem Atendimento (exceto Chamados), sem Cadastro (exceto
+  // Contratos) e sem Relatórios. Sobram Alertas, Chamados, Contratos,
+  // Dashboard, Telemetria, Mapa e Configurações.
   if (_isOperador) {
     const _navHide = ["whatsapp", "ordens-servico", "orcamentos", "planos", "cadastros", "tecnicos", "relatorios", "equipamentos"];
     _navHide.forEach(s => {
@@ -10120,6 +10156,19 @@ document.addEventListener("DOMContentLoaded", () => {
       if (el) el.style.display = "none";
     });
   }
+
+  // Rótulo de grupo sem nenhum item visível vira cabeçalho órfão. Acontece
+  // com "Em curso" no perfil operador — O.S. e Orçamentos são os dois únicos
+  // itens do grupo e os dois ficam ocultos. A varredura é genérica de
+  // propósito: qualquer regra de visibilidade futura já nasce coberta.
+  document.querySelectorAll(".nav .nav-section-label").forEach(rotulo => {
+    let algumVisivel = false;
+    for (let n = rotulo.nextElementSibling; n; n = n.nextElementSibling) {
+      if (n.classList.contains("nav-section-label")) break;
+      if (n.style.display !== "none") { algumVisivel = true; break; }
+    }
+    if (!algumVisivel) rotulo.style.display = "none";
+  });
 
   function _onToggle() {
     const next = !_sidebar.classList.contains("collapsed");
@@ -10201,6 +10250,9 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
   // KPIs clicáveis (atalho pras tabs) — delegação porque os cards são gerados dinamicamente
+  // O `#alKpiGrid` não existe mais (a faixa era cópia das abas). O `?.` deixa
+  // isto inerte; fica registrado porque é o atalho que voltaria junto se a
+  // faixa for reinserida.
   document.getElementById("alKpiGrid")?.addEventListener("click", (e) => {
     const card = e.target.closest("[data-al-kpi-tab]");
     if (!card) return;
