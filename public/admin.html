@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="/static/leaflet.css">
   <!-- ⚠️ Ao mexer em admin.js ou admin.css, bumpe o ?v=N aqui E no <script>
        lá embaixo. Ver CLAUDE.md raiz. -->
-  <link rel="stylesheet" href="/static/admin.css?v=213">
+  <link rel="stylesheet" href="/static/admin.css?v=217">
 </head>
 <body>
   <div id="appLoader">
@@ -2458,7 +2458,10 @@
 <script src="/static/leaflet.js"></script>
 <script src="/static/inatividade.js" defer></script>
 <!-- Modal de edição/criação de orçamento avulso -->
-<div id="avModal" class="av-modal" style="display:none;" role="dialog" aria-modal="true">
+<!-- ⚠️ `aria-labelledby` aponta para o número do orçamento, que o JS
+     renderiza no corpo. Sem ele o leitor de tela anunciava só "diálogo" e
+     parava — o documento não tinha nome. -->
+<div id="avModal" class="av-modal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="avModalTitulo">
   <div class="av-modal-backdrop" id="avModalBackdrop"></div>
   <div class="av-modal-dialog">
     <div id="avModalBody"></div>
@@ -2699,7 +2702,7 @@
 </div>
 
 
-<script src="/static/admin.js?v=299" defer></script>
+<script src="/static/admin.js?v=302" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
 <script src="/static/register-sw.js?v=38" defer></script>
 </body>

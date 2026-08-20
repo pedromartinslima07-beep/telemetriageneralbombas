@@ -8473,7 +8473,7 @@ body.role-viewer .viewer-only-hide-inline {
   flex-direction: column;
   gap: 0;
   padding: 10px 0 2px;
-  border-top: 1px dashed var(--border);
+  border-top: 1px dashed var(--fio);
   margin-top: 8px;
 }
 .orc-add-item-row {
@@ -8520,22 +8520,113 @@ body.role-viewer .viewer-only-hide-inline {
   backdrop-filter: blur(4px);
   z-index: 0;
 }
+/* ⚠️ Este era o ÚNICO modal do painel que continuava marinho depois de os 11
+   `.modalBox` virarem placa clara — e era o caso mais forte da regra, porque
+   é o formulário mais denso do sistema e onde se lê e se edita dinheiro. O
+   fundo era `#0e1022` escrito à mão, nem token.
+   Mesmo remapeamento de token da `.modalBox`: ver a nota lá para o porquê de
+   converter por token e não por reescrita de regra, e para a distinção entre
+   preenchimento (cru) e tinta (semântica). */
 .av-modal-dialog {
   position: relative;
   z-index: 1;
-  background: #0e1022;
-  border: 1px solid var(--border);
-  /* Mesmo fio dos modais que usam .modalBox. Sem isto os três que usam
-     .av-modal (orçamento, planos, seletor de contratos) ficavam de fora do
-     padrão — inclusive o de orçamento, que serviu de referência pra ele. */
-  border-top: 2px solid var(--accent);
-  border-radius: 16px;
+
+  --text:          var(--tinta);
+  --text-dim:      var(--tinta-2);
+  --muted:         var(--tinta-2);
+  --muted2:        #6b7a9e;
+  --sobre-2:       var(--tinta-2);
+  --border:        var(--fio-esc);
+  --border2:       rgba(6, 16, 51, .10);
+  --border-strong: rgba(6, 16, 51, .34);
+  --fio:           var(--fio-esc);
+  --fio-fraco:     rgba(6, 16, 51, .10);
+  --fio-forte:     rgba(6, 16, 51, .34);
+  --surface:       var(--chapa-cl);
+  --surface2:      var(--chapa-es);
+  --surface3:      #c9d0e0;
+  --rasgo:         rgba(6, 16, 51, .16);
+  --luz:           rgba(255, 255, 255, .9);
+  --ok:     var(--ok-t);
+  --normal: var(--normal-t);
+  --warn:   var(--warn-t);
+  --danger: var(--danger-t);
+  --risco:  var(--risco-t);
+  --accent:   var(--atencao-t);
+  --accent-2: #a06400;
+
+  background: var(--chapa);
+  color: var(--tinta);
+  border: none;
+  /* A barra âmbar de 2px no topo saiu daqui pelo mesmo motivo dos outros:
+     faixa de cor na borda indicando estado é o padrão que o DESIGN.md proíbe,
+     e placa clara sobre campo marinho salta sozinha. */
+  --ch: 18px;
+  clip-path: var(--corte);
   width: 100%;
   max-width: 900px;
   padding: 36px 40px 40px;
-  box-shadow: 0 28px 80px rgba(0,0,0,.7);
-  animation: avModalIn .18s ease;
+  box-shadow: none;
+  animation: avModalIn .18s var(--saida);
 }
+
+/* Campos, botões e tabela dentro da placa clara — mesma construção do
+   `.modalBox`, repetida por seletor de propósito (ver a nota lá). */
+.av-modal-dialog .input,
+.av-modal-dialog .select,
+.av-modal-dialog textarea {
+  background-color: #fff;
+  color: var(--tinta);
+  border: none;
+  box-shadow: inset 0 0 0 1.5px var(--fio-esc);
+  caret-color: var(--mar-700);
+}
+.av-modal-dialog .input::placeholder,
+.av-modal-dialog textarea::placeholder { color: var(--tinta-2); }
+.av-modal-dialog .input:focus,
+.av-modal-dialog .select:focus,
+.av-modal-dialog textarea:focus { background-color: #fff; box-shadow: inset 0 0 0 2.5px var(--mar-700); }
+.av-modal-dialog .select option { background: #fff; color: var(--tinta); }
+.av-modal-dialog .btn { background: var(--fio-esc); color: var(--tinta); }
+.av-modal-dialog .btn::before { background: var(--chapa-cl); }
+.av-modal-dialog .btn:hover { background: rgba(6,16,51,.34); }
+.av-modal-dialog .btn:hover::before { background: #fff; }
+.av-modal-dialog .btnAccent { background: var(--amarelo); color: var(--mar-900); }
+.av-modal-dialog .btnAccent::before { background: var(--amarelo); }
+.av-modal-dialog th { background: var(--chapa-es); color: var(--tinta-2); }
+.av-modal-dialog * { scrollbar-color: rgba(6,16,51,.28) transparent; }
+.av-modal-dialog *::-webkit-scrollbar-thumb { background: rgba(6,16,51,.24); background-clip: content-box; }
+
+/* ── Condições comerciais: fechadas, com o valor atual no resumo ─────────── */
+.av-cond { border-top: 1px solid var(--rasgo); box-shadow: 0 -1px 0 var(--luz) inset; padding-top: 12px; }
+.av-cond-sum {
+  display: flex; align-items: baseline; gap: 10px;
+  cursor: pointer; list-style: none;
+  padding: 4px 0;
+}
+.av-cond-sum::-webkit-details-marker { display: none; }
+.av-cond-sum .ap-section-title { border: none; padding: 0; margin: 0; flex-shrink: 0; }
+/* O triângulo é desenhado, não é glifo: traço esquadrado, como toda seta
+   deste sistema. */
+.av-cond-sum .ap-section-title::after {
+  content: "";
+  display: inline-block;
+  width: 6px; height: 6px;
+  margin-left: 8px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: translateY(-2px) rotate(45deg);
+  transition: transform .18s var(--saida);
+}
+.av-cond[open] .av-cond-sum .ap-section-title::after { transform: translateY(1px) rotate(-135deg); }
+.av-cond-resumo {
+  font-size: 11px; color: var(--tinta-2);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
+}
+.av-cond[open] .av-cond-grid { margin-top: 12px; }
+
+/* O tipo do documento, agora no trilho */
+.av-rail-tipo .select { width: auto; max-width: 190px; padding: 4px 8px; font-size: 11.5px; }
 #avModal .av-modal-dialog { padding: 28px 36px 32px; }
 @keyframes avModalIn {
   from { transform: translateY(18px); opacity: 0; }
@@ -8624,11 +8715,17 @@ body.role-viewer .viewer-only-hide-inline {
   border-bottom: 1px solid var(--border);
 }
 
-/* Form de adicionar item: card sutil */
+/* Form de adicionar item: card sutil.
+   ⚠️ O fundo era branco a 2,2% e a borda `var(--border)` — os dois medidos
+   contra o campo MARINHO. Na placa clara o branco some e o `--border`
+   remapeado vira tinta escura: a linha virava uma caixa preta pesada no meio
+   do documento. Aqui ela é o degrau mais claro da placa, com fio fino. */
 .av-modal-dialog .orc-add-item-form {
-  background: rgba(255,255,255,.022);
-  border: 1px solid var(--border);
-  border-radius: 10px;
+  background: var(--chapa-cl);
+  border: none;
+  box-shadow: inset 0 0 0 1px var(--fio-esc);
+  --ch-p: 8px;
+  clip-path: var(--corte-p);
   padding: 12px;
   margin-top: 10px;
 }
@@ -8730,8 +8827,11 @@ body.role-viewer .viewer-only-hide-inline {
    liberam a altura que a tabela de itens vai usar. */
 /* Cliente + constatação pedem mais largura que os 4 cards de tipo — medido:
    com 1fr/1fr os cards ficavam com 228px e sobrava espaço do lado direito. */
+/* Uma coluna só. Eram duas — a estreita era do "tipo de documento", que saiu
+   para o trilho. O bloco de cliente já tem grade interna de dois campos, então
+   ele usa a largura inteira sem ficar esticado. */
 .av-setup {
-  display: grid; grid-template-columns: minmax(0, .82fr) minmax(0, 1.18fr);
+  display: grid; grid-template-columns: minmax(0, 1fr);
   gap: 20px; flex-shrink: 0;
 }
 /* Sem caixa nas seções do topo. `.av-modal-dialog .ap-section` desenha borda +
@@ -8743,16 +8843,6 @@ body.role-viewer .viewer-only-hide-inline {
 }
 .av-setup-col { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
 
-/* A coluna do tipo é mais curta que a de cliente+constatação e sobrava ~80px
-   de vazio embaixo dela. Em vez de deixar o buraco, os 4 cards esticam pra
-   preencher a faixa — mata o espaço morto e dá respiro pros cards no mesmo
-   movimento. `max-height` evita que fiquem gigantes quando o modo "avulso"
-   alonga a coluna da direita com mais 4 campos. */
-.av-setup-col:first-child > .ap-section {
-  display: flex; flex-direction: column; height: 100%; min-height: 0;
-}
-.av-setup-col:first-child .av-tipos { flex: 1; }
-.av-setup-col:first-child .av-tipo { flex: 1 1 0; max-height: 58px; }
 
 /* Zona de itens: é ela que absorve a sobra de altura e rola por dentro. */
 .av-itens-zone {
@@ -8789,8 +8879,13 @@ body.role-viewer .viewer-only-hide-inline {
    da tela exigiria rolar até o fim toda vez. */
 .av-itens-scroll .orc-add-item-form {
   position: sticky; bottom: 0; z-index: 2;
-  background: #0e1022;
-  box-shadow: 0 -10px 14px -8px rgba(0,0,0,.7);
+  /* ⚠️ Segunda ocorrência do `#0e1022` escrito à mão. Como a linha é sticky,
+     ela precisa de fundo OPACO para tapar o que passa por baixo — e esse
+     fundo tinha de ser o mesmo do modal. Na placa clara ele virava uma caixa
+     preta no meio do documento. Agora acompanha a placa, e a sombra que
+     marcava a sobreposição virou um fio, que é como este sistema separa. */
+  background: var(--chapa);
+  box-shadow: 0 -1px 0 var(--fio-esc);
   padding: 9px 0 2px; margin-top: 0;
 }
 /* Grid com as MESMAS colunas do <colgroup> da tabela (84 / 122 / 122+40), e

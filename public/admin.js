@@ -11971,10 +11971,6 @@ function _avRenderPainel() {
   // na hora. A versão anterior explicava isso em quatro lugares ao mesmo tempo
   // (descrição do card, título da seção, nota da zona de itens e aviso da
   // tabela) — a mesma frase repetida vira ruído, não ajuda.
-  const cardTipo = (val, titulo) => `
-    <button type="button" class="av-tipo ${tipoAtivo === val ? "is-on" : ""}" data-av-tipo="${val}">
-      <span class="av-tipo-dot"></span><b>${titulo}</b>
-    </button>`;
 
   wrap.innerHTML = `
     <div class="av-modal-head">
@@ -11983,7 +11979,7 @@ function _avRenderPainel() {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
         </div>
         <div>
-          <div class="av-modal-num">${_waEscaparHtml(o.numero || "Novo orçamento")}</div>
+          <div class="av-modal-num" id="avModalTitulo">${_waEscaparHtml(o.numero || "Novo orçamento")}</div>
           <div class="av-modal-meta">
             <span class="orc-status-pill ${_avStatusCls(o.status)}">${_avStatusLabel(o.status)}</span>
             <span class="av-modal-date">· ${_orcFmtData(o.criado_em)}</span>
@@ -11999,25 +11995,22 @@ function _avRenderPainel() {
         <!-- Faixa de configuração: duas colunas, altura mínima. Nenhuma destas
              seções precisa da largura inteira, e juntas liberam a altura que a
              tabela de itens vai usar. -->
+        <!-- ⚠️ "Tipo de documento" ERA uma coluna inteira aqui, com quatro
+             cards de rádio e ~200px de altura. Ele é a escolha mais
+             estruturante do formulário (troca o PDF entre tabela de peças e
+             cláusulas descritivas) e por isso ganhava o maior espaço — mas é
+             escolha feita UMA vez, e em quase todo orçamento a resposta é
+             "Peças / Serviço". Agora ele mora no trilho da direita, onde já
+             aparecia como leitura, e a coluna que ele ocupava virou altura
+             para a tabela de itens, que é o corpo do documento.
+             ⚠️ NADA DE CRASE NESTE COMENTÁRIO. Ele vive dentro de um
+             template literal: uma crase aqui FECHA o template, e o que vem
+             depois vira código. Foi exatamente o que aconteceu ao escrever o
+             nome da tag select entre crases — o modal abriu em branco e o
+             console disse "select is not defined".
+             O elemento select que sempre esteve por trás dos cards é o mesmo;
+             só deixou de ser oculto. -->
         <div class="av-setup">
-          <div class="av-setup-col">
-            <div class="ap-section">
-              <div class="ap-section-title">Tipo de documento</div>
-              <div class="av-tipos">
-                ${cardTipo("pecas", "Peças / Serviço")}
-                ${cardTipo("limpeza_reservatorio", "Limpeza de reservatório")}
-                ${cardTipo("dedetizacao", "Dedetização")}
-                ${cardTipo("limpeza_dedetizacao", "Limpeza + dedetização")}
-              </div>
-              <select id="avInputTipo" class="av-hidden-ctl" tabindex="-1" aria-hidden="true">
-                <option value="pecas" ${tipoAtivo==="pecas"?"selected":""}>Peças / Serviço</option>
-                <option value="limpeza_reservatorio" ${tipoAtivo==="limpeza_reservatorio"?"selected":""}>Limpeza de Reservatório de Água Potável</option>
-                <option value="dedetizacao" ${tipoAtivo==="dedetizacao"?"selected":""}>Dedetização</option>
-                <option value="limpeza_dedetizacao" ${tipoAtivo==="limpeza_dedetizacao"?"selected":""}>Limpeza de Reservatório + Dedetização</option>
-              </select>
-            </div>
-          </div>
-
           <div class="av-setup-col">
             <div class="ap-section">
               <div class="ap-section-title">Cliente</div>
@@ -12067,8 +12060,8 @@ function _avRenderPainel() {
                 style="resize:vertical;font-size:12px;padding:8px 10px;min-height:52px;width:100%;"
                 placeholder="Descreva o serviço ou problema constatado… (sai impresso no PDF, acima da tabela)">${_waEscaparHtml(o.constatacao || '')}</textarea>
             </div>
-          </div>
-        </div>
+          </div><!-- /av-setup-col -->
+        </div><!-- /av-setup -->
 
         <!-- Itens: largura cheia e a sobra de altura. É a única zona que rola. -->
         <div class="av-itens-zone" id="avItensZone">
@@ -12080,8 +12073,25 @@ function _avRenderPainel() {
           </div>
         </div>
 
-        <div class="av-cond">
-          <div class="ap-section-title">Condições comerciais</div>
+        <!-- ⚠️ As condições comerciais nascem TODAS preenchidas com o padrão
+             da casa e quase nunca mudam — mas ocupavam uma faixa permanente
+             de cinco campos no pé do formulário, competindo com os itens.
+             Agora vêm fechadas, com o valor atual escrito no resumo: dá para
+             conferir sem abrir, que é o que se faz na maioria das vezes.
+             Elemento details nativo de propósito — abre sem JS, é focável e
+             anunciável por leitor de tela de graça.
+             (Sem crase neste comentário: ver o aviso na faixa de configuração
+             acima — crase dentro de template literal fecha o template.) -->
+        <details class="av-cond">
+          <summary class="av-cond-sum">
+            <span class="ap-section-title">Condições comerciais</span>
+            <span class="av-cond-resumo">${[
+              o.forma_pagamento || "Via boleto bancário",
+              o.prazo_entrega   || "5 dias úteis após aprovação",
+              o.garantia        || "12 meses",
+              validadeVal ? `válido até ${_orcFmtData(o.valido_ate)}` : "sem validade",
+            ].map(_waEscaparHtml).join(" · ")}</span>
+          </summary>
           <div class="av-cond-grid">
             <label class="orc-form-label">Forma de pagamento
               <input id="avInputPagamento" class="input" type="text" maxlength="255"
@@ -12102,7 +12112,7 @@ function _avRenderPainel() {
               <input id="avInputValidade" class="input" type="date" value="${validadeVal}">
             </label>
           </div>
-        </div>
+        </details>
       </div>
 
       <aside class="av-rail">
@@ -12134,7 +12144,15 @@ function _avRenderPainel() {
             </select></b>
           </div>
           <div class="av-rail-kv"><span>Validade</span><b>${validadeVal ? _orcFmtData(o.valido_ate) : "—"}</b></div>
-          <div class="av-rail-kv"><span>Tipo</span><b id="avRailTipo">${tipoLabels[tipoAtivo] || "—"}</b></div>
+          <div class="av-rail-kv av-rail-tipo">
+            <span><label for="avInputTipo">Tipo</label></span>
+            <b><select id="avInputTipo" class="select">
+              <option value="pecas" ${tipoAtivo==="pecas"?"selected":""}>Peças / Serviço</option>
+              <option value="limpeza_reservatorio" ${tipoAtivo==="limpeza_reservatorio"?"selected":""}>Limpeza de reservatório</option>
+              <option value="dedetizacao" ${tipoAtivo==="dedetizacao"?"selected":""}>Dedetização</option>
+              <option value="limpeza_dedetizacao" ${tipoAtivo==="limpeza_dedetizacao"?"selected":""}>Limpeza + dedetização</option>
+            </select></b>
+          </div>
         </div>
 
         <div class="av-rail-hr"></div>
@@ -12176,11 +12194,26 @@ function _avRenderPainel() {
   // Quando troca o tipo: a tabela de itens muda de formato (peças tem Qtd/Unit.,
   // serviço só tem Valor) e, se for tipo de serviço, já adiciona a(s) linha(s)
   // padrão automaticamente (sem duplicar o que já existir).
-  document.getElementById("avInputTipo")?.addEventListener("change", async e => {
+  const _selTipo = document.getElementById("avInputTipo");
+  if (_selTipo) _selTipo.dataset.anterior = _selTipo.value;
+  _selTipo?.addEventListener("change", async e => {
+    const novo = e.target.value;
+    const anterior = e.target.dataset.anterior;
+    // ⚠️ Este guarda morava no clique dos cards de tipo. Com um <select> de
+    // verdade a pergunta continua vindo ANTES de qualquer efeito — mas agora
+    // ela também precisa DESFAZER: o select já mudou de valor sozinho quando
+    // o `change` dispara, e cancelar tem de devolver o valor anterior, senão
+    // a tela passa a mentir sobre o tipo do documento.
+    if (!_avConfirmarTrocaDeTipo(novo)) {
+      e.target.value = anterior;
+      return;
+    }
+    e.target.dataset.anterior = novo;
+    _avRefletirTipo(novo, e.target.selectedOptions[0]?.textContent);
     // Limpa ANTES de preencher: trocar limpeza → dedetização precisa tirar a
     // linha de limpeza e pôr a de dedetização, nessa ordem.
-    await _avLimparServicosForaDoTipo(e.target.value);
-    await _avPreencherPadrao(e.target.value);
+    await _avLimparServicosForaDoTipo(novo);
+    await _avPreencherPadrao(novo);
     _avRenderLinhas();
   });
 
@@ -12216,20 +12249,6 @@ function _avRenderPainel() {
   // o <select>/<checkbox> oculto e disparam `change`. Todos os listeners
   // acima (e o _avAcao, que lê por getElementById) continuam valendo — foi o
   // que permitiu trocar a apresentação sem tocar no salvamento.
-  wrap.querySelectorAll("[data-av-tipo]").forEach(card => {
-    card.addEventListener("click", () => {
-      const sel = document.getElementById("avInputTipo");
-      const novo = card.dataset.avTipo;
-      if (!sel || sel.value === novo) return;
-      // A pergunta vem primeiro: cancelar aqui não deixa rastro nenhum na tela.
-      if (!_avConfirmarTrocaDeTipo(novo)) return;
-      sel.value = novo;
-      wrap.querySelectorAll("[data-av-tipo]").forEach(c => c.classList.toggle("is-on", c === card));
-      _avRefletirTipo(novo, card.querySelector("b")?.textContent);
-      sel.dispatchEvent(new Event("change"));
-    });
-  });
-
   wrap.querySelectorAll("[data-av-cliente]").forEach(bt => {
     bt.addEventListener("click", () => {
       const chk = document.getElementById("avToggleAvulso");
@@ -12307,8 +12326,9 @@ function _avRefletirTipo(tipo, rotulo) {
   const titulo = document.getElementById("avItensTitulo");
   if (titulo) titulo.textContent = tipo !== "pecas" ? "Valores dos serviços" : "Itens";
 
-  const railTipo = document.getElementById("avRailTipo");
-  if (railTipo && rotulo) railTipo.textContent = rotulo;
+  // O rótulo do tipo agora é a própria opção selecionada do <select>; o que
+  // resta aqui é piscar a linha do trilho para confirmar a troca.
+  const railTipo = document.querySelector(".av-rail-tipo");
 
   // `void offsetWidth` reinicia a animação quando se troca duas vezes seguidas
   // — sem isso o segundo clique não pisca.
