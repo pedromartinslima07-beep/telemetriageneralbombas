@@ -1767,16 +1767,37 @@ async function carregarHistoricoTelemetria() {
   }
 }
 
+// O gráfico lê a cor DA PRÓPRIA SUPERFÍCIE em que está desenhado, em vez de
+// carregar valores fixos: dentro de `.modalBox` os tokens `--serie-*` já vêm
+// re-degrauados para a placa clara, e o mesmo código serve para os dois
+// campos. Se o gráfico for movido para fora do modal um dia, ele se ajusta
+// sozinho — nada aqui precisa saber onde está.
+function _corDoContexto(el, nome, alternativa) {
+  const v = getComputedStyle(el).getPropertyValue(nome).trim();
+  return v || alternativa;
+}
+
 function renderTelHistoricoChart(reservatorios, seriesMap) {
   const wrap = document.getElementById("telHistoricoChart");
   const legend = document.getElementById("telHistoricoLegend");
   const stats = document.getElementById("telHistStats");
   if (!wrap || typeof ApexCharts === "undefined") return;
 
+  const cor = (n, alt) => _corDoContexto(wrap, n, alt);
+  const CORES_SERIE = [cor("--serie-1", "#2f6fe0"), cor("--serie-2", "#00a8af"), cor("--serie-3", "#bd3a80")];
+  const TINTA_EIXO  = cor("--muted", "#8294c2");
+  const COR_ATENCAO = cor("--warn", "#fbb329");
+  const COR_RISCO   = cor("--risco", "#ff5a4d");
+  // A placa clara redeclara `--chapa` como fundo; fora dela o campo é marinho.
+  const TEMA_TOOLTIP = wrap.closest(".modalBox") ? "light" : "dark";
+
   const series = reservatorios.map((r, i) => ({
     name: `${r.nome || "Reservatório"} · ${r.condominio_nome || ""}`,
     data: (seriesMap[r.device_id] || []).map(p => ({ x: new Date(p.bucket).getTime(), y: p.nivel_pct_avg })),
-    color: TEL_HIST_COLORS[i % TEL_HIST_COLORS.length],
+    // ⚠️ Sem `% CORES.length`: a paleta tem TRÊS slots e ciclar seria
+    // repintar a 4ª série com a cor da 1ª — duas séries com a mesma
+    // identidade é pior que nenhuma cor. Ver a nota no :root do admin.css.
+    color: CORES_SERIE[i] || TINTA_EIXO,
   }));
 
   const total = series.reduce((s, x) => s + x.data.length, 0);
@@ -1815,10 +1836,10 @@ function renderTelHistoricoChart(reservatorios, seriesMap) {
         // As duas linhas de limiar são ESTADO, não série — é o único lugar deste
         // gráfico onde âmbar e vermelho podem aparecer, e por isso as séries não
         // usam nenhum dos dois.
-        { y: TEL_LIMIARES.baixo, borderColor: "rgba(251,179,41,.55)", strokeDashArray: 4,
-          label: { text: `baixo (${TEL_LIMIARES.baixo}%)`, position: "left", offsetX: 42, borderColor: "transparent", style: { color: "#fbb329", background: "transparent", fontSize: "9px", fontFamily: "Martian Mono, ui-monospace, monospace" } } },
-        { y: TEL_LIMIARES.critico, borderColor: "rgba(255,90,77,.6)", strokeDashArray: 4,
-          label: { text: `crítico (${TEL_LIMIARES.critico}%)`, position: "left", offsetX: 52, borderColor: "transparent", style: { color: "#ff5a4d", background: "transparent", fontSize: "9px", fontFamily: "Martian Mono, ui-monospace, monospace" } } },
+        { y: TEL_LIMIARES.baixo, borderColor: COR_ATENCAO, strokeDashArray: 4,
+          label: { text: `baixo (${TEL_LIMIARES.baixo}%)`, position: "left", offsetX: 42, borderColor: "transparent", style: { color: COR_ATENCAO, background: "transparent", fontSize: "9px", fontFamily: "Martian Mono, ui-monospace, monospace" } } },
+        { y: TEL_LIMIARES.critico, borderColor: COR_RISCO, strokeDashArray: 4,
+          label: { text: `crítico (${TEL_LIMIARES.critico}%)`, position: "left", offsetX: 52, borderColor: "transparent", style: { color: COR_RISCO, background: "transparent", fontSize: "9px", fontFamily: "Martian Mono, ui-monospace, monospace" } } },
       ],
     },
     // Altura vem do contêiner: no modal ele agora absorve o espaço liberado
@@ -1837,7 +1858,7 @@ function renderTelHistoricoChart(reservatorios, seriesMap) {
     grid: { borderColor: "rgba(255,255,255,.05)", strokeDashArray: 3 },
     xaxis: {
       type: "datetime",
-      labels: { style: { colors: "#8294c2", fontSize: "10px", fontFamily: "Martian Mono, ui-monospace, monospace" }, datetimeUTC: false },
+      labels: { style: { colors: TINTA_EIXO, fontSize: "10px", fontFamily: "Martian Mono, ui-monospace, monospace" }, datetimeUTC: false },
       axisBorder: { color: "rgba(255,255,255,.06)" },
       axisTicks: { color: "rgba(255,255,255,.06)" },
       // Desligado por dois motivos, e o segundo é o que importa:
@@ -1850,11 +1871,14 @@ function renderTelHistoricoChart(reservatorios, seriesMap) {
     },
     yaxis: {
       min: 0, max: 100,
-      labels: { style: { colors: "#8294c2", fontSize: "10px", fontFamily: "Martian Mono, ui-monospace, monospace" }, formatter: (v) => v + "%" },
+      labels: { style: { colors: TINTA_EIXO, fontSize: "10px", fontFamily: "Martian Mono, ui-monospace, monospace" }, formatter: (v) => v + "%" },
     },
     legend: { show: false },
     tooltip: {
-      theme: "dark",
+      // Este gráfico mora dentro do modal, que agora é placa clara — o tema
+      // escuro do Apex ficava preto sobre branco. Lido do contexto pelo mesmo
+      // motivo das cores de série: se o gráfico sair do modal, acompanha.
+      theme: TEMA_TOOLTIP,
       x: { format: "dd MMM HH:mm" },
       y: { formatter: (v) => v + "%" },
     },

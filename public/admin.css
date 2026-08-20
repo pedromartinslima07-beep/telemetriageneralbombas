@@ -158,6 +158,18 @@
   --serie-2: #00a8af;   /* ciano claro     — L .665 · h 200 */
   --serie-3: #bd3a80;   /* magenta escuro  — L .555 · h 350 */
 
+  /* Os mesmos três matizes RE-DEGRAUADOS para a placa clara — gráfico dentro
+     de modal/ficha não reaproveita os valores de cima: `--serie-2` sobre
+     `--chapa` dá contraste 2,44:1, abaixo do piso de 3:1.
+     ⚠️ O slot 3 também mudou de MATIZ, não só de luminosidade: em h 350 ele
+     encostava no `--risco-t` (ΔE 12,5 a olho normal, abaixo do piso de 15) e
+     uma série seria lida como estado crítico. Em h 325 a distância sobe para
+     16,9. Validado contra #e8ebf2, todos os pares: ΔE 13,4 sob deuteranopia,
+     18,0 a olho normal, contraste >= 3:1. */
+  --serie-1-claro: #1f60d4;   /* L .520 · h 261 */
+  --serie-2-claro: #00929c;   /* L .590 · h 200 */
+  --serie-3-claro: #93167f;   /* L .470 · h 325 */
+
   /* Herdados do Mission Control, ainda referenciados por telas não migradas.
      Não usar em nada novo. */
   --blue:      #4a78f7;
@@ -171,6 +183,17 @@
   --danger: #ff5a4d;
   --normal: #63d8a0;
   --risco:  #ff5a4d;
+
+  /* ─ PREENCHIMENTO vs TINTA ───────────────────────────────────────────────
+     `--warn`, `--danger`, `--risco`, `--ok` e `--accent` VIRAM TINTA dentro
+     de placa clara (modal, drawer) — é o remapeamento que faz o texto
+     continuar legível lá. Mas selo preenchido não pode acompanhar: uma placa
+     de fundo `--risco-t` com tinta marinho por cima é escuro sobre escuro.
+     Por isso o preenchimento usa estes três, que são CRUS e não flipam em
+     lugar nenhum. Regra: **fundo de selo usa `--amarelo`/`--vermelho`/
+     `--verde`; texto e borda usam os semânticos.** */
+  --vermelho: #ff5a4d;
+  --verde:    #63d8a0;
 
   /* ─ Estado SOBRE PLACA CLARA (família `-t`) ─
      A Regra dos Dois Campos de Estado: sobre claro nenhum sinal saturado
@@ -559,7 +582,7 @@ td, th, .mono, [class*="valor"], [class*="total"], [class*="count"] {
 
 .nav-badge {
   margin-left: auto;
-  background: var(--risco);
+  background: var(--vermelho);
   color: #fff;
   font-family: var(--mono);
   font-size: 9.5px;
@@ -1266,7 +1289,7 @@ td, th, .mono, [class*="valor"], [class*="total"], [class*="count"] {
   color: var(--mar-900);
   flex-shrink: 0;
   padding: 5px;
-  background: var(--accent);
+  background: var(--amarelo);
   border: none;
   --ch-p: 5px;
   clip-path: var(--corte-p);
@@ -2585,9 +2608,16 @@ td, th, .mono, [class*="valor"], [class*="total"], [class*="count"] {
   transition: color .15s, background .15s;
 }
 .tel-range-btn:hover { color: var(--text); }
+/* Mesma língua do "você está aqui" do resto do painel: placa amarela cheia
+   com tinta marinho. ⚠️ Amarelo COMO TEXTO estava reprovando contraste desde
+   que o modal virou placa clara (~2:1) — preenchido com tinta escura por cima
+   ele passa nos dois campos, que é justamente o que a Regra do Amarelo Cego
+   existe para resolver. */
 .tel-range-btn.is-active {
-  background: rgba(240,176,20,.14);
-  color: var(--accent-2);
+  background: var(--amarelo);
+  color: var(--mar-900);
+  --ch-p: 4px;
+  clip-path: var(--corte-p);
 }
 
 .tel-historico-filtros {
@@ -3006,8 +3036,8 @@ tbody tr:nth-child(even):hover td { background: rgba(255,255,255,.055); }
   color: var(--ok);
 }
 /* Pede atenção e pede ação: placa cheia, tinta marinho por cima. */
-.b-warn { background: var(--warn);   color: var(--mar-900); }
-.b-bad  { background: var(--risco);  color: var(--mar-900); }
+.b-warn { background: var(--amarelo);  color: var(--mar-900); }
+.b-bad  { background: var(--vermelho); color: var(--mar-900); }
 
 .pillCount {
   display: inline-flex;
@@ -3022,7 +3052,7 @@ tbody tr:nth-child(even):hover td { background: rgba(255,255,255,.055); }
   font-size: 10.5px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-  background: var(--accent);
+  background: var(--amarelo);
   color: var(--mar-900);
 }
 
@@ -3273,27 +3303,85 @@ select option { background: #050f38; color: #f2f5ff; }
   backdrop-filter: blur(6px);
 }
 
+/* ══════════════════════════════════════════════════════════════════════════
+   O MODAL É PLACA CLARA
+   ──────────────────────────────────────────────────────────────────────────
+   Regra de superfície do sistema, tirada da tela de login que já está em
+   produção: **marinho é moldura; placa clara é onde se lê e se edita**
+   (ficha, modal, formulário). Os 11 modais deste painel são exatamente isso.
+
+   ⚠️ A CONVERSÃO É POR REMAPEAMENTO DE TOKEN, não por reescrita de regra, e
+   isso não é atalho — é o que torna a mudança segura. São 11 modais com
+   conteúdo heterogêneo (formulários, tabelas, um gráfico) e centenas de
+   regras espalhadas que já dizem `var(--text)`, `var(--muted)`,
+   `var(--border)`. Redeclarar esses tokens AQUI faz toda a subárvore virar
+   tinta escura sobre placa clara de uma vez, sem caçar seletor por seletor —
+   e sem o risco de esquecer um e deixar texto branco sobre fundo branco.
+
+   ⚠️ O QUE NÃO É REMAPEADO, e por quê:
+   · `--accent` continua amarelo. Ele é PREENCHIMENTO (o botão primário), e
+     amarelo sobre claro só existe preenchido com tinta marinho por cima —
+     a Regra do Amarelo Cego. Onde o amarelo virava TEXTO dentro de modal, a
+     regra explícita mais abaixo troca por `--atencao-t`.
+   · `--mar-800/900` continuam marinho: são a tinta de quem pousa sobre o
+     amarelo. Remapeá-los apagaria o rótulo do botão primário.
+   ══════════════════════════════════════════════════════════════════════════ */
 .modalBox {
   width: min(1100px, 96vw);
   max-height: 90vh;
   overflow: hidden;
-  border-radius: 14px;
-  border: 1px solid var(--border);
-  /* Fio no topo: o modal é o foco da tela enquanto está aberto, mesmo sinal
-     do modal de orçamento. Vale pros 11 que usam .modalBox sem tocar em
-     marcação nenhuma.
-     ⚠️ Amber é a cor de MARCA E AÇÃO. Num modal de exclusão permanente ele
-     manda o sinal oposto do que a tela quer dizer — por isso o modificador
-     `.is-perigo` abaixo, aplicado nos modais destrutivos. */
-  border-top: 2px solid var(--accent);
-  background: var(--surface);
-  box-shadow: var(--shadow-lg);
   display: flex;
   flex-direction: column;
+
+  /* ─ o remapeamento ─ */
+  --text:          var(--tinta);
+  --text-dim:      var(--tinta-2);
+  --muted:         var(--tinta-2);
+  --muted2:        #6b7a9e;
+  --sobre-2:       var(--tinta-2);
+  --border:        var(--fio-esc);
+  --border2:       rgba(6, 16, 51, .10);
+  --border-strong: rgba(6, 16, 51, .34);
+  --fio:           var(--fio-esc);
+  --fio-fraco:     rgba(6, 16, 51, .10);
+  --fio-forte:     rgba(6, 16, 51, .34);
+  --surface:       var(--chapa-cl);
+  --surface2:      var(--chapa-es);
+  --surface3:      #c9d0e0;
+  /* O corte gravado inverte sobre claro: o sulco é a linha escura e a aresta
+     que pega luz é o branco. */
+  --rasgo:         rgba(6, 16, 51, .16);
+  --luz:           rgba(255, 255, 255, .9);
+  /* Estado vira a família `-t`: sobre claro nenhum sinal saturado passa
+     contraste como texto. */
+  --ok:     var(--ok-t);
+  --normal: var(--normal-t);
+  --warn:   var(--warn-t);
+  --danger: var(--danger-t);
+  --risco:  var(--risco-t);
+  /* Séries de gráfico re-degrauadas para esta superfície. */
+  --serie-1: var(--serie-1-claro);
+  --serie-2: var(--serie-2-claro);
+  --serie-3: var(--serie-3-claro);
+  /* Amarelo COMO TINTA reprova sobre claro (~2:1). As 45 regras que dizem
+     `color: var(--accent)` passam a escrever em âmbar escuro aqui dentro, de
+     uma vez. O preenchimento não acompanha: ele usa `--amarelo`, que é cru. */
+  --accent:   var(--atencao-t);
+  --accent-2: #a06400;
+
+  background: var(--chapa);
+  color: var(--tinta);
+  --ch: 16px;
+  clip-path: var(--corte);
+  box-shadow: none;
 }
 
-/* Modal cuja ação principal é irreversível: o fio do topo vira vermelho. */
-.modalBox.is-perigo { border-top-color: var(--danger); }
+/* ⚠️ O fio amarelo de 2px no topo saiu. Era faixa de cor na borda indicando
+   estado — o padrão que o DESIGN.md proíbe — e ele existia para o modal
+   "saltar" do painel escuro. Placa clara sobre campo marinho salta sozinha.
+   O `.is-perigo` continua existindo como gancho, agora sem barra: quem marca
+   modal destrutivo é a própria ação em vermelho, no rodapé. */
+.modalBox.is-perigo { }
 
 /* Aviso forte dentro do corpo do modal — para o que o usuário não pode
    deixar passar (chave exibida uma única vez, por exemplo). */
@@ -3324,13 +3412,119 @@ select option { background: #050f38; color: #f2f5ff; }
   justify-content: space-between;
   gap: 12px;
   padding: 14px 20px;
-  border-bottom: 1px solid var(--border);
-  background: var(--surface2);
+  /* Corte gravado, invertido para a placa clara: sulco escuro em cima da
+     aresta de luz. */
+  border-bottom: 1px solid var(--rasgo);
+  box-shadow: 0 1px 0 var(--luz);
+  background: var(--chapa-es);
   flex-shrink: 0;
 }
 
-.modalTitle { font-size: 14px; font-weight: 700; letter-spacing: .1px; }
-.modalSub   { margin-top: 3px; color: var(--muted); font-size: 12px; }
+.modalTitle { font-size: 15px; font-weight: 800; letter-spacing: -.02em; color: var(--tinta); }
+.modalSub   { margin-top: 3px; color: var(--tinta-2); font-size: 12px; }
+
+/* ── O QUE PRECISA DE REGRA PRÓPRIA DENTRO DO MODAL ──────────────────────── */
+
+/* Campo: branco puro dentro da placa clara, com o contorno em `inset` — a
+   mesma construção do formulário do login. O poço marinho do painel não
+   sobrevive aqui: fundo escuro dentro de placa clara lê como buraco. */
+.modalBox .input,
+.modalBox .select,
+.modalBox textarea,
+.modalBox input[type="text"],
+.modalBox input[type="email"],
+.modalBox input[type="number"],
+.modalBox input[type="date"],
+.modalBox input[type="password"] {
+  background-color: #fff;
+  color: var(--tinta);
+  border: none;
+  box-shadow: inset 0 0 0 1.5px var(--fio-esc);
+  caret-color: var(--mar-700);
+}
+.modalBox .input::placeholder,
+.modalBox textarea::placeholder { color: var(--tinta-2); }
+.modalBox .input:hover:not(:focus),
+.modalBox .select:hover:not(:focus) { box-shadow: inset 0 0 0 1.5px rgba(6,16,51,.32); }
+.modalBox .input:focus,
+.modalBox .select:focus,
+.modalBox textarea:focus {
+  background-color: #fff;
+  box-shadow: inset 0 0 0 2.5px var(--mar-700);
+}
+/* ⚠️ Os DOIS anéis do foco de teclado são `inset`. Anel por `outline` ou por
+   `box-shadow` normal é pintado FORA da caixa, e o `clip-path` do modal o
+   recorta: o indicador é calculado e simplesmente não aparece. */
+.modalBox .input:focus-visible,
+.modalBox .select:focus-visible,
+.modalBox textarea:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 3px var(--amarelo), inset 0 0 0 6px var(--mar-700);
+}
+.modalBox .select option { background: #fff; color: var(--tinta); }
+
+/* Botão de fio sobre seção clara: anel escuro, placa clara. O primário
+   continua amarelo com tinta marinho — é o par legível deste campo. */
+.modalBox .btn { background: var(--fio-esc); color: var(--tinta); }
+.modalBox .btn::before { background: var(--chapa-cl); }
+.modalBox .btn:hover { background: rgba(6,16,51,.34); color: var(--tinta); }
+.modalBox .btn:hover::before { background: #fff; }
+.modalBox .btnAccent { background: var(--amarelo); color: var(--mar-900); }
+.modalBox .btnAccent::before { background: var(--amarelo); }
+.modalBox .btnDanger { background: var(--risco-t); color: #fff; }
+.modalBox .btnDanger::before { background: var(--risco-t); }
+.modalBox .btnDanger:hover,
+.modalBox .btnDanger:hover::before { background: #8f1c13; }
+
+/* Cabeçalho de tabela dentro do modal: opaco, claro, e o mesmo sulco. */
+.modalBox th {
+  background: var(--chapa-es);
+  color: var(--tinta-2);
+  border-bottom: 1px solid var(--rasgo);
+  box-shadow: 0 1px 0 var(--luz);
+}
+.modalBox tbody tr:hover td { background: rgba(6,16,51,.05); }
+.modalBox tbody tr:nth-child(even) td { background: rgba(6,16,51,.025); }
+.modalBox tbody tr:nth-child(even):hover td { background: rgba(6,16,51,.06); }
+
+/* A Regra do Amarelo Cego: onde o amarelo virava TEXTO ou ÍCONE, ele reprova
+   contraste sobre claro (~2:1) e vira a tinta da família de atenção. Onde ele
+   é preenchimento (botão primário, placa de ícone) continua amarelo. */
+.modalBox .lbl .req,
+.modalBox .cardHead h2 { color: var(--tinta); }
+
+
+/* ── As mesmas regras valem no drawer ─────────────────────────────────────
+   Repetidas por seletor em vez de agrupadas com as do modal de propósito: um
+   seletor gigante com os dois prefixos é o tipo de coisa que quebra calada
+   quando alguém mexe num deles. */
+.drawer-panel .input,
+.drawer-panel .select,
+.drawer-panel textarea {
+  background-color: #fff;
+  color: var(--tinta);
+  border: none;
+  box-shadow: inset 0 0 0 1.5px var(--fio-esc);
+  caret-color: var(--mar-700);
+}
+.drawer-panel .input::placeholder { color: var(--tinta-2); }
+.drawer-panel .input:focus,
+.drawer-panel .select:focus,
+.drawer-panel textarea:focus { background-color: #fff; box-shadow: inset 0 0 0 2.5px var(--mar-700); }
+.drawer-panel .btn { background: var(--fio-esc); color: var(--tinta); }
+.drawer-panel .btn::before { background: var(--chapa-cl); }
+.drawer-panel .btn:hover { background: rgba(6,16,51,.34); }
+.drawer-panel .btn:hover::before { background: #fff; }
+.drawer-panel .btnAccent { background: var(--amarelo); color: var(--mar-900); }
+.drawer-panel .btnAccent::before { background: var(--amarelo); }
+.drawer-panel th { background: var(--chapa-es); color: var(--tinta-2); }
+.drawer-panel * { scrollbar-color: rgba(6,16,51,.28) transparent; }
+.drawer-panel *::-webkit-scrollbar-thumb { background: rgba(6,16,51,.24); background-clip: content-box; }
+
+/* A barra de rolagem do corpo do modal também troca de campo. */
+.modalBox * { scrollbar-color: rgba(6,16,51,.28) transparent; }
+.modalBox *::-webkit-scrollbar-thumb { background: rgba(6,16,51,.24); background-clip: content-box; }
+.modalBox *::-webkit-scrollbar-thumb:hover { background: rgba(6,16,51,.45); background-clip: content-box; }
 
 .modalBody  { padding: 16px 20px; overflow-y: auto; flex: 1; }
 
@@ -3774,9 +3968,9 @@ select option { background: #050f38; color: #f2f5ff; }
    HISTÓRICO — period buttons active state
    ============================================================ */
 .hist-period.active {
-  background: var(--accent);
-  color: #111;
-  border-color: var(--accent);
+  background: var(--amarelo);
+  color: var(--mar-900);
+  border-color: transparent;
 }
 
 /* ============================================================
@@ -4432,18 +4626,55 @@ select option { background: #050f38; color: #f2f5ff; }
 
 .drawer-overlay.is-open { opacity: 1; pointer-events: auto; }
 
+/* O drawer é FICHA — abre por cima do painel — então cai na mesma regra do
+   modal: placa clara é onde se lê e se edita. Mesmo remapeamento de token da
+   `.modalBox`, pelo mesmo motivo (é o que faz as centenas de regras `.dp-*`
+   virarem tinta escura sem caçar seletor).
+   ⚠️ A coluna de ficha das tabelas (`.ch-detail-col`) NÃO entra nesta regra e
+   isso é decisão, não esquecimento: ela não abre por cima de nada — é parte
+   da superfície de trabalho, lado a lado com a tabela. Placa clara ali
+   partiria a tela em dois campos permanentes. */
 .drawer-panel {
   position: fixed;
   top: 0; right: 0; bottom: 0;
   width: min(520px, 100vw);
-  background: var(--surface);
-  border-left: 1px solid var(--border);
-  box-shadow: -24px 0 64px rgba(0,0,0,.6);
   z-index: 1201;
   display: flex;
   flex-direction: column;
   transform: translateX(100%);
-  transition: transform .25s cubic-bezier(.4,0,.2,1);
+  transition: transform .25s var(--saida);
+
+  --text:          var(--tinta);
+  --text-dim:      var(--tinta-2);
+  --muted:         var(--tinta-2);
+  --muted2:        #6b7a9e;
+  --sobre-2:       var(--tinta-2);
+  --border:        var(--fio-esc);
+  --border2:       rgba(6, 16, 51, .10);
+  --border-strong: rgba(6, 16, 51, .34);
+  --fio:           var(--fio-esc);
+  --fio-fraco:     rgba(6, 16, 51, .10);
+  --fio-forte:     rgba(6, 16, 51, .34);
+  --surface:       var(--chapa-cl);
+  --surface2:      var(--chapa-es);
+  --surface3:      #c9d0e0;
+  --rasgo:         rgba(6, 16, 51, .16);
+  --luz:           rgba(255, 255, 255, .9);
+  --ok:     var(--ok-t);
+  --normal: var(--normal-t);
+  --warn:   var(--warn-t);
+  --danger: var(--danger-t);
+  --risco:  var(--risco-t);
+  --serie-1: var(--serie-1-claro);
+  --serie-2: var(--serie-2-claro);
+  --serie-3: var(--serie-3-claro);
+  --accent:   var(--atencao-t);
+  --accent-2: #a06400;
+
+  background: var(--chapa);
+  color: var(--tinta);
+  border-left: none;
+  box-shadow: none;
 }
 
 .drawer-panel.is-open { transform: translateX(0); }
@@ -4457,8 +4688,9 @@ select option { background: #050f38; color: #f2f5ff; }
   gap: 12px;
   padding: 16px 20px;
   padding-top: calc(16px + env(safe-area-inset-top, 0px));
-  border-bottom: 1px solid var(--border);
-  background: var(--surface2);
+  border-bottom: 1px solid var(--rasgo);
+  box-shadow: 0 1px 0 var(--luz);
+  background: var(--chapa-es);
   flex-shrink: 0;
 }
 
@@ -4498,10 +4730,21 @@ select option { background: #050f38; color: #f2f5ff; }
 }
 
 .drawer-tab:hover { color: var(--text); }
-.drawer-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+/* ⚠️ Era amarelo como TEXTO e como sublinhado. Sobre a placa clara do drawer
+   os dois reprovam contraste (~2:1) — a Regra do Amarelo Cego. A aba aberta
+   usa a mesma forma do item de nav e da aba de tabela: placa amarela cheia
+   com tinta marinho, que passa nos dois campos. */
+.drawer-tab.active {
+  background: var(--amarelo);
+  color: var(--mar-900);
+  border-bottom-color: transparent;
+  --ch-p: 5px;
+  clip-path: var(--corte-p);
+}
 
 .drawer-tab-badge {
-  background: var(--danger);
+  background: var(--vermelho);
+  /* cru: o selo é preenchido, e a tinta por cima é branca */
   color: #fff;
   font-size: 9.5px;
   font-weight: 800;
@@ -5435,8 +5678,8 @@ body.mp-fs-active { overflow: hidden; }
      duas linhas, engordando a placa. A coluna foi medida para caber ele. */
   white-space: nowrap;
 }
-.al-sev.critico { background: var(--risco);   color: var(--mar-900); }
-.al-sev.atencao { background: var(--amarelo); color: var(--mar-900); }
+.al-sev.critico { background: var(--vermelho); color: var(--mar-900); }
+.al-sev.atencao { background: var(--amarelo);   color: var(--mar-900); }
 .al-sev.normal  { background: transparent; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ok) 55%, transparent); color: var(--ok); }
 .al-sev.is-quieto {
   background: transparent;
@@ -6166,8 +6409,8 @@ body.mp-fs-active { overflow: hidden; }
   --ch-p: 4px; clip-path: var(--corte-p);
   white-space: nowrap;
 }
-.ch-prio-p1 { background: var(--risco);  color: var(--mar-900); }
-.ch-prio-p2 { background: var(--amarelo); color: var(--mar-900); }
+.ch-prio-p1 { background: var(--vermelho); color: var(--mar-900); }
+.ch-prio-p2 { background: var(--amarelo);  color: var(--mar-900); }
 .ch-prio-p3 { background: transparent; box-shadow: inset 0 0 0 1px var(--fio); color: var(--text-dim); }
 .ch-prio-p4 { background: transparent; box-shadow: inset 0 0 0 1px var(--fio-fraco); color: var(--muted); }
 .ch-prio.is-quieto {
@@ -7517,7 +7760,7 @@ body.role-viewer .viewer-only-hide-inline {
   letter-spacing: .3px;
   padding: 3px 6px 2px;
   --ch-p: 3px; clip-path: var(--corte-p);
-  background: var(--risco);
+  background: var(--vermelho);
   color: var(--mar-900);
   border: none;
   margin-left: 5px;
