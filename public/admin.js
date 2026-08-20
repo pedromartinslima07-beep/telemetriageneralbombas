@@ -8852,6 +8852,36 @@ function _relSetCountBadge(id, texto, cls) {
 }
 
 // Empty state dentro de um <td> — ícone sutil + texto secundário
+// ⚠️ A coluna mostrava `pct_ttr` cru e chegava a "12750%". A conta está certa
+// — é um chamado aberto há 21 dias contra um TTR de horas — mas quatro dígitos
+// de porcentagem não informam nada além de "estourou faz muito tempo", que é
+// justamente a leitura que a pessoa faz de cabeça ao ver o número. Então a
+// coluna passa a dizer isso, e o percentual continua disponível no `title`
+// para quem quiser a conta.
+// A ordenação NÃO muda: quem ordena é o `ORDER BY pct_ttr DESC` do backend.
+function _relDuracaoCurta(min) {
+  const m = Math.max(0, Math.round(min));
+  if (m < 60) return `${m}min`;
+  const h = Math.round(m / 60);
+  if (h < 48) return `${h}h`;
+  const d = Math.round(h / 24);
+  return `${d} ${d === 1 ? "dia" : "dias"}`;
+}
+
+function _relTtrPrazo(d) {
+  const usados = Number(d.minutos_abertos);
+  const limite = Number(d.ttr_min);
+  if (!Number.isFinite(usados) || !Number.isFinite(limite) || limite <= 0) {
+    return `<span class="rel-prazo is-nd">—</span>`;
+  }
+  const restante = limite - usados;
+  const titulo = `${d.pct_ttr}% do prazo de ${_relDuracaoCurta(limite)}`;
+  // Estourado é placa cheia (pede ação agora); ainda dentro do prazo é de fio.
+  return restante <= 0
+    ? `<span class="rel-prazo is-estourado" title="${titulo}">estourou há ${_relDuracaoCurta(-restante)}</span>`
+    : `<span class="rel-prazo is-risco" title="${titulo}">faltam ${_relDuracaoCurta(restante)}</span>`;
+}
+
 function _relEmptyCell(colspan, icone, texto) {
   return `<tr><td colspan="${colspan}"><div class="rel-empty">${icone}<span>${texto}</span></div></td></tr>`;
 }
@@ -8878,13 +8908,14 @@ async function _relCarregarPainelVivo() {
     _relSetCountBadge("relVivoRiscoCount", String(risco.length), risco.length > 0 ? "bad" : "ok");
     if (riscoBody) riscoBody.innerHTML = risco.length
       ? risco.map(d => `<tr>
-          <td>${_waEscaparHtml(d.titulo || "")}</td>
-          <td><span class="badge ${(d.prioridade === "p1" || d.prioridade === "p2") ? "b-bad" : "b-warn"}">${(d.prioridade || "-").toUpperCase()}</span></td>
-          <td>${_waEscaparHtml(d.condominio_nome || "-")}</td>
-          <td>${_waEscaparHtml(d.tecnico_nome || "-")}</td>
-          <td><span class="badge ${d.pct_ttr >= 100 ? "b-bad" : "b-warn"}">${d.pct_ttr != null ? d.pct_ttr + "%" : "-"}</span></td>
+          <td class="rel-risco-cell">
+            <div class="rel-risco-titulo">${_waEscaparHtml(d.titulo || "")}</div>
+            <div class="rel-risco-sub">${_waEscaparHtml(d.condominio_nome || "-")}<span class="rel-risco-sep">·</span>${d.tecnico_nome ? _waEscaparHtml(d.tecnico_nome) : "sem técnico"}</div>
+          </td>
+          <td><span class="ch-prio ch-prio-${d.prioridade || "p3"}">${(d.prioridade || "-").toUpperCase()}</span></td>
+          <td>${_relTtrPrazo(d)}</td>
         </tr>`).join("")
-      : _relEmptyCell(5, _REL_ICON_OK, "Nenhum chamado em risco agora.");
+      : _relEmptyCell(3, _REL_ICON_OK, "Nenhum chamado em risco agora.");
 
     const work = data.workload_tecnico || [];
     const totalAbertos = work.reduce((s, d) => s + (Number(d.abertos) || 0), 0);

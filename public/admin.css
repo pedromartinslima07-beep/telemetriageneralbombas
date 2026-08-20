@@ -6662,6 +6662,35 @@ body.mp-fs-active { overflow: hidden; }
   border-bottom: 1px solid rgba(255,255,255,.05);
 }
 
+/* A célula do chamado em risco — mesmo molde de Chamados e Alertas: o que é
+   em cima, onde e com quem embaixo. */
+.rel-risco-titulo {
+  font-size: 12px; font-weight: 600;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.rel-risco-sub {
+  margin-top: 2px;
+  font-size: 10.5px; color: var(--muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.rel-risco-sep { margin: 0 5px; color: var(--muted2); }
+
+/* O prazo de cada chamado em risco. Frase, não percentual — ver `_relTtrPrazo`
+   no admin.js. Sem caixa alta de propósito: é uma frase que se lê, não uma
+   etiqueta gravada. */
+.rel-prazo {
+  display: inline-block;
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 3px 8px;
+  --ch-p: 4px;
+  clip-path: var(--corte-p);
+  white-space: nowrap;
+}
+.rel-prazo.is-estourado { background: var(--vermelho); color: var(--mar-900); }
+.rel-prazo.is-risco     { background: transparent; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--amarelo) 60%, transparent); color: var(--amarelo); }
+.rel-prazo.is-nd        { background: transparent; box-shadow: inset 0 0 0 1px var(--fio-fraco); color: var(--muted); font-weight: 400; }
+
 /* Card "Painel ao vivo".
    ⚠️ Esta era a barra que o estudo citou pelo nome: 3px de âmbar na borda
    esquerda, o único lugar do painel com isso, e o padrão que o DESIGN.md

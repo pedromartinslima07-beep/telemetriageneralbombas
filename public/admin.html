@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="/static/leaflet.css">
   <!-- ⚠️ Ao mexer em admin.js ou admin.css, bumpe o ?v=N aqui E no <script>
        lá embaixo. Ver CLAUDE.md raiz. -->
-  <link rel="stylesheet" href="/static/admin.css?v=208">
+  <link rel="stylesheet" href="/static/admin.css?v=210">
 </head>
 <body>
   <div id="appLoader">
@@ -1409,15 +1409,19 @@
           <div class="rel-vivo-grid">
             <div>
               <p class="rel-ct-head">
-                <span>Chamados em risco <span style="font-size:11px;color:var(--muted);">(≥ 50% do TTR usado)</span></span>
+                <span>Chamados em risco <span style="font-size:11px;color:var(--muted);">(passou da metade do prazo)</span></span>
                 <span id="relVivoRiscoCount" class="rel-count-badge rel-count-neutral">–</span>
               </p>
               <div class="tableWrap" style="max-height:260px;">
                 <table><thead><tr>
-                  <th>Chamado</th><th style="width:96px">Prioridade</th>
-                  <th style="width:148px">Condomínio</th><th style="width:120px">Técnico</th>
-                  <th style="width:90px">Uso do TTR</th>
-                </tr></thead><tbody id="relVivoRiscoBody"><tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px;">Carregando…</td></tr></tbody></table>
+                  <!-- Molde do `planos`, como em Chamados e Alertas: condomínio
+                       e técnico descem para a linha de apoio do título. O painel
+                       ocupa metade da largura do card, e com cinco colunas o
+                       título quebrava em três linhas. -->
+                  <th>Chamado</th><th style="width:88px">Prioridade</th>
+                  <!-- Era "Uso do TTR", em percentual. Ver `_relTtrPrazo` no admin.js. -->
+                  <th style="width:136px">Prazo</th>
+                </tr></thead><tbody id="relVivoRiscoBody"><tr><td colspan="3" style="text-align:center;color:var(--muted);padding:20px;">Carregando…</td></tr></tbody></table>
               </div>
             </div>
             <div>
@@ -2692,7 +2696,7 @@
 </div>
 
 
-<script src="/static/admin.js?v=295" defer></script>
+<script src="/static/admin.js?v=297" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
 <script src="/static/register-sw.js?v=38" defer></script>
 </body>
