@@ -1378,7 +1378,9 @@ td, th, .mono, [class*="valor"], [class*="total"], [class*="count"] {
    para larguras que não dá pra prever. */
 .rc-label {
   font-family: var(--mono);
-  font-size: 8.5px;
+  /* .55rem é o piso da etiqueta gravada no DESIGN.md, e 8,5px ficava abaixo
+     dele: a 8,5 o acento de "CRÍTICO" some na renderização. */
+  font-size: 9px;
   font-weight: 500;
   text-transform: uppercase;
   /* ⚠️ O tracking é a alavanca, não o corpo. A .12em da etiqueta gravada do
@@ -1415,6 +1417,23 @@ td, th, .mono, [class*="valor"], [class*="total"], [class*="count"] {
   margin-left: auto;
   flex-shrink: 0;
   color: var(--text);
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+/* A UNIDADE (decisão nº 4). Menor e mais apagada que o número, do jeito que
+   o instrumento da landing escreve "cm" ao lado da coluna d'água. Ela existe
+   para que o mesmo rótulo em duas telas pare de parecer contradição:
+   "OFFLINE 4 disp." e "OFFLINE 1 cond." contam coisas diferentes, e agora
+   dizem isso. */
+.rc-unid {
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: .04em;
+  color: var(--muted);
+  white-space: nowrap;
 }
 
 .rc-trend {
@@ -1776,16 +1795,24 @@ td, th, .mono, [class*="valor"], [class*="total"], [class*="count"] {
 }
 .mc-act-row:hover { background: rgba(255,255,255,.025); }
 
+/* ⚠️ Era uma barra vertical de 2px com gradiente, uma por linha do feed —
+   a mesma faixa de cor na borda indicando estado que o DESIGN.md proíbe, só
+   que como elemento em vez de `border-left` (por isso o detector não a
+   pegava). Virou o que este sistema usa para estado: uma placa chanfrada,
+   preenchida quando pede ação e de fio em repouso. Alinha com a primeira
+   linha do título em vez de esticar pela altura toda, senão volta a ler
+   como barra. */
 .mc-act-stripe {
-  width: 2px;
-  border-radius: 2px;
+  width: 8px; height: 8px;
   flex-shrink: 0;
-  align-self: stretch;
+  margin-top: 5px;
+  --ch-p: 2px;
+  clip-path: var(--corte-p);
 }
-.mc-act-stripe.ok    { background: linear-gradient(180deg, var(--ok), transparent); }
-.mc-act-stripe.warn  { background: linear-gradient(180deg, var(--warn), transparent); }
-.mc-act-stripe.bad   { background: linear-gradient(180deg, var(--danger), transparent); }
-.mc-act-stripe.info  { background: linear-gradient(180deg, var(--cyan), transparent); }
+.mc-act-stripe.bad   { background: var(--risco); }
+.mc-act-stripe.warn  { background: var(--amarelo); }
+.mc-act-stripe.ok    { background: transparent; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ok) 60%, transparent); }
+.mc-act-stripe.info  { background: transparent; box-shadow: inset 0 0 0 1px var(--fio-forte); }
 
 .mc-act-main { flex: 1; min-width: 0; }
 .mc-act-title {
@@ -1827,32 +1854,48 @@ td, th, .mono, [class*="valor"], [class*="total"], [class*="count"] {
 
 /* Linha financeira (contratos) entre condoGrid e mc-bottom */
 .mc-fin { margin: 14px 0; }
+/* Eram quatro caixas iguais de rótulo + número lado a lado — a forma que este
+   sistema recusa para conteúdo paralelo. Vira a MESMA faixa dividida da
+   `.resumo-grid`: uma peça só, células separadas por corte, cada uma numa
+   linha de 54px. O `gap: 1px` sobre o fundo `--fio` é o que desenha o sulco;
+   por isso a régua não tem padding lateral — com padding, o fio vazaria em
+   volta e viraria moldura. */
 .mc-fin-row {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 14px;
-  padding: 14px 18px 18px;
+  gap: 1px;
+  padding: 0;
+  margin: 4px 18px 18px;
+  background: var(--fio);
 }
 .mc-fin-item {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 10px 14px;
-  border-radius: var(--radius-sm);
-  background: rgba(255,255,255,.03);
-  border: 1px solid var(--border);
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  height: 54px;
+  padding: 0 13px;
+  background: color-mix(in srgb, var(--mar-700) 52%, var(--mar-900));
+  box-shadow: inset 1px 0 0 var(--rasgo), inset 0 1px 0 var(--rasgo);
 }
 .mc-fin-label {
-  font-size: 10.5px;
-  letter-spacing: .4px;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: .055em;
   text-transform: uppercase;
-  color: var(--muted);
-  font-weight: 600;
+  color: var(--text-dim);
+  font-weight: 500;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .mc-fin-value {
-  font-size: 20px;
+  font-family: var(--mono);
+  font-size: 15px;
   font-weight: 700;
+  letter-spacing: -.03em;
+  font-variant-numeric: tabular-nums;
   color: var(--text);
+  margin-left: auto;
+  white-space: nowrap;
 }
 @media (max-width: 900px) {
   .mc-fin-row { grid-template-columns: repeat(2, 1fr); }
@@ -4663,20 +4706,19 @@ select option { background: #050f38; color: #f2f5ff; }
 /* ============================================================
    SEÇÃO MAPA (data-section="mapa") — Fase 3B.2
    ============================================================ */
+/* Mesma faixa dividida do resto do painel — estes quatro eram cards de 132px
+   de altura com o número no meio e a legenda no rodapé. */
 .mp-kpis {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-  margin-bottom: 20px;
+  gap: 1px;
+  padding: 1px;
+  margin-bottom: 16px;
+  --ch: 12px;
+  background: var(--fio);
+  clip-path: var(--corte);
 }
-.mp-kpis .rc {
-  min-height: 132px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.mp-kpis .rc-value { margin-top: 4px; }
-.mp-kpis .rc-hint { margin-top: auto; }
+.mp-kpis .rc { min-height: 0; }
 @media (max-width: 920px) { .mp-kpis { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 540px) { .mp-kpis { grid-template-columns: 1fr; } }
 

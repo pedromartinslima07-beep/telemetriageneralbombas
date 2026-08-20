@@ -254,12 +254,14 @@ const RC_ICONS = {
   building:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>',
 };
 
+// Só o ícone é lido daqui (ver `resumoCard`). O rótulo de cada card vive na
+// lista `cards` de `renderResumo`, junto com a unidade que ele declara.
 const RC_META = {
-  offline:           { icon: 'offline',  label: 'Offline' },
-  nivel_baixo:       { icon: 'warn',     label: 'Nível baixo' },
-  nivel_muito_baixo: { icon: 'danger',   label: 'Muito baixo' },
-  com_alerta:        { icon: 'warn',     label: 'Cond. com alerta' },
-  ok:                { icon: 'ok',       label: 'Cond. OK' },
+  offline:           { icon: 'offline' },
+  nivel_baixo:       { icon: 'warn' },
+  nivel_muito_baixo: { icon: 'danger' },
+  com_alerta:        { icon: 'warn' },
+  ok:                { icon: 'ok' },
 };
 
 // Card de KPI unificado — fonte única do markup pra TODAS as abas. Estrutura:
@@ -267,17 +269,23 @@ const RC_META = {
 // extras no card (ex.: data-* de clique); `button=true` troca a tag pra
 // <button> clicável (sem rc-static). Os helpers locais `kpi(...)` de cada
 // seção delegam pra cá — não duplicar este markup.
-function kpiCard(icon, value, label, kindCls = "rc-neutral", attrs = "", button = false) {
+// `unidade` é o que a decisão nº 4 do plano pede: **o rótulo declara a
+// unidade**. O mesmo "OFFLINE 4" queria dizer dispositivos no Dashboard e
+// condomínios no Mapa, e "CRÍTICOS 7" queria dizer alertas aqui e chamados
+// ali — nenhum rótulo dizia de quê. A unidade entra ao lado do número, e não
+// dentro do rótulo, porque é assim que este sistema escreve leitura de
+// instrumento (ver DESIGN.md, "Reading": a unidade sai menor, em --sobre-2).
+function kpiCard(icon, value, label, kindCls = "rc-neutral", attrs = "", button = false, unidade = "") {
   const tag = button ? "button" : "div";
   const staticCls = button ? "" : " rc-static";
   return `
     <${tag} class="rc ${kindCls}${staticCls}"${attrs ? " " + attrs : ""}>
       <div class="rc-head"><div class="rc-icon">${icon}</div><div class="rc-label">${label}</div></div>
-      <div class="rc-value">${value}</div>
+      <div class="rc-value">${value}${unidade ? `<span class="rc-unid">${unidade}</span>` : ""}</div>
     </${tag}>`;
 }
 
-function resumoCard(titulo, valorHtml, kind, cardKey) {
+function resumoCard(titulo, valorHtml, kind, cardKey, unidade = "") {
   const kindCls =
     kind === "bad"  ? "rc-bad"  :
     kind === "warn" ? "rc-warn" :
@@ -290,7 +298,7 @@ function resumoCard(titulo, valorHtml, kind, cardKey) {
   // Só vira <button> quem tem destino de drill-down (ver _DASH_DRILL). O card
   // "Condomínios OK" não tem, então sai como <div rc-static>: não é focável
   // nem clicável, em vez de um botão que não faz nada.
-  return kpiCard(iconSvg, valorHtml, titulo, kindCls, `data-card="${cardKey}"`, !!_DASH_DRILL[cardKey]);
+  return kpiCard(iconSvg, valorHtml, titulo, kindCls, `data-card="${cardKey}"`, !!_DASH_DRILL[cardKey], unidade);
 }
 
 // ===== estado =====
@@ -579,15 +587,21 @@ function renderResumo() {
   const grid = document.getElementById("resumoGrid");
   if (!grid) return;
 
+  // ⚠️ A unidade de cada número está declarada, e as duas famílias aqui NÃO
+  // são a mesma coisa: as três primeiras contam aparelho (um device por
+  // reservatório), as duas últimas contam condomínio. Era isso que fazia
+  // "OFFLINE 4" no Dashboard e "OFFLINE 1" no Mapa parecerem contradição.
+  // Com a unidade ao lado, o rótulo pode largar o prefixo "COND." e voltar a
+  // dizer o estado em vez de dizer a unidade.
   const cards = [
-    { titulo: "OFFLINE", valor: offlineTotal, kind: offlineTotal > 0 ? "bad" : "ok", key: "offline" },
-    { titulo: "NÍVEL BAIXO", valor: baixo, kind: baixo > 0 ? "warn" : "ok", key: "nivel_baixo" },
-    { titulo: "MUITO BAIXO", valor: muitoBaixo, kind: muitoBaixo > 0 ? "bad" : "ok", key: "nivel_muito_baixo" },
-    { titulo: "COND. COM ALERTA", valor: condsComAlerta, kind: condsComAlerta > 0 ? "warn" : "ok", key: "com_alerta" },
-    { titulo: "COND. OK", valor: condsOk, kind: "ok", key: "ok" },
+    { titulo: "OFFLINE",     valor: offlineTotal,   unid: "disp.",  kind: offlineTotal > 0 ? "bad" : "ok",     key: "offline" },
+    { titulo: "NÍVEL BAIXO", valor: baixo,          unid: "res.",   kind: baixo > 0 ? "warn" : "ok",           key: "nivel_baixo" },
+    { titulo: "MUITO BAIXO", valor: muitoBaixo,     unid: "res.",   kind: muitoBaixo > 0 ? "bad" : "ok",       key: "nivel_muito_baixo" },
+    { titulo: "COM ALERTA",  valor: condsComAlerta, unid: "cond.",  kind: condsComAlerta > 0 ? "warn" : "ok",  key: "com_alerta" },
+    { titulo: "EM ORDEM",    valor: condsOk,        unid: "cond.",  kind: "ok",                                key: "ok" },
   ];
 
-  grid.innerHTML = cards.map(c => resumoCard(c.titulo, c.valor, c.kind, c.key)).join("");
+  grid.innerHTML = cards.map(c => resumoCard(c.titulo, c.valor, c.kind, c.key, c.unid)).join("");
 }
 
 // ===================================================================
