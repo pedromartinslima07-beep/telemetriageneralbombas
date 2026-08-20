@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="/static/leaflet.css">
   <!-- ⚠️ Ao mexer em admin.js ou admin.css, bumpe o ?v=N aqui E no <script>
        lá embaixo. Ver CLAUDE.md raiz. -->
-  <link rel="stylesheet" href="/static/admin.css?v=210">
+  <link rel="stylesheet" href="/static/admin.css?v=213">
 </head>
 <body>
   <div id="appLoader">
@@ -505,11 +505,14 @@
               <table>
                 <thead>
                   <tr>
-                    <th>Nome</th>
-                    <th>Cidade</th>
-                    <th>Responsável</th>
-                    <th style="font-family:monospace;">CNPJ</th>
-                    <th>Contrato</th>
+                    <!-- Molde do `planos`: cidade, responsável e CNPJ descem
+                         para a linha de apoio do nome. As colunas CNPJ e
+                         CONTRATO ficavam inteiras em "—" quando a carteira não
+                         tem o dado — e coluna morta ocupa largura sem informar.
+                         Na linha de apoio, dado ausente simplesmente não
+                         aparece. -->
+                    <th>Cliente</th>
+                    <th style="width:150px">Contrato</th>
                   </tr>
                 </thead>
                 <tbody id="cliTableBody"></tbody>
@@ -2696,7 +2699,7 @@
 </div>
 
 
-<script src="/static/admin.js?v=297" defer></script>
+<script src="/static/admin.js?v=299" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
 <script src="/static/register-sw.js?v=38" defer></script>
 </body>

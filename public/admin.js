@@ -2991,7 +2991,7 @@ function renderCliTabela() {
 
   const lista = _cliFiltrados();
   if (!lista.length) {
-    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:32px;">Nenhum cliente encontrado.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="2" style="text-align:center;color:var(--muted);padding:32px;">Nenhum cliente encontrado.</td></tr>`;
     return;
   }
 
@@ -3003,11 +3003,22 @@ function renderCliTabela() {
     const ctrBadge = contrato
       ? `<span class="ch-st ch-st-${st.cls === "ok" ? "aberto" : st.cls === "warn" ? "em_atendimento" : "fechado"}" title="${st.texto}">${st.texto}</span>`
       : `<span style="font-size:10px;color:var(--muted);">—</span>`;
+    // Molde do `planos`: cidade e responsável descem para a linha de apoio.
+    // O CNPJ vai junto — ele estava numa coluna própria que ficava inteira em
+    // "—" sempre que a carteira não tem o dado, e coluna morta é pior que
+    // dado ausente numa linha de apoio, onde ele simplesmente não aparece.
+    const cnpjFmt = c.cnpj
+      ? String(c.cnpj).replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5")
+      : "";
+    const apoio = [cidade, _waEscaparHtml(c.responsavel || "")].filter(v => v && v !== "—");
     return `<tr class="ch-row${sel}" data-cli-id="${c.id}" style="cursor:pointer;">
-      <td><div style="font-weight:500;font-size:12px;">${_waEscaparHtml(c.nome_fantasia || c.nome || "—")}</div></td>
-      <td style="font-size:11px;color:var(--muted);">${cidade}</td>
-      <td style="font-size:11px;">${_waEscaparHtml(c.responsavel || "—")}</td>
-      <td style="font-size:11px;font-family:monospace;color:var(--muted);">${c.cnpj ? String(c.cnpj).replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5") : "—"}</td>
+      <td class="cli-nome-cell">
+        <div class="cli-nome">${_waEscaparHtml(c.nome_fantasia || c.nome || "—")}</div>
+        <div class="cli-sub">
+          ${apoio.join('<span class="cli-sep">·</span>')}
+          ${cnpjFmt ? `<span class="cli-sep">·</span><span class="cli-cnpj">${cnpjFmt}</span>` : ""}
+        </div>
+      </td>
       <td>${ctrBadge}</td>
     </tr>`;
   }).join("");
@@ -14814,8 +14825,15 @@ function _pmBindEventos() {
    Ver docs/modulos/equipamentos.md.
    ============================================================ */
 
+// Preenchido quando pede ação, de fio em repouso — a mesma regra do selo do
+// resto do painel.
+// ⚠️ Duas correções aqui. "Etiqueta em branco" saía SEM classe nenhuma, ou
+// seja, texto puro no meio de uma coluna de selos — era um dos seis
+// vocabulários de estado que o estudo listou. E "Baixada" saía em vermelho
+// cheio: equipamento baixado é fim de linha, não emergência, e não pede nada
+// de ninguém. Os dois viram selo de fio neutro.
 const _EQ_STATUS_LABEL = {
-  etiqueta_livre:       ["Etiqueta em branco", ""],
+  etiqueta_livre:       ["Etiqueta em branco", "b-neutro"],
   instalado:            ["No condomínio", "b-ok"],
   oficina:              ["Na oficina", "b-warn"],
   aguardando_orcamento: ["Aguardando orçamento", "b-warn"],
@@ -14823,7 +14841,7 @@ const _EQ_STATUS_LABEL = {
   em_conserto:          ["Em conserto", "b-warn"],
   pronto:               ["Pronta para devolver", "b-ok"],
   devolvido:            ["Devolvida", "b-ok"],
-  baixado:              ["Baixada", "b-bad"],
+  baixado:              ["Baixada", "b-neutro"],
 };
 
 let _eqDados = [];
@@ -14871,7 +14889,7 @@ async function _eqCarregar() {
       const nome = eq.apelido || [eq.marca, eq.modelo].filter(Boolean).join(" ")
                  || (eq.tipo ? eq.tipo[0].toUpperCase() + eq.tipo.slice(1) : "—");
       return `<tr data-eq-codigo="${_eqEsc(eq.codigo)}" style="cursor:pointer;">
-        <td style="font-family:ui-monospace,Consolas,monospace;">${_eqFormatarCodigo(eq.codigo)}</td>
+        <td class="mono">${_eqFormatarCodigo(eq.codigo)}</td>
         <td>${_eqEsc(nome)}</td>
         <td>${_eqEsc(eq.condominio_nome || "—")}</td>
         <td><span class="badge ${cls}">${_eqEsc(label)}</span></td>
