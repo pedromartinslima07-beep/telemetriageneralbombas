@@ -3055,6 +3055,47 @@ faixa descoberta acima da `.mob-topbar` no PWA instalado.
 Detalhe do mecanismo em [`arquitetura.md`](arquitetura.md), seção "Área segura
 do iOS".
 
+### 2026-08-20/21 · O painel admin veste o Chapa
+
+As 15 telas do admin saíram do sistema "Mission Control" (âmbar `#f0b014`,
+aurora radial, vidro, raio 12px) e passaram a usar o **Chapa** da landing, do
+login e do painel do cliente, em registro de operação. Branch
+`feature/admin-chapa`, 11 commits. Direção e direções descartadas em
+[`../memory-bank/decisions.md`](../memory-bank/decisions.md); o antes/depois
+medido em [`modulos/painel-admin.md`](modulos/painel-admin.md); as regras
+novas do sistema em [`../DESIGN.md`](../DESIGN.md).
+
+**As cinco decisões do plano, todas implementadas:** faixa de KPI de 120–330px
+para 54px (e virando uma placa dividida, não seis cartões) · ficha que colapsa
+e desliza · um selo de estado (preenchido pede ação, de fio em repouso) ·
+unidade ao lado do número · `planos` como molde da tabela.
+
+**Regras novas que a migração obrigou a criar** (todas em `DESIGN.md`):
+
+- **A Regra da Superfície** — "placa clara é o que ABRE POR CIMA": modal,
+  drawer, lightbox. O que fica lado a lado com o conteúdo continua marinho.
+- **A Regra do Preenchimento Cru** — fundo de selo usa `--amarelo`/
+  `--vermelho`/`--verde` (que não flipam); texto e borda usam os semânticos
+  (que viram tinta na placa clara).
+- **A Regra da Paleta Categórica** — três slots, em ordem fixa, validados com
+  o validador da skill `dataviz` contra a superfície real do gráfico. O teto
+  de três é medido: uma quarta matiz fria dá ΔE 1,9 sob protanopia.
+
+**Correções de conteúdo, não de pele:** "ALERTAS CRÍTICOS" na Telemetria era
+rótulo errado (conta todos os alertas ativos) · "Uso do TTR" mostrava
+`12750%` e virou "estourou há 21 dias" · três KPIs de Chamados e a faixa
+inteira de Alertas repetiam as abas logo abaixo, e saíram.
+
+**Nav reagrupada** em Agora / Em curso / Cadastro / Análise / Sistema — por
+quando se abre, não pela ordem em que os módulos nasceram.
+
+**Detector da skill `impeccable`:** 947 → 822 achados; as 7 barras de cor na
+borda foram a zero.
+
+⚠️ O app mobile do técnico (`app/public/app.css`) **não** migrou: tem cópia
+própria dos tokens com `--accent: #f0b014`. É a quarta identidade do produto
+até ser tratado.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em
