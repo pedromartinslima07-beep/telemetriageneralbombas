@@ -336,6 +336,21 @@ app.get("/admin/painel", _htmlNoCache, (req, res) =>
 app.get("/cliente/painel", _htmlNoCache, (req, res) =>
   res.sendFile(path.join(__dirname, "../public/cliente.html"))
 );
+// Orçamentos do síndico — página própria, não um modal do painel. É o destino
+// do link que vai no e-mail do orçamento, então a URL é pública e estável; o
+// login é exigido pelo JS (que redireciona para /login sem token) e o dado é
+// escopado no backend pelo condominio_id do usuário.
+//
+// ⚠️ O PATH É `/cliente/painel/orcamentos`, NÃO `/cliente/orcamentos`. Estas
+// rotas de página são registradas ANTES do `app.use("/cliente", clienteRouter)`
+// lá embaixo, então `/cliente/orcamentos` aqui sombrearia o GET da API com o
+// mesmo nome — o fetch da lista receberia o HTML da própria página e o front
+// estouraria o clássico `Unexpected token '<'`. A convenção do repo já
+// separava os dois: página é o NOME DA TELA (`/cliente/painel`), API é o nome
+// do RECURSO (`/cliente/status`, `/cliente/chamados`, `/cliente/orcamentos`).
+app.get("/cliente/painel/orcamentos", _htmlNoCache, (req, res) =>
+  res.sendFile(path.join(__dirname, "../public/cliente-orcamentos.html"))
+);
 // Ficha do equipamento — é o que a etiqueta QR abre. O path é curto de
 // propósito: menos caractere na URL = QR com menos módulos = etiqueta legível
 // mesmo suja ou amassada. O código não é validado aqui (o HTML é estático);

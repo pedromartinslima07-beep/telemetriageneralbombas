@@ -12176,6 +12176,8 @@ function _avRenderPainel() {
             </select></b>
           </div>
           <div class="av-rail-kv"><span>Validade</span><b>${validadeVal ? _orcFmtData(o.valido_ate) : "—"}</b></div>
+          ${o.respondido_em ? `
+          <div class="av-rail-kv"><span>Resposta do cliente</span><b>${o.status === "aprovado" ? "Aprovou" : "Recusou"} em ${_orcFmtData(o.respondido_em)}</b></div>` : ""}
           <div class="av-rail-kv av-rail-tipo">
             <span><label for="avInputTipo">Tipo</label></span>
             <b><select id="avInputTipo" class="select">
@@ -12186,6 +12188,12 @@ function _avRenderPainel() {
             </select></b>
           </div>
         </div>
+
+        ${o.respondido_em && (o.cliente_comentario || o.motivo_rejeicao) ? `
+        <div class="av-resposta-cliente">
+          <div class="av-resposta-t">${o.respondido_por_nome ? _waEscaparHtml(o.respondido_por_nome) : "O cliente"} escreveu</div>
+          <p>${_waEscaparHtml(o.cliente_comentario || o.motivo_rejeicao)}</p>
+        </div>` : ""}
 
         <div class="av-rail-hr"></div>
 

@@ -10,6 +10,7 @@ const { authRequired } = require("../middleware/authRequired");
 const { clienteOnly } = require("../middleware/clienteOnly");
 const { OFFLINE_MINUTES } = require("../config");
 const { gerarPdfOS } = require("../services/os-pdf.service");
+const { gerarPdfAvulso } = require("../services/orcamento-pdf.service");
 const { salvarFotoMensagemChamado } = require("../services/chamado-mensagens.service");
 const { registrarCriacao } = require("../services/chamado-historico.service");
 
@@ -828,6 +829,205 @@ router.post("/chat/mensagem", authRequired, clienteOnly, async (req, res) => {
   } catch (err) {
     console.error("[chat-app] POST /chat/mensagem:", err);
     return res.status(500).json({ error: "Erro ao processar mensagem" });
+  }
+});
+
+// ════════════════════════════════════════════════════════════════════════
+// ORÇAMENTOS — o síndico responde pelo painel dele
+// ────────────────────────────────────────────────────────────────────────
+// Antes o orçamento saía por e-mail com o PDF anexado e a resposta voltava
+// por fora (telefone, WhatsApp). Alguém do escritório registrava o "aprovado"
+// no admin — então não havia registro de que o cliente, ele mesmo, tinha dito
+// sim, nem quando, nem com que ressalva.
+//
+// ⚠️ ESCOPO: só condomínio com login. Orçamento avulso de pessoa física não
+// entra — quem não tem condomínio não tem usuário, e a resposta dele continua
+// vindo por fora. Ver migration 074.
+//
+// ⚠️ O CLIENTE SÓ VÊ O QUE JÁ FOI ENVIADO A ELE. Rascunho é documento em
+// preparo, com valor possivelmente errado; vazar isso para o condomínio seria
+// pior que não ter a tela. O filtro de status é a regra de negócio central
+// desta seção — não afrouxar.
+// ════════════════════════════════════════════════════════════════════════
+
+const _ORC_VISIVEIS_AO_CLIENTE = ["enviado", "aprovado", "rejeitado"];
+
+// GET /cliente/orcamentos — os orçamentos do condomínio, já enviados
+router.get("/orcamentos", authRequired, clienteOnly, async (req, res) => {
+  const condominioId = Number(req.user.condominio_id);
+  if (!condominioId) return res.status(403).json({ error: "Cliente sem condomínio vinculado" });
+
+  try {
+    const r = await pool.query(
+      `SELECT
+         o.id, o.numero, o.status, o.tipo, o.constatacao,
+         o.criado_em, o.enviado_em, o.valido_ate,
+         o.respondido_em, o.cliente_comentario, o.motivo_rejeicao,
+         COALESCE(
+           o.valor,
+           (SELECT SUM(l.quantidade * COALESCE(l.valor_unitario, 0))
+              FROM orcamento_linhas l WHERE l.orcamento_id = o.id),
+           0
+         ) AS valor_total,
+         (SELECT COUNT(*) FROM orcamento_linhas l WHERE l.orcamento_id = o.id)::int AS itens
+       FROM orcamentos o
+       WHERE o.condominio_id = $1
+         AND o.status = ANY($2::text[])
+       ORDER BY
+         CASE WHEN o.status = 'enviado' THEN 0 ELSE 1 END,
+         COALESCE(o.enviado_em, o.criado_em) DESC
+       LIMIT 100`,
+      [condominioId, _ORC_VISIVEIS_AO_CLIENTE]
+    );
+
+    // O nome vem à parte porque a tela precisa dele TAMBÉM quando a lista
+    // está vazia — que é o estado mais comum. Num JOIN ele sumiria junto
+    // com as linhas.
+    const c = await pool.query("SELECT nome FROM condominios WHERE id = $1", [condominioId]);
+
+    return res.json({ condominio: c.rows[0]?.nome || null, orcamentos: r.rows });
+  } catch (e) {
+    console.error("[cliente] GET /orcamentos:", e);
+    return res.status(500).json({ error: "Erro ao listar orçamentos" });
+  }
+});
+
+// GET /cliente/orcamentos/:id — detalhe com as linhas
+router.get("/orcamentos/:id", authRequired, clienteOnly, async (req, res) => {
+  const condominioId = Number(req.user.condominio_id);
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
+
+  try {
+    const r = await pool.query(
+      `SELECT o.id, o.numero, o.status, o.tipo, o.constatacao, o.condominio_id,
+              o.forma_pagamento, o.prazo_entrega, o.garantia, o.valido_ate,
+              o.criado_em, o.enviado_em, o.respondido_em,
+              o.cliente_comentario, o.motivo_rejeicao,
+              COALESCE(
+                o.valor,
+                (SELECT SUM(l.quantidade * COALESCE(l.valor_unitario, 0))
+                   FROM orcamento_linhas l WHERE l.orcamento_id = o.id),
+                0
+              ) AS valor_total
+         FROM orcamentos o
+        WHERE o.id = $1`,
+      [id]
+    );
+    if (!r.rows.length) return res.status(404).json({ error: "Orçamento não encontrado" });
+    const orc = r.rows[0];
+    if (Number(orc.condominio_id) !== condominioId) {
+      return res.status(403).json({ error: "Orçamento não pertence ao seu condomínio" });
+    }
+    if (!_ORC_VISIVEIS_AO_CLIENTE.includes(orc.status)) {
+      // Rascunho existe mas ainda não foi enviado: para o cliente, ele não
+      // existe. 404 em vez de 403 de propósito — um 403 confirmaria que há um
+      // orçamento em preparo, informação que ele não deveria ter.
+      return res.status(404).json({ error: "Orçamento não encontrado" });
+    }
+
+    const linhas = await pool.query(
+      `SELECT id, descricao, ficha_tecnica, quantidade, valor_unitario, tipo_servico
+         FROM orcamento_linhas WHERE orcamento_id = $1 ORDER BY id`,
+      [id]
+    );
+    return res.json({ ...orc, linhas: linhas.rows });
+  } catch (e) {
+    console.error("[cliente] GET /orcamentos/:id:", e);
+    return res.status(500).json({ error: "Erro ao carregar orçamento" });
+  }
+});
+
+// POST /cliente/orcamentos/:id/responder — aprovar ou recusar
+router.post("/orcamentos/:id/responder", authRequired, clienteOnly, async (req, res) => {
+  const condominioId = Number(req.user.condominio_id);
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
+
+  const decisao = String(req.body?.decisao || "").trim();
+  if (!["aprovar", "recusar"].includes(decisao)) {
+    return res.status(400).json({ error: "Decisão inválida" });
+  }
+  const comentario = req.body?.comentario != null
+    ? String(req.body.comentario).trim().slice(0, 2000)
+    : "";
+  // Recusar sem dizer por quê deixa o escritório sem ação possível — é a
+  // única das duas respostas que exige justificativa.
+  if (decisao === "recusar" && !comentario) {
+    return res.status(400).json({ error: "Diga o motivo da recusa para a gente poder revisar." });
+  }
+
+  try {
+    const r = await pool.query(
+      `SELECT id, status, condominio_id FROM orcamentos WHERE id = $1`,
+      [id]
+    );
+    if (!r.rows.length) return res.status(404).json({ error: "Orçamento não encontrado" });
+    const orc = r.rows[0];
+    if (Number(orc.condominio_id) !== condominioId) {
+      return res.status(403).json({ error: "Orçamento não pertence ao seu condomínio" });
+    }
+    // ⚠️ Só responde o que está ENVIADO. Isto cobre dois casos de uma vez: o
+    // rascunho (que o cliente nem deveria ver) e o já respondido — se ele já
+    // aprovou, um segundo clique não pode virar recusa, nem o contrário.
+    if (orc.status !== "enviado") {
+      return res.status(409).json({
+        error: orc.status === "rascunho"
+          ? "Este orçamento ainda não foi enviado."
+          : "Este orçamento já foi respondido.",
+      });
+    }
+
+    const novoStatus = decisao === "aprovar" ? "aprovado" : "rejeitado";
+    const upd = await pool.query(
+      `UPDATE orcamentos
+          SET status             = $2,
+              respondido_em      = now(),
+              respondido_por     = $3,
+              cliente_comentario = NULLIF($4, ''),
+              aprovado_em        = CASE WHEN $2 = 'aprovado' THEN now() ELSE aprovado_em END,
+              aprovado_por       = CASE WHEN $2 = 'aprovado' THEN $3 ELSE aprovado_por END,
+              motivo_rejeicao    = CASE WHEN $2 = 'rejeitado' THEN NULLIF($4, '') ELSE motivo_rejeicao END
+        WHERE id = $1
+        RETURNING id, status, respondido_em, cliente_comentario`,
+      [id, novoStatus, req.user.id, comentario]
+    );
+
+    console.log(`[cliente] orcamento=${id} decisao=${novoStatus} usuario=${req.user.id}`);
+    return res.json(upd.rows[0]);
+  } catch (e) {
+    console.error("[cliente] POST /orcamentos/:id/responder:", e);
+    return res.status(500).json({ error: "Erro ao registrar a resposta" });
+  }
+});
+
+// GET /cliente/orcamentos/:id/pdf — o mesmo PDF que foi anexado no e-mail
+router.get("/orcamentos/:id/pdf", authRequired, clienteOnly, async (req, res) => {
+  const condominioId = Number(req.user.condominio_id);
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
+
+  try {
+    const r = await pool.query(
+      `SELECT id, numero, status, condominio_id FROM orcamentos WHERE id = $1`,
+      [id]
+    );
+    if (!r.rows.length) return res.status(404).json({ error: "Orçamento não encontrado" });
+    const orc = r.rows[0];
+    if (Number(orc.condominio_id) !== condominioId) {
+      return res.status(403).json({ error: "Orçamento não pertence ao seu condomínio" });
+    }
+    if (!_ORC_VISIVEIS_AO_CLIENTE.includes(orc.status)) {
+      return res.status(404).json({ error: "Orçamento não encontrado" });
+    }
+
+    const { fpath } = await gerarPdfAvulso(id);
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `inline; filename="orcamento-${orc.numero || id}.pdf"`);
+    return res.sendFile(fpath);
+  } catch (e) {
+    console.error("[cliente] GET /orcamentos/:id/pdf:", e);
+    return res.status(500).json({ error: "Erro ao gerar o PDF do orçamento" });
   }
 });
 

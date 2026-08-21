@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>GENERAL • Orçamentos</title>
+  <link rel="icon" type="image/png" href="/static/favicon.png?v=3" />
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#050f38">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="General">
+  <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+
+  <!-- ⚠️ MESMA FOLHA DO PAINEL, de propósito. Esta é uma segunda página do
+       mesmo produto, não um lugar novo: quem chega aqui pelo link do e-mail
+       precisa reconhecer onde está. Barra, rodapé, `.bloco` e `.campo` são
+       os mesmos componentes; o que é exclusivo desta tela está na seção
+       ORÇAMENTOS, no fim do cliente.css. -->
+  <link rel="preload" href="/static/fonts/archivo.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/static/fonts/martianmono.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/static/cliente.css?v=31">
+</head>
+<body>
+
+<!--
+  DIRECTION CONTRACT — orçamentos do cliente (surface/operate)
+
+  ⚠️ ISTO É UMA PÁGINA, NÃO UMA FICHA. A v1 pôs os orçamentos em modais
+  abertos por um card no meio do painel, e foi recusada. Um orçamento não é
+  detalhe do painel: é um documento que a pessoa lê, pensa e às vezes mostra
+  para outra pessoa antes de responder — o que pede URL própria, rolagem
+  inteira e o voltar do celular funcionando. Modal não dá nenhuma das três.
+
+  MATERIAL: o painel é instrumento (marinho, placa, sulcos gravados). Esta
+  tela é PAPEL — chapas claras sobre o campo marinho. É a mesma distinção que
+  existe fora da tela: o painel você olha, o orçamento você assina. Barra e
+  rodapé continuam marinho, senão a pessoa acha que saiu do sistema.
+
+  UM AMARELO POR TELA: é do "Aprovar orçamento". Por isso o PDF é botão de
+  fio, e não o `.relatorio .btn-fio` do painel (aquele pinta de amarelo).
+-->
+
+<header class="barra" id="barra"><div class="barra-in">
+  <!-- A marca leva de volta ao painel: é o caminho que todo mundo tenta antes
+       de procurar um "voltar". logo-topo.png é o wordmark SEM a assinatura;
+       o lockup completo aparece uma vez só, no rodapé. -->
+  <a class="marca" href="/cliente/painel"><img src="/static/logo-topo.png" alt="GENERAL"></a>
+  <a class="conta" href="/cliente/painel">
+    <svg viewBox="0 0 24 24" stroke-linecap="square" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+    <span class="conta-rot">Meu prédio</span>
+  </a>
+</div></header>
+
+<main class="folha orcs-folha">
+
+  <section class="orcs-abre">
+    <p class="predio" id="nomePredio">&nbsp;</p>
+    <h1 class="orcs-titulo" id="orcsTitulo">Orçamentos</h1>
+    <p class="apoio" id="orcsApoio">Carregando…</p>
+  </section>
+
+  <div id="orcsLista" class="orcs-lista"></div>
+
+  <!-- O documento aberto. Não é modal: é a mesma página trocando de conteúdo,
+       com a lista escondida e a URL mudando para `?orc=N`. Assim o botão de
+       voltar do navegador e o gesto de voltar do celular funcionam, e o mesmo
+       link reabre o mesmo orçamento. -->
+  <div id="orcDetalhe" class="orcs-detalhe" hidden></div>
+
+</main>
+
+<footer class="rodape">
+  <div class="rodape-in">
+    <!-- única aparição do lockup completo, com a assinatura -->
+    <img class="rodape-logo" src="/static/login-logo.png" alt="General Engenharia da Manutenção">
+    <dl class="rodape-contato">
+      <div><dt>Telefone</dt><dd><a href="tel:+551120388679">(11) 2038-8679</a></dd></div>
+      <div><dt>WhatsApp</dt><dd><a href="https://wa.me/5511966536110" target="_blank" rel="noopener">(11) 96653-6110</a></dd></div>
+      <div><dt>E-mail</dt><dd><a href="mailto:comercial@generalbombas.com">comercial@generalbombas.com</a></dd></div>
+    </dl>
+  </div>
+  <div class="rodape-fim"><div>
+    <span>Orçamentos do seu prédio</span>
+    <span id="rodapeAno">2026</span>
+  </div></div>
+</footer>
+
+<script src="/static/cliente-orcamentos.js?v=1" defer></script>
+<script src="/static/register-sw.js?v=39" defer></script>
+</body>
+</html>

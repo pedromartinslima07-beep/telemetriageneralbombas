@@ -738,6 +738,9 @@ body[data-estado="semtel"] .prova { display: none; }
    tela — mas neste estado a ação que importa é a oferta, não o socorro:
    é o único caso em que o cliente ainda não tem o produto. "Preciso de
    ajuda" vira contorno e continua ali, do mesmo tamanho.
+   ⚠️ O destino do `.quero` é a LANDING, não o WhatsApp — o porquê está no
+   comentário dele no cliente.html, e é sobre quem entra no sistema pela
+   primeira vez por um link de orçamento.
    O DOM também troca (ver `cliente.html`): ordem visual que não bate com
    ordem de tabulação é defeito de teclado, não detalhe. */
 body[data-estado="semtel"] .quero {
@@ -1255,4 +1258,274 @@ body[data-estado="carregando"] .frase { color: var(--sobre-2); }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; }
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   ORÇAMENTOS — a página
+   ────────────────────────────────────────────────────────────────────────
+   ⚠️ ISTO NÃO É UMA FICHA. A primeira versão pôs os orçamentos em modais,
+   abertos por um card no meio do painel, e foi recusada: um orçamento não é
+   um detalhe do painel, é um documento que a pessoa lê, pensa e responde —
+   às vezes num outro dia, às vezes mostrando para o síndico ao lado. Isso
+   quer URL própria (/cliente/orcamentos), rolagem inteira e o botão de
+   voltar do celular funcionando. Modal não dá nenhuma das três.
+
+   MATERIAL: o painel é instrumento (marinho, placa, sulcos gravados). Esta
+   tela é PAPEL — chapas claras empilhadas sobre o campo marinho. É a mesma
+   distinção que existe fora da tela: o painel você olha, o orçamento você
+   assina. Barra e rodapé continuam marinho, senão a pessoa acha que saiu
+   do sistema.
+
+   Tudo aqui usa os tokens que já existem nesta folha. Nada de valor solto.
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* O chanfro pequeno, para selos e etiquetas. O corte grande abre 10px que,
+   numa peça de 22px de altura, come o canto inteiro. */
+:root {
+  --ch-p: 5px;
+  --corte-p: polygon(var(--ch-p) 0, 100% 0, 100% calc(100% - var(--ch-p)), calc(100% - var(--ch-p)) 100%, 0 100%, 0 var(--ch-p));
+}
+
+.orcs-folha { padding-block: clamp(28px, 5vw, 56px) clamp(30px, 5vw, 60px); }
+
+/* ── A abertura ──────────────────────────────────────────────────────────
+   Mesma gramática da primeira tela do painel: nome do prédio pequeno em
+   cima, a frase grande embaixo. Aqui a frase é o que a tela quer da pessoa
+   ("Um orçamento aguarda sua resposta"), não o estado da água. */
+.orcs-abre { margin-bottom: clamp(24px, 3.4vw, 38px); }
+.orcs-abre .predio {
+  font-family: var(--mono);
+  font-size: .68rem;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--sobre-2);
+}
+.orcs-titulo {
+  margin-top: 12px;
+  font-size: clamp(1.9rem, 4.4vw, 2.9rem);
+  font-weight: 800;
+  font-stretch: 108%;
+  letter-spacing: -.028em;
+  line-height: 1.1;
+  color: #fff;
+  max-width: 20ch;
+}
+.orcs-titulo em { font-style: normal; color: var(--amarelo); }
+.orcs-abre .apoio { margin-top: 14px; }
+
+/* ── A pilha ─────────────────────────────────────────────────────────────
+   Uma coluna, largura de leitura. Orçamento se lê de cima a baixo; grade de
+   cards transformaria documento em catálogo. */
+.orcs-lista, .orcs-detalhe { max-width: 780px; }
+.orcs-lista { display: flex; flex-direction: column; gap: 14px; }
+/* ⚠️ `display` explícito vence o atributo `hidden` (que é só `display:none`
+   da folha do navegador, de especificidade menor). Sem esta linha a lista
+   continua visível ATRÁS do documento aberto. */
+.orcs-lista[hidden], .orcs-detalhe[hidden] { display: none; }
+
+/* ── A chapa: a folha de papel ───────────────────────────────────────────
+   Mesma construção da ficha (fundo claro + fio de 1px + chanfro), sem a
+   sombra projetada — profundidade aqui é tonal, não empilhamento. */
+.orc-item, .orc-doc {
+  background: var(--chapa);
+  color: var(--tinta);
+  box-shadow: inset 0 0 0 1px var(--fio-esc);
+  --ch: 14px;
+  clip-path: var(--corte);
+}
+
+.orc-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 20px clamp(20px, 2.6vw, 28px);
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  transition: background .16s var(--saida), box-shadow .16s var(--saida), transform .16s var(--saida);
+}
+.orc-item:hover { background: var(--chapa-cl); transform: translateY(-1px); }
+.orc-item:active { transform: none; }
+/* O que aguarda resposta ganha o anel marinho — não uma faixa colorida na
+   borda, que é o padrão que este sistema recusa. */
+.orc-item.is-pendente { box-shadow: inset 0 0 0 2px var(--mar-700); }
+
+.orc-item-topo { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.orc-item-num {
+  font-family: var(--mono);
+  font-size: .68rem;
+  letter-spacing: .1em;
+  color: var(--tinta-2);
+}
+.orc-item-valor {
+  display: block;
+  margin-top: 10px;
+  font-family: var(--mono);
+  font-size: clamp(1.5rem, 3.2vw, 1.8rem);
+  font-weight: 700;
+  letter-spacing: -.035em;
+  font-variant-numeric: tabular-nums;
+}
+.orc-item-sub { display: block; margin-top: 4px; font-size: .9rem; color: var(--tinta-2); }
+
+/* ── O selo de estado ────────────────────────────────────────────────────
+   Preenchido quando pede ação, de fio em repouso. "Aguardando você" é o
+   único que preenche — e a tinta por cima é marinho, porque sobre claro o
+   amarelo só existe preenchido (Regra do Amarelo Cego). */
+.orc-selo {
+  font-size: .68rem;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  padding: 4px 9px 3px;
+  clip-path: var(--corte-p);
+  white-space: nowrap;
+}
+.orc-selo-enviado   { background: var(--amarelo); color: var(--mar-900); }
+.orc-selo-aprovado  { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--normal-t) 45%, transparent); color: var(--normal-t); }
+.orc-selo-rejeitado { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--risco-t) 45%, transparent); color: var(--risco-t); }
+
+/* ── O documento aberto ──────────────────────────────────────────────────
+   O total vem primeiro e grande. Num orçamento, o número É a pergunta: todo
+   o resto é justificativa dele. */
+.orc-voltar {
+  display: inline-flex; align-items: center; gap: 8px;
+  margin-bottom: 16px; padding: 8px 2px;
+  background: none; border: none; cursor: pointer;
+  font: inherit; font-size: .95rem; color: var(--sobre-2);
+}
+.orc-voltar:hover { color: #fff; }
+.orc-voltar svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; }
+
+.orc-doc { padding: clamp(24px, 3.2vw, 34px) clamp(22px, 3.2vw, 34px) clamp(26px, 3.4vw, 36px); }
+.orc-doc-topo {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap;
+  padding-bottom: 18px; border-bottom: 1px solid var(--fio-esc);
+}
+.orc-doc-topo h2 { font-size: 1.42rem; font-weight: 800; letter-spacing: -.022em; }
+.orc-doc-topo .orc-item-num { display: block; margin-bottom: 5px; }
+
+.orc-total { padding: 20px 0 4px; }
+.orc-total-rot {
+  display: block;
+  font-family: var(--mono);
+  font-size: .62rem;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--tinta-2);
+}
+.orc-total-val {
+  display: block;
+  margin-top: 6px;
+  font-family: var(--mono);
+  font-size: clamp(1.9rem, 4.6vw, 2.5rem);
+  font-weight: 700;
+  letter-spacing: -.035em;
+  font-variant-numeric: tabular-nums;
+  color: var(--tinta);
+}
+.orc-total-sub { display: block; margin-top: 6px; font-size: .9rem; color: var(--tinta-2); }
+
+.orc-tabela { width: 100%; border-collapse: collapse; margin-top: 10px; }
+.orc-tabela th {
+  font-family: var(--mono);
+  font-size: .62rem; font-weight: 500;
+  letter-spacing: .12em; text-transform: uppercase;
+  color: var(--tinta-2);
+  text-align: left;
+  padding: 0 0 7px;
+  border-bottom: 1px solid var(--fio-esc);
+}
+.orc-tabela td {
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(6, 16, 51, .08);
+  font-size: .95rem;
+  vertical-align: top;
+}
+.orc-tabela .q, .orc-tabela .v { text-align: right; white-space: nowrap; padding-left: 14px; }
+.orc-tabela td.q, .orc-tabela td.v { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.orc-tabela tr:last-child td { border-bottom: none; }
+
+/* O PDF é um botão de fio DENTRO da chapa clara. Não usa .relatorio .btn-fio
+   do painel: ali essa regra pinta de amarelo, e aqui o amarelo é do
+   "Aprovar" — dois amarelos na mesma tela e nenhum deles significa nada. */
+.orc-pdf {
+  display: inline-flex; align-items: center; gap: 9px;
+  margin-top: 8px; padding: 11px 18px;
+  background: none; color: var(--tinta);
+  box-shadow: inset 0 0 0 1.5px var(--fio-esc);
+  --ch: 9px; clip-path: var(--corte);
+  font-weight: 600; font-size: .95rem;
+  transition: box-shadow .16s var(--saida), background .16s var(--saida);
+}
+.orc-pdf:hover { background: #fff; box-shadow: inset 0 0 0 1.5px var(--tinta-2); }
+.orc-pdf svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; }
+
+/* ── A resposta ──────────────────────────────────────────────────────────
+   Aprovar leva o amarelo. Recusar é de fio: as duas são legítimas, mas só
+   uma é o caminho que a General propõe — dar peso igual às duas
+   transformaria a tela numa pergunta neutra, que ela não é. */
+.orc-responder .acoes { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 18px; }
+.orc-responder textarea {
+  width: 100%; resize: vertical; min-height: 80px;
+  font: inherit; font-size: 1rem; padding: 13px 15px;
+  background: #fff; color: var(--tinta); border: none;
+  box-shadow: inset 0 0 0 1.5px var(--fio-esc);
+  --ch: 9px; clip-path: var(--corte);
+}
+.orc-responder textarea:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--tinta); }
+.orc-responder .campo small { font-weight: 400; color: var(--tinta-2); }
+
+.orc-btn {
+  padding: 14px 26px; border: none; cursor: pointer;
+  font: inherit; font-weight: 700; font-size: 1rem;
+  --ch: 10px; clip-path: var(--corte);
+  transition: background .16s var(--saida), box-shadow .16s var(--saida);
+}
+.orc-btn[disabled] { opacity: .5; cursor: default; }
+.orc-btn-sim { background: var(--amarelo); color: var(--mar-900); }
+.orc-btn-sim:not([disabled]):hover { background: #ffcb60; }
+.orc-btn-nao { background: none; color: var(--tinta); box-shadow: inset 0 0 0 1.5px var(--fio-esc); }
+.orc-btn-nao:not([disabled]):hover { box-shadow: inset 0 0 0 1.5px var(--tinta-2); }
+
+.orc-msg { margin-top: 12px; font-size: .93rem; color: var(--tinta-2); min-height: 1.2em; }
+.orc-msg.is-erro { color: var(--risco-t); font-weight: 600; }
+
+/* O registro do que já foi decidido. Sem botão para desfazer: mudar de
+   ideia é conversa com a General, não um clique. */
+.orc-resposta-dada h4 { margin-bottom: 6px; }
+.orc-resposta-dada blockquote {
+  margin-top: 10px; padding-left: 14px;
+  border-left: 2px solid var(--fio-esc);
+  font-size: .95rem; color: var(--tinta-2);
+}
+
+/* ── O vazio ─────────────────────────────────────────────────────────────
+   Estado mais comum desta tela: a maioria dos prédios não tem orçamento
+   aberto. Ele não pede desculpa nem oferece ação falsa — diz o que vai
+   acontecer quando houver. */
+.orcs-vazio {
+  padding: clamp(30px, 4.4vw, 46px) clamp(24px, 3.2vw, 34px);
+  box-shadow: inset 0 0 0 1px var(--fio);
+  --ch: 14px; clip-path: var(--corte);
+}
+.orcs-vazio h2 { font-size: 1.24rem; font-weight: 800; color: #fff; letter-spacing: -.018em; }
+.orcs-vazio p { margin-top: 8px; font-size: .98rem; color: var(--sobre-2); max-width: 46ch; }
+
+/* ── O caminho permanente, na ficha "Sua conta" do painel ───────────────── */
+.conta-link {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  width: 100%; padding: 14px 16px; margin-bottom: 14px;
+  background: #fff; border: none; cursor: pointer;
+  font: inherit; font-weight: 600; color: var(--tinta);
+  box-shadow: inset 0 0 0 1.5px var(--fio-esc);
+  --ch: 10px; clip-path: var(--corte);
+}
+.conta-link:hover { box-shadow: inset 0 0 0 1.5px rgba(6, 16, 51, .36); }
+.conta-link svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; flex-shrink: 0; }
+
+@media (max-width: 760px) {
+  .orc-item, .orc-doc, .orcs-vazio { --ch: 12px; }
+  .orc-responder .acoes > * { flex: 1 1 100%; }
 }
