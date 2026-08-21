@@ -3079,6 +3079,31 @@ qualquer usuário que já tivesse criado ou aprovado alguma coisa no sistema.
 Detalhe das FKs em [`banco-de-dados.md`](banco-de-dados.md), seção
 "Remoção de usuário".
 
+### 2026-08-21 · O envio de e-mail dizia "enviado" sem ter enviado
+
+Sintoma relatado pelo Pedro: clicar em enviar o orçamento demorava, aparecia
+"enviado", e o e-mail não chegava.
+
+**Causa: o SDK do Resend não lança em erro de API.** `emails.send()` devolve
+`{ data, error }` — numa falha o `error` vem preenchido e a Promise **resolve
+normalmente**. As seis chamadas em `src/services/email.js` faziam
+`await getResend().emails.send({...})` e descartavam o retorno. Com isso o
+endpoint marcava `status = 'enviado'`, gravava `enviado_em` e respondia
+`ok: true` para qualquer um destes: `invalid_from_address`,
+`validation_error`, `invalid_attachment`, `monthly_quota_exceeded`,
+`daily_quota_exceeded`, `rate_limit_exceeded`, `invalid_api_key`…
+
+O front estava correto o tempo todo — ele checa `r.ok` e mostraria o erro.
+Quem mentia era o backend.
+
+**Correção:** todo envio passa por `_enviar(payload, contexto)`, que checa o
+`error`, lança com o **código do provedor** na mensagem (é ele que diz o que
+fazer: cota, domínio não verificado, anexo grande demais) e loga o id da
+mensagem no sucesso, para rastrear a entrega no painel do Resend.
+
+A demora é outra coisa e continua: o PDF é gerado com Puppeteer antes do
+envio.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em
