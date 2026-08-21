@@ -5951,13 +5951,36 @@ body.mp-fs-active { overflow: hidden; }
 .wa-card { padding: 0; overflow: visible; }
 .wa-head { padding: 16px 18px; }
 
+/* ⚠️ A COLUNA DE DETALHES SÓ EXISTE QUANDO HÁ DETALHE — mesma decisão da
+   ficha das tabelas (decisão nº 2 do plano), e aqui ela pesava mais: sem
+   conversa selecionada esta tela mostrava TRÊS zonas vazias ao mesmo tempo
+   (lista, chat e detalhe), cada uma com sua própria frase pedindo que você
+   clique em algo. Agora a terceira coluna colapsa e a conversa ganha a
+   largura — o chat é o corpo desta tela, não um terço dela.
+   O gatilho é o próprio placeholder, como nas outras telas: `:has()` com
+   CAMINHO EXATO (filho direto), pelo motivo registrado no `.ch-layout`. */
 .wa-grid {
   display: grid;
   grid-template-columns: 320px minmax(0, 1fr) 340px;
   min-height: 640px;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--rasgo);
+  box-shadow: inset 0 1px 0 var(--luz);
+  transition: grid-template-columns .34s var(--saida);
 }
-@media (max-width: 1280px) { .wa-grid { grid-template-columns: 280px minmax(0,1fr) 300px; } }
+.wa-grid:has(> .wa-info-col > .wa-info-empty) {
+  grid-template-columns: 320px minmax(0, 1fr) 0;
+}
+.wa-grid:has(> .wa-info-col > .wa-info-empty) > .wa-info-col {
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+  border: none;
+  transition: opacity .22s var(--saida);
+}
+@media (max-width: 1280px) {
+  .wa-grid { grid-template-columns: 280px minmax(0,1fr) 300px; }
+  .wa-grid:has(> .wa-info-col > .wa-info-empty) { grid-template-columns: 280px minmax(0,1fr) 0; }
+}
 @media (max-width: 1024px) {
   .wa-grid { grid-template-columns: 1fr; min-height: auto; }
   .wa-list-col, .wa-info-col { border: none; border-top: 1px solid var(--border); }
@@ -5994,7 +6017,10 @@ body.mp-fs-active { overflow: hidden; }
 /* A barra é o contêiner de consulta, não a viewport: o gatilho certo é
    "a barra ficou estreita", que acontece tanto no celular quanto no desktop
    com a ficha aberta. Media query resolveria só o primeiro caso. */
-.ch-toolbar { container-type: inline-size; }
+/* As duas barras que hospedam `.wa-tabs`. A de Atendimento é ainda mais
+   estreita que a de Chamados (a coluna tem 320px), então lá as abas empilham
+   sempre — é onde a regra mais rende. */
+.ch-toolbar, .wa-list-head { container-type: inline-size; }
 @container (max-width: 640px) {
   .wa-tabs {
     flex-wrap: nowrap;
