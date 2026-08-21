@@ -9723,7 +9723,14 @@ function _cfgRenderUsuarios() {
     return `<tr>
       <td>${_waEscaparHtml(u.nome || "-")}${meTag}</td>
       <td style="font-family:ui-monospace,monospace;font-size:12px;">${_waEscaparHtml(u.email || "-")}</td>
-      <td><span class="badge ${u.role === "admin" ? "b-warn" : ["gerente","operador"].includes(u.role) ? "b-ok" : ""}">${_cfgRoleLabel(u.role)}</span></td>
+      <!-- ⚠️ Papel é CATEGORIA, não estado: ninguém precisa agir porque um
+           usuário é admin. Estava com "admin master" em placa âmbar cheia (a
+           cor de "pede atenção") e os demais papéis sem selo NENHUM — texto
+           solto no meio de uma coluna de selos, o mesmo defeito que
+           "etiqueta em branco" tinha em Equipamentos.
+           Agora todos são selo de fio; o que distingue é o rótulo, e o anel
+           mais forte marca quem tem acesso total. -->
+      <td><span class="badge b-papel${u.role === "admin" ? " is-master" : ""}">${_cfgRoleLabel(u.role)}</span></td>
       <td>${condo}</td>
       <td>${dataCad}</td>
       <td>
