@@ -221,14 +221,45 @@ async function sendOrcamentoCliente(dados) {
     .map(l => `<p style="margin:0 0 10px;font-size:14px;line-height:1.6;color:#111827;">${l || "&nbsp;"}</p>`)
     .join("");
 
+  // ⚠️ O CONVITE SÓ EXISTE QUANDO HÁ PARA ONDE MANDAR.
+  // Só condomínio com login responde pelo painel; orçamento avulso de pessoa
+  // física continua sendo só o PDF, porque não há conta para ele entrar. Quem
+  // decide isso é a rota, que só passa `linkPainel` quando faz sentido —
+  // mandar um botão "responder" para quem não consegue entrar seria pior que
+  // não mandar nada.
+  //
+  // O botão é <table>, não <div> com flex: cliente de e-mail (Outlook à
+  // frente) não renderiza layout moderno, e um botão quebrado no e-mail é um
+  // orçamento que não volta.
+  const convite = dados.linkPainel
+    ? `
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:24px 0 8px;">
+        <tr><td style="background:#fbb329;padding:14px 26px;">
+          <a href="${dados.linkPainel}" style="color:#030a26;font-size:15px;font-weight:bold;text-decoration:none;display:inline-block;">
+            Ver o orçamento e responder
+          </a>
+        </td></tr>
+      </table>
+      <p style="margin:0 0 4px;font-size:13px;line-height:1.6;color:#4b5563;">
+        Você entra com o mesmo login do painel do seu prédio e, na tela do
+        orçamento, aprova, recusa ou deixa um comentário — a gente recebe na
+        hora. O PDF em anexo é o mesmo documento.
+      </p>`
+    : "";
+
   await _enviar({
     from: `General Bombas <${_emailFrom()}>`,
     to,
     subject: `Orçamento ${numero} — General Bombas`,
-    text: mensagem,
+    // ⚠️ A versão em texto puro também leva o link. Ela não é decoração: é o
+    // que alguns clientes de e-mail mostram, e é onde cai quem bloqueia HTML.
+    text: dados.linkPainel
+      ? `${mensagem}\n\nVer o orçamento e responder: ${dados.linkPainel}`
+      : mensagem,
     html: `
       <div style="font-family:sans-serif;max-width:560px;margin:auto;padding:32px 28px;background:#ffffff;color:#111827;">
         ${mensagemHtml}
+        ${convite}
         ${assinaturaHtml}
       </div>
     `,

@@ -17,7 +17,7 @@
        cliente.css antes de reintroduzir qualquer dependência do admin. -->
   <link rel="preload" href="/static/fonts/archivo.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="/static/fonts/martianmono.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="/static/cliente.css?v=29">
+  <link rel="stylesheet" href="/static/cliente.css?v=31">
 </head>
 <body data-estado="carregando" data-atend="nao">
 
@@ -126,9 +126,19 @@
              estado sem telemetria ela é a ação principal (leva o amarelo), e
              ordem visual que não bate com ordem de tabulação é defeito de
              teclado. Nos outros cinco estados ela é `display:none` e a linha
-             começa em "Preciso de ajuda", como sempre. -->
+             começa em "Preciso de ajuda", como sempre.
+
+             ⚠️ ELA LEVA PARA A LANDING, NÃO DIRETO PRO WHATSAPP. Antes ia
+             pro WhatsApp, e isso assumia que quem chega aqui já sabe o que é
+             telemetria — o que deixou de ser verdade quando o orçamento
+             passou a ter link próprio: o síndico pode entrar no sistema pela
+             primeira vez por um e-mail de orçamento, dar uma olhada no painel
+             e ficar curioso SEM ter passado pela landing em momento nenhum.
+             Nesse caminho, jogá-lo numa conversa de WhatsApp é pedir decisão
+             de quem ainda está na pergunta. A landing explica e tem o
+             WhatsApp no fim dela — e o rodapé desta página também. -->
         <div class="rodape-resposta">
-          <a class="quero" id="quero" href="https://wa.me/5511966536110?text=Ol%C3%A1!%20Quero%20saber%20mais%20sobre%20o%20monitoramento%20de%20reservat%C3%B3rios." target="_blank" rel="noopener">Quero monitorar meu prédio</a>
+          <a class="quero" id="quero" href="/">Ver como funciona</a>
           <button class="ajuda" data-abrir="ajuda" type="button">Preciso de ajuda</button>
           <span class="desde" id="desde"></span>
         </div>
@@ -168,6 +178,7 @@
       </div>
     </div>
   </section>
+
 
   <!-- ═══ 2. A HISTÓRIA ═══ -->
   <section class="historia">
@@ -336,6 +347,14 @@
     <div class="ficha-corpo">
       <div class="email-linha" id="contaEmail"></div>
 
+      <!-- Caminho permanente para os orçamentos, inclusive os já respondidos.
+           O convite no painel só existe quando há um aguardando; sem isto,
+           orçamento antigo viraria coisa sem endereço. -->
+      <a class="conta-link" href="/cliente/painel/orcamentos">
+        <span>Meus orçamentos</span>
+        <svg viewBox="0 0 24 24" stroke-linecap="square" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+      </a>
+
       <form class="bloco" id="formSenha">
         <h4>Trocar a senha</h4>
         <p>Use pelo menos 6 caracteres. Você continua conectado depois de trocar.</p>
@@ -356,7 +375,8 @@
 </div>
 
 <script src="/static/inatividade.js" defer></script>
-<script src="/static/cliente.js?v=35" defer></script>
-<script src="/static/register-sw.js?v=38" defer></script>
+
+<script src="/static/cliente.js?v=37" defer></script>
+<script src="/static/register-sw.js?v=39" defer></script>
 </body>
 </html>

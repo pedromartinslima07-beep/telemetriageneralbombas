@@ -55,13 +55,24 @@ const PAINEL_POR_ROLE = {
 //
 // Allowlist estreita em vez de "qualquer path que comece com /": um `next`
 // livre é open redirect (`//evil.com` é path válido pro navegador e sai do
-// domínio). Só entram aqui os destinos que de fato precisam voltar.
-const NEXT_PERMITIDO = /^\/e\/[0-9A-Za-z-]{1,20}$/;
+// domínio). Só entram aqui os destinos que de fato precisam voltar — e cada
+// um declara de quem ele é, porque mandar alguém para uma tela que vai lhe
+// dar 403 é pior que ignorar o `next`.
+const NEXT_PERMITIDO = [
+  // ficha do equipamento (etiqueta QR na bomba): fechada pro cliente
+  { padrao: /^\/e\/[0-9A-Za-z-]{1,20}$/, cliente: false },
+  // orçamento: o link do e-mail, e o dono dele é justamente o síndico
+  { padrao: /^\/cliente\/painel\/orcamentos(\?orc=[0-9]{1,9})?$/, cliente: true },
+];
 
+// Devolve { destino, cliente } ou null. O `cliente` viaja junto porque quem
+// decide se o `next` vale é o role, e o role só se conhece depois do POST.
 function destinoNext() {
   try {
     const next = new URLSearchParams(window.location.search).get("next");
-    return next && NEXT_PERMITIDO.test(next) ? next : null;
+    if (!next) return null;
+    const regra = NEXT_PERMITIDO.find(r => r.padrao.test(next));
+    return regra ? { destino: next, cliente: regra.cliente } : null;
   } catch (_) {
     return null;
   }
@@ -93,11 +104,13 @@ function redirectByRole(user) {
     return;
   }
 
-  // `next` só vale pra equipe interna: a ficha do equipamento é fechada pro
-  // cliente (403 do `equipeInterna`), e mandá-lo pra lá seria trocar o painel
-  // dele por uma tela de erro.
+  // Cada destino diz se serve pro cliente. A ficha do equipamento não serve
+  // (403 do `equipeInterna`) — mandá-lo pra lá seria trocar o painel dele por
+  // uma tela de erro. A tela de orçamentos serve, e é o caminho do link que
+  // chega no e-mail do síndico.
   const next = destinoNext();
-  window.location.href = (next && role !== "cliente") ? next : destino;
+  const vale = next && (role !== "cliente" || next.cliente);
+  window.location.href = vale ? next.destino : destino;
 }
 
 // ⚠️ Os dois passos são alternados pelo atributo `hidden`, NUNCA por

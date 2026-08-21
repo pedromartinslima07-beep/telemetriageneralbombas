@@ -1287,6 +1287,14 @@ router.get("/orcamentos/avulsos", authRequired, adminOnly, async (req, res) => {
               COALESCE(c.nome, o.cliente_nome) AS condominio_nome, c.id AS condominio_id, c.email AS condominio_email,
               o.cliente_nome, o.cliente_documento, o.cliente_endereco, o.cliente_email,
               o.enviado_em, o.enviado_para,
+              -- A resposta que o CLIENTE deu pelo painel dele (migration 074).
+              -- Separado de aprovado_por, que pode ser alguem do escritorio
+              -- registrando por fora: sem essa distincao nao da para saber se
+              -- o aprovado veio do sindico ou de quem digitou.
+              -- (Sem crase neste comentario: ele vive dentro de um template
+              --  literal, e crase aqui FECHA o template.)
+              o.respondido_em, o.cliente_comentario, o.motivo_rejeicao,
+              ur.nome AS respondido_por_nome,
               COALESCE(
                 o.valor,
                 (SELECT SUM(l.quantidade * l.valor_unitario)
@@ -1295,6 +1303,7 @@ router.get("/orcamentos/avulsos", authRequired, adminOnly, async (req, res) => {
        FROM orcamentos o
        LEFT JOIN condominios c ON c.id = o.condominio_id
        LEFT JOIN ordens_servico os ON os.id = o.os_id
+       LEFT JOIN usuarios ur ON ur.id = o.respondido_por
        ORDER BY o.criado_em DESC
        LIMIT 300`
     );
@@ -1635,6 +1644,17 @@ router.post("/orcamentos/avulsos/:id/enviar-email", authRequired, adminOnly, asy
       filename: `orcamento-${orc.numero || id}.pdf`,
         mensagem,
         assinaturaDataUrl,
+        // Só condomínio tem login, então só ele recebe o convite. Sem
+        // APP_URL configurada não dá para montar link absoluto — e link
+        // relativo em e-mail não abre lugar nenhum. Nesses dois casos o
+        // e-mail sai como sempre saiu: só com o PDF. Ver sendOrcamentoCliente.
+        //
+        // O link cai DIRETO no documento, não na lista: quem clica veio de um
+        // e-mail sobre UM orçamento e não deve ter que procurá-lo. Sem sessão,
+        // o /login devolve para cá depois de entrar.
+        linkPainel: (orc.condominio_id && process.env.APP_URL)
+          ? `${String(process.env.APP_URL).replace(/\/$/, "")}/cliente/painel/orcamentos?orc=${orc.id}`
+          : null,
       });
     } catch (errEnvio) {
       // `resendCode` vem do helper `_enviar` em services/email.js. É ele que
