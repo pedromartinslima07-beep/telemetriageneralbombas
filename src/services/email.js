@@ -11,6 +11,38 @@ function getResend() {
   return _resend;
 }
 
+// ⚠️ O SDK do Resend NÃO LANÇA em erro de API. `emails.send()` devolve
+// `{ data, error }`: numa falha o `error` vem preenchido e a Promise resolve
+// normalmente. Ou seja, `await resend.emails.send(...)` sem olhar o retorno
+// passa por sucesso em TODOS estes casos — que são os do enum do próprio SDK:
+//   invalid_from_address · validation_error · invalid_attachment ·
+//   monthly_quota_exceeded · daily_quota_exceeded · rate_limit_exceeded ·
+//   invalid_api_key · restricted_api_key · security_error · …
+//
+// Era exatamente esse o bug do envio de orçamento (relatado em 21/08/2026):
+// o endpoint marcava `status = 'enviado'`, gravava `enviado_em` e respondia
+// `ok: true`, e o e-mail não chegava. O front estava certo — ele checa
+// `r.ok`; quem mentia era o backend.
+//
+// **Todo envio passa por aqui.** Nunca chamar `getResend().emails.send()`
+// direto.
+async function _enviar(payload, contexto) {
+  const { data, error } = await getResend().emails.send(payload);
+  if (error) {
+    // `error.name` é o código do enum (ex.: "rate_limit_exceeded"); `message`
+    // é o texto do provedor. Os dois entram na mensagem porque o código é o
+    // que permite agir (cota, domínio não verificado, anexo grande demais).
+    const err = new Error(
+      `Resend recusou o envio (${contexto}): ${error.name || "erro"} — ${error.message || "sem detalhe"}`
+    );
+    err.resendCode = error.name;
+    throw err;
+  }
+  // O id é o que permite rastrear a entrega no painel do Resend depois.
+  console.log(`[email] enviado (${contexto}) id=${data?.id || "?"}`);
+  return data;
+}
+
 function _emailFrom() {
   return process.env.SMTP_FROM || "comercial@generalbombas.com";
 }
@@ -20,7 +52,7 @@ function _emailFromOTP() {
 }
 
 async function sendOTP(toEmail, code) {
-  await getResend().emails.send({
+  await _enviar({
     from: `General Telemetria <${_emailFromOTP()}>`,
     to: toEmail,
     subject: "Seu código de acesso — General Telemetria",
@@ -45,14 +77,14 @@ async function sendOTP(toEmail, code) {
         </p>
       </div>
     `,
-  });
+  }, "OTP de login");
 }
 
 // Código de verificação exigido antes de assinar um contrato (mesmo princípio
 // do 2FA de login) — confirma que quem está assinando tem acesso ao e-mail
 // cadastrado do signatário, não só ao link.
 async function sendAssinaturaCodigo(toEmail, nome, code) {
-  await getResend().emails.send({
+  await _enviar({
     from: `General Bombas <${_emailFromOTP()}>`,
     to: toEmail,
     subject: "Código para assinar seu contrato — General Bombas",
@@ -79,7 +111,7 @@ async function sendAssinaturaCodigo(toEmail, nome, code) {
         </p>
       </div>
     `,
-  });
+  }, "código de assinatura");
 }
 
 // Tradução dos tipos de alerta pra labels amigáveis no email
@@ -117,7 +149,7 @@ async function sendAlertaEmail(dados) {
   const dataFmt = new Date().toLocaleString("pt-BR");
 
   try {
-    await getResend().emails.send({
+    await _enviar({
       from: `General Telemetria <${_emailFrom()}>`,
       to,
       subject: `[Alerta] ${label} — ${condo}`,
@@ -155,7 +187,7 @@ async function sendAlertaEmail(dados) {
           </p>
         </div>
       `,
-    });
+    }, "alerta crítico");
   } catch (err) {
     console.error("[email] erro ao enviar alerta:", err.message);
   }
@@ -189,7 +221,7 @@ async function sendOrcamentoCliente(dados) {
     .map(l => `<p style="margin:0 0 10px;font-size:14px;line-height:1.6;color:#111827;">${l || "&nbsp;"}</p>`)
     .join("");
 
-  await getResend().emails.send({
+  await _enviar({
     from: `General Bombas <${_emailFrom()}>`,
     to,
     subject: `Orçamento ${numero} — General Bombas`,
@@ -201,7 +233,7 @@ async function sendOrcamentoCliente(dados) {
       </div>
     `,
     attachments: [{ filename, content: dados.pdfBuffer }],
-  });
+  }, "orçamento ao cliente");
 }
 
 // Envia e-mail de solicitação de assinatura de contrato.
@@ -212,7 +244,7 @@ async function sendContratoAssinatura(dados) {
   }
   const { to, nomeDestinatario, papel, contratoNumero, condominioNome, linkAssinatura } = dados;
 
-  await getResend().emails.send({
+  await _enviar({
     from:    `General Bombas <${_emailFrom()}>`,
     to,
     subject: `Contrato ${contratoNumero} — Pendente de assinatura`,
@@ -255,7 +287,7 @@ async function sendContratoAssinatura(dados) {
         </div>
       </div>
     `,
-  });
+  }, "link de assinatura de contrato");
 }
 
 // Avisa o comercial que entrou um lead pela landing pública.
@@ -275,7 +307,7 @@ async function sendLeadNovo(dados) {
     ["Mensagem",   dados.mensagem],
   ].filter(([, v]) => v);
 
-  await getResend().emails.send({
+  await _enviar({
     from: `General Telemetria <${_emailFrom()}>`,
     to: destino,
     reply_to: dados.email,
@@ -296,7 +328,7 @@ async function sendLeadNovo(dados) {
         </p>
       </div>
     `,
-  });
+  }, "lead da landing");
 }
 
 // O conteúdo vem de formulário público — nunca interpolar cru no HTML.

@@ -12764,7 +12764,20 @@ async function _avAbrirEnvioEmail() {
       });
       const j = await lerRespostaJson(r, "Envio do e-mail");
       if (!r.ok) {
-        if (msg) { msg.style.color = "var(--danger)"; msg.textContent = j.error || "Erro ao enviar"; }
+        // ⚠️ A mensagem de erro vive DENTRO do modal: sair da tela destrói o
+        // elemento e o texto some junto. Numa falha intermitente — que é
+        // justamente a que precisa ser diagnosticada — isso significa perder a
+        // única pista. O console sobrevive à navegação e ao fechamento do
+        // modal, então o motivo também vai para lá, com marcador procurável.
+        console.error(
+          `[envio-orcamento] FALHA orcamento=${orc.id} etapa=${j.etapa || "?"} ` +
+          `code=${j.code || "?"} destinos="${emails}"
+${j.error || "sem detalhe"}`
+        );
+        if (msg) {
+          msg.style.color = "var(--danger)";
+          msg.textContent = j.error || "Erro ao enviar";
+        }
         if (btn) btn.disabled = false;
         return;
       }

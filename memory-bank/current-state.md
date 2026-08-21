@@ -337,8 +337,12 @@ A v1 (13/08) foi rejeitada por manter a casca do admin — ver
 
 - `database/schema.sql` tem o schema base (condominios, reservatorios, leituras,
   alertas, usuarios, login_codes, trusted_devices).
-- **Toda a evolução está em `migrations/001..046`** (WhatsApp, mapa, chamados,
+- **Toda a evolução está em `migrations/001..073`** (WhatsApp, mapa, chamados,
   técnicos, O.S., orçamentos, SLA P1-P4, planos, contratos, state machine, etc.).
+- **FK de autoria → `usuarios` sempre com `ON DELETE` explícito** (073, 19/08/2026):
+  sem cláusula o Postgres assume `NO ACTION` e a remoção do usuário quebra com
+  `23503`. Regra e tabela de padrões em
+  [`../docs/banco-de-dados.md`](../docs/banco-de-dados.md), seção "Remoção de usuário".
 - Aplicar com `node scripts/migrate.js NNN_nome.sql` (lê `DATABASE_URL`).
   `migrations/migrate.js` em `scripts/`.
 - Scripts utilitários: `limpar-dados-teste.sql`, `restaurar-defaults.sql`.

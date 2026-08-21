@@ -15,6 +15,24 @@ aliases:
 > Última sessão registrada: **2026-08-17**.
 > Roadmap completo em [`roadmap.md`](roadmap.md); decisões em [`decisions.md`](decisions.md).
 
+## Sessão 2026-08-19 — Remover usuário dava erro 500
+
+Pedro relatou "erro ao remover o usuário" na tela de Configurações > Usuários.
+Não era bug de UI: `DELETE FROM usuarios` batia em FK `NO ACTION` e o `catch`
+genérico devolvia 500.
+
+Feito: **migration 073** (converte toda FK → `usuarios` em NO ACTION/RESTRICT
+para `ON DELETE SET NULL`, varrendo `pg_constraint` em vez de listar nomes
+fixos) + tratamento de `23503` no endpoint (409 nomeando a tabela). Front não
+mudou — `_cfgRemoverUsuario` já exibia `data.error`, então **não houve bump de
+`?v=N`**.
+
+- ⚠️ **A migration ainda não rodou** — a consulta ao banco de produção foi
+  bloqueada pelo classificador de permissões nesta sessão. Rodar:
+  `node scripts/migrate.js 073_fk_usuarios_on_delete_set_null.sql --prod`
+  (sem `--prod` vai no banco de teste). Enquanto não rodar, o sintoma continua
+  — só que agora com mensagem legível em vez de 500.
+
 ## Sessão 2026-08-18 — Área segura do iOS + estudo do painel admin
 
 Duas frentes, nenhuma delas fecha nesta sessão.

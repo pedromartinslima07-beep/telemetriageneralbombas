@@ -439,6 +439,15 @@ router.delete("/usuarios/:id", authRequired, masterAdminOnly, async (req, res) =
     if (r.rowCount === 0) return res.status(404).json({ error: "Não encontrado" });
     return res.json({ ok: true });
   } catch (err) {
+    // 23503 = FK violation. A migration 073 converteu as FKs de autoria para
+    // ON DELETE SET NULL, mas se alguma nova nascer sem cláusula ON DELETE o
+    // erro volta — aqui ele vira mensagem legível em vez de 500 mudo.
+    if (err.code === "23503") {
+      console.error(`[admin] DELETE /usuarios/${id}: FK ${err.constraint} em ${err.table}`);
+      return res.status(409).json({
+        error: `Usuário vinculado a registros de "${err.table || "outra tabela"}" — não pode ser removido`,
+      });
+    }
     console.error("[admin] DELETE /usuarios/:id:", err);
     return res.status(500).json({ error: "Erro ao remover usuário" });
   }
@@ -1595,13 +1604,28 @@ router.post("/orcamentos/avulsos/:id/enviar-email", authRequired, adminOnly, asy
       ? `data:${tpl.assinatura_mimetype || "image/png"};base64,${tpl.assinatura_blob.toString("base64")}`
       : null;
 
-    // Gera o PDF e lê como buffer pra anexar
+    // ⚠️ AS DUAS ETAPAS SÃO SEPARADAS DE PROPÓSITO.
+    // Este endpoint pode falhar em dois lugares muito diferentes — gerar o PDF
+    // (Puppeteer, que consome memória e falha de forma intermitente em
+    // container apertado) ou entregar ao provedor. Quando os dois caíam no
+    // mesmo `catch`, o log dizia só "erro ao enviar" e não dava para saber
+    // qual. Agora cada etapa tem seu marcador, e a resposta diz em qual parou.
     const fs = require("fs");
-    const { fpath } = await gerarPdfAvulso(id);
-    if (!fs.existsSync(fpath)) return res.status(500).json({ error: "Falha ao gerar o PDF" });
-    const pdfBuffer = fs.readFileSync(fpath);
+    let pdfBuffer;
+    try {
+      const { fpath } = await gerarPdfAvulso(id);
+      if (!fs.existsSync(fpath)) throw new Error("PDF não encontrado após a geração");
+      pdfBuffer = fs.readFileSync(fpath);
+    } catch (errPdf) {
+      console.error(`[email-orcamento] FALHA=pdf orcamento=${id} motivo=${errPdf.message}`);
+      return res.status(500).json({
+        error: `Não foi possível gerar o PDF do orçamento (${errPdf.message}). O e-mail não foi enviado.`,
+        etapa: "pdf",
+      });
+    }
 
-    await sendOrcamentoCliente({
+    try {
+      await sendOrcamentoCliente({
       to,
       numero: orc.numero,
       condominioNome: orc.condominio_nome,
@@ -1609,11 +1633,23 @@ router.post("/orcamentos/avulsos/:id/enviar-email", authRequired, adminOnly, asy
       valorTotal: orc.valor_total,
       pdfBuffer,
       filename: `orcamento-${orc.numero || id}.pdf`,
-      mensagem,
-      assinaturaDataUrl,
-    });
+        mensagem,
+        assinaturaDataUrl,
+      });
+    } catch (errEnvio) {
+      // `resendCode` vem do helper `_enviar` em services/email.js. É ele que
+      // diz o que fazer: cota, limite de taxa, domínio não verificado, anexo
+      // grande demais. Linha compacta e greppável, para achar no log do
+      // Railway sem precisar do stack.
+      console.error(
+        `[email-orcamento] FALHA=envio orcamento=${id} code=${errEnvio.resendCode || "?"} ` +
+        `destinos=${to.length} anexo_kb=${Math.round(pdfBuffer.length / 1024)} motivo=${errEnvio.message}`
+      );
+      return res.status(500).json({ error: errEnvio.message, etapa: "envio", code: errEnvio.resendCode || null });
+    }
 
     const enviadoPara = to.join(", ");
+    console.log(`[email-orcamento] OK orcamento=${id} destinos=${to.length} anexo_kb=${Math.round(pdfBuffer.length / 1024)}`);
     const upd = await pool.query(
       `UPDATE orcamentos
          SET status = 'enviado', enviado_em = now(), enviado_para = $2

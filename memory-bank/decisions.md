@@ -708,6 +708,15 @@ desenho em camadas original continua válido.
   logins — usar DELETE explícito (ver `limpar-dados-teste.sql`).
 - **Cleanups em lote** com hard floor + `dry_run` + cap de lotes: um erro de
   digitação na retenção poderia apagar tudo; o piso protege.
+- **SDK que devolve erro em vez de lançar transforma `await` em mentira
+  (2026-08-21).** O `resend` retorna `{ data, error }`: numa falha de API a
+  Promise **resolve**. Seis chamadas em `email.js` faziam `await send({...})`
+  sem olhar o retorno, e o sistema marcava orçamento como "enviado" sem ter
+  enviado — por meses, e sem deixar rastro em log. A regra que fica: **ao usar
+  SDK novo, conferir se o erro vem por exceção ou por valor de retorno antes
+  de escrever o primeiro `await`.** `await` só é garantia de conclusão, nunca
+  de sucesso. E todo envio externo passa por um helper único, que é onde essa
+  checagem mora.
 - **`OTP_DISABLED` precisa de `.trim()`** — comentário inline no `.env`
   (`OTP_DISABLED=true   # ...`) quebrava a flag.
 - **`Unexpected token '<', "<!DOCTYPE "` no front = o Express respondeu HTML.**
