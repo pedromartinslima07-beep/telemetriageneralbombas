@@ -8519,42 +8519,8 @@ function _mpRenderChamados(g) {
 }
 
 // --- Donut helper (SVG puro, sem ApexCharts pra leveza) ---
-function _mpRenderDonut(containerId, legendId, fatias, totalCentro) {
-  const cont = document.getElementById(containerId);
-  const leg  = document.getElementById(legendId);
-  if (!cont || !leg) return;
-  const total = fatias.reduce((s, f) => s + f.value, 0);
-  if (total === 0) {
-    cont.innerHTML = `<div class="mp-empty" style="height:200px;">Sem dados.</div>`;
-    leg.innerHTML = "";
-    return;
-  }
-  const R = 70, CX = 100, CY = 100, STROKE = 22;
-  const C = 2 * Math.PI * R;
-  let acc = 0;
-  const segs = fatias.filter(f => f.value > 0).map(f => {
-    const frac = f.value / total;
-    const dash = `${C * frac} ${C * (1 - frac)}`;
-    const dashoffset = -C * acc;
-    acc += frac;
-    return `<circle cx="${CX}" cy="${CY}" r="${R}" fill="none" stroke="${f.color}" stroke-width="${STROKE}" stroke-dasharray="${dash}" stroke-dashoffset="${dashoffset}" transform="rotate(-90 ${CX} ${CY})"/>`;
-  }).join("");
-  const centroHtml = totalCentro != null
-    ? `<text x="${CX}" y="${CY - 4}" text-anchor="middle" font-size="28" font-weight="800" fill="currentColor">${totalCentro}</text>
-       <text x="${CX}" y="${CY + 16}" text-anchor="middle" font-size="11" fill="rgba(255,255,255,.5)" letter-spacing="1.5">TOTAL</text>`
-    : "";
-  cont.innerHTML = `<svg viewBox="0 0 200 200" width="100%" height="200">
-    <circle cx="${CX}" cy="${CY}" r="${R}" fill="none" stroke="rgba(255,255,255,.06)" stroke-width="${STROKE}"/>
-    ${segs}
-    ${centroHtml}
-  </svg>`;
-  leg.innerHTML = fatias.map(f => `
-    <div class="dl-row">
-      <span class="dl-dot" style="background:${f.color}"></span>
-      <span class="dl-label">${f.label}</span>
-      <span class="dl-value">${f.value}</span>
-    </div>`).join("");
-}
+// `_mpRenderDonut` foi removida: era usada só pela distribuição por zona,
+// que virou barra com rótulo direto. Ver `_mpRenderBarras`.
 
 // "Alertas Recentes" = telemetria aberta + chamados não-fechados, juntos,
 // ordenados por severidade e depois por mais recente.
@@ -8625,6 +8591,26 @@ function _mpAtualizarAlertasRecentes() {
   `).join("");
 }
 
+// ⚠️ ERA UM DONUT DE SEIS FATIAS, uma cor por zona (ciano, violeta, verde,
+// âmbar, rosa, cinza — Tailwind solto). Duas coisas erradas ao mesmo tempo:
+//
+// 1. SEIS CORES NÃO EXISTEM. A paleta categórica deste sistema tem TRÊS
+//    slots, e o teto é medido, não estilístico: com vermelho, âmbar e verde
+//    reservados para estado, sobra só o lado frio do círculo, e ali uma
+//    quarta matiz colapsa sob protanopia. Ver a Regra da Paleta Categórica
+//    no DESIGN.md. Duas daquelas seis cores (verde e âmbar) eram, ainda por
+//    cima, cores de ESTADO — "Zona Sul" pintada de verde-ok.
+//
+// 2. A FORMA JÁ ESTAVA ERRADA ANTES DA COR. Zona é categoria NOMINAL: trocar
+//    a ordem não muda o significado. Cor aqui não codifica nada — é só um
+//    índice para a legenda, e o leitor tem de ir e voltar entre a rosquinha e
+//    a lista para ler cada valor. Seis fatias também não se comparam entre
+//    si: arco não tem linha de base.
+//
+// A resposta do sistema para "uma série nominal" é UMA COR + RÓTULO DIRETO.
+// Barra horizontal ordenada: o valor está do lado do nome, a comparação é
+// por comprimento contra uma base comum, e a legenda deixa de existir porque
+// nada precisa ser decodificado.
 function _mpAtualizarZonaDonut() {
   const groups = Array.isArray(_statusData) ? _statusData : [];
   const contagem = new Map();
@@ -8632,19 +8618,50 @@ function _mpAtualizarZonaDonut() {
     const z = _mpZonaPara(g.condominio || {});
     contagem.set(z, (contagem.get(z) || 0) + 1);
   }
-  const cores = {
-    "Centro":     "#22d3ee",
-    "Zona Norte": "#a78bfa",
-    "Zona Sul":   "#10b981",
-    "Zona Leste": "#f59e0b",
-    "Zona Oeste": "#ec4899",
-    "Sem coordenada": "#64748b",
-  };
-  const fatias = [...contagem.entries()].map(([label, value]) => ({
-    label, value, color: cores[label] || "#94a3b8",
-  }));
-  const total = fatias.reduce((s, f) => s + f.value, 0);
-  _mpRenderDonut("mpZonaChart", "mpZonaLegend", fatias, total);
+
+  // "Sem coordenada" não é uma zona — é falta de dado. Vai por último e em
+  // tinta apagada, para não competir com as zonas de verdade.
+  const SEM_COORD = "Sem coordenada";
+  const itens = [...contagem.entries()]
+    .map(([label, value]) => ({ label, value }))
+    .sort((a, b) => {
+      if (a.label === SEM_COORD) return 1;
+      if (b.label === SEM_COORD) return -1;
+      return b.value - a.value;
+    });
+
+  _mpRenderBarras("mpZonaChart", "mpZonaLegend", itens, SEM_COORD);
+}
+
+function _mpRenderBarras(containerId, legendaId, itens, rotuloSemDado) {
+  const cont = document.getElementById(containerId);
+  const leg  = document.getElementById(legendaId);
+  if (!cont) return;
+  if (leg) leg.innerHTML = "";   // rótulo direto dispensa legenda
+
+  const total = itens.reduce((s, i) => s + i.value, 0);
+  if (!total) {
+    cont.innerHTML = `<div class="mp-empty" style="height:120px;">Sem dados.</div>`;
+    return;
+  }
+  const maior = Math.max(...itens.map(i => i.value));
+
+  cont.innerHTML = `
+    <div class="mp-barras" role="list">
+      ${itens.map(i => {
+        const pct = maior ? Math.round((i.value / maior) * 100) : 0;
+        const share = Math.round((i.value / total) * 100);
+        const semDado = i.label === rotuloSemDado;
+        return `
+          <div class="mp-barra-row${semDado ? " is-sem-dado" : ""}" role="listitem"
+               title="${_waEscaparHtml(i.label)}: ${i.value} de ${total} condomínios (${share}%)">
+            <span class="mp-barra-lbl">${_waEscaparHtml(i.label)}</span>
+            <span class="mp-barra-trilho"><span class="mp-barra-fill" style="width:${pct}%"></span></span>
+            <span class="mp-barra-val">${i.value}</span>
+          </div>`;
+      }).join("")}
+    </div>
+    <div class="mp-barras-total">${total} condomínios no total</div>`;
 }
 
 function _mpAtualizarUpdates() {

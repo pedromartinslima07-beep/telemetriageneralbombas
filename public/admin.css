@@ -5409,18 +5409,57 @@ body.mp-fs-active { overflow: hidden; }
 }
 @media (max-width: 1100px) { .mp-bottom { grid-template-columns: 1fr; } }
 
-.mp-donut { padding: 6px 12px 0; min-height: 200px; }
-.mp-donut-legend {
-  display: flex; flex-direction: column; gap: 6px;
-  padding: 8px 18px 16px;
-  font-size: 11.5px;
+/* ⚠️ `.mp-donut` mantém o nome porque é o id no HTML (`#mpZonaChart`), mas o
+   que mora aqui agora é uma lista de barras — o donut de seis fatias saiu.
+   O porquê está em `_mpAtualizarZonaDonut` no admin.js. A altura mínima caiu
+   de 200px (o quadrado do SVG) para o que as barras pedirem. */
+.mp-donut { padding: 10px 18px 4px; }
+.mp-donut-legend { display: none; }   /* rótulo direto dispensa legenda */
+
+.mp-barras { display: flex; flex-direction: column; gap: 7px; }
+.mp-barra-row {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr) 28px;
+  align-items: center;
+  gap: 10px;
 }
-.mp-donut-legend .dl-row {
-  display: flex; align-items: center; gap: 8px;
+.mp-barra-lbl {
+  font-size: 11.5px; color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.mp-donut-legend .dl-dot { width: 8px; height: 8px; border-radius: 50%; }
-.mp-donut-legend .dl-label { color: var(--text); font-weight: 600; flex: 1; }
-.mp-donut-legend .dl-value { color: var(--muted); font-weight: 700; }
+.mp-barra-trilho {
+  height: 10px;
+  background: rgba(255,255,255,.06);
+  --ch-p: 3px;
+  clip-path: var(--corte-p);
+}
+/* Uma série, uma cor: o slot 1 da paleta. A largura é a comparação; a cor
+   não codifica nada e por isso não varia. */
+.mp-barra-fill {
+  display: block; height: 100%;
+  background: var(--serie-1);
+  --ch-p: 3px;
+  clip-path: var(--corte-p);
+  transition: width .4s var(--saida);
+}
+.mp-barra-val {
+  font-family: var(--mono); font-size: 11px; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text); text-align: right;
+}
+/* Falta de dado não é uma zona: fica apagada para não competir. */
+.mp-barra-row.is-sem-dado .mp-barra-lbl,
+.mp-barra-row.is-sem-dado .mp-barra-val { color: var(--muted); }
+.mp-barra-row.is-sem-dado .mp-barra-fill { background: var(--muted2); }
+
+.mp-barras-total {
+  margin-top: 12px; padding-top: 9px;
+  border-top: 1px solid var(--rasgo);
+  box-shadow: 0 -1px 0 var(--luz) inset;
+  font-family: var(--mono);
+  font-size: 9px; letter-spacing: .055em; text-transform: uppercase;
+  color: var(--text-dim);
+}
 
 /* Alertas Recentes (lista compacta com badge de severidade) */
 .mp-alerts {
