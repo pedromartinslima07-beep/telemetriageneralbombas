@@ -11740,7 +11740,10 @@ let _avData        = [];
 let _avTabAtiva    = "todos";
 let _avSelecionado = null;
 let _avCondoSel    = null;   // chave do condomínio selecionado na coluna esquerda
-let _avNovoPendente = null;  // id de um orçamento recém-criado ainda NÃO salvo (descartável ao fechar)
+// Alteração digitada e ainda não salva. Substitui o antigo `_avNovoPendente`,
+// que marcava "rascunho descartável" — conceito que deixou de existir quando o
+// registro passou a nascer só na primeira ação de verdade.
+let _avSujo = false;
 let _avLinhas      = [];
 let _avLinhasId    = null;
 let _avLinhasPromise = null;    // fetch de linhas em andamento, se houver
@@ -11934,22 +11937,22 @@ function _avFecharModal() {
 
 // Fecha o modal, mas se for um orçamento recém-criado que nunca foi salvo,
 // avisa e o descarta (apaga do servidor) — assim não fica rascunho vazio.
+// ⚠️ ESTA FUNÇÃO NÃO APAGA MAIS NADA.
+// Antes ela precisava: o registro nascia no servidor ao abrir o modal, então
+// fechar sem salvar deixava lixo, e a única saída era um `confirm()` que
+// avisava "você vai perder tudo" seguido de um DELETE. Com o registro criado
+// só na primeira ação de verdade (`_avGarantirRegistro`), fechar um modal
+// intocado não deixa rastro e não precisa perguntar nada.
+//
+// O aviso que sobra é de outra natureza — e não destrutivo: se a pessoa
+// digitou algo que ainda não foi salvo (constatação, condomínio, condições),
+// ela perde ISSO ao sair. O orçamento em si, se já existir, permanece como
+// rascunho, que é um estado legítimo e visível na lista.
 async function _avTentarFechar() {
-  if (_avNovoPendente != null && _avSelecionado?.id === _avNovoPendente) {
-    if (!confirm("Você não salvou este orçamento. Se sair agora ele será descartado e você perderá tudo o que preencheu. Deseja sair mesmo assim?")) {
-      return; // cancela o fechamento — mantém o modal aberto
-    }
-    const id = _avNovoPendente;
-    try {
-      await fetch(`/admin/orcamentos/avulsos/${id}`, { method: "DELETE", headers: authHeaders() });
-    } catch (_) { /* mesmo se falhar o DELETE, segue fechando */ }
-    _avData = _avData.filter(o => o.id !== id);
-    _avNovoPendente = null;
-    _avLinhas = []; _avLinhasId = null;
-    _avFecharModal();
-    _avRenderTudo();
-    return;
+  if (_avSujo) {
+    if (!confirm("Você tem alterações não salvas neste orçamento. Sair mesmo assim?")) return;
   }
+  _avSujo = false;
   _avFecharModal();
 }
 
@@ -11971,6 +11974,11 @@ function _avRenderPainel() {
   }
 
   const o = _avSelecionado;
+  // Render completo reconstrói o formulário a partir do estado — o que
+  // estivesse digitado e não salvo já se perdeu aqui, então não há pendência
+  // a avisar. (O `_avGarantirRegistro` existe justamente para NÃO passar por
+  // aqui no meio de uma digitação.)
+  _avSujo = false;
   const validadeVal = o.valido_ate ? new Date(o.valido_ate).toISOString().split("T")[0] : "";
   const dataDocVal  = o.data_documento ? new Date(o.data_documento).toISOString().split("T")[0] : "";
   // Cliente avulso (pessoa física): sem condomínio vinculado e com algum dado
@@ -12267,6 +12275,25 @@ function _avRenderPainel() {
     }
     _avAtualizarTotalRail();
   });
+
+  // Marca "tem alteração não salva". Delegado no contêiner do modal, e não
+  // campo a campo, porque a tabela de itens é reconstruída a cada render — um
+  // listener por input teria de ser religado toda vez e é exatamente o tipo de
+  // coisa que passa a não funcionar sem ninguém perceber.
+  // ⚠️ `input` não borbulha em <select>; `change` sim. Os dois juntos cobrem
+  // texto, número, data, select e checkbox.
+  //
+  // ⚠️ A LINHA DE NOVO ITEM NÃO CONTA. Ela é persistida no "+ Adicionar" e
+  // limpa em seguida, então digitar ali não deixa nada por salvar — marcar
+  // sujo faria o aviso de saída disparar sem ter o que perder, que é o jeito
+  // mais rápido de ensinar alguém a ignorar avisos.
+  const _AV_CAMPOS_ITEM_NOVO = new Set(["avNewDesc", "avNewQtd", "avNewVal", "avNewFicha"]);
+  const _avMarcarSujo = (e) => {
+    if (_AV_CAMPOS_ITEM_NOVO.has(e.target?.id)) return;
+    _avSujo = true;
+  };
+  wrap.addEventListener("input",  _avMarcarSujo);
+  wrap.addEventListener("change", _avMarcarSujo);
 
   // ── Fiação dos controles visuais ──────────────────────────────────────────
   // Os cards de tipo e o segmentado de cliente NÃO guardam estado: eles setam
@@ -12933,32 +12960,84 @@ async function _avPreencherPadrao(tipo) {
   finally { _avPreencherPadraoAtivo = false; }
 }
 
+// Cria o orçamento no servidor NA PRIMEIRA VEZ que ele precisa existir —
+// adicionar item, salvar, gerar PDF ou enviar. Devolve o id.
+//
+// ⚠️ Não re-renderiza o modal de propósito: `_avRenderPainel()` reconstrói o
+// formulário a partir de `_avSelecionado` e apagaria o que a pessoa acabou de
+// digitar e ainda não foi salvo. Daqui só sai o id; a tela se atualiza no
+// `salvar`, que é quando os campos já foram persistidos.
+async function _avGarantirRegistro() {
+  if (_avSelecionado?.id != null) return _avSelecionado.id;
+
+  const r = await fetch("/admin/orcamentos/avulsos", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({}),
+  });
+  const j = await lerRespostaJson(r, "Criação do orçamento");
+  if (!r.ok) throw new Error(j.error || "Erro ao criar o orçamento");
+
+  // Mantém o que já está na tela e só acrescenta o que veio do servidor
+  // (id e numero). Sobrescrever o objeto inteiro descartaria a seleção de
+  // condomínio feita antes do primeiro item.
+  _avSelecionado.id = j.id;
+  _avSelecionado.numero = j.numero;
+  _avData.unshift(_avSelecionado);
+  _avLinhasId = j.id;
+
+  // O número existe a partir de agora — o cabeçalho ainda diz "Novo
+  // orçamento", então vale atualizar só ele, sem tocar no formulário.
+  const numEl = document.getElementById("avModalTitulo");
+  if (numEl && j.numero) numEl.textContent = j.numero;
+
+  return j.id;
+}
+
 async function _avAcao(acao) {
   const msg = document.getElementById("avFormMsg");
 
   if (acao === "novo") {
-    if (msg) msg.textContent = "Criando…";
-    try {
-      const r = await fetch("/admin/orcamentos/avulsos", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...authHeaders() },
-        body: JSON.stringify({}),
-      });
-      const j = await r.json();
-      if (!r.ok) { alert(j.error || "Erro ao criar"); return; }
-      _avData.unshift(j);
-      _avSelecionado = j;
-      _avNovoPendente = j.id;   // marca como rascunho não-salvo (descartável ao fechar)
-      _avCondoSel = j.condominio_id != null ? `id:${j.condominio_id}` : `nome:${j.condominio_nome || ""}`;
-      _avLinhas = []; _avLinhasId = j.id;
-      _avRenderTudo();
-      _avRenderPainel();
-    } catch (e) { alert("Erro: " + e.message); }
+    // ⚠️ ANTES ESTE BOTÃO FAZIA UM POST. O orçamento nascia no servidor antes
+    // de a pessoa digitar qualquer coisa, e daí vinham três consequências que
+    // pareciam independentes: o `confirm()` destrutivo ao fechar ("você vai
+    // perder tudo"), a máquina `_avNovoPendente` que existia só para apagar o
+    // rascunho abandonado, e rascunhos órfãos no banco sempre que a aba caísse
+    // antes do fechamento — o que aconteceu de verdade, quatro vezes, numa
+    // sessão de teste.
+    //
+    // Agora o registro é LOCAL até a primeira ação que precise dele de fato
+    // (adicionar item, salvar, gerar PDF, enviar). Ver `_avGarantirRegistro`.
+    // Abrir e fechar sem tocar em nada não deixa rastro nenhum.
+    _avSelecionado = {
+      id: null,
+      numero: null,
+      status: "rascunho",
+      tipo: "pecas",
+      criado_em: new Date().toISOString(),
+      condominio_id: null,
+    };
+    _avCondoSel = null;
+    _avLinhas = []; _avLinhasId = null;
+    _avSujo = false;
+    _avRenderPainel();
     return;
   }
 
   if (!_avSelecionado) return;
-  const id = _avSelecionado.id;
+
+  // Fechar um rascunho que ainda não existe no servidor não tem o que apagar.
+  if (acao === "deletar" && _avSelecionado.id == null) { _avFecharModal(); return; }
+
+  // Toda ação abaixo precisa de um registro de verdade. É aqui que ele nasce,
+  // na primeira vez — ver `_avGarantirRegistro`.
+  let id;
+  try {
+    id = await _avGarantirRegistro();
+  } catch (e) {
+    if (msg) { msg.style.color = "var(--danger)"; msg.textContent = e.message; }
+    return;
+  }
 
   if (acao === "add-linha") {
     const desc     = document.getElementById("avNewDesc")?.value.trim();
@@ -13015,7 +13094,6 @@ async function _avAcao(acao) {
       await fetch(`/admin/orcamentos/avulsos/${id}`, { method: "DELETE", headers: authHeaders() });
       _avData = _avData.filter(o => o.id !== id);
       _avSelecionado = null; _avLinhas = []; _avLinhasId = null;
-      if (_avNovoPendente === id) _avNovoPendente = null;
       _avFecharModal();
       _avRenderTudo();
     } catch (e) { alert("Erro: " + e.message); }
@@ -13063,7 +13141,7 @@ async function _avAcao(acao) {
     });
     const j = await r.json();
     if (!r.ok) { if (msg) msg.textContent = j.error || "Erro"; return; }
-    if (_avNovoPendente === id) _avNovoPendente = null;   // salvou de propósito → não é mais descartável
+    _avSujo = false;   // acabou de salvar
     const idx = _avData.findIndex(o => o.id === id);
     if (idx !== -1) {
       Object.assign(_avData[idx], j);
