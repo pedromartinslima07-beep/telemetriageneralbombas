@@ -357,9 +357,33 @@ famílias**, e usar a errada é erro de contraste, não de gosto:
 
 | Estado | Sobre marinho | Tinta sobre placa clara |
 |---|---|---|
-| Crítico | `--risco` `#ff5a4d` | `--risco-t` `#b3241a` |
-| Atenção | `--amarelo` `#fbb329` | `--atencao-t` `#8a5300` |
-| Repouso | `--normal` `#63d8a0` | `--normal-t` `#145c33` |
+| Crítico | `--risco` `#ff5a4d` | `--risco-t` `#790000` (L .34 · 9,7:1) |
+| Atenção | `--amarelo` `#fbb329` | `--atencao-t` `#886116` (L .52 · 4,7:1) |
+| Repouso | `--normal` `#63d8a0` | `--normal-t` `#105c31` (L .42 · 6,8:1) |
+
+⚠️ **A família `-t` foi RE-DEGRAUADA em 21/08/2026, e o motivo importa.** Os
+valores anteriores (`#b3241a` · `#8a5300` · `#145c33`) davam **ΔE 1,2 sob
+deuteranopia** entre "crítico" e "atenção" — na prática, a mesma cor para quem
+tem daltonismo vermelho-verde, e justamente nos dois estados cuja confusão
+muda uma decisão. A causa era simples de ver depois de medida: as duas tinham
+**luminosidade praticamente idêntica** (L .494 e .499) e ambas as matizes são
+quentes. Sob deuteranopia a matiz colapsa, e não sobrava nada.
+
+A separação agora vem da **luminosidade**, que sobrevive ao daltonismo. Como
+os três precisam de ≥ 4,5:1 como texto sobre `--chapa`, a banda utilizável vai
+só até L ≈ .52 — não cabe separar bem os três pares. A prioridade foi
+explícita:
+
+| Par | Antes | Agora | Por quê |
+|---|---|---|---|
+| **crítico ↔ atenção** | ΔE 1,2 | **15,4** | é o par cuja confusão muda decisão |
+| crítico ↔ em ordem | 4,3 | 5,9 | os dois extremos; confundir não gera ação errada |
+| atenção ↔ em ordem | — | 6,9 | ambos significam "não é emergência" |
+
+⚠️ Os dois últimos pares seguem na faixa de piso (6–8), **e isso só é
+aceitável porque estado neste sistema nunca aparece sem rótulo escrito** — a
+cor é reforço, não a informação. Se algum dia um estado for exibido só por
+cor, esta conta precisa ser refeita antes.
 
 Quando o estado precisa de **forma**, e não de texto, ele vira **placa
 chanfrada preenchida com tinta legível por cima** — é o que fazem as badges de
@@ -702,9 +726,9 @@ célula em amarelo sobre marinho (livre, pela Regra do Amarelo Cego), corpo a
   assim que a pessoa começa a corrigir.
 - **Select:** aparência nativa removida, seta desenhada em SVG com traço
   esquadrado.
-- **Mensagem de retorno:** erro `#a81b12`, sucesso `#145c33` — ambos escuros o
-  bastante para a placa clara, e ambos fora do amarelo por causa da Regra do
-  Amarelo Cego.
+- **Mensagem de retorno:** erro `--risco-t`, sucesso `--normal-t` — os mesmos
+  da família de estado, e não um par próprio. Antes eram `#a81b12` e `#145c33`
+  escritos à mão, o que criava um quarto vermelho no sistema.
 
 ### Navigation
 

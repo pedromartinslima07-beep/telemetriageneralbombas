@@ -3145,6 +3145,34 @@ borda foram a zero.
 própria dos tokens com `--accent: #f0b014`. É a quarta identidade do produto
 até ser tratado.
 
+### 2026-08-21 · As cores de estado sobre placa clara eram a mesma cor
+
+`--atencao-t` (#8a5300) e `--risco-t` (#b3241a) tinham **luminosidade
+praticamente idêntica** — L .494 e .499 em OKLCH — e as duas matizes são
+quentes. Sob deuteranopia a matiz colapsa e não sobra nada: **ΔE 1,2**. Ou
+seja, "atenção" e "crítico" eram indistinguíveis para quem tem daltonismo
+vermelho-verde, justamente nos dois estados cuja confusão muda uma decisão.
+
+Isso valia nas quatro superfícies (landing, login, painel do cliente e admin),
+e o painel do cliente está em produção.
+
+**A separação passou a vir da luminosidade**, que sobrevive ao daltonismo:
+
+| | antes | agora |
+|---|---|---|
+| `--risco-t` | `#b3241a` L .499 | `#790000` L .34 · 9,7:1 |
+| `--normal-t` | `#145c33` L .421 | `#105c31` L .42 · 6,8:1 |
+| `--atencao-t` | `#8a5300` L .494 | `#886116` L .52 · 4,7:1 |
+
+Crítico ↔ atenção foi de **ΔE 1,2 para 15,4**. Os outros dois pares (5,9 e
+6,9) seguem na faixa de piso por falta de espaço — os três precisam de ≥ 4,5:1
+como texto sobre a placa, o que trava L em ~.52 — e isso é aceitável porque
+estado neste sistema nunca aparece sem rótulo escrito. Detalhe e prioridade em
+[`../DESIGN.md`](../DESIGN.md), Regra dos Dois Campos de Estado.
+
+Saiu junto o `#a81b12` das mensagens de erro de formulário (login e landing):
+era um quarto vermelho escrito à mão, e agora aponta para `--risco-t`.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

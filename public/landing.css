@@ -1170,8 +1170,8 @@ a { color: inherit; }
   font-weight: 600;
   max-width: none;
 }
-.ficha-msg.is-erro { color: #a81b12; }
-.ficha-msg.is-ok   { color: #145c33; }
+.ficha-msg.is-erro { color: #790000; }
+.ficha-msg.is-ok   { color: #105c31; }
 
 .ficha-lgpd {
   margin: 12px 0 0;

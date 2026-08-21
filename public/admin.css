@@ -199,12 +199,22 @@
      A Regra dos Dois Campos de Estado: sobre claro nenhum sinal saturado
      passa contraste como texto. Usar a família errada é erro de contraste,
      não de gosto. */
-  --ok-t:      #145c33;
-  --warn-t:    #8a5300;
-  --danger-t:  #b3241a;
-  --normal-t:  #145c33;
-  --atencao-t: #8a5300;
-  --risco-t:   #b3241a;
+  /* ⚠️ RE-DEGRAUADOS EM 21/08/2026 — os valores antigos colidiam entre si.
+     `--atencao-t` (#8a5300) e `--risco-t` (#b3241a) tinham luminosidade
+     praticamente IGUAL (L .494 e .499 em OKLCH) e as duas matizes são
+     quentes. Sob deuteranopia a matiz colapsa e não sobrava nada: ΔE 1,2.
+     Na prática, "atenção" e "crítico" eram a mesma cor para quem tem
+     daltonismo vermelho-verde — e são justamente os dois estados cuja
+     confusão muda uma decisão.
+     A separação agora vem da LUMINOSIDADE, que sobrevive ao daltonismo:
+     L .34 · .42 · .52. Ver a Regra dos Dois Campos de Estado no DESIGN.md
+     para os números por par e o que ficou em aberto. */
+  --ok-t:      #105c31;
+  --warn-t:    #886116;
+  --danger-t:  #790000;
+  --normal-t:  #105c31;
+  --atencao-t: #886116;
+  --risco-t:   #790000;
 
   /* ─ A família clara: vive nas fichas, modais e formulários ─ */
   --chapa:    #e8ebf2;

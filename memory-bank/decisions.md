@@ -654,11 +654,29 @@ a confirmação do que já estava previsto.
   `:has()` ignora `display: none` e casa com placeholder escondido; crase
   dentro de template literal fecha o template.
 
+**Resolvido em 21/08:** a colisão das cores de estado sobre placa clara. Os
+valores antigos tinham "atenção" e "crítico" com luminosidade praticamente
+idêntica (L .494 e .499) e ambas as matizes quentes — sob deuteranopia a matiz
+colapsa e não sobrava nada (ΔE 1,2). A separação passou a vir da luminosidade
+(L .34 · .42 · .52) e o par que muda decisão foi de **1,2 para 15,4**.
+
+A lição que fica é sobre o método, não sobre os valores: **um par de cores de
+estado pode parecer obviamente distinto e ser idêntico para parte dos leitores
+— e a conta que revela isso é a luminosidade, não a matiz.** Vermelho e âmbar
+"são cores diferentes" para quem enxerga as duas; sob daltonismo vermelho-verde
+a única coisa que sobra é o quão escuro cada um é, e ali os dois eram iguais.
+
+⚠️ Continua em aberto, e agora é decisão consciente: os pares
+crítico↔em-ordem (5,9) e atenção↔em-ordem (6,9) seguem na faixa de piso. A
+banda utilizável é estreita — os três precisam de ≥ 4,5:1 como texto sobre a
+placa clara, o que trava L em ~.52 — e não cabe separar bem os três pares. A
+prioridade foi explícita: confundir "crítico" com "atenção" muda uma decisão;
+confundir qualquer um dos dois com "em ordem" não. **Isso só é aceitável
+porque estado neste sistema nunca aparece sem rótulo escrito.** Se um dia um
+estado for exibido só por cor, a conta precisa ser refeita antes.
+
 **Fica em aberto:** o app do técnico (`app/public/app.css`) não migrou e é a
-quarta identidade do produto; e sobre placa clara as cores de estado do próprio
-sistema colidem entre si (`--atencao-t` × `--risco-t` dá ΔE 1,2 sob
-deuteranopia), o que vale **também no painel do cliente, em produção** — hoje
-só não é problema porque estado sempre vem com rótulo escrito.
+quarta identidade do produto.
 
 ## Decisões descartadas (e por quê)
 

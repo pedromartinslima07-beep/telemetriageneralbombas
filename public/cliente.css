@@ -114,9 +114,15 @@
   --tinta:    #061033;
   --tinta-2:  #414f74;
   --fio-esc:  rgba(6, 16, 51, .18);
-  --atencao-t: #8a5300;   /* atenção — tinta sobre placa clara (5.4:1) */
-  --risco-t:   #b3241a;   /* crítico — tinta sobre placa clara (5.9:1) */
-  --normal-t:  #145c33;   /* repouso — tinta sobre placa clara (6.4:1) */
+  /* ⚠️ RE-DEGRAUADOS EM 21/08/2026. Os valores antigos (#8a5300 / #b3241a /
+     #145c33) tinham "atenção" e "crítico" com a MESMA luminosidade (L .494 e
+     .499) e as duas matizes quentes: sob deuteranopia davam ΔE 1,2, ou seja,
+     eram a mesma cor para quem tem daltonismo vermelho-verde. A separação
+     agora vem da luminosidade. Mudou aqui? Mude também em admin.css e no
+     DESIGN.md. */
+  --atencao-t: #886116;   /* atenção — L .52 · contraste 4.7:1 sobre a placa */
+  --risco-t:   #790000;   /* crítico — L .34 · contraste 9.7:1 */
+  --normal-t:  #105c31;   /* repouso — L .42 · contraste 6.8:1 */
 
   /* ─ Tipografia ─ */
   --fonte: "Archivo", ui-sans-serif, system-ui, sans-serif;
