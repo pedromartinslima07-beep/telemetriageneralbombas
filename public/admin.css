@@ -1,77 +1,261 @@
+/* ════════════════════════════════════════════════════════════════════════
+   admin.css — Painel de operação (/admin/painel)
+   ────────────────────────────────────────────────────────────────────────
+   MUNDO: "Chapa" — o mesmo da landing (/), do login e do painel do cliente,
+   em REGISTRO DE OPERAÇÃO. Direção contratada em 18/08 e aprovada em 19/08;
+   o "porquê" e as duas direções descartadas estão em
+   `memory-bank/decisions.md`; as evidências medidas, em
+   `docs/modulos/painel-admin.md`.
+
+   ⚠️ Isto SUBSTITUI o sistema "Mission Control" (âmbar #f0b014, aurora
+   radial, vidro, raio 12px). Não é polimento em cima dele — a paleta antiga
+   é anti-referência, não ponto de partida.
+
+   O QUE MUDA E O QUE NÃO MUDA em relação às outras três superfícies Chapa:
+     · muda  — a rampa de tipo é a de operação (13px de corpo, não 17px),
+               a densidade é alta e a medida de linha não é limitada em ch;
+     · não muda — a paleta, o chanfro de 45°, a ausência de sombra
+               projetada, o mono só em medição, o par rasgo+luz do corte.
+
+   REGRA DE SUPERFÍCIE (tirada do login, que já está em produção):
+   **marinho é moldura; placa clara é onde se lê e se edita** (ficha, modal,
+   formulário). A superfície de trabalho continua marinho — densidade é a
+   função desta tela.
+
+   ⚠️ Os tokens abaixo são cópia dos de `cliente.css`/`landing.css`. As
+   páginas são servidas separadamente e não compartilham CSS. Mudou a
+   paleta? Mude nos QUATRO arquivos.
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* ── FONTES (self-hosted — a CSP `script-src 'self'` do helmet barra CDN) ── */
+
+@font-face {
+  font-family: "Archivo";
+  src: url("/static/fonts/archivo.woff2") format("woff2");
+  font-weight: 400 900;
+  font-stretch: 62% 125%;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Archivo";
+  src: url("/static/fonts/archivo-ext.woff2") format("woff2");
+  font-weight: 400 900;
+  font-stretch: 62% 125%;
+  font-display: swap;
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Martian Mono";
+  src: url("/static/fonts/martianmono.woff2") format("woff2");
+  font-weight: 400 700;
+  font-stretch: 75% 112.5%;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Martian Mono";
+  src: url("/static/fonts/martianmono-ext.woff2") format("woff2");
+  font-weight: 400 700;
+  font-stretch: 75% 112.5%;
+  font-display: swap;
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
 /* ============================================================
-   DESIGN TOKENS — premium dark "mission control"
+   DESIGN TOKENS — sistema "Chapa", registro de operação
    ============================================================ */
 :root {
   /* Diz ao browser que a UI é dark — corrige dropdowns nativos (<option>),
      calendário do <input type="date">, scrollbars, etc, em TODAS as telas */
   color-scheme: dark;
 
-  /* Backgrounds — deep blue/violet, multi-layered */
-  --bg:       #06070f;
-  --bg-soft:  #0a0c18;
-  --sidebar:  rgba(12, 14, 28, .72);
-  --surface:  rgba(20, 23, 42, .65);
-  --surface2: rgba(28, 32, 56, .72);
-  --surface3: rgba(36, 40, 70, .55);
+  /* ─ A escada de marinho: material, não fundo ─
+     ⚠️ TRÊS DEGRAUS, e a ordem importa. Aqui a moldura é o degrau MAIS
+     BAIXO (o campo atrás dos painéis) e a superfície de trabalho pousa
+     sobre ela — o inverso do painel do cliente, onde o campo é o 800 e a
+     barra é o 900. Motivo: lá a barra pousa sobre o campo; aqui o painel
+     inteiro é uma placa recortada sobre a mesa. */
+  --mar-900: #030a26;
+  --mar-800: #050f38;
+  --mar-700: #071b5c;
+  --mar-600: #0d2775;
+  --mar-500: #1a3a9e;
 
-  /* Borders & dividers */
-  --border:   rgba(255,255,255,.06);
-  --border2:  rgba(255,255,255,.04);
-  --border-strong: rgba(255,255,255,.12);
+  /* Nomes herdados do Mission Control, apontando para o material novo.
+     Mantidos de propósito: são a interface que as 8.200 linhas abaixo já
+     usam. Renomear tudo de uma vez é o risco que `decisions.md` registra
+     (`.wa-*` roda em 10 telas, `.ch-*` em 6) — a consolidação é passo
+     próprio, com alias, não efeito colateral da troca de pele. */
+  --bg:       var(--mar-900);
+  --bg-soft:  var(--mar-800);
+  --sidebar:  var(--mar-800);
+  /* ⚠️ OPACOS, e isso não é detalhe. Estes três eram translúcidos no Mission
+     Control e só funcionavam porque quase tudo tinha `backdrop-filter` por
+     baixo — tirado o vidro, um modal com fundo a 52% deixa a página inteira
+     aparecer através dele (aconteceu, no modal de histórico da Telemetria).
+     Os valores são a mistura já resolvida sobre o campo `--mar-800`, então
+     onde o fundo é o campo nada muda de aparência; onde o elemento pousa
+     sobre outra coisa, ele passa a esconder o que está atrás, que é o que
+     uma superfície deve fazer. */
+  --surface:  #06154b;
+  --surface2: #0a1d5b;
+  --surface3: #0e2163;
 
-  /* Text */
-  --text:    #eef0fb;
-  --text-dim: #b9bcd4;
-  --muted:   #7a7e9c;
-  --muted2:  #4d5070;
+  /* ─ Usinagem: fios de 1px no lugar de borda decorativa ─ */
+  --border:        rgba(255,255,255,.14);
+  --border2:       rgba(255,255,255,.07);
+  --border-strong: rgba(255,255,255,.34);
+  --fio:       rgba(255,255,255,.14);
+  --fio-fraco: rgba(255,255,255,.07);
+  --fio-forte: rgba(255,255,255,.34);
 
-  /* Brand + accents — amber base, plus cyan/violet for IA & data */
-  --accent:    #f0b014;
-  --accent-2:  #ffd451;
+  /* O par do corte gravado — sempre juntos e nesta ordem. Duas linhas,
+     nunca uma: uma só lê como borda de card e desfaz a peça única. */
+  --rasgo: rgba(2, 6, 22, .55);
+  --luz:   rgba(255, 255, 255, .10);
+
+  /* ─ Texto sobre marinho ─ */
+  --text:     #f2f5ff;
+  --text-dim: #a6b5dc;   /* --sobre-2 do sistema */
+  --muted:    #8294c2;
+  --muted2:   #5b6c9e;
+  --sobre-2:  #a6b5dc;
+
+  /* ─ Marca ─
+     ⚠️ O âmbar #f0b014 SAIU. Ele era a interpretação interna da marca; o
+     institucional é o #fbb329 do wordmark, e o painel agora está na mesma
+     jornada das outras três superfícies. */
+  --accent:    #fbb329;
+  --accent-2:  #ffcb60;
+  --accent-3:  #d99411;   /* o amarelo quando precisa se apagar contra ele mesmo */
+  --amarelo:   #fbb329;
+
+  /* Água e crista — substância, não superfície */
+  --agua:   #2f6fe0;
+  --crista: #8fb6ff;
+
+  /* ─ PALETA CATEGÓRICA DE GRÁFICO ─────────────────────────────────────────
+     Identidade de série, e SÓ isso: nunca em cromo de UI, nunca para indicar
+     estado. As três cores de estado (--risco, --amarelo, --ok) são reservadas
+     e não entram aqui — série pintada de vermelho lê como emergência.
+
+     ⚠️ SÃO TRÊS SLOTS, EM ORDEM FIXA, E O TETO É REAL. Com vermelho, âmbar e
+     verde reservados, sobra só o lado frio do círculo, e ali duas matizes
+     quaisquer colapsam em deuteranopia — a separação teve de vir da
+     LUMINOSIDADE (L 0.564 · 0.665 · 0.555 em OKLCH). Quatro slots não passam:
+     azul e violeta ficam com ΔE 1.9 sob protanopia. Série nº 4 vira "Outros",
+     vira facetas, ou vira outro gráfico — não vira cor nova.
+
+     Medido, não escolhido no olho, com o validador da skill dataviz contra a
+     superfície real do gráfico (#051342, o fundo do .card):
+       · faixa de luminosidade, piso de croma e contraste ≥ 3:1 — PASS
+       · separação sob protanopia/deuteranopia, TODOS os pares: ΔE 10.0
+       · piso de visão normal, todos os pares: ΔE 19.1
+       · contra as três cores de estado, todos os pares: ΔE 10.0 / 16.0
+     Mudou alguma? Rode o validador de novo antes de commitar. */
+  --serie-1: #2f6fe0;   /* a água do sistema — L .564 · h 261 */
+  --serie-2: #00a8af;   /* ciano claro     — L .665 · h 200 */
+  --serie-3: #bd3a80;   /* magenta escuro  — L .555 · h 350 */
+
+  /* Os mesmos três matizes RE-DEGRAUADOS para a placa clara — gráfico dentro
+     de modal/ficha não reaproveita os valores de cima: `--serie-2` sobre
+     `--chapa` dá contraste 2,44:1, abaixo do piso de 3:1.
+     ⚠️ O slot 3 também mudou de MATIZ, não só de luminosidade: em h 350 ele
+     encostava no `--risco-t` (ΔE 12,5 a olho normal, abaixo do piso de 15) e
+     uma série seria lida como estado crítico. Em h 325 a distância sobe para
+     16,9. Validado contra #e8ebf2, todos os pares: ΔE 13,4 sob deuteranopia,
+     18,0 a olho normal, contraste >= 3:1. */
+  --serie-1-claro: #1f60d4;   /* L .520 · h 261 */
+  --serie-2-claro: #00929c;   /* L .590 · h 200 */
+  --serie-3-claro: #93167f;   /* L .470 · h 325 */
+
+  /* Herdados do Mission Control, ainda referenciados por telas não migradas.
+     Não usar em nada novo. */
   --blue:      #4a78f7;
   --cyan:      #22d3ee;
   --violet:    #a78bfa;
   --pink:      #f472b6;
 
-  /* Status */
-  --ok:     #22c55e;
-  --warn:   #f59e0b;
-  --danger: #ef4444;
+  /* ─ Estado SOBRE MARINHO ─ */
+  --ok:     #63d8a0;
+  --warn:   #fbb329;
+  --danger: #ff5a4d;
+  --normal: #63d8a0;
+  --risco:  #ff5a4d;
 
-  /* Glows */
-  --glow-accent: 0 0 24px rgba(240,176,20,.35);
-  --glow-violet: 0 0 24px rgba(167,139,250,.35);
-  --glow-cyan:   0 0 24px rgba(34,211,238,.35);
-  --glow-danger: 0 0 24px rgba(239,68,68,.35);
+  /* ─ PREENCHIMENTO vs TINTA ───────────────────────────────────────────────
+     `--warn`, `--danger`, `--risco`, `--ok` e `--accent` VIRAM TINTA dentro
+     de placa clara (modal, drawer) — é o remapeamento que faz o texto
+     continuar legível lá. Mas selo preenchido não pode acompanhar: uma placa
+     de fundo `--risco-t` com tinta marinho por cima é escuro sobre escuro.
+     Por isso o preenchimento usa estes três, que são CRUS e não flipam em
+     lugar nenhum. Regra: **fundo de selo usa `--amarelo`/`--vermelho`/
+     `--verde`; texto e borda usam os semânticos.** */
+  --vermelho: #ff5a4d;
+  --verde:    #63d8a0;
 
-  /* Shadows */
-  --shadow-sm: 0 2px 8px rgba(0,0,0,.35);
-  --shadow-md: 0 8px 24px rgba(0,0,0,.45);
-  --shadow-lg: 0 24px 64px rgba(0,0,0,.65);
+  /* ─ Estado SOBRE PLACA CLARA (família `-t`) ─
+     A Regra dos Dois Campos de Estado: sobre claro nenhum sinal saturado
+     passa contraste como texto. Usar a família errada é erro de contraste,
+     não de gosto. */
+  /* ⚠️ RE-DEGRAUADOS EM 21/08/2026 — os valores antigos colidiam entre si.
+     `--atencao-t` (#8a5300) e `--risco-t` (#b3241a) tinham luminosidade
+     praticamente IGUAL (L .494 e .499 em OKLCH) e as duas matizes são
+     quentes. Sob deuteranopia a matiz colapsa e não sobrava nada: ΔE 1,2.
+     Na prática, "atenção" e "crítico" eram a mesma cor para quem tem
+     daltonismo vermelho-verde — e são justamente os dois estados cuja
+     confusão muda uma decisão.
+     A separação agora vem da LUMINOSIDADE, que sobrevive ao daltonismo:
+     L .34 · .42 · .52. Ver a Regra dos Dois Campos de Estado no DESIGN.md
+     para os números por par e o que ficou em aberto. */
+  --ok-t:      #105c31;
+  --warn-t:    #886116;
+  --danger-t:  #790000;
+  --normal-t:  #105c31;
+  --atencao-t: #886116;
+  --risco-t:   #790000;
 
-  /* Geometry */
-  --radius:    12px;
-  --radius-sm: 8px;
-  --radius-lg: 16px;
+  /* ─ A família clara: vive nas fichas, modais e formulários ─ */
+  --chapa:    #e8ebf2;
+  --chapa-cl: #f5f7fb;
+  --chapa-es: #d5dae6;
+  --tinta:    #061033;
+  --tinta-2:  #414f74;
+  --fio-esc:  rgba(6, 16, 51, .18);
+
+  /* ─ Tipografia ─ */
+  --fonte: "Archivo", ui-sans-serif, system-ui, sans-serif;
+  --mono:  "Martian Mono", ui-monospace, "SFMono-Regular", monospace;
+
+  /* ─ Profundidade: tonal e por aresta. Não há sombra projetada. ─
+     Os nomes seguem vivos porque 4 regras lá embaixo os consomem; o valor
+     é `none` para que nenhuma delas levante nada do plano. */
+  --glow-accent: none;
+  --glow-violet: none;
+  --glow-cyan:   none;
+  --glow-danger: none;
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-lg: none;
+
+  /* ─ Forma: chanfro de 45° em dois cantos opostos, raio zero em tudo ─
+     Cada componente redeclara `--ch` localmente e herda o polígono. */
+  --radius:    0;
+  --radius-sm: 0;
+  --radius-lg: 0;
+  --ch:   10px;
+  --ch-p: 6px;
+  --corte:   polygon(var(--ch) 0, 100% 0, 100% calc(100% - var(--ch)), calc(100% - var(--ch)) 100%, 0 100%, 0 var(--ch));
+  --corte-p: polygon(var(--ch-p) 0, 100% 0, 100% calc(100% - var(--ch-p)), calc(100% - var(--ch-p)) 100%, 0 100%, 0 var(--ch-p));
+
   --gap:       16px;
-
   --sb-open:  240px;
   --sb-rail:  68px;
   --topbar-h: 60px;
-}
 
-/* Subtle animated aurora background */
-body::before {
-  content: '';
-  position: fixed;
-  inset: -200px;
-  z-index: -1;
-  pointer-events: none;
-  background:
-    radial-gradient(900px 600px at 12% 8%, rgba(74,120,247,.10), transparent 60%),
-    radial-gradient(700px 500px at 88% 92%, rgba(167,139,250,.08), transparent 60%),
-    radial-gradient(600px 400px at 50% 50%, rgba(34,211,238,.04), transparent 70%);
-  filter: blur(8px);
+  /* Curva única de todas as transições de estado do sistema */
+  --saida: cubic-bezier(.16, .84, .32, 1);
 }
 
 /* ============================================================
@@ -80,7 +264,7 @@ body::before {
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  font-family: var(--fonte);
   font-size: 13px;
   line-height: 1.5;
   color: var(--text);
@@ -88,11 +272,92 @@ body {
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
+  /* Nada de peso sintético: o Archivo é variável e tem os pesos de verdade */
+  font-synthesis-weight: none;
 }
 
 button { font-family: inherit; font-size: inherit; }
 input, select, textarea { font-family: inherit; font-size: inherit; }
 a { color: inherit; text-decoration: none; }
+
+/* ── RAIO ZERO ─────────────────────────────────────────────────────────────
+   A única forma do sistema é o chanfro de 45°. São 268 `border-radius`
+   escritos à mão nas 8.200 linhas abaixo, de 15 telas construídas ao longo
+   de meses — zerar por token não alcança nenhum deles, e caçar um a um
+   espalharia a mudança por todas as telas de uma vez, que é justamente o que
+   esta migração tela a tela evita.
+   A lista de exceções é toda de coisa REDONDA DE VERDADE: foto de pessoa,
+   lâmpada-piloto, ponto de legenda de gráfico e o que o Leaflet e o
+   ApexCharts desenham por conta própria.
+   Ela sai dos 35 `border-radius: 50%` que já existiam — não é
+   chute, e por isso pode ser conferida. Ela mora DENTRO do `:not()` em vez de
+   virar regra própria de propósito: assim a declaração original de cada
+   redonda continua valendo intocada, e não há `!important` nenhum brigando
+   por especificidade. */
+body *:not(
+  .leaflet-container *, .apexcharts-canvas *,
+  .sidebar-user-avatar, .sidebar-user-avatar img,
+  .topbar-user-avatar, .topbar-user-avatar img,
+  .mc-conv-avatar, .wa-conv-avatar,
+  .tec-avatar-circle, .tec-avatar-overlay,
+  .tec-det-avatar, .tec-row-avatar, .tel-cli-fallback-icon,
+  .app-loader-spinner, .mp-map-spinner,
+  .al-status, .badge, .rc, .mc-leg, .al-acoes-list li,
+  .mc-live-dot, .m-dot, .ch-hist-dot, .rel-vivo-dot,
+  .dl-dot, .mli-dot, .av-tipo-dot, .icon-btn-dot, .cfg-slider,
+  .tec-pin, .tg-pin
+) {
+  border-radius: 0;
+}
+
+/* Os multi-classe que o `:not()` acima não alcança por especificidade.
+   Os de tela específica (mapa, orçamento avulso, painel de alertas) ficam
+   para a passada da própria tela. */
+.input, .select, .f input, .f select,
+.cardHead h2 .head-icon, .layout-cli .content { border-radius: 0; }
+
+/* ── SUPERFÍCIES DO NAVEGADOR ──────────────────────────────────────────────
+   As partes que não desenhamos também carregam o desenho. Sem isto, seleção,
+   cursor, foco e barra de rolagem chegam com o padrão do Chrome, que não
+   pertence a sistema nenhum. */
+::selection { background: var(--amarelo); color: var(--mar-900); }
+:root { accent-color: var(--amarelo); caret-color: var(--amarelo); }
+
+:focus-visible {
+  outline: 3px solid var(--amarelo);
+  outline-offset: 3px;
+}
+/* Mouse não pinta anel; teclado sim. */
+:focus:not(:focus-visible) { outline: none; }
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(166,181,220,.28) transparent;
+}
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  background: rgba(166,181,220,.24);
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover { background: var(--accent-3); background-clip: content-box; }
+*::-webkit-scrollbar-corner { background: transparent; }
+
+/* Todo número que muda é tabular — coluna de tabela não pode dançar a cada
+   atualização de polling. */
+td, th, .mono, [class*="valor"], [class*="total"], [class*="count"] {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
 
 /* ============================================================
    LAYOUT
@@ -126,30 +391,25 @@ a { color: inherit; text-decoration: none; }
   transition: width .09s ease-in .03s;
 }
 
+/* ⚠️ O CASCO NÃO É CHANFRADO, E ISSO É DECISÃO, NÃO ESQUECIMENTO.
+   `clip-path` faz do elemento um bloco de contenção para descendentes
+   `position: fixed` — um `fixed` lá dentro passa a se posicionar (e a ser
+   recortado) em relação a ELE, não à viewport. No `.main` isso quebrava duas
+   coisas de verdade: o `#cfgModalOverlay`, que mora dentro do `.main`, e o
+   mapa em tela cheia (`.mp-map-card.is-fullscreen`).
+   Então a divisão é: **a moldura é esquadrada, as peças são cortadas.** O
+   gesto da chapa vive na placa, na faixa de KPI, no botão, no selo e no item
+   de navegação — que é onde ele faz trabalho. */
 .sidebar-inner {
   position: relative;
   width: 100%;
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: var(--sidebar);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  background: var(--mar-800);
+  border: 1px solid var(--fio);
   overflow: hidden;
-  backdrop-filter: blur(20px) saturate(140%);
-  -webkit-backdrop-filter: blur(20px) saturate(140%);
-  box-shadow: 0 12px 48px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.04);
   will-change: transform;
-}
-
-/* Subtle inner glow line at top */
-.sidebar-inner::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 18%; right: 18%;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(167,139,250,.45), transparent);
-  pointer-events: none;
 }
 
 /* ---- Sidebar header ---- */
@@ -237,12 +497,16 @@ a { color: inherit; text-decoration: none; }
      esmagava o rótulo (32px viravam 20px) e o `overflow: hidden` daqui
      cortava "MONITOR"/"ATENDIMENTO" no meio da altura. */
   flex-shrink: 0;
-  font-size: 9.5px;
-  font-weight: 800;
-  color: var(--muted2);
-  letter-spacing: 1.4px;
+  /* Etiqueta gravada: mono em caixa alta é exatamente o lugar onde o Martian
+     Mono pode aparecer. Sobe de 9,5px para 10px porque o mono tem olho menor
+     que a grotesca que estava aqui. */
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--muted);
+  letter-spacing: .12em;
   text-transform: uppercase;
-  padding: 14px 12px 6px;
+  padding: 16px 12px 7px;
   white-space: nowrap;
   opacity: 1;
   overflow: hidden;
@@ -293,28 +557,27 @@ a { color: inherit; text-decoration: none; }
 }
 
 .nav-item:hover {
-  background: rgba(255,255,255,.045);
+  background: rgba(255,255,255,.05);
   color: var(--text);
-  border-color: var(--border);
+  border-color: var(--fio-fraco);
 }
 
+/* ONDE VOCÊ ESTÁ.
+   Preenchimento amarelo com tinta marinho por cima — a forma que a Regra do
+   Amarelo Cego manda usar quando o amarelo precisa carregar significado, e a
+   leitura mais inequívoca possível de "é esta a tela aberta".
+   ⚠️ A barra de 3px que morava aqui saiu: faixa de cor na borda para indicar
+   estado é gramática estranha a este sistema (profundidade é aresta e corte,
+   nunca barra) e o próprio DESIGN.md a proíbe por escrito. */
 .nav-item.active {
-  background: linear-gradient(90deg, rgba(240,176,20,.16), rgba(240,176,20,.04));
-  color: var(--text);
-  border-color: rgba(240,176,20,.28);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.05);
+  background: var(--amarelo);
+  color: var(--mar-900);
+  border-color: transparent;
+  font-weight: 700;
+  clip-path: var(--corte-p);
 }
-.nav-item.active svg { color: var(--accent); filter: drop-shadow(0 0 6px rgba(240,176,20,.45)); }
-.nav-item.active::before {
-  content: '';
-  position: absolute;
-  left: -10px;
-  top: 9px; bottom: 9px;
-  width: 3px;
-  border-radius: 0 3px 3px 0;
-  background: var(--accent);
-  box-shadow: 0 0 10px var(--accent);
-}
+.nav-item.active svg { color: var(--mar-900); }
+.nav-item.active:hover { background: var(--accent-2); color: var(--mar-900); }
 
 .nav-item svg { width: 18px; height: 18px; flex-shrink: 0; transition: color .14s; }
 
@@ -329,24 +592,30 @@ a { color: inherit; text-decoration: none; }
 
 .nav-badge {
   margin-left: auto;
-  background: linear-gradient(135deg, var(--danger), #b91c1c);
+  background: var(--vermelho);
   color: #fff;
-  font-size: 10px;
-  font-weight: 800;
-  padding: 1px 7px;
-  border-radius: 999px;
-  min-width: 18px;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  padding: 2px 6px 1px;
+  --ch-p: 4px;
+  clip-path: var(--corte-p);
+  min-width: 20px;
   text-align: center;
-  line-height: 1.6;
-  box-shadow: 0 0 10px rgba(239,68,68,.5);
+  line-height: 1.5;
 }
+/* Sobre o item aberto o campo é amarelo — vermelho ali reprova contraste e
+   some. A contagem vira placa marinho, que é o par legível deste campo. */
+.nav-item.active .nav-badge { background: var(--mar-900); color: #fff; }
 
-/* pulso ao detectar chamado/conversa novo(a) */
+/* pulso ao detectar chamado/conversa novo(a) — sem halo: o que pulsa é a
+   própria placa, não uma aura em volta dela */
 @keyframes badgeNovoPulse {
-  0%   { transform: scale(1);    box-shadow: 0 0 10px rgba(239,68,68,.5); }
-  30%  { transform: scale(1.25); box-shadow: 0 0 22px rgba(239,68,68,.95); }
-  60%  { transform: scale(1);    box-shadow: 0 0 14px rgba(239,68,68,.7); }
-  100% { transform: scale(1);    box-shadow: 0 0 10px rgba(239,68,68,.5); }
+  0%   { transform: scale(1);    }
+  30%  { transform: scale(1.28); }
+  60%  { transform: scale(1);    }
+  100% { transform: scale(1);    }
 }
 .nav-badge.pulse-novo,
 .mob-nav-badge.pulse-novo {
@@ -576,12 +845,14 @@ a { color: inherit; text-decoration: none; }
   flex-direction: column;
   height: 100%;
   overflow: hidden;
-  border-radius: var(--radius-lg);
-  background: linear-gradient(180deg, rgba(15,17,32,.65) 0%, rgba(8,10,20,.55) 100%);
-  border: 1px solid var(--border);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  box-shadow: 0 12px 48px rgba(0,0,0,.35);
+  /* Sem vidro, sem gradiente e sem sombra: a superfície de trabalho é
+     marinho corrido, e o que a separa da moldura é a aresta.
+     Esquadrada — ver a nota do `.sidebar-inner` sobre `clip-path` e
+     `position: fixed`. Aqui a razão é concreta: o `#cfgModalOverlay` e o
+     mapa em tela cheia vivem dentro deste elemento. */
+  position: relative;
+  background: var(--mar-800);
+  border: 1px solid var(--fio);
 }
 
 .content-header {
@@ -618,7 +889,8 @@ a { color: inherit; text-decoration: none; }
 .topbar-title {
   font-size: 18px;
   font-weight: 800;
-  letter-spacing: -.3px;
+  font-stretch: 108%;
+  letter-spacing: -.02em;
   color: var(--text);
   margin: 0;
   white-space: nowrap;
@@ -633,15 +905,14 @@ a { color: inherit; text-decoration: none; }
   align-items: center;
   height: 38px;
   padding: 0 14px 0 38px;
-  background: rgba(255,255,255,.03);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  transition: border-color .15s, background .15s;
+  background: color-mix(in srgb, var(--mar-900) 88%, #000);
+  border: 1px solid var(--fio);
+  transition: border-color .15s var(--saida), background .15s var(--saida);
 }
 .topbar-search:focus-within {
-  border-color: rgba(74,120,247,.45);
-  background: rgba(74,120,247,.06);
-  box-shadow: 0 0 0 3px rgba(74,120,247,.10);
+  border-color: var(--fio-forte);
+  background: var(--mar-900);
+  box-shadow: inset 0 -2px 0 var(--accent);
 }
 .topbar-search > svg {
   position: absolute;
@@ -660,14 +931,14 @@ a { color: inherit; text-decoration: none; }
 }
 .topbar-search input::placeholder { color: var(--muted); }
 .topbar-search-key {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: .5px;
-  color: var(--muted);
-  padding: 2px 6px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  background: rgba(255,255,255,.03);
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: .1em;
+  color: var(--text-dim);
+  padding: 3px 6px 2px;
+  border: 1px solid var(--fio);
+  background: transparent;
   white-space: nowrap;
 }
 
@@ -676,18 +947,17 @@ a { color: inherit; text-decoration: none; }
   position: absolute;
   top: calc(100% + 6px);
   left: 0; right: 0;
-  background: #0f1225;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  box-shadow: 0 8px 32px rgba(0,0,0,.7);
+  background: var(--mar-800);
+  border: 1px solid var(--fio-forte);
   z-index: 500;
   overflow: hidden;
   max-height: 420px;
   overflow-y: auto;
 }
 .gs-group-label {
-  font-size: 10px; font-weight: 700;
-  text-transform: uppercase; letter-spacing: .6px;
+  font-family: var(--mono);
+  font-size: 9.5px; font-weight: 500;
+  text-transform: uppercase; letter-spacing: .12em;
   color: var(--muted); padding: 10px 14px 4px;
 }
 .gs-sep { height: 1px; background: var(--border); margin: 4px 0; }
@@ -696,7 +966,7 @@ a { color: inherit; text-decoration: none; }
   padding: 8px 14px; cursor: pointer;
   transition: background .1s;
 }
-.gs-item:hover, .gs-item.is-active { background: rgba(74,120,247,.12); }
+.gs-item:hover, .gs-item.is-active { background: var(--mar-600); }
 .gs-item-icon {
   width: 28px; height: 28px; border-radius: 6px;
   background: rgba(255,255,255,.06);
@@ -894,52 +1164,101 @@ a { color: inherit; text-decoration: none; }
    ============================================================ */
 .btn {
   appearance: none;
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  border: 1px solid var(--border2);
-  background: rgba(255,255,255,.05);
+  border: none;
+  background: var(--fio);   /* o fundo é o anel — chapa de duas camadas */
   color: var(--text);
   padding: 7px 14px;
-  border-radius: var(--radius-sm);
+  --ch-p: 7px;
+  clip-path: var(--corte-p);
   cursor: pointer;
   font-size: 12.5px;
   font-weight: 600;
   letter-spacing: .1px;
-  transition: border-color .15s, background .15s, transform .08s;
+  transition: background .18s var(--saida), color .18s var(--saida);
   user-select: none;
   white-space: nowrap;
+  overflow: hidden;
+}
+/* A placa interna, embutida 1px e chanfrada de novo */
+.btn::before {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  --ch-p: 6px;
+  clip-path: var(--corte-p);
+  background: var(--mar-800);
+  transition: background .18s var(--saida);
+  /* Ver a nota da .sidebar-inner: negativo pousa entre o anel e o rótulo. */
+  z-index: -1;
 }
 
-.btn:hover  { border-color: rgba(255,255,255,.14); background: rgba(255,255,255,.08); }
-.btn:active { transform: translateY(1px); }
+.btn:hover          { background: var(--fio-forte); color: #fff; }
+.btn:hover::before  { background: var(--mar-700); }
+.btn:active         { transform: translateY(1px); }
+.btn:disabled, .btn[disabled] { opacity: .55; cursor: not-allowed; }
 
+/* ── AÇÃO PRIMÁRIA ────────────────────────────────────────────────────────
+   Preenchimento amarelo com tinta marinho. O hover não muda a cor: o amarelo
+   claro ENTRA PELO CHANFRO, no sentido do corte — um paralelogramo varrendo
+   da esquerda para a direita. É o gesto de marca do sistema, e é a única
+   coisa que o botão faz ao ser apontado. Sem escala, sem translado, sem
+   sombra. */
 .btnAccent {
-  border-color: var(--accent);
   background: var(--accent);
-  color: #111;
+  color: var(--mar-900);
   font-weight: 700;
 }
-.btnAccent:hover { background: #d9a010; border-color: #d9a010; color: #111; }
-
-.btnDanger {
-  border-color: rgba(239,68,68,.35);
-  background: rgba(239,68,68,.08);
-  color: var(--danger);
+.btnAccent::before { background: var(--accent); }
+.btnAccent::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--accent-2);
+  clip-path: polygon(-28% 0, 0 0, 28% 100%, 0 100%);
+  transform: translateX(-115%);
+  transition: transform .42s var(--saida);
+  z-index: -1;   /* depois do ::before na ordem da árvore, logo por cima dele */
 }
-.btnDanger:hover { background: rgba(239,68,68,.16); border-color: var(--danger); }
+.btnAccent:hover        { background: var(--accent); color: var(--mar-900); }
+.btnAccent:hover::before{ background: var(--accent); }
+.btnAccent:hover::after { transform: translateX(115%); }
+.btnAccent:disabled::after, .btnAccent[disabled]::after { transform: translateX(-115%); }
 
-.btn-sm { padding: 5px 10px; font-size: 11.5px; border-radius: var(--radius-sm); }
+.btnDanger { background: var(--risco); color: #fff; font-weight: 700; }
+.btnDanger::before { background: var(--risco); }
+.btnDanger:hover { background: #ff7365; }
+.btnDanger:hover::before { background: #ff7365; }
+
+.btn-sm { padding: 5px 10px; font-size: 11.5px; --ch-p: 5px; }
+.btn-sm::before { --ch-p: 4px; }
 
 /* ============================================================
    CARDS
    ============================================================ */
+/* A PLACA.
+   Chapa de duas camadas outra vez — 62 delas no HTML, e é a peça que mais
+   aparece no painel. Sem sombra: quem está na frente é quem subiu um degrau
+   de marinho, não quem flutua. */
 .card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  position: relative;
+  --ch: 12px;
+  background: var(--fio);
+  clip-path: var(--corte);
   overflow: hidden;
-  box-shadow: 0 1px 3px rgba(0,0,0,.3), inset 0 1px 0 rgba(255,255,255,.025);
+}
+.card::before {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  --ch: 11px;
+  background: color-mix(in srgb, var(--mar-700) 52%, var(--mar-900));
+  clip-path: var(--corte);
+  pointer-events: none;
+  z-index: -1;
 }
 
 /* flex-wrap: o .card acima tem overflow:hidden, então tudo que não coubesse
@@ -953,29 +1272,37 @@ a { color: inherit; text-decoration: none; }
   flex-wrap: wrap;
   gap: 12px;
   padding: 14px 20px;
-  border-bottom: 1px solid var(--border);
-  background: linear-gradient(to bottom, rgba(255,255,255,.015), transparent);
+  /* O CORTE GRAVADO: duas linhas, nunca uma. `--rasgo` é o fundo do sulco e
+     `--luz` é a aresta virada para cima. Uma linha só lê como borda de card e
+     transforma a placa em três cartõezinhos — que é justamente a forma que
+     este sistema recusa. */
+  border-bottom: 1px solid var(--rasgo);
+  box-shadow: 0 1px 0 var(--luz);
+  background: none;
 }
 
 .cardHead h2 {
   font-size: 13px;
   font-weight: 700;
-  letter-spacing: .2px;
+  letter-spacing: -.01em;
   color: var(--text);
   display: flex;
   align-items: center;
   gap: 10px;
 }
 
+/* Placa do ícone: preenchida em amarelo com tinta marinho por cima. É onde o
+   estado mora neste sistema — nunca numa faixa na borda do card. */
 .cardHead h2 .head-icon {
   width: 26px;
   height: 26px;
-  color: var(--accent);
+  color: var(--mar-900);
   flex-shrink: 0;
   padding: 5px;
-  background: rgba(240,176,20,.1);
-  border: 1px solid rgba(240,176,20,.18);
-  border-radius: var(--radius-sm);
+  background: var(--amarelo);
+  border: none;
+  --ch-p: 5px;
+  clip-path: var(--corte-p);
 }
 
 .hint { color: var(--muted); font-size: 11.5px; }
@@ -990,11 +1317,29 @@ a { color: inherit; text-decoration: none; }
    dashboard viravam 4 + 1 sozinho na linha de baixo. O corte do texto é
    tratado no `.rc-label` (quebra em duas linhas), que resolve sem mexer na
    contagem de colunas. */
+/* ── A FAIXA VIRA UMA LINHA ────────────────────────────────────────────────
+   Primeira das cinco decisões do plano. A faixa de KPI ocupava de 120 a
+   330px antes de qualquer conteúdo — em `chamados` eram 6 cards em duas
+   fileiras, ~330px, e sobravam 5 linhas de tabela na tela.
+
+   A forma nova não é "cards menores": é UMA PLACA DIVIDIDA. Seis coisas
+   paralelas viravam naturalmente seis caixas lado a lado, e essa é
+   exatamente a forma que este sistema recusa — a resposta dele para conteúdo
+   paralelo é um objeto usinado, com as células separadas por corte, não por
+   respiro. Por isso o `gap` caiu de 14px para 1px: o que separa as células é
+   a aresta, e é ela que faz a faixa ler como peça única.
+
+   O piso de 190px por célula continua sendo o que decide quantas cabem por
+   linha, e as regras de `:has()` logo abaixo continuam valendo — elas evitam
+   a última fileira órfã, que numa peça única seria pior ainda. */
 .resumo-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-  gap: 14px;
-  padding: 0;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1px;
+  padding: 1px;
+  --ch: 12px;
+  background: var(--fio);   /* anel externo e sulco entre células, de uma vez */
+  clip-path: var(--corte);
 }
 
 /* ── Faixas de KPI: evitar a última linha "quebrada" ──────────────
@@ -1013,14 +1358,12 @@ a { color: inherit; text-decoration: none; }
    partir de ~1300px; 6 cards, a partir de ~1500px. Abaixo disso, 3 colunas.
 
    O painel do cliente não é afetado: as faixas dele têm 3 e 4 cards. */
-@media (min-width: 1025px) and (max-width: 1320px) {
+/* ⚠️ Reescrito junto com a decisão nº 1. Estes blocos foram medidos para
+   cards de 190x104 e agora só valem onde a linha REALMENTE não cabe: abaixo
+   de 1025px de viewport. Acima disso, 5 ou 6 células de 150px entram numa
+   fileira só, que é o ponto da faixa em linha. */
+@media (min-width: 769px) and (max-width: 1024px) {
   .resumo-grid:has(> .rc:nth-child(5):last-child),
-  .resumo-grid:has(> .rc:nth-child(6):last-child) {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-
-@media (min-width: 1321px) and (max-width: 1520px) {
   .resumo-grid:has(> .rc:nth-child(6):last-child) {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
@@ -1038,74 +1381,56 @@ a { color: inherit; text-decoration: none; }
   }
 }
 
+/* A célula: 54px de altura, tudo numa linha só — placa do ícone, rótulo, e o
+   número encostado à direita. O `inset` escuro logo depois do sulco claro é
+   o par do corte gravado: duas linhas, nunca uma. */
 .rc {
   position: relative;
-  border-radius: var(--radius);
-  padding: 16px 18px;
+  height: 54px;
+  padding: 0 12px;
   overflow: hidden;
-  border: 1px solid var(--border);
-  background:
-    linear-gradient(180deg, rgba(255,255,255,.025) 0%, transparent 40%),
-    var(--surface);
-  transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease;
+  border: none;
+  background: color-mix(in srgb, var(--mar-700) 52%, var(--mar-900));
+  box-shadow: inset 1px 0 0 var(--rasgo), inset 0 1px 0 var(--rasgo);
+  transition: background .18s var(--saida);
   cursor: pointer;
   width: 100%;
   text-align: left;
   color: inherit;
   display: flex;
-  flex-direction: column;
-  gap: 6px;
-  min-height: 104px;
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  min-height: 0;
 }
 
-/* Color stripe (accent line behind) */
-.rc::before {
-  content: '';
-  position: absolute;
-  top: -40%;
-  right: -20%;
-  width: 200px;
-  height: 200px;
-  border-radius: 50%;
-  opacity: .14;
-  filter: blur(48px);
-  pointer-events: none;
-}
+.rc::before, .rc::after { content: none; }
 
-.rc::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: var(--radius);
-  border: 1px solid transparent;
-  pointer-events: none;
-  transition: border-color .22s;
-}
-
-.rc:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 14px 40px rgba(0,0,0,.5);
-}
+/* Nada levanta e nada projeta sombra: o que muda é o degrau de marinho. */
+.rc:hover { background: color-mix(in srgb, var(--mar-600) 62%, var(--mar-900)); }
 
 .rc-head {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 2px;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+  margin-bottom: 0;
 }
 
+/* A placa do ícone é onde o estado mora — preenchida, com tinta legível por
+   cima. Nunca uma faixa de cor na borda da célula. */
 .rc-icon {
-  width: 32px; height: 32px;
-  border-radius: 9px;
+  width: 24px; height: 24px;
+  --ch-p: 5px;
+  clip-path: var(--corte-p);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  border: 1px solid transparent;
+  border: none;
 }
-.rc-icon svg { width: 16px; height: 16px; }
+.rc-icon svg { width: 13px; height: 13px; }
 
 /* Quebra em duas linhas em vez de truncar. O `min-height: 104px` do .rc
    absorve a segunda linha sem mexer no alinhamento da faixa, e um rótulo
@@ -1114,50 +1439,95 @@ a { color: inherit; text-decoration: none; }
    .resumo-grid faz isso raramente ser necessário; aqui é a rede de proteção
    para larguras que não dá pra prever. */
 .rc-label {
-  font-size: 10.5px;
-  font-weight: 800;
+  font-family: var(--mono);
+  /* .55rem é o piso da etiqueta gravada no DESIGN.md, e 8,5px ficava abaixo
+     dele: a 8,5 o acento de "CRÍTICO" some na renderização. */
+  font-size: 9px;
+  font-weight: 500;
   text-transform: uppercase;
-  letter-spacing: 1px;
-  color: var(--muted);
+  /* ⚠️ O tracking é a alavanca, não o corpo. A .12em da etiqueta gravada do
+     sistema é medida para o painel do cliente, que tem 3 ou 4 KPIs; aqui são
+     6 numa linha só, e o Martian Mono já é largo por desenho — a .12em
+     truncava "EM ATENDIMENTO" e "TEMPO MÉDIO RESOLUÇÃO". */
+  letter-spacing: .055em;
+  color: var(--text-dim);
   line-height: 1.25;
+  /* Numa linha de 54px não há espaço para duas fileiras de rótulo; o que
+     não couber é cortado com reticências em vez de empurrar a altura.
+     ⚠️ Isto substitui a quebra em duas linhas que existia quando o card
+     tinha 104px — ver a nota histórica logo abaixo. */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   /* Sem `overflow-wrap: anywhere` de propósito: ele quebrava DENTRO da
      palavra ("RESERVATÓ-RIOS") e criava uma terceira linha, engordando o
      card de 58 para 77px no mobile do cliente. Os rótulos têm espaço
      ("COND. COM ALERTA"), então a quebra normal já basta. */
 }
 
+/* Leitura de instrumento: mono, tabular, encostada à direita da célula. De
+   32px para 19px — o número não precisava daquele tamanho para ser lido, e
+   era ele que sustentava os 104px de altura da faixa antiga. */
 .rc-value {
-  font-family: ui-monospace, "Cascadia Code", "Fira Code", Consolas, monospace;
-  font-size: 32px;
-  font-weight: 800;
-  line-height: 1.05;
-  letter-spacing: -1px;
-  margin-top: 6px;
+  font-family: var(--mono);
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -.03em;
+  font-variant-numeric: tabular-nums;
+  margin-top: 0;
+  margin-left: auto;
+  flex-shrink: 0;
   color: var(--text);
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+/* A UNIDADE (decisão nº 4). Menor e mais apagada que o número, do jeito que
+   o instrumento da landing escreve "cm" ao lado da coluna d'água. Ela existe
+   para que o mesmo rótulo em duas telas pare de parecer contradição:
+   "OFFLINE 4 disp." e "OFFLINE 1 cond." contam coisas diferentes, e agora
+   dizem isso. */
+.rc-unid {
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: .04em;
+  color: var(--muted);
+  white-space: nowrap;
 }
 
 .rc-trend {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 10.5px;
-  font-weight: 700;
-  padding: 2px 7px;
-  border-radius: 999px;
-  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  font-weight: 500;
+  padding: 3px 6px 2px;
+  --ch-p: 4px;
+  clip-path: var(--corte-p);
+  order: 4;
+  margin-left: 8px;
 }
-.rc-trend.up   { background: rgba(34,197,94,.10);  color: #4ade80; border: 1px solid rgba(34,197,94,.25); }
-.rc-trend.down { background: rgba(239,68,68,.10);  color: #f87171; border: 1px solid rgba(239,68,68,.25); }
-.rc-trend.flat { background: rgba(255,255,255,.04); color: var(--muted); border: 1px solid var(--border); }
+.rc-trend.up   { background: transparent; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ok) 55%, transparent);    color: var(--ok); }
+.rc-trend.down { background: var(--risco); color: var(--mar-900); }
+.rc-trend.flat { background: transparent; box-shadow: inset 0 0 0 1px var(--fio); color: var(--text-dim); }
 .rc-trend svg  { width: 10px; height: 10px; }
 
+/* Numa linha de 54px o apoio deixa de morar embaixo do número e passa a
+   andar ao lado do rótulo — o número continua sendo a última coisa da
+   célula, encostado à direita, que é o que faz a faixa ler como coluna. */
 .rc-hint {
-  font-size: 11px;
+  font-size: 10.5px;
   color: var(--muted);
-  margin-top: 6px;
+  margin-top: 0;
+  order: 2;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  min-width: 0;
 }
 
 /* ── Variants — KPIs alinhados em TODAS as abas ──
@@ -1165,25 +1535,38 @@ a { color: inherit; text-decoration: none; }
    glow colorido) e o número usa a cor de texto padrão em mono. Antes cada
    variante tingia borda + glow (::before) + valor, o que fazia os cards
    "brigarem" entre si e entre abas. Agora a leitura de status vem do ícone. */
-.rc-ok      .rc-icon { background: rgba(34,197,94,.12);   border-color: rgba(34,197,94,.3);   color: #4ade80; box-shadow: inset 0 0 18px rgba(34,197,94,.08); }
-.rc-warn    .rc-icon { background: rgba(245,158,11,.12);  border-color: rgba(245,158,11,.3);  color: #fbbf24; box-shadow: inset 0 0 18px rgba(245,158,11,.08); }
-.rc-bad     .rc-icon { background: rgba(239,68,68,.14);   border-color: rgba(239,68,68,.32);  color: #f87171; box-shadow: inset 0 0 18px rgba(239,68,68,.10); }
-.rc-neutral .rc-icon { background: rgba(74,120,247,.14);  border-color: rgba(74,120,247,.32); color: #93c5fd; box-shadow: inset 0 0 18px rgba(74,120,247,.10); }
-.rc-violet  .rc-icon { background: rgba(167,139,250,.14); border-color: rgba(167,139,250,.32);color: #c4b5fd; box-shadow: inset 0 0 18px rgba(167,139,250,.10); }
-.rc-cyan    .rc-icon { background: rgba(34,211,238,.14);  border-color: rgba(34,211,238,.32); color: #67e8f9; box-shadow: inset 0 0 18px rgba(34,211,238,.10); }
+/* PREENCHIDA QUANDO PEDE AÇÃO, DE FIO EM REPOUSO — a mesma regra do selo de
+   estado das tabelas. Um painel com tudo em ordem fica calmo por construção;
+   o que exige alguém salta sozinho. */
+.rc-ok      .rc-icon { background: transparent; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ok) 55%, transparent); color: var(--ok); }
+.rc-neutral .rc-icon { background: transparent; box-shadow: inset 0 0 0 1px var(--fio-forte); color: var(--text-dim); }
+.rc-warn    .rc-icon { background: var(--warn);  color: var(--mar-900); }
+.rc-bad     .rc-icon { background: var(--risco); color: var(--mar-900); }
+/* ⚠️ Herdados do Mission Control e ainda usados pela telemetria e pelo mapa.
+   Ficam neutros até a passada dessas telas — violeta e ciano não pertencem a
+   este sistema, e o lugar deles é a paleta categórica de gráfico, que ainda
+   precisa ser desenhada. */
+.rc-violet  .rc-icon,
+.rc-cyan    .rc-icon { background: transparent; box-shadow: inset 0 0 0 1px var(--fio-forte); color: var(--text-dim); }
 
-/* Hover sutil uniforme (cards clicáveis, ex.: Dashboard) */
-.rc:hover { border-color: var(--border-strong); }
 .rc-static { cursor: default; }
-.rc-static:hover { transform: none; box-shadow: none; border-color: var(--border); }
+.rc-static:hover { background: color-mix(in srgb, var(--mar-700) 52%, var(--mar-900)); }
 
 /* Subtitle dos KPIs (Fase 8A — SLA metrics na aba Insights) */
 .rc-sub {
-  margin-top: 4px;
-  font-size: 11px;
+  margin-top: 0;
+  font-size: 10.5px;
   color: var(--muted);
   line-height: 1.3;
+  order: 2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
+/* A ordem dentro da célula: cabeça (ícone + rótulo) · apoio · número. */
+.rc-head  { order: 1; }
+.rc-value { order: 3; }
 
 /* Header da seção de SLA (Fase 8A) */
 .rel-sla-section { display: flex; flex-direction: column; gap: 8px; }
@@ -1474,16 +1857,24 @@ a { color: inherit; text-decoration: none; }
 }
 .mc-act-row:hover { background: rgba(255,255,255,.025); }
 
+/* ⚠️ Era uma barra vertical de 2px com gradiente, uma por linha do feed —
+   a mesma faixa de cor na borda indicando estado que o DESIGN.md proíbe, só
+   que como elemento em vez de `border-left` (por isso o detector não a
+   pegava). Virou o que este sistema usa para estado: uma placa chanfrada,
+   preenchida quando pede ação e de fio em repouso. Alinha com a primeira
+   linha do título em vez de esticar pela altura toda, senão volta a ler
+   como barra. */
 .mc-act-stripe {
-  width: 2px;
-  border-radius: 2px;
+  width: 8px; height: 8px;
   flex-shrink: 0;
-  align-self: stretch;
+  margin-top: 5px;
+  --ch-p: 2px;
+  clip-path: var(--corte-p);
 }
-.mc-act-stripe.ok    { background: linear-gradient(180deg, var(--ok), transparent); }
-.mc-act-stripe.warn  { background: linear-gradient(180deg, var(--warn), transparent); }
-.mc-act-stripe.bad   { background: linear-gradient(180deg, var(--danger), transparent); }
-.mc-act-stripe.info  { background: linear-gradient(180deg, var(--cyan), transparent); }
+.mc-act-stripe.bad   { background: var(--risco); }
+.mc-act-stripe.warn  { background: var(--amarelo); }
+.mc-act-stripe.ok    { background: transparent; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ok) 60%, transparent); }
+.mc-act-stripe.info  { background: transparent; box-shadow: inset 0 0 0 1px var(--fio-forte); }
 
 .mc-act-main { flex: 1; min-width: 0; }
 .mc-act-title {
@@ -1525,32 +1916,48 @@ a { color: inherit; text-decoration: none; }
 
 /* Linha financeira (contratos) entre condoGrid e mc-bottom */
 .mc-fin { margin: 14px 0; }
+/* Eram quatro caixas iguais de rótulo + número lado a lado — a forma que este
+   sistema recusa para conteúdo paralelo. Vira a MESMA faixa dividida da
+   `.resumo-grid`: uma peça só, células separadas por corte, cada uma numa
+   linha de 54px. O `gap: 1px` sobre o fundo `--fio` é o que desenha o sulco;
+   por isso a régua não tem padding lateral — com padding, o fio vazaria em
+   volta e viraria moldura. */
 .mc-fin-row {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 14px;
-  padding: 14px 18px 18px;
+  gap: 1px;
+  padding: 0;
+  margin: 4px 18px 18px;
+  background: var(--fio);
 }
 .mc-fin-item {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 10px 14px;
-  border-radius: var(--radius-sm);
-  background: rgba(255,255,255,.03);
-  border: 1px solid var(--border);
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  height: 54px;
+  padding: 0 13px;
+  background: color-mix(in srgb, var(--mar-700) 52%, var(--mar-900));
+  box-shadow: inset 1px 0 0 var(--rasgo), inset 0 1px 0 var(--rasgo);
 }
 .mc-fin-label {
-  font-size: 10.5px;
-  letter-spacing: .4px;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: .055em;
   text-transform: uppercase;
-  color: var(--muted);
-  font-weight: 600;
+  color: var(--text-dim);
+  font-weight: 500;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .mc-fin-value {
-  font-size: 20px;
+  font-family: var(--mono);
+  font-size: 15px;
   font-weight: 700;
+  letter-spacing: -.03em;
+  font-variant-numeric: tabular-nums;
   color: var(--text);
+  margin-left: auto;
+  white-space: nowrap;
 }
 @media (max-width: 900px) {
   .mc-fin-row { grid-template-columns: repeat(2, 1fr); }
@@ -1804,7 +2211,7 @@ a { color: inherit; text-decoration: none; }
 .tel-resv-badge.on  { background: rgba(34,197,94,.13);  color: #4ade80; }
 .tel-resv-badge.off { background: rgba(122,126,156,.16); color: #9ca0bf; }
 .tel-resv-pct {
-  font-family: ui-monospace, "Cascadia Code", "Fira Code", Consolas, monospace;
+  font-family: var(--mono);
   font-size: 42px; font-weight: 800; letter-spacing: -2px; line-height: 1.05; margin-top: 8px;
 }
 .tel-resv-bar {
@@ -1847,7 +2254,7 @@ a { color: inherit; text-decoration: none; }
   padding: 9px 10px; border-radius: 8px;
 }
 .tel-evt-row:hover { background: rgba(255,255,255,.03); }
-.tel-evt-time { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: 11.5px; color: var(--muted); }
+.tel-evt-time { font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
 .tel-evt-ic {
   width: 28px; height: 28px; flex-shrink: 0;
   display: inline-flex; align-items: center; justify-content: center; border-radius: 8px;
@@ -1944,10 +2351,10 @@ a { color: inherit; text-decoration: none; }
 .tank-outline { stroke: var(--border-strong); stroke-width: 1.5; fill: none; stroke-linecap: round; }
 .tank-rim     { stroke: var(--border-strong); stroke-width: 1.5; fill: rgba(255,255,255,.02); }
 .tank-tick    { stroke: rgba(255,255,255,.18); stroke-width: 1; }
-.tank-tick-lbl { fill: var(--muted2); font-size: 7px; font-family: ui-monospace, "Cascadia Code", Consolas, monospace; }
+.tank-tick-lbl { fill: var(--muted2); font-size: 7px; font-family: var(--mono); }
 .tank-pct {
   fill: var(--text);
-  font-family: ui-monospace, "Cascadia Code", "Fira Code", Consolas, monospace;
+  font-family: var(--mono);
   font-size: 20px;
   font-weight: 700;
   text-anchor: middle;
@@ -1966,16 +2373,21 @@ a { color: inherit; text-decoration: none; }
   display: flex; align-items: center; justify-content: center; gap: 8px;
   margin-top: 2px; flex-wrap: wrap;
 }
+/* Bomba ligada é a operação normal, não alarme — por isso ela é DE FIO, e
+   não placa cheia. A regra do selo se aplica igual aqui: só o que pede ação
+   é preenchido, e uma bomba funcionando não pede nada. */
 .tel-tank-bomba {
-  font-size: 8.5px; font-weight: 800; letter-spacing: .4px;
-  padding: 1px 6px; border-radius: 999px; text-transform: uppercase;
+  font-family: var(--mono);
+  font-size: 8px; font-weight: 500; letter-spacing: .07em;
+  padding: 2px 5px 1px; text-transform: uppercase;
+  --ch-p: 3px; clip-path: var(--corte-p);
 }
-.tel-tank-bomba.on  { background: rgba(34,197,94,.14);  color: #4ade80; }
-.tel-tank-bomba.off { background: rgba(122,126,156,.16); color: #9ca0bf; }
-.tel-tank-bomba.uk  { background: rgba(255,255,255,.05); color: var(--muted); }
+.tel-tank-bomba.on  { background: transparent; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ok) 55%, transparent); color: var(--ok); }
+.tel-tank-bomba.off { background: transparent; box-shadow: inset 0 0 0 1px var(--fio); color: var(--text-dim); }
+.tel-tank-bomba.uk  { background: transparent; box-shadow: inset 0 0 0 1px var(--fio-fraco); color: var(--muted); }
 .tel-tank-upd {
   font-size: 9.5px; color: var(--muted);
-  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  font-family: var(--mono);
 }
 
 /* Modo compacto — tanque renderizado pequeno em grid denso:
@@ -2206,9 +2618,16 @@ a { color: inherit; text-decoration: none; }
   transition: color .15s, background .15s;
 }
 .tel-range-btn:hover { color: var(--text); }
+/* Mesma língua do "você está aqui" do resto do painel: placa amarela cheia
+   com tinta marinho. ⚠️ Amarelo COMO TEXTO estava reprovando contraste desde
+   que o modal virou placa clara (~2:1) — preenchido com tinta escura por cima
+   ele passa nos dois campos, que é justamente o que a Regra do Amarelo Cego
+   existe para resolver. */
 .tel-range-btn.is-active {
-  background: rgba(240,176,20,.14);
-  color: var(--accent-2);
+  background: var(--amarelo);
+  color: var(--mar-900);
+  --ch-p: 4px;
+  clip-path: var(--corte-p);
 }
 
 .tel-historico-filtros {
@@ -2268,7 +2687,7 @@ a { color: inherit; text-decoration: none; }
 }
 .tel-hist-stat-label { font-size: 9px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); }
 .tel-hist-stat-val {
-  font-family: ui-monospace, "Cascadia Code", "Fira Code", Consolas, monospace;
+  font-family: var(--mono);
   font-size: 14px; font-weight: 700; color: var(--text);
 }
 
@@ -2408,7 +2827,7 @@ a { color: inherit; text-decoration: none; }
 }
 .cep-input {
   letter-spacing: 1px;
-  font-family: ui-monospace, "Cascadia Code", "Fira Code", Consolas, monospace;
+  font-family: var(--mono);
 }
 .cep-msg {
   display: block;
@@ -2541,37 +2960,49 @@ table { width: 100%; border-collapse: collapse; }
 
 th, td {
   padding: 11px 16px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--fio-fraco);
   vertical-align: middle;
   text-align: left;
 }
 
+/* Cabeçalho de coluna = etiqueta gravada. Mono em caixa alta é um dos dois
+   lugares onde o Martian Mono pode aparecer neste sistema (o outro é
+   medição). O fundo é opaco de propósito: `position: sticky` sobre linha
+   translúcida deixa o conteúdo passar por baixo. */
 th {
   position: sticky;
   top: 0;
   z-index: 5;
-  background: rgb(28, 32, 56);
-  font-size: 10.5px;
-  font-weight: 700;
-  color: var(--muted);
-  letter-spacing: .6px;
+  background: color-mix(in srgb, var(--mar-700) 86%, var(--mar-900));
+  font-family: var(--mono);
+  font-size: 9.5px;
+  font-weight: 500;
+  color: var(--text-dim);
+  letter-spacing: .12em;
   text-transform: uppercase;
   white-space: nowrap;
-  box-shadow: 0 1px 0 var(--border);
+  border-bottom: 1px solid var(--rasgo);
+  box-shadow: 0 1px 0 var(--luz);
 }
 
 tr:last-child td { border-bottom: none; }
 
-tbody tr { transition: background .1s ease; }
-tbody tr:hover td { background: rgba(255,255,255,.035); }
+/* A linha inteira acende ao ser apontada — e o `--saida` é a mesma curva de
+   toda transição de estado do sistema. */
+tbody tr td { transition: background .16s var(--saida); }
+tbody tr:hover td { background: rgba(255,255,255,.05); }
 
-tbody tr:nth-child(even) td { background: rgba(255,255,255,.013); }
-tbody tr:nth-child(even):hover td { background: rgba(255,255,255,.04); }
+tbody tr:nth-child(even) td { background: rgba(255,255,255,.018); }
+tbody tr:nth-child(even):hover td { background: rgba(255,255,255,.055); }
 
 .mono {
-  font-family: ui-monospace, "Cascadia Code", "Fira Code", Consolas, monospace;
-  font-size: 12px;
-  letter-spacing: -.2px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: -.02em;
+  font-variant-numeric: tabular-nums;
+  /* Identificador não quebra linha. O Martian Mono é bem mais largo que a
+     mono de sistema que estava aqui, e "CH-0018" virava duas linhas. */
+  white-space: nowrap;
 }
 
 .right  { text-align: right; white-space: nowrap; }
@@ -2583,33 +3014,59 @@ tbody tr:nth-child(even):hover td { background: rgba(255,255,255,.04); }
 /* ============================================================
    BADGES
    ============================================================ */
+/* ── O SELO DE ESTADO ──────────────────────────────────────────────────────
+   Terceira das cinco decisões do plano. Placa chanfrada, e a diferença entre
+   os estados não é só a cor: **preenchida quando pede ação, de fio em
+   repouso.** Assim o painel com tudo em ordem fica calmo por construção, e
+   um chamado crítico salta de uma tabela de 40 linhas sem precisar piscar.
+
+   A pílula de raio 999px saiu — não existe raio neste sistema. */
 .badge {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 2px 9px;
-  border-radius: 999px;
-  font-size: 11px;
+  padding: 3px 9px;
+  --ch-p: 5px;
+  clip-path: var(--corte-p);
+  font-size: 10.5px;
   font-weight: 700;
-  letter-spacing: .25px;
+  letter-spacing: .04em;
   text-transform: uppercase;
   white-space: nowrap;
 }
 
-.badge::before {
-  content: '';
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  flex-shrink: 0;
+/* O ponto era o sinal quando o selo era translúcido. Numa placa preenchida
+   ele vira ruído: a placa inteira já é o sinal. */
+.badge::before { content: none; }
+
+/* Em repouso: fio, sem preenchimento. Nada a fazer aqui. */
+.b-ok {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ok) 55%, transparent);
+  color: var(--ok);
+}
+/* Papel de usuário: categoria, nunca preenchido. O anel mais forte é o que
+   marca quem tem acesso total. */
+.b-papel {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--fio-fraco);
+  color: var(--muted);
+}
+.b-papel.is-master {
+  box-shadow: inset 0 0 0 1px var(--fio-forte);
+  color: var(--text);
 }
 
-.b-ok   { border: 1px solid rgba(34,197,94,.3);   background: rgba(34,197,94,.08);   color: #4ade80; }
-.b-ok::before   { background: var(--ok); }
-.b-warn { border: 1px solid rgba(245,158,11,.3);  background: rgba(245,158,11,.08);  color: #fbbf24; }
-.b-warn::before { background: var(--warn); }
-.b-bad  { border: 1px solid rgba(239,68,68,.3);   background: rgba(239,68,68,.08);   color: #f87171; }
-.b-bad::before  { background: var(--danger); }
+/* Nem repouso "bom" nem ação: estado terminal ou vazio (equipamento baixado,
+   etiqueta ainda sem bomba). Fio neutro. */
+.b-neutro {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--fio-fraco);
+  color: var(--muted);
+}
+/* Pede atenção e pede ação: placa cheia, tinta marinho por cima. */
+.b-warn { background: var(--amarelo);  color: var(--mar-900); }
+.b-bad  { background: var(--vermelho); color: var(--mar-900); }
 
 .pillCount {
   display: inline-flex;
@@ -2618,12 +3075,14 @@ tbody tr:nth-child(even):hover td { background: rgba(255,255,255,.04); }
   min-width: 22px;
   height: 20px;
   padding: 0 6px;
-  border-radius: 999px;
-  font-size: 11.5px;
-  font-weight: 800;
-  background: rgba(240,176,20,.1);
-  border: 1px solid rgba(240,176,20,.25);
-  color: var(--accent);
+  --ch-p: 4px;
+  clip-path: var(--corte-p);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  background: var(--amarelo);
+  color: var(--mar-900);
 }
 
 /* ============================================================
@@ -2648,45 +3107,55 @@ tbody tr:nth-child(even):hover td { background: rgba(255,255,255,.04); }
    Vale pra <textarea class="input"> também — descrição de chamado, prompt da
    IA, observação de O.S. e o campo de mensagem do WhatsApp usam a mesma
    classe. */
+/* ⚠️ O sublinhado de foco continua sendo `box-shadow: inset` pelo motivo
+   documentado acima, e agora tem uma segunda razão: sob `clip-path` um anel
+   desenhado FORA da caixa (`outline`, `box-shadow` normal) é recortado
+   inteiro pelo chanfro e simplesmente não aparece. Aqui o campo não é
+   chanfrado justamente para não pagar esse preço em formulário denso — o
+   corte fica nas peças, não em cada caixa de texto. */
 .input, .select {
   width: 100%;
   padding: 9px 12px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-  background-color: var(--bg-soft);
-  box-shadow: inset 0 -2px 0 var(--border-strong);
+  border: 1px solid var(--fio);
+  background-color: color-mix(in srgb, var(--mar-900) 88%, #000);
+  box-shadow: inset 0 -2px 0 var(--fio);
   color: var(--text);
   font-size: 13px;
   outline: none;
-  transition: border-color .15s, background-color .15s, box-shadow .15s;
+  transition: border-color .15s var(--saida), background-color .15s var(--saida), box-shadow .15s var(--saida);
 }
 
 .input:hover:not(:focus), .select:hover:not(:focus) {
-  border-color: var(--border-strong);
+  border-color: var(--fio-forte);
 }
 
 .input:focus, .select:focus {
-  border-color: var(--border-strong);
-  background-color: var(--surface2);
+  border-color: var(--fio-forte);
+  background-color: var(--mar-900);
   box-shadow: inset 0 -2px 0 var(--accent);
 }
 
 .input::placeholder { color: var(--muted); }
+.input[aria-invalid="true"], .select[aria-invalid="true"] {
+  border-color: var(--risco);
+  box-shadow: inset 0 -2px 0 var(--risco);
+}
 
-.select option { background: #18181b; color: var(--text); }
+.select option { background: var(--mar-800); color: var(--text); }
 
 /* Fallback universal pra <select> que não tem classe .select / .tel-select.
    Funciona em Chrome/Edge desktop. Combinado com color-scheme:dark cobre o resto. */
-select option { background: #14172a; color: #eef0fb; }
+select option { background: #050f38; color: #f2f5ff; }
 
 .field { display: flex; flex-direction: column; gap: 6px; }
 
 .lbl {
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 9.5px;
+  font-weight: 500;
+  color: var(--text-dim);
   text-transform: uppercase;
-  letter-spacing: .4px;
+  letter-spacing: .12em;
 }
 
 .lbl .req { color: var(--accent); margin-left: 2px; }
@@ -2730,9 +3199,8 @@ select option { background: #14172a; color: #eef0fb; }
   align-items: flex-end;
   flex-wrap: wrap;
   padding: 14px 16px;
-  background: linear-gradient(180deg, rgba(36,40,70,.35) 0%, rgba(20,23,42,.25) 100%);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  background: rgba(7,27,92,.42);
+  border: 1px solid var(--fio-fraco);
 }
 /* Quando .filter-bar está dentro de .rel-tab-pane (que já tem padding),
    anula o padding/borda duplicados */
@@ -2864,27 +3332,85 @@ select option { background: #14172a; color: #eef0fb; }
   backdrop-filter: blur(6px);
 }
 
+/* ══════════════════════════════════════════════════════════════════════════
+   O MODAL É PLACA CLARA
+   ──────────────────────────────────────────────────────────────────────────
+   Regra de superfície do sistema, tirada da tela de login que já está em
+   produção: **marinho é moldura; placa clara é onde se lê e se edita**
+   (ficha, modal, formulário). Os 11 modais deste painel são exatamente isso.
+
+   ⚠️ A CONVERSÃO É POR REMAPEAMENTO DE TOKEN, não por reescrita de regra, e
+   isso não é atalho — é o que torna a mudança segura. São 11 modais com
+   conteúdo heterogêneo (formulários, tabelas, um gráfico) e centenas de
+   regras espalhadas que já dizem `var(--text)`, `var(--muted)`,
+   `var(--border)`. Redeclarar esses tokens AQUI faz toda a subárvore virar
+   tinta escura sobre placa clara de uma vez, sem caçar seletor por seletor —
+   e sem o risco de esquecer um e deixar texto branco sobre fundo branco.
+
+   ⚠️ O QUE NÃO É REMAPEADO, e por quê:
+   · `--accent` continua amarelo. Ele é PREENCHIMENTO (o botão primário), e
+     amarelo sobre claro só existe preenchido com tinta marinho por cima —
+     a Regra do Amarelo Cego. Onde o amarelo virava TEXTO dentro de modal, a
+     regra explícita mais abaixo troca por `--atencao-t`.
+   · `--mar-800/900` continuam marinho: são a tinta de quem pousa sobre o
+     amarelo. Remapeá-los apagaria o rótulo do botão primário.
+   ══════════════════════════════════════════════════════════════════════════ */
 .modalBox {
   width: min(1100px, 96vw);
   max-height: 90vh;
   overflow: hidden;
-  border-radius: 14px;
-  border: 1px solid var(--border);
-  /* Fio no topo: o modal é o foco da tela enquanto está aberto, mesmo sinal
-     do modal de orçamento. Vale pros 11 que usam .modalBox sem tocar em
-     marcação nenhuma.
-     ⚠️ Amber é a cor de MARCA E AÇÃO. Num modal de exclusão permanente ele
-     manda o sinal oposto do que a tela quer dizer — por isso o modificador
-     `.is-perigo` abaixo, aplicado nos modais destrutivos. */
-  border-top: 2px solid var(--accent);
-  background: var(--surface);
-  box-shadow: var(--shadow-lg);
   display: flex;
   flex-direction: column;
+
+  /* ─ o remapeamento ─ */
+  --text:          var(--tinta);
+  --text-dim:      var(--tinta-2);
+  --muted:         var(--tinta-2);
+  --muted2:        #6b7a9e;
+  --sobre-2:       var(--tinta-2);
+  --border:        var(--fio-esc);
+  --border2:       rgba(6, 16, 51, .10);
+  --border-strong: rgba(6, 16, 51, .34);
+  --fio:           var(--fio-esc);
+  --fio-fraco:     rgba(6, 16, 51, .10);
+  --fio-forte:     rgba(6, 16, 51, .34);
+  --surface:       var(--chapa-cl);
+  --surface2:      var(--chapa-es);
+  --surface3:      #c9d0e0;
+  /* O corte gravado inverte sobre claro: o sulco é a linha escura e a aresta
+     que pega luz é o branco. */
+  --rasgo:         rgba(6, 16, 51, .16);
+  --luz:           rgba(255, 255, 255, .9);
+  /* Estado vira a família `-t`: sobre claro nenhum sinal saturado passa
+     contraste como texto. */
+  --ok:     var(--ok-t);
+  --normal: var(--normal-t);
+  --warn:   var(--warn-t);
+  --danger: var(--danger-t);
+  --risco:  var(--risco-t);
+  /* Séries de gráfico re-degrauadas para esta superfície. */
+  --serie-1: var(--serie-1-claro);
+  --serie-2: var(--serie-2-claro);
+  --serie-3: var(--serie-3-claro);
+  /* Amarelo COMO TINTA reprova sobre claro (~2:1). As 45 regras que dizem
+     `color: var(--accent)` passam a escrever em âmbar escuro aqui dentro, de
+     uma vez. O preenchimento não acompanha: ele usa `--amarelo`, que é cru. */
+  --accent:   var(--atencao-t);
+  --accent-2: #a06400;
+
+  background: var(--chapa);
+  color: var(--tinta);
+  --ch: 16px;
+  clip-path: var(--corte);
+  box-shadow: none;
 }
 
-/* Modal cuja ação principal é irreversível: o fio do topo vira vermelho. */
-.modalBox.is-perigo { border-top-color: var(--danger); }
+/* ⚠️ O fio amarelo de 2px no topo saiu. Era faixa de cor na borda indicando
+   estado — o padrão que o DESIGN.md proíbe — e ele existia para o modal
+   "saltar" do painel escuro. Placa clara sobre campo marinho salta sozinha.
+   O `.is-perigo` continua existindo como gancho, agora sem barra: quem marca
+   modal destrutivo é a própria ação em vermelho, no rodapé. */
+.modalBox.is-perigo { }
 
 /* Aviso forte dentro do corpo do modal — para o que o usuário não pode
    deixar passar (chave exibida uma única vez, por exemplo). */
@@ -2915,13 +3441,119 @@ select option { background: #14172a; color: #eef0fb; }
   justify-content: space-between;
   gap: 12px;
   padding: 14px 20px;
-  border-bottom: 1px solid var(--border);
-  background: var(--surface2);
+  /* Corte gravado, invertido para a placa clara: sulco escuro em cima da
+     aresta de luz. */
+  border-bottom: 1px solid var(--rasgo);
+  box-shadow: 0 1px 0 var(--luz);
+  background: var(--chapa-es);
   flex-shrink: 0;
 }
 
-.modalTitle { font-size: 14px; font-weight: 700; letter-spacing: .1px; }
-.modalSub   { margin-top: 3px; color: var(--muted); font-size: 12px; }
+.modalTitle { font-size: 15px; font-weight: 800; letter-spacing: -.02em; color: var(--tinta); }
+.modalSub   { margin-top: 3px; color: var(--tinta-2); font-size: 12px; }
+
+/* ── O QUE PRECISA DE REGRA PRÓPRIA DENTRO DO MODAL ──────────────────────── */
+
+/* Campo: branco puro dentro da placa clara, com o contorno em `inset` — a
+   mesma construção do formulário do login. O poço marinho do painel não
+   sobrevive aqui: fundo escuro dentro de placa clara lê como buraco. */
+.modalBox .input,
+.modalBox .select,
+.modalBox textarea,
+.modalBox input[type="text"],
+.modalBox input[type="email"],
+.modalBox input[type="number"],
+.modalBox input[type="date"],
+.modalBox input[type="password"] {
+  background-color: #fff;
+  color: var(--tinta);
+  border: none;
+  box-shadow: inset 0 0 0 1.5px var(--fio-esc);
+  caret-color: var(--mar-700);
+}
+.modalBox .input::placeholder,
+.modalBox textarea::placeholder { color: var(--tinta-2); }
+.modalBox .input:hover:not(:focus),
+.modalBox .select:hover:not(:focus) { box-shadow: inset 0 0 0 1.5px rgba(6,16,51,.32); }
+.modalBox .input:focus,
+.modalBox .select:focus,
+.modalBox textarea:focus {
+  background-color: #fff;
+  box-shadow: inset 0 0 0 2.5px var(--mar-700);
+}
+/* ⚠️ Os DOIS anéis do foco de teclado são `inset`. Anel por `outline` ou por
+   `box-shadow` normal é pintado FORA da caixa, e o `clip-path` do modal o
+   recorta: o indicador é calculado e simplesmente não aparece. */
+.modalBox .input:focus-visible,
+.modalBox .select:focus-visible,
+.modalBox textarea:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 3px var(--amarelo), inset 0 0 0 6px var(--mar-700);
+}
+.modalBox .select option { background: #fff; color: var(--tinta); }
+
+/* Botão de fio sobre seção clara: anel escuro, placa clara. O primário
+   continua amarelo com tinta marinho — é o par legível deste campo. */
+.modalBox .btn { background: var(--fio-esc); color: var(--tinta); }
+.modalBox .btn::before { background: var(--chapa-cl); }
+.modalBox .btn:hover { background: rgba(6,16,51,.34); color: var(--tinta); }
+.modalBox .btn:hover::before { background: #fff; }
+.modalBox .btnAccent { background: var(--amarelo); color: var(--mar-900); }
+.modalBox .btnAccent::before { background: var(--amarelo); }
+.modalBox .btnDanger { background: var(--risco-t); color: #fff; }
+.modalBox .btnDanger::before { background: var(--risco-t); }
+.modalBox .btnDanger:hover,
+.modalBox .btnDanger:hover::before { background: #8f1c13; }
+
+/* Cabeçalho de tabela dentro do modal: opaco, claro, e o mesmo sulco. */
+.modalBox th {
+  background: var(--chapa-es);
+  color: var(--tinta-2);
+  border-bottom: 1px solid var(--rasgo);
+  box-shadow: 0 1px 0 var(--luz);
+}
+.modalBox tbody tr:hover td { background: rgba(6,16,51,.05); }
+.modalBox tbody tr:nth-child(even) td { background: rgba(6,16,51,.025); }
+.modalBox tbody tr:nth-child(even):hover td { background: rgba(6,16,51,.06); }
+
+/* A Regra do Amarelo Cego: onde o amarelo virava TEXTO ou ÍCONE, ele reprova
+   contraste sobre claro (~2:1) e vira a tinta da família de atenção. Onde ele
+   é preenchimento (botão primário, placa de ícone) continua amarelo. */
+.modalBox .lbl .req,
+.modalBox .cardHead h2 { color: var(--tinta); }
+
+
+/* ── As mesmas regras valem no drawer ─────────────────────────────────────
+   Repetidas por seletor em vez de agrupadas com as do modal de propósito: um
+   seletor gigante com os dois prefixos é o tipo de coisa que quebra calada
+   quando alguém mexe num deles. */
+.drawer-panel .input,
+.drawer-panel .select,
+.drawer-panel textarea {
+  background-color: #fff;
+  color: var(--tinta);
+  border: none;
+  box-shadow: inset 0 0 0 1.5px var(--fio-esc);
+  caret-color: var(--mar-700);
+}
+.drawer-panel .input::placeholder { color: var(--tinta-2); }
+.drawer-panel .input:focus,
+.drawer-panel .select:focus,
+.drawer-panel textarea:focus { background-color: #fff; box-shadow: inset 0 0 0 2.5px var(--mar-700); }
+.drawer-panel .btn { background: var(--fio-esc); color: var(--tinta); }
+.drawer-panel .btn::before { background: var(--chapa-cl); }
+.drawer-panel .btn:hover { background: rgba(6,16,51,.34); }
+.drawer-panel .btn:hover::before { background: #fff; }
+.drawer-panel .btnAccent { background: var(--amarelo); color: var(--mar-900); }
+.drawer-panel .btnAccent::before { background: var(--amarelo); }
+.drawer-panel th { background: var(--chapa-es); color: var(--tinta-2); }
+.drawer-panel * { scrollbar-color: rgba(6,16,51,.28) transparent; }
+.drawer-panel *::-webkit-scrollbar-thumb { background: rgba(6,16,51,.24); background-clip: content-box; }
+
+/* A barra de rolagem do corpo do modal também troca de campo. */
+.modalBox * { scrollbar-color: rgba(6,16,51,.28) transparent; }
+.modalBox *::-webkit-scrollbar-thumb { background: rgba(6,16,51,.24); background-clip: content-box; }
+.modalBox *::-webkit-scrollbar-thumb:hover { background: rgba(6,16,51,.45); background-clip: content-box; }
 
 .modalBody  { padding: 16px 20px; overflow-y: auto; flex: 1; }
 
@@ -3365,9 +3997,9 @@ select option { background: #14172a; color: #eef0fb; }
    HISTÓRICO — period buttons active state
    ============================================================ */
 .hist-period.active {
-  background: var(--accent);
-  color: #111;
-  border-color: var(--accent);
+  background: var(--amarelo);
+  color: var(--mar-900);
+  border-color: transparent;
 }
 
 /* ============================================================
@@ -4023,18 +4655,55 @@ select option { background: #14172a; color: #eef0fb; }
 
 .drawer-overlay.is-open { opacity: 1; pointer-events: auto; }
 
+/* O drawer é FICHA — abre por cima do painel — então cai na mesma regra do
+   modal: placa clara é onde se lê e se edita. Mesmo remapeamento de token da
+   `.modalBox`, pelo mesmo motivo (é o que faz as centenas de regras `.dp-*`
+   virarem tinta escura sem caçar seletor).
+   ⚠️ A coluna de ficha das tabelas (`.ch-detail-col`) NÃO entra nesta regra e
+   isso é decisão, não esquecimento: ela não abre por cima de nada — é parte
+   da superfície de trabalho, lado a lado com a tabela. Placa clara ali
+   partiria a tela em dois campos permanentes. */
 .drawer-panel {
   position: fixed;
   top: 0; right: 0; bottom: 0;
   width: min(520px, 100vw);
-  background: var(--surface);
-  border-left: 1px solid var(--border);
-  box-shadow: -24px 0 64px rgba(0,0,0,.6);
   z-index: 1201;
   display: flex;
   flex-direction: column;
   transform: translateX(100%);
-  transition: transform .25s cubic-bezier(.4,0,.2,1);
+  transition: transform .25s var(--saida);
+
+  --text:          var(--tinta);
+  --text-dim:      var(--tinta-2);
+  --muted:         var(--tinta-2);
+  --muted2:        #6b7a9e;
+  --sobre-2:       var(--tinta-2);
+  --border:        var(--fio-esc);
+  --border2:       rgba(6, 16, 51, .10);
+  --border-strong: rgba(6, 16, 51, .34);
+  --fio:           var(--fio-esc);
+  --fio-fraco:     rgba(6, 16, 51, .10);
+  --fio-forte:     rgba(6, 16, 51, .34);
+  --surface:       var(--chapa-cl);
+  --surface2:      var(--chapa-es);
+  --surface3:      #c9d0e0;
+  --rasgo:         rgba(6, 16, 51, .16);
+  --luz:           rgba(255, 255, 255, .9);
+  --ok:     var(--ok-t);
+  --normal: var(--normal-t);
+  --warn:   var(--warn-t);
+  --danger: var(--danger-t);
+  --risco:  var(--risco-t);
+  --serie-1: var(--serie-1-claro);
+  --serie-2: var(--serie-2-claro);
+  --serie-3: var(--serie-3-claro);
+  --accent:   var(--atencao-t);
+  --accent-2: #a06400;
+
+  background: var(--chapa);
+  color: var(--tinta);
+  border-left: none;
+  box-shadow: none;
 }
 
 .drawer-panel.is-open { transform: translateX(0); }
@@ -4048,8 +4717,9 @@ select option { background: #14172a; color: #eef0fb; }
   gap: 12px;
   padding: 16px 20px;
   padding-top: calc(16px + env(safe-area-inset-top, 0px));
-  border-bottom: 1px solid var(--border);
-  background: var(--surface2);
+  border-bottom: 1px solid var(--rasgo);
+  box-shadow: 0 1px 0 var(--luz);
+  background: var(--chapa-es);
   flex-shrink: 0;
 }
 
@@ -4089,10 +4759,21 @@ select option { background: #14172a; color: #eef0fb; }
 }
 
 .drawer-tab:hover { color: var(--text); }
-.drawer-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+/* ⚠️ Era amarelo como TEXTO e como sublinhado. Sobre a placa clara do drawer
+   os dois reprovam contraste (~2:1) — a Regra do Amarelo Cego. A aba aberta
+   usa a mesma forma do item de nav e da aba de tabela: placa amarela cheia
+   com tinta marinho, que passa nos dois campos. */
+.drawer-tab.active {
+  background: var(--amarelo);
+  color: var(--mar-900);
+  border-bottom-color: transparent;
+  --ch-p: 5px;
+  clip-path: var(--corte-p);
+}
 
 .drawer-tab-badge {
-  background: var(--danger);
+  background: var(--vermelho);
+  /* cru: o selo é preenchido, e a tinta por cima é branca */
   color: #fff;
   font-size: 9.5px;
   font-weight: 800;
@@ -4195,21 +4876,24 @@ select option { background: #14172a; color: #eef0fb; }
 .chamado-status-em_atendimento { color: #fbbf24; font-weight: 700; }
 .chamado-status-fechado        { color: #4ade80; font-weight: 700; }
 
-/* Orçamento solicitado pelo técnico (Fase 7E) */
+/* Orçamento solicitado pelo técnico (Fase 7E).
+   ⚠️ Era barra amarela de 3px na borda. O que a linha precisa dizer é "esta
+   tem orçamento pedido" — isso é um SELO, e o selo deste sistema é placa
+   chanfrada, não faixa. O `.orc-pill` logo abaixo já carrega o rótulo; aqui
+   fica só o anel, que separa sem gritar. */
 .dp-chamado-orc {
-  border-left: 3px solid var(--accent);
-  box-shadow: 0 0 0 1px rgba(240,176,20,.15) inset;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--amarelo) 45%, transparent);
 }
 .orc-pill {
   display: inline-flex;
   align-items: center;
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-size: 11px;
+  padding: 3px 8px 2px;
+  --ch-p: 4px; clip-path: var(--corte-p);
+  font-size: 10.5px;
   font-weight: 700;
-  background: rgba(240,176,20,.12);
-  border: 1px solid rgba(240,176,20,.35);
-  color: var(--accent);
+  background: var(--amarelo);
+  border: none;
+  color: var(--mar-900);
 }
 .orc-bloco {
   background: rgba(240,176,20,.06);
@@ -4331,20 +5015,19 @@ select option { background: #14172a; color: #eef0fb; }
 /* ============================================================
    SEÇÃO MAPA (data-section="mapa") — Fase 3B.2
    ============================================================ */
+/* Mesma faixa dividida do resto do painel — estes quatro eram cards de 132px
+   de altura com o número no meio e a legenda no rodapé. */
 .mp-kpis {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-  margin-bottom: 20px;
+  gap: 1px;
+  padding: 1px;
+  margin-bottom: 16px;
+  --ch: 12px;
+  background: var(--fio);
+  clip-path: var(--corte);
 }
-.mp-kpis .rc {
-  min-height: 132px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.mp-kpis .rc-value { margin-top: 4px; }
-.mp-kpis .rc-hint { margin-top: auto; }
+.mp-kpis .rc { min-height: 0; }
 @media (max-width: 920px) { .mp-kpis { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 540px) { .mp-kpis { grid-template-columns: 1fr; } }
 
@@ -4441,6 +5124,10 @@ select option { background: #14172a; color: #eef0fb; }
 
 /* Modo tela cheia: o card invade a viewport inteira e some o chrome do card.
    O cabeçalho vira overlay flutuante; o canvas do mapa ocupa 100% da viewport. */
+/* Em tela cheia o card deixa de ser peça e vira superfície: sem chanfro, e
+   sem o anel que o `.card` desenha. */
+.mp-map-card.is-fullscreen { clip-path: none; background: var(--mar-900); }
+.mp-map-card.is-fullscreen::before { content: none; }
 .mp-map-card.is-fullscreen {
   position: fixed;
   inset: 0;
@@ -4732,18 +5419,57 @@ body.mp-fs-active { overflow: hidden; }
 }
 @media (max-width: 1100px) { .mp-bottom { grid-template-columns: 1fr; } }
 
-.mp-donut { padding: 6px 12px 0; min-height: 200px; }
-.mp-donut-legend {
-  display: flex; flex-direction: column; gap: 6px;
-  padding: 8px 18px 16px;
-  font-size: 11.5px;
+/* ⚠️ `.mp-donut` mantém o nome porque é o id no HTML (`#mpZonaChart`), mas o
+   que mora aqui agora é uma lista de barras — o donut de seis fatias saiu.
+   O porquê está em `_mpAtualizarZonaDonut` no admin.js. A altura mínima caiu
+   de 200px (o quadrado do SVG) para o que as barras pedirem. */
+.mp-donut { padding: 10px 18px 4px; }
+.mp-donut-legend { display: none; }   /* rótulo direto dispensa legenda */
+
+.mp-barras { display: flex; flex-direction: column; gap: 7px; }
+.mp-barra-row {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr) 28px;
+  align-items: center;
+  gap: 10px;
 }
-.mp-donut-legend .dl-row {
-  display: flex; align-items: center; gap: 8px;
+.mp-barra-lbl {
+  font-size: 11.5px; color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.mp-donut-legend .dl-dot { width: 8px; height: 8px; border-radius: 50%; }
-.mp-donut-legend .dl-label { color: var(--text); font-weight: 600; flex: 1; }
-.mp-donut-legend .dl-value { color: var(--muted); font-weight: 700; }
+.mp-barra-trilho {
+  height: 10px;
+  background: rgba(255,255,255,.06);
+  --ch-p: 3px;
+  clip-path: var(--corte-p);
+}
+/* Uma série, uma cor: o slot 1 da paleta. A largura é a comparação; a cor
+   não codifica nada e por isso não varia. */
+.mp-barra-fill {
+  display: block; height: 100%;
+  background: var(--serie-1);
+  --ch-p: 3px;
+  clip-path: var(--corte-p);
+  transition: width .4s var(--saida);
+}
+.mp-barra-val {
+  font-family: var(--mono); font-size: 11px; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text); text-align: right;
+}
+/* Falta de dado não é uma zona: fica apagada para não competir. */
+.mp-barra-row.is-sem-dado .mp-barra-lbl,
+.mp-barra-row.is-sem-dado .mp-barra-val { color: var(--muted); }
+.mp-barra-row.is-sem-dado .mp-barra-fill { background: var(--muted2); }
+
+.mp-barras-total {
+  margin-top: 12px; padding-top: 9px;
+  border-top: 1px solid var(--rasgo);
+  box-shadow: 0 -1px 0 var(--luz) inset;
+  font-family: var(--mono);
+  font-size: 9px; letter-spacing: .055em; text-transform: uppercase;
+  color: var(--text-dim);
+}
 
 /* Alertas Recentes (lista compacta com badge de severidade) */
 .mp-alerts {
@@ -4948,88 +5674,162 @@ body.mp-fs-active { overflow: hidden; }
 .al-table tbody tr.al-empty-row:hover,
 .al-table tbody tr.al-empty-row:hover td { background: none; }
 .al-table tbody tr:hover { background: rgba(255,255,255,.03); }
-.al-table tbody tr.is-selected {
-  background: rgba(34,197,94,.08);
-  border-left: 2px solid rgba(34,197,94,.6);
-}
+.al-table tbody tr.is-selected td { background: var(--mar-600); color: #fff; }
+.al-table tbody tr.is-selected:hover td { background: var(--mar-500); }
 .al-table tbody td {
   padding: 10px 12px;
   color: var(--text);
   vertical-align: middle;
 }
 .al-table tbody td.right { text-align: right; }
-.al-table .al-id { font-family: monospace; font-size: 11px; color: var(--muted); }
-.al-table .al-condo { font-weight: 600; }
-.al-table .al-condo small { display: block; color: var(--muted); font-weight: 400; font-size: 10.5px; margin-top: 2px; }
-.al-table .al-data { white-space: nowrap; }
-.al-table .al-data small { display: block; color: var(--muted); font-size: 10.5px; margin-top: 2px; }
-.al-table .al-tempo { color: var(--muted); white-space: nowrap; }
+.al-table .al-id {
+  font-family: var(--mono); font-size: 10px; color: var(--muted);
+  white-space: nowrap; vertical-align: top; padding-top: 14px;
+}
 
-/* Badges de severidade */
+/* A célula do alerta: o que aconteceu em cima, onde aconteceu embaixo.
+   Mesmo molde da célula de Chamados — as duas telas dividem `.ch-*` e agora
+   dividem também a forma da linha. */
+/* Leitura de instrumento na barra, no lugar do card que a faixa tinha. */
+.al-medida {
+  display: flex; flex-direction: column; gap: 1px;
+  margin-left: auto; margin-bottom: 10px;
+  padding-left: 14px;
+  border-left: 1px solid var(--rasgo);
+  box-shadow: inset 1px 0 0 var(--luz);
+}
+.al-medida-lbl {
+  font-family: var(--mono); font-size: 8.5px; font-weight: 500;
+  letter-spacing: .055em; text-transform: uppercase; color: var(--text-dim);
+}
+.al-medida-val {
+  font-family: var(--mono); font-size: 15px; font-weight: 700;
+  letter-spacing: -.03em; color: var(--text);
+  font-variant-numeric: tabular-nums; line-height: 1.1;
+}
+
+.al-table .al-alerta-titulo {
+  font-size: 12.5px; font-weight: 600;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.al-table .al-alerta-sub {
+  display: flex; align-items: center; gap: 6px;
+  margin-top: 3px;
+  font-size: 11px; color: var(--muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.al-table .al-sub-sep { color: var(--muted2); }
+
+.al-table .al-data { white-space: nowrap; }
+.al-table .al-data-abs {
+  font-family: var(--mono); font-size: 10.5px; color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+.al-table .al-data-hora { color: var(--muted); }
+/* A antiga coluna "Tempo" — sempre foi um delta, e agora mora embaixo da data
+   que ela mede. Alerta resolvido não recebe cor: a duração dele é histórico. */
+.al-table .al-data-delta { font-size: 10.5px; margin-top: 2px; }
+.al-table .al-data-delta.is-off  { color: var(--muted2); }
+.al-table .al-data-delta.is-ok   { color: var(--muted); }
+.al-table .al-data-delta.is-warn { color: var(--warn); }
+.al-table .al-data-delta.is-bad  { color: var(--risco); font-weight: 600; }
+
+/* SEVERIDADE carrega o preenchimento, STATUS é de fio — a mesma divisão de
+   papel de Chamados, para não ter duas placas cheias na mesma linha.
+   Resolvido, a severidade se apaga: continua sendo crítico, mas parou de
+   pedir alguém. */
 .al-sev {
   display: inline-block;
   font-size: 10px; font-weight: 700;
-  padding: 3px 9px;
-  border-radius: 999px;
+  padding: 3px 8px;
+  --ch-p: 4px; clip-path: var(--corte-p);
   text-transform: uppercase;
-  letter-spacing: .3px;
+  letter-spacing: .03em;
+  /* "SLA estourado" é o rótulo mais longo que passa por aqui e quebrava em
+     duas linhas, engordando a placa. A coluna foi medida para caber ele. */
+  white-space: nowrap;
 }
-.al-sev.critico { background: rgba(239,68,68,.15); color: #fca5a5; border: 1px solid rgba(239,68,68,.3); }
-.al-sev.atencao { background: rgba(245,158,11,.15); color: #fcd34d; border: 1px solid rgba(245,158,11,.3); }
-.al-sev.normal  { background: rgba(16,185,129,.15); color: #86efac; border: 1px solid rgba(16,185,129,.3); }
+.al-sev.critico { background: var(--vermelho); color: var(--mar-900); }
+.al-sev.atencao { background: var(--amarelo);   color: var(--mar-900); }
+.al-sev.normal  { background: transparent; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ok) 55%, transparent); color: var(--ok); }
+.al-sev.is-quieto {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--fio-fraco);
+  color: var(--muted);
+}
 
-/* Badges de status */
+/* A lâmpada-piloto é a única curva que este sistema permite, e é exatamente
+   este o caso: um alerta ativo é uma luz acesa. Sem halo — o que estava aqui
+   era `box-shadow` de brilho, e brilho é decoração neste mundo. */
 .al-status {
   display: inline-flex; align-items: center; gap: 5px;
   font-size: 10.5px; font-weight: 600;
+  vertical-align: middle;
 }
 .al-status::before {
   content: ''; width: 6px; height: 6px; border-radius: 50%;
 }
-.al-status.ativo::before     { background: var(--warn); box-shadow: 0 0 6px var(--warn); }
+.al-status.ativo::before     { background: var(--warn); }
 .al-status.resolvido::before { background: var(--ok); }
 .al-status.ativo     { color: var(--warn); }
 .al-status.resolvido { color: var(--ok); }
 
 /* Badges de origem (telemetria/chamado) */
+/* Origem não é estado — é procedência. Por isso as duas são de fio: violeta e
+   ciano estavam aqui só porque eram as cores que sobravam do Mission Control,
+   e nenhuma das duas queria dizer nada. O que distingue é o rótulo. */
 .al-origem {
   display: inline-block;
-  font-size: 9.5px; font-weight: 700;
-  padding: 2px 6px;
-  border-radius: 4px;
+  font-family: var(--mono);
+  font-size: 8.5px; font-weight: 500;
+  padding: 2px 5px 1px;
+  --ch-p: 3px; clip-path: var(--corte-p);
   text-transform: uppercase;
-  letter-spacing: .3px;
-  margin-right: 6px;
+  letter-spacing: .06em;
+  margin-right: 0;
+  box-shadow: inset 0 0 0 1px var(--fio-fraco);
+  color: var(--text-dim);
 }
-.al-origem.telemetria { background: rgba(99,102,241,.18); color: #c4b5fd; }
-.al-origem.chamado    { background: rgba(34,211,238,.18); color: #67e8f9; }
+.al-origem.telemetria { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--agua) 70%, transparent); color: var(--crista); }
+.al-origem.chamado    { box-shadow: inset 0 0 0 1px var(--fio); color: var(--text-dim); }
 
 /* Selo no chamado que absorveu o alerta de telemetria do mesmo evento — o
    card de telemetria some da lista, o selo indica que a origem está ali. */
 .al-tel-tag {
   display: inline-block;
-  font-size: 9.5px; font-weight: 700;
-  padding: 1px 5px;
-  border-radius: 4px;
-  background: rgba(99,102,241,.14);
-  color: #c4b5fd;
+  font-family: var(--mono);
+  font-size: 8.5px; font-weight: 500; letter-spacing: .06em;
+  padding: 2px 5px 1px;
+  --ch-p: 3px; clip-path: var(--corte-p);
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--fio);
+  color: var(--text-dim);
   vertical-align: middle;
   white-space: nowrap;
 }
 
 /* Botões de ação */
 .al-actions { display: inline-flex; gap: 4px; }
+/* Deixou de morar numa coluna própria (que ficava vazia em toda linha já
+   resolvida) e passou a andar junto do status que ele muda. Fica discreto até
+   a linha ser apontada — a ação existe, mas não disputa a leitura. */
 .al-act-btn {
-  background: rgba(255,255,255,.04);
-  border: 1px solid var(--border);
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--fio-fraco);
+  border: none;
   color: var(--muted);
-  width: 28px; height: 28px;
-  border-radius: 6px;
+  width: 22px; height: 22px;
+  --ch-p: 4px; clip-path: var(--corte-p);
   display: inline-flex; align-items: center; justify-content: center;
+  vertical-align: middle;
+  margin-left: 6px;
   cursor: pointer;
-  transition: background .15s, color .15s, border-color .15s;
+  opacity: .45;
+  transition: opacity .16s var(--saida), background .16s var(--saida), color .16s var(--saida);
 }
-.al-act-btn:hover { background: rgba(255,255,255,.08); color: var(--text); }
+.al-row:hover .al-act-btn { opacity: 1; }
+.al-act-btn:hover { background: var(--ok); color: var(--mar-900); opacity: 1; }
+.al-act-btn:focus-visible { opacity: 1; }
 .al-act-btn svg { width: 14px; height: 14px; }
 
 /* Paginação */
@@ -5143,27 +5943,34 @@ body.mp-fs-active { overflow: hidden; }
   background: var(--ok);
 }
 
+/* A leitura da IA é uma placa como qualquer outra — o gradiente violeta que
+   estava aqui vinha do Mission Control e não sobreviveu à troca de mundo. */
 .al-ia-card {
-  border: 1px solid rgba(168,85,247,.3);
-  background: linear-gradient(135deg, rgba(168,85,247,.06), rgba(99,102,241,.06));
-  border-radius: 8px;
+  box-shadow: inset 0 0 0 1px var(--fio);
+  background: rgba(7,27,92,.42);
+  --ch-p: 8px; clip-path: var(--corte-p);
   padding: 12px;
 }
 .al-ia-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
 .al-ia-badge {
-  background: linear-gradient(135deg, #a855f7, #6366f1);
-  color: white;
-  font-size: 10px; font-weight: 700;
-  padding: 2px 8px; border-radius: 4px;
+  background: var(--accent);
+  color: var(--mar-900);
+  font-family: var(--mono);
+  font-size: 8.5px; font-weight: 500; letter-spacing: .06em;
+  padding: 3px 6px 2px;
+  --ch-p: 3px; clip-path: var(--corte-p);
 }
 .al-ia-analise { font-size: 12px; color: var(--text); line-height: 1.5; margin-bottom: 8px; }
 .al-ia-acoes { list-style: none; padding: 0; margin: 0 0 10px 0; display: flex; flex-direction: column; gap: 4px; }
+/* Ação recomendada. A barra violeta de 2px na borda saiu — é o mesmo tell da
+   linha selecionada, e aqui ela nem indicava estado: era decoração. O que
+   marca cada item é o ponto de lista, que já existe (`.al-acoes-list li`). */
 .al-ia-acoes li {
   font-size: 11.5px; color: var(--text);
-  padding: 5px 9px;
-  background: rgba(168,85,247,.08);
-  border-radius: 5px;
-  border-left: 2px solid rgba(168,85,247,.5);
+  padding: 6px 9px;
+  background: rgba(255,255,255,.04);
+  box-shadow: inset 0 0 0 1px var(--fio-fraco);
+  --ch-p: 5px; clip-path: var(--corte-p);
 }
 .al-ia-refazer { font-size: 10.5px; opacity: .8; }
 
@@ -5193,13 +6000,36 @@ body.mp-fs-active { overflow: hidden; }
 .wa-card { padding: 0; overflow: visible; }
 .wa-head { padding: 16px 18px; }
 
+/* ⚠️ A COLUNA DE DETALHES SÓ EXISTE QUANDO HÁ DETALHE — mesma decisão da
+   ficha das tabelas (decisão nº 2 do plano), e aqui ela pesava mais: sem
+   conversa selecionada esta tela mostrava TRÊS zonas vazias ao mesmo tempo
+   (lista, chat e detalhe), cada uma com sua própria frase pedindo que você
+   clique em algo. Agora a terceira coluna colapsa e a conversa ganha a
+   largura — o chat é o corpo desta tela, não um terço dela.
+   O gatilho é o próprio placeholder, como nas outras telas: `:has()` com
+   CAMINHO EXATO (filho direto), pelo motivo registrado no `.ch-layout`. */
 .wa-grid {
   display: grid;
   grid-template-columns: 320px minmax(0, 1fr) 340px;
   min-height: 640px;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--rasgo);
+  box-shadow: inset 0 1px 0 var(--luz);
+  transition: grid-template-columns .34s var(--saida);
 }
-@media (max-width: 1280px) { .wa-grid { grid-template-columns: 280px minmax(0,1fr) 300px; } }
+.wa-grid:has(> .wa-info-col > .wa-info-empty) {
+  grid-template-columns: 320px minmax(0, 1fr) 0;
+}
+.wa-grid:has(> .wa-info-col > .wa-info-empty) > .wa-info-col {
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+  border: none;
+  transition: opacity .22s var(--saida);
+}
+@media (max-width: 1280px) {
+  .wa-grid { grid-template-columns: 280px minmax(0,1fr) 300px; }
+  .wa-grid:has(> .wa-info-col > .wa-info-empty) { grid-template-columns: 280px minmax(0,1fr) 0; }
+}
 @media (max-width: 1024px) {
   .wa-grid { grid-template-columns: 1fr; min-height: auto; }
   .wa-list-col, .wa-info-col { border: none; border-top: 1px solid var(--border); }
@@ -5221,6 +6051,10 @@ body.mp-fs-active { overflow: hidden; }
    nenhuma affordance visual — filtros como "P1 Crítico", "Resolvidos" e "TI"
    ficavam fora da vista em notebook e ninguém descobria que dava pra rolar.
    Com wrap eles caem pra segunda linha e o scroll deixa de ser necessário. */
+/* ⚠️ `flex-wrap: wrap` e `overflow-x: auto` juntos: o wrap vence e o scroll
+   nunca acontece. Era por isso que as 5 abas de Chamados viravam 5 fileiras
+   no celular (e 2 fileiras no desktop assim que a ficha abria e estreitava a
+   coluna) em vez de rolarem numa linha. */
 .wa-tabs {
   display: flex; gap: 4px;
   flex-wrap: wrap;
@@ -5228,33 +6062,58 @@ body.mp-fs-active { overflow: hidden; }
   overflow-x: auto;
   scrollbar-width: thin;
 }
+
+/* A barra é o contêiner de consulta, não a viewport: o gatilho certo é
+   "a barra ficou estreita", que acontece tanto no celular quanto no desktop
+   com a ficha aberta. Media query resolveria só o primeiro caso. */
+/* As duas barras que hospedam `.wa-tabs`. A de Atendimento é ainda mais
+   estreita que a de Chamados (a coluna tem 320px), então lá as abas empilham
+   sempre — é onde a regra mais rende. */
+.ch-toolbar, .wa-list-head { container-type: inline-size; }
+@container (max-width: 640px) {
+  .wa-tabs {
+    flex-wrap: nowrap;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x proximity;
+    padding-bottom: 4px;
+  }
+  .wa-tabs .wa-tab { scroll-snap-align: start; }
+}
+/* ⚠️ `.wa-*` tem nome de WhatsApp e roda em 10 das 15 telas — mexer aqui
+   move o painel inteiro. Ver `docs/modulos/painel-admin.md`. */
 .wa-tab {
   background: transparent;
-  border: 1px solid var(--border);
-  color: var(--muted);
+  box-shadow: inset 0 0 0 1px var(--fio);
+  color: var(--text-dim);
   padding: 5px 10px;
-  border-radius: 6px;
+  --ch-p: 5px;
+  clip-path: var(--corte-p);
   font-size: 10.5px; font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
   display: inline-flex; align-items: center; gap: 5px;
-  transition: background .15s, border-color .15s, color .15s;
+  transition: background .16s var(--saida), box-shadow .16s var(--saida), color .16s var(--saida);
 }
-.wa-tab:hover { background: rgba(255,255,255,.04); color: var(--text); }
+.wa-tab:hover { background: rgba(255,255,255,.05); color: var(--text); box-shadow: inset 0 0 0 1px var(--fio-forte); }
+/* A aba aberta usa a MESMA forma do item de navegação aberto: placa amarela
+   com tinta marinho. Uma língua só para "você está aqui" no painel todo. */
 .wa-tab.is-active {
-  background: rgba(34,197,94,.15);
-  border-color: rgba(34,197,94,.4);
-  color: var(--text);
+  background: var(--accent);
+  box-shadow: none;
+  color: var(--mar-900);
+  font-weight: 700;
 }
 .wa-count {
-  font-size: 9.5px; font-weight: 700;
-  background: rgba(255,255,255,.08);
-  color: var(--text);
-  padding: 1px 5px;
-  border-radius: 999px;
+  font-family: var(--mono);
+  font-size: 9px; font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--fio);
+  color: var(--text-dim);
+  padding: 2px 5px 1px;
   min-width: 16px; text-align: center;
 }
-.wa-tab.is-active .wa-count { background: rgba(34,197,94,.3); }
+.wa-tab.is-active .wa-count { background: var(--mar-900); box-shadow: none; color: #fff; }
 
 .wa-list { flex: 1; overflow-y: auto; }
 .wa-list-foot {
@@ -5273,11 +6132,7 @@ body.mp-fs-active { overflow: hidden; }
   position: relative;
 }
 .wa-conv-row:hover { background: rgba(255,255,255,.03); }
-.wa-conv-row.is-selected {
-  background: rgba(34,197,94,.08);
-  border-left: 3px solid rgba(34,197,94,.7);
-  padding-left: 11px;
-}
+.wa-conv-row.is-selected { background: var(--mar-600); }
 
 .wa-conv-avatar {
   width: 38px; height: 38px;
@@ -5553,12 +6408,23 @@ body.mp-fs-active { overflow: hidden; }
   flex: 1;
   min-width: 0;
   align-self: stretch;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 14px;
+  position: relative;
+  --ch: 12px;
+  background: var(--fio);
+  clip-path: var(--corte);
   overflow: hidden;
   display: flex;
   flex-direction: column;
+}
+.ch-list-col::before {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  --ch: 11px;
+  background: color-mix(in srgb, var(--mar-700) 52%, var(--mar-900));
+  clip-path: var(--corte);
+  pointer-events: none;
+  z-index: -1;
 }
 
 .ch-list-col .tableWrap,
@@ -5583,31 +6449,83 @@ body.mp-fs-active { overflow: hidden; }
 
 .ch-row { cursor: pointer; transition: background .12s; }
 .ch-row:hover { background: rgba(255,255,255,.04); }
-.ch-row.is-selected { background: rgba(139,92,246,.1); }
-.ch-row.is-selected td { border-left: none; }
-.ch-row.is-selected td:first-child { border-left: 2px solid var(--accent); }
+/* LINHA SELECIONADA — sem barra na borda.
+   Faixa de cor de 2-3px indicando estado é o tell mais reconhecível de
+   interface gerada por IA, e neste sistema é gramática estranha: profundidade
+   é aresta e corte, nunca barra. Quem está selecionado SOBE UM DEGRAU de
+   marinho e tem o identificador em amarelo — mesma língua do item de
+   navegação e da aba abertos. */
+.ch-row.is-selected td { background: var(--mar-600); color: #fff; }
+.ch-row.is-selected td:first-child { color: var(--accent); }
+.ch-row.is-selected:hover td { background: var(--mar-500); }
 
-.ch-id-cell    { font-family: monospace; font-size: 11px; color: var(--muted); }
-.ch-titulo-text { font-size: 12.5px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
-.ch-condo-cell { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ch-data-cell  { font-size: 11.5px; color: var(--muted); }
+.ch-id-cell    { font-family: var(--mono); font-size: 10px; color: var(--muted); white-space: nowrap; vertical-align: top; padding-top: 14px; }
+
+/* A célula do chamado: título + linha de apoio, como em `planos`. O título
+   deixa de ter `max-width: 260px` porque agora ele tem as duas colunas que
+   Condomínio e Categoria ocupavam. */
+.ch-titulo-text { font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ch-titulo-sub {
+  display: flex; align-items: center; gap: 7px;
+  margin-top: 3px;
+  font-size: 11px; color: var(--muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.ch-data-cell  { font-size: 11.5px; color: var(--muted); white-space: nowrap; }
+.ch-data-abs   { font-family: var(--mono); font-size: 10.5px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.ch-data-delta { font-size: 10.5px; margin-top: 2px; }
+.ch-data-delta.is-off  { color: var(--muted2); }
+.ch-data-delta.is-ok   { color: var(--muted); }
+.ch-data-delta.is-warn { color: var(--warn); }
+.ch-data-delta.is-bad  { color: var(--risco); font-weight: 600; }
 
 .ch-cat-badge {
-  font-size: 10px; padding: 2px 7px; border-radius: 4px;
-  background: rgba(255,255,255,.06); color: var(--muted);
+  font-family: var(--mono);
+  font-size: 8.5px; letter-spacing: .06em; text-transform: uppercase;
+  padding: 2px 5px 1px;
+  --ch-p: 3px; clip-path: var(--corte-p);
+  box-shadow: inset 0 0 0 1px var(--fio-fraco);
+  color: var(--muted);
   white-space: nowrap;
 }
 
-.ch-prio          { font-size: 10.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
-.ch-prio-p4 { background: rgba(148,163,184,.15); color: #94a3b8; }
-.ch-prio-p3 { background: rgba(34,211,238,.15);  color: #22d3ee; }
-.ch-prio-p2 { background: rgba(251,146,60,.15);  color: #fb923c; }
-.ch-prio-p1 { background: rgba(239,68,68,.18);   color: #f87171; }
+/* ── UM SELO DE ESTADO, DUAS FUNÇÕES ───────────────────────────────────────
+   O estudo achou SEIS vocabulários para a mesma ideia nesta tela. A regra que
+   os une: **preenchido quando pede ação, de fio em repouso** — e, para não
+   ter duas placas cheias brigando na mesma linha, a divisão é de papel:
 
-.ch-st            { font-size: 10.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
-.ch-st-aberto         { background: rgba(96,165,250,.15); color: #60a5fa; }
-.ch-st-em_atendimento { background: rgba(251,146,60,.15); color: #fb923c; }
-.ch-st-fechado        { background: rgba(34,197,94,.15);  color: #4ade80; }
+     · PRIORIDADE carrega o preenchimento — é a urgência, é o que grita;
+     · STATUS é sempre de fio — é fase do trabalho, não alarme.
+
+   Resolvido, a prioridade se apaga (`.is-quieto`): continua sendo P1, mas
+   deixa de disputar atenção com quem ainda precisa de alguém. */
+.ch-prio {
+  font-size: 10px; font-weight: 700; letter-spacing: .03em;
+  padding: 3px 8px;
+  --ch-p: 4px; clip-path: var(--corte-p);
+  white-space: nowrap;
+}
+.ch-prio-p1 { background: var(--vermelho); color: var(--mar-900); }
+.ch-prio-p2 { background: var(--amarelo);  color: var(--mar-900); }
+.ch-prio-p3 { background: transparent; box-shadow: inset 0 0 0 1px var(--fio); color: var(--text-dim); }
+.ch-prio-p4 { background: transparent; box-shadow: inset 0 0 0 1px var(--fio-fraco); color: var(--muted); }
+.ch-prio.is-quieto {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--fio-fraco);
+  color: var(--muted);
+}
+
+.ch-st {
+  font-size: 10px; font-weight: 600; letter-spacing: .03em;
+  padding: 3px 8px;
+  --ch-p: 4px; clip-path: var(--corte-p);
+  background: transparent;
+  white-space: nowrap;
+}
+.ch-st-aberto         { box-shadow: inset 0 0 0 1px var(--fio-forte); color: var(--text); }
+.ch-st-em_atendimento { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--amarelo) 55%, transparent); color: var(--amarelo); }
+.ch-st-fechado        { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ok) 45%, transparent); color: var(--ok); }
 
 /* Painel de detalhe.
    GRUDA NO TOPO (06/08). Antes era estático e ficava no alto da linha
@@ -5625,17 +6543,61 @@ body.mp-fs-active { overflow: hidden; }
    O `top: 0` é relativo ao scrollport do `.content` (que já começa abaixo da
    topbar); o `max-height` impede que um painel comprido nasça com o rodapé
    fora da tela, e o `overflow-y: auto` faz ele rolar por dentro. */
+/* ── A FICHA SÓ EXISTE QUANDO HÁ FICHA ─────────────────────────────────────
+   Segunda das cinco decisões do plano. A coluna nascia sempre, ocupando ~28%
+   da largura, e o que preenchia esse espaço era um ícone-placeholder de
+   130-160px — documento em `chamados`, avatar em `cadastros`, chave em
+   `tecnicos`. Era o maior desperdício de área do painel, e em `chamados`
+   ainda empurrava a coluna PRIORIDADE para fora da tela.
+
+   Agora ela colapsa a zero e **abre na seleção**, deslizando. O gatilho é o
+   próprio placeholder: `:has()` detecta que o conteúdo é o estado vazio, sem
+   precisar de classe nova no JS — o que faz a regra valer de imediato nas
+   seis telas que compartilham o vocabulário `.ch-*`.
+
+   ⚠️ `:has()` não pode ser aninhado dentro de `:has()`, por isso o `gap` do
+   `.ch-layout` é resolvido em regra própria logo abaixo, olhando o
+   placeholder direto. */
 .ch-detail-col {
   width: 360px;
   flex-shrink: 0;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 14px;
+  position: relative;
+  --ch: 12px;
+  background: var(--fio);
+  clip-path: var(--corte);
   overflow-y: auto;
   position: sticky;
   top: 0;
   max-height: calc(100vh - var(--topbar-h) - 44px);
+  transition: width .34s var(--saida), opacity .22s var(--saida);
 }
+.ch-detail-col::before {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  --ch: 11px;
+  background: color-mix(in srgb, var(--mar-700) 52%, var(--mar-900));
+  clip-path: var(--corte);
+  pointer-events: none;
+  z-index: -1;
+}
+
+.ch-detail-col:has(> .ch-detail-empty),
+.ch-detail-col:has(> .al-empty) {
+  width: 0;
+  opacity: 0;
+  padding: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+/* ⚠️ O caminho é EXATO de propósito. Com `:has(.al-empty)` solto, qualquer
+   `.al-empty` em qualquer lugar do layout casava — e em Orçamentos existe um
+   `#avEmpty.al-empty` dentro da COLUNA DA LISTA, escondido com
+   `display:none`. `:has()` não liga para `display`: ele casa com o que está
+   no DOM. Resultado: o gap ficava zero naquela tela mesmo com a ficha aberta.
+   Só o placeholder que é filho direto da coluna de ficha conta. */
+.ch-layout:has(> .ch-detail-col > .ch-detail-empty),
+.ch-layout:has(> .ch-detail-col > .al-empty) { gap: 0; }
 
 .ch-detail-empty {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -5684,12 +6646,16 @@ body.mp-fs-active { overflow: hidden; }
 .ch-aval-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .ch-aval-nota { font-size: 13px; font-weight: 600; color: var(--text); }
 .ch-aval-quando { font-size: 11px; color: var(--muted); margin-left: auto; }
+/* Citação do morador. A barra amarela de 3px na borda saiu (mesma razão da
+   linha selecionada); o que marca o trecho como fala de outra pessoa é a
+   placa chanfrada com o itálico dentro. */
 .ch-aval-coment {
   margin-top: 10px;
   padding: 10px 12px;
-  background: rgba(255,255,255,.03);
-  border-left: 3px solid var(--accent);
-  border-radius: 4px;
+  background: rgba(255,255,255,.04);
+  box-shadow: inset 0 0 0 1px var(--fio-fraco);
+  --ch-p: 8px;
+  clip-path: var(--corte-p);
   font-size: 12.5px;
   line-height: 1.5;
   color: var(--text);
@@ -5796,8 +6762,53 @@ body.mp-fs-active { overflow: hidden; }
   border-bottom: 1px solid rgba(255,255,255,.05);
 }
 
-/* Card "Painel ao vivo" — borda de destaque, é a área que pede atenção agora */
-.rel-card-vivo { border-left: 3px solid var(--accent); }
+/* A célula do cliente — mesmo molde das outras tabelas. */
+.cli-nome { font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cli-sub {
+  margin-top: 3px;
+  font-size: 11px; color: var(--muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.cli-sep  { margin: 0 6px; color: var(--muted2); }
+.cli-cnpj { font-family: var(--mono); font-size: 10px; }
+
+/* A célula do chamado em risco — mesmo molde de Chamados e Alertas: o que é
+   em cima, onde e com quem embaixo. */
+.rel-risco-titulo {
+  font-size: 12px; font-weight: 600;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.rel-risco-sub {
+  margin-top: 2px;
+  font-size: 10.5px; color: var(--muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.rel-risco-sep { margin: 0 5px; color: var(--muted2); }
+
+/* O prazo de cada chamado em risco. Frase, não percentual — ver `_relTtrPrazo`
+   no admin.js. Sem caixa alta de propósito: é uma frase que se lê, não uma
+   etiqueta gravada. */
+.rel-prazo {
+  display: inline-block;
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 3px 8px;
+  --ch-p: 4px;
+  clip-path: var(--corte-p);
+  white-space: nowrap;
+}
+.rel-prazo.is-estourado { background: var(--vermelho); color: var(--mar-900); }
+.rel-prazo.is-risco     { background: transparent; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--amarelo) 60%, transparent); color: var(--amarelo); }
+.rel-prazo.is-nd        { background: transparent; box-shadow: inset 0 0 0 1px var(--fio-fraco); color: var(--muted); font-weight: 400; }
+
+/* Card "Painel ao vivo".
+   ⚠️ Esta era a barra que o estudo citou pelo nome: 3px de âmbar na borda
+   esquerda, o único lugar do painel com isso, e o padrão que o DESIGN.md
+   proíbe por escrito. O card precisava se destacar dos outros da tela — e
+   neste sistema destaque é DEGRAU e ARESTA, nesta ordem: sobe um degrau de
+   marinho e ganha o fio mais forte. */
+.rel-card-vivo::before { background: color-mix(in srgb, var(--mar-600) 58%, var(--mar-900)); }
+.rel-card-vivo { background: var(--fio-forte); }
 
 /* Bloco ícone+título dentro de um .rel-ct-head — precisa ficar como filho
    único do flex pra não brigar com o justify-content:space-between dele
@@ -5935,8 +6946,7 @@ body.mp-fs-active { overflow: hidden; }
   gap: 2px;
   padding: 3px;
   background: rgba(0,0,0,.28);
-  border: 1px solid var(--border);
-  border-radius: 9px;
+  border: 1px solid var(--fio-fraco);
 }
 .rel-seg-btn {
   border: none;
@@ -5951,9 +6961,15 @@ body.mp-fs-active { overflow: hidden; }
   transition: background .15s, color .15s;
 }
 .rel-seg-btn:hover { color: var(--text); }
+/* Mesma língua do "você está aqui" do painel inteiro. Os dois grupos de
+   controle desta tela eram os últimos que ainda diziam isso com amarelo
+   translúcido e amarelo como texto. */
 .rel-seg-btn.is-active {
-  background: rgba(240,176,20,.16);
-  color: var(--accent-2);
+  background: var(--amarelo);
+  color: var(--mar-900);
+  font-weight: 700;
+  --ch-p: 4px;
+  clip-path: var(--corte-p);
 }
 
 /* Chips de preset de período */
@@ -5963,18 +6979,21 @@ body.mp-fs-active { overflow: hidden; }
   font-weight: 600;
   font-family: inherit;
   color: var(--text-dim);
-  background: rgba(255,255,255,.04);
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  padding: 4px 12px;
+  background: transparent;
+  border: none;
+  box-shadow: inset 0 0 0 1px var(--fio);
+  padding: 5px 12px;
+  --ch-p: 5px;
+  clip-path: var(--corte-p);
   cursor: pointer;
-  transition: background .15s, border-color .15s, color .15s;
+  transition: background .16s var(--saida), box-shadow .16s var(--saida), color .16s var(--saida);
 }
-.rel-chip:hover { background: rgba(255,255,255,.07); color: var(--text); }
+.rel-chip:hover { background: rgba(255,255,255,.06); color: var(--text); box-shadow: inset 0 0 0 1px var(--fio-forte); }
 .rel-chip.is-active {
-  background: rgba(240,176,20,.14);
-  border-color: rgba(240,176,20,.45);
-  color: var(--accent-2);
+  background: var(--amarelo);
+  box-shadow: none;
+  color: var(--mar-900);
+  font-weight: 700;
 }
 
 /* O card já é o container (header + chips + campos); a filter-bar aqui não
@@ -6008,7 +7027,7 @@ body.mp-fs-active { overflow: hidden; }
 
 /* Date input — data em mono + ícone de calendário próprio */
 .filter-bar .rel-date {
-  font-family: ui-monospace, "Cascadia Code", "Fira Code", Consolas, monospace;
+  font-family: var(--mono);
   font-size: 12px;
 }
 .rel-date::-webkit-calendar-picker-indicator {
@@ -6018,7 +7037,7 @@ body.mp-fs-active { overflow: hidden; }
 }
 
 /* Números das tabelas do painel em mono */
-.rel-num { font-family: ui-monospace, "Cascadia Code", "Fira Code", Consolas, monospace; font-size: 12px; }
+.rel-num { font-family: var(--mono); font-size: 12px; }
 
 /* Painel ao vivo — colapsa pra linha de status quando tudo operacional */
 .rel-vivo-grid { display: grid; grid-template-columns: 1fr 1fr; }
@@ -6227,14 +7246,20 @@ body.mp-fs-active { overflow: hidden; }
   font-size: 13px; font-weight: 700; color: var(--text);
   margin: 0; flex: 1;
 }
+/* Integração fora do ar PEDE AÇÃO — é placa cheia. No ar é repouso: fio.
+   Estava ao contrário do resto do painel (os dois de fio, com o vermelho tão
+   discreto quanto o verde), e integração caída é justamente o que alguém
+   precisa ver ao abrir esta aba. */
 .cfg-int-badge {
   font-size: 10px; font-weight: 700;
-  padding: 3px 8px; border-radius: 999px;
-  text-transform: uppercase; letter-spacing: .4px;
+  padding: 3px 8px 2px;
+  --ch-p: 4px; clip-path: var(--corte-p);
+  border: none;
+  text-transform: uppercase; letter-spacing: .04em;
 }
-.cfg-int-badge.ok   { background: rgba(74,222,128,.15);  color: #4ade80; border: 1px solid rgba(74,222,128,.3); }
-.cfg-int-badge.warn { background: rgba(240,176,20,.15);  color: #f0b014; border: 1px solid rgba(240,176,20,.3); }
-.cfg-int-badge.bad  { background: rgba(248,113,113,.15); color: #f87171; border: 1px solid rgba(248,113,113,.3); }
+.cfg-int-badge.ok   { background: transparent; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ok) 55%, transparent); color: var(--ok); }
+.cfg-int-badge.warn { background: var(--amarelo);  color: var(--mar-900); }
+.cfg-int-badge.bad  { background: var(--vermelho); color: var(--mar-900); }
 .cfg-int-msg {
   font-size: 11.5px; color: var(--text-dim);
   line-height: 1.5;
@@ -6343,44 +7368,53 @@ body.role-viewer .viewer-only-hide-inline {
 .os-acoes-cell { white-space: nowrap; }
 .os-acoes-cell .btn { padding: 4px 8px; font-size: 13px; }
 
+/* Tipo de serviço é CATEGORIA, não estado — "Retirada de equipamento" e
+   "Devolução" não pedem ação nenhuma de quem lê a lista. Estavam em âmbar,
+   que neste sistema quer dizer atenção, e por isso disputavam a leitura com
+   o resultado e o status na mesma linha. Neutro, como o chip de categoria de
+   Chamados. */
 .os-chip {
   display: inline-flex;
   align-items: center;
-  padding: 3px 8px;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 600;
-  background: rgba(240,176,20,.10);
-  color: var(--accent);
-  border: 1px solid rgba(240,176,20,.20);
+  font-family: var(--mono);
+  font-size: 8.5px; letter-spacing: .06em; text-transform: uppercase;
+  padding: 3px 6px 2px;
+  --ch-p: 3px; clip-path: var(--corte-p);
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--fio-fraco);
+  color: var(--muted);
+  border: none;
   white-space: nowrap;
 }
 .os-chip-more {
-  background: rgba(255,255,255,.05);
-  color: var(--muted);
-  border-color: var(--border);
+  background: transparent;
+  color: var(--muted2);
+  box-shadow: inset 0 0 0 1px var(--fio-fraco);
 }
 .os-chip-lg {
   padding: 6px 12px;
   font-size: 12px;
 }
 
+/* RESULTADO carrega o preenchimento (é ele que diz se o problema volta),
+   STATUS é de fio (é fase do trabalho) — a mesma divisão de papel de Chamados
+   e Alertas. */
 .os-result-pill,
 .os-status-pill {
   display: inline-flex;
   align-items: center;
-  padding: 3px 10px;
-  border-radius: 999px;
-  font-size: 11px;
+  padding: 3px 9px;
+  --ch-p: 4px; clip-path: var(--corte-p);
+  font-size: 10.5px;
   font-weight: 700;
   letter-spacing: .03em;
 }
-.os-result-ok    { background: rgba(34,197,94,.12);  color: #4ade80; border: 1px solid rgba(34,197,94,.22); }
-.os-result-warn  { background: rgba(240,176,20,.12); color: #f0b014; border: 1px solid rgba(240,176,20,.22); }
-.os-result-bad   { background: rgba(239,68,68,.12);  color: #f87171; border: 1px solid rgba(239,68,68,.22); }
+.os-result-ok    { background: transparent; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ok) 55%, transparent); color: var(--ok); }
+.os-result-warn  { background: var(--amarelo);  color: var(--mar-900); }
+.os-result-bad   { background: var(--vermelho); color: var(--mar-900); }
 
-.os-status-final    { background: rgba(34,197,94,.12);  color: #4ade80; border: 1px solid rgba(34,197,94,.22); }
-.os-status-rascunho { background: rgba(255,255,255,.05); color: var(--muted); border: 1px solid var(--border); }
+.os-status-final    { background: transparent; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ok) 45%, transparent); color: var(--ok); }
+.os-status-rascunho { background: transparent; box-shadow: inset 0 0 0 1px var(--fio); color: var(--text-dim); }
 
 .os-muted { color: var(--muted); font-size: 12px; }
 
@@ -6475,12 +7509,15 @@ body.role-viewer .viewer-only-hide-inline {
 
 /* Bloco do veredito, no topo da O.S.: destaca o que decide o próximo passo
    (resultado, retorno, orçamento) do que é registro do atendimento. */
+/* O veredito é a peça que decide o próximo passo — ele se destaca subindo um
+   degrau e ganhando corte, não com faixa de cor na borda. */
 .os-veredito {
   padding: 14px 16px;
-  border: 1px solid var(--border);
-  border-left: 3px solid var(--accent);
-  border-radius: var(--radius-sm);
-  background: rgba(255,255,255,.02);
+  border: none;
+  box-shadow: inset 0 0 0 1px var(--fio-forte);
+  background: rgba(255,255,255,.04);
+  --ch-p: 10px;
+  clip-path: var(--corte-p);
 }
 .os-veredito .os-obs { background: transparent; border-left: 0; padding: 0; margin-top: 10px; }
 .os-veredito .os-obs + .os-obs { margin-top: 6px; }
@@ -6489,15 +7526,18 @@ body.role-viewer .viewer-only-hide-inline {
 .os-chips-inline { margin-left: auto; }
 
 .os-result-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+/* Fala do técnico. Mesma construção da citação da avaliação em Chamados:
+   placa chanfrada, sem barra. */
 .os-obs {
   margin: 10px 0 0;
   font-size: 13px;
   line-height: 1.5;
   color: var(--text);
-  background: rgba(255,255,255,.025);
+  background: rgba(255,255,255,.04);
+  box-shadow: inset 0 0 0 1px var(--fio-fraco);
   padding: 10px 12px;
-  border-left: 2px solid var(--accent);
-  border-radius: 4px;
+  --ch-p: 8px;
+  clip-path: var(--corte-p);
 }
 
 .os-pecas-table {
@@ -6895,11 +7935,11 @@ body.role-viewer .viewer-only-hide-inline {
   font-size: 10px;
   font-weight: 700;
   letter-spacing: .3px;
-  padding: 2px 6px;
-  border-radius: 4px;
-  background: rgba(239,68,68,.15);
-  color: #f87171;
-  border: 1px solid rgba(239,68,68,.3);
+  padding: 3px 6px 2px;
+  --ch-p: 3px; clip-path: var(--corte-p);
+  background: var(--vermelho);
+  color: var(--mar-900);
+  border: none;
   margin-left: 5px;
   vertical-align: middle;
   white-space: nowrap;
@@ -6912,11 +7952,11 @@ body.role-viewer .viewer-only-hide-inline {
   font-size: 10px;
   font-weight: 700;
   letter-spacing: .3px;
-  padding: 2px 6px;
-  border-radius: 4px;
-  background: rgba(245,158,11,.15);
-  color: #fbbf24;
-  border: 1px solid rgba(245,158,11,.3);
+  padding: 3px 6px 2px;
+  --ch-p: 3px; clip-path: var(--corte-p);
+  background: var(--amarelo);
+  color: var(--mar-900);
+  border: none;
   margin-left: 5px;
   vertical-align: middle;
   white-space: nowrap;
@@ -7012,20 +8052,26 @@ body.role-viewer .viewer-only-hide-inline {
    ORÇAMENTOS
    ============================================================ */
 
-/* Status pills */
+/* Status pills — mesma regra do selo do painel: preenchido quando pede ação,
+   de fio em repouso. Aqui isso inverte o que estava: ORÇAMENTO APROVADO é
+   trabalho FEITO, não emergência, e estava em verde cheio disputando atenção
+   com o rascunho, que é justamente o que ainda espera alguém. */
 .orc-status-pill {
   display: inline-block;
   font-size: 9.5px;
-  font-weight: 800;
-  letter-spacing: .5px;
-  padding: 2px 7px;
-  border-radius: 999px;
+  font-weight: 700;
+  letter-spacing: .05em;
+  padding: 3px 7px 2px;
+  --ch-p: 3px;
+  clip-path: var(--corte-p);
   text-transform: uppercase;
+  border: none;
 }
-.orc-status-pend { background: rgba(245,158,11,.15); color: #fbbf24; border: 1px solid rgba(245,158,11,.3); }
-.orc-status-ok   { background: rgba(34,197,94,.12);  color: #4ade80; border: 1px solid rgba(34,197,94,.28); }
-.orc-status-bad  { background: rgba(239,68,68,.12);  color: #f87171; border: 1px solid rgba(239,68,68,.28); }
-.orc-status-off  { background: rgba(122,126,156,.1); color: #9ca3af; border: 1px solid rgba(122,126,156,.2); }
+.orc-status-pend { background: var(--amarelo);  color: var(--mar-900); }
+.orc-status-bad  { background: var(--vermelho); color: var(--mar-900); }
+.orc-status-ok   { background: transparent; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ok) 55%, transparent); color: var(--ok); }
+/* Rascunho: existe mas ainda não saiu — nem repouso nem alarme. */
+.orc-status-off  { background: transparent; box-shadow: inset 0 0 0 1px var(--fio); color: var(--text-dim); }
 
 /* Avaliação de qualidade da conversa (Fase 10A) */
 .wa-qa-grid {
@@ -7204,7 +8250,7 @@ body.role-viewer .viewer-only-hide-inline {
   flex-shrink: 0;
 }
 .edit-coords input {
-  font-family: ui-monospace, "Cascadia Code", "Fira Code", Consolas, monospace;
+  font-family: var(--mono);
   font-size: 12px;
   padding: 7px 10px;
 }
@@ -7371,12 +8417,15 @@ body.role-viewer .viewer-only-hide-inline {
 .av-condo-sub  { font-size: 11px; color: var(--muted); margin-top: 2px; }
 .av-condo-dots { display: flex; gap: 4px; flex-shrink: 0; }
 .av-dot {
-  font-size: 10px; font-weight: 700; min-width: 18px; text-align: center;
-  padding: 1px 5px; border-radius: 999px;
+  font-family: var(--mono);
+  font-size: 9px; font-weight: 500; min-width: 18px; text-align: center;
+  font-variant-numeric: tabular-nums;
+  padding: 2px 5px 1px;
+  --ch-p: 3px; clip-path: var(--corte-p);
 }
-.av-dot.off  { background: rgba(148,163,184,.18); color: #94a3b8; }
-.av-dot.warn { background: rgba(245,158,11,.16); color: #f59e0b; }
-.av-dot.ok   { background: rgba(16,185,129,.16); color: #10b981; }
+.av-dot.off  { background: transparent; box-shadow: inset 0 0 0 1px var(--fio-fraco); color: var(--muted); }
+.av-dot.warn { background: var(--amarelo); color: var(--mar-900); }
+.av-dot.ok   { background: transparent; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ok) 55%, transparent); color: var(--ok); }
 
 /* Painel direito: orçamentos do condomínio */
 .av-orc-pane-head { padding: 14px 16px; border-bottom: 1px solid var(--border); }
@@ -7440,32 +8489,40 @@ body.role-viewer .viewer-only-hide-inline {
 .orc-btn-reject:hover { background: rgba(239,68,68,.2); }
 
 /* ── Abas principais da seção de orçamentos ── */
+/* ⚠️ Terceiro vocabulário de aba do painel (depois de `.wa-tab` e
+   `.drawer-tab`). Não vale inventar um quarto jeito de dizer "você está
+   aqui": o corte gravado separa a faixa do conteúdo, e a aba aberta usa a
+   mesma placa amarela cheia do resto. */
 .orc-main-tabs {
   display: flex;
-  gap: 4px;
+  gap: 6px;
   margin-bottom: 16px;
-  border-bottom: 1px solid var(--border);
-  padding-bottom: 0;
+  border-bottom: 1px solid var(--rasgo);
+  box-shadow: 0 1px 0 var(--luz);
+  padding-bottom: 8px;
 }
 .orc-main-tab {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 9px 18px;
+  padding: 8px 16px;
   border: none;
-  background: none;
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 500;
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--fio-fraco);
+  color: var(--text-dim);
+  font-size: 12.5px;
+  font-weight: 600;
   cursor: pointer;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
-  transition: color .15s, border-color .15s;
+  --ch-p: 6px;
+  clip-path: var(--corte-p);
+  transition: color .16s var(--saida), background .16s var(--saida), box-shadow .16s var(--saida);
 }
-.orc-main-tab:hover { color: var(--text); }
+.orc-main-tab:hover { color: var(--text); background: rgba(255,255,255,.05); box-shadow: inset 0 0 0 1px var(--fio); }
 .orc-main-tab.is-active {
-  color: var(--accent);
-  border-bottom-color: var(--accent);
+  background: var(--amarelo);
+  box-shadow: none;
+  color: var(--mar-900);
+  font-weight: 700;
 }
 
 /* ── Itens do orçamento ── */
@@ -7509,7 +8566,7 @@ body.role-viewer .viewer-only-hide-inline {
   flex-direction: column;
   gap: 0;
   padding: 10px 0 2px;
-  border-top: 1px dashed var(--border);
+  border-top: 1px dashed var(--fio);
   margin-top: 8px;
 }
 .orc-add-item-row {
@@ -7556,22 +8613,113 @@ body.role-viewer .viewer-only-hide-inline {
   backdrop-filter: blur(4px);
   z-index: 0;
 }
+/* ⚠️ Este era o ÚNICO modal do painel que continuava marinho depois de os 11
+   `.modalBox` virarem placa clara — e era o caso mais forte da regra, porque
+   é o formulário mais denso do sistema e onde se lê e se edita dinheiro. O
+   fundo era `#0e1022` escrito à mão, nem token.
+   Mesmo remapeamento de token da `.modalBox`: ver a nota lá para o porquê de
+   converter por token e não por reescrita de regra, e para a distinção entre
+   preenchimento (cru) e tinta (semântica). */
 .av-modal-dialog {
   position: relative;
   z-index: 1;
-  background: #0e1022;
-  border: 1px solid var(--border);
-  /* Mesmo fio dos modais que usam .modalBox. Sem isto os três que usam
-     .av-modal (orçamento, planos, seletor de contratos) ficavam de fora do
-     padrão — inclusive o de orçamento, que serviu de referência pra ele. */
-  border-top: 2px solid var(--accent);
-  border-radius: 16px;
+
+  --text:          var(--tinta);
+  --text-dim:      var(--tinta-2);
+  --muted:         var(--tinta-2);
+  --muted2:        #6b7a9e;
+  --sobre-2:       var(--tinta-2);
+  --border:        var(--fio-esc);
+  --border2:       rgba(6, 16, 51, .10);
+  --border-strong: rgba(6, 16, 51, .34);
+  --fio:           var(--fio-esc);
+  --fio-fraco:     rgba(6, 16, 51, .10);
+  --fio-forte:     rgba(6, 16, 51, .34);
+  --surface:       var(--chapa-cl);
+  --surface2:      var(--chapa-es);
+  --surface3:      #c9d0e0;
+  --rasgo:         rgba(6, 16, 51, .16);
+  --luz:           rgba(255, 255, 255, .9);
+  --ok:     var(--ok-t);
+  --normal: var(--normal-t);
+  --warn:   var(--warn-t);
+  --danger: var(--danger-t);
+  --risco:  var(--risco-t);
+  --accent:   var(--atencao-t);
+  --accent-2: #a06400;
+
+  background: var(--chapa);
+  color: var(--tinta);
+  border: none;
+  /* A barra âmbar de 2px no topo saiu daqui pelo mesmo motivo dos outros:
+     faixa de cor na borda indicando estado é o padrão que o DESIGN.md proíbe,
+     e placa clara sobre campo marinho salta sozinha. */
+  --ch: 18px;
+  clip-path: var(--corte);
   width: 100%;
   max-width: 900px;
   padding: 36px 40px 40px;
-  box-shadow: 0 28px 80px rgba(0,0,0,.7);
-  animation: avModalIn .18s ease;
+  box-shadow: none;
+  animation: avModalIn .18s var(--saida);
 }
+
+/* Campos, botões e tabela dentro da placa clara — mesma construção do
+   `.modalBox`, repetida por seletor de propósito (ver a nota lá). */
+.av-modal-dialog .input,
+.av-modal-dialog .select,
+.av-modal-dialog textarea {
+  background-color: #fff;
+  color: var(--tinta);
+  border: none;
+  box-shadow: inset 0 0 0 1.5px var(--fio-esc);
+  caret-color: var(--mar-700);
+}
+.av-modal-dialog .input::placeholder,
+.av-modal-dialog textarea::placeholder { color: var(--tinta-2); }
+.av-modal-dialog .input:focus,
+.av-modal-dialog .select:focus,
+.av-modal-dialog textarea:focus { background-color: #fff; box-shadow: inset 0 0 0 2.5px var(--mar-700); }
+.av-modal-dialog .select option { background: #fff; color: var(--tinta); }
+.av-modal-dialog .btn { background: var(--fio-esc); color: var(--tinta); }
+.av-modal-dialog .btn::before { background: var(--chapa-cl); }
+.av-modal-dialog .btn:hover { background: rgba(6,16,51,.34); }
+.av-modal-dialog .btn:hover::before { background: #fff; }
+.av-modal-dialog .btnAccent { background: var(--amarelo); color: var(--mar-900); }
+.av-modal-dialog .btnAccent::before { background: var(--amarelo); }
+.av-modal-dialog th { background: var(--chapa-es); color: var(--tinta-2); }
+.av-modal-dialog * { scrollbar-color: rgba(6,16,51,.28) transparent; }
+.av-modal-dialog *::-webkit-scrollbar-thumb { background: rgba(6,16,51,.24); background-clip: content-box; }
+
+/* ── Condições comerciais: fechadas, com o valor atual no resumo ─────────── */
+.av-cond { border-top: 1px solid var(--rasgo); box-shadow: 0 -1px 0 var(--luz) inset; padding-top: 12px; }
+.av-cond-sum {
+  display: flex; align-items: baseline; gap: 10px;
+  cursor: pointer; list-style: none;
+  padding: 4px 0;
+}
+.av-cond-sum::-webkit-details-marker { display: none; }
+.av-cond-sum .ap-section-title { border: none; padding: 0; margin: 0; flex-shrink: 0; }
+/* O triângulo é desenhado, não é glifo: traço esquadrado, como toda seta
+   deste sistema. */
+.av-cond-sum .ap-section-title::after {
+  content: "";
+  display: inline-block;
+  width: 6px; height: 6px;
+  margin-left: 8px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: translateY(-2px) rotate(45deg);
+  transition: transform .18s var(--saida);
+}
+.av-cond[open] .av-cond-sum .ap-section-title::after { transform: translateY(1px) rotate(-135deg); }
+.av-cond-resumo {
+  font-size: 11px; color: var(--tinta-2);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
+}
+.av-cond[open] .av-cond-grid { margin-top: 12px; }
+
+/* O tipo do documento, agora no trilho */
+.av-rail-tipo .select { width: auto; max-width: 190px; padding: 4px 8px; font-size: 11.5px; }
 #avModal .av-modal-dialog { padding: 28px 36px 32px; }
 @keyframes avModalIn {
   from { transform: translateY(18px); opacity: 0; }
@@ -7660,11 +8808,17 @@ body.role-viewer .viewer-only-hide-inline {
   border-bottom: 1px solid var(--border);
 }
 
-/* Form de adicionar item: card sutil */
+/* Form de adicionar item: card sutil.
+   ⚠️ O fundo era branco a 2,2% e a borda `var(--border)` — os dois medidos
+   contra o campo MARINHO. Na placa clara o branco some e o `--border`
+   remapeado vira tinta escura: a linha virava uma caixa preta pesada no meio
+   do documento. Aqui ela é o degrau mais claro da placa, com fio fino. */
 .av-modal-dialog .orc-add-item-form {
-  background: rgba(255,255,255,.022);
-  border: 1px solid var(--border);
-  border-radius: 10px;
+  background: var(--chapa-cl);
+  border: none;
+  box-shadow: inset 0 0 0 1px var(--fio-esc);
+  --ch-p: 8px;
+  clip-path: var(--corte-p);
   padding: 12px;
   margin-top: 10px;
 }
@@ -7766,8 +8920,11 @@ body.role-viewer .viewer-only-hide-inline {
    liberam a altura que a tabela de itens vai usar. */
 /* Cliente + constatação pedem mais largura que os 4 cards de tipo — medido:
    com 1fr/1fr os cards ficavam com 228px e sobrava espaço do lado direito. */
+/* Uma coluna só. Eram duas — a estreita era do "tipo de documento", que saiu
+   para o trilho. O bloco de cliente já tem grade interna de dois campos, então
+   ele usa a largura inteira sem ficar esticado. */
 .av-setup {
-  display: grid; grid-template-columns: minmax(0, .82fr) minmax(0, 1.18fr);
+  display: grid; grid-template-columns: minmax(0, 1fr);
   gap: 20px; flex-shrink: 0;
 }
 /* Sem caixa nas seções do topo. `.av-modal-dialog .ap-section` desenha borda +
@@ -7779,16 +8936,6 @@ body.role-viewer .viewer-only-hide-inline {
 }
 .av-setup-col { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
 
-/* A coluna do tipo é mais curta que a de cliente+constatação e sobrava ~80px
-   de vazio embaixo dela. Em vez de deixar o buraco, os 4 cards esticam pra
-   preencher a faixa — mata o espaço morto e dá respiro pros cards no mesmo
-   movimento. `max-height` evita que fiquem gigantes quando o modo "avulso"
-   alonga a coluna da direita com mais 4 campos. */
-.av-setup-col:first-child > .ap-section {
-  display: flex; flex-direction: column; height: 100%; min-height: 0;
-}
-.av-setup-col:first-child .av-tipos { flex: 1; }
-.av-setup-col:first-child .av-tipo { flex: 1 1 0; max-height: 58px; }
 
 /* Zona de itens: é ela que absorve a sobra de altura e rola por dentro. */
 .av-itens-zone {
@@ -7825,8 +8972,13 @@ body.role-viewer .viewer-only-hide-inline {
    da tela exigiria rolar até o fim toda vez. */
 .av-itens-scroll .orc-add-item-form {
   position: sticky; bottom: 0; z-index: 2;
-  background: #0e1022;
-  box-shadow: 0 -10px 14px -8px rgba(0,0,0,.7);
+  /* ⚠️ Segunda ocorrência do `#0e1022` escrito à mão. Como a linha é sticky,
+     ela precisa de fundo OPACO para tapar o que passa por baixo — e esse
+     fundo tinha de ser o mesmo do modal. Na placa clara ele virava uma caixa
+     preta no meio do documento. Agora acompanha a placa, e a sombra que
+     marcava a sobreposição virou um fio, que é como este sistema separa. */
+  background: var(--chapa);
+  box-shadow: 0 -1px 0 var(--fio-esc);
   padding: 9px 0 2px; margin-top: 0;
 }
 /* Grid com as MESMAS colunas do <colgroup> da tabela (84 / 122 / 122+40), e
@@ -7919,7 +9071,7 @@ body.role-viewer .viewer-only-hide-inline {
   letter-spacing: 1.1px; color: var(--muted);
 }
 .av-total {
-  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  font-family: var(--mono);
   font-size: 29px; font-weight: 800; letter-spacing: -1px; line-height: 1.1;
   margin-top: 5px; color: var(--text);
 }
@@ -8159,7 +9311,7 @@ body.role-viewer .viewer-only-hide-inline {
 
 .pm-prox-data {
   font-size: 12px; font-weight: 600;
-  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  font-family: var(--mono);
 }
 .pm-prox-delta { font-size: 10.5px; margin-top: 3px; }
 .pm-prox-delta.is-bad  { color: #f87171; font-weight: 600; }

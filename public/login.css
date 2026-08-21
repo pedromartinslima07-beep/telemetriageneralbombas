@@ -411,7 +411,7 @@ img { max-width: 100%; display: block; }
   --ch: 10px;
   clip-path: var(--corte);
   background: #c2261c;
-  color: #a81b12;
+  color: #790000;
   font-size: .98rem;
 }
 .erro::before {

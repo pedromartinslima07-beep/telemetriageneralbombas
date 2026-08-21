@@ -92,9 +92,20 @@ ESP32 (sonda 4-20mA + SCT-013)
   unificada, painel lateral com gauge/histórico, ações recomendadas hardcoded,
   **análise IA sob demanda**, comentários.
 
-**Painel admin "Mission Control"**
-- Redesign premium (sidebar colapsável, topbar, cards de métrica com sparkline,
-  mission control grid, feed em tempo real, IA Insights).
+**Painel admin — sistema "Chapa", registro de operação** (migrado em 20–21/08/2026)
+- As 15 telas usam o mesmo sistema visual da landing, do login e do painel do
+  cliente: marinho como material, `#fbb329` institucional, chanfro de 45°,
+  Archivo + Martian Mono. O "Mission Control" (âmbar `#f0b014`, aurora, vidro)
+  **não existe mais** — regras e fronteiras em [`../DESIGN.md`](../DESIGN.md).
+- **Placa clara é o que abre por cima** (modal, drawer); o que fica lado a lado
+  com o conteúdo é superfície de trabalho e continua marinho.
+- **Selo de estado:** preenchido pede ação, de fio em repouso — e só uma
+  dimensão preenche por linha (prioridade x status, severidade x status).
+- **Paleta de gráfico:** três slots em ordem fixa, com degrau próprio para
+  campo escuro e claro. O teto de três é medido, não estilístico.
+- ⚠️ O **app do técnico** (`app/public/app.css`) não migrou e mantém
+  `--accent: #f0b014` — quarta identidade, dívida conhecida.
+- Sidebar colapsável, topbar, mission control grid, feed em tempo real.
 - **Mapa interativo Leaflet** (tiles OpenStreetMap + filtro CSS dark): pinos por
   status, painel lateral com tabs, KPIs, donuts, classificação por zona de SP.
 - Cadastro de coordenadas com **geocoding híbrido** (ViaCEP + BrasilAPI +

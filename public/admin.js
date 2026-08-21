@@ -254,12 +254,14 @@ const RC_ICONS = {
   building:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>',
 };
 
+// Só o ícone é lido daqui (ver `resumoCard`). O rótulo de cada card vive na
+// lista `cards` de `renderResumo`, junto com a unidade que ele declara.
 const RC_META = {
-  offline:           { icon: 'offline',  label: 'Offline' },
-  nivel_baixo:       { icon: 'warn',     label: 'Nível baixo' },
-  nivel_muito_baixo: { icon: 'danger',   label: 'Muito baixo' },
-  com_alerta:        { icon: 'warn',     label: 'Cond. com alerta' },
-  ok:                { icon: 'ok',       label: 'Cond. OK' },
+  offline:           { icon: 'offline' },
+  nivel_baixo:       { icon: 'warn' },
+  nivel_muito_baixo: { icon: 'danger' },
+  com_alerta:        { icon: 'warn' },
+  ok:                { icon: 'ok' },
 };
 
 // Card de KPI unificado — fonte única do markup pra TODAS as abas. Estrutura:
@@ -267,17 +269,23 @@ const RC_META = {
 // extras no card (ex.: data-* de clique); `button=true` troca a tag pra
 // <button> clicável (sem rc-static). Os helpers locais `kpi(...)` de cada
 // seção delegam pra cá — não duplicar este markup.
-function kpiCard(icon, value, label, kindCls = "rc-neutral", attrs = "", button = false) {
+// `unidade` é o que a decisão nº 4 do plano pede: **o rótulo declara a
+// unidade**. O mesmo "OFFLINE 4" queria dizer dispositivos no Dashboard e
+// condomínios no Mapa, e "CRÍTICOS 7" queria dizer alertas aqui e chamados
+// ali — nenhum rótulo dizia de quê. A unidade entra ao lado do número, e não
+// dentro do rótulo, porque é assim que este sistema escreve leitura de
+// instrumento (ver DESIGN.md, "Reading": a unidade sai menor, em --sobre-2).
+function kpiCard(icon, value, label, kindCls = "rc-neutral", attrs = "", button = false, unidade = "") {
   const tag = button ? "button" : "div";
   const staticCls = button ? "" : " rc-static";
   return `
     <${tag} class="rc ${kindCls}${staticCls}"${attrs ? " " + attrs : ""}>
       <div class="rc-head"><div class="rc-icon">${icon}</div><div class="rc-label">${label}</div></div>
-      <div class="rc-value">${value}</div>
+      <div class="rc-value">${value}${unidade ? `<span class="rc-unid">${unidade}</span>` : ""}</div>
     </${tag}>`;
 }
 
-function resumoCard(titulo, valorHtml, kind, cardKey) {
+function resumoCard(titulo, valorHtml, kind, cardKey, unidade = "") {
   const kindCls =
     kind === "bad"  ? "rc-bad"  :
     kind === "warn" ? "rc-warn" :
@@ -290,7 +298,7 @@ function resumoCard(titulo, valorHtml, kind, cardKey) {
   // Só vira <button> quem tem destino de drill-down (ver _DASH_DRILL). O card
   // "Condomínios OK" não tem, então sai como <div rc-static>: não é focável
   // nem clicável, em vez de um botão que não faz nada.
-  return kpiCard(iconSvg, valorHtml, titulo, kindCls, `data-card="${cardKey}"`, !!_DASH_DRILL[cardKey]);
+  return kpiCard(iconSvg, valorHtml, titulo, kindCls, `data-card="${cardKey}"`, !!_DASH_DRILL[cardKey], unidade);
 }
 
 // ===== estado =====
@@ -579,15 +587,21 @@ function renderResumo() {
   const grid = document.getElementById("resumoGrid");
   if (!grid) return;
 
+  // ⚠️ A unidade de cada número está declarada, e as duas famílias aqui NÃO
+  // são a mesma coisa: as três primeiras contam aparelho (um device por
+  // reservatório), as duas últimas contam condomínio. Era isso que fazia
+  // "OFFLINE 4" no Dashboard e "OFFLINE 1" no Mapa parecerem contradição.
+  // Com a unidade ao lado, o rótulo pode largar o prefixo "COND." e voltar a
+  // dizer o estado em vez de dizer a unidade.
   const cards = [
-    { titulo: "OFFLINE", valor: offlineTotal, kind: offlineTotal > 0 ? "bad" : "ok", key: "offline" },
-    { titulo: "NÍVEL BAIXO", valor: baixo, kind: baixo > 0 ? "warn" : "ok", key: "nivel_baixo" },
-    { titulo: "MUITO BAIXO", valor: muitoBaixo, kind: muitoBaixo > 0 ? "bad" : "ok", key: "nivel_muito_baixo" },
-    { titulo: "COND. COM ALERTA", valor: condsComAlerta, kind: condsComAlerta > 0 ? "warn" : "ok", key: "com_alerta" },
-    { titulo: "COND. OK", valor: condsOk, kind: "ok", key: "ok" },
+    { titulo: "OFFLINE",     valor: offlineTotal,   unid: "disp.",  kind: offlineTotal > 0 ? "bad" : "ok",     key: "offline" },
+    { titulo: "NÍVEL BAIXO", valor: baixo,          unid: "res.",   kind: baixo > 0 ? "warn" : "ok",           key: "nivel_baixo" },
+    { titulo: "MUITO BAIXO", valor: muitoBaixo,     unid: "res.",   kind: muitoBaixo > 0 ? "bad" : "ok",       key: "nivel_muito_baixo" },
+    { titulo: "COM ALERTA",  valor: condsComAlerta, unid: "cond.",  kind: condsComAlerta > 0 ? "warn" : "ok",  key: "com_alerta" },
+    { titulo: "EM ORDEM",    valor: condsOk,        unid: "cond.",  kind: "ok",                                key: "ok" },
   ];
 
-  grid.innerHTML = cards.map(c => resumoCard(c.titulo, c.valor, c.kind, c.key)).join("");
+  grid.innerHTML = cards.map(c => resumoCard(c.titulo, c.valor, c.kind, c.key, c.unid)).join("");
 }
 
 // ===================================================================
@@ -1016,7 +1030,15 @@ const TEL_KPI_ICONS = {
   offline:     ICON_WIFI_OFF,
 };
 
-const TEL_HIST_COLORS = ["#22d3ee", "#f59e0b", "#a78bfa"]; // cyan, accent, violet
+// Paleta CATEGÓRICA — identidade de série, em ordem fixa e nunca ciclada.
+// Os três valores e o motivo de serem só três estão documentados no `:root`
+// do admin.css (`--serie-1/2/3`): validados com o validador da skill dataviz
+// contra a superfície real do gráfico, e escolhidos para não colidir com as
+// três cores de estado.
+// ⚠️ Se um dia isto precisar de uma 4ª série, a resposta NÃO é acrescentar
+// uma cor: é "Outros", facetas, ou outro gráfico. Quatro matizes frias
+// colapsam em protanopia (ΔE 1.9).
+const TEL_HIST_COLORS = ["#2f6fe0", "#00a8af", "#bd3a80"];
 
 function _telColetarReservatorios() {
   const lista = [];
@@ -1084,13 +1106,22 @@ function renderTelKpis() {
 
   const nivelMedio = pctCount > 0 ? Math.round(pctSum / pctCount) : null;
 
+  // ⚠️ "ALERTAS CRÍTICOS" era rótulo ERRADO, não só ambíguo: o número vem de
+  // `_alertasAtivosUnificados()`, que conta TODOS os alertas ativos, de
+  // qualquer severidade. Era essa a origem do "8 aqui e 7 em Alertas" que o
+  // estudo registrou como contradição — não eram o mesmo número mal rotulado,
+  // eram medidas diferentes, e uma delas mentia. O rótulo agora diz o que a
+  // conta faz.
+  // A unidade vem ao lado do número (decisão nº 4), o que deixa o rótulo
+  // livre para dizer o estado: "OFFLINE · disp." aqui é exatamente o mesmo
+  // par do Dashboard, que é o ponto.
   const cards = [
-    { key: "monitorados", label: "RESERVATÓRIOS MONITORADOS", value: total,                                kind: "neutral", icon: "monitorados" },
-    { key: "nivel",       label: "NÍVEL MÉDIO GERAL",         value: nivelMedio != null ? nivelMedio + "%" : "—", kind: nivelMedio == null ? "neutral" : nivelMedio < 30 ? "bad" : nivelMedio < 50 ? "warn" : "ok", icon: "nivel" },
+    { key: "monitorados", label: "MONITORADOS", unid: "res.",  value: total,                                kind: "neutral", icon: "monitorados" },
+    { key: "nivel",       label: "NÍVEL MÉDIO", value: nivelMedio != null ? nivelMedio + "%" : "—", kind: nivelMedio == null ? "neutral" : nivelMedio < 30 ? "bad" : nivelMedio < 50 ? "warn" : "ok", icon: "nivel" },
     // Sempre exibe um número (0 quando nenhuma bomba ligada), nunca traço.
-    { key: "bombas",      label: "BOMBAS ATIVAS",             value: bombasAtivas, hint: bombasConhecidas > 0 ? `de ${bombasConhecidas} monitoradas` : "sem dados de bomba", kind: bombasAtivas > 0 ? "ok" : "neutral", icon: "bombas" },
-    { key: "alertas",     label: "ALERTAS CRÍTICOS",          value: alertas,                              kind: alertas > 0 ? "bad" : "ok",  icon: "alertas" },
-    { key: "offline",     label: "DISPOSITIVOS OFFLINE",      value: offline,                              kind: offline > 0 ? "bad" : "ok",  icon: "offline" },
+    { key: "bombas",      label: "BOMBAS",  value: bombasAtivas, hint: bombasConhecidas > 0 ? `de ${bombasConhecidas} monitoradas` : "sem dados de bomba", kind: bombasAtivas > 0 ? "ok" : "neutral", icon: "bombas" },
+    { key: "alertas",     label: "ALERTAS ATIVOS", unid: "abertos", value: alertas,                         kind: alertas > 0 ? "bad" : "ok",  icon: "alertas" },
+    { key: "offline",     label: "OFFLINE",     unid: "disp.", value: offline,                              kind: offline > 0 ? "bad" : "ok",  icon: "offline" },
   ];
 
   grid.innerHTML = cards.map(c => {
@@ -1101,7 +1132,7 @@ function renderTelKpis() {
           <div class="rc-icon">${TEL_KPI_ICONS[c.icon] || ""}</div>
           <div class="rc-label">${c.label}</div>
         </div>
-        <div class="rc-value">${c.value}</div>
+        <div class="rc-value">${c.value}${c.unid ? `<span class="rc-unid">${c.unid}</span>` : ""}</div>
         ${c.hint ? `<div class="rc-hint">${c.hint}</div>` : ""}
       </div>`;
   }).join("");
@@ -1736,16 +1767,37 @@ async function carregarHistoricoTelemetria() {
   }
 }
 
+// O gráfico lê a cor DA PRÓPRIA SUPERFÍCIE em que está desenhado, em vez de
+// carregar valores fixos: dentro de `.modalBox` os tokens `--serie-*` já vêm
+// re-degrauados para a placa clara, e o mesmo código serve para os dois
+// campos. Se o gráfico for movido para fora do modal um dia, ele se ajusta
+// sozinho — nada aqui precisa saber onde está.
+function _corDoContexto(el, nome, alternativa) {
+  const v = getComputedStyle(el).getPropertyValue(nome).trim();
+  return v || alternativa;
+}
+
 function renderTelHistoricoChart(reservatorios, seriesMap) {
   const wrap = document.getElementById("telHistoricoChart");
   const legend = document.getElementById("telHistoricoLegend");
   const stats = document.getElementById("telHistStats");
   if (!wrap || typeof ApexCharts === "undefined") return;
 
+  const cor = (n, alt) => _corDoContexto(wrap, n, alt);
+  const CORES_SERIE = [cor("--serie-1", "#2f6fe0"), cor("--serie-2", "#00a8af"), cor("--serie-3", "#bd3a80")];
+  const TINTA_EIXO  = cor("--muted", "#8294c2");
+  const COR_ATENCAO = cor("--warn", "#fbb329");
+  const COR_RISCO   = cor("--risco", "#ff5a4d");
+  // A placa clara redeclara `--chapa` como fundo; fora dela o campo é marinho.
+  const TEMA_TOOLTIP = wrap.closest(".modalBox") ? "light" : "dark";
+
   const series = reservatorios.map((r, i) => ({
     name: `${r.nome || "Reservatório"} · ${r.condominio_nome || ""}`,
     data: (seriesMap[r.device_id] || []).map(p => ({ x: new Date(p.bucket).getTime(), y: p.nivel_pct_avg })),
-    color: TEL_HIST_COLORS[i % TEL_HIST_COLORS.length],
+    // ⚠️ Sem `% CORES.length`: a paleta tem TRÊS slots e ciclar seria
+    // repintar a 4ª série com a cor da 1ª — duas séries com a mesma
+    // identidade é pior que nenhuma cor. Ver a nota no :root do admin.css.
+    color: CORES_SERIE[i] || TINTA_EIXO,
   }));
 
   const total = series.reduce((s, x) => s + x.data.length, 0);
@@ -1781,10 +1833,13 @@ function renderTelHistoricoChart(reservatorios, seriesMap) {
   const opts = {
     annotations: {
       yaxis: [
-        { y: TEL_LIMIARES.baixo, borderColor: "rgba(245,158,11,.5)", strokeDashArray: 4,
-          label: { text: `baixo (${TEL_LIMIARES.baixo}%)`, position: "left", offsetX: 42, borderColor: "transparent", style: { color: "#fbbf24", background: "transparent", fontSize: "9px" } } },
-        { y: TEL_LIMIARES.critico, borderColor: "rgba(239,68,68,.55)", strokeDashArray: 4,
-          label: { text: `crítico (${TEL_LIMIARES.critico}%)`, position: "left", offsetX: 52, borderColor: "transparent", style: { color: "#f87171", background: "transparent", fontSize: "9px" } } },
+        // As duas linhas de limiar são ESTADO, não série — é o único lugar deste
+        // gráfico onde âmbar e vermelho podem aparecer, e por isso as séries não
+        // usam nenhum dos dois.
+        { y: TEL_LIMIARES.baixo, borderColor: COR_ATENCAO, strokeDashArray: 4,
+          label: { text: `baixo (${TEL_LIMIARES.baixo}%)`, position: "left", offsetX: 42, borderColor: "transparent", style: { color: COR_ATENCAO, background: "transparent", fontSize: "9px", fontFamily: "Martian Mono, ui-monospace, monospace" } } },
+        { y: TEL_LIMIARES.critico, borderColor: COR_RISCO, strokeDashArray: 4,
+          label: { text: `crítico (${TEL_LIMIARES.critico}%)`, position: "left", offsetX: 52, borderColor: "transparent", style: { color: COR_RISCO, background: "transparent", fontSize: "9px", fontFamily: "Martian Mono, ui-monospace, monospace" } } },
       ],
     },
     // Altura vem do contêiner: no modal ele agora absorve o espaço liberado
@@ -1803,7 +1858,7 @@ function renderTelHistoricoChart(reservatorios, seriesMap) {
     grid: { borderColor: "rgba(255,255,255,.05)", strokeDashArray: 3 },
     xaxis: {
       type: "datetime",
-      labels: { style: { colors: "#7a7e9c", fontSize: "10px" }, datetimeUTC: false },
+      labels: { style: { colors: TINTA_EIXO, fontSize: "10px", fontFamily: "Martian Mono, ui-monospace, monospace" }, datetimeUTC: false },
       axisBorder: { color: "rgba(255,255,255,.06)" },
       axisTicks: { color: "rgba(255,255,255,.06)" },
       // Desligado por dois motivos, e o segundo é o que importa:
@@ -1816,11 +1871,14 @@ function renderTelHistoricoChart(reservatorios, seriesMap) {
     },
     yaxis: {
       min: 0, max: 100,
-      labels: { style: { colors: "#7a7e9c", fontSize: "10px" }, formatter: (v) => v + "%" },
+      labels: { style: { colors: TINTA_EIXO, fontSize: "10px", fontFamily: "Martian Mono, ui-monospace, monospace" }, formatter: (v) => v + "%" },
     },
     legend: { show: false },
     tooltip: {
-      theme: "dark",
+      // Este gráfico mora dentro do modal, que agora é placa clara — o tema
+      // escuro do Apex ficava preto sobre branco. Lido do contexto pelo mesmo
+      // motivo das cores de série: se o gráfico sair do modal, acompanha.
+      theme: TEMA_TOOLTIP,
       x: { format: "dd MMM HH:mm" },
       y: { formatter: (v) => v + "%" },
     },
@@ -2141,21 +2199,11 @@ function _alRenderKpis(todos) {
     ? _alFmtDuracao(temposMs.reduce((s, v) => s + v, 0) / temposMs.length)
     : "—";
 
-  const kpi = (icon, val, label, kindCls, tab) =>
-    kpiCard(icon, val, label, kindCls, tab ? `data-al-kpi-tab="${tab}" style="cursor:pointer;"` : "");
-
-  const el = document.getElementById("alKpiGrid");
-  if (el) el.innerHTML =
-    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
-        critico, "Críticos", critico > 0 ? "rc-bad" : "rc-neutral", "critico") +
-    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>`,
-        atencao, "Atenção", atencao > 0 ? "rc-warn" : "rc-neutral", "atencao") +
-    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`,
-        normal, "Normais", normal > 0 ? "rc-ok" : "rc-neutral", "normal") +
-    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>`,
-        resolvidos.length, "Resolvidos", resolvidos.length > 0 ? "rc-ok" : "rc-neutral", "resolvido") +
-    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
-        tempoMedio, "Tempo médio", "rc-neutral");
+  // ⚠️ A faixa de KPI saiu daqui — ver a nota no `admin.html`, na seção
+  // alertas. Ela repetia as abas card a card. Sobrou o tempo médio, que virou
+  // leitura na barra de ferramentas.
+  const tm = document.getElementById("alTempoMedio");
+  if (tm) tm.textContent = tempoMedio;
 
   // Contadores nas tabs
   const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
@@ -2186,7 +2234,7 @@ function _alRenderTabela(filtrados) {
   const pageItems = filtrados.slice(ini, ini + _alFiltros.pageSize);
 
   if (!pageItems.length) {
-    tbody.innerHTML = `<tr class="al-empty-row"><td colspan="8" style="text-align:center;padding:40px;color:var(--muted);">Nenhum alerta encontrado com esses filtros.</td></tr>`;
+    tbody.innerHTML = `<tr class="al-empty-row"><td colspan="5" style="text-align:center;padding:40px;color:var(--muted);">Nenhum alerta encontrado com esses filtros.</td></tr>`;
   } else {
     tbody.innerHTML = pageItems.map(it => {
       const agora = Date.now();
@@ -2195,30 +2243,41 @@ function _alRenderTabela(filtrados) {
         : agora - new Date(it.criado_em).getTime();
       const tempoStr = _alFmtDuracao(ref);
       const isSelected = _alSelecionadoKey === it.key ? " is-selected" : "";
+      // "há 2 dias" / "3h" já é o delta — a antiga coluna Tempo sempre foi
+      // isto, só que separada da data que ela mede. Junto embaixo dela, vira
+      // a mesma leitura que `planos` faz na coluna Próxima.
+      const tempoCls = it.status === "resolvido" ? "is-off"
+        : ref >= 172800000 ? "is-bad"      // 48h
+        : ref >= 43200000  ? "is-warn"     // 12h
+        : "is-ok";
+      const subs = [];
+      if ((it.telemetriaAbsorvida || []).length > 1) subs.push(`${it.telemetriaAbsorvida.length} reservatórios`);
+      else if (it.device_id) subs.push(it.device_id);
+
       return `
         <tr class="al-row${isSelected}" data-al-key="${it.key}">
           <td class="al-id">${it.key}</td>
-          <td class="al-condo">
-            <span class="al-origem ${it.origem}">${it.origem === "telemetria" ? "Tel" : "Cham"}</span>
-            ${it.condominio_nome}
-            ${(it.telemetriaAbsorvida || []).length > 1
-              ? `<small>${it.telemetriaAbsorvida.length} reservatórios</small>`
-              : it.device_id ? `<small>${it.device_id}</small>` : ""}
-          </td>
-          <td>${_alCapitalize(it.titulo)}${(it.telemetriaAbsorvida || []).length
-            ? ` <span class="al-tel-tag" title="Alerta de telemetria deste mesmo evento: ${it.telemetriaAbsorvida.map(a => `${a.device_id} (${a.tipo})`).join(" · ")}">+ telemetria${it.telemetriaAbsorvida.length > 1 ? ` ×${it.telemetriaAbsorvida.length}` : ""}</span>`
-            : ""}</td>
-          <td><span class="al-sev ${it.severidade}">${it.sevLabel || _alSevLabel(it.severidade)}</span></td>
-          <td class="al-data">${_alFmtData(it.criado_em)}<small>${_alFmtHora(it.criado_em)}</small></td>
-          <td class="al-tempo">${tempoStr}</td>
-          <td><span class="al-status ${it.status}">${_alStatusLabel(it.status)}</span></td>
-          <td class="right">
-            <div class="al-actions">
-              ${it.status === "ativo" ? `
-              <button class="al-act-btn viewer-only-hide" data-al-action="resolver" data-al-key="${it.key}" title="Marcar como resolvido">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-              </button>` : ""}
+          <td class="al-alerta-cell">
+            <div class="al-alerta-titulo">${_alCapitalize(it.titulo)}${(it.telemetriaAbsorvida || []).length
+              ? ` <span class="al-tel-tag" title="Alerta de telemetria deste mesmo evento: ${it.telemetriaAbsorvida.map(a => `${a.device_id} (${a.tipo})`).join(" · ")}">+ telemetria${it.telemetriaAbsorvida.length > 1 ? ` ×${it.telemetriaAbsorvida.length}` : ""}</span>`
+              : ""}</div>
+            <div class="al-alerta-sub">
+              <span class="al-origem ${it.origem}">${it.origem === "telemetria" ? "Tel" : "Cham"}</span>
+              ${it.condominio_nome}
+              ${subs.length ? `<span class="al-sub-sep">·</span>${subs.join("")}` : ""}
             </div>
+          </td>
+          <td><span class="al-sev ${it.severidade}${it.status === "resolvido" ? " is-quieto" : ""}">${it.sevLabel || _alSevLabel(it.severidade)}</span></td>
+          <td>
+            <span class="al-status ${it.status}">${_alStatusLabel(it.status)}</span>
+            ${it.status === "ativo" ? `
+            <button class="al-act-btn viewer-only-hide" data-al-action="resolver" data-al-key="${it.key}" title="Marcar como resolvido">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            </button>` : ""}
+          </td>
+          <td class="al-data">
+            <div class="al-data-abs">${_alFmtData(it.criado_em)} <span class="al-data-hora">${_alFmtHora(it.criado_em)}</span></div>
+            <div class="al-data-delta ${tempoCls}">${tempoStr}</div>
           </td>
         </tr>`;
     }).join("");
@@ -2447,7 +2506,9 @@ async function _alCarregarHistorico(deviceId) {
     _alHistoricoChart = new ApexCharts(el, {
       chart: { type: "area", height: 120, sparkline: { enabled: true }, animations: { enabled: false } },
       stroke: { curve: "smooth", width: 2 },
-      colors: ["#ef4444"],
+      // Série única = slot 1. Estava em vermelho, o que fazia um reservatório
+      // a 88% ser desenhado com a cor de emergência.
+      colors: ["#2f6fe0"],
       fill: { type: "gradient", gradient: { shadeIntensity: .6, opacityFrom: .4, opacityTo: 0 } },
       series: [{ name: "Nível %", data: serie }],
       tooltip: {
@@ -2930,7 +2991,7 @@ function renderCliTabela() {
 
   const lista = _cliFiltrados();
   if (!lista.length) {
-    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:32px;">Nenhum cliente encontrado.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="2" style="text-align:center;color:var(--muted);padding:32px;">Nenhum cliente encontrado.</td></tr>`;
     return;
   }
 
@@ -2942,11 +3003,22 @@ function renderCliTabela() {
     const ctrBadge = contrato
       ? `<span class="ch-st ch-st-${st.cls === "ok" ? "aberto" : st.cls === "warn" ? "em_atendimento" : "fechado"}" title="${st.texto}">${st.texto}</span>`
       : `<span style="font-size:10px;color:var(--muted);">—</span>`;
+    // Molde do `planos`: cidade e responsável descem para a linha de apoio.
+    // O CNPJ vai junto — ele estava numa coluna própria que ficava inteira em
+    // "—" sempre que a carteira não tem o dado, e coluna morta é pior que
+    // dado ausente numa linha de apoio, onde ele simplesmente não aparece.
+    const cnpjFmt = c.cnpj
+      ? String(c.cnpj).replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5")
+      : "";
+    const apoio = [cidade, _waEscaparHtml(c.responsavel || "")].filter(v => v && v !== "—");
     return `<tr class="ch-row${sel}" data-cli-id="${c.id}" style="cursor:pointer;">
-      <td><div style="font-weight:500;font-size:12px;">${_waEscaparHtml(c.nome_fantasia || c.nome || "—")}</div></td>
-      <td style="font-size:11px;color:var(--muted);">${cidade}</td>
-      <td style="font-size:11px;">${_waEscaparHtml(c.responsavel || "—")}</td>
-      <td style="font-size:11px;font-family:monospace;color:var(--muted);">${c.cnpj ? String(c.cnpj).replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5") : "—"}</td>
+      <td class="cli-nome-cell">
+        <div class="cli-nome">${_waEscaparHtml(c.nome_fantasia || c.nome || "—")}</div>
+        <div class="cli-sub">
+          ${apoio.join('<span class="cli-sep">·</span>')}
+          ${cnpjFmt ? `<span class="cli-sep">·</span><span class="cli-cnpj">${cnpjFmt}</span>` : ""}
+        </div>
+      </td>
       <td>${ctrBadge}</td>
     </tr>`;
   }).join("");
@@ -4220,6 +4292,27 @@ function _chFmtDataCurta(iso) {
   return new Date(iso).toLocaleDateString("pt-BR", { day:"2-digit", month:"2-digit" });
 }
 
+// Data absoluta E relativa, como na coluna "Próxima" de `planos` — que é a
+// melhor tabela do painel e a que virou molde. "30/07" sozinho não diz se o
+// chamado está parado há três semanas; "há 21 dias" diz, e é essa a leitura
+// que interessa numa lista de chamados abertos.
+// Chamado fechado não recebe cor de urgência: a idade dele é histórico.
+function _chIdade(iso, status) {
+  if (!iso) return { texto: "—", cls: "is-off" };
+  const dias = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+  const plural = d => `${d} ${d === 1 ? "dia" : "dias"}`;
+
+  let texto;
+  if (dias <= 0)      texto = "hoje";
+  else if (dias === 1) texto = "ontem";
+  else                texto = `há ${plural(dias)}`;
+
+  if (status === "fechado") return { texto, cls: "is-off" };
+  if (dias >= 14) return { texto, cls: "is-bad" };
+  if (dias >= 7)  return { texto, cls: "is-warn" };
+  return { texto, cls: "is-ok" };
+}
+
 function renderChKpis() {
   const el = document.getElementById("chKpiGrid");
   if (!el) return;
@@ -4241,19 +4334,21 @@ function renderChKpis() {
 
   const kpi = (icon, val, hint, kindCls) => kpiCard(icon, val, hint, kindCls);
 
+  // ⚠️ Abertos / Em atendimento / Resolvidos NÃO entram aqui.
+  // As abas logo abaixo mostram exatamente os mesmos três números, com a
+  // vantagem de também filtrarem a lista — a faixa só os repetia. A divisão
+  // agora é de pergunta: as ABAS respondem "o que está na lista", a FAIXA
+  // responde "como estamos indo".
+  // Para trazê-los de volta, basta reinserir as três chamadas de `kpi(...)`
+  // — as contagens (`abertos`, `atend`, `fechados`) seguem calculadas acima
+  // porque as abas usam as mesmas.
   el.innerHTML =
-    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`,
-        abertos, "Abertos", abertos > 0 ? "rc-warn" : "rc-neutral") +
-    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
-        atend, "Em atendimento", atend > 0 ? "rc-warn" : "rc-neutral") +
-    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`,
-        fechados, "Resolvidos", fechados > 0 ? "rc-ok" : "rc-neutral") +
     kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
-        criticos, "Críticos abertos", criticos > 0 ? "rc-bad" : "rc-neutral") +
+        criticos, "Críticos", criticos > 0 ? "rc-bad" : "rc-neutral") +
     kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>`,
-        `${taxa}%`, "Taxa de resolução", taxa >= 70 ? "rc-ok" : taxa >= 40 ? "rc-warn" : "rc-neutral") +
+        `${taxa}%`, "% resolvido", taxa >= 70 ? "rc-ok" : taxa >= 40 ? "rc-warn" : "rc-neutral") +
     kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
-        tempoMedio, "Tempo médio resolução", "rc-neutral");
+        tempoMedio, "Tempo médio", "rc-neutral");
 }
 
 function renderChTabela() {
@@ -4270,20 +4365,27 @@ function renderChTabela() {
 
   const lista = _chFiltrados();
   if (!lista.length) {
-    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:32px;">Nenhum chamado encontrado.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:32px;">Nenhum chamado encontrado.</td></tr>`;
     return;
   }
 
   tbody.innerHTML = lista.map(ch => {
     const sel = _chSelecionadoId === ch.id ? " is-selected" : "";
+    const idade = _chIdade(ch.criado_em, ch.status);
+    // Só o chamado ainda em aberto acende a prioridade. Um P1 já resolvido
+    // continua sendo P1, mas não é mais alarme — e placa vermelha cheia numa
+    // linha resolvida disputa atenção com quem realmente precisa.
+    const prioQuieta = ch.status === "fechado" ? " is-quieto" : "";
     return `<tr class="ch-row${sel}" data-ch-id="${ch.id}">
       <td class="ch-id-cell">CH-${String(ch.id).padStart(4,"0")}</td>
       <td class="ch-titulo-cell">
         <div class="ch-titulo-text">${_waEscaparHtml(ch.titulo || "—")}</div>
+        <div class="ch-titulo-sub">
+          ${_waEscaparHtml(ch.condominio_nome || "—")}
+          <span class="ch-cat-badge">${_chCatNome[ch.categoria] || ch.categoria || "—"}</span>
+        </div>
       </td>
-      <td class="ch-condo-cell">${_waEscaparHtml(ch.condominio_nome || "—")}</td>
-      <td><span class="ch-cat-badge">${_chCatNome[ch.categoria] || ch.categoria || "—"}</span></td>
-      <td><span class="ch-prio ch-prio-${ch.prioridade||"p3"}">${_chPrioNome[ch.prioridade]||ch.prioridade||"—"}</span></td>
+      <td><span class="ch-prio ch-prio-${ch.prioridade||"p3"}${prioQuieta}">${_chPrioNome[ch.prioridade]||ch.prioridade||"—"}</span></td>
       <td>
         <span class="ch-st ch-st-${ch.status||"aberto"}">${_chStNome[ch.status]||ch.status||"—"}</span>
         ${(ch.status === "fechado" && ch.avaliacao_nota != null)
@@ -4292,7 +4394,10 @@ function renderChTabela() {
         ${ch.sla_ttfr_estourado ? `<span class="ch-sla-badge" title="Sem resposta há mais de ${ch.sla_ttfr_min} min (TTFR)">⚠ SLA</span>` : ""}
         ${(!ch.sla_ttfr_estourado && ch.sla_ttr_risco) ? `<span class="ch-sla-ttr-badge" title="Aberto há mais de ${ch.sla_ttr_min} min (TTR)">⏱ TTR</span>` : ""}
       </td>
-      <td class="ch-data-cell">${_chFmtDataCurta(ch.criado_em)}</td>
+      <td class="ch-data-cell">
+        <div class="ch-data-abs">${_chFmtDataCurta(ch.criado_em)}</div>
+        <div class="ch-data-delta ${idade.cls}">${idade.texto}</div>
+      </td>
     </tr>`;
   }).join("");
 }
@@ -8414,42 +8519,8 @@ function _mpRenderChamados(g) {
 }
 
 // --- Donut helper (SVG puro, sem ApexCharts pra leveza) ---
-function _mpRenderDonut(containerId, legendId, fatias, totalCentro) {
-  const cont = document.getElementById(containerId);
-  const leg  = document.getElementById(legendId);
-  if (!cont || !leg) return;
-  const total = fatias.reduce((s, f) => s + f.value, 0);
-  if (total === 0) {
-    cont.innerHTML = `<div class="mp-empty" style="height:200px;">Sem dados.</div>`;
-    leg.innerHTML = "";
-    return;
-  }
-  const R = 70, CX = 100, CY = 100, STROKE = 22;
-  const C = 2 * Math.PI * R;
-  let acc = 0;
-  const segs = fatias.filter(f => f.value > 0).map(f => {
-    const frac = f.value / total;
-    const dash = `${C * frac} ${C * (1 - frac)}`;
-    const dashoffset = -C * acc;
-    acc += frac;
-    return `<circle cx="${CX}" cy="${CY}" r="${R}" fill="none" stroke="${f.color}" stroke-width="${STROKE}" stroke-dasharray="${dash}" stroke-dashoffset="${dashoffset}" transform="rotate(-90 ${CX} ${CY})"/>`;
-  }).join("");
-  const centroHtml = totalCentro != null
-    ? `<text x="${CX}" y="${CY - 4}" text-anchor="middle" font-size="28" font-weight="800" fill="currentColor">${totalCentro}</text>
-       <text x="${CX}" y="${CY + 16}" text-anchor="middle" font-size="11" fill="rgba(255,255,255,.5)" letter-spacing="1.5">TOTAL</text>`
-    : "";
-  cont.innerHTML = `<svg viewBox="0 0 200 200" width="100%" height="200">
-    <circle cx="${CX}" cy="${CY}" r="${R}" fill="none" stroke="rgba(255,255,255,.06)" stroke-width="${STROKE}"/>
-    ${segs}
-    ${centroHtml}
-  </svg>`;
-  leg.innerHTML = fatias.map(f => `
-    <div class="dl-row">
-      <span class="dl-dot" style="background:${f.color}"></span>
-      <span class="dl-label">${f.label}</span>
-      <span class="dl-value">${f.value}</span>
-    </div>`).join("");
-}
+// `_mpRenderDonut` foi removida: era usada só pela distribuição por zona,
+// que virou barra com rótulo direto. Ver `_mpRenderBarras`.
 
 // "Alertas Recentes" = telemetria aberta + chamados não-fechados, juntos,
 // ordenados por severidade e depois por mais recente.
@@ -8520,6 +8591,26 @@ function _mpAtualizarAlertasRecentes() {
   `).join("");
 }
 
+// ⚠️ ERA UM DONUT DE SEIS FATIAS, uma cor por zona (ciano, violeta, verde,
+// âmbar, rosa, cinza — Tailwind solto). Duas coisas erradas ao mesmo tempo:
+//
+// 1. SEIS CORES NÃO EXISTEM. A paleta categórica deste sistema tem TRÊS
+//    slots, e o teto é medido, não estilístico: com vermelho, âmbar e verde
+//    reservados para estado, sobra só o lado frio do círculo, e ali uma
+//    quarta matiz colapsa sob protanopia. Ver a Regra da Paleta Categórica
+//    no DESIGN.md. Duas daquelas seis cores (verde e âmbar) eram, ainda por
+//    cima, cores de ESTADO — "Zona Sul" pintada de verde-ok.
+//
+// 2. A FORMA JÁ ESTAVA ERRADA ANTES DA COR. Zona é categoria NOMINAL: trocar
+//    a ordem não muda o significado. Cor aqui não codifica nada — é só um
+//    índice para a legenda, e o leitor tem de ir e voltar entre a rosquinha e
+//    a lista para ler cada valor. Seis fatias também não se comparam entre
+//    si: arco não tem linha de base.
+//
+// A resposta do sistema para "uma série nominal" é UMA COR + RÓTULO DIRETO.
+// Barra horizontal ordenada: o valor está do lado do nome, a comparação é
+// por comprimento contra uma base comum, e a legenda deixa de existir porque
+// nada precisa ser decodificado.
 function _mpAtualizarZonaDonut() {
   const groups = Array.isArray(_statusData) ? _statusData : [];
   const contagem = new Map();
@@ -8527,19 +8618,50 @@ function _mpAtualizarZonaDonut() {
     const z = _mpZonaPara(g.condominio || {});
     contagem.set(z, (contagem.get(z) || 0) + 1);
   }
-  const cores = {
-    "Centro":     "#22d3ee",
-    "Zona Norte": "#a78bfa",
-    "Zona Sul":   "#10b981",
-    "Zona Leste": "#f59e0b",
-    "Zona Oeste": "#ec4899",
-    "Sem coordenada": "#64748b",
-  };
-  const fatias = [...contagem.entries()].map(([label, value]) => ({
-    label, value, color: cores[label] || "#94a3b8",
-  }));
-  const total = fatias.reduce((s, f) => s + f.value, 0);
-  _mpRenderDonut("mpZonaChart", "mpZonaLegend", fatias, total);
+
+  // "Sem coordenada" não é uma zona — é falta de dado. Vai por último e em
+  // tinta apagada, para não competir com as zonas de verdade.
+  const SEM_COORD = "Sem coordenada";
+  const itens = [...contagem.entries()]
+    .map(([label, value]) => ({ label, value }))
+    .sort((a, b) => {
+      if (a.label === SEM_COORD) return 1;
+      if (b.label === SEM_COORD) return -1;
+      return b.value - a.value;
+    });
+
+  _mpRenderBarras("mpZonaChart", "mpZonaLegend", itens, SEM_COORD);
+}
+
+function _mpRenderBarras(containerId, legendaId, itens, rotuloSemDado) {
+  const cont = document.getElementById(containerId);
+  const leg  = document.getElementById(legendaId);
+  if (!cont) return;
+  if (leg) leg.innerHTML = "";   // rótulo direto dispensa legenda
+
+  const total = itens.reduce((s, i) => s + i.value, 0);
+  if (!total) {
+    cont.innerHTML = `<div class="mp-empty" style="height:120px;">Sem dados.</div>`;
+    return;
+  }
+  const maior = Math.max(...itens.map(i => i.value));
+
+  cont.innerHTML = `
+    <div class="mp-barras" role="list">
+      ${itens.map(i => {
+        const pct = maior ? Math.round((i.value / maior) * 100) : 0;
+        const share = Math.round((i.value / total) * 100);
+        const semDado = i.label === rotuloSemDado;
+        return `
+          <div class="mp-barra-row${semDado ? " is-sem-dado" : ""}" role="listitem"
+               title="${_waEscaparHtml(i.label)}: ${i.value} de ${total} condomínios (${share}%)">
+            <span class="mp-barra-lbl">${_waEscaparHtml(i.label)}</span>
+            <span class="mp-barra-trilho"><span class="mp-barra-fill" style="width:${pct}%"></span></span>
+            <span class="mp-barra-val">${i.value}</span>
+          </div>`;
+      }).join("")}
+    </div>
+    <div class="mp-barras-total">${total} condomínios no total</div>`;
 }
 
 function _mpAtualizarUpdates() {
@@ -8758,6 +8880,36 @@ function _relSetCountBadge(id, texto, cls) {
 }
 
 // Empty state dentro de um <td> — ícone sutil + texto secundário
+// ⚠️ A coluna mostrava `pct_ttr` cru e chegava a "12750%". A conta está certa
+// — é um chamado aberto há 21 dias contra um TTR de horas — mas quatro dígitos
+// de porcentagem não informam nada além de "estourou faz muito tempo", que é
+// justamente a leitura que a pessoa faz de cabeça ao ver o número. Então a
+// coluna passa a dizer isso, e o percentual continua disponível no `title`
+// para quem quiser a conta.
+// A ordenação NÃO muda: quem ordena é o `ORDER BY pct_ttr DESC` do backend.
+function _relDuracaoCurta(min) {
+  const m = Math.max(0, Math.round(min));
+  if (m < 60) return `${m}min`;
+  const h = Math.round(m / 60);
+  if (h < 48) return `${h}h`;
+  const d = Math.round(h / 24);
+  return `${d} ${d === 1 ? "dia" : "dias"}`;
+}
+
+function _relTtrPrazo(d) {
+  const usados = Number(d.minutos_abertos);
+  const limite = Number(d.ttr_min);
+  if (!Number.isFinite(usados) || !Number.isFinite(limite) || limite <= 0) {
+    return `<span class="rel-prazo is-nd">—</span>`;
+  }
+  const restante = limite - usados;
+  const titulo = `${d.pct_ttr}% do prazo de ${_relDuracaoCurta(limite)}`;
+  // Estourado é placa cheia (pede ação agora); ainda dentro do prazo é de fio.
+  return restante <= 0
+    ? `<span class="rel-prazo is-estourado" title="${titulo}">estourou há ${_relDuracaoCurta(-restante)}</span>`
+    : `<span class="rel-prazo is-risco" title="${titulo}">faltam ${_relDuracaoCurta(restante)}</span>`;
+}
+
 function _relEmptyCell(colspan, icone, texto) {
   return `<tr><td colspan="${colspan}"><div class="rel-empty">${icone}<span>${texto}</span></div></td></tr>`;
 }
@@ -8784,13 +8936,14 @@ async function _relCarregarPainelVivo() {
     _relSetCountBadge("relVivoRiscoCount", String(risco.length), risco.length > 0 ? "bad" : "ok");
     if (riscoBody) riscoBody.innerHTML = risco.length
       ? risco.map(d => `<tr>
-          <td>${_waEscaparHtml(d.titulo || "")}</td>
-          <td><span class="badge ${(d.prioridade === "p1" || d.prioridade === "p2") ? "b-bad" : "b-warn"}">${(d.prioridade || "-").toUpperCase()}</span></td>
-          <td>${_waEscaparHtml(d.condominio_nome || "-")}</td>
-          <td>${_waEscaparHtml(d.tecnico_nome || "-")}</td>
-          <td><span class="badge ${d.pct_ttr >= 100 ? "b-bad" : "b-warn"}">${d.pct_ttr != null ? d.pct_ttr + "%" : "-"}</span></td>
+          <td class="rel-risco-cell">
+            <div class="rel-risco-titulo">${_waEscaparHtml(d.titulo || "")}</div>
+            <div class="rel-risco-sub">${_waEscaparHtml(d.condominio_nome || "-")}<span class="rel-risco-sep">·</span>${d.tecnico_nome ? _waEscaparHtml(d.tecnico_nome) : "sem técnico"}</div>
+          </td>
+          <td><span class="ch-prio ch-prio-${d.prioridade || "p3"}">${(d.prioridade || "-").toUpperCase()}</span></td>
+          <td>${_relTtrPrazo(d)}</td>
         </tr>`).join("")
-      : _relEmptyCell(5, _REL_ICON_OK, "Nenhum chamado em risco agora.");
+      : _relEmptyCell(3, _REL_ICON_OK, "Nenhum chamado em risco agora.");
 
     const work = data.workload_tecnico || [];
     const totalAbertos = work.reduce((s, d) => s + (Number(d.abertos) || 0), 0);
@@ -9587,7 +9740,14 @@ function _cfgRenderUsuarios() {
     return `<tr>
       <td>${_waEscaparHtml(u.nome || "-")}${meTag}</td>
       <td style="font-family:ui-monospace,monospace;font-size:12px;">${_waEscaparHtml(u.email || "-")}</td>
-      <td><span class="badge ${u.role === "admin" ? "b-warn" : ["gerente","operador"].includes(u.role) ? "b-ok" : ""}">${_cfgRoleLabel(u.role)}</span></td>
+      <!-- ⚠️ Papel é CATEGORIA, não estado: ninguém precisa agir porque um
+           usuário é admin. Estava com "admin master" em placa âmbar cheia (a
+           cor de "pede atenção") e os demais papéis sem selo NENHUM — texto
+           solto no meio de uma coluna de selos, o mesmo defeito que
+           "etiqueta em branco" tinha em Equipamentos.
+           Agora todos são selo de fio; o que distingue é o rótulo, e o anel
+           mais forte marca quem tem acesso total. -->
+      <td><span class="badge b-papel${u.role === "admin" ? " is-master" : ""}">${_cfgRoleLabel(u.role)}</span></td>
       <td>${condo}</td>
       <td>${dataCad}</td>
       <td>
@@ -10112,7 +10272,9 @@ document.addEventListener("DOMContentLoaded", () => {
   // Começa expandida; respeita preferência salva
   _applySidebar(localStorage.getItem("sidebarCollapsed") === "true");
 
-  // operador: só vê Monitor + Chamados + Config (sem Atendimento exceto chamados, sem Gestão exceto config)
+  // operador: sem Atendimento (exceto Chamados), sem Cadastro (exceto
+  // Contratos) e sem Relatórios. Sobram Alertas, Chamados, Contratos,
+  // Dashboard, Telemetria, Mapa e Configurações.
   if (_isOperador) {
     const _navHide = ["whatsapp", "ordens-servico", "orcamentos", "planos", "cadastros", "tecnicos", "relatorios", "equipamentos"];
     _navHide.forEach(s => {
@@ -10120,6 +10282,19 @@ document.addEventListener("DOMContentLoaded", () => {
       if (el) el.style.display = "none";
     });
   }
+
+  // Rótulo de grupo sem nenhum item visível vira cabeçalho órfão. Acontece
+  // com "Em curso" no perfil operador — O.S. e Orçamentos são os dois únicos
+  // itens do grupo e os dois ficam ocultos. A varredura é genérica de
+  // propósito: qualquer regra de visibilidade futura já nasce coberta.
+  document.querySelectorAll(".nav .nav-section-label").forEach(rotulo => {
+    let algumVisivel = false;
+    for (let n = rotulo.nextElementSibling; n; n = n.nextElementSibling) {
+      if (n.classList.contains("nav-section-label")) break;
+      if (n.style.display !== "none") { algumVisivel = true; break; }
+    }
+    if (!algumVisivel) rotulo.style.display = "none";
+  });
 
   function _onToggle() {
     const next = !_sidebar.classList.contains("collapsed");
@@ -10201,6 +10376,9 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
   // KPIs clicáveis (atalho pras tabs) — delegação porque os cards são gerados dinamicamente
+  // O `#alKpiGrid` não existe mais (a faixa era cópia das abas). O `?.` deixa
+  // isto inerte; fica registrado porque é o atalho que voltaria junto se a
+  // faixa for reinserida.
   document.getElementById("alKpiGrid")?.addEventListener("click", (e) => {
     const card = e.target.closest("[data-al-kpi-tab]");
     if (!card) return;
@@ -11562,7 +11740,10 @@ let _avData        = [];
 let _avTabAtiva    = "todos";
 let _avSelecionado = null;
 let _avCondoSel    = null;   // chave do condomínio selecionado na coluna esquerda
-let _avNovoPendente = null;  // id de um orçamento recém-criado ainda NÃO salvo (descartável ao fechar)
+// Alteração digitada e ainda não salva. Substitui o antigo `_avNovoPendente`,
+// que marcava "rascunho descartável" — conceito que deixou de existir quando o
+// registro passou a nascer só na primeira ação de verdade.
+let _avSujo = false;
 let _avLinhas      = [];
 let _avLinhasId    = null;
 let _avLinhasPromise = null;    // fetch de linhas em andamento, se houver
@@ -11756,22 +11937,22 @@ function _avFecharModal() {
 
 // Fecha o modal, mas se for um orçamento recém-criado que nunca foi salvo,
 // avisa e o descarta (apaga do servidor) — assim não fica rascunho vazio.
+// ⚠️ ESTA FUNÇÃO NÃO APAGA MAIS NADA.
+// Antes ela precisava: o registro nascia no servidor ao abrir o modal, então
+// fechar sem salvar deixava lixo, e a única saída era um `confirm()` que
+// avisava "você vai perder tudo" seguido de um DELETE. Com o registro criado
+// só na primeira ação de verdade (`_avGarantirRegistro`), fechar um modal
+// intocado não deixa rastro e não precisa perguntar nada.
+//
+// O aviso que sobra é de outra natureza — e não destrutivo: se a pessoa
+// digitou algo que ainda não foi salvo (constatação, condomínio, condições),
+// ela perde ISSO ao sair. O orçamento em si, se já existir, permanece como
+// rascunho, que é um estado legítimo e visível na lista.
 async function _avTentarFechar() {
-  if (_avNovoPendente != null && _avSelecionado?.id === _avNovoPendente) {
-    if (!confirm("Você não salvou este orçamento. Se sair agora ele será descartado e você perderá tudo o que preencheu. Deseja sair mesmo assim?")) {
-      return; // cancela o fechamento — mantém o modal aberto
-    }
-    const id = _avNovoPendente;
-    try {
-      await fetch(`/admin/orcamentos/avulsos/${id}`, { method: "DELETE", headers: authHeaders() });
-    } catch (_) { /* mesmo se falhar o DELETE, segue fechando */ }
-    _avData = _avData.filter(o => o.id !== id);
-    _avNovoPendente = null;
-    _avLinhas = []; _avLinhasId = null;
-    _avFecharModal();
-    _avRenderTudo();
-    return;
+  if (_avSujo) {
+    if (!confirm("Você tem alterações não salvas neste orçamento. Sair mesmo assim?")) return;
   }
+  _avSujo = false;
   _avFecharModal();
 }
 
@@ -11793,6 +11974,11 @@ function _avRenderPainel() {
   }
 
   const o = _avSelecionado;
+  // Render completo reconstrói o formulário a partir do estado — o que
+  // estivesse digitado e não salvo já se perdeu aqui, então não há pendência
+  // a avisar. (O `_avGarantirRegistro` existe justamente para NÃO passar por
+  // aqui no meio de uma digitação.)
+  _avSujo = false;
   const validadeVal = o.valido_ate ? new Date(o.valido_ate).toISOString().split("T")[0] : "";
   const dataDocVal  = o.data_documento ? new Date(o.data_documento).toISOString().split("T")[0] : "";
   // Cliente avulso (pessoa física): sem condomínio vinculado e com algum dado
@@ -11817,10 +12003,6 @@ function _avRenderPainel() {
   // na hora. A versão anterior explicava isso em quatro lugares ao mesmo tempo
   // (descrição do card, título da seção, nota da zona de itens e aviso da
   // tabela) — a mesma frase repetida vira ruído, não ajuda.
-  const cardTipo = (val, titulo) => `
-    <button type="button" class="av-tipo ${tipoAtivo === val ? "is-on" : ""}" data-av-tipo="${val}">
-      <span class="av-tipo-dot"></span><b>${titulo}</b>
-    </button>`;
 
   wrap.innerHTML = `
     <div class="av-modal-head">
@@ -11829,7 +12011,7 @@ function _avRenderPainel() {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
         </div>
         <div>
-          <div class="av-modal-num">${_waEscaparHtml(o.numero || "Novo orçamento")}</div>
+          <div class="av-modal-num" id="avModalTitulo">${_waEscaparHtml(o.numero || "Novo orçamento")}</div>
           <div class="av-modal-meta">
             <span class="orc-status-pill ${_avStatusCls(o.status)}">${_avStatusLabel(o.status)}</span>
             <span class="av-modal-date">· ${_orcFmtData(o.criado_em)}</span>
@@ -11845,25 +12027,22 @@ function _avRenderPainel() {
         <!-- Faixa de configuração: duas colunas, altura mínima. Nenhuma destas
              seções precisa da largura inteira, e juntas liberam a altura que a
              tabela de itens vai usar. -->
+        <!-- ⚠️ "Tipo de documento" ERA uma coluna inteira aqui, com quatro
+             cards de rádio e ~200px de altura. Ele é a escolha mais
+             estruturante do formulário (troca o PDF entre tabela de peças e
+             cláusulas descritivas) e por isso ganhava o maior espaço — mas é
+             escolha feita UMA vez, e em quase todo orçamento a resposta é
+             "Peças / Serviço". Agora ele mora no trilho da direita, onde já
+             aparecia como leitura, e a coluna que ele ocupava virou altura
+             para a tabela de itens, que é o corpo do documento.
+             ⚠️ NADA DE CRASE NESTE COMENTÁRIO. Ele vive dentro de um
+             template literal: uma crase aqui FECHA o template, e o que vem
+             depois vira código. Foi exatamente o que aconteceu ao escrever o
+             nome da tag select entre crases — o modal abriu em branco e o
+             console disse "select is not defined".
+             O elemento select que sempre esteve por trás dos cards é o mesmo;
+             só deixou de ser oculto. -->
         <div class="av-setup">
-          <div class="av-setup-col">
-            <div class="ap-section">
-              <div class="ap-section-title">Tipo de documento</div>
-              <div class="av-tipos">
-                ${cardTipo("pecas", "Peças / Serviço")}
-                ${cardTipo("limpeza_reservatorio", "Limpeza de reservatório")}
-                ${cardTipo("dedetizacao", "Dedetização")}
-                ${cardTipo("limpeza_dedetizacao", "Limpeza + dedetização")}
-              </div>
-              <select id="avInputTipo" class="av-hidden-ctl" tabindex="-1" aria-hidden="true">
-                <option value="pecas" ${tipoAtivo==="pecas"?"selected":""}>Peças / Serviço</option>
-                <option value="limpeza_reservatorio" ${tipoAtivo==="limpeza_reservatorio"?"selected":""}>Limpeza de Reservatório de Água Potável</option>
-                <option value="dedetizacao" ${tipoAtivo==="dedetizacao"?"selected":""}>Dedetização</option>
-                <option value="limpeza_dedetizacao" ${tipoAtivo==="limpeza_dedetizacao"?"selected":""}>Limpeza de Reservatório + Dedetização</option>
-              </select>
-            </div>
-          </div>
-
           <div class="av-setup-col">
             <div class="ap-section">
               <div class="ap-section-title">Cliente</div>
@@ -11913,8 +12092,8 @@ function _avRenderPainel() {
                 style="resize:vertical;font-size:12px;padding:8px 10px;min-height:52px;width:100%;"
                 placeholder="Descreva o serviço ou problema constatado… (sai impresso no PDF, acima da tabela)">${_waEscaparHtml(o.constatacao || '')}</textarea>
             </div>
-          </div>
-        </div>
+          </div><!-- /av-setup-col -->
+        </div><!-- /av-setup -->
 
         <!-- Itens: largura cheia e a sobra de altura. É a única zona que rola. -->
         <div class="av-itens-zone" id="avItensZone">
@@ -11926,8 +12105,25 @@ function _avRenderPainel() {
           </div>
         </div>
 
-        <div class="av-cond">
-          <div class="ap-section-title">Condições comerciais</div>
+        <!-- ⚠️ As condições comerciais nascem TODAS preenchidas com o padrão
+             da casa e quase nunca mudam — mas ocupavam uma faixa permanente
+             de cinco campos no pé do formulário, competindo com os itens.
+             Agora vêm fechadas, com o valor atual escrito no resumo: dá para
+             conferir sem abrir, que é o que se faz na maioria das vezes.
+             Elemento details nativo de propósito — abre sem JS, é focável e
+             anunciável por leitor de tela de graça.
+             (Sem crase neste comentário: ver o aviso na faixa de configuração
+             acima — crase dentro de template literal fecha o template.) -->
+        <details class="av-cond">
+          <summary class="av-cond-sum">
+            <span class="ap-section-title">Condições comerciais</span>
+            <span class="av-cond-resumo">${[
+              o.forma_pagamento || "Via boleto bancário",
+              o.prazo_entrega   || "5 dias úteis após aprovação",
+              o.garantia        || "12 meses",
+              validadeVal ? `válido até ${_orcFmtData(o.valido_ate)}` : "sem validade",
+            ].map(_waEscaparHtml).join(" · ")}</span>
+          </summary>
           <div class="av-cond-grid">
             <label class="orc-form-label">Forma de pagamento
               <input id="avInputPagamento" class="input" type="text" maxlength="255"
@@ -11948,7 +12144,7 @@ function _avRenderPainel() {
               <input id="avInputValidade" class="input" type="date" value="${validadeVal}">
             </label>
           </div>
-        </div>
+        </details>
       </div>
 
       <aside class="av-rail">
@@ -11980,7 +12176,15 @@ function _avRenderPainel() {
             </select></b>
           </div>
           <div class="av-rail-kv"><span>Validade</span><b>${validadeVal ? _orcFmtData(o.valido_ate) : "—"}</b></div>
-          <div class="av-rail-kv"><span>Tipo</span><b id="avRailTipo">${tipoLabels[tipoAtivo] || "—"}</b></div>
+          <div class="av-rail-kv av-rail-tipo">
+            <span><label for="avInputTipo">Tipo</label></span>
+            <b><select id="avInputTipo" class="select">
+              <option value="pecas" ${tipoAtivo==="pecas"?"selected":""}>Peças / Serviço</option>
+              <option value="limpeza_reservatorio" ${tipoAtivo==="limpeza_reservatorio"?"selected":""}>Limpeza de reservatório</option>
+              <option value="dedetizacao" ${tipoAtivo==="dedetizacao"?"selected":""}>Dedetização</option>
+              <option value="limpeza_dedetizacao" ${tipoAtivo==="limpeza_dedetizacao"?"selected":""}>Limpeza + dedetização</option>
+            </select></b>
+          </div>
         </div>
 
         <div class="av-rail-hr"></div>
@@ -12022,11 +12226,26 @@ function _avRenderPainel() {
   // Quando troca o tipo: a tabela de itens muda de formato (peças tem Qtd/Unit.,
   // serviço só tem Valor) e, se for tipo de serviço, já adiciona a(s) linha(s)
   // padrão automaticamente (sem duplicar o que já existir).
-  document.getElementById("avInputTipo")?.addEventListener("change", async e => {
+  const _selTipo = document.getElementById("avInputTipo");
+  if (_selTipo) _selTipo.dataset.anterior = _selTipo.value;
+  _selTipo?.addEventListener("change", async e => {
+    const novo = e.target.value;
+    const anterior = e.target.dataset.anterior;
+    // ⚠️ Este guarda morava no clique dos cards de tipo. Com um <select> de
+    // verdade a pergunta continua vindo ANTES de qualquer efeito — mas agora
+    // ela também precisa DESFAZER: o select já mudou de valor sozinho quando
+    // o `change` dispara, e cancelar tem de devolver o valor anterior, senão
+    // a tela passa a mentir sobre o tipo do documento.
+    if (!_avConfirmarTrocaDeTipo(novo)) {
+      e.target.value = anterior;
+      return;
+    }
+    e.target.dataset.anterior = novo;
+    _avRefletirTipo(novo, e.target.selectedOptions[0]?.textContent);
     // Limpa ANTES de preencher: trocar limpeza → dedetização precisa tirar a
     // linha de limpeza e pôr a de dedetização, nessa ordem.
-    await _avLimparServicosForaDoTipo(e.target.value);
-    await _avPreencherPadrao(e.target.value);
+    await _avLimparServicosForaDoTipo(novo);
+    await _avPreencherPadrao(novo);
     _avRenderLinhas();
   });
 
@@ -12057,25 +12276,30 @@ function _avRenderPainel() {
     _avAtualizarTotalRail();
   });
 
+  // Marca "tem alteração não salva". Delegado no contêiner do modal, e não
+  // campo a campo, porque a tabela de itens é reconstruída a cada render — um
+  // listener por input teria de ser religado toda vez e é exatamente o tipo de
+  // coisa que passa a não funcionar sem ninguém perceber.
+  // ⚠️ `input` não borbulha em <select>; `change` sim. Os dois juntos cobrem
+  // texto, número, data, select e checkbox.
+  //
+  // ⚠️ A LINHA DE NOVO ITEM NÃO CONTA. Ela é persistida no "+ Adicionar" e
+  // limpa em seguida, então digitar ali não deixa nada por salvar — marcar
+  // sujo faria o aviso de saída disparar sem ter o que perder, que é o jeito
+  // mais rápido de ensinar alguém a ignorar avisos.
+  const _AV_CAMPOS_ITEM_NOVO = new Set(["avNewDesc", "avNewQtd", "avNewVal", "avNewFicha"]);
+  const _avMarcarSujo = (e) => {
+    if (_AV_CAMPOS_ITEM_NOVO.has(e.target?.id)) return;
+    _avSujo = true;
+  };
+  wrap.addEventListener("input",  _avMarcarSujo);
+  wrap.addEventListener("change", _avMarcarSujo);
+
   // ── Fiação dos controles visuais ──────────────────────────────────────────
   // Os cards de tipo e o segmentado de cliente NÃO guardam estado: eles setam
   // o <select>/<checkbox> oculto e disparam `change`. Todos os listeners
   // acima (e o _avAcao, que lê por getElementById) continuam valendo — foi o
   // que permitiu trocar a apresentação sem tocar no salvamento.
-  wrap.querySelectorAll("[data-av-tipo]").forEach(card => {
-    card.addEventListener("click", () => {
-      const sel = document.getElementById("avInputTipo");
-      const novo = card.dataset.avTipo;
-      if (!sel || sel.value === novo) return;
-      // A pergunta vem primeiro: cancelar aqui não deixa rastro nenhum na tela.
-      if (!_avConfirmarTrocaDeTipo(novo)) return;
-      sel.value = novo;
-      wrap.querySelectorAll("[data-av-tipo]").forEach(c => c.classList.toggle("is-on", c === card));
-      _avRefletirTipo(novo, card.querySelector("b")?.textContent);
-      sel.dispatchEvent(new Event("change"));
-    });
-  });
-
   wrap.querySelectorAll("[data-av-cliente]").forEach(bt => {
     bt.addEventListener("click", () => {
       const chk = document.getElementById("avToggleAvulso");
@@ -12153,8 +12377,9 @@ function _avRefletirTipo(tipo, rotulo) {
   const titulo = document.getElementById("avItensTitulo");
   if (titulo) titulo.textContent = tipo !== "pecas" ? "Valores dos serviços" : "Itens";
 
-  const railTipo = document.getElementById("avRailTipo");
-  if (railTipo && rotulo) railTipo.textContent = rotulo;
+  // O rótulo do tipo agora é a própria opção selecionada do <select>; o que
+  // resta aqui é piscar a linha do trilho para confirmar a troca.
+  const railTipo = document.querySelector(".av-rail-tipo");
 
   // `void offsetWidth` reinicia a animação quando se troca duas vezes seguidas
   // — sem isso o segundo clique não pisca.
@@ -12735,32 +12960,84 @@ async function _avPreencherPadrao(tipo) {
   finally { _avPreencherPadraoAtivo = false; }
 }
 
+// Cria o orçamento no servidor NA PRIMEIRA VEZ que ele precisa existir —
+// adicionar item, salvar, gerar PDF ou enviar. Devolve o id.
+//
+// ⚠️ Não re-renderiza o modal de propósito: `_avRenderPainel()` reconstrói o
+// formulário a partir de `_avSelecionado` e apagaria o que a pessoa acabou de
+// digitar e ainda não foi salvo. Daqui só sai o id; a tela se atualiza no
+// `salvar`, que é quando os campos já foram persistidos.
+async function _avGarantirRegistro() {
+  if (_avSelecionado?.id != null) return _avSelecionado.id;
+
+  const r = await fetch("/admin/orcamentos/avulsos", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({}),
+  });
+  const j = await lerRespostaJson(r, "Criação do orçamento");
+  if (!r.ok) throw new Error(j.error || "Erro ao criar o orçamento");
+
+  // Mantém o que já está na tela e só acrescenta o que veio do servidor
+  // (id e numero). Sobrescrever o objeto inteiro descartaria a seleção de
+  // condomínio feita antes do primeiro item.
+  _avSelecionado.id = j.id;
+  _avSelecionado.numero = j.numero;
+  _avData.unshift(_avSelecionado);
+  _avLinhasId = j.id;
+
+  // O número existe a partir de agora — o cabeçalho ainda diz "Novo
+  // orçamento", então vale atualizar só ele, sem tocar no formulário.
+  const numEl = document.getElementById("avModalTitulo");
+  if (numEl && j.numero) numEl.textContent = j.numero;
+
+  return j.id;
+}
+
 async function _avAcao(acao) {
   const msg = document.getElementById("avFormMsg");
 
   if (acao === "novo") {
-    if (msg) msg.textContent = "Criando…";
-    try {
-      const r = await fetch("/admin/orcamentos/avulsos", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...authHeaders() },
-        body: JSON.stringify({}),
-      });
-      const j = await r.json();
-      if (!r.ok) { alert(j.error || "Erro ao criar"); return; }
-      _avData.unshift(j);
-      _avSelecionado = j;
-      _avNovoPendente = j.id;   // marca como rascunho não-salvo (descartável ao fechar)
-      _avCondoSel = j.condominio_id != null ? `id:${j.condominio_id}` : `nome:${j.condominio_nome || ""}`;
-      _avLinhas = []; _avLinhasId = j.id;
-      _avRenderTudo();
-      _avRenderPainel();
-    } catch (e) { alert("Erro: " + e.message); }
+    // ⚠️ ANTES ESTE BOTÃO FAZIA UM POST. O orçamento nascia no servidor antes
+    // de a pessoa digitar qualquer coisa, e daí vinham três consequências que
+    // pareciam independentes: o `confirm()` destrutivo ao fechar ("você vai
+    // perder tudo"), a máquina `_avNovoPendente` que existia só para apagar o
+    // rascunho abandonado, e rascunhos órfãos no banco sempre que a aba caísse
+    // antes do fechamento — o que aconteceu de verdade, quatro vezes, numa
+    // sessão de teste.
+    //
+    // Agora o registro é LOCAL até a primeira ação que precise dele de fato
+    // (adicionar item, salvar, gerar PDF, enviar). Ver `_avGarantirRegistro`.
+    // Abrir e fechar sem tocar em nada não deixa rastro nenhum.
+    _avSelecionado = {
+      id: null,
+      numero: null,
+      status: "rascunho",
+      tipo: "pecas",
+      criado_em: new Date().toISOString(),
+      condominio_id: null,
+    };
+    _avCondoSel = null;
+    _avLinhas = []; _avLinhasId = null;
+    _avSujo = false;
+    _avRenderPainel();
     return;
   }
 
   if (!_avSelecionado) return;
-  const id = _avSelecionado.id;
+
+  // Fechar um rascunho que ainda não existe no servidor não tem o que apagar.
+  if (acao === "deletar" && _avSelecionado.id == null) { _avFecharModal(); return; }
+
+  // Toda ação abaixo precisa de um registro de verdade. É aqui que ele nasce,
+  // na primeira vez — ver `_avGarantirRegistro`.
+  let id;
+  try {
+    id = await _avGarantirRegistro();
+  } catch (e) {
+    if (msg) { msg.style.color = "var(--danger)"; msg.textContent = e.message; }
+    return;
+  }
 
   if (acao === "add-linha") {
     const desc     = document.getElementById("avNewDesc")?.value.trim();
@@ -12817,7 +13094,6 @@ async function _avAcao(acao) {
       await fetch(`/admin/orcamentos/avulsos/${id}`, { method: "DELETE", headers: authHeaders() });
       _avData = _avData.filter(o => o.id !== id);
       _avSelecionado = null; _avLinhas = []; _avLinhasId = null;
-      if (_avNovoPendente === id) _avNovoPendente = null;
       _avFecharModal();
       _avRenderTudo();
     } catch (e) { alert("Erro: " + e.message); }
@@ -12865,7 +13141,7 @@ async function _avAcao(acao) {
     });
     const j = await r.json();
     if (!r.ok) { if (msg) msg.textContent = j.error || "Erro"; return; }
-    if (_avNovoPendente === id) _avNovoPendente = null;   // salvou de propósito → não é mais descartável
+    _avSujo = false;   // acabou de salvar
     const idx = _avData.findIndex(o => o.id === id);
     if (idx !== -1) {
       Object.assign(_avData[idx], j);
@@ -14684,8 +14960,15 @@ function _pmBindEventos() {
    Ver docs/modulos/equipamentos.md.
    ============================================================ */
 
+// Preenchido quando pede ação, de fio em repouso — a mesma regra do selo do
+// resto do painel.
+// ⚠️ Duas correções aqui. "Etiqueta em branco" saía SEM classe nenhuma, ou
+// seja, texto puro no meio de uma coluna de selos — era um dos seis
+// vocabulários de estado que o estudo listou. E "Baixada" saía em vermelho
+// cheio: equipamento baixado é fim de linha, não emergência, e não pede nada
+// de ninguém. Os dois viram selo de fio neutro.
 const _EQ_STATUS_LABEL = {
-  etiqueta_livre:       ["Etiqueta em branco", ""],
+  etiqueta_livre:       ["Etiqueta em branco", "b-neutro"],
   instalado:            ["No condomínio", "b-ok"],
   oficina:              ["Na oficina", "b-warn"],
   aguardando_orcamento: ["Aguardando orçamento", "b-warn"],
@@ -14693,7 +14976,7 @@ const _EQ_STATUS_LABEL = {
   em_conserto:          ["Em conserto", "b-warn"],
   pronto:               ["Pronta para devolver", "b-ok"],
   devolvido:            ["Devolvida", "b-ok"],
-  baixado:              ["Baixada", "b-bad"],
+  baixado:              ["Baixada", "b-neutro"],
 };
 
 let _eqDados = [];
@@ -14741,7 +15024,7 @@ async function _eqCarregar() {
       const nome = eq.apelido || [eq.marca, eq.modelo].filter(Boolean).join(" ")
                  || (eq.tipo ? eq.tipo[0].toUpperCase() + eq.tipo.slice(1) : "—");
       return `<tr data-eq-codigo="${_eqEsc(eq.codigo)}" style="cursor:pointer;">
-        <td style="font-family:ui-monospace,Consolas,monospace;">${_eqFormatarCodigo(eq.codigo)}</td>
+        <td class="mono">${_eqFormatarCodigo(eq.codigo)}</td>
         <td>${_eqEsc(nome)}</td>
         <td>${_eqEsc(eq.condominio_nome || "—")}</td>
         <td><span class="badge ${cls}">${_eqEsc(label)}</span></td>

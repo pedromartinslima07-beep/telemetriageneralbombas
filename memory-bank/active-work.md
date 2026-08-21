@@ -7,7 +7,10 @@ aliases:
 ---
 # Trabalho em Andamento
 
-> Branch atual: `feature/equipamentos-qr` — saiu de `main` e **já traz o `main` de 17/08**
+> Branch atual: `feature/admin-chapa` — saiu da `main` em 19/08, **11 commits,
+> nada enviado ao GitHub ainda**. A `main` também tem 1 commit local (o
+> conserto do "erro ao remover usuário").
+> Branch anterior: `feature/equipamentos-qr` — saiu de `main` e **já traz o `main` de 17/08**
 > (landing pública + painel do cliente v3, mergeados e publicados nesse dia).
 > Última sessão registrada: **2026-08-17**.
 > Roadmap completo em [`roadmap.md`](roadmap.md); decisões em [`decisions.md`](decisions.md).

@@ -115,7 +115,12 @@ técnico, mostra data absoluta **e** relativa (`23/01/2027 · em 158 dias`,
 
 ---
 
-## Direção proposta (não implementada)
+## Direção — IMPLEMENTADA em 20–21/08/2026
+
+⚠️ Esta seção dizia "não implementada" até 20/08. As 15 telas foram migradas
+na branch `feature/admin-chapa`; o que segue é o que foi feito, não o que se
+pretendia. Os defeitos medidos acima ficam como **registro do antes** — não
+descrevem mais a tela.
 
 Registrada aqui porque é o que orienta qualquer mexida futura. O "porquê", as
 direções descartadas e o contrato de mundo visual estão em
@@ -137,8 +142,54 @@ Regra de superfície, tirada da tela de login que já está em produção:
 **marinho é moldura; placa clara é onde se lê e se edita** (ficha, modal,
 formulário).
 
-**Ordem de execução:** pele (só tokens + `@font-face`) → faixa, selo e rótulo
-(atingem 10 telas de uma vez) → ficha colapsável → tabela padrão.
+**Ordem de execução seguida:** pele (tokens + `@font-face`) → faixa, selo e
+rótulo → ficha colapsável → tabela padrão → placa clara nos modais → tela a
+tela.
+
+### O que cada decisão virou
+
+| # | Decisão | Resultado |
+|---|---|---|
+| 1 | Faixa de KPI em uma linha | 120–330px → **54px**, e virou **uma placa dividida por cortes**, não seis cartões |
+| 2 | Ficha só quando há ficha | Colapsa e desliza; gatilho `:has()` no placeholder, vale nas 6 telas de `.ch-*` + Atendimento |
+| 3 | Um selo de estado | Preenchido pede ação, de fio em repouso; **só uma dimensão preenche por linha** |
+| 4 | Rótulo declara a unidade | Unidade ao lado do NÚMERO (leitura de instrumento), não dentro do rótulo |
+| 5 | `planos` como molde | Aplicado em Chamados, Alertas, Clientes e no painel ao vivo de Relatórios |
+
+### O que a migração achou, e que o estudo não tinha visto
+
+- **"ALERTAS CRÍTICOS" na Telemetria era rótulo errado**, não ambíguo: o número
+  vem de `_alertasAtivosUnificados()`, que conta todos os alertas ativos. O
+  "8 aqui, 7 em Alertas" eram medidas diferentes, e uma mentia.
+- **A faixa de KPI de Alertas era uma segunda cópia da barra de abas** — mesmos
+  números, e clicar num card só trocava a aba. Removida; o tempo médio, único
+  número que as abas não davam, virou leitura na barra.
+- **Três KPIs de Chamados repetiam as abas logo abaixo.** Removidos. A divisão
+  agora é de pergunta: abas respondem "o que está na lista", faixa responde
+  "como estamos indo".
+- **"Uso do TTR" mostrava `12750%`.** Virou "estourou há 21 dias". O percentual
+  segue no `title`; a ordenação continua no `ORDER BY pct_ttr DESC`.
+- **A barra de estado do feed do Dashboard era ELEMENTO, não `border-left`** —
+  por isso o detector nunca a pegou.
+- **Papel de usuário e tipo de serviço estavam preenchidos**; categoria não é
+  estado. E "Etiqueta em branco" e "Baixada" estavam, respectivamente, sem selo
+  nenhum e em vermelho cheio.
+
+### Armadilhas que custaram tempo (não repetir)
+
+- **`clip-path` faz do elemento bloco de contenção para `position: fixed`.**
+  Chanfrar o `.main` quebrava o `#cfgModalOverlay` e o mapa em tela cheia, que
+  vivem dentro dele. Por isso **a moldura é esquadrada e só as peças são
+  cortadas**.
+- **`:has()` ignora `display: none`.** `.ch-layout:has(.al-empty)` com
+  descendente solto casava com um placeholder escondido na coluna da LISTA em
+  Orçamentos, e zerava o gap daquela tela. Caminho exato, sempre.
+- **Crase dentro de template literal fecha o template.** Um comentário HTML com
+  o nome de uma tag entre crases, dentro do render do modal de orçamento, virou
+  código: o modal abriu em branco e o `alert()` do catch travou o navegador.
+- **Tokens translúcidos sem `backdrop-filter` vazam.** `--surface` virou `rgba`
+  na troca de pele e o modal de histórico deixou a página aparecer através
+  dele. Os três de superfície agora são opacos.
 
 ⚠️ O risco está na consolidação do vocabulário, não na pele: 8.273 linhas e 22
 prefixos, com `.wa-*` e `.ch-*` atravessando 10 e 6 telas. Renomear com alias

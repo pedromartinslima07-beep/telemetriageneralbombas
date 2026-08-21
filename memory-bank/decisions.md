@@ -607,6 +607,77 @@ O caminho que sobrou não é um mundo novo: é o **Chapa que já existe**, em
 registro de operação. Mock de quatro telas construído em 18/08 sobre o dado
 real do banco de teste, sem tocar em `public/admin.css`.
 
+### Implementado em 20–21/08/2026 — o que a execução ensinou
+
+As 15 telas migraram na branch `feature/admin-chapa`. O plano sobreviveu quase
+inteiro; o que segue é o que **só apareceu ao construir**, e que vale mais que
+a confirmação do que já estava previsto.
+
+- **"Placa clara é onde se lê e se edita" era ambíguo demais para executar.**
+  Formulário é quase tudo: aplicada ao pé da letra, a regra levaria o painel
+  inteiro para o claro. A fronteira que funcionou é **"placa clara é o que ABRE
+  POR CIMA"** — modal, drawer, lightbox. O que fica lado a lado com o conteúdo
+  (coluna de ficha, card, tabela) é superfície de trabalho e continua marinho.
+  Motivo de leitura: coluna clara permanente ao lado de tabela marinho parte a
+  tela em dois campos que competem.
+
+- **Converter superfície é remapeamento de TOKEN, não reescrita de regra.**
+  Redeclarar `--text`, `--muted`, `--border` e a família de estado no contêiner
+  vira a subárvore inteira. Foi o que permitiu converter 11 modais + drawer com
+  um bloco de tokens cada, em vez de caçar centenas de seletores em 22
+  prefixos. **É a técnica que tornou a migração viável no prazo.**
+
+- **O remapeamento obrigou a inventar a distinção preenchimento × tinta.** Se
+  `--risco` vira tinta escura na placa clara, todo selo PREENCHIDO com ele fica
+  escuro sobre escuro. Daí os tokens crus (`--amarelo`, `--vermelho`,
+  `--verde`), que não flipam em superfície nenhuma. Regra curta: **fundo de
+  selo usa o cru; texto e borda usam o semântico.**
+
+- **A paleta categórica de gráfico tem teto de TRÊS, e é medido.** Com
+  vermelho, âmbar e verde reservados para estado, o lado quente do círculo está
+  fora — e só no lado frio duas matizes quaisquer colapsam sob deuteranopia. A
+  separação teve de vir da luminosidade. Uma quarta matiz dá ΔE 1,9 sob
+  protanopia. Série nº 4 vira "Outros", facetas ou outro gráfico, **nunca uma
+  cor nova**. E o slot 3 muda de MATIZ entre campo escuro e claro, não só de
+  degrau: em h 350 sobre claro ele encostava no `--risco-t`.
+
+- **Metade do trabalho não era pele.** Rótulo que mentia na Telemetria
+  ("ALERTAS CRÍTICOS" contava todos os alertas ativos), `12750%` no uso do TTR,
+  três KPIs de Chamados e a faixa inteira de Alertas repetindo as abas logo
+  abaixo, colunas inteiras em "—" em Clientes. **Redesenho de painel de
+  operação é auditoria de conteúdo com CSS junto** — quem orçar só o CSS
+  orça metade.
+
+- **Três armadilhas técnicas que custaram tempo** (detalhe em
+  [`../docs/modulos/painel-admin.md`](../docs/modulos/painel-admin.md)):
+  `clip-path` faz do elemento bloco de contenção para `position: fixed`;
+  `:has()` ignora `display: none` e casa com placeholder escondido; crase
+  dentro de template literal fecha o template.
+
+**Resolvido em 21/08:** a colisão das cores de estado sobre placa clara. Os
+valores antigos tinham "atenção" e "crítico" com luminosidade praticamente
+idêntica (L .494 e .499) e ambas as matizes quentes — sob deuteranopia a matiz
+colapsa e não sobrava nada (ΔE 1,2). A separação passou a vir da luminosidade
+(L .34 · .42 · .52) e o par que muda decisão foi de **1,2 para 15,4**.
+
+A lição que fica é sobre o método, não sobre os valores: **um par de cores de
+estado pode parecer obviamente distinto e ser idêntico para parte dos leitores
+— e a conta que revela isso é a luminosidade, não a matiz.** Vermelho e âmbar
+"são cores diferentes" para quem enxerga as duas; sob daltonismo vermelho-verde
+a única coisa que sobra é o quão escuro cada um é, e ali os dois eram iguais.
+
+⚠️ Continua em aberto, e agora é decisão consciente: os pares
+crítico↔em-ordem (5,9) e atenção↔em-ordem (6,9) seguem na faixa de piso. A
+banda utilizável é estreita — os três precisam de ≥ 4,5:1 como texto sobre a
+placa clara, o que trava L em ~.52 — e não cabe separar bem os três pares. A
+prioridade foi explícita: confundir "crítico" com "atenção" muda uma decisão;
+confundir qualquer um dos dois com "em ordem" não. **Isso só é aceitável
+porque estado neste sistema nunca aparece sem rótulo escrito.** Se um dia um
+estado for exibido só por cor, a conta precisa ser refeita antes.
+
+**Fica em aberto:** o app do técnico (`app/public/app.css`) não migrou e é a
+quarta identidade do produto.
+
 ## Decisões descartadas (e por quê)
 
 Registradas para não serem "redescobertas" e refeitas. Se o escopo mudar, o

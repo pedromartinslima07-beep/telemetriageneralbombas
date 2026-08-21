@@ -3104,6 +3104,75 @@ mensagem no sucesso, para rastrear a entrega no painel do Resend.
 A demora é outra coisa e continua: o PDF é gerado com Puppeteer antes do
 envio.
 
+### 2026-08-20/21 · O painel admin veste o Chapa
+
+As 15 telas do admin saíram do sistema "Mission Control" (âmbar `#f0b014`,
+aurora radial, vidro, raio 12px) e passaram a usar o **Chapa** da landing, do
+login e do painel do cliente, em registro de operação. Branch
+`feature/admin-chapa`, 11 commits. Direção e direções descartadas em
+[`../memory-bank/decisions.md`](../memory-bank/decisions.md); o antes/depois
+medido em [`modulos/painel-admin.md`](modulos/painel-admin.md); as regras
+novas do sistema em [`../DESIGN.md`](../DESIGN.md).
+
+**As cinco decisões do plano, todas implementadas:** faixa de KPI de 120–330px
+para 54px (e virando uma placa dividida, não seis cartões) · ficha que colapsa
+e desliza · um selo de estado (preenchido pede ação, de fio em repouso) ·
+unidade ao lado do número · `planos` como molde da tabela.
+
+**Regras novas que a migração obrigou a criar** (todas em `DESIGN.md`):
+
+- **A Regra da Superfície** — "placa clara é o que ABRE POR CIMA": modal,
+  drawer, lightbox. O que fica lado a lado com o conteúdo continua marinho.
+- **A Regra do Preenchimento Cru** — fundo de selo usa `--amarelo`/
+  `--vermelho`/`--verde` (que não flipam); texto e borda usam os semânticos
+  (que viram tinta na placa clara).
+- **A Regra da Paleta Categórica** — três slots, em ordem fixa, validados com
+  o validador da skill `dataviz` contra a superfície real do gráfico. O teto
+  de três é medido: uma quarta matiz fria dá ΔE 1,9 sob protanopia.
+
+**Correções de conteúdo, não de pele:** "ALERTAS CRÍTICOS" na Telemetria era
+rótulo errado (conta todos os alertas ativos) · "Uso do TTR" mostrava
+`12750%` e virou "estourou há 21 dias" · três KPIs de Chamados e a faixa
+inteira de Alertas repetiam as abas logo abaixo, e saíram.
+
+**Nav reagrupada** em Agora / Em curso / Cadastro / Análise / Sistema — por
+quando se abre, não pela ordem em que os módulos nasceram.
+
+**Detector da skill `impeccable`:** 947 → 822 achados; as 7 barras de cor na
+borda foram a zero.
+
+⚠️ O app mobile do técnico (`app/public/app.css`) **não** migrou: tem cópia
+própria dos tokens com `--accent: #f0b014`. É a quarta identidade do produto
+até ser tratado.
+
+### 2026-08-21 · As cores de estado sobre placa clara eram a mesma cor
+
+`--atencao-t` (#8a5300) e `--risco-t` (#b3241a) tinham **luminosidade
+praticamente idêntica** — L .494 e .499 em OKLCH — e as duas matizes são
+quentes. Sob deuteranopia a matiz colapsa e não sobra nada: **ΔE 1,2**. Ou
+seja, "atenção" e "crítico" eram indistinguíveis para quem tem daltonismo
+vermelho-verde, justamente nos dois estados cuja confusão muda uma decisão.
+
+Isso valia nas quatro superfícies (landing, login, painel do cliente e admin),
+e o painel do cliente está em produção.
+
+**A separação passou a vir da luminosidade**, que sobrevive ao daltonismo:
+
+| | antes | agora |
+|---|---|---|
+| `--risco-t` | `#b3241a` L .499 | `#790000` L .34 · 9,7:1 |
+| `--normal-t` | `#145c33` L .421 | `#105c31` L .42 · 6,8:1 |
+| `--atencao-t` | `#8a5300` L .494 | `#886116` L .52 · 4,7:1 |
+
+Crítico ↔ atenção foi de **ΔE 1,2 para 15,4**. Os outros dois pares (5,9 e
+6,9) seguem na faixa de piso por falta de espaço — os três precisam de ≥ 4,5:1
+como texto sobre a placa, o que trava L em ~.52 — e isso é aceitável porque
+estado neste sistema nunca aparece sem rótulo escrito. Detalhe e prioridade em
+[`../DESIGN.md`](../DESIGN.md), Regra dos Dois Campos de Estado.
+
+Saiu junto o `#a81b12` das mensagens de erro de formulário (login e landing):
+era um quarto vermelho escrito à mão, e agora aponta para `--risco-t`.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

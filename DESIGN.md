@@ -207,34 +207,45 @@ components:
     padding: "0"
 ---
 
-# Design System: General Telemetria — Landing Pública
+# Design System: General Telemetria — Sistema "Chapa"
 
-> **Fronteira do documento — revisada em 2026-08-13.** Este arquivo descreve o
-> sistema **"Chapa"**, que hoje veste **três superfícies voltadas ao cliente**:
-> a landing pública (`/`), a tela de login (`/login`) e o **painel do cliente**
-> (`/cliente/painel`). As três são a mesma jornada — conhecer, entrar, usar — e
-> não podem parecer três empresas.
+> **Fronteira do documento — revisada em 2026-08-21.** Este arquivo descreve o
+> sistema **"Chapa"**, que hoje veste **quatro superfícies**: a landing pública
+> (`/`), a tela de login (`/login`), o **painel do cliente**
+> (`/cliente/painel`) e o **painel admin** (`/admin/painel`).
 >
-> O **painel admin** (`public/admin.css`, "Mission Control", âmbar `#f0b014`) e
-> o **app mobile do técnico** continuam num sistema **separado**, e essa
-> separação segue sendo decisão registrada, não pendência: o admin é ferramenta
-> de operação interna, com densidade de quem olha N condomínios. **Nenhum token
-> do admin entra aqui, e nenhum daqui entra lá.**
+> ⚠️ **O painel admin entrou em 20–21/08/2026, e isso INVERTE o que esta caixa
+> dizia.** Até então ela afirmava que o admin seguia num sistema separado
+> ("Mission Control", âmbar `#f0b014`) e que **nenhum token cruzava a
+> fronteira** — decisão registrada, não pendência. O Pedro reabriu isso em
+> 18/08 pedindo que o admin se aproximasse do Chapa; as 15 telas foram
+> migradas em 20–21/08. O "porquê" e as duas direções descartadas estão em
+> [decisions.md](memory-bank/decisions.md); as evidências medidas, em
+> [painel-admin.md](docs/modulos/painel-admin.md).
 >
-> ⚠️ Até 2026-08-13 esta fronteira dizia "nada aqui deve ser aplicado ao painel
-> do cliente". Aquilo foi escrito quando o painel do cliente não estava em
-> questão — e era justamente o que fazia o síndico sair de uma landing marinho
-> e cair num painel preto e âmbar. Mudança pedida pelo Pedro; o "porquê" está
-> em [decisions.md](memory-bank/decisions.md).
+> O **app mobile do técnico** (`app/public/app.css`) é o único que continua
+> fora, **por decisão de escopo, não por princípio**: ele tem cópia própria
+> dos tokens com `--accent: #f0b014`. Enquanto não migrar, é a quarta
+> identidade do produto — e isso é dívida conhecida, não desenho.
 >
-> As três superfícies **duplicam os tokens de propósito** (`landing.css`,
-> `login.css`, `cliente.css`), porque são servidas em páginas diferentes e não
-> compartilham CSS. **Mudou a paleta? Mude nos três.**
+> **O admin não é uma quinta cópia do mesmo registro.** Ele usa o Chapa em
+> **registro de operação**, e as diferenças são deliberadas:
+>
+> | | Cliente / landing | Admin |
+> |---|---|---|
+> | Corpo | 17px, medida de linha em `ch` | 13px, sem limite de medida |
+> | Rampa | fluida (`clamp`) | fixa em `px`/`rem` |
+> | Gestos retóricos | revelação por corte, engrenagens, inversão de campo | nenhum |
+> | Densidade | uma leitura por tela | tabela de 40 linhas |
+>
+> As quatro superfícies **duplicam os tokens de propósito** (`landing.css`,
+> `login.css`, `cliente.css`, `admin.css`), porque são servidas em páginas
+> diferentes e não compartilham CSS. **Mudou a paleta? Mude nos quatro.**
 >
 > Contexto de produto: [PRODUCT.md](PRODUCT.md) · Fluxos:
 > [Landing pública](docs/modulos/landing-publica.md) ·
-> [Painel do cliente](docs/modulos/painel-cliente.md) · Índice:
-> [Home](Home.md)
+> [Painel do cliente](docs/modulos/painel-cliente.md) ·
+> [Painel admin](docs/modulos/painel-admin.md) · Índice: [Home](Home.md)
 
 ## Overview
 
@@ -346,13 +357,97 @@ famílias**, e usar a errada é erro de contraste, não de gosto:
 
 | Estado | Sobre marinho | Tinta sobre placa clara |
 |---|---|---|
-| Crítico | `--risco` `#ff5a4d` | `--risco-t` `#b3241a` |
-| Atenção | `--amarelo` `#fbb329` | `--atencao-t` `#8a5300` |
-| Repouso | `--normal` `#63d8a0` | `--normal-t` `#145c33` |
+| Crítico | `--risco` `#ff5a4d` | `--risco-t` `#790000` (L .34 · 9,7:1) |
+| Atenção | `--amarelo` `#fbb329` | `--atencao-t` `#886116` (L .52 · 4,7:1) |
+| Repouso | `--normal` `#63d8a0` | `--normal-t` `#105c31` (L .42 · 6,8:1) |
+
+⚠️ **A família `-t` foi RE-DEGRAUADA em 21/08/2026, e o motivo importa.** Os
+valores anteriores (`#b3241a` · `#8a5300` · `#145c33`) davam **ΔE 1,2 sob
+deuteranopia** entre "crítico" e "atenção" — na prática, a mesma cor para quem
+tem daltonismo vermelho-verde, e justamente nos dois estados cuja confusão
+muda uma decisão. A causa era simples de ver depois de medida: as duas tinham
+**luminosidade praticamente idêntica** (L .494 e .499) e ambas as matizes são
+quentes. Sob deuteranopia a matiz colapsa, e não sobrava nada.
+
+A separação agora vem da **luminosidade**, que sobrevive ao daltonismo. Como
+os três precisam de ≥ 4,5:1 como texto sobre `--chapa`, a banda utilizável vai
+só até L ≈ .52 — não cabe separar bem os três pares. A prioridade foi
+explícita:
+
+| Par | Antes | Agora | Por quê |
+|---|---|---|---|
+| **crítico ↔ atenção** | ΔE 1,2 | **15,4** | é o par cuja confusão muda decisão |
+| crítico ↔ em ordem | 4,3 | 5,9 | os dois extremos; confundir não gera ação errada |
+| atenção ↔ em ordem | — | 6,9 | ambos significam "não é emergência" |
+
+⚠️ Os dois últimos pares seguem na faixa de piso (6–8), **e isso só é
+aceitável porque estado neste sistema nunca aparece sem rótulo escrito** — a
+cor é reforço, não a informação. Se algum dia um estado for exibido só por
+cor, esta conta precisa ser refeita antes.
 
 Quando o estado precisa de **forma**, e não de texto, ele vira **placa
 chanfrada preenchida com tinta legível por cima** — é o que fazem as badges de
 severidade, os pills de status e a placa do ícone do KPI.
+
+**A Regra do Preenchimento Cru.** Nasceu ao levar o admin para placa clara
+(21/08). Dentro de `.modalBox`, `.drawer-panel` e `.av-modal-dialog` os tokens
+semânticos **viram tinta** — é isso que mantém o texto legível lá. Mas **selo
+preenchido não pode acompanhar**: uma placa de fundo `--risco-t` com tinta
+marinho por cima é escuro sobre escuro. Por isso existem três tokens **crus**,
+que não flipam em superfície nenhuma:
+
+| Papel | Token | Uso |
+|---|---|---|
+| Preenchimento | `--amarelo` · `--vermelho` · `--verde` | **fundo** de selo, sempre com tinta marinho por cima |
+| Tinta | `--warn` · `--risco` · `--ok` (e `--accent`) | **texto e borda**, e flipam para a família `-t` na placa clara |
+
+Regra curta: **fundo de selo usa o cru; texto e borda usam o semântico.**
+
+**A Regra do Selo.** Um selo de estado é **placa chanfrada preenchida quando
+pede ação, e de fio em repouso**. Isso não é estética: é o que faz uma tela com
+tudo em ordem ficar calma por construção, e um item crítico saltar de uma
+tabela de 40 linhas sem piscar. Quando duas dimensões de estado convivem na
+mesma linha, **só uma preenche** — a que grita — e a outra fica de fio:
+
+| Tela | Preenche | De fio |
+|---|---|---|
+| Chamados | prioridade | status |
+| Alertas | severidade | status |
+| O.S. | resultado | status |
+
+⚠️ **Categoria não é estado.** Tipo de serviço, papel de usuário, origem do
+alerta e categoria do chamado **nunca preenchem** — quem distingue é o rótulo.
+Preenchê-los faz o painel inteiro gritar ao mesmo tempo, que é o mesmo que não
+gritar.
+
+**A Regra da Paleta Categórica.** Cor de série em gráfico é **identidade**, e
+identidade não pode colidir com estado. Como `--risco`, `--amarelo` e `--ok`
+estão reservados, **o lado quente do círculo está fora** — e, só no lado frio,
+duas matizes quaisquer colapsam sob deuteranopia. A separação vem da
+**luminosidade**, e o resultado são **três slots em ordem fixa**:
+
+| Slot | Sobre marinho | Sobre placa clara |
+|---|---|---|
+| 1 | `--serie-1` `#2f6fe0` (L .564 · h 261) | `--serie-1-claro` `#1f60d4` (L .520) |
+| 2 | `--serie-2` `#00a8af` (L .665 · h 200) | `--serie-2-claro` `#00929c` (L .590) |
+| 3 | `--serie-3` `#bd3a80` (L .555 · h 350) | `--serie-3-claro` `#93167f` (L .470 · **h 325**) |
+
+⚠️ **O slot 3 muda de MATIZ entre os dois campos, não só de degrau.** Em h 350
+sobre claro ele encostava no `--risco-t` (ΔE 12,5 a olho normal, abaixo do piso
+de 15) e uma série seria lida como estado crítico.
+
+⚠️ **Três é o teto, e é medido.** Uma quarta matiz fria dá ΔE 1,9 sob
+protanopia. Série nº 4 vira "Outros", vira facetas, ou vira outro gráfico —
+**nunca uma cor nova**. Valores validados com o validador da skill `dataviz`
+contra a superfície real (`#051342` no escuro, `#e8ebf2` no claro): todos os
+pares passam em faixa de luminosidade, piso de croma, separação CVD e
+contraste ≥ 3:1.
+
+⚠️ **Achado colateral, não resolvido:** sobre placa clara, `--atencao-t` e
+`--risco-t` dão ΔE 1,2 sob deuteranopia (e 11,5 a olho normal), e `--normal-t`
+× `--risco-t` dão 4,3 sob protanopia. Isso vale **também no painel do
+cliente**, que está em produção. O que salva hoje é a regra de que estado
+sempre vem com rótulo escrito — a cor nunca está sozinha.
 
 **A Regra da Água Visível.** A lâmina d'água abre em `--agua` (`#2f6fe0`) no
 painel e em `--mar-500` na landing. Não é inconsistência: na landing a coluna
@@ -518,6 +613,29 @@ o botão de fio), o contorno é chapa de verdade: o **fundo do próprio elemento
 interna. É essa construção que permite ao instrumento trocar a cor do anel por
 estado sem trocar a moldura.
 
+**A Regra da Superfície.** Tirada da tela de login, que está em produção
+desde 11/08: **marinho é moldura; placa clara é onde se lê e se edita.** Ao
+aplicar isso ao admin (21/08) a regra precisou de uma fronteira mais afiada,
+porque "formulário" sozinho levaria o painel inteiro para o claro:
+
+> **Placa clara é o que ABRE POR CIMA do painel.** Modal, drawer, lightbox.
+> O que fica lado a lado com o conteúdo — coluna de ficha, card de
+> configuração, tabela — é superfície de trabalho e continua marinho.
+
+O motivo é de leitura, não de gosto: uma coluna clara permanente ao lado de uma
+tabela marinho parte a tela em dois campos que competem, e nenhum dos dois vence.
+Já uma placa clara que aparece **por cima**, com o campo escurecido atrás,
+declara "agora é aqui" sem disputar com nada.
+
+⚠️ **Converter uma superfície para claro é remapeamento de token, não reescrita
+de regra.** Redeclarar `--text`, `--muted`, `--border`, `--surface` e a família
+de estado **no contêiner** vira a subárvore inteira de uma vez — sem caçar
+seletor e sem o risco de esquecer um e deixar texto branco sobre fundo branco.
+No admin isso converteu 11 modais mais o drawer com um bloco de tokens cada.
+O que **não** se remapeia: `--amarelo`/`--vermelho`/`--verde` (crus, ver A Regra
+do Preenchimento Cru) e `--mar-800`/`--mar-900`, que são a tinta de quem pousa
+sobre o amarelo — remapeá-los apagaria o rótulo do botão primário.
+
 **A Regra do Plano Único.** Nenhum elemento novo pode ganhar sombra projetada
 para se destacar. Se precisa de destaque, sobe um degrau de marinho, ganha fio
 mais forte ou ganha amarelo — nesta ordem.
@@ -608,9 +726,9 @@ célula em amarelo sobre marinho (livre, pela Regra do Amarelo Cego), corpo a
   assim que a pessoa começa a corrigir.
 - **Select:** aparência nativa removida, seta desenhada em SVG com traço
   esquadrado.
-- **Mensagem de retorno:** erro `#a81b12`, sucesso `#145c33` — ambos escuros o
-  bastante para a placa clara, e ambos fora do amarelo por causa da Regra do
-  Amarelo Cego.
+- **Mensagem de retorno:** erro `--risco-t`, sucesso `--normal-t` — os mesmos
+  da família de estado, e não um par próprio. Antes eram `#a81b12` e `#145c33`
+  escritos à mão, o que criava um quarto vermelho no sistema.
 
 ### Navigation
 
@@ -726,8 +844,26 @@ congelado no momento que importa — o alerta crítico já aberto.
   Dois Campos de Estado.
 - **Don't** encolher o corpo de texto no mobile do painel. As quebras são
   estruturais; o tamanho é requisito de público.
-- **Don't** importar tokens, componentes ou o âmbar do `public/admin.css`
-  para estas superfícies — e nem o contrário. São dois sistemas, por decisão.
+- **Don't** tratar o `public/admin.css` como sistema estrangeiro: desde
+  21/08/2026 ele É este sistema, em registro de operação. O que continua fora
+  é o `app/public/app.css` (app do técnico), e por escopo, não por princípio.
+- **Don't** preencher selo de CATEGORIA (tipo de serviço, papel de usuário,
+  origem, categoria de chamado). Preenchimento é reservado a estado que pede
+  ação — ver A Regra do Selo.
+- **Don't** usar token semântico (`--risco`, `--warn`, `--ok`, `--accent`) como
+  FUNDO de selo: dentro de placa clara ele vira tinta e o selo fica escuro
+  sobre escuro. Fundo usa o cru (`--vermelho`, `--amarelo`, `--verde`).
+- **Don't** acrescentar uma quarta cor de série num gráfico. O teto de três é
+  medido, não estilístico — ver A Regra da Paleta Categórica.
+- **Don't** dar `clip-path` a um contêiner que hospede `position: fixed`
+  (modal, mapa em tela cheia). `clip-path` faz do elemento bloco de contenção
+  para descendentes fixos, e eles passam a se posicionar — e a ser recortados
+  — em relação a ele. É por isso que a moldura do admin é esquadrada e só as
+  peças são cortadas.
+- **Don't** escrever `:has()` com descendente solto para detectar estado
+  vazio. `:has()` ignora `display: none` e casa com o que está no DOM: um
+  placeholder escondido em outra coluna dispara a regra. Use caminho exato
+  (`:has(> .col > .placeholder)`).
 - **Don't** fazer o painel do cliente voltar a carregar `admin.css`. Foi o
   defeito central que este redesenho desfez: toda evolução do painel de
   operação caía no painel do síndico sem revisão. Ver
