@@ -200,6 +200,29 @@ antes o `orcamento-pdf.service` achava a linha por **regex na descrição**
 sumir do documento em silêncio. O regex segue no código como fallback para
 linhas anteriores à migration; o backfill marcou as que ainda casavam com o
 padrão. Linha de peça continua `NULL`.
+074: **a resposta do cliente** — `cliente_comentario TEXT`, `respondido_em
+TIMESTAMPTZ`, `respondido_por (FK usuarios, SET NULL)`. Três distinções que
+custaram coluna própria em vez de reaproveitar o que já existia:
+
+- `cliente_comentario` **não** é `motivo_rejeicao`. Vale para aprovação também
+  — é comum aprovar com ressalva ("pode fazer, mas só na semana que vem") —,
+  e `motivo_rejeicao` só faz sentido quando a resposta é não. O endpoint grava
+  nos dois quando a resposta é recusa.
+- `respondido_em` **não** é `aprovado_em`. `aprovado_em` só marca o sim; sem
+  coluna própria, uma recusa não teria data nenhuma.
+- `respondido_por` **não** é `aprovado_por`. Este é sempre o **cliente** que
+  respondeu pelo painel; `aprovado_por` continua podendo ser alguém do
+  escritório registrando por fora. Distinguir os dois é o ponto da migration —
+  sem isso não dá para saber se o "aprovado" veio do cliente ou de quem
+  digitou.
+
+Índice parcial `idx_orcamentos_condo_status (condominio_id, status) WHERE
+condominio_id IS NOT NULL` — cobre a listagem da tela do cliente.
+
+⚠️ **Pessoa física / orçamento avulso não entra neste fluxo**, por escopo: quem
+não tem condomínio não tem login, e a resposta dele continua vindo por fora.
+
+✅ **Aplicada em produção em 24/08/2026.**
 > A tabela `orcamento_itens` (025) foi migrada e **removida** em 030.
 
 ### Equipamentos e etiqueta QR — migration 070

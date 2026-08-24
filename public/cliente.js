@@ -1260,5 +1260,40 @@ addEventListener("scroll", () => {
   $("barra").classList.toggle("is-rolada", scrollY > 12);
 }, { passive: true });
 
+/* ── Selo de orçamento aguardando ────────────────────────────────────────
+   Conta só os `enviado` — os já respondidos não pedem nada de ninguém.
+
+   Request própria, e não um campo no payload do painel, porque a lista de
+   orçamentos tem escopo e regra de visibilidade próprios no backend
+   (`_ORC_VISIVEIS_AO_CLIENTE`), e duplicar isso no endpoint do painel seria
+   duas fontes da mesma verdade. Roda uma vez na carga: orçamento não chega
+   de minuto em minuto como leitura de sensor, então não entra no ciclo de
+   10s do `carregar()`.
+
+   Falha em silêncio de propósito — se a lista não vier, o cabeçalho fica sem
+   selo e o link continua funcionando. Não há nada que o síndico possa fazer
+   com uma mensagem de erro aqui. */
+async function pintarSeloOrc() {
+  const selo = $("orcSelo");
+  if (!selo) return;
+  try {
+    const r = await pedir("/cliente/orcamentos");
+    if (!r.ok) return;
+    const j = await r.json();
+    const pend = (j.orcamentos || []).filter(o => o.status === "enviado").length;
+    if (!pend) return;
+    selo.textContent = pend;
+    selo.hidden = false;
+    // O alvo é o link inteiro: quem usa leitor de tela ouve o motivo de o
+    // selo estar aceso, não só o número solto.
+    selo.closest(".conta-orc")?.setAttribute(
+      "aria-label",
+      pend === 1 ? "Orçamentos — 1 aguardando sua resposta"
+                 : `Orçamentos — ${pend} aguardando sua resposta`
+    );
+  } catch (_) { /* silêncio proposital, ver acima */ }
+}
+
 carregar();
 setInterval(carregar, 10000);
+pintarSeloOrc();

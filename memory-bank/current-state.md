@@ -106,6 +106,11 @@ ESP32 (sonda 4-20mA + SCT-013)
 - ⚠️ O **app do técnico** (`app/public/app.css`) não migrou e mantém
   `--accent: #f0b014` — quarta identidade, dívida conhecida.
 - Sidebar colapsável, topbar, mission control grid, feed em tempo real.
+- **A nav da sidebar cabe inteira na tela** (24/08/2026): os rótulos de seção
+  viraram filetes de 1px e as faixas de `@media (max-height)` foram
+  recalculadas por medição (Puppeteer varrendo de 1 em 1px, confirmado no
+  Chrome real). Com os 15 itens visíveis a nav não rola acima de 614px de
+  viewport. Ver [decisions.md](decisions.md).
 - **Mapa interativo Leaflet** (tiles OpenStreetMap + filtro CSS dark): pinos por
   status, painel lateral com tabs, KPIs, donuts, classificação por zona de SP.
 - Cadastro de coordenadas com **geocoding híbrido** (ViaCEP + BrasilAPI +
@@ -299,6 +304,33 @@ A v1 (13/08) foi rejeitada por manter a casca do admin — ver
 - ⚠️ **Nada foi verificado contra o backend real**; a validação foi em harness
   estático, contact sheet de 8 estados × 2 tamanhos (1920px e 390px).
 
+**Orçamentos do cliente** — `public/cliente-orcamentos.{html,js}`, rota de
+página `/cliente/painel/orcamentos?orc=N` 🟡 **no ar, nunca visto logado**
+
+Segunda página do painel do cliente (21/08/2026), onde o síndico aprova, recusa
+ou comenta um orçamento — antes a resposta voltava por telefone/WhatsApp e quem
+registrava era o escritório.
+
+- **É PÁGINA, NÃO MODAL.** Lista e documento são dois estados da mesma página,
+  trocados por `history.pushState`. A v1, em fichas abertas por um card do
+  painel, foi recusada: orçamento é documento que a pessoa lê, pensa e mostra
+  para outra antes de responder — pede URL própria, rolagem inteira e o voltar
+  do celular. Ver [decisions.md](decisions.md).
+- **Material: papel.** Chapas claras sobre o campo marinho, ao contrário do
+  painel, que é instrumento. Barra e rodapé seguem marinho, senão a pessoa acha
+  que saiu do sistema. Usa a mesma `cliente.css` — é o mesmo produto, não um
+  lugar novo.
+- ⚠️ **A página não pode morar em `/cliente/orcamentos`**: as rotas de página
+  são registradas antes do `app.use("/cliente", ...)` e ela sombrearia o `GET`
+  da API de mesmo nome. Página é nome de tela, API é nome de recurso.
+- ⚠️ **Nada aqui pode ser `<a href>` para rota autenticada.** O `authRequired`
+  lê só o header `Bearer`; não há cookie de sessão. Foi assim que o botão do
+  PDF nasceu quebrado (consertado em 24/08 — ver
+  [../docs/changelog.md](../docs/changelog.md)).
+- 🔴 **O convite no e-mail está DESLIGADO** (`ORCAMENTO_LINK_PAINEL`, ausente =
+  desligado) até a tela ser validada logada. Sem ele o e-mail sai só com o PDF,
+  como sempre saiu.
+- ✅ **Migration 074 aplicada em produção** em 24/08/2026.
 **Tela de login** — `public/login.html` + `login.css` + `login.js`
 - Desde 2026-08-13 segue o sistema **"Chapa"** da landing (split screen,
   marinho + `#fbb329`, chanfro de 45°), **não** o âmbar do painel: `/login` é a

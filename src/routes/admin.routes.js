@@ -23,6 +23,16 @@ const { getConversasCleanupStatus, jobLimparConversas } = require("../jobs/conve
 
 const router = express.Router();
 
+// Liga/desliga o convite "Ver o orçamento e responder" no e-mail de orçamento.
+// O porquê de estar desligado está no bloco linkPainel de
+// POST /orcamentos/avulsos/:id/enviar-email — o único lugar que manda este
+// e-mail. Lido a cada envio, e não uma vez na carga do
+// módulo, para que mudar a variável no Railway não exija reiniciar o processo.
+function _linkPainelLigado() {
+  const v = String(process.env.ORCAMENTO_LINK_PAINEL || "").trim().toLowerCase();
+  return v === "1" || v === "true" || v === "sim";
+}
+
 // GET /admin/status  (AGRUPADO POR CONDOMÍNIO -> LISTA RESERVATÓRIOS)
 router.get("/status", authRequired, adminOnly, async (req, res) => {
   try {
@@ -1644,6 +1654,20 @@ router.post("/orcamentos/avulsos/:id/enviar-email", authRequired, adminOnly, asy
       filename: `orcamento-${orc.numero || id}.pdf`,
         mensagem,
         assinaturaDataUrl,
+        // ⚠️ DESLIGADO POR PADRÃO (24/08/2026). A tela do cliente existe e
+        // está no ar, mas ainda não foi validada com ninguém logado — e este
+        // e-mail vai para síndico de cliente real. Enquanto não for aprovada,
+        // o e-mail sai como sempre saiu: só com o PDF anexado, e a resposta
+        // volta por telefone/WhatsApp como já voltava. Nada quebra com o link
+        // ausente: sendOrcamentoCliente já trata linkPainel null, e o convite
+        // inteiro some do HTML e do texto puro.
+        //
+        // PARA RELIGAR: ORCAMENTO_LINK_PAINEL=1 no Railway. É variável de
+        // ambiente de propósito — religar não deve exigir deploy, e desligar
+        // de novo (se a tela mostrar problema com cliente real) precisa ser
+        // questão de segundos.
+        //
+        // As outras duas condições são permanentes:
         // Só condomínio tem login, então só ele recebe o convite. Sem
         // APP_URL configurada não dá para montar link absoluto — e link
         // relativo em e-mail não abre lugar nenhum. Nesses dois casos o
@@ -1652,7 +1676,7 @@ router.post("/orcamentos/avulsos/:id/enviar-email", authRequired, adminOnly, asy
         // O link cai DIRETO no documento, não na lista: quem clica veio de um
         // e-mail sobre UM orçamento e não deve ter que procurá-lo. Sem sessão,
         // o /login devolve para cá depois de entrar.
-        linkPainel: (orc.condominio_id && process.env.APP_URL)
+        linkPainel: (_linkPainelLigado() && orc.condominio_id && process.env.APP_URL)
           ? `${String(process.env.APP_URL).replace(/\/$/, "")}/cliente/painel/orcamentos?orc=${orc.id}`
           : null,
       });

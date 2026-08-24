@@ -7,13 +7,171 @@ aliases:
 ---
 # Trabalho em Andamento
 
-> Branch atual: `feature/admin-chapa` — saiu da `main` em 19/08, **11 commits,
-> nada enviado ao GitHub ainda**. A `main` também tem 1 commit local (o
-> conserto do "erro ao remover usuário").
-> Branch anterior: `feature/equipamentos-qr` — saiu de `main` e **já traz o `main` de 17/08**
-> (landing pública + painel do cliente v3, mergeados e publicados nesse dia).
-> Última sessão registrada: **2026-08-17**.
+> Branch atual: **`main`**, limpa. `feature/admin-chapa` (11 commits) e a tela
+> de orçamento do cliente já foram mergeadas — a produção
+> (`telemetria.generalbombas.com`) está servindo as duas.
+> Última sessão registrada: **2026-08-24**.
 > Roadmap completo em [`roadmap.md`](roadmap.md); decisões em [`decisions.md`](decisions.md).
+
+> ✅ **Schema de produção em dia:** 074 aplicada em 24/08; a 073 já estava
+> aplicada (rodou sem emitir NOTICE nenhum).
+>
+> ⚠️ O proxy público do Railway dá `ETIMEDOUT` esporádico: em 24/08 o
+> `migrate.js` falhou assim e minutos depois o mesmo host aplicou sem
+> reclamar. **`ETIMEDOUT` não diz nada sobre a migration** — é a conexão nem
+> chegando; tentar de novo resolve.
+>
+> ⚠️ **Não diagnosticar isso com `Test-NetConnection`.** Nesta máquina ele
+> devolve `TcpTestSucceeded=False` para proxy que está no ar — errou o
+> `hayabusa` duas vezes e o `interchange` uma, e me fez concluir que o banco de
+> teste tinha caído. Um `TcpClient.ConnectAsync` conecta nos dois em ~190ms.
+> Os dois bancos estão de pé.
+
+## Sessão 2026-08-24 — O link do orçamento estava indo para cliente real
+
+Pedro retomou a tela de orçamento do cliente (commit `3129292`, de 21/08) com
+um aviso: **o e-mail já estava saindo com o link para cliente real** e a tela
+nunca tinha sido validada com ninguém logado.
+
+Verificado antes de mexer: a página **está no ar** — `GET
+/cliente/painel/orcamentos?orc=1` responde 200 e o JS é servido. Ou seja, o
+link não caía em 404; o risco era a tela quebrar depois do login.
+
+### O que estava quebrado de fato
+
+O botão "Abrir o PDF" era `<a href>` para `GET /cliente/orcamentos/:id/pdf`,
+que é `authRequired`. O `authRequired` (`src/middleware/authRequired.js`) lê
+**só** o header `Authorization: Bearer` — não há cookie de sessão neste
+sistema — e navegação por link não manda header nenhum. Resultado garantido,
+para todo cliente: aba nova com `{"error":"Token ausente"}`.
+
+Consertado com o padrão que o próprio `public/cliente.js` já usa (`baixarPDF`):
+`<button data-pdf>` → `baixarPdf()`, com `fetch` + `authHeaders()`, blob e
+âncora com `download`. **Download em vez de aba nova** porque `window.open`
+depois de um `await` cai no bloqueador de pop-up do celular — que é justamente
+onde o link do e-mail é aberto.
+
+Cache-bust: `cliente.css` v31→v32 nos dois HTMLs, `cliente-orcamentos.js`
+v1→v2. `CACHE_NAME` do SW **não** subiu: não entrou endpoint novo e `/cliente`
+já estava na lista network-first.
+
+### O convite no e-mail foi desligado (decisão do Pedro)
+
+`linkPainel` em `POST /admin/orcamentos/avulsos/:id/enviar-email` agora depende
+de `_linkPainelLigado()`, que lê `ORCAMENTO_LINK_PAINEL` e está **desligado por
+padrão**. Com a chave fora, o e-mail volta a sair como sempre saiu — só o PDF
+anexado — porque `sendOrcamentoCliente` já removia o convite inteiro quando
+`linkPainel` é null.
+
+Variável de ambiente, e não constante no código, de propósito: **religar não
+deve exigir deploy**, e desligar de novo (se a tela mostrar problema com
+cliente real) precisa ser questão de segundos. **Para religar:**
+`ORCAMENTO_LINK_PAINEL=1` no Railway.
+
+### O redesenho do documento (segunda parte da sessão)
+
+Pedro viu a tela e apontou duas coisas: o acesso estava **enterrado dentro de
+"Sua conta"**, e o documento era **esparso demais**. Referência que ele
+mandou: a página pública de NF-e do Omie.
+
+⚠️ **A instrução foi explícita: "não quero que copie a página, é só para você
+entender o conceito."** O que veio de lá é a disciplina de informação —
+nenhum dado sem rótulo, tudo em blocos nomeados, ações agrupadas num painel.
+A pele continua Chapa. Nada de canto arredondado, verde-menta ou coluna
+lateral.
+
+Feito: ícone de orçamentos no cabeçalho do painel com selo de pendência ·
+número vira título · faixa de metadados rotulados · condições em células ·
+tabela com total por linha e soma · ficha técnica sob a descrição · painel
+"Documentos" · seções com título e linha de apoio · tabela vira lista
+rotulada abaixo de 760px.
+
+⚠️ **LIÇÃO DA SESSÃO — verificar em tela não basta; tem que ser a tela
+certa.** A primeira rodada foi "verificada" e mesmo assim o Pedro abriu e
+achou três defeitos em dois minutos. As três falhas do método:
+
+1. **Só o documento, nunca a lista.** Todos os cenários entravam direto em
+   `?orc=N`. A pergunta "e se tiver mais de um orçamento?" não tinha
+   resposta porque nunca renderizei dois.
+2. **Só a 1440px.** A tela do Pedro tem ~1900 de largura útil. Uma coluna de
+   780px que parece razoável a 1440 vira uma tira com 800px de vazio ao lado.
+3. **Nunca uma página curta.** O rodapé flutuando no meio só aparece quando o
+   conteúdo é menor que a viewport — o caso mais comum desta tela.
+
+E uma quarta, de execução: **fechei a aba do Chrome no fim.** Se tivesse
+deixado aberta, ele teria visto na hora em vez de descobrir depois.
+
+⚠️ **Medir no DOM, não confiar na captura.** O `display: flex` que pus no
+`<body>` para colar o rodapé encolheu o `.folha` de 1240px para 740px (a
+`margin: 0 auto` do filho desliga o stretch num contêiner flex). A olho a
+página parecia certa; só `getBoundingClientRect` mostrou. Mesma lição já
+registrada na reconstrução do painel do cliente.
+
+Detalhe do antes/depois em [`../docs/changelog.md`](../docs/changelog.md).
+
+### Pendências desta frente
+
+- [x] ~~Rodar a migration 074~~ — **aplicada em produção em 24/08.** As três
+      colunas (`cliente_comentario`, `respondido_em`, `respondido_por`)
+      apareceram na listagem que o `migrate.js` imprime ao fim.
+- [x] ~~Rodar a 073~~ — **já estava aplicada.** Rodada em 24/08 sem emitir
+      nenhum NOTICE, ou seja, não achou FK em NO ACTION para converter.
+- [ ] **Ver a tela logado.** Segue sem validação: lista, documento, aprovar,
+      recusar (que exige comentário), o PDF consertado e o retorno do `next=`
+      do login.
+- [ ] **Religar o link** só depois dos dois itens acima.
+
+## Sessão 2026-08-24 (parte 2) — O menu lateral do admin não cabia na tela
+
+Pedro: *"o menu do painel que fica à esquerda precisa scrollar para ver tudo e
+acho que isso não faz sentido em um menu"*. Está certo, e era pior do que
+parecia.
+
+**Medido antes de mexer** (Puppeteer sobre a `public/admin.html` real,
+viewport de 1040 a 620px, com e sem o item Atendimento): **22 dos 28 cenários
+rolavam**. Em 936px — janela maximizada num monitor 1080p, o caso do Pedro —
+a nav pedia 814px e tinha 727px. E havia um buraco entre as duas faixas de
+`@media (max-height)`: entre 780 e 860px a lista rolava mesmo em tela grande,
+porque a faixa de 900px já não cabia ali e a próxima só começava em 760px.
+
+**O que mudou** (só `public/admin.css` + o `?v=N` no `admin.html`):
+
+- `.nav-section-label` virou filete de 1px. O texto **fica no HTML** — o
+  `admin.js` varre esses elementos para esconder grupo órfão no perfil
+  operador (conferido: em operador o grupo "Em curso" some inteiro e o filete
+  vai junto, sem aresta dupla).
+- Três faixas de altura em vez de duas, sobrepostas de propósito.
+- Na barra recolhida o filete passou a **aparecer** — antes o rótulo só
+  desbotava e deixava vão morto entre os ícones.
+
+**Resultado, depois de duas rodadas de correção:** varrendo de 1 em 1px de 980
+a 590px, há **uma única transição** — abaixo de 614px a nav rola, acima não.
+Conferido também no Chrome real do Pedro (1920×945): antes 814px de conteúdo
+para 738 disponíveis (rolava); depois 678 para 738, com 60px de folga.
+
+### As duas rodadas que a pergunta do Pedro provocou
+
+Ele perguntou: *"vc abriu no chrome para ter certeza?"*. Não tinha — só
+Puppeteer. Abrir no Chrome dele achou **dois erros meus de medição**:
+
+1. **Faltou esperar a fonte.** Sem `await document.fonts.ready` o rodapé mede
+   102px em vez de 119px (o `.sidebar-user` encolhe com a fonte de fallback).
+   Os pisos de faixa que escrevi no comentário do CSS saíram ~16px otimistas —
+   "cabe até ~815px" quando o real era 886.
+2. **Amostra esparsa não prova ausência de buraco.** A primeira varredura usou
+   alturas fixas (936, 900, 860…), deu 28 de 28 verdes, e mesmo assim havia
+   uma janela de 5px — **882 a 886** — em que a faixa base valia e os 678px
+   não cabiam. O breakpoint foi de 880 para **900** por causa disso.
+
+**A lição** (registrada em [decisions.md](decisions.md)): minha primeira
+estimativa, feita a mão, dizia que a nav "cabia por 6px" em 1080p. A medição
+disse que faltavam 87px. **Layout de tela cheia se mede, não se estima.** Foi
+a medição também que pegou os dois buracos entre faixas que a primeira versão
+da correção ainda deixava (em 760px e em 660px).
+
+**Nada de backend, nada de schema.** Sem endpoint novo, então o
+`CACHE_NAME` do `sw.js` não subiu — só `admin.css?v=223` e
+`admin.js?v=308`.
 
 ## Sessão 2026-08-19 — Remover usuário dava erro 500
 

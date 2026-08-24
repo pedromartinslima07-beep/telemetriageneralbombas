@@ -255,6 +255,21 @@ a { color: inherit; text-decoration: none; }
   position: relative; top: 1px;
 }
 .conta:hover { color: #fff; border-bottom-color: var(--fio); }
+
+/* O selo de orçamento aguardando. Preenchido em --amarelo CRU (não o
+   semântico): ele vive sobre o campo marinho da barra, e a Regra do
+   Preenchimento Cru vale aqui — ver DESIGN.md. É o único amarelo da barra,
+   e existe só quando há resposta pendente. */
+.conta-selo {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 19px; height: 19px; padding: 0 5px;
+  background: var(--amarelo); color: var(--mar-900);
+  font-size: .72rem; font-weight: 800; line-height: 1;
+  font-variant-numeric: tabular-nums;
+  --ch: 5px; clip-path: var(--corte);
+}
+/* o selo não some no celular junto com o rótulo: ele É a informação */
+.conta-orc { position: relative; }
 .conta svg { width: 17px; height: 17px; stroke: currentColor; fill: none; stroke-width: 1.6; }
 
 
@@ -1218,6 +1233,14 @@ body[data-estado="carregando"] .frase { color: var(--sobre-2); }
     overflow: hidden; clip-path: inset(50%); white-space: nowrap;
   }
 
+  /* Sem rótulo, o selo não pode continuar em linha: com `gap: 0` ele
+     encostaria no ícone e viraria borrão. Vai para o canto, como distintivo,
+     e sai do fluxo para não empurrar o alvo de 48px. */
+  .conta-orc .conta-selo {
+    position: absolute; top: 4px; right: 0;
+    min-width: 17px; height: 17px; font-size: .68rem;
+  }
+
   /* no celular o trilho deita: a data vira uma linha acima dos eventos */
   .dia-bloco { grid-template-columns: 1fr; gap: 10px; }
   .dia-marca { position: static; text-align: left; display: flex; align-items: baseline; gap: 9px; }
@@ -1286,7 +1309,26 @@ body[data-estado="carregando"] .frase { color: var(--sobre-2); }
   --corte-p: polygon(var(--ch-p) 0, 100% 0, 100% calc(100% - var(--ch-p)), calc(100% - var(--ch-p)) 100%, 0 100%, 0 var(--ch-p));
 }
 
-.orcs-folha { padding-block: clamp(28px, 5vw, 56px) clamp(30px, 5vw, 60px); }
+/* ⚠️ O RODAPÉ FLUTUAVA NO MEIO DA TELA quando havia um orçamento só — que é
+   o caso mais comum desta página. Sem altura mínima, o `body` termina onde o
+   conteúdo termina e sobra campo marinho embaixo do rodapé, que passa a
+   parecer um bloco solto no meio do nada em vez do fim da página.
+
+   A classe está no <body> do cliente-orcamentos.html e não vale para o
+   painel: lá a primeira tela já é dimensionada em dvh e não precisa disto. */
+.pagina-orcs { min-height: 100dvh; display: flex; flex-direction: column; }
+/* ⚠️ `width: 100%` NÃO É REDUNDANTE AQUI. Num contêiner flex, a `margin:
+   0 auto` do `.folha` consome o espaço livre e DESLIGA o stretch do
+   `align-items` — o main vira shrink-to-fit e encolhe de 1240px para a
+   largura do conteúdo (740px medidos). O `max-width` continua limitando e as
+   margens automáticas continuam centrando; o que isto devolve é a largura
+   base que o flex tirou. */
+.pagina-orcs .orcs-folha { flex: 1 0 auto; width: 100%; }
+.pagina-orcs .rodape { flex-shrink: 0; }
+
+/* A folga do topo era `5vw`, que numa tela de 1900 batia no teto de 56px e
+   somava com o botão de voltar — quase 90px antes do documento começar. */
+.orcs-folha { padding-block: clamp(20px, 2.4vw, 34px) clamp(30px, 5vw, 60px); }
 
 /* ── A abertura ──────────────────────────────────────────────────────────
    Mesma gramática da primeira tela do painel: nome do prédio pequeno em
@@ -1309,14 +1351,33 @@ body[data-estado="carregando"] .frase { color: var(--sobre-2); }
   line-height: 1.1;
   color: #fff;
   max-width: 20ch;
+  /* sem isto a última linha fica com uma palavra órfã */
+  text-wrap: balance;
 }
 .orcs-titulo em { font-style: normal; color: var(--amarelo); }
+.orcs-abre .apoio { text-wrap: pretty; }
 .orcs-abre .apoio { margin-top: 14px; }
 
 /* ── A pilha ─────────────────────────────────────────────────────────────
    Uma coluna, largura de leitura. Orçamento se lê de cima a baixo; grade de
    cards transformaria documento em catálogo. */
-.orcs-lista, .orcs-detalhe { max-width: 780px; }
+/* ⚠️ LARGURAS DIFERENTES, DE PROPÓSITO — e a lista é CENTRADA.
+
+   A lista é um índice: cada linha carrega um número e um estado, e esticá-la
+   por 1240px separa o valor do selo por meio metro de vazio. Ela fica na
+   medida de leitura.
+
+   ⚠️ E ALINHADA À ESQUERDA, não centrada. Centrar parece resolver o vazio à
+   direita, mas quebra o alinhamento com o título da página logo acima — que
+   é a borda esquerda da área, como em toda tela deste sistema. Com um
+   orçamento só, o título ficava encostado à esquerda e o card flutuando no
+   meio: dois eixos na mesma tela, que lê como erro.
+
+   O documento é outra coisa: tem tabela, condições e a resposta, e em coluna
+   única vira uma tira altíssima. Ele usa a área inteira e se divide em duas
+   colunas — ver `.orc-corpo`. */
+.orcs-lista { max-width: 820px; }
+.orcs-detalhe { max-width: 100%; }
 .orcs-lista { display: flex; flex-direction: column; gap: 14px; }
 /* ⚠️ `display` explícito vence o atributo `hidden` (que é só `display:none`
    da folha do navegador, de especificidade menor). Sem esta linha a lista
@@ -1390,7 +1451,7 @@ body[data-estado="carregando"] .frase { color: var(--sobre-2); }
    o resto é justificativa dele. */
 .orc-voltar {
   display: inline-flex; align-items: center; gap: 8px;
-  margin-bottom: 16px; padding: 8px 2px;
+  margin-bottom: 12px; padding: 8px 2px;
   background: none; border: none; cursor: pointer;
   font: inherit; font-size: .95rem; color: var(--sobre-2);
 }
@@ -1398,15 +1459,63 @@ body[data-estado="carregando"] .frase { color: var(--sobre-2); }
 .orc-voltar svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; }
 
 .orc-doc { padding: clamp(24px, 3.2vw, 34px) clamp(22px, 3.2vw, 34px) clamp(26px, 3.4vw, 36px); }
-.orc-doc-topo {
-  display: flex; align-items: baseline; justify-content: space-between;
-  gap: 12px; flex-wrap: wrap;
-  padding-bottom: 18px; border-bottom: 1px solid var(--fio-esc);
-}
-.orc-doc-topo h2 { font-size: 1.42rem; font-weight: 800; letter-spacing: -.022em; }
-.orc-doc-topo .orc-item-num { display: block; margin-bottom: 5px; }
 
-.orc-total { padding: 20px 0 4px; }
+/* ── As duas colunas ─────────────────────────────────────────────────────
+   Esquerda é o que se LÊ (constatação, itens, a conta); direita é o que a
+   pessoa precisa ter à mão para DECIDIR (condições, o PDF, a resposta). O
+   critério é esse, não o tamanho dos blocos.
+
+   Abaixo de 1000px vira uma coluna só e a ordem do markup manda — que já é
+   a ordem certa de leitura: constatação, itens, condições, PDF, resposta. */
+.orc-corpo { display: grid; gap: 0 clamp(28px, 3.4vw, 52px); }
+
+@media (min-width: 1000px) {
+  .orc-corpo { grid-template-columns: minmax(0, 1.55fr) minmax(300px, 1fr); }
+
+  /* O sulco entre as colunas é o fio da chapa, não uma borda de card: ele
+     separa duas regiões da MESMA peça.
+
+     ⚠️ META CALHA DE CADA LADO. Com a margem negativa cheia, o fio encostava
+     na coluna da esquerda e a coluna "Total" da tabela ficava colada nele.
+     Puxando metade, o fio cai no meio da calha e sobra a mesma respiração
+     dos dois lados. */
+  .orc-col-agir {
+    border-left: 1px solid var(--fio-esc);
+    padding-left: calc(clamp(28px, 3.4vw, 52px) / 2);
+    margin-left: calc(clamp(28px, 3.4vw, 52px) / -2);
+  }
+
+  /* ⚠️ A primeira seção de cada coluna NÃO leva régua em cima: a régua que
+     fecha a faixa de metadados já está ali, e duas linhas paralelas a 24px
+     uma da outra leem como erro de renderização. */
+  .orc-corpo > * > .orc-sec:first-child { margin-top: 0; padding-top: 0; border-top: none; }
+
+  /* A decisão acompanha a rolagem: num orçamento de 20 itens ela não pode
+     ficar a três telas de distância do que a justifica. O topo desconta a
+     barra, que é `sticky` e cobriria o título. */
+  .orc-col-agir { position: sticky; top: calc(var(--barra-h) + env(safe-area-inset-top, 0px) + 20px); align-self: start; }
+}
+/* ⚠️ O NÚMERO É O TÍTULO, o tipo é a legenda. Estava invertido: o tipo de
+   serviço vinha em 1.42rem e o número num mono de .68rem por cima. Mas é o
+   número que identifica o documento — é ele que a pessoa lê no telefone com
+   a gente, é ele que está no assunto do e-mail e na capa do PDF. O tipo
+   descreve; o número endereça. */
+.orc-cab {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 14px; flex-wrap: wrap;
+}
+.orc-cab h2 {
+  font-size: clamp(1.35rem, 2.4vw, 1.85rem);
+  font-weight: 800; font-stretch: 106%;
+  letter-spacing: -.026em; line-height: 1.12;
+}
+.orc-cab-tipo { margin-top: 5px; font-size: .95rem; color: var(--tinta-2); }
+/* o selo alinha com a linha de base do título, não com o topo da caixa */
+.orc-cab .orc-selo { position: relative; top: 6px; }
+
+.orc-total { padding: 22px 0 20px; }
+
+
 .orc-total-rot {
   display: block;
   font-family: var(--mono);
@@ -1425,7 +1534,102 @@ body[data-estado="carregando"] .frase { color: var(--sobre-2); }
   font-variant-numeric: tabular-nums;
   color: var(--tinta);
 }
-.orc-total-sub { display: block; margin-top: 6px; font-size: .9rem; color: var(--tinta-2); }
+/* ── A faixa de metadados ────────────────────────────────────────────────
+   O conceito trazido da tela de referência: NENHUM DADO SOLTO. Cada fato
+   tem um nome em mono gravado por cima e o valor embaixo. Antes "válido
+   até" era um sufixo do total e as condições eram uma frase corrida com
+   "·" separando três coisas diferentes.
+
+   ⚠️ NADA DE `auto-fit` COM O GAP PINTADO. A técnica de pintar o fundo do
+   contêiner e deixar o `gap` virar linha é elegante enquanto a última
+   fileira está cheia — e mostra um BLOCO CINZA MORTO assim que sobra célula.
+   Foi o que aconteceu com "Condições" (3 células) na coluna estreita de
+   447px, onde `auto-fit` resolvia para 2 colunas.
+
+   Agora o número de colunas é sempre explícito e a divisória é borda de
+   célula. Sem fileira parcial, não há buraco possível. */
+.orc-meta {
+  display: grid;
+  grid-template-columns: 1fr;      /* empilhado é o padrão seguro */
+  border-block: 1px solid var(--fio-esc);
+}
+.orc-meta > div { padding: 14px 16px 15px; }
+.orc-meta > div + div { border-top: 1px solid var(--fio-esc); }
+
+/* A faixa do topo tem exatamente três fatos e cabe em linha quando há
+   largura. Três colunas fixas, não `auto-fit`: com contagem explícita não
+   existe fileira parcial. */
+@media (min-width: 700px) {
+  .orc-meta-topo { grid-template-columns: repeat(3, 1fr); }
+  .orc-meta-topo > div + div { border-top: none; border-left: 1px solid var(--fio-esc); }
+}
+.orc-meta dt {
+  font-family: var(--mono);
+  font-size: .62rem; font-weight: 500;
+  letter-spacing: .12em; text-transform: uppercase;
+  color: var(--tinta-2);
+}
+.orc-meta dd { margin-top: 7px; font-size: 1.0625rem; font-weight: 600; line-height: 1.35; }
+/* a faixa do topo encosta na régua do total; a das condições respira */
+.orc-meta-topo { border-top: none; margin-bottom: clamp(26px, 3vw, 34px); }
+
+/* ── As seções ───────────────────────────────────────────────────────────
+   Cada bloco tem título e uma linha que diz o que ele é. É a diferença
+   entre um documento e uma pilha de dados: o leitor não deveria ter que
+   inferir para que serve um bloco a partir do conteúdo dele. */
+.orc-sec { margin-top: 30px; padding-top: 24px; border-top: 1px solid var(--fio-esc); }
+.orc-sec > h3 {
+  font-size: 1.09rem; font-weight: 800;
+  letter-spacing: -.015em;
+}
+.orc-sec-apoio { margin-top: 5px; font-size: .95rem; color: var(--tinta-2); max-width: 52ch; }
+.orc-sec > p { margin-top: 10px; font-size: 1.0625rem; line-height: 1.6; max-width: 62ch; }
+.orc-sec > .orc-sec-apoio + p { margin-top: 12px; }
+.orc-sec .orc-meta { margin-top: 16px; }
+
+/* Nota de arithmética divergente. Não é erro nem alerta — é o documento
+   dizendo qual dos dois números manda. Por isso tinta secundária e não
+   --risco-t: vermelho aqui faria a pessoa achar que há algo errado com o
+   orçamento dela. */
+/* ⚠️ O seletor precisa ser `.orc-sec > .orc-nota`, não `.orc-nota`: a regra
+   `.orc-sec > p` que impõe 62ch de medida vale (0,1,1) e ganharia de uma
+   classe sozinha (0,1,0). Aqui a caixa tem que fechar alinhada com a tabela
+   logo acima — com a medida de leitura ela para no meio e a borda fica solta. */
+.orc-sec > .orc-nota { max-width: none; }
+.orc-nota {
+  margin-top: 14px; padding: 11px 14px;
+  background: var(--chapa-cl);
+  box-shadow: inset 0 0 0 1px var(--fio-esc);
+  --ch: 8px; clip-path: var(--corte);
+  font-size: .95rem; color: var(--tinta-2);
+}
+
+/* ── O painel de documentos ──────────────────────────────────────────────
+   O PDF era um botão solto no fim das "Condições". Agora é uma linha de
+   documento com nome, descrição e a seta de descida — o gesto que a tela de
+   referência usa e que funciona porque quem procura um arquivo procura um
+   LUGAR, não um botão. Continua sendo <button>, não <a>: a rota exige o
+   header Bearer (ver baixarPdf em cliente-orcamentos.js). */
+.orc-doclinha {
+  display: flex; align-items: center; gap: 14px;
+  width: 100%; margin-top: 16px; padding: 15px 16px;
+  border: none; cursor: pointer; font: inherit; text-align: left;
+  background: #fff; color: var(--tinta);
+  box-shadow: inset 0 0 0 1px var(--fio-esc);
+  --ch: 9px; clip-path: var(--corte);
+  transition: box-shadow .16s var(--saida);
+}
+.orc-doclinha:hover { box-shadow: inset 0 0 0 1.5px var(--tinta-2); }
+.orc-doclinha[disabled] { opacity: .55; cursor: default; }
+.orc-doclinha > svg {
+  width: 21px; height: 21px; flex-shrink: 0;
+  fill: none; stroke: currentColor; stroke-width: 1.7;
+}
+.orc-doclinha span { flex: 1; min-width: 0; }
+.orc-doclinha strong { display: block; font-size: 1.0625rem; font-weight: 700; }
+.orc-doclinha small { display: block; margin-top: 3px; font-size: .87rem; color: var(--tinta-2); }
+.orc-doclinha-fim { width: 18px; height: 18px; color: var(--tinta-2); }
+.orc-doclinha:hover .orc-doclinha-fim { color: var(--tinta); }
 
 .orc-tabela { width: 100%; border-collapse: collapse; margin-top: 10px; }
 .orc-tabela th {
@@ -1443,16 +1647,41 @@ body[data-estado="carregando"] .frase { color: var(--sobre-2); }
   font-size: .95rem;
   vertical-align: top;
 }
-.orc-tabela .q, .orc-tabela .v { text-align: right; white-space: nowrap; padding-left: 14px; }
-.orc-tabela td.q, .orc-tabela td.v { font-family: var(--mono); font-variant-numeric: tabular-nums; }
-.orc-tabela tr:last-child td { border-bottom: none; }
+.orc-tabela .n { text-align: right; white-space: nowrap; padding-left: 14px; }
+.orc-tabela td.n { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.orc-tabela tbody tr:last-child td { border-bottom: 1px solid var(--fio-esc); }
+
+/* A especificação da linha, quando ela existe. Recuo e tinta secundária: é
+   detalhe da descrição, não um item a mais. */
+.orc-tabela td small {
+  display: block; margin-top: 5px;
+  font-size: .87rem; line-height: 1.5; color: var(--tinta-2);
+}
+
+/* O rodapé fecha a conta. Sem fio embaixo — quem fecha a seção é a régua da
+   próxima. */
+.orc-tabela tfoot td {
+  border-bottom: none;
+  padding-top: 13px;
+  font-weight: 700;
+}
+.orc-tabela tfoot td:first-child {
+  font-family: var(--mono);
+  font-size: .62rem; font-weight: 500;
+  letter-spacing: .12em; text-transform: uppercase;
+  color: var(--tinta-2);
+}
 
 /* O PDF é um botão de fio DENTRO da chapa clara. Não usa .relatorio .btn-fio
    do painel: ali essa regra pinta de amarelo, e aqui o amarelo é do
    "Aprovar" — dois amarelos na mesma tela e nenhum deles significa nada. */
 .orc-pdf {
+  /* É <button>, não <a>: a rota do PDF exige o header Bearer e navegação
+     por link não o manda. Daí os resets de borda/fonte/cursor, que um
+     <a> não precisava. Ver baixarPdf em cliente-orcamentos.js. */
   display: inline-flex; align-items: center; gap: 9px;
   margin-top: 8px; padding: 11px 18px;
+  border: none; cursor: pointer; font: inherit; text-align: left;
   background: none; color: var(--tinta);
   box-shadow: inset 0 0 0 1.5px var(--fio-esc);
   --ch: 9px; clip-path: var(--corte);
@@ -1460,6 +1689,7 @@ body[data-estado="carregando"] .frase { color: var(--sobre-2); }
   transition: box-shadow .16s var(--saida), background .16s var(--saida);
 }
 .orc-pdf:hover { background: #fff; box-shadow: inset 0 0 0 1.5px var(--tinta-2); }
+.orc-pdf[disabled] { opacity: .5; cursor: default; }
 .orc-pdf svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; }
 
 /* ── A resposta ──────────────────────────────────────────────────────────
@@ -1489,12 +1719,16 @@ body[data-estado="carregando"] .frase { color: var(--sobre-2); }
 .orc-btn-nao { background: none; color: var(--tinta); box-shadow: inset 0 0 0 1.5px var(--fio-esc); }
 .orc-btn-nao:not([disabled]):hover { box-shadow: inset 0 0 0 1.5px var(--tinta-2); }
 
-.orc-msg { margin-top: 12px; font-size: .93rem; color: var(--tinta-2); min-height: 1.2em; }
+.orc-msg { margin-top: 12px; font-size: .95rem; color: var(--tinta-2); min-height: 1.2em; }
+/* Sem isto, cada seção que TEM uma mensagem possível carrega uma linha em
+   branco permanente — e são duas nesta página, o que abria um buraco entre
+   Documentos e Sua resposta. A altura só é reservada quando há o que dizer. */
+.orc-msg:empty { min-height: 0; margin-top: 0; }
 .orc-msg.is-erro { color: var(--risco-t); font-weight: 600; }
 
 /* O registro do que já foi decidido. Sem botão para desfazer: mudar de
    ideia é conversa com a General, não um clique. */
-.orc-resposta-dada h4 { margin-bottom: 6px; }
+.orc-resposta-dada blockquote, .orc-responder .campo { margin-top: 14px; }
 .orc-resposta-dada blockquote {
   margin-top: 10px; padding-left: 14px;
   border-left: 2px solid var(--fio-esc);
@@ -1528,4 +1762,38 @@ body[data-estado="carregando"] .frase { color: var(--sobre-2); }
 @media (max-width: 760px) {
   .orc-item, .orc-doc, .orcs-vazio { --ch: 12px; }
   .orc-responder .acoes > * { flex: 1 1 100%; }
+
+  /* ⚠️ QUATRO COLUNAS NÃO CABEM EM 390px. Em vez de encolher a fonte até o
+     ilegível ou deixar a tabela rolar de lado (que esconde o total, a coluna
+     que mais importa), cada linha vira um bloco e cada célula recebe o
+     rótulo da sua coluna pelo `data-rot`. Mesmo HTML, sem duplicação: o
+     cabeçalho é que sai. */
+  .orc-tabela, .orc-tabela tbody, .orc-tabela tfoot, .orc-tabela tr, .orc-tabela td { display: block; }
+  .orc-tabela thead { display: none; }
+  .orc-tabela tr {
+    padding: 14px 0;
+    border-bottom: 1px solid var(--fio-esc);
+  }
+  .orc-tabela tbody tr:last-child td, .orc-tabela td { border-bottom: none; }
+  .orc-tabela td { padding: 0; }
+  .orc-tabela td + td {
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 16px; margin-top: 7px;
+  }
+  .orc-tabela td + td::before {
+    content: attr(data-rot);
+    font-family: var(--mono);
+    font-size: .62rem; font-weight: 500;
+    letter-spacing: .12em; text-transform: uppercase;
+    color: var(--tinta-2);
+  }
+  .orc-tabela td[data-rot="Descrição"] { font-weight: 600; }
+  .orc-tabela .n { text-align: right; padding-left: 0; }
+  .orc-tabela tfoot td:first-child { display: none; }
+  .orc-tabela tfoot tr { border-bottom: none; padding-bottom: 0; }
+  .orc-tabela tfoot td + td, .orc-tabela tfoot td { margin-top: 0; }
+
+  /* o selo desce para debaixo do título em vez de espremê-lo */
+  .orc-cab { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .orc-cab .orc-selo { top: 0; }
 }

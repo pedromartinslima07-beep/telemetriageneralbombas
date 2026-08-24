@@ -28,15 +28,27 @@ documento. Os nomes abaixo são os `data-section` reais.
 
 | Grupo na nav | Seções |
 |---|---|
-| **Monitor** | `dashboard` · `telemetria` · `mapa` · `alertas` |
-| **Atendimento** | `chamados` · `ordens-servico` · `orcamentos` · `contratos` · `planos` · `whatsapp` |
-| **Gestão** | `cadastros` (Clientes) · `tecnicos` (Colaboradores) · `equipamentos` · `relatorios` · `config` |
+| **Agora** | `alertas` · `whatsapp` (Atendimento) · `chamados` |
+| **Em curso** | `ordens-servico` · `orcamentos` |
+| **Cadastro** | `cadastros` (Clientes) · `tecnicos` (Colaboradores) · `equipamentos` · `contratos` · `planos` |
+| **Análise** | `dashboard` · `telemetria` · `mapa` · `relatorios` |
+| **Sistema** | `config` |
+
+⚠️ **Os nomes dos grupos não aparecem na tela desde 24/08/2026.** O
+`.nav-section-label` virou um filete de 1px — o texto continua no HTML (o
+`admin.js` varre esses elementos para esconder grupo órfão no perfil
+operador, e o leitor de tela continua lendo), mas quem separa os grupos
+visualmente é a aresta. Motivo e medição no
+[changelog](../changelog.md) e em
+[decisions.md](../../memory-bank/decisions.md).
 
 Mais **10 overlays de modal**, **1 gaveta** (`drawer-panel`, por condomínio,
 aberta a partir do dashboard) e **6 colunas de ficha** (`ch-detail-col`).
 
-⚠️ `whatsapp` existe como seção mas **não aparece na nav** do painel em
-execução — o item "Atendimento" da nav é o rótulo do grupo, não da seção.
+⚠️ `whatsapp` é o item **"Atendimento"** da nav e nasce `display: none` no
+HTML — só aparece quando a integração está ligada. É por isso que a nav tem
+dois tamanhos (14 ou 15 itens); o dimensionamento da sidebar sempre usa o pior
+caso, 15.
 
 ## Os três moldes
 

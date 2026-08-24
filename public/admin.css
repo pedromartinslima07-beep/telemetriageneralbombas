@@ -491,31 +491,62 @@ td, th, .mono, [class*="valor"], [class*="total"], [class*="count"] {
 .nav::-webkit-scrollbar { width: 4px; }
 .nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,.08); border-radius: 99px; }
 
+/* ⚠️ O RÓTULO DE SEÇÃO VIRA FILETE — E O TEXTO CONTINUA NO HTML.
+   Eram cinco linhas de 10px com 23px de padding vertical: 136px de altura,
+   o equivalente a três itens e meio de menu, gastos em texto que ninguém
+   clica. Medido em Puppeteer, com Atendimento ligado (15 itens) a nav pedia
+   814px e sobravam 727px numa janela maximizada em 1080p: a lista JÁ caía
+   no `overflow-y: auto` no monitor mais comum, não só em notebook. Trocar
+   os cinco rótulos por quatro filetes derruba o conteúdo pra 678px.
+   Menu lateral com barra de rolagem é sintoma, não recurso.
+   O texto NÃO sai do markup, e isso importa por dois motivos concretos:
+   `admin.js` varre `.nav-section-label` pra esconder grupo que ficou órfão
+   no perfil operador, e o leitor de tela continua lendo "Agora", "Em
+   curso"... O que muda é só o desenho — 1px de aresta no lugar de 38px de
+   etiqueta. */
 .nav-section-label {
   display: block;
   /* Mesmo motivo do `flex-shrink: 0` no .nav-item: em tela baixa o flexbox
-     esmagava o rótulo (32px viravam 20px) e o `overflow: hidden` daqui
-     cortava "MONITOR"/"ATENDIMENTO" no meio da altura. */
+     esmagaria o filete até ele sumir da tela. */
   flex-shrink: 0;
-  /* Etiqueta gravada: mono em caixa alta é exatamente o lugar onde o Martian
-     Mono pode aparecer. Sobe de 9,5px para 10px porque o mono tem olho menor
-     que a grotesca que estava aqui. */
-  font-family: var(--mono);
-  font-size: 10px;
-  font-weight: 500;
-  color: var(--muted);
-  letter-spacing: .12em;
-  text-transform: uppercase;
-  padding: 16px 12px 7px;
+  height: 1px;
+  margin: 7px 12px 6px;
+  padding: 0;
+  background: var(--border);
+  /* Tira o texto da tela sem tirar da árvore de acessibilidade — por isso
+     não é `display: none` nem `visibility: hidden`. */
+  color: transparent;
+  font-size: 0;
+  line-height: 0;
   white-space: nowrap;
-  opacity: 1;
   overflow: hidden;
-  transition: opacity .08s ease .06s;
+  text-indent: 100%;
 }
+/* O primeiro grupo encosta no header, que já tem borda embaixo: filete aqui
+   seria aresta dupla. */
+.nav-section-label:first-child { display: none; }
+/* A FOLGA VIRA SEPARAÇÃO ENTRE GRUPOS, E NÃO BURACO NO FIM.
+   Depois que o menu passou a caber, sobrou altura — ~150px em 945px de
+   viewport. A primeira tentativa foi `margin-top: auto` só no ÚLTIMO filete,
+   pra encostar Configurações no rodapé. Não resolve: o vão não some, migra
+   de baixo de Configurações pra cima dele, e fica pior — buraco no meio da
+   lista em vez de no fim.
+   Com `margin-top: auto` em TODOS os filetes, o flexbox reparte a folga
+   IGUALMENTE entre as margens auto (é o que a spec manda). Os ~150px viram
+   ~37px a mais em cada uma das quatro separações de grupo, e a sobra deixa
+   de ser vazio pra virar respiro — que é justamente o que o menu precisa
+   agora que os rótulos de texto saíram e só a aresta agrupa.
+   Continua sem valor fixo e sem breakpoint: onde não há folga, auto resolve
+   pra zero e os grupos voltam a ficar colados. Só `margin-top` é
+   sobrescrito; lateral e inferior seguem vindo da faixa de altura vigente, e
+   a especificidade (0,2,0) ganha do shorthand `margin` das `@media` (0,1,0). */
+.nav .nav-section-label { margin-top: auto; }
+
+/* Na barra fechada o filete FICA. Sem os rótulos, é ele que continua
+   agrupando os ícones; só encolhe a margem lateral pra caber no trilho. */
 .sidebar.collapsed .nav-section-label {
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity .04s ease;
+  margin-left: 10px;
+  margin-right: 10px;
 }
 
 .nav-item {
@@ -786,37 +817,71 @@ td, th, .mono, [class*="valor"], [class*="total"], [class*="count"] {
 .nav-item.nav-item-logout:hover svg { color: var(--danger); }
 
 /* ---- Sidebar compacta em tela baixa ----------------------------------
-   Medido no painel real: a nav precisa de 643px de conteúdo, mais 60 de
-   header e 169 de rodapé = 872px de viewport pra caber sem rolar. Um
-   notebook 1366×768 entrega ~660px, ou seja, faltavam ~212px — e a lista
-   caía no `overflow-y: auto` da .nav, que é o certo como rede de segurança
-   mas não como experiência: menu lateral com barra de rolagem não faz
-   sentido quando o problema é só respiro sobrando.
+   Refeito em 2026-08-24, junto com a troca dos rótulos de seção por filete
+   (ver a nota do `.nav-section-label`). As contas do bloco anterior eram de
+   antes de Orçamentos e Atendimento entrarem na nav — ficaram velhas, e o
+   remédio na época foi apertar duas vezes até o item chegar a 30px.
 
-   Aqui a altura é reduzida DE PROPÓSITO, com `height` explícito. Não
+   Os degraus abaixo NÃO são chute: saem de medição em Puppeteer da própria
+   `public/admin.html`, varrendo a viewport de 980 a 590px **de 1 em 1px**,
+   com `await document.fonts.ready` e no pior caso (Atendimento ligado = 15
+   itens). Cada faixa, com o que ela realmente ocupa:
+
+     faixa      item   conteúdo   header   rodapé   faixa de viewport
+     base       38px     678        60       119      901 … ∞
+     max-h 900  34px     588        56       109      801 … 900
+     max-h 800  30px     500        50        96      701 … 800
+     max-h 700  28px     447        48        91      614 … 700
+
+   Resultado: **uma única transição** em toda a varredura — abaixo de 614px a
+   nav volta a rolar, e aí o `overflow-y: auto` é a rede de segurança que
+   deve ser. Nenhum buraco entre as faixas.
+
+   ⚠️ **Duas armadilhas de medição, as duas custaram uma rodada.**
+   1. **Fonte.** Sem esperar `document.fonts.ready` o rodapé mede 102px em
+      vez de 119px — o `.sidebar-user` encolhe com a fonte de fallback. Piso
+      de faixa calculado assim sai ~16px otimista.
+   2. **Passo da varredura.** A primeira medição usou alturas fixas (936, 900,
+      860, 800…) e deu tudo verde com o breakpoint em 880px. A varredura de
+      1 em 1px achou uma janela de 5px — **882 a 886** — em que a faixa base
+      valia mas os 678px não cabiam. Por isso o breakpoint é 900 e não 880.
+      Amostra esparsa não prova ausência de buraco; só a varredura contínua.
+
+   A altura aqui é reduzida DE PROPÓSITO, com `height` explícito. Não
    confundir com o bug de 2026-07-30, em que o flexbox ESMAGAVA os itens
    sem ninguém mandar (38px viravam 23px); o `flex-shrink: 0` do .nav-item
-   continua no lugar e é o que garante que só estes valores mandem.
-
-   Verificado no painel real com o CSS de produção: faixa 1 precisa de
-   707px, faixa 2 de 628px (cabe nos ~660px do notebook, com 32px de
-   folga). */
+   continua no lugar e é o que garante que só estes valores mandem. */
 @media (max-height: 900px) {
   .sidebar-header { height: 56px; }
   .nav { padding: 8px 8px 4px; gap: 1px; }
   .nav-item { height: 34px; }
-  .nav-section-label { padding: 8px 12px 4px; }
+  .nav-section-label { margin: 6px 12px 5px; }
   .sidebar-footer { padding: 8px; gap: 6px; }
   .sidebar-user { padding: 5px 10px; }
   .sidebar-user-avatar { width: 26px; height: 26px; }
 }
-@media (max-height: 760px) {
+@media (max-height: 800px) {
   .sidebar-header { height: 50px; }
-  .nav { padding: 6px 8px 4px; }
+  /* `gap: 0` aqui é de propósito: com filete separando os grupos, o respiro
+     entre itens do MESMO grupo é o que sobra pra cortar sem cortar altura. */
+  .nav { padding: 6px 8px 4px; gap: 0; }
   .nav-item { height: 30px; font-size: 12.5px; }
   .nav-item svg { width: 17px; height: 17px; }
-  .nav-section-label { padding: 6px 12px 2px; }
+  .nav-section-label { margin: 5px 12px 4px; }
   .sidebar-footer { padding: 7px; gap: 5px; }
+}
+/* Notebook 1366×768: com barra de tarefas e barra de favoritos sobram ~640px
+   de viewport. É o último degrau, e o único em que o item fica abaixo de
+   30px — densidade de lista compacta, não de menu confortável. */
+@media (max-height: 700px) {
+  .sidebar-header { height: 48px; }
+  .nav { padding: 4px 8px 3px; }
+  .nav-item { height: 28px; }
+  .nav-item svg { width: 16px; height: 16px; }
+  .nav-section-label { margin: 2px 12px 2px; }
+  .sidebar-footer { padding: 6px; gap: 4px; }
+  .sidebar-user { padding: 4px 10px; }
+  .sidebar-user-avatar { width: 24px; height: 24px; }
 }
 
 /* ============================================================

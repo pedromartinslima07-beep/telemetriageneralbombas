@@ -96,15 +96,15 @@ function pintarAbertura() {
   const pend = ORCS.filter(o => o.status === "enviado").length;
   if (pend === 1) {
     elTitulo.innerHTML = "Um orçamento <em>aguarda</em> sua resposta";
-    elApoio.textContent = "Leia, veja os itens e responda por aqui. Se aprovar, a General agenda o serviço.";
+    elApoio.textContent = "Leia, veja os itens e responda por aqui. Se aprovar, agendamos o serviço.";
   } else if (pend > 1) {
     elTitulo.innerHTML = `${pend} orçamentos <em>aguardam</em> sua resposta`;
-    elApoio.textContent = "Leia, veja os itens e responda por aqui. Se aprovar, a General agenda o serviço.";
+    elApoio.textContent = "Leia, veja os itens e responda por aqui. Se aprovar, agendamos o serviço.";
   } else {
     elTitulo.textContent = "Orçamentos";
     elApoio.textContent = ORCS.length
       ? "Nenhum aguardando resposta. Abaixo está o histórico do que já foi enviado ao seu prédio."
-      : "Tudo o que a General orçar para o seu prédio aparece aqui.";
+      : "Todo orçamento que fizermos para o seu prédio aparece aqui.";
   }
 
   elPredio.textContent = PREDIO || "Meu prédio";
@@ -115,7 +115,7 @@ function pintarLista() {
     elLista.innerHTML = `
       <div class="orcs-vazio">
         <h2>Nenhum orçamento por aqui</h2>
-        <p>Quando um serviço precisar de orçamento, a General envia por e-mail
+        <p>Quando um serviço precisar de orçamento, mandamos por e-mail
            e ele aparece nesta tela para você aprovar ou recusar.</p>
       </div>`;
     return;
@@ -142,6 +142,21 @@ function mostrarLista() {
   window.scrollTo({ top: 0 });
 }
 
+/* Quantidade vem do banco como NUMERIC e chega "1.00". Item de orçamento é
+   contado em peça inteira quase sempre; mostrar "1,00" faz o documento
+   parecer nota fiscal de indústria. Só mostra decimal quando existe um. */
+const qtd = v => {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return String(v == null ? "—" : v);
+  return Number.isInteger(n) ? String(n) : n.toLocaleString("pt-BR", { maximumFractionDigits: 3 });
+};
+
+/* Uma célula rotulada da faixa de metadados. Devolve "" quando não há valor:
+   célula vazia com rótulo é pior que célula ausente — ela promete um dado que
+   o documento não tem e faz a pessoa procurar o que não existe. */
+const celula = (rotulo, valor) =>
+  valor ? `<div><dt>${esc(rotulo)}</dt><dd>${valor}</dd></div>` : "";
+
 async function abrir(id) {
   elLista.hidden = true;
   document.querySelector(".orcs-abre").hidden = true;
@@ -159,32 +174,111 @@ async function abrir(id) {
     return;
   }
 
-  const linhas = (o.linhas || []).map(l => `
-    <tr>
-      <td>${esc(l.descricao || "—")}</td>
-      <td class="q">${esc(l.quantidade)}</td>
-      <td class="v">${l.valor_unitario == null ? "—" : moeda(l.valor_unitario)}</td>
-    </tr>`).join("");
+  /* ── Itens ──────────────────────────────────────────────────────────────
+     Quatro colunas, não três: sem o total por linha a pessoa precisa
+     multiplicar de cabeça para conferir a soma — que é exatamente o que ela
+     está tentando fazer ao abrir um orçamento.
 
-  // A resposta só existe enquanto está pendente. Depois de respondido, o que
-  // aparece é o registro do que foi decidido — sem botão para "mudar de
-  // ideia", porque mudar de ideia é conversa com a General, não um clique.
+     A ficha técnica entra debaixo da descrição quando existe. É o texto que
+     vira cláusula no PDF (ver orcamento_linhas.tipo_servico): quem lê na tela
+     merece a mesma especificação de quem lê no documento. */
+  const linhas = o.linhas || [];
+
+  // ⚠️ ITEM SEM PREÇO É CASO LEGÍTIMO, não dado faltando: a migration 062
+  // tornou `valor_unitario` nullable justamente para que item sem valor
+  // lançado ficasse NULL de verdade em vez de zero. Quando NENHUM item tem
+  // preço, o orçamento é fechado no total e a lista é só descritiva.
+  //
+  // Nesse caso as duas colunas de dinheiro SOMEM, em vez de virarem uma
+  // coluna inteira de travessões — é o mesmo que o orcamento-pdf.service já
+  // faz no documento, e a tela não deveria discordar do PDF que ela oferece
+  // logo abaixo.
+  const comPreco = linhas.filter(l => l.valor_unitario != null).length;
+  const temValor = comPreco > 0;
+  const somaParcial = temValor && comPreco < linhas.length;
+
+  let soma = 0;
+  const corpoItens = linhas.map(l => {
+    const unit = l.valor_unitario == null ? null : Number(l.valor_unitario);
+    const tot  = unit == null ? null : unit * Number(l.quantidade || 0);
+    if (tot != null) soma += tot;
+    return `
+    <tr>
+      <td data-rot="Descrição">
+        ${esc(l.descricao || "—")}
+        ${l.ficha_tecnica ? `<small>${esc(l.ficha_tecnica)}</small>` : ""}
+      </td>
+      <td class="n" data-rot="Qtd">${qtd(l.quantidade)}</td>
+      ${temValor ? `
+      <td class="n" data-rot="Valor unitário">${unit == null ? "—" : moeda(unit)}</td>
+      <td class="n" data-rot="Total">${tot == null ? "—" : moeda(tot)}</td>` : ""}
+    </tr>`;
+  }).join("");
+
+  // A divergência entre a soma e o total só é afirmável quando a soma cobre
+  // TODOS os itens. Com soma parcial ela é esperada, e apontá-la seria alarme
+  // falso num documento que a pessoa está decidindo se aprova.
+  const divergem = temValor && !somaParcial
+    && Math.abs(soma - Number(o.valor_total || 0)) > 0.005;
+
+  const rotSoma = somaParcial ? "Soma dos itens com valor" : "Soma dos itens";
+
+  const secItens = !linhas.length ? "" : `
+    <section class="orc-sec">
+      <h3>Itens</h3>
+      <p class="orc-sec-apoio">${linhas.length} ${linhas.length === 1 ? "item" : "itens"} neste orçamento.${
+        temValor ? "" : " O valor é fechado no total, sem preço por item."}</p>
+      <table class="orc-tabela">
+        <thead><tr>
+          <th>Descrição</th><th class="n">Qtd</th>
+          ${temValor ? `<th class="n">Valor unitário</th><th class="n">Total</th>` : ""}
+        </tr></thead>
+        <tbody>${corpoItens}</tbody>
+        ${temValor ? `
+        <tfoot><tr>
+          <td colspan="3">${rotSoma}</td>
+          <td class="n" data-rot="${rotSoma}">${moeda(soma)}</td>
+        </tr></tfoot>` : ""}
+      </table>
+      ${divergem ? `<p class="orc-nota">O valor fechado deste orçamento é ${moeda(o.valor_total)}, no topo da página — é ele que vale.</p>` : ""}
+    </section>`;
+  /* ── Condições ──────────────────────────────────────────────────────────
+     Eram uma frase corrida com "·" separando três coisas diferentes, e um
+     travessão no lugar do que faltava. Agora cada uma é um dado com nome, e o
+     que não existe simplesmente não aparece. */
+  const cond = [
+    celula("Forma de pagamento", esc(o.forma_pagamento)),
+    celula("Prazo de execução", esc(o.prazo_entrega)),
+    celula("Garantia", esc(o.garantia)),
+  ].join("");
+
+  const secCond = !cond ? "" : `
+    <section class="orc-sec">
+      <h3>Condições</h3>
+      <dl class="orc-meta">${cond}</dl>
+    </section>`;
+
+  /* ── A resposta ─────────────────────────────────────────────────────────
+     Só existe enquanto está pendente. Depois de respondido o que aparece é o
+     registro do que foi decidido — sem botão para "mudar de ideia", porque
+     mudar de ideia é conversa com a gente, não um clique. */
   const podeResponder = o.status === "enviado";
+  const comentario = o.cliente_comentario || (o.status === "rejeitado" ? o.motivo_rejeicao : "");
 
   const jaRespondido = podeResponder ? "" : `
-    <div class="bloco orc-resposta-dada">
-      <h4>${o.status === "aprovado" ? "Você aprovou este orçamento" : "Você recusou este orçamento"}</h4>
-      <p>${o.respondido_em ? `Registrado em ${data(o.respondido_em)}.` : ""} ${
+    <section class="orc-sec orc-resposta-dada">
+      <h3>${o.status === "aprovado" ? "Você aprovou este orçamento" : "Você recusou este orçamento"}</h3>
+      <p class="orc-sec-apoio">${o.respondido_em ? `Registrado em ${data(o.respondido_em)}. ` : ""}${
         o.status === "aprovado"
-          ? "A General entra em contato para agendar o serviço."
-          : "A General pode revisar e enviar um novo orçamento."}</p>
-      ${o.cliente_comentario ? `<blockquote>${esc(o.cliente_comentario)}</blockquote>` : ""}
-    </div>`;
+          ? "Entramos em contato para agendar o serviço."
+          : "Podemos revisar e enviar um novo orçamento."}</p>
+      ${comentario ? `<blockquote>${esc(comentario)}</blockquote>` : ""}
+    </section>`;
 
   const formulario = !podeResponder ? "" : `
-    <div class="bloco orc-responder">
-      <h4>Sua resposta</h4>
-      <p>Se aprovar, a General agenda o serviço. Se recusar, diga o motivo — dá para revisar e enviar outro.</p>
+    <section class="orc-sec orc-responder">
+      <h3>Sua resposta</h3>
+      <p class="orc-sec-apoio">Se aprovar, agendamos o serviço. Se recusar, diga o motivo — dá para revisar e enviar outro.</p>
       <label class="campo">
         <span>Comentário <small>(obrigatório para recusar)</small></span>
         <textarea id="orcComentario" rows="3" maxlength="2000" placeholder="Ex.: pode fazer, mas só depois do dia 10."></textarea>
@@ -194,15 +288,16 @@ async function abrir(id) {
         <button class="orc-btn orc-btn-nao" type="button" data-responder="recusar" data-orc="${o.id}">Recusar</button>
       </div>
       <p class="orc-msg" id="orcMsg" role="status"></p>
-    </div>`;
+    </section>`;
 
   elDetalhe.innerHTML = `
     ${voltarHtml()}
     <article class="orc-doc">
-      <header class="orc-doc-topo">
+
+      <header class="orc-cab">
         <div>
-          <span class="orc-item-num">${esc(o.numero || "Orçamento")}</span>
-          <h2>${esc(TIPO[o.tipo] || "Orçamento de serviço")}</h2>
+          <h2>Orçamento ${esc(o.numero || id)}</h2>
+          <p class="orc-cab-tipo">${esc(TIPO[o.tipo] || "Serviço")}</p>
         </div>
         <span class="orc-selo orc-selo-${esc(o.status)}">${ROTULO[o.status] || esc(o.status)}</span>
       </header>
@@ -210,34 +305,67 @@ async function abrir(id) {
       <div class="orc-total">
         <span class="orc-total-rot">Total do orçamento</span>
         <span class="orc-total-val">${moeda(o.valor_total)}</span>
-        ${o.valido_ate ? `<span class="orc-total-sub">Válido até ${data(o.valido_ate)}</span>` : ""}
       </div>
 
-      ${o.constatacao ? `<div class="bloco"><h4>O que foi constatado</h4><p>${esc(o.constatacao)}</p></div>` : ""}
+      <!-- A faixa de metadados. Nenhum dado solto: tudo com nome em cima. As
+           linhas entre as células são o gap da grade pintado de --fio-esc, e
+           não borda por célula — assim continuam retas quando a grade quebra
+           em duas fileiras no celular. -->
+      <dl class="orc-meta orc-meta-topo">
+        ${celula("Prédio", esc(PREDIO))}
+        ${celula("Enviado em", data(o.enviado_em))}
+        ${celula("Válido até", data(o.valido_ate))}
+      </dl>
 
-      ${linhas ? `
-        <div class="bloco">
-          <h4>Itens</h4>
-          <table class="orc-tabela">
-            <thead><tr><th>Descrição</th><th class="q">Qtd</th><th class="v">Valor</th></tr></thead>
-            <tbody>${linhas}</tbody>
-          </table>
-        </div>` : ""}
+      <!-- ⚠️ DUAS COLUNAS A PARTIR DE 1000px, e o motivo é medido: em coluna
+           única o documento vira uma tira de 780px numa tela de 1900, com
+           metade do campo vazio à direita e tudo empilhado. A tela de
+           referência (a NF-e do Omie) também não é coluna única — ela põe o
+           que se LÊ de um lado e o que se FAZ do outro.
 
-      <div class="bloco">
-        <h4>Condições</h4>
-        <p>${esc(o.forma_pagamento || "—")} · ${esc(o.prazo_entrega || "—")}${o.garantia ? ` · garantia de ${esc(o.garantia)}` : ""}</p>
-        <a class="orc-pdf" href="/cliente/orcamentos/${o.id}/pdf" target="_blank" rel="noopener">
-          <svg viewBox="0 0 24 24" stroke-linecap="square" aria-hidden="true"><path d="M14 3H7v18h11V7l-4-4z"/><path d="M14 3v4h4"/></svg>
-          Abrir o PDF
-        </a>
+           A divisão segue esse critério, não o tamanho dos blocos:
+           esquerda é leitura (o que foi constatado, os itens, a conta);
+           direita é o que a pessoa precisa ter à mão para decidir
+           (condições, o PDF, e a resposta). Por isso a direita acompanha a rolagem:
+           num orçamento de 20 itens, a decisão não pode ficar a três telas
+           de distância do que a justifica. -->
+      <div class="orc-corpo">
+        <div class="orc-col-ler">
+          ${o.constatacao ? `
+            <section class="orc-sec">
+              <h3>O que foi constatado</h3>
+              <p>${esc(o.constatacao)}</p>
+            </section>` : ""}
+          ${secItens}
+        </div>
+
+        <aside class="orc-col-agir">
+          ${secCond}
+
+          <!-- O painel de documentos. Antes o PDF era um botão solto no fim das
+               "Condições", que não têm nada a ver com ele. Agrupar a ação num
+               bloco com nome é o que a tela de referência faz de mais útil: quem
+               procura o arquivo procura um lugar, não um botão. -->
+          <section class="orc-sec">
+            <h3>Documentos</h3>
+            <p class="orc-sec-apoio">O mesmo documento que foi anexado no e-mail.</p>
+            <button class="orc-doclinha" type="button" data-pdf="${o.id}">
+              <svg viewBox="0 0 24 24" stroke-linecap="square" aria-hidden="true"><path d="M14 3H7v18h11V7l-4-4z"/><path d="M14 3v4h4"/></svg>
+              <span>
+                <strong>Baixar o PDF</strong>
+                <small>Com o timbrado e as cláusulas completas</small>
+              </span>
+              <svg class="orc-doclinha-fim" viewBox="0 0 24 24" stroke-linecap="square" aria-hidden="true"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></svg>
+            </button>
+            <p class="orc-msg" id="orcPdfMsg" role="status"></p>
+          </section>
+
+          ${jaRespondido}
+          ${formulario}
+        </aside>
       </div>
-
-      ${jaRespondido}
-      ${formulario}
     </article>`;
 }
-
 function voltarHtml() {
   return `
     <button class="orc-voltar" type="button" data-voltar>
@@ -287,6 +415,43 @@ async function responder(id, decisao) {
   }
 }
 
+/* ── PDF ────────────────────────────────────────────────────────────────
+   O mesmo documento que foi anexado no e-mail. Vem por fetch porque a rota
+   exige o Bearer; o blob é entregue como download, e não em aba nova, porque
+   `window.open` depois de um `await` cai no bloqueador de pop-up do celular
+   — que é justamente onde o link do e-mail costuma ser aberto. */
+
+async function baixarPdf(id, btn) {
+  const msg = document.getElementById("orcPdfMsg");
+  const rotulo = btn.innerHTML;
+  btn.disabled = true;
+  btn.textContent = "Gerando o PDF…";
+  if (msg) { msg.className = "orc-msg"; msg.textContent = ""; }
+
+  try {
+    const r = await fetch(`/cliente/orcamentos/${id}/pdf`, { headers: authHeaders() });
+    if (r.status === 401) { _paraLogin(); return; }
+    if (!r.ok) {
+      const j = await r.json().catch(() => ({}));
+      throw new Error(j.error || "Não foi possível gerar o PDF.");
+    }
+    const blob = await r.blob();
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    const cd = r.headers.get("Content-Disposition") || "";
+    a.download = (cd.match(/filename="?([^"]+)"?/) || [])[1] || `orcamento-${id}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(a.href);
+  } catch (e) {
+    if (msg) { msg.className = "orc-msg is-erro"; msg.textContent = e.message; }
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = rotulo;
+  }
+}
+
 /* ── Navegação ──────────────────────────────────────────────────────────
    O detalhe é um estado da URL (`?orc=12`), não um modal. Assim o voltar do
    navegador sai do documento em vez de sair do sistema, e um orçamento pode
@@ -303,6 +468,9 @@ function sincronizar() {
 }
 
 document.addEventListener("click", ev => {
+  const pdf = ev.target.closest("[data-pdf]");
+  if (pdf) { baixarPdf(Number(pdf.dataset.pdf), pdf); return; }
+
   const item = ev.target.closest("[data-orc]:not([data-responder])");
   if (item && !ev.target.closest("[data-responder]")) {
     const id = Number(item.dataset.orc);

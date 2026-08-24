@@ -402,6 +402,50 @@ prédio". Por isso:
   período selecionado ali.
 - No estado **sem telemetria** o bloco do PDF some.
 
+## A segunda página: orçamentos
+
+`/cliente/painel/orcamentos?orc=N` — `public/cliente-orcamentos.{html,js}`.
+Mesma `cliente.css`, mesma sessão, mesma barra e mesmo rodapé: é a segunda
+página do mesmo produto, não um lugar novo. Quem chega aqui muitas vezes chega
+**pelo link de um e-mail**, sem sessão aberta, no celular.
+
+⚠️ **A página é `/cliente/painel/orcamentos`, a API é `/cliente/orcamentos`.**
+Não são o mesmo path por necessidade: as rotas de página em `src/app.js` são
+registradas **antes** do `app.use("/cliente", clienteRouter)`. Uma página em
+`/cliente/orcamentos` sombrearia o `GET` da API e o fetch da lista receberia
+HTML — o `Unexpected token '<'` do `CLAUDE.md`. Convenção: **página é nome de
+tela, API é nome de recurso.**
+
+⚠️ **Nada aqui pode ser `<a href>` para rota autenticada.** O `authRequired`
+lê **só** o header `Authorization: Bearer`; este sistema não tem cookie de
+sessão. Foi exatamente assim que o botão "Abrir o PDF" nasceu quebrado — ele
+abria uma aba com `{"error":"Token ausente"}` para todo cliente, toda vez.
+Agora é `<button>` → `baixarPdf()`: `fetch` com `authHeaders()`, blob, âncora
+com `download`. Mesmo caminho do `baixarPDF` desta pasta.
+
+⚠️ **Download, não aba nova.** `window.open` depois de um `await` cai no
+bloqueador de pop-up do celular — que é justamente onde o link do e-mail é
+aberto.
+
+⚠️ **Lista e documento são a mesma página** (`history.pushState`), não modal.
+Assim o voltar do navegador sai do documento em vez de sair do sistema, e o
+mesmo link reabre o mesmo orçamento. O porquê da recusa da v1 em modais está em
+[`../../memory-bank/decisions.md`](../../memory-bank/decisions.md).
+
+**O que o cliente vê e o que não vê:** só `enviado`, `aprovado` e `rejeitado`,
+e só do condomínio dele. **Rascunho responde 404, não 403** — um 403
+confirmaria que existe orçamento em preparo, informação que ele não deve ter.
+Responder só é aceito em `enviado`, o que barra de uma vez o rascunho e o
+segundo clique que viraria a resposta anterior.
+
+**Estado atual (24/08/2026):** no ar, mas **nunca aberta por ninguém logado**,
+e o convite no e-mail está **desligado** (`ORCAMENTO_LINK_PAINEL` ausente =
+desligado). Sem a chave o e-mail sai só com o PDF anexado, como sempre saiu.
+A migration 074 **foi aplicada em produção em 24/08**, então as quatro rotas
+têm as colunas de que precisam. Ver
+[`../../memory-bank/active-work.md`](../../memory-bank/active-work.md).
+
+---
 ## O gráfico é SVG, não ApexCharts
 
 `cliente.html` **não carrega mais** `apexcharts.min.js` (nem `chart.umd.min.js`,

@@ -82,6 +82,7 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
 | 067 | idx_chamados_tecnico | índice para `GET /chamados/meus`, a consulta mais chamada do app do técnico |
 | 068 | orcamento_linha_tipo_servico | `orcamento_linhas.tipo_servico` — marca a linha que vira cláusula no PDF, no lugar do regex na descrição |
 | 069 | leads_landing | tabela `leads` — contatos da landing pública |
+| 074 | orcamento_resposta_cliente | `orcamentos.cliente_comentario/respondido_em/respondido_por (SET NULL)` + índice parcial `(condominio_id, status)` — o cliente responde ao orçamento pelo painel; `respondido_por` é sempre o CLIENTE, separado de `aprovado_por`, que continua podendo ser quem digitou no escritório |
 | 073 | fk_usuarios_on_delete_set_null | toda FK → `usuarios` que estava em NO ACTION vira `ON DELETE SET NULL` (autoria em `sla_definicoes`, `orcamentos`, `planos_manutencao`, `contratos`) — era o que travava a remoção de usuário |
 | 072 | os_equipamento | `ordens_servico.equipamento_id (SET NULL)` — fecha o triângulo O.S./equipamento/orçamento; + `UPDATE` acertando `orcamentos.origem = 'os'` nos orçamentos de O.S. que nasciam como `'admin'` |
 | 071 | orcamento_bancada | `orcamentos.origem` aceita `'bancada'`; `orcamentos.equipamento_id (SET NULL)` — liga a bomba na bancada ao orçamento, sem tabela de peças própria |
@@ -3172,6 +3173,240 @@ estado neste sistema nunca aparece sem rótulo escrito. Detalhe e prioridade em
 
 Saiu junto o `#a81b12` das mensagens de erro de formulário (login e landing):
 era um quarto vermelho escrito à mão, e agora aponta para `--risco-t`.
+
+### 2026-08-24 · O documento de orçamento fica completo, e ganha porta no cabeçalho
+
+Duas correções pedidas pelo Pedro depois de ver a tela.
+
+**1. O acesso estava enterrado.** O único caminho permanente para os
+orçamentos era um link *dentro* da ficha "Sua conta" — que é onde moram
+trocar senha e sair, ou seja, gaveta de configuração. Agora existe um ícone
+no cabeçalho do painel (`.conta-orc`), ao lado de "Sua conta", com **selo de
+contagem** que só aparece quando há orçamento aguardando (`pintarSeloOrc` em
+`cliente.js`). Contador que mostra zero vira ruído permanente e ensina a
+pessoa a ignorar o lugar onde o número aparece. O link antigo continua onde
+estava.
+
+**2. O documento era esparso.** Referência trazida pelo Pedro: a página
+pública de NF-e do Omie. O que foi adotado é a **arquitetura da informação**,
+não a pele — a tela segue Chapa, em marinho com chanfro, e não ganhou cantos
+arredondados, verde-menta nem coluna lateral.
+
+| Antes | Agora |
+|---|---|
+| Tipo de serviço como título, número em mono de .68rem por cima | **O número é o título**; o tipo é a legenda — é o número que identifica o documento no telefone, no e-mail e na capa do PDF |
+| "Válido até" como sufixo do total | **Faixa de metadados** (`.orc-meta`): Prédio · Enviado em · Válido até, cada um com rótulo mono gravado |
+| Condições numa frase corrida com `·` e travessão no que faltava | Três células rotuladas; **o que não existe não aparece** |
+| Tabela de 3 colunas | 4 colunas, com **total por linha** e rodapé de soma — sem ele a pessoa multiplica de cabeça para conferir |
+| Especificação da linha só no PDF | `ficha_tecnica` entra sob a descrição |
+| PDF como botão solto no fim de "Condições" | Painel **Documentos**, com nome, descrição e a linha do arquivo |
+| `<h4>` sem contexto | Cada seção tem título e uma linha que diz o que ela é |
+
+**Dois casos-limite que a verificação em tela encontrou** (andaime estático,
+quatro cenários, 1440px e 390px):
+
+- **Item sem preço lançado** — legítimo desde a migration 062, que tornou
+  `valor_unitario` nullable de propósito. Quando NENHUM item tem preço, a
+  soma dava `R$ 0,00` e a nota de divergência disparava dizendo que o valor
+  real era outro: o documento parecia quebrado justamente para quem está
+  decidindo se confia nele. Agora as duas colunas de dinheiro **somem** (o
+  mesmo que o `orcamento-pdf.service` já faz) e a linha de apoio explica: "O
+  valor é fechado no total, sem preço por item."
+- **Soma parcial** (alguns itens com preço, outros não) — a divergência é
+  esperada e apontá-la seria alarme falso. O rodapé passa a dizer "Soma dos
+  itens com valor" e a nota não aparece.
+
+⚠️ **Quatro colunas não cabem em 390px.** Em vez de encolher a fonte ou
+deixar a tabela rolar de lado — o que esconde justamente a coluna de total —,
+cada linha vira um bloco e cada célula recebe o rótulo da sua coluna via
+`data-rot`. Mesmo HTML, sem duplicação: o `thead` é que sai.
+
+**Segunda rodada, depois de o Pedro abrir a tela.** Três defeitos que a
+verificação anterior não pegou porque foi estreita — só o documento, só a
+1440px, e nunca a lista:
+
+- **O rodapé flutuava no meio da tela.** Com um orçamento só, a página é mais
+  curta que a viewport e o `body` terminava onde o conteúdo terminava. O
+  `<body>` da página ganhou `.pagina-orcs` (flex column + `min-height:
+  100dvh`), e o rodapé passou a ser o fim da página.
+- **A coluna única era uma tira.** 780px fixos numa tela de 1900 deixavam
+  ~800px de campo morto e empilhavam tudo. O documento agora usa a área
+  inteira e se divide em **duas colunas a partir de 1000px** — o mesmo que a
+  tela de referência faz. O critério da divisão é o que se LÊ (constatação,
+  itens, a conta) contra o que se precisa ter à mão para DECIDIR (condições,
+  PDF, resposta), não o tamanho dos blocos.
+- **Folga do topo grande demais.** `5vw` batia no teto de 56px e somava com o
+  botão de voltar.
+
+⚠️ **`display: flex` no `<body>` encolheu o `.folha` de 1240px para 740px.**
+Num contêiner flex, a `margin: 0 auto` do filho consome o espaço livre e
+**desliga o stretch** do `align-items` — o main vira shrink-to-fit. Só
+apareceu porque as caixas foram medidas no DOM; a olho, a página "parecia"
+certa. A correção é `width: 100%` explícito, que não é redundante aqui.
+
+⚠️ **`auto-fit` com o gap pintado deixa buraco.** A faixa de metadados
+desenhava as divisórias pintando o fundo do contêiner e deixando o `gap` de
+1px vazar. Elegante enquanto a última fileira está cheia — e um **bloco
+cinza morto** assim que sobra célula, que foi o que aconteceu com
+"Condições" (3 células) na coluna de 447px, onde `auto-fit` resolvia para 2
+colunas. Agora o número de colunas é sempre explícito e a divisória é borda
+de célula: sem fileira parcial, não há buraco possível.
+
+**Voz corrigida na tela toda.** "a General agenda o serviço", "a General
+envia por e-mail" e "tudo o que a General orçar" violavam a regra de
+primeira pessoa do plural do [`PRODUCT.md`](../PRODUCT.md) — falar de si na
+terceira pessoa faz a tela soar como um terceiro apresentando a empresa.
+Viraram "agendamos", "mandamos" e "todo orçamento que fizermos".
+
+O botão do PDF virou **"Baixar o PDF"**: nomeia a ação que executa (ele
+baixa, não abre), e o número do orçamento saiu do rótulo porque já é o
+título da página.
+
+**Ferramenta:** [`scripts/preview-orcamentos.js`](../scripts/preview-orcamentos.js)
+sobe a tela sem banco e sem login, com cinco cenários (`completo`, `minimo`,
+`aprovado`, `divergente`, `varios`). Serve para desenho e casos-limite; não
+prova nada sobre o backend.
+
+Cache-bust: `cliente.css` v39, `cliente-orcamentos.js` v6, `cliente.js` v38.
+
+### 2026-08-24 · `migrate.js` passa a imprimir os `RAISE NOTICE`
+
+Migration que trabalha dentro de um bloco `DO $$` não casa com o
+`/ALTERs+TABLEs+(w+)/` que o script usa para listar colunas depois de
+aplicar — ela reporta o que fez por `RAISE NOTICE`, e o `node-postgres` só
+entrega isso a quem escuta o evento `notice` no **client** (o `pool.query` não
+dá acesso a ele). A 073 avisava disso num comentário no próprio `.sql`.
+
+Resultado prático: a 073 saía como `✓ Migration aplicada com sucesso` e mais
+nada, fosse ela ter convertido cinco FKs ou nenhuma — os dois casos
+indistinguíveis. Agora a execução usa um client dedicado com listener, e cada
+notice sai como `ⓘ ...`.
+
+Com isso, **a 073 foi confirmada como já aplicada** em 24/08: rodou em silêncio,
+o que significa que não achou FK em NO ACTION para converter.
+
+### 2026-08-21/24 · O síndico responde ao orçamento na tela dele
+
+Até aqui o orçamento saía por e-mail com o PDF anexado e a resposta voltava
+**por fora do sistema** — telefone, WhatsApp, e-mail solto. Quem registrava o
+"aprovado" era alguém do escritório, no admin, então `aprovado_por` sempre
+apontava para um usuário interno e não havia registro de que o cliente, ele
+mesmo, tinha dito sim.
+
+**Página nova:** `/cliente/painel/orcamentos?orc=N`
+(`public/cliente-orcamentos.{html,js}`). Lista e documento são dois estados da
+**mesma página**, trocados por `history.pushState` — não é modal, porque um
+orçamento é documento que a pessoa lê, pensa e às vezes mostra para outra antes
+de responder, o que pede URL própria, rolagem inteira e o voltar do celular
+funcionando.
+
+**Backend** (`src/routes/cliente.routes.js`): `GET /cliente/orcamentos`,
+`GET /cliente/orcamentos/:id`, `POST /cliente/orcamentos/:id/responder`,
+`GET /cliente/orcamentos/:id/pdf` — todas escopadas por `condominio_id` e
+filtradas por `_ORC_VISIVEIS_AO_CLIENTE` (`enviado`, `aprovado`, `rejeitado`).
+**Rascunho responde 404, não 403**: um 403 confirmaria que existe orçamento em
+preparo, informação que o cliente não deve ter.
+
+**Dois riscos de produção evitados no desenho:**
+
+- a página **não** pode morar em `/cliente/orcamentos`. As rotas de página são
+  registradas antes do `app.use("/cliente", clienteRouter)`, então ela
+  sombrearia o `GET` da API de mesmo nome e o fetch da lista receberia HTML —
+  o `Unexpected token '<'` do `CLAUDE.md`.
+- o `/login` precisou aceitar `next=` para cliente, com allowlist estreita
+  (`public/login.js`). Sem isso o link do e-mail — que quase sempre abre sem
+  sessão, no celular — fazia o síndico entrar e cair no painel, tendo que caçar
+  o orçamento que o e-mail já apontava.
+
+#### 2026-08-24 · O convite no e-mail foi DESLIGADO, e o PDF estava quebrado
+
+Revisão da tela antes de ela encontrar cliente real achou um caminho que
+falhava **sempre**: o botão "Abrir o PDF" era `<a href>` para
+`GET /cliente/orcamentos/:id/pdf`, que é `authRequired`. O `authRequired` lê
+**só** o header `Authorization: Bearer` (não há cookie de sessão neste
+sistema), e navegação por link não manda header nenhum — o cliente abria uma
+aba com `{"error":"Token ausente"}`.
+
+- **Correção:** virou `<button data-pdf>` → `baixarPdf()`, que busca com
+  `fetch` + `authHeaders()` e entrega o blob por âncora com `download`, mesmo
+  caminho do `baixarPDF` do painel (`public/cliente.js`). Download em vez de
+  aba nova de propósito: `window.open` depois de um `await` cai no bloqueador
+  de pop-up do celular, que é justamente onde o link do e-mail é aberto.
+- `.orc-pdf` no `cliente.css` ganhou os resets que um `<a>` não precisava
+  (`border`, `cursor`, `font`) e estado `[disabled]`.
+- Cache-bust: `cliente.css` v32 nos dois HTMLs, `cliente-orcamentos.js` v2.
+  `CACHE_NAME` do SW **não** subiu — não entrou endpoint novo, e `/cliente` já
+  estava na lista network-first.
+
+**O convite no e-mail saiu do ar por ora.** `linkPainel` em
+`POST /admin/orcamentos/avulsos/:id/enviar-email` passou a depender de
+`_linkPainelLigado()`, que lê `ORCAMENTO_LINK_PAINEL` do ambiente e está
+**desligado por padrão**. Motivo: a tela nunca foi vista logada e este e-mail
+vai para síndico de cliente real. Com a chave desligada o e-mail sai como
+sempre saiu — só com o PDF anexado — porque `sendOrcamentoCliente` já trata
+`linkPainel: null` removendo o convite do HTML e do texto puro.
+
+**Para religar:** `ORCAMENTO_LINK_PAINEL=1` no Railway. É variável de ambiente
+e não constante no código para que religar não exija deploy, e desligar de novo
+seja questão de segundos.
+
+✅ **Migration 074 aplicada em produção em 24/08/2026** — confirmada pela
+listagem de colunas que o `scripts/migrate.js` imprime depois de aplicar.
+#### 2026-08-24 · O menu lateral do admin não cabia na própria tela
+
+O painel admin tem **15 itens de navegação** (14 quando o WhatsApp está
+desligado) e a nav caía no `overflow-y: auto` — menu com barra de rolagem.
+Medido com Puppeteer sobre a `public/admin.html` real, varrendo viewport de
+1040 a 620px de altura: **22 dos 28 cenários rolavam**, inclusive o monitor
+mais comum. Em 936px (janela maximizada em 1080p) a nav pedia 814px e tinha
+727px — faltavam 87px.
+
+Duas causas, e a segunda é a que importa:
+
+1. As duas faixas de `@media (max-height)` da sidebar tinham **buraco entre
+   elas**: a faixa de 900px não cabia mais em 780–860px, e a próxima só
+   começava em 760px. Nessa janela a lista rolava mesmo em tela grande.
+2. Os **cinco rótulos de seção** (`AGORA`, `EM CURSO`, `CADASTRO`,
+   `ANÁLISE`, `SISTEMA`) custavam 136px — três itens e meio de menu — em
+   texto de 10px que ninguém clica.
+
+**Rótulo virou filete.** O `.nav-section-label` agora é uma aresta de 1px
+(`background: var(--border)`) em vez de etiqueta em caixa alta. O texto
+**continua no HTML**: `admin.js` varre `.nav-section-label` para esconder
+grupo que ficou órfão no perfil operador, e o leitor de tela continua lendo os
+nomes — some da tela por `font-size: 0` + `text-indent`, não por
+`display: none`. O primeiro filete é omitido (`:first-child`) porque o
+header já tem borda embaixo, e na barra recolhida ele **fica**, agrupando os
+ícones onde antes só havia vão morto.
+
+**Três faixas de altura em vez de duas.** Medido de 1 em 1px, de 980 a 590px
+de viewport, no pior caso (15 itens):
+
+| Faixa | Item | Conteúdo | Header | Rodapé | Viewport |
+|---|---|---|---|---|---|
+| base | 38px | 678px | 60 | 119 | 901 … ∞ |
+| `max-height: 900px` | 34px | 588px | 56 | 109 | 801 … 900 |
+| `max-height: 800px` | 30px | 500px | 50 | 96 | 701 … 800 |
+| `max-height: 700px` | 28px | 447px | 48 | 91 | 614 … 700 |
+
+Resultado: **uma única transição na varredura inteira** — abaixo de 614px a nav
+volta a rolar, e aí o `overflow-y: auto` faz o papel dele. Nenhum buraco entre
+faixas. O notebook 1366×768 (~637px reais) cabe.
+
+⚠️ **Duas armadilhas de medição**, registradas porque as duas custaram uma
+rodada de correção:
+
+1. **Sem `await document.fonts.ready` o rodapé mede 102px em vez de 119px** —
+   o `.sidebar-user` encolhe com a fonte de fallback. Piso de faixa calculado
+   assim sai ~16px otimista.
+2. **Amostra esparsa não prova ausência de buraco.** A primeira medição usou
+   alturas fixas (936, 900, 860, 800…), deu 28 de 28 cenários verdes e mesmo
+   assim havia uma janela de 5px — **882 a 886** — em que a faixa base valia e
+   os 678px não cabiam. Só a varredura de 1 em 1px achou. Por isso o
+   breakpoint é 900 e não 880.
+
+Cache-bust: `admin.css?v=223` e `admin.js?v=308`. Sem endpoint novo, então
+o `CACHE_NAME` do `sw.js` **não** subiu.
 
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e

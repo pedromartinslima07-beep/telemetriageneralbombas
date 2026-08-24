@@ -55,7 +55,21 @@ async function main() {
     const info = await pool.query("SELECT current_database() AS db, current_user AS usr");
     console.log(`✓ Conectado em "${info.rows[0].db}" como "${info.rows[0].usr}"\n`);
 
-    await pool.query(sql);
+    // ⚠️ Client dedicado, e não pool.query, só para poder ouvir `notice`.
+    // Migration que trabalha dentro de um bloco DO $$ (a 073, por exemplo) não
+    // altera nada que a listagem de colunas abaixo capture: ela reporta o que
+    // fez por RAISE NOTICE. Sem este listener a saída era "aplicada com
+    // sucesso" e mais nada — não dava para saber se converteu 5 FKs ou zero.
+    const client = await pool.connect();
+    let notices = 0;
+    client.on("notice", n => { notices++; console.log(`  ⓘ ${n.message}`); });
+    try {
+      await client.query(sql);
+    } finally {
+      client.removeAllListeners("notice");
+      client.release();
+    }
+    if (notices) console.log();
     console.log("✓ Migration aplicada com sucesso\n");
 
     // Lista colunas das tabelas alteradas para confirmação visual

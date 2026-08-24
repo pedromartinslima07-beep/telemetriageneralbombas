@@ -149,6 +149,17 @@ aliases:
   - Faixa estreita entre ~1100px e ~1223px, onde a toolbar de telemetria
     ainda usa 3 linhas (nada some, só fica mais alta).
 
+- **Orçamento respondido pelo cliente** 🟡 — a tela existe e está em produção
+  (`/cliente/painel/orcamentos`), mas **não foi validada com ninguém logado** e
+  o convite no e-mail está desligado por isso. Para fechar, nesta ordem:
+  1. ✅ **migration 074 aplicada em produção** em 24/08/2026;
+  2. percorrer a tela logado — lista, documento, aprovar, recusar (exige
+     comentário), PDF e o retorno do `next=` do login;
+  3. religar com `ORCAMENTO_LINK_PAINEL=1` no Railway.
+
+  Fica de fora por escopo: **pessoa física não responde por aqui** — quem não
+  tem condomínio não tem login. Ainda sem aviso ao escritório quando a resposta
+  entra (hoje só aparece no admin quem for olhar).
 - **Padronização visual dos modais do admin** 🟡 — o modal de orçamento é a
   referência e o padrão está se espalhando um modal por vez.
   - ✅ 2026-08-05: camada compartilhada (`.modalBox` com fio no topo,

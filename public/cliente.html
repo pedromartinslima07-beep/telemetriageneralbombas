@@ -17,7 +17,7 @@
        cliente.css antes de reintroduzir qualquer dependência do admin. -->
   <link rel="preload" href="/static/fonts/archivo.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="/static/fonts/martianmono.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="/static/cliente.css?v=31">
+  <link rel="stylesheet" href="/static/cliente.css?v=39">
 </head>
 <body data-estado="carregando" data-atend="nao">
 
@@ -69,6 +69,20 @@
        login-logo fica ilegível em qualquer escala de barra. O lockup
        completo aparece uma vez só, no rodapé. -->
   <span class="marca"><img src="/static/logo-topo.png" alt="GENERAL"></span>
+  <!-- ⚠️ CAMINHO PRIMÁRIO PARA OS ORÇAMENTOS. Antes o único acesso
+       permanente era um link DENTRO da ficha "Sua conta" — que é onde moram
+       trocar senha e sair, ou seja, gaveta de configuração. Orçamento não é
+       ajuste de conta: é coisa que a General mandou e espera resposta, e
+       coisa que espera resposta tem que estar visível sem procurar.
+
+       O selo só aparece quando há orçamento aguardando (ver `pintarSeloOrc`
+       em cliente.js): contador que mostra zero vira ruído permanente e
+       ensina a pessoa a ignorar o lugar onde o número aparece. -->
+  <a class="conta conta-orc" href="/cliente/painel/orcamentos">
+    <svg viewBox="0 0 24 24" stroke-linecap="square" aria-hidden="true"><path d="M14 3H7v18h11V7l-4-4z"/><path d="M14 3v4h4"/></svg>
+    <span class="conta-rot">Orçamentos</span>
+    <span class="conta-selo" id="orcSelo" hidden></span>
+  </a>
   <button class="conta" data-abrir="conta" type="button">
     <svg viewBox="0 0 24 24" stroke-linecap="square" aria-hidden="true"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 20c0-3.6 3.4-5.6 7.5-5.6s7.5 2 7.5 5.6"/></svg>
     <span class="conta-rot" id="nomeSindico">Sua conta</span>
@@ -376,7 +390,7 @@
 
 <script src="/static/inatividade.js" defer></script>
 
-<script src="/static/cliente.js?v=37" defer></script>
+<script src="/static/cliente.js?v=38" defer></script>
 <script src="/static/register-sw.js?v=39" defer></script>
 </body>
 </html>

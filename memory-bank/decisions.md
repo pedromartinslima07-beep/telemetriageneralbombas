@@ -678,6 +678,47 @@ estado for exibido só por cor, a conta precisa ser refeita antes.
 **Fica em aberto:** o app do técnico (`app/public/app.css`) não migrou e é a
 quarta identidade do produto.
 
+### Rótulo de seção da nav virou filete (24/08/2026)
+
+Os cinco rótulos em caixa alta da sidebar (`AGORA`, `EM CURSO`, …) saíram e
+o `.nav-section-label` virou uma aresta de 1px. **O texto continua no
+markup** — some da tela, não da árvore de acessibilidade nem do DOM, porque
+`admin.js` depende dele para esconder grupo órfão no perfil operador.
+
+O porquê tem duas partes, e a segunda é a lição:
+
+- **O custo era desproporcional.** 136px de altura — três itens e meio de menu
+  — para nomear grupos de 2 a 5 itens que o ícone e a proximidade já
+  agrupavam. Com 15 itens na nav, era o que faltava para o menu caber.
+- **Menu que rola é sintoma de IA, não de CSS.** A resposta anterior tinha sido
+  apertar: duas faixas de `@media (max-height)` levaram o item de 38px a
+  30px. Aperto adiado paga juros — os degraus foram calculados quando a nav
+  tinha menos itens e ficaram silenciosamente errados quando Orçamentos e
+  Atendimento entraram, abrindo um buraco em 780–860px onde a lista rolava
+  **mesmo em tela grande**. Cortar o que não é clicável rende mais que
+  encolher o que é.
+
+**E o método mudou:** os degraus novos não são estimativa. Saem de medição em
+Puppeteer da própria `public/admin.html`, varrendo 1040→620px de viewport
+nos dois cenários de visibilidade. A estimativa que eu tinha feito à mão dizia
+que a nav "cabia por 6px" em 1080p; a medição mostrou que faltavam **87px**.
+Layout de tela cheia se mede, não se estima — o navegador tem detalhes
+(`line-height` herdado, borda de container, padding do `.layout`) que não
+sobrevivem a soma de cabeça.
+
+**E medir tem duas armadilhas próprias**, as duas pegas só depois que o Pedro
+perguntou se eu tinha aberto no Chrome de verdade:
+
+- **Esperar a fonte.** Sem `await document.fonts.ready` o rodapé da sidebar
+  mede 102px em vez de 119px — o bloco do usuário encolhe com a fonte de
+  fallback. Piso de faixa calculado assim sai ~16px otimista, e foi o que me
+  fez escrever "cabe até ~815px" quando o real era 886.
+- **Varrer contínuo, não amostrar.** A primeira medição usou alturas fixas
+  (936, 900, 860, 800…), deu **28 de 28 cenários verdes** e ainda assim havia
+  uma janela de 5px — 882 a 886 — em que a lista rolava. Amostra esparsa não
+  prova ausência de buraco entre `@media`; só a varredura de 1 em 1px. É por
+  isso que o breakpoint ficou em 900 e não em 880.
+
 ## Decisões descartadas (e por quê)
 
 Registradas para não serem "redescobertas" e refeitas. Se o escopo mudar, o
