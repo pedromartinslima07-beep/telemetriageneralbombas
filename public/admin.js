@@ -12737,35 +12737,79 @@ function _avPrepararAssinatura(file) {
   });
 }
 
-// Envio do orçamento por e-mail: só escolhe PARA QUEM vai.
+// Envio do orçamento por e-mail: DUAS OPÇÕES, e cada uma tem a sua lista.
 //
-// ⚠️ AQUI HAVIA UM CAMPO "MENSAGEM" E UM UPLOAD DE ASSINATURA (até 24/08/2026).
-// O corpo do e-mail passou a ser fixo, com a identidade da casa, montado em
-// `sendOrcamentoCliente` (src/services/email.js). O e-mail é a carta de
-// encaminhamento — o documento está no painel (quando o cliente tem login) ou
-// no PDF anexo (quando não tem) —, e carta reescrita a cada envio é carta que
-// uma hora sai errada para cliente real. Quem precisar dizer algo específico
-// responde o e-mail depois de enviado.
+// ⚠️ O FURO QUE ISTO FECHA (25/08/2026). O envio ia para todos os endereços de
+// `condominios.email` e o formato era escolhido por "existe ALGUM usuário
+// cliente neste condomínio?". Num prédio com síndico, zelador e administradora
+// onde só o síndico tem login, os três recebiam o e-mail com link e sem anexo
+// — e dois deles não conseguiam abrir o documento em lugar nenhum. O acesso de
+// um decidia pelos outros.
 //
-// As rotas `/admin/me/email-template` e `/admin/me/assinatura` e as colunas
-// `usuarios.email_mensagem` / `assinatura_blob` continuam existindo, paradas:
-// saiu a interface, não o dado. Religar é voltar os campos aqui.
+//  • Pelo painel  → vai SÓ para quem tem login de cliente. Corpo fixo, link,
+//                   sem anexo. A lista é montada pelo BACKEND a partir do
+//                   cadastro; aqui ela é mostrada, nunca digitada.
+//  • Carta e anexo → vai para os endereços informados, com a mensagem escrita
+//                   pelo operador, a assinatura dele e o PDF junto.
+//
+// ⚠️ A MENSAGEM E A ASSINATURA VOLTARAM (saíram em 24/08, voltaram em 25/08),
+// mas como metade de uma escolha — não como padrão. Elas não existem no modo
+// painel: lá o e-mail é a carta de encaminhamento curta para quem vai clicar e
+// responder na tela, e carta reescrita a cada envio é carta que uma hora sai
+// errada para cliente real. As rotas `/admin/me/email-template` e
+// `/admin/me/assinatura` nunca foram removidas — só a interface tinha saído.
 async function _avAbrirEnvioEmail() {
   if (!_avSelecionado) return;
   const orc = _avSelecionado;
 
-  // Pré-preenche "Para" com o(s) e-mail(s) cadastrado(s) do condomínio do
-  // orçamento (campo `condominios.email`, pode ter vários separados por
-  // vírgula). Fica editável — o operador pode trocar antes de enviar.
-  const emailPadrao = (orc.condominio_id
-    ? (_condominios || []).find(c => Number(c.id) === Number(orc.condominio_id))?.email
-    : orc.cliente_email) || "";
+  // Quem é quem vem do backend, que é a fonte da verdade das duas listas.
+  let dest = { usuarios: [], cadastrados: [], tem_condominio: false };
+  try {
+    const rd = await fetch(`/admin/orcamentos/avulsos/${orc.id}/destinatarios`, { headers: authHeaders() });
+    if (rd.ok) dest = await rd.json();
+  } catch (_) { /* segue com as listas vazias: o modo carta ainda funciona */ }
+
+  // Template do operador logado, para o modo carta.
+  let tpl = {};
+  try {
+    const rt = await fetch("/admin/me/email-template", { headers: authHeaders() });
+    if (rt.ok) tpl = await rt.json();
+  } catch (_) { /* sem template, cai no texto padrão abaixo */ }
+
+  const temPainel = dest.tem_condominio && dest.usuarios.length > 0;
+  const emailsCadastrados = (dest.cadastrados || []).join(", ");
+  const msgPadrao = tpl.email_mensagem
+    || `Prezado(a),\n\nSegue em anexo o orçamento ${orc.numero || ""} referente ao seu condomínio.\n\nQualquer dúvida, estamos à disposição.`;
+  const assinaturaAtual = tpl.assinatura_email_url || "";
+
+  // O modo abre no que faz sentido para este orçamento: com gente no painel,
+  // é o caminho que registra a resposta; sem, não há escolha a oferecer.
+  let modo = temPainel ? "painel" : "carta";
+
+  // ⚠️ TOKENS DE PLACA CLARA, NÃO OS DO PAINEL.
+  // O modal é `--chapa` (claro) e as variáveis de uso diário do admin —
+  // `--muted` (#8294c2), `--border` (branco a 14%) — são do campo ESCURO:
+  // dentro dele o nome ficava azul-claro sobre cinza-claro e a borda sumia.
+  // É a Regra dos Dois Campos de Estado do DESIGN.md, e vale para qualquer
+  // coisa nova que nasça dentro de modal. Aqui a dupla certa é `--tinta-2`
+  // para o secundário e `--fio-esc` para o fio.
+  //
+  // ⚠️ E a classe é `avDest`, não `f`: `.f span` do admin é o rótulo de campo
+  // e vem com `text-transform: uppercase`, que transformava o nome do síndico
+  // em "EDMILSON ROCHA".
+  const listaUsuarios = dest.usuarios.length
+    ? dest.usuarios.map(u => `
+        <li>
+          <b>${_waEscaparHtml(u.email)}</b>
+          ${u.nome ? `<i>${_waEscaparHtml(u.nome)}</i>` : ""}
+        </li>`).join("")
+    : "";
 
   const ov = document.createElement("div");
   ov.className = "modalOverlay";
   ov.style.display = "flex";
   ov.innerHTML = `
-    <div class="modalBox" style="max-width:520px;">
+    <div class="modalBox" style="max-width:560px;">
       <div class="modalHead">
         <div>
           <div class="modalTitle">Enviar orçamento por e-mail</div>
@@ -12776,16 +12820,69 @@ async function _avAbrirEnvioEmail() {
       <div class="modalBody">
         <div class="modalTools"><div class="modalCount" id="avEnvioMsg"></div></div>
         <form class="formGrid" style="grid-template-columns:1fr;" onsubmit="return false;">
-          <label class="f">
-            <span>Para <small style="font-weight:400;color:var(--muted);">(separe vários por vírgula)</small></span>
-            <input id="avEnvioPara" class="input" type="text" value="${_waEscaparHtml(emailPadrao)}" placeholder="cliente@email.com" />
-          </label>
-          <div class="hint" style="line-height:1.6;">
-            O e-mail sai com o modelo da casa — logo e os dados do orçamento
-            (número, cliente, data e validade). Quando o cliente tem acesso ao
-            painel, vai o <b>link para ler e responder por lá</b>; quando não
-            tem, vai o <b>PDF em anexo</b>. Não há mensagem para escrever aqui.
+
+          <div class="f">
+            <span>Como enviar</span>
+            <div class="avModos">
+              <button type="button" class="avModo" id="avModoPainel" ${temPainel ? "" : "disabled"}>Pelo painel</button>
+              <button type="button" class="avModo" id="avModoCarta">Com carta e anexo</button>
+            </div>
           </div>
+
+          <!-- ── Pelo painel ─────────────────────────────────────────── -->
+          <div id="avBlocoPainel">
+            ${temPainel ? `
+              <div class="f">
+                <span>Vai para quem tem acesso ao painel</span>
+                <ul class="avDest">${listaUsuarios}</ul>
+              </div>
+              <div class="hint" style="line-height:1.6;margin-top:8px;">
+                O e-mail leva o <b>link para ler e responder no painel</b>, sem
+                anexo — é lá que a aprovação fica registrada. A lista vem do
+                cadastro de usuários e não é editável aqui.
+                ${emailsCadastrados
+                  ? `<br /><br />⚠️ O condomínio tem <b>${_waEscaparHtml(emailsCadastrados)}</b> no cadastro. Quem não estiver na lista acima <b>não recebe</b> por este caminho — use "Com carta e anexo" para alcançar todos.`
+                  : ""}
+              </div>`
+            : `
+              <div class="hint" style="line-height:1.6;">
+                Nenhum usuário com acesso ao painel neste
+                ${dest.tem_condominio ? "condomínio" : "orçamento"}.
+                ${dest.tem_condominio
+                  ? "Crie o acesso em Clientes para poder enviar por aqui — ou envie com carta e anexo."
+                  : "Orçamento avulso de pessoa física não tem painel."}
+              </div>`}
+          </div>
+
+          <!-- ── Carta e anexo ───────────────────────────────────────── -->
+          <div id="avBlocoCarta" style="display:none;">
+            <label class="f">
+              <span>Para <small style="font-weight:400;color:var(--muted);">(separe vários por vírgula)</small></span>
+              <input id="avEnvioPara" class="input" type="text" value="${_waEscaparHtml(emailsCadastrados)}" placeholder="cliente@email.com" />
+            </label>
+            <label class="f">
+              <span>Mensagem</span>
+              <textarea id="avEnvioMsgTexto" class="input" rows="5" style="resize:vertical;">${_waEscaparHtml(msgPadrao)}</textarea>
+            </label>
+            <label class="f">
+              <span>Assinatura <small style="font-weight:400;color:var(--muted);">(PNG ou JPG — em branco mantém a atual)</small></span>
+              <input id="avEnvioAssinaturaFile" type="file" accept="image/png,image/jpeg,image/jpg" class="input" style="padding:6px;" />
+            </label>
+            <img id="avEnvioAssinaturaPreview" alt="Assinatura"
+                 src="${_waEscaparHtml(assinaturaAtual)}"
+                 style="${assinaturaAtual ? "" : "display:none;"}max-height:70px;object-fit:contain;border:1px solid var(--border);border-radius:6px;padding:6px;background:#fff;" />
+            <label class="f" style="flex-direction:row;align-items:center;gap:8px;cursor:pointer;">
+              <input id="avEnvioSalvarPadrao" type="checkbox" style="width:auto;margin:0;" />
+              <span class="avOpt">Salvar mensagem e assinatura como padrão</span>
+            </label>
+            <div class="hint" style="line-height:1.6;">
+              O e-mail vai com o <b>PDF em anexo</b> e a sua mensagem, para
+              todos os endereços acima — inclusive quem não tem login. Não leva
+              o link do painel: quem não consegue entrar ficaria sem o
+              documento.
+            </div>
+          </div>
+
           <div class="formActions">
             <button class="btn" type="button" id="avEnvioCancelar">Cancelar</button>
             <button class="btn btnAccent" type="button" id="avEnvioConfirmar">Enviar</button>
@@ -12799,20 +12896,83 @@ async function _avAbrirEnvioEmail() {
   ov.addEventListener("click", e => { if (e.target === ov) fechar(); });
   document.getElementById("avEnvioFechar").addEventListener("click", fechar);
   document.getElementById("avEnvioCancelar").addEventListener("click", fechar);
-  setTimeout(() => document.getElementById("avEnvioPara")?.focus(), 30);
+
+  // ⚠️ O SELETOR DE MODO NÃO USA O AMARELO, e isso é regra, não gosto.
+  // A primeira versão marcava o modo ativo com `btnAccent` — que é a classe
+  // da AÇÃO — e o modal ficava com dois amarelos disputando: o modo escolhido
+  // e o "Enviar". Um por tela, e aqui ele é do "Enviar". Selecionado, em placa
+  // clara, é tinta marinho cheia com texto claro: a mesma inversão que o
+  // sistema usa para "este é o estado atual". (De quebra, `btnAccent` dentro
+  // de `.f` nem pintava de amarelo — o indicador estava mentindo.)
+  //
+  // O bloco escondido some com `display:none` porque o modal usa formGrid, e
+  // um `hidden` aqui brigaria com o `display` do container.
+  const btnPainel = document.getElementById("avModoPainel");
+  const btnCarta  = document.getElementById("avModoCarta");
+  function aplicarModo() {
+    document.getElementById("avBlocoPainel").style.display = modo === "painel" ? "" : "none";
+    document.getElementById("avBlocoCarta").style.display  = modo === "carta"  ? "" : "none";
+    btnPainel.classList.toggle("is-on", modo === "painel");
+    btnCarta.classList.toggle("is-on", modo === "carta");
+    btnPainel.setAttribute("aria-pressed", String(modo === "painel"));
+    btnCarta.setAttribute("aria-pressed", String(modo === "carta"));
+    // Sem gente no painel, mandar por ali não é opção — e o botão diz isso.
+    document.getElementById("avEnvioConfirmar").disabled = (modo === "painel" && !temPainel);
+  }
+  btnPainel.addEventListener("click", () => { if (!temPainel) return; modo = "painel"; aplicarModo(); });
+  btnCarta.addEventListener("click", () => { modo = "carta"; aplicarModo(); });
+  aplicarModo();
+
+  // Preview da assinatura — já redimensionada aqui, então o que aparece é o
+  // que vai no e-mail. As artes originais têm 7-8 MB; acima de ~100 KB em data
+  // URI o Gmail apara a mensagem (ver CLAUDE.md).
+  let assinaturaNovaB64 = null;
+  document.getElementById("avEnvioAssinaturaFile")?.addEventListener("change", async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) { assinaturaNovaB64 = null; return; }
+    try {
+      assinaturaNovaB64 = await _avPrepararAssinatura(file);
+      const prev = document.getElementById("avEnvioAssinaturaPreview");
+      if (prev) { prev.src = assinaturaNovaB64; prev.style.display = "block"; }
+    } catch (err) {
+      const msg = document.getElementById("avEnvioMsg");
+      if (msg) { msg.style.color = "var(--danger)"; msg.textContent = "Erro na imagem: " + err.message; }
+    }
+  });
 
   document.getElementById("avEnvioConfirmar").addEventListener("click", async () => {
-    const emails = (document.getElementById("avEnvioPara")?.value || "").trim();
-    const msg    = document.getElementById("avEnvioMsg");
-    const btn    = document.getElementById("avEnvioConfirmar");
+    const msg = document.getElementById("avEnvioMsg");
+    const btn = document.getElementById("avEnvioConfirmar");
+    const emails   = (document.getElementById("avEnvioPara")?.value || "").trim();
+    const mensagem = (document.getElementById("avEnvioMsgTexto")?.value || "").trim();
+    const salvar   = document.getElementById("avEnvioSalvarPadrao")?.checked;
+
     if (msg) { msg.style.color = "var(--muted)"; msg.textContent = "Enviando…"; }
     if (btn) btn.disabled = true;
     try {
-      if (msg) msg.textContent = "Enviando…";
+      // ⚠️ A assinatura sobe ANTES do envio, e só no modo carta. Se subisse
+      // depois, um envio que deu certo com assinatura nova deixaria o padrão
+      // do operador desatualizado; se falhasse, ele teria salvo uma imagem
+      // para um e-mail que não saiu.
+      if (modo === "carta" && assinaturaNovaB64) {
+        await fetch("/admin/me/assinatura", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...authHeaders() },
+          body: JSON.stringify({ base64: assinaturaNovaB64 }),
+        });
+      }
+      if (modo === "carta" && salvar) {
+        await fetch("/admin/me/email-template", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", ...authHeaders() },
+          body: JSON.stringify({ email_mensagem: mensagem }),
+        });
+      }
+
       const r = await fetch(`/admin/orcamentos/avulsos/${orc.id}/enviar-email`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...authHeaders() },
-        body: JSON.stringify({ emails }),
+        body: JSON.stringify(modo === "painel" ? { modo } : { modo, emails, mensagem }),
       });
       const j = await lerRespostaJson(r, "Envio do e-mail");
       if (!r.ok) {
@@ -12822,9 +12982,8 @@ async function _avAbrirEnvioEmail() {
         // única pista. O console sobrevive à navegação e ao fechamento do
         // modal, então o motivo também vai para lá, com marcador procurável.
         console.error(
-          `[envio-orcamento] FALHA orcamento=${orc.id} etapa=${j.etapa || "?"} ` +
-          `code=${j.code || "?"} destinos="${emails}"
-${j.error || "sem detalhe"}`
+          `[envio-orcamento] FALHA orcamento=${orc.id} modo=${modo} etapa=${j.etapa || "?"} ` +
+          `code=${j.code || "?"} destinos="${modo === "painel" ? "(usuários do painel)" : emails}"\n${j.error || "sem detalhe"}`
         );
         if (msg) {
           msg.style.color = "var(--danger)";
@@ -12844,13 +13003,17 @@ ${j.error || "sem detalhe"}`
       const fmsg = document.getElementById("avFormMsg");
       if (fmsg) {
         fmsg.style.color = "var(--ok)";
-        // O que saiu muda com o cliente: link do painel (e sem anexo) para
-        // quem tem login, PDF anexado para quem não tem. Dizer qual dos dois
-        // evita a dúvida de "mandei o documento ou não?".
+        // Dizer PARA QUANTOS foi, não só o formato: no modo painel a lista é
+        // menor que a do cadastro, e essa diferença é justamente o que o
+        // operador precisa saber que aconteceu.
+        // ⚠️ `enviado_para` vem como STRING separada por vírgula (é o que vai
+        // para a coluna `orcamentos.enviado_para`), não como array — `.length`
+        // direto contaria caracteres.
+        const quantos = String(j.enviado_para || "").split(",").filter(s => s.trim()).length;
         fmsg.textContent = j.link_painel
-          ? "✓ Enviado com o link do painel — o cliente responde por lá"
-          : "✓ Enviado com o PDF em anexo";
-        setTimeout(() => { if (fmsg) fmsg.textContent = ""; }, 4000);
+          ? `✓ Enviado com o link do painel para ${quantos} usuário(s) — o cliente responde por lá`
+          : `✓ Enviado com o PDF em anexo para ${quantos} endereço(s)`;
+        setTimeout(() => { if (fmsg) fmsg.textContent = ""; }, 5000);
       }
     } catch (e) {
       if (msg) { msg.style.color = "var(--danger)"; msg.textContent = "Erro: " + e.message; }
@@ -12858,7 +13021,6 @@ ${j.error || "sem detalhe"}`
     }
   });
 }
-
 // O texto técnico (objeto/escopo/normas) agora é gerado como cláusulas fixas
 // no PDF (src/services/orcamento-pdf.service.js) — aqui só o valor do serviço.
 // `tipo_servico` (migration 068) é o que liga a linha à cláusula do PDF. Antes

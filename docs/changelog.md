@@ -4081,6 +4081,73 @@ verdade, que é build — e o projeto não tem build por escolha. Em aberto.
 
 Cache-bust: `telemetria-v53`, `register-sw.js?v=43` nos quatro HTMLs.
 
+### 2026-08-25 · O envio do orçamento vira duas opções, com listas diferentes
+
+*"Agora a função enviar por e-mail enviará ainda para todos e-mails cadastrados
+ou só para quem tem usuário?"* — a pergunta do Pedro expôs um furo que a
+mudança do dia anterior tinha aberto.
+
+**O furo:** o e-mail ia para todos os endereços de `condominios.email`, e o
+formato era escolhido por `SELECT 1 ... LIMIT 1` — "existe **algum** usuário
+cliente neste condomínio?". Num prédio com síndico, zelador e administradora
+onde só o síndico tem login, os três recebiam o e-mail **com link e sem
+anexo**; dois deles clicavam, caíam no `/login` e o código nunca chegava. O
+acesso de um decidia pelos outros. Nos três orçamentos mais recentes do banco
+de teste, as duas listas divergem em **todos**.
+
+**A correção, como o Pedro pediu:** duas opções no modal, cada uma com a sua
+lista.
+
+- **Pelo painel** — vai só para quem tem login, com os e-mails na tela, e o
+  modal avisa quem está no cadastro e **ficaria de fora**. A lista vem do
+  banco e não é editável: aceitá-la do corpo da requisição deixaria este modo
+  mandar link para qualquer endereço digitado, que é o defeito que ele fecha.
+- **Com carta e anexo** — os endereços cadastrados, editáveis, com a
+  **mensagem e a assinatura de volta** e o PDF junto. Não leva link: quem não
+  entra ficaria sem o documento.
+
+Mensagem e assinatura tinham saído em 24/08, quando o corpo virou fixo. Voltam
+como **metade de uma escolha**, não como padrão — no modo painel continuam
+fora. As rotas `/admin/me/email-template` e `/admin/me/assinatura` e as colunas
+nunca tinham sido removidas: só a interface saíra.
+
+Entrou `GET /admin/orcamentos/avulsos/:id/destinatarios` com as duas listas, e
+`POST .../enviar-email` passou a aceitar `modo`. **Sem `modo` o comportamento
+antigo continua valendo** — cliente com JS em cache não pode começar a receber
+erro.
+
+**Três defeitos que só o navegador pegou** (visto em `/dev/_preview-envio.html`):
+
+1. **A lista de e-mails saiu ilegível** — texto escuro sobre fundo escuro. Usei
+   `--muted` e `--border`, que são do campo ESCURO, dentro de um modal que é
+   placa clara. Regra dos Dois Campos de Estado; a dupla certa é `--tinta-2` /
+   `--fio-esc`.
+2. **"EDMILSON ROCHA"** — `.f span` é rótulo de campo e vem em caixa alta. O
+   remédio já existia no arquivo (`.f span.cep-msg`), e `.avOpt` segue o mesmo
+   padrão e a mesma especificidade.
+3. **Dois amarelos no modal** — eu marcava o modo ativo com `btnAccent`, que é
+   a classe da ação, competindo com o "Enviar". É um por tela, e ele é do
+   "Enviar". Selecionado virou tinta marinho cheia. De quebra, `btnAccent`
+   dentro de `.f` nem pintava de amarelo: o indicador mentia sobre o estado.
+
+**Preview sem sessão e sem enviar nada:** `scripts/preview-modal-envio.js`
+recorta a função do `admin.js` **em tempo de geração** — markup duplicado
+começa fiel e mente na primeira edição — e o `fetch` é dublê. Abre em
+`/dev/_preview-envio.html`, rota que **só existe fora de produção** e só aceita
+nomes começando com `_`. Ela também devolve o acesso aos estudos
+`public/_*.html`, que o bloqueio de `.html` no `/static` tinha derrubado junto
+mais cedo hoje.
+
+⚠️ **O JS do preview vai em arquivo separado:** o helmet manda
+`script-src 'self'`, e script inline é bloqueado sem aviso no console — a
+página abre vazia como se nada tivesse acontecido.
+
+Fluxo completo em [modulos/orcamentos-envio.md](modulos/orcamentos-envio.md).
+
+Cache-bust: `admin.css?v=233`, `admin.js?v=315`, `telemetria-v54`,
+`register-sw.js?v=44`. O prefixo `/admin` já estava na lista network-first do
+`sw.js`, então o endpoint novo entrou coberto.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

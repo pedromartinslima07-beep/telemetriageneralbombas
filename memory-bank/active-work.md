@@ -27,6 +27,34 @@ aliases:
 > teste tinha caído. Um `TcpClient.ConnectAsync` conecta nos dois em ~190ms.
 > Os dois bancos estão de pé.
 
+## Sessão 2026-08-25 — O envio do orçamento vira duas opções
+
+Pergunta do Pedro — *"a função enviar por e-mail enviará ainda para todos
+e-mails cadastrados ou só para quem tem usuário?"* — que expôs um furo aberto
+no dia anterior: o e-mail ia para todos os endereços de `condominios.email` e
+o formato era decidido por "existe **algum** usuário no condomínio?". Quem não
+tinha login recebia link sem anexo e ficava sem o documento.
+
+- `GET /admin/orcamentos/avulsos/:id/destinatarios` — as duas listas.
+- `POST .../enviar-email` aceita `modo: painel|carta`. Sem `modo`, comportamento
+  antigo (cliente com JS em cache não pode receber erro).
+- **Mensagem e assinatura voltaram**, só no modo carta. A infra nunca tinha
+  sido removida — só a interface.
+- `scripts/preview-modal-envio.js` + rota `/dev/_arquivo.html` (**só fora de
+  produção**), que também devolve o acesso aos estudos `public/_*.html`.
+
+**Sem migration.** Testado: as duas listas contra o banco de teste (divergem
+nos três orçamentos mais recentes), e os dois modos no Chrome pelo preview.
+
+⚠️ **Falta o envio real**, que é handoff pro Pedro — eu não logo no admin e o
+endpoint dispara e-mail de verdade. Conferir nos dois modos: que o painel só
+alcança os usuários, e que a carta chega com mensagem, assinatura e PDF.
+
+⚠️ **Em aberto, do fim da sessão:** o rótulo "Meu prédio" no cabeçalho de
+orçamentos (nunca escolhido); os comentários de `.js`/`.css`, que continuam
+legíveis no F12 e exigiriam build; e o prazo dos aparelhos confiáveis, que hoje
+não expiram nunca.
+
 ## Sessão 2026-08-25 — A tela de login para de perguntar quem você é
 
 Pedro trouxe o incômodo de os dois públicos entrarem pela mesma

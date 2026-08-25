@@ -351,11 +351,47 @@ async function sendOrcamentoCliente(dados) {
        </tr>`
     : "";
 
+  // ⚠️ MENSAGEM E ASSINATURA SÓ EXISTEM NO MODO `carta` (25/08/2026).
+  // Elas saíram em 24/08, quando o corpo virou fixo, e voltaram como metade
+  // de uma escolha do operador — não como padrão. Quem manda pelo painel
+  // continua com a carta de encaminhamento curta: lá o e-mail é o caminho até
+  // a tela, e texto livre a cada envio é texto que uma hora sai errado para
+  // cliente real.
+  //
+  // A mensagem SUBSTITUI o parágrafo padrão em vez de somar-se a ele: o
+  // operador escreveu justamente porque tinha algo próprio a dizer, e as duas
+  // versões juntas fariam o e-mail repetir a si mesmo antes da caixa de
+  // informações, que já traz número, cliente e validade.
+  const mensagem = dados.mensagem ? String(dados.mensagem).trim() : "";
+
+  const mensagemHtml = mensagem
+    ? mensagem
+        .split(/\n{2,}/)
+        .map(par => `<p style="margin:0 0 14px;font-size:14px;line-height:1.6;color:#111827;">${E(par).replace(/\n/g, "<br />")}</p>`)
+        .join("\n        ")
+    : `<p style="margin:0 0 14px;font-size:14px;line-height:1.6;color:#111827;">Prezado(a),</p>
+        <p style="margin:0 0 14px;font-size:14px;line-height:1.6;color:#111827;">
+          Segue o orçamento <strong>${E(numero)}</strong>, referente a
+          <strong>${E(condo)}</strong>. ${E(ondeEstaODocumento)}
+        </p>`;
+
+  // ⚠️ A assinatura é data URI, e o limite do CLAUDE.md vale aqui: imagem
+  // embutida acima de ~100 KB faz o Gmail aparar a mensagem. Quem redimensiona
+  // é o front, em `_avPrepararAssinatura`, antes de subir — as artes originais
+  // da empresa têm 7-8 MB.
+  const assinaturaHtml = dados.assinaturaDataUrl
+    ? `<img src="${dados.assinaturaDataUrl}" alt="" style="display:block;margin:10px 0 0;max-width:260px;height:auto;border:0;" />`
+    : "";
+
   const textoPuro = [
-    `Prezado(a),`,
-    ``,
-    `Segue o orçamento ${numero}, referente a ${condo}.${ondeEstaODocumento ? " " + ondeEstaODocumento : ""}`,
-    ``,
+    ...(mensagem
+      ? [mensagem, ``]
+      : [
+          `Prezado(a),`,
+          ``,
+          `Segue o orçamento ${numero}, referente a ${condo}.${ondeEstaODocumento ? " " + ondeEstaODocumento : ""}`,
+          ``,
+        ]),
     `Informações do orçamento`,
     `Número: ${numero}`,
     `Cliente: ${condo}`,
@@ -398,11 +434,7 @@ async function sendOrcamentoCliente(dados) {
       </td></tr>
 
       <tr><td style="padding:28px 28px 6px;font-family:Helvetica,Arial,sans-serif;">
-        <p style="margin:0 0 14px;font-size:14px;line-height:1.6;color:#111827;">Prezado(a),</p>
-        <p style="margin:0 0 14px;font-size:14px;line-height:1.6;color:#111827;">
-          Segue o orçamento <strong>${E(numero)}</strong>, referente a
-          <strong>${E(condo)}</strong>. ${E(ondeEstaODocumento)}
-        </p>
+        ${mensagemHtml}
         ${convite}
       </td></tr>
 
@@ -424,6 +456,7 @@ async function sendOrcamentoCliente(dados) {
 
       <tr><td style="padding:20px 28px 26px;font-family:Helvetica,Arial,sans-serif;">
         <p style="margin:0;font-size:14px;line-height:1.6;color:#111827;">Atenciosamente,</p>
+        ${assinaturaHtml}
         <p style="margin:2px 0 0;font-size:14px;line-height:1.6;color:#111827;font-weight:bold;">General Bombas</p>
       </td></tr>
 

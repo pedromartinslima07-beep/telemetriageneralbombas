@@ -52,6 +52,7 @@ Como cada coisa funciona ponta a ponta. Índice em [`modulos/README.md`](docs/mo
 - [`app-mobile.md`](docs/modulos/app-mobile.md) — Capacitor, GPS background (limitação + solução pendente) `#fluxo`
 - [`landing-publica.md`](docs/modulos/landing-publica.md) — página `/`, captação de lead, sistema visual "Chapa" `#fluxo`
 - [`painel-cliente.md`](docs/modulos/painel-cliente.md) — painel do síndico: "a resposta, não o painel", sem seções, tudo abre como ficha `#fluxo`
+- [`orcamentos-envio.md`](docs/modulos/orcamentos-envio.md) — as duas opções de envio do orçamento e por que as listas de destinatários são diferentes `#fluxo`
 - [`painel-admin.md`](docs/modulos/painel-admin.md) — painel de operação: as 15 telas, os 3 moldes, os defeitos medidos e a direção proposta `#fluxo`
 
 ## ⚙️ Convenções

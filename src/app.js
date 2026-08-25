@@ -138,6 +138,26 @@ app.use("/static", (req, res, next) => {
   return _publicEstatico(req, res, next);
 });
 
+// Telas de estudo e previews (`public/_*.html`) — SÓ FORA DE PRODUÇÃO.
+//
+// Elas viviam em `/static/_estudo.html` até o bloqueio acima, e perder o
+// acesso foi efeito colateral, não intenção: são úteis para olhar uma tela
+// sem subir sessão nem disparar e-mail de verdade. Voltam por uma porta que
+// diz o que é, com duas travas: o prefixo `_` no nome e o ambiente.
+//
+// ⚠️ Em produção a rota não existe — nem 403, nem 404 diferente: ela
+// simplesmente não é registrada, então cai no 404 comum e não conta a
+// ninguém que há algo ali.
+if (process.env.NODE_ENV !== "production") {
+  app.get("/dev/:arquivo", (req, res) => {
+    const nome = String(req.params.arquivo || "");
+    // `_` obrigatório e nada de caminho: barra, `..` e afins nem chegam aqui,
+    // mas a allowlist é o que garante — filtro de bloqueio vaza por padrão.
+    if (!/^_[a-z0-9-]{1,60}\.html$/i.test(nome)) return res.status(404).end();
+    return res.sendFile(path.join(__dirname, "../public", nome));
+  });
+}
+
 // App mobile (Capacitor): em dev o Express serve /app/* a partir de app/public.
 // Em produção o app é empacotado pelo Capacitor e roda em capacitor://,
 // fazendo fetch direto pro backend. CORS pra capacitor:// é configurado

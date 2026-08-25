@@ -9606,3 +9606,86 @@ body.role-viewer .viewer-only-hide-inline {
   color: var(--accent);
   border: 1px solid rgba(240,176,20,.4);
 }
+
+/* ─── Lista de destinatários do modal de envio de orçamento ────────────────
+   ⚠️ VIVE DENTRO DE PLACA CLARA (`.modalBox` é `--chapa`), então usa a família
+   de tinta — `--tinta`, `--tinta-2`, `--fio-esc` — e NUNCA `--muted`
+   (#8294c2) ou `--border` (branco a 14%), que são do campo escuro do painel.
+   Na primeira versão a lista saiu com fundo escuro e nome azul-claro sobre
+   cinza: ilegível. É a Regra dos Dois Campos de Estado do DESIGN.md, e vale
+   para tudo que nasce dentro de modal.
+
+   O e-mail é o dado (tinta cheia, mono para alinhar as arrobas); o nome é
+   quem ele é (tinta-2, sem itálico apesar do <i> — a marcação é semântica,
+   o desenho não). */
+.avDest {
+  margin: 0;
+  padding: 4px 0 0;
+  list-style: none;
+}
+.avDest li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 10px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--fio-esc);
+}
+.avDest li:last-child { border-bottom: 0; }
+.avDest b {
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: .88rem;
+  color: var(--tinta);
+  overflow-wrap: anywhere;
+}
+.avDest i {
+  font-style: normal;
+  font-size: .86rem;
+  color: var(--tinta-2);
+}
+
+/* ⚠️ `.f span` do admin é RÓTULO DE CAMPO: vem em caixa alta, com tracking.
+   Numa frase que a pessoa lê ("Salvar mensagem e assinatura como padrão")
+   isso vira grito. Esta classe devolve o texto ao normal para os poucos casos
+   em que o `span` dentro de `.f` é conteúdo, não etiqueta. */
+/* Especificidade igual à de `.f span.cep-msg`, que resolve o mesmo problema
+   logo acima neste arquivo — `.avOpt` sozinho perde para `.f span`. */
+.f span.avOpt {
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 400;
+  font-size: .92rem;
+  color: var(--tinta-2);
+}
+
+/* ─── Seletor de modo do envio de orçamento ────────────────────────────────
+   ⚠️ NÃO É `.btnAccent`. O amarelo do modal pertence ao "Enviar" — um por
+   tela —, e marcar o modo ativo com ele punha dois acentos disputando a mesma
+   placa. Aqui "selecionado" é a inversão de tinta: marinho cheio com texto
+   claro, que é como o sistema já diz "este é o estado atual". Como bônus,
+   `.btnAccent` dentro de `.f` sequer pintava de amarelo — o indicador antigo
+   mentia sobre o próprio estado.
+
+   Vive em placa clara, então usa a família de tinta, nunca `--muted`/`--border`. */
+.avModos { display: flex; gap: 8px; flex-wrap: wrap; }
+.avModo {
+  padding: 9px 16px;
+  font: inherit;
+  font-size: .92rem;
+  font-weight: 600;
+  color: var(--tinta);
+  background: transparent;
+  border: 1px solid var(--fio-esc);
+  border-radius: 7px;
+  cursor: pointer;
+  transition: background .15s ease, color .15s ease, border-color .15s ease;
+}
+.avModo:hover:not(:disabled):not(.is-on) { background: rgba(6, 16, 51, .06); }
+.avModo.is-on {
+  background: var(--tinta);
+  border-color: var(--tinta);
+  color: var(--chapa-cl);
+}
+/* Sem modo disponível o botão não some: sumir esconderia que existe um
+   caminho melhor, e o operador nunca saberia que basta criar o acesso. */
+.avModo:disabled { opacity: .45; cursor: not-allowed; }

@@ -1617,8 +1617,72 @@ router.get("/orcamentos/avulsos/:id/pdf", authRequired, adminOnly, async (req, r
   }
 });
 
-// POST /admin/orcamentos/avulsos/:id/enviar-email — envia o PDF ao cliente
 const _EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/**
+ * GET /admin/orcamentos/avulsos/:id/destinatarios
+ *
+ * Quem recebe o quê, para o modal de envio poder dizer isso na cara do
+ * operador em vez de deixá-lo adivinhar. Devolve as DUAS listas, que são
+ * diferentes de propósito:
+ *
+ *  - `usuarios`    → quem tem login de cliente neste condomínio. É a lista do
+ *                    envio pelo painel: só quem consegue entrar recebe um
+ *                    e-mail cujo único caminho é entrar.
+ *  - `cadastrados` → `condominios.email`, o que a portaria/administração
+ *                    informou. Pode conter gente sem conta nenhuma, e é a
+ *                    lista do envio com carta e anexo.
+ *
+ * ⚠️ As duas listas existirem separadas é a correção de um furo real: até
+ * 25/08/2026 o e-mail ia para `cadastrados` e o formato era escolhido por
+ * "existe ALGUM usuário neste condomínio?". Num prédio com síndico, zelador e
+ * administradora onde só o síndico tinha login, os três recebiam o e-mail sem
+ * anexo — e dois deles não tinham como abrir o documento em lugar nenhum.
+ */
+router.get("/orcamentos/avulsos/:id/destinatarios", authRequired, adminOnly, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
+  try {
+    const r = await pool.query(
+      `SELECT o.condominio_id, o.cliente_email, c.email AS condominio_email
+         FROM orcamentos o
+         LEFT JOIN condominios c ON c.id = o.condominio_id
+        WHERE o.id = $1`,
+      [id]
+    );
+    if (!r.rows.length) return res.status(404).json({ error: "Orçamento não encontrado" });
+    const orc = r.rows[0];
+
+    let usuarios = [];
+    if (orc.condominio_id) {
+      const u = await pool.query(
+        `SELECT nome, email FROM usuarios
+          WHERE condominio_id = $1 AND role = 'cliente'
+          ORDER BY nome`,
+        [orc.condominio_id]
+      );
+      usuarios = u.rows;
+    }
+
+    const cadastrados = String(orc.condominio_email || orc.cliente_email || "")
+      .split(",")
+      .map(s => s.trim().toLowerCase())
+      .filter(Boolean);
+
+    return res.json({
+      usuarios,
+      cadastrados,
+      // O front usa para saber se a opção "pelo painel" pode ser oferecida.
+      // Sem condomínio (avulso de pessoa física) ela não existe.
+      tem_condominio: Boolean(orc.condominio_id),
+    });
+  } catch (err) {
+    console.error("[admin] GET /orcamentos/avulsos/:id/destinatarios:", err);
+    return res.status(500).json({ error: "Erro ao listar destinatários" });
+  }
+});
+
+// POST /admin/orcamentos/avulsos/:id/enviar-email — envia o PDF ao cliente
 router.post("/orcamentos/avulsos/:id/enviar-email", authRequired, adminOnly, async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
@@ -1644,28 +1708,98 @@ router.post("/orcamentos/avulsos/:id/enviar-email", authRequired, adminOnly, asy
     if (!r.rows.length) return res.status(404).json({ error: "Orçamento não encontrado" });
     const orc = r.rows[0];
 
-    // Destinatários: obrigatório no corpo da requisição
-    const emailsRaw = req.body?.emails != null ? String(req.body.emails).trim() : "";
-    const to = emailsRaw
-      .split(",")
-      .map(s => s.trim().toLowerCase())
-      .filter(Boolean);
-    if (!to.length) {
-      return res.status(400).json({ error: "Informe o e-mail do destinatário." });
-    }
-    const invalidos = to.filter(e => !_EMAIL_RE.test(e));
-    if (invalidos.length) {
-      return res.status(400).json({ error: `E-mail(s) inválido(s): ${invalidos.join(", ")}` });
+    // ⚠️ DOIS MODOS DE ENVIO, E CADA UM TEM A SUA LISTA (25/08/2026).
+    //
+    // O furo que isto corrige: o e-mail ia para todos os endereços de
+    // `condominios.email` e o FORMATO era escolhido por "existe ALGUM usuário
+    // cliente neste condomínio?". Num prédio com síndico, zelador e
+    // administradora onde só o síndico tem login, os três recebiam o e-mail
+    // com link e sem anexo — e dois deles não conseguiam abrir o documento em
+    // lugar nenhum. O acesso de um decidia pelos outros.
+    //
+    //  `painel` → vai SÓ para quem tem login de cliente, e o documento mora na
+    //             tela dele. Corpo fixo, sem anexo. Um e-mail cujo único
+    //             caminho é entrar não pode ser mandado a quem não entra.
+    //  `carta`  → vai para os endereços informados, com a mensagem escrita
+    //             pelo operador, a assinatura dele e o PDF em anexo. É o
+    //             caminho de quem não tem conta — e o de quando se quer dizer
+    //             alguma coisa junto.
+    //
+    // Sem `modo` no corpo, mantém o comportamento anterior: cliente com JS em
+    // cache não pode começar a receber erro.
+    const modo = String(req.body?.modo || "").trim().toLowerCase();
+    if (modo && modo !== "painel" && modo !== "carta") {
+      return res.status(400).json({ error: 'modo deve ser "painel" ou "carta"' });
     }
 
-    // ⚠️ NÃO HÁ MAIS MENSAGEM POR ENVIO NEM ASSINATURA POR USUÁRIO (24/08/2026).
-    // O corpo do e-mail é fixo, montado em `sendOrcamentoCliente`. O campo
-    // "Mensagem" e o upload de assinatura saíram do modal de envio, e esta
-    // rota deixou de ler `usuarios.email_mensagem` / `assinatura_blob`.
-    // As colunas continuam no banco, sem uso — a remoção foi da interface,
-    // não do dado. Um `mensagem` que ainda venha no body é ignorado de
-    // propósito: aceitar texto livre de novo teria de ser decisão, não
-    // resíduo de cliente antigo com JS em cache.
+    let to;
+    if (modo === "painel") {
+      if (!orc.condominio_id) {
+        return res.status(400).json({
+          error: "Este orçamento não é de um condomínio — não há painel para onde mandar.",
+        });
+      }
+      // ⚠️ A LISTA VEM DO BANCO, NÃO DO CORPO. O modal mostra os endereços,
+      // mas quem os escolhe é o cadastro: aceitar a lista do cliente aqui
+      // deixaria o envio "pelo painel" mandar link para qualquer endereço
+      // digitado, que é exatamente o defeito que este modo existe para fechar.
+      const u = await pool.query(
+        `SELECT email FROM usuarios WHERE condominio_id = $1 AND role = 'cliente' ORDER BY nome`,
+        [orc.condominio_id]
+      );
+      to = u.rows.map(x => String(x.email).trim().toLowerCase()).filter(Boolean);
+      if (!to.length) {
+        return res.status(400).json({
+          error: "Nenhum usuário com acesso ao painel neste condomínio. Envie com carta e anexo.",
+        });
+      }
+    } else {
+      const emailsRaw = req.body?.emails != null ? String(req.body.emails).trim() : "";
+      to = emailsRaw
+        .split(",")
+        .map(s => s.trim().toLowerCase())
+        .filter(Boolean);
+      if (!to.length) {
+        return res.status(400).json({ error: "Informe o e-mail do destinatário." });
+      }
+      const invalidos = to.filter(e => !_EMAIL_RE.test(e));
+      if (invalidos.length) {
+        return res.status(400).json({ error: `E-mail(s) inválido(s): ${invalidos.join(", ")}` });
+      }
+    }
+
+    // ⚠️ MENSAGEM E ASSINATURA SÃO DO MODO `carta`, E SÓ DELE.
+    //
+    // Elas existiram até 24/08/2026, saíram quando o corpo do e-mail virou
+    // fixo, e voltaram em 25/08 como metade de uma escolha — não como padrão.
+    // No modo `painel` continuam fora: lá o e-mail é uma carta de
+    // encaminhamento curta para quem vai clicar e responder na tela, e carta
+    // reescrita a cada envio é carta que uma hora sai errada para cliente
+    // real. No modo `carta` o documento vai anexo e o operador precisa poder
+    // dizer alguma coisa junto — é o caminho de quem não tem painel.
+    //
+    // `assinatura_blob` é lido do usuário logado e vira data URI. Continua
+    // valendo o limite do CLAUDE.md: imagem embutida acima de ~100 KB faz o
+    // Gmail aparar a mensagem, e o front já redimensiona em
+    // `_avPrepararAssinatura` antes de subir.
+    let mensagem = null;
+    let assinaturaDataUrl = null;
+    if (modo === "carta") {
+      const texto = req.body?.mensagem != null ? String(req.body.mensagem).trim() : "";
+      mensagem = texto || null;
+
+      if (req.body?.assinatura !== false) {
+        const a = await pool.query(
+          `SELECT assinatura_blob, assinatura_mimetype FROM usuarios WHERE id = $1`,
+          [req.user.id]
+        );
+        const blob = a.rows[0]?.assinatura_blob;
+        if (blob) {
+          const mime = a.rows[0].assinatura_mimetype || "image/png";
+          assinaturaDataUrl = `data:${mime};base64,${Buffer.from(blob).toString("base64")}`;
+        }
+      }
+    }
 
     // ⚠️ O LINK É DECIDIDO ANTES DO PDF, PORQUE ELE DECIDE SE HÁ PDF.
     //
@@ -1680,6 +1814,12 @@ router.post("/orcamentos/avulsos/:id/enviar-email", authRequired, adminOnly, asy
     // O link cai DIRETO no documento, não na lista: quem clica veio de um
     // e-mail sobre UM orçamento e não deve ter que procurá-lo. Sem sessão, a
     // tela manda para /login?next=… e devolve para cá depois de entrar.
+    //
+    // ⚠️ COM `modo` EXPLÍCITO, QUEM DECIDE É O MODO, não a existência de conta.
+    // As três condições abaixo continuam valendo para a chamada SEM modo (o
+    // cliente antigo), e é por isso que elas não sumiram. Mas quando o
+    // operador escolheu `carta`, ele escolheu anexo — mesmo que o condomínio
+    // tenha login —, porque a lista dele pode incluir gente que não tem.
     let temLoginNoPainel = false;
     if (orc.condominio_id) {
       const acesso = await pool.query(
@@ -1688,7 +1828,10 @@ router.post("/orcamentos/avulsos/:id/enviar-email", authRequired, adminOnly, asy
       );
       temLoginNoPainel = acesso.rowCount > 0;
     }
-    const linkPainel = (_linkPainelLigado() && temLoginNoPainel)
+    const querLink = modo === "painel" ? true
+                   : modo === "carta"  ? false
+                   : temLoginNoPainel;
+    const linkPainel = (_linkPainelLigado() && querLink)
       ? `${_baseUrlPublica(req)}/cliente/painel/orcamentos?orc=${orc.id}`
       : null;
 
@@ -1737,6 +1880,9 @@ router.post("/orcamentos/avulsos/:id/enviar-email", authRequired, adminOnly, asy
         // Decidido lá em cima, junto com a existência (ou não) do anexo —
         // os dois são a mesma escolha. Ver sendOrcamentoCliente.
         linkPainel,
+        // Só chegam preenchidos no modo `carta`.
+        mensagem,
+        assinaturaDataUrl,
       });
     } catch (errEnvio) {
       // `resendCode` vem do helper `_enviar` em services/email.js. É ele que
