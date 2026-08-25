@@ -15,7 +15,7 @@
   <link rel="preload" href="/static/fonts/archivo.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="preload" href="/static/fonts/martianmono.woff2" as="font" type="font/woff2" crossorigin />
 
-  <link rel="stylesheet" href="/static/login.css?v=5">
+  <link rel="stylesheet" href="/static/login.css?v=6">
 </head>
 <body>
 <!--
@@ -56,39 +56,55 @@ empresa no meio do caminho.
   <section class="forma-lado">
     <div class="placa">
       <h1>Entrar</h1>
-      <p class="placa-sub" id="placaSub">Entre com seu e-mail e senha.</p>
+      <p class="placa-sub" id="placaSub">Digite seu e-mail para continuar.</p>
+
+      <!-- ⚠️ A TELA NÃO PERGUNTA MAIS QUEM É VOCÊ (25/08/2026).
+           Aqui havia um botão "Sou do condomínio — entrar sem senha", que
+           obrigava a pessoa a se classificar antes de digitar qualquer coisa.
+           Era a nossa modelagem de dados virada pergunta: o `role` do usuário
+           já decide o caminho, e o `/auth/metodo` responde isso a partir do
+           e-mail. O síndico não vê a palavra "senha"; a equipe não vê
+           "código". Ninguém escolhe nada.
+
+           Fica FORA do <form> porque serve aos dois passos seguintes — o da
+           senha e o do código —, e o do código vive no `#otpStep`. -->
+      <p class="identidade" id="identidade" hidden>
+        <span class="identidade-rot">Entrando como</span>
+        <span class="identidade-val" id="identidadeEmail"></span>
+        <button type="button" class="elo" id="btnTrocar">trocar</button>
+      </p>
 
       <form id="loginForm">
-        <div class="campo">
+        <div class="campo" id="campoEmail">
           <label for="email">E-mail</label>
           <input type="email" id="email" placeholder="seu@email.com" required autocomplete="email" />
         </div>
 
-        <!-- ⚠️ O CAMPO DE SENHA SOME NO MODO CÓDIGO (25/08/2026).
+        <!-- ⚠️ O CAMPO DE SENHA SÓ EXISTE PARA A EQUIPE INTERNA.
              O síndico não tem senha: quem cria o acesso dele é o escritório,
              com o e-mail, e a entrada é um código de 6 dígitos. A equipe
              interna continua com senha — para ela, código a cada login seria
-             pedágio diário. -->
-        <div class="campo" id="campoSenha">
+             pedágio diário.
+             O `required` é ligado pelo JS ao revelar o campo: `required` em
+             campo escondido trava o submit sem dizer o porquê. -->
+        <div class="campo" id="campoSenha" hidden>
           <label for="senha">Senha</label>
-          <input type="password" id="senha" placeholder="••••••••" required autocomplete="current-password" />
+          <input type="password" id="senha" placeholder="••••••••" autocomplete="current-password" />
         </div>
 
-        <button type="submit" class="btn btn-amarelo" id="loginBtn">Entrar</button>
+        <button type="submit" class="btn btn-amarelo" id="loginBtn">Continuar</button>
       </form>
-
-      <!-- A porta do cliente. Fica fora do <form> para não virar um segundo
-           submit; alterna o modo da mesma placa em vez de abrir outra tela. -->
-      <button type="button" id="modoToggle" class="btn btn-fio">Sou do condomínio — entrar sem senha</button>
 
       <!-- ⚠️ `hidden`, não `style="display:none"`. O login.js alternava
            `style.display` entre "none" e "block", e o "block" sobrescrevia o
            display do CSS — o formulário voltava do passo do código sem o
            espaçamento entre os campos. -->
       <div id="otpStep" hidden>
+        <!-- Não repete o e-mail: a linha `.identidade`, logo acima, já diz
+             para quem o código foi. -->
         <p class="otp-info">
-          Enviamos um código de 6 dígitos para o seu e-mail. Confira a caixa de
-          entrada — e o spam, se não chegar.
+          Enviamos um código de 6 dígitos. Confira a caixa de entrada — e o
+          spam, se não chegar.
         </p>
 
         <div class="campo">
@@ -108,7 +124,7 @@ empresa no meio do caminho.
       <p id="erroMsg" class="erro" role="status" aria-live="polite"></p>
 
       <p class="placa-pe">
-        <!-- Serve aos dois modos: no modo código não existe senha para
+        <!-- Serve aos três passos: quem entra por código não tem senha para
              esquecer, e o motivo nº 1 de não entrar passa a ser e-mail
              cadastrado errado — que também se resolve por aqui. -->
         Não consegue entrar?
@@ -119,7 +135,7 @@ empresa no meio do caminho.
 
 </div>
 
-  <script src="/static/login.js?v=5"></script>
-  <script src="/static/register-sw.js?v=39" defer></script>
+  <script src="/static/login.js?v=6"></script>
+  <script src="/static/register-sw.js?v=40" defer></script>
 </body>
 </html>

@@ -33,8 +33,21 @@ API Express montada em `src/app.js`. Todas as respostas são JSON salvo PDFs
 
 ## Rate limiting
 
-`express-rate-limit` em: `/auth/login` (loginLimiter), `/auth/verify-otp`
-(otpLimiter) e `/telemetria` (telemetriaLimiter).
+Dois eixos, porque **IP é barato** e teto por IP sozinho não protege uma conta
+nomeada de quem aluga proxy aos milhares:
+
+| Endpoint | Por IP | Por e-mail |
+|---|---|---|
+| `/auth/metodo` | 40 / 15 min | — (quem varre usa e-mails diferentes) |
+| `/auth/login` | 20 / 15 min | 10 / 15 min |
+| `/auth/codigo` | 20 / 15 min | 5 / 15 min |
+| `/auth/verify-otp` | 10 / 15 min | **5 por código** (`login_codes.tentativas`) |
+| `/telemetria` | telemetriaLimiter | — |
+
+A chave do teto por e-mail é normalizada (`trim` + minúsculas): sem isso a
+mesma conta com outra grafia teria cota própria e o teto seria de mentira.
+Detalhes e o preço assumido em
+[modulos/autenticacao.md](modulos/autenticacao.md).
 
 ## Erros e 404
 
@@ -53,6 +66,7 @@ segue no comportamento padrão do Express.
 | Método | Rota | Descrição |
 |---|---|---|
 | GET | `/health` | Health check (`{status:"ok"}`) |
+| POST | `/auth/metodo` | **passo 1 da tela de login** — só `email`, responde `{ metodo: "senha" \| "codigo" }` para a tela saber qual campo mostrar. **Não autentica**: sem token, sem senha, sem e-mail enviado. `role` interno → `senha`; cliente **e e-mail desconhecido** → `codigo` |
 | POST | `/auth/login` | **equipe interna** — email+senha → envia OTP por email |
 | POST | `/auth/codigo` | **cliente (síndico), sem senha** — só `email`; exige `role='cliente'`, manda o código de 6 dígitos e devolve o mesmo `{ pending, otp_token }` do login. Resposta **neutra** para e-mail desconhecido. Aparelho confiável → JWT direto |
 | POST | `/auth/verify-otp` | valida OTP → JWT + cookie trusted device. **Serve aos dois caminhos** |

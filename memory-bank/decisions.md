@@ -909,3 +909,21 @@ desenho em camadas original continua válido.
   conferir se ele ainda está protegendo alguma coisa** — aqui a resposta era
   não, e a melhoria virou remoção. Usuário interno manteve senha porque entra
   todo dia e ali o código a cada login seria pedágio, não proteção.
+- **A tela de login não deve perguntar quem você é (2026-08-25).** O incômodo
+  veio do Pedro: os dois públicos entram pela mesma `telemetria.generalbombas`,
+  e por isso o login tinha um botão perguntando se a pessoa era de condomínio
+  ou não. O que aquele botão pedia era que ela se classificasse **dentro da
+  nossa modelagem de dados** antes de digitar qualquer coisa — e quem chega ali
+  pelo link do orçamento sabe o próprio e-mail, não sabe se é "condomínio" ou
+  "equipe". O `role` já decidia o caminho no servidor. Virou identifier-first:
+  `POST /auth/metodo` recebe o e-mail e responde qual campo mostrar. A regra
+  que fica: **quando a tela faz uma pergunta que o servidor consegue responder
+  sozinho, ela está pedindo que o usuário adivinhe a implementação.**
+- **Descartado: separar os painéis em domínios diferentes (2026-08-25).** Era a
+  outra saída para o mesmo incômodo. Custa DNS, certificado, sessão que não
+  atravessa domínio, service worker duplicado e o dobro do `?v=N` — e não
+  resolve o problema: quem salvou o link errado, ou clicou num e-mail antigo,
+  continua caindo no lugar errado, agora sem nem um botão para corrigir.
+  Separar **move** a escolha para a URL em vez de eliminá-la. Volta a fazer
+  sentido só se o painel do cliente virar produto com marca própria, ou por
+  exigência de isolamento — nenhum dos dois é o caso.

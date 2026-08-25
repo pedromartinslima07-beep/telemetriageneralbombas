@@ -260,6 +260,64 @@ img { max-width: 100%; display: block; }
   font-size: 1.02rem;
 }
 
+/* ─── Identidade confirmada ───────────────────────────────────────────── */
+
+/* O e-mail já respondido não volta como campo desabilitado nem como card: ele
+   vira ETIQUETA GRAVADA — rótulo em mono caixa-alta, igual ao dos campos, e o
+   valor como dado. É a mesma peça que o resto do sistema usa para "isto é uma
+   leitura, não um controle". A única ação possível sobre ele é desfazer, e ela
+   tem peso de link, não de botão: competir com o `.btn-amarelo` logo abaixo
+   colocaria duas ações primárias na mesma placa.
+
+   O fio de 1px embaixo é o mesmo do `.placa-pe` — profundidade aqui é aresta,
+   nunca barra colorida. */
+.identidade {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 3px 14px;
+  margin-bottom: clamp(26px, 3.4vw, 38px);
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--fio-esc);
+}
+.identidade-rot {
+  flex-basis: 100%;
+  font-family: var(--mono);
+  font-size: .66rem;
+  font-weight: 500;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+  color: var(--tinta-2);
+}
+/* `anywhere`: e-mail corporativo longo não pode empurrar a placa. */
+.identidade-val {
+  color: var(--tinta);
+  font-size: 1.05rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+
+/* Ação em texto. Não é `.btn`: não tem chanfro, então o anel de foco global
+   (outline amarelo) funciona e não precisa virar `inset`. */
+.elo {
+  margin-left: auto;
+  padding: 0;
+  background: none;
+  border: 0;
+  font-family: inherit;
+  font-size: .95rem;
+  font-weight: 600;
+  color: var(--mar-700);
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: var(--amarelo-es);
+  text-underline-offset: 3px;
+  text-decoration-thickness: 2px;
+  transition: color .2s var(--saida);
+}
+.elo:hover { color: var(--mar-600); }
+
 #loginForm { display: grid; gap: 18px; }
 
 .campo { display: grid; gap: 7px; }
@@ -331,6 +389,12 @@ img { max-width: 100%; display: block; }
   transition: clip-path .42s var(--saida);
 }
 .btn:hover::after { clip-path: polygon(0 0, 130% 0, 100% 100%, -30% 100%); }
+
+/* Enquanto o passo 1 pergunta ao servidor qual é o próximo campo, o botão fica
+   travado e diz o que está acontecendo. O varrimento fica fechado: um botão
+   que ainda reage ao mouse enquanto está desabilitado lê como travamento. */
+.btn:disabled { opacity: .55; cursor: not-allowed; }
+.btn:disabled::after { clip-path: polygon(0 0, 0 0, 0 100%, -30% 100%); }
 
 .btn-amarelo { background: var(--amarelo); color: var(--mar-900); }
 .btn-amarelo::after { background: var(--amarelo-cl); }

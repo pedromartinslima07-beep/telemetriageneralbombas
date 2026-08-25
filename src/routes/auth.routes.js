@@ -24,6 +24,60 @@ const loginLimiter = rateLimit({
   message: { error: "Muitas tentativas de login. Tente novamente em alguns minutos." },
 });
 
+// Passo 1 do login (só o e-mail). Teto mais alto que o do login porque uma
+// pessoa indecisa passa por aqui várias vezes sem nunca tentar credencial
+// nenhuma — mas continua com teto, porque este endpoint responde sobre um
+// e-mail que quem pergunta não precisa possuir.
+const metodoLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 40,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Muitas tentativas. Tente novamente em alguns minutos." },
+});
+
+/**
+ * Teto por E-MAIL, não por IP.
+ *
+ * ⚠️ Todo limitador acima conta por IP, e IP é barato: proxy residencial se
+ * aluga aos milhares. Contra quem tem muitos IPs, um teto por IP não protege
+ * uma conta específica — protege só contra o atacante preguiçoso. Estes aqui
+ * chaveiam pelo e-mail do corpo, então valem para o alvo inteiro, venha de
+ * onde vier.
+ *
+ * ⚠️ O preço, assumido: dá para travar o login de uma pessoa conhecida por 15
+ * minutos gastando o teto dela. É incômodo, e é melhor que a alternativa —
+ * sem isto, a mesma pessoa fica exposta a chute de senha distribuído e a ter
+ * a caixa de entrada enchida de códigos.
+ */
+function porEmail(max, message) {
+  return rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max,
+    standardHeaders: true,
+    legacyHeaders: false,
+    // Sem e-mail no corpo o handler responde 400 na hora — não vale gastar
+    // cota de ninguém, e sem isto a chave viraria a mesma string vazia para
+    // todo mundo.
+    skip: (req) => !req.body?.email,
+    keyGenerator: (req) => String(req.body.email).trim().toLowerCase(),
+    // A chave é um e-mail, nunca um IP: a validação de IPv6 do pacote não se
+    // aplica e só emitiria aviso no log.
+    validate: { keyGeneratorIpFallback: false },
+    message: { error: message },
+  });
+}
+
+const senhaPorEmailLimiter = porEmail(
+  10,
+  "Muitas tentativas para este e-mail. Tente novamente em alguns minutos."
+);
+
+const codigoPorEmailLimiter = porEmail(
+  5,
+  "Já enviamos códigos demais para este e-mail. Tente novamente em alguns minutos."
+);
+
 const otpLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10, // 10 tentativas de código por IP a cada 15 min
@@ -34,6 +88,23 @@ const otpLimiter = rateLimit({
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_EXPIRES_IN = "7d";
+
+// Erros aceitos por código de 6 dígitos antes de ele ser queimado. Cinco dá
+// folga para dedo trocado e para quem digita o código de um e-mail anterior,
+// e ainda deixa a chance de acerto por chute em 5 em 1.000.000.
+const MAX_TENTATIVAS_CODIGO = 5;
+
+// Comparação em tempo constante. O ganho real aqui é pequeno — 6 dígitos, pela
+// rede, com o banco no meio —, mas comparar segredo com `===` é o tipo de
+// coisa que se copia para onde o ganho não é pequeno.
+function _codigoConfere(guardado, digitado) {
+  // ⚠️ `login_codes.code` é `CHAR(6)`, e CHAR volta do Postgres com padding de
+  // espaço. Comparar sem `trim` faria todo código legítimo falhar.
+  const a = Buffer.from(String(guardado).trim());
+  const b = Buffer.from(String(digitado).trim());
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
+}
 
 /**
  * POST /auth/registrar  (admin only)
@@ -156,10 +227,59 @@ router.post("/registrar", authRequired, masterAdminOnly, async (req, res) => {
 });
 
 /**
+ * POST /auth/metodo
+ * Body: { email }
+ * Resposta: { metodo: "senha" | "codigo" }
+ *
+ * Passo 1 do login (25/08/2026). A tela não pergunta mais "você é do
+ * condomínio ou da equipe?" — pergunta o e-mail, e este endpoint diz qual
+ * campo mostrar em seguida. A pergunta era do servidor desde sempre: o
+ * `role` do usuário já decide o caminho, e obrigar a pessoa a se classificar
+ * era pedir que ela adivinhasse a nossa modelagem.
+ *
+ * ⚠️ NÃO AUTENTICA NADA. Só escolhe o próximo campo da tela. Quem valida
+ * continua sendo `/auth/login` (senha) e `/auth/verify-otp` (código) — este
+ * aqui não emite token, não consulta senha e não dispara e-mail.
+ *
+ * ⚠️ E-MAIL DESCONHECIDO RESPONDE `codigo`, não erro. É o mesmo raciocínio da
+ * resposta neutra do `/auth/codigo`: "não existe" transformaria a tela de
+ * login num verificador de quais e-mails estão cadastrados. Quem digita um
+ * e-mail que não existe segue para o passo do código, o `/auth/codigo`
+ * devolve o `otp_token` que aponta para ninguém, e o código nunca casa.
+ *
+ * ⚠️ O QUE ISTO REVELA, e por que é aceitável: um atacante que já saiba que
+ * um e-mail está cadastrado consegue distinguir INTERNO de cliente. Não dá
+ * para evitar sem devolver a tela ao botão de auto-classificação — a escolha
+ * do campo é, por definição, pública. O que continua protegido é o que
+ * importa: `cliente` e inexistente respondem igual, então a existência da
+ * conta não vaza. O teto de tentativas fecha o resto.
+ */
+router.post("/metodo", metodoLimiter, async (req, res) => {
+  const email = String(req.body?.email || "").trim().toLowerCase();
+  if (!email) return res.status(400).json({ error: "Informe o e-mail" });
+
+  try {
+    const r = await pool.query(
+      `SELECT role FROM usuarios WHERE email = $1 LIMIT 1`,
+      [email]
+    );
+    const role = r.rows[0]?.role;
+
+    // Só quem tem senha de verdade vai para o campo de senha. Cliente e
+    // desconhecido caem juntos no código — ver a nota de resposta neutra.
+    const metodo = role && role !== "cliente" ? "senha" : "codigo";
+    return res.json({ metodo });
+  } catch (error) {
+    console.error("Erro /auth/metodo:", error);
+    return res.status(500).json({ error: "Erro ao verificar o e-mail" });
+  }
+});
+
+/**
  * POST /auth/login
  * Body: { email, senha }
  */
-router.post("/login", loginLimiter, async (req, res) => {
+router.post("/login", loginLimiter, senhaPorEmailLimiter, async (req, res) => {
   const { email, senha } = req.body || {};
   if (!email || !senha) {
     return res.status(400).json({ error: "Campos: email, senha" });
@@ -278,7 +398,7 @@ router.post("/login", loginLimiter, async (req, res) => {
  * "Código inválido ou expirado" — a mesma de um código errado. Sem isso, o
  * endpoint vira um verificador de quais e-mails estão cadastrados.
  */
-router.post("/codigo", loginLimiter, async (req, res) => {
+router.post("/codigo", loginLimiter, codigoPorEmailLimiter, async (req, res) => {
   const email = String(req.body?.email || "").trim().toLowerCase();
   if (!email) return res.status(400).json({ error: "Informe o e-mail" });
 
@@ -375,19 +495,55 @@ router.post("/verify-otp", otpLimiter, async (req, res) => {
   }
 
   try {
+    // ⚠️ O CÓDIGO TEM TETO DE TENTATIVAS PRÓPRIO (migration 075).
+    //
+    // Antes, a única proteção era o `otpLimiter` — 10 tentativas por IP a cada
+    // 15 min. Quem tinha muitos IPs (proxy residencial é barato) contornava:
+    // o código valia os 10 minutos inteiros e cada IP novo comprava mais 10
+    // chutes. São 1.000.000 de combinações e não é preciso cobrir todas para
+    // ter chance boa. Agora o teto é do CÓDIGO: 5 erros e ele morre, não
+    // importa de quantos lugares vieram.
+    //
+    // Por isso a busca NÃO filtra mais por `code` — ela precisa achar o código
+    // ativo para poder contar o erro. A comparação virou trabalho nosso.
     const codeRes = await pool.query(
-      `SELECT id FROM login_codes
-       WHERE usuario_id = $1 AND code = $2 AND used = FALSE AND expires_at > NOW()
+      `SELECT id, code, tentativas FROM login_codes
+       WHERE usuario_id = $1 AND used = FALSE AND expires_at > NOW()
+       ORDER BY id DESC
        LIMIT 1`,
-      [payload.id, String(code).trim()]
+      [payload.id]
     );
 
+    // Nenhum código ativo. Também é o caminho do `otp_token` com `id: null`
+    // emitido para e-mail que não existe — a resposta neutra do `/auth/codigo`
+    // termina aqui, igual a um código errado.
     if (codeRes.rows.length === 0) {
       return res.status(401).json({ error: "Código inválido ou expirado." });
     }
 
+    const registro = codeRes.rows[0];
+
+    if (!_codigoConfere(registro.code, String(code).trim())) {
+      const tentativas = registro.tentativas + 1;
+      // Queimou as chances: o código morre aqui e a pessoa pede outro.
+      if (tentativas >= MAX_TENTATIVAS_CODIGO) {
+        await pool.query(
+          "UPDATE login_codes SET used = TRUE, tentativas = $2 WHERE id = $1",
+          [registro.id, tentativas]
+        );
+        return res.status(401).json({
+          error: "Código incorreto demais vezes. Peça um novo código.",
+        });
+      }
+      await pool.query("UPDATE login_codes SET tentativas = $2 WHERE id = $1", [
+        registro.id,
+        tentativas,
+      ]);
+      return res.status(401).json({ error: "Código inválido ou expirado." });
+    }
+
     // Marca como usado
-    await pool.query("UPDATE login_codes SET used = TRUE WHERE id = $1", [codeRes.rows[0].id]);
+    await pool.query("UPDATE login_codes SET used = TRUE WHERE id = $1", [registro.id]);
 
     // Busca dados do usuário para emitir o JWT de sessão
     const uRes = await pool.query(

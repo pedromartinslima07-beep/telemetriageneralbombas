@@ -83,6 +83,7 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
 | 068 | orcamento_linha_tipo_servico | `orcamento_linhas.tipo_servico` — marca a linha que vira cláusula no PDF, no lugar do regex na descrição |
 | 069 | leads_landing | tabela `leads` — contatos da landing pública |
 | 074 | orcamento_resposta_cliente | `orcamentos.cliente_comentario/respondido_em/respondido_por (SET NULL)` + índice parcial `(condominio_id, status)` — o cliente responde ao orçamento pelo painel; `respondido_por` é sempre o CLIENTE, separado de `aprovado_por`, que continua podendo ser quem digitou no escritório |
+| 075 | login_codes_tentativas | `login_codes.tentativas SMALLINT` — teto de 5 erros **por código**, porque o teto por IP não segura quem tem muitos IPs |
 | 073 | fk_usuarios_on_delete_set_null | toda FK → `usuarios` que estava em NO ACTION vira `ON DELETE SET NULL` (autoria em `sla_definicoes`, `orcamentos`, `planos_manutencao`, `contratos`) — era o que travava a remoção de usuário |
 | 072 | os_equipamento | `ordens_servico.equipamento_id (SET NULL)` — fecha o triângulo O.S./equipamento/orçamento; + `UPDATE` acertando `orcamentos.origem = 'os'` nos orçamentos de O.S. que nasciam como `'admin'` |
 | 071 | orcamento_bancada | `orcamentos.origem` aceita `'bancada'`; `orcamentos.equipamento_id (SET NULL)` — liga a bomba na bancada ao orçamento, sem tabela de peças própria |
@@ -3877,6 +3878,90 @@ interface, não o dado — mesmo tratamento de `/admin/me/email-template`.
 listener saíram do `cliente.js`. Verificado logado, sem erro no console.
 
 Cache-bust: `cliente.css?v=43`, `cliente.js?v=40`.
+
+### 2026-08-25 · A tela de login para de perguntar quem você é
+
+O Pedro trouxe o incômodo: os dois públicos entram pela mesma
+`telemetria.generalbombas`, e por isso o login tinha um botão perguntando se a
+pessoa era de condomínio ou não. A pergunta que ele fez junto era a resposta —
+**"existe a chance de fazer um jeito onde você coloca o e-mail primeiro?"**.
+
+Existe, e era o caminho certo. O que a tela pedia é que a pessoa se
+classificasse dentro da nossa modelagem de dados antes de digitar qualquer
+coisa; quem cai ali vindo do link do orçamento sabe o próprio e-mail, não sabe
+se é "condomínio" ou "equipe". O `role` já decidia o caminho no servidor.
+
+Entrou `POST /auth/metodo`: recebe só o e-mail, responde
+`{ metodo: "senha" | "codigo" }`, **não autentica nada** — não emite token, não
+lê senha, não dispara e-mail. A tela virou três passos (`email` → `senha` ou
+`otp`) no lugar de dois modos. Saiu o botão `#modoToggle`; saíram `_modoCodigo`,
+`_aplicarModo` e `_mostrarPasso` do `login.js`, que viraram `_irPara`.
+
+E-mail desconhecido responde `codigo`, não erro: "esse e-mail não existe" na
+tela de login é um verificador de quem tem conta. Ele segue para o passo do
+código, o `/auth/codigo` devolve o `otp_token` que aponta para ninguém e o
+código nunca casa — mesma resposta neutra que já existia. O que o endpoint
+revela e por que isso é aceitável está documentado em
+[modulos/autenticacao.md](modulos/autenticacao.md).
+
+No visual, o e-mail confirmado não volta como campo desabilitado: vira etiqueta
+gravada (`.identidade`) — rótulo em Martian Mono caixa-alta, valor como dado, e
+um "trocar" com peso de link, porque duas ações primárias na mesma placa
+brigariam. Ela aparece nos passos da senha e do código, e toma o lugar do
+subtítulo, que depois do e-mail dado não tem mais o que instruir. O botão ganhou
+estado travado ("Verificando…" / "Enviando código…") com o varrimento fechado.
+
+Quem cai em `codigo` pula direto para o OTP, sem clique extra — não há segundo
+campo para preencher. E `/login?email=...` agora pré-preenche o campo, deixando
+o foco no botão: avançar sozinho faria um GET disparar e-mail de código.
+
+**Descartado: separar os domínios.** Custa DNS, certificado, sessão que não
+atravessa domínio, service worker duplicado e o dobro do `?v=N` — e não resolve,
+porque quem salvou o link errado continua caindo no lugar errado, agora sem
+botão para corrigir. Separar move a escolha para a URL em vez de eliminá-la.
+
+Cache-bust: `login.css?v=6`, `login.js?v=6`, `sw.js` → `telemetria-v50`,
+`register-sw.js?v=40` nos três HTMLs que o registram.
+
+### 2026-08-25 · Os tetos de tentativa deixam de depender do IP
+
+O Pedro perguntou se a mudança do login tinha aberto falha. Tinha uma coisa
+minha para dizer — a enumeração de colaborador, que é o preço do
+identifier-first — e, olhando o fluxo inteiro em vez de só o meu diff,
+apareceu uma **anterior e mais séria**.
+
+**O código de 6 dígitos não tinha teto próprio.** A única proteção era o
+`otpLimiter`: 10 tentativas por IP a cada 15 min. Quem tem muitos IPs — proxy
+residencial se aluga aos milhares — comprava mais 10 chutes por endereço, com
+o código válido pelos 10 minutos inteiros. São 1.000.000 de combinações e não
+é preciso cobrir todas para ter chance boa; um código errado não invalidava
+nada. Migration **075** adiciona `login_codes.tentativas`: ao 5º erro o código
+é queimado e a pessoa pede outro. O teto passa a ser **do código**, e quantos
+IPs o atacante tem deixa de importar.
+
+Na mesma linha, `/auth/login` e `/auth/codigo` ganharam um segundo limitador
+chaveado pelo **e-mail** (10 e 5 por 15 min), normalizado com `trim` +
+minúsculas — sem normalizar, a mesma conta com outra grafia teria cota própria
+e o teto seria de mentira. Protege contra chute de senha distribuído e contra
+encher a caixa de entrada da vítima de códigos. O preço, assumido: dá para
+travar o login de alguém conhecido por 15 minutos. É melhor que a alternativa.
+
+A comparação do código virou `_codigoConfere`, em tempo constante — o ganho
+aqui é pequeno, mas `===` em segredo é o que se copia para onde o ganho não é.
+⚠️ `login_codes.code` é `CHAR(6)` e volta do Postgres **com padding de
+espaço**: sem `trim` dos dois lados, todo código legítimo seria reprovado.
+
+**Verificado contra o banco de teste**, com a migration aplicada: 5 erros
+queimam o código e o código certo depois já não entra; errar 2 e acertar
+continua entrando; o teto por e-mail bloqueia o 6º pedido e trata
+`Sindico@Predio.com` e `  sindico@predio.com  ` como a mesma cota.
+
+**O que continua exposto, de propósito:** `/auth/metodo` diz se um e-mail é de
+colaborador interno. É um vazamento novo (antes nenhum endpoint distinguia um
+e-mail do outro) e não dá para fechar sem devolver a tela ao botão de
+auto-classificação. A existência da conta continua protegida — cliente e
+inexistente respondem igual. Superfície inteira tabelada em
+[modulos/autenticacao.md](modulos/autenticacao.md).
 
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e

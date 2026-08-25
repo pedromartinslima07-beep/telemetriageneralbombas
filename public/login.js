@@ -113,88 +113,196 @@ function redirectByRole(user) {
   window.location.href = vale ? next.destino : destino;
 }
 
-// ⚠️ Os dois passos são alternados pelo atributo `hidden`, NUNCA por
-// `style.display`. O inline `display:block` que existia aqui sobrescrevia o
-// display do CSS: o formulário voltava do passo do código como bloco simples e
-// perdia o espaçamento entre os campos. `hidden` deixa o layout com o CSS.
-function _mostrarPasso(qual) {
-  loginForm.hidden = qual !== "login";
-  otpStep.hidden   = qual !== "otp";
-}
-
 // Descarta a sessão e volta pro passo 1 com o motivo na tela.
 function _abortarLogin(msg) {
   localStorage.removeItem("token");
   localStorage.removeItem("user");
-  _mostrarPasso("login");
   _otpToken = null;
-  if (typeof _aplicarModo === "function") _aplicarModo();
+  _irPara("email");
   showError(msg);
 }
 
-/* ── Dois modos na mesma placa ──────────────────────────────────────────
-   ⚠️ O CLIENTE NÃO TEM SENHA (25/08/2026). Quem cria o acesso do síndico é o
-   escritório, no admin, com o e-mail dele; daí em diante o e-mail é a
-   credencial e o código de 6 dígitos é a prova. Em produção o código já era
-   exigido em TODO login (`if (!isProd && OTP_DISABLED)` em auth.routes.js),
-   então a senha nunca foi o que protegia essa conta — era só mais uma coisa
-   para criar, mandar por e-mail e ele esquecer, sem recuperação nenhuma.
+/* ── O e-mail primeiro, o resto depois ──────────────────────────────────
+   ⚠️ A TELA NÃO PERGUNTA MAIS QUEM É VOCÊ (25/08/2026). Até aqui havia um
+   botão "Sou do condomínio — entrar sem senha" alternando dois modos na mesma
+   placa: a pessoa tinha de se classificar antes de digitar qualquer coisa, e
+   o que ela estava classificando era a NOSSA modelagem de dados. O `role` já
+   decide o caminho; o `/auth/metodo` responde isso a partir do e-mail.
 
-   A equipe interna continua com senha: essa gente entra todo dia, e um
-   código por login seria pedágio. Por isso são dois modos e não uma troca —
-   e o `/auth/codigo` recusa quem não for `cliente`, para não virar um atalho
-   que dispensa a senha do admin.
+   São três passos, nunca dois modos:
+     email  → pergunta só o e-mail e ao servidor qual campo vem depois
+     senha  → equipe interna (`role` != cliente)
+     otp    → o código de 6 dígitos, comum aos dois caminhos
 
-   O segundo passo (o código) é o MESMO nos dois caminhos. */
-let _modoCodigo = false;
+   ⚠️ O CLIENTE NÃO TEM SENHA. Quem cria o acesso do síndico é o escritório,
+   no admin, com o e-mail dele; daí em diante o e-mail é a credencial e o
+   código é a prova. Em produção o código já era exigido em TODO login
+   (`if (!isProd && OTP_DISABLED)` em auth.routes.js), então a senha nunca foi
+   o que protegia essa conta — era só mais uma coisa para ele esquecer, sem
+   recuperação nenhuma. A equipe interna continua com senha: essa gente entra
+   todo dia, e um código por login seria pedágio.
 
+   ⚠️ E-mail desconhecido responde `codigo`, e segue para o passo do código
+   como qualquer cliente. Não é descuido: "esse e-mail não existe" na tela de
+   login transforma a porta num verificador de quem tem conta. O código
+   simplesmente nunca chega. Ver a nota no `/auth/metodo`. */
+let _passo = "email";
+let _passoDoCodigo = "email"; // de onde o OTP veio, pra onde o "Voltar" leva
+// O e-mail que o `/auth/metodo` confirmou. Os passos seguintes usam ESTE, não
+// o valor do campo: o campo fica escondido a partir do passo 2, e ler dele de
+// novo seria confiar que ninguém mexeu no meio — a tela diria "Entrando como
+// fulano" enquanto mandaria outro para o servidor.
+let _emailConfirmado = "";
+
+const campoEmail  = document.getElementById("campoEmail");
 const campoSenha  = document.getElementById("campoSenha");
+const emailInput  = document.getElementById("email");
 const senhaInput  = document.getElementById("senha");
 const loginBtn    = document.getElementById("loginBtn");
-const modoToggle  = document.getElementById("modoToggle");
 const placaSub    = document.getElementById("placaSub");
+const identidade  = document.getElementById("identidade");
+const identidadeEmail = document.getElementById("identidadeEmail");
+const btnTrocar   = document.getElementById("btnTrocar");
 
-function _aplicarModo() {
-  campoSenha.hidden   = _modoCodigo;
-  // `required` num campo escondido trava o submit sem mostrar o porquê.
-  senhaInput.required = !_modoCodigo;
-  loginBtn.textContent = _modoCodigo ? "Receber o código" : "Entrar";
-  placaSub.textContent = _modoCodigo
-    ? "Digite o e-mail cadastrado do seu prédio. A gente manda um código de 6 dígitos."
-    : "Entre com seu e-mail e senha.";
-  modoToggle.textContent = _modoCodigo
-    ? "Sou da equipe — entrar com senha"
-    : "Sou do condomínio — entrar sem senha";
+// ⚠️ Os passos são alternados pelo atributo `hidden`, NUNCA por
+// `style.display`. O inline `display:block` que existia aqui sobrescrevia o
+// display do CSS: o formulário voltava do passo do código como bloco simples e
+// perdia o espaçamento entre os campos. `hidden` deixa o layout com o CSS.
+//
+// ⚠️ `required` acompanha a visibilidade nos DOIS campos. `required` num campo
+// escondido trava o submit sem mostrar o porquê — o navegador tenta focar um
+// elemento que não está lá e o clique no botão simplesmente não faz nada.
+function _irPara(passo) {
+  _passo = passo;
+  const noEmail = passo === "email";
+
+  loginForm.hidden = passo === "otp";
+  otpStep.hidden   = passo !== "otp";
+
+  campoEmail.hidden   = !noEmail;
+  emailInput.required = noEmail;
+  campoSenha.hidden   = passo !== "senha";
+  senhaInput.required = passo === "senha";
+
+  // A identidade toma o lugar do subtítulo: depois que o e-mail está dado, a
+  // instrução genérica não tem mais o que instruir.
+  identidade.hidden = noEmail;
+  placaSub.hidden   = !noEmail;
+
+  loginBtn.textContent = noEmail ? "Continuar" : "Entrar";
+  loginBtn.disabled = false;
+  // O passo mandou no rótulo: um `_destravar` que ainda esteja na pilha não
+  // pode restaurar por cima dele o rótulo do passo anterior.
+  delete loginBtn.dataset.rotulo;
+
+  if (noEmail) senhaInput.value = "";
 }
 
-modoToggle?.addEventListener("click", () => {
-  _modoCodigo = !_modoCodigo;
+// ⚠️ `_perguntarMetodo` chama `_pedirCodigo` dentro do próprio try: os dois
+// travam o mesmo botão, um por cima do outro. Por isso o rótulo original só é
+// guardado no PRIMEIRO travamento — senão o de dentro guardaria "Verificando…"
+// como se fosse o rótulo de repouso, e o botão voltaria de um erro escrito
+// assim.
+function _travar(btn, texto) {
+  if (!btn.disabled) btn.dataset.rotulo = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = texto;
+}
+
+function _destravar(btn) {
+  btn.disabled = false;
+  if (btn.dataset.rotulo) {
+    btn.textContent = btn.dataset.rotulo;
+    delete btn.dataset.rotulo;
+  }
+}
+
+// "trocar": volta pro passo 1 com o e-mail preenchido pra ser corrigido, não
+// apagado — quem clica aqui quase sempre errou uma letra.
+btnTrocar.addEventListener("click", () => {
   clearError();
-  _aplicarModo();
-  document.getElementById("email").focus();
+  _otpToken = null;
+  _irPara("email");
+  emailInput.focus();
+  emailInput.select();
 });
-_aplicarModo();
 
-// --- Passo 1: email (+ senha, no modo da equipe) ---
-loginForm.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  clearError();
-
-  const email = document.getElementById("email").value;
-  const senha = document.getElementById("senha").value;
-
+// --- Passo 1: só o e-mail ---
+async function _perguntarMetodo(email) {
+  _travar(loginBtn, "Verificando…");
   try {
-    const res = _modoCodigo
-      ? await fetch("/auth/codigo", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email }),
-        })
-      : await fetch("/auth/login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, senha }),
-        });
+    const res = await fetch("/auth/metodo", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      showError(data.error || "Não foi possível verificar o e-mail");
+      return;
+    }
+
+    _emailConfirmado = email;
+    identidadeEmail.textContent = email;
+
+    if (data.metodo === "senha") {
+      _irPara("senha");
+      senhaInput.focus();
+      return;
+    }
+
+    // Cliente (ou e-mail desconhecido): o código é a credencial, então não há
+    // segundo campo para preencher — pede o código já, sem um clique a mais.
+    await _pedirCodigo(email, "email");
+  } catch {
+    showError("Erro de conexão com servidor");
+  } finally {
+    _destravar(loginBtn);
+  }
+}
+
+// Dispara o `/auth/codigo` e entra no passo do OTP. `origem` é para onde o
+// botão "Voltar" do passo do código leva de volta.
+async function _pedirCodigo(email, origem) {
+  _travar(loginBtn, "Enviando código…");
+  try {
+    const res = await fetch("/auth/codigo", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      // Condomínio encerrado responde 403 aqui, com o motivo.
+      showError(data.error || "Não foi possível enviar o código");
+      return;
+    }
+
+    if (_entrarSeVeioToken(data)) return;
+
+    if (data.pending) {
+      _otpToken = data.otp_token;
+      _passoDoCodigo = origem;
+      _irPara("otp");
+      otpCode.value = "";
+      otpCode.focus();
+    }
+  } finally {
+    _destravar(loginBtn);
+  }
+}
+
+// --- Passo 2a: a senha da equipe interna ---
+async function _entrarComSenha(email, senha) {
+  _travar(loginBtn, "Entrando…");
+  try {
+    const res = await fetch("/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, senha }),
+    });
     const data = await res.json();
 
     if (!res.ok) {
@@ -202,25 +310,61 @@ loginForm.addEventListener("submit", async (e) => {
       return;
     }
 
-    // 2FA desativado (OTP_DISABLED=true no servidor)
-    if (data.token) {
-      localStorage.setItem("token", data.token);
-      localStorage.setItem("user", JSON.stringify(data.user));
-      redirectByRole(data.user);
-      return;
-    }
+    if (_entrarSeVeioToken(data)) return;
 
-    // Aguarda verificação de código
+    // O `/auth/login` mandou o código de 6 dígitos (2FA da equipe).
     if (data.pending) {
       _otpToken = data.otp_token;
-      _mostrarPasso("otp");
+      _passoDoCodigo = "senha";
+      _irPara("otp");
       otpCode.value = "";
       otpCode.focus();
     }
   } catch {
     showError("Erro de conexão com servidor");
+  } finally {
+    _destravar(loginBtn);
   }
+}
+
+// Sessão pronta sem passar pelo código: dispositivo confiável, ou
+// OTP_DISABLED=true no servidor (só dev).
+function _entrarSeVeioToken(data) {
+  if (!data.token) return false;
+  localStorage.setItem("token", data.token);
+  localStorage.setItem("user", JSON.stringify(data.user));
+  redirectByRole(data.user);
+  return true;
+}
+
+loginForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  clearError();
+
+  const email = emailInput.value.trim();
+
+  if (_passo === "email") {
+    if (!email) return;
+    await _perguntarMetodo(email);
+    return;
+  }
+
+  await _entrarComSenha(_emailConfirmado, senhaInput.value);
 });
+
+_irPara("email");
+
+// `/login?email=alguem@predio.com` — o link que sai nos nossos e-mails já
+// sabe de quem é a caixa. Preenche e deixa o foco no botão: passar direto
+// para o passo seguinte faria um GET disparar e-mail de código, o que é
+// spam esperando alguém descobrir.
+{
+  const _pre = new URLSearchParams(location.search).get("email");
+  if (_pre && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(_pre)) {
+    emailInput.value = _pre;
+    document.addEventListener("DOMContentLoaded", () => loginBtn.focus());
+  }
+}
 
 // --- Passo 2: código OTP ---
 otpBtn.addEventListener("click", async () => {
@@ -258,10 +402,12 @@ otpCode.addEventListener("keydown", (e) => {
   if (e.key === "Enter") otpBtn.click();
 });
 
-// Voltar para tela de login
+// Voltar para o passo que pediu o código: a senha da equipe, ou o e-mail de
+// quem entra só com código. Mandar todo mundo para o começo faria o interno
+// redigitar o e-mail que ele acabou de confirmar.
 otpBack.addEventListener("click", () => {
   clearError();
   _otpToken = null;
-  _mostrarPasso("login");
-  _aplicarModo();
+  _irPara(_passoDoCodigo);
+  (_passoDoCodigo === "senha" ? senhaInput : emailInput).focus();
 });

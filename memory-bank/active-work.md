@@ -10,7 +10,7 @@ aliases:
 > Branch atual: **`main`**, limpa. `feature/admin-chapa` (11 commits) e a tela
 > de orçamento do cliente já foram mergeadas — a produção
 > (`telemetria.generalbombas.com`) está servindo as duas.
-> Última sessão registrada: **2026-08-24**.
+> Última sessão registrada: **2026-08-25**.
 > Roadmap completo em [`roadmap.md`](roadmap.md); decisões em [`decisions.md`](decisions.md).
 
 > ✅ **Schema de produção em dia:** 074 aplicada em 24/08; a 073 já estava
@@ -26,6 +26,59 @@ aliases:
 > `hayabusa` duas vezes e o `interchange` uma, e me fez concluir que o banco de
 > teste tinha caído. Um `TcpClient.ConnectAsync` conecta nos dois em ~190ms.
 > Os dois bancos estão de pé.
+
+## Sessão 2026-08-25 — A tela de login para de perguntar quem você é
+
+Pedro trouxe o incômodo de os dois públicos entrarem pela mesma
+`telemetria.generalbombas` e o login ter um botão perguntando se a pessoa é de
+condomínio ou não: *"pense nos cenários, se existe a chance de fazer um jeito
+onde você coloca o e-mail primeiro"*. Existe, e virou o caminho —
+**identifier-first**. Separar os painéis em domínios diferentes foi avaliado e
+descartado (motivo em [`decisions.md`](decisions.md)).
+
+**Entregue:**
+- `POST /auth/metodo` (`metodoLimiter`, 40/15 min) — só o e-mail, responde
+  `{ metodo: "senha" | "codigo" }`. Não autentica nada. E-mail desconhecido cai
+  em `codigo`, para a tela não virar verificador de quem tem conta.
+- `login.html` / `login.js` em três passos (`email` → `senha` ou `otp`); saiu o
+  `#modoToggle` e todo o par `_modoCodigo`/`_aplicarModo`, que viraram `_irPara`.
+- `.identidade` no `login.css`: o e-mail confirmado como etiqueta gravada, com
+  "trocar". Mais o estado travado do `.btn` ("Verificando…").
+- `/login?email=…` pré-preenche o campo (foco no botão — avançar sozinho faria
+  um GET disparar e-mail de código).
+- Cache-bust: `login.css?v=6`, `login.js?v=6`, `telemetria-v50`,
+  `register-sw.js?v=40` nos três HTMLs.
+
+**Sem migration** — nada de schema mudou. `node --check` passou nos dois
+arquivos e o detector da skill `impeccable` não achou nada nas linhas novas.
+
+**Depois, o Pedro perguntou se aquilo tinha aberto falha** — e olhando o fluxo
+inteiro apareceu uma **anterior à mudança de hoje e mais séria**: o código de 6
+dígitos não tinha teto próprio, só o `otpLimiter` por IP. Quem tem muitos IPs
+comprava chutes à vontade dentro dos 10 min de validade, sobre 1.000.000 de
+combinações.
+
+- **Migration 075** — `login_codes.tentativas`. Ao 5º erro o código é queimado.
+  ✅ **Aplicada no banco de TESTE.** ⚠️ **Falta aplicar em produção:**
+  `node scripts/migrate.js 075_login_codes_tentativas.sql --prod`. Sem ela, o
+  `verify-otp` quebra em prod (a coluna não existe) — é a lição da Fase 7E.
+- **Teto por e-mail** em `/auth/login` (10/15 min) e `/auth/codigo` (5/15 min),
+  chave normalizada com `trim` + minúsculas.
+- `_codigoConfere` em tempo constante. ⚠️ `code` é `CHAR(6)` e volta com
+  padding — sem `trim` todo código legítimo falharia.
+
+Verificado contra o banco de teste (servidor efêmero, sem login): 5 erros
+queimam o código; errar 2 e acertar entra; o teto por e-mail bloqueia o 6º
+pedido e junta as variações de grafia na mesma cota.
+
+⚠️ **Continua exposto de propósito:** `/auth/metodo` revela se um e-mail é de
+colaborador interno. Não fecha sem desfazer o identifier-first; a existência da
+conta segue protegida.
+
+⚠️ **Falta o teste com o servidor de pé** (`npm run dev`, porta 3001), que é
+handoff pro Pedro: entrar com `admin@teste.local` (deve pedir senha) e com
+`demo-cliente@teste.local` (deve ir direto ao código), e conferir o "Voltar" do
+passo do código nos dois caminhos.
 
 ## Sessão 2026-08-24 — O e-mail do orçamento virou documento da casa
 

@@ -63,7 +63,7 @@ ESP32 (sonda 4-20mA + SCT-013)
 
 | Módulo | Responsabilidade |
 |---|---|
-| **auth** | Login email+senha → OTP → JWT + trusted device cookie |
+| **auth** | Login identifier-first: e-mail → `/auth/metodo` diz o campo seguinte (senha da equipe ou código do cliente) → OTP → JWT + trusted device cookie |
 | **telemetria** | Ingestão de leituras dos ESP32 |
 | **condominios / reservatorios** | CRUD + calibração + limiar + lat/lng/CEP/CNPJ/nome_fantasia |
 | **cliente** | Status e histórico do próprio condomínio |
@@ -364,8 +364,15 @@ registrava era o escritório.
   costura entre o site e o painel e não pode parecer outra empresa.
 - ⚠️ `login.css` **duplica** os tokens da landing de propósito (as páginas não
   compartilham CSS). Mudou a paleta? Mude nos dois.
-- ⚠️ Os passos login/OTP alternam por atributo `hidden`, nunca por
-  `style.display`. Detalhes em
+- **Identifier-first desde 25/08/2026:** a tela pede o e-mail, pergunta ao
+  `POST /auth/metodo` qual é o campo seguinte e mostra só ele — senha para a
+  equipe interna, código para o cliente. Saiu o botão "Sou do condomínio —
+  entrar sem senha": ele obrigava a pessoa a se classificar dentro da nossa
+  modelagem de dados. E-mail confirmado vira etiqueta gravada (`.identidade`)
+  com um "trocar" ao lado. **Separar os painéis em domínios diferentes foi
+  avaliado e descartado** — ver [decisions.md](decisions.md).
+- ⚠️ Os três passos (email/senha/OTP) alternam por atributo `hidden`, nunca por
+  `style.display`, e `required` acompanha a visibilidade do campo. Detalhes em
   [autenticacao.md](../docs/modulos/autenticacao.md).
 - ⚠️ A foto do painel (`public/fotos/reservatorios.jpg`) tem a marca do
   **fabricante do tanque com telefones legíveis** no canto superior esquerdo —

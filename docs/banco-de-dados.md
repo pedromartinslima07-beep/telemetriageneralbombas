@@ -112,8 +112,15 @@ CHECK role: `admin | admin_viewer | cliente | tecnico` (migration 017 adicionou
 `tecnico`; o antigo `master_admin` foi removido).
 
 **`login_codes`** — OTP 2FA. `usuario_id (CASCADE)`, `code CHAR(6)`,
-`expires_at`, `used`. **`trusted_devices`** — `usuario_id`, `token UNIQUE`,
-`expires_at` (cookie de 30 dias).
+`expires_at`, `used`, `tentativas SMALLINT` (migration 075). O `tentativas`
+existe porque o rate limit por IP não protege o código: quem tem muitos IPs
+compra chutes à vontade dentro dos 10 minutos de validade. Ao 5º erro o código
+é queimado (`used = TRUE`) e a pessoa precisa pedir outro — o teto passa a ser
+do código, não de onde vieram as tentativas.
+⚠️ `code` é `CHAR(6)`, e CHAR volta do Postgres **com padding de espaço**:
+comparar em JS sem `trim` reprova todo código legítimo.
+**`trusted_devices`** — `usuario_id`, `token UNIQUE`, `expires_at` (cookie de
+30 dias).
 
 ### WhatsApp + IA — migration 001 (+ evolução)
 

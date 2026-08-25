@@ -28,6 +28,7 @@ então esquecer significava depender do escritório.
 | | Equipe interna | Cliente (síndico) |
 |---|---|---|
 | Entra com | e-mail + senha, depois código | e-mail, depois código |
+| Passo 0 (quem é) | `POST /auth/metodo` → `"senha"` | `POST /auth/metodo` → `"codigo"` |
 | Rota do passo 1 | `POST /auth/login` | `POST /auth/codigo` |
 | Passo 2 | `POST /auth/verify-otp` | **o mesmo** `POST /auth/verify-otp` |
 | `usuarios.senha_hash` | bcrypt da senha escolhida | bcrypt de 32 bytes aleatórios |
@@ -49,14 +50,58 @@ ele.
 
 Na interface: o modal de usuário do admin esconde o campo de senha quando o
 tipo é Cliente (e a lista esconde o botão de resetar senha, que para ele não
-significa nada), e a tela `/login` tem o botão **"Sou do condomínio — entrar
-sem senha"**, que troca o modo da mesma placa. O cartão de entrada da página de
-orçamentos usa o mesmo par de rotas — ver
-[painel-cliente.md](painel-cliente.md).
+significa nada). O cartão de entrada da página de orçamentos usa o mesmo par de
+rotas — ver [painel-cliente.md](painel-cliente.md).
+
+## A tela de login não pergunta quem você é (25/08/2026)
+
+Até aqui a `/login` tinha um botão **"Sou do condomínio — entrar sem senha"**
+que trocava o modo da mesma placa. A pessoa precisava se classificar antes de
+digitar qualquer coisa — e o que ela classificava era a nossa modelagem de
+dados. Quem cai na tela vindo do link do orçamento não sabe se é "condomínio"
+ou "equipe"; sabe o próprio e-mail.
+
+Hoje são **três passos, não dois modos**:
+
+| Passo | O que a tela mostra | Rota |
+|---|---|---|
+| `email` | só o campo de e-mail, botão "Continuar" | `POST /auth/metodo` |
+| `senha` | e-mail gravado como etiqueta + campo de senha | `POST /auth/login` |
+| `otp` | e-mail gravado como etiqueta + código de 6 dígitos | `POST /auth/verify-otp` |
+
+O síndico nunca vê a palavra "senha"; a equipe nunca vê "código" no primeiro
+passo. Quem cai em `codigo` pula direto para o passo do OTP — o `/auth/codigo`
+é disparado sem clique extra, porque não há segundo campo para preencher.
+
+**A alternativa descartada foi separar os domínios** (um subdomínio para o
+cliente). Custa DNS, certificado, sessão que não atravessa domínio, service
+worker duplicado e o dobro do `?v=N` — e não resolve: quem salvou o link errado
+continua caindo no lugar errado, agora sem botão para corrigir. Separar **move**
+a escolha para a URL em vez de eliminá-la. Ver
+[decisions.md](../../memory-bank/decisions.md).
 
 ## Passo a passo
 
-1. **`POST /auth/login`** (`loginLimiter`) — recebe `email` + `senha`.
+0. **`POST /auth/metodo`** (`metodoLimiter`, 40 por IP / 15 min) — recebe só
+   `email`, responde `{ metodo: "senha" | "codigo" }`.
+   - **Não autentica nada**: não emite token, não lê senha, não dispara e-mail.
+     Só escolhe qual campo a tela mostra em seguida.
+   - `role` existente e diferente de `cliente` → `"senha"`. Todo o resto,
+     **inclusive e-mail que não existe** → `"codigo"`.
+   - ⚠️ E-mail desconhecido responde `"codigo"` de propósito: um "esse e-mail
+     não existe" transformaria a tela de login num verificador de quem tem
+     conta. Ele segue para o passo do código, recebe o `otp_token` que aponta
+     para ninguém (ver a resposta neutra do `/auth/codigo`) e o código nunca
+     casa.
+   - ⚠️ **O que este endpoint revela**, e por que é aceitável: quem já saiba que
+     um e-mail está cadastrado consegue distinguir **interno de cliente**. Não
+     dá para evitar sem devolver a tela ao botão de auto-classificação — a
+     escolha do campo é, por definição, pública. O que continua protegido é o
+     que importa: `cliente` e inexistente respondem igual, então a **existência
+     da conta** não vaza.
+
+1. **`POST /auth/login`** (`loginLimiter` + `senhaPorEmailLimiter`) — recebe
+   `email` + `senha`.
    **Equipe interna.** Cliente não passa por aqui: ele não tem senha que case.
    - Valida senha com bcrypt contra `usuarios.senha_hash`.
    - Se o request traz cookie de **trusted device** válido (`trusted_devices`,
@@ -65,7 +110,8 @@ orçamentos usa o mesmo par de rotas — ver
      envia por email via **Resend** (`email.js`).
    - Em dev, `OTP_DISABLED=true` (lido com `.trim()`) desativa o 2FA.
 
-1b. **`POST /auth/codigo`** (`loginLimiter`) — recebe só `email`. **Cliente.**
+1b. **`POST /auth/codigo`** (`loginLimiter` + `codigoPorEmailLimiter`) — recebe
+   só `email`. **Cliente.**
    - Busca usuário com aquele e-mail **e `role = 'cliente'`**; recusa
      condomínio encerrado (`_bloqueioDeCliente`, mesma checagem do login).
    - Aparelho confiável válido → emite o JWT direto, sem código (mesmo atalho
@@ -76,6 +122,16 @@ orçamentos usa o mesmo par de rotas — ver
 2. **`POST /auth/verify-otp`** (`otpLimiter`) — recebe o código.
    Serve aos dois caminhos sem nenhuma bifurcação: o `otp_token` emitido em
    `/auth/codigo` é idêntico ao emitido em `/auth/login`.
+   - ⚠️ **Teto de 5 erros POR CÓDIGO** (`login_codes.tentativas`, migration
+     075). O `otpLimiter` conta por IP, e IP é barato: quem aluga proxy
+     residencial comprava mais 10 chutes por endereço, com o código válido
+     pelos 10 minutos inteiros e 1.000.000 de combinações que nem precisam ser
+     cobertas todas. Ao 5º erro o código é queimado (`used = TRUE`) e a pessoa
+     pede outro — daí em diante quantos IPs o atacante tem deixa de importar.
+   - A busca **não filtra mais por `code`**: precisa achar o código ativo para
+     contar o erro. A comparação virou `_codigoConfere`, em tempo constante.
+     ⚠️ `code` é `CHAR(6)` e volta do Postgres com padding de espaço — sem
+     `trim` dos dois lados, todo código legítimo é reprovado.
    - Valida contra `login_codes` (não usado, não expirado), marca `used`.
    - Emite **JWT** (7 dias, assinado com `JWT_SECRET`) com `id`, `role`,
      `condominio_id`.
@@ -83,6 +139,50 @@ orçamentos usa o mesmo par de rotas — ver
      (token aleatório) e seta cookie httpOnly + SameSite (30 dias).
 
 3. Cliente guarda o JWT (localStorage) e o envia em `Authorization: Bearer`.
+
+## Tetos de tentativa: por IP e por e-mail
+
+Todo limitador do arquivo contava por IP, e **IP é barato** — proxy residencial
+se aluga aos milhares. Contra quem tem muitos endereços, teto por IP não
+protege uma conta específica; protege só contra o atacante preguiçoso. Desde
+25/08/2026 os endpoints que mexem com uma conta nomeada têm um segundo teto,
+chaveado pelo **e-mail do corpo** (normalizado: `trim` + minúsculas, senão a
+mesma conta com outra grafia teria cota própria e o teto seria de mentira).
+
+| Endpoint | Por IP | Por e-mail | Contra o quê |
+|---|---|---|---|
+| `/auth/metodo` | 40 / 15 min | — | varredura de e-mails |
+| `/auth/login` | 20 / 15 min | 10 / 15 min | chute de senha distribuído |
+| `/auth/codigo` | 20 / 15 min | 5 / 15 min | encher a caixa da vítima de códigos |
+| `/auth/verify-otp` | 10 / 15 min | **5 por código** (migration 075) | chute do código de 6 dígitos |
+
+⚠️ **O preço, assumido:** dá para travar o login de uma pessoa conhecida por 15
+minutos gastando o teto dela. É incômodo, e é melhor que a alternativa — sem o
+teto por e-mail, a mesma pessoa fica exposta a chute de senha vindo de mil IPs.
+
+⚠️ **O teto por e-mail não vale para `/auth/metodo`**, e não é esquecimento:
+quem varre e-mails usa endereços **diferentes** a cada request, então uma cota
+por e-mail não é tocada. Ali só o teto por IP faz alguma coisa.
+
+## O que a tela de login revela, e o que não revela
+
+| Pergunta | Dá para responder? |
+|---|---|
+| "Este e-mail tem conta no sistema?" | **Não** — cliente e inexistente respondem igual |
+| "Este e-mail é de um colaborador interno?" | **Sim** — é o preço do identifier-first |
+| "Qual é a senha / o código?" | Não, com os tetos acima |
+
+O segundo item é um vazamento **novo**, criado em 25/08/2026: antes, nenhum
+endpoint distinguia um e-mail do outro. Não dá para evitar sem devolver a tela
+ao botão de auto-classificação, porque escolher qual campo mostrar é, por
+definição, público. O uso realista para um atacante é montar a lista de quem
+trabalha na empresa e fazer phishing direcionado — o que importa aqui, já que
+o segundo fator chega justamente por e-mail.
+
+⚠️ **A decisão do `/auth/metodo` é cosmética, e o servidor não confia nela.**
+Forjar `metodo: "codigo"` para um e-mail de admin não leva a lugar nenhum: o
+`/auth/codigo` filtra `role = 'cliente'` no próprio SQL e responde neutro.
+Nenhum caminho de autenticação depende do que o front decidiu mostrar.
 
 ## Roles e redirecionamento
 
@@ -293,8 +393,19 @@ sobra horizontal. É a única exceção à regra acima.
 `login.js` alternava `loginForm.style.display` entre `"none"` e `"block"`. O
 `"block"` inline sobrescrevia o `display` do CSS, e o formulário voltava do
 passo do código como bloco simples — sem o espaçamento entre os campos. Hoje
-existe `_mostrarPasso("login" | "otp")`, que mexe só no atributo `hidden`, e o
-CSS tem `[hidden] { display: none !important }`. Não voltar a `style.display`.
+existe `_irPara("email" | "senha" | "otp")`, que mexe só no atributo `hidden`, e
+o CSS tem `[hidden] { display: none !important }`. Não voltar a `style.display`.
+
+⚠️ **`required` acompanha a visibilidade**, nos dois campos. `required` num
+campo escondido trava o submit sem dizer o porquê: o navegador tenta focar um
+elemento que não está na tela e o clique no botão simplesmente não faz nada. É
+por isso que `#senha` nasce sem `required` no HTML — quem liga é o `_irPara`.
+
+⚠️ **Um travamento de botão por vez.** `_perguntarMetodo` chama `_pedirCodigo`
+dentro do próprio `try`, e os dois travam o mesmo `#loginBtn`. `_travar` só
+guarda o rótulo original no **primeiro** travamento; senão o de dentro guardaria
+"Verificando…" como rótulo de repouso e o botão voltaria de um erro escrito
+assim.
 
 ### ⚠️ Anel de foco em elemento chanfrado tem de ser `inset`
 
