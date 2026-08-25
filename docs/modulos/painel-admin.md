@@ -34,12 +34,21 @@ documento. Os nomes abaixo são os `data-section` reais.
 | **Análise** | `dashboard` · `telemetria` · `mapa` · `relatorios` |
 | **Sistema** | `config` |
 
-⚠️ **Os nomes dos grupos não aparecem na tela desde 24/08/2026.** O
-`.nav-section-label` virou um filete de 1px — o texto continua no HTML (o
-`admin.js` varre esses elementos para esconder grupo órfão no perfil
-operador, e o leitor de tela continua lendo), mas quem separa os grupos
-visualmente é a aresta. Motivo e medição no
-[changelog](../changelog.md) e em
+Os nomes dos grupos aparecem na sidebar aberta (mono, caixa alta) em quase
+toda janela — só somem, virando um filete de 1px, quando a janela do
+navegador tem menos de 700px de altura (notebook com barra de tarefas) ou
+quando a sidebar está recolhida (ícones só, sem espaço pra letra). Em
+qualquer um dos dois casos o texto continua no HTML — o `admin.js` varre
+esses elementos pra esconder grupo órfão no perfil operador, e o leitor de
+tela continua lendo.
+
+⚠️ A densidade da sidebar tem **oito degraus de `@media (max-height)`**
+(base, 1000, 940, 890, 850, 800, 750, 700), e a granularidade é
+intencional: faixa larga obriga os valores a caber no pior viewport dela, e
+foi o que já deixou o menu espremido com vão morto no pé. Ao mexer em altura
+de item, padding da `.nav` ou margem do rótulo, **remeça a escada inteira** —
+cada degrau é conferido no piso da própria faixa com o pior caso de 15 itens.
+Motivo, tabelas e método no [changelog](../changelog.md) e em
 [decisions.md](../../memory-bank/decisions.md).
 
 Mais **10 overlays de modal**, **1 gaveta** (`drawer-panel`, por condomínio,

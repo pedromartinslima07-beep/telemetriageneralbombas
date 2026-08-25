@@ -719,6 +719,61 @@ perguntou se eu tinha aberto no Chrome de verdade:
   prova ausência de buraco entre `@media`; só a varredura de 1 em 1px. É por
   isso que o breakpoint ficou em 900 e não em 880.
 
+### Filete revertido: rótulo de seção volta a ser texto (24/08/2026)
+
+Mesmo dia da decisão acima, revertida depois que o Pedro viu o resultado ao
+vivo: sem legenda, a folga que sobrava entre grupos (então distribuída por
+`margin-top: auto` nas quatro arestas) não lia como respiro — lia como
+"ícones espalhados sem por quê". O julgamento de design ("três itens e meio
+de altura por texto que ninguém clica") estava certo sobre o custo, mas
+errado sobre o que o rótulo comprava: não é decoração, é a moldura que faz
+um vão parecer intencional.
+
+`margin-top: auto` saiu junto — é o mecanismo que fazia a folga se esticar
+igualmente nas quatro separações. Sem ele, a sobra (quando existe) fica onde
+o flexbox já bota por padrão: um vão só, no fim da lista, antes do rodapé.
+
+**A régua de medição do primeiro item continua valendo, só que reaplicada:**
+recalibrado com o mesmo método (Puppeteer, pior caso de 15 itens, varredura
+de 1 em 1px) para achar onde o texto CABE, não só onde o filete cabia. Coube
+nas três faixas de cima — 901px…∞, 801–900 e 701–800, essa última cobrindo a
+faixa mais comum de janela de navegador não maximizada. Só a faixa de
+614–700px (notebook com barra de tarefas) manteve o filete: a medição achou
+0,8px de folga no pior pixel, sem espaço para letra nenhuma. Ver
+[`../docs/changelog.md`](../docs/changelog.md) pela tabela completa.
+
+**Lição:** o piso de legibilidade documentado no DESIGN.md (`.55rem`/8,8px
+para etiqueta gravada) não é sugestão — a primeira tentativa de rótulo
+compacto usou 8px e ficou abaixo dele; o texto só voltou a caber depois de
+subir para 8,8px e cortar padding/margin no lugar certo, não a fonte.
+
+### Faixa de `@media` larga é aperto disfarçado (24/08/2026)
+
+Terceira rodada do mesmo menu, e a que achou a causa real. Pedro mandou o
+print: *"está mt compactado"*. A lista realmente parecia espremida — mas o
+rótulo não era o culpado.
+
+**Faixa larga cobra o preço do pior caso de todo mundo dentro dela.** A
+faixa `max-height: 900px` cobria 801–900px, então seus valores tinham de
+caber em 801px. Quem estivesse em 889px levava o mesmo aperto sem precisar:
+medido no painel real, a lista ocupava 563px dentro de 702px — **139px de
+vão morto** no pé, com tudo comprimido no topo. O sintoma ("compactado") e
+a causa (granularidade da escada) ficam em lugares diferentes, e é por isso
+que as duas primeiras rodadas mexeram no rótulo sem resolver.
+
+**Três degraus viraram oito**, cada um conferido no piso da própria faixa.
+O item agora varia de 40px (tela cheia) a 27px (notebook apertado) em passos
+pequenos, em vez de três saltos grandes. Efeito colateral bom: a nav passou
+a caber até 598px de viewport, contra 613px antes — escada fina não é só
+mais confortável, é mais eficiente.
+
+**E a regra de espaçamento que saiu daqui:** o respiro do rótulo é
+`margin-top`, nunca padding simétrico. Ele pertence ao grupo que abre, então
+a folga separa do grupo **anterior**; centrado no vão, ele não agrupa nada.
+E o `gap` entre itens do mesmo grupo tem de ser sempre bem menor que essa
+margem — duas distâncias parecidas competem e a lista volta a ler como um
+bloco único, que é exatamente a queixa original.
+
 ## Decisões descartadas (e por quê)
 
 Registradas para não serem "redescobertas" e refeitas. Se o escopo mudar, o
@@ -767,6 +822,22 @@ desenho em camadas original continua válido.
   logins — usar DELETE explícito (ver `limpar-dados-teste.sql`).
 - **Cleanups em lote** com hard floor + `dry_run` + cap de lotes: um erro de
   digitação na retenção poderia apagar tudo; o piso protege.
+- **Payload que devolve só o valor RESOLVIDO apaga o valor CRU (2026-08-24).**
+  A lista `GET /admin/orcamentos/avulsos` devolvia `valor_total`
+  (`COALESCE(o.valor, soma dos itens, 0)`) e **não** a coluna `orcamentos.valor`.
+  Como o modal do admin decide "modo manual ligado" por `o.valor != null`, todo
+  orçamento aberto a partir da lista nascia com o campo do total manual vazio —
+  e o "Salvar" seguinte mandava `valor: null`, **apagando** o total manual no
+  banco. O PDF continuava certo até alguém salvar, o que fez o defeito parecer
+  de exibição ("no PDF vai o valor, no sistema fica R$ 0,00") por meses. Três
+  orçamentos aprovados foram a zero assim (OR-000170, OR-000169, OR-000105) e
+  os valores não são recuperáveis — não há tabela de auditoria com o antigo.
+  A regra que fica: **quando a tela EDITA um campo, o payload tem de trazer a
+  coluna crua, não só o número já resolvido.** O agregado serve para exibir; o
+  cru é o que volta no `PATCH`. E, no front, campo que não foi lido do servidor
+  não deve ser enviado de volta — `_avAcao` só manda `valor` quando a chave
+  existe no registro, para que a próxima quebra de payload vire "não atualizou"
+  em vez de perda silenciosa.
 - **SDK que devolve erro em vez de lançar transforma `await` em mentira
   (2026-08-21).** O `resend` retorna `{ data, error }`: numa falha de API a
   Promise **resolve**. Seis chamadas em `email.js` faziam `await send({...})`

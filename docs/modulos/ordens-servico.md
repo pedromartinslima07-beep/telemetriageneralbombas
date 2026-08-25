@@ -189,14 +189,25 @@ mesmo timbrado (`papel-timbrado.png`) e mesmo fluxo do admin (avulso).
   técnica/qtd.
 - **Total manual (override):** `orcamentos.valor` (coluna que já existia,
   herdada do fluxo antigo de aprovação por O.S., nunca usada pelo avulso até
-  agora) virou o campo **"Valor total (manual)"** no modal — abaixo da
-  tabela de itens. Preenchido, sobrepõe a soma de `orcamento_linhas` tanto no
+  agora) é editado **no próprio total do trilho** do modal (2026-08-24): o
+  link "definir manualmente", sob o número, troca o total por um campo no
+  mesmo lugar, com a mesma fonte e corpo, e a linha de apoio passa a mostrar
+  a soma dos itens que está sendo sobreposta. Não existe mais um segundo
+  campo rotulado "Valor total (manual)" embaixo — eram dois totais na tela ao
+  mesmo tempo. Preenchido, sobrepõe a soma de `orcamento_linhas` tanto no
   PDF (`totalGeral` em `renderHTML`/`renderHTMLServico`) quanto nas listagens
   (`valor_total` em `GET /admin/orcamentos/avulsos`, envio por e-mail,
   histórico do condomínio — todos viraram `COALESCE(o.valor, SUM(...), 0)`).
   Vazio, comportamento idêntico a sempre (soma os itens). Existe justamente
   pro caso de orçamento com item(ns) sem preço lançado, onde a soma
   automática não reflete o total real cobrado.
+- ⚠️ **A lista precisa devolver `orcamentos.valor`, não só o total resolvido.**
+  O modal decide se o modo manual está ligado por `o.valor != null`. Enquanto
+  `GET /admin/orcamentos/avulsos` devolveu apenas `valor_total`
+  (`COALESCE(valor, soma, 0)`), o campo abria vazio mesmo havendo valor no
+  banco, o painel mostrava R$ 0,00 e o "Salvar" seguinte gravava `valor = NULL`
+  — apagando o total. Corrigido em 24/08 nos dois lados: a coluna crua voltou
+  ao SELECT e `_avAcao` só envia `valor` quando a chave existe no registro.
 - Inputs de "Unit." no admin (`_avRenderLinhas`, tabela de itens do modal
   avulso, e `orcNewValor`/`avNewVal` nos formulários "+ Adicionar item")
   aceitam ficar em branco — antes só aceitavam número ≥ 0 e forçavam `0` via

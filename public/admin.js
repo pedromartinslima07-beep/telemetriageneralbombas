@@ -12150,16 +12150,21 @@ function _avRenderPainel() {
       <aside class="av-rail">
         <div>
           <div class="av-total-lbl">Total do orçamento</div>
-          <div class="av-total" id="avRailTotal">—</div>
+          <!-- O valor manual é editado NO LUGAR do total, e não num campo extra
+               que abria embaixo: o número que o operador quer trocar é este, e
+               um segundo campo rotulado "Valor total (manual)" deixava dois
+               totais na tela ao mesmo tempo (o somado e o digitado), com a
+               dúvida de qual dos dois ia pro PDF. Só um dos dois filhos fica
+               visível — quem manda é #avToggleValorManual e a troca acontece
+               em _avAtualizarTotalRail. -->
+          <div class="av-total" id="avRailTotal" style="${o.valor != null ? "display:none;" : ""}">—</div>
+          <div class="av-total-edit" id="avValorManualWrap" style="${o.valor != null ? "" : "display:none;"}">
+            <span class="av-total-cifrao" aria-hidden="true">R$</span>
+            <input id="avInputValorManual" class="av-total-input" type="number" min="0" step="0.01"
+              inputmode="decimal" placeholder="0,00" aria-label="Valor total do orçamento"
+              value="${o.valor != null ? o.valor : ''}">
+          </div>
           <div class="av-total-sub" id="avRailTotalSub"></div>
-        </div>
-
-        <div id="avValorManualWrap" style="${o.valor != null ? "" : "display:none;"}">
-          <label class="orc-form-label">Valor total (manual)
-            <input id="avInputValorManual" class="input" type="number" min="0" step="0.01"
-              placeholder="0,00" value="${o.valor != null ? o.valor : ''}">
-          </label>
-          <div class="hint" style="margin-top:5px;">Sobrepõe a soma dos itens no PDF.</div>
         </div>
         <input type="checkbox" id="avToggleValorManual" class="av-hidden-ctl" tabindex="-1" aria-hidden="true" ${o.valor != null ? "checked" : ""}>
 
@@ -12268,20 +12273,16 @@ function _avRenderPainel() {
     if (av) document.getElementById("avInputClienteNome")?.focus();
   });
 
-  // Toggle do valor manual: some/reaparece o campo e, ao desmarcar, limpa
-  // o valor pra voltar a somar os itens automaticamente.
+  // Toggle do valor manual: o campo ocupa o LUGAR do número do total (quem
+  // resolve a visibilidade dos dois é _avAtualizarTotalRail) e, ao desmarcar,
+  // limpa o valor pra voltar a somar os itens automaticamente.
+  // ⚠️ O foco vem DEPOIS do _avAtualizarTotalRail: até ele rodar, o campo
+  // ainda está display:none, e focar elemento escondido não faz nada.
   document.getElementById("avToggleValorManual")?.addEventListener("change", e => {
-    const valorWrap  = document.getElementById("avValorManualWrap");
     const valorInput = document.getElementById("avInputValorManual");
-    if (!valorWrap) return;
-    if (e.target.checked) {
-      valorWrap.style.display = "";
-      valorInput?.focus();
-    } else {
-      valorWrap.style.display = "none";
-      if (valorInput) valorInput.value = "";
-    }
+    if (!e.target.checked && valorInput) valorInput.value = "";
     _avAtualizarTotalRail();
+    if (e.target.checked) valorInput?.focus();
   });
 
   // Marca "tem alteração não salva". Delegado no contêiner do modal, e não
@@ -12408,22 +12409,31 @@ function _avAtualizarTotalRail() {
   if (!el) return;
 
   const manualChk = document.getElementById("avToggleValorManual");
+  const edit      = document.getElementById("avValorManualWrap");
   const manualVal = document.getElementById("avInputValorManual")?.value;
-  const usaManual = !!manualChk?.checked && String(manualVal ?? "").trim() !== "";
+  const editando  = !!manualChk?.checked;
+  const usaManual = editando && String(manualVal ?? "").trim() !== "";
 
   const soma = _avLinhasId === _avSelecionado?.id
     ? _avLinhas.reduce((s, l) => s + Number(l.valor_unitario || 0) * Number(l.quantidade), 0)
     : 0;
 
-  const valor = usaManual ? Number(manualVal) : soma;
-  el.textContent = _orcFmtValor(valor);
+  // Número e campo dividem o MESMO lugar no trilho: nunca os dois ao mesmo
+  // tempo. É isto que faz "definir manualmente" editar o total no lugar dele
+  // em vez de abrir mais um campo embaixo.
+  el.style.display = editando ? "none" : "";
+  if (edit) edit.style.display = editando ? "" : "none";
+
+  el.textContent = _orcFmtValor(usaManual ? Number(manualVal) : soma);
   el.classList.toggle("is-manual", usaManual);
 
   if (!sub) return;
   const n = _avLinhasId === _avSelecionado?.id ? _avLinhas.length : 0;
   const itens = `${n} ${n === 1 ? "item" : "itens"}`;
-  sub.innerHTML = usaManual
-    ? `valor manual · <button type="button" data-av-total-manual>voltar a somar os itens</button>`
+  // Enquanto edita, a linha de apoio mostra a soma dos itens: é justamente o
+  // número que está sendo sobreposto, e é por ele que se decide o que digitar.
+  sub.innerHTML = editando
+    ? `soma dos itens: ${_orcFmtValor(soma)} · <button type="button" data-av-total-manual>voltar a somar</button>`
     : `${itens} · <button type="button" data-av-total-manual>definir manualmente</button>`;
 }
 
@@ -12627,6 +12637,16 @@ function _avRenderLinhas() {
   _avAtualizarTotalRail();
 }
 
+// ⚠️ SEM CHAMADOR HOJE (24/08/2026) — de propósito, não por esquecimento.
+// O upload de assinatura saiu do modal de envio quando o corpo do e-mail
+// virou fixo, mas a rota `/admin/me/assinatura` e a coluna
+// `usuarios.assinatura_blob` continuam de pé: a remoção foi da interface.
+// Esta função é a metade do navegador desse caminho — voltar a assinatura é
+// religar o campo no modal, não reescrever a redução de imagem. Se a decisão
+// virar definitiva, ela sai junto com a rota, a coluna e a menção no
+// CLAUDE.md. A mesma lição, do lado do servidor, vive em
+// `scripts/gerar-logo-email.js`.
+//
 // Assinatura de e-mail: reduz a imagem no navegador antes de subir.
 // Os arquivos de assinatura da empresa são artes grandes (a "Nati 500.png"
 // tem 7,6 MB) — em base64 o POST passa de 10 MB e estoura o limite de 8mb do
@@ -12669,19 +12689,21 @@ function _avPrepararAssinatura(file) {
   });
 }
 
-// Envio do orçamento — carrega template, permite editar mensagem/assinatura e salvar como padrão
+// Envio do orçamento por e-mail: só escolhe PARA QUEM vai.
+//
+// ⚠️ AQUI HAVIA UM CAMPO "MENSAGEM" E UM UPLOAD DE ASSINATURA (até 24/08/2026).
+// O corpo do e-mail passou a ser fixo, com a identidade da casa, montado em
+// `sendOrcamentoCliente` (src/services/email.js). O documento é o PDF anexo;
+// o e-mail é a carta de encaminhamento, e carta reescrita a cada envio é
+// carta que uma hora sai errada para cliente real. Quem precisar dizer algo
+// específico responde o e-mail depois de enviado.
+//
+// As rotas `/admin/me/email-template` e `/admin/me/assinatura` e as colunas
+// `usuarios.email_mensagem` / `assinatura_blob` continuam existindo, paradas:
+// saiu a interface, não o dado. Religar é voltar os campos aqui.
 async function _avAbrirEnvioEmail() {
   if (!_avSelecionado) return;
   const orc = _avSelecionado;
-
-  let tpl = {};
-  try {
-    const r = await fetch("/admin/me/email-template", { headers: authHeaders() });
-    if (r.ok) tpl = await r.json();
-  } catch (_) {}
-
-  const msgPadrao = tpl.email_mensagem || `Prezado(a),\n\nSegue em anexo o orçamento ${orc.numero || ""} referente ao seu condomínio.\n\nQualquer dúvida, estamos à disposição.`;
-  let assinaturaUrl = tpl.assinatura_email_url || "";
 
   // Pré-preenche "Para" com o(s) e-mail(s) cadastrado(s) do condomínio do
   // orçamento (campo `condominios.email`, pode ter vários separados por
@@ -12709,21 +12731,11 @@ async function _avAbrirEnvioEmail() {
             <span>Para <small style="font-weight:400;color:var(--muted);">(separe vários por vírgula)</small></span>
             <input id="avEnvioPara" class="input" type="text" value="${_waEscaparHtml(emailPadrao)}" placeholder="cliente@email.com" />
           </label>
-          <label class="f">
-            <span>Mensagem</span>
-            <textarea id="avEnvioMsgTexto" class="input" rows="5" style="resize:vertical;">${_waEscaparHtml(msgPadrao)}</textarea>
-          </label>
-          <label class="f">
-            <span>Assinatura <small style="font-weight:400;color:var(--muted);">(PNG ou JPG — deixe em branco para manter a atual)</small></span>
-            <input id="avEnvioAssinaturaFile" type="file" accept="image/png,image/jpeg,image/jpg" class="input" style="padding:6px;" />
-          </label>
-          ${assinaturaUrl
-            ? `<div><div class="hint" style="margin-bottom:6px;">Assinatura atual:</div><img id="avEnvioAssinaturaPreview" src="${_waEscaparHtml(assinaturaUrl)}" alt="Assinatura" style="max-height:70px;object-fit:contain;border:1px solid var(--border);border-radius:6px;padding:6px;background:#fff;display:block;" /></div>`
-            : `<img id="avEnvioAssinaturaPreview" style="display:none;max-height:70px;object-fit:contain;border:1px solid var(--border);border-radius:6px;padding:6px;background:#fff;" />`}
-          <label class="f" style="flex-direction:row;align-items:center;gap:8px;cursor:pointer;">
-            <input id="avEnvioSalvarPadrao" type="checkbox" style="width:auto;margin:0;" />
-            <span style="font-weight:400;">Salvar mensagem e assinatura como padrão</span>
-          </label>
+          <div class="hint" style="line-height:1.6;">
+            O e-mail sai com o modelo da casa — logo, os dados do orçamento
+            (número, cliente, data e validade) e o PDF em anexo. Não há mais
+            mensagem para escrever aqui.
+          </div>
           <div class="formActions">
             <button class="btn" type="button" id="avEnvioCancelar">Cancelar</button>
             <button class="btn btnAccent" type="button" id="avEnvioConfirmar">Enviar</button>
@@ -12739,63 +12751,18 @@ async function _avAbrirEnvioEmail() {
   document.getElementById("avEnvioCancelar").addEventListener("click", fechar);
   setTimeout(() => document.getElementById("avEnvioPara")?.focus(), 30);
 
-  // Preview ao trocar assinatura — já redimensiona aqui, então o que aparece
-  // no preview é exatamente o que vai ser enviado.
-  let assinaturaNovaB64 = null;
-  document.getElementById("avEnvioAssinaturaFile").addEventListener("change", async (e) => {
-    const file = e.target.files[0];
-    const msgEl = document.getElementById("avEnvioMsg");
-    if (!file) { assinaturaNovaB64 = null; return; }
-    try {
-      assinaturaNovaB64 = await _avPrepararAssinatura(file);
-      const prev = document.getElementById("avEnvioAssinaturaPreview");
-      if (prev) { prev.src = assinaturaNovaB64; prev.style.display = "block"; }
-      const kb = Math.round(assinaturaNovaB64.length * 0.75 / 1024);
-      if (msgEl) { msgEl.style.color = "var(--muted)"; msgEl.textContent = `Assinatura pronta (${kb} KB após redimensionar).`; }
-    } catch (err) {
-      assinaturaNovaB64 = null;
-      if (msgEl) { msgEl.style.color = "var(--danger)"; msgEl.textContent = "Erro na assinatura: " + err.message; }
-    }
-  });
-
   document.getElementById("avEnvioConfirmar").addEventListener("click", async () => {
-    const emails       = (document.getElementById("avEnvioPara")?.value || "").trim();
-    const mensagem     = (document.getElementById("avEnvioMsgTexto")?.value || "").trim();
-    const salvarPadrao = document.getElementById("avEnvioSalvarPadrao")?.checked;
-    const msg          = document.getElementById("avEnvioMsg");
-    const btn          = document.getElementById("avEnvioConfirmar");
+    const emails = (document.getElementById("avEnvioPara")?.value || "").trim();
+    const msg    = document.getElementById("avEnvioMsg");
+    const btn    = document.getElementById("avEnvioConfirmar");
     if (msg) { msg.style.color = "var(--muted)"; msg.textContent = "Enviando…"; }
     if (btn) btn.disabled = true;
     try {
-      // Upload de nova assinatura se selecionada (já redimensionada no change)
-      const file = document.getElementById("avEnvioAssinaturaFile").files[0];
-      if (file) {
-        if (msg) msg.textContent = "Enviando assinatura…";
-        const base64 = assinaturaNovaB64 || await _avPrepararAssinatura(file);
-        const up = await fetch("/admin/me/assinatura", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", ...authHeaders() },
-          body: JSON.stringify({ base64 }),
-        });
-        const upJ = await lerRespostaJson(up, "Upload da assinatura");
-        if (!up.ok) throw new Error(upJ.error || "Erro no upload");
-        assinaturaUrl = upJ.url;
-      }
-
-      // Salva como padrão se marcado
-      if (salvarPadrao) {
-        await fetch("/admin/me/email-template", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json", ...authHeaders() },
-          body: JSON.stringify({ email_mensagem: mensagem, assinatura_email_url: assinaturaUrl || null }),
-        });
-      }
-
-      if (msg) msg.textContent = "Enviando e-mail…";
+      if (msg) msg.textContent = "Gerando o PDF e enviando…";
       const r = await fetch(`/admin/orcamentos/avulsos/${orc.id}/enviar-email`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...authHeaders() },
-        body: JSON.stringify({ emails, mensagem, assinatura_url: assinaturaUrl || undefined }),
+        body: JSON.stringify({ emails }),
       });
       const j = await lerRespostaJson(r, "Envio do e-mail");
       if (!r.ok) {
@@ -13024,6 +12991,11 @@ async function _avAcao(acao) {
       tipo: "pecas",
       criado_em: new Date().toISOString(),
       condominio_id: null,
+      // ⚠️ `valor: null` explícito, e não ausente: o salvamento só manda o
+      // campo `valor` quando a chave EXISTE no registro (ver `_avAcao`), e
+      // aqui ela precisa existir valendo "sem total manual". Sem esta linha,
+      // um orçamento novo com valor manual digitado salvaria sem o valor.
+      valor: null,
     };
     _avCondoSel = null;
     _avLinhas = []; _avLinhasId = null;
@@ -13110,6 +13082,18 @@ async function _avAcao(acao) {
 
   // salvar
   if (msg) msg.textContent = "Salvando…";
+  // ⚠️ SÓ MANDA `valor` SE O MODAL SOUBE LER O VALOR ATUAL. O campo do total
+  // manual é preenchido a partir de `_avSelecionado.valor`; se o registro
+  // vier sem essa chave (foi o que a lista `GET /admin/orcamentos/avulsos`
+  // fez até 24/08 — devolvia só o `valor_total` já resolvido), o campo nasce
+  // vazio mesmo havendo total manual no banco, e mandar `valor: null` APAGA
+  // o que estava lá. Três orçamentos aprovados foram a R$ 0,00 assim.
+  // A lista voltou a trazer a coluna; esta guarda existe pra que a próxima
+  // mudança de payload dê "não atualizou" em vez de perda silenciosa.
+  const sabeValorAtual = !!_avSelecionado && "valor" in _avSelecionado;
+  if (!sabeValorAtual) {
+    console.warn("[orçamento] registro sem a chave `valor` — o total manual não será enviado neste salvamento.");
+  }
   const valorManualRaw = document.getElementById("avInputValorManual")?.value;
   const isAvulso = !!document.getElementById("avToggleAvulso")?.checked;
   const body = {
@@ -13121,7 +13105,9 @@ async function _avAcao(acao) {
     valido_ate:      document.getElementById("avInputValidade")?.value || null,
     data_documento:  document.getElementById("avInputDataDoc")?.value || null,
     status:          document.getElementById("avInputStatus")?.value || "rascunho",
-    valor:           valorManualRaw === "" || valorManualRaw == null ? null : Number(valorManualRaw),
+    ...(sabeValorAtual
+      ? { valor: valorManualRaw === "" || valorManualRaw == null ? null : Number(valorManualRaw) }
+      : {}),
     // Cliente: condomínio cadastrado OU cliente avulso (pessoa física) — nunca os dois.
     ...(isAvulso
       ? {

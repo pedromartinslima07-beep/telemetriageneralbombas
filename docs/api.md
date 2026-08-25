@@ -227,10 +227,11 @@ ao e-mail cadastrado (2FA equivalente ao do login).
 | POST | `/admin/jobs/{leituras-cleanup,alertas-cleanup,conversas-cleanup}/run` | masterAdmin |
 | GET/PATCH | `/admin/sla[/:prioridade]` | masterAdmin |
 | ... | `/admin/orcamentos*` e `/admin/orcamentos/avulsos*` | adminOnly (CRUD + PDF) |
-| POST | `/admin/orcamentos/avulsos/:id/enviar-email` | adminOnly — gera o PDF, envia ao cliente (Resend) e marca como `enviado`. Body `{ emails }` opcional (senão usa `condominios.email`) |
-| GET/PATCH | `/admin/me/email-template` | mensagem padrão + URL da assinatura do usuário logado |
-| POST | `/admin/me/assinatura` | upload da assinatura em base64 (`data:image/...`) → `usuarios.assinatura_blob`. O admin **reduz a imagem no navegador** antes de enviar (máx. 600 px / ~180 KB): o limite do `express.json` é 8 mb e o e-mail embute a imagem como data URI |
-| GET | `/admin/assinatura/:userId` | serve a imagem de assinatura (pública, usada nos e-mails) |
+| GET | `/admin/orcamentos/avulsos` | adminOnly — lista. Devolve **as duas** formas do total: `valor` (coluna crua; `null` = somar os itens) e `valor_total` (`COALESCE(valor, soma dos itens, 0)`). O modal do admin edita `valor`, então **tirar essa coluna do SELECT faz o campo do total manual abrir vazio e o próximo `PATCH` apagar o valor no banco** — ver [`changelog.md`](changelog.md) 24/08 |
+| POST | `/admin/orcamentos/avulsos/:id/enviar-email` | adminOnly — gera o PDF, envia ao cliente (Resend) e marca como `enviado`. Body `{ emails }` **obrigatório** (o front pré-preenche com `condominios.email`). O corpo do e-mail é fixo desde 24/08/2026: um `mensagem` no body é ignorado |
+| GET/PATCH | `/admin/me/email-template` | ⏸️ **sem uso desde 24/08/2026** — mensagem padrão do usuário logado. O corpo do e-mail de orçamento virou fixo e nenhuma tela chama mais esta rota; ela e a coluna continuam de pé porque a remoção foi só da interface |
+| POST | `/admin/me/assinatura` | ⏸️ **sem uso desde 24/08/2026** — upload da assinatura em base64 (`data:image/...`) → `usuarios.assinatura_blob`. O admin **reduzia a imagem no navegador** antes de enviar (máx. 600 px / ~180 KB): o limite do `express.json` é 8 mb e o e-mail embutia a imagem como data URI |
+| GET | `/admin/assinatura/:userId` | ⏸️ **sem uso desde 24/08/2026** — serve a imagem de assinatura (pública, era usada nos e-mails) |
 | GET | `/admin/condominios/:id/historico` · `/condominios/lista` | adminOnly |
 | GET/POST/PATCH/DELETE | `/admin/whatsapp/contatos[/:id]` | adminOnly (pré-cadastro) |
 

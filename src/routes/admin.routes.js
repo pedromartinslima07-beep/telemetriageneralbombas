@@ -1305,6 +1305,16 @@ router.get("/orcamentos/avulsos", authRequired, adminOnly, async (req, res) => {
               --  literal, e crase aqui FECHA o template.)
               o.respondido_em, o.cliente_comentario, o.motivo_rejeicao,
               ur.nome AS respondido_por_nome,
+              -- CONTRATO COM O MODAL, NAO TIRE: o.valor e a COLUNA CRUA (total
+              -- manual, NULL = somar os itens), e valor_total e o numero ja
+              -- resolvido. O modal do admin le o.valor para saber se o modo
+              -- manual esta ligado e para preencher o campo. Sem esta coluna na
+              -- lista o campo nasce VAZIO mesmo com valor no banco, o trilho
+              -- mostra a soma dos itens (R$ 0,00 quando nenhum item tem preco)
+              -- e o proximo "Salvar" manda valor: null e APAGA o total manual
+              -- - o PDF continuava certo ate alguem salvar, e foi assim que
+              -- OR-000170, OR-000169 e OR-000105 chegaram a R$ 0,00 em producao.
+              o.valor,
               COALESCE(
                 o.valor,
                 (SELECT SUM(l.quantidade * l.valor_unitario)
@@ -1582,6 +1592,7 @@ router.post("/orcamentos/avulsos/:id/enviar-email", authRequired, adminOnly, asy
     // Dados do orçamento
     const r = await pool.query(
       `SELECT o.id, o.numero, o.valido_ate, o.condominio_id,
+              o.data_documento, o.criado_em,
               COALESCE(c.nome_fantasia, c.nome, o.cliente_nome) AS condominio_nome,
               COALESCE(
                 o.valor,
@@ -1610,18 +1621,14 @@ router.post("/orcamentos/avulsos/:id/enviar-email", authRequired, adminOnly, asy
       return res.status(400).json({ error: `E-mail(s) inválido(s): ${invalidos.join(", ")}` });
     }
 
-    // Template do usuário logado (fallback para defaults do serviço de e-mail)
-    const tplR = await pool.query(
-      `SELECT email_mensagem, assinatura_blob, assinatura_mimetype FROM usuarios WHERE id = $1`,
-      [req.user.id]
-    );
-    const tpl = tplR.rows[0] || {};
-    // O body pode sobrescrever por orçamento específico
-    const mensagem = req.body?.mensagem ?? tpl.email_mensagem ?? null;
-    // Embute a imagem como data URI para não depender de URL externa (bloqueada por clientes de email)
-    const assinaturaDataUrl = tpl.assinatura_blob
-      ? `data:${tpl.assinatura_mimetype || "image/png"};base64,${tpl.assinatura_blob.toString("base64")}`
-      : null;
+    // ⚠️ NÃO HÁ MAIS MENSAGEM POR ENVIO NEM ASSINATURA POR USUÁRIO (24/08/2026).
+    // O corpo do e-mail é fixo, montado em `sendOrcamentoCliente`. O campo
+    // "Mensagem" e o upload de assinatura saíram do modal de envio, e esta
+    // rota deixou de ler `usuarios.email_mensagem` / `assinatura_blob`.
+    // As colunas continuam no banco, sem uso — a remoção foi da interface,
+    // não do dado. Um `mensagem` que ainda venha no body é ignorado de
+    // propósito: aceitar texto livre de novo teria de ser decisão, não
+    // resíduo de cliente antigo com JS em cache.
 
     // ⚠️ AS DUAS ETAPAS SÃO SEPARADAS DE PROPÓSITO.
     // Este endpoint pode falhar em dois lugares muito diferentes — gerar o PDF
@@ -1645,15 +1652,17 @@ router.post("/orcamentos/avulsos/:id/enviar-email", authRequired, adminOnly, asy
 
     try {
       await sendOrcamentoCliente({
-      to,
-      numero: orc.numero,
-      condominioNome: orc.condominio_nome,
-      validoAte: orc.valido_ate,
-      valorTotal: orc.valor_total,
-      pdfBuffer,
-      filename: `orcamento-${orc.numero || id}.pdf`,
-        mensagem,
-        assinaturaDataUrl,
+        to,
+        numero: orc.numero,
+        condominioNome: orc.condominio_nome,
+        validoAte: orc.valido_ate,
+        pdfBuffer,
+        filename: `orcamento-${orc.numero || id}.pdf`,
+        // As duas datas da caixa de informações do e-mail. `data_documento` é
+        // DATE e `criado_em` é timestamptz — o serviço formata cada uma com o
+        // seu formatador, por isso vão separadas em vez de já resolvidas aqui.
+        dataDocumento: orc.data_documento,
+        criadoEm: orc.criado_em,
         // ⚠️ DESLIGADO POR PADRÃO (24/08/2026). A tela do cliente existe e
         // está no ar, mas ainda não foi validada com ninguém logado — e este
         // e-mail vai para síndico de cliente real. Enquanto não for aprovada,

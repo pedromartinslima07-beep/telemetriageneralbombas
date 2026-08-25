@@ -3408,6 +3408,234 @@ rodada de correção:
 Cache-bust: `admin.css?v=223` e `admin.js?v=308`. Sem endpoint novo, então
 o `CACHE_NAME` do `sw.js` **não** subiu.
 
+#### 2026-08-24 · Filete revertido para texto: rótulo sem letra "espalhava" os ícones
+
+Pedro olhou o resultado do filete (entrada acima, mesmo dia) e não gostou:
+sem legenda, a folga que sobrava entre grupos (distribuída por
+`margin-top: auto` nas quatro arestas) lia como "ícones espalhados sem por
+quê", não como respiro. `margin-top: auto` saiu — a sobra de altura, quando
+existe, agora fica onde o flexbox já bota por padrão: um único vão embaixo
+de "Configurações", antes do rodapé, em vez de repetido quatro vezes no
+meio da lista.
+
+`.nav-section-label` volta a mostrar "EM CURSO", "CADASTRO", "ANÁLISE",
+"SISTEMA" — mono, `8.8px` (o piso documentado no DESIGN.md pra etiqueta
+gravada, `.55rem`; não dá pra descer mais sem ficar ilegível, mesmo
+problema que o `.rc-label` já tinha resolvido antes). O texto nunca saiu do
+HTML, só o CSS escondia — mesma base de acessibilidade da versão filete.
+
+**Depois disso o Pedro mandou o print: "está mt compactado".** E estava — só
+que a causa não era o rótulo, era a **largura das faixas de `@media`**.
+
+Com três faixas largas, os valores de cada uma tinham de caber no **pior
+viewport da faixa**. Quem estivesse em 889px (janela de navegador comum, não
+maximizada) levava o aperto calculado para 801px. Medido no painel real
+nessa altura: a lista ocupava 563px dentro de 702px disponíveis — **139px de
+vão morto** entre "Configurações" e o rodapé, com a lista espremida no topo.
+Aperto dimensionado para o pior caso vira desconforto no caso comum.
+
+**A escada foi de 3 degraus para 8.** Cada altura passa a receber a
+densidade que comporta, conferida no **piso** de cada faixa (o viewport mais
+baixo em que ela ainda vale), sempre no pior caso de 15 itens:
+
+| Faixa | Item | Margem do rótulo | Conteúdo | Folga no piso |
+|---|---|---|---|---|
+| base (1001…∞) | 40px | 16px | 759px | 31px |
+| `max-height: 1000px` | 38px | 14px | 717px | 15px |
+| `max-height: 940px` | 36px | 13px | 683px | 15px |
+| `max-height: 890px` | 35px | 12px | 644px | 17px |
+| `max-height: 850px` | 33px | 9px | 600px | 13px |
+| `max-height: 800px` | 32px | 9px | 566px | 5px |
+| `max-height: 750px` | 29px | 7px | 513px | 13px |
+| `max-height: 700px` | 27px | **filete** | 433px | 15px |
+
+Só a faixa mais apertada (614–700px, notebook com barra de tarefas e
+favoritos) fica com o filete sem letra — nem com o item em 27px sobra altura
+pra letra.
+
+**Onde o respiro do rótulo mora:** `margin-top`, não `padding` nos dois
+lados. O rótulo pertence ao grupo que abre, então a folga tem de separá-lo
+do grupo **anterior**; com padding simétrico ele flutuava no meio do vão e a
+lista lia como um bloco só. Zero embaixo cola a legenda no primeiro item do
+seu grupo. Pelo mesmo motivo o `gap` entre itens do mesmo grupo é sempre bem
+menor que a margem do rótulo — se as duas distâncias competem, o
+agrupamento some.
+
+Varredura contínua de **1100 a 590px, 1 em 1px**: overflow só abaixo de
+598px (antes era 613px), e nenhum buraco entre as oito faixas. No painel
+real em 889px o vão morto caiu de 139px para 93px e o item subiu de 34 para
+35px.
+
+Cache-bust: `admin.css?v=228`.
+
+### 2026-08-24 · O valor manual é editado no lugar do total
+
+No trilho do modal de orçamento, "definir manualmente" abria **um segundo
+campo** embaixo, rotulado "Valor total (manual)", com a nota "Sobrepõe a soma
+dos itens no PDF". O resultado é que o trilho passava a mostrar **dois totais
+ao mesmo tempo** — o somado, grande, em cima; o digitado, pequeno, embaixo —
+e o único jeito de saber qual dos dois ia pro PDF era ler a nota.
+
+Agora o campo **ocupa o lugar do número**. Clicar em "definir manualmente"
+troca o total por um input com a mesma fonte, o mesmo corpo (29px mono 800) e
+o mesmo canto da tela, com uma régua âmbar embaixo e o cursor dentro. Não há
+segundo total em lugar nenhum: `#avRailTotal` e `#avValorManualWrap` são
+mutuamente exclusivos, e quem decide é o mesmo `#avToggleValorManual` de
+sempre — a troca de visibilidade mora em `_avAtualizarTotalRail`, junto com o
+cálculo, e não espalhada pelos listeners.
+
+A linha de apoio embaixo muda de papel junto: fora do modo manual continua
+`4 itens · definir manualmente`; dentro dele vira
+`soma dos itens: R$ 6.460,00 · voltar a somar`. A soma não some da tela — ela
+é justamente o número que está sendo sobreposto, e é por ele que se decide o
+que digitar. Foi para onde foi parar a nota "sobrepõe a soma dos itens": em
+vez de explicar a regra, o trilho mostra o número.
+
+**Duas armadilhas de layout, as duas medidas no DOM:**
+
+- **O trilho pulava 6px** a cada clique. A régua âmbar (2px de borda + 2px de
+  padding) deixa o campo mais alto que o número sozinho, e tudo abaixo descia.
+  `.av-total` ganhou a **mesma régua, transparente**: os dois estados medem
+  36px de altura e começam no mesmo `y` (medido: `120/36` nos dois).
+- **O "R$" alinhado por `baseline`** com o número somava mais 2px, porque as
+  caixas de linha de 17px e 29px têm alturas diferentes. Com `line-height`
+  igual nos dois, `align-items: flex-end` dá o mesmo resultado visual sem
+  mexer na altura.
+
+`max-width: 260px` no bloco de edição: abaixo de 1080px o trilho vira faixa de
+largura inteira, e sem o teto a régua atravessaria a janela toda. No trilho de
+300px o bloco já mede 259px — lá não muda nada.
+
+O placeholder é `--muted2`, não âmbar transparente: **dentro do modal o
+`--accent` é reescrito** para o âmbar escuro da placa clara (`#886116`), e
+âmbar a 34% em cima dela simplesmente some.
+
+O salvamento não mudou uma linha: `_avAcao` continua lendo
+`avInputValorManual`, e desmarcar continua limpando o campo, o que manda
+`valor: null` e devolve o total pra soma dos itens.
+
+**Ferramenta:**
+[`scripts/preview-total-orcamento.js`](../scripts/preview-total-orcamento.js)
+(padrão do [`scripts/preview-orcamentos.js`](../scripts/preview-orcamentos.js)):
+serve `public/` e monta só o trilho, sem banco e sem login, **extraindo do
+`admin.js` real** o `_orcFmtValor` e o `_avAtualizarTotalRail` em vez de
+copiá-los. Os dois defeitos de altura acima só apareceram medindo
+`getBoundingClientRect` nos dois estados — em captura de tela, nenhum dos dois
+se vê.
+
+Cache-bust: `admin.css?v=229`, `admin.js?v=311`.
+
+### 2026-08-24 · O total manual sumia do sistema (e era apagado no banco)
+
+Sintoma relatado: *"quando defini manualmente, muitas vezes salva no PDF o
+valor, mas no sistema continua 0,00."* Não era problema de exibição — era
+**perda de dado**, e o PDF certo era o que disfarçava.
+
+A cadeia inteira:
+
+1. `GET /admin/orcamentos/avulsos` devolvia `valor_total`
+   (`COALESCE(o.valor, soma dos itens, 0)`) e **não** devolvia a coluna
+   `orcamentos.valor`.
+2. O modal decide se o modo manual está ligado por `o.valor != null`. Com a
+   chave ausente, todo orçamento aberto pela lista nascia **com o campo do
+   total manual vazio e o modo desligado**, mesmo havendo valor no banco.
+3. O trilho passava a mostrar a soma dos itens. Como o total manual existe
+   justamente para o caso de item sem preço lançado, essa soma é `NULL` → o
+   painel mostrava **R$ 0,00**.
+4. O "Salvar" seguinte mandava `valor: null` e **apagava** o total manual.
+   Até esse salvamento, o PDF (que lê o banco) continuava correto — daí a
+   impressão de que "o PDF salva e o sistema não".
+
+**Conserto:** a lista voltou a trazer `o.valor` ao lado do `valor_total`, com o
+comentário de contrato na própria query. E `_avAcao` só manda `valor` no
+`PATCH` quando a chave existe no registro (`"valor" in _avSelecionado`) — o
+rascunho novo nasce com `valor: null` explícito para caber nessa regra. Se um
+payload futuro deixar de trazer a coluna, o efeito passa a ser "não atualizou"
+com aviso no console, não perda silenciosa.
+
+**Estrago já feito, e não recuperável:** três orçamentos **aprovados** estão
+com total R$ 0,00 no banco — `OR-000170` (Condomínio Collori), `OR-000169` e
+`OR-000105` (Vivaz Penha). Todos têm itens sem preço lançado e `valor` nulo.
+Não há tabela de auditoria com o valor antigo; os PDFs já enviados por e-mail
+são a única cópia. Precisam ser redigitados à mão.
+
+Verificado rodando a query real da rota (fatiada do próprio
+`admin.routes.js`) contra o banco de produção, em leitura: a coluna `valor`
+volta na resposta, e `OR-000164` traz `valor = 1690.00` junto com
+`valor_total = 1690.00`. Conferido também que `numeric` do Postgres chega ao
+front como **string** (`"1690.00"`) e que o `input type=number` aceita esse
+formato (`valueAsNumber = 1690`, `checkValidity() = true`) — é dele que o
+modo manual é reconstruído.
+
+Sem migration e sem bump de `CACHE_NAME`: mudou só o SELECT de uma rota que já
+estava na lista network-first do SW.
+
+### 2026-08-24 · O e-mail do orçamento ganhou a cara da casa (e perdeu o campo de mensagem)
+
+O e-mail que leva o orçamento ao cliente era um bloco de texto em branco: a
+mensagem que o operador tivesse digitado no modal, o botão do painel quando
+ligado, e uma imagem de assinatura por usuário. Nenhum sinal da marca, nenhum
+dado do documento — quem recebia via um parágrafo solto com um PDF anexo.
+
+**Agora é um e-mail transacional com identidade**, no formato de nota fiscal
+eletrônica que o Pedro trouxe como referência: faixa marinho (`#030a26`) com o
+logo, etiqueta âmbar "ORÇAMENTO COMERCIAL", saudação, o parágrafo de
+encaminhamento, o botão de responder (quando há painel), a caixa
+**Informações do orçamento** — Número, Cliente, Data, Válido até — e o rodapé
+com o nome, os telefones e o e-mail comercial.
+
+**Sem o valor total, de propósito.** A caixa mostra o que identifica o
+documento, não o preço: o valor é assunto do PDF, e mandá-lo no corpo do
+e-mail o espalha por caixas de entrada e encaminhamentos que ninguém controla.
+
+**O campo "Mensagem" e o upload de assinatura saíram do modal de envio.** O
+documento é o PDF; o e-mail é a carta de encaminhamento, e carta reescrita a
+cada envio é carta que uma hora sai errada para cliente real. Quem precisar
+dizer algo específico responde o e-mail depois de enviado. O modal ficou com
+um campo só — "Para" — já pré-preenchido com o `condominios.email`.
+
+A remoção foi **só da interface**: `/admin/me/email-template`,
+`/admin/me/assinatura`, `/admin/assinatura/:userId` e as colunas
+`usuarios.email_mensagem` / `assinatura_blob` continuam de pé, sem chamador.
+Nada de migration, e as assinaturas já cadastradas não se perderam — religar é
+devolver os campos ao modal. `_avPrepararAssinatura` (a redução de imagem no
+navegador) ficou junto, marcada como parada, para não ter de ser reescrita.
+
+**Três armadilhas de e-mail, todas conhecidas e todas tratadas:**
+
+- **Logo embutido, e reduzido antes.** URL externa é bloqueada por padrão no
+  Outlook (o próprio e-mail de referência chegou com o logo em branco), então
+  o logo vai como data URI. Mas `public/logo-topo.png` tem 68 KB, que viram
+  91 KB em base64, e o Gmail **apara** a mensagem acima de ~102 KB de corpo —
+  o anexo não conta nesse limite, o data URI conta. Novo
+  [`scripts/gerar-logo-email.js`](../scripts/gerar-logo-email.js) gera o
+  `public/logo-email.png` reduzido (20 KB → 27 KB em base64); o corpo inteiro
+  fica em **31 KB**, medido. Mesma lição do `_avPrepararAssinatura`: reduzir a
+  imagem antes de embutir, não aumentar o limite do outro lado.
+- **O estilo do `<img>` é o estilo do `alt`.** Com a imagem bloqueada, o que
+  aparece é o texto alternativo, que herda cor e corpo do próprio `<img>`. Sem
+  `color:#ffffff` ali, o topo ficaria com "General Bombas" em preto sobre a
+  faixa marinho — ou seja, invisível. Conferido com a imagem bloqueada de
+  propósito: o nome aparece em branco, e a etiqueta âmbar (que é texto) segura
+  o resto.
+- **Layout em `<table>` aninhada, estilo inline.** O Outlook renderiza com o
+  motor do Word: ignora flex, grid, `max-width` em `div` e folha em `<style>`.
+
+**Duas datas, dois formatadores.** `data_documento` e `valido_ate` são DATE —
+dia de calendário, sem fuso; `criado_em` é timestamptz. Passar um DATE por
+`toLocaleDateString` com `timeZone` joga a data um dia pra trás (servidor em
+UTC, driver entrega meia-noite, conversão pra UTC-3 volta pro dia anterior).
+Mesma regra de `fmtDateOnlyBR`/`fmtDateBR` no `orcamento-pdf.service.js`.
+
+**Ferramenta:**
+[`scripts/preview-email-orcamento.js`](../scripts/preview-email-orcamento.js) —
+sobe o e-mail no navegador sem banco, sem Resend e sem enviar nada: o SDK é
+dublado e devolve o payload que *teria* sido enviado, então o que aparece na
+tela é o `sendOrcamentoCliente` de verdade. Tem as duas variantes (com e sem o
+botão do painel), a versão em texto puro e o tamanho do corpo em KB no topo.
+
+Cache-bust: `admin.js?v=311`. Sem migration e sem bump de `CACHE_NAME`.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

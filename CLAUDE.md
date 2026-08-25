@@ -138,6 +138,12 @@ Ao subir imagem em base64 pelo front, **redimensione no navegador antes**
 empresa têm 7-8 MB, e imagem embutida em e-mail como data URI acima de ~100 KB
 faz o Gmail aparar a mensagem.
 
+Vale para imagem embutida pelo **backend** também: o logo do e-mail de
+orçamento é o `public/logo-email.png` reduzido (20 KB), gerado por
+`scripts/gerar-logo-email.js` — o `logo-topo.png` original tem 68 KB, que
+viram 91 KB em base64 e deixam o corpo a um palmo do corte. **O anexo não
+conta nesse limite; o data URI conta.**
+
 ---
 
 ## Stack: HTML/CSS/JS puro
