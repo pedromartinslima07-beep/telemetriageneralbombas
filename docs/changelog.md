@@ -4148,6 +4148,16 @@ Cache-bust: `admin.css?v=233`, `admin.js?v=315`, `telemetria-v54`,
 `register-sw.js?v=44`. O prefixo `/admin` já estava na lista network-first do
 `sw.js`, então o endpoint novo entrou coberto.
 
+### 2026-08-25 · O campo de resposta do orçamento perde o exemplo
+
+*"Tire essa frase."* O `placeholder` do comentário sugeria
+*"Ex.: pode fazer, mas só depois do dia 10."* — um exemplo que, no lugar onde o
+síndico aprova ou recusa um serviço, funciona menos como ajuda e mais como
+sugestão de resposta. O campo continua igual; saiu só o texto de dentro.
+
+Cache-bust: `cliente-orcamentos.js?v=10`, `telemetria-v55`,
+`register-sw.js?v=45`.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

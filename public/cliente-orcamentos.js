@@ -460,7 +460,7 @@ async function abrir(id) {
       <p class="orc-sec-apoio">Se aprovar, agendamos o serviço. Se recusar, diga o motivo — dá para revisar e enviar outro.</p>
       <label class="campo">
         <span>Comentário <small>(obrigatório para recusar)</small></span>
-        <textarea id="orcComentario" rows="3" maxlength="2000" placeholder="Ex.: pode fazer, mas só depois do dia 10."></textarea>
+        <textarea id="orcComentario" rows="3" maxlength="2000"></textarea>
       </label>
       <div class="acoes">
         <button class="orc-btn orc-btn-sim" type="button" data-responder="aprovar" data-orc="${o.id}">Aprovar orçamento</button>
