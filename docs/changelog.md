@@ -4042,6 +4042,45 @@ registram. ⚠️ O `cliente-orcamentos.html` tinha ficado em `v=39`: cada `sed`
 bump procurava a versão anterior, e quem estava atrasado nunca era alcançado.
 Conferir os quatro juntos, não um por vez.
 
+### 2026-08-25 · O F12 para de entregar os comentários do código
+
+*"No F12 que dá pra ver o HTML dá pra ver um monte de comentários, gostaria que
+tirasse."* — e ele tem razão: os `<!-- -->` do projeto carregam raciocínio
+interno de produto e decisões de negócio, e vão junto para o navegador.
+
+**A limpeza é na entrega, não no arquivo.** Apagar do fonte custaria caro: é
+neles que moram as armadilhas do projeto, e o CLAUDE.md trata comentário no
+código como documentação de primeira classe. Entrou `src/html-limpo.js` com
+`enviarHtml(res, caminho)`, que as seis rotas de página passaram a usar no
+lugar de `res.sendFile`. Cache em memória, invalidado por `mtime` em dev.
+Páginas 9% a 62% menores.
+
+⚠️ **`/static` deixou de servir `.html`** — sem isso a limpeza não valeria
+nada, porque `/static/cliente.html` entregava o arquivo cru. Nada referenciava
+`.html` por baixo de `/static`; de quebra os estudos `public/_*.html` (telas
+antigas servidas ao vivo) pararam de ser alcançáveis.
+
+**O bug que o próprio projeto plantou:** a primeira versão do parser procurava
+os blocos `<script>`/`<style>` antes de olhar os comentários. A linha 15 do
+`admin.html` tem um comentário que **menciona** `<script>` — "bumpe o `?v=N`
+aqui E no `<script>` lá embaixo" — e o parser tomou aquilo por abertura de
+bloco, protegendo 136 KB até o `</script>` seguinte, 2.400 linhas adiante. O
+teste pegou: 135 comentários continuavam saindo e o admin encolhia 1% em vez
+de 9%. Agora é varredura única, e quem vem primeiro no texto ganha — comentário
+e bloco se aninham nos dois sentidos.
+
+Testado: `<!--` dentro de `<script>`, `<script>` dentro de comentário,
+condicional de IE (que sobrevive de propósito — é marcação disfarçada),
+comentário sem fechamento, e as seis páginas reais conferindo contagem de tags
+e de scripts antes/depois. Login e painel do cliente abertos no Chrome, sem
+erro de console.
+
+⚠️ **Vale só para HTML.** `admin.js`, `cliente.js` e os `.css` continuam com os
+comentários deles, também legíveis no F12. Tirar exigiria minificação de
+verdade, que é build — e o projeto não tem build por escolha. Em aberto.
+
+Cache-bust: `telemetria-v53`, `register-sw.js?v=43` nos quatro HTMLs.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

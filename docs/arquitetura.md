@@ -211,6 +211,49 @@ WHATSAPP_ACCESS_TOKEN · WHATSAPP_PHONE_NUMBER_ID · WHATSAPP_VERIFY_TOKEN
 
 ---
 
+## Entrega do HTML sem comentários (`src/html-limpo.js`)
+
+Os `<!-- -->` deste projeto são documentação de primeira classe — é neles que
+moram as armadilhas. Só que comentário em HTML **vai junto para o navegador**:
+em 25/08/2026 o Pedro abriu o F12 e leu tudo, raciocínio interno de produto
+incluído.
+
+A limpeza é na **entrega**, nunca no arquivo. O fonte continua comentado para
+quem trabalha nele; o navegador recebe só a marcação. Como o projeto não tem
+build (escolha deliberada — ver [`../CLAUDE.md`](../CLAUDE.md)), isso acontece
+em tempo de request, com cache em memória invalidado por `mtime` em dev.
+
+As seis rotas de página usam `enviarHtml(res, caminho)` no lugar de
+`res.sendFile`. Ganho de 9% a 62% no tamanho da página, conforme quanto
+comentário ela tinha.
+
+⚠️ **`/static` deixou de servir `.html`.** Sem isso a limpeza não valia nada:
+`express.static` expõe `public/` inteiro, e `/static/cliente.html` entregava o
+arquivo cru. Cada página tem rota própria e nada referenciava `.html` por
+baixo de `/static`. De quebra, os estudos `public/_*.html` — telas antigas
+servidas ao vivo — deixaram de ser alcançáveis.
+
+⚠️ **O filtro embrulha o `express.static`**, não vem antes dele. Um middleware
+separado teria de escolher entre `next()`, que cairia no static logo abaixo e
+serviria o arquivo assim mesmo, e `next("router")`, que só existe dentro de um
+Router e é ignorado no app.
+
+⚠️ **O parser é uma varredura só, e quem vem primeiro no texto ganha.** A
+primeira versão procurava os blocos `<script>`/`<style>` antes de olhar os
+comentários e engoliu 136 KB do `admin.html`: a linha 15 tem um comentário que
+**menciona** `<script>` ("bumpe o `?v=N` aqui E no `<script>` lá embaixo"), o
+parser tomou aquilo por abertura de bloco e protegeu o documento até o próximo
+`</script>`, 2.400 linhas adiante — 135 comentários saíram na entrega como se
+nada fosse. Comentário e bloco se aninham nos dois sentidos, então a única
+leitura correta é sequencial.
+
+⚠️ **Comentário condicional de IE (`<!--[if`) sobrevive** — é marcação
+disfarçada de comentário, e apagá-la mudaria o que a página faz.
+
+⚠️ **Isto vale só para HTML.** `admin.js`, `cliente.js` e os `.css` continuam
+sendo servidos com os comentários deles, e também são legíveis no F12. Tirar
+exigiria minificação de verdade, que é build — decisão em aberto.
+
 ## Cache (3 camadas) — atenção
 
 Bug mais comum do projeto. Resumo: (1) `?v=N` nos assets em `admin.html`;

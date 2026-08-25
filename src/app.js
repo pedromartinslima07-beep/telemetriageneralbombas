@@ -18,6 +18,7 @@ const cors = require("cors");
 const compression = require("compression");
 const path = require("path");
 const cookieParser = require("cookie-parser");
+const { enviarHtml } = require("./html-limpo");
 
 const { authRouter } = require("./routes/auth.routes");
 const { alertasRouter } = require("./routes/alertas.routes");
@@ -107,7 +108,20 @@ app.use("/uploads", express.static(path.join(__dirname, "../uploads"), {
   immutable: true,
 }));
 
-app.use("/static", express.static("public", {
+// ⚠️ `/static` NÃO SERVE .html (25/08/2026).
+// Ele expõe `public/` inteiro, então `/static/cliente.html` entregava o
+// arquivo cru — com todos os comentários — mesmo depois de as rotas de página
+// passarem a limpar. Fechar aqui é o que faz a limpeza valer: cada página tem
+// rota própria (`/`, `/login`, `/admin/painel`, ...) e nada referencia um
+// .html por baixo de /static. Os estudos `public/_*.html` também param de ser
+// alcançáveis, o que é ganho: eram versões antigas de tela, servidas ao vivo.
+//
+// ⚠️ O filtro embrulha o `express.static` em vez de vir antes dele: um
+// middleware separado teria de escolher entre `next()` — que cairia no
+// static logo abaixo e serviria o arquivo assim mesmo — e `next("router")`,
+// que só existe dentro de um Router e é ignorado no app. Embrulhando, o
+// `.html` simplesmente nunca chega ao static e segue para o 404.
+const _publicEstatico = express.static("public", {
   etag: true,
   lastModified: true,
   setHeaders(res, filePath) {
@@ -117,7 +131,12 @@ app.use("/static", express.static("public", {
       res.setHeader("Cache-Control", "no-cache");
     }
   },
-}));
+});
+
+app.use("/static", (req, res, next) => {
+  if (req.path.toLowerCase().endsWith(".html")) return next();
+  return _publicEstatico(req, res, next);
+});
 
 // App mobile (Capacitor): em dev o Express serve /app/* a partir de app/public.
 // Em produção o app é empacotado pelo Capacitor e roda em capacitor://,
@@ -325,16 +344,16 @@ function _htmlNoCache(req, res, next) {
 // O login continua em /login — e é ele que o `manifest.json` usa como
 // `start_url`, então o PWA instalado não passa por aqui.
 app.get("/", _htmlNoCache, (req, res) =>
-  res.sendFile(path.join(__dirname, "../public/index.html"))
+  enviarHtml(res, path.join(__dirname, "../public/index.html"))
 );
 app.get("/login", _htmlNoCache, (req, res) =>
-  res.sendFile(path.join(__dirname, "../public/login.html"))
+  enviarHtml(res, path.join(__dirname, "../public/login.html"))
 );
 app.get("/admin/painel", _htmlNoCache, (req, res) =>
-  res.sendFile(path.join(__dirname, "../public/admin.html"))
+  enviarHtml(res, path.join(__dirname, "../public/admin.html"))
 );
 app.get("/cliente/painel", _htmlNoCache, (req, res) =>
-  res.sendFile(path.join(__dirname, "../public/cliente.html"))
+  enviarHtml(res, path.join(__dirname, "../public/cliente.html"))
 );
 // Orçamentos do síndico — página própria, não um modal do painel. É o destino
 // do link que vai no e-mail do orçamento, então a URL é pública e estável; o
@@ -349,7 +368,7 @@ app.get("/cliente/painel", _htmlNoCache, (req, res) =>
 // separava os dois: página é o NOME DA TELA (`/cliente/painel`), API é o nome
 // do RECURSO (`/cliente/status`, `/cliente/chamados`, `/cliente/orcamentos`).
 app.get("/cliente/painel/orcamentos", _htmlNoCache, (req, res) =>
-  res.sendFile(path.join(__dirname, "../public/cliente-orcamentos.html"))
+  enviarHtml(res, path.join(__dirname, "../public/cliente-orcamentos.html"))
 );
 // ⚠️ REDE DE SEGURANÇA PARA A URL SEM `/painel`.
 // `/cliente/orcamentos` é a API. Aberta no navegador — link digitado à mão,
@@ -370,7 +389,7 @@ app.get("/cliente/orcamentos", (req, res, next) => {
 // mesmo suja ou amassada. O código não é validado aqui (o HTML é estático);
 // quem resolve é o `equipamento.js` chamando GET /equipamentos/codigo/:codigo.
 app.get("/e/:codigo", _htmlNoCache, (req, res) =>
-  res.sendFile(path.join(__dirname, "../public/equipamento.html"))
+  enviarHtml(res, path.join(__dirname, "../public/equipamento.html"))
 );
 
 // routers
