@@ -81,6 +81,18 @@ falhasse, ele teria salvo uma imagem para um e-mail que não saiu.
   — sumir esconderia que existe um caminho melhor, e ninguém descobriria que
   basta criar o acesso em Clientes.
 
+### ⚠️ No modo painel não se lista `condominios.email`
+
+A primeira versão avisava, ali dentro: *"o condomínio tem sindico@…, portaria@…
+no cadastro"*. O Pedro pegou (25/08/2026), e o problema é maior que o ruído
+visual: mostrar endereços do cadastro **dentro do modo em que eles não
+recebem** faz a pessoa ler uma lista em destaque e entender que o envio vai
+para ela.
+
+O que ficou é a **regra**, sem endereços — "quem não tem login não recebe por
+este caminho". Quem precisa alcançar todos troca de modo, e lá os endereços
+aparecem no campo "Para", que é onde de fato valem e onde dá para editar.
+
 ### ⚠️ O modal é PLACA CLARA, e isso muda as variáveis
 
 `.modalBox` é `--chapa`. As variáveis de uso diário do admin — `--muted`

@@ -12869,13 +12869,23 @@ async function _avAbrirEnvioEmail() {
                 <span>Vai para quem tem acesso ao painel</span>
                 <ul class="avDest">${listaUsuarios}</ul>
               </div>
+              <!-- ⚠️ AQUI NAO SE LISTA condominios.email (25/08/2026).
+                   A versao anterior avisava "o condominio tem sindico@...,
+                   portaria@... no cadastro", e o Pedro pegou: mostrar
+                   enderecos do cadastro dentro do modo em que eles NAO recebem
+                   faz a pessoa ler uma lista e entender que o envio vai para
+                   ela. O que importa e a REGRA — quem nao tem login nao recebe
+                   por aqui —, nao os enderecos. Quem precisa alcancar todos
+                   troca de modo, e la eles aparecem no campo "Para", que e
+                   onde de fato valem.
+                   (Sem crase neste comentario: ele vive dentro de um template
+                    literal, e crase aqui FECHA o template.) -->
               <div class="hint" style="line-height:1.6;margin-top:8px;">
                 O e-mail leva o <b>link para ler e responder no painel</b>, sem
                 anexo — é lá que a aprovação fica registrada. A lista vem do
                 cadastro de usuários e não é editável aqui.
-                ${emailsCadastrados
-                  ? `<br /><br />⚠️ O condomínio tem <b>${_waEscaparHtml(emailsCadastrados)}</b> no cadastro. Quem não estiver na lista acima <b>não recebe</b> por este caminho — use "Com carta e anexo" para alcançar todos.`
-                  : ""}
+                <br /><br />Quem não tem login <b>não recebe</b> por este
+                caminho — use "Com carta e anexo" para alcançar todos.
               </div>`
             : `
               <div class="hint" style="line-height:1.6;">

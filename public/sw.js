@@ -7,7 +7,7 @@
 // ⚠️ v44 = merge de duas gerações que existiram em paralelo: v42 (equipamentos
 // com QR) e v43 (landing pública + painel do cliente). Ficar com qualquer uma
 // das duas deixaria metade dos navegadores achando que já tem a versão nova.
-const CACHE_NAME = "telemetria-v56";
+const CACHE_NAME = "telemetria-v57";
 
 // Permite que a página force a ativação imediata desta versão (sem esperar
 // todos os clients fecharem). Pareado com o postMessage no register-sw.js.

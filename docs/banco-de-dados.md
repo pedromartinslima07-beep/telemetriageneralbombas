@@ -240,8 +240,8 @@ custaram coluna própria em vez de reaproveitar o que já existia:
   dia. Numa conversa seis meses depois — *"quem autorizou este serviço?"* — o
   id não resolve. Por isso nome e cargo são **digitados na hora**, na aprovação
   **e na recusa**. Mesma natureza do que contratos já faz com nome e documento.
-- O cargo vem de **lista fechada** no front (Síndico, Subsíndico, Conselheiro,
-  Zelador, Administradora, Gerente predial) com "Outro" abrindo campo livre.
+- O cargo vem de **lista fechada** no front — Síndico, Gerente predial,
+  Zelador, Administradora — com "Outro" abrindo campo livre.
   Texto livre puro viraria "sindico", "Síndico" e "SÍNDICO" — três grafias da
   mesma coisa e nenhum agrupamento possível. A coluna guarda o texto final.
 - ⚠️ `resposta_vista_em` **nulo = ninguém do escritório abriu ainda**. É o que

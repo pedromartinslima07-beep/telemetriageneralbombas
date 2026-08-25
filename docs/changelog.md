@@ -4214,6 +4214,37 @@ todo componente com `display` próprio precisa declarar a sua.
 Cache-bust: `admin.css?v=234`, `admin.js?v=316`, `cliente.css?v=46`,
 `cliente-orcamentos.js?v=11`, `telemetria-v56`, `register-sw.js?v=46`.
 
+### 2026-08-25 · O modal de envio para de mostrar quem não vai receber
+
+*"Deveria tirar o 'vai para', porque hoje mostra o condomínio que está no
+cadastro do cliente, mas dependendo da forma que você escolher enviar não vai
+exatamente para aqueles."*
+
+O modo "Pelo painel" avisava, embaixo da lista de usuários: *"o condomínio tem
+sindico@…, portaria@… no cadastro"*. O problema é maior que o ruído visual —
+mostrar endereços **dentro do modo em que eles não recebem** faz a pessoa ler
+uma lista em destaque e entender que o envio vai para ela. Era um aviso que
+funcionava como promessa.
+
+Ficou a **regra**, sem endereços: "quem não tem login não recebe por este
+caminho — use 'Com carta e anexo' para alcançar todos". Quem precisa alcançar
+todos troca de modo, e lá os endereços aparecem no campo "Para", que é onde de
+fato valem e onde dá para editar. `emailsCadastrados` agora só é usado ali.
+
+**A lista de cargos caiu para quatro** — Síndico, Gerente predial, Zelador,
+Administradora — mais o "Outro". Saíram Subsíndico e Conselheiro, por decisão
+do Pedro: lista de escolha não é lista de possibilidades, e cada item a mais é
+uma leitura a mais no celular de quem só quer aprovar um orçamento. Quem já
+respondeu com um cargo que saiu **continua com ele gravado**: a lista governa o
+que se pode escolher daqui em diante, não reescreve histórico.
+
+⚠️ De novo a armadilha da crase: comentário com crase dentro de template
+literal **fecha o template**. Terceira vez na mesma sessão — está anotado nos
+arquivos onde mordeu.
+
+Cache-bust: `admin.js?v=317`, `cliente-orcamentos.js?v=12`, `telemetria-v57`,
+`register-sw.js?v=47`.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

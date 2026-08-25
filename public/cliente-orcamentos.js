@@ -587,8 +587,14 @@ function voltarHtml() {
    Texto livre viraria "sindico", "Síndico", "SÍNDICO" e "sindico do bloco B" —
    quatro grafias da mesma coisa, e nenhum agrupamento possível depois. A ordem
    não é alfabética: é de frequência esperada, porque quem responde orçamento
-   é quase sempre o síndico. */
-const CARGOS = ["Síndico", "Subsíndico", "Conselheiro", "Zelador", "Administradora", "Gerente predial"];
+   é quase sempre o síndico.
+
+   ⚠️ QUATRO ITENS, E ISSO É DECISÃO DO PEDRO (25/08/2026). A primeira versão
+   trazia Subsíndico e Conselheiro junto; ele cortou os dois. Lista de escolha
+   não é lista de possibilidades — cada item a mais é uma leitura a mais no
+   celular de quem só quer aprovar um orçamento, e quem não se encaixa tem o
+   "Outro". Não reabrir item a item: se voltar a crescer, é por pedido dele. */
+const CARGOS = ["Síndico", "Gerente predial", "Zelador", "Administradora"];
 
 /* ── Responder ─────────────────────────────────────────────────────────── */
 
