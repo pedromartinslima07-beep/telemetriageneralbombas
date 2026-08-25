@@ -193,10 +193,66 @@ async function sendAlertaEmail(dados) {
   }
 }
 
+// ── E-mail do orçamento ─────────────────────────────────────────────────────
+// Logo embutido como data URI: URL externa é bloqueada por padrão no Outlook
+// (e o cliente vê um quadrado vazio). O arquivo lido aqui é o REDUZIDO
+// (`public/logo-email.png`, ~20 KB), gerado por `scripts/gerar-logo-email.js`
+// — o `logo-topo.png` original tem 68 KB, que viram 91 KB em base64 e deixam
+// o corpo a um palmo do corte de ~102 KB do Gmail. O anexo não conta nesse
+// limite; o data URI conta.
+// Lido uma vez e guardado: o arquivo não muda entre envios.
+let _logoEmailCache;
+function _logoEmailDataUri() {
+  if (_logoEmailCache !== undefined) return _logoEmailCache;
+  try {
+    const fs = require("fs");
+    const path = require("path");
+    const buf = fs.readFileSync(path.join(__dirname, "..", "..", "public", "logo-email.png"));
+    _logoEmailCache = "data:image/png;base64," + buf.toString("base64");
+  } catch (err) {
+    // Sem logo o e-mail sai igual, só com o nome escrito na faixa. Um envio de
+    // orçamento não pode falhar por causa de arte.
+    console.error("[email] logo-email.png não pôde ser lido:", err.message);
+    _logoEmailCache = null;
+  }
+  return _logoEmailCache;
+}
+
+// ⚠️ DUAS DATAS, DOIS FORMATADORES — não é preciosismo.
+// `valido_ate` e `data_documento` são colunas DATE: dia de calendário, sem
+// fuso. Passá-las por toLocaleDateString com timeZone joga a data um dia pra
+// trás (servidor em UTC, driver entrega meia-noite, conversão pra UTC-3 volta
+// pro dia anterior). `criado_em` é timestamptz: aí converter está certo.
+// Mesma regra e mesmo motivo de `fmtDateOnlyBR`/`fmtDateBR` em
+// src/services/orcamento-pdf.service.js — se mudar lá, mude aqui.
+function _fmtDataSemFuso(v) {
+  if (!v) return null;
+  if (v instanceof Date) {
+    const d = String(v.getDate()).padStart(2, "0");
+    const m = String(v.getMonth() + 1).padStart(2, "0");
+    return `${d}/${m}/${v.getFullYear()}`;
+  }
+  const m = String(v).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : String(v);
+}
+function _fmtInstante(v) {
+  if (!v) return null;
+  return new Date(v).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
+}
+
 // Envia o orçamento (PDF anexado) diretamente ao cliente.
 //
-// dados: { to (array de e-mails), numero, condominioNome, validoAte (iso|null),
-//          valorTotal (number|null), pdfBuffer (Buffer), filename }
+// dados: { to (array de e-mails), numero, condominioNome, dataDocumento (DATE|null),
+//          criadoEm (timestamptz|null), validoAte (DATE|null), pdfBuffer (Buffer),
+//          filename, linkPainel (string|null) }
+//
+// ⚠️ O TEXTO É FIXO (24/08/2026). Havia um campo "Mensagem" no modal de envio
+// e uma assinatura em imagem por usuário; os dois saíram. O documento é o PDF
+// anexo — o e-mail é só a carta de encaminhamento, e carta que muda a cada
+// envio é carta que uma hora sai errada para cliente real. Quem precisar
+// escrever algo específico responde o e-mail depois de enviado.
+// As colunas `usuarios.email_mensagem` / `assinatura_blob` continuam no banco,
+// paradas: a remoção foi da interface, não do dado.
 async function sendOrcamentoCliente(dados) {
   if (!process.env.RESEND_API_KEY) {
     throw new Error("RESEND_API_KEY não configurada — envio de email indisponível");
@@ -204,22 +260,14 @@ async function sendOrcamentoCliente(dados) {
   const to = Array.isArray(dados.to) ? dados.to : [dados.to];
   if (!to.length) throw new Error("Nenhum destinatário informado");
 
-  const numero  = dados.numero || "—";
-  const condo   = dados.condominioNome || "—";
+  const numero   = dados.numero || "—";
+  const condo    = dados.condominioNome || "—";
   const filename = dados.filename || `orcamento-${numero}.pdf`;
+  const dataDoc  = _fmtDataSemFuso(dados.dataDocumento) || _fmtInstante(dados.criadoEm);
+  const validade = _fmtDataSemFuso(dados.validoAte);
+  const logo     = _logoEmailDataUri();
 
-  const mensagem = dados.mensagem
-    ? String(dados.mensagem).trim()
-    : `Segue em anexo o orçamento ${numero} referente a ${condo}.\n\nQualquer dúvida, estamos à disposição.`;
-
-  const assinaturaHtml = dados.assinaturaDataUrl
-    ? `<div style="margin-top:24px;"><img src="${dados.assinaturaDataUrl}" alt="Assinatura" style="max-width:100%;height:auto;display:block;" /></div>`
-    : `<p style="margin-top:24px;font-size:12px;color:#6b7280;">General Bombas</p>`;
-
-  const mensagemHtml = mensagem
-    .split("\n")
-    .map(l => `<p style="margin:0 0 10px;font-size:14px;line-height:1.6;color:#111827;">${l || "&nbsp;"}</p>`)
-    .join("");
+  const E = _escaparHtml;
 
   // ⚠️ O CONVITE SÓ EXISTE QUANDO HÁ PARA ONDE MANDAR.
   // Só condomínio com login responde pelo painel; orçamento avulso de pessoa
@@ -233,36 +281,120 @@ async function sendOrcamentoCliente(dados) {
   // orçamento que não volta.
   const convite = dados.linkPainel
     ? `
-      <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:24px 0 8px;">
-        <tr><td style="background:#fbb329;padding:14px 26px;">
-          <a href="${dados.linkPainel}" style="color:#030a26;font-size:15px;font-weight:bold;text-decoration:none;display:inline-block;">
-            Ver o orçamento e responder
-          </a>
-        </td></tr>
-      </table>
-      <p style="margin:0 0 4px;font-size:13px;line-height:1.6;color:#4b5563;">
-        Você entra com o mesmo login do painel do seu prédio e, na tela do
-        orçamento, aprova, recusa ou deixa um comentário — a gente recebe na
-        hora. O PDF em anexo é o mesmo documento.
-      </p>`
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:22px 0 6px;">
+                <tr><td style="background:#f0b014;">
+                  <a href="${dados.linkPainel}" style="color:#030a26;font-size:15px;font-weight:bold;text-decoration:none;display:inline-block;padding:14px 26px;">
+                    Ver o orçamento e responder
+                  </a>
+                </td></tr>
+              </table>
+              <p style="margin:0 0 18px;font-size:12.5px;line-height:1.6;color:#6b7280;">
+                Você entra com o mesmo login do painel do seu prédio e, na tela do
+                orçamento, aprova, recusa ou deixa um comentário — a gente recebe
+                na hora. O PDF em anexo é o mesmo documento.
+              </p>`
     : "";
+
+  // Linha da caixa de informações. Sem valor de propósito: o preço é assunto
+  // do documento, e mandá-lo no corpo do e-mail o espalha por caixas de
+  // entrada e encaminhamentos que ninguém controla.
+  const linha = (rotulo, valor) => valor
+    ? `<tr>
+         <td style="padding:5px 0;font-size:13px;color:#6b7280;width:110px;">${E(rotulo)}</td>
+         <td style="padding:5px 0;font-size:13px;color:#111827;font-weight:bold;">${E(valor)}</td>
+       </tr>`
+    : "";
+
+  const textoPuro = [
+    `Prezado(a),`,
+    ``,
+    `Segue o orçamento ${numero}, referente a ${condo}. O documento completo está no PDF em anexo.`,
+    ``,
+    `Informações do orçamento`,
+    `Número: ${numero}`,
+    `Cliente: ${condo}`,
+    dataDoc  ? `Data: ${dataDoc}` : null,
+    validade ? `Válido até: ${validade}` : null,
+    ``,
+    // ⚠️ A versão em texto puro também leva o link. Ela não é decoração: é o
+    // que alguns clientes de e-mail mostram, e é onde cai quem bloqueia HTML.
+    dados.linkPainel ? `Ver o orçamento e responder: ${dados.linkPainel}` : null,
+    dados.linkPainel ? `` : null,
+    `Atenciosamente,`,
+    `General Bombas`,
+    `General Engenharia da Manutenção · (11) 2038-8679 · WhatsApp (11) 96653-6110 · comercial@generalbombas.com`,
+  ].filter(l => l !== null).join("\n");
+
+  // ⚠️ LAYOUT EM <table>, DO LADO DE FORA PRA DENTRO, com estilo inline.
+  // Não é preferência: o Outlook renderiza com o motor do Word, que ignora
+  // flex/grid, `max-width` em div e folha de estilo em <style>. Tabela
+  // aninhada com width fixo é o único layout que chega igual no Gmail, no
+  // Outlook e no app do celular.
+  const html = `
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#eef1f7;margin:0;padding:24px 12px;">
+  <tr><td align="center">
+    <table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0" style="width:560px;max-width:100%;background:#ffffff;border:1px solid #dfe4ee;">
+
+      <tr><td style="background:#030a26;padding:22px 28px;">
+        ${logo
+          // ⚠️ O ESTILO DO <img> É O ESTILO DO ALT. Outlook bloqueia imagem por
+          // padrão (foi o que aconteceu no e-mail que serviu de referência), e
+          // aí o que aparece é o texto alternativo — que herda cor, fonte e
+          // corpo daqui. Sem isto, o topo do e-mail ficava com "General
+          // Bombas" em preto sobre a faixa marinho, ou seja, invisível.
+          ? `<img src="${logo}" width="190" alt="General Bombas" style="display:block;border:0;outline:none;width:190px;height:auto;font-family:Helvetica,Arial,sans-serif;font-size:20px;font-weight:bold;color:#ffffff;" />`
+          : `<div style="font-family:Helvetica,Arial,sans-serif;font-size:21px;font-weight:bold;color:#ffffff;letter-spacing:.5px;">GENERAL <span style="color:#f0b014;">BOMBAS</span></div>`}
+        <div style="font-family:Helvetica,Arial,sans-serif;margin-top:12px;font-size:10.5px;font-weight:bold;letter-spacing:1.6px;text-transform:uppercase;color:#f0b014;">
+          Orçamento comercial
+        </div>
+      </td></tr>
+
+      <tr><td style="padding:28px 28px 6px;font-family:Helvetica,Arial,sans-serif;">
+        <p style="margin:0 0 14px;font-size:14px;line-height:1.6;color:#111827;">Prezado(a),</p>
+        <p style="margin:0 0 14px;font-size:14px;line-height:1.6;color:#111827;">
+          Segue o orçamento <strong>${E(numero)}</strong>, referente a
+          <strong>${E(condo)}</strong>. O documento completo está no PDF em anexo.
+        </p>
+        ${convite}
+      </td></tr>
+
+      <tr><td style="padding:6px 28px 4px;font-family:Helvetica,Arial,sans-serif;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f5f7fb;border:1px solid #e4e8f1;">
+          <tr><td style="padding:16px 18px;">
+            <div style="font-size:11px;font-weight:bold;letter-spacing:1.1px;text-transform:uppercase;color:#6b7280;padding-bottom:8px;">
+              Informações do orçamento
+            </div>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+              ${linha("Número", numero)}
+              ${linha("Cliente", condo)}
+              ${linha("Data", dataDoc)}
+              ${linha("Válido até", validade)}
+            </table>
+          </td></tr>
+        </table>
+      </td></tr>
+
+      <tr><td style="padding:20px 28px 26px;font-family:Helvetica,Arial,sans-serif;">
+        <p style="margin:0;font-size:14px;line-height:1.6;color:#111827;">Atenciosamente,</p>
+        <p style="margin:2px 0 0;font-size:14px;line-height:1.6;color:#111827;font-weight:bold;">General Bombas</p>
+      </td></tr>
+
+      <tr><td style="background:#f5f7fb;border-top:1px solid #e4e8f1;padding:16px 28px;font-family:Helvetica,Arial,sans-serif;font-size:11.5px;line-height:1.7;color:#6b7280;">
+        <strong style="color:#4b5563;">General Engenharia da Manutenção</strong><br />
+        (11) 2038-8679 · WhatsApp (11) 96653-6110 ·
+        <a href="mailto:comercial@generalbombas.com" style="color:#6b7280;">comercial@generalbombas.com</a>
+      </td></tr>
+
+    </table>
+  </td></tr>
+</table>`;
 
   await _enviar({
     from: `General Bombas <${_emailFrom()}>`,
     to,
     subject: `Orçamento ${numero} — General Bombas`,
-    // ⚠️ A versão em texto puro também leva o link. Ela não é decoração: é o
-    // que alguns clientes de e-mail mostram, e é onde cai quem bloqueia HTML.
-    text: dados.linkPainel
-      ? `${mensagem}\n\nVer o orçamento e responder: ${dados.linkPainel}`
-      : mensagem,
-    html: `
-      <div style="font-family:sans-serif;max-width:560px;margin:auto;padding:32px 28px;background:#ffffff;color:#111827;">
-        ${mensagemHtml}
-        ${convite}
-        ${assinaturaHtml}
-      </div>
-    `,
+    text: textoPuro,
+    html,
     attachments: [{ filename, content: dados.pdfBuffer }],
   }, "orçamento ao cliente");
 }

@@ -27,6 +27,93 @@ aliases:
 > teste tinha caído. Um `TcpClient.ConnectAsync` conecta nos dois em ~190ms.
 > Os dois bancos estão de pé.
 
+## Sessão 2026-08-24 — O e-mail do orçamento virou documento da casa
+
+Pedro trouxe como referência o e-mail de NF-e que a empresa recebe da Omie
+(print em `Pictures/Screenshots/Captura de tela 2026-08-24 205359.png`):
+saudação curta, um parágrafo dizendo o que é o documento, botão, caixa com os
+dados da nota e assinatura da empresa. *"Algo parecido com isso, mas com nossa
+identidade — e aí poderia remover a parte da mensagem e assinatura que tem hoje
+no sistema."*
+
+**Decisões dele nesta sessão** (perguntadas antes de construir):
+
+- **Logo em imagem**, embutido, e não o nome em tipografia.
+- **Sem o valor total** na caixa de informações — só Número, Cliente, Data e
+  Válido até. O preço fica no PDF.
+- **Remoção só da interface**: os campos saem do modal, mas as rotas
+  (`/admin/me/email-template`, `/admin/me/assinatura`) e as colunas
+  (`usuarios.email_mensagem`, `assinatura_blob`) ficam de pé. Sem migration,
+  sem perder as assinaturas já cadastradas.
+
+O detalhe que quase passou: o logo embutido é o **reduzido**
+(`public/logo-email.png`, gerado por `scripts/gerar-logo-email.js`). O
+`logo-topo.png` original vira 91 KB em base64 e o Gmail apara o corpo acima de
+~102 KB — o anexo não conta, o data URI conta. Corpo final medido: 31 KB.
+
+Verificado no Chrome com `scripts/preview-email-orcamento.js`, que dubla o SDK
+do Resend e mostra o payload real: as duas variantes (com e sem o botão do
+painel), o texto puro, as datas sem pular um dia, e o caso da **imagem
+bloqueada** — que é o normal no Outlook — em que o `alt` estilizado mostra
+"General Bombas" em branco sobre a faixa marinho.
+
+## Sessão 2026-08-24 — O total manual estava sendo apagado no banco
+
+Ainda no mesmo modal, Pedro: *"outra coisa q acontece é qnd defini manualmente
+muitas vezes salva no pdf o valor, mas no sistema continua 00,00."*
+
+Não era exibição: `GET /admin/orcamentos/avulsos` devolvia só o `valor_total`
+já resolvido e **não** a coluna `orcamentos.valor`. O modal usa `o.valor` pra
+saber se o modo manual está ligado — sem a chave, ele abria com o campo vazio,
+o trilho caía pra soma dos itens (R$ 0,00, porque o total manual é usado
+justamente quando item não tem preço) e o "Salvar" seguinte mandava
+`valor: null`, apagando o total no banco. O PDF lê o banco, então continuava
+certo até alguém salvar — foi isso que fez o defeito parecer cosmético.
+
+**Estrago em produção, sem recuperação automática:** `OR-000170` (Condomínio
+Collori), `OR-000169` e `OR-000105` (Vivaz Penha) estão aprovados com total
+R$ 0,00. Não há auditoria com o valor antigo — os PDFs já enviados são a única
+cópia. **Pendência para o Pedro: redigitar os três.**
+
+Consertado nos dois lados: a lista traz `o.valor` (com comentário de contrato
+na query) e o `_avAcao` só manda `valor` quando a chave existe no registro,
+pra que a próxima quebra de payload vire "não atualizou" em vez de perda
+silenciosa.
+
+**Lição registrada em [`decisions.md`](decisions.md):** quando a tela EDITA um
+campo, o payload precisa da coluna crua, não só do agregado já resolvido.
+
+## Sessão 2026-08-24 — O valor manual passou a ser editado no lugar do total
+
+Pedro, olhando o modal de orçamento: *"n acho q faça sentido abrir um campo
+qnd clica para colocar o valor manualmente, devia da pra mudar no lugar q ja
+fica o valor normalmente."*
+
+Estava certo, e o defeito era mais feio que o incômodo: com o campo extra
+aberto, o trilho mostrava **dois totais ao mesmo tempo** — o somado, grande,
+em cima; o digitado, pequeno, embaixo — e só a nota "Sobrepõe a soma dos itens
+no PDF" dizia qual dos dois valia.
+
+Agora o campo ocupa o lugar do número (mesma fonte, mesmo corpo, mesmo `y`), a
+régua âmbar é o único sinal de que ali virou campo, e a linha de apoio troca
+`4 itens · definir manualmente` por `soma dos itens: R$ 6.460,00 · voltar a
+somar` — a soma continua à vista porque é o número que está sendo sobreposto.
+
+O salvamento não mudou: `_avAcao` lê `avInputValorManual` como sempre, e
+desmarcar limpa o campo → `valor: null`.
+
+**Como foi verificado, sem banco e sem login:**
+`node scripts/preview-total-orcamento.js` (novo, no padrão do
+`scripts/preview-orcamentos.js`) serve `public/` e monta só o trilho, mas
+**extrai do `admin.js` real** as funções `_orcFmtValor` e
+`_avAtualizarTotalRail` — fatia por contagem de chaves e avalia soltas, em vez
+de copiar. O CSS e a lógica olhados são os de produção. Foi ele que mostrou os
+6px de pulo do trilho a cada clique (`.av-total` ganhou régua transparente do
+mesmo tamanho) e os 2px extras do `align-items: baseline` no "R$" — nenhum dos
+dois aparece em captura, só medindo `getBoundingClientRect` nos dois estados.
+
+Cache-bust: `admin.css` v228→v229, `admin.js` v310→v311.
+
 ## Sessão 2026-08-24 — O link do orçamento estava indo para cliente real
 
 Pedro retomou a tela de orçamento do cliente (commit `3129292`, de 21/08) com
@@ -172,6 +259,64 @@ da correção ainda deixava (em 760px e em 660px).
 **Nada de backend, nada de schema.** Sem endpoint novo, então o
 `CACHE_NAME` do `sw.js` não subiu — só `admin.css?v=223` e
 `admin.js?v=308`.
+
+## Sessão 2026-08-24 (parte 3) — O filete voltou a ser texto no mesmo dia
+
+Pedro, olhando o resultado ao vivo da parte 2: *"eu só acho q esta feio, os
+icones mt espaçados, sem titulos separando"*. O julgamento de custo (136px
+por texto que ninguém clica) estava certo; o de resultado, não — sem
+legenda, a folga que o `margin-top: auto` distribuía entre os quatro grupos
+lia como acidente, não como respiro.
+
+**Verificado ao vivo antes de mexer**, não só por leitura de CSS: logado no
+admin de teste (`admin@teste.local`/`teste123`, banco TESTE do Railway,
+`node server.js` local) via extensão do Chrome conectada, com a janela real
+do navegador (~1920×889 — cai na faixa `max-height:900px`, a mais comum no
+dia a dia). Print do menu aberto e recolhido antes de qualquer edição.
+
+**O que mudou** (só `public/admin.css` + `?v=N` no `admin.html`):
+
+- `.nav-section-label` volta a ser texto (mono, 8,8px — o piso do DESIGN.md
+  pra etiqueta gravada, `.55rem`). `margin-top: auto` saiu; a folga sobrando
+  agora fica só no fim da lista, não repartida entre os grupos.
+- Recalibrado com o mesmo método da parte 2 (Puppeteer, pior caso de 15
+  itens, varredura de 1 em 1px): texto cabe nas três faixas de cima (base,
+  `max-height:900px`, `max-height:800px` — essa última cobrindo o notebook
+  comum). Só `max-height:700px` (614–700px, notebook com barra de tarefas)
+  ficou com o filete: 0,8px de folga no pior pixel, sem espaço pra letra.
+- Na barra recolhida o rótulo **continua filete** — 38px de trilho não
+  escreve "CADASTRO" sem cortar, e cortado é pior que sem texto nenhum.
+
+**Resultado:** nova varredura completa (980→590px) confirmou overflow só na
+mesma faixa de sempre (abaixo de 614px, por design). Conferido também ao
+vivo no Chrome conectado, na janela real (889px) que motivou a reclamação —
+"EM CURSO", "CADASTRO", "ANÁLISE", "SISTEMA" voltaram a aparecer.
+
+### Parte 4 — "está mt compactado", e aí apareceu a causa real
+
+Pedro mandou o print do menu. A lista estava mesmo espremida, mas o rótulo
+não era o culpado: **a faixa de `@media` era larga demais**. A faixa de
+801–900px tinha de caber em 801px, então quem estava em 889px levava um
+aperto que não precisava — medido no painel dele, 563px de lista dentro de
+702px disponíveis, ou seja **139px de vão morto** entre "Configurações" e o
+rodapé, com tudo comprimido no topo.
+
+**Três degraus viraram oito** (base, 1000, 940, 890, 850, 800, 750, 700),
+cada um conferido no piso da própria faixa com o pior caso de 15 itens.
+Item vai de 40px a 27px em passos pequenos; margem do rótulo, de 16px a
+filete. Também troquei o padding simétrico do rótulo por `margin-top` — ele
+pertence ao grupo que abre, então a folga tem de ficar acima dele, não em
+volta.
+
+**Resultado medido:** varredura de 1100→590px de 1 em 1px, overflow só
+abaixo de **598px** (era 613px — a escada fina é mais eficiente, não só mais
+confortável). No painel real em 889px: vão morto de 139px → **93px**, item
+34px → 35px, separação de grupo 3px → 12px.
+
+Detalhe das duas tabelas de faixas em
+[`../docs/changelog.md`](../docs/changelog.md); o porquê, a lição do piso de
+8,8px e a regra "faixa larga é aperto disfarçado" em
+[`decisions.md`](decisions.md). Cache-bust: `admin.css?v=228`.
 
 ## Sessão 2026-08-19 — Remover usuário dava erro 500
 

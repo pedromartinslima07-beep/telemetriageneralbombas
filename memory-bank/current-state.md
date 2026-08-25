@@ -106,11 +106,15 @@ ESP32 (sonda 4-20mA + SCT-013)
 - ⚠️ O **app do técnico** (`app/public/app.css`) não migrou e mantém
   `--accent: #f0b014` — quarta identidade, dívida conhecida.
 - Sidebar colapsável, topbar, mission control grid, feed em tempo real.
-- **A nav da sidebar cabe inteira na tela** (24/08/2026): os rótulos de seção
-  viraram filetes de 1px e as faixas de `@media (max-height)` foram
-  recalculadas por medição (Puppeteer varrendo de 1 em 1px, confirmado no
-  Chrome real). Com os 15 itens visíveis a nav não rola acima de 614px de
-  viewport. Ver [decisions.md](decisions.md).
+- **A nav da sidebar cabe inteira na tela** (24/08/2026): as faixas de
+  `@media (max-height)` foram recalculadas por medição (Puppeteer varrendo
+  de 1 em 1px, confirmado no Chrome real). Com os 15 itens visíveis a nav
+  não rola acima de 598px de viewport. São **oito degraus de densidade**, e
+  a granularidade fina é o ponto: com faixas largas, quem estava em 889px
+  levava o aperto calculado para 801px e sobravam ~139px de vão morto no pé
+  da lista. Os rótulos de seção são texto (8.8px mono) em todas as faixas
+  menos a mais apertada (614–700px, notebook com barra de tarefas), onde
+  viram filete de 1px. Ver [decisions.md](decisions.md).
 - **Mapa interativo Leaflet** (tiles OpenStreetMap + filtro CSS dark): pinos por
   status, painel lateral com tabs, KPIs, donuts, classificação por zona de SP.
 - Cadastro de coordenadas com **geocoding híbrido** (ViaCEP + BrasilAPI +
@@ -151,10 +155,18 @@ ESP32 (sonda 4-20mA + SCT-013)
   **Envio do orçamento ao cliente por e-mail** (PDF anexo via Resend, botão no modal;
   destinatário de `condominios.email` — múltiplos por vírgula; marca `enviado` +
   `enviado_em/enviado_para`, migration 047). Remetente: `comercial@generalbombas.com`.
-  A assinatura do e-mail (`POST /admin/me/assinatura` → `usuarios.assinatura_blob`,
-  embutida como data URI) é **redimensionada no navegador** antes do upload —
-  máx. 600 px de largura / ~180 KB. As artes originais têm 7-8 MB, o que
-  estourava o limite de 8 mb do `express.json` e faria o Gmail aparar a mensagem.
+  **Corpo fixo desde 24/08/2026**, com a identidade da casa: faixa marinho com o
+  logo embutido, etiqueta "Orçamento comercial", caixa com Número/Cliente/Data/
+  Válido até (sem o valor — ele fica no PDF) e rodapé de contato. O modal de
+  envio ficou só com o campo "Para": o campo de mensagem e o upload de
+  assinatura por usuário saíram. As rotas `/admin/me/email-template` e
+  `/admin/me/assinatura` e as colunas `usuarios.email_mensagem` /
+  `assinatura_blob` continuam no ar **sem chamador** — a remoção foi da
+  interface, não do dado.
+  O logo vai como data URI reduzido (`public/logo-email.png`, 20 KB, gerado por
+  `scripts/gerar-logo-email.js`): o original de 68 KB vira 91 KB em base64 e o
+  Gmail apara a mensagem acima de ~102 KB de corpo — o anexo não conta nesse
+  limite, o data URI conta. Corpo atual: 31 KB.
 - Planos de manutenção preventiva + contratos. Na aba Planos, seleção múltipla
   (checkbox por linha + "todos" no cabeçalho) com **edição em massa** de
   periodicidade / próxima execução / status via `PATCH /planos-manutencao/bulk`.

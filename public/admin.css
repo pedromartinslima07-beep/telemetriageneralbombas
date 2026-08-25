@@ -479,9 +479,12 @@ td, th, .mono, [class*="valor"], [class*="total"], [class*="count"] {
 /* ---- Nav ---- */
 .nav {
   flex: 1;
-  padding: 10px 10px 6px;
+  padding: 12px 10px 8px;
   display: flex;
   flex-direction: column;
+  /* O `gap` separa itens do MESMO grupo; o `margin-top` do rótulo separa
+     GRUPOS. O segundo tem de ser bem maior que o primeiro, senão as duas
+     distâncias competem e a lista volta a ler como um bloco só. */
   gap: 2px;
   overflow-y: auto;
   overflow-x: hidden;
@@ -491,69 +494,74 @@ td, th, .mono, [class*="valor"], [class*="total"], [class*="count"] {
 .nav::-webkit-scrollbar { width: 4px; }
 .nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,.08); border-radius: 99px; }
 
-/* ⚠️ O RÓTULO DE SEÇÃO VIRA FILETE — E O TEXTO CONTINUA NO HTML.
-   Eram cinco linhas de 10px com 23px de padding vertical: 136px de altura,
-   o equivalente a três itens e meio de menu, gastos em texto que ninguém
-   clica. Medido em Puppeteer, com Atendimento ligado (15 itens) a nav pedia
-   814px e sobravam 727px numa janela maximizada em 1080p: a lista JÁ caía
-   no `overflow-y: auto` no monitor mais comum, não só em notebook. Trocar
-   os cinco rótulos por quatro filetes derruba o conteúdo pra 678px.
-   Menu lateral com barra de rolagem é sintoma, não recurso.
-   O texto NÃO sai do markup, e isso importa por dois motivos concretos:
-   `admin.js` varre `.nav-section-label` pra esconder grupo que ficou órfão
-   no perfil operador, e o leitor de tela continua lendo "Agora", "Em
-   curso"... O que muda é só o desenho — 1px de aresta no lugar de 38px de
-   etiqueta. */
+/* ⚠️ RÓTULO DE VOLTA A TEXTO — 2026-08-24, revertendo o filete do mesmo dia.
+   O filete (1px de aresta, texto escondido do olho por `color:transparent` +
+   `font-size:0`) tirou o rótulo da tela, e sem ele a folga sobrando virava
+   `margin-top:auto` nas quatro arestas. O resultado lido na tela não era
+   "respiro", era "ícones espalhados sem por quê" — grupo sem legenda e vão
+   grande demais entre eles. Pedro pediu de volta os títulos separando os
+   grupos. O texto nunca saiu do HTML (só o CSS escondia), então isto é
+   trocar o desenho do rótulo, não inventar markup novo.
+   `margin-top: auto` TAMBÉM sai — era o mecanismo que esticava a folga
+   igualmente entre as quatro separações; sem ele, a sobra de altura (quando
+   existe) fica onde o flexbox já bota por padrão: um respiro só, embaixo de
+   "Configurações", antes do rodapé. Um vão no fim lê como fim de lista; o
+   mesmo vão repetido quatro vezes no meio lia como acidente.
+   `8.8px` é o piso documentado no DESIGN.md pra etiqueta gravada (`.55rem`),
+   não um valor menor escolhido pra caber — ver a nota do `.rc-label` mais
+   abaixo neste arquivo sobre por que 8,5px já fica ilegível.
+   O rótulo só volta a ter texto NESTA faixa (viewport > 900px de altura —
+   90% dos monitores comuns). Abaixo disso a régua de Puppeteer (ver a nota
+   da "Sidebar compacta em tela baixa") não sobra espaço pra letra: um
+   caption de 900/800/700px de faixa cortado ou ilegível é pior que nenhum,
+   e nessas alturas o filete volta a ser a regra, não a exceção. */
 .nav-section-label {
   display: block;
   /* Mesmo motivo do `flex-shrink: 0` no .nav-item: em tela baixa o flexbox
-     esmagaria o filete até ele sumir da tela. */
+     esmagaria o rótulo até ele sumir ou virar uma linha de 4px. */
   flex-shrink: 0;
+  font-family: var(--mono);
+  font-size: 8.8px;
+  font-weight: 600;
+  line-height: 1.1;
+  color: var(--muted);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  /* O respiro do rótulo é ACIMA dele, não em volta. Ele pertence ao grupo que
+     abre, então a folga tem de separá-lo do grupo ANTERIOR — com padding nos
+     dois lados a legenda flutuava no meio do vão e a lista lia como um bloco
+     só, apertado. Zero embaixo cola o rótulo no primeiro item do seu grupo,
+     que é o pareamento certo. */
+  padding: 0 12px;
+  margin-top: 16px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+/* O primeiro grupo encosta no header, que já tem borda embaixo: rótulo aqui
+   duplicaria a separação. */
+.nav-section-label:first-child { display: none; }
+
+/* Na barra fechada o rótulo de texto não cabe (38px de trilho não escreve
+   "CADASTRO" sem quebrar ou truncar), e um caption cortado é pior que
+   nenhum — os ícones continuam se agrupando por proximidade e pelo tooltip
+   de cada item. Por isso aqui ele volta a ser o filete fino que era antes de
+   2026-08-24, só que agora como EXCEÇÃO do rail, não como regra do menu. */
+.sidebar.collapsed .nav-section-label {
   height: 1px;
-  margin: 7px 12px 6px;
+  margin: 7px 10px 6px;
   padding: 0;
   background: var(--border);
-  /* Tira o texto da tela sem tirar da árvore de acessibilidade — por isso
-     não é `display: none` nem `visibility: hidden`. */
   color: transparent;
   font-size: 0;
   line-height: 0;
-  white-space: nowrap;
-  overflow: hidden;
   text-indent: 100%;
-}
-/* O primeiro grupo encosta no header, que já tem borda embaixo: filete aqui
-   seria aresta dupla. */
-.nav-section-label:first-child { display: none; }
-/* A FOLGA VIRA SEPARAÇÃO ENTRE GRUPOS, E NÃO BURACO NO FIM.
-   Depois que o menu passou a caber, sobrou altura — ~150px em 945px de
-   viewport. A primeira tentativa foi `margin-top: auto` só no ÚLTIMO filete,
-   pra encostar Configurações no rodapé. Não resolve: o vão não some, migra
-   de baixo de Configurações pra cima dele, e fica pior — buraco no meio da
-   lista em vez de no fim.
-   Com `margin-top: auto` em TODOS os filetes, o flexbox reparte a folga
-   IGUALMENTE entre as margens auto (é o que a spec manda). Os ~150px viram
-   ~37px a mais em cada uma das quatro separações de grupo, e a sobra deixa
-   de ser vazio pra virar respiro — que é justamente o que o menu precisa
-   agora que os rótulos de texto saíram e só a aresta agrupa.
-   Continua sem valor fixo e sem breakpoint: onde não há folga, auto resolve
-   pra zero e os grupos voltam a ficar colados. Só `margin-top` é
-   sobrescrito; lateral e inferior seguem vindo da faixa de altura vigente, e
-   a especificidade (0,2,0) ganha do shorthand `margin` das `@media` (0,1,0). */
-.nav .nav-section-label { margin-top: auto; }
-
-/* Na barra fechada o filete FICA. Sem os rótulos, é ele que continua
-   agrupando os ícones; só encolhe a margem lateral pra caber no trilho. */
-.sidebar.collapsed .nav-section-label {
-  margin-left: 10px;
-  margin-right: 10px;
 }
 
 .nav-item {
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  height: 38px;
+  height: 40px;
   /* ⚠️ Sem isto o `height` acima é só uma sugestão. `.nav` é flex column com
      `overflow-y: auto`; como todo flex item nasce com `flex-shrink: 1`, numa
      tela baixa o flexbox ESMAGA os itens em vez de deixar a lista rolar —
@@ -816,69 +824,101 @@ td, th, .mono, [class*="valor"], [class*="total"], [class*="count"] {
 }
 .nav-item.nav-item-logout:hover svg { color: var(--danger); }
 
-/* ---- Sidebar compacta em tela baixa ----------------------------------
-   Refeito em 2026-08-24, junto com a troca dos rótulos de seção por filete
-   (ver a nota do `.nav-section-label`). As contas do bloco anterior eram de
-   antes de Orçamentos e Atendimento entrarem na nav — ficaram velhas, e o
-   remédio na época foi apertar duas vezes até o item chegar a 30px.
+/* ---- Escada de densidade da sidebar ----------------------------------
+   ⚠️ **Oito degraus, não três — e a razão é o que estava fazendo o menu
+   parecer espremido.** Com faixas largas (a antiga cobria 801…900), os
+   valores tinham de caber no PIOR viewport da faixa. Quem estivesse em 889px
+   levava o aperto calculado para 801px: a lista ficava comprimida no topo e
+   sobravam ~139px de vão morto entre "Configurações" e o rodapé. Aperto
+   dimensionado para o pior caso vira desconforto para o caso comum. A escada
+   fina resolve dando a cada altura a densidade que ela comporta.
 
-   Os degraus abaixo NÃO são chute: saem de medição em Puppeteer da própria
-   `public/admin.html`, varrendo a viewport de 980 a 590px **de 1 em 1px**,
-   com `await document.fonts.ready` e no pior caso (Atendimento ligado = 15
-   itens). Cada faixa, com o que ela realmente ocupa:
+   Os degraus NÃO são chute: saem de medição em Puppeteer da própria
+   `public/admin.html`, com `await document.fonts.ready` e no pior caso
+   (Atendimento ligado = 15 itens), conferindo cada faixa no **piso dela** —
+   o viewport mais baixo em que ainda vale:
 
-     faixa      item   conteúdo   header   rodapé   faixa de viewport
-     base       38px     678        60       119      901 … ∞
-     max-h 900  34px     588        56       109      801 … 900
-     max-h 800  30px     500        50        96      701 … 800
-     max-h 700  28px     447        48        91      614 … 700
+     faixa                item  rótulo  conteúdo  piso   folga no piso
+     base (1001+)         40px  16px      759     1001      31px
+     max-h 1000 (941…)    38px  14px      717      941      15px
+     max-h 940  (891…)    36px  13px      683      891      15px
+     max-h 890  (851…)    35px  12px      644      851      17px
+     max-h 850  (801…)    33px   9px      600      801      13px
+     max-h 800  (751…)    32px   9px      566      751       5px
+     max-h 750  (701…)    29px   7px      513      701      13px
+     max-h 700  (614…)    27px  filete    433      614      15px
 
-   Resultado: **uma única transição** em toda a varredura — abaixo de 614px a
-   nav volta a rolar, e aí o `overflow-y: auto` é a rede de segurança que
-   deve ser. Nenhum buraco entre as faixas.
+   Abaixo de 614px a nav volta a rolar, e aí o `overflow-y: auto` é a rede de
+   segurança que deve ser. Varredura contínua de 980 a 590px confirma: nenhum
+   buraco entre faixas.
 
-   ⚠️ **Duas armadilhas de medição, as duas custaram uma rodada.**
+   ⚠️ **Duas armadilhas de medição, as duas já custaram uma rodada.**
    1. **Fonte.** Sem esperar `document.fonts.ready` o rodapé mede 102px em
       vez de 119px — o `.sidebar-user` encolhe com a fonte de fallback. Piso
       de faixa calculado assim sai ~16px otimista.
-   2. **Passo da varredura.** A primeira medição usou alturas fixas (936, 900,
-      860, 800…) e deu tudo verde com o breakpoint em 880px. A varredura de
-      1 em 1px achou uma janela de 5px — **882 a 886** — em que a faixa base
-      valia mas os 678px não cabiam. Por isso o breakpoint é 900 e não 880.
-      Amostra esparsa não prova ausência de buraco; só a varredura contínua.
+   2. **Passo da varredura.** Amostra esparsa (936, 900, 860, 800…) já deu
+      "tudo verde" escondendo uma janela de 5px em que a lista rolava. Só a
+      varredura de 1 em 1px prova ausência de buraco.
 
    A altura aqui é reduzida DE PROPÓSITO, com `height` explícito. Não
    confundir com o bug de 2026-07-30, em que o flexbox ESMAGAVA os itens
    sem ninguém mandar (38px viravam 23px); o `flex-shrink: 0` do .nav-item
    continua no lugar e é o que garante que só estes valores mandem. */
-@media (max-height: 900px) {
+@media (max-height: 1000px) {
+  .nav { padding: 10px 10px 6px; }
+  .nav-item { height: 38px; }
+  .nav-section-label { margin-top: 14px; }
+}
+@media (max-height: 940px) {
+  .sidebar-header { height: 58px; }
+  .nav-item { height: 36px; }
+  .nav-section-label { margin-top: 13px; }
+}
+@media (max-height: 890px) {
   .sidebar-header { height: 56px; }
-  .nav { padding: 8px 8px 4px; gap: 1px; }
-  .nav-item { height: 34px; }
-  .nav-section-label { margin: 6px 12px 5px; }
+  .nav { padding: 9px 9px 5px; gap: 1px; }
+  .nav-item { height: 35px; }
+  .nav-section-label { margin-top: 12px; }
   .sidebar-footer { padding: 8px; gap: 6px; }
   .sidebar-user { padding: 5px 10px; }
   .sidebar-user-avatar { width: 26px; height: 26px; }
 }
+@media (max-height: 850px) {
+  .nav { padding: 8px 8px 4px; }
+  .nav-item { height: 33px; }
+  .nav-section-label { margin-top: 9px; }
+}
 @media (max-height: 800px) {
-  .sidebar-header { height: 50px; }
-  /* `gap: 0` aqui é de propósito: com filete separando os grupos, o respiro
+  .sidebar-header { height: 52px; }
+  /* `gap: 0` daqui pra baixo: com o rótulo separando os grupos, o respiro
      entre itens do MESMO grupo é o que sobra pra cortar sem cortar altura. */
-  .nav { padding: 6px 8px 4px; gap: 0; }
-  .nav-item { height: 30px; font-size: 12.5px; }
+  .nav { padding: 7px 8px 4px; gap: 0; }
+  .nav-item { height: 32px; font-size: 12.5px; }
   .nav-item svg { width: 17px; height: 17px; }
-  .nav-section-label { margin: 5px 12px 4px; }
   .sidebar-footer { padding: 7px; gap: 5px; }
 }
+@media (max-height: 750px) {
+  .sidebar-header { height: 50px; }
+  .nav-item { height: 29px; }
+  .nav-section-label { margin-top: 7px; }
+}
 /* Notebook 1366×768: com barra de tarefas e barra de favoritos sobram ~640px
-   de viewport. É o último degrau, e o único em que o item fica abaixo de
-   30px — densidade de lista compacta, não de menu confortável. */
+   de viewport. É o último degrau — densidade de lista compacta, não de menu
+   confortável.
+   ⚠️ É TAMBÉM o único degrau em que o rótulo volta a ser filete: nem com o
+   item em 27px sobra altura pra letra. Abaixo de 614px a nav volta a rolar
+   (rede de segurança do `overflow-y:auto`), então é aqui, não antes, que o
+   texto para de caber. */
 @media (max-height: 700px) {
   .sidebar-header { height: 48px; }
-  .nav { padding: 4px 8px 3px; }
-  .nav-item { height: 28px; }
+  .nav { padding: 5px 8px 3px; }
+  .nav-item { height: 27px; }
   .nav-item svg { width: 16px; height: 16px; }
-  .nav-section-label { margin: 2px 12px 2px; }
+  .nav-section-label {
+    height: 1px; margin: 2px 12px 2px; padding: 0;
+    background: var(--border); color: transparent;
+    font-size: 0; line-height: 0; text-indent: 100%;
+  }
   .sidebar-footer { padding: 6px; gap: 4px; }
   .sidebar-user { padding: 4px 10px; }
   .sidebar-user-avatar { width: 24px; height: 24px; }
@@ -9160,8 +9200,50 @@ body.role-viewer .viewer-only-hide-inline {
   font-family: var(--mono);
   font-size: 29px; font-weight: 800; letter-spacing: -1px; line-height: 1.1;
   margin-top: 5px; color: var(--text);
+  /* Régua invisível do mesmo tamanho da régua âmbar do campo (.av-total-edit):
+     número e campo ocupam o mesmo lugar, então precisam ocupar a mesma ALTURA
+     também — sem isto, alternar entre os dois empurrava o resto do trilho 6px
+     pra baixo e pra cima a cada clique. */
+  border-bottom: 2px solid transparent; padding-bottom: 2px;
 }
 .av-total.is-manual { color: var(--accent); }
+
+/* Edição do valor manual: mesma posição, mesmo corpo e mesma família do total.
+   O campo SUBSTITUI o número — quem clica em "definir manualmente" continua
+   olhando pro mesmo ponto da tela, só que agora com o cursor dentro. A régua
+   âmbar embaixo é o único sinal de que ali virou campo. */
+.av-total-edit {
+  display: flex; align-items: flex-end; gap: 6px;
+  margin-top: 5px; padding-bottom: 2px;
+  border-bottom: 2px solid var(--accent);
+  /* Abaixo de 1080px o trilho vira faixa de largura inteira: sem o teto, a
+     régua do campo atravessaria a janela toda por causa de um número de
+     seis dígitos. No trilho de 300px o bloco já mede 259px — não muda nada. */
+  max-width: 260px;
+}
+/* ⚠️ flex-end, e não baseline: com baseline o "R$" (17px) e o número (29px)
+   têm caixas de linha de alturas diferentes e o bloco fica 2px mais alto que
+   o número sozinho — de novo o pulo do trilho. Com line-height igual nos dois,
+   alinhar por baixo dá o mesmo resultado visual sem alterar a altura. */
+.av-total-cifrao {
+  font-family: var(--mono); font-size: 17px; font-weight: 800; line-height: 1.1;
+  color: var(--accent); flex-shrink: 0;
+}
+.av-total-input {
+  flex: 1; min-width: 0;
+  font-family: var(--mono);
+  font-size: 29px; font-weight: 800; letter-spacing: -1px; line-height: 1.1;
+  color: var(--accent);
+  background: none; border: 0; padding: 0; outline: none;
+  /* Spinner de type=number come largura e não serve pra valor em reais. */
+  appearance: textfield; -moz-appearance: textfield;
+}
+.av-total-input::-webkit-outer-spin-button,
+.av-total-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+/* ⚠️ Placeholder em --muted2, não em âmbar transparente: dentro do modal o
+   --accent é reescrito para o âmbar escuro da placa clara (#886116), e um
+   âmbar a 34% em cima dela some. */
+.av-total-input::placeholder { color: var(--muted2); font-weight: 700; }
 .av-total-sub { font-size: 11.5px; color: var(--muted); margin-top: 5px; }
 .av-total-sub button {
   border: 0; background: none; color: var(--accent); cursor: pointer; font-family: inherit;
