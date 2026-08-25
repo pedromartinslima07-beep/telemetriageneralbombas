@@ -4295,6 +4295,45 @@ user; 29 min → mantém; sem carimbo → mantém; sem sessão → nem age.
 Cache-bust: `inatividade.js?v=2`, `cliente-orcamentos.js?v=13`,
 `register-sw.js?v=49`, `telemetria-v59`.
 
+### 2026-08-25 · Aprovar orçamento no painel nunca funcionou — 42P08
+
+*"Está dando erro ao registrar resposta ao tentar aprovar ou recusar um
+orçamento."* O log de produção deu a causa exata:
+
+```
+error: inconsistent types deduced for parameter $2
+code: 42P08 · detail: 'text versus character varying'
+```
+
+`$2` (o status) era usado como **valor de coluna** — `SET status = $2`, onde a
+coluna é `varchar` — e dentro de **comparação** — `CASE WHEN $2 = 'aprovado'`,
+onde o literal força `text`. Dois tipos para o mesmo parâmetro, e o Postgres
+recusa a query inteira no **parse**, antes de olhar qualquer valor. Agora tem
+`::varchar` explícito nos quatro usos.
+
+⚠️ **O DEFEITO É ANTERIOR ÀS MUDANÇAS DE HOJE** — confirmado rodando a query
+antiga contra o banco: falha idêntica. A rota nasceu quebrada, e o recurso "o
+síndico responde na tela dele" nunca funcionou em produção.
+
+⚠️ **E isso corrige uma leitura errada minha, do mesmo dia.** Ao conferir
+produção para a migration 077, vi "zero orçamentos respondidos" e concluí que
+era porque o painel de resposta era recente. Era porque **ninguém conseguia
+responder**. A pista estava na tela e foi lida ao contrário.
+
+O erro ficou invisível por duas razões que valem além deste caso: só aparece
+quando alguém responde de verdade, e o front dizia "Erro ao registrar a
+resposta" — que soa como falha passageira de rede, não como rota que nunca
+funcionou.
+
+**Validado pela rota real** (Express com o router, JWT assinado, sem
+`RESEND_API_KEY` para não disparar e-mail): aprovar → 200 com nome, cargo,
+`aprovado_em` e o aviso aceso; recusar → 200 com `motivo_rejeicao`; segundo
+clique → 409; sem nome → 400.
+
+A lição foi para o [`CLAUDE.md`](../CLAUDE.md): `node --check` não pega e
+`UPDATE` direto no banco não pega — query com parâmetro repetido só se testa
+exercitando a rota.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

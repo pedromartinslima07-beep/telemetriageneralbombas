@@ -1006,8 +1006,27 @@ router.post("/orcamentos/:id/responder", authRequired, clienteOnly, async (req, 
 
     const novoStatus = decisao === "aprovar" ? "aprovado" : "rejeitado";
     const upd = await pool.query(
+      // ⚠️ `$2::varchar` NOS QUATRO USOS, E ISSO NÃO É ENFEITE (25/08/2026).
+      //
+      // Sem o cast o Postgres recusa a query inteira no PARSE, antes de olhar
+      // qualquer valor: `SET status = $2` deduz `character varying` (o tipo da
+      // coluna) e `CASE WHEN $2 = 'aprovado'` deduz `text` (o tipo do
+      // literal). Dois tipos para o mesmo parâmetro = 42P08, "inconsistent
+      // types deduced for parameter $2".
+      //
+      // ⚠️ ESTA ROTA NUNCA FUNCIONOU EM PRODUÇÃO. O defeito nasceu com ela e
+      // ficou invisível porque o erro só aparece quando alguém responde de
+      // verdade — e o front mostrava "Erro ao registrar a resposta", que soa
+      // como falha passageira. Quando fomos conferir, produção tinha ZERO
+      // orçamentos respondidos: lido na hora como "ninguém respondeu ainda",
+      // era na verdade "ninguém conseguiu".
+      //
+      // A lição, que vale para toda query com parâmetro repetido: o mesmo `$n`
+      // usado como valor de coluna E dentro de comparação precisa de cast
+      // explícito. `node --check` não pega, teste de UPDATE direto no banco não
+      // pega — só exercitando a rota.
       `UPDATE orcamentos
-          SET status             = $2,
+          SET status             = $2::varchar,
               respondido_em      = now(),
               respondido_por     = $3,
               cliente_comentario = NULLIF($4, ''),
@@ -1017,9 +1036,9 @@ router.post("/orcamentos/:id/responder", authRequired, clienteOnly, async (req, 
               -- resposta virar aviso no painel do escritorio. Some quando
               -- alguem de la abre a ficha. Ver migration 076.
               resposta_vista_em  = NULL,
-              aprovado_em        = CASE WHEN $2 = 'aprovado' THEN now() ELSE aprovado_em END,
-              aprovado_por       = CASE WHEN $2 = 'aprovado' THEN $3 ELSE aprovado_por END,
-              motivo_rejeicao    = CASE WHEN $2 = 'rejeitado' THEN NULLIF($4, '') ELSE motivo_rejeicao END
+              aprovado_em        = CASE WHEN $2::varchar = 'aprovado' THEN now() ELSE aprovado_em END,
+              aprovado_por       = CASE WHEN $2::varchar = 'aprovado' THEN $3 ELSE aprovado_por END,
+              motivo_rejeicao    = CASE WHEN $2::varchar = 'rejeitado' THEN NULLIF($4, '') ELSE motivo_rejeicao END
         WHERE id = $1
         RETURNING id, status, respondido_em, cliente_comentario, respondido_nome, respondido_cargo`,
       [id, novoStatus, req.user.id, comentario, nome, cargo]

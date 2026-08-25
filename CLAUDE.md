@@ -146,6 +146,33 @@ conta nesse limite; o data URI conta.**
 
 ---
 
+## `$n` repetido em SQL precisa de cast explícito
+
+`42P08 — inconsistent types deduced for parameter $N` acontece quando o mesmo
+parâmetro é usado como **valor de coluna** e dentro de **comparação**:
+
+```sql
+SET status = $2,                                   -- deduz character varying
+    aprovado_em = CASE WHEN $2 = 'aprovado' ...    -- deduz text  → 42P08
+```
+
+O Postgres recusa a query inteira no **parse**, antes de olhar qualquer valor.
+Escreva `$2::varchar` (ou o tipo da coluna) em **todos** os usos.
+
+⚠️ **Isto derrubou o `POST /cliente/orcamentos/:id/responder` desde o dia em que
+ele nasceu**, e ninguém viu por semanas: o erro só aparece quando alguém
+responde de verdade, e a tela mostrava "Erro ao registrar a resposta" — que soa
+como falha passageira. A pista que existia era `orcamentos` sem nenhuma
+resposta em produção, lido na hora como "ninguém respondeu ainda" quando era
+"ninguém conseguiu".
+
+**Nem `node --check` nem `UPDATE` direto no banco pegam isso.** Query com
+parâmetro repetido só se testa exercitando a rota — subir um Express com o
+router, assinar um JWT com o `JWT_SECRET` e bater no endpoint (ver o padrão em
+`docs/modulos/orcamentos-envio.md`). Vale para toda rota que grava.
+
+---
+
 ## Stack: HTML/CSS/JS puro
 
 Backend Node/Express + Postgres (Railway). Frontend é HTML/CSS/JS vanilla
