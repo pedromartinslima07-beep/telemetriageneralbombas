@@ -3662,6 +3662,50 @@ de novo, que agora vem certo). Detalhes e a armadilha em
 Cache-bust: `admin.js?v=312`, `admin.css?v=230`. Sem migration e sem bump de
 `CACHE_NAME`.
 
+### 2026-08-25 · O orçamento passa a chegar pelo painel, não pelo anexo
+
+Primeiro envio real (OR-000175) mostrou três coisas erradas no e-mail novo.
+
+**O logo chegava esticado.** O `<img>` tinha `width="190"` e `height:auto` —
+e o Outlook renderiza com o motor do Word, que ignora `height:auto`: ele
+combinou a largura forçada (190 px) com a altura **nativa** do arquivo (83 px)
+e achatou o logo. Agora a altura vai declarada no atributo **e** no estilo, e é
+calculada em `_logoEmail()` a partir do IHDR do próprio PNG (bytes 16..24) —
+190×42 para o `logo-email.png` atual. Trocar o logo por um de outra proporção
+não reabre o defeito.
+
+**Não havia link para o sistema.** O convite estava desligado por padrão desde
+24/08 (`ORCAMENTO_LINK_PAINEL`), esperando a tela do cliente ser vista logada.
+Agora o padrão inverteu: **sai ligado**, e a variável virou kill-switch
+(`=0` volta ao formato antigo, sem deploy). Duas armadilhas resolvidas junto:
+
+- O link exigia `APP_URL` configurada. Sem ela, o e-mail saía sem link e em
+  silêncio. Novo `_baseUrlPublica(req)` tenta `APP_URL`, depois
+  `PUBLIC_BASE_URL`, e por fim deriva do próprio request — o app roda com
+  `trust proxy`, então protocolo e host chegam certos atrás do Railway.
+- O link só é montado quando o condomínio **tem usuário `cliente`**. Botão que
+  leva a um `/login` onde ninguém entra é pior que botão nenhum; nesse caso o
+  e-mail sai como antes, com o PDF.
+
+**O PDF não faz sentido junto com o link.** Anexo e botão competindo davam ao
+síndico um caminho que termina sem resposta: ele lê o anexo, fecha o e-mail, e
+a decisão nunca chega. Agora **é um ou outro** — com painel, o link; sem
+painel, o anexo. O documento continua acessível: a tela do cliente tem o botão
+"Baixar o PDF" (`GET /cliente/orcamentos/:id/pdf`, que gera sob demanda). Efeito
+colateral bem-vindo: **o caminho comum de envio não depende mais do Puppeteer**,
+que era a etapa que mais falhava em container apertado.
+
+A rota passou a devolver `link_painel` e `anexo`, e o admin usa isso para dizer
+o que saiu ("Enviado com o link do painel" × "Enviado com o PDF em anexo") em
+vez de afirmar sempre "com o PDF anexo" — o front não tem como saber sozinho,
+já que a decisão depende de uma consulta a `usuarios`.
+
+`scripts/preview-email-orcamento.js` acompanha: `/` mostra a variante com link
+(sem anexo) e `/?link=0` a com PDF.
+
+Cache-bust: `admin.js?v=313`, `admin.css?v=231`. Sem migration e sem bump de
+`CACHE_NAME`.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

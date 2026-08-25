@@ -12374,7 +12374,11 @@ function _avAtualizarDestinatario() {
 
   if (email) {
     const lista = email.split(",").map(s => s.trim()).filter(Boolean);
-    alvo.innerHTML = `Vai para <b>${_waEscaparHtml(lista.join(", "))}</b> com o PDF anexo.`;
+    // Sem "com o PDF anexo": desde 25/08/2026 quem tem acesso ao painel recebe
+    // o link em vez do anexo, e quem decide isso é o servidor (depende de o
+    // condomínio ter usuário com login). A confirmação do que foi enviado vem
+    // na resposta do envio.
+    alvo.innerHTML = `Vai para <b>${_waEscaparHtml(lista.join(", "))}</b>.`;
   } else {
     alvo.textContent = avulso
       ? "Preencha o e-mail do cliente para habilitar o envio."
@@ -12708,10 +12712,11 @@ function _avPrepararAssinatura(file) {
 //
 // ⚠️ AQUI HAVIA UM CAMPO "MENSAGEM" E UM UPLOAD DE ASSINATURA (até 24/08/2026).
 // O corpo do e-mail passou a ser fixo, com a identidade da casa, montado em
-// `sendOrcamentoCliente` (src/services/email.js). O documento é o PDF anexo;
-// o e-mail é a carta de encaminhamento, e carta reescrita a cada envio é
-// carta que uma hora sai errada para cliente real. Quem precisar dizer algo
-// específico responde o e-mail depois de enviado.
+// `sendOrcamentoCliente` (src/services/email.js). O e-mail é a carta de
+// encaminhamento — o documento está no painel (quando o cliente tem login) ou
+// no PDF anexo (quando não tem) —, e carta reescrita a cada envio é carta que
+// uma hora sai errada para cliente real. Quem precisar dizer algo específico
+// responde o e-mail depois de enviado.
 //
 // As rotas `/admin/me/email-template` e `/admin/me/assinatura` e as colunas
 // `usuarios.email_mensagem` / `assinatura_blob` continuam existindo, paradas:
@@ -12747,9 +12752,10 @@ async function _avAbrirEnvioEmail() {
             <input id="avEnvioPara" class="input" type="text" value="${_waEscaparHtml(emailPadrao)}" placeholder="cliente@email.com" />
           </label>
           <div class="hint" style="line-height:1.6;">
-            O e-mail sai com o modelo da casa — logo, os dados do orçamento
-            (número, cliente, data e validade) e o PDF em anexo. Não há mais
-            mensagem para escrever aqui.
+            O e-mail sai com o modelo da casa — logo e os dados do orçamento
+            (número, cliente, data e validade). Quando o cliente tem acesso ao
+            painel, vai o <b>link para ler e responder por lá</b>; quando não
+            tem, vai o <b>PDF em anexo</b>. Não há mensagem para escrever aqui.
           </div>
           <div class="formActions">
             <button class="btn" type="button" id="avEnvioCancelar">Cancelar</button>
@@ -12773,7 +12779,7 @@ async function _avAbrirEnvioEmail() {
     if (msg) { msg.style.color = "var(--muted)"; msg.textContent = "Enviando…"; }
     if (btn) btn.disabled = true;
     try {
-      if (msg) msg.textContent = "Gerando o PDF e enviando…";
+      if (msg) msg.textContent = "Enviando…";
       const r = await fetch(`/admin/orcamentos/avulsos/${orc.id}/enviar-email`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...authHeaders() },
@@ -12807,7 +12813,16 @@ ${j.error || "sem detalhe"}`
       _avRenderTudo();
       _avRenderPainel();
       const fmsg = document.getElementById("avFormMsg");
-      if (fmsg) { fmsg.style.color = "var(--ok)"; fmsg.textContent = "✓ Orçamento enviado por e-mail"; setTimeout(() => { if (fmsg) fmsg.textContent = ""; }, 3000); }
+      if (fmsg) {
+        fmsg.style.color = "var(--ok)";
+        // O que saiu muda com o cliente: link do painel (e sem anexo) para
+        // quem tem login, PDF anexado para quem não tem. Dizer qual dos dois
+        // evita a dúvida de "mandei o documento ou não?".
+        fmsg.textContent = j.link_painel
+          ? "✓ Enviado com o link do painel — o cliente responde por lá"
+          : "✓ Enviado com o PDF em anexo";
+        setTimeout(() => { if (fmsg) fmsg.textContent = ""; }, 4000);
+      }
     } catch (e) {
       if (msg) { msg.style.color = "var(--danger)"; msg.textContent = "Erro: " + e.message; }
       if (btn) btn.disabled = false;

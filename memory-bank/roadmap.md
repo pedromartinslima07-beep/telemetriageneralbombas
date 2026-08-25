@@ -149,13 +149,15 @@ aliases:
   - Faixa estreita entre ~1100px e ~1223px, onde a toolbar de telemetria
     ainda usa 3 linhas (nada some, só fica mais alta).
 
-- **Orçamento respondido pelo cliente** 🟡 — a tela existe e está em produção
-  (`/cliente/painel/orcamentos`), mas **não foi validada com ninguém logado** e
-  o convite no e-mail está desligado por isso. Para fechar, nesta ordem:
+- **Orçamento respondido pelo cliente** 🟢 — a tela está em produção
+  (`/cliente/painel/orcamentos`) e virou o caminho padrão:
   1. ✅ **migration 074 aplicada em produção** em 24/08/2026;
-  2. percorrer a tela logado — lista, documento, aprovar, recusar (exige
-     comentário), PDF e o retorno do `next=` do login;
-  3. religar com `ORCAMENTO_LINK_PAINEL=1` no Railway.
+  2. ✅ **convite religado** em 25/08/2026 — agora é padrão, e
+     `ORCAMENTO_LINK_PAINEL=0` é que desliga;
+  3. ✅ **e-mail com link não leva mais o PDF anexado** (25/08/2026).
+
+  Falta percorrer a tela logado com calma — aprovar, recusar (exige comentário)
+  e o retorno do `next=` do login — e ver o primeiro envio real chegar.
 
   Fica de fora por escopo: **pessoa física não responde por aqui** — quem não
   tem condomínio não tem login. Ainda sem aviso ao escritório quando a resposta

@@ -2,9 +2,12 @@
 // nada para ninguém.
 //
 //   node scripts/preview-email-orcamento.js
-//   → http://localhost:4602/            (com o botão do painel do cliente)
-//   → http://localhost:4602/?link=0     (sem o botão — pessoa física)
+//   → http://localhost:4602/            (com o botão do painel, e SEM anexo)
+//   → http://localhost:4602/?link=0     (sem o botão, com o PDF anexado — pessoa física)
 //   → http://localhost:4602/texto       (a versão em texto puro)
+//
+// As duas variantes não diferem só pelo botão: com painel o e-mail sai sem
+// anexo, porque o documento mora na tela do cliente. Ver sendOrcamentoCliente.
 //
 // Como funciona: o SDK do Resend é substituído por um dublê que, em vez de
 // enviar, guarda o payload. O que aparece na tela é o `sendOrcamentoCliente`
@@ -47,7 +50,6 @@ const CENA = {
   dataDocumento: "2026-08-21",   // DATE — não pode andar um dia pra trás
   criadoEm: "2026-08-21T13:00:00Z",
   validoAte: "2026-09-19",       // DATE
-  pdfBuffer: Buffer.from("%PDF-1.4 preview"),
   filename: "orcamento-OR-000164.pdf",
 };
 
@@ -55,6 +57,8 @@ async function montar(comLink) {
   ultimoPayload = null;
   await sendOrcamentoCliente({
     ...CENA,
+    // Mesma regra da rota: com link, o PDF não vai junto.
+    pdfBuffer: comLink ? null : Buffer.from("%PDF-1.4 preview"),
     linkPainel: comLink
       ? "https://telemetria.generalbombas.com/cliente/painel/orcamentos?orc=175"
       : null,
@@ -67,6 +71,7 @@ http.createServer(async (req, res) => {
   const comLink = url.searchParams.get("link") !== "0";
   try {
     const p = await montar(comLink);
+    const anexo = p.attachments?.[0]?.filename || null;
     if (url.pathname === "/texto") {
       res.writeHead(200, { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" });
       return res.end(
@@ -77,7 +82,7 @@ http.createServer(async (req, res) => {
     const kb = Math.round(Buffer.byteLength(p.html, "utf8") / 1024);
     const barra = `
       <div style="font:13px/1.6 system-ui,sans-serif;background:#111827;color:#e5e7eb;padding:10px 16px;">
-        <b>${p.subject}</b> — de ${p.from} · anexo ${p.attachments[0].filename} ·
+        <b>${p.subject}</b> — de ${p.from} · ${anexo ? "anexo " + anexo : "sem anexo"} ·
         corpo HTML <b style="color:${kb > 95 ? "#f87171" : "#4ade80"};">${kb} KB</b>
         (o Gmail apara acima de ~102 KB) ·
         <a href="?link=${comLink ? 0 : 1}" style="color:#fbbf24;">${comLink ? "ver sem o botão" : "ver com o botão"}</a> ·

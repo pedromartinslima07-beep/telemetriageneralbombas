@@ -438,12 +438,17 @@ confirmaria que existe orçamento em preparo, informação que ele não deve ter
 Responder só é aceito em `enviado`, o que barra de uma vez o rascunho e o
 segundo clique que viraria a resposta anterior.
 
-**Estado atual (24/08/2026):** no ar, mas **nunca aberta por ninguém logado**,
-e o convite no e-mail está **desligado** (`ORCAMENTO_LINK_PAINEL` ausente =
-desligado). Sem a chave o e-mail sai só com o PDF anexado, como sempre saiu.
-A migration 074 **foi aplicada em produção em 24/08**, então as quatro rotas
-têm as colunas de que precisam. Ver
-[`../../memory-bank/active-work.md`](../../memory-bank/active-work.md).
+**Estado atual (25/08/2026):** no ar e **é o caminho padrão do orçamento**. O
+convite no e-mail passou a sair **ligado** — `ORCAMENTO_LINK_PAINEL` virou
+kill-switch (`=0` volta ao formato antigo), e o link é montado com `APP_URL`,
+`PUBLIC_BASE_URL` ou o próprio request, nessa ordem. Junto veio a regra de que
+**e-mail com link não leva o PDF anexado**: o documento mora aqui, e é aqui que
+a resposta é registrada. Quem não tem login (avulso de pessoa física,
+condomínio sem usuário `cliente`) continua recebendo o PDF em anexo. A
+migration 074 **foi aplicada em produção em 24/08**, então as quatro rotas têm
+as colunas de que precisam. Ver
+[`../../memory-bank/active-work.md`](../../memory-bank/active-work.md) e
+[`mapa-geocoding.md`](mapa-geocoding.md) para o resto da sessão.
 
 ---
 ## O gráfico é SVG, não ApexCharts

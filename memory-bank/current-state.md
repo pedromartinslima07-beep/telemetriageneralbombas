@@ -343,9 +343,11 @@ registrava era o escritório.
   lê só o header `Bearer`; não há cookie de sessão. Foi assim que o botão do
   PDF nasceu quebrado (consertado em 24/08 — ver
   [../docs/changelog.md](../docs/changelog.md)).
-- 🔴 **O convite no e-mail está DESLIGADO** (`ORCAMENTO_LINK_PAINEL`, ausente =
-  desligado) até a tela ser validada logada. Sem ele o e-mail sai só com o PDF,
-  como sempre saiu.
+- ✅ **O convite no e-mail está LIGADO** desde 25/08/2026 —
+  `ORCAMENTO_LINK_PAINEL` virou kill-switch (`=0` desliga). Com link, o e-mail
+  **não leva o PDF anexado**: o documento está aqui, e o anexo competindo com o
+  botão fazia o síndico ler e nunca responder. Sem login no painel, o e-mail
+  sai com o PDF como antes.
 - ✅ **Migration 074 aplicada em produção** em 24/08/2026.
 **Tela de login** — `public/login.html` + `login.css` + `login.js`
 - Desde 2026-08-13 segue o sistema **"Chapa"** da landing (split screen,

@@ -201,14 +201,42 @@ async function sendAlertaEmail(dados) {
 // o corpo a um palmo do corte de ~102 KB do Gmail. O anexo não conta nesse
 // limite; o data URI conta.
 // Lido uma vez e guardado: o arquivo não muda entre envios.
+//
+// ⚠️ A ALTURA VAI DECLARADA, E É CALCULADA DO PRÓPRIO ARQUIVO.
+// O Outlook renderiza com o motor do Word, que ignora `height:auto`: com só a
+// largura declarada, ele combina a largura forçada (190 px) com a altura
+// NATIVA do arquivo (83 px) e entrega o logo esticado — foi o que aconteceu no
+// primeiro envio real (25/08/2026). Declarar `height` no atributo E no estilo
+// é o que fecha a proporção nos três (Gmail, Outlook, app do celular).
+// A altura sai do IHDR do PNG (bytes 16..24, big-endian), não de um número
+// fixo: assim trocar o logo por um de outra proporção não reabre o defeito.
+const LOGO_EMAIL_LARGURA = 190; // px no corpo do e-mail
+
+function _pngDimensoes(buf) {
+  const ehPng = buf.length > 24 &&
+    buf.readUInt32BE(0) === 0x89504e47 &&
+    buf.toString("latin1", 12, 16) === "IHDR";
+  if (!ehPng) return null;
+  const largura = buf.readUInt32BE(16);
+  const altura  = buf.readUInt32BE(20);
+  return (largura > 0 && altura > 0) ? { largura, altura } : null;
+}
+
 let _logoEmailCache;
-function _logoEmailDataUri() {
+function _logoEmail() {
   if (_logoEmailCache !== undefined) return _logoEmailCache;
   try {
     const fs = require("fs");
     const path = require("path");
     const buf = fs.readFileSync(path.join(__dirname, "..", "..", "public", "logo-email.png"));
-    _logoEmailCache = "data:image/png;base64," + buf.toString("base64");
+    const dim = _pngDimensoes(buf);
+    _logoEmailCache = {
+      src: "data:image/png;base64," + buf.toString("base64"),
+      largura: LOGO_EMAIL_LARGURA,
+      // Sem IHDR legível, volta ao height:auto de antes — pior no Outlook, mas
+      // melhor que chutar uma altura errada.
+      altura: dim ? Math.round(LOGO_EMAIL_LARGURA * dim.altura / dim.largura) : null,
+    };
   } catch (err) {
     // Sem logo o e-mail sai igual, só com o nome escrito na faixa. Um envio de
     // orçamento não pode falhar por causa de arte.
@@ -240,10 +268,12 @@ function _fmtInstante(v) {
   return new Date(v).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
 }
 
-// Envia o orçamento (PDF anexado) diretamente ao cliente.
+// Envia o orçamento diretamente ao cliente — pelo painel (link) ou pelo PDF
+// anexado, nunca pelos dois ao mesmo tempo (ver `temAnexo`).
 //
 // dados: { to (array de e-mails), numero, condominioNome, dataDocumento (DATE|null),
-//          criadoEm (timestamptz|null), validoAte (DATE|null), pdfBuffer (Buffer),
+//          criadoEm (timestamptz|null), validoAte (DATE|null),
+//          pdfBuffer (Buffer|null — null quando há linkPainel),
 //          filename, linkPainel (string|null) }
 //
 // ⚠️ O TEXTO É FIXO (24/08/2026). Havia um campo "Mensagem" no modal de envio
@@ -265,7 +295,16 @@ async function sendOrcamentoCliente(dados) {
   const filename = dados.filename || `orcamento-${numero}.pdf`;
   const dataDoc  = _fmtDataSemFuso(dados.dataDocumento) || _fmtInstante(dados.criadoEm);
   const validade = _fmtDataSemFuso(dados.validoAte);
-  const logo     = _logoEmailDataUri();
+  const logo     = _logoEmail();
+
+  // ⚠️ ANEXO E LINK NÃO CONVIVEM (25/08/2026).
+  // Quando há painel, o documento mora lá — e é lá que o cliente aprova ou
+  // recusa. Mandar o PDF junto dá a ele um caminho que termina sem resposta:
+  // lê o anexo, fecha o e-mail, e a decisão nunca chega. Sem painel (avulso de
+  // pessoa física, condomínio ainda sem login), o anexo é a única forma de o
+  // documento chegar, e continua indo. Quem decide é a rota, que só gera o PDF
+  // no segundo caso.
+  const temAnexo = Boolean(dados.pdfBuffer);
 
   const E = _escaparHtml;
 
@@ -289,11 +328,18 @@ async function sendOrcamentoCliente(dados) {
                 </td></tr>
               </table>
               <p style="margin:0 0 18px;font-size:12.5px;line-height:1.6;color:#6b7280;">
-                Você entra com o mesmo login do painel do seu prédio e, na tela do
-                orçamento, aprova, recusa ou deixa um comentário — a gente recebe
-                na hora. O PDF em anexo é o mesmo documento.
+                Você entra com o mesmo login do painel do seu prédio. Na tela do
+                orçamento dá para ler o documento inteiro, baixar o PDF e
+                aprovar ou recusar — a gente recebe na hora.
               </p>`
     : "";
+
+  // Onde o cliente encontra o documento — muda com o caminho que ele tem.
+  // Se um dia sair um envio sem link e sem anexo, a frase some em vez de
+  // mandá-lo procurar um PDF que não foi.
+  const ondeEstaODocumento = dados.linkPainel
+    ? "O documento completo está na sua área do cliente, no botão abaixo."
+    : (temAnexo ? "O documento completo está no PDF em anexo." : "");
 
   // Linha da caixa de informações. Sem valor de propósito: o preço é assunto
   // do documento, e mandá-lo no corpo do e-mail o espalha por caixas de
@@ -308,7 +354,7 @@ async function sendOrcamentoCliente(dados) {
   const textoPuro = [
     `Prezado(a),`,
     ``,
-    `Segue o orçamento ${numero}, referente a ${condo}. O documento completo está no PDF em anexo.`,
+    `Segue o orçamento ${numero}, referente a ${condo}.${ondeEstaODocumento ? " " + ondeEstaODocumento : ""}`,
     ``,
     `Informações do orçamento`,
     `Número: ${numero}`,
@@ -342,7 +388,9 @@ async function sendOrcamentoCliente(dados) {
           // aí o que aparece é o texto alternativo — que herda cor, fonte e
           // corpo daqui. Sem isto, o topo do e-mail ficava com "General
           // Bombas" em preto sobre a faixa marinho, ou seja, invisível.
-          ? `<img src="${logo}" width="190" alt="General Bombas" style="display:block;border:0;outline:none;width:190px;height:auto;font-family:Helvetica,Arial,sans-serif;font-size:20px;font-weight:bold;color:#ffffff;" />`
+          // O width/height duplicado (atributo + estilo) é o que segura a
+          // proporção no Outlook — ver _logoEmail().
+          ? `<img src="${logo.src}" width="${logo.largura}"${logo.altura ? ` height="${logo.altura}"` : ""} alt="General Bombas" style="display:block;border:0;outline:none;width:${logo.largura}px;height:${logo.altura ? logo.altura + "px" : "auto"};font-family:Helvetica,Arial,sans-serif;font-size:20px;font-weight:bold;color:#ffffff;" />`
           : `<div style="font-family:Helvetica,Arial,sans-serif;font-size:21px;font-weight:bold;color:#ffffff;letter-spacing:.5px;">GENERAL <span style="color:#f0b014;">BOMBAS</span></div>`}
         <div style="font-family:Helvetica,Arial,sans-serif;margin-top:12px;font-size:10.5px;font-weight:bold;letter-spacing:1.6px;text-transform:uppercase;color:#f0b014;">
           Orçamento comercial
@@ -353,7 +401,7 @@ async function sendOrcamentoCliente(dados) {
         <p style="margin:0 0 14px;font-size:14px;line-height:1.6;color:#111827;">Prezado(a),</p>
         <p style="margin:0 0 14px;font-size:14px;line-height:1.6;color:#111827;">
           Segue o orçamento <strong>${E(numero)}</strong>, referente a
-          <strong>${E(condo)}</strong>. O documento completo está no PDF em anexo.
+          <strong>${E(condo)}</strong>. ${E(ondeEstaODocumento)}
         </p>
         ${convite}
       </td></tr>
@@ -395,7 +443,10 @@ async function sendOrcamentoCliente(dados) {
     subject: `Orçamento ${numero} — General Bombas`,
     text: textoPuro,
     html,
-    attachments: [{ filename, content: dados.pdfBuffer }],
+    // Sem `pdfBuffer` o e-mail sai sem anexo — ver `temAnexo` acima. A chave
+    // `attachments` não pode ir com array vazio: alguns provedores tratam isso
+    // como anexo inválido.
+    ...(temAnexo ? { attachments: [{ filename, content: dados.pdfBuffer }] } : {}),
   }, "orçamento ao cliente");
 }
 

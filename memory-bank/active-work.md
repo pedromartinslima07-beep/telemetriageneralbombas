@@ -142,18 +142,26 @@ Cache-bust: `cliente.css` v31→v32 nos dois HTMLs, `cliente-orcamentos.js`
 v1→v2. `CACHE_NAME` do SW **não** subiu: não entrou endpoint novo e `/cliente`
 já estava na lista network-first.
 
-### O convite no e-mail foi desligado (decisão do Pedro)
+### O convite no e-mail foi desligado (24/08) e religado (25/08)
 
-`linkPainel` em `POST /admin/orcamentos/avulsos/:id/enviar-email` agora depende
-de `_linkPainelLigado()`, que lê `ORCAMENTO_LINK_PAINEL` e está **desligado por
-padrão**. Com a chave fora, o e-mail volta a sair como sempre saiu — só o PDF
-anexado — porque `sendOrcamentoCliente` já removia o convite inteiro quando
-`linkPainel` é null.
+`linkPainel` em `POST /admin/orcamentos/avulsos/:id/enviar-email` depende de
+`_linkPainelLigado()`, que lê `ORCAMENTO_LINK_PAINEL`. Nasceu **desligado por
+padrão**, enquanto a tela do cliente não tinha sido vista com ninguém logado.
 
-Variável de ambiente, e não constante no código, de propósito: **religar não
-deve exigir deploy**, e desligar de novo (se a tela mostrar problema com
-cliente real) precisa ser questão de segundos. **Para religar:**
-`ORCAMENTO_LINK_PAINEL=1` no Railway.
+**Em 25/08/2026 o padrão inverteu:** o convite sai ligado e a variável virou
+kill-switch — `ORCAMENTO_LINK_PAINEL=0` volta ao formato antigo, sem deploy.
+Duas correções vieram junto, do primeiro envio real (OR-000175):
+
+- **O link não dependia mais de `APP_URL`.** Sem a variável, o e-mail saía sem
+  link nenhum e em silêncio. Agora `_baseUrlPublica(req)` tenta `APP_URL`,
+  depois `PUBLIC_BASE_URL`, e por fim deriva do próprio request (o app roda com
+  `trust proxy`). E o link só é montado quando o condomínio tem usuário
+  `cliente` — botão que leva a um login onde ninguém entra é pior que botão
+  nenhum.
+- **Com link, o e-mail não leva o PDF anexado.** O documento mora no painel,
+  que tem o botão "Baixar o PDF"; anexo e link competindo davam ao síndico um
+  caminho que termina sem resposta. De quebra, o envio comum deixou de depender
+  do Puppeteer — o PDF passou a ser gerado sob demanda.
 
 ### O redesenho do documento (segunda parte da sessão)
 

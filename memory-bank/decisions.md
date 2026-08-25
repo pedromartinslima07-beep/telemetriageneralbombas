@@ -875,3 +875,17 @@ desenho em camadas original continua válido.
   perfeitamente" quebra sem deploy, o suspeito é o serviço externo, não o
   código — dá para confirmar em um `curl` comparando dois CEPs de bairros
   distantes e vendo se a coordenada repete.
+- **Anexo e link no mesmo e-mail são dois caminhos, e o cliente escolhe o que
+  não responde (2026-08-25).** O e-mail de orçamento saía com o PDF anexado e
+  com o botão do painel. O anexo abre em um clique; o botão pede login. O
+  síndico lê o PDF, fecha o e-mail, e a resposta — que é o ponto do painel —
+  nunca chega. Passou a ser um OU outro: com painel, só o link; sem painel
+  (pessoa física, condomínio sem usuário), só o anexo. A regra que fica:
+  **quando uma tela existe para receber uma ação, o e-mail não deve oferecer um
+  atalho que a contorna.**
+- **`height:auto` não existe no Outlook (2026-08-25).** O motor do Word combina
+  a largura declarada com a altura **nativa** do arquivo e entrega a imagem
+  esticada — foi assim que o logo do e-mail chegou achatado no primeiro envio
+  real. Imagem em e-mail leva `width` e `height` explícitos, no atributo e no
+  estilo. E a altura é **calculada do arquivo** (IHDR do PNG), não digitada:
+  número fixo no código volta a mentir na primeira troca de logo.

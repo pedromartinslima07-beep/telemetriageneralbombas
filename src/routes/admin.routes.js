@@ -24,13 +24,31 @@ const { getConversasCleanupStatus, jobLimparConversas } = require("../jobs/conve
 const router = express.Router();
 
 // Liga/desliga o convite "Ver o orçamento e responder" no e-mail de orçamento.
-// O porquê de estar desligado está no bloco linkPainel de
-// POST /orcamentos/avulsos/:id/enviar-email — o único lugar que manda este
-// e-mail. Lido a cada envio, e não uma vez na carga do
-// módulo, para que mudar a variável no Railway não exija reiniciar o processo.
+//
+// ⚠️ LIGADO POR PADRÃO desde 25/08/2026 — a variável virou kill-switch, não
+// interruptor de estreia. Enquanto a tela do cliente não tinha sido vista com
+// alguém logado, o padrão era desligado; validada a tela, o caminho normal
+// passou a ser o painel. `ORCAMENTO_LINK_PAINEL=0` volta o e-mail ao formato
+// antigo (PDF anexado, sem link) sem deploy.
+//
+// Lido a cada envio, e não uma vez na carga do módulo, para que mudar a
+// variável no Railway não exija reiniciar o processo.
 function _linkPainelLigado() {
-  const v = String(process.env.ORCAMENTO_LINK_PAINEL || "").trim().toLowerCase();
-  return v === "1" || v === "true" || v === "sim";
+  const v = String(process.env.ORCAMENTO_LINK_PAINEL ?? "").trim().toLowerCase();
+  return !(v === "0" || v === "false" || v === "nao" || v === "não");
+}
+
+// Origem pública do sistema, para montar link absoluto em e-mail.
+// APP_URL manda (é a que o contrato/D4Sign já usa), PUBLIC_BASE_URL vem
+// depois, e o último recurso é o próprio request — o app roda com
+// `trust proxy`, então protocolo e host chegam corretos atrás do Railway.
+// Antes isto exigia APP_URL configurada: sem ela o e-mail saía sem link
+// nenhum, silenciosamente. Derivar do request é o que garante que o link
+// exista mesmo com o ambiente pela metade.
+function _baseUrlPublica(req) {
+  const env = process.env.APP_URL || process.env.PUBLIC_BASE_URL;
+  if (env) return String(env).replace(/\/+$/, "");
+  return `${req.protocol}://${req.get("host")}`;
 }
 
 // GET /admin/status  (AGRUPADO POR CONDOMÍNIO -> LISTA RESERVATÓRIOS)
@@ -1630,24 +1648,58 @@ router.post("/orcamentos/avulsos/:id/enviar-email", authRequired, adminOnly, asy
     // propósito: aceitar texto livre de novo teria de ser decisão, não
     // resíduo de cliente antigo com JS em cache.
 
-    // ⚠️ AS DUAS ETAPAS SÃO SEPARADAS DE PROPÓSITO.
-    // Este endpoint pode falhar em dois lugares muito diferentes — gerar o PDF
-    // (Puppeteer, que consome memória e falha de forma intermitente em
-    // container apertado) ou entregar ao provedor. Quando os dois caíam no
-    // mesmo `catch`, o log dizia só "erro ao enviar" e não dava para saber
-    // qual. Agora cada etapa tem seu marcador, e a resposta diz em qual parou.
+    // ⚠️ O LINK É DECIDIDO ANTES DO PDF, PORQUE ELE DECIDE SE HÁ PDF.
+    //
+    // Três condições, e as três importam:
+    //  1. O kill-switch (`_linkPainelLigado`) — desligar volta ao formato antigo.
+    //  2. O orçamento ser de um condomínio: avulso de pessoa física não tem
+    //     para onde apontar.
+    //  3. O condomínio ter pelo menos um usuário `cliente`. Sem conta, o link
+    //     leva a um /login onde ninguém entra — e um botão que não abre é pior
+    //     que botão nenhum. Nesse caso o e-mail sai como antes, com o PDF.
+    //
+    // O link cai DIRETO no documento, não na lista: quem clica veio de um
+    // e-mail sobre UM orçamento e não deve ter que procurá-lo. Sem sessão, a
+    // tela manda para /login?next=… e devolve para cá depois de entrar.
+    let temLoginNoPainel = false;
+    if (orc.condominio_id) {
+      const acesso = await pool.query(
+        `SELECT 1 FROM usuarios WHERE condominio_id = $1 AND role = 'cliente' LIMIT 1`,
+        [orc.condominio_id]
+      );
+      temLoginNoPainel = acesso.rowCount > 0;
+    }
+    const linkPainel = (_linkPainelLigado() && temLoginNoPainel)
+      ? `${_baseUrlPublica(req)}/cliente/painel/orcamentos?orc=${orc.id}`
+      : null;
+
+    // ⚠️ COM PAINEL, O E-MAIL NÃO LEVA O PDF (25/08/2026).
+    // O documento mora na tela do cliente, que tem o botão "Baixar o PDF" e é
+    // onde a resposta é registrada. Anexo e link competindo davam ao síndico um
+    // caminho que termina sem resposta: ele lê o anexo, fecha o e-mail, e a
+    // decisão nunca chega. De quebra, o caminho comum deixou de depender do
+    // Puppeteer — o PDF passa a ser gerado sob demanda, em
+    // GET /cliente/orcamentos/:id/pdf.
+    //
+    // AS DUAS ETAPAS SEGUEM SEPARADAS DE PROPÓSITO. Quando havia PDF, este
+    // endpoint podia falhar em dois lugares muito diferentes — gerar o
+    // documento (Puppeteer, que consome memória e falha de forma intermitente
+    // em container apertado) ou entregar ao provedor. Com os dois no mesmo
+    // `catch`, o log dizia só "erro ao enviar" e não dava para saber qual.
     const fs = require("fs");
-    let pdfBuffer;
-    try {
-      const { fpath } = await gerarPdfAvulso(id);
-      if (!fs.existsSync(fpath)) throw new Error("PDF não encontrado após a geração");
-      pdfBuffer = fs.readFileSync(fpath);
-    } catch (errPdf) {
-      console.error(`[email-orcamento] FALHA=pdf orcamento=${id} motivo=${errPdf.message}`);
-      return res.status(500).json({
-        error: `Não foi possível gerar o PDF do orçamento (${errPdf.message}). O e-mail não foi enviado.`,
-        etapa: "pdf",
-      });
+    let pdfBuffer = null;
+    if (!linkPainel) {
+      try {
+        const { fpath } = await gerarPdfAvulso(id);
+        if (!fs.existsSync(fpath)) throw new Error("PDF não encontrado após a geração");
+        pdfBuffer = fs.readFileSync(fpath);
+      } catch (errPdf) {
+        console.error(`[email-orcamento] FALHA=pdf orcamento=${id} motivo=${errPdf.message}`);
+        return res.status(500).json({
+          error: `Não foi possível gerar o PDF do orçamento (${errPdf.message}). O e-mail não foi enviado.`,
+          etapa: "pdf",
+        });
+      }
     }
 
     try {
@@ -1663,31 +1715,9 @@ router.post("/orcamentos/avulsos/:id/enviar-email", authRequired, adminOnly, asy
         // seu formatador, por isso vão separadas em vez de já resolvidas aqui.
         dataDocumento: orc.data_documento,
         criadoEm: orc.criado_em,
-        // ⚠️ DESLIGADO POR PADRÃO (24/08/2026). A tela do cliente existe e
-        // está no ar, mas ainda não foi validada com ninguém logado — e este
-        // e-mail vai para síndico de cliente real. Enquanto não for aprovada,
-        // o e-mail sai como sempre saiu: só com o PDF anexado, e a resposta
-        // volta por telefone/WhatsApp como já voltava. Nada quebra com o link
-        // ausente: sendOrcamentoCliente já trata linkPainel null, e o convite
-        // inteiro some do HTML e do texto puro.
-        //
-        // PARA RELIGAR: ORCAMENTO_LINK_PAINEL=1 no Railway. É variável de
-        // ambiente de propósito — religar não deve exigir deploy, e desligar
-        // de novo (se a tela mostrar problema com cliente real) precisa ser
-        // questão de segundos.
-        //
-        // As outras duas condições são permanentes:
-        // Só condomínio tem login, então só ele recebe o convite. Sem
-        // APP_URL configurada não dá para montar link absoluto — e link
-        // relativo em e-mail não abre lugar nenhum. Nesses dois casos o
-        // e-mail sai como sempre saiu: só com o PDF. Ver sendOrcamentoCliente.
-        //
-        // O link cai DIRETO no documento, não na lista: quem clica veio de um
-        // e-mail sobre UM orçamento e não deve ter que procurá-lo. Sem sessão,
-        // o /login devolve para cá depois de entrar.
-        linkPainel: (_linkPainelLigado() && orc.condominio_id && process.env.APP_URL)
-          ? `${String(process.env.APP_URL).replace(/\/$/, "")}/cliente/painel/orcamentos?orc=${orc.id}`
-          : null,
+        // Decidido lá em cima, junto com a existência (ou não) do anexo —
+        // os dois são a mesma escolha. Ver sendOrcamentoCliente.
+        linkPainel,
       });
     } catch (errEnvio) {
       // `resendCode` vem do helper `_enviar` em services/email.js. É ele que
@@ -1696,13 +1726,16 @@ router.post("/orcamentos/avulsos/:id/enviar-email", authRequired, adminOnly, asy
       // Railway sem precisar do stack.
       console.error(
         `[email-orcamento] FALHA=envio orcamento=${id} code=${errEnvio.resendCode || "?"} ` +
-        `destinos=${to.length} anexo_kb=${Math.round(pdfBuffer.length / 1024)} motivo=${errEnvio.message}`
+        `destinos=${to.length} anexo_kb=${pdfBuffer ? Math.round(pdfBuffer.length / 1024) : 0} link=${linkPainel ? "sim" : "nao"} motivo=${errEnvio.message}`
       );
       return res.status(500).json({ error: errEnvio.message, etapa: "envio", code: errEnvio.resendCode || null });
     }
 
     const enviadoPara = to.join(", ");
-    console.log(`[email-orcamento] OK orcamento=${id} destinos=${to.length} anexo_kb=${Math.round(pdfBuffer.length / 1024)}`);
+    console.log(
+      `[email-orcamento] OK orcamento=${id} destinos=${to.length} ` +
+      `anexo_kb=${pdfBuffer ? Math.round(pdfBuffer.length / 1024) : 0} link=${linkPainel ? "sim" : "nao"}`
+    );
     const upd = await pool.query(
       `UPDATE orcamentos
          SET status = 'enviado', enviado_em = now(), enviado_para = $2
@@ -1711,7 +1744,16 @@ router.post("/orcamentos/avulsos/:id/enviar-email", authRequired, adminOnly, asy
       [id, enviadoPara]
     );
 
-    return res.json({ ok: true, enviado_para: enviadoPara, enviado_em: upd.rows[0]?.enviado_em });
+    // `link_painel`/`anexo` contam à tela o que de fato foi enviado. O front
+    // não tem como saber sozinho: a existência do link depende de o condomínio
+    // ter usuário com login, que é consulta de servidor.
+    return res.json({
+      ok: true,
+      enviado_para: enviadoPara,
+      enviado_em: upd.rows[0]?.enviado_em,
+      link_painel: Boolean(linkPainel),
+      anexo: Boolean(pdfBuffer),
+    });
   } catch (err) {
     console.error("[admin] POST /orcamentos/avulsos/:id/enviar-email:", err);
     return res.status(500).json({ error: err.message || "Erro ao enviar e-mail" });
