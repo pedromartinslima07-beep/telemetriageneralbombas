@@ -339,6 +339,11 @@ registrava era o escritório.
 - ⚠️ **A página não pode morar em `/cliente/orcamentos`**: as rotas de página
   são registradas antes do `app.use("/cliente", ...)` e ela sombrearia o `GET`
   da API de mesmo nome. Página é nome de tela, API é nome de recurso.
+- ✅ **O login da tela de orçamentos é um cartão na própria página** desde
+  25/08/2026 — não redireciona mais para `/login`. A URL com `?orc=N` fica na
+  barra e o 401 no meio do caminho reabre o cartão. `GET /cliente/orcamentos`
+  aberta no navegador redireciona 302 para a página, para não devolver
+  `{"error":"Token ausente"}` em JSON cru.
 - ⚠️ **Nada aqui pode ser `<a href>` para rota autenticada.** O `authRequired`
   lê só o header `Bearer`; não há cookie de sessão. Foi assim que o botão do
   PDF nasceu quebrado (consertado em 24/08 — ver

@@ -889,3 +889,13 @@ desenho em camadas original continua válido.
   real. Imagem em e-mail leva `width` e `height` explícitos, no atributo e no
   estilo. E a altura é **calculada do arquivo** (IHDR do PNG), não digitada:
   número fixo no código volta a mentir na primeira troca de logo.
+- **Link de e-mail não deve trocar de página para pedir login (2026-08-25).**
+  A tela de orçamentos mandava quem chegasse sem sessão para `/login?next=…`.
+  O `next` funcionava, mas o custo estava antes dele: a pessoa clicou num link
+  sobre **um documento** e a primeira coisa que viu foi um formulário em outro
+  lugar — e qualquer falha no meio (allowlist, `next` perdido, senha errada)
+  a deixava no painel sem o orçamento. O login virou cartão sobre a própria
+  página, com a URL intacta. A regra que fica: **quando o destino é um
+  documento específico, a autenticação entra por cima dele, nunca no lugar
+  dele.** Vale para 401 no meio do caminho também — reabrir o cartão preserva
+  o que a pessoa estava fazendo; redirecionar joga fora.

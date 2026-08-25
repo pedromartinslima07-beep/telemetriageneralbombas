@@ -416,6 +416,39 @@ registradas **antes** do `app.use("/cliente", clienteRouter)`. Uma página em
 HTML — o `Unexpected token '<'` do `CLAUDE.md`. Convenção: **página é nome de
 tela, API é nome de recurso.**
 
+### A entrada acontece na própria página (25/08/2026)
+
+⚠️ **Esta página NÃO redireciona para `/login`.** Até 25/08 ela fazia
+`window.location = "/login?next=…"` quando não havia token. Funcionava, mas
+trocava o documento que a pessoa veio ver por um formulário em outra página —
+e quem chega aqui vem de um link de e-mail sobre **um** orçamento, quase sempre
+sem sessão. Agora o login abre **por cima**, no cartão `#entradaFundo`
+(`.ficha-fundo` + `.ficha` reusadas do painel): a URL com `?orc=N` continua na
+barra, e fechar o cartão já é estar no documento.
+
+O fluxo é o mesmo de `login.js`, porque o backend é o mesmo: `POST /auth/login`
+devolve o token direto (OTP desligado) ou `pending` + `otp_token`, e aí vem o
+segundo passo em `POST /auth/verify-otp`. O aparelho confiável viaja em cookie
+de mesma origem — nada a fazer no front. **Nenhuma rota nova.**
+
+Três coisas que o cartão resolve e o redirect não resolvia:
+
+- **401 no meio do caminho** (sessão expirada ao abrir o documento ou ao
+  responder) reabre o cartão em vez de trocar de página. Quem acabou de
+  decidir "aprovo" não perde o documento nem a URL.
+- **Conta errada.** Login de `admin` passa no `/auth/login` mas leva 403 em
+  todo `/cliente/*`. O cartão checa `user.role` e diz isso, em vez de deixar a
+  tela vazia com "não conseguimos carregar".
+- **Quem nunca teve senha.** O link do e-mail pode chegar a síndico novo ou
+  ser encaminhado. O rodapé do cartão oferece WhatsApp e telefone — sem isso a
+  pessoa fica presa num formulário que não tem como preencher.
+
+⚠️ **Rede de segurança em `src/app.js`:** `GET /cliente/orcamentos` aberta no
+**navegador** (Accept com `text/html`, que `fetch` nunca manda — ele manda
+`*/*`) redireciona 302 para `/cliente/painel/orcamentos`, preservando a query.
+Sem isso, a URL sem o `/painel` responde `{"error":"Token ausente"}` em JSON
+cru — que foi o que apareceu para o Pedro no primeiro teste do link.
+
 ⚠️ **Nada aqui pode ser `<a href>` para rota autenticada.** O `authRequired`
 lê **só** o header `Authorization: Bearer`; este sistema não tem cookie de
 sessão. Foi exatamente assim que o botão "Abrir o PDF" nasceu quebrado — ele

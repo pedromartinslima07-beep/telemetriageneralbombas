@@ -19,7 +19,7 @@
        ORÇAMENTOS, no fim do cliente.css. -->
   <link rel="preload" href="/static/fonts/archivo.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="/static/fonts/martianmono.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="/static/cliente.css?v=39">
+  <link rel="stylesheet" href="/static/cliente.css?v=40">
 </head>
 <body class="pagina-orcs">
 
@@ -86,7 +86,89 @@
   </div></div>
 </footer>
 
-<script src="/static/cliente-orcamentos.js?v=6" defer></script>
+<!--
+  A PORTA, NÃO O DESVIO.
+
+  Quem chega aqui veio de um link de e-mail sobre UM orçamento, quase sempre
+  no celular e quase nunca com sessão aberta. Mandar essa pessoa para /login
+  era trocar o documento que ela veio ver por um formulário em outra página —
+  e, se o `next` falhasse, ela caía no painel sem o orçamento. Aqui a página
+  é a mesma, a URL com `?orc=N` continua na barra, e a entrada acontece por
+  cima: fecha o cartão e o documento já está atrás dele.
+
+  Reusa `.ficha-fundo` / `.ficha` do painel de propósito — é o mesmo gesto de
+  "abre por cima" que o síndico já viu na história do prédio. O que é
+  exclusivo daqui está na seção ENTRADA do cliente.css.
+-->
+<div class="ficha-fundo entrada-fundo" id="entradaFundo" hidden>
+  <section class="ficha entrada" role="dialog" aria-modal="true" aria-labelledby="entradaTitulo">
+    <!-- Sem etiqueta gravada acima do título: aqui ela seria só enfeite (na
+         ficha do painel a `.id` carrega o número do chamado, que é dado). O
+         título diz sozinho onde a pessoa está e o que se espera dela. -->
+    <div class="ficha-topo">
+      <h3 id="entradaTitulo">Entre para ver o orçamento do seu prédio</h3>
+    </div>
+
+    <div class="ficha-corpo">
+      <!-- Passo 1: e-mail e senha -->
+      <form id="entradaForm" novalidate>
+        <p class="ficha-intro">
+          É o mesmo acesso do painel do seu prédio. Depois de entrar, o
+          orçamento abre aqui mesmo.
+        </p>
+        <label class="campo">
+          <span>E-mail</span>
+          <input id="entradaEmail" type="email" name="email" autocomplete="username"
+                 inputmode="email" autocapitalize="none" spellcheck="false"
+                 placeholder="voce@email.com" required />
+        </label>
+        <label class="campo">
+          <span>Senha</span>
+          <input id="entradaSenha" type="password" name="senha" autocomplete="current-password"
+                 placeholder="Sua senha" required />
+        </label>
+        <div class="entrada-acoes">
+          <button class="orc-btn orc-btn-sim" type="submit" id="entradaBtn">Entrar</button>
+        </div>
+      </form>
+
+      <!-- Passo 2: código de verificação (só quando o servidor pede) -->
+      <form id="entradaOtpForm" novalidate hidden>
+        <p class="ficha-intro" id="entradaOtpIntro">
+          Enviamos um código de 6 dígitos para o seu e-mail.
+        </p>
+        <label class="campo">
+          <span>Código</span>
+          <!-- inputmode numérico: o teclado do celular já abre nos números -->
+          <input id="entradaOtpCode" class="entrada-codigo" type="text" inputmode="numeric"
+                 autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}"
+                 placeholder="000000" required />
+        </label>
+        <label class="entrada-confiar">
+          <input id="entradaOtpConfiar" type="checkbox" />
+          <span>Confiar neste aparelho e não pedir código da próxima vez</span>
+        </label>
+        <div class="entrada-acoes">
+          <button class="orc-btn orc-btn-sim" type="submit" id="entradaOtpBtn">Confirmar</button>
+          <button class="orc-btn orc-btn-nao" type="button" id="entradaOtpVoltar">Voltar</button>
+        </div>
+      </form>
+
+      <p class="orc-msg" id="entradaMsg" role="status" aria-live="polite"></p>
+
+      <!-- ⚠️ A SAÍDA IMPORTA. O link do e-mail pode chegar a quem nunca teve
+           senha (síndico novo, e-mail encaminhado). Sem esta linha, essa
+           pessoa fica presa num cartão que ela não tem como preencher. -->
+      <p class="entrada-ajuda">
+        Sem acesso ainda?
+        <a href="https://wa.me/5511966536110" target="_blank" rel="noopener">Chame no WhatsApp</a>
+        ou ligue (11) 2038-8679 — a gente libera o seu login.
+      </p>
+    </div>
+  </section>
+</div>
+
+<script src="/static/cliente-orcamentos.js?v=7" defer></script>
 <script src="/static/register-sw.js?v=39" defer></script>
 </body>
 </html>

@@ -3706,6 +3706,50 @@ já que a decisão depende de uma consulta a `usuarios`.
 Cache-bust: `admin.js?v=313`, `admin.css?v=231`. Sem migration e sem bump de
 `CACHE_NAME`.
 
+### 2026-08-25 · O login do orçamento vira cartão na própria página
+
+O link do e-mail levava para `/cliente/painel/orcamentos?orc=N`, e a página
+mandava quem não tivesse sessão para `/login?next=…`. Funcionava, mas trocava o
+documento que a pessoa veio ver por um formulário em outra página — e este link
+é justamente o de quem quase nunca tem sessão aberta, lendo no celular.
+
+Agora a entrada acontece **por cima da própria página**: `#entradaFundo`, um
+cartão que reusa `.ficha-fundo` / `.ficha` do painel (o mesmo gesto de "abre por
+cima" que o síndico já viu na história do prédio). A URL com `?orc=N` fica na
+barra, e fechar o cartão é estar no documento. Referência apontada pelo Pedro:
+a página pública de documento do Omie.
+
+**Nenhuma rota nova.** O fluxo é o de `login.js`, porque o backend é o mesmo:
+`POST /auth/login` → token direto (OTP desligado) ou `pending` + `otp_token` →
+`POST /auth/verify-otp`. O aparelho confiável já viaja em cookie de mesma
+origem.
+
+O que o cartão resolve e o redirect não resolvia: **401 no meio do caminho**
+reabre o cartão em vez de trocar de página (inclusive no `responder`, onde
+perder o documento logo depois de decidir era o pior momento possível);
+**conta do escritório** é barrada com a razão dita (`role !== "cliente"` passa
+no login e levaria 403 silencioso); e **quem nunca teve senha** encontra
+WhatsApp e telefone no pé do cartão, em vez de um formulário que não tem como
+preencher.
+
+**Rede de segurança:** `GET /cliente/orcamentos` aberta no navegador (Accept
+com `text/html` — `fetch` manda `*/*`) passou a redirecionar 302 para
+`/cliente/painel/orcamentos` com a query preservada. Sem isso, a URL sem o
+`/painel` responde `{"error":"Token ausente"}` em JSON cru; foi o que apareceu
+no primeiro teste do link.
+
+**Desenho.** Cartão de 430px, campos e botões do sistema, sem etiqueta gravada
+acima do título (na ficha do painel a `.id` carrega o número do chamado; aqui
+seria só enfeite). O código de 6 dígitos é mono tabular com folga entre as
+figuras — é medição conferida dígito a dígito contra o e-mail aberto ao lado. E
+a entrada **não vira folha cheia no celular** como as outras fichas: são dois
+campos, e o cartão centrado é o que diz "falta só isto"; folha cheia voltaria a
+parecer outra página, que é o que saímos de fazer. Verificado em 1440px e em
+390px.
+
+Cache-bust: `cliente.css?v=40` (nos dois HTMLs), `cliente-orcamentos.js?v=7`.
+Sem migration e sem bump de `CACHE_NAME` — nenhum endpoint novo.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

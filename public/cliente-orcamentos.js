@@ -29,14 +29,166 @@ function authHeaders() {
   const t = getToken();
   return t ? { Authorization: "Bearer " + t } : {};
 }
-// ⚠️ O `next` não é conveniência: este é o destino de um link de e-mail, e
-// quem clica quase nunca tem sessão aberta no celular. Sem isso ele entra e
-// cai no painel, tendo que caçar o orçamento que o e-mail já apontava.
-// O login só aceita `next` que estejam na allowlist dele — ver login.js.
-function _paraLogin() {
-  window.location.href = "/login?next=" + encodeURIComponent(location.pathname + location.search);
+/* ── A entrada ──────────────────────────────────────────────────────────
+   ⚠️ NÃO REDIRECIONA PARA /login. Até 25/08/2026 esta página mandava quem
+   chegasse sem sessão para `/login?next=…`. Funcionava, mas trocava o
+   documento que a pessoa veio ver por um formulário em outra página — e o
+   link do e-mail é justamente de quem quase nunca tem sessão aberta. Agora
+   o login acontece POR CIMA da própria página: a URL com `?orc=N` continua
+   na barra, e fechar o cartão já é estar no documento.
+
+   O fluxo é o mesmo do login.js, porque o backend é o mesmo: POST
+   /auth/login devolve o token direto (OTP desligado) ou `pending` +
+   `otp_token`, e aí vem o segundo passo em /auth/verify-otp. O aparelho
+   confiável viaja em cookie de mesma origem — não precisa de nada aqui. */
+
+let _entradaAberta = false;
+let _otpToken = null;
+
+function _el(id) { return document.getElementById(id); }
+
+function _entradaMsg(texto, ehErro) {
+  const msg = _el("entradaMsg");
+  if (!msg) return;
+  msg.className = ehErro ? "orc-msg is-erro" : "orc-msg";
+  msg.textContent = texto || "";
 }
-if (!getToken()) _paraLogin();
+
+function _entradaPasso(qual) {
+  _el("entradaForm").hidden    = qual !== "senha";
+  _el("entradaOtpForm").hidden = qual !== "codigo";
+}
+
+// `motivo` só é preenchido quando a sessão MORREU no meio do caminho: quem
+// chega direto do e-mail não fez nada errado e não deve levar aviso.
+function pedirEntrada(motivo) {
+  const fundo = _el("entradaFundo");
+  if (!fundo) return;
+  localStorage.removeItem("token");
+  localStorage.removeItem("user");
+
+  if (!_entradaAberta) {
+    _entradaAberta = true;
+    fundo.hidden = false;
+    document.body.classList.add("com-ficha");
+    // Atrás do véu, "Carregando…" ficaria para sempre — e é o texto que
+    // aparece se a pessoa fechar o teclado e olhar a página por baixo.
+    if (elApoio) elApoio.textContent = "Entre para ver o orçamento do seu prédio.";
+    setTimeout(() => _el("entradaEmail")?.focus(), 60);
+  }
+  _entradaPasso("senha");
+  _otpToken = null;
+  _entradaMsg(motivo || "", Boolean(motivo));
+}
+
+function _fecharEntrada() {
+  _entradaAberta = false;
+  _el("entradaFundo").hidden = true;
+  document.body.classList.remove("com-ficha");
+  _entradaMsg("");
+}
+
+// Só o síndico tem o que ver aqui. Uma conta do escritório passa no login e
+// tomaria 403 no primeiro fetch — dizer isso no cartão é melhor que deixar a
+// tela vazia com "não conseguimos carregar".
+async function _concluirEntrada(data) {
+  const user = data.user || {};
+  if (user.role !== "cliente") {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    _entradaMsg("Esta conta é do painel interno da General, não do seu prédio. Entre com o acesso do condomínio.", true);
+    _entradaPasso("senha");
+    return;
+  }
+  if (!user.condominio_id) {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    _entradaMsg("Seu usuário ainda não está vinculado a um prédio. Fale com a gente que liberamos.", true);
+    _entradaPasso("senha");
+    return;
+  }
+  localStorage.setItem("token", data.token);
+  localStorage.setItem("user", JSON.stringify(data.user));
+  _fecharEntrada();
+  await carregar();
+  sincronizar();
+}
+
+function _bindEntrada() {
+  const form    = _el("entradaForm");
+  const otpForm = _el("entradaOtpForm");
+  if (!form || !otpForm) return;
+
+  form.addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    const email = _el("entradaEmail").value.trim();
+    const senha = _el("entradaSenha").value;
+    const btn   = _el("entradaBtn");
+    if (!email || !senha) {
+      _entradaMsg("Preencha o e-mail e a senha.", true);
+      return;
+    }
+    btn.disabled = true;
+    _entradaMsg("Entrando…");
+    try {
+      const r = await fetch("/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, senha }),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) { _entradaMsg(data.error || "E-mail ou senha incorretos.", true); return; }
+
+      if (data.token) { await _concluirEntrada(data); return; }
+
+      if (data.pending) {
+        _otpToken = data.otp_token;
+        _entradaPasso("codigo");
+        _entradaMsg("");
+        const campo = _el("entradaOtpCode");
+        campo.value = "";
+        setTimeout(() => campo.focus(), 60);
+        return;
+      }
+      _entradaMsg("Não consegui entrar. Tente de novo.", true);
+    } catch (_) {
+      _entradaMsg("Erro de conexão. Verifique a internet e tente de novo.", true);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  otpForm.addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    const code = _el("entradaOtpCode").value.trim();
+    const btn  = _el("entradaOtpBtn");
+    if (code.length !== 6) { _entradaMsg("Digite os 6 dígitos do código.", true); return; }
+    btn.disabled = true;
+    _entradaMsg("Conferindo o código…");
+    try {
+      const r = await fetch("/auth/verify-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ otp_token: _otpToken, code, confiar: _el("entradaOtpConfiar").checked }),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) { _entradaMsg(data.error || "Código inválido.", true); return; }
+      await _concluirEntrada(data);
+    } catch (_) {
+      _entradaMsg("Erro de conexão. Verifique a internet e tente de novo.", true);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  _el("entradaOtpVoltar").addEventListener("click", () => {
+    _otpToken = null;
+    _entradaPasso("senha");
+    _entradaMsg("");
+    _el("entradaSenha").value = "";
+    setTimeout(() => _el("entradaSenha").focus(), 60);
+  });
+}
 
 function esc(s) {
   return String(s == null ? "" : s).replace(/[&<>"']/g, c => (
@@ -76,7 +228,7 @@ let PREDIO = "";
 async function carregar() {
   try {
     const r = await fetch("/cliente/orcamentos", { headers: authHeaders() });
-    if (r.status === 401) { _paraLogin(); return; }
+    if (r.status === 401) { pedirEntrada("Sua sessão expirou. Entre de novo para ver o orçamento."); return; }
     if (!r.ok) throw new Error();
     const j = await r.json();
     ORCS = j.orcamentos || [];
@@ -167,6 +319,7 @@ async function abrir(id) {
   let o;
   try {
     const r = await fetch(`/cliente/orcamentos/${id}`, { headers: authHeaders() });
+    if (r.status === 401) { pedirEntrada("Sua sessão expirou. Entre de novo para ver o orçamento."); return; }
     o = await r.json();
     if (!r.ok) throw new Error(o.error || "Não foi possível abrir este orçamento.");
   } catch (e) {
@@ -399,6 +552,16 @@ async function responder(id, decisao) {
       headers: { "Content-Type": "application/json", ...authHeaders() },
       body: JSON.stringify({ decisao, comentario }),
     });
+    // ⚠️ 401 aqui é o pior momento para trocar de página: a pessoa acabou de
+    // decidir. O cartão reabre por cima, e a resposta é dada de novo com um
+    // clique — sem perder o documento nem a URL.
+    if (r.status === 401) {
+      botoes.forEach(b => { b.disabled = false; });
+      msg.className = "orc-msg";
+      msg.textContent = "";
+      pedirEntrada("Sua sessão expirou antes de registrar a resposta. Entre de novo e responda.");
+      return;
+    }
     const j = await r.json().catch(() => ({}));
     if (!r.ok) {
       msg.className = "orc-msg is-erro";
@@ -430,7 +593,7 @@ async function baixarPdf(id, btn) {
 
   try {
     const r = await fetch(`/cliente/orcamentos/${id}/pdf`, { headers: authHeaders() });
-    if (r.status === 401) { _paraLogin(); return; }
+    if (r.status === 401) { pedirEntrada("Sua sessão expirou. Entre de novo para ver o orçamento."); return; }
     if (!r.ok) {
       const j = await r.json().catch(() => ({}));
       throw new Error(j.error || "Não foi possível gerar o PDF.");
@@ -499,4 +662,8 @@ addEventListener("scroll", () => {
 
 document.getElementById("rodapeAno").textContent = new Date().getFullYear();
 
-carregar().then(sincronizar);
+_bindEntrada();
+// Sem sessão, a página não tenta carregar nada: pedir e levar 401 de volta
+// só serviria para piscar uma mensagem de erro atrás do cartão.
+if (getToken()) carregar().then(sincronizar);
+else pedirEntrada();

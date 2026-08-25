@@ -351,6 +351,20 @@ app.get("/cliente/painel", _htmlNoCache, (req, res) =>
 app.get("/cliente/painel/orcamentos", _htmlNoCache, (req, res) =>
   res.sendFile(path.join(__dirname, "../public/cliente-orcamentos.html"))
 );
+// ⚠️ REDE DE SEGURANÇA PARA A URL SEM `/painel`.
+// `/cliente/orcamentos` é a API. Aberta no navegador — link digitado à mão,
+// e-mail antigo, alguém tirando o `/painel` do meio — ela responde
+// `{"error":"Token ausente"}` em JSON cru, que para o síndico é uma tela
+// branca com uma frase técnica. Quando o pedido é NAVEGAÇÃO (Accept com
+// text/html, que `fetch` nunca manda: ele manda `*/*`), mandamos para a
+// página equivalente preservando a query. O `fetch` da tela não passa por
+// aqui e continua recebendo o 401 que ele sabe tratar.
+app.get("/cliente/orcamentos", (req, res, next) => {
+  if (!String(req.headers.accept || "").includes("text/html")) return next();
+  const qs = req.originalUrl.includes("?") ? req.originalUrl.slice(req.originalUrl.indexOf("?")) : "";
+  return res.redirect(302, "/cliente/painel/orcamentos" + qs);
+});
+
 // Ficha do equipamento — é o que a etiqueta QR abre. O path é curto de
 // propósito: menos caractere na URL = QR com menos módulos = etiqueta legível
 // mesmo suja ou amassada. O código não é validado aqui (o HTML é estático);

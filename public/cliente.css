@@ -1797,3 +1797,93 @@ body[data-estado="carregando"] .frase { color: var(--sobre-2); }
   .orc-cab { flex-direction: column; align-items: flex-start; gap: 10px; }
   .orc-cab .orc-selo { top: 0; }
 }
+
+
+/* ════════════════════════════════════════════════════════════════════════
+   10. A ENTRADA — o cartão de login da página de orçamentos
+   ────────────────────────────────────────────────────────────────────────
+   Só existe em /cliente/painel/orcamentos. Quem chega ali veio do link de
+   um e-mail sobre UM orçamento: mandá-lo para /login trocava o documento
+   por outra página, e um `next` que falhasse o deixava no painel sem o
+   orçamento. O cartão entra por cima da própria página, a URL com `?orc=N`
+   fica na barra, e fechar já é estar no documento.
+
+   Herda `.ficha-fundo` / `.ficha` inteiras — inclusive a folha cheia no
+   celular, que é o que o teclado virtual pede. Aqui só o que muda: largura
+   de formulário, o par de botões e a linha de ajuda.
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* ⚠️ ACIMA da ficha comum (z-index 200): se um dia as duas coexistirem, é a
+   entrada que tem de estar por cima — sem sessão, a ficha atrás não tem o
+   que mostrar. */
+.entrada-fundo { z-index: 300; }
+
+/* Estreito de propósito: dois campos não pedem 640px, e formulário largo
+   demais faz o olho voltar do fim de uma linha para o começo da outra. */
+.entrada { width: min(430px, 100%); }
+.entrada .ficha-topo { border-bottom: none; padding-bottom: 4px; }
+/* Sem a etiqueta gravada por cima, o título encosta no topo da placa; e o
+   `margin-top` que ele herda da ficha (onde há `.id` acima) some. */
+.entrada .ficha-topo h3 { margin-top: 0; max-width: 20ch; }
+.entrada .ficha-corpo { padding-top: 12px; }
+.entrada .ficha-intro { margin-bottom: 4px; }
+
+/* O amarelo desta tela é do "Aprovar orçamento" — mas enquanto o cartão
+   está aberto o documento não existe ainda, então "Entrar" é a única ação
+   viva e pode levá-lo. Ao fechar, ele volta a ser um só. */
+.entrada-acoes { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 20px; }
+.entrada-acoes .orc-btn { flex: 1 1 auto; }
+
+.entrada-confiar {
+  display: flex; align-items: flex-start; gap: 10px;
+  margin-top: 14px; font-size: .95rem; color: var(--tinta-2);
+  cursor: pointer;
+}
+/* 20px e acento marinho: o âmbar reprova contraste sobre placa clara
+   (Regra do Amarelo Cego), e o alvo precisa caber num dedo. */
+.entrada-confiar input {
+  flex: 0 0 auto; width: 20px; height: 20px; margin-top: 1px;
+  accent-color: var(--mar-700);
+}
+
+/* Código é medição: seis dígitos que a pessoa confere um a um contra o
+   e-mail aberto ao lado. Mono tabular com folga entre as figuras é o que
+   torna 0/O e 1/7 inconfundíveis — mesmo papel do mono no resto do sistema. */
+.entrada-codigo {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 1.15rem; font-weight: 700;
+  letter-spacing: .3em; text-indent: .3em;
+}
+
+.entrada-ajuda {
+  margin-top: 22px; padding-top: 16px;
+  border-top: 1px solid var(--fio-esc);
+  font-size: .92rem; line-height: 1.55; color: var(--tinta-2);
+}
+.entrada-ajuda a {
+  color: var(--tinta); font-weight: 600;
+  text-decoration: underline; text-underline-offset: 3px;
+  text-decoration-color: var(--fio-esc);
+}
+.entrada-ajuda a:hover { text-decoration-color: var(--tinta); }
+
+/* ⚠️ A ENTRADA NÃO VIRA FOLHA CHEIA NO CELULAR, ao contrário das outras
+   fichas. Ali a folha cheia se justifica: são formulários longos, com o
+   teclado virtual disputando a tela. Aqui são dois campos, e o cartão
+   centrado é o que diz "falta só isto para ver o documento" — de folha
+   cheia ele voltaria a parecer outra página, que é justamente o que saímos
+   de fazer ao tirar o /login do caminho. */
+@media (max-width: 820px) {
+  .entrada-fundo {
+    padding: 20px 16px;
+    place-items: center;
+    grid-template-rows: minmax(0, auto);
+  }
+  .entrada {
+    --ch: 12px;
+    width: 100%; height: auto;
+    max-height: calc(100svh - 40px);
+  }
+  .entrada .ficha-topo, .entrada .ficha-corpo { padding-left: 22px; padding-right: 22px; }
+}
