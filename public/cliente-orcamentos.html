@@ -19,7 +19,7 @@
        ORÇAMENTOS, no fim do cliente.css. -->
   <link rel="preload" href="/static/fonts/archivo.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="/static/fonts/martianmono.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="/static/cliente.css?v=40">
+  <link rel="stylesheet" href="/static/cliente.css?v=43">
 </head>
 <body class="pagina-orcs">
 
@@ -72,8 +72,13 @@
 
 <footer class="rodape">
   <div class="rodape-in">
-    <!-- única aparição do lockup completo, com a assinatura -->
-    <img class="rodape-logo" src="/static/login-logo.png" alt="General Engenharia da Manutenção">
+    <!-- ⚠️ O LOGO SAIU DAQUI (25/08/2026). Ele existia como "a única aparição
+         do lockup completo", mas a barra do topo é fixa: ao chegar no rodapé,
+         a pessoa via duas marcas na mesma tela e nenhuma liderava. A marca
+         continua no rodapé — como assinatura em texto, na linha de baixo.
+         O que lidera aqui agora é o que o rodapé serve para fazer: falar com
+         gente. -->
+    <p class="rodape-chamada">Prefere falar com a gente?</p>
     <dl class="rodape-contato">
       <div><dt>Telefone</dt><dd><a href="tel:+551120388679">(11) 2038-8679</a></dd></div>
       <div><dt>WhatsApp</dt><dd><a href="https://wa.me/5511966536110" target="_blank" rel="noopener">(11) 96653-6110</a></dd></div>
@@ -82,6 +87,7 @@
   </div>
   <div class="rodape-fim"><div>
     <span>Orçamentos do seu prédio</span>
+    <span class="rodape-assina">General Engenharia da Manutenção</span>
     <span id="rodapeAno">2026</span>
   </div></div>
 </footer>
@@ -110,11 +116,13 @@
     </div>
 
     <div class="ficha-corpo">
-      <!-- Passo 1: e-mail e senha -->
+      <!-- Passo 1: o e-mail. Não há senha (25/08/2026) — quem cria o acesso é
+           o escritório, no admin, com o e-mail do síndico; daí em diante o
+           e-mail É a credencial e o código de 6 dígitos é a prova. -->
       <form id="entradaForm" novalidate>
         <p class="ficha-intro">
-          É o mesmo acesso do painel do seu prédio. Depois de entrar, o
-          orçamento abre aqui mesmo.
+          Digite o e-mail cadastrado do seu prédio. A gente manda um código de
+          6 dígitos e o orçamento abre aqui mesmo.
         </p>
         <label class="campo">
           <span>E-mail</span>
@@ -122,17 +130,12 @@
                  inputmode="email" autocapitalize="none" spellcheck="false"
                  placeholder="voce@email.com" required />
         </label>
-        <label class="campo">
-          <span>Senha</span>
-          <input id="entradaSenha" type="password" name="senha" autocomplete="current-password"
-                 placeholder="Sua senha" required />
-        </label>
         <div class="entrada-acoes">
-          <button class="orc-btn orc-btn-sim" type="submit" id="entradaBtn">Entrar</button>
+          <button class="orc-btn orc-btn-sim" type="submit" id="entradaBtn">Receber o código</button>
         </div>
       </form>
 
-      <!-- Passo 2: código de verificação (só quando o servidor pede) -->
+      <!-- Passo 2: o código que chegou no e-mail -->
       <form id="entradaOtpForm" novalidate hidden>
         <p class="ficha-intro" id="entradaOtpIntro">
           Enviamos um código de 6 dígitos para o seu e-mail.
@@ -160,15 +163,15 @@
            senha (síndico novo, e-mail encaminhado). Sem esta linha, essa
            pessoa fica presa num cartão que ela não tem como preencher. -->
       <p class="entrada-ajuda">
-        Sem acesso ainda?
+        O e-mail não é esse, ou o código não chegou?
         <a href="https://wa.me/5511966536110" target="_blank" rel="noopener">Chame no WhatsApp</a>
-        ou ligue (11) 2038-8679 — a gente libera o seu login.
+        ou ligue (11) 2038-8679 — a gente acerta o cadastro na hora.
       </p>
     </div>
   </section>
 </div>
 
-<script src="/static/cliente-orcamentos.js?v=7" defer></script>
+<script src="/static/cliente-orcamentos.js?v=8" defer></script>
 <script src="/static/register-sw.js?v=39" defer></script>
 </body>
 </html>

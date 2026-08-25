@@ -53,8 +53,9 @@ segue no comportamento padrão do Express.
 | Método | Rota | Descrição |
 |---|---|---|
 | GET | `/health` | Health check (`{status:"ok"}`) |
-| POST | `/auth/login` | email+senha → envia OTP por email |
-| POST | `/auth/verify-otp` | valida OTP → JWT + cookie trusted device |
+| POST | `/auth/login` | **equipe interna** — email+senha → envia OTP por email |
+| POST | `/auth/codigo` | **cliente (síndico), sem senha** — só `email`; exige `role='cliente'`, manda o código de 6 dígitos e devolve o mesmo `{ pending, otp_token }` do login. Resposta **neutra** para e-mail desconhecido. Aparelho confiável → JWT direto |
+| POST | `/auth/verify-otp` | valida OTP → JWT + cookie trusted device. **Serve aos dois caminhos** |
 | POST | `/telemetria` | ingestão de leitura (auth via header `X-Device-Key`) |
 | GET | `/whatsapp/webhook` | verificação do webhook da Meta (`hub.challenge`) |
 | POST | `/whatsapp/webhook` | recebe eventos da Meta API (valida verify token) |
@@ -220,8 +221,8 @@ ao e-mail cadastrado (2FA equivalente ao do login).
 | GET | `/admin/status` | adminOnly (status agregado por condomínio + lat/lng/endereço) |
 | GET | `/admin/historico?device_ids=A,B&horas=N` | adminOnly (até 10 devices) |
 | GET | `/admin/geocode?q=` · `/admin/reverse-geocode?lat=&lon=` | adminOnly (proxy Nominatim) |
-| GET/POST/PATCH/DELETE | `/admin/usuarios[/:id]` | GET adminOnly; escrita masterAdmin |
-| POST | `/admin/usuarios/:id/reset-senha` | masterAdmin |
+| GET/POST/PATCH/DELETE | `/admin/usuarios[/:id]` | GET adminOnly; escrita masterAdmin. **`senha` é opcional para `role='cliente'`** (25/08/2026): ele entra por código no e-mail, e nasce com hash de 32 bytes aleatórios. Para acesso interno a senha segue obrigatória |
+| POST | `/admin/usuarios/:id/reset-senha` | masterAdmin. **Não vale para cliente** — ele não tem senha; o botão some da lista |
 | GET/PATCH | `/admin/configuracoes` | masterAdmin (config dinâmica) |
 | GET | `/admin/integracoes/status` | masterAdmin (OpenAI/WhatsApp/Resend configurados?) |
 | POST | `/admin/jobs/{leituras-cleanup,alertas-cleanup,conversas-cleanup}/run` | masterAdmin |

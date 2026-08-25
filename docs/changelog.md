@@ -3691,7 +3691,11 @@ Agora o padrão inverteu: **sai ligado**, e a variável virou kill-switch
 síndico um caminho que termina sem resposta: ele lê o anexo, fecha o e-mail, e
 a decisão nunca chega. Agora **é um ou outro** — com painel, o link; sem
 painel, o anexo. O documento continua acessível: a tela do cliente tem o botão
-"Baixar o PDF" (`GET /cliente/orcamentos/:id/pdf`, que gera sob demanda). Efeito
+"Baixar o PDF" (`GET /cliente/orcamentos/:id/pdf`, que gera sob demanda) — e o
+texto dessa seção, que dizia "o mesmo documento que foi anexado no e-mail",
+foi corrigido: mandava a pessoa procurar na caixa de entrada um arquivo que não
+foi. Agora diz o que o arquivo é ("o orçamento completo, com timbrado, para
+guardar ou imprimir"). Efeito
 colateral bem-vindo: **o caminho comum de envio não depende mais do Puppeteer**,
 que era a etapa que mais falhava em container apertado.
 
@@ -3749,6 +3753,130 @@ parecer outra página, que é o que saímos de fazer. Verificado em 1440px e em
 
 Cache-bust: `cliente.css?v=40` (nos dois HTMLs), `cliente-orcamentos.js?v=7`.
 Sem migration e sem bump de `CACHE_NAME` — nenhum endpoint novo.
+
+### 2026-08-25 · O síndico deixa de ter senha
+
+O problema que abriu o assunto era prático: para mandar um orçamento com link,
+o Pedro precisava antes criar o usuário e mandar login **e senha** por e-mail.
+Ao olhar o código, apareceu o fato que resolve isso sozinho: **em produção o
+OTP já era obrigatório em todo login** — o atalho `OTP_DISABLED` só vale fora
+de produção (`if (!isProd && ...)` em `auth.routes.js`). A senha do síndico
+nunca foi o que protegia a conta; quem controla o e-mail entra de qualquer
+jeito. Ela só somava trabalho para o escritório e esquecimento para o cliente,
+e o sistema **não tem recuperação de senha em lugar nenhum**.
+
+Agora: o escritório cria o usuário com o e-mail (sem senha) e **o e-mail é a
+credencial**. Entrar é digitar o e-mail e o código de 6 dígitos que chega nele.
+
+- **`POST /auth/codigo`** (nova, `loginLimiter`): recebe só `email`, exige
+  `role = 'cliente'`, recusa condomínio encerrado, e devolve o **mesmo**
+  `{ pending, otp_token }` do login com senha — o segundo passo é o
+  `/auth/verify-otp` de sempre, sem fluxo paralelo para manter. Aparelho
+  confiável continua valendo: ali ela devolve o JWT direto.
+- **Resposta neutra:** e-mail desconhecido recebe o mesmo "enviamos", com um
+  `otp_token` apontando para ninguém (`id: null`). O código não casa e a
+  resposta é "Código inválido ou expirado". Sem isso o endpoint viraria um
+  verificador de quem é cliente da casa.
+- **Só cliente passa por lá.** Para qualquer outro papel seria um atalho que
+  dispensa a senha do admin.
+- **`POST /admin/usuarios`:** `senha` virou opcional para `role='cliente'` — e
+  o cliente nasce com bcrypt de **32 bytes aleatórios**. `usuarios.senha_hash`
+  continua `NOT NULL`: sem migration, sem coluna nova, e o login com senha
+  nunca casa para ele.
+- **Modal de usuário do admin:** o campo de senha some quando o tipo é Cliente,
+  substituído pela nota do código; a lista esconde o botão de resetar senha
+  para clientes (ele geraria uma senha temporária que ninguém usa e revogaria
+  os aparelhos confiáveis do síndico).
+- **`/login` ganhou dois modos na mesma placa:** "Sou do condomínio — entrar
+  sem senha" esconde o campo de senha (e tira o `required`, que travaria o
+  submit em silêncio) e troca o botão para "Receber o código". A equipe segue
+  com senha — para quem entra todo dia, código por login é pedágio.
+- **O cartão da página de orçamentos** virou e-mail → código, com o mesmo par
+  de rotas. O rodapé do login deixou de falar em "esqueceu a senha", que no
+  modo código não quer dizer nada.
+
+Efeito colateral que resolve um buraco antigo: **"esqueci a senha" deixa de
+existir** para o cliente. Não havia recuperação; agora não há o que recuperar.
+
+Cache-bust: `admin.js?v=314`, `admin.css?v=232`, `login.js?v=5`,
+`cliente-orcamentos.js?v=8`. Sem migration e sem bump de `CACHE_NAME`.
+
+### 2026-08-25 · A landing passa a reconhecer quem já entrou
+
+Relato do Pedro: clicar em "Ver como funciona" no painel do cliente leva para a
+landing, e lá o cabeçalho diz "Entrar" — parecia que o sistema tinha
+desconectado a pessoa. Não desconectava: a landing só nunca olhou a sessão.
+
+O botão agora vira **"Meu prédio"** (cliente) ou **"Meu painel"** (equipe),
+apontando para o painel do papel, e o "Acessar o sistema" do rodapé acompanha.
+Tudo local: o papel vem do `user` no `localStorage` e a validade do `exp` do
+próprio JWT — pendurar um `/auth/me` no carregamento de uma peça de venda por
+causa de um rótulo seria caro à toa. Token vencido, `localStorage` bloqueado ou
+JSON corrompido mantêm o "Entrar" de sempre, para não mandar ninguém a um
+painel que o devolveria ao login.
+
+Verificado nos três estados: sessão de cliente (vira "Meu prédio" →
+`/cliente/painel`), token expirado (volta a "Entrar" → `/login`) e sem sessão.
+
+Cache-bust: `landing.js?v=7`.
+
+### 2026-08-25 · O rodapé do painel para de repetir a marca
+
+Relato do Pedro: como a barra do topo é fixa, ao chegar no rodapé aparecem
+**duas marcas na mesma tela** — o wordmark em cima e o lockup completo embaixo.
+O lockup estava ali como "a única aparição do lockup com a assinatura",
+argumento que valia enquanto a barra rolasse junto com a página.
+
+Reorganizado com `/impeccable layout` (modo Operate). O rodapé do painel não
+fecha uma peça de venda como o da landing: ele devolve o **canal humano**, e
+agora é isso que lidera. Saiu o logo; entrou `.rodape-chamada` ("Prefere falar
+com a gente?") na âncora esquerda que era dele — sem ela o `space-between`
+deixaria os canais colados numa borda e um buraco na outra. A chamada é
+**secundária** de propósito (`--sobre-2`, peso 700) e os números subiram para
+1,1rem/700: quem lidera é o telefone, não a pergunta; em branco e 800 os dois
+pesavam igual. A frase ainda distingue este caminho do "Preciso de ajuda", que
+abre chamado dentro do sistema.
+
+A marca continua no rodapé — como **assinatura em texto** na `.rodape-fim`,
+entre o contexto da tela e o ano, que é o que uma assinatura de rodapé precisa
+ser. No celular ela desce para a própria linha.
+
+Verificado nas duas páginas que usam a folha (`/cliente/painel` e
+`/cliente/painel/orcamentos`), em 1440px e 412px; scan mecânico da skill
+(`--scope layout`) sem achados. **A landing manteve o lockup**: lá o rodapé
+fecha o argumento de venda, e a decisão é outra.
+
+Cache-bust: `cliente.css?v=41` nos dois HTMLs.
+
+### 2026-08-25 · A ficha "Sua conta" perde o que ficou sem função
+
+Consequência direta das duas mudanças do dia, apontada pelo Pedro: os
+orçamentos viraram ícone fixo na barra e o cliente deixou de ter senha — então
+a ficha "Sua conta" estava hospedando dois caminhos mortos.
+
+Saíram o link "Meus orçamentos" e o formulário "Trocar a senha". O formulário
+não era só redundante: para um síndico criado do jeito novo, a "senha atual"
+dele é o hash aleatório que ninguém conhece — ele **nunca** conseguiria
+completar a troca. No lugar entrou "Como você entra", uma linha explicando que
+não há senha para guardar e que o código chega no e-mail.
+
+Na sequência, o Pedro pediu o passo seguinte — **"não dá para colocar o botão
+de sair no cabeçalho?"** — e a ficha deixou de existir. A barra ficou com o
+nome de quem está logado (em `<span>`, não em botão: alvo que não leva a lugar
+nenhum ensina a duvidar dos outros alvos) e o **Sair** ao lado, com ícone de
+porta. No celular o nome some junto com os rótulos e sobra só o ícone.
+
+Saíram do front `#fConta`, `prepararConta()`, a chave `conta` do mapa `FICHAS`
+e a classe `.conta-link`. O `#btnSair` já era tratado pelo handler global de
+clique, então mudou de lugar sem mudar de lógica. Testado logado: o botão sai,
+limpa a sessão e cai no `/login`.
+
+`POST /cliente/trocar-senha` continua no backend, sem chamador: saiu a
+interface, não o dado — mesmo tratamento de `/admin/me/email-template`.
+`.conta-link` saiu do CSS por não ter mais uso, e o `trocarSenha()` e seu
+listener saíram do `cliente.js`. Verificado logado, sem erro no console.
+
+Cache-bust: `cliente.css?v=43`, `cliente.js?v=40`.
 
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e

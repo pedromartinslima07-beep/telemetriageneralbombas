@@ -90,6 +90,14 @@ status='aberto'` — garante 1 alerta aberto por device+tipo (upsert idempotente
 **`usuarios`** — `id`, `nome`, `email UNIQUE`, `senha_hash` (bcrypt), `role`,
 `condominio_id (FK SET NULL)`, `criado_em`, `telefone` (migration 001).
 
+> ⚠️ **`senha_hash` de `role='cliente'` é lixo criptográfico de propósito**
+> (25/08/2026). O síndico entra por e-mail + código, sem senha — mas a coluna
+> é `NOT NULL` e continua sendo: em vez de migration, o cliente nasce com o
+> bcrypt de 32 bytes aleatórios que ninguém conhece. Ou seja, **hash presente
+> não significa senha existente**: para cliente, o `/auth/login` com senha
+> nunca vai casar, e isso é o comportamento desejado. Ver
+> [modulos/autenticacao.md](modulos/autenticacao.md).
+
 > ⚠️ `condominio_id` é `ON DELETE SET NULL`: **apagar o condomínio não apaga o
 > login**. Sem tratamento, sobra uma credencial válida sem vínculo — a pessoa
 > autentica e o painel responde 403 "Cliente sem condomínio vinculado".

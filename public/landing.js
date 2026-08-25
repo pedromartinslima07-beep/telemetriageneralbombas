@@ -1,10 +1,11 @@
 // public/landing.js — landing pública (public/index.html)
 //
-// Quatro responsabilidades, sem dependência externa:
+// Cinco responsabilidades, sem dependência externa:
 //   1. revelação por corte (a máscara diagonal que varre placa e manchete);
 //   2. o instrumento do hero — roteiro de leituras simuladas;
 //   3. o diagrama do prédio ligado à lista de peças;
-//   4. envio do formulário para POST /leads.
+//   4. envio do formulário para POST /leads;
+//   5. o botão "Entrar" virar o painel de quem já tem sessão.
 //
 // O trilho preso ao scroll saiu junto com a linha do tempo da madrugada; o
 // listener de scroll ficou, porque é ele que cola a barra do topo.
@@ -322,6 +323,62 @@
         }
       });
     });
+  }
+
+  // ─── 5. Quem já entrou não precisa "entrar" de novo ──────────────────────
+  //
+  // ⚠️ A landing NÃO desconecta ninguém — ela só não sabia da sessão. Como é
+  // servida no mesmo domínio do painel, o `localStorage` está ali do lado; o
+  // botão dizia "Entrar" para quem estava logado, e quem clicava em "Ver como
+  // funciona" no painel do cliente caía aqui achando que tinha caído fora.
+  //
+  // Tudo local, sem rede: a landing é peça de venda e não deve pendurar uma
+  // chamada de API no carregamento por causa de um rótulo. O `exp` do JWT é
+  // lido do próprio token — sessão vencida volta a mostrar "Entrar", em vez de
+  // mandar a pessoa para um painel que a devolveria ao /login.
+  var PAINEL_POR_ROLE = {
+    admin: "/admin/painel",
+    gerente: "/admin/painel",
+    operador: "/admin/painel",
+    tecnico: "/tecnico/painel",
+    cliente: "/cliente/painel",
+  };
+
+  function sessaoAberta() {
+    try {
+      var token = localStorage.getItem("token");
+      var user = JSON.parse(localStorage.getItem("user") || "null");
+      if (!token || !user || !PAINEL_POR_ROLE[user.role]) return null;
+
+      // payload do JWT: segunda parte, base64url. Sem verificar assinatura —
+      // aqui isso não é autorização, é só evitar oferecer um painel morto.
+      var partes = token.split(".");
+      if (partes.length !== 3) return null;
+      var payload = JSON.parse(atob(partes[1].replace(/-/g, "+").replace(/_/g, "/")));
+      if (!payload.exp || payload.exp * 1000 <= Date.now()) return null;
+
+      return { destino: PAINEL_POR_ROLE[user.role], role: user.role };
+    } catch (e) {
+      // localStorage bloqueado, JSON corrompido, token de outro formato:
+      // qualquer tropeço mantém o "Entrar" de sempre.
+      return null;
+    }
+  }
+
+  var sessao = sessaoAberta();
+  if (sessao) {
+    var btn = document.getElementById("lpEntrar");
+    if (btn) {
+      // "Painel" é jargão de escritório; para o síndico o lugar chama-se
+      // "Meu prédio" — é o mesmo nome que a barra do painel dele usa.
+      btn.textContent = sessao.role === "cliente" ? "Meu prédio" : "Meu painel";
+      btn.href = sessao.destino;
+    }
+    var pe = document.getElementById("lpEntrarPe");
+    if (pe) {
+      pe.textContent = "Ir para o meu painel";
+      pe.href = sessao.destino;
+    }
   }
 
   var ano = document.getElementById("lpAno");

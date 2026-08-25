@@ -400,19 +400,38 @@ router.get("/usuarios", authRequired, adminOnly, async (req, res) => {
 });
 
 // POST /admin/usuarios — cria novo usuário
+// ⚠️ CLIENTE NÃO TEM SENHA (25/08/2026).
+// O síndico entra pelo código de 6 dígitos que chega no e-mail dele
+// (POST /auth/codigo) — em produção o OTP já era obrigatório em todo login,
+// então a senha nunca foi o que protegia a conta: era só mais uma coisa para
+// o escritório criar, mandar por e-mail (o pior lugar para uma senha estar) e
+// o síndico esquecer, sem ter recuperação nenhuma no sistema.
+//
+// `usuarios.senha_hash` é NOT NULL e continua sendo: em vez de mexer no
+// schema, o cliente nasce com um hash de 32 bytes aleatórios que ninguém
+// conhece — senha que não existe, sem coluna nova e sem migration. O
+// /auth/login com senha simplesmente nunca vai casar para ele.
+//
+// Usuário interno (admin, gerente, operador, técnico) segue com senha: essa
+// gente entra pelo painel todo dia, e o código a cada login seria pedágio.
 router.post("/usuarios", authRequired, masterAdminOnly, async (req, res) => {
   const bcrypt = require("bcrypt");
+  const crypto = require("crypto");
   const { nome, email, senha, role, condominio_id } = req.body || {};
-  if (!nome || !email || !senha) return res.status(400).json({ error: "nome, email e senha obrigatórios" });
+  const papel = role || "cliente";
   const ROLES = ["cliente", "admin", "gerente", "operador", "tecnico"];
-  if (role && !ROLES.includes(role)) return res.status(400).json({ error: "role inválido" });
+  if (!ROLES.includes(papel)) return res.status(400).json({ error: "role inválido" });
+  if (!nome || !email) return res.status(400).json({ error: "nome e email obrigatórios" });
+  if (papel !== "cliente" && !senha) {
+    return res.status(400).json({ error: "senha obrigatória para acesso interno" });
+  }
   try {
-    const hash = await bcrypt.hash(String(senha), 10);
+    const hash = await bcrypt.hash(String(senha || crypto.randomBytes(32).toString("hex")), 10);
     const result = await pool.query(
       `INSERT INTO usuarios (nome, email, senha_hash, role, condominio_id)
        VALUES ($1, $2, $3, $4, $5)
        RETURNING id, nome, email, role, criado_em`,
-      [nome, email.toLowerCase(), hash, role || "cliente", condominio_id || null]
+      [nome, email.toLowerCase(), hash, papel, condominio_id || null]
     );
     return res.status(201).json(result.rows[0]);
   } catch (err) {

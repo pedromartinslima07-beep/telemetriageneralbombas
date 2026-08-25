@@ -272,6 +272,22 @@ a { color: inherit; text-decoration: none; }
 .conta-orc { position: relative; }
 .conta svg { width: 17px; height: 17px; stroke: currentColor; fill: none; stroke-width: 1.6; }
 
+/* Quem está logado. É TEXTO, não alvo: um botão que não leva a lugar nenhum
+   ensina a duvidar dos outros alvos da barra. Some no celular junto com os
+   rótulos — lá a barra é só ícone, e o nome do síndico não é o que ele
+   precisa ler no aparelho dele. */
+.barra-eu {
+  font-size: .95rem; color: var(--sobre-2);
+  padding: 7px 2px; position: relative; top: 1px;
+  max-width: 22ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.barra-eu:empty { display: none; }
+
+/* Sair não é ação de rotina: fica em tom secundário e só ganha ênfase no
+   hover. Vermelho aqui puxaria o olho o tempo todo para a única coisa da
+   barra que a pessoa não veio fazer. */
+.conta-sair:hover { color: #fff; }
+
 
 /* ════════════════════════════════════════════════════════════════════════
    4. A RESPOSTA — ocupa a primeira tela
@@ -866,8 +882,16 @@ body[data-estado="semtel"] .relatorio { display: none; }
    6. O RODAPÉ
    ────────────────────────────────────────────────────────────────────────
    Fecha o bloco e devolve o canal humano: o painel abre chamado, mas quem
-   quiser falar liga. É a ÚNICA aparição do lockup completo (com a
-   assinatura), em tamanho que a deixa legível.
+   quiser falar liga. É isso que ele oferece, e por isso é isso que lidera.
+
+   ⚠️ O LOCKUP SAIU DAQUI EM 25/08/2026, e o motivo é estrutural. Ele existia
+   como "a única aparição do lockup completo" — argumento que valia enquanto a
+   barra do topo rolava junto com a página. Ela é FIXA: ao chegar no rodapé, a
+   pessoa via o wordmark em cima e o lockup embaixo ao mesmo tempo, duas marcas
+   competindo e nenhuma liderando (relato do Pedro). A marca continua presente,
+   como assinatura em TEXTO na `.rodape-fim` — o que uma assinatura de rodapé
+   precisa ser. Se algum dia a barra deixar de ser fixa, isto pode ser
+   reaberto; enquanto ela for, não.
    ⚠️ Contatos são os reais do index.html. A landing já teve um `wa.me`
    fabricado como bug — não inventar número.
    ════════════════════════════════════════════════════════════════════════ */
@@ -881,17 +905,25 @@ body[data-estado="semtel"] .relatorio { display: none; }
   display: flex; align-items: center; justify-content: space-between;
   gap: clamp(20px, 3vw, 44px); flex-wrap: wrap;
 }
-/* ⚠️ 72px é o número da landing, e é o mínimo em que a assinatura
-   "ENGENHARIA DA MANUTENÇÃO" lê: ela ocupa ~9,4% da altura do PNG. O
-   `margin-block` negativo tira da linha os 41% de transparência do
-   arquivo, para o rodapé não inchar. */
-.rodape-logo { height: 72px; width: auto; flex: 0 0 auto; margin-block: -11px; }
+/* A âncora esquerda que era do logo. Não é título de seção decorativo: é a
+   frase que diz o que os três canais ao lado servem para fazer — e distingue
+   este caminho do "Preciso de ajuda", que abre chamado dentro do sistema.
+   Corpo de placa (ui-placa), não de manchete: o rodapé não disputa com a tela. */
+/* Secundária de propósito: quem lidera este rodapé é o NÚMERO, não a
+   pergunta. Em branco e 800 os dois pesavam igual e o olho não sabia por onde
+   começar. */
+.rodape-chamada {
+  font-size: 1rem; font-weight: 700; letter-spacing: -.01em;
+  color: var(--sobre-2); flex: 0 0 auto; margin: 0;
+}
+/* Os canais mantêm-se AGRUPADOS (gap com teto) em vez de esticar até as bordas:
+   espalhados pela largura do rodapé eles deixariam de ler como um bloco só. */
 .rodape-contato { margin: 0; display: flex; gap: clamp(18px, 2.8vw, 40px); flex-wrap: wrap; }
 .rodape-contato dt {
   font-family: var(--mono); font-size: .6rem; letter-spacing: .15em;
   text-transform: uppercase; color: var(--sobre-2); margin-bottom: 6px;
 }
-.rodape-contato dd { margin: 0; font-size: 1.04rem; font-weight: 600; }
+.rodape-contato dd { margin: 0; font-size: 1.1rem; font-weight: 700; }
 .rodape-contato dd a {
   color: inherit; border-bottom: 1px solid var(--fio); padding-bottom: 2px;
   transition: color .2s ease, border-color .2s ease;
@@ -900,9 +932,13 @@ body[data-estado="semtel"] .relatorio { display: none; }
 .rodape-fim { border-top: 1px solid var(--fio-fraco); }
 .rodape-fim > div {
   max-width: var(--area-max); margin-inline: auto; padding: 13px var(--gut) 15px;
-  display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+  display: flex; justify-content: space-between; gap: 8px 16px; flex-wrap: wrap;
   font-size: .86rem; color: var(--sobre-2);
 }
+/* A marca, agora em texto. Fica no meio de propósito: as pontas são o contexto
+   da tela e o ano, que é onde o olho vai; a assinatura é reconhecimento, não
+   informação de leitura. No celular ela desce para a própria linha. */
+.rodape-assina { flex: 1 1 auto; text-align: center; }
 
 
 /* ════════════════════════════════════════════════════════════════════════
@@ -1232,6 +1268,8 @@ body[data-estado="carregando"] .frase { color: var(--sobre-2); }
     position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
     overflow: hidden; clip-path: inset(50%); white-space: nowrap;
   }
+  /* o nome sai de cena no celular: a barra vira ícone, e ele não cabe */
+  .barra-eu { display: none; }
 
   /* Sem rótulo, o selo não pode continuar em linha: com `gap: 0` ele
      encostaria no ícone e viraria borrão. Vai para o canto, como distintivo,
@@ -1251,9 +1289,10 @@ body[data-estado="carregando"] .frase { color: var(--sobre-2); }
   .dia-rot { margin-top: 0; font-size: .66rem; }
   .fala .quem, .rot-limiar, .ficha-topo .id, .etiqueta, .rodape-contato dt { font-size: .66rem; }
 
-  .rodape-in { flex-direction: column; align-items: flex-start; gap: 20px; }
-  .rodape-logo { height: 64px; margin-block: -10px; }
+  .rodape-in { flex-direction: column; align-items: flex-start; gap: 14px; }
   .rodape-contato { gap: 16px 26px; }
+  /* Empilhada, a assinatura no centro leria como item de lista fora de lugar. */
+  .rodape-assina { flex: 1 0 100%; order: 3; text-align: left; }
 
   /* ⚠️ `place-items:stretch` sozinho não segura: a linha do grid dimensiona
      pelo CONTEÚDO, e a ficha ficava com 1013px num viewport de 744,
@@ -1747,17 +1786,10 @@ body[data-estado="carregando"] .frase { color: var(--sobre-2); }
 .orcs-vazio h2 { font-size: 1.24rem; font-weight: 800; color: #fff; letter-spacing: -.018em; }
 .orcs-vazio p { margin-top: 8px; font-size: .98rem; color: var(--sobre-2); max-width: 46ch; }
 
-/* ── O caminho permanente, na ficha "Sua conta" do painel ───────────────── */
-.conta-link {
-  display: flex; align-items: center; justify-content: space-between; gap: 10px;
-  width: 100%; padding: 14px 16px; margin-bottom: 14px;
-  background: #fff; border: none; cursor: pointer;
-  font: inherit; font-weight: 600; color: var(--tinta);
-  box-shadow: inset 0 0 0 1.5px var(--fio-esc);
-  --ch: 10px; clip-path: var(--corte);
-}
-.conta-link:hover { box-shadow: inset 0 0 0 1.5px rgba(6, 16, 51, .36); }
-.conta-link svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; flex-shrink: 0; }
+/* ⚠️ `.conta-link` foi removida em 25/08/2026 junto com o "Meus orçamentos"
+   da ficha "Sua conta" — o caminho para os orçamentos virou ícone permanente
+   na barra do topo, que é onde ele sempre devia ter estado. Não havia outro
+   uso da classe. */
 
 @media (max-width: 760px) {
   .orc-item, .orc-doc, .orcs-vazio { --ch: 12px; }

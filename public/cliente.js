@@ -19,7 +19,6 @@
      POST /cliente/chamados/:id/avaliar     · nota + comentário
      POST /cliente/chamados        · abrir (categoria + descrição)
      GET  /cliente/historico       · gráfico da ficha do reservatório
-     POST /cliente/trocar-senha
      GET  /relatorio/pdf           · ⚠️ exige device_id
    ════════════════════════════════════════════════════════════════════════ */
 
@@ -677,9 +676,11 @@ async function lerAvaliacoes() {
    devolve para ela.
    ════════════════════════════════════════════════════════════════════════ */
 
+// ⚠️ `conta: "fConta"` saiu em 25/08/2026 — a ficha "Sua conta" deixou de
+// existir: o nome de quem está logado e o "Sair" foram para a barra do topo.
 const FICHAS = {
   ajuda: "fAjuda", chamado: "fChamado", todos: "fTodos",
-  reservatorio: "fReservatorio", conta: "fConta",
+  reservatorio: "fReservatorio",
 };
 
 let _origem = null;
@@ -706,7 +707,6 @@ function abrir(chave, ctx = {}) {
   if (chave === "chamado")      abrirChamado(ctx.chamado);
   if (chave === "todos")        prepararTodos(ctx.modo || "ver");
   if (chave === "reservatorio") abrirReservatorio(ctx.device);
-  if (chave === "conta")        prepararConta();
 }
 
 function esconderTodas() {
@@ -1074,46 +1074,6 @@ async function baixarPDF(deviceId, dias, btn, msgEl) {
   }
 }
 
-/* ─── Ficha: sua conta ────────────────────────────────────────────────── */
-
-function prepararConta() {
-  const u = usuarioLocal();
-  $("fContaId").textContent = _status?.condominio?.nome ? `Síndico · ${_status.condominio.nome}` : "Síndico";
-  $("contaEmail").textContent = u.email || u.nome || "Sua conta";
-  $("senhaAtual").value = ""; $("senhaNova").value = ""; $("senhaNova2").value = "";
-  $("senhaMsg").textContent = "";
-  $("senhaMsg").className = "ficha-msg";
-}
-
-async function trocarSenha(ev) {
-  ev.preventDefault();
-  const msg = $("senhaMsg");
-  const atual = ($("senhaAtual").value || "").trim();
-  const nova  = ($("senhaNova").value || "").trim();
-  const nova2 = ($("senhaNova2").value || "").trim();
-
-  msg.className = "ficha-msg ruim";
-  if (!atual || !nova || !nova2) { msg.textContent = "Preencha os três campos."; return; }
-  if (nova.length < 6)           { msg.textContent = "A nova senha precisa de pelo menos 6 caracteres."; return; }
-  if (nova !== nova2)            { msg.textContent = "A confirmação não confere com a nova senha."; return; }
-
-  msg.className = "ficha-msg";
-  msg.textContent = "Salvando…";
-  try {
-    const r = await pedir("/cliente/trocar-senha", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ senha_atual: atual, senha_nova: nova }),
-    });
-    if (!r.ok) throw new Error(await erroDe(r));
-    msg.className = "ficha-msg bom";
-    msg.textContent = "Senha alterada. Você continua conectado.";
-    $("senhaAtual").value = ""; $("senhaNova").value = ""; $("senhaNova2").value = "";
-  } catch (e) {
-    msg.className = "ficha-msg ruim";
-    msg.textContent = e.message;
-  }
-}
 
 /* ════════════════════════════════════════════════════════════════════════
    4. CARGA
@@ -1122,7 +1082,9 @@ async function trocarSenha(ev) {
 function identidade() {
   const u = usuarioLocal();
   $("nomePredio").textContent = _status?.condominio?.nome || "Meu prédio";
-  $("nomeSindico").textContent = u.nome ? `${u.nome} — sua conta` : "Sua conta";
+  // Só o nome: o "— sua conta" era o rótulo de um botão que abria a ficha, e
+  // a ficha não existe mais. Aqui isto é identificação, não caminho.
+  $("nomeSindico").textContent = u.nome || "";
   $("rodapeLinha").textContent = _status?.condominio?.nome
     ? `Painel do síndico · ${_status.condominio.nome}`
     : "Painel do síndico";
@@ -1242,8 +1204,6 @@ document.addEventListener("click", ev => {
 document.addEventListener("keydown", ev => {
   if (ev.key === "Escape" && fichaAberta()) voltar();
 });
-
-$("formSenha")?.addEventListener("submit", trocarSenha);
 
 // Enter envia a mensagem do chamado; Shift+Enter quebra linha
 document.addEventListener("keydown", ev => {

@@ -37,10 +37,12 @@ function authHeaders() {
    o login acontece POR CIMA da própria página: a URL com `?orc=N` continua
    na barra, e fechar o cartão já é estar no documento.
 
-   O fluxo é o mesmo do login.js, porque o backend é o mesmo: POST
-   /auth/login devolve o token direto (OTP desligado) ou `pending` +
-   `otp_token`, e aí vem o segundo passo em /auth/verify-otp. O aparelho
-   confiável viaja em cookie de mesma origem — não precisa de nada aqui. */
+   ⚠️ SEM SENHA (25/08/2026). O síndico não tem senha: quem cria o acesso é o
+   escritório, no admin, com o e-mail dele. Daqui em diante o e-mail é a
+   credencial — POST /auth/codigo manda os 6 dígitos e POST /auth/verify-otp
+   (o mesmo do login com senha) troca o código pelo JWT. O aparelho confiável
+   viaja em cookie de mesma origem: no aparelho lembrado, o /auth/codigo já
+   devolve a sessão e o cartão nem chega a pedir o código. */
 
 let _entradaAberta = false;
 let _otpToken = null;
@@ -55,7 +57,7 @@ function _entradaMsg(texto, ehErro) {
 }
 
 function _entradaPasso(qual) {
-  _el("entradaForm").hidden    = qual !== "senha";
+  _el("entradaForm").hidden    = qual !== "email";
   _el("entradaOtpForm").hidden = qual !== "codigo";
 }
 
@@ -76,7 +78,7 @@ function pedirEntrada(motivo) {
     if (elApoio) elApoio.textContent = "Entre para ver o orçamento do seu prédio.";
     setTimeout(() => _el("entradaEmail")?.focus(), 60);
   }
-  _entradaPasso("senha");
+  _entradaPasso("email");
   _otpToken = null;
   _entradaMsg(motivo || "", Boolean(motivo));
 }
@@ -97,14 +99,14 @@ async function _concluirEntrada(data) {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     _entradaMsg("Esta conta é do painel interno da General, não do seu prédio. Entre com o acesso do condomínio.", true);
-    _entradaPasso("senha");
+    _entradaPasso("email");
     return;
   }
   if (!user.condominio_id) {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     _entradaMsg("Seu usuário ainda não está vinculado a um prédio. Fale com a gente que liberamos.", true);
-    _entradaPasso("senha");
+    _entradaPasso("email");
     return;
   }
   localStorage.setItem("token", data.token);
@@ -122,28 +124,32 @@ function _bindEntrada() {
   form.addEventListener("submit", async (ev) => {
     ev.preventDefault();
     const email = _el("entradaEmail").value.trim();
-    const senha = _el("entradaSenha").value;
     const btn   = _el("entradaBtn");
-    if (!email || !senha) {
-      _entradaMsg("Preencha o e-mail e a senha.", true);
-      return;
-    }
+    if (!email) { _entradaMsg("Digite o seu e-mail.", true); return; }
+
     btn.disabled = true;
-    _entradaMsg("Entrando…");
+    _entradaMsg("Enviando o código…");
     try {
-      const r = await fetch("/auth/login", {
+      const r = await fetch("/auth/codigo", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, senha }),
+        body: JSON.stringify({ email }),
       });
       const data = await r.json().catch(() => ({}));
-      if (!r.ok) { _entradaMsg(data.error || "E-mail ou senha incorretos.", true); return; }
+      if (!r.ok) { _entradaMsg(data.error || "Não consegui enviar o código.", true); return; }
 
+      // Aparelho já lembrado: o servidor devolve a sessão direto.
       if (data.token) { await _concluirEntrada(data); return; }
 
       if (data.pending) {
         _otpToken = data.otp_token;
         _entradaPasso("codigo");
+        // ⚠️ A resposta é neutra: e-mail não cadastrado recebe o mesmo
+        // "enviamos". Dizer "esse e-mail não existe" transformaria a tela num
+        // verificador de quem é cliente da casa. Quem errou o e-mail descobre
+        // no passo seguinte, e a linha do WhatsApp está logo abaixo.
+        const intro = _el("entradaOtpIntro");
+        if (intro) intro.textContent = `Enviamos um código de 6 dígitos para ${email}.`;
         _entradaMsg("");
         const campo = _el("entradaOtpCode");
         campo.value = "";
@@ -181,12 +187,13 @@ function _bindEntrada() {
     }
   });
 
+  // Voltar serve para corrigir o e-mail digitado errado — que é o motivo nº 1
+  // de o código "não chegar".
   _el("entradaOtpVoltar").addEventListener("click", () => {
     _otpToken = null;
-    _entradaPasso("senha");
+    _entradaPasso("email");
     _entradaMsg("");
-    _el("entradaSenha").value = "";
-    setTimeout(() => _el("entradaSenha").focus(), 60);
+    setTimeout(() => _el("entradaEmail").focus(), 60);
   });
 }
 
@@ -501,7 +508,11 @@ async function abrir(id) {
                procura o arquivo procura um lugar, não um botão. -->
           <section class="orc-sec">
             <h3>Documentos</h3>
-            <p class="orc-sec-apoio">O mesmo documento que foi anexado no e-mail.</p>
+            <!-- ⚠️ NÃO DIZER "o mesmo que foi anexado no e-mail" (era o texto
+                 até 25/08/2026). Desde que o e-mail passou a levar o link em
+                 vez do anexo, o PDF só existe aqui — a frase mandava a pessoa
+                 procurar na caixa de entrada um arquivo que não foi. -->
+            <p class="orc-sec-apoio">O orçamento completo, com timbrado, para guardar ou imprimir.</p>
             <button class="orc-doclinha" type="button" data-pdf="${o.id}">
               <svg viewBox="0 0 24 24" stroke-linecap="square" aria-hidden="true"><path d="M14 3H7v18h11V7l-4-4z"/><path d="M14 3v4h4"/></svg>
               <span>
@@ -579,7 +590,9 @@ async function responder(id, decisao) {
 }
 
 /* ── PDF ────────────────────────────────────────────────────────────────
-   O mesmo documento que foi anexado no e-mail. Vem por fetch porque a rota
+   O orçamento completo em PDF — que desde 25/08/2026 NÃO vai mais anexado no
+   e-mail: o e-mail leva o link para cá, e o documento é gerado sob demanda
+   nesta tela. Vem por fetch porque a rota
    exige o Bearer; o blob é entregue como download, e não em aba nova, porque
    `window.open` depois de um `await` cai no bloqueador de pop-up do celular
    — que é justamente onde o link do e-mail costuma ser aberto. */

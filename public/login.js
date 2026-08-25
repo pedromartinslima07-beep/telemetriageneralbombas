@@ -128,10 +128,54 @@ function _abortarLogin(msg) {
   localStorage.removeItem("user");
   _mostrarPasso("login");
   _otpToken = null;
+  if (typeof _aplicarModo === "function") _aplicarModo();
   showError(msg);
 }
 
-// --- Passo 1: email + senha ---
+/* ── Dois modos na mesma placa ──────────────────────────────────────────
+   ⚠️ O CLIENTE NÃO TEM SENHA (25/08/2026). Quem cria o acesso do síndico é o
+   escritório, no admin, com o e-mail dele; daí em diante o e-mail é a
+   credencial e o código de 6 dígitos é a prova. Em produção o código já era
+   exigido em TODO login (`if (!isProd && OTP_DISABLED)` em auth.routes.js),
+   então a senha nunca foi o que protegia essa conta — era só mais uma coisa
+   para criar, mandar por e-mail e ele esquecer, sem recuperação nenhuma.
+
+   A equipe interna continua com senha: essa gente entra todo dia, e um
+   código por login seria pedágio. Por isso são dois modos e não uma troca —
+   e o `/auth/codigo` recusa quem não for `cliente`, para não virar um atalho
+   que dispensa a senha do admin.
+
+   O segundo passo (o código) é o MESMO nos dois caminhos. */
+let _modoCodigo = false;
+
+const campoSenha  = document.getElementById("campoSenha");
+const senhaInput  = document.getElementById("senha");
+const loginBtn    = document.getElementById("loginBtn");
+const modoToggle  = document.getElementById("modoToggle");
+const placaSub    = document.getElementById("placaSub");
+
+function _aplicarModo() {
+  campoSenha.hidden   = _modoCodigo;
+  // `required` num campo escondido trava o submit sem mostrar o porquê.
+  senhaInput.required = !_modoCodigo;
+  loginBtn.textContent = _modoCodigo ? "Receber o código" : "Entrar";
+  placaSub.textContent = _modoCodigo
+    ? "Digite o e-mail cadastrado do seu prédio. A gente manda um código de 6 dígitos."
+    : "Entre com seu e-mail e senha.";
+  modoToggle.textContent = _modoCodigo
+    ? "Sou da equipe — entrar com senha"
+    : "Sou do condomínio — entrar sem senha";
+}
+
+modoToggle?.addEventListener("click", () => {
+  _modoCodigo = !_modoCodigo;
+  clearError();
+  _aplicarModo();
+  document.getElementById("email").focus();
+});
+_aplicarModo();
+
+// --- Passo 1: email (+ senha, no modo da equipe) ---
 loginForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   clearError();
@@ -140,11 +184,17 @@ loginForm.addEventListener("submit", async (e) => {
   const senha = document.getElementById("senha").value;
 
   try {
-    const res  = await fetch("/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, senha }),
-    });
+    const res = _modoCodigo
+      ? await fetch("/auth/codigo", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email }),
+        })
+      : await fetch("/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, senha }),
+        });
     const data = await res.json();
 
     if (!res.ok) {
@@ -213,4 +263,5 @@ otpBack.addEventListener("click", () => {
   clearError();
   _otpToken = null;
   _mostrarPasso("login");
+  _aplicarModo();
 });

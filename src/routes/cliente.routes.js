@@ -1001,7 +1001,10 @@ router.post("/orcamentos/:id/responder", authRequired, clienteOnly, async (req, 
   }
 });
 
-// GET /cliente/orcamentos/:id/pdf — o mesmo PDF que foi anexado no e-mail
+// GET /cliente/orcamentos/:id/pdf — o documento completo, gerado sob demanda.
+// ⚠️ Desde 25/08/2026 este é o ÚNICO lugar de onde o PDF sai para o cliente:
+// o e-mail de orçamento leva o link desta tela em vez do anexo. Ver
+// sendOrcamentoCliente em src/services/email.js.
 router.get("/orcamentos/:id/pdf", authRequired, clienteOnly, async (req, res) => {
   const condominioId = Number(req.user.condominio_id);
   const id = Number(req.params.id);

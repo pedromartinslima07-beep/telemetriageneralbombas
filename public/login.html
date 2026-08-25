@@ -56,7 +56,7 @@ empresa no meio do caminho.
   <section class="forma-lado">
     <div class="placa">
       <h1>Entrar</h1>
-      <p class="placa-sub">Entre com seu e-mail e senha.</p>
+      <p class="placa-sub" id="placaSub">Entre com seu e-mail e senha.</p>
 
       <form id="loginForm">
         <div class="campo">
@@ -64,13 +64,22 @@ empresa no meio do caminho.
           <input type="email" id="email" placeholder="seu@email.com" required autocomplete="email" />
         </div>
 
-        <div class="campo">
+        <!-- ⚠️ O CAMPO DE SENHA SOME NO MODO CÓDIGO (25/08/2026).
+             O síndico não tem senha: quem cria o acesso dele é o escritório,
+             com o e-mail, e a entrada é um código de 6 dígitos. A equipe
+             interna continua com senha — para ela, código a cada login seria
+             pedágio diário. -->
+        <div class="campo" id="campoSenha">
           <label for="senha">Senha</label>
           <input type="password" id="senha" placeholder="••••••••" required autocomplete="current-password" />
         </div>
 
-        <button type="submit" class="btn btn-amarelo">Entrar</button>
+        <button type="submit" class="btn btn-amarelo" id="loginBtn">Entrar</button>
       </form>
+
+      <!-- A porta do cliente. Fica fora do <form> para não virar um segundo
+           submit; alterna o modo da mesma placa em vez de abrir outra tela. -->
+      <button type="button" id="modoToggle" class="btn btn-fio">Sou do condomínio — entrar sem senha</button>
 
       <!-- ⚠️ `hidden`, não `style="display:none"`. O login.js alternava
            `style.display` entre "none" e "block", e o "block" sobrescrevia o
@@ -99,7 +108,10 @@ empresa no meio do caminho.
       <p id="erroMsg" class="erro" role="status" aria-live="polite"></p>
 
       <p class="placa-pe">
-        Esqueceu a senha ou não consegue entrar?
+        <!-- Serve aos dois modos: no modo código não existe senha para
+             esquecer, e o motivo nº 1 de não entrar passa a ser e-mail
+             cadastrado errado — que também se resolve por aqui. -->
+        Não consegue entrar?
         <a href="https://wa.me/5511966536110">Fale com a gente no WhatsApp</a>
       </p>
     </div>
@@ -107,7 +119,7 @@ empresa no meio do caminho.
 
 </div>
 
-  <script src="/static/login.js?v=4"></script>
+  <script src="/static/login.js?v=5"></script>
   <script src="/static/register-sw.js?v=39" defer></script>
 </body>
 </html>

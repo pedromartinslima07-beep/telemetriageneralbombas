@@ -899,3 +899,13 @@ desenho em camadas original continua válido.
   documento específico, a autenticação entra por cima dele, nunca no lugar
   dele.** Vale para 401 no meio do caminho também — reabrir o cartão preserva
   o que a pessoa estava fazendo; redirecionar joga fora.
+- **A senha do síndico não protegia nada, e custava caro (2026-08-25).** Em
+  produção o OTP por e-mail já era exigido em **todo** login — o atalho
+  `OTP_DISABLED` só vale fora de produção. Ou seja, quem controla o e-mail do
+  síndico sempre entrou, com ou sem senha; ela só somava um segredo para o
+  escritório criar, mandar por e-mail e o cliente esquecer, num sistema que
+  **não tem recuperação de senha**. O cliente passou a entrar só com e-mail +
+  código. A regra que fica: **antes de melhorar como um segredo é distribuído,
+  conferir se ele ainda está protegendo alguma coisa** — aqui a resposta era
+  não, e a melhoria virou remoção. Usuário interno manteve senha porque entra
+  todo dia e ali o código a cada login seria pedágio, não proteção.

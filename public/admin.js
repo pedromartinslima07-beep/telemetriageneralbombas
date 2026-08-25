@@ -9773,9 +9773,12 @@ function _cfgRenderUsuarios() {
           <button class="btn btn-sm cfg-icon-btn" data-cfg-action="dispositivos-usuario" data-id="${u.id}" title="Dispositivos confiáveis">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
           </button>
-          <button class="btn btn-sm cfg-icon-btn" data-cfg-action="reset-senha" data-id="${u.id}" title="Resetar senha">
+          <!-- Cliente não tem senha para resetar: ele entra pelo código que
+               chega no e-mail. Deixar o cadeado aqui geraria a senha
+               temporária que ninguém usa e revogaria os aparelhos dele. -->
+          ${u.role !== "cliente" ? `<button class="btn btn-sm cfg-icon-btn" data-cfg-action="reset-senha" data-id="${u.id}" title="Resetar senha">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-          </button>
+          </button>` : ""}
           ${u.id !== meId ? `<button class="btn btn-sm cfg-icon-btn" data-cfg-action="remover-usuario" data-id="${u.id}" title="Remover usuário" style="color:#f87171;border-color:rgba(248,113,113,.25);">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
           </button>` : ''}
@@ -9887,14 +9890,27 @@ async function _cfgAbrirModalUsuario(usuario) {
         </div>
       </div>
 
-      <!-- 3. Senha (apenas criação) -->
+      <!-- 3. Acesso (apenas criação) — duas telas conforme o tipo.
+           ⚠️ CLIENTE NÃO TEM SENHA (25/08/2026): o síndico entra pelo código
+           de 6 dígitos que chega no e-mail dele. Em produção o código já era
+           exigido em TODO login, então a senha nunca foi o que protegia a
+           conta — era só mais uma coisa para criar, mandar por e-mail e ele
+           esquecer, sem recuperação nenhuma no sistema. -->
       ${!isEdit ? `
-      <div>
+      <div id="mdSecSenha" style="display:${isCliente || !initialRole ? "none" : ""};">
         <div class="modal-sec-title">Acesso</div>
         <div class="field">
           <span class="lbl">Senha inicial</span>
           <input id="mdUsrSenha" class="input" type="text" placeholder="Mínimo 6 caracteres">
         </div>
+      </div>
+      <div id="mdSecCodigo" style="display:${isCliente ? "" : "none"};">
+        <div class="modal-sec-title">Acesso</div>
+        <p class="hint" style="line-height:1.6;">
+          Sem senha: o cliente entra com o e-mail acima e um código de 6
+          dígitos que a gente manda para ele na hora de entrar. Confira se o
+          e-mail está certo — é ele que abre a porta.
+        </p>
       </div>` : ""}
 
       <div id="mdUsrMsg" class="cfg-msg"></div>
@@ -9923,6 +9939,12 @@ async function _cfgAbrirModalUsuario(usuario) {
       if (secColab)   secColab.style.display   = "none";
       if (secCliente) secCliente.style.display = "none";
     }
+    // Senha só para acesso interno; cliente vê a nota do código.
+    const secSenha  = document.getElementById("mdSecSenha");
+    const secCodigo = document.getElementById("mdSecCodigo");
+    const ehCliente = this.value === "cliente";
+    if (secSenha)  secSenha.style.display  = (!this.value || ehCliente) ? "none" : "";
+    if (secCodigo) secCodigo.style.display = ehCliente ? "" : "none";
   });
 
   // Ao selecionar condomínio (cliente): preenche nome/email do responsável
@@ -9969,11 +9991,18 @@ async function _cfgSalvarUsuario(id) {
     role,
     condominio_id: isCliente ? (document.getElementById("mdUsrCondo")?.value || null) : null,
   };
-  if (!id) payload.senha = document.getElementById("mdUsrSenha")?.value;
+  // Cliente não manda senha: o backend grava um hash aleatório e a entrada
+  // dele é o código no e-mail. Ver POST /admin/usuarios.
+  if (!id && !isCliente) payload.senha = document.getElementById("mdUsrSenha")?.value;
 
   if (!payload.role) return _cfgMostrarMsg("mdUsrMsg", "Selecione o tipo de acesso", "err");
   if (!payload.nome || !payload.email) return _cfgMostrarMsg("mdUsrMsg", "Nome e email obrigatórios", "err");
-  if (!id && (!payload.senha || payload.senha.length < 6)) return _cfgMostrarMsg("mdUsrMsg", "Senha mínima de 6 caracteres", "err");
+  if (!id && !isCliente && (!payload.senha || payload.senha.length < 6)) {
+    return _cfgMostrarMsg("mdUsrMsg", "Senha mínima de 6 caracteres", "err");
+  }
+  if (isCliente && !payload.condominio_id) {
+    return _cfgMostrarMsg("mdUsrMsg", "Selecione o condomínio do cliente", "err");
+  }
 
   const tecnicoSelecionadoId = !id ? (Number(document.getElementById("mdUsrColaborador")?.value) || null) : null;
 

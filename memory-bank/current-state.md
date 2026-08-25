@@ -339,6 +339,10 @@ registrava era o escritório.
 - ⚠️ **A página não pode morar em `/cliente/orcamentos`**: as rotas de página
   são registradas antes do `app.use("/cliente", ...)` e ela sombrearia o `GET`
   da API de mesmo nome. Página é nome de tela, API é nome de recurso.
+- ✅ **O cliente entra SEM SENHA** desde 25/08/2026 — e-mail + código de 6
+  dígitos (`POST /auth/codigo` → `POST /auth/verify-otp`). O escritório cria o
+  usuário com o e-mail, e o e-mail vira a credencial. Equipe interna segue com
+  senha. Ver [../docs/modulos/autenticacao.md](../docs/modulos/autenticacao.md).
 - ✅ **O login da tela de orçamentos é um cartão na própria página** desde
   25/08/2026 — não redireciona mais para `/login`. A URL com `?orc=N` fica na
   barra e o 401 no meio do caminho reabre o cartão. `GET /cliente/orcamentos`

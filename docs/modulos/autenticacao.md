@@ -11,9 +11,53 @@ aliases:
 
 Login com 2FA por email (OTP) e dispositivos confiáveis.
 
+## Duas portas: senha (equipe) e código (cliente)
+
+⚠️ **O cliente não tem senha — 25/08/2026.** Quem cria o acesso do síndico é o
+escritório, no admin, com o e-mail dele; a partir daí **o e-mail é a
+credencial** e o código de 6 dígitos é a prova.
+
+O motivo é uma constatação sobre o que já existia: em produção o OTP era
+**obrigatório em todo login** (`if (!isProd && OTP_DISABLED)` — o atalho só
+vale fora de produção). Ou seja, a senha do síndico nunca foi o que protegia a
+conta: quem controla o e-mail entra de qualquer jeito. Ela só somava trabalho —
+alguém criava, mandava por e-mail (o pior lugar para uma senha estar), e o
+síndico esquecia. **E não há recuperação de senha em lugar nenhum do sistema**,
+então esquecer significava depender do escritório.
+
+| | Equipe interna | Cliente (síndico) |
+|---|---|---|
+| Entra com | e-mail + senha, depois código | e-mail, depois código |
+| Rota do passo 1 | `POST /auth/login` | `POST /auth/codigo` |
+| Passo 2 | `POST /auth/verify-otp` | **o mesmo** `POST /auth/verify-otp` |
+| `usuarios.senha_hash` | bcrypt da senha escolhida | bcrypt de 32 bytes aleatórios |
+
+⚠️ **`/auth/codigo` só atende `role = 'cliente'`.** Se atendesse qualquer um,
+seria um atalho que dispensa a senha do admin — quem tem senha continua
+obrigado a digitá-la.
+
+⚠️ **A resposta de `/auth/codigo` é neutra.** E-mail que não existe (ou que não
+é de cliente) recebe o mesmo `{ pending: true }`, com um `otp_token` que aponta
+para ninguém (`id: null`); o código digitado depois não casa e a resposta é
+"Código inválido ou expirado", igual à de um código errado. Sem isso, o
+endpoint vira um verificador de quais e-mails são clientes da casa.
+
+⚠️ **`usuarios.senha_hash` continua `NOT NULL`** — não houve migration. O
+cliente nasce com o hash de 32 bytes aleatórios que ninguém conhece: uma senha
+que não existe, sem coluna nova. O `/auth/login` com senha nunca vai casar para
+ele.
+
+Na interface: o modal de usuário do admin esconde o campo de senha quando o
+tipo é Cliente (e a lista esconde o botão de resetar senha, que para ele não
+significa nada), e a tela `/login` tem o botão **"Sou do condomínio — entrar
+sem senha"**, que troca o modo da mesma placa. O cartão de entrada da página de
+orçamentos usa o mesmo par de rotas — ver
+[painel-cliente.md](painel-cliente.md).
+
 ## Passo a passo
 
 1. **`POST /auth/login`** (`loginLimiter`) — recebe `email` + `senha`.
+   **Equipe interna.** Cliente não passa por aqui: ele não tem senha que case.
    - Valida senha com bcrypt contra `usuarios.senha_hash`.
    - Se o request traz cookie de **trusted device** válido (`trusted_devices`,
      não expirado), pode pular o OTP e emitir o JWT direto.
@@ -21,7 +65,17 @@ Login com 2FA por email (OTP) e dispositivos confiáveis.
      envia por email via **Resend** (`email.js`).
    - Em dev, `OTP_DISABLED=true` (lido com `.trim()`) desativa o 2FA.
 
+1b. **`POST /auth/codigo`** (`loginLimiter`) — recebe só `email`. **Cliente.**
+   - Busca usuário com aquele e-mail **e `role = 'cliente'`**; recusa
+     condomínio encerrado (`_bloqueioDeCliente`, mesma checagem do login).
+   - Aparelho confiável válido → emite o JWT direto, sem código (mesmo atalho
+     do login com senha).
+   - Senão, grava o código em `login_codes` e envia por e-mail. Devolve
+     `{ pending: true, otp_token }` — o **mesmo formato** do passo 1.
+
 2. **`POST /auth/verify-otp`** (`otpLimiter`) — recebe o código.
+   Serve aos dois caminhos sem nenhuma bifurcação: o `otp_token` emitido em
+   `/auth/codigo` é idêntico ao emitido em `/auth/login`.
    - Valida contra `login_codes` (não usado, não expirado), marca `used`.
    - Emite **JWT** (7 dias, assinado com `JWT_SECRET`) com `id`, `role`,
      `condominio_id`.

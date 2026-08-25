@@ -256,6 +256,104 @@ router.post("/login", loginLimiter, async (req, res) => {
 });
 
 /**
+ * POST /auth/codigo
+ * Body: { email }
+ * Resposta: { pending: true, otp_token }  — ou { token, user } se o aparelho
+ * já for confiável.
+ *
+ * ⚠️ ENTRADA SEM SENHA, E SÓ PARA `cliente` (25/08/2026).
+ * O síndico não tem senha: quem cria o usuário é o escritório, no admin, com
+ * o e-mail dele. A partir daí o e-mail É a credencial — este endpoint manda o
+ * código de 6 dígitos e o segundo passo é o MESMO `/auth/verify-otp` de
+ * sempre, porque o `otp_token` emitido aqui é idêntico ao que o login com
+ * senha emite. Nada de fluxo paralelo para manter.
+ *
+ * ⚠️ Usuário interno NÃO passa por aqui. Se passasse, este endpoint seria um
+ * atalho que dispensa a senha do admin — quem tem senha continua obrigado a
+ * digitá-la.
+ *
+ * ⚠️ A RESPOSTA É NEUTRA de propósito: e-mail que não existe (ou que não é de
+ * cliente) recebe o mesmo `{ pending: true }`, com um `otp_token` que aponta
+ * para ninguém. O código digitado depois nunca vai casar e a resposta é
+ * "Código inválido ou expirado" — a mesma de um código errado. Sem isso, o
+ * endpoint vira um verificador de quais e-mails estão cadastrados.
+ */
+router.post("/codigo", loginLimiter, async (req, res) => {
+  const email = String(req.body?.email || "").trim().toLowerCase();
+  if (!email) return res.status(400).json({ error: "Informe o e-mail" });
+
+  try {
+    const r = await pool.query(
+      `SELECT id, nome, email, role, condominio_id
+         FROM usuarios
+        WHERE email = $1 AND role = 'cliente'
+        LIMIT 1`,
+      [email]
+    );
+    const u = r.rows[0];
+
+    if (u) {
+      // Condomínio encerrado para aqui, com o motivo — quem está nessa
+      // situação precisa saber por que não entra, e a informação não vaza
+      // nada que o próprio cliente já não saiba.
+      const bloqueio = await _bloqueioDeCliente(u.condominio_id);
+      if (bloqueio) return res.status(403).json({ error: bloqueio });
+
+      // Aparelho confiável: mesmo atalho do login com senha. O cookie é
+      // httpOnly e amarrado a este usuário — não serve para entrar em outra
+      // conta digitando outro e-mail.
+      const deviceToken = req.cookies?.[TRUSTED_COOKIE] || req.body?.device_token;
+      if (deviceToken) {
+        const td = await pool.query(
+          "SELECT id FROM trusted_devices WHERE token = $1 AND usuario_id = $2 AND (expires_at IS NULL OR expires_at > NOW()) LIMIT 1",
+          [deviceToken, u.id]
+        );
+        if (td.rows.length > 0) {
+          const token = jwt.sign(
+            { id: u.id, role: u.role, condominio_id: u.condominio_id, email: u.email },
+            JWT_SECRET,
+            { expiresIn: JWT_EXPIRES_IN }
+          );
+          return res.json({
+            token,
+            user: { id: u.id, nome: u.nome, email: u.email, role: u.role, condominio_id: u.condominio_id },
+          });
+        }
+      }
+
+      const code = String(Math.floor(100000 + Math.random() * 900000));
+      await pool.query("DELETE FROM login_codes WHERE usuario_id = $1", [u.id]);
+      await pool.query(
+        "INSERT INTO login_codes (usuario_id, code, expires_at) VALUES ($1, $2, NOW() + INTERVAL '10 minutes')",
+        [u.id, code]
+      );
+      // ⚠️ FALLBACK SÓ DE DESENVOLVIMENTO. Sem `RESEND_API_KEY` o envio lança
+      // e o fluxo trava — e é exatamente o ambiente local, onde não há chave,
+      // que precisa ser testável de ponta a ponta. Aqui o código vai para o
+      // console em vez do e-mail. As duas guardas são obrigatórias: em
+      // produção sem chave, o certo continua sendo estourar, porque um código
+      // que ninguém recebe é uma porta que não abre.
+      if (!isProd && !process.env.RESEND_API_KEY) {
+        console.log(`[auth] DEV — código de ${u.email}: ${code}`);
+      } else {
+        await sendOTP(u.email, code);
+      }
+    }
+
+    // `id: null` quando não há usuário — ver a nota de resposta neutra acima.
+    const otp_token = jwt.sign(
+      { id: u ? u.id : null, type: "otp_pending" },
+      JWT_SECRET,
+      { expiresIn: "15m" }
+    );
+    return res.json({ pending: true, otp_token });
+  } catch (error) {
+    console.error("Erro /auth/codigo:", error);
+    return res.status(500).json({ error: "Erro ao enviar o código" });
+  }
+});
+
+/**
  * POST /auth/verify-otp
  * Body: { otp_token, code }
  */

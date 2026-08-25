@@ -119,7 +119,7 @@ mais** — o `cliente.js` foi reescrito e não usa mais nenhum token do admin.
   <section class="historia">  ← o que aconteceu
     .dia-bloco                  trilho de datas (numeral grande, sticky) + .ev
     .relatorio                  o PDF
-<footer class="rodape">       lockup completo + telefone/WhatsApp/e-mail
+<footer class="rodape">       "Prefere falar com a gente?" + telefone/WhatsApp/e-mail
 + 5 .ficha-fundo              os diálogos, montados pelo cliente.js
 ```
 
@@ -339,6 +339,72 @@ ou vermelho é muito mais visível que o fio de 2px da coluna chata.
   ⚠️ **Sem numeração 01/02/03**: os três itens são paralelos, não uma
   sequência, e em âmbar seriam o segundo amarelo da tela.
 
+### A ficha "Sua conta" deixou de existir (25/08/2026)
+
+A barra do topo tem hoje **três coisas**: a marca, o ícone de Orçamentos (com o
+selo de pendência) e, à direita, o **nome de quem está logado** seguido do
+**Sair**.
+
+A ficha hospedava quatro itens e três perderam a função no mesmo dia:
+
+| Item | Destino |
+|---|---|
+| "Meus orçamentos" | virou **ícone permanente na barra** — é onde sempre devia ter estado |
+| "Trocar a senha" | **removido**: o cliente não tem mais senha, entra por e-mail + código |
+| e-mail da conta | saiu junto; quem precisa conferir o endereço fala com o escritório |
+| "Sair da conta" | **virou botão na barra** |
+
+⚠️ O formulário de senha não era só redundante: para um síndico criado do jeito
+novo ele seria uma **porta para lugar nenhum**, porque a "senha atual" dele é o
+hash aleatório que ninguém conhece.
+
+⚠️ **O nome do síndico é `<span>`, não botão.** Um alvo que não leva a lugar
+nenhum ensina a pessoa a duvidar dos outros alvos da barra. Ele some no celular
+junto com os rótulos (`.barra-eu { display: none }` abaixo de 760px): lá a
+barra é só ícone, e o nome não é o que o síndico precisa ler no aparelho dele.
+
+⚠️ **`POST /cliente/trocar-senha` continua de pé no backend, sem chamador** —
+saiu a interface, não o dado. Mesmo tratamento dado a
+`/admin/me/email-template` quando o corpo do e-mail virou fixo. Saíram do
+front: `#fConta` inteira, `prepararConta()`, a chave `conta` do mapa `FICHAS` e
+a classe `.conta-link` do CSS.
+
+⚠️ **No celular, o Sair ocupa a posição onde antes ficava o ícone de conta.**
+Quem tinha o gesto decorado vai sair sem querer uma vez. O custo é baixo (pedir
+outro código leva segundos), mas se virar reclamação, a correção é uma
+confirmação inline no próprio botão — não um modal.
+
+### O rodapé não repete a marca (25/08/2026)
+
+⚠️ **O lockup completo saiu do rodapé, e o motivo é estrutural.** Ele estava
+ali como "a única aparição do lockup com a assinatura" — argumento que valia se
+a barra do topo rolasse junto com a página. **Ela é fixa:** ao chegar no
+rodapé, a pessoa via o wordmark em cima e o lockup embaixo ao mesmo tempo, duas
+marcas competindo e nenhuma liderando. Foi o relato do Pedro.
+
+O rodapé do painel não fecha uma peça de venda como o da landing — ele devolve
+o **canal humano**. Então é isso que lidera agora:
+
+| Faixa | Conteúdo |
+|---|---|
+| `.rodape-in` | `.rodape-chamada` ("Prefere falar com a gente?") + os três canais |
+| `.rodape-fim` | contexto da tela · **assinatura em texto** · ano |
+
+- A chamada é **secundária** (`--sobre-2`, peso 700): quem lidera é o número,
+  não a pergunta. Em branco e 800 os dois pesavam igual e o olho não sabia por
+  onde começar.
+- A pergunta ocupa a âncora esquerda que era do logo — sem ela, o
+  `space-between` deixaria os canais colados numa borda e um buraco na outra.
+- Ela também **distingue este caminho do "Preciso de ajuda"**, que abre chamado
+  dentro do sistema; aqui é falar com gente.
+- A marca continua no rodapé, como **assinatura em texto** na `.rodape-fim` —
+  que é o que uma assinatura de rodapé precisa ser. No celular ela desce para a
+  própria linha (`order: 3`).
+
+Se um dia a barra deixar de ser fixa, a decisão pode ser reaberta; enquanto ela
+for, não. **A landing (`index.html`) mantém o lockup no rodapé** — lá ele fecha
+o argumento de venda, e a página é outra.
+
 ### A história
 
 Material **real**, sem inventar nada: os alertas abertos (que trazem
@@ -426,10 +492,16 @@ sem sessão. Agora o login abre **por cima**, no cartão `#entradaFundo`
 (`.ficha-fundo` + `.ficha` reusadas do painel): a URL com `?orc=N` continua na
 barra, e fechar o cartão já é estar no documento.
 
-O fluxo é o mesmo de `login.js`, porque o backend é o mesmo: `POST /auth/login`
-devolve o token direto (OTP desligado) ou `pending` + `otp_token`, e aí vem o
-segundo passo em `POST /auth/verify-otp`. O aparelho confiável viaja em cookie
-de mesma origem — nada a fazer no front. **Nenhuma rota nova.**
+⚠️ **E o síndico não tem senha** (25/08/2026): o cartão pede o **e-mail**,
+manda um código de 6 dígitos e o segundo passo é o `POST /auth/verify-otp` de
+sempre. Quem cria o acesso é o escritório, no admin, com o e-mail do síndico —
+o e-mail passa a ser a credencial. O porquê está em
+[autenticacao.md](autenticacao.md); em resumo, em produção o código já era
+exigido em todo login, então a senha não protegia nada e só somava trabalho
+para o escritório e esquecimento para o cliente.
+
+No aparelho já marcado como confiável, o `POST /auth/codigo` devolve a sessão
+direto e o cartão nem chega a pedir o código.
 
 Três coisas que o cartão resolve e o redirect não resolvia:
 
@@ -562,8 +634,9 @@ do SVG**: dentro do `viewBox` ele encolhe junto com o gráfico e vira borrão a
     bastava um elemento crescer dentro dela para a barra sair do número
     documentado — foi assim que chegou a 85px uma vez.
   - **Números do sistema, e eles mandam:** logo 40px na barra (32px abaixo de
-    760px), 72px no rodapé; barra de 74px no desktop e 64px no celular. Se a
-    marca parecer pequena, a alavanca **não** é o logo.
+    760px); barra de 74px no desktop e 64px no celular. Se a marca parecer
+    pequena, a alavanca **não** é o logo. (Os 72px do lockup do rodapé saíram
+    de cena em 25/08 — ver abaixo.)
 - ⚠️ **O nome do prédio NÃO fica na barra.** Ele é o `.placa-topo`, o
   cabeçalho do instrumento. Na barra ele forçava uma segunda linha no celular
   (~107px contra os 64 documentados) e a única alternativa era truncá-lo com

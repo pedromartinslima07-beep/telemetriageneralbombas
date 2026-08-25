@@ -76,6 +76,24 @@ no backend** — `unidades` só aceita `ate-50`, `51-150`, `151-300`, `acima-300
 
 ---
 
+## O topo reconhece quem já entrou (25/08/2026)
+
+O botão **Entrar** da barra vira **"Meu prédio"** (cliente) ou **"Meu painel"**
+(equipe) quando existe sessão aberta, apontando para o painel do papel; o link
+"Acessar o sistema" do rodapé acompanha. Seção 5 do `landing.js`.
+
+⚠️ **A landing nunca desconectou ninguém** — ela só não olhava a sessão. Como é
+servida no mesmo domínio do painel, o `localStorage` está ali; o botão dizia
+"Entrar" para quem estava logado, e quem vinha do "Ver como funciona" do painel
+do cliente achava que tinha caído fora do sistema. Foi o relato do Pedro.
+
+⚠️ **Sem rede.** O papel sai do `user` no `localStorage` e a validade, do `exp`
+do próprio JWT (payload em base64url, sem verificar assinatura — aqui não é
+autorização, é só não oferecer um painel morto). Pendurar um `/auth/me` no
+carregamento de uma peça de venda por causa de um rótulo seria caro à toa.
+Sessão vencida, `localStorage` bloqueado ou JSON corrompido: fica o "Entrar" de
+sempre.
+
 ## Pegadinhas da página
 
 ### ⚠️ A página fala em primeira pessoa do plural — sempre

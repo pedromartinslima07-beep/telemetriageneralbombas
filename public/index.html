@@ -80,7 +80,10 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
       <a href="#duvidas">Dúvidas</a>
     </nav>
     <div class="barra-acoes">
-      <a href="/login" class="btn btn-fio">Entrar</a>
+      <!-- Vira "Meu prédio"/"Meu painel" quando há sessão aberta — ver a
+           seção 5 do landing.js. A landing é servida no mesmo domínio do
+           painel, então ela enxerga o localStorage da sessão. -->
+      <a href="/login" class="btn btn-fio" id="lpEntrar">Entrar</a>
       <a href="#assinar" class="btn btn-amarelo">Falar com a gente</a>
     </div>
   </div>
@@ -568,7 +571,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
       <div><dt>Telefone</dt><dd><a href="tel:+551120388679">(11) 2038-8679</a></dd></div>
       <div><dt>WhatsApp</dt><dd><a href="https://wa.me/5511966536110">(11) 96653-6110</a></dd></div>
       <div><dt>E-mail</dt><dd><a href="mailto:comercial@generalbombas.com">comercial@generalbombas.com</a></dd></div>
-      <div><dt>Painel</dt><dd><a href="/login">Acessar o sistema</a></dd></div>
+      <div><dt>Painel</dt><dd><a href="/login" id="lpEntrarPe">Acessar o sistema</a></dd></div>
     </dl>
   </div>
   <div class="area rodape-fim">
@@ -578,6 +581,6 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 </footer>
 
 <!-- CSP do helmet é `script-src 'self'` — script inline é bloqueado. -->
-<script src="/static/landing.js?v=6" defer></script>
+<script src="/static/landing.js?v=7" defer></script>
 </body>
 </html>

@@ -17,7 +17,7 @@
        cliente.css antes de reintroduzir qualquer dependência do admin. -->
   <link rel="preload" href="/static/fonts/archivo.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="/static/fonts/martianmono.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="/static/cliente.css?v=40">
+  <link rel="stylesheet" href="/static/cliente.css?v=43">
 </head>
 <body data-estado="carregando" data-atend="nao">
 
@@ -83,9 +83,20 @@
     <span class="conta-rot">Orçamentos</span>
     <span class="conta-selo" id="orcSelo" hidden></span>
   </a>
-  <button class="conta" data-abrir="conta" type="button">
-    <svg viewBox="0 0 24 24" stroke-linecap="square" aria-hidden="true"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 20c0-3.6 3.4-5.6 7.5-5.6s7.5 2 7.5 5.6"/></svg>
-    <span class="conta-rot" id="nomeSindico">Sua conta</span>
+  <!-- ⚠️ NÃO EXISTE MAIS FICHA "SUA CONTA" (25/08/2026). Ela hospedava quatro
+       coisas; três perderam a função no mesmo dia — os orçamentos viraram o
+       ícone ao lado, e a troca de senha morreu junto com a senha do cliente.
+       O que sobrava era saber quem está logado e sair, e as duas coisas cabem
+       aqui: o nome é TEXTO (não abre nada) e o sair é a ação.
+
+       ⚠️ O nome não é botão de propósito: um alvo que não leva a lugar nenhum
+       ensina a pessoa a duvidar dos outros alvos da barra. -->
+  <span class="barra-eu" id="nomeSindico"></span>
+  <button class="conta conta-sair" id="btnSair" type="button">
+    <!-- porta à esquerda, seta saindo: o desenho é o do sistema (stroke 1.6,
+         ponta quadrada), não um ícone de biblioteca. -->
+    <svg viewBox="0 0 24 24" stroke-linecap="square" aria-hidden="true"><path d="M14 4H5v16h9"/><path d="M12 12h9M17.5 8l4 4-4 4"/></svg>
+    <span class="conta-rot">Sair</span>
   </button>
 </div></header>
 
@@ -209,8 +220,13 @@
 
 <footer class="rodape">
   <div class="rodape-in">
-    <!-- única aparição do lockup completo, com a assinatura -->
-    <img class="rodape-logo" src="/static/login-logo.png" alt="General Engenharia da Manutenção">
+    <!-- ⚠️ O LOGO SAIU DAQUI (25/08/2026). Ele existia como "a única aparição
+         do lockup completo", mas a barra do topo é fixa: ao chegar no rodapé,
+         a pessoa via duas marcas na mesma tela e nenhuma liderava. A marca
+         continua no rodapé — como assinatura em texto, na linha de baixo.
+         O que lidera aqui agora é o que o rodapé serve para fazer: falar com
+         gente. -->
+    <p class="rodape-chamada">Prefere falar com a gente?</p>
     <dl class="rodape-contato">
       <div><dt>Telefone</dt><dd><a href="tel:+551120388679">(11) 2038-8679</a></dd></div>
       <div><dt>WhatsApp</dt><dd><a href="https://wa.me/5511966536110" target="_blank" rel="noopener">(11) 96653-6110</a></dd></div>
@@ -221,6 +237,7 @@
        o que a assinatura do lockup diz, 40px acima -->
   <div class="rodape-fim"><div>
     <span id="rodapeLinha">Painel do síndico</span>
+    <span class="rodape-assina">General Engenharia da Manutenção</span>
     <span id="rodapeAno">2026</span>
   </div></div>
 </footer>
@@ -346,51 +363,11 @@
   </div>
 </div>
 
-<!-- FICHA: sua conta — hospeda a troca de senha e o sair -->
-<div class="ficha-fundo" id="fConta" hidden>
-  <div class="ficha" role="dialog" aria-modal="true" aria-labelledby="fContaT" tabindex="-1">
-    <div class="ficha-topo">
-      <div>
-        <div class="id" id="fContaId">Síndico</div>
-        <h3 id="fContaT">Sua conta</h3>
-      </div>
-      <button class="fechar" data-fechar aria-label="Fechar" type="button">
-        <svg viewBox="0 0 24 24" stroke-linecap="square" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
-      </button>
-    </div>
-    <div class="ficha-corpo">
-      <div class="email-linha" id="contaEmail"></div>
-
-      <!-- Caminho permanente para os orçamentos, inclusive os já respondidos.
-           O convite no painel só existe quando há um aguardando; sem isto,
-           orçamento antigo viraria coisa sem endereço. -->
-      <a class="conta-link" href="/cliente/painel/orcamentos">
-        <span>Meus orçamentos</span>
-        <svg viewBox="0 0 24 24" stroke-linecap="square" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
-      </a>
-
-      <form class="bloco" id="formSenha">
-        <h4>Trocar a senha</h4>
-        <p>Use pelo menos 6 caracteres. Você continua conectado depois de trocar.</p>
-        <label class="campo"><span>Senha atual</span><input id="senhaAtual" type="password" autocomplete="current-password" required></label>
-        <label class="campo"><span>Nova senha</span><input id="senhaNova" type="password" autocomplete="new-password" minlength="6" required></label>
-        <label class="campo"><span>Repita a nova senha</span><input id="senhaNova2" type="password" autocomplete="new-password" minlength="6" required></label>
-        <div class="acoes">
-          <button class="btn-fio" type="submit">Salvar nova senha</button>
-        </div>
-        <p class="ficha-msg" id="senhaMsg" role="status"></p>
-      </form>
-
-      <div class="bloco">
-        <button class="sair-link" id="btnSair" type="button">Sair da conta</button>
-      </div>
-    </div>
-  </div>
-</div>
+<!-- A ficha "Sua conta" foi removida em 25/08/2026 — ver a barra, no topo. -->
 
 <script src="/static/inatividade.js" defer></script>
 
-<script src="/static/cliente.js?v=38" defer></script>
+<script src="/static/cliente.js?v=40" defer></script>
 <script src="/static/register-sw.js?v=39" defer></script>
 </body>
 </html>
