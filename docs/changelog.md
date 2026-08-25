@@ -3963,6 +3963,38 @@ auto-classificação. A existência da conta continua protegida — cliente e
 inexistente respondem igual. Superfície inteira tabelada em
 [modulos/autenticacao.md](modulos/autenticacao.md).
 
+### 2026-08-25 · "Enviamos um código de 6 dígitos para comer"
+
+O Pedro viu isso na tela de orçamentos e perguntou o que era. A palavra veio de
+quem digitou — mas quem deixou passar era código nosso.
+
+O `<form>` da entrada tem **`novalidate`**, e isso desliga a validação do
+navegador: o `type="email"` do campo vira só o teclado do celular, não uma
+regra. Do lado do JS a checagem era `if (!email)` — "está vazio?" —, nunca
+"isto parece um endereço?". Aí `comer` seguia para o `/auth/codigo`, que
+responde neutro por design, e a tela anunciava com toda a confiança
+`Enviamos um código de 6 dígitos para ${email}`.
+
+A frase absurda é o sintoma; o defeito é a entrada não validada, e ele existia
+desde que o cartão nasceu. Entrou `_RE_EMAIL` no `cliente-orcamentos.js`, com
+a mensagem falando do que a PESSOA escreveu ("Isso não parece um e-mail") sem
+mencionar cadastro — a neutralidade quanto a existir conta continua intacta.
+
+A mesma checagem foi para o `login.js` por consistência. Lá o form **não** tem
+`novalidate` e o navegador já barrava; é o cinto que sobrevive a alguém
+acrescentar `novalidate` um dia.
+
+**O app do técnico não tinha o furo**: lá o login exige senha, então nunca se
+chega ao passo do código com um e-mail que não existe.
+
+**A lição, que vale para todo `novalidate` do projeto:** o atributo não é
+cosmético — ele transfere para o JS a obrigação inteira de validar, e
+`if (!campo)` não é validar. Ver
+[modulos/painel-cliente.md](modulos/painel-cliente.md).
+
+Cache-bust: `cliente-orcamentos.js?v=9`, `login.css?v=7`, `login.js?v=7`,
+`telemetria-v51`, `register-sw.js?v=41`.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

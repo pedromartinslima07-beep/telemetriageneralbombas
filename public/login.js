@@ -154,6 +154,14 @@ let _passoDoCodigo = "email"; // de onde o OTP veio, pra onde o "Voltar" leva
 // fulano" enquanto mandaria outro para o servidor.
 let _emailConfirmado = "";
 
+// Não é validação de verdade — e-mail só se valida entregando — mas separa
+// "isto é um endereço" de "isto é uma palavra". Aqui o `<form>` não tem
+// `novalidate` e o campo é `type="email" required`, então o navegador já
+// barra; esta checagem é o cinto que sobrevive a alguém pôr `novalidate` no
+// form um dia. Na tela de orçamentos, que TEM `novalidate`, a falta dela fez a
+// tela anunciar "Enviamos um código de 6 dígitos para comer".
+const RE_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 const campoEmail  = document.getElementById("campoEmail");
 const campoSenha  = document.getElementById("campoSenha");
 const emailInput  = document.getElementById("email");
@@ -345,6 +353,11 @@ loginForm.addEventListener("submit", async (e) => {
 
   if (_passo === "email") {
     if (!email) return;
+    if (!RE_EMAIL.test(email)) {
+      showError("Isso não parece um e-mail. Confira e tente de novo.");
+      emailInput.focus();
+      return;
+    }
     await _perguntarMetodo(email);
     return;
   }
@@ -360,7 +373,7 @@ _irPara("email");
 // spam esperando alguém descobrir.
 {
   const _pre = new URLSearchParams(location.search).get("email");
-  if (_pre && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(_pre)) {
+  if (_pre && RE_EMAIL.test(_pre)) {
     emailInput.value = _pre;
     document.addEventListener("DOMContentLoaded", () => loginBtn.focus());
   }

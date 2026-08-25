@@ -49,6 +49,18 @@ let _otpToken = null;
 
 function _el(id) { return document.getElementById(id); }
 
+// ⚠️ O `<form>` da entrada tem `novalidate`, e isso desliga a validação nativa
+// do navegador — o `type="email"` do campo passa a ser só o teclado do celular,
+// não uma regra. Sem esta checagem, qualquer palavra vira "e-mail": o
+// `/auth/codigo` responde neutro por design (é o que impede a tela de virar um
+// verificador de quem tem conta) e a tela anunciava, confiante, "Enviamos um
+// código de 6 dígitos para comer".
+//
+// Mesmo padrão do `/auth/registrar` no backend. Não é validação de verdade —
+// e-mail só se valida entregando — mas separa "isto é um endereço" de "isto é
+// uma palavra".
+const _RE_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 function _entradaMsg(texto, ehErro) {
   const msg = _el("entradaMsg");
   if (!msg) return;
@@ -126,6 +138,13 @@ function _bindEntrada() {
     const email = _el("entradaEmail").value.trim();
     const btn   = _el("entradaBtn");
     if (!email) { _entradaMsg("Digite o seu e-mail.", true); return; }
+    // Diz o que está errado com o que a PESSOA escreveu, sem falar de conta
+    // nenhuma — a resposta continua neutra quanto a existir ou não cadastro.
+    if (!_RE_EMAIL.test(email)) {
+      _entradaMsg("Isso não parece um e-mail. Confira e tente de novo.", true);
+      _el("entradaEmail").focus();
+      return;
+    }
 
     btn.disabled = true;
     _entradaMsg("Enviando o código…");

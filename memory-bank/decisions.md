@@ -800,6 +800,20 @@ desenho em camadas original continua válido.
 
 ## Lições aprendidas (cicatrizes)
 
+- **`novalidate` transfere a validação inteira para o JS, e `if (!campo)` não é
+  validar (2026-08-25).** O Pedro leu na tela de orçamentos *"Enviamos um
+  código de 6 dígitos para comer"* e perguntou o que era aquilo. A palavra veio
+  de quem digitou; o defeito era nosso. O `<form>` tinha `novalidate` — que
+  desliga a checagem do navegador e faz do `type="email"` só o teclado do
+  celular — e do lado do JS a única guarda era "está vazio?". Como o
+  `/auth/codigo` responde neutro de propósito (dizer "não existe" viraria um
+  verificador de quem é cliente), nada mais barrava, e a tela anunciava a
+  palavra com confiança. **A frase absurda era o sintoma; o defeito era a
+  entrada não validada, e ele existia desde que o cartão nasceu.** Ao escrever
+  `novalidate`, escrever a validação junto, no mesmo commit. E a mensagem de
+  erro fala do que a PESSOA escreveu, nunca da conta dela — senão o conserto
+  desfaz a neutralidade.
+
 - **Nunca varrer um arquivo até "a próxima linha que é só `}`" para apagar uma
   função (2026-08-13).** Escrevi um script de limpeza de órfãos no `cliente.js`
   que procurava o fechamento de cada função assim; ele não encontrou o
