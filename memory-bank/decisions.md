@@ -863,3 +863,15 @@ desenho em camadas original continua válido.
   isso `_avPrepararAssinatura` (canvas, 600 px, PNG com fallback JPEG)
   redimensiona antes de enviar: 7,6 MB → 89 KB, e o blob no banco também
   fica pequeno.
+- **API de terceiro pode trocar de provider por baixo e continuar
+  respondendo 200 (2026-08-25).** O `/api/cep/v2` da BrasilAPI passou a ser
+  atendido pelo `open-cep`, que devolve o **centroide do município** no campo
+  `location.coordinates`. Resposta válida, schema idêntico, número plausível —
+  e todo condomínio de São Paulo caindo na Sé. A regra que fica: **coordenada
+  vinda de fora precisa de um sinal de granularidade antes de virar pino.**
+  Aqui o sinal é o campo `service` da própria resposta, checado em
+  `_coordsDeCep`; a fonte preferida virou a AwesomeAPI, que geocodifica em
+  nível de rua. Também vale o oposto do instinto: quando algo "que funcionava
+  perfeitamente" quebra sem deploy, o suspeito é o serviço externo, não o
+  código — dá para confirmar em um `curl` comparando dois CEPs de bairros
+  distantes e vendo se a coordenada repete.

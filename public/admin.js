@@ -3840,13 +3840,9 @@ function abrirModalNovoCliente() {
           fetch(`https://brasilapi.com.br/api/cep/v2/${_cepCnpj}`).then(r => r.ok ? r.json() : null).catch(() => null),
           fetch(`https://cep.awesomeapi.com.br/json/${_cepCnpj}`).then(r => r.ok ? r.json() : null).then(d => d?.status ? null : d).catch(() => null),
         ]);
-        const _bc = _brasilCep?.location?.coordinates;
-        const _coords = [
-          { lat: _bc?.latitude,    lng: _bc?.longitude   },
-          { lat: _awesomeCep?.lat, lng: _awesomeCep?.lng },
-        ].find(f => f.lat != null && f.lng != null && Number.isFinite(Number(f.lat)) && Number.isFinite(Number(f.lng)));
+        const _coords = _coordsDeCep(_brasilCep, _awesomeCep);
         if (_coords) {
-          _miniMapaAplicarCoord("cliModal", Number(_coords.lat), Number(_coords.lng));
+          _miniMapaAplicarCoord("cliModal", _coords.lat, _coords.lng);
           if (_locMsg) { _locMsg.className = "loc-msg is-ok"; _locMsg.textContent = "✓ Pino posicionado pelo CEP. Arraste se precisar ajustar o número da casa."; }
         } else {
           buscarCoordenadasPorEndereco("cliModal");
@@ -7492,6 +7488,33 @@ function _cepMascarar(valor) {
   return d.slice(0, 5) + "-" + d.slice(5);
 }
 
+// A BrasilAPI trocou o provider de coordenadas do CEP: o "open-cep" devolve o
+// centroide do MUNICÍPIO, não do CEP. Todo endereço de São Paulo vira
+// -23.5475,-46.63611 (a Sé) e todo do Rio vira -22.90642,-43.18223 — o que
+// jogava o pino de qualquer condomínio no centro da cidade. Coordenada de
+// município não posiciona condomínio: só aceitamos as coords da BrasilAPI
+// quando vêm de um provider que geocodifica de verdade. Sobrando só isso,
+// preferimos a AwesomeAPI (nível de rua) ou caímos no Nominatim.
+const _CEP_SERVICES_SEM_COORD_REAL = new Set(["open-cep"]);
+
+function _coordsDeCep(brasilData, awesomeData) {
+  const servico = String(brasilData?.service || "").toLowerCase();
+  const coordsBrasil = _CEP_SERVICES_SEM_COORD_REAL.has(servico)
+    ? null
+    : brasilData?.location?.coordinates;
+
+  const fontes = [
+    { fonte: "AwesomeAPI", lat: awesomeData?.lat,        lng: awesomeData?.lng         },
+    { fonte: "BrasilAPI",  lat: coordsBrasil?.latitude,  lng: coordsBrasil?.longitude  },
+  ];
+  const escolhida = fontes.find(f =>
+    f.lat != null && f.lng != null &&
+    Number.isFinite(Number(f.lat)) && Number.isFinite(Number(f.lng))
+  );
+  if (!escolhida) return null;
+  return { fonte: escolhida.fonte, lat: Number(escolhida.lat), lng: Number(escolhida.lng) };
+}
+
 async function buscarEnderecoPorCep(prefixo) {
   const input = document.getElementById(`${prefixo}Cep`);
   const msg = document.getElementById(`${prefixo}CepMsg`);
@@ -7554,23 +7577,15 @@ async function buscarEnderecoPorCep(prefixo) {
     msg.textContent = `✓ ${logradouro}${bairro ? ", " + bairro : ""} — ${cidade}/${uf}`;
   }
 
-  // Caminho preferido: alguma API CEP veio com coordenadas → posiciona o pino direto.
-  // Muito mais preciso que Nominatim adivinhar pelo nome da rua.
-  // Tenta BrasilAPI primeiro (location.coordinates), depois AwesomeAPI (lat/lng).
-  const coordsBrasil = brasilData?.location?.coordinates;
-  const fontes = [
-    { fonte: "BrasilAPI",  lat: coordsBrasil?.latitude,  lng: coordsBrasil?.longitude  },
-    { fonte: "AwesomeAPI", lat: awesomeData?.lat,        lng: awesomeData?.lng         },
-  ];
-  const escolhida = fontes.find(f =>
-    f.lat != null && f.lng != null &&
-    Number.isFinite(Number(f.lat)) && Number.isFinite(Number(f.lng))
-  );
+  // Caminho preferido: alguma API CEP veio com coordenadas de verdade → posiciona
+  // o pino direto. Muito mais preciso que Nominatim adivinhar pelo nome da rua.
+  // Ver _coordsDeCep: coord de centroide de município é descartada ali.
+  const escolhida = _coordsDeCep(brasilData, awesomeData);
 
   const locMsg = document.getElementById(`${prefixo}LocMsg`);
 
   if (escolhida) {
-    _miniMapaAplicarCoord(prefixo, Number(escolhida.lat), Number(escolhida.lng));
+    _miniMapaAplicarCoord(prefixo, escolhida.lat, escolhida.lng);
     if (locMsg) {
       locMsg.className = "loc-msg is-ok";
       locMsg.textContent = "✓ Pino posicionado pelo CEP. Arraste se precisar ajustar o número da casa.";

@@ -21,9 +21,25 @@ cadastro/edição com **geocoding híbrido** (frontend) e endpoints proxy
 
 Fontes em ordem de preferência, paralelizadas em `buscarEnderecoPorCep`:
 1. **ViaCEP** — texto granular do endereço (logradouro, bairro, cidade, UF).
-2. **BrasilAPI** — `location.coordinates` quando disponível.
-3. **AwesomeAPI** — lat/lng (cobre CEPs urbanos que a BrasilAPI deixa sem coord).
+2. **AwesomeAPI** — lat/lng em nível de rua; é a fonte preferida de coordenada.
+3. **BrasilAPI** — `location.coordinates`, **só quando o `service` da resposta
+   não estiver na lista de providers sem coordenada real** (ver abaixo).
 4. **Nominatim (OSM)** — fallback final, via proxy do backend.
+
+> ⚠️ **BrasilAPI: coordenada de município disfarçada de coordenada de CEP.**
+> A resposta de `/api/cep/v2` traz o campo `service` com o provider que a
+> atendeu. Quando o provider é `open-cep`, o `location.coordinates` é o
+> **centroide do município**, não do CEP: todo endereço de São Paulo volta como
+> `-23.5475, -46.63611` (a Sé) e todo do Rio como `-22.90642, -43.18223`. Como
+> a BrasilAPI era a primeira da fila, o pino de qualquer condomínio caía no
+> centro da cidade. O filtro vive em `_coordsDeCep` (`public/admin.js`), com a
+> whitelist negativa `_CEP_SERVICES_SEM_COORD_REAL`. Ao ver pino no centro da
+> cidade de novo, **confira o `service` da BrasilAPI antes de suspeitar do
+> código** — e adicione o provider novo a essa lista.
+
+`_coordsDeCep(brasilData, awesomeData)` é a função única que escolhe a
+coordenada; os dois caminhos que geocodificam por CEP (busca por CEP e
+auto-preenchimento por CNPJ) passam por ela — não duplicar a escolha.
 
 Busca por endereço (`buscarCoordenadasPorEndereco`) tenta progressivamente:
 `endereço+CEP` → `endereço` → `CEP+cidade` → `bairro` → `cidade`. Validação

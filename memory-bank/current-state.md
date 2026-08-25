@@ -117,8 +117,12 @@ ESP32 (sonda 4-20mA + SCT-013)
   viram filete de 1px. Ver [decisions.md](decisions.md).
 - **Mapa interativo Leaflet** (tiles OpenStreetMap + filtro CSS dark): pinos por
   status, painel lateral com tabs, KPIs, donuts, classificação por zona de SP.
-- Cadastro de coordenadas com **geocoding híbrido** (ViaCEP + BrasilAPI +
-  AwesomeAPI + Nominatim) e reverse geocode ao arrastar o pino.
+- Cadastro de coordenadas com **geocoding híbrido** (ViaCEP + AwesomeAPI +
+  BrasilAPI + Nominatim) e reverse geocode ao arrastar o pino. A coordenada da
+  BrasilAPI só vale quando o `service` da resposta não é `open-cep` — esse
+  provider devolve o centroide do município e jogava todo pino no centro da
+  cidade (25/08/2026). Ver
+  [../docs/modulos/mapa-geocoding.md](../docs/modulos/mapa-geocoding.md).
 - Polling independente por tipo (telemetria 7s / chamados+WhatsApp 20s), badges
   de notificação que somem ao entrar na seção.
 

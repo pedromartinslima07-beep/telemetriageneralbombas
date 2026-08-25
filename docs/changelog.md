@@ -3636,6 +3636,32 @@ botão do painel), a versão em texto puro e o tamanho do corpo em KB no topo.
 
 Cache-bust: `admin.js?v=311`. Sem migration e sem bump de `CACHE_NAME`.
 
+### 2026-08-25 · O pino do cadastro caía no centro da cidade (culpa da BrasilAPI)
+
+Cliente cadastrado na Penha aparecia com o pino na Sé. Não foi regressão do
+código: a **BrasilAPI trocou o provider de coordenada** do `/api/cep/v2`. Com o
+`service: "open-cep"`, o `location.coordinates` deixou de ser a coordenada do
+CEP e passou a ser o **centroide do município** — todo CEP de São Paulo volta
+`-23.5475, -46.63611`, todo CEP do Rio volta `-22.90642, -43.18223`, e os
+valores repetem CEP a CEP. Como a BrasilAPI era a primeira da fila de
+coordenadas, o pino ia sempre para o centro; a AwesomeAPI, segunda, continuava
+com a coordenada certa (Penha: `-23.5244, -46.5476`) e nunca era consultada.
+
+Agora `_coordsDeCep(brasilData, awesomeData)` decide a coordenada num lugar só:
+prefere a **AwesomeAPI** (nível de rua) e aceita a BrasilAPI apenas quando o
+`service` não está em `_CEP_SERVICES_SEM_COORD_REAL` (hoje, `open-cep`). Sem
+nenhuma coordenada confiável, o fluxo cai no Nominatim como antes. Os dois
+caminhos que geocodificam por CEP — a busca por CEP e o auto-preenchimento por
+CNPJ, que tinha a escolha duplicada — passaram a usar o mesmo helper.
+
+Os condomínios cadastrados enquanto isso valia ficaram gravados no centroide;
+reposicionar é reabrir o cliente e arrastar o pino (ou apagar o CEP e digitar
+de novo, que agora vem certo). Detalhes e a armadilha em
+[`modulos/mapa-geocoding.md`](modulos/mapa-geocoding.md).
+
+Cache-bust: `admin.js?v=312`, `admin.css?v=230`. Sem migration e sem bump de
+`CACHE_NAME`.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em
