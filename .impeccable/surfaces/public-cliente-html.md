@@ -954,3 +954,54 @@ começa em 625, abaixo da dobra de propósito — é apoio, não ação.
 seguidas mexendo em geometria (tubo maior, placa menor, engrenagem maior) e as
 três falharam. O vazio era sintoma; o defeito era a célula não ter o que
 dizer. Quando o conteúdo entrou, a composição se resolveu sozinha.
+
+## A tela sem telemetria nomeia o produto (25/08/2026)
+
+O Pedro percorreu o caminho do e-mail de orçamento até o painel e parou aqui:
+*"estou achando essa tela fraca, não ficou muito claro o que é o produto para
+dar vontade de clicar em ver como funciona"*.
+
+**A manchete deixou de ser resposta e virou anúncio** — o que está coerente com
+o estudo fechado em 17/08, que já classificava este estado como o único de
+conversão. "Ainda não medimos o seu prédio." era negação sobre a nossa
+ausência.
+
+> **_Telemetria_ para o seu reservatório.**
+> Um sensor mede o nível o tempo todo e avisa antes de faltar água.
+
+⚠️ **Isto reabriu a trava "não reabrir frase a frase".** Reabriu com a licença
+que a própria trava prevê: mudança de função, pedida pelo dono, não preferência
+de redação. A voz do conjunto se mantém — a frase continua nomeando algo
+concreto do prédio dele ("o seu reservatório").
+
+### O que foi recusado no caminho
+
+- **Manchete de dor** ("se faltar água amanhã, você descobre pelo interfone").
+  Recusada na hora: *"a landing já está cheia dessas frasesinhas de impacto"*.
+  Aqui o trabalho da tela é **informar o que é** em segundos, não emocionar.
+- **Adjetivo temporal** ("nosso produto mais novo"). O Pedro pegou: envelhece
+  sozinho e ninguém volta para trocar. Vale para "lançamento", "agora",
+  "novidade".
+- **Soltar o `min-height` da primeira tela.** Com a copy curta a placa encolheu
+  e sobrou folga desigual (84px acima, 96 abaixo); dei 53px simétricos e ele
+  recusou o resultado. **A tela cheia fica.** O vazio deste estado já resistiu
+  a quatro tentativas de conserto por geometria — esta é a quarta.
+
+### O amarelo virou dois, de propósito
+
+"Telemetria" em âmbar foi pedido dele — *"uma coisa que eu gosto é quando você
+deixa uma palavra com a fonte amarela"*. Não precisou de CSS: `.frase em` já é
+o grifo dos outros estados.
+
+⚠️ É o **segundo** amarelo da tela, contra a regra de um por tela, que aqui é
+do botão. Aceito porque os dois apontam para o **mesmo objeto** — a palavra e o
+botão dizem "telemetria", e o olho vai de um ao outro em vez de escolher. A
+regra existe contra regiões que disputam atenção. Se um dia parecer demais, a
+saída é o botão virar de fio, nunca a palavra perder o grifo: neste estado o
+botão é a conversão.
+
+### Medido no Chrome (desktop e 390px)
+
+Manchete em duas linhas nos dois tamanhos. **Ação principal a ~370px no
+celular**, contra os 508px registrados em 17/08 — o apoio perdeu uma linha e
+puxou o botão para cima.

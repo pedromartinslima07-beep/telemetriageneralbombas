@@ -194,11 +194,33 @@ function veredito(lst) {
   const mudos    = lst.filter(r => r.estado === "mudo");
   const baixos   = lst.filter(r => r.estado === "baixo");
 
+  /* ⚠️ ESTE RAMO É O ÚNICO QUE ANUNCIA, e a regra dele é NOMEAR, não
+     convencer (25/08/2026, decisão do Pedro).
+
+     A versão anterior abria com "Ainda não medimos o seu prédio." — uma
+     negação sobre a NOSSA ausência, que informava uma lacuna administrativa
+     em vez de dizer o que existe para ele. Eu propus trocar por manchete de
+     dor ("se faltar água amanhã, você descobre pelo interfone") e o Pedro
+     recusou na hora: *"a landing já está cheia dessas frasesinhas de
+     impacto"*. Aqui o síndico tem segundos antes de fechar a página, e o que
+     ele precisa nesses segundos é saber O QUE É — não sentir alguma coisa.
+
+     Por isso a manchete é o nome do produto aplicado ao que ele tem, e o
+     apoio diz o que o produto faz. Nada de retórica, nada de pergunta, nada
+     de cenário hipotético. Se for reescrever: o teste é "em três segundos,
+     sem ler o apoio, dá para dizer o que a General está oferecendo?".
+
+     ⚠️ NADA DE "MAIS NOVO", "LANÇAMENTO", "AGORA" ou "NOVIDADE" (o Pedro
+     pegou isso na primeira versão: o apoio dizia "nosso produto mais novo").
+     São datas disfarçadas de adjetivo — envelhecem sozinhas no dia em que
+     existir um produto mais novo que este, e ninguém vai lembrar de vir aqui
+     trocar. O convite vive no BOTÃO, que não precisa de adjetivo temporal
+     para convidar. */
   if (!lst.length) {
     return {
       chave: "semtel", risco: false,
-      frase: "Ainda não medimos o seu prédio.",
-      apoio: "Seu contrato de manutenção continua igual — o que falta é o sensor que mede o nível dos reservatórios e avisa antes de faltar água.",
+      frase: "<em>Telemetria</em> para o seu reservatório.",
+      apoio: "Um sensor mede o nível o tempo todo e avisa antes de faltar água.",
       desde: "",
     };
   }

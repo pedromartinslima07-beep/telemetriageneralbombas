@@ -17,7 +17,7 @@
        cliente.css antes de reintroduzir qualquer dependência do admin. -->
   <link rel="preload" href="/static/fonts/archivo.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="/static/fonts/martianmono.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="/static/cliente.css?v=43">
+  <link rel="stylesheet" href="/static/cliente.css?v=44">
 </head>
 <body data-estado="carregando" data-atend="nao">
 
@@ -163,7 +163,7 @@
              de quem ainda está na pergunta. A landing explica e tem o
              WhatsApp no fim dela — e o rodapé desta página também. -->
         <div class="rodape-resposta">
-          <a class="quero" id="quero" href="/">Ver como funciona</a>
+          <a class="quero" id="quero" href="/">Conhecer a telemetria</a>
           <button class="ajuda" data-abrir="ajuda" type="button">Preciso de ajuda</button>
           <span class="desde" id="desde"></span>
         </div>
@@ -200,6 +200,13 @@
           <div><dd>A bomba ligada ou parada</dd></div>
           <div><dd>Um aviso antes de faltar água</dd></div>
         </dl>
+        <!-- ⚠️ Esta linha saiu do texto de apoio em 25/08/2026 e veio para cá;
+             ela NÃO pode sumir. Responde ao medo que o síndico tem ao ver
+             qualquer oferta vinda de quem já presta serviço no prédio — "vão
+             mexer no meu contrato?" —, e a resposta é não. Só não abre mais a
+             tela: quem chega aqui precisa primeiro saber o que é o produto,
+             e uma ressalva contratual não é o que se lê em três segundos. -->
+        <p class="oferta-nota" id="ofertaNota">Seu contrato de manutenção continua igual.</p>
       </div>
     </div>
   </section>
@@ -367,7 +374,7 @@
 
 <script src="/static/inatividade.js" defer></script>
 
-<script src="/static/cliente.js?v=40" defer></script>
-<script src="/static/register-sw.js?v=41" defer></script>
+<script src="/static/cliente.js?v=41" defer></script>
+<script src="/static/register-sw.js?v=42" defer></script>
 </body>
 </html>

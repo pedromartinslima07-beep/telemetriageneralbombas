@@ -3995,6 +3995,53 @@ cosmético — ele transfere para o JS a obrigação inteira de validar, e
 Cache-bust: `cliente-orcamentos.js?v=9`, `login.css?v=7`, `login.js?v=7`,
 `telemetria-v51`, `register-sw.js?v=41`.
 
+### 2026-08-25 · A tela sem telemetria passa a nomear o produto
+
+O Pedro percorreu o caminho do e-mail de orçamento até o painel e parou nesta
+tela: *"estou achando essa tela fraca, não ficou muito claro o que é o produto
+para dar vontade de clicar em ver como funciona"*.
+
+A manchete era **"Ainda não medimos o seu prédio."** — uma negação sobre a
+NOSSA ausência, que informava uma lacuna administrativa em vez de dizer o que
+existe para ele. Propus trocar por manchete de dor ("se faltar água amanhã,
+você descobre pelo interfone") e ele recusou na hora: *"a landing já está cheia
+dessas frasesinhas de impacto"*. Aqui o síndico tem segundos antes de fechar a
+página, e o que ele precisa nesses segundos é saber **o que é** — não sentir.
+
+Ficou:
+
+> **_Telemetria_ para o seu reservatório.**
+> Um sensor mede o nível o tempo todo e avisa antes de faltar água.
+
+- **"Telemetria" em âmbar**, a pedido dele. Não precisou de CSS novo:
+  `.frase em` já era o grifo que os outros estados usam para nomear o
+  reservatório. ⚠️ É o **segundo** amarelo da tela, contra a regra de um por
+  tela — aceito porque os dois apontam para o mesmo objeto (a palavra e o
+  botão dizem "telemetria"), e a regra existe contra regiões que **disputam**
+  atenção. O estado "atenção" já estica a mesma regra com quatro regiões.
+- **O botão passa a repetir o nome** — "Conhecer a telemetria" no lugar de
+  "Ver como funciona", que é rótulo de quem já decidiu que quer.
+- **"Seu contrato de manutenção continua igual"** saiu do apoio e virou nota
+  abaixo dos três itens. Não pode sumir: responde ao medo de quem vê oferta de
+  quem já presta serviço no prédio. Só não abre mais a tela.
+- ⚠️ **Nada de "mais novo", "lançamento", "agora", "novidade"** — o Pedro pegou
+  isso na primeira versão ("nosso produto mais novo"): são datas disfarçadas de
+  adjetivo, que envelhecem sozinhas e ninguém volta para trocar.
+
+**Verificado no Chrome, desktop e 390px.** A manchete quebra em duas linhas nos
+dois. No celular o botão principal **subiu para ~370px** (era 508px), porque o
+apoio perdeu uma linha.
+
+**Tentado e revertido:** com a copy mais curta a placa encolheu e sobrou folga
+desigual na primeira tela (84px acima, 96 abaixo). Soltei o `min-height` desse
+estado para dar 53px simétricos; o Pedro viu e recusou. A tela cheia continua.
+
+Cache-bust: `cliente.css?v=44`, `cliente.js?v=41`, `telemetria-v52`,
+`register-sw.js?v=42` — este último alinhado nos **quatro** HTMLs que o
+registram. ⚠️ O `cliente-orcamentos.html` tinha ficado em `v=39`: cada `sed` de
+bump procurava a versão anterior, e quem estava atrasado nunca era alcançado.
+Conferir os quatro juntos, não um por vez.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

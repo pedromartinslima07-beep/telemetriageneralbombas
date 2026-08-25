@@ -765,6 +765,19 @@ body[data-estado="semtel"] .prova { display: none; }
   color: #fff; line-height: 1.35;
 }
 
+/* A ressalva do contrato. Fica DEPOIS dos três itens e num degrau abaixo
+   deles: é resposta a um medo, não parte da oferta — se tivesse o mesmo peso,
+   competiria com aquilo que a tela veio dizer. Segue a `.oferta` em
+   visibilidade: só existe no estado sem telemetria. */
+.oferta-nota { display: none; }
+body[data-estado="semtel"] .oferta-nota {
+  display: block;
+  margin-top: 16px;
+  font-size: .92rem;
+  line-height: 1.45;
+  color: var(--sobre-2);
+}
+
 /* ⚠️ AQUI O AMARELO TROCA DE BOTÃO. Ele continua aparecendo UMA vez por
    tela — mas neste estado a ação que importa é a oferta, não o socorro:
    é o único caso em que o cliente ainda não tem o produto. "Preciso de
