@@ -118,6 +118,25 @@ copiada. Preview com markup duplicado começa fiel e mente na primeira edição.
 `script-src 'self'`: script inline é bloqueado sem aviso no console e a página
 abre vazia, como se nada tivesse acontecido.
 
+## A volta: o que acontece quando o cliente responde
+
+Até 25/08/2026 a resposta ia para o banco e para o log, e para mais ninguém —
+enquanto a tela do cliente prometia *"entramos em contato para agendar o
+serviço"*. Hoje ela dispara três coisas:
+
+1. **Grava quem decidiu** — `respondido_nome` e `respondido_cargo`, digitados
+   na hora (migration 076). Ver [../banco-de-dados.md](../banco-de-dados.md).
+2. **E-mail para `manutencao@generalbombas.com`** (`ORCAMENTO_RESPOSTA_EMAIL`
+   sobrescreve), por `sendOrcamentoRespondido`.
+3. **Acende o aviso no painel** — `resposta_vista_em` nulo vira faixa no topo
+   da aba de orçamentos, e apaga quando alguém abre a ficha.
+
+⚠️ **O e-mail fica em `try/catch` próprio.** A decisão já está gravada quando
+ele sai; deixar o envio derrubar a rota faria o síndico ver "erro ao registrar
+a resposta" para algo que foi registrado, clicar de novo e tomar "este
+orçamento já foi respondido". O e-mail é aviso — a fonte da verdade é o banco,
+e o painel mostra o não-visto de qualquer jeito.
+
 ---
 
 Relacionados: [autenticacao.md](autenticacao.md) ·

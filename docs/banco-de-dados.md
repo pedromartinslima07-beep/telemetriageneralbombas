@@ -231,6 +231,37 @@ custaram coluna própria em vez de reaproveitar o que já existia:
   sem isso não dá para saber se o "aprovado" veio do cliente ou de quem
   digitou.
 
+076: **quem assumiu a decisão** — `respondido_nome VARCHAR(120)`,
+`respondido_cargo VARCHAR(60)`, `resposta_vista_em TIMESTAMPTZ`.
+
+- ⚠️ `respondido_por` guarda o **id do usuário logado**, e isso responde "qual
+  conta respondeu", não "quem decidiu". A conta é do CONDOMÍNIO: quem clica
+  pode ser o síndico, o subsíndico ou quem estiver com o e-mail aberto naquele
+  dia. Numa conversa seis meses depois — *"quem autorizou este serviço?"* — o
+  id não resolve. Por isso nome e cargo são **digitados na hora**, na aprovação
+  **e na recusa**. Mesma natureza do que contratos já faz com nome e documento.
+- O cargo vem de **lista fechada** no front (Síndico, Subsíndico, Conselheiro,
+  Zelador, Administradora, Gerente predial) com "Outro" abrindo campo livre.
+  Texto livre puro viraria "sindico", "Síndico" e "SÍNDICO" — três grafias da
+  mesma coisa e nenhum agrupamento possível. A coluna guarda o texto final.
+- ⚠️ `resposta_vista_em` **nulo = ninguém do escritório abriu ainda**. É o que
+  faz a resposta virar aviso no painel **sem inventar linha em `alertas`** —
+  aquela tabela é amarrada a `device_id`, existe para telemetria, e um
+  orçamento não tem sensor. Preenche quando alguém abre a ficha, por
+  `POST /admin/orcamentos/avulsos/:id/resposta-vista`, que é idempotente: o
+  `WHERE ... IS NULL` impede que reabrir reescreva a data da primeira vez.
+
+Índice parcial `idx_orcamentos_resposta_nao_vista (respondido_em DESC) WHERE
+respondido_em IS NOT NULL AND resposta_vista_em IS NULL` — a consulta do aviso
+roda a cada carregamento do painel, e o parcial mantém o índice do tamanho do
+problema real (poucas linhas) em vez do tamanho da tabela.
+
+077: **as respostas que já existiam nascem vistas.** Sem isso o deploy acenderia
+o aviso para dezenas de respostas antigas, já tratadas por telefone na época —
+e um aviso que nasce gritando sobre trabalho feito ensina a ignorar o aviso.
+Marca com `respondido_em`, não `now()`: a data de "quando alguém viu" não pode
+ser mais recente que quando de fato foi tratado.
+
 Índice parcial `idx_orcamentos_condo_status (condominio_id, status) WHERE
 condominio_id IS NOT NULL` — cobre a listagem da tela do cliente.
 

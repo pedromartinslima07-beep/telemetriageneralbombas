@@ -11,10 +11,20 @@ const { clienteOnly } = require("../middleware/clienteOnly");
 const { OFFLINE_MINUTES } = require("../config");
 const { gerarPdfOS } = require("../services/os-pdf.service");
 const { gerarPdfAvulso } = require("../services/orcamento-pdf.service");
+const { sendOrcamentoRespondido } = require("../services/email");
 const { salvarFotoMensagemChamado } = require("../services/chamado-mensagens.service");
 const { registrarCriacao } = require("../services/chamado-historico.service");
 
 const router = express.Router();
+
+// Mesma resolucao usada no admin: variavel de ambiente quando existe, senao o
+// host do request. Sem isto o link do aviso apontaria para localhost em dev e
+// para o host interno do container em producao.
+function _baseUrlPublica(req) {
+  const env = process.env.APP_URL || process.env.PUBLIC_BASE_URL;
+  if (env) return String(env).replace(/\/+$/, "");
+  return `${req.protocol}://${req.get("host")}`;
+}
 
 const CATEGORIAS = ["vazamento", "bomba_falha", "nivel_baixo", "sem_agua", "ruido", "manutencao", "outro"];
 
@@ -957,6 +967,22 @@ router.post("/orcamentos/:id/responder", authRequired, clienteOnly, async (req, 
     return res.status(400).json({ error: "Diga o motivo da recusa para a gente poder revisar." });
   }
 
+  // ⚠️ QUEM ASSUMIU A DECISÃO, e não qual conta clicou (25/08/2026).
+  // `respondido_por` guarda o id do usuário logado, e a conta é do CONDOMÍNIO:
+  // quem clica pode ser o síndico, o subsíndico ou quem estiver com o e-mail
+  // aberto naquele dia. Numa conversa seis meses depois — "quem autorizou este
+  // serviço?" — o id do usuário não responde nada. Por isso nome e cargo são
+  // digitados na hora, e valem para a recusa também: saber quem recusou vale
+  // tanto quanto.
+  const nome = String(req.body?.nome || "").trim().slice(0, 120);
+  const cargo = String(req.body?.cargo || "").trim().slice(0, 60);
+  if (!nome) {
+    return res.status(400).json({ error: "Diga o seu nome para registrarmos quem respondeu." });
+  }
+  if (!cargo) {
+    return res.status(400).json({ error: "Diga o seu cargo no condomínio." });
+  }
+
   try {
     const r = await pool.query(
       `SELECT id, status, condominio_id FROM orcamentos WHERE id = $1`,
@@ -985,15 +1011,57 @@ router.post("/orcamentos/:id/responder", authRequired, clienteOnly, async (req, 
               respondido_em      = now(),
               respondido_por     = $3,
               cliente_comentario = NULLIF($4, ''),
+              respondido_nome    = $5,
+              respondido_cargo   = $6,
+              -- resposta_vista_em volta a NULO de proposito: e o que faz a
+              -- resposta virar aviso no painel do escritorio. Some quando
+              -- alguem de la abre a ficha. Ver migration 076.
+              resposta_vista_em  = NULL,
               aprovado_em        = CASE WHEN $2 = 'aprovado' THEN now() ELSE aprovado_em END,
               aprovado_por       = CASE WHEN $2 = 'aprovado' THEN $3 ELSE aprovado_por END,
               motivo_rejeicao    = CASE WHEN $2 = 'rejeitado' THEN NULLIF($4, '') ELSE motivo_rejeicao END
         WHERE id = $1
-        RETURNING id, status, respondido_em, cliente_comentario`,
-      [id, novoStatus, req.user.id, comentario]
+        RETURNING id, status, respondido_em, cliente_comentario, respondido_nome, respondido_cargo`,
+      [id, novoStatus, req.user.id, comentario, nome, cargo]
     );
 
-    console.log(`[cliente] orcamento=${id} decisao=${novoStatus} usuario=${req.user.id}`);
+    console.log(
+      `[cliente] orcamento=${id} decisao=${novoStatus} usuario=${req.user.id} ` +
+      `quem="${nome} (${cargo})"`
+    );
+
+    // ⚠️ O AVISO NÃO PODE DERRUBAR A RESPOSTA.
+    // A decisão do cliente já está gravada neste ponto. Se o Resend estiver
+    // fora do ar, com cota estourada ou o domínio não verificado, o
+    // `sendOrcamentoRespondido` lança — e sem este catch o síndico veria "erro
+    // ao registrar a resposta" para algo que JÁ foi registrado, e clicaria de
+    // novo, e tomaria "este orçamento já foi respondido". O e-mail é aviso; a
+    // fonte da verdade é o banco, e o painel mostra o não-visto de qualquer
+    // jeito.
+    try {
+      const info = await pool.query(
+        `SELECT o.numero, COALESCE(c.nome_fantasia, c.nome, o.cliente_nome) AS condominio_nome
+           FROM orcamentos o LEFT JOIN condominios c ON c.id = o.condominio_id
+          WHERE o.id = $1`,
+        [id]
+      );
+      await sendOrcamentoRespondido({
+        id,
+        numero: info.rows[0]?.numero,
+        condominioNome: info.rows[0]?.condominio_nome,
+        status: novoStatus,
+        nome,
+        cargo,
+        comentario,
+        respondidoEm: upd.rows[0]?.respondido_em,
+        linkAdmin: `${_baseUrlPublica(req)}/admin/painel?orcamento=${id}`,
+      });
+    } catch (errAviso) {
+      console.error(
+        `[cliente] AVISO-FALHOU orcamento=${id} motivo=${errAviso.message}`
+      );
+    }
+
     return res.json(upd.rows[0]);
   } catch (e) {
     console.error("[cliente] POST /orcamentos/:id/responder:", e);

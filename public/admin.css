@@ -9689,3 +9689,36 @@ body.role-viewer .viewer-only-hide-inline {
 /* Sem modo disponível o botão não some: sumir esconderia que existe um
    caminho melhor, e o operador nunca saberia que basta criar o acesso. */
 .avModo:disabled { opacity: .45; cursor: not-allowed; }
+
+/* O cargo de quem respondeu o orçamento: vive ao lado do nome, um degrau
+   abaixo. `<i>` é semântico (voz secundária), não itálico — o desenho manda. */
+.av-cargo {
+  font-style: normal;
+  font-weight: 400;
+  font-size: .86em;
+  color: var(--muted);
+}
+
+/* ─── Aviso: respostas de cliente que ninguém abriu ────────────────────────
+   Fica acima dos KPIs da aba de orçamentos avulsos. Não é métrica — é
+   trabalho parado esperando alguém —, então tem ação ("Ver") e some sozinho
+   quando a última ficha é aberta.
+
+   ⚠️ O campo aqui é ESCURO (superfície de trabalho do admin, não placa
+   clara), então usa a família de cor do painel. E o realce é o âmbar de
+   ATENÇÃO, não `--risco`: uma resposta esperando não é uma falha. */
+.av-aviso {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding: 12px 16px;
+  background: color-mix(in srgb, var(--amarelo, #f0b014) 12%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--amarelo, #f0b014) 38%, transparent);
+  border-radius: 8px;
+  font-size: .95rem;
+  color: var(--text);
+}
+.av-aviso[hidden] { display: none; }
+.av-aviso svg { width: 20px; height: 20px; flex: none; color: var(--amarelo, #f0b014); }
+.av-aviso span { flex: 1; min-width: 0; }

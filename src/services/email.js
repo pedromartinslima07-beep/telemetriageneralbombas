@@ -578,6 +578,83 @@ async function sendLeadNovo(dados) {
   }, "lead da landing");
 }
 
+/**
+ * Avisa o escritório de que o cliente respondeu um orçamento no painel.
+ *
+ * ⚠️ EXISTE PORQUE A RESPOSTA FICOU MUDA (25/08/2026). Quando o orçamento
+ * passou a ser respondido na tela do cliente, a decisão virou uma linha no
+ * banco e mais nada — sem e-mail, sem alerta, sem contagem. E a tela do
+ * cliente promete, depois que ele aprova: "Entramos em contato para agendar o
+ * serviço". Uma promessa que dependia de alguém, por conta própria, reparar
+ * que um status tinha mudado.
+ *
+ * No caminho antigo havia um acaso a favor: sem painel, o síndico respondia o
+ * E-MAIL, e aquilo caía na caixa de alguém. Ao organizar a resposta, ela ficou
+ * silenciosa junto.
+ *
+ * ⚠️ Vai para `ORCAMENTO_RESPOSTA_EMAIL` (padrão manutencao@generalbombas.com),
+ * não para quem enviou o orçamento: quem enviou pode estar de férias, e o
+ * caminho que sempre tem alguém do outro lado é a caixa da manutenção.
+ */
+async function sendOrcamentoRespondido(dados) {
+  const destino = process.env.ORCAMENTO_RESPOSTA_EMAIL || "manutencao@generalbombas.com";
+  const aprovou = dados.status === "aprovado";
+  const verbo = aprovou ? "aprovou" : "recusou";
+  const numero = dados.numero || `#${dados.id}`;
+  const condo = dados.condominioNome || "—";
+
+  // Quem assumiu a decisão vem PRIMEIRO: é a informação que não existia antes
+  // e a razão de este e-mail ter sido pedido.
+  const linhas = [
+    ["Quem respondeu", [dados.nome, dados.cargo].filter(Boolean).join(" · ")],
+    ["Orçamento",      numero],
+    ["Cliente",        condo],
+    ["Resposta",       aprovou ? "Aprovado" : "Recusado"],
+    ["Quando",         _fmtInstante(dados.respondidoEm)],
+    [aprovou ? "Comentário" : "Motivo", dados.comentario],
+  ].filter(([, v]) => v);
+
+  const E = _escaparHtml;
+  const link = dados.linkAdmin;
+
+  await _enviar({
+    from: `General Telemetria <${_emailFrom()}>`,
+    to: destino,
+    subject: `${condo} ${verbo} o orçamento ${numero}`,
+    text: [
+      `${condo} ${verbo} o orçamento ${numero}.`,
+      ``,
+      ...linhas.map(([k, v]) => `${k}: ${v}`),
+      ...(link ? [``, `Abrir no painel: ${link}`] : []),
+    ].join("\n"),
+    html: `
+      <div style="font-family:sans-serif;max-width:560px;margin:auto;padding:32px 28px;background:#ffffff;color:#111827;">
+        <h2 style="margin:0 0 6px;font-size:18px;">
+          ${E(condo)} <strong>${E(verbo)}</strong> o orçamento ${E(numero)}
+        </h2>
+        <p style="margin:0 0 20px;font-size:13px;color:#6b7280;">
+          Resposta registrada no painel do cliente.
+        </p>
+        <table style="width:100%;border-collapse:collapse;font-size:14px;">
+          ${linhas.map(([k, v]) => `
+            <tr>
+              <td style="padding:8px 12px 8px 0;color:#6b7280;vertical-align:top;white-space:nowrap;">${E(k)}</td>
+              <td style="padding:8px 0;color:#111827;">${E(v)}</td>
+            </tr>`).join("")}
+        </table>
+        ${link ? `
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:22px 0 0;">
+          <tr><td style="background:#f0b014;">
+            <a href="${link}" style="color:#030a26;font-size:14px;font-weight:bold;text-decoration:none;display:inline-block;padding:12px 22px;">
+              Abrir no painel
+            </a>
+          </td></tr>
+        </table>` : ""}
+      </div>
+    `,
+  }, "resposta do cliente ao orçamento");
+}
+
 // O conteúdo vem de formulário público — nunca interpolar cru no HTML.
 function _escaparHtml(v) {
   return String(v ?? "")
@@ -587,4 +664,4 @@ function _escaparHtml(v) {
     .replace(/"/g, "&quot;");
 }
 
-module.exports = { sendOTP, sendAssinaturaCodigo, sendAlertaEmail, sendOrcamentoCliente, sendContratoAssinatura, sendLeadNovo };
+module.exports = { sendOTP, sendAssinaturaCodigo, sendAlertaEmail, sendOrcamentoCliente, sendOrcamentoRespondido, sendContratoAssinatura, sendLeadNovo };

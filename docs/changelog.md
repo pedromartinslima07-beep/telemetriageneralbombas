@@ -84,6 +84,8 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
 | 069 | leads_landing | tabela `leads` — contatos da landing pública |
 | 074 | orcamento_resposta_cliente | `orcamentos.cliente_comentario/respondido_em/respondido_por (SET NULL)` + índice parcial `(condominio_id, status)` — o cliente responde ao orçamento pelo painel; `respondido_por` é sempre o CLIENTE, separado de `aprovado_por`, que continua podendo ser quem digitou no escritório |
 | 075 | login_codes_tentativas | `login_codes.tentativas SMALLINT` — teto de 5 erros **por código**, porque o teto por IP não segura quem tem muitos IPs |
+| 076 | orcamento_quem_respondeu | `orcamentos.respondido_nome/respondido_cargo` (quem decidiu, não qual conta) + `resposta_vista_em` (nulo = ninguém do escritório abriu) + índice parcial do aviso |
+| 077 | orcamento_respostas_antigas_vistas | marca respostas pré-existentes como vistas, para o aviso não nascer gritando sobre trabalho já feito |
 | 073 | fk_usuarios_on_delete_set_null | toda FK → `usuarios` que estava em NO ACTION vira `ON DELETE SET NULL` (autoria em `sla_definicoes`, `orcamentos`, `planos_manutencao`, `contratos`) — era o que travava a remoção de usuário |
 | 072 | os_equipamento | `ordens_servico.equipamento_id (SET NULL)` — fecha o triângulo O.S./equipamento/orçamento; + `UPDATE` acertando `orcamentos.origem = 'os'` nos orçamentos de O.S. que nasciam como `'admin'` |
 | 071 | orcamento_bancada | `orcamentos.origem` aceita `'bancada'`; `orcamentos.equipamento_id (SET NULL)` — liga a bomba na bancada ao orçamento, sem tabela de peças própria |
@@ -4157,6 +4159,60 @@ sugestão de resposta. O campo continua igual; saiu só o texto de dentro.
 
 Cache-bust: `cliente-orcamentos.js?v=10`, `telemetria-v55`,
 `register-sw.js?v=45`.
+
+### 2026-08-25 · A resposta do cliente deixa de ser muda, e passa a ter dono
+
+*"Hoje um orçamento aprovado no painel, ou um comentário, vai para onde?"* —
+investigado: ia para o banco e para o log. Para mais ninguém. Sem e-mail, sem
+alerta, sem contagem. E a tela do cliente **promete**, depois que ele aprova:
+*"Entramos em contato para agendar o serviço"* — uma promessa que dependia de
+alguém, por conta própria, reparar que um status tinha mudado.
+
+O caminho antigo tinha um acaso a favor: sem painel, o síndico respondia o
+**e-mail**, e aquilo caía na caixa de alguém. Ao organizar a resposta, ela
+ficou silenciosa junto.
+
+**1. Quem assumiu a decisão** (migration 076). `aprovado_por` sempre guardou o
+id da CONTA, e a conta é do condomínio — o sistema sabia que "a conta do
+Edifício Solar aprovou", nunca quem. Agora nome e cargo são digitados na hora,
+na aprovação **e na recusa**, e a ficha do admin mostra "Aprovado por Edmilson
+Rocha · Síndico" com **data e hora** (registro de autorização pede hora; "dia
+25" é fraco numa conversa em que a ordem dos fatos importa).
+
+O cargo é **lista fechada** com "Outro" como escape — texto livre viraria
+"sindico", "Síndico" e "SÍNDICO", três grafias e nenhum agrupamento. A ordem é
+de frequência, não alfabética: quem responde orçamento é quase sempre o síndico.
+
+**2. E-mail para `manutencao@generalbombas.com`** (`ORCAMENTO_RESPOSTA_EMAIL`
+sobrescreve). Não vai para quem enviou o orçamento: quem enviou pode estar de
+férias, e o caminho que sempre tem alguém do outro lado é a manutenção.
+
+⚠️ **O aviso não pode derrubar a resposta.** O envio fica em `try/catch`
+próprio: a decisão do cliente já está gravada quando o e-mail sai. Sem isso,
+Resend fora do ar faria o síndico ver "erro ao registrar a resposta" para algo
+JÁ registrado, clicar de novo e tomar "este orçamento já foi respondido".
+
+**3. O alerta no painel.** Não virou linha em `alertas`: aquela tabela é
+amarrada a `device_id`, existe para telemetria, e um orçamento não tem sensor —
+forjar um seria dívida disfarçada de solução. O aviso mora no próprio orçamento
+(`resposta_vista_em`) e vira uma faixa âmbar no topo de Orçamentos, com um
+"Ver" que leva ao primeiro. **Some ao abrir a ficha** — não há "marcar como
+lido": aviso que exige duas ações para sumir vira aviso que ninguém tira.
+
+A migration **077** marca as respostas que já existiam como vistas, senão o
+deploy acenderia o aviso para dezenas de casos antigos já tratados por telefone
+— e um aviso que nasce gritando sobre trabalho feito ensina a ignorar o aviso.
+
+**O que o teste pegou.** Contra o banco de teste: grava nome e cargo, vira
+aviso, e a marcação de visto é **idempotente** (reabrir não reescreve a data da
+primeira vez). E o navegador pegou um bug de verdade — o campo "Qual?" do cargo
+aparecia **mesmo com `hidden`**, porque `.campo { display: block }` vence o
+atributo, que é só um `display:none` do stylesheet do navegador. O
+`cliente.css` trata `[hidden]` caso a caso em vez de ter regra global, então
+todo componente com `display` próprio precisa declarar a sua.
+
+Cache-bust: `admin.css?v=234`, `admin.js?v=316`, `cliente.css?v=46`,
+`cliente-orcamentos.js?v=11`, `telemetria-v56`, `register-sw.js?v=46`.
 
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e

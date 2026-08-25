@@ -1341,6 +1341,9 @@ router.get("/orcamentos/avulsos", authRequired, adminOnly, async (req, res) => {
               -- (Sem crase neste comentario: ele vive dentro de um template
               --  literal, e crase aqui FECHA o template.)
               o.respondido_em, o.cliente_comentario, o.motivo_rejeicao,
+              -- Quem assumiu a decisao, digitado na hora (migration 076).
+              -- ur.nome e o nome da CONTA; estes sao a pessoa.
+              o.respondido_nome, o.respondido_cargo, o.resposta_vista_em,
               ur.nome AS respondido_por_nome,
               -- CONTRATO COM O MODAL, NAO TIRE: o.valor e a COLUNA CRUA (total
               -- manual, NULL = somar os itens), e valor_total e o numero ja
@@ -1679,6 +1682,35 @@ router.get("/orcamentos/avulsos/:id/destinatarios", authRequired, adminOnly, asy
   } catch (err) {
     console.error("[admin] GET /orcamentos/avulsos/:id/destinatarios:", err);
     return res.status(500).json({ error: "Erro ao listar destinatários" });
+  }
+});
+
+/**
+ * POST /admin/orcamentos/avulsos/:id/resposta-vista
+ *
+ * Marca que alguém do escritório abriu a resposta do cliente. É o que apaga o
+ * aviso na aba de orçamentos — ver `resposta_vista_em` na migration 076.
+ *
+ * ⚠️ Idempotente e sem efeito quando não há resposta: o `WHERE` exige
+ * `respondido_em IS NOT NULL`, então abrir a ficha de um rascunho não grava
+ * nada. E `resposta_vista_em IS NULL` impede que reabrir a ficha reescreva a
+ * data — o que interessa é QUANDO alguém viu pela primeira vez.
+ */
+router.post("/orcamentos/avulsos/:id/resposta-vista", authRequired, adminOnly, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
+  try {
+    const r = await pool.query(
+      `UPDATE orcamentos
+          SET resposta_vista_em = now()
+        WHERE id = $1 AND respondido_em IS NOT NULL AND resposta_vista_em IS NULL
+        RETURNING resposta_vista_em`,
+      [id]
+    );
+    return res.json({ ok: true, resposta_vista_em: r.rows[0]?.resposta_vista_em || null });
+  } catch (err) {
+    console.error("[admin] POST /orcamentos/avulsos/:id/resposta-vista:", err);
+    return res.status(500).json({ error: "Erro ao marcar a resposta como vista" });
   }
 });
 

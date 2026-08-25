@@ -11868,6 +11868,33 @@ function _avRenderTudo() {
     kpi(ICO_SEND,  enviado,              "Enviado",         enviado  > 0 ? "rc-warn" : "rc-neutral") +
     kpi(ICO_MONEY, _orcFmtValor(totalVal || null), "Total aprovado", aprov > 0 ? "rc-ok" : "rc-neutral");
 
+  // ⚠️ AS RESPOSTAS QUE NINGUÉM ABRIU (25/08/2026).
+  // Quando o orçamento passou a ser respondido no painel do cliente, a decisão
+  // virou uma linha no banco e mais nada — e a tela do cliente PROMETE, depois
+  // que ele aprova, que "entramos em contato para agendar o serviço". A
+  // promessa dependia de alguém reparar sozinho que um status tinha mudado.
+  //
+  // Não virou linha em `alertas` de propósito: aquela tabela é amarrada a
+  // `device_id`, existe para telemetria, e um orçamento não tem sensor. O
+  // aviso mora no próprio orçamento (`resposta_vista_em`, migration 076) e
+  // some quando alguém do escritório abre a ficha.
+  const novas = _avData.filter(o => o.respondido_em && !o.resposta_vista_em);
+  const aviso = document.getElementById("avAvisoRespostas");
+  if (aviso) {
+    aviso.hidden = novas.length === 0;
+    if (novas.length) {
+      const q = novas.length;
+      const quem = novas
+        .map(o => o.condominio_nome)
+        .filter((v, i, a) => v && a.indexOf(v) === i)
+        .slice(0, 3)
+        .join(", ");
+      aviso.querySelector("[data-aviso-txt]").textContent =
+        `${q} ${q === 1 ? "cliente respondeu" : "clientes responderam"} e ninguém abriu ainda` +
+        (quem ? ` — ${quem}${novas.length > 3 ? " e outros" : ""}` : "");
+    }
+  }
+
   const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
   set("avCtTodos",    total);
   set("avCtRascunho", rascunho);
@@ -12226,7 +12253,13 @@ function _avRenderPainel() {
           </div>
           <div class="av-rail-kv"><span>Validade</span><b>${validadeVal ? _orcFmtData(o.valido_ate) : "—"}</b></div>
           ${o.respondido_em ? `
-          <div class="av-rail-kv"><span>Resposta do cliente</span><b>${o.status === "aprovado" ? "Aprovou" : "Recusou"} em ${_orcFmtData(o.respondido_em)}</b></div>` : ""}
+          <div class="av-rail-kv">
+            <span>${o.status === "aprovado" ? "Aprovado por" : "Recusado por"}</span>
+            <b>${o.respondido_nome
+                  ? `${_waEscaparHtml(o.respondido_nome)}${o.respondido_cargo ? ` <i class="av-cargo">${_waEscaparHtml(o.respondido_cargo)}</i>` : ""}`
+                  : "<i class=\"av-cargo\">não informado</i>"}</b>
+          </div>
+          <div class="av-rail-kv"><span>Quando</span><b>${_orcFmtDataHora(o.respondido_em)}</b></div>` : ""}
           <div class="av-rail-kv av-rail-tipo">
             <span><label for="avInputTipo">Tipo</label></span>
             <b><select id="avInputTipo" class="select">
@@ -13445,6 +13478,21 @@ function _avBindEventos() {
     _avSelecionado = _avData.find(o => o.id === id) || null;
     _avRenderPainel();
     document.querySelectorAll("#avCondoDetail .av-orc-item").forEach(r => r.classList.toggle("is-selected", r === item));
+    _avMarcarRespostaVista(_avSelecionado);
+  });
+
+  // O "Ver" do aviso leva ao primeiro que ninguém abriu. Sem isto o aviso
+  // diria que há trabalho parado e deixaria a pessoa procurar na lista.
+  document.getElementById("avAvisoVer")?.addEventListener("click", () => {
+    const alvo = _avData.find(o => o.respondido_em && !o.resposta_vista_em);
+    if (!alvo) return;
+    const linha = document.querySelector(`[data-av-id="${alvo.id}"]`);
+    if (linha) { linha.scrollIntoView({ behavior: "smooth", block: "center" }); linha.click(); return; }
+    // Filtrado para fora da lista visível: seleciona mesmo assim, para a ficha
+    // abrir e a resposta contar como vista.
+    _avSelecionado = alvo;
+    _avRenderPainel();
+    _avMarcarRespostaVista(alvo);
   });
 
   document.getElementById("avModalBackdrop")?.addEventListener("click", () => _avTentarFechar());
@@ -13523,6 +13571,18 @@ function _orcFmtValor(v) {
 function _orcFmtData(iso) {
   if (!iso) return "—";
   return new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
+}
+
+// A resposta do cliente pede HORA, não só data: é registro de quem autorizou o
+// serviço, e "aprovou dia 25" é fraco numa conversa em que a ordem dos fatos
+// importa. `respondido_em` é timestamptz — passar por `new Date()` aqui está
+// certo, ao contrário do DATE logo abaixo.
+function _orcFmtDataHora(iso) {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleString("pt-BR", {
+    day: "2-digit", month: "2-digit", year: "numeric",
+    hour: "2-digit", minute: "2-digit",
+  });
 }
 
 // `orcamento_valido_ate` é DATE (YYYY-MM-DD), sem fuso. Passar por `new Date()`
@@ -14122,6 +14182,29 @@ async function _orcGerarPdf() {
   } catch (e) {
     if (msg) msg.textContent = "Erro: " + e.message;
   }
+}
+
+// Abrir a ficha É ter visto a resposta. Não há botão "marcar como lido": um
+// aviso que exige duas ações para sumir vira aviso que ninguém tira, e aí para
+// de significar alguma coisa.
+//
+// ⚠️ Silencioso de propósito. Se a marcação falhar, o operador já está olhando
+// a resposta — o pior que acontece é o aviso continuar lá até o próximo
+// carregamento. Estourar um erro na cara de quem só clicou numa linha seria
+// pior que o defeito.
+async function _avMarcarRespostaVista(o) {
+  if (!o?.id || !o.respondido_em || o.resposta_vista_em) return;
+  try {
+    const r = await fetch(`/admin/orcamentos/avulsos/${o.id}/resposta-vista`, {
+      method: "POST", headers: authHeaders(),
+    });
+    if (!r.ok) return;
+    const j = await r.json();
+    o.resposta_vista_em = j.resposta_vista_em || new Date().toISOString();
+    const na = _avData.find(x => x.id === o.id);
+    if (na) na.resposta_vista_em = o.resposta_vista_em;
+    _avRenderTudo();
+  } catch (_) { /* ver acima: o aviso volta no próximo carregamento */ }
 }
 
 function _orcAtualizarBadge() {

@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="/static/leaflet.css">
   <!-- ⚠️ Ao mexer em admin.js ou admin.css, bumpe o ?v=N aqui E no <script>
        lá embaixo. Ver CLAUDE.md raiz. -->
-  <link rel="stylesheet" href="/static/admin.css?v=233">
+  <link rel="stylesheet" href="/static/admin.css?v=234">
 </head>
 <body>
   <div id="appLoader">
@@ -685,6 +685,14 @@
         <!-- ===== MODO AVULSO ===== -->
         <div id="orcModoAvulso">
           <!-- KPIs -->
+          <!-- O aviso das respostas que ninguem abriu. Fica ACIMA dos KPIs
+               porque nao e metrica: e trabalho parado esperando alguem. Some
+               sozinho quando a ultima ficha e aberta. Ver migration 076. -->
+          <div class="av-aviso" id="avAvisoRespostas" hidden>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" aria-hidden="true"><path d="M12 8v5"/><path d="M12 16.5v.5"/><circle cx="12" cy="12" r="9"/></svg>
+            <span data-aviso-txt></span>
+            <button type="button" class="btn btn-sm" id="avAvisoVer">Ver</button>
+          </div>
           <div class="resumo-grid" id="avKpiGrid" style="margin-bottom:16px;"></div>
 
           <!-- Master-detail: condomínios (esq) → orçamentos do condomínio (dir).
@@ -2702,8 +2710,8 @@
 </div>
 
 
-<script src="/static/admin.js?v=315" defer></script>
+<script src="/static/admin.js?v=316" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
-<script src="/static/register-sw.js?v=45" defer></script>
+<script src="/static/register-sw.js?v=46" defer></script>
 </body>
 </html>

@@ -458,6 +458,32 @@ async function abrir(id) {
     <section class="orc-sec orc-responder">
       <h3>Sua resposta</h3>
       <p class="orc-sec-apoio">Se aprovar, agendamos o serviço. Se recusar, diga o motivo — dá para revisar e enviar outro.</p>
+      <!-- ⚠️ QUEM ASSUMIU A DECISÃO, e não qual conta clicou (25/08/2026).
+           A conta é do CONDOMÍNIO: quem responde pode ser o síndico, o
+           subsíndico ou quem estiver com o e-mail aberto naquele dia. O
+           escritório precisa saber quem autorizou o serviço — e o síndico
+           precisa que fique registrado que foi ele, não "o condomínio".
+           Vale para a recusa também: saber quem recusou vale tanto quanto. -->
+      <label class="campo">
+        <span>Seu nome</span>
+        <input type="text" id="orcNome" maxlength="120" autocomplete="name" />
+      </label>
+      <label class="campo">
+        <span>Seu cargo</span>
+        <!-- Lista, não texto livre: no celular é um toque em vez de digitação,
+             e o dado agrupa depois em vez de virar dez grafias da mesma coisa.
+             "Outro" abre o campo abaixo — a lista fechada sem escape excluiria
+             quem não se encaixa. -->
+        <select id="orcCargo">
+          <option value="">Selecione…</option>
+          ${CARGOS.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join("")}
+          <option value="__outro">Outro…</option>
+        </select>
+      </label>
+      <label class="campo" id="orcCargoOutroCampo" hidden>
+        <span>Qual?</span>
+        <input type="text" id="orcCargoOutro" maxlength="60" />
+      </label>
       <label class="campo">
         <span>Comentário <small>(obrigatório para recusar)</small></span>
         <textarea id="orcComentario" rows="3" maxlength="2000"></textarea>
@@ -557,18 +583,44 @@ function voltarHtml() {
     </button>`;
 }
 
+/* ⚠️ A LISTA É FECHADA, com "Outro" como escape.
+   Texto livre viraria "sindico", "Síndico", "SÍNDICO" e "sindico do bloco B" —
+   quatro grafias da mesma coisa, e nenhum agrupamento possível depois. A ordem
+   não é alfabética: é de frequência esperada, porque quem responde orçamento
+   é quase sempre o síndico. */
+const CARGOS = ["Síndico", "Subsíndico", "Conselheiro", "Zelador", "Administradora", "Gerente predial"];
+
 /* ── Responder ─────────────────────────────────────────────────────────── */
+
+function _erroResposta(msg, texto, foco) {
+  msg.className = "orc-msg is-erro";
+  msg.textContent = texto;
+  foco?.focus();
+}
 
 async function responder(id, decisao) {
   const msg = document.getElementById("orcMsg");
   const campo = document.getElementById("orcComentario");
   const comentario = (campo?.value || "").trim();
 
+  const elNome  = document.getElementById("orcNome");
+  const elCargo = document.getElementById("orcCargo");
+  const elOutro = document.getElementById("orcCargoOutro");
+  const nome = (elNome?.value || "").trim();
+  const cargoBruto = elCargo?.value || "";
+  const cargo = cargoBruto === "__outro" ? (elOutro?.value || "").trim() : cargoBruto;
+
+  // O backend valida os três de novo — isto aqui é só para a pessoa não
+  // perder o clique e descobrir o problema depois de uma ida ao servidor.
+  if (!nome) {
+    return _erroResposta(msg, "Diga o seu nome para registrarmos quem respondeu.", elNome);
+  }
+  if (!cargo) {
+    return _erroResposta(msg, "Escolha o seu cargo no condomínio.",
+      cargoBruto === "__outro" ? elOutro : elCargo);
+  }
   if (decisao === "recusar" && !comentario) {
-    msg.className = "orc-msg is-erro";
-    msg.textContent = "Escreva o motivo da recusa para a gente poder revisar.";
-    campo?.focus();
-    return;
+    return _erroResposta(msg, "Escreva o motivo da recusa para a gente poder revisar.", campo);
   }
 
   const botoes = elDetalhe.querySelectorAll("[data-responder]");
@@ -580,7 +632,7 @@ async function responder(id, decisao) {
     const r = await fetch(`/cliente/orcamentos/${id}/responder`, {
       method: "POST",
       headers: { "Content-Type": "application/json", ...authHeaders() },
-      body: JSON.stringify({ decisao, comentario }),
+      body: JSON.stringify({ decisao, comentario, nome, cargo }),
     });
     // ⚠️ 401 aqui é o pior momento para trocar de página: a pessoa acabou de
     // decidir. O cartão reabre por cima, e a resposta é dada de novo com um
@@ -661,6 +713,19 @@ function sincronizar() {
   const id = idDaUrl();
   if (id) abrir(id); else mostrarLista();
 }
+
+// "Outro…" abre o campo livre. Fica aqui, no listener global de change, e não
+// num `onchange` inline: o formulário é remontado a cada `abrir(id)`, e
+// listener preso ao elemento morreria junto com ele.
+document.addEventListener("change", ev => {
+  const sel = ev.target.closest("#orcCargo");
+  if (!sel) return;
+  const campo = document.getElementById("orcCargoOutroCampo");
+  if (!campo) return;
+  const ehOutro = sel.value === "__outro";
+  campo.hidden = !ehOutro;
+  if (ehOutro) document.getElementById("orcCargoOutro")?.focus();
+});
 
 document.addEventListener("click", ev => {
   const pdf = ev.target.closest("[data-pdf]");

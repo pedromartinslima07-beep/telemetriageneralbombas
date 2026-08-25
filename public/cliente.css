@@ -1028,14 +1028,40 @@ body.com-ficha { overflow: hidden; }
 .ficha-intro { font-size: .98rem; color: var(--tinta-2); max-width: 48ch; }
 
 .campo { display: block; margin-top: 14px; }
+/* ⚠️ `display: block` acima VENCE o atributo `hidden`, que é só um
+   `display: none` do stylesheet do navegador — o campo "Qual?" do cargo
+   aparecia mesmo com `hidden` no HTML. Este arquivo trata `[hidden]` caso a
+   caso (ver `.ficha-fundo`, `.aviso`, `.orcs-lista`) em vez de ter uma regra
+   global, então todo componente com `display` próprio precisa declarar a sua. */
+.campo[hidden] { display: none; }
 .campo span { display: block; font-size: .92rem; color: var(--tinta-2); margin-bottom: 6px; }
-.campo input, .campo textarea {
+.campo input, .campo textarea, .campo select {
   width: 100%; background: #fff; color: var(--tinta); padding: 13px 14px;
   box-shadow: inset 0 0 0 1px var(--fio-esc); clip-path: var(--corte); --ch: 8px;
   min-height: 50px; resize: vertical; border: 0;
 }
 .campo input::placeholder, .campo textarea::placeholder { color: var(--tinta-2); }
-.campo input:focus-visible, .campo textarea:focus-visible { box-shadow: inset 0 0 0 2px var(--tinta); }
+.campo input:focus-visible, .campo textarea:focus-visible,
+.campo select:focus-visible { box-shadow: inset 0 0 0 2px var(--tinta); }
+
+/* ⚠️ O `select` do cargo (resposta ao orçamento) é o ÚNICO desta tela — as
+   categorias do chamado são placas de toque de propósito, e o comentário logo
+   abaixo explica por quê. Aqui a lista é curta, fechada e o dado é de
+   identificação, não de escolha visual: menu nativo é o que o público mais
+   velho já sabe operar no celular.
+   A seta é desenhada em SVG porque `appearance:none` remove a nativa, e sem
+   ela o campo vira uma caixa de texto que não aceita digitação. Traço
+   esquadrado, como manda o DESIGN.md. */
+.campo select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 40px;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23414f74' stroke-width='2' stroke-linecap='square'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  background-size: 18px;
+}
 
 /* categorias do chamado: placas grandes, não um <select> de 7 itens —
    público mais velho, no celular, alvo de toque vence economia de espaço.

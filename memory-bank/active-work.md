@@ -27,6 +27,26 @@ aliases:
 > teste tinha caído. Um `TcpClient.ConnectAsync` conecta nos dois em ~190ms.
 > Os dois bancos estão de pé.
 
+## Sessão 2026-08-25 — A resposta do cliente ganha dono, e-mail e aviso
+
+Pergunta do Pedro: *"um orçamento aprovado no painel, ou um comentário, vai
+para onde?"* Ia para o banco e para o log, e para mais ninguém — enquanto a
+tela do cliente promete "entramos em contato para agendar o serviço".
+
+- **076** — `respondido_nome`/`respondido_cargo` (quem decidiu, não qual conta)
+  + `resposta_vista_em` (nulo = ninguém abriu) + índice parcial.
+  ✅ **Aplicada em TESTE e em PRODUÇÃO** (Pedro rodou com `--prod`).
+- **077** — marca respostas antigas como vistas, para o aviso não nascer
+  gritando sobre trabalho já feito. ✅ TESTE.
+  ⚠️ **Falta em produção:** `node scripts/migrate.js 077_orcamento_respostas_antigas_vistas.sql --prod`
+- E-mail para `manutencao@generalbombas.com` (`ORCAMENTO_RESPOSTA_EMAIL`
+  sobrescreve), em `try/catch` próprio — o aviso não pode derrubar a resposta.
+- Faixa âmbar no topo de Orçamentos + `POST .../resposta-vista` (idempotente).
+- Cargo em lista fechada com "Outro"; ordem por frequência.
+
+Testado contra o banco de teste (grava, vira aviso, marcação idempotente,
+revertido) e no Chrome. ⚠️ **Falta o envio real do e-mail**, que é handoff.
+
 ## Sessão 2026-08-25 — O envio do orçamento vira duas opções
 
 Pergunta do Pedro — *"a função enviar por e-mail enviará ainda para todos
