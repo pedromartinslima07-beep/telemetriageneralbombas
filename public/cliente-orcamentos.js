@@ -128,6 +128,17 @@ async function _concluirEntrada(data) {
   sincronizar();
 }
 
+// ⚠️ O CORTE POR INATIVIDADE ABRE O CARTÃO, NÃO REDIRECIONA (25/08/2026).
+//
+// O `inatividade.js` manda para `/login?motivo=inatividade` por padrão, e nas
+// outras telas isso está certo. Aqui não: quem chega veio de um link sobre UM
+// documento, e trocar a página por um formulário perde o documento e a URL com
+// `?orc=N`. É a mesma regra que fez o login virar cartão nesta página — ver o
+// cabeçalho deste arquivo. O hook é lido pelo inatividade.js na hora do corte.
+window.aoExpirarInatividade = function () {
+  pedirEntrada("Sua sessão expirou por inatividade. Entre de novo para ver o orçamento.");
+};
+
 function _bindEntrada() {
   const form    = _el("entradaForm");
   const otpForm = _el("entradaOtpForm");

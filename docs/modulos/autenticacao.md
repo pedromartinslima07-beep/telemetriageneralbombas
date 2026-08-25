@@ -184,6 +184,36 @@ Forjar `metodo: "codigo"` para um e-mail de admin não leva a lugar nenhum: o
 `/auth/codigo` filtra `role = 'cliente'` no próprio SQL e responde neutro.
 Nenhum caminho de autenticação depende do que o front decidiu mostrar.
 
+## Quanto tempo a sessão dura
+
+Três prazos, e eles não são a mesma coisa:
+
+| O quê | Prazo | Conta com o navegador fechado? |
+|---|---|---|
+| Inatividade (`public/inatividade.js`) | 30 min | **sim**, desde 25/08/2026 |
+| JWT (`JWT_EXPIRES_IN`) | 7 dias | sim — é o relógio real |
+| Dispositivo confiável | nunca expira | — (não mantém logado; só dispensa o código) |
+
+⚠️ **O corte de 30 min passou a valer fechado.** Antes era um `setTimeout` em
+memória, que morria junto com a aba: quem fechava o navegador e voltava dias
+depois entrava direto, porque o timer nunca chegou a disparar. Hoje o instante
+da última atividade vive em `localStorage` (`tg_ultima_atividade`) e é conferido
+no carregamento e no `visibilitychange`.
+
+⚠️ **Carrega nas TRÊS telas com sessão** — admin, painel do cliente e
+orçamentos. A última faltava, e o síndico era cortado no painel enquanto ficava
+logado indefinidamente na tela ao lado, com a mesma sessão.
+
+⚠️ **Na tela de orçamentos o corte abre o cartão de entrada**, não redireciona.
+Quem chega ali veio de um link sobre UM documento; trocar a página por um
+formulário perde o documento e a URL com `?orc=N`. A página declara isso em
+`window.aoExpirarInatividade`; sem declaração, o padrão é `/login?motivo=inatividade`.
+
+⚠️ **É conveniência, não barreira.** O JWT continua válido no servidor pelos 7
+dias — apagar o token do navegador não o invalida do outro lado. Serve para o
+aparelho compartilhado (a máquina da portaria), não contra quem já copiou o
+token. Encerrar sessão de verdade exigiria revogação no backend, que não existe.
+
 ## Roles e redirecionamento
 
 - `admin` / `gerente` / `operador` → `/admin/painel`

@@ -171,7 +171,12 @@
   </section>
 </div>
 
-<script src="/static/cliente-orcamentos.js?v=12" defer></script>
-<script src="/static/register-sw.js?v=47" defer></script>
+<!-- ⚠️ Mesmo corte de 30 min do painel e do admin. Faltava aqui: o sindico
+     era desconectado no painel e ficava logado indefinidamente nesta tela, com
+     a mesma sessao. O `aoExpirarInatividade` definido no cliente-orcamentos.js
+     faz o corte abrir o cartao por cima em vez de mandar para /login. -->
+<script src="/static/inatividade.js?v=2" defer></script>
+<script src="/static/cliente-orcamentos.js?v=13" defer></script>
+<script src="/static/register-sw.js?v=49" defer></script>
 </body>
 </html>

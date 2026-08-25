@@ -4245,6 +4245,56 @@ arquivos onde mordeu.
 Cache-bust: `admin.js?v=317`, `cliente-orcamentos.js?v=12`, `telemetria-v57`,
 `register-sw.js?v=47`.
 
+### 2026-08-25 · A tela para de piscar, e o corte de 30 min passa a valer fechado
+
+Duas coisas que o Pedro trouxe: *"às vezes o sistema pisca e reseta tudo,
+principalmente no primeiro momento que você entra"* e *"ainda existe
+desconexão por muito tempo fechado, ou sempre fica logado?"*.
+
+**A piscada era o service worker.** `register-sw.js` recarregava a página em
+`controllerchange` — e o `sw.js` faz `clients.claim()` no activate, então numa
+aba que ainda não tinha SW ele tomava o controle na hora e disparava o mesmo
+evento. **Todo primeiro acesso num navegador recarregava sozinho**, junto com
+quem limpa dados do site, usa janela anônima ou troca de navegador. Recarregar
+ali nunca fez sentido: não havia versão anterior para substituir, a página já
+estava rodando o código mais novo, e o reload só jogava fora o que estava na
+tela. Agora o reload exige que houvesse controlador antes.
+
+⚠️ **Isso foi agravado por mim hoje:** sete bumps de `CACHE_NAME` (v49→v57) são
+sete reloads forçados para quem estivesse usando o sistema.
+
+**Verificado no Chrome**, os dois caminhos: primeiro acesso → `navigation.type`
+= `navigate` (não recarrega) com o SW assumindo o controle; `CACHE_NAME` novo →
+`type` = `reload` (o comportamento de deploy segue de pé).
+
+**O corte por inatividade era só de aba aberta.** Um `setTimeout` em memória
+morria junto com a aba: quem fechava o navegador e voltava dias depois entrava
+direto. Agora o instante da última atividade vai para `localStorage` e é
+conferido também no carregamento e ao voltar para a aba — 30 minutos de
+inatividade **real**, fechado ou não.
+
+- Escrita com folga de 15s: `mousemove` dispara dezenas de vezes por segundo, e
+  gravar a cada evento é escrita síncrona no meio da rolagem — trava a máquina
+  fraca, que é justamente a da portaria.
+- O `user` sai junto com o `token`. Antes só o token era removido, e o `user`
+  órfão fazia a tela seguinte mostrar o nome de quem já não está logado.
+- **Passou a valer na tela de orçamentos**, que não tinha o script: o síndico
+  era cortado no painel e ficava logado indefinidamente ali, com a mesma
+  sessão. Lá o corte **abre o cartão de entrada** em vez de ir para `/login` —
+  o hook `window.aoExpirarInatividade` preserva a decisão de que quem chega por
+  link de e-mail não perde o documento.
+
+⚠️ **É conveniência, não barreira.** O JWT segue válido no servidor pelos 7
+dias de `JWT_EXPIRES_IN`; apagar o token do navegador não o invalida do outro
+lado. Serve para o aparelho compartilhado, não contra quem já copiou o token —
+encerrar sessão de verdade exigiria revogação no backend, que não existe.
+
+**Os quatro casos testados** em página isolada: 31 min → corta e limpa token e
+user; 29 min → mantém; sem carimbo → mantém; sem sessão → nem age.
+
+Cache-bust: `inatividade.js?v=2`, `cliente-orcamentos.js?v=13`,
+`register-sw.js?v=49`, `telemetria-v59`.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em
