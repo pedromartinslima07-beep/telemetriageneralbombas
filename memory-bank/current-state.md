@@ -356,6 +356,13 @@ registrava era o escritório.
   roda depois de todo `defer`. **Não vale trocar a ordem das tags** — resolveria
   esta página e deixaria a armadilha para a próxima. Ver
   [../docs/modulos/autenticacao.md](../docs/modulos/autenticacao.md).
+- ✅ **A resposta do cliente é uma PENDÊNCIA COM BAIXA** desde 26/08/2026
+  (migration 078). Abrir a ficha marca `resposta_vista_em` (quem abriu), mas
+  quem apaga o aviso é a baixa explícita — `resposta_tratada_em`, botão na
+  própria ficha, com "Reabrir". A pendência aparece em três lugares: faixa no
+  topo, selo na linha do orçamento e ponto no card do condomínio. **Antes era
+  só a faixa, e o primeiro clique a matava** — ver
+  [decisions.md](decisions.md).
 - ⚠️ **Nada aqui pode ser `<a href>` para rota autenticada.** O `authRequired`
   lê só o header `Bearer`; não há cookie de sessão. Foi assim que o botão do
   PDF nasceu quebrado (consertado em 24/08 — ver

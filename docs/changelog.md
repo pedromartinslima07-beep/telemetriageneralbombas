@@ -4370,6 +4370,67 @@ hook → segue indo para `/login?motivo=inatividade`; sessão viva → nada acon
 
 Cache-bust: `inatividade.js?v=3` nas três telas que o carregam.
 
+### 2026-08-26 · A resposta do cliente vira pendência com baixa (078)
+
+*"O alerta de orçamento aprovado está fraco, digamos que alguém clica lá para
+ver uma vez e fecha, ou a tela recarrega antes da pessoa ver qual o orçamento
+é, a informação se perde."*
+
+**"Abriu a ficha" estava valendo como "resolveu".** Era a escolha da v1, e o
+raciocínio dela está no código: *"um aviso que exige duas ações para sumir vira
+aviso que ninguém tira"*. O que ele não pesou é que os dois erros não custam o
+mesmo — tirar o aviso sem querer é irreversível; deixá-lo aceso a mais custa um
+segundo olhar. E a faixa era **o único lugar onde a pendência existia**: some
+ela, some tudo, e não sobra nem o número do orçamento.
+
+**Migration 078 separa os dois estados:**
+
+| Coluna | O que significa | Como preenche |
+|---|---|---|
+| `resposta_vista_em` (076) | alguém **abriu** | automático, ao abrir a ficha |
+| `resposta_tratada_em` (078) | alguém **deu baixa** | botão na ficha; é o que apaga o aviso |
+
+`resposta_tratada_por` guarda a conta que deu a baixa (FK `ON DELETE SET NULL`,
+regra da 073) — aqui a conta basta, é gente do escritório com login individual,
+ao contrário de `respondido_por`, que é a conta compartilhada do condomínio.
+Backfill segue a lição da 077: o que já estava visto nasce tratado, na data em
+que foi visto, e com autor nulo — ninguém deu baixa de fato.
+
+**A pendência passa a morar em três lugares**, e é isso que responde ao risco
+original de um botão manual:
+
+- **faixa no topo** — o chamado. Com uma só pendência ela **nomeia o
+  documento** ("Condomínio X aprovou o OR-000123 — Fulano, há 2 h · aberto, sem
+  baixa"), que é exatamente o que faltava para quem recarregava antes de ler.
+- **selo na linha do orçamento** — o endereço. "Resposta nova" enquanto ninguém
+  abriu, "Sem baixa" depois. Sai só com a baixa.
+- **ponto âmbar no card do condomínio** — o caminho até a linha.
+
+O `resposta-vista` continua existindo e virou informação em vez de gatilho: é o
+que deixa a tela dizer "aberto há 2 h, ainda sem baixa". A baixa tem "Reabrir"
+ao lado — baixa por engano é outro jeito de perder a informação.
+
+⚠️ **`_avRenderPainel()` não pode ser chamado ao dar baixa**: ele reconstrói a
+ficha inteira e leva junto o que estiver digitado e não salvo. Só o bloco da
+baixa é redesenhado (`_avAtualizarBaixaUI`).
+
+⚠️ **Quarta vez que a crase dentro de template literal morde** — desta vez num
+comentário SQL dentro do `SELECT` da lista, que fechou o template e derrubou o
+`node --check`.
+
+**Testado exercitando as rotas** (Express com os dois routers, JWT assinado,
+banco de teste): o cliente responde → nasce pendência; a lista do admin carrega
+a baixa; abrir a ficha marca visto e **a pendência sobrevive**; a baixa grava e
+é idempotente no segundo clique; `desfazer` reabre; o cliente responder de novo
+zera baixa e vista; rascunho não vira pendência; id inexistente → 404.
+
+✅ **Aplicada em teste e em produção** (26/08, o Pedro rodou com `--prod`),
+junto com a 077 que estava pendente. Conferido no banco de produção: as duas
+colunas, o índice `idx_orcamentos_resposta_sem_baixa` e o backfill de pé.
+⚠️ A parte visual não foi vista logada.
+
+Cache-bust: `admin.js?v=318`, `admin.css?v=235`.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

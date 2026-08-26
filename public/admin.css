@@ -8531,6 +8531,17 @@ body.role-viewer .viewer-only-hide-inline {
 .av-dot.off  { background: transparent; box-shadow: inset 0 0 0 1px var(--fio-fraco); color: var(--muted); }
 .av-dot.warn { background: var(--amarelo); color: var(--mar-900); }
 .av-dot.ok   { background: transparent; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ok) 55%, transparent); color: var(--ok); }
+/* Resposta de cliente sem baixa. Pulsa devagar porque e o unico ponto que
+   significa trabalho parado — os outros tres so contam documentos. */
+.av-dot.pend {
+  background: var(--amarelo); color: var(--mar-900); font-weight: 700;
+  animation: avPendPulso 2.6s ease-in-out infinite;
+}
+@keyframes avPendPulso {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--amarelo) 60%, transparent); }
+  50%      { box-shadow: 0 0 0 4px color-mix(in srgb, var(--amarelo) 0%, transparent); }
+}
+@media (prefers-reduced-motion: reduce) { .av-dot.pend { animation: none; } }
 
 /* Painel direito: orçamentos do condomínio */
 .av-orc-pane-head { padding: 14px 16px; border-bottom: 1px solid var(--border); }
@@ -8546,6 +8557,25 @@ body.role-viewer .viewer-only-hide-inline {
 }
 .av-orc-item:hover { background: rgba(255,255,255,.04); }
 .av-orc-item.is-selected { background: rgba(240,176,20,.08); }
+/* ⚠️ A PENDENCIA PRECISA SOBREVIVER A FAIXA (26/08/2026). O aviso do topo
+   pode ser fechado, a tela pode recarregar antes de alguem ler qual era o
+   orcamento — e ate 26/08 nao restava nada. O fio amarelo na borda esquerda e
+   o selo abaixo sao o mesmo aviso, mas grudados no documento certo; saem
+   quando a baixa e dada, nao quando alguem passa o mouse. */
+.av-orc-item.is-pendente { box-shadow: inset 3px 0 0 var(--amarelo); }
+.av-selo-pend {
+  font-family: var(--mono);
+  font-size: 8.5px; letter-spacing: .05em; text-transform: uppercase;
+  padding: 2px 6px 1px;
+  background: var(--amarelo); color: var(--mar-900); font-weight: 700;
+  --ch-p: 3px; clip-path: var(--corte-p);
+}
+/* Ja aberta e ainda sem baixa: continua sendo pendencia, mas nao e novidade —
+   perde o preenchimento e fica so o contorno. */
+.av-selo-pend.is-vista {
+  background: transparent; color: var(--amarelo); font-weight: 600;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--amarelo) 55%, transparent);
+}
 .av-orc-item-main { flex: 1; min-width: 0; }
 .av-orc-item-top  { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .av-orc-item-sub  { font-size: 10.5px; color: var(--muted); margin-top: 3px; }
@@ -8843,6 +8873,26 @@ body.role-viewer .viewer-only-hide-inline {
   font-size: 12.5px; line-height: 1.5; color: var(--tinta);
   font-style: italic;
 }
+
+/* A baixa da resposta — mora colada ao que o cliente escreveu porque e ali que
+   a pessoa ja esta olhando quando decide o que fazer. Campo claro: usa a
+   familia da placa (--tinta), nao a do painel. */
+.av-baixa {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin-top: 8px; padding: 10px 12px;
+  background: color-mix(in srgb, var(--amarelo, #f0b014) 14%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--amarelo, #f0b014) 45%, transparent);
+  --ch-p: 8px; clip-path: var(--corte-p);
+}
+.av-baixa-txt { flex: 1; min-width: 160px; font-size: 11.5px; line-height: 1.45; color: var(--tinta); }
+.av-baixa-txt b { font-weight: 700; }
+.av-baixa .btn { flex: none; }
+/* Dada: o bloco para de chamar atencao e vira registro de quem resolveu. */
+.av-baixa.is-ok {
+  background: rgba(6,16,51,.05);
+  box-shadow: inset 0 0 0 1px var(--fio-esc);
+}
+.av-baixa.is-ok .av-baixa-txt { color: var(--tinta-2); }
 
 /* O tipo do documento, agora no trilho */
 .av-rail-tipo .select { width: auto; max-width: 190px; padding: 4px 8px; font-size: 11.5px; }
@@ -9699,10 +9749,12 @@ body.role-viewer .viewer-only-hide-inline {
   color: var(--muted);
 }
 
-/* ─── Aviso: respostas de cliente que ninguém abriu ────────────────────────
+/* ─── Aviso: respostas de cliente sem baixa ────────────────────────────────
    Fica acima dos KPIs da aba de orçamentos avulsos. Não é métrica — é
-   trabalho parado esperando alguém —, então tem ação ("Ver") e some sozinho
-   quando a última ficha é aberta.
+   trabalho parado esperando alguém —, então tem ação ("Ver") e só some quando
+   a última baixa é dada. ⚠️ Antes sumia ao abrir a ficha, e era o único lugar
+   onde a pendência existia: um clique de passagem apagava tudo. Hoje ela
+   divide o papel com `.av-selo-pend` (linha) e `.av-dot.pend` (condomínio).
 
    ⚠️ O campo aqui é ESCURO (superfície de trabalho do admin, não placa
    clara), então usa a família de cor do painel. E o realce é o âmbar de

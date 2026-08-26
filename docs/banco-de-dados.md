@@ -244,12 +244,11 @@ custaram coluna própria em vez de reaproveitar o que já existia:
   Zelador, Administradora — com "Outro" abrindo campo livre.
   Texto livre puro viraria "sindico", "Síndico" e "SÍNDICO" — três grafias da
   mesma coisa e nenhum agrupamento possível. A coluna guarda o texto final.
-- ⚠️ `resposta_vista_em` **nulo = ninguém do escritório abriu ainda**. É o que
-  faz a resposta virar aviso no painel **sem inventar linha em `alertas`** —
-  aquela tabela é amarrada a `device_id`, existe para telemetria, e um
-  orçamento não tem sensor. Preenche quando alguém abre a ficha, por
+- ⚠️ `resposta_vista_em` **nulo = ninguém do escritório abriu ainda**. Preenche
+  quando alguém abre a ficha, por
   `POST /admin/orcamentos/avulsos/:id/resposta-vista`, que é idempotente: o
   `WHERE ... IS NULL` impede que reabrir reescreva a data da primeira vez.
+  **Desde a 078 esta coluna não apaga mais o aviso** — ela informa quem abriu.
 
 Índice parcial `idx_orcamentos_resposta_nao_vista (respondido_em DESC) WHERE
 respondido_em IS NOT NULL AND resposta_vista_em IS NULL` — a consulta do aviso
@@ -261,6 +260,33 @@ o aviso para dezenas de respostas antigas, já tratadas por telefone na época �
 e um aviso que nasce gritando sobre trabalho feito ensina a ignorar o aviso.
 Marca com `respondido_em`, não `now()`: a data de "quando alguém viu" não pode
 ser mais recente que quando de fato foi tratado.
+
+078: **a baixa da resposta** — `resposta_tratada_em TIMESTAMPTZ`,
+`resposta_tratada_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL`.
+
+- ⚠️ **Ver e resolver eram a mesma coluna, e isso custava a informação.** Até
+  26/08/2026 abrir a ficha marcava `resposta_vista_em` e o aviso sumia para
+  sempre; um clique de passagem — ou uma tela que recarregasse antes de a
+  pessoa ler qual era o orçamento — apagava o único sinal que existia. Os dois
+  estados se separaram: `resposta_vista_em` = alguém **abriu** (automático),
+  `resposta_tratada_em` = alguém **deu baixa** (ação explícita, e é o que
+  apaga o aviso). A promessa que a tela do cliente faz é *"entramos em contato
+  para agendar o serviço"* — quem fecha essa promessa é o telefonema.
+- `resposta_tratada_por` é a **conta** que deu a baixa, e aqui isso basta: é
+  gente do escritório, com login individual — ao contrário de
+  `respondido_por`, que é a conta compartilhada do condomínio.
+- **Responder de novo zera as duas** (`POST /cliente/orcamentos/:id/responder`):
+  reaprovar um orçamento já tratado é trabalho novo e precisa gritar de novo.
+- FK de autoria com `ON DELETE SET NULL` explícito — regra da 073.
+
+O backfill segue a lição da 077: tudo que já tinha `resposta_vista_em` nasce
+tratado, **na data em que foi visto**, com `resposta_tratada_por` nulo (ninguém
+deu baixa de fato). Sem isso o aviso nasceria gritando sobre trabalho feito.
+
+Índice parcial `idx_orcamentos_resposta_sem_baixa (respondido_em DESC) WHERE
+respondido_em IS NOT NULL AND resposta_tratada_em IS NULL` — é a consulta do
+aviso hoje. O da 076 continua servindo à distinção "ninguém abriu ainda"
+dentro do próprio aviso.
 
 Índice parcial `idx_orcamentos_condo_status (condominio_id, status) WHERE
 condominio_id IS NOT NULL` — cobre a listagem da tela do cliente.

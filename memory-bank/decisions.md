@@ -774,6 +774,36 @@ E o `gap` entre itens do mesmo grupo tem de ser sempre bem menor que essa
 margem — duas distâncias parecidas competem e a lista volta a ler como um
 bloco único, que é exatamente a queixa original.
 
+### Aviso que morre no primeiro clique não é aviso (26/08/2026)
+
+Relato do Pedro: *"o alerta de orçamento aprovado está fraco, digamos que
+alguém clica lá para ver uma vez e fecha, ou a tela recarrega antes da pessoa
+ver qual o orçamento é, a informação se perde"*.
+
+**A v1 (25/08) usou "abriu a ficha" como prova de "resolveu".** O raciocínio
+era defensável e está registrado no código: *"um aviso que exige duas ações
+para sumir vira aviso que ninguém tira"*. O que ele não pesou é que as duas
+ações não custam a mesma coisa — **tirar o aviso sem querer é irreversível, e
+deixá-lo aceso a mais custa um segundo olhar.** Errar para o lado do aviso que
+insiste é barato; errar para o lado do aviso que some é perder a informação.
+
+**Ver e resolver viraram dois estados** (migration 078): `resposta_vista_em`
+continua automático e passou a ser *informação* — é o que deixa a tela dizer
+"aberto há 2h e ninguém deu baixa" —, e `resposta_tratada_em` é a baixa
+explícita, a única coisa que apaga a pendência.
+
+**E o antídoto para o risco original não foi voltar ao clique automático: foi
+a pendência deixar de morar num lugar só.** Faixa no topo (o chamado), selo na
+linha do orçamento (o endereço) e ponto no card do condomínio (o caminho). O
+aviso da v1 era frágil não por exigir uma ação, mas por ser **o único lugar
+onde a informação existia**: fechou, recarregou, acabou. Com três superfícies,
+a faixa pode até ser ignorada — a pendência continua visível onde a pessoa
+trabalha. Quando há uma só, a faixa agora **nomeia o documento**, que é o que
+faltava para o "recarregou antes de ver qual era".
+
+Tem "Reabrir" ao lado da baixa dada: baixa por engano é outra forma de perder
+a informação, e a simetria custa uma linha.
+
 ## Decisões descartadas (e por quê)
 
 Registradas para não serem "redescobertas" e refeitas. Se o escopo mudar, o

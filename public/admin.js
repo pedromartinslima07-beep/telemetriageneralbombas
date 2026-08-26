@@ -11868,7 +11868,7 @@ function _avRenderTudo() {
     kpi(ICO_SEND,  enviado,              "Enviado",         enviado  > 0 ? "rc-warn" : "rc-neutral") +
     kpi(ICO_MONEY, _orcFmtValor(totalVal || null), "Total aprovado", aprov > 0 ? "rc-ok" : "rc-neutral");
 
-  // ⚠️ AS RESPOSTAS QUE NINGUÉM ABRIU (25/08/2026).
+  // ⚠️ AS RESPOSTAS SEM BAIXA (25/08/2026 · reescrito em 26/08/2026).
   // Quando o orçamento passou a ser respondido no painel do cliente, a decisão
   // virou uma linha no banco e mais nada — e a tela do cliente PROMETE, depois
   // que ele aprova, que "entramos em contato para agendar o serviço". A
@@ -11876,22 +11876,42 @@ function _avRenderTudo() {
   //
   // Não virou linha em `alertas` de propósito: aquela tabela é amarrada a
   // `device_id`, existe para telemetria, e um orçamento não tem sensor. O
-  // aviso mora no próprio orçamento (`resposta_vista_em`, migration 076) e
-  // some quando alguém do escritório abre a ficha.
-  const novas = _avData.filter(o => o.respondido_em && !o.resposta_vista_em);
+  // aviso mora no próprio orçamento (migrations 076 e 078).
+  //
+  // ⚠️ O QUE APAGA O AVISO É A BAIXA, NÃO O CLIQUE (078). Na v1 quem abrisse a
+  // ficha marcava `resposta_vista_em` e a faixa sumia para sempre — um clique
+  // de passagem, ou uma tela que recarregasse antes de a pessoa ler QUAL era o
+  // orçamento, matava o único sinal que existia. Hoje "abrir" e "resolver" são
+  // dois estados: a faixa conta o que não tem baixa e ainda diz se alguém já
+  // abriu. E ela deixou de ser o único lugar — a linha do orçamento e o card
+  // do condomínio carregam o mesmo selo, então a pendência sobrevive a fechar
+  // a faixa, recarregar a tela e trocar de aba.
+  const pendentes = _avData.filter(o => o.respondido_em && !o.resposta_tratada_em);
   const aviso = document.getElementById("avAvisoRespostas");
   if (aviso) {
-    aviso.hidden = novas.length === 0;
-    if (novas.length) {
-      const q = novas.length;
-      const quem = novas
-        .map(o => o.condominio_nome)
-        .filter((v, i, a) => v && a.indexOf(v) === i)
-        .slice(0, 3)
-        .join(", ");
-      aviso.querySelector("[data-aviso-txt]").textContent =
-        `${q} ${q === 1 ? "cliente respondeu" : "clientes responderam"} e ninguém abriu ainda` +
-        (quem ? ` — ${quem}${novas.length > 3 ? " e outros" : ""}` : "");
+    aviso.hidden = pendentes.length === 0;
+    if (pendentes.length) {
+      const q = pendentes.length;
+      const naoAbertas = pendentes.filter(o => !o.resposta_vista_em).length;
+      let txt;
+      if (q === 1) {
+        // Uma só: o aviso NOMEIA o documento. Era isto que faltava — quem
+        // fechava a faixa antes de ler ficava sem saber onde procurar.
+        const o = pendentes[0];
+        const verbo = o.status === "rejeitado" ? "recusou" : "aprovou";
+        txt = `${o.condominio_nome || "Cliente"} ${verbo} o ${o.numero || "orçamento"}` +
+              (o.respondido_nome ? ` — ${o.respondido_nome}` : "") +
+              `, ${_tempoRelativo(o.respondido_em)}` +
+              (o.resposta_vista_em ? " · aberto, sem baixa" : " · ninguém abriu ainda");
+      } else {
+        const quem = pendentes
+          .map(o => o.condominio_nome)
+          .filter((v, i, a) => v && a.indexOf(v) === i);
+        txt = `${q} respostas de clientes sem baixa` +
+              (quem.length ? ` — ${quem.slice(0, 3).join(", ")}${quem.length > 3 ? " e outros" : ""}` : "") +
+              (naoAbertas ? ` · ${naoAbertas} que ninguém abriu ainda` : "");
+      }
+      aviso.querySelector("[data-aviso-txt]").textContent = txt;
     }
   }
 
@@ -11938,6 +11958,10 @@ function _avRenderTudo() {
     const nRasc = g.itens.filter(o => o.status === "rascunho").length;
     const nEnv  = g.itens.filter(o => o.status === "enviado").length;
     const nApr  = g.itens.filter(o => o.status === "aprovado").length;
+    // Respostas sem baixa: o ponto existe para achar o condomínio certo depois
+    // que a faixa do topo já foi fechada. Vem primeiro porque é o único dos
+    // quatro que significa trabalho parado.
+    const nPend = g.itens.filter(o => o.respondido_em && !o.resposta_tratada_em).length;
     const dot = (n, cls, lbl) => n ? `<span class="av-dot ${cls}" title="${n} ${lbl}">${n}</span>` : "";
     return `
       <div class="av-condo-row${sel}" data-av-condo="${_waEscaparHtml(g.key)}">
@@ -11945,7 +11969,7 @@ function _avRenderTudo() {
           <div class="av-condo-name">${_waEscaparHtml(g.nome)}</div>
           <div class="av-condo-sub">${g.itens.length} ${g.itens.length === 1 ? "orçamento" : "orçamentos"} · ${_orcFmtValor(totalGrupo)}</div>
         </div>
-        <div class="av-condo-dots">${dot(nRasc, "off", "rascunho")}${dot(nEnv, "warn", "enviado")}${dot(nApr, "ok", "aprovado")}</div>
+        <div class="av-condo-dots">${dot(nPend, "pend", "resposta sem baixa")}${dot(nRasc, "off", "rascunho")}${dot(nEnv, "warn", "enviado")}${dot(nApr, "ok", "aprovado")}</div>
       </div>`;
   }).join("");
 
@@ -11973,14 +11997,22 @@ function _avRenderCondoDetail(g) {
   const linhas = g.itens.map(o => {
     const selc = _avSelecionado?.id === o.id ? " is-selected" : "";
     const tipoLbl = _avTipoLabels[o.tipo];
+    // ⚠️ ONDE A PENDÊNCIA MORA DE VERDADE (26/08/2026). A faixa do topo é o
+    // chamado; este selo é o endereço. Ele não some ao abrir a ficha — só com
+    // a baixa —, então recarregar a tela ou fechar a faixa não perde a
+    // informação de QUAL orçamento espera o escritório.
+    const pend = Boolean(o.respondido_em && !o.resposta_tratada_em);
     return `
-      <div class="av-orc-item${selc}" data-av-id="${o.id}">
+      <div class="av-orc-item${selc}${pend ? " is-pendente" : ""}" data-av-id="${o.id}">
         <div class="av-orc-item-main">
           <div class="av-orc-item-top">
             <span class="mono" style="font-size:11.5px;">${_waEscaparHtml(o.numero || "—")}</span>${_avOrigemBadge(o.origem)}
             ${tipoLbl ? `<span class="orc-tipo-pill">${_waEscaparHtml(tipoLbl)}</span>` : ""}
+            ${pend ? `<span class="av-selo-pend${o.resposta_vista_em ? " is-vista" : ""}">${o.resposta_vista_em ? "Sem baixa" : "Resposta nova"}</span>` : ""}
           </div>
-          <div class="av-orc-item-sub">${_orcFmtData(o.criado_em)}</div>
+          <div class="av-orc-item-sub">${pend
+            ? `Cliente respondeu ${_tempoRelativo(o.respondido_em)}${o.respondido_nome ? ` · ${_waEscaparHtml(o.respondido_nome)}` : ""}`
+            : _orcFmtData(o.criado_em)}</div>
         </div>
         <div class="av-orc-item-right">
           <span class="av-orc-item-val">${_orcFmtValor(o.valor_total)}</span>
@@ -12276,6 +12308,8 @@ function _avRenderPainel() {
           <div class="av-resposta-t">${o.respondido_por_nome ? _waEscaparHtml(o.respondido_por_nome) : "O cliente"} escreveu</div>
           <p>${_waEscaparHtml(o.cliente_comentario || o.motivo_rejeicao)}</p>
         </div>` : ""}
+
+        ${o.respondido_em ? `<div id="avBaixaWrap">${_avBaixaHtml(o)}</div>` : ""}
 
         <div class="av-rail-hr"></div>
 
@@ -13236,6 +13270,13 @@ async function _avGarantirRegistro() {
 async function _avAcao(acao) {
   const msg = document.getElementById("avFormMsg");
 
+  // Baixa da resposta do cliente: não mexe no documento, então sai antes de
+  // qualquer coisa que dependa de `_avGarantirRegistro` ou do formulário.
+  if (acao === "dar-baixa" || acao === "desfazer-baixa") {
+    await _avDarBaixa(_avSelecionado, acao === "desfazer-baixa");
+    return;
+  }
+
   if (acao === "novo") {
     // ⚠️ ANTES ESTE BOTÃO FAZIA UM POST. O orçamento nascia no servidor antes
     // de a pessoa digitar qualquer coisa, e daí vinham três consequências que
@@ -13491,11 +13532,18 @@ function _avBindEventos() {
     _avMarcarRespostaVista(_avSelecionado);
   });
 
-  // O "Ver" do aviso leva ao primeiro que ninguém abriu. Sem isto o aviso
-  // diria que há trabalho parado e deixaria a pessoa procurar na lista.
+  // O "Ver" do aviso leva ao primeiro sem baixa. Sem isto o aviso diria que há
+  // trabalho parado e deixaria a pessoa procurar na lista.
   document.getElementById("avAvisoVer")?.addEventListener("click", () => {
-    const alvo = _avData.find(o => o.respondido_em && !o.resposta_vista_em);
+    const alvo = _avData.find(o => o.respondido_em && !o.resposta_tratada_em);
     if (!alvo) return;
+    // ⚠️ Seleciona o condomínio do alvo ANTES de procurar a linha: com outro
+    // condomínio aberto no painel direito, a linha nem existe no DOM — o "Ver"
+    // caía no fallback e abria a ficha sem nunca mostrar onde ela mora.
+    const chave = alvo.condominio_id != null
+      ? `id:${alvo.condominio_id}`
+      : `nome:${alvo.condominio_nome || ""}`;
+    if (_avCondoSel !== chave) { _avCondoSel = chave; _avRenderTudo(); }
     const linha = document.querySelector(`[data-av-id="${alvo.id}"]`);
     if (linha) { linha.scrollIntoView({ behavior: "smooth", block: "center" }); linha.click(); return; }
     // Filtrado para fora da lista visível: seleciona mesmo assim, para a ficha
@@ -14194,12 +14242,58 @@ async function _orcGerarPdf() {
   }
 }
 
-// Abrir a ficha É ter visto a resposta. Não há botão "marcar como lido": um
-// aviso que exige duas ações para sumir vira aviso que ninguém tira, e aí para
-// de significar alguma coisa.
+/* ── A baixa da resposta do cliente ────────────────────────────────────────
+   ⚠️ ABRIR ≠ RESOLVER (26/08/2026). Até aqui, abrir a ficha apagava o aviso —
+   e o relato do Pedro foi o que essa escolha custava: *"alguém clica lá para
+   ver uma vez e fecha, ou a tela recarrega antes da pessoa ver qual o
+   orçamento é, e a informação se perde"*. Um sinal que morre no primeiro
+   clique não é aviso, é um piscar.
+
+   Agora são dois estados. `resposta_vista_em` continua automático (quem abriu,
+   e quando) e virou INFORMAÇÃO — é o que deixa a tela dizer "aberto há 2h e
+   ninguém deu baixa". `resposta_tratada_em` é a baixa, e só sai de ação
+   explícita: o cliente foi respondido, o serviço foi agendado, acabou.
+
+   O risco conhecido do botão — "aviso que exige duas ações vira aviso que
+   ninguém tira" — é real, e a resposta a ele não é voltar ao clique automático:
+   é a pendência aparecer em três lugares (faixa, selo na linha, ponto no
+   condomínio) em vez de um, e o botão viver ao lado do texto do cliente, que é
+   onde a pessoa já está olhando. Tem "Reabrir" porque baixa dada por engano
+   também é um jeito de perder a informação. */
+function _avBaixaHtml(o) {
+  if (!o?.respondido_em) return "";
+  if (o.resposta_tratada_em) {
+    const quem = o.resposta_tratada_por_nome ? ` por ${_waEscaparHtml(o.resposta_tratada_por_nome)}` : "";
+    return `
+      <div class="av-baixa is-ok">
+        <div class="av-baixa-txt"><b>Baixa dada</b>${quem} · ${_orcFmtDataHora(o.resposta_tratada_em)}</div>
+        <button type="button" class="btn btn-sm" data-av-action="desfazer-baixa">Reabrir</button>
+      </div>`;
+  }
+  const visto = o.resposta_vista_em
+    ? `Aberto ${_tempoRelativo(o.resposta_vista_em)}, ainda sem baixa.`
+    : "Ninguém do escritório tinha aberto esta resposta ainda.";
+  return `
+    <div class="av-baixa">
+      <div class="av-baixa-txt"><b>Esta resposta espera o escritório.</b> ${visto}</div>
+      <button type="button" class="btn btnAccent btn-sm" data-av-action="dar-baixa"
+        title="Marque depois de falar com o cliente ou agendar o serviço">Dar baixa</button>
+    </div>`;
+}
+
+// Redesenha só o bloco da baixa. ⚠️ Não vale chamar `_avRenderPainel()` aqui:
+// ele reconstrói a ficha inteira a partir do registro, e o que estiver digitado
+// e não salvo (constatação, valor manual, item novo) some junto.
+function _avAtualizarBaixaUI(o) {
+  const wrap = document.getElementById("avBaixaWrap");
+  if (wrap && _avSelecionado?.id === o?.id) wrap.innerHTML = _avBaixaHtml(o);
+}
+
+// Abrir a ficha É ter visto a resposta — mas ver não é tratar, e isto NÃO
+// apaga mais o aviso (ver o bloco acima).
 //
 // ⚠️ Silencioso de propósito. Se a marcação falhar, o operador já está olhando
-// a resposta — o pior que acontece é o aviso continuar lá até o próximo
+// a resposta — o pior que acontece é a tela dizer "ninguém abriu" até o próximo
 // carregamento. Estourar um erro na cara de quem só clicou numa linha seria
 // pior que o defeito.
 async function _avMarcarRespostaVista(o) {
@@ -14214,7 +14308,40 @@ async function _avMarcarRespostaVista(o) {
     const na = _avData.find(x => x.id === o.id);
     if (na) na.resposta_vista_em = o.resposta_vista_em;
     _avRenderTudo();
-  } catch (_) { /* ver acima: o aviso volta no próximo carregamento */ }
+    _avAtualizarBaixaUI(o);
+  } catch (_) { /* ver acima: a tela se corrige no próximo carregamento */ }
+}
+
+// A baixa, essa sim, fala quando falha: é ação deliberada de alguém que quer
+// tirar a pendência da lista, e uma que falha calada faz o trabalho aparecer
+// de novo amanhã sem explicação.
+async function _avDarBaixa(o, desfazer) {
+  if (!o?.id || !o.respondido_em) return;
+  const msg = document.getElementById("avFormMsg");
+  try {
+    const r = await fetch(`/admin/orcamentos/avulsos/${o.id}/resposta-baixa`, {
+      method: "POST",
+      headers: { ...authHeaders(), "Content-Type": "application/json" },
+      body: JSON.stringify({ desfazer: Boolean(desfazer) }),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { if (msg) msg.textContent = j.error || "Erro ao dar baixa na resposta"; return; }
+    o.resposta_tratada_em      = j.resposta_tratada_em || null;
+    o.resposta_tratada_por_nome = j.resposta_tratada_por_nome || null;
+    const na = _avData.find(x => x.id === o.id);
+    if (na) {
+      na.resposta_tratada_em       = o.resposta_tratada_em;
+      na.resposta_tratada_por_nome = o.resposta_tratada_por_nome;
+    }
+    if (msg) {
+      msg.textContent = desfazer ? "Pendência reaberta" : "✓ Baixa registrada";
+      setTimeout(() => { if (msg.textContent.includes("aixa") || msg.textContent.includes("endência")) msg.textContent = ""; }, 3000);
+    }
+    _avRenderTudo();
+    _avAtualizarBaixaUI(o);
+  } catch (_) {
+    if (msg) msg.textContent = "Erro de conexão ao dar baixa";
+  }
 }
 
 function _orcAtualizarBadge() {

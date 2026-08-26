@@ -140,8 +140,18 @@ serviço"*. Hoje ela dispara três coisas:
    na hora (migration 076). Ver [../banco-de-dados.md](../banco-de-dados.md).
 2. **E-mail para `manutencao@generalbombas.com`** (`ORCAMENTO_RESPOSTA_EMAIL`
    sobrescreve), por `sendOrcamentoRespondido`.
-3. **Acende o aviso no painel** — `resposta_vista_em` nulo vira faixa no topo
-   da aba de orçamentos, e apaga quando alguém abre a ficha.
+3. **Acende a pendência no painel** — a resposta sem baixa
+   (`resposta_tratada_em` nulo, migration 078) aparece em **três** lugares: a
+   faixa no topo da aba, o selo na linha do orçamento e o ponto no card do
+   condomínio. Some com a **baixa explícita**
+   (`POST /admin/orcamentos/avulsos/:id/resposta-baixa`), não com o clique.
+
+   ⚠️ **Até 26/08/2026 abrir a ficha apagava tudo**, e a faixa era o único
+   lugar onde a pendência existia: *"alguém clica lá para ver uma vez e fecha,
+   ou a tela recarrega antes da pessoa ver qual o orçamento é, e a informação
+   se perde"*. Ver e resolver viraram estados separados —
+   `resposta_vista_em` (quem abriu) e `resposta_tratada_em` (quem resolveu) —
+   e a faixa agora **nomeia o documento** quando há só uma pendência.
 
 ⚠️ **O e-mail fica em `try/catch` próprio.** A decisão já está gravada quando
 ele sai; deixar o envio derrubar a rota faria o síndico ver "erro ao registrar

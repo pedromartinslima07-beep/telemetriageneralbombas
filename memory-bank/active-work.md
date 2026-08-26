@@ -27,6 +27,27 @@ aliases:
 > teste tinha caído. Um `TcpClient.ConnectAsync` conecta nos dois em ~190ms.
 > Os dois bancos estão de pé.
 
+## Sessão 2026-08-26 — A resposta do cliente vira pendência com baixa
+
+*"O alerta de orçamento aprovado está fraco... alguém clica lá para ver uma vez
+e fecha, ou a tela recarrega antes da pessoa ver qual o orçamento é, a
+informação se perde."*
+
+- **078** — `resposta_tratada_em` + `resposta_tratada_por` (FK `ON DELETE SET
+  NULL`), backfill do que já estava visto, índice parcial.
+  ✅ **Aplicada em TESTE e em PRODUÇÃO** (26/08, Pedro rodou com `--prod`) —
+  conferido no banco: colunas, índice e backfill de pé.
+- `POST /admin/orcamentos/avulsos/:id/resposta-baixa` (idempotente,
+  `{ desfazer: true }` reabre). O `resposta-vista` continua, mas deixou de
+  apagar o aviso — virou "quem abriu e quando".
+- A pendência ganhou três superfícies: faixa (nomeia o documento quando é uma
+  só), selo na linha do orçamento e ponto no card do condomínio.
+- Testado exercitando as rotas contra o banco de teste, incluindo o
+  `responder` do cliente (a query do 42P08) e a reabertura da pendência quando
+  o cliente responde de novo. ⚠️ **A parte visual não foi vista logada** — o
+  login do painel é handoff.
+- Cache-bust: `admin.js?v=318`, `admin.css?v=235`.
+
 ## Sessão 2026-08-26 — O link do orçamento voltava a cair em /login
 
 *"Cliquei no link de orçamento pelo e-mail e caí na tela de login com a mensagem
@@ -57,8 +78,8 @@ tela do cliente promete "entramos em contato para agendar o serviço".
   + `resposta_vista_em` (nulo = ninguém abriu) + índice parcial.
   ✅ **Aplicada em TESTE e em PRODUÇÃO** (Pedro rodou com `--prod`).
 - **077** — marca respostas antigas como vistas, para o aviso não nascer
-  gritando sobre trabalho já feito. ✅ TESTE.
-  ⚠️ **Falta em produção:** `node scripts/migrate.js 077_orcamento_respostas_antigas_vistas.sql --prod`
+  gritando sobre trabalho já feito. ✅ **TESTE e PRODUÇÃO** (a produção saiu em
+  26/08, junto com a 078).
 - E-mail para `manutencao@generalbombas.com` (`ORCAMENTO_RESPOSTA_EMAIL`
   sobrescreve), em `try/catch` próprio — o aviso não pode derrubar a resposta.
 - Faixa âmbar no topo de Orçamentos + `POST .../resposta-vista` (idempotente).

@@ -1032,10 +1032,14 @@ router.post("/orcamentos/:id/responder", authRequired, clienteOnly, async (req, 
               cliente_comentario = NULLIF($4, ''),
               respondido_nome    = $5,
               respondido_cargo   = $6,
-              -- resposta_vista_em volta a NULO de proposito: e o que faz a
-              -- resposta virar aviso no painel do escritorio. Some quando
-              -- alguem de la abre a ficha. Ver migration 076.
-              resposta_vista_em  = NULL,
+              -- resposta_vista_em e resposta_tratada_em voltam a NULO de
+              -- proposito: e o que faz a resposta virar pendencia no painel do
+              -- escritorio. A vista some quando alguem de la abre a ficha
+              -- (076); a baixa so sai com acao explicita (078). Reaprovar um
+              -- orcamento ja tratado e trabalho NOVO, e precisa gritar de novo.
+              resposta_vista_em    = NULL,
+              resposta_tratada_em  = NULL,
+              resposta_tratada_por = NULL,
               aprovado_em        = CASE WHEN $2::varchar = 'aprovado' THEN now() ELSE aprovado_em END,
               aprovado_por       = CASE WHEN $2::varchar = 'aprovado' THEN $3 ELSE aprovado_por END,
               motivo_rejeicao    = CASE WHEN $2::varchar = 'rejeitado' THEN NULLIF($4, '') ELSE motivo_rejeicao END

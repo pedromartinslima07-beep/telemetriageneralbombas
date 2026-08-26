@@ -1344,6 +1344,11 @@ router.get("/orcamentos/avulsos", authRequired, adminOnly, async (req, res) => {
               -- Quem assumiu a decisao, digitado na hora (migration 076).
               -- ur.nome e o nome da CONTA; estes sao a pessoa.
               o.respondido_nome, o.respondido_cargo, o.resposta_vista_em,
+              -- A BAIXA (migration 078). Ver e tratar nao sao a mesma coisa:
+              -- resposta_vista_em diz que alguem ABRIU, resposta_tratada_em diz
+              -- que alguem RESOLVEU. O aviso do painel some com a segunda.
+              -- (Sem crase: comentario dentro de template literal, ver acima.)
+              o.resposta_tratada_em, ut.nome AS resposta_tratada_por_nome,
               ur.nome AS respondido_por_nome,
               -- CONTRATO COM O MODAL, NAO TIRE: o.valor e a COLUNA CRUA (total
               -- manual, NULL = somar os itens), e valor_total e o numero ja
@@ -1364,6 +1369,7 @@ router.get("/orcamentos/avulsos", authRequired, adminOnly, async (req, res) => {
        LEFT JOIN condominios c ON c.id = o.condominio_id
        LEFT JOIN ordens_servico os ON os.id = o.os_id
        LEFT JOIN usuarios ur ON ur.id = o.respondido_por
+       LEFT JOIN usuarios ut ON ut.id = o.resposta_tratada_por
        ORDER BY o.criado_em DESC
        LIMIT 300`
     );
@@ -1688,8 +1694,12 @@ router.get("/orcamentos/avulsos/:id/destinatarios", authRequired, adminOnly, asy
 /**
  * POST /admin/orcamentos/avulsos/:id/resposta-vista
  *
- * Marca que alguém do escritório abriu a resposta do cliente. É o que apaga o
- * aviso na aba de orçamentos — ver `resposta_vista_em` na migration 076.
+ * Marca que alguém do escritório abriu a resposta do cliente.
+ *
+ * ⚠️ ISTO NÃO APAGA MAIS O AVISO (078). Até 26/08/2026 apagava, e um clique de
+ * passagem matava o único sinal de que havia resposta nova. Hoje o aviso só sai
+ * com a baixa explícita (`resposta-baixa`); o que se grava aqui é QUEM abriu e
+ * QUANDO — é o que deixa o painel dizer "aberta há 2h e ninguém deu baixa".
  *
  * ⚠️ Idempotente e sem efeito quando não há resposta: o `WHERE` exige
  * `respondido_em IS NOT NULL`, então abrir a ficha de um rascunho não grava
@@ -1711,6 +1721,60 @@ router.post("/orcamentos/avulsos/:id/resposta-vista", authRequired, adminOnly, a
   } catch (err) {
     console.error("[admin] POST /orcamentos/avulsos/:id/resposta-vista:", err);
     return res.status(500).json({ error: "Erro ao marcar a resposta como vista" });
+  }
+});
+
+/**
+ * POST /admin/orcamentos/avulsos/:id/resposta-baixa
+ *
+ * Dá baixa na resposta do cliente — é ISTO que apaga o aviso da aba desde a
+ * migration 078. Body `{ desfazer: true }` reabre a pendência.
+ *
+ * ⚠️ ABRIR A FICHA NÃO DÁ BAIXA, E ISSO É O PONTO. Até 26/08/2026 o aviso
+ * sumia sozinho no primeiro clique (`resposta-vista` acima), e o relato foi
+ * exatamente esse: *"alguém clica lá para ver uma vez e fecha, ou a tela
+ * recarrega antes da pessoa ver qual o orçamento é, e a informação se perde"*.
+ * A promessa que a tela do cliente faz é "entramos em contato para agendar o
+ * serviço" — quem fecha essa promessa é o telefonema, não o clique.
+ *
+ * Idempotente: `resposta_tratada_em IS NULL` no WHERE impede que um segundo
+ * clique reescreva a data e troque o autor da baixa. A leitura no fim devolve
+ * o estado atual mesmo quando o UPDATE não pegou nada, para o painel não
+ * precisar adivinhar o que ficou gravado.
+ */
+router.post("/orcamentos/avulsos/:id/resposta-baixa", authRequired, adminOnly, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
+  const desfazer = Boolean(req.body?.desfazer);
+  try {
+    if (desfazer) {
+      await pool.query(
+        `UPDATE orcamentos
+            SET resposta_tratada_em = NULL, resposta_tratada_por = NULL
+          WHERE id = $1`,
+        [id]
+      );
+    } else {
+      await pool.query(
+        `UPDATE orcamentos
+            SET resposta_tratada_em = now(), resposta_tratada_por = $2
+          WHERE id = $1 AND respondido_em IS NOT NULL AND resposta_tratada_em IS NULL`,
+        [id, req.user.id]
+      );
+    }
+    const r = await pool.query(
+      `SELECT o.resposta_tratada_em, u.nome AS resposta_tratada_por_nome
+         FROM orcamentos o
+         LEFT JOIN usuarios u ON u.id = o.resposta_tratada_por
+        WHERE o.id = $1`,
+      [id]
+    );
+    if (!r.rowCount) return res.status(404).json({ error: "Orçamento não encontrado" });
+    console.log(`[admin] orcamento=${id} baixa=${desfazer ? "desfeita" : "dada"} usuario=${req.user.id}`);
+    return res.json({ ok: true, ...r.rows[0] });
+  } catch (err) {
+    console.error("[admin] POST /orcamentos/avulsos/:id/resposta-baixa:", err);
+    return res.status(500).json({ error: "Erro ao dar baixa na resposta" });
   }
 });
 

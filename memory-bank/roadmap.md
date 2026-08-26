@@ -39,6 +39,12 @@ aliases:
 
 ## Em andamento / pendente
 
+- ✅ **Migrations 077 e 078 aplicadas em produção** (26/08/2026). A 078
+  (`resposta_tratada_em`/`resposta_tratada_por`) era pré-requisito do painel
+  novo de orçamentos: sem ela, o `SELECT` da lista derruba a aba inteira.
+  Rodaram **antes** do deploy do código, que é a lição da Fase 7E no
+  [`../CLAUDE.md`](../CLAUDE.md).
+
 - **Fase 12 — Equipamentos e bancada da oficina** 🟡 — 12A entregue em
   2026-08-17 na branch `feature/equipamentos-qr`. Fluxo e pegadinhas em
   [`../docs/modulos/equipamentos.md`](../docs/modulos/equipamentos.md).
