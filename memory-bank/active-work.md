@@ -10,7 +10,7 @@ aliases:
 > Branch atual: **`main`**, limpa. `feature/admin-chapa` (11 commits) e a tela
 > de orçamento do cliente já foram mergeadas — a produção
 > (`telemetria.generalbombas.com`) está servindo as duas.
-> Última sessão registrada: **2026-08-25**.
+> Última sessão registrada: **2026-08-26**.
 > Roadmap completo em [`roadmap.md`](roadmap.md); decisões em [`decisions.md`](decisions.md).
 
 > ✅ **Schema de produção em dia:** 074 aplicada em 24/08; a 073 já estava
@@ -26,6 +26,26 @@ aliases:
 > `hayabusa` duas vezes e o `interchange` uma, e me fez concluir que o banco de
 > teste tinha caído. Um `TcpClient.ConnectAsync` conecta nos dois em ~190ms.
 > Os dois bancos estão de pé.
+
+## Sessão 2026-08-26 — O link do orçamento voltava a cair em /login
+
+*"Cliquei no link de orçamento pelo e-mail e caí na tela de login com a mensagem
+de desconexão por tempo de inatividade."* A tela de orçamentos já declarava, em
+`window.aoExpirarInatividade`, que o corte abre o cartão de entrada por cima da
+própria página — mas o `inatividade.js` roda **antes** do
+`cliente-orcamentos.js` (os dois `defer`), e no corte de carregamento o hook
+ainda não existia. Sobrava o `location.href` para `/login?motivo=inatividade`.
+
+- Corte sem hook declarado passa a ser adiado um tique de timer — a fila de
+  timers só roda depois de **todo** script `defer`. Independe da ordem das tags.
+- A sessão é apagada antes do adiamento: a página boota sem token, abre o cartão
+  e não dispara fetch nenhum.
+- Testado com a ordem real dos `defer` reproduzida em `vm` (cartão abre e URL
+  `?orc=42` fica; página sem hook segue para `/login`; sessão viva não é tocada).
+- Cache-bust: `inatividade.js?v=3` em `admin.html`, `cliente.html` e
+  `cliente-orcamentos.html`.
+
+⚠️ **Falta ver em produção com o link real do e-mail** — é handoff para o Pedro.
 
 ## Sessão 2026-08-25 — A resposta do cliente ganha dono, e-mail e aviso
 

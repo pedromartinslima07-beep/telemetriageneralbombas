@@ -209,6 +209,16 @@ Quem chega ali veio de um link sobre UM documento; trocar a página por um
 formulário perde o documento e a URL com `?orc=N`. A página declara isso em
 `window.aoExpirarInatividade`; sem declaração, o padrão é `/login?motivo=inatividade`.
 
+⚠️ **O corte não pode depender da ordem das tags `<script>`** (corrigido em
+26/08/2026). O `inatividade.js` entra com `defer` e o script que declara o hook
+também — no `cliente-orcamentos.html` ele vem **depois**. No corte de
+carregamento (quem volta com os 30 min já estourados) o hook ainda não existia,
+a declaração era ignorada e o síndico que clicava no link do e-mail caía em
+`/login` com "sessão expirada". Hoje, quando o hook ainda não foi declarado, o
+corte é adiado um tique de timer — a fila de timers só roda depois que todo
+script `defer` executou. A sessão é apagada **antes** do adiamento, então nada
+chega a buscar dado com o token morto.
+
 ⚠️ **É conveniência, não barreira.** O JWT continua válido no servidor pelos 7
 dias — apagar o token do navegador não o invalida do outro lado. Serve para o
 aparelho compartilhado (a máquina da portaria), não contra quem já copiou o

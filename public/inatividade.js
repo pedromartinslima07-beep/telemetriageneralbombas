@@ -29,6 +29,7 @@
 
   let _timer = null;
   let _ultimaGravacao = 0;
+  let _corteAgendado = false;
 
   function agora() { return Date.now(); }
 
@@ -45,7 +46,7 @@
     try { localStorage.setItem(CHAVE, String(t)); } catch (_) {}
   }
 
-  function encerrar() {
+  function limparSessao() {
     try {
       localStorage.removeItem("token");
       // ⚠️ O `user` sai junto. A versão anterior removia só o `token`, e o
@@ -54,16 +55,41 @@
       localStorage.removeItem("user");
       localStorage.removeItem(CHAVE);
     } catch (_) {}
+  }
 
-    // ⚠️ A TELA DE ORÇAMENTOS NÃO REDIRECIONA PARA /login, e isso é decisão
-    // registrada: quem chega ali veio de um link sobre UM documento, e trocar
-    // a página por um formulário perde o documento. Lá o login abre por cima.
-    // Por isso a página pode declarar o que fazer; sem declaração, o padrão
-    // continua sendo mandar para /login.
+  // ⚠️ A TELA DE ORÇAMENTOS NÃO REDIRECIONA PARA /login, e isso é decisão
+  // registrada: quem chega ali veio de um link sobre UM documento, e trocar
+  // a página por um formulário perde o documento. Lá o login abre por cima.
+  // Por isso a página pode declarar o que fazer; sem declaração, o padrão
+  // continua sendo mandar para /login.
+  function aplicarCorte() {
+    _corteAgendado = false;
     if (typeof window.aoExpirarInatividade === "function") {
       try { window.aoExpirarInatividade(); return; } catch (_) {}
     }
     window.location.href = "/login?motivo=inatividade";
+  }
+
+  function encerrar() {
+    limparSessao();
+
+    // ⚠️ O HOOK PODE AINDA NÃO TER SIDO DECLARADO (26/08/2026).
+    //
+    // Este arquivo entra com `defer`, e o script que declara o
+    // `aoExpirarInatividade` também — no `cliente-orcamentos.html` ele vem
+    // DEPOIS deste. No corte de carregamento (o de quem volta com o tempo já
+    // estourado) a função ainda não existe, e aí a decisão da página era
+    // ignorada: quem clicava no link do orçamento no e-mail caía em /login com
+    // "sessão expirada" — exatamente a tela que aquela página existe para não
+    // mostrar.
+    //
+    // Adiar um tique resolve sem depender da ordem das tags: a fila de timers
+    // só roda depois que TODO script `defer` executou. Para quem vai mesmo para
+    // /login o atraso é invisível, e a sessão já foi apagada acima.
+    if (typeof window.aoExpirarInatividade === "function") { aplicarCorte(); return; }
+    if (_corteAgendado) return;
+    _corteAgendado = true;
+    setTimeout(aplicarCorte, 0);
   }
 
   function expirou() {

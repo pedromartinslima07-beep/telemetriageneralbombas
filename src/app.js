@@ -377,8 +377,10 @@ app.get("/cliente/painel", _htmlNoCache, (req, res) =>
 );
 // Orçamentos do síndico — página própria, não um modal do painel. É o destino
 // do link que vai no e-mail do orçamento, então a URL é pública e estável; o
-// login é exigido pelo JS (que redireciona para /login sem token) e o dado é
-// escopado no backend pelo condominio_id do usuário.
+// login é pedido pelo JS num cartão SOBRE a própria página — nunca em /login,
+// nem quando a sessão morre por inatividade (ver `public/cliente-orcamentos.js`
+// e o hook `aoExpirarInatividade`) — e o dado é escopado no backend pelo
+// condominio_id do usuário.
 //
 // ⚠️ O PATH É `/cliente/painel/orcamentos`, NÃO `/cliente/orcamentos`. Estas
 // rotas de página são registradas ANTES do `app.use("/cliente", clienteRouter)`

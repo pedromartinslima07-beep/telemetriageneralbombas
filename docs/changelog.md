@@ -4334,6 +4334,42 @@ A lição foi para o [`CLAUDE.md`](../CLAUDE.md): `node --check` não pega e
 `UPDATE` direto no banco não pega — query com parâmetro repetido só se testa
 exercitando a rota.
 
+### 2026-08-26 · O link do orçamento voltava a cair em /login
+
+*"Cliquei no link de orçamento pelo e-mail e caí na tela de login com a
+mensagem de desconexão por tempo de inatividade."*
+
+A tela de orçamentos declara, desde 25/08, que o corte por inatividade **abre o
+cartão de entrada** em vez de ir para `/login` — é a mesma decisão que fez o
+login virar cartão ali: quem chega veio de um link sobre UM documento, e trocar
+a página por um formulário perde o documento e a URL com `?orc=N`. A declaração
+estava lá e mesmo assim era ignorada.
+
+**Era a ordem das tags `<script>`.** Em `cliente-orcamentos.html` o
+`inatividade.js` vem **antes** do `cliente-orcamentos.js`, e os dois são
+`defer` — executam nessa ordem. O corte de carregamento (o de quem volta com os
+30 minutos já estourados) roda na execução do primeiro, quando o
+`window.aoExpirarInatividade` do segundo **ainda não foi declarado**. O `return`
+do hook nunca acontecia e sobrava o `location.href = "/login?motivo=inatividade"`
+— justamente para quem vem do e-mail, que é quem quase nunca tem sessão viva.
+
+**A correção não depende da ordem das tags:** sem hook declarado, o corte é
+adiado um tique de timer. A fila de timers só roda depois que **todo** script
+`defer` executou, então o hook já existe quando o corte é aplicado. Trocar a
+ordem das tags resolveria o sintoma, mas deixaria a armadilha armada para a
+próxima página — e faria a página buscar dados com o token prestes a morrer.
+
+- A sessão é apagada **antes** do adiamento: o `cliente-orcamentos.js` boota já
+  sem token, abre o cartão e não dispara fetch nenhum.
+- Para quem vai mesmo para `/login` (admin e painel do cliente, que não declaram
+  hook) o atraso de um tique é invisível.
+
+**Testado** com a ordem real dos `defer` reproduzida em `vm`: sessão estourada
+com hook declarado depois → cartão aberto e URL `?orc=42` intacta; página sem
+hook → segue indo para `/login?motivo=inatividade`; sessão viva → nada acontece.
+
+Cache-bust: `inatividade.js?v=3` nas três telas que o carregam.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

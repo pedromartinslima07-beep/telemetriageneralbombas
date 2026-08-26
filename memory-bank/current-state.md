@@ -348,6 +348,14 @@ registrava era o escritório.
   barra e o 401 no meio do caminho reabre o cartão. `GET /cliente/orcamentos`
   aberta no navegador redireciona 302 para a página, para não devolver
   `{"error":"Token ausente"}` em JSON cru.
+- ⚠️ **O corte por inatividade escapava desse cartão até 26/08/2026.** O
+  `inatividade.js` e o script que declara `aoExpirarInatividade` são os dois
+  `defer`, e o primeiro roda antes: no corte de carregamento o hook ainda não
+  existia e quem clicava no link do e-mail caía em `/login` com "sessão
+  expirada". Hoje o corte sem hook declarado é adiado um tique de timer, que
+  roda depois de todo `defer`. **Não vale trocar a ordem das tags** — resolveria
+  esta página e deixaria a armadilha para a próxima. Ver
+  [../docs/modulos/autenticacao.md](../docs/modulos/autenticacao.md).
 - ⚠️ **Nada aqui pode ser `<a href>` para rota autenticada.** O `authRequired`
   lê só o header `Bearer`; não há cookie de sessão. Foi assim que o botão do
   PDF nasceu quebrado (consertado em 24/08 — ver
