@@ -51,6 +51,14 @@ descarta ruas homônimas em bairros/cidades errados.
 - `GET /admin/geocode?q=...` — proxy do Nominatim `/search`.
 - `GET /admin/reverse-geocode?lat=&lon=` — proxy do `/reverse` (zoom 18).
 
+⚠️ **Enquadramento inicial: mediana + zoom fixo, nunca `fitBounds`.** Vale para
+o mapa do dashboard e para a tela de Mapa (unificadas em 26/08/2026, via
+`_mpEnquadrar`). `fitBounds` enquadra o retângulo de todos os pinos, e o
+retângulo é refém do mais distante: um condomínio em Bragança faz o mapa abrir
+em zoom 9, com os outros 79 empilhados. `MC_ZOOM_INICIAL = 11` com centro em
+`_mcCentroMediano` foi medido no painel real — pega 79 dos 80 (zoom 10 pegava
+71; zoom 12, só 50).
+
 Ambos com **User-Agent próprio e fila de 1 req/s** (respeitando o ToS do
 Nominatim). O frontend (ViaCEP/BrasilAPI/AwesomeAPI) é liberado no `connect-src`
 da CSP (Helmet).

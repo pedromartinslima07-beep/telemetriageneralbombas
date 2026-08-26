@@ -8122,6 +8122,28 @@ function _esperarDimensao(el, cb) {
   ro.observe(el);
 }
 
+/* ── Enquadramento inicial da tela de Mapa ────────────────────────────────
+   ⚠️ MESMA REGRA DO DASHBOARD, E PELO MESMO MOTIVO (26/08/2026). Aqui ainda
+   era `fitBounds(bounds, { maxZoom: 13 })` — o que o dashboard abandonou
+   porque UM condomínio isolado ao norte (Bragança) basta para esticar o
+   retângulo: o teto de 13 nunca chegava a valer e o mapa abria em zoom 9, com
+   a região metropolitana inteira e os outros 79 pinos empilhados num nó
+   ilegível. `fitBounds` enquadra o retângulo, e retângulo é refém do ponto
+   mais distante.
+
+   Centro na MEDIANA das coordenadas e zoom fixo: a mediana ignora o outlier,
+   o centro do retângulo não. Ver `MC_ZOOM_INICIAL` e `_mcCentroMediano`, que
+   guardam a medição feita no painel real (zoom 11 pega 79 dos 80).
+
+   Esta tela tem canvas maior que o card do dashboard, então o mesmo zoom 11
+   mostra MAIS área — que é o que se quer aqui: o mapa é a tela inteira, não
+   um cartão de canto. */
+function _mpEnquadrar(bounds) {
+  if (!_mpMap || !bounds.length || _mpMap._fitAplicado) return;
+  _mpMap.setView(_mcCentroMediano(bounds), MC_ZOOM_INICIAL);
+  _mpMap._fitAplicado = true;
+}
+
 function _mpAtualizarMapa() {
   const el = document.getElementById("mpMapCanvas");
   if (!el || typeof L === "undefined") return;
@@ -8188,10 +8210,7 @@ function _mpAtualizarMapa() {
     }
   }
 
-  if (bounds.length > 0 && !_mpMap._fitAplicado) {
-    _mpMap.fitBounds(bounds, { padding: [40, 40], maxZoom: 13 });
-    _mpMap._fitAplicado = true;
-  }
+  _mpEnquadrar(bounds);
 
   // Renderiza técnicos sempre que o mapa atualiza condomínios
   _mpRenderTecnicos();
@@ -8803,17 +8822,12 @@ function renderSecaoMapa() {
   if (_mpMap) {
     requestAnimationFrame(() => {
       _mpMap.invalidateSize();
-      // Se nunca aplicou fit (mapa criado em tamanho 0 ou sem coords), reaplica agora
-      if (!_mpMap._fitAplicado) {
-        const groups = Array.isArray(_statusData) ? _statusData : [];
-        const bounds = groups
-          .filter(g => g.condominio?.lat != null && g.condominio?.lng != null)
-          .map(g => [g.condominio.lat, g.condominio.lng]);
-        if (bounds.length > 0) {
-          _mpMap.fitBounds(bounds, { padding: [40, 40], maxZoom: 13 });
-          _mpMap._fitAplicado = true;
-        }
-      }
+      // Se nunca aplicou o enquadramento (mapa criado em tamanho 0 ou sem
+      // coords), aplica agora — o `_mpEnquadrar` já sai fora se não for o caso.
+      const groups = Array.isArray(_statusData) ? _statusData : [];
+      _mpEnquadrar(groups
+        .filter(g => g.condominio?.lat != null && g.condominio?.lng != null)
+        .map(g => [g.condominio.lat, g.condominio.lng]));
     });
   }
 }

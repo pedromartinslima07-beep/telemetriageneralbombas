@@ -4514,6 +4514,31 @@ baixa" na linha, aba Respondidos com contagem, e a nota do "Enviado" na ficha.
 
 Cache-bust: `admin.js?v=320`, `admin.css?v=237`.
 
+### 2026-08-26 · A tela de Mapa abre no mesmo enquadramento do dashboard
+
+*"Hoje o dashboard já mostra o mapa com um certo zoom, porém na tela de mapa
+isso não acontece."*
+
+O dashboard trocou `fitBounds` por **centro na mediana + zoom fixo 11** quando
+se descobriu que UM condomínio isolado ao norte (Bragança) estica o retângulo:
+o teto de `maxZoom: 13` nunca chegava a valer, e o mapa abria em **zoom 9** —
+região metropolitana inteira, os outros 79 pinos empilhados num nó. A tela de
+Mapa ficou com a regra antiga, nos dois pontos onde ela enquadra (o primeiro
+render e o reparo de quando o mapa nasce com container de tamanho zero).
+
+Agora as duas telas usam `_mcCentroMediano` + `MC_ZOOM_INICIAL`, através de um
+`_mpEnquadrar()` que também absorveu a duplicação dos dois pontos. **Mediana e
+não centro do retângulo** é o ponto todo: a mediana ignora o outlier, o centro
+do retângulo é refém dele.
+
+⚠️ A tela de Mapa tem canvas maior que o card do dashboard, então o mesmo zoom
+11 mostra **mais** área — que é o desejado aqui: ali o mapa é a tela inteira,
+não um cartão de canto.
+
+**Verificado no painel local, logado**, nas duas telas.
+
+Cache-bust: `admin.js?v=321`.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

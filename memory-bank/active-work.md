@@ -27,6 +27,14 @@ aliases:
 > teste tinha caído. Um `TcpClient.ConnectAsync` conecta nos dois em ~190ms.
 > Os dois bancos estão de pé.
 
+## Sessão 2026-08-26 — Mapa abre no mesmo enquadramento do dashboard
+
+A tela de Mapa ainda usava `fitBounds` com teto de zoom 13 — a regra que o
+dashboard abandonou porque um condomínio isolado (Bragança) estica o retângulo
+e joga o mapa para o zoom 9. Agora as duas usam `_mcCentroMediano` +
+`MC_ZOOM_INICIAL` (11), via `_mpEnquadrar`. Verificado no painel local logado.
+Cache-bust: `admin.js?v=321`.
+
 ## Sessão 2026-08-26 — A lista diz quem aprovou (aba Respondidos)
 
 Veio de um teste do Pedro — achar, só pelo painel, um orçamento que ele tinha
