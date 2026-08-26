@@ -4682,6 +4682,40 @@ sem registrar o SW.
 seu: adicionar à tela inicial a partir do site e ver se abre sem a barra do
 Safari.
 
+### 2026-08-26 · "Total aprovado" somava tudo, inclusive rascunho
+
+Pergunta do Pedro — *"a conta de orçamentos aprovados está certa?"* — e não
+estava.
+
+O cartão da aba de orçamentos avulsos fazia `_avData.reduce(...)` sobre a lista
+**inteira**: rascunho, enviado e rejeitado entravam na conta do que foi
+aprovado. Não é arredondamento, é outra pergunta sendo respondida.
+
+O tamanho do erro em produção:
+
+| | Valor |
+|---|---|
+| O que o cartão mostrava | **R$ 113.393,54** |
+| Aprovado de verdade (6 orçamentos) | **R$ 5.139,00** |
+| Enviados que entravam indevidamente (34) | R$ 76.006,35 |
+| Rascunhos que entravam indevidamente (12) | R$ 32.248,19 |
+
+⚠️ **Vinte e duas vezes o valor real**, num número que serve para dizer quanto
+de serviço foi fechado. E o defeito era só desta aba: a de "Solicitados pelos
+técnicos" filtra por `orcamento_status === "aprovado"` desde sempre.
+
+Os totais por condomínio (`N orçamentos · R$ X`) continuam somando o que estiver
+no filtro — ali o rótulo não promete "aprovado", promete o grupo.
+
+**Verificado recortando a expressão do próprio `admin.js`** (nunca copiando) e
+rodando sobre o payload real de `GET /admin/orcamentos/avulsos`: 12.947,00 no
+banco de teste, contra 13.747,00 da soma de tudo.
+
+⚠️ Sobrou um defeito de layout, não corrigido: o rótulo do cartão aparece
+truncado na tela ("TOTAL APROVA…").
+
+Cache-bust: `admin.js?v=323`.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

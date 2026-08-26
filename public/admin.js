@@ -11873,7 +11873,16 @@ function _avRenderTudo() {
   const rascunho= _avData.filter(o => o.status === "rascunho").length;
   const enviado = _avData.filter(o => o.status === "enviado").length;
   const aprov   = _avData.filter(o => o.status === "aprovado").length;
-  const totalVal= _avData.reduce((s, o) => s + Number(o.valor_total || 0), 0);
+  // ⚠️ SÓ OS APROVADOS — o KPI se chama "Total aprovado" (26/08/2026).
+  // Este `reduce` somava _avData INTEIRO: rascunho, enviado e rejeitado
+  // entravam na conta do que foi aprovado. Não era arredondamento, era outra
+  // pergunta: em produção o cartão mostrava R$ 113.393,54 quando o aprovado de
+  // verdade era R$ 5.139,00 — 34 orçamentos enviados (R$ 76 mil) e 12
+  // rascunhos (R$ 32 mil) inflando o número. A aba "Solicitados pelos
+  // técnicos" já filtrava certo desde sempre; esta ficou para trás.
+  const totalVal= _avData
+    .filter(o => o.status === "aprovado")
+    .reduce((s, o) => s + Number(o.valor_total || 0), 0);
 
   const ICO_LIST  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>`;
   const ICO_DRAFT = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>`;
