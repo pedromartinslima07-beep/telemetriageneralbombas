@@ -4539,6 +4539,80 @@ não um cartão de canto.
 
 Cache-bust: `admin.js?v=321`.
 
+### 2026-08-26 · O selo de orçamentos no painel do cliente nascia vazio
+
+*"No cabeçalho tem 'Orçamentos' e do lado uma coisa amarela; quando tem um
+orçamento fica um número dentro e aí beleza, mas quando não tem nada essa coisa
+amarela podia sair."*
+
+A lógica sempre esteve certa: `pintarSeloOrc` só tira o `hidden` quando há
+orçamento aguardando, justamente porque contador que mostra zero vira ruído
+permanente. Quem mantinha o selo na tela era o **CSS**: `.conta-selo` declara
+`display: inline-flex`, e isso **vence o atributo `hidden`** — que é só um
+`display: none` vindo do stylesheet do navegador. O resultado era um quadrado
+âmbar de 19px, vazio, aceso o tempo todo.
+
+Uma linha: `.conta-selo[hidden] { display: none; }`.
+
+⚠️ **É a segunda vez que esta armadilha morde neste arquivo** — a primeira foi
+o campo "Qual?" do cargo, e o comentário que ficou lá diz a regra: o
+`cliente.css` trata `[hidden]` caso a caso (`.ficha-fundo`, `.aviso`, `.campo`,
+`.orcs-lista`), então **todo componente com `display` próprio precisa declarar
+a sua**. `.conta-selo` foi o que faltou. Os outros quatro elementos que o
+`cliente.js` liga e desliga por `hidden` foram conferidos: estão cobertos.
+
+Cache-bust: `cliente.css?v=47` nas duas páginas que a carregam (o painel e a
+tela de orçamentos — deixar uma em v=46 serviria CSS velho para ela).
+
+### 2026-08-26 · O estado vazio dos orçamentos vira peça, com o mesmo texto
+
+Pedido do Pedro: melhorar **o visual** da página de orçamentos quando não há
+nenhum. Era um retângulo com contorno de 1px e, dentro, um título e um parágrafo
+soltos — a única forma da tela que não pertencia ao sistema.
+
+Agora é a **mesma peça da primeira tela do painel**: chapa de duas camadas com o
+anel em `background` + `::before` (nunca `box-shadow: inset` sob `clip-path`
+chanfrado, que é recortado nos cantos), gradiente de marinho, e o cabeçalho
+separado do corpo pelo par `--rasgo` + `--luz` — o corte gravado, sempre duas
+linhas e nesta ordem.
+
+⚠️ **EU TINHA REESCRITO A COPY, E O PEDIDO ERA DE APARÊNCIA.** A primeira versão
+trocou o texto por um percurso de três passos ("no e-mail do prédio", "item a
+item", "você aprova ou recusa") mais uma linha de saída com WhatsApp e telefone
+— e mudou a linha de apoio da abertura junto. O Pedro cortou: *"esse tanto de
+texto, tinha pedido pra você arrumar só o visual"*.
+
+A regra que eu tinha lido e não segui está na própria skill: **refinamento
+preserva, redesenho substitui** — e refinamento mantém identidade, comportamento
+e **copy**, perguntando antes de trocar texto factual. Vale como lição além
+deste caso: pedido de visual não autoriza mexer no que a tela diz.
+
+**Depois disso, o corte de texto foi pedido — e aí sim.** *"Acho que o texto
+está redundante, deixe direto e reto."* O mesmo fato aparecia duas vezes na
+mesma dobra: a linha de apoio dizia "todo orçamento que fizermos aparece aqui" e
+a placa repetia com outras palavras. Sobrou o essencial, uma frase por papel:
+
+| | Antes | Agora |
+|---|---|---|
+| Linha de apoio | "Todo orçamento que fizermos para o seu prédio aparece aqui." | *(some — quem fala do vazio é a placa)* |
+| Cabeçalho | "Nenhum orçamento por aqui" | igual |
+| Corpo | "Quando um serviço precisar de orçamento, mandamos por e-mail e ele aparece nesta tela para você aprovar ou recusar." | "Quando houver um, ele aparece nesta tela e no e-mail do prédio." |
+
+⚠️ **Quem esconde tem que lembrar de mostrar.** A linha de apoio agora sai de
+cena com `hidden` quando a lista está vazia — e as outras duas mensagens que
+escrevem nela (o cartão de entrada e a falha de carregamento) rodam DEPOIS
+disso. As duas voltaram a ligar o elemento antes de escrever; sem isso a
+mensagem existiria no DOM e ninguém veria.
+
+**Verificado em harness** pela rota `/dev/_*.html` (que só existe fora de
+produção), com o CSS real, a 1544px e a 412px.
+
+⚠️ **O harness carregava o JS real da página** e o cartão de entrada abriu por
+cima do que eu queria ver — quem monta harness a partir do HTML de uma página
+precisa cortar os `<script>` junto com o conteúdo.
+
+Cache-bust: `cliente.css?v=48` nas duas páginas, `cliente-orcamentos.js?v=14`.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

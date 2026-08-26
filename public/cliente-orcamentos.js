@@ -87,7 +87,7 @@ function pedirEntrada(motivo) {
     document.body.classList.add("com-ficha");
     // Atrás do véu, "Carregando…" ficaria para sempre — e é o texto que
     // aparece se a pessoa fechar o teclado e olhar a página por baixo.
-    if (elApoio) elApoio.textContent = "Entre para ver o orçamento do seu prédio.";
+    if (elApoio) { elApoio.hidden = false; elApoio.textContent = "Entre para ver o orçamento do seu prédio."; }
     setTimeout(() => _el("entradaEmail")?.focus(), 60);
   }
   _entradaPasso("email");
@@ -271,6 +271,7 @@ async function carregar() {
     ORCS = j.orcamentos || [];
     PREDIO = j.condominio || "";
   } catch (_) {
+    elApoio.hidden = false;
     elApoio.textContent = "Não conseguimos carregar seus orçamentos agora. Recarregue a página em instantes.";
     return;
   }
@@ -291,9 +292,17 @@ function pintarAbertura() {
     elApoio.textContent = "Leia, veja os itens e responda por aqui. Se aprovar, agendamos o serviço.";
   } else {
     elTitulo.textContent = "Orçamentos";
+    // ⚠️ SEM ORÇAMENTO NENHUM, A LINHA DE APOIO SAI (26/08/2026). Ela dizia
+    // "todo orçamento que fizermos aparece aqui" e a placa logo abaixo dizia a
+    // mesma coisa com outras palavras — o fato aparecia duas vezes na mesma
+    // dobra. Fato repetido não reforça, só faz a tela parecer que está
+    // enrolando. Quem fala do vazio é a placa; aqui o silêncio é a resposta.
+    // (`.apoio` não declara `display` próprio, então o `hidden` basta — ver a
+    // armadilha do `.campo` no cliente.css.)
+    elApoio.hidden = !ORCS.length;
     elApoio.textContent = ORCS.length
       ? "Nenhum aguardando resposta. Abaixo está o histórico do que já foi enviado ao seu prédio."
-      : "Todo orçamento que fizermos para o seu prédio aparece aqui.";
+      : "";
   }
 
   elPredio.textContent = PREDIO || "Meu prédio";
@@ -301,11 +310,18 @@ function pintarAbertura() {
 
 function pintarLista() {
   if (!ORCS.length) {
+    // ⚠️ SÓ O VISUAL MUDOU AQUI (26/08/2026) — o texto é o mesmo de antes, e
+    // isso foi um pedido explícito do Pedro depois de eu ter reescrito a copy
+    // inteira num pedido que era de aparência. O que era um contorno de 1px
+    // com título e parágrafo soltos virou a MESMA peça da primeira tela do
+    // painel: chapa de duas camadas, cabeçalho separado do corpo pelo corte
+    // gravado. Ver a seção "Nenhum orçamento ainda" no cliente.css.
     elLista.innerHTML = `
       <div class="orcs-vazio">
-        <h2>Nenhum orçamento por aqui</h2>
-        <p>Quando um serviço precisar de orçamento, mandamos por e-mail
-           e ele aparece nesta tela para você aprovar ou recusar.</p>
+        <div class="orcs-vazio-in">
+          <div class="ov-topo"><h2>Nenhum orçamento por aqui</h2></div>
+          <p class="ov-corpo">Quando houver um, ele aparece nesta tela e no e-mail do prédio.</p>
+        </div>
       </div>`;
     return;
   }

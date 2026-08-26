@@ -27,6 +27,24 @@ aliases:
 > teste tinha caído. Um `TcpClient.ConnectAsync` conecta nos dois em ~190ms.
 > Os dois bancos estão de pé.
 
+## Sessão 2026-08-26 — O estado vazio dos orçamentos (Impeccable)
+
+A caixa de contorno virou a peça do sistema (chapa de duas camadas + corte
+gravado entre cabeçalho e corpo), com o **texto original preservado**.
+⚠️ Na primeira tentativa eu reescrevi a copy inteira num pedido que era só de
+visual — o Pedro cortou e está revertido. Refinamento preserva copy; trocar
+texto pede pedido próprio. Verificado em harness a 1544px e 412px.
+Cache-bust: `cliente.css?v=48`, `cliente-orcamentos.js?v=14`.
+
+## Sessão 2026-08-26 — Selo de orçamentos nascia vazio no painel do cliente
+
+`.conta-selo` tem `display: inline-flex`, que vence o atributo `hidden` — o
+selo âmbar ficava aceso e vazio ao lado de "Orçamentos". O `pintarSeloOrc`
+estava certo o tempo todo. Uma linha de CSS (`.conta-selo[hidden]`), a mesma
+armadilha já documentada no `.campo` do mesmo arquivo. Cache-bust:
+`cliente.css?v=47` nas duas páginas. ⚠️ Não visto logado — o painel do cliente
+é handoff.
+
 ## Sessão 2026-08-26 — Mapa abre no mesmo enquadramento do dashboard
 
 A tela de Mapa ainda usava `fitBounds` com teto de zoom 13 — a regra que o

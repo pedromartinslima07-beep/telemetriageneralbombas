@@ -268,6 +268,12 @@ a { color: inherit; text-decoration: none; }
   font-variant-numeric: tabular-nums;
   --ch: 5px; clip-path: var(--corte);
 }
+/* ⚠️ `display: inline-flex` acima VENCE o atributo `hidden` (mesma armadilha
+   documentada em `.campo`, mais abaixo). Sem esta linha o selo nasce visível e
+   VAZIO: um quadradinho âmbar de 19px colado em "Orçamentos", aceso o tempo
+   todo, dizendo nada. O `pintarSeloOrc` sempre esteve certo — ele só mostra o
+   selo quando há orçamento aguardando; quem o mantinha na tela era o CSS. */
+.conta-selo[hidden] { display: none; }
 /* o selo não some no celular junto com o rótulo: ele É a informação */
 .conta-orc { position: relative; }
 .conta svg { width: 17px; height: 17px; stroke: currentColor; fill: none; stroke-width: 1.6; }
@@ -1817,13 +1823,54 @@ body[data-estado="carregando"] .frase { color: var(--sobre-2); }
    Estado mais comum desta tela: a maioria dos prédios não tem orçamento
    aberto. Ele não pede desculpa nem oferece ação falsa — diz o que vai
    acontecer quando houver. */
+/* ── Nenhum orçamento ainda ──────────────────────────────────────────────
+   ⚠️ NÃO É MAIS UM AVISO DENTRO DE UM RETÂNGULO VAZIO (26/08/2026). Era um
+   contorno de 1px com duas frases — e as duas repetiam a linha de apoio logo
+   acima. Estado vazio é a única tela onde nada disputa a atenção do síndico:
+   é onde explicar o fluxo custa zero.
+
+   A construção é a MESMA da placa da primeira tela do painel: chapa de duas
+   camadas (fundo = anel de 1,5px, `::before` embutido e re-chanfrado) com as
+   bandas separadas pelo par `--rasgo` + `--luz`. Três coisas paralelas neste
+   sistema não viram três cards; viram uma peça usinada dividida.
+
+   ⚠️ O anel é `background` + `::before`, não `box-shadow: inset`. Sob
+   `clip-path` com chanfro estrutural o inset é recortado nos dois cantos e lê
+   como defeito de renderização — é a regra que a DESIGN.md registra. */
 .orcs-vazio {
-  padding: clamp(30px, 4.4vw, 46px) clamp(24px, 3.2vw, 34px);
-  box-shadow: inset 0 0 0 1px var(--fio);
-  --ch: 14px; clip-path: var(--corte);
+  --ch: 16px;
+  position: relative;
+  clip-path: var(--corte);
+  background: var(--fio);
+  padding: 1.5px;
 }
-.orcs-vazio h2 { font-size: 1.24rem; font-weight: 800; color: #fff; letter-spacing: -.018em; }
-.orcs-vazio p { margin-top: 8px; font-size: .98rem; color: var(--sobre-2); max-width: 46ch; }
+.orcs-vazio::before {
+  content: ""; position: absolute; inset: 1.5px;
+  clip-path: var(--corte);
+  background: linear-gradient(168deg, var(--mar-700) 0%, var(--mar-900) 100%);
+}
+.orcs-vazio-in { position: relative; z-index: 1; }
+
+/* O corte gravado, sempre DUAS linhas e nesta ordem — `--rasgo` é o fundo do
+   sulco, `--luz` a aresta virada para cima. Uma linha só leria como borda de
+   card e desfaria a peça única. É ele que separa cabeçalho de corpo. */
+.ov-topo {
+  padding: clamp(20px, 2.8vw, 26px) clamp(24px, 3.2vw, 34px);
+  background:
+    linear-gradient(var(--luz), var(--luz))     bottom / 100% 1px no-repeat,
+    linear-gradient(var(--rasgo), var(--rasgo)) bottom / 100% 2px no-repeat;
+}
+.ov-topo h2 {
+  font-size: 1.24rem; font-weight: 800; font-stretch: 106%;
+  letter-spacing: -.018em; line-height: 1.25; color: #fff;
+}
+.ov-corpo {
+  padding: clamp(18px, 2.6vw, 24px) clamp(24px, 3.2vw, 34px);
+  font-size: .98rem; line-height: 1.55; color: var(--sobre-2);
+  /* 62ch e a medida que deixa a frase inteira caber em UMA linha no desktop —
+     ela e curta de proposito, e quebrada em duas parecia mais longa do que e. */
+  max-width: 62ch;
+}
 
 /* ⚠️ `.conta-link` foi removida em 25/08/2026 junto com o "Meus orçamentos"
    da ficha "Sua conta" — o caminho para os orçamentos virou ícone permanente

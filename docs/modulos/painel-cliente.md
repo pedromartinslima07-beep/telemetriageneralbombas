@@ -482,6 +482,31 @@ registradas **antes** do `app.use("/cliente", clienteRouter)`. Uma página em
 HTML — o `Unexpected token '<'` do `CLAUDE.md`. Convenção: **página é nome de
 tela, API é nome de recurso.**
 
+### O estado vazio é uma peça, não uma caixa (26/08/2026)
+
+Quando o condomínio ainda não tem orçamento nenhum, a lista mostra uma placa —
+e ela é a **mesma construção da placa da primeira tela do painel**: chapa de
+duas camadas (fundo = anel de 1,5px, `::before` embutido e re-chanfrado), com
+cabeçalho e corpo separados pelo par `--rasgo` + `--luz`. Antes era um contorno
+de 1px com o título e o parágrafo soltos dentro.
+
+⚠️ **O anel é `background` + `::before`, não `box-shadow: inset`.** Sob
+`clip-path` com chanfro estrutural o inset é recortado nos dois cantos e lê como
+defeito de renderização — regra registrada na DESIGN.md.
+
+⚠️ **Duas frases, uma por papel.** O cabeçalho diz o estado ("Nenhum orçamento
+por aqui") e o corpo diz o que muda ("Quando houver um, ele aparece nesta tela e
+no e-mail do prédio"). A **linha de apoio da abertura some** neste estado: ela
+repetia o mesmo fato uma dobra acima.
+
+⚠️ Quem esconde tem que lembrar de mostrar: as outras duas mensagens que
+escrevem no `.apoio` — o cartão de entrada e a falha de carregamento — rodam
+depois e precisam religar o elemento.
+
+⚠️ A primeira tentativa deste redesenho trocou a copy inteira por um percurso de
+três passos, num pedido que era só de aparência, e foi recusada. O corte que
+ficou veio de um pedido explícito, depois.
+
 ### A entrada acontece na própria página (25/08/2026)
 
 ⚠️ **Esta página NÃO redireciona para `/login`.** Até 25/08 ela fazia
