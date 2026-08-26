@@ -1350,6 +1350,12 @@ router.get("/orcamentos/avulsos", authRequired, adminOnly, async (req, res) => {
               -- (Sem crase: comentario dentro de template literal, ver acima.)
               o.resposta_tratada_em, ut.nome AS resposta_tratada_por_nome,
               ur.nome AS respondido_por_nome,
+              -- Quem MONTOU o orcamento. A coluna existe desde sempre e sempre
+              -- foi gravada; o que faltava era a ficha mostrar. Nao confundir
+              -- com respondido_por (o sindico) nem com resposta_tratada_por
+              -- (quem deu baixa): sao tres pessoas diferentes no mesmo papel de
+              -- "quem fez o que" e a ficha precisa distinguir as tres.
+              o.criado_por, uc.nome AS criado_por_nome,
               -- CONTRATO COM O MODAL, NAO TIRE: o.valor e a COLUNA CRUA (total
               -- manual, NULL = somar os itens), e valor_total e o numero ja
               -- resolvido. O modal do admin le o.valor para saber se o modo
@@ -1370,6 +1376,7 @@ router.get("/orcamentos/avulsos", authRequired, adminOnly, async (req, res) => {
        LEFT JOIN ordens_servico os ON os.id = o.os_id
        LEFT JOIN usuarios ur ON ur.id = o.respondido_por
        LEFT JOIN usuarios ut ON ut.id = o.resposta_tratada_por
+       LEFT JOIN usuarios uc ON uc.id = o.criado_por
        ORDER BY o.criado_em DESC
        LIMIT 300`
     );

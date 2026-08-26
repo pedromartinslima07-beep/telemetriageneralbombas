@@ -4613,6 +4613,75 @@ precisa cortar os `<script>` junto com o conteúdo.
 
 Cache-bust: `cliente.css?v=48` nas duas páginas, `cliente-orcamentos.js?v=14`.
 
+### 2026-08-26 · A ficha do orçamento diz quem o montou
+
+*"Queria que ficasse salvo no painel de orçamento que usuário fez ele."*
+
+**Já estava salvo.** `orcamentos.criado_por` existe desde o schema e é gravado
+em toda criação — no modal do admin, na bancada da oficina e no orçamento que a
+IA abre sozinha. O que faltava era a tela: a coluna não aparecia em lugar
+nenhum, e a pergunta "quem fez este orçamento?" só se respondia no banco.
+
+A lista do admin passa a trazer `criado_por` + `uc.nome AS criado_por_nome`, e a
+ficha ganha um "Criado por" no trilho, **acima de "Aprovado por"** — a ordem ali
+é a dos fatos: alguém monta, o cliente responde, o escritório dá baixa. São três
+pessoas diferentes, e a ficha precisa mantê-las separadas.
+
+⚠️ **Traço onde não há nome, e isso é honesto.** Em produção 52 dos 56
+orçamentos têm autor; os quatro sem são anteriores ao preenchimento da coluna.
+O que a IA cria também pode chegar sem — ali quem "fez" não é um usuário.
+
+**Conferido pela rota real** (Express com o router, JWT assinado, banco de
+teste): os 9 orçamentos voltam com `criado_por_nome` preenchido.
+
+⚠️ **A parte visual não foi vista logada nesta rodada** — a sessão do painel
+caiu pelo corte de 30 min no meio da verificação, e o login é handoff.
+
+Cache-bust: `admin.js?v=322`.
+
+### 2026-08-26 · O atalho do iPhone abria aba do Safari
+
+*"Adicionei à tela inicial no iPhone mas ele está abrindo uma aba no navegador
+normal."*
+
+**Quem manda no modo app é a página aberta na hora de "Adicionar à Tela de
+Início"** — o Safari lê os metadados dela, não do site. As quatro telas do
+sistema (`/login`, admin, painel do cliente, orçamentos) têm manifest e
+`apple-mobile-web-app-capable` desde sempre; **a landing não tinha**. Quem
+adicionava a partir do site ganhava o ícone certo e uma aba comum.
+
+Agora a landing declara os dois, mais `apple-mobile-web-app-title`. O
+`start_url` continua `/login`, então o atalho criado do site abre no login — a
+landing é peça de venda, não a casca do app.
+
+⚠️ **`black`, e não `black-translucent` como nas outras quatro.** O translúcido
+estende a página por baixo da barra de status e depende de `viewport-fit=cover`
++ `env(safe-area-inset-*)`, que a landing não tem — o tratamento de 18/08 cobriu
+admin, painel, login e o app do técnico, não ela. Com `black` a barra é opaca e
+o conteúdo começa abaixo dela.
+
+⚠️ **O service worker continua fora da landing**, de propósito: site público
+preso em versão cacheada é pior que segundo carregamento lento.
+
+**As cores do manifest estavam de uma paleta anterior** — `theme_color`
+`#F5A623` e `background_color` `#0A1628`. São a barra do sistema e a splash do
+app instalado, ou seja, a primeira coisa que aparece ao abrir. Agora as duas são
+`#050f38`, o mesmo marinho do `theme-color` das páginas.
+
+⚠️ **E o manifest caía no cache first do service worker.** Ele não é HTML e não
+batia com nenhum prefixo da lista network-first, então a primeira versão baixada
+valia para sempre: trocar nome, cor de splash ou ícone não chegava a quem já
+tinha instalado. Entrou na lista, com o bump obrigatório de `CACHE_NAME`
+(v59 → v60) e do `?v=N` do `register-sw.js` (49 → 50) nas quatro páginas.
+
+**Conferido no servidor local:** `/manifest.json` responde 200 com as cores
+novas, e a landing serve o `rel="manifest"` e o `apple-mobile-web-app-capable`
+sem registrar o SW.
+
+⚠️ **Não verificado em iPhone** — não há aparelho iOS neste ambiente. O teste é
+seu: adicionar à tela inicial a partir do site e ver se abre sem a barra do
+Safari.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

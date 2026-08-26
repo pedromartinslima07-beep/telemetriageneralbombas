@@ -11,6 +11,29 @@
   <link rel="apple-touch-icon" href="/static/apple-touch-icon.png" />
   <meta name="theme-color" content="#050f38" />
 
+  <!-- ⚠️ QUEM MANDA NO MODO APP É A PÁGINA ABERTA NA HORA (26/08/2026).
+       No iPhone, "Adicionar à Tela de Início" lê os metadados da página que
+       está na tela — não do site. Esta aqui não tinha nem manifest nem o
+       `apple-mobile-web-app-capable`, então quem adicionava a partir do site
+       ganhava um ícone que abre uma aba comum do Safari. Relato do Pedro.
+
+       O `start_url` do manifest é `/login`, então o atalho criado daqui abre
+       no login, que é o certo: a landing é peça de venda, não a casca do app.
+
+       ⚠️ `black`, NÃO `black-translucent`, ao contrário das quatro telas do
+       sistema. O translúcido joga o conteúdo por baixo da barra de status e
+       depende de `viewport-fit=cover` + `env(safe-area-inset-*)` — que esta
+       página não tem (o tratamento de 18/08 cobriu admin, painel, login e o
+       app do técnico, não a landing). Com `black` a barra é opaca e o
+       conteúdo começa abaixo dela.
+
+       ⚠️ O service worker continua FORA daqui, de propósito: site público
+       preso em versão cacheada é pior que segundo carregamento lento. -->
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+  <meta name="apple-mobile-web-app-title" content="General" />
+
   <link rel="preload" href="/static/fonts/archivo.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="preload" href="/static/fonts/martianmono.woff2" as="font" type="font/woff2" crossorigin />
 

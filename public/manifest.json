@@ -4,8 +4,8 @@
   "description": "Sistema de monitoramento de reservatórios",
   "start_url": "/login",
   "display": "standalone",
-  "background_color": "#0A1628",
-  "theme_color": "#F5A623",
+  "background_color": "#050f38",
+  "theme_color": "#050f38",
   "orientation": "portrait-primary",
   "icons": [
     { "src": "/static/icons/icon-72x72.png",   "sizes": "72x72",   "type": "image/png" },

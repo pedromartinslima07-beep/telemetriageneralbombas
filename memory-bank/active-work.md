@@ -27,6 +27,25 @@ aliases:
 > teste tinha caído. Um `TcpClient.ConnectAsync` conecta nos dois em ~190ms.
 > Os dois bancos estão de pé.
 
+## Sessão 2026-08-26 — PWA: o atalho do iPhone abria aba do Safari
+
+A landing não tinha manifest nem `apple-mobile-web-app-capable`, e é a página
+aberta na hora do "Adicionar à Tela de Início" que decide o modo app. Entraram
+os dois (com `status-bar-style: black`, porque a landing não tem
+`viewport-fit=cover`). Cores do manifest saíram da paleta antiga (#F5A623 /
+#0A1628) para `#050f38`. E o `/manifest.json` entrou na lista network-first do
+`sw.js` — estava em cache first, então mudança nele nunca chegava a quem já
+tinha instalado. `CACHE_NAME` v59 → v60, `register-sw.js?v=50`.
+⚠️ **Não testado em iPhone** — é handoff.
+
+## Sessão 2026-08-26 — A ficha do orçamento diz quem o montou
+
+`orcamentos.criado_por` já era gravado em toda criação; faltava a tela mostrar.
+A lista do admin traz `criado_por_nome` e a ficha ganhou "Criado por" no trilho,
+acima de "Aprovado por". Traço quando não há nome (4 de 56 em produção, e o que
+a IA cria). Conferido pela rota real; a tela não foi vista logada — a sessão
+caiu no meio. Cache-bust: `admin.js?v=322`.
+
 ## Sessão 2026-08-26 — O estado vazio dos orçamentos (Impeccable)
 
 A caixa de contorno virou a peça do sistema (chapa de duas camadas + corte

@@ -12348,6 +12348,18 @@ function _avRenderPainel() {
             Visível no painel do cliente.
           </div>
           <div class="av-rail-kv"><span>Validade</span><b>${validadeVal ? _orcFmtData(o.valido_ate) : "—"}</b></div>
+          <!-- Quem MONTOU o documento. A coluna sempre foi gravada; até
+               26/08/2026 ela não aparecia em lugar nenhum da tela, e a pergunta
+               "quem fez este orçamento?" só se respondia no banco. Fica acima
+               de "Aprovado por" porque a ordem aqui é a dos fatos: alguém monta,
+               o cliente responde, o escritório dá baixa — três pessoas
+               diferentes que a ficha precisa manter separadas.
+               Vazio nos que nasceram antes de a coluna ser preenchida e nos que
+               a IA criou sozinha; nesses o traço é a resposta honesta. -->
+          <div class="av-rail-kv">
+            <span>Criado por</span>
+            <b>${o.criado_por_nome ? _waEscaparHtml(o.criado_por_nome) : "—"}</b>
+          </div>
           ${o.respondido_em ? `
           <div class="av-rail-kv">
             <span>${o.status === "aprovado" ? "Aprovado por" : "Recusado por"}</span>

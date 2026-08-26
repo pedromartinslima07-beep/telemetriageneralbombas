@@ -263,6 +263,15 @@ emergência: `GET /admin/reset-cache`.
 
 ## Área segura do iOS (`env(safe-area-inset-*)`)
 
+⚠️ **A landing (`index.html`) também é instalável desde 26/08/2026**, mas com
+`status-bar-style: **black**`, não `black-translucent` — ela não tem
+`viewport-fit=cover` nem usa `env(safe-area-inset-*)`, e o translúcido jogaria o
+conteúdo por baixo da barra de status. O manifest e o `apple-mobile-web-app-capable`
+entraram lá porque **quem manda no modo app é a página aberta na hora de
+"Adicionar à Tela de Início"**: sem eles, quem adicionava a partir do site
+ganhava um ícone que abre uma aba comum do Safari. O `start_url` continua
+`/login`, então o atalho abre no login. O service worker segue fora da landing.
+
 As quatro HTMLs instaláveis (`admin.html`, `cliente.html`, `login.html`,
 `app/public/index.html`) declaram `apple-mobile-web-app-status-bar-style:
 black-translucent`. Isso faz o PWA instalado no iPhone estender a página **por

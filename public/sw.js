@@ -7,7 +7,7 @@
 // ⚠️ v44 = merge de duas gerações que existiram em paralelo: v42 (equipamentos
 // com QR) e v43 (landing pública + painel do cliente). Ficar com qualquer uma
 // das duas deixaria metade dos navegadores achando que já tem a versão nova.
-const CACHE_NAME = "telemetria-v59";
+const CACHE_NAME = "telemetria-v60";
 
 // Permite que a página force a ativação imediata desta versão (sem esperar
 // todos os clients fecharem). Pareado com o postMessage no register-sw.js.
@@ -59,6 +59,12 @@ self.addEventListener("fetch", (e) => {
   // HTML e API: sempre network first, sem cache
   const isHtml = e.request.headers.get("accept")?.includes("text/html");
   if (isHtml ||
+      // ⚠️ O MANIFEST TAMBÉM (26/08/2026). Ele não é HTML e não bate com
+      // nenhum prefixo abaixo, então caía no cache first: a primeira versão
+      // que o navegador buscasse ficava valendo para sempre. Mudar nome, cor
+      // de splash ou ícone do app não chegava a quem já tinha instalado —
+      // exatamente o sintoma que a lista existe para evitar.
+      url.pathname === "/manifest.json" ||
       url.pathname.startsWith("/auth") ||
       url.pathname.startsWith("/cliente") ||
       url.pathname.startsWith("/admin") ||
