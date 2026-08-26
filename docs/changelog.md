@@ -4431,6 +4431,89 @@ colunas, o índice `idx_orcamentos_resposta_sem_baixa` e o backfill de pé.
 
 Cache-bust: `admin.js?v=318`, `admin.css?v=235`.
 
+### 2026-08-26 · Três acertos na ficha do orçamento
+
+Print do Pedro com três coisas na mesma tela.
+
+**1. Fora o "Vai para fulano@…".** A linha nasceu quando o botão mandava o
+e-mail direto para `condominios.email`. Hoje ele abre o **modal de envio**, que
+é onde os destinatários são escolhidos — e no modo "painel" quem recebe são os
+*usuários* do condomínio, não aquele endereço. O trilho prometia um destino que
+o envio podia não usar. As duas mensagens de campo vazio ficaram: elas explicam
+por que o botão está desabilitado.
+
+**2. O total manual formata enquanto se digita.** O campo era `type="number"` e
+mostrava `1234.5` — ponto decimal, nenhum separador de milhar — no mesmo lugar
+onde um segundo antes estava escrito "R$ 1.234,50". Agora é `type="text"` com
+`inputmode="decimal"` (o teclado do celular continua numérico) e máscara pt-BR:
+dígitos, **uma** vírgula, duas casas, ponto de milhar a cada três. Sair do campo
+fecha o número — "1.200" vira "1.200,00".
+
+- ⚠️ **Toda leitura do campo passa a usar `_avParseMoeda`.** `Number("1.234,56")`
+  é `NaN`, e `NaN` gravado é R$ 0,00 — a mesma perda silenciosa que já levou
+  três orçamentos a zero em produção.
+- ⚠️ **O cursor não pode pular para o fim.** Reescrever `value` recoloca o
+  cursor sozinho; contamos os dígitos à esquerda dele e devolvemos depois do
+  mesmo tanto, ignorando os pontos que a máscara inseriu.
+- Testado recortando as funções do `admin.js` (nunca copiando): máscara dígito a
+  dígito, corte da terceira casa, segunda vírgula, ida e volta de 0,01 a
+  12.345.678,90 e o cursor no meio do número.
+
+**3. O ícone de calendário estava invisível** em "Data do orçamento" e "Válido
+até". Causa: `:root` declara `color-scheme: dark`, e é isso que faz o Chrome
+desenhar o indicador nativo do `input[type="date"]` **claro** — dentro dos
+modais, onde o campo é branco, ele ficava branco no branco. A correção diz a
+verdade sobre o campo (`color-scheme: light`), escopada no próprio input, e vale
+para os três contêineres claros (`.modalBox`, `.av-modal-dialog`,
+`.drawer-panel`) — o mesmo defeito estava em todo `date` de modal. De quebra, o
+calendário que abre vem claro, igual ao campo de onde saiu.
+
+Cache-bust: `admin.js?v=319`, `admin.css?v=236`.
+
+### 2026-08-26 · A lista diz quem aprovou, e ganha a aba Respondidos
+
+Saiu de um teste do Pedro: *"acha um orçamento que eu acabei de aprovar pelo
+painel de cliente, sem trapacear"*. Achei — mas só depois de abrir ficha por
+ficha dos aprovados, porque ele tinha dado baixa antes e a faixa já estava
+apagada. O teste expôs o buraco: **na lista, um aprovado pelo síndico e um
+aprovado no escritório eram idênticos.** A diferença existia só dentro da ficha.
+
+**A linha passa a dizer quem respondeu.** No lugar da data de criação, quando a
+resposta veio do cliente: "Aprovado por Pedro · 26/08/2026" (ou "Recusado
+por…"). Relógio diferente por estado, de propósito — pendência é sobre *há
+quanto tempo espera* ("há 26 min"), resposta tratada é histórico, e histórico se
+lê em data.
+
+**Aba "Respondidos"**, ao lado de Rascunho/Enviado/Aprovado. ⚠️ **É a única aba
+que não é um `status`**: filtra `respondido_em`, que atravessa aprovado E
+recusado — comparar com `o.status` ali devolve lista vazia. É a pergunta que o
+escritório faz de verdade ("o que voltou do síndico?"). Dentro dela a lista
+deixa de ser cadastro e vira fila: quem ainda espera baixa sobe, no grupo e
+dentro dele.
+
+**A faixa passa a agir conforme o formato do trabalho.** Com UMA pendência, o
+"Ver" abre a ficha — é um documento, e a faixa já disse qual. Com VÁRIAS, abrir
+a primeira é decidir a ordem pela pessoa; agora o "Ver" abre a aba Respondidos e
+deixa a escolha com quem trabalha. Fila de um em um serve para duas ou três, não
+para dez.
+
+**E o "Enviado" ganhou legenda.** Marcar Situação = Enviado é o que faz o
+orçamento aparecer no painel do síndico (`_ORC_VISIVEIS_AO_CLIENTE`) — o seletor
+registrava um fato **e** abria uma porta, calado. Agora tem uma linha embaixo
+dele: *"Visível no painel do cliente."* Nada mudou no comportamento; o que mudou
+é a tela avisar. Separar registro (o e-mail saiu) de publicação (o cliente pode
+ver) de vez continua em aberto — o caminho padrão é o botão de e-mail, que já
+faz as duas coisas certo.
+
+⚠️ **Quinta vez que a crase dentro de template literal morde** — agora num
+comentário HTML dentro do markup do modal.
+
+**Verificado no painel local, logado**, com a pendência reaberta pelo botão
+"Reabrir": faixa nomeando o documento, ponto âmbar no condomínio, selo "Sem
+baixa" na linha, aba Respondidos com contagem, e a nota do "Enviado" na ficha.
+
+Cache-bust: `admin.js?v=320`, `admin.css?v=237`.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

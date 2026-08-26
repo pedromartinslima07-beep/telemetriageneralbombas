@@ -7135,6 +7135,21 @@ body.mp-fs-active { overflow: hidden; }
   font-family: var(--mono);
   font-size: 12px;
 }
+/* ⚠️ ÍCONE DE CALENDÁRIO SOME DENTRO DOS MODAIS CLAROS (26/08/2026).
+   O `:root` declara `color-scheme: dark`, e é ele que manda no ícone nativo do
+   `input[type="date"]`: o Chrome desenha o indicador CLARO. Nos modais o campo
+   é branco (`.modalBox .input`, `.av-modal-dialog .input`), então o ícone
+   ficava branco no branco — invisível, e o campo parecia não ter calendário.
+   Relatado nas Condições comerciais do orçamento (Data do orçamento e Válido
+   até), mas vale para todo `date` dentro de superfície clara.
+
+   A correção é dizer a verdade sobre o campo: ali o esquema é CLARO. Escopado
+   no próprio input para não mexer em mais nada do modal — de quebra, o
+   calendário que abre vem claro, igual ao campo de onde saiu. */
+.modalBox input[type="date"],
+.av-modal-dialog input[type="date"],
+.drawer-panel input[type="date"] { color-scheme: light; }
+
 .rel-date::-webkit-calendar-picker-indicator {
   background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237a7e9c' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='18' rx='2' ry='2'/%3E%3Cline x1='16' y1='2' x2='16' y2='6'/%3E%3Cline x1='8' y1='2' x2='8' y2='6'/%3E%3Cline x1='3' y1='10' x2='21' y2='10'/%3E%3C/svg%3E") center / 14px no-repeat;
   opacity: .85;
@@ -8579,6 +8594,10 @@ body.role-viewer .viewer-only-hide-inline {
 .av-orc-item-main { flex: 1; min-width: 0; }
 .av-orc-item-top  { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .av-orc-item-sub  { font-size: 10.5px; color: var(--muted); margin-top: 3px; }
+/* Quem respondeu pesa mais que uma data de criação: é a linha que separa o
+   "aprovado pelo síndico" do "aprovado no escritório" sem abrir a ficha. */
+.av-orc-item-sub.is-resposta { color: var(--text-dim); }
+.av-orc-item.is-pendente .av-orc-item-sub.is-resposta { color: var(--amarelo); }
 .av-orc-item-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
 .av-orc-item-val  { font-size: 12.5px; font-weight: 700; color: var(--text); }
 
@@ -8893,6 +8912,17 @@ body.role-viewer .viewer-only-hide-inline {
   box-shadow: inset 0 0 0 1px var(--fio-esc);
 }
 .av-baixa.is-ok .av-baixa-txt { color: var(--tinta-2); }
+
+/* O que "Enviado" implica, embaixo do seletor de Situação. Nota, não alerta:
+   o campo claro pede tinta fraca, e isto é informação de rodapé — quem já sabe
+   não deve tropeçar nela toda vez. */
+.av-situacao-nota {
+  font-size: 10.5px; line-height: 1.4;
+  color: var(--tinta-2);
+  margin: -2px 0 8px;
+  padding-left: 1px;
+}
+.av-situacao-nota[hidden] { display: none; }
 
 /* O tipo do documento, agora no trilho */
 .av-rail-tipo .select { width: auto; max-width: 190px; padding: 4px 8px; font-size: 11.5px; }
@@ -9285,7 +9315,9 @@ body.role-viewer .viewer-only-hide-inline {
   font-size: 29px; font-weight: 800; letter-spacing: -1px; line-height: 1.1;
   color: var(--accent);
   background: none; border: 0; padding: 0; outline: none;
-  /* Spinner de type=number come largura e não serve pra valor em reais. */
+  /* O campo virou type=text com mascara pt-BR em 26/08/2026 (ver
+     _avMascaraMoeda no admin.js); as regras de spinner ficam como rede para
+     quem voltar o type=number sem lembrar por que ele saiu. */
   appearance: textfield; -moz-appearance: textfield;
 }
 .av-total-input::-webkit-outer-spin-button,

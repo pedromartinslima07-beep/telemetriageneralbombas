@@ -130,6 +130,14 @@ copiada. Preview com markup duplicado começa fiel e mente na primeira edição.
 `script-src 'self'`: script inline é bloqueado sem aviso no console e a página
 abre vazia, como se nada tivesse acontecido.
 
+⚠️ **O trilho da ficha não anuncia mais o destinatário** (26/08/2026). Ele
+dizia "Vai para fulano@…" com o `condominios.email`, de quando o botão enviava
+direto. Com o modal de envio no meio, o destino real depende do modo escolhido
+— no `painel`, quem recebe são os **usuários** do condomínio, não aquele
+endereço. Prometer um destino que o envio pode não usar é pior que não dizer
+nada. As mensagens de "sem e-mail cadastrado" continuam: elas explicam o botão
+desabilitado.
+
 ## A volta: o que acontece quando o cliente responde
 
 Até 25/08/2026 a resposta ia para o banco e para o log, e para mais ninguém —
@@ -145,6 +153,12 @@ serviço"*. Hoje ela dispara três coisas:
    faixa no topo da aba, o selo na linha do orçamento e o ponto no card do
    condomínio. Some com a **baixa explícita**
    (`POST /admin/orcamentos/avulsos/:id/resposta-baixa`), não com o clique.
+
+   A aba **Respondidos** (filtro por `respondido_em`, não por `status` — pega
+   aprovado e recusado) é onde o lote se resolve: com mais de uma pendência, o
+   "Ver" da faixa leva para lá em vez de abrir a primeira ficha. E a linha do
+   orçamento diz quem respondeu — "Aprovado por Pedro · 26/08" —, que é o que
+   separa o aprovado pelo síndico do aprovado no escritório sem abrir nada.
 
    ⚠️ **Até 26/08/2026 abrir a ficha apagava tudo**, e a faixa era o único
    lugar onde a pendência existia: *"alguém clica lá para ver uma vez e fecha,

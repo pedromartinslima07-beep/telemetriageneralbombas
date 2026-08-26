@@ -27,6 +27,37 @@ aliases:
 > teste tinha caído. Um `TcpClient.ConnectAsync` conecta nos dois em ~190ms.
 > Os dois bancos estão de pé.
 
+## Sessão 2026-08-26 — A lista diz quem aprovou (aba Respondidos)
+
+Veio de um teste do Pedro — achar, só pelo painel, um orçamento que ele tinha
+acabado de aprovar no painel do cliente. Deu para achar, mas abrindo ficha por
+ficha: na lista, aprovado-pelo-síndico e aprovado-no-escritório eram iguais.
+
+- Linha do orçamento mostra "Aprovado por Pedro · 26/08" quando a resposta veio
+  do cliente (relativo enquanto é pendência, data depois da baixa).
+- Aba **Respondidos** — a única que não filtra `status`, e sim `respondido_em`
+  (pega aprovado e recusado). Dentro dela, pendências sobem.
+- Faixa: uma pendência → "Ver" abre a ficha; várias → abre a aba Respondidos.
+- Nota "Visível no painel do cliente" embaixo do seletor de Situação. O
+  incômodo do Pedro com "marcar como enviado também envia" fica **em aberto**:
+  o caminho padrão é o botão de e-mail, que já resolve; só o efeito colateral
+  mudo do seletor foi corrigido.
+- ⚠️ Verificado no painel local logado (ele fez o login), com a baixa do
+  OR-000058 reaberta para o teste — **está reaberta**, é só dar baixa de novo.
+- Cache-bust: `admin.js?v=320`, `admin.css?v=237`.
+
+## Sessão 2026-08-26 — Três acertos na ficha do orçamento
+
+Print do Pedro: o "Vai para fulano@…" do trilho (removido — quem escolhe
+destinatário é o modal de envio, e no modo "painel" nem é aquele endereço), o
+total manual que mostrava `1234.5` no lugar de `1.234,50` (virou `type="text"`
+com máscara pt-BR e `_avParseMoeda` em toda leitura) e o ícone de calendário
+invisível nas Condições comerciais (`color-scheme: dark` do `:root` pintando o
+indicador claro em campo branco — corrigido com `color-scheme: light` nos
+`date` de modal claro).
+
+Cache-bust: `admin.js?v=319`, `admin.css?v=236`.
+
 ## Sessão 2026-08-26 — A resposta do cliente vira pendência com baixa
 
 *"O alerta de orçamento aprovado está fraco... alguém clica lá para ver uma vez

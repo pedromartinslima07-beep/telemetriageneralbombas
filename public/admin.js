@@ -11835,10 +11835,17 @@ function _avTipoBadge(tipo) {
   return ` <span class="orc-tipo-pill">${label}</span>`;
 }
 
+// Uma resposta do cliente é pendência enquanto ninguém der baixa (078).
+function _avPendente(o) { return Boolean(o?.respondido_em && !o?.resposta_tratada_em); }
+
 function _avFiltrados() {
   const q = (document.getElementById("avBusca")?.value || "").trim().toLowerCase();
   return _avData.filter(o => {
-    if (_avTabAtiva !== "todos" && o.status !== _avTabAtiva) return false;
+    // ⚠️ "respondidos" não é valor de `status` — ver o comentário da aba no
+    // admin.html. Comparar com `o.status` aqui devolveria lista vazia.
+    if (_avTabAtiva === "respondidos") {
+      if (!o.respondido_em) return false;
+    } else if (_avTabAtiva !== "todos" && o.status !== _avTabAtiva) return false;
     if (q) {
       const blob = `${o.condominio_nome || ""} ${o.numero || ""}`.toLowerCase();
       if (!blob.includes(q)) return false;
@@ -11920,6 +11927,7 @@ function _avRenderTudo() {
   set("avCtRascunho", rascunho);
   set("avCtEnviado",  enviado);
   set("avCtAprovado", aprov);
+  set("avCtRespondidos", _avData.filter(o => o.respondido_em).length);
 
   const lista = _avFiltrados();
   const listEl = document.getElementById("avCondoList");
@@ -11934,8 +11942,29 @@ function _avRenderTudo() {
     if (!grupos.has(key)) grupos.set(key, { key, nome: o.condominio_nome || "Sem condomínio", itens: [] });
     grupos.get(key).itens.push(o);
   }
-  const gruposOrd = [...grupos.values()].sort((a, b) => a.nome.localeCompare(b.nome));
-  for (const g of gruposOrd) g.itens.sort((a, b) => new Date(b.criado_em) - new Date(a.criado_em));
+  // Ordem alfabética, como sempre — MENOS na aba de respondidos, onde a lista
+  // deixa de ser cadastro e vira fila de trabalho: ali quem ainda espera baixa
+  // sobe, no grupo e dentro dele. É o que faz a aba servir para o caso de
+  // várias respostas ao mesmo tempo, quando a faixa do topo só sabe contar.
+  const filaPend = _avTabAtiva === "respondidos";
+  const gruposOrd = [...grupos.values()].sort((a, b) => {
+    if (filaPend) {
+      const pa = a.itens.some(_avPendente) ? 0 : 1;
+      const pb = b.itens.some(_avPendente) ? 0 : 1;
+      if (pa !== pb) return pa - pb;
+    }
+    return a.nome.localeCompare(b.nome);
+  });
+  for (const g of gruposOrd) {
+    g.itens.sort((a, b) => {
+      if (filaPend) {
+        const pa = _avPendente(a) ? 0 : 1;
+        const pb = _avPendente(b) ? 0 : 1;
+        if (pa !== pb) return pa - pb;
+      }
+      return new Date(b.criado_em) - new Date(a.criado_em);
+    });
+  }
 
   if (!gruposOrd.length) {
     listEl.innerHTML = "";
@@ -12001,7 +12030,21 @@ function _avRenderCondoDetail(g) {
     // chamado; este selo é o endereço. Ele não some ao abrir a ficha — só com
     // a baixa —, então recarregar a tela ou fechar a faixa não perde a
     // informação de QUAL orçamento espera o escritório.
-    const pend = Boolean(o.respondido_em && !o.resposta_tratada_em);
+    const pend = _avPendente(o);
+    // ⚠️ QUEM APROVOU, NA LISTA (26/08/2026). O selo de status dizia "Aprovado"
+    // igual para os dois casos que mais importam distinguir: o síndico
+    // respondendo no painel dele e alguém do escritório mudando a Situação na
+    // mão. A diferença existia só dentro da ficha — achar "o que o cliente
+    // aprovou" era abrir uma por uma. Agora a linha de baixo carrega isso.
+    //
+    // Relógio diferente para cada estado, de propósito: pendência é sobre HÁ
+    // QUANTO TEMPO espera; resposta já tratada é histórico, e histórico se lê
+    // em data.
+    const quemRespondeu = o.respondido_em
+      ? `${o.status === "rejeitado" ? "Recusado" : "Aprovado"} por ` +
+        `${_waEscaparHtml(o.respondido_nome || "cliente")} · ` +
+        `${pend ? _tempoRelativo(o.respondido_em) : _orcFmtData(o.respondido_em)}`
+      : _orcFmtData(o.criado_em);
     return `
       <div class="av-orc-item${selc}${pend ? " is-pendente" : ""}" data-av-id="${o.id}">
         <div class="av-orc-item-main">
@@ -12010,9 +12053,7 @@ function _avRenderCondoDetail(g) {
             ${tipoLbl ? `<span class="orc-tipo-pill">${_waEscaparHtml(tipoLbl)}</span>` : ""}
             ${pend ? `<span class="av-selo-pend${o.resposta_vista_em ? " is-vista" : ""}">${o.resposta_vista_em ? "Sem baixa" : "Resposta nova"}</span>` : ""}
           </div>
-          <div class="av-orc-item-sub">${pend
-            ? `Cliente respondeu ${_tempoRelativo(o.respondido_em)}${o.respondido_nome ? ` · ${_waEscaparHtml(o.respondido_nome)}` : ""}`
-            : _orcFmtData(o.criado_em)}</div>
+          <div class="av-orc-item-sub${o.respondido_em ? " is-resposta" : ""}">${quemRespondeu}</div>
         </div>
         <div class="av-orc-item-right">
           <span class="av-orc-item-val">${_orcFmtValor(o.valor_total)}</span>
@@ -12263,9 +12304,9 @@ function _avRenderPainel() {
           <div class="av-total" id="avRailTotal" style="${o.valor != null ? "display:none;" : ""}">—</div>
           <div class="av-total-edit" id="avValorManualWrap" style="${o.valor != null ? "" : "display:none;"}">
             <span class="av-total-cifrao" aria-hidden="true">R$</span>
-            <input id="avInputValorManual" class="av-total-input" type="number" min="0" step="0.01"
+            <input id="avInputValorManual" class="av-total-input" type="text"
               inputmode="decimal" placeholder="0,00" aria-label="Valor total do orçamento"
-              value="${o.valor != null ? o.valor : ''}">
+              autocomplete="off" value="${_avFmtMoedaInput(o.valor)}">
           </div>
           <div class="av-total-sub" id="avRailTotalSub"></div>
         </div>
@@ -12282,6 +12323,15 @@ function _avRenderPainel() {
               <option value="aprovado" ${o.status==="aprovado"?"selected":""}>Aprovado</option>
               <option value="rejeitado"${o.status==="rejeitado"?"selected":""}>Rejeitado</option>
             </select></b>
+          </div>
+          <!-- ⚠️ O EFEITO COLATERAL DITO EM VOZ ALTA (26/08/2026). Marcar
+               "Enviado" aqui é o que faz o orçamento aparecer no painel do
+               síndico (_ORC_VISIVEIS_AO_CLIENTE, no cliente.routes.js) — o
+               seletor registra um fato E abre uma porta, e a porta era muda.
+               Nada mudou no comportamento; o que mudou é a tela avisar.
+               Separar registro de publicação de vez continua em aberto. -->
+          <div class="av-situacao-nota" id="avSituacaoNota"${o.status === "rascunho" ? " hidden" : ""}>
+            Visível no painel do cliente.
           </div>
           <div class="av-rail-kv"><span>Validade</span><b>${validadeVal ? _orcFmtData(o.valido_ate) : "—"}</b></div>
           ${o.respondido_em ? `
@@ -12442,7 +12492,25 @@ function _avRenderPainel() {
     chk.dispatchEvent(new Event("change"));
   });
 
-  document.getElementById("avInputValorManual")?.addEventListener("input", _avAtualizarTotalRail);
+  const selStatus = document.getElementById("avInputStatus");
+  selStatus?.addEventListener("change", () => {
+    const nota = document.getElementById("avSituacaoNota");
+    if (nota) nota.hidden = selStatus.value === "rascunho";
+  });
+
+  const inpValor = document.getElementById("avInputValorManual");
+  inpValor?.addEventListener("input", () => {
+    _avAplicarMascaraMoeda(inpValor);
+    _avAtualizarTotalRail();
+  });
+  // Sair do campo fecha o número: "1.200" vira "1.200,00", "1.200," também.
+  // Fica no `blur` e não no `input` porque completar centavos no meio da
+  // digitação atropelaria quem ainda ia digitar os centavos.
+  inpValor?.addEventListener("blur", () => {
+    const n = _avParseMoeda(inpValor.value);
+    inpValor.value = _avFmtMoedaInput(n);
+    _avAtualizarTotalRail();
+  });
 
   _avAtualizarTotalRail();
   _avAtualizarDestinatario();
@@ -12469,12 +12537,13 @@ function _avAtualizarDestinatario() {
   }
 
   if (email) {
-    const lista = email.split(",").map(s => s.trim()).filter(Boolean);
-    // Sem "com o PDF anexo": desde 25/08/2026 quem tem acesso ao painel recebe
-    // o link em vez do anexo, e quem decide isso é o servidor (depende de o
-    // condomínio ter usuário com login). A confirmação do que foi enviado vem
-    // na resposta do envio.
-    alvo.innerHTML = `Vai para <b>${_waEscaparHtml(lista.join(", "))}</b>.`;
+    // ⚠️ SEM "VAI PARA <e-mail>" (26/08/2026, pedido do Pedro). A linha nasceu
+    // quando este botão mandava direto para `condominios.email`. Hoje ele abre
+    // o modal de envio, que é onde os destinatários são escolhidos de fato — e
+    // no modo "painel" quem recebe são os USUÁRIOS do condomínio, não este
+    // endereço. Prometer um destino que o envio pode não usar é pior que não
+    // dizer nada; o modal diz, e diz certo.
+    alvo.textContent = "";
   } else {
     alvo.textContent = avulso
       ? "Preencha o e-mail do cliente para habilitar o envio."
@@ -12515,6 +12584,66 @@ function _avRefletirTipo(tipo, rotulo) {
   }
 }
 
+/* ── O total manual em português, enquanto se digita ──────────────────────
+   ⚠️ O CAMPO DEIXOU DE SER `type="number"` (26/08/2026). Ele mostrava
+   "1234.5" — ponto de decimal e nenhum separador de milhar — no mesmo lugar
+   onde, um segundo antes, estava escrito "R$ 1.234,50". Quem digita valor de
+   orçamento lê em reais, e trocar a notação no meio da digitação é o tipo de
+   detalhe que faz conferir três vezes.
+
+   `type="text"` + `inputmode="decimal"`: o teclado do celular continua
+   numérico, e a máscara passa a ser nossa. Ela aceita só dígito e UMA vírgula,
+   corta em duas casas, e põe o ponto de milhar a cada três dígitos. */
+function _avMascaraMoeda(txt) {
+  let s = String(txt ?? "").replace(/[^\d,]/g, "");
+  const iv = s.indexOf(",");
+  // Segunda vírgula é ruído de quem digitou rápido; os centavos param em 2.
+  if (iv >= 0) s = s.slice(0, iv + 1) + s.slice(iv + 1).replace(/,/g, "").slice(0, 2);
+  let [inteiro, dec] = s.split(",");
+  inteiro = inteiro.replace(/^0+(?=\d)/, "");
+  inteiro = inteiro.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  return dec === undefined ? inteiro : `${inteiro},${dec}`;
+}
+
+// "1.234,50" → 1234.5 · vazio → null (que é o que faz o total voltar a somar
+// os itens). Toda leitura do campo passa por aqui: o `Number()` cru enxergaria
+// "1.234,50" como NaN e gravaria R$ 0,00 — o mesmo tipo de perda silenciosa
+// que já levou três orçamentos a zero em produção.
+function _avParseMoeda(txt) {
+  const s = String(txt ?? "").trim();
+  if (!s) return null;
+  const n = Number(s.replace(/\./g, "").replace(",", "."));
+  return Number.isFinite(n) ? n : null;
+}
+
+function _avFmtMoedaInput(v) {
+  if (v == null || v === "") return "";
+  const n = Number(v);
+  return Number.isFinite(n)
+    ? n.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    : "";
+}
+
+// ⚠️ O CURSOR NÃO PODE PULAR PRO FIM. Reescrever `value` recoloca o cursor no
+// fim sozinho, e aí corrigir um dígito no meio de "12.345,00" vira apagar tudo
+// e digitar de novo. Contamos quantos DÍGITOS existiam antes do cursor e
+// devolvemos ele depois do mesmo tanto — os pontos que a máscara inseriu ou
+// tirou no caminho não entram na conta.
+function _avAplicarMascaraMoeda(inp) {
+  const antes = inp.value;
+  const caret = inp.selectionStart ?? antes.length;
+  const digitosAntes = antes.slice(0, caret).replace(/[^\d]/g, "").length;
+  const depois = _avMascaraMoeda(antes);
+  if (depois === antes) return;
+  inp.value = depois;
+  let pos = 0, contados = 0;
+  while (pos < depois.length && contados < digitosAntes) {
+    if (/\d/.test(depois[pos])) contados++;
+    pos++;
+  }
+  try { inp.setSelectionRange(pos, pos); } catch (_) {}
+}
+
 // Total no trilho. O número que decide o orçamento não pode depender de o
 // operador rolar até o rodapé da tabela de itens — antes desta reestruturação
 // era o único lugar onde ele aparecia.
@@ -12527,7 +12656,7 @@ function _avAtualizarTotalRail() {
   const edit      = document.getElementById("avValorManualWrap");
   const manualVal = document.getElementById("avInputValorManual")?.value;
   const editando  = !!manualChk?.checked;
-  const usaManual = editando && String(manualVal ?? "").trim() !== "";
+  const usaManual = editando && _avParseMoeda(manualVal) != null;
 
   const soma = _avLinhasId === _avSelecionado?.id
     ? _avLinhas.reduce((s, l) => s + Number(l.valor_unitario || 0) * Number(l.quantidade), 0)
@@ -12539,7 +12668,7 @@ function _avAtualizarTotalRail() {
   el.style.display = editando ? "none" : "";
   if (edit) edit.style.display = editando ? "" : "none";
 
-  el.textContent = _orcFmtValor(usaManual ? Number(manualVal) : soma);
+  el.textContent = _orcFmtValor(usaManual ? _avParseMoeda(manualVal) : soma);
   el.classList.toggle("is-manual", usaManual);
 
   if (!sub) return;
@@ -13411,7 +13540,7 @@ async function _avAcao(acao) {
     data_documento:  document.getElementById("avInputDataDoc")?.value || null,
     status:          document.getElementById("avInputStatus")?.value || "rascunho",
     ...(sabeValorAtual
-      ? { valor: valorManualRaw === "" || valorManualRaw == null ? null : Number(valorManualRaw) }
+      ? { valor: _avParseMoeda(valorManualRaw) }
       : {}),
     // Cliente: condomínio cadastrado OU cliente avulso (pessoa física) — nunca os dois.
     ...(isAvulso
@@ -13540,6 +13669,21 @@ function _avBindEventos() {
     // ⚠️ Seleciona o condomínio do alvo ANTES de procurar a linha: com outro
     // condomínio aberto no painel direito, a linha nem existe no DOM — o "Ver"
     // caía no fallback e abria a ficha sem nunca mostrar onde ela mora.
+    // ⚠️ A AÇÃO SEGUE O FORMATO DO TRABALHO (26/08/2026). Com UMA pendência,
+    // levar direto à ficha é o certo — é um documento, e a faixa já disse qual.
+    // Com VÁRIAS, empurrar a pessoa para a primeira é decidir a ordem por ela;
+    // fila de um em um serve para duas ou três, não para dez. Aí o "Ver" abre a
+    // aba Respondidos, que já sobe quem espera baixa, e a escolha volta a ser
+    // de quem trabalha.
+    const pendentesAgora = _avData.filter(_avPendente);
+    if (pendentesAgora.length > 1) {
+      _avTabAtiva = "respondidos";
+      document.querySelectorAll("[data-av-tab]").forEach(b =>
+        b.classList.toggle("is-active", b.dataset.avTab === "respondidos"));
+      _avRenderTudo();
+      document.getElementById("avCondoList")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      return;
+    }
     const chave = alvo.condominio_id != null
       ? `id:${alvo.condominio_id}`
       : `nome:${alvo.condominio_nome || ""}`;
