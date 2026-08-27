@@ -22,3 +22,8 @@ uploads/
 
 # Backups locais de .env
 *.bak
+
+# Rascunho de sessão: harness de tela, saídas do detector da skill, arquivos
+# .part. É trabalho descartável, nunca produto — e sem esta linha um
+# `git add -A` levava a pasta inteira para o commit.
+.tmpbuild/
