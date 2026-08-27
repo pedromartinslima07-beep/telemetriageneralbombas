@@ -1,0 +1,1204 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Painel do operador v2 — a fila do turno</title>
+<link rel="stylesheet" href="../../public/leaflet.css">
+<style>
+@font-face{font-family:"Archivo";src:url("../../public/fonts/archivo.woff2") format("woff2");font-weight:400 900;font-stretch:62% 125%;font-display:swap}
+@font-face{font-family:"Martian Mono";src:url("../../public/fonts/martianmono.woff2") format("woff2");font-weight:400 700;font-display:swap}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Tokens — sistema "Chapa", REGISTRO DE OPERAÇÃO.
+   Cópia de public/admin.css. Mudou a paleta? Mude nos quatro arquivos.
+   ═══════════════════════════════════════════════════════════════════ */
+:root{
+  color-scheme:dark;
+  --mar-900:#030a26; --mar-800:#050f38; --mar-700:#071b5c;
+  --mar-600:#0d2775; --mar-500:#1a3a9e;
+  --bg:var(--mar-900); --bg-soft:var(--mar-800);
+  --surface:#06154b; --surface2:#0a1d5b; --surface3:#0e2163;
+  --fio:rgba(255,255,255,.14); --fio-fraco:rgba(255,255,255,.07);
+  --fio-forte:rgba(255,255,255,.34);
+  --rasgo:rgba(2,6,22,.55); --luz:rgba(255,255,255,.10);
+  --text:#f2f5ff; --text-dim:#a6b5dc; --muted:#8294c2; --muted2:#5b6c9e;
+  --accent:#fbb329; --accent-2:#ffcb60; --accent-3:#d99411;
+  --agua:#2f6fe0; --crista:#8fb6ff;
+  --ok:#63d8a0; --warn:#fbb329; --risco:#ff5a4d;
+  --vermelho:#ff5a4d; --verde:#63d8a0; --amarelo:#fbb329;
+  --sobre-2:#a6b5dc;
+  /* O chanfro de 45° em dois cantos opostos, na forma da landing/cliente. */
+  --ch:8px;
+  --corte:polygon(var(--ch) 0,100% 0,100% calc(100% - var(--ch)),calc(100% - var(--ch)) 100%,0 100%,0 var(--ch));
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  background:var(--bg); color:var(--text);
+  font-family:"Archivo",ui-sans-serif,system-ui,sans-serif;
+  font-size:13px; line-height:1.5; -webkit-font-smoothing:antialiased;
+}
+::selection{background:var(--accent);color:var(--mar-900)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+*::-webkit-scrollbar{width:10px;height:10px}
+*::-webkit-scrollbar-track{background:var(--mar-900)}
+*::-webkit-scrollbar-thumb{background:var(--mar-600)}
+*::-webkit-scrollbar-thumb:hover{background:var(--accent-3)}
+
+/* ── ANDAIME (não faz parte do desenho) ──────────────────────────── */
+.andaime{
+  position:sticky;top:0;z-index:80;display:flex;flex-wrap:wrap;gap:20px;
+  align-items:center;padding:11px 20px;background:#000;
+  border-bottom:1px solid var(--fio);
+}
+.andaime-grupo{display:flex;align-items:center;gap:8px}
+.andaime-rot{
+  font-family:"Martian Mono",ui-monospace,monospace;font-size:.6rem;
+  letter-spacing:.12em;text-transform:uppercase;color:var(--muted2);
+}
+.andaime button{
+  font:inherit;font-size:11px;font-weight:700;padding:5px 11px;cursor:pointer;
+  background:transparent;color:var(--text-dim);border:1px solid var(--fio);
+}
+.andaime button:hover{color:var(--text);border-color:var(--fio-forte)}
+.andaime button[aria-pressed="true"]{background:var(--accent);color:var(--mar-900);border-color:var(--accent)}
+.andaime-nota{
+  margin-left:auto;font-family:"Martian Mono",ui-monospace,monospace;
+  font-size:.58rem;letter-spacing:.08em;color:var(--muted2);
+}
+.palco{padding:26px 20px 70px}
+.palco[data-larg="celular"]{max-width:414px;margin:0 auto;padding:18px 0 60px}
+.palco[data-larg="celular"] .tela{border:1px solid var(--fio);overflow:hidden}
+
+/* ═══════════════════════════════════════════════════════════════════
+   A TELA — container query, não media query (o palco emula o celular
+   sem mexer no viewport; as mesmas regras valem num telefone real).
+   ═══════════════════════════════════════════════════════════════════ */
+.tela{background:var(--bg-soft);container-type:inline-size;container-name:tela}
+
+.barra{
+  display:flex;align-items:center;gap:18px;padding:0 20px;height:60px;
+  background:var(--mar-900);border-bottom:1px solid var(--fio);
+  position:sticky;top:0;z-index:20;
+}
+.marca{display:flex;align-items:baseline;gap:9px;flex-shrink:0}
+.marca b{font-size:15px;font-weight:900;font-stretch:112%;letter-spacing:-.02em}
+.marca span{
+  font-family:"Martian Mono",ui-monospace,monospace;font-size:.58rem;
+  letter-spacing:.14em;color:var(--muted2);text-transform:uppercase;
+}
+.placar{display:flex;align-items:center;gap:16px;margin-left:6px}
+.placar-i{display:flex;align-items:baseline;gap:6px}
+.placar-n{
+  font-family:"Martian Mono",ui-monospace,monospace;font-size:1.05rem;
+  font-weight:700;font-feature-settings:"tnum";letter-spacing:-.02em;line-height:1;
+}
+.placar-i em{font-style:normal;font-size:11px;color:var(--text-dim)}
+.placar-i em .ct{display:none}
+.placar-i[data-t="estourado"] .placar-n{color:var(--risco)}
+.placar-i[data-t="fila"] .placar-n{color:var(--accent)}
+.placar-i[data-t="rota"] .placar-n{color:var(--ok)}
+.barra-acoes{margin-left:auto;display:flex;align-items:center;gap:12px}
+.relogio{
+  display:flex;align-items:center;gap:10px;
+  font-family:"Martian Mono",ui-monospace,monospace;font-size:.72rem;
+  font-weight:700;letter-spacing:.05em;color:var(--text-dim);
+  font-feature-settings:"tnum";
+}
+.pulso{width:7px;height:7px;background:var(--ok);flex-shrink:0;animation:pulso 3.4s ease-out infinite}
+@keyframes pulso{0%,88%{opacity:1;transform:scale(1)}94%{opacity:.28;transform:scale(.72)}100%{opacity:1;transform:scale(1)}}
+.conta{
+  width:30px;height:30px;flex-shrink:0;background:var(--mar-700);
+  border:1px solid var(--fio);display:grid;place-items:center;
+  font-size:11px;font-weight:800;letter-spacing:-.01em;
+}
+.btn{
+  font:inherit;font-size:11.5px;font-weight:800;letter-spacing:-.01em;
+  padding:7px 13px;cursor:pointer;border:0;
+  background:var(--accent);color:var(--mar-900);
+  clip-path:polygon(6px 0,100% 0,100% calc(100% - 6px),calc(100% - 6px) 100%,0 100%,0 6px);
+  transition:background .14s ease-out;
+}
+.btn:hover{background:var(--accent-2)}
+.btn-fio{background:transparent;color:var(--text-dim);box-shadow:inset 0 0 0 1px var(--fio)}
+.btn-fio:hover{background:transparent;color:var(--text);box-shadow:inset 0 0 0 1px var(--fio-forte)}
+
+/* ═══════════════════════════════════════════════════════════════════
+   A FILA — a estrutura da tela.
+
+   ⚠️ A v1 era uma PAREDE DE INSTRUMENTOS, com o prédio como unidade. Caiu
+   por um fato do produto: `semtel` (prédio sem reservatório nenhum) é o
+   PRIMEIRO ramo do veredito no painel do cliente — caso corrente, não
+   exceção —, e três das cinco origens de chamado (IA/WhatsApp, cliente,
+   plano de manutenção) não passam por telemetria. Uma parede de
+   instrumentos não tem o que desenhar para um prédio sem instrumento, e
+   representava só a fatia do trabalho que tem sensor.
+
+   Aqui a fila é a estrutura e o INSTRUMENTO É EVIDÊNCIA: aparece dentro do
+   item quando o prédio tem sensor, do mesmo jeito que a fala do síndico
+   aparece quando a origem é o WhatsApp. Item sem tanque é um item completo.
+   ═══════════════════════════════════════════════════════════════════ */
+.fila{
+  padding:14px 20px;display:flex;flex-direction:column;gap:9px;
+  max-width:1180px;margin:0 auto;width:100%;
+}
+.fila-cab{
+  display:flex;align-items:baseline;gap:10px;padding:18px 20px 0;
+  max-width:1180px;margin:0 auto;width:100%;
+}
+.fila-cab h2{margin:0;font-size:12px;font-weight:800;color:var(--text-dim)}
+.fila-cab span{
+  font-family:"Martian Mono",ui-monospace,monospace;font-size:.58rem;
+  letter-spacing:.1em;color:var(--muted2);text-transform:uppercase;
+}
+
+.item{
+  display:grid;grid-template-columns:98px 1fr;
+  background:var(--surface2);border:1px solid var(--fio-fraco);
+  clip-path:polygon(16px 0,100% 0,100% calc(100% - 16px),calc(100% - 16px) 100%,0 100%,0 16px);
+  transition:border-color .16s ease-out,background .16s ease-out;
+}
+.item:hover{background:var(--surface3);border-color:var(--fio)}
+.item[data-andando="1"]{background:var(--surface);border-color:var(--fio-fraco)}
+
+/* ── O RELÓGIO: a régua do turno ────────────────────────────────────
+   A ordenação da fila NÃO é a prioridade estática (P1 antes de P2). É o
+   SLA restante: quem está de turno trabalha pelo que estoura primeiro, e
+   um P3 com 20 min de TTR vem antes de um P2 recém-aberto. Os três
+   relógios já existem no schema (`sla_definicoes`: ttfr_min, ttr_min,
+   sla_chegada_min por prioridade) e o SLA estourado já é elevado a
+   alerta crítico pelo sistema. */
+.relogio-sla{
+  border-right:1px solid var(--fio-fraco);
+  padding:13px 12px;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;text-align:center;gap:3px;
+}
+.sla-n{
+  font-family:"Martian Mono",ui-monospace,monospace;font-weight:700;
+  font-size:1.42rem;line-height:1;letter-spacing:-.03em;
+  font-feature-settings:"tnum";color:var(--text);
+}
+.sla-rot{
+  font-family:"Martian Mono",ui-monospace,monospace;font-size:.53rem;
+  letter-spacing:.1em;text-transform:uppercase;color:var(--muted2);
+  line-height:1.3;
+}
+.item[data-sla="estourado"] .relogio-sla{background:var(--vermelho)}
+.item[data-sla="estourado"] .sla-n{color:var(--mar-900)}
+.item[data-sla="estourado"] .sla-rot{color:var(--mar-900);opacity:.75}
+.item[data-sla="apertado"] .sla-n{color:var(--risco)}
+.item[data-sla="atencao"] .sla-n{color:var(--accent)}
+.item[data-sla="folgado"] .sla-n{color:var(--text-dim)}
+
+.item-corpo{padding:11px 16px 11px 15px;min-width:0;display:flex;flex-direction:column;gap:7px}
+.item-topo{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
+.num{
+  font-family:"Martian Mono",ui-monospace,monospace;font-size:.68rem;
+  font-weight:700;color:var(--muted);font-feature-settings:"tnum";
+  letter-spacing:.03em;flex-shrink:0;
+}
+.titulo{
+  font-size:14.5px;font-weight:800;font-stretch:108%;letter-spacing:-.022em;
+  line-height:1.2;min-width:0;
+}
+/* Selo: preenchido quando pede ação, de fio em repouso. Só UMA dimensão
+   preenche por linha — aqui, a prioridade. Status fica de fio. */
+.selo{
+  font-family:"Martian Mono",ui-monospace,monospace;font-size:.55rem;
+  font-weight:700;letter-spacing:.1em;padding:3px 7px;flex-shrink:0;
+  text-transform:uppercase;
+  clip-path:polygon(5px 0,100% 0,100% calc(100% - 5px),calc(100% - 5px) 100%,0 100%,0 5px);
+}
+.selo[data-s="p1"]{background:var(--vermelho);color:var(--mar-900)}
+.selo[data-s="p2"]{background:var(--amarelo);color:var(--mar-900)}
+.selo[data-s="p3"]{background:var(--mar-500);color:#fff}
+.selo[data-s="p4"]{background:var(--muted2);color:var(--mar-900)}
+.selo-fio{
+  background:transparent;color:var(--text-dim);
+  box-shadow:inset 0 0 0 1px var(--fio);
+}
+.onde{
+  font-family:"Martian Mono",ui-monospace,monospace;font-size:.58rem;
+  letter-spacing:.09em;color:var(--muted);text-transform:uppercase;
+  display:flex;align-items:center;gap:7px;flex-wrap:wrap;
+}
+.onde i{width:3px;height:3px;background:var(--muted2);font-style:normal;flex-shrink:0}
+
+/* ── A EVIDÊNCIA: o que este item tem para mostrar ────────────────── */
+.prova{
+  display:grid;grid-template-columns:max-content 1fr;gap:18px;align-items:center;
+  padding:4px 0 2px;
+}
+.prova[data-sem="1"]{grid-template-columns:1fr}
+/* ═══════════════════════════════════════════════════════════════════
+   A COLUNA D'ÁGUA — a MESMA peça do painel do cliente e da landing.
+
+   ⚠️ NÃO é o cilindro do admin (`_telTanqueSVG`). O cliente usou cilindro
+   entre 14/08 e a reescrita, e ele SAIU quando a prova virou a coluna da
+   landing — `cliente.html` ainda registra as três `defs` que foram embora
+   com ele. Trazer o cilindro para cá seria ressuscitar a peça descartada.
+
+   Construção (de `cliente.css`): caixa chanfrada de fundo `--mar-900` com
+   fio de 1px e `overflow:hidden` para recortar a lâmina no chanfro; as
+   faixas de risco ficam SOB a água, aparecendo conforme ela recua; a
+   lâmina desce por `transform`, nunca por `height`; a crista de 3px é
+   quem sinaliza estado.
+
+   Reproporcionada: no cliente é 82×268 (uma coluna, sozinha na placa);
+   aqui são até três lado a lado dentro de um item de fila, então vai a
+   40×132 — a MESMA razão (.306), que é o que faz continuar sendo a peça.
+   ⚠️ Os RÓTULOS dos limiares saem nesta escala: o brief do cliente
+   registra que a 8px eles são ilegíveis, e foi por isso que caíram quando
+   havia três tubos. As linhas tracejadas ficam — sem elas as faixas viram
+   mancha sem explicação. */
+.prova-tanques{display:flex;gap:10px;align-items:flex-start}
+/* A célula é mais larga que o tubo: "Cisterna" e "Sup. A" não cabem em
+   40px e encostavam uma na outra. O tubo continua com 40 e centraliza. */
+.tanque{flex:0 0 auto;width:54px;text-align:center}
+
+.tubo{
+  display:block;position:relative;--ch:5px;clip-path:var(--corte);
+  width:40px;height:132px;margin:0 auto;background:var(--mar-900);
+  box-shadow:inset 0 0 0 1px var(--fio);overflow:hidden;
+}
+.faixa{position:absolute;left:0;right:0}
+/* ⚠️ 16% e 18%, não os 11% e 13% do cliente. A opacidade é a mesma tinta,
+   mas a área não: lá a faixa tem 67px de altura num tubo de 268, aqui tem
+   33 num de 132. Percepção de cor cai com a área, e a 11% a banda de
+   atenção sumia — virava mancha sem explicação, que é justamente o que as
+   faixas existem para evitar. Conferido na tela, não deduzido. */
+.faixa-baixo{bottom:20%;height:25%;background:color-mix(in srgb,var(--amarelo) 16%,transparent)}
+.faixa-critico{bottom:0;height:20%;background:color-mix(in srgb,var(--risco) 18%,transparent)}
+.agua{
+  position:absolute;inset:0;
+  background:linear-gradient(180deg,var(--mar-500) 0%,var(--mar-600) 55%,var(--mar-700) 100%);
+  transform:translateY(calc(100% - var(--n,0%)));
+  transition:transform 1.15s cubic-bezier(.16,1,.3,1);will-change:transform;
+}
+/* Só no crítico a lâmina escurece para vinho — os mesmos dois valores da
+   landing. No baixo a água continua azul e quem avisa é a crista âmbar. */
+.res.critico .agua{background:linear-gradient(180deg,#7a1e2c 0%,#4a1220 100%)}
+.crista{
+  position:absolute;left:0;right:0;top:0;height:3px;background:var(--crista);
+  box-shadow:0 0 14px 1px color-mix(in srgb,var(--crista) 55%,transparent);
+}
+.res.baixo .crista{
+  background:var(--amarelo);
+  box-shadow:0 0 14px 1px color-mix(in srgb,var(--amarelo) 55%,transparent);
+}
+.res.critico .crista{
+  background:var(--risco);
+  box-shadow:0 0 14px 1px color-mix(in srgb,var(--risco) 60%,transparent);
+}
+.limiar{position:absolute;left:0;right:0;border-top:1px dashed var(--fio-forte);pointer-events:none}
+.limiar-baixo{bottom:45%}
+.limiar-critico{bottom:20%;border-top-color:color-mix(in srgb,var(--risco) 60%,transparent)}
+
+/* Sensor mudo: SEM LEITURA, não sem água — hachura no mesmo -45° do
+   chanfro, nunca tubo vazio. Nada de crista e nada de lâmina: uma linha
+   horizontal aqui seria lida como nível, que é a confusão que este estado
+   existe para evitar. */
+.res.mudo .tubo{
+  background:
+    repeating-linear-gradient(-45deg, transparent 0 6px,
+      color-mix(in srgb,var(--sobre-2) 20%,transparent) 6px 12px),
+    var(--mar-900);
+}
+.res.mudo .agua,.res.mudo .faixa,.res.mudo .limiar{display:none}
+.selo-mudo{
+  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  --ch:4px;clip-path:var(--corte);background:var(--fio);
+  width:26px;height:26px;display:grid;place-items:center;
+  pointer-events:none;isolation:isolate;
+}
+.selo-mudo::before{
+  content:"";position:absolute;inset:1px;z-index:-1;
+  clip-path:var(--corte);background:var(--mar-900);
+}
+.selo-mudo svg{width:14px;height:14px;stroke:var(--sobre-2)}
+
+/* O número vive FORA do tubo, como no cliente. Isso resolve de vez o
+   amarelo-sobre-amarelo que a placa do cilindro precisava contornar: o
+   texto nunca mais fica sobre a lâmina. */
+.res-num{
+  font-family:"Martian Mono",ui-monospace,monospace;font-size:1.02rem;
+  font-weight:700;font-feature-settings:"tnum";letter-spacing:-.02em;
+  line-height:1.1;margin-top:7px;color:var(--text);
+}
+.res.baixo   .res-num{color:var(--amarelo)}
+.res.critico .res-num{color:var(--risco)}
+.res.mudo    .res-num{color:var(--sobre-2)}
+.tanque-lbl{
+  font-family:"Martian Mono",ui-monospace,monospace;font-size:.5rem;
+  letter-spacing:.05em;color:var(--muted2);margin-top:3px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.prova-txt{font-size:12.5px;line-height:1.5;color:var(--text-dim);min-width:0}
+.prova-txt b{color:var(--text);font-weight:700}
+/* Fala de gente — a evidência de um chamado que não veio de sensor. Mesmo
+   peso visual do instrumento: o prédio sem telemetria não é um item pobre. */
+.fala{
+  border-left:1px solid var(--fio);padding:2px 0 2px 12px;
+  font-size:12.5px;line-height:1.5;color:var(--text-dim);font-style:italic;
+}
+.fala-quem{
+  display:block;font-style:normal;margin-top:5px;
+  font-family:"Martian Mono",ui-monospace,monospace;font-size:.55rem;
+  letter-spacing:.09em;text-transform:uppercase;color:var(--muted2);
+}
+.semtel{
+  display:flex;align-items:center;gap:9px;
+  font-family:"Martian Mono",ui-monospace,monospace;font-size:.56rem;
+  letter-spacing:.09em;text-transform:uppercase;color:var(--muted2);
+}
+.semtel svg{color:var(--muted2);flex-shrink:0}
+
+.item-pe{
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  margin-top:auto;padding-top:3px;
+}
+.origem{
+  display:flex;align-items:center;gap:7px;
+  font-family:"Martian Mono",ui-monospace,monospace;font-size:.55rem;
+  letter-spacing:.09em;text-transform:uppercase;color:var(--muted2);
+  margin-right:auto;
+}
+.origem svg{flex-shrink:0}
+.origem i{width:3px;height:3px;background:var(--muted2);font-style:normal;flex-shrink:0}
+.emrota{
+  display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-dim);
+  white-space:nowrap;
+}
+.emrota svg{flex-shrink:0;color:var(--ok)}
+.emrota b{color:var(--text);font-weight:700}
+
+/* A chegada de um item novo: a aresta usinada acende e a placa sobe um
+   degrau de material, uma vez. Era um halo de sombra sem deslocamento —
+   decoração, e o detector da skill pegou. Aqui o gesto é do próprio
+   sistema: fio e superfície, as duas coisas de que a peça é feita. */
+.item.nova{animation:chegada 1.6s ease-out 1}
+@keyframes chegada{
+  0%,22%{border-color:var(--accent);background:var(--surface3)}
+  100%{border-color:var(--fio-fraco);background:var(--surface2)}
+}
+@media (prefers-reduced-motion:reduce){.item.nova{animation:none}.pulso{animation:none}}
+
+/* ── Grupo "andando": o que já foi despachado ────────────────────── */
+.andando-cab{
+  display:flex;align-items:baseline;gap:10px;padding:18px 20px 0;
+  max-width:1180px;margin:10px auto 0;width:100%;
+}
+.andando-cab h2{margin:0;font-size:12px;font-weight:800;color:var(--text-dim)}
+.andando-cab span{
+  font-family:"Martian Mono",ui-monospace,monospace;font-size:.58rem;
+  letter-spacing:.1em;color:var(--muted2);text-transform:uppercase;
+}
+
+/* ⚠️ A FAIXA "OS INSTRUMENTOS" FOI REMOVIDA (27/08, a pedido do Pedro).
+   Ela mostrava, no pé de toda tela, os 42 reservatórios que estão em ordem.
+   O motivo de sair não é estética: num painel cuja tese é "o que estoura
+   primeiro", um mural do que está tudo bem é o oposto da tese — se um tanque
+   estivesse ruim ele já estaria na fila, então a faixa exibia por definição
+   só aquilo que não pede nada. Eu a mantive da v1 por apego à parede, não
+   porque ela servia.
+   Ver todos os níveis continua sendo trabalho da tela de Telemetria, que o
+   operador tem no menu. Não duplicar aqui. */
+
+/* ── Dia calmo ───────────────────────────────────────────────────── */
+.calmo{padding:clamp(38px,6vw,76px) 20px clamp(30px,4vw,52px);text-align:center}
+.calmo h1{
+  margin:0 0 10px;font-size:clamp(1.7rem,3.4vw,2.5rem);font-weight:900;
+  font-stretch:112%;letter-spacing:-.03em;line-height:1.05;
+}
+.calmo p{margin:0 auto;max-width:48ch;color:var(--text-dim);font-size:14px;line-height:1.6}
+.calmo-marca{
+  display:inline-flex;align-items:center;gap:9px;margin-bottom:18px;
+  font-family:"Martian Mono",ui-monospace,monospace;font-size:.6rem;
+  letter-spacing:.14em;color:var(--ok);text-transform:uppercase;
+}
+.calmo-marca i{width:7px;height:7px;background:var(--ok);font-style:normal}
+
+/* ── Trilho da equipe (composição B) ─────────────────────────────── */
+.comB{display:grid;grid-template-columns:1fr 300px}
+.comB .fila,.comB .fila-cab,.comB .andando-cab{border-right:1px solid var(--fio-fraco)}
+.trilho{
+  background:var(--mar-900);padding:18px 14px;display:flex;flex-direction:column;
+  gap:16px;position:sticky;top:60px;align-self:start;
+  max-height:calc(100vh - 60px);overflow-y:auto;
+}
+.trilho h2{
+  margin:0 0 10px;font-family:"Martian Mono",ui-monospace,monospace;
+  font-size:.6rem;letter-spacing:.13em;color:var(--muted);
+  text-transform:uppercase;font-weight:500;
+}
+.tec{
+  display:flex;align-items:center;gap:10px;padding:9px 10px;margin-bottom:6px;
+  background:var(--surface);border:1px solid var(--fio-fraco);
+  clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px);
+}
+.tec-av{
+  width:28px;height:28px;flex-shrink:0;background:var(--mar-600);
+  display:grid;place-items:center;font-size:10.5px;font-weight:800;
+}
+.tec-nome{font-size:12.5px;font-weight:700;line-height:1.25}
+.tec-est{
+  font-family:"Martian Mono",ui-monospace,monospace;font-size:.55rem;
+  letter-spacing:.09em;text-transform:uppercase;color:var(--muted2);margin-top:2px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:22ch;
+}
+.tec[data-liv="1"] .tec-est{color:var(--ok)}
+.tec-dist{
+  margin-left:auto;font-family:"Martian Mono",ui-monospace,monospace;
+  font-size:.6rem;color:var(--text-dim);font-feature-settings:"tnum";
+  white-space:nowrap;flex-shrink:0;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   OS DOIS DIÁLOGOS
+   ═══════════════════════════════════════════════════════════════════ */
+.fundo{
+  position:fixed;inset:0;z-index:60;background:rgba(3,10,38,.72);
+  backdrop-filter:blur(3px);display:grid;place-items:center;padding:24px;
+}
+.ficha{
+  width:min(900px,100%);max-height:calc(100vh - 48px);overflow:auto;
+  background:var(--surface);border:1px solid var(--fio-forte);
+  clip-path:polygon(22px 0,100% 0,100% calc(100% - 22px),calc(100% - 22px) 100%,0 100%,0 22px);
+}
+.ficha-cab{display:flex;align-items:flex-start;gap:12px;padding:20px 22px 15px}
+.ficha-cab h2{
+  margin:0;font-size:1.3rem;font-weight:900;font-stretch:112%;
+  letter-spacing:-.03em;line-height:1.1;
+}
+.ficha-x{
+  margin-left:auto;width:34px;height:34px;flex-shrink:0;background:transparent;
+  border:1px solid var(--fio);color:var(--text-dim);cursor:pointer;
+  display:grid;place-items:center;
+}
+.ficha-x:hover{border-color:var(--fio-forte);color:var(--text)}
+.ficha-pe{
+  border-top:1px solid var(--fio-fraco);padding:14px 22px;
+  display:flex;align-items:center;gap:11px;flex-wrap:wrap;
+}
+.ficha-pe p{margin:0;font-size:12px;color:var(--muted);flex:1;min-width:180px}
+
+/* Despacho: o mapa é a ferramenta de UMA decisão — quem vai. Aberto o
+   turno inteiro ele é papel de parede; aberto aqui, é a única coisa que
+   responde a pergunta, porque a resposta é geográfica. */
+.ficha-corpo{display:grid;grid-template-columns:1fr 296px}
+.mapa{height:326px;background:#0d1325}
+.leaflet-container{background:#0d1325;font-family:inherit}
+.map-tiles-dark{filter:invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%)}
+.pin{display:grid;place-items:center;font-weight:800}
+.pin-predio{
+  width:30px;height:30px;background:var(--vermelho);color:var(--mar-900);font-size:11px;
+  clip-path:polygon(7px 0,100% 0,100% calc(100% - 7px),calc(100% - 7px) 100%,0 100%,0 7px);
+}
+.pin-tec{width:26px;height:26px;background:var(--mar-600);color:#fff;border:1px solid var(--fio-forte);font-size:9.5px}
+.pin-tec[data-liv="1"]{background:var(--verde);color:var(--mar-900);border-color:var(--verde)}
+.escolha{
+  border-left:1px solid var(--fio-fraco);background:var(--mar-900);
+  padding:16px 15px;display:flex;flex-direction:column;gap:7px;
+}
+.escolha h3{
+  margin:0 0 4px;font-family:"Martian Mono",ui-monospace,monospace;
+  font-size:.6rem;letter-spacing:.13em;color:var(--muted);
+  text-transform:uppercase;font-weight:500;
+}
+.cand{
+  display:flex;align-items:center;gap:10px;padding:9px 10px;width:100%;
+  background:var(--surface);border:1px solid var(--fio-fraco);cursor:pointer;
+  text-align:left;font:inherit;color:inherit;
+  clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px);
+  transition:border-color .14s ease-out,background .14s ease-out;
+}
+.cand:hover{background:var(--surface2);border-color:var(--fio-forte)}
+.cand[data-liv="0"]{opacity:.5}
+.cand-nome{font-size:12.5px;font-weight:700;line-height:1.25}
+.cand-est{
+  font-family:"Martian Mono",ui-monospace,monospace;font-size:.55rem;
+  letter-spacing:.09em;text-transform:uppercase;color:var(--muted2);margin-top:2px;
+}
+.cand[data-liv="1"] .cand-est{color:var(--ok)}
+.cand-eta{margin-left:auto;text-align:right;flex-shrink:0;font-family:"Martian Mono",ui-monospace,monospace;font-feature-settings:"tnum"}
+.cand-eta b{display:block;font-size:.78rem;color:var(--text);font-weight:700}
+.cand-eta span{font-size:.55rem;letter-spacing:.08em;color:var(--muted2)}
+
+/* Ficha do chamado: o que "Abrir ficha" faz. A linha do tempo completa,
+   as mensagens e a evidência — o que o operador precisa para falar com o
+   técnico ao telefone e para saber o que já foi tentado. */
+.ficha-abas{display:flex;gap:0;padding:0 22px;border-bottom:1px solid var(--fio-fraco)}
+.ficha-aba{
+  font:inherit;font-size:11.5px;font-weight:700;padding:9px 14px;cursor:pointer;
+  background:transparent;border:0;border-bottom:2px solid transparent;color:var(--muted);
+}
+.ficha-aba:hover{color:var(--text-dim)}
+.ficha-aba[aria-selected="true"]{color:var(--text);border-bottom-color:var(--accent)}
+.ficha-pane{padding:18px 22px 20px;display:grid;grid-template-columns:1fr 240px;gap:26px}
+.linha-tempo{display:flex;flex-direction:column;gap:0;min-width:0}
+.ev{display:grid;grid-template-columns:74px 1fr;gap:14px;padding:9px 0;border-bottom:1px solid var(--fio-fraco)}
+.ev:last-child{border-bottom:0}
+.ev-h{
+  font-family:"Martian Mono",ui-monospace,monospace;font-size:.6rem;
+  letter-spacing:.06em;color:var(--muted2);font-feature-settings:"tnum";padding-top:2px;
+}
+.ev-t{font-size:12.5px;line-height:1.5;color:var(--text-dim)}
+.ev-t b{color:var(--text);font-weight:700}
+.ficha-lado{display:flex;flex-direction:column;gap:14px}
+.ficha-lado h4{
+  margin:0 0 8px;font-family:"Martian Mono",ui-monospace,monospace;
+  font-size:.58rem;letter-spacing:.12em;color:var(--muted);
+  text-transform:uppercase;font-weight:500;
+}
+.dado{display:flex;justify-content:space-between;gap:10px;padding:5px 0;font-size:12px;border-bottom:1px solid var(--fio-fraco)}
+.dado span{color:var(--muted)}
+.dado b{font-weight:700;text-align:right}
+
+/* Novo chamado: o chamado que chega por telefone precisa de porta de
+   entrada. O operador passa em `adminOnly`, que cobre POST /chamados. */
+.form{padding:18px 22px 4px;display:grid;grid-template-columns:1fr 1fr;gap:14px 16px}
+.campo{display:flex;flex-direction:column;gap:5px;min-width:0}
+.campo.largo{grid-column:1 / -1}
+.campo label{
+  font-family:"Martian Mono",ui-monospace,monospace;font-size:.56rem;
+  letter-spacing:.1em;color:var(--muted);text-transform:uppercase;
+}
+.campo input,.campo select,.campo textarea{
+  font:inherit;font-size:13px;padding:9px 11px;background:var(--mar-900);
+  color:var(--text);border:1px solid var(--fio);
+}
+.campo input:focus,.campo select:focus,.campo textarea:focus{border-color:var(--accent);outline:none}
+.campo textarea{resize:vertical;min-height:74px;line-height:1.5}
+.prio-fila{display:flex;gap:6px;flex-wrap:wrap}
+.prio{
+  font:inherit;font-size:11px;font-weight:700;padding:7px 11px;cursor:pointer;
+  background:transparent;color:var(--text-dim);border:1px solid var(--fio);
+}
+.prio[aria-pressed="true"]{background:var(--accent);color:var(--mar-900);border-color:var(--accent)}
+.dica{
+  grid-column:1 / -1;font-size:11.5px;color:var(--muted);line-height:1.5;
+  border-top:1px solid var(--fio-fraco);padding-top:12px;margin-top:2px;
+}
+
+/* ── CELULAR ─────────────────────────────────────────────────────── */
+@container tela (max-width:660px){
+  .barra{height:54px;padding:0 13px;gap:10px;position:static}
+  .marca span{display:none}
+  .placar{gap:12px;margin-left:0}
+  .placar-i em .lg{display:none}
+  .placar-i em .ct{display:inline}
+  .placar-i em{font-size:10px}
+  .placar-n{font-size:1rem}
+  .barra-acoes{gap:8px}
+  .barra-acoes .btn{display:none}
+  .relogio .rot{display:none}
+  .relogio{gap:7px;font-size:.66rem}
+  .fila{padding:12px 13px;gap:9px}
+  .fila-cab,.andando-cab{padding:14px 13px 0}
+  /* O relógio vira faixa no topo do item: numa coluna estreita, 104px de
+     régua comeriam a linha do título. */
+  .item{grid-template-columns:1fr}
+  .relogio-sla{
+    flex-direction:row;justify-content:flex-start;gap:9px;
+    border-right:0;border-bottom:1px solid var(--fio-fraco);
+    padding:9px 14px;text-align:left;
+  }
+  .sla-n{font-size:1.15rem}
+  .sla-rot{font-size:.55rem}
+  .item-corpo{padding:12px 14px}
+  .prova{grid-template-columns:1fr;gap:12px}
+
+  /* ── A COLUNA DEITA, como na landing (760px) e no painel do cliente (820) ──
+     O motivo é o mesmo registrado lá: em pé e estreita ela desperdiça a
+     largura da tela e empurra o resto para baixo da dobra; deitada, ganha a
+     largura toda e devolve altura. Aqui rende mais ainda, porque são até
+     TRÊS por item — em pé seriam ~400px só de tubo.
+     ⚠️ Deitada, TODO eixo do desenho troca. Cada regra abaixo tem par no
+     `landing.css` e no `cliente.css`; mudou lá, muda aqui:
+       lâmina  desce por translateY  →  desliza por translateX (para a
+               ESQUERDA: `--n - 100%`, então a borda direita para em `--n`)
+       crista  borda de cima         →  borda da direita
+       faixas  bottom/height         →  left/width
+       limiar  border-top            →  border-left
+     ⚠️ O vinho do crítico deita junto — o gradiente dele também inverte. */
+  .prova-tanques{flex-direction:column;gap:8px;width:100%}
+  .tanque{width:100%;text-align:left}
+  /* Nome à esquerda, barra no meio, leitura à direita: deitado, o rótulo
+     deixa de precisar caber em 54px e volta a ser palavra inteira. */
+  .res{display:grid;grid-template-columns:58px 1fr 46px;align-items:center;gap:10px}
+  .tubo{--ch:4px;width:100%;height:34px;margin:0}
+  .agua{
+    background:linear-gradient(to left,var(--mar-500) 0%,var(--mar-600) 55%,var(--mar-700) 100%);
+    transform:translateX(calc(var(--n,0%) - 100%));
+  }
+  .res.critico .agua{background:linear-gradient(to left,#7a1e2c 0%,#4a1220 100%)}
+  .crista{left:auto;right:0;top:0;bottom:0;width:3px;height:auto}
+  .faixa{top:0;bottom:0;left:auto;right:auto}
+  .faixa-baixo{left:20%;width:25%;height:auto}
+  .faixa-critico{left:0;width:20%;height:auto}
+  .limiar{top:0;bottom:0;left:auto;right:auto;border-top:0;border-left:1px dashed var(--fio-forte)}
+  .limiar-baixo{left:45%}
+  .limiar-critico{left:20%;border-left-color:color-mix(in srgb,var(--risco) 60%,transparent)}
+  .selo-mudo{width:22px;height:22px}
+  .selo-mudo svg{width:12px;height:12px}
+  .tanque-lbl{
+    order:-1;margin-top:0;text-align:left;font-size:.54rem;
+    overflow:visible;text-overflow:clip;
+  }
+  .res-num{margin-top:0;text-align:right;font-size:.95rem}
+  /* A origem ganha linha própria e os botões ficam lado a lado. Com
+     `margin-right:auto` numa coluna estreita ela empurrava "Abrir ficha"
+     para uma terceira linha. */
+  .item-pe{gap:9px;flex-wrap:wrap}
+  .item-pe .origem{width:100%;margin-right:0}
+  .item-pe .btn{padding:10px 15px;font-size:12.5px;flex:1 1 auto}
+  .item-pe .emrota{width:100%}
+  .comB{grid-template-columns:1fr}
+  .comB .fila,.comB .fila-cab,.comB .andando-cab{border-right:0}
+  .trilho{position:static;max-height:none;border-top:1px solid var(--fio-fraco)}
+  .ficha-corpo{grid-template-columns:1fr}
+  .mapa{height:206px}
+  .escolha{border-left:0;border-top:1px solid var(--fio-fraco)}
+  .ficha-pane{grid-template-columns:1fr;gap:18px;padding:16px}
+  .form{grid-template-columns:1fr;padding:16px 16px 4px}
+  .calmo{padding:52px 20px 36px}
+}
+</style>
+</head>
+<body>
+<!--
+  DIREÇÃO — Painel do operador · comp v2 · 2026-08-27
+
+  THESIS: a fila do turno, medida pelo relógio. O item é "isto pede alguém",
+  ordenado pelo SLA que estoura primeiro, e o instrumento é a EVIDÊNCIA
+  dentro do item, nunca a estrutura da tela. Recusa dois arranjos: a fila
+  com abas e busca do admin (o painel com menos itens), e a parede de
+  instrumentos da v1, que não tinha o que desenhar para prédio sem sensor.
+  OWN-WORLD: Chapa em registro de operação. Marinho como material, chanfro
+  de 45° em dois cantos opostos, fios de 1px como usinagem, mono só em
+  medição, amarelo institucional na única ação. Sem sombra, sem raio.
+  STORY: o operador vê o que estoura primeiro, entende de onde veio, e
+  despacha sem sair da linha.
+  FIRST VIEWPORT: barra de 60px com o placar e "Novo chamado"; abaixo, a
+  fila ordenada por SLA restante, cada item com a régua de tempo à esquerda
+  e a evidência no corpo; no pé, os instrumentos em repouso.
+  FORM: fila-régua, derivada do fato de que 3 das 5 origens de chamado não
+  passam por telemetria · seed b37ab1c1 (candidato 7 revisto por fato).
+  FINISH: unreviewed and undocumented is unfinished; this build ends with
+  the finish review, the verdict, and DESIGN.md.
+
+  ⚠️ ANDAIME — comp de aprovação, não código de produção. Todos os dados
+  (prédios, chamados, técnicos, leituras, horários) são FICTÍCIOS.
+-->
+
+<div class="andaime">
+  <div class="andaime-grupo">
+    <span class="andaime-rot">Composição</span>
+    <button data-com="A" aria-pressed="false">A · fila</button>
+    <button data-com="B" aria-pressed="true">B · fila + equipe</button>
+  </div>
+  <div class="andaime-grupo">
+    <span class="andaime-rot">Estado</span>
+    <button data-est="agitado" aria-pressed="true">turno agitado</button>
+    <button data-est="calmo" aria-pressed="false">dia calmo</button>
+  </div>
+  <div class="andaime-grupo">
+    <span class="andaime-rot">Tela</span>
+    <button data-larg="desktop" aria-pressed="true">desktop</button>
+    <button data-larg="celular" aria-pressed="false">celular</button>
+  </div>
+  <div class="andaime-grupo">
+    <span class="andaime-rot">Diálogos</span>
+    <button data-dlg="despacho">despachar</button>
+    <button data-dlg="ficha">abrir ficha</button>
+    <button data-dlg="novo">novo chamado</button>
+  </div>
+  <span class="andaime-nota">dados fictícios</span>
+</div>
+
+<div class="palco" data-larg="desktop">
+  <div class="tela" id="tela"></div>
+</div>
+
+<script src="../../public/leaflet.js"></script>
+<script>
+/* ═══════════════════════════════════════════════════════════════════
+   Dados FICTÍCIOS.
+
+   A fila mistura de propósito as CINCO origens de chamado do sistema
+   (telemetria automática, WhatsApp/IA, cliente, admin, plano de
+   manutenção) e prédios COM e SEM telemetria — porque essa mistura é o
+   que a v1 escondia. Escala real: ~89 prédios, 42 reservatórios.
+   ═══════════════════════════════════════════════════════════════════ */
+
+// `min` = minutos restantes de SLA. Negativo = estourado. É a ordenação.
+const FILA = [
+  { n:401, p:"p2", min:-35, titulo:"Bomba não liga · chamado sem técnico há 3 horas",
+    predio:"Cond. Vila Olímpia 21", onde:"Vila Olímpia", dist:"8,9 km",
+    origem:"sla", status:"Aberto",
+    tanques:[{n:"Cisterna",v:2},{n:"Superior",v:0}],
+    txt:"Aberto às 05h48 e <b>nenhum técnico foi atribuído</b>. O SLA de chegada do P2 é de 24h, mas o TTFR de 3h estourou — o sistema já elevou a alerta crítico.",
+    quando:"há 3h11" },
+
+  { n:412, p:"p1", min:22, titulo:"Sem água no prédio inteiro",
+    predio:"Ed. Villa Lobos", onde:"Vila Mariana", dist:"3,2 km",
+    origem:"telemetria", status:"Aberto", nova:true,
+    tanques:[{n:"Inferior",v:9},{n:"Sup. A",v:4},{n:"Sup. B",v:11}],
+    txt:"Os três reservatórios abaixo de 12% e a bomba de recalque não liga desde as 06h12. Chamado aberto automaticamente pela telemetria.",
+    quando:"há 8 min" },
+
+  { n:415, p:"p1", min:40, titulo:"Vazamento no 4º andar",
+    predio:"Ed. Monte Verde", onde:"Perdizes", dist:"5,1 km",
+    origem:"whatsapp", status:"Técnico a caminho", andando:true,
+    semtel:true,
+    fala:"Tá vazando muito água do teto do corredor do 4º andar, já desligamos o registro mas continua pingando.",
+    falaQuem:"Síndico · WhatsApp · 07h48",
+    rota:{ tec:"Marcos Ferreira", eta:"12 min" },
+    quando:"há 53 min" },
+
+  { n:409, p:"p2", min:70, titulo:"Sensor parou de responder",
+    predio:"Res. Portal do Sol", onde:"Santo Amaro", dist:"11,4 km",
+    origem:"telemetria", status:"Aberto",
+    tanques:[{n:"Cisterna",v:null},{n:"Superior",v:null}],
+    txt:"Sem leitura há 47 minutos. O último nível conhecido era 62%. <b>Sem leitura não dá para saber se está em 80% ou em 0%</b> — por isso entra antes de nível baixo.",
+    quando:"há 47 min" },
+
+  { n:410, p:"p2", min:200, titulo:"Nível baixo na cisterna",
+    predio:"Cond. Jardim Anália", onde:"Anália Franco", dist:"7,8 km",
+    origem:"telemetria", status:"Aberto",
+    tanques:[{n:"Cisterna",v:31},{n:"Superior",v:38},{n:"Reserva",v:44}],
+    txt:"Consumo 40% acima da média para a hora. A cisterna caiu 14 pontos desde as 06h.",
+    quando:"há 22 min" },
+
+  { n:416, p:"p3", min:480, titulo:"Ruído forte na casa de máquinas",
+    predio:"Ed. Solar das Palmeiras", onde:"Moema", dist:"6,3 km",
+    origem:"telefone", status:"Em atendimento", andando:true,
+    semtel:true,
+    fala:"Os moradores do primeiro andar estão reclamando de um barulho de batida na casa de máquinas desde ontem à noite.",
+    falaQuem:"Portaria · telefone · 06h14",
+    rota:{ tec:"Anderson Luiz", eta:"no local" },
+    quando:"há 3h27" },
+
+  { n:418, p:"p4", min:2880, titulo:"Preventiva mensal vencida",
+    predio:"Cond. Santana Norte", onde:"Santana", dist:"14,7 km",
+    origem:"preventiva", status:"Aberto",
+    semtel:true,
+    txt:"Plano de manutenção mensal venceu ontem. O chamado foi gerado pelo job, com prazo conforme agenda.",
+    quando:"há 1 dia" },
+];
+
+const TECNICOS = [
+  { n:"Rafael Souza",    est:"Disponível",           d:"2,1 km", livre:1, ll:[-23.5789,-46.6412], eta:"9 min"  },
+  { n:"Júlia Campos",    est:"Disponível",           d:"9,7 km", livre:1, ll:[-23.6231,-46.5698], eta:"26 min" },
+  { n:"Marcos Ferreira", est:"A caminho · Monte V.", d:"1,4 km", livre:0, ll:[-23.5601,-46.6689], eta:"—"      },
+  { n:"Anderson Luiz",   est:"Em atend. · Solar",    d:"—",      livre:0, ll:[-23.6014,-46.6668], eta:"—"      },
+];
+
+const ALVO = { ll:[-23.5872,-46.6350] };
+
+/* ── Ícones autorais, um traço só (stroke 2, linecap round) ───────── */
+const I = {
+  sensor:`<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M12 18v4M4.9 4.9l2.9 2.9M16.2 16.2l2.9 2.9M2 12h4M18 12h4M4.9 19.1l2.9-2.9M16.2 7.8l2.9-2.9"/><circle cx="12" cy="12" r="3"/></svg>`,
+  balao:`<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 8.9 8.9 0 0 1-4-.9L3 21l1.9-4.9A8.4 8.4 0 0 1 12 3a8.4 8.4 0 0 1 9 8.5z"/></svg>`,
+  fone:`<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2 4.2 2 2 0 0 1 4 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.1a2 2 0 0 1 2.1-.5c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z"/></svg>`,
+  agenda:`<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="1"/><path d="M16 3v4M8 3v4M3 11h18"/></svg>`,
+  sino:`<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a6 6 0 0 0-6 6c0 5-2 6-2 6h16s-2-1-2-6a6 6 0 0 0-6-6zM10.3 20a2 2 0 0 0 3.4 0"/></svg>`,
+  semsensor:`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></svg>`,
+  rota:`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-5.5 7-11a7 7 0 1 0-14 0c0 5.5 7 11 7 11z"/><circle cx="12" cy="10" r="2.4"/></svg>`,
+  ok:`<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#63d8a0" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>`,
+  x:`<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>`,
+};
+
+const ORIGEM = {
+  telemetria:{ ico:I.sensor,  rot:"Telemetria" },
+  whatsapp:  { ico:I.balao,   rot:"Síndico · WhatsApp" },
+  telefone:  { ico:I.fone,    rot:"Portaria · telefone" },
+  preventiva:{ ico:I.agenda,  rot:"Plano de manutenção" },
+  sla:       { ico:I.sino,    rot:"SLA estourado" },
+};
+
+/* ── A coluna d'água ──────────────────────────────────────────────
+   A peça é CSS, não SVG: é assim no `cliente.css` e na landing, e as
+   `defs` do cilindro foram removidas de lá justamente por isso. */
+function estadoRes(v){
+  if(v === null) return "mudo";
+  if(v < 20)     return "critico";
+  if(v < 45)     return "baixo";
+  return "";
+}
+function coluna(t){
+  const est = estadoRes(t.v);
+  const mudo = est === "mudo";
+  return `<div class="res ${est}">
+    <span class="tubo">
+      ${mudo ? `<span class="selo-mudo">${I.semsensor}</span>` : `
+      <i class="faixa faixa-baixo"></i>
+      <i class="faixa faixa-critico"></i>
+      <i class="agua" style="--n:${t.v}%"><i class="crista"></i></i>
+      <i class="limiar limiar-baixo"></i>
+      <i class="limiar limiar-critico"></i>`}
+    </span>
+    <div class="res-num">${mudo ? "—" : t.v + "%"}</div>
+    <div class="tanque-lbl">${t.n}</div>
+  </div>`;
+}
+
+/* ── O relógio de SLA ─────────────────────────────────────────────── */
+function relogio(min){
+  const abs = Math.abs(min);
+  const txt = abs >= 1440 ? Math.round(abs/1440)+"d"
+            : abs >= 60   ? Math.floor(abs/60)+"h"+(abs%60 ? String(abs%60).padStart(2,"0") : "")
+            : abs+"min";
+  if(min < 0) return { txt:"+"+txt, rot:"estourado", grau:"estourado" };
+  const grau = min <= 30 ? "apertado" : min <= 120 ? "atencao" : "folgado";
+  return { txt, rot:"até estourar", grau };
+}
+
+/* ── O item da fila ───────────────────────────────────────────────── */
+function item(c){
+  const r = relogio(c.min);
+  const o = ORIGEM[c.origem];
+
+  // A evidência. Com sensor: os tanques. Sem sensor: a fala de quem
+  // relatou, no mesmo peso visual — o prédio sem telemetria não é um
+  // item pobre, é um item com outra prova.
+  let prova;
+  if(c.tanques){
+    prova = `<div class="prova">
+      <div class="prova-tanques">${c.tanques.map(t =>
+        `<div class="tanque">${coluna(t)}</div>`).join("")}</div>
+      <p class="prova-txt">${c.txt}</p>
+    </div>`;
+  } else if(c.fala){
+    prova = `<div class="prova" data-sem="1">
+      <div>
+        <p class="fala">“${c.fala}”<span class="fala-quem">${c.falaQuem}</span></p>
+        <p class="semtel" style="margin:10px 0 0">${I.semsensor}Prédio sem telemetria instalada</p>
+      </div>
+    </div>`;
+  } else {
+    prova = `<div class="prova" data-sem="1">
+      <div>
+        <p class="prova-txt" style="margin:0">${c.txt}</p>
+        <p class="semtel" style="margin:9px 0 0">${I.semsensor}Prédio sem telemetria instalada</p>
+      </div>
+    </div>`;
+  }
+
+  const pe = c.rota
+    ? `<span class="emrota">${I.rota}<span><b>${c.rota.tec}</b> · ${c.rota.eta}</span></span>
+       <button class="btn btn-fio" data-dlg="ficha">Abrir ficha</button>`
+    : `<button class="btn" data-dlg="despacho">Despachar</button>
+       <button class="btn btn-fio" data-dlg="ficha">Abrir ficha</button>`;
+
+  return `
+  <article class="item${c.nova ? " nova" : ""}" data-sla="${r.grau}" data-andando="${c.andando?1:0}">
+    <div class="relogio-sla">
+      <span class="sla-n">${r.txt}</span>
+      <span class="sla-rot">${r.rot}</span>
+    </div>
+    <div class="item-corpo">
+      <div class="item-topo">
+        <span class="num">#${c.n}</span>
+        <span class="selo" data-s="${c.p}">${c.p.toUpperCase()}</span>
+        <h3 class="titulo">${c.titulo}</h3>
+        <span class="selo selo-fio">${c.status}</span>
+      </div>
+      <div class="onde">${c.predio}<i></i>${c.onde}<i></i>${c.dist}</div>
+      ${prova}
+      <div class="item-pe">
+        <!-- A citação já assina quem falou e a que horas. Repetir "Síndico ·
+             WhatsApp" no pé é a mesma notícia duas vezes na mesma altura —
+             quando há fala, o pé carrega só o ícone e o tempo. -->
+        <span class="origem">${o.ico}${c.fala ? "" : o.rot + "<i></i>"}${c.quando}</span>
+        ${pe}
+      </div>
+    </div>
+  </article>`;
+}
+
+/* ── Barra ────────────────────────────────────────────────────────── */
+function barra(modo){
+  const estourados = FILA.filter(c => c.min < 0).length;
+  const naFila     = FILA.filter(c => !c.andando).length;
+  const andando    = FILA.filter(c => c.andando).length;
+  const placar = modo === "calmo"
+    ? `<div class="placar-i" data-t="rota"><span class="placar-n">0</span><em><span class="lg">chamados abertos</span><span class="ct">abertos</span></em></div>`
+    : `<div class="placar-i" data-t="estourado"><span class="placar-n">${estourados}</span><em><span class="lg">com SLA estourado</span><span class="ct">estourados</span></em></div>
+       <div class="placar-i" data-t="fila"><span class="placar-n">${naFila}</span><em><span class="lg">esperando alguém</span><span class="ct">esperando</span></em></div>
+       <div class="placar-i" data-t="rota"><span class="placar-n">${andando}</span><em><span class="lg">com técnico</span><span class="ct">em rota</span></em></div>`;
+  return `
+  <header class="barra">
+    <div class="marca"><b>General</b><span>Turno</span></div>
+    <div class="placar">${placar}</div>
+    <div class="barra-acoes">
+      <button class="btn" data-dlg="novo">+ Novo chamado</button>
+      <div class="relogio"><span class="pulso"></span><span class="rot">Recebendo ·</span><span>08:41</span></div>
+      <div class="conta">RS</div>
+    </div>
+  </header>`;
+}
+
+function trilho(){
+  return `
+  <aside class="trilho">
+    <div>
+      <h2>Equipe agora</h2>
+      ${TECNICOS.map(t => `
+        <div class="tec" data-liv="${t.livre}">
+          <div class="tec-av">${t.n.split(" ").map(x=>x[0]).slice(0,2).join("")}</div>
+          <div><div class="tec-nome">${t.n}</div><div class="tec-est">${t.est}</div></div>
+          <span class="tec-dist">${t.d}</span>
+        </div>`).join("")}
+    </div>
+    <div>
+      <h2>Despachados hoje</h2>
+      ${FILA.filter(c=>c.rota).map(c => `
+        <div class="tec">
+          <div class="tec-av">${I.rota}</div>
+          <div><div class="tec-nome">${c.predio}</div>
+               <div class="tec-est">#${c.n} · ${c.rota.tec.split(" ")[0]} · ${c.rota.eta}</div></div>
+        </div>`).join("")}
+    </div>
+  </aside>`;
+}
+
+function calmo(){
+  return `
+  ${barra("calmo")}
+  <section class="calmo">
+    <div class="calmo-marca"><i></i>Nada pede alguém agora</div>
+    <h1>Nenhum chamado aberto.</h1>
+    <p>Todos os reservatórios acima de 45%, todas as bombas respondendo, nenhuma
+       preventiva vencida. O último chamado foi fechado às 06h12.</p>
+  </section>`;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   OS TRÊS DIÁLOGOS
+   ═══════════════════════════════════════════════════════════════════ */
+function dlgDespacho(){
+  const c = FILA[1];
+  const cands = [...TECNICOS].sort((a,b) => b.livre - a.livre);
+  return `<div class="fundo" id="fundo"><div class="ficha" role="dialog" aria-label="Despachar técnico">
+    <div class="ficha-cab">
+      <div>
+        <h2>#${c.n} · ${c.titulo}</h2>
+        <div class="onde" style="margin-top:7px">${c.predio}<i></i>${c.onde}<i></i>${c.dist}<i></i>22 min até estourar</div>
+      </div>
+      <span class="selo" data-s="p1">P1</span>
+      <button class="ficha-x" aria-label="Fechar">${I.x}</button>
+    </div>
+    <div class="ficha-corpo">
+      <div class="mapa" id="mapa"></div>
+      <div class="escolha">
+        <h3>Quem pode ir</h3>
+        ${cands.map(t => `<button class="cand" data-liv="${t.livre}">
+          <div class="tec-av">${t.n.split(" ").map(x=>x[0]).slice(0,2).join("")}</div>
+          <div><div class="cand-nome">${t.n}</div><div class="cand-est">${t.est}</div></div>
+          <div class="cand-eta"><b>${t.livre ? t.eta : "—"}</b><span>${t.d}</span></div>
+        </button>`).join("")}
+      </div>
+    </div>
+    <div class="ficha-pe">
+      <p>Atribuir o técnico marca a primeira resposta e para o relógio do TTFR.
+         <b>“Em atendimento” não é daqui</b> — só o app do técnico seta esse status, com GPS.</p>
+      <button class="btn btn-fio">Cancelar</button>
+      <button class="btn">Despachar Rafael</button>
+    </div>
+  </div></div>`;
+}
+
+function dlgFicha(){
+  const c = FILA[2];
+  return `<div class="fundo" id="fundo"><div class="ficha" role="dialog" aria-label="Ficha do chamado">
+    <div class="ficha-cab">
+      <div>
+        <h2>#${c.n} · ${c.titulo}</h2>
+        <div class="onde" style="margin-top:7px">${c.predio}<i></i>${c.onde}<i></i>${c.dist}</div>
+      </div>
+      <span class="selo" data-s="p1">P1</span>
+      <span class="selo selo-fio">${c.status}</span>
+      <button class="ficha-x" aria-label="Fechar">${I.x}</button>
+    </div>
+    <div class="ficha-abas">
+      <button class="ficha-aba" aria-selected="true">Linha do tempo</button>
+      <button class="ficha-aba" aria-selected="false">Mensagens (4)</button>
+      <button class="ficha-aba" aria-selected="false">O.S.</button>
+    </div>
+    <div class="ficha-pane">
+      <div class="linha-tempo">
+        <div class="ev"><span class="ev-h">07:48</span><span class="ev-t">
+          <b>Chamado aberto pela IA</b> a partir da conversa no WhatsApp. Classificado P1 por “vazamento”.</span></div>
+        <div class="ev"><span class="ev-h">07:49</span><span class="ev-t">
+          Última leitura de telemetria anexada — <b>o prédio não tem sensor</b>, então nada foi anexado.</span></div>
+        <div class="ev"><span class="ev-h">07:52</span><span class="ev-t">
+          <b>Rafael Souza</b> atribuiu o chamado a <b>Marcos Ferreira</b>. Primeira resposta registrada (TTFR: 4 min).</span></div>
+        <div class="ev"><span class="ev-h">08:02</span><span class="ev-t">
+          Marcos marcou <b>a caminho</b> pelo app. Chegada prevista às 08:53.</span></div>
+        <div class="ev"><span class="ev-h">08:29</span><span class="ev-t">
+          Síndico enviou <b>duas fotos</b> do corredor pelo WhatsApp.</span></div>
+      </div>
+      <div class="ficha-lado">
+        <div>
+          <h4>O chamado</h4>
+          <div class="dado"><span>Origem</span><b>WhatsApp · IA</b></div>
+          <div class="dado"><span>Categoria</span><b>Vazamento</b></div>
+          <div class="dado"><span>Aberto</span><b>07:48 · há 53 min</b></div>
+          <div class="dado"><span>SLA chegada</span><b>3h · 40 min restantes</b></div>
+          <div class="dado"><span>Técnico</span><b>Marcos Ferreira</b></div>
+        </div>
+        <div>
+          <h4>O prédio</h4>
+          <div class="dado"><span>Telemetria</span><b>Não instalada</b></div>
+          <div class="dado"><span>Contrato</span><b>Ativo desde 2021</b></div>
+          <div class="dado"><span>Último chamado</span><b>#388 · 12/07</b></div>
+        </div>
+      </div>
+    </div>
+    <div class="ficha-pe">
+      <p>O histórico é o que o operador lê antes de ligar para o técnico — o que já foi tentado e por quem.</p>
+      <button class="btn btn-fio">Trocar técnico</button>
+      <button class="btn btn-fio">Comentar</button>
+    </div>
+  </div></div>`;
+}
+
+function dlgNovo(){
+  return `<div class="fundo" id="fundo"><div class="ficha" style="width:min(660px,100%)" role="dialog" aria-label="Novo chamado">
+    <div class="ficha-cab">
+      <div><h2>Novo chamado</h2>
+        <div class="onde" style="margin-top:7px">Aberto por Rafael Souza<i></i>08:41</div></div>
+      <button class="ficha-x" aria-label="Fechar">${I.x}</button>
+    </div>
+    <div class="form">
+      <div class="campo largo">
+        <label for="f1">Prédio</label>
+        <select id="f1">
+          <option>Ed. Monte Verde — Perdizes (sem telemetria)</option>
+          <option>Ed. Villa Lobos — Vila Mariana</option>
+          <option>Cond. Santana Norte — Santana (sem telemetria)</option>
+        </select>
+      </div>
+      <div class="campo">
+        <label for="f2">Categoria</label>
+        <select id="f2">
+          <option>Vazamento</option><option>Falha de bomba</option>
+          <option>Nível baixo</option><option>Sem água</option>
+          <option>Ruído</option><option>Manutenção</option><option>Outro</option>
+        </select>
+      </div>
+      <div class="campo">
+        <label>Prioridade</label>
+        <div class="prio-fila">
+          <button class="prio" aria-pressed="false">P1</button>
+          <button class="prio" aria-pressed="true">P2</button>
+          <button class="prio" aria-pressed="false">P3</button>
+          <button class="prio" aria-pressed="false">P4</button>
+        </div>
+      </div>
+      <div class="campo largo">
+        <label for="f3">O que foi relatado</label>
+        <textarea id="f3" placeholder="Escreva com as palavras de quem ligou. O técnico lê isto antes de sair."></textarea>
+      </div>
+      <p class="dica">A prioridade define o SLA: <b>P1 ≤ 3h</b> de chegada, P2 24–48h,
+        P3 ≤ 72h, P4 conforme agenda. Na dúvida entre dois níveis, prevalece o maior.</p>
+    </div>
+    <div class="ficha-pe">
+      <p>O chamado nasce como <b>aberto</b>, sem técnico. Despachar é o passo seguinte.</p>
+      <button class="btn btn-fio">Cancelar</button>
+      <button class="btn">Abrir chamado</button>
+    </div>
+  </div></div>`;
+}
+
+function montarMapa(){
+  const el = document.getElementById("mapa");
+  if(!el || typeof L === "undefined") return;
+  const map = L.map(el, { zoomControl:false, attributionControl:false }).setView(ALVO.ll, 12);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    { subdomains:"abc", maxZoom:19, className:"map-tiles-dark" }).addTo(map);
+  L.marker(ALVO.ll, { icon: L.divIcon({ className:"", iconSize:[30,30], iconAnchor:[15,15],
+    html:`<div class="pin pin-predio">P1</div>` }) }).addTo(map);
+  TECNICOS.forEach(t => {
+    L.marker(t.ll, { icon: L.divIcon({ className:"", iconSize:[26,26], iconAnchor:[13,13],
+      html:`<div class="pin pin-tec" data-liv="${t.livre}">${t.n.split(" ").map(x=>x[0]).slice(0,2).join("")}</div>` }) }).addTo(map);
+    if(t.livre) L.polyline([t.ll, ALVO.ll], { color:"#63d8a0", weight:1.5, opacity:.5, dashArray:"4 5" }).addTo(map);
+  });
+  map.fitBounds(L.latLngBounds([ALVO.ll, ...TECNICOS.map(t=>t.ll)]).pad(.26));
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Montagem
+   ═══════════════════════════════════════════════════════════════════ */
+let com = "B", est = "agitado";
+
+function render(){
+  const tela = document.getElementById("tela");
+  document.getElementById("fundo")?.remove();
+  if(est === "calmo"){ tela.className = "tela"; tela.innerHTML = calmo(); return; }
+
+  // A ordenação é o SLA restante, não a prioridade. Quem já tem técnico sai
+  // da fila principal e vai para "andando" — continua visível, mas não
+  // compete por atenção com quem ainda espera alguém.
+  const espera  = FILA.filter(c => !c.andando).sort((a,b) => a.min - b.min);
+  const andando = FILA.filter(c =>  c.andando).sort((a,b) => a.min - b.min);
+
+  const miolo = `
+    <div class="fila-cab"><h2>Esperando alguém</h2>
+      <span>${espera.length} chamados · ordenados pelo que estoura primeiro</span></div>
+    <div class="fila">${espera.map(item).join("")}</div>
+    <div class="andando-cab"><h2>Já tem técnico</h2>
+      <span>${andando.length} chamados</span></div>
+    <div class="fila">${andando.map(item).join("")}</div>`;
+
+  if(com === "A"){
+    tela.className = "tela";
+    tela.innerHTML = barra() + miolo;
+  } else {
+    tela.className = "tela";
+    tela.innerHTML = barra() + `<div class="comB"><div>${miolo}</div>${trilho()}</div>`;
+  }
+}
+
+const DLG = { despacho:dlgDespacho, ficha:dlgFicha, novo:dlgNovo };
+function abrirDlg(nome){
+  document.getElementById("fundo")?.remove();
+  document.body.insertAdjacentHTML("beforeend", DLG[nome]());
+  if(nome === "despacho") montarMapa();
+}
+
+document.querySelector(".andaime").addEventListener("click", e => {
+  const b = e.target.closest("button"); if(!b) return;
+  if(b.dataset.dlg){ abrirDlg(b.dataset.dlg); return; }
+  b.parentElement.querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed","false"));
+  b.setAttribute("aria-pressed","true");
+  if(b.dataset.com){ com = b.dataset.com; render(); }
+  if(b.dataset.est){ est = b.dataset.est; render(); }
+  if(b.dataset.larg){ document.querySelector(".palco").dataset.larg = b.dataset.larg; }
+});
+
+document.addEventListener("click", e => {
+  const abre = e.target.closest("[data-dlg]");
+  if(abre && !e.target.closest(".andaime")){ abrirDlg(abre.dataset.dlg); return; }
+  const prio = e.target.closest(".prio");
+  if(prio){
+    prio.parentElement.querySelectorAll(".prio").forEach(x => x.setAttribute("aria-pressed","false"));
+    prio.setAttribute("aria-pressed","true"); return;
+  }
+  const aba = e.target.closest(".ficha-aba");
+  if(aba){
+    aba.parentElement.querySelectorAll(".ficha-aba").forEach(x => x.setAttribute("aria-selected","false"));
+    aba.setAttribute("aria-selected","true"); return;
+  }
+  if(e.target.closest(".ficha-x") || e.target.id === "fundo") document.getElementById("fundo")?.remove();
+});
+document.addEventListener("keydown", e => {
+  if(e.key === "Escape") document.getElementById("fundo")?.remove();
+});
+
+render();
+</script>
+</body>
+</html>

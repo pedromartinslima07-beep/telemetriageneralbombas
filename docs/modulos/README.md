@@ -25,6 +25,7 @@ faz, quais tabelas/serviços/jobs participam e as regras de decisão.
 | Painel do cliente ("Meu prédio") | [`painel-cliente.md`](painel-cliente.md) |
 | Envio do orçamento por e-mail (duas opções) | [`orcamentos-envio.md`](orcamentos-envio.md) |
 | Painel admin (operação interna) — 15 telas, 3 moldes | [`painel-admin.md`](painel-admin.md) |
+| Painel do operador (a fila do turno) | [`painel-operador.md`](painel-operador.md) |
 
 Referências cruzadas: [`../banco-de-dados.md`](../banco-de-dados.md),
 [`../api.md`](../api.md), [`../arquitetura.md`](../arquitetura.md).

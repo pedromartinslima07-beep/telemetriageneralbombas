@@ -30,6 +30,8 @@ colors:
   fio-escuro: "rgba(6, 16, 51, .16)"
   rasgo: "rgba(2, 6, 22, .55)"
   luz: "rgba(255, 255, 255, .10)"
+  agua-critico-topo: "#7a1e2c"
+  agua-critico-base: "#4a1220"
 typography:
   display:
     fontFamily: "Archivo, ui-sans-serif, system-ui, sans-serif"
@@ -209,10 +211,12 @@ components:
 
 # Design System: General Telemetria — Sistema "Chapa"
 
-> **Fronteira do documento — revisada em 2026-08-21.** Este arquivo descreve o
-> sistema **"Chapa"**, que hoje veste **quatro superfícies**: a landing pública
+> **Fronteira do documento — revisada em 2026-08-27.** Este arquivo descreve o
+> sistema **"Chapa"**, que hoje veste **cinco superfícies**: a landing pública
 > (`/`), a tela de login (`/login`), o **painel do cliente**
-> (`/cliente/painel`) e o **painel admin** (`/admin/painel`).
+> (`/cliente/painel`), o **painel admin** (`/admin/painel`) e o **painel do
+> operador** (`/operador/painel`, desde 27/08/2026 — em registro de operação,
+> como o admin; ver [painel-operador.md](docs/modulos/painel-operador.md)).
 >
 > ⚠️ **O painel admin entrou em 20–21/08/2026, e isso INVERTE o que esta caixa
 > dizia.** Até então ela afirmava que o admin seguia num sistema separado
@@ -238,9 +242,18 @@ components:
 > | Gestos retóricos | revelação por corte, engrenagens, inversão de campo | nenhum |
 > | Densidade | uma leitura por tela | tabela de 40 linhas |
 >
-> As quatro superfícies **duplicam os tokens de propósito** (`landing.css`,
-> `login.css`, `cliente.css`, `admin.css`), porque são servidas em páginas
-> diferentes e não compartilham CSS. **Mudou a paleta? Mude nos quatro.**
+> As cinco superfícies **duplicam os tokens de propósito** (`landing.css`,
+> `login.css`, `cliente.css`, `admin.css`, `operador.css`), porque são servidas
+> em páginas diferentes e não compartilham CSS. **Mudou a paleta? Mude nos
+> cinco.**
+>
+> ⚠️ **Rampa de tipo: este sistema não tem tokens de tamanho, e isso é o
+> estado, não um descuido.** `cliente.css` usa 37 tamanhos distintos,
+> `landing.css` 31, `operador.css` 29 — o que a rampa abaixo documenta são
+> **papéis**, não literais. O detector da skill sinaliza cada `font-size` como
+> fora da rampa nas cinco folhas; introduzir tokens em uma só faria dela a
+> superfície fora do padrão. Se um dia isso for arrumado, é nas cinco de uma
+> vez.
 >
 > Contexto de produto: [PRODUCT.md](PRODUCT.md) · Fluxos:
 > [Landing pública](docs/modulos/landing-publica.md) ·
@@ -450,7 +463,10 @@ cliente**, que está em produção. O que salva hoje é a regra de que estado
 sempre vem com rótulo escrito — a cor nunca está sozinha.
 
 **A Regra da Água Visível.** A lâmina d'água abre em `--agua` (`#2f6fe0`) no
-painel e em `--mar-500` na landing. Não é inconsistência: na landing a coluna
+painel e em `--mar-500` na landing. No **crítico** ela escurece para vinho
+(`agua-critico-topo` → `agua-critico-base`) — os mesmos dois valores nas três
+folhas que desenham a peça (landing, cliente, operador); no **baixo** a água
+continua azul e quem avisa é a crista âmbar. Não é inconsistência: na landing a coluna
 tem 268px e é o único objeto da placa; no painel são três tubos de 176px lado a
 lado sobre o mesmo gradiente marinho, e a rampa 500→700 lê como retângulo
 preto — a água some justo no reservatório mais baixo, que é o único que
@@ -650,6 +666,25 @@ redeclara `--ch` localmente e herda o polígono: botão 10px, botão grande 13px
 peça 14px, dúvida 14px, campo de formulário 9px, coluna d'água 8px,
 instrumento 20px, placa do serviço 20px, ficha 22px, foto 20–26px. No
 mobile o `--ch` global cai para 16px.
+
+⚠️ **A RAMPA ACIMA É A INTENÇÃO; O QUE RENDERIZA É UM NÚMERO SÓ.** Medido no
+navegador em 27/08/2026, nas duas folhas: `.item` do operador declara
+`--ch: 16px` e sai com 8; `.ficha` declara 22 e sai com 8; no cliente, `.placa`
+declara 16, `.ficha` declara 14, e as duas saem com 10. **Todo `--ch` local é
+morto.** O motivo é da própria especificação: o `var()` dentro de uma custom
+property é substituído no elemento onde ela é **declarada**, não onde é usada —
+`--corte` resolve `--ch` no `:root`, e os descendentes herdam o polígono já
+pronto. Redeclarar `--ch` num componente só teria efeito se ele redeclarasse
+`--corte` junto.
+
+Ou seja: hoje cada superfície tem **um** chanfro (landing 22px, cliente e admin
+10, operador 10 desde 27/08 — era 8), e a escada de tamanhos por componente não
+existe em lugar nenhum. Isso é o **estado**, não descuido novo: as declarações
+locais estão escritas em todas as folhas e documentam a intenção. Consertar é
+mudar as cinco de uma vez — fazer numa só transformaria justamente aquela na
+superfície fora do padrão, que é a mesma razão registrada acima para a rampa de
+tipo. Enquanto não for feito, **mudar o chanfro de uma tela é mudar o `--ch` do
+`:root` dela**, e nada mais adianta.
 
 Formas menores repetem o mesmo corte a mão, com o mesmo ângulo: o numerador de
 peça (5px), o marcador de item do fecho (4px), o rótulo das chamadas (6px).
@@ -864,6 +899,26 @@ congelado no momento que importa — o alerta crítico já aberto.
   vazio. `:has()` ignora `display: none` e casa com o que está no DOM: um
   placeholder escondido em outra coluna dispara a regra. Use caminho exato
   (`:has(> .col > .placeholder)`).
+- **Don't** compor o nome da marca em tipo. A marca é o PNG do wordmark —
+  `logo-topo.png` (sem a assinatura) em barra, `login-logo.png` no login e no
+  loader. Foi assim em quatro superfícies e o painel do operador nasceu
+  digitando "General" em Archivo; ninguém pega isso medindo, só lado a lado.
+- **Don't** confiar no anel de foco `inset` do `:focus-visible` global sem
+  olhar o que a peça já tem: **um `inset` próprio o engole** (é o caso de todo
+  botão de fio, que fica sem foco visível) e **anel amarelo sobre superfície
+  amarela é invisível** — ali o anel é marinho, pela Regra do Amarelo Cego.
+  ⚠️ Corrigido em `operador.css` (27/08/2026); **`cliente.css` e `landing.css`
+  seguem com o furo latente**.
+- **Don't** escrever `--muted2` (`#5b6c9e`) como tinta sobre a placa do
+  registro de operação: dá **3,05:1**, e quase todo texto pequeno desse
+  registro é mono em caixa alta de 8–9px, o pior caso possível. Secundário ali
+  é `--muted` (`#8294c2`, 5,2:1). Medido no painel do operador em 27/08/2026.
+- **Don't** deixar `h3`/`h1` sem `margin:0` dentro de flex/grid de item denso:
+  a margem de 1em do navegador **não colapsa** ali e vira ar acidental — foram
+  29px por item na fila do operador, invisíveis na leitura do CSS.
+- **Don't** tratar o `public/operador.css` como sistema estrangeiro: desde
+  27/08/2026 ele É este sistema, no mesmo registro de operação do admin. O que
+  continua fora é o `app/public/app.css` (app do técnico), e por escopo.
 - **Don't** fazer o painel do cliente voltar a carregar `admin.css`. Foi o
   defeito central que este redesenho desfez: toda evolução do painel de
   operação caía no painel do síndico sem revisão. Ver

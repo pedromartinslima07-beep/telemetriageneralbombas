@@ -2,6 +2,7 @@ const express = require("express");
 const { pool } = require("../db");
 const { authRequired } = require("../middleware/authRequired");
 const { adminOnly } = require("../middleware/adminOnly");
+const { gestaoOnly } = require("../middleware/gestaoOnly");
 
 const router = express.Router();
 
@@ -9,7 +10,7 @@ const _ini = (v) => v || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOSt
 const _fim = (v) => v || new Date().toISOString().split("T")[0];
 
 // GET /relatorios/chamados
-router.get("/chamados", authRequired, adminOnly, async (req, res) => {
+router.get("/chamados", authRequired, gestaoOnly, async (req, res) => {
   const { data_ini, data_fim, condominio_id, status, tecnico_id, prioridade } = req.query;
 
   const conds = [
@@ -52,7 +53,7 @@ router.get("/chamados", authRequired, adminOnly, async (req, res) => {
 });
 
 // GET /relatorios/alertas
-router.get("/alertas", authRequired, adminOnly, async (req, res) => {
+router.get("/alertas", authRequired, gestaoOnly, async (req, res) => {
   const { data_ini, data_fim, condominio_id, tipo, status } = req.query;
 
   const conds = [
@@ -91,7 +92,7 @@ router.get("/alertas", authRequired, adminOnly, async (req, res) => {
 });
 
 // GET /relatorios/telemetria  (agregado diário por reservatório)
-router.get("/telemetria", authRequired, adminOnly, async (req, res) => {
+router.get("/telemetria", authRequired, gestaoOnly, async (req, res) => {
   const { data_ini, data_fim, condominio_id, device_id } = req.query;
 
   const conds = [
@@ -156,7 +157,7 @@ router.get("/telemetria", authRequired, adminOnly, async (req, res) => {
 // período (chamados em risco de estourar SLA + workload por técnico).
 // Extraído do antigo /sla-dashboard, que rodava isso junto com agregações
 // pesadas por período que foram substituídas por exportação CSV.
-router.get("/painel-vivo", authRequired, adminOnly, async (req, res) => {
+router.get("/painel-vivo", authRequired, gestaoOnly, async (req, res) => {
   try {
     const [emRiscoRes, workloadRes] = await Promise.all([
       pool.query(`

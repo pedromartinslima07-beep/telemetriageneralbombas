@@ -306,6 +306,27 @@ async function sendOrcamentoCliente(dados) {
   // no segundo caso.
   const temAnexo = Boolean(dados.pdfBuffer);
 
+  // ⚠️ SÃO DOIS E-MAILS, NÃO UM COM PEÇAS OPCIONAIS (27/08/2026).
+  //
+  // A rota separa `painel` de `carta` desde 25/08, mas só separava as
+  // ENTRADAS — destinatário, texto, anexo, link. O HTML era um só, o
+  // estruturado, e a carta saía com a faixa "Orçamento comercial", a caixa
+  // "Informações do orçamento" e o "Atenciosamente / General Bombas" da casa
+  // em volta do que o operador tinha escrito. O resultado era um e-mail
+  // repetido: a carta dizia o número e o cliente, e a caixa logo abaixo dizia
+  // de novo; e a assinatura pessoal do operador entrava ENSANDUICHADA no fecho
+  // da empresa, sob um "General Bombas" em negrito que ele não escreveu.
+  //
+  // A carta é só a carta: o texto e a imagem da assinatura. Quem escolheu
+  // escrever escolheu dizer as coisas do jeito dele, e o documento inteiro vai
+  // anexo — moldura de sistema ali não acrescenta, atrapalha. O modo `painel`
+  // continua estruturado, porque lá o corpo é fixo e a caixa de informações é
+  // o que dá contexto antes do botão.
+  //
+  // Quem manda o modo é a rota. Sem ele (cliente antigo, com JS em cache), cai
+  // no estruturado — que é o comportamento que esse cliente já tinha.
+  const ehCarta = dados.modo === "carta";
+
   const E = _escaparHtml;
 
   // ⚠️ O CONVITE SÓ EXISTE QUANDO HÁ PARA ONDE MANDAR.
@@ -383,36 +404,62 @@ async function sendOrcamentoCliente(dados) {
     ? `<img src="${dados.assinaturaDataUrl}" alt="" style="display:block;margin:10px 0 0;max-width:260px;height:auto;border:0;" />`
     : "";
 
-  const textoPuro = [
-    ...(mensagem
-      ? [mensagem, ``]
-      : [
-          `Prezado(a),`,
-          ``,
-          `Segue o orçamento ${numero}, referente a ${condo}.${ondeEstaODocumento ? " " + ondeEstaODocumento : ""}`,
-          ``,
-        ]),
-    `Informações do orçamento`,
-    `Número: ${numero}`,
-    `Cliente: ${condo}`,
-    dataDoc  ? `Data: ${dataDoc}` : null,
-    validade ? `Válido até: ${validade}` : null,
+  // O que abre o e-mail nos dois formatos: o texto do operador quando existe,
+  // o parágrafo padrão quando não.
+  const textoAbertura = mensagem || [
+    `Prezado(a),`,
     ``,
-    // ⚠️ A versão em texto puro também leva o link. Ela não é decoração: é o
-    // que alguns clientes de e-mail mostram, e é onde cai quem bloqueia HTML.
-    dados.linkPainel ? `Ver o orçamento e responder: ${dados.linkPainel}` : null,
-    dados.linkPainel ? `` : null,
-    `Atenciosamente,`,
-    `General Bombas`,
-    `General Engenharia da Manutenção · (11) 2038-8679 · WhatsApp (11) 96653-6110 · comercial@generalbombas.com`,
-  ].filter(l => l !== null).join("\n");
+    `Segue o orçamento ${numero}, referente a ${condo}.${ondeEstaODocumento ? " " + ondeEstaODocumento : ""}`,
+  ].join("\n");
+
+  const textoPuro = ehCarta
+    // ⚠️ NA CARTA, A VERSÃO EM TEXTO É SÓ A CARTA — e não tem assinatura.
+    // Ela é imagem, e imagem não tem equivalente em texto puro. Quem bloqueia
+    // HTML recebe exatamente o que o operador escreveu e conferiu, sem um
+    // fecho que ele não digitou. Se ele quer assinar com o nome também, o
+    // lugar é o texto.
+    ? textoAbertura
+    : [
+        textoAbertura,
+        ``,
+        `Informações do orçamento`,
+        `Número: ${numero}`,
+        `Cliente: ${condo}`,
+        dataDoc  ? `Data: ${dataDoc}` : null,
+        validade ? `Válido até: ${validade}` : null,
+        ``,
+        // ⚠️ A versão em texto puro também leva o link. Ela não é decoração: é
+        // o que alguns clientes de e-mail mostram, e é onde cai quem bloqueia
+        // HTML.
+        dados.linkPainel ? `Ver o orçamento e responder: ${dados.linkPainel}` : null,
+        dados.linkPainel ? `` : null,
+        `Atenciosamente,`,
+        `General Bombas`,
+        `General Engenharia da Manutenção · (11) 2038-8679 · WhatsApp (11) 96653-6110 · comercial@generalbombas.com`,
+      ].filter(l => l !== null).join("\n");
+
+  // ⚠️ A CARTA NÃO TEM MOLDURA: texto e assinatura, e o e-mail acaba aí.
+  // Sem faixa, sem logo, sem caixa de informações, sem fecho da casa, sem
+  // rodapé — o que chega é o que o operador escreveu, com a assinatura dele
+  // embaixo. O documento vai anexo; quem quiser número, valor e validade abre
+  // o PDF, que é onde essas coisas valem.
+  //
+  // A `div` com largura máxima é o único enfeite, e é layout, não conteúdo:
+  // sem ela o Gmail no desktop estica a linha pela tela inteira e a carta fica
+  // ilegível. `max-width` em div é ignorado pelo Outlook, que vai render em
+  // toda a largura — aceitável aqui, porque não há nada para desalinhar.
+  const cartaHtml = `
+<div style="font-family:Helvetica,Arial,sans-serif;max-width:560px;margin:0 auto;padding:28px 24px;background:#ffffff;color:#111827;">
+  ${mensagemHtml}
+  ${assinaturaHtml}
+</div>`;
 
   // ⚠️ LAYOUT EM <table>, DO LADO DE FORA PRA DENTRO, com estilo inline.
   // Não é preferência: o Outlook renderiza com o motor do Word, que ignora
   // flex/grid, `max-width` em div e folha de estilo em <style>. Tabela
   // aninhada com width fixo é o único layout que chega igual no Gmail, no
   // Outlook e no app do celular.
-  const html = `
+  const estruturadoHtml = `
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#eef1f7;margin:0;padding:24px 12px;">
   <tr><td align="center">
     <table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0" style="width:560px;max-width:100%;background:#ffffff;border:1px solid #dfe4ee;">
@@ -469,6 +516,8 @@ async function sendOrcamentoCliente(dados) {
     </table>
   </td></tr>
 </table>`;
+
+  const html = ehCarta ? cartaHtml : estruturadoHtml;
 
   await _enviar({
     from: `General Bombas <${_emailFrom()}>`,

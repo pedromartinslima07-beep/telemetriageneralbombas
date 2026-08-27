@@ -10,6 +10,7 @@ const { refletirStatusOrcamento } = require("../services/equipamento-bancada.ser
 
 const { authRequired } = require("../middleware/authRequired");
 const { adminOnly } = require("../middleware/adminOnly");
+const { gestaoOnly } = require("../middleware/gestaoOnly");
 const { masterAdminOnly } = require("../middleware/masterAdminOnly");
 const { OFFLINE_MINUTES } = require("../config");
 const { getAllConfigs, setConfig, CHAVES } = require("../services/config.service");
@@ -257,7 +258,10 @@ function _geocodeAguardarVez() {
   return minhaVez;
 }
 
-router.get("/geocode", authRequired, adminOnly, async (req, res) => {
+// `gestaoOnly` (27/08/2026): os dois geocoders servem só ao mini-mapa do
+// cadastro/edição de condomínio, que já é tela de gestão. O mapa principal usa
+// as coordenadas que o cadastro gravou, não geocodifica nada.
+router.get("/geocode", authRequired, gestaoOnly, async (req, res) => {
   // Aceita query livre (q=...) ou structured search (street/city/state/postalcode)
   const { q, street, city, state, postalcode } = req.query;
 
@@ -332,7 +336,7 @@ router.get("/geocode", authRequired, adminOnly, async (req, res) => {
 // mini-mapa, pra preencher de volta os campos endereço/bairro/cidade/UF/CEP.
 // Mesma fila de rate-limit do /geocode (1 req/s).
 // ----------------------------------------------------------------------------
-router.get("/reverse-geocode", authRequired, adminOnly, async (req, res) => {
+router.get("/reverse-geocode", authRequired, gestaoOnly, async (req, res) => {
   const lat = Number(req.query.lat);
   const lon = Number(req.query.lon);
 
@@ -379,7 +383,7 @@ router.get("/reverse-geocode", authRequired, adminOnly, async (req, res) => {
 });
 
 // GET /admin/usuarios?role=cliente
-router.get("/usuarios", authRequired, adminOnly, async (req, res) => {
+router.get("/usuarios", authRequired, gestaoOnly, async (req, res) => {
   const role = req.query.role || null;
   try {
     const result = await pool.query(
@@ -922,7 +926,7 @@ const ORC_STATUS_VALIDOS = ["rascunho", "enviado", "aprovado", "rejeitado"];
 
 // GET /admin/orcamentos?status=&condominio_id=&data_ini=&data_fim=
 // Lista APENAS orçamentos originados de OS (orcamentos.os_id IS NOT NULL).
-router.get("/orcamentos", authRequired, adminOnly, async (req, res) => {
+router.get("/orcamentos", authRequired, gestaoOnly, async (req, res) => {
   const { status: rawStatus, condominio_id, data_ini, data_fim } = req.query;
   const status = _orcStatusIn(rawStatus);
 
@@ -1076,7 +1080,7 @@ router.get("/orcamentos", authRequired, adminOnly, async (req, res) => {
 
 // PATCH /admin/orcamentos/:os_id — aprovar, rejeitar ou salvar valor
 // (mantém :os_id na URL por compat; resolve internamente para orcamentos.id)
-router.patch("/orcamentos/:os_id", authRequired, adminOnly, async (req, res) => {
+router.patch("/orcamentos/:os_id", authRequired, gestaoOnly, async (req, res) => {
   const osId = Number(req.params.os_id);
   if (!Number.isInteger(osId) || osId <= 0) {
     return res.status(400).json({ error: "os_id inválido" });
@@ -1194,7 +1198,7 @@ router.patch("/orcamentos/:os_id", authRequired, adminOnly, async (req, res) => 
 // ── Itens do orçamento (mantém :os_id na URL; opera em orcamento_linhas) ──────
 
 // GET /admin/orcamentos/:os_id/itens
-router.get("/orcamentos/:os_id/itens", authRequired, adminOnly, async (req, res) => {
+router.get("/orcamentos/:os_id/itens", authRequired, gestaoOnly, async (req, res) => {
   const osId = Number(req.params.os_id);
   if (!Number.isInteger(osId) || osId <= 0) return res.status(400).json({ error: "os_id inválido" });
   try {
@@ -1214,7 +1218,7 @@ router.get("/orcamentos/:os_id/itens", authRequired, adminOnly, async (req, res)
 });
 
 // POST /admin/orcamentos/:os_id/itens
-router.post("/orcamentos/:os_id/itens", authRequired, adminOnly, async (req, res) => {
+router.post("/orcamentos/:os_id/itens", authRequired, gestaoOnly, async (req, res) => {
   const osId = Number(req.params.os_id);
   if (!Number.isInteger(osId) || osId <= 0) return res.status(400).json({ error: "os_id inválido" });
 
@@ -1243,7 +1247,7 @@ router.post("/orcamentos/:os_id/itens", authRequired, adminOnly, async (req, res
 });
 
 // PATCH /admin/orcamentos/itens/:item_id
-router.patch("/orcamentos/itens/:item_id", authRequired, adminOnly, async (req, res) => {
+router.patch("/orcamentos/itens/:item_id", authRequired, gestaoOnly, async (req, res) => {
   const itemId = Number(req.params.item_id);
   if (!Number.isInteger(itemId) || itemId <= 0) return res.status(400).json({ error: "item_id inválido" });
 
@@ -1290,7 +1294,7 @@ router.patch("/orcamentos/itens/:item_id", authRequired, adminOnly, async (req, 
 });
 
 // DELETE /admin/orcamentos/itens/:item_id
-router.delete("/orcamentos/itens/:item_id", authRequired, adminOnly, async (req, res) => {
+router.delete("/orcamentos/itens/:item_id", authRequired, gestaoOnly, async (req, res) => {
   const itemId = Number(req.params.item_id);
   if (!Number.isInteger(itemId) || itemId <= 0) return res.status(400).json({ error: "item_id inválido" });
   try {
@@ -1303,7 +1307,7 @@ router.delete("/orcamentos/itens/:item_id", authRequired, adminOnly, async (req,
 });
 
 // GET /admin/orcamentos/:os_id/pdf — resolve o orcamento.id da OS e gera PDF
-router.get("/orcamentos/:os_id/pdf", authRequired, adminOnly, async (req, res) => {
+router.get("/orcamentos/:os_id/pdf", authRequired, gestaoOnly, async (req, res) => {
   const osId = Number(req.params.os_id);
   if (!Number.isInteger(osId) || osId <= 0) return res.status(400).json({ error: "os_id inválido" });
   try {
@@ -1324,7 +1328,7 @@ router.get("/orcamentos/:os_id/pdf", authRequired, adminOnly, async (req, res) =
 // ── Orçamentos avulsos (criados direto no admin) ──────────────────────────────
 
 // GET /admin/orcamentos/avulsos — lista
-router.get("/orcamentos/avulsos", authRequired, adminOnly, async (req, res) => {
+router.get("/orcamentos/avulsos", authRequired, gestaoOnly, async (req, res) => {
   try {
     const r = await pool.query(
       `SELECT o.id, o.numero, o.status, o.valido_ate, o.data_documento, o.criado_em, o.origem, o.tipo,
@@ -1388,7 +1392,7 @@ router.get("/orcamentos/avulsos", authRequired, adminOnly, async (req, res) => {
 });
 
 // POST /admin/orcamentos/avulsos — criar novo
-router.post("/orcamentos/avulsos", authRequired, adminOnly, async (req, res) => {
+router.post("/orcamentos/avulsos", authRequired, gestaoOnly, async (req, res) => {
   const { condominio_id, numero, os_id, tipo, constatacao, forma_pagamento, prazo_entrega, garantia, disponibilidade, valido_ate, data_documento,
           cliente_nome, cliente_documento, cliente_endereco, cliente_email } = req.body || {};
   const TIPOS_VALIDOS = ["pecas", "limpeza_reservatorio", "dedetizacao", "limpeza_dedetizacao"];
@@ -1433,7 +1437,7 @@ router.post("/orcamentos/avulsos", authRequired, adminOnly, async (req, res) => 
 });
 
 // PATCH /admin/orcamentos/avulsos/:id — atualizar
-router.patch("/orcamentos/avulsos/:id", authRequired, adminOnly, async (req, res) => {
+router.patch("/orcamentos/avulsos/:id", authRequired, gestaoOnly, async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
 
@@ -1507,7 +1511,7 @@ router.patch("/orcamentos/avulsos/:id", authRequired, adminOnly, async (req, res
 });
 
 // DELETE /admin/orcamentos/avulsos/:id
-router.delete("/orcamentos/avulsos/:id", authRequired, adminOnly, async (req, res) => {
+router.delete("/orcamentos/avulsos/:id", authRequired, gestaoOnly, async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
   try {
@@ -1520,7 +1524,7 @@ router.delete("/orcamentos/avulsos/:id", authRequired, adminOnly, async (req, re
 });
 
 // GET /admin/orcamentos/avulsos/:id/linhas
-router.get("/orcamentos/avulsos/:id/linhas", authRequired, adminOnly, async (req, res) => {
+router.get("/orcamentos/avulsos/:id/linhas", authRequired, gestaoOnly, async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
   try {
@@ -1540,7 +1544,7 @@ router.get("/orcamentos/avulsos/:id/linhas", authRequired, adminOnly, async (req
 // o PDF achar a especificação da cláusula por chave em vez de por regex na
 // descrição. Só o preset do tipo manda esse campo; item avulso vem sem ele.
 const TIPOS_SERVICO_LINHA = new Set(["limpeza_reservatorio", "dedetizacao"]);
-router.post("/orcamentos/avulsos/:id/linhas", authRequired, adminOnly, async (req, res) => {
+router.post("/orcamentos/avulsos/:id/linhas", authRequired, gestaoOnly, async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
   const { descricao, ficha_tecnica, quantidade, valor_unitario, tipo_servico } = req.body || {};
@@ -1564,7 +1568,7 @@ router.post("/orcamentos/avulsos/:id/linhas", authRequired, adminOnly, async (re
 });
 
 // PATCH /admin/orcamentos/avulsos/linhas/:linha_id
-router.patch("/orcamentos/avulsos/linhas/:linha_id", authRequired, adminOnly, async (req, res) => {
+router.patch("/orcamentos/avulsos/linhas/:linha_id", authRequired, gestaoOnly, async (req, res) => {
   const linhaId = Number(req.params.linha_id);
   if (!Number.isInteger(linhaId) || linhaId <= 0) return res.status(400).json({ error: "linha_id inválido" });
 
@@ -1604,7 +1608,7 @@ router.patch("/orcamentos/avulsos/linhas/:linha_id", authRequired, adminOnly, as
 });
 
 // DELETE /admin/orcamentos/avulsos/linhas/:linha_id
-router.delete("/orcamentos/avulsos/linhas/:linha_id", authRequired, adminOnly, async (req, res) => {
+router.delete("/orcamentos/avulsos/linhas/:linha_id", authRequired, gestaoOnly, async (req, res) => {
   const linhaId = Number(req.params.linha_id);
   if (!Number.isInteger(linhaId) || linhaId <= 0) return res.status(400).json({ error: "linha_id inválido" });
   try {
@@ -1617,7 +1621,7 @@ router.delete("/orcamentos/avulsos/linhas/:linha_id", authRequired, adminOnly, a
 });
 
 // GET /admin/orcamentos/avulsos/:id/pdf
-router.get("/orcamentos/avulsos/:id/pdf", authRequired, adminOnly, async (req, res) => {
+router.get("/orcamentos/avulsos/:id/pdf", authRequired, gestaoOnly, async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
   try {
@@ -1655,7 +1659,7 @@ const _EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
  * administradora onde só o síndico tinha login, os três recebiam o e-mail sem
  * anexo — e dois deles não tinham como abrir o documento em lugar nenhum.
  */
-router.get("/orcamentos/avulsos/:id/destinatarios", authRequired, adminOnly, async (req, res) => {
+router.get("/orcamentos/avulsos/:id/destinatarios", authRequired, gestaoOnly, async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
   try {
@@ -1713,7 +1717,7 @@ router.get("/orcamentos/avulsos/:id/destinatarios", authRequired, adminOnly, asy
  * nada. E `resposta_vista_em IS NULL` impede que reabrir a ficha reescreva a
  * data — o que interessa é QUANDO alguém viu pela primeira vez.
  */
-router.post("/orcamentos/avulsos/:id/resposta-vista", authRequired, adminOnly, async (req, res) => {
+router.post("/orcamentos/avulsos/:id/resposta-vista", authRequired, gestaoOnly, async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
   try {
@@ -1749,7 +1753,7 @@ router.post("/orcamentos/avulsos/:id/resposta-vista", authRequired, adminOnly, a
  * o estado atual mesmo quando o UPDATE não pegou nada, para o painel não
  * precisar adivinhar o que ficou gravado.
  */
-router.post("/orcamentos/avulsos/:id/resposta-baixa", authRequired, adminOnly, async (req, res) => {
+router.post("/orcamentos/avulsos/:id/resposta-baixa", authRequired, gestaoOnly, async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
   const desfazer = Boolean(req.body?.desfazer);
@@ -1786,7 +1790,7 @@ router.post("/orcamentos/avulsos/:id/resposta-baixa", authRequired, adminOnly, a
 });
 
 // POST /admin/orcamentos/avulsos/:id/enviar-email — envia o PDF ao cliente
-router.post("/orcamentos/avulsos/:id/enviar-email", authRequired, adminOnly, async (req, res) => {
+router.post("/orcamentos/avulsos/:id/enviar-email", authRequired, gestaoOnly, async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
   if (!process.env.RESEND_API_KEY) {
@@ -1986,6 +1990,11 @@ router.post("/orcamentos/avulsos/:id/enviar-email", authRequired, adminOnly, asy
         // Só chegam preenchidos no modo `carta`.
         mensagem,
         assinaturaDataUrl,
+        // ⚠️ O MODO VAI JUNTO PORQUE ELE ESCOLHE O FORMATO, não só o conteúdo
+        // (27/08/2026). `carta` sai como carta mesmo — texto e assinatura, e
+        // nada em volta. Sem modo (cliente com JS em cache), o serviço cai no
+        // estruturado, que é o que esse cliente já recebia.
+        modo: modo || null,
       });
     } catch (errEnvio) {
       // `resendCode` vem do helper `_enviar` em services/email.js. É ele que

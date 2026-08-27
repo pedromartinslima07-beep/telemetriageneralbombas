@@ -43,6 +43,7 @@ const { planosManutencaoRouter } = require("./routes/planos-manutencao.routes");
 const { contratosRouter } = require("./routes/contratos.routes");
 const { assinaturaRouter } = require("./routes/assinatura.routes");
 const { equipamentosRouter } = require("./routes/equipamentos.routes");
+const { operadorRouter } = require("./routes/operador.routes");
 const { leadsRouter } = require("./routes/leads.routes");
 const { startOfflineScheduler } = require("./jobs/offline.job");
 const { startPlanosManutencaoScheduler } = require("./jobs/planos-manutencao.job");
@@ -375,6 +376,13 @@ app.get("/admin/painel", _htmlNoCache, (req, res) =>
 app.get("/cliente/painel", _htmlNoCache, (req, res) =>
   enviarHtml(res, path.join(__dirname, "../public/cliente.html"))
 );
+// Painel do operador — superfície própria, não o admin com itens escondidos.
+// Mesma convenção das outras: a PÁGINA é o nome da tela (`/operador/painel`),
+// a API é o nome do recurso (`/operador/fila`), então esta rota não sombreia
+// o router registrado lá embaixo.
+app.get("/operador/painel", _htmlNoCache, (req, res) =>
+  enviarHtml(res, path.join(__dirname, "../public/operador.html"))
+);
 // Orçamentos do síndico — página própria, não um modal do painel. É o destino
 // do link que vai no e-mail do orçamento, então a URL é pública e estável; o
 // login é pedido pelo JS num cartão SOBRE a própria página — nunca em /login,
@@ -437,6 +445,7 @@ app.use("/planos-manutencao", planosManutencaoRouter);
 app.use("/contratos", contratosRouter);
 app.use("/assinar", assinaturaRouter);
 app.use("/equipamentos", equipamentosRouter);
+app.use("/operador", operadorRouter);
 // Contatos da landing. `POST /leads` é público (rate-limited + honeypot);
 // a leitura exige gestão. Ver src/routes/leads.routes.js.
 app.use("/leads", leadsRouter);

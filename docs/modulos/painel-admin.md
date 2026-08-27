@@ -34,13 +34,20 @@ documento. Os nomes abaixo são os `data-section` reais.
 | **Análise** | `dashboard` · `telemetria` · `mapa` · `relatorios` |
 | **Sistema** | `config` |
 
+> ⚠️ **O perfil `operador` vê cinco:** `alertas`, `chamados`, `telemetria`,
+> `mapa` e `config` (só a aba "Conta"). Desde 27/08/2026 as outras dez não são
+> apenas escondidas — as rotas delas respondem 403 pra ele. Lista e método de
+> conferência em [`autenticacao.md`](autenticacao.md).
+
 Os nomes dos grupos aparecem na sidebar aberta (mono, caixa alta) em quase
 toda janela — só somem, virando um filete de 1px, quando a janela do
 navegador tem menos de 700px de altura (notebook com barra de tarefas) ou
 quando a sidebar está recolhida (ícones só, sem espaço pra letra). Em
 qualquer um dos dois casos o texto continua no HTML — o `admin.js` varre
 esses elementos pra esconder grupo órfão no perfil operador, e o leitor de
-tela continua lendo.
+tela continua lendo. Esse perfil esvazia **dois** grupos inteiros hoje ("Em
+curso" e "Cadastro"), então a varredura não é hipótese: sem ela sobram dois
+cabeçalhos sem nenhum item embaixo.
 
 ⚠️ A densidade da sidebar tem **oito degraus de `@media (max-height)`**
 (base, 1000, 940, 890, 850, 800, 750, 700), e a granularidade é

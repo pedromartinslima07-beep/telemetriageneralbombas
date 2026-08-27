@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<!-- viewport-fit=cover: sem ele o iOS devolve 0 em env(safe-area-inset-*)
+     e a barra não tem como compensar o entalhe. Mesma correção das outras
+     quatro superfícies instaláveis (docs/arquitetura.md). -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#030a26">
+<!-- Instalável como as outras quatro superfícies: quem manda no modo app é
+     a PÁGINA aberta na hora de "Adicionar à Tela de Início". Sem estas
+     metas, adicionar a partir do painel dá um ícone que abre aba do Safari
+     (docs/arquitetura.md). -->
+<link rel="manifest" href="/manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<!-- "General", como nas outras quatro: é o nome do ícone na tela de
+     início, e ali quem se identifica é a marca, não a tela. -->
+<meta name="apple-mobile-web-app-title" content="General">
+<title>GENERAL • Turno</title>
+<link rel="icon" type="image/png" href="/static/favicon.png?v=3">
+<link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+<link rel="preload" href="/static/fonts/archivo.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/static/fonts/martianmono.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/static/leaflet.css">
+<link rel="stylesheet" href="/static/operador.css?v=6">
+</head>
+<body>
+
+<!-- DIREÇÃO — Painel do operador · 27/08/2026
+
+     THESIS: a fila do turno, medida pelo relógio. O item é "isto pede
+     alguém", ordenado pelo SLA que estoura primeiro, e o instrumento é a
+     EVIDÊNCIA dentro do item, nunca a estrutura da tela. Recusa dois
+     arranjos: a lista com abas e busca do admin (o painel com menos itens)
+     e a parede de instrumentos, que não tinha o que desenhar para prédio
+     sem sensor.
+     OWN-WORLD: Chapa em registro de operação. Marinho como material,
+     chanfro de 45° em dois cantos opostos, fios de 1px como usinagem, mono
+     só em medição, amarelo institucional na única ação.
+     STORY: o operador vê o que estoura primeiro, entende de onde veio, e
+     despacha sem sair da linha.
+     FIRST VIEWPORT: barra com o placar do turno e "Novo chamado"; abaixo, a
+     fila ordenada por SLA restante, cada item com a régua de tempo à
+     esquerda e a evidência no corpo.
+     Comp aprovada: docs/comps/painel-operador-v2.html -->
+
+<header class="barra">
+  <!-- A MARCA É O WORDMARK, não a palavra composta em Archivo. É assim na
+       landing, no login, no painel do cliente e no admin — `logo-topo.png` é
+       a versão SEM a assinatura, que é a que aguenta escala de barra (o
+       lockup do `login-logo.png` fica ilegível). Ver cliente.html. -->
+  <!-- `.barra-in` existe para a barra dividir a tela como o corpo divide:
+       acima de 1340px ela ganha a mesma área máxima da fila, e a marca cai
+       no mesmo x do primeiro item. Mesmo mecanismo (e mesmo nome) do
+       cliente.html e da landing. -->
+  <div class="barra-in">
+    <div class="marca">
+      <img src="/static/logo-topo.png" alt="GENERAL" width="826" height="180">
+      <span>Turno</span>
+    </div>
+  </div>
+  <div class="barra-acoes">
+    <button class="btn btn-novo" data-acao="novo" aria-label="Abrir novo chamado"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span class="btn-rot">Novo chamado</span></button>
+    <div class="relogio">
+      <span class="pulso" id="pulso" role="img" aria-label="Buscando a fila…"></span>
+      <span class="rot">Recebendo ·</span>
+      <span id="relogio">--:--</span>
+    </div>
+    <div class="conta" id="conta" title="">--</div>
+  </div>
+</header>
+
+<!-- A MARCA EM ESCALA ARQUITETÔNICA, marinho sobre marinho — a mesma peça da
+     landing e do painel do cliente (`.eng` em cliente.css). Presença sem
+     repetir o logotipo. ⚠️ Ela SANGRA para a margem de propósito: presa
+     dentro da coluna vira um bloco recortado, que é artefato e não marca.
+     Quem apara a sobra é o `overflow-x: clip` de html E body. -->
+<div class="eng" aria-hidden="true">
+  <span class="eng-a">    <svg viewBox="0 0 200 200">
+    <circle cx="100" cy="100" r="62" fill="none" stroke="currentColor" stroke-width="27"/>
+    <g fill="currentColor">
+      <rect x="93" y="6" width="14" height="26"/>
+      <rect x="93" y="6" width="14" height="26" transform="rotate(30 100 100)"/>
+      <rect x="93" y="6" width="14" height="26" transform="rotate(60 100 100)"/>
+      <rect x="93" y="6" width="14" height="26" transform="rotate(90 100 100)"/>
+      <rect x="93" y="6" width="14" height="26" transform="rotate(120 100 100)"/>
+      <rect x="93" y="6" width="14" height="26" transform="rotate(150 100 100)"/>
+      <rect x="93" y="6" width="14" height="26" transform="rotate(180 100 100)"/>
+      <rect x="93" y="6" width="14" height="26" transform="rotate(210 100 100)"/>
+      <rect x="93" y="6" width="14" height="26" transform="rotate(240 100 100)"/>
+      <rect x="93" y="6" width="14" height="26" transform="rotate(270 100 100)"/>
+      <rect x="93" y="6" width="14" height="26" transform="rotate(300 100 100)"/>
+      <rect x="93" y="6" width="14" height="26" transform="rotate(330 100 100)"/>
+    </g>
+  </svg></span>
+  <span class="eng-b">    <svg viewBox="0 0 200 200">
+    <circle cx="100" cy="100" r="62" fill="none" stroke="currentColor" stroke-width="27"/>
+    <g fill="currentColor">
+      <rect x="93" y="6" width="14" height="26"/>
+      <rect x="93" y="6" width="14" height="26" transform="rotate(30 100 100)"/>
+      <rect x="93" y="6" width="14" height="26" transform="rotate(60 100 100)"/>
+      <rect x="93" y="6" width="14" height="26" transform="rotate(90 100 100)"/>
+      <rect x="93" y="6" width="14" height="26" transform="rotate(120 100 100)"/>
+      <rect x="93" y="6" width="14" height="26" transform="rotate(150 100 100)"/>
+      <rect x="93" y="6" width="14" height="26" transform="rotate(180 100 100)"/>
+      <rect x="93" y="6" width="14" height="26" transform="rotate(210 100 100)"/>
+      <rect x="93" y="6" width="14" height="26" transform="rotate(240 100 100)"/>
+      <rect x="93" y="6" width="14" height="26" transform="rotate(270 100 100)"/>
+      <rect x="93" y="6" width="14" height="26" transform="rotate(300 100 100)"/>
+      <rect x="93" y="6" width="14" height="26" transform="rotate(330 100 100)"/>
+    </g>
+  </svg></span>
+</div>
+
+<!-- O CABEÇALHO DA TELA. O placar morava espremido na barra, ao lado da
+     marca, em 11px. Aqui ele é UMA PLACA dividida por cortes gravados — a
+     resposta que este sistema dá para "três coisas paralelas" (ver o Don't
+     dos três cards no DESIGN.md, e a `.vigia` da landing). Os rótulos são os
+     mesmos de antes. -->
+<div class="placar" id="placar"></div>
+
+<main id="tela">
+  <!-- O primeiro estado da tela é "ainda não sei", nunca "está vazio".
+       Dizer "nenhum chamado aberto" antes da resposta chegar é afirmar
+       calma que ninguém verificou — num painel de turno, o pior erro
+       possível. -->
+  <div class="carregando" id="carregando">Carregando a fila do turno…</div>
+</main>
+
+<script src="/static/leaflet.js"></script>
+<script src="/static/inatividade.js?v=1" defer></script>
+<script src="/static/operador.js?v=6" defer></script>
+<script src="/static/register-sw.js?v=51" defer></script>
+</body>
+</html>

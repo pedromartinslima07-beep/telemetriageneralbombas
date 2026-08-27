@@ -44,7 +44,9 @@ function clearError() {
 const PAINEL_POR_ROLE = {
   admin:    "/admin/painel",
   gerente:  "/admin/painel",
-  operador: "/admin/painel",
+  // O operador tem superfície própria desde 27/08/2026 — não é mais o painel
+  // admin com itens escondidos. Ver docs/modulos/painel-operador.md.
+  operador: "/operador/painel",
   tecnico:  "/tecnico/painel",
   cliente:  "/cliente/painel",
 };

@@ -159,18 +159,30 @@ ESP32 (sonda 4-20mA + SCT-013)
   **Envio do orçamento ao cliente por e-mail** (PDF anexo via Resend, botão no modal;
   destinatário de `condominios.email` — múltiplos por vírgula; marca `enviado` +
   `enviado_em/enviado_para`, migration 047). Remetente: `comercial@generalbombas.com`.
-  **Corpo fixo desde 24/08/2026**, com a identidade da casa: faixa marinho com o
-  logo embutido, etiqueta "Orçamento comercial", caixa com Número/Cliente/Data/
-  Válido até (sem o valor — ele fica no PDF) e rodapé de contato. O modal de
-  envio ficou só com o campo "Para": o campo de mensagem e o upload de
-  assinatura por usuário saíram. As rotas `/admin/me/email-template` e
-  `/admin/me/assinatura` e as colunas `usuarios.email_mensagem` /
-  `assinatura_blob` continuam no ar **sem chamador** — a remoção foi da
-  interface, não do dado.
+  **Dois formatos desde 27/08/2026**, escolhidos pelo `modo` no modal — e são
+  dois templates de verdade em `sendOrcamentoCliente`, não um com peças
+  opcionais (ver [../docs/modulos/orcamentos-envio.md](../docs/modulos/orcamentos-envio.md)):
+  - **`painel`** → estruturado, com a identidade da casa: faixa marinho com o
+    logo embutido, etiqueta "Orçamento comercial", caixa com Número/Cliente/
+    Data/Válido até (sem o valor — ele fica no PDF), botão para o painel e
+    rodapé de contato. Corpo fixo, vai só para quem tem login, sem anexo. ~31 KB.
+  - **`carta`** → **o texto escrito pelo operador e a imagem da assinatura
+    dele, e nada mais.** Sem faixa, sem caixa de informações, sem fecho da casa,
+    sem rodapé. Vai para os endereços digitados, com o PDF anexo e sem link.
+    621 bytes.
+
+  Até 27/08 o HTML era **um só**, o estruturado, e a carta saía embrulhada nele
+  — com a caixa repetindo o que a carta já dizia e a assinatura pessoal
+  ensanduichada num "Atenciosamente / General Bombas" que o operador não
+  escreveu. O modo separava as entradas; não separava a forma.
+
+  As rotas `/admin/me/email-template` e `/admin/me/assinatura` e as colunas
+  `usuarios.email_mensagem` / `assinatura_blob` alimentam o modo `carta` — elas
+  ficaram sem chamador entre 24 e 25/08, mas nunca foram removidas.
   O logo vai como data URI reduzido (`public/logo-email.png`, 20 KB, gerado por
   `scripts/gerar-logo-email.js`): o original de 68 KB vira 91 KB em base64 e o
   Gmail apara a mensagem acima de ~102 KB de corpo — o anexo não conta nesse
-  limite, o data URI conta. Corpo atual: 31 KB.
+  limite, o data URI conta.
 - Planos de manutenção preventiva + contratos. Na aba Planos, seleção múltipla
   (checkbox por linha + "todos" no cabeçalho) com **edição em massa** de
   periodicidade / próxima execução / status via `PATCH /planos-manutencao/bulk`.
@@ -278,6 +290,48 @@ ESP32 (sonda 4-20mA + SCT-013)
 - ⚠️ A seção `#servico` (`.vigia`) é **uma placa dividida por cortes
   gravados**, não três cards. Substituiu a linha do tempo da madrugada em
   2026-08-13.
+
+**Painel do operador** — `public/operador.html` + `operador.css` + `operador.js`
+
+Implementado em 2026-08-27 a partir da comp
+[`../docs/comps/painel-operador-v2.html`](../docs/comps/painel-operador-v2.html).
+Fluxo e pegadinhas em
+[painel-operador.md](../docs/modulos/painel-operador.md).
+
+- **A tese é a fila do turno**, ordenada pelo **SLA que estoura primeiro** — não
+  por data (a lista do admin) nem por prioridade. É a única diferença que
+  justifica a tela existir.
+- **A evidência mora dentro do item**: colunas d'água quando há telemetria, a
+  fala de quem relatou quando não há. Prédio sem sensor não é item pobre — é
+  item com outra prova. Foi o que derrubou a v1 ("parede de instrumentos"), que
+  não tinha o que desenhar para metade da carteira.
+- **Folha própria em "Chapa" de operação** (marinho, chanfro de 45°, mono só em
+  medição, amarelo na única ação). **Não carrega `admin.css` nem importa nada de
+  `admin.js`** — a lição do painel do cliente, que virou refém do admin até
+  13/08.
+- **Um endpoint** (`GET /operador/fila`) monta a tela inteira, com o SLA
+  resolvido no **relógio do servidor**. Recarga a cada 30s por `setTimeout`
+  recursivo, com pulso que fica vermelho após 3 ciclos sem sucesso.
+- **Acabamento em 27/08** (passe `polish` da skill): item de 318px → 258px,
+  medida de linha em 68ch, ações em coluna própria, piso de contraste 5,2:1 e
+  o pulso da barra com três estados. O brief da superfície fica em
+  `.impeccable/surfaces/public-operador-html.md`.
+- **Conformidade com as irmãs em 27/08, em dois passes.** O primeiro (lendo
+  código) trouxe tokens, marca, foco, rolagem e diálogo. O segundo, com as três
+  telas **abertas lado a lado no navegador**, achou o que a leitura não pega:
+  a tela desmontava **entre 660 e ~1090px** (trilho rígido de 300px + item de
+  largura fixa deixavam só o texto ceder — 10ch a 900px), a barra não tinha o
+  `is-rolada` com `blur` das irmãs, três peças estavam de canto reto, os quinze
+  ícones tinham ponta arredondada num sistema de traço esquadrado, e a
+  engrenagem aparecia como dente solto nas frestas entre os cartões. Agora são
+  **três faixas de layout** (>1080 · 1080–760 · <760), com os números da
+  landing.
+- ⚠️ **Nunca rodou sob a role real** — não existe usuário `operador` em produção.
+- ⚠️ **Todo `--ch` local é morto, nas cinco folhas** (medido em 27/08): o
+  `var()` de uma custom property resolve onde ela é declarada, então `--corte`
+  pega o `--ch` do `:root` e os filhos herdam o polígono pronto. Cada tela tem
+  **um** chanfro, e a rampa do `DESIGN.md` não existe em superfície nenhuma.
+  Consertar é nas cinco de uma vez; aqui só se alinhou o global (8 → 10px).
 
 **Painel do cliente** — `public/cliente.html` + `cliente.css` + `cliente.js`
 
@@ -403,13 +457,24 @@ registrava era o escritório.
 - **Três níveis no painel** (jul/2026): `adminOnly` (admin+gerente+operador) ·
   `gestaoOnly` (admin+gerente) · `masterAdminOnly` (só admin). Divisão em
   [autenticacao.md](../docs/modulos/autenticacao.md).
-- ⚠️ A restrição do **operador** é só de UI — no backend ele passa em `adminOnly`
-  e alcança orçamentos/O.S./relatórios pela API.
+- **A restrição do operador é real desde 27/08/2026** — 49 rotas trocaram
+  `adminOnly` por `gestaoOnly` (orçamentos, O.S., relatórios, contratos,
+  conversas do WhatsApp, `GET /admin/usuarios`, geocoders) e o `operador` saiu
+  de `equipeInterna` (equipamentos). **Contratos e Dashboard saíram do menu dele
+  junto** — o perfil ficou em quatro telas: Alertas · Chamados · Telemetria ·
+  Mapa, mais a aba "Conta". Sobram 24 rotas, contra 118 bloqueadas. Detalhe em
+  [autenticacao.md](../docs/modulos/autenticacao.md).
+- **O operador tem painel próprio desde 27/08/2026** — `/operador/painel`, a
+  *fila do turno*: um endpoint (`GET /operador/fila`) monta a tela inteira com
+  o SLA já calculado no servidor, e a ordem é o prazo que estoura primeiro.
+  Arquivos próprios (`public/operador.html/.js/.css`), sem importar `admin.js`.
+  Com ele o perfil passa a alcançar **25 rotas**. Fluxo em
+  [painel-operador.md](../docs/modulos/painel-operador.md).
 - **Configurações dinâmicas** editáveis pelo admin (whitelist `CHAVES` em
   `config.service.js`) — intervalos de job, modelo IA, timeouts, sem deploy.
 - Email de alerta crítico (Resend).
 - Cache em 3 camadas documentado (ver [`../CLAUDE.md`](../CLAUDE.md)).
-- **Área segura do iOS tratada nas quatro superfícies instaláveis** (18/08/2026): admin, painel do cliente, login e app do técnico. A pegadinha
+- **Área segura do iOS tratada nas cinco superfícies instaláveis** (18/08/2026; painel do operador em 27/08): admin, painel do cliente, login, painel do operador e app do técnico. A pegadinha
   é que `env(safe-area-inset-*)` só devolve valor com `viewport-fit=cover` no
   `<meta viewport>`. Mecanismo em [`../docs/arquitetura.md`](../docs/arquitetura.md). ⚠️ Não verificado em
   iPhone — não há aparelho iOS no ambiente.

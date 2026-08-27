@@ -4716,6 +4716,483 @@ truncado na tela ("TOTAL APROVA…").
 
 Cache-bust: `admin.js?v=323`.
 
+### 2026-08-27 · A restrição do operador deixa de ser só de UI
+
+Desde 2026-06-05 o perfil **operador** era um menu com itens escondidos, e nada
+mais: no backend ele passava em `adminOnly` como qualquer admin. Quem digitasse
+a URL da API — ou abrisse o DevTools — alcançava orçamentos, O.S., relatórios,
+contratos, as conversas do WhatsApp e a ficha da oficina. Estava anotado em três
+documentos como *"decisão pendente"* desde 29/07/2026, com o argumento de que
+restringir quebraria quem usa hoje.
+
+**Metade do trabalho já estava feita e ninguém tinha percebido.** Duas checagens
+antigas não são guards e por isso nunca apareceram nas auditorias por
+`grep adminOnly`: `osDonoOuAdmin` (todo o `/ordens-servico/:id/*`) e
+`GET /relatorio/pdf` (allowlist `cliente`/`admin`/`gerente`) **já barravam o
+operador** dentro do handler. Sobrou trocar o guard de 49 rotas.
+
+| Foi para | O quê | Nº |
+|---|---|---|
+| `gestaoOnly` | `/admin/orcamentos*` | 20 |
+| `gestaoOnly` | `/whatsapp/conversas*` (o `export` já era) | 13 |
+| `gestaoOnly` | `GET` de `/contratos` (as de escrita já eram) | 5 |
+| `gestaoOnly` | `/relatorios/*` | 4 |
+| `gestaoOnly` | `GET`+`POST /ordens-servico` (o resto é `osDonoOuAdmin`) | 2 |
+| `gestaoOnly` | `GET /admin/usuarios` | 1 |
+| `gestaoOnly` | `/equipamentos/etiquetas.pdf` e `DELETE` de foto | 2 |
+| `gestaoOnly` | `/admin/geocode` e `/admin/reverse-geocode` | 2 |
+| `masterAdminOnly` | `POST /jobs/verificar-offline` — os outros três jobs já eram | 1 |
+| fora de `equipeInterna` | as 10 rotas de `/equipamentos` que o técnico usa | 10 |
+
+**Contratos e Dashboard saíram também**, a pedido. Contrato é peça comercial e
+era o último item de Cadastro no menu do perfil. O Dashboard é a visão de quem
+responde pelo negócio (MRR, atividade, N condomínios de relance), não a de quem
+está de turno — e como `dashboard` nasce `is-active` no HTML, o bloco
+`if (_isOperador)` passou a chamar `showSection("alertas")`: a primeira tela
+agora é o que está errado agora.
+
+Os dois geocoders foram atrás pelo mesmo raciocínio — servem só ao mini-mapa do
+cadastro de condomínio; o mapa principal usa as coordenadas que o cadastro já
+gravou.
+
+**O menu do operador ficou: Alertas · Chamados · Telemetria · Mapa ·
+Configurações → "Conta".** A gaveta por condomínio **não** some com o Dashboard:
+ela também abre do popup do mapa e da ficha do chamado.
+
+Resultado: **24 rotas alcançáveis contra 118 bloqueadas** — e as 24 são
+exatamente alertas, chamados, telemetria e mapa.
+
+A medição virou script versionado, **`scripts/auditar-rbac.js <role>`**: ele
+percorre o `stack` real dos 17 routers (a mesma estrutura que o Express
+consulta no request) e roda cada guard com um `req` de mentira. Não abre
+conexão com o banco — guard que responde 403 nunca chega na query. Imprime três
+listas, e a terceira é a que importa: as **32 rotas sem guard de role**, cuja
+checagem mora no corpo do handler e que nenhuma leitura por prefixo enxerga.
+
+#### O que fecha no backend precisa sumir da tela no mesmo commit
+
+Restringir sem podar a UI não produz segurança, produz tela que só sabe dar 403.
+Três pontos do front tocavam rota recém-fechada **de dentro de seções que o
+operador continua vendo**:
+
+- **A gaveta do dashboard.** Ela abre da tela mais usada do perfil e tem cinco
+  abas — três delas (Atendimento, O.S., Orçamentos) agora batem em 403. Foi a
+  pegadinha: esconder item de nav não alcança a gaveta.
+- **A faixa financeira do dashboard** (`.mc-fin`: MRR, ativos, vencendo,
+  vencidos) vinha de `/contratos/metricas`. Some junto — o MRR da empresa nunca
+  foi informação de turno.
+- **O boot** pedia `/whatsapp/conversas` e `/admin/usuarios` em toda carga.
+  Estavam sob `.catch(() => {})`, então não quebravam nada — só enfeitavam o
+  console com dois 403 por refresh. Hoje `carregarConversas` e
+  `carregarUsuarios` devolvem lista vazia sem sair à rede.
+
+`getMyRole()`/`_isOperador` **subiram para o topo do `admin.js`** (estavam na
+linha 6.659). O boot precisa decidir por eles quais coleções nem chega a pedir,
+e as funções de carga são declaradas antes disso. A outra fonte de verdade —
+`body.role-{role}`, aplicada pelo `GET /admin/me` — só existe depois de uma
+volta na rede, tarde demais para essa decisão.
+
+Cache-bust: `admin.css?v=238`, `admin.js?v=324`. Nenhum endpoint novo, então o
+`sw.js` não foi tocado.
+
+⚠️ **Só vale após deploy** — a maior parte da mudança é backend.
+
+⚠️ **Nenhum usuário `operador` existe em produção** (confirmado pelo Pedro em
+27/08/2026). Não há a quem tirar acesso — mas também significa que estas quatro
+telas **nunca rodaram sob a role real**. O primeiro operador cadastrado é quem
+vai exercitar o corte pela primeira vez; vale acompanhar o console dele na
+estreia. E fica o registro: a pendência ficou aberta três meses com a
+justificativa *"restringir quebraria quem usa hoje"*, sobre zero usuários.
+
+### 2026-08-27 · O operador ganha painel próprio: a fila do turno
+
+Fecha a pergunta que a restrição de RBAC (entrada acima) deixou em aberto: o
+painel do operador é **outra tese**, não o admin podado. `/operador/painel` é a
+**fila do turno**, ordenada pelo **SLA que estoura primeiro** — um P3 com 20
+minutos de prazo vem antes de um P2 recém-aberto. A lista de chamados do admin
+ordena por data; essa é a única diferença que justifica a tela existir.
+
+**Backend — um endpoint monta a tela inteira.** `GET /operador/fila`
+(`src/routes/operador.routes.js`, guard `adminOnly`) devolve numa resposta só:
+os chamados abertos com o SLA **já resolvido**, os reservatórios do condomínio
+de cada um e a equipe com posição atual.
+
+⚠️ **O SLA é calculado com o relógio do SERVIDOR.** A ordenação *é* o
+`resta_min`; o relógio do navegador do operador pode estar minutos fora e
+reordenaria o turno inteiro sem ninguém perceber. O front só decide **como
+escrever** o número. Chamado sem `sla_definicoes` para a prioridade vai para o
+fim — não dá para prometer prazo que não existe.
+
+`origem` (whatsapp · preventiva · telemetria · manual) é **heurística**:
+`chamados` não tem essa coluna, e a procedência é deduzida por efeito colateral
+(`conversa_id`, `plano_manutencao_id`, categoria automática). O caso ambíguo é
+conhecido — um `nivel_baixo` aberto à mão aparece como "telemetria". `origemDe()`
+é a fonte única dessa leitura, para o erro ficar num lugar só.
+
+**Front — `public/operador.html/.js/.css`, folha própria.** Não carrega
+`admin.css` nem importa nada de `admin.js`: as duas telas mostram os mesmos
+chamados e foi exatamente essa tentação que deixou o painel do cliente refém do
+admin até 13/08/2026. `lerJson` e `escapar` estão duplicados de propósito.
+
+- A **evidência mora dentro do item**: colunas d'água quando há telemetria, a
+  fala de quem relatou quando não há, com o mesmo peso visual. Prédio sem sensor
+  não é item pobre — é item com outra prova. Foi isso que derrubou a v1 do comp
+  ("parede de instrumentos"): não havia o que desenhar para metade da carteira.
+- Três ações: **despachar** (`PATCH /chamados/:id { tecnico_id }`, que marca
+  `primeira_resposta_em` e para o TTFR), **abrir ficha** (`GET /chamados/:id` +
+  `/historico`) e **novo chamado** (`POST /chamados`). O mapa do despacho abre
+  só na decisão — aberto o turno inteiro seria papel de parede. Sem coordenada
+  do prédio e sem ninguém com GPS, vira uma frase: Leaflet centrado no oceano é
+  pior que texto.
+- A lista de prédios do modal vem de `GET /condominios`, **não da fila** —
+  chamado novo costuma ser num prédio que ainda não tem chamado aberto.
+- Recarga a cada 30s por `setTimeout` recursivo (nunca `setInterval` — request
+  lenta empilharia a próxima). O **pulso** da barra fica vermelho após 3 ciclos
+  sem sucesso: numa tela de turno, silêncio e falha não podem se parecer. Erro é
+  faixa, nunca `alert()`.
+- `PAINEL_POR_ROLE` no `login.js`: `operador` → `/operador/painel`.
+
+**Cache.** `/operador` entrou na lista **network-first** do `sw.js` (servida do
+cache, a fila mostraria o turno de meia hora atrás), `CACHE_NAME` v60 → **v61** e
+`register-sw.js?v=51` nas **cinco** HTMLs — as outras quatro estavam em `v=50`
+com o SW já bumpado, que é o meio-caminho que o CLAUDE.md manda não deixar.
+
+`scripts/auditar-rbac.js` ganhou o novo router no `MOUNTS` (é a única parte dele
+que não se descobre sozinha): o operador passa de 24 para **25 rotas**
+alcançáveis.
+
+✅ **Rota exercitada de verdade** contra o banco de teste, subindo um Express só
+com o router e assinando um JWT de `operador` — HTTP 200, 6 chamados, ordenação
+por SLA restante conferida e agregação de telemetria (4 reservatórios) no item.
+
+⚠️ **A tela não foi vista logada e nunca rodou sob a role real** — não existe
+usuário `operador` em produção. Fluxo completo em
+[`modulos/painel-operador.md`](modulos/painel-operador.md).
+
+### 2026-08-27 · O painel do operador ganha o acabamento das outras superfícies
+
+Passe de qualidade (skill `impeccable`) para o painel entregue na entrada
+acima. **Nada de copy mudou e nenhuma funcionalidade saiu** — o que mudou foi
+composição, contraste, estados e acabamento de teclado.
+
+**O comp aprovado carregava os defeitos, e a implementação era fiel a ele.**
+Medido na tela, não estimado:
+
+- **Item da fila: 318px → 258px.** Cabiam dois por tela num painel cuja tese é
+  varrer o turno. A pilha do tanque mandava na altura (tubo 40×132 → **34×110**,
+  mesma razão da peça), e o `h3` do título trazia **29px de margem do
+  navegador** — que, em item de flex, **não colapsa**.
+- **Medida de linha: 110–140 caracteres → 68ch.** O relato atravessava a tela
+  inteira; o sistema declara medida em `ch` desde a landing.
+- **As ações viraram coluna própria**, no mesmo x em toda a fila. Antes eram o
+  fim de uma linha que variava com o comprimento do texto.
+- **`--muted2` saiu de todo texto desta folha.** Era a tinta de quase toda
+  etiqueta mono — **3,05:1** em caixa alta de 8–9px, o pior caso possível.
+  Piso agora: **5,2:1**. Vale para o `admin.css` também, e está registrado como
+  regra no `DESIGN.md`.
+- **Rótulo do tanque**: 8px e truncado ("Caixa S…") → 9,6px, célula do tamanho
+  do nome, e quebra em duas linhas no celular. O brief do painel do cliente já
+  registrava que rótulo a 8px é ilegível.
+- **O nome do prédio saiu do mono de 9,3px** para Archivo 12,5px: é por ele que
+  se acha o item quando o técnico liga perguntando o endereço. O bairro segue
+  como etiqueta gravada.
+
+**Estados que estavam errados:**
+
+- **O pulso da barra nascia vermelho.** Como `_ultimoOk` começa nulo e o rótulo
+  era binário, todo carregamento abria com *"Sem atualizar — verifique a
+  conexão"* aceso até a primeira resposta: alarme falso na tela cuja única
+  função é avisar de verdade. São **três** estados agora, com um neutro.
+- **`+ Novo chamado` era `display:none` no celular** — a única porta de entrada
+  do chamado que chega por telefone, escondida justamente longe da mesa. Hoje
+  some o rótulo e fica o ícone, com alvo de 40px.
+- **O dia calmo perdia o trilho da equipe.** Fila vazia não é tela vazia.
+- **`.fala`** — o bloco de relato citado — existia no CSS e **nunca era
+  renderizado**. Volta para origem `manual` e `whatsapp`; frase escrita pelo
+  próprio sistema (telemetria, preventiva) não é fala de ninguém e segue em
+  texto corrido. Sem autor inventado: a API não devolve quem falou.
+- A sobrancelha do dia calmo desceu para **baixo** do título, no papel que de
+  fato tem — marcador de estado. O texto é o mesmo.
+
+**Teclado e mapa:** diálogos com `aria-modal`, foco que entra no diálogo e
+**volta para o botão de origem** ao fechar, Tab preso dentro. O mapa ganhou
+fallback quando o Leaflet não carrega (eram 326px de buraco preto sem uma
+palavra), reenvio da tile que falha (a mesma correção que o `admin.js` já tinha)
+e o **crédito do OpenStreetMap**, que tinha sido removido junto com o controle.
+
+Limpeza: `.ficha-abas`/`.ficha-aba` (estilo de um controle que nunca existiu no
+código), `.fala-quem` sem dado que a alimente, e o `#63d8a0` cravado no
+`operador.js` — a linha do mapa lê `--ok` da folha.
+
+**A marca era a palavra "General" composta em Archivo, não o wordmark.** A
+landing, o login, o painel do cliente e o admin usam todos o PNG da marca; só
+esta tela digitava o nome. Entrou o `logo-topo.png` (o wordmark **sem** a
+assinatura — o mesmo que a barra do painel do cliente usa, porque o lockup do
+`login-logo.png` fica ilegível em escala de barra), a 30px numa barra de 60 —
+a mesma proporção do painel do cliente (40 em 74). ⚠️ **Isto passou batido no
+passe de qualidade**: a verificação foi da tela contra ela mesma — composição,
+contraste, estados — e não da tela contra as superfícies irmãs, que era o
+pedido.
+
+Cache-bust: `operador.css?v=3`, `operador.js?v=3`. O `sw.js` **não** foi tocado:
+nenhum endpoint novo, e os assets saem por URL nova.
+
+⚠️ Verificado em harness (CSS e JS reais, dados de mentira) a **1528px e 500px**,
+com os três estados — fila cheia, dia calmo e carregando — e os dois diálogos.
+**A tela continua sem ter rodado logada e sob a role real.**
+
+### 2026-08-27 · O painel do operador entra no sistema das outras superfícies
+
+Correção do Pedro: *"em todos os cantos que eu pedi para você usar de
+inspiração tem a logo em cima e não 'General' escrito"*. A comparação que o
+pedido exigia — a tela **contra** o `cliente.html`/`.css` e a landing, elemento
+por elemento — não tinha sido feita; o passe anterior mediu a tela contra ela
+mesma. Feita agora, achou **13 divergências**, e o logo era só a primeira.
+
+**Marca e cabeça do documento**
+
+- `<b>General</b>` composto em Archivo → **`logo-topo.png`**, o wordmark sem a
+  assinatura (o mesmo da barra do painel do cliente, e pelo mesmo motivo
+  registrado lá: o lockup do `login-logo` não aguenta escala de barra). 30px
+  numa barra de 60 — a proporção do cliente (40 em 74); 26px no celular.
+- `apple-mobile-web-app-title` era **"Turno"**; nas outras quatro é "General".
+  Na tela de início quem se identifica é a marca, não a tela.
+- `<title>` era `Turno · General` → **`GENERAL • Turno`**, o formato do painel
+  do cliente. Favicon ganhou o `?v=3` que as irmãs já tinham.
+
+**Tokens do sistema que esta folha não usava**
+
+- **`--fonte` e `--mono`**: a família estava escrita por extenso em vinte e
+  poucas regras — e com um fallback diferente do das irmãs (faltava
+  `"SFMono-Regular"`). Agora é token, como no `cliente.css`.
+- **`--corte` / `--corte-p`**: o `polygon()` do chanfro estava cru em **oito**
+  lugares. O `DESIGN.md` manda cortar toda peça com o token, redeclarando
+  `--ch` local — é o que passou a fazer.
+- **`--saida`**: a curva de saída do sistema não existia aqui; as transições
+  usavam `ease-out` genérico.
+- **`--barra-h`, `--area-max`, `--trilho-w`, `--gut`**: os números da barra e
+  da coluna eram literais soltos. Os nomes agora são os mesmos das irmãs; os
+  valores é que são do registro de operação (barra de 60 contra 74, área de
+  1040 ao lado de um trilho de 300).
+
+**A barra passou a dividir a tela como o corpo divide**
+
+Ela era `flex` com recuo de 20px enquanto a fila é centrada: a marca caía em
+x=20 e o primeiro item em x=117. Acima de **1340px** (`--area-max` +
+`--trilho-w`) a barra vira o mesmo grid do corpo — marca alinhada ao item,
+ações alinhadas aos cartões da equipe. Abaixo disso o centramento é zero e as
+duas já batem pelo próprio `--gut`, então a regra é condicional: um grid
+permanente obrigaria as ações a caber em 300px.
+
+**As partes que o navegador desenha** (foco, seleção, rolagem) foram para os
+valores das irmãs:
+
+- anel de foco `outline` → **`box-shadow: inset 2px`** amarelo, como no
+  `cliente.css` (e `outline` num elemento com `clip-path` é recortado nos dois
+  chanfros).
+- ⚠️ **Isso revelou dois furos que o sistema tem e ninguém tinha visto:** um
+  anel `inset` é engolido por qualquer peça que já tenha um `inset` próprio (o
+  botão de fio ficava **sem foco visível**), e um anel amarelo sobre botão
+  amarelo é invisível. Corrigido aqui: sobre amarelo o anel é marinho — a
+  Regra do Amarelo Cego aplicada ao foco. **O `cliente.css` tem o mesmo furo
+  latente.**
+- barra de rolagem: polegar branco a 22% com hover amarelo (era escada de
+  marinho), e `scrollbar-width`/`-color` que faltavam por completo — no
+  Firefox esta tela mostrava a barra padrão do sistema.
+
+**Diálogo**: fundo `rgba(2,6,22,.76)` **sem** `backdrop-filter` (vidro como
+decoração é recusado pelo sistema), entrada `sobe .22s` com a mesma curva do
+painel do cliente, e `body.com-ficha` travando a fila atrás — sem isso o toque
+encadeia e a lista rola por baixo do diálogo.
+
+**`prefers-reduced-motion`** virou a regra global das irmãs, no lugar de dois
+seletores: transição nova passa a estar coberta por construção.
+
+Cache-bust: `operador.css?v=4`, `operador.js?v=4`. Detector: 34 achados, todos
+`advisory` de `font-size` (a dívida das cinco folhas, registrada no
+`DESIGN.md`) — os de cor zeraram.
+
+⚠️ Verificado em harness a **1528px, 1184px e 500px** — as duas faixas da barra
+(grid e flex), os dois diálogos e o teclado.
+
+### 2026-08-27 · As peças do sistema que faltavam no painel do operador
+
+Terceira correção do Pedro na mesma tela, e a que expôs a causa: *"tem coisas
+q sao padrao das duas telas q eu te falei como a engrenagem ao fundo, um
+cabeçalho organizado, modais ou partes q sao brancos, o zebrado, animações em
+botoes, e nada disso vc puxou, qual a razao?"*
+
+**A razão, registrada porque vale para o próximo perfil:** o `DESIGN.md` diz
+que o registro de operação não tem gestos retóricos (engrenagem, revelação por
+corte, inversão de campo ficam do lado do cliente/landing). Eu usei essa linha
+como **licença para não trazer** exatamente as peças que o pedido mandava
+trazer — deixei o documento decidir contra a instrução. Junto com isso, as duas
+passadas anteriores foram atrás do que é **mensurável** (contraste, foco,
+alinhamento, rolagem) e evitaram o que é **compositivo**, que não tem métrica.
+
+Entraram, todas portadas do `landing.css`/`cliente.css`:
+
+- **A engrenagem em escala arquitetônica** — duas rodas girando em sentidos
+  opostos (96s e 64s), `--mar-500` a .34/.26, sangrando por trás do trilho.
+  ⚠️ `position:absolute` sem ancestral posicionado **estica a página**: 97px de
+  rolagem horizontal e a tela inteira deslocada, porque o bloco de contenção
+  vira o viewport e o `overflow-x: clip` do body não alcança. `body{position:
+  relative}` é o que faz a regra do cliente.css valer aqui.
+- **O cabeçalho organizado** — o placar saiu da barra (onde era uma fileira de
+  11px espremida ao lado da marca) e virou **uma placa dividida por cortes
+  gravados**, com o par `--rasgo` + `--luz`. É a resposta que o sistema dá para
+  "três coisas paralelas" (a `.vigia` da landing), e não uma fileira de KPI: o
+  número é medição em mono tabular e os rótulos são os que já existiam.
+  No celular as células empilham e o corte vira horizontal.
+- **Os diálogos viraram PLACA CLARA** (`--chapa` com tinta `--tinta`), como a
+  ficha do painel do cliente. Entrou a família clara inteira que esta folha não
+  tinha (`--chapa`, `--chapa-cl`, `--tinta`, `--tinta-2`, `--fio-esc` e a
+  família `-t` de estado). Campos brancos, anel de foco `--tinta`, barra de
+  rolagem escura sobre claro. ⚠️ **O mapa continua escuro dentro da placa** —
+  instrumento é placa marinho pelo próprio DESIGN.md, e ali ele lê como visor
+  embutido.
+- **A fita zebrada** — `repeating-linear-gradient(-45deg)` de 6px, o mesmo
+  ângulo, passo e altura da landing e do painel do cliente. Marca a única troca
+  de registro da tela: acima o que espera alguém, abaixo o que já está andando.
+- **Botões em chapa de duas camadas** — fundo = anel, `::before` embutido
+  1,5px e re-chanfrado, e **hover que inverte o botão inteiro para amarelo**.
+  Era `box-shadow: inset` (recortado nos chanfros) com hover que só trocava a
+  cor do texto.
+
+Correções de alinhamento que a comparação lado a lado revelou: a placa do
+cabeçalho centrava contra a **página** e não contra a coluna da fila (144px de
+desvio), e o trilho não cobria a coluna inteira, deixando a engrenagem passar
+por trás dos cartões da equipe.
+
+Cache-bust: `operador.css?v=5`, `operador.js?v=5`. Detector: 36 achados, todos
+`advisory` de `font-size`.
+
+⚠️ Verificado abrindo a **landing e o painel do operador lado a lado** no mesmo
+navegador, a 1528px e 500px, com os dois diálogos.
+
+### 2026-08-27 · A carta volta a ser carta: dois templates, não um
+
+*"com carta e anexo só quero o texto, e a imagem da assinatura, nada mais"* —
+o Pedro conferiu os dois formatos de e-mail e achou a mistura.
+
+**O que estava errado:** desde 25/08 a rota separava `painel` de `carta`, mas
+separava só as **entradas** — destinatário, texto, anexo, link.
+`sendOrcamentoCliente` tinha **um único HTML**, o estruturado, e o modo nunca
+tocava na forma. A carta escrita pelo operador saía embrulhada na moldura do
+painel: faixa marinho com a sobrancelha "Orçamento comercial" por cima, caixa
+cinza "Informações do orçamento" logo abaixo do texto — repetindo número,
+cliente e validade que a carta já dizia e que o PDF anexo traz inteiros —, um
+`"Atenciosamente,"` fixo com **"General Bombas"** em negrito, e o rodapé
+institucional. A assinatura pessoal do operador entrava *ensanduichada* no
+fecho da empresa, e quem escrevia o próprio fecho no textarea recebia dois.
+
+**Onde se perdeu:** até `e891f35` ("e-mail com a cara da casa") o template era
+exatamente o simples — texto, convite e assinatura dentro de uma `div`. Esse
+commit trocou o template por um só, o estruturado, para todo mundo. `80cd1f5`
+trouxe os dois modos de volta, mas **o template nunca foi dividido junto**. Os
+comentários no código descreviam a divisão; o HTML não a executava.
+
+**A correção:** `sendOrcamentoCliente` monta `cartaHtml` ou
+`estruturadoHtml` conforme `dados.modo`, que a rota agora passa. A carta é uma
+`div` com o texto e a imagem da assinatura, e acaba aí — **621 bytes contra os
+~31 KB do estruturado**. A versão em texto puro segue a mesma divisão.
+
+- ⚠️ **A carta não tem fecho da casa, e isso é a decisão.** Quem escolheu
+  escrever escolheu dizer as coisas do jeito dele; se quer assinar com o nome
+  além da imagem, o lugar é o textarea.
+- ⚠️ **O texto puro da carta não leva nada além do que foi digitado.** A
+  assinatura é imagem e não tem equivalente ali — inventar um fecho seria pôr
+  na boca do operador palavra que ele não escreveu.
+- ⚠️ **Sem `modo`, cai no estruturado.** Cliente com JS em cache continua
+  recebendo o que já recebia.
+
+Verificado exercitando o serviço com o SDK do Resend trocado no cache do
+`require`: os três caminhos (carta, painel, legado sem modo) conferidos bloco
+a bloco no HTML e no texto puro.
+
+### 2026-08-27 · O operador entre 660 e 1090: a faixa que ninguém tinha aberto
+
+*"deixar a tela do operador com a mesma identidade da landing e da tela de
+cliente… todos os atributos visuais"* — terceiro passe na mesma tela, e o
+primeiro feito com as três abertas lado a lado no navegador.
+
+**O que a camada de tokens já resolvia.** Paleta, família `-t`, `--fonte`,
+`--mono`, `--corte`, `--saida`, foco `inset`, seleção, rolagem, fita listrada,
+hachura do sensor mudo, coluna d'água, diálogo em placa clara: tudo conforme
+desde o passe de conformidade. O detector confirmou — 36 achados, **todos**
+`font-size`, a advertência conhecida que vale para as cinco folhas. E a
+varredura de contraste na tela inteira não achou texto abaixo de AA.
+
+**O que sobrou era comportamento e forma, e nenhum detector pega:**
+
+- **A faixa de 660 a ~1090px não existia** — o defeito mais grave. Havia UMA
+  quebra (celular) num arranjo de duas colunas com trilho rígido de 300px:
+  entre ele e o item de largura fixa (92px de régua + 172px de ações), só o
+  texto podia ceder. Medido a 900px: a descrição caía para ~90px de caixa
+  (**10ch**, contra os 68ch do passe anterior), o título quebrava em duas
+  linhas, o selo descia sozinho, o bairro deixava o bullet órfão e o item ia
+  de 258px para mais de 330 — a densidade comprada em 27/08 se perdia inteira
+  na primeira janela não maximizada. Entrou uma quebra em **1080px** (o número
+  da primeira quebra da landing) onde o trilho desce e vira faixa de duas
+  seções lado a lado. Medido depois: item de volta a 258px, texto em **57ch**.
+- **A quebra de celular passou de 660 para 760px**, o número da landing e do
+  painel do cliente. A jornada não troca de layout em larguras diferentes.
+- **A barra não tinha o comportamento de rolagem das irmãs.** Landing e cliente
+  chegam translúcidas com `blur(14px)` e fio inferior transparente, e endurecem
+  em `is-rolada` acima de 12px — é a única desfocagem do sistema, registrada no
+  DESIGN.md. Aqui era marinho opaco com o fio já desenhado desde o primeiro
+  pixel. Entrou o CSS e o listener no `operador.js`.
+- **Três peças com canto reto** — `.conta`, `.tec-av` e `.ficha-x`. A mesma
+  varredura no painel do cliente acha **zero**: ali toda peça é chanfrada. As
+  duas primeiras ganharam o corte (a `.conta` em chapa de duas camadas, porque
+  `border` sob `clip-path` sai recortado nos chanfros); a `.ficha-x` virou
+  ícone solto de 44px, que é a construção do `.fechar` do cliente — resolve a
+  forma e o alvo de toque (era 34) de uma vez.
+- **Todo ícone tinha ponta arredondada.** Quinze `stroke-linecap="round"` /
+  `linejoin="round"` no `operador.js` e no HTML, num sistema cuja regra é traço
+  esquadrado (`square`/`miter`) e cuja única curva é a lâmpada de estado. O
+  `cliente.html` já vinha esquadrado; a landing declara em CSS.
+- **A engrenagem lia como artefato.** Na landing e no cliente ela fica atrás de
+  UMA superfície contínua e aparece inteira na margem; aqui, atrás de uma pilha
+  de cartões separados, o que se via era um dente em cada fresta, mudando de
+  lugar conforme ela gira. Ganhou máscara que a devolve à faixa de campo aberto
+  (barra + placar) e a apaga antes do primeiro item — e o topo virou `px`,
+  porque em `vw` o corte da máscara subia e descia com a janela. A opacidade
+  desceu de .34/.26 para .26/.20: estava **acima** do painel do cliente.
+- **A barra tinha número mágico de volta e `env()` sem fallback.**
+  `calc(60px + env(safe-area-inset-top))` com o `.trilho` grudando em
+  `top:var(--barra-h)`: no celular a barra media 54 e o trilho colava em 60,
+  então ele deslizava por baixo dela — e no iOS instalado a diferença era o
+  entalhe. Agora o celular **redeclara `--barra-h`** e o `env()` tem o `, 0px`
+  que o cliente sempre teve (sem ele, navegador que não conhece `env()` descarta
+  a declaração inteira e a barra perde a altura, não o entalhe).
+- Miudezas da mesma família: `100dvh` ao lado do `100vh` no trilho, `100svh` na
+  ficha, `scroll-padding-top` para a barra sticky,
+  `animation-iteration-count: 1` no `prefers-reduced-motion` (só encurtar a
+  duração não para o que é `infinite` — a engrenagem seguia girando a mil
+  voltas por segundo), ficha em tela cheia no celular como a do cliente, com o
+  rodapé colado no pé, e o botão "Novo chamado" do celular de 40 para 44px.
+
+**⚠️ O achado que não foi consertado, e o motivo.** Medindo o chanfro no
+navegador: **todo `--ch` local é morto**. Custom property tem o `var()`
+substituído no elemento onde é DECLARADA — `--corte` resolve `--ch` no
+`:root`, e os filhos herdam o polígono já pronto. `.item` declara 16px,
+`.ficha` declara 22, `.selo-mudo` declara 4: todos saem com o número do
+`:root`. Vale nas cinco folhas (cliente sai 10px em tudo, landing 22), ou
+seja, **a rampa de chanfro que o DESIGN.md descreve não existe em superfície
+nenhuma**. Consertar é mudar as cinco de uma vez; fazer só no operador tornaria
+ESTA a folha fora do padrão — a mesma razão já registrada para a rampa de tipo.
+O que entrou foi só alinhar o número global: `--ch` de 8 para **10px**, que é o
+do `cliente.css` e do `admin.css`.
+
+**Um achado meu que estava errado:** o `theme-color` `#030a26` não é
+divergência. As irmãs usam `#050f38` porque é o marinho **delas**; aqui a barra
+é `--mar-900`, e trocar criaria costura acima dela no app instalado.
+
+Verificado com as três telas montadas no navegador contra dados de teste
+(`/operador/painel` e `/cliente/painel` exigem login real), em 1544, 900, 620 e
+430px, mais o diálogo nos dois registros.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

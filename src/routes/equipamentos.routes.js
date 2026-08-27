@@ -5,7 +5,7 @@
 // permanente e a ficha guarda a linha do tempo — a mesma bomba volta várias
 // vezes e é justamente o histórico que se perde hoje.
 //
-// Acesso: `equipeInterna` (admin, gerente, operador, técnico) na leitura e
+// Acesso: `equipeInterna` (admin, gerente, técnico) na leitura e
 // registro — quem escaneia na bancada é o técnico, que NÃO passa em adminOnly.
 // `cliente` não entra em nenhuma rota daqui: a ficha revela endereço e
 // histórico de um condomínio que pode não ser o dele.
@@ -13,7 +13,6 @@
 const express = require("express");
 const { pool } = require("../db");
 const { authRequired } = require("../middleware/authRequired");
-const { adminOnly } = require("../middleware/adminOnly");
 const { gestaoOnly } = require("../middleware/gestaoOnly");
 const { equipeInterna } = require("../middleware/equipeInterna");
 const {
@@ -119,7 +118,7 @@ router.post("/lote", authRequired, gestaoOnly, async (req, res) => {
 // GET /equipamentos/etiquetas.pdf?lote=L2608A | ?ids=1,2,3 | &formato=corte
 //
 // Declarada antes de `/:id` de propósito — o Express casa na ordem.
-router.get("/etiquetas.pdf", authRequired, adminOnly, async (req, res) => {
+router.get("/etiquetas.pdf", authRequired, gestaoOnly, async (req, res) => {
   const { lote, ids, formato } = req.query;
 
   const base = baseUrlDe(req);
@@ -747,7 +746,7 @@ router.get("/:id/fotos/:fotoId/imagem", authRequired, equipeInterna, async (req,
 });
 
 // DELETE /equipamentos/:id/fotos/:fotoId
-router.delete("/:id/fotos/:fotoId", authRequired, adminOnly, async (req, res) => {
+router.delete("/:id/fotos/:fotoId", authRequired, gestaoOnly, async (req, res) => {
   const id = Number(req.params.id);
   const fotoId = Number(req.params.fotoId);
   if (!Number.isInteger(id) || !Number.isInteger(fotoId)) {

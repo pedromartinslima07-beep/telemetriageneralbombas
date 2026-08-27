@@ -3,7 +3,7 @@ const path = require("path");
 const fs = require("fs/promises");
 const { pool } = require("../db");
 const { authRequired } = require("../middleware/authRequired");
-const { adminOnly } = require("../middleware/adminOnly");
+const { gestaoOnly } = require("../middleware/gestaoOnly");
 const { gerarPdfOS } = require("../services/os-pdf.service");
 const { registrarMudancas } = require("../services/chamado-historico.service");
 
@@ -71,7 +71,7 @@ function osDonoOuAdmin({ forWrite = false } = {}) {
 }
 
 // POST /ordens-servico — cria rascunho. Aceita { chamado_id } ou { condominio_id, tecnico_id? }
-router.post("/", authRequired, adminOnly, async (req, res) => {
+router.post("/", authRequired, gestaoOnly, async (req, res) => {
   const { chamado_id, condominio_id, tecnico_id } = req.body || {};
 
   const cid = chamado_id ? Number(chamado_id) : null;
@@ -116,7 +116,7 @@ router.post("/", authRequired, adminOnly, async (req, res) => {
 });
 
 // GET /ordens-servico — lista com filtros opcionais
-router.get("/", authRequired, adminOnly, async (req, res) => {
+router.get("/", authRequired, gestaoOnly, async (req, res) => {
   const { chamado_id, condominio_id, tecnico_id, finalizada } = req.query;
   const conditions = [];
   const values = [];

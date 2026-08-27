@@ -1,0 +1,1320 @@
+/* ════════════════════════════════════════════════════════════════════════
+   operador.css — Painel do operador (/operador/painel)
+   ────────────────────────────────────────────────────────────────────────
+   MUNDO: "Chapa" em REGISTRO DE OPERAÇÃO — o mesmo do admin. Direção
+   aprovada em 27/08/2026 a partir de `docs/comps/painel-operador-v2.html`,
+   que continua sendo a referência visual; este arquivo é a fonte de verdade
+   do comportamento.
+
+   ⚠️ ESTA FOLHA É AUTÔNOMA. Não carrega `admin.css`, e isso é o ponto: o
+   painel do cliente passou por aqui em 13/08/2026 e a lição está registrada
+   em `docs/modulos/painel-cliente.md` — herdando a folha do admin, toda
+   evolução do painel interno caía numa superfície que ninguém tinha
+   revisado (30 versões de uma vez, em agosto). Se `admin.css` mudar, este
+   arquivo NÃO muda junto, e é assim que deve ser.
+
+   ⚠️ A tela é UMA. Não há menu, não há seções, não há para onde navegar:
+   a fila é a tela, e o detalhe abre como diálogo por cima. Se aparecer a
+   necessidade de uma segunda seção, ela é sinal de que o escopo do perfil
+   mudou — e essa é conversa de produto, não de CSS.
+
+   ⚠️ A COLUNA D'ÁGUA é a peça da landing e do painel do cliente, não o
+   cilindro do admin. O cilindro foi descartado no cliente quando a prova
+   virou a coluna; trazer o cilindro para cá seria ressuscitar a peça
+   descartada. Regras com par em `landing.css` e `cliente.css` estão
+   marcadas — mudou lá, muda aqui.
+
+   ⚠️ Tokens duplicados de propósito (como nas outras quatro superfícies):
+   as páginas são servidas separadamente e não compartilham CSS.
+   Mudou a paleta? Mude nos CINCO.
+   ════════════════════════════════════════════════════════════════════════ */
+
+@font-face {
+  font-family: "Archivo";
+  src: url("/static/fonts/archivo.woff2") format("woff2");
+  font-weight: 400 900;
+  font-stretch: 62% 125%;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Archivo";
+  src: url("/static/fonts/archivo-ext.woff2") format("woff2");
+  font-weight: 400 900;
+  font-stretch: 62% 125%;
+  font-display: swap;
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Martian Mono";
+  src: url("/static/fonts/martianmono.woff2") format("woff2");
+  font-weight: 400 700;
+  font-stretch: 75% 112.5%;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* O corte estendido também — as outras quatro superfícies carregam os dois.
+   Sem ele, etiqueta com caractere fora do latim-1 troca de fonte no meio da
+   palavra. */
+@font-face {
+  font-family: "Martian Mono";
+  src: url("/static/fonts/martianmono-ext.woff2") format("woff2");
+  font-weight: 400 700;
+  font-stretch: 75% 112.5%;
+  font-display: swap;
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   Tokens — sistema "Chapa", REGISTRO DE OPERAÇÃO.
+   Cópia de public/admin.css. Mudou a paleta? Mude nos quatro arquivos.
+   ═══════════════════════════════════════════════════════════════════ */
+:root{
+  color-scheme:dark;
+  --mar-900:#030a26; --mar-800:#050f38; --mar-700:#071b5c;
+  --mar-600:#0d2775; --mar-500:#1a3a9e;
+  --bg:var(--mar-900); --bg-soft:var(--mar-800);
+  --surface:#06154b; --surface2:#0a1d5b; --surface3:#0e2163;
+  --fio:rgba(255,255,255,.14); --fio-fraco:rgba(255,255,255,.07);
+  --fio-forte:rgba(255,255,255,.34);
+  --rasgo:rgba(2,6,22,.55); --luz:rgba(255,255,255,.10);
+  --text:#f2f5ff; --text-dim:#a6b5dc; --muted:#8294c2;
+  /* ⚠️ `--muted2` fica na paleta por paridade com o admin, mas NÃO é tinta
+     nesta folha: sobre a placa do item ele dá 3,05:1, e todo texto pequeno
+     daqui é mono em caixa alta — o pior caso possível. Texto secundário usa
+     `--muted` (5,2:1). */
+  --muted2:#5b6c9e;
+  --accent:#fbb329; --accent-2:#ffcb60; --accent-3:#d99411;
+  --agua:#2f6fe0; --crista:#8fb6ff;
+  --ok:#63d8a0; --warn:#fbb329; --risco:#ff5a4d;
+  --vermelho:#ff5a4d; --verde:#63d8a0; --amarelo:#fbb329;
+  --sobre-2:#a6b5dc;
+
+  /* ─ A FAMÍLIA CLARA: vive só dentro dos diálogos ─
+     Mesmos valores do cliente.css e do admin.css. Sobre placa clara nenhum
+     sinal saturado passa contraste como texto (Regra do Amarelo Cego, que
+     vale para o vermelho e o verde também) — por isso a família `-t`, que
+     foi re-degrauada em 21/08/2026 para separar "crítico" de "atenção" sob
+     daltonismo. Mudou aqui? Mude em cliente.css, admin.css e no DESIGN.md. */
+  --chapa:#e8ebf2; --chapa-cl:#f5f7fb; --chapa-es:#d5dae6;
+  --tinta:#061033; --tinta-2:#414f74;
+  --fio-esc:rgba(6,16,51,.18);
+  --atencao-t:#886116;   /* atenção — L .52 · 4,7:1 sobre a placa */
+  --risco-t:#790000;     /* crítico — L .34 · 9,7:1 */
+  --normal-t:#105c31;    /* repouso — L .42 · 6,8:1 */
+
+  /* ─ Tipografia: os MESMOS tokens e nomes do cliente.css/landing.css ─
+     A família estava escrita por extenso em vinte e poucas regras, com um
+     fallback diferente do das irmãs (`"SFMono-Regular"` faltava). Token
+     único: trocar a fonte deixa de ser caça ao literal. */
+  --fonte:"Archivo",ui-sans-serif,system-ui,sans-serif;
+  --mono:"Martian Mono",ui-monospace,"SFMono-Regular",monospace;
+
+  /* ─ Forma: chanfro de 45° em dois cantos opostos, raio zero em tudo ─
+     O DESIGN.md manda cortar toda peça nova com `--corte`/`--corte-p`
+     redeclarando `--ch` local. Esta folha vinha escrevendo o `polygon()`
+     cru em oito lugares — mesma forma, mas fora do sistema. */
+  /* ⚠️ ESTE VALOR É O CHANFRO DE TODA A TELA, e os `--ch` locais lá embaixo
+     NÃO fazem nada. Custom property tem o `var()` substituído no elemento
+     onde ela é DECLARADA: `--corte` resolve `--ch` aqui, no `:root`, e os
+     filhos herdam o polígono já pronto. Medido no navegador: `.item`
+     declara 16, `.ficha` declara 22, `.selo-mudo` declara 4 — todos saem
+     com o número deste `:root`.
+     Vale igual nas cinco folhas (cliente.css sai 10px em tudo, landing 22),
+     então a rampa de chanfro que o DESIGN.md descreve ("botão 10, peça 14,
+     ficha 22") hoje não existe em superfície nenhuma. Consertar é mudar as
+     cinco de uma vez — fazer só aqui tornaria ESTA a folha fora do padrão,
+     que é a mesma razão registrada para a rampa de tipo.
+     10px é o número das irmãs de UI (cliente.css e admin.css); estava 8. */
+  --ch:10px;
+  --corte:polygon(var(--ch) 0,100% 0,100% calc(100% - var(--ch)),calc(100% - var(--ch)) 100%,0 100%,0 var(--ch));
+  --ch-p:5px;
+  --corte-p:polygon(var(--ch-p) 0,100% 0,100% calc(100% - var(--ch-p)),calc(100% - var(--ch-p)) 100%,0 100%,0 var(--ch-p));
+
+  /* ─ A curva de saída do sistema ─ a mesma das irmãs. */
+  --saida:cubic-bezier(.16,.84,.32,1);
+
+  /* ─ Barra e coluna: mesmos NOMES do cliente.css/landing.css ─
+     ⚠️ Os VALORES são do registro de operação, e a diferença é deliberada:
+     barra de 60px (contra 74) e área de 1040 (contra 1240) porque esta tela
+     é densa e tem trilho de 300px ao lado. O que não podia continuar é o
+     número mágico solto — a barra usava 20px de recuo e a fila 1040
+     centrados, então a marca e o primeiro item caíam em x diferentes. */
+  --barra-h:60px;
+  --area-max:1040px;
+  --trilho-w:300px;
+  --gut:20px;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+/* ⚠️ `clip`, nunca `hidden`: `hidden` transforma o elemento em contêiner de
+   rolagem e quebra o `position:sticky` da barra e do trilho. É o que apara a
+   sobra da engrenagem, que sangra para fora da margem de propósito. Mesma
+   regra e mesmo motivo do cliente.css. */
+html,body{overflow-x:clip}
+/* A barra é `sticky`: sem isto, o que o navegador rola para dentro da tela
+   (foco por teclado, âncora) para debaixo dela. Mesma linha do cliente.css. */
+html{scroll-padding-top:calc(var(--barra-h) + env(safe-area-inset-top, 0px) + 16px)}
+/* ⚠️ `position:relative` no body é o que faz o `overflow-x: clip` acima
+   valer para a engrenagem. Sem ele, o bloco de contenção dela é o viewport
+   (ICB), e um `right:-9vw` ESTICA a página: medido, 97px de rolagem
+   horizontal e a tela inteira deslocada. No cliente.css o problema não
+   aparece porque lá a peça mora dentro de uma seção `relative`. */
+body{position:relative}
+body{
+  background:var(--bg); color:var(--text);
+  font-family:var(--fonte);
+  font-size:13px; line-height:1.5; -webkit-font-smoothing:antialiased;
+}
+/* ⚠️ As partes que o navegador desenha também são do sistema — foco,
+   seleção e barra de rolagem. Estes são os MESMOS valores do cliente.css e
+   do landing.css: o anel de foco é `inset` (não `outline`, que num elemento
+   com `clip-path` é recortado nos dois chanfros e lê como defeito), e o
+   polegar da rolagem é branco a 22% com hover amarelo — não a escada de
+   marinho que estava aqui. `scrollbar-width`/`-color` faltavam por completo:
+   no Firefox esta tela mostrava a barra padrão do sistema. */
+::selection{background:var(--amarelo);color:var(--mar-900)}
+:focus-visible{outline:none;box-shadow:inset 0 0 0 2px var(--amarelo)}
+*{scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.22) transparent}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,.22)}
+::-webkit-scrollbar-thumb:hover{background:var(--amarelo)}
+
+/* ═══════════════════════════════════════════════════════════════════
+   A TELA
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* A marca em escala arquitetônica, marinho sobre marinho — a MESMA peça da
+   landing e do painel do cliente. Presença sem repetir o logotipo.
+   ⚠️ `fixed`, não `absolute`: aqui a fila rola por muitos itens, e uma
+   engrenagem que sobe com a lista viraria elemento de conteúdo. Parada atrás
+   da fila, ela é o campo — que é o papel dela nas outras duas telas.
+   ⚠️ Fica ATRÁS do trilho de propósito: o trilho tem fundo próprio
+   (`--mar-900`), então ela aparece só na coluna da fila. */
+/* ⚠️ ELA MORRE ONDE A FILA COMEÇA — e esse é o ajuste que faltava.
+   Na landing e no painel do cliente a engrenagem fica atrás de UMA superfície
+   grande e contínua (o hero, a placa da resposta): ela aparece na margem em
+   volta da peça, inteira, e lê como marca. Aqui atrás há uma PILHA DE CARTÕES
+   SEPARADOS — e o que se via na tela não era engrenagem, era um dente
+   aparecendo em cada fresta entre um item e o outro, mudando de lugar
+   conforme ela gira. Fora do contexto do círculo, aquilo é artefato.
+   A máscara devolve a peça ao único trecho desta tela que é campo aberto — a
+   faixa da barra, do placar e do cabeçalho da fila — e a apaga antes do
+   primeiro item. Em px, não em %, porque a faixa tem altura fixa e a
+   engrenagem é dimensionada em vw: em porcentagem o corte subiria e desceria
+   com a largura da janela.
+   A opacidade também desce um degrau. Estava ACIMA do painel do cliente
+   (.34/.26 contra .26 de uma roda só), o oposto do que o registro de
+   operação pede.
+   ⚠️ O `#000` das duas máscaras NÃO é cor: máscara só lê o canal alfa, e ali
+   ele quer dizer "opaco". O detector da skill o acusa como cor fora da
+   paleta — é falso positivo, e trocá-lo por um token do sistema só faria
+   parecer que a cor importa. */
+.eng{
+  /* ⚠️ O topo é em px, não em vw — foi o `-5vw` que obrigou a troca. A
+     máscara abaixo mede a partir do TOPO DA PEÇA, e a faixa que ela precisa
+     preservar (barra + placar) tem altura fixa: com o topo em vw a peça subia
+     e descia conforme a janela e o corte caía num lugar diferente em cada
+     largura — sobrava engrenagem em cima do cabeçalho da fila a 900px. */
+  position:absolute;top:-88px;right:-9vw;
+  width:min(58vw,720px);aspect-ratio:1;
+  pointer-events:none;z-index:0;
+  -webkit-mask-image:linear-gradient(180deg,#000 0 210px,transparent 265px);
+  mask-image:linear-gradient(180deg,#000 0 210px,transparent 265px);
+}
+.eng span{position:absolute;display:block}
+/* Duas rodas girando em sentidos opostos, como na landing: uma roda sozinha
+   lê como círculo; duas engrenam. Valores calibrados contra `.eng-a`/`.eng-b`
+   do landing.css (lá são .5 e .38 sobre campo vazio) — aqui a fila é densa e
+   opaca, então elas ficam um degrau abaixo. */
+.eng-a{inset:0;width:100%;height:100%;color:var(--mar-500);opacity:.26}
+.eng-a svg{width:100%;height:100%;animation:girar 96s linear infinite}
+.eng-b{left:-26%;bottom:-4%;width:44%;height:44%;color:var(--mar-500);opacity:.2}
+.eng-b svg{width:100%;height:100%;animation:girar-inv 64s linear infinite}
+@keyframes girar{to{transform:rotate(360deg)}}
+@keyframes girar-inv{to{transform:rotate(-360deg)}}
+/* No celular a faixa de campo aberto é MAIS ALTA — a placa do turno empilha
+   em três linhas —, então o corte da máscara desce junto. */
+@media (max-width:760px){
+  .eng{
+    right:-30vw;top:-60px;width:min(96vw,460px);
+    -webkit-mask-image:linear-gradient(180deg,#000 0 280px,transparent 340px);
+    mask-image:linear-gradient(180deg,#000 0 280px,transparent 340px);
+  }
+  .eng-a{opacity:.2}.eng-b{opacity:.15}
+}
+.placar,#tela{position:relative;z-index:1}
+
+
+
+/* ⚠️ A BARRA DIVIDE A TELA COMO O CORPO DIVIDE. Ela era `flex` com recuo de
+   20px enquanto a fila é centrada em `--area-max` ao lado de um trilho de
+   300px: a marca caía em x=20 e o primeiro item em x=105, um degrau visível.
+   Nas superfícies irmãs (landing, login, painel do cliente) a barra e o
+   conteúdo compartilham `--area-max` + `--gut` e batem no mesmo x — é essa
+   a regra que faltava aqui.
+   Agora a barra é o MESMO grid do `.comB`: a marca e o placar caem na coluna
+   da fila (e alinham com o item), e as ações caem na coluna do trilho (e
+   alinham com "Equipe agora"). */
+/* ⚠️ A BARRA CHEGA TRANSLÚCIDA E ENDURECE NA ROLAGEM — não é enfeite, é a
+   única desfocagem do sistema inteiro, e o DESIGN.md a registra assim
+   ("`backdrop-filter: blur(14px)` aparece uma vez, na barra fixa, e só até o
+   primeiro scroll — depois ela vira marinho sólido com fio inferior").
+   Estava marinho opaco com fio desde o primeiro pixel, ou seja: o fio
+   inferior desenhava uma divisão que ainda não existia, e a fila passava por
+   baixo da barra sem nada acusar a passagem. Valores, curva e o limiar de
+   12px são os do cliente.css/landing.css — o `is-rolada` é posto pelo
+   `operador.js`. */
+.barra{
+  display:flex;align-items:center;height:var(--barra-h);
+  background:color-mix(in srgb,var(--mar-900) 88%,transparent);
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  border-bottom:1px solid transparent;
+  transition:border-color .3s var(--saida),background .3s var(--saida);
+  position:sticky;top:0;z-index:20;
+}
+.barra.is-rolada{border-bottom-color:var(--fio);background:var(--mar-900)}
+.barra-in{
+  flex:1;min-width:0;height:100%;
+  display:flex;align-items:center;gap:18px;
+  padding-left:var(--gut);
+}
+/* Proporção do lockup: 30px de logo numa barra de 60 é a mesma relação da
+   barra do painel do cliente (40 em 74) e da landing. Os atributos
+   `width`/`height` reservam a caixa antes de o PNG chegar. */
+.marca{display:flex;align-items:center;gap:11px;flex-shrink:0}
+.marca img{height:30px;width:auto;display:block}
+.marca span{
+  font-family:var(--mono);font-size:.58rem;
+  letter-spacing:.14em;color:var(--muted);text-transform:uppercase;
+}
+/* ═══ O CABEÇALHO DA TELA ═══════════════════════════════════════════
+   Era uma fileira de 11px espremida na barra, ao lado da marca. Agora é UMA
+   PLACA dividida por CORTES GRAVADOS — o par `--rasgo` (fundo do sulco) +
+   `--luz` (aresta pegando luz), sempre juntos e nesta ordem. Uma linha só
+   leria como borda de card e transformaria a peça em três cartõezinhos, que
+   é o vício que este sistema recusa (ver `.vigia-cel` na landing).
+   ⚠️ Também não é fileira de KPI: o número é medição (mono, tabular) e o
+   rótulo é a frase que já estava lá, não uma etiqueta inventada. */
+/* ⚠️ A placa é irmã do `.comB`, não filha: sem descontar a largura do
+   trilho ela centra contra a PÁGINA e desalinha da fila (medido: 144px à
+   direita). A largura da coluna vem do mesmo token que o grid usa. */
+.placar{width:calc(100% - var(--trilho-w))}
+/* A placa se alinha ao ITEM, não à caixa da fila: por isso a área máxima
+   dela desconta os dois gutters (a fila tem `max-width` de 1040 e padding de
+   20, então o item começa 20px para dentro). */
+.placar-in{max-width:calc(var(--area-max) - var(--gut) * 2);margin:18px auto 0}
+/* ⚠️ A placa é MATERIAL, não card: fundo um degrau acima do campo e SEM
+   borda. Com `--surface` e um fio de 1px ela sumia no fundo e lia como
+   contorno solto — a `.vigia` da landing é uma chapa pousada, e a diferença
+   está no tom, não na borda. */
+.placar-in{
+  display:grid;grid-template-columns:repeat(3,1fr);
+  background:var(--mar-700);
+  --ch:18px;clip-path:var(--corte);
+}
+.placar-i{padding:18px 22px;display:flex;align-items:baseline;gap:11px;min-width:0}
+.placar-i+.placar-i{border-left:1px solid var(--rasgo);box-shadow:inset 1px 0 0 var(--luz)}
+.placar-n{
+  font-family:var(--mono);font-size:1.75rem;font-weight:700;
+  font-feature-settings:"tnum";letter-spacing:-.03em;line-height:1;
+}
+.placar-i em{font-style:normal;font-size:13px;color:var(--text-dim);line-height:1.35}
+.placar-i[data-t="estourado"] .placar-n{color:var(--risco)}
+.placar-i[data-t="fila"] .placar-n{color:var(--accent)}
+.placar-i[data-t="rota"] .placar-n{color:var(--ok)}
+
+/* ═══ A FITA ═══════════════════════════════════════════════════════════
+   A mesma fita listrada da landing e do painel do cliente, no mesmo ângulo
+   e nos mesmos passos (-45°, 18px). Lá ela marca a troca de registro
+   ("agora" acima, "o que aconteceu" abaixo); aqui marca a única troca de
+   registro que esta tela tem: acima o que ESPERA alguém, abaixo o que já
+   está andando. É o único limite de campo da tela.
+   ⚠️ Sangra a coluna inteira (não `100vw`): à direita há o trilho, e uma
+   fita passando por baixo dele seria a fita atravessando outra peça. */
+.fita{
+  height:6px;width:100%;margin:26px 0 4px;opacity:.9;
+  background:repeating-linear-gradient(-45deg,var(--amarelo) 0 18px,var(--mar-900) 18px 36px);
+}
+/* ⚠️ `nowrap` e filhos que não encolhem: na faixa em que a barra vira grid,
+   esta é a célula do trilho (300px) e o conteúdo pede ~330. Sem isto o
+   botão quebrava em duas linhas e o relógio junto. Transbordar para a
+   ESQUERDA é inofensivo — aquele trecho da célula da fila está vazio. */
+.barra-acoes{
+  display:flex;align-items:center;justify-content:flex-end;gap:12px;
+  flex-shrink:0;padding-right:var(--gut);white-space:nowrap;
+}
+.barra-acoes>*{flex:0 0 auto}
+.relogio{
+  display:flex;align-items:center;gap:10px;
+  font-family:var(--mono);font-size:.72rem;
+  font-weight:700;letter-spacing:.05em;color:var(--text-dim);
+  font-feature-settings:"tnum";
+}
+/* Três estados: esperando a primeira resposta (neutro), recebendo (verde) e
+   parado (vermelho). O neutro existe porque o vermelho no boot era alarme
+   falso — ver `tique()`. Só o estado vivo pulsa: um ponto parado que pisca
+   diria que está tudo bem. */
+.pulso{width:7px;height:7px;flex-shrink:0;background:var(--muted)}
+.pulso[data-estado="vivo"]{background:var(--ok);animation:pulso 3.4s ease-out infinite}
+.pulso[data-estado="parado"]{background:var(--risco)}
+@keyframes pulso{0%,88%{opacity:1;transform:scale(1)}94%{opacity:.28;transform:scale(.72)}100%{opacity:1;transform:scale(1)}}
+/* ⚠️ CHAPA DE DUAS CAMADAS, como o `.btn-fio` logo abaixo. Era a única
+   caixa de canto reto da barra — e o sistema não tem canto reto: a forma
+   única é o chanfro de 45° em dois cantos opostos. Um `border` de 1px sob
+   `clip-path` não resolveria: ele sai recortado justamente nos dois
+   chanfros e lê como defeito (Regra da Chapa em Duas Camadas). Então o
+   fundo do elemento É o anel, e o `::before` embutido 1px é a placa. */
+.conta{
+  position:relative;isolation:isolate;
+  width:30px;height:30px;flex-shrink:0;background:var(--fio);
+  display:grid;place-items:center;
+  font-size:11px;font-weight:800;letter-spacing:-.01em;
+  --ch:5px;clip-path:var(--corte);
+}
+.conta::before{
+  content:"";position:absolute;inset:1px;z-index:-1;
+  clip-path:var(--corte);background:var(--mar-700);
+}
+.btn{
+  font:inherit;font-size:11.5px;font-weight:800;letter-spacing:-.01em;
+  padding:7px 13px;cursor:pointer;border:0;
+  background:var(--accent);color:var(--mar-900);
+  --ch:6px;clip-path:var(--corte);
+  transition:background .14s var(--saida);
+}
+.btn:hover{background:var(--accent-2)}
+.btn svg{flex-shrink:0}
+.btn-novo{display:inline-flex;align-items:center;gap:7px}
+/* ⚠️ CHAPA DE DUAS CAMADAS, não `box-shadow: inset`. O fundo do elemento é o
+   ANEL e o `::before` embutido 1,5px (re-chanfrado) é a placa — é assim que
+   este sistema constrói aresta visível sob `clip-path`, e é o que o
+   DESIGN.md manda ("Do"). `inset` como borda sai recortado nos dois
+   chanfros e lê como defeito.
+   E o hover INVERTE o botão inteiro para amarelo, como no painel do cliente
+   (`.btn-fio:hover` lá) — não era só o texto mudando de cinza para branco. */
+.btn-fio{
+  background:var(--fio);color:var(--text-dim);
+  position:relative;isolation:isolate;box-shadow:none;
+}
+.btn-fio::before{
+  content:"";position:absolute;inset:1.5px;z-index:-1;
+  clip-path:var(--corte);background:var(--mar-900);
+  transition:background .16s var(--saida);
+}
+.btn-fio:hover{background:var(--amarelo);color:var(--mar-900)}
+.btn-fio:hover::before{background:var(--amarelo)}
+/* ⚠️ O anel de foco do sistema é `box-shadow: inset` — então QUALQUER peça
+   que já tenha um inset próprio engole o anel, porque vem depois na folha.
+   São dois casos aqui, e o segundo vale para o sistema todo:
+   1. o botão de fio, cujo contorno de 1px é um inset;
+   2. o botão amarelo, onde um anel amarelo sobre fundo amarelo é invisível —
+      é a Regra do Amarelo Cego aplicada ao foco: sobre amarelo, o indicador
+      é marinho. */
+.btn:focus-visible{box-shadow:inset 0 0 0 2px var(--mar-900)}
+.btn-fio:focus-visible{background:var(--amarelo)}
+.btn-fio:focus-visible::before{background:var(--mar-900)}
+
+/* ═══════════════════════════════════════════════════════════════════
+   A FILA — a estrutura da tela.
+
+   ⚠️ A v1 era uma PAREDE DE INSTRUMENTOS, com o prédio como unidade. Caiu
+   por um fato do produto: `semtel` (prédio sem reservatório nenhum) é o
+   PRIMEIRO ramo do veredito no painel do cliente — caso corrente, não
+   exceção —, e três das cinco origens de chamado (IA/WhatsApp, cliente,
+   plano de manutenção) não passam por telemetria. Uma parede de
+   instrumentos não tem o que desenhar para um prédio sem instrumento, e
+   representava só a fatia do trabalho que tem sensor.
+
+   Aqui a fila é a estrutura e o INSTRUMENTO É EVIDÊNCIA: aparece dentro do
+   item quando o prédio tem sensor, do mesmo jeito que a fala do síndico
+   aparece quando a origem é o WhatsApp. Item sem tanque é um item completo.
+   ═══════════════════════════════════════════════════════════════════ */
+/* ⚠️ 1040, não 1180. A medida de linha do relato manda na largura útil do
+   item (68ch ≈ 520px); acima disso sobrava um vão morto entre o texto e as
+   ações, e a fila lia como formulário esticado em vez de registro. */
+.fila{
+  padding:14px var(--gut);display:flex;flex-direction:column;gap:9px;
+  max-width:var(--area-max);margin:0 auto;width:100%;
+}
+.fila-cab{
+  display:flex;align-items:baseline;gap:10px;padding:18px var(--gut) 0;
+  max-width:var(--area-max);margin:0 auto;width:100%;
+}
+.fila-cab h2{margin:0;font-size:12px;font-weight:800;color:var(--text-dim)}
+.fila-cab span{
+  font-family:var(--mono);font-size:.58rem;
+  letter-spacing:.1em;color:var(--muted);text-transform:uppercase;
+}
+
+.item{
+  /* ⚠️ A terceira coluna é LARGURA FIXA, não `max-content`: cada item é um
+     grid independente, então `max-content` dava largura diferente por item
+     (189px no que tem técnico, 146 nos outros) e o botão deixava de cair no
+     mesmo x — que é justamente o motivo de ele ter virado coluna. */
+  display:grid;grid-template-columns:92px minmax(0,1fr) 172px;
+  background:var(--surface2);border:1px solid var(--fio-fraco);
+  --ch:16px;clip-path:var(--corte);
+  transition:border-color .16s var(--saida),background .16s var(--saida);
+}
+.item:hover{background:var(--surface3);border-color:var(--fio)}
+.item[data-andando="1"]{background:var(--surface);border-color:var(--fio-fraco)}
+
+/* ── O RELÓGIO: a régua do turno ────────────────────────────────────
+   A ordenação da fila NÃO é a prioridade estática (P1 antes de P2). É o
+   SLA restante: quem está de turno trabalha pelo que estoura primeiro, e
+   um P3 com 20 min de TTR vem antes de um P2 recém-aberto. Os três
+   relógios já existem no schema (`sla_definicoes`: ttfr_min, ttr_min,
+   sla_chegada_min por prioridade) e o SLA estourado já é elevado a
+   alerta crítico pelo sistema. */
+.relogio-sla{
+  border-right:1px solid var(--fio-fraco);
+  padding:13px 12px;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;text-align:center;gap:3px;
+}
+.sla-n{
+  font-family:var(--mono);font-weight:700;
+  font-size:1.42rem;line-height:1;letter-spacing:-.03em;
+  font-feature-settings:"tnum";color:var(--text);
+}
+.sla-rot{
+  font-family:var(--mono);font-size:.55rem;
+  letter-spacing:.1em;text-transform:uppercase;color:var(--muted);
+  line-height:1.3;
+}
+.item[data-sla="estourado"] .relogio-sla{background:var(--vermelho)}
+.item[data-sla="estourado"] .sla-n{color:var(--mar-900)}
+.item[data-sla="estourado"] .sla-rot{color:var(--mar-900);opacity:.75}
+.item[data-sla="apertado"] .sla-n{color:var(--risco)}
+.item[data-sla="atencao"] .sla-n{color:var(--accent)}
+.item[data-sla="folgado"] .sla-n{color:var(--text-dim)}
+
+.item-corpo{padding:11px 16px 11px 15px;min-width:0;display:flex;flex-direction:column;gap:7px}
+.item-topo{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
+.num{
+  font-family:var(--mono);font-size:.68rem;
+  font-weight:700;color:var(--muted);font-feature-settings:"tnum";
+  letter-spacing:.03em;flex-shrink:0;
+}
+/* ⚠️ `margin:0` não é enfeite: `h3` traz 1em de margem do navegador e, como
+   item de flex, ela NÃO colapsa — eram 29px de ar acidental em cima e embaixo
+   do título, em todo item da fila. */
+.titulo{
+  margin:0;
+  font-size:14.5px;font-weight:800;font-stretch:108%;letter-spacing:-.022em;
+  line-height:1.2;min-width:0;
+}
+/* Selo: preenchido quando pede ação, de fio em repouso. Só UMA dimensão
+   preenche por linha — aqui, a prioridade. Status fica de fio. */
+.selo{
+  font-family:var(--mono);font-size:.55rem;
+  font-weight:700;letter-spacing:.1em;padding:3px 7px;flex-shrink:0;
+  text-transform:uppercase;
+  clip-path:var(--corte-p);
+}
+.selo[data-s="p1"]{background:var(--vermelho);color:var(--mar-900)}
+.selo[data-s="p2"]{background:var(--amarelo);color:var(--mar-900)}
+.selo[data-s="p3"]{background:var(--mar-500);color:#fff}
+.selo[data-s="p4"]{background:var(--muted);color:var(--mar-900)}
+.selo-fio{
+  background:transparent;color:var(--text-dim);
+  box-shadow:inset 0 0 0 1px var(--fio);
+}
+/* ⚠️ O NOME DO PRÉDIO SAIU DO MONO. Ele estava em etiqueta gravada de 9,3px
+   junto com o bairro, e é o dado por onde o operador acha o item quando o
+   técnico liga perguntando "qual endereço?". Mono uppercase continua sendo a
+   etiqueta — mas do bairro, que é classificação. O nome é conteúdo. */
+.onde{
+  display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;
+  font-size:12.5px;color:var(--text-dim);
+}
+.onde-nome{font-weight:700;color:var(--text-dim);letter-spacing:-.005em}
+.onde-bairro{
+  font-family:var(--mono);font-size:.58rem;
+  letter-spacing:.09em;color:var(--muted);text-transform:uppercase;
+}
+.onde i{width:3px;height:3px;background:var(--muted);font-style:normal;flex-shrink:0;align-self:center}
+
+/* ── A EVIDÊNCIA: o que este item tem para mostrar ────────────────── */
+.prova{
+  display:grid;grid-template-columns:max-content 1fr;gap:18px;align-items:center;
+  padding:4px 0 2px;
+}
+.prova[data-sem="1"]{grid-template-columns:1fr}
+/* ═══════════════════════════════════════════════════════════════════
+   A COLUNA D'ÁGUA — a MESMA peça do painel do cliente e da landing.
+
+   ⚠️ NÃO é o cilindro do admin (`_telTanqueSVG`). O cliente usou cilindro
+   entre 14/08 e a reescrita, e ele SAIU quando a prova virou a coluna da
+   landing — `cliente.html` ainda registra as três `defs` que foram embora
+   com ele. Trazer o cilindro para cá seria ressuscitar a peça descartada.
+
+   Construção (de `cliente.css`): caixa chanfrada de fundo `--mar-900` com
+   fio de 1px e `overflow:hidden` para recortar a lâmina no chanfro; as
+   faixas de risco ficam SOB a água, aparecendo conforme ela recua; a
+   lâmina desce por `transform`, nunca por `height`; a crista de 3px é
+   quem sinaliza estado.
+
+   Reproporcionada: no cliente é 82×268 (uma coluna, sozinha na placa);
+   aqui são até três lado a lado dentro de um item de fila, então vai a
+   34×110 — a MESMA razão (.309), que é o que faz continuar sendo a peça.
+   ⚠️ Era 40×132, e a pilha (tubo + número + rótulo) sozinha dava 175px de
+   altura: o item da fila ia a 318px e cabiam DOIS por tela num painel cuja
+   tese é varrer o turno. A 110 o item cai para ~240 sem que a coluna deixe
+   de ser lida — medido na tela, não deduzido.
+   ⚠️ Os RÓTULOS dos limiares saem nesta escala: o brief do cliente
+   registra que a 8px eles são ilegíveis, e foi por isso que caíram quando
+   havia três tubos. As linhas tracejadas ficam — sem elas as faixas viram
+   mancha sem explicação. */
+.prova-tanques{display:flex;gap:10px;align-items:flex-start}
+/* A célula é mais larga que o tubo: "Cisterna" e "Sup. A" não cabem em
+   40px e encostavam uma na outra. O tubo continua com 40 e centraliza. */
+/* A célula acompanha o NOME, não o tubo: "Reserva Incêndio" e "Caixa
+   Superior 1" são nomes reais do cadastro e não cabem numa largura fixa —
+   truncados ("Caixa S…"), viram adivinhação no meio de uma decisão. O tubo
+   continua com 34 e centraliza dentro da célula. */
+.tanque{flex:0 0 auto;width:auto;min-width:56px;max-width:112px;padding:0 3px;text-align:center}
+
+.tubo{
+  display:block;position:relative;--ch:5px;clip-path:var(--corte);
+  width:34px;height:110px;margin:0 auto;background:var(--mar-900);
+  box-shadow:inset 0 0 0 1px var(--fio);overflow:hidden;
+}
+.faixa{position:absolute;left:0;right:0}
+/* ⚠️ 16% e 18%, não os 11% e 13% do cliente. A opacidade é a mesma tinta,
+   mas a área não: lá a faixa tem 67px de altura num tubo de 268, aqui tem
+   33 num de 132. Percepção de cor cai com a área, e a 11% a banda de
+   atenção sumia — virava mancha sem explicação, que é justamente o que as
+   faixas existem para evitar. Conferido na tela, não deduzido. */
+.faixa-baixo{bottom:20%;height:25%;background:color-mix(in srgb,var(--amarelo) 16%,transparent)}
+.faixa-critico{bottom:0;height:20%;background:color-mix(in srgb,var(--risco) 18%,transparent)}
+.agua{
+  position:absolute;inset:0;
+  background:linear-gradient(180deg,var(--mar-500) 0%,var(--mar-600) 55%,var(--mar-700) 100%);
+  transform:translateY(calc(100% - var(--n,0%)));
+  transition:transform 1.15s cubic-bezier(.16,1,.3,1);will-change:transform;
+}
+/* Só no crítico a lâmina escurece para vinho — os mesmos dois valores da
+   landing. No baixo a água continua azul e quem avisa é a crista âmbar. */
+.res.critico .agua{background:linear-gradient(180deg,#7a1e2c 0%,#4a1220 100%)}
+.crista{
+  position:absolute;left:0;right:0;top:0;height:3px;background:var(--crista);
+  box-shadow:0 0 14px 1px color-mix(in srgb,var(--crista) 55%,transparent);
+}
+.res.baixo .crista{
+  background:var(--amarelo);
+  box-shadow:0 0 14px 1px color-mix(in srgb,var(--amarelo) 55%,transparent);
+}
+.res.critico .crista{
+  background:var(--risco);
+  box-shadow:0 0 14px 1px color-mix(in srgb,var(--risco) 60%,transparent);
+}
+.limiar{position:absolute;left:0;right:0;border-top:1px dashed var(--fio-forte);pointer-events:none}
+.limiar-baixo{bottom:45%}
+.limiar-critico{bottom:20%;border-top-color:color-mix(in srgb,var(--risco) 60%,transparent)}
+
+/* Sensor mudo: SEM LEITURA, não sem água — hachura no mesmo -45° do
+   chanfro, nunca tubo vazio. Nada de crista e nada de lâmina: uma linha
+   horizontal aqui seria lida como nível, que é a confusão que este estado
+   existe para evitar. */
+.res.mudo .tubo{
+  background:
+    repeating-linear-gradient(-45deg, transparent 0 6px,
+      color-mix(in srgb,var(--sobre-2) 20%,transparent) 6px 12px),
+    var(--mar-900);
+}
+.res.mudo .agua,.res.mudo .faixa,.res.mudo .limiar{display:none}
+.selo-mudo{
+  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  --ch:4px;clip-path:var(--corte);background:var(--fio);
+  width:26px;height:26px;display:grid;place-items:center;
+  pointer-events:none;isolation:isolate;
+}
+.selo-mudo::before{
+  content:"";position:absolute;inset:1px;z-index:-1;
+  clip-path:var(--corte);background:var(--mar-900);
+}
+.selo-mudo svg{width:14px;height:14px;stroke:var(--sobre-2)}
+
+/* O número vive FORA do tubo, como no cliente. Isso resolve de vez o
+   amarelo-sobre-amarelo que a placa do cilindro precisava contornar: o
+   texto nunca mais fica sobre a lâmina. */
+.res-num{
+  font-family:var(--mono);font-size:1.02rem;
+  font-weight:700;font-feature-settings:"tnum";letter-spacing:-.02em;
+  line-height:1.1;margin-top:7px;color:var(--text);
+}
+.res.baixo   .res-num{color:var(--amarelo)}
+.res.critico .res-num{color:var(--risco)}
+.res.mudo    .res-num{color:var(--sobre-2)}
+/* ⚠️ .6rem (9,6px), não .5rem (8px). O brief do painel do cliente registra
+   que rótulo a 8px é ilegível no celular — e aqui ele estava a 8px E cortado
+   ("Superior…", "Caixa Su…"), que é o nome do tanque virando adivinhação.
+   A célula foi para 62px pelo mesmo motivo. */
+.tanque-lbl{
+  font-family:var(--mono);font-size:.6rem;
+  letter-spacing:.03em;color:var(--muted);margin-top:4px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+/* ⚠️ MEDIDA DE LINHA em `ch`, como no painel do cliente e na landing. Sem
+   teto, a linha ia a 800–1000px (110–140 caracteres) e o olho perdia o
+   começo da linha seguinte. */
+.prova-txt{
+  font-size:12.5px;line-height:1.55;color:var(--text-dim);
+  min-width:0;max-width:68ch;margin:0;
+}
+.prova-txt b{color:var(--text);font-weight:700}
+/* Fala de gente — a evidência de um chamado que não veio de sensor. Mesmo
+   peso visual do instrumento: o prédio sem telemetria não é um item pobre. */
+/* Relato de gente. O fio à esquerda é o mesmo gesto de usinagem do resto —
+   1px, nunca a barra colorida de 3px que este sistema recusa. Quem falou e
+   quando já está na linha de origem, no pé do item; não se repete aqui, e
+   inventar um nome que a API não devolve seria pior que não ter.
+   ⚠️ Só para origem `manual` e `whatsapp` (ver `item()`): frase escrita pelo
+   próprio sistema não é fala de ninguém. */
+.fala{
+  border-left:1px solid var(--fio);padding:1px 0 1px 13px;margin:0;
+  font-size:12.5px;line-height:1.55;color:var(--text-dim);font-style:italic;
+  max-width:66ch;
+}
+.semtel{
+  display:flex;align-items:center;gap:9px;
+  font-family:var(--mono);font-size:.56rem;
+  letter-spacing:.09em;text-transform:uppercase;color:var(--muted);
+}
+.semtel svg{color:var(--muted);flex-shrink:0}
+
+.item-pe{
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  margin-top:auto;padding-top:3px;
+}
+/* A coluna das ações. Fio à esquerda para ela ler como parte usinada da
+   mesma placa, não como um segundo cartão colado. */
+.item-acoes{
+  display:flex;flex-direction:column;align-items:stretch;justify-content:center;
+  gap:7px;padding:13px 14px;border-left:1px solid var(--fio-fraco);
+}
+.item-acoes .btn{width:100%;text-align:center;padding:9px 13px}
+.item-acoes .emrota{
+  display:flex;align-items:flex-start;gap:7px;font-size:11.5px;
+  color:var(--text-dim);line-height:1.35;white-space:normal;
+}
+.origem{
+  display:flex;align-items:center;gap:7px;
+  font-family:var(--mono);font-size:.55rem;
+  letter-spacing:.09em;text-transform:uppercase;color:var(--muted);
+  margin-right:auto;
+}
+.origem svg{flex-shrink:0}
+.origem i{width:3px;height:3px;background:var(--muted);font-style:normal;flex-shrink:0}
+.emrota{
+  display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-dim);
+  white-space:nowrap;
+}
+.emrota svg{flex-shrink:0;color:var(--ok)}
+.emrota b{color:var(--text);font-weight:700}
+
+/* A chegada de um item novo: a aresta usinada acende e a placa sobe um
+   degrau de material, uma vez. Era um halo de sombra sem deslocamento —
+   decoração, e o detector da skill pegou. Aqui o gesto é do próprio
+   sistema: fio e superfície, as duas coisas de que a peça é feita. */
+.item.nova{animation:chegada 1.6s ease-out 1}
+@keyframes chegada{
+  0%,22%{border-color:var(--accent);background:var(--surface3)}
+  100%{border-color:var(--fio-fraco);background:var(--surface2)}
+}
+/* A regra global do sistema (mesma do cliente.css), no lugar dos dois
+   seletores que existiam: qualquer transição nova passa a estar coberta. */
+@media (prefers-reduced-motion:reduce){
+  /* ⚠️ `animation-iteration-count: 1` junto com a duração, como no
+     landing.css. Só encurtar a duração não PARA nada que seja `infinite`:
+     a engrenagem continuava girando, agora a mil voltas por segundo — quem
+     pediu menos movimento ganhava uma roda queimando CPU em silêncio. */
+  *,*::before,*::after{
+    animation-duration:.001ms!important;animation-iteration-count:1!important;
+    transition-duration:.001ms!important;
+  }
+  .item.nova,.pulso{animation:none}
+}
+
+/* ── Grupo "andando": o que já foi despachado ────────────────────── */
+.andando-cab{
+  display:flex;align-items:baseline;gap:10px;padding:18px var(--gut) 0;
+  max-width:var(--area-max);margin:10px auto 0;width:100%;
+}
+.andando-cab h2{margin:0;font-size:12px;font-weight:800;color:var(--text-dim)}
+.andando-cab span{
+  font-family:var(--mono);font-size:.58rem;
+  letter-spacing:.1em;color:var(--muted);text-transform:uppercase;
+}
+
+/* ⚠️ A FAIXA "OS INSTRUMENTOS" FOI REMOVIDA (27/08, a pedido do Pedro).
+   Ela mostrava, no pé de toda tela, os 42 reservatórios que estão em ordem.
+   O motivo de sair não é estética: num painel cuja tese é "o que estoura
+   primeiro", um mural do que está tudo bem é o oposto da tese — se um tanque
+   estivesse ruim ele já estaria na fila, então a faixa exibia por definição
+   só aquilo que não pede nada. Eu a mantive da v1 por apego à parede, não
+   porque ela servia.
+   Ver todos os níveis continua sendo trabalho da tela de Telemetria, que o
+   operador tem no menu. Não duplicar aqui. */
+
+/* ── Dia calmo ───────────────────────────────────────────────────── */
+/* ⚠️ A linha "Nada pede alguém agora" ficava ACIMA do título, como
+   sobrancelha — o padrão que este piso de qualidade não admite: o título
+   aguenta o próprio peso. Ela continua na tela, embaixo, no papel que de
+   fato tem: marcador de estado, com o ponto verde ao lado. */
+.calmo{
+  padding:clamp(38px,6vw,76px) 20px clamp(30px,4vw,52px);text-align:center;
+  min-height:min(46vh,420px);display:flex;flex-direction:column;justify-content:center;
+}
+.calmo h1{
+  margin:0 0 10px;font-size:clamp(1.7rem,3.4vw,2.5rem);font-weight:900;
+  font-stretch:112%;letter-spacing:-.03em;line-height:1.05;
+}
+.calmo p{margin:0 auto;max-width:48ch;color:var(--text-dim);font-size:14px;line-height:1.6}
+.calmo-marca{
+  display:inline-flex;align-items:center;gap:9px;margin:22px auto 0;
+  font-family:var(--mono);font-size:.6rem;
+  letter-spacing:.14em;color:var(--ok);text-transform:uppercase;
+}
+.calmo-marca i{width:7px;height:7px;background:var(--ok);font-style:normal}
+
+/* ── Trilho da equipe (composição B) ─────────────────────────────── */
+.comB{display:grid;grid-template-columns:1fr var(--trilho-w)}
+/* ⚠️ O fio da divisão é do TRILHO, não da fila. Estava no `border-right` de
+   `.fila`/`.fila-cab`, que são caixas de 1040px centradas: a linha caía no
+   fim do CONTEÚDO, a 60px da coluna que ela deveria separar, e sumia de vez
+   no dia calmo (sem fila, sem fio). Na borda do trilho ela corre inteira,
+   sempre no mesmo lugar. */
+/* ⚠️ O par `vh` depois `dvh`, nesta ordem — o mesmo do cliente.css. `vh` é a
+   viewport COM a barra do navegador recolhida, então no celular o trilho
+   nascia mais alto que a tela; `dvh` acompanha a barra que some ao rolar, e
+   quem não conhece a unidade fica com a linha anterior. */
+.trilho{
+  background:var(--mar-900);padding:18px 14px;display:flex;flex-direction:column;
+  gap:16px;position:sticky;top:var(--barra-h);align-self:start;
+  max-height:calc(100vh - var(--barra-h));min-height:calc(100vh - var(--barra-h));
+  max-height:calc(100dvh - var(--barra-h));min-height:calc(100dvh - var(--barra-h));
+  overflow-y:auto;border-left:1px solid var(--fio-fraco);
+}
+.trilho h2{
+  margin:0 0 10px;font-family:var(--mono);
+  font-size:.6rem;letter-spacing:.13em;color:var(--muted);
+  text-transform:uppercase;font-weight:500;
+}
+.tec{
+  display:flex;align-items:center;gap:10px;padding:9px 10px;margin-bottom:6px;
+  background:var(--surface);border:1px solid var(--fio-fraco);
+  --ch:8px;clip-path:var(--corte);
+}
+/* Chanfrado como o resto: sem `border`, então basta o corte (é o caso fácil
+   da Regra da Chapa em Duas Camadas — só há aresta quando há fio). */
+.tec-av{
+  width:28px;height:28px;flex-shrink:0;background:var(--mar-600);
+  display:grid;place-items:center;font-size:10.5px;font-weight:800;
+  --ch:5px;clip-path:var(--corte);
+}
+.tec-nome{font-size:12.5px;font-weight:700;line-height:1.25}
+.tec-est{
+  font-family:var(--mono);font-size:.55rem;
+  letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin-top:2px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:22ch;
+}
+.tec[data-liv="1"] .tec-est{color:var(--ok)}
+.tec-dist{
+  margin-left:auto;font-family:var(--mono);
+  font-size:.6rem;color:var(--text-dim);font-feature-settings:"tnum";
+  white-space:nowrap;flex-shrink:0;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   OS DOIS DIÁLOGOS
+   ═══════════════════════════════════════════════════════════════════ */
+/* ⚠️ Fundo do diálogo: `rgba(2,6,22,.76)` e SEM blur — os valores do painel
+   do cliente. O `backdrop-filter:blur(3px)` que estava aqui é vidro como
+   decoração, que este sistema recusa: profundidade aqui é aresta e corte.
+   `100svh` porque no celular a barra do navegador come o `vh`. */
+.fundo{
+  position:fixed;inset:0;height:100svh;z-index:60;
+  background:rgba(2,6,22,.76);
+  display:grid;place-items:center;padding:24px;
+}
+/* Trava a página atrás: sem isto o toque encadeia e a fila rola por baixo do
+   diálogo. Mesma classe e mesmo mecanismo do painel do cliente. */
+body.com-ficha{overflow:hidden}
+/* ═══ O DIÁLOGO É PLACA CLARA ═══════════════════════════════════════
+   A mesma construção da ficha do painel do cliente: marinho é o material da
+   tela, e o que se lê de perto pousa sobre ele como CHAPA. Aqui o diálogo
+   era mais uma superfície marinho sobre marinho — o único lugar da tela em
+   que o operador para para ler não tinha registro próprio.
+   ⚠️ Dentro da placa clara os sinais saturados viram TINTA da família `-t`
+   (Regra dos Dois Campos de Estado): `--risco` sobre `--chapa` reprova
+   contraste como texto. Preenchimento de selo continua usando o cru
+   (`--vermelho`, `--amarelo`, `--verde`) com tinta marinho por cima —
+   Regra do Preenchimento Cru. */
+.ficha{
+  /* `svh` como o `.fundo` logo acima: com `vh` a ficha podia pedir mais
+     altura que o próprio fundo no celular, e a parte de baixo ficava fora
+     do alcance da rolagem. */
+  width:min(900px,100%);max-height:calc(100svh - 48px);overflow:auto;
+  background:var(--chapa);color:var(--tinta);
+  box-shadow:inset 0 0 0 1px var(--fio-esc);
+  --ch:22px;clip-path:var(--corte);
+  scrollbar-color:rgba(6,16,51,.28) transparent;
+  /* A mesma entrada (nome, duração e curva) do diálogo do painel do cliente. */
+  animation:sobe .22s cubic-bezier(.16,1,.3,1);
+}
+.ficha:focus{outline:none}
+.ficha ::-webkit-scrollbar-thumb{background:rgba(6,16,51,.28)}
+.ficha ::-webkit-scrollbar-thumb:hover{background:var(--tinta-2)}
+/* ⚠️ anel de foco âmbar é ilegível sobre claro (Regra do Amarelo Cego). */
+.ficha :focus-visible{box-shadow:inset 0 0 0 2px var(--tinta)}
+.ficha .btn:focus-visible{box-shadow:inset 0 0 0 2px var(--mar-900)}
+.ficha-cab{display:flex;align-items:flex-start;gap:12px;padding:20px 22px 15px;border-bottom:1px solid var(--fio-esc)}
+.ficha-cab h2{
+  margin:0;font-size:1.3rem;font-weight:900;font-stretch:112%;
+  letter-spacing:-.03em;line-height:1.1;
+}
+/* ⚠️ ÍCONE SOLTO, NÃO CAIXA — a construção do `.fechar` do painel do cliente.
+   Era uma caixa de 34px com fio de 1px e canto reto: a única forma retangular
+   de toda a ficha, num sistema cuja única forma é o chanfro. Chanfrar a caixa
+   resolveria a forma e deixaria o resto de pé (o alvo de 34px, contra os 48
+   da irmã); tirar a caixa resolve os dois de uma vez, e é o que o cliente já
+   faz. 44px é o piso de alvo de toque; o cliente usa 48 porque lá a régua é
+   maior. O anel de foco vem do `.ficha :focus-visible` (inset, tinta). */
+.ficha-x{
+  margin-left:auto;width:44px;height:44px;flex-shrink:0;margin-right:-8px;
+  background:transparent;border:0;color:var(--tinta-2);cursor:pointer;
+  display:grid;place-items:center;
+  transition:color .16s var(--saida);
+}
+.ficha-x:hover{color:var(--tinta)}
+.ficha-pe{
+  border-top:1px solid var(--fio-esc);padding:14px 22px;background:var(--chapa-cl);
+  display:flex;align-items:center;gap:11px;flex-wrap:wrap;
+}
+.ficha-pe p{margin:0;font-size:12px;color:var(--tinta-2);flex:1;min-width:180px}
+.ficha-pe b{color:var(--tinta)}
+/* O botão de fio dentro da placa clara: mesma chapa de duas camadas, com o
+   anel e a placa do campo claro. O hover continua invertendo para amarelo. */
+.ficha .btn-fio{background:var(--fio-esc);color:var(--tinta)}
+.ficha .btn-fio::before{background:var(--chapa)}
+.ficha .btn-fio:hover{background:var(--amarelo);color:var(--mar-900)}
+.ficha .btn-fio:hover::before{background:var(--amarelo)}
+.ficha .btn-fio:focus-visible{background:var(--tinta)}
+.ficha .btn-fio:focus-visible::before{background:var(--chapa)}
+
+/* Despacho: o mapa é a ferramenta de UMA decisão — quem vai. Aberto o
+   turno inteiro ele é papel de parede; aberto aqui, é a única coisa que
+   responde a pergunta, porque a resposta é geográfica. */
+.ficha-corpo{display:grid;grid-template-columns:1fr 296px}
+/* ⚠️ O MAPA CONTINUA ESCURO dentro da placa clara, e isso é regra do sistema,
+   não exceção: instrumento é placa marinho (DESIGN.md, `instrumento`). Ele
+   fica embutido na chapa como um visor — com o fio escuro em volta para a
+   junta ficar usinada, não colada. */
+.mapa{height:326px;background:#0d1325;box-shadow:inset 0 0 0 1px var(--fio-esc)}
+.leaflet-container{background:#0d1325;font-family:inherit}
+/* O crédito do OSM é obrigatório e vinha na caixa branca padrão do Leaflet,
+   acesa no canto de um mapa escuro. Aqui ele é etiqueta gravada, como toda
+   legenda desta folha. */
+.leaflet-control-attribution{
+  background:rgba(3,10,38,.72)!important;color:var(--muted)!important;
+  font-family:var(--mono);font-size:.5rem!important;
+  letter-spacing:.06em;padding:2px 7px!important;
+}
+.leaflet-control-attribution a{color:var(--muted)!important;text-decoration:none}
+.leaflet-control-attribution a:hover{color:var(--text-dim)!important}
+.leaflet-attribution-flag{display:none!important}
+.map-tiles-dark{filter:invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%)}
+.pin{display:grid;place-items:center;font-weight:800}
+.pin-predio{
+  width:30px;height:30px;background:var(--vermelho);color:var(--mar-900);font-size:11px;
+  --ch:7px;clip-path:var(--corte);
+}
+/* ⚠️ Chanfrado como o `.pin-predio` logo acima. Os dois pousam no MESMO mapa:
+   um cortado e o outro de canto reto era a divergência mais visível que
+   sobrou — dois marcadores da mesma família com formas diferentes.
+   Chapa de duas camadas por causa do fio: `border` sob `clip-path` sai
+   recortado nos dois chanfros e lê como defeito. */
+.pin-tec{
+  position:relative;isolation:isolate;
+  width:26px;height:26px;background:var(--fio-forte);color:#fff;font-size:9.5px;
+  --ch:6px;clip-path:var(--corte);
+}
+.pin-tec::before{
+  content:"";position:absolute;inset:1px;z-index:-1;
+  clip-path:var(--corte);background:var(--mar-600);
+}
+.pin-tec[data-liv="1"]{background:var(--verde);color:var(--mar-900)}
+.pin-tec[data-liv="1"]::before{background:var(--verde)}
+.escolha{
+  border-left:1px solid var(--fio-esc);background:var(--chapa-cl);
+  padding:16px 15px;display:flex;flex-direction:column;gap:7px;
+}
+.escolha h3{
+  margin:0 0 4px;font-family:var(--mono);
+  font-size:.6rem;letter-spacing:.13em;color:var(--tinta-2);
+  text-transform:uppercase;font-weight:500;
+}
+.cand{
+  display:flex;align-items:center;gap:10px;padding:9px 10px;width:100%;
+  background:#fff;border:1px solid var(--fio-esc);cursor:pointer;
+  text-align:left;font:inherit;color:var(--tinta);
+  --ch:8px;clip-path:var(--corte);
+  transition:border-color .14s var(--saida),background .14s var(--saida);
+}
+.cand:hover{background:var(--chapa);border-color:var(--tinta-2)}
+.cand[data-liv="0"]{opacity:.5}
+/* O nome não quebra: "Carlos / Ferreira" em duas linhas por causa da coluna
+   da direita fazia a lista inteira dançar. */
+.cand-quem{min-width:0;flex:1}
+.cand-nome{
+  font-size:12.5px;font-weight:700;line-height:1.25;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+/* Quem está indisponível não ganha nota de GPS (ver `dlgDespacho`): a linha
+   cabe numa só, e a posição de quem não pode ir não decide nada. */
+.cand-est{
+  font-family:var(--mono);font-size:.55rem;
+  letter-spacing:.09em;text-transform:uppercase;color:var(--tinta-2);margin-top:2px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.cand[data-liv="1"] .cand-est{color:var(--normal-t);font-weight:700}
+/* ⚠️ A hierarquia estava invertida. O comp tinha DISTÂNCIA aqui ("2,1 km"),
+   que é medição e justifica o mono grande; a API não devolve distância, então
+   o slot exibia "no mapa" — texto comum em tipo de medição, no lugar de
+   destaque. Quem decide, hoje, é a CARGA do técnico: ela sobe, e a presença
+   no mapa desce a etiqueta. */
+.cand-eta{margin-left:auto;text-align:right;flex-shrink:0;font-family:var(--mono);font-feature-settings:"tnum"}
+.cand-eta b{display:block;font-size:.78rem;color:var(--tinta);font-weight:700}
+.cand-eta span{
+  display:block;font-size:.55rem;letter-spacing:.08em;color:var(--tinta-2);
+  text-transform:uppercase;margin-top:2px;
+}
+
+/* Ficha do chamado: o que "Abrir ficha" faz. A linha do tempo completa e a
+   evidência — o que o operador precisa para falar com o técnico ao telefone
+   e para saber o que já foi tentado.
+   ⚠️ As abas do comp (`.ficha-abas`) saíram: a ficha tem UM painel, e a
+   folha carregava o estilo de um controle que nunca foi renderizado. */
+.ficha-pane{padding:18px 22px 20px;display:grid;grid-template-columns:1fr 240px;gap:26px}
+.linha-tempo{display:flex;flex-direction:column;gap:0;min-width:0}
+.ev{display:grid;grid-template-columns:74px 1fr;gap:14px;padding:9px 0;border-bottom:1px solid var(--fio-esc)}
+.ev:last-child{border-bottom:0}
+.ev-h{
+  font-family:var(--mono);font-size:.6rem;
+  letter-spacing:.06em;color:var(--tinta-2);font-feature-settings:"tnum";padding-top:2px;
+}
+.ev-t{font-size:12.5px;line-height:1.5;color:var(--tinta-2)}
+.ev-t b{color:var(--tinta);font-weight:700}
+.ficha-lado{display:flex;flex-direction:column;gap:14px}
+.ficha-lado h4{
+  margin:0 0 8px;font-family:var(--mono);
+  font-size:.58rem;letter-spacing:.12em;color:var(--tinta-2);
+  text-transform:uppercase;font-weight:500;
+}
+.dado{display:flex;justify-content:space-between;gap:10px;padding:5px 0;font-size:12px;border-bottom:1px solid var(--fio-esc)}
+.dado span{color:var(--tinta-2)}
+.dado b{font-weight:700;text-align:right}
+
+/* Novo chamado: o chamado que chega por telefone precisa de porta de
+   entrada. O operador passa em `adminOnly`, que cobre POST /chamados. */
+.form{padding:18px 22px 4px;display:grid;grid-template-columns:1fr 1fr;gap:14px 16px}
+.campo{display:flex;flex-direction:column;gap:5px;min-width:0}
+.campo.largo{grid-column:1 / -1}
+.campo label{
+  font-family:var(--mono);font-size:.56rem;
+  letter-spacing:.1em;color:var(--tinta-2);text-transform:uppercase;
+}
+/* Campo branco sobre a chapa — o mesmo do painel do cliente. O `color-scheme`
+   local existe porque o `:root` desta folha é `dark`: sem ele o navegador
+   pinta o indicador do `select` claro sobre campo branco (a mesma pegadinha
+   já registrada nos `date` do admin). */
+.campo input,.campo select,.campo textarea{
+  font:inherit;font-size:13px;padding:9px 11px;background:#fff;
+  color:var(--tinta);border:0;box-shadow:inset 0 0 0 1px var(--fio-esc);
+  color-scheme:light;
+}
+.campo input::placeholder,.campo textarea::placeholder{color:var(--tinta-2)}
+.campo input:focus-visible,.campo select:focus-visible,.campo textarea:focus-visible{
+  box-shadow:inset 0 0 0 2px var(--tinta);outline:none;
+}
+.campo textarea{resize:vertical;min-height:74px;line-height:1.5}
+.prio-fila{display:flex;gap:6px;flex-wrap:wrap}
+.prio{
+  font:inherit;font-size:11px;font-weight:700;padding:7px 11px;cursor:pointer;
+  background:transparent;color:var(--tinta-2);border:1px solid var(--fio-esc);
+  transition:background .14s var(--saida),color .14s var(--saida);
+}
+.prio:hover{background:#fff;color:var(--tinta)}
+.prio[aria-pressed="true"]{background:var(--accent);color:var(--mar-900);border-color:var(--accent)}
+.prio[aria-pressed="true"]:focus-visible{box-shadow:inset 0 0 0 2px var(--mar-900)}
+.dica{
+  grid-column:1 / -1;font-size:11.5px;color:var(--tinta-2);line-height:1.5;
+  border-top:1px solid var(--fio-esc);padding-top:12px;margin-top:2px;
+}
+.dica b{color:var(--tinta)}
+
+/* ── LAPTOP ESTREITO E TABLET: O TRILHO DESCE ──────────────────────
+   ⚠️ ESTA FAIXA NÃO EXISTIA, e era o pior defeito da tela. Havia UMA quebra
+   (celular) num arranjo de duas colunas onde o trilho é RÍGIDO em 300px:
+   entre ele e o item de largura fixa (92px de régua + 172px de ações) só
+   sobrava o texto para ceder, e ele cedia até sumir. Medido a 900px: a
+   descrição do chamado caía para ~90px de caixa — dez caracteres por linha,
+   contra os 68ch que o passe de 27/08 estabeleceu —, o título quebrava em
+   duas linhas, o selo de status descia sozinho, o bairro deixava o bullet
+   órfão, e o item passava de 258px para mais de 330. Ou seja: a densidade
+   comprada no passe se perdia inteira na primeira janela não maximizada.
+   1080px é o número da PRIMEIRA quebra da landing, onde as grades de duas
+   colunas viram uma — o mesmo gesto, na mesma largura.
+   A regra é só de LAYOUT: nada aqui muda tamanho de tipo nem de peça, porque
+   o problema nunca foi escala, foi a coluna que não tinha para onde ceder. */
+@media (max-width:1080px){
+  .comB{grid-template-columns:1fr}
+  /* Fora da coluna, o trilho é uma faixa: as duas seções lado a lado e os
+     cartões em grade. Empilhados em largura cheia eles viravam uma lista de
+     4 linhas gigantes embaixo da fila. */
+  .trilho{
+    position:static;max-height:none;min-height:0;overflow:visible;
+    border-left:0;border-top:1px solid var(--fio-fraco);
+    flex-direction:row;flex-wrap:wrap;gap:16px 26px;padding:18px var(--gut);
+  }
+  .trilho>div{flex:1 1 300px;min-width:0;display:grid;gap:6px;align-content:start}
+  .tec{margin-bottom:0}
+  /* A placa do turno perde o desconto do trilho junto com ele. */
+  .placar{width:100%}
+}
+
+/* ── CELULAR ───────────────────────────────────────────────────────
+   ⚠️ 760px, não 660. É o número da landing e do painel do cliente — as duas
+   deitam a coluna d'água aí, e a jornada não pode trocar de layout em
+   larguras diferentes conforme a tela. A altura da barra sai do
+   `--barra-h` redeclarado lá embaixo, junto com o entalhe do iOS; escrevê-la
+   aqui de novo era o número mágico que fazia o trilho colar no lugar errado. */
+@media (max-width:760px){
+  .barra{position:static}
+  .barra-in{padding-left:13px;gap:10px}
+  .barra-acoes{padding-right:13px}
+  .marca img{height:26px}
+  .marca span{display:none}
+  /* No celular a placa ocupa a largura toda e as células EMPILHAM: três
+     colunas de 63px não cabem "com SLA estourado". O corte gravado vira
+     horizontal, e continua sendo uma peça só. */
+  .placar{width:100%}
+  .placar-in{
+    grid-template-columns:1fr;margin:13px auto 0;
+    max-width:none;width:calc(100% - 26px);--ch:12px;
+  }
+  .placar-i{padding:12px 15px}
+  .placar-i+.placar-i{
+    border-left:0;border-top:1px solid var(--rasgo);
+    box-shadow:inset 0 1px 0 var(--luz);
+  }
+  .placar-n{font-size:1.35rem}
+  .placar-i em{font-size:12.5px}
+  .barra-acoes{gap:8px}
+  /* ⚠️ Era `display:none`. O chamado que chega por telefone é justamente o
+     que se abre longe da mesa — esconder a única porta de entrada no celular
+     tirava a ação, não o rótulo. Agora só o rótulo sai. */
+  /* 44px é o piso de alvo de toque, e este botão é a ÚNICA porta de entrada
+     do chamado por telefone longe da mesa — o lugar onde errar o toque custa
+     mais. Estava em 40. */
+  .barra-acoes .btn{padding:12px;min-height:44px;min-width:44px}
+  .btn-rot{
+    position:absolute;width:1px;height:1px;overflow:hidden;
+    clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;
+  }
+  .relogio .rot{display:none}
+  .relogio{gap:7px;font-size:.66rem}
+  .fila{padding:12px 13px;gap:9px}
+  .fila-cab,.andando-cab{padding:14px 13px 0}
+  /* O relógio vira faixa no topo do item: numa coluna estreita, 104px de
+     régua comeriam a linha do título. */
+  .item{grid-template-columns:1fr}
+  .item-acoes{
+    flex-direction:row;align-items:center;border-left:0;
+    border-top:1px solid var(--fio-fraco);padding:11px 14px;min-width:0;
+  }
+  .item-acoes .btn{flex:1 1 auto;padding:11px 15px;font-size:12.5px}
+  .item-acoes .emrota{width:100%}
+  .relogio-sla{
+    flex-direction:row;justify-content:flex-start;gap:9px;
+    border-right:0;border-bottom:1px solid var(--fio-fraco);
+    padding:9px 14px;text-align:left;
+  }
+  .sla-n{font-size:1.15rem}
+  .sla-rot{font-size:.55rem}
+  .item-corpo{padding:12px 14px}
+  .prova{grid-template-columns:1fr;gap:12px}
+
+  /* ── A COLUNA DEITA, como na landing (760px) e no painel do cliente (820) ──
+     O motivo é o mesmo registrado lá: em pé e estreita ela desperdiça a
+     largura da tela e empurra o resto para baixo da dobra; deitada, ganha a
+     largura toda e devolve altura. Aqui rende mais ainda, porque são até
+     TRÊS por item — em pé seriam ~400px só de tubo.
+     ⚠️ Deitada, TODO eixo do desenho troca. Cada regra abaixo tem par no
+     `landing.css` e no `cliente.css`; mudou lá, muda aqui:
+       lâmina  desce por translateY  →  desliza por translateX (para a
+               ESQUERDA: `--n - 100%`, então a borda direita para em `--n`)
+       crista  borda de cima         →  borda da direita
+       faixas  bottom/height         →  left/width
+       limiar  border-top            →  border-left
+     ⚠️ O vinho do crítico deita junto — o gradiente dele também inverte. */
+  .prova-tanques{flex-direction:column;gap:8px;width:100%}
+  /* ⚠️ Zera os limites da célula do desktop: deitada, a célula É a linha
+     inteira, e um `max-width` herdado esmaga a barra até virar um risco. */
+  .tanque{width:100%;min-width:0;max-width:none;padding:0;text-align:left}
+  /* Nome à esquerda, barra no meio, leitura à direita: deitado, o rótulo
+     deixa de precisar caber em 54px e volta a ser palavra inteira. */
+  /* 84px, não 58: "Caixa Superior 1" e "Reserva Incêndio" são nomes reais e
+     saíam cortados ("Caixa Super"). A barra perde 26px e continua legível; o
+     nome do tanque, cortado, não. */
+  .res{display:grid;grid-template-columns:84px 1fr 46px;align-items:center;gap:10px}
+  .tubo{--ch:4px;width:100%;height:34px;margin:0}
+  .agua{
+    background:linear-gradient(to left,var(--mar-500) 0%,var(--mar-600) 55%,var(--mar-700) 100%);
+    transform:translateX(calc(var(--n,0%) - 100%));
+  }
+  .res.critico .agua{background:linear-gradient(to left,#7a1e2c 0%,#4a1220 100%)}
+  .crista{left:auto;right:0;top:0;bottom:0;width:3px;height:auto}
+  .faixa{top:0;bottom:0;left:auto;right:auto}
+  .faixa-baixo{left:20%;width:25%;height:auto}
+  .faixa-critico{left:0;width:20%;height:auto}
+  .limiar{top:0;bottom:0;left:auto;right:auto;border-top:0;border-left:1px dashed var(--fio-forte)}
+  .limiar-baixo{left:45%}
+  .limiar-critico{left:20%;border-left-color:color-mix(in srgb,var(--risco) 60%,transparent)}
+  .selo-mudo{width:22px;height:22px}
+  .selo-mudo svg{width:12px;height:12px}
+  /* Deitado o rótulo pode QUEBRAR: a linha tem 34px de altura e duas linhas
+     de 9,6px cabem sem crescer nada. "Caixa Superior 1" cortado era o mesmo
+     defeito de sempre, só que numa coluna de 84px. */
+  .tanque-lbl{
+    order:-1;margin-top:0;text-align:left;font-size:.56rem;line-height:1.25;
+    white-space:normal;overflow:visible;text-overflow:clip;
+  }
+  .res-num{margin-top:0;text-align:right;font-size:.95rem}
+  /* A origem ganha linha própria e os botões ficam lado a lado. Com
+     `margin-right:auto` numa coluna estreita ela empurrava "Abrir ficha"
+     para uma terceira linha. */
+  .item-pe{gap:9px;flex-wrap:wrap}
+  .item-pe .origem{width:100%;margin-right:0}
+  .item-pe{padding-top:0}
+  .comB{grid-template-columns:1fr}
+  .trilho{
+    position:static;max-height:none;min-height:0;border-left:0;
+    border-top:1px solid var(--fio-fraco);
+  }
+  /* No celular a ficha OCUPA A TELA, como no painel do cliente: uma placa de
+     900px com 24px de folga em volta vira um cartão flutuando, e a folga não
+     serve para nada — não dá para ler o que está atrás nem para tocar fora
+     sem fechar. Sem chanfro, porque aqui a peça não pousa sobre nada. */
+  .fundo{padding:0}
+  /* Coluna flex + `margin-top:auto` no rodapé: ocupando a tela inteira, uma
+     ficha curta deixava o rodapé boiando no meio com placa vazia embaixo.
+     Colado no pé ele ainda cai na altura do polegar, que é onde a ação
+     precisa estar em quem atende de pé. */
+  .ficha{
+    width:100%;height:100%;max-height:100%;--ch:0px;clip-path:none;
+    display:flex;flex-direction:column;
+  }
+  .ficha-pe{margin-top:auto}
+  .ficha-corpo{grid-template-columns:1fr}
+  .mapa{height:206px}
+  .escolha{border-left:0;border-top:1px solid var(--fio-fraco)}
+  .ficha-pane{grid-template-columns:1fr;gap:18px;padding:16px}
+  .form{grid-template-columns:1fr;padding:16px 16px 4px}
+  .calmo{padding:52px 20px 36px}
+}
+
+/* ── Estados que só existem em produção (a comp não os tinha) ────────── */
+
+/* O primeiro estado é "ainda não sei", nunca "está vazio": afirmar calma
+   antes da resposta chegar é o pior erro possível num painel de turno. */
+.carregando{
+  padding:clamp(40px,7vw,84px) 20px;text-align:center;color:var(--muted);
+  font-family:var(--mono);font-size:.66rem;
+  letter-spacing:.12em;text-transform:uppercase;
+}
+.vazio-lado{
+  margin:0;padding:8px 2px;color:var(--muted);font-size:11.5px;line-height:1.5;
+}
+/* Dentro da placa clara todo secundário vira tinta — Regra dos Dois Campos
+   de Estado. O selo é a exceção: ele PREENCHE com o cru e mantém a tinta
+   marinho por cima (Regra do Preenchimento Cru), então não muda. */
+.ficha .vazio-lado,.ficha .onde{color:var(--tinta-2)}
+.ficha .onde-nome{color:var(--tinta)}
+.ficha .onde-bairro{color:var(--tinta-2)}
+.ficha .onde i{background:var(--tinta-2)}
+.ficha .selo-fio{color:var(--tinta-2);box-shadow:inset 0 0 0 1px var(--fio-esc)}
+.ficha .tec-av{background:var(--chapa-es);color:var(--tinta)}
+.ficha .mapa-vazio{color:var(--tinta-2)}
+.ficha-cab h2{color:var(--tinta)}
+.mapa-vazio{
+  margin:0;height:100%;display:grid;place-items:center;padding:24px;
+  text-align:center;color:var(--muted);font-size:12px;line-height:1.5;
+}
+
+/* Chamado cuja prioridade não tem linha em `sla_definicoes`: o relógio fica
+   em branco em vez de inventar prazo, e o item vai para o fim da fila. */
+.item[data-sla="semsla"] .sla-n{color:var(--muted);font-size:1.1rem}
+
+/* Aviso de erro: faixa, não `alert()`. `alert` trava a tela inteira, e numa
+   tela de turno travar significa parar de receber. */
+.aviso{
+  position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:90;
+  max-width:min(520px,calc(100vw - 32px));
+  background:var(--vermelho);color:var(--mar-900);
+  font-size:12.5px;font-weight:700;line-height:1.45;padding:11px 16px;
+  --ch:9px;clip-path:var(--corte);
+  animation:sobe-faixa .22s var(--saida);
+}
+/* ⚠️ Keyframe própria: a faixa é centrada por `translateX(-50%)`, então ela
+   não pode usar a `sobe` genérica — o `transform` sobrescreveria o
+   centramento e a faixa saltaria para a direita. */
+@keyframes sobe-faixa{from{opacity:0;transform:translate(-50%,8px)}to{opacity:1;transform:translate(-50%,0)}}
+/* A entrada do sistema, usada pelo diálogo (mesma do cliente.css). */
+@keyframes sobe{from{opacity:0;transform:translateY(14px)}}
+
+/* iOS instalado: a barra cresce para cobrir a faixa da status bar. Sem
+   `viewport-fit=cover` no <meta> o `env()` devolve 0 e nada disto vale —
+   a pegadinha está em docs/arquitetura.md.
+   ⚠️ DUAS CORREÇÕES AQUI, as duas copiadas do cliente.css:
+   1. `var(--barra-h)`, não 60 na mão. O `.trilho` gruda em
+      `top:var(--barra-h)`: com a altura escrita à mão a barra media 54 no
+      celular (e `60 + entalhe` no iOS instalado) enquanto o trilho continuava
+      colando em 60 — ele deslizava por baixo da barra. Agora o token é a
+      única fonte, e o celular o REDECLARA em vez de burlar.
+   2. `env(..., 0px)`, com fallback. Sem o segundo argumento, navegador que
+      não conhece `env()` descarta a declaração inteira — e a barra perde a
+      altura, não o entalhe. */
+.barra{
+  height:calc(var(--barra-h) + env(safe-area-inset-top, 0px));
+  padding-top:env(safe-area-inset-top, 0px);
+}
+@media (max-width:760px){
+  :root{--barra-h:54px}
+  .aviso{bottom:calc(16px + env(safe-area-inset-bottom, 0px))}
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   O ALINHAMENTO DA BARRA COM A FILA
+
+   Acima de 1340px (= `--area-max` + `--trilho-w`) a coluna da fila fica
+   MAIOR que a área máxima e a fila passa a ser centrada dentro dela: é aí,
+   e só aí, que a marca (no recuo da barra) e o primeiro item (no centro da
+   coluna) caem em x diferentes. Abaixo disso o centramento é zero e as duas
+   já batem pelo próprio `--gut` — por isso a regra é condicional em vez de
+   um grid permanente, que obrigaria as ações a caber em 300px.
+   ═══════════════════════════════════════════════════════════════════ */
+@media (min-width:1341px){
+  .barra{display:grid;grid-template-columns:1fr var(--trilho-w)}
+  .barra-in{
+    max-width:var(--area-max);width:100%;margin-inline:auto;
+    padding-inline:var(--gut);
+  }
+  /* 14px é o recuo interno do trilho: as ações passam a bater com a borda
+     dos cartões da equipe, logo abaixo. */
+  .barra-acoes{padding-right:14px}
+}

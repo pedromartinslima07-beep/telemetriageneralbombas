@@ -36,6 +36,7 @@ orçamentos mais recentes do banco de teste, as duas listas divergem em todos.
 | Lista editável? | **não** — vem do cadastro | sim |
 | Corpo | fixo, da casa | mensagem escrita pelo operador |
 | Assinatura | não | a do operador logado (`usuarios.assinatura_blob`) |
+| Formato do e-mail | **estruturado** — faixa, caixa de informações, fecho e rodapé da casa | **carta nua** — o texto e a assinatura, nada mais |
 | Documento | link para o painel, **sem anexo** | **PDF anexo**, sem link |
 | Onde a resposta é registrada | na tela do cliente | em lugar nenhum — ele responde o e-mail |
 
@@ -50,6 +51,41 @@ conta.
 
 ⚠️ **Sem `modo` no corpo, o comportamento antigo continua valendo.** Cliente
 com JS em cache não pode começar a receber erro.
+
+## São dois e-mails, não um com peças opcionais
+
+Até **27/08/2026** a rota separava os dois modos mas o HTML era **um só**, o
+estruturado. O modo escolhia o *conteúdo* — destinatário, texto, anexo, link —
+e nunca a *forma*. A carta do operador saía embrulhada na moldura do painel:
+
+- a faixa marinho com a sobrancelha **"Orçamento comercial"** por cima;
+- a caixa cinza **"Informações do orçamento"** logo abaixo do texto, repetindo
+  número, cliente e validade que a carta já tinha dito e que o PDF anexo traz
+  inteiros;
+- um **"Atenciosamente,"** fixo com **"General Bombas"** em negrito — de modo
+  que a assinatura pessoal do operador entrava *ensanduichada* no fecho da
+  empresa, e quem escrevia o próprio fecho no textarea recebia dois;
+- o rodapé institucional com telefones.
+
+**Hoje são dois templates de verdade.** `sendOrcamentoCliente` monta
+`cartaHtml` ou `estruturadoHtml` conforme `dados.modo`, e a versão em texto
+puro segue a mesma divisão. A carta é uma `div` com o texto e a imagem da
+assinatura — 621 bytes contra os ~31 KB do estruturado.
+
+⚠️ **A carta não tem fecho da casa, e isso é a decisão.** Quem escolheu
+escrever escolheu dizer as coisas do jeito dele; se quer assinar com o nome
+além da imagem, o lugar é o textarea. Por isso o texto puro da carta também
+não leva nada além do que ele digitou — a assinatura é imagem e não tem
+equivalente ali.
+
+⚠️ **A largura máxima da `div` é layout, não conteúdo.** Sem ela o Gmail no
+desktop estica a linha pela tela inteira. `max-width` em `div` é ignorado pelo
+Outlook, que renderiza em toda a largura — aceitável na carta, porque não há
+nada para desalinhar; é justamente por isso que o **estruturado** continua em
+`<table>` aninhada com width fixo.
+
+⚠️ **Quem manda o `modo` para o serviço é a rota.** Sem ele — cliente com JS
+em cache — cai no estruturado, que é o que esse cliente já recebia.
 
 ## Mensagem e assinatura: saíram e voltaram
 

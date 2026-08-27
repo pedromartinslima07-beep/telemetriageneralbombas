@@ -7,6 +7,22 @@ function authHeaders() {
 }
 if (!getToken()) window.location.href = "/login";
 
+// Role do usuário, lida do próprio JWT. Fica no topo de propósito: o boot
+// (`carregarTudo`) decide por ela quais coleções nem chega a pedir, e essas
+// funções são declaradas antes daqui. `body.role-{role}` — a outra fonte,
+// aplicada pelo `GET /admin/me` — só existe depois de uma volta na rede.
+function getMyRole() {
+  try {
+    const token = localStorage.getItem("token");
+    if (!token) return null;
+    return JSON.parse(atob(token.split(".")[1])).role;
+  } catch { return null; }
+}
+const _myRole     = getMyRole();
+const _isMaster   = _myRole === "admin";
+const _isOperador = _myRole === "operador";
+
+
 // Se o token expirar/for invalidado (401 em request autenticado), a API
 // inteira volta 401 em loop silencioso — sem isso o usuário fica preso
 // num painel quebrado sem entender o porquê. Detecta pelo header
@@ -2780,6 +2796,10 @@ async function carregarChamados() {
 }
 
 async function carregarConversas() {
+  // Atendimento é `gestaoOnly` desde 27/08/2026: pro operador a request só
+  // renderia um 403 no console. O array vazio é o estado correto — o badge de
+  // WhatsApp da gaveta conta em cima dele e some sozinho.
+  if (_isOperador) { _conversasData = []; return; }
   const r = await fetch("/whatsapp/conversas", { headers: authHeaders() });
   if (!r.ok) throw new Error("Erro /whatsapp/conversas: " + r.status);
   _conversasData = await r.json();
@@ -2888,6 +2908,9 @@ async function carregarTecnicosLocalizacao() {
 // ============================================================
 
 async function carregarUsuarios() {
+  // `GET /admin/usuarios` virou `gestaoOnly` junto com o cadastro de clientes,
+  // a única tela que consome esta lista — e o operador não a vê.
+  if (_isOperador) { _usuariosData = []; return; }
   const r = await fetch("/admin/usuarios?role=cliente", { headers: authHeaders() });
   if (!r.ok) throw new Error("Erro /admin/usuarios: " + r.status);
   _usuariosData = await r.json();
@@ -2915,6 +2938,9 @@ function renderMcContratos() {
 }
 
 async function _carregarContratosMetricas() {
+  // `/contratos` é `gestaoOnly` desde 27/08/2026 e a faixa que consome estas
+  // métricas fica escondida no perfil operador.
+  if (_isOperador) return;
   try {
     const [rMet, rLista] = await Promise.all([
       fetch(`/contratos/metricas`,        { headers: authHeaders() }),
@@ -6647,17 +6673,6 @@ async function renderDrawerOrcamentos() {
     </div>`).join("");
 }
 
-function getMyRole() {
-  try {
-    const token = localStorage.getItem("token");
-    if (!token) return null;
-    return JSON.parse(atob(token.split(".")[1])).role;
-  } catch { return null; }
-}
-const _myRole     = getMyRole();
-const _isMaster   = _myRole === "admin";
-const _isOperador = _myRole === "operador";
-
 document.addEventListener("DOMContentLoaded", () => {
   const f = document.getElementById("filtroTexto");
   if (f) f.addEventListener("input", () => aplicarFiltros());
@@ -10330,15 +10345,43 @@ document.addEventListener("DOMContentLoaded", () => {
   // Começa expandida; respeita preferência salva
   _applySidebar(localStorage.getItem("sidebarCollapsed") === "true");
 
-  // operador: sem Atendimento (exceto Chamados), sem Cadastro (exceto
-  // Contratos) e sem Relatórios. Sobram Alertas, Chamados, Contratos,
-  // Dashboard, Telemetria, Mapa e Configurações.
+  // operador: quatro telas — Alertas, Chamados, Telemetria e Mapa — mais
+  // Configurações → "Conta". O Dashboard saiu em 27/08/2026: ele é a visão de
+  // quem responde pelo negócio (MRR, atividade, N condomínios de relance), e
+  // não o que a pessoa de turno precisa ter na frente.
+  //
+  // ⚠️ Esconder aqui **não é a barreira**: as rotas de tudo que está nesta
+  // lista passaram para `gestaoOnly` no backend (menos equipamentos, que saiu
+  // de `equipeInterna`). Tirar um item daqui sem soltar o guard correspondente
+  // entrega uma tela que só sabe dar 403 — e o inverso deixa buraco.
   if (_isOperador) {
-    const _navHide = ["whatsapp", "ordens-servico", "orcamentos", "planos", "cadastros", "tecnicos", "relatorios", "equipamentos"];
+    const _navHide = ["dashboard", "whatsapp", "ordens-servico", "orcamentos", "planos", "cadastros", "tecnicos", "relatorios", "equipamentos", "contratos"];
     _navHide.forEach(s => {
       const el = document.querySelector(`.nav-item[data-section="${s}"]`);
       if (el) el.style.display = "none";
     });
+
+    // A gaveta por condomínio não some com o Dashboard: ela também abre do
+    // popup do mapa e da ficha do chamado, as duas telas do perfil. Três das
+    // cinco abas dela batem em rota que agora responde 403 — esconder item de
+    // nav não alcança gaveta, e sem isto a restrição vira erro na cara de quem
+    // só queria olhar o prédio.
+    ["whatsapp", "os", "orcamentos"].forEach(t => {
+      const el = document.querySelector(`.drawer-tab[data-tab="${t}"]`);
+      if (el) el.style.display = "none";
+    });
+
+    // A faixa financeira (MRR, contratos vencendo) vem de `/contratos`, que o
+    // operador não alcança mais. Hoje é redundante — o Dashboard inteiro está
+    // fora do perfil —, e fica de propósito: se um dia o Dashboard voltar pro
+    // operador, o MRR da empresa não volta junto sem alguém decidir.
+    document.querySelector(".mc-fin")?.style.setProperty("display", "none");
+
+    // O `dashboard` nasce `is-active` no HTML. Sem isto o operador abriria o
+    // painel na única seção que não é dele — e o mini-mapa Leaflet montaria
+    // num container que ninguém vai ver. Alertas é a primeira tela do turno:
+    // o que está errado agora.
+    showSection("alertas");
   }
 
   // Rótulo de grupo sem nenhum item visível vira cabeçalho órfão. Acontece

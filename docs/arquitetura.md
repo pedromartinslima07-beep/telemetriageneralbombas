@@ -67,6 +67,7 @@ App mobile (Capacitor) ──JWT──fetch───────────┤
 │   ├── admin.html/.js/.css   # painel admin "Mission Control"
 │   ├── cliente.html/.js      # painel do cliente
 │   ├── cliente.css           # overrides do cliente (carrega após admin.css)
+│   ├── operador.html/.js/.css # painel do operador (a fila do turno) — CSS próprio, não herda admin.css
 │   ├── login.html/.js/.css   # login + OTP (aceita ?next= p/ a ficha do equipamento)
 │   ├── equipamento.html/.js/.css  # ficha do equipamento (/e/:codigo) — herda admin.css
 │   ├── sw.js, register-sw.js, manifest.json   # PWA
@@ -272,8 +273,8 @@ entraram lá porque **quem manda no modo app é a página aberta na hora de
 ganhava um ícone que abre uma aba comum do Safari. O `start_url` continua
 `/login`, então o atalho abre no login. O service worker segue fora da landing.
 
-As quatro HTMLs instaláveis (`admin.html`, `cliente.html`, `login.html`,
-`app/public/index.html`) declaram `apple-mobile-web-app-status-bar-style:
+As cinco HTMLs instaláveis (`admin.html`, `cliente.html`, `login.html`,
+`operador.html`, `app/public/index.html`) declaram `apple-mobile-web-app-status-bar-style:
 black-translucent`. Isso faz o PWA instalado no iPhone estender a página **por
 baixo da barra de status** — e qualquer barra `fixed`/`sticky` em `top: 0`
 gruda no topo do viewport, deixando aquela faixa descoberta com o conteúdo
@@ -290,6 +291,7 @@ Regra: **quem é fixo no topo cresce; quem depende dessa altura desconta.**
 | Painel do cliente | `.barra` | `html { scroll-padding-top }`, `.resposta { min-height }` |
 | Login | o próprio `body` (não há barra fixa) | — |
 | Admin (mobile) | `.mob-topbar`, `.drawer-head` | `.main`, `.layout-cli .main` |
+| Painel do operador | `.barra` (60px → 54px no mobile) | `.aviso` (faixa de erro, `bottom`) |
 | App do técnico | já tratado em `app/public/app.css` | — |
 
 ⚠️ `admin.css` e `login.css` estão no **precache** do `sw.js` (`STATIC_ASSETS`):

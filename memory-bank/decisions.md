@@ -426,6 +426,79 @@ canônica do "porquê"; o "o quê" está em `../docs/` e em [`current-state.md`]
 - **device_key por reservatório** (não há chave global de devices).
 - **Hierarquia de roles real:** admin / admin_viewer / tecnico / cliente. O
   `master_admin` foi removido (existia no código mas nunca foi atribuído).
+- **Perfil escondido não é perfil restrito** (27/08/2026). O `operador` nasceu
+  em 06/2026 como uma lista de `display:none` no `admin.js` e ficou quase três
+  meses assim, com a nota *"é só de UI"* repetida em três documentos como se
+  documentar a brecha a fechasse. Fechou de verdade quando 49 rotas trocaram
+  `adminOnly` por `gestaoOnly` e o `operador` saiu de `equipeInterna`.
+
+  Três coisas que a execução ensinou, e que valem para o próximo perfil:
+
+  1. **Auditar por `grep adminOnly` mente.** `osDonoOuAdmin` e
+     `GET /relatorio/pdf` checam a role *dentro do handler* e já barravam o
+     operador — metade do trabalho estava pronta e invisível. O que enxerga é
+     percorrer o `stack` dos routers e rodar cada guard com a role de mentira;
+     é barato, não toca no banco, e devolve a lista verdadeira.
+  2. **O corte de backend e a poda de UI são o mesmo commit.** Separados, um
+     produz buraco e o outro produz tela que só sabe dar 403. A pegadinha não
+     está no menu: está na **gaveta do dashboard**, que abre de uma seção que o
+     perfil continua vendo e carrega três abas de rota fechada.
+  3. **A restrição revela informação que ninguém tinha decidido mostrar.** A
+     faixa financeira do dashboard (MRR da empresa) vinha de `/contratos` e
+     estava à vista do operador desde sempre — apareceu como efeito colateral
+     de fechar a rota, não como item da lista.
+  4. **O risco que segurou a decisão nunca foi medido.** A pendência ficou
+     aberta três meses com a justificativa *"restringir quebraria quem usa
+     hoje"* — e **não havia nenhum `operador` em produção**, confirmado em
+     27/08/2026. Uma consulta de dez segundos teria mostrado que o custo era
+     zero. Antes de adiar por risco a usuário, conte os usuários.
+- **O painel do operador é outra tese, não o admin podado** (27/08/2026). A
+  pergunta que estava em aberto no roadmap — *"outra tese (como o do cliente) ou
+  o admin podado?"* — foi decidida pelo que a tela precisa **ordenar**: quem
+  está de turno trabalha pelo prazo que estoura primeiro, e a lista do admin
+  ordena por data. Uma tela podada continuaria ordenando errado, que é o defeito
+  que importa; o risco citado na hora (duplicar telemetria e mapa) não se
+  concretizou porque **nenhum dos dois virou tela** — a coluna d'água é
+  evidência dentro do item e o mapa só abre na decisão de despacho.
+
+  1. **Dois arranjos recusados.** A *lista com abas e busca* (o painel com menos
+     itens) e a *parede de instrumentos*: esta segunda morreu quando ficou claro
+     que não havia o que desenhar para prédio sem sensor — e prédio sem sensor é
+     metade da carteira. A saída foi dar a cada item a **prova que ele tem**:
+     coluna d'água com telemetria, a fala de quem relatou sem ela.
+  2. **O SLA é calculado no servidor.** A ordenação *é* o `resta_min`; se o
+     relógio do navegador do operador estiver minutos fora, a fila inteira
+     reordena e ninguém percebe. Por isso `GET /operador/fila` devolve o número
+     pronto e o front só decide como escrevê-lo.
+  3. **Folha própria, sem importar nada do admin.** As duas telas mostram os
+     mesmos chamados e a tentação de compartilhar helper é real — foi assim que
+     o painel do cliente virou refém do admin até 13/08/2026. `lerJson` e
+     `escapar` estão duplicados de propósito.
+  4. **O comp aprovado não é piso de qualidade** (27/08/2026, no passe de
+     acabamento). Item de 318px, linha de 140 caracteres e etiqueta a 3,05:1
+     estavam **no comp** — a implementação foi fiel, e por isso herdou tudo.
+     Comp aprovado responde *"é esta a tese?"*; não responde *"está bem
+     feito?"*. As duas perguntas precisam ser feitas em momentos diferentes, e
+     a segunda quer número medido na tela, não olhada.
+  5. **Acabamento se verifica contra as superfícies irmãs, não contra a
+     própria tela** (27/08/2026, correção do Pedro). O passe conferiu
+     composição, contraste, estados e teclado — e deixou passar que a barra
+     **digitava "General" em Archivo** em vez de usar o PNG da marca, que é o
+     que a landing, o login, o painel do cliente e o admin fazem. Nenhuma
+     medição pega isso: é identidade, e identidade só aparece lado a lado. Um
+     comp pode compor o nome em tipo; uma superfície do produto, não.
+  6. **Classificação de registro não é licença para ignorar a referência**
+     (27/08/2026, terceira correção do Pedro na mesma tela). O DESIGN.md diz
+     que o registro de operação não tem gestos retóricos; usei isso para não
+     trazer engrenagem, campo claro, fita e movimento de botão — que era
+     exatamente o que o pedido mandava trazer. **O documento descreve o que
+     existe; ele não decide contra uma instrução direta.** Quando os dois
+     divergem, quem manda é quem pediu, e a divergência vira pergunta, não
+     omissão silenciosa.
+  7. **O estado de carga não pode parecer calmaria.** "Nenhum chamado aberto"
+     antes da resposta chegar é afirmar calma que ninguém verificou; a tela diz
+     *"Carregando a fila do turno…"*. Pela mesma razão o pulso da barra vira
+     vermelho após 3 ciclos sem carga: falha e silêncio não podem se parecer.
 - **`em_atendimento` só via app do técnico com GPS** (`/iniciar-atendimento`);
   `PATCH /chamados/:id` bloqueia esse status — garante que o status reflita
   presença física no campo.
@@ -971,3 +1044,23 @@ desenho em camadas original continua válido.
   Separar **move** a escolha para a URL em vez de eliminá-la. Volta a fazer
   sentido só se o painel do cliente virar produto com marca própria, ou por
   exigência de isolamento — nenhum dos dois é o caso.
+
+- **A carta é só a carta (2026-08-27).** Os dois modos de envio do orçamento
+  nasceram em 25/08, mas por dois dias o `modo` escolheu só as **entradas** —
+  destinatário, texto, anexo, link — e o HTML continuou sendo **um**, o
+  estruturado. A carta escrita pelo operador saía com a faixa "Orçamento
+  comercial", a caixa "Informações do orçamento" e o "Atenciosamente / General
+  Bombas" da casa em volta dela.
+  Isso não era só feio: a caixa repetia número, cliente e validade que a carta
+  já tinha dito e que o PDF anexo traz inteiros, e a assinatura pessoal do
+  operador entrava **ensanduichada** no fecho da empresa — como se ele
+  assinasse embaixo de um nome que não é o dele.
+  A escolha: **quem manda carta escolheu falar com a própria voz**, e o
+  documento inteiro vai anexo. Moldura de sistema ali não acrescenta contexto,
+  disputa com o texto. O modo `painel` continua estruturado, porque lá o corpo
+  é fixo e a caixa é justamente o que dá contexto antes do botão.
+  A regra que fica: **separar o conteúdo sem separar a forma não separa nada.**
+  Quando dois caminhos existem porque servem a públicos diferentes, o template
+  faz parte do caminho — e um comentário afirmando a divisão não a implementa.
+  Havia três comentários no código dizendo "isto só existe no modo carta"
+  enquanto o HTML tratava todo mundo igual.

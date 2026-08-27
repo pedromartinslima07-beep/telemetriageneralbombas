@@ -226,7 +226,10 @@ token. Encerrar sessão de verdade exigiria revogação no backend, que não exi
 
 ## Roles e redirecionamento
 
-- `admin` / `gerente` / `operador` → `/admin/painel`
+- `admin` / `gerente` → `/admin/painel`
+- `operador` → `/operador/painel` — **superfície própria desde 27/08/2026**,
+  não mais o painel admin com itens escondidos. Ver
+  [painel-operador.md](painel-operador.md)
 - `tecnico` → `/tecnico/painel` (app)
 - `cliente` → `/cliente/painel`
 
@@ -265,7 +268,7 @@ deixar a pessoa entrar pra tomar 403 na primeira request.
 | Middleware | Quem passa | Para quê |
 |---|---|---|
 | `authRequired` | qualquer JWT válido | — |
-| `adminOnly` | `admin`, `gerente`, `operador` | entrar no painel, monitorar, chamados, orçamentos, O.S. |
+| `adminOnly` | `admin`, `gerente`, `operador` | entrar no painel, monitorar (telemetria/mapa/alertas) e chamados — **só isso**, desde 27/08/2026 |
 | `gestaoOnly` | `admin`, `gerente` | operação do negócio (planos, contratos, cadastro de cliente) |
 | `masterAdminOnly` | só `admin` | irreversível/sensível (ver abaixo) |
 | `clienteOnly` | `cliente`, escopo do próprio `condominio_id` | **async** — também valida que o condomínio está `ativo` a cada request (ver abaixo) |
@@ -298,6 +301,62 @@ do WhatsApp, chamados e fechar alerta.
 > 29/07/2026.
 
 > O role `master_admin` foi removido — `masterAdminOnly` hoje equivale a `admin`.
+
+### O operador (27/08/2026: deixou de ser só de UI)
+
+Até 27/08/2026 a restrição do operador vivia inteira no `admin.js`
+(`_isOperador`, `display:none` no menu): no backend ele passava em `adminOnly`
+como qualquer admin e alcançava orçamentos, O.S., relatórios, contratos,
+conversas do WhatsApp e a oficina **chamando a API direto**.
+
+Hoje o corte é no guard. O que mudou de lado:
+
+| Foi para | O quê |
+|---|---|
+| `gestaoOnly` (49 rotas) | os 20 endpoints de `/admin/orcamentos*`; 13 de `/whatsapp/conversas*`; os 5 `GET` de `/contratos`; as 4 de `/relatorios/*`; `GET`+`POST /ordens-servico`; `GET /admin/usuarios`; `/equipamentos/etiquetas.pdf` e o `DELETE` de foto; `/admin/geocode` e `/admin/reverse-geocode` |
+| `masterAdminOnly` | `POST /jobs/verificar-offline` — era o único job da família fora do master |
+| fora de `equipeInterna` | as 10 rotas de `/equipamentos` — o `operador` saiu da allowlist, o técnico continua |
+
+**Contratos e Dashboard saíram também.** Contrato é peça comercial, e era o
+último item de Cadastro no menu do perfil. O Dashboard é a visão de quem
+responde pelo negócio — MRR, atividade, N condomínios de relance — e não o que
+a pessoa de turno precisa ter na frente; a faixa financeira dele (`.mc-fin`)
+vinha justamente de `/contratos`. Os dois geocoders foram atrás pelo mesmo
+raciocínio: servem só ao mini-mapa do cadastro de condomínio.
+
+**O menu do operador é: Alertas · Chamados · Telemetria · Mapa · Configurações
+→ "Conta".** Como `dashboard` nasce `is-active` no HTML, o `admin.js` chama
+`showSection("alertas")` no bloco `if (_isOperador)` — a primeira tela do turno
+é o que está errado agora.
+
+O que **continua** `adminOnly`, ou seja, o que o perfil de fato é: alertas
+(inclusive fechar e comentar), chamados (criar, editar, histórico), telemetria
+(`/admin/status`, `/admin/historico`, `/status/:device_id`,
+`/ultima-leitura/:device_id`, `GET /reservatorios`) e mapa (`/condominios` e
+`/tecnicos` em leitura, `/tecnicos/localizacao`, `historico-gps`).
+**24 rotas, contra 118 bloqueadas.**
+
+> Para conferir depois de qualquer mexida em guard:
+> `node scripts/auditar-rbac.js operador` (`--tudo` lista as bloqueadas).
+> Ele percorre o `stack` real dos routers e roda cada guard com um `req` de
+> mentira, sem tocar no banco. **Auditar por `grep adminOnly` mente** — foi o
+> que escondeu, por três meses, que metade do corte já estava feita.
+
+Duas rotas escapam dessa contabilidade porque a checagem está no corpo do
+handler, não num guard, e as duas já barravam o operador antes:
+`osDonoOuAdmin` (o resto de `/ordens-servico/:id/*` — admin, gerente ou o
+técnico dono) e `GET /relatorio/pdf` (allowlist explícita `cliente`/`admin`/
+`gerente`). Foi o que reduziu o trabalho pela metade.
+
+> ⚠️ **Esconder no menu não basta e restringir sozinho também não.** Os dois
+> andam juntos: uma seção escondida cuja rota continua aberta é buraco; uma
+> rota fechada cuja tela continua visível é uma tela que só sabe dar 403.
+> O `_navHide` do `admin.js` e a tabela acima têm que mudar no mesmo commit.
+>
+> A gaveta do dashboard é a pegadinha: ela abre de uma seção que o operador
+> **vê**, e três das cinco abas (Atendimento, O.S., Orçamentos) batem em rota
+> fechada. Estão escondidas no mesmo bloco `if (_isOperador)`.
+
 
 ## 401 ≠ 403 no front (pegadinha do "volta pro login sozinho")
 
@@ -355,12 +414,6 @@ devolve o acesso automaticamente.
 > Reativar o condomínio **não reativa os reservatórios** — o soft delete
 > desativa os dois, o `PATCH` só mexe no condomínio. O cliente volta a entrar e
 > vê o painel vazio até alguém reativar os reservatórios.
-
-> ⚠️ A restrição do **operador** (`admin.js`, `_isOperador`) é **só de UI**:
-> esconde itens do menu com `display:none`, mas no backend ele passa em
-> `adminOnly` como qualquer admin. Chamando a API direto, o operador alcança
-> orçamentos, O.S. e relatórios. Para valer de verdade, essas rotas
-> precisariam de `gestaoOnly`.
 
 ---
 

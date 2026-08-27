@@ -1,0 +1,1005 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Painel do operador — três composições</title>
+<link rel="stylesheet" href="../../public/leaflet.css">
+<style>
+@font-face{font-family:"Archivo";src:url("../../public/fonts/archivo.woff2") format("woff2");font-weight:400 900;font-stretch:62% 125%;font-display:swap}
+@font-face{font-family:"Martian Mono";src:url("../../public/fonts/martianmono.woff2") format("woff2");font-weight:400 700;font-display:swap}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Tokens — sistema "Chapa", REGISTRO DE OPERAÇÃO.
+   Cópia de public/admin.css. A comp é servida do disco e não
+   compartilha CSS com o painel. Mudou a paleta? Mude nos quatro.
+   ═══════════════════════════════════════════════════════════════════ */
+:root{
+  color-scheme: dark;
+  --mar-900:#030a26; --mar-800:#050f38; --mar-700:#071b5c;
+  --mar-600:#0d2775; --mar-500:#1a3a9e;
+  --bg:var(--mar-900); --bg-soft:var(--mar-800);
+  --surface:#06154b; --surface2:#0a1d5b; --surface3:#0e2163;
+  --fio:rgba(255,255,255,.14); --fio-fraco:rgba(255,255,255,.07);
+  --fio-forte:rgba(255,255,255,.34);
+  --rasgo:rgba(2,6,22,.55); --luz:rgba(255,255,255,.10);
+  --text:#f2f5ff; --text-dim:#a6b5dc; --muted:#8294c2; --muted2:#5b6c9e;
+  --accent:#fbb329; --accent-2:#ffcb60; --accent-3:#d99411;
+  --agua:#2f6fe0; --crista:#8fb6ff;
+  --ok:#63d8a0; --warn:#fbb329; --risco:#ff5a4d;
+  --vermelho:#ff5a4d; --verde:#63d8a0; --amarelo:#fbb329;
+}
+
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  background:var(--bg); color:var(--text);
+  font-family:"Archivo",ui-sans-serif,system-ui,sans-serif;
+  font-size:13px; line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+::selection{background:var(--accent);color:var(--mar-900)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+*::-webkit-scrollbar{width:10px;height:10px}
+*::-webkit-scrollbar-track{background:var(--mar-900)}
+*::-webkit-scrollbar-thumb{background:var(--mar-600)}
+*::-webkit-scrollbar-thumb:hover{background:var(--accent-3)}
+
+/* ── ANDAIME (não faz parte do desenho) ──────────────────────────── */
+.andaime{
+  position:sticky; top:0; z-index:50;
+  display:flex; flex-wrap:wrap; gap:22px; align-items:center;
+  padding:11px 20px; background:#000; border-bottom:1px solid var(--fio);
+}
+.andaime-grupo{display:flex;align-items:center;gap:8px}
+.andaime-rot{
+  font-family:"Martian Mono",ui-monospace,monospace;
+  font-size:.6rem; letter-spacing:.12em; text-transform:uppercase;
+  color:var(--muted2);
+}
+.andaime button{
+  font:inherit; font-size:11px; font-weight:700;
+  padding:5px 11px; cursor:pointer;
+  background:transparent; color:var(--text-dim);
+  border:1px solid var(--fio);
+}
+.andaime button:hover{color:var(--text);border-color:var(--fio-forte)}
+.andaime button[aria-pressed="true"]{
+  background:var(--accent); color:var(--mar-900); border-color:var(--accent);
+}
+.andaime-nota{
+  margin-left:auto; font-family:"Martian Mono",ui-monospace,monospace;
+  font-size:.58rem; letter-spacing:.08em; color:var(--muted2);
+}
+
+/* ── Palco: emula a largura do dispositivo ───────────────────────── */
+.palco{padding:26px 20px 70px}
+.palco[data-larg="celular"]{
+  max-width:414px; margin:0 auto; padding:18px 0 60px;
+}
+.palco[data-larg="celular"] .tela{
+  border:1px solid var(--fio); border-radius:2px; overflow:hidden;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   A TELA
+   ═══════════════════════════════════════════════════════════════════ */
+/* ⚠️ CONTAINER QUERY, não media query. O andaime emula o celular limitando
+   a largura do palco — o viewport continua tendo 1600px, então `@media`
+   nunca dispararia e a comp mentiria sobre o mobile. Com `@container` as
+   mesmas regras valem no palco estreito E num telefone de verdade, onde
+   `.tela` tem a largura da tela. Uma fonte só, dois usos.
+   (A contenção é segura aqui: a largura de `.tela` vem do palco, nunca do
+   conteúdo — é a armadilha registrada no brief do painel do cliente.) */
+.tela{
+  background:var(--bg-soft);
+  container-type:inline-size; container-name:tela;
+}
+
+/* A barra: o turno, não a navegação. Não há menu — não há para onde ir. */
+.barra{
+  display:flex; align-items:center; gap:18px;
+  padding:0 20px; height:60px;
+  background:var(--mar-900); border-bottom:1px solid var(--fio);
+  position:sticky; top:0; z-index:20;
+}
+.marca{display:flex;align-items:baseline;gap:9px;flex-shrink:0}
+.marca b{
+  font-size:15px; font-weight:900; font-stretch:112%;
+  letter-spacing:-.02em;
+}
+.marca span{
+  font-family:"Martian Mono",ui-monospace,monospace;
+  font-size:.58rem; letter-spacing:.14em; color:var(--muted2);
+  text-transform:uppercase;
+}
+/* O placar: o estado do turno em três números. Não é fileira de KPI —
+   é uma frase composta de números, na linha da barra. */
+.placar{display:flex;align-items:center;gap:16px;margin-left:6px}
+.placar-n{
+  font-family:"Martian Mono",ui-monospace,monospace;
+  font-size:1.05rem; font-weight:700; font-feature-settings:"tnum";
+  letter-spacing:-.02em; line-height:1;
+}
+.placar-i{display:flex;align-items:baseline;gap:6px}
+.placar-i em{
+  font-style:normal; font-size:11px; color:var(--text-dim);
+}
+.placar-i em .ct{display:none}
+.placar-i[data-t="critico"] .placar-n{color:var(--risco)}
+.placar-i[data-t="atencao"] .placar-n{color:var(--accent)}
+.placar-i[data-t="rota"]    .placar-n{color:var(--ok)}
+.relogio{
+  margin-left:auto; display:flex; align-items:center; gap:10px;
+  font-family:"Martian Mono",ui-monospace,monospace;
+  font-size:.72rem; font-weight:700; letter-spacing:.05em;
+  color:var(--text-dim); font-feature-settings:"tnum";
+}
+/* Pulso: prova de que a tela está viva. Uma tela aberta 8h precisa
+   dizer que ainda está recebendo, senão o silêncio é ambíguo. */
+.pulso{
+  width:7px;height:7px;background:var(--ok);flex-shrink:0;
+  animation:pulso 3.4s ease-out infinite;
+}
+@keyframes pulso{
+  0%,88%{opacity:1;transform:scale(1)}
+  94%{opacity:.28;transform:scale(.72)}
+  100%{opacity:1;transform:scale(1)}
+}
+.conta{
+  width:30px;height:30px;flex-shrink:0;
+  background:var(--mar-700); border:1px solid var(--fio);
+  display:grid;place-items:center;
+  font-size:11px;font-weight:800;letter-spacing:-.01em;
+}
+
+/* ── A PEÇA DE INSTRUMENTO — a unidade da parede ─────────────────── */
+.parede{
+  display:grid; gap:14px; padding:18px 20px;
+  grid-template-columns:repeat(auto-fill,minmax(296px,1fr));
+  align-content:start;
+}
+.peca{
+  position:relative; background:var(--surface);
+  border:1px solid var(--fio-fraco);
+  /* O chanfro de 45° em dois cantos opostos: a forma única do sistema. */
+  clip-path:polygon(14px 0,100% 0,100% calc(100% - 14px),calc(100% - 14px) 100%,0 100%,0 14px);
+  padding:13px 14px 0;
+  display:flex; flex-direction:column;
+  cursor:pointer;
+  transition:background .16s ease-out, border-color .16s ease-out;
+}
+.peca:hover{background:var(--surface2);border-color:var(--fio)}
+/* Pede ação: a peça sobe um degrau de material e ganha aresta usinada.
+   O SINAL de estado é o selo e a água — não uma tarja colorida. */
+.peca[data-pede="1"]{background:var(--surface2);border-color:var(--fio)}
+.peca[data-pede="1"]:hover{background:var(--surface3);border-color:var(--fio-forte)}
+
+.peca-topo{display:flex;align-items:flex-start;gap:10px}
+.peca-nome{
+  font-size:14px; font-weight:800; font-stretch:108%;
+  letter-spacing:-.022em; line-height:1.18; flex:1; min-width:0;
+}
+.peca-onde{
+  font-family:"Martian Mono",ui-monospace,monospace;
+  font-size:.58rem; letter-spacing:.09em; color:var(--muted);
+  text-transform:uppercase; margin-top:4px;
+  display:flex; align-items:center; gap:7px;
+  white-space:nowrap; overflow:hidden;
+}
+.peca-onde i{width:3px;height:3px;background:var(--muted2);font-style:normal}
+
+/* Selo: preenchido quando pede ação, de fio em repouso.
+   Só UMA dimensão preenche — aqui, a prioridade. */
+.selo{
+  font-family:"Martian Mono",ui-monospace,monospace;
+  font-size:.56rem; font-weight:700; letter-spacing:.1em;
+  padding:3px 7px; flex-shrink:0; text-transform:uppercase;
+  clip-path:polygon(5px 0,100% 0,100% calc(100% - 5px),calc(100% - 5px) 100%,0 100%,0 5px);
+}
+.selo[data-s="p1"]{background:var(--vermelho);color:var(--mar-900)}
+.selo[data-s="p2"]{background:var(--amarelo);color:var(--mar-900)}
+.selo[data-s="p3"]{background:var(--mar-500);color:#fff}
+.selo[data-s="off"]{background:var(--muted2);color:var(--mar-900)}
+.selo[data-s="ok"]{
+  background:transparent;color:var(--muted);
+  box-shadow:inset 0 0 0 1px var(--fio);
+}
+
+/* A fileira de tanques: o instrumento propriamente dito. */
+.tanques{
+  display:flex; gap:11px; align-items:flex-end; justify-content:center;
+  padding:15px 0 13px; min-height:118px;
+}
+.tanque{flex:0 0 auto;width:70px;text-align:center}
+.tanque svg{width:100%;height:auto;display:block}
+.tanque-lbl{
+  font-family:"Martian Mono",ui-monospace,monospace;
+  font-size:.54rem; letter-spacing:.07em; color:var(--muted2);
+  margin-top:5px; white-space:nowrap;
+}
+.tank-outline{stroke:rgba(255,255,255,.26);stroke-width:1;fill:none}
+.tank-rim{stroke:rgba(255,255,255,.34);stroke-width:1;fill:none}
+.tank-pct{
+  font-family:"Martian Mono",ui-monospace,monospace;
+  font-size:23px; font-weight:700; fill:var(--text);
+  text-anchor:middle; font-feature-settings:"tnum";
+}
+.tank-pct[data-b="baixo"]{fill:var(--accent)}
+.tank-pct[data-b="critico"]{fill:var(--risco)}
+.tank-pct[data-b="off"]{fill:var(--muted2);font-size:19px}
+
+/* O corte gravado: duas linhas, nunca uma. Divide o interior de UMA
+   peça — é o que separa o instrumento do que ele está dizendo. */
+.corte{
+  height:2px; margin:0 -14px;
+  background:linear-gradient(var(--rasgo) 0 1px,var(--luz) 1px 2px);
+}
+
+.peca-evento{padding:11px 0 12px;display:flex;flex-direction:column;gap:9px;flex:1}
+.evento-txt{font-size:12.5px;line-height:1.45;color:var(--text-dim)}
+.evento-txt b{color:var(--text);font-weight:700}
+.evento-quando{
+  font-family:"Martian Mono",ui-monospace,monospace;
+  font-size:.56rem; letter-spacing:.09em; color:var(--muted2);
+  text-transform:uppercase;
+}
+
+/* A ação vive DENTRO da peça. Despachar não é ir a outro lugar. */
+.acao{
+  display:flex; align-items:center; gap:8px; margin-top:auto;
+  padding-bottom:13px;
+}
+.btn{
+  font:inherit; font-size:11.5px; font-weight:800; letter-spacing:-.01em;
+  padding:7px 13px; cursor:pointer; border:0;
+  background:var(--accent); color:var(--mar-900);
+  clip-path:polygon(6px 0,100% 0,100% calc(100% - 6px),calc(100% - 6px) 100%,0 100%,0 6px);
+  transition:background .14s ease-out;
+}
+.btn:hover{background:var(--accent-2)}
+.btn-fio{
+  background:transparent; color:var(--text-dim);
+  box-shadow:inset 0 0 0 1px var(--fio);
+}
+.btn-fio:hover{background:transparent;color:var(--text);box-shadow:inset 0 0 0 1px var(--fio-forte)}
+
+/* Quem está indo — o desfecho do despacho, na própria peça. */
+.emrota{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-dim);width:100%;white-space:nowrap}
+.emrota svg{flex-shrink:0;color:var(--ok)}
+.emrota b{color:var(--text);font-weight:700}
+.emrota-eta{
+  font-family:"Martian Mono",ui-monospace,monospace;
+  font-size:.58rem;letter-spacing:.08em;color:var(--ok);
+  margin-left:auto;font-feature-settings:"tnum";flex-shrink:0;
+}
+
+/* A chegada: um momento, uma vez. A peça nova varre a própria aresta.
+   Não pisca — piscar em tela de 8 horas vira ruído que se ignora. */
+.peca.nova{animation:chegada 1.5s ease-out 1}
+@keyframes chegada{
+  0%{box-shadow:inset 0 0 0 1px var(--accent),inset 0 0 34px -12px var(--accent)}
+  100%{box-shadow:inset 0 0 0 1px transparent,inset 0 0 34px -12px transparent}
+}
+@media (prefers-reduced-motion:reduce){
+  .peca.nova{animation:none}
+  .pulso{animation:none}
+}
+
+/* ── A faixa dos que estão em ordem ──────────────────────────────── */
+.emordem{
+  border-top:1px solid var(--fio-fraco); background:var(--mar-900);
+  padding:14px 20px 18px;
+}
+.emordem-cab{
+  display:flex; align-items:baseline; gap:10px; margin-bottom:11px;
+}
+.emordem-cab h2{
+  margin:0; font-size:12px; font-weight:800; letter-spacing:-.01em;
+  color:var(--text-dim);
+}
+.emordem-cab span{
+  font-family:"Martian Mono",ui-monospace,monospace;
+  font-size:.58rem;letter-spacing:.1em;color:var(--muted2);
+  text-transform:uppercase;
+}
+.mini-fila{display:flex;flex-wrap:wrap;gap:6px}
+.mini{
+  display:flex; align-items:center; gap:7px;
+  padding:5px 9px 5px 7px; background:var(--surface);
+  border:1px solid var(--fio-fraco); font-size:11.5px; color:var(--text-dim);
+  cursor:pointer;
+  clip-path:polygon(6px 0,100% 0,100% calc(100% - 6px),calc(100% - 6px) 100%,0 100%,0 6px);
+}
+.mini:hover{border-color:var(--fio);color:var(--text)}
+.mini svg{flex-shrink:0}
+.mini b{
+  font-family:"Martian Mono",ui-monospace,monospace;
+  font-size:.6rem;font-weight:700;color:var(--muted);
+  font-feature-settings:"tnum";
+}
+
+/* ── ESTADO CALMO — o que o operador vê a maior parte do turno ───── */
+.calmo{
+  padding:clamp(40px,7vw,88px) 20px clamp(34px,5vw,60px);
+  text-align:center;
+}
+.calmo h1{
+  margin:0 0 10px; font-size:clamp(1.7rem,3.4vw,2.5rem);
+  font-weight:900; font-stretch:112%; letter-spacing:-.03em; line-height:1.05;
+}
+.calmo p{
+  margin:0 auto; max-width:46ch; color:var(--text-dim);
+  font-size:14px; line-height:1.6;
+}
+.calmo-marca{
+  display:inline-flex;align-items:center;gap:9px;margin-bottom:20px;
+  font-family:"Martian Mono",ui-monospace,monospace;
+  font-size:.6rem;letter-spacing:.14em;color:var(--ok);text-transform:uppercase;
+}
+.calmo-marca i{width:7px;height:7px;background:var(--ok);font-style:normal}
+
+/* A parede em repouso: o instrumento continua sendo a tela, em escala de
+   relance. Sem peça, sem selo, sem ação — não há nada a fazer. */
+.paredecalma{
+  border-top:1px solid var(--fio-fraco); background:var(--mar-900);
+  padding:16px 20px 34px;
+}
+.repouso-grade{
+  display:grid; gap:14px 8px; margin-top:12px;
+  grid-template-columns:repeat(auto-fill,minmax(74px,1fr));
+}
+.repouso{text-align:center;opacity:.7;transition:opacity .16s ease-out;cursor:pointer}
+.repouso:hover{opacity:1}
+.repouso .tanque{width:100%;max-width:64px;margin:0 auto}
+.repouso-nome{
+  font-size:10px; line-height:1.3; color:var(--muted); margin-top:5px;
+  overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
+}
+
+/* ── B: o trilho de despacho ─────────────────────────────────────── */
+.comB{display:grid;grid-template-columns:1fr 292px}
+.comB .parede{border-right:1px solid var(--fio-fraco)}
+.trilho{
+  background:var(--mar-900); padding:18px 16px;
+  display:flex; flex-direction:column; gap:16px;
+  position:sticky; top:60px; align-self:start;
+  max-height:calc(100vh - 60px); overflow-y:auto;
+}
+.trilho h2{
+  margin:0 0 10px; font-family:"Martian Mono",ui-monospace,monospace;
+  font-size:.6rem; letter-spacing:.13em; color:var(--muted);
+  text-transform:uppercase; font-weight:500;
+}
+.tec{
+  display:flex; align-items:center; gap:10px; padding:9px 10px;
+  background:var(--surface); border:1px solid var(--fio-fraco);
+  margin-bottom:6px;
+  clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px);
+}
+.tec-av{
+  width:28px;height:28px;flex-shrink:0;background:var(--mar-600);
+  display:grid;place-items:center;font-size:10.5px;font-weight:800;
+}
+.tec-nome{font-size:12.5px;font-weight:700;line-height:1.25}
+.tec-est{
+  font-family:"Martian Mono",ui-monospace,monospace;
+  font-size:.55rem;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--muted2);margin-top:2px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:16ch;
+}
+.tec[data-liv="1"] .tec-est{color:var(--ok)}
+.tec-dist{
+  margin-left:auto;font-family:"Martian Mono",ui-monospace,monospace;
+  font-size:.6rem;color:var(--text-dim);font-feature-settings:"tnum";
+  white-space:nowrap;flex-shrink:0;
+}
+
+/* ── C: a peça em foco ───────────────────────────────────────────── */
+.foco{
+  margin:18px 20px 0; background:var(--surface2);
+  border:1px solid var(--fio);
+  clip-path:polygon(20px 0,100% 0,100% calc(100% - 20px),calc(100% - 20px) 100%,0 100%,0 20px);
+  padding:20px 22px;
+  display:grid; grid-template-columns:max-content 1fr; gap:26px;
+}
+.foco-tanques{display:flex;gap:14px;align-items:flex-end}
+.foco-tanques .tanque{width:104px}
+.foco-tanques .tank-pct{font-size:17px}
+.foco-corpo{display:flex;flex-direction:column;min-width:0}
+.foco-nome{
+  margin:0; font-size:clamp(1.3rem,2.4vw,1.85rem); font-weight:900;
+  font-stretch:112%; letter-spacing:-.03em; line-height:1.06;
+}
+.foco-onde{
+  font-family:"Martian Mono",ui-monospace,monospace;
+  font-size:.62rem;letter-spacing:.1em;color:var(--muted);
+  text-transform:uppercase;margin-top:7px;
+}
+.foco-frase{
+  margin:16px 0 0; font-size:16px; line-height:1.5; color:var(--text);
+  max-width:52ch;
+}
+.foco-frase b{color:var(--risco);font-weight:800}
+.foco-acao{display:flex;align-items:center;gap:10px;margin-top:auto;padding-top:20px}
+.foco-acao .btn{font-size:13px;padding:10px 18px}
+.faixa-titulo{
+  display:flex;align-items:baseline;gap:10px;
+  padding:22px 20px 0;
+}
+.faixa-titulo h2{margin:0;font-size:12px;font-weight:800;color:var(--text-dim)}
+.faixa-titulo span{
+  font-family:"Martian Mono",ui-monospace,monospace;
+  font-size:.58rem;letter-spacing:.1em;color:var(--muted2);text-transform:uppercase;
+}
+.comC .parede{grid-template-columns:repeat(auto-fill,minmax(244px,1fr));padding-top:12px}
+.comC .parede .tanques{min-height:92px;padding:11px 0 9px}
+.comC .parede .tanque{width:54px}
+.comC .parede .tank-pct{font-size:26px}
+.comC .parede .peca-evento{padding:9px 0 10px}
+
+/* ═══════════════════════════════════════════════════════════════════
+   A FICHA DE DESPACHO — onde o mapa entra.
+
+   O mapa não é uma tela do operador: é a FERRAMENTA DE UMA DECISÃO, e a
+   decisão é "quem vai". Aberto o turno inteiro ele é papel de parede — os
+   80 pinos não mudam de lugar. Aberto no instante do despacho, ele é a
+   única coisa que responde a pergunta, porque a resposta é geográfica e
+   uma lista de distâncias em texto é o mapa pior desenhado.
+   ═══════════════════════════════════════════════════════════════════ */
+.fundo{
+  position:fixed;inset:0;z-index:60;background:rgba(3,10,38,.72);
+  backdrop-filter:blur(3px);
+  display:grid;place-items:center;padding:24px;
+}
+.ficha{
+  width:min(880px,100%); max-height:calc(100vh - 48px); overflow:auto;
+  background:var(--surface); border:1px solid var(--fio-forte);
+  clip-path:polygon(22px 0,100% 0,100% calc(100% - 22px),calc(100% - 22px) 100%,0 100%,0 22px);
+}
+.ficha-cab{
+  display:flex;align-items:flex-start;gap:14px;
+  padding:20px 22px 16px;
+}
+.ficha-cab h2{
+  margin:0;font-size:1.35rem;font-weight:900;font-stretch:112%;
+  letter-spacing:-.03em;line-height:1.08;
+}
+.ficha-cab .peca-onde{margin-top:6px}
+.ficha-x{
+  margin-left:auto;width:34px;height:34px;flex-shrink:0;
+  background:transparent;border:1px solid var(--fio);color:var(--text-dim);
+  cursor:pointer;display:grid;place-items:center;
+}
+.ficha-x:hover{border-color:var(--fio-forte);color:var(--text)}
+.ficha-corpo{display:grid;grid-template-columns:1fr 300px}
+.mapa{height:330px;background:#0d1325}
+.leaflet-container{background:#0d1325;font-family:inherit}
+.map-tiles-dark{filter:invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%)}
+.pin{display:grid;place-items:center;font-weight:800}
+.pin-predio{
+  width:30px;height:30px;background:var(--vermelho);color:var(--mar-900);
+  clip-path:polygon(7px 0,100% 0,100% calc(100% - 7px),calc(100% - 7px) 100%,0 100%,0 7px);
+  font-size:11px;
+}
+.pin-tec{
+  width:26px;height:26px;background:var(--mar-600);color:#fff;
+  border:1px solid var(--fio-forte);font-size:9.5px;
+}
+.pin-tec[data-liv="1"]{background:var(--verde);color:var(--mar-900);border-color:var(--verde)}
+.escolha{
+  border-left:1px solid var(--fio-fraco);background:var(--mar-900);
+  padding:16px 15px;display:flex;flex-direction:column;gap:7px;
+}
+.escolha h3{
+  margin:0 0 4px;font-family:"Martian Mono",ui-monospace,monospace;
+  font-size:.6rem;letter-spacing:.13em;color:var(--muted);
+  text-transform:uppercase;font-weight:500;
+}
+.cand{
+  display:flex;align-items:center;gap:10px;padding:9px 10px;
+  background:var(--surface);border:1px solid var(--fio-fraco);
+  cursor:pointer;text-align:left;font:inherit;color:inherit;width:100%;
+  clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px);
+  transition:border-color .14s ease-out,background .14s ease-out;
+}
+.cand:hover{background:var(--surface2);border-color:var(--fio-forte)}
+.cand[data-liv="0"]{opacity:.5}
+.cand-nome{font-size:12.5px;font-weight:700;line-height:1.25}
+.cand-est{
+  font-family:"Martian Mono",ui-monospace,monospace;
+  font-size:.55rem;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--muted2);margin-top:2px;
+}
+.cand[data-liv="1"] .cand-est{color:var(--ok)}
+.cand-eta{
+  margin-left:auto;text-align:right;flex-shrink:0;
+  font-family:"Martian Mono",ui-monospace,monospace;font-feature-settings:"tnum";
+}
+.cand-eta b{display:block;font-size:.78rem;color:var(--text);font-weight:700}
+.cand-eta span{font-size:.55rem;letter-spacing:.08em;color:var(--muted2)}
+.ficha-pe{
+  border-top:1px solid var(--fio-fraco);padding:14px 22px;
+  display:flex;align-items:center;gap:11px;
+}
+.ficha-pe p{margin:0;font-size:12px;color:var(--muted);flex:1}
+
+/* ── CELULAR ─────────────────────────────────────────────────────── */
+@container tela (max-width:640px){
+  .barra{height:54px;padding:0 13px;gap:10px;position:static}
+  .marca span{display:none}
+  .placar{gap:12px;margin-left:0}
+  .placar-i em .lg{display:none}
+  .placar-i em .ct{display:inline}
+  .placar-i em{font-size:10px}
+  .placar-n{font-size:1rem}
+  /* Esconde só o "Recebendo" — o pulso e a hora FICAM. Numa tela de turno o
+     sinal de vida é a informação mais importante da barra: sem ele, silêncio
+     e falha se parecem. */
+  .relogio .rot{display:none}
+  .relogio{gap:7px;font-size:.66rem}
+  .parede{grid-template-columns:1fr;gap:10px;padding:12px 13px}
+  .peca{padding:12px 13px 0}
+  /* No celular a peça vira linha: o instrumento encolhe e vai para a
+     direita, o texto manda. Ninguém lê uma parede num telefone — lê uma
+     lista. A peça é a mesma; o que muda é a orientação. */
+  .peca-corpo{display:grid;grid-template-columns:1fr max-content;gap:14px;align-items:center}
+  .tanques{padding:0;min-height:0;gap:6px}
+  .tanque{width:52px}
+  .tanque .tank-pct{font-size:26px}
+  .tanque-lbl{display:none}
+  .corte{margin:11px -13px 0}
+  .btn{padding:9px 15px;font-size:12.5px}
+  .btn-fio{padding:9px 13px}
+  .comB{grid-template-columns:1fr}
+  .comB .parede{border-right:0}
+  .trilho{position:static;max-height:none;border-top:1px solid var(--fio-fraco)}
+  .foco{margin:12px 13px 0;grid-template-columns:1fr;gap:16px;padding:16px}
+  .foco-tanques{order:2;gap:10px}
+  .foco-tanques .tanque{width:60px}
+  .comC .parede{grid-template-columns:1fr}
+  .emordem{padding:13px}
+  .ficha-corpo{grid-template-columns:1fr}
+  .mapa{height:210px}
+  .escolha{border-left:0;border-top:1px solid var(--fio-fraco)}
+  .ficha-cab h2{font-size:1.15rem}
+  .paredecalma{padding:13px 13px 26px}
+  .repouso-grade{grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:11px 6px}
+  .calmo{padding:56px 22px 40px}
+}
+</style>
+</head>
+<body>
+<!--
+  DIREÇÃO — Painel do operador · comp v1 · 2026-08-27
+
+  THESIS: a parede de instrumentos. O operador não navega entre telas: ele
+  olha uma parede onde cada prédio é uma peça de instrumento, e o que está
+  errado é um instrumento com aparência diferente — não uma linha numa
+  tabela. Recusa o arranjo padrão da categoria: fila+ficha com abas e busca,
+  que é o admin com menos itens.
+  OWN-WORLD: Chapa em registro de operação. Marinho como material, chanfro de
+  45° em dois cantos opostos, fios de 1px como usinagem, mono só em medição,
+  amarelo institucional na única ação. Sem sombra projetada, sem raio.
+  STORY: o operador entende o estado dos 80 prédios de relance, reconhece o
+  que pede alguém, e despacha dentro da própria peça.
+  FIRST VIEWPORT: barra de 60px com o placar do turno; abaixo, a parede das
+  peças que pedem ação, ordenadas por gravidade; no pé, a faixa dos que estão
+  em ordem. A ação primária ("Despachar") vive dentro de cada peça.
+  FORM: candidato 7 da lista grounded ordenada por ressonância · seed b37ab1c1.
+  FINISH: unreviewed and undocumented is unfinished; this build ends with the
+  finish review, the verdict, and DESIGN.md.
+
+  ⚠️ ANDAIME — comp de aprovação, não código de produção. Todos os dados
+  (prédios, técnicos, leituras, horários) são FICTÍCIOS.
+-->
+
+<div class="andaime">
+  <div class="andaime-grupo">
+    <span class="andaime-rot">Composição</span>
+    <button data-com="A" aria-pressed="true">A · parede</button>
+    <button data-com="B" aria-pressed="false">B · parede + trilho</button>
+    <button data-com="C" aria-pressed="false">C · foco + parede</button>
+  </div>
+  <div class="andaime-grupo">
+    <span class="andaime-rot">Estado</span>
+    <button data-est="agitado" aria-pressed="true">turno agitado</button>
+    <button data-est="calmo" aria-pressed="false">dia calmo</button>
+  </div>
+  <div class="andaime-grupo">
+    <span class="andaime-rot">Tela</span>
+    <button data-larg="desktop" aria-pressed="true">desktop</button>
+    <button data-larg="celular" aria-pressed="false">celular</button>
+  </div>
+  <div class="andaime-grupo">
+    <span class="andaime-rot">Ação</span>
+    <button data-ficha="1" aria-pressed="false">despachar →</button>
+  </div>
+  <span class="andaime-nota">dados fictícios</span>
+</div>
+
+<div class="palco" data-larg="desktop">
+  <div class="tela" id="tela"></div>
+</div>
+
+<script src="../../public/leaflet.js"></script>
+<script>
+/* ═══════════════════════════════════════════════════════════════════
+   Dados FICTÍCIOS. Escala tirada da produção: ~80 prédios, 42
+   reservatórios monitorados, 3–5 por prédio.
+   ═══════════════════════════════════════════════════════════════════ */
+const PREDIOS = [
+  { nome:"Ed. Villa Lobos",        onde:"Vila Mariana",  dist:"3,2 km", p:"p1",
+    tanques:[{n:"Inferior",v:9},{n:"Sup. A",v:4},{n:"Sup. B",v:11}],
+    evento:"Nível muito baixo nos três reservatórios. A bomba de recalque não liga desde as 06h12.",
+    quando:"há 8 min", nova:true },
+  { nome:"Res. Portal do Sol",     onde:"Santo Amaro",   dist:"11,4 km", p:"off",
+    tanques:[{n:"Cisterna",v:null},{n:"Superior",v:null}],
+    evento:"Sem leitura há 47 minutos. O último nível conhecido era 62%.",
+    quando:"há 47 min" },
+  { nome:"Cond. Jardim Anália",    onde:"Anália Franco", dist:"7,8 km", p:"p2",
+    tanques:[{n:"Cisterna",v:31},{n:"Superior",v:38},{n:"Reserva",v:44}],
+    evento:"Nível baixo na cisterna. Consumo 40% acima da média para a hora.",
+    quando:"há 22 min" },
+  { nome:"Ed. Monte Verde",        onde:"Perdizes",      dist:"5,1 km", p:"p2",
+    tanques:[{n:"Inferior",v:28},{n:"Superior",v:52}],
+    evento:"Vazamento relatado pelo síndico no 4º andar.",
+    quando:"há 1h04", rota:{ tec:"Marcos Ferreira", eta:"12 min" } },
+  { nome:"Res. Alphaville 4",      onde:"Barueri",       dist:"24,6 km", p:"p3",
+    tanques:[{n:"Cisterna",v:41},{n:"Sup. A",v:47},{n:"Sup. B",v:39}],
+    evento:"Nível baixo. Recuperando desde as 07h40.",
+    quando:"há 2h11" },
+  { nome:"Ed. Solar das Palmeiras",onde:"Moema",         dist:"6,3 km", p:"p3",
+    tanques:[{n:"Cisterna",v:43},{n:"Superior",v:58}],
+    evento:"Ruído na casa de máquinas relatado pela portaria.",
+    quando:"há 3h27", rota:{ tec:"Anderson Luiz", eta:"no local" } },
+  { nome:"Cond. Vila Olímpia 21",  onde:"Vila Olímpia", dist:"8,9 km", p:"p1",
+    tanques:[{n:"Cisterna",v:2},{n:"Superior",v:0}],
+    evento:"Sem água. A portaria confirmou por telefone que não há pressão em nenhum andar.",
+    quando:"há 14 min" },
+  { nome:"Res. Granja Viana",      onde:"Cotia",        dist:"31,2 km", p:"off",
+    tanques:[{n:"Cisterna",v:null},{n:"Sup. A",v:null},{n:"Sup. B",v:null}],
+    evento:"Sem leitura há 3 horas. O condomínio relatou queda de energia na região.",
+    quando:"há 3h02" },
+  { nome:"Ed. Paraíso Central",    onde:"Paraíso",      dist:"4,4 km", p:"p2",
+    tanques:[{n:"Inferior",v:36},{n:"Superior",v:29}],
+    evento:"Nível baixo nos dois. A bomba liga, mas o superior não sobe desde as 05h.",
+    quando:"há 39 min" },
+  { nome:"Cond. Santana Norte",    onde:"Santana",      dist:"14,7 km", p:"p3",
+    tanques:[{n:"Cisterna",v:44},{n:"Superior",v:61}],
+    evento:"Preventiva mensal vencida ontem.",
+    quando:"há 1 dia" },
+];
+
+const EM_ORDEM = [
+  ["Cond. Vista Alegre",88],["Res. Parque das Nações",91],["Ed. Itaim Center",76],
+  ["Cond. Bela Vista",94],["Ed. Morumbi Park",83],["Res. Água Branca",97],
+  ["Cond. Tatuapé Prime",79],["Ed. Pinheiros 900",86],["Res. Campo Belo",92],
+  ["Cond. Higienópolis",81],["Ed. Brooklin Novo",95],["Res. Ipiranga Sul",74],
+  ["Cond. Lapa Central",89],["Ed. Saúde Torres",93],["Res. Butantã Vale",78],
+];
+
+const TECNICOS = [
+  { n:"Rafael Souza",    est:"Disponível",          d:"2,1 km", livre:1, ll:[-23.5789,-46.6412], eta:"9 min"  },
+  { n:"Júlia Campos",    est:"Disponível",          d:"9,7 km", livre:1, ll:[-23.6231,-46.5698], eta:"26 min" },
+  { n:"Marcos Ferreira", est:"A caminho · Monte V.",d:"1,4 km", livre:0, ll:[-23.5601,-46.6689], eta:"—"      },
+  { n:"Anderson Luiz",   est:"Em atend. · Solar",   d:"—",      livre:0, ll:[-23.6014,-46.6668], eta:"—"      },
+];
+
+// O prédio da ficha de despacho (Villa Lobos, Vila Mariana).
+const ALVO = { ll:[-23.5872,-46.6350] };
+
+/* ── O cilindro: o instrumento do sistema, reproporcionado ─────────
+   Sem ticks e sem faixa de limiar dentro do corpo. Foi recusado no
+   painel do cliente (14/08) e a razão vale aqui: o limiar já está dito
+   pelo número colorido e pela crista. Régua que ninguém mede é ruído. */
+function banda(v){
+  if(v===null) return {b:"off",  cor:"#5b6c9e"};
+  if(v < 20)   return {b:"critico",cor:"#ff5a4d"};
+  if(v < 45)   return {b:"baixo",  cor:"#fbb329"};
+  return         {b:"ok",       cor:"#2f6fe0"};
+}
+/* O número vive DENTRO do tanque, e a lâmina passa por cima dele. Quando a
+   água está na banda amarela e o nível cruza a altura do texto, o resultado é
+   amarelo sobre amarelo — ilegível justamente no estado que pede leitura.
+   A resposta é a do sistema, não um halo: placa chanfrada preenchida, com a
+   tinta de estado por cima. Sobre marinho o amarelo passa com folga. */
+function placaDoNumero(txt, b){
+  const larg = 17 + txt.length * 12.5;
+  const x = 50 - larg/2, y = 60, alt = 21, ch = 5;
+  const forma = `M${x+ch} ${y} L${x+larg} ${y} L${x+larg} ${y+alt-ch} L${x+larg-ch} ${y+alt} L${x} ${y+alt} L${x} ${y+ch} Z`;
+  return `<path d="${forma}" fill="#030a26" fill-opacity=".86"/>
+    <text class="tank-pct" data-b="${b}" x="50" y="${y+alt-5}">${txt}</text>`;
+}
+
+let _uid = 0;
+function cilindro(v){
+  const {b,cor} = banda(v);
+  const TOP=20, BOT=112, RX=30, RY=7.5, H=BOT-TOP;
+  const y = v===null ? BOT : TOP + (1 - v/100)*H;
+  const id = "t"+(_uid++);
+  const corpo = `M${50-RX} ${TOP} A${RX} ${RY} 0 0 0 ${50+RX} ${TOP} L${50+RX} ${BOT} A${RX} ${RY} 0 0 1 ${50-RX} ${BOT} Z`;
+  const agua = v===null ? `
+      <g clip-path="url(#c${id})">
+        <rect x="${50-RX}" y="${TOP}" width="${RX*2}" height="${H}" fill="url(#mudo${id})"/>
+      </g>` : `
+      <g clip-path="url(#c${id})">
+        <rect x="${50-RX}" y="${y.toFixed(1)}" width="${RX*2}" height="${(BOT-y+RY).toFixed(1)}" fill="url(#a${id})"/>
+        <ellipse cx="50" cy="${y.toFixed(1)}" rx="${RX}" ry="${RY}" fill="${cor}"/>
+        <ellipse cx="50" cy="${y.toFixed(1)}" rx="${RX}" ry="${RY}" fill="none" stroke="#fff" stroke-opacity=".32"/>
+      </g>`;
+  return `<svg viewBox="0 0 100 120" role="img" aria-label="Nível ${v===null?"sem leitura":v+"%"}">
+    <defs>
+      <clipPath id="c${id}"><path d="${corpo}"/></clipPath>
+      <linearGradient id="b${id}" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0" stop-color="#fff" stop-opacity=".12"/>
+        <stop offset=".45" stop-color="#fff" stop-opacity=".02"/>
+        <stop offset="1" stop-color="#000" stop-opacity=".22"/>
+      </linearGradient>
+      <linearGradient id="a${id}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="${cor}" stop-opacity=".95"/>
+        <stop offset="1" stop-color="${cor}" stop-opacity=".55"/>
+      </linearGradient>
+      <pattern id="mudo${id}" width="7" height="7" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
+        <line x1="0" y1="0" x2="0" y2="7" stroke="#5b6c9e" stroke-opacity=".45" stroke-width="2"/>
+      </pattern>
+    </defs>
+    <path d="${corpo}" fill="url(#b${id})"/>
+    ${agua}
+    <rect x="${50-RX+6}" y="${TOP+5}" width="4" height="${H-12}" rx="2" fill="#fff" opacity=".07"/>
+    <line class="tank-outline" x1="${50-RX}" y1="${TOP}" x2="${50-RX}" y2="${BOT}"/>
+    <line class="tank-outline" x1="${50+RX}" y1="${TOP}" x2="${50+RX}" y2="${BOT}"/>
+    <path class="tank-outline" d="M${50-RX} ${BOT} A${RX} ${RY} 0 0 0 ${50+RX} ${BOT}"/>
+    <ellipse class="tank-rim" cx="50" cy="${TOP}" rx="${RX}" ry="${RY}"/>
+    ${placaDoNumero(v===null ? "—" : v+"%", b)}
+  </svg>`;
+}
+
+const ICO_ROTA = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-5.5 7-11a7 7 0 1 0-14 0c0 5.5 7 11 7 11z"/><circle cx="12" cy="10" r="2.4"/></svg>`;
+const ICO_OK   = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#63d8a0" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>`;
+
+const ROT_SELO = { p1:"P1", p2:"P2", p3:"P3", off:"sem sinal", ok:"em ordem" };
+
+function peca(p, compacta){
+  const tanques = p.tanques.map(t =>
+    `<div class="tanque">${cilindro(t.v)}<div class="tanque-lbl">${t.n}</div></div>`).join("");
+  const rodape = p.rota
+    ? `<div class="emrota">${ICO_ROTA}<span><b>${p.rota.tec}</b> a caminho</span><span class="emrota-eta">${p.rota.eta}</span></div>`
+    : `<button class="btn">Despachar</button><button class="btn btn-fio">Abrir ficha</button>`;
+  return `
+  <article class="peca${p.nova ? " nova" : ""}" data-pede="1" tabindex="0">
+    <div class="peca-corpo">
+      <div>
+        <div class="peca-topo">
+          <div>
+            <h3 class="peca-nome">${p.nome}</h3>
+            <div class="peca-onde">${p.onde}<i></i>${p.dist}</div>
+          </div>
+          <span class="selo" data-s="${p.p}">${ROT_SELO[p.p]}</span>
+        </div>
+      </div>
+      <div class="tanques">${tanques}</div>
+    </div>
+    <div class="corte"></div>
+    <div class="peca-evento">
+      <p class="evento-txt">${p.evento}</p>
+      <span class="evento-quando">${p.quando}</span>
+    </div>
+    <div class="acao">${rodape}</div>
+  </article>`;
+}
+
+function barra(modo){
+  const criticos = PREDIOS.filter(p => p.p==="p1"||p.p==="off").length;
+  const atencao  = PREDIOS.filter(p => p.p==="p2"||p.p==="p3").length;
+  const rota     = PREDIOS.filter(p => p.rota).length;
+  // No dia calmo o placar não vira zeros: um "0 · 0 · 0" é três vezes a
+  // mesma notícia. Ele encolhe para a única linha que ainda diz algo.
+  const placar = modo === "calmo"
+    ? `<div class="placar-i" data-t="rota"><span class="placar-n">0</span><em><span class="lg">eventos abertos</span><span class="ct">abertos</span></em></div>`
+    : `<div class="placar-i" data-t="critico"><span class="placar-n">${criticos}</span><em><span class="lg">sem água ou sem sinal</span><span class="ct">graves</span></em></div>
+       <div class="placar-i" data-t="atencao"><span class="placar-n">${atencao}</span><em><span class="lg">pedem atenção</span><span class="ct">atenção</span></em></div>
+       <div class="placar-i" data-t="rota"><span class="placar-n">${rota}</span><em><span class="lg">com técnico a caminho</span><span class="ct">em rota</span></em></div>`;
+  return `
+  <header class="barra">
+    <div class="marca"><b>General</b><span>Turno</span></div>
+    <div class="placar">${placar}</div>
+    <div class="relogio"><span class="pulso"></span><span class="rot">Recebendo ·</span><span>08:41</span></div>
+    <div class="conta">RS</div>
+  </header>`;
+}
+
+function faixaEmOrdem(){
+  return `
+  <section class="emordem">
+    <div class="emordem-cab"><h2>Em ordem</h2><span>79 prédios · nenhum evento aberto</span></div>
+    <div class="mini-fila">
+      ${EM_ORDEM.map(([n,v]) => `<button class="mini">${ICO_OK}${n}<b>${v}%</b></button>`).join("")}
+      <button class="mini" style="color:var(--muted2)">+64 outros</button>
+    </div>
+  </section>`;
+}
+
+function trilho(){
+  return `
+  <aside class="trilho">
+    <div>
+      <h2>Equipe agora</h2>
+      ${TECNICOS.map(t => `
+        <div class="tec" data-liv="${t.livre}">
+          <div class="tec-av">${t.n.split(" ").map(x=>x[0]).slice(0,2).join("")}</div>
+          <div><div class="tec-nome">${t.n}</div><div class="tec-est">${t.est}</div></div>
+          <span class="tec-dist">${t.d}</span>
+        </div>`).join("")}
+    </div>
+    <div>
+      <h2>Despachados hoje</h2>
+      ${PREDIOS.filter(p=>p.rota).map(p => `
+        <div class="tec">
+          <div class="tec-av" style="background:var(--mar-700)">${ICO_ROTA}</div>
+          <div><div class="tec-nome">${p.nome}</div><div class="tec-est">${p.rota.tec.split(" ")[0]} · ${p.rota.eta}</div></div>
+        </div>`).join("")}
+    </div>
+  </aside>`;
+}
+
+/* ⚠️ O dia calmo é o estado que o operador vê a MAIOR PARTE DO TURNO, e é
+   onde a tese se prova ou se desmente. Uma lista de pílulas de texto aqui
+   apagaria a parede justamente nas sete horas em que nada acontece — o
+   painel viraria outra coisa quando mais é olhado.
+   Numa sala de controle o dia calmo é ver todos os ponteiros em repouso.
+   Então a parede continua: os cilindros azuis, em silêncio, provando que
+   alguém está olhando. */
+function calmo(){
+  const nomes = [...EM_ORDEM.map(e=>e[0]), ...PREDIOS.map(p=>p.nome)];
+  const repouso = nomes.map((n,i) => `<div class="repouso">
+      <div class="tanque">${cilindro(58 + (i*13) % 41)}</div>
+      <div class="repouso-nome">${n}</div>
+    </div>`).join("");
+  return `
+  ${barra("calmo")}
+  <section class="calmo">
+    <div class="calmo-marca"><i></i>Nada pede alguém agora</div>
+    <h1>Os 89 prédios estão em ordem.</h1>
+    <p>Todos os 42 reservatórios acima de 45%, todas as bombas respondendo.
+       O último evento foi resolvido às 06h12.</p>
+  </section>
+  <section class="paredecalma">
+    <div class="emordem-cab"><h2>A parede</h2><span>42 reservatórios · leitura de 12 segundos atrás</span></div>
+    <div class="repouso-grade">${repouso}</div>
+  </section>`;
+}
+
+/* ── A ficha de despacho ─────────────────────────────────────────── */
+const ICO_X = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>`;
+
+function fichaDespacho(){
+  const p = PREDIOS[0];
+  const cands = [...TECNICOS].sort((a,b) => b.livre - a.livre);
+  return `
+  <div class="fundo" id="fundo">
+    <div class="ficha" role="dialog" aria-label="Despachar técnico">
+      <div class="ficha-cab">
+        <div>
+          <h2>${p.nome}</h2>
+          <div class="peca-onde">${p.onde}<i></i>${p.dist}<i></i>há 8 minutos</div>
+        </div>
+        <span class="selo" data-s="p1">P1</span>
+        <button class="ficha-x" aria-label="Fechar">${ICO_X}</button>
+      </div>
+      <div class="ficha-corpo">
+        <div class="mapa" id="mapa"></div>
+        <div class="escolha">
+          <h3>Quem pode ir</h3>
+          ${cands.map(t => `
+            <button class="cand" data-liv="${t.livre}">
+              <div class="tec-av">${t.n.split(" ").map(x=>x[0]).slice(0,2).join("")}</div>
+              <div><div class="cand-nome">${t.n}</div><div class="cand-est">${t.est}</div></div>
+              <div class="cand-eta"><b>${t.livre ? t.eta : "—"}</b><span>${t.d}</span></div>
+            </button>`).join("")}
+        </div>
+      </div>
+      <div class="ficha-pe">
+        <p>O chamado nasce no nome de quem for escolhido, com o SLA de 3 horas do P1.</p>
+        <button class="btn btn-fio">Cancelar</button>
+        <button class="btn">Despachar Rafael</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function montarMapa(){
+  const el = document.getElementById("mapa");
+  if(!el || typeof L === "undefined") return;
+  const map = L.map(el, { zoomControl:false, attributionControl:false })
+    .setView(ALVO.ll, 12);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    { subdomains:"abc", maxZoom:19, className:"map-tiles-dark" }).addTo(map);
+  L.marker(ALVO.ll, { icon: L.divIcon({
+      className:"", html:`<div class="pin pin-predio">P1</div>`,
+      iconSize:[30,30], iconAnchor:[15,15] }) }).addTo(map);
+  TECNICOS.forEach(t => {
+    L.marker(t.ll, { icon: L.divIcon({
+      className:"", html:`<div class="pin pin-tec" data-liv="${t.livre}">${t.n.split(" ").map(x=>x[0]).slice(0,2).join("")}</div>`,
+      iconSize:[26,26], iconAnchor:[13,13] }) }).addTo(map);
+    // A linha do candidato mais próximo até o prédio: a decisão desenhada.
+    if(t.livre) L.polyline([t.ll, ALVO.ll],
+      { color:"#63d8a0", weight:1.5, opacity:.5, dashArray:"4 5" }).addTo(map);
+  });
+  map.fitBounds(L.latLngBounds([ALVO.ll, ...TECNICOS.map(t=>t.ll)]).pad(.28));
+}
+
+/* ── Montagem ────────────────────────────────────────────────────── */
+let com = "A", est = "agitado", ficha = false;
+
+function render(){
+  const tela = document.getElementById("tela");
+  document.getElementById("fundo")?.remove();
+  if(est === "calmo"){ tela.className = "tela"; tela.innerHTML = calmo(); return; }
+
+  const pecas = PREDIOS.map(p => peca(p)).join("");
+
+  if(com === "A"){
+    tela.className = "tela comA";
+    tela.innerHTML = barra() + `<div class="parede">${pecas}</div>` + faixaEmOrdem();
+  }
+  if(com === "B"){
+    tela.className = "tela";
+    tela.innerHTML = barra() +
+      `<div class="comB"><div class="parede">${pecas}</div>${trilho()}</div>` + faixaEmOrdem();
+  }
+  if(com === "C"){
+    const f = PREDIOS[0];
+    tela.className = "tela comC";
+    tela.innerHTML = barra() + `
+      <section class="foco">
+        <div class="foco-tanques">${f.tanques.map(t =>
+          `<div class="tanque">${cilindro(t.v)}<div class="tanque-lbl">${t.n}</div></div>`).join("")}</div>
+        <div class="foco-corpo">
+          <h1 class="foco-nome">${f.nome}</h1>
+          <div class="foco-onde">${f.onde} · ${f.dist} · há 8 minutos</div>
+          <p class="foco-frase">Os três reservatórios estão <b>abaixo de 12%</b> e a bomba
+             de recalque não liga desde as 06h12. Sem despacho, o prédio fica sem água
+             antes do meio-dia.</p>
+          <div class="foco-acao">
+            <button class="btn">Despachar técnico</button>
+            <button class="btn btn-fio">Abrir ficha</button>
+            <button class="btn btn-fio">Ligar para o síndico</button>
+          </div>
+        </div>
+      </section>
+      <div class="faixa-titulo"><h2>Também pedem alguém</h2><span>${PREDIOS.length - 1} prédios</span></div>
+      <div class="parede">${PREDIOS.slice(1).map(p => peca(p, true)).join("")}</div>`
+      + faixaEmOrdem();
+  }
+}
+
+document.querySelector(".andaime").addEventListener("click", e => {
+  const b = e.target.closest("button"); if(!b) return;
+  const grupo = b.parentElement;
+  grupo.querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed","false"));
+  b.setAttribute("aria-pressed","true");
+  if(b.dataset.com)  { com = b.dataset.com; render(); }
+  if(b.dataset.est)  { est = b.dataset.est; render(); }
+  if(b.dataset.ficha){
+    render();
+    document.body.insertAdjacentHTML("beforeend", fichaDespacho());
+    montarMapa();
+  }
+  if(b.dataset.larg) { document.querySelector(".palco").dataset.larg = b.dataset.larg; }
+});
+
+document.addEventListener("click", e => {
+  if(e.target.closest(".ficha-x") || e.target.id === "fundo"){
+    document.getElementById("fundo")?.remove();
+    document.querySelector("[data-ficha]")?.setAttribute("aria-pressed","false");
+  }
+});
+document.addEventListener("keydown", e => {
+  if(e.key === "Escape") document.getElementById("fundo")?.remove();
+});
+
+render();
+</script>
+</body>
+</html>

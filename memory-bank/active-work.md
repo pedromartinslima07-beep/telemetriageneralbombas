@@ -10,7 +10,7 @@ aliases:
 > Branch atual: **`main`**, limpa. `feature/admin-chapa` (11 commits) e a tela
 > de orçamento do cliente já foram mergeadas — a produção
 > (`telemetria.generalbombas.com`) está servindo as duas.
-> Última sessão registrada: **2026-08-26**.
+> Última sessão registrada: **2026-08-27**.
 > Roadmap completo em [`roadmap.md`](roadmap.md); decisões em [`decisions.md`](decisions.md).
 
 > ✅ **Schema de produção em dia:** 074 aplicada em 24/08; a 073 já estava
@@ -26,6 +26,210 @@ aliases:
 > `hayabusa` duas vezes e o `interchange` uma, e me fez concluir que o banco de
 > teste tinha caído. Um `TcpClient.ConnectAsync` conecta nos dois em ~190ms.
 > Os dois bancos estão de pé.
+
+## Sessão 2026-08-27 — A carta de orçamento volta a ser carta
+
+*"com carta e anexo só quero o texto, e a imagem da assinatura, nada mais"* —
+o Pedro pediu para conferir os dois formatos de e-mail e a mistura apareceu.
+
+Desde 25/08 a rota `POST /admin/orcamentos/avulsos/:id/enviar-email` separava
+`painel` de `carta`, mas separava só as **entradas**. `sendOrcamentoCliente`
+tinha um HTML só — o estruturado — e a carta do operador saía dentro da
+moldura do painel: faixa "Orçamento comercial", caixa "Informações do
+orçamento" repetindo o que a carta já dizia, "Atenciosamente / General Bombas"
+fixo com a assinatura pessoal ensanduichada no meio, e rodapé institucional.
+Regressão de `e891f35`; `80cd1f5` trouxe os modos de volta sem dividir o
+template junto.
+
+- `src/services/email.js` — `cartaHtml` e `estruturadoHtml`, escolhidos por
+  `dados.modo`. A carta é `div` + texto + imagem da assinatura: **621 bytes**
+  contra ~31 KB. O `textoPuro` segue a mesma divisão e, na carta, não leva
+  nada além do que foi digitado.
+- `src/routes/admin.routes.js` — passa `modo` para o serviço. Sem modo
+  (JS em cache) cai no estruturado, como antes.
+
+Sem migration, sem mudança de front — **não precisa de cache-bust**.
+
+⚠️ **Falta ver um envio real chegando na caixa**, nos dois modos — é handoff
+para o Pedro. Verifiquei exercitando o serviço com o SDK do Resend trocado no
+cache do `require` (carta, painel e legado sem modo, HTML e texto puro), o que
+prova o template montado, não a entrega.
+
+## Sessão 2026-08-27 — O operador visto ao lado das irmãs, no navegador
+
+Terceiro passe na mesma tela. A diferença de método é o assunto: os dois
+anteriores foram feitos **lendo código**, este com o painel do operador, o
+painel do cliente e a landing **montados no navegador ao mesmo tempo** e
+medidos em 1544 / 900 / 620 / 430px. Como `/operador/painel` e `/cliente/painel`
+exigem login real, montei as duas no `localhost:3001` trocando o `fetch` por
+dados de teste antes do `document.write` — dá para repetir sem depender de
+sessão.
+
+**A camada de tokens já estava conforme** (o passe anterior fechou), e o
+detector confirmou: 36 achados, todos `font-size`, a advertência conhecida das
+cinco folhas. Contraste: nada abaixo de AA na tela inteira. O que sobrou era
+comportamento e forma — e nada disso aparece lendo arquivo:
+
+- 🔴 **A tela desmontava entre 660 e ~1090px.** Uma quebra só (celular) num
+  arranjo de duas colunas com trilho **rígido** de 300px: entre ele e o item de
+  largura fixa (92 de régua + 172 de ações), só o texto podia ceder. A 900px a
+  descrição virava **10ch** (contra os 68 do passe anterior) e o item ia de 258
+  para 330+. Entrou a quebra de **1080px** (o número da landing), onde o trilho
+  desce e vira faixa. Medido depois: item 258px, texto 57ch. A quebra de celular
+  foi de 660 para **760**, que é a das irmãs.
+- **A barra não tinha o `is-rolada`** — chegava opaca com o fio já desenhado.
+  Landing e cliente chegam translúcidas com `blur(14px)` e endurecem a 12px de
+  rolagem; é a única desfocagem do sistema.
+- **Três peças de canto reto** (`.conta`, `.tec-av`, `.ficha-x`). A mesma
+  varredura no painel do cliente acha **zero**. A `.ficha-x` virou ícone solto
+  de 44px (a construção do `.fechar` de lá), o que resolve forma e alvo de toque
+  juntos — era 34.
+- **Quinze ícones com ponta arredondada** num sistema cuja regra é traço
+  esquadrado. O `cliente.html` já vinha `square`.
+- **A engrenagem lia como artefato**: atrás de uma pilha de cartões separados, o
+  que se via era um dente por fresta. Ganhou máscara que a prende à faixa de
+  campo aberto, e a opacidade caiu de .34/.26 para .26/.20 — estava **acima** do
+  painel do cliente.
+- Miudezas: `--barra-h` de volta ao token (o `calc(54px + …)` fazia o trilho
+  colar 6px fora de lugar), `env(…, 0px)` com fallback, `100dvh`/`100svh`,
+  `scroll-padding-top`, `animation-iteration-count: 1` no reduced-motion, ficha
+  em tela cheia no celular, botão do celular a 44px.
+
+- ⚠️ **Achado que NÃO foi consertado, e o motivo importa: todo `--ch` local é
+  morto, nas cinco folhas.** O `var()` de uma custom property é substituído no
+  elemento onde ela é declarada — `--corte` resolve `--ch` no `:root` e os
+  filhos herdam o polígono pronto. `.item` pede 16, `.ficha` pede 22, as duas
+  saem com o número do `:root`. **A rampa de chanfro do `DESIGN.md` não existe
+  em superfície nenhuma.** Consertar é nas cinco de uma vez; fazer só no
+  operador tornaria ESTA a folha fora do padrão — a mesma razão já registrada
+  para a rampa de tipo. Entrou só o alinhamento do global: 8 → 10px.
+- ⚠️ **Um achado meu que estava errado:** o `theme-color` `#030a26` não é
+  divergência. As irmãs usam `#050f38` porque é o marinho **delas**; aqui a
+  barra é `--mar-900`, e uniformizar criaria costura no app instalado.
+- 📋 **Continua sem ter rodado sob a role real** — não existe usuário `operador`
+  em produção, então o visual nunca foi visto logado.
+
+## Sessão 2026-08-27 — O acabamento do painel do operador (Impeccable)
+
+Passe de `polish` sobre a tela da sessão abaixo, com o piso das outras
+superfícies como alvo. **Copy intacta, funcionalidade intacta.**
+
+O achado que organiza o resto: **o comp aprovado já carregava os defeitos**, e a
+implementação era fiel a ele. Item de 318px (dois por tela), linha de 110–140
+caracteres, etiqueta mono a 3,05:1 de contraste. Hoje: **258px**, 68ch, piso de
+5,2:1.
+
+- Três defeitos que não aparecem lendo o CSS: `h3` sem `margin:0` dentro de
+  flex (**29px de ar por item** — a margem do navegador não colapsa ali); o
+  **pulso nascia vermelho** e todo boot abria com "verifique a conexão" aceso;
+  e **`+ Novo chamado` era `display:none` no celular**, que é a porta de
+  entrada do chamado por telefone.
+- `.fala` existia no CSS e nunca era renderizada — voltou, só para origem de
+  gente (`manual`/`whatsapp`), sem inventar autor que a API não devolve.
+- Diálogos com foco que entra e **volta para o botão de origem**; mapa com
+  fallback, retry de tile e o crédito do OSM de volta.
+- Registrado onde manda: `DESIGN.md` (cinco superfícies, a regra do `--muted2`,
+  a do `margin:0`), `.impeccable/surfaces/public-operador-html.md` (brief novo)
+  e [`../docs/modulos/painel-operador.md`](../docs/modulos/painel-operador.md).
+
+- ✅ **Verificado em harness a 1528px e 500px** (CSS e JS reais, rede de
+  mentira), nos três estados e nos dois diálogos, com o round-trip de teclado
+  conferido.
+  ⚠️ O harness é `.tmpbuild/harness/` — temporário, não versionado. Ele é
+  **derivado do `operador.html`** para não poder divergir.
+- 📋 **Duas coisas ficaram de fora, de propósito:** a rampa de tipo em tokens
+  (seria a única folha das cinco a ter; registrado no `DESIGN.md`) e a frase de
+  explicação do item que o comp mostrava ("Aberto às 05h48 e nenhum técnico
+  atribuído…") — **é copy nova, e copy é decisão do Pedro**.
+- ⚠️ **O Pedro pegou o que o passe deixou passar:** a barra compunha a palavra
+  "General" em Archivo em vez de usar o PNG da marca, como fazem as outras
+  quatro superfícies. Corrigido (`logo-topo.png`, 30px numa barra de 60 — a
+  proporção do painel do cliente). A lição está em
+  [`decisions.md`](decisions.md): acabamento se confere **lado a lado com as
+  telas irmãs**, não contra a própria tela.
+- ✅ **A comparação que faltava foi feita** (a tela contra `cliente.html`/`.css`
+  e a landing, elemento por elemento): **13 divergências**, o logo era a
+  primeira. Entraram os tokens que a folha não usava (`--fonte`/`--mono`,
+  `--corte`/`--corte-p` no lugar de oito `polygon()` crus, `--saida`,
+  `--barra-h`/`--area-max`/`--trilho-w`/`--gut`), as partes que o navegador
+  desenha (foco, seleção, rolagem — inclusive `scrollbar-width`, que faltava e
+  deixava o Firefox com a barra padrão), o diálogo (fundo sem blur, entrada
+  `sobe`, trava de rolagem) e o `prefers-reduced-motion` global.
+  A barra passou a dividir a tela como o corpo divide acima de 1340px.
+- ⚠️ **Dois furos do sistema apareceram no caminho, e valem para o
+  `cliente.css`:** anel de foco `inset` é engolido por peça que já tem `inset`
+  próprio (o botão de fio ficava **sem foco visível**), e anel amarelo sobre
+  botão amarelo é invisível. Corrigido aqui; **latente lá**.
+- 📋 Só ficou em aberto o rótulo "TURNO" ao lado da marca — nenhuma outra
+  superfície escreve o nome da tela ao lado do logo. É copy.
+- 📋 Continua sem rodar logado e sob a role real.
+
+## Sessão 2026-08-27 — O operador ganhou painel próprio (a fila do turno)
+
+Sequência direta da sessão abaixo: fechada a restrição, sobrou a pergunta
+*"outra tese ou o admin podado?"*. Resposta: **outra tese**. `/operador/painel`
+é a fila do turno, ordenada pelo **SLA que estoura primeiro** — a lista do admin
+ordena por data, e é essa a única diferença que justifica a tela existir.
+
+- **Um endpoint** (`GET /operador/fila`) monta a tela inteira, com o SLA
+  resolvido no **relógio do servidor** — a ordenação *é* o `resta_min`, e o
+  relógio do navegador do operador reordenaria o turno sem ninguém ver.
+- **Folha própria** (`public/operador.html/.js/.css`), sem `admin.css` e sem
+  importar nada de `admin.js`. A evidência mora **dentro do item**: coluna
+  d'água com telemetria, a fala de quem relatou sem ela — foi o que derrubou a
+  v1 do comp, que não tinha o que desenhar para prédio sem sensor.
+- Despacho grava `PATCH /chamados/:id { tecnico_id }` (marca `primeira_resposta_em`,
+  para o TTFR). **"Em atendimento" continua só pelo app do técnico, com GPS.**
+- `sw.js`: `/operador` na lista network-first, `CACHE_NAME` v61,
+  `register-sw.js?v=51` — **as outras quatro HTMLs estavam em `v=50` com o SW já
+  bumpado** e foram corrigidas junto.
+- `scripts/auditar-rbac.js` ganhou o router novo no `MOUNTS`: 24 → **25 rotas**
+  alcançáveis pelo operador.
+
+- ✅ **A rota foi exercitada** (Express só com o router + JWT de `operador`,
+  banco de TESTE): HTTP 200, 6 chamados, ordem por SLA conferida, telemetria
+  agregada. Script em `.tmpbuild/testar-fila-inproc.js` — temporário, não
+  versionado.
+- 📋 **A tela não foi vista logada** (o login é handoff) e **nunca rodou sob a
+  role real**: não existe usuário `operador` em produção. O primeiro cadastrado
+  é quem estreia as duas coisas — a restrição e o painel.
+- 📋 **Não deployado.**
+- 📋 Em aberto: coluna `origem` em `chamados` (hoje a procedência é deduzida) e
+  ETA no cartão do candidato a despacho (mostra "no mapa"/"—", não distância).
+
+## Sessão 2026-08-27 — O operador virou restrição de verdade
+
+Fechou a pendência que estava aberta desde 29/07/2026 ("restringir quebraria
+quem usa hoje"). **49 rotas** trocaram `adminOnly` por `gestaoOnly`, `/jobs/
+verificar-offline` foi pro master e o `operador` saiu de `EQUIPE_ROLES`
+(equipamentos). O perfil ficou em quatro telas — **Alertas · Chamados ·
+Telemetria · Mapa** — mais Configurações → "Conta": **Contratos e Dashboard
+saíram a pedido do Pedro**, e os dois geocoders foram atrás (servem só ao
+mini-mapa do cadastro de condomínio).
+
+**Medido, não estimado:** 24 rotas alcançáveis contra 118 bloqueadas, via o
+novo `scripts/auditar-rbac.js <role>`. Ele percorre o `stack` real dos routers
+e roda cada guard com um `req` de mentira, sem tocar no banco — foi o que
+revelou que `osDonoOuAdmin` e `GET /relatorio/pdf` **já barravam o operador**
+dentro do handler, metade do trabalho pronta e invisível ao `grep adminOnly`.
+
+O acabamento no front foi metade do serviço: a **gaveta do dashboard** (que
+também abre do mapa e da ficha do chamado) tinha três abas apontando pra rota
+recém-fechada; a faixa `.mc-fin` expunha o **MRR da empresa**; e o boot pedia
+`/whatsapp/conversas` + `/admin/usuarios` a cada carga. `getMyRole()` subiu da
+linha 6.659 pro topo do `admin.js` porque o boot precisa decidir por ela.
+`admin.css?v=238`, `admin.js?v=324`.
+
+- 📋 **Não deployado.** É quase tudo backend — só vale após deploy, e nenhum
+  teste automatizado cobre RBAC.
+- ✅ **Risco de deploy: zero.** Pedro confirmou em 27/08 que **não existe
+  nenhum usuário `operador` em produção**. O perfil está no código desde
+  06/2026 e nunca foi atribuído a ninguém — não há a quem tirar acesso.
+  ⚠️ Isso também quer dizer que **a restrição só será exercitada de verdade
+  quando o primeiro operador for cadastrado**: as quatro telas dele nunca
+  rodaram sob a role real.
+- 📋 **Superfície própria pro operador** — avaliada, não decidida. Ver
+  [`roadmap.md`](roadmap.md) e [`decisions.md`](decisions.md).
 
 ## Sessão 2026-08-26 — PWA: o atalho do iPhone abria aba do Safari
 
@@ -1772,5 +1976,6 @@ Envs necessárias: `OPENAI_API_KEY`, `WHATSAPP_VERIFY_TOKEN`,
   (chamados/O.S./zonas são `ON DELETE SET NULL`), mas `tecnico_localizacoes` e o
   histórico de GPS são `ON DELETE CASCADE` e **somem junto**. Se um dia precisar
   de auditoria de rastro, virar soft-delete (`ativo = false`) é o caminho.
-- **Restrição do operador é só de UI** — no backend ele passa em `adminOnly` e
-  alcança orçamentos/O.S./relatórios pela API.
+- ~~**Restrição do operador é só de UI**~~ — resolvido em 27/08/2026: o corte
+  passou a ser no guard (49 rotas para `gestaoOnly` + saída de `equipeInterna`),
+  e Contratos saiu do menu do perfil.

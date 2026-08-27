@@ -54,6 +54,7 @@ Como cada coisa funciona ponta a ponta. Índice em [`modulos/README.md`](docs/mo
 - [`painel-cliente.md`](docs/modulos/painel-cliente.md) — painel do síndico: "a resposta, não o painel", sem seções, tudo abre como ficha `#fluxo`
 - [`orcamentos-envio.md`](docs/modulos/orcamentos-envio.md) — as duas opções de envio do orçamento e por que as listas de destinatários são diferentes `#fluxo`
 - [`painel-admin.md`](docs/modulos/painel-admin.md) — painel de operação: as 15 telas, os 3 moldes, os defeitos medidos e a direção proposta `#fluxo`
+- [`painel-operador.md`](docs/modulos/painel-operador.md) — painel do turno: a fila ordenada pelo SLA que estoura primeiro, com a evidência dentro do item `#fluxo`
 
 ## ⚙️ Convenções
 

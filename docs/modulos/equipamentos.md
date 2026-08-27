@@ -134,11 +134,16 @@ constraint.
 
 ## Quem enxerga
 
-Guard `equipeInterna` (`src/middleware/equipeInterna.js`) — admin, gerente,
-operador e **técnico**. É o quarto nível de acesso do painel e existe porque
-quem escaneia na bancada é o técnico, que não passa em `adminOnly`. `cliente`
-não entra em nenhuma rota do módulo: a ficha mostra dados de um condomínio que
-pode não ser o dele.
+Guard `equipeInterna` (`src/middleware/equipeInterna.js`) — admin, gerente e
+**técnico**. Não é um degrau da escada de privilégio: ele **cruza** `adminOnly`,
+alcançando o técnico (que não passa lá) e deixando o `operador` de fora. Existe
+porque quem escaneia na bancada é o técnico. `cliente` não entra em nenhuma rota
+do módulo: a ficha mostra dados de um condomínio que pode não ser o dele.
+
+> O `operador` estava aqui até 27/08/2026 e saiu junto com a restrição real do
+> perfil: a seção Equipamentos sempre foi escondida dele no menu, então
+> `equipeInterna` era o último caminho por onde ele ainda alcançava a oficina
+> pela API.
 
 `GET /equipamentos/condominios` existe pelo mesmo motivo — `GET /condominios` é
 `adminOnly`, mas é o técnico quem aponta de qual prédio a bomba saiu. Devolve
@@ -278,7 +283,8 @@ HTML; estratégia em `.impeccable/surfaces/public-equipamento-html.md`.
 Seção **Equipamentos** (`data-section="equipamentos"`): listagem com busca e
 filtro de estado, geração de lote e impressão da folha. Clicar numa linha abre
 a **mesma** ficha que o QR abre — não existe versão "de escritório" que possa
-divergir da versão da bancada. Escondida do `operador`, como O.S. e orçamentos.
+divergir da versão da bancada. Escondida do `operador` — e desde 27/08/2026
+fechada pra ele também no backend, como O.S. e orçamentos.
 
 ⚠️ O PDF é gerado sob autenticação, então `window.open` na URL não funciona
 (não manda o header e o servidor responde 401). O admin busca como blob e abre

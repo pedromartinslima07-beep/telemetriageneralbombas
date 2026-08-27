@@ -4,7 +4,6 @@ const { pool } = require("../db");
 const { receberWebhook, verificarWebhook } = require("../controllers/whatsapp.controller");
 const { enviarMensagem } = require("../services/evolution.service");
 const { authRequired } = require("../middleware/authRequired");
-const { adminOnly } = require("../middleware/adminOnly");
 const { gestaoOnly } = require("../middleware/gestaoOnly");
 
 let _openai = null;
@@ -34,7 +33,7 @@ router.get("/webhook", verificarWebhook);   // verificação da Meta
 router.post("/webhook", receberWebhook);    // receber mensagens
 
 // GET /whatsapp/conversas
-router.get("/conversas", authRequired, adminOnly, async (req, res) => {
+router.get("/conversas", authRequired, gestaoOnly, async (req, res) => {
   const { condominio_id } = req.query;
   const values = [];
   const conditions = [];
@@ -83,7 +82,7 @@ router.get("/conversas", authRequired, adminOnly, async (req, res) => {
 });
 
 // GET /whatsapp/conversas/:id
-router.get("/conversas/:id", authRequired, adminOnly, async (req, res) => {
+router.get("/conversas/:id", authRequired, gestaoOnly, async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) {
     return res.status(400).json({ error: "id inválido" });
@@ -133,7 +132,7 @@ router.get("/conversas/:id", authRequired, adminOnly, async (req, res) => {
 });
 
 // PATCH /whatsapp/conversas/:id/fechar
-router.patch("/conversas/:id/fechar", authRequired, adminOnly, async (req, res) => {
+router.patch("/conversas/:id/fechar", authRequired, gestaoOnly, async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
   try {
@@ -153,7 +152,7 @@ router.patch("/conversas/:id/fechar", authRequired, adminOnly, async (req, res) 
 });
 
 // PATCH /whatsapp/conversas/:id/reabrir
-router.patch("/conversas/:id/reabrir", authRequired, adminOnly, async (req, res) => {
+router.patch("/conversas/:id/reabrir", authRequired, gestaoOnly, async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
   try {
@@ -174,7 +173,7 @@ router.patch("/conversas/:id/reabrir", authRequired, adminOnly, async (req, res)
 
 // PATCH /whatsapp/conversas/:id/assumir
 // Atendente humano assume a conversa - IA para de responder automaticamente.
-router.patch("/conversas/:id/assumir", authRequired, adminOnly, async (req, res) => {
+router.patch("/conversas/:id/assumir", authRequired, gestaoOnly, async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) {
     return res.status(400).json({ error: "id inválido" });
@@ -199,7 +198,7 @@ router.patch("/conversas/:id/assumir", authRequired, adminOnly, async (req, res)
 
 // PATCH /whatsapp/conversas/:id/devolver-ia
 // Limpa os campos de "assumida" - IA volta a responder.
-router.patch("/conversas/:id/devolver-ia", authRequired, adminOnly, async (req, res) => {
+router.patch("/conversas/:id/devolver-ia", authRequired, gestaoOnly, async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) {
     return res.status(400).json({ error: "id inválido" });
@@ -223,7 +222,7 @@ router.patch("/conversas/:id/devolver-ia", authRequired, adminOnly, async (req, 
 
 // PATCH /whatsapp/conversas/:id/vincular-condominio
 // Vincula o CLIENTE (não só a conversa) a um condomínio.
-router.patch("/conversas/:id/vincular-condominio", authRequired, adminOnly, async (req, res) => {
+router.patch("/conversas/:id/vincular-condominio", authRequired, gestaoOnly, async (req, res) => {
   const id = Number(req.params.id);
   const condoId = Number(req.body?.condominio_id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
@@ -248,7 +247,7 @@ router.patch("/conversas/:id/vincular-condominio", authRequired, adminOnly, asyn
 
 // POST /whatsapp/conversas/:id/responder
 // Atendente humano envia mensagem; auto-assume a conversa se não estava assumida.
-router.post("/conversas/:id/responder", authRequired, adminOnly, async (req, res) => {
+router.post("/conversas/:id/responder", authRequired, gestaoOnly, async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
 
@@ -300,7 +299,7 @@ router.post("/conversas/:id/responder", authRequired, adminOnly, async (req, res
 });
 
 // POST /whatsapp/conversas/:id/resumir
-router.post("/conversas/:id/resumir", authRequired, adminOnly, async (req, res) => {
+router.post("/conversas/:id/resumir", authRequired, gestaoOnly, async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
 
@@ -331,7 +330,7 @@ router.post("/conversas/:id/resumir", authRequired, adminOnly, async (req, res) 
 });
 
 // POST /whatsapp/conversas/:id/sugerir-resposta
-router.post("/conversas/:id/sugerir-resposta", authRequired, adminOnly, async (req, res) => {
+router.post("/conversas/:id/sugerir-resposta", authRequired, gestaoOnly, async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
 
@@ -368,7 +367,7 @@ router.post("/conversas/:id/sugerir-resposta", authRequired, adminOnly, async (r
 const QUALIDADES_VALIDAS = ["excelente", "boa", "aceitavel", "ruim"];
 
 // PATCH /whatsapp/conversas/:id/qualidade  body: { qualidade: '...' | null }
-router.patch("/conversas/:id/qualidade", authRequired, adminOnly, async (req, res) => {
+router.patch("/conversas/:id/qualidade", authRequired, gestaoOnly, async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
 
@@ -397,7 +396,7 @@ router.patch("/conversas/:id/qualidade", authRequired, adminOnly, async (req, re
 });
 
 // GET /whatsapp/conversas/curadoria/stats — contagens pro card de export
-router.get("/conversas/curadoria/stats", authRequired, adminOnly, async (req, res) => {
+router.get("/conversas/curadoria/stats", authRequired, gestaoOnly, async (req, res) => {
   try {
     const r = await pool.query(
       `SELECT qualidade_atendimento AS q, COUNT(*)::int AS n
@@ -494,7 +493,7 @@ router.get("/conversas/export", authRequired, gestaoOnly, async (req, res) => {
 
 // DELETE /whatsapp/conversas/:id
 // Remove conversa + mensagens (CASCADE) e desvincula chamados (SET NULL).
-router.delete("/conversas/:id", authRequired, adminOnly, async (req, res) => {
+router.delete("/conversas/:id", authRequired, gestaoOnly, async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
 

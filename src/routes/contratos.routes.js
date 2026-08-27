@@ -7,7 +7,6 @@ const crypto = require("crypto");
 const express = require("express");
 const { pool } = require("../db");
 const { authRequired } = require("../middleware/authRequired");
-const { adminOnly } = require("../middleware/adminOnly");
 const { gestaoOnly } = require("../middleware/gestaoOnly");
 const { gerarPdfBuffer } = require("../services/contrato-pdf.service");
 const { sendContratoAssinatura } = require("../services/email");
@@ -130,7 +129,7 @@ function _validar(b, { exigirObrigatorios }) {
 // ─── Rotas ──────────────────────────────────────────────────────────────────
 
 // GET /contratos — lista (filtros: condominio_id, ativo, vencendo_em_dias)
-router.get("/", authRequired, adminOnly, async (req, res) => {
+router.get("/", authRequired, gestaoOnly, async (req, res) => {
   const { condominio_id, ativo, vencendo_em_dias } = req.query;
   const conds = [];
   const vals = [];
@@ -174,7 +173,7 @@ router.get("/", authRequired, adminOnly, async (req, res) => {
 
 // GET /contratos/metricas — MRR, ativos, vencendo, vencidos.
 // Retorna 2 blocos: total (geral) e com_telemetria (só condomínios com >= 1 reservatório)
-router.get("/metricas", authRequired, adminOnly, async (req, res) => {
+router.get("/metricas", authRequired, gestaoOnly, async (req, res) => {
   try {
     const r = await pool.query(`
       WITH base AS (
@@ -218,7 +217,7 @@ router.get("/metricas", authRequired, adminOnly, async (req, res) => {
 });
 
 // GET /contratos/:id — detalhe
-router.get("/:id", authRequired, adminOnly, async (req, res) => {
+router.get("/:id", authRequired, gestaoOnly, async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
   try {
@@ -318,7 +317,7 @@ router.delete("/:id", authRequired, gestaoOnly, async (req, res) => {
 // ─── PDF e D4Sign ───────────────────────────────────────────────────────────
 
 // GET /contratos/:id/pdf — gera e baixa o PDF do contrato
-router.get("/:id/pdf", authRequired, adminOnly, async (req, res) => {
+router.get("/:id/pdf", authRequired, gestaoOnly, async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
   try {
@@ -412,7 +411,7 @@ router.post("/:id/enviar-assinatura", authRequired, gestaoOnly, async (req, res)
 });
 
 // GET /contratos/:id/status-assinatura — lê status do contrato (sem chamar API externa)
-router.get("/:id/status-assinatura", authRequired, adminOnly, async (req, res) => {
+router.get("/:id/status-assinatura", authRequired, gestaoOnly, async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
   try {

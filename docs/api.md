@@ -18,7 +18,9 @@ API Express montada em `src/app.js`. Todas as respostas são JSON salvo PDFs
   pulam o OTP.
 - Middlewares (`src/middleware/`):
   - `authRequired` — exige JWT válido; popula `req.user`.
-  - `adminOnly` — `admin`, `gerente` ou `operador` (acesso ao painel).
+  - `adminOnly` — `admin`, `gerente` ou `operador`. Desde 27/08/2026 significa
+    literalmente **o Monitor e os chamados**: é o guard das quatro telas do
+    operador (alertas, telemetria, mapa, chamados) e de nada mais.
   - `gestaoOnly` — `admin` ou `gerente` (operação do negócio, sem o operador).
   - `masterAdminOnly` — apenas `admin` (sensível/irreversível; o nome é
     histórico, hoje equivale a `admin`).
@@ -74,7 +76,7 @@ segue no comportamento padrão do Express.
 | GET | `/whatsapp/webhook` | verificação do webhook da Meta (`hub.challenge`) |
 | POST | `/whatsapp/webhook` | recebe eventos da Meta API (valida verify token) |
 | GET | `/tiles/:z/:x/:y.png` | proxy de tiles do mapa (Carto), cache em memória |
-| GET | `/` `/login` `/admin/painel` `/cliente/painel` | páginas HTML (no-cache) |
+| GET | `/` `/login` `/admin/painel` `/cliente/painel` `/operador/painel` | páginas HTML (no-cache) |
 | GET | `/admin/reset-cache`, `/reset-cache` | limpa SW/caches do PWA |
 | GET | `/manifest.json`, `/sw.js` | PWA |
 
@@ -284,10 +286,36 @@ técnico), sem filtro de período.
 
 ---
 
+## Operador (`/operador`) — a fila do turno
+
+Guard `adminOnly` (admin, gerente, **operador**). Fluxo, tese da tela e
+pendências em [painel-operador.md](modulos/painel-operador.md).
+
+| Método | Rota | Acesso / observação |
+|---|---|---|
+| GET | `/operador/fila` | adminOnly — **uma request monta a tela inteira**: chamados abertos (`aberto`, `em_atendimento`) com o SLA já resolvido, os reservatórios do condomínio de cada um e a equipe com posição atual |
+
+Resposta: `{ agora, fila[], tecnicos[], limiares: { baixo, critico } }`.
+
+⚠️ **O SLA vem calculado do servidor** (`sla.resta_min`, negativo quando
+estourado) e a fila já chega **ordenada por ele** — chamado sem
+`sla_definicoes` para a prioridade vai para o fim. O front não recalcula: o
+relógio do navegador do operador pode estar minutos fora, e reordenaria o
+turno inteiro. `origem` (`whatsapp` · `preventiva` · `telemetria` · `manual`)
+é **heurística** — `chamados` não tem essa coluna; ver o módulo.
+
+As ações da tela não são deste router: despacho é
+`PATCH /chamados/:id { tecnico_id }`, abertura é `POST /chamados`, ficha é
+`GET /chamados/:id` + `/historico`, e a lista de prédios do modal é
+`GET /condominios`. **`/operador/painel`** (fora deste router) serve o HTML.
+
+---
+
 ## Equipamentos (`/equipamentos`) — etiqueta QR
 
-Guard `equipeInterna` (admin, gerente, operador, **técnico**) na leitura e no
-registro; `cliente` toma 403 em tudo. Fluxo em
+Guard `equipeInterna` (admin, gerente, **técnico**) na leitura e no
+registro; `cliente` toma 403 em tudo, e o `operador` saiu em 27/08/2026 —
+oficina não é tela dele. Fluxo em
 [equipamentos.md](modulos/equipamentos.md).
 
 | Método | Rota | Acesso / observação |

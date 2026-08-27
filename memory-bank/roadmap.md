@@ -39,6 +39,40 @@ aliases:
 
 ## Em andamento / pendente
 
+- ✅ **RBAC: o operador virou restrição de verdade** (27/08/2026). 49 rotas
+  saíram de `adminOnly` para `gestaoOnly` e o perfil saiu de `equipeInterna`;
+  Contratos **e Dashboard** saíram do menu dele — o perfil ficou em quatro
+  telas. Fecha a pendência aberta em 29/07/2026. Sobram 24 rotas, contra 118
+  bloqueadas. Detalhe em
+  [`../docs/modulos/autenticacao.md`](../docs/modulos/autenticacao.md).
+  - 📋 **Confirmar em produção com um login `operador` real** — é backend, só
+    vale após deploy, e nenhum teste automatizado cobre RBAC hoje.
+  - ✅ **Superfície própria pro operador** (27/08/2026). A pergunta ("outra
+    tese ou o admin podado?") foi respondida por **outra tese**: `/operador/painel`
+    é a *fila do turno*, ordenada pelo SLA que estoura primeiro, com a evidência
+    dentro do item. Arquivos próprios (`public/operador.*`), zero import de
+    `admin.js`, e **um** endpoint novo (`GET /operador/fila`). Fluxo em
+    [`../docs/modulos/painel-operador.md`](../docs/modulos/painel-operador.md).
+    - ✅ **Identidade alinhada com a landing e o painel do cliente**
+      (27/08/2026, terceiro passe — o primeiro feito com as três telas abertas
+      lado a lado). Fechou a faixa de 660–1090px, que não existia e onde a tela
+      desmontava; a barra ganhou o `is-rolada` com `blur` das irmãs; sumiram as
+      três peças de canto reto e os quinze ícones de ponta arredondada; a
+      engrenagem ganhou máscara para parar de aparecer como dente solto entre
+      os cartões.
+    - 📋 **Chanfro: `--ch` local é morto nas CINCO folhas** (medido em 27/08).
+      A rampa que o `DESIGN.md` descreve não renderiza em superfície nenhuma —
+      cada tela tem um chanfro só. Conserto é nas cinco de uma vez, senão a
+      folha consertada vira a fora do padrão. Mesmo raciocínio da rampa de tipo.
+    - 📋 **Nunca rodou sob a role real** — exercitada com JWT assinado à mão
+      contra o banco de teste; o visual não foi visto logado.
+    - 📋 Coluna `origem` em `chamados`: hoje a procedência do chamado é
+      deduzida por efeito colateral (`conversa_id`, `plano_manutencao_id`,
+      categoria automática), e um `nivel_baixo` aberto à mão aparece como
+      "telemetria".
+    - 📋 ETA no despacho — o cartão do candidato mostra "no mapa"/"—", não
+      distância nem tempo.
+
 - ✅ **Migrations 077 e 078 aplicadas em produção** (26/08/2026). A 078
   (`resposta_tratada_em`/`resposta_tratada_por`) era pré-requisito do painel
   novo de orçamentos: sem ela, o `SELECT` da lista derruba a aba inteira.
@@ -161,6 +195,9 @@ aliases:
   2. ✅ **convite religado** em 25/08/2026 — agora é padrão, e
      `ORCAMENTO_LINK_PAINEL=0` é que desliga;
   3. ✅ **e-mail com link não leva mais o PDF anexado** (25/08/2026).
+  4. ✅ **os dois modos de envio ganharam templates separados** (27/08/2026)
+     — `carta` saía embrulhada na moldura do estruturado; agora é só o
+     texto do operador e a assinatura dele.
 
   Falta percorrer a tela logado com calma — aprovar, recusar (exige comentário)
   e o retorno do `next=` do login — e ver o primeiro envio real chegar.

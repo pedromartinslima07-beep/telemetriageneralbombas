@@ -7,7 +7,7 @@
 // ⚠️ v44 = merge de duas gerações que existiram em paralelo: v42 (equipamentos
 // com QR) e v43 (landing pública + painel do cliente). Ficar com qualquer uma
 // das duas deixaria metade dos navegadores achando que já tem a versão nova.
-const CACHE_NAME = "telemetria-v60";
+const CACHE_NAME = "telemetria-v61";
 
 // Permite que a página force a ativação imediata desta versão (sem esperar
 // todos os clients fecharem). Pareado com o postMessage no register-sw.js.
@@ -84,6 +84,10 @@ self.addEventListener("fetch", (e) => {
       url.pathname.startsWith("/ordens-servico") ||
       url.pathname.startsWith("/planos-manutencao") ||
       url.pathname.startsWith("/contratos") ||
+      // ⚠️ A FILA DO TURNO, acima de tudo. `GET /operador/fila` responde
+      // "o que estoura primeiro" — servida do cache, a tela mostraria o
+      // turno de meia hora atrás e o operador não teria como saber.
+      url.pathname.startsWith("/operador") ||
       // Ficha do equipamento: a foto vem por /equipamentos/:id/fotos/:id/imagem
       // e a ficha muda a cada movimentação. Cache first aqui mostraria a bomba
       // no estado da semana passada — exatamente o que o módulo existe pra evitar.
