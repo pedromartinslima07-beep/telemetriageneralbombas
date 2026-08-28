@@ -10,7 +10,7 @@ aliases:
 > Branch atual: **`main`**, limpa. `feature/admin-chapa` (11 commits) e a tela
 > de orçamento do cliente já foram mergeadas — a produção
 > (`telemetria.generalbombas.com`) está servindo as duas.
-> Última sessão registrada: **2026-08-27**.
+> Última sessão registrada: **2026-08-28**.
 > Roadmap completo em [`roadmap.md`](roadmap.md); decisões em [`decisions.md`](decisions.md).
 
 > ✅ **Schema de produção em dia:** 074 aplicada em 24/08; a 073 já estava
@@ -26,6 +26,166 @@ aliases:
 > `hayabusa` duas vezes e o `interchange` uma, e me fez concluir que o banco de
 > teste tinha caído. Um `TcpClient.ConnectAsync` conecta nos dois em ~190ms.
 > Os dois bancos estão de pé.
+
+## ⏸️ RETOMAR AQUI — a simplificação do operador está pela metade
+
+> Parado em 28/08/2026 a pedido do Pedro, para commitar. **O código no ar
+> funciona e foi verificado** (render, console limpo, `node --check`); o que
+> falta é continuar o mesmo corte nas outras peças da tela.
+
+⚠️ **O contexto que não pode se perder:** o Pedro disse que a tela será usada
+por **pessoas mais velhas, com pouca familiaridade com computador**, e pediu
+para simplificar. Eu respondi com **escala** (corpo 15px, alvos 44px) e ele
+apontou: *"não mudou praticamente nada"*. **Aumentar não é simplificar.** A
+pergunta certa é *o que sai da tela*, não *quanto cresce*.
+
+**Feito (o item da fila):** 3 colunas → 2; 2 botões iguais → 1 botão + 1 link
+("Ver detalhes"); 15 peças na face → 10. A prioridade desceu para a régua
+(junto do relógio, que responde à mesma pergunta), o título passou a abrir o
+item, e status/origem/bairro saíram da face — **todos continuam na ficha**.
+
+**A fazer, na mesma direção:**
+
+1. **O trilho.** Cada técnico ainda tem avatar + nome + estado + "no mapa":
+   quatro coisas para responder *quem pode ir*. Cortar o avatar de iniciais
+   (não identifica ninguém que o operador não reconheça pelo nome) e tirar a
+   nota de GPS do lugar de destaque.
+2. **O placar de 3 números duplica a fila.** No dia calmo chega a repetir a
+   mesma frase em dois tamanhos ("0 chamados abertos" + "Nenhum chamado
+   aberto." em 40px). Decidir: some, ou vira uma linha só.
+3. **A ficha e o diálogo de despacho não passaram pelo corte** — e a ficha é
+   justamente onde foi parar tudo que saiu do item, então ela ficou mais densa.
+4. **A seção "Já tem técnico"** ficou com o layout antigo de ações; conferir se
+   o `.emrota` continua fazendo sentido na linha nova.
+5. **Remedir as faixas** (o item trocou de grid: `118px minmax(0,1fr)`) e
+   revisar o celular, que não foi visto depois desta mudança.
+
+⚠️ Pendências de **copy**, que são decisão do Pedro e não minhas: a duplicação
+do dia calmo (item 2 acima), a legenda de cor dos pinos do mapa, e o rótulo
+"TURNO" ao lado da marca.
+
+---
+
+## Sessão 2026-08-28 — O painel do operador, sete passes
+
+Dia inteiro na mesma tela, a pedido do Pedro. A ordem importa porque cada
+passe revelou o próximo.
+
+### 1. Composição — "a tela era duas telas"
+
+`.comB` era `1fr var(--trilho-w)`: a fila centrava dentro da primeira coluna e
+o trilho colava na borda da janela. A 1920px sobravam **285px de campo morto
+entre as duas** — as metades liam como duas páginas. O **par** passou a centrar
+junto, e a fila não se move um pixel com isso (`W/2 − 650` nos dois arranjos).
+⚠️ Só funciona porque o fundo do trilho é o mesmo `--mar-900` do campo.
+
+Junto: a medida de linha era **não-monotônica** — 33ch a 900px, **16ch a
+1090px**, 50ch a partir de 1340. Alargar a janela piorava a leitura. A prova
+passou a deitar na faixa do meio.
+
+### 2. Acabamento — a gramática da landing
+
+O passe 1 foi correto e **quase invisível**; o Pedro disse na cara: *"eu quero
+melhorias reais e visíveis"*. Na segunda tentativa comecei a **acrescentar** um
+medidor de SLA e ele cortou de novo: *"não quero que add coisas... quero
+refino, e melhoria na beleza do front"*. Desfiz o medidor (inclusive o
+`total_min` que já tinha posto no backend).
+
+⚠️ **A lição, e é sobre mim:** "pouca hierarquia" não é pedido de peça nova nem
+de tirar conteúdo — é pedido de **escala e acabamento**. Duas vezes li um
+pedido de refino como licença para mexer na estrutura.
+
+O que destravou foi abrir a landing ao lado e medir as duas: 80% dos 118 blocos
+de texto entre 10,5 e 12,5px, contra a **razão 3:1** que a landing usa entre
+etiqueta e leitura. E a placa do turno era um retângulo chapado onde o `.instr`
+da landing é chapa de duas camadas com gradiente. Mesma cor, sem a peça.
+
+### 3. O mapa vira protagonista
+
+O Pedro pôs duas saídas na mesa: tela própria (como o admin) ou protagonismo
+aqui. Escolhida a segunda, **com a tela cheia como modo da peça**. O argumento
+não foi tamanho, foi **ordem da pergunta**: no diálogo o mapa abria *depois* da
+escolha do chamado, um por vez, mas a decisão geográfica é da fila inteira.
+
+⚠️ **Levantamento em produção que quase mudou a conversa:** 86/86 condomínios
+com coordenada, `chamados` **vazia**, `tecnico_localizacoes` com **3 linhas no
+total** — última de 17/08, dos mesmos 3 técnicos (de 9) que têm login. Cheguei
+a recomendar investigar o GPS; o Pedro esclareceu que **é estágio, não
+defeito** — o produto ainda não está em uso. Lição: banco vazio pré-lançamento
+não é bug. A pergunta certa era "já está em uso?", e eu presumi que sim.
+
+### 4. "Ficou bagunçado", e estava mesmo
+
+⚠️ **Erro meu, de dosagem.** Apliquei a construção do `.instr` (anel + gradiente)
+em placa, trilho, item e mapa — a primeira dobra ficou com **nove peças com
+anel**, e quando tudo é peça usinada o anel vira textura. Regra que faltava:
+**moldura marca o que é único; o que se repete é superfície.** De nove para
+duas. O amarelo dos quatro "Despachar" também parou de apontar — passou a valer
+a Regra do Selo que o `DESIGN.md` já tinha.
+
+### 5. A barra, e a comparação errada
+
+O Pedro perguntou se o cabeçalho não era bem menor que o das outras. Era: 60px
+contra 74. ⚠️ **A topbar do admin tem 60px porque carrega SÓ CONTROLES** — a
+marca dele mora na sidebar. Copiar o número era copiar a medida sem o conteúdo.
+Barra 60→68, logo 30→36 (razão 0,50→0,53, a das irmãs).
+
+### 6. Escrita para quem vai usar
+
+*"Essa tela vai ser usada por pessoas que não têm tanta familiaridade com
+tecnologia e computador."* Medido: **64% do texto abaixo de 12px**, 39 blocos
+em mono CAIXA ALTA, **nenhum dos 11 botões** chegava a 44px. Depois: **10%**,
+21 blocos, **zero** botão abaixo do piso. Corpo 13→15px, custando ≈3→≈2 itens
+na primeira tela — decisão dele.
+
+O pedido cresceu no meio: *"na verdade eu queria fazer isso para o sistema
+inteiro, até eu me perco nas siglas muitas vezes"*. Virou o
+[`../docs/vocabulario.md`](../docs/vocabulario.md), ligado à Home.
+⚠️ Regra que a varredura revelou: **nem toda sigla é igual.** Sigla do ramo
+(O.S., P1) a equipe fala e fica — confirmado pelo Pedro. Sigla de software
+(TTFR, TTR, KPI) sai; prova de que sai é o admin já ter precisado de legenda
+embaixo da tabela para explicá-las.
+
+⚠️ **Uma troca minha foi recusada na revisão:** propus `EM ATENDIMENTO →
+"Técnico a caminho"` sem conferir o dado. `em_atendimento` é status do CHAMADO;
+se o técnico já chegou, o rótulo mente. **Texto mais claro que diz coisa errada
+é pior que sigla.**
+
+### 7. O que a escala quebrou
+
+Verificação depois de subir a rampa ~15%. **Nenhum dos três defeitos dá erro,
+aparece no console ou reprova no detector** — todos passariam.
+
+- **A quebra do trilho estava 100px baixa demais.** A 1090px o item ia a
+  **640×332** contra **1000×198** em 1080: alargar a janela piorava. A causa
+  era conhecida e eu não liguei os pontos — o trilho foi de 300 para 400px
+  quando o mapa entrou, e o `1080` (número da landing) ficou parado. Conta
+  nova: `740 + 400 + 40 = 1180`. Depois: 43–68ch de 430 a 1920, monotônico.
+- **As leituras em `rem` ficaram para trás.** Escalei os `px` (13→15) e não os
+  `rem`: a régua do relógio — a tese da tela — caiu de **1,42× para 1,26×** o
+  título. Ela não encolheu; o resto cresceu e a alcançou. Dez leituras
+  reescaladas, razão de volta a 1,47. **O que se preserva numa troca de escala
+  é a RAZÃO**, e misturar `px` com `rem` é como isso passa despercebido.
+- **O formulário de "Novo chamado" não recebeu o passe:** 7 de 11 controles
+  abaixo de 44px, e é onde o operador **digita**. Agora zero.
+
+### Estado e pendências
+
+- Detector **47 → 35** advertências de `font-size`: consolidar a rampa eliminou
+  doze degraus. Aumentar o tipo não custou entropia, reduziu.
+- `?v=7` → `?v=17` (CSS e JS).
+- 🐛 Crase dentro de template literal, **inclusive em comentário HTML**, vira
+  tagged template: `X is not a function` em runtime, `node --check` limpo, tela
+  parada em "Carregando…". Virou regra no [`../CLAUDE.md`](../CLAUDE.md).
+- 📋 **Vocabulário do admin ficou para depois**, a pedido do Pedro. O glossário
+  já tem a tabela pronta; falta o admin (maior volume) e revisar o app do
+  técnico.
+- 📋 Copy, decisão do Pedro: no dia calmo a tela diz a mesma coisa duas vezes —
+  a placa escreve "0 chamados abertos" e o título abaixo, "Nenhum chamado
+  aberto." em 40px.
+- 📋 O mapa não tem legenda de cor dos pinos (seria copy nova).
+- 📋 **Continua sem ter rodado sob a role real** — não existe usuário `operador`
+  em produção.
 
 ## Sessão 2026-08-27 — A carta de orçamento volta a ser carta
 

@@ -5270,6 +5270,563 @@ efeito da consolidação, não regressão: os valores que estavam em `rem` virar
 literais em `px`, que é o que o registro de operação usa. A advertência
 continua sendo a conhecida das cinco folhas.
 
+### 2026-08-28 · O painel do operador vira um painel só
+
+Passe de acabamento na prévia (`/dev/_operador-preview.html`), com a tela
+medida em 430, 761, 900, 1090, 1339, 1340, 1440 e 1920px. Quatro correções,
+nenhuma delas de escala — todas de arranjo.
+
+**1. O par fila+trilho passa a centrar junto.** `.comB` era
+`1fr var(--trilho-w)`: a fila centrava dentro da primeira coluna e o trilho
+ficava colado na borda direita da janela. Num monitor de mesa de 1920 — que é
+a cena principal desta tela, não a exceção — sobravam **285px de campo morto
+entre as duas colunas**, exatamente a largura da margem esquerda. As duas
+metades deixavam de ler como um painel só, e o trilho ("Equipe agora",
+"Despachados hoje"), que é justamente o que responde à fila, parecia outra
+página. Com a coluna da fila limitada a `--area-max` e o grid centrado, o
+bloco de 1340 (1040 + 300) fica no meio e o vão some.
+
+⚠️ **A fila não se move um pixel com isso** — centrar 1040 dentro de (W − 300)
+dá o mesmo x que centrar o par de 1340 (`W/2 − 650` nos dois), então o placar,
+o cabeçalho e a fita continuam alinhados sem conta nova. Quem anda é só o
+trilho. E só funciona porque o fundo do trilho é o **mesmo `--mar-900` do
+campo**: ele não é faixa de cor colada na borda, é um fio e um conteúdo.
+A barra ganhou o mesmo recuo (em `padding`, para o fundo continuar sangrando),
+e de brinde o `.conta` passou a bater exatamente no x do cartão do técnico —
+antes eram 6px de diferença.
+
+Como consequência direta, o **fio do trilho subiu de `--fio-fraco` para
+`--fio`**: enquanto havia 285px de vazio separando as colunas, ele era
+acabamento; agora é a junta, e a .07 sobre `--mar-900` não se enxerga na tela.
+Fio que não se vê não é usinagem.
+
+**2. A prova deita entre o celular e a mesa.** A quebra de 1080 (27/08) tinha
+resolvido o **colapso** e não a **medida**, e o que sobrou era não-monotônico —
+o pior resultado possível. Medido: a descrição do chamado tinha **33
+caracteres por linha a 900px, 16 a 1090px e 50 a partir de 1340**. Ou seja,
+alargar a janela de 1080 para 1090 piorava a leitura pela metade, e nenhuma
+das duas larguras é exótica (1090 é a janela lado a lado num monitor de 1440;
+900 é o tablet deitado).
+
+A causa é a mesma que o passe de 27/08 achou: a trilha dos tanques é fixa em
+320px e, num item estreito, só o texto tem para onde ceder — a quebra tirou o
+trilho do caminho, mas não mexeu no arranjo **dentro** do item. Entre 761 e
+1339px a prova agora deita, como o celular já fazia: tanques em cima, relato
+embaixo, com o teto de 68ch do `.prova-txt` mandando na linha. A trilha ganhou
+`max-width:340px` porque ali o item tem 730–920px e, sem isso, a coluna d'água
+esticaria para o dobro do tamanho que tem em qualquer outra largura — a peça
+deita, não estica.
+
+1340 não é número novo: é `--area-max` + `--trilho-w`, o mesmo limite que a
+barra já usava, e é exatamente onde o item chega aos seus 1000px e as duas
+colunas voltam a caber. **760 e 1080 continuam sendo os números da landing** —
+esta faixa não move nenhum dos dois, só troca o arranjo interno do item entre
+eles. Resultado: nenhuma largura, de 430 a 1920, fica abaixo de 49ch. O item
+custa 191px em vez de 161 na faixa do meio; na mesa a densidade comprada em
+27/08 está intacta.
+
+**3. A leitura centra na chapa do turno.** As três células do placar ficavam
+50%, 53% e 65% vazias (medido, células de 333px) com a leitura encostada à
+esquerda — o mesmo *"muito espaço livre com coisa pequenininha"* que foi
+apontado no item da fila, sobrevivendo na primeira peça da tela. A chapa não
+pode encolher (a largura dela é o que a alinha ao item), então o que mudou foi
+a posição: centrada, o vazio vira margem dos dois lados e a peça lê como
+mostrador dividido. **No celular ela volta a encostar à esquerda**: numa pilha
+de três linhas, centrar põe cada número num x diferente, e pilha se lê por uma
+margem comum.
+
+**4. A ficha mostrava a chave do banco.** O campo Categoria imprimia
+`nivel_baixo` e `bomba_falha` crus — e no **mesmo arquivo** o `<select>` de
+"Novo chamado" já escrevia "Nível baixo" e "Falha de bomba". A mesma tela dizia
+o valor de dois jeitos: humano quando o operador digita, cru quando ele lê.
+Agora há um `CATEGORIA_ROT` (os rótulos do `_chCatNome` do admin mais as
+variantes que a API devolve e que lá não estão mapeadas), e o caso sem
+correspondência não sai cru: `_` vira espaço e a primeira letra sobe.
+
+Detector: **44 advertências de `font-size` e 2 de cor**, exatamente as mesmas
+de antes do passe — as duas conhecidas das cinco folhas (a rampa de tipo e o
+`#000` das máscaras da engrenagem, que é canal alfa e não cor). Nenhuma
+advertência nova.
+
+Fluxo em [`modulos/painel-operador.md`](modulos/painel-operador.md).
+
+### 2026-08-28 · O painel do operador ganha o acabamento da landing
+
+O Pedro pediu refino visual, não estrutura: *"tem muita coisa escrita, pouca
+hierarquia"*, *"esse lugar que mostra a equipe agora está meio feio"* e *"o
+cabeçalho está longe da qualidade da landing"*. **Nenhuma palavra saiu da tela
+e nenhum elemento foi removido** — o que mudou foi fabricação e escala.
+
+O diagnóstico, medido na tela e não deduzido: a primeira dobra tem **106
+blocos de texto, e 85 deles (80%) entre 10,5 e 12,5px** — quatro degraus que
+ninguém distingue. **45 são etiqueta mono em caixa alta.** O maior tipo da
+tela inteira tinha 28px. A landing, ao lado, trabalha com **razão de 3:1**
+entre etiqueta (10,24px) e leitura (24–31px). Era a mesma gramática, achatada.
+
+**1. As peças passam a ser chapa de duas camadas.** A construção do `.instr`
+da landing — fundo do elemento = anel de 1,5px, `::before` embutido = placa
+com **gradiente diagonal** de `--mar-700` a `--mar-900` — vale agora para a
+placa do turno, para o trilho e para o item da fila. Era a diferença entre
+"a mesma cor" e "a mesma peça": o gradiente é o que faz a chapa pegar luz e
+virar objeto.
+
+⚠️ **O ângulo NÃO é o mesmo da landing, e a razão é geometria.** O comprimento
+da linha do gradiente é `|L·sen α| + |A·cos α|`: no card de ≈470×470 da
+landing, 168° é quase todo vertical. Na placa do turno (1000×86) os mesmos
+168° dão **208px de percurso horizontal contra 84 de vertical** — vira um
+gradiente da esquerda para a direita, e das três leituras a primeira nasce
+acesa e a terceira apagada. A placa larga usa **176°**; a chapa alta do
+trilho mantém os 168°.
+
+**2. O item da fila estava com `border` + `clip-path` — a construção que o
+próprio passe de 27/08 proibiu.** Sob `clip-path` a borda sai recortada nos
+dois chanfros, então o item tinha o contorno interrompido nos cantos. Passava
+despercebido enquanto as vizinhas eram chapadas; assim que a placa e o trilho
+ganharam anel, ele virou a única peça sem aresta da tela. `padding:1px` no
+lugar do `border:1px` — a caixa não muda de tamanho.
+
+**3. O trilho deixou de ser parede de cards.** Cada técnico era uma caixa
+própria, fio de 1px e 6px de respiro, com fundo `--surface` (#06154b) sobre
+`--mar-900` (#030a26) — meio degrau de diferença, ou seja, quatro retângulos
+pálidos empilhados. Agora é **uma chapa dividida por cortes gravados**
+(`--rasgo` + `--luz`), que é o divisor deste sistema. O selo de iniciais virou
+chapa de duas camadas como o `.conta` da barra (os dois são o mesmo objeto e
+estavam construídos diferente) e o tipo dele virou mono, porque inicial é
+código.
+
+⚠️ **A tinta do trilho estava invertida:** `.tec-est` (o estado, que decide se
+dá para despachar) saía em `--muted`, e `.tec-dist` ("no mapa", que não decide
+nada) em `--text-dim`, que é **mais claro**. Quem lia a coluna via primeiro a
+nota de GPS. Trocado.
+
+**4. O cabeçalho ganhou o degrau.** O número do placar foi de 1,75 para
+**2,5rem** contra a frase de 13px — razão de 3,1:1, a da landing. E o canto
+direito da barra tinha quatro elementos com o mesmo peso: agora segue o
+`.instr-cab` da landing, com a identificação em `--muted` pequena e o
+**relógio em 1,05rem mono 700 branco**. É a única leitura ao vivo da barra.
+
+**5. A rampa do item abriu:** título 14,5 → **16px**, nome do prédio 12,5 →
+13px. O corpo do item passa a ser 16 / 13 / 12,5 / 10,5. Não é a quantidade
+de texto que fazia a fila parecer cheia — é a ausência de degrau entre papéis.
+
+⚠️ **E o maior tipo do item vazava da caixa dele, sem ninguém ter medido:**
+"+37min" ocupa 91px numa área útil de 68 (coluna de 92 menos 2×12 de recuo).
+Sem `overflow` declarado, ele pintava por cima do recuo dos dois lados — no
+item estourado o campo é vermelho inteiro e não se nota. Resolvido em duas
+partes: o **eixo variável do Martian Mono** (75–112,5%, que a folha carrega e
+nunca usou) a 82% leva o número para 82px sem perder altura, e a coluna foi de
+92 para 100px com o recuo de 12 para 8. Área útil final 84px.
+
+⚠️ **Um defeito criado e corrigido no mesmo passe:** o selo do técnico
+disponível nasceu com preenchimento `--ok` a 46% e as iniciais em `--ok` por
+cima — verde sobre verde, **3,20:1**, reprovado como texto e a 10,5px. É a
+Regra do Amarelo Cego valendo para o verde. O estado foi para o **anel**, que
+é o que a chapa de duas camadas oferece de graça: aresta verde de 1px, tinta
+em `--text-dim` sobre `--mar-600` (6,6:1).
+
+Medido depois: **altura dos itens inalterada** (162/127/120/142/144 contra
+161/126/119/142/144), medida de linha em 49ch, contraste com piso de 4,6:1 na
+tela toda, três faixas conferidas em 430/900/1090px, sem rolagem horizontal e
+sem erro de console. Detector: 46 `font-size` + 2 cor, todas advisory — os
+dois degraus a mais são o `2.5rem` do placar e o `16px` do título, e caem na
+advertência conhecida das cinco folhas.
+
+🐛 **Pegadinha que custou tempo e virou regra no [`../CLAUDE.md`](../CLAUDE.md):**
+crase dentro de template literal — inclusive em comentário HTML — fecha a
+string e transforma o resto em *tagged template*. O sintoma é
+`X is not a function` em runtime, com `node --check` passando limpo e a tela
+parada em "Carregando a fila do turno…".
+
+Fluxo em [`modulos/painel-operador.md`](modulos/painel-operador.md).
+
+### 2026-08-28 · O mapa sai do diálogo e vira protagonista do turno
+
+Pedido do Pedro: *"o mapa precisa ser um protagonista — ou ele fica em outra
+tela, que dá pra abrir em tela cheia igual no admin, ou arrumamos protagonismo
+pra ele nessa tela mesmo"*. Foi a segunda opção, e **sem tocar no backend**:
+`GET /operador/fila` já devolve `condominio.lat/lng` por chamado e `lat/lng`
+por técnico.
+
+**O argumento não é tamanho, é ORDEM DA PERGUNTA.** Até aqui o mapa só existia
+dentro do diálogo de despacho — ou seja, abria **depois** que o chamado já
+tinha sido escolhido, um de cada vez. Mas a decisão geográfica é da **fila
+inteira**: mandar alguém no #4821 pode ser errado se o #4820 fica ao lado dele.
+Agora ele fica aberto **enquanto** se lê a fila.
+
+⚠️ **Não é uma segunda tela, e isso é deliberado.** O topo do `operador.css`
+registra desde 27/08 que "a tela é UMA, não há para onde navegar", e que a
+necessidade de uma segunda seção seria conversa de produto. A tela cheia é um
+**modo da peça** — o padrão do `.mp-map-card.is-fullscreen` do admin —, não um
+destino. Um mapa em tela cheia como página esconderia a fila que está
+queimando, e as duas perguntas do turno (o que estoura, quem vai) se fazem
+juntas.
+
+**O trilho foi de 300 para 400px** e trocou de papel: o mapa toma o topo e a
+lista de equipe desce para baixo dele. A lista era, afinal, a mesma informação
+contada sem geografia. ⚠️ **Quem rola agora é a lista, não a coluna** — a
+coluna inteira tinha `overflow-y:auto`, e com o mapa no topo dela rolar a
+equipe levaria o mapa para fora da tela, ou seja, ele deixaria de ser
+protagonista exatamente no minuto em que se precisa dele.
+
+**O pino do chamado carrega duas informações e nenhuma é nova:** a etiqueta é a
+prioridade (mesmas cores e mesma construção do `.selo`) e o preenchimento é o
+estado do relógio (o mesmo grau que pinta a régua do item). É o par que a fila
+já mostra lado a lado, aqui virado posição. Só o que **já estourou** ganha halo,
+e ele não pisca: alarme animado numa tela que se olha o turno inteiro vira
+ruído em dez minutos. Clicar num pino abre o **mesmo** diálogo de despacho do
+botão da fila — o mapa é outra porta para a decisão que já existe.
+
+⚠️ **O nó do mapa é PERSISTENTE, e isso não dá para improvisar.** `render()`
+reescreve o `innerHTML` do `#tela` inteiro a cada 30 segundos. Com o mapa
+dentro desse HTML, ele seria destruído e recriado a cada ciclo: perderia o pan
+e o zoom que o operador acabou de fazer e baixaria os tiles de novo. O elemento
+vive fora do ciclo e o `render()` só o **move** para o lugar de um
+`#slotMapa` — mover um nó preserva a instância do Leaflet; o que ele precisa
+depois é de `invalidateSize()`. Conferido: mesma instância e zoom preservado
+depois do render.
+
+⚠️ **`z-index` na peça não bastou para a tela cheia.** `.mapa-turno` mora dentro
+do `#tela`, que é `position:relative; z-index:1` — então o `z-index:70` dela é
+resolvido dentro de um contexto que vale 1, e a barra (z-index 20, filha do
+body) continuava desenhando **por cima** do mapa em tela cheia; o cabeçalho do
+mapa ficava escondido atrás dela. Quem sobe é o contexto inteiro, e só enquanto
+dura o modo: `body.com-mapa-fs`, que também tranca a rolagem atrás, como o
+`body.com-ficha` já faz pelos diálogos.
+
+⚠️ **Enquadrar uma vez só, mas re-enquadrar na troca de tamanho** — são dois
+gatilhos e a diferença é quem pediu. O ciclo de 30s é do sistema: refazer o
+`fitBounds` ali arrancaria o mapa da mão de quem acabou de dar zoom num bairro.
+Entrar em tela cheia é do operador, e aí **manter** o enquadramento é que fica
+errado: ele tinha sido calculado numa coluna de 368px, e a mesma escala num
+viewport de 1920 mostrava de Cabreúva a Cubatão com os pinos espremidos no meio.
+
+Mais: a camada de tiles (com o reenvio de tile que falha) virou `camadaTiles()`,
+compartilhada pelos dois mapas da tela — eram duas cópias a partir do momento
+em que existiu um segundo mapa. O Esc sai da tela cheia **antes** de cair no
+`fechar()`, senão o operador ficaria preso num mapa de tela inteira quando o
+modo veio pelo caminho de classe.
+
+Conferido em 430 / 900 / 1920px: o mapa é faixa de largura cheia abaixo de
+1080 (espremido numa célula de 300px ao lado das listas ele voltaria a ser a
+miniatura que deixou de ser), 44px de alvo de toque no celular, sem rolagem
+horizontal, sem erro de console. Detector: 47 `font-size` + 2 cor, todas
+advisory.
+
+Fluxo em [`modulos/painel-operador.md`](modulos/painel-operador.md).
+
+### 2026-08-28 · A sessão recém-criada sobrevive ao carimbo da sessão anterior
+
+Relato: "fiz o login, quando fui clicar em orçamento está pedindo o e-mail
+novamente". Três defeitos independentes no mesmo caminho, todos no
+[`public/inatividade.js`](../public/inatividade.js).
+
+**1. O carimbo sobrevive à sessão que o criou.** `tg_ultima_atividade` só é
+apagado pelo `limparSessao()` do próprio corte. O `logout()` do painel e o
+`pedirEntrada()` dos orçamentos removem apenas `token` e `user`; e **nenhum
+caminho de login carimba** — nem o `login.js`, nem o `_concluirEntrada` do
+cartão de orçamentos. Quem saiu ontem e entra hoje traz o carimbo de ontem, e a
+primeira tela que carrega o arquivo mata a sessão recém-nascida antes de pintar
+qualquer dado: no painel, salto para `/login`; nos orçamentos, o cartão pedindo
+o e-mail de novo.
+
+O conserto não foi espalhar `removeItem` pelos 13 pontos que gravam ou apagam
+sessão — a prova de que espalhar apodrece é que o `_concluirEntrada`, escrito
+depois, já tinha esquecido. O `iat` do JWT diz **quando esta sessão nasceu**, e
+carimbo anterior ao nascimento é carimbo de sessão morta: não conta como
+inatividade. Vale para todo caminho de entrada, inclusive os que ainda não
+existem.
+
+**2. O corte de carregamento não podia esperar pelo hook.** A correção de
+26/08 adiava o corte um tique de `setTimeout(…, 0)` apostando que "a fila de
+timers só roda depois que todo `defer` executou". **Não roda:** os `defer`
+executam em ordem, mas o navegador ainda precisa *baixar* o próximo, e nessa
+espera o laço de eventos está livre. O `inatividade.js` é pequeno e vem do
+cache; o `cliente-orcamentos.js` tem 800 linhas — o timer ganhava a corrida em
+**100% das cargas medidas no navegador**, e a tela de orçamentos voltava a cair
+em `/login`. A correção de 26/08 nunca funcionou.
+
+Esperar o `DOMContentLoaded` (garantia de especificação, não aposta de timing)
+consertava os orçamentos e **quebrava o painel**: com o corte adiado, o
+`cliente.js` rodava antes, pedia sem token, tomava 401 e mandava para
+`/login?motivo=`**`expirado`** — mesmo destino, motivo errado na tela. Trocar
+uma corrida por outra não é conserto.
+
+**3. Script inline morre calado na CSP.** A tentativa seguinte foi declarar o
+hook num `<script>` inline antes dos dois `defer`. O `helmet` desta casa serve
+`script-src 'self'` sem nonce: o script fica no DOM, **não executa**, e nada
+quebra — falha silenciosa, a pior forma de falhar.
+
+A solução é atributo, não script: `data-corte="cartao"` no `<body>` do
+[`cliente-orcamentos.html`](../public/cliente-orcamentos.html). Está no DOM
+antes de qualquer `defer` rodar, custa zero requisição e não depende de CSP. O
+`inatividade.js` lê o atributo, deixa a marca `window._tgCorteAoCarregar` e
+**não** redireciona; o `cliente-orcamentos.js` lê a marca no bootstrap e abre o
+cartão com a mensagem de inatividade. O corte volta a ser **síncrono**, então o
+painel recupera o `motivo=inatividade` correto.
+
+Conferido no navegador, com sessão de verdade nos quatro cenários:
+
+| Cenário | Antes | Agora |
+|---|---|---|
+| Login novo + carimbo de ontem, clicando "Orçamentos" no painel | cartão pedindo o e-mail | lista com os 2 orçamentos, sessão viva |
+| Inatividade real, link do e-mail com `?orc=58` | `/login`, URL e documento perdidos | cartão por cima, `?orc=58` na barra |
+| Inatividade real no painel | `/login?motivo=inatividade` | igual (com o `motivo` certo de volta) |
+| Sem sessão, link do e-mail | cartão sem mensagem | igual |
+
+Backend conferido e ileso: `GET /cliente/orcamentos` e `GET /cliente/status`
+respondem 200 com JWT de cliente válido. O defeito era só de front.
+
+Prazos da sessão em
+[`modulos/autenticacao.md`](modulos/autenticacao.md).
+
+
+### 2026-08-28 · Moldura marca o que é único (correção do passe anterior)
+
+O Pedro olhou a tela depois dos três passes do dia e disse: *"ficou
+bagunçado"*. Tinha razão, e o erro foi de **dosagem, não de direção**.
+
+**A causa, contada:** a construção do `.instr` da landing — anel de 1,5px +
+gradiente diagonal — foi aplicada na placa do turno, no trilho, no item da
+fila e no mapa. Na landing ela veste **um** instrumento cercado de campo
+aberto; aqui virou o tratamento padrão, e a primeira dobra passou a ter
+**nove peças com anel e gradiente**. Quando tudo é peça usinada, o anel deixa
+de significar "peça" e vira textura de fundo. Pior: o gradiente do item se
+repete **cinco vezes**, e cinco chapas acendendo em cima e apagando embaixo,
+empilhadas com 9px de vão, produzem um ritmo de faixas que não significa nada.
+
+**A regra que faltava, e que agora vale para a folha inteira:**
+**moldura marca o que é único; o que se repete é superfície.**
+
+| Peça | Antes | Agora |
+|---|---|---|
+| Placa do turno | anel + gradiente | **mantém** — é peça única |
+| Mapa | anel | **mantém** — é peça única |
+| Item da fila (×5) | anel + gradiente | cor chapada; mantém a chapa de duas camadas com anel `--fio-fraco` |
+| Chapas do trilho (×2) | anel + gradiente | fundo `--surface` liso com os cortes gravados |
+
+⚠️ **O item mantém a chapa de duas camadas mesmo sem o gradiente**, e isso não
+é sobra: ela não era enfeite, é o que impede o fio de sair recortado nos dois
+chanfros sob `clip-path`. Construção certa, expressão quieta. E o que resolveu
+a "parede de cartõezinhos" do trilho continua de pé — não era o anel, era
+**agrupar** as linhas numa peça só separadas por corte gravado. Saiu a moldura
+externa, ficou o agrupamento. Resultado: de nove peças com anel visível para
+**duas**.
+
+**O amarelo passou a apontar.** Com o resto quieto, os quatro "Despachar" em
+campo cheio viraram o elemento mais forte da tela — uma coluna amarela
+vertical competindo com a régua vermelha do item estourado, que o brief define
+como o único campo cheio da tela. Agora vale a **Regra do Selo** que o
+`DESIGN.md` já tinha e que o botão era a única peça de ação a não seguir:
+*preenchido quando pede ação, de fio em repouso*. Estourado e apertado
+preenchem; o resto fica com **anel amarelo e texto amarelo** sobre miolo
+marinho. ⚠️ O botão não muda de lugar, de texto, de tamanho nem de ordem, e
+não fica igual ao "Abrir ficha" ao lado — em repouso a ação primária continua
+reconhecível pela cor, só deixa de ser um campo.
+
+**Dois defeitos de estado achados na varredura:**
+
+- **No dia calmo a placa tinha 96% de vazio.** O grid é fixo em `repeat(3,1fr)`
+  e a célula única ("0 chamados abertos") caía no primeiro terço, com dois
+  terços de chapa atravessando a tela. Ganhou `data-so="1"`: uma coluna, e a
+  chapa fecha no tamanho do que tem a dizer.
+- **"Ninguém despachado ainda." saía como texto solto** enquanto a seção irmã
+  logo acima era um bloco — duas seções gêmeas com formas diferentes,
+  justamente no estado (dia calmo) em que as duas ficam vazias. Estado vazio é
+  estado, não ausência de peça: agora ocupa a mesma caixa da lista cheia.
+
+Medido depois: altura dos itens **inalterada** (162/127/120/142/144), contraste
+com piso de 5,7:1, três faixas conferidas em 430/900/1920, console limpo,
+detector 47 `font-size` + 2 cor, todas advisory.
+
+📋 **Fica em aberto, e é copy:** no dia calmo a tela diz a mesma coisa duas
+vezes — a placa escreve "0 chamados abertos" e o título logo abaixo escreve
+"Nenhum chamado aberto." em 40px.
+
+### 2026-08-28 · A barra do operador vai a 68px
+
+O Pedro perguntou se o cabeçalho desta tela não era bem menor que o das
+outras. Era, e a comparação que justificava isso estava errada:
+
+| | barra | celular | logo na barra |
+|---|---|---|---|
+| landing · painel do cliente | 74px | 64px | 40px (32) |
+| admin | 60px | — | **nenhum** (marca fica na sidebar) |
+| operador (antes) | 60px | 54px | 30px (26) |
+| **operador (agora)** | **68px** | **60px** | **36px (30)** |
+
+⚠️ **A topbar do admin tem 60px porque carrega SÓ CONTROLES** — a marca dele
+mora na sidebar. O operador não tem sidebar, então a mesma altura estava
+levando logo + "Turno" + "Novo chamado" + pulso + relógio + avatar. A barra
+daqui faz o trabalho da topbar do admin **mais** o da marca; copiar o número
+dela era copiar a medida sem o conteúdo.
+
+E a outra metade da justificativa tinha caído no mesmo dia: o comentário dizia
+*"60 contra 74 porque esta tela é densa e tem trilho de **300px** ao lado"*, e
+o trilho passou a ter 400 no passe do mapa. A densidade continua valendo — por
+isso 68, e não os 74 das irmãs.
+
+**O logo não estava só menor, estava proporcionalmente menor:** 30 em 60 dá
+0,50, enquanto landing e cliente fazem 40 em 74, que é 0,54. Agora são 36 em
+68 (0,53), a razão das irmãs.
+
+⚠️ **Efeito colateral que a mudança expôs: a máscara da engrenagem ficou para
+trás.** Ela prende a peça à faixa de campo aberto (barra + placar + cabeçalho
+da fila) e a apaga antes do primeiro item, com valores em `px` medidos a
+partir do `top` da peça. Mas a faixa cresceu **duas vezes** em 28/08 — o
+placar foi de 67 para 89px quando a leitura subiu para 2,5rem, e agora a barra
+de 60 para 68 — e a máscara continuava nos 210/265 do dia anterior, apagando a
+engrenagem em y=177, no meio do vão, **antes do fim do cabeçalho da fila**.
+Refeita nas duas faixas: desktop 268/308 (opaca até y=180, transparente em
+y=220, três pixels antes do primeiro item) e celular 310/355.
+**A conta é `y desejado + |top| da peça`. Mexeu na barra ou no placar? Refaça.**
+
+### 2026-08-28 · O operador escrito para quem vai usar
+
+O Pedro: *"essa tela vai ser usada por pessoas que não têm tanta familiaridade
+com tecnologia e computador"*. A tela estava calibrada para o oposto — ela
+herdou o **registro de operação do admin** (corpo 13px, densidade de tabela de
+40 linhas), que é feito para quem usa o sistema o dia inteiro e conhece cada
+abreviação.
+
+**Medido antes:** 64% do texto (76 de 118 blocos) abaixo de 12px; 47 blocos a
+10,5px, dos quais **39 em mono CAIXA ALTA**; e **nenhum dos 11 botões** chegava
+aos 44px de alvo — "Despachar" tinha 35, "Novo chamado" 31.
+
+| | Antes | Depois |
+|---|---|---|
+| Texto abaixo de 12px | 64% | **10%** |
+| Corpo | 13px | **15px** |
+| Etiqueta mono | 10,5px | **12px** |
+| Botões abaixo de 44px | 11 de 11 | **0** |
+| Blocos em CAIXA ALTA | 39 | 21 |
+
+Custou densidade (≈3 → ≈2 itens na primeira tela), e foi decisão explícita do
+Pedro: **rolar é mais fácil que espremer os olhos.**
+
+⚠️ **A caixa alta pesa tanto quanto o tamanho** e quase não é lembrada: frase
+inteira em CAIXA ALTA é o tratamento mais lento de ler que existe — o olho
+perde o contorno da palavra e soletra letra a letra. Saiu da régua do relógio,
+do estado do técnico, de "Prédio sem telemetria instalada", da linha de origem
+e do cabeçalho da fila. Ficou onde classifica em uma ou duas palavras (bairro,
+prioridade, título de seção).
+
+**E o vocabulário virou assunto de sistema, não de tela.** O Pedro ampliou o
+pedido: *"na verdade eu queria fazer isso para o sistema inteiro, até eu me
+perco nas siglas muitas vezes"*. Nasceu daí o
+[`vocabulario.md`](vocabulario.md), com uma regra que a varredura revelou:
+**nem toda sigla é igual.**
+
+- **Vocabulário do ramo fica** — a equipe fala "passa a O.S. pro Marcos",
+  "isso é P1". Decisão do Pedro. `P1` ganha a palavra ao lado (`P1 Crítico`),
+  com os nomes do `_chPrioNome` do admin, porque as duas telas mostram os
+  mesmos chamados e não podem chamar a mesma coisa de dois jeitos.
+- **Sigla de software sai** — `TTFR`, `TTR`, `KPI` não existem fora deste
+  sistema. Prova: o admin já precisou escrever uma legenda *"TTFR = tempo até
+  primeira resposta · TTR = tempo até resolução"* embaixo da tabela. **Rótulo
+  que precisa de legenda é rótulo errado.**
+- **`SLA` vira palavra:** "com SLA estourado" → "fora do prazo"; "SEM SLA" →
+  "sem prazo definido"; "ATÉ ESTOURAR" → "para vencer"; "+37min" → "37min
+  atrasado"; "DISPONÍVEL" → "Livre agora"; "sem GPS" → "sem posição".
+
+⚠️ **Uma troca proposta foi RECUSADA na revisão, e o motivo vale a regra:**
+`EM ATENDIMENTO → "Técnico a caminho"` estava errada. `em_atendimento` é o
+status do **chamado**; se o técnico já chegou, "a caminho" vira mentira — o
+item já distingue "atribuído" · "a caminho" · "no local" num campo próprio. O
+que atrapalhava ali era a caixa alta, não as palavras. **Texto mais claro que
+diz coisa errada é pior que sigla.**
+
+A varredura também mostrou que o problema era mais concentrado do que
+parecia: **painel do cliente, orçamentos, landing e login já estavam limpos** —
+nasceram escritos para o síndico. Falta o **admin** (maior volume) e uma
+revisão do **app do técnico**.
+
+⚠️ **O detector CAIU de 47 para 40** advertências de `font-size`: consolidar a
+rampa eliminou degraus em vez de criar. Aumentar tipo não custou entropia.
+
+Console limpo, sem rolagem horizontal, faixas conferidas em 430/900/1920.
+
+Glossário: [`vocabulario.md`](vocabulario.md) · Fluxo:
+[`modulos/painel-operador.md`](modulos/painel-operador.md).
+
+### 2026-08-28 · O que a mudança de escala quebrou (e ninguém veria)
+
+Passe de verificação depois de subir a rampa ~15%. **As quebras de layout e a
+hierarquia tinham sido calibradas com o corpo de 13px**, e nenhum dos três
+defeitos abaixo dá erro, aparece no console ou reprova no detector — todos
+passariam.
+
+**1. A quebra do trilho estava 100px baixa demais.** Medido: a 1090px o item
+caía para **640×332**, contra **1000×198** logo abaixo, em 1080. Alargar a
+janela piorava — o mesmo defeito não-monotônico que a faixa da prova já tinha
+corrigido, reaparecendo por outra causa. E a causa era conhecida: o **trilho
+foi de 300 para 400px** quando o mapa entrou nele, mas o `1080` (o número da
+landing) ficou parado. A conta é `740 (item mínimo) + 400 (trilho) + 40
+(gutters) = 1180`. ⚠️ **Mexeu no `--trilho-w`? Refaça esta conta.**
+Medido depois: de 430 a 1920, nenhuma largura fica abaixo de **43ch**, e a
+progressão voltou a ser monotônica.
+
+**2. As leituras em `rem` ficaram para trás e a hierarquia se desfez.** O
+passe de legibilidade escalou os valores em `px` (13→15) e **não os em `rem`**
+— então o número do relógio, que é a tese desta tela (*"a fila do turno,
+medida pelo relógio"*), caiu de **1,42× para 1,26×** o título. Ele não
+encolheu: o resto cresceu e o alcançou, que dá no mesmo. Dez leituras
+reescaladas (régua, leitura do tanque, relógio da barra, título da ficha);
+razão de volta a **1,47**. ⚠️ **O que se preserva numa troca de escala é a
+RAZÃO, não o número** — e misturar `px` com `rem` na mesma rampa é como isso
+passa despercebido.
+
+**3. O formulário de "Novo chamado" não recebeu o passe.** **7 dos 11
+controles** continuavam abaixo de 44px enquanto a fila já estava corrigida — e
+é ali que o operador **digita**, que é a interação mais difícil para quem tem
+pouca familiaridade com computador. Campos e botões de prioridade a 44px,
+corpo do campo a 15px, e "O QUE FOI RELATADO" saiu da caixa alta (quatro
+palavras é frase). Agora **zero** controles abaixo do piso, no diálogo e na
+tela.
+
+⚠️ **O detector CAIU de 47 para 35** advertências de `font-size` ao longo dos
+dois passes: consolidar a rampa eliminou doze degraus. Aumentar o tipo não
+custou entropia — reduziu.
+
+### 2026-08-28 · O item da fila fica SIMPLES (não só maior)
+
+⚠️ **Correção de rumo, e o erro foi de leitura do pedido.** O Pedro tinha dito
+que a tela seria usada por pessoas mais velhas, com pouca familiaridade com
+computador, e pediu para *"dar uma simplificada para ajudar"*. O passe anterior
+respondeu com **escala** — corpo 13→15px, alvos 44px, caixa alta fora. Ele
+olhou e disse: *"não mudou praticamente nada"*. Estava certo: **deixar maior e
+deixar mais simples são coisas diferentes**, e o item continuava com as mesmas
+quinze informações e os mesmos dois botões, só que em corpo 15px.
+
+**O que mudou de verdade:**
+
+| | Antes | Agora |
+|---|---|---|
+| Colunas do item | 3 (régua · corpo · ações) | **2** (urgência · resto) |
+| Botões por item | 2, do mesmo peso | **1 botão + 1 link** |
+| Peças na face | 15 | **10** |
+
+- **A prioridade desceu para a régua**, junto do relógio. As duas respondem à
+  mesma pergunta — *quão urgente é* — e estavam em pontas opostas do item: o
+  tempo à esquerda, o selo no meio da linha do título, empurrando o título para
+  a direita e fazendo **cada item começar num x diferente**.
+- **O título abre o item.** Vinha depois do número do chamado e do selo: era a
+  terceira coisa da linha sendo a primeira em importância.
+- **A coluna de ações saiu.** Ela existia para o botão cair sempre no mesmo x —
+  problema real, resolvido — mas cobrava um preço que só apareceu com o público
+  novo: o olho varria esquerda → meio → direita em cada item, e a leitura de
+  cima para baixo era interrompida duas vezes. Agora a ação **fecha** o item, e
+  o botão segue no mesmo x porque a coluna é a mesma.
+- **"Abrir ficha" virou o link "Ver detalhes".** Cinco itens com dois botões
+  iguais viravam **dez botões**, e cada um pedia uma escolha *antes* da decisão
+  de verdade. Um botão e um link dizem qual é a ação e qual é a saída.
+  ⚠️ **Nada foi removido** — mudou o peso. O link mantém 44px de alvo e
+  sublinhado permanente (link sem sublinhado é texto que ninguém clica).
+- **Saíram da face, e continuam na ficha:** o selo de status (nesta seção
+  **todo** item está "Aberto" — era ruído puro; na seção de baixo o nome do
+  técnico já diz mais), a origem e o bairro. O número do chamado ficou, porque
+  é por ele que se acha o item quando o técnico liga — mas no fim da linha do
+  prédio, não na frente do título.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

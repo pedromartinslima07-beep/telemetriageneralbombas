@@ -37,6 +37,7 @@ O "o quê" e o "como".
 - [`banco-de-dados.md`](docs/banco-de-dados.md) — tabelas, relações, migrations `#doc/banco`
 - [`api.md`](docs/api.md) — endpoints REST por módulo e role `#doc/api`
 - [`changelog.md`](docs/changelog.md) — histórico por migration e fase `#doc/changelog`
+- [`vocabulario.md`](docs/vocabulario.md) — como o sistema fala: quais siglas ficam, quais saem, e por quê `#doc/vocabulario`
 
 ## 🔄 Fluxos de negócio (`docs/modulos/`)
 

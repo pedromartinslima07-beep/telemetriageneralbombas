@@ -77,6 +77,11 @@ const I = {
   rota: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter"><path d="M12 21s7-5.5 7-11a7 7 0 1 0-14 0c0 5.5 7 11 7 11z"/><circle cx="12" cy="10" r="2.4"/></svg>`,
   mais: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square"><path d="M12 5v14M5 12h14"/></svg>`,
   x: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="square"><path d="M18 6 6 18M6 6l12 12"/></svg>`,
+  // Os dois do botão de tela cheia do mapa. Mesmas setas do `mp-fs-btn` do
+  // admin, redesenhadas no traço desta folha: ponta quadrada e junta em
+  // esquadro, nunca arredondada.
+  expandir: `<svg class="ico-entra" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>`,
+  recolher: `<svg class="ico-sai" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter"><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7"/></svg>`,
 };
 
 const ORIGEM = {
@@ -86,11 +91,54 @@ const ORIGEM = {
   manual:     { ico: I.mao,    rot: "Aberto no painel" },
 };
 
+/* ⚠️ A PRIORIDADE MANTÉM A SIGLA E GANHA A PALAVRA — decisão do Pedro em
+   28/08/2026 (docs/vocabulario.md): "P1" é vocabulário do ramo, a equipe fala
+   assim, então trocar por "Crítico" puro tiraria a referência que eles usam.
+   Mas sozinha ela não diz nada a quem é novo. Os nomes são os mesmos do
+   `_chPrioNome` do admin — as duas telas mostram os mesmos chamados e não
+   podem chamar a mesma coisa de dois jeitos. */
+const PRIO_ROT = { p1: "Crítico", p2: "Alta", p3: "Controlado", p4: "Agendado" };
+
+function prioRot(p) {
+  const k = String(p || "").toLowerCase();
+  return PRIO_ROT[k] ? `${k.toUpperCase()} ${PRIO_ROT[k]}` : String(p || "").toUpperCase();
+}
+
 const STATUS_ROT = {
   aberto: "Aberto",
   em_atendimento: "Em atendimento",
   fechado: "Fechado",
 };
+
+/* ⚠️ A ficha mostrava a CHAVE DO BANCO ("nivel_baixo", "bomba_falha") no
+   campo Categoria — e no mesmo arquivo, o `<select>` de "Novo chamado" já
+   escrevia "Nível baixo" e "Falha de bomba". A mesma tela dizia o valor de
+   dois jeitos: o humano quando o operador digita, o cru quando ele lê.
+   Os rótulos são os do `_chCatNome` do admin, acrescidos das duas variantes
+   que a API devolve e que lá não estão mapeadas.
+   A saída sem correspondência não fica crua: `_` vira espaço e a primeira
+   letra sobe — categoria nova no backend aparece legível antes de alguém
+   lembrar de vir aqui. */
+const CATEGORIA_ROT = {
+  vazamento: "Vazamento",
+  bomba_falha: "Falha de bomba",
+  bomba: "Bomba",
+  nivel_baixo: "Nível baixo",
+  sem_agua: "Sem água",
+  hidraulica: "Hidráulica",
+  eletrica: "Elétrica",
+  ruido: "Ruído",
+  manutencao: "Manutenção",
+  preventiva: "Preventiva",
+  outro: "Outro",
+};
+
+function categoriaRot(c) {
+  if (!c) return "—";
+  if (CATEGORIA_ROT[c]) return CATEGORIA_ROT[c];
+  const t = String(c).replace(/_/g, " ");
+  return t.charAt(0).toUpperCase() + t.slice(1);
+}
 
 /* ── A coluna d'água ─────────────────────────────────────────────────────
    A peça é CSS, não SVG — é assim na landing e no painel do cliente, e as
@@ -118,16 +166,22 @@ function coluna(r) {
    fila é ordenada por ele, e um cliente com a hora errada reordenaria o
    turno inteiro. Aqui só se decide como escrever. */
 function relogio(sla) {
-  if (!sla) return { txt: "—", rot: "sem SLA", grau: "semsla" };
+  if (!sla) return { txt: "—", rot: "sem prazo definido", grau: "semsla" };
   const min = sla.resta_min;
   const abs = Math.abs(min);
   const txt = abs >= 1440 ? Math.round(abs / 1440) + "d"
             : abs >= 60 ? Math.floor(abs / 60) + "h" + (abs % 60 ? String(abs % 60).padStart(2, "0") : "")
             : abs + "min";
-  if (min < 0) return { txt: "+" + txt, rot: "estourado", grau: "estourado" };
+  // ⚠️ AS PALAVRAS DA RÉGUA saem do glossário (docs/vocabulario.md): quem
+  // está nesta tela não é do ramo de software. "estourado" é gíria de sistema
+  // de chamado; "atrasado" qualquer pessoa entende. E "até estourar" virou
+  // "para vencer", que é como se fala de prazo em português.
+  if (min < 0) return { txt: txt, rot: "atrasado", grau: "estourado" };
   return {
     txt,
-    rot: "até " + (sla.relogio === "chegada" ? "a chegada" : sla.relogio === "primeira resposta" ? "responder" : "estourar"),
+    rot: sla.relogio === "chegada" ? "para o técnico chegar"
+       : sla.relogio === "primeira resposta" ? "para responder"
+       : "para vencer",
     grau: min <= 30 ? "apertado" : min <= 120 ? "atencao" : "folgado",
   };
 }
@@ -179,41 +233,51 @@ function item(c, nova) {
   // o fim de uma linha que variava com o texto, e o operador tinha de
   // procurar o botão em cada item — numa tela de turno isso é o contrário do
   // que se quer. O que despacha vem primeiro porque é a decisão da tela.
+  // ⚠️ UMA AÇÃO EM DESTAQUE, NÃO DUAS. Até 28/08 o item tinha "Despachar" e
+  // "Abrir ficha" com o mesmo peso e o mesmo tamanho, lado a lado: cinco itens
+  // na tela viravam DEZ botões, e cada um pedia uma escolha antes da decisão
+  // de verdade. Quem opera aqui tem pouca familiaridade com computador, e dois
+  // botões iguais são duas perguntas.
+  // A ficha continua a um clique — vira LINK, não botão. Nada foi removido:
+  // mudou o peso, que é o que diz qual das duas coisas é a ação.
   const acoes = c.tecnico
     ? `<span class="emrota">${I.rota}<span><b>${escapar(c.tecnico.nome)}</b>${
          c.chegou_em ? " · no local" : c.a_caminho_em ? " · a caminho" : " · atribuído"}</span></span>
-       <button class="btn btn-fio" data-acao="ficha" data-id="${c.id}">Abrir ficha</button>`
+       <button class="link-ficha" data-acao="ficha" data-id="${c.id}">Ver detalhes</button>`
     : `<button class="btn" data-acao="despacho" data-id="${c.id}">Despachar</button>
-       <button class="btn btn-fio" data-acao="ficha" data-id="${c.id}">Abrir ficha</button>`;
+       <button class="link-ficha" data-acao="ficha" data-id="${c.id}">Ver detalhes</button>`;
 
   return `
   <article class="item${nova ? " nova" : ""}" data-sla="${r.grau}" data-andando="${c.tecnico ? 1 : 0}">
+    <!-- ⚠️ A PRIORIDADE MORA NA RÉGUA, junto do relógio. As duas dizem a mesma
+         coisa — QUÃO URGENTE É — e estavam em lugares diferentes: o tempo à
+         esquerda, o selo no meio da linha do título, empurrando o título para a
+         direita e fazendo cada item começar num x diferente. Juntas, a coluna
+         da esquerda responde "urgência" sozinha e o título passa a abrir a
+         linha, sempre no mesmo lugar. -->
     <div class="relogio-sla">
       <span class="sla-n">${r.txt}</span>
       <span class="sla-rot">${r.rot}</span>
+      <span class="selo" data-s="${c.prioridade}">${prioRot(c.prioridade)}</span>
     </div>
     <div class="item-corpo">
-      <div class="item-topo">
-        <span class="num">#${c.id}</span>
-        <span class="selo" data-s="${c.prioridade}">${String(c.prioridade).toUpperCase()}</span>
-        <h3 class="titulo">${escapar(c.titulo)}</h3>
-        <span class="selo selo-fio">${STATUS_ROT[c.status] || c.status}</span>
-      </div>
-      <!-- ⚠️ A ORIGEM MORA AQUI, no fim da linha do prédio — e não numa linha
-           própria no pé do item, que é onde ela estava até 27/08. Aquela linha
-           custava 23px de altura em TODO item para carregar uma etiqueta de
-           175px, enquanto a linha do prédio usava 200 dos seus 703. Encostada
-           à direita ela cai no mesmo x em toda a fila (o mesmo argumento que
-           pôs as ações em coluna própria) e a linha passa a responder as duas
-           perguntas de contexto de uma vez: onde é, e de onde veio. -->
+      <!-- O TÍTULO ABRE O ITEM. Antes vinha depois do número do chamado e do
+           selo de prioridade; era a terceira coisa da linha sendo a primeira em
+           importância. -->
+      <h3 class="titulo">${escapar(c.titulo)}</h3>
+      <!-- ⚠️ SAÍRAM DA FACE DO ITEM (e continuam na ficha, todos): o selo de
+           status, a origem e o bairro. O status era ruído puro — nesta seção
+           TODO item está "Aberto", e na de baixo o nome do técnico já diz mais.
+           A origem e o bairro são contexto, não decisão. O número do chamado
+           ficou, porque é por ele que se acha o item quando o técnico liga —
+           mas no fim da linha, não na frente do título. -->
       <div class="onde">
-        <b class="onde-nome">${condo ? escapar(condo.nome) : "Sem condomínio vinculado"}</b>${
-        condo?.bairro ? `<i></i><span class="onde-bairro">${escapar(condo.bairro)}</span>` : ""}
-        <span class="origem">${o.ico}${o.rot}<i></i>${haQuanto(c.minutos_abertos)}</span>
+        <b class="onde-nome">${condo ? escapar(condo.nome) : "Sem condomínio vinculado"}</b>
+        <span class="num">#${c.id} · ${haQuanto(c.minutos_abertos)}</span>
       </div>
       ${prova}
+      <div class="item-acoes">${acoes}</div>
     </div>
-    <div class="item-acoes">${acoes}</div>
   </article>`;
 }
 
@@ -248,11 +312,16 @@ function render() {
   // fileira de KPI. É a resposta do sistema para "três coisas paralelas"
   // (ver `.vigia` na landing): um objeto usinado, com o par `--rasgo` +
   // `--luz` fazendo a divisão. Os rótulos são os mesmos de antes.
+  // ⚠️ NO DIA CALMO A CHAPA TEM UMA COLUNA, não três. O grid é fixo em
+  // `repeat(3,1fr)`, então a célula única caía no primeiro terço e sobravam
+  // 2/3 de chapa vazia atravessando a tela — 96% de vazio, medido. `data-so`
+  // é o que a folha usa para fechar a placa no tamanho do que ela tem a
+  // dizer.
   document.getElementById("placar").innerHTML = DADOS.fila.length === 0
-    ? `<div class="placar-in"><div class="placar-i" data-t="rota">
+    ? `<div class="placar-in" data-so="1"><div class="placar-i" data-t="rota">
          <span class="placar-n">0</span><em>chamados abertos</em></div></div>`
     : `<div class="placar-in">
-         <div class="placar-i" data-t="estourado"><span class="placar-n">${estourados}</span><em>com SLA estourado</em></div>
+         <div class="placar-i" data-t="estourado"><span class="placar-n">${estourados}</span><em>fora do prazo</em></div>
          <div class="placar-i" data-t="fila"><span class="placar-n">${espera.length}</span><em>esperando alguém</em></div>
          <div class="placar-i" data-t="rota"><span class="placar-n">${andando.length}</span><em>com técnico</em></div>
        </div>`;
@@ -282,6 +351,14 @@ function render() {
       <div class="fila">${andando.map((c) => item(c, novos.has(c.id))).join("")}</div>` : ""}`;
 
   tela.innerHTML = `<div class="comB"><div>${miolo}</div>${trilho()}</div>`;
+
+  // ⚠️ O MAPA ENTRA DEPOIS, E POR MOVIMENTO, NÃO POR HTML. A linha acima
+  // acabou de destruir tudo que havia no `#tela`; o mapa sobrevive porque
+  // nunca esteve lá dentro. `replaceWith` move o nó guardado para o lugar do
+  // slot, preservando a instância do Leaflet, o zoom e o pan.
+  const slot = document.getElementById("slotMapa");
+  if (slot) slot.replaceWith(mapaTurnoNo());
+  montarMapaTurno();
 }
 
 function trilho() {
@@ -289,26 +366,47 @@ function trilho() {
   const emRota = DADOS.fila.filter((c) => c.tecnico);
   return `
   <aside class="trilho">
+    <!-- O slot do mapa. O elemento de verdade e persistente e vive fora do
+         ciclo de render (ver mapaTurnoNo); aqui fica so o lugar dele, que o
+         render troca pelo no guardado. Sem isso o mapa seria recriado a cada
+         30 segundos e perderia o enquadramento do operador. -->
+    <div id="slotMapa"></div>
+    <div class="trilho-listas">
+    <!-- ⚠️ NUNCA use crase dentro deste template literal, nem em comentário:
+         a crase FECHA a string e o que vem depois vira tagged template. Foi
+         o que aconteceu aqui em 28/08 e o sintoma engana — "X is not a
+         function", sem erro de sintaxe, com node --check passando limpo, e a
+         tela parada em "Carregando a fila do turno...". Nomes de classe aqui
+         vão sem marcação.
+         ⚠️ A div.chapa NÃO é um card a mais: é o que faz os cartõezinhos
+         PARAREM de existir. Cada técnico era uma caixa própria, com fio de
+         1px e 6px de respiro, sobre um fundo quase da mesma cor — quatro
+         retângulos pálidos empilhados, que é exatamente a "parede de cards"
+         que o DESIGN.md recusa como estrutura. Agora é UMA chapa, com a
+         mesma construção da placa do turno e do instrumento da landing
+         (anel de 1,5px + gradiente), dividida por cortes gravados. Mesmo
+         conteúdo, mesmas palavras: o que mudou é que virou uma peça só. -->
     <div>
       <h2>Equipe agora</h2>
-      ${t.length ? t.map((x) => `
+      ${t.length ? `<div class="chapa">${t.map((x) => `
         <div class="tec" data-liv="${x.disponivel && !x.abertos ? 1 : 0}">
           <div class="tec-av">${iniciais(x.nome)}</div>
           <div><div class="tec-nome">${escapar(x.nome)}</div>
             <div class="tec-est">${x.disponivel
-              ? (x.abertos ? `${x.abertos} chamado${x.abertos > 1 ? "s" : ""}` : "Disponível")
-              : "Indisponível"}</div></div>
-          <span class="tec-dist">${x.lat != null ? "no mapa" : "sem GPS"}</span>
-        </div>`).join("") : `<p class="vazio-lado">Nenhum técnico ativo.</p>`}
+              ? (x.abertos ? `${x.abertos} chamado${x.abertos > 1 ? "s" : ""}` : "Livre agora")
+              : "Ocupado"}</div></div>
+          <span class="tec-dist">${x.lat != null ? "no mapa" : "sem posição"}</span>
+        </div>`).join("")}</div>` : `<p class="vazio-lado">Nenhum técnico ativo.</p>`}
     </div>
     <div>
       <h2>Despachados hoje</h2>
-      ${emRota.length ? emRota.map((c) => `
+      ${emRota.length ? `<div class="chapa">${emRota.map((c) => `
         <div class="tec">
           <div class="tec-av">${I.rota}</div>
           <div><div class="tec-nome">${escapar(c.condominio?.nome || "—")}</div>
             <div class="tec-est">#${c.id} · ${escapar(c.tecnico.nome.split(" ")[0])}</div></div>
-        </div>`).join("") : `<p class="vazio-lado">Ninguém despachado ainda.</p>`}
+        </div>`).join("")}</div>` : `<p class="vazio-lado">Ninguém despachado ainda.</p>`}
+    </div>
     </div>
   </aside>`;
 }
@@ -382,7 +480,7 @@ function dlgDespacho(id) {
         <h2>#${c.id} · ${escapar(c.titulo)}</h2>
         <div class="onde" style="margin-top:7px">${escapar(c.condominio?.nome || "—")}<i></i>${r.txt} ${r.rot}</div>
       </div>
-      <span class="selo" data-s="${c.prioridade}">${String(c.prioridade).toUpperCase()}</span>
+      <span class="selo" data-s="${c.prioridade}">${prioRot(c.prioridade)}</span>
       <button class="ficha-x" data-acao="fechar" aria-label="Fechar">${I.x}</button>
     </div>
     <div class="ficha-corpo">
@@ -395,15 +493,15 @@ function dlgDespacho(id) {
             <div class="tec-av">${iniciais(t.nome)}</div>
             <div class="cand-quem"><div class="cand-nome">${escapar(t.nome)}</div>
               <div class="cand-est">${t.disponivel
-                ? "Disponível" + (t.lat != null ? " · no mapa" : " · sem GPS")
-                : "Indisponível"}</div></div>
+                ? "Livre agora" + (t.lat != null ? " · no mapa" : " · sem posição")
+                : "Ocupado"}</div></div>
             <div class="cand-eta"><b>${t.abertos}</b><span>${
               t.abertos === 1 ? "chamado" : "chamados"}</span></div>
           </button>`).join("") : `<p class="vazio-lado">Nenhum técnico ativo para despachar.</p>`}
       </div>
     </div>
     <div class="ficha-pe">
-      <p>Atribuir o técnico marca a primeira resposta e para o relógio do TTFR.
+      <p>Atribuir o técnico marca a primeira resposta e para esse relógio.
          <b>“Em atendimento” não é daqui</b> — só o app do técnico seta esse
          status, com GPS.</p>
       <button class="btn btn-fio" data-acao="fechar">Cancelar</button>
@@ -412,6 +510,181 @@ function dlgDespacho(id) {
 
   montarMapa(c);
 }
+
+/* ── A camada de tiles ───────────────────────────────────────────────────
+   Compartilhada pelos DOIS mapas da tela (o do turno, no trilho, e o do
+   diálogo de despacho). Estava escrita uma vez só porque só havia um mapa;
+   com dois, copiar seria garantir que divergissem no primeiro ajuste — e o
+   ajuste que existe aqui (reenvio de tile) foi caro de descobrir.
+   Tiles direto do OSM, como no admin: o proxy `/tiles` do backend dava
+   rate-limit no IP da Railway (ver `_criarTileLayer`, admin.js). */
+function camadaTiles(mapa) {
+  const camada = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    { subdomains: "abc", maxZoom: 19, className: "map-tiles-dark",
+      attribution: "© OpenStreetMap" }).addTo(mapa);
+  // Tile que falha fica PRETA para sempre — o Leaflet não repete o pedido.
+  // Mesma correção do admin, e aqui pesa mais: o mapa existe para uma decisão
+  // de despacho, e um buraco preto pode ser exatamente onde está o técnico.
+  camada.on("tileerror", (e) => {
+    const img = e.tile;
+    if (!img || !img.src) return;
+    const n = (Number(img.dataset.tentativa) || 0) + 1;
+    if (n > 3) return;
+    img.dataset.tentativa = String(n);
+    const base = img.src.split("?")[0];
+    setTimeout(() => { if (img.isConnected) img.src = `${base}?r=${n}`; }, 400 * n);
+  });
+  return camada;
+}
+
+/* ── O mapa do turno (no trilho) ─────────────────────────────────────────
+   ⚠️ O NÓ É PERSISTENTE, e essa é a parte que não dá para improvisar.
+   `render()` reescreve o `innerHTML` do `#tela` inteiro a cada 30 segundos.
+   Se o mapa morasse dentro desse HTML, ele seria DESTRUÍDO E RECRIADO a cada
+   ciclo: perderia o pan e o zoom que o operador acabou de fazer, e baixaria
+   os tiles de novo. Então o elemento vive fora do ciclo, guardado aqui, e o
+   `render()` só o encaixa no lugar do `#slotMapa`. Mover um nó no DOM
+   preserva o Leaflet; o que ele precisa depois é de `invalidateSize()`. */
+let _mapaTurnoNo = null;
+let _mapaTurno = null;
+let _pinos = null;
+let _pontos = [];
+let _mapaEnquadrado = false;
+
+/* ⚠️ RE-ENQUADRAR NA TROCA DE TAMANHO NÃO CONTRADIZ o "enquadra uma vez só"
+   lá embaixo — são dois gatilhos diferentes, e a diferença é quem pediu.
+   O ciclo de 30s é do sistema: mexer no mapa ali arrancaria da mão de quem
+   acabou de dar zoom num bairro. Entrar em tela cheia é do OPERADOR, e aí
+   manter o enquadramento é que fica errado: o `fitBounds` tinha sido
+   calculado numa coluna de 368px, então a mesma escala num viewport de 1920
+   mostrava de Cabreúva a Cubatão com os pinos espremidos no meio (medido).
+   Quem muda o tamanho da janela espera ver o conteúdo, não mais moldura. */
+function enquadrarMapa() {
+  if (!_mapaTurno || !_pontos.length) return;
+  _mapaTurno.fitBounds(L.latLngBounds(_pontos), { padding: [40, 40], maxZoom: 14 });
+}
+
+function mapaTurnoNo() {
+  if (_mapaTurnoNo) return _mapaTurnoNo;
+  const el = document.createElement("section");
+  el.className = "mapa-turno";
+  el.id = "mapaTurno";
+  el.innerHTML =
+    '<div class="mapa-cab"><h2>Mapa</h2>' +
+    '<button class="mapa-fs" data-acao="mapa-fs" aria-label="Tela cheia" title="Tela cheia (Esc para sair)">' +
+    I.expandir + I.recolher + "</button></div>" +
+    '<div class="mapa-tela" id="mapaTela"></div>';
+  _mapaTurnoNo = el;
+  return el;
+}
+
+function montarMapaTurno() {
+  const no = _mapaTurnoNo;
+  if (!no) return;
+  const tela = no.querySelector("#mapaTela");
+
+  if (typeof L === "undefined") {
+    tela.innerHTML = '<p class="mapa-vazio">O mapa não carregou. A fila ao lado continua valendo.</p>';
+    return;
+  }
+
+  // Um ponto por chamado com prédio localizado, mais os técnicos com GPS.
+  const chamados = DADOS.fila.filter((c) => c.condominio?.lat != null && c.condominio?.lng != null);
+  const equipe = (DADOS.tecnicos || []).filter((t) => t.lat != null && t.lng != null);
+
+  // Leaflet centrado no oceano é pior que uma frase.
+  if (!chamados.length && !equipe.length) {
+    if (_mapaTurno) { _mapaTurno.remove(); _mapaTurno = null; _mapaEnquadrado = false; }
+    tela.innerHTML = '<p class="mapa-vazio">Nenhum chamado localizado e nenhum técnico com GPS ativo agora.</p>';
+    return;
+  }
+
+  if (!_mapaTurno) {
+    tela.innerHTML = "";
+    _mapaTurno = L.map(tela, { zoomControl: false, attributionControl: true });
+    camadaTiles(_mapaTurno);
+    _pinos = L.layerGroup().addTo(_mapaTurno);
+  }
+
+  _pinos.clearLayers();
+  const pontos = [];
+
+  chamados.forEach((c) => {
+    const r = relogio(c.sla);
+    const p = [c.condominio.lat, c.condominio.lng];
+    pontos.push(p);
+    L.marker(p, { icon: L.divIcon({ className: "", iconSize: [28, 28], iconAnchor: [14, 14],
+      html: `<div class="pin pin-ch" data-g="${r.grau}">${String(c.prioridade).toUpperCase()}</div>` }) })
+      .bindTooltip(`${escapar(c.condominio.nome || "—")} <b>${r.txt}</b>`,
+                   { className: "pin-rot", direction: "top", offset: [0, -12] })
+      // Clicar num pino abre o MESMO diálogo de despacho do botão da fila —
+      // o mapa é outra porta para a decisão que já existe, não um destino novo.
+      .on("click", () => dlgDespacho(c.id))
+      .addTo(_pinos);
+  });
+
+  equipe.forEach((t) => {
+    const p = [t.lat, t.lng];
+    pontos.push(p);
+    L.marker(p, { icon: L.divIcon({ className: "", iconSize: [26, 26], iconAnchor: [13, 13],
+      html: `<div class="pin pin-tec" data-liv="${t.disponivel && !t.abertos ? 1 : 0}">${iniciais(t.nome)}</div>` }) })
+      .bindTooltip(`${escapar(t.nome)} <b>${t.abertos || 0}</b>`,
+                   { className: "pin-rot", direction: "top", offset: [0, -11] })
+      .addTo(_pinos);
+  });
+
+  _pontos = pontos;
+  // ⚠️ ENQUADRA UMA VEZ SÓ. Refazer o `fitBounds` a cada recarga de 30s
+  // arrancaria o mapa da mão de quem acabou de dar zoom num bairro — a tela
+  // se atualiza sozinha, e o enquadramento é do operador, não do ciclo.
+  if (!_mapaEnquadrado) {
+    enquadrarMapa();
+    _mapaEnquadrado = true;
+  }
+  // O contêiner acabou de ser movido para dentro do trilho recém-montado:
+  // sem isto o Leaflet ainda acredita no tamanho que media antes da mudança.
+  _mapaTurno.invalidateSize();
+}
+
+/* Tela cheia: a API nativa quando existe, com a classe como plano B — o
+   mesmo caminho do `_mpToggleFullscreen` do admin, inclusive o
+   `fullscreenchange`, que é o que mantém o botão certo quando o usuário sai
+   pelo Esc do navegador em vez de pelo nosso botão. */
+function mapaFs(forcar) {
+  const no = _mapaTurnoNo;
+  if (!no) return;
+  const estaEm = no.classList.contains("is-fs") || document.fullscreenElement === no;
+  const ativar = forcar != null ? forcar : !estaEm;
+  if (ativar) {
+    if (no.requestFullscreen) no.requestFullscreen().catch(() => mapaFsAplicar(true));
+    else mapaFsAplicar(true);
+  } else if (document.fullscreenElement) {
+    document.exitFullscreen?.();
+  } else {
+    mapaFsAplicar(false);
+  }
+}
+function mapaFsAplicar(ligar) {
+  const no = _mapaTurnoNo;
+  if (!no) return;
+  no.classList.toggle("is-fs", ligar);
+  // A classe no body é o que sobe o contexto de empilhamento do `#tela` acima
+  // da barra e trava a rolagem atrás — ver o comentário no `operador.css`.
+  document.body.classList.toggle("com-mapa-fs", ligar);
+  no.querySelector(".mapa-fs")?.setAttribute("aria-label", ligar ? "Sair da tela cheia" : "Tela cheia");
+  // O mapa mudou de tamanho por CSS, e o Leaflet não observa isso sozinho.
+  // Depois do próximo quadro, para medir o layout já aplicado.
+  requestAnimationFrame(() => {
+    _mapaTurno?.invalidateSize();
+    enquadrarMapa();
+  });
+}
+document.addEventListener("fullscreenchange", () => {
+  const no = _mapaTurnoNo;
+  if (!no) return;
+  const api = document.fullscreenElement === no;
+  if (api !== no.classList.contains("is-fs")) mapaFsAplicar(api);
+});
 
 function montarMapa(c) {
   const el = document.getElementById("mapa");
@@ -436,23 +709,7 @@ function montarMapa(c) {
 
   _mapa = L.map(el, { zoomControl: false })
     .setView(alvo || [comGps[0].lat, comGps[0].lng], 12);
-  // Tiles direto do OSM, como no admin: o proxy do backend dava rate-limit no
-  // IP da Railway (ver o comentário em `_criarTileLayer`, admin.js).
-  const camada = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-    { subdomains: "abc", maxZoom: 19, className: "map-tiles-dark",
-      attribution: "© OpenStreetMap" }).addTo(_mapa);
-  // Tile que falha fica PRETA para sempre — o Leaflet não repete o pedido.
-  // Mesma correção do admin, e aqui pesa mais: o mapa existe para uma decisão
-  // de despacho, e um buraco preto pode ser exatamente onde está o técnico.
-  camada.on("tileerror", (e) => {
-    const img = e.tile;
-    if (!img || !img.src) return;
-    const n = (Number(img.dataset.tentativa) || 0) + 1;
-    if (n > 3) return;
-    img.dataset.tentativa = String(n);
-    const base = img.src.split("?")[0];
-    setTimeout(() => { if (img.isConnected) img.src = `${base}?r=${n}`; }, 400 * n);
-  });
+  camadaTiles(_mapa);
 
   const pontos = [];
   if (alvo) {
@@ -519,7 +776,7 @@ async function dlgFicha(id) {
           <h2>#${c.id} · ${escapar(c.titulo)}</h2>
           <div class="onde" style="margin-top:7px">${escapar(c.condominio_nome || naFila?.condominio?.nome || "—")}</div>
         </div>
-        <span class="selo" data-s="${c.prioridade}">${String(c.prioridade).toUpperCase()}</span>
+        <span class="selo" data-s="${c.prioridade}">${prioRot(c.prioridade)}</span>
         <span class="selo selo-fio">${STATUS_ROT[c.status] || c.status}</span>
         <button class="ficha-x" data-acao="fechar" aria-label="Fechar">${I.x}</button>
       </div>
@@ -535,7 +792,7 @@ async function dlgFicha(id) {
           <div>
             <h4>O chamado</h4>
             <div class="dado"><span>Origem</span><b>${(ORIGEM[naFila?.origem] || ORIGEM.manual).rot}</b></div>
-            <div class="dado"><span>Categoria</span><b>${escapar(c.categoria || "—")}</b></div>
+            <div class="dado"><span>Categoria</span><b>${escapar(categoriaRot(c.categoria))}</b></div>
             <div class="dado"><span>Aberto</span><b>${hora(c.criado_em)} · ${haQuanto(naFila?.minutos_abertos)}</b></div>
             <div class="dado"><span>Técnico</span><b>${escapar(c.tecnico_nome || "sem técnico")}</b></div>
           </div>
@@ -613,7 +870,7 @@ function dlgNovo() {
         <label for="nvDesc">O que foi relatado</label>
         <textarea id="nvDesc" placeholder="Escreva com as palavras de quem ligou. O técnico lê isto antes de sair."></textarea>
       </div>
-      <p class="dica">A prioridade define o SLA: <b>P1 ≤ 3h</b> de chegada, P2 24–48h,
+      <p class="dica">A prioridade define o prazo: <b>P1 ≤ 3h</b> de chegada, P2 24–48h,
         P3 ≤ 72h, P4 conforme agenda. Na dúvida entre dois níveis, prevalece o maior.</p>
     </form>
     <div class="ficha-pe">
@@ -688,6 +945,7 @@ document.addEventListener("click", (e) => {
     if (a === "despacho") return dlgDespacho(Number(b.dataset.id));
     if (a === "salvar-novo") return salvarNovo();
     if (a === "escolher") return despachar(Number(b.dataset.chamado), Number(b.dataset.tec));
+    if (a === "mapa-fs") return mapaFs();
   }
   const prio = e.target.closest(".prio");
   if (prio) {
@@ -698,6 +956,12 @@ document.addEventListener("click", (e) => {
   if (e.target.id === "fundo") fechar();
 });
 document.addEventListener("keydown", (e) => {
+  // ⚠️ ORDEM IMPORTA: o Esc do mapa em tela cheia vem ANTES do `fechar()`.
+  // Quando a tela cheia veio pelo caminho de classe (navegador sem a API
+  // nativa), o Esc não tem quem o trate, e cair no `fechar()` deixaria o
+  // operador preso num mapa que ocupa a tela inteira. Quando veio pela API
+  // nativa, o navegador já saiu sozinho e a classe nem está mais aqui.
+  if (e.key === "Escape" && _mapaTurnoNo?.classList.contains("is-fs")) return mapaFs(false);
   if (e.key === "Escape") return fechar();
   _prenderFoco(e);
 });

@@ -146,6 +146,25 @@ conta nesse limite; o data URI conta.**
 
 ---
 
+## Crase dentro de template literal = *tagged template*
+
+Os fronts deste projeto (`admin.js`, `cliente.js`, `operador.js`) montam HTML
+em template literals de dezenas de linhas, com comentários `<!-- -->` dentro.
+**Nenhuma crase pode entrar ali** — nem em comentário, nem para citar nome de
+classe. A crase fecha a string, e o que vier depois vira chamada de função:
+
+```js
+return `
+  <!-- a div `.chapa` explica... -->   ← vira  "...".chapa`...`
+```
+
+O sintoma engana e custa tempo: **`X is not a function` em runtime**, sem erro
+de sintaxe, com `node --check` passando limpo, e a tela parada no estado de
+carregamento. Aconteceu em 28/08/2026 no `operador.js`. Dentro de template
+literal, nome de classe vai sem marcação nenhuma.
+
+---
+
 ## `$n` repetido em SQL precisa de cast explícito
 
 `42P08 — inconsistent types deduced for parameter $N` acontece quando o mesmo

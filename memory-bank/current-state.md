@@ -332,6 +332,52 @@ Fluxo e pegadinhas em
   87% vazia — e a **etiqueta mono virou um tamanho só (10,5px)**, no lugar dos
   cinco degraus abaixo de 11px que conviviam na tela. Item de **258 para 126px**;
   três na primeira tela em vez de dois.
+- **Passe de composição em 28/08.** Os três passes de 27/08 verificaram cada
+  peça contra si mesma e contra as irmãs; nenhum verificou a tela **como
+  composição, na largura em que ela é usada**. Os dois defeitos que sobraram
+  não estavam em peça nenhuma: (1) o trilho colava na borda da janela enquanto
+  a fila centrava na coluna, e a 1920px sobravam **285px de campo morto entre
+  as duas** — o par passou a centrar junto, e o fio do trilho subiu para
+  `--fio` porque virou a junta; (2) a medida de linha era **não-monotônica** —
+  33ch a 900px, **16ch a 1090px**, 50ch a partir de 1340 —, ou seja, alargar a
+  janela piorava a leitura. A prova agora **deita entre 761 e 1339px**, e
+  nenhuma largura de 430 a 1920 fica abaixo de 49ch. No mesmo passe: a leitura
+  do placar centrou na célula (as três ficavam 50–65% vazias) e a ficha parou
+  de imprimir a chave do banco no campo Categoria (`nivel_baixo` → "Nível
+  baixo") — o `<select>` do mesmo arquivo já escrevia o rótulo humano.
+- **Passe de acabamento em 28/08**, a pedido do Pedro (*"o cabeçalho está longe
+  da qualidade da landing"*), **sem tirar uma palavra da tela**. A diferença
+  medida era de gramática: a landing usa razão **3:1** entre etiqueta (10,24px)
+  e leitura (24–31px), e aqui 80% dos 106 blocos de texto viviam entre 10,5 e
+  12,5px, com o maior tipo da tela em 28px. O que passou a valer: **chapa de
+  duas camadas com gradiente** (a construção do `.instr` da landing) na placa
+  do turno, no trilho e no item; o trilho deixou de ser quatro cards e virou
+  **uma chapa dividida por corte gravado**; a leitura do placar foi a 2,5rem e
+  o relógio da barra a mono branco de 1,05rem; e a rampa do item abriu para
+  16/13/12,5/10,5. ⚠️ Dois defeitos antigos apareceram no caminho: o item era
+  a última peça com `border` + `clip-path` (fio recortado nos chanfros, proibido
+  desde 27/08) e **o número da régua vazava 23px da coluna** — resolvido pelo
+  eixo variável do Martian Mono, que as cinco folhas carregam e nenhuma usava.
+  Altura dos itens inalterada.
+- **O mapa é peça fixa da tela desde 28/08**, não só do diálogo de despacho:
+  ocupa o topo do trilho (que foi de 300 para 400px) com os chamados coloridos
+  pelo relógio e os técnicos com GPS, e abre em tela cheia como **modo da
+  peça** (o padrão do admin), nunca como segunda tela. O motivo é ordem da
+  pergunta: no diálogo o mapa abria *depois* da escolha do chamado, um por vez,
+  enquanto a decisão geográfica é da fila inteira. Backend intocado — a rota
+  já devolvia as coordenadas.
+- ⚠️ **Estado do dado em produção (medido em 28/08):** 86/86 condomínios com
+  coordenada, mas `chamados` **vazia** e `tecnico_localizacoes` com **3 linhas
+  no total** (última de 17/08, dos 3 técnicos de 9 que têm login). **É estágio,
+  não defeito** — o produto ainda não está em uso, confirmado pelo Pedro. O
+  mapa foi desenhado contra a prévia, que é o cenário "em uso".
+- **A regra da moldura (28/08, corrigindo o mesmo dia):** *moldura marca o que
+  é único; o que se repete é superfície.* A construção do `.instr` da landing
+  (anel de 1,5px + gradiente) tinha sido aplicada em tudo, e a primeira dobra
+  ficou com **nove peças com anel** — quando tudo é peça usinada, o anel vira
+  textura. Hoje só a placa do turno e o mapa têm moldura; item e listas do
+  trilho são cor chapada. E a **Regra do Selo passou a valer para o botão**:
+  só o item cujo relógio pede alguém agora tem "Despachar" em campo cheio.
 - ⚠️ **Nunca rodou sob a role real** — não existe usuário `operador` em produção.
 - ⚠️ **Todo `--ch` local é morto, nas cinco folhas** (medido em 27/08): o
   `var()` de uma custom property resolve onde ela é declarada, então `--corte`
@@ -408,14 +454,24 @@ registrava era o escritório.
   barra e o 401 no meio do caminho reabre o cartão. `GET /cliente/orcamentos`
   aberta no navegador redireciona 302 para a página, para não devolver
   `{"error":"Token ausente"}` em JSON cru.
-- ⚠️ **O corte por inatividade escapava desse cartão até 26/08/2026.** O
-  `inatividade.js` e o script que declara `aoExpirarInatividade` são os dois
-  `defer`, e o primeiro roda antes: no corte de carregamento o hook ainda não
-  existia e quem clicava no link do e-mail caía em `/login` com "sessão
-  expirada". Hoje o corte sem hook declarado é adiado um tique de timer, que
-  roda depois de todo `defer`. **Não vale trocar a ordem das tags** — resolveria
-  esta página e deixaria a armadilha para a próxima. Ver
+- ✅ **O corte por inatividade respeita o cartão** desde 28/08/2026, e o
+  conserto de 26/08 (adiar um tique de timer) **nunca funcionou**: os `defer`
+  executam em ordem, mas o navegador ainda baixa o próximo, e nessa espera o
+  timer roda — ganhava em 100% das cargas medidas. Esperar o `DOMContentLoaded`
+  consertava esta tela e quebrava o painel (o `cliente.js` tomava 401 antes e
+  mandava para `/login?motivo=expirado`). Hoje o corte é **síncrono** e a página
+  declara a intenção por atributo — `data-corte="cartao"` no `<body>` —, que
+  está no DOM antes de qualquer `defer` e não esbarra na CSP (`script-src
+  'self'` mata `<script>` inline **em silêncio**). Ver
   [../docs/modulos/autenticacao.md](../docs/modulos/autenticacao.md).
+- ✅ **Sessão nova não morre com carimbo de sessão velha** desde 28/08/2026.
+  `tg_ultima_atividade` só é apagado pelo próprio corte, e nenhum caminho de
+  login carimba: quem saía num dia e entrava no outro tinha a sessão nova morta
+  na primeira tela — no painel virava salto para `/login`, aqui virava o cartão
+  pedindo o e-mail logo depois de entrar (foi o sintoma relatado). O `expirou()`
+  ignora carimbo anterior ao `iat` do JWT. **O conserto fica no
+  `inatividade.js`, não espalhado** pelos 13 pontos que gravam ou apagam sessão
+  — o `_concluirEntrada`, escrito depois, já tinha esquecido de carimbar.
 - ✅ **A resposta do cliente é uma PENDÊNCIA COM BAIXA** desde 26/08/2026
   (migration 078). Abrir a ficha marca `resposta_vista_em` (quem abriu), mas
   quem apaga o aviso é a baixa explícita — `resposta_tratada_em`, botão na

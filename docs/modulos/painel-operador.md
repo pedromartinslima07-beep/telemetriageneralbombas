@@ -133,6 +133,101 @@ a tela e travar significa parar de receber.
   87% vazia. As regras que invertem os eixos (lâmina, crista, faixas, limiar)
   são a **base** da folha; o bloco de celular só ajusta medidas. Mudou a peça
   no `cliente.css`/`landing.css`? Muda aqui também.
+- **O mapa mora no trilho e é peça fixa da tela** (desde 28/08/2026), não só do
+  diálogo de despacho. O motivo é ordem da pergunta: no diálogo ele abria
+  **depois** da escolha do chamado, um por vez, mas a decisão geográfica é da
+  fila inteira. ⚠️ **A tela cheia é um MODO da peça, não uma segunda tela** —
+  "a tela é UMA" continua valendo.
+- ⚠️ **O nó do mapa é persistente e vive FORA do ciclo de render.** `render()`
+  reescreve o `#tela` inteiro a cada 30s; o mapa sobrevive porque nunca está
+  lá dentro — o render só o **move** para o lugar do `#slotMapa`. Quem puser o
+  mapa dentro do HTML do render vai destruí-lo e recriá-lo a cada ciclo,
+  perdendo o pan e o zoom do operador. Depois de mover, `invalidateSize()`.
+- ⚠️ **Quem rola é o `.trilho-listas`, não o `.trilho`.** A coluna tem
+  `overflow:hidden` de propósito: com `overflow-y:auto` nela, rolar a equipe
+  levaria o mapa para fora da tela.
+- ⚠️ **Tela cheia precisa da classe no `body`, não só do `z-index` da peça.**
+  `.mapa-turno` está dentro do `#tela` (`z-index:1`), então o `z-index:70` dela
+  é resolvido num contexto aninhado e a barra desenha por cima.
+  `body.com-mapa-fs` sobe o contexto e tranca a rolagem atrás.
+- **Enquadramento: uma vez na carga, e de novo a cada troca de tamanho.** O
+  ciclo de 30s nunca re-enquadra (arrancaria o mapa da mão de quem deu zoom);
+  entrar/sair da tela cheia sempre re-enquadra (o `fitBounds` da coluna de
+  368px num viewport de 1920 mostra o estado inteiro).
+- ⚠️ **O item tem DUAS colunas** (`118px minmax(0,1fr)`), não três, desde
+  28/08/2026: urgência à esquerda (relógio **e** prioridade juntos) e o resto à
+  direita, com a ação fechando o conteúdo. A coluna de ações separada saiu — o
+  botão continua no mesmo x, mas a leitura deixou de ser interrompida duas
+  vezes por item.
+- ⚠️ **Uma ação em destaque por item:** "Despachar" é botão, "Ver detalhes" é
+  **link**. Dois botões iguais pedem uma escolha antes da decisão de verdade.
+  O link mantém 44px de alvo e sublinhado permanente.
+- **Status, origem e bairro não aparecem na face do item** — estão na ficha.
+  Nesta seção todo item está "Aberto": o selo era ruído.
+- ⚠️ **A quebra do trilho é 1180px, não 1080** (desde 28/08/2026). O 1080 era
+  o número da landing e valia com o trilho de 300px; com 400 (o mapa entrou
+  nele) a conta virou `740 (item mínimo) + 400 + 40 (gutters) = 1180`. A 1090
+  o item ia a 640×332 contra 1000×198 em 1080 — alargar a janela piorava.
+  **Mexeu no `--trilho-w`? Refaça esta conta.**
+- ⚠️ **Não misture `px` e `rem` na rampa desta folha.** As leituras grandes
+  (régua, tanque, relógio da barra, título da ficha) estão em `rem`; o corpo e
+  as etiquetas em `px`. Quando o corpo subiu de 13 para 15px, os `rem` ficaram
+  parados e a régua caiu de 1,42× para 1,26× o título — a hierarquia se desfez
+  sem ninguém notar. **O que se preserva numa troca de escala é a razão.**
+- ⚠️ **ESTA TELA NÃO USA MAIS A ESCALA DO ADMIN.** Desde 28/08/2026 o corpo
+  é **15px** (era 13), a etiqueta mono **12px** (era 10,5) e todo botão tem
+  **44px** de alvo. O motivo é de público, não de gosto: quem opera aqui tem
+  pouca familiaridade com computador, e o registro de operação do admin é
+  calibrado para quem usa o sistema o dia inteiro. Custa densidade (≈3 → ≈2
+  itens na primeira tela) e isso é aceito. **Não "corrija" isso de volta para
+  alinhar com o admin.**
+- **Caixa alta só em etiqueta de uma ou duas palavras.** Frase em CAIXA ALTA é
+  o texto mais lento de ler que existe. Ver [vocabulario.md](../vocabulario.md).
+- **Vocabulário: sigla de software não entra** (TTFR, TTR, KPI); sigla do ramo
+  fica (O.S., P1–P4, esta com a palavra ao lado). Glossário completo em
+  [vocabulario.md](../vocabulario.md).
+- **A barra tem 68px (60 no celular) e o logo 36 (30)**, desde 28/08/2026.
+  ⚠️ **Não copie o 60px da topbar do admin:** ela carrega só controles, porque
+  a marca do admin fica na sidebar. Esta tela não tem sidebar, e a barra dela
+  leva logo + rótulo do turno + botão + pulso + relógio + avatar. 68 é o
+  meio-termo com os 74 das irmãs (landing e painel do cliente), preservando a
+  densidade da fila. A razão logo/barra é **0,53**, a das irmãs.
+- ⚠️ **A máscara da engrenagem é medida em `px` e precisa ser refeita sempre
+  que a barra ou o placar mudarem de altura.** A conta é `y desejado + |top|
+  da peça` (hoje `top:-88` no desktop, `-60` no celular). Ela deve cobrir
+  barra + placar + cabeçalho da fila e apagar **antes** do primeiro item —
+  em 28/08 a faixa cresceu duas vezes e a máscara ficou apagando no meio do
+  vão, o que não quebra nada e por isso passa despercebido.
+- ⚠️ **Moldura marca o que é ÚNICO; o que se repete é superfície.** Anel de
+  1,5px + gradiente é da placa do turno e do mapa. O item da fila (aparece 5×)
+  e as listas do trilho são cor chapada. Aplicar a construção mais expressiva
+  do sistema em tudo é o mesmo erro que não aplicá-la em lugar nenhum — a
+  primeira dobra chegou a ter nove peças com anel, e o anel virou textura.
+- **A Regra do Selo do `DESIGN.md` vale para o botão:** só o item cujo relógio
+  pede alguém agora (estourado/apertado) tem "Despachar" em campo cheio; nos
+  demais o botão fica com anel e texto amarelos sobre miolo marinho. Quatro
+  botões cheios faziam o amarelo virar coluna e parar de apontar.
+- **Estado vazio ocupa a mesma caixa do estado cheio** — no trilho o
+  "Ninguém despachado ainda." é bloco, não texto solto.
+- **Toda peça com fio é chapa de duas camadas** (desde 28/08/2026): o fundo do
+  elemento é o anel e um `::before` embutido é a placa, com gradiente diagonal
+  de `--mar-700` a `--mar-900`. É a construção do `.instr` da landing, e vale
+  para `.placar-in`, `.chapa` (trilho) e `.item`. **`border` junto com
+  `clip-path` está proibido** — a borda sai recortada nos dois chanfros.
+  ⚠️ O ângulo depende da proporção da peça: **176° em chapa larga, 168° em
+  chapa alta**. O comprimento da linha do gradiente é `|L·sen α| + |A·cos α|`,
+  então 168° numa placa de 1000×86 vira gradiente horizontal.
+- **Sinal de estado vai no ANEL, não no preenchimento**, quando a tinta por
+  cima é da mesma família. Verde sobre verde deu 3,20:1 — é a Regra do Amarelo
+  Cego valendo para o verde.
+- **Leitura que não cabe na coluna usa o eixo variável do mono**, não um
+  `font-size` menor: Martian Mono vai de 75% a 112,5% de largura, e a régua de
+  SLA usa 82%. Reduzir o corpo pagaria com a presença do número, que é a tese
+  da tela.
+- ⚠️ **Nunca use crase dentro dos template literals do `operador.js`** — nem em
+  comentário HTML. Ela fecha a string e o resto vira tagged template; o sintoma
+  é `X is not a function` em runtime com `node --check` limpo. Registrado no
+  [`../../CLAUDE.md`](../../CLAUDE.md).
 - **A etiqueta mono tem um tamanho só: 10,5px.** Havia cinco degraus abaixo de
   11px na mesma tela. Ao criar etiqueta nova, use 10,5 — não invente o sexto.
   Duas exceções deliberadas: o rótulo do tanque é Archivo de 12px (nome próprio
@@ -144,6 +239,22 @@ a tela e travar significa parar de receber.
   irmãs — 1080 é a primeira quebra da landing, 760 é onde ela e o painel do
   cliente deitam a coluna d'água. Quem tirar a quebra de 1080 devolve o defeito
   descrito abaixo.
+- **Uma quarta chave, de 28/08/2026, atravessa duas dessas faixas: entre 761 e
+  1339px a prova DEITA dentro do item** (tanques em cima, relato embaixo). Ela
+  não move 1080 nem 760 — só troca o arranjo interno do item entre eles. Existe
+  porque a quebra de 1080 tinha resolvido o colapso e não a medida de linha, e
+  o que sobrava era **não-monotônico**: 33 caracteres por linha a 900px, 16 a
+  1090px e 50 a partir de 1340. Alargar a janela piorava a leitura. 1340 é
+  `--area-max + --trilho-w`, onde o item chega a 1000px e as duas colunas
+  voltam a caber. Hoje nenhuma largura de 430 a 1920 fica abaixo de 49ch.
+- **O par fila+trilho centra JUNTO** (desde 28/08/2026). `.comB` é
+  `minmax(0,var(--area-max)) var(--trilho-w)` com `justify-content:center`, e a
+  barra repete o mesmo recuo em `padding-inline`. Com `1fr` na primeira coluna
+  o trilho colava na borda da janela e sobravam 285px de campo morto entre as
+  colunas a 1920px. ⚠️ Isso **só é possível porque o fundo do trilho é o mesmo
+  `--mar-900` do campo** — se ele um dia ganhar fundo próprio, vira uma coluna
+  boiando e a regra tem de ser revista. A fila não se move com a mudança
+  (`W/2 − 650` nos dois arranjos), então placar e fita seguem alinhados.
 - **O celular redeclara `--barra-h`; nunca escreva a altura da barra à mão.**
   O `.trilho` gruda em `top: var(--barra-h)`, então uma altura escrita fora do
   token faz o trilho colar no lugar errado — foi exatamente o que aconteceu com

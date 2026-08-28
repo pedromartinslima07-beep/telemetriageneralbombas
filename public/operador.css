@@ -141,9 +141,27 @@
      é densa e tem trilho de 300px ao lado. O que não podia continuar é o
      número mágico solto — a barra usava 20px de recuo e a fila 1040
      centrados, então a marca e o primeiro item caíam em x diferentes. */
-  --barra-h:60px;
+  /* ⚠️ 68px, era 60 — e o 60 vinha de uma comparação injusta com o admin.
+     A topbar do admin tem 60px porque ela carrega SÓ CONTROLES: a marca dele
+     mora na sidebar. Esta tela não tem sidebar, então a mesma altura estava
+     levando logo + rótulo do turno + "Novo chamado" + pulso + relógio +
+     avatar. A barra daqui faz o trabalho da topbar do admin MAIS o da marca.
+     E a outra metade da justificativa caiu em 28/08: o comentário dizia
+     "60 contra 74 porque esta tela é densa e tem trilho de 300px ao lado", e
+     o trilho passou a ter 400. A densidade continua valendo — por isso 68 e
+     não os 74 das irmãs. */
+  --barra-h:68px;
   --area-max:1040px;
-  --trilho-w:300px;
+  /* ⚠️ 400, era 300 — e a mudança é de PAPEL, não de medida. Ate 28/08/2026
+     esta coluna era uma lista de tecnicos, e o mapa so existia dentro do
+     dialogo de despacho, aberto DEPOIS que o chamado ja tinha sido escolhido.
+     Mas a decisao geografica e da FILA INTEIRA (mandar o tecnico no #4821
+     pode ser errado se o #4820 fica ao lado dele), entao o mapa precisa estar
+     aberto ENQUANTO se le a fila. Ele tomou o topo da coluna, e a lista de
+     equipe desceu para baixo dele — a lista era, afinal, a mesma informacao
+     contada sem geografia. 400px e o minimo em que o mapa deixa de ser
+     miniatura; abaixo disso ele nao responde "quem pode ir". */
+  --trilho-w:400px;
   --gut:20px;
 }
 *{box-sizing:border-box}
@@ -165,7 +183,17 @@ body{position:relative}
 body{
   background:var(--bg); color:var(--text);
   font-family:var(--fonte);
-  font-size:13px; line-height:1.5; -webkit-font-smoothing:antialiased;
+  /* ⚠️ 15px, era 13 — e o 13 vinha do registro de operação do admin, que é
+     calibrado para quem usa o sistema o dia inteiro e conhece cada abreviação.
+     NÃO É o público desta tela: o Pedro apontou em 28/08 que quem opera aqui
+     tem pouca familiaridade com computador. Medido antes da mudança: 64% do
+     texto da tela (76 de 118 blocos) estava abaixo de 12px. O PRODUCT.md já
+     dizia, para público envelhecido, que "corpo generoso, contraste alto e
+     alvos grandes não são refinamento, são requisito" — estava escrito para o
+     síndico, e vale igual aqui.
+     Custa densidade (≈3 itens na primeira tela viram ≈2), e isso foi decisão
+     do Pedro: rolar é mais fácil que espremer os olhos. */
+  font-size:15px; line-height:1.55; -webkit-font-smoothing:antialiased;
 }
 /* ⚠️ As partes que o navegador desenha também são do sistema — foco,
    seleção e barra de rolagem. Estes são os MESMOS valores do cliente.css e
@@ -221,8 +249,17 @@ body{
   position:absolute;top:-88px;right:-9vw;
   width:min(58vw,720px);aspect-ratio:1;
   pointer-events:none;z-index:0;
-  -webkit-mask-image:linear-gradient(180deg,#000 0 210px,transparent 265px);
-  mask-image:linear-gradient(180deg,#000 0 210px,transparent 265px);
+  /* ⚠️ OS NÚMEROS ACOMPANHAM A FAIXA, e ela cresceu duas vezes em 28/08:
+     o placar foi de 67 para 89px (a leitura subiu para 2,5rem) e a barra de
+     60 para 68. A máscara ficou parada nos 210/265 do dia anterior e passou a
+     apagar a engrenagem em y=177, no meio do vão — antes do fim do cabeçalho
+     da fila, que é justamente uma das três faixas que ela deve cobrir.
+     A conta é sempre a mesma: a peça começa em top:-88, então o valor da
+     máscara é (y desejado + 88). Opaca até y=180 (268) e transparente em
+     y=220 (308), três pixels antes do primeiro item, que hoje nasce em 225.
+     Mexeu na barra ou no placar? Refaça esta conta. */
+  -webkit-mask-image:linear-gradient(180deg,#000 0 268px,transparent 308px);
+  mask-image:linear-gradient(180deg,#000 0 268px,transparent 308px);
 }
 .eng span{position:absolute;display:block}
 /* Duas rodas girando em sentidos opostos, como na landing: uma roda sozinha
@@ -240,8 +277,12 @@ body{
 @media (max-width:760px){
   .eng{
     right:-30vw;top:-60px;width:min(96vw,460px);
-    -webkit-mask-image:linear-gradient(180deg,#000 0 280px,transparent 340px);
-    mask-image:linear-gradient(180deg,#000 0 280px,transparent 340px);
+    /* Mesma conta do desktop (y desejado + 60, que é o `top` daqui), refeita
+       depois de a barra ir a 60 e o placar empilhado a 167px: opaca até
+       y=250 (310) e transparente em y=295 (355), sete pixels antes do
+       primeiro item, que no celular nasce em 302. */
+    -webkit-mask-image:linear-gradient(180deg,#000 0 310px,transparent 355px);
+    mask-image:linear-gradient(180deg,#000 0 310px,transparent 355px);
   }
   .eng-a{opacity:.2}.eng-b{opacity:.15}
 }
@@ -269,6 +310,13 @@ body{
    `operador.js`. */
 .barra{
   display:flex;align-items:center;height:var(--barra-h);
+  /* A barra segue o `.comB` (ver lá): com o par centrado, as ações têm de
+     cair na coluna do trilho, senão o "Novo chamado" e o relógio continuam
+     na borda da janela enquanto o trilho está 285px à esquerda. O recuo é
+     PADDING, não `max-width`, porque o fundo e o fio da barra precisam
+     continuar sangrando de ponta a ponta. `max(0px, …)` o zera sozinho
+     abaixo de 1340, onde não há folga para distribuir. */
+  padding-inline:max(0px,calc((100% - var(--area-max) - var(--trilho-w)) / 2));
   background:color-mix(in srgb,var(--mar-900) 88%,transparent);
   backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
   border-bottom:1px solid transparent;
@@ -285,9 +333,13 @@ body{
    barra do painel do cliente (40 em 74) e da landing. Os atributos
    `width`/`height` reservam a caixa antes de o PNG chegar. */
 .marca{display:flex;align-items:center;gap:11px;flex-shrink:0}
-.marca img{height:30px;width:auto;display:block}
+/* ⚠️ A RAZÃO É O ASSUNTO, não o número: 30 numa barra de 60 dá 0,50,
+   enquanto a landing e o painel do cliente fazem 40 em 74, que é 0,54 — o
+   logo não estava só menor, estava proporcionalmente menor. 36 em 68 devolve
+   a razão das irmãs. */
+.marca img{height:36px;width:auto;display:block}
 .marca span{
-  font-family:var(--mono);font-size:10.5px;
+  font-family:var(--mono);font-size:12px;
   letter-spacing:.14em;color:var(--muted);text-transform:uppercase;
 }
 /* ═══ O CABEÇALHO DA TELA ═══════════════════════════════════════════
@@ -310,16 +362,57 @@ body{
    borda. Com `--surface` e um fio de 1px ela sumia no fundo e lia como
    contorno solto — a `.vigia` da landing é uma chapa pousada, e a diferença
    está no tom, não na borda. */
+/* ⚠️ E A CONSTRUÇÃO É A DO `.instr` DA LANDING, não um retângulo chapado.
+   Esta é a peça que o Pedro comparou com a landing em 28/08, e a diferença
+   era de fabricação, não de tamanho: lá o instrumento é **chapa de duas
+   camadas** — o fundo do elemento é um anel de 1,5px e o `::before` embutido
+   é a placa, com **gradiente diagonal de `--mar-700` a `--mar-900`** (168°).
+   Aqui era `--mar-700` liso, sem anel e sem gradiente: a mesma cor, sem a
+   peça. O gradiente é o que faz a chapa pegar luz de um lado e virar objeto;
+   o anel é a aresta usinada que o sistema põe em toda peça com fio.
+   É a mesma Regra da Chapa em Duas Camadas que o `.btn-fio` e o `.conta`
+   desta folha já usam — a placa do turno é que estava fora dela. */
 .placar-in{
+  position:relative;isolation:isolate;
   display:grid;grid-template-columns:repeat(3,1fr);
-  background:var(--mar-700);
+  background:var(--fio);padding:1.5px;
   --ch:18px;clip-path:var(--corte);
 }
-.placar-i{padding:18px 22px;display:flex;align-items:baseline;gap:11px;min-width:0}
+/* Uma leitura só não precisa da largura de três: a chapa fecha no conteúdo e
+   para de atravessar a tela vazia. Ver `render()`. */
+.placar-in[data-so="1"]{grid-template-columns:1fr;width:max-content;max-width:100%}
+.placar-in::before{
+  content:"";position:absolute;inset:1.5px;z-index:-1;
+  clip-path:var(--corte);
+  /* ⚠️ 176°, não os 168° da landing — e a diferença é geometria, não gosto.
+     O comprimento da linha do gradiente é `|L·sen α| + |A·cos α|`: no card
+     alto e estreito da landing (≈470×470) 168° é quase todo vertical, e a
+     luz cai de cima. Nesta chapa de 1000×86 os mesmos 168° dão 208px de
+     percurso horizontal contra 84 de vertical — ou seja, vira um gradiente
+     da ESQUERDA para a direita, e a primeira das três células nasce acesa e
+     a terceira apagada. Com três leituras que valem o mesmo, isso é uma
+     hierarquia que ninguém pediu. A 176° a luz volta a cair de cima. */
+  background:linear-gradient(176deg,var(--mar-700) 0%,var(--mar-900) 100%);
+}
+/* ⚠️ A LEITURA CENTRA NA CÉLULA. Encostada à esquerda ela deixava a chapa
+   50%, 53% e 65% vazia (medido nas três células de 333px) — o mesmo defeito
+   que o Pedro apontou no item da fila em 27/08, "muito espaço livre com
+   coisa pequenininha", sobrevivendo na primeira peça da tela. A chapa não
+   pode encolher: a largura dela é o que a alinha ao item. Então o que muda é
+   a posição da leitura — centrada, o vazio vira margem dos dois lados e a
+   peça lê como mostrador dividido, que é o que ela é. */
+.placar-i{padding:22px 22px;display:flex;align-items:baseline;justify-content:center;gap:13px;min-width:0}
 .placar-i+.placar-i{border-left:1px solid var(--rasgo);box-shadow:inset 1px 0 0 var(--luz)}
+/* ⚠️ 2,5rem, não 1,75. O DEGRAU é o assunto: a leitura do instrumento da
+   landing tem 24–31px contra uma etiqueta de 10,24 — razão de 3:1, e é isso
+   que faz aquela peça ter presença. Aqui eram 28px contra 13, razão 2,15:1,
+   e a placa lia como três frases pequenas em vez de três leituras. Mesma
+   contagem de palavras, mesmo lugar; o que faltava era o salto.
+   A cor continua vindo do estado (esta folha não pinta a leitura de branco
+   como a landing: aqui o número É o sinal). */
 .placar-n{
-  font-family:var(--mono);font-size:1.75rem;font-weight:700;
-  font-feature-settings:"tnum";letter-spacing:-.03em;line-height:1;
+  font-family:var(--mono);font-size:2.5rem;font-weight:700;
+  font-feature-settings:"tnum";letter-spacing:-.035em;line-height:1;
 }
 .placar-i em{font-style:normal;font-size:13px;color:var(--text-dim);line-height:1.35}
 .placar-i[data-t="estourado"] .placar-n{color:var(--risco)}
@@ -343,16 +436,31 @@ body{
    botão quebrava em duas linhas e o relógio junto. Transbordar para a
    ESQUERDA é inofensivo — aquele trecho da célula da fila está vazio. */
 .barra-acoes{
-  display:flex;align-items:center;justify-content:flex-end;gap:12px;
+  display:flex;align-items:center;justify-content:flex-end;gap:16px;
   flex-shrink:0;padding-right:var(--gut);white-space:nowrap;
 }
 .barra-acoes>*{flex:0 0 auto}
+/* ⚠️ O RELÓGIO É DUAS COISAS, e elas tinham o mesmo peso. "Recebendo ·" e
+   "09:27" saíam ambos em mono 11,5px `--text-dim`, então o canto direito da
+   barra era um bloco cinza de quatro elementos indistintos. A cabeça do
+   instrumento da landing (`.instr-cab`) resolve isso há tempo e é o modelo:
+   a identificação fica em `--sobre-2` pequena, e o RELÓGIO é 1,05rem em mono
+   700 branco. É a única leitura ao vivo desta barra — merece ser lida de
+   longe, que é o que se pede a um painel de turno. */
 .relogio{
-  display:flex;align-items:center;gap:10px;
-  font-family:var(--mono);font-size:.72rem;
-  font-weight:700;letter-spacing:.05em;color:var(--text-dim);
-  font-feature-settings:"tnum";
+  display:flex;align-items:baseline;gap:9px;
+  font-family:var(--mono);font-feature-settings:"tnum";
 }
+.relogio .rot{
+  font-size:12px;font-weight:500;letter-spacing:.13em;
+  text-transform:uppercase;color:var(--muted);
+}
+.relogio #relogio{
+  font-size:1.2rem;font-weight:700;letter-spacing:.04em;color:#fff;
+}
+/* O pulso alinha pelo centro do texto, não pela linha de base — bolinha em
+   `baseline` fica pendurada. */
+.relogio .pulso{align-self:center}
 /* Três estados: esperando a primeira resposta (neutro), recebendo (verde) e
    parado (vermelho). O neutro existe porque o vermelho no boot era alarme
    falso — ver `tique()`. Só o estado vivo pulsa: um ponto parado que pisca
@@ -378,16 +486,21 @@ body{
   content:"";position:absolute;inset:1px;z-index:-1;
   clip-path:var(--corte);background:var(--mar-700);
 }
+/* ⚠️ ALVO DE 44px NO DESKTOP TAMBÉM. A folha já aplicava esse piso no
+   celular e no `.ficha-x`, mas na mesa o botão tinha 35px de altura (o "Novo
+   chamado" da barra, 31) — medido nos onze botões da tela, nenhum chegava ao
+   piso. 44px é o mínimo recomendado para quem tem menos precisão de mouse, e
+   quem usa esta tela está ao telefone enquanto clica. */
 .btn{
-  font:inherit;font-size:11.5px;font-weight:800;letter-spacing:-.01em;
-  padding:7px 13px;cursor:pointer;border:0;
+  font:inherit;font-size:14px;font-weight:800;letter-spacing:-.01em;
+  min-height:44px;padding:10px 16px;cursor:pointer;border:0;
   background:var(--accent);color:var(--mar-900);
   --ch:6px;clip-path:var(--corte);
   transition:background .14s var(--saida);
 }
 .btn:hover{background:var(--accent-2)}
 .btn svg{flex-shrink:0}
-.btn-novo{display:inline-flex;align-items:center;gap:7px}
+.btn-novo{display:inline-flex;align-items:center;justify-content:center;gap:8px}
 /* ⚠️ CHAPA DE DUAS CAMADAS, não `box-shadow: inset`. O fundo do elemento é o
    ANEL e o `::before` embutido 1,5px (re-chanfrado) é a placa — é assim que
    este sistema constrói aresta visível sob `clip-path`, e é o que o
@@ -444,9 +557,11 @@ body{
   max-width:var(--area-max);margin:0 auto;width:100%;
 }
 .fila-cab h2{margin:0;font-size:12px;font-weight:800;color:var(--text-dim)}
+/* A linha mais longa em caixa alta da tela — "4 chamados · ordenados pelo que
+   estoura primeiro" é uma explicação, e explicação se lê em caixa normal. */
 .fila-cab span{
-  font-family:var(--mono);font-size:10.5px;
-  letter-spacing:.1em;color:var(--muted);text-transform:uppercase;
+  font-family:var(--fonte);font-size:13px;
+  letter-spacing:0;color:var(--muted);
 }
 
 .item{
@@ -454,13 +569,53 @@ body{
      grid independente, então `max-content` dava largura diferente por item
      (189px no que tem técnico, 146 nos outros) e o botão deixava de cair no
      mesmo x — que é justamente o motivo de ele ter virado coluna. */
-  display:grid;grid-template-columns:92px minmax(0,1fr) 172px;
-  background:var(--surface2);border:1px solid var(--fio-fraco);
+  /* ⚠️ DUAS COLUNAS, era três (régua | corpo | ações). A coluna de ações
+     existia para o botão cair sempre no mesmo x, e isso resolvia um problema
+     real — mas cobrava um preço que só apareceu quando o público mudou: o olho
+     varria esquerda → meio → direita em cada item, e a leitura de cima para
+     baixo, que é a natural, era interrompida duas vezes.
+     Agora são duas: URGÊNCIA à esquerda, O RESTO à direita, com a ação no fim
+     do conteúdo. O botão continua no mesmo x de toda a fila — só que fecha a
+     leitura em vez de ficar num canto. */
+  display:grid;grid-template-columns:118px minmax(0,1fr);
+  /* ⚠️ CHAPA DE DUAS CAMADAS. Isto era `border:1px` JUNTO com `clip-path` —
+     a única peça da tela ainda construída assim, e é exatamente o que o
+     terceiro passe de 27/08 proibiu ("com fio → chapa de duas camadas"):
+     sob `clip-path` a borda sai RECORTADA nos dois chanfros, então o item
+     tinha o contorno interrompido nos cantos. Passava despercebido enquanto
+     as vizinhas eram chapadas; quando a placa do turno e o trilho ganharam
+     anel, o item virou a única peça sem aresta da tela.
+     `padding:1px` no lugar do `border:1px` — a caixa não muda de tamanho
+     (box-sizing:border-box), e os filhos param de pisar no anel. É o mesmo
+     `padding:1.5px` do `.instr` da landing, um degrau menor porque aqui a
+     peça se repete cinco vezes na tela.
+     E o gradiente troca a cor chapada por MATERIAL: a média tonal continua
+     sendo o `--surface2` de antes, mas a chapa passa a pegar luz em cima. */
+  position:relative;isolation:isolate;
+  background:var(--fio-fraco);padding:1px;
   --ch:16px;clip-path:var(--corte);
-  transition:border-color .16s var(--saida),background .16s var(--saida);
+  transition:background .16s var(--saida);
 }
-.item:hover{background:var(--surface3);border-color:var(--fio)}
-.item[data-andando="1"]{background:var(--surface);border-color:var(--fio-fraco)}
+/* ⚠️ SEM GRADIENTE, e isto é uma CORREÇÃO de 28/08 sobre o mesmo dia.
+   O item ganhou gradiente junto com a placa do turno e o trilho, e o
+   resultado foi o que o Pedro chamou de bagunça: a peça se repete CINCO
+   vezes na tela, e cinco chapas acendendo em cima e apagando embaixo,
+   empilhadas com 9px de vão, produzem um ritmo de faixas que não significa
+   nada. A regra que faltava é simples e vale para a folha inteira:
+   **moldura marca o que é único; o que se repete é superfície.**
+   Placa do turno e mapa são peças únicas e ficam com anel e gradiente. O
+   item volta a ser cor chapada — mas MANTÉM a chapa de duas camadas, porque
+   ela não era enfeite: é ela que impede o fio de sair recortado nos dois
+   chanfros. Construção certa, expressão quieta. */
+.item::before{
+  content:"";position:absolute;inset:1px;z-index:-1;
+  clip-path:var(--corte);background:var(--surface2);
+  transition:background .16s var(--saida);
+}
+.item:hover{background:var(--fio)}
+.item:hover::before{background:var(--surface3)}
+/* Quem já tem técnico é um degrau mais quieto — não é o que pede decisão. */
+.item[data-andando="1"]::before{background:var(--surface)}
 
 /* ── O RELÓGIO: a régua do turno ────────────────────────────────────
    A ordenação da fila NÃO é a prioridade estática (P1 antes de P2). É o
@@ -477,12 +632,36 @@ body{
    que e o que faz o item estourado acender por completo. */
 .relogio-sla{
   border-right:1px solid var(--fio-fraco);
-  padding:13px 12px;display:flex;flex-direction:column;
-  align-items:center;justify-content:flex-start;text-align:center;gap:3px;
+  padding:14px 10px;display:flex;flex-direction:column;
+  align-items:center;justify-content:flex-start;text-align:center;gap:4px;
 }
+/* O selo de prioridade desceu para cá (ver o comentário no `item()`): ele e o
+   relógio respondem à MESMA pergunta e estavam em pontas opostas do item. */
+.relogio-sla .selo{margin-top:8px}
+/* ⚠️ O NÚMERO NÃO CABIA NA COLUNA, e ninguém tinha medido: "+37min" ocupa
+   91px de tipo numa área útil de 68 (coluna de 92 menos 2×12 de recuo).
+   Sem `overflow` declarado ele simplesmente pintava por cima do recuo, dos
+   dois lados — no item estourado o campo é vermelho inteiro e não se nota,
+   nos outros a leitura encosta na aresta. Era o maior tipo do item vazando
+   da caixa dele.
+   A saída tem duas partes, porque uma só não bastava (medido, não deduzido):
+   o EIXO VARIÁVEL do Martian Mono (75%–112,5%), que esta folha já carrega e
+   nunca usou, leva "+37min" de 91 para 82px a 82% de largura — mono
+   condensado é a própria linguagem de mostrador, e não custa altura. Os 14px
+   que ainda faltavam vieram da coluna: 92 → 100px, com o recuo lateral de 12
+   para 8. Área útil final 84px para 82 de tipo.
+   Reduzir o `font-size` teria resolvido a largura pagando com a presença do
+   número, que é a tese desta tela. */
+/* ⚠️ AS LEITURAS EM `rem` SOBEM JUNTO COM O CORPO — senão a hierarquia se
+   desfaz sem ninguém notar. O passe de legibilidade de 28/08 escalou os
+   valores em `px` (13→15) e deixou os `rem` parados: o número do relógio,
+   que é A TESE DESTA TELA ("a fila do turno, medida pelo relógio"), caiu de
+   1,42× para 1,26× o título. Ele não encolheu — o resto cresceu e o alcançou,
+   que dá no mesmo. O que se preserva numa troca de escala é a RAZÃO.
+   Mesma correção em `.res-num`, no relógio da barra e no título da ficha. */
 .sla-n{
-  font-family:var(--mono);font-weight:700;
-  font-size:1.42rem;line-height:1;letter-spacing:-.03em;
+  font-family:var(--mono);font-weight:700;font-stretch:82%;
+  font-size:1.65rem;line-height:1;letter-spacing:-.03em;
   font-feature-settings:"tnum";color:var(--text);
 }
 /* ⚠️ A ETIQUETA MONO DESTA FOLHA TEM UM TAMANHO SO: 10,5px.
@@ -496,10 +675,17 @@ body{
    que este sistema tem — se existe, tem que existir grande o bastante.
    O rotulo do tanque saiu da familia (virou nome proprio em Archivo) e o
    numero do chamado fica meio degrau acima, porque e ele que se procura. */
+/* ⚠️ SAIU DA CAIXA ALTA, e isso vale mais que o tamanho. Frase inteira em
+   CAIXA ALTA é o tratamento mais lento de ler que existe — o olho perde o
+   contorno da palavra e soletra letra a letra. "PARA O TÉCNICO CHEGAR" em
+   mono de 12px era o pior caso da tela. Aqui a régua diz uma FRASE, então é
+   frase: Archivo, caixa normal. Etiqueta curta (o bairro, "Equipe agora")
+   continua em mono caixa alta — ali ela classifica, não narra.
+   Regra em docs/vocabulario.md. */
 .sla-rot{
-  font-family:var(--mono);font-size:10.5px;
-  letter-spacing:.1em;text-transform:uppercase;color:var(--muted);
-  line-height:1.3;
+  font-family:var(--fonte);font-size:12.5px;font-weight:600;
+  letter-spacing:0;color:var(--text-dim);
+  line-height:1.25;
 }
 .item[data-sla="estourado"] .relogio-sla{background:var(--vermelho)}
 .item[data-sla="estourado"] .sla-n{color:var(--mar-900)}
@@ -508,25 +694,63 @@ body{
 .item[data-sla="atencao"] .sla-n{color:var(--accent)}
 .item[data-sla="folgado"] .sla-n{color:var(--text-dim)}
 
+/* ⚠️ O AMARELO CHEIO É SÓ DE QUEM PEDE AÇÃO AGORA — e isto não é regra nova,
+   é a Regra do Selo do DESIGN.md ("preenchido quando pede ação, de fio em
+   repouso") aplicada ao botão, que era a única peça de ação fora dela.
+   Com quatro "Despachar" em campo cheio, o amarelo virava uma COLUNA
+   vertical: a cor da ação, gasta por igual em toda a fila, deixava de
+   apontar para alguma coisa e passava a competir com a régua vermelha do
+   item estourado — que o brief define como o único campo cheio da tela.
+   ⚠️ O QUE NÃO MUDA: o botão continua no mesmo lugar, com o mesmo texto, o
+   mesmo tamanho e a mesma ordem. Ele não fica igual ao "Abrir ficha" ao
+   lado, porque o ANEL segue amarelo e o texto também — em repouso a ação
+   primária é reconhecível pela cor, só não é um campo. Reverter é apagar
+   este bloco. */
+.item .btn[data-acao="despacho"]{
+  position:relative;isolation:isolate;
+  background:var(--amarelo);color:var(--amarelo);
+}
+.item .btn[data-acao="despacho"]::before{
+  content:"";position:absolute;inset:1.5px;z-index:-1;
+  clip-path:var(--corte);background:var(--mar-900);
+  transition:background .16s var(--saida);
+}
+.item .btn[data-acao="despacho"]:hover{color:var(--mar-900)}
+.item .btn[data-acao="despacho"]:hover::before{background:var(--amarelo-claro,var(--accent-2))}
+.item .btn[data-acao="despacho"]:focus-visible::before{background:var(--mar-900)}
+/* Estourado e apertado: o relógio pede alguém AGORA, e aí o botão preenche. */
+.item[data-sla="estourado"] .btn[data-acao="despacho"],
+.item[data-sla="apertado"] .btn[data-acao="despacho"]{color:var(--mar-900)}
+.item[data-sla="estourado"] .btn[data-acao="despacho"]::before,
+.item[data-sla="apertado"] .btn[data-acao="despacho"]::before{background:var(--amarelo)}
+
 .item-corpo{padding:11px 16px 11px 15px;min-width:0;display:flex;flex-direction:column;gap:7px}
 .item-topo{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
 .num{
-  font-family:var(--mono);font-size:11.5px;
+  font-family:var(--mono);font-size:13px;
   font-weight:700;color:var(--muted);font-feature-settings:"tnum";
   letter-spacing:.03em;flex-shrink:0;
 }
 /* ⚠️ `margin:0` não é enfeite: `h3` traz 1em de margem do navegador e, como
    item de flex, ela NÃO colapsa — eram 29px de ar acidental em cima e embaixo
    do título, em todo item da fila. */
+/* ⚠️ 16px, não 14,5. O título é a frase que diz O QUE ACONTECEU — a segunda
+   voz do item, depois do relógio — e saía a 2px do corpo (12,5px) e a 1,5px
+   da linha do prédio. Três papéis diferentes dentro da mesma faixa de
+   tamanho é o que faz a fila parecer "muita coisa escrita": não é a
+   quantidade de texto, é a ausência de degrau entre os papéis. Com 16 a
+   rampa do corpo do item vira 16 / 13 / 12,5 / 10,5, e o olho tem por onde
+   entrar. O `font-stretch` sobe junto: em Archivo variável a largura é o que
+   dá peso sem pedir mais altura de linha. */
 .titulo{
   margin:0;
-  font-size:14.5px;font-weight:800;font-stretch:108%;letter-spacing:-.022em;
+  font-size:18px;font-weight:800;font-stretch:110%;letter-spacing:-.024em;
   line-height:1.2;min-width:0;
 }
 /* Selo: preenchido quando pede ação, de fio em repouso. Só UMA dimensão
    preenche por linha — aqui, a prioridade. Status fica de fio. */
 .selo{
-  font-family:var(--mono);font-size:10.5px;
+  font-family:var(--mono);font-size:12px;
   font-weight:700;letter-spacing:.1em;padding:3px 7px;flex-shrink:0;
   text-transform:uppercase;
   clip-path:var(--corte-p);
@@ -548,11 +772,14 @@ body{
    folga nenhuma para empurrar. */
 .onde{
   display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;width:100%;
-  font-size:12.5px;color:var(--text-dim);
+  font-size:14px;color:var(--text-dim);
 }
-.onde-nome{font-weight:700;color:var(--text-dim);letter-spacing:-.005em}
+/* Meio degrau acima do corpo: o nome do prédio é o terceiro papel da rampa
+   do item (16 / 13 / 12,5 / 10,5), e é por ele que se acha o chamado quando
+   o técnico liga. Empatado com a descrição, os dois liam como uma coisa só. */
+.onde-nome{font-size:13px;font-weight:700;color:var(--text-dim);letter-spacing:-.008em}
 .onde-bairro{
-  font-family:var(--mono);font-size:10.5px;
+  font-family:var(--mono);font-size:12px;
   letter-spacing:.09em;color:var(--muted);text-transform:uppercase;
 }
 .onde i{width:3px;height:3px;background:var(--muted);font-style:normal;flex-shrink:0;align-self:center}
@@ -695,7 +922,7 @@ body{
    texto nunca mais fica sobre a lâmina. Deitada a barra, ele passa da base
    para a DIREITA dela — é o fim da linha de leitura "nome · quanto tem". */
 .res-num{
-  font-family:var(--mono);font-size:1.05rem;
+  font-family:var(--mono);font-size:1.2rem;
   font-weight:700;font-feature-settings:"tnum";letter-spacing:-.02em;
   line-height:1.1;margin-top:0;text-align:right;color:var(--text);
 }
@@ -719,7 +946,7 @@ body{
    teto, a linha ia a 800–1000px (110–140 caracteres) e o olho perdia o
    começo da linha seguinte. */
 .prova-txt{
-  font-size:12.5px;line-height:1.55;color:var(--text-dim);
+  font-size:14px;line-height:1.55;color:var(--text-dim);
   min-width:0;max-width:68ch;margin:0;
 }
 .prova-txt b{color:var(--text);font-weight:700}
@@ -733,33 +960,53 @@ body{
    próprio sistema não é fala de ninguém. */
 .fala{
   border-left:1px solid var(--fio);padding:1px 0 1px 13px;margin:0;
-  font-size:12.5px;line-height:1.55;color:var(--text-dim);font-style:italic;
+  font-size:14px;line-height:1.55;color:var(--text-dim);font-style:italic;
   max-width:66ch;
 }
 /* O quinto degrau que faltava: .56rem (8,96px) era o menor tipo da tela, e
    ele carrega a frase que EXPLICA por que o item não tem instrumento. */
+/* Frase, não etiqueta: "Prédio sem telemetria instalada" tem quatro palavras
+   e explica uma ausência — em caixa alta virava o trecho mais lento de ler de
+   um item que já é o mais pobre da fila. Ver docs/vocabulario.md. */
 .semtel{
   display:flex;align-items:center;gap:9px;
-  font-family:var(--mono);font-size:10.5px;
-  letter-spacing:.09em;text-transform:uppercase;color:var(--muted);
+  font-family:var(--fonte);font-size:13px;
+  letter-spacing:0;color:var(--muted);
 }
 .semtel svg{color:var(--muted);flex-shrink:0}
 
 /* A coluna das ações. Fio à esquerda para ela ler como parte usinada da
    mesma placa, não como um segundo cartão colado. */
+/* A ação FECHA o item, numa linha só alinhada com o resto do conteúdo — sem
+   coluna própria e sem fio separando. */
 .item-acoes{
-  display:flex;flex-direction:column;align-items:stretch;justify-content:center;
-  gap:7px;padding:13px 14px;border-left:1px solid var(--fio-fraco);
+  display:flex;align-items:center;gap:20px;flex-wrap:wrap;
+  padding:6px 0 2px;border:0;
 }
-.item-acoes .btn{width:100%;text-align:center;padding:9px 13px}
+.item-acoes .btn{min-width:180px;text-align:center;justify-content:center}
+/* ⚠️ LINK, NÃO BOTÃO — e é essa diferença que faz o item ter UMA ação.
+   Dois botões do mesmo tamanho pedem uma escolha ANTES da decisão de verdade;
+   um botão e um link dizem qual é a ação e qual é a saída. Mantém 44px de
+   alvo e sublinhado permanente — link sem sublinhado é texto que ninguém
+   clica, e isso pesa mais ainda para quem tem pouca familiaridade. */
+.link-ficha{
+  font:inherit;font-size:14px;font-weight:600;color:var(--text-dim);
+  background:transparent;border:0;padding:10px 2px;min-height:44px;
+  cursor:pointer;text-decoration:underline;text-underline-offset:4px;
+  text-decoration-color:var(--fio-forte);
+  transition:color .16s var(--saida),text-decoration-color .16s var(--saida);
+}
+.link-ficha:hover{color:#fff;text-decoration-color:var(--amarelo)}
+.link-ficha:focus-visible{box-shadow:inset 0 0 0 2px var(--amarelo);text-decoration-color:var(--amarelo)}
 .item-acoes .emrota{
-  display:flex;align-items:flex-start;gap:7px;font-size:11.5px;
+  display:flex;align-items:flex-start;gap:7px;font-size:13px;
   color:var(--text-dim);line-height:1.35;white-space:normal;
 }
+/* "Plano de manutenção · há 23h20" tem seis palavras: é frase. */
 .origem{
   display:flex;align-items:center;gap:7px;
-  font-family:var(--mono);font-size:10.5px;
-  letter-spacing:.09em;text-transform:uppercase;color:var(--muted);
+  font-family:var(--fonte);font-size:13px;
+  letter-spacing:0;color:var(--muted);
   margin-left:auto;
 }
 .origem svg{flex-shrink:0}
@@ -801,7 +1048,7 @@ body{
 }
 .andando-cab h2{margin:0;font-size:12px;font-weight:800;color:var(--text-dim)}
 .andando-cab span{
-  font-family:var(--mono);font-size:10.5px;
+  font-family:var(--mono);font-size:12px;
   letter-spacing:.1em;color:var(--muted);text-transform:uppercase;
 }
 
@@ -831,13 +1078,32 @@ body{
 .calmo p{margin:0 auto;max-width:48ch;color:var(--text-dim);font-size:14px;line-height:1.6}
 .calmo-marca{
   display:inline-flex;align-items:center;gap:9px;margin:22px auto 0;
-  font-family:var(--mono);font-size:10.5px;
+  font-family:var(--mono);font-size:12px;
   letter-spacing:.14em;color:var(--ok);text-transform:uppercase;
 }
 .calmo-marca i{width:7px;height:7px;background:var(--ok);font-style:normal}
 
 /* ── Trilho da equipe (composição B) ─────────────────────────────── */
-.comB{display:grid;grid-template-columns:1fr var(--trilho-w)}
+/* ⚠️ O PAR É QUE CENTRA, NÃO A FILA SOZINHA. Com `1fr var(--trilho-w)` a
+   fila centrava dentro da primeira coluna e o trilho ficava colado na borda
+   direita da janela: num monitor de mesa de 1920 — que é A CENA PRINCIPAL
+   desta tela, não a exceção — sobravam 285px de campo morto ENTRE a fila e
+   o trilho, exatamente a largura da margem esquerda. As duas metades da tela
+   deixavam de ler como um painel só, e o trilho ("Equipe agora", "Despachados
+   hoje"), que é justamente o que responde à fila, parecia outra página.
+   Limitando a coluna da fila a `--area-max` e centrando o GRID, o bloco de
+   1340 (1040 + 300) fica no meio e o vão desaparece: o fio da divisão volta
+   a encostar na coluna que ele separa.
+   ⚠️ A fila NÃO se move um pixel com isso, e é por isso que o placar
+   continua alinhado sem precisar de conta nova: centrar 1040 dentro de
+   (W − 300) dá o mesmo x que centrar o par de 1340 (W/2 − 650 nos dois).
+   Quem anda é só o trilho.
+   ⚠️ Só funciona porque o fundo do trilho é o MESMO `--mar-900` do campo:
+   ele não é uma faixa de cor colada na borda, é um fio e um conteúdo. Se um
+   dia o trilho ganhar fundo próprio, esta regra vira uma coluna boiando e
+   tem de ser revista.
+   Abaixo de 1080 a regra some sozinha: lá o grid vira uma coluna só. */
+.comB{display:grid;grid-template-columns:minmax(0,var(--area-max)) var(--trilho-w);justify-content:center}
 /* ⚠️ O fio da divisão é do TRILHO, não da fila. Estava no `border-right` de
    `.fila`/`.fila-cab`, que são caixas de 1040px centradas: a linha caía no
    fim do CONTEÚDO, a 60px da coluna que ela deveria separar, e sumia de vez
@@ -847,42 +1113,241 @@ body{
    viewport COM a barra do navegador recolhida, então no celular o trilho
    nascia mais alto que a tela; `dvh` acompanha a barra que some ao rolar, e
    quem não conhece a unidade fica com a linha anterior. */
+/* ⚠️ QUEM ROLA É A LISTA, NÃO A COLUNA. A coluna inteira tinha
+   `overflow-y:auto`: com o mapa no topo dela, rolar a equipe levaria o mapa
+   junto para fora da tela — e um mapa que some ao rolar deixa de ser
+   protagonista exatamente no minuto em que se precisa dele. Agora a coluna
+   não rola (`overflow:hidden`), o mapa fica preso no topo e só o
+   `.trilho-listas` abaixo dele rola. */
 .trilho{
   background:var(--mar-900);padding:18px 14px;display:flex;flex-direction:column;
-  gap:16px;position:sticky;top:var(--barra-h);align-self:start;
-  max-height:calc(100vh - var(--barra-h));min-height:calc(100vh - var(--barra-h));
-  max-height:calc(100dvh - var(--barra-h));min-height:calc(100dvh - var(--barra-h));
-  overflow-y:auto;border-left:1px solid var(--fio-fraco);
+  gap:14px;position:sticky;top:var(--barra-h);align-self:start;overflow:hidden;
+  height:calc(100vh - var(--barra-h));
+  height:calc(100dvh - var(--barra-h));
+  /* ⚠️ `--fio`, não `--fio-fraco`. Enquanto o trilho ficava colado na borda
+     da janela, quem separava as duas colunas eram os 285px de campo morto e
+     o fio era só um acabamento; com o par centrado ele passou a ser A JUNTA,
+     e a .07 sobre `--mar-900` não se enxerga na tela — fio que não se vê não
+     é usinagem, é código morto. Este é o único fio vertical da tela.
+     Na faixa de tablet ele vira `border-top` e volta para `--fio-fraco`:
+     deitado e correndo a largura inteira, a linha já pesa por comprimento. */
+  border-left:1px solid var(--fio);
+}
+/* A parte que rola. `min-height:0` porque item de flex não encolhe abaixo do
+   conteúdo por padrão, e sem isso a lista empurra o mapa para fora da coluna
+   em vez de ganhar barra de rolagem. */
+.trilho-listas{
+  flex:1 1 auto;min-height:0;overflow-y:auto;
+  display:flex;flex-direction:column;gap:16px;
 }
 .trilho h2{
   margin:0 0 10px;font-family:var(--mono);
-  font-size:10.5px;letter-spacing:.13em;color:var(--muted);
+  font-size:12px;letter-spacing:.13em;color:var(--muted);
   text-transform:uppercase;font-weight:500;
 }
+/* ═══ A CHAPA DO TRILHO ═════════════════════════════════════════════
+   A mesma peça da placa do turno, e pelo mesmo motivo. Ver o bloco do
+   `.placar-in`: fundo do elemento = anel de 1,5px, `::before` embutido =
+   placa com gradiente. Aqui a chapa é alta e estreita, então o ângulo volta
+   a ser o 168° da landing — nessa proporção ele é quase todo vertical. */
+/* ⚠️ SEM ANEL E SEM GRADIENTE — correção de 28/08 sobre o mesmo dia.
+   A chapa nasceu com a construção do `.instr` (anel de 1,5px + gradiente),
+   e o efeito somado foi ruim: na coluna de 400px ficavam TRÊS objetos com
+   moldura empilhados — o mapa e as duas chapas —, sem hierarquia entre eles.
+   Vale aqui a mesma regra do `.item`: moldura marca o que é único, e nesta
+   coluna quem é único é o MAPA. As listas são conteúdo da coluna.
+   O que resolveu a "parede de cartõezinhos" continua de pé, e não era o
+   anel: era AGRUPAR as linhas numa peça só, separadas por corte gravado.
+   Isso fica; a moldura externa é que sai. */
+.chapa{
+  background:var(--surface);
+  --ch:12px;clip-path:var(--corte);
+}
+/* ⚠️ A LINHA PERDEU A CAIXA. Ela era um card com fundo `--surface`, fio de
+   1px e 6px de margem — e `--surface` (#06154b) sobre `--mar-900` (#030a26)
+   é meio degrau de diferença, então o que se via não era um cartão, era um
+   retângulo pálido. Quatro deles empilhados é a "parede de cards". Agora a
+   linha é transparente e quem separa é o CORTE GRAVADO (`--rasgo` + `--luz`,
+   sempre nessa ordem), que é o divisor deste sistema — o mesmo da placa do
+   turno e das seções do instrumento da landing. */
 .tec{
-  display:flex;align-items:center;gap:10px;padding:9px 10px;margin-bottom:6px;
-  background:var(--surface);border:1px solid var(--fio-fraco);
-  --ch:8px;clip-path:var(--corte);
+  display:flex;align-items:center;gap:11px;padding:11px 13px;
+  background:transparent;border:0;
 }
-/* Chanfrado como o resto: sem `border`, então basta o corte (é o caso fácil
-   da Regra da Chapa em Duas Camadas — só há aresta quando há fio). */
+.tec+.tec{border-top:1px solid var(--rasgo);box-shadow:inset 0 1px 0 var(--luz)}
+/* ⚠️ CHAPA DE DUAS CAMADAS, como o `.conta` da barra. Os dois são o mesmo
+   objeto — um selo quadrado e chanfrado com iniciais — e estavam construídos
+   diferente: o da barra com anel, este chapado. Dentro de uma tela só, isso
+   é a mesma peça com dois acabamentos.
+   E o tipo virou MONO: iniciais são código, não nome, e mono é o que este
+   sistema usa para código e medição. */
 .tec-av{
-  width:28px;height:28px;flex-shrink:0;background:var(--mar-600);
-  display:grid;place-items:center;font-size:10.5px;font-weight:800;
-  --ch:5px;clip-path:var(--corte);
+  position:relative;isolation:isolate;
+  width:30px;height:30px;flex-shrink:0;background:var(--fio);
+  display:grid;place-items:center;
+  font-family:var(--mono);font-size:12px;font-weight:700;letter-spacing:.02em;
+  color:var(--text-dim);
+  --ch:6px;clip-path:var(--corte);
 }
-.tec-nome{font-size:12.5px;font-weight:700;line-height:1.25}
+.tec-av::before{
+  content:"";position:absolute;inset:1px;z-index:-1;
+  clip-path:var(--corte);background:var(--mar-600);
+}
+.tec-av svg{color:var(--text-dim)}
+/* ⚠️ O ESTADO VAI NO ANEL, NÃO NO PREENCHIMENTO — e isso é a Regra do
+   Amarelo Cego valendo para o verde. A primeira versão desta linha pintava
+   o selo de `--ok` a 46% e escrevia as iniciais em `--ok` por cima: verde
+   sobre verde, medido em 3,20:1, reprovado como texto e ainda por cima a
+   10,5px. Preenchimento de sinal saturado exige tinta marinho por cima
+   (Regra do Preenchimento Cru) — mas selo verde CHEIO em dois dos quatro
+   técnicos joga um segundo sinal forte numa tela cuja cor de ação é o
+   amarelo.
+   A chapa de duas camadas resolve os dois de uma vez: o ANEL é o fundo do
+   elemento, então basta ele mudar de cor. Aresta verde de 1px, a tinta
+   continua `--text-dim` sobre `--mar-600` (6,6:1), e o realce fica do
+   tamanho que a informação merece — quem lê "DISPONÍVEL" já sabe. */
+.tec[data-liv="1"] .tec-av{background:color-mix(in srgb,var(--ok) 62%,transparent)}
+.tec-nome{font-size:15px;font-weight:700;line-height:1.25;letter-spacing:-.012em}
+/* ⚠️ A TINTA ESTAVA INVERTIDA. `.tec-est` (o estado — o dado que decide se
+   dá para despachar) saía em `--muted`, e `.tec-dist` ("no mapa", que não
+   decide nada) em `--text-dim`, que é MAIS claro. Quem lia a coluna via
+   primeiro a nota de GPS. Trocado: o estado sobe, a nota de GPS desce. */
+/* Também frase, também sai da caixa alta: "Livre agora", "2 chamados". */
 .tec-est{
-  font-family:var(--mono);font-size:10.5px;
-  letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin-top:2px;
+  font-family:var(--fonte);font-size:13px;font-weight:600;
+  letter-spacing:0;color:var(--text-dim);margin-top:3px;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:22ch;
 }
 .tec[data-liv="1"] .tec-est{color:var(--ok)}
 .tec-dist{
   margin-left:auto;font-family:var(--mono);
-  font-size:10.5px;color:var(--text-dim);font-feature-settings:"tnum";
+  font-size:12px;color:var(--muted);font-feature-settings:"tnum";
   white-space:nowrap;flex-shrink:0;
 }
+
+/* ═══ O MAPA DO TURNO ═══════════════════════════════════════════════
+   Entrou em 28/08/2026. Até então o mapa só existia dentro do diálogo de
+   despacho, e isso punha a pergunta na ordem errada: ele abria DEPOIS que o
+   chamado já tinha sido escolhido, um de cada vez. Só que a decisão
+   geográfica é da fila inteira — mandar alguém no #4821 pode ser errado se o
+   #4820 fica ao lado dele. Aqui ele fica aberto ENQUANTO se lê a fila.
+
+   ⚠️ NÃO é uma segunda tela, e isso é deliberado: o topo desta folha registra
+   que "a tela é UMA, não há para onde navegar". A tela cheia é um MODO DA
+   PEÇA (o padrão do `.mp-map-card.is-fullscreen` do admin), não um destino.
+   Um mapa em tela cheia como página esconderia a fila que está queimando, e
+   as duas perguntas do turno — o que estoura e quem vai — se fazem juntas.
+
+   Construção: a mesma chapa de duas camadas da placa do turno e do trilho.
+   O campo interno é `--mar-900` liso, sem gradiente: atrás dele vem o mapa,
+   e gradiente sob tile vira sujeira. */
+.mapa-turno{
+  flex:0 0 auto;position:relative;isolation:isolate;
+  background:var(--fio);padding:1.5px;
+  --ch:12px;clip-path:var(--corte);
+  display:flex;flex-direction:column;
+}
+.mapa-turno::before{
+  content:"";position:absolute;inset:1.5px;z-index:-1;
+  clip-path:var(--corte);background:var(--mar-900);
+}
+.mapa-cab{display:flex;align-items:center;gap:10px;padding:6px 6px 6px 13px}
+.mapa-cab h2{margin:0}
+/* Corte gravado, como todo divisor deste sistema: o sulco na peça de cima e
+   a aresta que pega luz na de baixo. */
+.mapa-tela{
+  flex:1 1 auto;min-height:0;
+  height:clamp(300px,44vh,520px);
+  background:#0d1325;
+  border-top:1px solid var(--rasgo);box-shadow:inset 0 1px 0 var(--luz);
+}
+/* 44px também aqui — era o único botão da tela abaixo do piso depois do
+   passe de 28/08, e ícone sozinho é justamente o alvo mais difícil de acertar
+   para quem tem menos precisão de mouse. */
+.mapa-fs{
+  margin-left:auto;flex-shrink:0;
+  width:44px;height:44px;display:grid;place-items:center;
+  background:transparent;border:0;color:var(--muted);cursor:pointer;
+  transition:color .16s var(--saida);
+}
+.mapa-fs:hover{color:var(--amarelo)}
+.mapa-fs .ico-sai{display:none}
+.mapa-turno.is-fs .mapa-fs .ico-entra{display:none}
+.mapa-turno.is-fs .mapa-fs .ico-sai{display:block}
+/* Sem coordenada nenhuma não há mapa a desenhar — a mesma frase que o
+   diálogo já dá, no mesmo lugar do sistema. */
+.mapa-vazio{
+  margin:0;display:grid;place-items:center;height:100%;padding:20px;
+  text-align:center;font-size:14px;color:var(--muted);line-height:1.5;
+}
+
+/* ── Tela cheia: a peça vira superfície ────────────────────────────
+   Sem chanfro e sem anel, como o admin faz: em tela cheia ela deixa de ser
+   peça pousada e passa a ser o campo. O cabeçalho vira faixa flutuante com
+   o mesmo `blur(14px)` da barra — a única desfocagem do sistema. */
+/* ⚠️ O `z-index` DA PEÇA NÃO BASTA, e a razão é contexto de empilhamento.
+   `.mapa-turno` mora dentro do `#tela`, que é `position:relative; z-index:1`
+   — ou seja, o 70 aqui embaixo é resolvido DENTRO de um contexto que vale 1,
+   e a barra (z-index 20, filha do body) continua desenhando por cima do mapa
+   em tela cheia. Medido: o cabeçalho do mapa ficava escondido atrás da barra
+   do painel. Quem precisa subir é o contexto inteiro, e só enquanto durar o
+   modo — daí a classe no body, que também tranca a rolagem atrás, do mesmo
+   jeito que `body.com-ficha` faz pelos diálogos. */
+body.com-mapa-fs{overflow:hidden}
+body.com-mapa-fs #tela{z-index:80}
+.mapa-turno.is-fs{
+  position:fixed;inset:0;z-index:70;
+  padding:0;background:var(--bg);clip-path:none;
+}
+.mapa-turno.is-fs::before{content:none}
+.mapa-turno.is-fs .mapa-cab{
+  position:absolute;top:0;left:0;right:0;z-index:5;
+  padding:12px 10px 12px 16px;
+  background:color-mix(in srgb,var(--mar-900) 82%,transparent);
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--fio);
+}
+.mapa-turno.is-fs .mapa-tela{
+  height:100vh;height:100dvh;border-top:0;box-shadow:none;
+}
+
+/* ── Os pinos ──────────────────────────────────────────────────────
+   ⚠️ O CHAMADO CARREGA DUAS INFORMAÇÕES E NENHUMA É NOVA: a etiqueta é a
+   PRIORIDADE (as mesmas cores e a mesma construção do `.selo`) e o
+   preenchimento é o ESTADO DO RELÓGIO (o mesmo grau que pinta a régua do
+   item). É exatamente o par que a fila já mostra lado a lado; aqui ele vira
+   posição. Chapa de duas camadas, como o `.pin-tec` que já existia. */
+.pin-ch{
+  position:relative;isolation:isolate;
+  width:28px;height:28px;
+  font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.02em;
+  --ch:6px;clip-path:var(--corte);
+  background:var(--fio-forte);color:var(--mar-900);
+}
+.pin-ch::before{content:"";position:absolute;inset:1px;z-index:-1;clip-path:var(--corte);background:var(--mar-500)}
+.pin-ch[data-g="estourado"]::before,
+.pin-ch[data-g="apertado"]::before{background:var(--vermelho)}
+.pin-ch[data-g="atencao"]::before{background:var(--amarelo)}
+.pin-ch[data-g="folgado"]{color:#fff}
+.pin-ch[data-g="semsla"]::before{background:var(--muted)}
+/* Só o que JÁ ESTOUROU ganha halo, e ele não pisca: numa tela que o operador
+   olha o turno inteiro, alarme animado vira ruído em dez minutos. É o mesmo
+   princípio da régua — um único campo cheio de cada vez. */
+.pin-ch[data-g="estourado"]{
+  background:var(--vermelho);
+  box-shadow:0 0 0 5px color-mix(in srgb,var(--vermelho) 26%,transparent);
+}
+/* A legenda do Leaflet também é do sistema: marinho, fio de 1px e chanfro —
+   não a caixinha branca com seta que vem de fábrica. */
+.leaflet-tooltip.pin-rot{
+  background:var(--mar-900);color:var(--text);
+  border:1px solid var(--fio);box-shadow:none;border-radius:0;
+  --ch:5px;clip-path:var(--corte);
+  font-family:var(--fonte);font-size:13px;font-weight:700;
+  padding:5px 9px;letter-spacing:-.01em;white-space:nowrap;
+}
+.leaflet-tooltip.pin-rot::before{display:none}
+.leaflet-tooltip.pin-rot b{font-family:var(--mono);font-weight:700;color:var(--text-dim)}
 
 /* ═══════════════════════════════════════════════════════════════════
    OS DOIS DIÁLOGOS
@@ -929,7 +1394,7 @@ body.com-ficha{overflow:hidden}
 .ficha .btn:focus-visible{box-shadow:inset 0 0 0 2px var(--mar-900)}
 .ficha-cab{display:flex;align-items:flex-start;gap:12px;padding:20px 22px 15px;border-bottom:1px solid var(--fio-esc)}
 .ficha-cab h2{
-  margin:0;font-size:1.3rem;font-weight:900;font-stretch:112%;
+  margin:0;font-size:1.5rem;font-weight:900;font-stretch:112%;
   letter-spacing:-.03em;line-height:1.1;
 }
 /* ⚠️ ÍCONE SOLTO, NÃO CAIXA — a construção do `.fechar` do painel do cliente.
@@ -976,7 +1441,7 @@ body.com-ficha{overflow:hidden}
    legenda desta folha. */
 .leaflet-control-attribution{
   background:rgba(3,10,38,.72)!important;color:var(--muted)!important;
-  font-family:var(--mono);font-size:.5rem!important;
+  font-family:var(--mono);font-size:.62rem!important;
   letter-spacing:.06em;padding:2px 7px!important;
 }
 .leaflet-control-attribution a{color:var(--muted)!important;text-decoration:none}
@@ -995,7 +1460,7 @@ body.com-ficha{overflow:hidden}
    recortado nos dois chanfros e lê como defeito. */
 .pin-tec{
   position:relative;isolation:isolate;
-  width:26px;height:26px;background:var(--fio-forte);color:#fff;font-size:9.5px;
+  width:26px;height:26px;background:var(--fio-forte);color:#fff;font-size:11px;
   --ch:6px;clip-path:var(--corte);
 }
 .pin-tec::before{
@@ -1010,7 +1475,7 @@ body.com-ficha{overflow:hidden}
 }
 .escolha h3{
   margin:0 0 4px;font-family:var(--mono);
-  font-size:10.5px;letter-spacing:.13em;color:var(--tinta-2);
+  font-size:12px;letter-spacing:.13em;color:var(--tinta-2);
   text-transform:uppercase;font-weight:500;
 }
 .cand{
@@ -1026,7 +1491,7 @@ body.com-ficha{overflow:hidden}
    da direita fazia a lista inteira dançar. */
 .cand-quem{min-width:0;flex:1}
 .cand-nome{
-  font-size:12.5px;font-weight:700;line-height:1.25;
+  font-size:14px;font-weight:700;line-height:1.25;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
 /* Quem está indisponível não ganha nota de GPS (ver `dlgDespacho`): a linha
@@ -1037,8 +1502,8 @@ body.com-ficha{overflow:hidden}
    o técnico. Mesmo argumento do rótulo do tanque: cortado, vira adivinhação
    no meio de uma decisão. O cartão tem altura para as duas linhas. */
 .cand-est{
-  font-family:var(--mono);font-size:10.5px;line-height:1.35;
-  letter-spacing:.09em;text-transform:uppercase;color:var(--tinta-2);margin-top:2px;
+  font-family:var(--fonte);font-size:13px;line-height:1.35;font-weight:600;
+  letter-spacing:0;color:var(--tinta-2);margin-top:2px;
   white-space:normal;overflow:visible;text-overflow:clip;
 }
 .cand[data-liv="1"] .cand-est{color:var(--normal-t);font-weight:700}
@@ -1048,9 +1513,9 @@ body.com-ficha{overflow:hidden}
    destaque. Quem decide, hoje, é a CARGA do técnico: ela sobe, e a presença
    no mapa desce a etiqueta. */
 .cand-eta{margin-left:auto;text-align:right;flex-shrink:0;font-family:var(--mono);font-feature-settings:"tnum"}
-.cand-eta b{display:block;font-size:.78rem;color:var(--tinta);font-weight:700}
+.cand-eta b{display:block;font-size:.95rem;color:var(--tinta);font-weight:700}
 .cand-eta span{
-  display:block;font-size:10.5px;letter-spacing:.08em;color:var(--tinta-2);
+  display:block;font-size:12px;letter-spacing:.08em;color:var(--tinta-2);
   text-transform:uppercase;margin-top:2px;
 }
 
@@ -1064,15 +1529,15 @@ body.com-ficha{overflow:hidden}
 .ev{display:grid;grid-template-columns:74px 1fr;gap:14px;padding:9px 0;border-bottom:1px solid var(--fio-esc)}
 .ev:last-child{border-bottom:0}
 .ev-h{
-  font-family:var(--mono);font-size:10.5px;
+  font-family:var(--mono);font-size:12px;
   letter-spacing:.06em;color:var(--tinta-2);font-feature-settings:"tnum";padding-top:2px;
 }
-.ev-t{font-size:12.5px;line-height:1.5;color:var(--tinta-2)}
+.ev-t{font-size:14px;line-height:1.5;color:var(--tinta-2)}
 .ev-t b{color:var(--tinta);font-weight:700}
 .ficha-lado{display:flex;flex-direction:column;gap:14px}
 .ficha-lado h4{
   margin:0 0 8px;font-family:var(--mono);
-  font-size:10.5px;letter-spacing:.12em;color:var(--tinta-2);
+  font-size:12px;letter-spacing:.12em;color:var(--tinta-2);
   text-transform:uppercase;font-weight:500;
 }
 .dado{display:flex;justify-content:space-between;gap:10px;padding:5px 0;font-size:12px;border-bottom:1px solid var(--fio-esc)}
@@ -1084,16 +1549,23 @@ body.com-ficha{overflow:hidden}
 .form{padding:18px 22px 4px;display:grid;grid-template-columns:1fr 1fr;gap:14px 16px}
 .campo{display:flex;flex-direction:column;gap:5px;min-width:0}
 .campo.largo{grid-column:1 / -1}
+/* "O que foi relatado" tem quatro palavras — é frase, e frase não vai em
+   caixa alta (docs/vocabulario.md). */
 .campo label{
-  font-family:var(--mono);font-size:10.5px;
-  letter-spacing:.1em;color:var(--tinta-2);text-transform:uppercase;
+  font-family:var(--fonte);font-size:13.5px;font-weight:600;
+  letter-spacing:0;color:var(--tinta-2);
 }
 /* Campo branco sobre a chapa — o mesmo do painel do cliente. O `color-scheme`
    local existe porque o `:root` desta folha é `dark`: sem ele o navegador
    pinta o indicador do `select` claro sobre campo branco (a mesma pegadinha
    já registrada nos `date` do admin). */
+/* ⚠️ O FORMULÁRIO É ONDE SE DIGITA, e ficou para trás no passe de
+   legibilidade: 7 dos 11 controles estavam abaixo de 44px enquanto a fila já
+   tinha sido corrigida. Digitar é a interação mais difícil para quem tem pouca
+   familiaridade com computador — campo pequeno é onde o clique erra e o texto
+   fica ilegível enquanto se escreve. Mesmo piso do resto da tela. */
 .campo input,.campo select,.campo textarea{
-  font:inherit;font-size:13px;padding:9px 11px;background:#fff;
+  font:inherit;font-size:15px;min-height:44px;padding:11px 13px;background:#fff;
   color:var(--tinta);border:0;box-shadow:inset 0 0 0 1px var(--fio-esc);
   color-scheme:light;
 }
@@ -1104,7 +1576,7 @@ body.com-ficha{overflow:hidden}
 .campo textarea{resize:vertical;min-height:74px;line-height:1.5}
 .prio-fila{display:flex;gap:6px;flex-wrap:wrap}
 .prio{
-  font:inherit;font-size:11px;font-weight:700;padding:7px 11px;cursor:pointer;
+  font:inherit;font-size:14px;font-weight:700;min-height:44px;padding:10px 16px;cursor:pointer;
   background:transparent;color:var(--tinta-2);border:1px solid var(--fio-esc);
   transition:background .14s var(--saida),color .14s var(--saida);
 }
@@ -1112,7 +1584,7 @@ body.com-ficha{overflow:hidden}
 .prio[aria-pressed="true"]{background:var(--accent);color:var(--mar-900);border-color:var(--accent)}
 .prio[aria-pressed="true"]:focus-visible{box-shadow:inset 0 0 0 2px var(--mar-900)}
 .dica{
-  grid-column:1 / -1;font-size:11.5px;color:var(--tinta-2);line-height:1.5;
+  grid-column:1 / -1;font-size:14px;color:var(--tinta-2);line-height:1.55;
   border-top:1px solid var(--fio-esc);padding-top:12px;margin-top:2px;
 }
 .dica b{color:var(--tinta)}
@@ -1131,20 +1603,73 @@ body.com-ficha{overflow:hidden}
    colunas viram uma — o mesmo gesto, na mesma largura.
    A regra é só de LAYOUT: nada aqui muda tamanho de tipo nem de peça, porque
    o problema nunca foi escala, foi a coluna que não tinha para onde ceder. */
-@media (max-width:1080px){
+/* ⚠️ 1180, era 1080 — e a mudança é consequência direta do TRILHO DE 400px.
+   O 1080 era o número da landing e funcionava quando o trilho tinha 300: a
+   1080 sobravam 740px para o item, que é o mínimo em que ele não desmonta.
+   Com o trilho a 400 (o mapa entrou nele em 28/08) a mesma largura deixa 640,
+   e medido a 1090px o item ia a 640×332 contra 1000×198 logo abaixo, em 1080.
+   Ou seja: ALARGAR a janela de 1080 para 1090 piorava tudo — o mesmo defeito
+   não-monotônico que a faixa da prova já tinha corrigido, reaparecendo por
+   outra causa.
+   A conta é `740 (item mínimo) + 400 (trilho) + 40 (gutters) = 1180`. Mexeu no
+   `--trilho-w`? Refaça esta conta. */
+@media (max-width:1180px){
   .comB{grid-template-columns:1fr}
   /* Fora da coluna, o trilho é uma faixa: as duas seções lado a lado e os
      cartões em grade. Empilhados em largura cheia eles viravam uma lista de
      4 linhas gigantes embaixo da fila. */
+  /* ⚠️ `height:auto` é obrigatório aqui: fora da coluna o trilho não é mais
+     a peça grudada de altura de viewport, e uma altura de `100dvh` numa
+     faixa horizontal deixaria um vão de tela inteira embaixo da fila. */
   .trilho{
-    position:static;max-height:none;min-height:0;overflow:visible;
+    position:static;height:auto;overflow:visible;
     border-left:0;border-top:1px solid var(--fio-fraco);
-    flex-direction:row;flex-wrap:wrap;gap:16px 26px;padding:18px var(--gut);
+    flex-direction:column;gap:16px;padding:18px var(--gut);
   }
-  .trilho>div{flex:1 1 300px;min-width:0;display:grid;gap:6px;align-content:start}
+  /* ⚠️ O MAPA NÃO ENTRA NA FAIXA LADO A LADO. Aqui a coluna virou uma faixa
+     horizontal de largura cheia; espremido numa célula de 300px ao lado das
+     listas ele voltaria a ser a miniatura que deixou de ser. Ele fica em
+     cima, na largura toda, e as duas listas dividem a linha debaixo. */
+  .mapa-tela{height:clamp(240px,34vh,340px)}
+  .trilho-listas{
+    overflow:visible;flex:0 0 auto;
+    flex-direction:row;flex-wrap:wrap;gap:16px 26px;
+  }
+  /* ⚠️ Era `.trilho>div`. Com o mapa no topo, o filho direto do trilho passou
+     a ser o `.trilho-listas`, e o seletor antigo passaria a formatar o
+     contêiner de rolagem em vez das duas seções que ele deve formatar. */
+  .trilho-listas>div{flex:1 1 300px;min-width:0;display:grid;gap:6px;align-content:start}
   .tec{margin-bottom:0}
   /* A placa do turno perde o desconto do trilho junto com ele. */
   .placar{width:100%}
+}
+
+/* ── ENTRE O CELULAR E A MESA: A PROVA DEITA ───────────────────────
+   ⚠️ A quebra de 1080 resolveu o COLAPSO, não a MEDIDA — e o que sobrou era
+   não-monotônico, que é o pior resultado possível: medido nesta tela, a
+   descrição do chamado tinha 33 caracteres por linha a 900px, 16 a 1090px e
+   50 a partir de 1340. Ou seja, alargar a janela de 1080 para 1090 PIORAVA a
+   leitura pela metade. Nenhuma das duas larguras é exótica: 1090 é a janela
+   lado a lado num monitor de 1440, e 900 é o tablet deitado.
+   A causa é a mesma que o passe de 27/08 encontrou: a trilha dos tanques é
+   FIXA em 320px, e num item estreito só o texto tem para onde ceder — a
+   quebra tirou o trilho do caminho, mas não mexeu no arranjo DENTRO do item.
+   A correção é a que o celular já faz: a prova deita. Os tanques em cima, o
+   relato embaixo, com a largura inteira do item — e o teto de 68ch do
+   `.prova-txt` continua sendo quem manda na linha.
+   O `max-width` na trilha existe porque aqui o item tem 730–920px: sem ele a
+   coluna d'água esticaria para o dobro do tamanho que tem em qualquer outra
+   largura. A peça deita, não estica.
+   1340 não é número novo: é `--area-max` + `--trilho-w`, a largura em que o
+   par fila+trilho passa a caber inteiro — o mesmo limite que a barra já usa.
+   É exatamente onde o item chega aos seus 1000px e a prova em duas colunas
+   volta a ter os 50ch que ela tem na mesa. Abaixo disso ela nunca os tem, e
+   deitar é sempre melhor. 1080 e 760 continuam sendo os números da landing:
+   esta faixa não move nenhum dos dois, ela só troca o arranjo interno do
+   item no vão entre o celular e a mesa. */
+@media (min-width:761px) and (max-width:1439px){
+  .prova{grid-template-columns:1fr;gap:10px}
+  .prova-tanques{max-width:340px}
 }
 
 /* ── CELULAR ───────────────────────────────────────────────────────
@@ -1157,7 +1682,7 @@ body.com-ficha{overflow:hidden}
   .barra{position:static}
   .barra-in{padding-left:13px;gap:10px}
   .barra-acoes{padding-right:13px}
-  .marca img{height:26px}
+  .marca img{height:30px}
   .marca span{display:none}
   /* No celular a placa ocupa a largura toda e as células EMPILHAM: três
      colunas de 63px não cabem "com SLA estourado". O corte gravado vira
@@ -1167,13 +1692,20 @@ body.com-ficha{overflow:hidden}
     grid-template-columns:1fr;margin:13px auto 0;
     max-width:none;width:calc(100% - 26px);--ch:12px;
   }
-  .placar-i{padding:12px 15px}
+  /* ⚠️ E a leitura VOLTA A ENCOSTAR À ESQUERDA quando a chapa deita. Centrar
+     resolve o vazio de uma célula larga, mas numa pilha de três linhas ela
+     põe cada número num x diferente — e pilha se lê por uma margem comum. */
+  .placar-i{padding:12px 15px;justify-content:flex-start}
   .placar-i+.placar-i{
     border-left:0;border-top:1px solid var(--rasgo);
     box-shadow:inset 0 1px 0 var(--luz);
   }
-  .placar-n{font-size:1.35rem}
-  .placar-i em{font-size:12.5px}
+  /* Acompanha o degrau que a placa ganhou no desktop (1,75 → 2,5rem): a
+     razão com a frase é o assunto, não o número absoluto. Aqui a célula é
+     uma linha larga e baixa, então ela para em 1,75rem — 2,5 empurraria a
+     placa para 200px de altura numa tela em que a fila é o que importa. */
+  .placar-n{font-size:1.75rem}
+  .placar-i em{font-size:14px}
   .barra-acoes{gap:8px}
   /* ⚠️ Era `display:none`. O chamado que chega por telefone é justamente o
      que se abre longe da mesa — esconder a única porta de entrada no celular
@@ -1187,7 +1719,7 @@ body.com-ficha{overflow:hidden}
     clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;
   }
   .relogio .rot{display:none}
-  .relogio{gap:7px;font-size:.66rem}
+  .relogio{gap:7px}
   .fila{padding:12px 13px;gap:9px}
   .fila-cab,.andando-cab{padding:14px 13px 0}
   /* O relógio vira faixa no topo do item: numa coluna estreita, 104px de
@@ -1197,14 +1729,14 @@ body.com-ficha{overflow:hidden}
     flex-direction:row;align-items:center;border-left:0;
     border-top:1px solid var(--fio-fraco);padding:11px 14px;min-width:0;
   }
-  .item-acoes .btn{flex:1 1 auto;padding:11px 15px;font-size:12.5px}
+  .item-acoes .btn{flex:1 1 auto;padding:11px 15px;font-size:14px}
   .item-acoes .emrota{width:100%}
   .relogio-sla{
     flex-direction:row;justify-content:flex-start;gap:9px;
     border-right:0;border-bottom:1px solid var(--fio-fraco);
     padding:9px 14px;text-align:left;
   }
-  .sla-n{font-size:1.15rem}
+  .sla-n{font-size:1.35rem}
   /* a regua nao encolhe: 10,5px e o tamanho da etiqueta em toda a folha */
   .item-corpo{padding:12px 14px}
   .prova{grid-template-columns:1fr;gap:12px}
@@ -1215,15 +1747,24 @@ body.com-ficha{overflow:hidden}
      faixas e do limiar) subiram para lá. Sobrou o que de fato muda numa
      coluna estreita — o nome perde 12px e a leitura, meio degrau. */
   .res{grid-template-columns:84px minmax(0,1fr) 46px}
-  .res-num{font-size:.95rem}
+  .res-num{font-size:1.1rem}
   /* Numa coluna estreita a origem nao cabe no fim da linha do predio: ela
      quebra para a linha seguinte e volta a encostar a esquerda. */
   .onde .origem{width:100%;margin-left:0;margin-top:2px}
   .comB{grid-template-columns:1fr}
   .trilho{
-    position:static;max-height:none;min-height:0;border-left:0;
+    position:static;height:auto;border-left:0;
     border-top:1px solid var(--fio-fraco);
   }
+  /* No celular as duas listas voltam a empilhar (a linha não comporta duas
+     colunas de 300), e o mapa fica mais baixo: aqui ele é referência de onde
+     é, não ferramenta de despacho — quem está no celular está longe da mesa. */
+  .trilho-listas{flex-direction:column}
+  .mapa-tela{height:clamp(200px,30vh,280px)}
+  /* Piso de alvo de toque da folha. O icone continua com 14px; quem cresce
+     e a area clicavel. */
+  .mapa-fs{width:44px;height:44px}
+  .mapa-cab{padding:5px 4px 5px 12px}
   /* No celular a ficha OCUPA A TELA, como no painel do cliente: uma placa de
      900px com 24px de folga em volta vira um cartão flutuando, e a folga não
      serve para nada — não dá para ler o que está atrás nem para tocar fora
@@ -1256,7 +1797,16 @@ body.com-ficha{overflow:hidden}
   letter-spacing:.12em;text-transform:uppercase;
 }
 .vazio-lado{
-  margin:0;padding:8px 2px;color:var(--muted);font-size:11.5px;line-height:1.5;
+  margin:0;padding:8px 2px;color:var(--muted);font-size:13px;line-height:1.5;
+}
+/* ⚠️ O VAZIO DO TRILHO OCUPA A MESMA CAIXA DA LISTA CHEIA. Sem isto,
+   "Ninguém despachado ainda." saía como texto solto no fundo enquanto a
+   seção de cima era um bloco — duas seções irmãs com formas diferentes, e o
+   dia calmo (que é quando as duas ficam vazias) era justamente o estado em
+   que isso mais aparecia. Estado vazio é estado, não ausência de peça. */
+.trilho-listas .vazio-lado{
+  padding:12px 13px;background:var(--surface);
+  --ch:12px;clip-path:var(--corte);
 }
 /* Dentro da placa clara todo secundário vira tinta — Regra dos Dois Campos
    de Estado. O selo é a exceção: ele PREENCHE com o cru e mantém a tinta
@@ -1276,7 +1826,7 @@ body.com-ficha{overflow:hidden}
 
 /* Chamado cuja prioridade não tem linha em `sla_definicoes`: o relógio fica
    em branco em vez de inventar prazo, e o item vai para o fim da fila. */
-.item[data-sla="semsla"] .sla-n{color:var(--muted);font-size:1.1rem}
+.item[data-sla="semsla"] .sla-n{color:var(--muted);font-size:1.3rem}
 
 /* Aviso de erro: faixa, não `alert()`. `alert` trava a tela inteira, e numa
    tela de turno travar significa parar de receber. */
@@ -1284,7 +1834,7 @@ body.com-ficha{overflow:hidden}
   position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:90;
   max-width:min(520px,calc(100vw - 32px));
   background:var(--vermelho);color:var(--mar-900);
-  font-size:12.5px;font-weight:700;line-height:1.45;padding:11px 16px;
+  font-size:14px;font-weight:700;line-height:1.45;padding:11px 16px;
   --ch:9px;clip-path:var(--corte);
   animation:sobe-faixa .22s var(--saida);
 }
@@ -1312,7 +1862,8 @@ body.com-ficha{overflow:hidden}
   padding-top:env(safe-area-inset-top, 0px);
 }
 @media (max-width:760px){
-  :root{--barra-h:54px}
+  /* 60 no celular, contra os 64 das irmãs — mesma proporção do desktop. */
+  :root{--barra-h:60px}
   .aviso{bottom:calc(16px + env(safe-area-inset-bottom, 0px))}
 }
 
