@@ -127,6 +127,17 @@ a tela e travar significa parar de receber.
   tela mostraria o turno de meia hora atrás e o operador não teria como saber.
 - A página é `/operador/painel` e a API é `/operador/fila` — a rota HTML **não
   sombreia** o router, mesma convenção do admin e do cliente.
+- **A coluna d'água deita em TODA largura** (desde 27/08/2026), não só no
+  celular — e por isso existe uma renderização do tanque, não duas. Em pé ela
+  mandava na altura do item (a pilha custava 100px) e deixava a régua de SLA
+  87% vazia. As regras que invertem os eixos (lâmina, crista, faixas, limiar)
+  são a **base** da folha; o bloco de celular só ajusta medidas. Mudou a peça
+  no `cliente.css`/`landing.css`? Muda aqui também.
+- **A etiqueta mono tem um tamanho só: 10,5px.** Havia cinco degraus abaixo de
+  11px na mesma tela. Ao criar etiqueta nova, use 10,5 — não invente o sexto.
+  Duas exceções deliberadas: o rótulo do tanque é Archivo de 12px (nome próprio
+  do cadastro, não etiqueta) e o número do chamado tem 11,5px (é por ele que se
+  procura o item ao telefone).
 - **São TRÊS faixas de layout, não duas** (desde 27/08/2026): acima de 1080px a
   fila e o trilho são colunas; de 1080 a 760 o trilho **desce** e vira faixa
   horizontal; abaixo de 760 entra o layout de celular. Os dois números vêm das

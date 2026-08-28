@@ -287,7 +287,7 @@ body{
 .marca{display:flex;align-items:center;gap:11px;flex-shrink:0}
 .marca img{height:30px;width:auto;display:block}
 .marca span{
-  font-family:var(--mono);font-size:.58rem;
+  font-family:var(--mono);font-size:10.5px;
   letter-spacing:.14em;color:var(--muted);text-transform:uppercase;
 }
 /* ═══ O CABEÇALHO DA TELA ═══════════════════════════════════════════
@@ -445,7 +445,7 @@ body{
 }
 .fila-cab h2{margin:0;font-size:12px;font-weight:800;color:var(--text-dim)}
 .fila-cab span{
-  font-family:var(--mono);font-size:.58rem;
+  font-family:var(--mono);font-size:10.5px;
   letter-spacing:.1em;color:var(--muted);text-transform:uppercase;
 }
 
@@ -469,18 +469,35 @@ body{
    relógios já existem no schema (`sla_definicoes`: ttfr_min, ttr_min,
    sla_chegada_min por prioridade) e o SLA estourado já é elevado a
    alerta crítico pelo sistema. */
+/* ⚠️ ALINHADA AO TOPO, nao centrada. Centrada, ela punha 46px de conteudo
+   no meio de uma coluna de 256 — 82% de vazio, medido — e o tempo de cada
+   item caia numa altura diferente do titulo a que pertence. No topo ela le
+   como a ETIQUETA do item: varrendo a coluna da esquerda, cada tempo esta na
+   linha do seu chamado. O campo de cor continua preenchendo a coluna inteira,
+   que e o que faz o item estourado acender por completo. */
 .relogio-sla{
   border-right:1px solid var(--fio-fraco);
   padding:13px 12px;display:flex;flex-direction:column;
-  align-items:center;justify-content:center;text-align:center;gap:3px;
+  align-items:center;justify-content:flex-start;text-align:center;gap:3px;
 }
 .sla-n{
   font-family:var(--mono);font-weight:700;
   font-size:1.42rem;line-height:1;letter-spacing:-.03em;
   font-feature-settings:"tnum";color:var(--text);
 }
+/* ⚠️ A ETIQUETA MONO DESTA FOLHA TEM UM TAMANHO SO: 10,5px.
+   Havia quatro degraus abaixo de 11px convivendo dentro do mesmo item —
+   .55rem (8,8) na regua, na origem e no selo, .58rem (9,28) no bairro,
+   .6rem (9,6) no rotulo do tanque, .68rem (10,88) no numero do chamado.
+   Nenhum era escolha: eram quatro chutes na mesma faixa, e juntos produziam
+   a tela de "um monte de coisa escrita pequeninho" que o Pedro apontou em
+   27/08. O contraste ja tinha sido corrigido no passe anterior (piso de
+   5,2:1); o TAMANHO nao. Caixa alta em mono e o tratamento mais caro de ler
+   que este sistema tem — se existe, tem que existir grande o bastante.
+   O rotulo do tanque saiu da familia (virou nome proprio em Archivo) e o
+   numero do chamado fica meio degrau acima, porque e ele que se procura. */
 .sla-rot{
-  font-family:var(--mono);font-size:.55rem;
+  font-family:var(--mono);font-size:10.5px;
   letter-spacing:.1em;text-transform:uppercase;color:var(--muted);
   line-height:1.3;
 }
@@ -494,7 +511,7 @@ body{
 .item-corpo{padding:11px 16px 11px 15px;min-width:0;display:flex;flex-direction:column;gap:7px}
 .item-topo{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
 .num{
-  font-family:var(--mono);font-size:.68rem;
+  font-family:var(--mono);font-size:11.5px;
   font-weight:700;color:var(--muted);font-feature-settings:"tnum";
   letter-spacing:.03em;flex-shrink:0;
 }
@@ -509,7 +526,7 @@ body{
 /* Selo: preenchido quando pede ação, de fio em repouso. Só UMA dimensão
    preenche por linha — aqui, a prioridade. Status fica de fio. */
 .selo{
-  font-family:var(--mono);font-size:.55rem;
+  font-family:var(--mono);font-size:10.5px;
   font-weight:700;letter-spacing:.1em;padding:3px 7px;flex-shrink:0;
   text-transform:uppercase;
   clip-path:var(--corte-p);
@@ -526,21 +543,30 @@ body{
    junto com o bairro, e é o dado por onde o operador acha o item quando o
    técnico liga perguntando "qual endereço?". Mono uppercase continua sendo a
    etiqueta — mas do bairro, que é classificação. O nome é conteúdo. */
+/* `width:100%` porque a origem, que agora mora no fim desta linha, encosta
+   a direita por `margin-left:auto` — sem a largura cheia o `auto` nao tem
+   folga nenhuma para empurrar. */
 .onde{
-  display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;
+  display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;width:100%;
   font-size:12.5px;color:var(--text-dim);
 }
 .onde-nome{font-weight:700;color:var(--text-dim);letter-spacing:-.005em}
 .onde-bairro{
-  font-family:var(--mono);font-size:.58rem;
+  font-family:var(--mono);font-size:10.5px;
   letter-spacing:.09em;color:var(--muted);text-transform:uppercase;
 }
 .onde i{width:3px;height:3px;background:var(--muted);font-style:normal;flex-shrink:0;align-self:center}
 
 /* ── A EVIDÊNCIA: o que este item tem para mostrar ────────────────── */
+/* ⚠️ A TRILHA DOS TANQUES É FIXA, não `max-content`. Com `max-content` a
+   largura mudava com o número de reservatórios (153px com um, 277 com dois),
+   e o texto da prova começava num x diferente em cada item — numa fila que se
+   lê varrendo de cima para baixo, isso é o começo da linha fugindo do olho.
+   `align-items:start` porque a barra deitada é baixa: centrado, um texto de
+   três linhas empurrava os tanques para o meio do item. */
 .prova{
-  display:grid;grid-template-columns:max-content 1fr;gap:18px;align-items:center;
-  padding:4px 0 2px;
+  display:grid;grid-template-columns:320px minmax(0,1fr);
+  column-gap:22px;align-items:start;padding:4px 0 2px;
 }
 .prova[data-sem="1"]{grid-template-columns:1fr}
 /* ═══════════════════════════════════════════════════════════════════
@@ -568,39 +594,65 @@ body{
    registra que a 8px eles são ilegíveis, e foi por isso que caíram quando
    havia três tubos. As linhas tracejadas ficam — sem elas as faixas viram
    mancha sem explicação. */
-.prova-tanques{display:flex;gap:10px;align-items:flex-start}
+/* ⚠️ A COLUNA DEITA EM TODA LARGURA (27/08/2026, decisão do Pedro), e não só
+   no celular. Em pé ela era a peça vertical da landing e do painel do
+   cliente — mas aqui ela MANDAVA NA ALTURA DO ITEM e nenhuma das outras três
+   regiões tinha altura para acompanhar. Medido antes da mudança: a régua de
+   SLA ficava 71–87% vazia, a coluna de ações 55–73%, e a pilha do tanque
+   sozinha custava 100px por item (os itens sem telemetria fechavam em 156px,
+   os com telemetria em 258).
+   Deitada, a barra usa a largura — que é o que sobra nesta tela — e devolve
+   altura. É a mesma troca que a landing faz a 760px e o cliente a 820, pelo
+   mesmo motivo escrito lá; aqui ela vale em qualquer largura porque o item
+   da fila é largo e baixo por natureza.
+   ⚠️ Agora existe UMA renderização do tanque, não duas: as regras de deitar
+   saíram do bloco de celular e viraram a base. O celular só ajusta medidas.
+   ⚠️ Deitada, TODO eixo do desenho troca. Cada regra abaixo tem par no
+   `landing.css` e no `cliente.css`; mudou lá, muda aqui:
+     lâmina  desce por translateY  →  desliza por translateX (para a
+             ESQUERDA: `--n - 100%`, então a borda direita para em `--n`)
+     crista  borda de cima         →  borda da direita
+     faixas  bottom/height         →  left/width
+     limiar  border-top            →  border-left */
+.prova-tanques{display:flex;flex-direction:column;gap:8px;width:100%}
 /* A célula é mais larga que o tubo: "Cisterna" e "Sup. A" não cabem em
    40px e encostavam uma na outra. O tubo continua com 40 e centraliza. */
 /* A célula acompanha o NOME, não o tubo: "Reserva Incêndio" e "Caixa
    Superior 1" são nomes reais do cadastro e não cabem numa largura fixa —
    truncados ("Caixa S…"), viram adivinhação no meio de uma decisão. O tubo
    continua com 34 e centraliza dentro da célula. */
-.tanque{flex:0 0 auto;width:auto;min-width:56px;max-width:112px;padding:0 3px;text-align:center}
+/* Deitada, a célula É a linha inteira — nada de `max-width`, que esmagaria a
+   barra até virar um risco. */
+.tanque{width:100%;min-width:0;max-width:none;padding:0;text-align:left}
+/* Nome à esquerda, barra no meio, leitura à direita. 96px de nome porque
+   "Caixa Superior 1" e "Reserva Incêndio" são nomes reais do cadastro:
+   truncados viram adivinhação no meio de uma decisão. */
+.res{display:grid;grid-template-columns:96px minmax(0,1fr) 48px;align-items:center;gap:10px}
 
 .tubo{
-  display:block;position:relative;--ch:5px;clip-path:var(--corte);
-  width:34px;height:110px;margin:0 auto;background:var(--mar-900);
+  display:block;position:relative;--ch:4px;clip-path:var(--corte);
+  width:100%;height:34px;margin:0;background:var(--mar-900);
   box-shadow:inset 0 0 0 1px var(--fio);overflow:hidden;
 }
-.faixa{position:absolute;left:0;right:0}
+.faixa{position:absolute;top:0;bottom:0}
 /* ⚠️ 16% e 18%, não os 11% e 13% do cliente. A opacidade é a mesma tinta,
    mas a área não: lá a faixa tem 67px de altura num tubo de 268, aqui tem
    33 num de 132. Percepção de cor cai com a área, e a 11% a banda de
    atenção sumia — virava mancha sem explicação, que é justamente o que as
    faixas existem para evitar. Conferido na tela, não deduzido. */
-.faixa-baixo{bottom:20%;height:25%;background:color-mix(in srgb,var(--amarelo) 16%,transparent)}
-.faixa-critico{bottom:0;height:20%;background:color-mix(in srgb,var(--risco) 18%,transparent)}
+.faixa-baixo{left:20%;width:25%;background:color-mix(in srgb,var(--amarelo) 16%,transparent)}
+.faixa-critico{left:0;width:20%;background:color-mix(in srgb,var(--risco) 18%,transparent)}
 .agua{
   position:absolute;inset:0;
-  background:linear-gradient(180deg,var(--mar-500) 0%,var(--mar-600) 55%,var(--mar-700) 100%);
-  transform:translateY(calc(100% - var(--n,0%)));
+  background:linear-gradient(to left,var(--mar-500) 0%,var(--mar-600) 55%,var(--mar-700) 100%);
+  transform:translateX(calc(var(--n,0%) - 100%));
   transition:transform 1.15s cubic-bezier(.16,1,.3,1);will-change:transform;
 }
 /* Só no crítico a lâmina escurece para vinho — os mesmos dois valores da
    landing. No baixo a água continua azul e quem avisa é a crista âmbar. */
-.res.critico .agua{background:linear-gradient(180deg,#7a1e2c 0%,#4a1220 100%)}
+.res.critico .agua{background:linear-gradient(to left,#7a1e2c 0%,#4a1220 100%)}
 .crista{
-  position:absolute;left:0;right:0;top:0;height:3px;background:var(--crista);
+  position:absolute;left:auto;right:0;top:0;bottom:0;width:3px;background:var(--crista);
   box-shadow:0 0 14px 1px color-mix(in srgb,var(--crista) 55%,transparent);
 }
 .res.baixo .crista{
@@ -611,9 +663,9 @@ body{
   background:var(--risco);
   box-shadow:0 0 14px 1px color-mix(in srgb,var(--risco) 60%,transparent);
 }
-.limiar{position:absolute;left:0;right:0;border-top:1px dashed var(--fio-forte);pointer-events:none}
-.limiar-baixo{bottom:45%}
-.limiar-critico{bottom:20%;border-top-color:color-mix(in srgb,var(--risco) 60%,transparent)}
+.limiar{position:absolute;top:0;bottom:0;border-left:1px dashed var(--fio-forte);pointer-events:none}
+.limiar-baixo{left:45%}
+.limiar-critico{left:20%;border-left-color:color-mix(in srgb,var(--risco) 60%,transparent)}
 
 /* Sensor mudo: SEM LEITURA, não sem água — hachura no mesmo -45° do
    chanfro, nunca tubo vazio. Nada de crista e nada de lâmina: uma linha
@@ -629,34 +681,39 @@ body{
 .selo-mudo{
   position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
   --ch:4px;clip-path:var(--corte);background:var(--fio);
-  width:26px;height:26px;display:grid;place-items:center;
+  width:22px;height:22px;display:grid;place-items:center;
   pointer-events:none;isolation:isolate;
 }
 .selo-mudo::before{
   content:"";position:absolute;inset:1px;z-index:-1;
   clip-path:var(--corte);background:var(--mar-900);
 }
-.selo-mudo svg{width:14px;height:14px;stroke:var(--sobre-2)}
+.selo-mudo svg{width:12px;height:12px;stroke:var(--sobre-2)}
 
 /* O número vive FORA do tubo, como no cliente. Isso resolve de vez o
    amarelo-sobre-amarelo que a placa do cilindro precisava contornar: o
-   texto nunca mais fica sobre a lâmina. */
+   texto nunca mais fica sobre a lâmina. Deitada a barra, ele passa da base
+   para a DIREITA dela — é o fim da linha de leitura "nome · quanto tem". */
 .res-num{
-  font-family:var(--mono);font-size:1.02rem;
+  font-family:var(--mono);font-size:1.05rem;
   font-weight:700;font-feature-settings:"tnum";letter-spacing:-.02em;
-  line-height:1.1;margin-top:7px;color:var(--text);
+  line-height:1.1;margin-top:0;text-align:right;color:var(--text);
 }
 .res.baixo   .res-num{color:var(--amarelo)}
 .res.critico .res-num{color:var(--risco)}
 .res.mudo    .res-num{color:var(--sobre-2)}
-/* ⚠️ .6rem (9,6px), não .5rem (8px). O brief do painel do cliente registra
-   que rótulo a 8px é ilegível no celular — e aqui ele estava a 8px E cortado
-   ("Superior…", "Caixa Su…"), que é o nome do tanque virando adivinhação.
-   A célula foi para 62px pelo mesmo motivo. */
+/* ⚠️ SAIU DO MONO MINÚSCULO (27/08). Ele era mono a 9,6px, cortado com
+   reticências — mas "Caixa Superior 1" é NOME PRÓPRIO de um reservatório do
+   cadastro, não etiqueta de sistema, e o mono em caixa alta desta folha é
+   reservado a medição e etiqueta. Em Archivo de 12px ele lê como nome, cabe
+   inteiro na coluna de 96px e pode quebrar em duas linhas sem crescer a
+   altura da linha (a barra tem 34px).
+   `order:-1` porque no DOM ele vem depois do tubo e do número; na linha ele
+   é o primeiro. */
 .tanque-lbl{
-  font-family:var(--mono);font-size:.6rem;
-  letter-spacing:.03em;color:var(--muted);margin-top:4px;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  order:-1;font-family:var(--fonte);font-size:12px;line-height:1.25;
+  letter-spacing:-.005em;color:var(--text-dim);margin-top:0;text-align:left;
+  white-space:normal;overflow:visible;text-overflow:clip;
 }
 /* ⚠️ MEDIDA DE LINHA em `ch`, como no painel do cliente e na landing. Sem
    teto, a linha ia a 800–1000px (110–140 caracteres) e o olho perdia o
@@ -679,17 +736,15 @@ body{
   font-size:12.5px;line-height:1.55;color:var(--text-dim);font-style:italic;
   max-width:66ch;
 }
+/* O quinto degrau que faltava: .56rem (8,96px) era o menor tipo da tela, e
+   ele carrega a frase que EXPLICA por que o item não tem instrumento. */
 .semtel{
   display:flex;align-items:center;gap:9px;
-  font-family:var(--mono);font-size:.56rem;
+  font-family:var(--mono);font-size:10.5px;
   letter-spacing:.09em;text-transform:uppercase;color:var(--muted);
 }
 .semtel svg{color:var(--muted);flex-shrink:0}
 
-.item-pe{
-  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
-  margin-top:auto;padding-top:3px;
-}
 /* A coluna das ações. Fio à esquerda para ela ler como parte usinada da
    mesma placa, não como um segundo cartão colado. */
 .item-acoes{
@@ -703,9 +758,9 @@ body{
 }
 .origem{
   display:flex;align-items:center;gap:7px;
-  font-family:var(--mono);font-size:.55rem;
+  font-family:var(--mono);font-size:10.5px;
   letter-spacing:.09em;text-transform:uppercase;color:var(--muted);
-  margin-right:auto;
+  margin-left:auto;
 }
 .origem svg{flex-shrink:0}
 .origem i{width:3px;height:3px;background:var(--muted);font-style:normal;flex-shrink:0}
@@ -746,7 +801,7 @@ body{
 }
 .andando-cab h2{margin:0;font-size:12px;font-weight:800;color:var(--text-dim)}
 .andando-cab span{
-  font-family:var(--mono);font-size:.58rem;
+  font-family:var(--mono);font-size:10.5px;
   letter-spacing:.1em;color:var(--muted);text-transform:uppercase;
 }
 
@@ -776,7 +831,7 @@ body{
 .calmo p{margin:0 auto;max-width:48ch;color:var(--text-dim);font-size:14px;line-height:1.6}
 .calmo-marca{
   display:inline-flex;align-items:center;gap:9px;margin:22px auto 0;
-  font-family:var(--mono);font-size:.6rem;
+  font-family:var(--mono);font-size:10.5px;
   letter-spacing:.14em;color:var(--ok);text-transform:uppercase;
 }
 .calmo-marca i{width:7px;height:7px;background:var(--ok);font-style:normal}
@@ -801,7 +856,7 @@ body{
 }
 .trilho h2{
   margin:0 0 10px;font-family:var(--mono);
-  font-size:.6rem;letter-spacing:.13em;color:var(--muted);
+  font-size:10.5px;letter-spacing:.13em;color:var(--muted);
   text-transform:uppercase;font-weight:500;
 }
 .tec{
@@ -818,14 +873,14 @@ body{
 }
 .tec-nome{font-size:12.5px;font-weight:700;line-height:1.25}
 .tec-est{
-  font-family:var(--mono);font-size:.55rem;
+  font-family:var(--mono);font-size:10.5px;
   letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin-top:2px;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:22ch;
 }
 .tec[data-liv="1"] .tec-est{color:var(--ok)}
 .tec-dist{
   margin-left:auto;font-family:var(--mono);
-  font-size:.6rem;color:var(--text-dim);font-feature-settings:"tnum";
+  font-size:10.5px;color:var(--text-dim);font-feature-settings:"tnum";
   white-space:nowrap;flex-shrink:0;
 }
 
@@ -955,7 +1010,7 @@ body.com-ficha{overflow:hidden}
 }
 .escolha h3{
   margin:0 0 4px;font-family:var(--mono);
-  font-size:.6rem;letter-spacing:.13em;color:var(--tinta-2);
+  font-size:10.5px;letter-spacing:.13em;color:var(--tinta-2);
   text-transform:uppercase;font-weight:500;
 }
 .cand{
@@ -976,10 +1031,15 @@ body.com-ficha{overflow:hidden}
 }
 /* Quem está indisponível não ganha nota de GPS (ver `dlgDespacho`): a linha
    cabe numa só, e a posição de quem não pode ir não decide nada. */
+/* ⚠️ QUEBRA, não trunca. Com a etiqueta a 10,5px "DISPONÍVEL · NO MAPA" não
+   cabe mais numa linha desta coluna, e com `ellipsis` ela virava
+   "DISPONÍVEL · N…" — cortando exatamente a metade que diz se dá para achar
+   o técnico. Mesmo argumento do rótulo do tanque: cortado, vira adivinhação
+   no meio de uma decisão. O cartão tem altura para as duas linhas. */
 .cand-est{
-  font-family:var(--mono);font-size:.55rem;
+  font-family:var(--mono);font-size:10.5px;line-height:1.35;
   letter-spacing:.09em;text-transform:uppercase;color:var(--tinta-2);margin-top:2px;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  white-space:normal;overflow:visible;text-overflow:clip;
 }
 .cand[data-liv="1"] .cand-est{color:var(--normal-t);font-weight:700}
 /* ⚠️ A hierarquia estava invertida. O comp tinha DISTÂNCIA aqui ("2,1 km"),
@@ -990,7 +1050,7 @@ body.com-ficha{overflow:hidden}
 .cand-eta{margin-left:auto;text-align:right;flex-shrink:0;font-family:var(--mono);font-feature-settings:"tnum"}
 .cand-eta b{display:block;font-size:.78rem;color:var(--tinta);font-weight:700}
 .cand-eta span{
-  display:block;font-size:.55rem;letter-spacing:.08em;color:var(--tinta-2);
+  display:block;font-size:10.5px;letter-spacing:.08em;color:var(--tinta-2);
   text-transform:uppercase;margin-top:2px;
 }
 
@@ -1004,7 +1064,7 @@ body.com-ficha{overflow:hidden}
 .ev{display:grid;grid-template-columns:74px 1fr;gap:14px;padding:9px 0;border-bottom:1px solid var(--fio-esc)}
 .ev:last-child{border-bottom:0}
 .ev-h{
-  font-family:var(--mono);font-size:.6rem;
+  font-family:var(--mono);font-size:10.5px;
   letter-spacing:.06em;color:var(--tinta-2);font-feature-settings:"tnum";padding-top:2px;
 }
 .ev-t{font-size:12.5px;line-height:1.5;color:var(--tinta-2)}
@@ -1012,7 +1072,7 @@ body.com-ficha{overflow:hidden}
 .ficha-lado{display:flex;flex-direction:column;gap:14px}
 .ficha-lado h4{
   margin:0 0 8px;font-family:var(--mono);
-  font-size:.58rem;letter-spacing:.12em;color:var(--tinta-2);
+  font-size:10.5px;letter-spacing:.12em;color:var(--tinta-2);
   text-transform:uppercase;font-weight:500;
 }
 .dado{display:flex;justify-content:space-between;gap:10px;padding:5px 0;font-size:12px;border-bottom:1px solid var(--fio-esc)}
@@ -1025,7 +1085,7 @@ body.com-ficha{overflow:hidden}
 .campo{display:flex;flex-direction:column;gap:5px;min-width:0}
 .campo.largo{grid-column:1 / -1}
 .campo label{
-  font-family:var(--mono);font-size:.56rem;
+  font-family:var(--mono);font-size:10.5px;
   letter-spacing:.1em;color:var(--tinta-2);text-transform:uppercase;
 }
 /* Campo branco sobre a chapa — o mesmo do painel do cliente. O `color-scheme`
@@ -1145,62 +1205,20 @@ body.com-ficha{overflow:hidden}
     padding:9px 14px;text-align:left;
   }
   .sla-n{font-size:1.15rem}
-  .sla-rot{font-size:.55rem}
+  /* a regua nao encolhe: 10,5px e o tamanho da etiqueta em toda a folha */
   .item-corpo{padding:12px 14px}
   .prova{grid-template-columns:1fr;gap:12px}
 
-  /* ── A COLUNA DEITA, como na landing (760px) e no painel do cliente (820) ──
-     O motivo é o mesmo registrado lá: em pé e estreita ela desperdiça a
-     largura da tela e empurra o resto para baixo da dobra; deitada, ganha a
-     largura toda e devolve altura. Aqui rende mais ainda, porque são até
-     TRÊS por item — em pé seriam ~400px só de tubo.
-     ⚠️ Deitada, TODO eixo do desenho troca. Cada regra abaixo tem par no
-     `landing.css` e no `cliente.css`; mudou lá, muda aqui:
-       lâmina  desce por translateY  →  desliza por translateX (para a
-               ESQUERDA: `--n - 100%`, então a borda direita para em `--n`)
-       crista  borda de cima         →  borda da direita
-       faixas  bottom/height         →  left/width
-       limiar  border-top            →  border-left
-     ⚠️ O vinho do crítico deita junto — o gradiente dele também inverte. */
-  .prova-tanques{flex-direction:column;gap:8px;width:100%}
-  /* ⚠️ Zera os limites da célula do desktop: deitada, a célula É a linha
-     inteira, e um `max-width` herdado esmaga a barra até virar um risco. */
-  .tanque{width:100%;min-width:0;max-width:none;padding:0;text-align:left}
-  /* Nome à esquerda, barra no meio, leitura à direita: deitado, o rótulo
-     deixa de precisar caber em 54px e volta a ser palavra inteira. */
-  /* 84px, não 58: "Caixa Superior 1" e "Reserva Incêndio" são nomes reais e
-     saíam cortados ("Caixa Super"). A barra perde 26px e continua legível; o
-     nome do tanque, cortado, não. */
-  .res{display:grid;grid-template-columns:84px 1fr 46px;align-items:center;gap:10px}
-  .tubo{--ch:4px;width:100%;height:34px;margin:0}
-  .agua{
-    background:linear-gradient(to left,var(--mar-500) 0%,var(--mar-600) 55%,var(--mar-700) 100%);
-    transform:translateX(calc(var(--n,0%) - 100%));
-  }
-  .res.critico .agua{background:linear-gradient(to left,#7a1e2c 0%,#4a1220 100%)}
-  .crista{left:auto;right:0;top:0;bottom:0;width:3px;height:auto}
-  .faixa{top:0;bottom:0;left:auto;right:auto}
-  .faixa-baixo{left:20%;width:25%;height:auto}
-  .faixa-critico{left:0;width:20%;height:auto}
-  .limiar{top:0;bottom:0;left:auto;right:auto;border-top:0;border-left:1px dashed var(--fio-forte)}
-  .limiar-baixo{left:45%}
-  .limiar-critico{left:20%;border-left-color:color-mix(in srgb,var(--risco) 60%,transparent)}
-  .selo-mudo{width:22px;height:22px}
-  .selo-mudo svg{width:12px;height:12px}
-  /* Deitado o rótulo pode QUEBRAR: a linha tem 34px de altura e duas linhas
-     de 9,6px cabem sem crescer nada. "Caixa Superior 1" cortado era o mesmo
-     defeito de sempre, só que numa coluna de 84px. */
-  .tanque-lbl{
-    order:-1;margin-top:0;text-align:left;font-size:.56rem;line-height:1.25;
-    white-space:normal;overflow:visible;text-overflow:clip;
-  }
-  .res-num{margin-top:0;text-align:right;font-size:.95rem}
-  /* A origem ganha linha própria e os botões ficam lado a lado. Com
-     `margin-right:auto` numa coluna estreita ela empurrava "Abrir ficha"
-     para uma terceira linha. */
-  .item-pe{gap:9px;flex-wrap:wrap}
-  .item-pe .origem{width:100%;margin-right:0}
-  .item-pe{padding-top:0}
+  /* ── A coluna d'água no celular ──
+     Deitar deixou de ser coisa do celular em 27/08: agora é a base, e as
+     trinta e poucas linhas que viviam aqui (eixos da lâmina, da crista, das
+     faixas e do limiar) subiram para lá. Sobrou o que de fato muda numa
+     coluna estreita — o nome perde 12px e a leitura, meio degrau. */
+  .res{grid-template-columns:84px minmax(0,1fr) 46px}
+  .res-num{font-size:.95rem}
+  /* Numa coluna estreita a origem nao cabe no fim da linha do predio: ela
+     quebra para a linha seguinte e volta a encostar a esquerda. */
+  .onde .origem{width:100%;margin-left:0;margin-top:2px}
   .comB{grid-template-columns:1fr}
   .trilho{
     position:static;max-height:none;min-height:0;border-left:0;

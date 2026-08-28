@@ -5193,6 +5193,83 @@ Verificado com as três telas montadas no navegador contra dados de teste
 (`/operador/painel` e `/cliente/painel` exigem login real), em 1544, 900, 620 e
 430px, mais o diálogo nos dois registros.
 
+### 2026-08-27 · A coluna d'água deita, e a etiqueta mono tem um tamanho só
+
+*"muito espaço livre com um monte de coisa escrito pequeninho"* — o Pedro
+apontou o item da fila num recorte de tela. Medido, ele tinha razão duas vezes.
+
+**O espaço vazio, em números.** O item era um grid de três colunas cuja altura
+saía inteira da pilha do tanque (tubo 110 + número + rótulo = 153px). Nenhuma
+das outras regiões tinha altura para acompanhar:
+
+| item | altura | régua de SLA | coluna de ações |
+|---|---|---|---|
+| #4821 | 258px | **87% vazia** | 73% vazia |
+| #4820 | 258px | 82% vazia | 73% vazia |
+| #4815 | 258px | 82% vazia | 73% vazia |
+| sem telemetria | 156px | 81% vazia | 55% vazia |
+
+A pilha do tanque sozinha custava **100px por item** — a diferença entre os
+itens com e sem telemetria.
+
+**A decisão foi do Pedro: a coluna deita em toda largura**, não só no celular.
+Em pé ela é a peça vertical da landing e do painel do cliente; aqui ela mandava
+na altura de um item que é largo e baixo por natureza. Deitada, a barra usa a
+largura — que é o que sobra nesta tela — e devolve altura. É a mesma troca que
+a landing faz a 760px e o cliente a 820, pelo mesmo motivo escrito lá.
+
+Depois: **258 → 161px** no item de dois reservatórios, **258 → 126** no de um,
+**258 → 119** no mudo. Três itens completos na primeira tela em vez de dois, e
+alturas que variam 119–161 em vez de 156–258. Ganho colateral: existe **uma**
+renderização do tanque, não duas — as trinta e poucas linhas que invertiam os
+eixos da lâmina, da crista, das faixas e do limiar saíram do bloco de celular e
+viraram a base.
+
+**O tipo minúsculo.** Havia **cinco** degraus abaixo de 11px convivendo na
+mesma tela: 8,8px (régua, origem, selo), 8,96 (a frase "prédio sem telemetria"),
+9,28 (bairro), 9,6 (rótulo do tanque), 10,88 (número do chamado) — mais 8,8 e
+9,6 no trilho e nos diálogos. Nenhum era escolha; eram chutes na mesma faixa.
+O passe de 21/08 tinha corrigido o **contraste** dessas etiquetas (piso de
+5,2:1) e não o **tamanho**.
+
+Agora a etiqueta mono tem **um tamanho só, 10,5px**, nas quatorze ocorrências
+da folha. Duas saíram da família: o rótulo do tanque virou Archivo de 12px
+(*"Caixa Superior 1"* é nome próprio do cadastro, não etiqueta de sistema) e o
+número do chamado ficou meio degrau acima, em 11,5px, porque é por ele que se
+procura o item quando o técnico liga.
+
+**Duas mudanças de composição no mesmo passe:**
+
+- **A régua de SLA alinha ao topo**, não ao centro. Centrada, o tempo de cada
+  item caía numa altura diferente do título a que pertence; no topo ela lê como
+  a etiqueta do item, e varrer a coluna da esquerda passa a funcionar. O campo
+  de cor continua cheio, que é o que faz o item estourado acender por inteiro.
+- **A origem subiu para o fim da linha do prédio.** Ela tinha linha própria no
+  pé do item — 23px de altura em todo item para carregar 175px de etiqueta,
+  enquanto a linha do prédio usava 200 dos seus 703. Encostada à direita ela
+  cai no mesmo x em toda a fila, e a linha responde as duas perguntas de
+  contexto de uma vez. `.item-pe` virou CSS morto e saiu.
+
+E a trilha dos tanques virou largura fixa (320px): com `max-content` o texto da
+prova começava num x diferente conforme o número de reservatórios — numa fila
+que se lê varrendo de cima para baixo, é o começo da linha fugindo do olho.
+
+⚠️ **Uma regressão apareceu e foi corrigida no mesmo passe:** com a etiqueta a
+10,5px, `"DISPONÍVEL · NO MAPA"` deixou de caber na coluna de candidatos do
+diálogo de despacho e o `ellipsis` cortava em `"DISPONÍVEL · N…"` — justamente
+a metade que diz se dá para achar o técnico. Passou a quebrar em duas linhas;
+o cartão tem altura.
+
+Verificado na prévia (`/dev/_operador-preview.html`) em 1544, 900 e 430px, com
+os dois diálogos abertos: nenhum texto abaixo de 10px fora do crédito do
+OpenStreetMap, nenhum contraste abaixo de AA, sem rolagem horizontal, e nada
+truncado.
+
+⚠️ O detector passou de 36 para 44 advertências de `font-size` — e isso é
+efeito da consolidação, não regressão: os valores que estavam em `rem` viraram
+literais em `px`, que é o que o registro de operação usa. A advertência
+continua sendo a conhecida das cinco folhas.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

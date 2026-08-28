@@ -55,6 +55,27 @@ para o Pedro. Verifiquei exercitando o serviço com o SDK do Resend trocado no
 cache do `require` (carta, painel e legado sem modo, HTML e texto puro), o que
 prova o template montado, não a entrega.
 
+## Sessão 2026-08-27 — Densidade do item da fila
+
+*"muito espaço livre com um monte de coisa escrito pequeninho"*, sobre um
+recorte do item. Medido antes de mexer: régua de SLA **71–87% vazia**, coluna de
+ações 55–73%, e a pilha do tanque mandando na altura (100px por item).
+
+- 🔴 **A coluna d'água deita em toda largura** — decisão do Pedro no meio do
+  passe, depois de eu tentar preservar a peça vertical encolhendo-a. Ele estava
+  certo: em pé ela nunca ia parar de mandar na altura. Item de **258 → 161/126/119px**.
+  Ganho colateral: uma renderização do tanque, não duas.
+- **A etiqueta mono virou um tamanho só (10,5px)** nas quatorze ocorrências.
+  Eram cinco degraus abaixo de 11px. O passe de 21/08 tinha corrigido o
+  contraste dessas etiquetas e **não o tamanho** — a lição é essa: piso de
+  contraste passando não quer dizer que dá para ler.
+- Régua alinhada ao topo; origem subiu para o fim da linha do prédio
+  (`.item-pe` virou CSS morto e saiu); trilha dos tanques com largura fixa.
+- ⚠️ Regressão pega no mesmo passe: a 10,5px o `ellipsis` cortava
+  `"DISPONÍVEL · NO MAPA"` em `"DISPONÍVEL · N…"` no diálogo de despacho.
+- ⚠️ O detector foi de 36 para 44 advertências de `font-size` — efeito de
+  trocar `rem` por `px`, não regressão.
+
 ## Sessão 2026-08-27 — O operador visto ao lado das irmãs, no navegador
 
 Terceiro passe na mesma tela. A diferença de método é o assunto: os dois

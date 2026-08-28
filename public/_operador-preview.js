@@ -26,7 +26,7 @@
   localStorage.setItem("userRole", "operador");
 
   var FIX = {
-  "agora": "2026-08-27T23:31:40.967Z",
+  "agora": "2026-08-28T00:08:22.888Z",
   "limiares": {
     "baixo": 45,
     "critico": 20
@@ -39,7 +39,7 @@
       "categoria": "nivel_baixo",
       "prioridade": "p1",
       "status": "aberto",
-      "criado_em": "2026-08-27T19:57:40.967Z",
+      "criado_em": "2026-08-27T20:34:22.888Z",
       "minutos_abertos": 214,
       "origem": "telemetria",
       "sla": {
@@ -83,7 +83,7 @@
       "categoria": "bomba",
       "prioridade": "p2",
       "status": "aberto",
-      "criado_em": "2026-08-27T21:55:40.967Z",
+      "criado_em": "2026-08-27T22:32:22.888Z",
       "minutos_abertos": 96,
       "origem": "whatsapp",
       "sla": {
@@ -120,7 +120,7 @@
       "categoria": "nivel_baixo",
       "prioridade": "p3",
       "status": "aberto",
-      "criado_em": "2026-08-27T20:31:40.967Z",
+      "criado_em": "2026-08-27T21:08:22.888Z",
       "minutos_abertos": 180,
       "origem": "telemetria",
       "sla": {
@@ -157,7 +157,7 @@
       "categoria": "preventiva",
       "prioridade": "p4",
       "status": "aberto",
-      "criado_em": "2026-08-27T00:11:40.967Z",
+      "criado_em": "2026-08-27T00:48:22.888Z",
       "minutos_abertos": 1400,
       "origem": "preventiva",
       "sla": null,
@@ -182,7 +182,7 @@
       "categoria": "hidraulica",
       "prioridade": "p2",
       "status": "em_atendimento",
-      "criado_em": "2026-08-27T22:33:40.967Z",
+      "criado_em": "2026-08-27T23:10:22.888Z",
       "minutos_abertos": 58,
       "origem": "manual",
       "sla": {
@@ -202,7 +202,7 @@
         "id": 3,
         "nome": "Marcos Ribeiro"
       },
-      "a_caminho_em": "2026-08-27T23:13:40.967Z",
+      "a_caminho_em": "2026-08-27T23:50:22.888Z",
       "chegou_em": null,
       "reservatorios": [],
       "tem_telemetria": false
@@ -215,7 +215,7 @@
       "disponivel": false,
       "lat": -23.648,
       "lng": -46.708,
-      "gps_em": "2026-08-27T23:27:40.967Z",
+      "gps_em": "2026-08-28T00:04:22.888Z",
       "abertos": 1
     },
     {
@@ -224,7 +224,7 @@
       "disponivel": true,
       "lat": -23.564,
       "lng": -46.651,
-      "gps_em": "2026-08-27T23:29:40.967Z",
+      "gps_em": "2026-08-28T00:06:22.888Z",
       "abertos": 0
     },
     {
@@ -233,7 +233,7 @@
       "disponivel": true,
       "lat": -23.594,
       "lng": -46.639,
-      "gps_em": "2026-08-27T23:20:40.967Z",
+      "gps_em": "2026-08-27T23:57:22.888Z",
       "abertos": 0
     },
     {
@@ -250,13 +250,13 @@
   var HIST = [
   {
     "id": 1,
-    "criado_em": "2026-08-27T19:57:40.967Z",
+    "criado_em": "2026-08-27T20:34:22.888Z",
     "tipo": "abertura",
     "descricao": "Chamado aberto automaticamente pela telemetria."
   },
   {
     "id": 2,
-    "criado_em": "2026-08-27T21:31:40.967Z",
+    "criado_em": "2026-08-27T22:08:22.888Z",
     "tipo": "nota",
     "descricao": "Tentativa de contato com o zelador, sem resposta."
   }

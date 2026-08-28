@@ -326,6 +326,12 @@ Fluxo e pegadinhas em
   engrenagem aparecia como dente solto nas frestas entre os cartões. Agora são
   **três faixas de layout** (>1080 · 1080–760 · <760), com os números da
   landing.
+- **Passe de densidade em 27/08**, a pedido do Pedro (*"muito espaço livre com
+  um monte de coisa escrito pequeninho"*). A **coluna d'água passou a deitar em
+  toda largura** — em pé ela mandava na altura do item e deixava a régua de SLA
+  87% vazia — e a **etiqueta mono virou um tamanho só (10,5px)**, no lugar dos
+  cinco degraus abaixo de 11px que conviviam na tela. Item de **258 para 126px**;
+  três na primeira tela em vez de dois.
 - ⚠️ **Nunca rodou sob a role real** — não existe usuário `operador` em produção.
 - ⚠️ **Todo `--ch` local é morto, nas cinco folhas** (medido em 27/08): o
   `var()` de uma custom property resolve onde ela é declarada, então `--corte`

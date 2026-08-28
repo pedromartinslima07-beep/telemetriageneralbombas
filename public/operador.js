@@ -199,14 +199,19 @@ function item(c, nova) {
         <h3 class="titulo">${escapar(c.titulo)}</h3>
         <span class="selo selo-fio">${STATUS_ROT[c.status] || c.status}</span>
       </div>
+      <!-- ⚠️ A ORIGEM MORA AQUI, no fim da linha do prédio — e não numa linha
+           própria no pé do item, que é onde ela estava até 27/08. Aquela linha
+           custava 23px de altura em TODO item para carregar uma etiqueta de
+           175px, enquanto a linha do prédio usava 200 dos seus 703. Encostada
+           à direita ela cai no mesmo x em toda a fila (o mesmo argumento que
+           pôs as ações em coluna própria) e a linha passa a responder as duas
+           perguntas de contexto de uma vez: onde é, e de onde veio. -->
       <div class="onde">
         <b class="onde-nome">${condo ? escapar(condo.nome) : "Sem condomínio vinculado"}</b>${
         condo?.bairro ? `<i></i><span class="onde-bairro">${escapar(condo.bairro)}</span>` : ""}
-      </div>
-      ${prova}
-      <div class="item-pe">
         <span class="origem">${o.ico}${o.rot}<i></i>${haQuanto(c.minutos_abertos)}</span>
       </div>
+      ${prova}
     </div>
     <div class="item-acoes">${acoes}</div>
   </article>`;

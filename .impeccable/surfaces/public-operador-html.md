@@ -39,8 +39,10 @@ a única peça de campo cheio da tela, e ela só acende com estado real.
   rampa fixa, sem gesto retórico. **Não é** o registro do painel do cliente.
 - **Folha autônoma.** Não carrega `admin.css` nem importa de `admin.js`. Tokens
   duplicados de propósito — a paleta agora vive em **cinco** arquivos.
-- A coluna d'água é a peça da landing/cliente (não o cilindro do admin), na
-  razão .309, e **deita no celular** como nas outras duas superfícies.
+- A coluna d'água é a peça da landing/cliente (não o cilindro do admin).
+  ⚠️ **Desde 27/08 ela deita em TODA largura aqui**, não só no celular — em pé
+  ela mandava na altura do item. Ver o passe de densidade lá embaixo; a razão
+  .309 e o tubo em pé continuam valendo na landing e no painel do cliente.
 - HTML/CSS/JS puro, CSP `script-src 'self'`. Backend não muda para viabilizar
   desenho: `GET /operador/fila` já entrega a tela inteira.
 
@@ -139,6 +141,29 @@ montadas no navegador ao mesmo tempo, medidas em 1544 / 900 / 620 / 430px.
 | Engrenagem | Máscara que a prende à faixa de campo aberto e a apaga antes do primeiro item; `top` em `px` (em `vw` o corte anda com a janela) |
 | Alvo de toque | 44px no celular |
 | Unidades | `100dvh` ao lado do `100vh`; `100svh` no diálogo |
+
+## O passe de densidade (27/08) — "muito espaco livre com coisa pequenininha"
+
+O Pedro apontou o item da fila. Medido: a regua de SLA ficava **71-87% vazia**,
+a coluna de acoes **55-73%**, e quem mandava na altura era a pilha do tanque
+(153px), que custava 100px por item.
+
+| | Regra que passou a valer |
+|---|---|
+| Coluna d'agua | **Deita em toda largura**, nao so no celular (decisao do Pedro). Uma renderizacao, na base da folha; o celular so ajusta medidas |
+| Trilha dos tanques | Largura **fixa** (320px). Com `max-content` o texto da prova comecava num x diferente por item |
+| Etiqueta mono | **Um tamanho: 10,5px.** Havia cinco degraus abaixo de 11px na mesma tela |
+| Rotulo do tanque | Archivo 12px — e nome proprio do cadastro, nao etiqueta de sistema |
+| Numero do chamado | 11,5px, meio degrau acima: e por ele que se acha o item ao telefone |
+| Regua de SLA | Alinhada ao **topo**, na altura do titulo. O campo de cor continua cheio |
+| Origem | No fim da linha do predio, encostada a direita. `.item-pe` virou CSS morto e saiu |
+
+Resultado medido: item de **258 para 161px** (dois reservatorios), **126** (um),
+**119** (mudo). Tres itens completos na primeira tela em vez de dois.
+
+⚠️ Nao truncar etiqueta com `ellipsis` nesta faixa de tamanho: a 10,5px
+"DISPONIVEL · NO MAPA" saia como "DISPONIVEL · N…", cortando a metade que
+decide. Quebra em duas linhas — o cartao tem altura.
 
 **O defeito que motivou tudo:** entre 660 e ~1090px a tela desmontava. Trilho
 rígido de 300px + item de largura fixa deixavam só o texto para ceder, e a
