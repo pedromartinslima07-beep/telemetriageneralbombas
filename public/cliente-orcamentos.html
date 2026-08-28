@@ -21,7 +21,7 @@
   <link rel="preload" href="/static/fonts/martianmono.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/static/cliente.css?v=48">
 </head>
-<body class="pagina-orcs">
+<body class="pagina-orcs" data-corte="cartao">
 
 <!--
   DIRECTION CONTRACT — orçamentos do cliente (surface/operate)
@@ -173,10 +173,28 @@
 
 <!-- ⚠️ Mesmo corte de 30 min do painel e do admin. Faltava aqui: o sindico
      era desconectado no painel e ficava logado indefinidamente nesta tela, com
-     a mesma sessao. O `aoExpirarInatividade` definido no cliente-orcamentos.js
-     faz o corte abrir o cartao por cima em vez de mandar para /login. -->
-<script src="/static/inatividade.js?v=3" defer></script>
-<script src="/static/cliente-orcamentos.js?v=14" defer></script>
+     a mesma sessao. O `aoExpirarInatividade` faz o corte abrir o cartao por
+     cima em vez de mandar para /login.
+
+     ⚠️ E O HOOK E DECLARADO AQUI, INLINE E ANTES DO inatividade.js (28/08/2026).
+     Ele morava no cliente-orcamentos.js, que entra `defer` DEPOIS — e o corte
+     de carregamento acontece dentro do inatividade.js, antes de o navegador
+     terminar de baixar as 800 linhas do outro arquivo. O hook chegava tarde,
+     a decisao desta pagina era ignorada e a tela caia em /login: exatamente
+     o que ela existe para nao fazer. Duas tentativas de adiar o corte para
+     esperar o hook falharam — o racional das duas esta no `encerrar()`.
+
+     Por isso a intencao mora no `data-corte="cartao"` do <body>: atributo,
+     nao script. Script inline resolveria a ordem mas morre na CSP desta casa
+     (`script-src 'self'`, sem nonce) — e morre CALADO, sem quebrar nada, que
+     e a pior forma de falhar. Atributo esta no DOM antes de qualquer `defer`
+     rodar, custa zero requisicao e nao depende de CSP.
+
+     O inatividade.js le o atributo, deixa a marca `_tgCorteAoCarregar` e NAO
+     redireciona; quem abre o cartao e o cliente-orcamentos.js, que le a marca
+     no seu bootstrap. -->
+<script src="/static/inatividade.js?v=8" defer></script>
+<script src="/static/cliente-orcamentos.js?v=15" defer></script>
 <script src="/static/register-sw.js?v=51" defer></script>
 </body>
 </html>

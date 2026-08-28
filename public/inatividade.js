@@ -29,7 +29,6 @@
 
   let _timer = null;
   let _ultimaGravacao = 0;
-  let _corteAgendado = false;
 
   function agora() { return Date.now(); }
 
@@ -63,38 +62,97 @@
   // Por isso a página pode declarar o que fazer; sem declaração, o padrão
   // continua sendo mandar para /login.
   function aplicarCorte() {
-    _corteAgendado = false;
+    // 1) Página já aberta: o hook existe (todo `defer` da página rodou) e sabe
+    // o que fazer. É o corte do timer de 30 min e o do `visibilitychange`.
     if (typeof window.aoExpirarInatividade === "function") {
       try { window.aoExpirarInatividade(); return; } catch (_) {}
     }
+    // 2) Corte de CARREGAMENTO: o hook ainda não existe (ver `encerrar`). A
+    // página declara a intenção por ATRIBUTO, que já está no DOM quando este
+    // `defer` roda — nada de script inline, que a CSP desta casa
+    // (`script-src 'self'`) bloqueia em silêncio. Aqui só fica a marca; quem
+    // abre o cartão é o script da página, ao carregar.
+    try {
+      if (document.body && document.body.dataset.corte === "cartao") {
+        window._tgCorteAoCarregar = true;
+        return;
+      }
+    } catch (_) {}
+    // 3) Padrão de todas as outras telas.
     window.location.href = "/login?motivo=inatividade";
   }
 
   function encerrar() {
     limparSessao();
 
-    // ⚠️ O HOOK PODE AINDA NÃO TER SIDO DECLARADO (26/08/2026).
+    // ⚠️ NO CORTE DE CARREGAMENTO NÃO DÁ PARA ESPERAR PELO HOOK (28/08/2026).
     //
-    // Este arquivo entra com `defer`, e o script que declara o
-    // `aoExpirarInatividade` também — no `cliente-orcamentos.html` ele vem
-    // DEPOIS deste. No corte de carregamento (o de quem volta com o tempo já
-    // estourado) a função ainda não existe, e aí a decisão da página era
-    // ignorada: quem clicava no link do orçamento no e-mail caía em /login com
-    // "sessão expirada" — exatamente a tela que aquela página existe para não
-    // mostrar.
+    // O corte de carregamento — o de quem volta com o tempo já estourado —
+    // acontece AQUI DENTRO, durante a execução deste `defer`. Uma página que
+    // declare o `aoExpirarInatividade` num `defer` posterior chega tarde: a
+    // decisão dela é ignorada e a pessoa cai em /login.
     //
-    // Adiar um tique resolve sem depender da ordem das tags: a fila de timers
-    // só roda depois que TODO script `defer` executou. Para quem vai mesmo para
-    // /login o atraso é invisível, e a sessão já foi apagada acima.
-    if (typeof window.aoExpirarInatividade === "function") { aplicarCorte(); return; }
-    if (_corteAgendado) return;
-    _corteAgendado = true;
-    setTimeout(aplicarCorte, 0);
+    // Duas tentativas de adiar o corte para esperar o hook fracassaram, e o
+    // registro das duas está aqui porque as duas parecem certas:
+    //
+    // 1. `setTimeout(…, 0)` (26/08) apostava que "a fila de timers só roda
+    //    depois que TODO script `defer` executou". Não roda: os `defer`
+    //    executam em ordem, mas o navegador ainda precisa BAIXAR o próximo, e
+    //    nessa espera o laço de eventos está livre. Este arquivo é pequeno e
+    //    vem do cache, o `cliente-orcamentos.js` tem 800 linhas — o timer
+    //    ganhava em 100% das cargas medidas.
+    //
+    // 2. Esperar o `DOMContentLoaded` corrigia a tela de orçamentos e QUEBRAVA
+    //    o painel: com o corte adiado, o `cliente.js` rodava antes, pedia sem
+    //    token, tomava 401 e mandava para /login?motivo=**expirado** — mesmo
+    //    destino, motivo errado na tela. Trocar uma corrida por outra não é
+    //    conserto.
+    //
+    // Então o corte volta a ser SÍNCRONO, e a página declara a intenção por
+    // ATRIBUTO em vez de por função — `data-corte="cartao"` no <body>, lido
+    // no `aplicarCorte` acima. Atributo já está no DOM quando este `defer`
+    // roda, não custa requisição e não esbarra na CSP. (Um `<script>` inline
+    // também resolveria a ordem, e foi a terceira tentativa: morre em
+    // `script-src 'self'` sem nonce, e morre calado.)
+    aplicarCorte();
+  }
+
+  // ⚠️ O CARIMBO SOBREVIVE À SESSÃO QUE O CRIOU (28/08/2026).
+  //
+  // `limparSessao` apaga os três, mas ele é o ÚNICO que apaga o carimbo: o
+  // `logout()` do painel e o `pedirEntrada()` dos orçamentos removem só
+  // `token` e `user`. E do outro lado nenhum caminho de LOGIN carimba — nem o
+  // `login.js`, nem o `_concluirEntrada` do cartão de orçamentos.
+  //
+  // Resultado: quem saiu ontem e entra hoje traz o carimbo de ontem, e a
+  // primeira tela que carregar este arquivo mata a sessão recém-criada antes
+  // de pintar qualquer dado. No painel isso vira um salto para /login; na
+  // página de orçamentos vira o cartão pedindo o e-mail logo depois de a
+  // pessoa ter entrado — que foi o sintoma relatado.
+  //
+  // O conserto mora aqui, e não nos 13 pontos que gravam ou apagam sessão: o
+  // `iat` do JWT diz QUANDO esta sessão nasceu, então carimbo anterior ao
+  // nascimento é carimbo de sessão morta e não vale como inatividade. Vale
+  // para todo caminho de entrada que existe e para os que ainda vão existir.
+  function nascimentoDaSessao() {
+    try {
+      const payload = (localStorage.getItem("token") || "").split(".")[1];
+      if (!payload) return null;
+      // base64url → base64. Bytes não-ASCII do `atob` (acento no nome, no
+      // e-mail) atravessam o JSON.parse intactos: só o `iat` é lido daqui.
+      const iat = JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/"))).iat;
+      return Number.isFinite(iat) ? iat * 1000 : null;
+    } catch (_) {
+      return null; // token que não é JWT (harness) / storage bloqueado
+    }
   }
 
   function expirou() {
     const ultima = ler();
-    return ultima !== null && agora() - ultima > TIMEOUT_MS;
+    if (ultima === null) return false;
+    const nascimento = nascimentoDaSessao();
+    if (nascimento !== null && ultima < nascimento) return false;
+    return agora() - ultima > TIMEOUT_MS;
   }
 
   function registrarAtividade() {

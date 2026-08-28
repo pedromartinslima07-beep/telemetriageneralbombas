@@ -135,9 +135,17 @@ async function _concluirEntrada(data) {
 // documento, e trocar a página por um formulário perde o documento e a URL com
 // `?orc=N`. É a mesma regra que fez o login virar cartão nesta página — ver o
 // cabeçalho deste arquivo. O hook é lido pelo inatividade.js na hora do corte.
-window.aoExpirarInatividade = function () {
-  pedirEntrada("Sua sessão expirou por inatividade. Entre de novo para ver o orçamento.");
-};
+//
+// ⚠️ ESTE NÃO É O PRIMEIRO HOOK DA PÁGINA (28/08/2026). O corte de
+// CARREGAMENTO acontece dentro do inatividade.js, que entra `defer` antes
+// deste arquivo — quando ele procura o hook, este `defer` ainda está na rede.
+// Por isso o `cliente-orcamentos.html` declara um stub inline antes dos dois,
+// e o que ele deixa é a marca `_tgCorteAoCarregar`, lida no bootstrap lá
+// embaixo. A função abaixo substitui o stub e serve ao corte que acontece com
+// a página JÁ aberta (o timer de 30 min e o `visibilitychange`).
+const MSG_CORTE =
+  "Sua sessão expirou por inatividade. Entre de novo para ver o orçamento.";
+window.aoExpirarInatividade = function () { pedirEntrada(MSG_CORTE); };
 
 function _bindEntrada() {
   const form    = _el("entradaForm");
@@ -795,5 +803,11 @@ document.getElementById("rodapeAno").textContent = new Date().getFullYear();
 _bindEntrada();
 // Sem sessão, a página não tenta carregar nada: pedir e levar 401 de volta
 // só serviria para piscar uma mensagem de erro atrás do cartão.
-if (getToken()) carregar().then(sincronizar);
+//
+// A marca do stub inline (ver o `<script>` no topo do HTML) separa dois vazios
+// que pedem frases diferentes: quem chega do link do e-mail sem sessão nunca
+// teve uma e não levou nada errado; quem foi cortado tinha e perdeu, e merece
+// saber por quê antes de digitar o e-mail de novo.
+if (window._tgCorteAoCarregar) pedirEntrada(MSG_CORTE);
+else if (getToken()) carregar().then(sincronizar);
 else pedirEntrada();

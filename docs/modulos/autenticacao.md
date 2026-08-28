@@ -209,15 +209,44 @@ Quem chega ali veio de um link sobre UM documento; trocar a página por um
 formulário perde o documento e a URL com `?orc=N`. A página declara isso em
 `window.aoExpirarInatividade`; sem declaração, o padrão é `/login?motivo=inatividade`.
 
-⚠️ **O corte não pode depender da ordem das tags `<script>`** (corrigido em
-26/08/2026). O `inatividade.js` entra com `defer` e o script que declara o hook
-também — no `cliente-orcamentos.html` ele vem **depois**. No corte de
-carregamento (quem volta com os 30 min já estourados) o hook ainda não existia,
-a declaração era ignorada e o síndico que clicava no link do e-mail caía em
-`/login` com "sessão expirada". Hoje, quando o hook ainda não foi declarado, o
-corte é adiado um tique de timer — a fila de timers só roda depois que todo
-script `defer` executou. A sessão é apagada **antes** do adiamento, então nada
-chega a buscar dado com o token morto.
+⚠️ **O corte de carregamento não pode esperar pelo hook** (28/08/2026). O
+`inatividade.js` entra com `defer` e o script que declara o hook também — no
+`cliente-orcamentos.html` ele vem **depois**. No corte de carregamento (quem
+volta com os 30 min já estourados) o hook ainda não existe, e o síndico que
+clicava no link do e-mail caía em `/login`.
+
+Duas tentativas de **adiar** o corte para esperar o hook falharam, e as duas
+parecem certas até serem medidas:
+
+1. `setTimeout(…, 0)` (a correção de 26/08) apostava que "a fila de timers só
+   roda depois que todo `defer` executou". Não roda: os `defer` executam em
+   ordem, mas o navegador ainda precisa **baixar** o próximo, e nessa espera o
+   laço de eventos está livre. O timer ganhava em 100% das cargas medidas — a
+   correção de 26/08 nunca funcionou.
+2. Esperar o `DOMContentLoaded` (garantia de especificação) consertava os
+   orçamentos e **quebrava o painel**: com o corte adiado, o `cliente.js` rodava
+   antes, pedia sem token, tomava 401 e ia para `/login?motivo=expirado` — mesmo
+   destino, motivo errado.
+
+Hoje o corte é **síncrono** e a página declara a intenção por **atributo**:
+`data-corte="cartao"` no `<body>`. Está no DOM antes de qualquer `defer` rodar,
+custa zero requisição e não esbarra na CSP — um `<script>` inline resolveria a
+ordem, mas o `helmet` serve `script-src 'self'` sem nonce e o script **não
+executa, sem quebrar nada**. O `inatividade.js` lê o atributo, deixa a marca
+`window._tgCorteAoCarregar` e não redireciona; o `cliente-orcamentos.js` lê a
+marca no bootstrap e abre o cartão. A sessão é apagada antes de tudo isso, então
+nada chega a buscar dado com o token morto.
+
+⚠️ **Carimbo anterior ao nascimento da sessão não vale** (28/08/2026). O
+`tg_ultima_atividade` só é apagado pelo próprio corte: o `logout()` do painel e
+o `pedirEntrada()` dos orçamentos removem apenas `token` e `user`, e **nenhum
+caminho de login carimba**. Sem tratamento, quem sai hoje e entra amanhã tem a
+sessão nova morta na primeira tela — no painel vira salto para `/login`, na tela
+de orçamentos vira o cartão pedindo o e-mail logo depois de a pessoa ter
+entrado. O `iat` do JWT diz quando a sessão nasceu, e o `expirou()` ignora
+carimbo mais antigo que isso. Fica no `inatividade.js` de propósito: espalhar o
+`removeItem` pelos 13 pontos que gravam ou apagam sessão apodrece — o
+`_concluirEntrada`, escrito depois, já tinha esquecido.
 
 ⚠️ **É conveniência, não barreira.** O JWT continua válido no servidor pelos 7
 dias — apagar o token do navegador não o invalida do outro lado. Serve para o
