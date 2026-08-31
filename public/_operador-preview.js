@@ -21,6 +21,32 @@
       clear: function () { mem = {}; },
     } });
   }
+  // ⚠️ A PRÉVIA EMPRESTA O localStorage, NÃO O TOMA (corrigido em 31/08).
+  //
+  // O sintoma que o Pedro viu: "sempre que eu clico em Aprovados a tela cai".
+  // A conta é esta — a prévia escrevia `token = "preview"` e ia embora. Como
+  // ela mora no MESMO ORIGIN do painel de verdade, aquele valor ficava valendo
+  // para todas as telas: a próxima request real levava `Bearer preview`,
+  // tomava 401, e o interceptador de sessão (que existe para deslogar quem
+  // expirou) limpava o storage e mandava para `/login?motivo=expirado`.
+  //
+  // Ou seja: **abrir a prévia deslogava do sistema**, e o efeito só aparecia
+  // no clique seguinte, longe da causa. Eu mesmo caí nisso três vezes nesta
+  // sessão e culpei o `inatividade.js`.
+  //
+  // Agora as três chaves são guardadas e DEVOLVIDAS ao sair da página. O
+  // `pagehide` é o evento certo: `beforeunload` não dispara em navegação por
+  // link no iOS, e `unload` já não é garantido em navegador nenhum.
+  var CHAVES = ["token", "user", "userRole"];
+  var ANTES = {};
+  CHAVES.forEach(function (k) { ANTES[k] = localStorage.getItem(k); });
+  window.addEventListener("pagehide", function () {
+    CHAVES.forEach(function (k) {
+      if (ANTES[k] === null) localStorage.removeItem(k);
+      else localStorage.setItem(k, ANTES[k]);
+    });
+  });
+
   localStorage.setItem("token", "preview");
   localStorage.setItem("user", JSON.stringify({ id: 1, nome: "Ana Paula Souza", role: "operador" }));
   localStorage.setItem("userRole", "operador");
@@ -282,6 +308,26 @@
   window.fetch = function (input, init) {
     var u = String(input && input.url ? input.url : input);
     if (u.indexOf("/operador/fila") >= 0) return J(FIX);
+    // ⚠️ A AJUDA TAMBÉM PRECISA DE FIXTURE. Sem esta linha o diálogo caía no
+    // `nativo`, levava o token falso "preview" para `GET /operador/prazos`,
+    // tomava 401 e o interceptador de sessão mandava a prévia inteira para o
+    // `/login?motivo=expirado` — abrir a ajuda derrubava a tela. Toda rota
+    // NOVA que o front chamar precisa aparecer aqui; o `nativo` no fim é o
+    // que faz o esquecimento virar logout em vez de erro visível.
+    // Valores idênticos aos do banco de teste em 31/08 — a prévia é para
+    // olhar composição, e um prazo diferente aqui ensinaria errado.
+    if (u.indexOf("/operador/prazos") >= 0) {
+      return J({
+        prazos: [
+          { prioridade: "p1", ttfr_min: 15,   sla_chegada_min: 180,  ttr_min: 240 },
+          { prioridade: "p2", ttfr_min: 60,   sla_chegada_min: 1440, ttr_min: 1440 },
+          { prioridade: "p3", ttfr_min: 240,  sla_chegada_min: 4320, ttr_min: 4320 },
+          { prioridade: "p4", ttfr_min: 1440, sla_chegada_min: null, ttr_min: 14400 },
+        ],
+        limiares: { baixo: 45, critico: 20 },
+        offline_min: 10,
+      });
+    }
     if (u.indexOf("/admin/me") >= 0) return J({ id: 1, nome: "Ana Paula Souza", role: "operador" });
     if (u.indexOf("/condominios") >= 0) {
       return J([{ id: 12, nome: "Edifício Aurora Paulista" }, { id: 7, nome: "Residencial Vila Mariana" }]);

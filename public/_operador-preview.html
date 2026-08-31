@@ -22,7 +22,7 @@
 <link rel="preload" href="/static/fonts/archivo.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="/static/fonts/martianmono.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/static/leaflet.css">
-<link rel="stylesheet" href="/static/operador.css?v=18">
+<link rel="stylesheet" href="/static/operador.css?v=58">
 </head>
 <body>
 <!-- ⚠️ PÁGINA DE PRÉVIA, GERADA a partir do operador.html — temporária,
@@ -42,9 +42,9 @@
      só em medição, amarelo institucional na única ação.
      STORY: o operador vê o que estoura primeiro, entende de onde veio, e
      despacha sem sair da linha.
-     FIRST VIEWPORT: barra com o placar do turno e "Novo chamado"; abaixo, a
-     fila ordenada por SLA restante, cada item com a régua de tempo à
-     esquerda e a evidência no corpo.
+     FIRST VIEWPORT: barra com a marca e "Novo chamado"; abaixo, a fila
+     ordenada por SLA restante começando direto no primeiro item, cada um
+     com a régua de tempo à esquerda e a evidência no corpo.
      Comp aprovada: docs/comps/painel-operador-v2.html -->
 
 <header class="barra">
@@ -63,22 +63,65 @@
     </div>
   </div>
   <div class="barra-acoes">
+    <!-- ⚠️ A AJUDA É PARTE DA TELA, não um extra. O Pedro definiu o público
+         em 28/08: pessoas com pouca familiaridade com computador. Ela fica
+         na primeira posição das ações e o rótulo NÃO some no celular (ver o
+         bloco `.barra-acoes .btn-ajuda` no operador.css) — botão de ajuda
+         que vira um ponto de interrogação solto é o primeiro a não ser
+         achado por quem mais precisa dele. -->
+    <button class="btn btn-fio btn-ajuda" data-acao="ajuda" aria-label="Ajuda: como esta tela funciona">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.4 9.3a2.7 2.7 0 1 1 3.4 2.6c-.6.2-.8.7-.8 1.3v.6"/><path d="M12 17v.9"/></svg>
+      <span class="btn-rot">Ajuda</span>
+    </button>
+    <!-- ⚠️ ESTA LINHA ESTAVA FALTANDO NA PRÉVIA, e a prévia mentiu por isso:
+         em 31/08 o Pedro olhou esta página e perguntou onde estavam os
+         orçamentos. O `operador.html` tem o link desde que a segunda tela
+         nasceu; a prévia é uma cópia gerada e ficou parada no dia anterior.
+         Ao mexer na barra do `operador.html`, copie a mudança para cá —
+         prévia que diverge do original não serve para conferir nada. -->
+    <a class="btn btn-fio" href="/operador/painel/orcamentos">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M9 12h7M9 16h5"/></svg>
+      <span class="btn-rot">Aprovados</span>
+    </a>
     <button class="btn btn-novo" data-acao="novo" aria-label="Abrir novo chamado"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span class="btn-rot">Novo chamado</span></button>
-    <div class="relogio">
-      <span class="pulso" id="pulso" role="img" aria-label="Buscando a fila…"></span>
-      <span class="rot">Recebendo ·</span>
-      <span id="relogio">--:--</span>
-    </div>
     <div class="conta" id="conta" title="">--</div>
   </div>
 </header>
 
-<!-- A MARCA EM ESCALA ARQUITETÔNICA, marinho sobre marinho — a mesma peça da
-     landing e do painel do cliente (`.eng` em cliente.css). Presença sem
-     repetir o logotipo. ⚠️ Ela SANGRA para a margem de propósito: presa
-     dentro da coluna vira um bloco recortado, que é artefato e não marca.
-     Quem apara a sobra é o `overflow-x: clip` de html E body. -->
+<!-- ⚠️ ESTA FAIXA SUBSTITUI O "RECEBENDO · hh:mm" DA BARRA (31/08/2026).
+     O Pedro perguntou o que aquilo era, e a pergunta foi o achado: se ele não
+     sabe, o operador não sabe. Medido no que existia:
+
+       · a palavra "RECEBENDO" era FIXA — não mudava nem com o ponto vermelho,
+         então a falha ficava escrita com a palavra do sucesso;
+       · o texto certo ("Sem atualizar — verifique a conexão") existia só no
+         `title`, que é hover: no celular não aparece nunca;
+       · o relógio era a hora do computador, não a da última atualização — mas
+         colado em "Recebendo" parecia "recebido às 13:55".
+
+     Ou seja: ocupava a barra o turno inteiro para dizer "está tudo bem", que é
+     justamente o que não precisa ser dito, e emudecia na hora em que
+     precisava falar. É A Regra do Crítico Silencioso do DESIGN.md aplicada
+     aqui: estado de risco não aparece em repouso, e quando aparece, aparece
+     com PALAVRA, não com uma bolinha de 7px.
+
+     ⚠️ E ELA NÃO PODIA SIMPLESMENTE SUMIR. A fila se recarrega sozinha a cada
+     30s; sem nenhum aviso, uma queda de conexão deixa o operador despachando
+     de uma lista velha sem ter como saber. O `avisar()` que já existe é faixa
+     de 6 segundos — quem saiu da mesa perde. Esta fica até voltar. -->
+<div class="parado" id="parado" role="status" hidden></div>
+
+<!-- A MARCA EM ESCALA ARQUITETÔNICA, marinho sobre marinho — a mesma peça
+     da landing e do painel do cliente (`.eng` em cliente.css). Presença sem
+     repetir o logotipo.
+     ⚠️ SÃO DOIS ELEMENTOS, e o de fora não é embrulho à toa: `.eng` é o
+     RECORTE (a coluna do trilho, com overflow escondido) e `.eng-roda` é a
+     peça. É isso que impede a engrenagem de encostar na coluna da fila em
+     qualquer largura — sem máscara em px, que foi o que falhou duas vezes
+     hoje. Quem corta a roda por dentro é o MAPA, que é opaco.
+     Ver o bloco `.eng` no operador.css. -->
 <div class="eng" aria-hidden="true">
+  <div class="eng-roda">
   <span class="eng-a">    <svg viewBox="0 0 200 200">
     <circle cx="100" cy="100" r="62" fill="none" stroke="currentColor" stroke-width="27"/>
     <g fill="currentColor">
@@ -114,13 +157,14 @@
     </g>
   </svg></span>
 </div>
+</div>
 
-<!-- O CABEÇALHO DA TELA. O placar morava espremido na barra, ao lado da
-     marca, em 11px. Aqui ele é UMA PLACA dividida por cortes gravados — a
-     resposta que este sistema dá para "três coisas paralelas" (ver o Don't
-     dos três cards no DESIGN.md, e a `.vigia` da landing). Os rótulos são os
-     mesmos de antes. -->
-<div class="placar" id="placar"></div>
+<!-- ⚠️ AQUI MORAVA O PLACAR DE TRÊS NÚMEROS, removido em 31/08/2026.
+     Ele repetia, a 40px de distância, o que os cabeçalhos das duas seções
+     já dizem com as mesmas palavras ("esperando alguém", "com técnico") e
+     os mesmos números. O único que não estava repetido — "fora do prazo" —
+     desceu para o cabeçalho da seção, colado na lista que ele conta. Ver
+     o comentário em render(), no operador.js. -->
 
 <main id="tela">
   <!-- O primeiro estado da tela é "ainda não sei", nunca "está vazio".
@@ -131,7 +175,7 @@
 </main>
 
 <script src="/static/leaflet.js"></script>
-<script src="/static/_operador-preview.js?v=1787875702891"></script>
-<script src="/static/operador.js?v=18" defer></script>
+<script src="/static/_operador-preview.js?v=3"></script>
+<script src="/static/operador.js?v=53" defer></script>
 </body>
 </html>

@@ -2,7 +2,7 @@
 version: 1
 slug: "public-operador-html"
 primary_target: "public/operador.html"
-related_targets: ["public/operador.css","public/operador.js"]
+related_targets: ["public/operador.css","public/operador.js","public/operador-orcamentos.html","public/operador-orcamentos.js"]
 ---
 
 ## Escopo e modo
@@ -384,17 +384,143 @@ tela*, não *quanto cresce*.
 - **"Ver detalhes" é link, não botão.** Nada foi removido — mudou o peso.
 - Saíram da face (e seguem na ficha): **status, origem e bairro**.
 
+**O que já entrou (o trilho, 31/08):** quatro peças por linha → **duas**
+(nome · estado). Saiu o selo de iniciais e saiu o "no mapa", que se repetia
+logo abaixo do mapa que já mostra o pino; restou só a exceção "· sem posição",
+em `--muted` (5,7:1). O anel verde saiu com o selo, então a disponibilidade
+mora num lugar só — a tinta do estado. `.tec` deixou de ser flex de três
+colunas e virou bloco. "Despachados hoje" perdeu o ícone de rota repetido.
+
 **O que FALTA nesta direção — o passe está pela metade:**
 
-1. **O trilho não foi simplificado.** Cada técnico ainda mostra avatar +
-   nome + estado + "no mapa" — quatro coisas para responder *quem pode ir*.
-   Candidato a corte: o avatar de iniciais e a nota de GPS.
-2. **O placar (3 números) duplica a fila** e, no dia calmo, repete a mesma
-   frase do estado vazio em dois tamanhos. Decidir se some ou vira uma linha.
-3. **A ficha e o diálogo de despacho não passaram** pelo mesmo corte — ainda
+1. ~~O trilho.~~ ✅ feito em 31/08, ver acima.
+2. ~~O placar (3 números).~~ ✅ **feito em 31/08 — ele saiu da tela.** Dois
+   dos três números eram repetição literal dos cabeçalhos de seção 40px
+   abaixo; "fora do prazo", o único que não era, desceu para esses cabeçalhos
+   (`.cab-fora`, em `--risco`, 6,3:1) e ficou mais preciso ali — cada seção
+   conta os seus, em vez de um total único. No dia calmo a frase do estado
+   vazio deixou de aparecer duas vezes. ⚠️ A **engrenagem de fundo mudou de casa e hoje
+   ABRAÇA O MAPA** (pedido do Pedro). Três arranjos no mesmo dia: faixa
+   horizontal no topo (morreu com o placar), margem direita da janela (só
+   acima de 1800px) e, enfim, o atual — os dois primeiros ancoravam a peça na
+   **janela**. Hoje `.eng` é o RECORTE (a coluna do trilho, `overflow:hidden`)
+   e `.eng-roda` é a peça, centrada no mapa: ela não encosta na fila em
+   largura nenhuma, **sem máscara em px**, e quem a corta por dentro é o mapa
+   opaco. Pré-requisito: `.trilho` perdeu o `background` (era a cor do
+   `body`). **Some abaixo de 1180**, a quebra em que o trilho vira faixa.
+3. ~~A evidência do item.~~ ✅ feito em 31/08, ver a seção logo abaixo.
+4. **A ficha e o diálogo de despacho não passaram** pelo mesmo corte — ainda
    são densos, e a ficha é onde foi parar tudo que saiu do item.
-4. **A seção "Já tem técnico"** ficou com o layout antigo de ações; conferir.
-5. Medir de novo as faixas (o item mudou de grid) e revisar o celular.
+5. **A seção "Já tem técnico"** ficou com o layout antigo de ações; conferir.
+6. Medir de novo as faixas (o item mudou de grid) e revisar o celular.
+
+## A evidência para de desenhar ausência (31/08) — e a segunda tela ganha ação
+
+O Pedro mandou o recorte do item do chamado #9 da produção: **quatro caixas
+d'água sem sensor vivo, quatro barras hachuradas idênticas** dizendo "—". Item
+de **222px com a trilha de tanques 100% vazia**, 76px de hachura.
+
+> **Desenho de ausência não pode ocupar o tamanho do instrumento.**
+
+É "simplificar ≠ aumentar" virado do avesso: o placeholder não era grande
+demais por descuido de escala — ele não devia existir naquele tamanho.
+
+| | Regra que passou a valer |
+|---|---|
+| Reservatório mudo | **Sem tubo.** Todos os mudos do item numa linha, nomes preservados — a frase do painel do cliente ("Sem leitura de X e Y") |
+| Trilha da prova | `320px` → `minmax(320px,1fr)`. O motivo do fixo (mesmo x em toda a fila) sobrevive: itens de largura igual resolvem a fração igual. O que o fixo não preservava era o tubo — 156px num item de 1000, com **~490px de campo morto** à direita da prova |
+| Largura do item | Vira **estrutura**: `.num` e "Ver detalhes" encostam na borda direita. As duas linhas emolduram a evidência, em vez de o item viver no terço esquerdo da placa |
+| Cabeçalho de seção | 12 → **15px em `--text`**. Saía **menor que a própria legenda** e 6px abaixo do título do item |
+
+Item com 4 mudos: **222 → 189px**; a região da evidência, de **82 para 49**.
+Hoje quem manda na altura é a linha de ações (52px), não a pilha do tanque.
+Nada saiu da tela.
+
+### A tela de Aprovados ganhou a ação (`operador-orcamentos.*`)
+
+A linha do orçamento virou um `<button>` que abre o chamado que o executa
+(migration 079, `chamados.orcamento_id`). O que isso fixou como regra aqui:
+
+| | Regra |
+|---|---|
+| Alvo | A **linha inteira**, `<button>` nativo — alvo grande, foco de teclado e cursor sem uma linha de JS. É a calibragem de público de 28/08 |
+| Affordance | O chip é **sempre visível**, nunca só no hover: quem não sabe que devia passar o mouse não descobre um alvo que só aparece quando ele chega |
+| Peso do chip | **De fio em repouso, preenchido no hover/foco** (Regra do Selo). Quinze linhas com quinze chips âmbar viram uma coluna de âmbar que não aponta |
+| Estado | Com chamado aberto a linha **deixa de ser botão**. Botão que não faz nada é pior que nenhum botão |
+| Aninhamento | **Nada de interativo dentro dela** — `<button>` dentro de `<button>` é HTML inválido e o navegador desmonta a árvore. Por isso o chamado existente é TEXTO, não link |
+| Opacidade | **Não** se apaga a linha já atendida com `opacity`. Opacidade sobre texto é queda de contraste disfarçada de hierarquia — `--muted` cairia abaixo do piso justo na linha que se lê para conferir |
+| Celular | O chip ocupa a linha e vai a 44px. Solto no fim do pé deitado, ele virava o quarto item de uma linha de metadado |
+
+⚠️ **A prévia continua sendo o caminho** (`/dev/_operador-preview.html`), e a
+tela de Aprovados foi vista com **sessão real** contra o banco de teste (JWT
+assinado à mão). A janela do Chrome aqui **não obedece `resize`**: 430 e 1090
+se medem pondo a própria página num `<iframe>` daquela largura, que responde às
+mesmas media queries.
+
+## Aprovados vai para o registro de LEITURA (31/08, 2ª rodada)
+
+O Pedro perguntou se as telas estavam no nível dos prints que ele tinha
+mandado. Não estavam, e a resposta honesta separava três casos: **o diálogo já
+estava lá** (é literalmente aquele registro), **a fila chegou perto** (é densa
+por decisão registrada), e **Aprovados não estava nem perto — e era a que menos
+motivo tinha**.
+
+Medido: a tela vivia numa faixa de **12 a 17px**, o maior tipo dela era o nome
+do prédio, e não havia **uma** superfície clara. 7 itens que se leem, no
+registro calibrado para tabela de 40 linhas.
+
+Ele nomeou o que faltava melhor do que eu: *"nas telas que falei pra você usar
+de exemplo existem palavras em amarelo, campos totalmente em branco, coisas que
+quebram esse negócio monocromático"*. O print decisivo foi a **lista de
+orçamentos do painel do cliente** — a mesma tarefa, e a diferença de acabamento
+era gritante.
+
+### A gramática, tirada do print elemento por elemento
+
+| No print | Em Aprovados |
+|---|---|
+| manchete branca com "aguardam" em âmbar | `N orçamentos **aprovados** em M prédios` |
+| lede em `--sobre-2`, duas linhas curtas | idem |
+| cartão claro por orçamento | placa `--chapa` por orçamento |
+| `R$ 2.332,00` como leitura grande | **o serviço aprovado**, Archivo 800 (aqui não há dinheiro) |
+| selo âmbar "AGUARDANDO VOCÊ" | selo âmbar **"PODE EXECUTAR"** |
+| botão âmbar "Aprovar orçamento" | botão âmbar **"Abrir chamado"** |
+| `1 item · enviado em 26/08/2026` | a mesma frase, com quem aprovou |
+
+⚠️ **A palavra âmbar só existe no campo marinho** (Regra do Amarelo Cego, ~2:1
+sobre claro). Sobre a placa o âmbar é preenchimento com tinta marinho por
+cima — selo e botão. É o que o print faz, e foi lendo o print que ficou óbvio.
+
+⚠️ **O que eu tinha errado, e é a lição desta rodada.** Eu disse ao Pedro que
+a tela não podia ir para o claro por causa d'A Regra da Superfície. Estava
+lendo a regra **pela letra** ("placa clara é o que abre por cima") em vez de
+pelo motivo — que é não deixar placa clara **disputando a tela** com conteúdo
+marinho ao lado. Aqui não há nada ao lado. `DESIGN.md` ganhou a fronteira
+escrita, com os quatro arranjos e o que decide cada um.
+
+### As regras que passaram a valer
+
+| | Regra |
+|---|---|
+| Placa | Não é `<button>`. A ação é o botão âmbar dentro dela — `<button>` dentro de `<button>` é HTML inválido, e um botão escrito é mais claro que uma área grande que reage sem dizer onde começa |
+| Rodapé | Uma FRASE, nunca pilha de metadados. A coluna de quatro linhas em mono mandava na altura de toda linha |
+| Estado "feito" | Recua por **material** (`--chapa-es`), nunca por `opacity` — opacidade sobre texto é queda de contraste disfarçada de hierarquia |
+| Resposta ao clique | A placa vira **na hora**, com o id que o endpoint devolve. Medido: **>2,5s** até a lista voltar, com o diálogo já fechado e a placa dizendo "Abrir chamado" |
+| Erro pós-fechamento | `fechar()` antes de `await` engole a falha — `#cmMsg` já não existe. Toda continuação depois do fechar precisa de `.catch` que caia na faixa |
+| Campo cheio | O botão só ocupa a linha **abaixo de 560px**. A 760 um botão âmbar de 690px vira o segundo campo cheio da tela (Regra do Campo Único) |
+| `flex-basis` | **Muda de eixo com `flex-direction`.** `flex:1 1 260px` numa coluna são 260px de ALTURA — placa de 480px para três linhas, medido a 390px |
+
+### A régua do item: "pintado de vermelho só até a metade"
+
+Pergunta do Pedro, e ele estava certo. **A decisão continua certa** — o campo
+cheio não pode esticar com o item, senão o prédio de 4 caixas d'água ganha 43%
+mais alarme que o de 1 com o mesmo atraso. O errado era a **forma**: encostada
+nas três arestas da coluna e terminando num corte reto no meio, a faixa lia
+como pintura que acabou a tinta. Recuada dos quatro lados e com o chanfro da
+casa, a **mesma área** lê como objeto.
+
+> Quando o campo cheio não pode esticar, ele vira **placa**, não meio
+> preenchimento. Borda solta no meio de uma coluna lê como defeito.
 
 ## O que NÃO fazer aqui
 

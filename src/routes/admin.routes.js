@@ -1374,13 +1374,37 @@ router.get("/orcamentos/avulsos", authRequired, gestaoOnly, async (req, res) => 
                 o.valor,
                 (SELECT SUM(l.quantidade * l.valor_unitario)
                  FROM orcamento_linhas l WHERE l.orcamento_id = o.id), 0
-              ) AS valor_total
+              ) AS valor_total,
+              -- O QUE ACONTECEU DEPOIS DO APROVADO (migrations 079 e 080).
+              -- Ate 31/08 o admin nao tinha como responder "esse orcamento
+              -- chegou a ser executado?": a informacao existia no banco e so a
+              -- tela do operador lia. O selo da lista sai daqui.
+              -- ⚠️ SO LEITURA. Nada nesta rota escreve executado_em, e o
+              -- status continua sendo a unica coisa que o admin edita —
+              -- "executado" e fato do atendimento, nao estado do documento.
+              -- (Sem crase em comentario dentro de template literal: a crase
+              --  FECHA o template. Ver CLAUDE.md — e eu acabei de errar isso
+              --  duas vezes hoje.)
+              o.executado_em, ue.nome AS executado_por_nome,
+              ch.id     AS chamado_id,
+              ch.status AS chamado_status
        FROM orcamentos o
        LEFT JOIN condominios c ON c.id = o.condominio_id
        LEFT JOIN ordens_servico os ON os.id = o.os_id
        LEFT JOIN usuarios ur ON ur.id = o.respondido_por
        LEFT JOIN usuarios ut ON ut.id = o.resposta_tratada_por
        LEFT JOIN usuarios uc ON uc.id = o.criado_por
+       LEFT JOIN usuarios ue ON ue.id = o.executado_por
+       -- O chamado mais recente ligado a este orcamento, priorizando o aberto.
+       -- Mesma juncao do GET /operador/orcamentos: se as duas telas mostram o
+       -- mesmo selo, elas tem de escolher a mesma linha.
+       LEFT JOIN LATERAL (
+         SELECT c2.id, c2.status
+           FROM chamados c2
+          WHERE c2.orcamento_id = o.id
+          ORDER BY (c2.status IN ('aberto','em_atendimento')) DESC, c2.criado_em DESC
+          LIMIT 1
+       ) ch ON true
        ORDER BY o.criado_em DESC
        LIMIT 300`
     );

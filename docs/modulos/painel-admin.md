@@ -143,6 +143,35 @@ técnico, mostra data absoluta **e** relativa (`23/01/2027 · em 158 dias`,
 
 ---
 
+## O desfecho do orçamento, vindo da tela do operador (31/08/2026)
+
+A lista de orçamentos (`avulsos`) e a ficha passaram a mostrar **o que
+aconteceu depois do "Aprovado"**:
+
+| Selo na lista | Quando aparece |
+|---|---|
+| `FEITO`, verde de fio | alguém marcou à mão na tela do operador (`orcamentos.executado_em`) |
+| `CHAMADO #N`, de fio | existe chamado ligado a este orçamento (`chamados.orcamento_id`) |
+
+E na ficha, duas linhas logo depois de "Criado por": *Feito em … marcado por …*
+e *Chamado #N · na fila do turno*. A ordem da ficha é a dos fatos — alguém
+monta, o cliente responde, o escritório dá baixa, o serviço acontece.
+
+⚠️ **É LEITURA PURA. `orcamentos.status` não muda.** Quem escreve o desfecho é
+[o painel do operador](painel-operador.md); um controle aqui criaria dois
+lugares para dizer a mesma coisa, e nenhum dos dois seria a verdade. E o
+motivo de não existir um status `executado`: ele obrigaria a auditar todo
+`WHERE status = 'aprovado'` do sistema — "executado" é fato do atendimento,
+não estado do documento.
+
+⚠️ **De fio, nunca preenchido** (Regra do Selo). Nesta lista o preenchimento é
+de `.av-selo-pend` (resposta sem baixa), a única coisa que pede alguém; um
+segundo selo cheio ao lado tiraria dele o poder de apontar.
+
+⚠️ **O `LEFT JOIN LATERAL` do chamado é o MESMO do `GET /operador/orcamentos`.**
+Se as duas telas mostram o mesmo selo, têm de escolher a mesma linha — senão o
+admin diz uma coisa e o operador diz outra sobre o mesmo orçamento.
+
 ## Direção — IMPLEMENTADA em 20–21/08/2026
 
 ⚠️ Esta seção dizia "não implementada" até 20/08. As 15 telas foram migradas

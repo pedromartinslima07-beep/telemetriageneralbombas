@@ -10,7 +10,7 @@ aliases:
 > Branch atual: **`main`**, limpa. `feature/admin-chapa` (11 commits) e a tela
 > de orçamento do cliente já foram mergeadas — a produção
 > (`telemetria.generalbombas.com`) está servindo as duas.
-> Última sessão registrada: **2026-08-28**.
+> Última sessão registrada: **2026-08-31**.
 > Roadmap completo em [`roadmap.md`](roadmap.md); decisões em [`decisions.md`](decisions.md).
 
 > ✅ **Schema de produção em dia:** 074 aplicada em 24/08; a 073 já estava
@@ -29,9 +29,20 @@ aliases:
 
 ## ⏸️ RETOMAR AQUI — a simplificação do operador está pela metade
 
-> Parado em 28/08/2026 a pedido do Pedro, para commitar. **O código no ar
-> funciona e foi verificado** (render, console limpo, `node --check`); o que
-> falta é continuar o mesmo corte nas outras peças da tela.
+> Retomada em 31/08/2026: **o item 1 (o trilho) está feito e verificado** — ver
+> abaixo. Restam os itens 2 a 5. **O código no ar funciona e foi verificado**
+> (render nas duas larguras, console limpo, `node --check`, detector sem achado
+> novo); o que falta é continuar o mesmo corte nas outras peças da tela.
+
+> 🔎 **Para olhar a tela sem sessão: `/dev/_operador-preview.html`.** A rota
+> `/dev/:arquivo` (`src/app.js`) serve os `public/_*.html` **só fora de
+> produção**, e a prévia troca o `fetch` por uma fixture com os quatro estados
+> de técnico. É por onde este corte foi conferido — o `/operador/painel` de
+> verdade cai no `/login`, e o login é handoff pro Pedro.
+> ⚠️ A prévia repete o `?v=N` do `operador.html`: ao bumpar um, bumpe o outro.
+> ⚠️ A janela do Chrome aqui **não obedece resize** — o celular se mede
+> colocando a própria prévia num `<iframe>` de 390px, que responde às mesmas
+> media queries.
 
 ⚠️ **O contexto que não pode se perder:** o Pedro disse que a tela será usada
 por **pessoas mais velhas, com pouca familiaridade com computador**, e pediu
@@ -44,25 +55,183 @@ pergunta certa é *o que sai da tela*, não *quanto cresce*.
 (junto do relógio, que responde à mesma pergunta), o título passou a abrir o
 item, e status/origem/bairro saíram da face — **todos continuam na ficha**.
 
+**✅ Item 1 — o trilho (feito em 31/08).** Quatro peças por linha viraram
+duas: nome + estado. Saiu o selo de iniciais (não identifica ninguém que o
+operador já não reconheça pelo nome) e saiu o "no mapa", que se repetia logo
+abaixo do mapa que já mostra o pino — restou só a exceção "· sem posição". O
+anel verde saiu junto com o selo, então a disponibilidade passou a ter **um**
+lugar (a tinta do estado) em vez de dois. "Despachados hoje" perdeu o ícone de
+rota repetido. Detalhe completo no
+[`changelog`](../docs/changelog.md) (31/08).
+
+⚠️ **A pegadinha que este item deixou como lição:** o separador "·" estava em
+`content` de `::before` e sumia do `innerText` — a linha era lida e copiada
+como *"Ocupadosem posição"*. **Screenshot nenhum pega isso.** Ao cortar peça de
+UI, ler o `innerText` do que sobrou, não só olhar.
+
 **A fazer, na mesma direção:**
 
-1. **O trilho.** Cada técnico ainda tem avatar + nome + estado + "no mapa":
-   quatro coisas para responder *quem pode ir*. Cortar o avatar de iniciais
-   (não identifica ninguém que o operador não reconheça pelo nome) e tirar a
-   nota de GPS do lugar de destaque.
-2. **O placar de 3 números duplica a fila.** No dia calmo chega a repetir a
-   mesma frase em dois tamanhos ("0 chamados abertos" + "Nenhum chamado
-   aberto." em 40px). Decidir: some, ou vira uma linha só.
-3. **A ficha e o diálogo de despacho não passaram pelo corte** — e a ficha é
+1. ~~O trilho.~~ ✅ feito, ver acima.
+2. ~~O placar de 3 números.~~ ✅ **feito em 31/08 — ele SUMIU.** O Pedro
+   delegou a escolha ("pode escolher o que for melhor"). Dois dos três números
+   eram repetição literal dos cabeçalhos de seção 40px abaixo; o terceiro,
+   "fora do prazo", desceu para esses cabeçalhos, onde ficou **mais preciso**
+   (cada seção conta os seus, em vez de um total único). No dia calmo a frase
+   passou a aparecer uma vez só. O primeiro item subiu de y=225 para y=120.
+   ⚠️ **A engrenagem de fundo mudou de casa e hoje ABRAÇA O MAPA** (pedido do
+   Pedro). Foram três arranjos no mesmo dia; os dois primeiros — faixa
+   horizontal no topo, e margem direita da janela — caíram pelo mesmo motivo:
+   **ancoravam a peça na janela**. Hoje são dois elementos: `.eng` é o
+   RECORTE (a coluna do trilho, `overflow:hidden`) e `.eng-roda` é a peça,
+   centrada no mapa. Assim ela não encosta na fila em largura nenhuma, sem
+   máscara em px, e quem a corta por dentro é o mapa opaco.
+   ⚠️ **Pré-requisito:** `.trilho` perdeu o `background`, que era a mesma cor
+   do `body`. Devolver aquele fundo faz a peça sumir sem outro sintoma.
+   ⚠️ **Some abaixo de 1180**, a quebra em que o trilho vira faixa. Eu tinha
+   escrito 1080 e a 1150 ela aparecia por cima dos itens — **screenshot não
+   pega isso**; só apareceu comparando os retângulos de `.eng` e `.trilho`.
+3. ~~A evidência do item.~~ ✅ **feito em 31/08 (2ª rodada do dia).** O Pedro
+   mandou o recorte do chamado #9 da produção — **quatro caixas d'água sem
+   sensor vivo e quatro barras hachuradas idênticas** dizendo "—". Item de
+   222px com a trilha de tanques 100% vazia. Reservatório mudo **deixou de
+   desenhar tubo**: todos os mudos do item cabem numa linha, com os nomes
+   preservados (a mesma frase do painel do cliente, "Sem leitura de X e Y").
+   Item de 4 mudos: **222 → 189px**; a região da evidência, de 82 para 49.
+   ⚠️ **Desenho de ausência ocupava o tamanho do instrumento e não era
+   instrumento.** É a mesma lição de "simplificar ≠ aumentar", virada do
+   avesso: o placeholder não era grande demais por descuido de escala — ele
+   não devia existir naquele tamanho.
+   Junto: a trilha virou `minmax(320px,1fr)` (o tubo foi de 156 para ~250px e
+   saíram **~490px de campo morto** à direita da prova), o número do chamado e
+   "Ver detalhes" encostaram na borda direita (a largura virou estrutura, em
+   vez de tudo empacotado no terço esquerdo), e o cabeçalho de seção subiu de
+   12 para 15px — ele saía **menor que a própria legenda**.
+4. **A ficha e o diálogo de despacho não passaram pelo corte** — e a ficha é
    justamente onde foi parar tudo que saiu do item, então ela ficou mais densa.
-4. **A seção "Já tem técnico"** ficou com o layout antigo de ações; conferir se
+5. **A seção "Já tem técnico"** ficou com o layout antigo de ações; conferir se
    o `.emrota` continua fazendo sentido na linha nova.
-5. **Remedir as faixas** (o item trocou de grid: `118px minmax(0,1fr)`) e
-   revisar o celular, que não foi visto depois desta mudança.
+6. **Remedir as faixas** (o item trocou de grid: `118px minmax(0,1fr)`) e
+   revisar o celular. ⚠️ Medido a 430 e 1090 em 31/08 **com `<iframe>`**, que é
+   o único jeito nesta máquina; ver a nota da prévia lá em cima.
 
-⚠️ Pendências de **copy**, que são decisão do Pedro e não minhas: a duplicação
-do dia calmo (item 2 acima), a legenda de cor dos pinos do mapa, e o rótulo
-"TURNO" ao lado da marca.
+⚠️ Pendências de **copy**, que são decisão do Pedro e não minhas: ~~a
+duplicação do dia calmo~~ (resolvida no item 2, sem escrever palavra nova — o
+placar saiu e a frase que sobrou já estava lá), a legenda de cor dos pinos do
+mapa, e o rótulo "TURNO" ao lado da marca.
+
+---
+
+## ✅ Aprovados: clicar no orçamento abre o chamado (31/08)
+
+Pedido do Pedro na mesma mensagem do recorte do item. A tela dizia o que foi
+autorizado e parava aí; agora **a linha inteira é um `<button>`** que abre um
+chamado já vinculado ao orçamento (`chamados.orcamento_id`, migration 079),
+com título e descrição pré-preenchidos a partir do próprio orçamento.
+
+⚠️ **A migration 079 rodou SÓ NO BANCO DE TESTE.** Falta produção:
+`node scripts/migrate.js 079_chamado_orcamento.sql` com o `DATABASE_URL` de
+prod. Sem ela o `INSERT` do endpoint estoura — é a lição da Fase 7E, e é a
+única coisa entre este código e o ar.
+
+### 5ª rodada: "Já foi feito", e o que é feito sai da lista (migration 080)
+
+Duas mensagens do Pedro na mesma rodada: dar um jeito de marcar como executado,
+e depois *"o que for marcado como feito precisa sair dessa tela, se não vai
+ficar pra sempre e vai ficar tudo poluído"*. Os dois certos.
+
+⚠️ **A parte que eu não podia cortar junto:** a marcação é de um clique e sem
+confirmação, então o que sai PRECISA ter volta. Duas: a faixa com "Desfazer"
+na hora (10s) e a linha "N já feitos · mostrar" no fim da lista, permanente.
+Sem elas, um clique errado só se conserta no banco.
+
+⚠️ **A faixa de aviso ganhou segunda voz.** Era vermelha sempre. Confirmar em
+vermelho ensina o operador a não olhar para o vermelho — `--risco` é estado
+crítico e não aparece por outro motivo.
+
+⏳ **Migration 080 pendente em produção**, junto com a 079.
+
+### 4ª rodada: o "RECEBENDO · hh:mm" saiu da barra
+
+O Pedro perguntou o que era. **A pergunta foi o achado.** A palavra
+"RECEBENDO" era fixa (não mudava com o ponto vermelho), o texto de falha só
+existia no `title` — hover, invisível no celular — e o relógio era a hora do
+computador, não a da última atualização.
+
+Ele: *"cara sinceramente eu tiraria"*. Saiu, e no lugar entrou uma faixa
+vermelha que **só existe quando a tela parou de atualizar**, com a hora da
+última carga de verdade.
+
+⚠️ **A lição:** o indicador foi escrito com a regra certa ("silêncio e falha
+não podem se parecer") e falhava nela. O sinal estava na COR de 7px e no
+`title`; a palavra, que é o que se lê, estava presa no estado de sucesso. Ao
+desenhar estado, a pergunta é *o que a peça DIZ quando dá errado*, não se ela
+tem um estado de erro no código.
+
+### 3ª rodada: a ajuda, e os prazos que já estavam errados
+
+O Pedro pediu um botão de ajuda explicando P1–P4 e os prazos, e perguntou se
+dava para ser dinâmico. Dava, e **era obrigatório**: ao buscar os números, os
+que já estavam na tela não batiam com o banco — a dica dizia "P2 24–48h" e "P4
+conforme agenda", e `sla_definicoes` tem 1440 (24h) e 14400 (10 dias).
+
+`GET /operador/prazos` (novo) devolve os prazos + as faixas de nível, buscado
+só quando o diálogo abre. Os números saíram das duas dicas, que apontam para a
+tabela.
+
+⚠️ **A lição:** eu ia escrever a ajuda copiando o texto que já estava na tela.
+Se tivesse feito isso, teria transformado um erro discreto num erro
+**autoritativo** — a tela que a pessoa abre justamente para tirar a dúvida.
+Antes de documentar um número na interface, conferir a fonte dele.
+
+⚠️ **Rota nova precisa de fixture em `_operador-preview.js`.** Sem ela a
+chamada cai no `fetch` nativo com o token falso, toma 401 e o interceptador de
+sessão derruba a prévia para o `/login`. Abrir a ajuda derrubava a tela.
+
+⚠️ **E a prévia estava deslogando do sistema** — ver o changelog de 31/08. Ela
+escrevia `token = "preview"` e ia embora; como é o mesmo origin do painel,
+qualquer request real depois disso tomava 401. Eu culpei o `inatividade.js`
+três vezes antes de o Pedro apontar o sintoma certo ("sempre que eu clico em
+Aprovados a tela cai"). Agora ela empresta o storage e devolve no `pagehide`.
+
+### 2ª rodada do dia: Aprovados foi para o registro de LEITURA
+
+O Pedro pôs lado a lado o print da lista de orçamentos do painel do cliente e
+esta tela e perguntou se estavam no mesmo nível. Não estavam. E ele nomeou o
+que faltava melhor do que eu: *"existem palavras em amarelo, campos totalmente
+em branco, coisas que quebram esse negócio monocromático"*.
+
+**Placa clara por orçamento, manchete com a palavra "aprovados" em âmbar, selo
+âmbar "PODE EXECUTAR", botão âmbar "Abrir chamado".** A pilha de metadados da
+direita virou uma frase de rodapé, e a placa perdeu a segunda coluna.
+
+⚠️ **A LIÇÃO, e é sobre mim:** eu tinha respondido a ele que a tela não podia
+ir para o claro por causa d'A Regra da Superfície. Estava lendo a regra pela
+letra ("placa clara é o que abre por cima") em vez de pelo motivo — que é
+**não deixar placa clara disputando a tela com conteúdo marinho ao lado**.
+Aqui não há nada ao lado: a placa É o conteúdo, que é o arranjo da landing e do
+painel do cliente. A regra ganhou a fronteira escrita em `DESIGN.md`.
+
+⚠️ **A régua do item também estava errada e ele viu antes de mim:** *"qual o
+sentido de estar pintado de vermelho só até a metade?"*. A decisão (o campo
+cheio não estica com o item) continua certa; a FORMA é que lia como pintura
+que acabou a tinta. Recuada e chanfrada, a mesma área vira etiqueta.
+
+⚠️ **Dois defeitos que só apareceram exercitando o fluxo:** `fechar()` antes de
+`await carregar()` engolia o erro (o `#cmMsg` já não existe), e `flex-basis`
+muda de eixo com `flex-direction` — os 260px da frase viraram ALTURA no
+celular, e a placa abria com 260px de vazio dentro.
+
+⚠️ **Copy que é decisão do Pedro, não minha:** a lede ("Do mais recente para o
+mais antigo. O chamado que executa o serviço abre por aqui."), o rótulo do selo
+("Pode executar") e o texto pré-preenchido do
+chamado ("Serviço aprovado no orçamento OR-000058, por Pedro." + constatação +
+itens) e o padrão de prioridade **P4**. Escolhi P4 porque serviço aprovado é
+trabalho agendado e P2 passaria na frente de bomba parada numa fila ordenada
+pelo prazo — mas é chute informado, não regra dada.
+
+As regras que não dá para inferir lendo o arquivo estão em
+[`../docs/modulos/painel-operador.md`](../docs/modulos/painel-operador.md)
+("A segunda tela").
 
 ---
 

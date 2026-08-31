@@ -12,6 +12,9 @@ const express = require("express");
 const { pool } = require("../db");
 const { authRequired } = require("../middleware/authRequired");
 const { adminOnly } = require("../middleware/adminOnly");
+// O mesmo registro de auditoria que `POST /chamados` grava. Um chamado que
+// nasce aqui não pode ficar de fora do histórico só por ter outra porta.
+const { registrarCriacao } = require("../services/chamado-historico.service");
 
 const router = express.Router();
 
@@ -232,5 +235,286 @@ function origemDe(c) {
   if (CATEGORIAS_AUTOMATICAS.has(c.categoria)) return "telemetria";
   return "manual";
 }
+
+/**
+ * GET /operador/orcamentos
+ *
+ * Os orçamentos APROVADOS, para o operador saber o que foi autorizado em cada
+ * prédio. Página: `/operador/painel/orcamentos`.
+ *
+ * ⚠️ NENHUM VALOR SAI DAQUI, e isto é a regra do endpoint, não um detalhe do
+ * front. Não há `valor`, `valor_unitario`, soma de linhas nem coluna que dê
+ * para derivar preço — o operador precisa saber O QUE foi aprovado e ONDE,
+ * não quanto custou. Esconder no CSS deixaria o número viajando na resposta,
+ * visível na aba Network de qualquer navegador. **Ao mexer nesta query, não
+ * traga coluna de dinheiro "porque é fácil somar depois".**
+ *
+ * ⚠️ A ORDEM SAI DE UM `COALESCE` de três datas, e isso é dado de produção,
+ * não paranoia: dos 7 aprovados no banco de teste, **6 têm `aprovado_em`
+ * nulo** — a coluna só passou a ser preenchida quando a resposta pelo painel
+ * do cliente entrou. Ordenar só por ela jogaria quase tudo para o fim.
+ *
+ * O guard é o mesmo do `/fila`: `adminOnly` já inclui o perfil `operador`
+ * (o corte de 27/08 tirou o operador do `gestaoOnly`, que é o que protege as
+ * rotas de orçamento do admin — inclusive as que devolvem valor).
+ */
+router.get("/orcamentos", authRequired, adminOnly, async (req, res) => {
+  try {
+    const r = await pool.query(`
+      SELECT
+        o.id, o.numero, o.tipo, o.status,
+        o.constatacao, o.os_id, os.numero AS os_numero,
+        -- As três datas, para o front escolher a que existe (ver acima).
+        o.aprovado_em, o.respondido_em, o.criado_em,
+        -- Quem respondeu: o nome digitado na hora vale mais que o da conta,
+        -- porque é a pessoa do condomínio que assumiu a decisão.
+        COALESCE(o.respondido_nome, ur.nome) AS aprovado_por_nome,
+        o.respondido_cargo,
+        -- Cliente avulso (pessoa física) não tem condomínio: o nome dele
+        -- ocupa o mesmo lugar na tela, como já faz no PDF.
+        COALESCE(c.nome, o.cliente_nome) AS condominio_nome,
+        c.bairro, c.cidade,
+        -- O SERVIÇO. Em orçamento por cláusula quem diz é a coluna tipo; em
+        -- orçamento de peças são as LINHAS, e é por isso que elas vêm aqui
+        -- (só descrição e quantidade — quantidade não é preço).
+        -- (Sem crase neste comentário: ele vive dentro de um template
+        --  literal, e crase aqui FECHA o template. Ver CLAUDE.md.)
+        COALESCE(
+          (SELECT json_agg(json_build_object('descricao', l.descricao, 'quantidade', l.quantidade)
+                           ORDER BY l.id)
+             FROM orcamento_linhas l WHERE l.orcamento_id = o.id),
+          '[]'::json
+        ) AS linhas,
+        -- O CHAMADO QUE JÁ EXECUTA ESTE ORÇAMENTO (079), se existir.
+        -- ⚠️ O MAIS RECENTE, não "o aberto": um orçamento pode ter gerado um
+        -- chamado que já foi fechado, e a tela precisa dizer "já foi feito"
+        -- em vez de oferecer abrir de novo como se nada tivesse acontecido.
+        -- Quem decide entre reabrir e avisar é o front, com o status na mão.
+        ch.id     AS chamado_id,
+        ch.status AS chamado_status,
+        -- Executado SEM chamado (080). É o caso mais comum no mundo real: o
+        -- técnico já estava no prédio e resolveu na hora. Ver a rota
+        -- POST /orcamentos/:id/executado lá embaixo.
+        o.executado_em,
+        ue.nome AS executado_por_nome
+      FROM orcamentos o
+      LEFT JOIN usuarios ue ON ue.id = o.executado_por
+      LEFT JOIN LATERAL (
+        SELECT c2.id, c2.status
+          FROM chamados c2
+         WHERE c2.orcamento_id = o.id
+         ORDER BY (c2.status IN ('aberto','em_atendimento')) DESC, c2.criado_em DESC
+         LIMIT 1
+      ) ch ON true
+      LEFT JOIN condominios     c  ON c.id  = o.condominio_id
+      LEFT JOIN ordens_servico  os ON os.id = o.os_id
+      LEFT JOIN usuarios        ur ON ur.id = o.respondido_por
+      WHERE o.status = 'aprovado'
+      ORDER BY COALESCE(o.aprovado_em, o.respondido_em, o.criado_em) DESC
+      LIMIT 300
+    `);
+    return res.json(r.rows);
+  } catch (err) {
+    console.error("[operador] GET /orcamentos:", err);
+    return res.status(500).json({ error: "Erro ao listar os orçamentos aprovados" });
+  }
+});
+
+/**
+ * GET /operador/prazos
+ *
+ * O que a AJUDA da tela explica: os prazos de cada prioridade e as faixas de
+ * nível. Página: o diálogo "Como esta tela funciona", nas duas telas.
+ *
+ * ⚠️ ESTE ENDPOINT EXISTE PARA A AJUDA NÃO MENTIR. Os prazos moram em
+ * `sla_definicoes` e são editáveis pelo admin; escritos à mão no front, eles
+ * viram documentação que envelhece em silêncio — e é exatamente o que já
+ * tinha acontecido: a dica do "Novo chamado" dizia "P2 24–48h" quando o
+ * `ttr_min` de P2 é 1440 (24h), e "P4 conforme agenda" quando P4 tem 14400
+ * (10 dias). Ajuda errada é pior que ajuda nenhuma, ainda mais para quem
+ * abriu a ajuda justamente por não saber.
+ *
+ * ⚠️ E É PEDIDO SÓ QUANDO A AJUDA ABRE, não na carga da tela. A tese da
+ * superfície ("uma request monta a tela inteira") é sobre MONTAR A TELA; um
+ * diálogo que a maioria dos turnos nunca abre não entra no caminho crítico
+ * da fila.
+ */
+router.get("/prazos", authRequired, adminOnly, async (req, res) => {
+  try {
+    const r = await pool.query(`
+      SELECT prioridade, ttfr_min, sla_chegada_min, ttr_min
+        FROM sla_definicoes
+       ORDER BY prioridade
+    `);
+    return res.json({
+      prazos: r.rows,
+      // As faixas e a janela do sensor mudo saem daqui pelo mesmo motivo dos
+      // prazos: são as MESMAS constantes que classificam a fila, no topo
+      // deste arquivo. A ajuda não pode ter a sua própria versão delas.
+      limiares: { baixo: NIVEL_BAIXO, critico: NIVEL_CRITICO },
+      offline_min: OFFLINE_MINUTES,
+    });
+  } catch (err) {
+    console.error("[operador] GET /prazos:", err);
+    return res.status(500).json({ error: "Erro ao carregar os prazos" });
+  }
+});
+
+/**
+ * POST /operador/orcamentos/:id/chamado
+ *
+ * Abre um chamado para EXECUTAR um orçamento aprovado, já vinculado a ele
+ * (`chamados.orcamento_id`, migration 079).
+ *
+ * ⚠️ POR QUE NÃO REUSAR `POST /chamados`. Aquela rota é a porta genérica e
+ * não conhece orçamento: ela não sabe de qual prédio o orçamento é, não
+ * escreve o vínculo e não tem como impedir o clique duplo. Repetir o
+ * `INSERT` aqui é o preço de a ligação existir — e é um `INSERT` só, com a
+ * mesma validação de título e descrição.
+ *
+ * ⚠️ E NÃO APLICA O BUMP DE RECORRÊNCIA de `POST /chamados`. Lá, dois
+ * chamados da mesma categoria no mesmo prédio em 30 dias sobem um nível —
+ * é detecção de problema que volta. Aqui o chamado nasce de um serviço
+ * AUTORIZADO: subir a prioridade de uma limpeza agendada porque houve outra
+ * limpeza no mês passado inverteria a fila do turno com trabalho de rotina.
+ *
+ * O prédio NÃO vem do corpo da requisição: vem do orçamento. Deixar o front
+ * mandar permitiria abrir, a partir do orçamento de um prédio, um chamado em
+ * outro — e o vínculo passaria a mentir.
+ */
+const CATEGORIAS_CHAMADO = [
+  "vazamento", "bomba_falha", "nivel_baixo", "sem_agua", "ruido", "manutencao", "outro",
+];
+const PRIORIDADES_CHAMADO = ["p1", "p2", "p3", "p4"];
+
+router.post("/orcamentos/:id/chamado", authRequired, adminOnly, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0)
+    return res.status(400).json({ error: "Orçamento inválido" });
+
+  const { titulo, descricao, categoria, prioridade } = req.body || {};
+  if (!titulo || typeof titulo !== "string" || !titulo.trim())
+    return res.status(400).json({ error: "Escreva um título para o chamado" });
+  if (!descricao || typeof descricao !== "string" || descricao.trim().length < 5)
+    return res.status(400).json({ error: "Descreva o serviço com pelo menos 5 caracteres" });
+  if (categoria && !CATEGORIAS_CHAMADO.includes(categoria))
+    return res.status(400).json({ error: "Categoria inválida" });
+  if (prioridade && !PRIORIDADES_CHAMADO.includes(prioridade))
+    return res.status(400).json({ error: "Prioridade inválida" });
+
+  try {
+    const orc = await pool.query(
+      `SELECT id, numero, status, condominio_id FROM orcamentos WHERE id = $1`, [id]
+    );
+    if (!orc.rows.length)
+      return res.status(404).json({ error: "Orçamento não encontrado" });
+
+    const o = orc.rows[0];
+    // A tela lista só aprovados; a checagem existe porque a rota é uma porta
+    // e portas se abrem por URL. Um chamado que promete executar um orçamento
+    // recusado é pior que um erro.
+    if (o.status !== "aprovado")
+      return res.status(409).json({ error: "Este orçamento não está aprovado." });
+
+    // ⚠️ CLIQUE DUPLO É O CASO NORMAL, não a exceção: a lista não recarrega
+    // sozinha (ver o comentário no operador-orcamentos.js) e o operador está
+    // ao telefone. Havendo chamado ABERTO deste orçamento, devolve o que já
+    // existe com 200 e `ja_existia` — o front leva para ele em vez de mostrar
+    // erro. Chamado FECHADO não bloqueia: o serviço pode voltar.
+    const aberto = await pool.query(
+      `SELECT id FROM chamados
+        WHERE orcamento_id = $1 AND status IN ('aberto','em_atendimento')
+        ORDER BY criado_em DESC LIMIT 1`, [id]
+    );
+    if (aberto.rows.length)
+      return res.json({ id: aberto.rows[0].id, ja_existia: true });
+
+    const ins = await pool.query(
+      `INSERT INTO chamados
+         (condominio_id, titulo, descricao, prioridade, categoria, orcamento_id, status)
+       VALUES ($1, $2, $3, $4, $5, $6, 'aberto')
+       RETURNING id, status, prioridade, categoria, titulo, condominio_id, orcamento_id, criado_em`,
+      [
+        o.condominio_id || null,
+        titulo.trim().slice(0, 255),
+        descricao.trim().slice(0, 4000),
+        prioridade || "p4",
+        categoria || "manutencao",
+        id,
+      ]
+    );
+    registrarCriacao({ chamadoId: ins.rows[0].id, alteradoPor: req.user.id });
+    return res.status(201).json({ ...ins.rows[0], ja_existia: false });
+  } catch (err) {
+    console.error("[operador] POST /orcamentos/:id/chamado:", err);
+    return res.status(500).json({ error: "Erro ao abrir o chamado deste orçamento" });
+  }
+});
+
+/**
+ * POST   /operador/orcamentos/:id/executado   — marca como feito
+ * DELETE /operador/orcamentos/:id/executado   — desfaz
+ *
+ * O quarto estado da tela "Aprovados": o serviço foi feito **sem chamado
+ * nenhum**. Migration 080.
+ *
+ * ⚠️ NÃO ACEITA DATA NEM AUTOR DO CORPO. `executado_em` é `NOW()` e
+ * `executado_por` é quem está logado. Deixar o front mandar transformaria um
+ * registro de atendimento em campo livre — e o valor dele é justamente ser
+ * carimbo, não digitação.
+ *
+ * ⚠️ E NÃO MEXE EM `status`, que continua `aprovado`. Ver o comentário da
+ * migration: "executado" é fato do atendimento, não estado do documento.
+ *
+ * ⚠️ O DELETE existe porque a marcação é de um clique e sem confirmação —
+ * essa é a troca. Confirmação a cada marcação cobra de todo mundo o preço do
+ * erro de alguns; desfazer cobra só de quem errou. Sem ele, a única saída de
+ * um clique errado seria mexer no banco.
+ */
+router.post("/orcamentos/:id/executado", authRequired, adminOnly, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0)
+    return res.status(400).json({ error: "Orçamento inválido" });
+  try {
+    // ⚠️ `COALESCE(executado_em, NOW())`: marcar duas vezes não reescreve a
+    // data da primeira. É a mesma regra de `primeira_resposta_em` no SLA
+    // (chamados-sla.md) — a primeira escrita ganha.
+    const r = await pool.query(
+      `UPDATE orcamentos
+          SET executado_em  = COALESCE(executado_em, NOW()),
+              executado_por = COALESCE(executado_por, $2)
+        WHERE id = $1 AND status = 'aprovado'
+        RETURNING id, executado_em`,
+      [id, req.user.id]
+    );
+    if (!r.rows.length)
+      return res.status(404).json({ error: "Orçamento aprovado não encontrado" });
+    return res.json(r.rows[0]);
+  } catch (err) {
+    console.error("[operador] POST /orcamentos/:id/executado:", err);
+    return res.status(500).json({ error: "Erro ao marcar o orçamento como feito" });
+  }
+});
+
+router.delete("/orcamentos/:id/executado", authRequired, adminOnly, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0)
+    return res.status(400).json({ error: "Orçamento inválido" });
+  try {
+    const r = await pool.query(
+      `UPDATE orcamentos
+          SET executado_em = NULL, executado_por = NULL
+        WHERE id = $1
+        RETURNING id`,
+      [id]
+    );
+    if (!r.rows.length)
+      return res.status(404).json({ error: "Orçamento não encontrado" });
+    return res.json({ id: r.rows[0].id, executado_em: null });
+  } catch (err) {
+    console.error("[operador] DELETE /orcamentos/:id/executado:", err);
+    return res.status(500).json({ error: "Erro ao desfazer" });
+  }
+});
 
 module.exports = { operadorRouter: router };

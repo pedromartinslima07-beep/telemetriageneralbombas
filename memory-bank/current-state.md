@@ -378,7 +378,69 @@ Fluxo e pegadinhas em
   textura. Hoje só a placa do turno e o mapa têm moldura; item e listas do
   trilho são cor chapada. E a **Regra do Selo passou a valer para o botão**:
   só o item cujo relógio pede alguém agora tem "Despachar" em campo cheio.
+- **Corte de simplificação, a pedido do Pedro** (*a tela será usada por pessoas
+  mais velhas, com pouca familiaridade com computador*). O primeiro passe
+  respondeu com **escala** e ele devolveu *"não mudou praticamente nada"* —
+  **aumentar não é simplificar**; a pergunta é *o que sai da tela*. Feito até
+  agora: o **item da fila** (28/08) de 3 colunas para 2, de 2 botões iguais
+  para 1 botão + 1 link, de 15 peças na face para 10; o **trilho** (31/08) de
+  4 peças por linha para 2 (nome · estado), sem o selo de iniciais e sem a nota
+  "no mapa"; e o **placar de três números** (31/08), que **saiu da tela** —
+  dois dos três eram repetição literal dos cabeçalhos de seção 40px abaixo, e
+  "fora do prazo", o único que não era, desceu para esses cabeçalhos, onde
+  passou a contar por seção em vez de um total único. O primeiro item subiu de
+  y=225 para y=120. **Falta a ficha, o diálogo de despacho e "Já tem
+  técnico"** — a fila e as pendências de copy estão em
+  [active-work.md](active-work.md).
+- ⚠️ **A engrenagem de fundo mudou de casa** (31/08), por dependência do
+  placar — e a lição é a que vale reter: *quando a peça de fundo perde o lugar,
+  a pergunta não é se ela sai, é onde o campo aberto foi parar.* A máscara em
+  px do `.eng` a continha numa faixa **horizontal** (barra + placar + cabeçalho
+  da fila) que caiu de 157px para 49, com a barra opaca por cima. Mas o campo
+  aberto não sumiu — mas a resposta também não era a margem da janela, que foi
+  a segunda tentativa e só existia acima de 1800px. **Hoje ela abraça o mapa**,
+  a pedido do Pedro: `.eng` virou o RECORTE (a coluna do trilho, com
+  `overflow:hidden`) e `.eng-roda` a peça, centrada no mapa. O que os dois
+  arranjos anteriores tinham em comum era ancorar a peça na **janela**;
+  ancorada no **conteúdo**, ela não encosta na coluna da fila em largura
+  nenhuma — o dente na fresta entre cartões deixou de ser possível **por
+  construção, não por calibragem** — e quem a corta por dentro é o mapa, que é
+  opaco. **Não há máscara em px em lugar nenhum.**
+  ⚠️ **Pré-requisito: `.trilho` perdeu o `background`**, que era `--mar-900`,
+  a mesma cor do `body` — pintava por cima da peça sem mudar um pixel. Quem
+  devolver aquele fundo faz a engrenagem sumir sem nenhum outro sintoma.
+  ⚠️ **Some abaixo de 1180**, a quebra exata em que o trilho vira faixa.
+- **A superfície tem DUAS telas desde 31/08** — a fila do turno e **Aprovados**
+  (`/operador/painel/orcamentos`), que carrega a **mesma folha**. Nela, clicar
+  no orçamento abre o chamado que o executa, já vinculado por
+  `chamados.orcamento_id` (migration 079), com título e descrição
+  pré-preenchidos a partir do próprio orçamento. O prédio vem do orçamento e
+  nunca do corpo da requisição, a prioridade padrão é **P4** (serviço aprovado
+  é trabalho agendado) e não há bump de recorrência. **Nenhum valor entra
+  nessa tela** — o endpoint não devolve dinheiro.
+  ⏳ **As migrations 079 e 080 só rodaram no banco de teste; faltam produção.**
+  A tela tem **quatro estados** por orçamento (livre · chamado aberto · chamado
+  fechado · marcado à mão), e o que é marcado como feito **sai da lista** — com
+  duas voltas: a faixa com "Desfazer" na hora, e a linha "N já feitos ·
+  mostrar" no fim, permanente.
+  ⚠️ **Aprovados está em REGISTRO DE LEITURA desde 31/08** — placa clara por
+  orçamento, manchete com a palavra "aprovados" em âmbar, selo e botão âmbar.
+  É a única tela desta superfície fora do registro de operação, e a fronteira
+  d'A Regra da Superfície foi reescrita em `DESIGN.md` para dizer o que ela
+  sempre quis dizer: o proibido é placa clara **disputando a tela** com
+  conteúdo marinho ao lado, não placa clara permanente. A fila do turno
+  continua marinho porque é tabela.
+- **A evidência do item parou de desenhar ausência (31/08).** Reservatório mudo
+  não desenha tubo: todos os mudos cabem numa linha, com os nomes preservados.
+  Item de 4 caixas sem sensor: **222 → 189px** (a evidência, de 82 para 49). A trilha virou
+  `minmax(320px,1fr)` (tubo de 156 → ~250px; saíram ~490px de campo morto), e o
+  número do chamado e "Ver detalhes" encostaram na borda direita — a largura do
+  item virou estrutura em vez de sobra.
 - ⚠️ **Nunca rodou sob a role real** — não existe usuário `operador` em produção.
+  Para olhar a tela sem sessão existe **`/dev/_operador-preview.html`** (rota
+  `/dev/:arquivo` em `src/app.js`, **não registrada em produção**), com fixture
+  cobrindo os quatro estados de técnico. Ela repete o `?v=N` do `operador.html`
+  — bumpou um, bumpe o outro.
 - ⚠️ **Todo `--ch` local é morto, nas cinco folhas** (medido em 27/08): o
   `var()` de uma custom property resolve onde ela é declarada, então `--corte`
   pega o `--ch` do `:root` e os filhos herdam o polígono pronto. Cada tela tem

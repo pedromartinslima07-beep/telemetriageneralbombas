@@ -383,6 +383,16 @@ app.get("/cliente/painel", _htmlNoCache, (req, res) =>
 app.get("/operador/painel", _htmlNoCache, (req, res) =>
   enviarHtml(res, path.join(__dirname, "../public/operador.html"))
 );
+// Aprovados — a segunda tela do operador: os orçamentos já aprovados, com o
+// prédio e o serviço autorizado, SEM valor (o endpoint não devolve dinheiro).
+// ⚠️ O PATH É `/operador/painel/orcamentos`, NÃO `/operador/orcamentos`.
+// Esse segundo é a API, registrada no `operadorRouter` — mesma convenção e
+// mesmo motivo do par `/cliente/painel/orcamentos` (página) e
+// `/cliente/orcamentos` (API): página é o NOME DA TELA, API é o recurso.
+// Trocar isso faz a rota HTML sombrear o endpoint e a tela carrega vazia.
+app.get("/operador/painel/orcamentos", _htmlNoCache, (req, res) =>
+  enviarHtml(res, path.join(__dirname, "../public/operador-orcamentos.html"))
+);
 // Orçamentos do síndico — página própria, não um modal do painel. É o destino
 // do link que vai no e-mail do orçamento, então a URL é pública e estável; o
 // login é pedido pelo JS num cartão SOBRE a própria página — nunca em /login,

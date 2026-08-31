@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<!-- viewport-fit=cover: sem ele o iOS devolve 0 em env(safe-area-inset-*)
+     e a barra não tem como compensar o entalhe. Mesma correção das outras
+     superfícies instaláveis (docs/arquitetura.md). -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#030a26">
+<link rel="manifest" href="/manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="General">
+<title>GENERAL • Aprovados</title>
+<link rel="icon" type="image/png" href="/static/favicon.png?v=3">
+<link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+<link rel="preload" href="/static/fonts/archivo.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/static/fonts/martianmono.woff2" as="font" type="font/woff2" crossorigin>
+<!-- ⚠️ A MESMA FOLHA DO PAINEL, não uma nova. As duas telas são a mesma
+     superfície do operador, e o painel do cliente já ensinou o custo de
+     deixar telas irmãs divergirem: `cliente-orcamentos.html` carrega o
+     `cliente.css` pelo mesmo motivo. Só o bloco `.orc-*` é exclusivo daqui,
+     e ele mora no operador.css junto com o resto. -->
+<link rel="stylesheet" href="/static/operador.css?v=58">
+</head>
+<!-- `sem-trilho`: esta tela não tem a coluna do mapa, então a barra volta a
+     dividir a largura por `--area-max` sozinho. Ver o bloco no operador.css. -->
+<body class="sem-trilho">
+
+<!-- DIREÇÃO — Aprovados · 31/08/2026
+
+     THESIS: o que já foi autorizado, por prédio. A tela responde "o que a
+     gente pode executar aqui" — não "quanto custou". O item é o SERVIÇO
+     aprovado, e o prédio é quem manda na leitura, porque é por prédio que o
+     operador é cobrado ao telefone.
+     ⚠️ NENHUM VALOR ENTRA NESTA TELA, e isso é decisão do Pedro. Não é
+     ocultação no CSS: o endpoint `GET /operador/orcamentos` não devolve
+     coluna de dinheiro nenhuma. Ver o comentário lá.
+     OWN-WORLD: o mesmo Chapa em registro de operação do painel do turno.
+     FIRST VIEWPORT: barra com a marca e a volta para o turno; abaixo, a
+     contagem e a lista, do mais recente para o mais antigo. -->
+
+<header class="barra">
+  <div class="barra-in">
+    <div class="marca">
+      <img src="/static/logo-topo.png" alt="GENERAL" width="826" height="180">
+      <span>Aprovados</span>
+    </div>
+  </div>
+  <div class="barra-acoes">
+    <!-- ⚠️ A AJUDA É PARTE DA TELA, não um extra. O Pedro definiu o público
+         em 28/08: pessoas com pouca familiaridade com computador. Ela fica
+         na primeira posição das ações e o rótulo NÃO some no celular (ver o
+         bloco `.barra-acoes .btn-ajuda` no operador.css) — botão de ajuda
+         que vira um ponto de interrogação solto é o primeiro a não ser
+         achado por quem mais precisa dele. -->
+    <button class="btn btn-fio btn-ajuda" data-acao="ajuda" aria-label="Ajuda: como esta tela funciona">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.4 9.3a2.7 2.7 0 1 1 3.4 2.6c-.6.2-.8.7-.8 1.3v.6"/><path d="M12 17v.9"/></svg>
+      <span class="btn-rot">Ajuda</span>
+    </button>
+    <!-- A volta é LINK, não botão, e é a mesma decisão do painel do cliente:
+         navegação de verdade faz o voltar do navegador e o gesto de voltar
+         do celular funcionarem. -->
+    <a class="btn btn-fio" href="/operador/painel">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+      <span class="btn-rot">A fila do turno</span>
+    </a>
+    <div class="conta" id="conta" title="">--</div>
+  </div>
+</header>
+
+<main id="tela">
+  <!-- O primeiro estado é "ainda não sei", nunca "está vazio" — a mesma
+       regra do painel do turno. -->
+  <div class="carregando" id="carregando">Carregando os orçamentos aprovados…</div>
+</main>
+
+<script src="/static/inatividade.js?v=8" defer></script>
+<script src="/static/operador-orcamentos.js?v=14" defer></script>
+<script src="/static/register-sw.js?v=51" defer></script>
+</body>
+</html>

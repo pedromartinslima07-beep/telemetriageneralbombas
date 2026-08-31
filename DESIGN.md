@@ -643,6 +643,25 @@ tabela marinho parte a tela em dois campos que competem, e nenhum dos dois vence
 Já uma placa clara que aparece **por cima**, com o campo escurecido atrás,
 declara "agora é aqui" sem disputar com nada.
 
+⚠️ **A regra ganhou um TERCEIRO caso em 31/08/2026, e ele não é exceção — é a
+fronteira dita direito.** A tela "Aprovados" do operador
+(`/operador/painel/orcamentos`) passou a ter placas claras **permanentes**, e
+está certo: não há nada ao lado delas. O que a regra proíbe é a placa clara
+**disputando a tela com conteúdo escuro** — foi por isso que ela nasceu. Quando
+a placa clara **é** o conteúdo, com marinho de campo em volta, o arranjo é o da
+landing e o do painel do cliente, que estão em produção desde agosto.
+
+| Arranjo | Placa clara? | Por quê |
+|---|---|---|
+| Abre por cima (modal, drawer) | **sim** | o campo escurece atrás; nada disputa |
+| É o conteúdo, campo marinho em volta | **sim** | landing, login, painel do cliente, Aprovados |
+| Lado a lado com conteúdo marinho | **não** | duas metades competindo, e nenhuma vence |
+| Tabela / lista densa de varredura | **não** | é superfície de trabalho — a fila do turno |
+
+A pergunta certa não é "abre por cima?", é **"tem conteúdo marinho competindo
+ao lado?"**. A fila do turno do operador continua marinho pela linha 4; a tela
+de Aprovados, que são 7 itens que se leem, foi para o claro pela linha 2.
+
 ⚠️ **Converter uma superfície para claro é remapeamento de token, não reescrita
 de regra.** Redeclarar `--text`, `--muted`, `--border`, `--surface` e a família
 de estado **no contêiner** vira a subárvore inteira de uma vez — sem caçar

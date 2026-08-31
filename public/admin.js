@@ -11876,6 +11876,33 @@ function _avStatusCls(s) {
 function _avStatusLabel(s) {
   return { aprovado:"APROVADO", rejeitado:"REJEITADO", enviado:"ENVIADO", rascunho:"RASCUNHO" }[s] || s.toUpperCase();
 }
+// ⚠️ O QUE ACONTECEU DEPOIS DO APROVADO (31/08/2026, migrations 079 e 080).
+// Até aqui o admin não tinha como responder "esse orçamento chegou a ser
+// executado?" — a informação existia no banco e só a tela do operador lia.
+// Quem escreve continua sendo o operador; aqui é LEITURA, e por isso o selo
+// não é clicável e não há botão nenhum ao lado dele.
+//
+// ⚠️ DE FIO, NUNCA PREENCHIDO. Regra do Selo: preenchimento é de quem pede
+// ação AGORA, e nesta lista quem pede é a resposta sem baixa (`.av-selo-pend`,
+// âmbar cheio). "Já foi feito" é o contrário de pedir ação — preenchê-lo
+// competiria com a única coisa da tela que precisa de alguém.
+//
+// ⚠️ E A ORDEM É A MESMA DA TELA DO OPERADOR: marcado à mão ganha do chamado.
+// Se as duas telas mostram o mesmo selo, elas têm de escolher pelo mesmo
+// critério — senão o admin diz uma coisa e o operador diz outra sobre o mesmo
+// orçamento, que é pior do que nenhuma das duas dizer nada.
+function _avExecBadge(o) {
+  if (o.executado_em) {
+    const quem = o.executado_por_nome ? ` por ${o.executado_por_nome}` : "";
+    return ` <span class="av-selo-exec" data-e="feito" title="Marcado como feito em ${
+      _orcFmtData(o.executado_em)}${_waEscaparHtml(quem)}">Feito</span>`;
+  }
+  if (!o.chamado_id) return "";
+  const aberto = o.chamado_status === "aberto" || o.chamado_status === "em_atendimento";
+  return ` <span class="av-selo-exec" data-e="${aberto ? "andando" : "fechado"}" title="${
+    aberto ? "Tem chamado aberto na fila do turno" : "O chamado deste orçamento já foi fechado"
+  }">Chamado #${o.chamado_id}</span>`;
+}
 function _avOrigemBadge(origem) {
   if (origem === "ia") return ` <span class="orc-origem-pill orc-origem-ia" title="Pedido recebido pelo WhatsApp">via IA</span>`;
   if (origem === "os") return ` <span class="orc-origem-pill orc-origem-os" title="Originado de uma ordem de serviço">via OS</span>`;
@@ -12117,7 +12144,7 @@ function _avRenderCondoDetail(g) {
           <div class="av-orc-item-top">
             <span class="mono" style="font-size:11.5px;">${_waEscaparHtml(o.numero || "—")}</span>${_avOrigemBadge(o.origem)}
             ${tipoLbl ? `<span class="orc-tipo-pill">${_waEscaparHtml(tipoLbl)}</span>` : ""}
-            ${pend ? `<span class="av-selo-pend${o.resposta_vista_em ? " is-vista" : ""}">${o.resposta_vista_em ? "Sem baixa" : "Resposta nova"}</span>` : ""}
+            ${pend ? `<span class="av-selo-pend${o.resposta_vista_em ? " is-vista" : ""}">${o.resposta_vista_em ? "Sem baixa" : "Resposta nova"}</span>` : ""}${_avExecBadge(o)}
           </div>
           <div class="av-orc-item-sub${o.respondido_em ? " is-resposta" : ""}">${quemRespondeu}</div>
         </div>
@@ -12420,6 +12447,27 @@ function _avRenderPainel() {
                   : "<i class=\"av-cargo\">não informado</i>"}</b>
           </div>
           <div class="av-rail-kv"><span>Quando</span><b>${_orcFmtDataHora(o.respondido_em)}</b></div>` : ""}
+          ${/* ⚠️ O DESFECHO, e ele fecha a linha do tempo da ficha (31/08).
+                A ordem aqui é a dos fatos: alguém monta, o cliente responde,
+                o escritório dá baixa — e agora, o serviço acontece. Faltava
+                justamente o último, e era a pergunta que o admin não sabia
+                responder ("esse orçamento chegou a ser executado?").
+                ⚠️ SÓ LEITURA. Quem escreve isto é a tela do operador; um
+                controle aqui criaria dois lugares para dizer a mesma coisa,
+                e nenhum dos dois seria a verdade. */""}
+          ${o.executado_em ? `
+          <div class="av-rail-kv">
+            <span>Feito em</span>
+            <b>${_orcFmtData(o.executado_em)}${o.executado_por_nome
+                 ? ` <i class="av-cargo">marcado por ${_waEscaparHtml(o.executado_por_nome)}</i>` : ""}</b>
+          </div>` : ""}
+          ${o.chamado_id ? `
+          <div class="av-rail-kv">
+            <span>Chamado</span>
+            <b>#${o.chamado_id} <i class="av-cargo">${
+              o.chamado_status === "aberto" || o.chamado_status === "em_atendimento"
+                ? "na fila do turno" : "fechado"}</i></b>
+          </div>` : ""}
           <div class="av-rail-kv av-rail-tipo">
             <span><label for="avInputTipo">Tipo</label></span>
             <b><select id="avInputTipo" class="select">

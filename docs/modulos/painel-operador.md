@@ -17,6 +17,11 @@ despacha. Substituiu o painel admin com itens escondidos — o destino do
 Arquivos: `public/operador.html` · `public/operador.css` · `public/operador.js`
 · `src/routes/operador.routes.js`.
 
+A superfície tem **duas telas**, e as duas carregam a MESMA folha: a fila do
+turno e **Aprovados** (`/operador/painel/orcamentos` —
+`public/operador-orcamentos.html` · `public/operador-orcamentos.js`). Ver
+"A segunda tela" lá embaixo.
+
 Endpoints em [`../api.md`](../api.md) (router `operador`), ciclo do chamado e
 prazos em [`chamados-sla.md`](chamados-sla.md), faixas de nível em
 [`telemetria.md`](telemetria.md), o corte de permissões do perfil em
@@ -55,9 +60,17 @@ admin** (seria o mesmo painel com menos itens) e a **parede de instrumentos**.
 
 | Região | O que é |
 |---|---|
-| Barra | Placar do turno (estourados · esperando · em rota), relógio, pulso de "recebendo", `+ Novo chamado` |
-| Coluna principal | **Esperando alguém** (sem técnico) e, abaixo, **Já tem técnico** |
-| Trilho | **Equipe agora** (disponibilidade e nº de abertos) e **Despachados hoje** |
+| Barra | Marca, relógio, pulso de "recebendo", `+ Novo chamado` |
+| Coluna principal | **Esperando alguém** (sem técnico) e, abaixo, **Já tem técnico** — cada cabeçalho conta os seus, inclusive os fora do prazo |
+| Trilho | Mapa do turno; **Equipe agora** (nome + estado) e **Despachados hoje** |
+
+⚠️ **No trilho, cada linha tem duas peças e só.** Desde 31/08/2026 saíram o
+selo de iniciais e a nota "no mapa": a pergunta que o trilho responde é *quem
+pode ir*, e nenhuma das duas respondia. O selo não identifica ninguém que o
+operador já não reconheça pelo nome, e "no mapa" repetia, em texto, o pino que
+o mapa logo acima já desenha. Sobrou a **exceção**: quando falta posição, a
+linha diz "· sem posição" em tinta apagada. A disponibilidade, que morava no
+anel do selo **e** na cor do estado, agora mora só na cor do estado.
 
 Estado vazio: *"Nenhum chamado aberto."* — e o estado de carga diz
 **"Carregando a fila do turno…"**. Dizer "nenhum chamado" antes da resposta
@@ -104,6 +117,187 @@ está no [`roadmap`](../../memory-bank/roadmap.md).
    `POST /chamados`. A lista de prédios vem de `GET /condominios`, **não da
    fila**: chamado novo costuma ser num prédio que ainda não tem chamado
    aberto — exatamente o que não está na fila.
+
+## A segunda tela: Aprovados (`/operador/painel/orcamentos`)
+
+**A pergunta é "o que a gente pode executar aqui", não "quanto custou".** A
+lista é agrupada **por prédio**, porque é por prédio que o operador é cobrado
+ao telefone — nunca por número de orçamento.
+
+### ⚠️ Esta tela está em REGISTRO DE LEITURA, e é a única desta superfície
+
+**O marinho é o campo; a placa clara é o conteúdo.** É a gramática da landing e
+do painel do cliente, não a da fila do turno — e a mudança é de 31/08/2026, a
+pedido do Pedro, que pôs os dois prints lado a lado.
+
+Medido antes: a tela vivia numa faixa de **12 a 17px**, o maior tipo dela era o
+nome do prédio, e não havia **uma** superfície clara. São 7 itens que se leem;
+não têm a densidade da fila para justificar o registro de operação.
+
+| Peça | O que é |
+|---|---|
+| Manchete | `N orçamentos **aprovados** em M prédios` — "aprovados" em âmbar, no campo marinho |
+| Prédio | cabeçalho branco **no marinho**, acima das placas — nunca título de cartão |
+| Placa | `--chapa`, uma por orçamento, com o serviço aprovado como leitura grande |
+| Selo | **PODE EXECUTAR** em âmbar cheio · `CHAMADO #N` de fio quando já existe |
+| Rodapé | uma FRASE (`1 item · aprovado em … por … · cargo`), nunca a pilha de metadados que existia antes |
+
+⚠️ **O âmbar nunca é texto sobre a placa clara** (Regra do Amarelo Cego, ~2:1).
+Ali ele é só preenchimento com tinta marinho por cima — o selo e o botão. A
+palavra âmbar da manchete vive no campo marinho, e é por isso que a manchete
+não entrou na placa.
+
+⚠️ **E isto não quebra A Regra da Superfície** — ver a tabela nova em
+[`../../DESIGN.md`](../../DESIGN.md). O que a regra proíbe é placa clara
+**disputando a tela** com conteúdo marinho ao lado. Aqui a placa **é** o
+conteúdo. A fila do turno continua marinho porque é tabela de varredura.
+
+⚠️ **Nenhum valor entra nesta tela, e não é `display:none`:**
+`GET /operador/orcamentos` não devolve coluna de dinheiro nenhuma. Ver o aviso
+em [`../api.md`](../api.md).
+
+### Os quatro estados de um orçamento aprovado
+
+| Estado | Selo | Ação | Placa |
+|---|---|---|---|
+| livre | **Pode executar**, âmbar cheio | "Já foi feito" (link) + "Abrir chamado" (âmbar) | `--chapa` |
+| chamado aberto | `Chamado #N aberto`, de fio | **nenhuma** — quem encerra é o chamado | `--chapa` |
+| chamado fechado | `Chamado #N fechado`, de fio | "Abrir de novo", de fio | `--chapa-es` |
+| **marcado à mão** (080) | `Feito em DD/MM`, de fio | "Desfazer" | `--chapa-es` |
+
+⚠️ **"Marcado à mão" ganha de todos os outros na hora de decidir o estado.**
+Alguém disse, com nome e hora, que o serviço foi feito; isso é afirmação de
+gente e vence qualquer dedução a partir do estado de um chamado. O caso
+concreto: o operador marca como feito e, semanas depois, abre um chamado novo
+do mesmo orçamento porque o serviço voltou — com a ordem invertida, a placa
+esqueceria que a primeira execução aconteceu.
+
+⚠️ **"Já foi feito" só aparece no estado LIVRE.** Com chamado aberto quem
+conclui é o chamado, na fila do turno; oferecer os dois caminhos criaria duas
+verdades sobre o mesmo serviço.
+
+### O que é marcado como feito SAI da lista (31/08)
+
+Decisão do Pedro: *"se não vai ficar pra sempre e vai ficar tudo poluído"*. A
+tela responde "o que a gente pode executar aqui", e um orçamento executado não
+responde mais nada — sem isso a lista vira um cemitério que o operador aprende
+a ignorar, que é o começo de não ler a tela.
+
+⚠️ **Mas não some para sempre.** A marcação é de UM CLIQUE e sem confirmação;
+se o que sai não tem volta, o erro só se conserta no banco. São **duas** saídas,
+e as duas moram nesta tela:
+
+1. a **faixa** que aparece na hora, com "Desfazer" dentro dela (10 s, contra os
+   6 s da faixa de erro: ler a frase é rápido, decidir que clicou errado não);
+2. a linha **"N já feitos · mostrar"** no fim da lista, que é permanente.
+
+⚠️ **Sem confirmação, com desfazer** — a troca é deliberada. Uma caixa de "tem
+certeza?" a cada marcação cobra de todo mundo o preço do erro de alguns; o
+desfazer cobra só de quem errou.
+
+⚠️ **A faixa passou a ter duas vozes.** Ela era vermelha sempre, porque só
+existia para erro. Confirmação em vermelho ensina o operador a não olhar para o
+vermelho — `--risco` é estado crítico e não aparece por outro motivo (A Regra
+do Crítico Silencioso). A confirmação é **superfície**: placa marinho com anel
+de 1px, e `role="status"` em vez de `alert`.
+
+⚠️ **A manchete conta o que está na tela**, não o total do banco. Número que não
+bate com o que se vê embaixo dele é pior que número nenhum.
+
+### Clicar no orçamento abre o chamado que o executa (31/08/2026)
+
+Antes, a tela dizia o que foi autorizado e parava aí: o operador lia "o Bosque
+Verde aprovou a troca do selo" e ia abrir o chamado na outra tela, digitando de
+novo prédio, serviço e constatação — e depois ninguém tinha onde olhar para
+saber se aquele orçamento chegou a ser executado.
+
+**A ação é o botão âmbar dentro da placa.** `POST /operador/orcamentos/:id/chamado`
+abre um chamado já vinculado por `chamados.orcamento_id` (migration 079), com o
+título e a descrição **pré-preenchidos a partir do próprio orçamento** (serviço,
+número, quem aprovou, constatação e itens) e editáveis antes de gravar.
+
+⚠️ **A PLACA NÃO É UM `<button>`**, e isso é uma correção sobre o mesmo dia. A
+linha inteira virou botão de manhã; à tarde a placa ganhou a ação em âmbar
+dentro dela, e `<button>` dentro de `<button>` é HTML inválido — o navegador
+desmonta a árvore. Não é perda: um botão âmbar escrito "Abrir chamado" é mais
+claro para quem tem pouca familiaridade do que uma área grande que reage ao
+clique sem dizer onde começa.
+
+⚠️ **A placa vira NA HORA, com o id que o endpoint devolve** — não quando a
+lista volta do servidor. Medido em 31/08 contra o banco de teste (Railway, via
+proxy): **mais de 2,5s** entre o clique e a troca, com o diálogo já fechado e a
+placa ainda dizendo "Abrir chamado". Do lado de quem clicou, o botão não fez
+nada. A recarga de verdade vai atrás, para reconciliar, e com `.catch` próprio:
+o diálogo já fechou, então um erro ali não tem mais onde ser escrito.
+
+| | Regra, e por quê |
+|---|---|
+| Prédio | Vem do **orçamento**, nunca do corpo da requisição. Aceitar do front permitiria abrir, a partir do orçamento de um prédio, um chamado em outro — e o vínculo passaria a mentir |
+| Prioridade | Padrão **P4**, não o P2 do "novo chamado": serviço aprovado é trabalho **agendado**. Como P2 ele passaria na frente de bomba parada numa fila ordenada pelo prazo que estoura primeiro |
+| Recorrência | **Sem o bump** de `POST /chamados`. Lá ele detecta problema que volta; aqui subiria a prioridade de uma limpeza agendada por causa de outra limpeza no mês passado |
+| Clique duplo | Havendo chamado **aberto** do mesmo orçamento, o endpoint devolve o que já existe (`200`, `ja_existia`). A lista não recarrega sozinha e o operador está ao telefone: repetir o clique é o caso normal |
+| Chamado fechado | **Não bloqueia.** A linha continua clicável e o chip vira "Abrir de novo" — o serviço pode voltar. É também por isso que `orcamento_id` não é UNIQUE |
+| Estado na linha | Com chamado aberto a linha **deixa de ser botão** e mostra "Chamado #N aberto". Botão que não faz nada é pior que nenhum botão |
+| Affordance | O chip "Abrir chamado" é **sempre visível**, nunca só no hover: quem não sabe que devia passar o mouse não descobre um alvo que só aparece quando o mouse chega |
+| Peso do chip | **De fio em repouso, preenchido no hover/foco** (Regra do Selo). Quinze linhas com quinze chips âmbar viram uma coluna de âmbar que não aponta para nada |
+
+⚠️ **Nada de elemento interativo dentro da linha.** Ela é um `<button>`, e
+`<button>` dentro de `<button>` é HTML inválido — o navegador desmonta a
+árvore. Por isso o chamado que já existe aparece como **texto**, e não como
+link para a fila; o número basta para achá-lo lá.
+
+⚠️ **O `operador-orcamentos.js` não importa nada do `operador.js`.** Os
+helpers de sessão, o `lerJson`, o `escapar` e o bloco inteiro do diálogo
+(`<dialog>` + `showModal()`, foco que volta para quem abriu, Tab preso, faixa
+de aviso) são **cópia deliberada**. É a mesma regra que mantém esta superfície
+independente do `admin.js` — foi compartilhando helper que o painel do cliente
+virou refém do admin até 13/08/2026.
+
+## O que o ADMIN vê disso (31/08/2026)
+
+**Nada aqui muda `orcamentos.status`.** Abrir chamado grava em `chamados`;
+marcar como feito grava `executado_em`/`executado_por`. O status continua
+`aprovado`, e é a única coisa que o admin edita.
+
+O admin **lê** as duas colunas: selo `FEITO` / `CHAMADO #N` na lista de
+orçamentos e duas linhas na ficha ("Feito em … marcado por …", "Chamado #N …").
+Ver [painel-admin.md](painel-admin.md) e o changelog de 31/08.
+
+⚠️ **Só leitura, dos dois lados da fronteira.** Quem escreve o desfecho é esta
+tela; um controle no admin criaria dois lugares para dizer a mesma coisa, e
+nenhum dos dois seria a verdade.
+
+## A ajuda (31/08/2026)
+
+Botão **"Ajuda"** na barra das duas telas, abrindo o diálogo "Como esta tela
+funciona". Pedido do Pedro, e a razão é a mesma calibragem de 28/08: quem opera
+tem pouca familiaridade com computador.
+
+⚠️ **OS PRAZOS VÊM DO BANCO** (`GET /operador/prazos` → `sla_definicoes`), e
+isso não é preciosismo: os números que estavam escritos à mão **já estavam
+errados**. A dica do "Novo chamado" dizia "P2 24–48h" quando o `ttr_min` de P2
+é 1440 (24h), e "P4 conforme agenda" quando P4 tem 14400 (10 dias). Mudar um
+prazo no admin muda a ajuda junto. Os números saíram das duas dicas de diálogo,
+que agora apontam para a tabela.
+
+⚠️ **A busca é preguiçosa** — só quando o diálogo abre. A tese "uma request
+monta a tela inteira" é sobre montar a tela; um diálogo que a maioria dos
+turnos nunca abre não entra no caminho crítico da fila.
+
+| | Regra |
+|---|---|
+| Rótulo | **"Ajuda" não some no celular**, ao contrário de "Aprovados" e "Novo chamado". Ponto de interrogação solto é o primeiro a não ser achado por quem mais precisa dele |
+| Posição | Primeira das ações da barra, nas duas telas |
+| Corpo | 1rem e medida de 66ch. Esta é a tela que alguém abre por não estar entendendo — encolher o texto aqui cobra o preço no pior momento |
+| Tabela | Prazo é medição: mono e `tabular-nums`. A coluna de prioridade é nome, então sai do mono |
+| Rolagem | O **invólucro** da tabela rola, não a tabela. Sem isso, no celular ela estica o diálogo e a página inteira ganha rolagem horizontal |
+| Prévia | Toda rota nova que o front chamar precisa de fixture em `_operador-preview.js` — sem ela, a chamada cai no `fetch` nativo com o token falso, toma 401 e **derruba a prévia para o `/login`** |
+
+O que a ajuda explica: por que a fila está naquela ordem, as prioridades com os
+três relógios, as faixas de nível (45/20) e o que "Sem leitura" quer dizer (e o
+que **não** quer), as ações da tela e o ciclo de 30s. Em Aprovados: o que é a
+tela, os três selos, o que o "Abrir chamado" preenche sozinho e por que o
+padrão é P4.
 
 ## Ciclo de vida da tela
 
@@ -345,6 +539,30 @@ superfície nenhuma. Consertar é mudar as cinco de uma vez; fazer só aqui
 tornaria esta a folha fora do padrão. O que entrou foi alinhar o número global
 (8 → 10px, o do cliente e do admin).
 
+## O passe do item (31/08/2026) — "desenho de ausência não é instrumento"
+
+O Pedro apontou o item do chamado #9 da produção: **quatro caixas d'água sem
+sensor vivo, e quatro barras hachuradas idênticas** empilhadas dizendo "—".
+Medido: item de **222px, com a trilha de tanques 100% vazia**.
+
+| | Regra que passou a valer |
+|---|---|
+| Reservatório mudo | **Não desenha tubo.** Todos os mudos do item cabem numa linha, com os nomes preservados — a mesma frase do painel do cliente ("Sem leitura de X e Y") |
+| Reservatório com leitura | Continua com a coluna d'água, e agora ela **é lida**: tubo de 156 → ~250px |
+| Trilha da prova | `320px` fixos → `minmax(320px, 1fr)`. O motivo do fixo (o texto começar no mesmo x em toda a fila) sobrevive: todo item tem a mesma largura, então a fração resolve igual em todos |
+| Largura do item | Vira **estrutura**: o número do chamado encosta na borda direita e "Ver detalhes" faz o mesmo embaixo. As duas linhas emolduram a evidência, em vez de tudo ficar empacotado no terço esquerdo de uma placa de 1000px |
+| Cabeçalho de seção | 12 → **15px em `--text`**. Ele saía menor que a própria legenda e 6px abaixo do título do item: a fila abria sem nada dizendo "aqui começa" |
+
+Resultado medido (mesma largura de item, 1000px): a região da evidência cai de
+**82 para 49px** — a trilha de tanques, de 76 para 20 — e o item de **222 para
+189px**. Saem também **~490px de campo morto** à direita da prova em todo item
+com telemetria. Hoje quem manda na altura do item é a **linha de ações**
+(52px), não mais a pilha do tanque.
+
+⚠️ **Nada saiu da tela.** Os nomes dos reservatórios continuam todos escritos.
+O que mudou foi o tamanho do que não tem o que mostrar — é a diferença entre
+"simplificar" e "encolher" registrada no passe de 28/08.
+
 ## Permissões
 
 O guard é `adminOnly` (`admin`, `gerente`, `operador`). Depois do corte de
@@ -357,9 +575,16 @@ node scripts/auditar-rbac.js operador
 
 ## Pendências
 
+- ⏳ **A migration 079 não rodou em produção.** Só no banco de teste. Sem ela,
+  o `INSERT` do `POST /operador/orcamentos/:id/chamado` estoura — é a lição da
+  Fase 7E. Rodar com o `DATABASE_URL` de produção:
+  `node scripts/migrate.js 079_chamado_orcamento.sql`.
 - 📋 **Nunca rodou sob a role real.** Não existe usuário `operador` em produção
   (confirmado em 27/08/2026); a tela foi exercitada com JWT assinado à mão
   contra o banco de teste, e o visual não foi visto logado.
+- 📋 **A ficha e o diálogo de despacho não passaram pelo corte de simplicidade**
+  que o item e o trilho já receberam — a ficha é onde foi parar tudo que saiu
+  do item, e continua densa.
 - 📋 Coluna `origem` em `chamados`, para a procedência deixar de ser dedução.
 - 📋 ETA de verdade no despacho: hoje o cartão do candidato mostra "no mapa"
   ou "—", não distância nem tempo.

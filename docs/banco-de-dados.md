@@ -167,6 +167,12 @@ Evolução:
 - 028: prioridade CHECK migra para `p1|p2|p3|p4` (default `p3`) +
   `tecnico_a_caminho_em`, `tecnico_chegou_em` (SLA de chegada)
 - 032: `plano_manutencao_id`
+- 079: `orcamento_id (SET NULL)` + `idx_chamados_orcamento` (parcial) — o
+  chamado que EXECUTA um orçamento aprovado. **Não é UNIQUE de propósito:**
+  um orçamento pode gerar mais de um chamado (o serviço volta); quem impede
+  o clique duplo é o `POST /operador/orcamentos/:id/chamado`, que devolve o
+  chamado aberto existente em vez de criar outro. Ver
+  [painel-operador.md](modulos/painel-operador.md)
 - (015 criou `ordem_servico_id`, removido em 034 — FK redundante)
 
 **`tecnicos`** (008) — `id`, dados do técnico. 016: `usuario_id UNIQUE (FK)`
@@ -351,6 +357,23 @@ nascidos de O.S. que ficaram com o DEFAULT `'admin'`.
 
 `chamados` ganha `equipamento_id (SET NULL)` + `idx_chamados_equipamento` —
 permite ver reincidência sem passar pela O.S.
+
+**Migration 080** — `orcamentos.executado_em` + `executado_por (SET NULL)` +
+`idx_orcamentos_executado` (parcial): o orçamento aprovado que **já foi
+executado sem chamado nenhum** — o técnico já estava no prédio e resolveu na
+hora, ou o orçamento é anterior à tela existir.
+⚠️ **NÃO mexe em `status`**, que continua `aprovado`. "Executado" é fato do
+atendimento, não estado do documento; um status novo obrigaria a revisar todo
+`WHERE status = 'aprovado'` do sistema (admin, painel do cliente, PDF) para
+descobrir quais deles ainda querem incluir os executados.
+
+**Migration 079** — `chamados.orcamento_id (SET NULL)` +
+`idx_chamados_orcamento` (parcial, `WHERE orcamento_id IS NOT NULL`): o
+chamado sabe de qual orçamento aprovado ele saiu. `SET NULL` pela regra da
+tabela de FKs abaixo — apagar o registro de negócio não pode apagar o
+chamado, que é histórico de atendimento e pode ter O.S. e assinatura
+penduradas nele. Índice parcial porque a esmagadora maioria dos chamados
+não nasce de orçamento.
 
 ### Outras
 

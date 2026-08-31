@@ -82,6 +82,13 @@ const I = {
   // esquadro, nunca arredondada.
   expandir: `<svg class="ico-entra" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>`,
   recolher: `<svg class="ico-sai" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter"><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7"/></svg>`,
+  // O prédio do pino do mapa — o MESMO desenho do `_mcPinIcon` do admin
+  // (mesma caixa, mesmas janelas, mesma porta), redesenhado no traço desta
+  // folha: ponta quadrada e junta em esquadro, nunca arredondada. Ele existe
+  // porque prédio e técnico dividem o mesmo mapa: enquanto os dois eram
+  // quadrados chanfrados com texto dentro, distinguir um do outro dependia de
+  // ler a cor. Forma separa mais rápido que cor — e mais rápido que ler.
+  predio: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter"><rect x="4" y="3" width="16" height="18"/><path d="M8 7h.01M12 7h.01M16 7h.01M8 11h.01M12 11h.01M16 11h.01M8 15h.01M16 15h.01"/><path d="M10 21v-4h4v4"/></svg>`,
 };
 
 const ORIGEM = {
@@ -216,16 +223,36 @@ function item(c, nova) {
     ? `<p class="fala">${texto}</p>`
     : `<p class="prova-txt">${texto}</p>`;
 
-  const prova = c.tem_telemetria
+  // ⚠️ RESERVATÓRIO MUDO NÃO DESENHA TUBO (31/08/2026, pedido do Pedro).
+  // Até aqui todo reservatório virava uma barra: os que tinham leitura
+  // mostravam a lâmina d'água, e os mudos mostravam a MESMA barra hachurada,
+  // do mesmo tamanho, dizendo "—". Num prédio de quatro caixas sem sensor
+  // vivo isso empilhava quatro placeholders idênticos — 76px de hachura e
+  // 130px de item para não informar nada. Medido em 31/08 no chamado #9 da
+  // produção: item de 222px, com a trilha de tanques 100% vazia.
+  //
+  // Desenho de ausência ocupa o tamanho do instrumento e não é instrumento.
+  // Agora o tubo é para quem TEM medição; quem não tem cabe numa linha, com
+  // todos os nomes preservados — nada saiu da tela, mudou o tamanho do que
+  // não tem o que mostrar. É a mesma leitura que o painel do cliente já faz
+  // ("Sem leitura de X e Y", ver `cliente.js`).
+  const comLeitura = c.reservatorios.filter((res) => !res.mudo && res.nivel_pct != null);
+  const mudos = c.reservatorios.filter((res) => res.mudo || res.nivel_pct == null);
+  const linhaMudos = mudos.length
+    ? `<p class="mudos">${I.semsensor}<span>Sem leitura de ${
+        mudos.map((res) => escapar(res.nome)).join(" · ")}</span></p>`
+    : "";
+
+  const prova = comLeitura.length
     ? `<div class="prova">
-         <div class="prova-tanques">${c.reservatorios.map((res) =>
-           `<div class="tanque">${coluna(res)}</div>`).join("")}</div>
+         <div class="prova-tanques">${comLeitura.map((res) =>
+           `<div class="tanque">${coluna(res)}</div>`).join("")}${linhaMudos}</div>
          ${corpoProva}
        </div>`
     : `<div class="prova" data-sem="1">
          <div>
            ${corpoProva}
-           <p class="semtel">${I.semsensor}Prédio sem telemetria instalada</p>
+           ${linhaMudos || `<p class="semtel">${I.semsensor}Prédio sem telemetria instalada</p>`}
          </div>
        </div>`;
 
@@ -255,10 +282,21 @@ function item(c, nova) {
          direita e fazendo cada item começar num x diferente. Juntas, a coluna
          da esquerda responde "urgência" sozinha e o título passa a abrir a
          linha, sempre no mesmo lugar. -->
+    <!-- ⚠️ A FAIXA EXISTE PARA O CAMPO CHEIO NÃO ESTICAR. O vermelho do item
+         estourado pintava a COLUNA inteira, e a coluna estica até a altura do
+         item — que é decidida pelo lado direito, ou seja, por quantos
+         reservatórios o prédio tem. Medido em 31/08 com 6 chamados
+         estourados: réguas de 214 a 304px com 83 a 101px de conteúdo, ou
+         seja **53% a 73% de vermelho saturado vazio**, e o prédio de 4 caixas
+         d'água ganhando 43% mais alarme que o de 1 com o mesmo atraso.
+         Alarme é o ESTADO, não a área: agora o campo cheio é esta faixa, do
+         tamanho do que ela diz, igual em todo item que estourou. -->
     <div class="relogio-sla">
-      <span class="sla-n">${r.txt}</span>
-      <span class="sla-rot">${r.rot}</span>
-      <span class="selo" data-s="${c.prioridade}">${prioRot(c.prioridade)}</span>
+      <div class="sla-faixa">
+        <span class="sla-n">${r.txt}</span>
+        <span class="sla-rot">${r.rot}</span>
+        <span class="selo" data-s="${c.prioridade}">${prioRot(c.prioridade)}</span>
+      </div>
     </div>
     <div class="item-corpo">
       <!-- O TÍTULO ABRE O ITEM. Antes vinha depois do número do chamado e do
@@ -302,29 +340,29 @@ let _vistos = null;
 function render() {
   const espera = DADOS.fila.filter((c) => !c.tecnico);
   const andando = DADOS.fila.filter((c) => c.tecnico);
-  const estourados = DADOS.fila.filter((c) => c.sla?.estourado).length;
   const novos = _vistos === null
     ? new Set()
     : new Set(DADOS.fila.map((c) => c.id).filter((id) => !_vistos.has(id)));
   _vistos = new Set(DADOS.fila.map((c) => c.id));
 
-  // ⚠️ UMA PLACA dividida por cortes gravados, não três cartões nem uma
-  // fileira de KPI. É a resposta do sistema para "três coisas paralelas"
-  // (ver `.vigia` na landing): um objeto usinado, com o par `--rasgo` +
-  // `--luz` fazendo a divisão. Os rótulos são os mesmos de antes.
-  // ⚠️ NO DIA CALMO A CHAPA TEM UMA COLUNA, não três. O grid é fixo em
-  // `repeat(3,1fr)`, então a célula única caía no primeiro terço e sobravam
-  // 2/3 de chapa vazia atravessando a tela — 96% de vazio, medido. `data-so`
-  // é o que a folha usa para fechar a placa no tamanho do que ela tem a
-  // dizer.
-  document.getElementById("placar").innerHTML = DADOS.fila.length === 0
-    ? `<div class="placar-in" data-so="1"><div class="placar-i" data-t="rota">
-         <span class="placar-n">0</span><em>chamados abertos</em></div></div>`
-    : `<div class="placar-in">
-         <div class="placar-i" data-t="estourado"><span class="placar-n">${estourados}</span><em>fora do prazo</em></div>
-         <div class="placar-i" data-t="fila"><span class="placar-n">${espera.length}</span><em>esperando alguém</em></div>
-         <div class="placar-i" data-t="rota"><span class="placar-n">${andando.length}</span><em>com técnico</em></div>
-       </div>`;
+  // ⚠️ O PLACAR DE TRÊS NÚMEROS SAIU (31/08/2026), e o motivo não é estética:
+  // ele DIZIA O QUE A TELA JÁ DIZ, a 40px de distância. "4 esperando alguém"
+  // e "1 com técnico" eram as mesmas palavras e os mesmos números dos dois
+  // cabeçalhos de seção logo abaixo, e no dia calmo "0 chamados abertos"
+  // repetia, em miniatura, o "Nenhum chamado aberto." que vem em seguida em
+  // corpo de manchete. Contar uma fila que está inteira na tela, ordenada
+  // pelo que estoura primeiro, é uma segunda representação do mesmo dado.
+  //
+  // Dos três números, só "fora do prazo" não estava repetido em lugar
+  // nenhum — e esse desceu para o cabeçalho da seção, que é onde um número
+  // fica legível: colado na lista que ele conta. Ele também ficou MAIS
+  // preciso ali: o placar somava a fila inteira, e agora cada seção conta os
+  // seus (um chamado estourado que já tem técnico não é pendência de
+  // despacho). Nenhuma palavra nova entrou na tela — "fora do prazo" é o
+  // rótulo que o placar já usava.
+  const foraEspera = espera.filter((c) => c.sla?.estourado).length;
+  const foraAndando = andando.filter((c) => c.sla?.estourado).length;
+  const fora = (n) => n ? ` · <b class="cab-fora">${n} fora do prazo</b>` : "";
 
   const tela = document.getElementById("tela");
 
@@ -342,12 +380,12 @@ function render() {
     : `
     ${espera.length ? `
       <div class="fila-cab"><h2>Esperando alguém</h2>
-        <span>${espera.length} chamado${espera.length > 1 ? "s" : ""} · ordenados pelo que estoura primeiro</span></div>
+        <span>${espera.length} chamado${espera.length > 1 ? "s" : ""}${fora(foraEspera)} · ordenados pelo que estoura primeiro</span></div>
       <div class="fila">${espera.map((c) => item(c, novos.has(c.id))).join("")}</div>` : ""}
     ${andando.length && espera.length ? `<div class="fita" aria-hidden="true"></div>` : ""}
     ${andando.length ? `
       <div class="andando-cab"><h2>Já tem técnico</h2>
-        <span>${andando.length} chamado${andando.length > 1 ? "s" : ""}</span></div>
+        <span>${andando.length} chamado${andando.length > 1 ? "s" : ""}${fora(foraAndando)}</span></div>
       <div class="fila">${andando.map((c) => item(c, novos.has(c.id))).join("")}</div>` : ""}`;
 
   tela.innerHTML = `<div class="comB"><div>${miolo}</div>${trilho()}</div>`;
@@ -386,25 +424,29 @@ function trilho() {
          mesma construção da placa do turno e do instrumento da landing
          (anel de 1,5px + gradiente), dividida por cortes gravados. Mesmo
          conteúdo, mesmas palavras: o que mudou é que virou uma peça só. -->
+    <!-- ⚠️ DUAS PEÇAS POR LINHA, e o motivo é a pergunta que o trilho responde:
+         QUEM PODE IR. Nome e estado respondem; o selo de iniciais e a nota de
+         GPS não. O selo não identifica ninguém que o operador já não reconheça
+         pelo nome (e ele reconhece — é a equipe dele), e "no mapa" repetido em
+         quase toda linha fica logo abaixo do mapa que já mostra o pino. Restou
+         só a EXCEÇÃO: quando falta posição, isso se diz. Ver mais em
+         active-work, item 1 do corte do operador. -->
     <div>
       <h2>Equipe agora</h2>
       ${t.length ? `<div class="chapa">${t.map((x) => `
         <div class="tec" data-liv="${x.disponivel && !x.abertos ? 1 : 0}">
-          <div class="tec-av">${iniciais(x.nome)}</div>
-          <div><div class="tec-nome">${escapar(x.nome)}</div>
-            <div class="tec-est">${x.disponivel
-              ? (x.abertos ? `${x.abertos} chamado${x.abertos > 1 ? "s" : ""}` : "Livre agora")
-              : "Ocupado"}</div></div>
-          <span class="tec-dist">${x.lat != null ? "no mapa" : "sem posição"}</span>
+          <div class="tec-nome">${escapar(x.nome)}</div>
+          <div class="tec-est">${x.disponivel
+            ? (x.abertos ? `${x.abertos} chamado${x.abertos > 1 ? "s" : ""}` : "Livre agora")
+            : "Ocupado"}${x.lat == null ? ` <span class="tec-sp">· sem posição</span>` : ""}</div>
         </div>`).join("")}</div>` : `<p class="vazio-lado">Nenhum técnico ativo.</p>`}
     </div>
     <div>
       <h2>Despachados hoje</h2>
       ${emRota.length ? `<div class="chapa">${emRota.map((c) => `
         <div class="tec">
-          <div class="tec-av">${I.rota}</div>
-          <div><div class="tec-nome">${escapar(c.condominio?.nome || "—")}</div>
-            <div class="tec-est">#${c.id} · ${escapar(c.tecnico.nome.split(" ")[0])}</div></div>
+          <div class="tec-nome">${escapar(c.condominio?.nome || "—")}</div>
+          <div class="tec-est">#${c.id} · ${escapar(c.tecnico.nome.split(" ")[0])}</div>
         </div>`).join("")}</div>` : `<p class="vazio-lado">Ninguém despachado ainda.</p>`}
     </div>
     </div>
@@ -424,6 +466,11 @@ let _focoAnterior = null;
 function fechar() {
   const f = document.getElementById("fundo");
   if (!f) return;
+  // `close()` antes de remover: é o que tira o diálogo do top layer. Remover
+  // o nó sem fechar deixa o navegador achando que ainda há um modal aberto —
+  // e o próximo `showModal()` de uma tela de turno que abre diálogo o dia
+  // inteiro passa a falhar.
+  if (typeof f.close === "function" && f.open) f.close();
   f.remove();
   document.body.classList.remove("com-ficha");
   if (_focoAnterior && _focoAnterior.isConnected) _focoAnterior.focus();
@@ -435,8 +482,35 @@ const FOCAVEIS = 'button:not([disabled]),select,input,textarea,a[href],[tabindex
 function abrirFundo(html) {
   _focoAnterior = document.activeElement;
   fechar();
+  // ⚠️ `<dialog>` COM `showModal()`, NÃO UMA `<div>` COM z-index — e isto é
+  // consequência de um bug que z-index nenhum resolvia.
+  //
+  // O sintoma: com o mapa do turno em TELA CHEIA, clicar num pino "não fazia
+  // nada", e o diálogo só aparecia depois de sair da tela cheia. A causa é a
+  // Fullscreen API nativa: o navegador desenha somente a subárvore do
+  // elemento em tela cheia, e o diálogo era pendurado no `<body>`, fora dela.
+  //
+  // Tentei antes criar o diálogo DENTRO do elemento em tela cheia. Não
+  // bastou. `showModal()` basta porque o navegador põe o diálogo no
+  // **top layer** — a mesma camada em que o elemento em tela cheia vive, e
+  // pintada depois dele. Deixa de haver "quem está por cima de quem":
+  // por especificação, o último a entrar no top layer é o que se vê.
+  // É o mecanismo do navegador para exatamente este caso.
+  //
+  // ⚠️ Não volte para `<div>` + z-index. E cuidado ao "testar" isto por
+  // código: `requestFullscreen()` exige gesto do usuário, então uma
+  // verificação automatizada cai no fallback por CLASSE — que sempre
+  // funcionou — e passa verde com o bug de pé. Foi o que aconteceu comigo
+  // duas vezes. `elementFromPoint` também não serve de prova aqui: ele
+  // responde pela árvore de layout, e o que falha é a PINTURA.
+  // Tela cheia nativa só se testa com clique de verdade.
   document.body.insertAdjacentHTML("beforeend",
-    `<div class="fundo" id="fundo">${html}</div>`);
+    `<dialog class="fundo" id="fundo">${html}</dialog>`);
+  const dlg = document.getElementById("fundo");
+  dlg.showModal();
+  // O Esc é do navegador quando o diálogo é nativo; `fechar()` faz a limpeza
+  // (classe do body, devolução do foco) tanto no Esc quanto no nosso botão.
+  dlg.addEventListener("cancel", (e) => { e.preventDefault(); fechar(); });
   // Trava a fila atrás do diálogo — mesma classe do painel do cliente.
   document.body.classList.add("com-ficha");
   const cx = document.querySelector("#fundo .ficha");
@@ -613,10 +687,22 @@ function montarMapaTurno() {
     const r = relogio(c.sla);
     const p = [c.condominio.lat, c.condominio.lng];
     pontos.push(p);
-    L.marker(p, { icon: L.divIcon({ className: "", iconSize: [28, 28], iconAnchor: [14, 14],
-      html: `<div class="pin pin-ch" data-g="${r.grau}">${String(c.prioridade).toUpperCase()}</div>` }) })
-      .bindTooltip(`${escapar(c.condominio.nome || "—")} <b>${r.txt}</b>`,
-                   { className: "pin-rot", direction: "top", offset: [0, -12] })
+    // ⚠️ `zIndexOffset` ALTO, e isto é correção de um defeito real, não
+    // preferência: o Leaflet empilha por latitude, então um técnico ao norte
+    // de um prédio ficava POR CIMA dele. Medido na prévia: 3 dos 8 pinos
+    // estavam cobertos, e o pino de técnico não tem handler de clique —
+    // então clicar no prédio "não fazia nada", que foi exatamente o sintoma
+    // relatado. O pino de chamado é o ÚNICO que abre alguma coisa: cobrir um
+    // chamado esconde uma decisão, cobrir um técnico não esconde nada.
+    L.marker(p, { zIndexOffset: 1000,
+      icon: L.divIcon({ className: "", iconSize: [28, 28], iconAnchor: [14, 14],
+        html: `<div class="pin pin-ch" data-g="${r.grau}">${I.predio}</div>` }) })
+      // A prioridade saiu da FACE do pino e vive na legenda — a face agora é
+      // o ícone de prédio. Nada se perdeu: cor continua sendo o relógio, e a
+      // legenda ganhou a prioridade que a face deixou de escrever.
+      .bindTooltip(
+        `${escapar(c.condominio.nome || "—")} <b>${prioRot(c.prioridade)}</b> <b>${r.txt}</b>`,
+        { className: "pin-rot", direction: "top", offset: [0, -12] })
       // Clicar num pino abre o MESMO diálogo de despacho do botão da fila —
       // o mapa é outra porta para a decisão que já existe, não um destino novo.
       .on("click", () => dlgDespacho(c.id))
@@ -684,6 +770,10 @@ document.addEventListener("fullscreenchange", () => {
   if (!no) return;
   const api = document.fullscreenElement === no;
   if (api !== no.classList.contains("is-fs")) mapaFsAplicar(api);
+  // ⚠️ NADA de mover o diálogo entrando/saindo da tela cheia. Foi a tentativa
+  // anterior e além de não resolver, com `<dialog>` ela QUEBRA: mover um
+  // diálogo aberto no DOM o tira do top layer. Ele já está na camada certa,
+  // seja qual for o estado da tela cheia — ver `abrirFundo`.
 });
 
 function montarMapa(c) {
@@ -714,8 +804,16 @@ function montarMapa(c) {
   const pontos = [];
   if (alvo) {
     pontos.push(alvo);
-    L.marker(alvo, { icon: L.divIcon({ className: "", iconSize: [30, 30], iconAnchor: [15, 15],
-      html: `<div class="pin pin-predio">${String(c.prioridade).toUpperCase()}</div>` }) }).addTo(_mapa);
+    // ⚠️ O MESMO prédio do mapa do turno, e `zIndexOffset` pelo mesmo motivo:
+    // aqui ele é o ALVO da decisão, e um técnico ao norte dele o cobria.
+    // Dois marcadores de prédio diferentes na mesma tela seria a divergência
+    // mais visível que esta folha poderia ter.
+    L.marker(alvo, { zIndexOffset: 1000,
+      icon: L.divIcon({ className: "", iconSize: [30, 30], iconAnchor: [15, 15],
+        html: `<div class="pin pin-predio">${I.predio}</div>` }) })
+      .bindTooltip(`${escapar(c.condominio?.nome || "—")} <b>${prioRot(c.prioridade)}</b>`,
+                   { className: "pin-rot", direction: "top", offset: [0, -13] })
+      .addTo(_mapa);
   }
   comGps.forEach((t) => {
     pontos.push([t.lat, t.lng]);
@@ -870,8 +968,17 @@ function dlgNovo() {
         <label for="nvDesc">O que foi relatado</label>
         <textarea id="nvDesc" placeholder="Escreva com as palavras de quem ligou. O técnico lê isto antes de sair."></textarea>
       </div>
-      <p class="dica">A prioridade define o prazo: <b>P1 ≤ 3h</b> de chegada, P2 24–48h,
-        P3 ≤ 72h, P4 conforme agenda. Na dúvida entre dois níveis, prevalece o maior.</p>
+      <!-- ⚠️ OS NÚMEROS SAÍRAM DAQUI (31/08). Esta dica dizia "P2 24–48h" e
+           "P4 conforme agenda"; no banco, o ttr_min de P2 é 1440 (24h) e o de
+           P4 é 14400 (10 dias). Eram prazos escritos à mão que envelheceram em
+           silêncio — e sla_definicoes é editável pelo admin, então qualquer
+           número fixo aqui volta a mentir na próxima mudança. A tabela de
+           verdade vive na Ajuda, e ela vem do banco.
+           (Sem crase neste comentário: ele vive dentro de um template
+            literal, e crase aqui FECHA o template. Ver CLAUDE.md.) -->
+      <p class="dica">A prioridade define o prazo. Na dúvida entre dois níveis,
+        prevalece o maior — e o botão <b>Ajuda</b>, no alto da tela, mostra a
+        tabela completa de prazos.</p>
     </form>
     <div class="ficha-pe">
       <p id="nvMsg"></p>
@@ -929,9 +1036,170 @@ async function salvarNovo() {
 // numa tela de turno isso significa parar de receber.
 function avisar(texto) {
   document.getElementById("aviso")?.remove();
-  document.body.insertAdjacentHTML("beforeend",
+  // ⚠️ A FAIXA VAI PARA DENTRO DO DIÁLOGO QUANDO HÁ UM, e o `z-index` dela
+  // não tem nada a ver com isso. Desde que o diálogo virou `<dialog>` com
+  // `showModal()`, ele vive no TOP LAYER — que é pintado acima de toda a
+  // página, por especificação e não por número. Uma faixa pendurada no
+  // `<body>` ficaria por baixo dele por mais alto que fosse o z-index.
+  // Isso importa aqui mais que em qualquer outro lugar da tela: o erro que
+  // esta faixa carrega é justamente o do despacho que falhou — a mensagem
+  // que o operador precisa ler está sempre com um diálogo aberto na frente.
+  (document.getElementById("fundo") || document.body).insertAdjacentHTML("beforeend",
     `<div class="aviso" id="aviso" role="alert">${escapar(texto)}</div>`);
   setTimeout(() => document.getElementById("aviso")?.remove(), 6000);
+}
+
+
+/* ── A AJUDA ──────────────────────────────────────────────────────────
+   Pedido do Pedro em 31/08: *"tem como colocar um botão de ajuda em algum
+   canto explicando o que é P1, P2 etc, quanto tempo essas coisas têm... quem
+   vai usar são pessoas que não são tão entendidas"*.
+
+   ⚠️ OS PRAZOS VÊM DO BANCO, sempre (`GET /operador/prazos`). Escritos à mão
+   aqui, eles viram documentação que envelhece em silêncio — e isso JÁ tinha
+   acontecido: a dica do "Novo chamado" dizia "P2 24–48h" quando o `ttr_min`
+   de P2 é 1440 (24h), e "P4 conforme agenda" quando P4 tem 14400 (10 dias).
+   Se o admin mudar um prazo em `sla_definicoes`, a ajuda muda junto na
+   próxima vez que alguém a abrir. Ajuda errada é pior que ajuda nenhuma,
+   ainda mais para quem a abriu justamente por não saber.
+
+   ⚠️ A busca é PREGUIÇOSA — só quando o diálogo abre. A tese da superfície
+   ("uma request monta a tela inteira") é sobre montar a tela; um diálogo que
+   a maioria dos turnos nunca abre não entra no caminho crítico da fila. */
+
+const PRIO_AJUDA = [
+  { p: "p1", rot: "Crítico" },
+  { p: "p2", rot: "Alta" },
+  { p: "p3", rot: "Controlado" },
+  { p: "p4", rot: "Agendado" },
+];
+
+// Prazo em palavra de gente. ⚠️ 1440 sai como "24h", não "1 dia": prazo de
+// chegada se fala em horas até o fim do primeiro dia, e "1 dia" ao lado de
+// "3 dias" faz o operador comparar dia com hora de cabeça.
+function prazoTxt(min) {
+  if (min == null) return "—";
+  if (min < 60) return min + " min";
+  if (min <= 1440) return Math.round(min / 60) + "h";
+  const d = min / 1440;
+  const n = Number.isInteger(d) ? d : Math.round(d * 10) / 10;
+  return String(n).replace(".", ",") + (n > 1 ? " dias" : " dia");
+}
+
+// A tabela de prazos. É a MESMA nas duas telas, e de propósito: o operador
+// que abre a ajuda em Aprovados está escolhendo prioridade num diálogo, e
+// precisa da mesma referência que a fila dá.
+function tabelaPrazos(prazos) {
+  const porPrio = new Map((prazos || []).map((x) => [x.prioridade, x]));
+  const linhas = PRIO_AJUDA.map(({ p, rot }) => {
+    const s = porPrio.get(p) || {};
+    return `<tr>
+      <td><span class="ajuda-prio"><span class="selo" data-s="${p}">${p.toUpperCase()}</span>${rot}</span></td>
+      <td>${prazoTxt(s.ttfr_min)}</td>
+      <td>${prazoTxt(s.sla_chegada_min)}</td>
+      <td>${prazoTxt(s.ttr_min)}</td>
+    </tr>`;
+  }).join("");
+  // ⚠️ O `overflow-x` é do INVÓLUCRO, não da tabela: no celular a tabela
+  // rola sozinha em vez de esticar o diálogo e a página inteira junto.
+  return `<div class="ajuda-rolagem"><table class="ajuda-tab">
+    <thead><tr><th>Prioridade</th><th>Responder</th><th>Técnico chegar</th><th>Resolver</th></tr></thead>
+    <tbody>${linhas}</tbody>
+  </table></div>`;
+}
+
+// Abre o diálogo já com a moldura e troca só o miolo quando os prazos
+// chegam: abrir instantâneo e preencher é melhor que um botão que não
+// responde enquanto a rede pensa.
+async function dlgAjuda() {
+  abrirFundo(`<div class="ficha" style="width:min(760px,100%)" role="dialog" aria-label="Ajuda">
+    <div class="ficha-cab">
+      ${/* ⚠️ A SUBLINHA SAIU junto com o bloco "O que é esta tela". Ela dizia
+             "os prazos abaixo são os que estão valendo no sistema agora" — uma
+             garantia sobre a PROCEDÊNCIA do dado, que é assunto de quem
+             mantém, não de quem opera. Para quem abre a ajuda, ela era mais
+             uma linha antes da resposta. */""}
+      <div><h2>Como esta tela funciona</h2></div>
+      <button class="ficha-x" data-acao="fechar" aria-label="Fechar">${I.x}</button>
+    </div>
+    <div class="ajuda" id="ajudaCorpo"><p class="ajuda-carregando">Carregando os prazos…</p></div>
+    <div class="ficha-pe"><button class="btn" data-acao="fechar">Entendi</button></div>
+  </div>`);
+  let d = {};
+  try {
+    const r = await fetch("/operador/prazos", { headers: authHeaders() });
+    d = await lerJson(r, "Prazos");
+    if (!r.ok) throw new Error(d.error || "Erro ao carregar os prazos");
+  } catch (e) {
+    d = { erro: e.message };
+  }
+  const alvo = document.getElementById("ajudaCorpo");
+  // O diálogo pode ter sido fechado enquanto a resposta vinha.
+  if (alvo) alvo.innerHTML = ajudaCorpo(d);
+}
+
+// ⚠️ TEXTO CURTO É REQUISITO, NÃO ESTILO (31/08). A primeira versão desta
+// ajuda explicava certo e explicava demais: frases de três orações, travessão
+// no meio, e o "porquê" de cada regra junto com o "o quê". O Pedro pediu "da
+// maneira mais simples possível", e o público é o mesmo de 28/08 — gente com
+// pouca familiaridade com computador, lendo com o telefone tocando.
+// A regra aqui: **uma ideia por frase, e nada que não sirva para usar a
+// tela**. Se a frase explica por que o sistema é assim, ela não é ajuda: é
+// documentação, e o lugar dela é o docs/.
+function ajudaCorpo(d) {
+  if (d.erro) return `<p class="ajuda-carregando">${escapar(d.erro)}</p>`;
+  const baixo = d.limiares?.baixo ?? 45;
+  const critico = d.limiares?.critico ?? 20;
+  const mudo = d.offline_min ?? 10;
+  return `
+  <section>
+    <h3>A ordem da lista</h3>
+    <p>O primeiro da lista é o mais urgente.</p>
+    <p>A ordem não é a prioridade. É o tempo: quem vence antes, aparece antes.</p>
+    <p>O número grande da esquerda é <b>quanto tempo falta</b>. Em vermelho, o
+      prazo já passou.</p>
+  </section>
+  <section>
+    <h3>As prioridades e os prazos</h3>
+    ${tabelaPrazos(d.prazos)}
+    <p>Cada chamado tem três prazos correndo. A tela mostra o que está mais
+      perto de acabar.</p>
+    <ul class="ajuda-lista">
+      <li><b>Responder</b>: para quando você despacha alguém.</li>
+      <li><b>Técnico chegar</b>: para quando o técnico chega no prédio.</li>
+      <li><b>Resolver</b>: para quando o chamado fecha.</li>
+    </ul>
+    <p>P4 não tem prazo de chegada. É serviço agendado.</p>
+  </section>
+  <section>
+    <h3>As barras de água</h3>
+    <p>Cada barra é uma caixa d’água do prédio. A parte cheia é a água que tem.</p>
+    <ul class="ajuda-lista">
+      <li>Menos de <b>${baixo}%</b>: nível baixo.</li>
+      <li>Menos de <b>${critico}%</b>: crítico.</li>
+    </ul>
+    <p>Se o sensor fica <b>${mudo} minutos</b> sem mandar leitura, a barra some.
+      No lugar dela aparece <b>“Sem leitura de…”</b>.</p>
+    <p>Isso não quer dizer que falta água. Quer dizer que ninguém está
+      conseguindo medir.</p>
+    <p>Prédio sem sensor não tem barra. No lugar fica o que a pessoa contou
+      quando ligou.</p>
+  </section>
+  <section>
+    <h3>Os botões</h3>
+    <ul class="ajuda-lista">
+      <li><b>Despachar</b>: abre o mapa para você escolher o técnico.</li>
+      <li><b>Ver detalhes</b>: mostra tudo que já foi feito no chamado.</li>
+      <li><b>Novo chamado</b>: para o que chega por telefone.</li>
+      <li><b>Aprovados</b>: os orçamentos que o cliente já aceitou.</li>
+    </ul>
+  </section>
+  <section>
+    <h3>A tela se atualiza sozinha</h3>
+    <p>A cada 30 segundos.</p>
+    <p>Se ela parar de atualizar, aparece uma <b>faixa vermelha</b> no alto da
+      tela dizendo desde que horas.</p>
+  </section>`;
 }
 
 /* ── Eventos ─────────────────────────────────────────────────────────── */
@@ -941,6 +1209,7 @@ document.addEventListener("click", (e) => {
     const a = b.dataset.acao;
     if (a === "fechar") return fechar();
     if (a === "novo") return dlgNovo();
+    if (a === "ajuda") return dlgAjuda();
     if (a === "ficha") return dlgFicha(Number(b.dataset.id));
     if (a === "despacho") return dlgDespacho(Number(b.dataset.id));
     if (a === "salvar-novo") return salvarNovo();
@@ -961,6 +1230,11 @@ document.addEventListener("keydown", (e) => {
   // nativa), o Esc não tem quem o trate, e cair no `fechar()` deixaria o
   // operador preso num mapa que ocupa a tela inteira. Quando veio pela API
   // nativa, o navegador já saiu sozinho e a classe nem está mais aqui.
+  // ⚠️ E O DIÁLOGO VEM ANTES DOS DOIS. Com o mapa em tela cheia e um despacho
+  // aberto por cima, o Esc precisa fechar o DESPACHO — sair da tela cheia ali
+  // é descartar a decisão em andamento e ainda tirar o operador do mapa que
+  // ele estava usando. Fecha-se de dentro para fora.
+  if (e.key === "Escape" && document.getElementById("fundo")) return fechar();
   if (e.key === "Escape" && _mapaTurnoNo?.classList.contains("is-fs")) return mapaFs(false);
   if (e.key === "Escape") return fechar();
   _prenderFoco(e);
@@ -973,26 +1247,25 @@ document.addEventListener("keydown", (e) => {
 const INTERVALO_MS = 30000;
 
 function tique() {
-  const el = document.getElementById("relogio");
-  if (el) {
-    const d = new Date();
-    el.textContent = String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
-  }
-  // O pulso é a prova de que a tela está viva. Se a última carga falhou, ele
-  // deixa de ser verde — numa tela de turno, silêncio e falha não podem se
-  // parecer.
-  const p = document.getElementById("pulso");
-  if (p) {
-    // ⚠️ Três estados, não dois. Antes da PRIMEIRA resposta o pulso é neutro:
-    // ele nascia vermelho e ficava assim até a carga chegar, então todo boot
-    // abria com "verifique a conexão" aceso — alarme falso na tela cuja única
-    // função é avisar de verdade.
-    const estado = _ultimoOk === null ? "esperando"
-      : (Date.now() - _ultimoOk) > INTERVALO_MS * 3 ? "parado" : "vivo";
-    const rot = { esperando: "Buscando a fila…", parado: "Sem atualizar — verifique a conexão", vivo: "Recebendo" }[estado];
-    p.dataset.estado = estado;
-    p.title = rot;
-    p.setAttribute("aria-label", rot);
+  // A faixa de "parou de atualizar". Ver o comentário no operador.html.
+  //
+  // ⚠️ TRÊS ESTADOS VIRARAM DOIS, e o terceiro sumiu de propósito: "está
+  // recebendo" não é notícia. O que o operador precisa saber é quando PAROU —
+  // e antes da primeira carga não parou nada, então a faixa também não
+  // aparece (era o alarme falso do boot, corrigido em 27/08 e preservado
+  // aqui).
+  const el = document.getElementById("parado");
+  if (!el) return;
+  const parado = _ultimoOk !== null && (Date.now() - _ultimoOk) > INTERVALO_MS * 3;
+  el.hidden = !parado;
+  if (parado) {
+    const d = new Date(_ultimoOk);
+    const h = String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+    // ⚠️ A HORA É A DA ÚLTIMA ATUALIZAÇÃO, não a do computador. Era esse o
+    // dado útil o tempo todo, e era justamente o que o relógio da barra NÃO
+    // mostrava. Frase curta e em caixa normal: caixa alta é para etiqueta de
+    // uma ou duas palavras (docs/vocabulario.md).
+    el.textContent = `A lista não atualiza desde as ${h}. Verifique a conexão.`;
   }
 }
 

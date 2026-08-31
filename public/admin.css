@@ -8587,6 +8587,28 @@ body.role-viewer .viewer-only-hide-inline {
 }
 /* Ja aberta e ainda sem baixa: continua sendo pendencia, mas nao e novidade —
    perde o preenchimento e fica so o contorno. */
+/* ⚠️ O DESFECHO DO ORÇAMENTO (31/08/2026): já executado, ou com chamado.
+   Sempre DE FIO — Regra do Selo. Nesta lista o preenchimento é de
+   `.av-selo-pend` (resposta sem baixa), que é a única coisa que pede alguém;
+   um segundo selo cheio ao lado tiraria dele o poder de apontar.
+   As tintas são as da família clara/escura do sistema: verde de repouso para
+   "feito", `--muted` para o resto. Nenhum é vermelho — nada aqui é problema. */
+.av-selo-exec {
+  font-family: var(--mono);
+  font-size: 8.5px; letter-spacing: .05em; text-transform: uppercase;
+  padding: 2px 6px 1px; font-weight: 600;
+  --ch-p: 3px; clip-path: var(--corte-p);
+  background: transparent; color: var(--muted);
+  box-shadow: inset 0 0 0 1px var(--fio);
+}
+.av-selo-exec[data-e="feito"] {
+  color: var(--ok);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ok) 45%, transparent);
+}
+.av-selo-exec[data-e="andando"] {
+  color: var(--text-dim);
+  box-shadow: inset 0 0 0 1px var(--fio-forte);
+}
 .av-selo-pend.is-vista {
   background: transparent; color: var(--amarelo); font-weight: 600;
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--amarelo) 55%, transparent);

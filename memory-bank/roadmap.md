@@ -53,6 +53,14 @@ aliases:
     dentro do item. Arquivos próprios (`public/operador.*`), zero import de
     `admin.js`, e **um** endpoint novo (`GET /operador/fila`). Fluxo em
     [`../docs/modulos/painel-operador.md`](../docs/modulos/painel-operador.md).
+    - ✅ **Aprovados vira porta de execução** (31/08/2026, migration 079).
+      `/operador/painel/orcamentos` deixou de ser só leitura: clicar no
+      orçamento abre o chamado que o executa, vinculado por
+      `chamados.orcamento_id`. Fecha o buraco de "esse orçamento chegou a ser
+      executado?", que antes não tinha onde ser respondido.
+      - ⏳ **Rodar a migration 079 em produção** —
+        `node scripts/migrate.js 079_chamado_orcamento.sql`. Sem ela o
+        endpoint estoura no `INSERT` (lição da Fase 7E).
     - ✅ **Identidade alinhada com a landing e o painel do cliente**
       (27/08/2026, terceiro passe — o primeiro feito com as três telas abertas
       lado a lado). Fechou a faixa de 660–1090px, que não existia e onde a tela
@@ -71,7 +79,18 @@ aliases:
       categoria automática), e um `nivel_baixo` aberto à mão aparece como
       "telemetria".
     - 📋 ETA no despacho — o cartão do candidato mostra "no mapa"/"—", não
-      distância nem tempo.
+      distância nem tempo. ⚠️ No **trilho** essa nota já saiu (31/08); aqui ela
+      continua porque o diálogo de despacho ainda não passou pelo corte, e é
+      justamente onde a distância teria valor.
+    - 🟡 **Simplificar a tela para quem vai usar** — pedido do Pedro: pessoas
+      mais velhas, com pouca familiaridade com computador. A régua é *o que sai
+      da tela*, não *quanto cresce* (o passe de escala foi devolvido com "não
+      mudou praticamente nada"). ✅ o **item da fila** (28/08), o **trilho**
+      (31/08, 4 peças por linha → 2) e o **placar de 3 números** (31/08, saiu
+      da tela; a engrenagem de fundo mudou de casa junto — da faixa horizontal
+      do topo para dentro do trilho, abraçando o mapa). 📋 falta a **ficha**, o **diálogo de despacho** e **"Já tem
+      técnico"**. A fila detalhada e as pendências de copy que são decisão do
+      Pedro estão em [`active-work.md`](active-work.md).
 
 - ✅ **Migrations 077 e 078 aplicadas em produção** (26/08/2026). A 078
   (`resposta_tratada_em`/`resposta_tratada_por`) era pré-requisito do painel
