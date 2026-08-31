@@ -665,11 +665,17 @@ function montarMapaTurno() {
   // Um ponto por chamado com prédio localizado, mais os técnicos com GPS.
   const chamados = DADOS.fila.filter((c) => c.condominio?.lat != null && c.condominio?.lng != null);
   const equipe = (DADOS.tecnicos || []).filter((t) => t.lat != null && t.lng != null);
+  // ⚠️ A CARTEIRA É FUNDO, e os prédios que já estão na fila saem dela: um
+  // ponto pequeno debaixo do pino do chamado não acrescenta nada e ainda faz
+  // o pino grande parecer ter uma sombra.
+  const naFila = new Set(chamados.map((c) => c.condominio.id));
+  const carteira = (DADOS.condominios || []).filter((c) => !naFila.has(c.id));
 
-  // Leaflet centrado no oceano é pior que uma frase.
-  if (!chamados.length && !equipe.length) {
+  // Leaflet centrado no oceano é pior que uma frase — mas agora isto só
+  // acontece num sistema sem NENHUM prédio geocodificado.
+  if (!chamados.length && !equipe.length && !carteira.length) {
     if (_mapaTurno) { _mapaTurno.remove(); _mapaTurno = null; _mapaEnquadrado = false; }
-    tela.innerHTML = '<p class="mapa-vazio">Nenhum chamado localizado e nenhum técnico com GPS ativo agora.</p>';
+    tela.innerHTML = '<p class="mapa-vazio">Nenhum prédio com endereço no mapa ainda.</p>';
     return;
   }
 
@@ -682,6 +688,28 @@ function montarMapaTurno() {
 
   _pinos.clearLayers();
   const pontos = [];
+
+  // ⚠️ O FUNDO ENTRA PRIMEIRO, e a ordem é a que importa: o Leaflet empilha
+  // na ordem de inserção, então desenhar a carteira depois poria pontinhos
+  // por cima dos pinos que se clicam. É o mesmo defeito que o
+  // `zIndexOffset` do pino de chamado corrigiu com os técnicos.
+  //
+  // ⚠️ SEM CLIQUE, de propósito. Prédio sem chamado não tem o que abrir
+  // nesta tela — um pino que reage e não faz nada ensina a não clicar em
+  // pino. O nome vem no tooltip, que é o que responde "que prédio é aquele
+  // ali do lado".
+  //
+  // ⚠️ E NÃO ENTRA EM `pontos`: o enquadramento é da DECISÃO. Com a carteira
+  // dentro, o mapa abriria na Grande São Paulo inteira e o chamado que
+  // estoura viraria um ponto de 3px.
+  carteira.forEach((c) => {
+    L.marker([c.lat, c.lng], { interactive: true, keyboard: false,
+      icon: L.divIcon({ className: "", iconSize: [10, 10], iconAnchor: [5, 5],
+        html: '<div class="pin pin-base"></div>' }) })
+      .bindTooltip(`${escapar(c.nome || "—")}${c.bairro ? ` · ${escapar(c.bairro)}` : ""}`,
+                   { className: "pin-rot", direction: "top", offset: [0, -7] })
+      .addTo(_pinos);
+  });
 
   chamados.forEach((c) => {
     const r = relogio(c.sla);
@@ -719,7 +747,10 @@ function montarMapaTurno() {
       .addTo(_pinos);
   });
 
-  _pontos = pontos;
+  // ⚠️ SEM DECISÃO NA TELA, o enquadramento cai para a carteira — senão um
+  // turno calmo abriria o mapa em zoom 1, no meio do Atlântico, com a
+  // carteira num canto invisível.
+  _pontos = pontos.length ? pontos : carteira.map((c) => [c.lat, c.lng]);
   // ⚠️ ENQUADRA UMA VEZ SÓ. Refazer o `fitBounds` a cada recarga de 30s
   // arrancaria o mapa da mão de quem acabou de dar zoom num bairro — a tela
   // se atualiza sozinha, e o enquadramento é do operador, não do ciclo.

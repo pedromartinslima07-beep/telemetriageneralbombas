@@ -6223,6 +6223,48 @@ e nenhum dos dois seria a verdade.
 dia; o `node --check` pegou nas três. O comentário que eu escrevi para avisar
 sobre o problema continha o problema.
 
+### 2026-08-31 (7ª rodada) · O mapa do turno deixa de nascer vazio
+
+O Pedro: *"o mapa no painel de operador só funciona com chamados abertos?"* —
+e depois *"não dá só para copiar o mesmo mapa do admin e colocar aí?"*.
+
+Ele tinha razão sobre o sintoma. O mapa só desenhava dois tipos de ponto:
+chamado com prédio geocodificado, e técnico com GPS dos últimos 30 min. Em
+produção `tecnico_localizacoes` tem **3 linhas no total**, a última de 17/08 —
+então num turno calmo o operador abria a tela e via uma frase no lugar do mapa.
+
+`GET /operador/fila` passou a devolver a **carteira** (condomínios ativos com
+coordenada), e ela vira o **fundo** do mapa: quadradinho de 10px, cinza, sem
+clique. ~4 KB por ciclo de 30 s com os 86 prédios reais.
+
+⚠️ **Isto não transforma a peça no "Mapa de Condomínios" do admin**, e a
+diferença é de PAPEL: lá cada prédio é o assunto e a cor dele é o estado da
+telemetria; aqui a carteira é de onde a decisão acontece, e quem tem cor e
+clique continua sendo o chamado.
+
+⚠️ **A COR DO ADMIN FICOU DE FORA, e é decisão em aberto do Pedro.** Pintar os
+86 prédios pelo estado da telemetria daria à tela **dois vermelhos com
+significados diferentes**: prazo estourado (a tese desta tela) e reservatório
+crítico. E os dois quase sempre são o mesmo prédio, porque nível crítico abre
+chamado automático — onde não coincidem, é um prédio sobre o qual o operador
+não pode fazer nada daqui. A distinção entre os três pinos é por **forma**:
+quadradinho de 10 (carteira) · placa chanfrada com ícone de prédio (chamado) ·
+círculo de 26 com iniciais (técnico).
+
+| | Regra que passou a valer |
+|---|---|
+| Ordem de desenho | A carteira entra **primeiro**. O Leaflet empilha por inserção, e desenhá-la depois poria pontinhos por cima dos pinos que se clicam — o mesmo defeito que o `zIndexOffset` do chamado corrigiu com os técnicos |
+| Clique | A carteira **não tem**. Prédio sem chamado não abre nada nesta tela, e um pino que reage sem fazer nada ensina a não clicar em pino |
+| Enquadramento | Da **decisão**, nunca do fundo. Com a carteira dentro, o mapa abriria na Grande São Paulo e o chamado que estoura viraria um ponto de 3px. Sem chamado nem técnico, aí sim cai para a carteira |
+| Duplicata | O prédio que já está na fila **sai** da carteira: um ponto pequeno debaixo do pino grande não acrescenta nada e ainda parece sombra |
+
+Verificado com sessão real: 5 pinos de carteira com zero chamados, e — com uma
+coordenada temporária num prédio DEMO, revertida depois — 4 pinos de chamado
+com o enquadramento no ponto certo (zoom 14), não na carteira.
+
+📋 **Continua em aberto** (era pendência do brief desde 28/08 e agora tem um
+tipo de pino a mais): a **legenda** do mapa. É copy, então é decisão do Pedro.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

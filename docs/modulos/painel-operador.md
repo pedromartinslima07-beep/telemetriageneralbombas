@@ -253,6 +253,30 @@ de aviso) são **cópia deliberada**. É a mesma regra que mantém esta superfí
 independente do `admin.js` — foi compartilhando helper que o painel do cliente
 virou refém do admin até 13/08/2026.
 
+## O mapa: três camadas (31/08/2026)
+
+| Camada | O que é | Condição | Clique |
+|---|---|---|---|
+| Carteira | quadradinho 10px cinza | condomínio ativo com coordenada | **não** |
+| Chamado | placa chanfrada 28px, ícone de prédio, cor = o relógio | chamado `aberto`/`em_atendimento` com prédio geocodificado | abre o despacho |
+| Técnico | círculo 26px com iniciais | GPS dos últimos **30 min** | não |
+
+⚠️ **A carteira é fundo, não assunto.** Ela existe para o mapa não nascer
+vazio — em produção `tecnico_localizacoes` tem 3 linhas no total, então sem ela
+um turno calmo mostrava uma frase no lugar do mapa. Quem tem cor e clique
+continua sendo o chamado.
+
+⚠️ **O enquadramento é da decisão**, nunca do fundo: `_pontos` só recebe a
+carteira quando não há chamado nem técnico. Com ela dentro sempre, o mapa
+abriria na Grande São Paulo inteira.
+
+⚠️ **A janela de GPS é 30 min, e NÃO tem corte de expediente** — ao contrário
+de `GET /tecnicos/localizacao`, que zera a lista fora do horário. Aqui a lista
+serve para despachar, e um P1 às 18h10 precisa saber quem ainda está em campo.
+
+📋 **Em aberto:** a legenda do mapa (agora com três tipos de pino). É copy, e
+copy é decisão do Pedro.
+
 ## O que o ADMIN vê disso (31/08/2026)
 
 **Nada aqui muda `orcamentos.status`.** Abrir chamado grava em `chamados`;

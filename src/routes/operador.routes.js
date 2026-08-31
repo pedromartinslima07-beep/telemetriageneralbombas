@@ -41,7 +41,7 @@ const { OFFLINE_MINUTES } = require("../config");
  */
 router.get("/fila", authRequired, adminOnly, async (req, res) => {
   try {
-    const [chamadosRes, reservRes, tecnicosRes] = await Promise.all([
+    const [chamadosRes, reservRes, tecnicosRes, condosRes] = await Promise.all([
       pool.query(`
         WITH base AS (
           SELECT
@@ -115,6 +115,28 @@ router.get("/fila", authRequired, adminOnly, async (req, res) => {
         WHERE t.ativo = true AND COALESCE(t.cargo, 'tecnico') = 'tecnico'
         GROUP BY t.id, t.nome, t.disponivel, tl.lat, tl.lng, tl.atualizada_em
         ORDER BY t.disponivel DESC NULLS LAST, t.nome
+      `),
+
+      // ⚠️ A CARTEIRA INTEIRA, para o mapa nunca ser um retângulo vazio
+      // (31/08/2026). Ele só tinha o que desenhar quando havia chamado com
+      // prédio geocodificado OU técnico com GPS dos últimos 30 min — e hoje,
+      // em produção, `tecnico_localizacoes` tem 3 linhas no total. Num turno
+      // calmo o operador abria a tela e via uma frase no lugar do mapa.
+      //
+      // ⚠️ ISTO NÃO TRANSFORMA A PEÇA NO "Mapa de Condomínios" DO ADMIN, e a
+      // diferença é de PAPEL: lá cada prédio é o assunto e a cor dele é o
+      // estado da telemetria; aqui a carteira é FUNDO — de onde a decisão
+      // acontece —, e quem tem cor e clique continua sendo o chamado. O
+      // enquadramento também segue mandado pela decisão, nunca pelo fundo
+      // (ver `enquadrarMapa` no operador.js).
+      //
+      // ⚠️ Só os ATIVOS e só com coordenada: prédio sem geocodificação não
+      // vira ponto nenhum, e fingir um centro para ele poria a carteira no
+      // lugar errado.
+      pool.query(`
+        SELECT id, COALESCE(nome_fantasia, nome) AS nome, bairro, lat, lng
+          FROM condominios
+         WHERE ativo = true AND lat IS NOT NULL AND lng IS NOT NULL
       `),
     ]);
 
@@ -202,6 +224,12 @@ router.get("/fila", authRequired, adminOnly, async (req, res) => {
         lng: t.lng == null ? null : Number(t.lng),
         gps_em: t.gps_em,
         abertos: Number(t.abertos) || 0,
+      })),
+      // O fundo do mapa. Nomes curtos porque a lista viaja a cada 30s: com a
+      // carteira real (86 prédios) são ~4 KB por ciclo.
+      condominios: condosRes.rows.map((c) => ({
+        id: c.id, nome: c.nome, bairro: c.bairro,
+        lat: Number(c.lat), lng: Number(c.lng),
       })),
       limiares: { baixo: NIVEL_BAIXO, critico: NIVEL_CRITICO },
     });

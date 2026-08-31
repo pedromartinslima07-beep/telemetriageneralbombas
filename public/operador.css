@@ -1588,6 +1588,22 @@ body.com-ficha{overflow:hidden}
 }
 .pin-tec[data-liv="1"]{background:var(--verde);color:var(--mar-900)}
 .pin-tec[data-liv="1"]::before{background:var(--verde)}
+/* ── O FUNDO DO MAPA: a carteira ────────────────────────────────────
+   Os prédios que a General atende, sem chamado aberto. Existe para o
+   mapa nunca ser um retângulo vazio num turno calmo — e para o operador
+   ver que o chamado que estoura fica ao lado de outro prédio nosso.
+   ⚠️ FORMA, NÃO COR, é o que separa os três pinos desta tela — o mesmo
+   argumento que fez o pino de chamado virar prédio desenhado em vez de
+   quadrado com texto: quadradinho de 10px (carteira) · placa chanfrada
+   de 28 com ícone de prédio (chamado) · círculo de 26 com iniciais
+   (técnico). Distinguir não pode depender de ler a cor.
+   ⚠️ E ELE NÃO PISCA, NÃO PREENCHE E NÃO CLICA. `--fio-forte` sobre o
+   marinho do mapa é presença sem sinal: se a carteira tivesse cor de
+   estado, 86 pontos coloridos apagariam os 3 que pedem alguém. */
+.pin-base{
+  width:10px;height:10px;background:var(--fio-forte);
+  box-shadow:0 0 0 1px var(--mar-900);
+}
 .escolha{
   border-left:1px solid var(--fio-esc);background:var(--chapa-cl);
   padding:16px 15px;display:flex;flex-direction:column;gap:7px;
