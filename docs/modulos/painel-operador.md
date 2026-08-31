@@ -257,7 +257,7 @@ virou refém do admin até 13/08/2026.
 
 | Camada | O que é | Condição | Clique |
 |---|---|---|---|
-| Carteira | quadradinho 10px cinza | condomínio ativo com coordenada | **não** |
+| Carteira | quadradinho 9px cinza; **11px colorido** quando o prédio tem nível baixo, crítico ou sensor mudo | condomínio ativo com coordenada | **não** |
 | Chamado | placa chanfrada 28px, ícone de prédio, cor = o relógio | chamado `aberto`/`em_atendimento` com prédio geocodificado | abre o despacho |
 | Técnico | círculo 26px com iniciais | GPS dos últimos **30 min** | não |
 
@@ -266,9 +266,16 @@ vazio — em produção `tecnico_localizacoes` tem 3 linhas no total, então sem
 um turno calmo mostrava uma frase no lugar do mapa. Quem tem cor e clique
 continua sendo o chamado.
 
-⚠️ **O enquadramento é da decisão**, nunca do fundo: `_pontos` só recebe a
-carteira quando não há chamado nem técnico. Com ela dentro sempre, o mapa
-abriria na Grande São Paulo inteira.
+⚠️ **O enquadramento é da decisão**, nunca do fundo. Sem chamado nem técnico,
+quem enquadra é a carteira — e **como** depende do tamanho da caixa: coluna de
+400px → centro na mediana em zoom 12 (escala de bairro); tela cheia ou faixa
+(>800px) → `fitBounds` com respiro, `maxZoom` 13. `fitBounds` sobre os 86
+prédios numa coluna estreita abre a região metropolitana inteira, que foi o
+defeito que o Pedro apontou em 31/08.
+
+⚠️ **A cor da carteira é a PIOR BANDA dos reservatórios do prédio**, e só
+aparece fora do `ok`: prédio em ordem, ou sem telemetria, fica neutro. Com 86
+pontos coloridos por igual, os 3 que pedem alguém desapareceriam.
 
 ⚠️ **A janela de GPS é 30 min, e NÃO tem corte de expediente** — ao contrário
 de `GET /tecnicos/localizacao`, que zera a lista fora do horário. Aqui a lista

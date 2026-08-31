@@ -6265,6 +6265,57 @@ com o enquadramento no ponto certo (zoom 14), não na carteira.
 📋 **Continua em aberto** (era pendência do brief desde 28/08 e agora tem um
 tipo de pino a mais): a **legenda** do mapa. É copy, então é decisão do Pedro.
 
+### 2026-08-31 (8ª rodada) · A carteira do mapa ganha estado, e o zoom segue o tamanho
+
+O Pedro mandou o print do mapa em tela cheia com a carteira real: **a Grande
+São Paulo coberta de quadradinhos cinzas idênticos**, de Barueri a Mauá.
+*"o mapa está assim"*. Estava certo, e o erro foi meu — dimensionei a camada de
+fundo contra os **5 prédios do banco de teste** e soltei contra **86 reais**. É
+exatamente a lição que o brief da superfície já registrava desde 28/08 ("ao
+trazer uma construção, pergunte quantas vezes ela vai aparecer na tela") e que
+eu não apliquei nesta.
+
+Dois defeitos, e nenhum era "a camada não devia existir":
+
+**1. Os pontos não diziam nada.** 86 cinzas iguais informam "temos prédios" e
+nada mais. Agora cada prédio leva a **pior banda dos reservatórios dele**
+(crítico > baixo > mudo; `ok` e sem-telemetria ficam neutros). O mapa fica
+quieto onde está tudo em ordem e **acende** onde tem coisa — A Regra do Crítico
+Silencioso. Não custou consulta nenhuma: o `porCondo` já estava montado para os
+reservatórios da fila.
+
+⚠️ **O aceso também é MAIOR** (11px contra 9). Cor sozinha não separa para quem
+tem daltonismo, e esta folha já decidiu duas vezes que forma separa mais rápido
+que cor.
+
+⚠️ **`mudo` não é o pior.** Não saber é diferente de saber que está ruim — a
+mesma distinção que o painel do cliente faz desde 14/08.
+
+**2. O enquadramento não olhava o tamanho do mapa.** `fitBounds` sobre 86
+prédios abre a região metropolitana inteira. Agora a regra escolhe:
+
+| Caixa | Enquadramento |
+|---|---|
+| Coluna do trilho (400px) | centro na **mediana** da carteira, zoom 12 — escala de bairro |
+| Tela cheia / faixa (>800px) | `fitBounds` da carteira com respiro, `maxZoom` 13 |
+
+Mediana e não média: um prédio no litoral puxaria a média para o mar. É a mesma
+saída que o admin já usava (`_mcCentroMediano` + `MC_ZOOM_INICIAL`) — o
+comentário estava lá o tempo todo e eu não fui ler antes de escrever o meu.
+
+⚠️ **DOIS `requestAnimationFrame` ao entrar em tela cheia**, e o segundo não é
+paranoia: a classe acaba de ser trocada, e no primeiro quadro o navegador pode
+não ter recalculado o estilo — o `invalidateSize()` mede a caixa ANTIGA e o
+Leaflet guarda esse valor em `_size`. Medido: **368px logo depois de entrar em
+tela cheia, quando a caixa real já era 1910**. Não incomodava enquanto o
+enquadramento era sempre `fitBounds`; com a regra que ESCOLHE pelo tamanho,
+medir errado escolhe errado.
+
+⚠️ **Tela cheia nativa só se testa com clique de verdade** — o comentário do
+`abrirFundo` já avisava e eu caí de novo: `requestFullscreen()` exige gesto do
+usuário, então chamar `mapaFs(true)` do console cai no fallback por classe e a
+verificação passa medindo outra coisa. Com o clique real: 1920px, zoom 13.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

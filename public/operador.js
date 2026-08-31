@@ -623,6 +623,13 @@ let _mapaTurnoNo = null;
 let _mapaTurno = null;
 let _pinos = null;
 let _pontos = [];
+// O centro da carteira, quando não há decisão na tela. `null` quando há.
+let _centroCarteira = null;
+let _carteiraPts = [];
+// ⚠️ 12, e não os 11 do admin. Lá o mapa é a tela inteira; aqui ele mora numa
+// coluna de 400px, e um zoom a menos na mesma altura mostra o dobro de área
+// com metade da legibilidade. Medido na coluna, não deduzido do admin.
+const ZOOM_CARTEIRA = 12;
 let _mapaEnquadrado = false;
 
 /* ⚠️ RE-ENQUADRAR NA TROCA DE TAMANHO NÃO CONTRADIZ o "enquadra uma vez só"
@@ -634,7 +641,30 @@ let _mapaEnquadrado = false;
    mostrava de Cabreúva a Cubatão com os pinos espremidos no meio (medido).
    Quem muda o tamanho da janela espera ver o conteúdo, não mais moldura. */
 function enquadrarMapa() {
-  if (!_mapaTurno || !_pontos.length) return;
+  if (!_mapaTurno) return;
+  // Sem chamado nem técnico, quem enquadra é a carteira — e COMO ela enquadra
+  // depende do tamanho do mapa, que nesta tela muda de verdade: 400px na
+  // coluna do trilho, a largura da janela em tela cheia e abaixo de 1080.
+  //
+  // ⚠️ O MESMO ZOOM EM CAIXAS DE TAMANHOS DIFERENTES MOSTRA ÁREAS DIFERENTES,
+  // e foi isso que o print do Pedro pegou: com `fitBounds` sobre os 86 prédios
+  // reais, a tela cheia abria de Barueri a Mauá e os pontos viravam sujeira
+  // de mapa. Trocar por um zoom fixo consertou a coluna e não a tela cheia —
+  // lá o mesmo 12 continua mostrando a região metropolitana.
+  //
+  // Na caixa pequena o que serve é escala de bairro (centro na MEDIANA da
+  // carteira, e não na média: um prédio no litoral puxaria a média para o
+  // mar). Na caixa grande, quem abriu a tela cheia abriu para ver geografia —
+  // ali a carteira inteira, enquadrada com respiro, é a resposta.
+  if (!_pontos.length) {
+    if (!_carteiraPts.length) return;
+    if (_mapaTurno.getSize().x > 800) {
+      _mapaTurno.fitBounds(L.latLngBounds(_carteiraPts), { padding: [60, 60], maxZoom: 13 });
+    } else if (_centroCarteira) {
+      _mapaTurno.setView(_centroCarteira, ZOOM_CARTEIRA);
+    }
+    return;
+  }
   _mapaTurno.fitBounds(L.latLngBounds(_pontos), { padding: [40, 40], maxZoom: 14 });
 }
 
@@ -702,11 +732,24 @@ function montarMapaTurno() {
   // ⚠️ E NÃO ENTRA EM `pontos`: o enquadramento é da DECISÃO. Com a carteira
   // dentro, o mapa abriria na Grande São Paulo inteira e o chamado que
   // estoura viraria um ponto de 3px.
+  // ⚠️ O PONTO SÓ TEM COR QUANDO TEM O QUE DIZER. Na primeira versão os 86
+  // eram cinzas idênticos e o mapa virou um campo de quadradinhos anônimos —
+  // o Pedro mandou o print. Agora o prédio em ordem (ou sem telemetria) fica
+  // neutro e some no fundo; quem está em nível baixo, crítico ou com sensor
+  // mudo acende. É a mesma regra do resto da folha: estado não aparece em
+  // repouso.
+  const ROT_BANDA = { critico: "nível crítico", baixo: "nível baixo", mudo: "sem leitura" };
   carteira.forEach((c) => {
+    const b = c.banda && c.banda !== "ok" ? c.banda : "";
+    const rot = ROT_BANDA[b];
     L.marker([c.lat, c.lng], { interactive: true, keyboard: false,
+      // O que acende sobe: com 86 pontos, um crítico atrás de um vizinho em
+      // ordem desaparece — e é justamente o que não pode desaparecer.
+      zIndexOffset: b ? 400 : 0,
       icon: L.divIcon({ className: "", iconSize: [10, 10], iconAnchor: [5, 5],
-        html: '<div class="pin pin-base"></div>' }) })
-      .bindTooltip(`${escapar(c.nome || "—")}${c.bairro ? ` · ${escapar(c.bairro)}` : ""}`,
+        html: `<div class="pin pin-base"${b ? ` data-b="${b}"` : ""}></div>` }) })
+      .bindTooltip(`${escapar(c.nome || "—")}${c.bairro ? ` · ${escapar(c.bairro)}` : ""}${
+        rot ? ` <b>${rot}</b>` : ""}`,
                    { className: "pin-rot", direction: "top", offset: [0, -7] })
       .addTo(_pinos);
   });
@@ -747,10 +790,22 @@ function montarMapaTurno() {
       .addTo(_pinos);
   });
 
-  // ⚠️ SEM DECISÃO NA TELA, o enquadramento cai para a carteira — senão um
-  // turno calmo abriria o mapa em zoom 1, no meio do Atlântico, com a
-  // carteira num canto invisível.
-  _pontos = pontos.length ? pontos : carteira.map((c) => [c.lat, c.lng]);
+  _pontos = pontos;
+  // ⚠️ SEM DECISÃO NA TELA, o mapa NÃO faz `fitBounds` na carteira — ele
+  // CENTRA nela. A diferença apareceu com os 86 prédios reais: enquadrar
+  // todos abre a Grande São Paulo inteira, de Barueri a Mauá, e o mapa vira
+  // uma foto de satélite com pontinhos. É o mesmo motivo pelo qual o admin
+  // usa `_mcCentroMediano` + `MC_ZOOM_INICIAL` em vez de `fitBounds`, e o
+  // comentário está lá desde sempre — eu é que não fui ler antes.
+  // Mediana e não média: um prédio no Guarujá puxaria a média para o mar.
+  _carteiraPts = carteira.map((c) => [c.lat, c.lng]);
+  if (!pontos.length && carteira.length) {
+    const med = (ns) => { const s = [...ns].sort((a, b) => a - b); const i = s.length >> 1;
+      return s.length % 2 ? s[i] : (s[i - 1] + s[i]) / 2; };
+    _centroCarteira = [med(carteira.map((c) => c.lat)), med(carteira.map((c) => c.lng))];
+  } else {
+    _centroCarteira = null;
+  }
   // ⚠️ ENQUADRA UMA VEZ SÓ. Refazer o `fitBounds` a cada recarga de 30s
   // arrancaria o mapa da mão de quem acabou de dar zoom num bairro — a tela
   // se atualiza sozinha, e o enquadramento é do operador, não do ciclo.
@@ -790,11 +845,20 @@ function mapaFsAplicar(ligar) {
   document.body.classList.toggle("com-mapa-fs", ligar);
   no.querySelector(".mapa-fs")?.setAttribute("aria-label", ligar ? "Sair da tela cheia" : "Tela cheia");
   // O mapa mudou de tamanho por CSS, e o Leaflet não observa isso sozinho.
-  // Depois do próximo quadro, para medir o layout já aplicado.
-  requestAnimationFrame(() => {
+  //
+  // ⚠️ DOIS `requestAnimationFrame`, e o segundo não é paranoia. A classe
+  // acabou de ser trocada nesta linha; no PRIMEIRO quadro o navegador ainda
+  // pode não ter recalculado o estilo, e o `invalidateSize()` mede a caixa
+  // ANTIGA — o Leaflet guarda esse valor em `_size` e passa a responder com
+  // ele. Medido em 31/08: 368px de largura logo depois de entrar em tela
+  // cheia, quando a caixa real já era 1910.
+  // Isso não incomodava enquanto o enquadramento era sempre `fitBounds`; com
+  // a regra que ESCOLHE pelo tamanho (coluna → escala de bairro, tela cheia →
+  // carteira inteira), medir errado escolhe errado.
+  requestAnimationFrame(() => requestAnimationFrame(() => {
     _mapaTurno?.invalidateSize();
     enquadrarMapa();
-  });
+  }));
 }
 document.addEventListener("fullscreenchange", () => {
   const no = _mapaTurnoNo;

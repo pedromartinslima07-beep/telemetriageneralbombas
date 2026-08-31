@@ -227,9 +227,23 @@ router.get("/fila", authRequired, adminOnly, async (req, res) => {
       })),
       // O fundo do mapa. Nomes curtos porque a lista viaja a cada 30s: com a
       // carteira real (86 prédios) são ~4 KB por ciclo.
+      //
+      // ⚠️ CADA PRÉDIO LEVA A PIOR BANDA DOS RESERVATÓRIOS DELE, e isso é o
+      // que salva a camada de virar poluição. Na primeira versão os 86 pontos
+      // eram cinzas idênticos: diziam "temos prédios" e nada mais, e o Pedro
+      // mandou o print — a Grande São Paulo coberta de quadradinhos anônimos.
+      // Com a banda, o mapa fica quieto onde está tudo em ordem e ACENDE onde
+      // tem alguma coisa. É A Regra do Crítico Silencioso: estado não aparece
+      // em repouso.
+      //
+      // ⚠️ NÃO CUSTA CONSULTA NENHUMA: `porCondo` já foi montado acima, para
+      // os reservatórios da fila. Prédio sem reservatório fica com banda nula
+      // e continua neutro — "sem telemetria" não é um estado ruim, é ausência
+      // de instrumento, e pintá-lo diria que há problema onde não há.
       condominios: condosRes.rows.map((c) => ({
         id: c.id, nome: c.nome, bairro: c.bairro,
         lat: Number(c.lat), lng: Number(c.lng),
+        banda: piorBanda(porCondo.get(c.id)),
       })),
       limiares: { baixo: NIVEL_BAIXO, critico: NIVEL_CRITICO },
     });
@@ -238,6 +252,25 @@ router.get("/fila", authRequired, adminOnly, async (req, res) => {
     return res.status(500).json({ error: "Erro ao carregar a fila do turno" });
   }
 });
+
+/**
+ * A pior banda entre os reservatórios de um prédio.
+ *
+ * ⚠️ A ORDEM É A DA GRAVIDADE, não a alfabética: crítico ganha de baixo, que
+ * ganha de mudo. Um prédio com uma caixa em 12% e outra sem leitura é um
+ * prédio em crítico — mostrar "mudo" ali esconderia o que importa.
+ *
+ * ⚠️ E `mudo` NÃO é o pior. Não saber é diferente de saber que está ruim, e a
+ * tela do cliente já trata os dois separados desde 14/08 ("isso não quer dizer
+ * que falta água — quer dizer que não estamos conseguindo medir").
+ */
+function piorBanda(reservatorios) {
+  if (!reservatorios || !reservatorios.length) return null;
+  for (const b of ["critico", "baixo", "mudo"]) {
+    if (reservatorios.some((r) => r.banda === b)) return b;
+  }
+  return "ok";
+}
 
 /**
  * De onde o chamado veio.

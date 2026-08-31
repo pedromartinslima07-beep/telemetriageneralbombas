@@ -1601,9 +1601,26 @@ body.com-ficha{overflow:hidden}
    marinho do mapa é presença sem sinal: se a carteira tivesse cor de
    estado, 86 pontos coloridos apagariam os 3 que pedem alguém. */
 .pin-base{
-  width:10px;height:10px;background:var(--fio-forte);
+  width:9px;height:9px;background:var(--fio-forte);
   box-shadow:0 0 0 1px var(--mar-900);
 }
+/* ⚠️ COR SÓ COM ESTADO — e isto é a correção do primeiro desenho, que pintava
+   os 86 de cinza igual. O prédio em ordem, ou sem telemetria, some no fundo;
+   quem tem alguma coisa acende. Com 86 pontos idênticos o mapa dizia "temos
+   prédios" e nada mais; com estado, ele responde "onde tem coisa acontecendo
+   além do que já está na fila".
+   ⚠️ O ACESO É MAIOR (11px contra 9). Cor sozinha não separa para quem tem
+   daltonismo, e este sistema já decidiu duas vezes que forma separa mais
+   rápido que cor — aqui a forma disponível é o tamanho. */
+.pin-base[data-b]{
+  width:11px;height:11px;
+  box-shadow:0 0 0 1px var(--mar-900), 0 0 0 3px color-mix(in srgb,var(--mar-900) 55%,transparent);
+}
+.pin-base[data-b="critico"]{background:var(--vermelho)}
+.pin-base[data-b="baixo"]{background:var(--amarelo)}
+/* Sem leitura não é ruim, é não saber — a mesma distinção que o painel do
+   cliente faz desde 14/08. Por isso `--muted` claro e não um sinal. */
+.pin-base[data-b="mudo"]{background:var(--sobre-2)}
 .escolha{
   border-left:1px solid var(--fio-esc);background:var(--chapa-cl);
   padding:16px 15px;display:flex;flex-direction:column;gap:7px;
