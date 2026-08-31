@@ -395,6 +395,39 @@ body{
    esta é a célula do trilho (300px) e o conteúdo pede ~330. Sem isto o
    botão quebrava em duas linhas e o relógio junto. Transbordar para a
    ESQUERDA é inofensivo — aquele trecho da célula da fila está vazio. */
+/* ── A NAVEGAÇÃO DA BARRA — a mesma da landing ──────────────────────
+   ⚠️ TEXTO, NÃO BOTÃO, e a regra é da landing: navegação é texto; só ação é
+   botão, e são duas por barra (uma de fio, uma âmbar). Aqui havia quatro
+   chips em fila com o mesmo peso de placa — e uma parede de botões não diz
+   qual é a ação: com tudo em destaque, nada está.
+   O sublinhado âmbar que cresce da esquerda é o gesto de lá, valor por
+   valor (2px, `scaleX`, 0.3s na curva do sistema).
+   ⚠️ O `<button>` da Ajuda usa `font:inherit` e nenhuma caixa: ele é botão
+   por SEMÂNTICA (abre um diálogo, não navega) e texto por aparência. O
+   contrário — um `<a href="#">` que abre diálogo — mentiria para o teclado
+   e para o leitor de tela. */
+.barra-nav{display:flex;align-items:center;gap:clamp(14px,2vw,30px)}
+.barra-nav a,.barra-nav button{
+  position:relative;font:inherit;font-size:.95rem;font-weight:600;
+  color:var(--sobre-2);text-decoration:none;
+  background:transparent;border:0;padding:6px 0;cursor:pointer;
+  transition:color .2s var(--saida);
+}
+.barra-nav a::after,.barra-nav button::after{
+  content:"";position:absolute;left:0;right:0;bottom:0;height:2px;
+  background:var(--amarelo);transform:scaleX(0);transform-origin:left;
+  transition:transform .3s var(--saida);
+}
+.barra-nav a:hover,.barra-nav button:hover{color:#fff}
+.barra-nav a:hover::after,.barra-nav button:hover::after{transform:scaleX(1)}
+/* O anel de foco desta folha é `inset`, e num alvo sem caixa ele não tem
+   onde pousar. Aqui o foco acende o mesmo sublinhado do hover, em cheio. */
+.barra-nav a:focus-visible,.barra-nav button:focus-visible{
+  outline:none;color:#fff;box-shadow:none;
+}
+.barra-nav a:focus-visible::after,.barra-nav button:focus-visible::after{
+  transform:scaleX(1);height:2px;
+}
 .barra-acoes{
   display:flex;align-items:center;justify-content:flex-end;gap:16px;
   flex-shrink:0;padding-right:var(--gut);white-space:nowrap;
@@ -431,13 +464,37 @@ body{
    `clip-path` não resolveria: ele sai recortado justamente nos dois
    chanfros e lê como defeito (Regra da Chapa em Duas Camadas). Então o
    fundo do elemento É o anel, e o `::before` embutido 1px é a placa. */
+/* ⚠️ ERA O QUADRADINHO DE INICIAIS, virou o par "nome + Sair" da barra do
+   painel do cliente (31/08). As iniciais diziam quem está logado para quem
+   já sabe, e não ofereciam saída nenhuma — não havia como sair desta tela.
+   Construção idêntica à do `.conta` de lá: chapa de duas camadas, ícone de
+   1,6 de traço, rótulo ao lado. */
 .conta{
-  position:relative;isolation:isolate;
-  width:30px;height:30px;flex-shrink:0;background:var(--fio);
-  display:grid;place-items:center;
-  font-size:11px;font-weight:800;letter-spacing:-.01em;
+  position:relative;isolation:isolate;flex-shrink:0;
+  display:inline-flex;align-items:center;gap:8px;
+  padding:8px 12px;min-height:38px;border:0;cursor:pointer;
+  font:inherit;font-size:14px;font-weight:700;letter-spacing:-.005em;
+  color:var(--text-dim);background:var(--fio);
   --ch:5px;clip-path:var(--corte);
+  transition:color .16s var(--saida),background .16s var(--saida);
 }
+.conta::before{
+  content:"";position:absolute;inset:1px;z-index:-1;
+  clip-path:var(--corte);background:var(--mar-900);
+}
+.conta svg{width:16px;height:16px;flex-shrink:0}
+/* Sair não é ação de rotina: tom secundário, ênfase só no hover. Vermelho
+   aqui puxaria o olho o turno inteiro para a única coisa da barra que a
+   pessoa não veio fazer. Mesma decisão, mesmas palavras, no cliente.css. */
+.conta-sair:hover{color:#fff;background:var(--fio-forte)}
+.conta-sair:focus-visible{box-shadow:inset 0 0 0 2px var(--amarelo)}
+/* Quem está logado. É TEXTO, não alvo — um botão que não leva a lugar nenhum
+   ensina a duvidar dos outros alvos da barra. */
+.barra-eu{
+  font-size:14px;color:var(--muted);padding:7px 2px;flex-shrink:1;min-width:0;
+  max-width:22ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.barra-eu:empty{display:none}
 .conta::before{
   content:"";position:absolute;inset:1px;z-index:-1;
   clip-path:var(--corte);background:var(--mar-700);
@@ -1867,6 +1924,20 @@ body.com-ficha{overflow:hidden}
      do chamado por telefone longe da mesa — o lugar onde errar o toque custa
      mais. Estava em 40. */
   .barra-acoes .btn{padding:12px;min-height:44px;min-width:44px}
+  /* ⚠️ A NAV FICA, com alvo de toque de 44px. Ela é o único caminho para a
+     outra tela e para a ajuda — esconder no celular tiraria as duas de quem
+     está longe da mesa, que é justamente a cena em que o celular existe
+     nesta superfície. O que cede é o respiro entre elas. */
+  .barra-nav{gap:14px}
+  .barra-nav a,.barra-nav button{font-size:14px;padding:12px 0;min-height:44px;display:flex;align-items:center}
+  /* No celular a barra vira ícone: o nome sai (não é o que se lê no
+     aparelho) e o "Sair" fica só com a porta, em alvo de 44px. */
+  .barra-eu{display:none}
+  .conta{padding:12px;min-height:44px;min-width:44px;justify-content:center}
+  .conta .conta-rot{
+    position:absolute;width:1px;height:1px;overflow:hidden;
+    clip-path:inset(50%);white-space:nowrap;
+  }
   .btn-rot{
     position:absolute;width:1px;height:1px;overflow:hidden;
     clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;

@@ -22,7 +22,7 @@
 <link rel="preload" href="/static/fonts/archivo.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="/static/fonts/martianmono.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/static/leaflet.css">
-<link rel="stylesheet" href="/static/operador.css?v=62">
+<link rel="stylesheet" href="/static/operador.css?v=64">
 </head>
 <body>
 <!-- ⚠️ PÁGINA DE PRÉVIA, GERADA a partir do operador.html — temporária,
@@ -63,28 +63,38 @@
     </div>
   </div>
   <div class="barra-acoes">
-    <!-- ⚠️ A AJUDA É PARTE DA TELA, não um extra. O Pedro definiu o público
-         em 28/08: pessoas com pouca familiaridade com computador. Ela fica
-         na primeira posição das ações e o rótulo NÃO some no celular (ver o
-         bloco `.barra-acoes .btn-ajuda` no operador.css) — botão de ajuda
-         que vira um ponto de interrogação solto é o primeiro a não ser
-         achado por quem mais precisa dele. -->
-    <button class="btn btn-fio btn-ajuda" data-acao="ajuda" aria-label="Ajuda: como esta tela funciona">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.4 9.3a2.7 2.7 0 1 1 3.4 2.6c-.6.2-.8.7-.8 1.3v.6"/><path d="M12 17v.9"/></svg>
-      <span class="btn-rot">Ajuda</span>
-    </button>
-    <!-- ⚠️ ESTA LINHA ESTAVA FALTANDO NA PRÉVIA, e a prévia mentiu por isso:
-         em 31/08 o Pedro olhou esta página e perguntou onde estavam os
-         orçamentos. O `operador.html` tem o link desde que a segunda tela
-         nasceu; a prévia é uma cópia gerada e ficou parada no dia anterior.
-         Ao mexer na barra do `operador.html`, copie a mudança para cá —
-         prévia que diverge do original não serve para conferir nada. -->
-    <a class="btn btn-fio" href="/operador/painel/orcamentos">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M9 12h7M9 16h5"/></svg>
-      <span class="btn-rot">Aprovados</span>
-    </a>
+    <!-- ⚠️ NAVEGAÇÃO É TEXTO; SÓ AÇÃO É BOTÃO — e são DUAS, uma de fio e uma
+         âmbar. É a gramática da barra da landing e do painel do cliente, e
+         era o que faltava aqui (31/08, pedido do Pedro: "tente deixar o
+         cabeçalho parecido com cliente e landing").
+         Antes eram QUATRO chips em fila — Ajuda, Aprovados, Novo chamado,
+         Sair — todos com o mesmo peso de placa. Uma parede de botões não diz
+         qual deles é a ação: com tudo em destaque, nada está.
+         Aprovados leva a outra tela e Ajuda abre uma leitura; nenhuma das
+         duas é o que se veio fazer no turno. As duas viram link de texto com
+         o sublinhado âmbar que cresce da esquerda, exatamente como
+         "O serviço" e "Dúvidas" na landing. -->
+    <nav class="barra-nav" aria-label="Telas do operador">
+      <a href="/operador/painel/orcamentos">Aprovados</a>
+      <button type="button" data-acao="ajuda">Ajuda</button>
+    </nav>
     <button class="btn btn-novo" data-acao="novo" aria-label="Abrir novo chamado"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span class="btn-rot">Novo chamado</span></button>
-    <div class="conta" id="conta" title="">--</div>
+    <!-- ⚠️ QUEM ESTÁ LOGADO + SAIR — o mesmo par da barra do painel do
+         cliente (`cliente.html`), e trazido de lá inteiro em 31/08 a pedido
+         do Pedro. Antes daqui havia só o quadradinho com as INICIAIS, que
+         diz quem está logado para quem já sabe e não oferece saída nenhuma.
+         ⚠️ O NOME É TEXTO, não botão — a razão está escrita no cliente.html
+         e vale igual aqui: um alvo que não leva a lugar nenhum ensina a
+         pessoa a duvidar dos outros alvos da barra.
+         ⚠️ E "Sair" NÃO é vermelho. É a única coisa da barra que ninguém
+         veio fazer; em vermelho puxaria o olho o turno inteiro. -->
+    <span class="barra-eu" id="barraEu"></span>
+    <button class="conta conta-sair" id="btnSair" type="button" aria-label="Sair">
+      <!-- porta à esquerda, seta saindo: o mesmo desenho do painel do
+           cliente, no traço desta folha (ponta quadrada, junta em esquadro). -->
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M14 4H5v16h9"/><path d="M12 12h9M17.5 8l4 4-4 4"/></svg>
+      <span class="conta-rot">Sair</span>
+    </button>
   </div>
 </header>
 
@@ -176,6 +186,6 @@
 
 <script src="/static/leaflet.js"></script>
 <script src="/static/_operador-preview.js?v=3"></script>
-<script src="/static/operador.js?v=61" defer></script>
+<script src="/static/operador.js?v=62" defer></script>
 </body>
 </html>

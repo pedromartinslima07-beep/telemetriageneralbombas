@@ -1359,6 +1359,10 @@ function ajudaCorpo(d) {
 
 /* ── Eventos ─────────────────────────────────────────────────────────── */
 document.addEventListener("click", (e) => {
+  // O "Sair" é identificado por id, não por `data-acao`: ele é o mesmo botão
+  // das telas irmãs, e lá o seletor é o id. Manter o mesmo contrato evita que
+  // a peça compartilhada precise de um atributo só nesta folha.
+  if (e.target.closest("#btnSair")) return logout();
   const b = e.target.closest("[data-acao]");
   if (b) {
     const a = b.dataset.acao;
@@ -1432,16 +1436,46 @@ async function laco() {
   finally { tique(); setTimeout(laco, INTERVALO_MS); }
 }
 
-(async () => {
+/* ── Sair ────────────────────────────────────────────────────────────
+   ⚠️ O MESMO `logout()` das telas irmãs (`cliente.js`, `admin.js`): apaga o
+   que identifica a sessão e manda para o `/login`. Sem `confirm()` — sair
+   não destrói nada e desfazer é entrar de novo; perguntar "tem certeza?"
+   numa ação reversível gasta a pergunta que devia ficar guardada para as
+   irreversíveis.
+   ⚠️ `userRole` VAI JUNTO. O `cliente.js` só limpa token e user porque nunca
+   grava a role; aqui ela é gravada no login e, deixada para trás, o próximo
+   a entrar nesta máquina começa com a role de quem saiu. */
+function logout() {
+  localStorage.removeItem("token");
+  localStorage.removeItem("user");
+  localStorage.removeItem("userRole");
+  window.location.href = "/login";
+}
+
+/* Quem está na barra. ⚠️ O NOME AGORA VEM DO `localStorage` PRIMEIRO e só
+   depois é confirmado pelo servidor: o `/admin/me` leva o mesmo tempo das
+   outras chamadas contra o banco via proxy, e a barra ficava sem nome nesse
+   intervalo. O primeiro nome é sempre o certo — quem o gravou foi o login. */
+(function nomeNaBarra() {
+  const el = document.getElementById("barraEu");
+  if (!el) return;
   try {
-    const r = await fetch("/admin/me", { headers: authHeaders() });
-    if (r.ok) {
-      const me = await r.json();
-      const c = document.getElementById("conta");
-      if (c) { c.textContent = iniciais(me.nome || "?"); c.title = me.nome || ""; }
-    }
-  } catch { /* a conta é enfeite da barra; não bloqueia o turno */ }
+    const u = JSON.parse(localStorage.getItem("user") || "{}");
+    if (u.nome) el.textContent = primeiroNome(u.nome);
+  } catch { /* localStorage pode estourar em aba anônima; a barra sem nome não quebra o turno */ }
+  fetch("/admin/me", { headers: authHeaders() })
+    .then((r) => (r.ok ? r.json() : null))
+    .then((me) => { if (me?.nome) { el.textContent = primeiroNome(me.nome); el.title = me.nome; } })
+    .catch(() => { /* idem */ });
 })();
+
+/* ⚠️ PRIMEIRO NOME, não o nome inteiro. A barra desta tela já carrega marca,
+   rótulo do turno, três botões e o Sair; "Marina Aparecida da Silva Técnica"
+   comeria o espaço dos alvos que a pessoa veio usar. Quem está logado sabe o
+   próprio sobrenome — o nome completo fica no `title`. */
+function primeiroNome(n) {
+  return String(n).trim().split(/\s+/)[0] || n;
+}
 
 /* A barra ganha fundo sólido e fio ao rolar; em repouso ela não pesa sobre o
    campo. Mesmo limiar (12px) e mesma classe da landing e do painel do

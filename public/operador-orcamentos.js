@@ -798,6 +798,7 @@ function meuNome() {
 
 /* ── Eventos ─────────────────────────────────────────────────────────── */
 document.addEventListener("click", (e) => {
+  if (e.target.closest("#btnSair")) return logout();
   const b = e.target.closest("[data-acao]");
   if (b) {
     const a = b.dataset.acao;
@@ -825,16 +826,30 @@ document.addEventListener("keydown", (e) => {
   _prenderFoco(e);
 });
 
-/* ── A conta na barra ────────────────────────────────────────────────── */
-(function conta() {
+/* ── Sair ────────────────────────────────────────────────────────────
+   ⚠️ O MESMO `logout()` das telas irmãs (`cliente.js`, `admin.js`): apaga o
+   que identifica a sessão e manda para o `/login`. Sem `confirm()` — sair
+   não destrói nada e desfazer é entrar de novo; perguntar "tem certeza?"
+   numa ação reversível gasta a pergunta que devia ficar guardada para as
+   irreversíveis.
+   ⚠️ `userRole` VAI JUNTO. O `cliente.js` só limpa token e user porque nunca
+   grava a role; aqui ela é gravada no login e, deixada para trás, o próximo
+   a entrar nesta máquina começa com a role de quem saiu. */
+function logout() {
+  localStorage.removeItem("token");
+  localStorage.removeItem("user");
+  localStorage.removeItem("userRole");
+  window.location.href = "/login";
+}
+
+/* Quem está na barra — primeiro nome, como no painel do turno. */
+(function nomeNaBarra() {
+  const el = document.getElementById("barraEu");
+  if (!el) return;
   try {
     const u = JSON.parse(localStorage.getItem("user") || "{}");
-    const el = document.getElementById("conta");
-    if (!el || !u.nome) return;
-    el.textContent = String(u.nome).trim().split(/\s+/).map((x) => x[0])
-      .slice(0, 2).join("").toUpperCase();
-    el.title = u.nome;
-  } catch { /* localStorage pode estourar em aba anônima; a inicial não vale uma tela quebrada */ }
+    if (u.nome) { el.textContent = String(u.nome).trim().split(/\s+/)[0]; el.title = u.nome; }
+  } catch { /* localStorage pode estourar em aba anônima; a barra sem nome não quebra a tela */ }
 })();
 
 /* ── Boot ────────────────────────────────────────────────────────────── */

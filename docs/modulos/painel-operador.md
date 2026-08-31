@@ -60,7 +60,7 @@ admin** (seria o mesmo painel com menos itens) e a **parede de instrumentos**.
 
 | Região | O que é |
 |---|---|
-| Barra | Marca, relógio, pulso de "recebendo", `+ Novo chamado` |
+| Barra | Marca · **Aprovados · Ajuda** (texto, como a landing) · `+ Novo chamado` (âmbar) · nome e **Sair** (de fio) |
 | Coluna principal | **Esperando alguém** (sem técnico) e, abaixo, **Já tem técnico** — cada cabeçalho conta os seus, inclusive os fora do prazo |
 | Trilho | Mapa do turno; **Equipe agora** (nome + estado) e **Despachados hoje** |
 

@@ -21,7 +21,7 @@
      deixar telas irmãs divergirem: `cliente-orcamentos.html` carrega o
      `cliente.css` pelo mesmo motivo. Só o bloco `.orc-*` é exclusivo daqui,
      e ele mora no operador.css junto com o resto. -->
-<link rel="stylesheet" href="/static/operador.css?v=62">
+<link rel="stylesheet" href="/static/operador.css?v=64">
 </head>
 <!-- `sem-trilho`: esta tela não tem a coluna do mapa, então a barra volta a
      dividir a largura por `--area-max` sozinho. Ver o bloco no operador.css. -->
@@ -48,24 +48,17 @@
     </div>
   </div>
   <div class="barra-acoes">
-    <!-- ⚠️ A AJUDA É PARTE DA TELA, não um extra. O Pedro definiu o público
-         em 28/08: pessoas com pouca familiaridade com computador. Ela fica
-         na primeira posição das ações e o rótulo NÃO some no celular (ver o
-         bloco `.barra-acoes .btn-ajuda` no operador.css) — botão de ajuda
-         que vira um ponto de interrogação solto é o primeiro a não ser
-         achado por quem mais precisa dele. -->
-    <button class="btn btn-fio btn-ajuda" data-acao="ajuda" aria-label="Ajuda: como esta tela funciona">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.4 9.3a2.7 2.7 0 1 1 3.4 2.6c-.6.2-.8.7-.8 1.3v.6"/><path d="M12 17v.9"/></svg>
-      <span class="btn-rot">Ajuda</span>
+    <nav class="barra-nav" aria-label="Telas do operador">
+      <a href="/operador/painel">A fila do turno</a>
+      <button type="button" data-acao="ajuda">Ajuda</button>
+    </nav>
+    <span class="barra-eu" id="barraEu"></span>
+    <button class="conta conta-sair" id="btnSair" type="button" aria-label="Sair">
+      <!-- porta à esquerda, seta saindo: o mesmo desenho do painel do
+           cliente, no traço desta folha (ponta quadrada, junta em esquadro). -->
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M14 4H5v16h9"/><path d="M12 12h9M17.5 8l4 4-4 4"/></svg>
+      <span class="conta-rot">Sair</span>
     </button>
-    <!-- A volta é LINK, não botão, e é a mesma decisão do painel do cliente:
-         navegação de verdade faz o voltar do navegador e o gesto de voltar
-         do celular funcionarem. -->
-    <a class="btn btn-fio" href="/operador/painel">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
-      <span class="btn-rot">A fila do turno</span>
-    </a>
-    <div class="conta" id="conta" title="">--</div>
   </div>
 </header>
 
@@ -76,7 +69,7 @@
 </main>
 
 <script src="/static/inatividade.js?v=8" defer></script>
-<script src="/static/operador-orcamentos.js?v=14" defer></script>
+<script src="/static/operador-orcamentos.js?v=15" defer></script>
 <script src="/static/register-sw.js?v=51" defer></script>
 </body>
 </html>

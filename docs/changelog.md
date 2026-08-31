@@ -6392,6 +6392,57 @@ espera. É a mesma armadilha que deixou os tiles do mapa do admin invisíveis
 inteira aqui: com a aba fora de foco o scroll simplesmente não acontecia, sem
 erro nenhum no console e com o seletor correto.
 
+### 2026-08-31 (11ª rodada) · A barra ganha "Sair" e a gramática da landing
+
+Duas coisas do Pedro na mesma rodada: *"precisa de um botão de sair nessa
+tela"* e *"tente deixar o cabeçalho parecido com cliente e landing"*.
+
+**Não havia como sair.** A barra tinha só o quadradinho com as INICIAIS — que
+diz quem está logado para quem já sabe e não oferece saída nenhuma. Entrou o
+par **nome + Sair** do `cliente.html`, inteiro: o nome é TEXTO (um alvo que
+não leva a lugar nenhum ensina a duvidar dos outros alvos da barra) e o Sair é
+a ação, com a porta e a seta desenhadas no traço desta folha.
+
+⚠️ **"Sair" não é vermelho.** É a única coisa da barra que ninguém veio fazer;
+em vermelho puxaria o olho o turno inteiro. Tom secundário, ênfase no hover —
+mesma decisão e mesmas palavras do `cliente.css`.
+
+⚠️ **`userRole` vai junto no logout.** O `cliente.js` limpa só token e user
+porque nunca grava a role; aqui ela é gravada no login e, deixada para trás, o
+próximo a entrar nesta máquina começa com a role de quem saiu.
+
+⚠️ **PRIMEIRO NOME, não o nome inteiro** — e ele vem do `localStorage` antes
+de o `/admin/me` responder. Esta barra carrega marca, rótulo do turno, duas
+navegações e duas ações; "Marina Aparecida da Silva Técnica" comeria o espaço
+dos alvos que a pessoa veio usar. O nome completo fica no `title`.
+
+**E a barra virou a barra da landing.** Antes eram **quatro chips em fila** —
+Ajuda, Aprovados, Novo chamado, Sair — todos com o mesmo peso de placa. Uma
+parede de botões não diz qual é a ação: **com tudo em destaque, nada está.**
+
+A regra da landing é: **navegação é texto; só ação é botão, e são duas por
+barra — uma de fio e uma âmbar.** Aplicada aqui:
+
+| Antes | Agora |
+|---|---|
+| chip "Aprovados" | link de texto, com o sublinhado âmbar que cresce da esquerda |
+| chip "Ajuda" | idem |
+| chip "+ Novo chamado" | continua âmbar cheio — é a ação da tela |
+| chip "Sair" | continua de fio — é a saída |
+
+⚠️ **O "Ajuda" é `<button>` com aparência de texto**, não `<a href="#">`: ele
+abre um diálogo, não navega. Um link que não leva a lugar nenhum mente para o
+teclado e para o leitor de tela.
+
+⚠️ **A nav NÃO some no celular**, ao contrário do que a barra faz com os
+rótulos dos botões: ela é o único caminho para a outra tela e para a ajuda, e
+o celular é justamente a cena de quem está longe da mesa. O que cede é o
+respiro entre os dois links. Verificado a 390px: cabe, com alvo de 44px.
+
+**O que continua diferente das irmãs, e é deliberado:** barra de 68px (contra
+74) e logo de 36 (contra 40) — a razão 0,53 é a mesma, e a densidade menor tem
+dono desde 28/08.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em
