@@ -141,7 +141,16 @@
      é densa e tem trilho de 300px ao lado. O que não podia continuar é o
      número mágico solto — a barra usava 20px de recuo e a fila 1040
      centrados, então a marca e o primeiro item caíam em x diferentes. */
-  /* ⚠️ 68px, era 60 — e o 60 vinha de uma comparação injusta com o admin.
+  /* ⚠️ 74px, IGUAL ÀS IRMÃS (31/08). Passou por 60 e por 68 antes de chegar
+     aqui, e as duas etapas ficam registradas porque a segunda foi eu
+     defendendo uma diferença que o Pedro não pediu: *"deixe ela igual aos
+     outros cabeçalhos, não tem por que ser diferente"*.
+     O argumento do 68 era a densidade da fila — real, mas ele custava 6px de
+     estranheza em quem passa das outras telas para esta, e densidade se
+     resolve no item, não na barra. A landing, o painel do cliente e esta
+     agora medem o MESMO. Quem não igualou foi o admin, que tem 60 porque a
+     marca dele mora na sidebar e a topbar leva só controles.
+     ⚠️ O 60 original vinha de uma comparação injusta com o admin.
      A topbar do admin tem 60px porque ela carrega SÓ CONTROLES: a marca dele
      mora na sidebar. Esta tela não tem sidebar, então a mesma altura estava
      levando logo + rótulo do turno + "Novo chamado" + pulso + relógio +
@@ -150,7 +159,7 @@
      "60 contra 74 porque esta tela é densa e tem trilho de 300px ao lado", e
      o trilho passou a ter 400. A densidade continua valendo — por isso 68 e
      não os 74 das irmãs. */
-  --barra-h:68px;
+  --barra-h:74px;
   --area-max:1040px;
   /* ⚠️ 400, era 300 — e a mudança é de PAPEL, não de medida. Ate 28/08/2026
      esta coluna era uma lista de tecnicos, e o mapa so existia dentro do
@@ -359,11 +368,11 @@ body{
    barra do painel do cliente (40 em 74) e da landing. Os atributos
    `width`/`height` reservam a caixa antes de o PNG chegar. */
 .marca{display:flex;align-items:center;gap:11px;flex-shrink:0}
-/* ⚠️ A RAZÃO É O ASSUNTO, não o número: 30 numa barra de 60 dá 0,50,
-   enquanto a landing e o painel do cliente fazem 40 em 74, que é 0,54 — o
-   logo não estava só menor, estava proporcionalmente menor. 36 em 68 devolve
-   a razão das irmãs. */
-.marca img{height:36px;width:auto;display:block}
+/* ⚠️ 40 numa barra de 74 — o número das irmãs, não só a razão delas (31/08).
+   A razão sempre foi o assunto (30 em 60 dava 0,50 contra os 0,54 da landing;
+   36 em 68 já tinha devolvido a proporção), mas com a barra igualada não há
+   mais motivo para o logo ser um tamanho só desta tela. */
+.marca img{height:40px;width:auto;display:block}
 .marca span{
   font-family:var(--mono);font-size:12px;
   letter-spacing:.14em;color:var(--muted);text-transform:uppercase;
@@ -1914,7 +1923,7 @@ body.com-ficha{overflow:hidden}
   .barra-acoes{padding-right:13px}
   .barra-in{min-width:0}
   .marca{min-width:0}
-  .marca img{height:30px}
+  .marca img{height:32px}
   .marca span{display:none}
   .barra-acoes{gap:8px}
   /* ⚠️ Era `display:none`. O chamado que chega por telefone é justamente o
@@ -2513,7 +2522,7 @@ body.sem-trilho #tela{width:100%}
 }
 @media (max-width:760px){
   /* 60 no celular, contra os 64 das irmãs — mesma proporção do desktop. */
-  :root{--barra-h:60px}
+  :root{--barra-h:64px}
   .aviso{bottom:calc(16px + env(safe-area-inset-bottom, 0px))}
 }
 
@@ -2526,10 +2535,12 @@ body.sem-trilho #tela{width:100%}
    `max-width` não resolve — num flex a largura do invólucro é decidida pelo
    próprio conteúdo, e a imagem não tem contra o que encolher. Quem cede é a
    ALTURA, e só onde falta espaço: 26px dá 120px de largura e três de folga.
-   Acima de 420 a razão documentada (30 numa barra de 60) segue intacta.
-   ⚠️ Mexeu no que há dentro de `.barra-acoes`? Refaça esta conta. */
+   Acima de 420 a medida das irmãs (32 numa barra de 64) segue intacta.
+   ⚠️ Mexeu no que há dentro de `.barra-acoes`? Refaça esta conta — e ela
+   MUDOU em 31/08: os quatro chips viraram dois links de texto mais duas
+   ações, então há mais folga aqui do que quando a conta foi feita. */
 @media (max-width:420px){
-  .marca img{height:26px}
+  .marca img{height:28px}
   .barra-acoes{gap:6px}
 }
 

@@ -1481,9 +1481,15 @@ function primeiroNome(n) {
    campo. Mesmo limiar (12px) e mesma classe da landing e do painel do
    cliente — as três barras trocam de estado na mesma rolagem. Aqui faltava,
    e a barra vivia opaca com o fio já desenhado. */
-addEventListener("scroll", () => {
+// ⚠️ E O ESTADO INICIAL, não só o listener. O navegador RESTAURA a posição
+// de rolagem ao recarregar: quem dá F5 no meio da lista volta com a página
+// rolada e um `scroll` que nunca aconteceu — a barra nascia translúcida,
+// com o conteúdo passando por baixo dela, até a pessoa rolar de novo.
+function _barraRolada() {
   document.querySelector(".barra")?.classList.toggle("is-rolada", scrollY > 12);
-}, { passive: true });
+}
+addEventListener("scroll", _barraRolada, { passive: true });
+_barraRolada();
 
 tique();
 setInterval(tique, 20000);

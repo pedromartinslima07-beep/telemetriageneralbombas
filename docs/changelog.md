@@ -6499,6 +6499,50 @@ na escala antiga ela saía em quatro linhas de manchete.
 **"2 items" → "2 itens".** O plural saía em inglês desde que a linha nasceu
 (`item` + `s`), em toda placa da tela.
 
+### 2026-08-31 (13ª rodada) · A barra dos Aprovados nunca endurecia, e as três viram uma só
+
+O Pedro: *"o cabeçalho da tela de orçamento é translúcido?"*. Era — **e nunca
+deixava de ser.**
+
+A folha define `.barra` translúcida (`--mar-900` a 88% + `blur(14px)`) e
+`.barra.is-rolada` sólida com fio inferior. Quem troca a classe é um listener
+de `scroll` que existia no `operador.js` e **nunca foi copiado** para o
+`operador-orcamentos.js` — o mesmo tipo de divergência que este par de telas
+já cobrou duas vezes hoje (a prévia sem o link, a prévia sem a fixture).
+
+O efeito era pior aqui do que seria no painel do turno: esta tela tem **placas
+claras** passando por baixo da barra, então o cabeçalho ficava sobre um borrão
+claro e o topo da placa aparecia atravessando a marca.
+
+⚠️ **E faltava o ESTADO INICIAL, nas duas telas.** O navegador restaura a
+posição de rolagem ao recarregar: quem dá F5 no meio da lista volta com a
+página rolada e um `scroll` que nunca aconteceu — a barra nascia translúcida
+com conteúdo por baixo até a pessoa rolar de novo. O listener virou uma função
+nomeada, chamada também no boot.
+
+### E a barra parou de ser diferente das irmãs
+
+Pedido, na mesma mensagem: *"deixe ela igual aos outros cabeçalhos, não tem por
+que ser diferente"*.
+
+| | Antes | Agora |
+|---|---|---|
+| Altura | 68px (60 no celular) | **74 (64)** — a da landing e do painel do cliente |
+| Logo | 36px (30) | **40 (32)** |
+
+⚠️ **O 68 era meu, e a defesa dele não se sustentou.** O argumento era a
+densidade da fila — real, mas custava 6px de estranheza em quem passa das
+outras telas para esta, e **densidade se resolve no item, não na barra**. As
+etapas ficam registradas no CSS porque a segunda foi eu defendendo uma
+diferença que ninguém pediu.
+
+⚠️ **O admin continua em 60, e isso não é divergência**: a marca dele mora na
+sidebar e a topbar leva só controles. Foi a comparação injusta que produziu o
+60 original desta tela.
+
+Conferido: o `.trilho` continua colado embaixo da barra (74/74) — ele gruda em
+`top: var(--barra-h)`, e é por isso que a altura tem de ser sempre o token.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

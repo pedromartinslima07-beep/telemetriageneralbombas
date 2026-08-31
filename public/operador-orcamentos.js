@@ -884,6 +884,26 @@ function logout() {
   } catch { /* localStorage pode estourar em aba anônima; a barra sem nome não quebra a tela */ }
 })();
 
+/* ⚠️ A BARRA ENDURECE AO ROLAR — e ISTO FALTAVA AQUI (31/08). A folha define
+   `.barra` translúcida (`--mar-900` a 88% + `blur(14px)`) e `.barra.is-rolada`
+   sólida com fio inferior; quem troca a classe é este listener, que existia no
+   `operador.js` e nunca foi copiado para cá.
+   O efeito: a barra desta tela ficava translúcida PARA SEMPRE. Com as placas
+   claras passando por baixo — que é o que esta tela tem e o painel do turno
+   não —, o texto do cabeçalho ficava sobre um borrão claro, e o topo da placa
+   aparecia atravessando a marca.
+   Mesmo limiar (12px) e mesma classe das três irmãs: as barras da landing, do
+   painel do cliente e daqui trocam de estado na mesma rolagem. */
+// ⚠️ E O ESTADO INICIAL, não só o listener. O navegador RESTAURA a posição
+// de rolagem ao recarregar: quem dá F5 no meio da lista volta com a página
+// rolada e um `scroll` que nunca aconteceu — a barra nascia translúcida,
+// com o conteúdo passando por baixo dela, até a pessoa rolar de novo.
+function _barraRolada() {
+  document.querySelector(".barra")?.classList.toggle("is-rolada", scrollY > 12);
+}
+addEventListener("scroll", _barraRolada, { passive: true });
+_barraRolada();
+
 /* ── Boot ────────────────────────────────────────────────────────────── */
 // ⚠️ SEM RECARGA PERIÓDICA, ao contrário do painel do turno. Lá o ciclo de
 // 30s existe porque a fila muda sozinha e atrasar é perder prazo; aqui a
