@@ -26,6 +26,11 @@ um chamado.
    - **Peças:** `POST/PATCH/DELETE /:id/pecas[/:peca_id]`. `os_pecas`.
    - Sinaliza se há orçamento necessário (`orcamento_necessario`,
      `orcamento_observacoes`).
+   - Aponta a **bomba atendida** (`equipamento_id`, migration 072) — pelo modal
+     do admin ou, desde 31/08/2026, pela seção "Bomba atendida" do app do
+     técnico. É o vínculo que faz o orçamento chegar na bancada colado no
+     equipamento e a O.S. entrar no histórico da ficha; ver
+     [`equipamentos.md`](equipamentos.md) e [`app-mobile.md`](app-mobile.md).
 3. **Finalização** — `POST /:id/finalizar` (assinatura) marca `finalizada_em` e
    **gera o PDF** (`os-pdf.service.js`, Puppeteer).
 4. **Acesso ao PDF** — `GET /:id/pdf` (dono ou admin);

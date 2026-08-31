@@ -1925,6 +1925,7 @@ function gpsRenderAviso() {
 // ============== TÉCNICO — FORMULÁRIO DE O.S. (Fase 7E) ==============
 const OS = {
   data: null,      // O.S. completa (chamado_id, condominio_id, campos, fotos, peças...)
+  equipamentos: [], // bombas etiquetadas do condomínio (ver _osCarregarEquipamentos)
   chamadoId: null, // pra voltar pra detalhe
   saveDebounce: null,
   pendingPatch: null, // campos alterados aguardando o debounce (ver salvarOSDebounced)
@@ -2012,9 +2013,45 @@ async function abrirFormularioOS(chamadoId, osId) {
 
     document.getElementById("osNumero").textContent = OS.data.numero || `OS-${osId}`;
     iniciarTimerOS(OS.data.chegada_em);
+    // Antes do render: é ele que decide se a seção "Bomba atendida" existe.
+    // Custa um round-trip a mais na abertura, mas o esqueleto já está na tela.
+    await _osCarregarEquipamentos();
     renderOSSections();
   } catch (err) {
     showAlert(document.getElementById("osAlert"), err.message, "error");
+  }
+}
+
+// Bombas etiquetadas do condomínio desta O.S., pra seção "Bomba atendida".
+//
+// `GET /equipamentos` passa em `equipeInterna` — o guard que existe justamente
+// porque o técnico NÃO passa em `adminOnly`. Não confundir com `GET
+// /condominios`, esse sim fechado pro técnico.
+//
+// Falha de rede aqui não pode derrubar a abertura da O.S.: sem lista, a seção
+// simplesmente não aparece e o resto do formulário funciona igual.
+async function _osCarregarEquipamentos() {
+  OS.equipamentos = [];
+  if (IS_DEMO || !OS.data) return;
+
+  try {
+    if (OS.data.condominio_id) {
+      const lista = await api(`/equipamentos?condominio_id=${encodeURIComponent(OS.data.condominio_id)}`);
+      if (Array.isArray(lista)) OS.equipamentos = lista;
+    }
+
+    // ⚠️ A bomba já vinculada precisa entrar na lista mesmo que não seja deste
+    // condomínio (bomba que trocou de prédio) ou que esteja inativa — nos dois
+    // casos ela não vem no GET acima. Sem isto o select não acha o valor, cai
+    // em "Não vinculada", e o primeiro toque em qualquer outro campo salvaria
+    // o apagamento do vínculo em silêncio.
+    const vinculado = OS.data.equipamento_id;
+    if (vinculado && !OS.equipamentos.some((eq) => String(eq.id) === String(vinculado))) {
+      const ficha = await api(`/equipamentos/${vinculado}`);
+      if (ficha?.equipamento) OS.equipamentos.push({ ...ficha.equipamento, fora_do_condominio: true });
+    }
+  } catch (err) {
+    console.warn("[os] equipamentos:", err.message);
   }
 }
 
@@ -2091,6 +2128,7 @@ function renderOSSections() {
   const wrap = document.getElementById("osSections");
   const sections = [
     sectionTipos(),
+    sectionBomba(), // "" quando o condomínio não tem bomba etiquetada
     sectionEquipamentos(),
     sectionCorrentes(),
     sectionFotos(),
@@ -2117,6 +2155,7 @@ function renderOSSections() {
 
   // Bind: handlers por seção
   bindTipos();
+  bindBomba();
   bindEquipamentos();
   bindCorrentes();
   bindFotos();
@@ -2189,6 +2228,97 @@ function bindTipos() {
       sub.textContent = n ? `${n} selecionado${n > 1 ? "s" : ""}` : "Toque pra selecionar";
     }
     chip.closest(".os-section").classList.toggle("is-complete", set.size > 0);
+  });
+}
+
+// ---- Seção "Bomba atendida" (vínculo com a etiqueta) ----
+//
+// É o `equipamento_id` da O.S. (migration 072), e ele paga duas contas que só
+// existem se o técnico apontar a bomba aqui:
+//
+//   1. o orçamento nascido desta O.S. chega na bancada já colado no
+//      equipamento — `_garantirOrcamentoDaOs` (admin.routes.js) propaga o
+//      vínculo e ADOTA um pedido que a bancada já tenha aberto pela etiqueta,
+//      em vez de abrir um segundo pro mesmo serviço;
+//   2. a O.S. entra no histórico da ficha (`GET /equipamentos/:id`), que é o
+//      que sustenta o contador de idas à oficina — o número que justifica
+//      trocar a bomba em vez de consertar de novo.
+//
+// ⚠️ NÃO confundir com "Equipamentos verificados", a seção logo abaixo: aquela
+// é checklist genérico (comando elétrico, bombas de recalque...) e vive em
+// `itens_verificados`. Esta aponta UMA bomba do cadastro, a da etiqueta.
+//
+// ⚠️ SÓ APARECE se o condomínio tiver bomba etiquetada (ou se a O.S. já tiver
+// uma vinculada). Sem essa condição, todo prédio sem etiqueta ganharia uma
+// seção vazia — e em 31/08/2026 isso é todo prédio: `equipamentos` ainda está
+// zerada em produção. A seção nasce no dia em que as etiquetas subirem.
+//
+// Fica sem número (marcador "•") de propósito, como a de orçamento: as duas são
+// opcionais, e `atualizarProgresso` conta 7 seções com lógica de completude —
+// uma oitava marcando `complete` empurraria a barra além de 100%.
+function _osTemSecaoBomba() {
+  return OS.equipamentos.length > 0 || !!OS.data?.equipamento_id;
+}
+
+// Mesmo formato do painel (`_eqFormatarCodigo` no admin.js): 8 dígitos viram
+// XXXX-XXXX, que é como o código está impresso na etiqueta.
+function _osCodigoEquipamento(codigo) {
+  const s = String(codigo || "");
+  return s.length === 8 ? `${s.slice(0, 4)}-${s.slice(4)}` : s;
+}
+
+function _osNomeEquipamento(eq) {
+  return eq.apelido
+    || [eq.marca, eq.modelo].filter(Boolean).join(" ")
+    || (eq.tipo ? eq.tipo[0].toUpperCase() + eq.tipo.slice(1) : "Equipamento");
+}
+
+function _osRotuloEquipamento(eq) {
+  const base = `${_osCodigoEquipamento(eq.codigo)} · ${_osNomeEquipamento(eq)}`;
+  return eq.fora_do_condominio ? `${base} (outro condomínio)` : base;
+}
+
+function sectionBomba() {
+  if (!_osTemSecaoBomba()) return "";
+
+  const atual = OS.data.equipamento_id;
+  const escolhida = OS.equipamentos.find((eq) => String(eq.id) === String(atual));
+
+  return sectionTemplate({
+    id: "bomba",
+    title: "Bomba atendida",
+    subtitle: escolhida ? _osRotuloEquipamento(escolhida) : "Opcional — liga a O.S. à etiqueta",
+    required: false,
+    complete: false,
+    body: `
+      <div class="os-corrente-label" style="text-align:left;margin-bottom:6px">
+        Qual bomba etiquetada esta O.S. atendeu
+      </div>
+      <select class="input os-select" id="osBomba">
+        <option value="">Não vinculada</option>
+        ${OS.equipamentos.map((eq) => `
+          <option value="${eq.id}" ${String(eq.id) === String(atual) ? "selected" : ""}>
+            ${escapeHtml(_osRotuloEquipamento(eq))}
+          </option>`).join("")}
+      </select>`,
+  });
+}
+
+function bindBomba() {
+  const sel = document.getElementById("osBomba");
+  if (!sel) return;
+  sel.addEventListener("change", () => {
+    // String vazia vira null, não 0: o PATCH trata `equipamento_id: null` como
+    // "desvincular" e Number("") daria 0, que não é id de bomba nenhuma.
+    const id = sel.value ? Number(sel.value) : null;
+    salvarOSDebounced({ equipamento_id: id });
+
+    const sec = sel.closest(".os-section");
+    const sub = sec?.querySelector(".os-section-title small");
+    if (sub) {
+      const eq = OS.equipamentos.find((x) => String(x.id) === String(id));
+      sub.textContent = eq ? _osRotuloEquipamento(eq) : "Opcional — liga a O.S. à etiqueta";
+    }
   });
 }
 

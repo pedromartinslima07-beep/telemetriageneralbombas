@@ -145,6 +145,57 @@ trabalho.
 - `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_LOCATION`, `POST_NOTIFICATIONS` —
   mergeados automaticamente pelo Gradle a partir do manifest do plugin
 
+## A O.S. do app: a seção "Bomba atendida" (31/08/2026)
+
+Grava o `ordens_servico.equipamento_id` (migration 072) — o vínculo entre a
+O.S. e a bomba etiquetada. O modal do admin tinha esse seletor desde 18/08; o
+app, não, e é **no app** que a O.S. de campo é escrita. Fluxo completo em
+[`equipamentos.md`](equipamentos.md).
+
+Sem o vínculo, duas coisas não acontecem: o orçamento nascido da O.S. não chega
+na bancada colado na bomba (`_garantirOrcamentoDaOs`), e a O.S. não entra no
+histórico da ficha do equipamento — o histórico que sustenta o contador de idas
+à oficina.
+
+| Peça | Onde |
+|---|---|
+| `sectionBomba()` / `bindBomba()` | `app/public/app.js` |
+| `_osCarregarEquipamentos()` | idem — roda antes do `renderOSSections()` |
+| `.os-select` | `app/public/app.css` (44px de alvo; o `.input` base tem 36px) |
+
+⚠️ **Não confundir com "Equipamentos verificados"**, a seção logo abaixo dela.
+Aquela é checklist genérico (comando elétrico, bombas de recalque…) e vive em
+`itens_verificados`; esta aponta **uma** bomba do cadastro, a da etiqueta. Os
+nomes são próximos de propósito — o campo novo se chama "Bomba atendida"
+justamente para não haver dois "Equipamento" na mesma tela.
+
+⚠️ **A seção só é renderizada se houver bomba etiquetada no condomínio** (ou se
+a O.S. já tiver uma vinculada) — `sectionBomba()` devolve string vazia caso
+contrário. Em 31/08/2026 isso significa que ela **não aparece para ninguém**:
+`equipamentos` está zerada em produção. Ela nasce sozinha quando as etiquetas
+subirem, sem APK novo. Quem for testar precisa de um condomínio com equipamento
+cadastrado — no banco de teste, os condomínios 1 e 4 têm.
+
+⚠️ **A seção é "•", não numerada.** `atualizarProgresso()` conta 7 seções com
+lógica de completude, e a barra é calibrada nesse 7; uma oitava marcando
+`complete` passaria de 100%. Numerar também quebraria a numeração das outras e
+faria o mesmo passo ter número diferente em prédio com e sem etiqueta. É o
+mesmo tratamento da seção de orçamento. **Ao acrescentar seção nova na O.S.,
+decida antes entre "•" e número — e, se numerar, acerte `OS_SECTION_NUMBER` e o
+`total` do `atualizarProgresso`.**
+
+⚠️ **A bomba já vinculada é resgatada à parte.** Ela pode não vir no
+`GET /equipamentos?condominio_id=` por ter trocado de prédio ou por estar
+inativa (a listagem filtra `ativo = true`). Nos dois casos o `<select>` cairia
+em "Não vinculada" e o primeiro toque em qualquer outro campo salvaria o
+apagamento em silêncio — o mesmo defeito que apareceu no admin em 18/08.
+
+⚠️ **Custa um round-trip a mais na abertura da O.S.**, porque a lista só pode
+ser pedida depois de saber o `condominio_id`, que vem no `GET
+/ordens-servico/:id`. É sequencial de propósito: é ela que decide se a seção
+existe, e o esqueleto já está na tela. Falha de rede aqui não derruba a O.S. —
+a seção simplesmente não aparece.
+
 ## Notificações — estado atual: **não existem**
 
 O app **não tem nenhum mecanismo de notificação** (nem push, nem local). A única

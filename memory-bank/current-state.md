@@ -211,6 +211,16 @@ ESP32 (sonda 4-20mA + SCT-013)
   Gradle 8.14.3, Java 21) — piso exigido pela Play Store a partir de 31/08/2026.
   Requisitos de build em [app-mobile.md](../docs/modulos/app-mobile.md).
 - Telas técnico: chamados, detalhe, O.S., conta; ciclo com GPS.
+- **A O.S. do app aponta a bomba etiquetada** (31/08/2026): seção "Bomba
+  atendida" grava `ordens_servico.equipamento_id`, o campo que o modal do admin
+  já tinha desde 18/08 e que faltava justamente em quem escreve a O.S. no
+  campo. Só é renderizada se o condomínio tiver equipamento cadastrado — com
+  `equipamentos` zerada em produção, hoje ela não aparece para ninguém e nasce
+  sozinha quando as etiquetas subirem. Pegadinhas em
+  [app-mobile.md](../docs/modulos/app-mobile.md).
+- ⚠️ **Toda mudança no `app/public/` só chega ao técnico com APK novo**
+  (`npm run build:apk` + reinstalar): o web é empacotado no bundle, não servido.
+  Vale agrupar mudanças antes de gerar build.
 - Telas cliente/síndico: home, telemetria, chamados (KPIs clicáveis), conta,
   suporte, novo chamado, detalhe.
 - Auth + onboarding; rastreamento GPS; herda visual do admin.

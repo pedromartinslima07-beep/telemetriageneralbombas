@@ -133,10 +133,15 @@ aliases:
     vínculo para o orçamento e reflexo da aprovação na bancada.
     Migration 072 aplicada em teste e **produção** (18/08) — inclui o `UPDATE`
     que acertou `orcamentos.origem = 'os'` nos orçamentos nascidos de O.S.
+    - ✅ **A outra metade, 31/08:** o seletor entrou também no **app do
+      técnico** (seção "Bomba atendida"). Até então o campo existia só para
+      quem não estava na casa de máquinas — a O.S. de campo nascia sempre sem
+      vínculo. Sem backend novo. **Só chega ao técnico com APK novo.**
 
   - 📋 **12D (opcional, depois de 31/08)**: scanner dentro do app
-    (`@capacitor-mlkit/barcode-scanning`), inventário do parque instalado,
-    alerta de garantia.
+    (`@capacitor-mlkit/barcode-scanning`) — o gesto natural na bancada, hoje
+    substituído pelo seletor; inventário do parque instalado; alerta de
+    garantia.
 
 - **Landing pública** 🟡 — redesenhada em 2026-08-11 na branch
   `feature/landing-publica` (direção "Chapa"; a primeira versão, em formato de

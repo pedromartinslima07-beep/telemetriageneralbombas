@@ -1986,6 +1986,16 @@ body:has(.screen-auth[data-active])::before { display: none; }
   margin-bottom: 4px;
 }
 
+/* ===== Select da O.S. (seção "Bomba atendida") =====
+   O `.input` base tem 36px de altura e 12.5px de corpo — dimensão de formulário
+   de desktop. Aqui quem toca está de pé, na casa de máquinas, muitas vezes de
+   luva: 44px é o alvo mínimo, e 14px é o corpo que se lê sem aproximar. */
+.os-select {
+  min-height: 44px;
+  font-size: 14px;
+  padding: 10px 12px;
+}
+
 /* ===== Textarea ===== */
 .os-textarea {
   width: 100%;

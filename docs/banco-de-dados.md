@@ -355,6 +355,11 @@ orçamento já enviado ao cliente. Índice `idx_orcamentos_equipamento`.
 também o `UPDATE` que acerta `orcamentos.origem = 'os'` para os orçamentos
 nascidos de O.S. que ficaram com o DEFAULT `'admin'`.
 
+> Quem **escreve** essa coluna: o modal de O.S. do admin (18/08) e o app do
+> técnico (31/08, seção "Bomba atendida"), os dois pelo mesmo
+> `PATCH /ordens-servico/:id`. Coluna sem escritor no app foi exatamente o
+> estado dela entre as duas datas — a O.S. de campo nascia sempre com `NULL`.
+
 `chamados` ganha `equipamento_id (SET NULL)` + `idx_chamados_equipamento` —
 permite ver reincidência sem passar pela O.S.
 

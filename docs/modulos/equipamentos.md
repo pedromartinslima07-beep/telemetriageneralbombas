@@ -189,8 +189,16 @@ bomba no campo.
 
 - `ordens_servico.equipamento_id` (SET NULL — dar baixa numa bomba não pode
   apagar a O.S., que é documento assinado pelo cliente).
-- O seletor fica no **modal de O.S. do admin**, seção "Equipamento", listando
-  os equipamentos etiquetados daquele condomínio.
+- O seletor fica em **dois lugares**, e os dois gravam o mesmo campo pelo mesmo
+  `PATCH /ordens-servico/:id`:
+  - **modal de O.S. do admin**, seção "Equipamento";
+  - **app do técnico** (31/08/2026), seção **"Bomba atendida"** — quem escreve
+    a O.S. de campo é ele, e até essa data o campo só existia para quem não
+    estava na casa de máquinas. Ver
+    [`app-mobile.md`](app-mobile.md).
+  Os dois listam os equipamentos etiquetados daquele condomínio
+  (`GET /equipamentos?condominio_id=`, que passa em `equipeInterna` — é por
+  isso que o técnico alcança essa rota sem passar em `adminOnly`).
 - **`_garantirOrcamentoDaOs` propaga o `equipamento_id`** para o orçamento.
   A partir daí, aprovar o orçamento de uma O.S. de conserto move a bomba para
   `em_conserto` pelo mesmo `equipamento-bancada.service.js` — os dois caminhos
@@ -200,9 +208,12 @@ bomba no campo.
   coluna existir.
 
 - ⚠️ **O seletor sempre inclui o equipamento já vinculado**, mesmo que ele não
-  seja daquele condomínio (bomba trocada de prédio, dado antigo). Sem isso o
-  `<select>` não acha o valor, cai em "nenhum", e **salvar a O.S. apagaria o
-  vínculo em silêncio** — o defeito apareceu no primeiro teste.
+  seja daquele condomínio (bomba trocada de prédio, dado antigo) **ou que ele
+  esteja inativo** — a listagem filtra `ativo = true`, então os dois casos
+  somem dela. Sem esse resgate o `<select>` não acha o valor, cai em "nenhum",
+  e **salvar a O.S. apagaria o vínculo em silêncio**. O defeito apareceu no
+  primeiro teste do admin, e vale igual no app: quem escrever um terceiro
+  seletor precisa repetir o resgate.
 - ⚠️ Campo novo no detalhe da O.S. precisa entrar no **SELECT explícito** de
   `GET /ordens-servico/:id`: ele lista coluna por coluna (o `os.*` foi trocado
   de propósito, para não arrastar a assinatura base64 de ~120 KB em toda
