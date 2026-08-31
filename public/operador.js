@@ -392,8 +392,16 @@ function calmo() {
   return `
   <section class="calmo">
     <h1>Nenhum chamado <b>esperando</b>.</h1>
-    <p class="calmo-lede">Quando a telemetria abrir um chamado, ou alguém ligar
-      relatando alguma coisa, ele entra aqui no topo — com o prazo já contando.</p>
+    ${/* ⚠️ A LEDE NÃO CITA MAIS A TELEMETRIA (31/08, correção do Pedro: "tire
+          o foco da palavra telemetria aí, são chamados no geral"). Ela dizia
+          "Quando a telemetria abrir um chamado, ou alguém ligar relatando
+          alguma coisa" — e isso põe UMA das cinco origens na frente das
+          outras quatro. Um chamado nasce da telemetria, do WhatsApp com IA,
+          do plano de preventiva, do painel do cliente ou de alguém digitando
+          (ver `origemDe` no operador.routes.js). A frase agora vale para
+          todas, e é mais curta por consequência. */""}
+    <p class="calmo-lede">Assim que um chamado for aberto, ele entra aqui no
+      topo — com o prazo já contando.</p>
     ${linhas.length ? `<p class="calmo-agora">${linhas.join(" · ")}</p>` : ""}
     <p class="calmo-nota">A lista se atualiza sozinha a cada 30 segundos.</p>
   </section>`;

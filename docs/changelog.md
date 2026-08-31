@@ -6561,17 +6561,28 @@ manchete e a lede pousam **direto no campo marinho**; quem tem placa ali são os
 **cartões**, que são o conteúdo. **Numa tela sem conteúdo, embrulhar o aviso
 numa peça é dar corpo justamente ao que não tem.**
 
-O que ficou, tudo livre no campo e alinhado no x do primeiro item da fila:
+O que ficou, tudo livre no campo e **centrado nos dois eixos** — encostado no
+topo à esquerda o aviso ficava com uma coluna inteira de vazio embaixo, e num
+dia calmo essa coluna é a tela toda; centrado, o vazio vira respiro em volta em
+vez de sobra abaixo:
 
 | | |
 |---|---|
 | Manchete | `Nenhum chamado **esperando**.` — **escolha do Pedro**. Eu tinha promovido a antiga etiqueta ("Nada pede alguém agora") a título; "esperando" já está no cabeçalho da fila, e reaproveitar a palavra que a pessoa acabou de ler custa menos que ensinar uma construção nova |
-| Lede | "Quando a telemetria abrir um chamado, ou alguém ligar relatando alguma coisa, ele entra aqui no topo — com o prazo já contando." |
+| Lede | "Assim que um chamado for aberto, ele entra aqui no topo — com o prazo já contando." |
 | Números | `87 prédios no mapa · 2 técnicos livres agora`, em texto corrido |
 | Nota | o ciclo de 30 s, fora do grupo em destaque (A Regra da Nota Honesta) |
 
 ⚠️ Descartada também **"Tudo em dia por aqui"**: numa tela de turno, afirmar
 calma que ninguém verificou é o pior erro possível.
+
+⚠️ **A LEDE NÃO CITA MAIS A TELEMETRIA** (correção do Pedro: *"tire o foco da
+palavra telemetria aí, são chamados no geral"*). Ela dizia "Quando a telemetria
+abrir um chamado, ou alguém ligar relatando alguma coisa" — e isso põe UMA das
+cinco origens na frente das outras quatro. Um chamado nasce da telemetria, do
+WhatsApp com IA, do plano de preventiva, do painel do cliente ou de alguém
+digitando (ver `origemDe`). A frase agora vale para todas, e ficou mais curta
+por consequência.
 
 ⚠️ **Os números são os da própria tela** — os prédios são os pinos do mapa e os
 técnicos são os do trilho. E é **"prédios no mapa", não "monitorados"**: a

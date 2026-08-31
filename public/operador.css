@@ -1214,9 +1214,18 @@ body{
    numa peça é dar corpo justamente ao que não tem.
    Alinhado à esquerda no mesmo x do primeiro item da fila, como a manchete
    dos Aprovados. */
+/* ⚠️ CENTRADO NOS DOIS EIXOS (31/08, pedido do Pedro: "deixe o texto mais
+   centralizado"). Encostado no topo à esquerda, o aviso ficava com uma
+   coluna inteira de vazio embaixo dele — e num dia calmo essa coluna é a
+   tela toda. Centrado, o vazio vira respiro em volta em vez de sobra abaixo.
+   `min-height` em `vh` com teto: sem o teto, num monitor alto a frase
+   afundaria para o meio da página e sairia da primeira dobra. */
 .calmo{
   max-width:var(--area-max);margin:0 auto;width:100%;
   padding:clamp(30px,5vw,62px) var(--gut) clamp(40px,6vw,80px);
+  min-height:min(56vh,460px);
+  display:flex;flex-direction:column;justify-content:center;align-items:center;
+  text-align:center;
 }
 .calmo h1{
   margin:0;font-family:var(--fonte);font-weight:800;
@@ -1229,7 +1238,7 @@ body{
    "aguardam" do print de referência. */
 .calmo h1 b{color:var(--amarelo);font-weight:800}
 .calmo-lede{
-  margin:14px 0 0;font-size:1.0625rem;line-height:1.55;
+  margin:14px auto 0;font-size:1.0625rem;line-height:1.55;
   color:var(--sobre-2);max-width:52ch;
 }
 /* Os números da tela, em texto corrido. Eles respondem "então o que esta tela
@@ -1251,7 +1260,7 @@ body{
    soltos e sem as classes acima. Herda a mesma caixa e o mesmo alinhamento —
    é o que faz as duas telas terem o mesmo vazio. */
 .calmo > p:not([class]){
-  margin:14px 0 0;font-size:1.0625rem;line-height:1.55;
+  margin:14px auto 0;font-size:1.0625rem;line-height:1.55;
   color:var(--sobre-2);max-width:52ch;
 }
 
