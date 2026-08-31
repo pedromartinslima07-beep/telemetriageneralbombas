@@ -273,10 +273,20 @@ body{
      a borda vira `100% − trilho − gutter`. Com só a primeira, o recorte
      ficava até 120px à direita do trilho a 1200px e comia a peça; com só a
      segunda, ele avançaria sobre a fila a 1920. */
+  /* ⚠️ SEM `overflow:hidden` DESDE 31/08 — o Pedro: "o final da engrenagem na
+     parte da esquerda dela está ficando cortada". Estava, e por construção:
+     este elemento era o RECORTE, e o corte caía no meio do anel, numa reta
+     vertical que nenhuma peça de metal tem.
+     O recorte existia para a roda não encostar na coluna da fila. Mas ela não
+     precisa disso: `#tela` tem `z-index:1` e cada item tem fundo próprio, então
+     a roda passa POR TRÁS — que é exatamente o que a landing faz com a mesma
+     peça. O que impedia era eu ter herdado a solução de um dia em que o
+     empilhamento ainda não estava resolvido.
+     A sobra à esquerda não estica a página: `html,body` têm `overflow-x:clip`
+     (ver o topo da folha), que é a mesma linha do cliente.css. */
   position:fixed;
   left:min(calc(50% + 315px),calc(100% - var(--trilho-w) - 10px));right:0;
   top:var(--barra-h);bottom:0;
-  overflow:hidden;
   pointer-events:none;z-index:0;
 }
 .eng-roda{
@@ -1195,34 +1205,24 @@ body{
    aguenta o próprio peso. Ela continua na tela, embaixo, no papel que de
    fato tem: marcador de estado, com o ponto verde ao lado. */
 /* ── O DIA CALMO ────────────────────────────────────────────────────
-   Placa única, na gramática do painel do cliente. Ver o comentário de
-   `calmo()` no operador.js para o porquê de cada peça.
-   ⚠️ CHAPA DE DUAS CAMADAS com gradiente — a construção do `.instr` da
-   landing. Ela é a exceção que a regra da moldura prevê: aparece UMA vez e
-   só quando não há mais nada na tela. */
+   ⚠️ TEXTO LIVRE NO CAMPO, SEM PLACA — e isto é correção de uma versão que
+   durou meia hora. Eu tinha construído uma chapa de duas camadas com anel,
+   gradiente e segunda coluna dividida por corte gravado; o Pedro recusou o
+   "bloco" e mandou olhar o print de novo. Ele tem razão: no painel do
+   cliente a manchete e a lede pousam DIRETO no marinho, e quem tem placa
+   são os cartões — o conteúdo. Numa tela sem conteúdo, embrulhar o aviso
+   numa peça é dar corpo justamente ao que não tem.
+   Alinhado à esquerda no mesmo x do primeiro item da fila, como a manchete
+   dos Aprovados. */
 .calmo{
   max-width:var(--area-max);margin:0 auto;width:100%;
-  padding:clamp(18px,3vw,30px) var(--gut) clamp(30px,4vw,52px);
+  padding:clamp(30px,5vw,62px) var(--gut) clamp(40px,6vw,80px);
 }
-.calmo-corpo{
-  position:relative;isolation:isolate;
-  background:var(--fio);padding:1.5px;clip-path:var(--corte);
-  display:grid;grid-template-columns:1.08fr .92fr;
-}
-/* ⚠️ 176° e não 168: o comprimento da linha do gradiente é
-   |L·sen α| + |A·cos α|, e numa chapa LARGA (1000×220) o 168 vira gradiente
-   horizontal e acende só a primeira coluna. Regra registrada em 28/08. */
-.calmo-corpo::before{
-  content:"";position:absolute;inset:1.5px;z-index:-1;clip-path:var(--corte);
-  background:linear-gradient(176deg,var(--surface3),var(--surface) 62%);
-}
-.calmo-fala{padding:clamp(26px,3.4vw,40px) clamp(24px,3vw,36px)}
-/* A manchete da tela vazia. Mesma rampa da manchete dos Aprovados — as duas
-   são a única voz grande da sua tela. */
 .calmo h1{
   margin:0;font-family:var(--fonte);font-weight:800;
-  font-size:clamp(1.7rem,3vw,2.5rem);line-height:1.06;
-  letter-spacing:-.028em;font-stretch:112%;color:#fff;text-wrap:balance;
+  font-size:clamp(1.95rem,3.6vw,3.2rem);line-height:1.06;
+  letter-spacing:-.028em;font-stretch:112%;color:#fff;
+  text-wrap:balance;max-width:22ch;
 }
 /* ⚠️ UMA palavra em âmbar, e ela vive no campo marinho — sobre placa clara o
    amarelo reprova contraste até como forma (Regra do Amarelo Cego). É o
@@ -1230,52 +1230,29 @@ body{
 .calmo h1 b{color:var(--amarelo);font-weight:800}
 .calmo-lede{
   margin:14px 0 0;font-size:1.0625rem;line-height:1.55;
-  color:var(--sobre-2);max-width:46ch;
+  color:var(--sobre-2);max-width:52ch;
 }
-/* ⚠️ A DIVISÃO É CORTE GRAVADO — `--rasgo` (o fundo do sulco) e `--luz` (a
-   aresta que pega luz), sempre nessa ordem e sempre as DUAS. Uma linha só lê
-   como borda de card e transforma a placa em dois cartõezinhos, que é o
-   vício que esta construção existe para evitar. */
-.calmo-lado{
-  border-left:1px solid var(--rasgo);box-shadow:inset 1px 0 0 var(--luz);
-  padding:clamp(26px,3.4vw,40px) clamp(24px,3vw,36px);
-  display:flex;flex-direction:column;gap:0;justify-content:center;
+/* Os números da tela, em texto corrido. Eles respondem "então o que esta tela
+   está fazendo?", que é a pergunta que um vazio levanta sozinho — e não
+   precisam de peça para isso.
+   ⚠️ Os valores são medição: mono e tabular, como todo número desta folha. */
+.calmo-agora{
+  margin:22px 0 0;font-size:1.0625rem;line-height:1.5;color:var(--text-dim);
 }
-.calmo-rot{
-  font-family:var(--mono);font-size:11px;font-weight:500;
-  letter-spacing:.13em;text-transform:uppercase;color:var(--muted);
-  margin-bottom:14px;
+.calmo-agora b{
+  font-family:var(--mono);font-weight:700;font-feature-settings:"tnum";
+  color:#fff;letter-spacing:-.02em;
 }
-.calmo-lado p{
-  margin:0;padding:11px 0;font-size:1.0625rem;line-height:1.35;
-  color:var(--text-dim);border-bottom:1px solid var(--fio-fraco);
-}
-.calmo-lado p b{color:#fff;font-weight:700;font-family:var(--mono);
-  font-feature-settings:"tnum";font-size:1.15rem;letter-spacing:-.02em;margin-right:3px}
-.calmo-lado p:last-of-type{border-bottom:0}
-/* A nota de honestidade fica FORA do grupo em destaque e em prosa normal —
-   A Regra da Nota Honesta do DESIGN.md. */
-.calmo-nota{color:var(--muted)!important;font-size:.95rem!important;padding-top:14px!important}
+/* A nota do ciclo fica FORA do grupo em destaque e em prosa normal — A Regra
+   da Nota Honesta do DESIGN.md. */
+.calmo-nota{margin:8px 0 0;font-size:.95rem;line-height:1.5;color:var(--muted)}
 
-/* ⚠️ A TELA DE APROVADOS REUSA `.calmo` para o vazio dela, e lá NÃO há
-   segunda coluna. Sem esta regra a placa abriria com metade vazia. */
-.calmo:not(:has(.calmo-lado)) .calmo-corpo,
-.calmo-corpo:not(:has(.calmo-lado)){grid-template-columns:1fr}
-.calmo > h1{
-  margin:0 0 10px;font-size:clamp(1.7rem,3.4vw,2.5rem);font-weight:900;
-  font-stretch:112%;letter-spacing:-.03em;line-height:1.05;text-align:center;
-}
-.calmo > p{margin:0 auto;max-width:48ch;color:var(--text-dim);font-size:1rem;line-height:1.6;text-align:center}
-
-@media (max-width:760px){
-  /* Numa coluna estreita a segunda coluna DEITA, e o sulco deita junto: em
-     pilha, um `border-left` deixaria as duas células sem divisão nenhuma.
-     Mesma correção da placa do serviço na landing. */
-  .calmo-corpo{grid-template-columns:1fr}
-  .calmo-lado{
-    border-left:0;box-shadow:inset 0 1px 0 var(--luz);
-    border-top:1px solid var(--rasgo);
-  }
+/* ⚠️ A TELA DE APROVADOS REUSA `.calmo` para o vazio dela, com `h1` + `p`
+   soltos e sem as classes acima. Herda a mesma caixa e o mesmo alinhamento —
+   é o que faz as duas telas terem o mesmo vazio. */
+.calmo > p:not([class]){
+  margin:14px 0 0;font-size:1.0625rem;line-height:1.55;
+  color:var(--sobre-2);max-width:52ch;
 }
 
 /* ── Trilho da equipe (composição B) ─────────────────────────────── */

@@ -344,16 +344,27 @@ let _vistos = null;
    `--sobre-2`, e uma segunda coluna com etiqueta mono e linhas separadas
    por fio.
 
-   ⚠️ ESTA PLACA GANHA ANEL E GRADIENTE, e isso não contradiz "moldura marca
-   o que é único; o que se repete é superfície" (DESIGN.md). Ela aparece UMA
-   vez e só quando não há mais nada na tela — é a definição de peça única.
+   ⚠️ SEM PLACA, e isto é uma correção sobre o mesmo dia. Eu tinha construído
+   uma chapa de duas camadas com anel, gradiente e segunda coluna dividida por
+   corte gravado. O Pedro: *"não quero esse bloco que você está fazendo, faça
+   algo realmente igual esse texto, livre"*. Ele está certo e o print prova:
+   no painel do cliente a manchete e a lede pousam DIRETO no campo marinho —
+   quem tem placa ali são os CARTÕES, que são o conteúdo. Numa tela sem
+   conteúdo, embrulhar o aviso numa peça é dar corpo justamente ao que não
+   tem.
 
-   ⚠️ A SEGUNDA COLUNA EXISTE PARA RESPONDER "ENTÃO O QUE ESTA TELA ESTÁ
-   FAZENDO?". Uma tela vazia levanta essa pergunta sozinha, e o texto antigo
-   respondia três vezes a mesma coisa: o título dizia "Nenhum chamado
-   aberto", o parágrafo abria com "A fila está vazia" e a etiqueta embaixo
-   repetia "NADA PEDE ALGUÉM AGORA". Três formas de dizer que não há nada e
-   nenhuma de dizer o que há.
+   ⚠️ O texto antigo dizia TRÊS VEZES a mesma coisa: o título "Nenhum chamado
+   aberto", o parágrafo abrindo com "A fila está vazia" e a etiqueta
+   "NADA PEDE ALGUÉM AGORA". Três formas de dizer que não há nada e nenhuma
+   de dizer o que há — que é a pergunta que uma tela vazia levanta sozinha.
+   É por isso que os números ficaram, mesmo sem a coluna.
+
+   ⚠️ A MANCHETE É ESCOLHA DO PEDRO. Eu tinha promovido a antiga etiqueta a
+   título; ele trocou por "Nenhum chamado esperando", e a razão vale:
+   "esperando" já está na tela, no cabeçalho da fila, e reaproveitar a palavra
+   que a pessoa acabou de ler custa menos que ensinar uma construção nova.
+   Descartada também "Tudo em dia por aqui" — numa tela de turno, afirmar
+   calma que ninguém verificou é o pior erro possível.
 
    ⚠️ OS NÚMEROS SÃO OS DA TELA, não frases de efeito: os prédios são os
    pinos do mapa e os técnicos são os do trilho. Se algum dia deixarem de
@@ -366,29 +377,25 @@ function calmo() {
   const livres = (DADOS.tecnicos || []).filter((t) => t.disponivel && !t.abertos).length;
   const equipe = (DADOS.tecnicos || []).length;
 
+  // ⚠️ TEXTO CORRIDO, NÃO UMA COLUNA DE FATOS. A versão anterior punha isto
+  // numa segunda coluna com etiqueta e fios — e virou o "bloco" que o Pedro
+  // recusou. Livre, os mesmos números continuam respondendo "então o que esta
+  // tela está fazendo?" sem construir uma peça para dizer isso.
   const linhas = [];
   if (predios) linhas.push(`<b>${predios}</b> ${predios > 1 ? "prédios" : "prédio"} no mapa`);
   if (equipe) {
     linhas.push(livres
       ? `<b>${livres}</b> ${livres > 1 ? "técnicos livres" : "técnico livre"} agora`
-      : `Toda a equipe está em atendimento`);
+      : `toda a equipe em atendimento`);
   }
 
   return `
   <section class="calmo">
-    <div class="calmo-corpo">
-      <div class="calmo-fala">
-        <h1>Nada <b>pede alguém</b> agora.</h1>
-        <p class="calmo-lede">Quando a telemetria abrir um chamado, ou alguém
-          ligar relatando alguma coisa, ele entra aqui no topo — com o prazo
-          já contando.</p>
-      </div>
-      <div class="calmo-lado">
-        <span class="calmo-rot">Enquanto isso</span>
-        ${linhas.map((l) => `<p>${l}</p>`).join("")}
-        <p class="calmo-nota">A lista se atualiza sozinha a cada 30 segundos.</p>
-      </div>
-    </div>
+    <h1>Nenhum chamado <b>esperando</b>.</h1>
+    <p class="calmo-lede">Quando a telemetria abrir um chamado, ou alguém ligar
+      relatando alguma coisa, ele entra aqui no topo — com o prazo já contando.</p>
+    ${linhas.length ? `<p class="calmo-agora">${linhas.join(" · ")}</p>` : ""}
+    <p class="calmo-nota">A lista se atualiza sozinha a cada 30 segundos.</p>
   </section>`;
 }
 

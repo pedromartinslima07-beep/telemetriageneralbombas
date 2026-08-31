@@ -6543,6 +6543,101 @@ sidebar e a topbar leva só controles. Foi a comparação injusta que produziu o
 Conferido: o `.trilho` continua colado embaixo da barra (74/74) — ele gruda em
 `top: var(--barra-h)`, e é por isso que a altura tem de ser sempre o token.
 
+### 2026-08-31 (14ª rodada) · O dia calmo vira texto livre, e a engrenagem para de ser cortada
+
+Pedido do Pedro com os prints do painel do cliente ao lado: *"dá uma melhorada
+nesse texto, e deixe o visual dele assim"*.
+
+**O texto dizia três vezes a mesma coisa.** O título: "Nenhum chamado aberto".
+O parágrafo abria com "A fila está vazia". A etiqueta embaixo repetia
+"NADA PEDE ALGUÉM AGORA". Três formas de dizer que não há nada — e nenhuma de
+dizer **o que há**, que é a pergunta que uma tela vazia levanta sozinha.
+
+⚠️ **E EU CONSTRUÍ UMA PLACA QUE ELE RECUSOU.** Primeira tentativa: chapa de
+duas camadas com anel, gradiente e segunda coluna dividida por corte gravado.
+Ele: *"não quero esse bloco que você está fazendo, faça algo realmente igual
+esse texto, livre"*. Certíssimo, e o print prova — no painel do cliente a
+manchete e a lede pousam **direto no campo marinho**; quem tem placa ali são os
+**cartões**, que são o conteúdo. **Numa tela sem conteúdo, embrulhar o aviso
+numa peça é dar corpo justamente ao que não tem.**
+
+O que ficou, tudo livre no campo e alinhado no x do primeiro item da fila:
+
+| | |
+|---|---|
+| Manchete | `Nenhum chamado **esperando**.` — **escolha do Pedro**. Eu tinha promovido a antiga etiqueta ("Nada pede alguém agora") a título; "esperando" já está no cabeçalho da fila, e reaproveitar a palavra que a pessoa acabou de ler custa menos que ensinar uma construção nova |
+| Lede | "Quando a telemetria abrir um chamado, ou alguém ligar relatando alguma coisa, ele entra aqui no topo — com o prazo já contando." |
+| Números | `87 prédios no mapa · 2 técnicos livres agora`, em texto corrido |
+| Nota | o ciclo de 30 s, fora do grupo em destaque (A Regra da Nota Honesta) |
+
+⚠️ Descartada também **"Tudo em dia por aqui"**: numa tela de turno, afirmar
+calma que ninguém verificou é o pior erro possível.
+
+⚠️ **Os números são os da própria tela** — os prédios são os pinos do mapa e os
+técnicos são os do trilho. E é **"prédios no mapa", não "monitorados"**: a
+carteira é quem tem coordenada, não quem tem sensor, e em produção não há
+reservatório cadastrado.
+
+### E a engrenagem parou de ser cortada
+
+O Pedro, na mesma mensagem: *"o final da engrenagem na parte da esquerda dela
+está ficando cortada"*. Estava, **por construção**: o `.eng` era um RECORTE
+(`overflow:hidden` sobre a coluna do trilho) e o corte caía no meio do anel,
+numa reta vertical que nenhuma peça de metal tem.
+
+O recorte existia para a roda não encostar na coluna da fila. **Mas ela não
+precisa disso**: `#tela` tem `z-index:1` e cada item tem fundo próprio, então a
+roda passa POR TRÁS — que é exatamente o que a landing faz com a mesma peça. O
+que me impedia era ter herdado a solução de um dia em que o empilhamento ainda
+não estava resolvido.
+
+Conferido: sem rolagem horizontal (o `overflow-x:clip` de `html,body` já
+segurava), e a roda passa atrás dos itens sem aparecer por cima de nenhum.
+
+### 2026-08-31 (13ª rodada) · A barra dos Aprovados nunca endurecia, e as três viram uma só
+
+O Pedro: *"o cabeçalho da tela de orçamento é translúcido?"*. Era — **e nunca
+deixava de ser.**
+
+A folha define `.barra` translúcida (`--mar-900` a 88% + `blur(14px)`) e
+`.barra.is-rolada` sólida com fio inferior. Quem troca a classe é um listener
+de `scroll` que existia no `operador.js` e **nunca foi copiado** para o
+`operador-orcamentos.js` — o mesmo tipo de divergência que este par de telas
+já cobrou duas vezes hoje (a prévia sem o link, a prévia sem a fixture).
+
+O efeito era pior aqui do que seria no painel do turno: esta tela tem **placas
+claras** passando por baixo da barra, então o cabeçalho ficava sobre um borrão
+claro e o topo da placa aparecia atravessando a marca.
+
+⚠️ **E faltava o ESTADO INICIAL, nas duas telas.** O navegador restaura a
+posição de rolagem ao recarregar: quem dá F5 no meio da lista volta com a
+página rolada e um `scroll` que nunca aconteceu — a barra nascia translúcida
+com conteúdo por baixo até a pessoa rolar de novo. O listener virou uma função
+nomeada, chamada também no boot.
+
+### E a barra parou de ser diferente das irmãs
+
+Pedido, na mesma mensagem: *"deixe ela igual aos outros cabeçalhos, não tem por
+que ser diferente"*.
+
+| | Antes | Agora |
+|---|---|---|
+| Altura | 68px (60 no celular) | **74 (64)** — a da landing e do painel do cliente |
+| Logo | 36px (30) | **40 (32)** |
+
+⚠️ **O 68 era meu, e a defesa dele não se sustentou.** O argumento era a
+densidade da fila — real, mas custava 6px de estranheza em quem passa das
+outras telas para esta, e **densidade se resolve no item, não na barra**. As
+etapas ficam registradas no CSS porque a segunda foi eu defendendo uma
+diferença que ninguém pediu.
+
+⚠️ **O admin continua em 60, e isso não é divergência**: a marca dele mora na
+sidebar e a topbar leva só controles. Foi a comparação injusta que produziu o
+60 original desta tela.
+
+Conferido: o `.trilho` continua colado embaixo da barra (74/74) — ele gruda em
+`top: var(--barra-h)`, e é por isso que a altura tem de ser sempre o token.
+
 ### 2026-08-31 (14ª rodada) · O dia calmo vira placa, e o nome sai de fatia
 
 Pedido do Pedro com os dois prints do painel do cliente ao lado: *"dá uma
