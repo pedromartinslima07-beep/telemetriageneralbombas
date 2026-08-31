@@ -103,6 +103,12 @@ está no [`roadmap`](../../memory-bank/roadmap.md).
 
 ## As três ações
 
+⚠️ **DESPACHAR TIRA O CHAMADO DA SEÇÃO EM QUE ELE ESTAVA.** Ele sai de
+"Esperando alguém" e vai para "Já tem técnico", que costuma estar fora da tela
+— medido: y=1258 numa janela de 709px. Por isso o despacho, desde 31/08,
+**avisa para onde o item foi e rola até ele**. Sem isso a tela parecia não ter
+feito nada, que foi exatamente o relato.
+
 1. **Despachar** — abre o mapa com o prédio, os técnicos com GPS e uma linha
    tracejada do candidato livre até o alvo. Grava com
    `PATCH /chamados/:id { tecnico_id }`, que marca `primeira_resposta_em` e

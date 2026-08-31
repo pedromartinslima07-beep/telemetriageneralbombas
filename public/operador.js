@@ -940,9 +940,30 @@ function montarMapa(c) {
   if (pontos.length > 1) _mapa.fitBounds(L.latLngBounds(pontos).pad(.26));
 }
 
+/* ⚠️ "CLIQUEI E NADA ACONTECEU" — corrigido em 31/08, e não era um erro: era
+   a soma de duas esperas silenciosas, medidas nesta tela.
+
+   1. O PATCH levou **3,8 s** contra o banco de teste (Railway, via proxy).
+      Nesse tempo o único sinal era o cartão do técnico com `opacity: .5` —
+      que parece um botão desabilitado, não um botão trabalhando.
+   2. Despachado, o chamado TROCA DE SEÇÃO: sai de "Esperando alguém" e vai
+      para "Já tem técnico". Medido no caso real: o item foi parar em
+      **y = 1258 numa janela de 709px** — duas dobras abaixo. Da cadeira de
+      quem clicou, o item simplesmente sumiu da tela.
+
+   Juntas: quase quatro segundos de nada, o diálogo fecha, e o item
+   desaparece de onde a pessoa estava olhando. "Nada aconteceu" é a leitura
+   correta do que a tela mostrava.
+
+   As três correções abaixo não mexem no backend — o despacho sempre
+   funcionou. O que faltava era a tela CONTAR o que fez. */
 async function despachar(chamadoId, tecnicoId) {
   const btn = document.querySelector(`[data-acao="escolher"][data-tec="${tecnicoId}"]`);
-  if (btn) { btn.disabled = true; btn.style.opacity = ".5"; }
+  // 1. O botão DIZ que está trabalhando, em vez de só apagar. `data-ocupado`
+  //    e não uma troca de texto: o cartão tem nome, estado e contagem, e
+  //    reescrever tudo isso perderia a informação de quem foi escolhido.
+  if (btn) { btn.disabled = true; btn.dataset.ocupado = "1"; }
+  const tec = (DADOS.tecnicos || []).find((t) => t.id === tecnicoId);
   try {
     const r = await fetch(`/chamados/${chamadoId}`, {
       method: "PATCH",
@@ -953,9 +974,28 @@ async function despachar(chamadoId, tecnicoId) {
     if (!r.ok) throw new Error(d.error || "Erro ao despachar");
     fechar();
     await carregar();
+    // 2. A faixa conta o que aconteceu E PARA ONDE O ITEM FOI. Sem a segunda
+    //    metade, quem procura o chamado no lugar de antes não acha.
+    avisar(`Chamado #${chamadoId} com ${tec ? tec.nome : "o técnico"}. Ele foi para “Já tem técnico”.`, true);
+    // 3. E o olho vai atrás dele. `block:"center"` porque o item pode estar
+    //    tanto abaixo quanto acima; `smooth` para a pessoa VER o percurso —
+    //    um salto instantâneo não ensina onde a lista o pôs.
+    // ⚠️ `setTimeout`, NÃO `requestAnimationFrame`. O rAF não dispara em aba
+    //    em segundo plano, e este trecho roda depois de um `await` que pode
+    //    levar segundos — tempo de sobra para alguém trocar de aba enquanto
+    //    espera o despacho. É a mesma armadilha que deixou os tiles do mapa
+    //    do admin invisíveis (ver `fadeAnimation: false` no admin.js), e ela
+    //    custou uma investigação inteira aqui: com a aba fora de foco o
+    //    scroll simplesmente nunca acontecia, sem erro nenhum no console.
+    setTimeout(() => {
+      const el = document.querySelector(`.item [data-acao="ficha"][data-id="${chamadoId}"]`)?.closest(".item");
+      if (!el) return;
+      el.scrollIntoView({ block: "center", behavior: "smooth" });
+      el.classList.add("nova");
+    }, 0);
   } catch (e) {
     avisar(e.message);
-    if (btn) { btn.disabled = false; btn.style.opacity = ""; }
+    if (btn) { btn.disabled = false; delete btn.dataset.ocupado; }
   }
 }
 
@@ -1141,7 +1181,7 @@ async function salvarNovo() {
 
 // Aviso de erro: uma faixa, não um alert(). `alert` trava a tela inteira, e
 // numa tela de turno isso significa parar de receber.
-function avisar(texto) {
+function avisar(texto, ok) {
   document.getElementById("aviso")?.remove();
   // ⚠️ A FAIXA VAI PARA DENTRO DO DIÁLOGO QUANDO HÁ UM, e o `z-index` dela
   // não tem nada a ver com isso. Desde que o diálogo virou `<dialog>` com
@@ -1151,9 +1191,17 @@ function avisar(texto) {
   // Isso importa aqui mais que em qualquer outro lugar da tela: o erro que
   // esta faixa carrega é justamente o do despacho que falhou — a mensagem
   // que o operador precisa ler está sempre com um diálogo aberto na frente.
+  // ⚠️ `data-t` separa CONFIRMAÇÃO de ERRO (31/08). A faixa era vermelha
+  // sempre, porque só existia para erro; usar o mesmo vermelho para dizer
+  // "despachado com sucesso" ensina o operador a não olhar para o vermelho —
+  // e `--risco` nesta folha é estado crítico, que não aparece por outro
+  // motivo (A Regra do Crítico Silencioso).
+  // `status` e não `alert` na confirmação: leitor de tela não deve
+  // interromper quem está lendo para dizer que deu certo.
   (document.getElementById("fundo") || document.body).insertAdjacentHTML("beforeend",
-    `<div class="aviso" id="aviso" role="alert">${escapar(texto)}</div>`);
-  setTimeout(() => document.getElementById("aviso")?.remove(), 6000);
+    `<div class="aviso" id="aviso" data-t="${ok ? "ok" : "erro"}"
+       role="${ok ? "status" : "alert"}">${escapar(texto)}</div>`);
+  setTimeout(() => document.getElementById("aviso")?.remove(), ok ? 7000 : 6000);
 }
 
 

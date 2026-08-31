@@ -6356,6 +6356,42 @@ diagnosticava: 87 condomínios com coordenada, **0** chamados abertos, **0**
 técnicos com GPS recente, **0** reservatórios cadastrados. O mapa vai ser 87
 prédios verdes até o produto entrar em uso — e agora isso parece um mapa.
 
+### 2026-08-31 (10ª rodada) · "Cliquei em despachar e nada aconteceu"
+
+Relato do Pedro. **Não era erro: o despacho sempre funcionou** (confirmei o
+`PATCH /chamados/:id` por fora, 200 e o técnico gravado). Era a soma de duas
+esperas silenciosas, as duas medidas nesta tela:
+
+1. **O PATCH levou 3,8 s** contra o banco de teste (Railway, via proxy). Nesse
+   tempo o único sinal era o cartão do técnico com `opacity: .5` — que lê como
+   "botão desabilitado", não como "botão trabalhando".
+2. **Despachado, o chamado TROCA DE SEÇÃO**: sai de "Esperando alguém" e vai
+   para "Já tem técnico". Medido no caso real: o item foi parar em **y = 1258
+   numa janela de 709px** — duas dobras abaixo, fora da tela.
+
+Juntas: quase quatro segundos de nada, o diálogo fecha, e o item desaparece de
+onde a pessoa estava olhando. **"Nada aconteceu" é a leitura correta do que a
+tela mostrava.** Três correções, nenhuma no backend:
+
+| | |
+|---|---|
+| Durante | O cartão do técnico acende em âmbar com listra que anda. Movimento é a única coisa que distingue "esperando" de "morto" |
+| Depois | A faixa diz o que aconteteceu **e para onde o item foi** — sem a segunda metade, quem procura no lugar de antes não acha |
+| E então | A tela rola até o item (`block:"center"`, `smooth`) e ele pisca. Salto instantâneo não ensina onde a lista o pôs |
+
+⚠️ **A faixa de confirmação não é vermelha.** Ela era, porque só existia para
+erro; dizer "despachado com sucesso" em `--risco` ensina o operador a não olhar
+para o vermelho. Mesma correção que a tela de Aprovados recebeu hoje mais cedo,
+agora também aqui: `data-t="ok"` e `role="status"` em vez de `alert`.
+
+⚠️ **`setTimeout`, NÃO `requestAnimationFrame`, para rolar até o item.** O rAF
+**não dispara em aba em segundo plano** — e este trecho roda depois de um
+`await` que leva segundos, tempo de sobra para alguém trocar de aba enquanto
+espera. É a mesma armadilha que deixou os tiles do mapa do admin invisíveis
+(ver `fadeAnimation: false` no `admin.js`), e ela custou uma investigação
+inteira aqui: com a aba fora de foco o scroll simplesmente não acontecia, sem
+erro nenhum no console e com o seletor correto.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

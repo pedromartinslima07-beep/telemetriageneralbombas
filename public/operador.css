@@ -1627,6 +1627,23 @@ body.com-ficha{overflow:hidden}
 /* Sem leitura não é ruim, é NÃO SABER — a mesma distinção que o painel do
    cliente faz desde 14/08. Por isso cinza, e não um sinal. */
 .pin-base[data-b="mudo"]{background:var(--sobre-2)}
+/* O cartão do técnico ENQUANTO o despacho está indo. Medido em 31/08: o
+   PATCH leva ~3,8s contra o banco via proxy, e o único sinal era
+   `opacity: .5` — que lê como "desabilitado", não como "trabalhando".
+   Agora ele acende no âmbar da ação e a listra anda: movimento é a única
+   coisa que distingue "esperando" de "morto". */
+.cand[data-ocupado]{
+  cursor:progress;color:var(--mar-900);
+  background:repeating-linear-gradient(-45deg,
+    var(--amarelo) 0 10px, var(--amarelo-claro,#ffcb60) 10px 20px);
+  background-size:200% 100%;
+  animation:cand-indo 1.1s linear infinite;
+}
+.cand[data-ocupado] .cand-est,.cand[data-ocupado] .cand-nome{color:var(--mar-900)}
+@keyframes cand-indo{from{background-position:0 0}to{background-position:-28px 0}}
+@media (prefers-reduced-motion:reduce){
+  .cand[data-ocupado]{animation:none}
+}
 .escolha{
   border-left:1px solid var(--fio-esc);background:var(--chapa-cl);
   padding:16px 15px;display:flex;flex-direction:column;gap:7px;
