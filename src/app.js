@@ -175,10 +175,47 @@ app.use("/app", express.static(path.join(__dirname, "../app/public"), {
 // health check para monitoramento e balanceadores de carga
 app.get("/health", (req, res) => res.json({ status: "ok" }));
 
-// PWA — manifest e service worker precisam estar na raiz
-app.get("/manifest.json", (req, res) =>
-  res.sendFile(path.join(__dirname, "../public/manifest.json"))
-);
+// PWA — manifest e service worker precisam estar na raiz.
+//
+// ⚠️ O MANIFEST É UM SÓ, MAS O `start_url` NÃO PODE SER (31/08/2026).
+// O arquivo tinha `"start_url": "/login"`, escrito quando o login era a única
+// superfície instalável. Hoje são cinco, e o efeito só aparece no Android:
+//
+//   iOS      → ignora o `start_url` e abre a PÁGINA que estava aberta na hora
+//              de "Adicionar à Tela de Início". Por isso as metas
+//              `apple-mobile-web-app-*` em cada HTML.
+//   Android  → o `start_url` MANDA. Quem instalava do painel do operador
+//              ganhava um ícone que abre no /login, toda vez.
+//
+// Com sessão válida o /login redireciona sozinho, então na prática era um
+// passo a mais e um flash de tela — não uma parede. Mas é diferença entre
+// sistemas que ninguém pediu, e o custo de corrigir é este bloco.
+//
+// ⚠️ POR QUE GERAR EM VEZ DE TER CINCO ARQUIVOS: os ícones são oito entradas
+// idênticas em todos. Copiadas cinco vezes, trocar um ícone vira cinco
+// edições — e a quinta é a que alguém esquece.
+//
+// ⚠️ E POR QUE QUERY, NÃO CAMINHO (`/manifest-operador.json`): o service
+// worker trata `/manifest.json` como network-first por PATHNAME (ver sw.js),
+// e um caminho novo cairia em cache-first — o manifest ficaria congelado na
+// primeira versão que o navegador buscasse, que é exatamente o bug que
+// aquela regra existe para evitar.
+const MANIFEST_BASE = require("../public/manifest.json");
+const MANIFEST_APPS = {
+  operador: { start_url: "/operador/painel",  name: "General Turno",      short_name: "Turno" },
+  admin:    { start_url: "/admin/painel",     name: "General Admin",      short_name: "Admin" },
+  cliente:  { start_url: "/cliente/painel",   name: "General Telemetria", short_name: "Telemetria" },
+};
+app.get("/manifest.json", (req, res) => {
+  const extra = MANIFEST_APPS[String(req.query.app || "")] || {};
+  // ⚠️ `no-cache`, e não é excesso: o manifest é lido UMA vez, no momento da
+  // instalação, e o que ele disser fica valendo no ícone até alguém
+  // reinstalar. Um manifest velho servido do cache do navegador é um atalho
+  // errado que ninguém consegue diagnosticar depois.
+  res.setHeader("Cache-Control", "no-cache");
+  res.type("application/manifest+json");
+  return res.json({ ...MANIFEST_BASE, ...extra });
+});
 app.get("/sw.js", (req, res) => {
   res.setHeader("Service-Worker-Allowed", "/");
   res.sendFile(path.join(__dirname, "../public/sw.js"));

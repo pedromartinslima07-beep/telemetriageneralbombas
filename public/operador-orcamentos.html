@@ -7,7 +7,11 @@
      superfícies instaláveis (docs/arquitetura.md). -->
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#030a26">
-<link rel="manifest" href="/manifest.json">
+<!-- ⚠️ `?app=` escolhe o `start_url` do manifest. Sem ele, o ícone
+     instalado no Android abre no /login em vez desta tela — o iOS não se
+     importa, ele usa a página aberta na hora de instalar. Ver o bloco do
+     manifest em src/app.js. -->
+<link rel="manifest" href="/manifest.json?app=operador">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="General">

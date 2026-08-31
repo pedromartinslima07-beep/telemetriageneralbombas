@@ -262,6 +262,43 @@ Bug mais comum do projeto. Resumo: (1) `?v=N` nos assets em `admin.html`;
 nas HTMLs (`_htmlNoCache`). Detalhes em [`../CLAUDE.md`](../CLAUDE.md). Saída de
 emergência: `GET /admin/reset-cache`.
 
+## O manifest é um só, o `start_url` não (31/08/2026)
+
+`GET /manifest.json` deixou de servir o arquivo e passou a **gerá-lo**, com o
+`start_url`, o `name` e o `short_name` variando por `?app=`:
+
+| Link no HTML | `start_url` | Onde |
+|---|---|---|
+| `/manifest.json?app=operador` | `/operador/painel` | `operador.html`, `operador-orcamentos.html` |
+| `/manifest.json?app=admin` | `/admin/painel` | `admin.html` |
+| `/manifest.json?app=cliente` | `/cliente/painel` | `cliente.html`, `cliente-orcamentos.html` |
+| `/manifest.json` (base) | `/login` | `login.html`, `index.html` (landing) |
+
+⚠️ **O problema só aparecia no Android.** O iOS ignora o `start_url` e abre a
+PÁGINA que estava aberta na hora de "Adicionar à Tela de Início" — é por isso
+que cada HTML carrega as metas `apple-mobile-web-app-*`. No Android o
+`start_url` manda, e quem instalava do painel do operador ganhava um ícone que
+abre no `/login`, toda vez.
+
+⚠️ **É QUERY, NÃO CAMINHO** (`/manifest-operador.json`): o service worker trata
+`/manifest.json` como network-first **por pathname**, e um caminho novo cairia
+em cache-first — o manifest ficaria congelado na primeira versão que o
+navegador buscasse, que é o bug que aquela regra existe para evitar.
+
+⚠️ **Gerado, não cinco arquivos:** os ícones são oito entradas idênticas em
+todos. Copiadas cinco vezes, trocar um ícone vira cinco edições — e a quinta é
+a que alguém esquece. `app` desconhecido cai na base.
+
+⚠️ **`Cache-Control: no-cache` na resposta.** O manifest é lido UMA vez, na
+instalação, e o que ele disser fica valendo no ícone até alguém reinstalar. Um
+manifest velho servido do cache é um atalho errado que ninguém diagnostica
+depois.
+
+📋 **Em aberto:** `STATIC_ASSETS` (o precache do SW) tem login e admin, não o
+operador — a primeira abertura do app instalado precisa de rede para buscar
+`operador.css`/`.js`. Acrescentá-los sem o `?v=N` seria pior: precachearia uma
+URL que a página nunca pede.
+
 ## Área segura do iOS (`env(safe-area-inset-*)`)
 
 ⚠️ **A landing (`index.html`) também é instalável desde 26/08/2026**, mas com
@@ -270,8 +307,9 @@ emergência: `GET /admin/reset-cache`.
 conteúdo por baixo da barra de status. O manifest e o `apple-mobile-web-app-capable`
 entraram lá porque **quem manda no modo app é a página aberta na hora de
 "Adicionar à Tela de Início"**: sem eles, quem adicionava a partir do site
-ganhava um ícone que abre uma aba comum do Safari. O `start_url` continua
-`/login`, então o atalho abre no login. O service worker segue fora da landing.
+ganhava um ícone que abre uma aba comum do Safari. O `start_url` dela continua
+`/login` — ver o bloco acima, que passou a variar o `start_url` por superfície
+a partir de 31/08. O service worker segue fora da landing.
 
 As cinco HTMLs instaláveis (`admin.html`, `cliente.html`, `login.html`,
 `operador.html`, `app/public/index.html`) declaram `apple-mobile-web-app-status-bar-style:

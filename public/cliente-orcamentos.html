@@ -5,7 +5,11 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>GENERAL • Orçamentos</title>
   <link rel="icon" type="image/png" href="/static/favicon.png?v=3" />
-  <link rel="manifest" href="/manifest.json">
+  <!-- ⚠️ `?app=` escolhe o `start_url` do manifest. Sem ele, o ícone
+     instalado no Android abre no /login em vez desta tela — o iOS não se
+     importa, ele usa a página aberta na hora de instalar. Ver o bloco do
+     manifest em src/app.js. -->
+<link rel="manifest" href="/manifest.json?app=cliente">
   <meta name="theme-color" content="#050f38">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
