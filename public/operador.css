@@ -499,8 +499,17 @@ body{
 .conta-sair:focus-visible{box-shadow:inset 0 0 0 2px var(--amarelo)}
 /* Quem está logado. É TEXTO, não alvo — um botão que não leva a lugar nenhum
    ensina a duvidar dos outros alvos da barra. */
+/* ⚠️ `flex-shrink: 0`, e isto é conserto de um defeito que o Pedro viu antes
+   de mim: "parece que tem um caractere perdido entre Novo chamado e Sair".
+   Era o NOME, espremido. Com `flex-shrink: 1` e `min-width: 0` ele cedia
+   espaço até virar uma fatia — medido: **4px de renderização para 29px de
+   texto**, ou seja, um pedaço da primeira letra encostado no botão. Um
+   fragmento de glifo não é "menos informação", é sujeira.
+   Agora ele não encolhe: ou cabe inteiro, ou some (abaixo de 760px o bloco
+   de celular já o esconde). Quem cede no aperto é a marca, que tem a regra
+   de 420px para isso. */
 .barra-eu{
-  font-size:14px;color:var(--muted);padding:7px 2px;flex-shrink:1;min-width:0;
+  font-size:14px;color:var(--muted);padding:7px 2px;flex-shrink:0;
   max-width:22ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
 }
 .barra-eu:empty{display:none}
@@ -1185,21 +1194,89 @@ body{
    sobrancelha — o padrão que este piso de qualidade não admite: o título
    aguenta o próprio peso. Ela continua na tela, embaixo, no papel que de
    fato tem: marcador de estado, com o ponto verde ao lado. */
+/* ── O DIA CALMO ────────────────────────────────────────────────────
+   Placa única, na gramática do painel do cliente. Ver o comentário de
+   `calmo()` no operador.js para o porquê de cada peça.
+   ⚠️ CHAPA DE DUAS CAMADAS com gradiente — a construção do `.instr` da
+   landing. Ela é a exceção que a regra da moldura prevê: aparece UMA vez e
+   só quando não há mais nada na tela. */
 .calmo{
-  padding:clamp(38px,6vw,76px) 20px clamp(30px,4vw,52px);text-align:center;
-  min-height:min(46vh,420px);display:flex;flex-direction:column;justify-content:center;
+  max-width:var(--area-max);margin:0 auto;width:100%;
+  padding:clamp(18px,3vw,30px) var(--gut) clamp(30px,4vw,52px);
 }
+.calmo-corpo{
+  position:relative;isolation:isolate;
+  background:var(--fio);padding:1.5px;clip-path:var(--corte);
+  display:grid;grid-template-columns:1.08fr .92fr;
+}
+/* ⚠️ 176° e não 168: o comprimento da linha do gradiente é
+   |L·sen α| + |A·cos α|, e numa chapa LARGA (1000×220) o 168 vira gradiente
+   horizontal e acende só a primeira coluna. Regra registrada em 28/08. */
+.calmo-corpo::before{
+  content:"";position:absolute;inset:1.5px;z-index:-1;clip-path:var(--corte);
+  background:linear-gradient(176deg,var(--surface3),var(--surface) 62%);
+}
+.calmo-fala{padding:clamp(26px,3.4vw,40px) clamp(24px,3vw,36px)}
+/* A manchete da tela vazia. Mesma rampa da manchete dos Aprovados — as duas
+   são a única voz grande da sua tela. */
 .calmo h1{
+  margin:0;font-family:var(--fonte);font-weight:800;
+  font-size:clamp(1.7rem,3vw,2.5rem);line-height:1.06;
+  letter-spacing:-.028em;font-stretch:112%;color:#fff;text-wrap:balance;
+}
+/* ⚠️ UMA palavra em âmbar, e ela vive no campo marinho — sobre placa clara o
+   amarelo reprova contraste até como forma (Regra do Amarelo Cego). É o
+   "aguardam" do print de referência. */
+.calmo h1 b{color:var(--amarelo);font-weight:800}
+.calmo-lede{
+  margin:14px 0 0;font-size:1.0625rem;line-height:1.55;
+  color:var(--sobre-2);max-width:46ch;
+}
+/* ⚠️ A DIVISÃO É CORTE GRAVADO — `--rasgo` (o fundo do sulco) e `--luz` (a
+   aresta que pega luz), sempre nessa ordem e sempre as DUAS. Uma linha só lê
+   como borda de card e transforma a placa em dois cartõezinhos, que é o
+   vício que esta construção existe para evitar. */
+.calmo-lado{
+  border-left:1px solid var(--rasgo);box-shadow:inset 1px 0 0 var(--luz);
+  padding:clamp(26px,3.4vw,40px) clamp(24px,3vw,36px);
+  display:flex;flex-direction:column;gap:0;justify-content:center;
+}
+.calmo-rot{
+  font-family:var(--mono);font-size:11px;font-weight:500;
+  letter-spacing:.13em;text-transform:uppercase;color:var(--muted);
+  margin-bottom:14px;
+}
+.calmo-lado p{
+  margin:0;padding:11px 0;font-size:1.0625rem;line-height:1.35;
+  color:var(--text-dim);border-bottom:1px solid var(--fio-fraco);
+}
+.calmo-lado p b{color:#fff;font-weight:700;font-family:var(--mono);
+  font-feature-settings:"tnum";font-size:1.15rem;letter-spacing:-.02em;margin-right:3px}
+.calmo-lado p:last-of-type{border-bottom:0}
+/* A nota de honestidade fica FORA do grupo em destaque e em prosa normal —
+   A Regra da Nota Honesta do DESIGN.md. */
+.calmo-nota{color:var(--muted)!important;font-size:.95rem!important;padding-top:14px!important}
+
+/* ⚠️ A TELA DE APROVADOS REUSA `.calmo` para o vazio dela, e lá NÃO há
+   segunda coluna. Sem esta regra a placa abriria com metade vazia. */
+.calmo:not(:has(.calmo-lado)) .calmo-corpo,
+.calmo-corpo:not(:has(.calmo-lado)){grid-template-columns:1fr}
+.calmo > h1{
   margin:0 0 10px;font-size:clamp(1.7rem,3.4vw,2.5rem);font-weight:900;
-  font-stretch:112%;letter-spacing:-.03em;line-height:1.05;
+  font-stretch:112%;letter-spacing:-.03em;line-height:1.05;text-align:center;
 }
-.calmo p{margin:0 auto;max-width:48ch;color:var(--text-dim);font-size:14px;line-height:1.6}
-.calmo-marca{
-  display:inline-flex;align-items:center;gap:9px;margin:22px auto 0;
-  font-family:var(--mono);font-size:12px;
-  letter-spacing:.14em;color:var(--ok);text-transform:uppercase;
+.calmo > p{margin:0 auto;max-width:48ch;color:var(--text-dim);font-size:1rem;line-height:1.6;text-align:center}
+
+@media (max-width:760px){
+  /* Numa coluna estreita a segunda coluna DEITA, e o sulco deita junto: em
+     pilha, um `border-left` deixaria as duas células sem divisão nenhuma.
+     Mesma correção da placa do serviço na landing. */
+  .calmo-corpo{grid-template-columns:1fr}
+  .calmo-lado{
+    border-left:0;box-shadow:inset 0 1px 0 var(--luz);
+    border-top:1px solid var(--rasgo);
+  }
 }
-.calmo-marca i{width:7px;height:7px;background:var(--ok);font-style:normal}
 
 /* ── Trilho da equipe (composição B) ─────────────────────────────── */
 /* ⚠️ O PAR É QUE CENTRA, NÃO A FILA SOZINHA. Com `1fr var(--trilho-w)` a

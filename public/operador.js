@@ -337,6 +337,61 @@ async function carregar() {
 // estreia NADA é novidade, senão a fila inteira pisca ao abrir o painel.
 let _vistos = null;
 
+/* ── O dia calmo ─────────────────────────────────────────────────────
+   ⚠️ ERA TEXTO CENTRADO NO VÁZIO; virou PLACA (31/08, pedido do Pedro, com
+   os dois prints do painel do cliente ao lado). A gramática é a de lá,
+   elemento por elemento: manchete branca com uma palavra em âmbar, lede em
+   `--sobre-2`, e uma segunda coluna com etiqueta mono e linhas separadas
+   por fio.
+
+   ⚠️ ESTA PLACA GANHA ANEL E GRADIENTE, e isso não contradiz "moldura marca
+   o que é único; o que se repete é superfície" (DESIGN.md). Ela aparece UMA
+   vez e só quando não há mais nada na tela — é a definição de peça única.
+
+   ⚠️ A SEGUNDA COLUNA EXISTE PARA RESPONDER "ENTÃO O QUE ESTA TELA ESTÁ
+   FAZENDO?". Uma tela vazia levanta essa pergunta sozinha, e o texto antigo
+   respondia três vezes a mesma coisa: o título dizia "Nenhum chamado
+   aberto", o parágrafo abria com "A fila está vazia" e a etiqueta embaixo
+   repetia "NADA PEDE ALGUÉM AGORA". Três formas de dizer que não há nada e
+   nenhuma de dizer o que há.
+
+   ⚠️ OS NÚMEROS SÃO OS DA TELA, não frases de efeito: os prédios são os
+   pinos do mapa e os técnicos são os do trilho. Se algum dia deixarem de
+   bater com o que está ao lado, é aqui que a mentira aparece primeiro.
+   ⚠️ E "prédios no mapa", não "prédios monitorados": a carteira é quem tem
+   COORDENADA, não quem tem sensor — em produção não há reservatório
+   cadastrado, e "monitorados" seria promessa que o dado não sustenta. */
+function calmo() {
+  const predios = (DADOS.condominios || []).length;
+  const livres = (DADOS.tecnicos || []).filter((t) => t.disponivel && !t.abertos).length;
+  const equipe = (DADOS.tecnicos || []).length;
+
+  const linhas = [];
+  if (predios) linhas.push(`<b>${predios}</b> ${predios > 1 ? "prédios" : "prédio"} no mapa`);
+  if (equipe) {
+    linhas.push(livres
+      ? `<b>${livres}</b> ${livres > 1 ? "técnicos livres" : "técnico livre"} agora`
+      : `Toda a equipe está em atendimento`);
+  }
+
+  return `
+  <section class="calmo">
+    <div class="calmo-corpo">
+      <div class="calmo-fala">
+        <h1>Nada <b>pede alguém</b> agora.</h1>
+        <p class="calmo-lede">Quando a telemetria abrir um chamado, ou alguém
+          ligar relatando alguma coisa, ele entra aqui no topo — com o prazo
+          já contando.</p>
+      </div>
+      <div class="calmo-lado">
+        <span class="calmo-rot">Enquanto isso</span>
+        ${linhas.map((l) => `<p>${l}</p>`).join("")}
+        <p class="calmo-nota">A lista se atualiza sozinha a cada 30 segundos.</p>
+      </div>
+    </div>
+  </section>`;
+}
+
 function render() {
   const espera = DADOS.fila.filter((c) => !c.tecnico);
   const andando = DADOS.fila.filter((c) => c.tecnico);
@@ -371,12 +426,7 @@ function render() {
   // campo justamente no momento em que dá para planejar. Fila vazia não é
   // tela vazia.
   const miolo = DADOS.fila.length === 0
-    ? `<section class="calmo">
-         <h1>Nenhum chamado aberto.</h1>
-         <p>A fila está vazia. Quando a telemetria abrir um chamado, ou alguém
-            relatar alguma coisa, aparece aqui.</p>
-         <div class="calmo-marca"><i></i>Nada pede alguém agora</div>
-       </section>`
+    ? calmo()
     : `
     ${espera.length ? `
       <div class="fila-cab"><h2>Esperando alguém</h2>

@@ -6543,6 +6543,50 @@ sidebar e a topbar leva só controles. Foi a comparação injusta que produziu o
 Conferido: o `.trilho` continua colado embaixo da barra (74/74) — ele gruda em
 `top: var(--barra-h)`, e é por isso que a altura tem de ser sempre o token.
 
+### 2026-08-31 (14ª rodada) · O dia calmo vira placa, e o nome sai de fatia
+
+Pedido do Pedro com os dois prints do painel do cliente ao lado: *"dá uma
+melhorada nesse texto, e deixe o visual dele assim"*.
+
+**O texto dizia três vezes a mesma coisa.** O título: "Nenhum chamado aberto".
+O parágrafo abria com "A fila está vazia". A etiqueta embaixo repetia
+"NADA PEDE ALGUÉM AGORA". Três formas de dizer que não há nada — e nenhuma de
+dizer **o que há**, que é a pergunta que uma tela vazia levanta sozinha.
+
+E era texto centrado no vazio, não uma peça. Virou **placa**, na gramática dos
+prints, elemento por elemento: manchete branca com uma palavra em âmbar, lede
+em `--sobre-2`, segunda coluna com etiqueta mono e linhas separadas por fio.
+
+| | |
+|---|---|
+| Manchete | `Nada **pede alguém** agora.` — a frase que era etiqueta subiu para o lugar que ela merecia |
+| Lede | "Quando a telemetria abrir um chamado, ou alguém ligar relatando alguma coisa, ele entra aqui no topo — com o prazo já contando." |
+| 2ª coluna | **Enquanto isso** · `87 prédios no mapa` · `2 técnicos livres agora` · e a nota do ciclo de 30 s |
+
+⚠️ **Os números são os da própria tela** — os prédios são os pinos do mapa e os
+técnicos são os do trilho, ambos de `DADOS`. Se um dia deixarem de bater com o
+que está ao lado, é aqui que a mentira aparece primeiro.
+
+⚠️ **"prédios no mapa", não "monitorados".** A carteira é quem tem COORDENADA,
+não quem tem sensor — em produção não há reservatório cadastrado, e
+"monitorados" seria promessa que o dado não sustenta.
+
+⚠️ **Esta placa ganha anel e gradiente**, e não contradiz "moldura marca o que
+é único": ela aparece uma vez e só quando não há mais nada na tela. E a divisão
+entre as colunas é **corte gravado** (`--rasgo` + `--luz`), que no celular
+deita junto — em pilha, um `border-left` deixaria as duas células sem divisão.
+
+### E o "caractere perdido" na barra
+
+O Pedro: *"no cabeçalho também parece que tem um caractere perdido entre Novo
+chamado e Sair"*. Era o **nome**, espremido: `flex-shrink: 1` + `min-width: 0`
+deixavam ele ceder espaço até virar uma fatia — medido, **4px de renderização
+para 29px de texto**, ou seja, um pedaço da primeira letra encostado no botão.
+
+Fragmento de glifo não é "menos informação", é sujeira. Com `flex-shrink: 0`
+ele ou cabe inteiro ou some (abaixo de 760px o bloco de celular já o esconde);
+quem cede no aperto é a marca, que tem a regra de 420px para isso.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em
