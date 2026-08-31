@@ -257,7 +257,7 @@ virou refém do admin até 13/08/2026.
 
 | Camada | O que é | Condição | Clique |
 |---|---|---|---|
-| Carteira | quadradinho 9px cinza; **11px colorido** quando o prédio tem nível baixo, crítico ou sensor mudo | condomínio ativo com coordenada | **não** |
+| Carteira | **placa chanfrada 22px com ícone de prédio**, colorida pelo estado (verde em ordem · âmbar baixo · vermelho crítico · cinza sem leitura) — o `.mc-pin-condo` do admin, sem o raio | condomínio ativo com coordenada | **não** |
 | Chamado | placa chanfrada 28px, ícone de prédio, cor = o relógio | chamado `aberto`/`em_atendimento` com prédio geocodificado | abre o despacho |
 | Técnico | círculo 26px com iniciais | GPS dos últimos **30 min** | não |
 
@@ -273,9 +273,11 @@ quem enquadra é a carteira — e **como** depende do tamanho da caixa: coluna d
 prédios numa coluna estreita abre a região metropolitana inteira, que foi o
 defeito que o Pedro apontou em 31/08.
 
-⚠️ **A cor da carteira é a PIOR BANDA dos reservatórios do prédio**, e só
-aparece fora do `ok`: prédio em ordem, ou sem telemetria, fica neutro. Com 86
-pontos coloridos por igual, os 3 que pedem alguém desapareceriam.
+⚠️ **A cor da carteira é a PIOR BANDA dos reservatórios do prédio**, e prédio
+sem telemetria conta como **em ordem** (verde) — é o que o `_mcStatusKind` do
+admin faz. Em produção não há reservatório cadastrado, então a regra anterior
+("só colore fora do ok") deixava os 87 cinzas e o mapa idêntico ao defeito.
+Quem separa fundo de decisão é o **tamanho**: 22px na carteira, 28 no chamado.
 
 ⚠️ **A janela de GPS é 30 min, e NÃO tem corte de expediente** — ao contrário
 de `GET /tecnicos/localizacao`, que zera a lista fora do horário. Aqui a lista

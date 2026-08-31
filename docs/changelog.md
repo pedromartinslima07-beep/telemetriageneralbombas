@@ -6316,6 +6316,46 @@ medir errado escolhe errado.
 usuário, então chamar `mapaFs(true)` do console cai no fallback por classe e a
 verificação passa medindo outra coisa. Com o clique real: 1920px, zoom 13.
 
+### 2026-08-31 (9ª rodada) · O pino da carteira vira o pino do admin
+
+O Pedro, depois de duas correções minhas que não resolveram: *"pelo amor de
+deus chat, abre o painel de admin e vê o mapa, ícones de condomínios
+coloridos, se tiver um técnico ícones redondos, aqui no operador é tudo
+quadradinhos transparentes"*.
+
+Ele estava certo desde a primeira vez que pediu, e eu insisti duas vezes num
+ponto neutro de 9px. **O argumento que eu usava — cor de carteira competiria
+com a cor do relógio do chamado — era hipótese minha. "É tudo quadradinho
+transparente" era o fato na tela.** Hipótese não ganha de fato observado.
+
+O `.mc-pin-condo` do admin veio inteiro, menos o que não cabe nesta folha:
+
+| Veio | Não veio |
+|---|---|
+| ícone de prédio branco sobre campo colorido | `border-radius: 7px` — esta folha é de raio zero, então o campo é a placa chanfrada da casa |
+| sombra projetada do pino | o `pulse` do `warn`/`bad` — o halo aqui já é do chamado estourado |
+| a escada de estado (ok · baixo · crítico) | — |
+
+⚠️ **VERDE É "NADA ERRADO AQUI", inclusive no prédio sem telemetria** — é o
+que o `_mcStatusKind` do admin faz (sem alerta e sem chamado → `ok`). Foi o que
+destravou o caso real: em produção **não há um único reservatório cadastrado**,
+então pela regra anterior os 87 prédios ficavam todos neutros e o mapa
+continuava idêntico ao print. Um mapa todo cinza parece erro de carregamento;
+um mapa todo verde parece um mapa.
+
+⚠️ **22px contra os 28 do pino de chamado**, e é essa diferença que separa
+fundo de decisão. Mesmo desenho, escalas diferentes — e o de chamado continua
+sendo o único que abre alguma coisa no clique.
+
+⚠️ **`maxZoom` do enquadramento de 14 para 13.** Com UM chamado, o 14 colava o
+mapa nele e varria a vizinhança da tela — justamente o que a carteira passou a
+ter para mostrar, e justamente a pergunta que o mapa responde.
+
+**O que a produção tem hoje**, medido em leitura direta do banco enquanto eu
+diagnosticava: 87 condomínios com coordenada, **0** chamados abertos, **0**
+técnicos com GPS recente, **0** reservatórios cadastrados. O mapa vai ser 87
+prédios verdes até o produto entrar em uso — e agora isso parece um mapa.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

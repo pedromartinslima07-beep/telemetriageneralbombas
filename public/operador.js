@@ -665,7 +665,11 @@ function enquadrarMapa() {
     }
     return;
   }
-  _mapaTurno.fitBounds(L.latLngBounds(_pontos), { padding: [40, 40], maxZoom: 14 });
+  // ⚠️ `maxZoom` 13, era 14 — e o motivo nasceu com a carteira. Com UM
+  // chamado, o 14 colava o mapa nele e varria toda a vizinhança da tela:
+  // o operador via o prédio e mais nada, quando a pergunta que o mapa
+  // responde ("quem pode ir") é justamente sobre o que está em volta.
+  _mapaTurno.fitBounds(L.latLngBounds(_pontos), { padding: [40, 40], maxZoom: 13 });
 }
 
 function mapaTurnoNo() {
@@ -732,25 +736,33 @@ function montarMapaTurno() {
   // ⚠️ E NÃO ENTRA EM `pontos`: o enquadramento é da DECISÃO. Com a carteira
   // dentro, o mapa abriria na Grande São Paulo inteira e o chamado que
   // estoura viraria um ponto de 3px.
-  // ⚠️ O PONTO SÓ TEM COR QUANDO TEM O QUE DIZER. Na primeira versão os 86
-  // eram cinzas idênticos e o mapa virou um campo de quadradinhos anônimos —
-  // o Pedro mandou o print. Agora o prédio em ordem (ou sem telemetria) fica
-  // neutro e some no fundo; quem está em nível baixo, crítico ou com sensor
-  // mudo acende. É a mesma regra do resto da folha: estado não aparece em
-  // repouso.
+  // ⚠️ O PINO DA CARTEIRA É O PINO DO ADMIN (31/08, terceira tentativa e a
+  // que o Pedro pediu desde o começo: "olha o painel de admin, ícones de
+  // condomínios coloridos... aqui no operador é tudo quadradinho
+  // transparente"). Ele estava certo e eu insisti duas vezes num ponto
+  // neutro, argumentando que cor de carteira competiria com a cor do
+  // relógio. Competir era hipótese minha; um mapa que não se lê é fato.
+  //
+  // O que veio de lá: ícone de prédio branco sobre campo colorido pelo
+  // estado. O que NÃO veio: o `border-radius: 7px` — esta folha é de raio
+  // zero, então o campo é a placa chanfrada da casa.
+  //
+  // ⚠️ VERDE É "NADA ERRADO AQUI", inclusive para prédio sem telemetria — é o
+  // que o `_mcStatusKind` do admin faz (sem alerta e sem chamado → `ok`), e é
+  // o que faz o mapa parecer um mapa em vez de um erro de carregamento.
   const ROT_BANDA = { critico: "nível crítico", baixo: "nível baixo", mudo: "sem leitura" };
   carteira.forEach((c) => {
-    const b = c.banda && c.banda !== "ok" ? c.banda : "";
+    const b = c.banda && c.banda !== "ok" ? c.banda : "ok";
     const rot = ROT_BANDA[b];
     L.marker([c.lat, c.lng], { interactive: true, keyboard: false,
-      // O que acende sobe: com 86 pontos, um crítico atrás de um vizinho em
-      // ordem desaparece — e é justamente o que não pode desaparecer.
-      zIndexOffset: b ? 400 : 0,
-      icon: L.divIcon({ className: "", iconSize: [10, 10], iconAnchor: [5, 5],
-        html: `<div class="pin pin-base"${b ? ` data-b="${b}"` : ""}></div>` }) })
+      // O que pede atenção sobe: num mapa de 87 prédios, um crítico atrás de
+      // um vizinho em ordem desaparece — e é o único que não pode sumir.
+      zIndexOffset: b === "ok" ? 0 : 400,
+      icon: L.divIcon({ className: "", iconSize: [22, 22], iconAnchor: [11, 11],
+        html: `<div class="pin pin-base" data-b="${b}">${I.predio}</div>` }) })
       .bindTooltip(`${escapar(c.nome || "—")}${c.bairro ? ` · ${escapar(c.bairro)}` : ""}${
         rot ? ` <b>${rot}</b>` : ""}`,
-                   { className: "pin-rot", direction: "top", offset: [0, -7] })
+                   { className: "pin-rot", direction: "top", offset: [0, -13] })
       .addTo(_pinos);
   });
 
