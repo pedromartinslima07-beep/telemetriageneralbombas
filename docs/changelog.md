@@ -6443,6 +6443,62 @@ respiro entre os dois links. Verificado a 390px: cabe, com alvo de 44px.
 74) e logo de 36 (contra 40) — a razão 0,53 é a mesma, e a densidade menor tem
 dono desde 28/08.
 
+### 2026-08-31 (12ª rodada) · A placa do orçamento inverte a hierarquia
+
+O Pedro: *"a visualização do orçamento em si não está tão boa do jeito que
+você está mostrando as informações"*. Olhando a placa com dado real, o defeito
+era claro e era meu:
+
+```
+OR-000026                          [PODE EXECUTAR]
+Peças e serviços                    ← o MAIOR tipo da placa
+– Rolamento 6205 ZZ
+– Selo mecânico 1.1/4
+| Bomba 3 — recalque. Faz barulho alto e desarma o    ← itálico cinza, no pé
+  disjuntor depois de 10 minutos.
+```
+
+**"Peças e serviços" é rótulo de categoria do banco e não informa nada** — e
+era a leitura grande. Enquanto isso, a frase que diz o **equipamento**, o
+**defeito** e o **sintoma** — a que o operador repete ao telefone — estava
+tratada como nota de rodapé.
+
+A ordem agora é a da pergunta que a tela responde:
+
+| | |
+|---|---|
+| 1. o que foi diagnosticado | a **constatação**, na leitura grande |
+| 2. o que foi autorizado | os itens, sob a etiqueta **ITENS** |
+| 3. quando e por quem | o rodapé |
+
+⚠️ **Sem constatação, a leitura grande volta a ser o serviço**: em orçamento
+por cláusula o tipo informa ("Limpeza de reservatório") e em orçamento de peças
+com uma linha só a peça É o serviço. O genérico "Peças e serviços" só aparece
+quando não há frase melhor no banco.
+
+⚠️ **A lista aparece mesmo com uma linha só** quando a constatação ocupou o
+título — antes ela sumia abaixo de dois itens porque a peça virava o título.
+Com o diagnóstico em cima, esconder a única peça aprovada esconderia
+justamente o que foi autorizado.
+
+⚠️ **A etiqueta ITENS existe porque a lista mudou de papel.** Ela deixou de ser
+o assunto da placa e virou a resposta de uma segunda pergunta; sem rótulo, duas
+linhas soltas embaixo de um diagnóstico parecem continuação da frase. Uma
+palavra em caixa alta é o teto desta superfície, e "Itens" é o mesmo rótulo da
+ficha do admin.
+
+⚠️ **`.orc-const` saiu, e a regra do "relato citado" continua valendo no item
+da fila** (`.fala`), onde o texto É fala de quem ligou. Aqui era diagnóstico
+técnico, que não é citação de ninguém — tratá-lo como fala foi o que o empurrou
+para o pé da placa.
+
+**E o tipo caiu um degrau** (1,6 → 1,35rem) com a medida indo de 34 para 46ch:
+a leitura deixou de ser um nome de peça de duas palavras e virou uma frase, e
+na escala antiga ela saía em quatro linhas de manchete.
+
+**"2 items" → "2 itens".** O plural saía em inglês desde que a linha nasceu
+(`item` + `s`), em toda placa da tela.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

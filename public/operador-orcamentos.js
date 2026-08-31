@@ -141,29 +141,59 @@ async function carregar() {
    botão e o selo. A palavra âmbar da manchete vive no campo marinho, acima
    das placas, que é onde o print de referência a põe também. */
 
-// Os itens do orçamento. Em orçamento por cláusula quem responde é o tipo;
-// em orçamento de peças são as linhas, e é a lista que diz ao operador o que
-// vai ser feito no prédio.
+/* ⚠️ A HIERARQUIA ESTAVA INVERTIDA (31/08, apontado pelo Pedro: "a
+   visualização do orçamento em si não está tão boa do jeito que você está
+   mostrando as informações").
+
+   O que a placa mostrava como LEITURA GRANDE era "Peças e serviços" — rótulo
+   de categoria do banco, que não informa nada — enquanto o texto mais útil
+   da tela ficava no fim, em itálico cinza:
+
+     "Bomba 3 — recalque. Faz barulho alto e desarma o disjuntor depois de
+      10 minutos."
+
+   Essa frase diz o EQUIPAMENTO, o DEFEITO e o SINTOMA. É por ela que o
+   operador entende o serviço e é o que ele repete ao telefone. Estava
+   tratada como nota de rodapé.
+
+   A ordem agora é a da pergunta que a tela responde:
+
+     1. o que foi diagnosticado  → a constatação, na leitura grande
+     2. o que foi autorizado     → os itens, sob a etiqueta ITENS
+     3. quando e por quem        → o rodapé
+
+   ⚠️ SEM CONSTATAÇÃO, a leitura grande volta a ser o serviço: em orçamento
+   por cláusula o próprio tipo informa ("Limpeza de reservatório"), e em
+   orçamento de peças com uma linha só a peça É o serviço. O genérico "Peças
+   e serviços" só aparece quando não há nem constatação nem uma peça única —
+   ou seja, quando não existe frase melhor no banco. */
+
+// Os ITENS aprovados. Em orçamento por cláusula não há lista: quem responde
+// é o tipo, e ele já está no título.
 //
-// ⚠️ COM UMA LINHA SÓ NÃO HÁ LISTA: a descrição vira o próprio título da
-// placa (ver `titulo()`), e repeti-la logo abaixo como item de lista é a
-// mesma frase duas vezes com dois pesos.
+// ⚠️ A LISTA APARECE MESMO COM UMA LINHA SÓ quando a constatação ocupou o
+// título. Antes ela sumia abaixo de dois itens porque a peça virava o
+// título; com o diagnóstico em cima, esconder a única peça aprovada
+// esconderia justamente o que foi autorizado.
 function itens(o) {
   const linhas = Array.isArray(o.linhas) ? o.linhas : [];
   if (o.tipo && o.tipo !== "pecas") return "";
-  if (linhas.length < 2) return "";
+  if (!linhas.length) return "";
+  // Com a peça única no título, não repetir embaixo.
+  if (linhas.length === 1 && !o.constatacao) return "";
   // ⚠️ A quantidade aparece só quando é MAIOR QUE UM. "1× Selo mecânico" põe
   // um número na frente de toda linha para não informar nada, e numa lista
   // inteira isso vira uma coluna de "1×" que o olho tem de pular.
-  return `<ul class="orc-itens">${linhas.map((l) => `
-    <li>${l.quantidade > 1 ? `<b>${escapar(l.quantidade)}×</b> ` : ""}${escapar(l.descricao || "—")}</li>`).join("")}</ul>`;
+  return `<div class="orc-aprov">
+    <span class="orc-aprov-rot">Itens</span>
+    <ul class="orc-itens">${linhas.map((l) => `
+      <li>${l.quantidade > 1 ? `<b>${escapar(l.quantidade)}×</b> ` : ""}${escapar(l.descricao || "—")}</li>`).join("")}</ul>
+  </div>`;
 }
 
-// O TÍTULO DA PLACA — a leitura grande, o lugar do "R$ 2.332,00" do print.
-// Aqui não há dinheiro (o endpoint não devolve), e o que ocupa esse papel é
-// O QUE FOI APROVADO. Por isso ele é Archivo 800 e não mono: mono nesta
-// folha é medição e etiqueta, e nome de serviço não é nem um nem outro.
+// A LEITURA GRANDE da placa. Ver o bloco acima para a ordem e o porquê.
 function titulo(o) {
+  if (o.constatacao) return o.constatacao;
   if (o.tipo && o.tipo !== "pecas") return TIPO_ROT[o.tipo] || o.tipo;
   const linhas = Array.isArray(o.linhas) ? o.linhas : [];
   if (linhas.length === 1) return linhas[0].descricao || TIPO_ROT.pecas;
@@ -212,7 +242,10 @@ function servicoTxt(o) {
 function rodape(o) {
   const linhas = Array.isArray(o.linhas) ? o.linhas : [];
   const partes = [];
-  if (linhas.length) partes.push(`${linhas.length} item${linhas.length > 1 ? "s" : ""}`);
+  // ⚠️ "itens", não "items". O plural saía em inglês desde que esta linha
+  // nasceu — `item` + `s`. Ninguém lê "2 items" e entende outra coisa, mas
+  // é a tela de um produto em português e o erro estava em toda placa.
+  if (linhas.length) partes.push(`${linhas.length} ${linhas.length > 1 ? "itens" : "item"}`);
   const q = quando(o);
   if (q) partes.push(`aprovado em ${q}`);
   if (o.aprovado_por_nome) {
@@ -284,7 +317,6 @@ function placa(o) {
     </div>
     <h3 class="orc-t">${escapar(t)}</h3>
     ${itens(o)}
-    ${o.constatacao ? `<p class="orc-const">${escapar(o.constatacao)}</p>` : ""}
     <div class="orc-pe">
       <span class="orc-meta">${rodape(o)}</span>
       ${acao}
