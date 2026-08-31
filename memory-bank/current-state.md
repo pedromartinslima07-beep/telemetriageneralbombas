@@ -366,6 +366,14 @@ Fluxo e pegadinhas em
   pergunta: no diálogo o mapa abria *depois* da escolha do chamado, um por vez,
   enquanto a decisão geográfica é da fila inteira. Backend intocado — a rota
   já devolvia as coordenadas.
+- **Os pinos têm duas escalas desde 31/08**, e quem escolhe é a largura do
+  **mapa** (medida no Leaflet), não a da janela: até 800px valem os 22 · 28 ·
+  26px desenhados para a coluna do trilho; acima disso — tela cheia, ou a faixa
+  abaixo de 1180 onde o trilho vira faixa horizontal — vão para 30 · 40 · 36.
+  ⚠️ Regra de janela seria errada aqui: `--trilho-w` é fixo em 400px, então num
+  monitor grande a coluna não muda de tamanho e o pino maior só empilharia os 86
+  prédios. Detalhes em
+  [painel-operador.md](../docs/modulos/painel-operador.md).
 - ⚠️ **Estado do dado em produção (medido em 28/08):** 86/86 condomínios com
   coordenada, mas `chamados` **vazia** e `tecnico_localizacoes` com **3 linhas
   no total** (última de 17/08, dos 3 técnicos de 9 que têm login). **É estágio,

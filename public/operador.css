@@ -1529,8 +1529,13 @@ body.com-mapa-fs #tela{z-index:80}
    ⚠️ Nada se perdeu: a cor continua sendo o estado do relógio (as regras
    logo abaixo) e a PRIORIDADE passou para a legenda do pino, que já abria no
    hover com o nome do prédio e o tempo. */
+/* ⚠️ O `position` VEM DO `.pin` (absolute, centrado na caixa do divIcon) e
+   não se sobrescreve aqui — a chapa de duas camadas continua funcionando,
+   porque o que o `::before` precisa é de um pai POSICIONADO, e absolute
+   também é. Escrever `position:relative` nesta regra tira a face do centro
+   do ponto no mapa. */
 .pin-ch{
-  position:relative;isolation:isolate;
+  isolation:isolate;
   width:28px;height:28px;
   --ch:6px;clip-path:var(--corte);
   background:var(--fio-forte);color:var(--mar-900);
@@ -1676,7 +1681,21 @@ body.com-ficha{overflow:hidden}
 .leaflet-control-attribution a:hover{color:var(--text-dim)!important}
 .leaflet-attribution-flag{display:none!important}
 .map-tiles-dark{filter:invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%)}
-.pin{display:grid;place-items:center;font-weight:800}
+/* ⚠️ A FACE É CENTRADA NA CAIXA, e isso é o que permite mudar o tamanho do
+   pino aqui sem tocar no `iconSize` do JS. O Leaflet posiciona a CAIXA do
+   divIcon e desconta o `iconAnchor` (sempre a metade dela, nos quatro pinos
+   desta tela); a face fica no centro dessa caixa por `transform`, então
+   crescer a face cresce em volta do ponto — o pino continua marcando a
+   coordenada certa. Sem isto, um pino maior que a caixa escorregaria para
+   baixo e para a direita da posição real.
+   Ela transborda a caixa de propósito, e isso NÃO custa o clique: o Leaflet
+   escuta na caixa, o evento vem da face por bubbling, e `.leaflet-marker-icon`
+   não recorta (o `overflow:hidden` do leaflet.css é do `.leaflet-container`,
+   não do marcador). */
+.pin{
+  display:grid;place-items:center;font-weight:800;
+  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+}
 /* O alvo da decisão, no mapa do diálogo de despacho. Mesma face do `.pin-ch`
    do mapa do turno desde 31/08 — o ícone de prédio —, porque são o MESMO
    objeto visto em duas telas. Aqui ele não precisa da cor do relógio: o
@@ -1706,8 +1725,9 @@ body.com-ficha{overflow:hidden}
    pessoa não é peça.
    A chapa de duas camadas fica: `border` sob raio de canto some no anel de
    1px e lê como defeito, o mesmo motivo de antes. */
+/* Sem `position` aqui também — pelo mesmo motivo do `.pin-ch` acima. */
 .pin-tec{
-  position:relative;isolation:isolate;
+  isolation:isolate;
   width:26px;height:26px;background:var(--fio-forte);color:#fff;font-size:11px;
   border-radius:50%;
 }
@@ -1756,6 +1776,39 @@ body.com-ficha{overflow:hidden}
 /* Sem leitura não é ruim, é NÃO SABER — a mesma distinção que o painel do
    cliente faz desde 14/08. Por isso cinza, e não um sinal. */
 .pin-base[data-b="mudo"]{background:var(--sobre-2)}
+
+/* ── Mapa largo: os pinos crescem ──────────────────────────────────
+   ⚠️ QUEM MANDA NA ESCALA É A LARGURA DO MAPA, NÃO A DA JANELA — o
+   `data-esc` vem do `escalaPinos()` no `operador.js`, medido no próprio
+   Leaflet. A distinção é de layout, não de preciosismo: o trilho tem
+   `--trilho-w` FIXO (400px), então numa janela de 2560 o mapa da coluna
+   continua com os mesmos 400 e um pino maior ali só empilharia 86 prédios
+   uns sobre os outros. Quem muda de tamanho de verdade é a TELA CHEIA (a
+   janela inteira) e a faixa abaixo de 1180, onde o trilho deixa de ser
+   coluna — e é lá que 22px viram confete: o mesmo pino que se lê a 400px
+   de largura desaparece a 1900 (31/08/2026, relatado pelo Pedro em monitor
+   grande, "os ícones são muito pequeninhos, a leitura não fica boa").
+   Um `@media` de largura de janela acertaria a tela cheia e estragaria a
+   coluna, que é a tela que o operador olha o turno inteiro.
+   Mesmo limiar de 800px que já escolhe o enquadramento no `enquadrarMapa` —
+   um só conceito de "mapa largo" nesta tela, não dois números.
+   As proporções são as de sempre: fundo < chamado, e o chamado continua
+   sendo o maior, porque continua sendo o único que abre alguma coisa. */
+.mapa-tela[data-esc="g"] .pin-base{width:30px;height:30px;--ch:7px}
+.mapa-tela[data-esc="g"] .pin-base svg{width:18px;height:18px}
+.mapa-tela[data-esc="g"] .pin-ch{width:40px;height:40px;--ch:8px}
+.mapa-tela[data-esc="g"] .pin-ch svg{width:21px;height:21px}
+.mapa-tela[data-esc="g"] .pin-tec{width:36px;height:36px;font-size:15px}
+/* O halo do estourado é proporção, não enfeite: no pino grande o anel de 5px
+   vira um contorno e deixa de ler como halo. */
+.mapa-tela[data-esc="g"] .pin-ch[data-g="estourado"]{
+  box-shadow:0 0 0 7px color-mix(in srgb,var(--vermelho) 26%,transparent);
+}
+/* A legenda é posicionada pelo Leaflet a partir do `offset` do JS, que foi
+   calculado para o pino pequeno — com a face maior ela encostaria no topo do
+   pino. O recuo devolve o respiro sem mexer no offset (que vale para o mapa
+   da coluna). */
+.mapa-tela[data-esc="g"] .leaflet-tooltip-top.pin-rot{margin-top:-6px}
 /* O cartão do técnico ENQUANTO o despacho está indo. Medido em 31/08: o
    PATCH leva ~3,8s contra o banco via proxy, e o único sinal era
    `opacity: .5` — que lê como "desabilitado", não como "trabalhando".

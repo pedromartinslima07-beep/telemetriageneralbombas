@@ -705,6 +705,23 @@ let _mapaEnquadrado = false;
    calculado numa coluna de 368px, então a mesma escala num viewport de 1920
    mostrava de Cabreúva a Cubatão com os pinos espremidos no meio (medido).
    Quem muda o tamanho da janela espera ver o conteúdo, não mais moldura. */
+/* ⚠️ MAPA LARGO É UM CONCEITO SÓ NESTA TELA, e agora dois comportamentos
+   dependem dele: COMO enquadrar (abaixo) e QUANTO medem os pinos
+   (`escalaPinos`). Se um dia o limiar mudar, muda para os dois — mapa que
+   abre a carteira inteira e mostra pino de confete é a combinação ruim. */
+const MAPA_LARGO = 800;
+
+/* A escala dos pinos segue o TAMANHO DO MAPA, não o da janela — o `data-esc`
+   é lido pelo `operador.css`, onde está a prosa do porquê. Aqui só a
+   medição, e ela tem de vir DEPOIS de `invalidateSize()`: antes disso o
+   Leaflet ainda responde com a caixa antiga (é o mesmo motivo dos dois
+   `requestAnimationFrame` do `mapaFsAplicar`). */
+function escalaPinos() {
+  if (!_mapaTurno || !_mapaTurnoNo) return;
+  const tela = _mapaTurnoNo.querySelector("#mapaTela");
+  if (tela) tela.dataset.esc = _mapaTurno.getSize().x > MAPA_LARGO ? "g" : "p";
+}
+
 function enquadrarMapa() {
   if (!_mapaTurno) return;
   // Sem chamado nem técnico, quem enquadra é a carteira — e COMO ela enquadra
@@ -723,7 +740,7 @@ function enquadrarMapa() {
   // ali a carteira inteira, enquadrada com respiro, é a resposta.
   if (!_pontos.length) {
     if (!_carteiraPts.length) return;
-    if (_mapaTurno.getSize().x > 800) {
+    if (_mapaTurno.getSize().x > MAPA_LARGO) {
       _mapaTurno.fitBounds(L.latLngBounds(_carteiraPts), { padding: [60, 60], maxZoom: 13 });
     } else if (_centroCarteira) {
       _mapaTurno.setView(_centroCarteira, ZOOM_CARTEIRA);
@@ -893,6 +910,9 @@ function montarMapaTurno() {
   // O contêiner acabou de ser movido para dentro do trilho recém-montado:
   // sem isto o Leaflet ainda acredita no tamanho que media antes da mudança.
   _mapaTurno.invalidateSize();
+  // E é aqui que o ciclo de 30s pega a mudança de largura da janela, que não
+  // tem listener próprio: a caixa recém-medida decide a escala dos pinos.
+  escalaPinos();
 }
 
 /* Tela cheia: a API nativa quando existe, com a classe como plano B — o
@@ -935,6 +955,7 @@ function mapaFsAplicar(ligar) {
   requestAnimationFrame(() => requestAnimationFrame(() => {
     _mapaTurno?.invalidateSize();
     enquadrarMapa();
+    escalaPinos();
   }));
 }
 document.addEventListener("fullscreenchange", () => {

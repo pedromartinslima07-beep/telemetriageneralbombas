@@ -267,6 +267,27 @@ virou refém do admin até 13/08/2026.
 | Chamado | placa chanfrada 28px, ícone de prédio, cor = o relógio | chamado `aberto`/`em_atendimento` com prédio geocodificado | abre o despacho |
 | Técnico | círculo 26px com iniciais | GPS dos últimos **30 min** | não |
 
+⚠️ **Os tamanhos da tabela são os do mapa ESTREITO** (a coluna do trilho). Num
+mapa largo — tela cheia, ou a faixa abaixo de 1180px, onde o trilho deixa de
+ser coluna — os três crescem para **30 · 40 · 36px**, com a face e o chanfro
+na mesma proporção. Quem decide é a largura medida no Leaflet, não a da
+janela: `escalaPinos()` escreve `data-esc="g"` no `.mapa-tela` acima dos mesmos
+**800px** que já escolhem o enquadramento, e o CSS lê dali. A distinção
+importa porque `--trilho-w` é fixo em 400px — num monitor grande a coluna
+continua com 400, e pino maior ali só empilharia os 86 prédios um sobre o
+outro; um `@media` de largura de janela acertaria a tela cheia e estragaria a
+coluna.
+
+⚠️ **O tamanho do pino não vem do `iconSize` do divIcon.** O `iconSize` /
+`iconAnchor` do JS posiciona só a **caixa**; a face é centrada nela por
+`transform` (`.pin` no `operador.css`), e por isso ela pode crescer além da
+caixa sem escorregar do ponto. O clique do pino de chamado sobrevive ao
+transbordo: o Leaflet escuta na caixa e o evento sobe da face por bubbling —
+`.leaflet-marker-icon` não recorta (o `overflow:hidden` do `leaflet.css` é do
+`.leaflet-container`). ⚠️ Consequência: **nenhuma regra de pino pode declarar
+`position`** — quem declara é o `.pin`, e sobrescrever tira a face do centro
+da coordenada.
+
 ⚠️ **A carteira é fundo, não assunto.** Ela existe para o mapa não nascer
 vazio — em produção `tecnico_localizacoes` tem 3 linhas no total, então sem ela
 um turno calmo mostrava uma frase no lugar do mapa. Quem tem cor e clique

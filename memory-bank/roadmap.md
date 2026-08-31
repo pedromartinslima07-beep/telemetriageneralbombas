@@ -88,7 +88,10 @@ aliases:
       mudou praticamente nada"). ✅ o **item da fila** (28/08), o **trilho**
       (31/08, 4 peças por linha → 2) e o **placar de 3 números** (31/08, saiu
       da tela; a engrenagem de fundo mudou de casa junto — da faixa horizontal
-      do topo para dentro do trilho, abraçando o mapa). 📋 falta a **ficha**, o **diálogo de despacho** e **"Já tem
+      do topo para dentro do trilho, abraçando o mapa) e os **pinos do mapa**
+      (31/08, duas escalas: no mapa largo — tela cheia ou abaixo de 1180 — eles
+      crescem, porque 22px desenhados para a coluna de 400 somem numa janela de
+      1900). 📋 falta a **ficha**, o **diálogo de despacho** e **"Já tem
       técnico"**. A fila detalhada e as pendências de copy que são decisão do
       Pedro estão em [`active-work.md`](active-work.md).
 

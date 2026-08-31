@@ -6840,6 +6840,136 @@ estourado com técnico e zero estourados (o trecho some). Console limpo,
 `node --check` limpo, detector sem achado novo — 31 advertências de
 `font-size`, contra 34 antes, e nenhuma de cor.
 
+### 2026-08-31 (15ª rodada) · Os pinos crescem quando o mapa cresce
+
+> "Abri ele em uma tela grande e os ícones não estão muito bonitos, são muito
+> pequeninhos, então a leitura não fica muito boa." — o Pedro, sobre o mapa do
+> painel do operador.
+
+Os três pinos do mapa nasceram medidos para a caixa em que foram desenhados: a
+coluna do trilho, 400px de largura. Em **tela cheia** (ou na faixa abaixo de
+1180px, onde o trilho deixa de ser coluna) a caixa vira a janela inteira e os
+mesmos 22 · 28 · 26px viram confete — o mapa continua certo e deixa de ser
+legível, que é o pior tipo de defeito porque não parece defeito.
+
+**A escala segue a largura do MAPA, não a da janela.** `escalaPinos()` mede o
+próprio Leaflet depois do `invalidateSize()` e escreve `data-esc="g"` no
+`.mapa-tela` acima de **800px** — o mesmo limiar que já escolhia o
+enquadramento, agora extraído em `MAPA_LARGO` para não haver dois números
+querendo dizer "mapa largo". Acima dele os pinos vão para **30 · 40 · 36px**,
+com face, chanfro e halo do estourado na mesma proporção, e a legenda ganha 6px
+de respiro para não encostar na face maior.
+
+⚠️ **Um `@media` de largura de janela seria o caminho errado**, e a razão é
+`--trilho-w`: ele é **fixo em 400px**. Num monitor de 2560 a coluna continua com
+400, então a regra de janela cresceria o pino exatamente onde ele não pode
+crescer — 86 prédios empilhados uns sobre os outros na tela que o operador olha
+o turno inteiro — e a tela cheia é que ficaria certa por acidente.
+
+⚠️ **O tamanho do pino deixou de depender do `iconSize`.** O `iconSize` /
+`iconAnchor` do divIcon posiciona a **caixa**; a face agora é centrada nela por
+`transform` no `.pin`, então crescer a face cresce **em volta do ponto** e o
+pino continua marcando a coordenada certa. Sem isso, um pino maior que a caixa
+escorregaria para baixo e para a direita da posição real — e a alternativa
+(crescer a caixa) desalinharia tudo, porque o `iconAnchor` é escrito no JS.
+
+⚠️ **O transbordo não custa o clique do chamado** — o único pino que abre
+alguma coisa. O Leaflet escuta na caixa e o evento sobe da face por bubbling;
+`.leaflet-marker-icon` **não** recorta (o `overflow:hidden` do `leaflet.css` é
+do `.leaflet-container`, não do marcador), e `pointer-events` é herdado, então a
+face é clicável em toda a área.
+
+⚠️ **Nenhuma regra de pino pode declarar `position` daqui em diante.** O
+`.pin-ch` e o `.pin-tec` tinham `position:relative` para a chapa de duas
+camadas; o `::before` só precisa de um pai **posicionado**, e `absolute`
+também é. Os dois `relative` saíram: eles ganhavam do `.pin` na cascata (mesma
+especificidade, regra posterior) e tirariam a face do centro da coordenada — em
+um dos dois casos silenciosamente, porque a ordem no arquivo decidia qual pino
+quebrava.
+
+Sem mudança de dado, de rota ou de schema: `operador.css` e `operador.js`,
+`?v=` bumpado nos dois (72 / 68) no `operador.html` e no
+`_operador-preview.html`. `node --check` limpo.
+
+### 2026-08-31 · O app do técnico aponta a bomba, e a O.S. dele para de nascer órfã
+
+A Fase 12C (18/08) ligou a O.S. ao equipamento e pôs o seletor no modal do
+admin. **O app do técnico ficou de fora** — e é lá que a O.S. de campo é
+escrita. Quem digita a O.S. na casa de máquinas não tinha como dizer qual bomba
+atendeu; quem tinha o campo era quem não estava lá.
+
+O `equipamento_id` da O.S. paga duas contas, e as duas ficavam sem pagar:
+
+1. **O orçamento chega na bancada colado na bomba.**
+   `_garantirOrcamentoDaOs` usa o vínculo pra adotar um pedido que a bancada já
+   tenha aberto pela etiqueta, em vez de abrir um segundo pro mesmo serviço.
+2. **A O.S. entra no histórico da ficha** (`GET /equipamentos/:id` filtra por
+   `os.equipamento_id`), que é o que sustenta o contador de idas à oficina — o
+   número que justifica trocar a bomba em vez de consertar de novo.
+
+**Nada de backend.** O `PATCH /ordens-servico/:id` já aceitava
+`equipamento_id`, o `GET /:id` já devolvia `equipamento_id` **e**
+`condominio_id` (o app recebia os dois e ignorava), e `GET /equipamentos` já
+passa em `equipeInterna` — o guard que existe justamente porque o técnico não
+passa em `adminOnly`. Era só a camada web do app.
+
+⚠️ **A seção só existe se houver bomba etiquetada no condomínio** (ou se a O.S.
+já tiver uma vinculada). Sem essa condição, todo prédio sem etiqueta ganharia
+uma seção vazia — e hoje isso é **todo prédio**: `equipamentos` está zerada em
+produção. A seção nasce sozinha no dia em que as etiquetas subirem, sem APK
+novo.
+
+⚠️ **Ela é "•", não numerada.** `atualizarProgresso` conta 7 seções com lógica
+de completude e a barra é calibrada nesse 7 — uma oitava marcando `complete`
+passaria de 100%. E numerar teria dois efeitos ruins: renumeraria todas as
+outras e, como a seção é condicional, o mesmo passo teria número diferente em
+prédio com e sem etiqueta. Segue o precedente da seção de orçamento, que já é
+opcional e já é "•".
+
+⚠️ **A pegadinha do vínculo apagado em silêncio, de novo.** É a mesma que
+apareceu no admin em 18/08, e reaparece aqui por outro caminho: a bomba
+vinculada pode não vir no `GET /equipamentos?condominio_id=` porque trocou de
+prédio **ou porque está inativa** (a listagem filtra `ativo = true`). Nos dois
+casos o `<select>` cairia em "Não vinculada" e o primeiro toque em qualquer
+outro campo salvaria o apagamento. `_osCarregarEquipamentos` busca a ficha
+avulsa e a acrescenta com o rótulo "(outro condomínio)".
+
+⚠️ **`Number("")` é `0`, não `null`.** "Não vinculada" tem `value=""`; sem o
+ternário, desvincular gravaria `equipamento_id = 0`, que não é id de bomba
+nenhuma.
+
+**Nome:** a seção se chama **"Bomba atendida"**, não "Equipamento" — a O.S. já
+tem uma seção "Equipamentos verificados" logo abaixo, que é checklist genérico
+(comando elétrico, bombas de recalque…) e vive em `itens_verificados`. Dois
+"equipamento" na mesma tela seriam duas coisas diferentes com o mesmo nome.
+
+**CSS:** `.os-select` (44px de alvo, corpo 14px) em vez do `.input` base, que
+tem 36px e corpo 12,5px — dimensão de formulário de mesa. Quem toca nesse
+select está de pé na casa de máquinas, muitas vezes de luva.
+
+**Verificado exercitando as rotas** contra o banco de TESTE, com JWT de técnico
+e O.S. criada e removida no fim: `GET /equipamentos?condominio_id=` responde
+200 ao técnico e traz a bomba; `PATCH { equipamento_id }` grava; o `GET` relê;
+a ficha avulsa de outro condomínio responde 200; e `{ equipamento_id: null }`
+desvincula. Mais 20 verificações de render no app real (`/app/` em navegador
+headless, 390px) lendo o **`innerText`** e o estado do `<select>`, não
+screenshot — a lição do "Ocupadosem posição" de hoje mais cedo: ordem das
+seções, marcador "•", código formatado `XXXX-XXXX`, fallback marca+modelo
+quando não há apelido, altura real do alvo **com a seção aberta** (fechada ela
+mede 0 e o teste passaria achando que mediu algo), gravação como `number`,
+desvínculo como `null`, e a bomba de fora chegando selecionada. Console limpo,
+`node --check` limpo.
+
+📋 **Fica em aberto:** escanear o QR direto do app, que é o gesto natural na
+bancada. Não há plugin de leitura de código no `app/package.json` (só
+geolocation, filesystem e share) — exige `@capacitor-mlkit/barcode-scanning` e
+mexida no nativo. O seletor resolve o vínculo sem isso.
+
+⚠️ **Só chega no técnico com APK novo:** o web do app é empacotado
+(`webDir: public`), então isto exige `npm run build:apk` e reinstalação. Não há
+`?v=N` a bumpar — o app não versiona assets — e o SW já trata `/app` e
+`/equipamentos` como network-first.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em
