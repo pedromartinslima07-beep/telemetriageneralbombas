@@ -4,6 +4,7 @@ const { authRequired } = require("../middleware/authRequired");
 const { adminOnly } = require("../middleware/adminOnly");
 const { salvarFotoMensagemChamado } = require("../services/chamado-mensagens.service");
 const { registrarCriacao, registrarMudancas } = require("../services/chamado-historico.service");
+const { resolverTecnico } = require("../services/chamado-atribuicao.service");
 
 const router = express.Router();
 
@@ -11,8 +12,17 @@ const CATEGORIAS = ["vazamento", "bomba_falha", "nivel_baixo", "sem_agua", "ruid
 const PRIORIDADES = ["p1", "p2", "p3", "p4"];
 
 // POST /chamados — cria chamado manualmente (admin, gerente, operador)
+//
+// ⚠️ `tecnico_id` É OPCIONAL E NASCEU DEPOIS (31/08/2026, pedido do Pedro:
+// "quando fosse criar o chamado já desse para atribuir o técnico"). Antes o
+// chamado nascia sempre sem ninguém e o operador tinha de achá-lo na fila para
+// despachar — dois passos para uma decisão que, no telefone, já estava tomada.
+//
+// ⚠️ NÃO CONFUNDIR COM `responsavel_id`: aquele é o USUÁRIO interno que
+// responde pelo chamado; este é o TÉCNICO de campo que vai ao prédio. São
+// colunas diferentes e telas diferentes.
 router.post("/", authRequired, adminOnly, async (req, res) => {
-  const { titulo, descricao, categoria, prioridade, condominio_id, responsavel_id } = req.body || {};
+  const { titulo, descricao, categoria, prioridade, condominio_id, responsavel_id, tecnico_id } = req.body || {};
 
   if (!titulo || typeof titulo !== "string" || !titulo.trim())
     return res.status(400).json({ error: "Título obrigatório" });
@@ -24,6 +34,9 @@ router.post("/", authRequired, adminOnly, async (req, res) => {
     return res.status(400).json({ error: `prioridade inválida` });
 
   try {
+    const tec = await resolverTecnico(tecnico_id);
+    if (!tec.ok) return res.status(400).json({ error: tec.erro });
+
     let prioFinal = prioridade || "p3";
 
     // Detecção de recorrência: mesma categoria no mesmo condomínio nos últimos 30 dias
@@ -43,10 +56,25 @@ router.post("/", authRequired, adminOnly, async (req, res) => {
       }
     }
 
+    // ⚠️ NASCER COM TÉCNICO MARCA O TTFR, e é a mesma regra do PATCH ("atribuir
+    // técnico marca o TTFR, tirar o técnico não"). O relógio da primeira
+    // resposta mede quanto a equipe demorou a responder; se o operador já
+    // despachou no ato de abrir, a resposta foi imediata e o relógio nasce
+    // parado. Deixá-lo correndo faria a fila cobrar uma resposta que já veio.
+    //
+    // ⚠️ `$7::int` NAS DUAS APARIÇÕES — o mesmo `$n` usado como valor de coluna
+    // e dentro de uma comparação deduz tipos diferentes e o Postgres recusa a
+    // query no parse (42P08). Ver CLAUDE.md.
+    //
+    // ⚠️ E O STATUS CONTINUA `aberto`. `em_atendimento` é do app do técnico
+    // (`/iniciar-atendimento`, com GPS) — atribuir não é começar.
     const ins = await pool.query(
-      `INSERT INTO chamados (condominio_id, titulo, descricao, prioridade, categoria, responsavel_id, status)
-       VALUES ($1, $2, $3, $4, $5, $6, 'aberto')
-       RETURNING id, status, prioridade, categoria, titulo, descricao, condominio_id, responsavel_id, criado_em`,
+      `INSERT INTO chamados (condominio_id, titulo, descricao, prioridade, categoria, responsavel_id,
+                             tecnico_id, primeira_resposta_em, status)
+       VALUES ($1, $2, $3, $4, $5, $6,
+               $7::int, CASE WHEN $7::int IS NULL THEN NULL ELSE NOW() END, 'aberto')
+       RETURNING id, status, prioridade, categoria, titulo, descricao, condominio_id, responsavel_id,
+                 tecnico_id, criado_em`,
       [
         condominio_id ? Number(condominio_id) : null,
         titulo.trim().slice(0, 255),
@@ -54,6 +82,7 @@ router.post("/", authRequired, adminOnly, async (req, res) => {
         prioFinal,
         categoria || "outro",
         responsavel_id ? Number(responsavel_id) : null,
+        tec.id,
       ]
     );
     const row = ins.rows[0];
@@ -62,6 +91,18 @@ router.post("/", authRequired, adminOnly, async (req, res) => {
       row._recorrencia_bump = true;
     }
     registrarCriacao({ chamadoId: row.id, alteradoPor: req.user.id });
+    // A atribuição entra no histórico como qualquer outra, e de propósito: a
+    // ficha responde "quem mandou o técnico e quando" da mesma forma, tenha
+    // sido no nascimento ou no despacho depois. `antes` é o chamado que teria
+    // existido sem a escolha — é o que torna a linha legível ("— → 3").
+    if (row.tecnico_id) {
+      registrarMudancas({
+        chamadoId: row.id,
+        antes: { tecnico_id: null },
+        depois: { tecnico_id: row.tecnico_id },
+        alteradoPor: req.user.id,
+      });
+    }
     return res.status(201).json(row);
   } catch (e) {
     console.error("[chamados] POST /:", e);

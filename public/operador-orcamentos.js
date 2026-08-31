@@ -563,11 +563,21 @@ function dlgChamado(id) {
         <label for="cmDesc">O que o técnico precisa saber</label>
         <textarea id="cmDesc" rows="7">${escapar(descricaoPadrao(o))}</textarea>
       </div>
+      <!-- Serviço aprovado quase sempre JÁ TEM DONO — foi combinado com
+           alguém antes de o síndico aprovar. Ter de abrir o chamado aqui e
+           depois procurá-lo na fila do turno para despachar era o passo a
+           mais que este seletor tira.
+           (Sem crase neste comentario: template literal. Ver CLAUDE.md.) -->
+      <div class="campo largo">
+        <label for="cmTec">Técnico</label>
+        <select id="cmTec"><option value="">Despachar depois</option></select>
+      </div>
       ${ex.chave === "feito" ? `<p class="dica">Este orçamento já teve o chamado
         <b>#${ex.id}</b>, que está fechado. Abrir outro registra um novo atendimento
         no mesmo prédio, ligado ao mesmo orçamento.</p>` : `<p class="dica">O chamado
-        nasce <b>aberto e sem técnico</b>, e aparece na fila do turno. A prioridade
-        define o prazo — o botão <b>Ajuda</b>, no alto da tela, mostra a tabela completa.</p>`}
+        nasce <b>aberto</b> e aparece na fila do turno. A prioridade define o prazo —
+        o botão <b>Ajuda</b>, no alto da tela, mostra a tabela completa. O técnico é
+        opcional: sem ele, o chamado espera despacho na fila.</p>`}
     </form>
     <div class="ficha-pe">
       <p id="cmMsg"></p>
@@ -575,6 +585,51 @@ function dlgChamado(id) {
       <button class="btn" data-acao="salvar-chamado" data-id="${o.id}">Abrir chamado</button>
     </div>
   </div>`);
+
+  carregarTecnicos();
+}
+
+/* A equipe, buscada QUANDO O DIÁLOGO ABRE e não na carga da tela — mesmo
+   raciocínio do `/operador/prazos`: esta lista serve a um diálogo, e diálogo
+   não entra no caminho crítico da tela que o operador vê primeiro.
+
+   ⚠️ `/operador/tecnicos` e NÃO `/tecnicos`: o segundo devolve a ficha inteira
+   do funcionário (CPF, RG, endereço) porque serve o cadastro do admin. Uma
+   tela que só precisa de nomes não tem por que receber isso.
+
+   ⚠️ Falhando, o seletor DIZ que falhou e o resto do diálogo continua
+   funcionando — abrir o chamado sem técnico é um caminho legítimo, e travar o
+   formulário inteiro por causa da lista seria transformar um extra em
+   requisito.
+
+   ⚠️ Helpers duplicados do `operador.js` de propósito: esta superfície não
+   importa nada de lá (ver o comentário no topo do arquivo). O que não pode
+   divergir — quem entra na lista e em que ordem — é decidido pelo SERVIDOR, no
+   `SQL_EQUIPE`, que é a mesma consulta das duas telas. */
+function tecEstado(t) {
+  const n = t.abertos || 0;
+  const carga = n === 1 ? "1 chamado" : n + " chamados";
+  if (!t.disponivel) return n ? "ocupado · " + carga : "ocupado";
+  return n ? carga : "livre agora";
+}
+async function carregarTecnicos() {
+  const sel = document.getElementById("cmTec");
+  if (!sel) return;
+  try {
+    const r = await fetch("/operador/tecnicos", { headers: authHeaders() });
+    const d = await lerJson(r, "Equipe");
+    if (!r.ok) throw new Error(d.error || "Erro ao buscar a equipe");
+    const arr = (Array.isArray(d) ? d : []).sort(
+      (a, b) => (b.disponivel - a.disponivel) || (a.abertos - b.abertos));
+    // O diálogo pode ter fechado durante a espera.
+    if (!document.getElementById("cmTec")) return;
+    sel.innerHTML = `<option value="">Despachar depois</option>` + arr
+      .map((t) => `<option value="${t.id}">${escapar(t.nome)} · ${tecEstado(t)}</option>`)
+      .join("");
+  } catch {
+    if (document.getElementById("cmTec"))
+      sel.innerHTML = `<option value="">Não consegui carregar a equipe — abra sem técnico</option>`;
+  }
 }
 
 async function salvarChamado(id) {
@@ -582,6 +637,12 @@ async function salvarChamado(id) {
   const descricao = document.getElementById("cmDesc")?.value.trim();
   const categoria = document.getElementById("cmCat")?.value;
   const prioridade = document.querySelector('#cmPrio .prio[aria-pressed="true"]')?.dataset.p || "p4";
+  const tecnico_id = Number(document.getElementById("cmTec")?.value) || null;
+  // O nome é lido AGORA porque a faixa de confirmação aparece depois de
+  // `fechar()`, quando o seletor já não existe. A opção é "Nome · livre";
+  // para a frase, o que serve é o nome.
+  const tecNome = (document.getElementById("cmTec")?.selectedOptions[0]?.textContent || "")
+    .split(" · ")[0].trim();
   const msg = document.getElementById("cmMsg");
   const btn = document.querySelector('[data-acao="salvar-chamado"]');
 
@@ -600,7 +661,7 @@ async function salvarChamado(id) {
     const r = await fetch(`/operador/orcamentos/${id}/chamado`, {
       method: "POST",
       headers: { ...authHeaders(), "Content-Type": "application/json" },
-      body: JSON.stringify({ titulo, descricao, categoria, prioridade }),
+      body: JSON.stringify({ titulo, descricao, categoria, prioridade, tecnico_id }),
     });
     const d = await lerJson(r, "Chamado do orçamento");
     if (!r.ok) throw new Error(d.error || "Erro ao abrir o chamado");
@@ -615,9 +676,19 @@ async function salvarChamado(id) {
     // O dado para virar já está aqui: o endpoint devolve o id do chamado.
     const alvo = DADOS.find((x) => x.id === id);
     if (alvo) { alvo.chamado_id = d.id; alvo.chamado_status = "aberto"; render(); }
+    // ⚠️ A FAIXA CONTA O QUE FOI FEITO COM A ESCOLHA, inclusive quando ela não
+    // foi usada. O clique duplo é o caso normal aqui, e o segundo clique pode
+    // trazer um técnico para um chamado que já tem outro — dizer só "já tinha
+    // o chamado #N" deixaria o operador achando que despachou quem escolheu.
     avisar(d.ja_existia
-      ? `Este orçamento já tinha o chamado #${d.id} aberto.`
-      : `Chamado #${d.id} aberto. Ele já está na fila do turno.`);
+      ? (d.tecnico_atribuido
+          ? `Este orçamento já tinha o chamado #${d.id} aberto — ${tecNome} foi despachado para ele.`
+          : tecnico_id
+            ? `Este orçamento já tinha o chamado #${d.id} aberto, e ele já tem técnico. Nada foi trocado.`
+            : `Este orçamento já tinha o chamado #${d.id} aberto.`)
+      : (d.tecnico_id
+          ? `Chamado #${d.id} aberto com ${tecNome}. Ele já está na fila do turno.`
+          : `Chamado #${d.id} aberto. Ele já está na fila do turno.`));
 
     // E a recarga de verdade vai atrás, para reconciliar (outro operador pode
     // ter mexido na lista enquanto este diálogo estava aberto).

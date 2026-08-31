@@ -124,6 +124,43 @@ feito nada, que foi exatamente o relato.
    fila**: chamado novo costuma ser num prédio que ainda não tem chamado
    aberto — exatamente o que não está na fila.
 
+## Abrir já despachando (31/08/2026)
+
+> *"Queria que quando fosse criar o chamado já desse para atribuir o técnico,
+> por exemplo na tela de orçamento, ou no botão novo chamado."* — o Pedro.
+
+Os dois diálogos de criação — o **Novo chamado** da fila e o **Abrir chamado**
+dos Aprovados — ganharam um seletor **Técnico**, opcional. Antes o chamado
+nascia sempre sem ninguém: quem já sabia quem ia (e no telefone quase sempre
+sabe) tinha de gravar, achar o item na fila e despachar — dois passos para uma
+decisão só.
+
+| | Regra, e por quê |
+|---|---|
+| Padrão | **"Despachar depois"**, sempre. Formulário que já vem com alguém escolhido atribui por inércia — o operador confirma sem ler e o chamado sai com um técnico que ninguém decidiu mandar |
+| Posição no formulário | **Depois da descrição**, que é a ordem da conversa ao telefone: onde · o que · quanto corre · o que foi dito · **quem vai**. Escolher antes de escrever o relato é escolher sem o que a decisão precisa |
+| O que cada opção diz | Nome **+ o mesmo estado do cartão de despacho** (livre agora · N chamados · ocupado). Um nome só não é escolha informada |
+| Ordem | A do despacho — **livre primeiro, depois menos carregado**, nunca alfabética. As duas telas respondem "quem pode ir"; ordens diferentes ensinariam que a primeira posição não quer dizer nada |
+| Quem entra na lista | `ativo` **e** `cargo = 'tecnico'` — a mesma regra do `resolverTecnico`, que valida na gravação. A consulta é uma só (`SQL_EQUIPE`): tela que oferece quem o banco recusa é o pior sintoma possível |
+| Relógio | Atribuir **marca `primeira_resposta_em`** e para o TTFR, igual ao despacho pelo `PATCH`. Se o operador já despachou no ato de abrir, a resposta foi imediata — deixar o relógio correndo cobraria uma resposta que já veio |
+| Status | Continua **`aberto`**. `em_atendimento` é só do app do técnico, com GPS. Atribuir não é começar |
+| Histórico | A atribuição vira linha `tecnico_id` em `historico_chamados`, **indistinguível de um despacho feito depois** — a ficha responde "quem mandou e quando" do mesmo jeito nos dois casos |
+| Confirmação | A faixa diz **para qual seção o chamado foi** ("Já tem técnico" ou "Esperando alguém"). É a mesma correção do despacho: o item nasce numa das duas e pode cair abaixo da dobra |
+
+⚠️ **A tela de Aprovados busca a equipe em `GET /operador/tecnicos`, não em
+`GET /tecnicos`.** O segundo devolve a ficha inteira do funcionário — CPF, RG,
+endereço, data de nascimento — porque serve o cadastro do admin. Uma tela que
+só precisa de nomes não tem por que receber isso: dado que não trafega não
+vaza. A fila **não** usa esse endpoint: lá a equipe já vem no `/operador/fila`
+(uma request monta a tela). Aqui é o raciocínio do `/prazos` — é diálogo, e
+diálogo não entra no caminho crítico da lista.
+
+⚠️ **No clique duplo dos Aprovados, a escolha PREENCHE VAZIO e nunca troca.**
+Chamado que já existe sem técnico recebe o escolhido (`tecnico_atribuido:
+true`); com técnico, nada muda e a faixa diz isso. Ignorar em silêncio faria a
+tela afirmar um despacho que não houve; sobrescrever faria o segundo clique
+desfazer, sem aviso, o despacho do primeiro — ou o de outro operador.
+
 ## A segunda tela: Aprovados (`/operador/painel/orcamentos`)
 
 **A pergunta é "o que a gente pode executar aqui", não "quanto custou".** A
@@ -241,6 +278,7 @@ o diálogo já fechou, então um erro ali não tem mais onde ser escrito.
 | Prédio | Vem do **orçamento**, nunca do corpo da requisição. Aceitar do front permitiria abrir, a partir do orçamento de um prédio, um chamado em outro — e o vínculo passaria a mentir |
 | Prioridade | Padrão **P4**, não o P2 do "novo chamado": serviço aprovado é trabalho **agendado**. Como P2 ele passaria na frente de bomba parada numa fila ordenada pelo prazo que estoura primeiro |
 | Recorrência | **Sem o bump** de `POST /chamados`. Lá ele detecta problema que volta; aqui subiria a prioridade de uma limpeza agendada por causa de outra limpeza no mês passado |
+| Técnico | **Opcional, e quase sempre já existe**: serviço aprovado foi combinado com alguém antes de o síndico aprovar. Ver [Abrir já despachando](#abrir-já-despachando-31082026) |
 | Clique duplo | Havendo chamado **aberto** do mesmo orçamento, o endpoint devolve o que já existe (`200`, `ja_existia`). A lista não recarrega sozinha e o operador está ao telefone: repetir o clique é o caso normal |
 | Chamado fechado | **Não bloqueia.** A linha continua clicável e o chip vira "Abrir de novo" — o serviço pode voltar. É também por isso que `orcamento_id` não é UNIQUE |
 | Estado na linha | Com chamado aberto a linha **deixa de ser botão** e mostra "Chamado #N aberto". Botão que não faz nada é pior que nenhum botão |

@@ -78,6 +78,13 @@ aliases:
       deduzida por efeito colateral (`conversa_id`, `plano_manutencao_id`,
       categoria automática), e um `nivel_baixo` aberto à mão aparece como
       "telemetria".
+    - ✅ **Abrir chamado já atribuindo o técnico** (31/08/2026, pedido do
+      Pedro). Seletor opcional nos dois diálogos de criação — o "Novo chamado"
+      da fila e o "Abrir chamado" dos Aprovados —, com `tecnico_id` aceito por
+      `POST /chamados` e `POST /operador/orcamentos/:id/chamado`, validação em
+      `chamado-atribuicao.service.js` e endpoint novo `GET /operador/tecnicos`.
+      Sem migration. Fecha o "abri o chamado e agora tenho de achá-lo na fila
+      para despachar".
     - 📋 ETA no despacho — o cartão do candidato mostra "no mapa"/"—", não
       distância nem tempo. ⚠️ No **trilho** essa nota já saiu (31/08); aqui ela
       continua porque o diálogo de despacho ainda não passou pelo corte, e é

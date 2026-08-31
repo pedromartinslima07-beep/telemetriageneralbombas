@@ -6970,6 +6970,80 @@ mexida no nativo. O seletor resolve o vínculo sem isso.
 `?v=N` a bumpar — o app não versiona assets — e o SW já trata `/app` e
 `/equipamentos` como network-first.
 
+### 2026-08-31 (16ª rodada) · O chamado pode nascer já despachado
+
+> *"Queria que quando fosse criar o chamado já desse para atribuir o técnico,
+> por exemplo na tela de orçamento, ou no botão novo chamado."* — o Pedro.
+
+Os dois diálogos de criação ganharam um seletor **Técnico**, opcional: o
+**Novo chamado** da fila e o **Abrir chamado** dos Aprovados. Antes o chamado
+nascia sempre sem ninguém — quem já sabia quem ia (e no telefone quase sempre
+sabe) tinha de gravar, achar o item na fila e despachar. Dois passos para uma
+decisão só.
+
+**Backend, e as regras são iguais nas duas portas** porque são a mesma decisão:
+
+- `POST /chamados` e `POST /operador/orcamentos/:id/chamado` aceitam
+  `tecnico_id` opcional.
+- Quem valida é o **`chamado-atribuicao.service.js`**, novo: `ativo` **e**
+  `cargo = 'tecnico'`, senão `400` com frase que o operador resolve sozinho
+  ("Este técnico não está mais disponível. Recarregue a tela."). A FK já
+  barraria um id inexistente, mas com `23503` traduzido em `500` — FK é rede de
+  segurança, não mensagem de erro. ⚠️ **Não checa `disponivel`**: ocupado não é
+  impedimento, e num P1 às 18h quem está ocupado às vezes é quem está perto.
+- **Atribuir marca `primeira_resposta_em`**, a mesma regra do `PATCH`. Se o
+  operador despachou no ato de abrir, a resposta foi imediata — deixar o
+  relógio do TTFR correndo cobraria uma resposta que já veio.
+- **O status continua `aberto`.** `em_atendimento` é do app do técnico, com
+  GPS. Atribuir não é começar.
+- A atribuição entra no `historico_chamados` como linha `tecnico_id`,
+  **indistinguível de um despacho feito depois** — a ficha responde "quem
+  mandou e quando" do mesmo jeito nos dois casos.
+
+⚠️ **`$7::int` NAS DUAS APARIÇÕES nos dois INSERT.** O mesmo parâmetro entra
+como valor de coluna e dentro do `CASE` que decide o `primeira_resposta_em`;
+sem o cast explícito o Postgres deduz tipos diferentes e recusa a query **no
+parse** (42P08). É exatamente o defeito que derrubou
+`POST /cliente/orcamentos/:id/responder` desde o dia em que nasceu — e que só
+aparece quando alguém usa a rota de verdade. Por isso as duas foram
+**exercitadas**, não só `node --check`: Express de pé, JWT assinado, 20 casos
+contra o banco de teste (com técnico, sem técnico, id inexistente, id inválido,
+string vazia, clique duplo nas duas variantes), tudo verde e as linhas de teste
+removidas no fim.
+
+⚠️ **No clique duplo dos Aprovados a escolha PREENCHE VAZIO e nunca troca.**
+Chamado que já existe sem técnico recebe o escolhido (`tecnico_atribuido:
+true`); com técnico, nada muda e a faixa diz isso, em vez de afirmar um
+despacho que não houve. Sobrescrever seria o outro extremo: o segundo clique
+desfazendo, sem aviso, o despacho do primeiro — ou o de outro operador.
+
+**Endpoint novo: `GET /operador/tecnicos`** — id, nome, `disponivel`,
+`abertos`, GPS de 30 min. ⚠️ Existe para a tela de Aprovados **não** chamar
+`GET /tecnicos`, que devolve a ficha inteira do funcionário (CPF, RG, endereço,
+data de nascimento) porque serve o cadastro do admin. Uma tela que só precisa de
+nomes não tem por que receber isso — dado que não trafega não vaza. A consulta
+é a **mesma** da fila, agora em `SQL_EQUIPE`: tela que oferece um técnico que a
+gravação recusa é o pior sintoma possível. (O prefixo `/operador` já está na
+lista network-first do `sw.js` — nada a bumpar lá.)
+
+**Front:**
+
+- O seletor vem **depois da descrição**, que é a ordem da conversa ao telefone:
+  onde · o que · quanto corre · o que foi dito · **quem vai**.
+- O padrão é **"Despachar depois"**, nunca o primeiro da lista: formulário que
+  já vem com alguém escolhido atribui por inércia.
+- Cada opção traz o **mesmo estado do cartão de despacho** (livre agora · N
+  chamados · ocupado) e a **mesma ordem** (livre primeiro, depois menos
+  carregado). Um nome só não é escolha informada, e ordem diferente em cada
+  tela ensinaria que a primeira posição não quer dizer nada.
+- A faixa de confirmação passou a dizer **para qual seção o chamado foi** —
+  mesma correção do despacho de mais cedo: o item nasce em "Já tem técnico" ou
+  em "Esperando alguém" e pode cair abaixo da dobra.
+- ⚠️ De quebra, o `operador-orcamentos.html` estava com `operador.css?v=71`
+  enquanto as outras duas telas já tinham ido para 72 — as três foram para 73.
+
+Sem migration: `chamados.tecnico_id` existe desde a 009.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

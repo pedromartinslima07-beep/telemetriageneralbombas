@@ -1152,6 +1152,33 @@ function hora(iso) {
   return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
 }
 
+/* As opções do seletor de técnico, com o MESMO estado que o cartão do diálogo
+   de despacho escreve — livre, ocupado, quantos chamados carrega. Um nome só
+   não é escolha informada: numa lista de nove, quem decide precisa saber quem
+   está livre sem abrir outra tela.
+
+   ⚠️ A ORDEM É A DO DESPACHO (livre primeiro, depois menos carregado), e não
+   alfabética. As duas telas respondem à mesma pergunta — "quem pode ir" —, e
+   uma ordem diferente em cada uma ensinaria que a primeira posição não quer
+   dizer nada.
+
+   ⚠️ O VAZIO VEM PRIMEIRO E É O PADRÃO. Formulário que já vem com alguém
+   escolhido atribui por inércia: o operador confirma sem ler, e o chamado sai
+   com um técnico que ninguém decidiu mandar. */
+function tecEstado(t) {
+  const n = t.abertos || 0;
+  const carga = n === 1 ? "1 chamado" : n + " chamados";
+  if (!t.disponivel) return n ? "ocupado · " + carga : "ocupado";
+  return n ? carga : "livre agora";
+}
+function opcoesTecnico(lista) {
+  const arr = [...(lista || [])].sort(
+    (a, b) => (b.disponivel - a.disponivel) || (a.abertos - b.abertos));
+  return `<option value="">Despachar depois</option>` + arr
+    .map((t) => `<option value="${t.id}">${escapar(t.nome)} · ${tecEstado(t)}</option>`)
+    .join("");
+}
+
 // Novo chamado: o que chega por telefone precisa de porta de entrada. O
 // operador passa em `adminOnly`, que cobre POST /chamados.
 function dlgNovo() {
@@ -1162,7 +1189,7 @@ function dlgNovo() {
   abrirFundo(`<div class="ficha" style="width:min(660px,100%)" role="dialog" aria-label="Novo chamado">
     <div class="ficha-cab">
       <div><h2>Novo chamado</h2>
-        <div class="onde" style="margin-top:7px">Nasce aberto, sem técnico</div></div>
+        <div class="onde" style="margin-top:7px">Nasce aberto, na fila do turno</div></div>
       <button class="ficha-x" data-acao="fechar" aria-label="Fechar">${I.x}</button>
     </div>
     <form class="form" id="formNovo">
@@ -1201,6 +1228,20 @@ function dlgNovo() {
         <label for="nvDesc">O que foi relatado</label>
         <textarea id="nvDesc" placeholder="Escreva com as palavras de quem ligou. O técnico lê isto antes de sair."></textarea>
       </div>
+      <!-- ⚠️ O TÉCNICO VEM DEPOIS DA DESCRIÇÃO, e a ordem é a da conversa ao
+           telefone: onde, o que, quanto corre, o que foi dito — e só então
+           quem vai. Escolher antes de escrever o relato seria escolher sem o
+           que a decisão precisa.
+           ⚠️ E é OPCIONAL, sempre: a fila continua sendo o lugar de despachar
+           o que chega sem dono. O padrao e "despachar depois" e nao o primeiro
+           tecnico da lista — abrir um chamado nao pode atribuir alguem por
+           inercia de formulario.
+           (Sem crase neste comentario: ele vive dentro de um template literal,
+            e crase aqui FECHA o template. Ver CLAUDE.md.) -->
+      <div class="campo largo">
+        <label for="nvTec">Técnico</label>
+        <select id="nvTec">${opcoesTecnico(DADOS.tecnicos)}</select>
+      </div>
       <!-- ⚠️ OS NÚMEROS SAÍRAM DAQUI (31/08). Esta dica dizia "P2 24–48h" e
            "P4 conforme agenda"; no banco, o ttr_min de P2 é 1440 (24h) e o de
            P4 é 14400 (10 dias). Eram prazos escritos à mão que envelheceram em
@@ -1211,7 +1252,9 @@ function dlgNovo() {
             literal, e crase aqui FECHA o template. Ver CLAUDE.md.) -->
       <p class="dica">A prioridade define o prazo. Na dúvida entre dois níveis,
         prevalece o maior — e o botão <b>Ajuda</b>, no alto da tela, mostra a
-        tabela completa de prazos.</p>
+        tabela completa de prazos. Escolher o técnico aqui já <b>para o relógio
+        da primeira resposta</b>; sem ele, o chamado entra em “Esperando
+        alguém”.</p>
     </form>
     <div class="ficha-pe">
       <p id="nvMsg"></p>
@@ -1245,6 +1288,7 @@ async function salvarNovo() {
   const descricao = document.getElementById("nvDesc")?.value.trim();
   const categoria = document.getElementById("nvCat")?.value;
   const prioridade = document.querySelector('#nvPrio .prio[aria-pressed="true"]')?.dataset.p || "p2";
+  const tecnico_id = Number(document.getElementById("nvTec")?.value) || null;
   const msg = document.getElementById("nvMsg");
 
   if (!condominio_id) { if (msg) msg.textContent = "Escolha o prédio."; return; }
@@ -1254,12 +1298,20 @@ async function salvarNovo() {
     const r = await fetch("/chamados", {
       method: "POST",
       headers: { ...authHeaders(), "Content-Type": "application/json" },
-      body: JSON.stringify({ condominio_id, titulo, descricao, categoria, prioridade }),
+      body: JSON.stringify({ condominio_id, titulo, descricao, categoria, prioridade, tecnico_id }),
     });
     const d = await lerJson(r, "Novo chamado");
     if (!r.ok) throw new Error(d.error || "Erro ao abrir o chamado");
     fechar();
     await carregar();
+    // ⚠️ A FAIXA DIZ PARA QUAL SEÇÃO O CHAMADO FOI, e é a mesma correção do
+    // despacho: a fila tem duas seções, o item novo cai numa delas conforme a
+    // escolha do técnico, e pode nascer abaixo da dobra. Sem esta linha, quem
+    // abriu o chamado procura na seção errada e conclui que não salvou.
+    const tec = (DADOS.tecnicos || []).find((t) => t.id === d.tecnico_id);
+    avisar(tec
+      ? `Chamado #${d.id} aberto com ${tec.nome}. Ele está em “Já tem técnico”.`
+      : `Chamado #${d.id} aberto. Ele está em “Esperando alguém”.`, true);
   } catch (e) {
     if (msg) msg.textContent = e.message;
   }

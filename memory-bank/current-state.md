@@ -312,6 +312,14 @@ Fluxo e pegadinhas em
 - **Um endpoint** (`GET /operador/fila`) monta a tela inteira, com o SLA
   resolvido no **relógio do servidor**. Recarga a cada 30s por `setTimeout`
   recursivo, com pulso que fica vermelho após 3 ciclos sem sucesso.
+- **O chamado pode nascer já despachado** (31/08): os dois diálogos de criação
+  — o "Novo chamado" da fila e o "Abrir chamado" dos Aprovados — têm seletor de
+  **técnico opcional**, com padrão "Despachar depois". Quem valida é o
+  `chamado-atribuicao.service.js` (ativo + cargo técnico), atribuir marca o
+  `primeira_resposta_em` e o status continua `aberto` — `em_atendimento` segue
+  sendo só do app do técnico. ⚠️ A tela de Aprovados busca a equipe em
+  **`GET /operador/tecnicos`**, e não em `GET /tecnicos`: aquele devolve CPF,
+  RG e endereço porque serve o cadastro do admin.
 - **Acabamento em 27/08** (passe `polish` da skill): item de 318px → 258px,
   medida de linha em 68ch, ações em coluna própria, piso de contraste 5,2:1 e
   o pulso da barra com três estados. O brief da superfície fica em

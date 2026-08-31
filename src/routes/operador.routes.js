@@ -14,7 +14,8 @@ const { authRequired } = require("../middleware/authRequired");
 const { adminOnly } = require("../middleware/adminOnly");
 // O mesmo registro de auditoria que `POST /chamados` grava. Um chamado que
 // nasce aqui não pode ficar de fora do histórico só por ter outra porta.
-const { registrarCriacao } = require("../services/chamado-historico.service");
+const { registrarCriacao, registrarMudancas } = require("../services/chamado-historico.service");
+const { resolverTecnico } = require("../services/chamado-atribuicao.service");
 
 const router = express.Router();
 
@@ -27,6 +28,43 @@ const NIVEL_CRITICO = 20;
 // Mesmo valor de `OFFLINE_MINUTES` em src/config.js — importado de lá para
 // não virar um segundo número de verdade.
 const { OFFLINE_MINUTES } = require("../config");
+
+/* A EQUIPE QUE PODE RECEBER UM CHAMADO — uma consulta, dois consumidores:
+   `GET /operador/fila` (que a desenha no mapa e no diálogo de despacho) e
+   `GET /operador/tecnicos` (que a lista nos diálogos de abrir chamado). Escrita
+   uma vez porque divergir aqui teria o pior sintoma possível: um técnico que
+   aparece para escolher numa tela e some na outra.
+
+   ⚠️ A coluna de tempo é `atualizada_em` (feminino) e a posição só vale por 30
+   minutos — a mesma janela de `GET /tecnicos/localizacao`, para um pin não
+   ficar preso onde o técnico esteve de manhã.
+
+   ⚠️ O que NÃO foi copiado de lá: a janela de expediente, que zera a lista
+   inteira fora do horário. Ali ela existe para o mapa não mostrar ninguém
+   depois das 18h; aqui a lista serve para DESPACHAR, e um chamado P1 às 18h10
+   precisa saber quem ainda está em campo. Se essa diferença incomodar, o lugar
+   de resolver é aqui, não no outro endpoint.
+
+   ⚠️ O `WHERE` é a MESMA regra do `resolverTecnico` (ativo + cargo técnico):
+   esta consulta diz quem a tela oferece, e aquele serviço diz quem o banco
+   aceita. As duas precisam responder igual, senão a tela oferece quem a
+   gravação recusa. */
+const SQL_EQUIPE = `
+  SELECT
+    t.id, t.nome, t.disponivel,
+    tl.lat, tl.lng, tl.atualizada_em AS gps_em,
+    COUNT(ch.id) FILTER (
+      WHERE ch.status IN ('aberto','em_atendimento')
+    )::int AS abertos
+  FROM tecnicos t
+  LEFT JOIN tecnico_localizacoes tl
+         ON tl.tecnico_id = t.id
+        AND tl.atualizada_em > NOW() - INTERVAL '30 minutes'
+  LEFT JOIN chamados ch ON ch.tecnico_id = t.id
+  WHERE t.ativo = true AND COALESCE(t.cargo, 'tecnico') = 'tecnico'
+  GROUP BY t.id, t.nome, t.disponivel, tl.lat, tl.lng, tl.atualizada_em
+  ORDER BY t.disponivel DESC NULLS LAST, t.nome
+`;
 
 /**
  * GET /operador/fila
@@ -90,32 +128,7 @@ router.get("/fila", authRequired, adminOnly, async (req, res) => {
         ORDER BY r.id, l.criado_em DESC NULLS LAST
       `),
 
-      // ⚠️ A coluna de tempo é `atualizada_em` (feminino) e a posição só vale
-      // por 30 minutos — a mesma janela de `GET /tecnicos/localizacao`, para
-      // um pin não ficar preso onde o técnico esteve de manhã.
-      //
-      // ⚠️ O que NÃO foi copiado de lá: a janela de expediente, que zera a
-      // lista inteira fora do horário. Ali ela existe para o mapa não mostrar
-      // ninguém depois das 18h; aqui a lista serve para DESPACHAR, e um
-      // chamado P1 às 18h10 precisa saber quem ainda está em campo. Se essa
-      // diferença incomodar, o lugar de resolver é aqui, não no outro
-      // endpoint.
-      pool.query(`
-        SELECT
-          t.id, t.nome, t.disponivel,
-          tl.lat, tl.lng, tl.atualizada_em AS gps_em,
-          COUNT(ch.id) FILTER (
-            WHERE ch.status IN ('aberto','em_atendimento')
-          )::int AS abertos
-        FROM tecnicos t
-        LEFT JOIN tecnico_localizacoes tl
-               ON tl.tecnico_id = t.id
-              AND tl.atualizada_em > NOW() - INTERVAL '30 minutes'
-        LEFT JOIN chamados ch ON ch.tecnico_id = t.id
-        WHERE t.ativo = true AND COALESCE(t.cargo, 'tecnico') = 'tecnico'
-        GROUP BY t.id, t.nome, t.disponivel, tl.lat, tl.lng, tl.atualizada_em
-        ORDER BY t.disponivel DESC NULLS LAST, t.nome
-      `),
+      pool.query(SQL_EQUIPE),
 
       // ⚠️ A CARTEIRA INTEIRA, para o mapa nunca ser um retângulo vazio
       // (31/08/2026). Ele só tinha o que desenhar quando havia chamado com
@@ -382,6 +395,33 @@ router.get("/orcamentos", authRequired, adminOnly, async (req, res) => {
 });
 
 /**
+ * GET /operador/tecnicos
+ *
+ * A equipe que pode receber um chamado — id, nome, se está livre, quantos
+ * chamados carrega. É a lista do seletor "Técnico" dos diálogos de abrir
+ * chamado (31/08/2026).
+ *
+ * ⚠️ EXISTE PARA A TELA DE APROVADOS NÃO CHAMAR `GET /tecnicos`, e o motivo é
+ * privacidade, não gosto: aquele endpoint devolve a ficha inteira do
+ * funcionário — CPF, RG, endereço, data de nascimento — porque serve o cadastro
+ * do admin. Uma tela que só precisa de nomes não tem por que receber isso, e
+ * dado que não trafega não vaza.
+ *
+ * ⚠️ A tela da FILA não usa este endpoint: lá a equipe já vem no `/operador/fila`
+ * (a tese da superfície: uma request monta a tela). Aqui é o mesmo raciocínio
+ * do `/prazos` — é diálogo, e diálogo não entra no caminho crítico da lista.
+ */
+router.get("/tecnicos", authRequired, adminOnly, async (req, res) => {
+  try {
+    const r = await pool.query(SQL_EQUIPE);
+    return res.json(r.rows);
+  } catch (err) {
+    console.error("[operador] GET /tecnicos:", err);
+    return res.status(500).json({ error: "Erro ao buscar a equipe" });
+  }
+});
+
+/**
  * GET /operador/prazos
  *
  * O que a AJUDA da tela explica: os prazos de cada prioridade e as faixas de
@@ -453,7 +493,7 @@ router.post("/orcamentos/:id/chamado", authRequired, adminOnly, async (req, res)
   if (!Number.isInteger(id) || id <= 0)
     return res.status(400).json({ error: "Orçamento inválido" });
 
-  const { titulo, descricao, categoria, prioridade } = req.body || {};
+  const { titulo, descricao, categoria, prioridade, tecnico_id } = req.body || {};
   if (!titulo || typeof titulo !== "string" || !titulo.trim())
     return res.status(400).json({ error: "Escreva um título para o chamado" });
   if (!descricao || typeof descricao !== "string" || descricao.trim().length < 5)
@@ -464,6 +504,9 @@ router.post("/orcamentos/:id/chamado", authRequired, adminOnly, async (req, res)
     return res.status(400).json({ error: "Prioridade inválida" });
 
   try {
+    const tec = await resolverTecnico(tecnico_id);
+    if (!tec.ok) return res.status(400).json({ error: tec.erro });
+
     const orc = await pool.query(
       `SELECT id, numero, status, condominio_id FROM orcamentos WHERE id = $1`, [id]
     );
@@ -483,18 +526,56 @@ router.post("/orcamentos/:id/chamado", authRequired, adminOnly, async (req, res)
     // existe com 200 e `ja_existia` — o front leva para ele em vez de mostrar
     // erro. Chamado FECHADO não bloqueia: o serviço pode voltar.
     const aberto = await pool.query(
-      `SELECT id FROM chamados
+      `SELECT id, tecnico_id FROM chamados
         WHERE orcamento_id = $1 AND status IN ('aberto','em_atendimento')
         ORDER BY criado_em DESC LIMIT 1`, [id]
     );
-    if (aberto.rows.length)
-      return res.json({ id: aberto.rows[0].id, ja_existia: true });
+    if (aberto.rows.length) {
+      const ja = aberto.rows[0];
+      // ⚠️ O TÉCNICO ESCOLHIDO NÃO SE PERDE NO CLIQUE DUPLO — mas só PREENCHE
+      // VAZIO, nunca troca. Quem clicou de novo escolhendo alguém quis
+      // despachar este serviço; devolver "já existia" e ignorar a escolha faria
+      // a tela dizer que registrou algo que não registrou. Trocar um técnico
+      // que já estava lá seria o outro extremo: o segundo clique desfazendo,
+      // sem aviso, o despacho do primeiro (ou o de outro operador).
+      let atribuido = false;
+      if (tec.id && !ja.tecnico_id) {
+        const upd = await pool.query(
+          `UPDATE chamados
+              SET tecnico_id = $2,
+                  primeira_resposta_em = COALESCE(primeira_resposta_em, NOW()),
+                  atualizado_em = NOW()
+            WHERE id = $1 AND tecnico_id IS NULL
+        RETURNING id, tecnico_id`,
+          [ja.id, tec.id]
+        );
+        atribuido = upd.rows.length > 0;
+        if (atribuido) {
+          registrarMudancas({
+            chamadoId: ja.id,
+            antes: { tecnico_id: null },
+            depois: { tecnico_id: tec.id },
+            alteradoPor: req.user.id,
+          });
+        }
+      }
+      return res.json({ id: ja.id, ja_existia: true, tecnico_atribuido: atribuido });
+    }
 
+    // ⚠️ `$7::int` NAS DUAS APARIÇÕES: o mesmo parâmetro como valor de coluna e
+    // dentro de um CASE deduz tipos diferentes e o Postgres recusa a query no
+    // parse (42P08). Ver CLAUDE.md — e a rota de responder orçamento, que
+    // nasceu quebrada exatamente assim.
+    // ⚠️ Atribuir marca o TTFR (mesma regra do PATCH) e NÃO mexe no status:
+    // `em_atendimento` continua sendo só do app do técnico.
     const ins = await pool.query(
       `INSERT INTO chamados
-         (condominio_id, titulo, descricao, prioridade, categoria, orcamento_id, status)
-       VALUES ($1, $2, $3, $4, $5, $6, 'aberto')
-       RETURNING id, status, prioridade, categoria, titulo, condominio_id, orcamento_id, criado_em`,
+         (condominio_id, titulo, descricao, prioridade, categoria, orcamento_id,
+          tecnico_id, primeira_resposta_em, status)
+       VALUES ($1, $2, $3, $4, $5, $6,
+               $7::int, CASE WHEN $7::int IS NULL THEN NULL ELSE NOW() END, 'aberto')
+       RETURNING id, status, prioridade, categoria, titulo, condominio_id, orcamento_id,
+                 tecnico_id, criado_em`,
       [
         o.condominio_id || null,
         titulo.trim().slice(0, 255),
@@ -502,10 +583,20 @@ router.post("/orcamentos/:id/chamado", authRequired, adminOnly, async (req, res)
         prioridade || "p4",
         categoria || "manutencao",
         id,
+        tec.id,
       ]
     );
-    registrarCriacao({ chamadoId: ins.rows[0].id, alteradoPor: req.user.id });
-    return res.status(201).json({ ...ins.rows[0], ja_existia: false });
+    const novo = ins.rows[0];
+    registrarCriacao({ chamadoId: novo.id, alteradoPor: req.user.id });
+    if (novo.tecnico_id) {
+      registrarMudancas({
+        chamadoId: novo.id,
+        antes: { tecnico_id: null },
+        depois: { tecnico_id: novo.tecnico_id },
+        alteradoPor: req.user.id,
+      });
+    }
+    return res.status(201).json({ ...novo, ja_existia: false });
   } catch (err) {
     console.error("[operador] POST /orcamentos/:id/chamado:", err);
     return res.status(500).json({ error: "Erro ao abrir o chamado deste orçamento" });

@@ -147,7 +147,7 @@ Webhook em **Públicas**. Demais exigem admin:
 
 ## Chamados (`/chamados`)
 
-| POST | `/chamados` | **adminOnly** (criação manual) |
+| POST | `/chamados` | **adminOnly** (criação manual; aceita `tecnico_id` opcional — nasce já despachado) |
 | GET | `/chamados` · `/chamados/:id` · `/:id/historico` | adminOnly |
 | PATCH | `/chamados/:id` | **adminOnly** (status/responsável; bloqueia `em_atendimento`) |
 | GET | `/chamados/meus` · `/meus/:id` | técnico autenticado |
@@ -294,6 +294,7 @@ pendências em [painel-operador.md](modulos/painel-operador.md).
 | Método | Rota | Acesso / observação |
 |---|---|---|
 | GET | `/operador/fila` | adminOnly — **uma request monta a tela inteira**: chamados abertos (`aberto`, `em_atendimento`) com o SLA já resolvido, os reservatórios do condomínio de cada um e a equipe com posição atual |
+| GET | `/operador/tecnicos` | adminOnly — a equipe que pode receber um chamado (id, nome, `disponivel`, `abertos`, GPS dos últimos 30 min). É a lista do seletor **Técnico** dos diálogos de abrir chamado |
 | GET | `/operador/prazos` | adminOnly — os prazos de `sla_definicoes` + as faixas de nível e a janela do sensor mudo. É o que a **Ajuda** das duas telas mostra |
 | GET | `/operador/orcamentos` | adminOnly — os orçamentos **aprovados**, por prédio, para a tela `/operador/painel/orcamentos`. Traz `chamado_id`/`chamado_status` do chamado que executa cada um (079) |
 | POST | `/operador/orcamentos/:id/executado` | adminOnly — marca o orçamento como **já feito** (sem chamado). Migration 080 |
@@ -325,14 +326,31 @@ clique e sem confirmação: sem ele, um clique errado só se conserta no banco.
 ⚠️ **`POST /operador/orcamentos/:id/chamado` NÃO aceita o prédio no corpo** —
 ele vem do orçamento. Aceitar do front permitiria abrir, a partir do orçamento
 de um prédio, um chamado em outro, e o vínculo passaria a mentir. Corpo:
-`{ titulo, descricao, categoria?, prioridade? }` (padrões `manutencao` e
-**`p4`** — serviço aprovado é trabalho agendado, não incidente). Respostas:
-`201` com o chamado novo; `200 { id, ja_existia: true }` quando já há chamado
-aberto do mesmo orçamento (clique duplo é o caso normal — a lista não recarrega
-sozinha); `409` se o orçamento não está aprovado; `404`, `400`, `401` no resto.
+`{ titulo, descricao, categoria?, prioridade?, tecnico_id? }` (padrões
+`manutencao` e **`p4`** — serviço aprovado é trabalho agendado, não incidente).
+Respostas: `201` com o chamado novo; `200 { id, ja_existia: true,
+tecnico_atribuido }` quando já há chamado aberto do mesmo orçamento (clique
+duplo é o caso normal — a lista não recarrega sozinha); `409` se o orçamento não
+está aprovado; `404`, `400`, `401` no resto.
 E **sem o bump de recorrência** de `POST /chamados`: lá ele detecta problema que
 volta, aqui subiria a prioridade de uma limpeza agendada por causa de outra
 limpeza no mês passado.
+
+⚠️ **`tecnico_id` é opcional nas DUAS portas de criação** (`POST /chamados` e
+esta) desde 31/08/2026. Regras iguais nas duas, porque são a mesma decisão:
+o técnico precisa estar `ativo` e com `cargo = 'tecnico'` (senão `400`);
+atribuir **marca `primeira_resposta_em`**, a mesma regra do
+`PATCH /chamados/:id`; o `status` continua `aberto` — `em_atendimento` só vem
+do app do técnico, via `/iniciar-atendimento`; e a atribuição entra no
+`historico_chamados` como linha `tecnico_id`, indistinguível de um despacho
+feito depois.
+
+⚠️ **No clique duplo, o técnico escolhido PREENCHE VAZIO e nunca troca.** Se o
+chamado que já existe está sem técnico, ele recebe o escolhido e a resposta vem
+com `tecnico_atribuido: true`; se já tem outro, nada muda (`false`) e a tela
+diz isso. Ignorar a escolha em silêncio faria a tela afirmar um despacho que
+não houve; sobrescrever faria o segundo clique desfazer, sem aviso, o despacho
+do primeiro — ou o de outro operador.
 
 ⚠️ **O SLA vem calculado do servidor** (`sla.resta_min`, negativo quando
 estourado) e a fila já chega **ordenada por ele** — chamado sem
