@@ -145,41 +145,68 @@ aliases:
     substituído pelo seletor; inventário do parque instalado; alerta de
     garantia.
 
-- **Fase 13 — Ativos Técnicos (VRP e além)** 📋 — plano recebido de fora em
-  2026-09-01: o chefe do Pedro mandou dois documentos (o `Prompt_Mestre` em
-  `.txt`/`.docx` é o mesmo conteúdo; o terceiro arquivo é o resumo com mapa
-  visual) pedindo um cadastro mestre onde bomba e VRP são tipos do mesmo ativo.
-  Análise completa, censo de produção e as **oito perguntas em aberto** estão em
-  [`active-work.md`](active-work.md).
+- **Fase 13 — Ativos Técnicos (VRP, piscina e além)** 📋 — plano recebido de
+  fora em 2026-09-01: o chefe do Pedro mandou o `Prompt_Mestre` (28 seções, em
+  `.txt` e `.docx` — mesmo conteúdo), o resumo com mapa visual e, horas depois,
+  o **`orientacao_inventario_tags_qrcode_general_v3`**, que respondeu duas
+  perguntas, encolheu uma fase e **contradiz o primeiro no padrão de TAG**.
+  Análise completa, censo de produção e o **placar das 11 perguntas** estão em
+  [`active-work.md`](active-work.md). ⚠️ Os três originais vivem em
+  `Downloads/` e **não estão versionados**.
   - 🔑 **A Fase 12 tem zero linhas em produção** (censo de 01/09): nenhuma
     etiqueta impressa, nenhum equipamento cadastrado, nenhuma movimentação.
     **Não existe retrofit** — o cadastro pode ser remodelado com liberdade, e
     é o que torna esta fase barata agora e cara depois.
-  - 📋 **A (fundação, `migration 081`)**: `tag`, `sistema`, `local_id`,
-    `funcao`, `condicao`, `especificacoes JSONB` e
-    `substituiu_id`/`substituido_por_id` em `equipamentos`; tabela
-    `ativo_locais` (a Estação Redutora, o shaft, a casa de bombas);
-    `condominios.codigo_curto` para compor a TAG. ⚠️ `condicao` é coluna
-    **nova**, não substitui `status` — são eixos diferentes (papel do
-    equipamento × onde ele está), e misturar quebra a bancada.
-  - 📋 **B (medições, `migration 082`)**: `ativo_medicoes` com `momento`
-    (antes/depois) e **`fonte`** (projeto × encontrado em campo). É o que falta
-    para VRP existir de verdade — hoje pressão vira texto em observações.
+  - 🔑 **O inventário nasce no comercial** (v3 §2): o levantamento do lead já
+    dá condomínio, sistemas e quantidade aproximada — o bastante para criar o
+    **pré-inventário**, gerar TAGs e preparar QRs. O técnico escaneia em campo
+    e completa. O piloto deixa de ser "65 cadastros manuais" e vira "65
+    esqueletos preenchidos estação por estação".
+  - 📋 **A (fundação, `migration 081`)**: `tag`, `sistema`, `agrupador_id`,
+    **`ativo_pai_id`**, `funcao`, `condicao`, **`no_escopo`**,
+    `especificacoes JSONB` e `substituiu_id`/`substituido_por_id` em
+    `equipamentos`; tabela `ativo_agrupadores` (estação · conjunto · casa de
+    bombas · shaft); `condominios.codigo_curto` para compor a TAG. Tipos novos:
+    `vrp`, `alv`, `vcb`, `filtro`, `vaso_expansao`.
+    ⚠️ `condicao` é coluna **nova**, não substitui `status` — são eixos
+    diferentes (papel do equipamento × onde ele está), e misturar quebra a
+    bancada.
+    ⚠️ **`ativo_pai_id` não é opcional** (mudança do v3): o **conjunto
+    motobomba** — bomba + motor + retenção + válvula de pé + registros — é como
+    o inventário de bomba nasce, não um refinamento futuro. Era a §19
+    ("preparar a arquitetura, não obrigar o uso") no primeiro documento.
+  - 📋 **B (medições e pré-inventário, `migration 082`)**: `ativo_medicoes` com
+    `momento` (antes/depois) e **`fonte`** (levantamento × encontrado em campo
+    × placa × projeto). É o que falta para VRP existir de verdade — hoje
+    pressão vira texto em observações. ⚠️ **O valor do levantamento não é
+    sobrescrito pelo de campo**: os dois coexistem e a divergência é o dado
+    (v3 §2).
   - 📋 **C (tipos e checklist por definição)**: `OS_TIPOS`/`OS_EQUIPAMENTOS`
     saem das listas fixas de `app/public/app.js` e viram definição por tipo no
     backend. ⚠️ **Janela curta**: só 1 O.S. finalizada existe; depois é
     retrabalho em documento assinado.
-  - 📋 **D (contrato↔ativo, `migration 083`)**: `contrato_ativos` datado —
-    "o que estava coberto em tal data". **Depende da pergunta 3** (a cobertura
-    muda equipamento a equipamento no meio da vigência, ou é o prédio inteiro?).
+  - 📋 **D (contrato ↔ sistema, `migration 083`)** — **encolheu com o v3**: a
+    cobertura é **por sistema**, não equipamento a equipamento (§1), então
+    `contrato_sistemas` + `no_escopo` no ativo, em vez da `contrato_ativos`
+    datada. **Ainda depende da pergunta 3**: se a cobertura muda no meio da
+    vigência, as datas voltam.
   - 📋 **E (planos por tipo de ativo)**: `planos_manutencao` ganha `tipo_ativo`
     e `ativo_id`. Os 72 planos existentes estão **todos desligados** desde
-    04/08, então não há nada rodando para quebrar.
+    04/08, então não há nada rodando para quebrar. Inclui o **filtro de
+    piscina**, cuja troca de meio filtrante tem periodicidade própria.
   - 📋 **F (dashboard + relatório mensal)** e **G (triagem de reclamação de
     pressão)** — depois do campo.
   - ❌ **QR sequencial (`/ativos/{id}`) não entra**: a ficha revela endereço de
     cliente e URL adivinhável expõe o parque inteiro. TAG legível e `codigo`
     aleatório **convivem** — um é para ler, o outro para escanear.
+    ⚠️ **O v3 pede dois níveis de acesso pelo mesmo QR** (consulta sem login ×
+    colaborador autenticado). Dá para fazer, mas exige decidir o que o nível
+    aberto mostra: com nome e endereço do condomínio, o código aleatório deixa
+    de proteger o parque.
+  - ⚠️ **Contradição de TAG entre os documentos:** o doc 1 pede
+    `VNT-BMB-001` (cliente + tipo), o v3 desenha `REC-01` / `PIS-FIL-01`
+    (função, sem cliente) — e sem o cliente a TAG repete nos 87 prédios, contra
+    a regra de unicidade do próprio doc 1. **Sugestão na mesa: `VNT-REC-01`.**
   - ❌ **Renomear a tabela para `ativos`** — zero linhas no banco, mas caro no
     código. "Ativos Técnicos" é o nome na tela; no banco segue `equipamentos`.
   - ⚠️ **Pré-requisito herdado da 12A**: `PUBLIC_BASE_URL` nas envs do Railway.
@@ -254,6 +281,20 @@ aliases:
     banco de teste; o app com dado real de produção não foi aberto.
   - 📋 **Emojis restantes** no `home` (placeholder de admin/cliente) e nas telas
     `cliente-*`: saem junto com a remoção delas.
+
+- **O.S. offline — etapas 2 a 4** 🟡 — a **etapa 1** entrou em 01/09/2026: os
+  campos do formulário sobrevivem à falta de sinal (rascunho em `localStorage`,
+  reenvio sozinho). 📋 Faltam:
+  - **2 — fila de fotos.** Elas vão em base64 e **não cabem em `localStorage`**
+    (~5 MB); exige IndexedDB e envio uma a uma, respeitando o limite de 8 MB do
+    `express.json` (ver CLAUDE.md).
+  - **3 — finalizar offline.** ⚠️ **Exige backend:** `POST /:id/finalizar` grava
+    `finalizada_em = NOW()`. Uma O.S. terminada às 14h no subsolo e sincronizada
+    às 17h ficaria como 17h, e isso alimenta o `tempo_resolucao_seg` (o SLA). O
+    app teria de mandar o horário dele — e aí passa a depender do relógio do
+    celular, que precisa de checagem de sanidade (recusar futuro ou muito velho).
+  - **4 — abrir a O.S. offline**, pré-carregando os chamados do dia enquanto há
+    sinal. Hoje a tela depende do `GET /ordens-servico/:id`.
 
 - **Apagar as telas de cliente do app** 📋 — o Pedro confirmou em 01/09/2026 que
   `cliente-*` não existe em uso e autorizou remover ("se quiser ignorar ou

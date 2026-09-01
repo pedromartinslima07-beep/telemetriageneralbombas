@@ -241,6 +241,15 @@ ESP32 (sonda 4-20mA + SCT-013)
     `app.css`** em vez de sobrescrever: três regras antigas venceram a folha
     nova em silêncio nesta sessão. Detalhe em
     [app-mobile.md](../docs/modulos/app-mobile.md).
+- **A O.S. sobrevive à falta de sinal — os CAMPOS** (01/09/2026). O patch
+  pendente é gravado em `localStorage` por id de O.S. antes de tentar a rede, e
+  volta para a fila quando o envio falha (antes era descartado, e o que o
+  técnico digitava vivia só em memória — sair da tela perdia tudo). Reabrir
+  aplica o rascunho por cima do `GET` e reenvia sozinho. ⚠️ **Fotos, envio da
+  assinatura e FINALIZAR continuam exigindo rede** — são as etapas 2 e 3.
+  ⚠️ Falta de sinal virou estado âmbar, não alerta vermelho; vermelho ficou
+  reservado para recusa do servidor (`err.httpStatus` no `api()` separa os
+  dois). Detalhe em [app-mobile.md](../docs/modulos/app-mobile.md).
 - **A tela de fim de O.S. só oferece "Voltar pra minha lista"** (01/09/2026).
   Saíram o botão "Baixar PDF" (pedido do Pedro) e a barra "Confirmar e
   finalizar O.S.", que continuava na tela de uma O.S. **já finalizada** e só

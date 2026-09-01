@@ -63,9 +63,22 @@ async function api(path, opts = {}) {
 
   if (!r.ok) {
     const msg = data?.error || `Erro HTTP ${r.status}`;
-    throw new Error(msg);
+    const err = new Error(msg);
+    // ⚠️ MARCA QUE ISTO VEIO DO SERVIDOR, não da rede. Sem essa distinção quem
+    // chama não consegue separar "estamos sem sinal, vale tentar de novo" de
+    // "o servidor recusou, tentar de novo vai recusar igual". O `fetch` estoura
+    // `TypeError` quando não há rede, e aí este ponto nem é alcançado — então a
+    // ausência de `httpStatus` é o sinal de falha de rede.
+    err.httpStatus = r.status;
+    throw err;
   }
   return data;
+}
+
+// "Isto foi a rede, não o servidor?" — usado pelo rascunho da O.S. para decidir
+// entre guardar para reenviar e mostrar o erro de verdade.
+function ehFalhaDeRede(err) {
+  return !err || err.httpStatus === undefined;
 }
 
 // ============== SCREEN ROUTER ==============
@@ -2104,12 +2117,35 @@ async function abrirFormularioOS(chamadoId, osId) {
       OS.data.pecas = OS.data.pecas || [];
     }
 
+    // ⚠️ O RASCUNHO ENTRA POR CIMA DO QUE O SERVIDOR DEVOLVEU, e antes do
+    // render. Ele é o que o técnico digitou e o servidor ainda não confirmou —
+    // logo, é mais novo que o GET. Aplicar depois do render mostraria os
+    // valores antigos por um instante; aplicar antes faz a tela abrir já com o
+    // trabalho dele de volta.
+    if (!IS_DEMO) {
+      const rascunho = _osLerRascunho(OS.data.id);
+      if (rascunho && rascunho.patch && Object.keys(rascunho.patch).length) {
+        Object.assign(OS.data, rascunho.patch);
+        OS.pendingPatch = { ...rascunho.patch };
+        _osMostrarEstadoEnvio("pendente");
+        if (rascunho.semAssinatura) {
+          showAlert(document.getElementById("osAlert"),
+            "Recuperamos o que você preencheu, menos a assinatura — refaça a assinatura.", "info");
+        }
+      } else {
+        _osMostrarEstadoEnvio("ok");
+      }
+    }
+
     document.getElementById("osNumero").textContent = OS.data.numero || `OS-${osId}`;
     iniciarTimerOS(OS.data.chegada_em);
     // Antes do render: é ele que decide se a seção "Bomba atendida" existe.
     // Custa um round-trip a mais na abertura, mas o esqueleto já está na tela.
     await _osCarregarEquipamentos();
     renderOSSections();
+
+    // Chegou até aqui, então há rede: tenta subir o que estava guardado.
+    if (OS.pendingPatch) _osEnviarPatchPendente().catch(() => {});
   } catch (err) {
     showAlert(document.getElementById("osAlert"), err.message, "error");
   }
@@ -2181,6 +2217,72 @@ function pararTimerOS() {
   if (OS.timer) { clearInterval(OS.timer); OS.timer = null; }
 }
 
+// ---- Rascunho local da O.S. (01/09/2026) ----
+//
+// ⚠️ POR QUE ISTO EXISTE: a O.S. é preenchida em casa de máquinas e subsolo,
+// onde o sinal cai. Antes disto, cada campo disparava um PATCH que falhava, o
+// patch acumulado era DESCARTADO (o `OS.pendingPatch = null` rodava antes do
+// `try`) e o que tinha sido digitado vivia só na memória — sair da tela ou o
+// Android matar o app em segundo plano levava tudo junto. O técnico refazia a
+// O.S. inteira.
+//
+// O rascunho é o que ainda NÃO foi confirmado pelo servidor, guardado por id
+// de O.S. Ele é aplicado por cima do que o GET devolve ao reabrir, porque é
+// mais novo, e some assim que o servidor confirma.
+//
+// ⚠️ ESCOPO: isto cobre os CAMPOS do formulário. Fotos e o envio da assinatura
+// continuam exigindo rede no momento do toque — cabem numa fila com IndexedDB,
+// que é outra etapa (`localStorage` não segura foto).
+const OS_RASCUNHO_PREFIX = "gb_os_rascunho_";
+const _osChaveRascunho = (osId) => OS_RASCUNHO_PREFIX + osId;
+
+function _osSalvarRascunho(osId, patch) {
+  if (!osId || !patch || !Object.keys(patch).length) return;
+  const gravar = (p, semAssinatura) =>
+    localStorage.setItem(_osChaveRascunho(osId),
+      JSON.stringify({ osId, patch: p, em: Date.now(), semAssinatura: !!semAssinatura }));
+  try {
+    gravar(patch);
+  } catch {
+    // Cota estourada. O único campo grande é a assinatura (data URL do canvas),
+    // então ela é a primeira a sair: perder a assinatura e manter o resto é
+    // muito melhor que perder o formulário inteiro. Quem redesenha é o cliente,
+    // que ainda está na frente do técnico.
+    try {
+      const { assinatura_b64, ...resto } = patch;
+      gravar(resto, true);
+      console.warn("[os] rascunho gravado sem a assinatura (cota do localStorage)");
+    } catch (e2) {
+      console.warn("[os] não foi possível gravar o rascunho:", e2.message);
+    }
+  }
+}
+
+function _osLerRascunho(osId) {
+  try {
+    const s = localStorage.getItem(_osChaveRascunho(osId));
+    return s ? JSON.parse(s) : null;
+  } catch { return null; }
+}
+
+function _osLimparRascunho(osId) {
+  try { localStorage.removeItem(_osChaveRascunho(osId)); } catch {}
+}
+
+// A linha de estado do envio. Nunca é vermelha quando é só falta de sinal:
+// "sem rede" não é erro do técnico, e pintar de vermelho a cada campo digitado
+// num subsolo treina ele a ignorar o aviso.
+function _osMostrarEstadoEnvio(estado) {
+  const el = document.getElementById("osSync");
+  if (!el) return;
+  if (estado === "ok") { el.hidden = true; el.textContent = ""; return; }
+  el.textContent = estado === "enviando"
+    ? "Enviando…"
+    : "Salvo no aparelho · envia quando o sinal voltar";
+  el.className = "os-sync" + (estado === "enviando" ? " is-enviando" : "");
+  el.hidden = false;
+}
+
 // ---- Auto-save debounced ----
 //
 // Os campos alterados vão se acumulando em OS.pendingPatch até o debounce
@@ -2192,8 +2294,15 @@ function salvarOSDebounced(patch) {
   // aplica localmente primeiro pro feedback instantâneo
   Object.assign(OS.data, patch);
   OS.pendingPatch = { ...(OS.pendingPatch || {}), ...patch };
+  // Grava ANTES de tentar a rede: é o disco que garante que nada se perde.
+  _osSalvarRascunho(OS.data.id, OS.pendingPatch);
   if (OS.saveDebounce) clearTimeout(OS.saveDebounce);
-  OS.saveDebounce = setTimeout(_osEnviarPatchPendente, 600);
+  // ⚠️ COM `.catch()`. `_osEnviarPatchPendente` relança de propósito, para o
+  // `finalizarOS` poder abortar antes de fechar a O.S. — mas aqui não há quem
+  // pegue, e sem isto cada campo digitado sem sinal virava uma promessa
+  // rejeitada sem tratamento. O estado já está na linha do `#osSync`; o erro
+  // não precisa escapar de novo por aqui.
+  OS.saveDebounce = setTimeout(() => { _osEnviarPatchPendente().catch(() => {}); }, 600);
   atualizarProgresso();
 }
 
@@ -2203,18 +2312,46 @@ function salvarOSDebounced(patch) {
 async function _osEnviarPatchPendente() {
   if (OS.saveDebounce) { clearTimeout(OS.saveDebounce); OS.saveDebounce = null; }
   const patch = OS.pendingPatch;
-  OS.pendingPatch = null;
   if (!patch || IS_DEMO || !OS.data) return;
   const osId = OS.data.id; // capturado agora: quem chama pode limpar OS.data em seguida
+
+  // Zera para que o que for digitado DURANTE o envio se acumule à parte.
+  OS.pendingPatch = null;
+  _osMostrarEstadoEnvio("enviando");
+
   try {
     await api(`/ordens-servico/${osId}`, { method: "PATCH", body: patch });
+    // Confirmado. Se nada novo chegou durante o voo, o rascunho já não serve.
+    if (OS.pendingPatch) _osSalvarRascunho(osId, OS.pendingPatch);
+    else _osLimparRascunho(osId);
+    _osMostrarEstadoEnvio(OS.pendingPatch ? "pendente" : "ok");
   } catch (err) {
-    console.warn("[os] auto-save falhou:", err.message);
-    showAlert(document.getElementById("osAlert"),
-      "Não foi possível salvar: " + err.message, "error");
+    // ⚠️ DEVOLVE O PATCH EM VEZ DE DESCARTAR — é este o conserto. O que chegou
+    // durante o voo entra POR CIMA, porque é mais novo que o que voltou.
+    OS.pendingPatch = { ...patch, ...(OS.pendingPatch || {}) };
+    _osSalvarRascunho(osId, OS.pendingPatch);
+
+    if (ehFalhaDeRede(err)) {
+      // Sem sinal: não é erro, é estado. Fica guardado e sai sozinho depois.
+      console.warn("[os] sem rede; rascunho guardado:", err.message);
+      _osMostrarEstadoEnvio("pendente");
+    } else {
+      // O servidor recusou. Repetir vai recusar de novo — isto o técnico
+      // precisa ver.
+      console.warn("[os] auto-save recusado pelo servidor:", err.message);
+      _osMostrarEstadoEnvio("pendente");
+      showAlert(document.getElementById("osAlert"),
+        "Não foi possível salvar: " + err.message, "error");
+    }
     throw err; // deixa quem chamou (finalizarOS) abortar antes de fechar a O.S.
   }
 }
+
+// Quando o sinal volta, o que estiver guardado sobe sozinho — sem o técnico
+// precisar tocar em nada nem saber que existe uma fila.
+window.addEventListener("online", () => {
+  if (OS.data && OS.pendingPatch) _osEnviarPatchPendente().catch(() => {});
+});
 
 // ---- Render das seções ----
 function renderOSSections() {
@@ -3393,6 +3530,10 @@ async function finalizarOS() {
         method: "POST",
         body: geo || {},
       });
+      // Finalizada e aceita: o rascunho cumpriu o papel e sai de cena. Deixá-lo
+      // faria a próxima abertura desta O.S. tentar reenviar campos numa O.S.
+      // fechada, que o backend recusa.
+      _osLimparRascunho(OS.data.id);
       mostrarOSSucesso();
     }
   } catch (err) {

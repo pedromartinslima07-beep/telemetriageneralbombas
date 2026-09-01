@@ -1775,3 +1775,47 @@ body::before { content: none !important; }
   outline: none;
   background: var(--amarelo);
 }
+
+/* ── Estado do envio da O.S. ──────────────────────────────────────────
+   Fica entre o timer e as seções, que é onde o olho passa antes de começar a
+   preencher. Âmbar de aviso, não vermelho de erro: "salvo aqui, sobe depois"
+   é ESTADO, não falha — e o técnico que trabalha em subsolo veria vermelho o
+   dia inteiro, o que ensina a não olhar. */
+[data-screen="tecnico-os"] .os-sync {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0 0 12px;
+  padding: 11px 14px;
+  --ch-p: 9px;
+  clip-path: var(--corte-p);
+  background: rgba(251, 179, 41, .12);
+  color: var(--amarelo);
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  line-height: 1.4;
+}
+[data-screen="tecnico-os"] .os-sync[hidden] { display: none !important; }
+[data-screen="tecnico-os"] .os-sync::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  background: var(--amarelo);
+  clip-path: polygon(3px 0, 100% 0, 100% calc(100% - 3px), calc(100% - 3px) 100%, 0 100%, 0 3px);
+}
+/* Enquanto está no ar, recua — é transitório e não pede leitura. */
+[data-screen="tecnico-os"] .os-sync.is-enviando {
+  background: var(--fio-fraco);
+  color: var(--sobre-2);
+}
+[data-screen="tecnico-os"] .os-sync.is-enviando::before { background: var(--sobre-2); }
+
+/* O `.alert.info` da recuperação de rascunho — azul da casa, não o ciano. */
+[data-screen^="tecnico-"] .alert.info {
+  background: rgba(47, 111, 224, .14);
+  color: #bcd2ff;
+}

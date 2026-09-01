@@ -123,17 +123,21 @@ mapa, e o rótulo "TURNO" ao lado da marca.
 
 ## Sessão 2026-09-01 (parte 2) — Ativos Técnicos: o plano que veio de fora
 
-> ⚠️ **Nada foi implementado.** Esta seção é análise + plano, e o plano depende
-> de **oito respostas** que só o autor dos documentos pode dar (listadas no
-> fim). Registrado agora porque o censo do banco que o sustenta custou a fazer
-> e não pode se perder.
+> ⚠️ **Nada foi implementado.** Esta seção é análise + plano, e o plano ainda
+> depende de respostas que só o autor dos documentos pode dar (placar no fim).
+> Registrado agora porque o censo do banco que o sustenta custou a fazer e não
+> pode se perder.
 
 **De onde veio:** o chefe do Pedro conversou com o Claude e mandou uma pasta
 com o que ele chamou de três arquivos. São **dois documentos**: o
 `Prompt_Mestre_Inventario_Ativos_General` em `.txt` e `.docx` é o **mesmo
 conteúdo** (28 seções, só muda a formatação), e o
 `Orientacao_..._com_Mapa_Visual.docx` é o resumo executivo dos mesmos pontos
-mais um diagrama.
+mais um diagrama. **Horas depois chegou um terceiro, de verdade:**
+`orientacao_inventario_tags_qrcode_general_v3.docx`, que respondeu duas das
+perguntas em aberto, mexeu em duas e **contradiz o primeiro no padrão de TAG**
+(ver abaixo). Os originais vivem em `Downloads/plano/` e em `Downloads/` —
+**não estão versionados**.
 
 **O pedido, em uma frase:** um módulo "ATIVOS TÉCNICOS" genérico onde bomba e
 VRP são tipos do mesmo cadastro, com TAG + QR, hierarquia
@@ -186,15 +190,77 @@ genérico por tipo (§28). Detalhe em
 **Local/Estação** (§4 — hoje `local_instalacao` é texto solto, e
 *"Estação Redutora 04, shaft do 12º, atende do 12º ao 9º"* não tem onde morar),
 **medições** (§15 — a O.S. tem um único `correntes JSONB`), **fonte do dado**
-(§9), **contrato↔ativo datado** (§10), **dashboard** (§22), **relatório mensal**
+(§9), **contrato↔ativo** (§10), **dashboard** (§22), **relatório mensal**
 (§24) e **triagem de reclamação de pressão** (§20).
+
+### O que o v3 trouxe (e que reescreveu partes do plano)
+
+- 🔑 **O inventário nasce no comercial, não no campo.** Quando entra um lead,
+  a visita de levantamento (ou o próprio cliente) já dá condomínio, sistemas e
+  **quantidade aproximada de conjuntos** — o bastante para criar o
+  **pré-inventário**, gerar TAGs e preparar QRs. O técnico escaneia em campo,
+  confirma e completa a ficha. Isso **encerra a pergunta 1** (ver placar) e
+  muda o tamanho do piloto: não são 65 cadastros manuais, são 65 esqueletos
+  criados de uma vez e preenchidos estação por estação.
+- 🔑 **Divergência entre o informado e o encontrado é registrada, sem apagar o
+  levantamento original.** É mais forte que o `fonte` da fase B: o valor do
+  levantamento **continua existindo ao lado** do valor de campo. Entra como
+  **par de campos**, não campo único.
+- 🔑 **Apareceu um nível na hierarquia: o CONJUNTO.** `Sistema → Conjunto
+  Motobomba → Componentes`, onde REC-01 agrupa bomba + motor + válvula de
+  retenção + válvula de pé + registros + tubulação. Regra dele: *"nem todo
+  componente precisa de TAG própria — componentes simples ficam vinculados ao
+  conjunto; equipamentos relevantes podem virar ativos próprios sem perder a
+  associação"*. No primeiro documento isso era a §19 ("preparar a arquitetura,
+  não obrigar o uso"); no v3 é **requisito de primeira hora**. `ativo_pai_id`
+  sai do "depois" e entra na fase A.
+- **Piscina inteira é nova** — não estava em lugar nenhum do primeiro
+  documento. Estação de tratamento com motobombas de **funções diferentes**
+  (PIS-FIL filtragem, PIS-CIR circulação, PIS-AQU aquecimento) e **filtros com
+  histórico próprio**: troca de areia/meio filtrante, data e próxima
+  manutenção. Filtro vira tipo de ativo com plano próprio. Entram também vaso
+  de expansão/hidropneumático (pressurização), trocador de calor e aquecedor.
+- **Equipamento fora do escopo, registrado de propósito** (§1) — para explicar
+  a instalação e **delimitar responsabilidade**. Vira `no_escopo BOOLEAN` +
+  observação, e é a mesma preocupação da §8D do primeiro documento (a
+  controladora de bomba não arrasta bomba, motor, quadro e automação).
+  Barato e valioso.
+- ⚠️ **Dois níveis de acesso pelo mesmo QR (§7) — conflita com a segurança de
+  hoje.** Ele quer *consulta/inspeção visual* (identificação, status, última e
+  próxima manutenção, sem editar) e *colaborador autenticado* (ficha completa,
+  medições, fotos, peças, O.S., oficina). Hoje `/e/:codigo` exige login, e o
+  nível de consulta implica alguém **sem login** escaneando — o zelador da §25.
+  Dá para fazer, mas exige decidir **exatamente o que o nível aberto mostra**:
+  se ele trouxer nome e endereço do condomínio, o código aleatório deixa de
+  proteger o parque; se trouxer só TAG, tipo, status e datas de manutenção, é
+  inócuo e resolve o caso. **Pergunta nova 2.**
+- **Quadro/aviso técnico físico na estação de VRP** — placa com TAG, dados
+  essenciais, última e próxima manutenção. Variante do PDF de etiquetas; ele
+  mesmo classifica como etapa posterior.
+- **"Futuramente telemetria"** aparece na abertura do v3 — o inventário
+  puxando `reservatorios` para dentro. Nada decidido; anotado.
+
+### ⚠️ A contradição de TAG entre os documentos
+
+| | Documento 1 (§6) | Documento v3 |
+|---|---|---|
+| Formato | `VNT-BMB-001` | `REC-01`, `PIS-FIL-01`, `VRP-01` |
+| O prefixo diz | **o que o objeto é** (BMB = bomba) | **a função no processo** (REC = recalque) |
+| Código do cliente | sim | **não aparece** |
+
+Não são a mesma regra. E o documento 1 exige TAG única e nunca reutilizada —
+que `REC-01` não consegue ser, porque repetiria nos 87 prédios.
+
+**Recomendação: juntar os dois** — `VNT-REC-01`, `VNT-PIS-FIL-01`. Única
+globalmente (como o doc 1 exige) e nomeando a função (como o v3 quer, e é o
+mais útil para o técnico). **Pergunta nova 1.**
 
 ### Decisões tomadas na análise
 
 - **Estender `equipamentos`, não recomeçar.** O ciclo de oficina
   (retirada → bancada → orçamento → conserto → devolução) é conhecimento de
-  negócio que o documento **não menciona uma vez sequer** — ele só enxerga o
-  ativo instalado. Jogar fora para ganhar o nome "ativos" perderia isso.
+  negócio que os documentos **não mencionam uma vez sequer** — eles só enxergam
+  o ativo instalado. Jogar fora para ganhar o nome "ativos" perderia isso.
   Na tela chamamos de **Ativos Técnicos**; no banco continua `equipamentos`.
 - **`condicao` é coluna nova, separada de `status`.** São dois eixos: `status`
   = onde a bomba está (instalado/oficina/pronto); `condicao` = qual o papel
@@ -203,11 +269,16 @@ genérico por tipo (§28). Detalhe em
   intermediária só para guardar a palavra "recalque" adiciona join em toda
   consulta sem responder nada que a coluna não responda. Se um dia precisar de
   vigência ou responsável próprio, vira tabela — a coluna não impede.
-- ❌ **O QR sequencial dele (`/ativos/{id}`) não entra.** A ficha revela
+- **Um agrupador só para estação e conjunto.** O v3 usa "estação" como
+  agrupador de VRP e "conjunto" como agrupador de motobomba, e no §5 diz que
+  *"a estação pode funcionar como agrupador técnico"* — é o mesmo papel com
+  dois nomes de campo. Uma tabela com `tipo` (estação · conjunto · casa de
+  bombas · shaft) evita duas tabelas gêmeas.
+- ❌ **O QR sequencial do doc 1 (`/ativos/{id}`) não entra.** A ficha revela
   endereço e histórico de cliente; URL adivinhável expõe o parque inteiro a
   quem tem um navegador. É a razão de o `codigo` ser base32 aleatório de 8
   caracteres, e ela não mudou. **TAG e código convivem**: TAG é o que se lê,
-  código é o que se escaneia.
+  código é o que se escaneia. ⚠️ O nível aberto do v3 mexe nisso — ver acima.
 - ❌ **Renomear a tabela para `ativos`** — barato no banco (zero linhas), caro
   no código (routes, services, admin, app, ficha, PDF de etiqueta). Só o nome
   na tela muda.
@@ -215,40 +286,51 @@ genérico por tipo (§28). Detalhe em
 ### As fases
 
 - **A — Fundação** (`migration 081`): em `equipamentos`, `tag VARCHAR(30)
-  UNIQUE`, `sistema`, `local_id`, `funcao` (principal/reserva/jockey/auxiliar),
-  `condicao`, `especificacoes JSONB` (os campos que mudam por tipo, §8A–8D),
-  `substituiu_id`/`substituido_por_id`. Nova tabela **`ativo_locais`**.
-  Em `condominios`, **`codigo_curto VARCHAR(5) UNIQUE`** (VNT, STA) — insumo da
-  TAG, e são 87 prédios para apelidar.
-- **B — Medições** (`migration 082`): **`ativo_medicoes`** — `ativo_id`,
-  `os_id`, `parametro`, `valor`, `unidade`, `momento` (antes/depois/inspeção),
-  **`fonte`** (projeto / encontrado em campo / placa / fabricante),
-  `instrumento`, `tecnico_id`, `foto_id`. O `fonte` é o campo mais barato e
-  mais valioso do documento: impede que *"6,1 bar medido numa terça"* vire
-  *"pressão de projeto"* seis meses depois.
+  UNIQUE`, `sistema`, `agrupador_id`, **`ativo_pai_id`** (o componente pendurado
+  no conjunto), `funcao` (principal/reserva/jockey/auxiliar/filtragem/
+  circulação/aquecimento), `condicao`, **`no_escopo BOOLEAN`** +
+  `escopo_observacao`, `especificacoes JSONB` (os campos que mudam por tipo,
+  §8A–8D do doc 1 e §3–§5 do v3) e
+  `substituiu_id`/`substituido_por_id`. Nova tabela **`ativo_agrupadores`**
+  (estação · conjunto · casa de bombas · shaft). Em `condominios`,
+  **`codigo_curto VARCHAR(5) UNIQUE`** (VNT, STA) — insumo da TAG, e são 87
+  prédios para apelidar. Tipos novos: `vrp`, `alv`, `vcb`, `filtro`,
+  `vaso_expansao`.
+  ⚠️ **`ativo_pai_id` não é opcional nesta fase** (mudança trazida pelo v3): o
+  conjunto motobomba é como o inventário de bomba nasce, não um refinamento
+  futuro.
+- **B — Medições e pré-inventário** (`migration 082`): **`ativo_medicoes`** —
+  `ativo_id`, `os_id`, `parametro`, `valor`, `unidade`, `momento`
+  (antes/depois/inspeção), **`fonte`** (levantamento / encontrado em campo /
+  placa / projeto / fabricante), `instrumento`, `tecnico_id`, `foto_id`.
+  O `fonte` é o campo mais barato e mais valioso dos documentos: impede que
+  *"6,1 bar medido numa terça"* vire *"pressão de projeto"* seis meses depois.
+  ⚠️ **O valor do levantamento não é sobrescrito pelo de campo** — os dois
+  coexistem, e a divergência é o dado (regra do v3 §2).
 - **C — Tipos e checklist por definição:** `OS_TIPOS` e `OS_EQUIPAMENTOS` são
   duas listas fixas dentro de `app/public/app.js`; viram **definição por tipo
   de ativo no backend** (campos + checklist + medições esperadas), servida por
-  endpoint e consumida pelo app e pelo admin. Entram `vrp`, `alv`, `vcb`.
+  endpoint e consumida pelo app e pelo admin.
   ⚠️ **Com 1 O.S. finalizada no sistema inteiro, esta é a janela.** Daqui a
   seis meses é retrabalho em documento assinado pelo cliente.
   ⚠️ **Regra §8D, específica e importante:** válvula controladora de bomba no
   contrato **não** arrasta bomba, motor, quadro, inversor e automação para o
   escopo. O checklist dela é hidráulico — o sistema não pode pedir teste
   elétrico de equipamento que não é nosso. Vira regra no código, não no
-  treinamento da equipe.
-- **D — Contrato↔ativo** (`migration 083`): **`contrato_ativos`** com
-  `inicio_em`/`fim_em`, cobertura e o que está incluído. Responde *"qual
-  equipamento estava coberto por qual contrato em tal data"* — a pergunta que
-  aparece quando o cliente reclama de cobrança. Os 83 contratos ativos e a
-  [migration 046](../migrations/046_multi_contratos.sql) (que removeu o limite
-  de 1 contrato por prédio) mostram que multi-contrato já é a realidade.
-  **Depende da pergunta 3.**
+  treinamento da equipe. É a mesma ideia do `no_escopo` da fase A.
+- **D — Contrato ↔ sistema** (`migration 083`): **encolheu por causa do v3.**
+  O §1 é explícito: *"o contrato define os sistemas e serviços cobertos; o
+  inventário descreve tecnicamente o que existe"* — a cobertura é **por
+  sistema**, não equipamento a equipamento. Então `contrato_sistemas` +
+  `no_escopo` no ativo, em vez da `contrato_ativos` datada que eu tinha
+  planejado. **Ainda depende da pergunta 3** (a cobertura muda no meio da
+  vigência?): se mudar, as datas voltam.
 - **E — Planos por tipo de ativo:** `planos_manutencao` ganha `tipo_ativo` e
   `ativo_id`. Os 72 planos existentes são por condomínio e estão **todos
   desligados** desde 04/08 — não há nada rodando para quebrar. É o que permite
   a §12: bomba mensal; VRP com monitoramento mensal + rodízio semestral +
-  preventiva anual + revisão ampliada em ~36 meses.
+  preventiva anual + revisão ampliada em ~36 meses; **e o filtro de piscina,
+  cuja troca de meio filtrante tem periodicidade própria** (pergunta nova 3).
 - **F — Dashboard (§22) e relatório mensal (§24):** o dashboard é consulta
   sobre o que A–E criaram (barato depois, impossível antes). O **relatório
   mensal é módulo inteiro**, não subproduto — depende da pergunta 7.
@@ -256,37 +338,58 @@ genérico por tipo (§28). Detalhe em
   cadastrada e histórico de medição. A regra dele é boa: *uma reclamação
   isolada não condena a válvula*.
 
-**Começar por A + B + C** — é o menor conjunto que já vale sozinho: cadastra a
-válvula, imprime a etiqueta, o técnico escaneia na estação, preenche o
-checklist certo e lança montante/jusante/setpoint antes e depois.
+**Começar por A + B + C** — é o menor conjunto que já vale sozinho: o comercial
+cria o pré-inventário, a etiqueta sai com a TAG certa, o técnico escaneia na
+estação, preenche o checklist do tipo e lança montante/jusante/setpoint antes e
+depois.
 
-### ⏳ As oito perguntas (enviadas ao autor em 01/09, sem resposta)
+### ⏳ Placar das perguntas ao autor
 
-1. **A etiqueta nasce com nome ou em branco?** Hoje o lote sai em branco e fica
-   na van; o vínculo acontece com a bomba na mão — decisão deliberada da 12A
-   (*"se o cadastro viesse primeiro, ninguém usaria"*). A TAG `VNT-BMB-001`
-   exige saber cliente e tipo **na hora de imprimir**, ou seja, etiqueta sob
-   demanda. **Os dois funcionam; é escolha de rotina, não técnica.**
-2. **Quem define as siglas dos 87 condomínios** — sugestão automática com
-   revisão, ou lista à mão?
-3. **O contrato cobre o prédio inteiro ou equipamento por equipamento?**
-   O vínculo datado só se paga se a cobertura de fato muda no meio da vigência.
-   **É a que mais muda o plano** (fase D inteira).
-4. **P1–P4 de bomba e P1/Programável de VRP são prazos diferentes ou a mesma
+**Respondidas pelo v3:**
+
+1. ✅ **A etiqueta nasce com nome ou em branco?** — **os dois.** TAG preparada
+   no pré-inventário é o padrão; etiquetas genéricas de contingência vão na van
+   para o ativo inesperado (v3 §6). O sistema já sabe imprimir a segunda; falta
+   a primeira.
+5. ✅ **Quem cadastra as 65 válvulas e com que dado?** — o comercial cria o
+   esqueleto no levantamento; o técnico completa em campo pelo QR (v3 §2).
+
+**Respondidas pela metade:**
+
+3. 🟡 **O contrato cobre o prédio inteiro ou equipamento por equipamento?** —
+   o v3 diz que a cobertura é **por sistema** e que equipamento fora do escopo
+   é registrado com essa marca. Falta saber **se muda no meio da vigência** —
+   é o que decide se `contrato_sistemas` precisa de `inicio_em`/`fim_em`.
+6. 🟡 **Um exemplo real de um prédio inteiro.** O v3 dá a estrutura
+   (REC-01/02, PRE-01/02, PIS-FIL-01, VRP-01 a 04), não um prédio com nome.
+   Continua valendo: é com um caso real que se confere se a estrutura aguenta.
+
+**Sem resposta:**
+
+2. ⏳ **Quem define as siglas dos 87 condomínios** — sugestão automática com
+   revisão, ou lista à mão? ⚠️ Fica em suspenso até a pergunta nova 1: se a TAG
+   não levar o código do cliente, a sigla pode nem ser necessária.
+4. ⏳ **P1–P4 de bomba e P1/Programável de VRP são prazos diferentes ou a mesma
    urgência com outro nome?** Define se `sla_definicoes` precisa deixar de ser
    global. ⚠️ Lembrar que o **SLA de chegada nunca saiu do papel** (028) — há
    política sem uso antes de criar política nova.
-5. **Quem cadastra as 65 válvulas e com que dado na mão?** Existe planilha, ou
-   nasce vazio e o técnico preenche estação por estação? O próprio documento
-   manda não presumir dado não levantado — então o módulo só fica útil depois
-   do campo.
-6. **Um exemplo real de um prédio inteiro** (sistemas → estações → válvulas).
-   Vale mais que descrição genérica: é com ele que se confere se a estrutura
-   aguenta o caso real.
-7. **O relatório mensal já existe em algum formato?** Se existe, pedir **um
+7. ⏳ **O relatório mensal já existe em algum formato?** Se existe, pedir **um
    preenchido de verdade** — gerar aquilo, não uma versão nova que ninguém
    pediu.
-8. **As preventivas novas substituem os 72 planos antigos ou convivem?**
+8. ⏳ **As preventivas novas substituem os 72 planos antigos ou convivem?**
+
+**Novas, nascidas do v3:**
+
+9. ⏳ **A TAG leva a sigla do condomínio?** O doc 1 diz que sim
+   (`VNT-BMB-001`), o v3 desenha sem (`REC-01`) — e sem ela a TAG repete nos 87
+   prédios, contra a regra de unicidade do próprio doc 1. Sugestão na mesa:
+   `VNT-REC-01`.
+10. ⏳ **O QR aberto (sem login) mostra o quê, exatamente?** Com nome e endereço
+    do condomínio, quem fotografar uma etiqueta vê dados do cliente. Só com
+    TAG, equipamento, status e datas de manutenção, resolve o zelador sem
+    expor nada.
+11. ⏳ **Filtro de piscina tem plano de manutenção próprio** (troca de areia com
+    data e próxima), ou entra junto com a preventiva da estação?
 
 ---
 
@@ -547,6 +650,51 @@ verificação agora soma `left + margin-left + transform` e compara com o centro
 do ícone.
 
 **Verificado:** 4 telas × 2 larguras, tudo verde, detector zerado.
+
+---
+
+### 6ª rodada — a O.S. do subsolo para de evaporar (etapa 1 de 4)
+
+Pergunta do Pedro: dá pra terminar a O.S. sem internet e o app enviar depois?
+"muitas vezes a O.S. é feita em subsolo". A resposta era **não, e pior: o app
+perdia o que já tinha sido digitado**.
+
+⚠️ **O DEFEITO:** `OS.pendingPatch = null` rodava **antes** do `try` em
+`_osEnviarPatchPendente`. Falhou o PATCH, o acumulado era **descartado**. E nada
+gravava rascunho — o digitado vivia só em memória, e `sairFormularioOS` zera
+`OS.data`. Sair da tela ou o Android matar o app levava a O.S. inteira.
+
+**Etapa 1 (feita):** rascunho em `localStorage` por id de O.S., gravado ANTES de
+tentar a rede; o patch volta pra fila quando falha; reabrir aplica por cima do
+`GET` e reenvia sozinho; some quando o servidor confirma.
+
+⚠️ **A distinção que não existia: rede vs servidor.** O `api()` estourava o
+mesmo `Error` nos dois casos. Guardar um 400 numa fila seria reenvio infinito em
+silêncio. Agora `err.httpStatus` marca o que veio do servidor — o `fetch`
+estoura `TypeError` sem rede e nem chega lá, então **ausência de `httpStatus` =
+falha de rede**. Use `ehFalhaDeRede(err)`.
+
+⚠️ **Falta de sinal deixou de ser vermelho.** Virou linha âmbar. Quem trabalha
+em subsolo veria vermelho o dia inteiro e aprenderia a ignorar o aviso.
+
+⚠️ **A assinatura é o único campo grande** e é a primeira a sair se a cota do
+`localStorage` (~5 MB) estourar — o rascunho é regravado sem ela e a reabertura
+manda refazer. Perder a assinatura é melhor que perder o formulário.
+
+⚠️ **O `.catch()` no debounce.** `_osEnviarPatchPendente` relança de propósito
+(o `finalizarOS` aborta com isso), mas o debounce não pegava: cada campo
+digitado offline virava promessa rejeitada. **Só apareceu no teste**, não na
+leitura do código.
+
+📋 **FALTA — e o técnico precisa saber disso:** fotos, envio da assinatura e
+**finalizar** continuam exigindo rede. Fotos exigem IndexedDB (base64 não cabe
+em localStorage). Finalizar offline exige **backend**: `finalizada_em = NOW()`
+registraria a hora da sincronização, não a do serviço — e isso é o SLA.
+
+**Testado com a rede caindo e voltando de verdade** (o modo demo NÃO serve:
+`IS_DEMO` curto-circuita justamente esse caminho): app fechado e reaberto, três
+campos voltam, um PATCH leva os três, rascunho apagado. E o 400 do servidor
+aparece em vermelho sem virar fila.
 
 ---
 

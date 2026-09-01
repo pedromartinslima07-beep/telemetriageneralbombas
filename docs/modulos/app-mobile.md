@@ -400,6 +400,69 @@ obedece resize de janela** — o celular se mede pondo o app num `<iframe>` de
 [`active-work.md`](../../memory-bank/active-work.md) registra para a prévia do
 operador.
 
+## O rascunho local da O.S. — trabalhar sem sinal (01/09/2026)
+
+A O.S. é preenchida em casa de máquinas e subsolo, onde o sinal cai. Antes de
+01/09 o app **perdia** o que tinha sido digitado: o patch acumulado era
+descartado quando o envio falhava (`OS.pendingPatch = null` rodava antes do
+`try`) e nada gravava rascunho no aparelho.
+
+| Peça | Onde |
+|---|---|
+| `_osSalvarRascunho` · `_osLerRascunho` · `_osLimparRascunho` | `app/public/app.js` |
+| Chave | `localStorage["gb_os_rascunho_<osId>"]` |
+| Linha de estado | `#osSync` (`index.html`), estilo em `tecnico.css` |
+| Marca de origem do erro | `err.httpStatus`, posto pelo `api()` |
+
+**Como funciona:** o patch pendente é gravado no aparelho **antes** de tentar a
+rede. Se o envio falha, o patch **volta** para `OS.pendingPatch` (com o que
+chegou durante o voo por cima, que é mais novo). Ao reabrir a O.S. o rascunho é
+aplicado **sobre** o que o `GET` devolveu — ele é mais novo — e sobe sozinho. É
+apagado quando o servidor confirma e quando a O.S. é finalizada.
+
+⚠️ **`ehFalhaDeRede(err)` é o que separa "guardar" de "mostrar".** O `api()`
+estourava o mesmo `Error` para falha de rede e para recusa HTTP. Sem a
+distinção, um `400` entraria numa fila e seria reenviado para sempre em
+silêncio. Hoje o `api()` marca `err.httpStatus` nas respostas do servidor; o
+`fetch` estoura `TypeError` quando não há rede e **nem chega nesse ponto** —
+então a ausência de `httpStatus` é o sinal de falha de rede.
+
+⚠️ **Falta de sinal NÃO é alerta vermelho.** É a linha âmbar do `#osSync`.
+Quem trabalha em subsolo veria vermelho o dia inteiro, e isso ensina a ignorar
+o aviso que importa. Vermelho fica reservado para recusa do servidor.
+
+⚠️ **A assinatura é o único campo grande e é a primeira a ser sacrificada.**
+`assinatura_b64` (data URL do canvas) passa pelo mesmo auto-save, e o
+`localStorage` tem ~5 MB. Se a gravação estourar a cota, o rascunho é regravado
+**sem a assinatura** e a reabertura avisa para refazê-la — perder a assinatura
+e manter o formulário é muito melhor que perder os dois, e quem redesenha é o
+cliente, que ainda está na frente do técnico.
+
+⚠️ **O auto-save no debounce precisa de `.catch()`.**
+`_osEnviarPatchPendente` **relança de propósito**, porque o `finalizarOS` usa
+isso para abortar antes de fechar a O.S. No caminho do debounce não há quem
+pegue — sem o `.catch()` cada campo digitado sem sinal vira promessa rejeitada
+sem tratamento.
+
+⚠️ **O QUE ISTO NÃO COBRE.** Só os **campos** do formulário:
+
+| | Funciona sem sinal? |
+|---|---|
+| Campos do formulário | ✅ |
+| Fotos | ❌ enviadas no toque; base64 não cabe em `localStorage` (exige IndexedDB) |
+| Envio da assinatura | ❌ vai junto do PATCH, mas depende da mesma rede |
+| **Finalizar a O.S.** | ❌ exige rede |
+| Abrir uma O.S. ainda não aberta | ❌ depende do `GET` |
+
+Finalizar offline exige backend: `POST /:id/finalizar` grava
+`finalizada_em = NOW()`, então uma O.S. terminada às 14h e sincronizada às 17h
+ficaria registrada como 17h — e isso alimenta o `tempo_resolucao_seg`, que é o
+SLA. Ver o roadmap.
+
+**Para testar:** o modo `?demo=tecnico` **não serve** — `IS_DEMO` sai antes do
+PATCH e do rascunho, que é justamente o caminho a exercitar. O jeito é
+interceptar o `fetch` na página e derrubar/levantar a rede.
+
 ## A tela de fim de O.S. (01/09/2026)
 
 `mostrarOSSucesso()` (`app/public/app.js`) troca o conteúdo de `#osSections`

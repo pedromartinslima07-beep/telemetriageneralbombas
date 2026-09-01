@@ -7618,6 +7618,73 @@ transbordando, nenhum alvo < 44px, barra do nav com **0px de desvio**, menu do
 select com fundo explícito, zero erro de JS. Detector: **zero achados**.
 APK regerado.
 
+
+### 2026-09-01 (4ª rodada) · A O.S. preenchida no subsolo para de evaporar
+
+Pergunta do Pedro: dá para terminar a O.S. sem internet e o app enviar quando o
+sinal voltar? "muitas vezes a O.S. é feita em subsolo ou lugares com o sinal
+ruim". A resposta era **não — e pior que não: o app perdia o que já tinha sido
+digitado.** Esta entrada é a **etapa 1** do conserto: parar de perder.
+
+**O defeito, exato.** Em `_osEnviarPatchPendente` a linha
+`OS.pendingPatch = null` rodava **antes** do `try`. Quando o PATCH falhava por
+falta de sinal, o patch acumulado era **descartado** — não havia fila nem
+repetição. E nada gravava rascunho no aparelho: o `Storage` do app só guardava
+token, usuário e device token. O que o técnico digitava vivia **só em memória**,
+e `sairFormularioOS` zera `OS.data` — sair da tela ou o Android matar o app em
+segundo plano levava a O.S. inteira. Ele refazia do zero.
+
+**O conserto.** O patch pendente passa a ser gravado em `localStorage` por id de
+O.S. (`gb_os_rascunho_<id>`) **antes** de tentar a rede — é o disco que garante,
+não o servidor. Ao falhar, o patch **volta** para `OS.pendingPatch` (com o que
+chegou durante o voo por cima, que é mais novo). Ao reabrir a O.S., o rascunho é
+aplicado **por cima** do que o `GET` devolveu, antes do render, e sobe sozinho.
+Sai de cena quando o servidor confirma, e quando a O.S. é finalizada.
+
+⚠️ **"Sem sinal" deixou de ser erro vermelho.** Antes cada campo digitado offline
+pintava um alerta de falha. Isso é estado, não erro do técnico — e quem trabalha
+em subsolo veria vermelho o dia inteiro, o que ensina a **não olhar** o aviso que
+importa. Virou uma linha âmbar entre o timer e as seções: "Salvo no aparelho ·
+envia quando o sinal voltar".
+
+⚠️ **MAS ERRO DO SERVIDOR CONTINUA VERMELHO — e essa distinção não existia.**
+O `api()` estourava o mesmo `Error` para falha de rede e para recusa HTTP, então
+não dava para separar "vale tentar de novo" de "vai recusar igual". Guardar um
+400 numa fila seria uma repetição infinita silenciosa. Agora o `api()` marca
+`err.httpStatus` nas respostas do servidor; o `fetch` estoura `TypeError` quando
+não há rede e nem chega lá, então **a ausência de `httpStatus` é o sinal de falha
+de rede**. Rede → guarda e reenvia; servidor → mostra.
+
+⚠️ **A assinatura é o único campo grande, e é a primeira a sair se a cota
+estourar.** `assinatura_b64` (data URL do canvas) passa pelo mesmo auto-save, e
+`localStorage` tem ~5 MB. Se a gravação falhar, o rascunho é regravado **sem a
+assinatura** e a reabertura avisa para refazê-la: perder a assinatura e manter o
+formulário é muito melhor que perder os dois — e quem redesenha é o cliente, que
+ainda está na frente do técnico.
+
+⚠️ **O auto-save no debounce precisava de `.catch()`.** `_osEnviarPatchPendente`
+relança de propósito (o `finalizarOS` aborta com isso antes de fechar a O.S.),
+mas o caminho do debounce não capturava: cada campo digitado sem sinal virava uma
+promessa rejeitada sem tratamento. Apareceu no teste, não na leitura.
+
+**Verificado exercitando a rede caindo e voltando** (não no modo demo — o demo
+curto-circuita justamente este caminho): O.S. aberta com rede → rede cai → três
+campos preenchidos → os três no rascunho e na fila, linha de estado visível, **sem
+alerta vermelho** → **app fechado e reaberto** → rascunho sobreviveu, os três
+campos voltam na tela, um único PATCH leva os três, rascunho apagado, linha some.
+E um quarto caso: PATCH recusado com 400 **aparece em vermelho** e não vira fila.
+Layout conferido nas 4 telas × 2 larguras, sem regressão.
+
+⚠️ **O QUE ESTA ETAPA NÃO COBRE**, e o técnico precisa saber: **fotos e o envio
+da assinatura continuam exigindo rede no momento do toque**, e **finalizar a O.S.
+continua exigindo rede**. Fotos vão em base64 e não cabem em `localStorage` —
+exigem IndexedDB e envio uma a uma (etapa 2). Finalizar offline exige backend: o
+`POST /:id/finalizar` grava `finalizada_em = NOW()`, então uma O.S. terminada às
+14h no subsolo e sincronizada às 17h ficaria registrada como 17h — e isso alimenta
+o `tempo_resolucao_seg`, que é o SLA (etapa 3).
+
+Sem migration. Só chega no técnico com APK novo.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em
