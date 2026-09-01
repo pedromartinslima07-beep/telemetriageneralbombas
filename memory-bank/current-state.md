@@ -241,7 +241,18 @@ ESP32 (sonda 4-20mA + SCT-013)
     `app.css`** em vez de sobrescrever: três regras antigas venceram a folha
     nova em silêncio nesta sessão. Detalhe em
     [app-mobile.md](../docs/modulos/app-mobile.md).
-- **A O.S. sobrevive à falta de sinal — os CAMPOS** (01/09/2026). O patch
+- **A O.S. sobrevive à falta de sinal — campos, FOTOS e ASSINATURA**
+  (01/09/2026, etapas 1 e 2). Dois armazéns por durabilidade: `localStorage`
+  para os campos (escrita **síncrona** — o Android mata o app sem avisar) e
+  **IndexedDB** (`gb_os`) para assinatura e fotos (cabe muito mais que os ~5 MB).
+  A foto tirada sem sinal entra na fila e **aparece na tela marcada como "na
+  fila"** — escondê-la faria o técnico fotografar de novo e duplicar. Sobem uma
+  a uma quando a rede volta (o corpo do POST é base64 e o `express.json` corta
+  em 8 MB). `finalizarOS` descarrega a fila antes de fechar e **barra** se
+  sobrar foto. ⚠️ **FINALIZAR ainda exige rede** (etapa 3, precisa de backend).
+  ⚠️ Falta de sinal é estado âmbar, não alerta vermelho; vermelho ficou para
+  recusa do servidor (`err.httpStatus` separa os dois).
+- (histórico) **A etapa 1 (01/09/2026):** O patch
   pendente é gravado em `localStorage` por id de O.S. antes de tentar a rede, e
   volta para a fila quando o envio falha (antes era descartado, e o que o
   técnico digitava vivia só em memória — sair da tela perdia tudo). Reabrir

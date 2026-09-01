@@ -2024,6 +2024,7 @@ const OS = {
   chamadoId: null, // pra voltar pra detalhe
   saveDebounce: null,
   pendingPatch: null, // campos alterados aguardando o debounce (ver salvarOSDebounced)
+  fotosPendentes: [], // fotos na fila do IndexedDB, ainda não enviadas
   timer: null,
   sign: { ctx: null, canvas: null, drawing: false, lastX: 0, lastY: 0, hasInk: false },
 };
@@ -2123,18 +2124,20 @@ async function abrirFormularioOS(chamadoId, osId) {
     // valores antigos por um instante; aplicar antes faz a tela abrir já com o
     // trabalho dele de volta.
     if (!IS_DEMO) {
-      const rascunho = _osLerRascunho(OS.data.id);
-      if (rascunho && rascunho.patch && Object.keys(rascunho.patch).length) {
-        Object.assign(OS.data, rascunho.patch);
-        OS.pendingPatch = { ...rascunho.patch };
-        _osMostrarEstadoEnvio("pendente");
-        if (rascunho.semAssinatura) {
-          showAlert(document.getElementById("osAlert"),
-            "Recuperamos o que você preencheu, menos a assinatura — refaça a assinatura.", "info");
-        }
-      } else {
-        _osMostrarEstadoEnvio("ok");
+      // Campos (localStorage) + assinatura (IndexedDB), reunidos.
+      const patch = await _osLerRascunhoCompleto(OS.data.id);
+      if (patch) {
+        Object.assign(OS.data, patch);
+        OS.pendingPatch = { ...patch };
       }
+      // As fotos que não subiram voltam para a lista como pendentes, para o
+      // técnico VER que elas existem — senão ele tira de novo achando que
+      // perdeu, e a O.S. termina com a mesma foto duplicada.
+      OS.fotosPendentes = await _osLerFotosPendentes(OS.data.id);
+      for (const f of OS.fotosPendentes) {
+        OS.data.fotos.push({ id: f.localId, url: f.dataUrl, tipo: f.tipo, pendente: true });
+      }
+      _osAtualizarEstadoEnvio();
     }
 
     document.getElementById("osNumero").textContent = OS.data.numero || `OS-${osId}`;
@@ -2146,6 +2149,7 @@ async function abrirFormularioOS(chamadoId, osId) {
 
     // Chegou até aqui, então há rede: tenta subir o que estava guardado.
     if (OS.pendingPatch) _osEnviarPatchPendente().catch(() => {});
+    else _osEnviarFotosPendentes().catch(() => {});
   } catch (err) {
     showAlert(document.getElementById("osAlert"), err.message, "error");
   }
@@ -2233,28 +2237,93 @@ function pararTimerOS() {
 // ⚠️ ESCOPO: isto cobre os CAMPOS do formulário. Fotos e o envio da assinatura
 // continuam exigindo rede no momento do toque — cabem numa fila com IndexedDB,
 // que é outra etapa (`localStorage` não segura foto).
+// ⚠️ DOIS ARMAZÉNS, DE PROPÓSITO — e o motivo não é organização, é durabilidade.
+//
+//   localStorage  → os CAMPOS. Escrita SÍNCRONA: quando `setItem` retorna, já
+//                   está gravado. O Android mata o app em segundo plano sem
+//                   avisar, e os campos mudam a cada tecla — aqui a gravação
+//                   instantânea vale mais que o espaço.
+//   IndexedDB     → ASSINATURA e FOTOS. Escrita assíncrona (uma transação
+//                   interrompida é abortada), mas cabe muito mais que os ~5 MB
+//                   do localStorage. São peças grandes e raras: uma assinatura
+//                   por O.S., algumas fotos — a janela de risco é pequena e o
+//                   espaço é o que importa.
+//
+// Foi essa separação que tirou a assinatura do sacrifício por cota que a etapa
+// 1 precisava fazer.
 const OS_RASCUNHO_PREFIX = "gb_os_rascunho_";
 const _osChaveRascunho = (osId) => OS_RASCUNHO_PREFIX + osId;
 
+const IDB_NOME = "gb_os";
+const IDB_VERSAO = 1;
+let _idbPromise = null;
+
+function _idb() {
+  if (_idbPromise) return _idbPromise;
+  _idbPromise = new Promise((resolve, reject) => {
+    if (!window.indexedDB) return reject(new Error("IndexedDB indisponível"));
+    const req = indexedDB.open(IDB_NOME, IDB_VERSAO);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains("assinaturas")) db.createObjectStore("assinaturas", { keyPath: "osId" });
+      if (!db.objectStoreNames.contains("fotos")) {
+        const st = db.createObjectStore("fotos", { keyPath: "localId" });
+        st.createIndex("porOs", "osId", { unique: false });
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error || new Error("Falha ao abrir o IndexedDB"));
+  });
+  return _idbPromise;
+}
+
+function _idbTx(store, modo, fn) {
+  return _idb().then((db) => new Promise((resolve, reject) => {
+    const tx = db.transaction(store, modo);
+    const req = fn(tx.objectStore(store));
+    tx.onerror = () => reject(tx.error);
+    tx.oncomplete = () => resolve(req && req.result);
+  }));
+}
+const _idbPut = (store, val) => _idbTx(store, "readwrite", (s) => s.put(val));
+const _idbGet = (store, key) => _idbTx(store, "readonly", (s) => s.get(key));
+const _idbDel = (store, key) => _idbTx(store, "readwrite", (s) => s.delete(key));
+const _idbPorOs = (store, osId) =>
+  _idbTx(store, "readonly", (s) => s.index("porOs").getAll(osId));
+
+// ---- Assinatura: só no IndexedDB ----
+const _osSalvarAssinatura = (osId, dataUrl) =>
+  _idbPut("assinaturas", { osId, dataUrl, em: Date.now() }).catch((e) =>
+    console.warn("[os] assinatura não pôde ser guardada:", e.message));
+const _osLerAssinatura = (osId) =>
+  _idbGet("assinaturas", osId).then((r) => (r ? r.dataUrl : null)).catch(() => null);
+const _osLimparAssinatura = (osId) => _idbDel("assinaturas", osId).catch(() => {});
+
+// ---- Campos: localStorage, síncrono ----
+//
+// ⚠️ `assinatura_b64` é RETIRADO daqui e mandado para o IndexedDB. Ele é o único
+// campo grande (~120 KB de PNG), e com ele fora a cota do localStorage deixa de
+// ser um problema: o resto do formulário é texto.
 function _osSalvarRascunho(osId, patch) {
   if (!osId || !patch || !Object.keys(patch).length) return;
-  const gravar = (p, semAssinatura) =>
-    localStorage.setItem(_osChaveRascunho(osId),
-      JSON.stringify({ osId, patch: p, em: Date.now(), semAssinatura: !!semAssinatura }));
+  const { assinatura_b64, ...campos } = patch;
+
+  if (assinatura_b64 !== undefined) {
+    if (assinatura_b64) _osSalvarAssinatura(osId, assinatura_b64);
+    else _osLimparAssinatura(osId); // apagada pelo técnico
+  }
+
   try {
-    gravar(patch);
-  } catch {
-    // Cota estourada. O único campo grande é a assinatura (data URL do canvas),
-    // então ela é a primeira a sair: perder a assinatura e manter o resto é
-    // muito melhor que perder o formulário inteiro. Quem redesenha é o cliente,
-    // que ainda está na frente do técnico.
-    try {
-      const { assinatura_b64, ...resto } = patch;
-      gravar(resto, true);
-      console.warn("[os] rascunho gravado sem a assinatura (cota do localStorage)");
-    } catch (e2) {
-      console.warn("[os] não foi possível gravar o rascunho:", e2.message);
-    }
+    localStorage.setItem(_osChaveRascunho(osId), JSON.stringify({
+      osId,
+      patch: campos,
+      // Marca que existe assinatura pendente guardada à parte, para a
+      // reabertura saber que precisa buscá-la no IndexedDB.
+      temAssinatura: assinatura_b64 !== undefined,
+      em: Date.now(),
+    }));
+  } catch (e) {
+    console.warn("[os] não foi possível gravar o rascunho:", e.message);
   }
 }
 
@@ -2265,22 +2334,116 @@ function _osLerRascunho(osId) {
   } catch { return null; }
 }
 
-function _osLimparRascunho(osId) {
-  try { localStorage.removeItem(_osChaveRascunho(osId)); } catch {}
+// Devolve o patch completo (campos + assinatura, se houver).
+async function _osLerRascunhoCompleto(osId) {
+  const r = _osLerRascunho(osId);
+  const assinatura = await _osLerAssinatura(osId);
+  if (!r && !assinatura) return null;
+  const patch = { ...((r && r.patch) || {}) };
+  if (assinatura != null) patch.assinatura_b64 = assinatura;
+  return Object.keys(patch).length ? patch : null;
 }
 
-// A linha de estado do envio. Nunca é vermelha quando é só falta de sinal:
-// "sem rede" não é erro do técnico, e pintar de vermelho a cada campo digitado
-// num subsolo treina ele a ignorar o aviso.
-function _osMostrarEstadoEnvio(estado) {
+function _osLimparRascunho(osId) {
+  try { localStorage.removeItem(_osChaveRascunho(osId)); } catch {}
+  _osLimparAssinatura(osId);
+}
+
+// ---- Fila de fotos (IndexedDB) ----
+//
+// A foto é comprimida para JPEG e enviada na hora. Sem sinal ela entra aqui e
+// aparece na tela marcada como pendente, com um id LOCAL (string "loc_…", que
+// nunca colide com o id inteiro do servidor).
+//
+// ⚠️ UMA POR VEZ no envio, nunca em lote: cada foto vai em base64 no corpo do
+// POST, e o `express.json` corta em 8 MB (ver CLAUDE.md). Três fotos juntas
+// estouram; uma a uma, não.
+const _osNovoIdLocal = () => "loc_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8);
+const _ehFotoLocal = (id) => typeof id === "string" && id.startsWith("loc_");
+
+const _osLerFotosPendentes = (osId) =>
+  _idbPorOs("fotos", osId).then((r) => r || []).catch(() => []);
+
+function _osEnfileirarFoto(osId, dataUrl, tipo) {
+  const localId = _osNovoIdLocal();
+  const reg = { localId, osId, dataUrl, tipo, em: Date.now() };
+  return _idbPut("fotos", reg).then(() => reg);
+}
+
+// Sobe o que estiver na fila, uma por vez. Para no primeiro erro de rede — não
+// adianta insistir nas seguintes, e assim a ordem em que foram tiradas é
+// preservada.
+async function _osEnviarFotosPendentes() {
+  if (IS_DEMO || !OS.data) return;
+  const osId = OS.data.id;
+  const fila = await _osLerFotosPendentes(osId);
+  if (!fila.length) return;
+
+  for (const f of fila) {
+    try {
+      const criada = await api(`/ordens-servico/${osId}/fotos/upload`, {
+        method: "POST",
+        body: { image_base64: f.dataUrl, tipo: f.tipo },
+      });
+      await _idbDel("fotos", f.localId);
+      // Troca o cartão pendente pelo que o servidor devolveu, no MESMO lugar da
+      // lista — o técnico vê a foto deixar de ser pendente, não sumir e voltar.
+      const i = OS.data.fotos.findIndex((x) => String(x.id) === f.localId);
+      if (i >= 0) OS.data.fotos[i] = criada;
+      else OS.data.fotos.push(criada);
+    } catch (err) {
+      if (ehFalhaDeRede(err)) break; // sem sinal: fica para a próxima
+      // O servidor recusou ESTA foto. Insistir seria fila infinita: tira da
+      // fila e conta o que houve, com a foto ainda visível na tela.
+      await _idbDel("fotos", f.localId);
+      console.warn("[os] foto recusada pelo servidor:", err.message);
+      showAlert(document.getElementById("osAlert"),
+        "Uma foto não pôde ser enviada: " + err.message, "error");
+    }
+  }
+  OS.fotosPendentes = await _osLerFotosPendentes(osId);
+  _osRerenderFotos();
+  _osAtualizarEstadoEnvio();
+}
+
+// ---- A linha de estado ----
+//
+// Ela soma as duas filas (campos e fotos), porque para o técnico é uma coisa
+// só: "falta subir alguma coisa?". Nunca é vermelha quando é só falta de sinal
+// — "sem rede" não é erro dele, e pintar de vermelho a cada campo digitado num
+// subsolo treina ele a ignorar o aviso que importa.
+function _osMostrarEstadoEnvio(estado, extra) {
   const el = document.getElementById("osSync");
   if (!el) return;
   if (estado === "ok") { el.hidden = true; el.textContent = ""; return; }
   el.textContent = estado === "enviando"
     ? "Enviando…"
-    : "Salvo no aparelho · envia quando o sinal voltar";
+    : "Salvo no aparelho · envia quando o sinal voltar" + (extra ? " · " + extra : "");
   el.className = "os-sync" + (estado === "enviando" ? " is-enviando" : "");
   el.hidden = false;
+}
+
+// Recalcula a linha a partir do que de fato está pendente.
+function _osAtualizarEstadoEnvio() {
+  const nFotos = (OS.fotosPendentes || []).length;
+  const temCampos = !!(OS.pendingPatch && Object.keys(OS.pendingPatch).length);
+  if (!temCampos && !nFotos) return _osMostrarEstadoEnvio("ok");
+  const extra = nFotos ? `${nFotos} foto${nFotos > 1 ? "s" : ""}` : "";
+  _osMostrarEstadoEnvio("pendente", extra);
+}
+
+// Redesenha a seção de fotos preservando se ela estava aberta.
+function _osRerenderFotos() {
+  const sec = document.querySelector('[data-section="fotos"]');
+  if (!sec) return;
+  const aberta = sec.classList.contains("is-open");
+  sec.outerHTML = sectionFotos();
+  const nova = document.querySelector('[data-section="fotos"]');
+  if (aberta) nova.classList.add("is-open");
+  nova.querySelector(".os-section-head").addEventListener("click", () =>
+    nova.classList.toggle("is-open"));
+  bindFotos();
+  atualizarProgresso();
 }
 
 // ---- Auto-save debounced ----
@@ -2324,7 +2487,9 @@ async function _osEnviarPatchPendente() {
     // Confirmado. Se nada novo chegou durante o voo, o rascunho já não serve.
     if (OS.pendingPatch) _osSalvarRascunho(osId, OS.pendingPatch);
     else _osLimparRascunho(osId);
-    _osMostrarEstadoEnvio(OS.pendingPatch ? "pendente" : "ok");
+    _osAtualizarEstadoEnvio();
+    // Se o campo passou, há rede: é a hora de tentar as fotos da fila também.
+    _osEnviarFotosPendentes().catch(() => {});
   } catch (err) {
     // ⚠️ DEVOLVE O PATCH EM VEZ DE DESCARTAR — é este o conserto. O que chegou
     // durante o voo entra POR CIMA, porque é mais novo que o que voltou.
@@ -2334,12 +2499,12 @@ async function _osEnviarPatchPendente() {
     if (ehFalhaDeRede(err)) {
       // Sem sinal: não é erro, é estado. Fica guardado e sai sozinho depois.
       console.warn("[os] sem rede; rascunho guardado:", err.message);
-      _osMostrarEstadoEnvio("pendente");
+      _osAtualizarEstadoEnvio();
     } else {
       // O servidor recusou. Repetir vai recusar de novo — isto o técnico
       // precisa ver.
       console.warn("[os] auto-save recusado pelo servidor:", err.message);
-      _osMostrarEstadoEnvio("pendente");
+      _osAtualizarEstadoEnvio();
       showAlert(document.getElementById("osAlert"),
         "Não foi possível salvar: " + err.message, "error");
     }
@@ -2350,7 +2515,12 @@ async function _osEnviarPatchPendente() {
 // Quando o sinal volta, o que estiver guardado sobe sozinho — sem o técnico
 // precisar tocar em nada nem saber que existe uma fila.
 window.addEventListener("online", () => {
-  if (OS.data && OS.pendingPatch) _osEnviarPatchPendente().catch(() => {});
+  if (!OS.data) return;
+  // O patch primeiro: ele é pequeno e confirma rápido se a rede voltou mesmo.
+  // As fotos saem em seguida — o próprio `_osEnviarPatchPendente` as dispara ao
+  // ter sucesso, então aqui só cuidamos do caso "nada de campo pendente".
+  if (OS.pendingPatch) _osEnviarPatchPendente().catch(() => {});
+  else _osEnviarFotosPendentes().catch(() => {});
 });
 
 // ---- Render das seções ----
@@ -2700,10 +2870,13 @@ function sectionFotos() {
   });
 }
 function renderFotoCard(f) {
+  // A foto pendente aparece igual às outras, com um selo dizendo que ainda não
+  // subiu. Escondê-la faria o técnico tirar de novo achando que perdeu.
   return `
-    <div class="os-foto" data-foto-id="${f.id}">
+    <div class="os-foto${f.pendente ? " is-pendente" : ""}" data-foto-id="${escapeHtml(String(f.id))}">
       <img src="${escapeHtml(f.url)}" alt="${escapeHtml(f.tipo || "")}">
       ${f.tipo ? `<span class="os-foto-tipo">${escapeHtml(f.tipo)}</span>` : ""}
+      ${f.pendente ? `<span class="os-foto-pend">na fila</span>` : ""}
       <button type="button" class="os-foto-del" aria-label="Remover">×</button>
     </div>`;
 }
@@ -2733,13 +2906,20 @@ function bindFotos() {
     const btn = e.target.closest(".os-foto-del");
     if (!btn) return;
     const card = btn.closest(".os-foto");
-    const id = Number(card.dataset.fotoId);
+    // ⚠️ NÃO converter para Number. A foto que ainda está na fila tem id LOCAL
+    // ("loc_…"), e `Number("loc_…")` é NaN — o filtro abaixo não removeria
+    // nada e o DELETE iria para `/fotos/NaN`. Comparação é por string.
+    const id = card.dataset.fotoId;
     if (!confirm("Remover esta foto?")) return;
     try {
-      if (!IS_DEMO) {
+      if (_ehFotoLocal(id)) {
+        // Nunca chegou ao servidor: sai só da fila.
+        await _idbDel("fotos", id);
+        OS.fotosPendentes = await _osLerFotosPendentes(OS.data.id);
+      } else if (!IS_DEMO) {
         await api(`/ordens-servico/${OS.data.id}/fotos/${id}`, { method: "DELETE" });
       }
-      OS.data.fotos = OS.data.fotos.filter((f) => f.id !== id);
+      OS.data.fotos = OS.data.fotos.filter((f) => String(f.id) !== id);
       card.remove();
       const sec = document.querySelector('[data-section="fotos"]');
       const n = OS.data.fotos.length;
@@ -2766,22 +2946,26 @@ async function _uploadFotoFile(file) {
     if (IS_DEMO) {
       OS.data.fotos.push({ id: Date.now(), url: dataUrl, tipo });
     } else {
-      const created = await api(`/ordens-servico/${OS.data.id}/fotos/upload`, {
-        method: "POST",
-        body: { image_base64: dataUrl, tipo },
-      });
-      OS.data.fotos.push(created);
+      try {
+        const created = await api(`/ordens-servico/${OS.data.id}/fotos/upload`, {
+          method: "POST",
+          body: { image_base64: dataUrl, tipo },
+        });
+        OS.data.fotos.push(created);
+      } catch (err) {
+        // ⚠️ SEM SINAL A FOTO NÃO SE PERDE: vai para a fila do IndexedDB e
+        // aparece na tela marcada como pendente. Antes disto ela era descartada
+        // com um alerta vermelho, e o técnico tinha de voltar ao local para
+        // tirar de novo — quando dava.
+        if (!ehFalhaDeRede(err)) throw err; // recusa do servidor: mostra o erro
+        const reg = await _osEnfileirarFoto(OS.data.id, dataUrl, tipo);
+        OS.data.fotos.push({ id: reg.localId, url: dataUrl, tipo, pendente: true });
+        OS.fotosPendentes = await _osLerFotosPendentes(OS.data.id);
+      }
     }
 
-    const sec = document.querySelector('[data-section="fotos"]');
-    const open = sec.classList.contains("is-open");
-    sec.outerHTML = sectionFotos();
-    const newSec = document.querySelector('[data-section="fotos"]');
-    if (open) newSec.classList.add("is-open");
-    newSec.querySelector(".os-section-head").addEventListener("click", () =>
-      newSec.classList.toggle("is-open"));
-    bindFotos();
-    atualizarProgresso();
+    _osRerenderFotos();
+    _osAtualizarEstadoEnvio();
   } catch (err) {
     if (btn) { btn.disabled = false; btn.innerHTML = `${_SVG_CAMERA} Foto`; }
     showAlert(document.getElementById("osAlert"),
@@ -3503,6 +3687,17 @@ async function finalizarOS() {
     // menos de 600ms depois de mexer num campo, o PATCH atrasado chegaria com
     // a O.S. já fechada — erro na tela e edição perdida.
     await _osEnviarPatchPendente();
+
+    // ⚠️ E AS FOTOS DA FILA ANTES DE FECHAR. Finalizar exige rede de qualquer
+    // forma; se ela está de pé, é agora que as fotos guardadas no subsolo
+    // sobem. Fechar a O.S. com foto na fila a deixaria órfã: o backend recusa
+    // envio em O.S. finalizada, e o técnico teria fotografado à toa.
+    await _osEnviarFotosPendentes();
+    if ((OS.fotosPendentes || []).length) {
+      _osIrParaSecao("fotos");
+      throw new Error(
+        `${OS.fotosPendentes.length} foto(s) ainda não subiram. Procure sinal e tente de novo.`);
+    }
 
     // Pré-validação completa: o backend valida de novo, mas aqui conseguimos
     // levar o técnico até o campo que falta em vez de só mostrar o texto.

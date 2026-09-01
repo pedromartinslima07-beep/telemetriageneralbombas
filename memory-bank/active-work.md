@@ -698,6 +698,50 @@ aparece em vermelho sem virar fila.
 
 ---
 
+### 7ª rodada — fotos e assinatura no IndexedDB (etapa 2), e o buraco da etapa 5
+
+A pergunta do Pedro — *"no final de todas as etapas meu pedido vai ser
+realizado, ou vamos continuar perdendo assinatura e foto?"* — corrigiu duas
+coisas que eu tinha dito errado:
+
+⚠️ **1. Eu exagerei o risco da assinatura.** ~120 KB contra ~5 MB de cota =
+**3%**. Ela sobrevivia à etapa 1 normalmente; o descarte era rede de segurança,
+não caminho comum. **Não inflar risco** — ele decide com base no que eu digo.
+
+⚠️ **2. A etapa 2 tinha de ser maior do que eu descrevi.** Eu disse "fila de
+fotos"; o certo era mover **tudo que é grande** para o IndexedDB (fotos E
+assinatura), que é o que faz o problema de cota sumir em vez de ficar
+administrado.
+
+**DOIS ARMAZÉNS, e a razão é durabilidade:** `localStorage` para os campos
+(escrita **síncrona** — o Android mata o app sem avisar, e campos mudam a cada
+tecla), IndexedDB para assinatura e fotos (assíncrono, mas cabe muito mais).
+
+⚠️ **A foto pendente APARECE na tela.** Escondida, o técnico tira de novo
+achando que perdeu e a O.S. sai com duplicata.
+
+⚠️ **`Number(card.dataset.fotoId)` teria quebrado tudo** — id local é string,
+`Number("loc_…")` é `NaN`, o filtro não remove e o DELETE vai para `/fotos/NaN`.
+
+⚠️ **Uma foto por vez, e o laço PARA no primeiro erro de rede.** Base64 no corpo
++ limite de 8 MB do `express.json`. Parar também preserva a ordem.
+
+⚠️ **`finalizarOS` descarrega a fila antes de fechar e BARRA se sobrar foto.**
+O backend recusa envio em O.S. finalizada — fechar antes deixaria a foto órfã.
+
+📋 **A ETAPA 5, que o Pedro levantou e eu não tinha nomeado:** se a O.S. for
+finalizada/fechada do outro lado enquanto ele está offline, a fila chega e **não
+tem onde pousar**. Precisa de caminho definido. **É a diferença entre "não
+perde" e "não perde nunca".** Registrada no roadmap.
+
+⚠️ **Limite que nenhuma etapa remove:** desinstalar o app ou limpar o
+armazenamento leva o rascunho. É local, **não é backup** — não prometer isso.
+
+**Verificado com 20 checagens**, rede caindo e voltando, app morto e reaberto.
+Faltam a etapa 3 (finalizar offline — **exige backend**) e a 4 (abrir offline).
+
+---
+
 ## ✅ Aprovados: clicar no orçamento abre o chamado (31/08)
 
 Pedido do Pedro na mesma mensagem do recorte do item. A tela dizia o que foi

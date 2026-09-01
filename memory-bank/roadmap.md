@@ -282,12 +282,10 @@ aliases:
   - 📋 **Emojis restantes** no `home` (placeholder de admin/cliente) e nas telas
     `cliente-*`: saem junto com a remoção delas.
 
-- **O.S. offline — etapas 2 a 4** 🟡 — a **etapa 1** entrou em 01/09/2026: os
-  campos do formulário sobrevivem à falta de sinal (rascunho em `localStorage`,
-  reenvio sozinho). 📋 Faltam:
-  - **2 — fila de fotos.** Elas vão em base64 e **não cabem em `localStorage`**
-    (~5 MB); exige IndexedDB e envio uma a uma, respeitando o limite de 8 MB do
-    `express.json` (ver CLAUDE.md).
+- **O.S. offline — etapas 3 a 5** 🟡 — ✅ **etapa 1** (01/09): os campos do
+  formulário sobrevivem à falta de sinal. ✅ **etapa 2** (01/09): fotos e
+  assinatura vão para o **IndexedDB**, e a foto tirada sem sinal aparece na tela
+  marcada como "na fila" e sobe sozinha quando a rede volta. 📋 Faltam:
   - **3 — finalizar offline.** ⚠️ **Exige backend:** `POST /:id/finalizar` grava
     `finalizada_em = NOW()`. Uma O.S. terminada às 14h no subsolo e sincronizada
     às 17h ficaria como 17h, e isso alimenta o `tempo_resolucao_seg` (o SLA). O
@@ -295,6 +293,17 @@ aliases:
     celular, que precisa de checagem de sanidade (recusar futuro ou muito velho).
   - **4 — abrir a O.S. offline**, pré-carregando os chamados do dia enquanto há
     sinal. Hoje a tela depende do `GET /ordens-servico/:id`.
+  - **5 — a O.S. fechada do outro lado enquanto o técnico estava offline.**
+    ⚠️ **Este é o buraco que as outras etapas NÃO cobrem**, levantado pelo Pedro
+    em 01/09 ("vamos continuar perdendo assinatura e foto?"). Se um admin
+    finalizar ou fechar a O.S. enquanto o técnico está sem sinal, a fila dele
+    chega e **não tem onde pousar**: o backend recusa edição e envio de foto em
+    O.S. finalizada. Hoje isso viraria uma foto descartada com um alerta. Precisa
+    de caminho definido — ou o backend aceita sincronização atrasada, ou o app
+    mostra "isto não conseguiu subir" com o conteúdo à mão. É a diferença entre
+    "não perde" e "não perde nunca".
+  - ⚠️ **Limite que nenhuma etapa remove:** se o app for desinstalado ou o
+    armazenamento limpo, o rascunho vai junto. É local, não é backup.
 
 - **Apagar as telas de cliente do app** 📋 — o Pedro confirmou em 01/09/2026 que
   `cliente-*` não existe em uso e autorizou remover ("se quiser ignorar ou

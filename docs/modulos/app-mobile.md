@@ -431,12 +431,35 @@ então a ausência de `httpStatus` é o sinal de falha de rede.
 Quem trabalha em subsolo veria vermelho o dia inteiro, e isso ensina a ignorar
 o aviso que importa. Vermelho fica reservado para recusa do servidor.
 
-⚠️ **A assinatura é o único campo grande e é a primeira a ser sacrificada.**
-`assinatura_b64` (data URL do canvas) passa pelo mesmo auto-save, e o
-`localStorage` tem ~5 MB. Se a gravação estourar a cota, o rascunho é regravado
-**sem a assinatura** e a reabertura avisa para refazê-la — perder a assinatura
-e manter o formulário é muito melhor que perder os dois, e quem redesenha é o
-cliente, que ainda está na frente do técnico.
+⚠️ **DOIS ARMAZÉNS, e o motivo é durabilidade, não organização** (etapa 2,
+01/09):
+
+| | O quê | Por quê |
+|---|---|---|
+| `localStorage` | os **campos** | escrita **síncrona** — quando `setItem` retorna, já gravou. O Android mata o app sem avisar e os campos mudam a cada tecla |
+| **IndexedDB** (`gb_os`) | **assinatura** e **fotos** | escrita assíncrona, mas cabe muito mais que os ~5 MB. São peças grandes e raras |
+
+Foi essa separação que **tirou a assinatura do sacrifício por cota** que a
+etapa 1 precisava fazer: com a assinatura (~120 KB de PNG) fora do
+`localStorage`, o que sobra lá é texto.
+
+⚠️ **A foto tirada sem sinal entra na fila e APARECE na tela**, marcada como
+"na fila", com um id **local** (`loc_…`, string). Esconder faria o técnico
+tirar de novo achando que perdeu, e a O.S. terminaria com duplicata.
+- **Nunca faça `Number(card.dataset.fotoId)`**: o id local vira `NaN`, o filtro
+  não remove nada e o DELETE vai para `/fotos/NaN`. Comparação é por string,
+  e `_ehFotoLocal(id)` decide entre tirar da fila e chamar o servidor.
+- **Envio uma por vez, nunca em lote:** cada foto vai em base64 no corpo do
+  POST e o `express.json` corta em 8 MB (ver CLAUDE.md). O laço **para no
+  primeiro erro de rede** — assim a ordem em que foram tiradas é preservada.
+- **Recusa do servidor tira a foto da fila** (e avisa), senão vira reenvio
+  infinito.
+
+⚠️ **`finalizarOS` descarrega a fila de fotos antes de fechar.** Finalizar exige
+rede de qualquer forma; se ela está de pé, é a última chance de as fotos
+subirem. Fechar com foto na fila a deixaria órfã — o backend recusa envio em
+O.S. finalizada, e o técnico teria fotografado à toa. Se sobrar alguma, a
+finalização é **barrada** com a contagem.
 
 ⚠️ **O auto-save no debounce precisa de `.catch()`.**
 `_osEnviarPatchPendente` **relança de propósito**, porque o `finalizarOS` usa
@@ -444,20 +467,31 @@ isso para abortar antes de fechar a O.S. No caminho do debounce não há quem
 pegue — sem o `.catch()` cada campo digitado sem sinal vira promessa rejeitada
 sem tratamento.
 
-⚠️ **O QUE ISTO NÃO COBRE.** Só os **campos** do formulário:
+**O QUE JÁ FUNCIONA SEM SINAL** (etapas 1 e 2) e o que ainda não:
 
-| | Funciona sem sinal? |
+| | Sem sinal |
 |---|---|
 | Campos do formulário | ✅ |
-| Fotos | ❌ enviadas no toque; base64 não cabe em `localStorage` (exige IndexedDB) |
-| Envio da assinatura | ❌ vai junto do PATCH, mas depende da mesma rede |
+| Fotos | ✅ ficam na fila e sobem depois |
+| Assinatura | ✅ |
 | **Finalizar a O.S.** | ❌ exige rede |
 | Abrir uma O.S. ainda não aberta | ❌ depende do `GET` |
+| O.S. fechada do outro lado enquanto ele estava offline | ❌ sem caminho definido |
 
-Finalizar offline exige backend: `POST /:id/finalizar` grava
+⚠️ **Finalizar offline exige backend:** `POST /:id/finalizar` grava
 `finalizada_em = NOW()`, então uma O.S. terminada às 14h e sincronizada às 17h
 ficaria registrada como 17h — e isso alimenta o `tempo_resolucao_seg`, que é o
-SLA. Ver o roadmap.
+SLA. O app teria de mandar o horário dele, e aí passa a depender do relógio do
+celular (precisa de checagem de sanidade).
+
+⚠️ **O caso sem caminho definido:** se a O.S. for finalizada ou fechada do outro
+lado enquanto o técnico está offline, a fila dele chega e **não tem onde
+pousar** — o backend recusa edição e envio de foto em O.S. finalizada. Hoje a
+foto sairia da fila com um alerta. É a diferença entre "não perde" e "não perde
+nunca". Ver o roadmap (etapa 5).
+
+⚠️ **Limite que nenhuma etapa remove:** desinstalar o app ou limpar o
+armazenamento leva o rascunho junto. É local, não é backup.
 
 **Para testar:** o modo `?demo=tecnico` **não serve** — `IS_DEMO` sai antes do
 PATCH e do rascunho, que é justamente o caminho a exercitar. O jeito é

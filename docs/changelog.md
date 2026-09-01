@@ -7685,6 +7685,89 @@ o `tempo_resolucao_seg`, que é o SLA (etapa 3).
 
 Sem migration. Só chega no técnico com APK novo.
 
+
+### 2026-09-01 (5ª rodada) · A foto e a assinatura do subsolo entram na fila (etapa 2)
+
+Pergunta do Pedro depois da etapa 1: *"no final de todas as etapas meu pedido vai
+ser realizado, ou vamos continuar perdendo assinatura e foto?"* — e ela obrigou
+duas correções ao que eu mesmo tinha dito, além desta etapa.
+
+**Correção 1: eu exagerei o risco da assinatura.** Ela é um PNG do canvas de
+~120 KB (o próprio código anota isso), contra ~5 MB de cota do `localStorage` —
+**3%**. Na etapa 1 ela sobrevivia normalmente; o descarte que programei era uma
+rede de segurança para cota já cheia, não o caminho comum. Apresentei como
+rotina e não era.
+
+**Correção 2: a etapa 2 precisava ser maior do que eu descrevi.** Eu tinha dito
+"fila de fotos"; o certo é **mover para o IndexedDB tudo que é grande** — fotos
+E assinatura. É isso que faz o problema de cota desaparecer em vez de ficar
+administrado.
+
+── DOIS ARMAZÉNS, POR DURABILIDADE ──────────────────────────────────────
+
+| | O quê | Por quê |
+|---|---|---|
+| `localStorage` | campos | escrita **síncrona**: quando `setItem` retorna, já gravou. O Android mata o app sem avisar e os campos mudam a cada tecla |
+| IndexedDB (`gb_os`) | assinatura, fotos | assíncrono, mas cabe muito mais que 5 MB. Peças grandes e raras |
+
+Não é organização, é durabilidade: para o que muda a cada tecla, a gravação
+instantânea vale mais que o espaço; para o que é grande e raro, o contrário.
+
+── A FILA DE FOTOS ──────────────────────────────────────────────────────
+
+A foto tirada sem sinal vai para o IndexedDB e **aparece na tela marcada como
+"na fila"**, com um id **local** (`loc_…`). Antes ela era descartada com um
+alerta vermelho, e o técnico tinha de voltar ao local para fotografar de novo —
+quando dava.
+
+⚠️ **Mostrar a foto pendente não é enfeite.** Escondida, o técnico tira de novo
+achando que perdeu, e a O.S. termina com a mesma foto duplicada.
+
+⚠️ **`Number(card.dataset.fotoId)` quebraria tudo.** O id local é string;
+`Number("loc_…")` é `NaN`, o filtro não removeria nada e o DELETE iria para
+`/fotos/NaN`. A comparação passou a ser por string, e `_ehFotoLocal(id)` decide
+entre tirar da fila e chamar o servidor.
+
+⚠️ **Uma foto por vez, nunca em lote.** Cada uma vai em base64 no corpo do POST
+e o `express.json` corta em 8 MB (CLAUDE.md). O laço **para no primeiro erro de
+rede**, o que também preserva a ordem em que foram tiradas. Recusa do servidor
+(não de rede) tira a foto da fila e avisa — senão vira reenvio infinito.
+
+⚠️ **`finalizarOS` descarrega a fila antes de fechar.** Finalizar exige rede de
+qualquer forma; se ela está de pé, é a última chance das fotos subirem. Fechar
+com foto na fila a deixaria órfã — o backend recusa envio em O.S. finalizada, e
+o técnico teria fotografado à toa. Sobrando alguma, a finalização é **barrada**
+com a contagem.
+
+── VERIFICAÇÃO ──────────────────────────────────────────────────────────
+
+Vinte checagens com a rede caindo e voltando de verdade: duas fotos e a
+assinatura offline → as duas na fila do IndexedDB e visíveis como pendentes, a
+assinatura no IndexedDB e **fora** do `localStorage` (o rascunho lá ficou com
+**63 caracteres**), a linha de estado contando "2 fotos" → **app morto e
+reaberto**, tudo sobreviveu → rede volta: fila esvazia, as duas chegam ao
+servidor, a assinatura sobe no PATCH, os cartões deixam de ser pendentes, a
+linha some, a assinatura sai do IndexedDB → apagar foto da fila **não** chama o
+servidor → finalizar com foto na fila é **barrado** com a razão certa. Zero erro
+de JS. Layout conferido nas 4 telas × 2 larguras; detector zerado.
+
+── O BURACO QUE FICA (etapa 5, registrado no roadmap) ───────────────────
+
+⚠️ **Se a O.S. for finalizada ou fechada do outro lado enquanto o técnico está
+offline, a fila dele chega e não tem onde pousar** — o backend recusa edição e
+envio de foto em O.S. finalizada. Hoje a foto sairia da fila com um alerta.
+Precisa de caminho definido: ou o backend aceita sincronização atrasada, ou o
+app mostra "isto não conseguiu subir" com o conteúdo à mão. É a diferença entre
+"não perde" e "não perde nunca". Levantado pelo Pedro, não por mim.
+
+⚠️ **E um limite que nenhuma etapa remove:** desinstalar o app ou limpar o
+armazenamento leva o rascunho junto. É local, não é backup.
+
+Faltam ainda a etapa 3 (finalizar offline — **exige backend**, por causa do
+`finalizada_em = NOW()`) e a 4 (abrir a O.S. offline).
+
+Sem migration. Só chega no técnico com APK novo.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em
