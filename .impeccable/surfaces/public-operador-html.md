@@ -269,7 +269,8 @@ que é o cenário "em uso".**
 | Pino de chamado | Etiqueta = prioridade (cores do `.selo`), preenchimento = grau do relógio (o da régua). Nada novo; é o par da fila virado posição |
 | Halo | Só no estourado, e **não pisca**. Alarme animado no turno inteiro vira ruído |
 | Pulse | **Só o pino de técnico** (01/09), com a pele do `.tec-pin` do admin. A linha acima continua valendo para prédio e chamado: é a única peça que se move, e a tela precisa que ela seja achada, não vigiada |
-| Pino de técnico | Violeta = identidade (a do admin) · verde = livre agora (`data-liv`, que o admin não tem) · cinza parado = **sem sinal** há 10 min. Menor que o pino de chamado: pele veio do admin, hierarquia não |
+| Pino de técnico | Violeta **sempre** — a matiz é a identidade (a do admin) e não muda com o estado. O `data-liv` entra na luminosidade: livre = violeta claro + tinta marinho · ocupado = violeta fundo + branca · sem sinal = cinza parado. Menor que o pino de chamado: pele veio do admin, hierarquia não |
+| ⚠️ Cor de estado é dos PRÉDIOS | O técnico livre chegou a sair verde (01/09) e ΔE contra o prédio "em ordem" era **7,8**, metade do piso 15 — e no par pior possível, porque os dois são o estado NORMAL de cada peça. Estado de técnico se faz dentro da matiz dele, nunca com verde/âmbar/vermelho |
 | Clique no pino | Abre o **mesmo** diálogo de despacho. O mapa é outra porta, não um destino |
 | Chamado novo | O mapa voa até ele e abre um balão (01/09). Gatilho é o `_novos` que já destacava o item na fila. Passa por cima do `_operadorMexeu` — é a única coisa que passa —, interrompe uma vez e nunca mais, e foca só no mais urgente quando entram vários |
 | Balão | `L.popup` solto, **nunca** `bindPopup`: o `bindPopup` registra clique próprio e brigaria com o `dlgDespacho` do pino. Vestido como o `.pin-rot`, com o `.selo` da fila |

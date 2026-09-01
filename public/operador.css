@@ -1802,9 +1802,11 @@ body.com-ficha{overflow:hidden}
    tela que pulsa, e é por isso que ele se acha sem procurar.
    ⚠️ O `data-liv` NÃO se perdeu no caminho, e essa é a diferença entre esta
    folha e a do admin: lá o técnico é sempre violeta, porque o mapa do admin
-   não sabe quem está livre; aqui a cor é a resposta da tela. Violeta = a
-   identidade do técnico (a do admin, intacta); verde = livre agora. O glow
-   segue a cor pelo `--tec-gl`, senão um pino verde brilharia roxo.
+   não sabe quem está livre; aqui livre e ocupado precisam se distinguir. Mas
+   isso se faz DENTRO da identidade — matiz violeta constante, estado na
+   luminosidade —, nunca pegando emprestada a cor de estado dos prédios. Ver a
+   conta e o erro que gerou a regra no `[data-liv="1"]` abaixo. O glow segue a
+   cor pelo `--tec-gl`, senão o pino claro brilharia escuro.
    ⚠️ O TAMANHO NÃO VEIO. No admin o técnico tem 32px contra 28 do prédio; aqui
    o maior continua sendo o pino de chamado, que é o único que abre alguma
    coisa no clique. Pele é cor; tamanho é hierarquia, e a hierarquia desta tela
@@ -1818,8 +1820,14 @@ body.com-ficha{overflow:hidden}
    dele. Sem `isolate` (e com `z-index:auto`), ele sobe para o contexto do
    `.leaflet-marker-icon` e fica atrás do pino, que é o que o `.tec-pin` do
    admin faz. */
+/* O estado base é OCUPADO. ⚠️ Os degraus são daqui, não do admin, e o motivo é
+   que esta tela tem um estado a mais: lá o técnico é sempre `#8b5cf6`→`#6d28d9`
+   porque o mapa do admin não sabe quem está livre. Aqui livre e ocupado
+   precisam se separar sem trocar de matiz, e o violeta do admin não serve para
+   nenhum dos dois extremos — branco sobre ele dá 3,7:1 e marinho, 3,4:1.
+   A MATIZ é a do admin; os degraus são o que a informação a mais exige. */
 .pin-tec{
-  --tec-a:#8b5cf6; --tec-b:#6d28d9; --tec-gl:139,92,246;
+  --tec-a:#6d28d9; --tec-b:#4c1d95; --tec-gl:109,40,217;
   width:26px;height:26px;color:#fff;font-size:11px;
   border-radius:50%;
   background:linear-gradient(135deg,var(--tec-a) 0%,var(--tec-b) 100%);
@@ -1836,11 +1844,37 @@ body.com-ficha{overflow:hidden}
   border-radius:inherit;background:inherit;opacity:.45;
   animation:pinPulse 2.4s ease-out infinite;
 }
-/* Livre agora. Tinta marinho sobre o preenchimento cru, como manda a Regra do
-   Preenchimento Cru do DESIGN.md — as iniciais em branco sobre `--verde`
-   reprovariam contraste. */
+/* ⚠️ LIVRE NÃO É VERDE, E ESSE FOI UM ERRO MEDIDO (01/09/2026, apontado pelo
+   Pedro no mesmo dia: "o pin do técnico do mapa com a mesma cor dos
+   condomínios, sério?").
+
+   A primeira versão pintava o técnico livre de `#7ce8b8`→`#3fae7c`, e o prédio
+   em ordem é `--verde` `#63d8a0` — que cai bem no MEIO desse gradiente:
+   **ΔE 7,8**, contra o piso de 15 que o DESIGN.md exige para separação. E o par
+   é o pior possível, porque são os dois estados NORMAIS: "livre agora" é o
+   estado comum do técnico e "em ordem" é o dos 87 prédios de fundo. Ou seja,
+   no dia a dia o mapa ficava com técnicos verdes perdidos num campo verde —
+   exatamente o defeito que a pele nova tinha acabado de corrigir, refeito por
+   outro caminho uma hora depois.
+
+   A identidade do técnico é a MATIZ (violeta, a do admin) e ela não muda com o
+   estado. Quem carrega o estado é a LUMINOSIDADE — o mesmo princípio que o
+   DESIGN.md já usa para separar os estados sob daltonismo, onde a matiz
+   colapsa e o degrau de claro sobrevive:
+
+     livre   violeta claro + tinta marinho   9,09:1
+     ocupado violeta fundo  + tinta branca   8,87:1   (o `.pin-tec` acima)
+     sem sinal cinza        + tinta branca   6,02:1
+
+   Separação entre os três: ΔE 58 · 47 · 79. Contra os quatro estados de
+   prédio, o par mais apertado é livre × prédio mudo (ΔE 29) — quase o dobro do
+   piso, e ainda separados por forma (círculo com iniciais × placa chanfrada
+   com ícone de prédio).
+
+   ⚠️ Tinta marinho aqui é a Regra do Preenchimento Cru do DESIGN.md, não
+   preferência: branco sobre este violeta claro dá 1,6:1. */
 .pin-tec[data-liv="1"]{
-  --tec-a:#7ce8b8; --tec-b:#3fae7c; --tec-gl:99,216,160;
+  --tec-a:#c4b5fd; --tec-b:#a78bfa; --tec-gl:167,139,250;
   color:var(--mar-900);
 }
 /* ⚠️ SEM SINAL — o estado que faltava nesta tela e que o admin já tinha

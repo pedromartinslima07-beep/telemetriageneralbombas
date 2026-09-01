@@ -7064,9 +7064,36 @@ fundo. Ganhou a pele do `.tec-pin`: gradiente de identidade, anel branco de
 2px, glow da própria cor, sombra de apoio e o `@keyframes pinPulse`.
 
 ⚠️ **O `data-liv` não se perdeu no caminho.** No admin o técnico é sempre
-violeta, porque aquele mapa não sabe quem está livre; aqui a cor é a resposta
-da tela — violeta é a identidade (a do admin, intacta), verde é livre agora. O
-glow segue a cor por `--tec-gl`, senão um pino verde brilharia roxo.
+violeta, porque aquele mapa não sabe quem está livre; aqui livre e ocupado
+precisam se distinguir. Mas **dentro da identidade**: matiz violeta constante,
+estado na luminosidade. O glow segue a cor por `--tec-gl`.
+
+⚠️ **Isto foi corrigido no mesmo dia, e o erro merece registro.** A primeira
+versão pintou "livre agora" de verde (`#7ce8b8`→`#3fae7c`), e o prédio em ordem
+é `--verde` `#63d8a0` — que cai no **meio** desse gradiente: **ΔE 7,8**, contra
+o piso de 15 do DESIGN.md. E no par pior possível, porque são os dois estados
+**normais**: "livre" é o comum do técnico e "em ordem" é o dos 87 prédios de
+fundo. No dia a dia o mapa ficava com técnicos verdes perdidos num campo verde
+— o mesmo defeito que a pele nova tinha acabado de corrigir, refeito por outro
+caminho uma hora depois. O Pedro viu na hora: *"o pin do técnico do mapa com a
+mesma cor dos condomínios, sério?"*.
+
+A regra que fica: **cor de estado (verde/âmbar/vermelho) é dos prédios.** Estado
+de técnico se faz dentro da matiz dele, pela luminosidade — que é o mesmo
+princípio que o DESIGN.md já usa onde a matiz colapsa sob daltonismo.
+
+| | tinta | contraste | ΔE do vizinho mais próximo |
+|---|---|---|---|
+| livre | violeta claro `#c4b5fd`→`#a78bfa`, marinho | 9,09:1 | 29 (prédio mudo) |
+| ocupado | violeta fundo `#6d28d9`→`#4c1d95`, branca | 8,87:1 | 82 |
+| sem sinal | cinza `#64748b`→`#475569`, branca | 6,02:1 | 33 (prédio mudo) |
+
+Separação entre os três estados do técnico: ΔE 58 · 47 · 79.
+
+⚠️ **Os degraus são daqui, a matiz é do admin.** Lá o técnico é sempre
+`#8b5cf6`→`#6d28d9` porque aquele mapa não tem o estado a mais; esse violeta não
+serve para nenhum dos dois extremos daqui (branco sobre ele dá 3,7:1 e marinho,
+3,4:1).
 
 ⚠️ **O tamanho não veio.** No admin o técnico tem 32px contra 28 do prédio;
 aqui o maior continua sendo o pino de chamado, que é o único que abre alguma

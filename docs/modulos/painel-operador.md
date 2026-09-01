@@ -426,7 +426,7 @@ presente que os 87 prédios, sendo a única peça que se move.
 | | Admin (`.tec-pin`) | Operador (`.pin-tec`) |
 |---|---|---|
 | Pele | gradiente + anel branco 2px + glow + sombra | **a mesma** |
-| Cor | violeta sempre | violeta = identidade · **verde = livre agora** (o `data-liv`, que o admin não tem) |
+| Cor | violeta sempre | violeta sempre — **a matiz é a identidade e não muda**; o `data-liv` (que o admin não tem) entra na **luminosidade**: livre = violeta claro com tinta marinho · ocupado = violeta fundo com tinta branca |
 | Tamanho | 32px, **maior** que o prédio (28) | 26px, **menor** que o chamado (28) — hierarquia da decisão |
 | Pulse | técnico e prédios em warn/bad | **só o técnico** |
 | Sem sinal | 10 min (`_tecStale`) | 10 min (`_gpsParado`) |
