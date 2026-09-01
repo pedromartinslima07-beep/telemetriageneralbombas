@@ -380,7 +380,11 @@ async function carregarMeusChamados(silent = false) {
       TC.syncedAt = new Date();
       // Com rede em mãos, guarda o miolo de cada chamado para o caso de o sinal
       // cair depois — é isto que faz a O.S. abrir no subsolo.
-      _preCarregarParaOffline().catch(() => {});
+      //
+      // `forcar` no refresh manual: quando o técnico toca em atualizar, ele
+      // normalmente está prestes a sair — é o momento em que garantir o cache
+      // vale o tráfego. No polling silencioso, vale o freio.
+      _preCarregarParaOffline({ forcar: !silent }).catch(() => {});
     }
   } catch (err) {
     if (!silent) showAlert(alertEl, err.message, "error");
@@ -1444,6 +1448,24 @@ async function iniciarAtendimento(id) {
       });
       TD.chamado.status = "em_atendimento";
       TD.chamado.ordem_servico = r.ordem_servico;
+
+      // ⚠️ GUARDA A O.S. AGORA, NESTE INSTANTE. Ela ACABOU de nascer: a
+      // pré-carga que roda ao carregar a lista é anterior a este POST e viu o
+      // chamado sem O.S. nenhuma, então não guardou nada.
+      //
+      // É exatamente aqui que o técnico ainda tem sinal — ele está na portaria
+      // e vai descer. Sem estas três linhas, tocar em "Preencher Ordem de
+      // Serviço" no subsolo dá "Failed to fetch", que foi o que o Pedro viu em
+      // 01/09/2026. Segurar o botão por mais um instante é barato perto disso.
+      if (r.ordem_servico?.id) {
+        await apiComCache(`/ordens-servico/${r.ordem_servico.id}`).catch(() => {});
+        await apiComCache(`/chamados/meus/${id}`).catch(() => {});
+        if (TD.chamado.condominio_id) {
+          await apiComCache(
+            `/equipamentos?condominio_id=${encodeURIComponent(TD.chamado.condominio_id)}`
+          ).catch(() => {});
+        }
+      }
     }
 
     gpsStart(id);
@@ -2409,8 +2431,19 @@ async function apiComCache(path, chave = path) {
 // ⚠️ Roda em segundo plano e NUNCA derruba a lista — se uma pré-carga falhar,
 // aquele chamado simplesmente não estará disponível offline, o que é o
 // comportamento de hoje.
-async function _preCarregarParaOffline() {
+// ⚠️ COM FREIO, e o freio não é detalhe. A lista faz polling a cada 30s
+// (`iniciarPollingTecnico`), e sem isto a pré-carga dispararia junto: até 12
+// chamados × 3 requisições a cada meio minuto, ou seja, milhares por hora nos
+// dados móveis e na bateria do técnico — e no servidor. Uma vez a cada 5
+// minutos cobre o caso real (ele não recebe chamado novo a cada 30s) por uma
+// fração do custo.
+const PRE_CARGA_INTERVALO_MS = 5 * 60 * 1000;
+
+async function _preCarregarParaOffline({ forcar = false } = {}) {
   if (IS_DEMO) return;
+  const agora = Date.now();
+  if (!forcar && TC.preCargaEm && (agora - TC.preCargaEm) < PRE_CARGA_INTERVALO_MS) return;
+  TC.preCargaEm = agora;
   // Só os que ainda vão ser atendidos; histórico não precisa.
   const abertos = TC.chamados.filter((c) => c.status !== "fechado").slice(0, 12);
   for (const c of abertos) {

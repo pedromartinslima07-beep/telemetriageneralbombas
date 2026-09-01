@@ -837,6 +837,34 @@ de entrada, onde aparece grande.
 
 ---
 
+### 10ª rodada — "Failed to fetch" no subsolo (bug de campo do Pedro)
+
+Relato: *"cliquei para preencher ordem de serviço sem internet e deu failed to
+fetch"*. **Reproduzido antes de mexer**, e a reprodução achou um segundo
+defeito, este meu.
+
+⚠️ **A O.S. NASCE DEPOIS DA PRÉ-CARGA.** A lista carrega com sinal e a pré-carga
+guarda o chamado — que naquele instante está `aberto`, **sem O.S. nenhuma**. Só
+então o técnico toca "Iniciar atendimento", que **cria** a O.S. via POST. Ele
+desce, toca "Preencher O.S.", e o `GET` não acha nada no cache.
+
+Conserto: `iniciarAtendimento` cacheia a O.S. nova + o detalhe + os equipamentos
+**no instante em que ela nasce** — que é exatamente quando ele ainda tem sinal
+(está na portaria).
+
+⚠️ **O SEGUNDO DEFEITO ERA MEU E NÃO APARECERIA EM TELA NENHUMA.** A lista faz
+**polling a cada 30s**, e eu disparava a pré-carga em toda carga bem-sucedida:
+até 12 chamados × 3 requisições a cada meio minuto — milhares por hora nos dados
+móveis e na bateria do técnico. **Isso aparece na conta dele no fim do mês, não
+num teste de tela.** Freio de 5 min; refresh manual ignora (quem atualiza está
+prestes a sair). Medido: 4 polls = 4 requisições, não 4 × 20.
+
+⚠️ **A LIÇÃO GERAL:** ao pendurar trabalho num caminho que já existe, olhe **com
+que frequência esse caminho roda**. `carregarMeusChamados` parecia "a carga da
+lista"; é também um timer de 30 segundos.
+
+---
+
 ## ✅ Aprovados: clicar no orçamento abre o chamado (31/08)
 
 Pedido do Pedro na mesma mensagem do recorte do item. A tela dizia o que foi

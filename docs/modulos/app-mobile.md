@@ -503,6 +503,20 @@ não tinha aberto**. Após cada carga da lista **com rede**, o app busca em
 segundo plano o detalhe de cada chamado aberto (até 12) e, quando a O.S. já
 existe, ela e os equipamentos do prédio.
 
+⚠️ **E A PRÉ-CARGA TEM FREIO — 5 minutos.** A lista faz **polling a cada 30s**
+(`iniciarPollingTecnico`). Sem o freio, a pré-carga dispararia junto: até 12
+chamados × 3 requisições a cada meio minuto, milhares por hora nos dados móveis
+e na bateria do técnico. O refresh **manual** ignora o freio (`forcar: true`) —
+quem toca em atualizar normalmente está prestes a sair, e ali garantir o cache
+vale o tráfego.
+
+⚠️ **A O.S. RECÉM-CRIADA É CACHEADA NA HORA, dentro do `iniciarAtendimento`.**
+A pré-carga da lista é **anterior** ao `POST /iniciar-atendimento` e viu o
+chamado **sem O.S. nenhuma** — não tinha o que guardar. Sem isso, o técnico que
+inicia o atendimento na portaria e desce recebe **"Failed to fetch"** ao tocar
+em "Preencher Ordem de Serviço". Foi o que aconteceu com o Pedro em 01/09/2026,
+e é o momento exato em que ele ainda tem sinal.
+
 ⚠️ **Só falha de REDE cai para o cache.** Um 403 ou 404 é resposta legítima:
 servir dado velho ali esconderia, por exemplo, um chamado que deixou de ser
 deste técnico.

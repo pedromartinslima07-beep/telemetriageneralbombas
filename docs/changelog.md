@@ -7990,6 +7990,45 @@ nas 4 telas × 2 larguras.
 Falta a **etapa 5**: a O.S. fechada do outro lado enquanto o técnico estava sem
 sinal.
 
+
+### 2026-09-01 (8ª rodada) · "Failed to fetch" ao abrir a O.S. no subsolo
+
+Relato do Pedro testando a etapa 4: *"cliquei para preencher ordem de serviço sem
+internet e deu failed to fetch"*. **Reproduzido e corrigido** — e a reprodução
+achou um segundo defeito, este meu e ainda não visto por ninguém.
+
+**A causa: a O.S. nasce DEPOIS da pré-carga.** A sequência real é
+
+1. a lista carrega **com sinal** — e a pré-carga guarda o detalhe do chamado,
+   que naquele instante está `aberto` e **sem O.S. nenhuma**;
+2. o técnico toca **"Iniciar atendimento"** (ainda com sinal) e o
+   `POST /chamados/:id/iniciar-atendimento` **cria** a O.S.;
+3. ele desce para o subsolo;
+4. toca "Preencher Ordem de Serviço" → `GET /ordens-servico/:id` → não está no
+   cache, porque quando o cache foi montado a O.S. não existia.
+
+A pré-carga estava certa; o que faltava era **guardar a O.S. no instante em que
+ela nasce**, que é justamente quando o técnico ainda tem sinal — ele está na
+portaria e vai descer. `iniciarAtendimento` passou a cachear a O.S. nova, o
+detalhe atualizado do chamado e os equipamentos do prédio antes de devolver a
+tela. Segurar o botão por mais um instante é barato perto de perder a O.S.
+
+⚠️ **O SEGUNDO DEFEITO, ACHADO AO CONSERTAR O PRIMEIRO — E ERA MEU.** A lista faz
+**polling a cada 30 segundos**, e eu disparava a pré-carga em **toda** carga
+bem-sucedida. Isso são até 12 chamados × 3 requisições **a cada meio minuto** —
+milhares por hora nos dados móveis e na bateria do técnico, e no servidor. Nunca
+teria aparecido numa tela; aparece na conta dele no fim do mês.
+
+Freio de 5 minutos, com o refresh **manual** ignorando (`forcar: true`): quem
+toca em atualizar normalmente está prestes a sair, e ali garantir o cache vale o
+tráfego. Medido: quatro ciclos do polling = **4 requisições**, não 4 × 20.
+
+**Verificado** reproduzindo a sequência exata do relato — antes: "Failed to
+fetch", 0 seções, O.S. ausente do cache. Depois: sem erro, 9 seções, O.S. no
+cache. Mais 4 checagens do freio.
+
+Sem migration. APK novo.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em
