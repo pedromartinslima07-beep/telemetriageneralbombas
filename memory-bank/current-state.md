@@ -252,9 +252,8 @@ ESP32 (sonda 4-20mA + SCT-013)
   sobrar foto. ✅ **FINALIZAR também funciona sem sinal** (etapa 3, migration 081): o app manda
   o horário em que o técnico terminou, e o backend usa esse instante na O.S. **e
   no chamado** — com `NOW()`, as horas sem sinal entrariam no `tempo_resolucao_seg`
-  (o SLA) como tempo de atendimento. ⏳ **A migration 081 está pendente em
-  produção** e o código escreve na coluna nova: subir o backend antes quebra toda
-  finalização.
+  (o SLA) como tempo de atendimento. ✅ **Migration 081 aplicada em teste e em produção** (01/09), antes do deploy do
+  código — a ordem que a Fase 7E ensinou.
   ⚠️ Falta de sinal é estado âmbar, não alerta vermelho; vermelho ficou para
   recusa do servidor (`err.httpStatus` separa os dois).
 - (histórico) **A etapa 1 (01/09/2026):** O patch

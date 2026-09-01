@@ -290,10 +290,10 @@ aliases:
     `finalizada_em`; o backend usa esse instante na O.S. **e no chamado**
     (`fechado_em`, `tempo_resolucao_seg`), com sanidade que cai para `NOW()` sem
     recusar o envio. `sincronizada_em` guarda quando chegou.
-    - ⏳ **RODAR A MIGRATION 081 EM PRODUÇÃO** —
-      `node scripts/migrate.js 081_os_finalizada_offline.sql --prod`. ⚠️ O código
-      **escreve** nessa coluna: se o backend subir antes, **toda finalização
-      quebra**, não só as offline. Lição da Fase 7E.
+    - ✅ **Migration 081 aplicada em teste e em PRODUÇÃO** (01/09/2026, rodada
+      pelo Pedro **antes** do deploy do código — a ordem que a Fase 7E ensinou:
+      o código escreve em `sincronizada_em`, e o backend subindo antes da coluna
+      quebraria toda finalização, não só as offline).
   - **4 — abrir a O.S. offline**, pré-carregando os chamados do dia enquanto há
     sinal. Hoje a tela depende do `GET /ordens-servico/:id`.
   - **5 — a O.S. fechada do outro lado enquanto o técnico estava offline.**

@@ -744,14 +744,12 @@ Faltam a etapa 3 (finalizar offline — **exige backend**) e a 4 (abrir offline)
 
 ### 8ª rodada — a O.S. fecha no subsolo (etapa 3, migration 081)
 
-⏳ **PENDÊNCIA QUE BLOQUEIA O DEPLOY — LEIA ANTES DE PUBLICAR.**
-A **migration 081 rodou só no banco de TESTE**. O código desta rodada **escreve**
-em `ordens_servico.sincronizada_em`. Se o backend for para o ar antes da coluna
-existir, **TODA finalização de O.S. em produção quebra** — não só as offline. É
-a lição da Fase 7E.
-`node scripts/migrate.js 081_os_finalizada_offline.sql --prod`
-(A tentativa automática foi barrada pelo classificador de permissão; precisa do
-Pedro.) **O commit está local e NÃO foi publicado por causa disso.**
+✅ **Migration 081 aplicada em teste e em PRODUÇÃO** (01/09/2026), rodada pelo
+Pedro **antes** do deploy do código. Essa ordem não é zelo: o código desta
+rodada **escreve** em `ordens_servico.sincronizada_em`, e o backend subindo antes
+da coluna existir quebraria **toda** finalização de O.S., não só as offline.
+⚠️ A tentativa automática foi barrada pelo classificador de permissão — mudança
+de schema em produção passa pelo Pedro, e está certo assim.
 
 **O que entrou:** o técnico finaliza a O.S. sem sinal e ela sobe sozinha.
 

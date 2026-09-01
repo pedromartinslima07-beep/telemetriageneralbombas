@@ -7911,11 +7911,10 @@ servidor recebendo o horário do subsolo.
 
 Layout conferido nas 4 telas × 2 larguras.
 
-⚠️ **A MIGRATION 081 RODOU SÓ NO BANCO DE TESTE.** Em produção ela está
-**pendente** — e o código desta entrada **escreve** em `sincronizada_em`. Se o
-backend for para o ar antes da coluna existir, **toda finalização quebra**, não
-só as offline. É a lição da Fase 7E, e por isso este commit não deve ser
-publicado antes de `node scripts/migrate.js 081_os_finalizada_offline.sql --prod`.
+**Migration 081 aplicada em teste e em PRODUÇÃO** (01/09/2026), nessa ordem e
+**antes** do deploy do código — que é a lição da Fase 7E: esta entrada escreve
+em `sincronizada_em`, e o backend subindo antes da coluna existir quebraria
+**toda** finalização, não só as offline.
 
 Faltam a etapa 4 (abrir a O.S. offline) e a 5 (O.S. fechada do outro lado).
 
