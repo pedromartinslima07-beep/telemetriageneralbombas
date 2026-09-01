@@ -1866,3 +1866,26 @@ body::before { content: none !important; }
   color: var(--atencao-t);
   box-shadow: inset 0 0 0 1px rgba(136, 97, 22, .5);
 }
+
+/* ── A marca do cabeçalho ─────────────────────────────────────────────
+   ⚠️ É o `logo-topo.png`, o WORDMARK — não o `login-logo.png`. Este último é
+   o lockup COM a assinatura embaixo (867×288, proporção 3:1): a 36px de
+   altura a assinatura sai com ~5px e vira borrão. O wordmark é 826×180
+   (4,6:1) e lê. É a mesma escolha do `operador.html`, que já documenta o
+   motivo: "logo-topo.png é a versão SEM a assinatura, que é a que aguenta
+   escala de barra".
+
+   O lockup continua certo nas telas de entrada (splash, login, código), que
+   é onde ele aparece grande — igual ao `/login` do site.
+
+   ⚠️ E sem raio: o `border-radius: 8px` do `app.css` recortava os cantos do
+   wordmark. Aqui a forma é chanfro ou nada, e numa marca é nada. */
+[data-screen^="tecnico-"] .app-brand-logo {
+  height: 26px;
+  border-radius: 0;
+}
+[data-screen^="tecnico-"] .app-brand-logo-sm {
+  height: 20px;
+  border-radius: 0;
+  opacity: 1;
+}

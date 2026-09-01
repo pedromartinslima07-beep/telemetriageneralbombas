@@ -294,8 +294,11 @@ aliases:
       pelo Pedro **antes** do deploy do código — a ordem que a Fase 7E ensinou:
       o código escreve em `sincronizada_em`, e o backend subindo antes da coluna
       quebraria toda finalização, não só as offline).
-  - **4 — abrir a O.S. offline**, pré-carregando os chamados do dia enquanto há
-    sinal. Hoje a tela depende do `GET /ordens-servico/:id`.
+  - ✅ **4 — abrir sem sinal** (01/09). Lista, detalhe, O.S. e equipamentos saem
+    do cache do IndexedDB, pré-carregado enquanto há rede. ⚠️ **NÃO cobre
+    começar um atendimento novo**: a O.S. nasce de um `POST`, e todo o resto
+    depende do id que ele devolve. O técnico precisa tocar em "Iniciar
+    atendimento" ainda com sinal; dali para baixo tudo funciona.
   - **5 — a O.S. fechada do outro lado enquanto o técnico estava offline.**
     ⚠️ **Este é o buraco que as outras etapas NÃO cobrem**, levantado pelo Pedro
     em 01/09 ("vamos continuar perdendo assinatura e foto?"). Se um admin

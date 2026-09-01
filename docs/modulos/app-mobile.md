@@ -475,8 +475,65 @@ sem tratamento.
 | Fotos | ✅ ficam na fila e sobem depois |
 | Assinatura | ✅ |
 | **Finalizar a O.S.** | ✅ fecha no aparelho e sobe sozinha |
-| Abrir uma O.S. ainda não aberta | ❌ depende do `GET` |
+| **Abrir lista, chamado e O.S.** | ✅ do cache pré-carregado (etapa 4) |
+| **Iniciar** um atendimento novo (criar a O.S.) | ❌ é um `POST`, não tem como |
 | O.S. fechada do outro lado enquanto ele estava offline | ❌ sem caminho definido |
+
+## Abrir sem sinal — o cache de leitura (etapa 4, 01/09/2026)
+
+O app abria sem rede (é APK, o HTML vem do bundle), mas **toda chamada de dado
+morria**: lista, detalhe, O.S. e equipamentos. Quem descia ao subsolo sem as
+telas já abertas não trabalhava.
+
+| Peça | Onde |
+|---|---|
+| `apiComCache(path)` | `app/public/app.js` — envolve as leituras |
+| `_preCarregarParaOffline()` | idem — roda após a lista carregar COM rede |
+| Store | IndexedDB `gb_os` → `cache`, keyPath `chave` |
+
+⚠️ **A CHAVE É O PRÓPRIO CAMINHO.** Chave inventada à parte abre espaço para
+descasamento silencioso — a pré-carga gravando em `chamado_12` e a leitura
+procurando `chamado_meus_12`, com o cache existindo e nunca sendo achado.
+Aconteceu ao escrever isto: pré-carreguei `/chamados/:id` e a tela lê
+`/chamados/meus/:id`.
+
+⚠️ **A PRÉ-CARGA É O QUE FAZ A ETAPA FUNCIONAR.** Cachear só o que ele já abriu
+não resolveria nada — o problema é abrir, no subsolo, a O.S. que ele **ainda
+não tinha aberto**. Após cada carga da lista **com rede**, o app busca em
+segundo plano o detalhe de cada chamado aberto (até 12) e, quando a O.S. já
+existe, ela e os equipamentos do prédio.
+
+⚠️ **Só falha de REDE cai para o cache.** Um 403 ou 404 é resposta legítima:
+servir dado velho ali esconderia, por exemplo, um chamado que deixou de ser
+deste técnico.
+
+⚠️ **BUMPE `IDB_VERSAO` AO ACRESCENTAR UM STORE.** O `onupgradeneeded` só
+dispara quando a versão pedida é maior que a gravada no aparelho. Sem o bump,
+quem já abriu o app com a versão anterior **nunca ganha o store novo** — e a
+falha é silenciosa: as escritas estouram numa transação para um store
+inexistente, o `.catch()` engole, e o técnico simplesmente não tem cache. (v2 =
+store `cache`.)
+
+⚠️ **O QUE A ETAPA 4 NÃO RESOLVE: começar um atendimento novo.** A O.S. nasce de
+`POST /chamados/:id/iniciar-atendimento`, que devolve o `ordem_servico`. Sem
+rede não há como criar — e todo o resto (rascunho, fotos, finalização) depende
+desse id. Fazer isso offline exigiria id local e uma camada de reconciliação.
+**Na prática:** o técnico precisa tocar em "Iniciar atendimento" **enquanto
+ainda tem sinal** (na rua, na portaria) — dali para baixo tudo funciona.
+
+⚠️ **Uma linha de aviso só, e ela prioriza.** Sem sinal os dois avisos são
+verdadeiros (lista do cache E GPS mudo). Duas barras âmbar empilhadas não são o
+dobro do aviso, são metade da atenção — "você está sem sinal" explica o outro, e
+o contrário não.
+
+## A marca do cabeçalho é o wordmark (01/09/2026)
+
+⚠️ **`logo-topo.png`, não `login-logo.png`.** O segundo é o lockup **com a
+assinatura** embaixo (867×288, 3:1): a 26px de altura a assinatura sai com ~5px
+e vira borrão. O wordmark é 826×180 (4,6:1) e lê. É a mesma escolha que o
+`operador.html` já documentava — "a versão SEM a assinatura, que é a que aguenta
+escala de barra". O lockup continua certo nas telas de **entrada**, onde aparece
+grande.
 
 ## Finalizar sem sinal (etapa 3, 01/09/2026 — migration 081)
 

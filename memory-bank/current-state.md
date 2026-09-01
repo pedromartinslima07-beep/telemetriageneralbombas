@@ -265,6 +265,16 @@ ESP32 (sonda 4-20mA + SCT-013)
   ⚠️ Falta de sinal virou estado âmbar, não alerta vermelho; vermelho ficou
   reservado para recusa do servidor (`err.httpStatus` no `api()` separa os
   dois). Detalhe em [app-mobile.md](../docs/modulos/app-mobile.md).
+- **O app abre sem sinal** (01/09/2026, etapa 4). Lista, detalhe do chamado,
+  O.S. e equipamentos saem do cache do IndexedDB, **pré-carregado** enquanto há
+  rede — cachear só o que já foi aberto não resolveria o caso real, que é abrir
+  no subsolo a O.S. ainda não aberta. Só falha de REDE cai para o cache (um 403
+  é resposta legítima). ⚠️ **Não cobre iniciar um atendimento novo**: a O.S.
+  nasce de um `POST`. ⚠️ Ao acrescentar store no IndexedDB, **bumpe
+  `IDB_VERSAO`** — sem isso quem já abriu o app não ganha o store e a falha é
+  silenciosa.
+- **A marca do cabeçalho do app é o wordmark** (`logo-topo.png`), não o lockup
+  com assinatura — a 26px a assinatura vira borrão. Mesma escolha do operador.
 - **A tela de fim de O.S. só oferece "Voltar pra minha lista"** (01/09/2026).
   Saíram o botão "Baixar PDF" (pedido do Pedro) e a barra "Confirmar e
   finalizar O.S.", que continuava na tela de uma O.S. **já finalizada** e só

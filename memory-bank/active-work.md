@@ -792,6 +792,51 @@ enquanto o técnico estava sem sinal).
 
 ---
 
+### 9ª rodada — o app abre no subsolo (etapa 4) e a marca do cabeçalho lê
+
+**Etapa 4 de 5.** As leituras passam por `apiComCache(path)`; a resposta vai
+para o IndexedDB e, **só em falha de rede**, é servida de volta.
+
+⚠️ **A PRÉ-CARGA É O QUE FAZ FUNCIONAR.** Cachear só o que ele já abriu não
+resolveria nada — o problema é abrir, no subsolo, a O.S. que ele **ainda não
+tinha aberto**. Depois de cada carga da lista com rede, o app busca em segundo
+plano o detalhe de cada chamado aberto e, quando a O.S. existe, ela e os
+equipamentos.
+
+⚠️ **A CHAVE DO CACHE É O PRÓPRIO CAMINHO.** Chave inventada à parte abre espaço
+para descasamento silencioso — **e eu caí nele**: pré-carreguei `/chamados/:id`
+enquanto a tela lê `/chamados/meus/:id`. O cache existiria e nunca seria achado.
+
+⚠️ **`IDB_VERSAO` PRECISA SUBIR AO ACRESCENTAR STORE.** O `onupgradeneeded` só
+dispara com versão maior que a gravada no aparelho. Sem o bump, quem já abriu o
+app não ganha o store — e a falha é **silenciosa**: a transação estoura, o
+`.catch()` engole, e o técnico fica sem cache sem nada na tela.
+
+⚠️ **Só falha de rede cai para o cache.** 403/404 é resposta legítima — servir
+dado velho esconderia, por exemplo, um chamado reatribuído.
+
+⚠️ **Um aviso só na tela, priorizado.** Sem sinal os dois são verdadeiros (cache
+E GPS mudo); duas barras âmbar empilhadas são metade da atenção, não o dobro.
+
+📋 **O QUE A ETAPA 4 NÃO RESOLVE — e é a pergunta que vai voltar:** **começar um
+atendimento novo**. A O.S. nasce de `POST /chamados/:id/iniciar-atendimento`, e
+todo o resto depende do id que ele devolve. Offline exigiria id local +
+reconciliação. **Na prática: tocar em "Iniciar atendimento" ainda com sinal**
+(na rua, na portaria); dali para baixo tudo funciona.
+
+**A marca do cabeçalho estava errada** (apontado pelo Pedro): era o
+`login-logo.png`, o lockup COM assinatura (3:1) — a 26px a assinatura sai com
+~5px e vira borrão. Virou `logo-topo.png`, o wordmark (4,6:1), nos 12
+cabeçalhos. O `operador.html` já documentava a regra. Lockup continua nas telas
+de entrada, onde aparece grande.
+
+**Verificado:** 20 checagens do fluxo offline + 12 de regressão das etapas 1 a 3
+(a ordem segue campos → fotos → finalizar) + marca conferida no render.
+
+📋 Falta a **etapa 5**: O.S. fechada do outro lado enquanto ele estava offline.
+
+---
+
 ## ✅ Aprovados: clicar no orçamento abre o chamado (31/08)
 
 Pedido do Pedro na mesma mensagem do recorte do item. A tela dizia o que foi

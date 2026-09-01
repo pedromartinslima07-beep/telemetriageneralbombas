@@ -372,9 +372,16 @@ async function carregarMeusChamados(silent = false) {
   refresh.classList.add("is-refreshing");
 
   try {
-    const data = await api("/chamados/meus");
-    TC.chamados = Array.isArray(data) ? data : [];
-    TC.syncedAt = new Date();
+    const r = await apiComCache("/chamados/meus", "chamados_meus");
+    TC.chamados = Array.isArray(r.dados) ? r.dados : [];
+    TC.doCache = r.doCache;
+    TC.cacheEm = r.em;
+    if (!r.doCache) {
+      TC.syncedAt = new Date();
+      // Com rede em mãos, guarda o miolo de cada chamado para o caso de o sinal
+      // cair depois — é isto que faz a O.S. abrir no subsolo.
+      _preCarregarParaOffline().catch(() => {});
+    }
   } catch (err) {
     if (!silent) showAlert(alertEl, err.message, "error");
   } finally {
@@ -626,6 +633,19 @@ function renderTecnicoAvisoOrdem(qtd) {
   const el = document.getElementById("tcAvisoOrdem");
   if (!el) return;
 
+  // ⚠️ UMA LINHA SÓ, e ela prioriza. Sem sinal os DOIS avisos são verdadeiros
+  // (a lista veio do cache E o GPS não respondeu), e duas barras âmbar
+  // empilhadas no topo da tela não são o dobro do aviso — são metade da
+  // atenção. "Você está sem sinal" explica o outro; o contrário não.
+  if (TC.doCache) {
+    el.innerHTML =
+      `<span class="tec-aviso-txt">Sem sinal &middot; lista de ${_idadeCache(TC.cacheEm)}</span>` +
+      `<span class="tec-aviso-acao">Tentar de novo</span>`;
+    el.disabled = false;
+    el.hidden = false;
+    return;
+  }
+
   // Lista vazia não precisa explicar ordenação: não há nada ordenado.
   if (TC.ordemReal !== "prioridade-sem-gps" || qtd === 0) {
     el.hidden = true;
@@ -772,10 +792,13 @@ document.getElementById("tcAvisoOrdem").addEventListener("click", async (e) => {
   if (el.disabled) return;
   el.classList.add("is-buscando");
   try {
-    await obterGPS({ force: true });
+    // Sem sinal, "tentar de novo" é recarregar a lista — pedir GPS não
+    // adiantaria nada e daria a impressão de que o app travou.
+    if (TC.doCache) await carregarMeusChamados();
+    else await obterGPS({ force: true });
   } finally {
     el.classList.remove("is-buscando");
-    renderTecnicoChamados();
+    if (!TC.doCache) renderTecnicoChamados();
   }
 });
 
@@ -869,7 +892,10 @@ async function abrirDetalheChamado(id) {
   }
 
   try {
-    TD.chamado = await api(`/chamados/meus/${id}`);
+    const rDet = await apiComCache(`/chamados/meus/${id}`);
+    TD.chamado = rDet.dados;
+    TD.doCache = rDet.doCache;
+    TD.cacheEm = rDet.em;
     // Thread em paralelo — tolera falha sem derrubar a tela.
     // Em chamados fechados a thread some pra dar lugar à avaliação no app
     // do cliente; aqui no técnico não temos esse equivalente, então só
@@ -2146,7 +2172,10 @@ async function abrirFormularioOS(chamadoId, osId) {
         pecas: [],
       };
     } else {
-      OS.data = await api(`/ordens-servico/${osId}`);
+      const rOs = await apiComCache(`/ordens-servico/${osId}`);
+      OS.data = rOs.dados;
+      OS.doCache = rOs.doCache;
+      OS.cacheEm = rOs.em;
       OS.data.fotos = OS.data.fotos || [];
       OS.data.pecas = OS.data.pecas || [];
     }
@@ -2202,8 +2231,9 @@ async function _osCarregarEquipamentos() {
 
   try {
     if (OS.data.condominio_id) {
-      const lista = await api(`/equipamentos?condominio_id=${encodeURIComponent(OS.data.condominio_id)}`);
-      if (Array.isArray(lista)) OS.equipamentos = lista;
+      const r = await apiComCache(
+        `/equipamentos?condominio_id=${encodeURIComponent(OS.data.condominio_id)}`);
+      if (Array.isArray(r.dados)) OS.equipamentos = r.dados;
     }
 
     // ⚠️ A bomba já vinculada precisa entrar na lista mesmo que não seja deste
@@ -2288,7 +2318,13 @@ const OS_RASCUNHO_PREFIX = "gb_os_rascunho_";
 const _osChaveRascunho = (osId) => OS_RASCUNHO_PREFIX + osId;
 
 const IDB_NOME = "gb_os";
-const IDB_VERSAO = 1;
+// ⚠️ BUMPE ISTO AO ACRESCENTAR UM STORE. O `onupgradeneeded` só dispara quando a
+// versão pedida é MAIOR que a gravada no aparelho. Sem o bump, quem já abriu o
+// app com a versão anterior nunca ganha o store novo — e a falha é silenciosa:
+// as escritas estouram numa transação para um store inexistente, o `.catch()`
+// engole, e o técnico simplesmente não tem cache, sem nada na tela dizendo isso.
+// v2 (01/09/2026): + store `cache` (etapa 4).
+const IDB_VERSAO = 2;
 let _idbPromise = null;
 
 function _idb() {
@@ -2306,6 +2342,10 @@ function _idb() {
       // Finalizações feitas sem sinal, esperando para subir (etapa 3).
       if (!db.objectStoreNames.contains("finalizacoes")) {
         db.createObjectStore("finalizacoes", { keyPath: "osId" });
+      }
+      // Respostas de leitura guardadas para funcionar sem sinal (etapa 4).
+      if (!db.objectStoreNames.contains("cache")) {
+        db.createObjectStore("cache", { keyPath: "chave" });
       }
     };
     req.onsuccess = () => resolve(req.result);
@@ -2328,6 +2368,80 @@ const _idbDel = (store, key) => _idbTx(store, "readwrite", (s) => s.delete(key))
 const _idbPorOs = (store, osId) =>
   _idbTx(store, "readonly", (s) => s.index("porOs").getAll(osId));
 const _idbTodos = (store) => _idbTx(store, "readonly", (s) => s.getAll());
+
+// ---- Cache de leitura (etapa 4) ----
+//
+// O app abre sem sinal (é APK empacotado, o HTML vem do bundle), mas TODA
+// chamada de dado morria: a lista, o detalhe do chamado, a O.S. e os
+// equipamentos. Na prática, quem descia para o subsolo sem ter as telas já
+// abertas não conseguia trabalhar.
+//
+// ⚠️ SÓ GUARDA LEITURA. Escrita continua indo pelas filas das etapas 1 a 3 —
+// misturar as duas coisas neste armazém faria uma resposta velha do servidor
+// sobrescrever trabalho ainda não enviado.
+// ⚠️ A CHAVE É O PRÓPRIO CAMINHO, e isso é de propósito. Chave inventada à parte
+// abre espaço para o descasamento silencioso — a pré-carga gravando em
+// `chamado_12` e a leitura procurando em `chamado_meus_12`, com o cache
+// existindo e nunca sendo encontrado. Aconteceu comigo aqui: pré-carreguei
+// `/chamados/:id` enquanto a tela lê `/chamados/meus/:id`.
+async function apiComCache(path, chave = path) {
+  try {
+    const dados = await api(path);
+    _idbPut("cache", { chave, dados, em: Date.now() }).catch(() => {});
+    return { dados, doCache: false, em: Date.now() };
+  } catch (err) {
+    // ⚠️ Só falha de REDE cai para o cache. Um 403 ou 404 é resposta legítima do
+    // servidor: servir dado velho ali esconderia, por exemplo, um chamado que
+    // deixou de ser deste técnico.
+    if (!ehFalhaDeRede(err)) throw err;
+    const c = await _idbGet("cache", chave).catch(() => null);
+    if (!c) throw err;
+    return { dados: c.dados, doCache: true, em: c.em };
+  }
+}
+
+// Guarda, enquanto HÁ sinal, o que o técnico vai precisar quando não houver.
+//
+// ⚠️ É AQUI QUE A ETAPA 4 ACONTECE DE VERDADE. Cachear só o que ele já abriu não
+// resolveria nada: o problema é justamente abrir, no subsolo, a O.S. que ele
+// ainda não tinha aberto.
+//
+// ⚠️ Roda em segundo plano e NUNCA derruba a lista — se uma pré-carga falhar,
+// aquele chamado simplesmente não estará disponível offline, o que é o
+// comportamento de hoje.
+async function _preCarregarParaOffline() {
+  if (IS_DEMO) return;
+  // Só os que ainda vão ser atendidos; histórico não precisa.
+  const abertos = TC.chamados.filter((c) => c.status !== "fechado").slice(0, 12);
+  for (const c of abertos) {
+    try {
+      const det = await apiComCache(`/chamados/meus/${c.id}`);
+      const os = det.dados && det.dados.ordem_servico;
+      // A O.S. só existe depois do "Iniciar atendimento"; quando existe, ela e
+      // os equipamentos do prédio são o que a tela do subsolo precisa.
+      if (os && os.id) {
+        await apiComCache(`/ordens-servico/${os.id}`).catch(() => {});
+        if (det.dados.condominio_id) {
+          await apiComCache(
+            `/equipamentos?condominio_id=${encodeURIComponent(det.dados.condominio_id)}`
+          ).catch(() => {});
+        }
+      }
+    } catch { /* um chamado que não pré-carregou não impede os outros */ }
+  }
+}
+
+// "Dados de 14:32" — o técnico precisa saber que está vendo algo guardado, e de
+// quando. Sem isso ele confia num chamado que pode ter sido reatribuído.
+function _idadeCache(em) {
+  if (!em) return "";
+  const min = Math.floor((Date.now() - em) / 60000);
+  if (min < 1) return "agora";
+  if (min < 60) return `há ${min} min`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `há ${h}h`;
+  return new Date(em).toLocaleDateString("pt-BR");
+}
 
 // ---- Finalização feita sem sinal (etapa 3) ----
 //
@@ -2564,12 +2678,31 @@ function _osMostrarEstadoEnvio(estado, extra) {
 }
 
 // Recalcula a linha a partir do que de fato está pendente.
+// ⚠️ OS DOIS FATOS CABEM NA MESMA LINHA, e precisam caber. Ao abrir a O.S. sem
+// sinal SEMPRE há algo pendente — o próprio render dispara um save (`correntes`)
+// antes de o técnico digitar qualquer coisa. Se a pendência simplesmente
+// vencesse, ele nunca leria que os dados são guardados; se o cache vencesse, não
+// leria que há coisa por enviar. Um recado só, com as duas metades.
 function _osAtualizarEstadoEnvio() {
+  const el = document.getElementById("osSync");
+  if (!el) return;
   const nFotos = (OS.fotosPendentes || []).length;
-  const temCampos = !!(OS.pendingPatch && Object.keys(OS.pendingPatch).length);
-  if (!temCampos && !nFotos) return _osMostrarEstadoEnvio("ok");
-  const extra = nFotos ? `${nFotos} foto${nFotos > 1 ? "s" : ""}` : "";
-  _osMostrarEstadoEnvio("pendente", extra);
+  const temPendencia = nFotos > 0 || !!(OS.pendingPatch && Object.keys(OS.pendingPatch).length);
+
+  if (!temPendencia && !OS.doCache) { el.hidden = true; el.textContent = ""; return; }
+
+  const partes = [];
+  if (OS.doCache) partes.push(`Sem sinal · dados de ${_idadeCache(OS.cacheEm)}`);
+  if (temPendencia) {
+    partes.push(OS.doCache
+      ? "salvo no aparelho, envia quando voltar"
+      : "Salvo no aparelho · envia quando o sinal voltar");
+  }
+  if (nFotos) partes.push(`${nFotos} foto${nFotos > 1 ? "s" : ""} na fila`);
+
+  el.textContent = partes.join(" · ");
+  el.className = "os-sync";
+  el.hidden = false;
 }
 
 // Redesenha a seção de fotos preservando se ela estava aberta.

@@ -7918,6 +7918,78 @@ em `sincronizada_em`, e o backend subindo antes da coluna existir quebraria
 
 Faltam a etapa 4 (abrir a O.S. offline) e a 5 (O.S. fechada do outro lado).
 
+
+### 2026-09-01 (7ª rodada) · O app abre no subsolo (etapa 4) e a marca do cabeçalho lê
+
+**Etapa 4 de 5.** O app já abria sem rede — é APK, o HTML vem do bundle — mas
+**toda chamada de dado morria**: lista, detalhe do chamado, O.S. e equipamentos.
+Quem descia sem as telas já abertas não trabalhava.
+
+Agora as leituras passam por `apiComCache(path)`, que grava a resposta no
+IndexedDB e, **só em falha de rede**, serve o que está guardado.
+
+⚠️ **A PRÉ-CARGA É O QUE FAZ A ETAPA FUNCIONAR.** Cachear apenas o que ele já
+abriu não resolveria nada: o problema é abrir, no subsolo, a O.S. que ele
+**ainda não tinha aberto**. Depois de cada carga da lista **com rede**,
+`_preCarregarParaOffline()` busca em segundo plano o detalhe de cada chamado
+aberto (até 12) e, quando a O.S. já existe, ela e os equipamentos do prédio.
+Roda solta e nunca derruba a lista.
+
+⚠️ **A CHAVE DO CACHE É O PRÓPRIO CAMINHO**, e isso não é preguiça: chave
+inventada à parte abre espaço para descasamento silencioso — a pré-carga
+gravando em `chamado_12` e a leitura procurando `chamado_meus_12`, com o cache
+existindo e nunca sendo encontrado. **Aconteceu comigo aqui**: pré-carreguei
+`/chamados/:id` enquanto a tela lê `/chamados/meus/:id`. Com a chave derivada do
+path, esse erro deixa de ser possível.
+
+⚠️ **Só falha de REDE cai para o cache.** Um 403 ou 404 é resposta legítima do
+servidor: servir dado velho ali esconderia, por exemplo, um chamado que deixou
+de ser deste técnico. Está coberto por teste.
+
+⚠️ **`IDB_VERSAO` SUBIU PARA 2, e sem isso nada funcionaria.** O
+`onupgradeneeded` do IndexedDB só dispara quando a versão pedida é maior que a
+gravada no aparelho — quem já abriu o app com a v1 **nunca ganharia o store
+`cache`**. E a falha seria silenciosa: as escritas estouram numa transação para
+um store inexistente, o `.catch()` engole, e o técnico simplesmente fica sem
+cache, sem nada na tela dizendo isso.
+
+⚠️ **Uma linha de aviso só, e ela prioriza.** Sem sinal os dois avisos são
+verdadeiros — a lista veio do cache E o GPS não respondeu. Duas barras âmbar
+empilhadas no topo não são o dobro do aviso, são metade da atenção: "você está
+sem sinal" explica o outro, e o contrário não. Na O.S., os dois fatos (dado
+guardado + coisa por enviar) são compostos num recado só, porque ao abrir
+offline **sempre** há algo pendente — o próprio render dispara um save antes de
+o técnico digitar.
+
+⚠️ **O QUE A ETAPA 4 NÃO RESOLVE, e é preciso dizer:** **começar um atendimento
+novo**. A O.S. nasce de `POST /chamados/:id/iniciar-atendimento`, e sem rede não
+há como criar — todo o resto (rascunho, fotos, finalização) depende desse id.
+Fazer isso offline exigiria id local e uma camada de reconciliação de ids. Na
+prática: o técnico precisa tocar em **"Iniciar atendimento" enquanto ainda tem
+sinal** (na rua, na portaria); dali para baixo tudo funciona.
+
+**A marca do cabeçalho estava errada** (apontado pelo Pedro). Era o
+`login-logo.png`, o lockup **com a assinatura** embaixo — 867×288, proporção
+3:1: a 26px de altura a assinatura sai com ~5px e vira borrão. Virou
+`logo-topo.png`, o wordmark (826×180, 4,6:1), nos 12 cabeçalhos. É a mesma
+escolha que o `operador.html` já documentava — "a versão SEM a assinatura, que é
+a que aguenta escala de barra". O lockup continua nas telas de entrada, onde
+aparece grande. Saiu junto o `border-radius: 8px` que recortava os cantos da
+marca.
+
+**Verificado:** 20 checagens do fluxo offline (lista carrega com rede e
+pré-carrega; app morto e reaberto no subsolo; lista, detalhe e **formulário da
+O.S.** abrem do cache, com equipamentos; preencher continua guardando; e um 403
+aparece em vez de dado velho). Mais 12 de regressão das etapas 1 a 3 depois do
+refactor — a ordem de sincronização segue **campos → fotos → finalizar**. Marca
+conferida no render: arquivo certo, 826×180, sem raio, cabendo na barra. Layout
+nas 4 telas × 2 larguras.
+
+**Sem migration** — a etapa 4 é só front. APK 6,4 MB.
+
+Falta a **etapa 5**: a O.S. fechada do outro lado enquanto o técnico estava sem
+sinal.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em
