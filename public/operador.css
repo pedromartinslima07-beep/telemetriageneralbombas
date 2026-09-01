@@ -1539,6 +1539,7 @@ body.com-mapa-fs #tela{z-index:80}
   width:28px;height:28px;
   --ch:6px;clip-path:var(--corte);
   background:var(--fio-forte);color:var(--mar-900);
+  transition:transform .15s ease;
 }
 .pin-ch svg{display:block}
 .pin-ch::before{content:"";position:absolute;inset:1px;z-index:-1;clip-path:var(--corte);background:var(--mar-500)}
@@ -1565,6 +1566,69 @@ body.com-mapa-fs #tela{z-index:80}
 }
 .leaflet-tooltip.pin-rot::before{display:none}
 .leaflet-tooltip.pin-rot b{font-family:var(--mono);font-weight:700;color:var(--text-dim)}
+
+/* ── O BALÃO DO CHAMADO NOVO ────────────────────────────────────────
+   Abre sozinho quando uma questão nasce num condomínio, junto com o voo do
+   mapa até ele (ver `_focarChamado` no operador.js). É a legenda do pino
+   crescida até caber uma decisão — mesma construção do `.pin-rot` acima
+   (marinho de fundo, fio de 1px, chanfro, raio zero), com espaço para o nome
+   do prédio, o relógio e o botão que despacha.
+   ⚠️ NÃO É UM CARD. Ele não empilha, não tem sombra de elevação e não abre
+   dois ao mesmo tempo — o Leaflet fecha o anterior, e é o que se quer: dois
+   balões abertos são duas decisões pedidas de uma vez.
+   ⚠️ O `.leaflet-popup-content-wrapper` é quem recebe o campo; pintar o
+   `.leaflet-popup` de fora deixaria a seta (`tip`) órfã, de outra cor. */
+.balao-pop .leaflet-popup-content-wrapper{
+  background:var(--mar-900);color:var(--text);
+  border:1px solid var(--fio);border-radius:0;box-shadow:0 10px 30px var(--rasgo);
+  --ch:9px;clip-path:var(--corte);
+}
+.balao-pop .leaflet-popup-content{margin:0;padding:0;width:auto!important;line-height:1.45}
+/* A seta herda o campo. Sem `box-shadow:none` ela carrega a sombra própria do
+   leaflet.css, que sobre marinho lê como borrão. */
+.balao-pop .leaflet-popup-tip{background:var(--mar-900);border:1px solid var(--fio);box-shadow:none}
+.balao-pop .leaflet-popup-tip-container{margin-top:-1px}
+.balao-pop .leaflet-popup-close-button{
+  color:var(--text-dim);font:400 18px/1 var(--fonte);
+  width:26px;height:26px;padding:5px 0 0;right:2px;top:2px;
+}
+.balao-pop .leaflet-popup-close-button:hover{color:var(--text);background:none}
+
+.balao{padding:12px 13px 11px;display:flex;flex-direction:column;gap:7px}
+/* A prioridade é o MESMO `.selo` da fila, com o mesmo `data-s` — o balão não
+   inventa vocabulário visual, ele reposiciona o que a lista já diz. */
+.balao-cab{display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding-right:22px}
+.balao-rel{font-family:var(--mono);font-size:11.5px;color:var(--text-dim);letter-spacing:.02em}
+.balao-rel b{font-size:14px;font-weight:700;color:var(--text)}
+/* O relógio pinta pelo grau, como a régua do item. Só o que já está atrasado
+   ou apertado acende: a Regra do Crítico Silencioso vale aqui também. */
+.balao[data-g="estourado"] .balao-rel b,
+.balao[data-g="apertado"] .balao-rel b{color:var(--vermelho)}
+.balao[data-g="atencao"] .balao-rel b{color:var(--amarelo)}
+.balao[data-g="semsla"] .balao-rel b{color:var(--muted)}
+.balao-nome{
+  margin:0;font-family:var(--fonte);font-size:1.09rem;font-weight:800;
+  line-height:1.25;letter-spacing:-.015em;color:var(--text);
+}
+.balao-onde{margin:-3px 0 0;font-size:12px;color:var(--sobre-2)}
+/* Duas linhas e para. A descrição inteira vive na fila, que tem largura para
+   ela; aqui ela existe para o operador reconhecer o caso, não para lê-lo. */
+.balao-txt{
+  margin:2px 0 0;font-size:13px;color:var(--text-dim);
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+  overflow:hidden;
+}
+.balao-pe{display:flex;align-items:center;gap:12px;margin-top:3px;flex-wrap:wrap}
+.balao-pe .btn{padding:8px 15px;font-size:13px}
+.balao-tec{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--verde)}
+.balao-tec svg{width:14px;height:14px;flex-shrink:0}
+/* ⚠️ O `.leaflet-popup` do leaflet.css tem `transition:opacity .2s` e nasce em
+   `opacity:0`. Em `reduce` isso vira aparição seca, que é o certo — mas o
+   `will-change` que ele deixa ligado força uma camada de composição por balão
+   e não some sozinho. */
+@media (prefers-reduced-motion:reduce){
+  .balao-pop{transition:none!important;will-change:auto!important}
+}
 
 /* ═══════════════════════════════════════════════════════════════════
    OS DOIS DIÁLOGOS
@@ -1726,17 +1790,70 @@ body.com-ficha{overflow:hidden}
    A chapa de duas camadas fica: `border` sob raio de canto some no anel de
    1px e lê como defeito, o mesmo motivo de antes. */
 /* Sem `position` aqui também — pelo mesmo motivo do `.pin-ch` acima. */
+/* ⚠️ ESTA É A PELE DO `.tec-pin` DO ADMIN, trazida em 01/09/2026 a pedido do
+   Pedro ("analisa todos os atributos de cor e visuais do mapa de admin e leve
+   para o operador"). O que estava aqui era um círculo de `--fio-forte` —
+   branco a 34% sobre marinho —, ou seja, a MESMA construção de "presença sem
+   sinal" da carteira. Num mapa em que o técnico é a única peça que se MOVE, e
+   a única que responde "quem pode ir agora", isso o deixava com menos
+   presença que os 87 prédios de fundo.
+   O que veio de lá: gradiente de identidade, anel branco de 2px, glow da
+   própria cor, sombra de apoio e o pulse — o técnico é o único objeto desta
+   tela que pulsa, e é por isso que ele se acha sem procurar.
+   ⚠️ O `data-liv` NÃO se perdeu no caminho, e essa é a diferença entre esta
+   folha e a do admin: lá o técnico é sempre violeta, porque o mapa do admin
+   não sabe quem está livre; aqui a cor é a resposta da tela. Violeta = a
+   identidade do técnico (a do admin, intacta); verde = livre agora. O glow
+   segue a cor pelo `--tec-gl`, senão um pino verde brilharia roxo.
+   ⚠️ O TAMANHO NÃO VEIO. No admin o técnico tem 32px contra 28 do prédio; aqui
+   o maior continua sendo o pino de chamado, que é o único que abre alguma
+   coisa no clique. Pele é cor; tamanho é hierarquia, e a hierarquia desta tela
+   é a da decisão. */
+/* ⚠️ O `isolation:isolate` SAIU com a chapa de duas camadas, e tirar era
+   obrigatório. Ele existia porque o `::before` era o anel de 1px e precisava
+   ficar preso ao pino; agora o anel é `box-shadow` e o `::before` é o PULSE.
+   Com `isolate`, o `.pin-tec` vira o contexto de empilhamento e o `z-index:-1`
+   passa a significar "atrás do texto, na frente do meu próprio fundo" — o
+   pulse pintaria um véu de 45% por cima do pino em vez de irradiar por trás
+   dele. Sem `isolate` (e com `z-index:auto`), ele sobe para o contexto do
+   `.leaflet-marker-icon` e fica atrás do pino, que é o que o `.tec-pin` do
+   admin faz. */
 .pin-tec{
-  isolation:isolate;
-  width:26px;height:26px;background:var(--fio-forte);color:#fff;font-size:11px;
+  --tec-a:#8b5cf6; --tec-b:#6d28d9; --tec-gl:139,92,246;
+  width:26px;height:26px;color:#fff;font-size:11px;
   border-radius:50%;
+  background:linear-gradient(135deg,var(--tec-a) 0%,var(--tec-b) 100%);
+  box-shadow:
+    0 0 0 2px #fff,
+    0 0 12px rgba(var(--tec-gl),.6),
+    0 2px 8px rgba(0,0,0,.5);
+  transition:transform .15s ease;
 }
+/* O pulse. `background:inherit` puxa o mesmo gradiente do pai, então ele
+   acompanha o estado sem uma segunda declaração de cor. */
 .pin-tec::before{
-  content:"";position:absolute;inset:1px;z-index:-1;
-  border-radius:50%;background:var(--mar-600);
+  content:"";position:absolute;inset:-3px;z-index:-1;
+  border-radius:inherit;background:inherit;opacity:.45;
+  animation:pinPulse 2.4s ease-out infinite;
 }
-.pin-tec[data-liv="1"]{background:var(--verde);color:var(--mar-900)}
-.pin-tec[data-liv="1"]::before{background:var(--verde)}
+/* Livre agora. Tinta marinho sobre o preenchimento cru, como manda a Regra do
+   Preenchimento Cru do DESIGN.md — as iniciais em branco sobre `--verde`
+   reprovariam contraste. */
+.pin-tec[data-liv="1"]{
+  --tec-a:#7ce8b8; --tec-b:#3fae7c; --tec-gl:99,216,160;
+  color:var(--mar-900);
+}
+/* ⚠️ SEM SINAL — o estado que faltava nesta tela e que o admin já tinha
+   (`.tec-pin.is-stale`). Sem ele, um técnico cujo GPS parou há 25 minutos
+   pulsava igual a quem acabou de mandar posição, e o operador despachava para
+   uma coordenada velha achando que era ao vivo. Cinza, opaco e PARADO: o pulse
+   quer dizer "ao vivo", então ele é exatamente o que precisa sumir aqui. */
+.pin-tec.is-stale{
+  --tec-a:#64748b; --tec-b:#475569;
+  color:#fff;opacity:.75;
+  box-shadow:0 0 0 2px #fff, 0 2px 8px rgba(0,0,0,.4);
+}
+.pin-tec.is-stale::before{animation:none;opacity:0}
 /* ── O FUNDO DO MAPA: a carteira ────────────────────────────────────
    Os prédios que a General atende, sem chamado aberto. Existe para o
    mapa nunca ser um retângulo vazio num turno calmo — e para o operador
@@ -1765,8 +1882,36 @@ body.com-ficha{overflow:hidden}
   --ch:5px;clip-path:var(--corte);
   color:var(--mar-900);
   box-shadow:0 2px 6px rgba(0,0,0,.45);
+  transition:transform .15s ease;
 }
 .pin-base svg{width:13px;height:13px;display:block}
+
+/* ── O HOVER DOS PINOS, e o pulse do técnico ────────────────────────
+   ⚠️ O `translate(-50%,-50%)` TEM DE SER REESCRITO NO HOVER. Ele vem do
+   `.pin` e é o que centra a face na coordenada; `transform` é uma propriedade
+   só, então escrever apenas `scale()` aqui APAGA o translate e o pino salta
+   um quarto de si mesmo para baixo e para a direita — no meio do gesto de
+   apontar para ele. O admin não tem esse risco porque lá a face não é
+   centrada por transform.
+   ⚠️ O 1.15 é o do `.mc-pin-condo` e o 1.18 é o do `.tec-pin`, os dois do
+   admin. A diferença é dele e faz sentido aqui também: o técnico é redondo e
+   cresce menos aparente que uma placa chanfrada do mesmo tanto. */
+.pin-base:hover,
+.pin-ch:hover{transform:translate(-50%,-50%) scale(1.15);z-index:1000}
+.pin-tec:hover{transform:translate(-50%,-50%) scale(1.18);z-index:1001}
+/* O pulse do admin, valores intactos (`@keyframes pinPulse`, admin.css).
+   ⚠️ SÓ O TÉCNICO USA. A regra desta tela — "halo só no estourado, e não
+   pisca" — continua valendo para prédio e chamado, e o motivo é o mesmo de
+   sempre: 87 pontos piscando na coluna de 400px apagariam os 3 que pedem
+   alguém. O técnico é a exceção porque é o único que se MOVE e o único que a
+   tela precisa que seja achado, não vigiado. */
+@keyframes pinPulse{
+  0%   {transform:scale(1);   opacity:.55}
+  100% {transform:scale(2.4); opacity:0}
+}
+@media (prefers-reduced-motion:reduce){
+  .pin-tec::before{animation:none;opacity:.28}
+}
 /* Verde é "nada errado aqui", inclusive no prédio sem telemetria — é o que o
    `_mcStatusKind` do admin faz (sem alerta e sem chamado → ok). Um mapa todo
    cinza parece erro de carregamento; um mapa todo verde parece um mapa. */
@@ -1799,6 +1944,17 @@ body.com-ficha{overflow:hidden}
 .mapa-tela[data-esc="g"] .pin-ch{width:40px;height:40px;--ch:8px}
 .mapa-tela[data-esc="g"] .pin-ch svg{width:21px;height:21px}
 .mapa-tela[data-esc="g"] .pin-tec{width:36px;height:36px;font-size:15px}
+/* O anel e o glow também são proporção. Os 2px do admin foram medidos num
+   pino de 32; a 36 eles afinam e o pino perde a borda que o descola do mapa. */
+.mapa-tela[data-esc="g"] .pin-tec{
+  box-shadow:
+    0 0 0 3px #fff,
+    0 0 16px rgba(var(--tec-gl),.6),
+    0 2px 10px rgba(0,0,0,.5);
+}
+.mapa-tela[data-esc="g"] .pin-tec.is-stale{
+  box-shadow:0 0 0 3px #fff, 0 2px 10px rgba(0,0,0,.4);
+}
 /* O halo do estourado é proporção, não enfeite: no pino grande o anel de 5px
    vira um contorno e deixa de ler como halo. */
 .mapa-tela[data-esc="g"] .pin-ch[data-g="estourado"]{

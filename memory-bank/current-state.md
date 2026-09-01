@@ -620,6 +620,25 @@ registrava era o escritório.
   Arquivos próprios (`public/operador.html/.js/.css`), sem importar `admin.js`.
   Com ele o perfil passa a alcançar **25 rotas**. Fluxo em
   [painel-operador.md](../docs/modulos/painel-operador.md).
+- **O pino de técnico do mapa do operador é o do admin desde 01/09/2026** —
+  gradiente, anel branco, glow e pulse do `.tec-pin`, mais o estado **"sem
+  sinal"** (GPS parado há 10 min) que a tela não tinha. ⚠️ A paleta das duas
+  telas **já era idêntica**: o que divergia era a presença do técnico, que
+  usava `--fio-forte` e ficava menos visível que os 87 prédios de fundo.
+  Detalhe em [painel-operador.md](../docs/modulos/painel-operador.md).
+- **O mapa do operador reenquadra até o operador mexer (01/09/2026)** — era
+  "uma vez por carregamento", e numa tela aberta o turno inteiro isso deixava a
+  vista decidida pelo estado das 8h. ⚠️ Sintoma real: técnico entrou em campo
+  às 12h53 a 7,84 km do centro da carteira, numa coluna que alcança ±7,01 km —
+  o pino era desenhado a cada ciclo mas ficava 830 m fora da borda, e só F5 ou
+  a tela cheia o traziam de volta. Agora trava no **gesto** (`_operadorMexeu`),
+  não no primeiro ciclo.
+- **Chamado novo foca o mapa e abre balão (01/09/2026)** — `flyTo` até o prédio
+  mais um popup com prioridade, relógio, descrição e o botão de despacho. O
+  gatilho é o `_novos` que já destacava o item na fila; é a **única** coisa que
+  passa por cima do `_operadorMexeu`, interrompe uma vez e foca só no mais
+  urgente quando entram vários. ⚠️ `L.popup` solto, nunca `bindPopup` — ele
+  brigaria com o clique de despacho do pino.
 - **Configurações dinâmicas** editáveis pelo admin (whitelist `CHAVES` em
   `config.service.js`) — intervalos de job, modelo IA, timeouts, sem deploy.
 - Email de alerta crítico (Resend).

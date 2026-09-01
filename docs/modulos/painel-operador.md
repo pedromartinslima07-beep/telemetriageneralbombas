@@ -303,7 +303,7 @@ virou refém do admin até 13/08/2026.
 |---|---|---|---|
 | Carteira | **placa chanfrada 22px com ícone de prédio**, colorida pelo estado (verde em ordem · âmbar baixo · vermelho crítico · cinza sem leitura) — o `.mc-pin-condo` do admin, sem o raio | condomínio ativo com coordenada | **não** |
 | Chamado | placa chanfrada 28px, ícone de prédio, cor = o relógio | chamado `aberto`/`em_atendimento` com prédio geocodificado | abre o despacho |
-| Técnico | círculo 26px com iniciais | GPS dos últimos **30 min** | não |
+| Técnico | círculo 26px com iniciais, **a pele do `.tec-pin` do admin** — gradiente, anel branco de 2px, glow e pulse | GPS dos últimos **30 min** | não |
 
 ⚠️ **Os tamanhos da tabela são os do mapa ESTREITO** (a coluna do trilho). Num
 mapa largo — tela cheia, ou a faixa abaixo de 1180px, onde o trilho deixa de
@@ -338,6 +338,72 @@ quem enquadra é a carteira — e **como** depende do tamanho da caixa: coluna d
 prédios numa coluna estreita abre a região metropolitana inteira, que foi o
 defeito que o Pedro apontou em 31/08.
 
+⚠️ **QUEM TRAVA O ENQUADRAMENTO É O GESTO DO OPERADOR, não o primeiro ciclo**
+(correção de 01/09/2026). Era `if (!_mapaEnquadrado)` — enquadrava uma vez por
+carregamento de página e nunca mais —, e numa tela que fica aberta o turno
+inteiro isso faz a vista ser decidida pelo estado do sistema às 8h da manhã.
+
+O caso real: turno calmo, zero chamado e nenhum GPS, então o mapa centrou na
+mediana da carteira (`-23,5567 / -46,6571`) em zoom 12, que numa coluna de
+400px alcança **±7,01 km**. Às 12h53 um técnico ligou o app a **7,84 km a
+leste** — 830 m além da borda. O pino era desenhado a cada ciclo e o trilho
+listava o nome, mas a vista nunca mais foi recalculada: ele aparecia no mapa do
+admin e "sumia" no do operador.
+
+Agora `_operadorMexeu` é o que trava. Enquanto ninguém tocou no mapa ele é
+automático; no primeiro gesto, congela para sempre naquela sessão. O motivo
+original (não arrancar a vista da mão de quem deu zoom num bairro) fica
+intacto — só passou a ser disparado por quem ele sempre quis proteger.
+
+⚠️ **`zoomstart`/`movestart` NÃO detectam o gesto** — o próprio `fitBounds` os
+dispara, e o mapa se travaria sozinho no primeiro enquadramento, de volta ao
+bug por um caminho mais difícil de enxergar. `_ouvirGestos` escuta os cinco que
+exigem a mão do operador: `dragstart`, `wheel`, `dblclick`, `keydown` e
+`touchstart` com dois dedos.
+
+⚠️ **O critério é "fora da vista", não "mudou de lugar"** (`_precisaEnquadrar`):
+reenquadrar a cada ciclo daria um tranco de 30 em 30 segundos enquanto um
+técnico anda pela mesma quadra. O que precisa de correção é o ponto que o
+operador **não consegue ver**.
+
+### O chamado novo leva o mapa até ele (01/09/2026)
+
+Quando uma questão nasce num condomínio, além do pino mudar de cor o mapa voa
+até ele (`flyTo`, `ZOOM_FOCO` 13 — o mesmo teto do `enquadrarMapa`) e abre um
+balão com prioridade, relógio, prédio, descrição e o botão que despacha.
+
+O gatilho é o `_novos` do `render()` — **o mesmo conjunto que já destacava o
+item na fila**. Nada novo foi inventado para detectar "chamado que chegou
+agora"; ele só passou a chegar no mapa.
+
+| Regra | Por quê |
+|---|---|
+| Passa por cima do `_operadorMexeu` | É a **única** coisa que passa. O gesto trava o ciclo de 30s porque aquilo é ruído do sistema; um chamado novo é o evento mais importante da tela |
+| Interrompe **uma vez**, no nascimento | O ciclo seguinte já não o considera novo — o mapa não volta a saltar e um balão fechado fica fechado |
+| **Um** alvo, o mais urgente | `DADOS.fila` já vem ordenada pelo SLA que estoura primeiro. Focar em três é não focar em nenhum |
+| Na abertura da tela, **nada** | `_vistos` é `null` no primeiro ciclo e `novos` sai vazio: um painel recém-carregado não pode dar zoom em coisa velha antes de o operador olhar a fila |
+| Substitui o enquadramento do ciclo | Enquadrar e depois voar são dois movimentos seguidos, e o primeiro é descartado antes de dar para lê-lo |
+
+⚠️ **`L.popup` standalone, NUNCA `bindPopup`.** O `bindPopup` registra o próprio
+handler de clique no marcador, e o pino de chamado já tem um (`dlgDespacho`) —
+os dois disparariam juntos e a regra "clique no pino abre o mesmo diálogo de
+despacho" viraria "abre duas coisas". Com o popup solto, o clique continua sendo
+só o despacho e o balão é exclusivamente automático.
+
+⚠️ **O balão abre ANTES do voo** e viaja ancorado na coordenada. Abrir no
+`moveend` teria um buraco: `flyTo` para um ponto onde o mapa já está não dispara
+evento nenhum, e o balão não apareceria. `autoPan:false` porque quem enquadra é
+o voo — os dois brigam pelo centro.
+
+⚠️ **Ele sobrevive ao ciclo de 30s** (não vive no `_pinos`, que é limpo a cada
+volta), mas `_sincronizarBalao` não o deixa congelar: o relógio continua
+correndo e um chamado que saiu da fila fecha o balão, em vez de seguir
+oferecendo "Despachar".
+
+O botão "Despachar" do balão funciona em tela cheia sem nada novo — `abrirFundo`
+já usa `<dialog>` + `showModal()`, que põe o diálogo no top layer (ver a nota da
+Fullscreen API no `operador.js`).
+
 ⚠️ **A cor da carteira é a PIOR BANDA dos reservatórios do prédio**, e prédio
 sem telemetria conta como **em ordem** (verde) — é o que o `_mcStatusKind` do
 admin faz. Em produção não há reservatório cadastrado, então a regra anterior
@@ -347,6 +413,51 @@ Quem separa fundo de decisão é o **tamanho**: 22px na carteira, 28 no chamado.
 ⚠️ **A janela de GPS é 30 min, e NÃO tem corte de expediente** — ao contrário
 de `GET /tecnicos/localizacao`, que zera a lista fora do horário. Aqui a lista
 serve para despachar, e um P1 às 18h10 precisa saber quem ainda está em campo.
+
+### O pino do técnico e o "sem sinal" (01/09/2026)
+
+A paleta das duas telas **já era a mesma** — `--ok`/`--warn`/`--danger`/
+`--muted` do admin e `--verde`/`--amarelo`/`--vermelho`/`--muted` daqui são os
+mesmos quatro valores, e o `.map-tiles-dark` é idêntico. A divergência era de
+**presença**, num pino só: o técnico era um círculo de `--fio-forte` (branco a
+34%), a mesma construção de "presença sem sinal" da carteira de fundo — menos
+presente que os 87 prédios, sendo a única peça que se move.
+
+| | Admin (`.tec-pin`) | Operador (`.pin-tec`) |
+|---|---|---|
+| Pele | gradiente + anel branco 2px + glow + sombra | **a mesma** |
+| Cor | violeta sempre | violeta = identidade · **verde = livre agora** (o `data-liv`, que o admin não tem) |
+| Tamanho | 32px, **maior** que o prédio (28) | 26px, **menor** que o chamado (28) — hierarquia da decisão |
+| Pulse | técnico e prédios em warn/bad | **só o técnico** |
+| Sem sinal | 10 min (`_tecStale`) | 10 min (`_gpsParado`) |
+
+⚠️ **"Sem sinal" é a faixa ENTRE os 10 minutos e a janela de 30.** Passados 30,
+a posição some da consulta e o pino deixa de existir; antes disso ela ainda
+vem, mas já não é "agora". A tela não distinguia: um GPS parado há 25 minutos
+pulsava igual a quem acabou de mandar posição, e o despacho ia para onde o
+técnico **esteve**. Cinza, opaco e **parado** — o pulse quer dizer "ao vivo",
+então é exatamente o que precisa sumir. O tempo vai na legenda, via `haQuanto`.
+
+⚠️ **O pulse é só do técnico, e a regra do halo continua de pé.** Prédio e
+chamado seguem sem piscar: 87 pontos animados na coluna de 400px apagariam os 3
+que pedem alguém. O técnico é a exceção porque é o único que a tela precisa que
+seja **achado**, não vigiado. Guardado por `prefers-reduced-motion`.
+
+⚠️ **Hover: `transform` reescreve o `translate(-50%,-50%)` do `.pin`.** É uma
+propriedade só — `scale()` sozinho apaga o translate que centra a face na
+coordenada, e o pino salta um quarto de si mesmo no meio do gesto de apontar
+para ele. Toda regra de hover de pino aqui repete o translate. (É a mesma
+armadilha do `position`, logo acima: a face desta folha é centrada por
+transform, a do admin não.)
+
+⚠️ **`zIndexOffset: 500` no técnico** — entre a carteira (0/400) e o chamado
+(1000): o Leaflet empilha por latitude, e um prédio de fundo ao sul cobria o
+técnico. Continua abaixo do chamado, que é o único clicável.
+
+**Cor nova nesta folha:** o violeta (`#8b5cf6` → `#6d28d9`) não está no
+[DESIGN.md](../../DESIGN.md). Não é estado e não entra na paleta categórica —
+é cor de **identidade** do técnico, herdada do `admin.css` para que as duas
+telas digam a mesma coisa. Se virar token, é nas cinco folhas.
 
 📋 **Em aberto:** a legenda do mapa (agora com três tipos de pino). É copy, e
 copy é decisão do Pedro.

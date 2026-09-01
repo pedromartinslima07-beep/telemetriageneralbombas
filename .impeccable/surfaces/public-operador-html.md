@@ -268,9 +268,13 @@ que é o cenário "em uso".**
 | Nó do mapa | **Persistente, fora do ciclo de render.** O render só o *move* para o `#slotMapa`. Dentro do HTML do render ele morreria a cada 30s |
 | Pino de chamado | Etiqueta = prioridade (cores do `.selo`), preenchimento = grau do relógio (o da régua). Nada novo; é o par da fila virado posição |
 | Halo | Só no estourado, e **não pisca**. Alarme animado no turno inteiro vira ruído |
+| Pulse | **Só o pino de técnico** (01/09), com a pele do `.tec-pin` do admin. A linha acima continua valendo para prédio e chamado: é a única peça que se move, e a tela precisa que ela seja achada, não vigiada |
+| Pino de técnico | Violeta = identidade (a do admin) · verde = livre agora (`data-liv`, que o admin não tem) · cinza parado = **sem sinal** há 10 min. Menor que o pino de chamado: pele veio do admin, hierarquia não |
 | Clique no pino | Abre o **mesmo** diálogo de despacho. O mapa é outra porta, não um destino |
+| Chamado novo | O mapa voa até ele e abre um balão (01/09). Gatilho é o `_novos` que já destacava o item na fila. Passa por cima do `_operadorMexeu` — é a única coisa que passa —, interrompe uma vez e nunca mais, e foca só no mais urgente quando entram vários |
+| Balão | `L.popup` solto, **nunca** `bindPopup`: o `bindPopup` registra clique próprio e brigaria com o `dlgDespacho` do pino. Vestido como o `.pin-rot`, com o `.selo` da fila |
 | Tela cheia | `body.com-mapa-fs` sobe o contexto de empilhamento — `z-index` na peça não basta dentro do `#tela` |
-| Enquadramento | Uma vez na carga; **de novo** a cada troca de tamanho. Gatilho do sistema ≠ gatilho do operador |
+| Enquadramento | Automático **até o operador mexer** (01/09, era "uma vez na carga" — a tela fica aberta o turno inteiro, e a vista acabava decidida pelo estado das 8h); **de novo** a cada troca de tamanho. Gatilho do sistema ≠ gatilho do operador |
 | Abaixo de 1080 | O mapa é faixa de largura cheia acima das listas, nunca uma célula ao lado delas |
 
 ## A regra da moldura (28/08, correção do mesmo dia)

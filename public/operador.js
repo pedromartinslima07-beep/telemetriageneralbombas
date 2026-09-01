@@ -414,6 +414,11 @@ function render() {
     ? new Set()
     : new Set(DADOS.fila.map((c) => c.id).filter((id) => !_vistos.has(id)));
   _vistos = new Set(DADOS.fila.map((c) => c.id));
+  // O mesmo conjunto que destaca o item na fila leva o mapa até o prédio.
+  // `montarMapaTurno` roda logo abaixo, no mesmo ciclo, e lê daqui — passar
+  // por argumento obrigaria a mudar a assinatura de uma função que o resto do
+  // arquivo chama sem nada.
+  _novos = novos;
 
   // ⚠️ O PLACAR DE TRÊS NÚMEROS SAIU (31/08/2026), e o motivo não é estética:
   // ele DIZIA O QUE A TELA JÁ DIZ, a 40px de distância. "4 esperando alguém"
@@ -660,7 +665,17 @@ function dlgDespacho(id) {
 function camadaTiles(mapa) {
   const camada = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
     { subdomains: "abc", maxZoom: 19, className: "map-tiles-dark",
-      attribution: "© OpenStreetMap" }).addTo(mapa);
+      attribution: "© OpenStreetMap",
+      // ⚠️ OS TRÊS DO ADMIN (`_criarTileLayer`, admin.js), que faltavam aqui.
+      // `keepBuffer` guarda um anel de tiles fora da vista, então arrastar o
+      // mapa não abre buraco cinza na direção do gesto; `updateWhenIdle:false`
+      // + `updateInterval:100` pedem tile DURANTE o arrasto em vez de só no
+      // fim dele. Num mapa que existe para uma decisão de despacho, o operador
+      // arrasta para ver o que tem em volta do chamado — que é exatamente o
+      // momento em que o padrão do Leaflet mostra vazio.
+      keepBuffer: 4,
+      updateWhenIdle: false,
+      updateInterval: 100 }).addTo(mapa);
   // Tile que falha fica PRETA para sempre — o Leaflet não repete o pedido.
   // Mesma correção do admin, e aqui pesa mais: o mapa existe para uma decisão
   // de despacho, e um buraco preto pode ser exatamente onde está o técnico.
@@ -695,7 +710,156 @@ let _carteiraPts = [];
 // coluna de 400px, e um zoom a menos na mesma altura mostra o dobro de área
 // com metade da legibilidade. Medido na coluna, não deduzido do admin.
 const ZOOM_CARTEIRA = 12;
+// Já houve um primeiro enquadramento nesta instância do mapa.
 let _mapaEnquadrado = false;
+/* ⚠️ O QUE TRAVA O ENQUADRAMENTO AUTOMÁTICO É O GESTO DO OPERADOR, e não o
+   primeiro ciclo — a correção de 01/09/2026.
+
+   Isto era `if (!_mapaEnquadrado)`: o mapa enquadrava UMA VEZ por carregamento
+   de página e nunca mais. O motivo era bom (não arrancar a vista da mão de
+   quem acabou de dar zoom num bairro), mas o gatilho era o errado, e numa tela
+   que fica aberta o turno inteiro isso significava que o enquadramento era
+   decidido pelo estado do sistema às 8h da manhã.
+
+   O caso real, medido em produção: turno calmo, zero chamado, nenhum técnico
+   com GPS. `_pontos` vazio, então o mapa centrou na MEDIANA DA CARTEIRA
+   (-23,5567 / -46,6571) em zoom 12 — numa coluna de 400px isso alcança ±7,01 km.
+   Às 12h53 um técnico ligou o app em -23,5350 / -46,5803, **7,84 km a leste**:
+   830 m além da borda direita. O ciclo de 30s desenhava o pino dele a cada
+   volta, o trilho listava o nome, e a vista nunca mais foi recalculada — ele
+   aparecia no mapa do admin e "sumia" no do operador. Só F5 ou o botão de tela
+   cheia (que chama `enquadrarMapa` de novo) traziam ele de volta.
+
+   Agora: enquanto NINGUÉM tocou no mapa, ele é automático e se reenquadra
+   quando um ponto cai fora da vista; no instante em que o operador arrasta,
+   rola, dá duplo clique, usa o teclado ou pinça, congela para sempre naquela
+   sessão. O motivo original fica intacto — só passou a ser disparado por quem
+   ele sempre quis proteger. */
+let _operadorMexeu = false;
+
+/* Só GESTO conta. `zoomstart`/`movestart` do Leaflet NÃO servem: o próprio
+   `fitBounds` os dispara, e o mapa se travaria sozinho no primeiro
+   enquadramento — de volta ao bug, por um caminho mais difícil de enxergar.
+   Estes cinco só existem quando a mão do operador está no mapa.
+   `zoomControl` é `false` nesta tela, então não há botão +/- a escutar. */
+function _ouvirGestos(mapa) {
+  const marcar = () => { _operadorMexeu = true; };
+  mapa.on("dragstart", marcar);
+  const el = mapa.getContainer();
+  el.addEventListener("wheel", marcar, { passive: true });
+  el.addEventListener("dblclick", marcar);
+  el.addEventListener("keydown", marcar);
+  el.addEventListener("touchstart",
+    (e) => { if (e.touches.length > 1) marcar(); }, { passive: true });
+}
+
+/* ⚠️ FORA DA VISTA, e não "mudou de lugar". Reenquadrar a cada ciclo faria o
+   mapa dar um tranco de 30 em 30 segundos enquanto um técnico anda pela mesma
+   quadra — movimento que não informa nada e que ninguém pediu. O que precisa
+   de correção é o ponto que o operador NÃO CONSEGUE VER; enquanto todos cabem
+   na vista, a vista está certa e fica quieta. */
+function _precisaEnquadrar(pontos) {
+  if (_operadorMexeu) return false;
+  if (!_mapaEnquadrado) return true;
+  if (!pontos.length) return false;
+  const vista = _mapaTurno.getBounds();
+  return pontos.some((p) => !vista.contains(p));
+}
+
+/* ── O CHAMADO NOVO LEVA O MAPA ATÉ ELE ──────────────────────────────────
+   Pedido do Pedro (01/09): quando aparece uma questão num condomínio, além do
+   pino mudar de cor, a tela vai até ele e abre um balão com o que é.
+
+   ⚠️ ISTO PASSA POR CIMA DO `_operadorMexeu`, e é a ÚNICA coisa que passa.
+   O gesto do operador trava o reenquadramento do ciclo de 30s porque aquilo é
+   ruído do sistema; um chamado NOVO é o evento mais importante que esta tela
+   tem, e ela existe para não deixá-lo passar. A concessão é a de sempre:
+   interrompe uma vez, no momento em que o chamado nasce, e nunca mais.
+
+   ⚠️ E SÓ NA PRIMEIRA APARIÇÃO. O gatilho é o `_novos` do `render()` — o mesmo
+   conjunto que destaca o item na fila —, então o ciclo seguinte já não o
+   considera novo: o mapa não volta a saltar, e um balão que o operador fechou
+   fica fechado. Na abertura da tela `_vistos` é `null` e `novos` sai vazio, de
+   propósito: um painel que acabou de carregar com cinco chamados abertos não
+   pode dar zoom em coisa velha antes de o operador olhar a fila. */
+let _novos = null;
+let _balao = null;
+let _balaoId = null;
+// O mesmo teto do `enquadrarMapa`. Um zoom a mais cola no prédio e varre a
+// vizinhança da tela — e a pergunta que o mapa responde ("quem pode ir") é
+// justamente sobre o que está em volta.
+const ZOOM_FOCO = 13;
+
+// O mais urgente entre os que acabaram de chegar. `DADOS.fila` já vem
+// ordenada pelo SLA que estoura primeiro, então o primeiro que casar é ele.
+// ⚠️ Focar em três é não focar em nenhum: se entram vários no mesmo ciclo, os
+// outros continuam pinados e na fila, que é onde eles já eram visíveis.
+function _chamadoParaFocar(chamados) {
+  if (!_novos || !_novos.size) return null;
+  return chamados.find((c) => _novos.has(c.id)) || null;
+}
+
+function _focarChamado(c) {
+  const p = [c.condominio.lat, c.condominio.lng];
+  // O balão abre ANTES do voo, ancorado na coordenada, e viaja junto. Abrir no
+  // `moveend` teria um buraco: `flyTo` para um ponto onde o mapa já está não
+  // dispara evento nenhum, e o balão simplesmente não apareceria.
+  // `autoPan:false` porque quem enquadra aqui é o voo — os dois juntos brigam
+  // pelo centro, e o popup cabe de sobra acima de um ponto centrado.
+  _balao = L.popup({ className: "balao-pop", maxWidth: 268, minWidth: 214,
+                     autoPan: false, closeButton: true })
+    .setLatLng(p).setContent(_balaoChamado(c)).openOn(_mapaTurno);
+  _balaoId = c.id;
+  // O voo é o que faz o operador PERCEBER que a tela se moveu; um salto
+  // instantâneo desorienta em quem estava olhando outra região.
+  if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    _mapaTurno.setView(p, ZOOM_FOCO);
+  } else {
+    _mapaTurno.flyTo(p, ZOOM_FOCO, { duration: .8 });
+  }
+}
+
+/* O balão sobrevive ao ciclo de 30s de propósito — ele não vive no `_pinos`,
+   que é limpo a cada volta. Mas sobreviver não é congelar: o relógio dentro
+   dele continua correndo, e um chamado que saiu da fila (fechado por outro
+   operador, por exemplo) não pode continuar oferecendo "Despachar". */
+function _sincronizarBalao() {
+  if (_balaoId == null || !_mapaTurno) return;
+  const atual = DADOS.fila.find((c) => c.id === _balaoId);
+  if (!atual) {
+    _mapaTurno.closePopup();
+    _balao = null; _balaoId = null;
+    return;
+  }
+  if (_balao && _balao.isOpen()) _balao.setContent(_balaoChamado(atual));
+}
+
+/* ⚠️ NENHUMA CRASE AQUI DENTRO, nem em comentário — ver CLAUDE.md. O conteúdo
+   é o do item da fila, sem a prova: quem está olhando o mapa quer saber ONDE,
+   QUÃO URGENTE e O QUE FAZER. As colunas d'água ficam na fila, que é onde há
+   espaço para lê-las. */
+function _balaoChamado(c) {
+  const r = relogio(c.sla);
+  const condo = c.condominio || {};
+  const onde = [condo.bairro, condo.cidade].filter(Boolean).map(escapar).join(" · ");
+  const acao = c.tecnico
+    ? `<span class="balao-tec">${I.rota}<span>${escapar(c.tecnico.nome)}</span></span>`
+    : `<button class="btn" data-acao="despacho" data-id="${c.id}">Despachar</button>`;
+  return `
+    <div class="balao" data-g="${r.grau}">
+      <div class="balao-cab">
+        <span class="selo" data-s="${c.prioridade}">${prioRot(c.prioridade)}</span>
+        <span class="balao-rel"><b>${r.txt}</b> ${escapar(r.rot)}</span>
+      </div>
+      <h3 class="balao-nome">${escapar(condo.nome || "Prédio sem cadastro")}</h3>
+      ${onde ? `<p class="balao-onde">${onde}</p>` : ""}
+      <p class="balao-txt">${escapar(c.descricao || c.titulo)}</p>
+      <div class="balao-pe">
+        ${acao}
+        <button class="link-ficha" data-acao="ficha" data-id="${c.id}">Ver detalhes</button>
+      </div>
+    </div>`;
+}
 
 /* ⚠️ RE-ENQUADRAR NA TROCA DE TAMANHO NÃO CONTRADIZ o "enquadra uma vez só"
    lá embaixo — são dois gatilhos diferentes, e a diferença é quem pediu.
@@ -768,6 +932,29 @@ function mapaTurnoNo() {
   return el;
 }
 
+/* ── "Sem sinal": a posição existe, mas envelheceu ───────────────────────
+   ⚠️ 10 MINUTOS, o mesmo do `_tecStale` do admin, e o número é do Android:
+   fabricante que otimiza bateria atrasa o callback do serviço de GPS, então
+   um intervalo curto acusaria "sem sinal" em técnico que está mandando
+   posição normalmente.
+   ⚠️ E ISTO NÃO É A JANELA DE 30 MINUTOS DO BACKEND. Lá, passados 30 min, a
+   posição some da consulta e o pino deixa de existir; aqui é a faixa ENTRE as
+   duas — a posição ainda vem, mas já não é "agora". Era justamente essa faixa
+   que a tela não distinguia: um GPS parado há 25 minutos pulsava igual a quem
+   acabou de mandar. */
+const GPS_PARADO_MIN = 10;
+
+function _minDesde(iso) {
+  if (!iso) return null;
+  const t = new Date(iso).getTime();
+  if (isNaN(t)) return null;
+  return Math.max(0, Math.round((Date.now() - t) / 60000));
+}
+function _gpsParado(iso) {
+  const m = _minDesde(iso);
+  return m === null || m >= GPS_PARADO_MIN;
+}
+
 function montarMapaTurno() {
   const no = _mapaTurnoNo;
   if (!no) return;
@@ -790,7 +977,13 @@ function montarMapaTurno() {
   // Leaflet centrado no oceano é pior que uma frase — mas agora isto só
   // acontece num sistema sem NENHUM prédio geocodificado.
   if (!chamados.length && !equipe.length && !carteira.length) {
-    if (_mapaTurno) { _mapaTurno.remove(); _mapaTurno = null; _mapaEnquadrado = false; }
+    // O mapa vai embora inteiro, e com ele os listeners de gesto: a próxima
+    // instância nasce em modo automático de novo.
+    if (_mapaTurno) {
+      _mapaTurno.remove(); _mapaTurno = null;
+      _mapaEnquadrado = false; _operadorMexeu = false;
+      _balao = null; _balaoId = null;
+    }
     tela.innerHTML = '<p class="mapa-vazio">Nenhum prédio com endereço no mapa ainda.</p>';
     return;
   }
@@ -800,6 +993,7 @@ function montarMapaTurno() {
     _mapaTurno = L.map(tela, { zoomControl: false, attributionControl: true });
     camadaTiles(_mapaTurno);
     _pinos = L.layerGroup().addTo(_mapaTurno);
+    _ouvirGestos(_mapaTurno);
   }
 
   _pinos.clearLayers();
@@ -877,9 +1071,22 @@ function montarMapaTurno() {
   equipe.forEach((t) => {
     const p = [t.lat, t.lng];
     pontos.push(p);
-    L.marker(p, { icon: L.divIcon({ className: "", iconSize: [26, 26], iconAnchor: [13, 13],
-      html: `<div class="pin pin-tec" data-liv="${t.disponivel && !t.abertos ? 1 : 0}">${iniciais(t.nome)}</div>` }) })
-      .bindTooltip(`${escapar(t.nome)} <b>${t.abertos || 0}</b>`,
+    // ⚠️ `zIndexOffset` 500 — entre a carteira (0/400) e o chamado (1000).
+    // O Leaflet empilha por latitude, então sem isto um prédio de fundo ao sul
+    // cobria o técnico, e o técnico é a peça que a tela precisa que seja
+    // achada. Continua ABAIXO do chamado, que é o único que abre alguma coisa
+    // no clique (o mesmo motivo que deu 1000 a ele).
+    const parado = _gpsParado(t.gps_em);
+    const desde = _minDesde(t.gps_em);
+    L.marker(p, { zIndexOffset: 500,
+      icon: L.divIcon({ className: "", iconSize: [26, 26], iconAnchor: [13, 13],
+        html: `<div class="pin pin-tec${parado ? " is-stale" : ""}" data-liv="${
+          t.disponivel && !t.abertos ? 1 : 0}">${iniciais(t.nome)}</div>` }) })
+      // A legenda diz o que o pino não cabe: quantos chamados, e — quando o
+      // GPS parou — há quanto tempo aquela posição está velha. Sem o segundo,
+      // o operador despacha para onde o técnico ESTAVA.
+      .bindTooltip(`${escapar(t.nome)} <b>${t.abertos || 0}</b>${
+        parado ? ` <b>sem sinal ${haQuanto(desde)}</b>` : ""}`,
                    { className: "pin-rot", direction: "top", offset: [0, -11] })
       .addTo(_pinos);
   });
@@ -900,10 +1107,16 @@ function montarMapaTurno() {
   } else {
     _centroCarteira = null;
   }
-  // ⚠️ ENQUADRA UMA VEZ SÓ. Refazer o `fitBounds` a cada recarga de 30s
-  // arrancaria o mapa da mão de quem acabou de dar zoom num bairro — a tela
-  // se atualiza sozinha, e o enquadramento é do operador, não do ciclo.
-  if (!_mapaEnquadrado) {
+  // ⚠️ ENQUADRA ATÉ O OPERADOR MEXER — ver `_precisaEnquadrar` e o comentário
+  // de `_operadorMexeu`. O que não pode acontecer é o `fitBounds` do ciclo de
+  // 30s arrancar o mapa da mão de quem acabou de dar zoom num bairro; enquanto
+  // essa mão não chegou, um ponto fora da vista é defeito, não preferência.
+  // ⚠️ O FOCO NO CHAMADO NOVO SUBSTITUI O ENQUADRAMENTO DESTE CICLO, não se
+  // soma a ele. Os dois mexem na vista: enquadrar e depois voar são dois
+  // movimentos seguidos na mesma tela, e o primeiro é descartado antes de
+  // alguém conseguir lê-lo.
+  const alvo = _chamadoParaFocar(chamados);
+  if (!alvo && _precisaEnquadrar(pontos)) {
     enquadrarMapa();
     _mapaEnquadrado = true;
   }
@@ -913,6 +1126,15 @@ function montarMapaTurno() {
   // E é aqui que o ciclo de 30s pega a mudança de largura da janela, que não
   // tem listener próprio: a caixa recém-medida decide a escala dos pinos.
   escalaPinos();
+  // ⚠️ DEPOIS do `invalidateSize`, e isso não é ordem por acaso: o `flyTo`
+  // calcula o destino a partir do tamanho da caixa, e a caixa acabou de mudar
+  // de lugar no DOM. Voar antes de medir centra no lugar errado.
+  if (alvo) {
+    _focarChamado(alvo);
+    _mapaEnquadrado = true;
+  } else {
+    _sincronizarBalao();
+  }
 }
 
 /* Tela cheia: a API nativa quando existe, com a classe como plano B — o

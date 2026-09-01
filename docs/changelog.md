@@ -7044,6 +7044,190 @@ lista network-first do `sw.js` — nada a bumpar lá.)
 
 Sem migration: `chamados.tecnico_id` existe desde a 009.
 
+### 2026-09-01 · O técnico ganha a pele do admin no mapa do operador
+
+Pedido do Pedro depois de olhar as duas telas lado a lado: *"analisa todos os
+atributos de cor e visuais do mapa de admin e leve para o operador"*.
+
+**O achado que mudou o escopo: a paleta já era a mesma.** `--ok`/`--warn`/
+`--danger`/`--muted` do `admin.css` e `--verde`/`--amarelo`/`--vermelho`/
+`--muted` do `operador.css` são os mesmos quatro valores (`#63d8a0`, `#fbb329`,
+`#ff5a4d`, `#8294c2`), e o filtro de tile (`.map-tiles-dark`) é idêntico ao
+caractere. Não havia divergência de cor a corrigir — a divergência era de
+**presença**, e estava concentrada num pino só.
+
+**O pino de técnico.** Era um círculo de `--fio-forte` (branco a 34% sobre
+marinho) — a mesma construção de "presença sem sinal" da carteira de fundo.
+Num mapa em que ele é a única peça que se **move** e a única que responde
+"quem pode ir agora", isso o deixava com menos presença que os 87 prédios de
+fundo. Ganhou a pele do `.tec-pin`: gradiente de identidade, anel branco de
+2px, glow da própria cor, sombra de apoio e o `@keyframes pinPulse`.
+
+⚠️ **O `data-liv` não se perdeu no caminho.** No admin o técnico é sempre
+violeta, porque aquele mapa não sabe quem está livre; aqui a cor é a resposta
+da tela — violeta é a identidade (a do admin, intacta), verde é livre agora. O
+glow segue a cor por `--tec-gl`, senão um pino verde brilharia roxo.
+
+⚠️ **O tamanho não veio.** No admin o técnico tem 32px contra 28 do prédio;
+aqui o maior continua sendo o pino de chamado, que é o único que abre alguma
+coisa no clique. Pele é cor; tamanho é hierarquia.
+
+**Estado novo: "sem sinal" (`_gpsParado`, 10 min — o número do `_tecStale` do
+admin, que é do Android e não do produto).** É a faixa **entre** os 10 minutos
+e a janela de 30 do backend: a posição ainda vem, mas já não é "agora". A tela
+não distinguia isso — um GPS parado há 25 minutos pulsava igual a quem acabou
+de mandar posição, e o operador despachava para onde o técnico **estava**. O
+pino fica cinza, opaco e **parado** (o pulse quer dizer "ao vivo"), e a legenda
+diz há quanto tempo, via `haQuanto`.
+
+**Pulse: só o técnico.** A regra da tela — *"halo só no estourado, e não
+pisca"* — continua valendo para prédio e chamado. 87 pontos piscando na coluna
+de 400px apagariam os 3 que pedem alguém. O técnico é a exceção porque é o
+único que se move e o único que a tela precisa que seja **achado**, não
+vigiado. Guardado por `prefers-reduced-motion`.
+
+**Também vieram do admin:** hover `scale` nos três pinos (a tela não tinha
+nenhum feedback de ponteiro) e os três parâmetros de tile que faltavam —
+`keepBuffer: 4`, `updateWhenIdle: false`, `updateInterval: 100`. Arrastar o
+mapa deixa de abrir buraco cinza na direção do gesto, que é exatamente o
+momento em que o operador olha o que tem em volta do chamado.
+
+⚠️ **`transform` no hover REESCREVE o `translate(-50%,-50%)` do `.pin`.** É uma
+propriedade só: escrever apenas `scale()` apaga o translate que centra a face
+na coordenada, e o pino salta um quarto de si mesmo no meio do gesto de apontar
+para ele. O admin não corre esse risco porque lá a face não é centrada por
+transform.
+
+⚠️ **`zIndexOffset: 500` no técnico** — entre a carteira (0/400) e o chamado
+(1000). O Leaflet empilha por latitude, então um prédio de fundo ao sul cobria
+o técnico. Continua abaixo do chamado, pelo mesmo motivo que deu 1000 a ele.
+
+**Cor nova nesta folha:** o violeta do técnico (`#8b5cf6` → `#6d28d9`) não está
+no DESIGN.md. Ele não é estado e não entra na paleta categórica — é a cor de
+**identidade** do técnico, herdada do `admin.css` justamente para que as duas
+telas digam a mesma coisa. Se um dia virar token, é nas cinco folhas.
+
+### 2026-09-01 · O mapa do operador para de perder quem entra em campo depois
+
+Relatado pelo Pedro: *"tem um técnico hoje sendo rastreado e aparecendo no mapa
+do painel de admin, mas no painel de operador ele não [aparece]"*.
+
+**Não era o backend.** As duas consultas devolvem o mesmo técnico, com a mesma
+coordenada e o mesmo horário — conferido contra produção. `SQL_EQUIPE` filtra
+`cargo = 'tecnico'` e `GET /tecnicos/localizacao` não, mas o técnico em questão
+**é** cargo técnico, então essa divergência (real, e ainda de pé) não era esta.
+Também não era o `sw.js`: `/operador` já está na lista network-first.
+
+**Era o enquadramento, e o gatilho estava errado.** `if (!_mapaEnquadrado)`
+enquadrava **uma vez por carregamento de página** e nunca mais. A intenção era
+boa — não arrancar a vista da mão de quem acabou de dar zoom num bairro —, mas
+numa tela que fica aberta o turno inteiro isso faz o enquadramento ser decidido
+pelo estado do sistema às 8h da manhã.
+
+O caso, com os números medidos em produção:
+
+| | |
+|---|---|
+| Fila às 8h | **zero** chamado aberto, nenhum técnico com GPS → `_pontos` vazio |
+| Enquadramento aplicado | mediana dos 87 prédios (`-23,5567 / -46,6571`), zoom 12 |
+| Alcance na coluna de 400px | **±7,01 km** (35,05 m/px) |
+| Técnico às 12h53 | `-23,5350 / -46,5803` — **7,84 km a leste** |
+| Resultado | 830 m além da borda direita, e a vista nunca mais recalculada |
+
+O pino era desenhado a cada ciclo de 30s e o trilho listava o nome; só F5 ou o
+botão de tela cheia (que chama `enquadrarMapa` de novo) traziam ele de volta.
+
+**A correção troca o gatilho, não a regra.** `_operadorMexeu` substitui
+`_mapaEnquadrado` no `if`: enquanto ninguém tocou no mapa ele é automático; no
+primeiro gesto, congela para sempre naquela sessão. O motivo original fica
+intacto — só passou a ser disparado por quem ele sempre quis proteger.
+
+⚠️ **`zoomstart`/`movestart` do Leaflet NÃO servem para detectar o gesto** — o
+próprio `fitBounds` os dispara, e o mapa se travaria sozinho no primeiro
+enquadramento, de volta ao bug por um caminho mais difícil de enxergar.
+`_ouvirGestos` escuta só os cinco que exigem a mão do operador: `dragstart`,
+`wheel`, `dblclick`, `keydown` e `touchstart` com dois dedos. (`zoomControl` é
+`false` nesta tela, então não há botão +/- a escutar.)
+
+⚠️ **O critério é "fora da vista", não "mudou de lugar"** (`_precisaEnquadrar`).
+Reenquadrar a cada ciclo daria um tranco de 30 em 30 segundos enquanto um
+técnico anda pela mesma quadra. O que precisa de correção é o ponto que o
+operador **não consegue ver**.
+
+Cenários verificados com a vista real da coluna: tela aberta vazia → enquadra ·
+técnico entra fora da vista → reenquadra · mesmo técnico andando dentro da
+vista → **não** mexe · depois do gesto → nunca mais mexe · mapa recriado →
+volta ao automático.
+
+### 2026-09-01 · O chamado novo leva o mapa até ele, e abre um balão
+
+Pedido do Pedro: *"qnd tiver uma questão com um condomínio além dele mudar de
+cor, a tela focar nele, e dele sair um balão com as informações"*.
+
+**Metade já existia.** `_vistos` (no `render()`) compara a fila deste ciclo com
+a do anterior desde sempre — é o que destaca o item recém-chegado na lista. O
+gatilho de "questão nova num condomínio" estava pronto; só não chegava no mapa.
+Agora o mesmo conjunto vira `_novos` e o mapa lê dali.
+
+**O foco.** `flyTo` até o prédio, `ZOOM_FOCO` 13 — o mesmo teto do
+`enquadrarMapa`, porque um zoom a mais cola no prédio e varre a vizinhança da
+tela, e a pergunta que o mapa responde ("quem pode ir") é sobre o que está em
+volta. O voo é o que faz o operador **perceber** que a tela se moveu; um salto
+instantâneo desorienta quem estava olhando outra região. Em
+`prefers-reduced-motion`, `setView` seco.
+
+⚠️ **ISTO PASSA POR CIMA DO `_operadorMexeu`, e é a única coisa que passa.** O
+gesto do operador trava o reenquadramento do ciclo de 30s porque aquilo é ruído
+do sistema; um chamado novo é o evento mais importante que a tela tem. A
+concessão é limitada: interrompe uma vez, quando o chamado nasce, e nunca mais.
+
+⚠️ **Um alvo, não vários.** Se entram três no mesmo ciclo, foca no mais urgente
+— `DADOS.fila` já vem ordenada pelo SLA que estoura primeiro, então o primeiro
+que casar é ele. Focar em três é não focar em nenhum; os outros seguem pinados
+e na fila, onde já eram visíveis.
+
+⚠️ **Na abertura da tela não foca em nada**, de propósito: `_vistos` é `null` no
+primeiro ciclo e `novos` sai vazio. Um painel que acabou de carregar com cinco
+chamados abertos não pode dar zoom em coisa velha antes de o operador olhar a
+fila. Esse comportamento já estava codificado — só passou a ter consequência.
+
+**O balão.** `L.popup` standalone, **não** `bindPopup`. ⚠️ O `bindPopup`
+registra o próprio handler de clique no marcador, e o pino de chamado já tem um
+(`dlgDespacho`): os dois disparariam juntos, e a regra da tela — *"clique no
+pino abre o mesmo diálogo de despacho"* — viraria "abre duas coisas". Com o
+popup solto, o clique continua sendo só o despacho e o balão é exclusivamente
+automático.
+
+⚠️ **Ele abre ANTES do voo**, ancorado na coordenada, e viaja junto. Abrir no
+`moveend` teria um buraco: `flyTo` para um ponto onde o mapa já está não dispara
+evento nenhum, e o balão simplesmente não apareceria. `autoPan:false` porque
+quem enquadra é o voo — os dois juntos brigam pelo centro.
+
+⚠️ **O balão sobrevive ao ciclo de 30s** (não vive no `_pinos`, que é limpo a
+cada volta), mas `_sincronizarBalao` não o deixa congelar: o relógio dentro dele
+continua correndo, e um chamado que saiu da fila fecha o balão em vez de seguir
+oferecendo "Despachar". Fechado pelo operador, fica fechado — o ciclo seguinte
+já não o considera novo.
+
+**Visual:** mesma construção do `.pin-rot` (marinho, fio de 1px, chanfro, raio
+zero), com o `.selo` da fila e o mesmo `data-s` — o balão não inventa
+vocabulário, reposiciona o que a lista já diz. A descrição corta em duas linhas:
+ela existe aqui para reconhecer o caso, não para lê-lo. O relógio pinta pelo
+grau, e só atrasado/apertado acendem (Regra do Crítico Silencioso).
+
+O botão "Despachar" do balão funciona em tela cheia sem nada novo: `abrirFundo`
+já usa `<dialog>` + `showModal()`, que põe o diálogo no **top layer**.
+
+Verificado por execução (não só `node --check`, que não pega crase mal fechada
+em template literal): `_balaoChamado` renderiza nos três casos — P1 atrasado sem
+técnico, P3 folgado com técnico, e sem SLA nem condomínio — sem vazar
+`undefined`. `_chamadoParaFocar` passa nos cinco: `_novos` nulo · nenhum novo ·
+um novo · dois novos (pega o mais urgente) · novo sem coordenada.
+
+Sem migration e sem endpoint novo — nada a bumpar no `sw.js`.
+`operador.css` 73 → **74**, `operador.js` 69 → **70**, nos três HTMLs (as três
+entregas de hoje saem no mesmo bump).
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em
