@@ -31,6 +31,8 @@ aliases:
 | 7A-7F, 7H, 7I-A, 7K | App mobile Capacitor (técnico + cliente) + O.S. + GPS | ✅ |
 | 7F-bg | GPS background no APK (`@capacitor-community/background-geolocation`) | ✅ |
 | 7 (UI) | App mobile: camada visual HUD "Painel de comando" | ✅ |
+| 7 (UI-2) | App mobile: telas de entrada (splash/login/código) portadas para o Chapa — **só o visual**, ver ressalva abaixo | ✅ |
+| 7 (UI-3) | App mobile: migração do técnico para o Chapa (4 etapas: tokens, lista, detalhe, O.S., Roteiro/Conta) | ✅ |
 | 8 | Analytics e SLA (métricas, SLA configurável, dashboard) | ✅ |
 | 9C, 9E | Política de retenção + limpeza retroativa | ✅ |
 | 10A | Curadoria de conversas resolvidas | ✅ |
@@ -143,6 +145,46 @@ aliases:
     substituído pelo seletor; inventário do parque instalado; alerta de
     garantia.
 
+- **Fase 13 — Ativos Técnicos (VRP e além)** 📋 — plano recebido de fora em
+  2026-09-01: o chefe do Pedro mandou dois documentos (o `Prompt_Mestre` em
+  `.txt`/`.docx` é o mesmo conteúdo; o terceiro arquivo é o resumo com mapa
+  visual) pedindo um cadastro mestre onde bomba e VRP são tipos do mesmo ativo.
+  Análise completa, censo de produção e as **oito perguntas em aberto** estão em
+  [`active-work.md`](active-work.md).
+  - 🔑 **A Fase 12 tem zero linhas em produção** (censo de 01/09): nenhuma
+    etiqueta impressa, nenhum equipamento cadastrado, nenhuma movimentação.
+    **Não existe retrofit** — o cadastro pode ser remodelado com liberdade, e
+    é o que torna esta fase barata agora e cara depois.
+  - 📋 **A (fundação, `migration 081`)**: `tag`, `sistema`, `local_id`,
+    `funcao`, `condicao`, `especificacoes JSONB` e
+    `substituiu_id`/`substituido_por_id` em `equipamentos`; tabela
+    `ativo_locais` (a Estação Redutora, o shaft, a casa de bombas);
+    `condominios.codigo_curto` para compor a TAG. ⚠️ `condicao` é coluna
+    **nova**, não substitui `status` — são eixos diferentes (papel do
+    equipamento × onde ele está), e misturar quebra a bancada.
+  - 📋 **B (medições, `migration 082`)**: `ativo_medicoes` com `momento`
+    (antes/depois) e **`fonte`** (projeto × encontrado em campo). É o que falta
+    para VRP existir de verdade — hoje pressão vira texto em observações.
+  - 📋 **C (tipos e checklist por definição)**: `OS_TIPOS`/`OS_EQUIPAMENTOS`
+    saem das listas fixas de `app/public/app.js` e viram definição por tipo no
+    backend. ⚠️ **Janela curta**: só 1 O.S. finalizada existe; depois é
+    retrabalho em documento assinado.
+  - 📋 **D (contrato↔ativo, `migration 083`)**: `contrato_ativos` datado —
+    "o que estava coberto em tal data". **Depende da pergunta 3** (a cobertura
+    muda equipamento a equipamento no meio da vigência, ou é o prédio inteiro?).
+  - 📋 **E (planos por tipo de ativo)**: `planos_manutencao` ganha `tipo_ativo`
+    e `ativo_id`. Os 72 planos existentes estão **todos desligados** desde
+    04/08, então não há nada rodando para quebrar.
+  - 📋 **F (dashboard + relatório mensal)** e **G (triagem de reclamação de
+    pressão)** — depois do campo.
+  - ❌ **QR sequencial (`/ativos/{id}`) não entra**: a ficha revela endereço de
+    cliente e URL adivinhável expõe o parque inteiro. TAG legível e `codigo`
+    aleatório **convivem** — um é para ler, o outro para escanear.
+  - ❌ **Renomear a tabela para `ativos`** — zero linhas no banco, mas caro no
+    código. "Ativos Técnicos" é o nome na tela; no banco segue `equipamentos`.
+  - ⚠️ **Pré-requisito herdado da 12A**: `PUBLIC_BASE_URL` nas envs do Railway.
+    Sem ela nenhuma etiqueta sai da impressora, e é o que trava o piloto.
+
 - **Landing pública** 🟡 — redesenhada em 2026-08-11 na branch
   `feature/landing-publica` (direção "Chapa"; a primeira versão, em formato de
   demonstrativo de despesas, foi rejeitada). Em 2026-08-13 a linha do tempo da
@@ -201,6 +243,44 @@ aliases:
     build `bundleRelease` (.aab); política de privacidade; e o **formulário de
     declaração de permissão de localização em background da Play Store**, que
     exige vídeo demonstrativo e passa por revisão manual.
+
+- ✅ **App do técnico no Chapa** — as quatro etapas entraram em 01/09/2026
+  (`app/public/tecnico.css`). ⚠️ A lição que custou uma refação: **a placa é
+  CLARA** (`--chapa` sobre o campo marinho, como o `.orc-item` do painel do
+  cliente), não escura sobre escura. E ao recompor tela, **remova os blocos
+  superados do `app.css`** em vez de sobrescrever. Ver
+  [`../docs/modulos/app-mobile.md`](../docs/modulos/app-mobile.md).
+  - 📋 **Nunca foi visto logado** — tudo conferido em `?demo=tecnico` e no
+    banco de teste; o app com dado real de produção não foi aberto.
+  - 📋 **Emojis restantes** no `home` (placeholder de admin/cliente) e nas telas
+    `cliente-*`: saem junto com a remoção delas.
+
+- **Apagar as telas de cliente do app** 📋 — o Pedro confirmou em 01/09/2026 que
+  `cliente-*` não existe em uso e autorizou remover ("se quiser ignorar ou
+  apagar fique à vontade"). São ~7 telas de markup + CSS + JS
+  (`cliente-home`, `cliente-telemetria`, `cliente-chamados`,
+  `cliente-chamado-detalhe`, `cliente-novo-chamado`, `cliente-suporte`,
+  `cliente-conta`). **Deliberadamente não misturado com o redesenho**: diff
+  grande de exclusão junto de recomposição vira commit impossível de revisar.
+
+- **O login do app não tem o caminho do síndico** 📋 — em 01/09/2026 as telas de
+  entrada do app foram portadas para o Chapa, mas **só o visual**: o app segue
+  pedindo e-mail + senha juntos no `POST /auth/login` e **não chama
+  `/auth/codigo` em lugar nenhum**. Quem não tem senha — o síndico, cujo método
+  o `/auth/metodo` responde como `codigo` — **não entra pelo app**, apesar de o
+  `abrirTelaCliente()` já existir lá dentro. Hoje isso não atinge ninguém
+  (produção não tem usuário `cliente`: 1 admin, 2 gerentes, 1 operador, 4
+  técnicos, todos com senha), e o Pedro escolheu o visual com essa informação
+  na mesa. **Abre no dia em que o primeiro síndico for cadastrado.** Fechar =
+  portar o fluxo identifier-first (`/auth/metodo` + `/auth/codigo`), sem
+  backend novo — a tela de OTP do app já funciona. Ver
+  [`../docs/modulos/app-mobile.md`](../docs/modulos/app-mobile.md).
+
+- **Dois assets do app com caminho absoluto** 📋 — `/app/manifest.json` e
+  `/static/favicon.png?v=3` no `<head>` do `app/public/index.html` dão **404 no
+  APK empacotado** (a origem lá é `https://localhost`, não o Express). Anterior
+  a 01/09; `href` relativo resolveria nos dois casos, porque de `/app/index.html`
+  o relativo cai no mesmo lugar.
 
 - **Onboarding de permissão de localização em background** 📋 — em 2026-08-04 o
   app passou a **avisar** quando a permissão é só "ao usar o app" (chip "Sem

@@ -1,0 +1,518 @@
+/* ════════════════════════════════════════════════════════════════════════
+   login.css — telas de entrada do APP (splash · login · código)
+   ────────────────────────────────────────────────────────────────────────
+   MUNDO: "Chapa", o mesmo da landing, do /login e dos painéis. Porte do
+   `public/login.css` para o app empacotado, feito em 01/09/2026 a pedido do
+   Pedro ("a tela de login do app igual à do PWA").
+
+   ⚠️ ESTE ARQUIVO É A ÚNICA PARTE DO APP QUE NÃO É MISSION CONTROL. O resto
+   de `app.css` continua no âmbar #f0b014 — é a dívida que o DESIGN.md
+   registra ("o app mobile é o único que continua fora, por decisão de
+   escopo"). Aqui dentro vale #fbb329, a cor institucional. Ao mexer na
+   paleta do Chapa, são SEIS folhas agora: landing, login, cliente, admin,
+   operador e esta.
+
+   ⚠️ TUDO É ESCOPADO EM `.screen-auth`. Os tokens NÃO vão para o `:root`, ou
+   o marinho vazaria para as telas do técnico logo depois do login. O
+   @font-face é global (só define famílias; nada as usa fora daqui).
+
+   ⚠️ SEM `color-mix()` e SEM `clamp()` de fonte. Este CSS roda no WebView do
+   aparelho, não num Chrome atual: `color-mix` só existe do Chrome 111 em
+   diante e, num WebView velho, a declaração inteira cai — o anel do botão
+   secundário sumiria sem nenhum outro sintoma. Os valores aqui são literais
+   e medidos.
+
+   ⚠️ CAMINHOS RELATIVOS. No app empacotado a origem é o esquema do Capacitor
+   (https://localhost), não o servidor: um `/static/...` do PWA apontaria para
+   o lugar errado e daria 404 mudo — fonte sem erro visível, foto sem imagem.
+   ════════════════════════════════════════════════════════════════════════ */
+
+@font-face {
+  font-family: "Archivo";
+  src: url("fonts/archivo.woff2") format("woff2");
+  font-weight: 400 900;
+  font-stretch: 62% 125%;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Archivo";
+  src: url("fonts/archivo-ext.woff2") format("woff2");
+  font-weight: 400 900;
+  font-stretch: 62% 125%;
+  font-display: swap;
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Martian Mono";
+  src: url("fonts/martianmono.woff2") format("woff2");
+  font-weight: 400 700;
+  font-stretch: 75% 112.5%;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* ─── Tokens do Chapa, presos à tela de auth ──────────────────────────── */
+
+.screen-auth {
+  --mar-900: #030a26;
+  --mar-800: #050f38;
+  --mar-700: #071b5c;
+  --mar-600: #0d2775;
+
+  --amarelo:    #fbb329;
+  --amarelo-cl: #ffcb60;
+  --amarelo-es: #d99411;
+
+  --chapa:    #e8ebf2;
+  --chapa-cl: #f5f7fb;
+
+  --tinta:   #061033;   /* 15,6:1 sobre a placa  */
+  --tinta-2: #414f74;   /*  6,8:1 sobre a placa  */
+  --sobre-2: #a6b5dc;   /*  9,6:1 sobre marinho  */
+
+  /* ⚠️ 78% de --tinta-2 sobre branco, NÃO os 62% do PWA. Aqueles dão 3,11:1 e
+     reprovam o piso de 4,5:1 para texto de apoio; este dá 4,53:1, o mínimo que
+     passa, e ainda fica bem abaixo do valor digitado (8,1:1) para não se
+     confundir com texto de verdade. O PWA tem o mesmo defeito e não foi
+     mexido aqui — mexer nele é outra tarefa. */
+  --marca-agua: #6b7693;
+
+  --fio-esc: rgba(6, 16, 51, .16);
+
+  --fonte: "Archivo", ui-sans-serif, system-ui, sans-serif;
+  --mono:  "Martian Mono", ui-monospace, "SFMono-Regular", monospace;
+
+  --ch-p: 12px;
+  --corte-p: polygon(var(--ch-p) 0, 100% 0, 100% calc(100% - var(--ch-p)), calc(100% - var(--ch-p)) 100%, 0 100%, 0 var(--ch-p));
+
+  --saida: cubic-bezier(.16, .84, .32, 1);
+
+  /* Zera a herança do Mission Control. `.screen-auth` já é o container das
+     três telas; a partir daqui é outro mundo. */
+  background: var(--mar-900);
+  color: #fff;
+  font-family: var(--fonte);
+  padding: 0;
+  align-items: stretch;
+  justify-content: flex-start;
+  overflow-y: auto;
+}
+
+/* O glow âmbar do Mission Control atrás do cartão antigo. */
+.screen-auth::before { content: none; }
+
+.screen-auth [hidden] { display: none !important; }
+.screen-auth ::selection { background: var(--amarelo); color: var(--mar-900); }
+
+/* A foto sangra por baixo da barra de status translúcida (o <head> usa
+   `black-translucent` + `viewport-fit=cover`). O respiro do entalhe entra na
+   própria faixa da marca, não no shell — senão sobraria uma tarja escura do
+   app por cima do Chapa. */
+body:has(.screen-auth[data-active]) .app-shell {
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+/* ─── A divisão ───────────────────────────────────────────────────────── */
+
+/* Empilhada, sempre. O PWA tem duas colunas acima de 860px porque é
+   navegador; aqui a superfície é um celular na casa de máquinas e a coluna
+   dupla nunca renderizaria. Carregar o grid morto seria fidelidade ao arquivo,
+   não à tela. */
+.entrada {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 100%;
+}
+
+/* ─── Faixa da marca ──────────────────────────────────────────────────── */
+
+/* ⚠️ ENQUADRAMENTO — no alto da foto está a marca do FABRICANTE DO TANQUE,
+   com dois telefones legíveis. Quem os elimina é o corte vertical: o `cover`
+   sobra na altura e o `background-position` em 60% joga a sobra para cima.
+   Ao mexer nos 112% ou na posição, conferir que os telefones continuam fora
+   e que a parede com o extintor não voltou pela direita. */
+.screen-auth .marca-lado {
+  position: relative;
+  overflow: hidden;
+  flex: 0 0 auto;
+  min-height: 208px;
+  display: flex;
+  align-items: flex-end;
+  padding: calc(env(safe-area-inset-top, 0px) + 30px) 26px 30px;
+
+  background-color: var(--mar-900);
+  background-image:
+    linear-gradient(180deg,
+      rgba(3, 10, 38, .70) 0%,
+      rgba(3, 10, 38, .44) 22%,
+      rgba(3, 10, 38, .32) 42%,
+      rgba(3, 10, 38, .50) 60%,
+      rgba(3, 10, 38, .90) 84%,
+      rgba(3, 10, 38, .97) 100%),
+    url("fotos/reservatorios.jpg");
+  background-size: auto, 112% auto;
+  background-position: center, 28% 60%;
+  background-repeat: no-repeat;
+}
+
+/* A faixa listrada no encontro dos dois campos — a mesma assinatura de limite
+   da landing e do /login. No empilhado ela é horizontal, no pé da foto. */
+.screen-auth .marca-lado::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 6px;
+  background: repeating-linear-gradient(-45deg, var(--amarelo) 0 7px, var(--mar-900) 7px 14px);
+}
+
+/* ⚠️ Sem a frase do PWA aqui, e isso é decisão, não esquecimento. Lá ela diz
+   "O nível dos SEUS reservatórios..." — está escrita para o síndico, o dono do
+   prédio. Quem abre este app é o técnico: os reservatórios não são dele. Uma
+   frase para ele teria de ser escrita do zero, e isso é copy nova, que é
+   decisão do Pedro. Sem frase, a faixa faz o que o próprio PWA diz que ela faz
+   no celular: identifica. */
+.screen-auth .marca-logo {
+  width: 186px;
+  max-width: 52%;
+  height: auto;
+  /* O wordmark é PNG branco: sobre o véu mais claro precisa da própria sombra
+     para não perder a aresta contra a foto. */
+  filter: drop-shadow(0 2px 14px rgba(3, 10, 38, .75));
+}
+
+/* ─── A placa ─────────────────────────────────────────────────────────── */
+
+.screen-auth .forma-lado {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  background: var(--chapa);
+  color: var(--tinta);
+  padding: 34px 24px calc(env(safe-area-inset-bottom, 0px) + 44px);
+}
+
+.screen-auth .placa {
+  width: 100%;
+  max-width: 440px;
+}
+
+.screen-auth .placa h1 {
+  font-size: 30px;
+  font-weight: 900;
+  font-stretch: 114%;
+  line-height: 1.05;
+  letter-spacing: -.028em;
+  color: var(--tinta);
+}
+
+.screen-auth .placa-sub {
+  margin-top: 10px;
+  margin-bottom: 28px;
+  color: var(--tinta-2);
+  font-size: 17px;
+  line-height: 1.5;
+}
+.screen-auth .placa-sub strong {
+  color: var(--tinta);
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+/* ─── Campos ──────────────────────────────────────────────────────────── */
+
+.screen-auth #formLogin,
+.screen-auth #formOtp {
+  display: grid;
+  gap: 18px;
+}
+
+.screen-auth .campo { display: grid; gap: 7px; }
+
+.screen-auth .campo label {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+  color: var(--tinta-2);
+}
+
+/* Chanfro de 9px e SEM `border` — o contorno é `inset`, senão o `clip-path`
+   corta a borda nos dois cantos e ela lê como defeito de renderização. */
+.screen-auth .campo input {
+  width: 100%;
+  min-height: 54px;
+  padding: 14px 16px;
+  background: #fff;
+  color: var(--tinta);
+  font-family: inherit;
+  font-size: 17px;
+  border: 0;
+  border-radius: 0;
+  -webkit-appearance: none;
+  appearance: none;
+  clip-path: polygon(9px 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%, 0 9px);
+  box-shadow: inset 0 0 0 1.5px var(--fio-esc);
+  caret-color: var(--mar-700);
+  transition: box-shadow .2s var(--saida);
+}
+.screen-auth .campo input::placeholder { color: var(--marca-agua); }
+.screen-auth .campo input:focus { outline: none; box-shadow: inset 0 0 0 2.5px var(--mar-700); }
+/* ⚠️ Os DOIS anéis são `inset`. Um `box-shadow` normal — ou um `outline` — é
+   pintado fora da caixa, e o `clip-path` o recorta inteiro: quem navega por
+   teclado externo ficaria sem nenhuma marca de foco. */
+.screen-auth .campo input:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 3px var(--amarelo), inset 0 0 0 6px var(--mar-700);
+}
+
+/* Mono é leitura de instrumento, e um código de 6 dígitos é exatamente isso. */
+.screen-auth #otpCode {
+  font-family: var(--mono);
+  font-size: 24px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .34em;
+  text-indent: .34em;
+  text-align: center;
+  min-height: 66px;
+}
+
+.screen-auth .confiar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  font-size: 16px;
+  line-height: 1.35;
+  color: var(--tinta-2);
+  cursor: pointer;
+}
+.screen-auth .confiar input {
+  width: 22px;
+  height: 22px;
+  accent-color: var(--mar-700);
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+
+/* ─── Botões ──────────────────────────────────────────────────────────── */
+
+.screen-auth .btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 56px;
+  padding: 15px 26px;
+  font-family: inherit;
+  font-size: 17px;
+  font-weight: 700;
+  font-stretch: 108%;
+  border: 0;
+  border-radius: 0;
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+  isolation: isolate;
+  clip-path: var(--corte-p);
+  -webkit-tap-highlight-color: transparent;
+  transition: color .2s var(--saida);
+}
+
+/* O amarelo entra pelo chanfro, no sentido do corte — o gesto da landing.
+   ⚠️ `:active` junto de `:hover` porque ESTE é um app de toque: sem ele o
+   único momento de movimento da tela nunca dispara no aparelho, que é
+   justamente onde ela roda. */
+.screen-auth .btn::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  clip-path: polygon(0 0, 0 0, 0 100%, -30% 100%);
+  transition: clip-path .42s var(--saida);
+}
+.screen-auth .btn:hover::after,
+.screen-auth .btn:active::after { clip-path: polygon(0 0, 130% 0, 100% 100%, -30% 100%); }
+
+.screen-auth .btn:disabled { opacity: .55; cursor: not-allowed; }
+.screen-auth .btn:disabled::after { clip-path: polygon(0 0, 0 0, 0 100%, -30% 100%); }
+
+/* ⚠️ O `clip-path` recorta o `outline`, que é pintado fora da caixa: em peça
+   chanfrada o anel de foco é calculado e simplesmente não aparece. Vira
+   `inset`, que é pintado dentro do recorte. */
+.screen-auth .btn:focus-visible { outline: none; }
+.screen-auth .btn-amarelo:focus-visible { box-shadow: inset 0 0 0 3px var(--mar-900), inset 0 0 0 6px #fff; }
+.screen-auth .btn-fio:focus-visible     { box-shadow: inset 0 0 0 3px var(--amarelo); }
+
+.screen-auth .btn-amarelo { background: var(--amarelo); color: var(--mar-900); }
+.screen-auth .btn-amarelo::after { background: var(--amarelo-cl); }
+
+/* Secundário sobre placa clara. O anel precisa de peso: com o fio a 16% o
+   botão sumia contra a própria placa. Anel a 26% e interior um degrau mais
+   claro que o campo. */
+.screen-auth .btn-fio {
+  background: rgba(6, 16, 51, .26);
+  color: var(--tinta);
+  min-height: 50px;
+  font-size: 15px;
+  font-weight: 600;
+}
+.screen-auth .btn-fio::before {
+  content: "";
+  position: absolute;
+  inset: 1.5px;
+  z-index: -2;
+  background: var(--chapa-cl);
+  clip-path: var(--corte-p);
+}
+.screen-auth .btn-fio::after { background: var(--amarelo); }
+.screen-auth .btn-fio:hover,
+.screen-auth .btn-fio:active { color: var(--mar-900); }
+
+/* Estado de carregando — `setBtnLoading()` liga `.is-loading` e desabilita.
+   O rótulo some e o giro fica no lugar dele, para o botão não mudar de
+   altura no meio do toque. */
+.screen-auth .btn.is-loading .btn-label { opacity: 0; }
+.screen-auth .btn.is-loading::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 20px;
+  height: 20px;
+  margin: -10px 0 0 -10px;
+  z-index: 1;
+  border: 2.5px solid rgba(3, 10, 38, .35);
+  border-top-color: var(--mar-900);
+  border-radius: 50%;
+  background: none;
+  clip-path: none;
+  animation: giro-chapa .7s linear infinite;
+}
+
+@keyframes giro-chapa { to { transform: rotate(360deg); } }
+
+/* ─── Erro ────────────────────────────────────────────────────────────── */
+
+/* ⚠️ `showAlert()` faz `el.className = "alert " + tipo` — ele APAGA a lista de
+   classes. Nada de classe extra permanente neste elemento: o estilo tem de
+   pegar por `.alert` sozinho, senão a caixa perde a roupa no primeiro erro.
+
+   ⚠️ Vermelho escuro, não o `--risco` vivo: aqui o fundo é placa clara e o
+   vermelho da landing reprova contraste como texto. E a borda é CHAPA DE DUAS
+   CAMADAS, não `inset`: com `clip-path` o inset é recortado justamente nos
+   dois chanfros e a borda some nos cantos. */
+.screen-auth .alert {
+  display: block;
+  position: relative;
+  isolation: isolate;
+  margin-top: 20px;
+  padding: 14px 18px;
+  clip-path: var(--corte-p);
+  background: #c2261c;
+  color: #790000;
+  font-size: 16px;
+  line-height: 1.45;
+  text-align: left;
+  border: 0;
+}
+.screen-auth .alert::before {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  z-index: -1;
+  background: #fff4f3;
+  clip-path: var(--corte-p);
+}
+.screen-auth .alert.success { background: #105c31; color: #0b3d20; }
+.screen-auth .alert.success::before { background: #f0fbf4; }
+.screen-auth .alert.info { background: var(--mar-700); color: var(--mar-700); }
+.screen-auth .alert.info::before { background: var(--chapa-cl); }
+
+/* ─── Pé da placa ─────────────────────────────────────────────────────── */
+
+.screen-auth .placa-pe {
+  margin-top: 30px;
+  padding-top: 22px;
+  border-top: 1px solid var(--fio-esc);
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--tinta-2);
+}
+/* ⚠️ O alvo cresce por padding, e a margem negativa devolve o espaço ao
+   parágrafo. Como link em linha corrida, ele media 39px de altura — abaixo dos
+   44px de alvo de toque, e este é o link de quem JÁ não está conseguindo
+   entrar, com o celular na mão dentro de uma casa de máquinas. O padding não
+   pinta nada (não há fundo), então o desenho não muda: muda só a área que
+   aceita o dedo. */
+.screen-auth .placa-pe a {
+  display: inline-block;
+  padding: 11px 2px;
+  margin: -11px -2px;
+  color: var(--mar-700);
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: var(--amarelo-es);
+  text-underline-offset: 3px;
+  text-decoration-thickness: 2px;
+}
+
+/* ─── Splash ──────────────────────────────────────────────────────────── */
+
+/* Mesmo campo marinho das outras duas: o app abre no Chapa e só troca de
+   mundo depois que o técnico entra. */
+.screen-auth[data-screen="splash"] { justify-content: center; }
+
+.screen-auth .splash-in {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 30px;
+  padding: 24px;
+}
+.screen-auth .splash-in .marca-logo {
+  width: 200px;
+  max-width: 60%;
+  filter: none;
+}
+.screen-auth .splash-spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid rgba(255, 255, 255, .17);
+  border-top-color: var(--amarelo);
+  border-radius: 50%;
+  animation: giro-chapa .8s linear infinite;
+}
+
+/* ─── Telas baixas ────────────────────────────────────────────────────── */
+
+/* Aparelho curto (ou teclado aberto empurrando a viewport): a foto cede
+   altura antes de qualquer coisa. Ela identifica; o formulário é o trabalho. */
+@media (max-height: 680px) {
+  .screen-auth .marca-lado {
+    min-height: 132px;
+    padding-top: calc(env(safe-area-inset-top, 0px) + 20px);
+    padding-bottom: 20px;
+  }
+  .screen-auth .marca-logo { width: 150px; }
+  .screen-auth .forma-lado { padding-top: 26px; }
+  .screen-auth .placa h1 { font-size: 26px; }
+  .screen-auth .placa-sub { margin-bottom: 22px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .screen-auth *,
+  .screen-auth *::before,
+  .screen-auth *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+  }
+}

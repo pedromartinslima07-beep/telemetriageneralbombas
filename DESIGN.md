@@ -212,11 +212,13 @@ components:
 # Design System: General Telemetria — Sistema "Chapa"
 
 > **Fronteira do documento — revisada em 2026-08-27.** Este arquivo descreve o
-> sistema **"Chapa"**, que hoje veste **cinco superfícies**: a landing pública
+> sistema **"Chapa"**, que hoje veste **seis superfícies**: a landing pública
 > (`/`), a tela de login (`/login`), o **painel do cliente**
-> (`/cliente/painel`), o **painel admin** (`/admin/painel`) e o **painel do
+> (`/cliente/painel`), o **painel admin** (`/admin/painel`), o **painel do
 > operador** (`/operador/painel`, desde 27/08/2026 — em registro de operação,
-> como o admin; ver [painel-operador.md](docs/modulos/painel-operador.md)).
+> como o admin; ver [painel-operador.md](docs/modulos/painel-operador.md)) e as
+> **telas de entrada do app do técnico** (desde 01/09/2026 — só elas; ver a
+> ressalva abaixo).
 >
 > ⚠️ **O painel admin entrou em 20–21/08/2026, e isso INVERTE o que esta caixa
 > dizia.** Até então ela afirmava que o admin seguia num sistema separado
@@ -227,10 +229,37 @@ components:
 > [decisions.md](memory-bank/decisions.md); as evidências medidas, em
 > [painel-admin.md](docs/modulos/painel-admin.md).
 >
-> O **app mobile do técnico** (`app/public/app.css`) é o único que continua
-> fora, **por decisão de escopo, não por princípio**: ele tem cópia própria
-> dos tokens com `--accent: #f0b014`. Enquanto não migrar, é a quarta
-> identidade do produto — e isso é dívida conhecida, não desenho.
+> O **app mobile do técnico** (`app/public/app.css`) continua fora **por decisão
+> de escopo, não por princípio**: ele tem cópia própria dos tokens com
+> `--accent: #f0b014`. Enquanto não migrar, é a quarta identidade do produto —
+> e isso é dívida conhecida, não desenho.
+>
+> ⚠️ **A MIGRAÇÃO DO APP COMEÇOU EM 01/09/2026, e a caixa acima já está
+> defasada.** Primeiro as três telas de auth (splash, login, código) foram
+> portadas para `app/public/login.css`. No mesmo dia o Pedro pediu o resto, e a
+> **as quatro etapas** entraram em `app/public/tecnico.css`: os tokens do
+> `:root` do app remapeados para o Chapa, e lista, detalhe, O.S. e
+> Roteiro/Conta recompostos.
+>
+> ⚠️ **A lição que custou uma refação: A PLACA É CLARA.** A primeira versão
+> montou placa escura sobre campo escuro. O marinho é MATERIAL; a leitura densa
+> vai em `--chapa` pousada sobre ele, como o `.orc-item` do `cliente.css`. A
+> placa **redeclara os tokens de tinta localmente**, e vale a Regra do
+> Preenchimento Cru: fundo de selo usa o token cru, texto e borda usam o
+> semântico (que flipa para a família `-t`).
+>
+> As telas `cliente-*` do app **estão fora do escopo** — o Pedro confirmou que
+> não existem em uso.
+>
+> Mudar a paleta do Chapa hoje é mexer em **sete** folhas: `landing.css`,
+> `login.css`, `cliente.css`, `admin.css`, `operador.css`,
+> `app/public/login.css` e `app/public/tecnico.css`.
+>
+> ⚠️ Os tokens dessa folha são escopados em `.screen-auth`, **não no `:root`** —
+> no `:root` o marinho vazaria para as telas do técnico logo depois do login.
+> E ela não usa `color-mix()` nem `clamp()`: roda no WebView do aparelho, onde
+> uma declaração com `color-mix` cai inteira num Chrome anterior ao 111. Ver
+> [app-mobile.md](docs/modulos/app-mobile.md).
 >
 > **O admin não é uma quinta cópia do mesmo registro.** Ele usa o Chapa em
 > **registro de operação**, e as diferenças são deliberadas:
@@ -242,17 +271,17 @@ components:
 > | Gestos retóricos | revelação por corte, engrenagens, inversão de campo | nenhum |
 > | Densidade | uma leitura por tela | tabela de 40 linhas |
 >
-> As cinco superfícies **duplicam os tokens de propósito** (`landing.css`,
-> `login.css`, `cliente.css`, `admin.css`, `operador.css`), porque são servidas
-> em páginas diferentes e não compartilham CSS. **Mudou a paleta? Mude nos
-> cinco.**
+> As seis superfícies **duplicam os tokens de propósito** (`landing.css`,
+> `login.css`, `cliente.css`, `admin.css`, `operador.css` e
+> `app/public/login.css`), porque são servidas em páginas diferentes e não
+> compartilham CSS. **Mudou a paleta? Mude nas seis.**
 >
 > ⚠️ **Rampa de tipo: este sistema não tem tokens de tamanho, e isso é o
 > estado, não um descuido.** `cliente.css` usa 37 tamanhos distintos,
 > `landing.css` 31, `operador.css` 29 — o que a rampa abaixo documenta são
 > **papéis**, não literais. O detector da skill sinaliza cada `font-size` como
-> fora da rampa nas cinco folhas; introduzir tokens em uma só faria dela a
-> superfície fora do padrão. Se um dia isso for arrumado, é nas cinco de uma
+> fora da rampa nas seis folhas; introduzir tokens em uma só faria dela a
+> superfície fora do padrão. Se um dia isso for arrumado, é nas seis de uma
 > vez.
 >
 > Contexto de produto: [PRODUCT.md](PRODUCT.md) · Fluxos:

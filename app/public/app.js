@@ -236,7 +236,8 @@ const TC = {
   user: null,
   chamados: [],
   tab: "hoje",           // hoje | proximos | historico
-  sort: "proximidade",   // proximidade | prioridade | data
+  sort: "proximidade",   // proximidade | prioridade | data — o que foi PEDIDO
+  ordemReal: null,       // o que foi APLICADO (ver ordenarChamados)
   geo: null,             // {lat, lng, capturada_em}
   syncedAt: null,
   polling: null,
@@ -399,22 +400,47 @@ function distanciaParaChamado(c) {
   );
 }
 
+const porPrioridade = (a, b) =>
+  (PRI_RANK[a.prioridade] ?? 9) - (PRI_RANK[b.prioridade] ?? 9);
+
+// ⚠️ "MAIS PRÓXIMOS" SEM GPS MENTIA, e era o caso comum, não a exceção.
+//
+// A condição era `if (TC.sort === "proximidade" && TC.geo)`. Sem `TC.geo` o
+// código caía no `else` final — que é o ramo da ordenação POR DATA. Ou seja: o
+// controle dizia "Mais próximos", a lista vinha por mais recente, e nada na
+// tela avisava. E "proximidade" é o padrão do app.
+//
+// Não é um caso de canto: o GPS só opera das 8h às 18h (`gpsDentroDoHorario`),
+// então **toda** abertura fora do expediente caía nisso — e também toda
+// abertura sem a permissão concedida, que hoje é quase todo aparelho.
+//
+// Agora o ramo é explícito, a queda é para PRIORIDADE (data é ordem arbitrária
+// para quem está com a van na rua; prioridade é a ordem operacional), e
+// `TC.ordemReal` registra o que de fato foi aplicado para a tela poder dizer.
 function ordenarChamados(arr) {
   const copy = arr.slice();
-  if (TC.sort === "proximidade" && TC.geo) {
-    copy.sort((a, b) => {
-      const da = distanciaParaChamado(a);
-      const db = distanciaParaChamado(b);
-      // sem coords vai pro final
-      if (da == null && db == null) return 0;
-      if (da == null) return 1;
-      if (db == null) return -1;
-      return da - db;
-    });
+
+  if (TC.sort === "proximidade") {
+    if (TC.geo) {
+      TC.ordemReal = "proximidade";
+      copy.sort((a, b) => {
+        const da = distanciaParaChamado(a);
+        const db = distanciaParaChamado(b);
+        // sem coords vai pro final
+        if (da == null && db == null) return 0;
+        if (da == null) return 1;
+        if (db == null) return -1;
+        return da - db;
+      });
+    } else {
+      TC.ordemReal = "prioridade-sem-gps";
+      copy.sort(porPrioridade);
+    }
   } else if (TC.sort === "prioridade") {
-    copy.sort((a, b) =>
-      (PRI_RANK[a.prioridade] ?? 9) - (PRI_RANK[b.prioridade] ?? 9));
+    TC.ordemReal = "prioridade";
+    copy.sort(porPrioridade);
   } else {
+    TC.ordemReal = "data";
     // data: mais recentes primeiro
     copy.sort((a, b) => new Date(b.criado_em) - new Date(a.criado_em));
   }
@@ -450,8 +476,8 @@ function syncLabel(d) {
 }
 
 function renderTecnicoChamados() {
-  // KPIs no topo
-  renderTecnicoKpis();
+  // Aviso de críticos no topo da lista
+  renderTecnicoCriticos();
 
   // Contadores das tabs (independentes da tab atual)
   const hoje      = TC.chamados.filter((c) => c.status !== "fechado").length;
@@ -483,6 +509,10 @@ function renderTecnicoChamados() {
   // Lista filtrada + ordenada
   const filtrados = TC.chamados.filter(filtroDaTab);
   const ordenados = ordenarChamados(filtrados);
+  // ⚠️ DEPOIS do `ordenarChamados`, nunca antes: é ele que define
+  // `TC.ordemReal`. Chamado no topo da função, o aviso mostraria o resultado do
+  // render ANTERIOR — e ficaria um passo atrás a cada troca de ordenação.
+  renderTecnicoAvisoOrdem(ordenados.length);
 
   const list = document.getElementById("tcList");
   const empty = document.getElementById("tcEmpty");
@@ -494,12 +524,18 @@ function renderTecnicoChamados() {
     list.innerHTML = "";
     const msg = document.getElementById("tcEmptyMsg");
     const sub = document.getElementById("tcEmptySub");
+    // A palavra em amarelo: o mesmo gesto da tela de orçamentos do cliente
+    // ("2 orçamentos **aguardam** sua resposta"), que o Pedro mandou como
+    // referência. UMA por tela, e só sobre o campo marinho — sobre placa clara
+    // o amarelo não é tinta (Regra do Amarelo Cego). Este é o único lugar da
+    // lista onde uma frase é o conteúdo, então é aqui que ela cabe.
+    // Strings fixas, sem dado de usuário — `innerHTML` é seguro aqui.
     if (msg) {
-      msg.textContent = TC.tab === "historico"
-        ? "Nenhum chamado resolvido ainda"
+      msg.innerHTML = TC.tab === "historico"
+        ? 'Nenhum chamado <span class="realce">resolvido</span> ainda'
         : TC.tab === "proximos"
-          ? "Nenhum chamado aguardando"
-          : "Você está em dia";
+          ? 'Nenhum chamado <span class="realce">aguardando</span>'
+          : 'Você está <span class="realce">em dia</span>';
     }
     // Linha secundária: sem chamado, o trabalho do dia está no roteiro —
     // é a única pista na tela de que existe algo pendente em outro lugar.
@@ -527,46 +563,79 @@ function atualizarFooterTecnico() {
   atualizarRelogio();
 }
 
-// KPIs no topo — faixa compacta de 4 números
-function renderTecnicoKpis() {
-  const el = document.getElementById("tcKpiGrid");
+// O aviso de críticos — herdeiro do placar de 4 números que saiu em
+// 01/09/2026 (autorizado pelo Pedro).
+//
+// ⚠️ O placar dizia Abertos · Atend. · Críticos · Fechados hoje. Dois desses
+// números eram repetição literal dos contadores das abas 40px abaixo (Hoje ·
+// Próximos · Histórico), e ele ocupava o topo da tela cuja razão de existir é
+// a LISTA. É o mesmo padrão que saiu do painel do operador em 31/08, pelo
+// mesmo motivo. "Críticos" era o único que não se repetia — sobrou só ele, e
+// agora com o rótulo dizendo o que fazer, não só quanto.
+//
+// Num dia calmo a linha não existe: `hidden` some com ela por completo.
+function renderTecnicoCriticos() {
+  const el = document.getElementById("tcCriticos");
   if (!el) return;
 
-  const abertos  = TC.chamados.filter((c) => c.status === "aberto").length;
-  const atend    = TC.chamados.filter((c) => c.status === "em_atendimento").length;
   const criticos = TC.chamados.filter((c) =>
     c.prioridade === "p1" && c.status !== "fechado").length;
-  const fechHoje = TC.chamados.filter((c) => {
-    if (c.status !== "fechado" || !c.fechado_em) return false;
-    const d = new Date(c.fechado_em);
-    const t = new Date();
-    return d.getFullYear() === t.getFullYear()
-        && d.getMonth() === t.getMonth()
-        && d.getDate() === t.getDate();
-  }).length;
 
-  // Faixa compacta em vez de 4 cards: com a operação zerada os cards ocupavam
-  // 40% da tela pra dizer "0" quatro vezes, empurrando a lista de chamados —
-  // que é a razão da tela existir — pra baixo da dobra.
-  const kpi = (val, label, kindCls) => `
-    <div class="tk-cell ${val > 0 ? kindCls : ""}">
-      <div class="tk-value">${val}</div>
-      <div class="tk-label">${label}</div>
-    </div>`;
-
-  // "Fechados hoje" com o período no rótulo: o número sempre foi do dia, e um
-  // rótulo só "Fechados" faz o técnico procurar chamados que não estão ali.
-  el.innerHTML =
-    kpi(abertos,  "Abertos",       "is-warn") +
-    kpi(atend,    "Atend.",        "is-warn") +
-    kpi(criticos, "Críticos",      "is-bad")  +
-    kpi(fechHoje, "Fechados hoje", "is-ok");
+  if (criticos === 0) {
+    el.hidden = true;
+    el.textContent = "";
+    return;
+  }
+  el.textContent = criticos === 1
+    ? "1 chamado crítico esperando"
+    : `${criticos} chamados críticos esperando`;
+  el.hidden = false;
 }
 
-// Renderiza um chamado: ícone de prédio colorido por prioridade à esquerda,
-// nome do condomínio em destaque, descrição em segundo plano, pills no rodapé
-// (categoria + status + meta com tempo/distância). Reaproveita as classes
-// do admin (.ch-id-cell, .ch-cat-badge, .ch-st-*).
+// O aviso de ordenação. Só existe quando o técnico PEDIU "Mais próximos" e o
+// app não conseguiu entregar — ver a nota grande em `ordenarChamados`.
+//
+// ⚠️ É BOTÃO, não texto. O erro tem conserto (pedir a posição de novo), e a
+// regra é que um aviso nomeia o problema E a saída. Como texto solto ele
+// contaria a má notícia e deixaria o técnico sem o que fazer.
+function renderTecnicoAvisoOrdem(qtd) {
+  const el = document.getElementById("tcAvisoOrdem");
+  if (!el) return;
+
+  // Lista vazia não precisa explicar ordenação: não há nada ordenado.
+  if (TC.ordemReal !== "prioridade-sem-gps" || qtd === 0) {
+    el.hidden = true;
+    return;
+  }
+
+  // Fora do expediente o GPS não roda por decisão do backend (8h–18h), então
+  // tocar não resolveria — o texto muda para não prometer o que não cumpre.
+  const foraDoHorario = typeof gpsDentroDoHorario === "function" && !gpsDentroDoHorario();
+  el.innerHTML = foraDoHorario
+    ? '<span class="tec-aviso-txt">Sem GPS fora do expediente &middot; ordenado por prioridade</span>'
+    : '<span class="tec-aviso-txt">Sem GPS &middot; ordenado por prioridade</span>' +
+      '<span class="tec-aviso-acao">Tentar de novo</span>';
+  el.disabled = foraDoHorario;
+  el.hidden = false;
+}
+
+// Renderiza um chamado no mundo "Chapa" (01/09/2026).
+//
+// Duas colunas: a RÉGUA (urgência + distância) e o CORPO. É a gramática do
+// item do painel do operador, comprimida para 390px — a régua responde às
+// duas perguntas de quem está com a van na rua: quão urgente, e quão longe.
+//
+// ⚠️ A PRIORIDADE VIROU TEXTO, e essa é a mudança que importa. Antes ela
+// existia **só como cor**: um filete de 3px na lateral e o tom do ícone. A
+// regra do DESIGN.md é que estado nunca aparece sem rótulo escrito — a cor é
+// reforço, nunca a informação. Agora o selo diz "P1".
+//
+// ⚠️ SÓ O SELO DE PRIORIDADE PREENCHE (Regra do Selo). Antes categoria e
+// status vinham os dois preenchidos lado a lado; categoria é classificação,
+// não estado, e nunca preenche — virou etiqueta gravada. Status ficou de fio.
+//
+// ⚠️ O ícone de prédio saiu: toda linha é um condomínio, então ele não
+// distinguia nada e custava 44px de uma tela de 390.
 function renderCardChamado(c) {
   const condoNome = escapeHtml(c.condominio_nome || "—");
   const desc      = escapeHtml(c.titulo || c.descricao || "Sem descrição");
@@ -581,35 +650,29 @@ function renderCardChamado(c) {
     ? "Em atendimento"
     : c.status === "fechado" ? "Resolvido" : "Aberto";
 
-  // Ícone de prédio — corpo simples + linhas de janela
-  const iconBuilding = `
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <rect x="4" y="3" width="16" height="18" rx="1.5"/>
-      <line x1="9" y1="8"  x2="9"  y2="8.01"/>
-      <line x1="15" y1="8" x2="15" y2="8.01"/>
-      <line x1="9" y1="12" x2="9"  y2="12.01"/>
-      <line x1="15" y1="12" x2="15" y2="12.01"/>
-      <line x1="9" y1="16" x2="9"  y2="16.01"/>
-      <line x1="15" y1="16" x2="15" y2="16.01"/>
-    </svg>`;
+  const pri = String(c.prioridade || "p4").toLowerCase();
 
   return `
-    <button type="button" class="ch-row-mob" data-chamado="${c.id}" data-pri="${escapeHtml(c.prioridade)}">
-      <div class="ch-row-mob-icon">${iconBuilding}</div>
-      <div class="ch-row-mob-head">
-        <span class="ch-row-mob-title">${condoNome}</span>
-        <span class="ch-id-cell">CH-${String(c.id).padStart(3,"0")}</span>
+    <button type="button" class="ch-row-mob" data-chamado="${c.id}" data-pri="${escapeHtml(pri)}" data-status="${escapeHtml(c.status)}">
+      <div class="ch-regua">
+        <span class="ch-pri" data-p="${escapeHtml(pri)}">${escapeHtml(pri.toUpperCase())}</span>
+        ${distLabel
+          ? `<span class="ch-dist">${distLabel}</span>`
+          : `<span class="ch-dist-vazio" title="Sem posição para calcular">—</span>`}
       </div>
-      <div class="ch-row-mob-desc" title="${desc}">
-        ${endereco ? `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg><span>${endereco}</span>` : `<span>${desc}</span>`}
-      </div>
-      <div class="ch-row-mob-pills">
-        <span class="ch-cat-badge">${escapeHtml(cat)}</span>
-        <span class="ch-st ch-st-${escapeHtml(c.status)}">${stLabel}</span>
-        <span class="ch-row-mob-meta">
-          <span>há ${tempo}</span>
-          ${distLabel ? `<span class="ch-row-mob-meta-sep"></span><span class="ch-row-mob-dist">${distLabel}</span>` : ""}
-        </span>
+      <div class="ch-corpo">
+        <div class="ch-row-mob-head">
+          <span class="ch-row-mob-title">${condoNome}</span>
+          <span class="ch-id-cell">CH-${String(c.id).padStart(3,"0")}</span>
+        </div>
+        <div class="ch-row-mob-desc" title="${desc}">
+          ${endereco ? `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg><span>${endereco}</span>` : `<span>${desc}</span>`}
+        </div>
+        <div class="ch-row-mob-pills">
+          <span class="ch-cat-badge">${escapeHtml(cat)}</span>
+          <span class="ch-st ch-st-${escapeHtml(c.status)}">${stLabel}</span>
+          <span class="ch-row-mob-meta">há ${tempo}</span>
+        </div>
       </div>
     </button>
   `;
@@ -672,6 +735,20 @@ document.getElementById("tcSort").addEventListener("change", async (e) => {
 
 document.getElementById("tcRefresh").addEventListener("click", () => {
   carregarMeusChamados();
+});
+
+// O aviso de "sem GPS" é a própria tentativa de conserto: `force` porque o
+// cache de 5 min do `obterGPS` faria o toque não fazer nada visível.
+document.getElementById("tcAvisoOrdem").addEventListener("click", async (e) => {
+  const el = e.currentTarget;
+  if (el.disabled) return;
+  el.classList.add("is-buscando");
+  try {
+    await obterGPS({ force: true });
+  } finally {
+    el.classList.remove("is-buscando");
+    renderTecnicoChamados();
+  }
 });
 
 
@@ -1202,11 +1279,16 @@ function configurarCTA(c) {
   if (c.status === "aberto") {
     if (!c.tecnico_a_caminho_em) {
       // Fase 1: ainda não saiu → "A caminho"
+      //
+      // ⚠️ Era estilo INLINE (azul a 20%, borda e cor), e inline vence
+      // qualquer folha — o botão ficava fora do sistema visual e não havia
+      // como tematizá-lo. Virou a classe `.btn-caminho` em 01/09/2026, com o
+      // mesmo papel: esta fase pesa MENOS que a seguinte ("Iniciar
+      // atendimento", que é a amarela). Duas fases, dois pesos — só que agora
+      // o peso mora no CSS.
       lbl.textContent = "A caminho";
-      btn.className = "btn btn-lg";
-      btn.style.background = "rgba(74,120,247,.2)";
-      btn.style.borderColor = "rgba(74,120,247,.5)";
-      btn.style.color = "#93c5fd";
+      btn.className = "btn btn-lg btn-caminho";
+      btn.style = "";
       btn.onclick = () => registrarACaminho(c.id);
     } else {
       // Fase 2: a caminho → iniciar atendimento (registra chegada automaticamente)
@@ -1979,6 +2061,17 @@ const OS_FOTO_TIPOS = ["antes", "depois", "geral"];
 async function abrirFormularioOS(chamadoId, osId) {
   OS.chamadoId = chamadoId;
   showScreen("tecnico-os");
+
+  // ⚠️ Devolve o que a tela de sucesso da O.S. ANTERIOR escondeu. As duas peças
+  // moram no index.html e são reusadas por toda O.S., então `mostrarOSSucesso()`
+  // as deixa com `display:none` inline — e é aqui, na entrada, que elas voltam.
+  // Restaurar na saída não serve: o cabeçalho tem a seta `#osBack`, e quem
+  // saísse por ela abria a O.S. seguinte sem timer e sem o botão de finalizar.
+  // (O card do timer não era restaurado em lugar nenhum: ele sumia para todas as
+  // O.S. seguintes até o app ser reaberto.)
+  document.querySelector(".os-shell .td-card").style.display = "";
+  document.getElementById("osCtaBar").style.display = "";
+
   document.getElementById("osSections").innerHTML = `
     <div class="tc-skel" style="height:80px"></div>
     <div class="tc-skel" style="height:80px"></div>
@@ -3062,7 +3155,7 @@ async function abrirAssinaturaFullscreen() {
       <div class="sign-fs-actions">
         <button class="btn btn-sm" id="signFsClear">Limpar</button>
         <button class="btn btn-sm" id="signFsCancel">Cancelar</button>
-        <button class="btn btn-sm btnAccent" id="signFsConfirm">✓ Confirmar</button>
+        <button class="btn btn-sm btnAccent" id="signFsConfirm"><svg class="btn-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>Confirmar</button>
       </div>
     </div>
     <div class="sign-fs-canvas-wrap${jaTemAssinatura ? " has-ink" : ""}" id="signFsWrap">
@@ -3309,11 +3402,17 @@ async function finalizarOS() {
   }
 }
 
+// Tela de fim de atendimento. Uma saída só: voltar pra lista.
+//
+// ⚠️ ELA ESCONDE DUAS PEÇAS QUE SÃO DO index.html, NÃO DESTA TELA — o card do
+// timer e a barra de CTA. Quem devolve as duas é `abrirFormularioOS()`, na
+// ENTRADA da próxima O.S., e não um handler de saída daqui: existe uma segunda
+// porta (a seta `#osBack` no cabeçalho), e restaurar só no "Voltar pra minha
+// lista" deixava a tela seguinte quebrada para quem saísse pela outra.
 function mostrarOSSucesso() {
   pararTimerOS();
   // GPS continua ativo após o atendimento — só para no logout (o admin
   // precisa ver o técnico se deslocando entre chamados, não só durante).
-  const osId = OS.data.id;
   const numero = OS.data.numero || "";
   document.getElementById("osSections").innerHTML = `
     <div class="td-card">
@@ -3325,34 +3424,32 @@ function mostrarOSSucesso() {
         </div>
         <div class="os-success-title">O.S. finalizada!</div>
         <div class="os-success-sub">Chamado fechado · ${numero}</div>
-        ${IS_DEMO ? "" : `<button class="btn btn-lg" id="osBaixarPdf">📄 Baixar PDF</button>`}
         <button class="btn btnAccent btn-lg" id="osVoltarLista">Voltar pra minha lista</button>
       </div>
     </div>`;
   document.querySelector(".os-shell .td-card").style.display = "none"; // some o timer
-  document.querySelector(".td-cta-bar").style.display = "none";
+  // ⚠️ POR ID. Era `querySelector(".td-cta-bar")`, que pega a PRIMEIRA do
+  // documento — a da tela de detalhe do chamado (`#tdCtaBar`), não esta. E como
+  // aquela já é `[hidden]`, e `[hidden]` é `!important`, a linha não fazia nada:
+  // "Confirmar e finalizar O.S." continuava na tela de uma O.S. já finalizada,
+  // e tocar nele só produzia erro.
+  document.getElementById("osCtaBar").style.display = "none";
   document.getElementById("osVoltarLista").addEventListener("click", () => {
     OS.data = null;
-    document.querySelector(".td-cta-bar").style.display = "";
     showScreen("tecnico-chamados");
     if (!IS_DEMO) carregarMeusChamados(true);
     else renderTecnicoChamados();
-  });
-  document.getElementById("osBaixarPdf")?.addEventListener("click", async (e) => {
-    const btn = e.currentTarget;
-    setBtnLoading(btn, true);
-    try {
-      await baixarPdfOS(osId, numero);
-    } catch (err) {
-      showAlert(document.getElementById("osAlert"), err.message, "error");
-    } finally {
-      setBtnLoading(btn, false);
-    }
   });
 }
 
 // Baixa o PDF da O.S. — fetch com Authorization, blob → trigger download.
 // On-demand: o GET pode demorar uns segundos se o background ainda não gerou.
+//
+// ⚠️ SEM CHAMADOR DESDE 01/09/2026. O único botão que a usava ("📄 Baixar PDF",
+// na tela de fim de atendimento) foi removido a pedido do Pedro. A função ficou
+// de propósito: ela carrega a integração nativa de salvar/compartilhar
+// (Filesystem + Share do Capacitor), que não é trivial de reescrever, e religar
+// é uma linha. Se a decisão for definitiva, apagar daqui até o fim da função.
 async function baixarPdfOS(osId, numero) {
   const token = Storage.getToken();
   const r = await fetch(`${API_BASE}/ordens-servico/${osId}/pdf`, {
@@ -5359,7 +5456,7 @@ function rtRenderDesvio() {
   el.hidden = false;
   el.dataset.chamado = urgente.id;
   el.innerHTML = `
-    <span class="rt-desvio-ico">⚠</span>
+    <span class="rt-desvio-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3 L22 20 L2 20 Z"/><line x1="12" y1="9" x2="12" y2="14"/><line x1="12" y1="17" x2="12" y2="17.01"/></svg></span>
     <span class="rt-desvio-txt">
       <strong>Atendendo #${urgente.id} (${escapeHtml((urgente.prioridade || "").toUpperCase())})</strong>
       <span>${escapeHtml(urgente.condominio_nome || "")} — toque para abrir</span>

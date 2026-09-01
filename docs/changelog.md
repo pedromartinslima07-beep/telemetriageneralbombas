@@ -7255,6 +7255,369 @@ Sem migration e sem endpoint novo — nada a bumpar no `sw.js`.
 `operador.css` 73 → **74**, `operador.js` 69 → **70**, nos três HTMLs (as três
 entregas de hoje saem no mesmo bump).
 
+### 2026-09-01 · A tela de login do app troca o âmbar pelo Chapa
+
+O app do técnico abria numa tela que não se parecia com nada: cartão escuro
+centrado, âmbar `#f0b014`, filete HUD animado no topo, anel de varredura no
+splash. O comentário no `index.html` dizia "visual idêntico ao site" e estava
+desatualizado desde **25/08**, quando o `/login` foi redesenhado. Pedido do
+Pedro: "colocar a tela de login do app igual à do PWA".
+
+**Só o visual — o mecanismo não mudou, e isso foi escolha dele.** O app segue
+pedindo **e-mail e senha juntos** no `POST /auth/login`. O PWA hoje pergunta só
+o e-mail e deixa o `/auth/metodo` decidir se mostra senha (equipe) ou dispara
+`/auth/codigo` (síndico). Consequência conhecida e aceita: **o app não chama
+`/auth/codigo`**, então quem não tem senha continua sem entrar por ele. Hoje
+isso não atinge ninguém — produção não tem nenhum usuário `cliente` (1 admin,
+2 gerentes, 1 operador, 4 técnicos, todos com senha) —, mas abre no dia em que
+o primeiro síndico for cadastrado. O `abrirTelaCliente()` já existe no app,
+esperando por gente que não consegue chegar nele.
+
+**Arquivo próprio, não sobrescrita.** `app/public/login.css` (novo, ~19 KB) é o
+porte do `public/login.css`, e os 281 blocos de auth saíram do `app.css`. Tudo
+escopado em `.screen-auth`: os tokens do Chapa **não** vão para o `:root`, ou o
+marinho vazaria para as telas do técnico logo depois do login. O resto do app
+continua Mission Control âmbar.
+
+⚠️ **Quatro adaptações que o porte exigiu, e o porquê de cada uma:**
+
+- **Sem `color-mix()` e sem `clamp()` de fonte.** Isto roda no WebView do
+  aparelho, não num Chrome atual: `color-mix` só existe do Chrome 111 em
+  diante e, num WebView velho, a declaração inteira cai — o anel do botão
+  secundário sumiria sem nenhum outro sintoma. Valores literais e medidos.
+- **Caminhos relativos.** No APK a origem é o esquema do Capacitor
+  (`https://localhost`), não o servidor: um `/static/...` daria 404 mudo —
+  fonte sem erro visível, foto sem imagem.
+- **`:active` junto de `:hover` no varrimento do botão.** O gesto do amarelo
+  entrando pelo chanfro é o único momento de movimento da tela, e `:hover` não
+  dispara em toque: sem isso ele nunca tocaria no aparelho onde roda.
+- **Layout empilhado, sem o grid de duas colunas.** A superfície é sempre um
+  celular; carregar o layout de 861px seria fidelidade ao arquivo, não à tela.
+
+⚠️ **A frase da faixa da marca NÃO foi portada, e é decisão, não esquecimento.**
+No PWA ela diz "O nível dos **seus** reservatórios..." — escrita para o
+síndico, dono do prédio. Quem abre este app é o técnico: os reservatórios não
+são dele. Uma frase para ele é copy nova, que é decisão do Pedro. Sem frase, a
+faixa faz o que o próprio `login.css` do PWA diz que ela faz no celular:
+identifica.
+
+⚠️ **`showAlert()` faz `el.className = "alert " + tipo`** — apaga a lista de
+classes inteira. A caixa de erro do Chapa teve de pegar por `.alert` sozinho;
+qualquer classe extra permanente nela sumiria no primeiro erro.
+
+**Um defeito de contraste corrigido só aqui:** o placeholder do PWA é
+`color-mix(--tinta-2 62%, transparent)` sobre branco = **3,11:1**, abaixo do
+piso de 4,5:1. No app virou `#6b7693` (78%), que dá **4,53:1** e continua bem
+distante do valor digitado (8,1:1). **O PWA segue com o defeito** — mexer nele
+é outra tarefa.
+
+**Alvo de toque:** o link "Fale com a gente no WhatsApp" media 39px como link em
+linha corrida. Cresceu por `padding: 11px` com `margin: -11px` devolvendo o
+espaço ao parágrafo — o desenho não muda, muda a área que aceita o dedo. É o
+link de quem já não está conseguindo entrar.
+
+**Verificado renderizando**, a 390×844 e 360×640, lendo valores computados e
+`innerText` — não screenshot: sem rolagem horizontal, foto e as duas fontes
+carregando (200, não 404), h1 15,6:1 · subtítulo 6,8:1 · campo 18,6:1 ·
+placeholder 4,53:1, e todo alvo de toque ≥ 44px. Os únicos 404 são
+`/app/manifest.json` e `/static/favicon.png` — caminhos absolutos do `<head>`,
+**anteriores a este trabalho**, que só resolvem quando o Express serve o app em
+`/app`. No APK empacotado eles falham; não foi mexido.
+
+Detector da skill: dois achados, os dois falso positivo. A faixa listrada de
+6px é a assinatura de limite do Chapa (a mesma da base do hero da landing), não
+"borda de destaque em card"; e os 23 travessões estão em **comentários** de
+HTML, não na copy — a copy visível não tem nenhum.
+
+**Nada de backend, nada de migration, nada a bumpar no `sw.js`** — o app não
+registra service worker. **Só chega no técnico com APK novo:** 5,8 → **6,17 MB**
+(as duas fontes, 214 KB, e a foto, 215 KB).
+
+
+### 2026-09-01 · A tela de fim de O.S. para de oferecer o que não faz sentido
+
+Relato do Pedro: depois de finalizar a O.S. no app sobra o botão "Baixar PDF",
+que ele não quer, e **"lá embaixo confirmar e finalizar O.S., que é um botão
+que não faz sentido já que já foi finalizado, inclusive acho que nem
+funciona"**. O palpite estava certo, e a causa é mais boba do que parece.
+
+**A causa: `querySelector` pega o primeiro do documento.** `mostrarOSSucesso()`
+fazia `document.querySelector(".td-cta-bar").style.display = "none"`, mas
+existem **duas** `.td-cta-bar` no `index.html` — a da tela de detalhe do chamado
+(`#tdCtaBar`, linha 376) vem antes da tela da O.S. (linha 435). A linha
+escondia a errada. E como a errada já é `[hidden]`, e `[hidden]` é
+`display: none !important` (`app.css:96`), a linha **não fazia absolutamente
+nada**: a barra de finalizar continuava na tela de uma O.S. já finalizada.
+
+E ele não funcionava mesmo: tocar nele chamava `finalizarOS()` de novo, e o
+`POST /ordens-servico/:id/finalizar` recusa uma O.S. já fechada — o toque só
+produzia mensagem de erro.
+
+**Um terceiro defeito da mesma família, que ninguém tinha relatado.** A mesma
+função esconde o card do timer/progresso (`document.querySelector(".os-shell
+.td-card")` — esse seletor está certo), e **nada nunca o restaurava**. Depois
+de finalizar uma O.S., **todas as seguintes abriam sem timer e sem barra de
+progresso** até o app ser reaberto.
+
+**A correção não foi só trocar o seletor.** As duas peças moram no
+`index.html` e são reusadas por toda O.S.; restaurá-las no handler do "Voltar
+pra minha lista" não bastava, porque o cabeçalho tem uma **segunda porta** (a
+seta `#osBack`) — quem saísse por ela abriria a O.S. seguinte quebrada. O
+restauro foi para a **entrada** (`abrirFormularioOS`), onde nenhuma rota de
+saída o contorna. A barra ganhou `id="osCtaBar"`, que mata a ambiguidade de vez.
+
+**O botão de PDF saiu** a pedido do Pedro. A função `baixarPdfOS()` **ficou**,
+sem chamador e marcada como tal: ela carrega a integração nativa de
+salvar/compartilhar (Filesystem + Share do Capacitor), que não é trivial de
+reescrever, e religar é uma linha. Apagar de vez é decisão dele.
+
+**Verificado exercitando o fluxo** em `?demo=tecnico` (sem rede), a 390×844, nos
+quatro passos: O.S. aberta (barra e timer visíveis) → finalizada (as duas
+somem, sem botão de PDF, "Voltar pra minha lista" no lugar) → **saída pela seta
+do cabeçalho, não pelo botão** → O.S. seguinte (barra e timer de volta). Zero
+erro de JS; os únicos 404 são `/app/manifest.json` e `/static/favicon.png`,
+anteriores a este trabalho.
+
+**Sem backend, sem migration, nada no `sw.js`.** Só chega no técnico com APK
+novo — 6,17 MB, gerado e conferido por dentro.
+
+### 2026-09-01 · O app do técnico entra no Chapa (etapa 1: paleta + lista de chamados)
+
+Pedido do Pedro, depois de eu abrir o app no navegador ao lado dos painéis:
+"trazer o front do app próximo a eles". As telas de cliente do app **saíram do
+escopo** — ele confirmou que não existem em uso.
+
+**Etapa 1 de 4.** Esta entrega faz duas coisas: remapeia os tokens do `:root`
+(o que move o app **inteiro** de paleta de uma vez) e recompõe a **lista de
+chamados**, que é a porta de entrada e onde moram as peças reusadas pelo resto.
+Faltam: detalhe do chamado (2), formulário da O.S. (3), Conta e Roteiro (4).
+
+Arquivo próprio: `app/public/tecnico.css`, carregado depois do `app.css` e do
+`login.css`. Mesmas restrições do porte do login (sem `color-mix`, caminhos
+relativos, `:active` junto de `:hover`).
+
+**Três defeitos estruturais corrigidos, e nenhum era de paleta:**
+
+1. **A barra colorida de 3px na lateral do item** — o padrão "side-tab", o tell
+   que o detector da skill marca e que o Chapa não usa em superfície nenhuma.
+2. **A prioridade existia SÓ COMO COR.** O filete e o tom do ícone eram os
+   únicos portadores de P1/P2/P3/P4 — nenhum texto dizia. A regra do DESIGN.md
+   é que estado nunca aparece sem rótulo escrito; a cor é reforço, nunca a
+   informação. Virou selo com "P1" escrito.
+3. **Categoria e status preenchidos lado a lado.** Categoria é classificação,
+   não estado, e nunca preenche (Regra do Selo). Virou etiqueta gravada;
+   status virou selo de fio; só a prioridade preenche.
+
+**O placar de 4 números saiu** (autorizado pelo Pedro). Dois deles — "Abertos"
+e "Fechados hoje" — eram repetição literal dos contadores das abas 40px abaixo
+(Hoje · Próximos · Histórico). É o mesmo padrão que saiu do painel do operador
+em 31/08, pelo mesmo motivo. "Críticos", o único que não se repetia, virou uma
+linha que **só existe quando há crítico** e diz o que fazer: "1 chamado crítico
+esperando".
+
+⚠️ **A faixa do ROTEIRO usa a mesma classe e NÃO saiu.** Lá os números são
+Prédios · Serviços · Atrasadas · Em curso, que não se repetem em lugar nenhum
+da tela — não é o mesmo defeito. A regra de esconder foi escopada em
+`#tcKpiGrid`, não em `.tec-kpi-strip`. Decidir o Roteiro é a etapa 4.
+
+**O item virou duas colunas:** a RÉGUA (prioridade + distância) e o CORPO. É a
+gramática do item do operador comprimida para 390px — a régua responde às duas
+perguntas de quem está com a van na rua. O ícone de prédio saiu: toda linha é
+um condomínio, então ele não distinguia nada e custava 44px de uma tela de 390.
+
+⚠️ **Três armadilhas de especificidade, todas encontradas na tela:**
+
+- **`.ch-row-mob[data-pri="p1"]::before` (0,2,1) vencia a chapa de duas camadas
+  da folha nova (0,1,1)** e pintava o ITEM INTEIRO de vermelho/âmbar — eu
+  reusei o mesmo pseudo-elemento que antes era o filete de 3px. Conserto:
+  remover os 163 blocos superados do `app.css`, não brigar por especificidade.
+- **`#tcRefresh` era o único seletor por ID da tela** (1,0,0) e vencia
+  silenciosamente a regra de classe: o botão ficava com a caixa arredondada do
+  Mission Control e alvo de 30px numa tela toda em 44.
+- **Remapear `--font-mono` para Martian Mono transbordou o cabeçalho da O.S.**
+  em 22px de uma tela de 375, cortando o selo de andamento. Martian Mono é bem
+  mais largo, e o token é usado por regras de telas que ainda não foram
+  recompostas. `--font-mono` ficou como estava; Martian entra por `var(--mono)`,
+  peça por peça, onde a largura já foi medida. **Diagnosticado desligando a
+  folha nova no navegador e remedindo** — com ela `+22px`, sem ela `-19px`.
+
+**Verificado no navegador a 390px** (`?demo=tecnico` dentro de um `<iframe>`,
+porque o Chrome desta máquina não obedece resize — nota do `active-work.md`),
+lendo valores computados: título 14,4:1 · endereço 7,7:1 · mono 5,2:1 · selos
+preenchidos 6,3 a 10,8:1; nenhum alvo abaixo de 44px; sem rolagem horizontal; e
+**nenhum transbordo de cabeçalho em nenhuma das três telas** (lista 0, detalhe
+−132, O.S. −19, idêntico ao estado sem a folha).
+
+Detector: só o aviso de travessões, que estão em **comentários** de HTML — a
+copy visível não tem nenhum.
+
+**Sem backend, sem migration, nada no `sw.js`.** APK 6,17 MB, gerado e
+conferido por dentro.
+
+
+### 2026-09-01 (2ª rodada) · O app do técnico fecha no Chapa — e a placa é clara
+
+Continuação da etapa 1. Entraram as etapas 2, 3 e 4 (detalhe do chamado, O.S.,
+Conta e Roteiro) e um passe de polimento. **No meio do trabalho o Pedro mandou
+a tela de orçamentos do cliente como referência** — *"leve em consideração esse
+tipo de tela, com palavras em amarelo, e campos brancos"* — e isso corrigiu a
+direção.
+
+⚠️ **A CORREÇÃO QUE VALE MAIS QUE O RESTO DESTA ENTRADA.** As etapas 1 a 4
+tinham montado **placa escura sobre campo escuro**. Está errado, e o DESIGN.md
+já dizia: *"o marinho é tratado como MATERIAL, não como fundo: a tela é o campo,
+e as superfícies claras são PLACAS POUSADAS sobre ele para os trechos de leitura
+densa."* O `.orc-item` do `cliente.css` faz exatamente isso — `--chapa` de
+fundo, anel `inset 1px --fio-esc`, chanfro de 14px, tinta `--tinta`, selo
+amarelo preenchido com tinta marinho. Eu tinha lido a regra como "escureça
+tudo". Item da lista, cards do detalhe, seções da O.S. e cards do Roteiro
+viraram placa clara.
+
+**O mecanismo da placa clara:** ela **redeclara os tokens de tinta
+localmente**. Como as regras de dentro usam `var(--text)`, `var(--muted)` etc.,
+elas viram tinta escura sozinhas — sem caçar cor por cor em cinquenta
+seletores. É a "Regra do Preenchimento Cru" do operador, e a contrapartida dela
+importa: **fundo de selo usa o token CRU** (`--amarelo`, `--vermelho`,
+`--verde`, que não flipam, para preencher com tinta marinho por cima) e **texto
+e borda usam o semântico** (`--risco`, `--ok`, `--warn`, `--accent`, que flipam
+para a família `-t`, porque sobre claro nenhum sinal saturado passa contraste
+como texto — Regra do Amarelo Cego). Sem essa separação o selo P4 ficaria
+`#414f74` sobre `#414f74`.
+
+**A palavra em amarelo.** O segundo pedido. Uma por tela, e só sobre o campo
+marinho — sobre placa clara o amarelo não é tinta. O único lugar da lista onde
+uma frase é o conteúdo é o estado vazio: *"Você está **em dia**"*. Junto, a
+linha de apoio **deixou de ser âmbar**: com a palavra da manchete em amarelo,
+dois acentos na mesma tela matam o primeiro.
+
+**Emojis viraram ícones** (pedido do Pedro, e a skill proíbe emoji fazendo papel
+de ícone). Saíram 📍🔥🕒 dos rótulos de ordenação, o ⚠ do aviso de desvio do
+Roteiro e o ✓ do botão de confirmar assinatura.
+⚠️ **O ícone de ordenação teve de sair de dentro do `<select>`**: um `<option>`
+aceita só texto, não SVG. Virou peça própria ao lado do campo.
+⚠️ **E a junta dos ícones foi endireitada de uma vez.** O Chapa é chapa de aço
+cortada — ponta reta, canto vivo. Os SVGs do app vinham com
+`stroke-linecap="round"` como **atributo**, e atributo de apresentação perde
+para CSS: uma regra endireitou os oitenta ícones sem editar nenhum.
+
+**Outros achados corrigidos no caminho:**
+
+- **O botão "A caminho" era estilo INLINE** (azul a 20%, borda e cor), aplicado
+  pelo `app.js`. Inline vence qualquer folha — o botão ficava fora do sistema e
+  não havia como tematizá-lo. Virou a classe `.btn-caminho`, com o mesmo papel
+  (fase 1 pesa menos que a fase 2, que é a amarela).
+- **`opacity: .5` no botão desabilitado deixava o CTA ilegível.** Sobre marinho
+  o amarelo a 50% vira oliva e a tinta some — justamente quando o rótulo mais
+  importa ("Confirmar e finalizar O.S." é o que diz o que falta alcançar).
+  Virou anel amarelo apagado + interior marinho + tinta clara: **9,6:1**,
+  obviamente inativo e ainda legível. WCAG isenta controle desabilitado; quem
+  usa isto é gente mais velha numa casa de máquinas mal iluminada.
+- **`.tc-empty-sub` tinha `!important` no `app.css`** — colocado para vencer
+  `.tc-empty p` (0,1,1), que tem especificidade maior que `.tc-empty-sub`
+  (0,1,0). Remédio errado para problema de seletor. Resolvido com
+  `.tc-empty p.tc-empty-sub` (0,1,2), sem `!important`.
+- **O tique âmbar de 2px à esquerda dos cabeçalhos de seção** (`.cardHead
+  ::before`) saiu — o mesmo "side-tab" que saiu do item na etapa 1.
+- **A barra do reservatório seguia a Regra da Água Visível**: era um gradiente
+  verde→amarelo→vermelho por faixa, contando a mesma história duas vezes (cor
+  e comprimento) e gastando o vermelho num estado que ainda não é emergência.
+  Agora a lâmina abre em `--agua` e só escurece para vinho no **crítico**; no
+  **baixo** a água continua azul e quem avisa é a crista âmbar.
+- **O timer da O.S. NÃO virou placa clara**: ele é instrumento, e instrumento
+  neste sistema é sempre marinho fundo. É o único bloco escuro da tela da O.S.,
+  e é isso que faz o tempo saltar.
+- **Cabeçalho da O.S. transbordava 9px a 360px** — número da O.S. mais selo de
+  andamento. Passaram a quebrar em duas linhas.
+
+**Verificado no navegador**, 4 telas × 2 larguras (390×844 e 360×640), lendo
+valores computados: sem rolagem horizontal, nenhum cabeçalho transbordando,
+nenhum alvo de toque abaixo de 44px, zero erro de JS e nenhum 404 novo. Sobre a
+placa clara: título 15,6:1 · endereço, id, categoria, status e meta 6,8:1 ·
+selos preenchidos 8,1 a 10,8:1 — nada abaixo do piso. Detector da skill:
+**zero achados**.
+
+⚠️ **Sobraram emojis em três lugares, todos FORA do fluxo do técnico**: o 👋 e
+o ✓/✗ da tela `home` (o placeholder de admin/cliente) e o 📄 e o ✓ das telas
+`cliente-*`. Saem junto com a remoção dessas telas, que continua pendente.
+
+**Sem backend, sem migration, nada no `sw.js`.** APK 6,19 MB.
+
+
+### 2026-09-01 (3ª rodada) · "Mais próximos" mentia, e o menu dele era branco no branco
+
+Três defeitos no mesmo controle, achados a pedido do Pedro ("veja a
+funcionalidade e a visibilidade do 'mais próximos'") mais um que ele viu na
+tela.
+
+**1. O rótulo mentia — e era o caso comum, não a exceção.**
+
+`ordenarChamados` tinha `if (TC.sort === "proximidade" && TC.geo)`. **Sem
+`TC.geo` o código caía no `else` final, que é o ramo da ordenação POR DATA.** O
+controle dizia "Mais próximos", a lista vinha por mais recente, e nada avisava.
+"proximidade" é o padrão do app.
+
+Não é caso de canto: o GPS **só opera das 8h às 18h** (`gpsDentroDoHorario`),
+então toda abertura fora do expediente caía nisso — e também toda abertura sem
+a permissão concedida, que hoje é quase todo aparelho (o roadmap registra que
+só o técnico de teste tem a permissão correta).
+
+O ramo virou explícito e a queda passou a ser para **prioridade**, não data:
+data é ordem arbitrária para quem está com a van na rua; prioridade é a ordem
+operacional. `TC.ordemReal` registra o que foi de fato aplicado — `TC.sort`
+continua sendo o que foi **pedido**.
+
+⚠️ **E a tela passou a dizer.** `#tcAvisoOrdem` aparece só quando o pedido não
+pôde ser cumprido: *"Sem GPS · ordenado por prioridade"* + **"Tentar de novo"**.
+É **botão**, não texto: o erro tem conserto (`obterGPS({force:true})` — `force`
+porque o cache de 5 minutos faria o toque não fazer nada visível), e a regra é
+que aviso nomeia o problema **e** a saída. Fora do expediente o texto muda e o
+botão desabilita, porque ali tocar não resolveria.
+
+⚠️ **O aviso é renderizado DEPOIS de `ordenarChamados`, nunca antes** — é ele
+que define `TC.ordemReal`. Chamado no topo do render, mostraria o resultado da
+renderização anterior e ficaria um passo atrás a cada troca.
+
+**2. O menu do `<select>` era branco sobre branco.** Achado do Pedro. O app
+**nunca estilizou `<option>` e não declarava `color-scheme` em lugar nenhum**:
+o menu nativo é pintado claro pelo sistema enquanto as opções herdam a cor
+quase-branca do `<select>`. Abria e não se lia nada. **Defeito antigo, não
+regressão do redesenho** — já era assim no âmbar.
+
+⚠️ **Não dá para resolver só com `color-scheme: dark` na raiz.** O app tem
+`<select>` nos dois campos: os de ordenação vivem sobre o marinho (menu
+escuro) e o `.os-select` da O.S. vive **dentro da placa clara** (menu claro).
+Um `color-scheme` global acertaria um e quebraria o outro — trocaria branco
+sobre branco por escuro sobre escuro. Cada select declara o seu, e as `option`
+levam cor explícita em vez de herdar. Agora **16,4:1**.
+
+**3. O controle não parecia um controle.** Texto solto com um chevron, corpo de
+10,5px em mono, sem fundo nem contorno — e é ele que decide a ordem da rota do
+dia. Ganhou a mesma peça dos outros campos: chanfro, anel de fio e alvo de
+44px. O chevron era um data-URI com `stroke='%237a7e9c'` (cinza fixo do Mission
+Control, que não acompanha a paleta) e ponta arredondada; foi redesenhado no
+tom da paleta e com junta reta.
+
+**4. A barra amarela do menu inferior estava descentralizada.** Achado do
+Pedro, e o erro era meu.
+
+⚠️ **A LIÇÃO: numa sobrescrita de pseudo-elemento, o que você não redeclara
+continua valendo.** O `app.css` já centrava a barra com
+`transform: translateX(-50%)`. A regra nova sobrescreveu `left`, `width` e cor
+e acrescentou `margin-left: -13px` — mas **não zerou o transform**. A barra
+levou os dois deslocamentos (−13 de margem −13 de transform) e saiu **uma
+largura inteira** à esquerda do ícone.
+
+⚠️ **E a minha medição não pegou**, o que é a parte que interessa: eu conferi
+`left` e `margin-left`, somei, deu centrado, e concluí que estava certo — sem
+olhar o `transform` herdado. Quem viu foi o Pedro, na tela. Medir só as
+propriedades que você escreveu não mede nada; **a verificação passou a somar
+`left + margin-left + transform` e comparar com o centro do ícone**.
+
+**Verificado**, 4 telas × 2 larguras: sem rolagem horizontal, sem cabeçalho
+transbordando, nenhum alvo < 44px, barra do nav com **0px de desvio**, menu do
+select com fundo explícito, zero erro de JS. Detector: **zero achados**.
+APK regerado.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

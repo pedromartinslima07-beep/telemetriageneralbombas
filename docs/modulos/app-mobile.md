@@ -45,6 +45,94 @@ configuração de JDK do Android Studio — se o Gradle JVM apontar para uma ent
 inexistente no `jdk.table.xml`, o Studio falha com *"Invalid Gradle JDK
 configuration"* antes mesmo de sincronizar.
 
+⚠️ **Clone novo não compila de primeira, e o erro não diz o que falta**
+(01/09/2026). São dois passos, nesta ordem: `npm install` dentro de `app/` (o
+`node_modules/` é ignorado) e criar o `local.properties`. Sem o segundo o Gradle
+morre em `SDK location not found ... ANDROID_HOME`, e nesta máquina
+`ANDROID_HOME` e `ANDROID_SDK_ROOT` estão **vazias** — o caminho só existe no
+arquivo. Depois disso, `npm run build:apk` (que já faz o `cap sync android`).
+
+⚠️ **No `local.properties`, use barra normal.** É formato `.properties` do
+Java, onde a barra invertida é escape: `C:\Users\ZsusX` tem `\U` e `\A`, que não
+são escapes válidos, e o Java engole as barras — o valor vira
+`C:UsersZsusX...` e o Gradle reclama do SDK como se o arquivo não existisse.
+`sdk.dir=C:/Users/<voce>/AppData/Local/Android/Sdk` funciona.
+
+## As telas de entrada: splash, login e código (01/09/2026)
+
+O app abre no mundo **"Chapa"** — o mesmo da landing, do `/login` e dos
+painéis —, e só troca para o Mission Control âmbar depois que o técnico entra.
+Antes de 01/09 as três telas eram um cartão escuro centrado com âmbar
+`#f0b014`, filete HUD animado e anel de varredura no splash; o comentário no
+`index.html` dizia "visual idêntico ao site" e estava desatualizado desde
+**25/08**, quando o `/login` foi redesenhado.
+
+| Peça | Onde |
+|---|---|
+| Estilo das três telas | `app/public/login.css` (**arquivo próprio**, carregado depois do `app.css`) |
+| Markup | `app/public/index.html`, seções `data-screen="splash" / "login" / "otp"` |
+| Lógica (inalterada) | `app/public/app.js` — `formLogin`, `formOtp`, `showAlert`, `setBtnLoading` |
+| Assets embarcados | `app/public/fonts/` (Archivo × 2, Martian Mono) e `app/public/fotos/reservatorios.jpg` |
+
+⚠️ **O MECANISMO NÃO É O DO PWA, e isso é decisão do Pedro (01/09).** O app
+pede **e-mail e senha juntos** no `POST /auth/login`. O `/login` do navegador
+pergunta só o e-mail e deixa o `/auth/metodo` decidir entre senha (equipe) e
+código (síndico). **O app não chama `/auth/codigo` em lugar nenhum** — logo,
+quem não tem senha não entra por ele. Hoje não atinge ninguém (produção não tem
+usuário `cliente`), mas o `abrirTelaCliente()` já existe no app esperando gente
+que não consegue chegar nele. Fechar isso é portar o fluxo, não o visual.
+
+⚠️ **Tudo escopado em `.screen-auth`.** Os tokens do Chapa **não** entram no
+`:root`: se entrarem, o marinho vaza para as telas do técnico logo depois do
+login. O `@font-face` é global porque só define famílias — nada as usa fora
+daqui.
+
+⚠️ **Sem `color-mix()` e sem `clamp()` de fonte neste arquivo.** Ele roda no
+WebView do aparelho, não num Chrome atual: `color-mix` só existe do Chrome 111
+em diante, e num WebView velho a declaração **inteira** cai — o anel do botão
+secundário sumiria sem nenhum outro sintoma. Os valores são literais e medidos.
+
+⚠️ **Caminhos relativos, sempre.** No APK a origem é o esquema do Capacitor
+(`https://localhost`), não o servidor. Um `/static/...` copiado do PWA daria
+**404 mudo**: fonte que não troca e foto que não aparece, sem erro na tela. É a
+mesma armadilha para qualquer asset novo que este CSS venha a puxar.
+
+⚠️ **`showAlert()` faz `el.className = "alert " + tipo`** — ele apaga a lista
+de classes. A caixa de erro precisa pegar por `.alert` sozinho; qualquer classe
+extra permanente nela sumiria no primeiro erro exibido.
+
+⚠️ **O varrimento do botão responde a `:active`, não só a `:hover`.** O amarelo
+entrando pelo chanfro é o único momento de movimento da tela, e `:hover` não
+existe em toque — sem o `:active` ele nunca dispararia justamente no aparelho
+onde o app roda.
+
+⚠️ **O layout é empilhado e não tem o grid de duas colunas do PWA.** A
+superfície é sempre um celular; carregar o layout de 861px seria fidelidade ao
+arquivo, não à tela. A faixa da marca cede altura primeiro em
+`@media (max-height: 680px)` — aparelho curto ou teclado aberto.
+
+⚠️ **A frase da faixa da marca não foi portada.** No PWA ela diz "O nível dos
+**seus** reservatórios…", escrita para o síndico. Quem abre este app é o
+técnico: os reservatórios não são dele. Escrever uma para ele é copy nova, que
+é decisão do Pedro — até lá a faixa só identifica, que é o que o próprio
+`public/login.css` diz que ela faz no celular.
+
+⚠️ **O enquadramento da foto tem regra.** No alto de `reservatorios.jpg` está a
+marca do fabricante do tanque, com **dois telefones legíveis**. Quem os elimina
+é o corte vertical (`background-position: center, 28% 60%` sobre `112% auto`).
+Ao mexer nesses números, conferir que os telefones continuam fora e que a
+parede com o extintor não voltou pela direita.
+
+**Contraste divergente do PWA, de propósito:** o placeholder do `/login` é
+`color-mix(--tinta-2 62%, transparent)` sobre branco, que dá **3,11:1** e
+reprova o piso de 4,5:1. Aqui ele é `#6b7693` (78%), **4,53:1**, ainda bem
+distante do valor digitado (8,1:1). O PWA segue com o defeito.
+
+**O que o APK custou:** 5,8 → **6,17 MB** — as duas fontes (174 KB) e a foto
+(215 KB). O `login-logo.png` já estava lá. **Só chega no técnico com APK novo**;
+o app não registra service worker, então não há `sw.js` nem `?v=N` a bumpar.
+
+
 ## GPS — rastreamento de localização
 
 ### Implementação atual
@@ -195,6 +283,154 @@ ser pedida depois de saber o `condominio_id`, que vem no `GET
 /ordens-servico/:id`. É sequencial de propósito: é ela que decide se a seção
 existe, e o esqueleto já está na tela. Falha de rede aqui não derruba a O.S. —
 a seção simplesmente não aparece.
+
+## O app no mundo "Chapa" — migração por etapas (01/09/2026)
+
+O app era a **quarta identidade do produto** (Mission Control âmbar), e o
+DESIGN.md registrava isso como dívida conhecida. Em 01/09 começou a migração
+para o Chapa, a pedido do Pedro. **As telas de `cliente-*` ficaram fora do
+escopo** — ele confirmou que não existem em uso.
+
+As quatro etapas entraram em 01/09/2026. Estilo em `app/public/tecnico.css`,
+carregado **depois** do `app.css` e do `login.css`.
+
+| Etapa | O que | Status |
+|---|---|---|
+| 1 | Tokens do `:root` (move o app inteiro de paleta) + lista de chamados | ✅ |
+| 2 | Detalhe do chamado | ✅ |
+| 3 | Formulário da O.S. | ✅ |
+| 4 | Conta e Roteiro | ✅ |
+
+⚠️ **A PLACA É CLARA, e essa é a regra que eu errei primeiro.** O DESIGN.md diz
+que *"o marinho é MATERIAL, não fundo: a tela é o campo, e as superfícies
+claras são placas pousadas sobre ele para os trechos de leitura densa"*. A
+primeira versão montou placa **escura** sobre campo escuro. O Pedro corrigiu
+mandando a tela de orçamentos do cliente como referência ("campos brancos,
+palavras em amarelo"), que é o `.orc-item` do `cliente.css`: `--chapa` de
+fundo, anel `inset 1px --fio-esc`, chanfro de 14px, tinta `--tinta`, selo
+amarelo preenchido com tinta marinho.
+
+⚠️ **Como a placa clara funciona: ela redeclara os tokens de tinta
+localmente.** As regras de dentro usam `var(--text)`, `var(--muted)` etc. e
+viram tinta escura sozinhas — não se caça cor por cor. **A contrapartida é a
+Regra do Preenchimento Cru:**
+
+| Papel | Tokens | Flipam na placa clara? |
+|---|---|---|
+| **Fundo** de selo | `--amarelo` · `--vermelho` · `--verde` | **não** (sempre com tinta marinho por cima) |
+| **Texto** e borda | `--risco` · `--ok` · `--warn` · `--accent` | **sim**, para a família `-t` |
+
+Sem essa separação o selo P4 sai `#414f74` sobre `#414f74`.
+
+⚠️ **O timer da O.S. não é placa clara.** Ele é **instrumento**, e instrumento
+neste sistema é sempre marinho fundo — é o único bloco escuro da tela, e é isso
+que faz o tempo saltar.
+
+⚠️ **A palavra em amarelo: UMA por tela, e só sobre o campo marinho.** Sobre
+placa clara o amarelo não é tinta (Regra do Amarelo Cego). Na lista ela vive no
+estado vazio ("Você está **em dia**"), que é o único lugar onde uma frase é o
+conteúdo. Quando ela existe, nada mais na tela recebe âmbar.
+
+⚠️ **"Mais próximos" cai para PRIORIDADE quando não há GPS — e a tela diz.**
+`ordenarChamados` tinha o ramo de proximidade condicionado a `TC.geo`; sem ele
+caía no `else`, que é **ordenação por data**, com o controle ainda dizendo
+"Mais próximos". Como o GPS só opera das 8h às 18h, **toda abertura fora do
+expediente** caía nisso. Hoje `TC.sort` é o que foi **pedido** e `TC.ordemReal`
+o que foi **aplicado**; quando divergem, o `#tcAvisoOrdem` aparece com a saída
+("Tentar de novo" → `obterGPS({force:true})`). ⚠️ Ele é renderizado **depois**
+de `ordenarChamados`, nunca antes — é ela que define `TC.ordemReal`.
+
+⚠️ **`<option>` precisa de cor explícita, e `color-scheme` é por select.** O
+menu nativo é pintado pelo sistema (claro por padrão) enquanto as opções
+herdam a cor do `<select>` — com a cor quase-branca do app, era **branco sobre
+branco**. Um `color-scheme: dark` global **não resolve**: os selects de
+ordenação vivem sobre o marinho, mas o `.os-select` da O.S. vive **dentro da
+placa clara**. Cada um declara o seu, e as `option` levam cor literal.
+
+⚠️ **Ao sobrescrever um pseudo-elemento, o que você não redeclara continua
+valendo.** A barra amarela da aba ativa já era centrada por
+`transform: translateX(-50%)` no `app.css`; a regra nova acrescentou
+`margin-left: -13px` sem zerar o transform, e a barra saiu **uma largura
+inteira** à esquerda. Verificação que passou a existir: somar
+`left + margin-left + transform` e comparar com o centro do ícone — conferir só
+as propriedades que você escreveu não mede nada.
+
+⚠️ **Nada de emoji fazendo papel de ícone.** Saíram 📍🔥🕒 dos rótulos de
+ordenação, o ⚠ do desvio do Roteiro e o ✓ do confirmar assinatura. Um
+`<option>` aceita só texto, então o ícone de ordenação vive **fora** do
+`<select>`. E os SVGs herdados vinham com `stroke-linecap="round"` como
+atributo — atributo de apresentação perde para CSS, então **uma regra**
+(`[data-screen^="tecnico-"] svg`) endireitou a junta de todos de uma vez, sem
+editar ícone por ícone.
+
+⚠️ **O que mudou no item da lista não foi cor — foram três defeitos
+estruturais:** saiu a barra colorida de 3px na lateral (o padrão "side-tab");
+a **prioridade virou texto** (antes existia só como cor, e a regra do DESIGN.md
+é que estado nunca aparece sem rótulo escrito); e **só a prioridade preenche**
+(categoria é classificação e virou etiqueta gravada; status virou selo de fio).
+
+⚠️ **O placar de 4 números saiu da lista, mas NÃO do Roteiro.** Na lista, dois
+dos quatro repetiam os contadores das abas logo abaixo. No Roteiro os números
+são outros (Prédios · Serviços · Atrasadas · Em curso) e não se repetem — não é
+o mesmo defeito. A regra de esconder está escopada em `#tcKpiGrid`, **não** em
+`.tec-kpi-strip`, que as duas telas compartilham. Ao mexer, não troque o
+seletor por classe.
+
+⚠️ **Três armadilhas de especificidade que custaram tempo aqui**, todas do
+mesmo tipo — regra antiga do `app.css` vencendo a folha nova em silêncio:
+
+| Regra velha | Especificidade | O que fazia |
+|---|---|---|
+| `.ch-row-mob[data-pri="p1"]::before` | 0,2,1 | pintava o **item inteiro** com a cor da prioridade |
+| `#tcRefresh` | 1,0,0 | devolvia a caixa arredondada e um alvo de 30px |
+| `--font-mono` → Martian Mono | — | transbordava o cabeçalho da O.S. em 22px |
+
+A conclusão vale para as etapas 2 a 4: **ao recompor uma tela, remova os blocos
+superados do `app.css` em vez de sobrescrever.** Brigar por especificidade
+deixa a folha nova refém de seletor antigo que ninguém lembra que existe.
+
+⚠️ **`--font-mono` não é o Martian Mono, de propósito.** Martian é bem mais
+largo que o `ui-monospace` que aquele token carrega, e ele é usado por regras
+de telas ainda não recompostas. Martian entra por `var(--mono)`, peça por peça,
+onde a largura já foi medida na tela.
+
+**Para ver sem login:** `?demo=tecnico`. ⚠️ O Chrome desta máquina **não
+obedece resize de janela** — o celular se mede pondo o app num `<iframe>` de
+390px, que responde às mesmas media queries. É a mesma nota que o
+[`active-work.md`](../../memory-bank/active-work.md) registra para a prévia do
+operador.
+
+## A tela de fim de O.S. (01/09/2026)
+
+`mostrarOSSucesso()` (`app/public/app.js`) troca o conteúdo de `#osSections`
+pelo cartão "O.S. finalizada!" e **esconde duas peças que são do `index.html`,
+não dela**: o card do timer/progresso (`.os-shell .td-card`) e a barra de CTA
+(`#osCtaBar`). Sobra **uma saída só**: "Voltar pra minha lista".
+
+⚠️ **Quem devolve as duas peças é `abrirFormularioOS()`, na ENTRADA da próxima
+O.S. — nunca um handler de saída.** O cabeçalho da tela tem uma segunda porta,
+a seta `#osBack`: restaurar só no clique de "Voltar pra minha lista" deixa a
+O.S. seguinte sem timer e sem botão de finalizar para quem sair pela seta. Vale
+para qualquer peça que esta tela venha a esconder.
+
+⚠️ **Mire a barra de CTA pelo `id`, nunca por `.td-cta-bar`.** Existem **duas**
+com essa classe no `index.html`, e a da tela de detalhe do chamado
+(`#tdCtaBar`) vem **antes** no documento — um `querySelector(".td-cta-bar")`
+pega a de lá. Foi esse o bug corrigido em 01/09: a linha escondia o elemento
+errado e, como aquele já é `[hidden]` (que é `display: none !important` em
+`app.css:96`), **não fazia nada**. O "Confirmar e finalizar O.S." ficava na
+tela de uma O.S. já finalizada, e tocá-lo chamava `finalizarOS()` de novo —
+o backend recusa uma O.S. fechada, então só produzia erro.
+
+⚠️ **`baixarPdfOS()` existe e não tem chamador.** O botão "📄 Baixar PDF" saiu
+da tela de sucesso em 01/09 a pedido do Pedro. A função ficou de propósito —
+carrega a integração nativa de salvar/compartilhar (Filesystem + Share do
+Capacitor) e religar é uma linha. Se a remoção for definitiva, apagar a função
+inteira.
+
+**Para exercitar sem rede:** `?demo=tecnico` na URL liga o `IS_DEMO` e
+`abrirFormularioOS()` monta uma O.S. de mentira. É como este fluxo foi
+conferido nos quatro passos, incluindo a saída pela seta.
 
 ## Notificações — estado atual: **não existem**
 

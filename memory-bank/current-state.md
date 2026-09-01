@@ -218,20 +218,72 @@ ESP32 (sonda 4-20mA + SCT-013)
   `equipamentos` zerada em produção, hoje ela não aparece para ninguém e nasce
   sozinha quando as etiquetas subirem. Pegadinhas em
   [app-mobile.md](../docs/modulos/app-mobile.md).
+- **O app do técnico está migrando para o Chapa** (01/09/2026) — **as quatro etapas**. `app/public/tecnico.css` remapeia os tokens do `:root` (o app inteiro
+  muda de paleta: marinho como material, amarelo institucional `#fbb329`, raio
+  zero, sombra nenhuma) e recompõe a **lista de chamados**. Detalhe do chamado, O.S., Conta e Roteiro foram recompostos na mesma sessão. As telas `cliente-*` do app ficaram fora do escopo — o
+  Pedro confirmou que não existem em uso.
+  - Três defeitos estruturais corrigidos no item, nenhum de paleta: saiu a
+    barra colorida de 3px ("side-tab"); a **prioridade virou texto** (existia
+    só como cor); e **só a prioridade preenche** — categoria virou etiqueta
+    gravada, status virou selo de fio.
+    - ⚠️ **A placa é CLARA** — `--chapa` sobre o campo marinho, como o `.orc-item`
+    do painel do cliente. A primeira versão montou placa escura sobre escuro; o
+    Pedro corrigiu mandando a tela de orçamentos como referência ("campos
+    brancos, palavras em amarelo"). A placa **redeclara os tokens de tinta**
+    localmente; fundo de selo usa o token cru, texto usa o semântico.
+  - **Uma palavra em amarelo por tela**, e só sobre marinho. Na lista ela vive
+    no estado vazio ("Você está **em dia**").
+  - **Emoji não faz papel de ícone**: saíram os das ordenações, do desvio do
+    Roteiro e do confirmar assinatura.
+  - O placar de 4 números saiu da lista (dois repetiam as abas). **Não saiu do
+    Roteiro**, onde os números são outros e não se repetem.
+  - ⚠️ Ao recompor as próximas telas, **remova os blocos superados do
+    `app.css`** em vez de sobrescrever: três regras antigas venceram a folha
+    nova em silêncio nesta sessão. Detalhe em
+    [app-mobile.md](../docs/modulos/app-mobile.md).
+- **A tela de fim de O.S. só oferece "Voltar pra minha lista"** (01/09/2026).
+  Saíram o botão "Baixar PDF" (pedido do Pedro) e a barra "Confirmar e
+  finalizar O.S.", que continuava na tela de uma O.S. **já finalizada** e só
+  produzia erro ao ser tocada — `mostrarOSSucesso()` escondia a `.td-cta-bar`
+  errada (há duas no `index.html`, e a do detalhe do chamado vem antes). Junto,
+  um defeito que ninguém tinha relatado: o card do timer/progresso era escondido
+  e **nunca restaurado**, então sumia de toda O.S. seguinte até reabrir o app.
+  O restauro passou para `abrirFormularioOS()` — na **entrada**, porque a seta
+  `#osBack` é uma segunda porta de saída. Detalhe em
+  [app-mobile.md](../docs/modulos/app-mobile.md).
 - ⚠️ **Toda mudança no `app/public/` só chega ao técnico com APK novo**
   (`npm run build:apk` + reinstalar): o web é empacotado no bundle, não servido.
   Vale agrupar mudanças antes de gerar build.
 - Telas cliente/síndico: home, telemetria, chamados (KPIs clicáveis), conta,
   suporte, novo chamado, detalhe.
 - Auth + onboarding; rastreamento GPS; herda visual do admin.
-- **Login e OTP são só logo + formulário** (jul/2026): sem título `TELEMETRIA`,
-  sem subtítulo e sem o rodapé de diagnóstico que exibia a URL da API. O login
-  do **site** (`public/login.html`) mantém os textos — as duas telas deixaram de
-  ser espelhadas de propósito.
+- **As telas de entrada do app estão no mundo "Chapa"** (01/09/2026). Splash,
+  login e código deixaram o cartão escuro âmbar e viraram o mesmo visual do
+  `/login` do site: faixa da marca com a foto dos reservatórios, placa clara
+  chanfrada, Archivo + Martian Mono, amarelo institucional `#fbb329`. Estilo em
+  `app/public/login.css` (arquivo próprio, escopado em `.screen-auth`); os
+  blocos de auth saíram do `app.css`. **O app agora abre no Chapa e troca para
+  o Mission Control âmbar ao entrar** — a emenda é consequência aceita de
+  portar só o login.
+  - ⚠️ **O mecanismo NÃO foi portado, por decisão do Pedro:** continua e-mail +
+    senha juntos no `POST /auth/login`, e não o passo a passo do PWA
+    (`/auth/metodo` → senha ou `/auth/codigo`). **O app não chama
+    `/auth/codigo`**, então quem não tem senha — o síndico — não entra por ele.
+    Hoje não atinge ninguém (produção sem usuário `cliente`), mas abre no dia
+    em que o primeiro for cadastrado.
+  - ⚠️ Isto **substitui** a nota de jul/2026 que dizia "login e OTP são só logo
+    + formulário, e as duas telas deixaram de ser espelhadas de propósito".
+    Voltaram a ser espelhadas — no visual, não no fluxo.
+  - Pegadinhas (sem `color-mix`, caminhos relativos, `:active` no varrimento) em
+    [app-mobile.md](../docs/modulos/app-mobile.md).
 - **Camada visual HUD "Painel de comando"** (jun/2026): grid técnico + scanline
   de fundo, dados em monospace, headers
   uppercase tracked, indicador de aba no bottom-nav. Bloco aditivo no fim de
   `app/public/app.css` + tokens `--hud-*`; só mobile, não afeta admin/site.
+  - ⚠️ **Os dois itens de auth dessa camada saíram em 01/09/2026** (o filete de
+    "fluxo de dados" no topo do cartão de login e o anel de varredura no
+    splash), junto com o cartão que eles vestiam. O HUD segue inteiro nas telas
+    do técnico — só não alcança mais splash, login e código.
 
 - **Toolbars do admin quebram linha** (ago/2026): `.cardHead`, `.wa-tabs` e
   `.mp-tabs` têm `flex-wrap: wrap`. Antes só quebravam em `max-width: 768px` e,

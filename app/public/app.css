@@ -651,261 +651,24 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
   border: 1px solid rgba(240,176,20,.3);
 }
 
-/* ============================================================
-   SPLASH
-   ============================================================ */
-.splash-content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 24px;
-}
 
-.splash-content .loginLogo {
-  height: 70px;
-  width: auto;
-  display: block;
-  border-radius: 10px;
-}
-
-.splash-spinner {
-  width: 28px;
-  height: 28px;
-  border: 3px solid var(--border-strong);
-  border-top-color: var(--accent);
-  border-radius: 50%;
-  animation: spin .8s linear infinite;
-}
 
 /* ============================================================
-   AUTH SCREENS (login, otp, splash) — visual idêntico ao site
-   Sobrescreve a aurora/bg padrão do app só nessas telas.
+   AUTH (splash · login · código) — SAIU DAQUI EM 01/09/2026
+   ------------------------------------------------------------
+   As três telas foram para o mundo "Chapa" e vivem em
+   `app/public/login.css`, carregado depois deste arquivo. O que
+   havia aqui (cartão escuro, âmbar #f0b014, filete HUD animado,
+   anel de varredura no splash) foi removido junto — não é
+   sobrescrita, é substituição.
+
+   Só ficou a regra abaixo, que é do shell e não da roupa.
    ============================================================ */
-.screen-auth {
-  background: #090b18;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-  position: relative;
-}
-
-/* Glow sutil atrás do card (igual ao site) */
-.screen-auth::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(ellipse at 50% 40%, rgba(240,176,20,.06) 0%, transparent 60%),
-    radial-gradient(ellipse at 80% 80%, rgba(74,120,247,.05) 0%, transparent 55%);
-  pointer-events: none;
-}
-
-/* Card principal — copiado verbatim de public/login.css */
-.login-card {
-  position: relative;
-  width: 100%;
-  max-width: 400px;
-  background: #111326;
-  border: 1px solid rgba(255,255,255,.07);
-  border-radius: 16px;
-  padding: 48px 40px 44px;
-  box-shadow: 0 20px 60px rgba(0,0,0,.6);
-}
-
-.login-card::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 24px; right: 24px;
-  height: 2px;
-  background: linear-gradient(90deg, transparent, #f0b014 30%, #4a78f7 70%, transparent);
-  border-radius: 0 0 2px 2px;
-}
-
-.login-logo-wrap {
-  display: flex;
-  justify-content: center;
-  margin-bottom: 36px;
-}
-
-.loginLogo {
-  height: 70px;
-  width: auto;
-  display: block;
-  border-radius: 10px;
-}
-
-#formLogin,
-#formOtp {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.login-field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.login-field label {
-  font-size: 11px;
-  font-weight: 700;
-  color: #60617e;
-  text-transform: uppercase;
-  letter-spacing: .45px;
-}
-
-.login-field input {
-  width: 100%;
-  padding: 11px 14px;
-  border-radius: 9px;
-  border: 1px solid rgba(255,255,255,.07);
-  background: rgba(255,255,255,.04);
-  color: #e1e3ef;
-  font-size: 14px;
-  font-family: inherit;
-  outline: none;
-  transition: border-color .15s, box-shadow .15s;
-  min-height: 44px;
-}
-
-.login-field input::placeholder { color: #44455a; }
-
-.login-field input:focus {
-  border-color: rgba(240,176,20,.5);
-  box-shadow: 0 0 0 3px rgba(240,176,20,.08);
-}
-
-.login-btn {
-  width: 100%;
-  padding: 12px;
-  margin-top: 4px;
-  border: none;
-  border-radius: 9px;
-  background: #f0b014;
-  color: #111;
-  font-size: 14px;
-  font-weight: 800;
-  font-family: inherit;
-  letter-spacing: .2px;
-  cursor: pointer;
-  transition: background .15s, transform .08s;
-  min-height: 44px;
-  position: relative;
-}
-
-.login-btn:hover  { background: #d9a010; }
-.login-btn:active { transform: translateY(1px); }
-.login-btn:disabled { opacity: .8; cursor: not-allowed; transform: none; }
-
-/* Loading state — reaproveita o spinner do .btn padrão */
-.login-btn.is-loading .btn-label { opacity: 0; }
-.login-btn.is-loading::after {
-  content: "";
-  position: absolute;
-  width: 18px;
-  height: 18px;
-  border: 2px solid rgba(0,0,0,.6);
-  border-right-color: transparent;
-  border-radius: 50%;
-  animation: spin .7s linear infinite;
-  top: 50%;
-  left: 50%;
-  margin-top: -9px;
-  margin-left: -9px;
-}
-
-/* OTP step */
-.otp-info {
-  font-size: 13px;
-  color: #60617e;
-  text-align: center;
-  line-height: 1.7;
-  margin-bottom: 10px;
-}
-.otp-info strong { color: #e1e3ef; font-weight: 700; }
-
-#otpCode {
-  font-size: 28px;
-  font-weight: 700;
-  letter-spacing: 10px;
-  text-align: center;
-  padding: 16px 14px;
-  font-family: ui-monospace, "SF Mono", Menlo, Monaco, Consolas, monospace;
-}
-
-.otp-trust-label {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 13px;
-  color: #60617e;
-  cursor: pointer;
-  margin-top: 6px;
-}
-
-.otp-trust-label input[type="checkbox"] {
-  width: 16px;
-  height: 16px;
-  accent-color: #f0b014;
-  cursor: pointer;
-  flex-shrink: 0;
-}
-
-.login-btn-secondary {
-  width: 100%;
-  padding: 11px;
-  border: 1px solid rgba(255,255,255,.1);
-  border-radius: 9px;
-  background: transparent;
-  color: #60617e;
-  font-size: 13px;
-  font-family: inherit;
-  cursor: pointer;
-  transition: border-color .15s, color .15s;
-  min-height: 44px;
-}
-
-.login-btn-secondary:hover {
-  border-color: rgba(255,255,255,.2);
-  color: #9094ae;
-}
-
-/* Alerta nas telas de auth — mantém formato site (vermelho discreto) */
-.screen-auth .alert {
-  margin-top: 14px;
-  padding: 10px 14px;
-  border-radius: 8px;
-  background: rgba(240,68,56,.1);
-  border: 1px solid rgba(240,68,56,.25);
-  color: #f87171;
-  font-size: 13px;
-  text-align: center;
-}
-.screen-auth .alert.success {
-  background: rgba(34,197,94,.10);
-  border-color: rgba(34,197,94,.30);
-  color: #4ade80;
-}
-.screen-auth .alert.info {
-  background: rgba(34,211,238,.10);
-  border-color: rgba(34,211,238,.30);
-  color: #67e8f9;
-}
-
 
 /* Esconde a aurora padrão do body quando estamos numa screen-auth.
    (mantida em outras screens — home etc.) */
 body:has(.screen-auth[data-active])::before { display: none; }
 
-/* Em telas pequenas: card encosta mais nas bordas */
-@media (max-width: 420px) {
-  .login-card {
-    padding: 40px 28px 36px;
-  }
-}
 
 /* ============================================================
    TÉCNICO — Lista de chamados (Fase 7C)
@@ -1101,180 +864,32 @@ body:has(.screen-auth[data-active])::before { display: none; }
   white-space: nowrap;
 }
 
-#tcRefresh {
-  padding: 5px 9px;
-  min-height: 30px;
-  background: rgba(255,255,255,.05);
-  color: var(--muted);
-}
+/* ⚠️ O bloco `#tcRefresh` (padding, min-height 30px e fundo branco a 5%) saiu
+   em 01/09/2026. Ele era o ÚNICO seletor por ID desta tela e, com
+   especificidade 1,0,0, vencia silenciosamente a regra de classe do
+   `tecnico.css` — o botão ficava com a caixa arredondada do Mission Control e
+   com alvo de 30px no meio de uma tela toda em 44. As demais propriedades
+   ficam em `.tec-refresh`, logo acima, que é onde elas deveriam estar. */
 #tcRefresh:hover { color: var(--text); border-color: var(--accent); }
 #tcRefresh.is-refreshing svg { animation: spin .9s linear infinite; }
 #tcRefresh svg { display: block; }
 
 /* ===== Lista de cards ===== */
-.ch-list-mob {
-  display: flex;
-  flex-direction: column;
-}
+/* ============================================================
+   ITEM DA LISTA DE CHAMADOS — SAIU DAQUI EM 01/09/2026
+   ------------------------------------------------------------
+   O item foi recomposto no mundo "Chapa" e vive em
+   `app/public/tecnico.css`. O que havia aqui foi REMOVIDO, não
+   sobrescrito, e o motivo é concreto: as regras de prioridade
+   eram `.ch-row-mob[data-pri="p1"]::before` (especificidade 0,2,1)
+   e venciam a chapa de duas camadas da folha nova (0,1,1) — a cor
+   do selo vazava e pintava o ITEM INTEIRO de vermelho/âmbar.
 
-/* Card de chamado — versão "Mission Control mobile":
-   ícone de prédio num quadrado colorido por prioridade (estilo .rc-icon),
-   gradiente sutil no fundo, glow na borda esquerda, hover lift */
-.ch-row-mob {
-  display: grid;
-  grid-template-columns: 44px 1fr auto;
-  grid-template-rows: auto auto auto;
-  gap: 4px 12px;
-  padding: 14px 16px;
-  border-bottom: 1px solid var(--border);
-  cursor: pointer;
-  background:
-    linear-gradient(180deg, rgba(255,255,255,.02) 0%, transparent 60%),
-    transparent;
-  transition: background .15s, transform .12s;
-  position: relative;
-  text-align: left;
-  width: 100%;
-  border-left: none;
-  border-right: none;
-  border-top: none;
-  overflow: hidden;
-}
-.ch-row-mob::before {
-  content: "";
-  position: absolute;
-  left: 0; top: 0; bottom: 0;
-  width: 3px;
-  background: var(--muted2);
-  transition: box-shadow .15s;
-}
-.ch-row-mob[data-pri="p1"]::before {
-  background: var(--danger);
-  box-shadow: 0 0 12px rgba(239,68,68,.5);
-}
-.ch-row-mob[data-pri="p2"]::before {
-  background: var(--warn);
-  box-shadow: 0 0 10px rgba(245,158,11,.4);
-}
-.ch-row-mob[data-pri="p3"]::before {
-  background: var(--blue);
-}
-.ch-row-mob[data-pri="p4"]::before {
-  background: var(--muted);
-}
-.ch-row-mob:hover {
-  background:
-    linear-gradient(180deg, rgba(255,255,255,.04) 0%, transparent 60%),
-    rgba(255,255,255,.02);
-}
-.ch-row-mob:active { transform: scale(.995); }
-.ch-row-mob:last-child { border-bottom: none; }
+   Saíram junto o filete colorido de 3px na lateral (o padrão
+   "side-tab") e a placa arredondada do ícone de prédio, que o
+   markup novo não tem mais.
+   ============================================================ */
 
-/* Ícone de prédio à esquerda (estilo .rc-icon) */
-.ch-row-mob-icon {
-  grid-row: 1 / span 3;
-  grid-column: 1;
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid transparent;
-  align-self: start;
-  margin-top: 2px;
-}
-.ch-row-mob-icon svg { width: 18px; height: 18px; }
-.ch-row-mob[data-pri="p1"] .ch-row-mob-icon {
-  background: rgba(239,68,68,.14);
-  border-color: rgba(239,68,68,.32);
-  color: #f87171;
-  box-shadow: inset 0 0 18px rgba(239,68,68,.10);
-}
-.ch-row-mob[data-pri="p2"] .ch-row-mob-icon {
-  background: rgba(245,158,11,.12);
-  border-color: rgba(245,158,11,.3);
-  color: #fbbf24;
-  box-shadow: inset 0 0 18px rgba(245,158,11,.08);
-}
-.ch-row-mob[data-pri="p3"] .ch-row-mob-icon {
-  background: rgba(74,120,247,.14);
-  border-color: rgba(74,120,247,.32);
-  color: #93c5fd;
-}
-.ch-row-mob[data-pri="p4"] .ch-row-mob-icon {
-  background: rgba(255,255,255,.05);
-  border-color: var(--border);
-  color: var(--muted);
-}
-
-/* Linha 1: condomínio + ID  */
-.ch-row-mob-head {
-  grid-column: 2 / 4;
-  grid-row: 1;
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-}
-.ch-row-mob-head .ch-row-mob-title {
-  flex: 1;
-  font-size: 14px;
-  color: var(--text);
-  font-weight: 700;
-  letter-spacing: -0.1px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.ch-row-mob-head .ch-id-cell {
-  flex-shrink: 0;
-  font-size: 10.5px;
-}
-
-/* Linha 2: descrição/título do chamado em segundo plano */
-.ch-row-mob-desc {
-  grid-column: 2 / 4;
-  grid-row: 2;
-  font-size: 12px;
-  color: var(--text-dim);
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.ch-row-mob-desc svg { opacity: .55; flex-shrink: 0; }
-
-/* Linha 3: pills + meta (tempo + distância) */
-.ch-row-mob-pills {
-  grid-column: 2 / 4;
-  grid-row: 3;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-  margin-top: 6px;
-}
-.ch-row-mob-meta {
-  margin-left: auto;
-  font-size: 11px;
-  color: var(--muted);
-  white-space: nowrap;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-.ch-row-mob-dist {
-  color: var(--accent-2);
-  font-weight: 700;
-}
-.ch-row-mob-meta-sep {
-  width: 3px;
-  height: 3px;
-  border-radius: 50%;
-  background: var(--muted2);
-}
 
 /* ===== Cells (verbatim de admin.css .ch-id-cell etc) ===== */
 .ch-id-cell    { font-family: monospace; font-size: 11px; color: var(--muted); }
@@ -3202,38 +2817,6 @@ body::after {
   border-radius: 0 0 2px 2px;
 }
 
-/* ── 7. Splash + Login com toque HUD ───────────────────────
-   A linha superior do login vira "fluxo de dados" animado (cheap:
-   só anima background-position de um gradiente de 2px). */
-.login-card::before {
-  background: linear-gradient(90deg, transparent, var(--accent) 30%, var(--blue) 70%, transparent);
-  background-size: 200% 100%;
-  animation: hudFlow 3.2s linear infinite;
-}
-@keyframes hudFlow { to { background-position: 200% 0; } }
-
-/* anel de varredura no splash (além do spinner) */
-.splash-spinner { position: relative; }
-.splash-spinner::after {
-  content: '';
-  position: absolute;
-  inset: -6px;
-  border: 1px solid var(--hud-line-dim);
-  border-radius: 50%;
-  animation: hudPing 1.8s ease-out infinite;
-}
-@keyframes hudPing {
-  0%   { transform: scale(.85); opacity: .8; }
-  100% { transform: scale(1.35); opacity: 0; }
-}
-
-/* ── 8. Respeita preferência de menos movimento ────────────
-   Desliga as animações novas; o visual estático (grid, brackets,
-   moldura) permanece intacto. */
-@media (prefers-reduced-motion: reduce) {
-  .login-card::before { animation: none; }
-  .splash-spinner::after { animation: none; }
-}
 
 /* ══════════════════════════════════════════════════════════════════════════
    TÉCNICO — ROTEIRO DE PREVENTIVAS
@@ -3574,11 +3157,13 @@ body::after {
   font-size: 13.5px; font-weight: 600;
   color: var(--text-dim, var(--text));
 }
-.tc-empty-sub {
-  font-size: 11.5px !important;
-  color: var(--accent) !important;
-  font-weight: 600;
-}
+/* ⚠️ O bloco `.tc-empty-sub` (com `!important` no font-size e na cor) saiu em
+   01/09/2026. O `!important` existia para vencer `.tc-empty p` (0,1,1), que
+   tem especificidade maior que `.tc-empty-sub` (0,1,0) — o remédio errado
+   para um problema de seletor. O `tecnico.css` resolve com
+   `.tc-empty p.tc-empty-sub` (0,1,2), sem `!important`, e a linha deixa de
+   ser âmbar: com a palavra da manchete em amarelo, dois acentos na mesma
+   tela matam o gesto. */
 .tc-empty-sub:empty { display: none; }
 
 @media (prefers-reduced-motion: reduce) {

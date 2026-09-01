@@ -10,7 +10,7 @@ aliases:
 > Branch atual: **`main`**, limpa. `feature/admin-chapa` (11 commits) e a tela
 > de orçamento do cliente já foram mergeadas — a produção
 > (`telemetria.generalbombas.com`) está servindo as duas.
-> Última sessão registrada: **2026-08-31**.
+> Última sessão registrada: **2026-09-01**.
 > Roadmap completo em [`roadmap.md`](roadmap.md); decisões em [`decisions.md`](decisions.md).
 
 > ✅ **Schema de produção em dia:** 074 aplicada em 24/08; a 073 já estava
@@ -118,6 +118,435 @@ UI, ler o `innerText` do que sobrou, não só olhar.
 duplicação do dia calmo~~ (resolvida no item 2, sem escrever palavra nova — o
 placar saiu e a frase que sobrou já estava lá), a legenda de cor dos pinos do
 mapa, e o rótulo "TURNO" ao lado da marca.
+
+---
+
+## Sessão 2026-09-01 (parte 2) — Ativos Técnicos: o plano que veio de fora
+
+> ⚠️ **Nada foi implementado.** Esta seção é análise + plano, e o plano depende
+> de **oito respostas** que só o autor dos documentos pode dar (listadas no
+> fim). Registrado agora porque o censo do banco que o sustenta custou a fazer
+> e não pode se perder.
+
+**De onde veio:** o chefe do Pedro conversou com o Claude e mandou uma pasta
+com o que ele chamou de três arquivos. São **dois documentos**: o
+`Prompt_Mestre_Inventario_Ativos_General` em `.txt` e `.docx` é o **mesmo
+conteúdo** (28 seções, só muda a formatação), e o
+`Orientacao_..._com_Mapa_Visual.docx` é o resumo executivo dos mesmos pontos
+mais um diagrama.
+
+**O pedido, em uma frase:** um módulo "ATIVOS TÉCNICOS" genérico onde bomba e
+VRP são tipos do mesmo cadastro, com TAG + QR, hierarquia
+`Cliente → Contrato → Sistema → Local → Ativo`, histórico imutável, medições,
+checklist dinâmico por tipo, vínculo datado com contrato, SLA por contrato e
+dois pilotos (bombas e 65 válvulas: 40 VRP + 20 alívio + 5 controladoras).
+
+⚠️ **Quem escreveu nunca abriu o sistema.** Isso aparece o tempo todo: metade
+do documento pede coisa que já existe, e o alerta central dele — *"não criem um
+módulo de bombas e outro de VRP"* — avisa contra um erro que o sistema já não
+comete (`equipamentos.tipo` é um campo, não uma tabela).
+
+### O censo que mudou o plano (produção, 01/09/2026)
+
+Leitura direta no banco de produção, só `count(*)`:
+
+| | |
+|---|---|
+| Condomínios ativos | **87** |
+| Contratos ativos | **83** |
+| Orçamentos | **59** ← o que está de fato em uso |
+| Ordens de serviço | **2** (1 finalizada — a primeira do técnico) |
+| Chamados | 2 |
+| **Equipamentos cadastrados** | **0** |
+| Movimentações de equipamento | **0** |
+| Planos de manutenção | 72 cadastrados, **0 ativos** |
+| Reservatórios ativos | **0** |
+| Usuários | 8 (4 técnico, 2 gerente, 1 admin, 1 operador) |
+
+🔑 **O achado que destrava tudo: a Fase 12 inteira tem zero linhas.** Migrations
+070/071/072, etiqueta QR, ficha `/e/:codigo` e bancada foram construídas e
+**nunca usadas** — nenhuma etiqueta impressa (a `PUBLIC_BASE_URL` do roadmap
+segue pendente), nenhuma bomba cadastrada. **Não existe retrofit.** Três "não
+dá" viraram "dá": TAG legível, estados do ativo e checklist por tipo.
+
+⚠️ O Pedro confirmou na conversa: *"estar em produção hoje não é problema"* — só
+orçamentos estão em uso real, e um técnico acabou de fazer a primeira O.S.
+
+### O que o documento pede e já existe
+
+`equipamentos` (§5) · ficha por QR em `/e/:codigo` (§7) ·
+`equipamento_movimentacoes` com snapshot do autor (§14) · `equipamento_fotos`
+(§16) · orçamento com origem/resposta/execução (§17) ·
+`ordens_servico.equipamento_id` (§21) · RBAC por papel (§25) · cadastro
+genérico por tipo (§28). Detalhe em
+[`../docs/modulos/equipamentos.md`](../docs/modulos/equipamentos.md).
+
+### O que é novo e vale
+
+**Local/Estação** (§4 — hoje `local_instalacao` é texto solto, e
+*"Estação Redutora 04, shaft do 12º, atende do 12º ao 9º"* não tem onde morar),
+**medições** (§15 — a O.S. tem um único `correntes JSONB`), **fonte do dado**
+(§9), **contrato↔ativo datado** (§10), **dashboard** (§22), **relatório mensal**
+(§24) e **triagem de reclamação de pressão** (§20).
+
+### Decisões tomadas na análise
+
+- **Estender `equipamentos`, não recomeçar.** O ciclo de oficina
+  (retirada → bancada → orçamento → conserto → devolução) é conhecimento de
+  negócio que o documento **não menciona uma vez sequer** — ele só enxerga o
+  ativo instalado. Jogar fora para ganhar o nome "ativos" perderia isso.
+  Na tela chamamos de **Ativos Técnicos**; no banco continua `equipamentos`.
+- **`condicao` é coluna nova, separada de `status`.** São dois eixos: `status`
+  = onde a bomba está (instalado/oficina/pronto); `condicao` = qual o papel
+  dela (operacional/reserva/indisponível). Misturar quebra a bancada.
+- **"Sistema Técnico" vira campo, não tabela.** Com 87 clientes, uma tabela
+  intermediária só para guardar a palavra "recalque" adiciona join em toda
+  consulta sem responder nada que a coluna não responda. Se um dia precisar de
+  vigência ou responsável próprio, vira tabela — a coluna não impede.
+- ❌ **O QR sequencial dele (`/ativos/{id}`) não entra.** A ficha revela
+  endereço e histórico de cliente; URL adivinhável expõe o parque inteiro a
+  quem tem um navegador. É a razão de o `codigo` ser base32 aleatório de 8
+  caracteres, e ela não mudou. **TAG e código convivem**: TAG é o que se lê,
+  código é o que se escaneia.
+- ❌ **Renomear a tabela para `ativos`** — barato no banco (zero linhas), caro
+  no código (routes, services, admin, app, ficha, PDF de etiqueta). Só o nome
+  na tela muda.
+
+### As fases
+
+- **A — Fundação** (`migration 081`): em `equipamentos`, `tag VARCHAR(30)
+  UNIQUE`, `sistema`, `local_id`, `funcao` (principal/reserva/jockey/auxiliar),
+  `condicao`, `especificacoes JSONB` (os campos que mudam por tipo, §8A–8D),
+  `substituiu_id`/`substituido_por_id`. Nova tabela **`ativo_locais`**.
+  Em `condominios`, **`codigo_curto VARCHAR(5) UNIQUE`** (VNT, STA) — insumo da
+  TAG, e são 87 prédios para apelidar.
+- **B — Medições** (`migration 082`): **`ativo_medicoes`** — `ativo_id`,
+  `os_id`, `parametro`, `valor`, `unidade`, `momento` (antes/depois/inspeção),
+  **`fonte`** (projeto / encontrado em campo / placa / fabricante),
+  `instrumento`, `tecnico_id`, `foto_id`. O `fonte` é o campo mais barato e
+  mais valioso do documento: impede que *"6,1 bar medido numa terça"* vire
+  *"pressão de projeto"* seis meses depois.
+- **C — Tipos e checklist por definição:** `OS_TIPOS` e `OS_EQUIPAMENTOS` são
+  duas listas fixas dentro de `app/public/app.js`; viram **definição por tipo
+  de ativo no backend** (campos + checklist + medições esperadas), servida por
+  endpoint e consumida pelo app e pelo admin. Entram `vrp`, `alv`, `vcb`.
+  ⚠️ **Com 1 O.S. finalizada no sistema inteiro, esta é a janela.** Daqui a
+  seis meses é retrabalho em documento assinado pelo cliente.
+  ⚠️ **Regra §8D, específica e importante:** válvula controladora de bomba no
+  contrato **não** arrasta bomba, motor, quadro, inversor e automação para o
+  escopo. O checklist dela é hidráulico — o sistema não pode pedir teste
+  elétrico de equipamento que não é nosso. Vira regra no código, não no
+  treinamento da equipe.
+- **D — Contrato↔ativo** (`migration 083`): **`contrato_ativos`** com
+  `inicio_em`/`fim_em`, cobertura e o que está incluído. Responde *"qual
+  equipamento estava coberto por qual contrato em tal data"* — a pergunta que
+  aparece quando o cliente reclama de cobrança. Os 83 contratos ativos e a
+  [migration 046](../migrations/046_multi_contratos.sql) (que removeu o limite
+  de 1 contrato por prédio) mostram que multi-contrato já é a realidade.
+  **Depende da pergunta 3.**
+- **E — Planos por tipo de ativo:** `planos_manutencao` ganha `tipo_ativo` e
+  `ativo_id`. Os 72 planos existentes são por condomínio e estão **todos
+  desligados** desde 04/08 — não há nada rodando para quebrar. É o que permite
+  a §12: bomba mensal; VRP com monitoramento mensal + rodízio semestral +
+  preventiva anual + revisão ampliada em ~36 meses.
+- **F — Dashboard (§22) e relatório mensal (§24):** o dashboard é consulta
+  sobre o que A–E criaram (barato depois, impossível antes). O **relatório
+  mensal é módulo inteiro**, não subproduto — depende da pergunta 7.
+- **G — Triagem de reclamação de pressão (§20):** só depois de haver VRP
+  cadastrada e histórico de medição. A regra dele é boa: *uma reclamação
+  isolada não condena a válvula*.
+
+**Começar por A + B + C** — é o menor conjunto que já vale sozinho: cadastra a
+válvula, imprime a etiqueta, o técnico escaneia na estação, preenche o
+checklist certo e lança montante/jusante/setpoint antes e depois.
+
+### ⏳ As oito perguntas (enviadas ao autor em 01/09, sem resposta)
+
+1. **A etiqueta nasce com nome ou em branco?** Hoje o lote sai em branco e fica
+   na van; o vínculo acontece com a bomba na mão — decisão deliberada da 12A
+   (*"se o cadastro viesse primeiro, ninguém usaria"*). A TAG `VNT-BMB-001`
+   exige saber cliente e tipo **na hora de imprimir**, ou seja, etiqueta sob
+   demanda. **Os dois funcionam; é escolha de rotina, não técnica.**
+2. **Quem define as siglas dos 87 condomínios** — sugestão automática com
+   revisão, ou lista à mão?
+3. **O contrato cobre o prédio inteiro ou equipamento por equipamento?**
+   O vínculo datado só se paga se a cobertura de fato muda no meio da vigência.
+   **É a que mais muda o plano** (fase D inteira).
+4. **P1–P4 de bomba e P1/Programável de VRP são prazos diferentes ou a mesma
+   urgência com outro nome?** Define se `sla_definicoes` precisa deixar de ser
+   global. ⚠️ Lembrar que o **SLA de chegada nunca saiu do papel** (028) — há
+   política sem uso antes de criar política nova.
+5. **Quem cadastra as 65 válvulas e com que dado na mão?** Existe planilha, ou
+   nasce vazio e o técnico preenche estação por estação? O próprio documento
+   manda não presumir dado não levantado — então o módulo só fica útil depois
+   do campo.
+6. **Um exemplo real de um prédio inteiro** (sistemas → estações → válvulas).
+   Vale mais que descrição genérica: é com ele que se confere se a estrutura
+   aguenta o caso real.
+7. **O relatório mensal já existe em algum formato?** Se existe, pedir **um
+   preenchido de verdade** — gerar aquilo, não uma versão nova que ninguém
+   pediu.
+8. **As preventivas novas substituem os 72 planos antigos ou convivem?**
+
+---
+
+## Sessão 2026-09-01 — A tela de login do app trocou o âmbar pelo Chapa
+
+**Pedido do Pedro:** "podemos colocar a tela de login do app igual à tela de
+login dos PWA hoje?" — e, depois de eu apresentar as duas opções, **"só o
+visual mesmo"**.
+
+**O que existia:** o app abria num cartão escuro centrado, âmbar `#f0b014`,
+com filete HUD animado no topo e anel de varredura no splash. O comentário no
+`index.html` dizia *"visual idêntico ao site"* e estava **desatualizado desde
+25/08**, quando o `/login` foi redesenhado.
+
+**O que foi feito:** `app/public/login.css` (novo, ~19 KB) porta o mundo Chapa
+para splash, login e código; os blocos de auth saíram do `app.css` (281 linhas
+removidas, faixas conferidas linha a linha antes do corte). Assets embarcados:
+Archivo × 2, Martian Mono e `reservatorios.jpg`. APK 5,8 → **6,17 MB**.
+
+⚠️ **O QUE NÃO FOI FEITO, E É A PARTE QUE IMPORTA GUARDAR.** O mecanismo
+continua **e-mail + senha juntos** no `POST /auth/login`. O PWA hoje pergunta
+só o e-mail e deixa o `/auth/metodo` escolher entre senha (equipe) e
+`/auth/codigo` (síndico). **O app não chama `/auth/codigo` em lugar nenhum** —
+então quem não tem senha não entra por ele, e o `abrirTelaCliente()` que já
+existe no app espera por gente que não consegue chegar nele.
+
+Isso foi levantado ANTES de escolher, com a evidência medida em produção: **não
+há nenhum usuário `cliente`** (1 admin, 2 gerentes, 1 operador, 4 técnicos,
+todos com senha). Ou seja, é buraco sem vítima **hoje**; ele abre no dia em que
+o primeiro síndico for cadastrado. O Pedro escolheu o visual com isso na mesa.
+**Fechar é portar o fluxo (opção B), não repintar de novo.**
+
+⚠️ **Quatro adaptações que o porte exigiu** — nenhuma é gosto, todas têm causa:
+
+1. **Sem `color-mix()`** — roda no WebView do aparelho; num Chrome anterior ao
+   111 a declaração cai **inteira** e o anel do botão secundário some sem
+   nenhum outro sintoma.
+2. **Caminhos relativos** — no APK a origem é `https://localhost` (esquema do
+   Capacitor). Um `/static/...` copiado do PWA dá **404 mudo**.
+3. **`:active` junto de `:hover`** no varrimento do botão — `:hover` não existe
+   em toque; sem isso o único momento de movimento da tela nunca dispararia no
+   aparelho onde ela roda.
+4. **Layout empilhado, sem o grid de 2 colunas** — a superfície é sempre um
+   celular.
+
+⚠️ **A frase da faixa da marca não foi portada, de propósito.** No PWA ela diz
+"O nível dos **seus** reservatórios…", escrita para o **síndico**. Quem abre
+este app é o **técnico**: os reservatórios não são dele. Escrever uma para ele
+é **copy nova = decisão do Pedro**, e está em aberto.
+
+⚠️ **Uma linha de copy foi escrita por mim e precisa de veredito:** o subtítulo
+`"Use seu e-mail e senha da General."`, que substitui o "Digite seu e-mail para
+continuar." do PWA (que descreve o fluxo que o app não tem). Se não servir, é
+troca de uma linha.
+
+**Contraste:** o placeholder do PWA dá **3,11:1** e reprova o piso de 4,5:1.
+No app virou `#6b7693`, **4,53:1**. **O PWA segue com o defeito** — é tarefa
+própria, não foi tocado.
+
+**Verificado renderizando** a 390×844 e 360×640 com valores computados e
+`innerText` (não screenshot): sem rolagem horizontal, foto e fontes em 200,
+h1 15,6:1 · subtítulo 6,8:1 · campo 18,6:1 · placeholder 4,53:1, todo alvo de
+toque ≥ 44px. O link do WhatsApp media **39px** e cresceu por padding com
+margem negativa — desenho igual, área maior.
+
+⚠️ **Dois 404 ANTERIORES a este trabalho, e não corrigidos:**
+`/app/manifest.json` e `/static/favicon.png?v=3`, no `<head>` do
+`app/public/index.html`. São caminhos absolutos que só resolvem quando o
+Express serve o app em `/app`; **no APK empacotado eles falham sempre**. Um
+`href` relativo funcionaria nos dois casos. Não mexi porque está fora do
+pedido — decisão do Pedro.
+
+**Detector da skill:** dois achados, os dois falso positivo. A faixa listrada
+de 6px é a assinatura de limite do Chapa (a mesma da base do hero da landing),
+não "borda de destaque em card"; e os 23 travessões estão em **comentários** de
+HTML — a copy visível não tem nenhum.
+
+**Nada de backend, nada de migration, nada no `sw.js`** (o app não registra
+service worker). **Só chega no técnico com APK novo** — o de hoje já está
+gerado e verificado por dentro.
+
+---
+
+### 2ª rodada — a tela de fim de O.S.
+
+**Relato do Pedro:** depois de finalizar a O.S. sobra o "Baixar PDF", que ele
+quer fora, e *"lá embaixo confirmar e finalizar O.S., que é um botão que não
+faz sentido já que já foi finalizado, inclusive acho que nem funciona"*.
+
+**O palpite dele estava certo, e a causa é boba:** havia **duas**
+`.td-cta-bar` no `index.html`, e `mostrarOSSucesso()` fazia
+`querySelector(".td-cta-bar")` — que pega a **primeira do documento**, a da
+tela de detalhe do chamado. Como aquela já é `[hidden]`, e `[hidden]` é
+`!important` (`app.css:96`), a linha **não fazia nada**. E o botão realmente não
+funcionava: chamava `finalizarOS()` numa O.S. já fechada, que o backend recusa.
+
+⚠️ **Um terceiro defeito da mesma família, não relatado:** o card do
+timer/progresso também era escondido e **nunca restaurado** — sumia de **toda
+O.S. seguinte** até o app ser reaberto.
+
+⚠️ **A lição que vale além deste caso:** a correção não foi trocar o seletor.
+Foi mudar **onde** o restauro acontece. As peças escondidas moram no
+`index.html` e são reusadas por toda O.S.; restaurar no handler do "Voltar pra
+minha lista" não bastava porque o cabeçalho tem uma **segunda porta** (a seta
+`#osBack`). O restauro foi para a **entrada** (`abrirFormularioOS`), onde
+nenhuma rota de saída o contorna. **Tela que esconde peça compartilhada
+restaura na entrada, não na saída.**
+
+A barra ganhou `id="osCtaBar"` — mira por id mata a ambiguidade de vez.
+
+**`baixarPdfOS()` ficou sem chamador, de propósito e marcada como tal.** Ela
+carrega a integração nativa de salvar/compartilhar (Filesystem + Share do
+Capacitor); religar é uma linha. **Apagar de vez é decisão do Pedro** — está
+em aberto.
+
+**Verificado em `?demo=tecnico`** (sem rede), 390×844, quatro passos: O.S.
+aberta → finalizada → **saída pela seta, não pelo botão** → O.S. seguinte com
+barra e timer de volta. Zero erro de JS. APK novo gerado e conferido por
+dentro (6,17 MB).
+
+---
+
+### 3ª rodada — o app do técnico entra no Chapa (etapa 1 de 4)
+
+**Pedido do Pedro:** abrir o app no navegador e, com a maturidade de front dos
+painéis do cliente e do operador, "trazer o front do app próximo a eles".
+Depois, no meio da conversa: **"cliente no app não existe, se quiser ignorar ou
+apagar fique à vontade"** e **"pode cortar"** (o placar de 4 números).
+
+⚠️ **PARE AQUI — FALTAM AS ETAPAS 2, 3 E 4.**
+
+| Etapa | O que | Status |
+|---|---|---|
+| 1 | Tokens do `:root` + **lista de chamados** | ✅ |
+| 2 | **Detalhe do chamado** | 📋 |
+| 3 | **Formulário da O.S.** | 📋 |
+| 4 | **Conta e Roteiro** | 📋 |
+
+As telas 2 a 4 **já mudaram de paleta** (herdam o `:root` novo) mas mantêm a
+composição Mission Control. Elas não estão quebradas — foram medidas —, só não
+foram recompostas. O detalhe ainda tem a barra colorida de 3px nos cabeçalhos
+de seção e pills arredondados; é o mesmo trabalho já feito no item da lista.
+
+⚠️ **A LIÇÃO QUE VALE PARA AS PRÓXIMAS TRÊS:** ao recompor uma tela, **remova
+os blocos superados do `app.css`** em vez de sobrescrever. Três vezes numa
+sessão uma regra velha venceu a folha nova em silêncio:
+
+1. `.ch-row-mob[data-pri="p1"]::before` (0,2,1) contra a chapa de duas camadas
+   (0,1,1) — a cor da prioridade pintou o **item inteiro**. Eu tinha reusado o
+   pseudo-elemento que antes era o filete de 3px.
+2. `#tcRefresh` — o único seletor por **ID** da tela (1,0,0), devolvendo a caixa
+   arredondada e um alvo de 30px numa tela toda em 44.
+3. Remapear `--font-mono` para Martian Mono transbordou o cabeçalho da O.S. em
+   22px e cortou o selo. **Martian é bem mais largo** que o `ui-monospace` que o
+   token carregava, e ele é usado por telas ainda não recompostas. Diagnosticado
+   **desligando a folha nova no navegador e remedindo**: com ela +22, sem ela
+   −19. Fica a técnica: `styleSheets[...].disabled = true` responde "isso é meu
+   ou já era assim?" em segundos.
+
+⚠️ **O placar saiu da LISTA, não do ROTEIRO.** As duas telas usam a mesma
+`.tec-kpi-strip` de propósito ("pra lerem como irmãs"). Na lista dois dos quatro
+números repetiam os contadores das abas logo abaixo; no Roteiro são Prédios ·
+Serviços · Atrasadas · Em curso, que não se repetem — **não é o mesmo defeito**.
+A regra de esconder está em `#tcKpiGrid`. Decidir o Roteiro é a etapa 4.
+
+**Três defeitos estruturais do item, nenhum de paleta:** saiu o "side-tab" de
+3px; a **prioridade virou texto** (existia só como cor, contra a regra do
+DESIGN.md de que estado nunca aparece sem rótulo escrito); e **só a prioridade
+preenche** — categoria virou etiqueta gravada, status virou selo de fio.
+
+**Em aberto, decisão do Pedro:** apagar as ~7 telas de `cliente-*` do app
+(markup + CSS + JS). Ele autorizou ("fique à vontade"), mas eu não misturei
+com o redesenho — diff grande de exclusão junto de recomposição vira commit
+impossível de revisar. Fica como passo próprio.
+
+**Como ver:** `?demo=tecnico` num `<iframe>` de 390px. O Chrome desta máquina
+não obedece resize — mesma nota da prévia do operador, lá em cima.
+
+---
+
+### 4ª rodada — o app fecha no Chapa, e a placa é clara
+
+Entraram as etapas 2, 3 e 4 (detalhe, O.S., Conta/Roteiro) mais um passe de
+polimento. **No meio, o Pedro corrigiu a direção** mandando a tela de
+orçamentos do cliente: *"leve em consideração esse tipo de tela, com palavras
+em amarelo, e campos brancos"*.
+
+⚠️ **A LIÇÃO QUE MAIS IMPORTA DESTA SESSÃO — A PLACA É CLARA.** Eu tinha
+montado placa **escura sobre campo escuro** nas quatro etapas. O DESIGN.md já
+dizia o contrário, e eu li errado: o marinho é **MATERIAL**, e a leitura densa
+vai em **placa clara pousada** sobre ele. O `.orc-item` do `cliente.css` é o
+molde: `--chapa`, anel `inset 1px --fio-esc`, chanfro 14px, tinta `--tinta`,
+selo amarelo preenchido com tinta marinho. **Se for recompor mais alguma tela
+deste sistema, comece por aí.**
+
+⚠️ **O mecanismo:** a placa **redeclara os tokens de tinta localmente**, então
+as regras de dentro (`var(--text)`, `var(--muted)`…) viram tinta escura
+sozinhas. A contrapartida é a Regra do Preenchimento Cru: **fundo de selo usa
+o token CRU** (`--amarelo`/`--vermelho`/`--verde`, que não flipam), **texto e
+borda usam o semântico** (que flipa para a família `-t`). Sem isso o selo P4
+sai `#414f74` sobre `#414f74`.
+
+⚠️ **Uma palavra em amarelo por tela, e só sobre marinho.** Sobre placa clara
+o amarelo não é tinta. Na lista ela vive no estado vazio ("Você está **em
+dia**") — e a linha de apoio **deixou de ser âmbar** por causa disso.
+
+⚠️ **Emoji não faz papel de ícone** (pedido do Pedro, e a skill proíbe). Duas
+pegadinhas: um `<option>` aceita **só texto**, então o ícone de ordenação teve
+de sair de dentro do `<select>`; e os SVGs herdados traziam
+`stroke-linecap="round"` como **atributo** — atributo de apresentação perde
+para CSS, então **uma regra** endireitou a junta de todos de uma vez.
+
+**Outros achados:** o botão "A caminho" era **estilo inline** no `app.js`
+(inline vence qualquer folha) e virou classe; `opacity:.5` no desabilitado
+deixava o CTA ilegível e virou anel apagado + interior marinho (9,6:1);
+`.tc-empty-sub` tinha `!important` no `app.css` para vencer `.tc-empty p`, que
+é problema de seletor e não de prioridade.
+
+**Verificado:** 4 telas × 2 larguras, valores computados — sem rolagem
+horizontal, sem cabeçalho transbordando, nenhum alvo < 44px, zero erro de JS,
+nada abaixo de 4,5:1. Detector: **zero achados**. APK 6,19 MB.
+
+📋 **Continua em aberto:** apagar as telas `cliente-*` (o Pedro autorizou; não
+misturei com o redesenho), os emojis que sobraram nelas e no `home`, e **ver o
+app logado com dado real** — tudo foi conferido em `?demo=tecnico`.
+
+---
+
+### 5ª rodada — o "Mais próximos" mentia
+
+Pedido do Pedro: *"veja a funcionalidade e a visibilidade do 'mais
+próximos'"*. Ele achou mais dois defeitos na sequência, olhando a tela.
+
+⚠️ **O CONTROLE MENTIA, E ERA O CASO COMUM.** `ordenarChamados` condicionava o
+ramo de proximidade a `TC.geo`; sem GPS caía no `else`, que é **ordenação por
+data** — com o controle ainda escrito "Mais próximos" e nada avisando. O GPS
+**só opera das 8h às 18h**, então **toda abertura fora do expediente** caía
+nisso, além de todo aparelho sem a permissão (que é quase todos). A queda agora
+é para **prioridade** (data é ordem arbitrária para quem está na rua) e
+`#tcAvisoOrdem` aparece dizendo o que houve, com o conserto num toque.
+
+⚠️ **`<option>` era branco sobre branco** — o app nunca estilizou `option` nem
+declarou `color-scheme`. **Defeito antigo, não do redesenho.** E não dá para
+resolver com `color-scheme: dark` na raiz: os selects de ordenação vivem sobre
+marinho, o `.os-select` vive dentro da placa clara. Um global acertaria um e
+quebraria o outro.
+
+⚠️ **A LIÇÃO DA RODADA — sobrescrita de pseudo-elemento herda o que você não
+redeclara.** A barra amarela da aba ativa já era centrada por
+`transform: translateX(-50%)` no `app.css`. Minha regra sobrescreveu `left`,
+`width` e cor e pôs `margin-left: -13px` **sem zerar o transform**: a barra
+levou os dois deslocamentos e saiu uma largura inteira à esquerda.
+
+⚠️ **E a minha medição não pegou.** Eu conferi `left` e `margin-left`, somei,
+deu centrado, e dei por bom — sem olhar o `transform` herdado. Quem viu foi o
+Pedro. **Medir só as propriedades que você escreveu não mede nada.** A
+verificação agora soma `left + margin-left + transform` e compara com o centro
+do ícone.
+
+**Verificado:** 4 telas × 2 larguras, tudo verde, detector zerado.
 
 ---
 

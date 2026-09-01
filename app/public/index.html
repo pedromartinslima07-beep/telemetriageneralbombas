@@ -13,82 +13,132 @@
   <link rel="icon" type="image/png" href="/static/favicon.png?v=3" />
   <link rel="apple-touch-icon" href="/static/apple-touch-icon.png" />
   <link rel="stylesheet" href="app.css" />
+  <!-- Telas de entrada no mundo "Chapa" (o mesmo do site e do /login). Vem
+       DEPOIS do app.css: sobrescreve a roupa Mission Control das telas de
+       auth e não toca em mais nada. -->
+  <link rel="stylesheet" href="login.css" />
+  <!-- O app do técnico no mundo "Chapa" (etapa 1: paleta do app + lista de
+       chamados). Depende do @font-face do login.css, que é global. -->
+  <link rel="stylesheet" href="tecnico.css" />
 </head>
 <body>
   <div class="app-shell">
 
+    <!-- ══════════════════════════════════════════════════════════════════
+         TELAS DE ENTRADA — mundo "Chapa", o mesmo da landing e do /login.
+         Portadas do `public/login.html` em 01/09/2026. Estilo em `login.css`,
+         que carrega depois do `app.css` e só alcança `.screen-auth`.
+
+         ⚠️ O MECANISMO NÃO MUDOU: continua e-mail + senha juntos no
+         `POST /auth/login`, e não o passo a passo do PWA (que pergunta só o
+         e-mail e deixa o `/auth/metodo` decidir o resto). Decisão do Pedro em
+         01/09. Consequência conhecida: quem não tem senha — o síndico, cujo
+         caminho é o `/auth/codigo` — continua sem entrar por aqui.
+
+         ⚠️ NÃO renomear os IDs. `app.js` prende todos eles por
+         getElementById, e `showAlert()` reescreve o `className` das caixas
+         `.alert` inteiro.
+         ══════════════════════════════════════════════════════════════════ -->
+
     <!-- ========== SPLASH (verifica token) ========== -->
     <section class="screen screen-auth" data-screen="splash" data-active>
-      <div class="splash-content">
-        <img src="login-logo.png" class="loginLogo" alt="GENERAL" />
-        <div class="splash-spinner" aria-hidden="true"></div>
+      <div class="entrada">
+        <div class="splash-in">
+          <img src="login-logo.png" class="marca-logo" alt="General Engenharia da Manutenção" />
+          <div class="splash-spinner" aria-hidden="true"></div>
+        </div>
       </div>
     </section>
 
-    <!-- ========== LOGIN (visual idêntico ao site) ========== -->
+    <!-- ========== LOGIN ========== -->
     <section class="screen screen-auth" data-screen="login">
-      <div class="login-card">
+      <div class="entrada">
 
-        <div class="login-logo-wrap">
-          <img src="login-logo.png" class="loginLogo" alt="GENERAL" />
+        <!-- ⚠️ A foto é `reservatorios.jpg`, a única do acervo que mostra
+             RESERVATÓRIO. O enquadramento corta o TOPO de propósito: lá está a
+             marca do fabricante do tanque, com dois telefones legíveis. Ao
+             mexer no `background-position`, conferir que continuam fora. -->
+        <div class="marca-lado">
+          <img src="login-logo.png" class="marca-logo" alt="General Engenharia da Manutenção" />
         </div>
 
-        <form id="formLogin" novalidate>
-          <div class="login-field">
-            <label for="loginEmail">Email</label>
-            <input type="email" id="loginEmail" name="email" placeholder="seu@email.com"
-                   required autocomplete="username" inputmode="email" />
+        <div class="forma-lado">
+          <div class="placa">
+            <h1>Entrar</h1>
+            <p class="placa-sub">Use seu e-mail e senha da General.</p>
+
+            <form id="formLogin" novalidate>
+              <div class="campo">
+                <label for="loginEmail">E-mail</label>
+                <input type="email" id="loginEmail" name="email" placeholder="seu@email.com"
+                       required autocomplete="username" inputmode="email" />
+              </div>
+
+              <div class="campo">
+                <label for="loginSenha">Senha</label>
+                <input type="password" id="loginSenha" name="senha" placeholder="••••••••"
+                       required autocomplete="current-password" />
+              </div>
+
+              <button type="submit" class="btn btn-amarelo" id="loginBtn">
+                <span class="btn-label">Entrar</span>
+              </button>
+            </form>
+
+            <div class="alert" id="loginAlert" hidden></div>
+
+            <!-- Mesmo pé do /login: o motivo nº 1 de não entrar é e-mail
+                 cadastrado errado, e isso só se resolve falando com alguém. -->
+            <p class="placa-pe">
+              Não consegue entrar?
+              <a href="https://wa.me/5511966536110">Fale com a gente no WhatsApp</a>
+            </p>
           </div>
-
-          <div class="login-field">
-            <label for="loginSenha">Senha</label>
-            <input type="password" id="loginSenha" name="senha" placeholder="••••••••"
-                   required autocomplete="current-password" />
-          </div>
-
-          <button type="submit" class="login-btn" id="loginBtn">
-            <span class="btn-label">Entrar</span>
-          </button>
-        </form>
-
-        <div class="alert" id="loginAlert" hidden></div>
+        </div>
 
       </div>
     </section>
 
-    <!-- ========== OTP (visual idêntico ao site) ========== -->
+    <!-- ========== CÓDIGO DE VERIFICAÇÃO (2FA) ========== -->
     <section class="screen screen-auth" data-screen="otp">
-      <div class="login-card">
+      <div class="entrada">
 
-        <div class="login-logo-wrap">
-          <img src="login-logo.png" class="loginLogo" alt="GENERAL" />
+        <div class="marca-lado">
+          <img src="login-logo.png" class="marca-logo" alt="General Engenharia da Manutenção" />
         </div>
 
-        <form id="formOtp" novalidate>
-          <p class="otp-info">
-            Enviamos um código de 6 dígitos para<br>
-            <strong id="otpEmail">seu email</strong>.
-          </p>
+        <div class="forma-lado">
+          <div class="placa">
+            <!-- Mesmo h1 do passo anterior, como no /login: é o mesmo trabalho,
+                 no segundo passo. -->
+            <h1>Entrar</h1>
+            <p class="placa-sub">
+              Enviamos um código de 6 dígitos para
+              <strong id="otpEmail">seu email</strong>.
+            </p>
 
-          <div class="login-field">
-            <label for="otpCode">Código de verificação</label>
-            <input type="text" id="otpCode" name="code" placeholder="000000"
-                   maxlength="6" inputmode="numeric" pattern="[0-9]*"
-                   autocomplete="one-time-code" required />
+            <form id="formOtp" novalidate>
+              <div class="campo">
+                <label for="otpCode">Código de verificação</label>
+                <input type="text" id="otpCode" name="code" placeholder="000000"
+                       maxlength="6" inputmode="numeric" pattern="[0-9]*"
+                       autocomplete="one-time-code" required />
+              </div>
+
+              <label class="confiar">
+                <input type="checkbox" id="otpConfiar" checked />
+                <span>Confiar neste dispositivo permanentemente</span>
+              </label>
+
+              <button type="submit" class="btn btn-amarelo" id="otpBtn">
+                <span class="btn-label">Verificar</span>
+              </button>
+              <button type="button" class="btn btn-fio" id="otpBack">Voltar</button>
+            </form>
+
+            <div class="alert" id="otpAlert" hidden></div>
           </div>
-
-          <label class="otp-trust-label">
-            <input type="checkbox" id="otpConfiar" checked />
-            Confiar neste dispositivo permanentemente
-          </label>
-
-          <button type="submit" class="login-btn" id="otpBtn">
-            <span class="btn-label">Verificar</span>
-          </button>
-          <button type="button" class="login-btn-secondary" id="otpBack">Voltar</button>
-        </form>
-
-        <div class="alert" id="otpAlert" hidden></div>
+        </div>
 
       </div>
     </section>
@@ -122,7 +172,12 @@
            moldura interna só rouba largura e cria caixa dentro de caixa.
            O título saiu junto — a aba ativa no menu inferior já diz "Chamados". -->
       <div class="tec-shell tec-home">
-        <div class="tec-kpi-strip" id="tcKpiGrid"></div>
+        <!-- ⚠️ O placar de 4 números saiu em 01/09/2026 (autorizado pelo
+             Pedro): dois deles repetiam os contadores das abas logo abaixo, e
+             é o mesmo padrão que saiu do painel do operador em 31/08. O div
+             fica como âncora vazia porque o `app.js` ainda o consulta com
+             `if (!el) return`; o CSS o mantém fora da tela. -->
+        <div class="tec-kpi-strip" id="tcKpiGrid" hidden></div>
 
         <!-- Tabs em sublinhado, largura total -->
         <div class="tec-tabs" role="tablist">
@@ -139,11 +194,24 @@
 
         <!-- Linha de contexto: ordenação + quando sincronizou + atualizar -->
         <div class="tec-sortbar">
-          <select id="tcSort" class="tc-sort" aria-label="Ordenar por">
-            <option value="proximidade">📍 Mais próximos</option>
-            <option value="prioridade">🔥 Prioridade</option>
-            <option value="data">🕒 Mais recentes</option>
-          </select>
+          <!-- ⚠️ O ícone fica FORA do <select>, e não é escolha estética: um
+               <option> não aceita SVG — só texto. Os rótulos tinham 📍🔥🕒 no
+               começo, que é emoji fazendo papel de ícone (o Pedro pediu ícone,
+               e o sistema visual não usa emoji em lugar nenhum). O ícone único
+               aqui diz "isto ordena a lista"; qual ordenação está valendo, o
+               próprio rótulo diz. -->
+          <span class="tec-sort-wrap">
+            <svg class="tec-sort-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <line x1="4" y1="7" x2="20" y2="7"/>
+              <line x1="4" y1="12" x2="14" y2="12"/>
+              <line x1="4" y1="17" x2="9" y2="17"/>
+            </svg>
+            <select id="tcSort" class="tc-sort" aria-label="Ordenar por">
+              <option value="proximidade">Mais próximos</option>
+              <option value="prioridade">Prioridade</option>
+              <option value="data">Mais recentes</option>
+            </select>
+          </span>
           <span class="tec-sortbar-meta">
             <span class="tc-sync" id="tcSync">—</span>
             <button class="tec-refresh" id="tcRefresh" aria-label="Atualizar">
@@ -156,6 +224,15 @@
             </button>
           </span>
         </div>
+
+        <!-- Aparece só quando "Mais próximos" foi pedido e NÃO pôde ser
+             aplicado (sem GPS). É botão porque tem conserto: tocar tenta pegar
+             a posição de novo. Sem isso a lista mentia em silêncio. -->
+        <button type="button" class="tec-aviso" id="tcAvisoOrdem" hidden></button>
+
+        <!-- Herdeiro do único número do placar que não se repetia. Só aparece
+             quando há crítico de verdade: num dia calmo a linha não existe. -->
+        <div class="tec-criticos" id="tcCriticos" hidden></div>
 
         <!-- Área de conteúdo: ocupa o que sobra, então o vazio some -->
         <div class="tec-content">
@@ -245,10 +322,19 @@
         <button type="button" class="rt-desvio" id="rtDesvio" hidden></button>
 
         <div class="tec-sortbar">
-          <select id="rtSort" class="tc-sort" aria-label="Ordenar roteiro">
-            <option value="proximidade">📍 Mais próximos</option>
-            <option value="atrasados">⚠️ Atrasados primeiro</option>
-          </select>
+          <!-- Mesmo tratamento da lista de chamados: o ícone sai de dentro do
+               <option>, que não aceita SVG, e vira peça própria ao lado. -->
+          <span class="tec-sort-wrap">
+            <svg class="tec-sort-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <line x1="4" y1="7" x2="20" y2="7"/>
+              <line x1="4" y1="12" x2="14" y2="12"/>
+              <line x1="4" y1="17" x2="9" y2="17"/>
+            </svg>
+            <select id="rtSort" class="tc-sort" aria-label="Ordenar roteiro">
+              <option value="proximidade">Mais próximos</option>
+              <option value="atrasados">Atrasados primeiro</option>
+            </select>
+          </span>
           <span class="tec-sortbar-meta">
             <span class="tc-sync" id="rtSync">—</span>
             <button class="tec-refresh" id="rtRefresh" aria-label="Atualizar">
@@ -384,8 +470,14 @@
         <div class="alert" id="osAlert" hidden></div>
       </div>
 
-      <!-- CTA sticky no rodapé -->
-      <div class="td-cta-bar">
+      <!-- CTA sticky no rodapé.
+           ⚠️ O `id` NÃO é decoração: existe outra `.td-cta-bar` na tela de
+           detalhe do chamado (o `#tdCtaBar`, mais acima neste arquivo), e ela
+           vem ANTES no documento. Um `querySelector(".td-cta-bar")` pega a de
+           lá, não esta — foi exatamente esse o bug que deixava "Confirmar e
+           finalizar O.S." na tela depois da O.S. já finalizada. Ao mexer aqui,
+           mire pelo id. -->
+      <div class="td-cta-bar" id="osCtaBar">
         <button class="btn btnAccent btn-lg" id="osFinalizar">
           <span class="btn-label">Confirmar e finalizar O.S.</span>
         </button>

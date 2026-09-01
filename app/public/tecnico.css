@@ -1,0 +1,1777 @@
+/* ════════════════════════════════════════════════════════════════════════
+   tecnico.css — o app do técnico no mundo "Chapa"
+   ────────────────────────────────────────────────────────────────────────
+   01/09/2026. Pedido do Pedro: "trazer o front do app próximo" ao painel do
+   cliente e ao do operador. Carrega DEPOIS do `app.css` e do `login.css`.
+
+   O que esta folha faz, em três camadas — leia na ordem, porque a terceira
+   CORRIGE a segunda:
+
+   1. **Remapeia os tokens do `:root`** — é isso que move o app inteiro de uma
+      vez do Mission Control âmbar (`#f0b014`, quase-preto) para o Chapa
+      (marinho como material, amarelo institucional `#fbb329`).
+   2. **Recompõe as quatro telas do técnico** — lista, detalhe, O.S. e
+      Roteiro/Conta.
+   3. **A CORREÇÃO DA PLACA CLARA.** As duas primeiras camadas montaram placa
+      ESCURA sobre campo escuro, e isso estava errado. O Pedro mandou a tela de
+      orçamentos do cliente como referência ("campos brancos, palavras em
+      amarelo") e ela é a leitura certa do DESIGN.md: o marinho é MATERIAL, e a
+      leitura densa vai em PLACA CLARA pousada sobre ele. A seção "CORREÇÃO DE
+      DIREÇÃO", lá embaixo, flipa os tokens de tinta dentro de cada placa.
+
+   ⚠️ As telas `cliente-*` do app não são alcançadas: não existem em uso
+   (confirmado pelo Pedro) e estão na fila para remoção.
+
+   ⚠️ MESMAS REGRAS DO `login.css`, e pelos mesmos motivos: sem `color-mix()`
+   (cai inteira em WebView anterior ao Chrome 111), caminhos relativos (a
+   origem no APK é `https://localhost`), e `:active` em tudo que hoje só
+   responde a `:hover` (não existe hover em toque).
+
+   ⚠️ As fontes vêm do `@font-face` do `login.css`, que é global. Esta folha
+   não redeclara — se o `login.css` sair do HTML, as famílias somem daqui
+   junto.
+
+   ⚠️ Mudou a paleta do Chapa? São SEIS folhas: landing, login, cliente,
+   admin, operador e esta (+ `app/public/login.css`). Ver o DESIGN.md.
+   ════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── Marinho como material (era quase-preto #06070f) ───────────────── */
+  --mar-900: #030a26;
+  --mar-800: #050f38;
+  --mar-700: #071b5c;
+  --mar-600: #0d2775;
+  --mar-500: #1a3a9e;
+
+  --bg:       var(--mar-900);
+  --bg-soft:  var(--mar-800);
+  --surface:  #06154b;
+  --surface2: #0a1d5b;
+  --surface3: #0e2163;
+
+  /* ── Fios de 1px no lugar de sombra: profundidade é tonal ──────────── */
+  --border:        rgba(255, 255, 255, .07);
+  --border2:       rgba(255, 255, 255, .05);
+  --border-strong: rgba(255, 255, 255, .14);
+  --fio:           rgba(255, 255, 255, .14);
+  --fio-fraco:     rgba(255, 255, 255, .07);
+  --fio-forte:     rgba(255, 255, 255, .34);
+
+  /* ── Tinta ─────────────────────────────────────────────────────────── */
+  --text:     #f2f5ff;
+  --text-dim: #a6b5dc;
+  --muted:    #8294c2;
+  /* ⚠️ `--muted2` NÃO é tinta nesta folha — sobre a placa do item dá 3,05:1.
+     Fica só por paridade de nome com as irmãs. Texto secundário usa
+     `--muted` (5,2:1 sobre `--surface2`). Mesma nota do `operador.css`. */
+  --muted2:   #5b6c9e;
+  --sobre-2:  #a6b5dc;
+
+  /* ── Amarelo institucional (era o âmbar #f0b014 do Mission Control) ── */
+  --accent:   #fbb329;
+  --accent-2: #ffcb60;
+  --accent-3: #d99411;
+  --amarelo:  #fbb329;
+  --amarelo-cl: #ffcb60;
+  --amarelo-es: #d99411;
+
+  --blue:  #2f6fe0;
+  --agua:  #2f6fe0;
+
+  /* ── Estado. Os mesmos valores das cinco irmãs. ────────────────────── */
+  --ok:       #63d8a0;
+  --warn:     #fbb329;
+  --danger:   #ff5a4d;
+  --risco:    #ff5a4d;
+  --vermelho: #ff5a4d;
+  --verde:    #63d8a0;
+
+  /* ── Família clara: só dentro de placa clara (diálogos, leitura densa) ─ */
+  --chapa:    #e8ebf2;
+  --chapa-cl: #f5f7fb;
+  --chapa-es: #d5dae6;
+  --tinta:    #061033;
+  --tinta-2:  #414f74;
+  --fio-esc:  rgba(6, 16, 51, .18);
+  --atencao-t: #886116;
+  --risco-t:   #790000;
+  --normal-t:  #105c31;
+
+  /* ── Tipografia: os mesmos tokens e nomes das irmãs ────────────────── */
+  --fonte: "Archivo", ui-sans-serif, system-ui, sans-serif;
+  --mono:  "Martian Mono", ui-monospace, "SFMono-Regular", monospace;
+
+  /* ⚠️ `--font-mono` NÃO é remapeado para o Martian Mono, e isso é
+     deliberado. Martian Mono é bem mais largo que o `ui-monospace` que este
+     token carrega, e ele é usado por regras do `app.css` em telas que ainda
+     não foram recompostas (etapas 2 a 4). Ao remapear, o "OS-2026-DEMO" do
+     cabeçalho da O.S. passou a transbordar 22px de uma tela de 375 e o selo
+     de andamento saía cortado — medido desligando esta folha, não deduzido.
+     Martian Mono entra por `var(--mono)`, peça por peça, onde a largura já
+     foi conferida. */
+
+  /* ── Forma: chanfro de 45° em dois cantos opostos, RAIO ZERO ───────── */
+  --ch: 16px;
+  --ch-p: 9px;
+  --corte:   polygon(var(--ch) 0, 100% 0, 100% calc(100% - var(--ch)), calc(100% - var(--ch)) 100%, 0 100%, 0 var(--ch));
+  --corte-p: polygon(var(--ch-p) 0, 100% 0, 100% calc(100% - var(--ch-p)), calc(100% - var(--ch-p)) 100%, 0 100%, 0 var(--ch-p));
+
+  /* ⚠️ Raio zero em TUDO. Os tokens continuam existindo porque dezenas de
+     regras do `app.css` os referenciam — zerá-los aqui é o que apaga o raio
+     da tela inteira sem caçar `border-radius` em 3.300 linhas. */
+  --radius:    0px;
+  --radius-sm: 0px;
+  --radius-lg: 0px;
+
+  /* ⚠️ Sombra e glow viram nada: no Chapa a profundidade é TONAL, e o
+     contorno é fio de 1px. Mesmo motivo dos raios — zerar o token apaga o
+     efeito em todas as regras que o usam. */
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-lg: none;
+  --glow-accent: none;
+  --glow-violet: none;
+  --glow-cyan:   none;
+  --glow-danger: none;
+
+  --saida: cubic-bezier(.16, .84, .32, 1);
+}
+
+body {
+  background: var(--mar-900);
+  font-family: var(--fonte);
+  color: var(--text);
+}
+
+/* A aurora radial do Mission Control. No Chapa o campo é chapado: o marinho
+   é material, não um gradiente de fundo. */
+body::before { content: none !important; }
+
+::selection { background: var(--amarelo); color: var(--mar-900); }
+
+/* ════════════════════════════════════════════════════════════════════════
+   O CASCO — cabeçalho e nav inferior, comuns às telas do técnico
+   ════════════════════════════════════════════════════════════════════════ */
+
+[data-screen^="tecnico-"] .app-header {
+  background: var(--mar-900);
+  border-bottom: 1px solid var(--fio-fraco);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+[data-screen^="tecnico-"] .brand-name {
+  font-family: var(--fonte);
+  font-weight: 800;
+  font-stretch: 108%;
+  letter-spacing: -.015em;
+  color: var(--text);
+}
+
+/* A linha de status é etiqueta gravada: mono, caixa alta, tracking largo —
+   o mesmo papel que ela tem no operador e no painel do cliente.
+
+   ⚠️ SÓ `.tec-hdr-status`, NUNCA `.brand-sub` inteiro. `.brand-sub` é a
+   segunda linha do cabeçalho em TODAS as telas do técnico, e nas outras ela
+   não é linha de status: no cabeçalho da O.S. são o número da O.S. mais o
+   selo de andamento. Com mono e 1,1px de tracking aquele conteúdo passou a
+   transbordar 29px de uma tela de 375 — o selo saía cortado pela direita.
+   Medido, não suposto. As outras telas ganham a tipografia certa nas etapas
+   2 a 4, junto com a composição delas. */
+[data-screen^="tecnico-"] .tec-hdr-status {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .11em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+[data-screen^="tecnico-"] .tec-hdr-clock {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-dim);
+}
+[data-screen^="tecnico-"] .brand-dot { border-radius: 0; }
+
+/* ── Nav inferior ──────────────────────────────────────────────────────
+   O indicador da aba ativa era um filete âmbar com glow em cima do botão.
+   Vira o mesmo gesto das irmãs: peça chanfrada, sem brilho. */
+[data-screen^="tecnico-"] .cli-nav {
+  background: var(--mar-900);
+  border-top: 1px solid var(--fio-fraco);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+[data-screen^="tecnico-"] .cli-nav button {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  border-radius: 0;
+  position: relative;
+}
+[data-screen^="tecnico-"] .cli-nav button.active { color: var(--amarelo); }
+/* ⚠️ A CENTRAGEM VEM DO `transform`, e NÃO PODE HAVER `margin-left` JUNTO.
+   O `app.css` já centrava esta barra com `transform: translateX(-50%)`. Esta
+   regra sobrescreve `left`, `width` e a cor — mas **as propriedades que ela
+   não restata continuam vindo da regra antiga**. Ao acrescentar
+   `margin-left: -13px` aqui, a barra levava os DOIS deslocamentos (−13px de
+   margem + −13px de transform) e saía uma largura inteira à esquerda do
+   ícone. O Pedro viu na tela; a minha medição não pegou porque eu conferi
+   `left` e `margin-left` e não olhei o `transform` herdado.
+   Lição para toda sobrescrita de pseudo-elemento: o que você não redeclara
+   continua valendo. */
+[data-screen^="tecnico-"] .cli-nav button.active::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 26px;
+  height: 3px;
+  margin-left: 0;
+  transform: translateX(-50%);
+  background: var(--amarelo);
+  box-shadow: none;
+  border-radius: 0;
+}
+[data-screen^="tecnico-"] .cli-nav-badge {
+  border-radius: 0;
+  clip-path: var(--corte-p);
+  font-family: var(--mono);
+  background: var(--vermelho);
+  color: var(--mar-900);
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   LISTA DE CHAMADOS
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* ⚠️ O PLACAR DE 4 NÚMEROS SAIU (01/09/2026, autorizado pelo Pedro).
+   Era `.tec-kpi-strip` com Abertos · Atend. · Críticos · Fechados hoje. Dois
+   deles eram repetição literal dos contadores das abas 40px abaixo (Hoje 6 ·
+   Próximos 5 · Histórico 2), e é exatamente o padrão que saiu do painel do
+   operador em 31/08 pelo mesmo motivo. O único número que não se repetia —
+   "críticos" — desceu para a linha de contexto, onde só aparece quando é
+   maior que zero e diz o que fazer com ele.
+   O `renderTecnicoKpis()` foi removido do `app.js` junto.
+
+   ⚠️ ESCOPADO NO `#tcKpiGrid`, não na classe. A tela de Roteiro usa a MESMA
+   `.tec-kpi-strip` (`#rtKpiStrip`), de propósito — "pra as duas telas lerem
+   como irmãs". Mas lá os números são Prédios · Serviços · Atrasadas · Em
+   curso, que **não** se repetem em lugar nenhum da tela: não é o mesmo
+   defeito, e apagá-la junto seria remover funcionalidade que ninguém pediu.
+   O Roteiro é a etapa 4 e será decidido lá. */
+#tcKpiGrid { display: none !important; }
+
+/* ── Abas ─────────────────────────────────────────────────────────────── */
+
+.tec-tabs {
+  border-bottom: 1px solid var(--fio-fraco);
+  background: transparent;
+}
+.tec-tab {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: .11em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  border-bottom: 2px solid transparent;
+  padding: 13px 6px;
+  min-height: 46px;
+  transition: color .18s var(--saida);
+}
+.tec-tab.is-active {
+  color: var(--text);
+  border-bottom-color: var(--amarelo);
+}
+.tec-tab-count {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 10px;
+  color: var(--muted);
+  margin-left: 5px;
+}
+.tec-tab.is-active .tec-tab-count { color: var(--amarelo); }
+
+/* ── Linha de contexto: ordenação · críticos · sync ───────────────────── */
+
+.tec-sortbar {
+  border-bottom: 1px solid var(--fio-fraco);
+  background: transparent;
+  padding: 9px 16px;
+  min-height: 46px;
+}
+.tc-sort {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  -webkit-appearance: none;
+  appearance: none;
+  min-height: 44px;
+  padding-right: 18px;
+}
+.tec-sortbar-meta { display: inline-flex; align-items: center; gap: 10px; }
+.tc-sync {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.tec-refresh {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  color: var(--muted);
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.tec-refresh svg { width: 15px; height: 15px; }
+.tec-refresh:active { color: var(--amarelo); }
+
+/* Aviso de críticos — herdeiro do único número do placar que não se repetia.
+   Só existe quando há crítico; num dia calmo a linha não aparece. */
+.tec-criticos {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  border-bottom: 1px solid var(--fio-fraco);
+  background: rgba(255, 90, 77, .10);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--risco);
+}
+.tec-criticos::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  background: var(--vermelho);
+  clip-path: polygon(3px 0, 100% 0, 100% calc(100% - 3px), calc(100% - 3px) 100%, 0 100%, 0 3px);
+}
+.tec-criticos[hidden] { display: none !important; }
+
+/* ── O item ───────────────────────────────────────────────────────────── */
+
+.ch-list-mob {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 12px 4px;
+}
+
+/* ⚠️ SAIU A BARRA COLORIDA DE 3px NA LATERAL. Era `.ch-row-mob::before`, um
+   filete com glow tingido pela prioridade — o padrão que o detector da skill
+   marca como "side-tab", e que o Chapa não usa em superfície nenhuma. A
+   prioridade que ela codificava virou TEXTO (o selo da régua): antes ela
+   existia só como cor, e a regra do DESIGN.md é que estado nunca aparece sem
+   rótulo escrito — a cor é reforço, nunca a informação.
+
+   ⚠️ CHAPA DE DUAS CAMADAS, não `border` + `clip-path`. Sob `clip-path` a
+   borda sai recortada nos dois chanfros e o contorno lê como defeito. O fundo
+   do elemento é o anel; o `::before` embutido 1px é o interior. Mesma
+   construção do `.item` do operador.
+
+   ⚠️ Cor chapada, sem gradiente: **moldura marca o que é único; o que se
+   repete é superfície.** O item aparece seis vezes na tela. */
+.ch-row-mob {
+  display: grid;
+  /* ⚠️ 70px, não 62. A 62 a régua não cabia "6.6 km" em Martian Mono e a
+     distância quebrava em duas linhas — 28px de altura em vez de 14, medido na
+     tela. Mono tem avanço fixo: a conta é o pior caso (6 caracteres), não a
+     média. */
+  grid-template-columns: 70px minmax(0, 1fr);
+  gap: 0 13px;
+  width: 100%;
+  padding: 1px;
+  border: 0;
+  border-radius: 0;
+  text-align: left;
+  cursor: pointer;
+  position: relative;
+  isolation: isolate;
+  background: var(--fio-fraco);
+  --ch: 14px;
+  clip-path: var(--corte);
+  transition: background .16s var(--saida);
+}
+.ch-row-mob::before {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  z-index: -1;
+  background: var(--surface2);
+  clip-path: var(--corte);
+  transition: background .16s var(--saida);
+  width: auto;
+  height: auto;
+  box-shadow: none;
+}
+.ch-row-mob:hover,
+.ch-row-mob:active { background: var(--fio); }
+.ch-row-mob:hover::before,
+.ch-row-mob:active::before { background: var(--surface3); }
+.ch-row-mob:focus-visible { outline: none; background: var(--amarelo); }
+
+/* Chamado já resolvido é um degrau mais quieto — não pede decisão. */
+.ch-row-mob[data-status="fechado"]::before { background: var(--surface); }
+
+/* ── A régua: urgência e distância, as duas perguntas do técnico ────────
+   É a coluna que o operador chama de régua. Aqui ela responde "quão urgente"
+   e "quão longe" — as duas coisas que decidem o próximo destino de quem está
+   com a van na rua. O ícone de prédio saiu daqui: toda linha é um
+   condomínio, então ele não distinguia nada e custava 44px numa tela de 390. */
+.ch-regua {
+  grid-column: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 7px;
+  padding: 13px 0 13px 14px;
+}
+
+/* Selo preenchido: é a ÚNICA dimensão preenchida da linha (Regra do Selo).
+   Categoria e status ficam de fio ou de etiqueta. */
+.ch-pri {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  padding: 3px 7px;
+  text-transform: uppercase;
+  --ch-p: 5px;
+  clip-path: var(--corte-p);
+}
+.ch-pri[data-p="p1"] { background: var(--vermelho); color: var(--mar-900); }
+.ch-pri[data-p="p2"] { background: var(--amarelo);  color: var(--mar-900); }
+.ch-pri[data-p="p3"] { background: var(--mar-500);  color: #fff; }
+.ch-pri[data-p="p4"] { background: var(--muted);    color: var(--mar-900); }
+
+.ch-dist {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.045em;
+  white-space: nowrap;
+  color: var(--text-dim);
+}
+.ch-dist-vazio {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted2);
+}
+
+/* ── O corpo ──────────────────────────────────────────────────────────── */
+
+.ch-corpo {
+  grid-column: 2;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 13px 14px 13px 0;
+}
+
+.ch-row-mob-head {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+}
+/* O nome do prédio é CONTEÚDO, não etiqueta: é por ele que o técnico acha o
+   chamado. Fica em Archivo, não em mono. */
+.ch-row-mob-head .ch-row-mob-title {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--fonte);
+  font-size: 15px;
+  font-weight: 700;
+  font-stretch: 105%;
+  letter-spacing: -.015em;
+  line-height: 1.25;
+  color: var(--text);
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+}
+.ch-row-mob-head .ch-id-cell {
+  flex: 0 0 auto;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: .08em;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+.ch-row-mob-desc {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-family: var(--fonte);
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--text-dim);
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+}
+.ch-row-mob-desc svg {
+  opacity: .6;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.ch-row-mob-pills {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+}
+
+/* Categoria é CLASSIFICAÇÃO, não estado: etiqueta gravada, nunca preenchida.
+   Preencher categoria faz a tela inteira gritar ao mesmo tempo, que é o
+   mesmo que não gritar. */
+.ch-cat-badge {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  color: var(--muted);
+}
+
+/* Status de fio — a segunda dimensão da linha, e por isso não preenche. */
+.ch-st {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  padding: 3px 7px;
+  border-radius: 0;
+  --ch-p: 5px;
+  clip-path: var(--corte-p);
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--fio);
+  color: var(--text-dim);
+}
+.ch-st-aberto         { color: var(--text-dim); }
+.ch-st-em_atendimento { color: var(--amarelo); box-shadow: inset 0 0 0 1px rgba(251,179,41,.5); }
+.ch-st-fechado        { color: var(--ok);      box-shadow: inset 0 0 0 1px rgba(99,216,160,.4); }
+
+.ch-row-mob-meta {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.ch-row-mob-meta-sep { display: none; }
+.ch-row-mob-dist { display: none; }
+
+/* ── Estado vazio ─────────────────────────────────────────────────────── */
+
+.tc-empty {
+  padding: 52px 24px 40px;
+  color: var(--muted);
+}
+.tc-empty svg {
+  width: 38px;
+  height: 38px;
+  opacity: .4;
+  color: var(--amarelo);
+  margin-bottom: 14px;
+}
+.tc-empty p {
+  font-family: var(--fonte);
+  font-size: 16px;
+  font-weight: 700;
+  font-stretch: 105%;
+  letter-spacing: -.015em;
+  color: var(--text);
+}
+.tc-empty .tc-empty-sub {
+  margin-top: 7px;
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: normal;
+  color: var(--muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ch-row-mob { transition: none; }
+  .ch-row-mob::before { transition: none; }
+}
+
+
+/* ════════════════════════════════════════════════════════════════════════
+   ETAPAS 2 · 3 · 4 — detalhe do chamado, O.S., Conta e Roteiro
+   ────────────────────────────────────────────────────────────────────────
+   Escopadas em `[data-screen^="tecnico-"]` (0,2,0), que vence as regras de
+   classe do `app.css` (0,1,0) sem precisar de `!important`. As telas de
+   `cliente-*` do app não são alcançadas de propósito: elas não existem em uso
+   (confirmado pelo Pedro em 01/09) e estão na fila para remoção.
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* ── A placa: a peça base das três telas ───────────────────────────────
+   Chapa de duas camadas + chanfro. O fundo do elemento é o anel; o `::before`
+   embutido 1px é o interior. `border` + `clip-path` juntos NÃO funcionam: o
+   recorte corta a borda nos dois chanfros e ela lê como defeito. */
+[data-screen^="tecnico-"] .td-card,
+[data-screen^="tecnico-"] .card,
+[data-screen^="tecnico-"] .tec-card,
+[data-screen^="tecnico-"] .rt-card {
+  position: relative;
+  isolation: isolate;
+  background: var(--fio-fraco);
+  padding: 1px;
+  border: 0;
+  border-radius: 0;
+  --ch: 16px;
+  clip-path: var(--corte);
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  overflow: visible;
+}
+[data-screen^="tecnico-"] .td-card::before,
+[data-screen^="tecnico-"] .card::before,
+[data-screen^="tecnico-"] .tec-card::before,
+[data-screen^="tecnico-"] .rt-card::before {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  z-index: -1;
+  background: var(--surface2);
+  clip-path: var(--corte);
+}
+
+/* ── Cabeçalho de seção ────────────────────────────────────────────────
+   ⚠️ O TIQUE ÂMBAR DE 2px À ESQUERDA SAIU. Era `.cardHead::before` com glow —
+   o mesmo padrão "side-tab" que saiu do item da lista, e que o Chapa não usa
+   em superfície nenhuma. O que separa o cabeçalho do corpo é o fio de 1px que
+   já existia embaixo dele. */
+[data-screen^="tecnico-"] .cardHead {
+  background: transparent;
+  border-bottom: 1px solid var(--fio-fraco);
+  padding: 13px 15px;
+}
+[data-screen^="tecnico-"] .cardHead::before { content: none; }
+[data-screen^="tecnico-"] .cardHead h2 {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  gap: 9px;
+}
+/* A placa do ícone: chanfrada e sem brilho. O glow era decoração; aqui a
+   profundidade é tonal. */
+[data-screen^="tecnico-"] .cardHead h2 .head-icon {
+  width: 24px;
+  height: 24px;
+  padding: 5px;
+  color: var(--amarelo);
+  background: rgba(251, 179, 41, .12);
+  border: 0;
+  border-radius: 0;
+  --ch-p: 6px;
+  clip-path: var(--corte-p);
+  box-shadow: none;
+}
+
+/* O filete de "cockpit" sob os cabeçalhos — gradiente âmbar que atravessava a
+   tela. O Chapa separa com fio chapado, não com luz. */
+[data-screen^="tecnico-"] .app-header::after,
+[data-screen^="tecnico-"] .app-header-tec::after,
+[data-screen^="tecnico-"] .cli-header::after,
+[data-screen^="tecnico-"] .cli-nav::before { content: none; }
+
+[data-screen^="tecnico-"] .app-header-tec,
+[data-screen^="tecnico-"] .app-header-detail {
+  background: var(--mar-900);
+  border-bottom: 1px solid var(--fio-fraco);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+[data-screen^="tecnico-"] .header-back,
+[data-screen^="tecnico-"] .header-logout {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  color: var(--text-dim);
+  min-width: 44px;
+  min-height: 44px;
+}
+[data-screen^="tecnico-"] .header-back:active { color: var(--amarelo); }
+
+/* ── Botões ────────────────────────────────────────────────────────────
+   O amarelo entra pelo chanfro, no sentido do corte — o gesto da landing.
+   `:active` junto de `:hover` porque não existe hover em toque. */
+[data-screen^="tecnico-"] .btn {
+  position: relative;
+  isolation: isolate;
+  font-family: var(--fonte);
+  font-size: 14px;
+  font-weight: 700;
+  font-stretch: 105%;
+  border: 0;
+  border-radius: 0;
+  min-height: 46px;
+  background: var(--fio-fraco);
+  color: var(--text);
+  --ch: 11px;
+  clip-path: var(--corte);
+  transition: color .2s var(--saida);
+}
+[data-screen^="tecnico-"] .btn::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--amarelo);
+  clip-path: polygon(0 0, 0 0, 0 100%, -30% 100%);
+  transition: clip-path .42s var(--saida);
+}
+[data-screen^="tecnico-"] .btn::before {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  z-index: -2;
+  background: var(--surface);
+  clip-path: var(--corte);
+}
+[data-screen^="tecnico-"] .btn:hover::after,
+[data-screen^="tecnico-"] .btn:active::after { clip-path: polygon(0 0, 130% 0, 100% 100%, -30% 100%); }
+[data-screen^="tecnico-"] .btn:hover,
+[data-screen^="tecnico-"] .btn:active { color: var(--mar-900); }
+[data-screen^="tecnico-"] .btn:disabled { opacity: .5; }
+[data-screen^="tecnico-"] .btn:disabled::after { clip-path: polygon(0 0, 0 0, 0 100%, -30% 100%); }
+[data-screen^="tecnico-"] .btn:focus-visible { outline: none; box-shadow: inset 0 0 0 3px var(--amarelo); }
+
+[data-screen^="tecnico-"] .btn.btnAccent {
+  background: var(--amarelo);
+  color: var(--mar-900);
+  box-shadow: none;
+}
+[data-screen^="tecnico-"] .btn.btnAccent::before { content: none; }
+[data-screen^="tecnico-"] .btn.btnAccent::after { background: var(--amarelo-cl); }
+[data-screen^="tecnico-"] .btn.btnAccent:focus-visible {
+  box-shadow: inset 0 0 0 3px var(--mar-900), inset 0 0 0 6px #fff;
+}
+[data-screen^="tecnico-"] .btn-lg { min-height: 54px; font-size: 15px; }
+
+/* ── Barra de ação fixa ────────────────────────────────────────────────── */
+[data-screen^="tecnico-"] .td-cta-bar {
+  background: var(--mar-900);
+  border-top: 1px solid var(--fio-fraco);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+[data-screen^="tecnico-"] .td-cta-bar .btn.btnAccent { box-shadow: none; }
+
+/* ── Campos ───────────────────────────────────────────────────────────── */
+[data-screen^="tecnico-"] .input,
+[data-screen^="tecnico-"] .os-select,
+[data-screen^="tecnico-"] .os-textarea,
+[data-screen^="tecnico-"] .os-corrente-input {
+  background: var(--mar-900);
+  color: var(--text);
+  font-family: var(--fonte);
+  border: 0;
+  border-radius: 0;
+  -webkit-appearance: none;
+  appearance: none;
+  --ch-p: 8px;
+  clip-path: var(--corte-p);
+  box-shadow: inset 0 0 0 1.5px var(--fio-fraco);
+  min-height: 46px;
+  transition: box-shadow .2s var(--saida);
+}
+[data-screen^="tecnico-"] .os-textarea { min-height: 88px; }
+[data-screen^="tecnico-"] .input:focus,
+[data-screen^="tecnico-"] .os-select:focus,
+[data-screen^="tecnico-"] .os-textarea:focus,
+[data-screen^="tecnico-"] .os-corrente-input:focus {
+  outline: none;
+  box-shadow: inset 0 0 0 2px var(--amarelo);
+}
+[data-screen^="tecnico-"] .os-corrente-input {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+/* ── Selos e etiquetas ────────────────────────────────────────────────
+   A Regra do Selo vale aqui igual à lista: SÓ UMA dimensão preenche. Na tela
+   de detalhe quem preenche é a PRIORIDADE; status e categoria ficam de fio e
+   de etiqueta. */
+[data-screen^="tecnico-"] .td-status-pill {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  padding: 3px 7px;
+  border: 0;
+  border-radius: 0;
+  --ch-p: 5px;
+  clip-path: var(--corte-p);
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--fio);
+  color: var(--text-dim);
+}
+[data-screen^="tecnico-"] .td-status-pill.td-status-em_atendimento {
+  color: var(--amarelo);
+  box-shadow: inset 0 0 0 1px rgba(251, 179, 41, .5);
+}
+[data-screen^="tecnico-"] .td-status-pill.td-status-em_atendimento::before { content: none; }
+[data-screen^="tecnico-"] .td-status-pill.td-status-fechado {
+  color: var(--ok);
+  box-shadow: inset 0 0 0 1px rgba(99, 216, 160, .4);
+}
+
+[data-screen^="tecnico-"] .ch-prio {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 0;
+  --ch-p: 5px;
+  clip-path: var(--corte-p);
+}
+[data-screen^="tecnico-"] .ch-prio-p1 { background: var(--vermelho); color: var(--mar-900); }
+[data-screen^="tecnico-"] .ch-prio-p2 { background: var(--amarelo);  color: var(--mar-900); }
+[data-screen^="tecnico-"] .ch-prio-p3 { background: var(--mar-500);  color: #fff; }
+[data-screen^="tecnico-"] .ch-prio-p4 { background: var(--muted);    color: var(--mar-900); }
+
+/* ── Detalhe: endereço e descrição ────────────────────────────────────── */
+[data-screen="tecnico-detalhe"] .td-addr {
+  font-family: var(--fonte);
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--text);
+}
+[data-screen="tecnico-detalhe"] .td-addr svg { color: var(--amarelo); opacity: 1; }
+[data-screen="tecnico-detalhe"] .td-desc {
+  font-family: var(--fonte);
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--text);
+}
+
+/* ── Detalhe: o instrumento do reservatório ───────────────────────────
+   ⚠️ A REGRA DA ÁGUA VISÍVEL. A lâmina abre em `--agua` e só escurece para
+   vinho no CRÍTICO; no BAIXO a água continua azul e quem avisa é a crista
+   âmbar. Era um gradiente verde para amarelo para vermelho por faixa, que
+   fazia a barra contar a mesma história duas vezes (cor + comprimento) e
+   gastava o vermelho num estado que ainda não é emergência. */
+[data-screen="tecnico-detalhe"] .td-res {
+  background: var(--surface);
+  border: 0;
+  border-radius: 0;
+  --ch-p: 10px;
+  clip-path: var(--corte-p);
+}
+[data-screen="tecnico-detalhe"] .td-res-tipo {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: .11em;
+  text-transform: uppercase;
+  background: none;
+  border-radius: 0;
+  padding: 0;
+  color: var(--muted);
+}
+[data-screen="tecnico-detalhe"] .td-res-bomba {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  padding: 3px 7px;
+  border: 0;
+  border-radius: 0;
+  --ch-p: 5px;
+  clip-path: var(--corte-p);
+}
+[data-screen="tecnico-detalhe"] .td-res-bomba-on  { background: var(--verde); color: var(--mar-900); }
+[data-screen="tecnico-detalhe"] .td-res-bomba-off { background: transparent; color: var(--text-dim); box-shadow: inset 0 0 0 1px var(--fio); }
+[data-screen="tecnico-detalhe"] .td-res-bomba-uk  { background: transparent; color: var(--muted); box-shadow: inset 0 0 0 1px var(--fio-fraco); }
+
+[data-screen="tecnico-detalhe"] .td-res-bar {
+  background: var(--mar-900);
+  border-radius: 0;
+  height: 10px;
+  box-shadow: inset 0 0 0 1px var(--fio-fraco);
+}
+[data-screen="tecnico-detalhe"] .td-res-bar-fill {
+  border-radius: 0;
+  position: relative;
+  background: var(--agua);
+}
+/* A crista: a aresta de cima da lâmina, o mesmo gesto da coluna de água da
+   landing e do painel do cliente. */
+[data-screen="tecnico-detalhe"] .td-res-bar-fill::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #8fb6ff;
+}
+[data-screen="tecnico-detalhe"] .td-res-bar-fill.lv-alto,
+[data-screen="tecnico-detalhe"] .td-res-bar-fill.lv-medio { background: var(--agua); }
+[data-screen="tecnico-detalhe"] .td-res-bar-fill.lv-baixo { background: var(--agua); }
+[data-screen="tecnico-detalhe"] .td-res-bar-fill.lv-baixo::after { background: var(--amarelo); width: 3px; }
+[data-screen="tecnico-detalhe"] .td-res-bar-fill.lv-muito-baixo {
+  background: linear-gradient(180deg, #7a1e2c, #4a1220);
+}
+[data-screen="tecnico-detalhe"] .td-res-bar-fill.lv-muito-baixo::after { background: var(--risco); width: 3px; }
+
+[data-screen="tecnico-detalhe"] .td-res-pct {
+  font-family: var(--mono);
+  font-size: 17px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.03em;
+  color: var(--text);
+}
+[data-screen="tecnico-detalhe"] .td-res-pct.is-offline { color: var(--risco); }
+[data-screen="tecnico-detalhe"] .td-res-foot,
+[data-screen="tecnico-detalhe"] .td-info-lbl {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+[data-screen="tecnico-detalhe"] .td-info-val { font-family: var(--fonte); font-size: 14px; color: var(--text); }
+[data-screen="tecnico-detalhe"] .td-info-row + .td-info-row { border-top: 1px solid var(--fio-fraco); }
+
+/* ── O.S.: o instrumento do tempo ─────────────────────────────────────── */
+[data-screen="tecnico-os"] .td-timer-box {
+  background: var(--mar-900);
+  border: 0;
+  border-radius: 0;
+  --ch-p: 10px;
+  clip-path: var(--corte-p);
+}
+[data-screen="tecnico-os"] .td-timer-icon {
+  background: rgba(251, 179, 41, .12);
+  border: 0;
+  border-radius: 0;
+  --ch-p: 6px;
+  clip-path: var(--corte-p);
+  color: var(--amarelo);
+  box-shadow: none;
+}
+[data-screen="tecnico-os"] .td-timer-label,
+[data-screen="tecnico-os"] .os-progress-label {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: .11em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+[data-screen="tecnico-os"] .td-timer-value {
+  font-family: var(--mono);
+  font-size: 26px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.03em;
+  color: var(--amarelo);
+  text-shadow: none;
+}
+[data-screen="tecnico-os"] .os-progress {
+  background: var(--mar-900);
+  border-radius: 0;
+  height: 5px;
+  box-shadow: inset 0 0 0 1px var(--fio-fraco);
+}
+[data-screen="tecnico-os"] .os-progress-bar {
+  background: var(--amarelo);
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* ── O.S.: as seções ──────────────────────────────────────────────────
+   Chapa de duas camadas, e o ESTADO vive no anel externo — não em
+   `border-color`, que não existe mais nesta construção. Aberta = amarelo;
+   completa = verde; pendente = vermelho. */
+[data-screen="tecnico-os"] .os-section {
+  position: relative;
+  isolation: isolate;
+  background: var(--fio-fraco);
+  padding: 1px;
+  border: 0;
+  border-radius: 0;
+  --ch: 14px;
+  clip-path: var(--corte);
+  box-shadow: none;
+  overflow: visible;
+  transition: background .16s var(--saida);
+}
+[data-screen="tecnico-os"] .os-section::before {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  z-index: -1;
+  background: var(--surface2);
+  clip-path: var(--corte);
+}
+[data-screen="tecnico-os"] .os-section.is-open     { background: rgba(251, 179, 41, .45); }
+[data-screen="tecnico-os"] .os-section.is-complete { background: rgba(99, 216, 160, .40); }
+[data-screen="tecnico-os"] .os-section.os-section-pendente { background: var(--vermelho); }
+
+[data-screen="tecnico-os"] .os-section-head { background: transparent; min-height: 56px; }
+[data-screen="tecnico-os"] .os-section-title {
+  font-family: var(--fonte);
+  font-size: 15px;
+  font-weight: 700;
+  font-stretch: 105%;
+  letter-spacing: -.015em;
+  color: var(--text);
+}
+[data-screen="tecnico-os"] .os-section-title small {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+[data-screen="tecnico-os"] .os-section-icon {
+  background: var(--mar-900);
+  border: 0;
+  border-radius: 0;
+  --ch-p: 6px;
+  clip-path: var(--corte-p);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-dim);
+  box-shadow: none;
+}
+[data-screen="tecnico-os"] .os-section.is-complete .os-section-icon {
+  background: var(--verde);
+  color: var(--mar-900);
+}
+/* "OBRIG." é estado (falta preencher), e é o único que preenche na linha. */
+[data-screen="tecnico-os"] .os-section-required {
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .11em;
+  text-transform: uppercase;
+  padding: 3px 6px;
+  border: 0;
+  border-radius: 0;
+  --ch-p: 4px;
+  clip-path: var(--corte-p);
+  background: var(--vermelho);
+  color: var(--mar-900);
+}
+
+/* ── O.S.: chips, radios, switches ────────────────────────────────────── */
+[data-screen="tecnico-os"] .os-chip {
+  font-family: var(--fonte);
+  font-size: 14px;
+  font-weight: 600;
+  min-height: 44px;
+  padding: 10px 14px;
+  background: var(--mar-900);
+  color: var(--text-dim);
+  border: 0;
+  border-radius: 0;
+  --ch-p: 8px;
+  clip-path: var(--corte-p);
+  box-shadow: inset 0 0 0 1.5px var(--fio-fraco);
+  transition: color .16s var(--saida), box-shadow .16s var(--saida);
+}
+[data-screen="tecnico-os"] .os-chip:hover { box-shadow: inset 0 0 0 1.5px var(--fio); }
+[data-screen="tecnico-os"] .os-chip.is-on {
+  background: var(--amarelo);
+  color: var(--mar-900);
+  box-shadow: none;
+}
+[data-screen="tecnico-os"] .os-radio-label {
+  font-family: var(--fonte);
+  font-size: 14px;
+  font-weight: 600;
+  min-height: 44px;
+  background: var(--mar-900);
+  color: var(--text-dim);
+  border: 0;
+  border-radius: 0;
+  --ch-p: 8px;
+  clip-path: var(--corte-p);
+  box-shadow: inset 0 0 0 1.5px var(--fio-fraco);
+}
+[data-screen="tecnico-os"] .os-radio input:checked + .os-radio-label {
+  background: var(--amarelo);
+  color: var(--mar-900);
+  box-shadow: none;
+}
+[data-screen="tecnico-os"] .os-switch-row { border-bottom: 1px solid var(--fio-fraco); min-height: 52px; }
+[data-screen="tecnico-os"] .os-switch-label { font-family: var(--fonte); font-size: 14px; color: var(--text); }
+[data-screen="tecnico-os"] .os-switch-slider { background: var(--mar-900); box-shadow: inset 0 0 0 1.5px var(--fio-fraco); }
+[data-screen="tecnico-os"] .os-switch input:checked + .os-switch-slider { background: var(--amarelo); box-shadow: none; }
+[data-screen="tecnico-os"] .os-corrente-label {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* ── Roteiro ──────────────────────────────────────────────────────────── */
+[data-screen="tecnico-roteiro"] .rt-ordem {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 700;
+  background: var(--mar-500);
+  color: #fff;
+  border: 0;
+  border-radius: 0;
+  --ch-p: 5px;
+  clip-path: var(--corte-p);
+}
+[data-screen="tecnico-roteiro"] .rt-nome {
+  font-family: var(--fonte);
+  font-size: 15px;
+  font-weight: 700;
+  font-stretch: 105%;
+  letter-spacing: -.015em;
+  color: var(--text);
+}
+[data-screen="tecnico-roteiro"] .rt-end { font-family: var(--fonte); font-size: 13px; color: var(--text-dim); }
+[data-screen="tecnico-roteiro"] .rt-dist,
+[data-screen="tecnico-roteiro"] .rt-prazo,
+[data-screen="tecnico-roteiro"] .rt-plano-tag {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+}
+[data-screen="tecnico-roteiro"] .rt-prazo.is-atrasado { color: var(--risco); }
+[data-screen="tecnico-roteiro"] .rt-prazo.is-hoje { color: var(--amarelo); }
+/* O ponto redondo antes de cada plano vira quadrado chanfrado — raio zero
+   vale para a peça de 6px também. */
+[data-screen="tecnico-roteiro"] .rt-plano::before {
+  border-radius: 0;
+  width: 6px;
+  height: 6px;
+  clip-path: polygon(2px 0, 100% 0, 100% calc(100% - 2px), calc(100% - 2px) 100%, 0 100%, 0 2px);
+}
+[data-screen="tecnico-roteiro"] .rt-plano-nome { font-family: var(--fonte); font-size: 13.5px; }
+[data-screen="tecnico-roteiro"] .rt-desvio {
+  background: rgba(255, 90, 77, .10);
+  border: 0;
+  border-radius: 0;
+  --ch-p: 8px;
+  clip-path: var(--corte-p);
+}
+[data-screen="tecnico-roteiro"] .rt-desvio-ico { color: var(--risco); }
+[data-screen="tecnico-roteiro"] .rt-desvio-txt strong { font-family: var(--fonte); font-size: 14px; color: var(--text); }
+[data-screen="tecnico-roteiro"] .rt-desvio-txt span { font-family: var(--mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+
+/* A faixa de números do Roteiro FICA (ver a nota do `#tcKpiGrid` lá em cima:
+   aqui eles não repetem nada). Só troca de roupa: sem glow, mono gravado. */
+[data-screen="tecnico-roteiro"] .tec-kpi-strip {
+  background: transparent;
+  border-bottom: 1px solid var(--fio-fraco);
+}
+[data-screen="tecnico-roteiro"] .tec-kpi-strip::before,
+[data-screen="tecnico-roteiro"] .tec-kpi-strip::after { content: none; }
+[data-screen="tecnico-roteiro"] .tk-cell { border-left: 1px solid var(--fio-fraco); }
+[data-screen="tecnico-roteiro"] .tk-cell:first-child { border-left: 0; }
+[data-screen="tecnico-roteiro"] .tk-value {
+  font-family: var(--mono);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  text-shadow: none;
+}
+[data-screen="tecnico-roteiro"] .tk-label {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: .11em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+[data-screen="tecnico-roteiro"] .tk-cell.is-warn .tk-value { color: var(--amarelo); text-shadow: none; }
+[data-screen="tecnico-roteiro"] .tk-cell.is-bad .tk-value { color: var(--risco); text-shadow: none; }
+[data-screen="tecnico-roteiro"] .tk-cell.is-ok .tk-value { color: var(--ok); text-shadow: none; }
+[data-screen="tecnico-roteiro"] .tk-cell.is-bad .tk-label { color: var(--risco); }
+
+/* ── Esqueletos de carregamento ───────────────────────────────────────── */
+[data-screen^="tecnico-"] .tc-skel {
+  border-radius: 0;
+  --ch-p: 10px;
+  clip-path: var(--corte-p);
+  background: var(--surface);
+}
+
+/* ── Alertas ──────────────────────────────────────────────────────────── */
+[data-screen^="tecnico-"] .alert {
+  font-family: var(--fonte);
+  font-size: 14px;
+  border: 0;
+  border-radius: 0;
+  --ch-p: 9px;
+  clip-path: var(--corte-p);
+}
+[data-screen^="tecnico-"] .alert.error {
+  background: rgba(255, 90, 77, .12);
+  color: #ffc9c4;
+}
+
+/* O botão "A caminho" — a fase 1 do chamado, mais leve que a fase 2
+   ("Iniciar atendimento", que é a amarela). Substituiu o estilo inline azul a
+   20% que o `app.js` aplicava e que vencia qualquer folha. Mesmo desenho do
+   secundário do login: anel de fio, interior um degrau acima do campo, e o
+   amarelo entrando pelo chanfro no toque. */
+[data-screen^="tecnico-"] .btn.btn-caminho {
+  background: var(--fio);
+  color: var(--text);
+}
+[data-screen^="tecnico-"] .btn.btn-caminho::before { background: var(--surface2); }
+
+
+/* ════════════════════════════════════════════════════════════════════════
+   CORREÇÃO DE DIREÇÃO — A PLACA É CLARA (01/09/2026)
+   ────────────────────────────────────────────────────────────────────────
+   O Pedro mandou a tela de orçamentos do cliente como referência: "leve em
+   consideração esse tipo de tela, com palavras em amarelo, e campos brancos".
+
+   Ele está certo, e o que eu tinha feito acima estava errado: montei placa
+   ESCURA sobre campo escuro. O DESIGN.md diz o contrário, e é a regra que
+   sustenta o sistema inteiro:
+
+     "O marinho é tratado como MATERIAL, não como fundo: a tela é o campo, e
+      as superfícies claras são PLACAS POUSADAS sobre ele para os trechos de
+      leitura densa."
+
+   `cliente.css` faz exatamente isso no `.orc-item`: `--chapa` de fundo, anel
+   `inset 1px --fio-esc`, chanfro de 14px, tinta `--tinta`, e o selo amarelo
+   preenchido com tinta marinho por cima. É esse o alvo.
+
+   ⚠️ O MECANISMO: a placa REDECLARA OS TOKENS DE TINTA localmente. Como as
+   regras de dentro usam `var(--text)`, `var(--muted)` etc., elas viram tinta
+   escura sozinhas — não é preciso caçar cor por cor em cinquenta seletores. É
+   o mesmo mecanismo da "Regra do Preenchimento Cru" do operador.
+
+   ⚠️ E A CONTRAPARTIDA DELA: **fundo de selo usa o token CRU, texto e borda
+   usam o semântico.** `--amarelo`, `--vermelho` e `--verde` NÃO são flipados
+   (continuam saturados, para preencher selo com tinta marinho por cima);
+   `--risco`, `--ok`, `--warn` e `--accent` SÃO flipados para a família `-t`,
+   porque como TEXTO sobre claro nenhum sinal saturado passa contraste — é a
+   Regra do Amarelo Cego, que vale para o vermelho e o verde também.
+   ════════════════════════════════════════════════════════════════════════ */
+
+[data-screen^="tecnico-"] .ch-row-mob,
+[data-screen^="tecnico-"] .td-card,
+[data-screen^="tecnico-"] .card,
+[data-screen^="tecnico-"] .tec-card,
+[data-screen^="tecnico-"] .rt-card,
+[data-screen="tecnico-os"] .os-section {
+  /* tinta */
+  --text:     #061033;
+  --text-dim: #414f74;
+  --muted:    #414f74;
+  --muted2:   #6b7693;
+  /* superfícies internas */
+  --surface:  #f5f7fb;
+  --surface2: #e8ebf2;
+  --surface3: #d5dae6;
+  /* fios */
+  --fio:       rgba(6, 16, 51, .20);
+  --fio-fraco: rgba(6, 16, 51, .13);
+  /* sinal como TEXTO (o cru fica intacto para preencher selo) */
+  --risco:  var(--risco-t);
+  --ok:     var(--normal-t);
+  --warn:   var(--atencao-t);
+  --accent: var(--atencao-t);
+
+  background: rgba(6, 16, 51, .20);
+  color: var(--tinta);
+}
+[data-screen^="tecnico-"] .ch-row-mob::before,
+[data-screen^="tecnico-"] .td-card::before,
+[data-screen^="tecnico-"] .card::before,
+[data-screen^="tecnico-"] .tec-card::before,
+[data-screen^="tecnico-"] .rt-card::before,
+[data-screen="tecnico-os"] .os-section::before {
+  background: var(--chapa);
+}
+
+/* Toque: um degrau mais claro, como o `.orc-item:hover` do cliente. */
+[data-screen^="tecnico-"] .ch-row-mob:hover::before,
+[data-screen^="tecnico-"] .ch-row-mob:active::before { background: var(--chapa-cl); }
+[data-screen^="tecnico-"] .ch-row-mob:hover,
+[data-screen^="tecnico-"] .ch-row-mob:active { background: rgba(6, 16, 51, .34); }
+/* Chamado resolvido recua um degrau — não pede decisão. */
+[data-screen^="tecnico-"] .ch-row-mob[data-status="fechado"]::before { background: var(--chapa-es); }
+
+/* ── Os selos sobre a placa clara ─────────────────────────────────────
+   ⚠️ Todos com valor CRU no fundo e tinta marinho por cima. Se usassem o
+   token flipado, `--muted` viraria `#414f74` e o P4 ficaria escuro sobre
+   escuro — o defeito exato que a Regra do Preenchimento Cru existe para
+   impedir. */
+[data-screen^="tecnico-"] .ch-pri[data-p="p1"] { background: #ff5a4d; color: #030a26; }
+[data-screen^="tecnico-"] .ch-pri[data-p="p2"] { background: #fbb329; color: #030a26; }
+[data-screen^="tecnico-"] .ch-pri[data-p="p3"] { background: #1a3a9e; color: #fff; }
+[data-screen^="tecnico-"] .ch-pri[data-p="p4"] { background: #414f74; color: #fff; }
+
+/* O status continua de fio — só UMA dimensão preenche por linha. */
+[data-screen^="tecnico-"] .ch-st,
+[data-screen^="tecnico-"] .td-status-pill {
+  box-shadow: inset 0 0 0 1px rgba(6, 16, 51, .28);
+  color: var(--tinta-2);
+}
+[data-screen^="tecnico-"] .ch-st-em_atendimento,
+[data-screen^="tecnico-"] .td-status-pill.td-status-em_atendimento {
+  color: var(--atencao-t);
+  box-shadow: inset 0 0 0 1px rgba(136, 97, 22, .5);
+}
+[data-screen^="tecnico-"] .ch-st-fechado,
+[data-screen^="tecnico-"] .td-status-pill.td-status-fechado {
+  color: var(--normal-t);
+  box-shadow: inset 0 0 0 1px rgba(16, 92, 49, .45);
+}
+
+/* A distância na régua: tinta, e o pin do endereço deixa de ser amarelo —
+   amarelo não é tinta sobre claro. */
+[data-screen^="tecnico-"] .ch-dist { color: var(--tinta); }
+[data-screen^="tecnico-"] .ch-dist-vazio { color: var(--tinta-2); }
+[data-screen="tecnico-detalhe"] .td-addr svg,
+[data-screen^="tecnico-"] .ch-row-mob-desc svg { color: var(--mar-700); opacity: .8; }
+
+/* ── Cabeçalho de seção sobre placa clara ─────────────────────────────── */
+[data-screen^="tecnico-"] .cardHead { border-bottom-color: rgba(6, 16, 51, .13); }
+[data-screen^="tecnico-"] .cardHead h2 { color: var(--tinta-2); }
+[data-screen^="tecnico-"] .cardHead h2 .head-icon {
+  background: var(--mar-700);
+  color: var(--amarelo);
+}
+
+/* ── Campos dentro da placa clara ─────────────────────────────────────
+   Branco puro, como o `.campo input` do cliente. */
+[data-screen^="tecnico-"] .input,
+[data-screen^="tecnico-"] .os-select,
+[data-screen^="tecnico-"] .os-textarea,
+[data-screen^="tecnico-"] .os-corrente-input {
+  background: #fff;
+  color: var(--tinta);
+  box-shadow: inset 0 0 0 1.5px rgba(6, 16, 51, .18);
+  caret-color: var(--mar-700);
+}
+[data-screen^="tecnico-"] .input:focus,
+[data-screen^="tecnico-"] .os-select:focus,
+[data-screen^="tecnico-"] .os-textarea:focus,
+[data-screen^="tecnico-"] .os-corrente-input:focus {
+  box-shadow: inset 0 0 0 2.5px var(--mar-700);
+}
+[data-screen^="tecnico-"] .input::placeholder,
+[data-screen^="tecnico-"] .os-textarea::placeholder,
+[data-screen^="tecnico-"] .os-corrente-input::placeholder { color: #6b7693; }
+
+/* ── Botões dentro da placa clara ─────────────────────────────────────
+   O secundário some contra a própria placa se o anel for fraco: anel a 26%
+   e interior um degrau mais claro, o mesmo ajuste do `.btn-fio` do login. */
+[data-screen^="tecnico-"] .td-card .btn,
+[data-screen^="tecnico-"] .card .btn,
+[data-screen^="tecnico-"] .os-section .btn {
+  background: rgba(6, 16, 51, .26);
+  color: var(--tinta);
+}
+[data-screen^="tecnico-"] .td-card .btn::before,
+[data-screen^="tecnico-"] .card .btn::before,
+[data-screen^="tecnico-"] .os-section .btn::before { background: var(--chapa-cl); }
+[data-screen^="tecnico-"] .td-card .btn.btnAccent,
+[data-screen^="tecnico-"] .card .btn.btnAccent,
+[data-screen^="tecnico-"] .os-section .btn.btnAccent { background: var(--amarelo); color: var(--mar-900); }
+
+/* ── O instrumento do reservatório sobre placa clara ──────────────────── */
+[data-screen="tecnico-detalhe"] .td-res { background: var(--chapa-cl); }
+[data-screen="tecnico-detalhe"] .td-res-bar {
+  background: var(--chapa-es);
+  box-shadow: inset 0 0 0 1px rgba(6, 16, 51, .16);
+}
+[data-screen="tecnico-detalhe"] .td-res-bomba-on {
+  background: #63d8a0;
+  color: #030a26;
+}
+[data-screen="tecnico-detalhe"] .td-res-pct { color: var(--tinta); }
+[data-screen="tecnico-detalhe"] .td-res-pct.is-offline { color: var(--risco-t); }
+
+/* ── O.S.: o estado da seção vive no ANEL, e sobre claro ele precisa de
+   peso. Os valores de fio a 20% sumiam contra a própria placa. ───────── */
+[data-screen="tecnico-os"] .os-section.is-open     { background: var(--amarelo); }
+[data-screen="tecnico-os"] .os-section.is-complete { background: var(--normal-t); }
+[data-screen="tecnico-os"] .os-section.os-section-pendente { background: #c2261c; }
+[data-screen="tecnico-os"] .os-section-icon {
+  background: rgba(6, 16, 51, .10);
+  color: var(--tinta-2);
+}
+[data-screen="tecnico-os"] .os-section.is-complete .os-section-icon {
+  background: var(--normal-t);
+  color: #fff;
+}
+[data-screen="tecnico-os"] .os-section-required { background: #c2261c; color: #fff; }
+[data-screen="tecnico-os"] .os-chip,
+[data-screen="tecnico-os"] .os-radio-label {
+  background: #fff;
+  color: var(--tinta);
+  box-shadow: inset 0 0 0 1.5px rgba(6, 16, 51, .18);
+}
+[data-screen="tecnico-os"] .os-chip.is-on,
+[data-screen="tecnico-os"] .os-radio input:checked + .os-radio-label {
+  background: var(--amarelo);
+  color: var(--mar-900);
+  box-shadow: none;
+}
+[data-screen="tecnico-os"] .os-switch-slider { background: var(--chapa-es); box-shadow: inset 0 0 0 1.5px rgba(6, 16, 51, .18); }
+[data-screen="tecnico-os"] .os-switch input:checked + .os-switch-slider { background: var(--normal-t); box-shadow: none; }
+
+/* O timer NÃO vira placa clara: ele é INSTRUMENTO, e instrumento neste
+   sistema é sempre marinho fundo — a mesma decisão do `.instr` da landing e
+   do painel do cliente. É o único bloco escuro sobre a tela da O.S., e é isso
+   que faz o tempo saltar. */
+[data-screen="tecnico-os"] .td-timer-box { background: var(--mar-900); }
+[data-screen="tecnico-os"] .td-timer-label { color: var(--sobre-2); }
+[data-screen="tecnico-os"] .td-timer-value { color: var(--amarelo); }
+[data-screen="tecnico-os"] .os-progress { background: var(--chapa-es); box-shadow: inset 0 0 0 1px rgba(6, 16, 51, .16); }
+[data-screen="tecnico-os"] .os-progress-bar { background: var(--mar-700); }
+[data-screen="tecnico-os"] .os-progress-label { color: var(--tinta-2); }
+
+/* ── Roteiro sobre placa clara ────────────────────────────────────────── */
+[data-screen="tecnico-roteiro"] .rt-ordem { background: #1a3a9e; color: #fff; }
+[data-screen="tecnico-roteiro"] .rt-prazo.is-atrasado { color: var(--risco-t); }
+[data-screen="tecnico-roteiro"] .rt-prazo.is-hoje { color: var(--atencao-t); }
+[data-screen="tecnico-roteiro"] .rt-plano::before { background: var(--tinta-2); }
+
+/* Esqueleto de carregamento: prenuncia a placa clara que vai chegar. */
+[data-screen^="tecnico-"] .tc-skel { background: rgba(232, 235, 242, .16); }
+
+/* ════════════════════════════════════════════════════════════════════════
+   A PALAVRA EM AMARELO
+   ────────────────────────────────────────────────────────────────────────
+   O segundo pedido do Pedro. Na referência é UMA palavra da manchete que
+   recebe o amarelo ("2 orçamentos **aguardam** sua resposta") — sobre marinho,
+   onde o amarelo é livre.
+
+   ⚠️ UMA VEZ POR TELA, e só sobre o campo marinho. É o mesmo raciocínio da
+   Regra do Campo Único: se duas coisas recebem o destaque, o gesto morre. E
+   sobre placa clara ela não existe — lá o amarelo só aparece preenchido, com
+   tinta marinho por cima.
+   ════════════════════════════════════════════════════════════════════════ */
+[data-screen^="tecnico-"] .realce { color: var(--amarelo); }
+
+/* O estado vazio é a manchete da lista: é a única tela do app onde sobra
+   espaço e onde uma frase é o conteúdo. */
+[data-screen="tecnico-chamados"] .tc-empty p {
+  font-size: 22px;
+  font-weight: 800;
+  font-stretch: 108%;
+  line-height: 1.15;
+  letter-spacing: -.022em;
+}
+
+/* ── O estado DESABILITADO precisa continuar legível ──────────────────
+   Era `opacity: .5` no botão inteiro: sobre o campo marinho, o amarelo a 50%
+   vira oliva e a tinta marinho por cima some — o técnico não consegue ler o
+   rótulo do CTA principal justamente na hora em que ele está desligado, que é
+   quando o rótulo mais importa ("Confirmar e finalizar O.S." é o que diz o
+   que ele está tentando alcançar).
+   Vira anel amarelo apagado + interior marinho + tinta clara: continua
+   obviamente inativo, e continua legível (--sobre-2 sobre --mar-900 dá
+   9,6:1). WCAG isenta controle desabilitado, mas quem usa isto é gente mais
+   velha numa casa de máquinas mal iluminada. */
+[data-screen^="tecnico-"] .btn:disabled {
+  opacity: 1;
+  background: var(--fio-fraco);
+  color: var(--sobre-2);
+  cursor: not-allowed;
+}
+[data-screen^="tecnico-"] .btn.btnAccent:disabled {
+  background: rgba(251, 179, 41, .38);
+  color: var(--sobre-2);
+}
+[data-screen^="tecnico-"] .btn.btnAccent:disabled::before {
+  content: "";
+  position: absolute;
+  inset: 1.5px;
+  z-index: -2;
+  background: var(--mar-900);
+  clip-path: var(--corte);
+}
+
+/* A linha de apoio do estado vazio. `p.tc-empty-sub` (0,1,2) vence
+   `.tc-empty p` (0,1,1) sem `!important` — era com `!important` no `app.css`,
+   que foi removido junto. Ela NÃO é âmbar: o amarelo desta tela já está na
+   palavra da manchete, e um segundo acento mata o primeiro. */
+[data-screen="tecnico-chamados"] .tc-empty p.tc-empty-sub {
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: normal;
+  color: var(--sobre-2);
+}
+
+/* O ícone do estado vazio: marinho claro, não amarelo. Mesma razão. */
+[data-screen="tecnico-chamados"] .tc-empty svg {
+  color: var(--mar-500);
+  opacity: 1;
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   ÍCONES — desenhados, nunca emoji (01/09/2026, pedido do Pedro)
+   ────────────────────────────────────────────────────────────────────────
+   Saíram 📍 🔥 🕒 dos rótulos de ordenação, o ⚠ do aviso de desvio do
+   roteiro e o ✓ do botão de confirmar assinatura. Emoji tem desenho, peso e
+   cor de outra pessoa: ele nunca combina com o resto e muda de forma entre
+   Android, iOS e navegador.
+
+   ⚠️ E A JUNTA: o Chapa é chapa de aço cortada — traço de ponta RETA e canto
+   VIVO. Os SVGs do app vinham com `stroke-linecap="round"` como atributo, e
+   atributo de apresentação perde para CSS, então a regra abaixo endireita
+   TODOS de uma vez, sem editar oitenta ícones à mão.
+   ════════════════════════════════════════════════════════════════════════ */
+[data-screen^="tecnico-"] svg {
+  stroke-linecap: square;
+  stroke-linejoin: miter;
+}
+
+/* O ícone de ordenação vive FORA do <select> (um <option> não aceita SVG). */
+[data-screen^="tecnico-"] .tec-sort-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+[data-screen^="tecnico-"] .tec-sort-ico {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+  color: var(--muted);
+}
+[data-screen^="tecnico-"] .tc-sort { padding-right: 4px; }
+
+[data-screen^="tecnico-"] .btn-ico {
+  width: 17px;
+  height: 17px;
+  flex: 0 0 auto;
+  margin-right: 7px;
+}
+[data-screen="tecnico-roteiro"] .rt-desvio-ico {
+  display: inline-flex;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+}
+[data-screen="tecnico-roteiro"] .rt-desvio-ico svg { width: 18px; height: 18px; }
+
+/* ── O cabeçalho da O.S. em tela estreita ────────────────────────────────
+   A 360px o número da O.S. mais o selo de andamento transbordavam 9px. Eles
+   quebram em duas linhas em vez de vazar — medido a 360 e a 390. */
+[data-screen="tecnico-os"] .brand-text { min-width: 0; }
+[data-screen="tecnico-os"] .brand-sub {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  row-gap: 4px;
+  min-width: 0;
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   O CONTROLE DE ORDENAÇÃO — que precisa PARECER um controle
+   ────────────────────────────────────────────────────────────────────────
+   Ele era texto solto com um chevron de 13px: sem fundo, sem contorno, corpo
+   de 10,5px em mono. Num celular, para um técnico mais velho, isso não se lê
+   como "toque aqui para mudar a ordem" — se lê como legenda da lista. E é o
+   controle que decide a ORDEM DA ROTA do dia.
+
+   Ganha a mesma peça dos outros campos: chanfro, anel de fio e alvo de 44px.
+   Continua quieto (não compete com o item), mas agora tem borda.
+   ════════════════════════════════════════════════════════════════════════ */
+[data-screen^="tecnico-"] .tec-sort-wrap {
+  background: var(--fio-fraco);
+  padding: 1px;
+  --ch-p: 8px;
+  clip-path: var(--corte-p);
+  gap: 0;
+}
+[data-screen^="tecnico-"] .tec-sort-ico {
+  margin: 0 8px 0 11px;
+  color: var(--text-dim);
+}
+[data-screen^="tecnico-"] .tc-sort {
+  font-size: 11.5px;
+  color: var(--text);
+  /* 44, nao 42: o wrap tem 1px de anel de cada lado, entao o alvo real e o
+     do proprio select — medido na tela, nao deduzido. */
+  min-height: 44px;
+  padding: 0 30px 0 0;
+  /* ⚠️ Chevron redesenhado. O do `app.css` traz `stroke='%237a7e9c'` — cinza
+     fixo do Mission Control, que não acompanha a paleta — e
+     `stroke-linecap='round'`, contra a junta reta do Chapa. Data-URI não lê
+     `currentColor`, então a cor entra literal mesmo; o que dá para acertar é
+     o tom e a ponta. */
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a6b5dc' stroke-width='2.5' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-position: right 10px center;
+  background-size: 12px;
+}
+[data-screen^="tecnico-"] .tec-sortbar { padding: 8px 12px; }
+
+/* ── O aviso de ordenação ─────────────────────────────────────────────
+   Não é alarme (não é vermelho) e não é decoração: é uma correção de rota
+   que o técnico pode aplicar com um toque. Fica entre o controle e a lista,
+   que é exatamente onde a dúvida nasce. */
+[data-screen="tecnico-chamados"] .tec-aviso {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 46px;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 0;
+  border-bottom: 1px solid var(--fio-fraco);
+  background: rgba(251, 179, 41, .10);
+  color: var(--amarelo);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+[data-screen="tecnico-chamados"] .tec-aviso[hidden] { display: none !important; }
+[data-screen="tecnico-chamados"] .tec-aviso::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  background: var(--amarelo);
+  clip-path: polygon(3px 0, 100% 0, 100% calc(100% - 3px), calc(100% - 3px) 100%, 0 100%, 0 3px);
+}
+[data-screen="tecnico-chamados"] .tec-aviso-txt { flex: 1; min-width: 0; }
+/* A ação encosta na direita e é sublinhada: é o que se toca. */
+[data-screen="tecnico-chamados"] .tec-aviso-acao {
+  flex: 0 0 auto;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 2px;
+  color: var(--text);
+}
+[data-screen="tecnico-chamados"] .tec-aviso:active { background: rgba(251, 179, 41, .18); }
+[data-screen="tecnico-chamados"] .tec-aviso:disabled { cursor: default; opacity: 1; }
+[data-screen="tecnico-chamados"] .tec-aviso.is-buscando .tec-aviso-acao { opacity: .5; }
+
+/* ════════════════════════════════════════════════════════════════════════
+   O MENU NATIVO DO <select> — branco sobre branco (achado do Pedro, 01/09)
+   ────────────────────────────────────────────────────────────────────────
+   O app NUNCA estilizou `<option>` e não declarava `color-scheme` em lugar
+   nenhum. Resultado: o menu que abre ao tocar é desenhado pelo sistema, que o
+   pinta CLARO por padrão, enquanto as opções herdam a cor do `<select>` — que
+   aqui é quase-branca. Texto branco sobre fundo branco: o técnico abria a
+   ordenação e não lia nada.
+
+   ⚠️ É DEFEITO ANTIGO, não regressão do redesenho: já era assim com o âmbar,
+   só que ninguém tinha aberto o menu.
+
+   ⚠️ NÃO DÁ PARA RESOLVER SÓ COM `color-scheme: dark` NA RAIZ. O app tem
+   `<select>` nos DOIS campos: os de ordenação vivem sobre o marinho (menu
+   escuro), e o `.os-select` da O.S. vive DENTRO da placa clara (menu claro).
+   Um `color-scheme` global acertaria um e quebraria o outro — trocaria branco
+   sobre branco por escuro sobre escuro. Por isso cada select declara o seu, e
+   as `option` levam cor explícita em vez de herdar.
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* Sobre o campo marinho: menu escuro. */
+[data-screen^="tecnico-"] .tc-sort {
+  color-scheme: dark;
+}
+[data-screen^="tecnico-"] .tc-sort option {
+  background-color: #051342;
+  color: #f2f5ff;
+}
+
+/* Dentro da placa clara: menu claro. */
+[data-screen^="tecnico-"] .os-select,
+[data-screen^="tecnico-"] .os-section select,
+[data-screen^="tecnico-"] .td-card select,
+[data-screen^="tecnico-"] .card select {
+  color-scheme: light;
+}
+[data-screen^="tecnico-"] .os-select option,
+[data-screen^="tecnico-"] .os-section select option,
+[data-screen^="tecnico-"] .td-card select option,
+[data-screen^="tecnico-"] .card select option {
+  background-color: #ffffff;
+  color: #061033;
+}
+
+/* ── Foco: o anel é da casa, não do navegador ─────────────────────────
+   O `<select>` de ordenação ficava com o anel branco do Chrome — que não
+   pertence a sistema visual nenhum e é justamente o tipo de superfície que a
+   gente não desenha e sai no produto.
+
+   ⚠️ `inset`, não `outline`: o wrap é chanfrado por `clip-path`, e `clip-path`
+   recorta tudo que é pintado FORA da caixa — o anel seria calculado e não
+   apareceria. Mesma armadilha do `login.css`.
+
+   ⚠️ Sem `:has()` no seletor. Ele resolveria isto com mais elegância (pintar o
+   anel do wrap), mas só existe do Chrome 105 em diante e este CSS roda no
+   WebView do aparelho — o mesmo motivo que barra o `color-mix` nesta folha. */
+[data-screen^="tecnico-"] .tc-sort:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px var(--amarelo);
+}
+[data-screen^="tecnico-"] .tec-aviso:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px var(--amarelo);
+}
+[data-screen^="tecnico-"] .tec-tab:focus-visible,
+[data-screen^="tecnico-"] .tec-refresh:focus-visible,
+[data-screen^="tecnico-"] .cli-nav button:focus-visible {
+  outline: 2px solid var(--amarelo);
+  outline-offset: -2px;
+}
+/* O item da lista é chanfrado: o anel vira o próprio anel da chapa. */
+[data-screen^="tecnico-"] .ch-row-mob:focus-visible {
+  outline: none;
+  background: var(--amarelo);
+}
