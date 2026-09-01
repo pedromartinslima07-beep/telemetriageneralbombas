@@ -286,11 +286,14 @@ aliases:
   formulário sobrevivem à falta de sinal. ✅ **etapa 2** (01/09): fotos e
   assinatura vão para o **IndexedDB**, e a foto tirada sem sinal aparece na tela
   marcada como "na fila" e sobe sozinha quando a rede volta. 📋 Faltam:
-  - **3 — finalizar offline.** ⚠️ **Exige backend:** `POST /:id/finalizar` grava
-    `finalizada_em = NOW()`. Uma O.S. terminada às 14h no subsolo e sincronizada
-    às 17h ficaria como 17h, e isso alimenta o `tempo_resolucao_seg` (o SLA). O
-    app teria de mandar o horário dele — e aí passa a depender do relógio do
-    celular, que precisa de checagem de sanidade (recusar futuro ou muito velho).
+  - ✅ **3 — finalizar offline** (01/09, **migration 081**). O app manda
+    `finalizada_em`; o backend usa esse instante na O.S. **e no chamado**
+    (`fechado_em`, `tempo_resolucao_seg`), com sanidade que cai para `NOW()` sem
+    recusar o envio. `sincronizada_em` guarda quando chegou.
+    - ⏳ **RODAR A MIGRATION 081 EM PRODUÇÃO** —
+      `node scripts/migrate.js 081_os_finalizada_offline.sql --prod`. ⚠️ O código
+      **escreve** nessa coluna: se o backend subir antes, **toda finalização
+      quebra**, não só as offline. Lição da Fase 7E.
   - **4 — abrir a O.S. offline**, pré-carregando os chamados do dia enquanto há
     sinal. Hoje a tela depende do `GET /ordens-servico/:id`.
   - **5 — a O.S. fechada do outro lado enquanto o técnico estava offline.**

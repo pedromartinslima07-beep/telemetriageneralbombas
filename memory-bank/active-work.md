@@ -742,6 +742,58 @@ Faltam a etapa 3 (finalizar offline — **exige backend**) e a 4 (abrir offline)
 
 ---
 
+### 8ª rodada — a O.S. fecha no subsolo (etapa 3, migration 081)
+
+⏳ **PENDÊNCIA QUE BLOQUEIA O DEPLOY — LEIA ANTES DE PUBLICAR.**
+A **migration 081 rodou só no banco de TESTE**. O código desta rodada **escreve**
+em `ordens_servico.sincronizada_em`. Se o backend for para o ar antes da coluna
+existir, **TODA finalização de O.S. em produção quebra** — não só as offline. É
+a lição da Fase 7E.
+`node scripts/migrate.js 081_os_finalizada_offline.sql --prod`
+(A tentativa automática foi barrada pelo classificador de permissão; precisa do
+Pedro.) **O commit está local e NÃO foi publicado por causa disso.**
+
+**O que entrou:** o técnico finaliza a O.S. sem sinal e ela sobe sozinha.
+
+⚠️ **O RISCO REAL NÃO ERA FECHAR OFFLINE, ERA O SLA.** O `finalizar` gravava
+`finalizada_em = NOW()`, e o mesmo `NOW()` fechava o chamado e calculava o
+`tempo_resolucao_seg`. Uma O.S. resolvida em 40 min no subsolo e sincronizada 3h
+depois entraria no SLA **como 3h40**. Agora o app manda o horário e o backend usa
+esse instante nos dois lugares.
+
+⚠️ **`sincronizada_em` existe porque o horário passa a vir do relógio do
+celular.** `ordens_servico` **não tem `atualizado_em`** — sem a coluna não haveria
+rastro nenhum de que aquele valor não veio do servidor.
+
+⚠️ **Horário inválido NÃO recusa o envio** (cai para `NOW()`). Recusar prenderia
+o trabalho do técnico na fila do aparelho para sempre.
+
+⚠️ **`$n` repetido com cast em TODOS os usos** — valor de coluna E dentro de um
+`EXTRACT`. É o 42P08 do CLAUDE.md, recusado no PARSE. **A rota foi exercitada de
+verdade** (Express + JWT + fixtures no banco de teste), porque `node --check` não
+pega isso.
+
+⚠️ **ORDEM OBRIGATÓRIA: campos → fotos → finalizar**, e as funções **recebem o
+`osId`** em vez de olhar `OS.data` — o técnico pode ter fechado três O.S. antes
+de o sinal voltar, e nenhuma está aberta na tela.
+
+⚠️ **A marcação "Aguardando envio" na lista estava dentro do `try` do
+carregamento** — e é justamente no subsolo que o `GET` falha, então ela só
+apareceria quando já não fosse necessária. O técnico veria o chamado que acabou
+de fechar como "Em atendimento" e refaria o serviço. Passou para o `finally`.
+**Achado no teste, não na leitura.**
+
+⚠️ **A tela de conclusão não diz "chamado fechado" enquanto está na fila.** Ele
+juraria que enviou.
+
+**Verificado:** 15 checagens na rota (incluindo `tempo_resolucao_seg` = 3601s,
+contando até o serviço) + 17 no app (ordem observada: patch → foto → finalizar).
+
+Faltam a **etapa 4** (abrir a O.S. offline) e a **5** (O.S. fechada do outro lado
+enquanto o técnico estava sem sinal).
+
+---
+
 ## ✅ Aprovados: clicar no orçamento abre o chamado (31/08)
 
 Pedido do Pedro na mesma mensagem do recorte do item. A tela dizia o que foi

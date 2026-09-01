@@ -566,7 +566,7 @@ router.post("/:id/finalizar", authRequired, osDonoOuAdmin({ forWrite: true }), a
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
 
-  const { lat, lng } = req.body || {};
+  const { lat, lng, finalizada_em } = req.body || {};
   let latN = null, lngN = null;
   if (lat != null && lng != null) {
     latN = Number(lat);
@@ -576,6 +576,22 @@ router.post("/:id/finalizar", authRequired, osDonoOuAdmin({ forWrite: true }), a
       return res.status(400).json({ error: "lat/lng inválidos" });
     }
   }
+
+  // ── Horário vindo do app (O.S. finalizada sem sinal) ───────────────────
+  // O app manda `finalizada_em` quando o técnico fechou a O.S. offline e a
+  // sincronização só aconteceu depois. Sem isto, uma O.S. terminada às 14h no
+  // subsolo e enviada às 17h ficaria registrada como 17h — e é esse valor que
+  // alimenta o `tempo_resolucao_seg`, ou seja, o SLA.
+  //
+  // ⚠️ ISTO É O RELÓGIO DO CELULAR, que pode estar errado. Por isso passa por
+  // sanidade abaixo, e por isso a coluna `sincronizada_em` existe (migration
+  // 081): ela guarda quando o servidor RECEBEU, para dar como auditar depois.
+  let quandoCliente = null;
+  if (finalizada_em != null) {
+    const t = new Date(finalizada_em);
+    if (!Number.isNaN(t.getTime())) quandoCliente = t;
+  }
+  const veioDoApp = quandoCliente != null;
 
   const client = await pool.connect();
   try {
@@ -626,15 +642,43 @@ router.post("/:id/finalizar", authRequired, osDonoOuAdmin({ forWrite: true }), a
       }
     }
 
+    // Sanidade do horário do app. Precisa do `os` em mãos (a chegada), por isso
+    // acontece aqui e não lá em cima.
+    //
+    // ⚠️ HORÁRIO INVÁLIDO NÃO RECUSA O ENVIO. Se recusássemos, o trabalho do
+    // técnico ficaria preso na fila do aparelho para sempre — o pior desfecho
+    // possível. Ele cai para NOW(), e `sincronizada_em` continua marcado, então
+    // a auditoria enxerga que veio do app com horário descartado.
+    let quando = null; // null => NOW()
+    if (quandoCliente) {
+      const agora = Date.now();
+      const ms = quandoCliente.getTime();
+      const futuro   = ms > agora + 5 * 60 * 1000;                 // 5 min de folga
+      const antigo   = ms < agora - 7 * 24 * 60 * 60 * 1000;       // 7 dias
+      const anterior = os.chegada_em && ms < new Date(os.chegada_em).getTime();
+      if (futuro || antigo || anterior) {
+        console.warn(
+          `[ordens-servico] OS#${id}: horário do app descartado (${quandoCliente.toISOString()}) — ` +
+          `${futuro ? "futuro" : antigo ? "antigo demais" : "anterior à chegada"}`);
+      } else {
+        quando = quandoCliente.toISOString();
+      }
+    }
+
+    // ⚠️ `$1::timestamptz` EM TODOS OS USOS. O mesmo parâmetro é valor de duas
+    // colunas aqui e entra num cálculo no UPDATE de chamados logo abaixo —
+    // exatamente o caso que o Postgres recusa no PARSE com
+    // `42P08 inconsistent types deduced for parameter`. Ver CLAUDE.md.
     const upd = await client.query(
       `UPDATE ordens_servico
-          SET finalizada_em = NOW(),
-              saida_em      = NOW(),
-              saida_lat     = COALESCE($1, saida_lat),
-              saida_lng     = COALESCE($2, saida_lng)
-        WHERE id = $3
+          SET finalizada_em   = COALESCE($1::timestamptz, NOW()),
+              saida_em        = COALESCE($1::timestamptz, NOW()),
+              sincronizada_em = CASE WHEN $2::boolean THEN NOW() ELSE NULL END,
+              saida_lat       = COALESCE($3, saida_lat),
+              saida_lng       = COALESCE($4, saida_lng)
+        WHERE id = $5
         RETURNING *`,
-      [latN, lngN, id]
+      [quando, veioDoApp, latN, lngN, id]
     );
 
     if (os.chamado_id) {
@@ -647,15 +691,24 @@ router.post("/:id/finalizar", authRequired, osDonoOuAdmin({ forWrite: true }), a
       // Fase 8A: o técnico chegou pra atender (status já passou de 'aberto'),
       // então primeira_resposta_em normalmente já está preenchida. COALESCE
       // garante backfill se por algum motivo ainda for NULL.
+      // ⚠️ O chamado fecha NO MESMO INSTANTE da O.S., não em NOW(). Se ele
+      // fechasse na hora da sincronização, o `tempo_resolucao_seg` — que É o
+      // SLA — contaria as horas que o técnico passou sem sinal como tempo de
+      // atendimento. Uma O.S. resolvida em 40 minutos no subsolo apareceria
+      // como 3h40 só porque o sinal demorou a voltar.
+      //
+      // ⚠️ `$2::timestamptz` nos DOIS usos (valor de coluna e dentro do
+      // EXTRACT). É o caso do 42P08 descrito no CLAUDE.md.
       await client.query(
         `UPDATE chamados
            SET status = 'fechado',
-               fechado_em = NOW(),
+               fechado_em = COALESCE($2::timestamptz, NOW()),
                primeira_resposta_em = COALESCE(primeira_resposta_em, NOW()),
-               tempo_resolucao_seg = GREATEST(0, EXTRACT(EPOCH FROM (NOW() - criado_em))::int),
+               tempo_resolucao_seg = GREATEST(0, EXTRACT(EPOCH FROM (
+                 COALESCE($2::timestamptz, NOW()) - criado_em))::int),
                atualizado_em = NOW()
          WHERE id = $1`,
-        [os.chamado_id]
+        [os.chamado_id, quando]
       );
       if (antesCh.rows.length > 0) {
         await registrarMudancas({

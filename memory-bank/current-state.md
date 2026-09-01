@@ -249,7 +249,12 @@ ESP32 (sonda 4-20mA + SCT-013)
   fila"** — escondê-la faria o técnico fotografar de novo e duplicar. Sobem uma
   a uma quando a rede volta (o corpo do POST é base64 e o `express.json` corta
   em 8 MB). `finalizarOS` descarrega a fila antes de fechar e **barra** se
-  sobrar foto. ⚠️ **FINALIZAR ainda exige rede** (etapa 3, precisa de backend).
+  sobrar foto. ✅ **FINALIZAR também funciona sem sinal** (etapa 3, migration 081): o app manda
+  o horário em que o técnico terminou, e o backend usa esse instante na O.S. **e
+  no chamado** — com `NOW()`, as horas sem sinal entrariam no `tempo_resolucao_seg`
+  (o SLA) como tempo de atendimento. ⏳ **A migration 081 está pendente em
+  produção** e o código escreve na coluna nova: subir o backend antes quebra toda
+  finalização.
   ⚠️ Falta de sinal é estado âmbar, não alerta vermelho; vermelho ficou para
   recusa do servidor (`err.httpStatus` separa os dois).
 - (histórico) **A etapa 1 (01/09/2026):** O patch

@@ -7830,6 +7830,95 @@ pega o `start_url` certo e economiza o salto.
 
 Sem migration. Bump de `login.js?v=8` no `login.html`.
 
+
+### 2026-09-01 (6ª rodada) · A O.S. fecha no subsolo (etapa 3, migration 081)
+
+Terceira das cinco etapas do trabalho offline, e a primeira que mexe no
+**backend**. O técnico agora **finaliza** a O.S. sem sinal; ela sobe sozinha
+depois. Com isso o pedido original do Pedro está atendido para o caminho
+principal.
+
+⚠️ **O HORÁRIO GRAVADO É O DO SERVIÇO, NÃO O DO ENVIO — e é aqui que estava o
+risco real.** O `POST /:id/finalizar` gravava `finalizada_em = NOW()`, e o mesmo
+`NOW()` fechava o chamado e calculava `tempo_resolucao_seg`. Uma O.S. resolvida
+em 40 minutos no subsolo e sincronizada 3h depois entraria no **SLA como 3h40**.
+Agora o app manda `finalizada_em` e o backend usa esse instante nos dois lugares.
+
+**Migration 081 — `ordens_servico.sincronizada_em`** (+ índice parcial). NULL =
+finalizada online; preenchida = o app mandou o próprio horário, e o valor é
+quando chegou.
+
+⚠️ **Por que a coluna precisa existir:** a partir daqui o `finalizada_em` vem do
+**relógio do celular**, que pode estar errado. E `ordens_servico` **não tem
+`atualizado_em`** — sem esta coluna não sobraria nem rastro indireto de que
+aquele horário não veio do servidor. Ela é o que torna aceitável confiar no
+cliente.
+
+⚠️ **Horário inválido NÃO recusa o envio.** Sanidade: futuro além de 5 min, mais
+velho que 7 dias, ou anterior à `chegada_em` → cai para `NOW()`. Recusar
+deixaria o trabalho do técnico preso na fila do aparelho para sempre, que é o
+pior desfecho possível. `sincronizada_em` é marcada mesmo no descarte, então a
+auditoria vê que veio do app com horário rejeitado.
+
+⚠️ **`$n` REPETIDO COM CAST EXPLÍCITO EM TODOS OS USOS.** O mesmo parâmetro é
+valor de duas colunas na O.S. **e** entra num `EXTRACT` no UPDATE do chamado —
+exatamente o `42P08 inconsistent types deduced for parameter` do CLAUDE.md, que
+o Postgres recusa no PARSE, antes de olhar valor nenhum. `node --check` e UPDATE
+manual não pegam: **a rota foi exercitada de verdade**, com Express, JWT de
+técnico e fixtures criadas e removidas no banco de teste.
+
+── NO APP ───────────────────────────────────────────────────────────────
+
+⚠️ **ORDEM OBRIGATÓRIA: campos → fotos → finalizar.** O backend recusa `PATCH` e
+envio de foto em O.S. já finalizada; inverter deixa as fotos órfãs.
+`_osEnviarFinalizacaoPendente(osId)` faz as três e **recebe o id** em vez de
+olhar `OS.data` — o técnico pode ter fechado três O.S. antes de o sinal voltar,
+e nenhuma delas está aberta na tela. Por isso `_osSubirFotosDaFila(osId)` foi
+separada da versão que atualiza a interface.
+
+⚠️ **`finalizarOS` parou de abortar em falha de rede.** O auto-save estourando
+sem sinal derrubava a finalização inteira — que é justamente o que o técnico do
+subsolo precisava fazer. Agora só a recusa do **servidor** interrompe.
+
+⚠️ **A tela de conclusão não mente:** enquanto está na fila diz "Guardada no
+aparelho · envia sozinha", não "chamado fechado". O técnico juraria que enviou,
+e é ele que responde quando o escritório não acha a O.S.
+
+⚠️ **A lista marca "Aguardando envio" MESMO COM O `GET` FALHANDO**, e isso foi
+achado no teste. A marcação estava dentro do `try` do carregamento: como é
+justamente no subsolo que o `GET` falha, ela só apareceria quando já não fosse
+necessária — e o técnico veria o chamado que acabou de fechar como "Em
+atendimento", e refaria o serviço. Passou para o `finally`.
+
+⚠️ **Reabrir a O.S. finalizada consulta a fila ANTES do `GET`** — depois não
+funcionaria offline: ele receberia "erro ao carregar" numa O.S. que ele mesmo
+fechou.
+
+── VERIFICAÇÃO ──────────────────────────────────────────────────────────
+
+**Rota** (Express + JWT + banco de teste, 15 checagens): finalização normal
+deixa `sincronizada_em` NULL; offline de 3h atrás grava o horário do app em
+`finalizada_em` e `saida_em`, marca `sincronizada_em`, e o
+**`tempo_resolucao_seg` deu 3601s** — contando do chamado até o serviço, não até
+a sincronização; relógio adiantado e horário anterior à chegada caem para
+`NOW()` **sem recusar**; O.S. já finalizada continua recusada com 400.
+
+**App** (rede caindo e voltando, 17 checagens): foto + campo + finalizar sem
+sinal → tudo na fila, tela em modo pendente, nada no servidor; a lista marca
+"Aguardando envio"; reabrir mostra a conclusão sem botão de finalizar; a rede
+volta e a ordem observada foi exatamente **patch → foto → finalizar**, com o
+servidor recebendo o horário do subsolo.
+
+Layout conferido nas 4 telas × 2 larguras.
+
+⚠️ **A MIGRATION 081 RODOU SÓ NO BANCO DE TESTE.** Em produção ela está
+**pendente** — e o código desta entrada **escreve** em `sincronizada_em`. Se o
+backend for para o ar antes da coluna existir, **toda finalização quebra**, não
+só as offline. É a lição da Fase 7E, e por isso este commit não deve ser
+publicado antes de `node scripts/migrate.js 081_os_finalizada_offline.sql --prod`.
+
+Faltam a etapa 4 (abrir a O.S. offline) e a 5 (O.S. fechada do outro lado).
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

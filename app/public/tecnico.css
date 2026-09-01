@@ -1843,3 +1843,26 @@ body::before { content: none !important; }
   --ch-p: 4px;
   clip-path: var(--corte-p);
 }
+
+/* ── Finalizada sem sinal, esperando para subir ───────────────────────
+   A tela de conclusão NÃO diz "chamado fechado" quando a finalização ainda
+   está no aparelho: o técnico juraria que enviou, e é ele que responde quando
+   o escritório não acha a O.S. Âmbar de espera, não verde de concluído. */
+[data-screen="tecnico-os"] .os-success.is-pendente .os-success-icon {
+  background: rgba(251, 179, 41, .14);
+  color: var(--amarelo);
+}
+[data-screen="tecnico-os"] .os-success.is-pendente .os-success-sub strong {
+  display: inline-block;
+  margin-top: 6px;
+  color: var(--atencao-t);
+}
+
+/* O chamado que este aparelho fechou e o servidor ainda não sabe. */
+[data-screen="tecnico-chamados"] .ch-row-mob.is-aguardando::before {
+  background: var(--chapa-es);
+}
+[data-screen^="tecnico-"] .ch-st-aguardando {
+  color: var(--atencao-t);
+  box-shadow: inset 0 0 0 1px rgba(136, 97, 22, .5);
+}

@@ -467,22 +467,54 @@ isso para abortar antes de fechar a O.S. No caminho do debounce não há quem
 pegue — sem o `.catch()` cada campo digitado sem sinal vira promessa rejeitada
 sem tratamento.
 
-**O QUE JÁ FUNCIONA SEM SINAL** (etapas 1 e 2) e o que ainda não:
+**O QUE JÁ FUNCIONA SEM SINAL** (etapas 1, 2 e 3) e o que ainda não:
 
 | | Sem sinal |
 |---|---|
 | Campos do formulário | ✅ |
 | Fotos | ✅ ficam na fila e sobem depois |
 | Assinatura | ✅ |
-| **Finalizar a O.S.** | ❌ exige rede |
+| **Finalizar a O.S.** | ✅ fecha no aparelho e sobe sozinha |
 | Abrir uma O.S. ainda não aberta | ❌ depende do `GET` |
 | O.S. fechada do outro lado enquanto ele estava offline | ❌ sem caminho definido |
 
-⚠️ **Finalizar offline exige backend:** `POST /:id/finalizar` grava
-`finalizada_em = NOW()`, então uma O.S. terminada às 14h e sincronizada às 17h
-ficaria registrada como 17h — e isso alimenta o `tempo_resolucao_seg`, que é o
-SLA. O app teria de mandar o horário dele, e aí passa a depender do relógio do
-celular (precisa de checagem de sanidade).
+## Finalizar sem sinal (etapa 3, 01/09/2026 — migration 081)
+
+O técnico fecha a O.S. no subsolo; ela sobe sozinha depois. Exigiu backend.
+
+⚠️ **O HORÁRIO GRAVADO É O DO SERVIÇO, não o do envio.** O app manda
+`finalizada_em` no corpo do `POST /:id/finalizar`, e o backend usa esse instante
+para a O.S. **e para o chamado** (`fechado_em`, `tempo_resolucao_seg`). Com
+`NOW()`, as horas que o técnico passou sem sinal entrariam no **SLA** como tempo
+de atendimento: 40 minutos de serviço viram 3h40.
+
+⚠️ **`sincronizada_em` (migration 081) é o que torna isso auditável.** O horário
+passa a vir do relógio do celular; a coluna guarda quando o servidor recebeu.
+Sem ela não haveria rastro — `ordens_servico` não tem `atualizado_em`.
+
+⚠️ **Horário inválido NÃO recusa o envio.** O backend faz sanidade (futuro além
+de 5 min, mais de 7 dias, anterior à `chegada_em`) e cai para `NOW()` — recusar
+deixaria o trabalho preso na fila do aparelho para sempre, que é o pior
+desfecho. `sincronizada_em` fica marcada mesmo no descarte.
+
+⚠️ **ORDEM OBRIGATÓRIA na sincronização: campos → fotos → finalizar.** O backend
+recusa `PATCH` e envio de foto em O.S. já finalizada; inverter deixa as fotos
+órfãs. `_osEnviarFinalizacaoPendente(osId)` faz as três, e **recebe o id** em vez
+de olhar `OS.data` — o técnico pode ter fechado três O.S. antes de o sinal
+voltar, e nenhuma delas está aberta na tela.
+
+⚠️ **A tela de conclusão não mente.** Enquanto está na fila ela diz "Guardada no
+aparelho · envia sozinha", **não** "chamado fechado". O técnico juraria que
+enviou, e é ele que responde quando o escritório não acha a O.S.
+
+⚠️ **A lista marca o chamado como "Aguardando envio", e isso roda MESMO com o
+`GET` falhando.** O servidor ainda o considera aberto. Se a marcação dependesse
+da lista carregar, ela só apareceria quando já não fosse necessária — porque é
+justamente no subsolo que o `GET` falha, e é lá que ele refaria o serviço.
+
+⚠️ **Reabrir uma O.S. já finalizada no aparelho mostra a conclusão, e a consulta
+à fila vem ANTES do `GET`.** Depois do `GET` não funcionaria offline: o técnico
+receberia "erro ao carregar" numa O.S. que ele mesmo acabou de fechar.
 
 ⚠️ **O caso sem caminho definido:** se a O.S. for finalizada ou fechada do outro
 lado enquanto o técnico está offline, a fila dele chega e **não tem onde

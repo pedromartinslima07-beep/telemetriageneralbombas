@@ -375,10 +375,21 @@ async function carregarMeusChamados(silent = false) {
     const data = await api("/chamados/meus");
     TC.chamados = Array.isArray(data) ? data : [];
     TC.syncedAt = new Date();
-    renderTecnicoChamados();
   } catch (err) {
     if (!silent) showAlert(alertEl, err.message, "error");
   } finally {
+    // ⚠️ ISTO RODA MESMO QUANDO O `GET` FALHA, e é de propósito.
+    //
+    // O servidor ainda acha que estes chamados estão abertos, porque a
+    // finalização está guardada no aparelho. Sem a marca, o técnico que fecha
+    // uma O.S. no subsolo e volta para a lista vê o chamado como "Em
+    // atendimento" — e refaz o serviço.
+    //
+    // E é justamente no subsolo que o `GET` falha. Se a marcação dependesse
+    // dele, ela só apareceria quando já não fosse necessária.
+    TC.finalizadasPendentes = new Set(
+      (await _osTodasFinalizacoes()).map((f) => f.chamadoId).filter((x) => x != null));
+    renderTecnicoChamados();
     refresh.classList.remove("is-refreshing");
   }
 }
@@ -664,9 +675,11 @@ function renderCardChamado(c) {
     : c.status === "fechado" ? "Resolvido" : "Aberto";
 
   const pri = String(c.prioridade || "p4").toLowerCase();
+  // Fechado por este aparelho, ainda não confirmado pelo servidor.
+  const aguardando = !!(TC.finalizadasPendentes && TC.finalizadasPendentes.has(c.id));
 
   return `
-    <button type="button" class="ch-row-mob" data-chamado="${c.id}" data-pri="${escapeHtml(pri)}" data-status="${escapeHtml(c.status)}">
+    <button type="button" class="ch-row-mob${aguardando ? " is-aguardando" : ""}" data-chamado="${c.id}" data-pri="${escapeHtml(pri)}" data-status="${escapeHtml(aguardando ? "fechado" : c.status)}">
       <div class="ch-regua">
         <span class="ch-pri" data-p="${escapeHtml(pri)}">${escapeHtml(pri.toUpperCase())}</span>
         ${distLabel
@@ -683,7 +696,9 @@ function renderCardChamado(c) {
         </div>
         <div class="ch-row-mob-pills">
           <span class="ch-cat-badge">${escapeHtml(cat)}</span>
-          <span class="ch-st ch-st-${escapeHtml(c.status)}">${stLabel}</span>
+          ${aguardando
+            ? `<span class="ch-st ch-st-aguardando">Aguardando envio</span>`
+            : `<span class="ch-st ch-st-${escapeHtml(c.status)}">${stLabel}</span>`}
           <span class="ch-row-mob-meta">há ${tempo}</span>
         </div>
       </div>
@@ -2086,6 +2101,24 @@ async function abrirFormularioOS(chamadoId, osId) {
   document.querySelector(".os-shell .td-card").style.display = "";
   document.getElementById("osCtaBar").style.display = "";
 
+  // ⚠️ A FINALIZAÇÃO GUARDADA É CONSULTADA ANTES DO `GET`, e isso é o que faz a
+  // tela funcionar SEM SINAL. Se a checagem viesse depois de carregar a O.S., o
+  // técnico que tocasse no chamado no subsolo receberia "erro ao carregar" numa
+  // O.S. que ele mesmo acabou de fechar — tudo que é preciso saber já está no
+  // aparelho.
+  if (!IS_DEMO && osId) {
+    const jaFinalizada = await _osLerFinalizacao(Number(osId));
+    if (jaFinalizada) {
+      OS.data = { id: Number(osId), numero: jaFinalizada.numero || `OS-${osId}`, fotos: [], pecas: [] };
+      document.getElementById("osNumero").textContent = OS.data.numero;
+      hideAlert(document.getElementById("osAlert"));
+      _osMostrarEstadoEnvio("ok");
+      mostrarOSSucesso({ pendente: true });
+      _osSincronizarTudoPendente().catch(() => {});
+      return;
+    }
+  }
+
   document.getElementById("osSections").innerHTML = `
     <div class="tc-skel" style="height:80px"></div>
     <div class="tc-skel" style="height:80px"></div>
@@ -2270,6 +2303,10 @@ function _idb() {
         const st = db.createObjectStore("fotos", { keyPath: "localId" });
         st.createIndex("porOs", "osId", { unique: false });
       }
+      // Finalizações feitas sem sinal, esperando para subir (etapa 3).
+      if (!db.objectStoreNames.contains("finalizacoes")) {
+        db.createObjectStore("finalizacoes", { keyPath: "osId" });
+      }
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error || new Error("Falha ao abrir o IndexedDB"));
@@ -2290,6 +2327,96 @@ const _idbGet = (store, key) => _idbTx(store, "readonly", (s) => s.get(key));
 const _idbDel = (store, key) => _idbTx(store, "readwrite", (s) => s.delete(key));
 const _idbPorOs = (store, osId) =>
   _idbTx(store, "readonly", (s) => s.index("porOs").getAll(osId));
+const _idbTodos = (store) => _idbTx(store, "readonly", (s) => s.getAll());
+
+// ---- Finalização feita sem sinal (etapa 3) ----
+//
+// ⚠️ O HORÁRIO É GRAVADO NA HORA EM QUE O TÉCNICO FECHOU, não na hora do envio.
+// É esse valor que o backend usa para `finalizada_em` e para o
+// `tempo_resolucao_seg` do chamado — o SLA. Sem ele, uma O.S. resolvida em 40
+// minutos no subsolo apareceria como 3h40 só porque o sinal demorou a voltar.
+// O servidor faz sanidade nesse horário e carimba `sincronizada_em` (migration
+// 081) para dar como auditar.
+const _osEnfileirarFinalizacao = (osId, chamadoId, geo, numero) =>
+  _idbPut("finalizacoes", {
+    osId, chamadoId,
+    // Guardado junto para a tela de conclusão poder mostrar o número da O.S.
+    // sem precisar de rede ao reabrir.
+    numero: numero || null,
+    finalizada_em: new Date().toISOString(),
+    lat: geo?.lat ?? null, lng: geo?.lng ?? null,
+    em: Date.now(),
+  });
+const _osLerFinalizacao = (osId) => _idbGet("finalizacoes", osId).catch(() => null);
+const _osTodasFinalizacoes = () => _idbTodos("finalizacoes").then((r) => r || []).catch(() => []);
+const _osLimparFinalizacao = (osId) => _idbDel("finalizacoes", osId).catch(() => {});
+
+// Sobe uma finalização guardada. Ordem obrigatória: campos → fotos → finalizar.
+// O backend recusa envio de foto em O.S. já finalizada, então inverter a ordem
+// deixaria as fotos órfãs.
+async function _osEnviarFinalizacaoPendente(osId) {
+  const f = await _osLerFinalizacao(osId);
+  if (!f || IS_DEMO) return false;
+
+  // ⚠️ ORDEM OBRIGATÓRIA, e ela vale para O.S. QUE NEM ESTÃO ABERTAS NA TELA —
+  // o técnico pode ter fechado três no subsolo. Por isso estas duas etapas
+  // recebem o `osId` e não olham `OS.data`.
+  //
+  // 1) campos: o backend valida assinatura, resultado e tipo de serviço no
+  //    finalizar. Se o rascunho não subir antes, ele recusa a finalização.
+  const rascunho = await _osLerRascunhoCompleto(osId);
+  if (rascunho) {
+    try {
+      await api(`/ordens-servico/${osId}`, { method: "PATCH", body: rascunho });
+      _osLimparRascunho(osId);
+    } catch (err) {
+      if (ehFalhaDeRede(err)) return false;
+      // Recusa do servidor: sem os campos não adianta finalizar.
+      console.warn("[os] campos recusados na sincronização:", err.message);
+      return false;
+    }
+  }
+  // 2) fotos: o backend RECUSA envio de foto em O.S. já finalizada, então elas
+  //    têm de subir antes — se ficarem para depois, ficam órfãs.
+  const restantes = await _osSubirFotosDaFila(osId);
+  if (restantes > 0) return false;
+
+  try {
+    await api(`/ordens-servico/${osId}/finalizar`, {
+      method: "POST",
+      body: {
+        finalizada_em: f.finalizada_em,
+        ...(f.lat != null && f.lng != null ? { lat: f.lat, lng: f.lng } : {}),
+      },
+    });
+    await _osLimparFinalizacao(osId);
+    return true;
+  } catch (err) {
+    if (ehFalhaDeRede(err)) return false; // fica para a próxima
+    // ⚠️ O SERVIDOR RECUSOU. Insistir seria fila infinita. Tira da fila e conta
+    // — em voz alta, porque o técnico acha que essa O.S. está fechada. É o caso
+    // da "O.S. fechada do outro lado" (etapa 5): aqui ele pelo menos fica
+    // sabendo, em vez de descobrir semanas depois.
+    await _osLimparFinalizacao(osId);
+    console.warn("[os] finalização recusada pelo servidor:", err.message);
+    showAlert(document.getElementById("osAlert"),
+      "A finalização desta O.S. não foi aceita: " + err.message, "error");
+    return false;
+  }
+}
+
+// Percorre TODAS as finalizações guardadas, não só a da tela aberta — o técnico
+// pode ter fechado três O.S. no subsolo antes de o sinal voltar.
+async function _osSincronizarTudoPendente() {
+  const lista = await _osTodasFinalizacoes();
+  let subiu = 0;
+  for (const f of lista) {
+    if (await _osEnviarFinalizacaoPendente(f.osId)) subiu++;
+    else break; // sem rede: as demais esperam
+  }
+  if (subiu && typeof carregarMeusChamados === "function") carregarMeusChamados(true);
+  return subiu;
+}
 
 // ---- Assinatura: só no IndexedDB ----
 const _osSalvarAssinatura = (osId, dataUrl) =>
@@ -2373,11 +2500,12 @@ function _osEnfileirarFoto(osId, dataUrl, tipo) {
 // Sobe o que estiver na fila, uma por vez. Para no primeiro erro de rede — não
 // adianta insistir nas seguintes, e assim a ordem em que foram tiradas é
 // preservada.
-async function _osEnviarFotosPendentes() {
-  if (IS_DEMO || !OS.data) return;
-  const osId = OS.data.id;
+// Sobe a fila de UMA O.S. pelo id, sem depender de ela estar aberta na tela.
+// Devolve quantas continuam na fila.
+async function _osSubirFotosDaFila(osId) {
+  if (IS_DEMO) return 0;
   const fila = await _osLerFotosPendentes(osId);
-  if (!fila.length) return;
+  if (!fila.length) return 0;
 
   for (const f of fila) {
     try {
@@ -2386,11 +2514,14 @@ async function _osEnviarFotosPendentes() {
         body: { image_base64: f.dataUrl, tipo: f.tipo },
       });
       await _idbDel("fotos", f.localId);
-      // Troca o cartão pendente pelo que o servidor devolveu, no MESMO lugar da
-      // lista — o técnico vê a foto deixar de ser pendente, não sumir e voltar.
-      const i = OS.data.fotos.findIndex((x) => String(x.id) === f.localId);
-      if (i >= 0) OS.data.fotos[i] = criada;
-      else OS.data.fotos.push(criada);
+      // Se esta O.S. é a que está aberta, troca o cartão pendente pelo que o
+      // servidor devolveu, NO MESMO LUGAR da lista — o técnico vê a foto deixar
+      // de ser pendente, não sumir e voltar.
+      if (OS.data && OS.data.id === osId) {
+        const i = OS.data.fotos.findIndex((x) => String(x.id) === f.localId);
+        if (i >= 0) OS.data.fotos[i] = criada;
+        else OS.data.fotos.push(criada);
+      }
     } catch (err) {
       if (ehFalhaDeRede(err)) break; // sem sinal: fica para a próxima
       // O servidor recusou ESTA foto. Insistir seria fila infinita: tira da
@@ -2401,6 +2532,15 @@ async function _osEnviarFotosPendentes() {
         "Uma foto não pôde ser enviada: " + err.message, "error");
     }
   }
+  return (await _osLerFotosPendentes(osId)).length;
+}
+
+// A da tela aberta: sobe e atualiza a interface.
+async function _osEnviarFotosPendentes() {
+  if (IS_DEMO || !OS.data) return;
+  const osId = OS.data.id;
+  if (!(await _osLerFotosPendentes(osId)).length) return;
+  await _osSubirFotosDaFila(osId);
   OS.fotosPendentes = await _osLerFotosPendentes(osId);
   _osRerenderFotos();
   _osAtualizarEstadoEnvio();
@@ -2515,6 +2655,12 @@ async function _osEnviarPatchPendente() {
 // Quando o sinal volta, o que estiver guardado sobe sozinho — sem o técnico
 // precisar tocar em nada nem saber que existe uma fila.
 window.addEventListener("online", () => {
+  // ⚠️ AS FINALIZAÇÕES PRIMEIRO, e independentemente de ter O.S. aberta: elas
+  // podem ser de O.S. que o técnico fechou horas atrás e já nem lembra. Cada
+  // uma sobe os próprios campos e fotos antes de fechar (ver
+  // `_osEnviarFinalizacaoPendente`).
+  _osSincronizarTudoPendente().catch(() => {});
+
   if (!OS.data) return;
   // O patch primeiro: ele é pequeno e confirma rápido se a rede voltou mesmo.
   // As fotos saem em seguida — o próprio `_osEnviarPatchPendente` as dispara ao
@@ -3686,21 +3832,23 @@ async function finalizarOS() {
     // Descarrega o auto-save pendente ANTES de finalizar. Se o técnico clicou
     // menos de 600ms depois de mexer num campo, o PATCH atrasado chegaria com
     // a O.S. já fechada — erro na tela e edição perdida.
-    await _osEnviarPatchPendente();
-
-    // ⚠️ E AS FOTOS DA FILA ANTES DE FECHAR. Finalizar exige rede de qualquer
-    // forma; se ela está de pé, é agora que as fotos guardadas no subsolo
-    // sobem. Fechar a O.S. com foto na fila a deixaria órfã: o backend recusa
-    // envio em O.S. finalizada, e o técnico teria fotografado à toa.
-    await _osEnviarFotosPendentes();
-    if ((OS.fotosPendentes || []).length) {
-      _osIrParaSecao("fotos");
-      throw new Error(
-        `${OS.fotosPendentes.length} foto(s) ainda não subiram. Procure sinal e tente de novo.`);
+    // ⚠️ FALHA DE REDE AQUI NÃO ABORTA MAIS (etapa 3). Antes, o auto-save
+    // estourando por falta de sinal derrubava a finalização inteira — que é
+    // justamente o que o técnico do subsolo precisava fazer. Agora só a recusa
+    // do SERVIDOR interrompe; sem rede, tudo fica guardado e sobe na ordem.
+    try {
+      await _osEnviarPatchPendente();
+    } catch (err) {
+      if (!ehFalhaDeRede(err)) throw err;
     }
+    // As fotos tentam subir agora se houver rede. Se não houver, ficam na fila
+    // e o `_osEnviarFinalizacaoPendente` as sobe ANTES da finalização.
+    await _osEnviarFotosPendentes();
 
     // Pré-validação completa: o backend valida de novo, mas aqui conseguimos
     // levar o técnico até o campo que falta em vez de só mostrar o texto.
+    // ⚠️ Ela é o que torna seguro finalizar sem rede: as regras aqui são as
+    // mesmas do backend, então o que passa daqui o servidor aceita depois.
     const pendente = _osPrimeiroPendente();
     if (pendente) {
       _osIrParaSecao(pendente.secao);
@@ -3721,15 +3869,27 @@ async function finalizarOS() {
       if (ch) { ch.status = "fechado"; ch.fechado_em = new Date().toISOString(); }
       mostrarOSSucesso();
     } else {
-      await api(`/ordens-servico/${OS.data.id}/finalizar`, {
-        method: "POST",
-        body: geo || {},
-      });
-      // Finalizada e aceita: o rascunho cumpriu o papel e sai de cena. Deixá-lo
-      // faria a próxima abertura desta O.S. tentar reenviar campos numa O.S.
-      // fechada, que o backend recusa.
-      _osLimparRascunho(OS.data.id);
-      mostrarOSSucesso();
+      const agora = new Date().toISOString();
+      try {
+        await api(`/ordens-servico/${OS.data.id}/finalizar`, {
+          method: "POST",
+          // Manda o horário mesmo online: é inofensivo (bate com o do servidor)
+          // e mantém um caminho só, em vez de dois comportamentos parecidos.
+          body: { finalizada_em: agora, ...(geo || {}) },
+        });
+        // Finalizada e aceita: o rascunho cumpriu o papel e sai de cena.
+        // Deixá-lo faria a próxima abertura desta O.S. tentar reenviar campos
+        // numa O.S. fechada, que o backend recusa.
+        _osLimparRascunho(OS.data.id);
+        mostrarOSSucesso();
+      } catch (err) {
+        if (!ehFalhaDeRede(err)) throw err;
+        // ⚠️ SEM SINAL: A O.S. FECHA ASSIM MESMO. O horário gravado é ESTE, o
+        // do momento em que o técnico terminou — não o do envio. É ele que o
+        // backend usa no `tempo_resolucao_seg`, ou seja, no SLA.
+        await _osEnfileirarFinalizacao(OS.data.id, OS.chamadoId, geo, OS.data.numero);
+        mostrarOSSucesso({ pendente: true });
+      }
     }
   } catch (err) {
     showAlert(document.getElementById("osAlert"), err.message, "error");
@@ -3745,21 +3905,29 @@ async function finalizarOS() {
 // ENTRADA da próxima O.S., e não um handler de saída daqui: existe uma segunda
 // porta (a seta `#osBack` no cabeçalho), e restaurar só no "Voltar pra minha
 // lista" deixava a tela seguinte quebrada para quem saísse pela outra.
-function mostrarOSSucesso() {
+function mostrarOSSucesso({ pendente = false } = {}) {
   pararTimerOS();
   // GPS continua ativo após o atendimento — só para no logout (o admin
   // precisa ver o técnico se deslocando entre chamados, não só durante).
   const numero = OS.data.numero || "";
+  // ⚠️ A tela NÃO MENTE quando ficou pendente. Dizer "chamado fechado" com a
+  // finalização ainda no aparelho faria o técnico jurar que enviou — e é ele
+  // que responde quando o escritório não acha a O.S.
+  const icone = pendente
+    ? `<polyline points="12 6 12 12 16 14"/><circle cx="12" cy="12" r="10"/>`
+    : `<polyline points="20 6 9 17 4 12"/>`;
   document.getElementById("osSections").innerHTML = `
     <div class="td-card">
-      <div class="td-card-body os-success">
+      <div class="td-card-body os-success${pendente ? " is-pendente" : ""}">
         <div class="os-success-icon">
           <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="20 6 9 17 4 12"/>
+            ${icone}
           </svg>
         </div>
-        <div class="os-success-title">O.S. finalizada!</div>
-        <div class="os-success-sub">Chamado fechado · ${numero}</div>
+        <div class="os-success-title">${pendente ? "O.S. concluída" : "O.S. finalizada!"}</div>
+        <div class="os-success-sub">${pendente
+          ? `Guardada no aparelho · ${numero}<br><strong>Envia sozinha quando o sinal voltar.</strong>`
+          : `Chamado fechado · ${numero}`}</div>
         <button class="btn btnAccent btn-lg" id="osVoltarLista">Voltar pra minha lista</button>
       </div>
     </div>`;

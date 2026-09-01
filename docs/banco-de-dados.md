@@ -186,6 +186,7 @@ liga técnico ao login. 029: perfil (`foto_url`, `cpf`, `rg`,
 `condominio_id`, `tecnico_id (SET NULL)`, dados de execução, `finalizada_em`.
 018: `orcamento_necessario BOOL`, `orcamento_observacoes`. (As colunas
 `orcamento_*` formais de 024/025 foram removidas em 030 — ver orçamentos.)
+081: `sincronizada_em TIMESTAMPTZ` — ver a migration 081 abaixo.
 **`os_fotos`** (015, CASCADE) — `id`, `os_id`, `url`, `tipo`, `legenda`, `criado_em`.
 053: `dados_base64 TEXT` — conteúdo da imagem como data URL (`data:image/jpeg;base64,...`). Armazenado no banco para sobreviver a restarts do Railway (filesystem efêmero). Upload salva aqui; novo endpoint `GET /ordens-servico/:osId/fotos/:fotoId/imagem` serve o binário.
 **`os_pecas`** (015, CASCADE).
@@ -362,6 +363,30 @@ nascidos de O.S. que ficaram com o DEFAULT `'admin'`.
 
 `chamados` ganha `equipamento_id (SET NULL)` + `idx_chamados_equipamento` —
 permite ver reincidência sem passar pela O.S.
+
+**Migration 081** — `ordens_servico.sincronizada_em TIMESTAMPTZ` +
+`idx_os_sincronizada_em` (parcial, `WHERE sincronizada_em IS NOT NULL`): quando
+o servidor **recebeu** uma finalização que o app fez **sem sinal**.
+
+`NULL` = finalizada com o servidor presente (o caminho normal). Preenchida = o
+app mandou o próprio horário, e este valor é quando aquilo chegou.
+
+⚠️ **Por que a coluna precisa existir.** A partir da 081 o `finalizada_em` pode
+vir do **relógio do celular** — é isso que impede uma O.S. resolvida em 40
+minutos no subsolo de aparecer como 3h40 só porque o sinal demorou. Mas relógio
+de celular pode estar errado, e `ordens_servico` **não tem `atualizado_em`**:
+sem esta coluna não sobraria nem um rastro indireto de que aquele horário não
+veio do servidor. Ela é o que torna aceitável confiar no cliente.
+
+⚠️ O `POST /:id/finalizar` faz **sanidade** no horário do app (recusa futuro
+além de 5 min, mais velho que 7 dias, ou anterior à `chegada_em`) e cai para
+`NOW()` quando descarta — **sem recusar o envio**, senão o trabalho do técnico
+ficaria preso na fila do aparelho. `sincronizada_em` é marcada mesmo no
+descarte, então a auditoria enxerga que veio do app.
+
+⚠️ O mesmo instante fecha o **chamado**: `fechado_em` e `tempo_resolucao_seg`
+usam o horário do serviço, não o da sincronização. Se usassem `NOW()`, as horas
+sem sinal entrariam no SLA como tempo de atendimento.
 
 **Migration 080** — `orcamentos.executado_em` + `executado_por (SET NULL)` +
 `idx_orcamentos_executado` (parcial): o orçamento aprovado que **já foi
