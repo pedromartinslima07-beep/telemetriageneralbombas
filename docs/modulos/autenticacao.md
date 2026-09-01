@@ -262,6 +262,39 @@ token. Encerrar sessão de verdade exigiria revogação no backend, que não exi
 - `tecnico` → `/tecnico/painel` (app)
 - `cliente` → `/cliente/painel`
 
+### Quem já tem sessão não vê a tela de login (01/09/2026)
+
+O `login.js` confere a sessão **no carregamento**: token no `localStorage`, `exp`
+no futuro, `role` no `PAINEL_POR_ROLE` → `location.replace` direto para o painel.
+
+⚠️ **O sintoma que isto conserta é "o PWA me desloga ao fechar", e não era isso.**
+O `start_url` do manifest é lido uma vez, na instalação, e valia `/login` para
+todas as superfícies até 31/08/2026 (hoje o `src/app.js` gera um por app via
+`?app=`; no iOS o `start_url` é ignorado de qualquer jeito). Ícone antigo abre em
+`/login` — e o `login.js` só chamava `redirectByRole` **depois** de um POST. A
+sessão estava viva no storage o tempo todo; a tela é que desenhava o formulário
+por cima dela.
+
+⚠️ **Duas guardas, e as duas existem contra loop.** Sem elas: login manda pro
+painel → painel toma 401 → volta pro login → manda pro painel, para sempre.
+
+| Guarda | Por quê |
+|---|---|
+| `?motivo=` na URL | quem chegou com `expirado`/`inatividade` foi mandado para cá de propósito: vê o formulário e a mensagem, nunca um redirect |
+| `exp` do JWT | token vencido não vai a lugar nenhum — mesma leitura que o `inatividade.js` faz do `iat` |
+
+⚠️ **O carimbo `tg_ultima_atividade` não é conferido no login, de propósito** —
+repetir os 30 minutos ali criaria uma segunda cópia da regra. Quem volta com o
+tempo estourado é redirecionado, cortado antes de pintar dado e devolvido com
+`?motivo=inatividade`: mensagem certa, ao custo de um flash.
+
+⚠️ **`location.replace`, não `href`** — com `href` o botão "voltar" cai no
+`/login`, que redireciona de novo. O histórico viraria parede.
+
+O `?next=` da etiqueta QR e do link de orçamento continua valendo aqui, com a
+mesma allowlist e a mesma regra de role. Cliente sem `condominio_id` no token
+fica no login, igual ao `redirectByRole`.
+
 `redirectByRole` no `login.js` faz o roteamento pós-login, a partir do mapa
 explícito `PAINEL_POR_ROLE`. **Não existe destino padrão**: role fora do mapa
 não redireciona — o login é abortado (`_abortarLogin`, limpa `token`/`user`) e a

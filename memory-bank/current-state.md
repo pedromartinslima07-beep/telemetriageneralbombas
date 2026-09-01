@@ -632,6 +632,16 @@ registrava era o escritório.
   ignora carimbo anterior ao `iat` do JWT. **O conserto fica no
   `inatividade.js`, não espalhado** pelos 13 pontos que gravam ou apagam sessão
   — o `_concluirEntrada`, escrito depois, já tinha esquecido de carimbar.
+- ✅ **Quem já tem sessão não vê a tela de login** desde 01/09/2026. O sintoma
+  relatado era "o PWA desloga quando fecho a página", e **não era isso**: o token
+  seguia vivo no `localStorage`. O `start_url` do manifest é lido uma vez, na
+  instalação, e valia `/login` para todo mundo até 31/08 — o ícone antigo abre
+  ali, e o `login.js` só redirecionava **depois** de um POST. Agora ele confere
+  token + `exp` + `role` no carregamento e salta com `location.replace`. **As
+  guardas (`?motivo=` na URL e `exp` no futuro) existem contra loop**
+  login↔painel, não por precaução. O carimbo de inatividade **não** é reconferido
+  ali de propósito — seria uma segunda cópia dos 30 minutos. Ver
+  [../docs/modulos/autenticacao.md](../docs/modulos/autenticacao.md).
 - ✅ **A resposta do cliente é uma PENDÊNCIA COM BAIXA** desde 26/08/2026
   (migration 078). Abrir a ficha marca `resposta_vista_em` (quem abriu), mas
   quem apaga o aviso é a baixa explícita — `resposta_tratada_em`, botão na

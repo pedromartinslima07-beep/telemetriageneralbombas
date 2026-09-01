@@ -399,8 +399,12 @@ function _htmlNoCache(req, res, next) {
 // `/` é a landing pública (apresentação do produto para síndicos), não mais um
 // redirect para /login. Quem chega por indicação/anúncio precisa entender o que
 // é o produto antes de ver um formulário de senha.
-// O login continua em /login — e é ele que o `manifest.json` usa como
-// `start_url`, então o PWA instalado não passa por aqui.
+// O login continua em /login — e era ele que o `manifest.json` usava como
+// `start_url` para todo mundo até 31/08/2026, então o ícone instalado antes
+// disso ainda abre lá (e no iOS o `start_url` nem manda). Desde 01/09/2026 o
+// `login.js` confere a sessão no carregamento e salta para o painel do role —
+// antes ele só redirecionava DEPOIS de um POST, e quem abria o PWA via o
+// formulário por cima de uma sessão válida. Ver docs/modulos/autenticacao.md.
 app.get("/", _htmlNoCache, (req, res) =>
   enviarHtml(res, path.join(__dirname, "../public/index.html"))
 );

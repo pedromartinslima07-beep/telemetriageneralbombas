@@ -414,6 +414,21 @@ aliases:
     só grava o que saltou ≥5%, o que inflou a estimativa de ±1,7% para ±6,9% e
     fabricou uma falsa "alternância sistemática" (autocorrelação -0,434).
 
+- ✅ **O PWA parou de mostrar a tela de login para quem já entrou**
+  (01/09/2026). O `login.js` confere sessão (token + `exp` + `role`) no
+  carregamento e salta para o painel; as guardas `?motivo=` e `exp` existem
+  contra loop login↔painel. Ver
+  [`../docs/modulos/autenticacao.md`](../docs/modulos/autenticacao.md).
+  - 📋 **Reinstalar o PWA nos aparelhos que já têm o ícone** — o `start_url` é
+    lido uma vez, na instalação, e o ícone criado antes de 31/08/2026 aponta
+    para `/login`. Com o conserto ele só atravessa a tela; reinstalar economiza
+    o salto. No iOS o `start_url` é sempre ignorado, então lá o redirect é a
+    única solução.
+  - 📋 **Ninguém encerra sessão de verdade** — apagar o token no navegador não
+    invalida o JWT do outro lado (7 dias, sem revogação). Vale desde sempre, não
+    é regressão desta mudança, mas continua sendo o buraco real de segurança de
+    sessão.
+
 ## Descartado (decisões conscientes)
 
 - **9A — Tabela agregada horária** ❌ — write-threshold já reduz volume o

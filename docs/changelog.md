@@ -7768,6 +7768,68 @@ Faltam ainda a etapa 3 (finalizar offline — **exige backend**, por causa do
 
 Sem migration. Só chega no técnico com APK novo.
 
+
+### 2026-09-01 (6ª rodada) · O PWA parecia deslogar ao fechar, e a sessão estava lá o tempo todo
+
+Relato do Pedro: *"estou fazendo login no painel de operador, fechando e quando
+abro logo em seguida o PWA está na tela de login novamente"*. **Nada desconectava
+ninguém.** O token seguia no `localStorage`, dentro da validade — a tela de login
+é que nunca olhou para ele.
+
+**Os dois fatos que se somam.** O `start_url` do manifest é lido **uma vez, na
+instalação**, e até 31/08/2026 valia `/login` para todas as superfícies (o
+`src/app.js` passou a gerar um por app via `?app=`, mas isso só vale para quem
+instalar o ícone **depois** — e no iOS nem isso, porque lá o `start_url` é
+ignorado em favor da página aberta na hora de instalar). Do outro lado, o
+`login.js` só chamava `redirectByRole` **depois** de um POST bem-sucedido: não
+havia nenhuma checagem de sessão no carregamento. Ícone antigo abre em `/login`,
+`/login` desenha o formulário por cima de uma sessão viva.
+
+⚠️ **O comentário do `src/app.js` afirmava o contrário** — *"com sessão válida o
+/login redireciona sozinho"* — e era falso desde sempre. Foi escrito descrevendo
+o comportamento pretendido, e ninguém conferiu: quem instala o PWA raramente é
+quem lê essa linha. Agora é verdade, e o comentário passou a dizer isso sem
+prometer o que o arquivo não faz.
+
+**O conserto**: `public/login.js` decide no carregamento. Token no storage, `exp`
+no futuro, `role` no `PAINEL_POR_ROLE` → `location.replace` para o painel, sem
+pintar formulário nenhum. `replace` e não `href`: com `href` o botão "voltar" cai
+no `/login`, que redireciona de novo, e o histórico vira parede.
+
+⚠️ **AS DUAS GUARDAS SÃO CONTRA LOOP, e o loop é real:** login manda pro painel →
+painel pede dado → 401 → painel manda pro login → login manda pro painel, para
+sempre, com a tela piscando. Fecham o ciclo (1) o `motivo` na URL — quem chegou
+com `?motivo=expirado` ou `?motivo=inatividade` foi mandado para cá de propósito
+e vê o formulário com a mensagem, nunca um redirect — e (2) o `exp` lido do
+próprio JWT, a mesma leitura que o `inatividade.js` faz do `iat`. Token vencido
+não vai a lugar nenhum.
+
+⚠️ **O carimbo de inatividade NÃO é conferido aqui, de propósito.** Repetir os 30
+minutos e a chave `tg_ultima_atividade` no `login.js` criaria uma segunda cópia da
+regra para alguém esquecer de mudar junto — o mesmo apodrecimento que o
+`inatividade.js` evita concentrando o corte num arquivo só. Quem volta com o tempo
+estourado é redirecionado, cortado antes de qualquer dado pintar e devolvido com
+`?motivo=inatividade`: a mensagem certa, ao custo de um flash, e a guarda 1 impede
+que vire ida e volta.
+
+⚠️ **Cliente sem `condominio_id` no token fica no login** — mesma barreira que o
+`redirectByRole` aplica depois do login. Mandá-lo ao painel seria trocar a tela por
+um 403 (o vínculo pode ter sido removido depois de o token nascer).
+
+**Verificado exercitando o arquivo**, não lendo: `login.js` carregado num contexto
+com `localStorage`, `location` e DOM falsos, 14 casos, todos passando — operador,
+admin e cliente com token vivo vão para o painel certo; token vencido, `?motivo=`
+(os dois), storage vazio, token que não é JWT (`harness`), `admin_viewer` e cliente
+sem condomínio **ficam** no login; o `?next=` do QR leva o técnico ao equipamento e
+é ignorado para o cliente; o `?next=` de orçamento leva o síndico ao documento com
+`?orc=`; e `next=//evil.com` continua barrado pela allowlist.
+
+⚠️ **O que isto NÃO resolve:** o ícone instalado antes de 31/08 continua abrindo em
+`/login` — agora ele apenas atravessa a tela em vez de parar nela. Reinstalar o PWA
+pega o `start_url` certo e economiza o salto.
+
+Sem migration. Bump de `login.js?v=8` no `login.html`.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

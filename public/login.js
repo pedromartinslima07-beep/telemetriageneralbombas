@@ -80,6 +80,65 @@ function destinoNext() {
   }
 }
 
+/* ── Quem já tem sessão não vê esta tela ────────────────────────────────
+   ⚠️ O PWA INSTALADO ABRE AQUI (01/09/2026). O `start_url` do manifest é
+   lido UMA vez, na instalação, e até 31/08/2026 ele era `/login` para todo
+   mundo (hoje o `src/app.js` gera um por app via `?app=`). Quem instalou o
+   ícone antes disso continua caindo neste arquivo toda vez que abre o app —
+   e no iOS nem o manifest novo resolve, porque lá o `start_url` é ignorado
+   em favor da página que estava aberta na hora de instalar.
+
+   Sem este bloco o sintoma é "o PWA me desloga ao fechar", e não é isso: o
+   token está no `localStorage`, vivo, e ninguém olha para ele. A tela pinta
+   o formulário por cima de uma sessão válida.
+
+   ⚠️ AS DUAS GUARDAS EXISTEM CONTRA LOOP, não por precaução genérica. Sem
+   elas o caminho é: login manda pro painel → painel pede dado → 401 → painel
+   manda pro login → login manda pro painel, para sempre.
+
+     1. `motivo` na URL — alguém acabou de ser mandado para cá de propósito
+        (`?motivo=expirado` do 401, `?motivo=inatividade` do corte). Quem
+        chega assim vê o formulário e a mensagem, nunca um redirect.
+     2. `exp` do próprio JWT — token vencido não vai a lugar nenhum. É a
+        mesma leitura que o `inatividade.js` faz do `iat`.
+
+   ⚠️ O CARIMBO DE INATIVIDADE NÃO É CONFERIDO AQUI, e é decisão: repetir os
+   30 minutos e a chave `tg_ultima_atividade` neste arquivo cria uma segunda
+   cópia da regra para alguém esquecer de mudar junto. Quem volta com o tempo
+   estourado é redirecionado, o `inatividade.js` do painel corta antes de
+   pintar dado e devolve para cá com `?motivo=inatividade` — a mensagem certa,
+   ao custo de um flash. A guarda 1 impede que isso vire ida e volta.
+
+   `location.replace` e não `href`: com `href` o botão "voltar" cai no /login,
+   que redireciona de novo — o histórico vira uma parede. */
+function _sessaoValida() {
+  try {
+    const partes = (localStorage.getItem("token") || "").split(".");
+    if (partes.length !== 3) return null; // token do harness / storage vazio
+    // base64url → base64, igual ao `nascimentoDaSessao` do inatividade.js.
+    const p = JSON.parse(atob(partes[1].replace(/-/g, "+").replace(/_/g, "/")));
+    if (!Number.isFinite(p.exp) || p.exp * 1000 <= Date.now()) return null;
+    return p;
+  } catch (_) {
+    return null; // payload que não é JSON, storage bloqueado, modo privado
+  }
+}
+
+{
+  const _motivo = new URLSearchParams(location.search).get("motivo");
+  const _sessao = _motivo ? null : _sessaoValida();
+  const _role = _sessao?.role;
+  // Cliente sem condomínio no token levaria 403 no painel e voltaria para cá —
+  // mesma barreira que o `redirectByRole` aplica depois do login.
+  const _servivel = _role !== "cliente" || !!_sessao?.condominio_id;
+  const _destino = _servivel ? PAINEL_POR_ROLE[_role] : null;
+  if (_destino) {
+    const _next = destinoNext();
+    const _vale = _next && (_role !== "cliente" || _next.cliente);
+    location.replace(_vale ? _next.destino : _destino);
+  }
+}
+
 // Não redireciona se o login não tem como dar certo do outro lado. A senha
 // estava certa — o problema é o cadastro —, então a mensagem diz isso em vez
 // de fingir que a credencial falhou.
