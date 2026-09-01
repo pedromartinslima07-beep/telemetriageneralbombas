@@ -8029,6 +8029,44 @@ cache. Mais 4 checagens do freio.
 
 Sem migration. APK novo.
 
+
+### 2026-09-01 (9ª rodada) · A fila só subia se o navegador avisasse — e ele não avisa
+
+Relato do Pedro, na **terceira instalação**: *"terminei a os off, voltei para a
+página inicial, liguei a internet, mas continua lá escrito aguardando envio"*.
+
+**A causa: os únicos gatilhos da sincronização eram o evento `online` e reabrir
+a O.S.** Nenhum dos dois acontece nessa sequência.
+
+⚠️ **E O EVENTO `online` NÃO É CONFIÁVEL NO APARELHO.** No subsolo o rádio
+continua *conectado* — `navigator.onLine` fica `true` — e só os **dados** é que
+não passam. Quando eles voltam **não há transição**, logo não há evento. O
+técnico finalizava, voltava para a lista, ligava a internet e ficava para sempre
+em "Aguardando envio".
+
+**O conserto: uma chamada que deu certo é a prova de que há rede.** A lista já
+faz polling a cada 30s; cada volta bem-sucedida dela passou a descarregar a
+fila. É um sinal melhor que qualquer flag do navegador, e já existia.
+
+Junto veio uma trava de reentrada: quando algo sobe, a sincronização recarrega a
+lista — e a carga da lista chama a sincronização. Sem a trava seria um laço.
+
+⚠️ **A LIÇÃO É SOBRE O TESTE, NÃO SOBRE O CÓDIGO — E É MINHA.** Os testes das
+etapas 1 a 4 chamavam `_osSincronizarTudoPendente()` **à mão**. Eles provavam
+que a função sincroniza, e nunca que **alguém a chama**. Por isso passaram
+verdes enquanto o app falhava no bolso do técnico, três instalações seguidas.
+
+A regra que fica: **teste de sincronização não pode invocar o sincronizador.**
+Só toque de botão e o que dispara sozinho. Foi assim que este bug apareceu no
+primeiro segundo do teste novo — e é assim que ele fica pego daqui para frente.
+
+**Verificado** reproduzindo a sequência exata do relato, sem simular o evento
+`online`: finaliza sem sinal → volta para a lista → liga a internet → **só o
+polling roda**. Antes: 0 enviadas, fila cheia, selo "Aguardando envio". Depois:
+1 enviada, fila vazia, selo sumiu.
+
+Sem migration. APK novo.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

@@ -371,11 +371,13 @@ async function carregarMeusChamados(silent = false) {
   }
   refresh.classList.add("is-refreshing");
 
+  let houveRede = false;
   try {
     const r = await apiComCache("/chamados/meus", "chamados_meus");
     TC.chamados = Array.isArray(r.dados) ? r.dados : [];
     TC.doCache = r.doCache;
     TC.cacheEm = r.em;
+    houveRede = !r.doCache;
     if (!r.doCache) {
       TC.syncedAt = new Date();
       // Com rede em mãos, guarda o miolo de cada chamado para o caso de o sinal
@@ -387,8 +389,24 @@ async function carregarMeusChamados(silent = false) {
       _preCarregarParaOffline({ forcar: !silent }).catch(() => {});
     }
   } catch (err) {
+    TC.doCache = true; // nem servidor nem cache: a tela está com o que já tinha
     if (!silent) showAlert(alertEl, err.message, "error");
   } finally {
+    // ⚠️ UMA CHAMADA QUE DEU CERTO É A PROVA DE QUE HÁ REDE — e é este o
+    // gatilho da sincronização, não o evento `online`.
+    //
+    // Antes, o que estava guardado só subia pelo evento `online` ou ao reabrir
+    // a O.S. No aparelho isso não basta: no subsolo o rádio continua
+    // "conectado" (`navigator.onLine` fica true) e só os dados é que não
+    // passam — quando voltam, NÃO HÁ TRANSIÇÃO, logo não há evento. O técnico
+    // finalizava, voltava para a lista, ligava a internet, e ficava para sempre
+    // em "Aguardando envio". Relatado pelo Pedro em 01/09/2026, na terceira
+    // instalação.
+    //
+    // A lista já faz polling a cada 30s. Cada volta bem-sucedida dela é uma
+    // prova de conectividade melhor que qualquer flag do navegador.
+    if (houveRede) { try { await _osSincronizarTudoPendente(); } catch {} }
+
     // ⚠️ ISTO RODA MESMO QUANDO O `GET` FALHA, e é de propósito.
     //
     // O servidor ainda acha que estes chamados estão abertos, porque a
@@ -2554,7 +2572,22 @@ async function _osEnviarFinalizacaoPendente(osId) {
 
 // Percorre TODAS as finalizações guardadas, não só a da tela aberta — o técnico
 // pode ter fechado três O.S. no subsolo antes de o sinal voltar.
+// ⚠️ TRAVA CONTRA REENTRADA. Quando algo sobe, esta função recarrega a lista —
+// e a carga da lista, por sua vez, chama esta função. Sem a trava seria um
+// laço. Com ela, a chamada de dentro devolve na hora e a de fora conclui.
+let _sincronizandoPendencias = false;
+
 async function _osSincronizarTudoPendente() {
+  if (_sincronizandoPendencias) return 0;
+  _sincronizandoPendencias = true;
+  try {
+    return await _osSincronizarTudoPendenteInterno();
+  } finally {
+    _sincronizandoPendencias = false;
+  }
+}
+
+async function _osSincronizarTudoPendenteInterno() {
   const lista = await _osTodasFinalizacoes();
   let subiu = 0;
   for (const f of lista) {

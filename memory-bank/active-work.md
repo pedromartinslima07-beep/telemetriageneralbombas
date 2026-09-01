@@ -865,6 +865,36 @@ lista"; é também um timer de 30 segundos.
 
 ---
 
+### 11ª rodada — a fila só subia se o navegador avisasse (e ele não avisa)
+
+Relato do Pedro **na terceira instalação**: finalizou a O.S. offline, voltou
+para a lista, ligou a internet, e continuou "Aguardando envio".
+
+⚠️ **OS ÚNICOS GATILHOS ERAM O EVENTO `online` E REABRIR A O.S.** — e o `online`
+**não é confiável no aparelho**: no subsolo o rádio continua conectado
+(`navigator.onLine` fica `true`) e só os dados não passam; quando voltam **não
+há transição**, logo não há evento.
+
+**Conserto:** cada carga bem-sucedida da lista (polling de 30s) descarrega a
+fila. Uma chamada que deu certo é prova de rede melhor que qualquer flag. Mais
+uma trava de reentrada (sincronizar recarrega a lista, que chama sincronizar).
+
+⚠️⚠️ **A LIÇÃO É MINHA E É SOBRE MÉTODO DE TESTE.** Os testes das etapas 1 a 4
+chamavam `_osSincronizarTudoPendente()` **à mão**. Eles provavam que a função
+sincroniza — e **nunca que alguém a chama**. Ficaram verdes enquanto o app
+falhava no bolso do técnico, três instalações seguidas. O Pedro pagou o preço
+disso em deslocamento e paciência.
+
+**REGRA DAQUI PARA FRENTE: teste de sincronização não pode invocar o
+sincronizador.** Só toque de botão e o que dispara sozinho. Com essa regra, o
+bug apareceu no primeiro segundo do teste novo.
+
+📋 **Vale reler os outros testes deste caderno com essa lente** — em qualquer
+lugar onde eu tenha chamado a função em vez de provocar o gatilho, o teste está
+medindo a coisa errada.
+
+---
+
 ## ✅ Aprovados: clicar no orçamento abre o chamado (31/08)
 
 Pedido do Pedro na mesma mensagem do recorte do item. A tela dizia o que foi

@@ -568,6 +568,26 @@ de 5 min, mais de 7 dias, anterior à `chegada_em`) e cai para `NOW()` — recus
 deixaria o trabalho preso na fila do aparelho para sempre, que é o pior
 desfecho. `sincronizada_em` fica marcada mesmo no descarte.
 
+⚠️ **O GATILHO DA SINCRONIZAÇÃO É A LISTA, NÃO O EVENTO `online`.** Cada carga
+bem-sucedida do `GET /chamados/meus` (polling de 30s) descarrega a fila — uma
+chamada que deu certo é a prova de que há rede.
+
+O evento `online` **não é confiável no aparelho**: no subsolo o rádio continua
+conectado (`navigator.onLine` fica `true`) e só os dados é que não passam;
+quando voltam **não há transição**, logo não há evento. Enquanto os únicos
+gatilhos eram o `online` e reabrir a O.S., o técnico finalizava, voltava para a
+lista, ligava a internet e ficava para sempre em "Aguardando envio" (relatado
+pelo Pedro em 01/09/2026, na terceira instalação).
+
+⚠️ **`_osSincronizarTudoPendente` tem trava de reentrada** — quando algo sobe
+ela recarrega a lista, e a carga da lista a chama de volta.
+
+⚠️ **TESTE DE SINCRONIZAÇÃO NÃO PODE INVOCAR O SINCRONIZADOR.** Os testes das
+etapas 1 a 4 chamavam `_osSincronizarTudoPendente()` à mão: provavam que a
+função sincroniza, e **nunca que alguém a chama**. Passaram verdes enquanto o
+app falhava no bolso do técnico. Exercite só toque de botão e o que dispara
+sozinho (o polling).
+
 ⚠️ **ORDEM OBRIGATÓRIA na sincronização: campos → fotos → finalizar.** O backend
 recusa `PATCH` e envio de foto em O.S. já finalizada; inverter deixa as fotos
 órfãs. `_osEnviarFinalizacaoPendente(osId)` faz as três, e **recebe o id** em vez
