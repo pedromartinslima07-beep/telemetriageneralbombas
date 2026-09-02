@@ -190,7 +190,7 @@ Três prazos, e eles não são a mesma coisa:
 
 | O quê | Prazo | Conta com o navegador fechado? |
 |---|---|---|
-| Inatividade (`public/inatividade.js`) | 30 min | **sim**, desde 25/08/2026 |
+| Inatividade (`public/inatividade.js`) | 30 min | **sim**, desde 25/08/2026 — exceto na tela de plantão, ver abaixo |
 | JWT (`JWT_EXPIRES_IN`) | 7 dias | sim — é o relógio real |
 | Dispositivo confiável | nunca expira | — (não mantém logado; só dispensa o código) |
 
@@ -236,6 +236,32 @@ executa, sem quebrar nada**. O `inatividade.js` lê o atributo, deixa a marca
 `window._tgCorteAoCarregar` e não redireciona; o `cliente-orcamentos.js` lê a
 marca no bootstrap e abre o cartão. A sessão é apagada antes de tudo isso, então
 nada chega a buscar dado com o token morto.
+
+### `data-corte="nunca"` — a tela que não desconecta (02/09/2026)
+
+O mesmo atributo, um terceiro valor. O **painel do operador**
+(`/operador/painel`) existe para ficar **aberto**: o mapa do turno é
+instrumento de plantão, e o operador passa longos trechos olhando sem tocar em
+nada. Trinta minutos sem mouse ali não é ausência, é o uso normal — e o corte
+jogava fora o enquadramento do mapa, os chamados já vistos e o balão aberto.
+Com `nunca`, o `registrarAtividade` não arma o timer e nem o corte de
+carregamento nem o do `visibilitychange` disparam.
+
+⚠️ **O CARIMBO CONTINUA SENDO GRAVADO, e isso não é sobra.** O
+`tg_ultima_atividade` é compartilhado entre as telas: se esta parasse de
+carimbar, um dia de trabalho no operador deixaria o carimbo velho e abrir o
+`/admin/painel` na mesma máquina cortaria a sessão no ato, antes de a tela
+pintar. Só o **corte** é dispensado; a marca de vida continua valendo para quem
+corta.
+
+⚠️ **Vale só para o `/operador/painel`.** A tela de Aprovados
+(`/operador/painel/orcamentos`) segue cortando — ali se lê um documento por
+vez, não se fica de plantão. Ver
+[painel-operador.md](painel-operador.md).
+
+⚠️ **Isto continua sendo conveniência, não barreira** — como o resto do
+arquivo. O JWT vale 7 dias no servidor de qualquer jeito; o que muda é só o
+que o navegador faz sozinho.
 
 ⚠️ **Carimbo anterior ao nascimento da sessão não vale** (28/08/2026). O
 `tg_ultima_atividade` só é apagado pelo próprio corte: o `logout()` do painel e

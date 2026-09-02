@@ -302,7 +302,7 @@ virou refém do admin até 13/08/2026.
 | Camada | O que é | Condição | Clique |
 |---|---|---|---|
 | Carteira | **placa chanfrada 22px com ícone de prédio**, colorida pelo estado (verde em ordem · âmbar baixo · vermelho crítico · cinza sem leitura) — o `.mc-pin-condo` do admin, sem o raio | condomínio ativo com coordenada | **não** |
-| Chamado | placa chanfrada 28px, ícone de prédio, cor = o relógio | chamado `aberto`/`em_atendimento` com prédio geocodificado | abre o despacho |
+| Chamado | placa chanfrada 28px, ícone de prédio, cor = o relógio | chamado `aberto`/`em_atendimento` com prédio geocodificado | **sem técnico** → o despacho · **com técnico** → o balão (ver abaixo) |
 | Técnico | círculo 26px com iniciais, **a pele do `.tec-pin` do admin** — gradiente, anel branco de 2px, glow e pulse | GPS dos últimos **30 min** | não |
 
 ⚠️ **Os tamanhos da tabela são os do mapa ESTREITO** (a coluna do trilho). Num
@@ -385,10 +385,34 @@ agora"; ele só passou a chegar no mapa.
 | Substitui o enquadramento do ciclo | Enquadrar e depois voar são dois movimentos seguidos, e o primeiro é descartado antes de dar para lê-lo |
 
 ⚠️ **`L.popup` standalone, NUNCA `bindPopup`.** O `bindPopup` registra o próprio
-handler de clique no marcador, e o pino de chamado já tem um (`dlgDespacho`) —
-os dois disparariam juntos e a regra "clique no pino abre o mesmo diálogo de
-despacho" viraria "abre duas coisas". Com o popup solto, o clique continua sendo
-só o despacho e o balão é exclusivamente automático.
+handler de clique no marcador, e o pino de chamado já tem o seu — os dois
+disparariam juntos e o clique abriria duas coisas. Com o popup solto, quem
+decide o que abre é o handler, e ele decide pelo estado do chamado.
+
+### O clique no pino segue o estado do chamado (02/09/2026)
+
+| Estado | O que abre | Por quê |
+|---|---|---|
+| **Sem técnico** | o diálogo de despacho, direto | aí a pergunta É "quem pode ir", e ela se responde a um clique |
+| **Com técnico** | o **balão**, no próprio mapa | a decisão já foi tomada; o que falta é ver quem foi e chegar à ficha |
+
+⚠️ **Até 02/09 todo pino abria o despacho**, inclusive o de chamado já
+despachado — e era a única peça da tela que oferecia isso. Na fila, o item com
+técnico não tem botão "Despachar" (só "Ver detalhes"), e o próprio balão já
+troca o botão pelo nome de quem foi. Só o mapa perguntava "quem pode ir" sobre
+um chamado onde alguém já estava indo, com a lista inteira da equipe e nenhuma
+palavra sobre o técnico atual: clicar num nome dali **reatribuía em silêncio**.
+
+O balão foi a escolha do Pedro entre quatro (ficha, balão, despacho com
+"trocar técnico", pino sem clique), e o motivo é a tela cheia: agora que o
+painel fica aberto o turno inteiro, sair do mapa para ler quem foi é o que não
+se quer. O balão responde **dentro** do mapa e leva à ficha por um link.
+
+⚠️ **`autoPan` é `true` no clique e `false` no chamado novo**, e a diferença é
+quem enquadra: no chamado novo quem centra é o voo, e o `autoPan` brigaria com
+ele pelo centro; no clique nada se move — o operador já está olhando para onde
+clicou —, então é o `autoPan` que impede o balão de nascer cortado na borda,
+que é justamente onde um pino clicado costuma estar.
 
 ⚠️ **O balão abre ANTES do voo** e viaja ancorado na coordenada. Abrir no
 `moveend` teria um buraco: `flyTo` para um ponto onde o mapa já está não dispara
@@ -403,6 +427,31 @@ oferecendo "Despachar".
 O botão "Despachar" do balão funciona em tela cheia sem nada novo — `abrirFundo`
 já usa `<dialog>` + `showModal()`, que põe o diálogo no top layer (ver a nota da
 Fullscreen API no `operador.js`).
+
+### ⚠️ O balão não cabia na caixa, e eram dois defeitos (02/09/2026)
+
+**A largura mora no CSS, não no `L.popup({minWidth,maxWidth})`.** O
+`.balao-pop .leaflet-popup-content` tem `width:auto!important`, e essa linha
+anula exatamente onde o Leaflet aplica o cálculo dele (`_updateLayout` mede sem
+quebra, limita entre os dois e escreve `style.width`). Sem isso o balão virava
+shrink-to-fit: medido em 02/09, **132px para um mínimo pedido de 214** — o nome
+do prédio quebrava em três linhas e os **438px** de altura resultantes não
+cabiam nos 391 do mapa da coluna, deixando o pé (e com ele o "Ver detalhes")
+fora da caixa. Hoje o `.balao` declara `width:268px` — o mesmo `maxWidth` que o
+JS pede, que é o que o Leaflet escolheria para este conteúdo. Na coluna de
+368px o balão fica em **271 × 337 com a seta**, dentro dos 391.
+
+**E a altura segue o mapa** (`maxHeight`, calculado ao abrir). Só a largura não
+bastava: na faixa em que o trilho deixa de ser coluna o mapa fica **largo e
+baixo** — medido, **947 × 292** numa janela de 1000px —, e ali nem o balão de
+318 cabia. `autoPan` não resolve esse caso: não há para onde panar quando o
+conteúdo é mais alto que o contêiner. Com `maxHeight = altura do mapa − 44` (a
+seta são 20, o resto é moldura e respiro), o conteúdo **rola dentro do balão**
+em vez de vazar: naquela faixa o balão fecha em 270 e cabe nos 292. Acima disso
+a conta não morde — na coluna de 1920 e em tela cheia não aparece rolagem
+nenhuma.
+
+⚠️ Os 268 estão no CSS **e** no `maxWidth` do JS. Mudar um é mudar o outro.
 
 ⚠️ **A cor da carteira é a PIOR BANDA dos reservatórios do prédio**, e prédio
 sem telemetria conta como **em ordem** (verde) — é o que o `_mcStatusKind` do
@@ -509,6 +558,49 @@ tela, os três selos, o que o "Abrir chamado" preenche sozinho e por que o
 padrão é P4.
 
 ## Ciclo de vida da tela
+
+### ⚠️ Em tela cheia o ciclo NÃO reescreve o `#tela` (02/09/2026)
+
+O nó do mapa é persistente para sobreviver ao ciclo (ver `mapaTurnoNo`), mas
+ele mora **dentro** do `#tela`: o `innerHTML` do `render()` o arranca do
+documento e o `replaceWith` o devolve no instante seguinte. O Leaflet atravessa
+esse vaivém — pan, zoom e tiles ficam de pé. **A tela cheia não atravessa.**
+Por especificação, tirar do documento o elemento em tela cheia encerra a tela
+cheia, e devolvê-lo no mesmo instante não desfaz nada; o `fullscreenchange`
+então via `fullscreenElement === null` e `mapaFsAplicar(false)` limpava a
+classe. **O mapa fechava sozinho a cada volta do polling**, sem ninguém tocar
+em nada — o "às vezes" do relato é só onde do ciclo a pessoa abriu.
+
+⚠️ **Mover o nó para outro lugar antes do `innerHTML` não resolve:** mover é
+remover e inserir, e é a remoção que encerra. Qualquer caminho que TIRE o nó
+do documento tem o mesmo fim.
+
+Então em tela cheia o ciclo pula o HTML e atualiza só o mapa — que é a única
+coisa visível, já que o navegador pinta apenas a subárvore em tela cheia. Pinos,
+balão e o voo do chamado novo continuam vindo a cada 30s. O `#tela` fica
+devendo, e é reposto na **saída** (`_renderAdiado` + a chamada no
+`mapaFsAplicar`), antes do `invalidateSize` — porque é o `render()` que devolve
+o mapa ao trilho, e é o tamanho de lá que o Leaflet precisa medir.
+
+### ⚠️ Esta tela NÃO desconecta por inatividade (02/09/2026)
+
+`<body data-corte="nunca">` no `operador.html`. O painel existe para ficar
+**aberto**: o mapa do turno é instrumento de plantão, e o operador passa longos
+trechos olhando sem tocar em nada. Trinta minutos sem mouse ali não é ausência,
+é o uso normal — e o corte jogava fora o enquadramento do mapa, os chamados já
+vistos e o balão aberto.
+
+⚠️ **O carimbo continua sendo gravado**, e isso não é sobra. O
+`tg_ultima_atividade` é compartilhado entre as telas: se esta parasse de
+carimbar, um dia de trabalho aqui deixaria o carimbo velho e abrir o
+`/admin/painel` na mesma máquina cortaria a sessão no ato, antes de a tela
+pintar. Só o **corte** é dispensado; a marca de vida continua valendo para quem
+corta. Mecanismo igual ao `data-corte="cartao"` da tela de orçamentos — ver
+[autenticacao.md](autenticacao.md).
+
+⚠️ **Vale só para o `/operador/painel`.** A tela de Aprovados
+(`/operador/painel/orcamentos`) segue cortando: ali se lê um documento por vez,
+não se fica de plantão.
 
 `setTimeout` recursivo de **30s** (nunca `setInterval` — o padrão do projeto;
 com `setInterval` uma request lenta empilha a próxima e o painel dispara em

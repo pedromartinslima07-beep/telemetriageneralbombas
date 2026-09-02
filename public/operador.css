@@ -1584,6 +1584,15 @@ body.com-mapa-fs #tela{z-index:80}
   --ch:9px;clip-path:var(--corte);
 }
 .balao-pop .leaflet-popup-content{margin:0;padding:0;width:auto!important;line-height:1.45}
+/* Quando o `maxHeight` morde (mapa mais baixo que o conteúdo), o Leaflet põe
+   `.leaflet-popup-scrolled` e desenha uma borda cinza própria em cima e
+   embaixo — sobre marinho ela lê como risco solto. Aqui a rolagem herda o fio
+   da casa, e o `overscroll-behavior` impede que o fim da lista vire zoom do
+   mapa por baixo. */
+.balao-pop .leaflet-popup-scrolled{
+  border-top:1px solid var(--fio);border-bottom:1px solid var(--fio);
+  overscroll-behavior:contain;
+}
 /* A seta herda o campo. Sem `box-shadow:none` ela carrega a sombra própria do
    leaflet.css, que sobre marinho lê como borrão. */
 .balao-pop .leaflet-popup-tip{background:var(--mar-900);border:1px solid var(--fio);box-shadow:none}
@@ -1594,7 +1603,18 @@ body.com-mapa-fs #tela{z-index:80}
 }
 .balao-pop .leaflet-popup-close-button:hover{color:var(--text);background:none}
 
-.balao{padding:12px 13px 11px;display:flex;flex-direction:column;gap:7px}
+/* ⚠️ A LARGURA MORA AQUI, e não no `L.popup({minWidth,maxWidth})` do JS.
+   O `width:auto!important` da regra acima anula justamente a linha em que o
+   Leaflet aplica esse cálculo (`_updateLayout` mede sem quebra, limita entre
+   os dois e escreve `style.width`). Com ela ignorada, o balão virava
+   shrink-to-fit: medido em 02/09, 132px de largura para um mínimo pedido de
+   214 — o nome do prédio quebrava em três linhas, e os 438px de altura
+   resultantes não cabiam nos 391 do mapa da coluna. O pé ficava fora da
+   caixa, e com ele o Ver detalhes.
+   Então o intervalo é declarado no filho, que é quem a regra de cima deixa
+   passar. Os dois números são os mesmos do JS: mudar um, mudar o outro. */
+.balao{padding:12px 13px 11px;display:flex;flex-direction:column;gap:7px;
+  width:268px;max-width:100%}
 /* A prioridade é o MESMO `.selo` da fila, com o mesmo `data-s` — o balão não
    inventa vocabulário visual, ele reposiciona o que a lista já diz. */
 .balao-cab{display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding-right:22px}

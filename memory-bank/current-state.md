@@ -81,6 +81,25 @@ ESP32 (sonda 4-20mA + SCT-013)
 | **status / leituras / jobs** | Endpoints auxiliares e disparo manual de jobs |
 | **leads** | Contatos da landing pública. `POST /leads` é público (rate limit + honeypot `site` + truncagem); leitura e funil exigem `gestaoOnly`. Fluxo em [landing-publica.md](../docs/modulos/landing-publica.md) |
 
+### ⚠️ O painel do operador é a tela de PLANTÃO (02/09/2026)
+
+Três regras que só valem lá, e as três vêm do mesmo fato: a tela fica **aberta**
+o turno inteiro, com o mapa em tela cheia.
+
+- **Não desconecta por inatividade** — `<body data-corte="nunca">`, lido pelo
+  `inatividade.js`. O carimbo `tg_ultima_atividade` continua sendo gravado (é
+  compartilhado com as outras telas); só o corte é dispensado. Vale para o
+  `/operador/painel`, não para a tela de Aprovados.
+- **Em tela cheia o ciclo de 30s não reescreve o `#tela`** — o nó do mapa mora
+  dentro dele, e tirar do documento o elemento em tela cheia encerra a tela
+  cheia. O `#tela` é reposto na saída.
+- **O clique no pino segue o estado do chamado** — sem técnico abre o despacho,
+  com técnico abre o balão. Antes abria o despacho sempre, e reatribuir era um
+  clique sem aviso.
+
+Detalhe e o porquê de cada uma em
+[painel-operador.md](../docs/modulos/painel-operador.md).
+
 ## Funcionalidades prontas (✅)
 
 **Telemetria & alertas**

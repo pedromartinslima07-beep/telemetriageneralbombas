@@ -8104,6 +8104,90 @@ os rótulos.
 
 Sem migration. `?v=N` do `admin.js` bumpado (325 → 326).
 
+### 2026-09-02 (2ª rodada) · Três ajustes no painel do operador
+
+Relato do Pedro, os três na mesma frase: *"às vezes quando o mapa está em tela
+cheia ele simplesmente fecha sozinho"*, *"essa tela em específico não pode
+desconectar por inatividade, porque o objetivo é deixar o mapa aberto"* e
+*"quando clica em um condomínio no mapa que já tem técnico atribuído, acho que
+hoje a funcionalidade não faz sentido"*.
+
+**1. A tela cheia fechava sozinha — e quem fechava era o ciclo de 30s.**
+O nó do mapa é persistente para atravessar o `render()` (comentário antigo em
+`mapaTurnoNo`), mas ele mora **dentro** do `#tela`: o `innerHTML` o arranca do
+documento e o `replaceWith` o devolve no instante seguinte. O Leaflet atravessa
+esse vaivém — pan, zoom e tiles ficam de pé, que é o que o comentário promete e
+cumpre. **A tela cheia não atravessa.** Por especificação, tirar do documento o
+elemento em tela cheia encerra a tela cheia, e devolvê-lo no mesmo instante não
+desfaz nada; o `fullscreenchange` via `fullscreenElement === null` e o mapa
+fechava. Não era "às vezes": era **toda** volta do polling — o "às vezes" é
+onde do ciclo a pessoa abriu.
+
+⚠️ **MOVER O NÓ PARA OUTRO LUGAR ANTES DO `innerHTML` NÃO RESOLVERIA** — mover
+é remover e inserir, e é a remoção que encerra. Em tela cheia o ciclo passou a
+pular o HTML e atualizar só o mapa, que é a única coisa que o navegador pinta
+ali; o `#tela` é reposto na saída (`_renderAdiado`).
+
+**2. A tela não desconecta mais por inatividade.** `<body data-corte="nunca">`,
+lido pelo `inatividade.js` — mesmo mecanismo do `data-corte="cartao"` da tela
+de orçamentos: atributo no `<body>`, que já está no DOM quando aquele `defer`
+roda e não esbarra na CSP `script-src 'self'`.
+
+⚠️ **O CARIMBO CONTINUA SENDO GRAVADO, e isso não é sobra.** O
+`tg_ultima_atividade` é compartilhado entre as telas. Se esta parasse de
+carimbar, um dia de trabalho no operador deixaria o carimbo velho e abrir o
+`/admin/painel` na mesma máquina cortaria a sessão no ato — o corte de
+carregamento dispara antes de a tela pintar. Só o **corte** foi dispensado.
+Vale só para o `/operador/painel`; a tela de Aprovados segue cortando.
+
+**3. O clique no pino segue o estado do chamado.** Todo pino abria o diálogo de
+despacho, inclusive o de chamado que já tinha técnico — e era a **única** peça
+da tela que oferecia isso: na fila, o item com técnico não tem botão
+"Despachar", e o próprio balão já troca o botão pelo nome de quem foi. Só o
+mapa perguntava "quem pode ir" sobre um chamado onde alguém já estava indo, com
+a lista inteira da equipe e nenhuma palavra sobre o técnico atual — clicar num
+nome dali **reatribuía em silêncio**. Agora: sem técnico → despacho (como
+sempre); com técnico → o **balão**, no próprio mapa. O Pedro escolheu entre
+quatro opções, e o motivo é o item 2: com a tela aberta o turno inteiro, sair
+do mapa para ler quem foi é o que não se quer.
+
+⚠️ **E O BALÃO ESTAVA COM 132px DE LARGURA — achado ao verificar o item 3.**
+O `width:auto!important` do `.balao-pop .leaflet-popup-content` anula
+exatamente a linha em que o Leaflet aplica `minWidth`/`maxWidth`
+(`_updateLayout` mede sem quebra, limita e escreve `style.width`). O balão
+virava shrink-to-fit: 132px para um mínimo pedido de 214, nome do prédio em três
+linhas, **438px de altura num mapa de 391** — o pé, e com ele o "Ver detalhes",
+ficava fora da caixa. Valia para o balão do chamado novo desde sempre; o clique
+só o pôs na frente. A largura passou para o `.balao` (`width:268px`, o mesmo
+`maxWidth` que o JS pede): **271 × 337 com a seta**, dentro dos 391 da coluna.
+
+⚠️ **E A LARGURA SOZINHA NÃO BASTAVA.** Na faixa em que o trilho deixa de ser
+coluna o mapa fica largo e BAIXO — medido, **947 × 292** numa janela de 1000px
+—, e ali nem os 318 do balão corrigido cabiam. `autoPan` não resolve: não há
+para onde panar quando o conteúdo é mais alto que o contêiner. Entrou um
+`maxHeight` calculado do tamanho do mapa ao abrir; naquela faixa o balão fecha
+em 270 e rola por dentro, e na coluna de 1920 e em tela cheia a conta nem morde
+— nenhuma rolagem aparece.
+
+**Verificado no Chrome, com tela cheia NATIVA de verdade** — que é a única
+forma de testar isto, porque o caminho por classe (o plano B) não reproduz o
+defeito: a classe vive no próprio nó e sobrevive à mudança. Entrou por clique
+real no botão; o vaivém do `render()` antigo derruba o `fullscreenElement` para
+`null` e limpa o `is-fs`, e com o desvio a tela cheia atravessa o ciclo com o
+balão aberto, o mapa recebendo pino novo (5 → 6) e o `#tela` reposto na saída
+com o chamado que chegou. Mais: pino com técnico → balão sem "Despachar", com
+"Marcos Ribeiro" e "Ver detalhes" dentro da caixa; pino sem técnico → despacho
+com os 4 candidatos, igual a antes; console limpo.
+
+O `inatividade.js` foi verificado fora do navegador (a extensão bloqueia
+escrever a chave `token`, e sem sessão o arquivo não roda): 14 checagens
+cobrindo as duas telas — a que corta segue cortando aos 45 min e ao voltar para
+a aba com 3h, a que não corta não arma timer e sobrevive a 26h paradas, e o
+cartão de orçamentos segue no caminho dele.
+
+Sem migration. `?v=N`: `operador.js` 70 → 73, `operador.css` 75 → 77,
+`inatividade.js` 8 → 9 nas cinco páginas que o carregam.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

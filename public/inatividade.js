@@ -45,6 +45,29 @@
     try { localStorage.setItem(CHAVE, String(t)); } catch (_) {}
   }
 
+  // ⚠️ TELA QUE NÃO CORTA — `data-corte="nunca"` no <body> (02/09/2026).
+  //
+  // O painel do operador existe para ficar ABERTO: o mapa do turno é
+  // instrumento de plantão, e o operador passa longos trechos olhando para
+  // ele sem tocar em nada. Trinta minutos sem mouse ali não é ausência, é o
+  // uso normal — e cair no /login jogava fora o enquadramento do mapa, os
+  // chamados que já tinham sido vistos e o balão aberto.
+  //
+  // ⚠️ O CARIMBO CONTINUA SENDO GRAVADO, e isso não é sobra. Ele é
+  // compartilhado entre as telas: se esta parasse de carimbar, um dia de
+  // trabalho no operador deixaria o carimbo velho, e abrir o /admin/painel
+  // na mesma máquina cortaria a sessão no ato — o corte de carregamento
+  // dispara antes de a tela pintar. Aqui só o CORTE é dispensado; a marca de
+  // vida continua valendo para quem corta.
+  //
+  // Mesmo mecanismo do `data-corte="cartao"` (ver `aplicarCorte`): atributo
+  // no <body>, que já está no DOM quando este `defer` roda e não esbarra na
+  // CSP `script-src 'self'` desta casa.
+  function nuncaCorta() {
+    try { return document.body && document.body.dataset.corte === "nunca"; }
+    catch (_) { return false; }
+  }
+
   function limparSessao() {
     try {
       localStorage.removeItem("token");
@@ -162,6 +185,8 @@
       gravar(t);
     }
     clearTimeout(_timer);
+    // Na tela que não corta, a atividade só CARIMBA — ver `nuncaCorta`.
+    if (nuncaCorta()) return;
     _timer = setTimeout(encerrar, TIMEOUT_MS);
   }
 
@@ -174,7 +199,10 @@
   if (!temSessao()) return;
 
   // 1) Passou do tempo enquanto estava fechado? Encerra antes de tudo.
-  if (expirou()) { encerrar(); return; }
+  // ⚠️ A tela que não corta também não corta AQUI. Sem esta linha, deixar o
+  // painel do operador aberto e voltar no dia seguinte cairia no /login no
+  // carregamento — o caminho que o timer removido acima já não percorre.
+  if (!nuncaCorta() && expirou()) { encerrar(); return; }
 
   // 2) Aba aberta: qualquer sinal de vida adia o corte e renova o carimbo.
   ["mousemove", "mousedown", "keydown", "touchstart", "scroll", "click"].forEach(
@@ -185,7 +213,7 @@
   // que o tempo pode ter estourado sem nenhum evento acontecer aqui.
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState !== "visible") return;
-    if (expirou()) encerrar(); else registrarAtividade();
+    if (!nuncaCorta() && expirou()) encerrar(); else registrarAtividade();
   });
 
   // Primeira marcação já vale como atividade — a pessoa acabou de abrir.

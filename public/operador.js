@@ -439,6 +439,38 @@ function render() {
   const foraAndando = andando.filter((c) => c.sla?.estourado).length;
   const fora = (n) => n ? ` · <b class="cab-fora">${n} fora do prazo</b>` : "";
 
+  // ⚠️ EM TELA CHEIA O `#tela` NÃO É REESCRITO, e a causa é a Fullscreen
+  // API, não o Leaflet.
+  //
+  // O nó do mapa é persistente para sobreviver ao ciclo de 30s (ver
+  // `mapaTurnoNo`), mas ele mora DENTRO do `#tela`: o `innerHTML` abaixo o
+  // arranca do documento e o `replaceWith` logo adiante o devolve. O Leaflet
+  // atravessa esse vaivém — o pan, o zoom e os tiles ficam de pé, que é o que
+  // o comentário de lá promete e cumpre. **A tela cheia não atravessa.** Por
+  // especificação, tirar do documento o elemento em tela cheia encerra a tela
+  // cheia; devolvê-lo no mesmo instante não desfaz nada. O `fullscreenchange`
+  // então via `document.fullscreenElement === null`, `mapaFsAplicar(false)`
+  // limpava a classe, e o mapa fechava sozinho — a cada volta do polling,
+  // sem ninguém tocar em nada. É o "às vezes" do relato: quem abre logo
+  // depois de um ciclo tem 30 segundos, quem abre no fim do ciclo tem um.
+  //
+  // ⚠️ NÃO ADIANTA MOVER O NÓ PARA OUTRO LUGAR ANTES DO `innerHTML`. Mover
+  // é remover e inserir, e a remoção é o que encerra a tela cheia — qualquer
+  // caminho que TIRE o nó do documento tem o mesmo fim.
+  //
+  // Então em tela cheia o ciclo pula o HTML e atualiza só o mapa, que é a
+  // única coisa visível: o navegador pinta apenas a subárvore em tela cheia,
+  // então a fila embaixo estaria sendo redesenhada para ninguém. Os pinos, o
+  // balão e o voo do chamado novo continuam vindo a cada 30s, iguais. O que
+  // fica devendo é o HTML do `#tela`, e ele é reposto na saída — ver
+  // `mapaFsAplicar`.
+  if (_mapaEmFs()) {
+    _renderAdiado = true;
+    montarMapaTurno();
+    return;
+  }
+  _renderAdiado = false;
+
   const tela = document.getElementById("tela");
 
   // ⚠️ O dia calmo MANTÉM o trilho da equipe. Ele saía junto com a fila, e a
@@ -701,6 +733,13 @@ function camadaTiles(mapa) {
    preserva o Leaflet; o que ele precisa depois é de `invalidateSize()`. */
 let _mapaTurnoNo = null;
 let _mapaTurno = null;
+// O ciclo de 30s passou com o mapa em tela cheia? Então o `#tela` está
+// desatualizado e precisa ser reposto na saída. Ver o desvio no `render()`.
+let _renderAdiado = false;
+function _mapaEmFs() {
+  return !!_mapaTurnoNo && (_mapaTurnoNo.classList.contains("is-fs") ||
+                            document.fullscreenElement === _mapaTurnoNo);
+}
 let _pinos = null;
 let _pontos = [];
 // O centro da carteira, quando não há decisão na tela. `null` quando há.
@@ -799,17 +838,38 @@ function _chamadoParaFocar(chamados) {
   return chamados.find((c) => _novos.has(c.id)) || null;
 }
 
-function _focarChamado(c) {
+/* Abre o balão sobre o prédio. Dois chamadores, e a diferença entre eles é
+   quem enquadra:
+   - o chamado NOVO (`_focarChamado`) vem com voo, e o voo é que centra —
+     `autoPan` ali brigaria com ele pelo centro do mapa;
+   - o CLIQUE no pino não move nada, porque o operador já está olhando para
+     onde clicou. Aí o `autoPan` é que impede o balão de nascer cortado na
+     borda, que é onde um pino clicado costuma estar. */
+function _abrirBalao(c, autoPan) {
   const p = [c.condominio.lat, c.condominio.lng];
+  // ⚠️ O TETO SEGUE O MAPA, e não é folga teórica: na faixa em que o trilho
+  // deixa de ser coluna o mapa fica LARGO E BAIXO — medido em 02/09, 947×292
+  // numa janela de 1000px —, e o balão de 318 sobrava 26px fora da caixa, sem
+  // `autoPan` que resolvesse (não há para onde panar quando o conteúdo é mais
+  // alto que o contêiner). `maxHeight` é do Leaflet: acima do teto o conteúdo
+  // ROLA dentro do balão em vez de vazar. Os 44 são a seta (20) mais a moldura
+  // e um respiro; o piso de 150 existe para o balão não virar uma fresta num
+  // mapa absurdamente baixo. Na coluna de 1920 e em tela cheia a conta nem
+  // morde — o conteúdo cabe, e não aparece rolagem nenhuma.
+  const teto = Math.max(150, _mapaTurno.getSize().y - 44);
+  _balao = L.popup({ className: "balao-pop", maxWidth: 268, minWidth: 214,
+                     maxHeight: teto,
+                     autoPan: !!autoPan, closeButton: true })
+    .setLatLng(p).setContent(_balaoChamado(c)).openOn(_mapaTurno);
+  _balaoId = c.id;
+  return p;
+}
+
+function _focarChamado(c) {
   // O balão abre ANTES do voo, ancorado na coordenada, e viaja junto. Abrir no
   // `moveend` teria um buraco: `flyTo` para um ponto onde o mapa já está não
   // dispara evento nenhum, e o balão simplesmente não apareceria.
-  // `autoPan:false` porque quem enquadra aqui é o voo — os dois juntos brigam
-  // pelo centro, e o popup cabe de sobra acima de um ponto centrado.
-  _balao = L.popup({ className: "balao-pop", maxWidth: 268, minWidth: 214,
-                     autoPan: false, closeButton: true })
-    .setLatLng(p).setContent(_balaoChamado(c)).openOn(_mapaTurno);
-  _balaoId = c.id;
+  const p = _abrirBalao(c, false);
   // O voo é o que faz o operador PERCEBER que a tela se moveu; um salto
   // instantâneo desorienta em quem estava olhando outra região.
   if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
@@ -1062,9 +1122,24 @@ function montarMapaTurno() {
       .bindTooltip(
         `${escapar(c.condominio.nome || "—")} <b>${prioRot(c.prioridade)}</b> <b>${r.txt}</b>`,
         { className: "pin-rot", direction: "top", offset: [0, -12] })
-      // Clicar num pino abre o MESMO diálogo de despacho do botão da fila —
-      // o mapa é outra porta para a decisão que já existe, não um destino novo.
-      .on("click", () => dlgDespacho(c.id))
+      // ⚠️ O CLIQUE SEGUE O ESTADO DO CHAMADO (02/09/2026), e antes não seguia.
+      //
+      // Todo pino abria o diálogo de DESPACHO — inclusive o de chamado que já
+      // tinha técnico. Era a única peça da tela que oferecia isso: na fila, o
+      // item com técnico não tem botão Despachar (só "Ver detalhes"), e o
+      // próprio balão já troca o botão pelo nome de quem foi. O mapa perguntava
+      // "quem pode ir" sobre um chamado onde alguém já está indo, com a lista
+      // inteira da equipe e nenhuma palavra sobre o técnico atual — clicar num
+      // nome dali reatribuía em silêncio.
+      //
+      // Agora o pino abre o BALÃO, que é a resposta que o mapa já sabia dar:
+      // quem está, desde quando, e o caminho para a ficha. E abre NO MAPA, sem
+      // diálogo por cima — em tela cheia, que é como esta tela fica aberta, sair
+      // do mapa para ler quem foi é justamente o que não se quer.
+      //
+      // Sem técnico, nada muda: aí a pergunta É "quem pode ir", e o despacho
+      // abre direto, a um clique como sempre foi.
+      .on("click", () => (c.tecnico ? _abrirBalao(c, true) : dlgDespacho(c.id)))
       .addTo(_pinos);
   });
 
@@ -1163,6 +1238,11 @@ function mapaFsAplicar(ligar) {
   // da barra e trava a rolagem atrás — ver o comentário no `operador.css`.
   document.body.classList.toggle("com-mapa-fs", ligar);
   no.querySelector(".mapa-fs")?.setAttribute("aria-label", ligar ? "Sair da tela cheia" : "Tela cheia");
+  // Saindo: o `#tela` ficou parado no estado de quando a tela cheia abriu —
+  // os ciclos que passaram desde então só atualizaram o mapa. Repor ANTES de
+  // medir, porque o `render()` move o nó de volta para o trilho e é o tamanho
+  // de LÁ que o `invalidateSize` abaixo precisa enxergar.
+  if (!ligar && _renderAdiado) render();
   // O mapa mudou de tamanho por CSS, e o Leaflet não observa isso sozinho.
   //
   // ⚠️ DOIS `requestAnimationFrame`, e o segundo não é paranoia. A classe
