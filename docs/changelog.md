@@ -8188,6 +8188,75 @@ cartão de orçamentos segue no caminho dele.
 Sem migration. `?v=N`: `operador.js` 70 → 73, `operador.css` 75 → 77,
 `inatividade.js` 8 → 9 nas cinco páginas que o carregam.
 
+### 2026-09-02 (3ª rodada) · O pedido de orçamento do técnico deixa de ser invisível
+
+Pergunta do Pedro: *"se no app o técnico colocar que é necessário orçamento,
+essa informação chega onde?"*. Rastreando: o app salva
+`orcamento_necessario` + `orcamento_observacoes` na O.S. (PATCH com debounce,
+enquanto ele digita), e daí a informação aparece em **quatro lugares, todos no
+admin** — a aba "Solicitados pelos técnicos", o drawer do condomínio, o
+detalhe da O.S. e a ficha do equipamento. **Não dispara notificação nenhuma**
+(nem e-mail, nem WhatsApp), **não sai no PDF da O.S.**, não chega ao operador
+(a tela Aprovados filtra `status = 'aprovado'`) e não chega ao cliente.
+
+⚠️ **E O CONTADOR NÃO CONTAVA JUSTAMENTE ESSE ESTADO.** O pedido recém-chegado
+tem `orcamento_status` **NULO** — o orçamento formal ainda não existe. A tabela
+já sabia desenhá-lo (`_orcStatusLabel(null)` devolve SOLICITADO, com comentário
+dizendo que é *"o estado que mais precisa aparecer nesta aba"*), mas o KPI
+"Pendentes", os contadores das abas e os DOIS badges contavam
+`status === 'rascunho'`. Nulo não é rascunho: **o pedido novo não entrava em
+contador nenhum**, e sob a aba "Pendentes" nem aparecia.
+
+⚠️ **E O BADGE SÓ EXISTIA DEPOIS DE ABRIR A SEÇÃO.** `_orcAtualizarBadge` só
+roda dentro de `carregarOrcamentos`, chamada apenas ao ENTRAR em Orçamentos.
+Abrir o admin e olhar a barra lateral não mostrava nada — que é exatamente o
+que um badge existe para evitar.
+
+Os dois consertados: o estado ganhou nome (`_orcSolicitado`) e aba própria, o
+badge soma **solicitado + rascunho**, e `carregarTudo` carrega a lista no boot
+— uma requisição a mais na primeira carga e nenhuma no polling.
+
+**E a tela foi unificada com a aba irmã**, a pedido do Pedro. As duas vivem na
+mesma seção, a um clique uma da outra, e eram coisas diferentes: "Criar
+orçamento" já era master-detail agrupado por condomínio, "Solicitados pelos
+técnicos" era tabela de 7 colunas. A pergunta das duas é a mesma — *o que este
+prédio está esperando de orçamento?* — e agrupar é o que permite respondê-la de
+uma vez: um técnico que pediu três coisas no mesmo prédio virava três linhas
+soltas. Reaproveitou `.av-condo-row`, `.av-dot`, `.av-orc-pane-head` e
+`.av-orc-item` **inteiros**; a única classe nova é `.av-orc-item-obs`, a
+observação do técnico na linha — ela não é metadado, é o texto que a aba existe
+para entregar.
+
+A ficha por O.S. não se perdeu: virou o modal de tela cheia, que já era o
+destino do botão "Preencher orçamento" e já carregava a observação. **Aprovar
+e Rejeitar foram junto**, e isso conserta um defeito de caminho: o `_orcAcao`
+escreve o resultado em `#orcFormMsg`, que só existe dentro do modal — aprovar
+pelo painel era ação sem confirmação e sem mensagem de erro.
+
+⚠️ **DOIS DEFEITOS ANTIGOS APARECERAM AO OLHAR O MODAL NA TELA.** O título saía
+**"Orçamento formal · OS OS-2026-0042"** (o `numero` já traz o prefixo), e o
+botão "Gerar PDF" usava `#f0b014` como **texto** sobre a placa clara: **1,6:1**
+medido, contra os 4,5 do piso. É a Regra do Amarelo Cego do DESIGN.md, e a
+correção é o token — `--warn` vira `--warn-t` dentro do `.av-modal-dialog` e
+mede **4,67:1**.
+
+⚠️ **A CRASE DENTRO DE TEMPLATE LITERAL ME PEGOU DUAS VEZES NESTA RODADA**, nos
+comentários `<!-- -->` que escrevi dentro do HTML do modal. É o item do
+CLAUDE.md, e o sintoma é o de lá: erro apontando para identificador solto,
+longe da linha real. Fica o reforço: dentro de template literal, nome de
+função e de classe vai **sem marcação nenhuma**.
+
+**Verificado no Chrome**, numa prévia sem sessão criada para isto
+(`/dev/_orcamentos-preview.html`, mesmo molde do `_operador-preview.html`):
+badge da barra e da aba em **3** (2 solicitados + 1 rascunho, o número que
+antes era 1); KPIs Total 6 · Solicitados 2 · Em orçamento 1 · Total aprovado;
+aba "Solicitados" filtrando para os 2 condomínios com pedido não atendido;
+troca de condomínio, busca por técnico, clique no pedido abrindo o modal com a
+observação, o formulário e as quatro ações; selo sem colidir com o ×; PDF a
+4,67:1; e as duas abas lado a lado com o mesmo esqueleto. Console limpo.
+
+Sem migration. `?v=N`: `admin.js` 326 → 328, `admin.css` 239 → 240.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

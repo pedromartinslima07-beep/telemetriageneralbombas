@@ -74,6 +74,11 @@ Perfilando o markup, as 15 telas caem em três esqueletos. Isso é o fato mais
 | Molde | Telas | Esqueleto |
 |---|---|---|
 | **A · Lista → ficha** | alertas, cadastros, chamados, ordens-servico, orcamentos, contratos, tecnicos, equipamentos, planos — **9** | faixa de KPI → barra (abas + busca + ação) → tabela → coluna de ficha |
+
+⚠️ **`orcamentos` saiu do molde A nas DUAS abas** (a de avulsos primeiro, a de
+"Solicitados pelos técnicos" em 02/09/2026): lá a tabela virou lista de
+**condomínios**, a coluna de ficha virou a lista de documentos daquele prédio,
+e a ficha foi para o modal de tela cheia. Ver a seção própria abaixo.
 | **B · Superfície viva** | dashboard, mapa, telemetria, whatsapp — **4** | mapa/gráfico/conversa ocupa a área, controles pousam por cima |
 | **C · Formulário** | relatorios, config — **2** | campos agrupados + ação |
 
@@ -140,6 +145,92 @@ vivo" — único lugar do painel com isso, e é o padrão que o
 **`planos` é a melhor tabela do painel e ninguém copiou:** agrupa por zona e
 técnico, mostra data absoluta **e** relativa (`23/01/2027 · em 158 dias`,
 `vencido há 2 dias` em vermelho) e tem seleção em lote.
+
+---
+
+## As duas abas de Orçamentos passaram a ser a mesma tela (02/09/2026)
+
+Pergunta do Pedro: *"se no app o técnico colocar que é necessário orçamento,
+essa informação chega onde?"*. A resposta era **uma tela só** — a aba
+"Solicitados pelos técnicos" — e ela tinha dois problemas.
+
+### ⚠️ O estado que a tela existe para mostrar não era contado
+
+O técnico marca `orcamento_necessario` na O.S. e o escritório ainda não abriu
+nada: a O.S. vem do `GET /admin/orcamentos` (o `LEFT JOIN` existe justamente
+para isso — o comentário está na rota desde que virou LEFT), mas com
+`orcamento_status` **NULO**.
+
+A tabela já sabia desenhá-lo: `_orcStatusLabel(null)` devolve **SOLICITADO**, e
+o `.orc-status-req` é âmbar de propósito. **Quem não sabia era todo o resto** —
+o KPI "Pendentes", os contadores das abas e os **dois** badges contavam
+`status === 'rascunho'`, e nulo não é rascunho. O pedido recém-chegado do
+técnico não entrava em contador nenhum.
+
+Somando o segundo defeito, o efeito era este: **o badge da barra lateral só
+existia depois de alguém abrir a seção** — `_orcAtualizarBadge` só roda dentro
+de `carregarOrcamentos`, e essa só era chamada ao ENTRAR em Orçamentos. Um
+pedido do técnico ficava sem sinal em lugar nenhum até alguém entrar na aba,
+na aba interna certa e na sub-aba "Todos" (sob "Pendentes" ele nem aparecia).
+
+Hoje: `_orcSolicitado(o)` nomeia o estado, existe a aba **Solicitados**, o KPI
+conta, o badge soma **solicitado + rascunho** (os dois estados abertos) e
+`carregarTudo` carrega a lista no boot — uma requisição a mais na primeira
+carga e nenhuma no polling, porque `carregarTudo` não roda em intervalo.
+
+### O layout: as duas abas usam o mesmo esqueleto
+
+Elas vivem na mesma seção, a um clique uma da outra, e eram coisas diferentes:
+"Criar orçamento" já era master-detail agrupado por condomínio; "Solicitados
+pelos técnicos" era uma tabela de 7 colunas. A pergunta das duas é a mesma —
+**"o que este prédio está esperando de orçamento?"** — e agrupar é o que
+permite respondê-la de uma vez: um técnico que pediu três coisas no mesmo
+prédio virava três linhas soltas na tabela.
+
+| Peça | Vem de |
+|---|---|
+| Coluna esquerda | `.av-condo-row` + `.av-dot` — os mesmos da aba irmã |
+| Painel | `.av-orc-pane-head` + `.av-orc-list` + `.av-orc-item` |
+| Ficha | o modal de tela cheia `#avModal`, que **já** era o destino do botão "Preencher orçamento" e já carregava a observação do técnico |
+
+Nenhuma classe nova de estrutura. A única acrescentada é `.av-orc-item-obs`,
+a **observação do técnico na linha** — ela não é metadado, é o texto que a aba
+existe para entregar, e quem lê esta lista decide o que orçar por ele. Teto de
+duas linhas para a lista seguir varrível; o texto inteiro está no modal.
+
+⚠️ **A ORDEM NÃO É ALFABÉTICA, e é a única diferença deliberada em relação à
+aba irmã.** Lá a lista é cadastro; aqui é fila de trabalho, e a tela responde
+"por onde começo" — quem tem pedido sem orçamento sobe, no grupo e dentro dele.
+
+⚠️ **Aprovar e Rejeitar mudaram do painel para o rodapé do modal**, e não foi
+arrumação: o `_orcAcao` escreve o resultado em `#orcFormMsg`, que **só existe
+dentro do modal**. Aprovar pelo painel era uma ação sem confirmação e sem
+mensagem de erro. Rejeitar só aparece em `rascunho` ou `aprovado` — não se
+recusa o que ninguém orçou ainda.
+
+⚠️ **Dois defeitos antigos apareceram ao verificar o modal:** o título saía
+"Orçamento formal · OS OS-2026-0042" (o `numero` já traz o prefixo), e o botão
+"Gerar PDF" usava `#f0b014` como **texto** sobre a placa clara — **1,6:1**
+medido, contra os 4,5 do piso. É a Regra do Amarelo Cego do
+[DESIGN.md](../../DESIGN.md): trocado pelo token `--warn`, que vira `--warn-t`
+(#886116) dentro do `.av-modal-dialog` e mede **4,67:1**.
+
+### Para olhar sem sessão: `/dev/_orcamentos-preview.html`
+
+Mesma ideia do `_operador-preview.html`: a página carrega o `admin.css` e o
+`admin.js` de verdade e só troca o `fetch` por uma fixture com os cinco
+estados. A rota `/dev/:arquivo` não é registrada em produção.
+
+⚠️ **A prévia EMPRESTA o `localStorage`, não o toma** — as três chaves de
+sessão são devolvidas no `pagehide`. É a pegadinha já registrada no
+`_operador-preview.js`: deixar `token = "preview"` para trás desloga o painel
+de verdade no clique seguinte.
+
+⚠️ **A prévia precisa de sete elementos que ela não usa** (`hardDeleteOverlay`
+e companhia). O `admin.js` tem `getElementById(x).addEventListener` no topo,
+**sem `?.`**: faltando um, o script estoura ali e as 8 mil linhas seguintes
+nunca executam, deixando os `let` em TDZ. O sintoma foi uma tela vazia com um
+erro apontando para 4 mil linhas depois da causa.
 
 ---
 

@@ -81,6 +81,22 @@ ESP32 (sonda 4-20mA + SCT-013)
 | **status / leituras / jobs** | Endpoints auxiliares e disparo manual de jobs |
 | **leads** | Contatos da landing pública. `POST /leads` é público (rate limit + honeypot `site` + truncagem); leitura e funil exigem `gestaoOnly`. Fluxo em [landing-publica.md](../docs/modulos/landing-publica.md) |
 
+### ⚠️ Onde chega o "preciso de orçamento" do técnico (02/09/2026)
+
+O app grava `orcamento_necessario` + `orcamento_observacoes` na O.S. Daí a
+informação aparece **só no admin**, em quatro lugares: a aba "Solicitados
+pelos técnicos" (o destino de verdade), o drawer do condomínio, o detalhe da
+O.S. e a ficha do equipamento.
+
+**Não dispara notificação nenhuma** — nem e-mail, nem WhatsApp, nem alerta —,
+**não sai no PDF da O.S.**, não chega ao operador (a tela Aprovados só lista
+`status = 'aprovado'`) e não chega ao cliente. Se ninguém abrir a aba, o pedido
+fica parado sem sinal. O badge da barra lateral hoje conta **solicitado +
+rascunho** e é carregado no boot; até 02/09 não contava o pedido novo e só
+existia depois de alguém entrar na seção.
+
+Detalhe em [painel-admin.md](../docs/modulos/painel-admin.md).
+
 ### ⚠️ O painel do operador é a tela de PLANTÃO (02/09/2026)
 
 Três regras que só valem lá, e as três vêm do mesmo fato: a tela fica **aberta**

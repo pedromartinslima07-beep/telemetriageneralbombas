@@ -18,7 +18,7 @@
   <link rel="stylesheet" href="/static/leaflet.css">
   <!-- ⚠️ Ao mexer em admin.js ou admin.css, bumpe o ?v=N aqui E no <script>
        lá embaixo. Ver CLAUDE.md raiz. -->
-  <link rel="stylesheet" href="/static/admin.css?v=239">
+  <link rel="stylesheet" href="/static/admin.css?v=240">
 </head>
 <body>
   <div id="appLoader">
@@ -747,17 +747,31 @@
         </div><!-- /avulso -->
 
         <!-- ===== MODO OS ===== -->
-        <!-- Layout espelha o de Chamados: KPIs + lista e detalhe em cards separados -->
+        <!-- ⚠️ MESMO ESQUELETO DA ABA "Criar orçamento" (02/09/2026), e isso
+             é a correção de uma divergência, não uma preferência nova: as duas
+             abas vivem na MESMA seção, a um clique uma da outra, e uma era
+             tabela de 7 colunas enquanto a outra era master-detail agrupado
+             por condomínio. A pergunta que as duas respondem é a mesma —
+             "o que este prédio está esperando de orçamento?" —, e agrupar por
+             condomínio é o que permite responder de uma vez: um técnico pediu
+             três coisas no mesmo prédio, e são três linhas soltas na tabela.
+             Componentes reaproveitados inteiros (av-condo-row, av-dot,
+             av-orc-item): nenhuma classe nova de estrutura. -->
         <div id="orcModoOS" style="display:none;">
           <div class="resumo-grid" id="orcKpiGrid" style="margin-bottom:16px;"></div>
 
           <div class="ch-layout">
-            <!-- Coluna lista -->
+            <!-- Coluna: condomínios com pedido de orçamento -->
             <div class="ch-list-col">
               <div class="ch-toolbar">
                 <div class="wa-tabs" role="tablist">
                   <button class="wa-tab is-active" data-orc-tab="todos" type="button">Todos <span class="wa-count" id="orcCtTodos">0</span></button>
-                  <button class="wa-tab" data-orc-tab="pendente" type="button">Pendentes <span class="wa-count" id="orcCtPendente">0</span></button>
+                  <!-- ⚠️ ESTA ABA FALTAVA, e a falta era o defeito: o pedido do
+                       técnico ainda sem orçamento criado tem `orcamento_status`
+                       NULO, então não caía em nenhuma das quatro abas antigas —
+                       só em "Todos". É o estado que mais precisa aparecer aqui. -->
+                  <button class="wa-tab" data-orc-tab="solicitado" type="button">Solicitados <span class="wa-count" id="orcCtSolicitado">0</span></button>
+                  <button class="wa-tab" data-orc-tab="pendente" type="button">Em orçamento <span class="wa-count" id="orcCtPendente">0</span></button>
                   <button class="wa-tab" data-orc-tab="aprovado" type="button">Aprovados <span class="wa-count" id="orcCtAprovado">0</span></button>
                   <button class="wa-tab" data-orc-tab="rejeitado" type="button">Rejeitados <span class="wa-count" id="orcCtRejeitado">0</span></button>
                 </div>
@@ -767,36 +781,25 @@
                 </select>
               </div>
               <div class="tableWrap ch-table-wrap">
-                <table class="orc-table">
-                  <thead>
-                    <tr>
-                      <th style="width:110px">O.S.</th>
-                      <th>Condomínio</th>
-                      <th style="width:130px">Técnico</th>
-                      <th>Observação do técnico</th>
-                      <th style="width:110px">Valor</th>
-                      <th style="width:90px">Status</th>
-                      <th style="width:80px">Data</th>
-                    </tr>
-                  </thead>
-                  <tbody id="orcTableBody"></tbody>
-                </table>
+                <div id="orcCondoList" class="av-condo-list"></div>
                 <div id="orcEmpty" class="al-empty" style="display:none;">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                     <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
                   </svg>
-                  <p>Nenhum orçamento encontrado.</p>
+                  <p>Nenhum pedido de orçamento.</p>
                 </div>
               </div>
             </div>
 
-            <!-- Painel de detalhe -->
-            <aside class="ch-detail-col al-painel" id="orcPainel">
-              <div class="al-empty">
+            <!-- Painel: os pedidos do condomínio selecionado.
+                 ⚠️ SEM `al-painel` — ele traz `padding: 18px`, e a lista de
+                 itens tem de encostar na borda como a do `#avCondoDetail`. -->
+            <aside class="ch-detail-col" id="orcPainel">
+              <div class="ch-detail-empty">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                   <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
                 </svg>
-                <p>Selecione um orçamento para ver os detalhes</p>
+                <p>Selecione um condomínio para ver os pedidos</p>
               </div>
             </aside>
           </div>
@@ -2722,7 +2725,7 @@
 </div>
 
 
-<script src="/static/admin.js?v=326" defer></script>
+<script src="/static/admin.js?v=328" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
 <script src="/static/register-sw.js?v=51" defer></script>
 </body>

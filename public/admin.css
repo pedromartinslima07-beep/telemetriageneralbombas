@@ -8616,6 +8616,25 @@ body.role-viewer .viewer-only-hide-inline {
 .av-orc-item-main { flex: 1; min-width: 0; }
 .av-orc-item-top  { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .av-orc-item-sub  { font-size: 10.5px; color: var(--muted); margin-top: 3px; }
+/* A OBSERVAÇÃO DO TÉCNICO, na aba "Solicitados pelos técnicos" (02/09/2026).
+   ⚠️ Ela NÃO é metadado, e por isso não usa o cinza do `-sub` acima: é o
+   texto que a aba existe para entregar — quem lê esta lista está decidindo o
+   que orçar, e decide por ele. Sai em `--text-dim` (7,6:1 sobre o campo),
+   um degrau acima da linha de técnico e data.
+   Duas linhas de teto: a lista precisa continuar varrível com seis pedidos na
+   tela, e o texto inteiro está a um clique, no modal. O `title` do item não
+   substitui isso — tooltip não se lê de relance. */
+.av-orc-item-obs {
+  font-size: 11.5px; line-height: 1.45; color: var(--text-dim);
+  margin-top: 4px;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+.av-orc-item-obs.is-vazia { color: var(--muted2); }
+/* O pedido ainda sem orçamento é o único que pede ação, e ele já carrega o
+   fio âmbar do `.is-pendente` herdado da aba irmã. Aqui a observação
+   acompanha em tinta cheia: é o item que se vai ler primeiro. */
+.av-orc-item.is-pendente .av-orc-item-obs { color: var(--text); }
 /* Quem respondeu pesa mais que uma data de criação: é a linha que separa o
    "aprovado pelo síndico" do "aprovado no escritório" sem abrir a ficha. */
 .av-orc-item-sub.is-resposta { color: var(--text-dim); }
