@@ -12,7 +12,12 @@ async function _executarAcaoPendente(conversaId, pendente, telefone) {
   const { tipo, params } = pendente;
 
   if (tipo === "abrir_chamado") {
-    const { condominio_id, titulo, descricao, prioridade, categoria } = params;
+    // `prioridade_piso` foi calculado por `abrirChamado` no momento em que a
+    // IA classificou, e viaja no pendente_acao de propósito: recalcular aqui
+    // usaria a regra vigente na CONFIRMAÇÃO, que pode ser dias depois.
+    // Chamado pendente gravado antes da migration 082 não tem o campo — cai
+    // na prioridade mesmo, que era o piso na prática.
+    const { condominio_id, titulo, descricao, prioridade, categoria, prioridade_piso } = params;
 
     // Guard anti-duplicata: se já existe chamado aberto nesta conversa, não cria outro.
     const dup = await pool.query(
@@ -51,9 +56,11 @@ async function _executarAcaoPendente(conversaId, pendente, telefone) {
     }
 
     const r = await pool.query(
-      `INSERT INTO chamados (conversa_id, condominio_id, titulo, descricao, prioridade, categoria)
-       VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
-      [conversaId, condominio_id || null, titulo, descricaoFinal, prioridade, categoria || "outro"]
+      `INSERT INTO chamados (conversa_id, condominio_id, titulo, descricao, prioridade, categoria,
+                             prioridade_piso)
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+      [conversaId, condominio_id || null, titulo, descricaoFinal, prioridade, categoria || "outro",
+       prioridade_piso || prioridade]
     );
     registrarCriacao({ chamadoId: r.rows[0].id, alteradoPor: null });
 

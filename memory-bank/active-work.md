@@ -121,6 +121,54 @@ mapa, e o rótulo "TURNO" ao lado da marca.
 
 ---
 
+## Sessão 2026-09-02 (parte 2) — A criticidade passou a sair do contrato
+
+Pergunta do Pedro, com a minuta nova: *"hoje quando vai abrir o chamado ele
+deixa o usuário 100% para escolher a criticidade, então mesmo que você
+selecione vazamento ele não locka em P1. Dá para ajustar?"*
+
+⚠️ **A RESPOSTA NÃO ERA "LOCKAR PELA CATEGORIA", e é o que mais importa aqui.**
+A cláusula 7 classifica por **impacto**: o mesmo vazamento é P1 alagando a casa
+de bombas e P3 gotejando com a reserva rodando. Categoria não decide isso —
+decidem duas perguntas (risco imediato / redundância), que o formulário não
+fazia. E a 7.1.c **proíbe travar**: manda deixar reclassificar "com
+justificativa". Virou piso + motivo obrigatório para descer.
+
+Implementado: `src/services/prioridade.service.js` (fonte única, substituindo
+três cópias que discordavam), triagem no modal, faixa do piso, campo de motivo
+que só aparece na rebaixa, reclassificação na ficha, motivo no histórico.
+Migration **082** aplicada em TESTE **e PRODUÇÃO**.
+
+⚠️ **P2 estava com 24h no banco; a minuta diz 48h.** Corrigido para 2880 min.
+
+⚠️ **O bump de recorrência ganhou teto P2.** Ele tinha `{ p2: "p1" }` — chamado
+repetido virava P1 sozinho e acionava o plantão 24h da cláusula 8.1, sem
+justificativa. Recorrência não é critério de P1 na minuta.
+
+⚠️ **O MODAL É PLACA CLARA — errei isso primeiro.** `--text-dim` vira
+`--tinta-2` ali e mede 4,26:1 sobre o `rgba(0,0,0,.2)` dos blocos; `--warn-t`
+como texto, 3,98. Já estava escrito em
+[orcamentos-envio.md](../docs/modulos/orcamentos-envio.md) e eu não li antes.
+Regra curta: **dentro de modal, família `--tinta`; âmbar só como fundo.**
+
+⚠️ **E O MEDIDOR DE CONTRASTE MENTIU** — `color-mix()` resolve para
+`color(srgb 0.96 0.93 0.86)`, floats de 0 a 1. Lidos como bytes viram quase
+preto: a ferramenta acusou 1,12:1 onde o real era 16,05:1, e eu quase "consertei"
+um CSS que estava certo. **Normalizar `color()` antes de qualquer conta.**
+
+🔎 **A extensão do Chrome caiu no meio da sessão — a verificação em tela foi
+feita com PUPPETEER**, que o projeto já tem como dependência. JWT assinado com
+o `JWT_SECRET` + `localStorage` antes do `goto` dá o painel real logado, sem
+fixture e sem prévia. É o caminho a usar quando a extensão não estiver de pé.
+
+📋 **Pendente:** `ttr_min` de P2 (24h) ficou menor que o SLA de chegada (48h);
+`sla_definicoes` é global e a minuta é de um condomínio só; a triagem só existe
+no admin. Ver [roadmap.md](roadmap.md).
+
+Detalhe em [chamados-sla.md](../docs/modulos/chamados-sla.md).
+
+---
+
 ## Sessão 2026-09-02 — Orçamentos chamavam o condomínio pela razão social
 
 Pergunta do Pedro: *"por que o condomínio que tem o nome fantasia AURI FARIA

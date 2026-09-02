@@ -147,9 +147,9 @@ Webhook em **Públicas**. Demais exigem admin:
 
 ## Chamados (`/chamados`)
 
-| POST | `/chamados` | **adminOnly** (criação manual; aceita `tecnico_id` opcional — nasce já despachado) |
+| POST | `/chamados` | **adminOnly** (criação manual; aceita `tecnico_id` opcional — nasce já despachado). Aceita também a **triagem da cláusula 7**: `risco_imediato`, `redundancia` (booleanos, omitir = não perguntado) e `prioridade_motivo`. Sem `prioridade` no body, nasce **no piso**; **400** com `{ piso, criterio, exige: "prioridade_motivo" }` se a prioridade escolhida ficar abaixo do piso sem justificativa de 10+ caracteres |
 | GET | `/chamados` · `/chamados/:id` · `/:id/historico` | adminOnly |
-| PATCH | `/chamados/:id` | **adminOnly** (status/responsável; bloqueia `em_atendimento`) |
+| PATCH | `/chamados/:id` | **adminOnly** (status/responsável; bloqueia `em_atendimento`). É o **fluxo da cláusula 7.1.c**: baixar a prioridade abaixo do piso exige `prioridade_motivo` (400 com `exige` sem ele); subir é livre. Trocar `categoria` no mesmo PATCH **recalcula o piso**. O motivo vai para `historico_chamados.motivo` |
 | GET | `/chamados/meus` · `/meus/:id` | técnico autenticado |
 | GET/POST | `/chamados/meus/:id/mensagens` | técnico (chat do chamado) |
 | POST | `/chamados/:id/iniciar-atendimento` | técnico (com GPS → `em_atendimento`) |

@@ -56,8 +56,12 @@ async function registrarCriacao({ client, chamadoId, alteradoPor }) {
  * @param {object} opts.antes    snapshot pre-UPDATE
  * @param {object} opts.depois   linha pos-UPDATE
  * @param {number|null} opts.alteradoPor
+ * @param {object} [opts.motivos]  justificativa por campo, ex.: `{ prioridade: "..." }`.
+ *   Existe pela cláusula 7.1.c do contrato: reclassificar prioridade é
+ *   permitido, mas "com justificativa" — e o de/para sozinho ("P1 → P3") não
+ *   responde por quê. Campo sem motivo grava NULL, como sempre.
  */
-async function registrarMudancas({ client, chamadoId, antes, depois, alteradoPor }) {
+async function registrarMudancas({ client, chamadoId, antes, depois, alteradoPor, motivos }) {
   const c = client || pool;
   if (!antes || !depois) return;
 
@@ -66,7 +70,8 @@ async function registrarMudancas({ client, chamadoId, antes, depois, alteradoPor
     const a = _norm(antes[campo]);
     const d = _norm(depois[campo]);
     if (a !== d) {
-      linhas.push([chamadoId, campo, a, d, alteradoPor || null]);
+      const motivo = motivos && motivos[campo] ? String(motivos[campo]).slice(0, 2000) : null;
+      linhas.push([chamadoId, campo, a, d, alteradoPor || null, motivo]);
     }
   }
   if (linhas.length === 0) return;
@@ -75,9 +80,9 @@ async function registrarMudancas({ client, chamadoId, antes, depois, alteradoPor
     // Multi-row insert via unnest pra um único round-trip.
     await c.query(
       `INSERT INTO historico_chamados
-         (chamado_id, campo_alterado, valor_anterior, valor_novo, alterado_por)
+         (chamado_id, campo_alterado, valor_anterior, valor_novo, alterado_por, motivo)
        SELECT * FROM UNNEST(
-         $1::int[], $2::text[], $3::text[], $4::text[], $5::int[]
+         $1::int[], $2::text[], $3::text[], $4::text[], $5::int[], $6::text[]
        )`,
       [
         linhas.map((l) => l[0]),
@@ -85,6 +90,7 @@ async function registrarMudancas({ client, chamadoId, antes, depois, alteradoPor
         linhas.map((l) => l[2]),
         linhas.map((l) => l[3]),
         linhas.map((l) => l[4]),
+        linhas.map((l) => l[5]),
       ]
     );
   } catch (e) {

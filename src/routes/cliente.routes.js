@@ -14,6 +14,7 @@ const { gerarPdfAvulso } = require("../services/orcamento-pdf.service");
 const { sendOrcamentoRespondido } = require("../services/email");
 const { salvarFotoMensagemChamado } = require("../services/chamado-mensagens.service");
 const { registrarCriacao } = require("../services/chamado-historico.service");
+const { calcularPiso } = require("../services/prioridade.service");
 
 const router = express.Router();
 
@@ -28,19 +29,16 @@ function _baseUrlPublica(req) {
 
 const CATEGORIAS = ["vazamento", "bomba_falha", "nivel_baixo", "sem_agua", "ruido", "manutencao", "outro"];
 
-// Mapa categoria → prioridade automática. O cliente NÃO escolhe prioridade
-// (decisão de produto: clientes tendem a marcar tudo como emergência, o que
-// inviabiliza a fila do técnico). Mesma tabela no frontend em
-// app/public/app.js (CLI_CAT_TO_PRIO) só para o modo demo offline.
-const CATEGORIA_PRIORIDADE = {
-  sem_agua:    "p1",
-  vazamento:   "p2",
-  bomba_falha: "p2",
-  nivel_baixo: "p3",
-  manutencao:  "p4",
-  ruido:       "p3",
-  outro:       "p3",
-};
+// ⚠️ A TABELA categoria→prioridade SAIU DAQUI (02/09/2026). Ela vive em
+// `src/services/prioridade.service.js`, escrita a partir da cláusula 7 da
+// minuta, e é a mesma que o admin e a IA passaram a usar. Antes existiam três
+// cópias — esta, a de `app/public/app.js` e a prosa dentro do prompt da IA —
+// e elas já discordavam entre si.
+//
+// O cliente continua SEM escolher prioridade (decisão de produto: cliente que
+// escolhe marca tudo como emergência e inviabiliza a fila do técnico). Ele
+// também não responde a triagem: sem as duas perguntas, `calcularPiso` cai no
+// piso conservador da categoria — exatamente os valores que já valiam aqui.
 
 // GET /cliente/status  (AGORA baseado em RESERVATÓRIOS)
 router.get("/status", authRequired, clienteOnly, async (req, res) => {
@@ -550,7 +548,14 @@ router.post("/chamados", authRequired, clienteOnly, async (req, res) => {
   }
 
   const cat = categoria || "outro";
-  const prio = CATEGORIA_PRIORIDADE[cat] || "media";
+  // ⚠️ ISTO ERA `CATEGORIA_PRIORIDADE[cat] || "media"`, e o fallback era uma
+  // BOMBA-RELÓGIO: "media" é valor da era pré-migration 028, e o CHECK da
+  // coluna só aceita p1-p4 desde então. Bastava alguém acrescentar uma
+  // categoria em CATEGORIAS sem pôr no mapa para o INSERT violar o CHECK e o
+  // chamado do síndico morrer com 500. `calcularPiso` sempre devolve p1-p4:
+  // categoria desconhecida cai em "outro".
+  const piso = calcularPiso({ categoria: cat });
+  const prio = piso.prioridade;
 
   // Título: vem do form ou deriva da categoria
   const tituloFinal = titulo && String(titulo).trim()
@@ -559,8 +564,16 @@ router.post("/chamados", authRequired, clienteOnly, async (req, res) => {
 
   try {
     const ins = await pool.query(
-      `INSERT INTO chamados (condominio_id, titulo, descricao, prioridade, categoria, status)
-       VALUES ($1, $2, $3, $4, $5, 'aberto')
+      // `prioridade_piso` grava o mesmo valor: o chamado do síndico nasce NO
+      // piso, e registrar isso é o que permite ao escritório reclassificar
+      // depois e a ficha mostrar que houve rebaixa (cláusula 7.1.c).
+      // ⚠️ `$4::varchar` NAS DUAS APARIÇÕES. O mesmo `$n` em dois lugares faz o
+      // Postgres deduzir o tipo duas vezes e recusar a query no parse (42P08)
+      // quando as deduções divergem — aqui as colunas têm larguras
+      // diferentes (VARCHAR(20) e VARCHAR(2)). Ver CLAUDE.md.
+      `INSERT INTO chamados (condominio_id, titulo, descricao, prioridade, categoria, status,
+                             prioridade_piso)
+       VALUES ($1, $2, $3, $4::varchar, $5, 'aberto', $4::varchar)
        RETURNING id, status, prioridade, categoria, titulo, descricao, criado_em`,
       [condominioId, tituloFinal, descricao.trim(), prio, cat]
     );

@@ -5,11 +5,17 @@ const { adminOnly } = require("../middleware/adminOnly");
 const { salvarFotoMensagemChamado } = require("../services/chamado-mensagens.service");
 const { registrarCriacao, registrarMudancas } = require("../services/chamado-historico.service");
 const { resolverTecnico } = require("../services/chamado-atribuicao.service");
+const {
+  PRIORIDADES,
+  calcularPiso,
+  abaixoDoPiso,
+  subirUmNivel,
+  normalizarBooleano,
+} = require("../services/prioridade.service");
 
 const router = express.Router();
 
 const CATEGORIAS = ["vazamento", "bomba_falha", "nivel_baixo", "sem_agua", "ruido", "manutencao", "outro"];
-const PRIORIDADES = ["p1", "p2", "p3", "p4"];
 
 // POST /chamados — cria chamado manualmente (admin, gerente, operador)
 //
@@ -22,7 +28,12 @@ const PRIORIDADES = ["p1", "p2", "p3", "p4"];
 // responde pelo chamado; este é o TÉCNICO de campo que vai ao prédio. São
 // colunas diferentes e telas diferentes.
 router.post("/", authRequired, adminOnly, async (req, res) => {
-  const { titulo, descricao, categoria, prioridade, condominio_id, responsavel_id, tecnico_id } = req.body || {};
+  const {
+    titulo, descricao, categoria, prioridade, condominio_id, responsavel_id, tecnico_id,
+    // Triagem da cláusula 7 (migration 082). Opcionais: quem não responde cai
+    // no piso conservador da categoria, que é o comportamento antigo.
+    risco_imediato, redundancia, prioridade_motivo,
+  } = req.body || {};
 
   if (!titulo || typeof titulo !== "string" || !titulo.trim())
     return res.status(400).json({ error: "Título obrigatório" });
@@ -37,10 +48,50 @@ router.post("/", authRequired, adminOnly, async (req, res) => {
     const tec = await resolverTecnico(tecnico_id);
     if (!tec.ok) return res.status(400).json({ error: tec.erro });
 
-    let prioFinal = prioridade || "p3";
+    // ── O PISO DA CLÁUSULA 7 ────────────────────────────────────────────
+    // Antes de 02/09/2026 esta rota aceitava a prioridade do body sem piso
+    // nenhum, com default 'p3': o modal do admin tinha quatro botões soltos e
+    // nada ligava a categoria escolhida à criticidade. Um "sem água" podia
+    // nascer P4 sem que ninguém percebesse — e P1 é o que aciona o plantão
+    // 24h da cláusula 8.
+    const riscoImediato = normalizarBooleano(risco_imediato);
+    const temRedundancia = normalizarBooleano(redundancia);
+    const piso = calcularPiso({
+      categoria: categoria || "outro",
+      riscoImediato,
+      redundancia: temRedundancia,
+    });
 
-    // Detecção de recorrência: mesma categoria no mesmo condomínio nos últimos 30 dias
-    // → sobe 1 nível automaticamente (P4→P3→P2→P1)
+    // Sem escolha explícita, o piso É a prioridade.
+    let prioFinal = prioridade || piso.prioridade;
+    const motivo = String(prioridade_motivo || "").trim();
+
+    // ⚠️ PISO, NÃO TRAVA — e a diferença é contratual, não estética. A
+    // cláusula 7.1.c manda deixar reclassificar ("após a triagem ou chegada ao
+    // local"), mas COM JUSTIFICATIVA. Subir é livre; descer abaixo do piso
+    // exige motivo, e o motivo fica gravado em `prioridade_motivo`.
+    if (abaixoDoPiso(prioFinal, piso.prioridade)) {
+      if (motivo.length < 10) {
+        return res.status(400).json({
+          error: `Este chamado tem piso ${piso.prioridade.toUpperCase()} (${piso.criterio}). ` +
+                 `Para abrir como ${prioFinal.toUpperCase()}, descreva a justificativa técnica ` +
+                 `(cláusula 7.1.c do contrato).`,
+          piso: piso.prioridade,
+          criterio: piso.criterio,
+          exige: "prioridade_motivo",
+        });
+      }
+    }
+
+    // ── Recorrência: mesma categoria no mesmo condomínio em 30 dias ──────
+    // ⚠️ O TETO É P2, E ISSO MUDOU EM 02/09/2026. O bump existia com o mapa
+    // { p2: "p1" }, então um chamado repetido virava P1 sozinho — e P1 é o
+    // que obriga a CONTRATADA ao plantão 24h (cláusula 8.1). Recorrência não
+    // é critério de P1 em lugar nenhum da minuta: os critérios de lá são
+    // risco imediato, inundação e falha de sistema essencial. Subir para P2
+    // continua fazendo sentido (é sinal de falha relevante que não se
+    // resolveu); a promoção a P1 passa a ser decisão de gente, pela triagem.
+    let bumpRecorrencia = false;
     if (categoria && condominio_id) {
       const recorrencia = await pool.query(
         `SELECT 1 FROM chamados
@@ -51,8 +102,8 @@ router.post("/", authRequired, adminOnly, async (req, res) => {
         [Number(condominio_id), categoria]
       );
       if (recorrencia.rows.length > 0) {
-        const bump = { p4: "p3", p3: "p2", p2: "p1", p1: "p1" };
-        prioFinal = bump[prioFinal] || prioFinal;
+        const subido = subirUmNivel(prioFinal, "p2");
+        if (subido !== prioFinal) { prioFinal = subido; bumpRecorrencia = true; }
       }
     }
 
@@ -70,11 +121,15 @@ router.post("/", authRequired, adminOnly, async (req, res) => {
     // (`/iniciar-atendimento`, com GPS) — atribuir não é começar.
     const ins = await pool.query(
       `INSERT INTO chamados (condominio_id, titulo, descricao, prioridade, categoria, responsavel_id,
-                             tecnico_id, primeira_resposta_em, status)
+                             tecnico_id, primeira_resposta_em, status,
+                             triagem_risco_imediato, triagem_redundancia,
+                             prioridade_piso, prioridade_motivo)
        VALUES ($1, $2, $3, $4, $5, $6,
-               $7::int, CASE WHEN $7::int IS NULL THEN NULL ELSE NOW() END, 'aberto')
+               $7::int, CASE WHEN $7::int IS NULL THEN NULL ELSE NOW() END, 'aberto',
+               $8, $9, $10, $11)
        RETURNING id, status, prioridade, categoria, titulo, descricao, condominio_id, responsavel_id,
-                 tecnico_id, criado_em`,
+                 tecnico_id, criado_em,
+                 triagem_risco_imediato, triagem_redundancia, prioridade_piso, prioridade_motivo`,
       [
         condominio_id ? Number(condominio_id) : null,
         titulo.trim().slice(0, 255),
@@ -83,13 +138,20 @@ router.post("/", authRequired, adminOnly, async (req, res) => {
         categoria || "outro",
         responsavel_id ? Number(responsavel_id) : null,
         tec.id,
+        riscoImediato,
+        temRedundancia,
+        piso.prioridade,
+        // Só guarda o motivo quando ele significa alguma coisa: a rebaixa.
+        // Motivo escrito num chamado que ficou no piso viraria ruído na ficha.
+        abaixoDoPiso(prioFinal, piso.prioridade) ? motivo.slice(0, 2000) : null,
       ]
     );
     const row = ins.rows[0];
-    // Informa se houve bump de recorrência
-    if (row.prioridade !== (prioridade || "p3")) {
-      row._recorrencia_bump = true;
-    }
+    // O front usa estes três para explicar o que aconteceu na hora do salvar,
+    // em vez de o número mudar sozinho na tela sem justificativa.
+    row._piso = piso.prioridade;
+    row._piso_criterio = piso.criterio;
+    if (bumpRecorrencia) row._recorrencia_bump = true;
     registrarCriacao({ chamadoId: row.id, alteradoPor: req.user.id });
     // A atribuição entra no histórico como qualquer outra, e de propósito: a
     // ficha responde "quem mandou o técnico e quando" da mesma forma, tenha
@@ -153,6 +215,12 @@ router.get("/", authRequired, adminOnly, async (req, res) => {
          ch.primeira_resposta_em,
          ch.tecnico_a_caminho_em,
          ch.tecnico_chegou_em,
+         -- Triagem da cláusula 7 (082). A ficha do admin mostra as três, e é
+         -- por elas que se responde "por que este alagamento está como P3?".
+         ch.triagem_risco_imediato,
+         ch.triagem_redundancia,
+         ch.prioridade_piso,
+         ch.prioridade_motivo,
          c.nome  AS condominio_nome,
          u.nome  AS responsavel_nome,
          t.nome  AS tecnico_nome,
@@ -263,6 +331,12 @@ router.get("/meus", authRequired, async (req, res) => {
          ch.fechado_em,
          ch.tecnico_a_caminho_em,
          ch.tecnico_chegou_em,
+         -- Triagem da cláusula 7 (082). A ficha do admin mostra as três, e é
+         -- por elas que se responde "por que este alagamento está como P3?".
+         ch.triagem_risco_imediato,
+         ch.triagem_redundancia,
+         ch.prioridade_piso,
+         ch.prioridade_motivo,
          c.nome     AS condominio_nome,
          c.endereco AS condominio_endereco,
          c.bairro   AS condominio_bairro,
@@ -685,6 +759,10 @@ router.get("/:id/historico", authRequired, adminOnly, async (req, res) => {
   try {
     const r = await pool.query(
       `SELECT h.id, h.campo_alterado, h.valor_anterior, h.valor_novo,
+              -- A justificativa da cláusula 7.1.c (082). Sem ela a linha diz
+              -- "P1 → P3" e não diz por quê, que é justamente o que o contrato
+              -- pede para a reclassificação ser válida.
+              h.motivo,
               h.alterado_em, h.alterado_por,
               u.nome AS alterado_por_nome,
               u.role AS alterado_por_role
@@ -762,10 +840,13 @@ router.patch("/:id", authRequired, adminOnly, async (req, res) => {
     return res.status(400).json({ error: "id inválido" });
   }
 
-  const { status, prioridade, categoria, responsavel_id, condominio_id, tecnico_id } = req.body || {};
+  const {
+    status, prioridade, categoria, responsavel_id, condominio_id, tecnico_id,
+    // Justificativa da cláusula 7.1.c, exigida só para BAIXAR abaixo do piso.
+    prioridade_motivo,
+  } = req.body || {};
 
-  const STATUSES   = ["aberto", "fechado"];
-  const PRIORIDADES = ["p1", "p2", "p3", "p4"];
+  const STATUSES = ["aberto", "fechado"];
 
   if (status && !STATUSES.includes(status)) {
     return res.status(400).json({ error: `status deve ser: ${STATUSES.join(", ")} — em_atendimento só é permitido via /iniciar-atendimento` });
@@ -843,13 +924,14 @@ router.patch("/:id", authRequired, adminOnly, async (req, res) => {
     return res.status(400).json({ error: "Nenhum campo para atualizar" });
   }
 
-  values.push(id);
+  const motivoPrio = String(prioridade_motivo || "").trim();
 
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
     const antesRes = await client.query(
-      `SELECT status, prioridade, categoria, responsavel_id, tecnico_id, condominio_id
+      `SELECT status, prioridade, categoria, responsavel_id, tecnico_id, condominio_id,
+              triagem_risco_imediato, triagem_redundancia, prioridade_piso
        FROM chamados WHERE id = $1 FOR UPDATE`,
       [id]
     );
@@ -859,6 +941,55 @@ router.patch("/:id", authRequired, adminOnly, async (req, res) => {
     }
     const antes = antesRes.rows[0];
 
+    // ── A RECLASSIFICAÇÃO DA CLÁUSULA 7.1.c ─────────────────────────────
+    // "A prioridade poderá ser reclassificada tecnicamente após a triagem ou
+    // chegada ao local, COM JUSTIFICATIVA." É aqui que essa frase vive: é
+    // este endpoint que o operador usa depois que o técnico chegou e viu que
+    // o vazamento era uma gaxeta com a reserva rodando.
+    //
+    // ⚠️ O piso é RECALCULADO quando a categoria muda no mesmo PATCH — trocar
+    // "manutenção" por "sem água" tem de mover o piso junto, senão a
+    // reclassificação passaria pelo piso velho.
+    // ⚠️ E chamado anterior à migration 082 não tem `prioridade_piso`: nesses
+    // o piso é derivado da categoria, que é o que a regra antiga já fazia.
+    const catEfetiva = categoria || antes.categoria || "outro";
+    const pisoEfetivo = (categoria || !antes.prioridade_piso)
+      ? calcularPiso({
+          categoria: catEfetiva,
+          riscoImediato: antes.triagem_risco_imediato,
+          redundancia: antes.triagem_redundancia,
+        })
+      : { prioridade: antes.prioridade_piso, criterio: "piso registrado na abertura" };
+
+    const prioAlvo = prioridade || antes.prioridade;
+    const estaBaixando = prioridade && prioridade !== antes.prioridade
+                      && abaixoDoPiso(prioAlvo, pisoEfetivo.prioridade);
+
+    if (estaBaixando && motivoPrio.length < 10) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({
+        error: `Este chamado tem piso ${pisoEfetivo.prioridade.toUpperCase()} ` +
+               `(${pisoEfetivo.criterio}). Para reclassificar como ` +
+               `${prioAlvo.toUpperCase()}, descreva a justificativa técnica ` +
+               `(cláusula 7.1.c do contrato).`,
+        piso: pisoEfetivo.prioridade,
+        criterio: pisoEfetivo.criterio,
+        exige: "prioridade_motivo",
+      });
+    }
+
+    // Categoria nova move o piso gravado — senão a próxima reclassificação
+    // seria medida contra um piso que não existe mais.
+    if (categoria && pisoEfetivo.prioridade !== antes.prioridade_piso) {
+      values.push(pisoEfetivo.prioridade);
+      sets.push(`prioridade_piso = $${values.length}`);
+    }
+    if (estaBaixando) {
+      values.push(motivoPrio.slice(0, 2000));
+      sets.push(`prioridade_motivo = $${values.length}`);
+    }
+
+    values.push(id);
     const result = await client.query(
       `UPDATE chamados SET ${sets.join(", ")} WHERE id = $${values.length} RETURNING *`,
       values
@@ -871,6 +1002,7 @@ router.patch("/:id", authRequired, adminOnly, async (req, res) => {
       antes,
       depois,
       alteradoPor: req.user.id,
+      motivos: motivoPrio ? { prioridade: motivoPrio } : null,
     });
 
     await client.query("COMMIT");

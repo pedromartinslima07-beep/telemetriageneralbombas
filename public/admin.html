@@ -18,7 +18,7 @@
   <link rel="stylesheet" href="/static/leaflet.css">
   <!-- ⚠️ Ao mexer em admin.js ou admin.css, bumpe o ?v=N aqui E no <script>
        lá embaixo. Ver CLAUDE.md raiz. -->
-  <link rel="stylesheet" href="/static/admin.css?v=247">
+  <link rel="stylesheet" href="/static/admin.css?v=250">
 </head>
 <body>
   <div id="appLoader">
@@ -1503,8 +1503,8 @@
               </div>
               <div class="field"><label class="lbl">Prioridade</label>
                 <select id="relExpChPrioridade" class="input rel-sel" style="width:132px;">
-                  <option value="">Todas</option><option value="p4">P4 Agendado</option>
-                  <option value="p3">P3 Controlado</option><option value="p2">P2 Alta</option>
+                  <option value="">Todas</option><option value="p4">P4 Baixa critic.</option>
+                  <option value="p3">P3 Programável</option><option value="p2">P2 Alto</option>
                   <option value="p1">P1 Crítico</option>
                 </select>
               </div>
@@ -2169,9 +2169,41 @@
         </div>
       </div>
 
+      <!-- Triagem (cláusula 7 do contrato) — as duas perguntas que classificam.
+           ⚠️ NÃO É FORMULÁRIO DECORATIVO. A minuta define P1-P4 por IMPACTO,
+           não por tipo de problema: o mesmo "vazamento" é P1 alagando a casa
+           de bombas e P3 gotejando com a reserva rodando. Sem estas duas
+           respostas a categoria só consegue dar um piso conservador. -->
+      <div style="background:rgba(0,0,0,.2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;">
+        <div class="modal-sec-title">Triagem</div>
+        <div class="nc-triagem">
+          <div class="nc-triagem-q">
+            <span class="nc-triagem-lbl">Há risco imediato?</span>
+            <span class="nc-triagem-hint">Desabastecimento relevante, inundação de área crítica ou falha de sistema essencial</span>
+            <div class="nc-seg" data-nc-triagem="risco">
+              <button type="button" data-val="sim">Sim</button>
+              <button type="button" data-val="nao">Não</button>
+              <button type="button" data-val="" class="is-on">Não sei</button>
+            </div>
+          </div>
+          <div class="nc-triagem-q">
+            <span class="nc-triagem-lbl">Há redundância?</span>
+            <span class="nc-triagem-hint">A bomba reserva assumiu, ou existe condição provisória funcionando</span>
+            <div class="nc-seg" data-nc-triagem="redundancia">
+              <button type="button" data-val="sim">Sim</button>
+              <button type="button" data-val="nao">Não</button>
+              <button type="button" data-val="" class="is-on">Não sei</button>
+            </div>
+          </div>
+        </div>
+        <input type="hidden" id="ncRiscoImediato" value="">
+        <input type="hidden" id="ncRedundancia" value="">
+      </div>
+
       <!-- Prioridade -->
       <div style="background:rgba(0,0,0,.2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;">
         <div class="modal-sec-title">Prioridade</div>
+        <div class="nc-piso-faixa" id="ncPisoFaixa"></div>
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">
           <button type="button" class="nc-prio-btn" data-prio="p1" style="border:1px solid var(--border);border-radius:8px;padding:10px 6px;background:var(--surface2);cursor:pointer;text-align:center;">
             <div style="font-size:13px;font-weight:800;color:#ef4444;">P1</div>
@@ -2180,21 +2212,31 @@
           </button>
           <button type="button" class="nc-prio-btn" data-prio="p2" style="border:1px solid var(--border);border-radius:8px;padding:10px 6px;background:var(--surface2);cursor:pointer;text-align:center;">
             <div style="font-size:13px;font-weight:800;color:#f97316;">P2</div>
-            <div style="font-size:10px;color:var(--muted);margin-top:2px;">Alta</div>
-            <div style="font-size:9px;color:var(--muted);margin-top:1px;">24–48h</div>
+            <div style="font-size:10px;color:var(--muted);margin-top:2px;">Alto</div>
+            <div style="font-size:9px;color:var(--muted);margin-top:1px;">≤ 48h</div>
           </button>
           <button type="button" class="nc-prio-btn nc-prio-sel" data-prio="p3" style="border:1px solid var(--border);border-radius:8px;padding:10px 6px;background:var(--surface2);cursor:pointer;text-align:center;">
             <div style="font-size:13px;font-weight:800;color:#eab308;">P3</div>
-            <div style="font-size:10px;color:var(--muted);margin-top:2px;">Controlado</div>
+            <div style="font-size:10px;color:var(--muted);margin-top:2px;">Programável</div>
             <div style="font-size:9px;color:var(--muted);margin-top:1px;">≤ 72h</div>
           </button>
           <button type="button" class="nc-prio-btn" data-prio="p4" style="border:1px solid var(--border);border-radius:8px;padding:10px 6px;background:var(--surface2);cursor:pointer;text-align:center;">
             <div style="font-size:13px;font-weight:800;color:var(--muted);">P4</div>
-            <div style="font-size:10px;color:var(--muted);margin-top:2px;">Agendado</div>
-            <div style="font-size:9px;color:var(--muted);margin-top:1px;">Conforme agenda</div>
+            <div style="font-size:10px;color:var(--muted);margin-top:2px;">Baixa critic.</div>
+            <div style="font-size:9px;color:var(--muted);margin-top:1px;">Agendamento</div>
           </button>
         </div>
         <input type="hidden" id="ncPrioridade" value="p3">
+
+        <!-- A justificativa da cláusula 7.1.c. Nasce escondida: só aparece
+             quando a escolha fica ABAIXO do piso, que é o único caso em que o
+             contrato exige motivo. O backend recusa sem ela — este campo
+             existe para o operador não descobrir isso pelo erro. -->
+        <div id="ncMotivoBloco" class="nc-motivo" style="display:none;">
+          <span class="nc-motivo-lbl" id="ncMotivoLbl"></span>
+          <textarea id="ncPrioridadeMotivo" class="input" rows="2" maxlength="2000"
+            placeholder="Ex.: síndico confirmou que a falta de água é da concessionária, sem falha no sistema."></textarea>
+        </div>
       </div>
 
       <!-- Detalhes -->
@@ -2728,7 +2770,7 @@
 </div>
 
 
-<script src="/static/admin.js?v=332" defer></script>
+<script src="/static/admin.js?v=335" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
 <script src="/static/register-sw.js?v=51" defer></script>
 </body>

@@ -41,6 +41,24 @@ aliases:
 
 ## Em andamento / pendente
 
+- ✅ **Criticidade P1–P4 alinhada à cláusula 7 do contrato** (02/09/2026,
+  migration 082). O modal "Novo chamado" do admin deixava a prioridade 100%
+  livre e desligada da categoria. Agora há triagem (risco imediato /
+  redundância), piso calculado, justificativa obrigatória para descer (7.1.c) e
+  reclassificação pela ficha. SLA de P2 corrigido de 24h para **48h**; teto do
+  bump de recorrência em P2. Detalhe em
+  [`../docs/modulos/chamados-sla.md`](../docs/modulos/chamados-sla.md).
+  - 📋 **`ttr_min` de P2 está incoerente** — 1440 min (24h), agora menor que o
+    prazo de chegada de 48h. TTR é métrica interna e a cláusula 7.1.a diz que o
+    SLA é comparecimento, não solução; falta alguém decidir o número.
+  - 📋 **A minuta é de UM condomínio, e o sistema aplica a régua a todos.**
+    Se outro contrato fechar prazos diferentes, `sla_definicoes` é global —
+    seria preciso SLA por condomínio (ou por contrato).
+  - 📋 **A triagem só existe no admin.** O síndico e o app continuam sem as
+    duas perguntas, caindo no piso da categoria. Perguntar a ele "há risco
+    imediato?" tende a virar "sim" sempre — é decisão de produto, não de
+    código.
+
 - ✅ **Orçamentos passam a mostrar o nome fantasia do condomínio** (02/09/2026).
   As duas rotas da seção liam `c.nome` (razão social) enquanto o PDF e o e-mail
   já usavam `nome_fantasia`: o painel dizia "ELVIRA FERRAZ EMPREENDIMENTOS

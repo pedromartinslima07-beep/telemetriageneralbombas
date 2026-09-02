@@ -257,7 +257,7 @@ const TC = {
 };
 
 const PRI_RANK = { p1: 0, p2: 1, p3: 2, p4: 3 };
-const PRI_LABEL = { p1: "P1 Crítico", p2: "P2 Alta", p3: "P3 Controlado", p4: "P4 Agendado" };
+const PRI_LABEL = { p1: "P1 Crítico", p2: "P2 Alto", p3: "P3 Programável", p4: "P4 Baixa critic." };
 const CAT_LABEL = {
   vazamento: "Vazamento",
   bomba_falha: "Falha de bomba",
@@ -4233,13 +4233,19 @@ const CLI_CATEGORIAS = [
   ["outro",        "Outro"],
 ];
 
-const CLI_PRIO_LABEL = { p4: "P4 Agendado", p3: "P3 Controlado", p2: "P2 Alta", p1: "P1 Crítico" };
+const CLI_PRIO_LABEL = { p4: "P4 Baixa critic.", p3: "P3 Programável", p2: "P2 Alto", p1: "P1 Crítico" };
 const CLI_STATUS_LABEL = { aberto: "Aberto", em_atendimento: "Em atendimento", fechado: "Fechado" };
 const CLI_CAT_LABEL = Object.fromEntries(CLI_CATEGORIAS);
 
-// Mapa categoria → prioridade automática. Mesma tabela do backend
-// (src/routes/cliente.routes.js) — duplicada aqui só para o modo demo,
-// onde não há servidor para classificar.
+// Piso de prioridade por categoria — o caminho de quem NÃO responde triagem,
+// que é o caso do cliente (ele não escolhe criticidade, por decisão de
+// produto). Usado só no MODO DEMO, onde não há servidor para classificar: no
+// modo real quem decide é o backend, e o que ele devolve é o que vale.
+//
+// ⚠️ A FONTE DA VERDADE É `src/services/prioridade.service.js`
+// (PISO_POR_CATEGORIA), escrita a partir da cláusula 7 da minuta. Esta é a
+// única cópia que sobrou depois de 02/09/2026 — existiam três, e elas já
+// discordavam entre si. Mexeu lá, mexa aqui.
 const CLI_CAT_TO_PRIO = {
   sem_agua:    "p1",
   vazamento:   "p2",

@@ -85,6 +85,7 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
 | 074 | orcamento_resposta_cliente | `orcamentos.cliente_comentario/respondido_em/respondido_por (SET NULL)` + índice parcial `(condominio_id, status)` — o cliente responde ao orçamento pelo painel; `respondido_por` é sempre o CLIENTE, separado de `aprovado_por`, que continua podendo ser quem digitou no escritório |
 | 075 | login_codes_tentativas | `login_codes.tentativas SMALLINT` — teto de 5 erros **por código**, porque o teto por IP não segura quem tem muitos IPs |
 | 076 | orcamento_quem_respondeu | `orcamentos.respondido_nome/respondido_cargo` (quem decidiu, não qual conta) + `resposta_vista_em` (nulo = ninguém do escritório abriu) + índice parcial do aviso |
+| 082 | triagem_prioridade | `chamados.triagem_risco_imediato/triagem_redundancia/prioridade_piso/prioridade_motivo` + `historico_chamados.motivo`; corrige `sla_definicoes.sla_chegada_min` de P2 (24h → **48h**). A cláusula 7 do contrato em código. Ver [chamados-sla.md](modulos/chamados-sla.md) |
 | 079 | chamado_orcamento | `chamados.orcamento_id (SET NULL)` + índice parcial — o chamado que EXECUTA um orçamento aprovado sabe de qual orçamento saiu. Ver [painel-operador.md](modulos/painel-operador.md) |
 | 077 | orcamento_respostas_antigas_vistas | marca respostas pré-existentes como vistas, para o aviso não nascer gritando sobre trabalho já feito |
 | 073 | fk_usuarios_on_delete_set_null | toda FK → `usuarios` que estava em NO ACTION vira `ON DELETE SET NULL` (autoria em `sla_definicoes`, `orcamentos`, `planos_manutencao`, `contratos`) — era o que travava a remoção de usuário |
@@ -8679,6 +8680,110 @@ seguem não verificados. A prévia `/dev/_operador-preview.html` já responde a
 só se vê na tela) para quando ela voltar.
 
 Sem migration. `?v=N`: `operador.js` 74 → 75.
+
+---
+
+### 2026-09-02 · A criticidade do chamado passa a sair do contrato, não do palpite
+
+Pergunta do Pedro, com a minuta nova em mãos: *"hoje quando vai abrir o chamado
+ele deixa o usuário 100% para escolher a criticidade, então mesmo que você
+selecione vazamento ele não locka em P1. Dá para ajustar?"*
+
+**Dá — e o problema estava em uma das quatro portas de entrada.** O painel do
+síndico e o app já derivavam a prioridade da categoria no backend; a IA
+classificava pelo prompt. Só o modal **"Novo chamado" do admin** tinha quatro
+botões soltos, default P3, **sem nenhuma ligação com o `<select>` de
+categoria** — e o `POST /chamados` aceitava a prioridade do body sem piso.
+
+⚠️ **MAS "LOCKAR PELA CATEGORIA" ESTARIA ERRADO, e isso mudou o desenho.** A
+cláusula 7 da minuta classifica por **impacto**, não por tipo de problema: o
+mesmo *vazamento* é P1 alagando a casa de bombas e P3 gotejando numa gaxeta com
+a bomba reserva rodando. Nenhuma tabela categoria→prioridade decide isso. O que
+decide são duas perguntas, que o formulário não fazia:
+
+1. **Há risco imediato?** (desabastecimento, inundação de área crítica, falha
+   de sistema essencial) — SIM ⇒ P1.
+2. **Há redundância?** (a reserva assumiu, há condição provisória) — SIM ⇒ P3.
+
+Sem risco e sem redundância ⇒ P2. `manutencao` ⇒ P4 sempre.
+
+⚠️ **E É PISO, NÃO TRAVA — por exigência do próprio contrato.** A cláusula
+**7.1.c** garante reclassificar *"após a triagem ou chegada ao local, com
+justificativa"*. Travar violaria a cláusula; deixar livre era o que já havia.
+Então: subir é livre; descer abaixo do piso exige `prioridade_motivo` (mín. 10
+caracteres) e o backend responde 400 com `{ piso, criterio, exige }` sem ele.
+O piso da abertura fica **gravado** em `prioridade_piso` — recalcular na
+leitura usaria a regra de hoje, não a que valia na abertura.
+
+**Fonte única.** A tabela categoria→prioridade existia em **três** lugares
+(`cliente.routes.js`, `app/public/app.js` e a prosa do prompt da IA) e eles já
+discordavam. Agora é `src/services/prioridade.service.js`, escrito a partir do
+texto da cláusula; o app mantém uma cópia declarada, só para o modo demo.
+
+| Onde | O que mudou |
+|---|---|
+| `POST /chamados` | calcula o piso, aceita subir, exige motivo para descer; grava triagem, piso e motivo |
+| `PATCH /chamados/:id` | é o fluxo da 7.1.c; recalcula o piso se a categoria mudar no mesmo PATCH; motivo vai para `historico_chamados.motivo` |
+| `POST /cliente/chamados` | usa o service (o síndico continua sem escolher prioridade) |
+| `ia.service.js` | prompt reescrito com o texto da cláusula; `abrirChamado` **eleva ao piso** e loga |
+| Modal Novo chamado | bloco de Triagem, faixa declarando o piso, campo de justificativa que só aparece na rebaixa |
+| Ficha do chamado | botão **reclassificar**, linhas de Triagem / Piso do contrato / Justificativa, e o motivo no histórico |
+
+**Três defeitos corrigidos junto:**
+
+⚠️ **O P2 estava com 24h no banco; a minuta diz 48h.** `sla_chegada_min` era
+1440 desde a migration 028 — o painel cobrava a equipe um dia mais cedo do que
+o contrato exige, e não havia como desconfiar do número. Agora 2880.
+
+⚠️ **A recorrência podia furar a cláusula 8.** O bump (mesma categoria no mesmo
+prédio em 30 dias) tinha o mapa `{ p2: "p1" }`: um chamado repetido virava P1
+sozinho, sem justificativa, acionando o plantão 24h da cláusula 8.1.
+Recorrência não é critério de P1 em lugar nenhum da minuta. O teto passou a ser
+**P2**, e quando sobe o modal avisa antes de fechar — antes a linha só aparecia
+na lista já com outra faixa.
+
+⚠️ **`cliente.routes.js` tinha uma bomba-relógio:** `CATEGORIA_PRIORIDADE[cat]
+|| "media"`. `"media"` é valor da era pré-028 e o CHECK só aceita p1-p4 —
+bastava acrescentar uma categoria sem pôr no mapa para o chamado do síndico
+morrer com 500.
+
+Os rótulos das faixas passaram a ser os do contrato em todas as telas: "P2
+Alto", "P3 Programável", "P4 Baixa critic." (eram "Alta", "Controlado",
+"Agendado", que não existem na minuta — quem abre o contrato e o painel lado a
+lado precisa ler a mesma palavra).
+
+**Verificação.** 19 asserções exercitando as ROTAS de verdade (Express com os
+routers, JWT assinado, banco de teste): piso sem triagem, rebaixa bloqueada,
+rebaixa com motivo gravada, subida livre, as duas perguntas nas três
+combinações, recorrência sem chegar a P1, o PATCH nos dois sentidos, o
+histórico com de/para + motivo, e o painel do síndico. Mais 20 asserções **em
+tela**, com Puppeteer a 1920px contra o painel real: a faixa do piso mudando
+com categoria e triagem, o campo de justificativa aparecendo só na rebaixa, o
+botão abaixo do piso marcado mas **clicável** (7.1.c permite descer), o erro
+400 caindo dentro do bloco sem perder o texto digitado, e a ficha contando a
+história depois.
+
+⚠️ **O modal é PLACA CLARA, e a primeira versão do CSS ignorou isso** — a
+pegadinha já registrada em [orcamentos-envio.md](modulos/orcamentos-envio.md).
+`--text-dim` resolve para `--tinta-2` ali e mede **4,26:1** sobre o
+`rgba(0,0,0,.2)` dos blocos, abaixo do piso de 4,5; e `--warn-t` como texto deu
+**3,98:1**, a Regra do Amarelo Cego de novo. Corrigido com tinta cheia (a
+hierarquia vem de tamanho e peso) e âmbar só como fundo — opaco, misturado com
+`--chapa-cl`: âmbar translúcido compunha contra o bloco escuro e derrubava o
+texto de 5,78 para 3,45. Pior caso agora: **5,78:1**.
+
+⚠️ **E o próprio medidor de contraste mentiu antes disso:** `color-mix()`
+resolve para `color(srgb 0.96 0.93 0.86)` — floats de 0 a 1. Lidos como bytes
+viram quase preto, e a ferramenta acusou 1,12:1 onde o real era 16,05:1. Quem
+medir contraste neste projeto precisa normalizar `color()` antes da conta.
+
+📋 **Fica pendente:** `ttr_min` de P2 continua em 1440 (24h), agora menor que o
+prazo de chegada de 48h. TTR é métrica interna e a cláusula 7.1.a diz que o SLA
+é comparecimento, não solução — não inventei um número, mas o par está
+incoerente.
+
+Migration **082**, aplicada em **TESTE e PRODUÇÃO**. `?v=N`: `admin.js`
+332 → 335, `admin.css` 247 → 250.
 
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e

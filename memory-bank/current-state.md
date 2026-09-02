@@ -113,6 +113,25 @@ adotá-lo (o campo original vira hidden com o mesmo id — nada de gravação mu
 
 Teste: `scripts/testes/condo-picker.test.js`.
 
+### ⚠️ A criticidade P1–P4 vem do CONTRATO (02/09/2026)
+
+A régua é a **cláusula 7** da minuta (Guarulhos Office Tower), e a regra em
+código é `src/services/prioridade.service.js` — fonte única, depois de existir
+em três cópias que discordavam.
+
+**Classifica IMPACTO, não tipo de problema.** O mesmo vazamento é P1 alagando a
+casa de bombas e P3 gotejando com a reserva rodando. Duas perguntas decidem:
+risco imediato ⇒ P1; redundância ⇒ P3; nenhum dos dois ⇒ P2; `manutencao` ⇒ P4.
+Quem não responde (síndico, app, IA) cai no piso conservador da categoria.
+
+**É piso, não trava** — a 7.1.c garante reclassificar "com justificativa".
+Subir é livre; descer exige `prioridade_motivo`, que fica gravado. O admin
+reclassifica pela ficha do chamado.
+
+Prazos contratuais: P1 3h · P2 **48h** · P3 72h · P4 agendamento.
+
+Detalhe em [chamados-sla.md](../docs/modulos/chamados-sla.md).
+
 ### ⚠️ Qual nome de condomínio cada tela mostra (02/09/2026)
 
 `condominios` guarda **dois** nomes: `nome` é a **razão social** (obrigatória,

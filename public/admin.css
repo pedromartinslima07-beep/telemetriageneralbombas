@@ -3685,6 +3685,70 @@ select option { background: #050f38; color: #f2f5ff; }
 .modalBody.modal-secoes { display: flex; flex-direction: column; gap: 18px; }
 .modalBody.modal-secoes > .modal-sec-title:not(:first-child) { margin-top: 0; }
 
+/* ── Triagem de prioridade (modal Novo chamado, cláusula 7 do contrato) ──
+   As duas perguntas ficam LADO A LADO até 620px porque são uma decisão só —
+   "isso é urgente?" se responde olhando as duas juntas, e empilhá-las faria a
+   segunda cair abaixo da dobra do modal, onde ninguém responde. */
+.nc-triagem { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 620px) { .nc-triagem { grid-template-columns: 1fr; } }
+.nc-triagem-q { display: flex; flex-direction: column; gap: 4px; }
+.nc-triagem-lbl  { font-size: 12px; font-weight: 600; color: var(--text); }
+/* O texto do contrato, resumido. É ele que faz a pergunta ser respondível por
+   quem não decorou a cláusula — sem ele "há risco imediato?" vira opinião.
+   ⚠️ TINTA CHEIA, e a hierarquia vem do TAMANHO E DO PESO. Este modal é PLACA
+   CLARA (`.modalBox` é `--chapa`), onde `--text-dim` resolve para `--tinta-2`:
+   sobre o `rgba(0,0,0,.2)` destes blocos isso mede 4,26:1, abaixo do piso de
+   4,5 do DESIGN.md. Apagar a tinta para "hierarquizar" é justamente o erro que
+   este arquivo já cometeu em `.av-orc-pane-razao`. */
+.nc-triagem-hint { font-size: 10.5px; color: var(--text); line-height: 1.35; min-height: 28px; }
+
+.nc-seg { display: flex; gap: 0; margin-top: 4px; }
+.nc-seg button {
+  flex: 1; padding: 6px 4px; font-size: 11.5px; font-weight: 600;
+  color: var(--text-dim); background: var(--surface2);
+  border: 1px solid var(--border); cursor: pointer;
+  transition: background .12s, color .12s;
+}
+.nc-seg button:first-child { border-radius: 7px 0 0 7px; }
+.nc-seg button:last-child  { border-radius: 0 7px 7px 0; }
+.nc-seg button + button    { border-left: none; }
+.nc-seg button:hover       { background: var(--surface); }
+.nc-seg button.is-on {
+  color: var(--chapa); background: var(--accent); border-color: var(--accent);
+}
+
+/* A faixa que declara o piso. Fica ACIMA dos quatro botões de propósito: ela
+   é a premissa da escolha, não o comentário dela. */
+.nc-piso-faixa {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 8px 10px; margin-bottom: 10px;
+  border-radius: 8px; border: 1px solid var(--border);
+  background: var(--surface2);
+  font-size: 11px; color: var(--text-dim);
+}
+.nc-piso-faixa b { font-size: 11.5px; color: var(--text); font-weight: 700; }
+/* Abaixo do piso não é erro — o contrato permite descer (7.1.c). É AVISO:
+   âmbar, não vermelho, porque quem escolheu ainda pode salvar.
+   ⚠️ O ÂMBAR É FUNDO, NUNCA TEXTO. `--warn-t` sobre esta placa mede 3,98:1 —
+   é a Regra do Amarelo Cego do DESIGN.md. E o fundo é OPACO (misturado com
+   `--chapa-cl`, não com `transparent`): âmbar translúcido compunha contra o
+   `rgba(0,0,0,.2)` do bloco e derrubava o texto de 5,78 para 3,45. */
+.nc-piso-faixa.is-alerta {
+  border-color: color-mix(in srgb, var(--amarelo) 55%, var(--chapa-cl));
+  background: color-mix(in srgb, var(--amarelo) 14%, var(--chapa-cl));
+}
+
+/* Botão abaixo do piso: marcado, NUNCA desabilitado. Desabilitar violaria a
+   7.1.c, que garante a reclassificação — o que o contrato exige é motivo. */
+.nc-prio-btn.nc-prio-abaixo {
+  border-style: dashed !important;
+  opacity: .72;
+}
+.nc-motivo { display: flex; flex-direction: column; gap: 5px; margin-top: 12px; }
+/* Tinta cheia pelo mesmo motivo do `.nc-triagem-hint`: placa clara. */
+.nc-motivo-lbl { font-size: 11px; font-weight: 600; color: var(--text); }
+.nc-motivo textarea { font-size: 12px; resize: vertical; min-height: 46px; }
+
 .modalFoot {
   display: flex;
   align-items: center;
@@ -6831,6 +6895,46 @@ body.mp-fs-active { overflow: hidden; }
 }
 .ch-hist-autor { color: var(--text); font-weight: 500; }
 .ch-hist-autor.ch-hist-sistema { color: var(--muted); font-style: italic; }
+
+/* ── Bloco de reclassificação na ficha do chamado (cláusula 7.1.c) ──────
+   Mora DENTRO da lista de informações, logo abaixo da linha de Prioridade,
+   e não num modal: reclassificar é uma correção pequena feita olhando o resto
+   da ficha (a triagem, a descrição, quem já foi ao local). Modal esconderia
+   justamente o que embasa a decisão. */
+.ch-recl {
+  display: flex; flex-direction: column; gap: 8px;
+  margin: 8px 0 4px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface2);
+}
+.ch-recl-btns { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.ch-recl-btn {
+  padding: 6px 4px; border-radius: 7px;
+  border: 1px solid var(--border); background: var(--surface);
+  color: var(--text-dim); font-size: 11.5px; font-weight: 700;
+  cursor: pointer; transition: background .12s, color .12s, border-color .12s;
+}
+.ch-recl-btn:hover  { border-color: var(--text-dim); }
+.ch-recl-btn.is-on  { color: var(--chapa); background: var(--accent); border-color: var(--accent); }
+.ch-recl-motivo     { font-size: 11.5px; resize: vertical; min-height: 44px; }
+.ch-recl-acoes      { display: flex; justify-content: flex-end; gap: 6px; }
+.ch-recl-msg        { font-size: 11px; color: var(--text-dim); line-height: 1.4; }
+.ch-recl-msg.is-erro { color: var(--danger); }
+
+/* A justificativa da reclassificação (cláusula 7.1.c). Citação, não metadado:
+   é texto que uma pessoa escreveu e outra vai ler para decidir se concorda —
+   por isso o filete à esquerda e a tinta de leitura, e não o cinza do
+   `.ch-hist-meta`, que é para carimbo de data. */
+.ch-hist-motivo {
+  margin-top: 4px;
+  padding-left: 9px;
+  border-left: 2px solid color-mix(in srgb, var(--amarelo) 55%, transparent);
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--text-dim);
+}
 
 /* Estrelas inline na tabela — discreto, ao lado da pílula de status */
 .ch-aval-inline { margin-left: 6px; vertical-align: middle; display: inline-flex; }

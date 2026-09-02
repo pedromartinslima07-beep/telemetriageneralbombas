@@ -183,6 +183,14 @@ Evolução:
   o clique duplo é o `POST /operador/orcamentos/:id/chamado`, que devolve o
   chamado aberto existente em vez de criar outro. Ver
   [painel-operador.md](modulos/painel-operador.md)
+- 082: `triagem_risco_imediato`, `triagem_redundancia` (BOOLEAN, **NULL =
+  não perguntado**, e isso não é "não"), `prioridade_piso` (o piso da cláusula
+  7 **calculado na abertura e gravado**, não recalculado na leitura — é o que
+  permite dizer depois "nasceu P1 e alguém baixou") e `prioridade_motivo` (a
+  justificativa que a cláusula 7.1.c exige para reclassificar para BAIXO; NULL
+  quando o chamado ficou no piso). Regra em
+  `src/services/prioridade.service.js`; fluxo em
+  [chamados-sla.md](modulos/chamados-sla.md)
 - (015 criou `ordem_servico_id`, removido em 034 — FK redundante)
 
 **`tecnicos`** (008) — `id`, dados do técnico. 016: `usuario_id UNIQUE (FK)`
@@ -434,7 +442,9 @@ evidência auditável independente do banco). Ver [docs/api.md](api.md#assinatur
 ninguém ter escolhido isso; campo agora nasce vazio.
 
 **`historico_chamados`** (033) — auditoria: `chamado_id (CASCADE)`,
-`alterado_por`, mudança de status, reabertura.
+`alterado_por`, mudança de status, reabertura. 082: `motivo TEXT` — a
+justificativa da reclassificação de prioridade. O de/para sozinho ("P1 → P3")
+registra o QUE mudou e esconde o que a cláusula 7.1.c pede, que é o porquê.
 
 **`alerta_comentarios`** (004) — comentários na página /alertas.
 `alerta_origem (telemetria|chamado)` + `alerta_id` (sem FK, cobre 2 origens),

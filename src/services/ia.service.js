@@ -2,6 +2,7 @@ const OpenAI = require("openai");
 const { pool } = require("../db");
 const { getConfig, getConfigBool } = require("./config.service");
 const { registrarCriacao } = require("./chamado-historico.service");
+const { calcularPiso, abaixoDoPiso } = require("./prioridade.service");
 
 let _client = null;
 function getClient() {
@@ -123,6 +124,22 @@ async function vincularClienteCondominio({ cliente_whatsapp_id, condominio_id })
 }
 
 async function abrirChamado({ conversa_id, condominio_id, titulo, descricao, prioridade, categoria }) {
+  // ⚠️ A IA NÃO PODE CLASSIFICAR ABAIXO DO PISO (02/09/2026). O prompt descreve
+  // a cláusula 7, mas prompt é pedido, não garantia: um modelo que leia "tem
+  // água na garagem mas o zelador fechou o registro" e responda p3 rebaixaria
+  // sozinho um chamado que o contrato põe em P1 — e P1 é o que aciona o
+  // plantão 24h (cláusula 8.1). A rebaixa exige justificativa humana
+  // (cláusula 7.1.c), e a IA não tem como assinar isso; então aqui ela só
+  // pode SUBIR. Quem discordar reclassifica depois, pelo PATCH, com motivo.
+  const pisoIA = calcularPiso({ categoria: categoria || "outro" });
+  if (abaixoDoPiso(prioridade, pisoIA.prioridade)) {
+    console.log(
+      `[ia] prioridade ${prioridade} elevada ao piso ${pisoIA.prioridade} ` +
+      `(categoria "${categoria}") na conversa ${conversa_id}`
+    );
+    prioridade = pisoIA.prioridade;
+  }
+
   // Guard anti-duplicata: se já existe chamado aberto nesta conversa, retorna o existente.
   const dup = await pool.query(
     `SELECT id, titulo, status FROM chamados
@@ -152,7 +169,13 @@ async function abrirChamado({ conversa_id, condominio_id, titulo, descricao, pri
               estado_conversa = 'aguardando_confirmacao'
         WHERE id = $2`,
       [
-        JSON.stringify({ tipo: "abrir_chamado", params: { condominio_id, titulo, descricao, prioridade, categoria } }),
+        // `prioridade_piso` viaja junto: o chamado só é inserido quando o
+        // cliente confirmar, e lá o controller precisa gravar o piso que
+        // valeu AGORA, não recalcular com a regra de então.
+        JSON.stringify({
+          tipo: "abrir_chamado",
+          params: { condominio_id, titulo, descricao, prioridade, categoria, prioridade_piso: pisoIA.prioridade },
+        }),
         conversa_id,
       ]
     );
@@ -178,10 +201,12 @@ async function abrirChamado({ conversa_id, condominio_id, titulo, descricao, pri
   }
 
   const result = await pool.query(
-    `INSERT INTO chamados (conversa_id, condominio_id, titulo, descricao, prioridade, categoria)
-     VALUES ($1, $2, $3, $4, $5, $6)
+    `INSERT INTO chamados (conversa_id, condominio_id, titulo, descricao, prioridade, categoria,
+                           prioridade_piso)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
      RETURNING id`,
-    [conversa_id, condominio_id || null, titulo, descricaoFinal, prioridade, categoria || 'outro']
+    [conversa_id, condominio_id || null, titulo, descricaoFinal, prioridade, categoria || 'outro',
+     pisoIA.prioridade]
   );
   registrarCriacao({ chamadoId: result.rows[0].id, alteradoPor: null });
   await pool.query(
@@ -321,7 +346,12 @@ const tools = [
           prioridade:   {
             type: "string",
             enum: ["p1", "p2", "p3", "p4"],
-            description: "Criticidade: p1=sem água/risco imediato/emergência, p2=funciona parcialmente com risco de agravar, p3=funciona normalmente mas precisa atenção, p4=preventiva/agendamento/sem urgência",
+            description: "Criticidade pela cláusula 7 do contrato, medida por IMPACTO e não por tipo de problema. " +
+              "p1 = risco imediato de desabastecimento, inundação de área crítica ou falha de sistema essencial (3h); " +
+              "p2 = falha relevante mas com condição provisória, redundância parcial ou sem risco imediato (48h); " +
+              "p3 = anomalia sem risco imediato, reserva indisponível sem perda da função principal (72h); " +
+              "p4 = melhoria, levantamento, adequação ou o que depende de planejamento/orçamento (agendamento). " +
+              "Na dúvida entre duas faixas, escolha a mais grave.",
           },
           categoria:    {
             type: "string",
@@ -477,11 +507,27 @@ Categorias (escolha a mais específica):
 - manutencao    — solicitação preventiva, limpeza de caixa, revisão programada
 - outro         — não se encaixa nas categorias acima
 
-Prioridades (Política P1-P4):
-- p1 — Crítico: sem água, alagamento, esgoto, cheiro de queimado, risco imediato (SLA ≤3h)
-- p2 — Alta: funciona parcialmente ou em modo manual, risco de agravar (SLA 24-48h)
-- p3 — Controlado: funciona normalmente, precisa de inspeção ou ajuste (SLA ≤72h)
-- p4 — Agendado: preventiva, retrofit, orçamento, instalação planejada (conforme agenda)
+Prioridades — CLÁUSULA 7 DO CONTRATO. O que classifica é o IMPACTO, não o tipo
+de problema: o mesmo "vazamento" é P1 alagando a casa de bombas e P3 gotejando
+com a bomba reserva rodando. Antes de escolher, pergunte-se duas coisas:
+(1) há risco IMEDIATO? (2) há redundância — a reserva assumiu, existe condição
+provisória?
+
+- p1 — Crítico (3h): risco imediato de desabastecimento relevante; poço ou área
+  crítica com risco de inundação; falha crítica de sistema essencial.
+  Exemplos: sem água no prédio, alagamento em curso, cheiro de queimado.
+- p2 — Alto (48h): falha relevante, MAS com condição provisória, redundância
+  parcial ou sem risco imediato. A bomba reserva assumiu, o prédio tem água,
+  e ainda assim há falha que precisa de intervenção.
+- p3 — Programável (72h): anomalia sem risco imediato; equipamento reserva
+  indisponível SEM perda da função principal; corretiva não crítica.
+- p4 — Baixa criticidade (agendamento): melhorias, levantamentos, adequações,
+  solicitações estéticas, ou o que depende de planejamento/orçamento.
+
+⚠️ Na dúvida entre duas faixas, escolha a MAIS grave. Quem classifica para
+baixo por engano tira do cliente um prazo que o contrato garante; para cima,
+apenas antecipa a visita. E o backend só aceita subir: se você classificar
+abaixo do piso da categoria, ele eleva de volta sozinho.
 
 Quando encerrar o atendimento e redirecionar para um humano:
 - ESCALADA IMEDIATA (sem esperar 3 perguntas) nas seguintes situações:

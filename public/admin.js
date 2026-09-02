@@ -4299,7 +4299,12 @@ let _chSelecionadoId = null;
 
 const _chCatNome  = { vazamento:"Vazamento", bomba_falha:"Bomba", nivel_baixo:"Nível baixo",
                       sem_agua:"Sem água", ruido:"Ruído", manutencao:"Manutenção", outro:"Outro" };
-const _chPrioNome = { p4:"P4 Agendado", p3:"P3 Controlado", p2:"P2 Alta", p1:"P1 Crítico" };
+// Nomes das faixas — os DA CLÁUSULA 7 do contrato, não os inventados aqui.
+// Eram "Alta", "Controlado" e "Agendado", que não existem na minuta; o cliente
+// que abre o contrato e o painel lado a lado precisa ler a mesma palavra nos
+// dois. "Baixa critic." é a abreviação de "Baixa criticidade / melhoria", que
+// não caberia na pílula da tabela.
+const _chPrioNome = { p4:"P4 Baixa critic.", p3:"P3 Programável", p2:"P2 Alto", p1:"P1 Crítico" };
 const _chStNome   = { aberto:"Aberto", em_atendimento:"Em atend.", fechado:"Resolvido" };
 
 function _chFiltrados() {
@@ -4488,10 +4493,18 @@ function _chRenderHistEntry(h) {
   const campo = _chFmtCampo(h.campo_alterado);
   const de = _chFmtValor(h.campo_alterado, h.valor_anterior);
   const para = _chFmtValor(h.campo_alterado, h.valor_novo);
+  // ⚠️ O MOTIVO É A LINHA QUE O CONTRATO EXIGE (7.1.c). "Prioridade: P1 → P3"
+  // é o de/para; sozinho ele registra o QUE mudou e esconde o que a cláusula
+  // pede — por quê. Só a reclassificação para BAIXO tem motivo, então a linha
+  // não aparece nas outras e o histórico não engorda à toa.
+  const motivo = h.motivo
+    ? `<div class="ch-hist-motivo">${_waEscaparHtml(h.motivo)}</div>`
+    : "";
   return `<div class="ch-hist-item">
     <div class="ch-hist-dot"></div>
     <div class="ch-hist-body">
       <div class="ch-hist-titulo">${campo}: ${de} → ${para}</div>
+      ${motivo}
       <div class="ch-hist-meta">${autor} · ${quando}</div>
     </div>
   </div>`;
@@ -4549,6 +4562,89 @@ function _chRenderAvaliacaoCard(ch) {
     </div>
     ${coment ? `<div class="ch-aval-coment">"${coment}"</div>` : `<div class="ch-aval-coment ch-aval-vazio">Sem comentário escrito.</div>`}
   </div>`;
+}
+
+// ── RECLASSIFICAR A PRIORIDADE NA FICHA (cláusula 7.1.c) ────────────────────
+//
+// ⚠️ ESTE É O FLUXO PRINCIPAL DA CLÁUSULA 7, e até 02/09/2026 ele não existia
+// na tela. A minuta diz que a prioridade "poderá ser reclassificada
+// tecnicamente APÓS A TRIAGEM OU CHEGADA AO LOCAL, com justificativa" — ou
+// seja, o momento em que a classificação mais muda é DEPOIS de abrir, quando o
+// técnico chega e vê que o vazamento era uma gaxeta. O painel tinha os quatro
+// botões só na abertura; depois disso a prioridade era imutável pela interface.
+//
+// O piso é recalculado pelo BACKEND, que é quem tem a triagem gravada: aqui só
+// se coleta a escolha e o motivo. Um 400 com `exige: "prioridade_motivo"` volta
+// como aviso no próprio bloco, e não como alert que perde o texto digitado.
+let _chReclassificando = null;   // id do chamado com o bloco aberto
+
+function _chRenderReclassificar(ch) {
+  if (_chReclassificando !== ch.id) return "";
+  const atual = ch.prioridade || "p3";
+  const btns = ["p1", "p2", "p3", "p4"].map(p =>
+    `<button type="button" class="ch-recl-btn${p === atual ? " is-on" : ""}" data-recl-prio="${p}">
+       ${p.toUpperCase()}
+     </button>`).join("");
+  return `<div class="ch-recl" id="chRecl-${ch.id}">
+    <div class="ch-recl-btns">${btns}</div>
+    <textarea class="input ch-recl-motivo" rows="2" maxlength="2000"
+      placeholder="Justificativa técnica — obrigatória para reclassificar para BAIXO (cláusula 7.1.c)."></textarea>
+    <div class="ch-recl-msg"></div>
+    <div class="ch-recl-acoes">
+      <button class="btn btn-sm" data-action="ch-recl-cancelar" data-ch-id="${ch.id}">Cancelar</button>
+      <button class="btn btn-sm btnAccent" data-action="ch-recl-salvar" data-ch-id="${ch.id}">Salvar</button>
+    </div>
+  </div>`;
+}
+
+// Os quatro botões do bloco de reclassificação. Listener próprio (e não uma
+// entrada no `data-action`) porque isto não dispara ação nenhuma: só marca a
+// escolha, que o "Salvar" lê depois. Delegado no document porque o bloco
+// nasce e morre a cada `renderChDetalhe`.
+document.addEventListener("click", (e) => {
+  const b = e.target.closest(".ch-recl-btn");
+  if (!b) return;
+  b.closest(".ch-recl-btns").querySelectorAll(".ch-recl-btn")
+    .forEach(x => x.classList.toggle("is-on", x === b));
+});
+
+// As linhas de triagem da ficha (migration 082, cláusula 7 do contrato).
+//
+// ⚠️ SÓ APARECEM QUANDO TÊM O QUE DIZER. Chamado anterior a 02/09/2026 não tem
+// triagem nem piso, e a ficha dele não deve ganhar três linhas em branco — a
+// ausência de resposta não é "não". O piso só é mostrado quando a prioridade
+// atual DIVERGE dele: enquanto o chamado está no piso, repetir o número seria
+// ruído. A linha que importa de verdade é a última, o motivo: é a
+// justificativa que a cláusula 7.1.c exige, e é o que responde "por que este
+// alagamento está como P3?".
+function _chLinhasTriagem(ch) {
+  const linhas = [];
+  const sn = v => (v === true ? "Sim" : v === false ? "Não" : null);
+
+  const risco = sn(ch.triagem_risco_imediato);
+  const redun = sn(ch.triagem_redundancia);
+  if (risco || redun) {
+    const partes = [];
+    if (risco) partes.push(`Risco imediato: <b>${risco}</b>`);
+    if (redun) partes.push(`Redundância: <b>${redun}</b>`);
+    linhas.push(`<div class="ch-met-row"><span class="ch-met-lbl">Triagem</span>
+      <span style="font-size:12px;">${partes.join(" · ")}</span></div>`);
+  }
+
+  if (ch.prioridade_piso && ch.prioridade_piso !== ch.prioridade) {
+    const rank = { p1: 0, p2: 1, p3: 2, p4: 3 };
+    const rebaixado = (rank[ch.prioridade] ?? 9) > (rank[ch.prioridade_piso] ?? 9);
+    linhas.push(`<div class="ch-met-row"><span class="ch-met-lbl">Piso do contrato</span>
+      <span style="font-size:12px;color:${rebaixado ? "var(--warn)" : "var(--muted)"};">
+        ${String(ch.prioridade_piso).toUpperCase()}${rebaixado ? " · reclassificado para baixo" : " · elevado"}
+      </span></div>`);
+  }
+
+  if (ch.prioridade_motivo) {
+    linhas.push(`<div class="ch-met-row"><span class="ch-met-lbl">Justificativa</span>
+      <span style="font-size:12px;line-height:1.4;">${_waEscaparHtml(ch.prioridade_motivo)}</span></div>`);
+  }
+  return linhas.join("");
 }
 
 function renderChDetalhe(ch) {
@@ -4648,7 +4744,14 @@ function renderChDetalhe(ch) {
                  data-action="vincular-ch-tecnico" data-ch-id="${ch.id}">Atribuir técnico</button>`}
         </div>
         ${ch.categoria         ? `<div class="ch-met-row"><span class="ch-met-lbl">Categoria</span><span class="ch-cat-badge">${_chCatNome[ch.categoria]||ch.categoria}</span></div>` : ""}
-        <div class="ch-met-row"><span class="ch-met-lbl">Prioridade</span><span class="ch-prio ch-prio-${ch.prioridade||"p3"}">${_chPrioNome[ch.prioridade]||ch.prioridade}</span></div>
+        <div class="ch-met-row"><span class="ch-met-lbl">Prioridade</span>
+          <span style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+            <span class="ch-prio ch-prio-${ch.prioridade||"p3"}">${_chPrioNome[ch.prioridade]||ch.prioridade}</span>
+            <button class="btn btn-sm viewer-only-hide" style="font-size:10px;padding:1px 6px;opacity:.6;"
+              data-action="ch-reclassificar" data-ch-id="${ch.id}">reclassificar</button>
+          </span>
+        </div>
+        ${_chRenderReclassificar(ch)}
         ${ch.sla_ttfr_min != null && !ch.fechado_em ? `<div class="ch-met-row"><span class="ch-met-lbl">SLA</span><span style="display:flex;gap:5px;flex-wrap:wrap;">
           ${ch.sla_ttfr_estourado
             ? `<span class="ch-sla-badge" title="Sem resposta há mais de ${ch.sla_ttfr_min} min">⚠ TTFR estourado</span>`
@@ -4660,6 +4763,7 @@ function renderChDetalhe(ch) {
             : ""}
         </span></div>` : ""}
         <div class="ch-met-row"><span class="ch-met-lbl">Aberto em</span><span>${fmtData(ch.criado_em)}</span></div>
+        ${_chLinhasTriagem(ch)}
         ${ch.tecnico_a_caminho_em ? `<div class="ch-met-row"><span class="ch-met-lbl">A caminho</span><span style="color:var(--warn);">🚗 ${fmtData(ch.tecnico_a_caminho_em)}</span></div>` : ""}
         ${ch.tecnico_chegou_em    ? `<div class="ch-met-row"><span class="ch-met-lbl">Chegou</span><span style="color:var(--ok);">📍 ${fmtData(ch.tecnico_chegou_em)}</span></div>` : ""}
         ${ch.fechado_em        ? `<div class="ch-met-row"><span class="ch-met-lbl">Fechado em</span><span>${fmtData(ch.fechado_em)}</span></div>` : ""}
@@ -4691,6 +4795,83 @@ function renderChamados() {
 // ---- Modal: novo chamado ----
 let _ncPicker = null;
 (function _bindNovoChamado() {
+  // ── A REGRA DA CLÁUSULA 7, ESPELHADA NO FRONT ───────────────────────────
+  // ⚠️ A FONTE DA VERDADE É `src/services/prioridade.service.js`, e o backend
+  // recusa o que discordar dele. Esta cópia existe só para a tela mostrar o
+  // piso ANTES do clique em Salvar — o operador precisa ver por que P1 está
+  // acesso enquanto ainda pode mudar de ideia, não descobrir pelo 400.
+  // Mexeu num, mexa no outro.
+  const NC_PISO_CATEGORIA = {
+    sem_agua: "p1", vazamento: "p2", bomba_falha: "p2",
+    nivel_baixo: "p3", ruido: "p3", outro: "p3", manutencao: "p4",
+  };
+  const NC_RANK = { p1: 0, p2: 1, p3: 2, p4: 3 };
+
+  // Enquanto ninguém clicou num dos quatro botões, a prioridade SEGUE o piso.
+  // Depois do primeiro clique ela para de se mexer sozinha: a escolha de gente
+  // não pode ser desfeita por um `change` de categoria feito em seguida.
+  let _ncPrioTocada = false;
+
+  function _ncCalcularPiso() {
+    const cat   = document.getElementById("ncCategoria")?.value || "outro";
+    const risco = document.getElementById("ncRiscoImediato")?.value || "";
+    const redun = document.getElementById("ncRedundancia")?.value || "";
+
+    if (!risco && !redun) {
+      return { prio: NC_PISO_CATEGORIA[cat] || "p3", texto: "piso da categoria (triagem não respondida)" };
+    }
+    // Manutenção é pedido de agenda, não socorro: fica em P4 mesmo com as
+    // respostas preenchidas. Quem virou emergência trocou de problema, e
+    // deveria trocar a categoria junto.
+    if (cat === "manutencao") return { prio: "p4", texto: "cláusula 7, P4 — planejamento/orçamento" };
+    if (risco === "sim") return { prio: "p1", texto: "cláusula 7, P1 — risco imediato" };
+    if (redun === "sim") return { prio: "p3", texto: "cláusula 7, P3 — reserva assumiu, função principal preservada" };
+    return { prio: "p2", texto: "cláusula 7, P2 — falha relevante sem redundância" };
+  }
+
+  // Marca visualmente um dos quatro botões (o estilo é inline desde sempre
+  // nesta tela; mantido para não misturar dois sistemas no mesmo componente).
+  function _ncMarcarPrioridade(prio) {
+    document.getElementById("ncPrioridade").value = prio;
+    document.querySelectorAll("#novoChamadoOverlay .nc-prio-btn").forEach(x => {
+      const sel = x.dataset.prio === prio;
+      x.classList.toggle("nc-prio-sel", sel);
+      x.style.borderColor = sel ? "var(--accent)" : "var(--border)";
+      x.style.background  = sel ? "rgba(240,176,20,.08)" : "var(--surface2)";
+    });
+  }
+
+  // Redesenha a faixa do piso, o estado dos quatro botões e o campo de motivo.
+  // Chamada por tudo que possa mover o piso: categoria, as duas perguntas e a
+  // própria escolha de prioridade.
+  function _ncSincronizarPiso() {
+    const piso = _ncCalcularPiso();
+    const escolhida = document.getElementById("ncPrioridade")?.value || "p3";
+    const abaixo = (NC_RANK[escolhida] ?? 9) > (NC_RANK[piso.prio] ?? 9);
+
+    const faixa = document.getElementById("ncPisoFaixa");
+    if (faixa) {
+      faixa.className = "nc-piso-faixa" + (abaixo ? " is-alerta" : "");
+      faixa.innerHTML = abaixo
+        ? `<b>${escolhida.toUpperCase()} está abaixo do piso ${piso.prio.toUpperCase()}</b>` +
+          `<span>${piso.texto} · a justificativa abaixo é obrigatória (cláusula 7.1.c)</span>`
+        : `<b>Piso ${piso.prio.toUpperCase()}</b><span>${piso.texto}</span>`;
+    }
+
+    // Botão abaixo do piso não é desabilitado — o contrato PERMITE descer, com
+    // justificativa. Ele fica marcado para quem escolhe saber o que assumiu.
+    document.querySelectorAll("#novoChamadoOverlay .nc-prio-btn").forEach(b => {
+      b.classList.toggle("nc-prio-abaixo", (NC_RANK[b.dataset.prio] ?? 9) > (NC_RANK[piso.prio] ?? 9));
+    });
+
+    const bloco = document.getElementById("ncMotivoBloco");
+    const lbl   = document.getElementById("ncMotivoLbl");
+    if (bloco) bloco.style.display = abaixo ? "" : "none";
+    if (lbl && abaixo) {
+      lbl.textContent = `Por que ${escolhida.toUpperCase()} e não ${piso.prio.toUpperCase()}? (mínimo 10 caracteres)`;
+    }
+  }
+
   const overlay  = document.getElementById("novoChamadoOverlay");
   const btnAbrir = document.getElementById("btnNovoChamado");
   const btnFech  = document.getElementById("btnFecharNovoChamado");
@@ -4733,6 +4914,13 @@ let _ncPicker = null;
     });
     const p3btn = overlay.querySelector(".nc-prio-btn[data-prio='p3']");
     if (p3btn) { p3btn.classList.add("nc-prio-sel"); p3btn.style.borderColor = "var(--accent)"; p3btn.style.background = "rgba(240,176,20,.08)"; }
+    // Triagem volta a "Não sei" nos dois — abrir um chamado não pode herdar a
+    // resposta do anterior, que era sobre outro prédio e outro problema.
+    ["ncRiscoImediato","ncRedundancia"].forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
+    overlay.querySelectorAll(".nc-seg button").forEach(b => b.classList.toggle("is-on", b.dataset.val === ""));
+    const mot = document.getElementById("ncPrioridadeMotivo"); if (mot) mot.value = "";
+    _ncPrioTocada = false;
+    _ncSincronizarPiso();
     overlay.style.display = "flex";
   }
 
@@ -4744,16 +4932,38 @@ let _ncPicker = null;
     if (!titulo)         { if (msg) { msg.style.color = "var(--danger)"; msg.textContent = "Título obrigatório"; } return; }
     if (!descricao || descricao.length < 5) { if (msg) { msg.style.color = "var(--danger)"; msg.textContent = "Descreva com pelo menos 5 caracteres"; } return; }
 
+    // A mesma checagem que o backend faz, adiantada: assim o operador corrige
+    // no campo em vez de perder o formulário para um 400.
+    const _piso = _ncCalcularPiso();
+    const _prio = document.getElementById("ncPrioridade")?.value || "p3";
+    const _motivo = document.getElementById("ncPrioridadeMotivo")?.value.trim() || "";
+    const _abaixo = (NC_RANK[_prio] ?? 9) > (NC_RANK[_piso.prio] ?? 9);
+    if (_abaixo && _motivo.length < 10) {
+      if (msg) {
+        msg.style.color = "var(--danger)";
+        msg.textContent = `${_prio.toUpperCase()} está abaixo do piso ${_piso.prio.toUpperCase()} — descreva a justificativa técnica (cláusula 7.1.c).`;
+      }
+      document.getElementById("ncPrioridadeMotivo")?.focus();
+      return;
+    }
+
     if (msg) { msg.style.color = "var(--muted)"; msg.textContent = "Salvando…"; }
     btnSalv.disabled = true;
 
     try {
+      const _tri = id => {
+        const v = document.getElementById(id)?.value || "";
+        return v === "" ? null : v === "sim";   // "Não sei" vira null, não false
+      };
       const body = {
         titulo,
         descricao,
         categoria:    document.getElementById("ncCategoria")?.value || "outro",
-        prioridade:   document.getElementById("ncPrioridade")?.value || "p3",
+        prioridade:   _prio,
         condominio_id: document.getElementById("ncCondo")?.value || null,
+        risco_imediato: _tri("ncRiscoImediato"),
+        redundancia:    _tri("ncRedundancia"),
+        prioridade_motivo: _abaixo ? _motivo : null,
       };
       const r = await fetch("/chamados", {
         method: "POST",
@@ -4763,11 +4973,28 @@ let _ncPicker = null;
       const j = await r.json();
       if (!r.ok) { if (msg) { msg.style.color = "var(--danger)"; msg.textContent = j.error || "Erro"; } return; }
 
+      // ⚠️ O NÚMERO PODE TER MUDADO NO SERVIDOR, e o operador tem de saber.
+      // O bump de recorrência sobe a prioridade sozinho (mesma categoria no
+      // mesmo prédio em 30 dias); antes isso acontecia em silêncio e a linha
+      // aparecia na lista com uma faixa que ninguém escolheu.
+      const subiu = j._recorrencia_bump && j.prioridade !== body.prioridade;
+
       // Adiciona ao array local e re-renderiza
       const condo = (_condominios || []).find(c => String(c.id) === String(body.condominio_id));
       _chamadosData = [{ ...j, condominio_nome: condo?.nome || null }, ...(_chamadosData || [])];
       renderChamados();
-      _ncFechar();
+
+      // O modal segura três segundos quando o número mudou, e fecha na hora
+      // quando não mudou. Fechar sempre na hora era o que fazia o aviso não
+      // existir: a única pista era a linha nova já com outra faixa.
+      if (subiu && msg) {
+        msg.style.color = "var(--warn, #f59e0b)";
+        msg.textContent = `Aberto como ${String(j.prioridade).toUpperCase()} — subiu de ` +
+          `${String(body.prioridade).toUpperCase()} por recorrência (mesma categoria neste prédio em 30 dias).`;
+        setTimeout(_ncFechar, 3000);
+      } else {
+        _ncFechar();
+      }
     } catch (e) {
       if (msg) { msg.style.color = "var(--danger)"; msg.textContent = "Erro: " + e.message; }
     } finally {
@@ -4794,6 +5021,34 @@ let _ncPicker = null;
     btn.style.borderColor = "var(--accent)";
     btn.style.background  = "rgba(240,176,20,.08)";
     document.getElementById("ncPrioridade").value = btn.dataset.prio;
+    _ncPrioTocada = true;   // a partir daqui o piso não mexe mais na escolha
+    _ncSincronizarPiso();
+  });
+
+  // ── Triagem: os dois segmentados ────────────────────────────────────────
+  // Mudar uma resposta MOVE O PISO, e mover o piso pode mover a prioridade:
+  // quem marcou P3 e depois respondeu "há risco imediato" tem de ver o P3
+  // virar rebaixa na hora, não no erro do Salvar.
+  overlay.addEventListener("click", e => {
+    const b = e.target.closest(".nc-seg button");
+    if (!b) return;
+    const grupo = b.closest(".nc-seg");
+    grupo.querySelectorAll("button").forEach(x => x.classList.toggle("is-on", x === b));
+    const alvo = grupo.dataset.ncTriagem === "risco" ? "ncRiscoImediato" : "ncRedundancia";
+    document.getElementById(alvo).value = b.dataset.val;
+
+    // ⚠️ A PRIORIDADE ACOMPANHA O PISO ENQUANTO NINGUÉM A ESCOLHEU À MÃO.
+    // Sem isto, responder a triagem deixaria o P3 padrão parado embaixo de um
+    // piso P1 e todo chamado pediria justificativa — o formulário viraria um
+    // pedágio, que é o oposto do que a cláusula 7 quer.
+    if (!_ncPrioTocada) _ncMarcarPrioridade(_ncCalcularPiso().prio);
+    _ncSincronizarPiso();
+  });
+
+  // Trocar a categoria também move o piso (e é o caminho mais comum).
+  document.getElementById("ncCategoria")?.addEventListener("change", () => {
+    if (!_ncPrioTocada) _ncMarcarPrioridade(_ncCalcularPiso().prio);
+    _ncSincronizarPiso();
   });
 })();
 
@@ -6522,7 +6777,7 @@ function renderDrawerChamados() {
     return;
   }
 
-  const prioLabel = { p4: "P4 Agendado", p3: "P3 Controlado", p2: "P2 Alta", p1: "P1 Crítico" };
+  const prioLabel = { p4: "P4 Baixa critic.", p3: "P3 Programável", p2: "P2 Alto", p1: "P1 Crítico" };
   const statusLbl = { aberto: "Aberto", em_atendimento: "Em atendimento", fechado: "Fechado" };
 
   pane.innerHTML = list.map(ch => {
@@ -8517,7 +8772,7 @@ function _mpRenderAlertas(g) {
     <div class="modal-sec-title">Chamados abertos</div>
     <div class="mp-list">${chamados.map(ch => {
       const kind = ch.prioridade === "p1" ? "bad" : ch.prioridade === "p2" ? "warn" : "ok";
-      const prioLabel = { p1: "P1 Crítico", p2: "P2 Alta", p3: "P3 Normal", p4: "P4 Baixa" };
+      const prioLabel = { p1: "P1 Crítico", p2: "P2 Alto", p3: "P3 Programável", p4: "P4 Baixa critic." };
       return `
         <div class="mp-list-item">
           <span class="mli-dot ${kind}"></span>
@@ -9434,7 +9689,7 @@ async function _cfgSalvarOperacional() {
 
 // ── SLA configurável (Fase 8B) ────────────────────────────────────────────────
 
-const _SLA_PRIO_LABEL = { p1: "P1 Crítico", p2: "P2 Alta", p3: "P3 Controlado", p4: "P4 Agendado" };
+const _SLA_PRIO_LABEL = { p1: "P1 Crítico", p2: "P2 Alto", p3: "P3 Programável", p4: "P4 Baixa critic." };
 const _SLA_PRIO_ORDEM = ["p1", "p2", "p3", "p4"];
 
 async function _cfgCarregarSla() {
@@ -10890,6 +11145,57 @@ document.addEventListener("DOMContentLoaded", () => {
       const chId = Number(btn.dataset.chId);
       const ch = (_chamadosData || []).find(c => c.id === chId);
       if (ch) renderChDetalhe(ch);
+      return;
+    }
+
+    // ── Reclassificação de prioridade (cláusula 7.1.c) ──────────────────
+    if (action === "ch-reclassificar" || action === "ch-recl-cancelar") {
+      const chId = Number(btn.dataset.chId);
+      _chReclassificando = action === "ch-reclassificar" ? chId : null;
+      const ch = (_chamadosData || []).find(c => c.id === chId);
+      if (ch) renderChDetalhe(ch);
+      return;
+    }
+
+    if (action === "ch-recl-salvar") {
+      const chId = Number(btn.dataset.chId);
+      const bloco = document.getElementById(`chRecl-${chId}`);
+      if (!bloco) return;
+      const sel = bloco.querySelector(".ch-recl-btn.is-on");
+      const motivo = bloco.querySelector(".ch-recl-motivo")?.value.trim() || "";
+      const msgEl = bloco.querySelector(".ch-recl-msg");
+      if (!sel) return;
+      const nova = sel.dataset.reclPrio;
+      const atual = (_chamadosData || []).find(c => c.id === chId)?.prioridade;
+      if (nova === atual) { _chReclassificando = null; renderChDetalhe((_chamadosData||[]).find(c=>c.id===chId)); return; }
+
+      btn.disabled = true;
+      if (msgEl) { msgEl.textContent = "Salvando…"; msgEl.className = "ch-recl-msg"; }
+      fetch(`/chamados/${chId}`, {
+        method: "PATCH",
+        headers: { ...authHeaders(), "Content-Type": "application/json" },
+        body: JSON.stringify({ prioridade: nova, prioridade_motivo: motivo || null }),
+      }).then(async r => {
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok) {
+          // ⚠️ O ERRO FICA NO BLOCO, não num alert: o operador acabou de
+          // digitar uma justificativa e um alert a perderia junto com o
+          // re-render. `exige` só vem quando falta motivo para a rebaixa.
+          btn.disabled = false;
+          if (msgEl) {
+            msgEl.className = "ch-recl-msg is-erro";
+            msgEl.textContent = j.error || "Erro ao reclassificar";
+          }
+          if (j.exige === "prioridade_motivo") bloco.querySelector(".ch-recl-motivo")?.focus();
+          return;
+        }
+        _chReclassificando = null;
+        _chHistCache.delete(chId);   // a linha nova do histórico tem de aparecer
+        await carregarTudo();
+      }).catch(e => {
+        btn.disabled = false;
+        if (msgEl) { msgEl.className = "ch-recl-msg is-erro"; msgEl.textContent = "Erro: " + e.message; }
+      });
       return;
     }
 
