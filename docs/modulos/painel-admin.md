@@ -215,6 +215,152 @@ medido, contra os 4,5 do piso. É a Regra do Amarelo Cego do
 [DESIGN.md](../../DESIGN.md): trocado pelo token `--warn`, que vira `--warn-t`
 (#886116) dentro do `.av-modal-dialog` e mede **4,67:1**.
 
+### ⚠️ Existe UM modal de orçamento, e ele é o do avulso (02/09/2026)
+
+A aba "Solicitados pelos técnicos" é **lista**; o documento se edita no modal
+de `#avModal`, o mesmo da aba "Criar orçamento". Não há um segundo modal.
+
+O caminho é o `_orcAbrirDaBancada`, que já existia para o pedido nascido na
+oficina: acha o orçamento em `_avData` e chama `_avRenderPainel()`. Funciona
+porque **`GET /admin/orcamentos/avulsos` não tem `WHERE`** — a lista já contém
+os orçamentos nascidos de O.S.
+
+| Estado do pedido | O que o clique faz |
+|---|---|
+| Já tem `orcamento_id` | abre o modal direto |
+| `SOLICITADO` (sem orçamento) | `_orcMaterializarEAbrir` → PATCH `acao:"salvar"` cria a linha, recarrega `_avData`, abre |
+
+⚠️ **O rascunho nasce na abertura** — decisão do Pedro. Quem cria é o backend
+(`_garantirOrcamentoDaOs`), que já trata o caso de a bancada ter pedido antes:
+adota o orçamento solto em vez de abrir um segundo para o mesmo serviço.
+
+⚠️ **O trilho mostra o pedido do técnico quando há `os_id`.** É a única coisa
+que o modal descontinuado tinha e este não — dez linhas condicionais. Os campos
+(`orcamento_observacoes`, `os_tecnico_nome`, `os_chamado_id`) viajam no próprio
+`GET /avulsos`, que já faz o `LEFT JOIN` com `ordens_servico`.
+
+#### O que foi removido, e por que existia
+
+Havia um segundo modal, com 13 funções paralelas (`_orcFormalHtml`,
+`_orcRenderItens`, `_orcAcao`, `_orcCarregarItens`, `_orcAdicionarItem`,
+`_orcEditarItem`, `_orcRemoverItem`, `_orcGerarPdf`…). Ele fazia **menos** que
+o original: sem envio por e-mail e sem tipo de documento — então um orçamento
+de limpeza de reservatório nascido de O.S. saía com o layout de peças no PDF.
+
+⚠️ **E havia duas delegações de evento no mesmo `#avModalBody`**, a desta aba e
+a do `_avBindEventos`. Não deu defeito visível porque os `data-*` diferiam
+(`data-orc-action` × `data-av-action`), mas qual responderia dependia da ordem
+de registro. Saiu junto.
+
+**−525 linhas, +129.** As notas abaixo descrevem o modal descontinuado e ficam
+como registro do que custou chegar aqui.
+
+---
+
+### ⚠️ O modal do orçamento era dano colateral do modal avulso
+
+Reclamação do Pedro, com o print: *"mas o modal para fazer o orçamento você
+não arrumou né?"*. Estava certo — eu tinha consertado três defeitos pontuais
+(título duplicado, selo colidindo com o ×, contraste do PDF) e nunca desenhado
+a tela.
+
+**Os dois modais de orçamento dividem o `#avModal`.** Em algum momento o
+avulso ganhou layout de duas colunas, e o shell foi ajustado para ele:
+`padding: 0`, `display: flex`, `height: min(92vh, 880px)`, `max-width: 1360px`.
+**Só o avulso tem a marcação desse layout.** O modal da O.S. despejava
+`.av-modal-head` + `.orc-form-section` num diálogo sem padding nenhum:
+
+- rótulo colado na borda esquerda, campo colado na direita — medido, **0px**;
+- cabeçalho recuado 20px por regra própria, corpo em zero: os dois desalinhados;
+- 1360px de largura gastos com campos de 660, metade da faixa vazia;
+- sem zona de rolagem: o formulário inteiro era uma coluna só, e o total
+  ficava numa linha de 12px no fim da tabela.
+
+Agora ele usa os mesmos componentes do avulso — `.av-layout`, `.av-col-form`,
+`.av-itens-zone`, `.av-itens-scroll`, `.av-cond`, `.av-rail` — e herda de graça
+o que já tinha sido resolvido lá: só a zona de itens rola, o "+ Adicionar
+item" gruda no pé dela, e as condições comerciais nascem fechadas com o resumo
+escrito no sumário.
+
+⚠️ **O QUE ESTE MODAL TEM E O AVULSO NÃO: um documento de origem.** O trilho
+da direita mostra **o pedido do técnico** — a observação dele, quem foi, de
+qual chamado veio, quando a O.S. fechou. É material de consulta enquanto se
+escreve, e por isso fica **ao lado** e não acima: como faixa no topo ele rolava
+para fora da vista exatamente quando o operador começava a lançar os itens.
+
+⚠️ **O total mudou de lugar pelo mesmo motivo.** Ele era uma linha de 12px no
+fim da tabela — **dentro da zona que rola**, então sumia a partir do quarto
+item, que é justo quando o número começa a importar. No trilho é o
+`.av-total` do avulso: mono, 29px, sempre visível, com um subtítulo que conta
+os itens e avisa quantos estão **sem valor** (o caso que faz o PDF sair errado).
+
+⚠️ **A tabela de itens ganhou `<colgroup>`** com as mesmas larguras
+(84/122/122/40) do grid de `.av-itens-scroll .orc-add-item-row`. Sem ele as
+colunas numéricas se auto-dimensionam e os campos de adicionar caem fora da
+vertical das colunas que preenchem — verificado: cabeçalhos em 300/940/1024 e
+campos em 308/948/1032, os 8px do `padding` das células.
+
+#### O acabamento também, não só o esqueleto
+
+Segunda passada, depois de o Pedro pôr os dois prints lado a lado: *"está do
+mesmo jeito para você?"*. Não estava. Eu tinha reaproveitado o **esqueleto** e
+parado ali — o acabamento seguia divergente, e é o que salta ao ver as duas
+telas juntas.
+
+| | Antes | Agora |
+|---|---|---|
+| Ações | rodapé com 5 botões (o avulso não tem rodapé) | **no trilho**, empilhadas, Salvar em âmbar |
+| Zonas nomeadas | só ITENS e CONDIÇÕES | O DOCUMENTO · CONSTATAÇÃO · ITENS · CONDIÇÕES |
+| Cabeçalho | `<h3>` com estilo inline | `.av-modal-head-icon` + `.av-modal-num` + `.av-modal-meta` |
+| "+ Adicionar" | botão neutro numa linha abaixo | âmbar, **na 4ª coluna da linha** |
+
+⚠️ **AS AÇÕES FORAM ESCOLHA DO PEDRO, entre três arranjos** — e não é decisão
+de layout apenas: o avulso muda de estado por um **select "Situação"** no
+trilho, e este modal tem **Aprovar/Rejeitar como botões**. Manter os botões e
+mudá-los de lugar preserva o comportamento (o motivo da rejeição continua sendo
+pedido no ato) e alinha a posição. O `#orcFormMsg` foi junto: é nele que o
+`_orcAcao` escreve o resultado, e ele precisa estar ao lado do botão que
+disparou.
+
+⚠️ **`.orc-btn-approve` e `.orc-btn-reject` são do CAMPO ESCURO** (`#4ade80`,
+`#f87171`). Ao saírem do rodapé para o trilho eles passaram a viver na placa
+clara, onde medem **1,9:1** e **2,6:1** — o rótulo some. Dentro do
+`.av-modal-dialog` eles agora usam a família de tinta (`--ok-t`, `--risco-t`),
+com o preenchimento mais leve porque ali é fundo de botão, não de selo.
+
+#### O contraste: três ocorrências do mesmo defeito
+
+Preto translúcido sobrando de quando o modal era marinho, em três lugares —
+`.av-rail` (`rgba(0,0,0,.22)`), o mesmo trilho no avulso, e `.av-seg`
+(`rgba(0,0,0,.3)`), o seletor Cadastrado/Avulso. Sobre a placa clara todos
+viram cinza médio.
+
+As duas famílias de tinta do modal são calibradas contra `--chapa`, não contra
+esse cinza:
+
+| No trilho | Antes | Depois |
+|---|---|---|
+| `--tinta-2` — rótulo, chave, observação do técnico | 4,04:1 | **7,55:1** |
+| `--atencao-t` — "definir manualmente", "Enviar ao cliente" | 2,78:1 | **5,20:1** |
+| `.av-seg` — a aba ATIVA do seletor de cliente | 3,27:1 | **4,65:1** |
+
+⚠️ **O DEGRAU TEM DE SER PARA CIMA, NÃO PARA BAIXO — e a primeira tentativa
+errou o lado.** Usar `--surface2` (`--chapa-es`, o degrau escuro) consertava
+`--tinta-2` (5,78) e deixava o âmbar em **3,98** — melhor que 2,78 e ainda
+reprovado. O motivo é aritmético: a família `-t` do
+[DESIGN.md](../../DESIGN.md) é calibrada contra `--chapa`, que é o **teto de
+escuridão** em que ela passa. Qualquer fundo mais escuro que a placa quebra o
+âmbar antes de quebrar a tinta.
+
+Então trilho e seletor são placas **pousadas** sobre o formulário, não afundadas
+nele: `--surface` (`--chapa-cl`). **Vale para o avulso também** — ele tinha os
+mesmos defeitos. Varrendo todo o texto dos dois diálogos no DOM, **nenhum
+abaixo de 4,5**: pior caso 4,65 no avulso e 5,78 no da O.S.
+
+Junto foram duas trocas de `--muted2` (3,59:1) por `--text-dim` (6,78:1) no
+estado vazio da tabela e na observação ausente: são frases que se leem, não
+rótulos decorativos.
+
 ### Para olhar sem sessão: `/dev/_orcamentos-preview.html`
 
 Mesma ideia do `_operador-preview.html`: a página carrega o `admin.css` e o
@@ -231,6 +377,79 @@ e companhia). O `admin.js` tem `getElementById(x).addEventListener` no topo,
 **sem `?.`**: faltando um, o script estoura ali e as 8 mil linhas seguintes
 nunca executam, deixando os `let` em TDZ. O sintoma foi uma tela vazia com um
 erro apontando para 4 mil linhas depois da causa.
+
+---
+
+## O condomínio nas duas abas passa a ser o nome fantasia (02/09/2026)
+
+Pergunta do Pedro: *"por que o condomínio que tem o nome fantasia AURI FARIA
+LIMA está aparecendo na lista como ELVIRA FERRAZ EMPREENDIMENTOS IMOBILIARIOS
+LTDA?"*
+
+Porque as duas rotas que alimentam a seção liam só `c.nome` — a **razão
+social** — enquanto o PDF e o e-mail já usavam `nome_fantasia` desde a
+[migration 044](../changelog.md). A regressão é a mesma que o
+`orcamento-pdf.service.js` já tinha sofrido e corrigido: a 044 declarou
+`nome_fantasia` como "nome principal de exibição" e metade do sistema não foi
+atrás.
+
+**O efeito era pior do que um rótulo feio.** O painel dizia "ELVIRA FERRAZ
+EMPREENDIMENTOS IMOBILIARIOS LTDA" e o síndico recebia um PDF escrito "AURI
+FARIA LIMA" — mesmo orçamento, dois nomes —, e quem procurava o prédio pelo
+nome que a empresa usa no dia a dia não achava. Não era caso isolado: em
+produção **71 dos 86 condomínios** têm fantasia diferente da razão social, e
+**44 das 61 linhas** da lista de orçamentos mudavam de nome entre a tela e o
+PDF (`CONDOMINIO EDIFICIO OSCAR IBIRAPUERA` → `OSCAR IBIRAPUERA`,
+`BSP EMPREENDIMENTOS IMOBILIARIOS D131 LTDA.` → `BRADESCO - JOAQUIM FLORIANO`).
+
+| Onde | Antes | Agora |
+|---|---|---|
+| `GET /admin/orcamentos` (as duas consultas) | `c.nome` | `COALESCE(NULLIF(c.nome_fantasia,''), c.nome)` + `c.nome AS condominio_razao_social` |
+| `GET /admin/orcamentos/avulsos` | `COALESCE(c.nome, o.cliente_nome)` | idem, com `o.cliente_nome` no fim |
+| PDF, e-mail, painel do cliente | já usavam fantasia | ganharam o `NULLIF` |
+
+⚠️ **`NULLIF` não é enfeite.** `COALESCE(c.nome_fantasia, …)` aceita string
+vazia: um fantasia salvo como `''` apagaria o nome da tela. As rotas de
+equipamentos, planos e do select de condomínios já faziam assim — as de
+orçamento eram a exceção.
+
+⚠️ **Nome de tela ≠ nome jurídico, e a busca tem de aceitar os dois.** O blob
+de `_avFiltrados`/`_orcFiltrados` só olhava `condominio_nome`; com o fantasia
+ali, procurar por "Elvira" (o nome do CNPJ, do contrato e da nota) pararia de
+achar. As duas rotas mandam `condominio_razao_social` junto, e ele entra no
+blob e na linha `.av-orc-pane-razao` do cabeçalho do painel — só quando difere
+do fantasia, porque para quem não tem fantasia cadastrado os dois textos são
+iguais e repetir é ruído. É o mesmo par que o PDF imprime.
+
+⚠️ **A perna B do `GET /admin/orcamentos` tem `GROUP BY`**, e ler
+`c.nome_fantasia` no `SELECT` sem adicioná-lo ali derruba a query inteira com
+`42803` no parse — irmão do `42P08` registrado no [CLAUDE.md](../../CLAUDE.md).
+Não há agregação sobre `condominios` (o único `SUM` é o dos itens), então a
+linha por orçamento continua a mesma.
+
+⚠️ **A linha da razão social não pode ser apagada com `opacity`.** A primeira
+versão era `--muted` a `.8` e mediu **3,26:1** no DOM: o painel é
+`rgba(255,255,255,.14)` sobre `--chapa` (fundo efetivo rgb(40,49,84)), e a
+opacidade compõe contra ele, comendo o contraste que o token tinha.
+`--text-dim` sem opacidade dá **6,22:1**. Quem separa a linha do título é o
+tamanho (11px contra 14px) e o rótulo, não a tinta.
+
+📋 **Achado de passagem, não corrigido:** `.av-orc-pane-sub` — a contagem logo
+abaixo — mede **4,22:1** com `--muted`, sob o piso de 4,5 do
+[DESIGN.md](../../DESIGN.md). Anterior a esta mudança, nas duas abas.
+
+**Verificado exercitando as rotas de verdade** — Express com o `adminRouter`,
+JWT assinado com o `JWT_SECRET`, `GET` nas duas contra o banco de **produção**:
+200 nas duas, e `tela="AURI FARIA LIMA" / razao="ELVIRA FERRAZ
+EMPREENDIMENTOS IMOBILIARIOS LTDA"`. O orçamento sem condomínio vinculado
+(`GENOVA E BARCELONA`, razão social nula) atravessa sem a linha extra.
+
+**E em tela**, na prévia `/dev/_orcamentos-preview.html` a 1920px, nas duas
+abas. A fixture ganhou `condominio_razao_social` nos quatro condomínios, com o
+Aurora Paulista **igual** ao nome de exibição de propósito: é o caso "sem
+fantasia cadastrado", e nele a linha não aparece. Buscar por "administradora"
+ou "empreendimentos" — palavras que só existem na razão social — acha o prédio.
+Console limpo após recarregar.
 
 ---
 

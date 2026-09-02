@@ -41,6 +41,20 @@ aliases:
 
 ## Em andamento / pendente
 
+- ✅ **Orçamentos passam a mostrar o nome fantasia do condomínio** (02/09/2026).
+  As duas rotas da seção liam `c.nome` (razão social) enquanto o PDF e o e-mail
+  já usavam `nome_fantasia`: o painel dizia "ELVIRA FERRAZ EMPREENDIMENTOS
+  IMOBILIARIOS LTDA" e o cliente recebia "AURI FARIA LIMA". A razão social
+  passou a viajar junto (`condominio_razao_social`), alimentando a busca e o
+  cabeçalho do painel. Sem migration. Detalhe em
+  [`../docs/modulos/painel-admin.md`](../docs/modulos/painel-admin.md).
+  - 📋 **Alinhar o resto do sistema à migration 044** — chamados, O.S.,
+    contratos, relatórios, WhatsApp e alertas ainda leem `c.nome` puro e
+    mostram a razão social. Enquanto isso durar, o mesmo condomínio se chama
+    de dois jeitos conforme a tela. É troca mecânica (`COALESCE(NULLIF(
+    c.nome_fantasia,''), c.nome)`), mas cada rota com `GROUP BY` precisa da
+    coluna nova no `GROUP BY`, sob pena de `42803` no parse.
+
 - ✅ **RBAC: o operador virou restrição de verdade** (27/08/2026). 49 rotas
   saíram de `adminOnly` para `gestaoOnly` e o perfil saiu de `equipeInterna`;
   Contratos **e Dashboard** saíram do menu dele — o perfil ficou em quatro

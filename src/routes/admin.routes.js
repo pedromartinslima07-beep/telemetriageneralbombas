@@ -960,7 +960,13 @@ router.get("/orcamentos", authRequired, gestaoOnly, async (req, res) => {
          os.id,
          os.numero,
          os.condominio_id,
-         c.nome              AS condominio_nome,
+         -- Fantasia na tela, razao social junto — mesmo contrato do PDF e da
+         -- rota /orcamentos/avulsos. Esta rota alimenta a aba de pedidos, que
+         -- agrupa por condominio_id: se cada uma das duas consultas escolhesse
+         -- um nome, o mesmo condominio apareceria com rotulo diferente
+         -- conforme a origem da linha.
+         COALESCE(NULLIF(c.nome_fantasia,''), c.nome) AS condominio_nome,
+         c.nome              AS condominio_razao_social,
          os.tecnico_id,
          t.nome              AS tecnico_nome,
          os.chamado_id,
@@ -1025,7 +1031,11 @@ router.get("/orcamentos", authRequired, gestaoOnly, async (req, res) => {
          NULL::int           AS id,
          o.numero,
          o.condominio_id,
-         c.nome              AS condominio_nome,
+         -- Mesmo COALESCE da consulta de cima: os dois SELECTs desta rota sao
+         -- concatenados em JS (r.rows + rb.rows) e caem na MESMA lista, entao
+         -- precisam nomear o condominio do mesmo jeito.
+         COALESCE(NULLIF(c.nome_fantasia,''), c.nome) AS condominio_nome,
+         c.nome              AS condominio_razao_social,
          NULL::int           AS tecnico_id,
          uc.nome             AS tecnico_nome,
          NULL::int           AS chamado_id,
@@ -1058,7 +1068,11 @@ router.get("/orcamentos", authRequired, gestaoOnly, async (req, res) => {
        LEFT JOIN equipamentos e      ON e.id = o.equipamento_id
        LEFT JOIN orcamento_linhas l  ON l.orcamento_id = o.id
        WHERE ${whereB.join(" AND ")}
-       GROUP BY o.id, c.nome, uc.nome, ua.nome, e.codigo, e.apelido
+       -- c.nome_fantasia entra aqui porque passou a ser LIDA no SELECT: sem
+       -- ela o Postgres recusa a query inteira com 42803 (coluna fora do
+       -- GROUP BY). Nao ha agregacao sobre condominios — o unico SUM e o dos
+       -- itens —, entao a linha por orcamento continua a mesma.
+       GROUP BY o.id, c.nome, c.nome_fantasia, uc.nome, ua.nome, e.codigo, e.apelido
        ORDER BY o.criado_em DESC
        LIMIT 200`,
       valsB
@@ -1333,9 +1347,32 @@ router.get("/orcamentos/avulsos", authRequired, gestaoOnly, async (req, res) => 
     const r = await pool.query(
       `SELECT o.id, o.numero, o.status, o.valido_ate, o.data_documento, o.criado_em, o.origem, o.tipo,
               o.os_id, os.numero AS os_numero,
+              -- ⚠️ O PEDIDO DO TÉCNICO VIAJA JUNTO (02/09/2026). Quando o
+              -- orçamento nasceu de uma O.S., o modal mostra no trilho o que o
+              -- técnico escreveu — é o material de consulta de quem está
+              -- montando o documento, e antes só existia na outra aba. Vem
+              -- desta rota porque ela já faz o LEFT JOIN com ordens_servico;
+              -- buscar à parte seria uma request por abertura de modal.
+              os.orcamento_observacoes,
+              os.chamado_id      AS os_chamado_id,
+              os.finalizada_em   AS os_finalizada_em,
+              tec.nome           AS os_tecnico_nome,
               o.constatacao, o.forma_pagamento, o.prazo_entrega,
               o.garantia, o.disponibilidade,
-              COALESCE(c.nome, o.cliente_nome) AS condominio_nome, c.id AS condominio_id, c.email AS condominio_email,
+              -- NOME EXIBIDO = FANTASIA, igual ao PDF. Esta rota lia so c.nome
+              -- (razao social) enquanto orcamento-pdf.service.js e o e-mail de
+              -- envio ja usavam nome_fantasia desde a migration 044: o painel
+              -- mostrava "ELVIRA FERRAZ EMPREENDIMENTOS IMOBILIARIOS LTDA" e o
+              -- sindico recebia um PDF escrito "Auri Faria Lima". Mesmo
+              -- orcamento, dois nomes, e ninguem achava o condominio na lista.
+              -- O NULLIF nao e enfeite: fantasia salva como string vazia passa
+              -- pelo COALESCE e apagaria o nome da tela.
+              COALESCE(NULLIF(c.nome_fantasia,''), c.nome, o.cliente_nome) AS condominio_nome,
+              -- Vai junto porque o nome de tela deixou de ser o nome juridico:
+              -- alimenta a busca (quem procura por "Elvira" tem de achar) e a
+              -- linha de razao social do painel.
+              c.nome AS condominio_razao_social,
+              c.id AS condominio_id, c.email AS condominio_email,
               o.cliente_nome, o.cliente_documento, o.cliente_endereco, o.cliente_email,
               o.enviado_em, o.enviado_para,
               -- A resposta que o CLIENTE deu pelo painel dele (migration 074).
@@ -1391,6 +1428,7 @@ router.get("/orcamentos/avulsos", authRequired, gestaoOnly, async (req, res) => 
        FROM orcamentos o
        LEFT JOIN condominios c ON c.id = o.condominio_id
        LEFT JOIN ordens_servico os ON os.id = o.os_id
+       LEFT JOIN tecnicos      tec ON tec.id = os.tecnico_id
        LEFT JOIN usuarios ur ON ur.id = o.respondido_por
        LEFT JOIN usuarios ut ON ut.id = o.resposta_tratada_por
        LEFT JOIN usuarios uc ON uc.id = o.criado_por
@@ -1825,7 +1863,7 @@ router.post("/orcamentos/avulsos/:id/enviar-email", authRequired, gestaoOnly, as
     const r = await pool.query(
       `SELECT o.id, o.numero, o.valido_ate, o.condominio_id,
               o.data_documento, o.criado_em,
-              COALESCE(c.nome_fantasia, c.nome, o.cliente_nome) AS condominio_nome,
+              COALESCE(NULLIF(c.nome_fantasia,''), c.nome, o.cliente_nome) AS condominio_nome,
               COALESCE(
                 o.valor,
                 (SELECT SUM(l.quantidade * l.valor_unitario)

@@ -97,6 +97,32 @@ existia depois de alguém entrar na seção.
 
 Detalhe em [painel-admin.md](../docs/modulos/painel-admin.md).
 
+⚠️ **Existe UM modal de orçamento** (02/09/2026): o de `#avModal`, da aba
+"Criar orçamento". A aba "Solicitados pelos técnicos" é lista; o clique abre
+aquele modal — e o pedido ainda SOLICITADO ganha a linha em `orcamentos` na
+abertura. O segundo modal, que refazia o mesmo documento com menos recursos
+(sem envio por e-mail, sem tipo), foi removido: −525 linhas.
+
+### ⚠️ Qual nome de condomínio cada tela mostra (02/09/2026)
+
+`condominios` guarda **dois** nomes: `nome` é a **razão social** (obrigatória,
+a do CNPJ) e `nome_fantasia` é o **nome de exibição** (opcional, migration
+044). Em produção **71 dos 86** cadastros têm os dois diferentes.
+
+A regra, valendo em orçamentos desde 02/09: **fantasia na tela e no topo do
+PDF, razão social logo abaixo quando difere**, e a busca aceita os dois. A
+expressão canônica é `COALESCE(NULLIF(c.nome_fantasia,''), c.nome)` — o
+`NULLIF` porque fantasia salvo como string vazia apagaria o nome.
+
+⚠️ **O resto do sistema ainda não segue.** Chamados, O.S., contratos,
+relatórios, WhatsApp e alertas leem `c.nome` puro, então mostram a razão
+social. Não é decisão, é a migration 044 aplicada pela metade — quem mexer
+nessas rotas deveria alinhá-las. Já alinhados: orçamentos (as duas abas), PDF
+de orçamento, e-mail de envio, painel do cliente, equipamentos, planos de
+manutenção e o select de condomínios.
+
+Detalhe em [painel-admin.md](../docs/modulos/painel-admin.md).
+
 ### ⚠️ O painel do operador é a tela de PLANTÃO (02/09/2026)
 
 Três regras que só valem lá, e as três vêm do mesmo fato: a tela fica **aberta**

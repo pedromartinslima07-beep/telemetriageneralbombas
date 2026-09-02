@@ -8561,6 +8561,15 @@ body.role-viewer .viewer-only-hide-inline {
 /* Painel direito: orçamentos do condomínio */
 .av-orc-pane-head { padding: 14px 16px; border-bottom: 1px solid var(--border); }
 .av-orc-pane-title { font-size: 14px; font-weight: 700; color: var(--text); }
+/* Razão social sob o nome fantasia.
+   ⚠️ NADA DE `opacity` PARA APAGAR TEXTO. A primeira versão era
+   `--muted` a .8 e mediu 3,26:1 no DOM — a opacidade compõe contra a placa
+   (o painel é `rgba(255,255,255,.14)` sobre `--chapa`, fundo efetivo
+   rgb(40,49,84)) e come o contraste que o token tinha. `--text-dim` sem
+   opacidade dá 6,22:1. Quem separa esta linha do título é o TAMANHO (11px
+   contra 14px) e o rótulo "Razão social:", não a tinta: é o nome do CNPJ, e
+   ninguém precisa apertar os olhos para conferir com quem vai contratar. */
+.av-orc-pane-razao { font-size: 11px; color: var(--text-dim); margin-top: 3px; }
 .av-orc-pane-sub   { font-size: 11.5px; color: var(--muted); margin-top: 3px; }
 .av-orc-list { display: flex; flex-direction: column; }
 .av-orc-item {
@@ -8683,6 +8692,29 @@ body.role-viewer .viewer-only-hide-inline {
 }
 .orc-btn-reject:hover { background: rgba(239,68,68,.2); }
 
+/* ⚠️ OS DOIS ACIMA SÃO DO CAMPO ESCURO — `#4ade80` e `#f87171` são cores
+   claras, feitas para o painel marinho. Quando os botões mudaram do rodapé
+   para o trilho (02/09/2026) eles passaram a viver na PLACA CLARA, onde
+   medem 1,9:1 e 2,6:1: some o rótulo. Dentro do diálogo eles usam a família
+   de tinta — `--ok` vira `--ok-t` e `--risco` vira `--risco-t`, os dois
+   calibrados contra `--chapa`. O preenchimento fica no cru (Regra do
+   Preenchimento Cru), só mais leve, porque aqui ele é fundo de botão e não
+   de selo. */
+.av-modal-dialog .orc-btn-approve {
+  background: rgba(16, 92, 49, .10); color: var(--ok);
+  border-color: color-mix(in srgb, var(--ok) 42%, transparent);
+}
+.av-modal-dialog .orc-btn-approve:hover { background: rgba(16, 92, 49, .18); }
+.av-modal-dialog .orc-btn-reject {
+  background: rgba(121, 0, 0, .08); color: var(--risco);
+  border-color: color-mix(in srgb, var(--risco) 38%, transparent);
+}
+.av-modal-dialog .orc-btn-reject:hover { background: rgba(121, 0, 0, .15); }
+/* No trilho eles empilham em largura cheia, como os do avulso — o `flex: 1`
+   acima é do arranjo antigo, em linha no rodapé. */
+.av-rail-acts .orc-btn-approve,
+.av-rail-acts .orc-btn-reject { flex: none; width: 100%; justify-content: center; }
+
 /* ── Abas principais da seção de orçamentos ── */
 /* ⚠️ Terceiro vocabulário de aba do painel (depois de `.wa-tab` e
    `.drawer-tab`). Não vale inventar um quarto jeito de dizer "você está
@@ -8743,6 +8775,39 @@ body.role-viewer .viewer-only-hide-inline {
   font-weight: 600;
 }
 .orc-it-num { text-align: right; white-space: nowrap; }
+/* Estado vazio da tabela de itens. Era um `padding: 12px` centralizado sem
+   respiro nenhum, encostado no cabeçalho da tabela — lia como linha de dado
+   faltando, não como "comece por aqui". Agora tem a altura de uma zona vazia
+   e diz o próximo passo, que está logo abaixo. */
+/* ⚠️ `--text-dim`, não `--muted2`: dentro da placa clara o segundo é
+   #6b7a9e e dá 3,59:1 — reprova como texto, e isto é uma frase que se lê,
+   não um rótulo decorativo. Com `--tinta-2` são 6,78:1. */
+.orc-itens-vazio {
+  text-align: center; color: var(--text-dim);
+  font-size: 12.5px; padding: 26px 12px 28px;
+}
+
+/* ── O trilho do modal de orçamento de O.S. ─────────────────────────────
+   O pedido do técnico, que é o documento de ORIGEM deste orçamento. Ele
+   ficava numa faixa no topo do formulário e rolava para fora da vista bem na
+   hora de lançar os itens — que é quando se precisa dele. Aqui fica parado ao
+   lado, e a leitura é de citação: é fala de outra pessoa, como o
+   `.av-resposta-cliente` do modal avulso.
+   ⚠️ `--text-dim` e não `--muted`: dentro da placa clara os dois viram
+   `--tinta-2`, mas o papel é diferente e o dia em que a placa mudar de tom o
+   que precisa continuar legível é ESTE texto, não o rótulo. */
+.orc-rail-obs {
+  margin: 6px 0 0;
+  font-size: 12.5px; line-height: 1.55; color: var(--text-dim);
+  white-space: pre-wrap;
+  max-height: 168px; overflow-y: auto;
+  padding-left: 10px;
+  border-left: 1px solid var(--border-strong);
+}
+.orc-rail-obs.is-vazia { color: var(--text-dim); border-left-color: var(--border2); }
+/* Recusa é a única coisa no trilho que muda de cor: ela não é contexto, é
+   um desfecho, e o operador precisa achá-la sem ler. */
+.orc-rail-obs.is-recusa { color: var(--risco); border-left-color: var(--risco); }
 .orc-it-del {
   background: none;
   border: none;
@@ -9013,6 +9078,10 @@ body.role-viewer .viewer-only-hide-inline {
 .av-modal-head-icon svg { width: 20px; height: 20px; }
 .av-modal-num  { font-size: 17px; font-weight: 700; color: var(--text); line-height: 1.2; }
 .av-modal-meta { display: flex; align-items: center; gap: 6px; margin-top: 5px; font-size: 12px; color: var(--muted); }
+/* O `·` separador e o texto ao lado do selo. Existia só no markup do avulso,
+   sem regra — herdava do pai e funcionava por acaso; agora os dois modais
+   usam, então vale escrever. */
+.av-modal-date { color: var(--muted); }
 
 /* Seções do form em cards sutis */
 .av-modal-sections { display: flex; flex-direction: column; gap: 14px; }
@@ -9296,20 +9365,45 @@ body.role-viewer .viewer-only-hide-inline {
 }
 
 /* ── Segmentado (cliente cadastrado × avulso) ── */
+/* ⚠️ TERCEIRA OCORRÊNCIA DO MESMO DEFEITO (02/09/2026): preto translúcido
+   sobrando de quando este modal era marinho. Como no trilho, sobre a placa
+   clara o `rgba(0,0,0,.3)` vira cinza médio, e a tinta do diálogo é calibrada
+   contra `--chapa` — as duas abas mediam **3,53** e **3,27:1**, e a ATIVA era
+   a pior das duas, porque o âmbar é o que menos aguenta fundo escuro (ver a
+   nota do trilho logo abaixo). Mesmo conserto: degrau para cima. */
 .av-seg {
   display: inline-flex; padding: 3px; gap: 3px; margin-bottom: 12px;
-  background: rgba(0,0,0,.3); border: 1px solid var(--border); border-radius: 9px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 9px;
 }
 .av-seg button {
   padding: 6px 14px; border-radius: 7px; border: 0; background: none;
-  color: var(--muted); font-size: 12px; font-weight: 600; cursor: pointer;
+  color: var(--text-dim); font-size: 12px; font-weight: 600; cursor: pointer;
   font-family: inherit; transition: background .14s, color .14s;
 }
-.av-seg button.is-on { background: rgba(240,176,20,.14); color: var(--accent); }
+.av-seg button.is-on { background: rgba(240,176,20,.18); color: var(--accent); }
 
 /* ── Trilho: o total nunca sai da tela ── */
+/* ⚠️ O FUNDO DO TRILHO ERA `rgba(0,0,0,.22)` — sobra de quando este modal
+   era marinho (02/09/2026). Sobre a placa clara aquilo resolve para
+   **rgb(181,183,189)**, um cinza médio, e as duas famílias de tinta do modal
+   foram calibradas contra `--chapa`, não contra ele. Media-se, no trilho:
+   `--tinta-2` a **4,04:1** e `--atencao-t` a **2,78:1** — rótulo, chave de par
+   chave-valor, o link do valor manual, o título do bloco de envio e, desde
+   hoje, a observação do técnico, que é conteúdo que alguém lê para orçar.
+
+   ⚠️ E O DEGRAU TEM DE SER PARA CIMA, NÃO PARA BAIXO. A primeira correção usou
+   `--surface2` (`--chapa-es`, o degrau ESCURO): consertou `--tinta-2` (5,78)
+   e deixou o âmbar em **3,98** — melhor que 2,78, e ainda reprovado. O motivo
+   é aritmético: a família `-t` do DESIGN.md é calibrada contra `--chapa`, que
+   é o teto de escuridão em que ela passa. Qualquer fundo MAIS escuro que a
+   placa quebra o âmbar antes de quebrar a tinta.
+
+   Então o trilho é uma placa POUSADA sobre o formulário, não afundada nele:
+   `--surface` (`--chapa-cl`). Ali `--tinta-2` mede **7,55:1** e `--atencao-t`
+   **5,20:1**, os dois com folga, e a separação tonal continua existindo — só
+   que para o lado claro. Vale para os DOIS modais de orçamento. */
 .av-rail {
-  border-left: 1px solid var(--border); background: rgba(0,0,0,.22);
+  border-left: 1px solid var(--border); background: var(--surface);
   padding: 16px 20px; display: flex; flex-direction: column; gap: 14px;
   overflow-y: auto; min-height: 0;
 }

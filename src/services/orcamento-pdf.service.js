@@ -129,7 +129,7 @@ async function buscarDadosAvulso(orcamentoId) {
        o.criado_em,
        o.valor,
        o.condominio_id,
-       COALESCE(c.nome_fantasia, c.nome, o.cliente_nome) AS condominio_nome,
+       COALESCE(NULLIF(c.nome_fantasia,''), c.nome, o.cliente_nome) AS condominio_nome,
        c.nome      AS condominio_razao_social,
        COALESCE(c.endereco, o.cliente_endereco) AS endereco,
        c.bairro, c.cidade, c.uf, c.cep,

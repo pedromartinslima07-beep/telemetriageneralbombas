@@ -1063,7 +1063,7 @@ router.post("/orcamentos/:id/responder", authRequired, clienteOnly, async (req, 
     // jeito.
     try {
       const info = await pool.query(
-        `SELECT o.numero, COALESCE(c.nome_fantasia, c.nome, o.cliente_nome) AS condominio_nome
+        `SELECT o.numero, COALESCE(NULLIF(c.nome_fantasia,''), c.nome, o.cliente_nome) AS condominio_nome
            FROM orcamentos o LEFT JOIN condominios c ON c.id = o.condominio_id
           WHERE o.id = $1`,
         [id]

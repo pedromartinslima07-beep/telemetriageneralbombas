@@ -67,6 +67,16 @@ configuracoes (key-value dinâmico)           sla_definicoes (p1-p4)
 Migrations acrescentam: `lat`/`lng NUMERIC(9,6)` (002), `cep VARCHAR(8)` (003),
 `cnpj VARCHAR(18)`, `nome_fantasia TEXT` (044 — nome principal de exibição;
 quando preenchido substitui `nome` na UI; `nome` permanece como razão social).
+
+> ⚠️ **Ler `nome_fantasia` é `COALESCE(NULLIF(c.nome_fantasia,''), c.nome)`, com
+> o `NULLIF`** — fantasia salvo como string vazia passa pelo `COALESCE` e
+> apagaria o nome da tela. **71 dos 86** cadastros em produção têm os dois
+> campos diferentes, então errar isso troca o nome do cliente, não é detalhe:
+> em orçamentos o painel mostrava a razão social e o PDF o fantasia até 02/09
+> ([changelog](changelog.md)). Metade do sistema (chamados, O.S., contratos,
+> relatórios, WhatsApp, alertas) ainda lê `c.nome` puro — ver o pendente no
+> [roadmap](../memory-bank/roadmap.md).
+
 `email` (045 `VARCHAR(255)` → 047 `TEXT`): um ou mais e-mails separados por
 vírgula, usados como destinatário no envio de orçamentos.
 

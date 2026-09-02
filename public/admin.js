@@ -11988,6 +11988,20 @@ function _avTipoBadge(tipo) {
 // Uma resposta do cliente é pendência enquanto ninguém der baixa (078).
 function _avPendente(o) { return Boolean(o?.respondido_em && !o?.resposta_tratada_em); }
 
+// Linha "Razão social: …" do cabeçalho do painel direito — usada pelas duas
+// abas de orçamento, que mostram o mesmo condomínio.
+//
+// ⚠️ O NOME GRANDE É O FANTASIA (`condominios.nome_fantasia`), igual ao PDF.
+// A razão social (`condominios.nome`) só aparece aqui, e SÓ quando difere:
+// para o condomínio que não tem fantasia cadastrado os dois valores são o
+// mesmo texto, e repetir a linha seria ruído. Não é decoração — é o nome que
+// consta no CNPJ, no contrato e na nota, e o orçamento é a peça que vira os
+// três. Ver `orcamento-pdf.service.js`, que imprime exatamente este par.
+function _avLinhaRazao(g) {
+  if (!g?.razao || g.razao === g.nome) return "";
+  return `<div class="av-orc-pane-razao">Razão social: ${_waEscaparHtml(g.razao)}</div>`;
+}
+
 function _avFiltrados() {
   const q = (document.getElementById("avBusca")?.value || "").trim().toLowerCase();
   return _avData.filter(o => {
@@ -11997,7 +12011,11 @@ function _avFiltrados() {
       if (!o.respondido_em) return false;
     } else if (_avTabAtiva !== "todos" && o.status !== _avTabAtiva) return false;
     if (q) {
-      const blob = `${o.condominio_nome || ""} ${o.numero || ""}`.toLowerCase();
+      // A razão social entra no blob porque o nome de tela virou o fantasia:
+      // sem ela, procurar "Elvira" não acha o condomínio que o painel chama de
+      // "Auri Faria Lima" — e é pela razão social que o cadastro, o CNPJ e a
+      // nota fiscal chamam o mesmo cliente.
+      const blob = `${o.condominio_nome || ""} ${o.condominio_razao_social || ""} ${o.numero || ""}`.toLowerCase();
       if (!blob.includes(q)) return false;
     }
     return true;
@@ -12098,7 +12116,16 @@ function _avRenderTudo() {
   const grupos = new Map();
   for (const o of lista) {
     const key = o.condominio_id != null ? `id:${o.condominio_id}` : `nome:${o.condominio_nome || ""}`;
-    if (!grupos.has(key)) grupos.set(key, { key, nome: o.condominio_nome || "Sem condomínio", itens: [] });
+    // `razao` é a razão social (condominios.nome). Guardada no grupo para o
+    // cabeçalho do painel direito: o nome grande passou a ser o fantasia, e
+    // sem esta linha o painel deixaria de mostrar em algum lugar o nome com
+    // que o cliente assina contrato e recebe nota.
+    if (!grupos.has(key)) grupos.set(key, {
+      key,
+      nome: o.condominio_nome || "Sem condomínio",
+      razao: o.condominio_razao_social || null,
+      itens: [],
+    });
     grupos.get(key).itens.push(o);
   }
   // Ordem alfabética, como sempre — MENOS na aba de respondidos, onde a lista
@@ -12224,6 +12251,7 @@ function _avRenderCondoDetail(g) {
   wrap.innerHTML = `
     <div class="av-orc-pane-head">
       <div class="av-orc-pane-title">${_waEscaparHtml(g.nome)}</div>
+      ${_avLinhaRazao(g)}
       <div class="av-orc-pane-sub">${g.itens.length} ${g.itens.length === 1 ? "orçamento" : "orçamentos"} · ${_orcFmtValor(totalGrupo)}</div>
     </div>
     <div class="av-orc-list">${linhas}</div>`;
@@ -12472,6 +12500,24 @@ function _avRenderPainel() {
         <input type="checkbox" id="avToggleValorManual" class="av-hidden-ctl" tabindex="-1" aria-hidden="true" ${o.valor != null ? "checked" : ""}>
 
         <div class="av-rail-hr"></div>
+
+        <!-- ⚠️ O PEDIDO QUE ORIGINOU O DOCUMENTO (02/09/2026), quando ele
+             nasceu de uma O.S. Fica AO LADO e nao acima: e material de
+             consulta enquanto se escreve, e como faixa no topo rolaria para
+             fora da vista bem na hora de lancar os itens.
+             Isto existia so na aba Solicitados pelos tecnicos, dentro de um
+             modal proprio que refazia tudo o que este ja faz. O modal foi
+             embora; o bloco veio para ca. -->
+        ${o.os_id ? `
+        <div>
+          <div class="av-total-lbl">O que o técnico pediu</div>
+          ${o.orcamento_observacoes
+            ? `<p class="orc-rail-obs">${_waEscaparHtml(o.orcamento_observacoes)}</p>`
+            : `<p class="orc-rail-obs is-vazia">Marcou que precisa de orçamento e não escreveu o quê. Vale ligar para ${_waEscaparHtml(o.os_tecnico_nome || "o técnico")}.</p>`}
+          <div class="av-rail-kv"><span>Técnico</span><b>${_waEscaparHtml(o.os_tecnico_nome || "—")}</b></div>
+          ${o.os_chamado_id ? `<div class="av-rail-kv"><span>Chamado</span><b>#${o.os_chamado_id}</b></div>` : ""}
+        </div>
+        <div class="av-rail-hr"></div>` : ""}
 
         <div>
           <div class="av-rail-kv">
@@ -13957,8 +14003,7 @@ let _orcCondoSel    = null;
 function _orcSolicitado(o) { return !o.orcamento_status; }
 let _orcBindFeito   = false;
 let _orcCondosCarregados = false;
-let _orcItens       = [];
-let _orcItensOsId   = null;
+// (Os itens do orçamento vivem em `_avLinhas` — o modal é o do avulso.)
 
 async function carregarOrcamentos() {
   try {
@@ -14037,7 +14082,10 @@ function _orcFiltrados() {
     else if (_orcTabAtiva !== "todos" && o.orcamento_status !== tabBanco) return false;
     if (condo && String(o.condominio_id) !== condo) return false;
     if (q) {
-      const blob = `${o.condominio_nome || ""} ${o.tecnico_nome || ""} ${o.numero || ""}`.toLowerCase();
+      // Razão social no blob pelo mesmo motivo da aba irmã (ver `_avFiltrados`):
+      // o nome de tela é o fantasia, e quem procura pelo nome do CNPJ tem de
+      // achar o mesmo condomínio.
+      const blob = `${o.condominio_nome || ""} ${o.condominio_razao_social || ""} ${o.tecnico_nome || ""} ${o.numero || ""}`.toLowerCase();
       if (!blob.includes(q)) return false;
     }
     return true;
@@ -14086,7 +14134,16 @@ function _orcRenderTudo() {
   const grupos = new Map();
   for (const o of lista) {
     const key = o.condominio_id != null ? `id:${o.condominio_id}` : `nome:${o.condominio_nome || ""}`;
-    if (!grupos.has(key)) grupos.set(key, { key, nome: o.condominio_nome || "Sem condomínio", itens: [] });
+    // `razao` é a razão social (condominios.nome). Guardada no grupo para o
+    // cabeçalho do painel direito: o nome grande passou a ser o fantasia, e
+    // sem esta linha o painel deixaria de mostrar em algum lugar o nome com
+    // que o cliente assina contrato e recebe nota.
+    if (!grupos.has(key)) grupos.set(key, {
+      key,
+      nome: o.condominio_nome || "Sem condomínio",
+      razao: o.condominio_razao_social || null,
+      itens: [],
+    });
     grupos.get(key).itens.push(o);
   }
 
@@ -14144,166 +14201,6 @@ function _orcRenderTudo() {
 
   _orcRenderPainel(gruposOrd.find(g => g.key === _orcCondoSel) || null);
 }
-// Formulário do orçamento formal. Vive no modal de tela cheia (#avModal), não
-// no painel lateral: com nº, constatação, tabela de itens e 4 campos de
-// condições comerciais, ele não cabia na coluna estreita do master-detail.
-// Os ids são os mesmos de antes — `_orcAcao` lê tudo por getElementById, então
-// mudar de container não afeta o salvamento.
-function _orcFormalHtml(o) {
-  const validadeVal = o.orcamento_valido_ate
-    ? new Date(o.orcamento_valido_ate).toISOString().split("T")[0]
-    : "";
-
-  return `
-    <button class="ap-close" data-orc-action="fechar-formal" title="Fechar">&times;</button>
-
-    <div class="av-modal-head">
-      <div>
-        <!-- ⚠️ SEM O PREFIXO "OS" NA MÃO: numero JÁ É "OS-2026-0042", e o
-             título saía "Orçamento formal · OS OS-2026-0042" desde sempre. O
-             fallback continua precisando dele, porque aí o que sobra é o id. -->
-        <h3 style="margin:0;font-size:16px;">Orçamento formal · ${_waEscaparHtml(o.numero || ("OS " + o.id))}</h3>
-        <!-- ⚠️ O SELO FICA AQUI, e não como segundo filho do flex do
-             cabeçalho: o × (.ap-close) é ABSOLUTO, então space-between
-             levava o selo para debaixo dele — medido, 32px de sobreposição.
-             Colado no subtítulo ele também lê melhor: estado ao lado de quem
-             é o documento, não solto no canto. -->
-        <p style="margin:6px 0 0;font-size:12.5px;color:var(--muted);display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-          <span class="orc-status-pill ${_orcStatusCls(o.orcamento_status)}">${_orcStatusLabel(o.orcamento_status)}</span>
-          <span>${_waEscaparHtml(o.condominio_nome || "—")}${o.tecnico_nome ? ` · solicitado por ${_waEscaparHtml(o.tecnico_nome)}` : ""}${o.chamado_id ? ` · chamado #${o.chamado_id}` : ""}</span>
-        </p>
-      </div>
-    </div>
-
-    <div class="orc-form-section">
-      ${o.orcamento_observacoes ? `
-      <div class="ap-section" style="margin-top:0;">
-        <div class="ap-section-title">Observação do técnico</div>
-        <div style="font-size:12px;line-height:1.6;color:var(--text);margin-top:4px;white-space:pre-wrap;">${_waEscaparHtml(o.orcamento_observacoes)}</div>
-      </div>` : ""}
-
-      <div class="orc-form-row" style="margin-bottom:10px;">
-        <label class="orc-form-label">Nº Orçamento
-          <input id="orcInputNumero" class="input" type="text" maxlength="30" placeholder="OR-XXXXXX"
-            value="${_waEscaparHtml(o.orcamento_numero || '')}">
-        </label>
-        <label class="orc-form-label">Válido até
-          <input id="orcInputValidade" class="input" type="date" value="${validadeVal}">
-        </label>
-      </div>
-
-      <label class="orc-form-label" style="display:flex;flex-direction:column;margin-bottom:10px;">
-        Constatação
-        <textarea id="orcInputConstatacao" class="input" rows="3" maxlength="255"
-          style="resize:vertical;font-size:12px;padding:8px 10px;margin-top:4px;"
-          placeholder="Descreva o problema constatado…">${_waEscaparHtml(o.orcamento_constatacao || '')}</textarea>
-      </label>
-
-      <div class="ap-section-title" style="margin-top:4px;margin-bottom:8px;">Itens</div>
-      <div id="orcItensWrap">
-        <div class="orc-itens-loading" style="color:var(--muted);font-size:12px;padding:8px 0;">Carregando itens…</div>
-      </div>
-
-      <div class="ap-section-title" style="margin-top:12px;margin-bottom:8px;">Condições Comerciais</div>
-      <div class="orc-form-row" style="margin-bottom:8px;">
-        <label class="orc-form-label">Forma de pagamento
-          <input id="orcInputPagamento" class="input" type="text" maxlength="255"
-            placeholder="Via boleto bancário"
-            value="${_waEscaparHtml(o.orcamento_forma_pagamento || '')}">
-        </label>
-        <label class="orc-form-label">Prazo de entrega
-          <input id="orcInputPrazo" class="input" type="text" maxlength="100"
-            placeholder="5 dias úteis após aprovação"
-            value="${_waEscaparHtml(o.orcamento_prazo_entrega || '')}">
-        </label>
-      </div>
-      <div class="orc-form-row" style="margin-bottom:10px;">
-        <label class="orc-form-label">Garantia
-          <input id="orcInputGarantia" class="input" type="text" maxlength="100"
-            placeholder="12 meses por defeito de fabricação"
-            value="${_waEscaparHtml(o.orcamento_garantia || '')}">
-        </label>
-        <label class="orc-form-label">Disponibilidade
-          <input id="orcInputDisponibilidade" class="input" type="text" maxlength="100"
-            placeholder="Total"
-            value="${_waEscaparHtml(o.orcamento_disponibilidade || '')}">
-        </label>
-      </div>
-    </div>
-
-    ${o.orcamento_status === "aprovado" && o.orcamento_aprovado_em ? `
-    <div class="ap-section">
-      <div class="ap-section-title">Aprovação</div>
-      <div class="ap-kv">
-        <div><span class="k">Aprovado em</span><span class="v">${new Date(o.orcamento_aprovado_em).toLocaleString("pt-BR")}</span></div>
-        ${o.aprovado_por_nome ? `<div><span class="k">Por</span><span class="v">${_waEscaparHtml(o.aprovado_por_nome)}</span></div>` : ""}
-      </div>
-    </div>` : ""}
-
-    ${o.orcamento_status === "rejeitado" && o.orcamento_motivo_rejeicao ? `
-    <div class="ap-section">
-      <div class="ap-section-title">Motivo da rejeição</div>
-      <div style="font-size:12px;color:var(--danger);margin-top:4px;">${_waEscaparHtml(o.orcamento_motivo_rejeicao)}</div>
-    </div>` : ""}
-
-    <!-- ⚠️ APROVAR E REJEITAR MUDARAM DE LUGAR (02/09/2026), e não é arrumação:
-         elas viviam no painel lateral, onde o orcFormMsg NAO EXISTE — e e
-         nele que o _orcAcao escreve o resultado. Aprovar dali era uma acao
-         sem confirmação e sem mensagem de erro. Aqui ficam ao lado do
-         documento que estão decidindo, e a resposta aparece. -->
-    <div class="av-modal-footer">
-      <span class="orc-form-msg" id="orcFormMsg"></span>
-      <div class="av-footer-actions">
-        <button class="btn btn-sm" data-orc-action="fechar-formal">Fechar</button>
-        <!-- ⚠️ var(--warn), NÃO #f0b014. Este rodapé vive dentro do
-             .av-modal-dialog, que é PLACA CLARA — e ali o âmbar cru como
-             TEXTO dá 1,6:1 (medido). É a Regra do Amarelo Cego do DESIGN.md.
-             O token semântico vira --warn-t (#886116, 4,7:1) dentro do
-             modal e continua âmbar no campo escuro; o preenchimento fica no
-             cru, que é o que a Regra do Preenchimento Cru manda. -->
-        <button class="btn btn-sm viewer-only-hide" data-orc-action="gerar-pdf"
-          style="background:rgba(240,176,20,.12);border-color:var(--warn);color:var(--warn);">
-          ↓ Gerar PDF
-        </button>
-        ${o.orcamento_status === "rascunho" || o.orcamento_status === "aprovado"
-          ? `<button class="btn btn-sm orc-btn-reject viewer-only-hide" data-orc-action="rejeitar">✕ Rejeitar</button>` : ""}
-        <button class="btn btn-sm orc-btn-approve viewer-only-hide" data-orc-action="aprovar">✓ Aprovar</button>
-        <button class="btn btn-sm btnAccent viewer-only-hide" data-orc-action="salvar">Salvar orçamento</button>
-      </div>
-    </div>`;
-}
-
-function _orcFormalAberto() {
-  const m = document.getElementById("avModal");
-  return !!m && m.style.display !== "none" && !!document.getElementById("orcInputNumero");
-}
-
-function _orcAbrirFormal() {
-  const o = _orcSelecionado;
-  const modal = document.getElementById("avModal");
-  const body  = document.getElementById("avModalBody");
-  if (!o || !modal || !body) return;
-
-  body.innerHTML = _orcFormalHtml(o);
-  modal.style.display = "flex";   // mesma convenção do modal da aba "Criar orçamento"
-  document.body.style.overflow = "hidden";
-  // Itens só são buscados agora: antes o painel pedia a cada seleção da lista,
-  // mesmo quando ninguém ia editar nada.
-  _orcCarregarItens(o.id);
-}
-
-// Espelha _avFecharModal: fecha direto, sem rastrear campo alterado. O aviso do
-// modal avulso (_avTentarFechar) existe só para orçamento recém-criado que nunca
-// foi salvo — situação que não existe aqui, porque o registro já existe antes de
-// o modal abrir. Quem edita salva pelo botão do rodapé, como no avulso.
-function _orcFecharFormal() {
-  const modal = document.getElementById("avModal");
-  if (modal) modal.style.display = "none";
-  document.body.style.overflow = "";
-  const body = document.getElementById("avModalBody");
-  if (body) body.innerHTML = "";
-}
-
 /* O painel do condomínio selecionado. Antes ele era a ficha de UMA O.S.;
    agora é a lista dos pedidos daquele prédio, exatamente como o
    `_avRenderCondoDetail` da aba "Criar orçamento". A ficha não se perdeu —
@@ -14321,7 +14218,6 @@ function _orcRenderPainel(g) {
         </svg>
         <p>Selecione um condomínio para ver os pedidos</p>
       </div>`;
-    _orcSincronizarModal();
     return;
   }
 
@@ -14361,297 +14257,12 @@ function _orcRenderPainel(g) {
   wrap.innerHTML = `
     <div class="av-orc-pane-head">
       <div class="av-orc-pane-title">${_waEscaparHtml(g.nome)}</div>
+      ${_avLinhaRazao(g)}
       <div class="av-orc-pane-sub">${g.itens.length} ${g.itens.length === 1 ? "pedido" : "pedidos"}${
         nSol ? ` · <b style="color:var(--accent)">${nSol} sem orçamento</b>` : ""}${
         totalGrupo ? ` · ${_orcFmtValor(totalGrupo)}` : ""}</div>
     </div>
     <div class="av-orc-list">${linhas}</div>`;
-
-  _orcSincronizarModal();
-}
-
-/* Se o modal do orçamento formal está aberto quando a lista se redesenha
-   (ex.: logo depois de salvar), o conteúdo dele é reconstruído com os dados
-   novos. Estava no fim do `_orcRenderPainel`; saiu para função própria
-   porque agora o painel tem dois caminhos de saída. */
-function _orcSincronizarModal() {
-  if (!_orcFormalAberto() || !_orcSelecionado) return;
-  const body = document.getElementById("avModalBody");
-  if (!body) return;
-  // `_orcAcao` escreve "✓ Salvo" e só depois chama `_orcRenderTudo`; sem isto
-  // a confirmação sumiria no mesmo instante em que aparece.
-  const msgAntes = document.getElementById("orcFormMsg")?.textContent || "";
-  body.innerHTML = _orcFormalHtml(_orcSelecionado);
-  const msgEl = document.getElementById("orcFormMsg");
-  if (msgEl && msgAntes) msgEl.textContent = msgAntes;
-  _orcRenderItens();
-}
-
-async function _orcCarregarItens(osId) {
-  try {
-    const r = await fetch(`/admin/orcamentos/${osId}/itens`, { headers: authHeaders() });
-    if (!r.ok) return;
-    _orcItens = await r.json();
-    _orcItensOsId = osId;
-    _orcRenderItens();
-  } catch (e) {
-    console.error("_orcCarregarItens:", e);
-  }
-}
-
-// Papéis sem permissão de escrita. Lê das classes que o login põe no <body> —
-// as mesmas que alimentam o `viewer-only-hide` da CSS.
-function _orcSomenteLeitura() {
-  return document.body.classList.contains("role-viewer")
-      || document.body.classList.contains("role-operador");
-}
-
-function _orcRenderItens() {
-  const wrap = document.getElementById("orcItensWrap");
-  if (!wrap || _orcItensOsId !== _orcSelecionado?.id) return;
-
-  const total = _orcItens.reduce((s, it) => s + Number(it.valor_unitario || 0) * Number(it.quantidade), 0);
-
-  // Operador/visualizador continua vendo texto puro. A mesma origem que a CSS
-  // usa pro `viewer-only-hide`, pra os dois nunca discordarem — aqui não dá pra
-  // só esconder o campo com CSS, senão o dado sumiria da tela junto.
-  const somenteLeitura = _orcSomenteLeitura();
-
-  const fileiras = _orcItens.map(it => {
-    const tot = it.valor_unitario == null ? null : Number(it.valor_unitario) * Number(it.quantidade);
-    const vuVal = it.valor_unitario != null ? it.valor_unitario : "";
-
-    if (somenteLeitura) {
-      return `<tr data-orc-item-id="${it.id}">
-        <td style="max-width:160px;">
-          <div style="font-size:12px;font-weight:500;">${_waEscaparHtml(it.descricao)}</div>
-          ${it.ficha_tecnica ? `<div style="font-size:10.5px;color:var(--muted);margin-top:2px;white-space:pre-line;">${_waEscaparHtml(it.ficha_tecnica)}</div>` : ""}
-        </td>
-        <td class="orc-it-num">${it.quantidade}</td>
-        <td class="orc-it-num">${_orcFmtValor(it.valor_unitario)}</td>
-        <td class="orc-it-num" style="font-weight:600;">${_orcFmtValor(tot)}</td>
-        <td class="viewer-only-hide" style="text-align:center;"></td>
-      </tr>`;
-    }
-
-    return `<tr data-orc-item-id="${it.id}">
-      <td style="max-width:160px;">
-        <input class="input" type="text" maxlength="500" value="${_waEscaparHtml(it.descricao)}"
-          data-orc-item-id="${it.id}" data-orc-item-field="descricao"
-          style="width:100%;font-size:12px;font-weight:500;padding:3px 6px;">
-        <textarea class="input" rows="2" maxlength="1000" placeholder="Ficha técnica (opcional)"
-          data-orc-item-id="${it.id}" data-orc-item-field="ficha_tecnica"
-          style="width:100%;font-size:10.5px;padding:3px 6px;margin-top:3px;resize:vertical;">${_waEscaparHtml(it.ficha_tecnica || "")}</textarea>
-      </td>
-      <td class="orc-it-num"><input class="input" type="number" min="1" step="1" value="${it.quantidade}"
-        data-orc-item-id="${it.id}" data-orc-item-field="quantidade"
-        style="width:52px;padding:4px 6px;text-align:right;"></td>
-      <td class="orc-it-num"><input class="input" type="number" min="0" step="0.01" value="${vuVal}" placeholder="R$"
-        data-orc-item-id="${it.id}" data-orc-item-field="valor_unitario"
-        style="width:82px;padding:4px 6px;text-align:right;"></td>
-      <td class="orc-it-num" style="font-weight:600;">${_orcFmtValor(tot)}</td>
-      <td class="viewer-only-hide" style="text-align:center;">
-        <button class="orc-it-del" data-orc-del-item="${it.id}" title="Remover">✕</button>
-      </td>
-    </tr>`;
-  }).join("");
-
-  wrap.innerHTML = `
-    <table class="orc-itens-table">
-      <thead>
-        <tr>
-          <th>Descrição / Ficha técnica</th>
-          <th class="orc-it-num">Qtd</th>
-          <th class="orc-it-num">Unit.</th>
-          <th class="orc-it-num">Total</th>
-          <th class="viewer-only-hide" style="width:30px;"></th>
-        </tr>
-      </thead>
-      <tbody>${fileiras || '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:12px;font-size:12px;">Nenhum item ainda.</td></tr>'}</tbody>
-    </table>
-    ${_orcItens.length ? `<div style="text-align:right;font-size:12px;font-weight:700;padding:6px 8px 0;color:var(--accent);">Total: ${_orcFmtValor(total)}</div>` : ""}
-
-    <!-- Formulário de novo item -->
-    <div class="orc-add-item-form viewer-only-hide" id="orcAddItemForm">
-      <div class="orc-add-item-row">
-        <input id="orcNewDescricao" class="input" type="text" placeholder="Descrição do item *" maxlength="500" style="flex:2;">
-        <input id="orcNewQtd" class="input" type="number" min="1" step="1" placeholder="Qtd" value="1" style="width:60px;">
-        <input id="orcNewValor" class="input" type="number" min="0" step="0.01" placeholder="R$ unit." style="width:90px;">
-      </div>
-      <textarea id="orcNewFicha" class="input" rows="2" maxlength="1000"
-        placeholder="Ficha técnica (opcional) — ex: Marca: Weg&#10;Potência: 1.5cv"
-        style="font-size:11.5px;resize:vertical;margin-top:6px;"></textarea>
-      <button class="btn btn-sm" data-orc-action="add-item" style="margin-top:6px;align-self:flex-start;">+ Adicionar item</button>
-    </div>`;
-}
-
-async function _orcAcao(acao) {
-  if (!_orcSelecionado) return;
-  const osId = _orcSelecionado.id;
-  const msg = document.getElementById("orcFormMsg");
-
-  if (acao === "add-item") {
-    return _orcAdicionarItem();
-  }
-
-  if (acao === "gerar-pdf") {
-    return _orcGerarPdf();
-  }
-
-  if (acao === "del-item") return; // handled via data-orc-del-item
-
-  if (msg) msg.textContent = "Salvando…";
-
-  const body = { acao };
-
-  // Campos do orçamento formal (sempre enviados)
-  const numero = document.getElementById("orcInputNumero")?.value.trim();
-  const constatacao = document.getElementById("orcInputConstatacao")?.value.trim();
-  const forma_pagamento = document.getElementById("orcInputPagamento")?.value.trim();
-  const prazo_entrega = document.getElementById("orcInputPrazo")?.value.trim();
-  const garantia = document.getElementById("orcInputGarantia")?.value.trim();
-  const disponibilidade = document.getElementById("orcInputDisponibilidade")?.value.trim();
-  const valido_ate = document.getElementById("orcInputValidade")?.value;
-
-  if (numero !== undefined)         body.numero = numero;
-  if (constatacao !== undefined)    body.constatacao = constatacao;
-  if (forma_pagamento !== undefined) body.forma_pagamento = forma_pagamento;
-  if (prazo_entrega !== undefined)  body.prazo_entrega = prazo_entrega;
-  if (garantia !== undefined)       body.garantia = garantia;
-  if (disponibilidade !== undefined) body.disponibilidade = disponibilidade;
-  if (valido_ate)                   body.valido_ate = valido_ate;
-
-  // Valor calculado dos itens (se houver); fallback manual removido
-  if (_orcItensOsId === osId && _orcItens.length > 0) {
-    const total = _orcItens.reduce((s, it) => s + Number(it.valor_unitario) * Number(it.quantidade), 0);
-    body.valor = total;
-  }
-
-  if (acao === "rejeitar") {
-    const m = prompt("Motivo da rejeição (opcional):");
-    if (m === null) { if (msg) msg.textContent = ""; return; }
-    if (m) body.motivo_rejeicao = m;
-  }
-
-  try {
-    const r = await fetch(`/admin/orcamentos/${osId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", ...authHeaders() },
-      body: JSON.stringify(body),
-    });
-    const j = await r.json().catch(() => ({}));
-    if (!r.ok) { if (msg) msg.textContent = j.error || "Erro"; return; }
-
-    const idx = _orcData.findIndex(o => o.id === osId);
-    if (idx !== -1) Object.assign(_orcData[idx], j);
-    _orcSelecionado = _orcData[idx] || null;
-    if (msg) msg.textContent = "✓ Salvo";
-    setTimeout(() => { if (msg) msg.textContent = ""; }, 2000);
-    _orcRenderTudo();
-    _orcAtualizarBadge();
-  } catch (e) {
-    if (msg) msg.textContent = "Erro: " + e.message;
-  }
-}
-
-async function _orcAdicionarItem() {
-  const osId = _orcSelecionado?.id;
-  if (!osId) return;
-
-  const desc     = document.getElementById("orcNewDescricao")?.value.trim();
-  const qtd      = Number(document.getElementById("orcNewQtd")?.value) || 1;
-  const valorRaw = document.getElementById("orcNewValor")?.value;
-  const valor    = valorRaw === "" || valorRaw == null ? null : Number(valorRaw);
-  const ficha    = document.getElementById("orcNewFicha")?.value.trim() || null;
-
-  if (!desc) {
-    alert("Informe a descrição do item.");
-    return;
-  }
-
-  const msg = document.getElementById("orcFormMsg");
-  if (msg) msg.textContent = "Adicionando…";
-
-  try {
-    const r = await fetch(`/admin/orcamentos/${osId}/itens`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...authHeaders() },
-      body: JSON.stringify({ descricao: desc, ficha_tecnica: ficha, quantidade: qtd, valor_unitario: valor }),
-    });
-    const j = await r.json().catch(() => ({}));
-    if (!r.ok) { if (msg) msg.textContent = j.error || "Erro"; return; }
-
-    _orcItens.push(j);
-    // Limpa form
-    const clr = (id, v = "") => { const el = document.getElementById(id); if (el) el.value = v; };
-    clr("orcNewDescricao"); clr("orcNewQtd", "1"); clr("orcNewValor"); clr("orcNewFicha");
-    if (msg) msg.textContent = "✓ Item adicionado";
-    setTimeout(() => { if (msg) msg.textContent = ""; }, 2000);
-    _orcRenderItens();
-  } catch (e) {
-    if (msg) msg.textContent = "Erro: " + e.message;
-  }
-}
-
-async function _orcRemoverItem(itemId) {
-  if (!confirm("Remover este item?")) return;
-  const msg = document.getElementById("orcFormMsg");
-  try {
-    const r = await fetch(`/admin/orcamentos/itens/${itemId}`, {
-      method: "DELETE",
-      headers: authHeaders(),
-    });
-    if (!r.ok) { if (msg) msg.textContent = "Erro ao remover"; return; }
-    _orcItens = _orcItens.filter(it => it.id !== itemId);
-    _orcRenderItens();
-  } catch (e) {
-    if (msg) msg.textContent = "Erro: " + e.message;
-  }
-}
-
-// Edita um item já lançado. Salva campo a campo no `change` (blur/Enter), igual
-// ao avulso — sem botão "salvar item" pra não criar um segundo estado sujo
-// dentro de um formulário que já tem o seu.
-async function _orcEditarItem(itemId, field, value) {
-  const msg = document.getElementById("orcFormMsg");
-  try {
-    const r = await fetch(`/admin/orcamentos/itens/${itemId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", ...authHeaders() },
-      body: JSON.stringify({ [field]: value }),
-    });
-    const j = await r.json().catch(() => ({}));
-    if (!r.ok) { if (msg) msg.textContent = j.error || "Erro ao atualizar item"; return; }
-    const idx = _orcItens.findIndex(it => it.id === itemId);
-    if (idx !== -1) _orcItens[idx] = j;
-    _orcRenderItens();
-  } catch (e) {
-    if (msg) msg.textContent = "Erro: " + e.message;
-  }
-}
-
-async function _orcGerarPdf() {
-  const osId = _orcSelecionado?.id;
-  if (!osId) return;
-  const msg = document.getElementById("orcFormMsg");
-  if (msg) msg.textContent = "Gerando PDF…";
-  try {
-    const r = await fetch(`/admin/orcamentos/${osId}/pdf`, { headers: authHeaders() });
-    if (!r.ok) {
-      const j = await r.json().catch(() => ({}));
-      if (msg) msg.textContent = j.error || "Erro ao gerar PDF";
-      return;
-    }
-    const blob = await r.blob();
-    const objUrl = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = objUrl; a.target = "_blank"; a.rel = "noopener";
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    setTimeout(() => URL.revokeObjectURL(objUrl), 60000);
-    if (msg) { msg.textContent = "✓ PDF gerado"; setTimeout(() => { msg.textContent = ""; }, 3000); }
-  } catch (e) {
-    if (msg) msg.textContent = "Erro: " + e.message;
-  }
 }
 
 /* ── A baixa da resposta do cliente ────────────────────────────────────────
@@ -14813,83 +14424,34 @@ function _orcBindEventos() {
     _orcRenderTudo();
   });
 
-  // Painel: escolhe o PEDIDO e abre o documento. O clique leva direto ao
-  // modal, como na aba irmã — o painel é a lista, a ficha é o modal.
+  // Painel: escolhe o PEDIDO e abre o documento.
+  //
+  // ⚠️ ABRE O MODAL DO AVULSO — NÃO EXISTE MAIS UM MODAL DESTA ABA
+  // (02/09/2026). Havia dois modais de orçamento, e o segundo refazia o que o
+  // primeiro já fazia: 13 funções paralelas para montar o mesmo documento. Só
+  // que a cópia tinha MENOS — sem envio por e-mail (o passo que leva o
+  // orçamento ao síndico) e sem o tipo de documento, então um orçamento de
+  // limpeza de reservatório nascido de O.S. saía com o layout de peças no PDF.
+  //
+  // O caminho já existia para o pedido da bancada (`_orcAbrirDaBancada`): a
+  // lista de avulsos NÃO tem WHERE, então ela já contém os orçamentos nascidos
+  // de O.S. Agora todo pedido segue por ele.
   document.getElementById("orcPainel")?.addEventListener("click", e => {
     const item = e.target.closest(".av-orc-item[data-orc-fonte]");
     if (!item) return;
-    // Pedido nascido na bancada não tem O.S. por trás: a chave é o próprio
-    // orçamento, e quem o abre é o modal do avulso.
-    if (item.dataset.orcFonte === "bancada") {
-      _orcAbrirDaBancada(Number(item.dataset.orcOrcid));
-      return;
-    }
-    const id = Number(item.dataset.orcId);
-    _orcSelecionado = _orcData.find(o => o.id === id) || null;
-    if (!_orcSelecionado) return;
-    _orcRenderTudo();
-    _orcAbrirFormal();
+    const orcId = Number(item.dataset.orcOrcid) || null;
+    const osId  = Number(item.dataset.orcId) || null;
+    // Já existe documento? Abre direto. É o caso de tudo que não é SOLICITADO,
+    // e o único caso possível para o pedido da bancada (que não tem O.S.).
+    if (orcId) { _orcAbrirDaBancada(orcId); return; }
+    if (osId)  { _orcMaterializarEAbrir(osId); }
   });
 
-  // Ações no painel (delegated)
-  // Mesmo tratamento para o painel lateral e para o modal do orçamento formal:
-  // depois que o formulário saiu do painel, os botões de salvar/PDF/itens vivem
-  // dentro de #avModalBody, fora do alcance da delegação antiga.
-  const _orcTratarClique = e => {
-    const delBtn = e.target.closest("[data-orc-del-item]");
-    if (delBtn) { _orcRemoverItem(Number(delBtn.dataset.orcDelItem)); return; }
-
-    const btn = e.target.closest("[data-orc-action]");
-    if (!btn) return;
-    const acao = btn.dataset.orcAction;
-    // `fechar` era o × do painel-ficha, que deixou de existir; o modal tem o
-    // seu próprio (`fechar-formal`). Fica aceito porque a ação também limpa a
-    // seleção — é o caminho de saída de quem fecha pelo teclado.
-    if (acao === "fechar") { _orcFecharFormal(); _orcSelecionado = null; _orcRenderTudo(); }
-    else if (acao === "abrir-formal")  _orcAbrirFormal();
-    else if (acao === "fechar-formal") _orcFecharFormal();
-    else _orcAcao(acao);
-  };
-
-  document.getElementById("orcPainel")?.addEventListener("click", _orcTratarClique);
-  document.getElementById("avModalBody")?.addEventListener("click", _orcTratarClique);
-
-  // Edição inline dos itens. Nos mesmos dois contêineres do clique: o
-  // formulário do orçamento formal vive em #avModalBody, fora do #orcPainel.
-  const _orcTratarChange = e => {
-    const inp = e.target.closest("[data-orc-item-field]");
-    if (!inp) return;
-    const itemId = Number(inp.dataset.orcItemId);
-    const field  = inp.dataset.orcItemField;
-    let value;
-    if (field === "quantidade") {
-      value = Math.max(1, Number(inp.value) || 1);
-      inp.value = value; // devolve o valor saneado pro campo
-    } else if (field === "valor_unitario") {
-      value = inp.value.trim() === "" ? null : Math.max(0, Number(inp.value) || 0);
-    } else if (field === "descricao") {
-      // O backend rejeita descrição vazia. Em vez de deixar o erro voltar do
-      // servidor, restaura o valor anterior — o item continua existindo.
-      value = inp.value.trim();
-      if (!value) {
-        const atual = _orcItens.find(it => it.id === itemId);
-        inp.value = atual ? atual.descricao : "";
-        return;
-      }
-    } else {
-      value = inp.value.trim() || null;
-    }
-    _orcEditarItem(itemId, field, value);
-  };
-  document.getElementById("orcPainel")?.addEventListener("change", _orcTratarChange);
-  document.getElementById("avModalBody")?.addEventListener("change", _orcTratarChange);
-  // Fechar no backdrop e no Esc, igual ao modal da aba "Criar orçamento".
-  document.getElementById("avModalBackdrop")?.addEventListener("click", () => {
-    if (_orcFormalAberto()) _orcFecharFormal();
-  });
-  document.addEventListener("keydown", e => {
-    if (e.key === "Escape" && _orcFormalAberto()) _orcFecharFormal();
-  });
+  // ⚠️ NÃO HÁ MAIS DELEGAÇÃO DE MODAL AQUI (02/09/2026). Esta aba tinha uma
+  // cópia inteira do tratamento de cliques, edição inline de item, fechar no
+  // backdrop e no Esc — tudo para um modal que já existia em `_avBindEventos`.
+  // Duas delegações no MESMO `#avModalBody` também eram um risco calado: as
+  // duas escutavam, e qual respondia dependia da ordem de registro.
 }
 
 // ─── Planos de manutenção preventiva ─────────────────────────────────────────
@@ -16043,6 +15605,42 @@ async function _osCarregarEquipamentos(selecionado) {
 // Pedido da bancada aberto a partir da aba "Solicitados pelos técnicos".
 // Reusa o modal do orçamento avulso, que é onde ele já vive: o painel de
 // detalhe desta aba é montado em cima de campos de O.S., que aqui não existem.
+/* O pedido ainda SOLICITADO não tem linha em `orcamentos` — e o modal do
+   avulso, que é o único que existe, precisa de um registro para abrir.
+
+   ⚠️ ELE NASCE AQUI, NA ABERTURA, e isso foi decisão do Pedro (02/09/2026):
+   um rascunho vazio com número `OR-` reservado passa a existir no banco no
+   instante em que alguém clica no pedido. A alternativa considerada era
+   exigir um clique em "Criar orçamento" dentro da linha — nada nasceria por
+   engano, ao custo de um passo a mais em toda abertura.
+
+   Quem cria é o backend: `_garantirOrcamentoDaOs` roda dentro do PATCH e já
+   trata o caso da bancada ter pedido primeiro (adota o orçamento solto em vez
+   de abrir um segundo para o mesmo serviço). O `constatacao` vai como campo
+   apenas porque a rota recusa um PATCH sem nenhum campo — em registro novo é
+   gravar null sobre null. */
+async function _orcMaterializarEAbrir(osId) {
+  try {
+    const r = await fetch(`/admin/orcamentos/${osId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      body: JSON.stringify({ acao: "salvar", constatacao: "" }),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { alert(j.error || "Não foi possível abrir o orçamento."); return; }
+    // A lista desta aba passa a conhecer o orçamento recém-criado, senão o
+    // selo continuaria SOLICITADO até o próximo carregamento.
+    const idx = _orcData.findIndex(o => o.id === osId);
+    if (idx !== -1) Object.assign(_orcData[idx], j);
+    await carregarAvulsos();   // o modal lê de `_avData`
+    _orcRenderTudo();
+    _orcAtualizarBadge();
+    if (j.orcamento_id) _orcAbrirDaBancada(j.orcamento_id);
+  } catch (e) {
+    alert("Erro ao abrir o orçamento: " + e.message);
+  }
+}
+
 async function _orcAbrirDaBancada(orcamentoId) {
   if (!orcamentoId) return;
   try {
@@ -16053,6 +15651,11 @@ async function _orcAbrirDaBancada(orcamentoId) {
       return;
     }
     _avSelecionado = alvo;
+    // ⚠️ O condomínio do avulso é selecionado junto: sem isto, fechar o modal
+    // devolveria a outra aba a um painel de condomínio nenhum.
+    _avCondoSel = alvo.condominio_id != null
+      ? `id:${alvo.condominio_id}`
+      : `nome:${alvo.condominio_nome || ""}`;
     _avRenderPainel();
   } catch (err) {
     alert("Erro ao abrir o orçamento: " + err.message);

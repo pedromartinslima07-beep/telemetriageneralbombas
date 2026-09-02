@@ -121,6 +121,57 @@ mapa, e o rótulo "TURNO" ao lado da marca.
 
 ---
 
+## Sessão 2026-09-02 — Orçamentos chamavam o condomínio pela razão social
+
+Pergunta do Pedro: *"por que o condomínio que tem o nome fantasia AURI FARIA
+LIMA está aparecendo na lista como ELVIRA FERRAZ EMPREENDIMENTOS IMOBILIARIOS
+LTDA?"*
+
+Regressão da migration 044 aplicada pela metade: PDF, e-mail e painel do
+cliente usavam `nome_fantasia`; `GET /admin/orcamentos` e
+`GET /admin/orcamentos/avulsos` liam `c.nome`. Mesmo orçamento, dois nomes —
+**44 das 61 linhas** da lista mudavam de nome entre a tela e o documento
+(**71 dos 86** condomínios têm os dois campos diferentes).
+
+As duas rotas passaram a `COALESCE(NULLIF(c.nome_fantasia,''), c.nome, …)` e
+mandam `c.nome AS condominio_razao_social` junto, que alimenta a busca (quem
+procura por "Elvira" precisa achar) e a linha `.av-orc-pane-razao` do
+cabeçalho do painel — só quando difere. Os `COALESCE` sem `NULLIF` do PDF, do
+e-mail e do painel do cliente foram normalizados de passagem.
+
+⚠️ **A perna com `GROUP BY` precisou de `c.nome_fantasia` no `GROUP BY`** —
+sem isso a query cai com `42803` no parse, e `node --check` passa limpo. Por
+isso a verificação foi feita **exercitando as rotas**: Express com o
+`adminRouter`, JWT assinado com o `JWT_SECRET`, `GET` nas duas contra o banco
+de produção. 200 nas duas, com o par certo na resposta.
+
+⚠️ **`.env` aponta para o banco de TESTE por padrão**, não para produção como
+o CLAUDE.md diz: `src/db-url.js` só escolhe `DATABASE_URL` com
+`NODE_ENV=production` ou sem `DATABASE_URL_TESTE`. A primeira rodada do teste
+voltou com condomínios de demonstração ("Ed. Aurora") e quase passou por
+"nenhuma linha desse condomínio".
+
+⚠️ **A linha nova nasceu com `opacity: .8` e reprovou contraste (3,26:1).** O
+painel é `rgba(255,255,255,.14)` sobre `--chapa` — fundo efetivo rgb(40,49,84)
+—, e opacidade compõe contra ele, comendo o token. `--text-dim` sem opacidade:
+**6,22:1**. Lição curta: **para apagar texto, trocar de token, nunca baixar a
+opacidade.**
+
+Verificado em tela na prévia `/dev/_orcamentos-preview.html` a 1920px, nas duas
+abas, com a fixture ganhando `condominio_razao_social` — Aurora Paulista com os
+dois campos **iguais** de propósito, para cobrir o condomínio sem fantasia (a
+linha não aparece nele). Console limpo.
+
+📋 **Fica pendente:** chamados, O.S., contratos, relatórios, WhatsApp e
+alertas ainda leem `c.nome` puro. Ver [roadmap.md](roadmap.md).
+
+📋 **Achado não corrigido:** `.av-orc-pane-sub` mede **4,22:1** (`--muted`),
+sob o piso de 4,5. Anterior a esta sessão, nas duas abas.
+
+Detalhe em [painel-admin.md](../docs/modulos/painel-admin.md).
+
+---
+
 ## Sessão 2026-09-01 (parte 2) — Ativos Técnicos: o plano que veio de fora
 
 > ⚠️ **Nada foi implementado.** Esta seção é análise + plano, e o plano ainda

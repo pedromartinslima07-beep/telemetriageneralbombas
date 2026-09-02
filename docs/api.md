@@ -263,6 +263,15 @@ ao e-mail cadastrado (2FA equivalente ao do login).
 | GET | `/admin/condominios/:id/historico` · `/condominios/lista` | adminOnly |
 | GET/POST/PATCH/DELETE | `/admin/whatsapp/contatos[/:id]` | adminOnly (pré-cadastro) |
 
+⚠️ **`GET /admin/orcamentos` e `GET /admin/orcamentos/avulsos` devolvem DOIS
+nomes de condomínio** (02/09/2026): `condominio_nome` é o **nome de exibição**
+— `COALESCE(NULLIF(c.nome_fantasia,''), c.nome, o.cliente_nome)`, o mesmo que
+o PDF imprime — e `condominio_razao_social` é `condominios.nome` cru. Não é
+redundância: o front usa o primeiro para mostrar e **os dois** na busca, senão
+procurar pelo nome do CNPJ deixa de achar o prédio. Até 02/09 só existia o
+`c.nome`, e a lista mostrava a razão social enquanto o cliente recebia um PDF
+com o fantasia. Ver [`modulos/painel-admin.md`](modulos/painel-admin.md).
+
 ---
 
 ## Cliente / síndico (`/cliente`) — role `cliente`
