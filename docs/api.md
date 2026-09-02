@@ -189,11 +189,19 @@ restringe escrita.
 
 | POST · GET | `/ordens-servico` | adminOnly |
 | GET | `/ordens-servico/:id` · `/:id/pdf` | dono ou admin |
+| GET | `/ordens-servico/:id/assinatura` | dono ou admin |
 | PATCH | `/ordens-servico/:id` | dono/admin (escrita) |
 | POST | `/:id/fotos/upload` · `/:id/fotos` | dono/admin (base64) |
 | DELETE | `/:id/fotos/:foto_id` | dono/admin |
 | POST/PATCH/DELETE | `/:id/pecas[/:peca_id]` | dono/admin |
 | POST | `/:id/finalizar` | dono/admin (gera PDF) |
+
+⚠️ **`GET /:id` não devolve `assinatura_b64`** — são ~120KB de PNG que o
+técnico rebaixaria no 4G a cada abertura da O.S. O detalhe manda só o
+booleano **`tem_assinatura`**; a imagem sai por `GET /:id/assinatura`, sob
+demanda. Quem exibe assinatura precisa das **duas** chamadas — ler
+`assinatura_b64` do detalhe dá `undefined`, e o front cai no ramo "não
+assinada" numa O.S. assinada (foi o bug de 02/09/2026 no painel admin).
 
 ---
 

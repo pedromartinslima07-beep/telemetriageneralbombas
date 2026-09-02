@@ -36,6 +36,21 @@ um chamado.
 4. **Acesso ao PDF** — `GET /:id/pdf` (dono ou admin);
    `GET /cliente/ordens-servico/:id/pdf` (cliente do condomínio).
 
+### ⚠️ A assinatura vem em duas chamadas
+
+`assinatura_b64` (PNG base64, ~120KB) fica **fora** do `GET /:id` de
+propósito: no 4G do técnico seria download puro a cada abertura da O.S. O
+detalhe traz apenas `tem_assinatura` (booleano); a imagem sai por
+`GET /:id/assinatura`, buscada quando a seção de assinatura vai renderizar.
+
+Consequência para quem escreve front: **ler `os.assinatura_b64` do detalhe
+sempre dá `undefined`**. O app (`_osDesenharAssinatura`) e o painel admin
+(`_osCarregarAssinatura`) fazem a segunda chamada e cacheiam o resultado no
+objeto da O.S. para o re-render não rebaixar de novo. O admin passou meses
+sem essa chamada, mostrando "Não assinada." em O.S. assinada — e o PDF, que
+lê a coluna direto do banco, escondia o defeito. Ver
+[`../changelog.md`](../changelog.md).
+
 Uploads servidos em `/uploads` (estático, cacheável). Regerar PDFs em lote:
 `scripts/regenerar-pdfs-os.js`.
 

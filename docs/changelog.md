@@ -8067,6 +8067,43 @@ polling roda**. Antes: 0 enviadas, fila cheia, selo "Aguardando envio". Depois:
 
 Sem migration. APK novo.
 
+### 2026-09-02 · A O.S. assinada aparecia como "Não assinada" no admin
+
+Relato do Pedro, com a tela aberta na OS-2026-0016: *"foi assinado, está no
+PDF a assinatura, porém ali aparece 'não assinada'"*.
+
+**A causa está no jeito certo de servir a assinatura, aplicado pela metade.**
+`GET /ordens-servico/:id` deixa `assinatura_b64` de fora de propósito — são
+~120KB de PNG que o técnico rebaixaria no 4G a cada abertura — e manda só o
+booleano `tem_assinatura`; a imagem sai por `GET /:id/assinatura`, sob demanda.
+O app mobile faz essa segunda chamada. **O painel admin nunca fez:** lia
+`os.assinatura_b64` direto do detalhe, recebia `undefined` e caía no ramo
+"Não assinada." — para toda O.S., assinada ou não.
+
+⚠️ **O PDF ESCONDIA O DEFEITO EM VEZ DE DENUNCIÁ-LO.** `os-pdf.service.js` lê a
+coluna direto do banco, então a assinatura sempre saiu no documento. O dado
+nunca esteve perdido; só a tela não sabia pedi-lo. Quem conferia pelo PDF —
+que é o que vale para o cliente — não tinha como notar.
+
+⚠️ **O MESMO `SELECT` DERRUBAVA MAIS QUATRO CAMPOS, E UM DELES APAGAVA DADO.**
+A lista de colunas não trazia `saida_em`, `chegada_lat/lng`, `saida_lat/lng`
+nem `necessario_retorno` — todos renderizados pela view, todos saindo como
+"—". O grave é o último: `_osEditsFromOS` monta o rascunho de edição com
+`!!os.necessario_retorno`, que sem o campo é **sempre `false`**. Abrir uma O.S.
+que pedia retorno, mexer em qualquer outra coisa e salvar **desmarcava o
+retorno em silêncio** — o PATCH mandava `necessario_retorno: false`.
+
+Junto foi o mapa `_OS_ITENS_VERIFICADOS`: a seção "Verificações" imprimia a
+chave crua do JSONB (`comando_eletrico: Sim`) porque só o app e o PDF tinham
+os rótulos.
+
+**Verificado** contra o banco, exercitando as duas rotas com JWT de admin:
+`GET /ordens-servico/1` agora responde `tem_assinatura: true`,
+`necessario_retorno`, `saida_em` e as coordenadas, e segue **sem**
+`assinatura_b64`; `GET /ordens-servico/1/assinatura` devolve o data URI.
+
+Sem migration. `?v=N` do `admin.js` bumpado (325 → 326).
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

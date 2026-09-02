@@ -10,7 +10,7 @@ aliases:
 > Branch atual: **`main`**, limpa. `feature/admin-chapa` (11 commits) e a tela
 > de orçamento do cliente já foram mergeadas — a produção
 > (`telemetria.generalbombas.com`) está servindo as duas.
-> Última sessão registrada: **2026-09-01**.
+> Última sessão registrada: **2026-09-02**.
 > Roadmap completo em [`roadmap.md`](roadmap.md); decisões em [`decisions.md`](decisions.md).
 
 > ✅ **Schema de produção em dia:** 074 aplicada em 24/08; a 073 já estava

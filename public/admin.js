@@ -11186,6 +11186,25 @@ const _OS_RESULTADOS = {
 
 const _OS_RECEBIDO_TIPOS = { gestor: "Gestor", sindico: "Síndico", portaria: "Portaria" };
 
+// Rótulos dos `itens_verificados`. As chaves são gravadas pelo app mobile
+// (OS_EQUIPAMENTOS em app/public/app.js); sem o mapa a view mostrava a chave
+// crua na tela ("comando_eletrico: Sim").
+const _OS_ITENS_VERIFICADOS = {
+  comando_eletrico:     "Comando elétrico",
+  bombas_recalque:      "Bombas de recalque",
+  bombas_succao:        "Bombas de sucção",
+  bombas_piscina:       "Bombas de piscina",
+  bombas_pressurizacao: "Bombas de pressurização",
+  bombas_cascata:       "Bombas de cascata",
+  bombas_espelho_dagua: "Bombas de espelho d'água",
+  linha_automaticos:    "Linha dos automáticos",
+  paineis_solares:      "Painéis solares",
+  valvula_redutora:     "Válvula redutora de pressão",
+  valvula_retencao:     "Válvula de retenção",
+  estacao_tratamento:   "Estação de tratamento",
+  grupo_gerador:        "Grupo gerador",
+};
+
 function _osFmtData(iso) {
   if (!iso) return "—";
   return new Date(iso).toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit" });
@@ -11476,7 +11495,7 @@ function _osRenderView(os) {
     : [];
   const itensHtml = itensVerif.length
     ? `<ul class="os-list">${itensVerif.map(([k, v]) =>
-        `<li>${_waEscaparHtml(k)}: <strong>${v === true ? "Sim" : v === false ? "Não" : _waEscaparHtml(String(v))}</strong></li>`
+        `<li>${_waEscaparHtml(_OS_ITENS_VERIFICADOS[k] || k)}: <strong>${v === true ? "Sim" : v === false ? "Não" : _waEscaparHtml(String(v))}</strong></li>`
       ).join("")}</ul>`
     : `<span class="os-muted">Nada verificado.</span>`;
 
@@ -11512,9 +11531,17 @@ function _osRenderView(os) {
         </figure>`).join("")}</div>`
     : `<span class="os-muted">Nenhuma foto.</span>`;
 
+  // ⚠️ A imagem da assinatura NÃO vem no GET /:id — são ~120KB que o
+  // endpoint deixa de fora de propósito e serve por GET /:id/assinatura sob
+  // demanda. O que chega aqui é o booleano `tem_assinatura`. Ler
+  // `os.assinatura_b64` direto dava undefined e a seção mostrava "Não
+  // assinada." numa O.S. assinada — com a assinatura visível no PDF, que lê
+  // do banco. `_osCarregarAssinatura` preenche o placeholder depois.
   const assin = os.assinatura_b64
-    ? `<img class="os-assin-img" src="${_waEscaparHtml(os.assinatura_b64.startsWith("data:") ? os.assinatura_b64 : "data:image/png;base64," + os.assinatura_b64)}" alt="Assinatura" />`
-    : `<span class="os-muted">Não assinada.</span>`;
+    ? `<img class="os-assin-img" src="${_waEscaparHtml(_osAssinaturaSrc(os.assinatura_b64))}" alt="Assinatura" />`
+    : os.tem_assinatura
+      ? `<div id="osAssinSlot"><span class="os-muted">Carregando assinatura…</span></div>`
+      : `<span class="os-muted">Não assinada.</span>`;
 
   // ⚠️ Número, Condomínio, Técnico e "Finalizada" NÃO entram no corpo: o
   // cabeçalho do modal já os exibe (`osModalTitle` = número, `osModalSub` =
@@ -11576,7 +11603,38 @@ function _osRenderView(os) {
     </div>`;
 }
 
+function _osAssinaturaSrc(b64) {
+  return b64.startsWith("data:") ? b64 : "data:image/png;base64," + b64;
+}
+
+// Busca a imagem da assinatura e troca o placeholder. Guarda em
+// `_osSelecionada.assinatura_b64` pra um re-render (entrar/sair de edição)
+// não baixar os 120KB de novo.
+async function _osCarregarAssinatura(id) {
+  const slot = document.getElementById("osAssinSlot");
+  if (!slot) return;
+  try {
+    const r = await fetch(`/ordens-servico/${id}/assinatura`, { headers: authHeaders() });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const d = await r.json();
+    if (!d.assinatura_b64) {
+      slot.innerHTML = `<span class="os-muted">Não assinada.</span>`;
+      return;
+    }
+    if (_osSelecionada && _osSelecionada.id === id) _osSelecionada.assinatura_b64 = d.assinatura_b64;
+    if (_osSelecionadaId !== id) return; // trocou de O.S. enquanto baixava
+    slot.innerHTML = `<img class="os-assin-img" src="${_waEscaparHtml(_osAssinaturaSrc(d.assinatura_b64))}" alt="Assinatura" />`;
+  } catch (err) {
+    console.error("[os] _osCarregarAssinatura:", err);
+    slot.innerHTML = `<span class="os-muted">Não foi possível carregar a assinatura.</span>`;
+  }
+}
+
 function _osBindViewEventos() {
+  if (_osSelecionada?.tem_assinatura && !_osSelecionada.assinatura_b64) {
+    _osCarregarAssinatura(_osSelecionada.id);
+  }
+
   document.querySelectorAll("#osModalBody .os-foto").forEach(fig => {
     fig.addEventListener("click", () => {
       const url = fig.dataset.fotoUrl;
