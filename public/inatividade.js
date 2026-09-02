@@ -27,6 +27,36 @@
   // portaria. Uma escrita a cada 15s basta: a folga é 120x menor que o teto.
   const GRAVAR_A_CADA_MS = 15 * 1000;
 
+  // ⚠️ O PULSO DA TELA DE PLANTÃO (02/09/2026) — e ele é o conserto de um
+  // defeito que o `data-corte="nunca"` sozinho NÃO resolvia.
+  //
+  // `localStorage` é do NAVEGADOR, não da aba. A tela de plantão parou de
+  // cortar, mas qualquer OUTRA aba aberta no mesmo sistema — o admin, a tela
+  // de Aprovados, o painel do cliente — continua com o timer de 30 min. Quando
+  // ele dispara, o `limparSessao()` daquela aba apaga o token COMPARTILHADO. O
+  // operador não corta, mas a chamada seguinte dele leva 401 e o
+  // `_redirectSessaoExpirada` do `operador.js` manda para /login — desconexão
+  // por inatividade, com outro nome e vindo de outra janela.
+  //
+  // Reproduzido em `scripts/testes/inatividade.test.js`: duas execuções contra
+  // um `localStorage` só, o timer do admin disparando, e o token some.
+  //
+  // O conserto trata a tela de plantão como o que ela é: ALGUÉM OLHANDO. Ela
+  // carimba sozinha, e o carimbo é o mesmo que as outras abas leem — então
+  // ninguém mais vê inatividade enquanto ela estiver aberta. Fechou a aba, o
+  // pulso para e o tempo volta a correr normalmente, inclusive com o navegador
+  // fechado (que é a garantia de 25/08 e continua de pé).
+  //
+  // ⚠️ ISTO ENFRAQUECE O CORTE NAS OUTRAS ABAS, de propósito e por pedido: a
+  // sessão passa a durar enquanto o mapa estiver aberto, na máquina inteira. É
+  // a consequência de "o objetivo é deixar o mapa aberto", e ela precisa ser
+  // dita — em máquina compartilhada, fechar o plantão volta a ser o que
+  // encerra o expediente.
+  //
+  // 60s com teto de 30 min é folga de 30x. Navegador estrangula `setInterval`
+  // de aba em segundo plano para ~1/min; mesmo estrangulado, sobra.
+  const PULSO_PLANTAO_MS = 60 * 1000;
+
   let _timer = null;
   let _ultimaGravacao = 0;
 
@@ -178,6 +208,34 @@
     return agora() - ultima > TIMEOUT_MS;
   }
 
+  // ⚠️ O TIMER DESTA ABA NÃO SABE DA ATIVIDADE DAS OUTRAS, e é por isso que
+  // ele CONFERE o carimbo antes de cortar (02/09/2026).
+  //
+  // O timer é de memória, e a memória é da aba. O carimbo é que é do
+  // navegador. Sem esta conferência, uma aba parada corta a sessão de todas
+  // as outras depois de 30 minutos — mesmo que a pessoa esteja trabalhando na
+  // aba do lado, mesmo que a tela de plantão esteja aberta e pulsando. Era o
+  // que fazia o painel do operador continuar caindo depois do
+  // `data-corte="nunca"`: ele não cortava, morria no 401 da chamada seguinte,
+  // com o token apagado por uma janela que ele nem sabia que existia.
+  //
+  // Sobrou tempo no carimbo? Rearma pelo que falta, em vez de cortar. O corte
+  // acontece quando o RELÓGIO COMPARTILHADO estourou, não quando este timer
+  // chegou ao fim.
+  function talvezEncerrar() {
+    const ultima = ler();
+    // Sem carimbo (storage bloqueado, aba anônima): o timer é o único sinal
+    // que existe, e vale como antes.
+    if (ultima === null) return encerrar();
+    // Carimbo de sessão que já morreu não estende nada — mesma regra do
+    // `expirou()`, e pelo mesmo motivo.
+    const nascimento = nascimentoDaSessao();
+    if (nascimento !== null && ultima < nascimento) return encerrar();
+    const restante = ultima + TIMEOUT_MS - agora();
+    if (restante > 0) { _timer = setTimeout(talvezEncerrar, restante); return; }
+    encerrar();
+  }
+
   function registrarAtividade() {
     const t = agora();
     if (t - _ultimaGravacao >= GRAVAR_A_CADA_MS) {
@@ -187,7 +245,7 @@
     clearTimeout(_timer);
     // Na tela que não corta, a atividade só CARIMBA — ver `nuncaCorta`.
     if (nuncaCorta()) return;
-    _timer = setTimeout(encerrar, TIMEOUT_MS);
+    _timer = setTimeout(talvezEncerrar, TIMEOUT_MS);
   }
 
   // Só faz sentido para quem está logado: sem token, o timer marcaria o tempo
@@ -215,6 +273,12 @@
     if (document.visibilityState !== "visible") return;
     if (!nuncaCorta() && expirou()) encerrar(); else registrarAtividade();
   });
+
+  // 4) A tela de plantão carimba sozinha — ver `PULSO_PLANTAO_MS`. É o que
+  // impede que o timer de OUTRA aba apague o token compartilhado embaixo dela.
+  if (nuncaCorta()) {
+    setInterval(function () { gravar(agora()); }, PULSO_PLANTAO_MS);
+  }
 
   // Primeira marcação já vale como atividade — a pessoa acabou de abrir.
   _ultimaGravacao = 0;

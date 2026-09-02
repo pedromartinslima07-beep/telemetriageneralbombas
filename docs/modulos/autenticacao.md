@@ -263,6 +263,30 @@ vez, não se fica de plantão. Ver
 arquivo. O JWT vale 7 dias no servidor de qualquer jeito; o que muda é só o
 que o navegador faz sozinho.
 
+### ⚠️ O estado é do NAVEGADOR, não da aba (02/09/2026)
+
+`localStorage` é compartilhado por todas as abas do mesmo origin, e é aí que
+moram os dois defeitos consertados em 02/09:
+
+| Defeito | O que acontecia |
+|---|---|
+| O timer não consultava o carimbo | duas abas do admin abertas, meia hora trabalhando numa, e a **outra** cortava a sessão das duas |
+| A aba que corta apaga o token de quem não corta | o painel do operador, com `data-corte="nunca"`, morria no 401 seguinte ao corte de outra janela |
+
+Os consertos: **`talvezEncerrar()`** — o timer confere o carimbo compartilhado
+e rearma pelo tempo que falta, em vez de cortar — e o **pulso do plantão**
+(`PULSO_PLANTAO_MS`, 60s), que faz a tela de `data-corte="nunca"` carimbar
+sozinha enquanto estiver aberta.
+
+⚠️ **Consequência assumida:** com o painel do operador aberto, a sessão não
+expira em nenhuma aba daquela máquina. Em máquina compartilhada, fechar o
+painel passa a ser o que encerra o expediente.
+
+⚠️ **Teste de `inatividade.js` roda com DUAS ABAS**, contra um `localStorage`
+só — `scripts/testes/inatividade.test.js`. Um teste de uma aba passa verde com
+os dois defeitos acima de pé; foi exatamente o que aconteceu na primeira
+tentativa, em 02/09.
+
 ⚠️ **Carimbo anterior ao nascimento da sessão não vale** (28/08/2026). O
 `tg_ultima_atividade` só é apagado pelo próprio corte: o `logout()` do painel e
 o `pedirEntrada()` dos orçamentos removem apenas `token` e `user`, e **nenhum

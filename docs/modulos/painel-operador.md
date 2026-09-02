@@ -598,6 +598,13 @@ pintar. Só o **corte** é dispensado; a marca de vida continua valendo para que
 corta. Mecanismo igual ao `data-corte="cartao"` da tela de orçamentos — ver
 [autenticacao.md](autenticacao.md).
 
+⚠️ **E O ATRIBUTO SOZINHO NÃO BASTAVA** (corrigido em 02/09, mesmo dia). Ele
+impede ESTA tela de cortar, mas o token vive no `localStorage`, que é do
+navegador: o timer de qualquer outra aba aberta apagava a sessão embaixo dela,
+e o painel morria no 401 seguinte. Hoje a tela **carimba sozinha** enquanto
+está aberta (`PULSO_PLANTAO_MS`) e o timer das outras abas **confere o carimbo
+antes de cortar**. Ver [autenticacao.md](autenticacao.md).
+
 ⚠️ **Vale só para o `/operador/painel`.** A tela de Aprovados
 (`/operador/painel/orcamentos`) segue cortando: ali se lê um documento por vez,
 não se fica de plantão.

@@ -8569,6 +8569,66 @@ aquilo nenhuma das duas coisas se testava).
 Sem migration. `?v=N`: `admin.js` 331 → 332, `admin.css` 245 → 247,
 `operador.js` 73 → 74, `operador.css` 77 → 79.
 
+### 2026-09-02 (8ª rodada) · O operador caía por inatividade de OUTRA janela
+
+Relato do Pedro: *"painel de operador continua desconectando por inatividade"*
+— depois de a 2ª rodada de hoje ter posto `data-corte="nunca"` nele e eu ter
+dado o assunto por encerrado.
+
+⚠️ **O CONSERTO ANTERIOR ESTAVA CERTO E ERA INSUFICIENTE, e o motivo é uma
+linha que eu mesmo escrevi sem tirar a conclusão: `localStorage` é do
+NAVEGADOR, não da aba.** Eu tinha usado esse fato para explicar por que o
+plantão precisa CONTINUAR carimbando (senão o admin cortaria a sessão nova ao
+abrir), e não vi o caminho inverso — que é o do relato.
+
+A sequência: o operador fica aberto e não corta. Qualquer OUTRA aba do
+sistema — o admin, a tela de Aprovados, o painel do cliente — mantém o timer
+de 30 min. Ele dispara, o `limparSessao()` daquela aba apaga o token
+**compartilhado**, e o operador morre no 401 da chamada seguinte, mandado
+para `/login` pelo `_redirectSessaoExpirada` do `operador.js`. Ele não cortou:
+morreu com o tapete puxado por uma janela que ele nem sabia que existia.
+
+⚠️ **E HAVIA UM SEGUNDO DEFEITO, MAIS FUNDO E MAIS ANTIGO, que só apareceu
+porque o primeiro me obrigou a olhar o timer: o `setTimeout` de cada aba
+cortava sem CONSULTAR o carimbo compartilhado.** Ou seja — duas abas comuns do
+admin abertas, meia hora trabalhando numa delas, e a outra derrubava a sessão
+assim mesmo. Isso vale desde 25/08 e não tem nada a ver com plantão; era só
+invisível porque ninguém tinha ligado os pontos.
+
+Dois consertos, um para cada:
+
+1. **A tela de plantão carimba sozinha** (`PULSO_PLANTAO_MS`, 60s). Ela é
+   tratada pelo que é — alguém olhando —, e o carimbo que ela escreve é o
+   mesmo que as outras abas leem. Fechou a aba, o pulso para e o tempo volta
+   a correr, inclusive com o navegador fechado (a garantia de 25/08 segue).
+2. **O timer confere o carimbo antes de cortar** (`talvezEncerrar`). Sobrou
+   tempo no relógio compartilhado? Rearma pelo que falta. O corte passa a
+   acontecer quando o RELÓGIO COMUM estoura, não quando o timer desta aba
+   chega ao fim.
+
+⚠️ **ISTO ENFRAQUECE O CORTE, de propósito e por pedido.** Com o mapa aberto, a
+sessão dura na máquina inteira. É a consequência direta de *"o objetivo é
+deixar o mapa aberto"* e precisa ser dita: em máquina compartilhada, **fechar
+o painel do operador passa a ser o que encerra o expediente**.
+
+⚠️ **A LIÇÃO É SOBRE O TESTE, E É MINHA — pela segunda vez em dois dias.** A 2ª
+rodada foi verificada com 14 checagens que passaram verdes, e o defeito estava
+de pé o tempo todo: **elas rodavam UMA aba**. O arquivo inteiro existe por
+causa de um estado que mora fora da aba, e eu o testei como se fosse de dentro
+dela. É o mesmo formato do erro de 01/09 no app (o teste chamava o
+sincronizador à mão e nunca provou que alguém o chamava).
+
+A regra que fica: **teste de `inatividade.js` roda com pelo menos duas abas
+contra um `localStorage` só.** É o que `scripts/testes/inatividade.test.js`
+(novo) faz — 17 checagens, e as duas que importam reprovam contra o código que
+está no ar.
+
+**Verificado** rodando o cenário exato do relato contra as duas versões lado a
+lado: no código de `HEAD`, o token some e o admin vai para
+`/login?motivo=inatividade`; no novo, o token fica e ninguém navega.
+
+Sem migration. `?v=N`: `inatividade.js` 9 → 10 nas cinco páginas que o carregam.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em
