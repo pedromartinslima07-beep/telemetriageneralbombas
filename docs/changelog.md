@@ -8503,6 +8503,72 @@ no trilho, e o selo na lista atrás vira PENDENTE sem recarregar. Console limpo.
 
 Sem migration. `?v=N`: `admin.js` 330 → 331.
 
+### 2026-09-02 (7ª rodada) · Achar o prédio para abrir um chamado
+
+Relato do Pedro: *"o filtro para achar um condomínio no modal para abrir um
+chamado está muito ruim"* — e, perguntado onde, *"admin, mas talvez no operador
+esteja igual"*. Estava, e eram **dois** problemas.
+
+**1. Não existia filtro.** É um `<select>` nativo com a carteira inteira
+dentro — **86 prédios** em produção. Sobra rolar, ou a digitação-por-prefixo
+do navegador, que casa só o COMEÇO do texto e se perde a cada tecla lenta.
+
+⚠️ **2. E NO ADMIN OS NOMES ESTAVAM ERRADOS**, que é o que tornava o filtro
+inútil de verdade. A lista era montada com `c.nome` — desde a migration 044 a
+**razão social**. Quem atende o telefone ouve "Auri Faria Lima" e procura numa
+lista que diz "ELVIRA FERRAZ EMPREENDIMENTOS IMOBILIARIOS LTDA": um nome que
+não está escrito. Em produção **71 dos 86** cadastros têm os dois diferentes.
+O operador não tinha esse defeito (já usava `nome_fantasia || nome`), só o do
+filtro.
+
+Entrou `public/condo-picker.js` — **arquivo compartilhado pelos dois painéis**,
+no molde do `inatividade.js`, que eles já carregam. Isso não fere a regra de
+que "`operador.js` não importa nada de `admin.js`": a regra existe para o
+operador não virar refém do admin, e um terceiro arquivo sem dono é o
+contrário disso. Só o CSS é duplicado nas duas folhas, como todo o Chapa.
+
+Ele busca em **fantasia + razão social + bairro + cidade**, sem acento e sem
+caixa, com todos os termos casando em qualquer ordem ("mariana vila" acha
+"Residencial Vila Mariana"). Na linha, o nome de tela em cima e a razão social
+embaixo — **só quando difere**, senão é a mesma frase duas vezes.
+
+⚠️ **O CAMPO ORIGINAL NÃO SOME: vira `<input type="hidden">` com o MESMO id.**
+Todo o código de gravação (`getElementById("ncCondo").value`) continua valendo
+sem uma linha de mudança, nas duas telas. É o que torna a troca segura numa
+tela que grava chamado.
+
+⚠️ **E O REALCE DA LISTA NASCEU REPROVANDO CONTRASTE — a terceira vez nesta
+casa.** Eu tinha pintado o nome do item marcado de `--accent`; dentro do modal,
+que é placa clara, isso vira `--atencao-t` e mede **3,41:1** sobre o fundo do
+realce. Ou seja: o item selecionado ficava MENOS legível que os outros. É a
+Regra do Amarelo Cego do DESIGN.md, e a correção é a mesma de sempre — o âmbar
+**preenche** (cru, 18%) e o texto continua tinta: **15,7:1** no nome, **6,8:1**
+na razão social. O item marcado ganhou uma barra de 2px à esquerda para se
+distinguir do item sob o mouse.
+
+⚠️ E a lista abre com `--surface` no admin (o degrau CLARO, porque ali ela
+pousa sobre placa clara) e `--surface2` no operador (campo marinho). Mesma
+lição do trilho do orçamento, aplicada antes de cobrar de novo.
+
+**Verificado por teste, não por tela.** `scripts/testes/condo-picker.test.js`
+(novo, roda com `node`) monta o componente sobre um DOM mínimo e cobre 14
+casos: buscar "elvira" acha o prédio que a tela chama de "Auri Faria Lima";
+"sao caetano" acha "São Caetano"; "edis" acha "Édis Center"; bairro e cidade
+filtram; o hidden guarda o id enquanto o campo mostra o nome. Mais a conferência
+estática de que as 8 classes do JS têm regra nas duas folhas, e o cálculo de
+contraste acima.
+
+⚠️ **O DESENHO E O TECLADO NÃO FORAM VISTOS EM NAVEGADOR.** A extensão do
+Chrome caiu no meio da sessão e não voltou em cinco tentativas. Setas, Enter,
+Esc, o fechamento no blur e o encaixe da lista dentro do modal seguem
+**não verificados** — o teste acima não abre navegador. Para olhar sem sessão:
+`/dev/_operador-preview.html`, cuja fixture ganhou 40 prédios com a mesma
+proporção de nomes divergentes da produção (era dois, sem fantasia — com
+aquilo nenhuma das duas coisas se testava).
+
+Sem migration. `?v=N`: `admin.js` 331 → 332, `admin.css` 245 → 247,
+`operador.js` 73 → 74, `operador.css` 77 → 79.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

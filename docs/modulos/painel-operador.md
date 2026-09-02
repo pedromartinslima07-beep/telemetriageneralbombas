@@ -609,6 +609,24 @@ vermelho após 3 ciclos sem sucesso: numa tela de turno, silêncio e falha não
 podem se parecer. Erro aparece como **faixa**, nunca `alert()` — `alert` trava
 a tela e travar significa parar de receber.
 
+## O prédio do "Novo chamado" tem busca (02/09/2026)
+
+O `<select>` de prédio virou campo de busca — `public/condo-picker.js`, o mesmo
+componente do admin. São 86 prédios em produção e a lista nativa não filtra;
+numa tela de turno, com o telefone no ombro, isso é uma busca feita duas vezes.
+
+⚠️ **Ele é montado quando a lista CHEGA**, não junto do HTML: os prédios vêm de
+`GET /condominios` por fetch, e o picker precisa deles para filtrar. Enquanto
+não chegam, o campo é o `<select>` de "Carregando…", como já era.
+
+⚠️ **`permiteVazio: false` aqui.** No admin o chamado pode nascer sem prédio
+vinculado; na fila do turno, não — o mapa e o despacho dependem dele.
+
+⚠️ **O componente é um TERCEIRO ARQUIVO, não um import do `admin.js`.** A regra
+de que esta folha não depende do admin continua de pé; o que ela proíbe é o
+operador virar refém de uma tela que muda por outro motivo. `condo-picker.js`
+não tem dono, como o `inatividade.js` que as duas páginas já carregam.
+
 ## Regras que não dá para inferir lendo o arquivo
 
 - **`operador.js` não importa nada de `admin.js`.** As duas telas mostram os

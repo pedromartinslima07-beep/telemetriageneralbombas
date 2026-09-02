@@ -287,6 +287,51 @@
     "descricao": "Tentativa de contato com o zelador, sem resposta."
   }
 ];
+  // A carteira de teste: 40 prédios, 34 deles com nome fantasia diferente da
+  // razão social — a proporção de produção (71 em 86).
+  var CARTEIRA = [
+    { id: 100, nome: "AURORA PAULISTA EMPREENDIMENTOS IMOBILIARIOS LTDA", nome_fantasia: "Aurora Paulista", bairro: "Bela Vista", cidade: "São Paulo" },
+    { id: 101, nome: "CONDOMINIO EDIFICIO VILA MARIANA", nome_fantasia: "Vila Mariana", bairro: "Vila Mariana", cidade: "São Paulo" },
+    { id: 102, nome: "ELVIRA FERRAZ EMPREENDIMENTOS IMOBILIARIOS LTDA", nome_fantasia: "Auri Faria Lima", bairro: "Itaim Bibi", cidade: "São Paulo" },
+    { id: 103, nome: "PARQUE DAS NACOES EMPREENDIMENTOS LTDA", nome_fantasia: "Parque das Nações", bairro: "Santo Amaro", cidade: "São Paulo" },
+    { id: 104, nome: "Mont Blanc", nome_fantasia: "", bairro: "Moema", cidade: "São Paulo" },
+    { id: 105, nome: "SOLAR DOS IPES ADMINISTRACAO PREDIAL", nome_fantasia: "Solar dos Ipês", bairro: "Perdizes", cidade: "São Paulo" },
+    { id: 106, nome: "ATHENAS INCORPORACOES S/A", nome_fantasia: "Edifício Athenas", bairro: "Pinheiros", cidade: "São Paulo" },
+    { id: 107, nome: "ACAI PARTICIPACOES LTDA", nome_fantasia: "Residencial Açaí", bairro: "Butantã", cidade: "São Paulo" },
+    { id: 108, nome: "Torres do Sol", nome_fantasia: "", bairro: "Tatuapé", cidade: "São Paulo" },
+    { id: 109, nome: "BORGHESE EMPREENDIMENTOS", nome_fantasia: "Villa Borghese", bairro: "Jardins", cidade: "São Paulo" },
+    { id: 110, nome: "RECANTO VERDE ADM DE BENS", nome_fantasia: "Recanto Verde", bairro: "Vila Mariana", cidade: "São Paulo" },
+    { id: 111, nome: "PORTAL DO SOL IMOVEIS LTDA", nome_fantasia: "Portal do Sol", bairro: "Santana", cidade: "São Paulo" },
+    { id: 112, nome: "EDIS CENTER COMERCIAL LTDA", nome_fantasia: "Édis Center", bairro: "República", cidade: "São Paulo" },
+    { id: 113, nome: "SAO CAETANO PRIME LTDA", nome_fantasia: "São Caetano Prime", bairro: "Centro", cidade: "São Caetano do Sul" },
+    { id: 114, nome: "BOURBON EMPREENDIMENTOS", nome_fantasia: "Maison Bourbon", bairro: "Higienópolis", cidade: "São Paulo" },
+    { id: 115, nome: "GREEN PARK ADMINISTRADORA", nome_fantasia: "Green Park", bairro: "Morumbi", cidade: "São Paulo" },
+    { id: 116, nome: "Alto da Lapa", nome_fantasia: "", bairro: "Lapa", cidade: "São Paulo" },
+    { id: 117, nome: "CRISTAL TOWER PARTICIPACOES", nome_fantasia: "Cristal Tower", bairro: "Brooklin", cidade: "São Paulo" },
+    { id: 118, nome: "ANALIA FRANCO EMPREENDIMENTOS", nome_fantasia: "Jardim Anália", bairro: "Análise Franco", cidade: "São Paulo" },
+    { id: 119, nome: "TERRA NOVA ADM PREDIAL LTDA", nome_fantasia: "Terra Nova", bairro: "Ipiranga", cidade: "São Paulo" },
+    { id: 120, nome: "VISTA ALEGRE IMOVEIS", nome_fantasia: "Vista Alegre", bairro: "Penha", cidade: "São Paulo" },
+    { id: 121, nome: "ILE DE FRANCE EMPREENDIMENTOS", nome_fantasia: "Île de France", bairro: "Jardim Paulista", cidade: "São Paulo" },
+    { id: 122, nome: "PORTOBELLO ADM", nome_fantasia: "Portobello", bairro: "Vila Olímpia", cidade: "São Paulo" },
+    { id: 123, nome: "SERRA AZUL PARTICIPACOES LTDA", nome_fantasia: "Serra Azul", bairro: "Santo André", cidade: "Santo André" },
+    { id: 124, nome: "COPACABANA SP EMPREENDIMENTOS", nome_fantasia: "Copacabana SP", bairro: "Bela Vista", cidade: "São Paulo" },
+    { id: 125, nome: "NOVA ALIANCA ADM DE CONDOMINIOS", nome_fantasia: "Nova Aliança", bairro: "Saúde", cidade: "São Paulo" },
+    { id: 126, nome: "BELVEDERE IMOBILIARIA LTDA", nome_fantasia: "Belvedere", bairro: "Campo Belo", cidade: "São Paulo" },
+    { id: 127, nome: "RIO BRANCO EMPREENDIMENTOS", nome_fantasia: "Rio Branco", bairro: "Centro", cidade: "Diadema" },
+    { id: 128, nome: "MONTE LIBANO ADM", nome_fantasia: "Monte Líbano", bairro: "Jabaquara", cidade: "São Paulo" },
+    { id: 129, nome: "PRACA REAL EMPREENDIMENTOS LTDA", nome_fantasia: "Praça Real", bairro: "Vila Prudente", cidade: "São Paulo" },
+    { id: 130, nome: "BOSQUE JEQUITIBAS ADM", nome_fantasia: "Bosque dos Jequitibás", bairro: "Interlagos", cidade: "São Paulo" },
+    { id: 131, nome: "ILHA BELA PARTICIPACOES", nome_fantasia: "Ilha Bela", bairro: "Guarulhos", cidade: "Guarulhos" },
+    { id: 132, nome: "VILLAGIO TOSCANA LTDA", nome_fantasia: "Villagio Toscana", bairro: "Mooca", cidade: "São Paulo" },
+    { id: 133, nome: "AQUARELA ADM PREDIAL", nome_fantasia: "Aquarela", bairro: "Freguesia do Ó", cidade: "São Paulo" },
+    { id: 134, nome: "Sol Nascente", nome_fantasia: "", bairro: "Cidade Dutra", cidade: "São Paulo" },
+    { id: 135, nome: "GRAND VILLE EMPREENDIMENTOS S/A", nome_fantasia: "Grand Ville", bairro: "Barra Funda", cidade: "São Paulo" },
+    { id: 136, nome: "VITORIA REGIA IMOVEIS LTDA", nome_fantasia: "Vitória Régia", bairro: "Casa Verde", cidade: "São Paulo" },
+    { id: 137, nome: "MIRANTE DO VALE ADM", nome_fantasia: "Mirante do Vale", bairro: "São Bernardo", cidade: "São Bernardo do Campo" },
+    { id: 138, nome: "PANORAMA EMPREENDIMENTOS LTDA", nome_fantasia: "Panorama", bairro: "Osasco", cidade: "Osasco" },
+    { id: 139, nome: "CHACARA FLORA ADM DE BENS", nome_fantasia: "Chácara Flora", bairro: "Santo Amaro", cidade: "São Paulo" },
+  ];
+
   var nativo = window.fetch ? window.fetch.bind(window) : null;
 
   function J(o) {
@@ -329,9 +374,12 @@
       });
     }
     if (u.indexOf("/admin/me") >= 0) return J({ id: 1, nome: "Ana Paula Souza", role: "operador" });
-    if (u.indexOf("/condominios") >= 0) {
-      return J([{ id: 12, nome: "Edifício Aurora Paulista" }, { id: 7, nome: "Residencial Vila Mariana" }]);
-    }
+    // ⚠️ A CARTEIRA REALISTA, e não dois prédios (02/09/2026). O campo de
+    // escolher prédio virou busca porque em produção são 86 cadastros e 71
+    // deles têm nome fantasia DIFERENTE da razão social — com dois itens sem
+    // fantasia nenhuma dessas duas coisas se testa. Aqui vão 40, a maioria com
+    // os dois nomes divergentes, para o filtro ter o que filtrar.
+    if (u.indexOf("/condominios") >= 0) return J(CARTEIRA);
     var cauda = u.split("/chamados/")[1];
     if (cauda) {
       cauda = cauda.split("?")[0];

@@ -82,6 +82,39 @@ e a ficha foi para o modal de tela cheia. Ver a seção própria abaixo.
 | **B · Superfície viva** | dashboard, mapa, telemetria, whatsapp — **4** | mapa/gráfico/conversa ocupa a área, controles pousam por cima |
 | **C · Formulário** | relatorios, config — **2** | campos agrupados + ação |
 
+## O campo de escolher prédio (`condo-picker.js`, 02/09/2026)
+
+⚠️ **`<select>` com a carteira dentro não serve, e o motivo é dado, não gosto:**
+são **86 prédios** em produção e **71 deles** têm nome fantasia diferente da
+razão social. O select não filtra, e mostrava `c.nome` — a razão social. Quem
+atende o telefone ouve o nome da porta e procurava por um nome que não está
+escrito na tela.
+
+`public/condo-picker.js` é **compartilhado com o painel do operador**, no molde
+do `inatividade.js`. Não fere a regra de que `operador.js` não importa de
+`admin.js` — um terceiro arquivo sem dono é o contrário de virar refém.
+
+| | |
+|---|---|
+| Busca em | fantasia · razão social · bairro · cidade |
+| Normalização | sem acento, sem caixa; todos os termos casam em qualquer ordem |
+| Na linha | nome de tela em cima; razão social **só quando difere** |
+| Realce | âmbar de **preenchimento** + barra de 2px — nunca tinta (ver abaixo) |
+
+⚠️ **O campo original vira `<input type="hidden">` com o MESMO id.** Todo
+`getElementById("ncCondo").value` que já existia continua valendo. É o seam que
+torna a troca segura numa tela que grava chamado — e o caminho para adotar o
+componente nos outros seis selects de condomínio do painel, que seguem nativos.
+
+⚠️ **O fundo da lista muda por superfície:** `--surface` no admin (ela abre
+dentro de modal, que é placa clara, e o degrau tem de ser para CIMA) e
+`--surface2` no operador (campo marinho). Terceira vez que essa conta aparece
+nesta casa — ver a nota do trilho do orçamento.
+
+Teste: `scripts/testes/condo-picker.test.js` (`node`, sem navegador).
+
+---
+
 ## O vocabulário está com o nome errado
 
 `admin.css` tem **22 prefixos de classe próprios** — `tel-` (169 seletores),

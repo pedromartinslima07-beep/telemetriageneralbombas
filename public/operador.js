@@ -1571,9 +1571,29 @@ function dlgNovo() {
   fetch("/condominios", { headers: authHeaders() })
     .then((r) => (r.ok ? r.json() : condos))
     .then((lista) => {
+      const arr = Array.isArray(lista) ? lista : condos;
+      // ⚠️ CAMPO DE BUSCA, NÃO `<select>` (02/09/2026). São 86 prédios em
+      // produção, e a lista nativa não filtra — sobrava rolar, ou a
+      // digitação-por-prefixo do navegador, que casa só o começo do texto.
+      // Numa tela de turno, com o telefone no ombro, isso é uma busca que se
+      // faz duas vezes. O `condo-picker.js` é o mesmo componente do admin:
+      // busca nos dois nomes (fantasia E razão social), mais bairro e cidade,
+      // sem acento e sem caixa.
+      //
+      // ⚠️ MONTAR AQUI, e não junto do HTML: a lista chega por fetch, e o
+      // picker precisa dela para filtrar. Enquanto ela não chega o campo é o
+      // `<select>` de "Carregando…", que já era o comportamento.
+      if (window.CondoPicker) {
+        window.CondoPicker.montar({
+          campo: "nvCondo",
+          itens: arr,
+          permiteVazio: false,   // aqui o prédio é obrigatório
+          placeholder: "Buscar por nome, bairro ou cidade…",
+        });
+        return;
+      }
       const sel = document.getElementById("nvCondo");
       if (!sel) return;
-      const arr = Array.isArray(lista) ? lista : condos;
       sel.innerHTML = `<option value="">Selecione o prédio…</option>` + arr
         .map((c) => `<option value="${c.id}">${escapar(c.nome_fantasia || c.nome)}</option>`)
         .join("");

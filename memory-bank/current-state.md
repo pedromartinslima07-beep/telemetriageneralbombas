@@ -103,6 +103,16 @@ aquele modal — e o pedido ainda SOLICITADO ganha a linha em `orcamentos` na
 abertura. O segundo modal, que refazia o mesmo documento com menos recursos
 (sem envio por e-mail, sem tipo), foi removido: −525 linhas.
 
+### ⚠️ Escolher prédio é campo de BUSCA, não `<select>` (02/09/2026)
+
+`public/condo-picker.js` — arquivo **compartilhado** por `admin.html` e
+`operador.html`, no molde do `inatividade.js`. Busca em fantasia, razão social,
+bairro e cidade, sem acento e sem caixa. Hoje só no "Novo chamado" das duas
+telas; os outros seis selects de condomínio do admin seguem nativos e podem
+adotá-lo (o campo original vira hidden com o mesmo id — nada de gravação muda).
+
+Teste: `scripts/testes/condo-picker.test.js`.
+
 ### ⚠️ Qual nome de condomínio cada tela mostra (02/09/2026)
 
 `condominios` guarda **dois** nomes: `nome` é a **razão social** (obrigatória,

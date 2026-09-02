@@ -4689,6 +4689,7 @@ function renderChamados() {
 }
 
 // ---- Modal: novo chamado ----
+let _ncPicker = null;
 (function _bindNovoChamado() {
   const overlay  = document.getElementById("novoChamadoOverlay");
   const btnAbrir = document.getElementById("btnNovoChamado");
@@ -4699,21 +4700,30 @@ function renderChamados() {
   if (!overlay || !btnAbrir) return;
 
   function _ncAbrir() {
-    // Popula select de condomínios
-    const sel = document.getElementById("ncCondo");
-    if (sel && sel.options.length <= 1) {
-      (_condominios || []).forEach(c => {
-        const opt = document.createElement("option");
-        opt.value = c.id;
-        opt.textContent = c.nome;
-        sel.appendChild(opt);
-      });
-    }
+    // ⚠️ O `<select>` VIROU CAMPO DE BUSCA (02/09/2026). Eram 86 prédios numa
+    // lista nativa sem filtro, ordenada por RAZÃO SOCIAL — quem atende o
+    // telefone ouve o nome da porta e procurava por um nome que não estava
+    // escrito. O `condo-picker.js` busca nos dois nomes, mais bairro e cidade,
+    // sem acento e sem caixa. Ver o cabeçalho de lá.
+    //
+    // ⚠️ E ISSO CONSERTA O NOME EXIBIDO junto: aqui era `c.nome` cru, a razão
+    // social. O picker usa a mesma expressão do backend e do PDF — fantasia
+    // quando existe, razão social como fallback e como segunda linha.
+    _ncPicker = window.CondoPicker?.montar({
+      campo: "ncCondo",
+      itens: _condominios || [],
+      permiteVazio: true,
+      rotuloVazio: "Sem condomínio",
+      placeholder: "Buscar por nome, bairro ou cidade…",
+    });
     // Limpa campos
     ["ncTitulo","ncDescricao"].forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
     document.getElementById("ncCategoria").value = "outro";
     document.getElementById("ncPrioridade").value = "p3";
-    document.getElementById("ncCondo").value = "";
+    // O picker sabe limpar (apaga o texto visível junto do valor); o
+    // `getElementById` continua funcionando porque o campo virou hidden com
+    // o mesmo id — é o que mantém o `salvar` abaixo sem uma linha de mudança.
+    if (_ncPicker) _ncPicker.limpar(); else document.getElementById("ncCondo").value = "";
     if (msg) msg.textContent = "";
     // Reset seletor de prioridade — marca P3 como padrão
     overlay.querySelectorAll(".nc-prio-btn").forEach(b => {

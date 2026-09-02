@@ -9941,3 +9941,72 @@ body.role-viewer .viewer-only-hide-inline {
 .av-aviso[hidden] { display: none; }
 .av-aviso svg { width: 20px; height: 20px; flex: none; color: var(--amarelo, #f0b014); }
 .av-aviso span { flex: 1; min-width: 0; }
+
+/* ─── Campo de escolher prédio, com busca (`condo-picker.js`) ───────────
+   ⚠️ SUBSTITUI UM `<select>` NATIVO com 86 prédios dentro. O select não tem
+   busca: sobra rolar, ou a digitação-por-prefixo do navegador, que casa só o
+   começo do texto. Ver o cabeçalho do `condo-picker.js` para o porquê de a
+   busca cobrir também a razão social.
+
+   Sem sombra e sem raio, como tudo aqui: a lista é uma placa pousada, com o
+   chanfro pequeno e um fio de 1px. A profundidade é tonal — ela sobe um
+   degrau de superfície em vez de flutuar. */
+.cbx { position: relative; }
+.cbx-campo { width: 100%; }
+/* O × de limpar só existe quando há escolha feita — antes disso não há o que
+   limpar, e um botão inerte no canto do campo ensina a ignorá-lo. */
+.cbx-limpar {
+  position: absolute; top: 50%; right: 8px; transform: translateY(-50%);
+  width: 22px; height: 22px; display: flex; align-items: center; justify-content: center;
+  border: 0; background: none; cursor: pointer;
+  color: var(--muted); font-size: 17px; line-height: 1;
+}
+.cbx-limpar:hover { color: var(--text); }
+.cbx-limpar[hidden] { display: none; }
+
+/* ⚠️ NO ADMIN A LISTA ABRE DENTRO DE UM MODAL, que é PLACA CLARA — e ali
+   `--surface2` é `--chapa-es`, o degrau ESCURO. É a mesma armadilha que o
+   trilho do orçamento já cobrou nesta casa: a família de tinta `-t` é
+   calibrada contra `--chapa`, então qualquer fundo mais escuro que a placa
+   quebra o âmbar antes de quebrar o texto. A lista é uma placa POUSADA sobre
+   o formulário — degrau para cima. No operador ela abre sobre campo marinho,
+   e ali o degrau certo é o de sempre. */
+.cbx-lista {
+  position: absolute; z-index: 40; left: 0; right: 0; top: calc(100% + 4px);
+  margin: 0; padding: 4px 0; list-style: none;
+  max-height: 264px; overflow-y: auto;
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--border);
+  --ch-p: 8px; clip-path: var(--corte-p);
+  overscroll-behavior: contain;
+}
+.cbx-lista[hidden] { display: none; }
+
+.cbx-item {
+  padding: 7px 12px; cursor: pointer;
+  display: flex; flex-direction: column; gap: 1px;
+}
+/* ⚠️ O REALCE É UM SÓ, e serve ao teclado e ao mouse: `is-marcado` é escrito
+   pelo JS nas setas E no hover natural. Dois realces diferentes (um de
+   hover, outro de seta) fazem a lista parecer ter duas seleções quando a mão
+   está no mouse e o olho na tecla.
+
+   ⚠️ E O REALCE É PREENCHIMENTO, NÃO TINTA — Regra do Amarelo Cego. Pintar o
+   nome de âmbar dava **3,41:1** sobre a placa clara (medido): o item marcado
+   ficava menos legível que os outros, que é o contrário do que realce faz. O
+   âmbar vai no FUNDO, cru (`--amarelo`, que não flipa em superfície nenhuma),
+   e o texto continua sendo tinta: 15,7:1 no nome e 6,8:1 na razão social. */
+.cbx-item:hover,
+.cbx-item.is-marcado { background: color-mix(in srgb, var(--amarelo) 18%, transparent); }
+/* A barra de 2px é o que distingue o item marcado do item sob o mouse quando
+   os dois acontecem em linhas diferentes — sem ela, duas linhas acesas e
+   nenhuma pista de qual o Enter escolhe. */
+.cbx-item.is-marcado { box-shadow: inset 2px 0 0 var(--amarelo); }
+.cbx-nome { font-size: 13px; font-weight: 600; color: var(--text); }
+/* A razão social e o bairro. Cinza um degrau abaixo: é o que confirma que
+   este é o prédio certo, não o que se lê primeiro. */
+.cbx-sub  { font-size: 11px; color: var(--text-dim); }
+.cbx-item-vazio .cbx-nome { color: var(--muted); font-weight: 500; font-style: normal; }
+.cbx-vazio { padding: 12px; font-size: 12px; color: var(--text-dim); text-align: center; }
+
+@media (prefers-reduced-motion: reduce) { .cbx-item { transition: none; } }
