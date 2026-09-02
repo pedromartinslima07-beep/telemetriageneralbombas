@@ -334,9 +334,12 @@
 
   var nativo = window.fetch ? window.fetch.bind(window) : null;
 
-  function J(o) {
+  // `status` opcional: sem ele a prévia não sabe representar um 401, e o
+  // caminho de erro do formulário — o único que o front não prevê sozinho —
+  // ficaria sem como ser visto.
+  function J(o, status) {
     return Promise.resolve(new Response(JSON.stringify(o), {
-      status: 200, headers: { "content-type": "application/json" },
+      status: status || 200, headers: { "content-type": "application/json" },
     }));
   }
 
@@ -374,6 +377,17 @@
       });
     }
     if (u.indexOf("/admin/me") >= 0) return J({ id: 1, nome: "Ana Paula Souza", role: "operador" });
+    // Trocar senha: a prévia responde como o servidor responderia, incluindo o
+    // caso que mais importa ver na tela — a senha atual errada, que é o único
+    // erro que o front não consegue prever sozinho.
+    if (u.indexOf("/auth/trocar-senha") >= 0) {
+      var corpo = {};
+      try { corpo = JSON.parse((init && init.body) || "{}"); } catch (e) {}
+      if (corpo.senha_atual !== "certa") {
+        return J({ error: "Senha atual incorreta" }, 401);
+      }
+      return J({ ok: true });
+    }
     // ⚠️ A CARTEIRA REALISTA, e não dois prédios (02/09/2026). O campo de
     // escolher prédio virou busca porque em produção são 86 cadastros e 71
     // deles têm nome fantasia DIFERENTE da razão social — com dois itens sem

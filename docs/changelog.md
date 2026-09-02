@@ -8629,6 +8629,57 @@ lado: no código de `HEAD`, o token some e o admin vai para
 
 Sem migration. `?v=N`: `inatividade.js` 9 → 10 nas cinco páginas que o carregam.
 
+### 2026-09-02 (9ª rodada) · O operador troca a própria senha
+
+Pedido do Pedro: *"queria que o operador tivesse a possibilidade de trocar a
+senha dele também"*.
+
+⚠️ **O BACKEND JÁ EXISTIA E JÁ ATENDIA — faltava só a tela.**
+`POST /auth/trocar-senha` é `authRequired` puro, sem guard de papel: qualquer
+usuário logado. Confirmado exercitando a rota com um usuário `operador` de
+verdade no banco de teste. Nada de backend mudou nesta rodada.
+
+O que existia sem a tela era o caminho ruim: o operador pedia ao admin um
+`POST /admin/usuarios/:id/reset-senha`, que **gera uma senha temporária e a
+devolve em texto puro** para alguém repassar. Trocar a própria senha é o
+caminho em que ela não passa por ninguém.
+
+Entrou "Minha senha" na barra, como **texto** ao lado de Ajuda — não um
+terceiro botão. A gramática da barra está escrita no `operador.html` desde
+31/08 (*navegação é texto; só ação é botão, e são duas*), e trocar senha não é
+o que se veio fazer no turno. Também não foi pendurado no nome: o nome é texto
+de propósito, e a razão está registrada logo abaixo dele.
+
+⚠️ **NÃO É CÓPIA DO `admin.js`.** O `_cfgTrocarSenha` de lá fala com a mesma
+rota, mas vive numa aba de configurações que esta tela não tem — e
+`operador.js` não importa de `admin.js` (regra registrada em
+painel-operador.md). São 20 linhas contra um arquivo compartilhado a mais para
+uma tela só. O diálogo reusa o que já existe aqui: `abrirFundo` (com
+`<dialog>` + `showModal()`, que funciona por cima do mapa em tela cheia),
+`.form`/`.campo` do Novo chamado e a faixa do `avisar()`.
+
+⚠️ **A CONFIRMAÇÃO VAI NA FAIXA, e o erro fica no diálogo.** Sucesso fecha a
+folha — e uma folha que fecha sem dizer nada deixa a dúvida de se trocou
+mesmo. Erro **não** fecha: quem errou a senha atual precisa do campo ainda
+preenchido para tentar de novo.
+
+**Verificado em dois níveis.** A rota, contra o banco de teste com um usuário
+`operador` criado para isso: senha errada dá 401, nova curta dá 400, nova
+igual à atual dá 400, a troca válida dá 200 — e depois dela a senha velha
+**deixou** de casar e a nova casa. E o front, em
+`scripts/testes/senha-operador.test.js` (novo, 12 checagens): as quatro
+recusas de tela não chegam à rede, o corpo sai com os nomes que o backend
+espera (`senha_atual` / `senha_nova`), o sucesso fecha e confirma na faixa, e
+o 401 mostra o erro do servidor sem fechar nem fingir sucesso.
+
+⚠️ **O DIÁLOGO NÃO FOI VISTO EM NAVEGADOR** — a extensão do Chrome segue fora
+desde a rodada anterior. Desenho, foco no primeiro campo e Enter para salvar
+seguem não verificados. A prévia `/dev/_operador-preview.html` já responde a
+`/auth/trocar-senha` (inclusive com o 401 de senha errada, que é o caminho que
+só se vê na tela) para quando ela voltar.
+
+Sem migration. `?v=N`: `operador.js` 74 → 75.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

@@ -79,6 +79,13 @@
     <nav class="barra-nav" aria-label="Telas do operador">
       <a href="/operador/painel/orcamentos">Aprovados</a>
       <button type="button" data-acao="ajuda">Ajuda</button>
+      <!-- ⚠️ TEXTO, e não um terceiro botão — a gramática da barra está
+           explicada acima e vale para este item: ele não é o que se veio
+           fazer no turno. Fica ao lado de Ajuda porque é da mesma natureza
+           (abre uma folha por cima, não leva a outra tela), e não colado no
+           nome: o nome é TEXTO de propósito, e transformá-lo em alvo agora
+           desfaria a razão escrita logo abaixo. -->
+      <button type="button" data-acao="senha">Minha senha</button>
     </nav>
     <button class="btn btn-novo" data-acao="novo" aria-label="Abrir novo chamado"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span class="btn-rot">Novo chamado</span></button>
     <!-- ⚠️ QUEM ESTÁ LOGADO + SAIR — o mesmo par da barra do painel do
@@ -190,7 +197,7 @@
 <!-- ⚠️ SEM `defer`, e ANTES do operador.js. Ver a nota no admin.html. -->
 <script src="/static/condo-picker.js?v=1"></script>
 <script src="/static/inatividade.js?v=10" defer></script>
-<script src="/static/operador.js?v=74" defer></script>
+<script src="/static/operador.js?v=75" defer></script>
 <script src="/static/register-sw.js?v=51" defer></script>
 </body>
 </html>

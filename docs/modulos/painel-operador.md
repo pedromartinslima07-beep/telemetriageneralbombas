@@ -634,6 +634,29 @@ de que esta folha não depende do admin continua de pé; o que ela proíbe é o
 operador virar refém de uma tela que muda por outro motivo. `condo-picker.js`
 não tem dono, como o `inatividade.js` que as duas páginas já carregam.
 
+## "Minha senha" (02/09/2026)
+
+O operador troca a própria senha pela barra. **O backend já existia**:
+`POST /auth/trocar-senha` é `authRequired` puro, sem guard de papel — faltava
+só a tela. Sem ela, o caminho era pedir ao admin um `reset-senha`, que gera
+uma senha temporária **em texto puro** para alguém repassar.
+
+⚠️ **É TEXTO NA BARRA, não um terceiro botão.** A gramática está no
+`operador.html`: navegação é texto, só ação é botão, e são duas. Trocar senha
+não é o que se veio fazer no turno. E não foi pendurado no nome — o nome é
+texto de propósito, pela razão escrita ao lado dele.
+
+⚠️ **Erro NÃO fecha o diálogo; sucesso fecha e confirma na faixa.** Quem errou
+a senha atual precisa dos campos ainda preenchidos; quem acertou precisa saber
+que trocou, e uma folha que fecha calada não diz isso.
+
+⚠️ **A sessão aberta continua valendo depois da troca** — a rota mexe em
+`usuarios.senha_hash` e não toca em token nem em `trusted_devices` (diferente
+do `reset-senha` do admin, que revoga os dispositivos). Quem pede a senha nova
+é o próximo login. Está dito na dica do formulário.
+
+Teste: `scripts/testes/senha-operador.test.js`.
+
 ## Regras que não dá para inferir lendo o arquivo
 
 - **`operador.js` não importa nada de `admin.js`.** As duas telas mostram os

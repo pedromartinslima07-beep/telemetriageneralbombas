@@ -1481,6 +1481,98 @@ function opcoesTecnico(lista) {
     .join("");
 }
 
+/* ── Minha senha ──────────────────────────────────────────────────────
+   O backend já existia: `POST /auth/trocar-senha` é `authRequired` puro —
+   qualquer usuário logado, sem guard de papel. O que faltava era a tela: o
+   operador dependia de pedir ao admin um `reset-senha`, que gera uma senha
+   temporária e a devolve em texto puro para alguém repassar. Trocar a própria
+   senha é o caminho que não passa a senha por ninguém.
+
+   ⚠️ ISTO NÃO É CÓPIA DO ADMIN. O `_cfgTrocarSenha` do `admin.js` fala com a
+   mesma rota, mas vive numa aba de configurações que esta tela não tem, e
+   `operador.js` não importa de `admin.js` (ver painel-operador.md). São 20
+   linhas contra um arquivo compartilhado a mais para uma tela só. */
+function dlgSenha() {
+  abrirFundo(`<div class="ficha" style="width:min(460px,100%)" role="dialog" aria-label="Trocar minha senha">
+    <div class="ficha-cab">
+      <div><h2>Minha senha</h2>
+        <div class="onde" style="margin-top:7px">Só você digita a nova — ninguém precisa repassá-la</div></div>
+      <button class="ficha-x" data-acao="fechar" aria-label="Fechar">${I.x}</button>
+    </div>
+    <form class="form" id="formSenha">
+      <div class="campo largo">
+        <label for="sfAtual">Senha atual</label>
+        <input id="sfAtual" type="password" autocomplete="current-password" required>
+      </div>
+      <div class="campo largo">
+        <label for="sfNova">Senha nova</label>
+        <input id="sfNova" type="password" autocomplete="new-password" minlength="6" required>
+      </div>
+      <div class="campo largo">
+        <label for="sfConf">Repita a senha nova</label>
+        <input id="sfConf" type="password" autocomplete="new-password" minlength="6" required>
+      </div>
+      <!-- A regra que o backend aplica, dita ANTES de o campo recusar: o
+           mínimo é 6, e a nova precisa ser diferente da atual. (Sem crase
+           neste comentario: ele vive dentro de template literal.) -->
+      <p class="dica">Mínimo de <b>6 caracteres</b>, e diferente da senha atual.
+        Depois de trocar, a sessão aberta continua valendo — quem pede senha de
+        novo é o próximo login.</p>
+    </form>
+    <div class="ficha-pe">
+      <p id="sfMsg"></p>
+      <button class="btn btn-fio" data-acao="fechar">Cancelar</button>
+      <button class="btn" data-acao="salvar-senha">Trocar senha</button>
+    </div>
+  </div>`);
+
+  // Enter no formulário salva, como no Novo chamado.
+  document.getElementById("formSenha")?.addEventListener("submit", (e) => {
+    e.preventDefault();
+    salvarSenha();
+  });
+  document.getElementById("sfAtual")?.focus();
+}
+
+async function salvarSenha() {
+  const atual = document.getElementById("sfAtual")?.value || "";
+  const nova  = document.getElementById("sfNova")?.value || "";
+  const conf  = document.getElementById("sfConf")?.value || "";
+  const msg   = document.getElementById("sfMsg");
+  const dizer = (t) => { if (msg) msg.textContent = t; };
+
+  // ⚠️ AS TRÊS CHECAGENS DE TELA EXISTEM PARA NÃO GASTAR UMA IDA AO SERVIDOR
+  // com o que já se sabe daqui. As do servidor continuam valendo — e a de
+  // senha atual errada só ele pode fazer.
+  if (!atual || !nova || !conf) return dizer("Preencha os três campos.");
+  if (nova !== conf)  return dizer("A senha nova e a repetição não conferem.");
+  if (nova.length < 6) return dizer("A senha nova precisa de 6 caracteres ou mais.");
+  if (nova === atual)  return dizer("A senha nova precisa ser diferente da atual.");
+
+  const btn = document.querySelector('[data-acao="salvar-senha"]');
+  if (btn) { btn.disabled = true; btn.textContent = "Trocando…"; }
+  try {
+    const r = await fetch("/auth/trocar-senha", {
+      method: "POST",
+      headers: { ...authHeaders(), "Content-Type": "application/json" },
+      body: JSON.stringify({ senha_atual: atual, senha_nova: nova }),
+    });
+    const d = await lerJson(r, "Trocar senha");
+    if (!r.ok) {
+      dizer(d.error || "Não foi possível trocar a senha.");
+      return;
+    }
+    fechar();
+    // ⚠️ A CONFIRMAÇÃO VAI NA FAIXA, não num texto que morre com o diálogo:
+    // fechar a folha e não dizer nada deixa a dúvida de se trocou mesmo.
+    avisar("Senha trocada.", true);
+  } catch (e) {
+    dizer("Erro de conexão: " + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = "Trocar senha"; }
+  }
+}
+
 // Novo chamado: o que chega por telefone precisa de porta de entrada. O
 // operador passa em `adminOnly`, que cobre POST /chamados.
 function dlgNovo() {
@@ -1829,6 +1921,8 @@ document.addEventListener("click", (e) => {
     if (a === "fechar") return fechar();
     if (a === "novo") return dlgNovo();
     if (a === "ajuda") return dlgAjuda();
+    if (a === "senha") return dlgSenha();
+    if (a === "salvar-senha") return salvarSenha();
     if (a === "ficha") return dlgFicha(Number(b.dataset.id));
     if (a === "despacho") return dlgDespacho(Number(b.dataset.id));
     if (a === "salvar-novo") return salvarNovo();

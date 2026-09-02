@@ -182,6 +182,15 @@ congela os timers da WebView em background. Ver
 
 ---
 
+⚠️ **`POST /auth/trocar-senha` é `authRequired` PURO** — qualquer usuário
+logado, sem guard de papel. É o que permite a mesma rota servir o admin (aba
+Configurações) e o painel do operador ("Minha senha", 02/09/2026) sem
+backend novo. Ela **não** revoga `trusted_devices`, ao contrário do
+`POST /admin/usuarios/:id/reset-senha`, que é do master admin e devolve uma
+senha temporária em texto puro.
+
+---
+
 ## Ordens de Serviço (`/ordens-servico`)
 
 Guard `osDonoOuAdmin()` — técnico dono da O.S. ou admin; `{forWrite:true}`
