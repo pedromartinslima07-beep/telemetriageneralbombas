@@ -386,6 +386,55 @@ que o modal descontinuado tinha e este não — dez linhas condicionais. Os camp
 (`orcamento_observacoes`, `os_tecnico_nome`, `os_chamado_id`) viajam no próprio
 `GET /avulsos`, que já faz o `LEFT JOIN` com `ordens_servico`.
 
+### ⚠️ "Vinculo a O.S. e volta para 'Nenhuma'" — era a RESPOSTA, não a escrita (03/09/2026)
+
+Relato do Pedro: *"fiz um orçamento e estou tentando vincular ele a uma os e
+nao estou conseguindo, qnd eu salvo o orçamento volta para 'nenhuma'"*.
+
+**O vínculo sempre foi gravado.** O `UPDATE` do
+`PATCH /admin/orcamentos/avulsos/:id` incluía `os_id` desde o começo e o banco
+ficava certo — dava para provar com um `SELECT`, e é por isso que o defeito
+sobreviveu. O que faltava era `os_id` **no `RETURNING`**.
+
+O `_avSalvar()` do `admin.js` faz:
+
+```js
+Object.assign(_avData[idx], j);   // j = a resposta da rota
+_avRenderPainel();                // redesenha do estado LOCAL
+```
+
+⚠️ **`Object.assign` não toca em chave ausente.** Sem `os_id` na resposta, o
+estado local continuava com o valor de antes do salvamento — `null` —, e o
+redesenho montava o `<select>` em "Nenhuma". A tela dizia que o vínculo tinha
+sido recusado enquanto ele estava gravado. **Um F5 mostrava o vínculo certo**,
+porque o `GET /avulsos` sempre trouxe `o.os_id`.
+
+**A lição, que vale para toda rota `PATCH` deste painel:** quando o front
+reconstrói a tela a partir do que a rota devolve, **o `RETURNING` é contrato de
+interface**, não conveniência de log. Campo que o formulário edita e não volta
+na resposta vira "não salvou" aos olhos de quem usa.
+
+Junto vieram os campos derivados da O.S. (`os_numero`, `os_tecnico_nome`,
+`os_chamado_id`, `os_finalizada_em`, `orcamento_observacoes`), que só existiam
+no `LEFT JOIN` do `GET`. É o que faz o trilho "O que o técnico pediu" aparecer
+**no mesmo salvamento**, em vez de só depois de recarregar.
+
+⚠️ **As chaves derivadas vêm SEMPRE, com `null` quando não há O.S.** Devolvidas
+só quando há vínculo, o `Object.assign` deixaria as antigas e o trilho seguiria
+mostrando o técnico de uma O.S. que não está mais ligada — desvincular pela
+metade.
+
+⚠️ **E `os_id` saiu do ramo genérico do `PATCH`**, onde caía em
+`String(v).slice(0, 255)`: o vínculo chegava como a **string** `"102"` numa
+coluna `integer`. O cast implícito do parâmetro salvava o caso comum, mas
+string vazia estoura `22P02` (`pg_strtoint32_safe`) e derruba o salvamento
+inteiro em 500. Agora anda com `condominio_id`, como inteiro.
+
+Teste: `scripts/testes/orcamento-vincula-os.test.js` (rota de verdade contra o
+banco de teste, 15 checagens). ⚠️ **Ele simula o `Object.assign` do front** —
+um teste que só conferisse a tabela passaria verde com o bug de pé, que é
+exatamente o que a tela fez. Rodado contra o código anterior: 6/15.
+
 #### O que foi removido, e por que existia
 
 Havia um segundo modal, com 13 funções paralelas (`_orcFormalHtml`,

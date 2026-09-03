@@ -1553,7 +1553,12 @@ router.patch("/orcamentos/avulsos/:id", authRequired, gestaoOnly, async (req, re
   for (const f of fields) {
     if (!(f in (req.body || {}))) continue;
     const v = req.body[f];
-    if (f === "condominio_id") { vals.push(v ? Number(v) : null); sets.push(`${f} = $${vals.length}`); }
+    // ⚠️ `os_id` ANDA COM `condominio_id`, E NÃO NO `else` GENÉRICO. Lá embaixo
+    // o ramo padrão faz `String(v).slice(0, 255)` — o vínculo chegava como a
+    // STRING "102" numa coluna integer. Hoje o Postgres salva pelo cast
+    // implícito do parâmetro, mas string vazia (`""`) estoura `22P02` e
+    // derruba o salvamento inteiro em 500.
+    if (f === "condominio_id" || f === "os_id") { vals.push(v ? Number(v) : null); sets.push(`${f} = $${vals.length}`); }
     else if (f === "valido_ate") { vals.push(v || null); sets.push(`valido_ate = $${vals.length}::date`); }
     else if (f === "data_documento") { vals.push(v || null); sets.push(`data_documento = $${vals.length}::date`); }
     else if (f === "status") {
@@ -1587,7 +1592,7 @@ router.patch("/orcamentos/avulsos/:id", authRequired, gestaoOnly, async (req, re
   try {
     const r = await pool.query(
       `UPDATE orcamentos SET ${sets.join(",")} WHERE id = $1
-       RETURNING id, numero, status, condominio_id, tipo, constatacao,
+       RETURNING id, numero, status, condominio_id, os_id, tipo, constatacao,
                  forma_pagamento, prazo_entrega, garantia, disponibilidade, valido_ate, data_documento, valor,
                  cliente_nome, cliente_documento, cliente_endereco, cliente_email`,
       vals
@@ -1602,6 +1607,39 @@ router.patch("/orcamentos/avulsos/:id", authRequired, gestaoOnly, async (req, re
     );
     const valorTotal = r.rows[0].valor != null ? Number(r.rows[0].valor) : Number(tot.rows[0].soma_itens);
 
+    // ⚠️ OS CAMPOS DERIVADOS DA O.S. VIAJAM NA RESPOSTA, E ISSO É CONSERTO DE
+    // BUG (03/09/2026). O `admin.js` faz `Object.assign(_avData[idx], j)` e
+    // redesenha o modal a partir do estado local — e `Object.assign` **não
+    // toca em chave ausente**. Sem `os_id` na resposta, o front continuava
+    // com o valor de antes do salvamento e o `<select>` voltava para
+    // "Nenhuma", como se o vínculo tivesse sido recusado. **Ele estava
+    // gravado no banco o tempo todo**; quem mentia era a tela.
+    //
+    // O trilho "O que o técnico pediu" lê `orcamento_observacoes`,
+    // `os_tecnico_nome` e `os_chamado_id`, que só existiam no LEFT JOIN do
+    // GET da lista. Devolvê-los aqui é o que faz o bloco aparecer no mesmo
+    // salvamento em vez de só no F5.
+    //
+    // ⚠️ AS CHAVES VÊM SEMPRE, com `null` quando não há O.S. — é o que faz
+    // DESVINCULAR funcionar. Devolvidas só quando há vínculo, `Object.assign`
+    // deixaria os valores antigos e o trilho continuaria mostrando o técnico
+    // de uma O.S. que não está mais ligada.
+    let derivados = { os_numero: null, os_chamado_id: null, os_finalizada_em: null,
+                      os_tecnico_nome: null, orcamento_observacoes: null };
+    if (r.rows[0].os_id != null) {
+      const os = await pool.query(
+        `SELECT os.numero          AS os_numero,
+                os.chamado_id      AS os_chamado_id,
+                os.finalizada_em   AS os_finalizada_em,
+                os.orcamento_observacoes,
+                tec.nome           AS os_tecnico_nome
+           FROM ordens_servico os
+           LEFT JOIN tecnicos tec ON tec.id = os.tecnico_id
+          WHERE os.id = $1`, [r.rows[0].os_id]
+      );
+      if (os.rows.length) derivados = { ...derivados, ...os.rows[0] };
+    }
+
     // Orçamento da bancada: aprovar/recusar aqui move a bomba lá. Não é
     // aguardado nem quebra a resposta — o documento comercial é a fonte da
     // verdade, o estado do equipamento é consequência dele.
@@ -1609,7 +1647,7 @@ router.patch("/orcamentos/avulsos/:id", authRequired, gestaoOnly, async (req, re
       refletirStatusOrcamento(id, req.body.status, req.user);
     }
 
-    return res.json({ ...r.rows[0], valor_total: valorTotal });
+    return res.json({ ...r.rows[0], ...derivados, valor_total: valorTotal });
   } catch (err) {
     console.error("[admin] PATCH /orcamentos/avulsos/:id:", err);
     return res.status(500).json({ error: "Erro ao atualizar orçamento" });

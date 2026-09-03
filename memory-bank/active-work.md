@@ -210,6 +210,33 @@ solicitação**. O avulso enviado por fora não tem `os_id` e fica intacto —
 - **O caso concreto do relato está em produção**, e este `.env` só tem
   `DATABASE_URL_TESTE`. Some com um clique na lixeira depois do deploy.
 
+## Sessão 2026-09-03 (3ª rodada) — O orçamento não vinculava à O.S.
+
+Relato do Pedro: *"fiz um orçamento e estou tentando vincular ele a uma os e
+nao estou conseguindo, qnd eu salvo o orçamento volta para 'nenhuma'"*.
+
+✅ **Corrigido, e o diagnóstico é o que interessa: o banco estava certo o tempo
+todo.** O `UPDATE` sempre gravou `os_id`; faltava `os_id` no `RETURNING`, e o
+`_avSalvar()` redesenha o modal a partir de `Object.assign(_avData[idx], j)` —
+que **não toca em chave ausente**. O front ficava com o valor de antes e o
+`<select>` voltava para "Nenhuma". F5 mostrava o vínculo.
+
+⚠️ **A lição, para toda rota `PATCH` deste painel:** quando o front reconstrói
+a tela com o que a rota devolve, o `RETURNING` é **contrato de interface**.
+Campo que o formulário edita e não volta na resposta vira "não salvou".
+
+Detalhe em [`../docs/modulos/painel-admin.md`](../docs/modulos/painel-admin.md).
+Teste novo: `scripts/testes/orcamento-vincula-os.test.js` (15 checagens; 6/15
+contra o código anterior). Sem migration, sem mudança de front.
+
+⚠️ **Sujeira que eu deixei no banco de TESTE:** um script meu de diagnóstico
+morreu entre o `UPDATE` e o restore, e o orçamento **#54** (`OR-000056`) teve o
+`condominio_id` trocado para **3** (Residencial Ipê). O valor original se
+perdeu — não há histórico dessa coluna e o `seed-teste.js` não cria orçamentos.
+Só afeta o banco de teste; se o #54 aparecer no condomínio errado, é isto.
+
+---
+
 ## Sessão 2026-09-03 (2ª rodada) — O nome vira a gaveta de conta, e a barra do celular fecha
 
 Duas perguntas do Pedro, na ordem: *"em vez de 'minha senha' no painel de

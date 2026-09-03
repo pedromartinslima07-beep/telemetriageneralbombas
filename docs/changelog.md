@@ -9106,6 +9106,50 @@ seguem podendo, cliente segue de fora).
 `operador-orcamentos.js` 19 → 20, `operador.css` 85 → 86 (nas três páginas que
 a carregam).
 
+### 2026-09-03 (3ª rodada) · O orçamento não vinculava à O.S. — e o banco estava certo o tempo todo
+
+Relato do Pedro: *"fiz um orçamento e estou tentando vincular ele a uma os e
+nao estou conseguindo, qnd eu salvo o orçamento volta para 'nenhuma'"*.
+
+**Não era bug de escrita.** O `UPDATE` do `PATCH /admin/orcamentos/avulsos/:id`
+sempre incluiu `os_id`, e o banco sempre ficou certo — um `SELECT` provava. O
+que faltava era `os_id` **no `RETURNING`**.
+
+O `_avSalvar()` faz `Object.assign(_avData[idx], j)` e redesenha o modal a
+partir do estado local. ⚠️ **`Object.assign` não toca em chave ausente**: sem
+`os_id` na resposta, o front seguia com o valor anterior (`null`) e o
+`<select>` voltava para "Nenhuma". Um F5 mostrava o vínculo correto — o `GET`
+da lista sempre trouxe `o.os_id`.
+
+**A lição vale para toda rota `PATCH` deste painel:** quando o front
+reconstrói a tela com o que a rota devolve, **o `RETURNING` é contrato de
+interface**. Campo que o formulário edita e não volta na resposta vira "não
+salvou" aos olhos de quem usa.
+
+O que mudou em `src/routes/admin.routes.js`:
+
+- `os_id` entrou no `RETURNING`.
+- Os campos derivados da O.S. (`os_numero`, `os_tecnico_nome`, `os_chamado_id`,
+  `os_finalizada_em`, `orcamento_observacoes`) passam a viajar na resposta —
+  é o que faz o trilho "O que o técnico pediu" aparecer no mesmo salvamento em
+  vez de só no recarregamento. ⚠️ **Vêm sempre, com `null` quando não há
+  O.S.**: devolvidos só quando há vínculo, o `Object.assign` deixaria os
+  antigos e o trilho mostraria o técnico de uma O.S. já desvinculada.
+- `os_id` saiu do ramo genérico do `PATCH`, onde caía em
+  `String(v).slice(0, 255)` — o vínculo chegava como a **string** `"102"` numa
+  coluna `integer`. O cast implícito salvava o caso comum, mas string vazia
+  estoura `22P02` (`pg_strtoint32_safe`) e derruba o salvamento em 500. Agora
+  anda com `condominio_id`, como inteiro.
+
+**Teste novo:** `scripts/testes/orcamento-vincula-os.test.js` — rota de
+verdade contra o banco de teste, 15 checagens (vincular, desvincular, string
+vazia, e a lista concordando com o `PATCH`). ⚠️ **Ele simula o `Object.assign`
+do front**, porque um teste que só conferisse a tabela passaria verde com o bug
+de pé — que é exatamente o que a tela fez. Rodado contra o código anterior:
+**6/15**.
+
+Sem migration. Sem mudança de front — o `admin.js` já mandava `os_id` certo.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em
