@@ -133,6 +133,31 @@ deixava toda O.S. fora do alcance dele, e isso furou quando a placa passou a
 nomear a O.S. que executou: ele via o número e tomava 403 ao abrir. A linha em
 `osDonoOuAdmin` é o `forWrite` — editar é do técnico que esteve no prédio.
 
+### ⚠️ A prioridade do chamado vem do contrato (03/09/2026)
+
+A cláusula 7 da minuta define enquadramento e prazo de cada P1–P4. Os prazos em
+`sla_definicoes` **já conferiam** desde a migration 028 (3h / 48h / 72h /
+agendamento); o que não existia era o enquadramento — o texto que diz *quando*
+aplicar cada uma — e a tela escrevia os prazos à mão, com um "24-48h" que o
+contrato não dá.
+
+Hoje a régua mora em `src/services/prioridade.service.js` (única cópia da lista
+de categorias, antes repetida em quatro arquivos) e chega à tela por
+`GET /chamados/prioridades`.
+
+⚠️ **A categoria SUGERE e a pessoa decide** — cláusula 7.1.c autoriza a
+reclassificação pela triagem. Mexeu na prioridade à mão, a categoria para de
+mexer. No painel do cliente ela decide sozinha, o que é anterior.
+
+⚠️ **`sla_definicoes` é GLOBAL.** Os prazos valem para os 86 prédios; se as
+minutas antigas divergirem, o sistema promete a régua do Saint Antoine para
+todos. Pendência aberta.
+
+⚠️ **Quatro colunas órfãs em `chamados`**, nos DOIS bancos: `triagem_risco_imediato`,
+`triagem_redundancia`, `prioridade_piso`, `prioridade_motivo`. Sem migration, sem
+código, vazias. Os nomes são os critérios que a cláusula 7 usa para separar P1 de
+P2 — parece uma versão disto começada antes e não terminada.
+
 ### ⚠️ Escolher prédio é campo de BUSCA, não `<select>` (02/09/2026)
 
 `public/condo-picker.js` — arquivo **compartilhado** por `admin.html` e

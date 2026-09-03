@@ -504,9 +504,8 @@ router.get("/prazos", authRequired, adminOnly, async (req, res) => {
  * mandar permitiria abrir, a partir do orçamento de um prédio, um chamado em
  * outro — e o vínculo passaria a mentir.
  */
-const CATEGORIAS_CHAMADO = [
-  "vazamento", "bomba_falha", "nivel_baixo", "sem_agua", "ruido", "manutencao", "outro",
-];
+// ⚠️ A lista mora no `prioridade.service.js` — ver o cabeçalho de lá.
+const { CATEGORIAS: CATEGORIAS_CHAMADO } = require("../services/prioridade.service");
 const PRIORIDADES_CHAMADO = ["p1", "p2", "p3", "p4"];
 
 router.post("/orcamentos/:id/chamado", authRequired, adminOnly, async (req, res) => {

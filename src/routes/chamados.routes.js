@@ -8,8 +8,12 @@ const { resolverTecnico } = require("../services/chamado-atribuicao.service");
 
 const router = express.Router();
 
-const CATEGORIAS = ["vazamento", "bomba_falha", "nivel_baixo", "sem_agua", "ruido", "manutencao", "outro"];
-const PRIORIDADES = ["p1", "p2", "p3", "p4"];
+// ⚠️ A LISTA MORA NO `prioridade.service.js` — ela estava repetida em quatro
+// arquivos, e acrescentar uma categoria pedia lembrar dos quatro.
+const {
+  CATEGORIAS, CATEGORIA_ROTULO, CATEGORIA_PRIORIDADE, PRIORIDADES, ENQUADRAMENTO,
+  prioridadeSugerida, subirUmNivel,
+} = require("../services/prioridade.service");
 
 // POST /chamados — cria chamado manualmente (admin, gerente, operador)
 //
@@ -21,6 +25,51 @@ const PRIORIDADES = ["p1", "p2", "p3", "p4"];
 // ⚠️ NÃO CONFUNDIR COM `responsavel_id`: aquele é o USUÁRIO interno que
 // responde pelo chamado; este é o TÉCNICO de campo que vai ao prédio. São
 // colunas diferentes e telas diferentes.
+// GET /chamados/prioridades
+//
+// A régua do contrato, montada para a tela: as quatro prioridades com rótulo,
+// enquadramento e PRAZO, mais o mapa categoria → prioridade.
+//
+// ⚠️ O PRAZO VEM DE `sla_definicoes`, NÃO DO HTML. Os botões P1–P4 do modal
+// traziam "≤ 3h", "24-48h", "≤ 72h" escritos à mão — e o "24-48h" prometia uma
+// janela que a cláusula 7 não dá (ela diz "até 48 horas"). Pior: editar o SLA
+// em Configurações não mudava o que a tela dizia. Agora é uma fonte só.
+//
+// ⚠️ `adminOnly` e não `masterAdminOnly`: quem abre chamado precisa ler isto.
+// A EDIÇÃO do SLA continua sendo do admin master, em `PATCH /admin/sla`.
+//
+// ⚠️ `sla_chegada_min` nulo é o P4 — "Agendamento" na minuta, não zero. A tela
+// tem de dizer "conforme agenda", e para isso precisa distinguir nulo de 0.
+router.get("/prioridades", authRequired, adminOnly, async (req, res) => {
+  try {
+    const r = await pool.query(
+      `SELECT prioridade, ttfr_min, ttr_min, sla_chegada_min
+         FROM sla_definicoes
+        WHERE prioridade = ANY($1::varchar[])`,
+      [PRIORIDADES]
+    );
+    const porId = Object.fromEntries(r.rows.map((x) => [x.prioridade, x]));
+    return res.json({
+      prioridades: PRIORIDADES.map((id) => ({
+        id,
+        rotulo: ENQUADRAMENTO[id].rotulo,
+        enquadramento: ENQUADRAMENTO[id].enquadramento,
+        plantao: ENQUADRAMENTO[id].plantao,
+        sla_chegada_min: porId[id] ? porId[id].sla_chegada_min : null,
+        ttfr_min: porId[id] ? porId[id].ttfr_min : null,
+      })),
+      categorias: CATEGORIAS.map((id) => ({
+        id,
+        rotulo: CATEGORIA_ROTULO[id],
+        prioridade: CATEGORIA_PRIORIDADE[id] || "p3",
+      })),
+    });
+  } catch (err) {
+    console.error("[chamados] GET /prioridades:", err);
+    return res.status(500).json({ error: "Erro ao buscar a régua de prioridade" });
+  }
+});
+
 router.post("/", authRequired, adminOnly, async (req, res) => {
   const { titulo, descricao, categoria, prioridade, condominio_id, responsavel_id, tecnico_id,
           orcamento_id } = req.body || {};
@@ -74,10 +123,25 @@ router.post("/", authRequired, adminOnly, async (req, res) => {
       orcFinal = oid;
     }
 
-    let prioFinal = prioridade || "p3";
+    // ⚠️ SEM PRIORIDADE NO CORPO, QUEM DECIDE É A CATEGORIA (03/09/2026) — e
+    // não mais um "p3" fixo. A régua está no `prioridade.service.js`, ancorada
+    // na cláusula 7 da minuta, e é a mesma que o painel do cliente usa desde
+    // sempre. O painel do admin manda a prioridade explícita (a categoria
+    // apenas MOVE o seletor lá, porque a cláusula 7.1.c prevê reclassificação
+    // pela triagem); este default cobre quem não manda — integrações e o
+    // corpo enxuto.
+    const prioPedida = prioridade || prioridadeSugerida(categoria);
+    let prioFinal = prioPedida;
 
-    // Detecção de recorrência: mesma categoria no mesmo condomínio nos últimos 30 dias
-    // → sobe 1 nível automaticamente (P4→P3→P2→P1)
+    // Detecção de recorrência: mesma categoria no mesmo condomínio nos últimos
+    // 30 dias → sobe 1 nível (P4→P3→P2→P1).
+    //
+    // ⚠️ ISSO ERA MUDO ATÉ 03/09/2026, e mudo é o pior jeito de uma regra
+    // automática existir: o operador escolhia P2, o banco gravava P1 e a tela
+    // não dizia nada — quem visse a fila depois concluiria que alguém tinha
+    // errado a classificação. Agora a resposta carrega `prioridade_ajustada`,
+    // e a tela conta o que aconteceu.
+    let ajuste = null;
     if (categoria && condominio_id) {
       const recorrencia = await pool.query(
         `SELECT 1 FROM chamados
@@ -88,8 +152,16 @@ router.post("/", authRequired, adminOnly, async (req, res) => {
         [Number(condominio_id), categoria]
       );
       if (recorrencia.rows.length > 0) {
-        const bump = { p4: "p3", p3: "p2", p2: "p1", p1: "p1" };
-        prioFinal = bump[prioFinal] || prioFinal;
+        prioFinal = subirUmNivel(prioPedida);
+        if (prioFinal !== prioPedida) {
+          ajuste = {
+            de: prioPedida,
+            para: prioFinal,
+            motivo: "recorrencia_30_dias",
+            texto: "Já houve chamado desta categoria neste prédio nos últimos 30 dias — " +
+                   "a prioridade subiu um nível.",
+          };
+        }
       }
     }
 
@@ -141,7 +213,9 @@ router.post("/", authRequired, adminOnly, async (req, res) => {
         alteradoPor: req.user.id,
       });
     }
-    return res.status(201).json(row);
+    // `prioridade_ajustada` só existe quando a recorrência mexeu — chave ausente
+    // é o caso normal, e o front não precisa testar nada além da presença dela.
+    return res.status(201).json(ajuste ? { ...row, prioridade_ajustada: ajuste } : row);
   } catch (e) {
     console.error("[chamados] POST /:", e);
     return res.status(500).json({ error: "Erro ao criar chamado" });

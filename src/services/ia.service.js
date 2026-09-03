@@ -2,6 +2,7 @@ const OpenAI = require("openai");
 const { pool } = require("../db");
 const { getConfig, getConfigBool } = require("./config.service");
 const { registrarCriacao } = require("./chamado-historico.service");
+const { CATEGORIAS, ENQUADRAMENTO } = require("./prioridade.service");
 
 let _client = null;
 function getClient() {
@@ -325,7 +326,10 @@ const tools = [
           },
           categoria:    {
             type: "string",
-            enum: ["vazamento", "bomba_falha", "nivel_baixo", "sem_agua", "ruido", "manutencao", "outro"],
+            // ⚠️ Do `prioridade.service.js`: o enum que a IA vê é a MESMA lista
+            // que as rotas validam. Divergindo, a IA classifica com uma categoria
+            // que o INSERT recusa — e o chamado morre no meio da conversa.
+            enum: CATEGORIAS,
             description: "Tipo de problema. vazamento=água escapando; bomba_falha=bomba não funciona/com defeito; nivel_baixo=reservatório com pouca água; sem_agua=sem abastecimento; ruido=barulho anormal; manutencao=solicitação preventiva; outro=não se encaixa nas demais",
           },
         },

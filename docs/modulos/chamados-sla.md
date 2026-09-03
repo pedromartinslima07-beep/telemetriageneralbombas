@@ -14,7 +14,9 @@ aliases:
 Origens possíveis:
 - **IA** (via WhatsApp, após confirmação ou direto se P1).
 - **Cliente** (`POST /cliente/chamados`, app/painel).
-- **Admin** (`POST /chamados`, masterAdmin).
+- **Admin** (`POST /chamados`, adminOnly — admin, gerente e operador).
+  Sem `prioridade` no corpo, quem decide é a categoria (ver abaixo); o modal
+  do painel manda sempre a explícita.
 - **Plano de manutenção** (job gera chamado P4 ao vencer).
 - **Automático via `abrirChamadoAuto`** (`src/services/chamados.service.js`):
   dispositivo offline (`offline.job.js`, categoria `bomba_falha`, P2) e nível
@@ -32,21 +34,91 @@ Ao abrir, anexa automaticamente a última leitura de telemetria do condomínio
 **Fórmula:** Risco Técnico + Impacto Operacional + Recorrência + Estratégia do
 Cliente + Urgência Real. Triagem (pare no primeiro SIM):
 
-| Nível | SLA chegada | Gatilho |
+⚠️ **A RÉGUA É A CLÁUSULA 7 DA MINUTA** ("DOS CHAMADOS E SLA P1-P4"), conferida
+contra o contrato em 03/09/2026. Ela vive em `src/services/prioridade.service.js`
+e chega à tela por `GET /chamados/prioridades`.
+
+| Nível | SLA chegada | Enquadramento (texto da cláusula 7) |
 |---|---|---|
-| **P1 Crítico** | ≤ 3h | sem água, alagamento, esgoto, queimado, risco de incêndio |
-| **P2 Alta** | 24–48h | modo parcial, contingência, redundância comprometida |
-| **P3 Controlado** | ≤ 72h | funciona, precisa de inspeção / pequena correção |
-| **P4 Agendado** | conforme agenda | preventiva, projeto, retrofit, instalação planejada |
+| **P1 Crítico** | até 3h | risco imediato de desabastecimento relevante; poço ou área crítica com risco de inundação; falha crítica de sistema essencial |
+| **P2 Alto** | até 48h | falha relevante, mas com condição provisória, redundância parcial ou sem risco imediato à segurança e ao abastecimento geral |
+| **P3 Programável** | até 72h | anomalia sem risco imediato; equipamento reserva indisponível sem perda da função principal; ajuste ou corretiva não crítica |
+| **P4 Baixa criticidade** | agendamento | melhorias, levantamentos, adequações, solicitações estéticas ou serviços que dependam de planejamento e orçamento |
+
+⚠️ **O PRAZO VEM DE `sla_definicoes`, NUNCA DO HTML.** Os quatro botões do modal
+de novo chamado traziam "≤ 3h", "24-48h" e "≤ 72h" escritos à mão — e o
+"24-48h" prometia uma janela que a cláusula não dá (ela diz **até** 48 horas).
+Pior: editar o SLA em Configurações não mudava o que a tela dizia. Os valores em
+produção conferem com a minuta desde a migration 028; o que faltava era a tela
+lê-los.
+
+⚠️ **Os rótulos são os do contrato.** A tela dizia "Alta", "Controlado" e
+"Agendado"; a minuta diz "Alto", "Programável" e "Baixa criticidade / melhoria".
+Painel e contrato falando nomes diferentes da mesma coisa é como uma conversa
+com o síndico vira discussão.
+
+### A categoria sugere a prioridade (03/09/2026)
+
+Pedido do Pedro: *"na abertura de chamados, em vez de ficar 100% pro usuário
+escolher, ele ir trocando sozinho dependendo do serviço?"*.
+
+⚠️ **SUGERE, NÃO TRAVA — e é a própria minuta que autoriza.** Cláusula 7.1.c:
+*"A prioridade poderá ser reclassificada tecnicamente após a triagem ou chegada
+ao local, com justificativa"*. No painel do admin a categoria move o seletor e
+escreve por quê, com o texto da cláusula; **assim que a pessoa escolhe à mão, a
+sugestão para de mexer** — quem atende o telefone sabe coisas que a categoria não
+carrega (se há redundância, se o poço está alagando).
+
+No painel do **cliente** ela decide sozinha, e isso é anterior a tudo isto:
+cliente marca tudo como emergência, e isso inviabiliza a fila do técnico.
+
+| Categoria | Prioridade | Por quê |
+|---|---|---|
+| `sem_agua` | P1 | "risco imediato de desabastecimento relevante" |
+| `vazamento` | P2 | falha relevante com condição provisória; **sobe a P1 na triagem** em poço/área crítica com risco de inundação |
+| `bomba_falha` | P2 | idem; P1 quando não houver redundância |
+| `nivel_baixo` | P3 | ainda não é desabastecimento — é o aviso antes dele |
+| `ruido` | P3 | "anomalia sem risco imediato" |
+| `manutencao` | **P4** | decisão expressa do Pedro (03/09/2026) — ver [`../../memory-bank/decisions.md`](../../memory-bank/decisions.md) |
+| `melhoria` | P4 | o texto do P4 na cláusula 7 (migration 081) |
+| `outro` | P3 | sem informação para triar, o meio da tabela |
+
+⚠️ **`melhoria` NASCEU PARA O P4 SER ALCANÇÁVEL.** Sem ela, "levantamento",
+"adequação" e "melhoria estética" caíam em `outro` e viravam P3 — 72 horas de
+comparecimento para um pedido que a minuta manda **agendar**.
+
+⚠️ **Categoria desconhecida cai em P3, nunca em P1.** Errar para cima enche o
+plantão de coisa que não é plantão, e a cláusula 8.1 reserva a cobertura 24
+horas ao P1.
+
+### A recorrência deixou de ser muda (03/09/2026)
+
+Chamado da mesma categoria, no mesmo prédio, nos últimos 30 dias sobe um nível
+(teto em P1; P4 no histórico não conta). A regra é antiga; o que mudou é que
+**ela fazia isso calada**: o operador escolhia P2, o banco gravava P1, e quem
+visse a fila depois concluía que alguém errou a classificação. Hoje a resposta
+de `POST /chamados` traz `prioridade_ajustada` (`{de, para, motivo, texto}`) e o
+modal segura aberto para contar antes de fechar.
 
 Regras especiais:
 - Dúvida entre dois níveis → prevalece o **maior**.
-- **Recorrência** (mesma falha no mês) sobe 1 nível automaticamente.
 - Redundância só reduz criticidade se a contingência realmente funciona.
-- SLA mede **chegada do técnico**, não resolução.
+- SLA mede **chegada do técnico**, não resolução (cláusula 7.1.a: é prazo de
+  mobilização e comparecimento, **não** garantia de solução no mesmo prazo).
+- O prazo **suspende** por impedimento de acesso, portaria sem liberação, risco
+  à segurança, terceiros, caso fortuito (cláusula 7.1.d) — hoje o sistema não
+  modela essa suspensão; o relógio corre.
+
+⚠️ **O `sla_definicoes` é GLOBAL, não por contrato.** Os prazos valem para os 86
+prédios. Se as minutas antigas divergirem da nova, o sistema promete a régua do
+Saint Antoine para todos. Pendência aberta.
 
 `categoria`: vazamento, bomba_falha, nivel_baixo, sem_agua, ruido, manutencao,
-outro.
+melhoria, outro — **a lista tem uma cópia só**, em
+`src/services/prioridade.service.js`. Ela vivia repetida em `chamados.routes.js`,
+`cliente.routes.js`, `operador.routes.js` e no `enum` da função da IA: quatro
+lugares para acrescentar uma categoria, e o quinto calado quando alguém
+esquecesse — com a IA classificando com um valor que o `INSERT` recusa.
 
 ## Ciclo de vida
 

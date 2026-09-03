@@ -41,6 +41,24 @@ aliases:
 
 ## Em andamento / pendente
 
+- ✅ **A prioridade do chamado vem do contrato** (03/09/2026). Pedido do Pedro,
+  a partir da minuta do Saint Antoine: *"com o que tem nela dá para setar um
+  padrão para o sistema? e na abertura de chamados, em vez de ficar 100% pro
+  usuário escolher, ele ir trocando sozinho dependendo do serviço?"*. Os prazos
+  já conferiam; a tela é que os escrevia à mão (com um "24-48h" que a cláusula
+  não dá) e não trazia o enquadramento. Hoje a régua é
+  `src/services/prioridade.service.js`, a categoria **sugere** (cláusula 7.1.c
+  autoriza a reclassificação) e a recorrência deixou de subir a prioridade em
+  silêncio. Migration 081 (`melhoria`) aplicada em teste e em **produção**.
+  Detalhe em [`../docs/modulos/chamados-sla.md`](../docs/modulos/chamados-sla.md).
+  - 📋 **SLA por contrato**: `sla_definicoes` é global. Se as minutas antigas
+    divergirem da nova, o sistema promete a régua do Saint Antoine para os 86.
+  - 📋 **A suspensão do prazo** (cláusula 7.1.d — acesso negado, portaria sem
+    liberação, terceiros, força maior) não é modelada: o relógio corre.
+  - ❓ **Quatro colunas órfãs em `chamados`** nos dois bancos —
+    `triagem_risco_imediato`, `triagem_redundancia`, `prioridade_piso`,
+    `prioridade_motivo`. Vazias, sem migration e sem código.
+
 - ✅ **O orçamento aprovado sabe que o serviço foi feito** (03/09/2026).
   Relato do Pedro: *"um técnico foi ao condomínio fez o serviço, tínhamos a
   O.S. no sistema porém estava lá em aprovados como se o serviço ainda

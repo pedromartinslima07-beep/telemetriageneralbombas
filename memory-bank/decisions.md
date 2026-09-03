@@ -877,6 +877,40 @@ faltava para o "recarregou antes de ver qual era".
 Tem "Reabrir" ao lado da baixa dada: baixa por engano é outra forma de perder
 a informação, e a simetria custa uma linha.
 
+## Prioridade dos chamados vem do contrato (03/09/2026)
+
+- **A régua é a cláusula 7 da minuta**, não o gosto de quem abre o chamado. Ela
+  define o enquadramento de cada prioridade e o prazo de comparecimento; os
+  prazos já estavam certos em `sla_definicoes` desde a migration 028, mas o
+  enquadramento — o texto que diz *quando* aplicar cada uma — não existia em
+  lugar nenhum do sistema. Agora vive em `src/services/prioridade.service.js` e
+  chega à tela por `GET /chamados/prioridades`.
+
+- **A categoria SUGERE, não trava.** É a cláusula 7.1.c que autoriza: *"A
+  prioridade poderá ser reclassificada tecnicamente após a triagem ou chegada ao
+  local, com justificativa"*. No painel do admin a categoria move o seletor e
+  escreve por quê; assim que a pessoa escolhe à mão, a sugestão para de mexer —
+  quem atende o telefone sabe coisas que a categoria não carrega (se há
+  redundância, se o poço está alagando). No painel do **cliente** ela decide
+  sozinha, e isso é anterior: cliente marca tudo como emergência.
+
+- **`manutencao` fica em P4** — decisão expressa do Pedro em 03/09/2026, quando
+  perguntado. A cláusula 7 daria margem para P3 ("ajuste ou corretiva não
+  crítica"), e a régua nasceu em P4 por herança do mapa do painel do cliente.
+  **Subir encurtaria de "agendamento" para 72 horas de comparecimento em todo
+  chamado de manutenção** — é obrigação contratual, não preferência de tela, e
+  por isso não se muda de lado.
+
+- **O prazo NUNCA se escreve na tela.** Os botões P1–P4 traziam "≤ 3h",
+  "24-48h" e "≤ 72h" no HTML: além de o "24-48h" prometer uma janela que o
+  contrato não dá (ele diz "até 48 horas"), editar o SLA em Configurações não
+  mudava o que a tela dizia. Uma fonte só, `sla_definicoes`.
+
+- ⏳ **O SLA é GLOBAL, não por contrato.** Os prazos valem para os 86 prédios.
+  Se as minutas antigas divergirem da nova, o sistema promete a régua do Saint
+  Antoine para todo mundo. Pendente de decisão — ver
+  [`active-work.md`](active-work.md).
+
 ## Decisões descartadas (e por quê)
 
 Registradas para não serem "redescobertas" e refeitas. Se o escopo mudar, o

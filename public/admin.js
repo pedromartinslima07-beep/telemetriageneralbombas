@@ -4719,25 +4719,137 @@ let _ncPicker = null;
     // Limpa campos
     ["ncTitulo","ncDescricao"].forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
     document.getElementById("ncCategoria").value = "outro";
-    document.getElementById("ncPrioridade").value = "p3";
+    document.getElementById("ncPrioridade").value = _ncPrioDe("outro");
+    // Cada abertura recomeça com a sugestão valendo: a decisão de quem abriu o
+    // chamado anterior não pode continuar mandando no próximo.
+    _ncPrioNaMao = false;
     // O picker sabe limpar (apaga o texto visível junto do valor); o
     // `getElementById` continua funcionando porque o campo virou hidden com
     // o mesmo id — é o que mantém o `salvar` abaixo sem uma linha de mudança.
     if (_ncPicker) _ncPicker.limpar(); else document.getElementById("ncCondo").value = "";
     _ncLimparOrcamentos();
     if (msg) msg.textContent = "";
-    // Reset seletor de prioridade — marca P3 como padrão
-    overlay.querySelectorAll(".nc-prio-btn").forEach(b => {
-      b.classList.remove("nc-prio-sel");
-      b.style.borderColor = "var(--border)";
-      b.style.background  = "var(--surface2)";
-    });
-    const p3btn = overlay.querySelector(".nc-prio-btn[data-prio='p3']");
-    if (p3btn) { p3btn.classList.add("nc-prio-sel"); p3btn.style.borderColor = "var(--accent)"; p3btn.style.background = "rgba(240,176,20,.08)"; }
+    _ncRenderPrioridades();
+    _ncCarregarRegua();     // uma vez por sessão; redesenha quando chega
     overlay.style.display = "flex";
   }
 
   function _ncFechar() { overlay.style.display = "none"; }
+
+  /* ── A régua de prioridade (03/09/2026) ───────────────────────────────
+     Vem do contrato, não do gosto de quem abre o chamado: a cláusula 7 da
+     minuta ("DOS CHAMADOS E SLA P1-P4") define o enquadramento de cada
+     prioridade e o prazo de comparecimento. `GET /chamados/prioridades` entrega
+     as duas coisas juntas, com o prazo lido de `sla_definicoes`.
+
+     ⚠️ O PRAZO NÃO SE ESCREVE AQUI. Os quatro botões eram markup fixo com
+     "≤ 3h", "24-48h" e "≤ 72h" dentro — e o "24-48h" prometia uma janela que a
+     cláusula não dá (ela diz "até 48 horas"). Além de errado, era intocável:
+     editar o SLA em Configurações não mudava a tela.
+
+     ⚠️ A CATEGORIA SUGERE, NÃO TRAVA — cláusula 7.1.c: "A prioridade poderá ser
+     reclassificada tecnicamente após a triagem". Quem atende o telefone sabe
+     coisas que a categoria não carrega (se há redundância, se o poço está
+     alagando), e é dele a última palavra. Por isso `_ncPrioNaMao`: assim que a
+     pessoa escolhe, a sugestão para de mexer. */
+  let _ncRegua    = null;   // { prioridades:[], categorias:[] }
+  let _ncPrioNaMao = false; // a pessoa já decidiu? então a categoria não mexe mais
+
+  function _ncPrioDe(categoria) {
+    const c = _ncRegua?.categorias?.find(x => x.id === categoria);
+    return c ? c.prioridade : "p3";
+  }
+
+  // "Até 3 horas" / "Conforme agenda". ⚠️ Nulo é o P4 — "Agendamento" na
+  // minuta —, e nulo não é zero: escrever "até 0h" seria pior que não escrever.
+  function _ncPrazoTxt(min) {
+    if (min == null) return "Conforme agenda";
+    if (min < 60) return `Até ${min} min`;
+    const h = min / 60;
+    return `Até ${Number.isInteger(h) ? h : h.toFixed(1).replace(".", ",")}h`;
+  }
+
+  /* ⚠️ TOKENS, NÃO HEX — A REGRA DO AMARELO CEGO (DESIGN.md). Os quatro
+     números nasceram com o hex cru dos botões antigos (#ef4444, #f97316,
+     #eab308), que são cores de CAMPO ESCURO. Este modal é placa clara, e a
+     medição foi: P1 2,69:1, P2 2,00:1 e o P3 selecionado **1:1** — amarelo
+     sobre o próprio amarelo da seleção, invisível. Os tokens `--danger`,
+     `--risco` e `--warn` viram a família `-t` dentro do `.modalBox` e passam o
+     piso de 4,5. */
+  const NC_PRIO_COR = {
+    p1: "var(--danger)",   // #790000 na placa clara
+    p2: "var(--risco)",    // idem — P1 e P2 são a mesma família, o peso separa
+    p3: "var(--warn)",     // #886116, já medido em 4,67:1 no modal de orçamento
+    p4: "var(--muted)",
+  };
+
+  function _ncRenderPrioridades() {
+    const grid = document.getElementById("ncPrioGrid");
+    const nota = document.getElementById("ncPrioNota");
+    if (!grid) return;
+    const sel = document.getElementById("ncPrioridade")?.value || "p3";
+
+    // Sem a régua carregada, os quatro botões existem com o rótulo mínimo: a
+    // tela não pode ficar sem seletor porque uma requisição não voltou.
+    const lista = _ncRegua?.prioridades?.length ? _ncRegua.prioridades
+      : ["p1","p2","p3","p4"].map(id => ({ id, rotulo: "", enquadramento: "", sla_chegada_min: null }));
+
+    grid.innerHTML = lista.map(p => `
+      <button type="button" class="nc-prio-btn${p.id === sel ? " nc-prio-sel" : ""}"
+        data-prio="${p.id}" aria-pressed="${p.id === sel ? "true" : "false"}"
+        title="${_waEscaparHtml(p.enquadramento || "")}">
+        <span class="nc-prio-id nc-prio-${p.id}" style="color:${NC_PRIO_COR[p.id]}">${p.id.toUpperCase()}</span>
+        <span class="nc-prio-rot">${_waEscaparHtml(p.rotulo || "")}</span>
+        <span class="nc-prio-prazo">${_waEscaparHtml(_ncPrazoTxt(p.sla_chegada_min))}</span>
+      </button>`).join("");
+
+    // A nota diz DE ONDE veio a prioridade que está marcada. Sem ela, o seletor
+    // se move sozinho quando a categoria muda e ninguém entende por quê.
+    if (!nota) return;
+    const atual = lista.find(p => p.id === sel);
+    if (_ncPrioNaMao) {
+      nota.hidden = false;
+      nota.innerHTML = `<b>${sel.toUpperCase()}</b> escolhido por você — a categoria não muda mais isto.`;
+    } else if (atual?.enquadramento) {
+      const cat = document.getElementById("ncCategoria");
+      const rotCat = cat?.options[cat.selectedIndex]?.text || "a categoria";
+      nota.hidden = false;
+      nota.innerHTML = `<b>${sel.toUpperCase()}</b> sugerido por “${_waEscaparHtml(rotCat)}”. ` +
+        `${_waEscaparHtml(atual.enquadramento)} Pode trocar.`;
+    } else {
+      nota.hidden = true;
+      nota.textContent = "";
+    }
+  }
+
+  async function _ncCarregarRegua() {
+    if (_ncRegua) return;
+    try {
+      const r = await fetch("/chamados/prioridades", { headers: authHeaders() });
+      if (!r.ok) return;                  // os botões continuam funcionando
+      _ncRegua = await r.json();
+      // As categorias do <select> também vêm da régua: a lista vivia repetida
+      // no HTML e no backend, e "Melhoria" nasceu faltando aqui.
+      const sel = document.getElementById("ncCategoria");
+      if (sel && Array.isArray(_ncRegua.categorias)) {
+        const atual = sel.value;
+        sel.innerHTML = _ncRegua.categorias.map(c =>
+          `<option value="${c.id}">${_waEscaparHtml(c.rotulo)}</option>`).join("");
+        sel.value = atual || "outro";
+      }
+      _ncRenderPrioridades();
+    } catch (e) {
+      console.warn("[novo chamado] régua de prioridade:", e.message);
+    }
+  }
+
+  // Trocar a categoria move o seletor — enquanto ninguém tiver decidido à mão.
+  document.getElementById("ncCategoria")?.addEventListener("change", (e) => {
+    if (_ncPrioNaMao) { _ncRenderPrioridades(); return; }
+    const hid = document.getElementById("ncPrioridade");
+    if (hid) hid.value = _ncPrioDe(e.target.value);
+    _ncRenderPrioridades();
+  });
 
   /* ── O serviço já autorizado (03/09/2026) ─────────────────────────────
      ⚠️ O CHAMADO ABERTO POR AQUI NASCIA SEM VÍNCULO COM O ORÇAMENTO, e era o
@@ -4842,10 +4954,10 @@ let _ncPicker = null;
   async function _ncSalvar() {
     const titulo    = document.getElementById("ncTitulo")?.value.trim();
     const descricao = document.getElementById("ncDescricao")?.value.trim();
-    if (!titulo)         { if (msg) { msg.style.color = "var(--danger)"; msg.textContent = "Título obrigatório"; } return; }
-    if (!descricao || descricao.length < 5) { if (msg) { msg.style.color = "var(--danger)"; msg.textContent = "Descreva com pelo menos 5 caracteres"; } return; }
+    if (!titulo)         { if (msg) { msg.className = ""; msg.style.color = "var(--danger)"; msg.textContent = "Título obrigatório"; } return; }
+    if (!descricao || descricao.length < 5) { if (msg) { msg.className = ""; msg.style.color = "var(--danger)"; msg.textContent = "Descreva com pelo menos 5 caracteres"; } return; }
 
-    if (msg) { msg.style.color = "var(--muted)"; msg.textContent = "Salvando…"; }
+    if (msg) { msg.className = ""; msg.style.color = "var(--muted)"; msg.textContent = "Salvando…"; }
     btnSalv.disabled = true;
 
     try {
@@ -4871,6 +4983,27 @@ let _ncPicker = null;
       const condo = (_condominios || []).find(c => String(c.id) === String(body.condominio_id));
       _chamadosData = [{ ...j, condominio_nome: condo?.nome || null }, ...(_chamadosData || [])];
       renderChamados();
+
+      // ⚠️ A RECORRÊNCIA DEIXOU DE SER MUDA (03/09/2026). O servidor sobe um
+      // nível quando já houve chamado da mesma categoria no prédio em 30 dias;
+      // até aqui ele fazia isso calado, e o operador que escolheu P2 via P1 na
+      // fila sem saber de onde veio. O modal segura ABERTO para contar — fechar
+      // e avisar ao mesmo tempo é avisar para uma tela que já sumiu.
+      if (j.prioridade_ajustada) {
+        const a = j.prioridade_ajustada;
+        if (msg) {
+          // ⚠️ LIMPA O `style.color` ANTES DA CLASSE. O resto desta função pinta
+          // a mensagem por style inline (`msg.style.color = "var(--danger)"`), e
+          // inline vence classe: sem esta linha o aviso sairia com a cor do
+          // "Salvando…" que estava ali um instante antes.
+          msg.style.color = "";
+          msg.className = "nc-msg-ajuste";
+          msg.textContent = `Chamado aberto como ${String(a.para).toUpperCase()}, ` +
+            `e não ${String(a.de).toUpperCase()}. ${a.texto}`;
+        }
+        setTimeout(() => { if (msg) msg.className = ""; _ncFechar(); }, 6000);
+        return;
+      }
       _ncFechar();
     } catch (e) {
       if (msg) { msg.style.color = "var(--danger)"; msg.textContent = "Erro: " + e.message; }
@@ -4885,19 +5018,18 @@ let _ncPicker = null;
   btnSalv.addEventListener("click",  _ncSalvar);
   overlay.addEventListener("click",  e => { if (e.target === overlay) _ncFechar(); });
 
-  // Seletor de prioridade P1–P4
+  // Seletor de prioridade P1–P4.
+  //
+  // ⚠️ MEXER AQUI DESLIGA A SUGESTÃO. A cláusula 7.1.c da minuta prevê que a
+  // prioridade seja reclassificada pela triagem — então a categoria SUGERE e a
+  // pessoa decide. Uma vez que ela decidiu, trocar a categoria não pode
+  // desfazer a decisão dela pelas costas.
   overlay.addEventListener("click", e => {
     const btn = e.target.closest(".nc-prio-btn");
     if (!btn) return;
-    overlay.querySelectorAll(".nc-prio-btn").forEach(b => {
-      b.classList.remove("nc-prio-sel");
-      b.style.borderColor = "var(--border)";
-      b.style.background  = "var(--surface2)";
-    });
-    btn.classList.add("nc-prio-sel");
-    btn.style.borderColor = "var(--accent)";
-    btn.style.background  = "rgba(240,176,20,.08)";
     document.getElementById("ncPrioridade").value = btn.dataset.prio;
+    _ncPrioNaMao = true;
+    _ncRenderPrioridades();
   });
 })();
 
@@ -12622,12 +12754,39 @@ function _avRenderPainel() {
              Isto existia so na aba Solicitados pelos tecnicos, dentro de um
              modal proprio que refazia tudo o que este ja faz. O modal foi
              embora; o bloco veio para ca. -->
+        <!-- ⚠️ VINCULO E PEDIDO NAO SAO A MESMA COISA (03/09/2026, relato do
+             Pedro: "dps q eu vinculei a OS tinha isso 'O que o tecnico pediu'
+             ... MAS ELE N TAVA NA TELA DE Solicitados pelos tecnicos PQ?").
+
+             Este bloco olhava so o os_id e daí AFIRMAVA que o tecnico pediu.
+             Sao dois campos diferentes:
+
+               os_id                    = este orcamento esta VINCULADO a uma O.S.
+               os_orcamento_necessario  = o TECNICO PEDIU orcamento naquela O.S.
+                                          (e o unico criterio da aba
+                                          "Solicitados pelos tecnicos")
+
+             A premissa "tem os_id, logo o tecnico pediu" valia enquanto a
+             UNICA forma de existir os_id era o backend criar o orcamento a
+             partir de um pedido (_garantirOrcamentoDaOs). Com o vinculo manual
+             do <select> funcionando, ela quebrou: um orcamento amarrado a mao
+             a uma O.S. sem pedido mostrava "Marcou que precisa de orcamento" e
+             mandava ligar para um tecnico que nunca pediu nada — e o nome era
+             so quem assinou a O.S.
+             Tambem cobre a O.S. cujo pedido foi RESOLVIDO (a lixeira da aba
+             desliga a flag): o vinculo fica, e o texto no presente mentiria.
+
+             Sem pedido, o bloco nao some — a O.S. vinculada e informacao util.
+             Ele so para de dizer que alguem pediu. -->
         ${o.os_id ? `
         <div>
-          <div class="av-total-lbl">O que o técnico pediu</div>
-          ${o.orcamento_observacoes
-            ? `<p class="orc-rail-obs">${_waEscaparHtml(o.orcamento_observacoes)}</p>`
-            : `<p class="orc-rail-obs is-vazia">Marcou que precisa de orçamento e não escreveu o quê. Vale ligar para ${_waEscaparHtml(o.os_tecnico_nome || "o técnico")}.</p>`}
+          <div class="av-total-lbl">${o.os_orcamento_necessario ? "O que o técnico pediu" : "O.S. vinculada"}</div>
+          ${o.os_orcamento_necessario
+            ? (o.orcamento_observacoes
+                ? `<p class="orc-rail-obs">${_waEscaparHtml(o.orcamento_observacoes)}</p>`
+                : `<p class="orc-rail-obs is-vazia">Marcou que precisa de orçamento e não escreveu o quê. Vale ligar para ${_waEscaparHtml(o.os_tecnico_nome || "o técnico")}.</p>`)
+            : `<p class="orc-rail-obs is-vazia">Vinculada aqui pelo escritório. O técnico não pediu orçamento nesta O.S.</p>`}
+          ${o.os_numero ? `<div class="av-rail-kv"><span>O.S.</span><b>${_waEscaparHtml(o.os_numero)}</b></div>` : ""}
           <div class="av-rail-kv"><span>Técnico</span><b>${_waEscaparHtml(o.os_tecnico_nome || "—")}</b></div>
           ${o.os_chamado_id ? `<div class="av-rail-kv"><span>Chamado</span><b>#${o.os_chamado_id}</b></div>` : ""}
         </div>

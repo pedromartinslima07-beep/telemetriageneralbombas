@@ -368,7 +368,10 @@
       return J({
         prazos: [
           { prioridade: "p1", ttfr_min: 15,   sla_chegada_min: 180,  ttr_min: 240 },
-          { prioridade: "p2", ttfr_min: 60,   sla_chegada_min: 1440, ttr_min: 1440 },
+          // ⚠️ 2880 (48h) e nao 1440: e o que esta em `sla_definicoes` e o que a
+          // clausula 7 da minuta promete ("ate 48 horas"). A fixture dizia 24h e
+          // desenhava um prazo que o contrato nao da.
+          { prioridade: "p2", ttfr_min: 60,   sla_chegada_min: 2880, ttr_min: 2880 },
           { prioridade: "p3", ttfr_min: 240,  sla_chegada_min: 4320, ttr_min: 4320 },
           { prioridade: "p4", ttfr_min: 1440, sla_chegada_min: null, ttr_min: 14400 },
         ],

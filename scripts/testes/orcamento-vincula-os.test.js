@@ -41,7 +41,7 @@ const ok = (nome, cond) => r.push([nome, cond]);
   const porta = server.address().port;
   const base = `http://127.0.0.1:${porta}`;
 
-  let osId = null, orcId = null, tecId = null;
+  let osId = null, orcId = null, tecId = null, osSemPedidoId = null;
 
   try {
     const condoId = (await pool.query("SELECT id FROM condominios ORDER BY id LIMIT 1")).rows[0]?.id ?? null;
@@ -126,12 +126,44 @@ const ok = (nome, cond) => r.push([nome, cond]);
     const lista = await (await fetch(`${base}/admin/orcamentos/avulsos`, { headers: H })).json();
     const naLista = lista.find((x) => x.id === orcId);
     ok("o GET da lista mostra o mesmo vínculo", naLista && naLista.os_id === osId);
+
+    // ── 5. VÍNCULO NÃO É PEDIDO ───────────────────────────────────────────
+    // Segundo relato do Pedro: depois de vincular à mão, o trilho dizia "O que
+    // o técnico pediu" e mandava ligar para um técnico que nunca pediu nada —
+    // e a O.S. não aparecia na aba "Solicitados pelos técnicos", justamente
+    // porque lá o critério é `orcamento_necessario`, não o vínculo.
+    ok("a O.S. COM pedido traz a flag ligada", naLista && naLista.os_orcamento_necessario === true);
+    ok("e ela aparece na aba de solicitados",
+       (await (await fetch(`${base}/admin/orcamentos`, { headers: H })).json()).some(x => x.id === osId));
+
+    osSemPedidoId = (await pool.query(
+      `INSERT INTO ordens_servico (numero, condominio_id, tecnico_id, orcamento_necessario)
+       VALUES ($1, $2, $3, FALSE) RETURNING id`,
+      [`OS-N-${sufixo}`, condoId, tecId]
+    )).rows[0].id;
+
+    ({ st, j } = await patch({ os_id: String(osSemPedidoId), condominio_id: String(condoId) }));
+    ok("vincular a O.S. SEM pedido responde 200", st === 200);
+    ok("o PATCH devolve a flag DESLIGADA (o trilho deixa de alegar pedido)",
+       j.os_orcamento_necessario === false);
+    ok("o técnico continua vindo (é dado da O.S., não do pedido)",
+       j.os_tecnico_nome === `Tec Teste ${sufixo}`);
+
+    const lista2 = await (await fetch(`${base}/admin/orcamentos/avulsos`, { headers: H })).json();
+    const naLista2 = lista2.find((x) => x.id === orcId);
+    ok("o GET da lista também traz a flag desligada", naLista2 && naLista2.os_orcamento_necessario === false);
+
+    // ⚠️ E ela NÃO entra na aba de solicitados — que é o que o Pedro observou.
+    const solicitados = await (await fetch(`${base}/admin/orcamentos`, { headers: H })).json();
+    ok("a O.S. sem pedido NÃO aparece na aba de solicitados",
+       !solicitados.some(x => x.id === osSemPedidoId));
   } catch (e) {
     console.error("ERRO:", e.message);
     process.exitCode = 1;
   } finally {
     if (orcId) await pool.query("DELETE FROM orcamentos WHERE id=$1", [orcId]).catch(() => {});
     if (osId)  await pool.query("DELETE FROM ordens_servico WHERE id=$1", [osId]).catch(() => {});
+    if (osSemPedidoId) await pool.query("DELETE FROM ordens_servico WHERE id=$1", [osSemPedidoId]).catch(() => {});
     if (tecId) await pool.query("DELETE FROM tecnicos WHERE id=$1", [tecId]).catch(() => {});
     server.close();
     await pool.end();

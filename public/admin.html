@@ -18,7 +18,7 @@
   <link rel="stylesheet" href="/static/leaflet.css">
   <!-- ⚠️ Ao mexer em admin.js ou admin.css, bumpe o ?v=N aqui E no <script>
        lá embaixo. Ver CLAUDE.md raiz. -->
-  <link rel="stylesheet" href="/static/admin.css?v=250">
+  <link rel="stylesheet" href="/static/admin.css?v=251">
 </head>
 <body>
   <div id="appLoader">
@@ -2184,31 +2184,17 @@
         <input type="hidden" id="ncOrcamento" value="">
       </div>
 
-      <!-- Prioridade -->
+      <!-- Prioridade ────────────────────────────────────────────────────────
+           ⚠️ OS QUATRO BOTÕES SÃO DESENHADOS PELO JS, a partir de
+           GET /chamados/prioridades. Eles eram markup fixo com o prazo escrito
+           à mão — "≤ 3h", "24-48h", "≤ 72h" —, e o "24-48h" prometia uma janela
+           que a cláusula 7 da minuta não dá (ela diz "até 48 horas"). Pior:
+           editar o SLA em Configurações não mudava o que estava escrito aqui.
+           O prazo agora vem de `sla_definicoes`, uma fonte só. -->
       <div style="background:rgba(0,0,0,.2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;">
         <div class="modal-sec-title">Prioridade</div>
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">
-          <button type="button" class="nc-prio-btn" data-prio="p1" style="border:1px solid var(--border);border-radius:8px;padding:10px 6px;background:var(--surface2);cursor:pointer;text-align:center;">
-            <div style="font-size:13px;font-weight:800;color:#ef4444;">P1</div>
-            <div style="font-size:10px;color:var(--muted);margin-top:2px;">Crítico</div>
-            <div style="font-size:9px;color:var(--muted);margin-top:1px;">≤ 3h</div>
-          </button>
-          <button type="button" class="nc-prio-btn" data-prio="p2" style="border:1px solid var(--border);border-radius:8px;padding:10px 6px;background:var(--surface2);cursor:pointer;text-align:center;">
-            <div style="font-size:13px;font-weight:800;color:#f97316;">P2</div>
-            <div style="font-size:10px;color:var(--muted);margin-top:2px;">Alta</div>
-            <div style="font-size:9px;color:var(--muted);margin-top:1px;">24–48h</div>
-          </button>
-          <button type="button" class="nc-prio-btn nc-prio-sel" data-prio="p3" style="border:1px solid var(--border);border-radius:8px;padding:10px 6px;background:var(--surface2);cursor:pointer;text-align:center;">
-            <div style="font-size:13px;font-weight:800;color:#eab308;">P3</div>
-            <div style="font-size:10px;color:var(--muted);margin-top:2px;">Controlado</div>
-            <div style="font-size:9px;color:var(--muted);margin-top:1px;">≤ 72h</div>
-          </button>
-          <button type="button" class="nc-prio-btn" data-prio="p4" style="border:1px solid var(--border);border-radius:8px;padding:10px 6px;background:var(--surface2);cursor:pointer;text-align:center;">
-            <div style="font-size:13px;font-weight:800;color:var(--muted);">P4</div>
-            <div style="font-size:10px;color:var(--muted);margin-top:2px;">Agendado</div>
-            <div style="font-size:9px;color:var(--muted);margin-top:1px;">Conforme agenda</div>
-          </button>
-        </div>
+        <div class="nc-prio-grid" id="ncPrioGrid"></div>
+        <p class="nc-prio-nota" id="ncPrioNota" hidden></p>
         <input type="hidden" id="ncPrioridade" value="p3">
       </div>
 
@@ -2743,7 +2729,7 @@
 </div>
 
 
-<script src="/static/admin.js?v=334" defer></script>
+<script src="/static/admin.js?v=335" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
 <script src="/static/register-sw.js?v=51" defer></script>
 </body>

@@ -435,6 +435,62 @@ banco de teste, 15 checagens). ⚠️ **Ele simula o `Object.assign` do front** 
 um teste que só conferisse a tabela passaria verde com o bug de pé, que é
 exatamente o que a tela fez. Rodado contra o código anterior: 6/15.
 
+### ⚠️ Vínculo NÃO é pedido do técnico (03/09/2026)
+
+Segundo relato do Pedro, no mesmo dia: *"em um orçamento dps q eu vinculei a OS
+tinha isso 'O que o técnico pediu / Marcou que precisa de orçamento e não
+escreveu o quê. Vale ligar para José Glebson.' MAS ELE N TAVA NA TELA DE
+'SOLICITADOS PELOS TECNICOS' PQ?"*.
+
+**Porque são dois campos diferentes, e o trilho tratava um como o outro:**
+
+| | O que significa | Campo |
+|---|---|---|
+| Aba "Solicitados pelos técnicos" | o técnico marcou "precisa de orçamento" na O.S. | `ordens_servico.orcamento_necessario` |
+| Trilho "O que o técnico pediu" | este orçamento está **vinculado** a uma O.S. | `orcamentos.os_id` |
+
+O trilho aparecia só olhando `os_id` e daí **afirmava** o pedido. O nome do
+técnico também não era escolha: é quem assinou a O.S., pelo `LEFT JOIN
+tecnicos`. Resultado: a tela mandava ligar para alguém sobre um pedido que ele
+nunca fez.
+
+⚠️ **A premissa era verdadeira até o dia anterior.** Enquanto a única forma de
+existir `os_id` era o backend criar o orçamento a partir de um pedido
+(`_garantirOrcamentoDaOs`), "tem vínculo ⇒ houve pedido" valia. O conserto do
+`<select>` (ver a seção acima) fez o **vínculo manual** funcionar, e a premissa
+quebrou no mesmo dia — o bug latente virou visível.
+
+Dois caminhos levam ao que o Pedro viu:
+
+1. a O.S. nunca teve pedido, e o vínculo foi feito à mão — o caso dele;
+2. a O.S. teve pedido e alguém o resolveu (a lixeira da aba, ou o checkbox
+   `#osEdOrcamento`, desligam a flag), enquanto o orçamento seguiu vinculado.
+   O texto no presente mentiria igual.
+
+**O que passou a valer:** o trilho depende de `orcamento_necessario`, não de
+`os_id`.
+
+- **Com pedido** → "O que o técnico pediu", como antes.
+- **Sem pedido** → "O.S. vinculada", com *"Vinculada aqui pelo escritório. O
+  técnico não pediu orçamento nesta O.S."*
+
+⚠️ **O bloco não some quando não há pedido** — a O.S. vinculada é informação
+útil (número, técnico, chamado). Ele só para de alegar que alguém pediu.
+
+⚠️ **Flag ausente não é tratada como pedido.** Registro antigo em cache, ou uma
+rota que ainda não devolva o campo, cai no ramo "sem pedido": a alegação é que
+precisa de prova, não o contrário.
+
+O campo viaja como `os_orcamento_necessario` **nas duas rotas** —
+`GET /admin/orcamentos/avulsos` e `PATCH /admin/orcamentos/avulsos/:id` —,
+porque o modal é montado pelas duas.
+
+Testes: `scripts/testes/trilho-os-vinculada.test.js` (13 checagens, renderiza o
+bloco direto do `admin.js`) e as 7 checagens novas em
+`orcamento-vincula-os.test.js`. A prévia
+[`/dev/_orcamentos-preview.html`](#para-olhar-sem-sessão-dev_orcamentos-previewhtml)
+ganhou o orçamento **605** exatamente neste estado.
+
 #### O que foi removido, e por que existia
 
 Havia um segundo modal, com 13 funções paralelas (`_orcFormalHtml`,

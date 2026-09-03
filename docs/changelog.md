@@ -9150,6 +9150,148 @@ de pé — que é exatamente o que a tela fez. Rodado contra o código anterior:
 
 Sem migration. Sem mudança de front — o `admin.js` já mandava `os_id` certo.
 
+### 2026-09-03 (4ª rodada) · Vínculo não é pedido: o trilho mandava ligar para quem não pediu nada
+
+Relato do Pedro, logo depois de o vínculo passar a funcionar: *"em um orçamento
+dps q eu vinculei a OS tinha isso 'O que o técnico pediu / Marcou que precisa
+de orçamento e não escreveu o quê. Vale ligar para José Glebson.' MAS ELE N
+TAVA NA TELA DE 'SOLICITADOS PELOS TECNICOS' PQ?"*
+
+**Dois campos diferentes, tratados como um:** a aba lista O.S. com
+`orcamento_necessario = TRUE` (o **pedido**); o trilho aparecia com `os_id` (o
+**vínculo**) e daí afirmava o pedido. O nome do técnico era só quem assinou a
+O.S., pelo `LEFT JOIN tecnicos`.
+
+⚠️ **A premissa valia até a rodada anterior.** Enquanto a única forma de existir
+`os_id` era o backend criar o orçamento a partir de um pedido
+(`_garantirOrcamentoDaOs`), "tem vínculo ⇒ houve pedido" era verdade. Consertar
+o `<select>` fez o vínculo manual funcionar, e a premissa quebrou no mesmo dia:
+**um conserto tornou visível um bug latente**. Vale também para a O.S. cujo
+pedido foi resolvido pela lixeira — o vínculo fica, e o texto no presente
+mentiria igual.
+
+O trilho passou a depender de `orcamento_necessario`:
+
+- **com pedido** → "O que o técnico pediu", como antes;
+- **sem pedido** → "O.S. vinculada" + *"Vinculada aqui pelo escritório. O
+  técnico não pediu orçamento nesta O.S."*
+
+⚠️ **O bloco não some sem pedido** — número da O.S., técnico e chamado seguem
+visíveis, é informação útil. Ele só para de alegar que alguém pediu. E **flag
+ausente não vira pedido**: a alegação é que precisa de prova.
+
+`os_orcamento_necessario` viaja nas **duas** rotas que montam o modal
+(`GET /admin/orcamentos/avulsos` e `PATCH …/avulsos/:id`).
+
+⚠️ **Errei a crase do template literal** ao escrever o comentário SQL da rota, e
+`node --check` pegou na hora (`missing ) after argument list`). É a armadilha do
+CLAUDE.md, e o próprio arquivo já avisava dela duas linhas acima.
+
+Testes: `scripts/testes/trilho-os-vinculada.test.js` (13 checagens, renderiza o
+bloco direto do `admin.js`) e `orcamento-vincula-os.test.js` foi de 15 para 22.
+A prévia `/dev/_orcamentos-preview.html` ganhou o orçamento **605** neste
+estado. Sem migration. `?v=N`: `admin.js` 334 → 335 (`admin.html` e
+`_orcamentos-preview.html`); `_orcamentos-preview.js` 8 → 9.
+
+⏳ **Falta a conferência visual na prévia** — a extensão do Chrome caiu no meio
+da sessão e o render foi verificado por Node, não com os olhos.
+
+### 2026-09-03 (6ª rodada) · A prioridade do chamado passa a vir do contrato
+
+O Pedro mandou a minuta do Saint Antoine e perguntou: *"com o que tem nela dá
+para setar um padrão para o sistema? e na abertura de chamados, em vez de ficar
+100% pro usuário escolher, ele ir trocando sozinho dependendo do serviço?"*.
+
+#### O SLA já batia. A tela é que mentia
+
+Cláusula 7 contra `sla_definicoes`, lidos do banco:
+
+| | Minuta | Banco (migration 028) |
+|---|---|---|
+| P1 | até 3 horas | 180 min ✅ |
+| P2 | até 48 horas | 2880 min ✅ |
+| P3 | até 72 horas | 4320 min ✅ |
+| P4 | agendamento | nulo ✅ |
+
+O padrão estava setado desde julho. O que divergia eram os **rótulos escritos à
+mão** nos quatro botões do modal: "P2 · Alta · **24–48h**" onde a cláusula diz
+"até 48 horas" — uma janela que o contrato não dá —, "Controlado" onde a minuta
+diz "Programável", "Agendado" onde ela diz "Baixa criticidade / melhoria". E o
+`_operador-preview.js` tinha P2 com 1440 min (24h), divergindo do próprio banco.
+
+⚠️ **Pior que errado, era intocável**: editar o SLA em Configurações não mudava
+uma vírgula da tela. Agora os quatro botões são desenhados pelo JS a partir de
+**`GET /chamados/prioridades`**, que lê `sla_definicoes`. Uma fonte só.
+
+⚠️ **E o ENQUADRAMENTO não existia em lugar nenhum.** A minuta define *quando*
+cada prioridade se aplica — "risco imediato de desabastecimento relevante",
+"falha relevante mas com condição provisória" — e era justamente esse texto que
+faria alguém classificar certo. Ele entrou no `title` de cada botão e na nota
+abaixo do seletor.
+
+#### A categoria sugere — e é a minuta que autoriza
+
+Cláusula **7.1.c**: *"A prioridade poderá ser reclassificada tecnicamente após a
+triagem ou chegada ao local, com justificativa"*. O contrato já trata a
+classificação inicial como provisória, e é exatamente a diferença entre
+**sugerir** e **travar**.
+
+Escolher a categoria move o seletor e escreve por quê, com as palavras da
+cláusula. **Mexeu na prioridade à mão, a sugestão para de mexer** — quem atende
+o telefone sabe coisas que a categoria não carrega (se há redundância, se o poço
+está alagando), e é dele a última palavra.
+
+⚠️ **O mapa já existia, no painel do cliente**, desde que ele nasceu — o cliente
+nunca escolheu prioridade, porque cliente marca tudo como emergência. Ele saiu
+de `cliente.routes.js` para `src/services/prioridade.service.js` com a cláusula
+que sustenta cada linha, e virou a régua de todo o sistema.
+
+⚠️ **`manutencao` continua em P4, agora por decisão expressa** (perguntei; ele
+respondeu "pode ser p4"). A cláusula daria margem para P3 ("ajuste ou corretiva
+não crítica"), mas subir encurtaria de "agendamento" para **72 horas de
+comparecimento** em todo chamado de manutenção. É obrigação contratual, não
+preferência de tela.
+
+⚠️ **Categoria nova: `melhoria`** (migration 081, aplicada em teste **e em
+produção**). Sem ela o P4 era inalcançável pela tela: "levantamento",
+"adequação" e "melhoria estética" caíam em `outro` e viravam P3 — 72 horas de
+comparecimento para o que a minuta manda agendar.
+
+⚠️ **A lista de categorias tinha QUATRO cópias** — `chamados.routes.js`,
+`cliente.routes.js`, `operador.routes.js` e o `enum` da função da IA. Quatro
+lugares para acrescentar uma categoria, e o quinto calado quando alguém
+esquecesse: a IA classificaria com um valor que o `INSERT` recusa, e o chamado
+morreria no meio da conversa. Uma cópia só agora.
+
+#### A recorrência deixou de ser muda
+
+Ela sobe um nível quando há chamado da mesma categoria no prédio em 30 dias — e
+fazia isso **calada**. O operador escolhia P2, o banco gravava P1, e quem visse
+a fila depois concluiria que alguém errou a classificação. A resposta de
+`POST /chamados` passou a trazer `prioridade_ajustada` e o modal segura aberto
+para contar antes de fechar.
+
+#### E o modal foi medido, no navegador
+
+Os quatro números P1–P4 nasceram com o hex cru dos botões antigos (`#ef4444`,
+`#f97316`, `#eab308`), que são cores de **campo escuro** — e este modal é placa
+clara. Medido: P1 **2,69:1**, P2 **2,00:1**, e o P3 selecionado **1:1** —
+amarelo sobre o próprio amarelo da seleção, invisível. É a Regra do Amarelo Cego
+do [`DESIGN.md`](../DESIGN.md), a mesma que já tinha pegado o "Gerar PDF" em
+02/09.
+
+Trocados pelos tokens que o `.modalBox` remapeia para a família `-t`. E o fundo
+da seleção deixou de tingir de âmbar: `rgba(240,176,20,.08)` sobre a caixa
+rebaixada compunha um cinza-amarelado que derrubava **três** medidas de uma vez.
+O acento foi para a borda, que não passa por baixo de texto nenhum. Zero peças
+abaixo de 4,5:1.
+
+Testes: `prioridade-minuta.test.js` (38) é a cópia executável da cláusula 7 —
+prazo, rótulo, cobertura de plantão e o mapa inteiro, contra o banco de teste.
+Se alguém editar um prazo, ele falha nomeando a cláusula.
+`?v=N`: `admin.css` 250 → 251. O `admin.js` já foi a 335 na rodada do vínculo
+(acima), e nada foi ao ar entre as duas — um bump cobre as duas mudanças.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

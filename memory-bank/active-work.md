@@ -178,6 +178,39 @@ a barra da prévia comeu o clique e me fez achar que a lista tinha quebrado.
   alcance: nenhuma coluna liga aquela O.S. àquele orçamento. O que fecharia é o
   app do técnico perguntar na hora de finalizar. Enquanto isso, "Já foi feito".
 
+## Sessão 2026-09-03 (4ª rodada) — Vínculo não é pedido do técnico
+
+Relato do Pedro: depois de vincular a O.S. à mão, o trilho dizia *"O que o
+técnico pediu / Marcou que precisa de orçamento... Vale ligar para José
+Glebson"* — e aquela O.S. **não** estava na aba "Solicitados pelos técnicos".
+
+✅ **Corrigido.** A aba lista `orcamento_necessario = TRUE` (o pedido); o trilho
+olhava `os_id` (o vínculo) e afirmava o pedido. Agora depende da flag: com
+pedido, o texto de antes; sem pedido, "O.S. vinculada" sem alegar nada. O bloco
+não some — número, técnico e chamado seguem visíveis.
+
+⚠️ **A lição da rodada: um conserto tornou visível um bug latente.** A premissa
+"tem `os_id` ⇒ o técnico pediu" era verdadeira enquanto o vínculo só nascia de
+um pedido. Consertar o `<select>` (3ª rodada) quebrou a premissa no mesmo dia.
+**Ao destravar um caminho que não funcionava, procure quem assumia que ele não
+existia.**
+
+⚠️ **Errei a crase dentro do template literal** no comentário SQL — a armadilha
+do CLAUDE.md, avisada duas linhas acima no próprio arquivo. `node --check`
+pegou na hora.
+
+Detalhe em [`../docs/modulos/painel-admin.md`](../docs/modulos/painel-admin.md).
+Testes: `trilho-os-vinculada.test.js` (13) e `orcamento-vincula-os.test.js`
+(15 → 22). Prévia ganhou o orçamento 605 neste estado.
+
+### ⏳ ABERTO — falta olhar a prévia
+
+A extensão do Chrome caiu na troca de conta e não voltou; o render foi
+verificado por Node (os quatro estados do bloco), **não com os olhos**. Abrir
+`/dev/_orcamentos-preview.html` e clicar no **OR-000605** fecha isso.
+
+---
+
 ## Sessão 2026-09-03 (3ª rodada) — O pedido de orçamento que não saía nem a pau
 
 Relato do Pedro: *"um tecnico fez a solicitacao de um orcamento via os, mas

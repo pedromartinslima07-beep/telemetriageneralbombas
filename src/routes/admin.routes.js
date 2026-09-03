@@ -1398,6 +1398,17 @@ router.get("/orcamentos/avulsos", authRequired, gestaoOnly, async (req, res) => 
               -- desta rota porque ela já faz o LEFT JOIN com ordens_servico;
               -- buscar à parte seria uma request por abertura de modal.
               os.orcamento_observacoes,
+              -- ⚠️ A FLAG DO PEDIDO VIAJA JUNTO (03/09/2026), e ela separa
+              -- duas coisas que o modal tratava como uma: os_id diz que ESTE
+              -- orçamento está VINCULADO a uma O.S.; orcamento_necessario diz
+              -- que o TÉCNICO PEDIU orçamento. Só a segunda alimenta a aba
+              -- "Solicitados pelos técnicos". Vincular um orçamento à mão a
+              -- uma O.S. sem pedido fazia o trilho dizer "Marcou que precisa
+              -- de orçamento" e mandar ligar para um técnico que nunca pediu
+              -- nada — relato do Pedro.
+              -- (Sem crase neste comentário: ele vive dentro de um template
+              --  literal, e a crase FECHA o template. Errei isto agora.)
+              os.orcamento_necessario AS os_orcamento_necessario,
               os.chamado_id      AS os_chamado_id,
               os.finalizada_em   AS os_finalizada_em,
               tec.nome           AS os_tecnico_nome,
@@ -1625,13 +1636,18 @@ router.patch("/orcamentos/avulsos/:id", authRequired, gestaoOnly, async (req, re
     // deixaria os valores antigos e o trilho continuaria mostrando o técnico
     // de uma O.S. que não está mais ligada.
     let derivados = { os_numero: null, os_chamado_id: null, os_finalizada_em: null,
-                      os_tecnico_nome: null, orcamento_observacoes: null };
+                      os_tecnico_nome: null, orcamento_observacoes: null,
+                      os_orcamento_necessario: false };
     if (r.rows[0].os_id != null) {
       const os = await pool.query(
         `SELECT os.numero          AS os_numero,
                 os.chamado_id      AS os_chamado_id,
                 os.finalizada_em   AS os_finalizada_em,
                 os.orcamento_observacoes,
+                -- Ver o comentario no GET /avulsos: vinculo e pedido sao
+                -- coisas diferentes, e o trilho depende desta.
+                -- (Sem crase: comentario dentro de template literal.)
+                os.orcamento_necessario AS os_orcamento_necessario,
                 tec.nome           AS os_tecnico_nome
            FROM ordens_servico os
            LEFT JOIN tecnicos tec ON tec.id = os.tecnico_id

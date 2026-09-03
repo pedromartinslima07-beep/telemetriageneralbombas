@@ -9517,6 +9517,69 @@ body.role-viewer .viewer-only-hide-inline {
 }
 .av-rail-danger button:hover { color: var(--danger); text-decoration: underline; }
 
+/* ── Prioridade P1-P4 no modal de novo chamado (03/09/2026) ────────────────
+   Os quatro botões eram markup fixo com `style=""` em cada um — quatro cópias
+   da mesma regra, e o prazo escrito à mão dentro. Agora o JS os desenha a
+   partir de GET /chamados/prioridades e o estilo mora aqui.
+
+   ⚠️ TOKENS DE PLACA CLARA: `.modalBox` remapeia `--muted`/`--border` para a
+   família `--tinta`/`--fio-esc`. Regra dos Dois Campos de Estado do DESIGN.md. */
+.nc-prio-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.nc-prio-btn {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 10px 6px;
+  font-family: inherit; text-align: center;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 8px; cursor: pointer;
+  transition: border-color .12s, background .12s;
+}
+.nc-prio-btn:hover { border-color: var(--border-strong); }
+/* ⚠️ SELECIONADO CLAREIA O FUNDO, NÃO O TINGE DE ÂMBAR. O primeiro desenho
+   usava `rgba(240,176,20,.08)`, que sobre a caixa rebaixada do modal compõe um
+   cinza-amarelado (rgb 190,187,180) e derrubava TRÊS medidas de uma vez: o
+   número P3 em `--warn-t` caía a 2,91:1 e os dois rótulos a 4,22:1. O acento
+   fica na BORDA, que não passa por baixo de texto nenhum, e o fundo sobe para a
+   placa clara — que é a superfície com mais contraste disponível aqui. */
+.nc-prio-btn.nc-prio-sel {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+  background: var(--surface);
+}
+/* ⚠️ P1 E P2 CAEM NA MESMA TINTA na placa clara (`--danger` e `--risco` são os
+   dois #790000 da família `-t`), então quem os separa não é a cor: é o peso e a
+   caixa. P1 é o único com fundo próprio — ele é o que aciona o plantão 24h da
+   cláusula 8.1, e merece ser o único a se destacar sozinho. */
+.nc-prio-id   { font-size: 13px; font-weight: 800; letter-spacing: .01em; }
+.nc-prio-btn .nc-prio-p1 {
+  padding: 0 6px; border-radius: 3px;
+  background: rgba(121, 0, 0, .10);
+}
+.nc-prio-btn .nc-prio-p2 { font-weight: 700; }
+.nc-prio-btn .nc-prio-p3,
+.nc-prio-btn .nc-prio-p4 { font-weight: 700; }
+.nc-prio-rot  { font-size: 10px; color: var(--muted); }
+/* O prazo é número: tabular para os quatro alinharem na mesma coluna óptica. */
+.nc-prio-prazo {
+  font-size: 9px; color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+/* A nota que diz DE ONDE veio a prioridade marcada. Sem ela o seletor se move
+   sozinho ao trocar a categoria e ninguém entende por quê. */
+/* ⚠️ A NOTA É TINTA CHEIA, e não `--muted`. Ela mora sobre a caixa rebaixada
+   (`rgba(0,0,0,.2)`), onde o `--tinta-2` mede 4,26:1 — abaixo do piso. É frase
+   que se lê, não rótulo decorativo; a hierarquia dela vem do TAMANHO e do peso
+   do `<b>`, não de apagar a cor. Mesma troca já feita no estado vazio da tabela
+   de orçamentos. */
+.nc-prio-nota {
+  margin: 10px 0 0; font-size: 11.5px; line-height: 1.45; color: var(--text);
+}
+.nc-prio-nota b { font-weight: 800; }
+
+/* O aviso de que a recorrência subiu a prioridade. Ele conta uma coisa que o
+   servidor decidiu depois do clique — cabe no lugar da mensagem do rodapé, mas
+   com peso de aviso, não de erro: nada falhou. */
+.nc-msg-ajuste { color: var(--warn); }
+
 /* ── Serviço já autorizado, no modal de novo chamado (03/09/2026) ──────────
    O bloco que amarra o chamado ao orçamento aprovado do prédio. Mesma caixa
    dos irmãos do modal (fundo rebaixado, fio, raio 10) para não parecer um

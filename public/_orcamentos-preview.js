@@ -82,8 +82,18 @@
     { id: 601, numero: "OR-000501", condominio_id: 1, condominio_nome: "Condomínio Parque das Nações", condominio_razao_social: "PARQUE DAS NACOES EMPREENDIMENTOS IMOBILIARIOS LTDA",
       status: "rascunho", origem: "os", tipo: "pecas", valor_total: 1840, criado_em: d(1),
       os_id: 102, os_numero: "OS-2026-0041", os_tecnico_nome: "Cleber Nogueira",
-      os_chamado_id: null, os_finalizada_em: d(1),
+      os_chamado_id: null, os_finalizada_em: d(1), os_orcamento_necessario: true,
       orcamento_observacoes: "Quadro de comando com contatora chiando. Trocar antes que trave a bomba de recalque." },
+    // ⚠️ VINCULADO A MAO, SEM PEDIDO DO TECNICO (03/09/2026). E o caso do
+    // relato do Pedro, e o unico jeito de olhar o trilho nesse estado sem
+    // sessao: os_id existe, os_orcamento_necessario e false. O trilho tem de
+    // dizer "O.S. vinculada" e NAO alegar que alguem pediu — nem mandar ligar
+    // para o tecnico, que aqui so assinou a O.S.
+    { id: 605, numero: "OR-000605", condominio_id: 1, condominio_nome: "Condomínio Parque das Nações", condominio_razao_social: "PARQUE DAS NACOES EMPREENDIMENTOS IMOBILIARIOS LTDA",
+      status: "rascunho", origem: "admin", tipo: "pecas", valor_total: 640, criado_em: d(2),
+      os_id: 109, os_numero: "OS-2026-0055", os_tecnico_nome: "José Glebson",
+      os_chamado_id: 4821, os_finalizada_em: d(2), os_orcamento_necessario: false,
+      orcamento_observacoes: null },
     { id: 602, numero: "OR-000602", condominio_id: 1, condominio_nome: "Condomínio Parque das Nações", condominio_razao_social: "PARQUE DAS NACOES EMPREENDIMENTOS IMOBILIARIOS LTDA",
       status: "enviado", origem: "admin", tipo: "limpeza_reservatorio", valor_total: 2200, criado_em: d(4) },
     { id: 603, numero: "OR-000603", condominio_id: 2, condominio_nome: "Edifício Aurora Paulista", condominio_razao_social: "Edifício Aurora Paulista",
@@ -125,6 +135,8 @@
           tipo: "pecas", valor_total: 0, criado_em: new Date().toISOString(),
           os_id: os.id, os_numero: os.numero, os_tecnico_nome: os.tecnico_nome,
           os_chamado_id: os.chamado_id, os_finalizada_em: os.finalizada_em,
+          // nasceu de um pedido: a flag vem ligada, como no backend
+          os_orcamento_necessario: true,
           orcamento_observacoes: os.orcamento_observacoes });
       }
       return resp({ orcamento_id: os && os.orcamento_id, orcamento_numero: os && os.orcamento_numero,
