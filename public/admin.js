@@ -4724,6 +4724,7 @@ let _ncPicker = null;
     // `getElementById` continua funcionando porque o campo virou hidden com
     // o mesmo id — é o que mantém o `salvar` abaixo sem uma linha de mudança.
     if (_ncPicker) _ncPicker.limpar(); else document.getElementById("ncCondo").value = "";
+    _ncLimparOrcamentos();
     if (msg) msg.textContent = "";
     // Reset seletor de prioridade — marca P3 como padrão
     overlay.querySelectorAll(".nc-prio-btn").forEach(b => {
@@ -4737,6 +4738,106 @@ let _ncPicker = null;
   }
 
   function _ncFechar() { overlay.style.display = "none"; }
+
+  /* ── O serviço já autorizado (03/09/2026) ─────────────────────────────
+     ⚠️ O CHAMADO ABERTO POR AQUI NASCIA SEM VÍNCULO COM O ORÇAMENTO, e era o
+     caminho normal de despacho. `chamados.orcamento_id` existe desde a
+     migration 079, mas só a rota do painel do operador escrevia nela. Efeito:
+     o técnico ia, fazia, fechava a O.S. — e o orçamento continuava em
+     "Aprovados" dizendo "Pode executar", porque nada no banco ligava um ao
+     outro. Relato do Pedro: *"tínhamos a O.S. no sistema porém estava lá em
+     aprovados como se o serviço ainda estivesse em aberto"*.
+
+     ⚠️ O BLOCO SÓ EXISTE QUANDO HÁ O QUE ESCOLHER. A maioria dos chamados não
+     tem orçamento por trás; um bloco vazio permanente ensinaria a ignorá-lo.
+
+     ⚠️ E A ESCOLHA É REVERSÍVEL NO CLIQUE. Clicar no item selecionado
+     desmarca: sem isso, escolher por engano só se desfaz fechando o modal e
+     perdendo o que já foi digitado. */
+  let _ncOrcs = [];
+
+  function _ncLimparOrcamentos() {
+    _ncOrcs = [];
+    const bloco = document.getElementById("ncOrcBloco");
+    const lista = document.getElementById("ncOrcLista");
+    const hid   = document.getElementById("ncOrcamento");
+    if (hid)   hid.value = "";
+    if (lista) lista.innerHTML = "";
+    if (bloco) bloco.style.display = "none";
+  }
+
+  // O serviço em uma linha — o mesmo critério da tela de Aprovados: em
+  // orçamento por cláusula quem diz é o `tipo`; em orçamento de peças são as
+  // linhas. Sem preço: quem despacha não precisa dele.
+  function _ncOrcServico(o) {
+    // ⚠️ OS QUATRO DO CHECK DA MIGRATION 060, e só eles. A primeira versão
+    // desta tabela tinha "desinfeccao" e "manutencao", que NÃO EXISTEM na
+    // coluna, e não tinha "dedetizacao" e "limpeza_dedetizacao", que existem:
+    // um orçamento de dedetização apareceria no modal como `dedetizacao` cru,
+    // porque o fallback é a própria chave. Achado no screenshot da prévia
+    // (03/09/2026). Mesma tabela do `TIPO_ROT` em `operador-orcamentos.js`.
+    const rot = { pecas: "Peças e serviços",
+                  limpeza_reservatorio: "Limpeza de reservatório",
+                  dedetizacao: "Dedetização",
+                  limpeza_dedetizacao: "Limpeza e dedetização" };
+    if (o.tipo && o.tipo !== "pecas") return rot[o.tipo] || o.tipo;
+    const linhas = Array.isArray(o.linhas) ? o.linhas : [];
+    if (!linhas.length) return (o.constatacao || rot.pecas).slice(0, 90);
+    const p = linhas[0].descricao || rot.pecas;
+    return linhas.length > 1 ? p + " e mais " + (linhas.length - 1) : p;
+  }
+
+  function _ncRenderOrcamentos() {
+    const bloco = document.getElementById("ncOrcBloco");
+    const lista = document.getElementById("ncOrcLista");
+    const hid   = document.getElementById("ncOrcamento");
+    if (!bloco || !lista) return;
+    if (!_ncOrcs.length) { _ncLimparOrcamentos(); return; }
+    const sel = hid ? hid.value : "";
+    lista.innerHTML = _ncOrcs.map(o => {
+      const quando = o.aprovado_em || o.respondido_em || o.criado_em;
+      const dia = quando ? new Date(quando).toLocaleDateString("pt-BR") : "";
+      const quem = o.aprovado_por_nome ? " por " + _waEscaparHtml(o.aprovado_por_nome) : "";
+      return `
+        <button type="button" class="nc-orc-item${String(o.id) === sel ? " is-sel" : ""}"
+                data-nc-orc="${o.id}" aria-pressed="${String(o.id) === sel ? "true" : "false"}">
+          <span class="nc-orc-num mono">${_waEscaparHtml(o.numero || ("#" + o.id))}</span>
+          <span class="nc-orc-txt">${_waEscaparHtml(_ncOrcServico(o))}</span>
+          <span class="nc-orc-sub">aprovado${dia ? " em " + dia : ""}${quem}</span>
+        </button>`;
+    }).join("");
+    bloco.style.display = "";
+  }
+
+  async function _ncCarregarOrcamentos(condoId) {
+    _ncLimparOrcamentos();
+    if (!condoId) return;
+    try {
+      const r = await fetch("/admin/condominios/" + condoId + "/orcamentos-pendentes",
+                            { headers: authHeaders() });
+      if (!r.ok) return;              // silencioso: é acréscimo, não requisito
+      const d = await r.json();
+      _ncOrcs = Array.isArray(d) ? d : [];
+      _ncRenderOrcamentos();
+    } catch (e) {
+      console.warn("[novo chamado] orçamentos pendentes:", e.message);
+    }
+  }
+
+  // O picker escreve no hidden e dispara `change` que borbulha — a delegação
+  // no overlay sobrevive ao `montar()` de cada abertura, que troca o elemento.
+  overlay.addEventListener("change", e => {
+    if (e.target && e.target.id === "ncCondo") _ncCarregarOrcamentos(e.target.value);
+  });
+
+  overlay.addEventListener("click", e => {
+    const btn = e.target.closest("[data-nc-orc]");
+    if (!btn) return;
+    const hid = document.getElementById("ncOrcamento");
+    if (!hid) return;
+    hid.value = hid.value === btn.dataset.ncOrc ? "" : btn.dataset.ncOrc;
+    _ncRenderOrcamentos();
+  });
 
   async function _ncSalvar() {
     const titulo    = document.getElementById("ncTitulo")?.value.trim();
@@ -4754,6 +4855,9 @@ let _ncPicker = null;
         categoria:    document.getElementById("ncCategoria")?.value || "outro",
         prioridade:   document.getElementById("ncPrioridade")?.value || "p3",
         condominio_id: document.getElementById("ncCondo")?.value || null,
+        // Vazio vira `null`: string vazia no corpo faria a rota validar um id
+        // que ninguém escolheu.
+        orcamento_id: document.getElementById("ncOrcamento")?.value || null,
       };
       const r = await fetch("/chamados", {
         method: "POST",

@@ -27,6 +27,17 @@ function osDonoOuAdmin({ forWrite = false } = {}) {
   return async function (req, res, next) {
     const role = req.user?.role;
     if (role === "admin" || role === "gerente") return next();
+
+    // ⚠️ O OPERADOR LÊ, MAS NÃO ESCREVE (03/09/2026). O RBAC de 27/08 deixou
+    // toda O.S. fora do alcance dele, e isso furou quando a tela de Aprovados
+    // passou a nomear a O.S. que executou cada orçamento: o operador via o
+    // número escrito na placa e tomava 403 ao tentar abrir o documento do
+    // serviço que ele mesmo despachou.
+    //
+    // ⚠️ SÓ LEITURA, e a linha é o `forWrite`. Editar O.S. é do técnico que
+    // esteve no prédio — quem não foi lá não corrige o que foi medido lá.
+    if (role === "operador" && !forWrite) return next();
+
     if (role !== "tecnico") {
       return res.status(403).json({ error: "Apenas técnicos ou admin" });
     }

@@ -22,7 +22,8 @@ const PRIORIDADES = ["p1", "p2", "p3", "p4"];
 // responde pelo chamado; este é o TÉCNICO de campo que vai ao prédio. São
 // colunas diferentes e telas diferentes.
 router.post("/", authRequired, adminOnly, async (req, res) => {
-  const { titulo, descricao, categoria, prioridade, condominio_id, responsavel_id, tecnico_id } = req.body || {};
+  const { titulo, descricao, categoria, prioridade, condominio_id, responsavel_id, tecnico_id,
+          orcamento_id } = req.body || {};
 
   if (!titulo || typeof titulo !== "string" || !titulo.trim())
     return res.status(400).json({ error: "Título obrigatório" });
@@ -36,6 +37,42 @@ router.post("/", authRequired, adminOnly, async (req, res) => {
   try {
     const tec = await resolverTecnico(tecnico_id);
     if (!tec.ok) return res.status(400).json({ error: tec.erro });
+
+    // ⚠️ O CHAMADO QUE EXECUTA UM ORÇAMENTO (03/09/2026). A coluna
+    // `chamados.orcamento_id` existe desde a migration 079, mas até aqui só a
+    // rota do painel do OPERADOR a preenchia — o botão dentro da placa do
+    // orçamento aprovado. Chamado aberto pelo admin, que é o caminho normal,
+    // nascia sem vínculo nenhum: o técnico ia, fazia, fechava a O.S., e o
+    // orçamento seguia em "Aprovados" dizendo "Pode executar" para sempre,
+    // porque não havia uma linha no banco ligando o serviço ao documento.
+    //
+    // Relato do Pedro (03/09): *"um técnico foi ao condomínio fez o serviço,
+    // tínhamos a O.S. no sistema porém estava lá em aprovados como se o
+    // serviço ainda estivesse em aberto"*.
+    let orcFinal = null;
+    if (orcamento_id != null && orcamento_id !== "") {
+      const oid = Number(orcamento_id);
+      if (!Number.isInteger(oid) || oid <= 0) {
+        return res.status(400).json({ error: "orcamento_id inválido" });
+      }
+      const orc = await pool.query(
+        "SELECT id, status, condominio_id FROM orcamentos WHERE id = $1", [oid]
+      );
+      if (!orc.rows.length) return res.status(404).json({ error: "Orçamento não encontrado" });
+      // Mesma porta, mesma tranca da rota do operador: um chamado que promete
+      // executar um orçamento não aprovado é pior que um erro.
+      if (orc.rows[0].status !== "aprovado") {
+        return res.status(409).json({ error: "Este orçamento não está aprovado." });
+      }
+      // ⚠️ O PRÉDIO TEM DE SER O MESMO. Sem esta checagem, um clique errado no
+      // modal amarra o serviço de um condomínio ao orçamento de outro — e o
+      // erro não aparece em lugar nenhum até alguém cobrar a nota.
+      const condoChamado = condominio_id ? Number(condominio_id) : null;
+      if (orc.rows[0].condominio_id && orc.rows[0].condominio_id !== condoChamado) {
+        return res.status(409).json({ error: "Este orçamento é de outro condomínio." });
+      }
+      orcFinal = oid;
+    }
 
     let prioFinal = prioridade || "p3";
 
@@ -70,11 +107,11 @@ router.post("/", authRequired, adminOnly, async (req, res) => {
     // (`/iniciar-atendimento`, com GPS) — atribuir não é começar.
     const ins = await pool.query(
       `INSERT INTO chamados (condominio_id, titulo, descricao, prioridade, categoria, responsavel_id,
-                             tecnico_id, primeira_resposta_em, status)
+                             tecnico_id, primeira_resposta_em, status, orcamento_id)
        VALUES ($1, $2, $3, $4, $5, $6,
-               $7::int, CASE WHEN $7::int IS NULL THEN NULL ELSE NOW() END, 'aberto')
+               $7::int, CASE WHEN $7::int IS NULL THEN NULL ELSE NOW() END, 'aberto', $8)
        RETURNING id, status, prioridade, categoria, titulo, descricao, condominio_id, responsavel_id,
-                 tecnico_id, criado_em`,
+                 tecnico_id, criado_em, orcamento_id`,
       [
         condominio_id ? Number(condominio_id) : null,
         titulo.trim().slice(0, 255),
@@ -83,6 +120,7 @@ router.post("/", authRequired, adminOnly, async (req, res) => {
         categoria || "outro",
         responsavel_id ? Number(responsavel_id) : null,
         tec.id,
+        orcFinal,
       ]
     );
     const row = ins.rows[0];

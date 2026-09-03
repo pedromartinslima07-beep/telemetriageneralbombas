@@ -41,6 +41,27 @@ aliases:
 
 ## Em andamento / pendente
 
+- ✅ **O orçamento aprovado sabe que o serviço foi feito** (03/09/2026).
+  Relato do Pedro: *"um técnico foi ao condomínio fez o serviço, tínhamos a
+  O.S. no sistema porém estava lá em aprovados como se o serviço ainda
+  estivesse em aberto"*. Dois defeitos: o chamado aberto pelo modal do admin
+  nascia sem `orcamento_id` (só a rota do operador preenchia a coluna, que
+  existe desde a 079), e a lista de Aprovados só considerava "feito" a
+  marcação à mão — com o chamado fechado, a placa dizia "fechado" e continuava
+  na fila. Hoje o modal tem o bloco "Serviço já autorizado", e a tela mostra a
+  O.S. que executou. Sem migration. Detalhe em
+  [`../docs/modulos/painel-operador.md`](../docs/modulos/painel-operador.md).
+  - ✅ **O "Ver O.S." na placa, e o RBAC que ele pediu** (03/09). O operador
+    passou a **ler** O.S. — a linha em `osDonoOuAdmin` é o `forWrite`, e
+    editar continua sendo do técnico que esteve no prédio. Provado nos dois
+    sentidos em `scripts/testes/operador-le-os.test.js`.
+  - ✅ **Prévia da tela: `/dev/_aprovados-preview.html`**, com os cinco
+    estados da placa. A tela só se olhava com sessão, e o login é handoff.
+  - 📋 **Serviço feito sem chamado apontando o orçamento** continua exigindo o
+    "Já foi feito" manual. O que fecharia: o app do técnico perguntar, ao
+    finalizar a O.S. num prédio com orçamento aprovado pendente, se aquele
+    serviço é esse.
+
 - ✅ **O pedido de orçamento do técnico pode ser apagado** (03/09/2026). Relato
   do Pedro: um pedido repetido, de orçamento já enviado, que *"não sai nem a
   pau"*. A linha da aba é a **O.S. com `orcamento_necessario`**, não o

@@ -199,13 +199,14 @@ conteúdo. A fila do turno continua marinho porque é tabela de varredura.
 `GET /operador/orcamentos` não devolve coluna de dinheiro nenhuma. Ver o aviso
 em [`../api.md`](../api.md).
 
-### Os quatro estados de um orçamento aprovado
+### Os cinco estados de um orçamento aprovado
 
 | Estado | Selo | Ação | Placa |
 |---|---|---|---|
 | livre | **Pode executar**, âmbar cheio | "Já foi feito" (link) + "Abrir chamado" (âmbar) | `--chapa` |
 | chamado aberto | `Chamado #N aberto`, de fio | **nenhuma** — quem encerra é o chamado | `--chapa` |
-| chamado fechado | `Chamado #N fechado`, de fio | "Abrir de novo", de fio | `--chapa-es` |
+| **executado** (03/09) | `Executado · DD/MM/AAAA`, de fio | "Ver O.S." (link) + "Abrir de novo", de fio | `--chapa-es` |
+| chamado fechado sem O.S. | `Chamado #N fechado`, de fio | "Abrir de novo", de fio | `--chapa-es` |
 | **marcado à mão** (080) | `Feito em DD/MM`, de fio | "Desfazer" | `--chapa-es` |
 
 ⚠️ **"Marcado à mão" ganha de todos os outros na hora de decidir o estado.**
@@ -218,6 +219,91 @@ esqueceria que a primeira execução aconteceu.
 ⚠️ **"Já foi feito" só aparece no estado LIVRE.** Com chamado aberto quem
 conclui é o chamado, na fila do turno; oferecer os dois caminhos criaria duas
 verdades sobre o mesmo serviço.
+
+### A tela não sabia que o serviço tinha sido feito (03/09/2026)
+
+Relato do Pedro: *"um técnico foi ao condomínio fez o serviço, tínhamos a O.S.
+no sistema porém estava lá em aprovados como se o serviço ainda estivesse em
+aberto"*. Eram **dois** defeitos empilhados.
+
+**O primeiro é do outro lado do sistema:** o chamado aberto pelo modal do admin
+nascia sem `orcamento_id`, e nada ligava o serviço ao documento. Ver
+[painel-admin.md](painel-admin.md).
+
+**O segundo era daqui.** `render()` separava a lista por `executado_em` e mais
+nada — só a marcação à mão tirava um orçamento da fila. Um cujo chamado já
+tinha fechado continuava na lista principal e contado na manchete, com a
+própria placa dizendo "Chamado #73 fechado" ao lado. **A tela sabia e a conta
+não usava.** Hoje quem decide é `estaFeito()`, sobre `execucao()`.
+
+⚠️ **São três formas de estar feito e nenhuma vale mais que a outra**: alguém
+marcou à mão, a O.S. foi finalizada, ou o chamado que executava fechou.
+Chamado só tem três status — `aberto`, `em_atendimento`, `fechado` —, **não
+existe "cancelado"**: fechado é serviço encerrado, não desistido.
+
+⚠️ **A O.S. vem ANTES do chamado na hora de dizer o que aconteceu.** O chamado
+fechado é consequência: finalizar a O.S. o fecha sozinho
+(`ordens-servico.routes.js`). Dizer "chamado #73 fechado" para um serviço com
+O.S. assinada no prédio é contar o detalhe interno e esconder o documento — e é
+o documento que o operador cita ao telefone.
+
+⚠️ **`exec_os_*` NÃO é `os_id`/`os_numero`.** O primeiro é a O.S. que
+**executou** (via `chamados.orcamento_id` → `ordens_servico.chamado_id`); o
+segundo é a O.S. de **origem**, aquela em que o técnico pediu o orçamento. Por
+isso o rodapé passou a dizer **"pedido na O.S. XXX"**: com duas O.S. possíveis
+na mesma placa, o rótulo seco vira adivinhação.
+
+#### O "Ver O.S." e o RBAC que ele pediu
+
+O selo nomeia o documento; faltava chegar nele — e a trava era o RBAC de 27/08:
+`osDonoOuAdmin` deixava passar admin, gerente e o técnico dono, e o operador
+tomava 403 em qualquer leitura de O.S. A tela nomeava um documento que ela
+mesma não abria.
+
+`osDonoOuAdmin` passou a deixar o operador entrar **quando não é escrita**.
+
+⚠️ **A linha é o `forWrite`, e ela não se move.** Editar O.S. é do técnico que
+esteve no prédio: quem não foi lá não corrige o que foi medido lá. Provado nos
+dois sentidos em `scripts/testes/operador-le-os.test.js`.
+
+⚠️ **O botão busca o PDF com `fetch` + blob, não `<a href>`.** A rota exige
+`Authorization: Bearer`; href não carrega header e o operador receberia o JSON
+de "Token ausente" numa aba em branco.
+
+⚠️ **Ele se desabilita enquanto busca.** O PDF é gerado sob demanda quando não
+existe em disco — tempo suficiente para três cliques abrirem três abas.
+
+⚠️ **Só aparece no estado `executado`.** No chamado fechado sem O.S. não há
+documento para abrir.
+
+⚠️ **O selo NÃO leva o número da O.S., e isso foi medido.** A primeira versão
+levava, e dava **379px** contra os 175–184 dos quatro irmãos — mais de um terço
+da placa, em mono e caixa alta, roubando a linha do número do orçamento. O selo
+diz o ESTADO e o QUANDO, que é a gramática dos outros; o número mora no rodapé,
+ao lado do botão que o abre.
+
+⚠️ **UMA O.S. por placa.** Quando existem as duas (origem e execução), fica a
+que executou — com as duas o rodapé quebrava em duas linhas e pedia que o
+operador distinguisse dois números numa frase corrida.
+
+⚠️ **No celular o link é centrado, como os irmãos.** `.orc-veros` nasceu
+copiando as regras de mesa do `.orc-jafoi` e não a do `@media`, onde o
+`margin-left:auto` é zerado: ele ia encostar na borda direita da placa enquanto
+"Já foi feito" e "Desfazer" ficavam centrados. Medido a 390px — os três dão
+16px dos dois lados.
+
+### Para olhar sem sessão: `/dev/_aprovados-preview.html`
+
+Mesma ideia do `_operador-preview.html`: carrega o `operador.css` e o
+`operador-orcamentos.js` de produção e dubla só a rede, com fixture dos **cinco
+estados**, um por linha. Sem ela, mudança de placa nesta tela vai para produção
+sem ninguém ter visto a placa — o login do operador é handoff.
+
+⚠️ **O `<head>` e a barra são cópia do `operador-orcamentos.html`**, e é a única
+duplicação: ao bumpar o `?v=N` de lá, bumpe o de cá.
+
+⚠️ **O "Ver O.S." responde 403 na prévia, de propósito.** Ali se olha a placa;
+provar o download é no sistema de verdade.
 
 ### O que é marcado como feito SAI da lista (31/08)
 

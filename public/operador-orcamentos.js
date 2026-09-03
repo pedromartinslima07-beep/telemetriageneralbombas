@@ -219,10 +219,35 @@ function execucao(o) {
     return { chave: "marcado", quando: dia(o.executado_em), quem: o.executado_por_nome };
   }
   if (!o.chamado_id) return { chave: "livre" };
-  return ABERTO.has(o.chamado_status)
-    ? { chave: "andando", id: o.chamado_id }
-    : { chave: "feito", id: o.chamado_id };
+  if (ABERTO.has(o.chamado_status)) return { chave: "andando", id: o.chamado_id };
+  // ⚠️ A O.S. VEM ANTES DO CHAMADO NA HORA DE DIZER O QUE ACONTECEU
+  // (03/09/2026). O chamado fechado é consequência: finalizar a O.S. fecha o
+  // chamado sozinho (ordens-servico.routes.js). Dizer "chamado #73 fechado"
+  // para um serviço com O.S. assinada no prédio é contar o detalhe interno e
+  // esconder o documento — e é o documento que o operador cita ao telefone.
+  if (o.exec_os_finalizada_em) {
+    return { chave: "executado", id: o.chamado_id,
+             os: o.exec_os_numero, osId: o.exec_os_id, quando: dia(o.exec_os_finalizada_em) };
+  }
+  return { chave: "feito", id: o.chamado_id };
 }
+
+/* ⚠️ O QUE ESTÁ FEITO SAI DA LISTA — E "FEITO" NÃO É SÓ O CLIQUE (03/09/2026).
+   Até aqui `render()` separava por `executado_em` e mais nada: um orçamento
+   cujo técnico já foi, fez e fechou a O.S. continuava na lista principal e na
+   manchete, pedindo execução. A placa já dizia "Chamado #73 fechado" ao lado —
+   a tela sabia e a conta não usava.
+
+   Relato do Pedro (03/09): *"um técnico foi ao condomínio fez o serviço,
+   tínhamos a O.S. no sistema porém estava lá em aprovados como se o serviço
+   ainda estivesse em aberto"*.
+
+   São três formas de estar feito, e nenhuma vale mais que a outra aqui:
+   alguém marcou à mão, a O.S. foi finalizada, ou o chamado que executava
+   fechou. Chamado só tem três status — aberto, em_atendimento e fechado —,
+   não existe "cancelado": fechado é serviço encerrado, não desistido. */
+const FEITO = new Set(["marcado", "executado", "feito"]);
+function estaFeito(o) { return FEITO.has(execucao(o).chave); }
 
 // O texto do serviço em UMA linha, para o título do chamado e o cabeçalho do
 // diálogo. Diferente de `titulo()`: aqui o operador precisa saber que há mais
@@ -252,7 +277,22 @@ function rodape(o) {
     partes.push(`por ${o.aprovado_por_nome}${
       o.respondido_cargo ? ` · ${o.respondido_cargo}` : ""}`);
   }
-  if (o.os_numero) partes.push(`O.S. ${o.os_numero}`);
+  // ⚠️ "PEDIDO NA", e não "O.S. XXX" seco (03/09/2026). Esta é a O.S. de
+  // ORIGEM — aquela em que o técnico marcou "precisa de orçamento". Desde que
+  // o selo passou a nomear a O.S. que EXECUTOU, um rodapé dizendo só "O.S.
+  // OS-2026-0038" ao lado de "Executado · O.S. OS-2026-0051" põe dois números
+  // de O.S. na mesma placa sem dizer qual é qual.
+  // ⚠️ UMA O.S. POR PLACA, e quando existem as duas quem fica é a que
+  // EXECUTOU. Com as duas juntas o rodapé quebrava em duas linhas — visto no
+  // screenshot da prévia (03/09/2026) — e pedia que o operador distinguisse
+  // "pedido na OS-2026-0031" de "executado na OS-2026-0051" numa frase corrida.
+  // A de origem responde "de onde veio este orçamento", pergunta que já não se
+  // faz depois do serviço pronto; ela continua no sistema, na ficha do
+  // orçamento. A de execução é o documento que se cita ao telefone, e é a que
+  // o botão ao lado abre.
+  const execOs = o.exec_os_finalizada_em && o.exec_os_numero;
+  if (execOs) partes.push(`executado na O.S. ${o.exec_os_numero}`);
+  else if (o.os_numero) partes.push(`pedido na O.S. ${o.os_numero}`);
   // Quem marcou como feito entra na MESMA frase, no fim: é o dado mais
   // recente da linha do tempo do orçamento, e o operador que abre a tela
   // amanhã precisa saber que foi alguém que disse, não o sistema que deduziu.
@@ -282,7 +322,16 @@ function placa(o) {
     ? `<span class="orc-selo" data-e="marcado">Feito${ex.quando ? " em " + escapar(ex.quando) : ""}</span>`
     : ex.chave === "andando"
       ? `<span class="orc-selo" data-e="andando">Chamado #${ex.id} aberto</span>`
-      : ex.chave === "feito"
+      // ⚠️ O SELO NÃO CARREGA O NÚMERO DA O.S. Ele carregava, e media 379px
+    // contra os 175-184 dos irmãos — mais de um terço da largura da placa,
+    // em mono e caixa alta, roubando a linha do número do orçamento. Medido
+    // no screenshot da prévia (03/09/2026). O selo diz o ESTADO e o QUANDO,
+    // que é a gramática dos outros quatro; o NÚMERO desceu para o rodapé, ao
+    // lado do botão que o abre — que é onde ele é acionável.
+    : ex.chave === "executado"
+      ? `<span class="orc-selo" data-e="feito">Executado${
+          ex.quando ? " · " + escapar(ex.quando) : ""}</span>`
+    : ex.chave === "feito"
         ? `<span class="orc-selo" data-e="feito">Chamado #${ex.id} fechado</span>`
         : `<span class="orc-selo" data-e="livre">Pode executar</span>`;
 
@@ -304,6 +353,10 @@ function placa(o) {
     ex.chave === "marcado"
       ? `<button type="button" class="orc-desfaz" data-acao="desfazer-feito" data-id="${o.id}">Desfazer</button>`
     : ex.chave === "andando" ? ""
+    : ex.chave === "executado"
+      ? `<button type="button" class="orc-veros" data-acao="ver-os" data-id="${ex.osId}"
+           title="Abrir a O.S. ${escapar(ex.os || "")} em PDF">Ver O.S.</button>
+         <button type="button" class="btn btn-fio" data-acao="chamado" data-id="${o.id}">Abrir de novo</button>`
     : ex.chave === "feito"
       ? `<button type="button" class="btn btn-fio" data-acao="chamado" data-id="${o.id}">Abrir de novo</button>`
       : `<button type="button" class="orc-jafoi" data-acao="feito" data-id="${o.id}">Já foi feito</button>
@@ -360,8 +413,8 @@ function grupo(g) {
 
 function render() {
   const tela = document.getElementById("tela");
-  const feitos = DADOS.filter((o) => o.executado_em);
-  const abertos = DADOS.filter((o) => !o.executado_em);
+  const feitos  = DADOS.filter(estaFeito);
+  const abertos = DADOS.filter((o) => !estaFeito(o));
 
   if (!DADOS.length) {
     // Estado vazio é estado, não ausência de peça — a mesma regra do dia
@@ -892,6 +945,47 @@ async function marcarFeito(id, feito) {
   }
 }
 
+/* ── Abrir a O.S. que executou o serviço (03/09/2026) ──────────────────
+   ⚠️ `fetch` + blob, NÃO um `<a href>`. O PDF sai de
+   `GET /ordens-servico/:id/pdf`, que exige `Authorization: Bearer` — link
+   direto no href não carrega header nenhum e o operador receberia o JSON de
+   "Token ausente" numa aba em branco. É o mesmo caminho do PDF do orçamento
+   no `admin.js`.
+
+   ⚠️ ISTO SÓ FUNCIONA PORQUE O OPERADOR PASSOU A LER O.S. — `osDonoOuAdmin`
+   liberou a leitura para a role em 03/09. Antes, o botão daria 403 e a tela
+   nomearia um documento que ela mesma não abre.
+
+   ⚠️ O BOTÃO SE DESABILITA ENQUANTO BUSCA. O PDF é gerado sob demanda quando
+   não existe em disco, e isso demora o suficiente para o operador clicar
+   três vezes e abrir três abas. */
+async function verOS(osId, btn) {
+  if (!osId || !btn || btn.disabled) return;
+  const txt = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "Abrindo…";
+  try {
+    const r = await fetch("/ordens-servico/" + osId + "/pdf", { headers: authHeaders() });
+    if (!r.ok) {
+      const j = await r.json().catch(() => ({}));
+      avisar(j.error || "Não foi possível abrir a O.S.");
+      return;
+    }
+    const url = URL.createObjectURL(await r.blob());
+    const a = document.createElement("a");
+    a.href = url; a.target = "_blank"; a.rel = "noopener";
+    document.body.appendChild(a); a.click(); a.remove();
+    // ⚠️ O revoke é ATRASADO. Revogar na hora corre com a aba que está
+    // abrindo, e ela nasce em branco.
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  } catch (e) {
+    avisar("Erro ao abrir a O.S.: " + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = txt;
+  }
+}
+
 // O nome de quem está logado, para a placa não ficar sem autor até a
 // próxima recarga. Só enfeite otimista: quem manda é o servidor.
 function meuNome() {
@@ -913,6 +1007,7 @@ document.addEventListener("click", (e) => {
       return marcarFeito(Number(b.dataset.id), false);
     }
     if (a === "ver-feitos") { VER_FEITOS = !VER_FEITOS; return render(); }
+    if (a === "ver-os") return verOS(Number(b.dataset.id), b);
     if (a === "chamado") return dlgChamado(Number(b.dataset.id));
     if (a === "salvar-chamado") return salvarChamado(Number(b.dataset.id));
   }

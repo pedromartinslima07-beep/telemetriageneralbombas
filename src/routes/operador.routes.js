@@ -366,6 +366,16 @@ router.get("/orcamentos", authRequired, adminOnly, async (req, res) => {
         -- Quem decide entre reabrir e avisar é o front, com o status na mão.
         ch.id     AS chamado_id,
         ch.status AS chamado_status,
+        -- A O.S. QUE EXECUTOU O SERVIÇO (03/09/2026). O vínculo sempre existiu
+        -- em duas pernas — orcamentos <- chamados.orcamento_id, e
+        -- ordens_servico.chamado_id -> chamados — e ninguém percorria a
+        -- segunda. Sem ela a tela falava de "chamado #73 fechado", que é
+        -- detalhe interno, quando o que aconteceu foi uma O.S. assinada no
+        -- prédio.
+        -- (Sem crase neste comentario: ele vive dentro de um template literal.)
+        ose.id            AS exec_os_id,
+        ose.numero        AS exec_os_numero,
+        ose.finalizada_em AS exec_os_finalizada_em,
         -- Executado SEM chamado (080). É o caso mais comum no mundo real: o
         -- técnico já estava no prédio e resolveu na hora. Ver a rota
         -- POST /orcamentos/:id/executado lá embaixo.
@@ -380,6 +390,17 @@ router.get("/orcamentos", authRequired, adminOnly, async (req, res) => {
          ORDER BY (c2.status IN ('aberto','em_atendimento')) DESC, c2.criado_em DESC
          LIMIT 1
       ) ch ON true
+      -- ⚠️ DEPENDE DO LATERAL ACIMA e por isso vem DEPOIS dele: um LATERAL só
+      -- enxerga o que já foi juntado à sua esquerda. Invertida a ordem, a coluna
+      -- ch.id ainda nao existe e o Postgres recusa a query.
+      -- (Sem crase aqui: comentario dentro de template literal. Ver CLAUDE.md.)
+      LEFT JOIN LATERAL (
+        SELECT os2.id, os2.numero, os2.finalizada_em
+          FROM ordens_servico os2
+         WHERE os2.chamado_id = ch.id
+         ORDER BY (os2.finalizada_em IS NOT NULL) DESC, os2.finalizada_em DESC, os2.id DESC
+         LIMIT 1
+      ) ose ON true
       LEFT JOIN condominios     c  ON c.id  = o.condominio_id
       LEFT JOIN ordens_servico  os ON os.id = o.os_id
       LEFT JOIN usuarios        ur ON ur.id = o.respondido_por

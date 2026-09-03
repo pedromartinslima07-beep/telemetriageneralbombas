@@ -8943,6 +8943,169 @@ render em `vm` (7 asserções: a lixeira sai no pedido de O.S., não sai no da
 bancada, e o clique nela não abre o documento).
 `?v=N`: `admin.css` 248 → 249, `admin.js` 332 → 333.
 
+### 2026-09-03 (4ª rodada) · O orçamento não sabia que o serviço tinha sido feito
+
+Relato do Pedro: *"um técnico foi ao condomínio fez o serviço, tínhamos a O.S.
+no sistema porém estava lá em aprovados como se o serviço ainda estivesse em
+aberto"*. E, sobre a tela inteira: *"hoje acho que está tudo mundo largado"*.
+
+**Eram dois defeitos empilhados, e o primeiro é o que fazia o segundo passar
+despercebido.**
+
+#### 1. O chamado aberto pelo admin nascia sem vínculo com o orçamento
+
+`chamados.orcamento_id` existe desde a [migration 079](changelog.md), mas quem
+escrevia nela era **só** `POST /operador/orcamentos/:id/chamado` — o botão
+dentro da placa, na tela de Aprovados. O `POST /chamados`, que é o que o modal
+do admin usa e o caminho normal de despacho, não aceitava o campo.
+
+Então o ciclo inteiro acontecia e não deixava rastro: chamado aberto pelo
+admin → técnico vai, faz, fecha a O.S. → e o orçamento seguia em "Aprovados"
+dizendo **"Pode executar"**, para sempre, porque não havia uma linha no banco
+ligando o serviço ao documento. Não era desfecho perdido — **era vínculo que
+nunca existiu**.
+
+Hoje o modal tem o bloco **"Serviço já autorizado"**: escolhido o prédio, se
+houver orçamento aprovado esperando, ele aparece e um clique amarra o chamado.
+Alimentado por `GET /admin/condominios/:id/orcamentos-pendentes`.
+
+⚠️ **"Pendente" ali é NÃO TER CHAMADO NENHUM**, não o `status`. Com chamado
+aberto o serviço está andando; com chamado fechado já foi feito. Oferecer os
+dois convidaria a abrir um segundo chamado para o mesmo serviço — o defeito
+que a rota do operador já evita com o `ja_existia`.
+
+⚠️ **O bloco só existe quando há o que escolher.** A maioria dos chamados não
+tem orçamento por trás; bloco vazio permanente ensina a ignorar o bloco.
+
+⚠️ **A escolha desmarca no clique.** Sem isso, escolher por engano só se
+desfaz fechando o modal e perdendo o que já foi digitado.
+
+⚠️ **Selecionado é fio de tinta, não âmbar cheio.** O amarelo desta tela
+pertence ao "Criar chamado" — é o mesmo motivo que tirou o `btnAccent` do
+seletor de modo no envio de orçamento (27/08).
+
+⚠️ **O prédio tem de bater** (409). Sem a checagem, um clique errado amarra o
+serviço de um condomínio ao orçamento de outro, e o erro não aparece em lugar
+nenhum até alguém cobrar a nota.
+
+#### 2. E "feito" era só o clique manual
+
+`render()` separava a lista assim:
+
+```js
+const feitos  = DADOS.filter((o) =>  o.executado_em);
+const abertos = DADOS.filter((o) => !o.executado_em);
+```
+
+Só a marcação à mão tirava um orçamento da fila. Um cujo chamado já tinha
+fechado continuava na lista principal e **contado na manchete**, com a própria
+placa dizendo "Chamado #73 fechado" ao lado. A tela sabia e a conta não usava.
+
+São **três** formas de estar feito, e nenhuma vale mais que a outra: alguém
+marcou à mão, a O.S. foi finalizada, ou o chamado que executava fechou.
+`estaFeito()` passa a decidir por `execucao()`, que é quem já conhecia os
+estados. Chamado só tem três status — `aberto`, `em_atendimento`, `fechado` —,
+**não existe "cancelado"**: fechado é serviço encerrado, não desistido.
+
+#### 3. E a tela passou a falar da O.S., não do chamado
+
+O vínculo sempre teve duas pernas — `chamados.orcamento_id` e
+`ordens_servico.chamado_id` — e ninguém percorria a segunda. `GET
+/operador/orcamentos` ganhou um segundo `LEFT JOIN LATERAL` (depois do
+primeiro, porque depende dele) trazendo `exec_os_id` / `exec_os_numero` /
+`exec_os_finalizada_em`. O selo agora diz **"Executado · O.S. OS-2026-0051 ·
+02/09"** no lugar de "Chamado #73 fechado", que é detalhe interno.
+
+⚠️ **O rodapé passou a dizer "pedido na O.S. XXX"** para a O.S. de origem. Com
+duas O.S. possíveis na mesma placa, o rótulo seco viraria adivinhação.
+
+⚠️ **Não há link para abrir a O.S. ainda**, e a trava é de permissão: toda
+leitura de O.S. é `gestaoOnly` ou `osDonoOuAdmin` — o operador toma 403 (RBAC
+de 27/08). Decisão em aberto, registrada em
+[`../memory-bank/active-work.md`](../memory-bank/active-work.md).
+
+#### 4. E o operador passou a poder ABRIR a O.S.
+
+O selo nomeia o documento; faltava chegar nele. A trava era o RBAC de 27/08 —
+`osDonoOuAdmin` deixava passar admin, gerente e o técnico dono, e o operador
+tomava 403 em qualquer leitura de O.S. A tela nomeava um documento que ela
+mesma não abria.
+
+`osDonoOuAdmin` passou a deixar o operador entrar **quando não é escrita**, e a
+linha é o `forWrite`: editar O.S. é do técnico que esteve no prédio — quem não
+foi lá não corrige o que foi medido lá.
+
+⚠️ **O botão busca o PDF com `fetch` + blob, não com `<a href>`.** A rota exige
+`Authorization: Bearer`; href não carrega header nenhum e o operador receberia
+o JSON de "Token ausente" numa aba em branco. Mesmo caminho do PDF do orçamento
+no `admin.js`.
+
+⚠️ **Ele se desabilita enquanto busca.** O PDF é gerado sob demanda quando não
+existe em disco, e isso demora o suficiente para três cliques abrirem três abas.
+
+⚠️ **"Ver O.S." só aparece no estado `executado`.** No chamado fechado sem O.S.
+não há documento para abrir.
+
+#### E entrou uma prévia: `/dev/_aprovados-preview.html`
+
+A tela de Aprovados só se olhava com sessão de operador, e o login é handoff —
+mudança de placa ia para produção sem ninguém ter visto a placa. A prévia
+carrega o `operador.css` e o `operador-orcamentos.js` de produção e dubla só a
+rede, com fixture dos **cinco** estados, um por linha. O "Ver O.S." responde
+403 de propósito: ali se olha a placa, não se prova o download.
+
+⚠️ **O `<head>` e a barra são cópia do `operador-orcamentos.html`** — a única
+duplicação, e ela pede que o `?v=N` dos dois ande junto.
+
+#### E aí a tela foi olhada, e pagou por si: TRÊS defeitos
+
+A extensão do Chrome não estava conectada nesta máquina, então a prévia foi
+aberta pelo **puppeteer que o projeto já usa para o PDF da O.S.** — screenshot
+mais medidas de largura, contraste e folga, que é o que o olho não dá. Achou
+três coisas, e duas eram do produto:
+
+1. **Rótulos de tipo inventados no modal do admin.** `_ncOrcServico` tinha
+   `desinfeccao` e `manutencao`, que **não existem** no CHECK da migration 060,
+   e não tinha `dedetizacao` e `limpeza_dedetizacao`, que existem. Como o
+   fallback é a própria chave, um orçamento de dedetização apareceria no modal
+   escrito **"dedetizacao"**, cru. Agora é a mesma tabela do `TIPO_ROT` do
+   `operador-orcamentos.js` — os quatro do CHECK, e só eles.
+
+2. **O selo novo media 379px** contra 175–184 dos quatro irmãos: mais de um
+   terço da largura da placa, em mono e caixa alta, roubando a linha do número
+   do orçamento. Ele carregava estado + O.S. + data. Hoje carrega **estado +
+   data** (209px, na faixa dos irmãos) e o número desceu para o rodapé, ao lado
+   do botão que o abre — que é onde ele é acionável.
+
+   ⚠️ **E o rodapé passou a mostrar UMA O.S. por placa.** Com as duas juntas
+   ele quebrava em duas linhas e pedia que o operador distinguisse "pedido na
+   OS-2026-0031" de "executado na OS-2026-0051" numa frase corrida. Quando
+   existem as duas, fica a que **executou**: a de origem responde "de onde veio
+   este orçamento", pergunta que já não se faz depois do serviço pronto.
+
+3. **O "Ver O.S." encostava na borda direita no celular.** Ele nasceu copiando
+   as regras de mesa do `.orc-jafoi` e não a de celular (`@media`, linha 2851),
+   onde o `margin-left:auto` é zerado — os irmãos ficavam centrados e ele não.
+   Medido a 390px: hoje os três dão 16px de folga dos dois lados.
+
+⚠️ **A barra fixa da própria prévia cobria o "N já feitos · mostrar"**, que é o
+último elemento da página — clicar nele batia na barra. `padding-bottom` no
+body da prévia. Defeito do andaime, não do produto, mas do tipo que faz
+concluir que o produto está quebrado.
+
+Sem migration — as três colunas envolvidas já existiam. Testes:
+`chamado-executa-orcamento.test.js` percorre o ciclo inteiro contra o banco de
+teste (21 asserções, incluindo as quatro recusas e o `$7::int` repetido do
+INSERT, que ganhou uma coluna); `orc-aprovados-feitos.test.js` roda `execucao`
+e `estaFeito` em `vm` (16 — a última mede a conta antiga e confirma que ela
+daria 4 em aberto onde há 2).
+`operador-le-os.test.js` prova o RBAC nos dois sentidos (9 — o operador lê a
+ficha e o PDF, e toma 403 em editar, lançar peça e finalizar; gerente e admin
+seguem podendo, cliente segue de fora).
+`?v=N`: `admin.css` 249 → 250, `admin.js` 333 → 334,
+`operador-orcamentos.js` 19 → 20, `operador.css` 85 → 86 (nas três páginas que
+a carregam).
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

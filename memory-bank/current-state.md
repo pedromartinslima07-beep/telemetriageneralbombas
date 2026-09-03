@@ -110,6 +110,29 @@ cria outro rascunho. `DELETE /admin/orcamentos/:os_id` desliga a flag e apaga o
 orçamento daquela O.S. numa statement só. **O avulso sem `os_id` não é tocado**:
 orçamento que o cliente já recebeu não se apaga para limpar fila.
 
+### ⚠️ O que liga um orçamento ao serviço que o executou (03/09/2026)
+
+Duas pernas, e as duas precisam existir: `chamados.orcamento_id` (079) e
+`ordens_servico.chamado_id`. **`orcamentos.os_id` NÃO é isso** — é a O.S. de
+ORIGEM, aquela em que o técnico pediu o orçamento, e nada a preenche na
+conclusão.
+
+Até 03/09 só a rota do painel do operador escrevia a primeira perna, e o
+chamado aberto pelo modal do admin — o caminho normal — nascia sem vínculo: o
+serviço acontecia e o orçamento seguia em "Aprovados" dizendo "Pode executar".
+Hoje `POST /chamados` aceita `orcamento_id`, e a tela de Aprovados percorre as
+duas pernas até a O.S. (`exec_os_*`).
+
+⚠️ **Sobra um buraco que nenhum código fecha:** serviço feito sem chamado
+apontando o orçamento (esquecimento no modal, ou o técnico já estava no
+prédio). Para esses continua valendo o "Já foi feito" manual — mas aí é
+exceção, não a regra.
+
+⚠️ **O operador LÊ O.S. desde 03/09/2026, e não escreve.** O RBAC de 27/08
+deixava toda O.S. fora do alcance dele, e isso furou quando a placa passou a
+nomear a O.S. que executou: ele via o número e tomava 403 ao abrir. A linha em
+`osDonoOuAdmin` é o `forWrite` — editar é do técnico que esteve no prédio.
+
 ### ⚠️ Escolher prédio é campo de BUSCA, não `<select>` (02/09/2026)
 
 `public/condo-picker.js` — arquivo **compartilhado** por `admin.html` e

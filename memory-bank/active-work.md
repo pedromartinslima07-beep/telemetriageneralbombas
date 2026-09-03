@@ -121,6 +121,63 @@ mapa, e o rótulo "TURNO" ao lado da marca.
 
 ---
 
+## Sessão 2026-09-03 (4ª rodada) — O orçamento não sabia que o serviço tinha sido feito
+
+*"hoje acho que está tudo mundo largado, por exemplo um técnico foi ao
+condomínio fez o serviço tínhamos a o.s no sistema porém estava lá em aprovados
+como se o serviço ainda estivesse em aberto"*.
+
+**O primeiro diagnóstico estava errado e ele me parou a tempo** — pediu para
+entender antes de eu mexer. Eu ia consertar a leitura do desfecho; a pergunta
+certa era *por qual caminho o chamado foi aberto*. Resposta dele: **pelo painel
+do admin**. E é aí que estava: `POST /chamados` não aceitava `orcamento_id`, só
+a rota do operador escrevia na coluna. **Não era desfecho perdido, era vínculo
+que nunca existiu.**
+
+Feito: o bloco "Serviço já autorizado" no modal de novo chamado
+(`GET /admin/condominios/:id/orcamentos-pendentes` + `orcamento_id` no `POST
+/chamados`, com 409 para não-aprovado e para prédio diferente); `estaFeito()`
+passando a contar as três formas de estar feito; e a tela de Aprovados
+percorrendo a segunda perna do vínculo até a O.S. (`exec_os_*`), com o selo
+"Executado · O.S. XXX · DD/MM".
+
+**O link entrou, com o RBAC que ele pedia** (o Pedro autorizou: *"coloca o
+link"*). O operador passou a **ler** O.S. — `osDonoOuAdmin` o deixa entrar
+quando não é escrita. Editar continua sendo do técnico que esteve no prédio, e
+`operador-le-os.test.js` prova os dois sentidos.
+
+### ⏳ O que falta
+
+**A tela de Aprovados FOI OLHADA, e pagou por si** — três defeitos, dois deles
+do produto (rótulos de tipo inventados no modal do admin, selo de 379px, e o
+"Ver O.S." encostando na borda no celular). Todos corrigidos; o detalhe está no
+[`changelog.md`](../docs/changelog.md).
+
+### ⚠️ Como olhar tela sem a extensão do Chrome
+
+A extensão não estava conectada nesta máquina. O que funcionou: **o puppeteer
+que o projeto já tem** (para o PDF da O.S.), com as mesmas flags do
+`os-pdf.service.js` — `headless: true` mais `--no-sandbox`,
+`--disable-setuid-sandbox`, `--disable-dev-shm-usage`, `--disable-gpu`,
+`--no-zygote`. Sem elas o launch estoura em "Timed out waiting for the WS
+endpoint". Screenshot em `fullPage` mais um `page.evaluate` medindo largura,
+cor e folga — que é o que o olho não dá e o que pegou dois dos três defeitos.
+
+⚠️ **Clique por `evaluate(el => el.click())`, não `page.click(sel)`.** O
+segundo mira coordenada e bate em qualquer coisa fixa por cima — foi assim que
+a barra da prévia comeu o clique e me fez achar que a lista tinha quebrado.
+
+### ⏳ O que falta
+
+- **O bloco "Serviço já autorizado" do modal do admin não foi olhado.** A
+  prévia `/dev/_novo-chamado-preview.html` **não mostra** o bloco: ela não
+  carrega o `admin.js`, e é ele quem preenche `#ncOrcLista`. Para ver, é o
+  painel de verdade — ou estender aquela prévia no molde do
+  `_orcamentos-preview.html`, que carrega o `admin.js` e dubla o `fetch`.
+- **Serviço feito sem chamado apontando o orçamento** continua fora do
+  alcance: nenhuma coluna liga aquela O.S. àquele orçamento. O que fecharia é o
+  app do técnico perguntar na hora de finalizar. Enquanto isso, "Já foi feito".
+
 ## Sessão 2026-09-03 (3ª rodada) — O pedido de orçamento que não saía nem a pau
 
 Relato do Pedro: *"um tecnico fez a solicitacao de um orcamento via os, mas

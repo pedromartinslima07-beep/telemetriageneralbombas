@@ -2192,6 +2192,53 @@ router.get("/condominios/:id/historico", authRequired, adminOnly, async (req, re
 // `email` entra aqui porque o modal de orçamento mostra o destinatário do
 // envio ANTES do clique, e precisa atualizá-lo quando o operador troca o
 // condomínio no select — sem isso só daria pra saber depois de salvar.
+// GET /admin/condominios/:id/orcamentos-pendentes
+//
+// Os orçamentos APROVADOS daquele prédio que ainda esperam alguém executar.
+// Alimenta o modal de novo chamado: escolhido o condomínio, o operador vê se
+// há serviço já autorizado e pode amarrar o chamado a ele.
+//
+// ⚠️ "PENDENTE" AQUI É NÃO TER NENHUM CHAMADO, não é o `status`. Um orçamento
+// com chamado vinculado — aberto ou fechado — já teve o seu despacho: o aberto
+// está andando, e o fechado foi feito. Oferecer os dois no modal convidaria a
+// abrir um segundo chamado para o mesmo serviço, que é o defeito que a rota do
+// operador já evita com o `ja_existia`.
+//
+// ⚠️ SEM VALOR. Mesma regra do `GET /operador/orcamentos`: quem despacha um
+// serviço não precisa do preço na tela, e preço em tela de operação vaza para
+// conversa que não é dele. O que identifica o orçamento aqui é o serviço.
+router.get("/condominios/:id/orcamentos-pendentes", authRequired, adminOnly, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
+  try {
+    const r = await pool.query(
+      `SELECT
+         o.id, o.numero, o.tipo, o.constatacao,
+         o.aprovado_em, o.respondido_em, o.criado_em,
+         COALESCE(o.respondido_nome, ur.nome) AS aprovado_por_nome,
+         COALESCE(
+           (SELECT json_agg(json_build_object('descricao', l.descricao, 'quantidade', l.quantidade)
+                            ORDER BY l.id)
+              FROM orcamento_linhas l WHERE l.orcamento_id = o.id),
+           '[]'::json
+         ) AS linhas
+       FROM orcamentos o
+       LEFT JOIN usuarios ur ON ur.id = o.respondido_por
+       WHERE o.condominio_id = $1
+         AND o.status = 'aprovado'
+         AND o.executado_em IS NULL
+         AND NOT EXISTS (SELECT 1 FROM chamados c WHERE c.orcamento_id = o.id)
+       ORDER BY COALESCE(o.aprovado_em, o.respondido_em, o.criado_em) DESC
+       LIMIT 20`,
+      [id]
+    );
+    return res.json(r.rows);
+  } catch (err) {
+    console.error("[admin] GET /condominios/:id/orcamentos-pendentes:", err);
+    return res.status(500).json({ error: "Erro ao buscar orçamentos do condomínio" });
+  }
+});
+
 router.get("/condominios/lista", authRequired, adminOnly, async (req, res) => {
   try {
     const r = await pool.query(

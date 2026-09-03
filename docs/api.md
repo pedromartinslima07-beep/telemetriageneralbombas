@@ -147,7 +147,7 @@ Webhook em **Públicas**. Demais exigem admin:
 
 ## Chamados (`/chamados`)
 
-| POST | `/chamados` | **adminOnly** (criação manual; aceita `tecnico_id` opcional — nasce já despachado) |
+| POST | `/chamados` | **adminOnly** (criação manual; aceita `tecnico_id` opcional — nasce já despachado). Aceita **`orcamento_id`** desde 03/09/2026: o chamado que EXECUTA um orçamento aprovado. Recusa o não aprovado (409) e o de outro condomínio (409) — o vínculo errado só apareceria na hora de cobrar a nota. Até aqui só `POST /operador/orcamentos/:id/chamado` escrevia nessa coluna, e o chamado aberto pelo admin — o caminho normal — nascia sem vínculo: o serviço era feito e o orçamento seguia em "Aprovados" |
 | GET | `/chamados` · `/chamados/:id` · `/:id/historico` | adminOnly |
 | PATCH | `/chamados/:id` | **adminOnly** (status/responsável; bloqueia `em_atendimento`) |
 | GET | `/chamados/meus` · `/meus/:id` | técnico autenticado |
@@ -197,9 +197,9 @@ Guard `osDonoOuAdmin()` — técnico dono da O.S. ou admin; `{forWrite:true}`
 restringe escrita.
 
 | POST · GET | `/ordens-servico` | adminOnly |
-| GET | `/ordens-servico/:id` · `/:id/pdf` | dono ou admin |
-| GET | `/ordens-servico/:id/assinatura` | dono ou admin |
-| PATCH | `/ordens-servico/:id` | dono/admin (escrita) |
+| GET | `/ordens-servico/:id` · `/:id/pdf` | dono ou admin — **e o operador desde 03/09/2026** (só leitura). A tela de Aprovados nomeia a O.S. que executou cada orçamento, e ele precisava chegar nela |
+| GET | `/ordens-servico/:id/assinatura` | dono ou admin (idem operador) |
+| PATCH | `/ordens-servico/:id` | dono/admin (escrita). ⚠️ **O operador NÃO passa aqui** — a linha em `osDonoOuAdmin` é o `forWrite`: editar O.S. é do técnico que esteve no prédio |
 | POST | `/:id/fotos/upload` · `/:id/fotos` | dono/admin (base64) |
 | DELETE | `/:id/fotos/:foto_id` | dono/admin |
 | POST/PATCH/DELETE | `/:id/pecas[/:peca_id]` | dono/admin |
@@ -271,6 +271,7 @@ ao e-mail cadastrado (2FA equivalente ao do login).
 | POST | `/admin/me/assinatura` | ⏸️ **sem uso desde 24/08/2026** — upload da assinatura em base64 (`data:image/...`) → `usuarios.assinatura_blob`. O admin **reduzia a imagem no navegador** antes de enviar (máx. 600 px / ~180 KB): o limite do `express.json` é 8 mb e o e-mail embutia a imagem como data URI |
 | GET | `/admin/assinatura/:userId` | ⏸️ **sem uso desde 24/08/2026** — serve a imagem de assinatura (pública, era usada nos e-mails) |
 | GET | `/admin/condominios/:id/historico` · `/condominios/lista` | adminOnly |
+| GET | `/admin/condominios/:id/orcamentos-pendentes` | adminOnly — os orçamentos **aprovados** daquele prédio que ainda esperam execução. Alimenta o bloco "Serviço já autorizado" do modal de novo chamado. ⚠️ **"Pendente" aqui é NÃO TER NENHUM CHAMADO vinculado**, não o `status`: com chamado aberto o serviço está andando, com chamado fechado já foi feito — oferecer os dois convidaria a abrir um segundo chamado para o mesmo serviço. **Sem valor**, mesma regra do `GET /operador/orcamentos` |
 | GET/POST/PATCH/DELETE | `/admin/whatsapp/contatos[/:id]` | adminOnly (pré-cadastro) |
 
 ⚠️ **`GET /admin/orcamentos` e `GET /admin/orcamentos/avulsos` devolvem DOIS
@@ -323,7 +324,7 @@ pendências em [painel-operador.md](modulos/painel-operador.md).
 | GET | `/operador/fila` | adminOnly — **uma request monta a tela inteira**: chamados abertos (`aberto`, `em_atendimento`) com o SLA já resolvido, os reservatórios do condomínio de cada um e a equipe com posição atual |
 | GET | `/operador/tecnicos` | adminOnly — a equipe que pode receber um chamado (id, nome, `disponivel`, `abertos`, GPS dos últimos 30 min). É a lista do seletor **Técnico** dos diálogos de abrir chamado |
 | GET | `/operador/prazos` | adminOnly — os prazos de `sla_definicoes` + as faixas de nível e a janela do sensor mudo. É o que a **Ajuda** das duas telas mostra |
-| GET | `/operador/orcamentos` | adminOnly — os orçamentos **aprovados**, por prédio, para a tela `/operador/painel/orcamentos`. Traz `chamado_id`/`chamado_status` do chamado que executa cada um (079) |
+| GET | `/operador/orcamentos` | adminOnly — os orçamentos **aprovados**, por prédio, para a tela `/operador/painel/orcamentos`. Traz `chamado_id`/`chamado_status` do chamado que executa cada um (079) e, desde 03/09/2026, `exec_os_id`/`exec_os_numero`/`exec_os_finalizada_em` — **a O.S. daquele chamado**, que é o que de fato aconteceu no prédio. ⚠️ **Não confundir com `os_id`/`os_numero`**, que são a O.S. de ORIGEM (aquela em que o técnico pediu o orçamento). O segundo `LEFT JOIN LATERAL` depende do primeiro e tem de vir depois dele |
 | POST | `/operador/orcamentos/:id/executado` | adminOnly — marca o orçamento como **já feito** (sem chamado). Migration 080 |
 | DELETE | `/operador/orcamentos/:id/executado` | adminOnly — desfaz a marcação |
 | POST | `/operador/orcamentos/:id/chamado` | adminOnly — abre o chamado que EXECUTA um orçamento aprovado, já vinculado (`chamados.orcamento_id`) |

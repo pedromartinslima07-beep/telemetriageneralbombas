@@ -2716,6 +2716,24 @@ body.sem-trilho #tela{width:100%}
 .orc-pe .orc-jafoi + .btn{margin-left:18px}
 .orc-pe .orc-desfaz{margin-left:auto}
 
+/* "Ver O.S." é IRMÃO do "Já foi feito": mesmo tipo de peça (link de texto ao
+   lado do botão de fio), mesmo lugar na linha. O que muda é a companhia — ele
+   convive com "Abrir de novo", que é de fio e não âmbar, então os dois podem
+   ficar juntos à direita sem disputa. */
+.orc-veros{
+  font:inherit;font-size:15px;font-weight:700;letter-spacing:-.005em;
+  background:transparent;border:0;padding:10px 2px;min-height:44px;
+  cursor:pointer;color:var(--tinta-2);
+  text-decoration:underline;text-underline-offset:4px;
+  text-decoration-color:var(--fio-esc);
+  transition:color .16s var(--saida),text-decoration-color .16s var(--saida);
+}
+.orc-veros:hover{color:var(--tinta);text-decoration-color:var(--tinta)}
+.orc-veros:focus-visible{box-shadow:inset 0 0 0 2px var(--tinta);text-decoration-color:var(--tinta)}
+.orc-veros[disabled]{opacity:.55;cursor:default;text-decoration-color:transparent}
+.orc-pe .orc-veros{flex:0 0 auto;margin-left:auto}
+.orc-pe .orc-veros + .btn{margin-left:18px}
+
 /* A LEITURA GRANDE da placa — o lugar do "R$ 2.332,00" do print.
    ⚠️ Archivo, não mono: mono nesta folha é medição e etiqueta, e nome de
    serviço não é nem um nem outro. Mono aqui seria fantasia de "técnico". */
@@ -2830,8 +2848,13 @@ body.sem-trilho #tela{width:100%}
      texto. Não aparece em revisão de código; só abrindo o celular. */
   .orc-meta{flex:0 0 auto}
   .orc-pe .btn{margin-left:0;width:100%;justify-content:center;text-align:center}
-  .orc-pe .orc-jafoi,.orc-pe .orc-desfaz{margin-left:0;text-align:center}
-  .orc-pe .orc-jafoi + .btn{margin-left:0}
+  /* ⚠️ `.orc-veros` ENTRA AQUI JUNTO COM OS IRMÃOS (03/09/2026). Ele nasceu
+     copiando as regras de mesa do `.orc-jafoi` e não esta, a de celular: o
+     `margin-left:auto` sobrevivia à coluna e o link ia encostar na borda
+     direita da placa, enquanto "Já foi feito" e "Desfazer" ficavam centrados.
+     Visto no screenshot a 390px da prévia. */
+  .orc-pe .orc-jafoi,.orc-pe .orc-desfaz,.orc-pe .orc-veros{margin-left:0;text-align:center}
+  .orc-pe .orc-jafoi + .btn,.orc-pe .orc-veros + .btn{margin-left:0}
 }
 
 

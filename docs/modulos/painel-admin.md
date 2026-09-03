@@ -288,6 +288,36 @@ medido, contra os 4,5 do piso. É a Regra do Amarelo Cego do
 [DESIGN.md](../../DESIGN.md): trocado pelo token `--warn`, que vira `--warn-t`
 (#886116) dentro do `.av-modal-dialog` e mede **4,67:1**.
 
+### O chamado aberto por aqui não sabia que executava um orçamento (03/09/2026)
+
+`chamados.orcamento_id` existe desde a migration 079, mas só a rota do painel
+do operador escrevia nela. O `POST /chamados` — o que este modal usa, e o
+caminho normal de despacho — não aceitava o campo.
+
+Efeito: o técnico ia, fazia, fechava a O.S., e o orçamento continuava em
+"Aprovados" dizendo "Pode executar". Não era desfecho perdido, era vínculo que
+nunca existiu. Ver [painel-operador.md](painel-operador.md) para o outro lado.
+
+O modal ganhou o bloco **"Serviço já autorizado"** (`#ncOrcBloco`), alimentado
+por `GET /admin/condominios/:id/orcamentos-pendentes` quando o prédio é
+escolhido — o `change` do hidden do [`condo-picker`](../../public/condo-picker.js)
+borbulha até o overlay, e é por isso que a delegação sobrevive ao `montar()` de
+cada abertura, que troca o elemento.
+
+⚠️ **O bloco só existe quando há o que escolher.** A maioria dos chamados não
+tem orçamento por trás; um bloco vazio permanente ensina a ignorá-lo.
+
+⚠️ **A escolha desmarca no clique.** Sem isso, escolher por engano só se desfaz
+fechando o modal — e perdendo o que já foi digitado.
+
+⚠️ **Selecionado é fio de tinta cheia, não âmbar.** O amarelo desta tela é do
+"Criar chamado". É a mesma regra que tirou o `btnAccent` do seletor de modo no
+modal de envio de orçamento.
+
+⚠️ **`.nc-orc` usa os tokens de PLACA CLARA.** `.modalBox` remapeia `--muted` e
+`--border` para a família `--tinta`/`--fio-esc`; cor crua ali dá azul-claro
+sobre cinza. Regra dos Dois Campos de Estado do [DESIGN.md](../../DESIGN.md).
+
 ### O pedido do técnico só saía da fila por um checkbox escondido (03/09/2026)
 
 Relato do Pedro: *"um técnico fez a solicitação de um orçamento via O.S., mas

@@ -18,7 +18,7 @@
   <link rel="stylesheet" href="/static/leaflet.css">
   <!-- ⚠️ Ao mexer em admin.js ou admin.css, bumpe o ?v=N aqui E no <script>
        lá embaixo. Ver CLAUDE.md raiz. -->
-  <link rel="stylesheet" href="/static/admin.css?v=249">
+  <link rel="stylesheet" href="/static/admin.css?v=250">
 </head>
 <body>
   <div id="appLoader">
@@ -2169,6 +2169,21 @@
         </div>
       </div>
 
+      <!-- Serviço já autorizado ────────────────────────────────────────────
+           ⚠️ SÓ APARECE QUANDO O PRÉDIO ESCOLHIDO TEM ORÇAMENTO APROVADO
+           ESPERANDO. Bloco vazio permanente vira ruído em todo chamado que
+           não tem nada a ver com orçamento — e são a maioria. Preenchido por
+           `_ncCarregarOrcamentos`, a partir de
+           GET /admin/condominios/:id/orcamentos-pendentes. -->
+      <div id="ncOrcBloco" class="nc-orc" style="display:none;">
+        <div class="modal-sec-title">Serviço já autorizado</div>
+        <p class="nc-orc-lede">Este prédio tem orçamento aprovado esperando
+          execução. Amarrando o chamado a ele, o orçamento sai de "Aprovados"
+          sozinho quando o técnico fechar a O.S.</p>
+        <div id="ncOrcLista" class="nc-orc-lista"></div>
+        <input type="hidden" id="ncOrcamento" value="">
+      </div>
+
       <!-- Prioridade -->
       <div style="background:rgba(0,0,0,.2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;">
         <div class="modal-sec-title">Prioridade</div>
@@ -2728,7 +2743,7 @@
 </div>
 
 
-<script src="/static/admin.js?v=333" defer></script>
+<script src="/static/admin.js?v=334" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
 <script src="/static/register-sw.js?v=51" defer></script>
 </body>

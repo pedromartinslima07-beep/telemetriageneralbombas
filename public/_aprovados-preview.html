@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#030a26">
+<title>GENERAL • Aprovados (prévia)</title>
+<link rel="icon" type="image/png" href="/static/favicon.png?v=3">
+<link rel="preload" href="/static/fonts/archivo.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/static/fonts/martianmono.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/static/operador.css?v=86">
+<style>
+  /* Só o andaime da prévia. Nada que a tela use. */
+  .pv-barra {
+    position: fixed; inset: auto 0 0 0; z-index: 9999;
+    display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+    padding: 8px 14px; background: var(--chapa-es); color: var(--tinta);
+    border-top: 2px solid var(--amarelo); font-size: 12px;
+  }
+  .pv-barra b { font-weight: 800; }
+  /* ⚠️ A BARRA É FIXA E COBRIA O FIM DA LISTA — inclusive o "N já feitos ·
+     mostrar", que é o último elemento da tela. Clicar nele batia na barra.
+     Achado no primeiro screenshot desta prévia. */
+  body { padding-bottom: 72px; }
+  .pv-barra code { font-family: var(--mono); font-size: 11px; }
+</style>
+</head>
+<!-- ════════════════════════════════════════════════════════════════════════
+     PRÉVIA DA TELA "APROVADOS" — `/dev/_aprovados-preview.html`
+
+     ⚠️ PARA QUE ELA EXISTE: `/operador/painel/orcamentos` só se olha com
+     sessão de operador, e o login é handoff. Sem isto, mudança de placa nesta
+     tela ia para produção sem ninguém ter visto a placa.
+
+     ⚠️ O QUE É REAL AQUI: o `operador.css` e o `operador-orcamentos.js` de
+     produção, os mesmos arquivos servidos ao operador. O `<head>` e a barra
+     são cópia do `operador-orcamentos.html` — ⚠️ e é a ÚNICA duplicação:
+     ao mexer naquele cabeçalho, mexa neste, e ao bumpar o `?v=N` de lá,
+     bumpe o de cá.
+
+     ⚠️ O QUE É DUBLÊ: só a rede (`_aprovados-preview.js`). A fixture tem os
+     CINCO estados da placa, um por linha — livre, chamado andando, executado
+     (com O.S.), chamado fechado sem O.S., e marcado à mão. O "Ver O.S."
+     responde 403 de propósito: a prévia é para olhar a placa, não para
+     provar o download.
+
+     ⚠️ A rota `/dev/:arquivo` (src/app.js) não existe em produção.
+     ════════════════════════════════════════════════════════════════════════ -->
+<body class="sem-trilho">
+
+<header class="barra">
+  <div class="barra-in">
+    <div class="marca">
+      <img src="/static/logo-topo.png" alt="GENERAL" width="826" height="180">
+      <span>Aprovados</span>
+    </div>
+  </div>
+  <div class="barra-acoes">
+    <nav class="barra-nav" aria-label="Telas do operador">
+      <a href="/operador/painel">A fila do turno</a>
+      <button type="button" data-acao="ajuda">Ajuda</button>
+    </nav>
+    <span class="barra-eu" id="barraEu"></span>
+    <button class="conta conta-sair" id="btnSair" type="button" aria-label="Sair">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M14 4H5v16h9"/><path d="M12 12h9M17.5 8l4 4-4 4"/></svg>
+      <span class="conta-rot">Sair</span>
+    </button>
+  </div>
+</header>
+
+<main id="tela">
+  <div class="carregando" id="carregando">Carregando os orçamentos aprovados…</div>
+</main>
+
+<div class="pv-barra">
+  <span><b>Prévia</b> · <code>/operador/painel/orcamentos</code></span>
+  <span>5 estados: livre · andando · <b>executado</b> · fechado sem O.S. · marcado à mão</span>
+  <span>Dois esperam execução — os três de baixo saem para "já feitos".</span>
+</div>
+
+<script src="/static/_aprovados-preview.js?v=1"></script>
+<script src="/static/operador-orcamentos.js?v=20" defer></script>
+</body>
+</html>

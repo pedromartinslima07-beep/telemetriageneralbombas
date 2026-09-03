@@ -9517,6 +9517,66 @@ body.role-viewer .viewer-only-hide-inline {
 }
 .av-rail-danger button:hover { color: var(--danger); text-decoration: underline; }
 
+/* ── Serviço já autorizado, no modal de novo chamado (03/09/2026) ──────────
+   O bloco que amarra o chamado ao orçamento aprovado do prédio. Mesma caixa
+   dos irmãos do modal (fundo rebaixado, fio, raio 10) para não parecer um
+   enxerto — o que muda é que este só existe quando há o que escolher.
+
+   ⚠️ TOKENS DE PLACA CLARA. `.modalBox` remapeia `--muted`/`--border` para a
+   família `--tinta`/`--fio-esc`; escrever a cor crua aqui daria azul-claro
+   sobre cinza. É a Regra dos Dois Campos de Estado do DESIGN.md. */
+.nc-orc {
+  background: rgba(0,0,0,.2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+.nc-orc-lede {
+  margin: 0 0 10px;
+  font-size: 11.5px; line-height: 1.45; color: var(--muted);
+}
+.nc-orc-lista { display: flex; flex-direction: column; gap: 6px; }
+
+/* O item é botão de verdade (pressed/aria), não um `div` com clique: ele é
+   uma escolha reversível, e leitor de tela precisa ouvir qual está marcada. */
+.nc-orc-item {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-areas: "num txt" "num sub";
+  column-gap: 10px; row-gap: 2px;
+  width: 100%;
+  padding: 9px 11px;
+  text-align: left;
+  font-family: inherit;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color .12s, background .12s;
+}
+.nc-orc-item:hover { border-color: var(--border-strong); }
+/* Selecionado é FIO CHEIO, não preenchimento âmbar: o amarelo desta tela
+   pertence ao "Criar chamado", e dois amarelos disputando num modal é o
+   defeito já registrado no seletor de modo do envio de orçamento. */
+.nc-orc-item.is-sel {
+  border-color: var(--tinta);
+  box-shadow: inset 0 0 0 1px var(--tinta);
+  background: var(--surface);
+}
+.nc-orc-num {
+  grid-area: num;
+  align-self: center;
+  font-size: 10.5px; letter-spacing: .02em;
+  color: var(--muted);
+}
+.nc-orc-item.is-sel .nc-orc-num { color: var(--text); font-weight: 700; }
+.nc-orc-txt {
+  grid-area: txt;
+  font-size: 12.5px; font-weight: 600; color: var(--text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.nc-orc-sub { grid-area: sub; font-size: 10.5px; color: var(--muted); }
+
 /* Notebook: 5 condições numa linha ficam apertadas — 3 + 2. */
 @media (max-width: 1280px) {
   .av-cond-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
