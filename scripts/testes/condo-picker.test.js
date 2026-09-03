@@ -65,12 +65,34 @@ const original = criarEl("select");
 original.id = "ncCondo";
 original.parentNode = pai;
 
-let caixaCriada = null;
+const caixasCriadas = [];
+const criados = [];
+
 const document_ = {
-  getElementById(id) { return id === "ncCondo" ? original : null; },
+  // ⚠️ PROCURA PELO id DE VERDADE, e não devolve o `original` fixo.
+  //
+  // Este atalho é o que deixou passar o bug dos "3 seletores" (03/09/2026):
+  // na montagem o original PERDE o id e quem passa a atender por `ncCondo` é o
+  // `<input type="hidden">`. Um `getElementById` que sempre devolvia o
+  // `<select>` fazia o teste viver um DOM que não existe — e o guard de "já
+  // montado", que lê justamente esse retorno, era exercitado do lado errado.
+  getElementById(id) {
+    for (const el of [original, ...criados]) if (el.id === id) return el;
+    return null;
+  },
+  querySelector(sel) {
+    // Só o que o componente usa: `label[for="<id>"]`.
+    const m = /^label\[for="(.+)"\]$/.exec(sel);
+    if (!m) return null;
+    for (const el of criados) {
+      if (el.tagName === "LABEL" && el.getAttribute("for") === m[1]) return el;
+    }
+    return null;
+  },
   createElement(tag) {
     const el = criarEl(tag);
-    if (tag === "div") { caixaCriada = el; prepararCaixa(el); }
+    criados.push(el);
+    if (tag === "div") { caixasCriadas.push(el); prepararCaixa(el); }
     return el;
   },
   addEventListener() {},
@@ -97,7 +119,8 @@ const ITENS = [
   { id: 5, nome: "EDIS CENTER COMERCIAL LTDA", nome_fantasia: "Édis Center", bairro: "República", cidade: "São Paulo" },
 ];
 
-CP.montar({ campo: "ncCondo", itens: ITENS, permiteVazio: true });
+const pickerInicial = CP.montar({ campo: "ncCondo", itens: ITENS, permiteVazio: true });
+const caixaCriada = caixasCriadas[0];
 const { campo, limpar, lista } = { campo: caixaCriada._porClasse("cbx-campo"),
                                    limpar: caixaCriada._porClasse("cbx-limpar"),
                                    lista: caixaCriada._porClasse("cbx-lista") };
@@ -137,6 +160,21 @@ for (const [nome, termo, esperado] of casos) {
               (ok ? "" : "  esperado [" + esperado + "]"));
 }
 
+// ⚠️ MONTAR DE NOVO NÃO PODE CRIAR OUTRO CAMPO.
+//
+// O admin abre o modal de novo chamado com HTML fixo: `montar` é chamado a
+// CADA abertura, sempre no mesmo `ncCondo`. Sem o guard funcionando, a segunda
+// abertura empilhava um picker dentro do outro — relato de 03/09/2026, "está
+// aparecendo 3 seletores", e só o último ficava ligado ao valor que o salvar
+// lê. O operador não sofria porque redesenha o modal inteiro a cada vez.
+const pickerRemontado = CP.montar({ campo: "ncCondo", itens: ITENS, permiteVazio: true });
+CP.montar({ campo: "ncCondo", itens: ITENS, permiteVazio: true });
+const r1 = caixasCriadas.length === 1;
+const r2 = pickerRemontado === pickerInicial;
+[["remontar não cria segundo campo", r1, caixasCriadas.length + " caixa(s)"],
+ ["remontar devolve o MESMO picker", r2, ""]]
+  .forEach(([n, ok, extra]) => { if (!ok) falhas++; console.log((ok ? "PASS " : "FAIL ") + n + (ok ? "" : "  " + extra)); });
+
 // O contrato do campo: o valor gravado é o id, e o texto visível é o nome.
 const p = ctx.document.getElementById("ncCondo")._picker;
 p.definir(1);
@@ -147,5 +185,5 @@ const c3 = hidden.value === "" && campo.value === "";
 [["campo hidden guarda o id", c1], ["campo visível mostra o fantasia", c2], ["limpar zera os dois", c3]]
   .forEach(([n, ok]) => { if (!ok) falhas++; console.log((ok ? "PASS " : "FAIL ") + n); });
 
-console.log(falhas ? "\n" + falhas + " FALHA(S)" : "\nTODOS OK (" + (casos.length + 3) + " checagens)");
+console.log(falhas ? "\n" + falhas + " FALHA(S)" : "\nTODOS OK (" + (casos.length + 5) + " checagens)");
 process.exit(falhas ? 1 : 0);

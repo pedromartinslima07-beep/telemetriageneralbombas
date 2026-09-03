@@ -68,6 +68,12 @@
     if (!original) return null;
 
     // Já montado? Só troca a lista (a carteira pode ter carregado depois).
+    //
+    // ⚠️ A MARCA MORA NO HIDDEN, NÃO NO CAMPO ORIGINAL — ver o fim de `montar`.
+    // O que `getElementById(campoId)` devolve muda depois da primeira
+    // montagem: o original perde o `id` e quem passa a atender por ele é o
+    // `<input type="hidden">`. Marcar o original deixaria este guard cego a
+    // partir da segunda chamada.
     if (original.dataset.pickerPronto === "1") {
       original._pickerAtualizar(itens);
       return original._picker;
@@ -103,6 +109,15 @@
     var campo  = caixa.querySelector(".cbx-campo");
     var lista  = caixa.querySelector(".cbx-lista");
     var limpar = caixa.querySelector(".cbx-limpar");
+
+    // ⚠️ O RÓTULO PRECISA SEGUIR O CAMPO. O id saiu do original e foi para um
+    // `<input type="hidden">`, que não recebe foco: um `<label for="ncCondo">`
+    // deixado como estava vira rótulo de nada, e clicar no texto "Prédio" não
+    // faz mais o campo de busca acender. Vale para o operador, que rotula
+    // assim; no admin o `<label>` ENVOLVE o campo e não precisa de `for`.
+    campo.id = campoId + "_busca";
+    var rotulo = document.querySelector('label[for="' + campoId + '"]');
+    if (rotulo) rotulo.setAttribute("for", campo.id);
 
     var filtrados = [];
     var marcado = -1;   // índice destacado pelo teclado
@@ -262,20 +277,34 @@
       campo.focus();
     });
 
-    original._picker = {
+    // ⚠️ A MARCA DE "JÁ MONTADO" VAI NO HIDDEN, e não no campo original.
+    //
+    // Isto derrubou o modal de novo chamado do admin (relato: "aparecem 3
+    // seletores"). O guard lá em cima lê `getElementById(campoId)`, e a partir
+    // daqui esse id é do HIDDEN — o original ficou sem id na linha do
+    // `removeAttribute`. Com as marcas no original, a segunda abertura do
+    // modal não reconhecia nada de montado e montava OUTRO picker por cima,
+    // aninhado dentro do primeiro: três aberturas, três campos de busca
+    // empilhados, e só o último ligado ao valor que o `salvar` lê.
+    //
+    // O operador não sofria porque redesenha o modal inteiro a cada abertura,
+    // com um `<select>` novo em folha. O admin tem o modal fixo no HTML — e é
+    // esse o caso normal para os outros seis selects de condomínio que ainda
+    // vão adotar o componente.
+    hidden._picker = {
       valor: function () { return hidden.value; },
       definir: function (id) { escolher(id); },
       limpar: function () { escolher(""); },
       foco: function () { campo.focus(); },
     };
-    original._pickerAtualizar = function (novos) {
+    hidden._pickerAtualizar = function (novos) {
       itens = novos || [];
       if (hidden.value && !achar(hidden.value)) escolher("");
     };
-    original.dataset.pickerPronto = "1";
+    hidden.dataset.pickerPronto = "1";
 
     if (valorAtual) escolher(valorAtual);
-    return original._picker;
+    return hidden._picker;
   }
 
   window.CondoPicker = { montar: montar, nomeDe: nomeDe };

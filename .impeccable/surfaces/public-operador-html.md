@@ -540,3 +540,46 @@ casa, a **mesma área** lê como objeto.
   atribuído…", como no comp). É copy nova, e a decisão de escrever copy é do
   Pedro.
 - **Não ressuscitar o cilindro do admin** nem a "parede de instrumentos" da v1.
+
+## A gaveta de conta (03/09/2026) — e a barra que não cabia
+
+Pedido do Pedro, em duas etapas: primeiro "ícone em vez de 'Minha senha'",
+depois *"penso se n seria melhor q o nome da pessoa fosse um botao, e por la
+ela conseguisse sair e trocar a senha"*.
+
+**O nome de quem está logado é o botão; senha e sair são as linhas da gaveta.**
+`.eu` · `.conta.conta-eu` · `.eu-gaveta` · `.eu-item`.
+
+| | Regra que passou a valer |
+|---|---|
+| O nome | É **alvo**, e isso revoga a regra herdada do `cliente.html` ("um alvo que não leva a lugar nenhum ensina a duvidar dos outros"). A regra era contra alvo **morto**. No painel do cliente ela segue valendo — as duas barras divergem de propósito |
+| A peça | Gaveta ancorada, **nunca `<dialog>`**: modal para escolher entre dois itens interrompe um turno e prende o foco numa tela aberta o dia inteiro |
+| Aninhamento | A gaveta é **irmã** do botão. `.conta` tem `clip-path`, e `clip-path` recorta a subárvore inteira |
+| Empilhamento | `isolation:isolate` na gaveta, como em todo `.conta`: a placa vive num `::before` com `z-index:-1`, e sem contexto próprio esse `-1` escapa para trás do pai |
+| Ordem no handler | A gaveta fecha **antes** de a ação rodar, e antes da linha do `#btnSair` — senão o `abrirFundo` guarda uma linha já `hidden` como foco de origem |
+| Alvo | `.conta` subiu de 38 para **44px na mesa**, o piso que o `.btn` desta folha já aplicava |
+
+**A conta de largura da barra, refeita (a folha manda refazer sempre que
+`.barra-acoes` muda).** Sobreposição do wordmark sobre a borda das ações:
+
+| largura | antes (em produção) | 2 chapas | gaveta |
+|---|---|---|---|
+| 320px | 128 | 107 | 39 |
+| 360px | 113 | 67 | **0** |
+| 390px | **83** | 37 | **0** |
+| 412px | 61 | 15 | **0** |
+| 480px+ | 15 | 0 | **0** |
+
+⚠️ **A barra estava quebrada em todo celular ANTES desta rodada** — 83px de
+logotipo por cima do primeiro alvo a 390px, em produção. O defeito sobreviveu
+porque esta barra só se olha com sessão, e quase sempre na mesa. **Ao mexer em
+`.barra-acoes`, meça em 320 / 360 / 390 / 412 / 430 antes de olhar componente.**
+
+⚠️ **E meça, não deduza:** a aritmética a partir da largura das ações dava 28 e
+24px de altura de marca; medido, sobrava 1px de sobreposição a 386 e 8,7px a
+360. Os valores que ficaram (27 e 22) saíram da tela.
+
+⏳ **A tela de Aprovados (`operador-orcamentos.html`) ficou com a barra
+antiga** — carrega a mesma folha e ainda monta "nome (texto) + Sair". Nada
+quebrado (`.barra-eu` foi preservada de propósito), mas as duas barras do
+operador divergem.

@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GENERAL • Novo chamado (prévia)</title>
+<link rel="icon" type="image/png" href="/static/favicon.png?v=3">
+<!-- O CSS REAL do admin, sem cópia. Se o modal mudar de aparência lá, muda
+     aqui — uma prévia com estilo próprio mente na primeira semana. -->
+<link rel="stylesheet" href="/static/admin.css?v=248">
+<style>
+  /* Só o andaime da prévia. Nada que o modal use. */
+  .pv-barra {
+    position: fixed; inset: 0 0 auto 0; z-index: 9999;
+    display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+    padding: 10px 14px; background: var(--surface2); border-bottom: 1px solid var(--border);
+    font-size: 12px;
+  }
+  .pv-barra b { color: var(--accent); }
+  .pv-placar { font-variant-numeric: tabular-nums; color: var(--text-dim); }
+  .pv-placar.pv-ruim { color: var(--danger); font-weight: 700; }
+  .pv-nota { padding: 60px 20px 20px; max-width: 720px; font-size: 13px; color: var(--text-dim); line-height: 1.6; }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════════════════════════════════
+     PRÉVIA DO MODAL "NOVO CHAMADO" DO ADMIN — `/dev/_novo-chamado-preview.html`
+
+     ⚠️ PARA QUE ELA EXISTE: o modal só se olha depois de entrar no painel, e
+     entrar exige sessão. Isso deixava o campo de escolher prédio sem forma de
+     ser visto por quem está mexendo nele — e foi assim que os "3 seletores"
+     de 03/09/2026 chegaram até o Pedro em vez de morrer no desenvolvimento.
+
+     ⚠️ ELA NÃO COPIA O MARKUP DO MODAL. Busca `/admin/painel` (que serve o
+     HTML sem exigir sessão — quem manda para o login é o `admin.js`, no
+     cliente) e recorta o `#novoChamadoOverlay` de lá. Prévia que duplica
+     markup começa fiel e envelhece mentindo; esta quebra alto se o id sumir.
+
+     ⚠️ O QUE ELA NÃO COBRE: os fetches do `admin.js` e a carteira real. A
+     lista abaixo é fixa e pequena, montada com os casos que importam — nome
+     fantasia diferente da razão social, acento, e prédios que só se distinguem
+     pelo bairro. Para ver o modal com os 86 prédios, é o painel de verdade.
+     ════════════════════════════════════════════════════════════════════════ -->
+
+<div class="pv-barra">
+  <span><b>Prévia</b> · modal "Novo chamado" do admin</span>
+  <button class="btn btn-sm" id="pvAbrir">Abrir modal</button>
+  <button class="btn btn-sm" id="pvFechar">Fechar</button>
+  <button class="btn btn-sm" id="pvCiclo">Abrir e fechar 3×</button>
+  <span class="pv-placar" id="pvPlacar">campos de busca: —</span>
+</div>
+
+<div class="pv-nota" id="pvNota">Carregando o modal a partir de <code>/admin/painel</code>…</div>
+
+<script src="/static/condo-picker.js?v=2"></script>
+<script src="/static/_novo-chamado-preview.js?v=1"></script>
+</body>
+</html>

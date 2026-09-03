@@ -22,7 +22,7 @@
 <link rel="preload" href="/static/fonts/archivo.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="/static/fonts/martianmono.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/static/leaflet.css">
-<link rel="stylesheet" href="/static/operador.css?v=79">
+<link rel="stylesheet" href="/static/operador.css?v=85">
 </head>
 <body>
 <!-- ⚠️ PÁGINA DE PRÉVIA, GERADA a partir do operador.html — temporária,
@@ -79,22 +79,73 @@
       <button type="button" data-acao="ajuda">Ajuda</button>
     </nav>
     <button class="btn btn-novo" data-acao="novo" aria-label="Abrir novo chamado"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span class="btn-rot">Novo chamado</span></button>
-    <!-- ⚠️ QUEM ESTÁ LOGADO + SAIR — o mesmo par da barra do painel do
-         cliente (`cliente.html`), e trazido de lá inteiro em 31/08 a pedido
-         do Pedro. Antes daqui havia só o quadradinho com as INICIAIS, que
-         diz quem está logado para quem já sabe e não oferece saída nenhuma.
-         ⚠️ O NOME É TEXTO, não botão — a razão está escrita no cliente.html
-         e vale igual aqui: um alvo que não leva a lugar nenhum ensina a
-         pessoa a duvidar dos outros alvos da barra.
-         ⚠️ E "Sair" NÃO é vermelho. É a única coisa da barra que ninguém
-         veio fazer; em vermelho puxaria o olho o turno inteiro. -->
-    <span class="barra-eu" id="barraEu"></span>
-    <button class="conta conta-sair" id="btnSair" type="button" aria-label="Sair">
-      <!-- porta à esquerda, seta saindo: o mesmo desenho do painel do
-           cliente, no traço desta folha (ponta quadrada, junta em esquadro). -->
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M14 4H5v16h9"/><path d="M12 12h9M17.5 8l4 4-4 4"/></svg>
-      <span class="conta-rot">Sair</span>
-    </button>
+    <!-- ⚠️ QUEM ESTÁ LOGADO É UM ALVO, E ELE ABRE A GAVETA DE CONTA
+         (03/09/2026, pedido do Pedro: "penso se não seria melhor q o nome da
+         pessoa fosse um botão, e por lá ela conseguisse sair e trocar a
+         senha").
+
+         Isto SUBSTITUI o par "nome (texto) + Senha + Sair" que morou aqui
+         entre 31/08 e 03/09, e revoga a regra escrita no `cliente.html` —
+         "o nome é TEXTO porque um alvo que não leva a lugar nenhum ensina a
+         pessoa a duvidar dos outros alvos da barra". A regra era contra alvo
+         MORTO. Agora o nome leva a algum lugar, então ela é satisfeita, não
+         quebrada. ⚠️ A do cliente segue valendo: lá o nome continua texto,
+         porque lá não há gaveta. As duas barras divergem de propósito.
+
+         E o motivo forte foi MEDIDO, não estético: com Senha e Sair como duas
+         chapas soltas, a barra não cabia no celular — a 390px o wordmark
+         pintava 37px por cima de "Aprovados" (e 83px na versão anterior a
+         esta, com "Minha senha" em texto na nav). Uma chapa só devolve 50px e
+         fecha a conta de 380px para cima. A tabela está no `operador.css`,
+         no comentário "CELULAR ESTREITO".
+
+         ⚠️ NÃO É `<dialog>`. Todo diálogo desta folha usa `abrirFundo` +
+         `showModal()`, e aqui seria errado: modal para escolher entre dois
+         itens interrompe o turno e rouba o foco de uma tela que fica aberta
+         o dia inteiro. Gaveta ancorada, que fecha no Esc, no clique fora e
+         ao escolher. -->
+    <div class="eu" id="eu">
+      <!-- O nome sai por `primeiroNome()` (o completo vai no `title`), e o
+           `.conta-rot` some no celular como no resto da barra: lá o alvo é a
+           silhueta sozinha, em 44px. -->
+      <button class="conta conta-eu" id="btnEu" type="button"
+              aria-haspopup="true" aria-expanded="false" aria-controls="euGaveta">
+        <!-- silhueta no traço da folha (ponta quadrada, junta em esquadro),
+             não ícone de biblioteca. Cabeça e ombros, sem moldura: a moldura
+             seria uma segunda caixa dentro de uma peça que já é chapa. -->
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4.5 20.5c0-4.14 3.36-7.5 7.5-7.5s7.5 3.36 7.5 7.5"/></svg>
+        <span class="conta-rot" id="barraEu"></span>
+        <!-- ⚠️ A SETA EXISTE PORQUE A BARRA MUDOU DE CONTRATO. Todo o resto
+             daqui é ação direta; este é o único alvo que ABRE algo, e sem a
+             seta o operador que usou a tela ontem não tem como saber que o
+             nome virou porta. Some no celular junto com o rótulo — lá a
+             silhueta sozinha já não promete ação direta. -->
+        <svg class="eu-seta" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M5 9l7 7 7-7"/></svg>
+      </button>
+      <!-- ⚠️ IRMÃ do botão, nunca filha: `.conta` tem `clip-path`, e
+           `clip-path` RECORTA a subárvore inteira — gaveta pendurada dentro
+           do botão sai cortada no chanfro e ninguém entende por quê. -->
+      <div class="eu-gaveta" id="euGaveta" role="menu" aria-labelledby="btnEu" hidden>
+        <button class="eu-item" type="button" role="menuitem" data-acao="senha">
+          <!-- chave deitada: palhetão à esquerda, haste à direita, dois dentes
+               para baixo. Os ícones de biblioteca desenham a chave na
+               diagonal, que briga com a ortogonal desta folha. -->
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><circle cx="7.5" cy="12" r="4.5"/><path d="M12 12h9M16.5 12v3.5M20 12v2.5"/></svg>
+          <span>Trocar senha</span>
+        </button>
+        <!-- ⚠️ `id="btnSair"` PRESERVADO. A delegação de clique procura o Sair
+             por id (é a peça compartilhada com as telas irmãs), então mudar o
+             seletor aqui quebraria o logout sem erro nenhum no console.
+             ⚠️ E ele NÃO é vermelho, mesmo dentro da gaveta: é a única coisa
+             daqui que ninguém veio fazer. -->
+        <button class="eu-item" id="btnSair" type="button" role="menuitem">
+          <!-- porta à esquerda, seta saindo: o mesmo desenho do painel do
+               cliente, no traço desta folha. -->
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M14 4H5v16h9"/><path d="M12 12h9M17.5 8l4 4-4 4"/></svg>
+          <span>Sair</span>
+        </button>
+      </div>
+    </div>
   </div>
 </header>
 
@@ -185,8 +236,8 @@
 </main>
 
 <script src="/static/leaflet.js"></script>
-<script src="/static/condo-picker.js?v=1"></script>
+<script src="/static/condo-picker.js?v=2"></script>
 <script src="/static/_operador-preview.js?v=5"></script>
-<script src="/static/operador.js?v=75" defer></script>
+<script src="/static/operador.js?v=76" defer></script>
 </body>
 </html>

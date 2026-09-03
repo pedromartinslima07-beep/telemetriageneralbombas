@@ -1909,8 +1909,76 @@ function ajudaCorpo(d) {
   </section>`;
 }
 
+/* ── A gaveta de conta ───────────────────────────────────────────────────
+   O nome de quem está logado abre senha e sair. O porquê e a conta de largura
+   que motivou estão no `operador.html`.
+
+   ⚠️ NÃO USA `abrirFundo`. Todo diálogo desta folha é `<dialog>` +
+   `showModal()`, e aqui seria errado: modal para escolher entre dois itens
+   interrompe um turno e prende o foco numa tela que fica aberta o dia
+   inteiro. Isto é gaveta ancorada — fecha no Esc, no clique fora e ao
+   escolher.
+
+   ⚠️ E ela NÃO precisa do top layer, ao contrário dos diálogos. O motivo do
+   `showModal()` lá é o mapa em TELA CHEIA (o navegador só pinta a subárvore
+   do elemento em tela cheia). Com o mapa em tela cheia a barra não está
+   alcançável, então a gaveta nunca é aberta nessa situação — e se algum dia
+   for, o caminho é `showModal()`, não `z-index`. */
+function gaveta(abrir) {
+  const b = document.getElementById("btnEu");
+  const g = document.getElementById("euGaveta");
+  if (!b || !g) return;
+  const aberta = b.getAttribute("aria-expanded") === "true";
+  const alvo = abrir === undefined ? !aberta : abrir;
+  if (alvo === aberta) return;
+  b.setAttribute("aria-expanded", alvo ? "true" : "false");
+  g.hidden = !alvo;
+  // Ao abrir por TECLADO o foco entra na primeira linha; ao abrir por clique
+  // ele fica no botão. Quem clicou vai clicar de novo — mover o foco faria a
+  // primeira linha acender sozinha e parecer já escolhida.
+  if (!alvo) return;
+  if (b.matches(":focus-visible")) g.querySelector(".eu-item")?.focus();
+}
+
+// Fecha e devolve o foco ao botão. Chamado antes de qualquer ação da gaveta:
+// o `abrirFundo` guarda `document.activeElement` para devolver o foco no
+// fim, e sem isto ele guardaria uma linha de gaveta que já está `hidden` —
+// foco devolvido a elemento invisível não vai a lugar nenhum.
+function gavetaFecha(devolver) {
+  const b = document.getElementById("btnEu");
+  if (!b || b.getAttribute("aria-expanded") !== "true") return;
+  gaveta(false);
+  if (devolver) b.focus();
+}
+
+// Seta ↓/↑ percorre as linhas; Home/End vão às pontas. É o que `role="menu"`
+// promete a quem navega por teclado.
+function gavetaTeclas(e) {
+  const g = document.getElementById("euGaveta");
+  if (!g || g.hidden) return false;
+  const itens = [...g.querySelectorAll(".eu-item")];
+  const i = itens.indexOf(document.activeElement);
+  if (e.key === "ArrowDown") { e.preventDefault(); itens[i < 0 ? 0 : (i + 1) % itens.length].focus(); return true; }
+  if (e.key === "ArrowUp")   { e.preventDefault(); itens[i <= 0 ? itens.length - 1 : i - 1].focus(); return true; }
+  if (e.key === "Home")      { e.preventDefault(); itens[0].focus(); return true; }
+  if (e.key === "End")       { e.preventDefault(); itens[itens.length - 1].focus(); return true; }
+  // Tab sai da gaveta: fechar sem devolver o foco deixa o Tab seguir seu
+  // caminho natural, que é o que se espera de um menu.
+  if (e.key === "Tab") { gaveta(false); return false; }
+  return false;
+}
+
 /* ── Eventos ─────────────────────────────────────────────────────────── */
 document.addEventListener("click", (e) => {
+  // ⚠️ A GAVETA VEM ANTES DE TUDO, e a ordem é o que faz o resto funcionar.
+  // O botão do nome alterna; clique fora fecha; e clique DENTRO fecha antes
+  // de a ação rodar, para que o `abrirFundo` da troca de senha guarde o BOTÃO
+  // como foco de origem, e não uma linha de gaveta já escondida.
+  if (e.target.closest("#btnEu")) { gaveta(); return; }
+  const naGaveta = e.target.closest("#euGaveta");
+  if (!naGaveta) gavetaFecha(false);
+  else gavetaFecha(true);
+
   // O "Sair" é identificado por id, não por `data-acao`: ele é o mesmo botão
   // das telas irmãs, e lá o seletor é o id. Manter o mesmo contrato evita que
   // a peça compartilhada precise de um atributo só nesta folha.
@@ -1947,6 +2015,12 @@ document.addEventListener("keydown", (e) => {
   // aberto por cima, o Esc precisa fechar o DESPACHO — sair da tela cheia ali
   // é descartar a decisão em andamento e ainda tirar o operador do mapa que
   // ele estava usando. Fecha-se de dentro para fora.
+  // ⚠️ A GAVETA VEM ANTES DO DIÁLOGO. Ela nunca convive com um diálogo aberto
+  // (escolher uma linha fecha a gaveta), mas a ordem "de dentro para fora"
+  // que o resto deste handler segue pede que a peça mais interna responda
+  // primeiro — e ela é a mais interna quando está aberta.
+  if (gavetaTeclas(e)) return;
+  if (e.key === "Escape" && document.getElementById("euGaveta")?.hidden === false) return gavetaFecha(true);
   if (e.key === "Escape" && document.getElementById("fundo")) return fechar();
   if (e.key === "Escape" && _mapaTurnoNo?.classList.contains("is-fs")) return mapaFs(false);
   if (e.key === "Escape") return fechar();

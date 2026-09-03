@@ -491,7 +491,12 @@ body{
 .conta{
   position:relative;isolation:isolate;flex-shrink:0;
   display:inline-flex;align-items:center;gap:8px;
-  padding:8px 12px;min-height:38px;border:0;cursor:pointer;
+  /* ⚠️ 44px, não 38 — o piso que o `.btn` desta folha já aplica na mesa (ver
+     o comentário "ALVO DE 44px NO DESKTOP TAMBÉM" mais abaixo). Enquanto isto
+     era só o "Sair" de fio, ninguém notou; com o nome virando a única chapa de
+     conta, ela ficava lado a lado com o "+ Novo chamado" 6px mais baixa, e
+     duas chapas de alturas diferentes na mesma fila leem como desalinho. */
+  padding:8px 12px;min-height:44px;border:0;cursor:pointer;
   font:inherit;font-size:14px;font-weight:700;letter-spacing:-.005em;
   color:var(--text-dim);background:var(--fio);
   --ch:5px;clip-path:var(--corte);
@@ -505,19 +510,106 @@ body{
 /* Sair não é ação de rotina: tom secundário, ênfase só no hover. Vermelho
    aqui puxaria o olho o turno inteiro para a única coisa da barra que a
    pessoa não veio fazer. Mesma decisão, mesmas palavras, no cliente.css. */
-.conta-sair:hover{color:#fff;background:var(--fio-forte)}
-.conta-sair:focus-visible{box-shadow:inset 0 0 0 2px var(--amarelo)}
-/* Quem está logado. É TEXTO, não alvo — um botão que não leva a lugar nenhum
-   ensina a duvidar dos outros alvos da barra. */
-/* ⚠️ `flex-shrink: 0`, e isto é conserto de um defeito que o Pedro viu antes
-   de mim: "parece que tem um caractere perdido entre Novo chamado e Sair".
-   Era o NOME, espremido. Com `flex-shrink: 1` e `min-width: 0` ele cedia
-   espaço até virar uma fatia — medido: **4px de renderização para 29px de
-   texto**, ou seja, um pedaço da primeira letra encostado no botão. Um
-   fragmento de glifo não é "menos informação", é sujeira.
-   Agora ele não encolhe: ou cabe inteiro, ou some (abaixo de 760px o bloco
-   de celular já o esconde). Quem cede no aperto é a marca, que tem a regra
-   de 420px para isso. */
+/* ⚠️ `.conta-sair` e `.conta-senha` MORRERAM em 03/09/2026 — as duas viraram
+   linha da gaveta de conta (`.eu-item`), logo abaixo. O realce do `.conta`
+   agora serve só ao botão do nome. */
+.conta:hover{color:#fff;background:var(--fio-forte)}
+.conta:focus-visible{box-shadow:inset 0 0 0 2px var(--amarelo)}
+
+/* ══ A GAVETA DE CONTA ═══════════════════════════════════════════════════
+   O nome de quem está logado é o botão; senha e sair moram dentro dele.
+   O porquê (e a conta de largura que motivou) está no `operador.html`.
+
+   ⚠️ A GAVETA É IRMÃ DO BOTÃO, NÃO FILHA. `.conta` tem `clip-path`, e
+   `clip-path` recorta a subárvore inteira — dentro do botão a gaveta sai
+   cortada no chanfro. `.eu` é o invólucro sem recorte que ancora as duas.
+   ⚠️ E `.eu` NÃO PODE GANHAR `clip-path` nem `overflow` nunca. */
+.eu{position:relative;flex-shrink:0}
+/* O nome não encolhe até virar fragmento de glifo — a lição do `.barra-eu`,
+   que cedia até 4px de renderização para 29px de texto. Ou cabe, ou o
+   celular o esconde (o `.conta-rot` vira sr-only abaixo de 760px). */
+.conta-eu .conta-rot{max-width:14ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* A seta é o único sinal de "isto abre" numa barra em que todo o resto é ação
+   direta. Fica um degrau abaixo do rótulo: ela informa, não chama. */
+.eu-seta{
+  width:11px;height:11px;flex-shrink:0;margin-left:-2px;
+  color:var(--muted);
+  transition:transform .18s var(--saida),color .16s var(--saida);
+}
+.conta-eu:hover .eu-seta{color:var(--text-dim)}
+.conta-eu[aria-expanded="true"]{color:#fff;background:var(--fio-forte)}
+.conta-eu[aria-expanded="true"] .eu-seta{transform:rotate(180deg);color:var(--text-dim)}
+
+/* Chapa de duas camadas, como toda peça de fio desta folha: o fundo do
+   elemento É o anel, o `::before` embutido 1px é a placa. `border` +
+   `clip-path` sai recortado nos dois chanfros e lê como defeito.
+   ⚠️ Sem sombra. Neste sistema profundidade é TONAL — a placa em `--surface`
+   sobre o campo `--mar-900` já é o degrau, e o fio de 1px é a usinagem. */
+.eu-gaveta{
+  position:absolute;top:calc(100% + 9px);right:0;z-index:3;
+  min-width:214px;padding:1px;
+  display:flex;flex-direction:column;
+  background:var(--fio);clip-path:var(--corte);
+  /* ⚠️ `isolation:isolate` NÃO É ENFEITE — sem ela a gaveta nasce
+     TRANSLÚCIDA e a fila atravessa o menu. Medido na prévia.
+     A construção em duas camadas põe a placa num `::before` com
+     `z-index:-1`; sem contexto de empilhamento próprio, esse `-1` escapa
+     para trás do contexto do PAI, e o que resta visível é só o
+     `background:var(--fio)` do elemento — que é `rgba(255,255,255,.14)`.
+     Todo `.conta` desta folha já declara `isolation:isolate` pela mesma
+     razão; a gaveta é a peça nova que não tinha herdado a lição. */
+  isolation:isolate;
+  animation:gavetaAbre .18s var(--saida) both;
+}
+.eu-gaveta::before{
+  content:"";position:absolute;inset:1px;z-index:-1;clip-path:var(--corte);
+  /* 176°: a peça é mais larga que alta. Em 168° o gradiente vira horizontal
+     numa chapa deitada e acende a borda esquerda. */
+  background:linear-gradient(176deg,var(--surface2),var(--surface));
+}
+/* ⚠️ `display:flex` acima VENCE o atributo `hidden` — a mesma armadilha que
+   o `.conta-selo` do `cliente.css` documenta. Sem esta linha a gaveta nasce
+   aberta e nunca fecha. */
+.eu-gaveta[hidden]{display:none}
+@keyframes gavetaAbre{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+
+/* A linha. Alvo de 44px já na mesa: quem usa esta tela está ao telefone
+   enquanto clica, e é o piso que a folha aplica em todo botão desde 31/08. */
+.eu-item{
+  display:flex;align-items:center;gap:11px;
+  padding:0 15px;min-height:44px;width:100%;
+  border:0;background:transparent;cursor:pointer;text-align:left;
+  font:inherit;font-size:14px;font-weight:600;letter-spacing:-.005em;
+  color:var(--text-dim);
+  transition:color .14s var(--saida),background .14s var(--saida);
+}
+.eu-item svg{width:16px;height:16px;flex-shrink:0;color:var(--muted);transition:color .14s var(--saida)}
+.eu-item:hover{color:#fff;background:var(--fio-fraco)}
+.eu-item:hover svg{color:var(--amarelo)}
+.eu-item:focus-visible{outline:none;color:#fff;box-shadow:inset 0 0 0 2px var(--amarelo)}
+.eu-item:focus-visible svg{color:var(--amarelo)}
+/* Corte gravado entre as duas linhas: `--rasgo` (fundo do sulco) e `--luz`
+   (a aresta pegando luz), sempre nesta ordem. Uma linha só lê como borda de
+   card e transforma a gaveta em dois cartõezinhos. */
+.eu-item + .eu-item{box-shadow:inset 0 1px 0 var(--rasgo),inset 0 2px 0 var(--luz)}
+.eu-item + .eu-item:focus-visible{box-shadow:inset 0 0 0 2px var(--amarelo)}
+
+/* ⚠️ `.barra-eu` SAIU DO PAINEL DO TURNO EM 03/09/2026 — lá o nome deixou de
+   ser texto solto e virou o rótulo do botão da gaveta (`.conta-eu .conta-rot`,
+   acima). MAS ELA CONTINUA VIVA: a tela de **Aprovados**
+   (`operador-orcamentos.html`) carrega esta mesma folha e ainda monta o par
+   "nome (texto) + Sair". Apagar a regra deixava o nome de lá sem tamanho,
+   sem cor e sem ellipsis — e nada no painel do turno acusaria.
+   ⏳ As duas barras do operador divergem enquanto isso durar; levar a gaveta
+   para Aprovados exige o `dlgSenha` no `operador-orcamentos.js`, que não o
+   tem. Registrado em `memory-bank/active-work.md`.
+   A regra abaixo continua valendo nas duas telas: o nome NÃO ENCOLHE.
+   Era conserto de um defeito que o Pedro viu antes de mim ("parece que tem um
+   caractere perdido entre Novo chamado e Sair") — com `flex-shrink:1` e
+   `min-width:0` ele cedia até 4px de renderização para 29px de texto, um
+   pedaço da primeira letra encostado no botão. Fragmento de glifo não é
+   "menos informação", é sujeira. Quem cede no aperto é a marca, que tem a
+   regra de 420px para isso. */
 .barra-eu{
   font-size:14px;color:var(--muted);padding:7px 2px;flex-shrink:0;
   max-width:22ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
@@ -2265,10 +2357,15 @@ body.com-ficha{overflow:hidden}
      nesta superfície. O que cede é o respiro entre elas. */
   .barra-nav{gap:14px}
   .barra-nav a,.barra-nav button{font-size:14px;padding:12px 0;min-height:44px;display:flex;align-items:center}
-  /* No celular a barra vira ícone: o nome sai (não é o que se lê no
-     aparelho) e o "Sair" fica só com a porta, em alvo de 44px. */
-  .barra-eu{display:none}
+  /* No celular a barra vira ícone: o rótulo de todo `.conta` some (sr-only,
+     abaixo) e sobra a silhueta em alvo de 44px. A SETA SOME COM ELE — sem
+     rótulo ao lado, a silhueta sozinha já não promete ação direta, e dois
+     glifos dentro de 44px viram borrão. */
+  .eu-seta{display:none}
   .conta{padding:12px;min-height:44px;min-width:44px;justify-content:center}
+  /* A gaveta encosta na borda da tela, não no botão: em 44px de alvo o
+     `right:0` do desktop a deixaria pendurada num canto de 13px. */
+  .eu-gaveta{right:-1px;min-width:min(240px,calc(100vw - 26px))}
   .conta .conta-rot{
     position:absolute;width:1px;height:1px;overflow:hidden;
     clip-path:inset(50%);white-space:nowrap;
@@ -2862,12 +2959,51 @@ body.sem-trilho #tela{width:100%}
    próprio conteúdo, e a imagem não tem contra o que encolher. Quem cede é a
    ALTURA, e só onde falta espaço: 26px dá 120px de largura e três de folga.
    Acima de 420 a medida das irmãs (32 numa barra de 64) segue intacta.
-   ⚠️ Mexeu no que há dentro de `.barra-acoes`? Refaça esta conta — e ela
-   MUDOU em 31/08: os quatro chips viraram dois links de texto mais duas
-   ações, então há mais folga aqui do que quando a conta foi feita. */
+   ⚠️ Mexeu no que há dentro de `.barra-acoes`? Refaça esta conta.
+
+   ⚠️ A CONTA FOI REFEITA EM 03/09/2026 (o "Senha" saiu da nav e virou botão)
+   E ELA NÃO FECHA. Medido no navegador, largura do wordmark contra a borda
+   esquerda das ações — sobreposição em pixels:
+
+       largura   antes de 03/09   depois
+        320px         128            107
+        360px         113             67
+        390px          83             37   ← iPhone 12/13/14/15
+        412px          61             15   ← Pixel
+        430px          65             21
+        480px          15              0
+
+   Ou seja: **a barra já estava quebrada em todo celular** — a coluna "antes"
+   é o que está em produção hoje, com "Minha senha" ainda em texto na nav. O
+   move de 03/09 corta a sobreposição pela metade e conserta o 480, mas não
+   cura: abaixo de ~450px o wordmark continua pintando por cima do primeiro
+   alvo. E não há altura de logo que resolva — a 390px sobram 91px para a
+   marca, o que pediria um logo de 20px de altura.
+
+   A conta só fecha se ALGUMA COISA SAIR da barra no celular (a marca, ou os
+   dois links de texto virando ícone). Isso é decisão de direção, não de
+   implementação, e está aberta em `memory-bank/active-work.md`. Não invente
+   um `overflow:hidden` aqui: ele troca o logotipo por cima do botão por um
+   logotipo cortado no meio, que lê como defeito de carregamento. */
 @media (max-width:420px){
-  .marca img{height:28px}
+  .marca img{height:27px}
   .barra-acoes{gap:6px}
+}
+/* ── E ABAIXO DE 386px A MARCA CEDE MAIS 4px ────────────────────────
+   ⚠️ Quebra nova em 03/09/2026, e ela também é conta, não gosto. Com a
+   gaveta de conta as ações fecharam em 235,5px, e o `385 − 13 − 235,5 =
+   136,5px` disponível ainda não cabe o wordmark a 28px (128,5) nos aparelhos
+   de 360–375: sobravam 27px e 12px de sobreposição. A 24px ele mede 110px e
+   fecha até ~358px de janela.
+   ⚠️ ESTES DOIS NÚMEROS (27 e 22) SAÍRAM DA TELA, não da conta. A conta a
+   partir da largura das ações dava 28 e 24, e medido no navegador sobrava 1px
+   de sobreposição a 386px e 8,7px a 360px — a fórmula ignora o `gap` do
+   `.barra-in` e o arredondamento do wordmark. Refez? Meça, não deduza.
+   ⚠️ 320px continua fora, e é limite conhecido, não descuido: ali sobram
+   ~66px para a marca, o que pediria 14px de altura — ilegível. É o iPhone SE
+   de 2016; o menor aparelho em circulação real tem 360. */
+@media (max-width:385px){
+  .marca img{height:22px}
 }
 
 /* ⚠️ AQUI MORAVA A REGRA DE 380px, e ela morreu com o que regulava.
@@ -2958,10 +3094,20 @@ body.sem-trilho #tela{width:100%}
    os dois acontecem em linhas diferentes — sem ela, duas linhas acesas e
    nenhuma pista de qual o Enter escolhe. */
 .cbx-item.is-marcado { box-shadow: inset 2px 0 0 var(--amarelo); }
+/* ⚠️ Espelho do admin, e os seletores longos vêm junto de propósito. Aqui o
+   campo não mora dentro de um `<label class="f">`, então `.cbx-nome` sozinho
+   bastaria — mas as duas folhas são cópia uma da outra, e a que diverge é a
+   que se descobre errada seis meses depois. Lá o `.f span` alcança os spans do
+   componente e apagava a hierarquia da lista. */
+.cbx-lista .cbx-item .cbx-nome,
+.cbx-lista .cbx-item .cbx-sub { text-transform: none; letter-spacing: 0; }
+.cbx-lista .cbx-item .cbx-nome { font-size: 13px; font-weight: 600; color: var(--text); }
 .cbx-nome { font-size: 13px; font-weight: 600; color: var(--text); }
 /* A razão social e o bairro. Cinza um degrau abaixo: é o que confirma que
    este é o prédio certo, não o que se lê primeiro. */
+.cbx-lista .cbx-item .cbx-sub { font-size: 11px; font-weight: 500; color: var(--text-dim); }
 .cbx-sub  { font-size: 11px; color: var(--text-dim); }
+.cbx-lista .cbx-item-vazio .cbx-nome,
 .cbx-item-vazio .cbx-nome { color: var(--muted); font-weight: 500; font-style: normal; }
 .cbx-vazio { padding: 12px; font-size: 12px; color: var(--text-dim); text-align: center; }
 

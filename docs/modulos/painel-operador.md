@@ -60,7 +60,7 @@ admin** (seria o mesmo painel com menos itens) e a **parede de instrumentos**.
 
 | Região | O que é |
 |---|---|
-| Barra | Marca · **Aprovados · Ajuda** (texto, como a landing) · `+ Novo chamado` (âmbar) · nome e **Sair** (de fio) |
+| Barra | Marca · **Aprovados · Ajuda** (texto, como a landing) · `+ Novo chamado` (âmbar) · **o nome de quem está logado**, que abre a gaveta de conta (trocar senha · sair) |
 | Coluna principal | **Esperando alguém** (sem técnico) e, abaixo, **Já tem técnico** — cada cabeçalho conta os seus, inclusive os fora do prazo |
 | Trilho | Mapa do turno; **Equipe agora** (nome + estado) e **Despachados hoje** |
 
@@ -629,6 +629,11 @@ não chegam, o campo é o `<select>` de "Carregando…", como já era.
 ⚠️ **`permiteVazio: false` aqui.** No admin o chamado pode nascer sem prédio
 vinculado; na fila do turno, não — o mapa e o despacho dependem dele.
 
+⚠️ **O `<label for="nvCondo">` é reapontado pelo componente** (03/09/2026), e
+não deve voltar a apontar para `nvCondo`: na montagem esse id passa a ser de um
+`<input type="hidden">`, que não recebe foco — o rótulo "Prédio" tinha deixado
+de acender o campo. O picker o move para `nvCondo_busca`, o campo de texto.
+
 ⚠️ **O componente é um TERCEIRO ARQUIVO, não um import do `admin.js`.** A regra
 de que esta folha não depende do admin continua de pé; o que ela proíbe é o
 operador virar refém de uma tela que muda por outro motivo. `condo-picker.js`
@@ -641,10 +646,16 @@ O operador troca a própria senha pela barra. **O backend já existia**:
 só a tela. Sem ela, o caminho era pedir ao admin um `reset-senha`, que gera
 uma senha temporária **em texto puro** para alguém repassar.
 
-⚠️ **É TEXTO NA BARRA, não um terceiro botão.** A gramática está no
-`operador.html`: navegação é texto, só ação é botão, e são duas. Trocar senha
-não é o que se veio fazer no turno. E não foi pendurado no nome — o nome é
-texto de propósito, pela razão escrita ao lado dele.
+⚠️ **DESDE 03/09/2026 ELA MORA NA GAVETA DE CONTA.** Nasceu como texto dentro
+da `.barra-nav` — mas a nav se anuncia `aria-label="Telas do operador"`, e
+trocar senha não é uma tela: para o leitor de tela o grupo mentia. O conserto
+passou por uma etapa intermediária (uma segunda chapa `.conta` ao lado do
+"Sair") que **não sobreviveu à medição**: três chapas não cabem na barra do
+celular. Hoje o **nome de quem está logado é o botão**, e senha e sair são as
+duas linhas da gaveta.
+
+O desenho, o teclado e a conta de largura estão na seção
+[A gaveta de conta](#a-gaveta-de-conta-03092026) mais abaixo.
 
 ⚠️ **Erro NÃO fecha o diálogo; sucesso fecha e confirma na faixa.** Quem errou
 a senha atual precisa dos campos ainda preenchidos; quem acertou precisa saber
@@ -656,6 +667,82 @@ do `reset-senha` do admin, que revoga os dispositivos). Quem pede a senha nova
 é o próximo login. Está dito na dica do formulário.
 
 Teste: `scripts/testes/senha-operador.test.js`.
+
+## A gaveta de conta (03/09/2026)
+
+Pedido do Pedro: *"penso se n seria melhor q o nome da pessoa fosse um botao, e
+por la ela conseguisse sair e trocar a senha"*.
+
+`.eu` (invólucro) · `.conta.conta-eu` (o botão: silhueta + nome + seta) ·
+`.eu-gaveta` com dois `.eu-item` (trocar senha · sair).
+
+⚠️ **Revoga a regra do `cliente.html`** de que o nome é texto porque *"um alvo
+que não leva a lugar nenhum ensina a pessoa a duvidar dos outros alvos da
+barra"*. A regra era contra alvo **morto**; o nome agora leva a algum lugar, e
+portanto a satisfaz. No [painel do cliente](painel-cliente.md) ela **continua
+valendo** — lá não há gaveta, e as duas barras divergem de propósito.
+
+⚠️ **Não é `<dialog>`.** Todo diálogo desta folha é `abrirFundo` +
+`showModal()`. Aqui seria errado: modal para escolher entre dois itens
+interrompe o turno e prende o foco numa tela que fica aberta o dia inteiro.
+E ela **não precisa do top layer** — o motivo do `showModal()` lá é o mapa em
+tela cheia, situação em que a barra não está alcançável.
+
+⚠️ **A gaveta é IRMÃ do botão, nunca filha.** `.conta` tem `clip-path`, e
+`clip-path` recorta a subárvore inteira: pendurada dentro do botão ela sai
+cortada no chanfro.
+
+⚠️ **`isolation:isolate` na gaveta**, como em todo `.conta`. A placa vive num
+`::before` com `z-index:-1`; sem contexto de empilhamento próprio esse `-1`
+escapa para trás do contexto do pai.
+
+⚠️ **`id="btnSair"` preservado** na linha do sair: a delegação de clique
+procura o Sair **por id** (é a peça compartilhada com as telas irmãs). Mudar o
+seletor quebraria o logout sem erro nenhum no console.
+
+⚠️ **A gaveta fecha ANTES de a ação rodar**, no mesmo handler delegado e antes
+da linha do `#btnSair`. O `abrirFundo` guarda `document.activeElement` para
+devolver o foco no fim; sem isso ele guardaria uma linha de gaveta já
+`hidden`, e foco devolvido a elemento invisível não vai a lugar nenhum.
+
+Teclado: ↓/↑/Home/End percorrem as linhas, Esc fecha e devolve o foco ao
+botão, Tab sai. `aria-haspopup` + `aria-expanded` + `role="menu"`.
+
+### A conta de largura da barra — refeita, e agora ela fecha
+
+O `operador.css` manda refazer esta conta sempre que `.barra-acoes` muda.
+Sobreposição do wordmark sobre a borda esquerda das ações, medida no navegador:
+
+| largura | antes (em produção) | 2 chapas | gaveta (final) |
+|---|---|---|---|
+| 320px | 128 | 107 | 39 |
+| 360px | 113 | 67 | **0** |
+| 375px (SE) | 98 | 52 | **0** |
+| 390px (iPhone 12–15) | **83** | 37 | **0** |
+| 412px (Pixel) | 61 | 15 | **0** |
+| 430px | 65 | 21 | **0** |
+| 480px+ | 15 | 0 | **0** |
+
+A coluna "antes" era o estado em produção: o logotipo pintava **83px por cima
+de "Aprovados"** em todo iPhone recente. A gaveta devolveu 50px; o resto veio
+da marca cedendo altura — **27px abaixo de 420 e 22px abaixo de 386**. Fecha de
+**360px para cima**.
+
+⚠️ **320px segue fora, e é limite conhecido:** ali sobram ~66px para a marca, o
+que pediria 14px de altura. É o iPhone SE de 2016.
+
+⚠️ **Os dois números saíram da tela, não da conta.** A aritmética a partir da
+largura das ações dava 28 e 24, e medido sobrava 1px de sobreposição a 386px e
+8,7px a 360px — a fórmula ignora o `gap` do `.barra-in` e o arredondamento do
+wordmark. **Meça, não deduza.**
+
+### ⏳ A tela de Aprovados ficou para trás
+
+`operador-orcamentos.html` carrega **a mesma folha** e ainda monta o par "nome
+(texto) + Sair" — por isso `.barra-eu` continua no CSS, e apagá-la deixaria o
+nome de lá sem tamanho, sem cor e sem ellipsis (nada no painel do turno
+acusaria). As duas barras do operador divergem enquanto isso durar; levar a
+gaveta para lá exige o `dlgSenha` no `operador-orcamentos.js`, que não o tem.
 
 ## Regras que não dá para inferir lendo o arquivo
 
