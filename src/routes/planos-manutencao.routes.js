@@ -136,6 +136,10 @@ router.get("/", authRequired, gestaoOnly, async (req, res) => {
 // Devolve PLANOS, não chamados: o chamado P4 só nasce quando o técnico chega no
 // prédio e toca "Iniciar" (POST /:id/executar-agora). Assim o que não foi feito
 // não vira chamado fantasma aberto, e `ultima_em` guarda a data real do serviço.
+//
+// ⚠️ DESDE 03/09/2026 A ESCALA DO MÊS TAMBÉM ENTRA — e ganha da zona. Ver o
+// bloco na query. Prédio escalado para outro técnico SAI daqui, mesmo sendo da
+// minha zona: escalar é desviar, não acrescentar.
 router.get("/meu-roteiro", authRequired, async (req, res) => {
   if (req.user.role !== "tecnico") {
     return res.status(403).json({ error: "Apenas técnicos" });
@@ -149,17 +153,45 @@ router.get("/meu-roteiro", authRequired, async (req, res) => {
 
     const antecedencia = await getConfigInt("planos.roteiro_antecedencia_dias", 7);
 
-    // Um técnico pode responder por mais de uma zona — o roteiro soma todas.
+    // ⚠️ DUAS ORIGENS, E A ESCALA GANHA DA ZONA (03/09/2026). Até aqui o
+    // roteiro era só a zona: `JOIN planos_zona_responsavel`. Com a tela de
+    // preventivas do operador (`planos_atribuicoes`, migration 082) o prédio
+    // pode ser escalado para alguém específico neste ciclo, e aí:
+    //
+    //   • escalado para MIM        → entra, mesmo que a zona não seja minha;
+    //   • escalado para OUTRO      → SAI, mesmo que a zona seja minha;
+    //   • sem escala neste ciclo   → vale a zona, como sempre valeu.
+    //
+    // A segunda linha é a que importa e é a razão de isto não ser um OR solto:
+    // somar as origens colocaria o mesmo prédio no app de dois técnicos, os
+    // dois iriam, e um perderia a manhã. Escalar é DESVIAR, não acrescentar.
+    //
+    // ⚠️ A COMPETÊNCIA É A DO MÊS DE `proxima_em`, não a de hoje. O roteiro
+    // enxerga até 7 dias à frente por padrão: no fim do mês ele já mostra
+    // preventivas de vencimento no mês seguinte, e conferir contra a escala de
+    // hoje faria a escala do mês que vem ser ignorada justamente na semana em
+    // que ela começa a valer.
+    //
+    // ⚠️ `$1::int` NOS DOIS USOS (dentro do LATERAL e na comparação). O mesmo
+    // parâmetro como valor e em comparação deduz tipos diferentes e o Postgres
+    // recusa a query no parse — o 42P08 do CLAUDE.md.
     const r = await pool.query(
       `SELECT pm.id, pm.titulo, pm.descricao, pm.periodicidade_dias,
               pm.proxima_em, pm.ultima_em,
               c.id AS condominio_id,
               COALESCE(NULLIF(c.nome_fantasia,''), c.nome) AS condominio_nome,
               c.endereco, c.bairro, c.cidade, c.lat, c.lng, c.zona,
-              cha.id AS chamado_aberto_id
+              cha.id AS chamado_aberto_id,
+              -- Como este prédio chegou ao roteiro. O app mostra "escalado
+              -- para você" no que veio da tela do operador: é serviço que
+              -- alguém colocou no nome dele, e isso se lê diferente de
+              -- "sua zona".
+              (pa.tecnico_id IS NOT NULL) AS escalado
        FROM planos_manutencao pm
-       JOIN condominios c            ON c.id = pm.condominio_id AND c.ativo = TRUE
-       JOIN planos_zona_responsavel pzr ON pzr.zona = c.zona
+       JOIN condominios c ON c.id = pm.condominio_id AND c.ativo = TRUE
+       LEFT JOIN planos_atribuicoes pa
+              ON pa.plano_id = pm.id
+             AND pa.competencia = date_trunc('month', pm.proxima_em)::date
        LEFT JOIN LATERAL (
          SELECT ch.id
          FROM chamados ch
@@ -169,13 +201,22 @@ router.get("/meu-roteiro", authRequired, async (req, res) => {
          LIMIT 1
        ) cha ON TRUE
        WHERE pm.ativo = TRUE
-         AND pzr.tecnico_id = $1
          AND pm.proxima_em <= CURRENT_DATE + $2::int
+         AND (
+           pa.tecnico_id = $1::int
+           OR (
+             pa.tecnico_id IS NULL
+             AND EXISTS (
+               SELECT 1 FROM planos_zona_responsavel pzr
+                WHERE pzr.zona = c.zona AND pzr.tecnico_id = $1::int
+             )
+           )
+         )
        ORDER BY pm.proxima_em ASC, c.id`,
       [tecnicoId, antecedencia]
     );
 
-    const zonas = [...new Set(r.rows.map(p => p.zona))];
+    const zonas = [...new Set(r.rows.map(p => p.zona).filter(Boolean))];
     return res.json({ antecedencia_dias: antecedencia, zonas, planos: r.rows });
   } catch (err) {
     console.error("[planos-manutencao] GET /meu-roteiro:", err);

@@ -16,6 +16,9 @@ const { adminOnly } = require("../middleware/adminOnly");
 // nasce aqui não pode ficar de fora do histórico só por ter outra porta.
 const { registrarCriacao, registrarMudancas } = require("../services/chamado-historico.service");
 const { resolverTecnico } = require("../services/chamado-atribuicao.service");
+const {
+  competenciaValida, competenciaDe, mesDe, estadoDa, origemDoTecnico,
+} = require("../services/preventivas.service");
 
 const router = express.Router();
 
@@ -479,6 +482,235 @@ router.get("/prazos", authRequired, adminOnly, async (req, res) => {
   } catch (err) {
     console.error("[operador] GET /prazos:", err);
     return res.status(500).json({ error: "Erro ao carregar os prazos" });
+  }
+});
+
+
+/* ═══ Preventivas do mês ══════════════════════════════════════════════════
+ *
+ * A terceira tela do operador (`/operador/painel/preventivas`), no molde de
+ * Aprovados. Pedido do Pedro (03/09/2026): *"preciso que em operador fique
+ * todas as preventivas do mês, separada bonitinho as que já foram feitas e as
+ * que faltam fazer, tem que dar para enviar esses chamados para o técnico por
+ * região [...] ou escolher condomínio por condomínio qual vai para cada
+ * técnico"*.
+ *
+ * ⚠️ O QUE ESTA TELA LISTA SÃO PLANOS, NÃO CHAMADOS — mesma escolha do
+ * `meu-roteiro`. O chamado P4 só nasce quando o serviço começa
+ * (`executarPlano`); listar chamados mostraria só o que já foi iniciado, e o
+ * que a tela precisa responder é justamente o que FALTA.
+ */
+
+// GET /operador/preventivas?mes=YYYY-MM
+//
+// Uma request monta a tela inteira — mesma regra do painel do turno: os planos
+// do mês com estado e responsável, mais os técnicos para o diálogo de escala.
+router.get("/preventivas", authRequired, adminOnly, async (req, res) => {
+  const mes = req.query.mes;
+  if (mes != null && mes !== "" && !competenciaValida(mes)) {
+    return res.status(400).json({ error: "mes inválido (use YYYY-MM)" });
+  }
+  const competencia = competenciaDe(mes);
+
+  try {
+    // ⚠️ A JANELA É O MÊS DA COMPETÊNCIA, e `proxima_em` é quem manda. Todo
+    // plano de produção hoje é mensal, mas os de 90/180/365 dias existem no
+    // schema: um semestral que vence em setembro É uma preventiva de setembro.
+    //
+    // ⚠️ O VENCIDO DE MESES ANTERIORES ENTRA JUNTO (`proxima_em` menor que o
+    // dia 1), e é metade do ponto da tela: preventiva que passou do mês não
+    // vira passado, vira dívida. Aparece com `atrasada` e sobe na lista.
+    //
+    // ⚠️ `$1::date` EM TODOS OS USOS. O mesmo parâmetro entra como valor e
+    // dentro de comparação — é o 42P08 do CLAUDE.md, e a competência aparece
+    // em seis lugares nesta query.
+    const r = await pool.query(
+      `SELECT
+         pm.id, pm.titulo, pm.descricao, pm.periodicidade_dias,
+         pm.proxima_em, pm.ultima_em,
+         c.id     AS condominio_id,
+         COALESCE(NULLIF(c.nome_fantasia,''), c.nome) AS condominio_nome,
+         c.nome   AS condominio_razao_social,
+         c.bairro, c.cidade, c.zona,
+         pm.proxima_em < $1::date AS atrasada,
+
+         pa.tecnico_id            AS atribuido_tecnico_id,
+         ta.nome                  AS atribuido_tecnico_nome,
+         pa.atribuido_em,
+         ua.nome                  AS atribuido_por_nome,
+
+         zr.tecnico_id            AS zona_tecnico_id,
+         tz.nome                  AS zona_tecnico_nome,
+
+         cha.id     AS chamado_aberto_id,
+         cha.status AS chamado_aberto_status,
+         chf.id     AS chamado_fechado_id,
+         chf.fechado_em,
+         (pm.ultima_em IS NOT NULL
+          AND pm.ultima_em >= $1::date
+          AND pm.ultima_em < ($1::date + INTERVAL '1 month')) AS feita_no_mes
+       FROM planos_manutencao pm
+       JOIN condominios c ON c.id = pm.condominio_id AND c.ativo = TRUE
+       LEFT JOIN planos_atribuicoes pa
+              ON pa.plano_id = pm.id AND pa.competencia = $1::date
+       LEFT JOIN tecnicos ta ON ta.id = pa.tecnico_id
+       LEFT JOIN usuarios ua ON ua.id = pa.atribuido_por
+       LEFT JOIN LATERAL (
+         SELECT pzr.tecnico_id
+           FROM planos_zona_responsavel pzr
+          WHERE pzr.zona = c.zona
+          ORDER BY pzr.tecnico_id
+          LIMIT 1
+       ) zr ON TRUE
+       LEFT JOIN tecnicos tz ON tz.id = zr.tecnico_id
+       LEFT JOIN LATERAL (
+         SELECT ch.id, ch.status FROM chamados ch
+          WHERE ch.plano_manutencao_id = pm.id
+            AND ch.status <> 'fechado'
+          ORDER BY ch.id DESC LIMIT 1
+       ) cha ON TRUE
+       LEFT JOIN LATERAL (
+         SELECT ch.id, ch.fechado_em FROM chamados ch
+          WHERE ch.plano_manutencao_id = pm.id
+            AND ch.status = 'fechado'
+            AND ch.fechado_em >= $1::date
+            AND ch.fechado_em <  ($1::date + INTERVAL '1 month')
+          ORDER BY ch.fechado_em DESC LIMIT 1
+       ) chf ON TRUE
+       WHERE pm.ativo = TRUE
+         AND pm.proxima_em < ($1::date + INTERVAL '1 month')
+       ORDER BY pm.proxima_em ASC, c.zona NULLS LAST, 8`,
+      [competencia]
+    );
+
+    const planos = r.rows.map((p) => ({
+      ...p,
+      estado: estadoDa(p),
+      tecnico_id:   p.atribuido_tecnico_id || p.zona_tecnico_id || null,
+      tecnico_nome: p.atribuido_tecnico_nome || p.zona_tecnico_nome || null,
+      tecnico_origem: origemDoTecnico(p),
+    }));
+
+    // A equipe, para o diálogo de escala. `abertos` deixa a tela dizer quem já
+    // está carregado antes de somar mais um prédio.
+    const tec = await pool.query(
+      `SELECT t.id, t.nome,
+              (SELECT count(*)::int FROM chamados ch
+                WHERE ch.tecnico_id = t.id
+                  AND ch.status IN ('aberto','em_atendimento')) AS abertos
+         FROM tecnicos t
+        WHERE t.ativo = TRUE
+        ORDER BY t.nome`
+    );
+
+    return res.json({
+      mes: mesDe(competencia),
+      competencia,
+      planos,
+      tecnicos: tec.rows,
+    });
+  } catch (err) {
+    console.error("[operador] GET /preventivas:", err);
+    return res.status(500).json({ error: "Erro ao carregar as preventivas do mês" });
+  }
+});
+
+// POST /operador/preventivas/atribuir
+// Body: { plano_ids: [1,2,3], tecnico_id: 5|null, mes?: "YYYY-MM" }
+//
+// Escala (ou desescala, com `tecnico_id` nulo) um lote de preventivas. É a
+// mesma rota para os dois caminhos que o Pedro pediu — "por região" é a tela
+// mandando os ids de uma zona, "condomínio por condomínio" é ela mandando os
+// que a pessoa marcou. O backend não precisa saber a diferença.
+//
+// ⚠️ EM LOTE E NUMA TRANSAÇÃO. Despachar uma zona é uma decisão só; metade
+// escalada e metade não deixaria a tela mentir sobre o que foi enviado.
+router.post("/preventivas/atribuir", authRequired, adminOnly, async (req, res) => {
+  const { plano_ids, tecnico_id, mes } = req.body || {};
+
+  if (!Array.isArray(plano_ids) || !plano_ids.length) {
+    return res.status(400).json({ error: "Escolha ao menos uma preventiva" });
+  }
+  if (plano_ids.length > 200) {
+    return res.status(400).json({ error: "No máximo 200 preventivas por vez" });
+  }
+  const ids = plano_ids.map(Number);
+  if (ids.some((n) => !Number.isInteger(n) || n <= 0)) {
+    return res.status(400).json({ error: "plano_ids inválido" });
+  }
+  if (mes != null && mes !== "" && !competenciaValida(mes)) {
+    return res.status(400).json({ error: "mes inválido (use YYYY-MM)" });
+  }
+  const competencia = competenciaDe(mes);
+
+  // Nulo desescala — é como a tela devolve um prédio para a régua da zona.
+  const tecId = tecnico_id == null || tecnico_id === "" ? null : Number(tecnico_id);
+  if (tecId !== null && (!Number.isInteger(tecId) || tecId <= 0)) {
+    return res.status(400).json({ error: "tecnico_id inválido" });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    if (tecId !== null) {
+      const t = await client.query("SELECT id FROM tecnicos WHERE id = $1 AND ativo = TRUE", [tecId]);
+      if (!t.rows.length) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({ error: "Técnico não encontrado ou inativo" });
+      }
+    }
+
+    // ⚠️ SÓ PLANOS ATIVOS, e o filtro é aqui e não no front: a tela lista o mês
+    // corrente, mas a requisição chega com ids que podem ter sido desativados
+    // entre o carregamento e o clique.
+    const validos = await client.query(
+      "SELECT id FROM planos_manutencao WHERE id = ANY($1::int[]) AND ativo = TRUE",
+      [ids]
+    );
+    const idsOk = validos.rows.map((x) => x.id);
+    if (!idsOk.length) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "Nenhuma preventiva válida entre as escolhidas" });
+    }
+
+    if (tecId === null) {
+      await client.query(
+        "DELETE FROM planos_atribuicoes WHERE plano_id = ANY($1::int[]) AND competencia = $2::date",
+        [idsOk, competencia]
+      );
+    } else {
+      // ⚠️ UPSERT, não INSERT. Reescalar um prédio já escalado é o caso comum
+      // (técnico entrou de férias no meio do mês); um INSERT cru estouraria na
+      // chave primária e o operador levaria "erro" para uma ação que faz sentido.
+      await client.query(
+        `INSERT INTO planos_atribuicoes (plano_id, competencia, tecnico_id, atribuido_por)
+         SELECT id, $2::date, $3::int, $4::int FROM unnest($1::int[]) AS t(id)
+         ON CONFLICT (plano_id, competencia) DO UPDATE
+            SET tecnico_id    = EXCLUDED.tecnico_id,
+                atribuido_em  = NOW(),
+                atribuido_por = EXCLUDED.atribuido_por`,
+        [idsOk, competencia, tecId, req.user.id]
+      );
+    }
+
+    await client.query("COMMIT");
+    return res.json({
+      ok: true,
+      competencia,
+      mes: mesDe(competencia),
+      atribuidos: idsOk.length,
+      // Os ids que a tela mandou e não existem mais: ela some com eles em vez
+      // de deixar linha fantasma marcada.
+      ignorados: ids.filter((n) => !idsOk.includes(n)),
+      tecnico_id: tecId,
+    });
+  } catch (err) {
+    await client.query("ROLLBACK").catch(() => {});
+    console.error("[operador] POST /preventivas/atribuir:", err);
+    return res.status(500).json({ error: "Erro ao escalar as preventivas" });
+  } finally {
+    client.release();
   }
 });
 

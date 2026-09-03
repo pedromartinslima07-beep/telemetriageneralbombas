@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#030a26">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="General">
+<title>GENERAL • Preventivas (prévia)</title>
+<link rel="icon" type="image/png" href="/static/favicon.png?v=3">
+<link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+<link rel="preload" href="/static/fonts/archivo.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/static/fonts/martianmono.woff2" as="font" type="font/woff2" crossorigin>
+<!-- ⚠️ A MESMA FOLHA DAS IRMÃS. As três telas são a mesma superfície do
+     operador; só o bloco `.pv-*` é exclusivo daqui, e ele mora no operador.css
+     junto com o resto. Ver o cabeçalho de `operador-orcamentos.html`. -->
+<link rel="stylesheet" href="/static/operador.css?v=88">
+<style>
+  /* Só o andaime da prévia. Nada que a tela use. */
+  .pv-barra-preview{
+    position:fixed;inset:auto 0 0 0;z-index:9999;
+    display:flex;gap:12px;align-items:center;flex-wrap:wrap;
+    padding:8px 14px;background:var(--chapa-es);color:var(--tinta);
+    border-top:2px solid var(--amarelo);font-size:12px;
+  }
+  .pv-barra-preview b{font-weight:800}
+  /* ⚠️ A barra fixa cobre o fim da lista — inclusive o "N já feitas · mostrar",
+     que é o último elemento. Foi o que comeu um clique na prévia de Aprovados. */
+  body{padding-bottom:76px}
+</style>
+</head>
+<body class="sem-trilho">
+
+<!-- DIREÇÃO — Preventivas · 03/09/2026
+
+     THESIS: o mês inteiro de manutenção preventiva numa tela, respondendo
+     "o que falta fazer e quem vai" — nessa ordem. O contrato obriga a visita
+     mensal; esta tela é o instrumento de cobrança dela.
+     ⚠️ O QUE FALTA VEM PRIMEIRO E OCUPA A TELA. O que já foi feito recolhe
+     para uma linha no fim, como em Aprovados: lista que guarda o passado vira
+     cemitério que o operador aprende a ignorar.
+     ⚠️ AGRUPADO POR ZONA, não por prédio. O despacho é regional — "manda a
+     Zona Leste para o Cleber" — e é por zona que a decisão se toma.
+     OWN-WORLD: o mesmo Chapa das telas irmãs, em registro de operação. -->
+
+<header class="barra">
+  <div class="barra-in">
+    <div class="marca">
+      <img src="/static/logo-topo.png" alt="GENERAL" width="826" height="180">
+      <span>Preventivas</span>
+    </div>
+  </div>
+  <div class="barra-acoes">
+    <nav class="barra-nav" aria-label="Telas do operador">
+      <a href="/operador/painel"><span class="nav-longo">A fila do turno</span><span class="nav-curto">Turno</span></a>
+      <a href="/operador/painel/orcamentos">Aprovados</a>
+      <button type="button" data-acao="ajuda">Ajuda</button>
+    </nav>
+    <span class="barra-eu" id="barraEu"></span>
+    <button class="conta conta-sair" id="btnSair" type="button" aria-label="Sair">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M14 4H5v16h9"/><path d="M12 12h9M17.5 8l4 4-4 4"/></svg>
+      <span class="conta-rot">Sair</span>
+    </button>
+  </div>
+</header>
+
+<main id="tela">
+  <!-- O primeiro estado é "ainda não sei", nunca "está vazio" — mesma regra
+       das telas irmãs. -->
+  <div class="carregando" id="carregando">Carregando as preventivas do mês…</div>
+</main>
+
+<script src="/static/_preventivas-preview.js?v=1"></script>
+<script src="/static/operador-preventivas.js?v=1" defer></script>
+<script src="/static/register-sw.js?v=51" defer></script>
+<div class="pv-barra-preview">
+  <span><b>Prévia</b> · /operador/painel/preventivas</span>
+  <span>9 planos: 2 atrasadas · 1 escalada · 1 em campo · 2 feitas · 1 sem zona · 2 sem técnico</span>
+</div>
+</body>
+</html>

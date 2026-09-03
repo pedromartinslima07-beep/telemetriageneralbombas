@@ -1593,6 +1593,14 @@ function dlgNovo() {
           <option value="">Carregando…</option>
         </select>
       </div>
+      <!-- ⚠️ AS CATEGORIAS VÊM DE GET /chamados/prioridades (03/09/2026), não
+           desta lista. Escrita à mão, ela já estava desatualizada: "Melhoria"
+           entrou na migration 081 e não existia aqui, então o serviço que a
+           minuta manda AGENDAR só podia ser aberto como "Outro" — e virava P3,
+           72 horas de comparecimento. As sete abaixo ficam como estado inicial
+           enquanto a régua não chega.
+           (Sem crase neste comentário: ele vive dentro de um template literal,
+            e a crase FECHA o template. Ver CLAUDE.md — errei isto agora.) -->
       <div class="campo">
         <label for="nvCat">Categoria</label>
         <select id="nvCat">
@@ -1605,6 +1613,13 @@ function dlgNovo() {
           <option value="outro">Outro</option>
         </select>
       </div>
+      <!-- ⚠️ A CATEGORIA MOVE ESTES BOTÕES (03/09/2026), e é a cláusula 7.1.c
+           da minuta que autoriza: "a prioridade poderá ser reclassificada
+           tecnicamente após a triagem". Ela SUGERE; quem decide é quem está no
+           telefone, e ao tocar num botão a sugestão para de mexer.
+           ⚠️ SEM PRAZO ESCRITO AQUI — a nota de 31/08 logo abaixo explica por
+           quê: número fixo em tela envelhece em silêncio. O prazo vive na
+           Ajuda, que lê do banco. -->
       <div class="campo">
         <label>Prioridade</label>
         <div class="prio-fila" id="nvPrio">
@@ -1613,6 +1628,7 @@ function dlgNovo() {
           <button type="button" class="prio" data-p="p3" aria-pressed="false">P3</button>
           <button type="button" class="prio" data-p="p4" aria-pressed="false">P4</button>
         </div>
+        <p class="nv-prio-nota" id="nvPrioNota" hidden></p>
       </div>
       <div class="campo largo">
         <label for="nvTitulo">Título</label>
@@ -1657,6 +1673,16 @@ function dlgNovo() {
     </div>
   </div>`);
 
+  // ⚠️ CADA ABERTURA RECOMEÇA COM A SUGESTÃO VALENDO. A decisão de quem abriu
+  // o chamado anterior não pode continuar mandando no próximo.
+  NV_PRIO_NA_MAO = false;
+  _nvCarregarRegua();
+  document.getElementById("nvCat")?.addEventListener("change", (ev) => {
+    if (NV_PRIO_NA_MAO) return;
+    _nvMarcarPrio(_nvPrioDe(ev.target.value));
+    _nvNotaPrio();
+  });
+
   // A lista de prédios não pode sair só da fila: um chamado novo costuma ser
   // num prédio que NÃO tem chamado aberto — que é justamente o que não está
   // na fila. Busca a lista completa.
@@ -1694,6 +1720,78 @@ function dlgNovo() {
       const sel = document.getElementById("nvCondo");
       if (sel) sel.innerHTML = `<option value="">Não foi possível carregar os prédios</option>`;
     });
+}
+
+/* ── A régua de prioridade no diálogo de novo chamado (03/09/2026) ─────────
+   O painel do admin ganhou isto primeiro, e ficou faltando aqui — que é o
+   caminho MAIS usado: quem abre chamado por telefone é o operador. O Pedro
+   pegou: *"estou mudando a categoria no novo chamado em operador e a prioridade
+   não está mudando junto"*.
+
+   A régua vem do contrato (cláusula 7 da minuta) por `GET /chamados/prioridades`
+   — a mesma fonte do admin, do painel do cliente e da IA. Ver
+   `src/services/prioridade.service.js`.
+
+   ⚠️ SUGERE, NÃO TRAVA — cláusula 7.1.c: "a prioridade poderá ser
+   reclassificada tecnicamente após a triagem". Mexeu num botão, a sugestão
+   para de mexer: quem está no telefone sabe o que a categoria não carrega.
+
+   ⚠️ E SEM PRAZO ESCRITO NA TELA. A nota de 31/08 tirou os números da dica
+   deste mesmo diálogo porque envelheciam em silêncio; a tabela de prazos vive
+   na Ajuda, que lê do banco. O que entra aqui é o ENQUADRAMENTO — o texto que
+   diz quando cada prioridade se aplica —, e ele não tem número. */
+let NV_REGUA = null;
+let NV_PRIO_NA_MAO = false;
+
+function _nvPrioDe(categoria) {
+  const c = NV_REGUA?.categorias?.find((x) => x.id === categoria);
+  return c ? c.prioridade : "p3";
+}
+
+function _nvMarcarPrio(p) {
+  document.querySelectorAll("#nvPrio .prio").forEach((b) =>
+    b.setAttribute("aria-pressed", b.dataset.p === p ? "true" : "false"));
+}
+
+function _nvNotaPrio() {
+  const nota = document.getElementById("nvPrioNota");
+  if (!nota) return;
+  const atual = document.querySelector('#nvPrio .prio[aria-pressed="true"]')?.dataset.p;
+  if (NV_PRIO_NA_MAO) {
+    nota.hidden = false;
+    nota.innerHTML = `<b>${String(atual || "").toUpperCase()}</b> escolhido por você — a categoria não muda mais isto.`;
+    return;
+  }
+  const info = NV_REGUA?.prioridades?.find((x) => x.id === atual);
+  const sel = document.getElementById("nvCat");
+  const rot = sel?.options[sel.selectedIndex]?.text;
+  if (!info || !rot) { nota.hidden = true; nota.textContent = ""; return; }
+  nota.hidden = false;
+  nota.innerHTML = `<b>${atual.toUpperCase()}</b> sugerido por “${escapar(rot)}”. ` +
+    `${escapar(info.enquadramento)} Pode trocar.`;
+}
+
+async function _nvCarregarRegua() {
+  const aplicar = () => {
+    const sel = document.getElementById("nvCat");
+    if (sel && NV_REGUA?.categorias?.length) {
+      const antes = sel.value;
+      sel.innerHTML = NV_REGUA.categorias
+        .map((c) => `<option value="${c.id}">${escapar(c.rotulo)}</option>`).join("");
+      sel.value = antes || "outro";
+    }
+    if (!NV_PRIO_NA_MAO) _nvMarcarPrio(_nvPrioDe(sel?.value));
+    _nvNotaPrio();
+  };
+  if (NV_REGUA) { aplicar(); return; }
+  try {
+    const r = await fetch("/chamados/prioridades", { headers: authHeaders() });
+    if (!r.ok) return;               // os botões continuam funcionando
+    NV_REGUA = await lerJson(r, "Prioridades");
+    aplicar();
+  } catch (e) {
+    console.warn("[novo chamado] régua de prioridade:", e.message);
+  }
 }
 
 async function salvarNovo() {
@@ -2001,6 +2099,10 @@ document.addEventListener("click", (e) => {
   if (prio) {
     prio.parentElement.querySelectorAll(".prio").forEach((x) => x.setAttribute("aria-pressed", "false"));
     prio.setAttribute("aria-pressed", "true");
+    // ⚠️ MÃO HUMANA DESLIGA A SUGESTÃO. Quem atende o telefone sabe coisas que
+    // a categoria não carrega (se há redundância, se o poço está alagando), e
+    // trocar a categoria depois não pode desfazer a decisão dele pelas costas.
+    if (prio.closest("#nvPrio")) { NV_PRIO_NA_MAO = true; _nvNotaPrio(); }
     return;
   }
   if (e.target.id === "fundo") fechar();

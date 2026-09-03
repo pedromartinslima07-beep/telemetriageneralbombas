@@ -2,7 +2,7 @@
 version: 1
 slug: "public-operador-html"
 primary_target: "public/operador.html"
-related_targets: ["public/operador.css","public/operador.js","public/operador-orcamentos.html","public/operador-orcamentos.js"]
+related_targets: ["public/operador.css","public/operador.js","public/operador-orcamentos.html","public/operador-orcamentos.js","public/operador-preventivas.html","public/operador-preventivas.js"]
 ---
 
 ## Escopo e modo
@@ -526,6 +526,93 @@ casa, a **mesma área** lê como objeto.
 
 > Quando o campo cheio não pode esticar, ele vira **placa**, não meio
 > preenchimento. Borda solta no meio de uma coluna lê como defeito.
+
+## A terceira tela: Preventivas (03/09/2026) — e o passe que a nivelou
+
+Pedido do Pedro: as preventivas do mês em Operador, separadas entre feitas e a
+fazer, com despacho **por região** ou **prédio a prédio**. Construída, e então:
+*"tenho minhas dúvidas se essa tela está com o nível das outras"*.
+
+**Ele estava certo, e a medição nomeou o quê.** As duas telas lado a lado,
+antes do passe:
+
+| | Aprovados | Preventivas | |
+|---|---|---|---|
+| manchete | 51,2px | **40px** | duas gerações do produto |
+| maior tipo da placa | 21,6px / 800 | **16,3px / 700** | a placa lia plana |
+| padding | 28/30 | **14/20** | metade do respiro |
+| medida do texto | 88ch | **136ch** | atravessava a tela |
+| âmbar | selo + botão + manchete | **só a manchete** | monocromático |
+
+⚠️ **É O MESMO DIAGNÓSTICO QUE APROVADOS RECEBEU EM 31/08**, e eu repeti o
+defeito de que aquela rodada tratou: *"a tela vivia numa faixa de 12 a 17px, o
+maior tipo dela era o nome do prédio"*. As palavras do Pedro na época — *"coisas
+que quebram esse negócio monocromático"* — descreviam esta tela também.
+
+### O que mudou
+
+- **O prédio virou a leitura grande** (21,1px/800). É o lugar que em Aprovados é
+  do serviço aprovado e no print do painel do cliente era do `R$ 2.332,00`. É
+  por este nome que se acha o item quando o técnico liga.
+- **O rodapé virou UMA FRASE** — a regra que Aprovados já tinha. Serviço,
+  bairro e responsável numa linha de 85ch, com a origem (`escalado` / `pela
+  zona`) como etiqueta dentro dela.
+- **A manchete recebeu os tokens da irmã**, `font-stretch:112%` inclusive.
+- **A placa foi para 17/24.** Não os 28/30 de Aprovados: são até **72 prédios**
+  num mês contra 7 orçamentos. Este é o registro de leitura na densidade que a
+  varredura de um mês inteiro admite.
+
+### ⚠️ Onde o âmbar entra numa lista longa
+
+Selo âmbar por item **viraria textura**: no dia 1 do mês todas as preventivas
+estão a fazer, e 72 selos acesos não sinalizam nada. Ele foi para o **contador
+da zona** — acende uma vez por região, que é onde a decisão de despacho se toma,
+e **apaga conforme o mês é resolvido**. O operador vê o número descer.
+
+### Defeitos que o passe encontrou, e que nenhum detector pegaria
+
+- **`opacity:.86` na lista de feitas** — violação direta da regra registrada em
+  31/08: *"recua por material, nunca por opacity — opacidade sobre texto é queda
+  de contraste disfarçada de hierarquia"*. Trocado por `--chapa-es`.
+- **A régua vermelha de 3px saiu.** O selo já dizia ATRASADA em campo cheio, e a
+  régua repetia o mesmo aviso no mesmo item. Dois canais para um estado não
+  avisam mais alto; só sujam. (A régua da FILA continua: lá ela **mede** o SLA e
+  não repete selo nenhum.)
+- **O checkbox era nativo.** `accent-color` deixa o quadradinho arredondado do
+  sistema operacional — a única peça da tela que não era da casa, numa folha que
+  corta tudo com chanfro. O `input` continua (teclado, leitor de tela,
+  `:checked`); quem desenha é um `.pv-caixa` com o corte da casa.
+- **A caixa desalinhava 10px** do centro do nome. A conta: alvo de 44px centra o
+  glifo em 22; nome de 21,1px com `line-height:1.2` centra em 12,5. −9,5 → −10.
+- **"tudo despachado · 2 atrasadas" se contradizia.** Virou "tudo com dono".
+- **Alvos de 40 e 36px no celular**, abaixo do piso de 44 desta folha.
+
+### ⚠️ O terceiro link reabriu a barra do celular
+
+Com Preventivas a nav ficou com três itens e o wordmark voltou a pintar **84px**
+por cima deles a 390px — o defeito que a gaveta de conta tinha fechado em 02/09.
+Medido: nav 168 + nome 43 + Sair 44 = 280px de ações contra 124 de wordmark.
+
+Duas trocas: **"A fila do turno" → "Turno"** no celular (dois `<span>` do mesmo
+rótulo, não dois links) e **o nome de quem está logado sai da barra** abaixo de
+760px — a mesma troca que o painel do turno já tinha feito. Zero sobreposição de
+360px para cima nas **três** telas. 320px segue fora, limite conhecido.
+
+> ⏳ O item registrado abaixo — *"a tela de Aprovados ficou com a barra antiga"*
+> — continua aberto: ela ganhou o rótulo curto e perdeu o nome no celular, mas
+> segue com "nome + Sair" em vez da gaveta, porque não tem `dlgSenha`.
+
+### Prévia: `/dev/_preventivas-preview.html`
+
+Fixture com os quatro estados, as duas origens de responsável, um prédio **sem
+zona** e dois **sem técnico nenhum** — o caso real em produção (11 técnicos
+ativos, **uma** zona com responsável). O despacho mexe na fixture, então o ciclo
+inteiro se testa ali.
+
+⚠️ **A extensão do Chrome não conecta nesta máquina.** O passe foi feito com o
+**puppeteer que o projeto já usa para o PDF da O.S.** — screenshot mais
+`page.evaluate` medindo tipo, contraste composto, alvos e sobreposição. Foi a
+medição, não o olho, que pegou o 16,3px/700 e o `opacity:.86`.
 
 ## O que NÃO fazer aqui
 

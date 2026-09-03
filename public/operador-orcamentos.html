@@ -25,7 +25,7 @@
      deixar telas irmãs divergirem: `cliente-orcamentos.html` carrega o
      `cliente.css` pelo mesmo motivo. Só o bloco `.orc-*` é exclusivo daqui,
      e ele mora no operador.css junto com o resto. -->
-<link rel="stylesheet" href="/static/operador.css?v=86">
+<link rel="stylesheet" href="/static/operador.css?v=88">
 </head>
 <!-- `sem-trilho`: esta tela não tem a coluna do mapa, então a barra volta a
      dividir a largura por `--area-max` sozinho. Ver o bloco no operador.css. -->
@@ -53,7 +53,8 @@
   </div>
   <div class="barra-acoes">
     <nav class="barra-nav" aria-label="Telas do operador">
-      <a href="/operador/painel">A fila do turno</a>
+      <a href="/operador/painel"><span class="nav-longo">A fila do turno</span><span class="nav-curto">Turno</span></a>
+      <a href="/operador/painel/preventivas">Preventivas</a>
       <button type="button" data-acao="ajuda">Ajuda</button>
     </nav>
     <span class="barra-eu" id="barraEu"></span>

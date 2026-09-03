@@ -9292,6 +9292,118 @@ Se alguém editar um prazo, ele falha nomeando a cláusula.
 `?v=N`: `admin.css` 250 → 251. O `admin.js` já foi a 335 na rodada do vínculo
 (acima), e nada foi ao ar entre as duas — um bump cobre as duas mudanças.
 
+### 2026-09-03 (7ª rodada) · As preventivas do mês ganham tela no operador
+
+Pedido do Pedro: *"preciso que em operador fique todas as preventivas do mês,
+separada bonitinho as que já foram feitas e as que faltam fazer, tem que dar
+para enviar esses chamados para o técnico por região [...] ou escolher
+condomínio por condomínio qual vai para cada técnico"*.
+
+#### O que faltava no banco: quem faz ESTE mês
+
+A única forma de dizer quem executa uma preventiva era a **zona**
+(`planos_zona_responsavel`) — permanente e por região. Não havia como dizer
+"este mês o Cleber pega o Saint Antoine".
+
+Em produção isso pesa: **11 técnicos ativos e uma única zona com responsável**.
+Na prática o despacho acontecia por fora do sistema.
+
+`planos_atribuicoes` (migration 082) é a atribuição do **ciclo**, por
+competência — o dia 1 do mês, com CHECK. PK `(plano_id, competencia)`: um
+responsável por plano por mês.
+
+⚠️ **Por competência e não um `tecnico_id` no plano:** a preventiva é mensal e
+quem vai muda (férias, carga). No plano, a escala de setembro apagaria a de
+agosto.
+
+#### ⚠️ Escalar é DESVIAR, não acrescentar
+
+| Situação | Quem vê no app |
+|---|---|
+| escalado para mim | eu, mesmo que a zona não seja minha |
+| escalado para outro | **só ele** — sai do meu roteiro, mesmo sendo minha zona |
+| sem escala | o responsável da zona, como sempre |
+
+A segunda linha é a que importa: somar as origens colocaria o mesmo prédio no
+app de dois técnicos, os dois iriam, e um perderia a manhã.
+
+#### "Feita" é o chamado FECHADO, não `ultima_em`
+
+Parecem a mesma coisa e não são: `executarPlano` grava `ultima_em` no instante
+em que **abre** o chamado — quando o técnico toca "Iniciar" no prédio. Uma
+preventiva iniciada às 9h e abandonada às 9h05 tem `ultima_em` de hoje e não foi
+feita. (Mas `ultima_em` no mês conta quando não há chamado nenhum — a execução
+anterior a este módulo.)
+
+#### E aí o Pedro duvidou do nível da tela, com razão
+
+*"tenho minhas dúvidas se essa tela está com o nível das outras"*. Medidas as
+duas lado a lado: manchete **40 contra 51,2px**, maior tipo da placa **16,3/700
+contra 21,6/800**, padding **14/20 contra 28/30**, medida **136 contra 88ch**, e
+âmbar em **uma** peça contra três.
+
+**É o mesmo diagnóstico que Aprovados recebeu em 31/08** — e eu tinha repetido o
+defeito daquela rodada. O passe (Impeccable `polish`): o prédio virou a leitura
+grande (21,1/800), o rodapé virou uma frase, a manchete recebeu os tokens da
+irmã, e a placa foi para 17/24 — não os 28/30 de Aprovados, porque são até 72
+prédios num mês contra 7 orçamentos.
+
+⚠️ **O âmbar foi para o contador da ZONA, não para o selo de cada item.** Selo
+por item viraria textura: no dia 1 do mês tudo está a fazer, e 72 selos acesos
+não sinalizam nada. Na zona ele acende uma vez por região — onde a decisão se
+toma — e apaga conforme o mês é resolvido.
+
+Defeitos que a medição pegou e o olho não: **`opacity:.86` na lista de feitas**
+(violação direta da regra de 31/08 — "recua por material, nunca por opacity"),
+a **régua vermelha de 3px** repetindo o que o selo já dizia, o **checkbox
+nativo** (única peça da tela que não era da casa), a caixa **desalinhada 10px**
+do nome, "tudo despachado · 2 atrasadas" **se contradizendo**, e alvos de 40 e
+36px no celular abaixo do piso de 44 desta folha.
+
+⚠️ **O terceiro link reabriu a barra do celular.** Com Preventivas a nav ficou
+com três itens e o wordmark voltou a pintar 84px por cima deles a 390px — o
+defeito que a gaveta de conta fechara em 02/09. "A fila do turno" vira "Turno"
+no celular e o nome de quem está logado sai da barra abaixo de 760px. Zero
+sobreposição de 360px para cima nas três telas.
+
+Migration 082 aplicada em **teste**; falta produção. Testes:
+`preventivas-mes.test.js` (31) — a asserção que mais importa é o prédio escalado
+para outro saindo do roteiro de quem responde pela zona, e ela pegou um **falso
+positivo do próprio teste**: as datas espalhadas pelo mês deixavam o plano fora
+da janela de 7 dias do roteiro, então ele "saía" por ausência, não por regra.
+Prévia nova: `/dev/_preventivas-preview.html`.
+`?v=N`: `operador.css` 86 → 87.
+
+### 2026-09-03 (8ª rodada) · A régua de prioridade faltava no OPERADOR
+
+*"estou mudando a categoria no novo chamado em operador e a prioridade não está
+mudando junto"*. Estava certo: a régua da 6ª rodada entrou no modal do **admin**
+e eu não levei ao diálogo do operador — que é o caminho **mais** usado, porque
+quem abre chamado por telefone é ele.
+
+Três defeitos num só lugar:
+
+- **A categoria não movia a prioridade.** P2 era o padrão fixo, sempre.
+- **"Melhoria" não existia na lista**, escrita à mão no HTML desde antes da
+  migration 081. O serviço que a cláusula 7 manda AGENDAR só podia ser aberto
+  como "Outro" — e virava P3, 72 horas de comparecimento.
+- **Sete categorias fixas** que envelheciam em silêncio a cada mudança do
+  backend.
+
+Agora o diálogo lê `GET /chamados/prioridades`, a mesma fonte do admin, do
+painel do cliente e da IA. A nota abaixo dos botões diz de onde veio a
+prioridade marcada, e tocar num botão desliga a sugestão (cláusula 7.1.c).
+
+⚠️ **SEM PRAZO ESCRITO NOS BOTÕES aqui**, ao contrário do admin — e é decisão
+registrada em 31/08: os números saíram da dica deste mesmo diálogo porque
+`sla_definicoes` é editável e qualquer número fixo volta a mentir. O que entra é
+o ENQUADRAMENTO, que não tem número. A tabela de prazos vive na Ajuda.
+
+⚠️ **Errei a crase dentro do template literal outra vez** — a pegadinha do
+CLAUDE.md. `node --check` acusou na hora; o comentário HTML novo ganhou a nota.
+
+`?v=N`: `operador.css` 87 → 88, `operador.js` acompanha.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

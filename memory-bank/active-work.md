@@ -121,6 +121,47 @@ mapa, e o rótulo "TURNO" ao lado da marca.
 
 ---
 
+## Sessão 2026-09-03 (8ª rodada) — A régua de prioridade faltava no operador
+
+O Pedro testando: *"estou mudando a categoria no novo chamado em operador e a
+prioridade não está mudando junto"*. Eu tinha implementado a régua no modal do
+**admin** e não no diálogo do **operador** — que é o caminho mais usado.
+
+Junto vieram dois defeitos que ninguém tinha visto: **"Melhoria" não existia**
+na lista do operador (escrita à mão no HTML), então o serviço que a minuta manda
+agendar só podia ser aberto como "Outro" e virava P3; e as sete categorias fixas
+envelheciam a cada mudança do backend.
+
+⚠️ **A lição da rodada:** régua nova precisa ser levada a TODAS as portas do
+mesmo ato. São quatro — admin, operador, painel do cliente e IA — e eu tinha
+coberto duas.
+
+## Sessão 2026-09-03 (7ª rodada) — Preventivas do mês, e o passe que a nivelou
+
+Tela nova em Operador. O que ela resolve não era de tela: **não havia como dizer
+quem faz cada preventiva neste mês** — só a zona, que é permanente. Em produção,
+11 técnicos e uma zona com responsável.
+
+**A régua que sustenta tudo:** escalar é DESVIAR, não acrescentar. Prédio
+escalado para outro técnico **sai** do roteiro de quem responde pela zona, senão
+os dois vão e um perde a manhã.
+
+**E o Pedro duvidou do nível da tela, com razão.** Medido contra Aprovados:
+manchete 40 contra 51,2px, placa 16,3/700 contra 21,6/800, âmbar em uma peça
+contra três. Era o mesmo diagnóstico de 31/08, repetido. O passe está na brief
+da superfície.
+
+### ⏳ O que falta
+
+- **Migration 082 em produção.** Aplicada só em teste.
+- **Os 72 planos estão inativos em produção** — a tela nasce vazia lá.
+- **A extensão do Chrome não conecta** nesta máquina, mesmo instalada e logada
+  na conta certa (o Pedro mandou print). Quatro tentativas, incluindo depois de
+  `/login` e de reiniciar o Chrome. O trabalho visual saiu pelo **puppeteer do
+  próprio projeto** — e foi a medição, não o olho, que pegou o `opacity:.86` e
+  o 16,3px/700.
+- **Nada foi commitado desta rodada.**
+
 ## Sessão 2026-09-03 (4ª rodada) — O orçamento não sabia que o serviço tinha sido feito
 
 *"hoje acho que está tudo mundo largado, por exemplo um técnico foi ao

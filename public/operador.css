@@ -383,6 +383,10 @@ body{
    36 em 68 já tinha devolvido a proporção), mas com a barra igualada não há
    mais motivo para o logo ser um tamanho só desta tela. */
 .marca img{height:40px;width:auto;display:block}
+/* As duas formas do rótulo de navegação — ver o bloco de celular. */
+.nav-curto{display:none}
+.nav-longo{display:inline}
+
 .marca span{
   font-family:var(--mono);font-size:12px;
   letter-spacing:.14em;color:var(--muted);text-transform:uppercase;
@@ -2355,8 +2359,25 @@ body.com-ficha{overflow:hidden}
      outra tela e para a ajuda — esconder no celular tiraria as duas de quem
      está longe da mesa, que é justamente a cena em que o celular existe
      nesta superfície. O que cede é o respiro entre elas. */
-  .barra-nav{gap:14px}
+  /* ⚠️ TRÊS TELAS NÃO CABEM COM O RÓTULO LONGO (03/09/2026). Com a entrada de
+     Preventivas a nav passou a ter três itens, e a 390px o wordmark voltou a
+     pintar **84px** por cima deles — o mesmo defeito que a gaveta de conta
+     tinha acabado de fechar em 02/09, reaberto pelo link novo. "A fila do
+     turno" vira "Turno" no celular: são duas formas do MESMO rótulo, em
+     `<span>`, não dois links — leitor de tela lê só a visível. */
+  .barra-nav{gap:11px}
   .barra-nav a,.barra-nav button{font-size:14px;padding:12px 0;min-height:44px;display:flex;align-items:center}
+  .nav-longo{display:none}
+  .nav-curto{display:inline}
+  /* ⚠️ O NOME DE QUEM ESTÁ LOGADO SAI DA BARRA NO CELULAR (03/09/2026), e é o
+     que fecha a conta com três telas na nav. Medido a 390px: nav 168 + nome 43
+     + Sair 44 = 280px de ações contra 124 de wordmark, sobrepondo 27px. Sem o
+     nome sobram 49px (ele mais o gap) e fecha de 360 para cima.
+     A troca é a mesma que o painel do turno já fez em 02/09, quando o nome
+     deixou de ser texto solto e virou o rótulo da gaveta de conta: no celular
+     ele é conferência, não operação — e continua no desktop, onde cabe.
+     ⚠️ 320px segue fora, limite conhecido e já registrado na regra de 385px. */
+  .barra-eu{display:none}
   /* No celular a barra vira ícone: o rótulo de todo `.conta` some (sr-only,
      abaixo) e sobra a silhueta em alvo de 44px. A SETA SOME COM ELE — sem
      rótulo ao lado, a silhueta sozinha já não promete ação direta, e dois
@@ -3135,3 +3156,326 @@ body.sem-trilho #tela{width:100%}
 .cbx-vazio { padding: 12px; font-size: 12px; color: var(--text-dim); text-align: center; }
 
 @media (prefers-reduced-motion: reduce) { .cbx-item { transition: none; } }
+
+/* A nota que diz DE ONDE veio a prioridade marcada no diálogo de novo chamado.
+   Sem ela os botões se movem sozinhos ao trocar a categoria e ninguém entende
+   por quê. Mesma peça do `.nc-prio-nota` no admin. */
+/* ⚠️ TINTA, NÃO `--text-dim`. O diálogo é PLACA CLARA — a `.dica` logo abaixo
+   usa `--tinta-2` pelo mesmo motivo. `--text-dim` é do campo escuro e sairia
+   azul-claro sobre cinza. Regra dos Dois Campos de Estado do DESIGN.md. */
+.nv-prio-nota{
+  grid-column:1/-1;margin:8px 0 0;
+  font-size:13px;line-height:1.5;color:var(--tinta-2);
+}
+.nv-prio-nota b{color:var(--tinta);font-weight:800}
+
+/* ═══ Preventivas do mês (03/09/2026) ══════════════════════════════════════
+   A terceira tela do operador. Mesma superfície das irmãs — placa clara sobre
+   campo escuro, corte gravado, mono nos selos — e as mesmas duas regras que
+   custaram caro para aprender:
+
+   ⚠️ DENTRO DA PLACA, TOKENS DE PLACA. `.pv-item` remapeia `--text`/`--muted`/
+   `--fio` para a família `--tinta`/`--fio-esc`, como `.orc` faz. Sem isso o
+   texto sai azul-claro sobre cinza e o fio some. Regra dos Dois Campos de
+   Estado do DESIGN.md.
+
+   ⚠️ UM AMARELO POR TELA, e aqui ele pertence ao "Enviar" da barra de
+   despacho — a ação da tela. Selo, marcação e cabeçalho de zona usam tinta e
+   fio. */
+
+/* ── A troca de mês ─────────────────────────────────────────────────────── */
+/* ⚠️ CADA BLOCO SE CENTRA SOZINHO em `--area-max` + `--gut`, e não há um
+   container envolvendo os três. É como `.orc-topo` e `.orc-lista` fazem em
+   Aprovados: `#tela` é a coluna inteira (`body.sem-trilho`), e quem define a
+   medida do texto é cada bloco. A primeira versão desta tela não fez isso e as
+   placas foram de borda a borda da janela — visto no screenshot da prévia. */
+.pv-mes{
+  max-width:var(--area-max);margin:0 auto;width:100%;
+  padding:clamp(24px,3.4vw,40px) var(--gut) 0;
+  display:flex;align-items:center;gap:14px;
+}
+/* ⚠️ SEM `text-transform:capitalize` — ele capitaliza CADA palavra e o mês
+   saía "Setembro De 2026". Quem põe a maiúscula é o `::first-letter`, que pega
+   só a primeira. */
+.pv-mes-rot{
+  font-size:1.05rem;font-weight:700;letter-spacing:-.01em;color:var(--text);
+  min-width:12ch;
+}
+.pv-mes-rot::first-letter{text-transform:uppercase}
+.pv-mes-nav{
+  width:40px;height:40px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  font:inherit;font-size:17px;line-height:1;
+  background:transparent;color:var(--text-dim);
+  border:1px solid var(--fio);cursor:pointer;
+  clip-path:var(--corte-p);
+  transition:color .16s var(--saida),border-color .16s var(--saida);
+}
+.pv-mes-nav:hover{color:var(--text);border-color:var(--fio-forte)}
+.pv-mes-nav:focus-visible{outline:2px solid var(--amarelo);outline-offset:2px}
+
+/* ── A manchete ─────────────────────────────────────────────────────────── */
+.pv-topo{
+  max-width:var(--area-max);margin:0 auto;width:100%;
+  padding:clamp(16px,2vw,24px) var(--gut) clamp(20px,3vw,34px);
+}
+/* ⚠️ A MESMA MANCHETE DA IRMÃ, token por token — `font-stretch:112%` e
+   `letter-spacing:-.028em` inclusive. A primeira versão parava em 2,5rem
+   contra os 3,2rem de Aprovados (40px medidos contra 51,2), e duas telas
+   irmãs abrindo em tamanhos diferentes leem como duas gerações do produto. */
+.pv-topo h1{
+  margin:0;font-family:var(--fonte);font-weight:800;
+  font-size:clamp(1.95rem,3.6vw,3.2rem);line-height:1.06;
+  letter-spacing:-.028em;font-stretch:112%;color:#fff;
+  text-wrap:balance;max-width:22ch;
+}
+.pv-topo h1 b{color:var(--amarelo);font-weight:800}
+.pv-lede{
+  margin:10px 0 0;max-width:62ch;
+  font-size:.95rem;line-height:1.5;color:var(--muted);
+}
+/* O atraso é o único vermelho da tela, e ele é TEXTO, não campo: a Regra do
+   Crítico Silencioso do DESIGN.md reserva o preenchimento vermelho para o que
+   não pode esperar. Preventiva atrasada cobra, não alarma. */
+.pv-alerta{color:var(--vermelho);font-weight:700}
+
+/* ── A zona ─────────────────────────────────────────────────────────────── */
+.pv-lista{
+  max-width:var(--area-max);margin:0 auto;width:100%;
+  padding:0 var(--gut);
+  display:flex;flex-direction:column;gap:clamp(22px,2.6vw,34px);
+}
+.pv-zona{display:flex;flex-direction:column;gap:2px}
+/* Sem "já feitas", a lista é o último bloco e precisa do respiro no pé. */
+.pv-lista:last-child{padding-bottom:clamp(48px,7vw,88px)}
+.pv-zona-cab{
+  display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;
+  padding:0 2px 10px;border-bottom:1px solid var(--fio);margin-bottom:10px;
+}
+.pv-zona-id{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;flex:1}
+.pv-zona-cab h2{
+  margin:0;font-size:1.06rem;font-weight:700;letter-spacing:-.01em;color:var(--text);
+}
+.pv-zona-sub{font-size:.86rem;color:var(--muted)}
+/* ⚠️ O ÂMBAR DA CASA, e ele vive no CAMPO ESCURO — é a Regra do Amarelo Cego
+   (~2:1 sobre placa clara). Aqui o fundo é marinho, então ele pode ser TINTA,
+   como a palavra da manchete. Ver o porquê de estar na zona e não no selo de
+   cada item, no `operador-preventivas.js`. */
+.pv-conta{color:var(--amarelo);font-weight:800}
+.pv-conta-atraso{color:var(--vermelho);font-weight:800}
+/* "Escolher as 12" — o despacho por região que o Pedro pediu, a um clique.
+   De fio: ela escolhe, não envia; quem envia é o âmbar da barra do pé. */
+.pv-zona-btn{
+  flex-shrink:0;font:inherit;font-size:.82rem;font-weight:700;
+  padding:7px 13px;min-height:36px;
+  background:transparent;color:var(--text-dim);
+  border:1px solid var(--fio);cursor:pointer;
+  clip-path:var(--corte-p);
+  transition:color .16s var(--saida),border-color .16s var(--saida);
+}
+.pv-zona-btn:hover{color:var(--text);border-color:var(--fio-forte)}
+.pv-zona-btn:focus-visible{outline:2px solid var(--amarelo);outline-offset:2px}
+
+/* ── A linha do prédio ──────────────────────────────────────────────────── */
+.pv-item{
+  --text:var(--tinta);
+  --text-dim:var(--tinta-2);
+  --muted:var(--tinta-2);
+  --fio:var(--fio-esc);
+  --fio-forte:rgba(6,16,51,.34);
+
+  display:flex;align-items:flex-start;gap:16px;
+  background:var(--chapa);color:var(--tinta);
+  /* ⚠️ 19/24 CONTRA OS 14/20 DA PRIMEIRA VERSÃO. A irmã (Aprovados) respira em
+     28/30 e a placa daqui lia apertada ao lado dela — mas 28 não cabe: são até
+     72 prédios num mês, contra 7 orçamentos. Este é o registro de leitura na
+     densidade que a varredura de um mês inteiro admite. */
+  padding:17px clamp(18px,2vw,24px) 19px;
+  clip-path:var(--corte-p);
+  margin-bottom:2px;
+}
+/* ⚠️ A RÉGUA VERMELHA DE 3px SAIU (03/09/2026). O selo já diz ATRASADA em
+   campo cheio, e a régua repetia o mesmo aviso no mesmo item — dois canais
+   para um estado. Um item pintado de dois jeitos não avisa mais alto; ele só
+   fica mais sujo. (A régua da FILA continua valendo: lá ela é o instrumento
+   de SLA, mede uma grandeza e não repete nenhum selo.) */
+.pv-item.is-marcada{background:var(--chapa-cl);box-shadow:inset 0 0 0 2px var(--tinta)}
+
+/* ⚠️ A CAIXA É DESENHADA, NÃO NATIVA. `accent-color` num `input` deixa o
+   quadradinho arredondado do sistema operacional — a única peça da tela que
+   não vinha da casa, numa folha que corta tudo com chanfro. O `input` continua
+   lá, invisível: teclado, leitor de tela e `:checked` seguem sendo dele.
+   ⚠️ O alvo de toque é o `<label>` inteiro (44px), não o glifo de 24. */
+/* ⚠️ A CAIXA ALINHA COM A PRIMEIRA LINHA DO NOME, não com o topo da placa. O
+   alvo de toque tem 44px e o glifo 23; sem o recuo negativo simétrico o
+   quadrado descia meia linha e ficava entre o nome e a frase — visto no print
+   do refino, e depois MEDIDO: o centro do glifo caía 10px abaixo do centro do
+   nome. A conta: o alvo tem 44px e centra o glifo em 22px do próprio topo; o
+   nome de 21,1px com `line-height:1.2` centra em ~12,5px. 12,5 − 22 = −9,5,
+   arredondado para −10. */
+.pv-check{
+  display:flex;align-items:center;justify-content:center;
+  width:44px;height:44px;margin:-10px 0 -10px -11px;
+  flex-shrink:0;cursor:pointer;
+}
+.pv-check input{
+  position:absolute;width:1px;height:1px;opacity:0;margin:0;
+  pointer-events:none;
+}
+.pv-caixa{
+  width:23px;height:23px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--chapa-cl);
+  box-shadow:inset 0 0 0 1.5px var(--fio-forte);
+  --ch-p:5px;clip-path:var(--corte-p);
+  transition:background .14s var(--saida),box-shadow .14s var(--saida);
+}
+.pv-caixa svg{width:15px;height:15px;color:var(--chapa);opacity:0;transition:opacity .1s}
+.pv-check input:checked + .pv-caixa{background:var(--tinta);box-shadow:none}
+.pv-check input:checked + .pv-caixa svg{opacity:1}
+.pv-check:hover .pv-caixa{box-shadow:inset 0 0 0 1.5px var(--tinta)}
+/* O foco do teclado vive no `input` invisível — quem o mostra é a caixa. */
+.pv-check input:focus-visible + .pv-caixa{outline:2px solid var(--tinta);outline-offset:2px}
+.pv-check.is-off{width:44px;height:44px;margin:-10px 0 -10px -11px;flex-shrink:0}
+
+.pv-item-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:7px}
+.pv-item-topo{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+/* ⚠️ A LEITURA GRANDE DA PLACA. Medido antes deste passe: 16,3px/700 aqui
+   contra 21,6px/800 em Aprovados — a placa lia plana, e era o mesmo defeito
+   que a irmã tinha em 31/08 ("o maior tipo dela era o nome do prédio", numa
+   faixa de 12 a 17px). É por este nome que se acha o item quando o técnico
+   liga; ele é o assunto da linha, não o rótulo dela. */
+.pv-nome{
+  margin:0;font-size:1.32rem;font-weight:800;line-height:1.2;
+  letter-spacing:-.02em;color:var(--text);
+}
+/* ⚠️ UMA FRASE, e com MEDIDA. A primeira versão espalhava serviço e
+   responsável em duas linhas soltas que mediam 136ch — o texto atravessava a
+   tela inteira, o mesmo defeito que a fila corrigiu de 110–140ch para 68ch. */
+.pv-meta{
+  margin:0;max-width:74ch;
+  font-size:.95rem;line-height:1.5;color:var(--muted);
+}
+.pv-quem{color:var(--text);font-weight:700}
+/* O que trava o mês: não tem escala nem responsável de zona. Tinta de aviso,
+   não itálico — itálico em nome próprio lê como citação. */
+.pv-sem{color:var(--risco-t);font-weight:700}
+.pv-origem{
+  font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;
+  padding:2px 6px;margin-left:4px;
+  background:var(--tinta);color:var(--chapa);font-weight:700;
+  --ch-p:3px;clip-path:var(--corte-p);
+}
+/* "Pela zona" é o padrão, não uma decisão de alguém — de fio, mais quieto. */
+.pv-origem.is-zona{
+  background:transparent;color:var(--tinta-2);
+  box-shadow:inset 0 0 0 1px var(--fio-esc);
+}
+
+/* ── O selo ─────────────────────────────────────────────────────────────── */
+/* Regra do Selo: preenchido pede ação, de fio em repouso. E a tinta é sempre a
+   família `-t` — sobre placa clara `--ok` mede 3,2:1 e reprova. */
+.pv-selo{
+  margin-left:auto;flex-shrink:0;
+  font-family:var(--mono);font-size:10px;font-weight:700;
+  letter-spacing:.1em;text-transform:uppercase;
+  padding:5px 10px;--ch-p:4px;clip-path:var(--corte-p);
+}
+.pv-selo[data-e="afazer"]{
+  color:var(--tinta-2);box-shadow:inset 0 0 0 1px var(--fio-esc);
+}
+/* Atrasada é o único selo preenchido além do escalado: é o que pede ação.
+   ⚠️ TINTA ESCURA SOBRE O VERMELHO, não branco. Branco sobre `--vermelho`
+   (#ff5a4d) mede **3,08:1** e reprova o piso de 4,5 — medido na prévia. É a
+   mesma gramática do selo "Pode executar" de Aprovados, que põe `--mar-900`
+   sobre o âmbar cheio pelo mesmo motivo. */
+.pv-selo[data-e="atrasada"]{background:var(--vermelho);color:var(--mar-900)}
+.pv-selo[data-e="escalada"]{background:var(--tinta);color:var(--chapa)}
+.pv-selo[data-e="campo"]{
+  color:var(--normal-t);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--normal-t) 40%,transparent);
+}
+.pv-selo[data-e="feita"]{
+  color:var(--ok-t);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--ok-t) 40%,transparent);
+}
+
+/* ── O que já foi feito ─────────────────────────────────────────────────── */
+.pv-feitas-cab{
+  max-width:var(--area-max);margin:clamp(26px,3vw,40px) auto 0;width:100%;
+  display:flex;align-items:center;gap:12px;
+  padding:16px var(--gut) 0;
+  border-top:1px solid var(--fio);
+  font-size:.88rem;color:var(--muted);
+}
+.pv-verfeitas{
+  font:inherit;font-size:.88rem;font-weight:700;
+  background:transparent;border:0;padding:6px 2px;min-height:44px;
+  color:var(--text-dim);cursor:pointer;
+  text-decoration:underline;text-underline-offset:4px;
+  text-decoration-color:var(--fio);
+  transition:color .16s var(--saida),text-decoration-color .16s var(--saida);
+}
+.pv-verfeitas:hover{color:var(--text);text-decoration-color:currentColor}
+.pv-verfeitas:focus-visible{outline:2px solid var(--amarelo);outline-offset:2px}
+/* ⚠️ O QUE JÁ FOI FEITO RECUA POR MATERIAL, NUNCA POR `opacity` — regra
+   registrada de Aprovados (31/08): "opacidade sobre texto é queda de contraste
+   disfarçada de hierarquia". A primeira versão desta tela usava `opacity:.86`
+   e derrubava o contraste de tudo que estava dentro. */
+.pv-lista-feitas{margin-top:18px;padding-bottom:clamp(40px,6vw,72px)}
+.pv-lista-feitas .pv-item{background:var(--chapa-es)}
+.pv-lista-feitas .pv-nome{font-size:1.09rem}
+
+/* ── A barra de despacho ────────────────────────────────────────────────── */
+/* ⚠️ FIXA NO PÉ, e só existe com algo marcado. O operador marca rolando a
+   lista; uma barra no topo o obrigaria a voltar até ela para despachar o que
+   acabou de escolher lá embaixo. */
+.pv-barra{
+  position:fixed;left:0;right:0;bottom:0;z-index:60;
+  display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  padding:12px clamp(16px,3vw,32px);
+  padding-bottom:calc(12px + env(safe-area-inset-bottom));
+  background:var(--mar-800);border-top:1px solid var(--fio);
+}
+.pv-barra-n{font-size:.9rem;font-weight:700;color:var(--text);flex-shrink:0}
+.pv-barra-sel{flex:1;min-width:200px;max-width:340px}
+.pv-barra-sel select{
+  width:100%;font:inherit;font-size:.92rem;
+  padding:10px 12px;min-height:44px;
+  background:var(--mar-900);color:var(--text);
+  border:1px solid var(--fio);cursor:pointer;
+}
+.pv-barra-sel select:focus-visible{outline:2px solid var(--amarelo);outline-offset:2px}
+.pv-barra-limpa{
+  font:inherit;font-size:.88rem;background:transparent;border:0;
+  color:var(--text-dim);cursor:pointer;padding:10px 4px;min-height:44px;
+  text-decoration:underline;text-underline-offset:4px;text-decoration-color:var(--fio);
+}
+.pv-barra-limpa:hover{color:var(--text);text-decoration-color:currentColor}
+.pv-barra-limpa:focus-visible{outline:2px solid var(--amarelo);outline-offset:2px}
+/* A lista precisa terminar acima da barra fixa, senão a última placa fica
+   embaixo dela e o operador não alcança o que acabou de marcar. */
+body:has(.pv-barra) #tela{padding-bottom:96px}
+
+/* ── Celular ────────────────────────────────────────────────────────────── */
+@media (max-width:760px){
+  .pv-mes,.pv-topo,.pv-lista,.pv-feitas-cab{padding-inline:13px}
+  /* ⚠️ 44px É O PISO DE ALVO DE TOQUE desta folha, e as setas de mês (40) e o
+     botão da zona (36) estavam abaixo — medidos a 390px. No desktop o mouse
+     alcança 36px sem erro; no celular, com o telefone no ombro, não. */
+  .pv-mes-nav{width:44px;height:44px}
+  .pv-zona-btn{min-height:44px;padding:11px 15px}
+  .pv-item{flex-wrap:wrap}
+  .pv-selo{margin-left:0}
+  .pv-item-topo{gap:8px}
+  /* A barra empilha: o select ocupa a linha inteira e o "Enviar" fica cheio,
+     como as ações da placa em Aprovados fazem nesta largura. */
+  .pv-barra{gap:10px}
+  .pv-barra-sel{max-width:none;flex:1 1 100%;order:2}
+  .pv-barra-n{order:1}
+  .pv-barra .btn{order:3;flex:1;justify-content:center}
+  .pv-barra-limpa{order:4}
+  body:has(.pv-barra) #tela{padding-bottom:190px}
+}
+
+@media (prefers-reduced-motion:reduce){
+  .pv-mes-nav,.pv-zona-btn,.pv-verfeitas,.pv-barra-limpa{transition:none}
+}

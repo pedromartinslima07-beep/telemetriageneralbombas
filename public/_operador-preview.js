@@ -397,6 +397,35 @@
     // fantasia nenhuma dessas duas coisas se testa. Aqui vão 40, a maioria com
     // os dois nomes divergentes, para o filtro ter o que filtrar.
     if (u.indexOf("/condominios") >= 0) return J(CARTEIRA);
+    // ⚠️ A RÉGUA DE PRIORIDADE (03/09/2026). O diálogo de novo chamado passou a
+    // ler dela — a categoria move os botões P1–P4. Sem este dublê a prévia
+    // mostra as sete categorias do HTML, a sugestão nunca acende, e o defeito
+    // que o Pedro pegou ("mudo a categoria e a prioridade não muda junto")
+    // continuaria invisível aqui.
+    // ⚠️ VEM ANTES do recorte de "/chamados/", que casaria "/chamados/prioridades"
+    // como se "prioridades" fosse um id de chamado.
+    if (u.indexOf("/chamados/prioridades") >= 0) return J({
+      prioridades: [
+        { id: "p1", rotulo: "Crítico", plantao: true, sla_chegada_min: 180,
+          enquadramento: "Risco imediato de desabastecimento relevante; poço ou área crítica com risco de inundação; falha crítica de sistema essencial." },
+        { id: "p2", rotulo: "Alto", plantao: false, sla_chegada_min: 2880,
+          enquadramento: "Falha relevante, mas com condição provisória, redundância parcial ou sem risco imediato à segurança e ao abastecimento geral." },
+        { id: "p3", rotulo: "Programável", plantao: false, sla_chegada_min: 4320,
+          enquadramento: "Anomalia sem risco imediato; equipamento reserva indisponível sem perda da função principal; ajuste ou corretiva não crítica." },
+        { id: "p4", rotulo: "Baixa criticidade", plantao: false, sla_chegada_min: null,
+          enquadramento: "Melhorias, levantamentos, adequações, solicitações estéticas ou serviços que dependam de planejamento e orçamento." }
+      ],
+      categorias: [
+        { id: "vazamento",   rotulo: "Vazamento",              prioridade: "p2" },
+        { id: "bomba_falha", rotulo: "Falha de bomba",         prioridade: "p2" },
+        { id: "nivel_baixo", rotulo: "Nível baixo",            prioridade: "p3" },
+        { id: "sem_agua",    rotulo: "Sem água",               prioridade: "p1" },
+        { id: "ruido",       rotulo: "Ruído",                  prioridade: "p3" },
+        { id: "manutencao",  rotulo: "Manutenção",             prioridade: "p4" },
+        { id: "melhoria",    rotulo: "Melhoria / levantamento", prioridade: "p4" },
+        { id: "outro",       rotulo: "Outro",                  prioridade: "p3" }
+      ]
+    });
     var cauda = u.split("/chamados/")[1];
     if (cauda) {
       cauda = cauda.split("?")[0];

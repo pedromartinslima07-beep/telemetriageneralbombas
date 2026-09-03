@@ -41,6 +41,20 @@ aliases:
 
 ## Em andamento / pendente
 
+- ✅ **As preventivas do mês ganham tela no operador** (03/09/2026). Terceira
+  tela (`/operador/painel/preventivas`): o mês inteiro por zona, separado entre
+  o que falta e o que já saiu, com despacho **por região ou prédio a prédio**
+  (migration 082, `planos_atribuicoes`). A escala **ganha da zona e desvia** —
+  prédio escalado para um técnico sai do roteiro dos outros. Passou por um passe
+  Impeccable depois que o Pedro duvidou do nível: a placa lia plana (16,3/700
+  contra 21,6/800 da irmã) e a tela tinha âmbar em uma peça só. Detalhe em
+  [`../docs/modulos/painel-operador.md`](../docs/modulos/painel-operador.md).
+  - ⏳ **Migration 082 aplicada só em TESTE** — falta produção.
+  - ⚠️ **Os 72 planos de produção estão INATIVOS**, todos mensais: a tela nasce
+    vazia lá até alguém reativá-los em Planos, no admin.
+  - 📋 **Só 1 zona tem responsável** para 11 técnicos ativos. Enquanto isso, o
+    despacho depende da escala manual desta tela — que é o que ela resolve.
+
 - ✅ **A prioridade do chamado vem do contrato** (03/09/2026). Pedido do Pedro,
   a partir da minuta do Saint Antoine: *"com o que tem nela dá para setar um
   padrão para o sistema? e na abertura de chamados, em vez de ficar 100% pro

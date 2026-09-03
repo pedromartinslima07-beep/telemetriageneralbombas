@@ -434,6 +434,13 @@ app.get("/operador/painel", _htmlNoCache, (req, res) =>
 app.get("/operador/painel/orcamentos", _htmlNoCache, (req, res) =>
   enviarHtml(res, path.join(__dirname, "../public/operador-orcamentos.html"))
 );
+// Preventivas — a terceira tela do operador: os planos de manutenção que vencem
+// no mês, separados entre o que falta e o que já foi feito, com o despacho por
+// zona ou prédio a prédio. Mesma convenção de path das duas irmãs: a página é
+// `/operador/painel/preventivas`, a API é `/operador/preventivas`.
+app.get("/operador/painel/preventivas", _htmlNoCache, (req, res) =>
+  enviarHtml(res, path.join(__dirname, "../public/operador-preventivas.html"))
+);
 // Orçamentos do síndico — página própria, não um modal do painel. É o destino
 // do link que vai no e-mail do orçamento, então a URL é pública e estável; o
 // login é pedido pelo JS num cartão SOBRE a própria página — nunca em /login,

@@ -161,6 +161,140 @@ true`); com técnico, nada muda e a faixa diz isso. Ignorar em silêncio faria a
 tela afirmar um despacho que não houve; sobrescrever faria o segundo clique
 desfazer, sem aviso, o despacho do primeiro — ou o de outro operador.
 
+## A terceira tela: Preventivas (`/operador/painel/preventivas`)
+
+Pedido do Pedro (03/09/2026): *"preciso que em operador fique todas as
+preventivas do mês, separada bonitinho as que já foram feitas e as que faltam
+fazer, tem que dar para enviar esses chamados para o técnico por região [...] ou
+escolher condomínio por condomínio qual vai para cada técnico"*.
+
+O contrato obriga a visita mensal a cada prédio; esta tela é o instrumento de
+cobrança dela. Responde, nesta ordem: **o que falta**, **quem vai**, e **o que
+já saiu**.
+
+⚠️ **LISTA PLANOS, NÃO CHAMADOS** — mesma escolha do `meu-roteiro`. O chamado P4
+da preventiva só nasce quando o técnico chega no prédio e toca "Iniciar"
+(`executarPlano`). Listar chamados mostraria só o que já começou, e o que a tela
+precisa responder é justamente o que **falta**.
+
+### O que faltava no banco: quem faz ESTE mês
+
+Antes disto, a única forma de dizer quem executa uma preventiva era a **zona**
+(`planos_zona_responsavel`) — atribuição permanente e por região. Não havia como
+dizer "este mês o Cleber pega o Saint Antoine".
+
+Em produção isso pesava: **11 técnicos ativos e uma única zona com responsável
+cadastrado**. Na prática o despacho da preventiva acontecia por fora do sistema.
+
+`planos_atribuicoes` (migration 082) é a atribuição do **ciclo**, por
+competência (o dia 1 do mês). Ver [`../banco-de-dados.md`](../banco-de-dados.md).
+
+### ⚠️ A regra que sustenta tudo: escalar é DESVIAR, não acrescentar
+
+| Situação | Quem vê no app |
+|---|---|
+| escalado para MIM | eu — mesmo que a zona não seja minha |
+| escalado para OUTRO | **só ele** — sai do meu roteiro, mesmo sendo minha zona |
+| sem escala no ciclo | o responsável da zona, como sempre |
+
+A segunda linha é a que importa. Somar as duas origens colocaria o mesmo prédio
+no app de dois técnicos: os dois iriam, e um perderia a manhã. É o defeito que a
+tela existe para evitar, e é a asserção mais importante de
+`scripts/testes/preventivas-mes.test.js`.
+
+⚠️ **A competência conferida é a do mês de `proxima_em`, não a de hoje.** O
+roteiro enxerga 7 dias à frente: no fim do mês ele já mostra preventivas do mês
+seguinte, e comparar com a escala de hoje faria a escala do mês que vem ser
+ignorada justamente na semana em que começa a valer.
+
+### Os quatro estados, e o que é "feita"
+
+| Estado | Quando |
+|---|---|
+| **A fazer** | vence no mês, sem escala e sem chamado |
+| **Escalada** | alguém foi escalado neste ciclo (a atribuição explícita) |
+| **Em campo** | há chamado da preventiva aberto |
+| **Feita** | o chamado da preventiva **fechou** no mês |
+
+⚠️ **"FEITA" É O CHAMADO FECHADO, não `ultima_em`.** Parecem a mesma coisa e não
+são: `executarPlano` grava `ultima_em = CURRENT_DATE` no instante em que **abre**
+o chamado — quando o técnico toca "Iniciar" no prédio. Uma preventiva iniciada
+às 9h e abandonada às 9h05 tem `ultima_em` de hoje e não foi feita. Quem fecha o
+chamado é a O.S. finalizada, e é isso que significa serviço entregue.
+
+⚠️ **Mas `ultima_em` no mês conta quando não há chamado nenhum** — a execução
+anterior a este módulo. Ignorar faria a tela cobrar de novo um serviço que a
+equipe sabe ter sido feito.
+
+⚠️ **O ATRASO GANHA DO "A FAZER" NO SELO.** Preventiva de agosto ainda aberta em
+setembro não é "a fazer", é dívida — e ela entra na lista do mês junto, com
+`atrasada`.
+
+### O despacho
+
+Agrupado por **zona**, porque é por zona que a decisão se toma ("a Zona Leste vai
+com o Cleber"). O botão "Escolher as N" marca a zona inteira e o mesmo botão
+desmarca; as caixinhas resolvem o prédio a prédio. A barra do pé só existe com
+algo marcado, e fica **fixa**: o operador marca rolando a lista, e uma barra no
+topo o obrigaria a voltar até ela.
+
+⚠️ **Marcar uma caixinha NÃO redesenha a lista.** `render()` inteiro destruiria o
+`<input>` que acabou de receber o clique — o foco vai para o `body` e quem marca
+vários seguidos com o teclado perde o lugar a cada um. Só a linha e o número da
+barra mudam (`_pintarMarcada` / `_atualizarBarra`), e a barra atualiza **só o
+número**, porque recriá-la apagaria o técnico já escolhido.
+
+### ⚠️ O terceiro link reabriu o defeito da barra no celular
+
+Com Preventivas a nav passou a ter três itens, e a 390px o wordmark voltou a
+pintar **84px** por cima deles — o mesmo defeito que a gaveta de conta tinha
+fechado em 02/09. Medido: nav 168 + nome 43 + Sair 44 = 280px de ações contra
+124 de wordmark.
+
+Duas trocas, ambas medidas: **"A fila do turno" vira "Turno"** no celular (dois
+`<span>` do mesmo rótulo, não dois links) e **o nome de quem está logado sai da
+barra** abaixo de 760px — a mesma troca que o painel do turno já tinha feito, e
+pelo mesmo motivo: no celular o nome é conferência, não operação. Fecha com
+**zero sobreposição de 360px para cima** nas três telas. 320px segue fora, limite
+conhecido.
+
+### O passe de nível (03/09/2026)
+
+Depois de pronta, o Pedro: *"tenho minhas dúvidas se essa tela está com o nível
+das outras"*. Medidas lado a lado com Aprovados: manchete **40 contra 51,2px**,
+maior tipo da placa **16,3/700 contra 21,6/800**, padding **14/20 contra 28/30**,
+medida **136 contra 88ch**, âmbar em **uma** peça contra três.
+
+Era o mesmo diagnóstico de 31/08 — e eu tinha repetido o defeito daquela rodada.
+O detalhe do passe está na brief da superfície
+(`.impeccable/surfaces/public-operador-html.md`); o que ficou como regra:
+
+⚠️ **A placa vai a 17/24, não aos 28/30 de Aprovados.** São até 72 prédios num
+mês contra 7 orçamentos: é o registro de leitura na densidade que a varredura de
+um mês inteiro admite.
+
+⚠️ **O âmbar vive no contador da ZONA, nunca no selo do item.** Selo por item
+viraria textura — no dia 1 todas estão a fazer, e 72 selos acesos não sinalizam
+nada. Na zona ele acende uma vez por região e apaga conforme o mês é resolvido.
+
+⚠️ **O que já foi feito recua por MATERIAL** (`--chapa-es`), nunca por
+`opacity` — a primeira versão usava `opacity:.86` e derrubava o contraste de
+tudo que estava dentro. É a regra de Aprovados, e foi violada aqui.
+
+⚠️ **A caixa de marcar é desenhada, não nativa.** `accent-color` deixa o
+quadradinho do sistema operacional — a única peça da tela que não era da casa. O
+`input` continua, invisível: teclado, leitor de tela e `:checked` são dele.
+
+### Para olhar sem sessão: `/dev/_preventivas-preview.html`
+
+Carrega o `operador.css` e o `operador-preventivas.js` de produção e dubla só a
+rede. A fixture tem os quatro estados, as duas origens de responsável, um prédio
+**sem zona** e dois **sem técnico nenhum** — que é o caso real em produção. O
+despacho mexe na fixture, então o ciclo inteiro (marcar → enviar → ver o estado
+mudar) se testa ali.
+
+---
+
 ## A segunda tela: Aprovados (`/operador/painel/orcamentos`)
 
 **A pergunta é "o que a gente pode executar aqui", não "quanto custou".** A

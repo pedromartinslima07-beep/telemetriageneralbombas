@@ -481,3 +481,30 @@ do 500 mudo de antes — mas a FK continua precisando de conserto.
 - `migrations/restaurar-defaults.sql` — reinsere SLAs P1-P4 + configs padrão.
 - `scripts/migrate.js` — aplicador de migration via Node.
 - `scripts/regenerar-pdfs-os.js`, `scripts/check-tecnicos.js` — manutenção.
+
+### `planos_atribuicoes` (migration 082)
+
+Quem faz cada preventiva **neste mês**. A atribuição do CICLO — a permanente e
+por região continua sendo [`planos_zona_responsavel`](banco-de-dados.md).
+
+| Coluna | Tipo | Nota |
+|---|---|---|
+| `plano_id` | INTEGER | FK `planos_manutencao`, ON DELETE CASCADE |
+| `competencia` | DATE | **sempre o dia 1 do mês** — há CHECK |
+| `tecnico_id` | INTEGER | FK `tecnicos`, ON DELETE CASCADE |
+| `atribuido_em` | TIMESTAMPTZ | |
+| `atribuido_por` | INTEGER | FK `usuarios`, ON DELETE SET NULL |
+
+PK composta `(plano_id, competencia)`: **um responsável por plano por mês**.
+Dois técnicos escalados para o mesmo prédio no mesmo ciclo é a viagem perdida
+que a tela existe para evitar.
+
+⚠️ **Por que competência e não um `tecnico_id` no plano.** A preventiva é mensal
+e quem vai muda de mês para mês (férias, carga, um prédio que pede alguém).
+Guardando no plano, a escala de setembro apagaria a de agosto e o histórico de
+quem foi onde se perderia.
+
+⚠️ **O CHECK do dia 1 não é decoração.** Sem ele "2026-09-01" e "2026-09-15"
+seriam competências diferentes do mesmo mês, e a PK deixaria o mesmo plano ser
+atribuído duas vezes.
+
