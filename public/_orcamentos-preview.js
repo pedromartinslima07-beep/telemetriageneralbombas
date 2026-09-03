@@ -130,6 +130,26 @@
       return resp({ orcamento_id: os && os.orcamento_id, orcamento_numero: os && os.orcamento_numero,
                     orcamento_status: "rascunho", orcamento_valor: null });
     }
+    // O DELETE do PEDIDO (03/09/2026): desliga a flag e apaga o orçamento
+    // vinculado. Na fixture isso é tirar a O.S. da FILA e o documento dos
+    // AVULSOS — as duas metades, como na CTE do servidor.
+    var mDel = /\/admin\/orcamentos\/(\d+)$/.exec(url);
+    if (mDel && init && init.method === "DELETE") {
+      var idDel = Number(mDel[1]);
+      var iFila = FILA.findIndex(function (o) { return o.id === idDel; });
+      if (iFila < 0) {
+        return Promise.resolve(new Response(JSON.stringify({ error: "O.S. não encontrada" }),
+          { status: 404, headers: { "Content-Type": "application/json" } }));
+      }
+      var orcDel = FILA[iFila].orcamento_id;
+      FILA.splice(iFila, 1);
+      var nApagados = 0;
+      if (orcDel) {
+        var iAv = AVULSOS.findIndex(function (a) { return a.id === orcDel; });
+        if (iAv > -1) { AVULSOS.splice(iAv, 1); nApagados = 1; }
+      }
+      return resp({ ok: true, orcamentos_apagados: nApagados });
+    }
     // A aba irmã ganha fixture também: sem ela não dá para comparar as duas
     // lado a lado, que é o ponto do redesenho.
     // As linhas de um avulso (o modal dele não abre sem).

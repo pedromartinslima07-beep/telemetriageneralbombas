@@ -8651,6 +8651,23 @@ body.role-viewer .viewer-only-hide-inline {
 .av-orc-item-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
 .av-orc-item-val  { font-size: 12.5px; font-weight: 700; color: var(--text); }
 
+/* A lixeira do pedido. ⚠️ SEMPRE VISÍVEL, não só no hover: a saída daqui não
+   existia, e esconder o único caminho atrás do mouse é repetir o problema de
+   outro jeito. Fica cinza-fraco e só ganha tinta de perigo quando apontada —
+   presente sem competir com o selo de status, que é o que a linha comunica. */
+.av-orc-item-del {
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; padding: 0;
+  border: 0; background: none; cursor: pointer;
+  color: var(--muted2); opacity: .55;
+  border-radius: 4px;
+  transition: color .12s, opacity .12s, background .12s;
+}
+.av-orc-item-del svg { width: 14px; height: 14px; }
+.av-orc-item-del:hover { color: var(--danger); opacity: 1; background: rgba(255,255,255,.06); }
+.av-orc-item-del:focus-visible { outline: 2px solid var(--danger); outline-offset: 1px; opacity: 1; }
+
 /* Painel de detalhe — seção do form */
 .orc-form-section { border-top: 1px solid var(--border); padding-top: 12px; }
 .orc-form-row {
@@ -10002,10 +10019,26 @@ body.role-viewer .viewer-only-hide-inline {
    os dois acontecem em linhas diferentes — sem ela, duas linhas acesas e
    nenhuma pista de qual o Enter escolhe. */
 .cbx-item.is-marcado { box-shadow: inset 2px 0 0 var(--amarelo); }
+/* ⚠️ SELETOR LONGO DE PROPÓSITO — `.f span` é DESCENDENTE e alcança aqui.
+   No admin o campo mora num `<label class="f">`, e `.f span` (0,2,0) pinta
+   TODO span lá dentro de rótulo: 11px, peso 700, caixa alta e letter-spacing.
+   Com `.cbx-nome` sozinho (0,1,0) ele perdia até no `font-size` e na cor — o
+   nome do prédio e a razão social saíam idênticos e gritando, que é o
+   contrário da hierarquia que a lista precisa. `.cbx-lista .cbx-item X`
+   (0,3,0) ganha sem depender da ordem dos blocos no arquivo.
+
+   Terceira vez que este seletor cobra o mesmo pedágio — ver `.f span em` e
+   `.f span.cep-msg` logo acima. Qualquer componente novo que ponha `<span>`
+   dentro de um `.f` paga de novo. */
+.cbx-lista .cbx-item .cbx-nome,
+.cbx-lista .cbx-item .cbx-sub { text-transform: none; letter-spacing: 0; }
+.cbx-lista .cbx-item .cbx-nome { font-size: 13px; font-weight: 600; color: var(--text); }
 .cbx-nome { font-size: 13px; font-weight: 600; color: var(--text); }
 /* A razão social e o bairro. Cinza um degrau abaixo: é o que confirma que
    este é o prédio certo, não o que se lê primeiro. */
+.cbx-lista .cbx-item .cbx-sub { font-size: 11px; font-weight: 500; color: var(--text-dim); }
 .cbx-sub  { font-size: 11px; color: var(--text-dim); }
+.cbx-lista .cbx-item-vazio .cbx-nome,
 .cbx-item-vazio .cbx-nome { color: var(--muted); font-weight: 500; font-style: normal; }
 .cbx-vazio { padding: 12px; font-size: 12px; color: var(--text-dim); text-align: center; }
 

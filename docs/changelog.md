@@ -8680,6 +8680,269 @@ só se vê na tela) para quando ela voltar.
 
 Sem migration. `?v=N`: `operador.js` 74 → 75.
 
+### 2026-09-03 · Três seletores de condomínio no modal de abrir chamado
+
+Relato do Pedro: "o seletor de condomínio na abertura de chamado no painel de
+admin não está funcionando" — e, na sequência, "inclusive está aparecendo 3
+seletores". O segundo relato é o diagnóstico inteiro: eram **três aberturas do
+modal**, cada uma empilhando mais um campo.
+
+**O `id` troca de dono na montagem, e o guard não sabia disso.** O
+`condo-picker.js` transforma o `<select>` original num `<input type="hidden">`
+com o mesmo id — é justamente o seam que faz `getElementById("ncCondo").value`
+continuar valendo no `salvar`. Só que ele gravava a marca `dataset.pickerPronto`
+(e o `_picker`) **no elemento original**, que sai da montagem SEM id. Da segunda
+chamada em diante `getElementById("ncCondo")` devolve o hidden, que não tem
+marca nenhuma: o "já montado?" nunca dava verdadeiro e ele montava outro picker
+por cima, aninhado dentro do primeiro.
+
+E só o ÚLTIMO campo empilhado ficava ligado ao hidden que o `salvar` lê. Quem
+digitasse no de cima — o primeiro que a vista encontra — abria o chamado sem
+prédio nenhum.
+
+⚠️ **O operador não tinha o defeito, e é por isso que ele passou batido.** Lá o
+modal inteiro é redesenhado por template literal a cada abertura, com um
+`<select>` novo em folha, e cada montagem começa do zero. O admin tem o modal
+fixo em `admin.html` e chama `montar` a cada abertura sobre o MESMO elemento —
+que é o caso normal dos outros seis selects de condomínio que ainda vão adotar
+o componente.
+
+Correção: `_picker`, `_pickerAtualizar` e `dataset.pickerPronto` passam a morar
+no **hidden**, que é o elemento que responde pelo id a partir da primeira
+montagem — o mesmo que o guard lê. Junto, o `<label for="…">` do operador passa
+a ser reapontado para o campo de busca (`<id>_busca`): o `for` apontava para um
+hidden, que não recebe foco, e clicar em "Prédio" tinha deixado de acender o
+campo.
+
+**O teste existente não pegou porque o DOM falso mentia.** O
+`scripts/testes/condo-picker.test.js` tinha um `getElementById` que devolvia o
+`<select>` original sempre, para qualquer chamada — ou seja, o teste vivia um
+DOM em que o id NÃO troca de dono, exatamente a condição que o bug precisa. Ele
+agora procura pelo `id` de verdade e ganhou duas checagens (16 no total):
+remontar não cria segundo campo, e remontar devolve o mesmo picker. Rodado
+contra o código anterior, reproduz o relato na letra — `FAIL … 3 caixa(s)`.
+
+Confirmado também em Chrome, com a estrutura do modal do admin servida por
+HTTP: cinco aberturas seguidas → um campo, busca por razão social ("elvira" →
+Auri Faria Lima), termos fora de ordem e sem acento funcionando, e o id gravado
+no hidden.
+
+⚠️ **Uma suspeita levantada e DESCARTADA por medição:** o `<select>` do admin
+mora dentro de um `<label class="f">`, e clicar dentro de um label reenvia o
+clique ao controle rotulado — o que reabriria a lista logo depois de escolher.
+Com clique sintético isso acontece; com clique REAL do mouse, não: o
+`preventDefault` que o componente já dá no `mousedown` impede o reenvio. O
+`preventDefault` extra que eu tinha escrito para isso saiu do código.
+
+### E aí a tela mostrou um segundo defeito, que nenhum teste veria
+
+Pergunta do Pedro: *"vc testou abrindo o painel no chrome?"* — não tinha. Ao
+abrir de verdade, a lista apareceu com **o nome do prédio e a razão social
+idênticos**: os dois em caixa alta, peso 700, 11px, cor de rótulo. A hierarquia
+que a lista inteira depende — nome de tela em cima, razão social um degrau
+abaixo — simplesmente não existia no admin.
+
+**`.f span` é seletor DESCENDENTE.** No admin o campo mora dentro de um
+`<label class="f">`, e `.f span` (0,2,0) alcança todo `<span>` lá dentro —
+inclusive `.cbx-nome` e `.cbx-sub`, que como classe simples (0,1,0) perdiam até
+no `font-size` e na cor. **Terceira vez que esse seletor cobra o mesmo
+pedágio**: `.f span em` e `.f span.cep-msg`, logo acima dele no arquivo, são as
+duas cicatrizes anteriores. Qualquer componente novo que ponha `<span>` dentro
+de um `.f` paga de novo.
+
+As regras do picker passaram a `.cbx-lista .cbx-item .cbx-nome` / `.cbx-sub`
+(0,3,0), que ganha sem depender da ordem dos blocos no arquivo, com
+`text-transform: none` e `letter-spacing: 0` explícitos. Espelhado no
+`operador.css` — lá o campo não vive num `.f` e `.cbx-nome` sozinho bastaria,
+mas as duas folhas são cópia uma da outra e a que diverge é a que se descobre
+errada seis meses depois.
+
+⚠️ **Nada disso aparece em teste sem navegador**, e nada disso aparecia na
+minha réplica em HTML — ela não carregava o `admin.css`. Só a tela mostra.
+
+### E por isso entrou uma prévia: `/dev/_novo-chamado-preview.html`
+
+O modal só se olha depois de entrar no painel, e entrar exige sessão — foi o
+que fez este bug chegar ao Pedro em vez de morrer no desenvolvimento. Agora ele
+tem porta própria, no padrão `public/_*.html` que o `_operador-preview.html`
+já usa (rota `/dev/:arquivo`, **não registrada em produção**).
+
+⚠️ **Ela não copia o markup do modal.** Busca `/admin/painel` — que serve o
+HTML sem exigir sessão, quem manda para o login é o `admin.js` no cliente — e
+recorta o `#novoChamadoOverlay` de lá, com o `admin.css` real por cima. Prévia
+que duplica markup começa fiel e envelhece mentindo. Traz um botão "abrir e
+fechar 3×" e um placar de quantos campos de busca existem na tela, que é o
+defeito desta rodada virado em instrumento.
+
+⚠️ **O `<script>` tem de ser ARQUIVO EXTERNO** (`_novo-chamado-preview.js`).
+O helmet usa `script-src 'self'` sem `unsafe-inline`: script embutido na página
+não executa e **não avisa** — a prévia ficou presa em "Carregando…" sem um erro
+na tela. É o mesmo motivo de o `_operador-preview.js` existir separado.
+
+**Conferido no navegador, na tela real:** quatro aberturas seguidas → um campo;
+"elvira" acha *Auri Faria Lima*; "aurora" traz os dois Aurora separados pelo
+bairro; clicar num item grava o id no hidden, fecha a lista e mostra o nome de
+porta no campo.
+
+Sem migration. `?v=N`: `condo-picker.js` 1 → 2 (`admin.html`, `operador.html`,
+`_operador-preview.html`); `admin.css` 247 → 248; `operador.css` 79 → 80.
+
+### 2026-09-03 (2ª rodada) · O nome de quem está logado vira a gaveta de conta
+
+Duas perguntas do Pedro, na ordem em que vieram. Primeiro: *"em vez de 'minha
+senha' no painel de operador não seria melhor usar um ícone apenas ou algo
+assim, dá uma olhada no padrão do painel de cliente para ver se dá para
+copiar"*. Depois, olhando o resultado: *"penso se n seria melhor q o nome da
+pessoa fosse um botao, e por la ela conseguisse sair e trocar a senha"*.
+
+**O painel do cliente não tinha troca de senha para copiar** — ela morreu em
+25/08 junto com a senha do cliente. O que serviu de lá foi a gramática
+`.conta`: ícone + rótulo na mesa, só o ícone no celular.
+
+**O passo intermediário não sobreviveu à medição** e vale registrar porque é a
+lição: "Minha senha" saiu da nav e virou uma segunda chapa `.conta` ao lado do
+"Sair". Consertava um defeito real de acessibilidade (o botão morava dentro de
+`<nav aria-label="Telas do operador">`, e trocar senha não é uma tela), mas
+**três chapas não cabem na barra do celular**. A segunda pergunta do Pedro é a
+que fechou a conta.
+
+#### O que ficou
+
+O nome é o botão; senha e sair são as duas linhas da gaveta.
+
+- `.eu` (invólucro), `.conta.conta-eu` (o botão, com silhueta e seta) e
+  `.eu-gaveta` com dois `.eu-item`. Chapa de duas camadas, chanfro do `:root`,
+  corte gravado (`--rasgo` + `--luz`) entre as linhas, **sem sombra** —
+  profundidade neste sistema é tonal.
+- **Revoga a regra do `cliente.html`** de que o nome é texto porque *"um alvo
+  que não leva a lugar nenhum ensina a pessoa a duvidar dos outros alvos da
+  barra"*. A regra era contra alvo **morto**; agora o nome leva a algum lugar.
+  ⚠️ No painel do cliente ela **continua valendo** — lá não há gaveta. As duas
+  barras divergem de propósito.
+- ⚠️ **Não é `<dialog>`.** Todo diálogo desta folha é `showModal()`; modal para
+  escolher entre dois itens interrompe o turno e prende o foco numa tela que
+  fica aberta o dia inteiro. Gaveta ancorada: fecha no Esc, no clique fora e ao
+  escolher.
+- ⚠️ **A gaveta é IRMÃ do botão, nunca filha:** `.conta` tem `clip-path`, e
+  `clip-path` recorta a subárvore inteira.
+- ⚠️ **`isolation:isolate` na gaveta**, como todo `.conta`: a placa vive num
+  `::before` com `z-index:-1`, e sem contexto de empilhamento próprio esse
+  `-1` escapa para trás do contexto do pai.
+- ⚠️ **`id="btnSair"` preservado** na linha do sair — a delegação de clique
+  procura o Sair por id. Mudar o seletor quebraria o logout sem erro no
+  console. E o Sair **não é vermelho**, nem dentro da gaveta.
+- ⚠️ **A gaveta fecha ANTES de a ação rodar**, no mesmo handler delegado e
+  antes da linha do `#btnSair`: o `abrirFundo` guarda `document.activeElement`
+  para devolver o foco no fim, e sem isso ele guardaria uma linha já
+  `hidden` — foco devolvido a elemento invisível não vai a lugar nenhum.
+- Teclado: ↓/↑/Home/End percorrem, Esc fecha e devolve o foco ao botão, Tab
+  sai. `aria-haspopup` + `aria-expanded` + `role="menu"`.
+- `.conta` subiu de `min-height:38px` para **44px** — o piso que o `.btn`
+  desta folha já aplicava na mesa. Como chapa única de conta, ela ficava 6px
+  mais baixa que o "+ Novo chamado" ao lado.
+
+#### A barra do celular estava quebrada, e agora fecha
+
+O `operador.css` manda refazer uma conta de largura sempre que `.barra-acoes`
+muda. Refeita no navegador — sobreposição do wordmark sobre a borda das ações:
+
+| largura | antes (em produção) | 2 chapas | gaveta (final) |
+|---|---|---|---|
+| 320px | 128 | 107 | 39 |
+| 360px | 113 | 67 | **0** |
+| 375px (SE) | 98 | 52 | **0** |
+| 390px (iPhone 12–15) | **83** | 37 | **0** |
+| 412px (Pixel) | 61 | 15 | **0** |
+| 430px | 65 | 21 | **0** |
+| 480px+ | 15 | 0 | **0** |
+
+A coluna "antes" é o que estava no ar: o logotipo pintava **83px por cima de
+"Aprovados"** em todo iPhone recente, e ninguém tinha visto — a barra do
+operador só se olha com sessão, e quase sempre na mesa.
+
+A gaveta devolveu 50px, e o resto veio da marca cedendo altura (o mecanismo que
+a folha já usava): **27px abaixo de 420 e 22px abaixo de 386**. Fecha de
+**360px para cima**, que cobre todo aparelho em circulação. ⚠️ **320px segue
+fora e é limite conhecido:** ali sobram ~66px para a marca, o que pediria 14px
+de altura.
+
+⚠️ **Os dois números saíram da tela, não da conta.** A aritmética a partir da
+largura das ações dava 28 e 24, e medido sobrava 1px de sobreposição a 386px e
+8,7px a 360px — a fórmula ignora o `gap` do `.barra-in` e o arredondamento do
+wordmark. Refez a conta? **Meça.**
+
+#### O que quase passou: a tela irmã consome a mesma folha
+
+Ao apagar `.barra-eu` e `.conta-sair` do CSS, a tela de **Aprovados**
+(`operador-orcamentos.html`) ficaria com o nome sem tamanho, sem cor e sem
+ellipsis — ela carrega o mesmo `operador.css` e ainda monta o par "nome
+(texto) + Sair". `.barra-eu` foi restaurada e o hover/foco generalizado para
+`.conta`. ⏳ **As duas barras do operador divergem enquanto isso durar** —
+levar a gaveta para Aprovados exige o `dlgSenha` no `operador-orcamentos.js`,
+que não o tem.
+
+**Conferido no navegador** (prévia, clique real e teclado): abre no clique,
+seta gira, ↓/↑ percorrem, Esc fecha e devolve o foco ao botão, clique fora
+fecha, escolher "Trocar senha" fecha a gaveta e abre o diálogo, e fechar o
+diálogo devolve o foco ao botão — não a uma linha escondida. Contraste sobre a
+placa: rótulo **8,06:1**, ícone **5,47:1**, nome no botão **7,77:1** (o piso
+da folha é 5,2:1).
+
+Sem migration, sem mudança de backend. `?v=N`: `operador.css` 79 → 85 e
+`operador.js` 75 → 76, nos três HTMLs que consomem a folha (`operador.html`,
+`_operador-preview.html`, `operador-orcamentos.html` — esta última estava
+parada no 75).
+
+### 2026-09-03 (3ª rodada) · O pedido de orçamento do técnico não saía nem a pau
+
+Relato do Pedro: *"um técnico fez a solicitação de um orçamento via O.S., mas
+esse orçamento já havia sido enviado, e eu não consigo apagar ele nem a pau"*.
+
+**Ele estava apagando a coisa certa pelo botão errado — que era o único que
+havia.** A linha da aba de orçamentos **não é o orçamento**: é a O.S. com
+`orcamento_necessario = TRUE` (o `GET /admin/orcamentos` é ancorado em
+`ordens_servico`, com LEFT JOIN em `orcamentos` desde 02/09). O
+**"Excluir orçamento"** do modal apaga o **documento**. Com a flag ligada, a
+linha volta no próximo carregamento — agora como SOLICITADO, e sem o orçamento
+que existia. E clicar nela de novo chama `_orcMaterializarEAbrir`, que **cria**
+um rascunho: a tela em que ele tentava limpar a fila era a mesma que a
+realimentava.
+
+O único lugar do sistema que desligava a flag era um checkbox dentro do editor
+da O.S. — que ninguém adivinha ser o botão de "tirar isto da fila de
+orçamentos".
+
+**`DELETE /admin/orcamentos/:os_id`** (novo) apaga o **pedido**: desliga
+`orcamento_necessario` e apaga o orçamento vinculado àquela O.S., numa
+statement só (CTE) porque as duas metades não podem se separar — pedido
+desligado com orçamento vivo some da aba e sobra na lista de avulsos; orçamento
+apagado com pedido ligado é exatamente o bug. Na tela, uma lixeira em cada
+linha de pedido, **sempre visível**: a saída não existia, e escondê-la atrás do
+hover seria repetir o problema de outro jeito.
+
+⚠️ **O avulso enviado por fora não é tocado.** Ele não tem `os_id` — foi o que
+o Pedro pediu, e é o que impede que limpar uma fila destrua um documento que o
+cliente já recebeu. O confirm diz qual dos dois casos está na frente: pedido
+sem orçamento e pedido com orçamento ENVIADO não podem fazer a mesma pergunta.
+
+A observação do técnico **fica** na O.S. Ela não aparece em lugar nenhum com a
+flag desligada, e sobrevive para quem religar o pedido na ficha.
+
+#### E o botão de excluir mentia — a outra metade do "nem a pau"
+
+`_avAcaoModal("deletar")` **não olhava `r.ok`**. Desse 500 ou não, a lista local
+era filtrada, o modal fechava e a tela redesenhava: o orçamento sumia na hora e
+voltava no F5, sem nada no caminho que dissesse o motivo. Agora ele para na
+`.orc-form-msg` do trilho com o erro do servidor.
+
+Sem migration. Testes: `scripts/testes/excluir-pedido-orcamento.test.js` sobe o
+router e bate na rota contra o banco de teste (12 asserções — o `$1` aparece
+**três vezes** na query, e o CLAUDE.md registra que isso só se prova
+exercitando o endpoint); `scripts/testes/orc-linha-excluir.test.js` roda o
+render em `vm` (7 asserções: a lixeira sai no pedido de O.S., não sai no da
+bancada, e o clique nela não abre o documento).
+`?v=N`: `admin.css` 248 → 249, `admin.js` 332 → 333.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

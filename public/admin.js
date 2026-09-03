@@ -13753,7 +13753,17 @@ async function _avAcao(acao) {
   if (acao === "deletar") {
     if (!confirm("Excluir este orçamento e todos seus itens?")) return;
     try {
-      await fetch(`/admin/orcamentos/avulsos/${id}`, { method: "DELETE", headers: authHeaders() });
+      // ⚠️ ATÉ 03/09/2026 ISTO NÃO OLHAVA A RESPOSTA. Desse 500 ou não, a lista
+      // local era filtrada, o modal fechava e a tela redesenhava: o orçamento
+      // "sumia" e voltava no F5, sem nada no caminho que dissesse o motivo.
+      const rDel = await fetch(`/admin/orcamentos/avulsos/${id}`, { method: "DELETE", headers: authHeaders() });
+      if (!rDel.ok) {
+        const jDel = await rDel.json().catch(() => ({}));
+        const msgEl = document.getElementById("avFormMsg");
+        if (msgEl) msgEl.textContent = jDel.error || "Erro ao excluir o orçamento";
+        else alert(jDel.error || "Erro ao excluir o orçamento");
+        return;
+      }
       _avData = _avData.filter(o => o.id !== id);
       _avSelecionado = null; _avLinhas = []; _avLinhasId = null;
       _avFecharModal();
@@ -14261,6 +14271,11 @@ function _orcRenderPainel(g) {
           <span class="av-orc-item-val">${_orcFmtValor(o.orcamento_valor)}</span>
           <span class="orc-status-pill ${_orcStatusCls(o.orcamento_status)}">${_orcStatusLabel(o.orcamento_status)}</span>
         </div>
+        ${daBancada ? "" : `
+        <button type="button" class="av-orc-item-del" data-orc-del="${o.id}"
+          title="Excluir este pedido de orçamento" aria-label="Excluir este pedido de orçamento">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+        </button>`}
       </div>`;
   }).join("");
 
@@ -14273,6 +14288,54 @@ function _orcRenderPainel(g) {
         totalGrupo ? ` · ${_orcFmtValor(totalGrupo)}` : ""}</div>
     </div>
     <div class="av-orc-list">${linhas}</div>`;
+}
+
+/* ── Excluir o PEDIDO do técnico (03/09/2026) ────────────────────────
+   ⚠️ O "Excluir orçamento" DO MODAL NÃO TIRAVA A LINHA DAQUI, e não havia outro
+   caminho. A linha desta aba é a O.S. com `orcamento_necessario = TRUE`; aquele
+   botão apaga o DOCUMENTO. Apagar o documento com a flag ligada devolve a linha
+   no próximo carregamento — agora como SOLICITADO, e sem o orçamento. O relato
+   foi um pedido repetido, de orçamento já enviado, que "não sai nem a pau".
+
+   O único lugar que desligava a flag era o checkbox dentro do editor da O.S. —
+   que ninguém adivinha ser o botão de tirar da fila de orçamentos.
+
+   ⚠️ O CONFIRM DIZ O QUE VAI SUMIR. Pedido sem orçamento e pedido com orçamento
+   aprovado não podem fazer a mesma pergunta: o segundo apaga um documento. */
+async function _orcExcluirPedido(osId) {
+  const o = _orcData.find(x => x.id === osId);
+  if (!o) return;
+
+  const qual = o.numero ? ("O.S. " + o.numero) : ("O.S. #" + osId);
+  let pergunta;
+  if (_orcSolicitado(o)) {
+    pergunta = "Excluir o pedido de orçamento da " + qual + "?\n\n"
+             + "A O.S. continua no sistema — ela só sai desta fila de orçamentos.";
+  } else {
+    pergunta = "A " + qual + " tem um orçamento " + _orcStatusLabel(o.orcamento_status)
+             + (o.orcamento_numero ? " (nº " + o.orcamento_numero + ")" : "")
+             + (o.orcamento_valor ? " de " + _orcFmtValor(o.orcamento_valor) : "") + ".\n\n"
+             + "Excluir o pedido APAGA esse orçamento junto, com os itens dele.\n"
+             + "Orçamentos avulsos, sem vínculo com esta O.S., não são tocados.\n\nContinuar?";
+  }
+  if (!confirm(pergunta)) return;
+
+  try {
+    const r = await fetch("/admin/orcamentos/" + osId, { method: "DELETE", headers: authHeaders() });
+    const j = await r.json().catch(() => ({}));
+    // ⚠️ CHECA `r.ok`. O irmão desta função não checava, e era metade do
+    // mistério: "apagava" na tela sem apagar no banco.
+    if (!r.ok) { alert(j.error || "Não foi possível excluir o pedido."); return; }
+
+    _orcData = _orcData.filter(x => x.id !== osId);
+    if (_orcSelecionado?.id === osId) _orcSelecionado = null;
+    _orcRenderTudo();
+    _orcAtualizarBadge();
+    // O orçamento apagado também sai da aba irmã, que lista TUDO de `orcamentos`.
+    if (j.orcamentos_apagados) carregarAvulsos();
+  } catch (e) {
+    alert("Erro ao excluir o pedido: " + e.message);
+  }
 }
 
 /* ── A baixa da resposta do cliente ────────────────────────────────────────
@@ -14447,6 +14510,11 @@ function _orcBindEventos() {
   // lista de avulsos NÃO tem WHERE, então ela já contém os orçamentos nascidos
   // de O.S. Agora todo pedido segue por ele.
   document.getElementById("orcPainel")?.addEventListener("click", e => {
+    // A lixeira vem ANTES: ela mora dentro da linha, e a linha inteira abre o
+    // documento. Sem este desvio, clicar em excluir também materializaria um
+    // orçamento antes de perguntar qualquer coisa.
+    const del = e.target.closest("[data-orc-del]");
+    if (del) { _orcExcluirPedido(Number(del.dataset.orcDel)); return; }
     const item = e.target.closest(".av-orc-item[data-orc-fonte]");
     if (!item) return;
     const orcId = Number(item.dataset.orcOrcid) || null;

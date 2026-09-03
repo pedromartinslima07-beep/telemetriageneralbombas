@@ -103,6 +103,13 @@ aquele modal — e o pedido ainda SOLICITADO ganha a linha em `orcamentos` na
 abertura. O segundo modal, que refazia o mesmo documento com menos recursos
 (sem envio por e-mail, sem tipo), foi removido: −525 linhas.
 
+⚠️ **Quem tira o pedido da fila é a lixeira da linha** (03/09/2026), não o
+"Excluir orçamento" do modal. A linha é a **O.S. com a flag ligada**; aquele
+botão apaga o documento e a linha volta como SOLICITADO — e clicar nela de novo
+cria outro rascunho. `DELETE /admin/orcamentos/:os_id` desliga a flag e apaga o
+orçamento daquela O.S. numa statement só. **O avulso sem `os_id` não é tocado**:
+orçamento que o cliente já recebeu não se apaga para limpar fila.
+
 ### ⚠️ Escolher prédio é campo de BUSCA, não `<select>` (02/09/2026)
 
 `public/condo-picker.js` — arquivo **compartilhado** por `admin.html` e
@@ -111,7 +118,28 @@ bairro e cidade, sem acento e sem caixa. Hoje só no "Novo chamado" das duas
 telas; os outros seis selects de condomínio do admin seguem nativos e podem
 adotá-lo (o campo original vira hidden com o mesmo id — nada de gravação muda).
 
-Teste: `scripts/testes/condo-picker.test.js`.
+⚠️ **Tudo o que o componente guarda "no campo" mora no HIDDEN** (corrigido em
+03/09/2026). Depois de `montar`, `getElementById(campoId)` devolve o hidden, e
+não o elemento original — que perdeu o id. Guardar a marca de "já montado" no
+original fazia o admin empilhar um picker por abertura do modal ("está
+aparecendo 3 seletores"), porque lá o HTML do modal é fixo e `montar` roda de
+novo sobre o mesmo elemento. Quem for adotar o componente nos outros seis
+selects cai no mesmo caso.
+
+⚠️ **No admin as regras da lista são `.cbx-lista .cbx-item .cbx-nome`/`.cbx-sub`
+de propósito**: o campo mora num `<label class="f">`, e `.f span` é descendente
+— ele pintava os dois de rótulo (caixa alta, 700, 11px), deixando nome de porta
+e razão social idênticos. Terceira vez desse seletor.
+
+Para olhar sem entrar no painel: **`/dev/_novo-chamado-preview.html`**, que
+recorta o `#novoChamadoOverlay` do `/admin/painel` servido na hora, com o
+`admin.css` real. ⚠️ O `<script>` de prévia tem de ser externo — helmet com
+`script-src 'self'` não executa inline e não avisa.
+
+Teste: `scripts/testes/condo-picker.test.js` (16 checagens). ⚠️ O
+`getElementById` do DOM falso **procura pelo id de verdade** — o atalho que
+devolvia o original sempre foi o que deixou esse bug passar. E ⚠️ **teste sem
+navegador não vê aparência**: o atropelo do `.f span` passou inteiro por ele.
 
 ### ⚠️ Qual nome de condomínio cada tela mostra (02/09/2026)
 
@@ -487,6 +515,20 @@ Fluxo e pegadinhas em
   sendo só do app do técnico. ⚠️ A tela de Aprovados busca a equipe em
   **`GET /operador/tecnicos`**, e não em `GET /tecnicos`: aquele devolve CPF,
   RG e endereço porque serve o cadastro do admin.
+- **A barra do turno segue a gramática das irmãs** (31/08 e 03/09): navegação é
+  texto (**Aprovados · Ajuda**), a ação é âmbar (**+ Novo chamado**), e o canto
+  direito é **o nome de quem está logado como botão**, que abre a gaveta de
+  conta (trocar senha · sair). Em 03/09 isso revogou a regra "o nome é texto"
+  herdada do painel do cliente — ela era contra alvo **morto**, e o nome agora
+  leva a algum lugar. ⚠️ No painel do cliente a regra continua valendo; as duas
+  barras divergem de propósito.
+  - ⚠️ **A barra estava quebrada no celular, e ninguém tinha visto:** a 390px o
+    logotipo pintava **83px por cima de "Aprovados"** em produção. A gaveta
+    devolveu 50px e a marca cedeu altura (27px abaixo de 420, 22px abaixo de
+    386): fecha de **360px para cima**. 320px segue fora, e é limite conhecido.
+  - ⏳ A tela de **Aprovados** (`operador-orcamentos.html`) carrega a mesma
+    folha e ficou com a barra antiga (nome em texto + Sair) — divergência
+    registrada em [active-work.md](active-work.md).
 - **Acabamento em 27/08** (passe `polish` da skill): item de 318px → 258px,
   medida de linha em 68ch, ações em coluna própria, piso de contraste 5,2:1 e
   o pulso da barra com três estados. O brief da superfície fica em

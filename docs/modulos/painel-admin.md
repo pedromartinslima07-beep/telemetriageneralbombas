@@ -106,12 +106,52 @@ do `inatividade.js`. Não fere a regra de que `operador.js` não importa de
 torna a troca segura numa tela que grava chamado — e o caminho para adotar o
 componente nos outros seis selects de condomínio do painel, que seguem nativos.
 
+⚠️ **E POR ISSO O `id` TROCA DE DONO: tudo o que o componente guarda "no
+campo" tem de ir no hidden.** O original sai da montagem SEM id, então de
+`montar` em diante `getElementById(campoId)` devolve o **hidden** — inclusive
+no guard de "já montado". Marcar o original deixava esse guard cego a partir da
+segunda chamada: o admin abre o modal com HTML fixo e chama `montar` a cada
+abertura sobre o mesmo elemento, e o resultado eram pickers aninhados, um por
+abertura (relato de 03/09/2026: *"está aparecendo 3 seletores"*), com só o
+último ligado ao valor que o `salvar` lê. O operador escapou por acidente:
+redesenha o modal inteiro a cada vez, com um `<select>` novo em folha.
+
+Pelo mesmo motivo, um `<label for="…">` externo é reapontado para o campo de
+busca (`<id>_busca`) — deixado no id antigo ele rotularia o hidden, que não
+recebe foco.
+
 ⚠️ **O fundo da lista muda por superfície:** `--surface` no admin (ela abre
 dentro de modal, que é placa clara, e o degrau tem de ser para CIMA) e
 `--surface2` no operador (campo marinho). Terceira vez que essa conta aparece
 nesta casa — ver a nota do trilho do orçamento.
 
-Teste: `scripts/testes/condo-picker.test.js` (`node`, sem navegador).
+⚠️ **`.f span` ALCANÇA OS SPANS DA LISTA** (03/09/2026). O campo mora dentro de
+um `<label class="f">`, e `.f span` é seletor descendente (0,2,0): ele pintava
+`.cbx-nome` e `.cbx-sub` (0,1,0) de rótulo — 11px, peso 700, caixa alta — e o
+nome do prédio saía idêntico à razão social. As regras do picker são
+`.cbx-lista .cbx-item .cbx-nome`/`.cbx-sub` por isso, e não por estilo de
+escrita. **Terceira vez que esse seletor cobra o mesmo**: `.f span em` e
+`.f span.cep-msg` são as anteriores. Componente novo com `<span>` dentro de um
+`.f` paga de novo.
+
+### Como olhar o modal sem entrar no painel
+
+`/dev/_novo-chamado-preview.html` (só fora de produção, pela rota
+`/dev/:arquivo`). Ela **recorta o `#novoChamadoOverlay` do `/admin/painel`
+servido na hora** — markup e CSS de produção, sem cópia — e traz um botão
+"abrir e fechar 3×" com placar de campos de busca na tela. Existe porque os
+dois defeitos desta seção só apareciam depois do login, que é como eles
+chegaram ao Pedro em vez de morrer no desenvolvimento.
+
+⚠️ O `<script>` dela é **arquivo externo** (`_novo-chamado-preview.js`): o
+helmet usa `script-src 'self'`, e script embutido não executa nem avisa.
+
+Teste: `scripts/testes/condo-picker.test.js` (`node`, sem navegador, 16
+checagens). ⚠️ **O `getElementById` do DOM falso precisa procurar pelo `id` de
+verdade** — enquanto ele devolvia o `<select>` original para toda chamada, o
+teste vivia um DOM em que o id não troca de dono, que é exatamente a condição
+de que o bug dos três seletores dependia. E ⚠️ **teste sem navegador não vê
+nada de aparência** — o atropelo do `.f span` acima passou por ele inteiro.
 
 ---
 
@@ -247,6 +287,50 @@ recusa o que ninguém orçou ainda.
 medido, contra os 4,5 do piso. É a Regra do Amarelo Cego do
 [DESIGN.md](../../DESIGN.md): trocado pelo token `--warn`, que vira `--warn-t`
 (#886116) dentro do `.av-modal-dialog` e mede **4,67:1**.
+
+### O pedido do técnico só saía da fila por um checkbox escondido (03/09/2026)
+
+Relato do Pedro: *"um técnico fez a solicitação de um orçamento via O.S., mas
+esse orçamento já havia sido enviado, e eu não consigo apagar ele nem a pau"*.
+
+**A linha desta aba não é o orçamento — é a O.S.** com
+`orcamento_necessario = TRUE`. O **"Excluir orçamento"** do modal apaga o
+*documento*, e a flag continua ligada: a linha volta no próximo carregamento,
+agora como SOLICITADO e sem o orçamento que existia. Clicar nela de novo chama
+`_orcMaterializarEAbrir` e **cria** um rascunho — a tela em que ele tentava
+limpar a fila era a mesma que a realimentava.
+
+O único lugar que desligava a flag era o checkbox `#osEdOrcamento`, dentro do
+editor da O.S. Ninguém adivinha que é ali o botão de "tirar isto da fila de
+orçamentos", e a aba inteira não tinha ação nenhuma além de abrir o documento.
+
+Hoje cada linha de pedido tem uma **lixeira** (`.av-orc-item-del`) que chama
+`DELETE /admin/orcamentos/:os_id` — ver [`../api.md`](../api.md).
+
+⚠️ **A lixeira é SEMPRE VISÍVEL, não aparece no hover.** A saída daqui não
+existia; escondê-la atrás do mouse seria repetir o problema de outro jeito. Ela
+fica cinza-fraca e só ganha `--danger` quando apontada, para não competir com o
+selo de status, que é o que a linha comunica.
+
+⚠️ **Ela não aparece no pedido da bancada** (`fonte === "bancada"`): esse não
+tem O.S. por trás, e a exclusão dele é a do próprio orçamento, no modal.
+
+⚠️ **O confirm diz qual dos dois casos está na frente.** Pedido sem orçamento
+("a O.S. continua no sistema, ela só sai desta fila") e pedido com orçamento
+ENVIADO ("excluir APAGA esse orçamento junto") não podem fazer a mesma
+pergunta: o segundo destrói um documento.
+
+⚠️ **O avulso enviado por fora não é tocado** — ele não tem `os_id`. Foi o que
+o Pedro pediu, e é o que impede que limpar uma fila destrua um documento que o
+cliente já recebeu.
+
+#### E o "Excluir orçamento" do modal mentia
+
+`_avAcaoModal("deletar")` **não olhava `r.ok`**: desse 500 ou não, a lista local
+era filtrada, o modal fechava e a tela redesenhava. O orçamento sumia na hora e
+voltava no F5 — a outra metade do "nem a pau", e do tipo que não deixa rastro
+para depurar. Agora ele para na `.orc-form-msg` do trilho com o erro do
+servidor.
 
 ### ⚠️ Existe UM modal de orçamento, e ele é o do avulso (02/09/2026)
 

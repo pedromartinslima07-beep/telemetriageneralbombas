@@ -10,7 +10,7 @@ aliases:
 > Branch atual: **`main`**, limpa. `feature/admin-chapa` (11 commits) e a tela
 > de orçamento do cliente já foram mergeadas — a produção
 > (`telemetria.generalbombas.com`) está servindo as duas.
-> Última sessão registrada: **2026-09-02**.
+> Última sessão registrada: **2026-09-03**.
 > Roadmap completo em [`roadmap.md`](roadmap.md); decisões em [`decisions.md`](decisions.md).
 
 > ✅ **Schema de produção em dia:** 074 aplicada em 24/08; a 073 já estava
@@ -118,6 +118,168 @@ UI, ler o `innerText` do que sobrou, não só olhar.
 duplicação do dia calmo~~ (resolvida no item 2, sem escrever palavra nova — o
 placar saiu e a frase que sobrou já estava lá), a legenda de cor dos pinos do
 mapa, e o rótulo "TURNO" ao lado da marca.
+
+---
+
+## Sessão 2026-09-03 (3ª rodada) — O pedido de orçamento que não saía nem a pau
+
+Relato do Pedro: *"um tecnico fez a solicitacao de um orcamento via os, mas
+esse orcamento ja avia sido enviado, e eu n consigo apagar ele nem a pau"*.
+
+**Ele estava apagando pelo único botão que existia, e era o botão da coisa
+errada.** A linha da aba é a **O.S. com `orcamento_necessario = TRUE`**; o
+"Excluir orçamento" do modal apaga o **documento**. Com a flag ligada a linha
+volta no F5 como SOLICITADO — e clicar nela chama `_orcMaterializarEAbrir`, que
+**cria** um rascunho. A tela onde ele tentava limpar a fila era a que a
+realimentava.
+
+Feito: `DELETE /admin/orcamentos/:os_id` (flag + orçamento vinculado, numa CTE),
+lixeira em cada linha de pedido, e o `r.ok` que faltava no "Excluir orçamento"
+do modal — que "apagava" na tela mesmo quando o servidor recusava.
+
+A escolha que ele fez, quando perguntei: **apagar só o que nasceu na tela de
+solicitação**. O avulso enviado por fora não tem `os_id` e fica intacto —
+*"acho q nem conseguiria apagar o orçamento ja enviado, pois n esta linkado"*.
+
+### ⏳ O que falta
+
+- **Não foi olhado no navegador.** A prévia `/dev/_orcamentos-preview.html`
+  ganhou o dublê do DELETE e os `?v=N` novos, mas ver a lixeira em tela pede
+  subir o servidor — e servidor em background é coisa que o Pedro prefere
+  evitar. O que está provado sem navegador: a rota contra o banco de teste
+  (`scripts/testes/excluir-pedido-orcamento.test.js`, 12 asserções) e o HTML da
+  linha em `vm` (`scripts/testes/orc-linha-excluir.test.js`, 7). Falta só o CSS
+  do botão.
+- **O caso concreto do relato está em produção**, e este `.env` só tem
+  `DATABASE_URL_TESTE`. Some com um clique na lixeira depois do deploy.
+
+## Sessão 2026-09-03 (2ª rodada) — O nome vira a gaveta de conta, e a barra do celular fecha
+
+Duas perguntas do Pedro, na ordem: *"em vez de 'minha senha' no painel de
+operador não seria melhor usar um ícone apenas ou algo assim, dá uma olhada no
+padrão do painel de cliente"* e, vendo o resultado, *"penso se n seria melhor q
+o nome da pessoa fosse um botao, e por la ela conseguisse sair e trocar a
+senha"*. A segunda é a que fechou a conta.
+
+**O painel do cliente não tinha troca de senha para copiar** (morreu em 25/08
+junto com a senha do cliente). O que serviu foi a gramática `.conta`.
+
+**O passo intermediário caiu na medição, e é a lição da rodada:** "Minha senha"
+virou uma segunda chapa `.conta` ao lado do "Sair". Consertava um defeito real
+de acessibilidade — o botão morava dentro de `<nav aria-label="Telas do
+operador">`, e trocar senha não é uma tela —, mas **três chapas não cabem na
+barra do celular**.
+
+### ✅ O que ficou
+
+O nome é o botão; senha e sair são as linhas da gaveta (`.eu` · `.conta-eu` ·
+`.eu-gaveta` · `.eu-item`). Gaveta ancorada, **não `<dialog>`**: modal para
+escolher entre dois itens interrompe o turno. Detalhe e as armadilhas em
+[`../docs/modulos/painel-operador.md`](../docs/modulos/painel-operador.md).
+
+**Conferido no navegador, na prévia, com clique real e teclado:** abre no
+clique, seta gira, ↓/↑ percorrem, Esc fecha e devolve o foco ao botão, clique
+fora fecha, escolher "Trocar senha" fecha a gaveta e abre o diálogo, e fechar o
+diálogo devolve o foco ao **botão** — não a uma linha escondida. Contraste
+sobre a placa: rótulo 8,06:1, ícone 5,47:1, nome no botão 7,77:1.
+
+### ✅ A barra do celular estava quebrada em produção, e agora fecha
+
+Sobreposição do wordmark sobre a borda das ações, medida no navegador:
+
+| largura | antes (em produção) | 2 chapas | gaveta (final) |
+|---|---|---|---|
+| 320px | 128 | 107 | 39 |
+| 360px | 113 | 67 | **0** |
+| 375px (SE) | 98 | 52 | **0** |
+| 390px (iPhone 12–15) | **83** | 37 | **0** |
+| 412px (Pixel) | 61 | 15 | **0** |
+| 430px | 65 | 21 | **0** |
+| 480px+ | 15 | 0 | **0** |
+
+A coluna "antes" era o estado no ar: o logotipo pintava **83px por cima de
+"Aprovados"** em todo iPhone recente, e ninguém tinha visto — a barra do
+operador só se olha com sessão, e quase sempre na mesa.
+
+A gaveta devolveu 50px; o resto veio da marca cedendo altura (**27px abaixo de
+420, 22px abaixo de 386**). ⚠️ **320px segue fora e é limite conhecido** (ali a
+marca pediria 14px de altura). ⚠️ E os dois números **saíram da tela**: a
+aritmética dava 28 e 24, e medido sobrava 1px a 386px e 8,7px a 360px.
+
+### ⏳ ABERTO — a tela de Aprovados ficou com a barra antiga
+
+`operador-orcamentos.html` carrega **o mesmo `operador.css`** e ainda monta
+"nome (texto) + Sair". Isso quase virou defeito silencioso: apagar `.barra-eu`
+do CSS deixaria o nome de lá sem tamanho, sem cor e sem ellipsis, e nada no
+painel do turno acusaria. A regra foi **restaurada** e o hover/foco
+generalizado para `.conta`, então nada está quebrado — mas **as duas barras do
+operador divergem**.
+
+Levar a gaveta para lá exige o `dlgSenha` no `operador-orcamentos.js`, que não
+o tem (são dois arquivos de JS distintos, por decisão registrada). É trabalho
+pequeno e não foi feito porque o Pedro pediu "só no operador" e esta é a outra
+tela dele — **vale confirmar se ele quer as duas iguais.**
+
+Sem migration. `?v=N`: `operador.css` 79 → 85 e `operador.js` 75 → 76, nos três
+HTMLs que consomem a folha (o `operador-orcamentos.html` estava parado no 75).
+
+---
+
+## Sessão 2026-09-03 — Três seletores de condomínio no modal de abrir chamado
+
+Relato do Pedro: *"o seletor de condomínio na abertura de chamado no painel de
+admin não está funcionando"* e, logo depois, *"inclusive está aparecendo 3
+seletores"*. A segunda frase é o diagnóstico: eram três **aberturas do modal**.
+
+`condo-picker.js` gravava a marca `dataset.pickerPronto` e o `_picker` **no
+elemento original** — que sai da montagem sem `id`, porque quem herda o
+`ncCondo` é o `<input type="hidden">`. Da segunda chamada em diante o guard de
+"já montado" lia o hidden, sem marca nenhuma, e montava outro picker aninhado.
+Só o último campo empilhado ficava ligado ao valor que o `salvar` lê: digitar
+no de cima — o primeiro que a vista encontra — abria chamado sem prédio.
+
+O operador escapou por acidente (redesenha o modal inteiro a cada abertura). O
+admin tem o modal fixo no HTML, que é o caso dos **outros seis selects** que
+ainda vão adotar o componente.
+
+⚠️ **O teste existia e não pegou, porque o DOM falso mentia.** O
+`getElementById` do harness devolvia o `<select>` original para toda chamada —
+um DOM em que o id nunca troca de dono, exatamente a condição de que o bug
+dependia. Corrigido para procurar pelo id de verdade; duas checagens novas (16
+no total). Rodado contra o código anterior, imprime `FAIL … 3 caixa(s)`.
+
+⚠️ **Uma hipótese minha caiu na medição.** O `<select>` do admin mora dentro de
+um `<label class="f">`, e clicar dentro de um label reenvia o clique ao controle
+rotulado — eu esperava a lista reabrindo sozinha depois de escolher. Com clique
+sintético isso acontece; com clique real do mouse, **não**: o `preventDefault`
+que o componente já dá no `mousedown` impede o reenvio. O código extra que eu
+tinha escrito para isso saiu antes do commit. Sobrou só o reapontamento do
+`<label for="…">` do operador, que era defeito de verdade (o `for` rotulava um
+hidden, e "Prédio" não acendia mais o campo).
+
+⚠️ **E ABRIR O PAINEL DE VERDADE MOSTROU UM SEGUNDO DEFEITO** — pergunta do
+Pedro: *"vc testou abrindo o painel no chrome?"*. Não tinha; tinha testado uma
+réplica em HTML, que não carregava o `admin.css`. Na tela real, nome do prédio
+e razão social saíam **idênticos**, os dois em caixa alta e peso 700: `.f span`
+é seletor descendente e alcança os `<span>` da lista, ganhando de `.cbx-nome`
+até no `font-size`. Terceira vez que esse seletor cobra o mesmo pedágio.
+Corrigido com `.cbx-lista .cbx-item .cbx-nome`/`.cbx-sub`, espelhado nas duas
+folhas.
+
+**A lição vale mais que o bug:** teste sem navegador não vê aparência, e
+réplica de tela não vê o CSS de verdade. Por isso entrou
+`/dev/_novo-chamado-preview.html`, que recorta o `#novoChamadoOverlay` do
+`/admin/painel` servido na hora, com o `admin.css` real — o modal passa a ter
+como ser olhado sem sessão. ⚠️ O `<script>` dela é externo: o helmet usa
+`script-src 'self'` e script embutido não executa **nem avisa** (a prévia ficou
+presa em "Carregando…" na primeira tentativa, sem erro na tela).
+
+**Conferido no navegador:** quatro aberturas → um campo; "elvira" acha *Auri
+Faria Lima*; "aurora" traz os dois Aurora separados pelo bairro; clicar grava o
+id no hidden e fecha a lista.
+
+Sem migration. `?v=N`: `condo-picker.js` 1 → 2 nos três HTMLs; `admin.css`
+247 → 248; `operador.css` 79 → 80.
 
 ---
 

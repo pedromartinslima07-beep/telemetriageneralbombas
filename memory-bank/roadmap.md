@@ -41,6 +41,29 @@ aliases:
 
 ## Em andamento / pendente
 
+- ✅ **O pedido de orçamento do técnico pode ser apagado** (03/09/2026). Relato
+  do Pedro: um pedido repetido, de orçamento já enviado, que *"não sai nem a
+  pau"*. A linha da aba é a **O.S. com `orcamento_necessario`**, não o
+  documento: o "Excluir orçamento" do modal apagava o papel e a linha voltava
+  como SOLICITADO — e clicar nela criava outro rascunho. Nova rota
+  `DELETE /admin/orcamentos/:os_id` (desliga a flag + apaga o orçamento
+  vinculado, numa statement) e uma lixeira em cada linha. O avulso sem `os_id`
+  não é tocado. De quebra, o "Excluir orçamento" do modal deixou de "apagar" na
+  tela quando o servidor recusava. Sem migration. Detalhe em
+  [`../docs/modulos/painel-admin.md`](../docs/modulos/painel-admin.md).
+
+- ✅ **A barra do painel do operador voltou a caber no celular** (03/09/2026).
+  Achado ao mover "Minha senha": a 390px (iPhone 12–15) o wordmark pintava
+  **83px por cima de "Aprovados"** em produção, e ninguém tinha visto — a barra
+  do operador só se olha com sessão, e quase sempre na mesa. Resolvido pela
+  **gaveta de conta** (o nome virou botão que abre trocar senha e sair, −50px)
+  mais a marca cedendo altura. Fecha de **360px para cima**; 320px é limite
+  conhecido. Detalhe em
+  [`../docs/modulos/painel-operador.md`](../docs/modulos/painel-operador.md).
+  - ⏳ **A tela de Aprovados ficou com a barra antiga** — carrega o mesmo
+    `operador.css` e ainda monta "nome (texto) + Sair". Nada quebrado, mas as
+    duas barras do operador divergem. Ver [`active-work.md`](active-work.md).
+
 - ✅ **Orçamentos passam a mostrar o nome fantasia do condomínio** (02/09/2026).
   As duas rotas da seção liam `c.nome` (razão social) enquanto o PDF e o e-mail
   já usavam `nome_fantasia`: o painel dizia "ELVIRA FERRAZ EMPREENDIMENTOS

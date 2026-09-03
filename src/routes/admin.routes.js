@@ -1209,6 +1209,50 @@ router.patch("/orcamentos/:os_id", authRequired, gestaoOnly, async (req, res) =>
   }
 });
 
+// DELETE /admin/orcamentos/:os_id — APAGA O PEDIDO DO TÉCNICO, não só o papel.
+//
+// ⚠️ A LINHA DA ABA É A O.S., NÃO O ORÇAMENTO (03/09/2026). `GET /orcamentos`
+// lista `ordens_servico` com `orcamento_necessario = TRUE` e faz LEFT JOIN em
+// `orcamentos` — quem sustenta a linha na tela é a flag que o técnico marcou.
+// Até aqui o único "excluir" do módulo era o do avulso, que apaga o DOCUMENTO:
+// a flag continuava ligada e a linha voltava no F5, agora como SOLICITADO.
+// O relato foi exatamente esse — "não consigo apagar ele nem a pau" — num
+// pedido repetido, cujo orçamento já tinha sido enviado por fora.
+//
+// Uma statement só (CTE), porque as duas metades não podem se separar: pedido
+// desligado com orçamento vivo some da aba e sobra na lista de avulsos;
+// orçamento apagado com pedido ligado é o bug que esta rota fecha.
+//
+// ⚠️ SÓ APAGA ORÇAMENTO COM `os_id`. O avulso enviado por fora não tem vínculo
+// com a O.S. e não é alcançado aqui — apagar junto o documento que o cliente
+// já recebeu seria destruir histórico para limpar uma fila.
+//
+// A observação do técnico FICA. Ela não aparece em lugar nenhum com a flag
+// desligada, e sobrevive para o caso de alguém religar o pedido na ficha da O.S.
+router.delete("/orcamentos/:os_id", authRequired, gestaoOnly, async (req, res) => {
+  const osId = Number(req.params.os_id);
+  if (!Number.isInteger(osId) || osId <= 0) {
+    return res.status(400).json({ error: "os_id inválido" });
+  }
+  try {
+    const r = await pool.query(
+      `WITH del AS (
+         DELETE FROM orcamentos WHERE os_id = $1 RETURNING id
+       )
+       UPDATE ordens_servico
+          SET orcamento_necessario = FALSE
+        WHERE id = $1
+       RETURNING id, (SELECT count(*)::int FROM del) AS orcamentos_apagados`,
+      [osId]
+    );
+    if (!r.rows.length) return res.status(404).json({ error: "O.S. não encontrada" });
+    return res.json({ ok: true, orcamentos_apagados: r.rows[0].orcamentos_apagados });
+  } catch (err) {
+    console.error("[admin] DELETE /orcamentos/:os_id:", err);
+    return res.status(500).json({ error: "Erro ao excluir o pedido" });
+  }
+});
+
 // ── Itens do orçamento (mantém :os_id na URL; opera em orcamento_linhas) ──────
 
 // GET /admin/orcamentos/:os_id/itens
