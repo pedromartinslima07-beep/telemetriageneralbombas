@@ -9984,6 +9984,49 @@ navegador que ainda serve a resposta antiga do cache do service worker.
 `?v=N`: `admin.css` 252 → 253, `admin.js` 337 → 338.
 
 
+### 2026-09-04 (10ª rodada) · A aba "Sem plano" não fazia nada, e o teste que faltava
+
+*"tem um filtro 'sem plano', eu clico e nada acontece"*. Relatado minutos depois
+do deploy da 9ª rodada — e a culpa é de eu ter subido sem ver a tela renderizada.
+
+**A causa: temporal dead zone.** O bloco que desenha a aba estava ANTES da
+declaração de `linhaSemPlano`, e `const` dentro de um bloco vive em TDZ até a
+linha em que é declarado. O clique lançava
+`ReferenceError: Cannot access 'linhaSemPlano' before initialization`, o
+`_pmRenderTudo` morria no meio, e a tabela ficava exatamente como estava.
+
+⚠️ **O erro é SILENCIOSO.** O handler da aba não tem try/catch: nada na tela,
+nada no aviso — só no console, que ninguém abre. Uma aba que não faz nada parece
+uma aba vazia, e foi assim que passou.
+
+⚠️ **`node --check` passa. O detector da skill passa.** É a mesma família do
+`42P08` do CLAUDE.md: só se pega EXERCITANDO.
+
+**O conserto:** o bloco desceu para junto das outras linhas, depois das
+definições. O `if (!lista.length)` ganhou a exceção da aba, senão ela cairia no
+estado vazio antes de chegar lá.
+
+### O teste que faltava: `scripts/testes/planos-tela.test.js`
+
+Monta um DOM de mentira (só o que o render toca), recorta as funções REAIS do
+`public/admin.js` e chama `_pmRenderTudo()` **uma vez por aba**, contra o banco
+de teste pelo mesmo endpoint que o front usa. **17 asserções.**
+
+⚠️ **"Renderizou sem estourar" não bastaria.** Com um `return` cedo demais a aba
+desenharia zero linha e passaria verde — por isso o teste confere que ela
+desenha **uma linha por prédio** e que a linha oferece criar o plano.
+
+**Provado que ele pega o bug:** reintroduzi a ordem antiga e o teste acusou
+`✗ aba "sem-plano" renderiza sem estourar`; restaurado, 17/17.
+
+⚠️ **A lição, e é minha:** subi uma reformulação inteira de tela verificando só
+sintaxe, ids batendo e o detector. Nada disso vê a tela funcionar. Quando não dá
+para abrir o navegador (a sessão tinha caído), o caminho é montar o harness —
+não é caro, e teria custado cinco minutos contra um clique morto em produção.
+
+`?v=N`: `admin.js` 338 → 339.
+
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

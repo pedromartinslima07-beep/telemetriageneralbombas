@@ -15169,20 +15169,11 @@ function _pmRenderTudo() {
   const empty = document.getElementById("pmEmpty");
   if (!tbody) return;
 
-  // ⚠️ A ABA "SEM PLANO" LISTA CONDOMÍNIOS, não planos — é a única, e por isso
-  // ela sai antes de todo o agrupamento por zona abaixo.
-  if (_pmTabAtiva === "sem-plano") {
-    const fora = _pmSemPlanoFiltrados();
-    if (empty) empty.style.display = fora.length ? "none" : "flex";
-    if (empty && !fora.length) {
-      empty.querySelector("p").textContent = "Todos os prédios ativos têm plano de manutenção.";
-    }
-    tbody.innerHTML = fora.map(linhaSemPlano).join("");
-    _pmAtualizarBulkBar();
-    return;
-  }
-
-  if (!lista.length) {
+  // ⚠️ O VAZIO NÃO VALE PARA A ABA "SEM PLANO": ela não lista planos, então
+  // `lista` está sempre vazia aqui e a tela cairia no estado vazio antes de
+  // desenhar os condomínios. O desenho dela mora lá embaixo, junto das outras
+  // linhas — ver o bloco antes do `tbody.innerHTML`.
+  if (!lista.length && _pmTabAtiva !== "sem-plano") {
     tbody.innerHTML = "";
     if (empty) {
       // O vazio precisa dizer QUAL vazio é: "nenhum plano" numa aba filtrada
@@ -15352,6 +15343,28 @@ function _pmRenderTudo() {
         </div>
       </td>
     </tr>`;
+
+  // ⚠️ ESTE BLOCO PRECISA VIR DEPOIS DE `linhaSemPlano`, e o motivo custou um
+  // clique morto em produção (04/09/2026): ele estava lá em cima, ANTES da
+  // definição, e `const` num bloco vive em temporal dead zone até a linha em
+  // que é declarado. O clique na aba lançava
+  // "ReferenceError: Cannot access 'linhaSemPlano' before initialization",
+  // o `_pmRenderTudo` morria no meio e a tabela ficava como estava — o Pedro:
+  // "eu clico e nada acontece".
+  //
+  // ⚠️ Erro silencioso: o handler da aba não tem try/catch, então nada aparece
+  // na tela; só no console. Ao mover código para dentro do `_pmRenderTudo`,
+  // confira se ele está DEPOIS do que usa.
+  if (_pmTabAtiva === "sem-plano") {
+    const fora = _pmSemPlanoFiltrados();
+    if (empty) {
+      empty.querySelector("p").textContent = "Todos os prédios ativos têm plano de manutenção.";
+      empty.style.display = fora.length ? "none" : "flex";
+    }
+    tbody.innerHTML = fora.map(linhaSemPlano).join("");
+    _pmAtualizarBulkBar();
+    return;
+  }
 
   tbody.innerHTML = zonasOrdenadas
     .flatMap(z => [linhaZona(z), ...grupos.get(z).map(linhaPlano)])
