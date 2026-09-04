@@ -91,6 +91,7 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
 | 072 | os_equipamento | `ordens_servico.equipamento_id (SET NULL)` — fecha o triângulo O.S./equipamento/orçamento; + `UPDATE` acertando `orcamentos.origem = 'os'` nos orçamentos de O.S. que nasciam como `'admin'` |
 | 071 | orcamento_bancada | `orcamentos.origem` aceita `'bancada'`; `orcamentos.equipamento_id (SET NULL)` — liga a bomba na bancada ao orçamento, sem tabela de peças própria |
 | 070 | equipamentos | `equipamentos` (identidade permanente + `codigo` do QR), `equipamento_movimentacoes` (linha do tempo, com snapshot do autor), `equipamento_fotos` (`dados_base64` no banco); `chamados.equipamento_id`. Ver [equipamentos.md](modulos/equipamentos.md) |
+| 083 | chamado_cancelado | `chamados.status` aceita `cancelado` + `cancelado_em`, `cancelado_motivo` — fechar afirmava que o serviço foi feito, e era a única saída do chamado aberto por engano. Ver [chamados-sla.md](modulos/chamados-sla.md) |
 
 ## Marcos de produto (fases do plano)
 
@@ -9403,6 +9404,241 @@ o ENQUADRAMENTO, que não tem número. A tabela de prazos vive na Ajuda.
 CLAUDE.md. `node --check` acusou na hora; o comentário HTML novo ganhou a nota.
 
 `?v=N`: `operador.css` 87 → 88, `operador.js` acompanha.
+
+### 2026-09-04 · A barra de Preventivas nunca endurecia
+
+*"olha o cabeçalho, esta transparente e n é o padrao do painel de operador"*.
+Estava certo, e é a **mesma omissão que Aprovados teve em 31/08**: o
+`operador.css` define `.barra` translúcida (`--mar-900` a 88% + `blur(14px)`) e
+`.barra.is-rolada` sólida com fio inferior, mas quem troca a classe é um
+listener de `scroll` no JS de cada tela — e ele nunca foi copiado para o
+`operador-preventivas.js`.
+
+O efeito é pior aqui do que foi lá: esta tela é registro de leitura, com placas
+claras que passam **por baixo** da barra. Sem o estado sólido, o cabeçalho fica
+sobre um borrão claro e o topo da placa atravessa o wordmark. Medido rolando a
+tela em produção antes do conserto.
+
+Entrou o par completo das irmãs — listener com limiar de 12px **e a chamada
+inicial**, porque o navegador restaura a rolagem no F5 e a barra nasceria
+translúcida com a página já rolada.
+
+⚠️ **Tela nova nesta folha herda a barra translúcida e não herda o listener.**
+São três telas e três cópias do mesmo `_barraRolada`; a quarta esquece de novo
+se ninguém olhar.
+
+`?v=N`: `operador-preventivas.js` 1 → 2 (a folha não mudou).
+
+
+### 2026-09-04 (2ª rodada) · O chamado aberto por engano só tinha uma saída: mentir
+
+Pergunta do Pedro: *"tem como cancelar um chamado hj?"*. Não tinha. O
+`chamados.status` aceitava três valores — `aberto`, `em_atendimento`,
+`fechado` — e a única forma de tirar da fila um chamado duplicado, aberto por
+engano ou cujo cliente desistiu era **fechar**.
+
+⚠️ **E FECHAR NÃO É NEUTRO.** `PATCH /chamados/:id` com `status: "fechado"`
+grava `fechado_em` e `tempo_resolucao_seg`, marca `primeira_resposta_em` (TTFR)
+e joga o chamado no numerador da taxa de resolução e na média de tempo do
+painel. Cada engano entrava nas quatro contas como **atendimento cumprido** —
+e `primeira_resposta_em` sai cru no CSV de `GET /relatorios/chamados`.
+
+⚠️ **A PISTA ESTAVA NO CÓDIGO E NINGUÉM TINHA LIDO ASSIM.**
+`planos-manutencao.routes.js` e `planos-manutencao.job.js` já filtravam
+`status NOT IN ('fechado', 'cancelado')`, e o
+[app-mobile.md](modulos/app-mobile.md) documentava o anti-duplicidade
+"enquanto ele não estiver `fechado`/`cancelado`". Três lugares descreviam um
+status que o CHECK do banco recusava. Ninguém percebia porque `NOT IN` com um
+valor impossível funciona igual.
+
+**Migration 083** — CHECK recriado (DROP + ADD na mesma transação, como a 081
+de `categoria`: o Postgres não tem "ADD VALUE" para CHECK), mais
+`cancelado_em TIMESTAMPTZ` e `cancelado_motivo TEXT`.
+
+⚠️ **`cancelado_em` é coluna própria, não reuso de `fechado_em`** — `fechado_em`
+é lido pelo CSV e pelos KPIs como "quando o serviço terminou"; escrever
+cancelamento nele faria a métrica mentir exatamente onde a migration existe para
+parar de mentir.
+
+**Na rota** (`PATCH /chamados/:id`): `cancelado` é `GESTAO_ROLES` (admin e
+gerente; o operador leva **403** — fechar é o dia dele, apagar da métrica um
+chamado que existiu é decisão de negócio) e **exige `motivo`** com 5 caracteres
+no mínimo. Cancelar chamado **já fechado** é **409**: fechado tem O.S. e talvez
+avaliação do cliente penduradas, e cancelar apagaria da métrica um atendimento
+que aconteceu — o caminho é reabrir, depois cancelar. Reabrir um cancelado não
+limpa o motivo; ele fica como memória, igual ao `fechado_em`.
+
+⚠️ **"EM ABERTO" VIROU O CONTRÁRIO DE DUAS COISAS, e esse foi o grosso do
+trabalho.** Existiam **oito** `status != 'fechado'` no backend e **doze**
+`ch.status !== "fechado"` no `admin.js` que passariam a contar chamado
+cancelado como fila viva: a fila do técnico (`?abertos=1`), o dedup de
+`abrirChamadoAuto` (que deixaria de reabrir o chamado automático), o guard
+anti-duplicata da IA, `chamados_abertos` por técnico, o badge do menu, o
+contador por condomínio, o KPI de críticos. Backend virou
+`NOT IN ('fechado','cancelado')`; cada front ganhou **um** helper —
+`_chEmAberto` no `admin.js`, `chEmAberto` no `app.js` (serve as duas telas do
+app).
+
+⚠️ **O ORÇAMENTO SUMIA COMO EXECUTADO PORQUE O SERVIÇO DEIXOU DE SER FEITO.**
+`execucao()` no `operador-orcamentos.js` lia qualquer chamado não-aberto como
+`feito`, e `estaFeito()` tira o orçamento da lista de Aprovados. Cancelado
+devolve `livre`, com selo "Chamado #N cancelado" — o orçamento **volta** a
+pedir execução. Mesma correção no `_avExecBadge` do admin, que dizia "já foi
+fechado": as duas telas mostram o mesmo selo e têm de escolher pelo mesmo
+critério. O comentário do `operador-orcamentos.js` afirmando que "não existe
+cancelado" era de 03/09 e virou a documentação do próprio conserto.
+
+**Na tela (admin):** botão "✕ Cancelar" na ficha, ao lado de "✓ Fechar", **de
+fio e por último** — o verde preenchido continua sendo o do desfecho que a tela
+quer; cancelar é a saída de exceção. Nada de `btnDanger`: vermelho aqui é
+destruição irreversível (hard delete de condomínio), e isto vira "↺ Reabrir" na
+hora. Escondido para o perfil `operador`, que levaria 403. Modal próprio
+(`#cancelarChamadoOverlay`, esqueleto do `#hardDeleteOverlay`) porque o motivo é
+obrigatório. Aba "Cancelados" na lista, selo `ch-st-cancelado` o mais apagado
+dos quatro.
+
+⚠️ **O KPI "% resolvido" perdeu o cancelado do DENOMINADOR** — ele mede quanto
+do que a equipe pegou ela entregou, e contar como não-entregue algo que nunca
+foi trabalho derrubaria a taxa por causa de erro de digitação.
+
+**Cliente vê o motivo**, no painel e no app: "Cancelado pela equipe" + o texto,
+na linha do tempo e no lugar do campo de resposta. Quem abriu o pedido é quem
+mais precisa saber por que ele saiu da fila; sumir calado é o começo de um
+telefonema.
+
+⚠️ **A MIGRATION NASCEU 082 E FOI RENUMERADA PARA 083** — já existiam
+`082_planos_atribuicoes.sql` e um par duplicado em 081. Conferir `ls
+migrations/` antes de escolher o número, não só a última que o changelog cita.
+
+Migration 083 aplicada nos **dois bancos** (teste e produção) em 04/09; o
+CHECK de prod foi conferido em `pg_constraint` depois de rodar. Teste:
+`scripts/testes/cancelar-chamado.test.js` — 23 checagens, rota de verdade
+(regra do CLAUDE.md: rota que grava só se prova exercitando o endpoint).
+⚠️ A primeira versão dele bateu em `GET /chamados?abertos=1` e passou por
+engano: o atalho é do `/chamados/meus`, e o `/chamados` do painel ignora o
+parâmetro calado. Rodados também os 12 testes existentes — todos verdes.
+
+`?v=N`: `admin.css` 251 → 252, `admin.js` 335 → 336, `cliente.js` 41 → 42,
+`operador-orcamentos.js` 20 → 21. `sw.js` intocado — `/chamados` e `/cliente`
+já são network first e nenhum endpoint novo nasceu.
+
+
+### 2026-09-04 (2ª rodada) · Refino de Preventivas, e a barra de despacho no lugar certo
+
+*"um refino a essa tela toda, levando as outras como padrão"* e *"melhore o
+posicionamento [d]a aba q abre para selecionar o tecnico"*. Medido com a
+extensão do Chrome contra a **produção logada** — os 69 planos de setembro.
+
+**O pedido explícito, em um número.** A barra de despacho é fixa de borda a
+borda **com o conteúdo dentro dela**, enquanto o resto da tela centra em
+`--area-max` + `--gut`. A 1920px: a placa do prédio ia de x=455 a x=1455, o
+"N escolhidas" começava em **x=32** e o "Enviar" terminava em **x=563**.
+423px de degrau, e a ação primária 892px antes da placa que ela despacha.
+
+É o mesmo defeito que fez a barra do TOPO ser reescrita, e levou a mesma
+correção: `left/right:0` na peça (o fundo e o fio seguem sangrando), e
+`max-width:var(--area-max)` num `.pv-barra-in`. Depois: degrau **zero** nas duas
+pontas a 1920, 1340, 1090 e 900.
+
+**O que mais o passe achou na barra:**
+
+- **`.sr-only` não existia no `operador.css`** — `cliente.css` e `admin.css` a
+  têm desde sempre. A palavra "Técnico" aparecia **crua a 15px** em cima do
+  campo, em produção. Classe que não existe numa folha renderiza sem estilo
+  nenhum, que é a armadilha que o próprio `operador-preventivas.js` registra.
+- **O `<select>` era nativo** — `appearance:auto`, canto reto, seta do Windows.
+  Era o último controle do sistema operacional na tela, exatamente o que o
+  checkbox tinha sido antes de 03/09. Agora `appearance:none`, chanfro da casa e
+  seta desenhada; o fio é **chapa de duas camadas com o rótulo como anel**,
+  porque `<select>` não tem `::before` e tanto `border` quanto `box-shadow:inset`
+  são recortados pelo `clip-path`.
+- **A faixa de erro caía DENTRO da barra.** `.aviso` em `bottom:22px` ocupa
+  y 833-875 numa janela de 889; a barra ocupa 797-889, e o `z-index:110` a
+  desenhava por cima. "Escolha para qual técnico enviar" cobria o select que ela
+  manda usar.
+- **"Limpar" era vizinho de 76px do "Enviar".** Virou o par da irmã ("Já foi
+  feito" · "Abrir chamado"), encostado na direita: o âmbar agora termina no
+  mesmo x da placa.
+- `env(safe-area-inset-bottom)` **sem o fallback `, 0px`**, contra a regra já
+  registrada para `.barra`. E a barra era `--mar-800`, um degrau mais clara que
+  o campo, enquanto a de cima endurece em `--mar-900`.
+
+**O nivelamento com as irmãs** (o passe de 03/09 nivelou manchete e placa, e
+parou aí):
+
+| | Aprovados | Preventivas antes | Agora |
+|---|---|---|---|
+| título do grupo | 20px/800 branco | 17px/700 `--text` | os tokens da irmã |
+| legenda do grupo | — | 13,8px | 15,2px |
+| selo mono | 10,5px | **10px** | **12px**, o `.selo` da fila |
+| etiqueta menor | 11px | **9,5px** | 11px |
+| alvos < 44px | 0 | 2 | **0** |
+
+⚠️ Os 12px do selo são a **calibragem de 28/08 sendo aplicada**, não gosto:
+aquela rodada levou a etiqueta mono desta folha para 12px porque o público tem
+pouca familiaridade com computador, e esta tela nasceu depois dela, abaixo dela.
+Havia 86 blocos sob 12px, 69 no mesmo selo.
+
+⚠️ **A extensão do Chrome conecta nesta máquina** — a nota de 03/09 dizia que
+não. O que ela não faz é obedecer `resize`: largura se mede pondo a página num
+`<iframe>`.
+
+`?v=N`: `operador.css` 88 → 89 (nas **três** páginas do operador),
+`operador-preventivas.js` 2 → 3.
+
+
+### 2026-09-04 (3ª rodada) · A O.S. de origem aparecia na placa e não abria
+
+*"o OR 204 tem O.S. vinculada, acredito q era pra dar para ver a O.S., pq n
+está aparecendo"*. Levantado em produção:
+
+| | OR-000204 (id 215) |
+|---|---|
+| `os_id` | **21** → OS-2026-0023, finalizada 03/09, com PDF em disco |
+| chamados vinculados | **nenhum** |
+| `executado_em` | 04/09 13:36 (alguém clicou "Já foi feito") |
+
+O número **aparecia** — o rodapé lido na tela dizia *"1 item · aprovado em
+03/09/2026 · **pedido na O.S. OS-2026-0023** · marcado como feito por José
+Ricardo Martins Lima"*. O que não existia era como **abrir** o documento: os
+botões da placa eram só `["Desfazer"]`.
+
+**A causa.** O botão "Ver O.S." só existia no estado `executado`, e esse estado
+depende da O.S. achada **pelo chamado** (`ordens_servico.chamado_id` →
+`chamados.orcamento_id`, a segunda perna que entrou em 03/09). Sem chamado não
+há O.S. de execução — e **esse é o caso mais comum no mundo real**, o mesmo que
+a migration 080 reconheceu: o técnico já estava no prédio, abriu a O.S., pediu o
+orçamento ali, e depois alguém marcou "Já foi feito". A O.S. de ORIGEM (`os_id`)
+sempre esteve na resposta do endpoint e nunca foi alvo de nada.
+
+Agora a O.S. de origem abre nos estados **`livre`, `marcado` e `feito`** —
+sempre que não há a de execução para oferecer.
+
+⚠️ **A regra de UMA O.S. POR PLACA continua valendo** (03/09): quando existem as
+duas, quem aparece no rodapé e no botão é a que EXECUTOU. A de origem só entra
+quando é a única — a condição olha `ex.osId` primeiro. Isto não põe dois números
+de O.S. na mesma placa.
+
+⚠️ **O `andando` segue sem ação nenhuma**, por decisão registrada.
+
+⚠️ **Um `margin-left:auto` só por rodapé.** `.orc-veros`, `.orc-jafoi` e
+`.orc-desfaz` têm todos o `auto` de empurrar para a direita; com dois na mesma
+fila o espaço livre é **dividido** e o "Ver O.S." ia parar no meio do rodapé,
+solto entre a frase e o par de ações. Regra nova: quem empurra é o primeiro
+(`.orc-veros ~ .orc-jafoi, .orc-veros ~ .orc-desfaz { margin-left:0 }`).
+
+Medido depois, a 1920: "Ver O.S." em 1277-1338 e "Desfazer" em 1358-1425,
+juntos na borda da placa, rodapé em **uma linha** (60px). `GET
+/ordens-servico/21/pdf` com sessão de admin: **200, application/pdf, 318 KB** —
+o guard `osDonoOuAdmin` já liberava admin, gerente e operador para leitura.
+
+⚠️ **A placa está na seção recolhida "já feitos"**, porque `executado_em` conta
+como feito (regra de 03/09). Para achá-la é preciso clicar em "mostrar" — é
+desenho, não defeito.
+
+`?v=N`: `operador.css` 89 → 90 (nas três páginas), `operador-orcamentos.js`
+21 → 22.
+
 
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e

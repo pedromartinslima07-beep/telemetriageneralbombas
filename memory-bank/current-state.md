@@ -158,6 +158,28 @@ todos. Pendência aberta.
 código, vazias. Os nomes são os critérios que a cláusula 7 usa para separar P1 de
 P2 — parece uma versão disto começada antes e não terminada.
 
+### ⚠️ O chamado tem QUATRO saídas, e duas delas não são a mesma (04/09/2026)
+
+`chamados.status` = `aberto | em_atendimento | fechado | cancelado`
+(migration 083). **`cancelado` nasceu porque `fechado` não é neutro:** fechar
+grava `fechado_em` e `tempo_resolucao_seg`, marca `primeira_resposta_em` (TTFR)
+e entra na taxa de resolução e na média de tempo. Até 04/09 essa era a única
+saída do chamado aberto por engano ou duplicado, então cada engano entrava nas
+métricas como atendimento cumprido.
+
+- Cancelar exige **motivo** (mín. 5 caracteres, vai em `cancelado_motivo`) e é
+  **`GESTAO_ROLES`** — o operador fecha, mas não cancela (403).
+- Cancelar chamado **já fechado** é 409: o caminho é reabrir e então cancelar.
+- **O cliente vê o motivo**, no painel e no app.
+
+⚠️ **"Em aberto" é o contrário de DUAS coisas agora.** Backend usa
+`NOT IN ('fechado','cancelado')`; os fronts têm um helper cada (`_chEmAberto`
+no `admin.js`, `chEmAberto` no `app.js`). Escrever `!= 'fechado'` em código
+novo é o defeito que a mudança inteira consertou — a fila do técnico, o dedup
+de `abrirChamadoAuto` e o guard da IA dependem disso.
+
+Detalhe em [`../docs/modulos/chamados-sla.md`](../docs/modulos/chamados-sla.md).
+
 ### ⚠️ Escolher prédio é campo de BUSCA, não `<select>` (02/09/2026)
 
 `public/condo-picker.js` — arquivo **compartilhado** por `admin.html` e
@@ -577,6 +599,17 @@ Fluxo e pegadinhas em
   - ⏳ A tela de **Aprovados** (`operador-orcamentos.html`) carrega a mesma
     folha e ficou com a barra antiga (nome em texto + Sair) — divergência
     registrada em [active-work.md](active-work.md).
+  - ⚠️ **O estado sólido da barra mora no JS de cada tela, não na folha**
+    (04/09): `.barra` nasce translúcida e só endurece com `is-rolada`, posta
+    por um listener de `scroll` copiado tela a tela. Preventivas subiu sem ele
+    e ficou translúcida para sempre. Detalhe em
+    [painel-operador.md](../docs/modulos/painel-operador.md).
+  - ⚠️ **Barra fixa sangra, conteúdo mora na coluna** (04/09): a barra de
+    despacho de Preventivas era fixa de borda a borda COM o conteúdo dentro,
+    423px à esquerda da lista. Agora `.pv-barra-in` centra em `--area-max`,
+    como a barra do topo. Vale para toda barra fixa nova nesta folha.
+  - ⚠️ **`.sr-only` passou a existir no `operador.css`** (04/09) — não existia,
+    e o rótulo do select do técnico aparecia cru na tela em produção.
 - **Acabamento em 27/08** (passe `polish` da skill): item de 318px → 258px,
   medida de linha em 68ch, ações em coluna própria, piso de contraste 5,2:1 e
   o pulso da barra com três estados. O brief da superfície fica em

@@ -285,6 +285,43 @@ tudo que estava dentro. É a regra de Aprovados, e foi violada aqui.
 quadradinho do sistema operacional — a única peça da tela que não era da casa. O
 `input` continua, invisível: teclado, leitor de tela e `:checked` são dele.
 
+### A barra translúcida para sempre (04/09/2026)
+
+⚠️ **A `.barra` desta folha nasce translúcida e só endurece se o JS da tela
+puser `is-rolada`.** O `operador.css` define os dois estados; quem alterna é um
+listener de `scroll` (limiar 12px) que existe **em cada** JS de tela. Preventivas
+subiu sem ele — a mesma falta que Aprovados teve em 31/08 —, e a barra ficava
+translúcida para sempre, com as placas claras dos prédios borrando o cabeçalho.
+
+O listener vem **com a chamada inicial junto**: o navegador restaura a rolagem
+no F5, e sem ela a barra nasce translúcida com a página já rolada. Ver o
+[changelog](../changelog.md).
+
+### A barra de despacho (refino de 04/09/2026)
+
+A peça que abre para escolher o técnico é **fixa no pé e só existe com algo
+marcado** — o operador marca rolando a lista, e uma barra no topo o obrigaria a
+voltar até ela.
+
+⚠️ **O fundo dela sangra de ponta a ponta; o conteúdo mora na coluna.**
+`left/right:0` na barra, `max-width:var(--area-max)` no `.pv-barra-in` — nunca
+`max-width` na própria barra, senão o fio e o fundo param de ir de borda a
+borda. Sem isso a barra ficava colada na esquerda da janela enquanto a lista
+estava centrada: 423px de degrau medidos a 1920px.
+
+⚠️ **O `<select>` é peça da casa, não do sistema operacional.** `appearance:none`
+mais a seta desenhada, e o fio é feito pelo **rótulo em volta** (fundo `--fio`,
+select embutido 1px) — `<select>` não tem `::before` para a chapa de duas
+camadas, e tanto `border` quanto `box-shadow:inset` saem recortados pelo
+`clip-path` nos chanfros.
+
+⚠️ **A altura da barra é um token** (`--pv-pe`): dela dependem o respiro da
+lista, o `bottom` da faixa de aviso e a altura no celular. A faixa de erro
+**precisa** subir acima da barra — em `bottom:22px` ela era desenhada por cima
+do próprio select que a mensagem manda usar.
+
+Detalhe completo do passe no [changelog](../changelog.md).
+
 ### Para olhar sem sessão: `/dev/_preventivas-preview.html`
 
 Carrega o `operador.css` e o `operador-preventivas.js` de produção e dubla só a
@@ -375,6 +412,13 @@ marcou à mão, a O.S. foi finalizada, ou o chamado que executava fechou.
 Chamado só tem três status — `aberto`, `em_atendimento`, `fechado` —, **não
 existe "cancelado"**: fechado é serviço encerrado, não desistido.
 
+> ⚠️ **ISTO MUDOU EM 04/09/2026 (migration 083).** `cancelado` passou a existir,
+> e ele é a única saída da fila que **não** é estar feito. `execucao()` devolve
+> `livre` para o chamado cancelado — o orçamento **volta** a pedir execução, com
+> o selo dizendo "Chamado #N cancelado". Sem isso o orçamento sumia da lista
+> como executado justamente porque o serviço deixou de ser feito. Ver
+> [chamados-sla.md](chamados-sla.md).
+
 ⚠️ **A O.S. vem ANTES do chamado na hora de dizer o que aconteceu.** O chamado
 fechado é consequência: finalizar a O.S. o fecha sozinho
 (`ordens-servico.routes.js`). Dizer "chamado #73 fechado" para um serviço com
@@ -425,6 +469,33 @@ copiando as regras de mesa do `.orc-jafoi` e não a do `@media`, onde o
 `margin-left:auto` é zerado: ele ia encostar na borda direita da placa enquanto
 "Já foi feito" e "Desfazer" ficavam centrados. Medido a 390px — os três dão
 16px dos dois lados.
+
+### As DUAS O.S. de um orçamento, e qual delas abre (04/09/2026)
+
+Um orçamento pode estar ligado a duas ordens de serviço diferentes, e a tela
+precisa distinguir:
+
+- **O.S. de ORIGEM** (`orcamentos.os_id`) — aquela em que o técnico marcou
+  "precisa de orçamento". Responde *"de onde veio isto"*.
+- **O.S. de EXECUÇÃO** — achada pela segunda perna,
+  `ordens_servico.chamado_id` → `chamados.orcamento_id`. Responde *"o que foi
+  feito"*, e é o documento que se cita ao telefone.
+
+⚠️ **Uma por placa: quando existem as duas, fica a de execução.** As duas juntas
+punham dois números de O.S. na mesma frase sem dizer qual é qual.
+
+⚠️ **Mas quando a de origem é a ÚNICA, ela abre.** Até 04/09 o botão "Ver O.S."
+existia só no estado `executado` — e a maioria dos orçamentos aprovados **não
+tem chamado nenhum** (o técnico já estava no prédio e resolveu na hora, o caso
+que a migration 080 reconheceu). Nesses, a placa escrevia o número da O.S. no
+rodapé e não oferecia como abri-la: o OR-000204, em produção, tinha
+`os_id=21` (OS-2026-0023, finalizada, com PDF) e um único botão, "Desfazer".
+Hoje a O.S. de origem é alvo nos estados `livre`, `marcado` e `feito`.
+
+⚠️ **Um `margin-left:auto` só por rodapé.** `.orc-veros`, `.orc-jafoi` e
+`.orc-desfaz` têm todos o `auto` que empurra para a direita; com dois na mesma
+fila o espaço livre é dividido e o "Ver O.S." fica solto no meio do rodapé.
+Quem empurra é o primeiro. Ver o [changelog](../changelog.md).
 
 ### Para olhar sem sessão: `/dev/_aprovados-preview.html`
 

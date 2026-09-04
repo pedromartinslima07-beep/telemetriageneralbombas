@@ -614,6 +614,86 @@ inteiro se testa ali.
 `page.evaluate` medindo tipo, contraste composto, alvos e sobreposição. Foi a
 medição, não o olho, que pegou o 16,3px/700 e o `opacity:.86`.
 
+## O passe de refino de Preventivas (04/09/2026) — a barra de despacho tinha o endereço errado
+
+Pedido do Pedro, em duas partes: *"um refino a essa tela toda, levando as outras
+como padrão"* e *"melhore o posicionamento [d]a aba q abre para selecionar o
+tecnico"*. Medido com a extensão do Chrome contra a **produção com sessão real**
+(ver a nota sobre a extensão logo abaixo).
+
+### O defeito que motivou o pedido, em um número
+
+A barra de despacho é `position:fixed` de borda a borda **com o conteúdo dentro
+dela**, enquanto todo o resto da tela centra em `--area-max` + `--gut`. Medido a
+1920px:
+
+| | x inicial | x final |
+|---|---|---|
+| placa do prédio | 455 | 1455 |
+| "N escolhidas" da barra | **32** | — |
+| "Enviar" | — | **563** |
+
+**423px de degrau** entre o cabeçalho da coluna e o pé dela, e a ação primária
+terminando 892px antes da placa que ela despacha. É o mesmo defeito que fez a
+barra do TOPO desta folha ser reescrita ("a marca começava em x=255 e a lista em
+x=455"), e a correção é o mesmo mecanismo, com os mesmos tokens.
+
+> **A barra fixa sangra; o conteúdo dela mora na coluna.** `left/right:0` na
+> peça, `max-width:var(--area-max)` no filho — nunca na própria barra, senão o
+> fundo e o fio param de ir de ponta a ponta.
+
+Depois: degrau **zero** nas duas pontas, medido a 1920 / 1340 / 1090 / 900.
+
+### O resto do que o passe achou
+
+| | Regra que passou a valer |
+|---|---|
+| `.sr-only` | **Não existia nesta folha** (`cliente.css` e `admin.css` a têm). O rótulo "Técnico" do select aparecia CRU a 15px em produção. Classe que não existe renderiza sem estilo nenhum — a mesma armadilha do `.dlg` inventado, agora do outro lado |
+| O `<select>` | Era o último controle NATIVO do sistema operacional na tela — exatamente o que o checkbox era antes de 03/09. `appearance:none` + seta desenhada do sistema de ícones (traço esquadrado) |
+| Fio do select | **Chapa de duas camadas com o RÓTULO como anel.** `<select>` é elemento substituído e não tem `::before`; `border` e `box-shadow:inset` os dois são recortados pelo `clip-path` nos chanfros |
+| Par de ações | "Limpar" **antes** de "Enviar" no DOM e o par encostado na direita — o pé da placa de Aprovados ("Já foi feito" · "Abrir chamado"). Antes "Limpar" era vizinho de 76px do botão que ele desfaz |
+| A faixa de erro | Caía **DENTRO** da barra: `.aviso` em `bottom:22px` ocupa y 833-875 numa janela de 889, a barra ocupa 797-889, e o `z-index:110` a desenhava por cima do select. O aviso escondia a saída que ele indica |
+| Material da barra | `--bg` (marinho 900), não `--mar-800`: as duas barras fixas da mesma tela são a mesma chapa, e em 800 esta ficava um degrau mais clara que o campo |
+| `env()` | `safe-area-inset-bottom` **sem o fallback `, 0px`** — a regra já registrada para `.barra` nunca tinha sido aplicada aqui |
+| Altura da barra | Um token só (`--pv-pe`), porque três coisas dependem dela: o respiro da lista, o `bottom` do aviso e a altura no celular. Medido: 71px na mesa, 125px a 390 |
+| Entrada | `animation:sobe .22s` — a barra aparecia sem transição nenhuma, do nada, no pé |
+
+### O nivelamento com as irmãs
+
+O passe de 03/09 tinha nivelado a **manchete** e a **placa**; ficaram de fora o
+cabeçalho de grupo e as etiquetas. Medido lado a lado com Aprovados:
+
+| | Aprovados | Preventivas (antes) | Agora |
+|---|---|---|---|
+| título do grupo | 20px / 800 / branco / stretch 106% | 17px / 700 / `--text` | os tokens da irmã |
+| legenda do grupo | — | 13,8px | 15,2px (o corpo da tela) |
+| etiqueta mono (selo) | 10,5px | **10px** | **12px**, o `.selo` da FILA |
+| etiqueta menor | 11px (`.orc-onde`) | **9,5px** | 11px |
+| alvos < 44px | **0** | 2 (setas de mês 40, botão da zona 36) | **0** |
+
+⚠️ **12px no selo é a calibragem de 28/08 sendo aplicada, não gosto.** Aquela
+rodada levou a etiqueta mono desta folha de 10,5 para 12px porque *"quem opera
+aqui tem pouca familiaridade com computador"* — e esta tela nasceu **depois**
+dela, abaixo dela. Medido antes do passe: 86 blocos de texto sob 12px, 69 deles
+no mesmo selo repetido.
+
+⚠️ **O fio embaixo do cabeçalho de zona FICA**, e é divergência deliberada da
+irmã: em Aprovados um grupo tem 1 orçamento e o vão já separa; aqui uma zona tem
+24 prédios, e sem o fio o cabeçalho seguinte chega sem aviso depois de dois
+palmos de rolagem.
+
+### ⚠️ A extensão do Chrome CONECTA nesta máquina (correção de 04/09)
+
+A nota de 03/09 ("a extensão do Chrome não conecta nesta máquina", passe feito
+com puppeteer) **está vencida**. Ela conecta, e este passe inteiro foi medido com
+ela contra a produção logada: `getBoundingClientRect` e `getComputedStyle` na
+tela real, com os 69 planos de setembro dentro.
+
+⚠️ **O que a extensão NÃO faz é obedecer `resize`** — a janela ignora o
+`resize_window`, exatamente como a nota de 31/08 já dizia. As larguras se medem
+pondo a própria página num `<iframe>` daquela largura, que responde às mesmas
+media queries. Foi assim que saíram os números de 1920 / 1340 / 1090 / 900 / 390.
+
 ## O que NÃO fazer aqui
 
 - **Não impor rampa de tipo em tokens só nesta folha.** `cliente.css` tem 37

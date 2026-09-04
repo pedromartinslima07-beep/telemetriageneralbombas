@@ -282,18 +282,38 @@ function barraDespacho() {
   const nomes = DADOS.tecnicos.map((t) =>
     `<option value="${t.id}">${escapar(t.nome)}${t.abertos ? ` (${t.abertos} em aberto)` : ""}</option>`
   ).join("");
+  // ⚠️ O CONTEÚDO VAI DENTRO DE `.pv-barra-in`, e isso não é invólucro à toa:
+  // a barra sangra de ponta a ponta (o fundo e o fio), mas o que se lê tem de
+  // cair na MESMA coluna da lista. Medido a 1920px antes disto: a lista
+  // começava em x=455 e o "2 escolhidas" em x=32.
+  //
+  // ⚠️ A SETA É DESENHADA, como a caixa de marcar. `appearance:none` tira a
+  // do sistema operacional; sem repor uma, o select vira um retângulo mudo.
   return `
   <div class="pv-barra" role="region" aria-label="Despachar preventivas">
-    <span class="pv-barra-n">${SEL.size} ${SEL.size === 1 ? "escolhida" : "escolhidas"}</span>
-    <label class="pv-barra-sel">
-      <span class="sr-only">Técnico</span>
-      <select id="pvTecnico">
-        <option value="">Escolha o técnico…</option>
-        ${nomes}
-      </select>
-    </label>
-    <button type="button" class="btn" data-acao="despachar">Enviar</button>
-    <button type="button" class="pv-barra-limpa" data-acao="limpar">Limpar</button>
+    <div class="pv-barra-in">
+      <span class="pv-barra-n">${SEL.size} ${SEL.size === 1 ? "escolhida" : "escolhidas"}</span>
+      <label class="pv-barra-sel">
+        <span class="sr-only">Técnico</span>
+        <select id="pvTecnico">
+          <option value="">Escolha o técnico…</option>
+          ${nomes}
+        </select>
+        <svg class="pv-barra-seta" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2.4" stroke-linecap="square" stroke-linejoin="miter"
+             aria-hidden="true"><path d="M5 9l7 7 7-7"/></svg>
+      </label>
+      ${/* ⚠️ "LIMPAR" VEM ANTES DE "ENVIAR" NO DOM, e o par encosta na
+           direita da coluna. É a gramática do pé da placa de Aprovados —
+           link discreto ("Já foi feito") e então a chapa âmbar ("Abrir
+           chamado") —, e ela resolve dois defeitos de uma vez: a ação
+           primária passa a terminar no MESMO x em que a placa do prédio
+           termina, e o "Limpar" deixa de ser vizinho de 76px do botão que
+           ele desfaz. No celular a `order` da folha devolve o "Enviar"
+           para antes dele. */""}
+      <button type="button" class="pv-barra-limpa" data-acao="limpar">Limpar</button>
+      <button type="button" class="btn" data-acao="despachar">Enviar</button>
+    </div>
   </div>`;
 }
 
@@ -520,6 +540,23 @@ function logout() {
   localStorage.removeItem("userRole");
   window.location.href = "/login";
 }
+
+/* ⚠️ A BARRA ENDURECE AO ROLAR — e ISTO FALTAVA AQUI (04/09). A folha
+   define `.barra` translúcida (`--mar-900` a 88% + `blur(14px)`) e
+   `.barra.is-rolada` sólida com fio inferior; quem troca a classe é este
+   listener, que existe no `operador.js` e no `operador-orcamentos.js` e
+   nunca foi copiado para cá — a mesma omissão que Aprovados teve em 31/08.
+   O efeito: a barra desta tela ficava translúcida PARA SEMPRE, e as placas
+   claras dos prédios passavam por baixo dela borrando o cabeçalho.
+   Mesmo limiar (12px) e mesma classe das três irmãs. */
+// ⚠️ E O ESTADO INICIAL, não só o listener. O navegador RESTAURA a posição
+// de rolagem ao recarregar: quem dá F5 no meio da lista volta com a página
+// rolada e um `scroll` que nunca aconteceu.
+function _barraRolada() {
+  document.querySelector(".barra")?.classList.toggle("is-rolada", scrollY > 12);
+}
+addEventListener("scroll", _barraRolada, { passive: true });
+_barraRolada();
 
 /* ── Boot ────────────────────────────────────────────────────────────── */
 (async () => {

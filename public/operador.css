@@ -219,6 +219,19 @@ body{
 ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.22)}
 ::-webkit-scrollbar-thumb:hover{background:var(--amarelo)}
 
+/* Presente para o leitor de tela, ausente para o olho. ⚠️ Não trocar por
+   `display:none`: isso tira o texto da árvore de acessibilidade.
+   ⚠️ ESTA CLASSE FALTAVA NESTA FOLHA, e o `cliente.css` e o `admin.css` a
+   têm desde sempre. O `operador-preventivas.js` a usava para rotular o select
+   do técnico — e classe que não existe numa folha renderiza SEM ESTILO
+   NENHUM: a palavra "Técnico" aparecia crua a 15px em cima do campo, na
+   barra de despacho em produção. É a mesma armadilha que o próprio
+   `operador-preventivas.js` registra sobre o diálogo (`.dlg` inventado). */
+.sr-only{
+  position:absolute;width:1px;height:1px;padding:0;margin:-1px;
+  overflow:hidden;clip-path:inset(50%);white-space:nowrap;
+}
+
 /* ═══════════════════════════════════════════════════════════════════
    A TELA
    ═══════════════════════════════════════════════════════════════════ */
@@ -2754,6 +2767,14 @@ body.sem-trilho #tela{width:100%}
 .orc-veros[disabled]{opacity:.55;cursor:default;text-decoration-color:transparent}
 .orc-pe .orc-veros{flex:0 0 auto;margin-left:auto}
 .orc-pe .orc-veros + .btn{margin-left:18px}
+/* ⚠️ UM `margin-left:auto` SÓ POR RODAPÉ. Desde 04/09 o "Ver O.S." aparece
+   ao lado do "Já foi feito" e do "Desfazer" (a O.S. de ORIGEM passou a abrir,
+   ver o `operador-orcamentos.js`), e os três têm o `auto` de empurrar. Com
+   dois autos na mesma fila o espaço livre é DIVIDIDO entre eles: o "Ver O.S."
+   ia parar no meio do rodapé, solto entre a frase e o par de ações. Quem
+   empurra é o primeiro; os seguintes andam colados nele. */
+.orc-pe .orc-veros ~ .orc-jafoi,
+.orc-pe .orc-veros ~ .orc-desfaz{margin-left:0}
 
 /* A LEITURA GRANDE da placa — o lugar do "R$ 2.332,00" do print.
    ⚠️ Archivo, não mono: mono nesta folha é medição e etiqueta, e nome de
@@ -3202,8 +3223,13 @@ body.sem-trilho #tela{width:100%}
   min-width:12ch;
 }
 .pv-mes-rot::first-letter{text-transform:uppercase}
+/* ⚠️ 44px NA MESA TAMBÉM. O piso de alvo desta folha subiu para 44 em 03/09
+   ("`.conta` subiu de 38 para 44px na mesa, o piso que o `.btn` desta folha já
+   aplicava") e estas setas ficaram em 40, com o botão da zona em 36 — as duas
+   únicas peças abaixo do piso na tela. Aprovados, medida agora, não tem
+   NENHUM alvo sob 44px. */
 .pv-mes-nav{
-  width:40px;height:40px;flex-shrink:0;
+  width:44px;height:44px;flex-shrink:0;
   display:flex;align-items:center;justify-content:center;
   font:inherit;font-size:17px;line-height:1;
   background:transparent;color:var(--text-dim);
@@ -3253,10 +3279,23 @@ body.sem-trilho #tela{width:100%}
   padding:0 2px 10px;border-bottom:1px solid var(--fio);margin-bottom:10px;
 }
 .pv-zona-id{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;flex:1}
+/* ⚠️ OS TOKENS DA IRMÃ, peça por peça: é o `.orc-predio` de Aprovados
+   (1,25rem/800, `font-stretch:106%`, branco puro). Medido antes deste passe:
+   17px/700 em `--text` aqui contra 20px/800 branco lá — o nome da zona lia
+   como rótulo de tabela enquanto o da irmã lia como título de grupo, e as
+   duas telas agrupam a MESMA coisa (o trabalho de um prédio).
+   ⚠️ O FIO EMBAIXO FICA, e é a única divergência deliberada: em Aprovados um
+   grupo tem 1 orçamento e o vão entre grupos já separa; aqui uma zona tem 24
+   prédios, e sem o fio o cabeçalho da seguinte chega sem aviso depois de dois
+   palmos de rolagem. */
 .pv-zona-cab h2{
-  margin:0;font-size:1.06rem;font-weight:700;letter-spacing:-.01em;color:var(--text);
+  margin:0;font-size:1.25rem;font-weight:800;line-height:1.2;
+  letter-spacing:-.02em;font-stretch:106%;color:#fff;
 }
-.pv-zona-sub{font-size:.86rem;color:var(--muted)}
+/* Corpo da tela (15,2px), não os 13,8 de antes: a legenda que conta o que
+   falta na zona estava abaixo do piso de 15px que a calibragem de 28/08 fixou
+   para esta folha. */
+.pv-zona-sub{font-size:.95rem;color:var(--muted)}
 /* ⚠️ O ÂMBAR DA CASA, e ele vive no CAMPO ESCURO — é a Regra do Amarelo Cego
    (~2:1 sobre placa clara). Aqui o fundo é marinho, então ele pode ser TINTA,
    como a palavra da manchete. Ver o porquê de estar na zona e não no selo de
@@ -3266,8 +3305,8 @@ body.sem-trilho #tela{width:100%}
 /* "Escolher as 12" — o despacho por região que o Pedro pediu, a um clique.
    De fio: ela escolhe, não envia; quem envia é o âmbar da barra do pé. */
 .pv-zona-btn{
-  flex-shrink:0;font:inherit;font-size:.82rem;font-weight:700;
-  padding:7px 13px;min-height:36px;
+  flex-shrink:0;font:inherit;font-size:.88rem;font-weight:700;
+  padding:11px 15px;min-height:44px;
   background:transparent;color:var(--text-dim);
   border:1px solid var(--fio);cursor:pointer;
   clip-path:var(--corte-p);
@@ -3360,8 +3399,10 @@ body.sem-trilho #tela{width:100%}
 /* O que trava o mês: não tem escala nem responsável de zona. Tinta de aviso,
    não itálico — itálico em nome próprio lê como citação. */
 .pv-sem{color:var(--risco-t);font-weight:700}
+/* 11px é o `.orc-onde` da irmã — era 9,5px, a menor tipografia da folha
+   inteira, dentro de uma frase de 15,2px. */
 .pv-origem{
-  font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;
+  font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;
   padding:2px 6px;margin-left:4px;
   background:var(--tinta);color:var(--chapa);font-weight:700;
   --ch-p:3px;clip-path:var(--corte-p);
@@ -3375,11 +3416,17 @@ body.sem-trilho #tela{width:100%}
 /* ── O selo ─────────────────────────────────────────────────────────────── */
 /* Regra do Selo: preenchido pede ação, de fio em repouso. E a tinta é sempre a
    família `-t` — sobre placa clara `--ok` mede 3,2:1 e reprova. */
+/* ⚠️ 12px É O TAMANHO DO `.selo` DA FILA, e não os 10 daqui. A calibragem de
+   28/08 ("quem opera aqui tem pouca familiaridade com computador") levou a
+   etiqueta mono desta folha de 10,5 para 12px, e esta tela nasceu depois
+   dela — abaixo dela. Medido antes: 86 blocos de texto sob 12px nesta tela,
+   69 deles neste selo. O `padding` cede 2px de cada lado para o selo não
+   crescer em largura junto com o tipo. */
 .pv-selo{
   margin-left:auto;flex-shrink:0;
-  font-family:var(--mono);font-size:10px;font-weight:700;
-  letter-spacing:.1em;text-transform:uppercase;
-  padding:5px 10px;--ch-p:4px;clip-path:var(--corte-p);
+  font-family:var(--mono);font-size:12px;font-weight:700;
+  letter-spacing:.08em;text-transform:uppercase;
+  padding:4px 8px;--ch-p:4px;clip-path:var(--corte-p);
 }
 .pv-selo[data-e="afazer"]{
   color:var(--tinta-2);box-shadow:inset 0 0 0 1px var(--fio-esc);
@@ -3427,23 +3474,75 @@ body.sem-trilho #tela{width:100%}
 /* ── A barra de despacho ────────────────────────────────────────────────── */
 /* ⚠️ FIXA NO PÉ, e só existe com algo marcado. O operador marca rolando a
    lista; uma barra no topo o obrigaria a voltar até ela para despachar o que
-   acabou de escolher lá embaixo. */
+   acabou de escolher lá embaixo.
+
+   ⚠️ O FUNDO SANGRA DE PONTA A PONTA; O CONTEÚDO CENTRA NA COLUNA. É o
+   mecanismo (e os tokens) de `body.sem-trilho .barra` no topo desta mesma
+   tela, e a razão é a mesma que fez a barra de cima ser reescrita: sem isso o
+   cabeçalho começa num x e o conteúdo em outro. MEDIDO a 1920px antes deste
+   passe: a lista começava em **x=455** e o "2 escolhidas" da barra em
+   **x=32** — 423px de degrau, e o "Enviar" terminava em x=563 enquanto o
+   prédio que ele despacha ia até 1455. A ação vivia num canto da janela que
+   não tem nada a ver com a coluna em que a pessoa estava lendo.
+   ⚠️ `left/right:0` + `max-width` no filho, nunca `max-width` na própria
+   barra: o fundo e o fio precisam continuar de borda a borda, como no topo.
+
+   ⚠️ `--bg` (marinho 900), NÃO `--mar-800`. As duas barras fixas da mesma
+   tela são a mesma chapa: em 800 esta ficava um degrau mais CLARA que o campo
+   e boiava, enquanto a de cima endurece exatamente em `--mar-900`. */
 .pv-barra{
   position:fixed;left:0;right:0;bottom:0;z-index:60;
+  background:var(--bg);border-top:1px solid var(--fio);
+  animation:sobe .22s var(--saida);
+}
+.pv-barra-in{
+  max-width:var(--area-max);margin:0 auto;width:100%;
   display:flex;align-items:center;gap:14px;flex-wrap:wrap;
-  padding:12px clamp(16px,3vw,32px);
-  padding-bottom:calc(12px + env(safe-area-inset-bottom));
-  background:var(--mar-800);border-top:1px solid var(--fio);
+  padding:12px var(--gut);
+  /* ⚠️ COM FALLBACK. Sem o `, 0px` o navegador que não conhece `env()`
+     descarta a declaração inteira e a barra perde o respiro de baixo, não o
+     entalhe — a regra já registrada para `.barra` nesta folha. */
+  padding-bottom:calc(12px + env(safe-area-inset-bottom, 0px));
 }
-.pv-barra-n{font-size:.9rem;font-weight:700;color:var(--text);flex-shrink:0}
-.pv-barra-sel{flex:1;min-width:200px;max-width:340px}
+.pv-barra-n{font-size:.95rem;font-weight:700;color:var(--text);flex-shrink:0}
+/* ⚠️ O PAR DE AÇÕES ENCOSTA NA DIREITA DA COLUNA — é o pé da placa de
+   Aprovados ("Já foi feito" · "Abrir chamado"). Antes as quatro peças se
+   amontoavam no terço esquerdo: medido a 1920, o "Enviar" terminava em
+   x=563 enquanto o prédio que ele despacha ia até x=1455. Agora a chapa
+   âmbar termina exatamente no x da placa. */
+.pv-barra-limpa{margin-left:auto}
+/* ⚠️ O SELECT VIRA PEÇA DA CASA — era o último controle nativo do sistema
+   operacional nesta tela, exatamente o que o checkbox tinha sido antes do
+   passe de 03/09 ("numa folha que corta tudo com chanfro, o quadradinho
+   arredondado do Windows era o único elemento que não era da casa").
+   `appearance:none` tira a seta do SO; quem desenha é o `.pv-barra-seta`, do
+   mesmo sistema de ícones do resto (traço esquadrado, junta em meia-esquadria).
+
+   ⚠️ CHAPA DE DUAS CAMADAS, como toda peça de fio desta folha: `border` +
+   `clip-path` está proibido desde 27/08 porque o corte recorta a borda e ela
+   sai faltando justamente nos dois chanfros. `box-shadow:inset` tem o mesmo
+   defeito. O `<select>` é elemento substituído e não tem `::before`, então
+   quem faz o anel é o RÓTULO em volta: o fundo dele é o fio, o campo é o
+   select embutido 1px. Mesma construção do `.conta` da barra de cima. */
+.pv-barra-sel{
+  flex:1;min-width:200px;max-width:340px;position:relative;display:block;
+  padding:1px;background:var(--fio);
+  --ch-p:6px;clip-path:var(--corte-p);
+  transition:background .16s var(--saida);
+}
+.pv-barra-sel:hover{background:var(--fio-forte)}
 .pv-barra-sel select{
-  width:100%;font:inherit;font-size:.92rem;
-  padding:10px 12px;min-height:44px;
+  display:block;width:100%;font:inherit;font-size:.95rem;
+  appearance:none;-webkit-appearance:none;
+  padding:10px 40px 10px 13px;min-height:44px;
   background:var(--mar-900);color:var(--text);
-  border:1px solid var(--fio);cursor:pointer;
+  border:0;clip-path:var(--corte-p);cursor:pointer;
 }
-.pv-barra-sel select:focus-visible{outline:2px solid var(--amarelo);outline-offset:2px}
+/* A seta não recebe clique: quem é alvo é o `select` inteiro, atrás dela. */
+.pv-barra-seta{
+  position:absolute;right:14px;top:50%;transform:translateY(-50%);
+  width:15px;height:15px;color:var(--text-dim);pointer-events:none;
+}
 .pv-barra-limpa{
   font:inherit;font-size:.88rem;background:transparent;border:0;
   color:var(--text-dim);cursor:pointer;padding:10px 4px;min-height:44px;
@@ -3452,8 +3551,18 @@ body.sem-trilho #tela{width:100%}
 .pv-barra-limpa:hover{color:var(--text);text-decoration-color:currentColor}
 .pv-barra-limpa:focus-visible{outline:2px solid var(--amarelo);outline-offset:2px}
 /* A lista precisa terminar acima da barra fixa, senão a última placa fica
-   embaixo dela e o operador não alcança o que acabou de marcar. */
-body:has(.pv-barra) #tela{padding-bottom:96px}
+   embaixo dela e o operador não alcança o que acabou de marcar.
+   ⚠️ UM TOKEN SÓ (`--pv-pe`), porque são TRÊS coisas que dependem da altura
+   da barra e elas saíam de números soltos: o respiro da lista, a faixa de
+   aviso e a altura da própria barra no celular. */
+body:has(.pv-barra){--pv-pe:calc(72px + env(safe-area-inset-bottom, 0px))}
+body:has(.pv-barra) #tela{padding-bottom:calc(var(--pv-pe) + 26px)}
+/* ⚠️ A FAIXA DE ERRO CAÍA DENTRO DA BARRA. Medido: `.aviso` em `bottom:22px`
+   ocupa y 833-875 numa janela de 889, e a barra ocupa y 797-889 — com
+   `z-index:110` contra 60, a frase "Escolha para qual técnico enviar" era
+   desenhada POR CIMA do select que ela manda usar. É o pior caso de um aviso:
+   o que ele esconde é a saída que ele indica. */
+body:has(.pv-barra) .aviso{bottom:calc(var(--pv-pe) + 16px)}
 
 /* ── Celular ────────────────────────────────────────────────────────────── */
 @media (max-width:760px){
@@ -3462,20 +3571,28 @@ body:has(.pv-barra) #tela{padding-bottom:96px}
      botão da zona (36) estavam abaixo — medidos a 390px. No desktop o mouse
      alcança 36px sem erro; no celular, com o telefone no ombro, não. */
   .pv-mes-nav{width:44px;height:44px}
-  .pv-zona-btn{min-height:44px;padding:11px 15px}
   .pv-item{flex-wrap:wrap}
   .pv-selo{margin-left:0}
   .pv-item-topo{gap:8px}
-  /* A barra empilha: o select ocupa a linha inteira e o "Enviar" fica cheio,
-     como as ações da placa em Aprovados fazem nesta largura. */
-  .pv-barra{gap:10px}
+  /* A barra empilha em DUAS linhas: "N escolhidas" e o técnico em cima, o
+     par de ações embaixo, com o "Enviar" cheio — como as ações da placa em
+     Aprovados fazem nesta largura. O select encolhe até o que sobra da
+     primeira linha (247px a 390, medido) em vez de tomar uma linha só para
+     ele: a barra é fixa e vive por cima da lista, e cada linha dela custa
+     um prédio a menos na tela. */
+  .pv-barra-in{gap:10px;padding-inline:13px}
   .pv-barra-sel{max-width:none;flex:1 1 100%;order:2}
   .pv-barra-n{order:1}
   .pv-barra .btn{order:3;flex:1;justify-content:center}
-  .pv-barra-limpa{order:4}
-  body:has(.pv-barra) #tela{padding-bottom:190px}
+  /* Empilhada, "Limpar" divide a linha com "Enviar" e o `margin-left:auto` da
+     mesa o jogaria para fora da coluna. */
+  .pv-barra-limpa{order:4;margin-left:0}
+  /* 125px medidos a 390 (24 + 46 + 44 + dois vãos de 10 + 24 de recuo). */
+  body:has(.pv-barra){--pv-pe:calc(128px + env(safe-area-inset-bottom, 0px))}
 }
 
 @media (prefers-reduced-motion:reduce){
-  .pv-mes-nav,.pv-zona-btn,.pv-verfeitas,.pv-barra-limpa{transition:none}
+  .pv-mes-nav,.pv-zona-btn,.pv-verfeitas,.pv-barra-limpa,
+  .pv-barra-sel select{transition:none}
+  .pv-barra{animation:none}
 }

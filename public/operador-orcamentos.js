@@ -220,6 +220,16 @@ function execucao(o) {
   }
   if (!o.chamado_id) return { chave: "livre" };
   if (ABERTO.has(o.chamado_status)) return { chave: "andando", id: o.chamado_id };
+  // ⚠️ CANCELADO VOLTA PRA "LIVRE" (04/09/2026, migration 083). O chamado
+  // cancelado não é aberto nem fechado, e sem esta linha ele caía no `feito`
+  // lá embaixo: o orçamento sumia da lista como executado exatamente porque o
+  // serviço deixou de ser feito. Volta como `livre` — de propósito, e não como
+  // uma chave nova: as ações que o operador precisa aqui ("Abrir chamado",
+  // "Já foi feito") são as mesmas do orçamento que nunca teve chamado. Só o
+  // selo muda, para ele saber que já houve um e o que houve com ele.
+  if (o.chamado_status === "cancelado") {
+    return { chave: "livre", cancelado: true, id: o.chamado_id };
+  }
   // ⚠️ A O.S. VEM ANTES DO CHAMADO NA HORA DE DIZER O QUE ACONTECEU
   // (03/09/2026). O chamado fechado é consequência: finalizar a O.S. fecha o
   // chamado sozinho (ordens-servico.routes.js). Dizer "chamado #73 fechado"
@@ -244,8 +254,13 @@ function execucao(o) {
 
    São três formas de estar feito, e nenhuma vale mais que a outra aqui:
    alguém marcou à mão, a O.S. foi finalizada, ou o chamado que executava
-   fechou. Chamado só tem três status — aberto, em_atendimento e fechado —,
-   não existe "cancelado": fechado é serviço encerrado, não desistido. */
+   fechou.
+
+   ⚠️ O CANCELADO NÃO ESTÁ AQUI, E É O PONTO (04/09/2026). Até a migration 083
+   o chamado só tinha três status e este comentário dizia que "cancelado" não
+   existia. Agora existe — e ele é a única saída da fila que NÃO é estar feito:
+   fechado é serviço encerrado, cancelado é serviço desistido. `execucao()`
+   devolve `livre` para ele, então o orçamento volta a pedir execução. */
 const FEITO = new Set(["marcado", "executado", "feito"]);
 function estaFeito(o) { return FEITO.has(execucao(o).chave); }
 
@@ -333,7 +348,9 @@ function placa(o) {
           ex.quando ? " · " + escapar(ex.quando) : ""}</span>`
     : ex.chave === "feito"
         ? `<span class="orc-selo" data-e="feito">Chamado #${ex.id} fechado</span>`
-        : `<span class="orc-selo" data-e="livre">Pode executar</span>`;
+        : ex.cancelado
+          ? `<span class="orc-selo" data-e="livre">Chamado #${ex.id} cancelado</span>`
+          : `<span class="orc-selo" data-e="livre">Pode executar</span>`;
 
   // As ações de cada estado:
   //
@@ -349,17 +366,45 @@ function placa(o) {
   // ⚠️ "JÁ FOI FEITO" SÓ APARECE NO ESTADO LIVRE. Com chamado aberto, quem
   // conclui é o chamado; oferecer os dois caminhos criaria duas verdades
   // sobre o mesmo serviço.
+  // ⚠️ A O.S. DE ORIGEM TAMBÉM ABRE (04/09/2026), e até aqui não abria. O
+  // botão "Ver O.S." só existia no estado `executado`, que depende da O.S.
+  // achada PELO CHAMADO (`ordens_servico.chamado_id`) — e a maioria dos
+  // orçamentos aprovados não tem chamado nenhum: o técnico já estava no
+  // prédio, abriu a O.S., pediu o orçamento ali e depois alguém marcou
+  // "Já foi feito". Nesses o rodapé escrevia "pedido na O.S. OS-2026-0023" e
+  // não havia como abrir o documento.
+  //
+  // Relato do Pedro: *"o OR 204 tem O.S. vinculada, acredito q era pra dar
+  // para ver a O.S."*. Em produção: `os_id=21` (OS-2026-0023, finalizada, com
+  // PDF), zero chamados, `executado_em` preenchido — estado `marcado`, cuja
+  // única ação era "Desfazer".
+  //
+  // ⚠️ A REGRA DE UMA O.S. POR PLACA CONTINUA VALENDO. Quando existem as duas
+  // quem aparece — no rodapé e neste botão — é a que EXECUTOU; a de origem só
+  // entra quando é a única, e é por isso que a condição olha `ex.osId` antes.
+  // Isto NÃO põe dois números de O.S. na mesma placa.
+  //
+  // ⚠️ O `andando` continua sem ação nenhuma, por decisão registrada logo
+  // acima — não abri exceção nele.
+  const osOrig = !ex.osId && o.os_id && o.os_numero
+    ? `<button type="button" class="orc-veros" data-acao="ver-os" data-id="${o.os_id}"
+         title="Abrir a O.S. ${escapar(o.os_numero)} em PDF">Ver O.S.</button>`
+    : "";
+
   const acao =
     ex.chave === "marcado"
-      ? `<button type="button" class="orc-desfaz" data-acao="desfazer-feito" data-id="${o.id}">Desfazer</button>`
+      ? `${osOrig}
+         <button type="button" class="orc-desfaz" data-acao="desfazer-feito" data-id="${o.id}">Desfazer</button>`
     : ex.chave === "andando" ? ""
     : ex.chave === "executado"
       ? `<button type="button" class="orc-veros" data-acao="ver-os" data-id="${ex.osId}"
            title="Abrir a O.S. ${escapar(ex.os || "")} em PDF">Ver O.S.</button>
          <button type="button" class="btn btn-fio" data-acao="chamado" data-id="${o.id}">Abrir de novo</button>`
     : ex.chave === "feito"
-      ? `<button type="button" class="btn btn-fio" data-acao="chamado" data-id="${o.id}">Abrir de novo</button>`
-      : `<button type="button" class="orc-jafoi" data-acao="feito" data-id="${o.id}">Já foi feito</button>
+      ? `${osOrig}
+         <button type="button" class="btn btn-fio" data-acao="chamado" data-id="${o.id}">Abrir de novo</button>`
+      : `${osOrig}
+         <button type="button" class="orc-jafoi" data-acao="feito" data-id="${o.id}">Já foi feito</button>
          <button type="button" class="btn" data-acao="chamado" data-id="${o.id}">Abrir chamado</button>`;
 
   return `
