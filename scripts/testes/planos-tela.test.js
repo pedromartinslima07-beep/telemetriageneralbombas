@@ -81,6 +81,25 @@ async function main() {
     ok("nenhum prédio está nas duas listas",
        !dados.sem_plano.some((c) => comPlano.has(c.id)));
 
+    // ── Comentário HTML órfão vira TEXTO NA TELA ─────────────────────────────
+    // ⚠️ ACONTECEU EM 04/09/2026, e o Pedro viu antes de mim: ao ancorar um
+    // patch no `<!-- ⚠️ AS ABAS FALAM DO MÊS`, eu consumi o `<!--` e não o
+    // reemiti — o corpo inteiro do comentário passou a ser desenhado como texto
+    // no meio da barra de abas. O navegador não reclama, o `node --check` não
+    // olha HTML, e o detector da skill não pega: só se vê OLHANDO.
+    //
+    // A conta é simples: todo `-->` precisa de um `<!--` aberto antes dele.
+    const html = fs.readFileSync(path.join(__dirname, "../../public/admin.html"), "utf8");
+    let prof = 0; const orfaos = [];
+    for (const m of html.matchAll(/<!--|-->/g)) {
+      if (m[0] === "<!--") prof++;
+      else if (--prof < 0) { orfaos.push(html.slice(0, m.index).split("\n").length); prof = 0; }
+    }
+    ok("admin.html não tem comentário órfão virando texto na tela",
+       orfaos.length === 0 && prof === 0);
+    if (orfaos.length) console.log("    → `-->` sem abertura nas linhas:", orfaos.join(", "));
+    if (prof > 0) console.log("    →", prof, "comentário(s) sem fechar");
+
     // ── O render, aba por aba ────────────────────────────────────────────────
     const js = fs.readFileSync(path.join(__dirname, "../../public/admin.js"), "utf8");
     const ini = js.indexOf("function _pmFmtData");

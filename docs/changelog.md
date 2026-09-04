@@ -10151,6 +10151,36 @@ nota que explica o conserto. `node --check` pegou.
 Sem `?v=N`: a mudança é de backend.
 
 
+### 2026-09-04 (13ª rodada) · Um comentário HTML virou texto na tela
+
+O Pedro viu antes de mim, e colou o que estava lendo no painel: *", NÃO DA DATA
+DO PLANO (04/09/2026). Antes eram Vencidos · Em andamento… — por que isso está
+na tela de planos?"*.
+
+**Era um comentário meu, desenhado como texto no meio da barra de abas.** Ao
+inserir a navegação de mês, ancorei o patch em
+`<!-- ⚠️ AS ABAS FALAM DO MÊS` e **consumi o `<!--` sem reemiti-lo**: o corpo
+inteiro do comentário deixou de ser comentário.
+
+⚠️ **Nada acusa isso.** O navegador não reclama de `-->` solto, `node --check`
+não olha HTML, o detector da skill não pega, e o teste de render passava — ele
+exercita o `_pmRenderTudo`, e a barra de abas é HTML estático. Só se vê olhando
+a tela.
+
+⚠️ **É a segunda vez no mesmo dia que ancorar um patch quebra em silêncio.** A
+primeira foi a aba "Sem plano" em temporal dead zone. O padrão é o mesmo:
+**usar como âncora um trecho que precisa continuar existindo**, e não devolvê-lo.
+
+**Guarda nova em `planos-tela.test.js`:** todo `-->` precisa de um `<!--` aberto
+antes dele. Provado que pega — removendo o `<!--` daquela linha, o teste acusa
+`✗` e aponta a **linha 1363**; restaurado, **24/24**.
+
+Varri as sete páginas HTML do projeto: nenhuma outra tem comentário órfão.
+
+Sem `?v=N`: só o `admin.html` mudou, e ele é servido com `Cache-Control:
+no-cache` pelo `_htmlNoCache`.
+
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em
