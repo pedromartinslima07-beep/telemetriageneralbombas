@@ -223,6 +223,30 @@ const ok = (nome, cond) => r.push([nome, cond]);
     ok("preventiva de mês anterior aparece como atrasada",
        doPlano(t, b.plano) && doPlano(t, b.plano).atrasada === true);
 
+    // ── O plano que JA RODOU no mes continua na tela ──────────────────────
+    // ⚠️ O DEFEITO DE 04/09/2026, e ele esvaziava a tela inteira. O job rola
+    // `proxima_em` para o ciclo seguinte no instante em que abre o chamado —
+    // então, minutos depois de gerar as preventivas do mês, `proxima_em` já
+    // aponta para o mês QUE VEM e o filtro por ela sozinho não achava mais
+    // nada. Em produção: 69 chamados abertos e a competência de setembro
+    // listando ZERO plano. "na página do operador está tudo no mês de outubro".
+    const rolado = await pool.query(
+      `UPDATE planos_manutencao
+          SET proxima_em = ($1::date + INTERVAL '1 month' + INTERVAL '3 days')::date,
+              ultima_em  = $1::date
+        WHERE id = $2 RETURNING id`,
+      [comp + "-01", d.plano]
+    );
+    ok("(preparo) o plano rolou para o mês que vem", rolado.rowCount === 1);
+
+    const depois = await (await fetch(base + "/operador/preventivas?mes=" + comp, { headers: H })).json();
+    const rl = depois.planos.find((p) => p.id === d.plano);
+    ok("plano que já rodou no mês continua na competência dele", !!rl);
+    // Chamado aberto ganha de tudo (regra do `estadoDa`); sem ele, `ultima_em`
+    // no mês faz a linha sair como feita. Os dois provam que ela EXISTE.
+    ok("e sai como em campo ou feita, nunca sumindo", rl && ["em_campo", "feita"].includes(rl.estado));
+    ok("e NÃO conta como atrasada — a data já é do mês que vem", rl && !rl.atrasada);
+
     // ── As recusas ────────────────────────────────────────────────────────
     const semIds = await fetch(base + "/operador/preventivas/atribuir", {
       method: "POST", headers: H, body: JSON.stringify({ plano_ids: [], tecnico_id: tecZona }) });

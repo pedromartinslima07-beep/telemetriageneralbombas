@@ -228,6 +228,28 @@ roteiro enxerga 7 dias à frente: no fim do mês ele já mostra preventivas do m
 seguinte, e comparar com a escala de hoje faria a escala do mês que vem ser
 ignorada justamente na semana em que começa a valer.
 
+### ⚠️ Duas portas para o mês — `proxima_em` E `ultima_em` (04/09/2026)
+
+O filtro de competência **não pode olhar só `proxima_em`**. Essa coluna é a data
+da PRÓXIMA visita, e o job a rola para o ciclo seguinte **no instante em que
+abre o chamado** — então, minutos depois de gerar as preventivas do mês, ela já
+aponta para o mês que vem.
+
+Foi o que aconteceu em produção em 04/09: o job rodou às 15h24, empurrou os 73
+planos para 04/10, e a competência de setembro passou a listar **zero** — com 69
+chamados de setembro abertos. A tela esvaziava quando o mês começava.
+
+Um plano pertence à competência de dois jeitos: ou **vence** nela (ou antes, que
+é dívida — não há limite inferior), ou **já rodou** nela (`ultima_em` dentro do
+mês).
+
+⚠️ Isto **não** é o `feita_no_mes`: aquele decide o ESTADO da linha, este decide
+se a linha EXISTE.
+
+⚠️ O LATERAL do chamado aberto (`cha`) segue **sem recorte de mês**, de
+propósito — recortá-lo faria a tela oferecer despacho para um prédio que já tem
+chamado aberto de outro mês.
+
 ### Os quatro estados, e o que é "feita"
 
 | Estado | Quando |

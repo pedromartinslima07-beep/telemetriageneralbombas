@@ -578,7 +578,31 @@ router.get("/preventivas", authRequired, adminOnly, async (req, res) => {
           ORDER BY ch.fechado_em DESC LIMIT 1
        ) chf ON TRUE
        WHERE pm.ativo = TRUE
-         AND pm.proxima_em < ($1::date + INTERVAL '1 month')
+         -- ⚠️ DUAS PORTAS PARA O MES, E A SEGUNDA FALTAVA (04/09/2026).
+         -- (Sem crase em nenhum comentario daqui: eles vivem dentro de um
+         --  template literal, e a crase FECHA a string. Ver CLAUDE.md — e sim,
+         --  eu cai nessa de novo escrevendo justamente este comentario.)
+         --
+         -- proxima_em e a data da PROXIMA visita, e o job a ROLA para o ciclo
+         -- seguinte no instante em que abre o chamado (executarPlano). Com so a
+         -- primeira condicao, a preventiva saia desta tela exatamente quando o
+         -- trabalho dela COMECAVA: em 04/09 o job rodou as 15h24, rolou os 73
+         -- planos para 04/10, e setembro — com 69 chamados abertos — passou a
+         -- listar ZERO. O Pedro: "na pagina do operador esta tudo no mes de
+         -- outubro".
+         --
+         -- A pergunta da tela e "o que e o trabalho DESTE mes", e um plano e
+         -- desta competencia de dois jeitos: ou ele VENCE aqui (ou antes, que e
+         -- divida — por isso nao ha limite inferior), ou ele JA RODOU aqui.
+         -- ultima_em e a segunda porta: executarPlano grava
+         -- ultima_em = CURRENT_DATE na mesma transacao em que abre o chamado.
+         --
+         -- ⚠️ Nao e a mesma coisa que feita_no_mes la em cima: aquilo decide o
+         -- ESTADO da linha; isto decide se a linha EXISTE. Um plano que rodou e
+         -- cujo chamado ainda esta aberto entra por aqui e sai como "em campo".
+         AND (pm.proxima_em < ($1::date + INTERVAL '1 month')
+              OR (pm.ultima_em >= $1::date
+                  AND pm.ultima_em <  ($1::date + INTERVAL '1 month')))
        ORDER BY pm.proxima_em ASC, c.zona NULLS LAST, 8`,
       [competencia]
     );

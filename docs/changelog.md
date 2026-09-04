@@ -9759,6 +9759,63 @@ não escrita desaparece. Ao ouvir "normalmente a gente faz assim", escrever em
 `npx cap sync`).
 
 
+### 2026-09-04 (6ª rodada) · A tela de Preventivas esvaziava quando o mês começava
+
+*"na página do operador está tudo no mês de outubro, investiga pra mim"*.
+Levantado em produção:
+
+| competência | planos listados |
+|---|---|
+| setembro/2026 | **0** |
+| outubro/2026 | 73 |
+
+E havia **69 chamados de preventiva abertos de setembro** no mesmo instante. A
+tela que existe para responder *"o que falta fazer neste mês"* mostrava o estado
+vazio no dia em que o mês inteiro entrou em execução.
+
+**A causa, em uma linha:** o filtro de competência olhava **só `proxima_em`** —
+a data da PRÓXIMA visita —, e o job **rola essa data para o ciclo seguinte no
+instante em que abre o chamado** (`executarPlano`). Às 15h24 de hoje o job gerou
+os 69 chamados e empurrou os 73 planos para 04/10; a partir daí nenhum deles
+casava com `proxima_em < 01/10`.
+
+> A preventiva saía da tela exatamente quando o trabalho dela começava.
+
+**O conserto: duas portas para o mês.** Um plano pertence à competência de dois
+jeitos — ou ele **vence** nela (ou antes, que é dívida: por isso não há limite
+inferior), ou ele **já rodou** nela. A segunda porta é `ultima_em`, que
+`executarPlano` grava na mesma transação em que abre o chamado:
+
+```sql
+AND (pm.proxima_em < ($1::date + INTERVAL '1 month')
+     OR (pm.ultima_em >= $1::date
+         AND pm.ultima_em <  ($1::date + INTERVAL '1 month')))
+```
+
+Medido depois, contra a produção: setembro volta a listar **69**, todos em
+"em campo"; outubro segue com 73; agosto continua 0. Nenhuma linha nova aparece
+onde não devia.
+
+⚠️ **Não é a mesma coisa que `feita_no_mes`**, e a confusão é fácil: aquele
+decide o **estado** da linha, este decide se a linha **existe**.
+
+⚠️ **O `cha` (chamado aberto) continua SEM recorte de mês, de propósito.**
+Recortá-lo faria a tela mostrar "a fazer" para um plano com chamado aberto de
+outro mês — e dois despachos para o mesmo prédio é o defeito que esta tela
+existe para evitar. O preço é outubro exibir "em campo" enquanto o chamado de
+setembro não fechar, e ele é o menor dos dois.
+
+⚠️ **Errei a crase dentro do template literal de novo** — escrevendo justamente
+o comentário deste conserto. `node --check` pegou na hora. Todo comentário
+naquela query vai sem crase, e agora está escrito lá.
+
+Quatro asserções novas em `scripts/testes/preventivas-mes.test.js`, que rolam o
+plano para o mês seguinte e conferem que ele não some da competência em que
+rodou. **37/37 passam.**
+
+Sem `?v=N`: a mudança é de backend.
+
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em
