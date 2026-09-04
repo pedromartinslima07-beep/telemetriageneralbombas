@@ -568,8 +568,13 @@ router.get("/preventivas", authRequired, adminOnly, async (req, res) => {
          zr.tecnico_id            AS zona_tecnico_id,
          tz.nome                  AS zona_tecnico_nome,
 
-         cha.id     AS chamado_aberto_id,
-         cha.status AS chamado_aberto_status,
+         cha.id         AS chamado_aberto_id,
+         cha.status     AS chamado_aberto_status,
+         -- ⚠️ QUEM ESTA NO CHAMADO ABERTO (04/09/2026). "Em campo" so e verdade
+         -- se alguem foi: o job cria o chamado do mes sozinho, sem tecnico, e
+         -- sem esta coluna o estadoDa lia 69 planos como "em campo" com NINGUEM
+         -- em campo — e a tela esconde o despacho nesse estado. Ver estadoDa.
+         cha.tecnico_id AS chamado_aberto_tecnico_id,
          chf.id     AS chamado_fechado_id,
          chf.fechado_em,
          (pm.ultima_em IS NOT NULL
@@ -590,7 +595,7 @@ router.get("/preventivas", authRequired, adminOnly, async (req, res) => {
        ) zr ON TRUE
        LEFT JOIN tecnicos tz ON tz.id = zr.tecnico_id
        LEFT JOIN LATERAL (
-         SELECT ch.id, ch.status FROM chamados ch
+         SELECT ch.id, ch.status, ch.tecnico_id FROM chamados ch
           WHERE ch.plano_manutencao_id = pm.id
             AND ch.status NOT IN ('fechado', 'cancelado')
           ORDER BY ch.id DESC LIMIT 1
@@ -757,12 +762,60 @@ router.post("/preventivas/atribuir", authRequired, adminOnly, async (req, res) =
       );
     }
 
+    // ⚠️ O DESPACHO ADOTA O CHAMADO QUE JA EXISTE (04/09/2026).
+    //
+    // O job cria o chamado P4 do mes sozinho e SEM tecnico. Ate aqui, escalar
+    // gravava so em `planos_atribuicoes` — o chamado continuava orfao, o
+    // tecnico nao via o servico no app dele, e o proprio chamado sumia da fila
+    // do turno (o filtro de 04/09 so mostra preventiva `em_atendimento`).
+    // Ou seja: o operador despachava e o servico nao chegava a ninguem.
+    //
+    // ⚠️ SO O CHAMADO ABERTO, e so o do plano escalado. Fechado e cancelado
+    // ficam como estao: sao passado, e reescrever o tecnico neles reescreveria
+    // a historia de quem fez o servico.
+    //
+    // ⚠️ NA MESMA TRANSACAO da escala. Meio despachado — escala gravada e
+    // chamado sem dono, ou o contrario — e a divergencia que esta tela existe
+    // para nao ter.
+    //
+    // Desescalar (`tecId` nulo) tambem limpa: o chamado volta a esperar alguem,
+    // que e o que a tela passa a mostrar.
+    const chamados = await client.query(
+      `SELECT ch.id, ch.tecnico_id
+         FROM chamados ch
+        WHERE ch.plano_manutencao_id = ANY($1::int[])
+          AND ch.status IN ('aberto', 'em_atendimento')
+          AND ch.tecnico_id IS DISTINCT FROM $2::int
+        FOR UPDATE`,
+      [idsOk, tecId]
+    );
+    if (chamados.rows.length) {
+      await client.query(
+        `UPDATE chamados SET tecnico_id = $2::int WHERE id = ANY($1::int[])`,
+        [chamados.rows.map((c) => c.id), tecId]
+      );
+      // O historico do chamado e a memoria de quem mandou quem — despacho que
+      // nao passa pela tela do chamado sumiria dele.
+      for (const c of chamados.rows) {
+        await registrarMudancas({
+          client,
+          chamadoId: c.id,
+          antes: { tecnico_id: c.tecnico_id },
+          depois: { tecnico_id: tecId },
+          alteradoPor: req.user.id,
+        });
+      }
+    }
+
     await client.query("COMMIT");
     return res.json({
       ok: true,
       competencia,
       mes: mesDe(competencia),
       atribuidos: idsOk.length,
+      // Quantos chamados ja existentes mudaram de dono junto — a tela usa para
+      // dizer que o servico foi mesmo parar no app de alguem.
+      chamados_atualizados: chamados.rows.length,
       // Os ids que a tela mandou e não existem mais: ela some com eles em vez
       // de deixar linha fantasma marcada.
       ignorados: ids.filter((n) => !idsOk.includes(n)),

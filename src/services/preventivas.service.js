@@ -54,10 +54,23 @@ const ESTADOS = ["a_fazer", "escalada", "em_campo", "feita"];
 // rota, já com o fallback da zona aplicado). Resultado: NENHUM plano entrava
 // em "escalada", e se entrasse seria pelo motivo errado — todo prédio de zona
 // com responsável apareceria como escalado sem ninguém ter escalado nada.
+// ⚠️ "EM CAMPO" É CHAMADO ABERTO **COM TÉCNICO** (04/09/2026), e a palavra que
+// faltava era essa. O job cria o chamado do mês sozinho, de madrugada, sem
+// responsável nenhum — e a versão anterior lia qualquer chamado aberto como
+// "em campo". Resultado medido em produção no dia em que o mês virou: **69
+// planos em "em campo" com ZERO técnico**, e a tela de Preventivas esconde a
+// caixa de marcar, o botão da zona e a barra de despacho nesse estado.
+//
+// O operador ficou sem a única ação que a tela tem, no dia em que ela mais
+// importa. O Pedro: "por que não está aparecendo para atribuir técnico?".
+//
+// Chamado aberto SEM técnico não é serviço andando: é serviço esperando alguém,
+// que é exatamente o que "a fazer" (ou "escalada") já diz. O chamado continua
+// existindo — quem despacha o adota, em vez de criar um segundo.
 function estadoDa(linha) {
   if (linha.chamado_fechado_id) return "feita";
   if (!linha.chamado_aberto_id && linha.feita_no_mes) return "feita";
-  if (linha.chamado_aberto_id) return "em_campo";
+  if (linha.chamado_aberto_id && linha.chamado_aberto_tecnico_id) return "em_campo";
   if (linha.atribuido_tecnico_id) return "escalada";
   return "a_fazer";
 }

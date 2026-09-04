@@ -315,6 +315,26 @@ Recusa responde **400** (campo do corpo inválido), não 404.
 `operador.routes.js` antes: ele já traz a regra e o aviso de que a tela e a
 gravação têm de responder igual.
 
+### ⚠️ "Em campo" é chamado aberto COM técnico (04/09/2026)
+
+O job cria o chamado P4 do mês **sozinho e sem responsável**. Enquanto o
+`estadoDa` lia qualquer chamado aberto como `em_campo`, os 69 planos de setembro
+ficaram nesse estado com **zero técnico em campo** — e a tela esconde a caixa de
+marcar, o botão da zona e a barra de despacho ali. O operador perdeu a única
+ação da tela no dia em que ela mais importa.
+
+Chamado órfão **não** é serviço andando: é serviço esperando alguém, que é o que
+`a_fazer` já diz.
+
+⚠️ **E o despacho ADOTA esse chamado.** Escalar não cria um segundo: o
+`POST /operador/preventivas/atribuir` põe o técnico no chamado aberto do plano,
+na mesma transação da escala. Sem isso o operador despachava e o serviço não
+chegava a ninguém — o chamado ficava órfão, fora do app do técnico e fora da
+fila do turno.
+
+⚠️ Só o **aberto**. Fechado e cancelado são passado. Desescalar limpa junto, e a
+troca vai para o histórico do chamado.
+
 ### O despacho
 
 Agrupado por **zona**, porque é por zona que a decisão se toma ("a Zona Leste vai

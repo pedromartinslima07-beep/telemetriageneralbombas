@@ -189,9 +189,14 @@ const ok = (nome, cond) => r.push([nome, cond]);
 
     // ── Em campo e feita ──────────────────────────────────────────────────
     const chAberto = await pool.query(
-      `INSERT INTO chamados (condominio_id, titulo, descricao, prioridade, categoria, status, plano_manutencao_id)
-       VALUES ($1, 'Preventiva C', 'em campo', 'p4', 'manutencao', 'aberto', $2) RETURNING id`,
-      [c.condo, c.plano]
+      // ⚠️ COM TECNICO, e isso passou a ser obrigatorio em 04/09/2026: "em
+      // campo" e chamado aberto **com alguem nele**. O job cria o chamado do
+      // mes sem responsavel, e chamado orfao nao e servico andando — e servico
+      // esperando alguem. A fixture sem tecnico virou o caso do bloco
+      // "chamado aberto SEM tecnico volta a ser despachavel", la embaixo.
+      `INSERT INTO chamados (condominio_id, titulo, descricao, prioridade, categoria, status, plano_manutencao_id, tecnico_id)
+       VALUES ($1, 'Preventiva C', 'em campo', 'p4', 'manutencao', 'aberto', $2, $3) RETURNING id`,
+      [c.condo, c.plano, tecZona]
     );
     lixo.chamados.push(chAberto.rows[0].id);
 
@@ -203,7 +208,7 @@ const ok = (nome, cond) => r.push([nome, cond]);
     lixo.chamados.push(chFechado.rows[0].id);
 
     t = await tela();
-    ok("chamado aberto → em campo", doPlano(t, c.plano).estado === "em_campo");
+    ok("chamado aberto COM técnico → em campo", doPlano(t, c.plano).estado === "em_campo");
     ok("chamado fechado no mês → feita", doPlano(t, d.plano).estado === "feita");
 
     // ⚠️ `ultima_em` no mês SEM chamado também conta como feita — é a execução
@@ -212,7 +217,7 @@ const ok = (nome, cond) => r.push([nome, cond]);
     await pool.query("UPDATE planos_manutencao SET ultima_em = CURRENT_DATE WHERE id = $1", [c.plano]);
     t = await tela();
     ok("ultima_em no mês, sem chamado → feita", doPlano(t, a.plano).estado === "feita");
-    ok("mas chamado ABERTO ganha de ultima_em", doPlano(t, c.plano).estado === "em_campo");
+    ok("mas chamado ABERTO COM TECNICO ganha de ultima_em", doPlano(t, c.plano).estado === "em_campo");
 
     // ── O atraso ──────────────────────────────────────────────────────────
     await pool.query(
@@ -222,6 +227,44 @@ const ok = (nome, cond) => r.push([nome, cond]);
     t = await tela();
     ok("preventiva de mês anterior aparece como atrasada",
        doPlano(t, b.plano) && doPlano(t, b.plano).atrasada === true);
+
+    // ── Chamado aberto SEM técnico não é "em campo" ───────────────────────
+    // ⚠️ O DEFEITO DE 04/09/2026, e ele travava a tela inteira. O job cria o
+    // chamado do mês sozinho e sem responsável; a versão anterior lia qualquer
+    // chamado aberto como "em campo", e a tela ESCONDE a caixa de marcar, o
+    // botão da zona e a barra de despacho nesse estado. Medido em produção: 69
+    // planos "em campo" com ZERO técnico, e o operador sem a única ação da
+    // tela. "por que não está aparecendo para atribuir técnico?"
+    await pool.query("UPDATE chamados SET tecnico_id = NULL WHERE id = $1", [chAberto.rows[0].id]);
+    let tEC = await tela();
+    ok("chamado aberto SEM técnico volta a ser despachável",
+       doPlano(tEC, c.plano) && doPlano(tEC, c.plano).estado !== "em_campo");
+
+    await pool.query("UPDATE chamados SET tecnico_id = $2 WHERE id = $1",
+                     [chAberto.rows[0].id, tecZona]);
+    tEC = await tela();
+    ok("e com técnico volta a ser em campo", doPlano(tEC, c.plano).estado === "em_campo");
+
+    // ── Despachar ADOTA o chamado que já existe ───────────────────────────
+    // Sem isto o operador escalava e o serviço não chegava a ninguém: a escala
+    // ia para planos_atribuicoes e o chamado seguia órfão, fora do app do
+    // técnico e fora da fila do turno.
+    await pool.query("UPDATE chamados SET tecnico_id = NULL WHERE id = $1", [chAberto.rows[0].id]);
+    const rAdota = await escalar([c.plano], tecOutro);
+    ok("escalar responde 200", rAdota.status === 200);
+    const corpo = await rAdota.json();
+    ok("e diz quantos chamados mudaram de dono", corpo.chamados_atualizados === 1);
+    const dono = await pool.query("SELECT tecnico_id FROM chamados WHERE id = $1", [chAberto.rows[0].id]);
+    ok("o chamado aberto passou para o técnico escalado", dono.rows[0].tecnico_id === tecOutro);
+    const hist = await pool.query(
+      `SELECT count(*)::int n FROM historico_chamados
+        WHERE chamado_id = $1 AND campo_alterado = 'tecnico_id'`, [chAberto.rows[0].id]);
+    ok("e o histórico do chamado registrou a troca", hist.rows[0].n >= 1);
+
+    // Desescalar devolve o chamado para "esperando alguém".
+    await escalar([c.plano], null);
+    const semDono = await pool.query("SELECT tecnico_id FROM chamados WHERE id = $1", [chAberto.rows[0].id]);
+    ok("desescalar limpa o técnico do chamado também", semDono.rows[0].tecnico_id === null);
 
     // ── A preventiva NAO polui a fila do turno ────────────────────────────
     // ⚠️ Pedido do Pedro (04/09/2026): "não é pra as preventivas ficar na tela

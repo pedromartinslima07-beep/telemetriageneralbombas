@@ -9864,6 +9864,57 @@ Três asserções novas: a preventiva aberta fica fora, entra ao virar
 Sem `?v=N`: a mudança é de backend.
 
 
+### 2026-09-04 (8ª rodada) · "Em campo" com ninguém em campo travava o despacho
+
+*"por que não está aparecendo para atribuir técnico?"*. Medido na produção:
+
+| | |
+|---|---|
+| planos de setembro | 69 |
+| estado deles | **`em_campo`, todos** |
+| técnicos em campo | **zero** |
+| caixas de marcar na tela | **0** · botões de zona **0** · barra de despacho **ausente** |
+
+A tela esconde a caixa de marcar, o botão da zona e a barra de despacho no
+estado `em_campo` — e com razão: despachar por cima de quem já está no prédio
+manda duas pessoas. Só que **ninguém estava no prédio**. O job cria o chamado P4
+do mês sozinho, sem responsável, e o `estadoDa` lia **qualquer** chamado aberto
+como "em campo". O operador ficou sem a única ação da tela, no dia em que ela
+mais importa — e isso ia se repetir todo mês.
+
+**Duas partes, e a segunda é a que faltava de verdade.**
+
+**1. "Em campo" é chamado aberto COM técnico.** Chamado órfão não é serviço
+andando, é serviço esperando alguém — que é o que "a fazer" já diz. A query
+passou a trazer `cha.tecnico_id`, e o `estadoDa` a exigi-lo. Conferido contra a
+produção: os 69 voltam a `a_fazer`, **69 despacháveis**.
+
+**2. O despacho ADOTA o chamado que já existe.** Até aqui escalar gravava só em
+`planos_atribuicoes` — o chamado seguia órfão, fora do app do técnico e, desde a
+7ª rodada de hoje, fora também da fila do turno. **O operador despachava e o
+serviço não chegava a ninguém.** Agora o `POST /operador/preventivas/atribuir`
+põe o técnico no chamado aberto do plano, na **mesma transação** da escala, e
+devolve `chamados_atualizados`.
+
+⚠️ **Só o chamado ABERTO.** Fechado e cancelado ficam como estão: são passado, e
+reescrever o técnico neles reescreveria a história de quem fez o serviço.
+
+⚠️ **Desescalar limpa junto** — o chamado volta a esperar alguém, que é o que a
+tela passa a mostrar.
+
+⚠️ **O histórico do chamado registra a troca** (`registrarMudancas`), com o id de
+quem despachou. Despacho que não passa pela tela do chamado sumiria dele.
+
+**Duas asserções antigas mudaram de texto, e é o certo:** a fixture criava o
+chamado sem técnico e afirmava "chamado aberto → em campo". Sob a regra nova
+isso é falso — o chamado ganhou `tecnico_id` no seed, e o caso sem técnico virou
+bloco próprio. Sete asserções novas ao todo. **47/47 passam.**
+
+Sem `?v=N`: a mudança é de backend. A frase de sucesso da tela ("N preventivas
+enviadas para X") continua verdadeira e não foi tocada — mexer em copy é decisão
+do Pedro.
+
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em
