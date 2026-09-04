@@ -9430,99 +9430,6 @@ se ninguém olhar.
 `?v=N`: `operador-preventivas.js` 1 → 2 (a folha não mudou).
 
 
-### 2026-09-04 (2ª rodada) · O chamado aberto por engano só tinha uma saída: mentir
-
-Pergunta do Pedro: *"tem como cancelar um chamado hj?"*. Não tinha. O
-`chamados.status` aceitava três valores — `aberto`, `em_atendimento`,
-`fechado` — e a única forma de tirar da fila um chamado duplicado, aberto por
-engano ou cujo cliente desistiu era **fechar**.
-
-⚠️ **E FECHAR NÃO É NEUTRO.** `PATCH /chamados/:id` com `status: "fechado"`
-grava `fechado_em` e `tempo_resolucao_seg`, marca `primeira_resposta_em` (TTFR)
-e joga o chamado no numerador da taxa de resolução e na média de tempo do
-painel. Cada engano entrava nas quatro contas como **atendimento cumprido** —
-e `primeira_resposta_em` sai cru no CSV de `GET /relatorios/chamados`.
-
-⚠️ **A PISTA ESTAVA NO CÓDIGO E NINGUÉM TINHA LIDO ASSIM.**
-`planos-manutencao.routes.js` e `planos-manutencao.job.js` já filtravam
-`status NOT IN ('fechado', 'cancelado')`, e o
-[app-mobile.md](modulos/app-mobile.md) documentava o anti-duplicidade
-"enquanto ele não estiver `fechado`/`cancelado`". Três lugares descreviam um
-status que o CHECK do banco recusava. Ninguém percebia porque `NOT IN` com um
-valor impossível funciona igual.
-
-**Migration 083** — CHECK recriado (DROP + ADD na mesma transação, como a 081
-de `categoria`: o Postgres não tem "ADD VALUE" para CHECK), mais
-`cancelado_em TIMESTAMPTZ` e `cancelado_motivo TEXT`.
-
-⚠️ **`cancelado_em` é coluna própria, não reuso de `fechado_em`** — `fechado_em`
-é lido pelo CSV e pelos KPIs como "quando o serviço terminou"; escrever
-cancelamento nele faria a métrica mentir exatamente onde a migration existe para
-parar de mentir.
-
-**Na rota** (`PATCH /chamados/:id`): `cancelado` é `GESTAO_ROLES` (admin e
-gerente; o operador leva **403** — fechar é o dia dele, apagar da métrica um
-chamado que existiu é decisão de negócio) e **exige `motivo`** com 5 caracteres
-no mínimo. Cancelar chamado **já fechado** é **409**: fechado tem O.S. e talvez
-avaliação do cliente penduradas, e cancelar apagaria da métrica um atendimento
-que aconteceu — o caminho é reabrir, depois cancelar. Reabrir um cancelado não
-limpa o motivo; ele fica como memória, igual ao `fechado_em`.
-
-⚠️ **"EM ABERTO" VIROU O CONTRÁRIO DE DUAS COISAS, e esse foi o grosso do
-trabalho.** Existiam **oito** `status != 'fechado'` no backend e **doze**
-`ch.status !== "fechado"` no `admin.js` que passariam a contar chamado
-cancelado como fila viva: a fila do técnico (`?abertos=1`), o dedup de
-`abrirChamadoAuto` (que deixaria de reabrir o chamado automático), o guard
-anti-duplicata da IA, `chamados_abertos` por técnico, o badge do menu, o
-contador por condomínio, o KPI de críticos. Backend virou
-`NOT IN ('fechado','cancelado')`; cada front ganhou **um** helper —
-`_chEmAberto` no `admin.js`, `chEmAberto` no `app.js` (serve as duas telas do
-app).
-
-⚠️ **O ORÇAMENTO SUMIA COMO EXECUTADO PORQUE O SERVIÇO DEIXOU DE SER FEITO.**
-`execucao()` no `operador-orcamentos.js` lia qualquer chamado não-aberto como
-`feito`, e `estaFeito()` tira o orçamento da lista de Aprovados. Cancelado
-devolve `livre`, com selo "Chamado #N cancelado" — o orçamento **volta** a
-pedir execução. Mesma correção no `_avExecBadge` do admin, que dizia "já foi
-fechado": as duas telas mostram o mesmo selo e têm de escolher pelo mesmo
-critério. O comentário do `operador-orcamentos.js` afirmando que "não existe
-cancelado" era de 03/09 e virou a documentação do próprio conserto.
-
-**Na tela (admin):** botão "✕ Cancelar" na ficha, ao lado de "✓ Fechar", **de
-fio e por último** — o verde preenchido continua sendo o do desfecho que a tela
-quer; cancelar é a saída de exceção. Nada de `btnDanger`: vermelho aqui é
-destruição irreversível (hard delete de condomínio), e isto vira "↺ Reabrir" na
-hora. Escondido para o perfil `operador`, que levaria 403. Modal próprio
-(`#cancelarChamadoOverlay`, esqueleto do `#hardDeleteOverlay`) porque o motivo é
-obrigatório. Aba "Cancelados" na lista, selo `ch-st-cancelado` o mais apagado
-dos quatro.
-
-⚠️ **O KPI "% resolvido" perdeu o cancelado do DENOMINADOR** — ele mede quanto
-do que a equipe pegou ela entregou, e contar como não-entregue algo que nunca
-foi trabalho derrubaria a taxa por causa de erro de digitação.
-
-**Cliente vê o motivo**, no painel e no app: "Cancelado pela equipe" + o texto,
-na linha do tempo e no lugar do campo de resposta. Quem abriu o pedido é quem
-mais precisa saber por que ele saiu da fila; sumir calado é o começo de um
-telefonema.
-
-⚠️ **A MIGRATION NASCEU 082 E FOI RENUMERADA PARA 083** — já existiam
-`082_planos_atribuicoes.sql` e um par duplicado em 081. Conferir `ls
-migrations/` antes de escolher o número, não só a última que o changelog cita.
-
-Migration 083 aplicada nos **dois bancos** (teste e produção) em 04/09; o
-CHECK de prod foi conferido em `pg_constraint` depois de rodar. Teste:
-`scripts/testes/cancelar-chamado.test.js` — 23 checagens, rota de verdade
-(regra do CLAUDE.md: rota que grava só se prova exercitando o endpoint).
-⚠️ A primeira versão dele bateu em `GET /chamados?abertos=1` e passou por
-engano: o atalho é do `/chamados/meus`, e o `/chamados` do painel ignora o
-parâmetro calado. Rodados também os 12 testes existentes — todos verdes.
-
-`?v=N`: `admin.css` 251 → 252, `admin.js` 335 → 336, `cliente.js` 41 → 42,
-`operador-orcamentos.js` 20 → 21. `sw.js` intocado — `/chamados` e `/cliente`
-já são network first e nenhum endpoint novo nasceu.
-
-
 ### 2026-09-04 (2ª rodada) · Refino de Preventivas, e a barra de despacho no lugar certo
 
 *"um refino a essa tela toda, levando as outras como padrão"* e *"melhore o
@@ -9638,6 +9545,106 @@ desenho, não defeito.
 
 `?v=N`: `operador.css` 89 → 90 (nas três páginas), `operador-orcamentos.js`
 21 → 22.
+
+
+### 2026-09-04 (4ª rodada) · O chamado aberto por engano só tinha uma saída: mentir
+
+Pergunta do Pedro: *"tem como cancelar um chamado hj?"*. Não tinha. O
+`chamados.status` aceitava três valores — `aberto`, `em_atendimento`,
+`fechado` — e a única forma de tirar da fila um chamado duplicado, aberto por
+engano ou cujo cliente desistiu era **fechar**.
+
+⚠️ **E FECHAR NÃO É NEUTRO.** `PATCH /chamados/:id` com `status: "fechado"`
+grava `fechado_em` e `tempo_resolucao_seg`, marca `primeira_resposta_em` (TTFR)
+e joga o chamado no numerador da taxa de resolução e na média de tempo do
+painel. Cada engano entrava nas quatro contas como **atendimento cumprido** —
+e `primeira_resposta_em` sai cru no CSV de `GET /relatorios/chamados`.
+
+⚠️ **A PISTA ESTAVA NO CÓDIGO E NINGUÉM TINHA LIDO ASSIM.**
+`planos-manutencao.routes.js` e `planos-manutencao.job.js` já filtravam
+`status NOT IN ('fechado', 'cancelado')`, e o
+[app-mobile.md](modulos/app-mobile.md) documentava o anti-duplicidade
+"enquanto ele não estiver `fechado`/`cancelado`". Três lugares descreviam um
+status que o CHECK do banco recusava. Ninguém percebia porque `NOT IN` com um
+valor impossível funciona igual.
+
+**Migration 083** — CHECK recriado (DROP + ADD na mesma transação, como a 081
+de `categoria`: o Postgres não tem "ADD VALUE" para CHECK), mais
+`cancelado_em TIMESTAMPTZ` e `cancelado_motivo TEXT`.
+
+⚠️ **`cancelado_em` é coluna própria, não reuso de `fechado_em`** — `fechado_em`
+é lido pelo CSV e pelos KPIs como "quando o serviço terminou"; escrever
+cancelamento nele faria a métrica mentir exatamente onde a migration existe para
+parar de mentir.
+
+**Na rota** (`PATCH /chamados/:id`): `cancelado` é `GESTAO_ROLES` (admin e
+gerente; o operador leva **403** — fechar é o dia dele, apagar da métrica um
+chamado que existiu é decisão de negócio) e **exige `motivo`** com 5 caracteres
+no mínimo. Cancelar chamado **já fechado** é **409**: fechado tem O.S. e talvez
+avaliação do cliente penduradas, e cancelar apagaria da métrica um atendimento
+que aconteceu — o caminho é reabrir, depois cancelar. Reabrir um cancelado não
+limpa o motivo; ele fica como memória, igual ao `fechado_em`.
+
+⚠️ **"EM ABERTO" VIROU O CONTRÁRIO DE DUAS COISAS, e esse foi o grosso do
+trabalho.** Existiam **oito** `status != 'fechado'` no backend e **doze**
+`ch.status !== "fechado"` no `admin.js` que passariam a contar chamado
+cancelado como fila viva: a fila do técnico (`?abertos=1`), o dedup de
+`abrirChamadoAuto` (que deixaria de reabrir o chamado automático), o guard
+anti-duplicata da IA, `chamados_abertos` por técnico, o badge do menu, o
+contador por condomínio, o KPI de críticos. Backend virou
+`NOT IN ('fechado','cancelado')`; cada front ganhou **um** helper —
+`_chEmAberto` no `admin.js`, `chEmAberto` no `app.js` (serve as duas telas do
+app).
+
+⚠️ **O ORÇAMENTO SUMIA COMO EXECUTADO PORQUE O SERVIÇO DEIXOU DE SER FEITO.**
+`execucao()` no `operador-orcamentos.js` lia qualquer chamado não-aberto como
+`feito`, e `estaFeito()` tira o orçamento da lista de Aprovados. Cancelado
+devolve `livre`, com selo "Chamado #N cancelado" — o orçamento **volta** a
+pedir execução. Mesma correção no `_avExecBadge` do admin, que dizia "já foi
+fechado": as duas telas mostram o mesmo selo e têm de escolher pelo mesmo
+critério. O comentário do `operador-orcamentos.js` afirmando que "não existe
+cancelado" era de 03/09 e virou a documentação do próprio conserto.
+
+**Na tela (admin):** botão "✕ Cancelar" na ficha, ao lado de "✓ Fechar", **de
+fio e por último** — o verde preenchido continua sendo o do desfecho que a tela
+quer; cancelar é a saída de exceção. Nada de `btnDanger`: vermelho aqui é
+destruição irreversível (hard delete de condomínio), e isto vira "↺ Reabrir" na
+hora. Escondido para o perfil `operador`, que levaria 403. Modal próprio
+(`#cancelarChamadoOverlay`, esqueleto do `#hardDeleteOverlay`) porque o motivo é
+obrigatório. Aba "Cancelados" na lista, selo `ch-st-cancelado` o mais apagado
+dos quatro.
+
+⚠️ **O KPI "% resolvido" perdeu o cancelado do DENOMINADOR** — ele mede quanto
+do que a equipe pegou ela entregou, e contar como não-entregue algo que nunca
+foi trabalho derrubaria a taxa por causa de erro de digitação.
+
+**Cliente vê o motivo**, no painel e no app: "Cancelado pela equipe" + o texto,
+na linha do tempo e no lugar do campo de resposta. Quem abriu o pedido é quem
+mais precisa saber por que ele saiu da fila; sumir calado é o começo de um
+telefonema.
+
+⚠️ **A MIGRATION NASCEU 082 E FOI RENUMERADA PARA 083** — já existiam
+`082_planos_atribuicoes.sql` e um par duplicado em 081. Conferir `ls
+migrations/` antes de escolher o número, não só a última que o changelog cita.
+
+Migration 083 aplicada nos **dois bancos** (teste e produção) em 04/09; o
+CHECK de prod foi conferido em `pg_constraint` depois de rodar. Teste:
+`scripts/testes/cancelar-chamado.test.js` — 23 checagens, rota de verdade
+(regra do CLAUDE.md: rota que grava só se prova exercitando o endpoint).
+⚠️ A primeira versão dele bateu em `GET /chamados?abertos=1` e passou por
+engano: o atalho é do `/chamados/meus`, e o `/chamados` do painel ignora o
+parâmetro calado. Rodados também os 12 testes existentes — todos verdes.
+
+`?v=N`: `admin.css` 251 → 252, `admin.js` 335 → 336, `cliente.js` 41 → 42.
+`sw.js` intocado — `/chamados` e `/cliente` já são network first e nenhum
+endpoint novo nasceu.
+
+⚠️ **ESTA RODADA CORREU EM PARALELO COM A 2ª/3ª e o `operador-orcamentos.js` é
+de ambas.** O `execucao()` daqui foi commitado junto com o refino de Preventivas
+(093531f), que levou o arquivo para `?v=22` — por isso o bump 20 → 21 desta
+rodada não aparece em lugar nenhum: ele foi absorvido. **`_aprovados-preview.html`
+tem de andar junto**, senão a prévia serve uma versão do script e a página real
+serve outra.
 
 
 > Decisões, itens descartados e backlog futuro:

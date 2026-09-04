@@ -163,7 +163,7 @@ Evolução das colunas:
 
 **`chamados`** — chamado de suporte (manual, do cliente ou da IA).
 `id`, `conversa_id (SET NULL)`, `condominio_id (SET NULL)`, `status
-(aberto|em_atendimento|fechado)`, `prioridade`, `titulo`, `descricao`,
+(aberto|em_atendimento|fechado|cancelado)`, `prioridade`, `titulo`, `descricao`,
 `responsavel_id`, `criado_em`, `atualizado_em`, `fechado_em`.
 Evolução:
 - 002: `categoria (vazamento|bomba_falha|nivel_baixo|sem_agua|ruido|manutencao|outro)`
@@ -177,6 +177,9 @@ Evolução:
 - 028: prioridade CHECK migra para `p1|p2|p3|p4` (default `p3`) +
   `tecnico_a_caminho_em`, `tecnico_chegou_em` (SLA de chegada)
 - 032: `plano_manutencao_id`
+- 083: `status` aceita `cancelado` + `cancelado_em`, `cancelado_motivo` — ver
+  a entrada da migration 083 abaixo e
+  [chamados-sla.md](modulos/chamados-sla.md)
 - 079: `orcamento_id (SET NULL)` + `idx_chamados_orcamento` (parcial) — o
   chamado que EXECUTA um orçamento aprovado. **Não é UNIQUE de propósito:**
   um orçamento pode gerar mais de um chamado (o serviço volta); quem impede
@@ -373,6 +376,37 @@ nascidos de O.S. que ficaram com o DEFAULT `'admin'`.
 
 `chamados` ganha `equipamento_id (SET NULL)` + `idx_chamados_equipamento` —
 permite ver reincidência sem passar pela O.S.
+
+**Migration 083** — `chamados.status` passa a aceitar **`cancelado`**, e a
+tabela ganha `cancelado_em TIMESTAMPTZ` + `cancelado_motivo TEXT`.
+
+⚠️ **`cancelado` NÃO é sinônimo de `fechado`, e a diferença é a razão da
+migration existir.** `fechado` é o que alimenta `tempo_resolucao_seg`, a taxa
+de resolução e o tempo médio do painel — ele afirma que o serviço foi prestado.
+Até aqui o chamado aberto por engano, duplicado, ou cujo cliente desistiu só
+tinha essa saída: cada engano entrava nas três contas como atendimento
+cumprido. `cancelado` tira o chamado da fila **sem** escrever nenhuma das três.
+
+⚠️ **`cancelado_em` é coluna própria, não reuso de `fechado_em`.** `fechado_em`
+sai cru no CSV de `GET /relatorios/chamados` e é lido pelos KPIs como "quando o
+serviço terminou". Escrever cancelamento nele faria a métrica mentir
+exatamente onde esta migration existe para parar de mentir. Pelo mesmo motivo
+`primeira_resposta_em` (TTFR) **não** é marcada ao cancelar: cancelar não é
+responder.
+
+⚠️ **O motivo é obrigatório na rota, não no banco.** `PATCH /chamados/:id`
+recusa `status: "cancelado"` sem `motivo` (mín. 5 caracteres) — chamado que
+some sem o porquê recria a ambiguidade que o `fechado` tinha. O `NOT NULL`
+ficou de fora só porque a coluna nasce vazia nas linhas que já existiam.
+
+⚠️ **Recriar o CHECK, não somar o valor** — o Postgres não tem "ADD VALUE" para
+CHECK como tem para ENUM. `DROP` + `ADD` na mesma transação, igual à 081 de
+`categoria`. O nome `chamados_status_check` é o gerado pelo CHECK inline da
+migration 001, conferido contra `pg_constraint` antes de escrever a migration.
+
+Reabrir um cancelado (`status: "aberto"`) **não limpa** `cancelado_em`/
+`cancelado_motivo`: ficam como memória do último cancelamento, pela mesma
+regra do `fechado_em` na reabertura.
 
 **Migration 081** — `ordens_servico.sincronizada_em TIMESTAMPTZ` +
 `idx_os_sincronizada_em` (parcial, `WHERE sincronizada_em IS NOT NULL`): quando

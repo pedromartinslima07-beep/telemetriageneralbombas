@@ -18,7 +18,7 @@
   <link rel="stylesheet" href="/static/leaflet.css">
   <!-- ⚠️ Ao mexer em admin.js ou admin.css, bumpe o ?v=N aqui E no <script>
        lá embaixo. Ver CLAUDE.md raiz. -->
-  <link rel="stylesheet" href="/static/admin.css?v=251">
+  <link rel="stylesheet" href="/static/admin.css?v=252">
 </head>
 <body>
   <div id="appLoader">
@@ -583,6 +583,7 @@
                 <button class="wa-tab" data-ch-tab="aberto">Abertos <span class="wa-count" id="chCtAbertos">0</span></button>
                 <button class="wa-tab" data-ch-tab="em_atendimento">Em atend. <span class="wa-count" id="chCtAtend">0</span></button>
                 <button class="wa-tab" data-ch-tab="fechado">Resolvidos <span class="wa-count" id="chCtFechados">0</span></button>
+                <button class="wa-tab" data-ch-tab="cancelado">Cancelados <span class="wa-count" id="chCtCancel">0</span></button>
                 <button class="wa-tab" data-ch-tab="p1">P1 Crítico <span class="wa-count" id="chCtEmerg">0</span></button>
               </div>
               <input id="chBusca" class="input" placeholder="Buscar chamado…">
@@ -2128,6 +2129,38 @@
   </div>
 </div>
 
+<!-- Modal: cancelar chamado (admin/gerente)
+     Existe por causa do MOTIVO. Fechar é um clique porque o desfecho está no
+     resto da ficha (O.S., avaliação, histórico); cancelar não deixa rastro
+     nenhum do porquê — e "por que este chamado sumiu?" é a pergunta que vem
+     três semanas depois, quando ninguém lembra. -->
+<div id="cancelarChamadoOverlay" class="modalOverlay" style="display:none;">
+  <div class="modalBox" style="max-width:460px;">
+    <div class="modalHead">
+      <div class="modalTitle">Cancelar chamado</div>
+      <button class="btn btn-sm" id="btnFecharCancelarChamado">Fechar</button>
+    </div>
+    <div class="modalBody" style="padding:20px 24px 24px;">
+      <p id="ccMsg" style="margin:0 0 4px;line-height:1.5;font-size:13px;"></p>
+      <p style="margin:0 0 16px;line-height:1.5;color:var(--muted);font-size:12px;">
+        Cancelar tira o chamado da fila sem contá-lo como serviço prestado — ele
+        fica fora da taxa de resolução e do tempo médio. Para registrar que o
+        serviço foi feito, use <strong>Fechar</strong>. Dá para reabrir depois.
+      </p>
+      <label class="f" style="margin-bottom:20px;">
+        <span>Motivo do cancelamento</span>
+        <textarea id="ccMotivo" class="input" rows="3" maxlength="500" style="resize:vertical;"
+          placeholder="Ex.: duplicado do CH-0042 · aberto por engano · cliente desistiu"></textarea>
+      </label>
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button class="btn btn-sm" id="btnDesistirCancelarChamado">Voltar</button>
+        <button class="btn btn-sm btnAccent" id="btnConfirmarCancelarChamado">Cancelar chamado</button>
+      </div>
+      <div id="ccErr" style="margin-top:12px;font-size:12px;color:var(--danger);display:none;"></div>
+    </div>
+  </div>
+</div>
+
 <!-- Modal: novo chamado (admin) -->
 <div id="novoChamadoOverlay" class="modalOverlay" style="display:none;">
   <div class="modalBox" style="max-width:560px;">
@@ -2729,7 +2762,7 @@
 </div>
 
 
-<script src="/static/admin.js?v=335" defer></script>
+<script src="/static/admin.js?v=336" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
 <script src="/static/register-sw.js?v=51" defer></script>
 </body>

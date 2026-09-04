@@ -629,7 +629,7 @@ function _mcStatusKind(item) {
   const off = item?.resumo?.offline_count ?? 0;
   const al  = item?.resumo?.alertas_abertos_total ?? 0;
   const chAbertos = (Array.isArray(_chamadosData) ? _chamadosData : [])
-    .filter(ch => ch.condominio_id === condoId && ch.status !== 'fechado');
+    .filter(ch => ch.condominio_id === condoId && _chEmAberto(ch.status));
   if (off > 0 || chAbertos.some(ch => ch.prioridade === 'p1')) return 'bad';
   if (al > 0 || chAbertos.length > 0) return 'warn';
   return 'ok';
@@ -2717,7 +2717,7 @@ function renderCondoCards() {
     const alertasTotal = resumo.alertas_abertos_total ?? 0;
     const offlineCount = resumo.offline_count ?? 0;
 
-    const chamadosAbertos = _chamadosData.filter(ch => Number(ch.condominio_id) === condoId && ch.status !== "fechado").length;
+    const chamadosAbertos = _chamadosData.filter(ch => Number(ch.condominio_id) === condoId && _chEmAberto(ch.status)).length;
     const conversasAbertas = _conversasData.filter(cv => Number(cv.condominio_id) === condoId && cv.status === "aberta").length;
 
     let cardClass = "cc-ok";
@@ -2964,7 +2964,7 @@ function renderCliKpis() {
   const chamados = Array.isArray(_chamadosData) ? _chamadosData : [];
 
   const ativos    = condos.filter(c => c.ativo).length;
-  const chAbertos = chamados.filter(ch => ch.status !== "fechado").length;
+  const chAbertos = chamados.filter(ch => _chEmAberto(ch.status)).length;
 
   const m = _contratosMetricas?.total || { mrr: 0, ativos: 0, vencendo_30d: 0, vencidos: 0 };
   const fmtMoeda = (v) => Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -3151,7 +3151,7 @@ function renderCliDetalhe(c) {
 
   const chamadosCondo = (Array.isArray(_chamadosData) ? _chamadosData : [])
     .filter(ch => Number(ch.condominio_id) === Number(c.id));
-  const chAbertos  = chamadosCondo.filter(ch => ch.status !== "fechado").length;
+  const chAbertos  = chamadosCondo.filter(ch => _chEmAberto(ch.status)).length;
   const chFechados = chamadosCondo.filter(ch => ch.status === "fechado").length;
 
   // Telemetria
@@ -3369,7 +3369,7 @@ function renderTecDetalhe(t) {
   // Chamados atribuídos a este técnico
   const chamadosTec = (Array.isArray(_chamadosData) ? _chamadosData : [])
     .filter(ch => Number(ch.tecnico_id) === Number(t.id));
-  const chAbertos  = chamadosTec.filter(ch => ch.status !== "fechado");
+  const chAbertos  = chamadosTec.filter(ch => _chEmAberto(ch.status));
   const chFechados = chamadosTec.filter(ch => ch.status === "fechado").length;
 
   const chRecentesHtml = chAbertos.slice(0, 4).map(ch => `
@@ -4157,7 +4157,7 @@ async function carregarTudo() {
 }
 
 function atualizarBadgesChamados() {
-  const n = _chamadosData.filter(ch => ch.status !== "fechado" && !_chamadosIdsAck.has(ch.id)).length;
+  const n = _chamadosData.filter(ch => _chEmAberto(ch.status) && !_chamadosIdsAck.has(ch.id)).length;
   const badge = document.getElementById("navBadgeChamados");
   if (badge) { badge.textContent = n; badge.style.display = n > 0 ? "inline-flex" : "none"; }
   const mobBadge = document.getElementById("mobBadgeChamados");
@@ -4298,15 +4298,25 @@ let _chFiltros = { tab: "todos", busca: "" };
 let _chSelecionadoId = null;
 
 const _chCatNome  = { vazamento:"Vazamento", bomba_falha:"Bomba", nivel_baixo:"Nível baixo",
-                      sem_agua:"Sem água", ruido:"Ruído", manutencao:"Manutenção", outro:"Outro" };
+                      sem_agua:"Sem água", ruido:"Ruído", manutencao:"Manutenção",
+                      melhoria:"Melhoria", outro:"Outro" };
 const _chPrioNome = { p4:"P4 Agendado", p3:"P3 Controlado", p2:"P2 Alta", p1:"P1 Crítico" };
-const _chStNome   = { aberto:"Aberto", em_atendimento:"Em atend.", fechado:"Resolvido" };
+const _chStNome   = { aberto:"Aberto", em_atendimento:"Em atend.", fechado:"Resolvido",
+                      cancelado:"Cancelado" };
+
+// ⚠️ "EM ABERTO" É O CONTRÁRIO DE DUAS COISAS, NÃO DE UMA (04/09/2026).
+// Com a chegada do `cancelado` (migration 083), todo `status !== "fechado"`
+// espalhado pelo arquivo passou a contar chamado cancelado como fila viva:
+// badge do menu, contagem por condomínio, workload do técnico, KPI de críticos.
+// A pergunta é sempre a mesma — "isto ainda pede alguém?" — então passa a ter
+// uma resposta só, aqui.
+const _chEmAberto = st => st !== "fechado" && st !== "cancelado";
 
 function _chFiltrados() {
   const lista = Array.isArray(_chamadosData) ? _chamadosData : [];
   const { tab, busca } = _chFiltros;
   return lista.filter(ch => {
-    if (tab === "p1" && (ch.prioridade !== "p1" || ch.status === "fechado")) return false;
+    if (tab === "p1" && (ch.prioridade !== "p1" || !_chEmAberto(ch.status))) return false;
     if (tab !== "todos" && tab !== "p1" && ch.status !== tab) return false;
     if (busca) {
       const q = busca.toLowerCase();
@@ -4326,7 +4336,8 @@ function _chFmtDataCurta(iso) {
 // melhor tabela do painel e a que virou molde. "30/07" sozinho não diz se o
 // chamado está parado há três semanas; "há 21 dias" diz, e é essa a leitura
 // que interessa numa lista de chamados abertos.
-// Chamado fechado não recebe cor de urgência: a idade dele é histórico.
+// Chamado fora da fila (fechado ou cancelado) não recebe cor de urgência: a
+// idade dele é histórico.
 function _chIdade(iso, status) {
   if (!iso) return { texto: "—", cls: "is-off" };
   const dias = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
@@ -4337,7 +4348,7 @@ function _chIdade(iso, status) {
   else if (dias === 1) texto = "ontem";
   else                texto = `há ${plural(dias)}`;
 
-  if (status === "fechado") return { texto, cls: "is-off" };
+  if (!_chEmAberto(status)) return { texto, cls: "is-off" };
   if (dias >= 14) return { texto, cls: "is-bad" };
   if (dias >= 7)  return { texto, cls: "is-warn" };
   return { texto, cls: "is-ok" };
@@ -4351,8 +4362,15 @@ function renderChKpis() {
   const abertos  = data.filter(ch => ch.status === "aberto").length;
   const atend    = data.filter(ch => ch.status === "em_atendimento").length;
   const fechados = data.filter(ch => ch.status === "fechado").length;
-  const criticos = data.filter(ch => ch.prioridade === "p1" && ch.status !== "fechado").length;
-  const taxa     = data.length > 0 ? Math.round(fechados / data.length * 100) : 0;
+  const criticos = data.filter(ch => ch.prioridade === "p1" && _chEmAberto(ch.status)).length;
+
+  // ⚠️ CHAMADO CANCELADO SAI DO DENOMINADOR (04/09/2026). "% resolvido" mede
+  // quanto do que a equipe pegou ela entregou; contar o chamado que foi
+  // cancelado — aberto por engano, duplicado, cliente desistiu — como serviço
+  // não entregue faz a taxa cair por causa de coisa que nunca foi trabalho.
+  // Era exatamente por isso que cancelar não podia ser "fechar".
+  const contaveis = data.filter(ch => ch.status !== "cancelado").length;
+  const taxa     = contaveis > 0 ? Math.round(fechados / contaveis * 100) : 0;
 
   const comFechamento = data.filter(ch => ch.status === "fechado" && ch.fechado_em && ch.criado_em);
   let tempoMedio = "—";
@@ -4391,7 +4409,8 @@ function renderChTabela() {
   set("chCtAbertos",  data.filter(ch => ch.status === "aberto").length);
   set("chCtAtend",    data.filter(ch => ch.status === "em_atendimento").length);
   set("chCtFechados", data.filter(ch => ch.status === "fechado").length);
-  set("chCtEmerg",    data.filter(ch => ch.prioridade === "p1" && ch.status !== "fechado").length);
+  set("chCtCancel",   data.filter(ch => ch.status === "cancelado").length);
+  set("chCtEmerg",    data.filter(ch => ch.prioridade === "p1" && _chEmAberto(ch.status)).length);
 
   const lista = _chFiltrados();
   if (!lista.length) {
@@ -4405,7 +4424,7 @@ function renderChTabela() {
     // Só o chamado ainda em aberto acende a prioridade. Um P1 já resolvido
     // continua sendo P1, mas não é mais alarme — e placa vermelha cheia numa
     // linha resolvida disputa atenção com quem realmente precisa.
-    const prioQuieta = ch.status === "fechado" ? " is-quieto" : "";
+    const prioQuieta = _chEmAberto(ch.status) ? "" : " is-quieto";
     return `<tr class="ch-row${sel}" data-ch-id="${ch.id}">
       <td class="ch-id-cell">CH-${String(ch.id).padStart(4,"0")}</td>
       <td class="ch-titulo-cell">
@@ -4603,9 +4622,25 @@ function renderChDetalhe(ch) {
   }
 
   const fechado   = ch.status === "fechado";
-  const acoes = fechado
+  const cancelado = ch.status === "cancelado";
+
+  // ⚠️ CANCELAR FICA AO LADO DE FECHAR, DE FIO E POR ÚLTIMO (04/09/2026).
+  // As duas tiram o chamado da fila e são a mesma frase para quem lê rápido
+  // ("sumir com isto"), mas dizem coisas opostas ao histórico: fechar afirma
+  // que o serviço foi feito. O verde preenchido continua sendo de fechar —
+  // é o desfecho que a tela quer — e cancelar vem de fio, sem cor, porque é
+  // a saída de exceção. Vermelho seria pior: não é destruição, é reversível.
+  //
+  // ⚠️ ESCONDIDO PARA O OPERADOR. A rota devolve 403 pra ele (cancelar é
+  // `GESTAO_ROLES`, ver `chamados.routes.js`) — botão que só sabe dar erro é
+  // pior do que botão nenhum.
+  const btnCancelar = (!_isOperador && !fechado && !cancelado)
+    ? `<button class="btn btn-sm viewer-only-hide" data-action="cancelar-chamado" data-id="${ch.id}">✕ Cancelar</button>`
+    : "";
+
+  const acoes = (fechado || cancelado)
     ? `<button class="btn btn-sm viewer-only-hide" data-action="reabrir-chamado" data-id="${ch.id}">↺ Reabrir</button>`
-    : `<button class="btn btn-sm viewer-only-hide" style="color:var(--ok);border-color:rgba(34,197,94,.3);" data-action="fechar-chamado" data-id="${ch.id}">✓ Fechar</button>`;
+    : `<button class="btn btn-sm viewer-only-hide" style="color:var(--ok);border-color:rgba(34,197,94,.3);" data-action="fechar-chamado" data-id="${ch.id}">✓ Fechar</button>${btnCancelar}`;
 
   col.innerHTML = `<div class="ch-detail">
     <div class="ch-det-head">
@@ -4663,9 +4698,15 @@ function renderChDetalhe(ch) {
         ${ch.tecnico_a_caminho_em ? `<div class="ch-met-row"><span class="ch-met-lbl">A caminho</span><span style="color:var(--warn);">🚗 ${fmtData(ch.tecnico_a_caminho_em)}</span></div>` : ""}
         ${ch.tecnico_chegou_em    ? `<div class="ch-met-row"><span class="ch-met-lbl">Chegou</span><span style="color:var(--ok);">📍 ${fmtData(ch.tecnico_chegou_em)}</span></div>` : ""}
         ${ch.fechado_em        ? `<div class="ch-met-row"><span class="ch-met-lbl">Fechado em</span><span>${fmtData(ch.fechado_em)}</span></div>` : ""}
+        ${(cancelado && ch.cancelado_em) ? `<div class="ch-met-row"><span class="ch-met-lbl">Cancelado em</span><span>${fmtData(ch.cancelado_em)}</span></div>` : ""}
         ${ch.cliente_nome      ? `<div class="ch-met-row"><span class="ch-met-lbl">Cliente WA</span><span>${_waEscaparHtml(ch.cliente_nome)}${ch.cliente_telefone ? " · "+_waEscaparHtml(ch.cliente_telefone) : ""}</span></div>` : ""}
       </div>
     </div>
+
+    ${(cancelado && ch.cancelado_motivo) ? `<div class="ch-det-section">
+      <div class="ch-det-sec-title">Motivo do cancelamento</div>
+      <div class="ch-det-desc">${_waEscaparHtml(ch.cancelado_motivo)}</div>
+    </div>` : ""}
 
     ${telHtml}
 
@@ -6530,6 +6571,77 @@ async function fecharChamadoAction(id) {
 }
 
 
+// ⚠️ CANCELAR PASSA PELO MODAL, sempre — não existe caminho de um clique.
+// O backend recusa sem motivo (400), então um atalho aqui só saberia mostrar
+// erro. Ver o overlay `cancelarChamadoOverlay` em `admin.html`.
+let _ccChamadoId = null;
+
+function abrirModalCancelarChamado(id) {
+  const overlay = document.getElementById("cancelarChamadoOverlay");
+  if (!overlay) return;
+  const ch = (_chamadosData || []).find(c => c.id === id);
+  _ccChamadoId = id;
+  document.getElementById("ccMsg").innerHTML =
+    `Cancelar <strong>CH-${String(id).padStart(4,"0")}</strong>${
+      ch?.titulo ? " — " + _waEscaparHtml(ch.titulo) : ""}?`;
+  const ta = document.getElementById("ccMotivo");
+  ta.value = "";
+  document.getElementById("ccErr").style.display = "none";
+  overlay.style.display = "flex";
+  setTimeout(() => ta.focus(), 80);
+}
+
+function fecharModalCancelarChamado() {
+  const overlay = document.getElementById("cancelarChamadoOverlay");
+  if (overlay) overlay.style.display = "none";
+  _ccChamadoId = null;
+}
+
+async function confirmarCancelarChamado() {
+  const id = _ccChamadoId;
+  if (!id) return;
+  const err = document.getElementById("ccErr");
+  const motivo = document.getElementById("ccMotivo").value.trim();
+
+  // Mesma régua do backend, para o erro aparecer embaixo do campo e não
+  // depois de um round-trip.
+  if (motivo.length < 5) {
+    err.textContent = "Descreva o motivo do cancelamento (mínimo 5 caracteres).";
+    err.style.display = "block";
+    return;
+  }
+
+  const btn = document.getElementById("btnConfirmarCancelarChamado");
+  btn.disabled = true;
+  try {
+    const r = await fetch(`/chamados/${id}`, {
+      method: "PATCH",
+      headers: { ...authHeaders(), "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "cancelado", motivo }),
+    });
+    if (!r.ok) {
+      const d = await r.json().catch(() => ({}));
+      err.textContent = d.error || "Erro ao cancelar o chamado.";
+      err.style.display = "block";
+      return;
+    }
+    fecharModalCancelarChamado();
+    await carregarTudo();
+    if (_drawerCondoId) renderDrawerChamados();
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+(function _bindCancelarChamado() {
+  const overlay = document.getElementById("cancelarChamadoOverlay");
+  if (!overlay) return;
+  document.getElementById("btnFecharCancelarChamado")?.addEventListener("click", fecharModalCancelarChamado);
+  document.getElementById("btnDesistirCancelarChamado")?.addEventListener("click", fecharModalCancelarChamado);
+  document.getElementById("btnConfirmarCancelarChamado")?.addEventListener("click", confirmarCancelarChamado);
+  overlay.addEventListener("click", e => { if (e.target === overlay) fecharModalCancelarChamado(); });
+})();
+
 async function reabrirChamadoAction(id) {
   const r = await fetch(`/chamados/${id}`, {
     method: "PATCH",
@@ -6553,7 +6665,7 @@ function abrirDrawer(condoId, tabInicial) {
   const nome = item?.condominio?.nome || condoObj?.nome || `Condomínio ${condoId}`;
   document.getElementById("drawerTitle").textContent = nome;
 
-  const chamadosN = _chamadosData.filter(ch => Number(ch.condominio_id) === condoId && ch.status !== "fechado").length;
+  const chamadosN = _chamadosData.filter(ch => Number(ch.condominio_id) === condoId && _chEmAberto(ch.status)).length;
   const wzN       = _conversasData.filter(cv => Number(cv.condominio_id) === condoId && cv.status === "aberta").length;
 
   const bCh = document.getElementById("drawerBadgeChamados");
@@ -6759,7 +6871,7 @@ function renderDrawerChamados() {
   }
 
   const prioLabel = { p4: "P4 Agendado", p3: "P3 Controlado", p2: "P2 Alta", p1: "P1 Crítico" };
-  const statusLbl = { aberto: "Aberto", em_atendimento: "Em atendimento", fechado: "Fechado" };
+  const statusLbl = { aberto: "Aberto", em_atendimento: "Em atendimento", fechado: "Fechado", cancelado: "Cancelado" };
 
   pane.innerHTML = list.map(ch => {
     const prioClass = `prio-${ch.prioridade || "p3"}`;
@@ -6785,7 +6897,7 @@ function renderDrawerChamados() {
         </div>
         ${ch.descricao ? `<div style="font-size:12px;color:var(--muted);line-height:1.5;">${ch.descricao.slice(0, 200)}${ch.descricao.length > 200 ? "…" : ""}</div>` : ""}
         ${orcBloco}
-        ${ch.status !== "fechado" ? `
+        ${_chEmAberto(ch.status) ? `
         <div class="dp-chamado-actions viewer-only-hide">
           <button class="btn btn-sm" data-action="fechar-chamado" data-id="${ch.id}">Fechar</button>
         </div>` : ""}
@@ -7003,7 +7115,7 @@ function bindResumoInteracoes() {
 function _chamadosAbertosDoCondo(condoId) {
   const id = Number(condoId);
   if (!id) return 0;
-  return (_chamadosData || []).filter(ch => Number(ch.condominio_id) === id && ch.status !== "fechado").length;
+  return (_chamadosData || []).filter(ch => Number(ch.condominio_id) === id && _chEmAberto(ch.status)).length;
 }
 
 function getListaPorKey(key) {
@@ -8727,7 +8839,7 @@ function _mpRenderAlertas(g) {
   const deviceIds = new Set((g.reservatorios || []).map(r => r.device_id));
   const alertas = (_alertasAbertos || []).filter(a => deviceIds.has(a.device_id));
   const chamados = (Array.isArray(_chamadosData) ? _chamadosData : [])
-    .filter(ch => ch.condominio_id === condoId && ch.status !== 'fechado');
+    .filter(ch => ch.condominio_id === condoId && _chEmAberto(ch.status));
 
   if (alertas.length === 0 && chamados.length === 0) {
     return `<div class="mp-empty">Nenhum alerta ou chamado aberto neste condomínio.</div>`;
@@ -11029,6 +11141,12 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
+    if (action === "cancelar-chamado") {
+      const id = Number(btn.dataset.id);
+      if (id) abrirModalCancelarChamado(id);
+      return;
+    }
+
     if (action === "mp-alterar-tecnico") {
       const chamadoId = Number(btn.dataset.chamadoId);
       const wrap = document.querySelector(`.mp-tec-wrap[data-chamado-id="${chamadoId}"]`);
@@ -12210,6 +12328,17 @@ function _avExecBadge(o) {
       _orcFmtData(o.executado_em)}${_waEscaparHtml(quem)}">Feito</span>`;
   }
   if (!o.chamado_id) return "";
+  // ⚠️ CANCELADO NÃO É FECHADO AQUI TAMBÉM (04/09/2026). Sem esta linha o
+  // chamado cancelado caía no `else` e o selo dizia "já foi fechado" — ou
+  // seja, o orçamento aparecia como executado justamente porque o serviço
+  // deixou de ser feito. Mesmo defeito, e mesma correção, do `execucao()` da
+  // tela do operador; as duas telas têm de escolher pelo mesmo critério.
+  if (o.chamado_status === "cancelado") {
+    // `data-e="cancelado"` não casa com nenhuma regra e cai no `.av-selo-exec`
+    // base — de fio, `--muted`, o mais quieto da família. É o certo: nada
+    // aconteceu com este serviço, e o selo verde de "feito" seria mentira.
+    return ` <span class="av-selo-exec" data-e="cancelado" title="O chamado deste orçamento foi cancelado — o serviço não foi executado">Chamado #${o.chamado_id} cancelado</span>`;
+  }
   const aberto = o.chamado_status === "aberto" || o.chamado_status === "em_atendimento";
   return ` <span class="av-selo-exec" data-e="${aberto ? "andando" : "fechado"}" title="${
     aberto ? "Tem chamado aberto na fila do turno" : "O chamado deste orçamento já foi fechado"

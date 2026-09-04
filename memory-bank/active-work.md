@@ -10,7 +10,7 @@ aliases:
 > Branch atual: **`main`**, limpa. `feature/admin-chapa` (11 commits) e a tela
 > de orçamento do cliente já foram mergeadas — a produção
 > (`telemetria.generalbombas.com`) está servindo as duas.
-> Última sessão registrada: **2026-09-03**.
+> Última sessão registrada: **2026-09-04**.
 > Roadmap completo em [`roadmap.md`](roadmap.md); decisões em [`decisions.md`](decisions.md).
 
 > ✅ **Schema de produção em dia:** 074 aplicada em 24/08; a 073 já estava
@@ -118,6 +118,47 @@ UI, ler o `innerText` do que sobrou, não só olhar.
 duplicação do dia calmo~~ (resolvida no item 2, sem escrever palavra nova — o
 placar saiu e a frase que sobrou já estava lá), a legenda de cor dos pinos do
 mapa, e o rótulo "TURNO" ao lado da marca.
+
+---
+
+## Sessão 2026-09-04 (2ª rodada) — Cancelar chamado
+
+*"tem como cancelar um chamado hj?"* — não tinha. A resposta virou implementação
+no mesmo turno, a pedido dele ("implementa no painel de admin").
+
+**O que estava errado não era faltar botão, era o significado do `fechado`:** ele
+grava `tempo_resolucao_seg`, marca TTFR e entra na taxa de resolução e na média
+de tempo. Sendo a única saída da fila, todo chamado aberto por engano entrava
+nas quatro contas como atendimento cumprido.
+
+⚠️ **A pista estava no repositório há semanas.** `planos-manutencao.routes.js`,
+o job das preventivas e o `app-mobile.md` já filtravam/descreviam
+`NOT IN ('fechado','cancelado')` — três lugares falando de um status que o CHECK
+recusava. `NOT IN` com valor impossível funciona igual, então ninguém viu.
+
+⚠️ **O grosso do trabalho não foi a migration, foi a varredura.** Oito
+`status != 'fechado'` no backend e doze no `admin.js` passariam a contar
+cancelado como fila viva — incluindo o dedup de `abrirChamadoAuto` (que
+deixaria de reabrir o chamado automático de nível baixo) e o `execucao()` do
+operador, que faria o orçamento sumir de Aprovados como executado **porque** o
+serviço deixou de ser feito.
+
+⚠️ **Numeração de migration:** nasceu 082 e foi renumerada para 083 — já existia
+`082_planos_atribuicoes.sql`, e o repo tem um par duplicado em 081. **Conferir
+`ls migrations/`, não o changelog.**
+
+### ⏳ O que falta
+
+- ~~Migration 083 em produção~~ — aplicada em 04/09, nos dois bancos. CHECK
+  conferido em prod (`pg_constraint`), e os 13 chamados de lá seguem 4 abertos
+  / 9 fechados, nenhum cancelado ainda.
+- **Ninguém viu a tela renderizada.** O modal segue o esqueleto exato do
+  `#hardDeleteOverlay` e os ids batem, mas não houve login no painel — a
+  conferência visual é handoff pro Pedro.
+- **Nada foi commitado desta rodada.**
+- 📋 Duas portas ficaram de fora de propósito, à espera de decisão: o
+  **operador** não cancela (403) e o **cliente** não cancela o próprio chamado.
+  Ver [`roadmap.md`](roadmap.md).
 
 ---
 

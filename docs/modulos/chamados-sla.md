@@ -125,11 +125,60 @@ esquecesse — com a IA classificando com um valor que o `INSERT` recusa.
 ```
 aberto → técnico atribuído → em_atendimento (GPS chegada)
        → O.S. digital preenchida → fechado
+
+aberto | em_atendimento → cancelado          (com motivo, pela gestão)
+fechado | cancelado     → aberto             (reabertura)
 ```
+
+### O cancelamento (04/09/2026, migration 083)
+
+⚠️ **FECHAR AFIRMA QUE O SERVIÇO FOI FEITO.** Até esta data o chamado tinha
+três status, e a única saída para o aberto por engano, duplicado ou desistido
+pelo cliente era **fechar** — o que enfiava cada engano em `tempo_resolucao_seg`,
+na taxa de resolução e no tempo médio do painel como atendimento cumprido.
+`cancelado` tira o chamado da fila **sem escrever nenhuma das três**.
+
+| | `fechado` | `cancelado` |
+|---|---|---|
+| significa | serviço prestado | serviço desistido |
+| `fechado_em` | grava | **não** |
+| `tempo_resolucao_seg` | grava | **não** |
+| `primeira_resposta_em` (TTFR) | marca | **não** — cancelar não é responder |
+| taxa "% resolvido" | entra | **fora do denominador** |
+| quem pode | admin, gerente, **operador** | admin, gerente (`GESTAO_ROLES`) |
+| exige motivo | não | **sim**, mín. 5 caracteres |
+
+- **Onde se cancela:** só a ficha do chamado no [painel do
+  admin](painel-admin.md), por modal — nunca um clique só, porque o backend
+  recusa sem motivo e um atalho aqui só saberia mostrar erro.
+- **Chamado fechado não se cancela** (409). Fechado tem O.S., talvez avaliação
+  do cliente e tempo de resolução gravado; cancelar apagaria da métrica um
+  atendimento que aconteceu. Se foi fechado por engano: reabrir, depois
+  cancelar — duas decisões, duas linhas no `historico_chamados`.
+- **Reabrir um cancelado** é `status: "aberto"` normal. `cancelado_em` e
+  `cancelado_motivo` ficam como memória do último cancelamento, pela mesma
+  regra do `fechado_em`.
+- **O motivo vai para o cliente**, no painel e no app: quem abriu o pedido é
+  quem mais precisa saber por que ele saiu da fila.
+- ⚠️ **"Em aberto" passou a ser o contrário de DUAS coisas.** Todo
+  `status != 'fechado'` do sistema contava o cancelado como fila viva — a fila
+  do técnico, o dedup de `abrirChamadoAuto`, o contador por condomínio, o
+  workload por técnico, o guard anti-duplicata da IA. Hoje o backend escreve
+  `NOT IN ('fechado','cancelado')` e cada front tem **um** helper:
+  `_chEmAberto` em `public/admin.js` e `chEmAberto` em `app/public/app.js`
+  (um só para as duas telas do app, a do técnico e a do cliente).
+- ⚠️ **O orçamento volta a pedir execução.** `execucao()` em
+  `public/operador-orcamentos.js` lia qualquer chamado não-aberto como "feito":
+  o orçamento sumia da fila do operador como executado **porque** o serviço
+  deixou de ser feito. Cancelado devolve `livre`. Mesmo defeito e mesma correção
+  no `_avExecBadge` do admin — as duas telas escolhem pelo mesmo critério.
+- **Teste:** `scripts/testes/cancelar-chamado.test.js` (23 checagens, rota de
+  verdade contra o banco de teste).
 
 - **`em_atendimento` só é setado via app do técnico** em
   `POST /chamados/:id/iniciar-atendimento` (com GPS). `PATCH /chamados/:id`
-  bloqueia esse status — garante presença física no campo.
+  bloqueia esse status — garante presença física no campo. Os que ele aceita
+  são `aberto`, `fechado` e `cancelado`.
 - `POST /chamados/:id/a-caminho` e `/chegou` registram
   `tecnico_a_caminho_em` / `tecnico_chegou_em` (SLA de chegada).
 - Toda mudança é gravada em `historico_chamados` (auditoria, reaberturas).

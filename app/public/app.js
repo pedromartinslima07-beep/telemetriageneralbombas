@@ -14,6 +14,18 @@ const API_BASE = (() => {
 
 const IS_CAPACITOR = window.location.protocol === "capacitor:";
 
+// ⚠️ "FORA DA FILA" SÃO DOIS ESTADOS DESDE A MIGRATION 083 (04/09/2026):
+// `fechado` (serviço feito) e `cancelado` (serviço desistido, cancelado no
+// painel do admin). Todo `status !== "fechado"` deste arquivo — as duas telas,
+// a do técnico e a do cliente — contava chamado cancelado como pendente: ele
+// aparecia na aba "Hoje" do turno, no contador da home e deixava o formulário
+// de resposta aberto num chamado que ninguém mais lê.
+//
+// ⚠️ `GET /chamados/meus` SEM QUERY DEVOLVE TUDO, cancelado incluído — só o
+// atalho `?abertos=1` filtra no servidor, e a tela do técnico não o usa (ela
+// precisa do histórico fechado nas outras abas). Quem separa é este helper.
+const chEmAberto = st => st !== "fechado" && st !== "cancelado";
+
 // ============== STORAGE ==============
 // Wrapper fino: trocar por Capacitor Preferences quando empacotarmos.
 const Storage = {
@@ -428,7 +440,7 @@ function filtroDaTab(c) {
   // Próximos: por enquanto = mesmos que "Hoje" sem o em_atendimento, fica como placeholder
   //           (Fase futura terá agendamento via campo agendado_para)
   // Histórico: fechados
-  if (TC.tab === "hoje") return c.status !== "fechado";
+  if (TC.tab === "hoje") return chEmAberto(c.status);
   if (TC.tab === "proximos") return c.status === "aberto";
   if (TC.tab === "historico") return c.status === "fechado";
   return true;
@@ -533,7 +545,7 @@ function renderTecnicoChamados() {
   renderTecnicoCriticos();
 
   // Contadores das tabs (independentes da tab atual)
-  const hoje      = TC.chamados.filter((c) => c.status !== "fechado").length;
+  const hoje      = TC.chamados.filter((c) => chEmAberto(c.status)).length;
   const proximos  = TC.chamados.filter((c) => c.status === "aberto").length;
   const historico = TC.chamados.filter((c) => c.status === "fechado").length;
   document.getElementById("tcCountHoje").textContent = hoje;
@@ -632,7 +644,7 @@ function renderTecnicoCriticos() {
   if (!el) return;
 
   const criticos = TC.chamados.filter((c) =>
-    c.prioridade === "p1" && c.status !== "fechado").length;
+    c.prioridade === "p1" && chEmAberto(c.status)).length;
 
   if (criticos === 0) {
     el.hidden = true;
@@ -714,7 +726,8 @@ function renderCardChamado(c) {
   const cat       = CAT_LABEL[c.categoria] || c.categoria || "—";
   const stLabel   = c.status === "em_atendimento"
     ? "Em atendimento"
-    : c.status === "fechado" ? "Resolvido" : "Aberto";
+    : c.status === "fechado" ? "Resolvido"
+    : c.status === "cancelado" ? "Cancelado" : "Aberto";
 
   const pri = String(c.prioridade || "p4").toLowerCase();
   // Fechado por este aparelho, ainda não confirmado pelo servidor.
@@ -892,6 +905,7 @@ const ST_LABEL = {
   aberto: "Aberto",
   em_atendimento: "Em atendimento",
   fechado: "Resolvido",
+  cancelado: "Cancelado",
 };
 
 async function abrirDetalheChamado(id) {
@@ -922,7 +936,7 @@ async function abrirDetalheChamado(id) {
     // Em chamados fechados a thread some pra dar lugar à avaliação no app
     // do cliente; aqui no técnico não temos esse equivalente, então só
     // pula o fetch pra economizar bandwidth.
-    if (TD.chamado.status !== "fechado") {
+    if (chEmAberto(TD.chamado.status)) {
       try {
         TD.mensagens = await api(`/chamados/meus/${id}/mensagens`);
       } catch (e) {
@@ -1119,7 +1133,7 @@ function renderDetalhe() {
     </div>
 
     ${resHtml}
-    ${c.status !== "fechado" ? tdRenderMensagensCard() : ""}
+    ${chEmAberto(c.status) ? tdRenderMensagensCard() : ""}
     ${msgsHtml}
   `;
 
@@ -1140,7 +1154,7 @@ function renderDetalhe() {
   document.getElementById("tdBtnLigar")?.addEventListener("click", () => ligarPara(c));
 
   // Thread de mensagens (Fase 7H — UI no técnico)
-  if (c.status !== "fechado") tdBindMensagensForm();
+  if (chEmAberto(c.status)) tdBindMensagensForm();
 }
 
 // =====================================================================
@@ -2463,7 +2477,7 @@ async function _preCarregarParaOffline({ forcar = false } = {}) {
   if (!forcar && TC.preCargaEm && (agora - TC.preCargaEm) < PRE_CARGA_INTERVALO_MS) return;
   TC.preCargaEm = agora;
   // Só os que ainda vão ser atendidos; histórico não precisa.
-  const abertos = TC.chamados.filter((c) => c.status !== "fechado").slice(0, 12);
+  const abertos = TC.chamados.filter((c) => chEmAberto(c.status)).slice(0, 12);
   for (const c of abertos) {
     try {
       const det = await apiComCache(`/chamados/meus/${c.id}`);
@@ -4234,7 +4248,7 @@ const CLI_CATEGORIAS = [
 ];
 
 const CLI_PRIO_LABEL = { p4: "P4 Agendado", p3: "P3 Controlado", p2: "P2 Alta", p1: "P1 Crítico" };
-const CLI_STATUS_LABEL = { aberto: "Aberto", em_atendimento: "Em atendimento", fechado: "Fechado" };
+const CLI_STATUS_LABEL = { aberto: "Aberto", em_atendimento: "Em atendimento", fechado: "Fechado", cancelado: "Cancelado" };
 const CLI_CAT_LABEL = Object.fromEntries(CLI_CATEGORIAS);
 
 // Mapa categoria → prioridade automática. Mesma tabela do backend
@@ -4340,7 +4354,7 @@ function renderClienteHome({ loading }) {
   const temTelemetria = totalReservatorios > 0;
   const offline = CLI.reservatorios.filter((r) => r.offline).length;
   const alertasAbertos = CLI.alertas.length;
-  const chamadosAbertos = CLI.chamados.filter((c) => c.status !== "fechado").length;
+  const chamadosAbertos = CLI.chamados.filter((c) => chEmAberto(c.status)).length;
 
   const kpi = (icon, val, lbl, kindCls, action) => `
     <button type="button" class="rc ${kindCls}" data-cli-kpi="${action}">
@@ -5116,8 +5130,13 @@ function renderDetalheChamado(ch) {
       at: status !== "aberto" ? ch.atualizado_em : null,
       done: status === "em_atendimento" || status === "fechado",
       current: status === "em_atendimento" },
-    { key: "fechado",     label: "Atendimento concluído",
-      at: ch.fechado_em, done: status === "fechado", current: false },
+    status === "cancelado"
+      ? { key: "cancelado", label: ch.cancelado_motivo
+            ? `Chamado cancelado · ${ch.cancelado_motivo}`
+            : "Chamado cancelado",
+          at: ch.cancelado_em, done: true, current: false }
+      : { key: "fechado",   label: "Atendimento concluído",
+          at: ch.fechado_em, done: status === "fechado", current: false },
   ];
 
   const svgClock = `<svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`;
@@ -5148,12 +5167,12 @@ function renderDetalheChamado(ch) {
 
   // ---- Mensagens: thread entre cliente e técnico — escondida quando o
   // chamado já está fechado (a avaliação assume esse canal).
-  const mensagensHtml = status === "fechado" ? "" : renderMensagensCard();
+  const mensagensHtml = chEmAberto(status) ? renderMensagensCard() : "";
 
   main.innerHTML = resumoHtml + timelineHtml + avaliacaoHtml + mensagensHtml;
 
   _bindAvaliacaoForm();
-  if (status !== "fechado") _bindMensagensForm();
+  if (chEmAberto(status)) _bindMensagensForm();
 }
 
 // =====================================================================

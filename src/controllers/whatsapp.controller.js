@@ -16,7 +16,7 @@ async function _executarAcaoPendente(conversaId, pendente, telefone) {
 
     // Guard anti-duplicata: se já existe chamado aberto nesta conversa, não cria outro.
     const dup = await pool.query(
-      `SELECT id FROM chamados WHERE conversa_id = $1 AND status != 'fechado' LIMIT 1`,
+      `SELECT id FROM chamados WHERE conversa_id = $1 AND status NOT IN ('fechado', 'cancelado') LIMIT 1`,
       [conversaId]
     );
     if (dup.rows.length) {

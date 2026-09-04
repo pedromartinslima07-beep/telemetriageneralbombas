@@ -852,6 +852,13 @@ function passosDoChamado(ch) {
       s: ch.servico_realizado ? esc(ch.servico_realizado) : (ch.os_numero ? `Ordem de serviço ${esc(ch.os_numero)}` : ""),
     });
   }
+  if (ch.status === "cancelado" && ch.cancelado_em) {
+    p.push({
+      q: dataHora(ch.cancelado_em),
+      t: "O chamado foi cancelado",
+      s: ch.cancelado_motivo ? esc(ch.cancelado_motivo) : "",
+    });
+  }
   return p.reverse();
 }
 
@@ -859,7 +866,14 @@ function renderChamado(ch, msgs) {
   $("fChamadoId").textContent = `Chamado nº ${ch.id} · ${new Date(ch.criado_em).toLocaleDateString("pt-BR", { day: "2-digit", month: "long" })}`;
   $("fChamadoT").textContent = ch.titulo || "Atendimento";
 
-  const estadoTxt = ch.status === "fechado"
+  // ⚠️ "CANCELADO" É PALAVRA DA EQUIPE, NÃO DO SÍNDICO (04/09/2026,
+  // migration 083). Para quem pediu ajuda, o que importa é que ninguém vai
+  // aparecer — e o motivo, que a equipe escreveu ao cancelar. Dizer só
+  // "Cancelado" deixaria o pedido sumir sem explicação nenhuma na tela de quem
+  // abriu, que é o começo de um telefonema.
+  const estadoTxt = ch.status === "cancelado"
+    ? "Cancelado pela equipe"
+    : ch.status === "fechado"
     ? (ch.os_finalizada_em ? "Concluído e assinado" : "Concluído")
     : ch.status === "em_atendimento"
       ? `Em atendimento${ch.tecnico_nome ? " — " + esc(ch.tecnico_nome) : ""}`
@@ -867,7 +881,7 @@ function renderChamado(ch, msgs) {
   // ⚠️ ponto azul, não âmbar: âmbar neste sistema significa ATENÇÃO, e
   // chamado em curso não é alarme. O painel já errou isso uma vez pintando
   // "Em atendimento" de vermelho.
-  const pontoCls = ch.status === "fechado" ? "" : "aberto";
+  const pontoCls = (ch.status === "fechado" || ch.status === "cancelado") ? "" : "aberto";
 
   const meuId = usuarioLocal().id;
   const conversa = msgs.length
@@ -881,12 +895,16 @@ function renderChamado(ch, msgs) {
       }).join("")}</div>`
     : `<p class="conversa-vazia">Ainda não há mensagens neste chamado.</p>`;
 
-  const composer = ch.status !== "fechado"
+  const composer = (ch.status !== "fechado" && ch.status !== "cancelado")
     ? `<label class="campo"><span>Responder</span>
          <textarea id="chatTexto" rows="3" maxlength="2000" placeholder="Escreva aqui…"></textarea></label>
        <div class="acoes"><button class="btn-fio" id="chatEnviar" type="button">Enviar</button></div>
        <p class="ficha-msg" id="chatMsg" role="status"></p>`
-    : `<p class="fechado-aviso">Este chamado foi fechado. Para falar de novo com a equipe, abra um novo pedido de ajuda.</p>`;
+    : ch.status === "cancelado"
+      ? `<p class="fechado-aviso">Este chamado foi cancelado${
+          ch.cancelado_motivo ? ": " + esc(ch.cancelado_motivo) : ""
+        }. Se ainda precisa do serviço, abra um novo pedido de ajuda.</p>`
+      : `<p class="fechado-aviso">Este chamado foi fechado. Para falar de novo com a equipe, abra um novo pedido de ajuda.</p>`;
 
   const avaliacao = (ch.status === "fechado" && !ch.ja_avaliado)
     ? `<div class="bloco">

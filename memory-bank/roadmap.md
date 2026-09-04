@@ -41,6 +41,26 @@ aliases:
 
 ## Em andamento / pendente
 
+- ✅ **Cancelar um chamado** (04/09/2026). Pergunta do Pedro: *"tem como
+  cancelar um chamado hj?"*. Não tinha — a única saída do chamado aberto por
+  engano, duplicado ou desistido pelo cliente era **fechar**, e fechar afirma
+  que o serviço foi prestado (grava `tempo_resolucao_seg`, marca TTFR, entra na
+  taxa de resolução e no tempo médio). Migration 083 dá o status `cancelado` +
+  `cancelado_em`/`cancelado_motivo`; a rota exige motivo e restringe à gestão;
+  o painel do admin ganha botão, modal e aba própria. Régua completa em
+  [`../docs/modulos/chamados-sla.md`](../docs/modulos/chamados-sla.md), tela em
+  [`../docs/modulos/painel-admin.md`](../docs/modulos/painel-admin.md).
+  - ✅ **Migration 083 aplicada nos DOIS bancos** (teste e produção, 04/09/2026).
+    CHECK conferido em prod via `pg_constraint`: aceita os quatro valores.
+  - 📋 **O operador não cancela** (403, `GESTAO_ROLES`) e o botão fica escondido
+    pra ele. Se na prática quem atende o telefone precisar disso, é trocar
+    `GESTAO_ROLES` por `ADMIN_ROLES` em um `if` — mas é decisão de negócio,
+    não de código.
+  - 📋 **O cliente não cancela o próprio chamado.** Ele vê o motivo quando a
+    equipe cancela, mas quem desiste ainda precisa avisar por WhatsApp ou pelo
+    chat do chamado. Se virar pedido, o caminho é `POST
+    /cliente/chamados/:id/cancelar` com o mesmo motivo obrigatório.
+
 - ✅ **As preventivas do mês ganham tela no operador** (03/09/2026). Terceira
   tela (`/operador/painel/preventivas`): o mês inteiro por zona, separado entre
   o que falta e o que já saiu, com despacho **por região ou prédio a prédio**

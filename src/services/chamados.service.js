@@ -3,7 +3,7 @@
 // Abertura automática de chamados por jobs/rotas do sistema (offline.job,
 // alertas de nível em /telemetria, etc). Centraliza a regra de dedup:
 // nunca abre um 2º chamado pra mesma dupla condomínio+categoria enquanto
-// já existir um aberto (status != 'fechado').
+// já existir um aberto (status NOT IN ('fechado','cancelado')).
 
 const { pool } = require("../db");
 const { registrarCriacao, registrarMudancas } = require("./chamado-historico.service");
@@ -11,7 +11,7 @@ const { registrarCriacao, registrarMudancas } = require("./chamado-historico.ser
 /**
  * Abre um chamado automático, evitando duplicar.
  *
- * Se já existir um chamado aberto (status != 'fechado') pro mesmo
+ * Se já existir um chamado aberto (status NOT IN ('fechado','cancelado')) pro mesmo
  * condomínio+categoria, reaproveita esse chamado — e escalona a
  * prioridade dele caso o novo evento seja mais urgente (ex.: nível caiu
  * de "baixo" pra "muito_baixo" enquanto o chamado de nível ainda tá aberto).
@@ -27,7 +27,7 @@ const { registrarCriacao, registrarMudancas } = require("./chamado-historico.ser
 async function abrirChamadoAuto({ condominio_id, titulo, descricao, prioridade, categoria }) {
   const existente = await pool.query(
     `SELECT id, prioridade FROM chamados
-     WHERE condominio_id = $1 AND categoria = $2 AND status != 'fechado'
+     WHERE condominio_id = $1 AND categoria = $2 AND status NOT IN ('fechado', 'cancelado')
      LIMIT 1`,
     [condominio_id, categoria]
   );

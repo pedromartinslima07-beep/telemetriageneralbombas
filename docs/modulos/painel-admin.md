@@ -632,6 +632,53 @@ erro apontando para 4 mil linhas depois da causa.
 
 ---
 
+## Cancelar um chamado (04/09/2026)
+
+O painel só sabia **fechar**. Chamado aberto por engano, duplicado, ou cujo
+cliente desistiu tinha essa saída única — e fechar afirma que o serviço foi
+prestado, alimentando `tempo_resolucao_seg`, a taxa de resolução e o tempo
+médio. A régua completa (o que grava, quem pode, por que o motivo é
+obrigatório) está em [chamados-sla.md](chamados-sla.md); aqui fica só o que é
+da tela.
+
+**Onde:** ficha do chamado (`ch-det-acoes`), ao lado de "✓ Fechar".
+
+⚠️ **DE FIO, E POR ÚLTIMO.** As duas ações são a mesma frase para quem lê
+rápido — "sumir com isto" — mas dizem coisas opostas ao histórico. O verde
+preenchido continua sendo o de fechar, que é o desfecho que a tela quer;
+cancelar vem sem cor porque é a saída de exceção. **Vermelho seria pior:**
+`btnDanger` neste sistema é destruição irreversível (hard delete de
+condomínio), e cancelar é reversível — o botão vira "↺ Reabrir" na hora.
+
+⚠️ **ESCONDIDO PARA O PERFIL `operador`** (`_isOperador`), porque a rota devolve
+403 pra ele: cancelar é `GESTAO_ROLES`. Botão que só sabe dar erro é pior do
+que botão nenhum. Fechar continua liberado pro operador — é o dia dele.
+
+⚠️ **MODAL, NUNCA UM CLIQUE SÓ** (`#cancelarChamadoOverlay`, mesmo esqueleto do
+`#hardDeleteOverlay`). O backend recusa sem `motivo`, então um atalho aqui só
+saberia mostrar erro. O modal valida os 5 caracteres antes do fetch, para o
+erro aparecer embaixo do campo e não depois de um round-trip.
+
+Na lista: **aba "Cancelados"** própria (a sexta), selo `ch-st-cancelado` — o
+mais apagado dos quatro, fio fraco e tinta `--muted`. Vermelho é a cor de "isto
+exige alguém agora" nesta tela (P1, SLA estourado), e o cancelado é o contrário
+exato disso. A prioridade também fica `is-quieto`, e a idade perde a cor de
+urgência, pelas mesmas regras já valendo para o fechado.
+
+⚠️ **O KPI "% RESOLVIDO" PERDEU O CANCELADO DO DENOMINADOR.** Ele mede quanto do
+que a equipe pegou ela entregou; contar como não-entregue algo que nunca foi
+trabalho fazia a taxa cair por causa de engano de digitação. Era exatamente
+por isso que cancelar não podia ser "fechar".
+
+⚠️ **`_avExecBadge` na aba de Orçamentos também precisou saber.** Ele lia
+qualquer chamado não-aberto como fechado e dizia "já foi fechado" — o orçamento
+aparecia como executado **porque** o serviço deixou de ser feito. Mesma
+correção, e pelo mesmo critério, do `execucao()` da [tela do
+operador](painel-operador.md): se as duas telas mostram o mesmo selo, elas têm
+de escolher pelo mesmo critério.
+
+---
+
 ## O condomínio nas duas abas passa a ser o nome fantasia (02/09/2026)
 
 Pergunta do Pedro: *"por que o condomínio que tem o nome fantasia AURI FARIA

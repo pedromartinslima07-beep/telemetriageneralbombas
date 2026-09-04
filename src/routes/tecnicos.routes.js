@@ -31,7 +31,7 @@ router.get("/", authRequired, adminOnly, async (req, res) => {
         t.cargo, t.disponivel, t.ativo, t.criado_em, t.usuario_id,
         t.foto_url, t.cpf, t.rg, t.data_nascimento, t.endereco, t.observacoes,
         (t.usuario_id IS NOT NULL) AS tem_login,
-        COUNT(ch.id) FILTER (WHERE ch.status != 'fechado') AS chamados_abertos,
+        COUNT(ch.id) FILTER (WHERE ch.status NOT IN ('fechado', 'cancelado')) AS chamados_abertos,
         COUNT(ch.id) AS chamados_total
       FROM tecnicos t
       LEFT JOIN chamados ch ON ch.tecnico_id = t.id

@@ -320,6 +320,7 @@ router.get("/chamados", authRequired, clienteOnly, async (req, res) => {
       `SELECT
          ch.id, ch.status, ch.prioridade, ch.categoria, ch.titulo, ch.descricao,
          ch.criado_em, ch.atualizado_em, ch.fechado_em,
+         ch.cancelado_em, ch.cancelado_motivo,
          os.id AS ordem_servico_id,
          t.nome AS tecnico_nome,
          os.finalizada_em AS os_finalizada_em
@@ -359,6 +360,9 @@ router.get("/chamados/:id", authRequired, clienteOnly, async (req, res) => {
          ch.id, ch.conversa_id, ch.condominio_id, ch.status, ch.prioridade,
          ch.titulo, ch.descricao, ch.responsavel_id, ch.criado_em,
          ch.atualizado_em, ch.fechado_em, ch.categoria, ch.tecnico_id,
+         -- O motivo do cancelamento VAI PARA O CLIENTE de propósito: quem
+         -- abriu o pedido é quem mais precisa saber por que ele saiu da fila.
+         ch.cancelado_em, ch.cancelado_motivo,
          os.id AS ordem_servico_id,
          (ch.avaliacao_nota IS NOT NULL) AS ja_avaliado,
          t.nome AS tecnico_nome,

@@ -39,7 +39,7 @@ async function buscarChamadosAbertos({ condominio_id }) {
   const result = await pool.query(
     `SELECT id, titulo, prioridade, status, criado_em
      FROM chamados
-     WHERE condominio_id = $1 AND status != 'fechado'
+     WHERE condominio_id = $1 AND status NOT IN ('fechado', 'cancelado')
      ORDER BY criado_em DESC
      LIMIT 10`,
     [condominio_id]
@@ -127,7 +127,7 @@ async function abrirChamado({ conversa_id, condominio_id, titulo, descricao, pri
   // Guard anti-duplicata: se já existe chamado aberto nesta conversa, retorna o existente.
   const dup = await pool.query(
     `SELECT id, titulo, status FROM chamados
-      WHERE conversa_id = $1 AND status != 'fechado'
+      WHERE conversa_id = $1 AND status NOT IN ('fechado', 'cancelado')
       ORDER BY criado_em DESC LIMIT 1`,
     [conversa_id]
   );
@@ -547,7 +547,7 @@ async function _buscarContextoOperacional(condominio_id) {
       ),
       pool.query(
         `SELECT titulo, prioridade, status FROM chamados
-          WHERE condominio_id = $1 AND status != 'fechado'
+          WHERE condominio_id = $1 AND status NOT IN ('fechado', 'cancelado')
           ORDER BY criado_em DESC LIMIT 3`,
         [condominio_id]
       ),

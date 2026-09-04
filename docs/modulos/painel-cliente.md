@@ -692,6 +692,13 @@ do SVG**: dentro do `viewBox` ele encolhe junto com o gráfico e vira borrão a
 - **Tempo relativo usa piso, não arredondamento.** Com `round`, uma leitura de
   40 segundos virava "há 1 min" — e o número que mais importa nesta tela é o
   que diz que a medição está viva agora.
+- ⚠️ **CHAMADO CANCELADO MOSTRA O MOTIVO** (04/09/2026, migration 083). Quando
+  a equipe cancela um chamado no painel do admin, o síndico vê "Cancelado pela
+  equipe" e o motivo — na linha do tempo e no lugar do campo de resposta. Dizer
+  só "Cancelado", ou pior, deixar o pedido sumir calado, é o começo de um
+  telefonema: quem abriu é quem mais precisa saber por que ele saiu da fila.
+  `GET /cliente/chamados[/:id]` traz `cancelado_em` e `cancelado_motivo` de
+  propósito. Ver [chamados-sla.md](chamados-sla.md).
 
 ---
 

@@ -911,6 +911,64 @@ a informação, e a simetria custa uma linha.
   Antoine para todo mundo. Pendente de decisão — ver
   [`active-work.md`](active-work.md).
 
+## Cancelar um chamado não é fechar (04/09/2026)
+
+- **O problema não era falta de botão, era a métrica.** `fechado` grava
+  `fechado_em` e `tempo_resolucao_seg`, marca `primeira_resposta_em` (TTFR) e
+  entra na taxa de resolução e no tempo médio do painel — ele **afirma que o
+  serviço foi prestado**. Como era a única saída da fila, todo chamado aberto
+  por engano, duplicado ou desistido pelo cliente virava atendimento cumprido
+  nas quatro contas. Um status novo é o único conserto: filtrar "engano" depois
+  do fato é impossível, o dado não existe.
+
+- **`cancelado_em` é coluna própria, não reuso de `fechado_em`.** Foi
+  considerado economizar a coluna e distinguir pelo `status`. Recusado:
+  `fechado_em` sai cru no CSV de `GET /relatorios/chamados` e é lido pelos KPIs
+  como "quando o serviço terminou". Escrever cancelamento nele faria a métrica
+  mentir exatamente onde a mudança existe para parar de mentir.
+
+- **Cancelar NÃO marca TTFR**, mesmo saindo de `aberto`. A regra geral do
+  `PATCH` é "qualquer transição saindo de `aberto` conta como primeira
+  resposta" — cancelar é a exceção, porque cancelar não é responder. Marcar
+  aqui faria o chamado que ninguém atendeu sair do relatório como atendido
+  dentro do prazo.
+
+- **Cancelar é `GESTAO_ROLES`; fechar continua `adminOnly`.** O `adminOnly`
+  também deixa o **operador** passar. Fechar chamado é o dia dele; apagar da
+  métrica um chamado que existiu é decisão de negócio. O botão fica escondido
+  no painel para o operador — botão que só sabe dar 403 é pior que botão
+  nenhum. Se na prática quem atende o telefone precisar cancelar, é trocar um
+  `if` — mas a troca é decisão do Pedro, não do código.
+
+- **O motivo é obrigatório na rota, não no banco.** Chamado que some sem o
+  porquê recria a ambiguidade que o `fechado` tinha — "por que este chamado
+  sumiu?" é a pergunta que chega três semanas depois. `NOT NULL` ficou de fora
+  só porque a coluna nasce vazia nas linhas existentes. É por causa do motivo
+  que cancelar tem **modal** e não é um clique como fechar.
+
+- **Chamado fechado não se cancela (409).** Fechado tem O.S., possivelmente
+  assinatura e avaliação do cliente penduradas; cancelar apagaria da métrica um
+  atendimento que aconteceu de verdade. Quem fechou por engano reabre e então
+  cancela — duas decisões, duas linhas no `historico_chamados`.
+
+- **Reabrir não limpa `cancelado_em`/`cancelado_motivo`**, pela mesma regra já
+  valendo para o `fechado_em`: ficam como memória do último cancelamento.
+
+- ⚠️ **A lição que sobrou: "em aberto" é o contrário de DUAS coisas.** O código
+  tinha oito `status != 'fechado'` no backend e doze `!== "fechado"` no
+  `admin.js`. Cada um deles passaria a contar chamado cancelado como fila viva
+  — inclusive o dedup de `abrirChamadoAuto`, que deixaria de reabrir o chamado
+  automático de nível baixo depois que alguém cancelasse o anterior. **Um
+  status novo num sistema com predicados espalhados custa mais na varredura do
+  que na migration.** Hoje o backend escreve `NOT IN ('fechado','cancelado')` e
+  cada front tem um helper único.
+
+- ⚠️ **E o efeito colateral que quase passou:** `execucao()` no
+  `operador-orcamentos.js` lia qualquer chamado não-aberto como "feito" — o
+  orçamento sumia da fila de Aprovados **porque** o serviço deixou de ser feito.
+  O comentário do próprio arquivo, escrito em 03/09, dizia "não existe
+  'cancelado'" e virou o mapa do conserto.
+
 ## Decisões descartadas (e por quê)
 
 Registradas para não serem "redescobertas" e refeitas. Se o escopo mudar, o

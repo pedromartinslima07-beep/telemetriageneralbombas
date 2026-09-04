@@ -2,6 +2,7 @@ const express = require("express");
 const { pool } = require("../db");
 const { authRequired } = require("../middleware/authRequired");
 const { adminOnly } = require("../middleware/adminOnly");
+const { GESTAO_ROLES } = require("../middleware/gestaoOnly");
 const { salvarFotoMensagemChamado } = require("../services/chamado-mensagens.service");
 const { registrarCriacao, registrarMudancas } = require("../services/chamado-historico.service");
 const { resolverTecnico } = require("../services/chamado-atribuicao.service");
@@ -262,6 +263,8 @@ router.get("/", authRequired, adminOnly, async (req, res) => {
          ch.criado_em,
          ch.atualizado_em,
          ch.fechado_em,
+         ch.cancelado_em,
+         ch.cancelado_motivo,
          ch.primeira_resposta_em,
          ch.tecnico_a_caminho_em,
          ch.tecnico_chegou_em,
@@ -317,7 +320,7 @@ router.get("/", authRequired, adminOnly, async (req, res) => {
 // Resolve `tecnicos.id` via `tecnicos.usuario_id = req.user.id`.
 // Filtros opcionais:
 //   ?status=aberto,em_atendimento  (csv)
-//   ?abertos=1  (atalho: status != 'fechado')
+//   ?abertos=1  (atalho: status NOT IN ('fechado','cancelado'))
 //   ?desde=ISO  (criado_em >= desde)
 router.get("/meus", authRequired, async (req, res) => {
   if (req.user.role !== "tecnico") {
@@ -347,7 +350,9 @@ router.get("/meus", authRequired, async (req, res) => {
         conditions.push(`ch.status = ANY($${values.length}::text[])`);
       }
     } else if (req.query.abertos === "1") {
-      conditions.push(`ch.status <> 'fechado'`);
+      // Cancelado não é "aberto": o chamado saiu da fila. Sem isto o chamado
+      // que o admin cancelou continuava na tela do técnico pedindo atendimento.
+      conditions.push(`ch.status NOT IN ('fechado', 'cancelado')`);
     }
 
     if (req.query.desde) {
@@ -868,19 +873,45 @@ router.get("/:id", authRequired, adminOnly, async (req, res) => {
 });
 
 // PATCH /chamados/:id — atualiza status, prioridade ou responsável
+//
+// ⚠️ `cancelado` NÃO É `fechado` (04/09/2026). Fechar diz "o serviço foi
+// feito" e alimenta `tempo_resolucao_seg`, a taxa de resolução e o tempo médio
+// do painel. Chamado aberto por engano, duplicado ou desistido pelo cliente
+// não é nada disso — e até aqui a única saída dele era fechar, o que enfiava
+// cada engano na métrica como atendimento cumprido. Cancelar tira o chamado da
+// fila SEM entrar em conta nenhuma.
 router.patch("/:id", authRequired, adminOnly, async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) {
     return res.status(400).json({ error: "id inválido" });
   }
 
-  const { status, prioridade, categoria, responsavel_id, condominio_id, tecnico_id } = req.body || {};
+  const { status, prioridade, categoria, responsavel_id, condominio_id, tecnico_id, motivo } = req.body || {};
 
-  const STATUSES   = ["aberto", "fechado"];
+  const STATUSES   = ["aberto", "fechado", "cancelado"];
   const PRIORIDADES = ["p1", "p2", "p3", "p4"];
 
   if (status && !STATUSES.includes(status)) {
     return res.status(400).json({ error: `status deve ser: ${STATUSES.join(", ")} — em_atendimento só é permitido via /iniciar-atendimento` });
+  }
+
+  // ⚠️ CANCELAR É DE GESTÃO, FECHAR É DE OPERAÇÃO. `adminOnly` deixa o
+  // operador passar (ver `middleware/gestaoOnly.js`): fechar chamado é o dia
+  // dele, mas apagar da métrica um chamado que existiu é decisão de negócio.
+  let motivoCancelamento = null;
+  if (status === "cancelado") {
+    if (!GESTAO_ROLES.includes(req.user?.role)) {
+      return res.status(403).json({ error: "Cancelar chamado é restrito à gestão (admin ou gerente)" });
+    }
+    // Chamado cancelado sem o porquê recria a ambiguidade que o `fechado`
+    // tinha: quem olhar depois não sabe se foi engano, duplicata ou desistência.
+    motivoCancelamento = String(motivo || "").trim();
+    if (motivoCancelamento.length < 5) {
+      return res.status(400).json({ error: "Descreva o motivo do cancelamento (mínimo 5 caracteres)" });
+    }
+    if (motivoCancelamento.length > 500) {
+      return res.status(400).json({ error: "Motivo muito longo (máx 500 caracteres)" });
+    }
   }
   if (prioridade && !PRIORIDADES.includes(prioridade)) {
     return res.status(400).json({ error: `prioridade deve ser: ${PRIORIDADES.join(", ")}` });
@@ -904,14 +935,28 @@ router.patch("/:id", authRequired, adminOnly, async (req, res) => {
       sets.push("fechado_em = NOW()");
       // Fase 8A: tempo_resolucao_seg = quanto demorou pra resolver, em segundos.
       sets.push("tempo_resolucao_seg = GREATEST(0, EXTRACT(EPOCH FROM (NOW() - criado_em))::int)");
+    } else if (status === "cancelado") {
+      // ⚠️ NEM `fechado_em` NEM `tempo_resolucao_seg`. Cancelar não é resolver:
+      // o chamado sai da fila sem produzir tempo de resolução nenhum, senão o
+      // engano volta pela porta dos fundos na média do painel.
+      values.push(motivoCancelamento);
+      sets.push(`cancelado_motivo = $${values.length}`);
+      sets.push("cancelado_em = NOW()");
     } else {
       // Reabertura (status saindo de 'fechado'): zera o tempo de resolução
       // pra ser recalculado no próximo fechamento. fechado_em fica como
       // memória do último fechamento.
+      // Reabertura vinda de 'cancelado' não zera nada — não havia tempo de
+      // resolução para zerar; `cancelado_em`/`cancelado_motivo` ficam como
+      // memória do último cancelamento, pelo mesmo motivo do `fechado_em`.
       sets.push("tempo_resolucao_seg = CASE WHEN status = 'fechado' THEN NULL ELSE tempo_resolucao_seg END");
     }
     // Qualquer transição saindo de 'aberto' conta como primeira resposta.
-    if (status !== "aberto") tocouOChamado = true;
+    //
+    // ⚠️ MENOS O CANCELAMENTO. Cancelar não é responder: marcar TTFR aqui faria
+    // o chamado que ninguém atendeu sair do relatório como atendido dentro do
+    // prazo — e `primeira_resposta_em` vai cru no CSV de `GET /relatorios/chamados`.
+    if (status !== "aberto" && status !== "cancelado") tocouOChamado = true;
   }
   if (prioridade) {
     values.push(prioridade);
@@ -970,6 +1015,18 @@ router.patch("/:id", authRequired, adminOnly, async (req, res) => {
       return res.status(404).json({ error: "Chamado não encontrado" });
     }
     const antes = antesRes.rows[0];
+
+    // ⚠️ CHAMADO FECHADO NÃO SE CANCELA. Fechado é serviço prestado — tem
+    // `tempo_resolucao_seg` gravado, provavelmente O.S. finalizada e talvez
+    // avaliação do cliente. Cancelar apagaria da métrica um atendimento que
+    // aconteceu de verdade. Se foi fechado por engano, o caminho é reabrir e
+    // então cancelar — duas decisões, duas linhas no histórico.
+    if (status === "cancelado" && antes.status === "fechado") {
+      await client.query("ROLLBACK");
+      return res.status(409).json({
+        error: "Chamado fechado não pode ser cancelado. Reabra primeiro, se foi fechado por engano.",
+      });
+    }
 
     const result = await client.query(
       `UPDATE chamados SET ${sets.join(", ")} WHERE id = $${values.length} RETURNING *`,

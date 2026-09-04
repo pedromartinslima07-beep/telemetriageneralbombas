@@ -691,7 +691,9 @@ Duas pegadinhas relacionadas:
 - O responsável da zona é consultado **no instante da geração**. Definir o
   responsável depois **não retroage** no chamado já criado.
 - Reexecutar o plano não corrige: o anti-duplicidade devolve o mesmo chamado
-  enquanto ele não estiver `fechado`/`cancelado`.
+  enquanto ele não estiver `fechado`/`cancelado`. (⚠️ `cancelado` só passou a
+  existir de verdade em 04/09/2026, migration 083 — esta linha descrevia um
+  status que o banco recusava. Ver [chamados-sla.md](chamados-sla.md).)
 
 > Ver também [`../../memory-bank/decisions.md`](../../memory-bank/decisions.md)
 > para o raciocínio de usar Capacitor em vez de React Native.

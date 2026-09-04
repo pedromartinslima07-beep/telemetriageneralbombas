@@ -566,7 +566,7 @@ router.get("/preventivas", authRequired, adminOnly, async (req, res) => {
        LEFT JOIN LATERAL (
          SELECT ch.id, ch.status FROM chamados ch
           WHERE ch.plano_manutencao_id = pm.id
-            AND ch.status <> 'fechado'
+            AND ch.status NOT IN ('fechado', 'cancelado')
           ORDER BY ch.id DESC LIMIT 1
        ) cha ON TRUE
        LEFT JOIN LATERAL (
