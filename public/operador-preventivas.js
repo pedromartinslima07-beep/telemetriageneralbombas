@@ -167,7 +167,17 @@ function rodape(p) {
       : `<span class="pv-origem is-zona">pela zona</span>`;
     quem = `<b class="pv-quem">${escapar(p.tecnico_nome)}</b> ${origem}`;
   }
-  return `<p class="pv-meta">${partes.join(" · ")} · ${quem}</p>`;
+  // ⚠️ DE ONDE VEIO A BAIXA, quando ela veio de uma O.S. de OUTRO chamado
+  // (04/09/2026). Sem isto a placa diz "Feita" e não há nada na tela que
+  // explique quem a fez — uma preventiva que o operador não despachou aparece
+  // resolvida sozinha, e isso lê como defeito, não como aproveitamento.
+  // ⚠️ Só na lista de FEITAS: numa preventiva ainda aberta, `baixa_os_id` é a
+  // O.S. do mês passado, e mostrá-la ali diria que a visita deste mês já
+  // aconteceu.
+  const aproveitada = feita(p) && p.baixa_os_numero
+    ? ` · <span class="pv-aproveitada">aproveitada na O.S. ${escapar(p.baixa_os_numero)}</span>`
+    : "";
+  return `<p class="pv-meta">${partes.join(" · ")} · ${quem}${aproveitada}</p>`;
 }
 
 function linha(p) {

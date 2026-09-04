@@ -12,6 +12,7 @@ const express = require("express");
 const { pool } = require("../db");
 const { authRequired } = require("../middleware/authRequired");
 const { adminOnly } = require("../middleware/adminOnly");
+const { getConfigInt } = require("../services/config.service");
 // O mesmo registro de auditoria que `POST /chamados` grava. Um chamado que
 // nasce aqui não pode ficar de fora do histórico só por ter outra porta.
 const { registrarCriacao, registrarMudancas } = require("../services/chamado-historico.service");
@@ -579,7 +580,15 @@ router.get("/preventivas", authRequired, adminOnly, async (req, res) => {
          chf.fechado_em,
          (pm.ultima_em IS NOT NULL
           AND pm.ultima_em >= $1::date
-          AND pm.ultima_em < ($1::date + INTERVAL '1 month')) AS feita_no_mes
+          AND pm.ultima_em < ($1::date + INTERVAL '1 month')) AS feita_no_mes,
+
+         -- A O.S. que deu a baixa, quando a preventiva foi APROVEITADA numa
+         -- visita de outro chamado (migration 084). Sem isto a placa diz
+         -- "Feita" e nao ha nada na tela que explique quem a fez — e ninguem
+         -- consegue desfazer um engano.
+         -- (Sem crase nos comentarios: template literal. Ver CLAUDE.md.)
+         osb.id     AS baixa_os_id,
+         osb.numero AS baixa_os_numero
        FROM planos_manutencao pm
        JOIN condominios c ON c.id = pm.condominio_id AND c.ativo = TRUE
        LEFT JOIN planos_atribuicoes pa
@@ -594,6 +603,7 @@ router.get("/preventivas", authRequired, adminOnly, async (req, res) => {
           LIMIT 1
        ) zr ON TRUE
        LEFT JOIN tecnicos tz ON tz.id = zr.tecnico_id
+       LEFT JOIN ordens_servico osb ON osb.id = pm.ultima_os_id
        LEFT JOIN LATERAL (
          SELECT ch.id, ch.status, ch.tecnico_id FROM chamados ch
           WHERE ch.plano_manutencao_id = pm.id
@@ -672,9 +682,16 @@ router.get("/preventivas", authRequired, adminOnly, async (req, res) => {
         ORDER BY t.nome`
     );
 
+    // ⚠️ A META É DA EQUIPE, NÃO VENCIMENTO DO PRÉDIO: "normalmente fazemos
+    // todas antes do dia 10". Passar dela é sinal de ritmo; o vermelho fica
+    // reservado para o mês que virou sem a visita. Configurável em
+    // `PATCH /admin/configuracoes` (`preventivas.dia_meta`).
+    const diaMeta = await getConfigInt("preventivas.dia_meta", 10);
+
     return res.json({
       mes: mesDe(competencia),
       competencia,
+      dia_meta: diaMeta,
       planos,
       tecnicos: tec.rows,
     });

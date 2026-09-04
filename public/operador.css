@@ -3396,6 +3396,10 @@ body.sem-trilho #tela{width:100%}
   font-size:.95rem;line-height:1.5;color:var(--muted);
 }
 .pv-quem{color:var(--text);font-weight:700}
+/* "aproveitada na O.S. OS-2026-0031" — de onde veio a baixa quando a preventiva
+   foi feita numa visita de outro chamado. Tinta secundária: é a explicação da
+   frase, não a leitura dela. */
+.pv-aproveitada{color:var(--tinta-2)}
 /* O que trava o mês: não tem escala nem responsável de zona. Tinta de aviso,
    não itálico — itálico em nome próprio lê como citação. */
 .pv-sem{color:var(--risco-t);font-weight:700}
