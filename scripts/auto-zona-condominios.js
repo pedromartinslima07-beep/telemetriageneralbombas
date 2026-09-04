@@ -3,13 +3,29 @@
 // usando a mesma lógica do mapa: bairro tem prioridade; fallback por lat/lng
 // relativo à Praça da Sé.
 //
-// Uso: node scripts/auto-zona-condominios.js [--dry-run]
+// Uso: node scripts/auto-zona-condominios.js [--dry-run] [--prod]
 //   --dry-run  mostra o que faria, sem alterar o banco
+//   --prod     roda contra PRODUÇÃO (sem ele, o banco de teste)
+//
+// ⚠️ O `--prod` CHEGOU EM 04/09/2026, e a falta dele era o motivo de este
+// script nunca ter rodado onde precisava. Ele usava o `pool` do `src/db`, que
+// em dev resolve para o banco de TESTE — então quem o rodasse para "consertar
+// as zonas" via "Atualizados: 1" e ia embora achando que tinha consertado
+// produção. Mesma convenção do `scripts/migrate.js`, de propósito.
 
 require("dotenv").config();
-const { pool } = require("../src/db");
+const { Pool } = require("pg");
+const { resolverDatabaseUrl, descreverAlvo } = require("../src/db-url");
 
 const DRY_RUN = process.argv.includes("--dry-run");
+const PROD    = process.argv.includes("--prod");
+
+const { url, alvo } = resolverDatabaseUrl({ forcarProducao: PROD });
+const pool = new Pool({
+  connectionString: url,
+  ssl: { rejectUnauthorized: false },
+});
+console.log(`🗄️  Banco: ${alvo} — ${descreverAlvo(url)}`);
 
 // ⚠️ A TABELA SAIU DAQUI (04/09/2026). Ela vivia duplicada neste script e em
 // `public/admin.js` (`_MP_BAIRROS_ZONA`), e as duas JÁ DIVERGIAM da realidade:
