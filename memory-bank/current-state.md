@@ -610,6 +610,12 @@ Fluxo e pegadinhas em
     como a barra do topo. Vale para toda barra fixa nova nesta folha.
   - ⚠️ **`.sr-only` passou a existir no `operador.css`** (04/09) — não existia,
     e o rótulo do select do técnico aparecia cru na tela em produção.
+  - ⚠️ **A preventiva vence no MÊS, não no dia** (04/09): as visitas são feitas
+    entre o dia 1 e o dia 10, então `proxima_em` marca o mês, não um prazo.
+    Vencido = mês anterior. A tela do operador já era assim; o painel de planos
+    e o app do técnico foram alinhados. O dia 10 não aparece em tela — é
+    prática, não cláusula. Ver
+    [decisions.md](decisions.md).
   - ⚠️ **`tecnicos` é o quadro inteiro, não só quem vai a campo** (04/09): em
     produção, 6 `cargo='tecnico'`, 3 `gestor`, 2 `adm`. A escala da preventiva
     oferecia os 11 e aceitava qualquer um. Toda lista de despacho filtra por

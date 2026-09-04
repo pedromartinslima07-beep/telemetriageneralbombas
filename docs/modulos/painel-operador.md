@@ -189,6 +189,27 @@ cadastrado**. Na prática o despacho da preventiva acontecia por fora do sistema
 `planos_atribuicoes` (migration 082) é a atribuição do **ciclo**, por
 competência (o dia 1 do mês). Ver [`../banco-de-dados.md`](../banco-de-dados.md).
 
+### ⚠️ A preventiva vence no MÊS, não no dia (04/09/2026)
+
+Regra de negócio do Pedro: **as preventivas dos condomínios são feitas entre o
+dia 1 e o dia 10 de cada mês.** A `proxima_em` marca o MÊS em que a visita cai —
+não é um prazo que estoura à meia-noite do dia seguinte.
+
+⚠️ **A janela do dia 10 não é cláusula, e NÃO aparece em tela nenhuma.** Ela
+descreve a prática: *"não é como se a gente ficasse proibido de fazer após
+isso"*. Ver [decisions.md](../../memory-bank/decisions.md).
+
+**Esta tela sempre esteve certa** — `atrasada` é `proxima_em < (dia 1 da
+competência)`, ou seja, só preventiva de mês anterior é dívida. Quem media por
+dia era o painel de planos do admin (`_pmStatus`) e o roteiro do app do técnico
+(`rtPrazoLabel`), e os dois foram alinhados a esta regra em 04/09.
+
+O tamanho do que isso evitava: 69 planos ativos com `proxima_em` no dia 4 — no
+dia 5 o painel do admin marcaria os 69 como vencidos, em vermelho, de uma vez.
+
+⚠️ Vale para 90/180/365 dias também: para um semestral que vence em setembro, a
+competência é setembro.
+
 ### ⚠️ A regra que sustenta tudo: escalar é DESVIAR, não acrescentar
 
 | Situação | Quem vê no app |

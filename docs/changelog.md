@@ -9691,6 +9691,74 @@ e *"escalar para quem não é técnico → 400"*. **33/33 passam.**
 Sem `?v=N`: a mudança é de backend, e o front só desenha o que a API manda.
 
 
+### 2026-09-04 (5ª rodada) · A preventiva vence no MÊS, não no dia
+
+*"normalmente fazemos as preventivas dos condomínios até o dia 10 de cada mês,
+então dia 4 ter no sistema que venceu hoje passa a impressão errada"*. Regra de
+negócio que não estava em lugar nenhum do sistema, agora registrada em
+[`../memory-bank/decisions.md`](../memory-bank/decisions.md).
+
+**O tamanho do defeito, medido na produção antes de mexer:** 73 planos, todos
+mensais, **69 ativos com `proxima_em` no dia 4**.
+
+| | hoje (dia 4) | amanhã (dia 5) |
+|---|---|---|
+| régua antiga | 69 "vence hoje" | **69 VENCIDOS, em vermelho** |
+| régua nova | 69 "vence este mês" | 69 "vence este mês" |
+
+Ou seja: hoje à meia-noite o painel inteiro ficaria vermelho — aba Vencidos, KPI
+e badge da nav —, com a equipe dentro da janela normal e seis dias de folga.
+
+**A regra certa já existia na casa, e numa tela só.** O `GET
+/operador/preventivas` calcula `atrasada` como `proxima_em < (dia 1 da
+competência)`: **o mês é a unidade**, e só preventiva de mês anterior é dívida.
+Por isso a tela de Preventivas do operador mostrava "VENCE 04/09" e não
+"ATRASADA". Quem media por dia era o painel de planos (`_pmStatus`, `admin.js`)
+e o roteiro do app do técnico (`rtPrazoLabel`) — duas telas discordando da
+terceira sobre o mesmo fato. O Pedro: *"pode alinhar com o que o operador faz,
+que é o certo"*.
+
+**O que mudou:**
+
+- `vencido há N dias` → **`vencido desde agosto`** (mês anterior, e só ele)
+- `vence hoje` / `vence em N dias` → **`vence este mês`**
+- `em N dias` → **`em outubro`** (com o ano quando não é o corrente: um plano
+  anual vencido em setembro passado lia igual ao que vence agora)
+- No app do técnico: `atrasado 1 dia` → `atrasado desde agosto`, `vence hoje` →
+  `este mês`
+
+⚠️ **Não foi troca de rótulo.** O `kind` alimenta abas, KPIs e badge: o balde
+`vencendo` deixou de ser "próximos 7 dias" e virou "este mês", então a aba e o
+KPI **"Próximos 7d" foram renomeados para "Este mês"**. Rótulo que sobrevive a
+uma mudança de balde vira mentira silenciosa.
+
+⚠️ **Mês que vem é "em dia", não mais âmbar.** A régua antiga acendia 7 dias
+antes; com o mês como unidade isso ficaria absurdo, porque o job rola a
+`proxima_em` para o ciclo seguinte no instante em que abre o chamado — o plano
+recém-executado nasceria em aviso.
+
+⚠️ **A ordenação do roteiro continua por DIA** (`piorDias`), de propósito: em
+meses os 69 prédios do mesmo mês empatariam e a ordem viraria a de chegada.
+Rótulo é mês; ordenação é dia.
+
+⚠️ **O DIA 10 NÃO APARECE NA TELA**, e é decisão registrada. Ele descreve a
+prática — *"não é como se a gente ficasse proibido de fazer após isso"* —, não
+uma cláusula. Escrever "prazo até dia 10" faria o sistema afirmar uma regra que
+o contrato não tem.
+
+⚠️ **Vale para 90/180/365 dias também.** Hoje todo plano de produção é mensal,
+mas o schema tem os outros: para um semestral que vence em setembro, a
+competência continua sendo setembro.
+
+⚠️ **A lição, e é minha:** esta regra foi dita pelo Pedro em 03/09 e eu **não
+registrei**; ele teve de repetir em 04/09. Regra de negócio dita em conversa e
+não escrita desaparece. Ao ouvir "normalmente a gente faz assim", escrever em
+`decisions.md` na hora, mesmo sem implementar nada.
+
+`?v=N`: `admin.js` 336 → 337. O `app/public/app.js` não tem cache-bust (vai por
+`npx cap sync`).
+
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

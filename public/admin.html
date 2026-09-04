@@ -1342,7 +1342,9 @@
               <button class="wa-tab is-active" data-pm-tab="todos" type="button">Todos <span class="wa-count" id="pmCtTodos">0</span></button>
               <button class="wa-tab" data-pm-tab="vencidos" type="button">Vencidos <span class="wa-count" id="pmCtVencidos">0</span></button>
               <button class="wa-tab" data-pm-tab="andamento" type="button">Em andamento <span class="wa-count" id="pmCtAndamento">0</span></button>
-              <button class="wa-tab" data-pm-tab="vencendo" type="button">Próximos 7d <span class="wa-count" id="pmCtVencendo">0</span></button>
+              <!-- ⚠️ "Este mês", não "Próximos 7d" (04/09/2026): o balde deixou de ser uma
+                   janela de 7 dias e passou a ser o MÊS da preventiva. Ver `_pmStatus`. -->
+              <button class="wa-tab" data-pm-tab="vencendo" type="button">Este mês <span class="wa-count" id="pmCtVencendo">0</span></button>
               <button class="wa-tab" data-pm-tab="em-dia" type="button">Em dia <span class="wa-count" id="pmCtEmDia">0</span></button>
               <button class="wa-tab" data-pm-tab="inativos" type="button">Inativos <span class="wa-count" id="pmCtInativos">0</span></button>
             </div>
@@ -2762,7 +2764,7 @@
 </div>
 
 
-<script src="/static/admin.js?v=336" defer></script>
+<script src="/static/admin.js?v=337" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
 <script src="/static/register-sw.js?v=51" defer></script>
 </body>

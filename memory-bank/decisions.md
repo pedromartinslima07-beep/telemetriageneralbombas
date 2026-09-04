@@ -969,6 +969,69 @@ a informação, e a simetria custa uma linha.
   O comentário do próprio arquivo, escrito em 03/09, dizia "não existe
   'cancelado'" e virou o mapa do conserto.
 
+## A preventiva vence no MÊS, não no dia (04/09/2026)
+
+**Regra de negócio dita pelo Pedro**, e ela não estava em lugar nenhum do
+sistema:
+
+> As preventivas dos condomínios são feitas **entre o dia 1 e o dia 10** de cada
+> mês. Não é proibido fazer depois — é o que acontece normalmente.
+
+⚠️ **A janela NÃO é um prazo contratual.** O Pedro foi explícito: *"não é como
+se a gente ficasse proibido de fazer após isso, estou só explicando o que
+acontece"*. Ou seja, o dia 10 descreve a prática; ele **não** autoriza o sistema
+a tratar o dia 11 como violação, nem a escrever "prazo até dia 10" como se
+fosse cláusula. Quem quiser transformar isso em regra dura precisa perguntar
+antes.
+
+**O que isso torna errado.** O `_pmStatus` do `admin.js` mede a distância até
+`proxima_em` em DIAS: no dia da data diz "vence hoje", e no dia seguinte
+"vencido há N dias" em vermelho, contando o plano na aba **Vencidos**, no KPI e
+no badge da nav. O mesmo em `rtPrazoLabel` (`app/public/app.js`), que diz
+"atrasado".
+
+Levantado em produção em 04/09: **73 planos, todos de 30 dias, e 71 deles com
+`proxima_em` no dia 4**. Ou seja — no dia 5 o painel marcaria **71 planos como
+vencidos, em vermelho, de uma vez**, com a equipe ainda dentro da janela normal
+e seis dias de folga. O Pedro: *"dia 4 ter no sistema que venceu hoje passa a
+impressão errada"*.
+
+**A regra certa já existe na casa, e numa tela só.** O `GET
+/operador/preventivas` calcula `atrasada` como `proxima_em < (dia 1 da
+competência)` — isto é, **o mês é a unidade**, e só preventiva de mês anterior é
+dívida. A tela de Preventivas do operador está certa; o painel de planos e o app
+do técnico é que medem por dia. Duas telas sobre o mesmo fato discordando.
+
+⚠️ **Todo plano de produção hoje é mensal (30 dias), mas o schema tem 90/180/365
+dias.** "O mês é a unidade" precisa continuar valendo para eles — para um
+semestral que vence em setembro, a competência ainda é setembro.
+
+✅ **Implementado em 04/09/2026**, com o "pode alinhar com o que o operador faz,
+que é o certo" do Pedro. `_pmStatus` (`public/admin.js`) e `rtPrazoLabel`
+(`app/public/app.js`) passaram a medir em MESES. Não foi troca de rótulo: o
+`kind` alimenta abas, KPIs e badge, então o balde "vencendo" deixou de ser
+"próximos 7 dias" e virou "este mês" — a aba e o KPI foram renomeados junto.
+
+⚠️ **Mês que vem é "em dia", não mais aviso âmbar.** A régua antiga acendia 7
+dias antes da data; com o mês como unidade isso ficaria absurdo, porque o job
+rola a `proxima_em` para o ciclo seguinte no instante em que abre o chamado — o
+plano recém-executado nasceria em âmbar.
+
+⚠️ **A ORDENAÇÃO do roteiro do técnico continua por DIA** (`piorDias`, em
+`app/public/app.js`), e é de propósito: em meses, os 69 prédios do mesmo mês
+empatariam e a ordem viraria a de chegada. Rótulo é mês; ordenação é dia.
+
+Medido na produção antes de subir, com a régua antiga contra a nova:
+
+| | hoje (dia 4) | amanhã (dia 5) |
+|---|---|---|
+| antiga | 69 "vence hoje" | **69 vencidos, em vermelho** |
+| nova | 69 "vence este mês" | 69 "vence este mês" |
+
+⚠️ **A lição:** regra de negócio dita em conversa e não escrita **desaparece**.
+Esta custou um dia e uma repetição. Ao ouvir "normalmente a gente faz assim",
+escreva aqui na hora, mesmo sem implementar nada.
+
 ## Decisões descartadas (e por quê)
 
 Registradas para não serem "redescobertas" e refeitas. Se o escopo mudar, o

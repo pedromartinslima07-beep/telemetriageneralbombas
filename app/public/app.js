@@ -5982,13 +5982,45 @@ function rtDiasAte(iso) {
   return Math.round((alvo - hoje) / 86400000);
 }
 
+// ⚠️ O MÊS É A UNIDADE DA PREVENTIVA, NÃO O DIA (04/09/2026). Regra do Pedro:
+// as preventivas dos condomínios são feitas entre o dia 1 e o dia 10 de cada
+// mês, e a `proxima_em` marca o MÊS da visita — não um prazo que estoura à
+// meia-noite do dia seguinte. Medido em produção: 73 planos mensais, 71 com
+// `proxima_em` no dia 4; o roteiro marcaria os 71 como "atrasado 1 dia" no dia
+// 5, com a equipe dentro da janela normal.
+//
+// ⚠️ A REGRA É A DO `GET /operador/preventivas` (`proxima_em` < dia 1 da
+// competência), que era a única tela da casa a acertar. O painel de planos do
+// admin foi alinhado na mesma rodada.
+//
+// ⚠️ O DIA 10 NÃO APARECE EM LUGAR NENHUM: ele descreve a prática, não uma
+// cláusula. Ver `memory-bank/decisions.md`.
+//
+// Fatia a string em vez de parsear: `proxima_em` é DATE sem fuso.
+function rtMesesAte(iso) {
+  if (!iso) return null;
+  const p = String(iso).slice(0, 10).split("-");
+  const a = Number(p[0]), m = Number(p[1]);
+  if (!a || !m) return null;
+  const hoje = new Date();
+  return (a - hoje.getFullYear()) * 12 + (m - 1 - hoje.getMonth());
+}
+
+const RT_MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho",
+                  "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+function rtMesRot(iso) {
+  const p = String(iso).slice(0, 10).split("-");
+  return RT_MESES[Number(p[1]) - 1] || "—";
+}
+
 function rtPrazoLabel(iso) {
-  const d = rtDiasAte(iso);
-  if (d == null) return { txt: "sem data", cls: "" };
-  const dias = (n) => `${n} ${n === 1 ? "dia" : "dias"}`;
-  if (d < 0)   return { txt: `atrasado ${dias(-d)}`, cls: "is-atrasado" };
-  if (d === 0) return { txt: "vence hoje", cls: "is-hoje" };
-  return { txt: `em ${dias(d)}`, cls: "" };
+  const dm = rtMesesAte(iso);
+  if (dm == null) return { txt: "sem data", cls: "" };
+  // Atrasado é mês anterior, e só. Dentro do mês da data a preventiva é o
+  // trabalho DESTE mês — não é dívida, mesmo passado o dia.
+  if (dm < 0)   return { txt: `atrasado desde ${rtMesRot(iso)}`, cls: "is-atrasado" };
+  if (dm === 0) return { txt: "este mês", cls: "is-hoje" };
+  return { txt: `em ${rtMesRot(iso)}`, cls: "" };
 }
 
 function rtDistanciaKm(p) {
@@ -6020,6 +6052,9 @@ function rtAgrupar() {
   const grupos = [...mapa.values()].map((g) => {
     const dist = rtDistanciaKm(g);
     // O grupo herda o pior prazo entre seus planos (o mais atrasado manda).
+    // ⚠️ AQUI O DIA CONTINUA VALENDO, e é de propósito: isto ORDENA a lista, não
+    // rotula nada. Em meses, os 71 prédios do mesmo mês empatariam e a ordem
+    // viraria a de chegada. Rótulo é mês (ver `rtPrazoLabel`); ordenação é dia.
     const piorDias = g.planos.reduce((min, p) => {
       const d = rtDiasAte(p.proxima_em);
       return d != null && (min == null || d < min) ? d : min;
@@ -6092,7 +6127,9 @@ function renderRoteiro() {
   // telas lerem como irmãs. Substituiu o rodapé de contagem do card antigo.
   const strip = document.getElementById("rtKpiStrip");
   if (strip) {
-    const atrasadas = RT.planos.filter(p => !p.chamado_aberto_id && rtDiasAte(p.proxima_em) < 0).length;
+    // ⚠️ EM MESES, não em dias — senão o número do topo contradiz a etiqueta do
+    // card logo abaixo, que já lê "este mês".
+    const atrasadas = RT.planos.filter(p => !p.chamado_aberto_id && rtMesesAte(p.proxima_em) < 0).length;
     const emCurso   = RT.planos.filter(p => p.chamado_aberto_id).length;
     const cell = (val, label, cls) => `
       <div class="tk-cell ${val > 0 ? cls : ""}">

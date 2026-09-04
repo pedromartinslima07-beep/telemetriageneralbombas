@@ -14955,18 +14955,55 @@ function _pmPeriodLabel(dias) {
   return `${dias} dias`;
 }
 
-function _pmDiasAteProxima(iso) {
+// ⚠️ O MÊS É A UNIDADE DA PREVENTIVA, NÃO O DIA (04/09/2026), e é por isso que
+// a distância que interessa aqui se mede em MESES. Regra do Pedro: as
+// preventivas dos condomínios são feitas entre o dia 1 e o dia 10 de cada mês.
+// A `proxima_em` marca o mês em que a visita cai — não é um prazo que estoura
+// à meia-noite do dia seguinte.
+//
+// ⚠️ ESTA REGRA JÁ EXISTIA NA CASA, numa tela só: o `GET /operador/preventivas`
+// calcula `atrasada` como `proxima_em < (dia 1 da competência)`. Era este
+// painel que media por dia, e as duas telas discordavam sobre o mesmo fato.
+//
+// O que isso corrigiu, medido em produção em 04/09: 73 planos, todos mensais,
+// **71 com `proxima_em` no dia 4**. No dia 5 este painel marcaria os 71 como
+// vencidos, em vermelho, de uma vez — com a equipe dentro da janela normal e
+// seis dias de folga. "dia 4 ter no sistema que venceu hoje passa a impressão
+// errada" (Pedro).
+//
+// ⚠️ A JANELA DO DIA 10 NÃO ENTRA NA TELA, e é decisão registrada em
+// `memory-bank/decisions.md`: ela descreve a prática, não uma cláusula. Escrever
+// "prazo até dia 10" faria o sistema afirmar uma regra que o contrato não tem.
+//
+// Vale para 90/180/365 dias também — o schema os tem, ainda que hoje todo plano
+// de produção seja mensal: para um semestral que vence em setembro, a
+// competência continua sendo setembro.
+//
+// ⚠️ Fatia a string, não parseia. `proxima_em` é DATE sem fuso, e `new Date()`
+// nela lê meia-noite UTC — a mesma pegadinha do `_pmFmtData` logo acima.
+function _pmMesesAteProxima(iso) {
   if (!iso) return null;
-  const hoje = new Date(); hoje.setHours(0,0,0,0);
-  const prox = new Date(String(iso).slice(0, 10) + "T00:00:00");
-  return Math.round((prox - hoje) / (1000 * 60 * 60 * 24));
+  const [a, m] = String(iso).slice(0, 10).split("-").map(Number);
+  if (!a || !m) return null;
+  const hoje = new Date();
+  return (a - hoje.getFullYear()) * 12 + (m - 1 - hoje.getMonth());
+}
+
+const _PM_MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho",
+                   "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+
+// "setembro", ou "setembro de 2027" quando o ano não é o corrente — sem o ano,
+// um plano anual vencido em setembro passado lê igual ao que vence agora.
+function _pmMesRot(iso) {
+  const [a, m] = String(iso).slice(0, 10).split("-").map(Number);
+  const nome = _PM_MESES[m - 1] || "—";
+  return a === new Date().getFullYear() ? nome : `${nome} de ${a}`;
 }
 
 // Status do plano. `kind` alimenta tabs/KPIs/badge; `delta`/`deltaCls` são a
 // frase que aparece embaixo da data na coluna "Próxima" (substituiu a coluna
 // Status, que só repetia o que a data já dizia).
 function _pmStatus(p) {
-  const dias = d => `${d} ${d === 1 ? "dia" : "dias"}`;
   if (!p.ativo) return { kind: "inativo", delta: "pausado", deltaCls: "is-off" };
 
   // Chamado da preventiva ainda aberto tem precedência sobre a data: o job não
@@ -14981,12 +15018,23 @@ function _pmStatus(p) {
     };
   }
 
-  const d = _pmDiasAteProxima(p.proxima_em);
-  if (d == null) return { kind: "em-dia",   delta: "—", deltaCls: "is-off" };
-  if (d < 0)     return { kind: "vencidos", delta: `vencido há ${dias(-d)}`, deltaCls: "is-bad" };
-  if (d === 0)   return { kind: "vencendo", delta: "vence hoje",             deltaCls: "is-warn" };
-  if (d <= 7)    return { kind: "vencendo", delta: `vence em ${dias(d)}`,    deltaCls: "is-warn" };
-  return { kind: "em-dia", delta: `em ${dias(d)}`, deltaCls: "is-ok" };
+  const dm = _pmMesesAteProxima(p.proxima_em);
+  if (dm == null) return { kind: "em-dia", delta: "—", deltaCls: "is-off" };
+
+  // ⚠️ VENCIDO É MÊS ANTERIOR, e só. Dentro do mês da `proxima_em` a preventiva
+  // é o trabalho DESTE mês — não é dívida, mesmo passado o dia da data.
+  if (dm < 0) {
+    return { kind: "vencidos",
+             delta: `vencido desde ${_pmMesRot(p.proxima_em)}`, deltaCls: "is-bad" };
+  }
+  // O mês corrente é o que pede alguém: âmbar, não vermelho.
+  if (dm === 0) return { kind: "vencendo", delta: "vence este mês", deltaCls: "is-warn" };
+
+  // ⚠️ MÊS QUE VEM JÁ É "EM DIA", e não mais um aviso âmbar. A régua antiga
+  // acendia 7 dias antes da data; com o mês como unidade isso ficaria absurdo,
+  // porque o job rola a `proxima_em` para o ciclo seguinte no instante em que
+  // abre o chamado — o plano que ACABOU de ser executado nasceria em âmbar.
+  return { kind: "em-dia", delta: "em " + _pmMesRot(p.proxima_em), deltaCls: "is-ok" };
 }
 
 async function carregarPlanos() {
@@ -15048,7 +15096,7 @@ function _pmRenderTudo() {
   if (grid) grid.innerHTML =
     kpi(ICO_CAL, ativos.length, "Planos ativos", "rc-neutral") +
     kpi(ICO_X,   vencidos,      "Vencidos",      vencidos > 0 ? "rc-bad"  : "rc-neutral") +
-    kpi(ICO_CLK, vencendo,      "Próximos 7d",   vencendo > 0 ? "rc-warn" : "rc-neutral") +
+    kpi(ICO_CLK, vencendo,      "Este mês",      vencendo > 0 ? "rc-warn" : "rc-neutral") +
     kpi(ICO_OK,  emDia,         "Em dia",        emDia > 0    ? "rc-ok"   : "rc-neutral");
 
   // Contadores das tabs
