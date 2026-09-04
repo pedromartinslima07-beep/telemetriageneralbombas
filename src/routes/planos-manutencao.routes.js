@@ -8,6 +8,7 @@ const express = require("express");
 const { pool } = require("../db");
 const { authRequired } = require("../middleware/authRequired");
 const { gestaoOnly } = require("../middleware/gestaoOnly");
+const { estadoDa, origemDoTecnico } = require("../services/preventivas.service");
 const { executarPlano } = require("../jobs/planos-manutencao.job");
 const { getConfigInt } = require("../services/config.service");
 
@@ -99,19 +100,57 @@ router.get("/", authRequired, gestaoOnly, async (req, res) => {
               pm.periodicidade_dias, pm.proxima_em, pm.ultima_em,
               pm.ativo, pm.criado_em,
               COALESCE(NULLIF(c.nome_fantasia,''), c.nome) AS condominio_nome,
+              c.bairro AS condominio_bairro,
               c.zona AS condominio_zona,
-              cha.id     AS chamado_aberto_id,
-              cha.status AS chamado_aberto_status
+              cha.id         AS chamado_aberto_id,
+              cha.status     AS chamado_aberto_status,
+              -- ⚠️ QUEM ESTA NO CHAMADO ABERTO. "Em campo" so e verdade se
+              -- alguem foi: o job cria o chamado do mes sozinho, sem tecnico.
+              -- Mesma regra do GET /operador/preventivas — quem decide e o
+              -- estadoDa, e ele mora no preventivas.service.
+              -- (Sem crase nos comentarios: template literal. Ver CLAUDE.md.)
+              cha.tecnico_id AS chamado_aberto_tecnico_id,
+              -- O ACOMPANHAMENTO DO MES (04/09/2026, pedido do Pedro: "acho que
+              -- e bom ter o acompanhamento do mes"). Ate aqui esta rota so
+              -- sabia da DATA do plano; quem faz, se ja rodou e quem esta nele
+              -- so existia na tela do operador. Sao os mesmos LEFT JOINs de la.
+              pa.tecnico_id  AS atribuido_tecnico_id,
+              ta.nome        AS atribuido_tecnico_nome,
+              zr.tecnico_id  AS zona_tecnico_id,
+              tz.nome        AS zona_tecnico_nome,
+              chf.id         AS chamado_fechado_id,
+              chf.fechado_em,
+              (pm.ultima_em IS NOT NULL
+               AND pm.ultima_em >= date_trunc('month', CURRENT_DATE)::date
+               AND pm.ultima_em <  (date_trunc('month', CURRENT_DATE) + INTERVAL '1 month')::date
+              ) AS feita_no_mes
        FROM planos_manutencao pm
        LEFT JOIN condominios c ON c.id = pm.condominio_id
        LEFT JOIN LATERAL (
-         SELECT ch.id, ch.status
+         SELECT ch.id, ch.status, ch.tecnico_id
          FROM chamados ch
          WHERE ch.plano_manutencao_id = pm.id
            AND ch.status NOT IN ('fechado', 'cancelado')
          ORDER BY ch.id DESC
          LIMIT 1
        ) cha ON TRUE
+       LEFT JOIN LATERAL (
+         SELECT ch.id, ch.fechado_em FROM chamados ch
+          WHERE ch.plano_manutencao_id = pm.id
+            AND ch.status = 'fechado'
+            AND ch.fechado_em >= date_trunc('month', CURRENT_DATE)
+            AND ch.fechado_em <  date_trunc('month', CURRENT_DATE) + INTERVAL '1 month'
+          ORDER BY ch.fechado_em DESC LIMIT 1
+       ) chf ON TRUE
+       LEFT JOIN planos_atribuicoes pa
+              ON pa.plano_id = pm.id
+             AND pa.competencia = date_trunc('month', CURRENT_DATE)::date
+       LEFT JOIN tecnicos ta ON ta.id = pa.tecnico_id
+       LEFT JOIN LATERAL (
+         SELECT pzr.tecnico_id FROM planos_zona_responsavel pzr
+          WHERE pzr.zona = c.zona ORDER BY pzr.tecnico_id LIMIT 1
+       ) zr ON TRUE
+       LEFT JOIN tecnicos tz ON tz.id = zr.tecnico_id
        ${whereSql}
        ORDER BY
          CASE WHEN pm.ativo AND pm.proxima_em <= CURRENT_DATE AND cha.id IS NULL
@@ -120,7 +159,42 @@ router.get("/", authRequired, gestaoOnly, async (req, res) => {
        LIMIT 500`,
       vals
     );
-    return res.json(r.rows);
+
+    // ⚠️ O ESTADO DO MÊS É CALCULADO NO SERVIÇO, não aqui e não no front
+    // (04/09/2026). `estadoDa` e `origemDoTecnico` são a MESMA definição que a
+    // tela do operador usa — o `preventivas.service.js` existe justamente para
+    // não haver duas leituras do mesmo mês, uma dizendo ao admin que sobrou
+    // serviço e outra dizendo ao operador que não.
+    const planos = r.rows.map((p) => ({
+      ...p,
+      estado: estadoDa(p),
+      tecnico_id:   p.atribuido_tecnico_id || p.zona_tecnico_id || null,
+      tecnico_nome: p.atribuido_tecnico_nome || p.zona_tecnico_nome || null,
+      tecnico_origem: origemDoTecnico(p),
+    }));
+
+    // ⚠️ OS PRÉDIOS SEM PLANO NENHUM — a pergunta que esta tela não respondia.
+    // Ela lista PLANOS, então quem não tem plano era invisível aqui: medido em
+    // 04/09/2026, **16 dos 88 condomínios ativos** (18% da carteira) não tinham
+    // preventiva nenhuma, e não havia como descobrir isso pelo painel.
+    //
+    // ⚠️ SÓ QUANDO A LISTA É A INTEIRA. Com filtro de condomínio ou de ativo a
+    // pergunta muda de sentido — "quem está fora" só existe contra o todo.
+    let semPlano = [];
+    if (!where.length) {
+      const sp = await pool.query(
+        `SELECT c.id, COALESCE(NULLIF(c.nome_fantasia,''), c.nome) AS nome,
+                c.bairro, c.zona
+           FROM condominios c
+          WHERE c.ativo = TRUE
+            AND NOT EXISTS (SELECT 1 FROM planos_manutencao p
+                             WHERE p.condominio_id = c.id AND p.ativo = TRUE)
+          ORDER BY c.zona NULLS LAST, nome`
+      );
+      semPlano = sp.rows;
+    }
+
+    return res.json({ planos, sem_plano: semPlano });
   } catch (err) {
     console.error("[planos-manutencao] GET /:", err);
     return res.status(500).json({ error: "Erro ao listar planos" });

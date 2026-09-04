@@ -21,6 +21,37 @@ outro público e outro sistema visual.
 
 ---
 
+## Planos de manutenção — a tela reformulada (04/09/2026)
+
+**A tela é o cadastro E o acompanhamento**, por decisão do Pedro: *"acho que é
+bom ter o acompanhamento do mês, o que eu quero fazer nessa tela é tudo que for
+possível"*. Ela não foi reduzida ao cadastro.
+
+⚠️ **O sujeito da linha é o PRÉDIO**, não "o plano". O título ("Preventiva") é
+igual em 75 dos 76 e a periodicidade é 30 dias em 76 de 76 — os dois viraram
+etiqueta de **exceção**, e a coluna Periodicidade saiu. Medido antes: o nome do
+prédio saía a 10,5px cinza e a palavra constante a 12px branca.
+
+⚠️ **A coluna "Este mês" segue a gramática do `.pv-selo` do operador.** As duas
+telas falam do mesmo mês; um selo diferente em cada uma faria parecer dois
+produtos. O estado vem do backend (`preventivas.service`), nunca de conta feita
+no front.
+
+⚠️ **A aba "Sem plano" não lista planos** — lista condomínios ativos sem
+preventiva nenhuma (16 de 88 em 04/09). É a pergunta que a tela não respondia,
+porque quem está de fora não tem plano para aparecer. A ação da linha é criar.
+
+⚠️ **Escalar técnico daqui reusa `POST /operador/preventivas/atribuir`.** Não
+criar rota nova: aquela grava a escala E adota o chamado aberto na mesma
+transação.
+
+⚠️ **As ações são sempre visíveis** (eram `opacity: 0` até o hover), e o
+"gerar chamado agora" mora no menu `⋯` — cria trabalho real, o job já faz
+sozinho todo mês, e estava colado no desativar.
+
+Detalhe e medidas no [changelog](../changelog.md).
+
+
 ## As 15 telas
 
 Não há rota por tela: tudo é `showSection(nome)` alternando `.section` no mesmo

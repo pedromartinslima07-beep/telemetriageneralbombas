@@ -18,7 +18,7 @@
   <link rel="stylesheet" href="/static/leaflet.css">
   <!-- ⚠️ Ao mexer em admin.js ou admin.css, bumpe o ?v=N aqui E no <script>
        lá embaixo. Ver CLAUDE.md raiz. -->
-  <link rel="stylesheet" href="/static/admin.css?v=252">
+  <link rel="stylesheet" href="/static/admin.css?v=253">
 </head>
 <body>
   <div id="appLoader">
@@ -1339,13 +1339,25 @@
 
           <div class="al-toolbar">
             <div class="wa-tabs" role="tablist">
+              <!-- ⚠️ AS ABAS FALAM DO MÊS, NÃO DA DATA DO PLANO (04/09/2026).
+                   Antes eram Vencidos · Em andamento · Este mês · Em dia, e elas
+                   misturavam duas perguntas: a data da PRÓXIMA visita e o
+                   andamento da ATUAL. Visto na tela: "Este mês 0" ao lado de
+                   "Em andamento 69" — as duas verdadeiras, e contraditórias na
+                   leitura, porque falavam de coisas diferentes.
+                   Hoje elas seguem o ciclo do serviço: sem dono → com dono →
+                   em campo → feita. Mais duas do CADASTRO, que é a outra
+                   pergunta legítima da tela: quem está de fora (sem plano) e o
+                   que está pausado. -->
               <button class="wa-tab is-active" data-pm-tab="todos" type="button">Todos <span class="wa-count" id="pmCtTodos">0</span></button>
-              <button class="wa-tab" data-pm-tab="vencidos" type="button">Vencidos <span class="wa-count" id="pmCtVencidos">0</span></button>
-              <button class="wa-tab" data-pm-tab="andamento" type="button">Em andamento <span class="wa-count" id="pmCtAndamento">0</span></button>
-              <!-- ⚠️ "Este mês", não "Próximos 7d" (04/09/2026): o balde deixou de ser uma
-                   janela de 7 dias e passou a ser o MÊS da preventiva. Ver `_pmStatus`. -->
-              <button class="wa-tab" data-pm-tab="vencendo" type="button">Este mês <span class="wa-count" id="pmCtVencendo">0</span></button>
-              <button class="wa-tab" data-pm-tab="em-dia" type="button">Em dia <span class="wa-count" id="pmCtEmDia">0</span></button>
+              <button class="wa-tab" data-pm-tab="sem-dono" type="button">Sem dono <span class="wa-count" id="pmCtSemDono">0</span></button>
+              <button class="wa-tab" data-pm-tab="com-dono" type="button">Com dono <span class="wa-count" id="pmCtComDono">0</span></button>
+              <button class="wa-tab" data-pm-tab="em-campo" type="button">Em campo <span class="wa-count" id="pmCtEmCampo">0</span></button>
+              <button class="wa-tab" data-pm-tab="feitas" type="button">Feitas <span class="wa-count" id="pmCtFeitas">0</span></button>
+              <!-- ⚠️ ESTA ABA NÃO LISTA PLANOS, e é a única assim: são os
+                   prédios ATIVOS que não têm plano nenhum. A tela lista planos,
+                   então quem está fora era invisível — 16 de 88 em 04/09. -->
+              <button class="wa-tab" data-pm-tab="sem-plano" type="button">Sem plano <span class="wa-count" id="pmCtSemPlano">0</span></button>
               <button class="wa-tab" data-pm-tab="inativos" type="button">Inativos <span class="wa-count" id="pmCtInativos">0</span></button>
             </div>
             <div class="al-filters">
@@ -1368,10 +1380,18 @@
                 <thead>
                   <tr>
                     <th style="width:32px"><input type="checkbox" id="pmChkAll" class="viewer-only-hide"></th>
-                    <th>Plano</th>
-                    <th style="width:120px">Periodicidade</th>
+                    <!-- ⚠️ O SUJEITO DA LINHA É O PRÉDIO, não "o plano"
+                         (04/09/2026). Medido antes: a palavra "Preventiva"
+                         saía a 12px/600 em branco e o nome do prédio a
+                         10,5px/400 em cinza — o destaque estava no que era
+                         igual em 75 dos 76 planos, e o dado que identifica a
+                         linha era o texto mais apagado da célula.
+                         ⚠️ "Periodicidade" SAIU: dizia "Mensal" 76 vezes em 76.
+                         Vira etiqueta na linha, e só quando NÃO for mensal. -->
+                    <th>Prédio</th>
+                    <th style="width:210px">Este mês</th>
                     <th style="width:150px">Próxima</th>
-                    <th style="width:104px"><span class="sr-only">Ações</span></th>
+                    <th style="width:132px"><span class="sr-only">Ações</span></th>
                   </tr>
                 </thead>
                 <tbody id="pmTableBody"></tbody>
@@ -2764,7 +2784,7 @@
 </div>
 
 
-<script src="/static/admin.js?v=337" defer></script>
+<script src="/static/admin.js?v=338" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
 <script src="/static/register-sw.js?v=51" defer></script>
 </body>

@@ -9915,6 +9915,75 @@ enviadas para X") continua verdadeira e não foi tocada — mexer em copy é dec
 do Pedro.
 
 
+### 2026-09-04 (9ª rodada) · A tela de Planos do admin, reformulada
+
+*"a gente tem que pensar em reformular a tela de plano do admin, hoje está
+difícil de entender"*. Medido antes de tocar em nada, na produção:
+
+| defeito | medida |
+|---|---|
+| hierarquia invertida | "Preventiva" a **12px/600 branco**; nome do prédio a **10,5px/400 cinza** |
+| a palavra em destaque | igual em **75 dos 76** planos |
+| coluna Periodicidade | "Mensal" **76 vezes em 76** |
+| largura da coluna "Plano" | **1135 de 1582px** (72%) para repetir "Preventiva" |
+| ações | 3 glifos sem rótulo (`▶ ✎ ×`), **invisíveis até o hover** (`opacity: 0`) |
+| abas | "Este mês **0**" ao lado de "Em andamento **69**" |
+| prédios sem plano | **16 de 88 ativos (18%)** — invisíveis, porque a tela lista planos |
+
+**O contrato, fechado com o Pedro antes do desenho.** Perguntei se o
+acompanhamento do mês saía daqui (já que o operador tem tela própria desde
+03/09) e se ele queria a tela como cadastro. A resposta foi o contrário do que
+eu tinha proposto: *"acho que é bom ter o acompanhamento do mês, o que eu quero
+fazer nessa tela é tudo que for possível"*. Então **a tela é as duas coisas** — e
+o problema nunca foi ter duas perguntas, era não responder nenhuma.
+
+**O sujeito da linha passou a ser o PRÉDIO.** É o dado que varia; "Preventiva"
+não. Título e periodicidade viraram etiquetas que só aparecem na **exceção** (o
+único plano "ESGOTO", e qualquer periodicidade ≠ 30 dias).
+
+**A coluna "Este mês" é nova, e é a metade que não existia:** selo de estado
+(Sem dono · Com dono · Em campo · Feita) e, abaixo, **quem** — com a etiqueta de
+origem "escalado" (decisão de alguém neste mês) contra "pela zona" (o padrão da
+região). É a gramática do `.pv-selo` da tela do operador, de propósito: as duas
+falam do mesmo mês e não podem parecer produtos diferentes.
+
+**As abas passaram a seguir o ciclo do serviço**, não a data do plano:
+Todos · Sem dono · Com dono · Em campo · Feitas · **Sem plano** · Inativos. E os
+KPIs viraram Ativos · Falta fazer · Atrasadas · **Prédios sem plano**.
+
+⚠️ **"Sem plano" não lista planos, e é a única aba assim.** São os condomínios
+ativos sem preventiva nenhuma — a pergunta que a tela nunca respondeu, porque
+quem está de fora não tem plano para aparecer numa lista de planos. A linha
+oferece **Criar plano**, e o modal abre com o prédio já escolhido.
+
+⚠️ **As ações deixaram de ser invisíveis.** Eram `opacity: 0` até o mouse
+chegar — a mesma regra que a tela de Aprovados já tinha registrado em 31/08
+("quem não sabe que devia passar o mouse não descobre um alvo que só aparece
+quando ele chega") valia aqui e não tinha sido aplicada. Hoje: **Editar** com
+rótulo, e um menu `⋯` para o resto.
+
+⚠️ **O `▶` "gerar chamado agora" saiu da linha.** Ele cria trabalho real para um
+técnico, o job já faz isso sozinho todo mês — é exceção, não rotina —, e estava
+colado no `×` de desativar. Foi para dentro do menu. **Decisão minha, declarada:**
+perguntei a frequência de uso e não tive resposta; se estiver errado, é barato
+voltar.
+
+**Escalar o técnico do mês agora dá para fazer daqui** ("tudo que for
+possível"), e **reusa o `POST /operador/preventivas/atribuir`** em vez de uma
+rota nova: aquele endpoint grava a escala do ciclo E adota o chamado aberto na
+mesma transação, e a segunda cópia é sempre a que esquece a segunda metade.
+
+**No backend**, o `GET /planos-manutencao` passou a devolver
+`{ planos, sem_plano }` e a trazer o estado do mês — calculado pelo
+`preventivas.service`, o mesmo do operador, para não haver duas leituras do
+mesmo mês.
+
+⚠️ **O array virou objeto.** O front tem o `Array.isArray()` como ponte para o
+navegador que ainda serve a resposta antiga do cache do service worker.
+
+`?v=N`: `admin.css` 252 → 253, `admin.js` 337 → 338.
+
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

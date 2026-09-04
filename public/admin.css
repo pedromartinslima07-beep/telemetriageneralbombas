@@ -9834,12 +9834,113 @@ body.role-viewer .viewer-only-hide-inline {
 }
 
 /* ── Linha do plano ───────────────────────────────────────────────────────── */
+/* ⚠️ O SUJEITO DA LINHA É O PRÉDIO (04/09/2026). Medido antes deste passe, numa
+   linha qualquer da produção: a palavra "Preventiva" saía a **12px/600 em
+   branco** e o nome do prédio a **10,5px/400 em cinza** (`--muted`) — ou seja,
+   o destaque estava no dado que é IGUAL em 75 dos 76 planos, e o que identifica
+   a linha era o texto mais apagado da célula. O Pedro: "está difícil de
+   entender".
+   O `.pm-plano-title` continua existindo para não quebrar quem ainda o usa; o
+   que a linha usa hoje é o `.pm-predio`. */
+.pm-predio {
+  display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
+  font-size: 14px; font-weight: 700; color: var(--text);
+  letter-spacing: -.01em;
+}
 .pm-plano-title {
   display: flex; align-items: center; gap: 7px;
   font-size: 12px; font-weight: 600; color: var(--text);
 }
-.pm-plano-sub { font-size: 10.5px; color: var(--muted); margin-top: 3px; }
+.pm-plano-sub { font-size: 11.5px; color: var(--muted); margin-top: 3px; }
 .pm-period    { font-size: 11.5px; color: var(--muted); }
+
+/* Etiqueta que só existe quando há exceção: periodicidade diferente de mensal,
+   ou título que não é "Preventiva". A coluna "Periodicidade" saiu — ela dizia
+   "Mensal" 76 vezes em 76. */
+.pm-pill-perio {
+  font-size: 9.5px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase;
+  color: var(--muted);
+  border: 1px solid var(--border); border-radius: 999px; padding: 1px 7px;
+}
+.pm-pill-atraso {
+  font-size: 9.5px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase;
+  color: var(--danger);
+  border: 1px solid rgba(255,90,77,.4); border-radius: 999px; padding: 1px 7px;
+}
+
+/* ── A coluna "Este mês": o acompanhamento ────────────────────────────────────
+   ⚠️ A GRAMÁTICA É A DO `.pv-selo` DA TELA DE PREVENTIVAS do operador, de
+   propósito: as duas telas falam do mesmo mês, e um selo diferente em cada uma
+   faria parecer dois produtos. Aqui o campo é escuro (registro do admin), então
+   o preenchimento e a tinta trocam de papel em relação à placa clara de lá. */
+.pm-selo {
+  display: inline-block;
+  font-family: var(--mono); font-size: 10px; font-weight: 700;
+  letter-spacing: .08em; text-transform: uppercase;
+  padding: 3px 7px; border-radius: 4px;
+}
+.pm-selo[data-e="sem"]   { color: var(--accent); border: 1px solid rgba(251,179,41,.42); }
+.pm-selo[data-e="dono"]  { color: var(--text);   border: 1px solid var(--border); }
+.pm-selo[data-e="campo"] { color: #7fb2ff;       border: 1px solid rgba(127,178,255,.38); }
+.pm-selo[data-e="feita"] { color: var(--ok);     border: 1px solid rgba(99,216,160,.38); }
+.pm-selo[data-e="off"]   { color: var(--muted);  border: 1px solid var(--border); }
+
+.pm-quem-linha { margin-top: 4px; font-size: 11.5px; color: var(--muted); }
+.pm-quem { color: var(--text); font-weight: 600; }
+/* "Escalado" é decisão de alguém neste mês; "pela zona" é o padrão da região.
+   Sem a distinção o admin não sabe o que já foi despachado à mão. */
+.pm-origem {
+  font-family: var(--mono); font-size: 9px; font-weight: 700;
+  letter-spacing: .06em; text-transform: uppercase;
+  margin-left: 6px; padding: 1px 5px; border-radius: 3px;
+  color: var(--muted); border: 1px solid var(--border);
+}
+.pm-origem.is-escala { color: var(--mar-900, #030a26); background: var(--accent); border-color: var(--accent); }
+
+/* Convite a despachar: aparece só onde não há ninguém, que é onde a ação cabe. */
+.pm-despachar {
+  font: inherit; font-size: 11.5px; font-weight: 600;
+  background: transparent; border: 0; padding: 2px 0; cursor: pointer;
+  color: var(--accent);
+  text-decoration: underline; text-underline-offset: 3px;
+  text-decoration-color: rgba(251,179,41,.4);
+}
+.pm-despachar:hover { text-decoration-color: currentColor; }
+
+/* A linha do prédio sem plano: mesma tabela, outro assunto. O fio à esquerda
+   marca que ela não é um plano — é uma ausência. */
+.pm-row.is-sem-plano .pm-predio { color: var(--text); }
+.pm-row.is-sem-plano td:first-child { box-shadow: inset 2px 0 0 var(--accent); }
+
+/* A célula do mês encosta no topo: o selo alinha com o nome do prédio, e a
+   linha de "quem" desce a partir dele. Centrada, ela flutuava contra um nome
+   que pode quebrar em duas linhas. */
+.pm-mes { vertical-align: top; }
+
+/* ── O menu "⋯" ───────────────────────────────────────────────────────────── */
+/* Alvo do menu: quadrado, do tamanho do botão de fio ao lado, para o par não
+   ler como duas peças de alturas diferentes. */
+.pm-menu-btn {
+  min-width: 28px; padding: 3px 6px;
+  font-size: 13px; line-height: 1;
+}
+
+.pm-menu-wrap { position: relative; display: inline-flex; }
+.pm-menu {
+  position: absolute; right: 0; top: calc(100% + 4px); z-index: 40;
+  min-width: 200px; padding: 4px;
+  background: var(--surface2); border: 1px solid var(--border-strong, var(--border));
+  border-radius: 8px; box-shadow: 0 10px 28px rgba(2,6,22,.55);
+  display: flex; flex-direction: column;
+}
+.pm-menu button {
+  font: inherit; font-size: 12px; text-align: left;
+  background: transparent; border: 0; cursor: pointer;
+  color: var(--text); padding: 8px 10px; border-radius: 6px;
+  min-height: 34px;
+}
+.pm-menu button:hover { background: rgba(255,255,255,.07); }
+.pm-menu button.is-danger { color: var(--danger); }
 
 .pm-prox-data {
   font-size: 12px; font-weight: 600;
@@ -9859,18 +9960,25 @@ body.role-viewer .viewer-only-hide-inline {
   border: 1px solid rgba(122,126,156,.22);
   border-radius: 999px; padding: 1px 6px;
 }
-.pm-row.is-inativo .pm-plano-title { color: var(--muted); }
+.pm-row.is-inativo .pm-plano-title,
+.pm-row.is-inativo .pm-predio { color: var(--muted); }
+/* Atrasada marca a linha por FIO, não por fundo: fundo vermelho em 60 linhas
+   vira parede e para de apontar. */
+.pm-row.is-atrasada td:first-child { box-shadow: inset 2px 0 0 var(--danger); }
 
 /* ── Ações: aparecem no hover/foco; sempre visíveis em telas de toque ─────── */
+/* ⚠️ AS AÇÕES SÃO SEMPRE VISÍVEIS (04/09/2026), não mais só no hover. Era
+   `opacity: 0` até o mouse chegar — e a regra que a tela de Aprovados já tinha
+   registrado vale igual aqui: "quem não sabe que devia passar o mouse não
+   descobre um alvo que só aparece quando ele chega". Numa tela que o Pedro
+   descreveu como difícil de entender, esconder a ação era metade do problema.
+   O repouso é discreto (o botão de fio já é quieto); o hover realça a LINHA. */
 .pm-acoes {
-  display: flex; gap: 4px; justify-content: flex-end;
-  opacity: 0; transition: opacity .15s;
+  display: flex; gap: 4px; justify-content: flex-end; align-items: center;
 }
 .pm-acoes .btn { font-size: 10.5px; padding: 3px 8px; }
 .pm-btn-danger { color: var(--danger); }
-.pm-row:hover .pm-acoes,
-.pm-row:focus-within .pm-acoes { opacity: 1; }
-@media (hover: none) { .pm-acoes { opacity: 1; } }
+
 @media (prefers-reduced-motion: reduce) {
   .pm-acoes, .pm-zona-edit { transition: none; }
 }

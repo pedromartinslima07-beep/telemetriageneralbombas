@@ -14928,6 +14928,12 @@ function _orcBindEventos() {
 
 let _pmData         = [];
 let _pmTabAtiva     = "todos";
+// Condomínios ativos SEM plano — chegam junto da lista e alimentam a aba
+// "Sem plano". Não são planos: a linha deles oferece criar um.
+let _pmSemPlano     = [];
+// Qual linha tem o menu "⋯" aberto. Um por vez: dois menus abertos numa
+// tabela de 80 linhas é só ruído.
+let _pmMenuAberto   = null;
 let _pmBindFeito    = false;
 let _pmCondosCache  = null;
 let _pmSelecionados = new Set(); // ids selecionados p/ ação em massa
@@ -15041,7 +15047,14 @@ async function carregarPlanos() {
   try {
     const r = await fetch("/planos-manutencao", { headers: authHeaders() });
     if (!r.ok) return;
-    _pmData = await r.json();
+    // ⚠️ A RESPOSTA VIROU OBJETO em 04/09/2026: `{ planos, sem_plano }`. O
+    // segundo array são os condomínios ATIVOS sem plano nenhum — a pergunta que
+    // esta tela não respondia, porque ela lista planos e quem está fora não tem
+    // plano para aparecer. O `|| []` cobre o navegador que ainda tem a resposta
+    // antiga (array) em cache do service worker.
+    const resp = await r.json();
+    _pmData    = Array.isArray(resp) ? resp : (resp.planos || []);
+    _pmSemPlano = Array.isArray(resp) ? [] : (resp.sem_plano || []);
     _pmRenderTudo();
     _pmAtualizarBadge();
   } catch (e) {
@@ -15058,31 +15071,66 @@ async function _pmCarregarCondos() {
   return _pmCondosCache;
 }
 
+// ⚠️ O BALDE DO MÊS, e ele vem do BACKEND (`p.estado`), não de conta feita
+// aqui. É a mesma definição que a tela do operador usa — o
+// `preventivas.service.js` existe para não haver duas leituras do mesmo mês.
+// "Sem dono" é o que ainda espera despacho; escalada já tem alguém no nome.
+function _pmBaldeDoMes(p) {
+  if (!p.ativo) return "inativo";
+  if (p.estado === "feita")    return "feitas";
+  if (p.estado === "em_campo") return "em-campo";
+  if (p.estado === "escalada") return "com-dono";
+  // "a fazer" com responsável de zona já tem dono — é o padrão da região, e o
+  // técnico o vê no roteiro. Sem ninguém, é o que o operador precisa despachar.
+  return p.tecnico_nome ? "com-dono" : "sem-dono";
+}
+
+// Atrasada = a data já era de um mês anterior e o serviço não foi feito. É o
+// alarme da tela, e mora no KPI — não vira aba, porque ela CORTA os baldes do
+// mês em vez de ser um deles (uma atrasada pode estar sem dono ou em campo).
+function _pmAtrasada(p) {
+  if (!p.ativo || p.estado === "feita") return false;
+  return (_pmMesesAteProxima(p.proxima_em) ?? 0) < 0;
+}
+
+function _pmBusca() {
+  return (document.getElementById("pmBusca")?.value || "").trim().toLowerCase();
+}
+
 function _pmFiltrados() {
-  const q = (document.getElementById("pmBusca")?.value || "").trim().toLowerCase();
+  const q = _pmBusca();
   return _pmData.filter(p => {
-    const st = _pmStatus(p).kind;
-    if (_pmTabAtiva === "vencidos"  && st !== "vencidos")  return false;
-    if (_pmTabAtiva === "andamento" && st !== "andamento") return false;
-    if (_pmTabAtiva === "vencendo"  && st !== "vencendo")  return false;
-    if (_pmTabAtiva === "em-dia"    && st !== "em-dia")    return false;
-    if (_pmTabAtiva === "inativos" && p.ativo)           return false;
-    if (_pmTabAtiva === "todos"    && !p.ativo)          return false; // "todos" mostra só ativos
+    const balde = _pmBaldeDoMes(p);
+    if (_pmTabAtiva === "inativos") { if (p.ativo) return false; }
+    else if (_pmTabAtiva === "sem-plano") return false;   // essa aba não lista planos
+    else if (_pmTabAtiva === "todos")  { if (!p.ativo) return false; }
+    else if (balde !== _pmTabAtiva) return false;
     if (q) {
-      const blob = `${p.condominio_nome || ""} ${p.titulo || ""}`.toLowerCase();
+      const blob = `${p.condominio_nome || ""} ${p.titulo || ""} ${p.condominio_bairro || ""} ${p.tecnico_nome || ""}`.toLowerCase();
       if (!blob.includes(q)) return false;
     }
     return true;
   });
 }
 
+// A aba "Sem plano" lista CONDOMÍNIOS, não planos — mesma busca, outra fonte.
+function _pmSemPlanoFiltrados() {
+  const q = _pmBusca();
+  if (!q) return _pmSemPlano;
+  return _pmSemPlano.filter(c =>
+    `${c.nome || ""} ${c.bairro || ""} ${c.zona || ""}`.toLowerCase().includes(q));
+}
+
 function _pmRenderTudo() {
   const ativos    = _pmData.filter(p => p.ativo);
-  const vencidos  = ativos.filter(p => _pmStatus(p).kind === "vencidos").length;
-  const andamento = ativos.filter(p => _pmStatus(p).kind === "andamento").length;
-  const vencendo  = ativos.filter(p => _pmStatus(p).kind === "vencendo").length;
-  const emDia     = ativos.filter(p => _pmStatus(p).kind === "em-dia").length;
+  const conta     = (b) => ativos.filter(p => _pmBaldeDoMes(p) === b).length;
+  const semDono   = conta("sem-dono");
+  const comDono   = conta("com-dono");
+  const emCampo   = conta("em-campo");
+  const feitas    = conta("feitas");
+  const atrasadas = ativos.filter(_pmAtrasada).length;
   const inativos  = _pmData.filter(p => !p.ativo).length;
+  const semPlano  = _pmSemPlano.length;
 
   // KPIs
   const ICO_CAL  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`;
@@ -15092,20 +15140,27 @@ function _pmRenderTudo() {
 
   const kpi = (ico, val, label, cls) => kpiCard(ico, val, label, cls);
 
+  // ⚠️ OS QUATRO NÚMEROS RESPONDEM O MÊS E A COBERTURA (04/09/2026). Antes
+  // eram Planos ativos · Vencidos · Este mês · Em dia — três deles sobre a
+  // DATA do plano, e nenhum sobre o trabalho. "Falta fazer" é a soma do que
+  // ninguém entregou ainda; "Sem plano" é o buraco de cobertura, que a tela
+  // nunca mostrou.
+  const faltaFazer = semDono + comDono;
   const grid = document.getElementById("pmKpiGrid");
   if (grid) grid.innerHTML =
     kpi(ICO_CAL, ativos.length, "Planos ativos", "rc-neutral") +
-    kpi(ICO_X,   vencidos,      "Vencidos",      vencidos > 0 ? "rc-bad"  : "rc-neutral") +
-    kpi(ICO_CLK, vencendo,      "Este mês",      vencendo > 0 ? "rc-warn" : "rc-neutral") +
-    kpi(ICO_OK,  emDia,         "Em dia",        emDia > 0    ? "rc-ok"   : "rc-neutral");
+    kpi(ICO_CLK, faltaFazer,    "Falta fazer",   faltaFazer > 0 ? "rc-warn" : "rc-ok") +
+    kpi(ICO_X,   atrasadas,     "Atrasadas",     atrasadas > 0  ? "rc-bad"  : "rc-neutral") +
+    kpi(ICO_OK,  semPlano,      "Prédios sem plano", semPlano > 0 ? "rc-warn" : "rc-ok");
 
   // Contadores das tabs
   const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-  set("pmCtTodos",     ativos.length);
-  set("pmCtVencidos",  vencidos);
-  set("pmCtAndamento", andamento);
-  set("pmCtVencendo",  vencendo);
-  set("pmCtEmDia",    emDia);
+  set("pmCtTodos",    ativos.length);
+  set("pmCtSemDono",  semDono);
+  set("pmCtComDono",  comDono);
+  set("pmCtEmCampo",  emCampo);
+  set("pmCtFeitas",   feitas);
+  set("pmCtSemPlano", semPlano);
   set("pmCtInativos", inativos);
 
   // Tabela
@@ -15114,9 +15169,29 @@ function _pmRenderTudo() {
   const empty = document.getElementById("pmEmpty");
   if (!tbody) return;
 
+  // ⚠️ A ABA "SEM PLANO" LISTA CONDOMÍNIOS, não planos — é a única, e por isso
+  // ela sai antes de todo o agrupamento por zona abaixo.
+  if (_pmTabAtiva === "sem-plano") {
+    const fora = _pmSemPlanoFiltrados();
+    if (empty) empty.style.display = fora.length ? "none" : "flex";
+    if (empty && !fora.length) {
+      empty.querySelector("p").textContent = "Todos os prédios ativos têm plano de manutenção.";
+    }
+    tbody.innerHTML = fora.map(linhaSemPlano).join("");
+    _pmAtualizarBulkBar();
+    return;
+  }
+
   if (!lista.length) {
     tbody.innerHTML = "";
-    if (empty) empty.style.display = "flex";
+    if (empty) {
+      // O vazio precisa dizer QUAL vazio é: "nenhum plano" numa aba filtrada
+      // manda criar plano quando o que falta é limpar o filtro.
+      empty.querySelector("p").textContent = _pmTabAtiva === "todos"
+        ? 'Nenhum plano. Clique em "+ Novo plano".'
+        : "Nenhum plano nesta situação agora.";
+      empty.style.display = "flex";
+    }
     return;
   }
   if (empty) empty.style.display = "none";
@@ -15179,19 +15254,59 @@ function _pmRenderTudo() {
       </tr>`;
   };
 
+  // ⚠️ A COLUNA "ESTE MÊS" É O ACOMPANHAMENTO (04/09/2026), e ela é a metade
+  // da tela que não existia. O selo diz o ESTADO e a linha de baixo diz QUEM —
+  // é a gramática do `.pv-selo` da tela de Preventivas do operador, de
+  // propósito: as duas telas falam do mesmo mês e não podem parecer produtos
+  // diferentes.
+  const celulaMes = p => {
+    if (!p.ativo) return `<span class="pm-selo" data-e="off">Pausado</span>`;
+    const balde = _pmBaldeDoMes(p);
+    const selo = p.estado === "feita"
+      ? `<span class="pm-selo" data-e="feita">Feita${p.fechado_em ? " · " + _pmFmtData(p.fechado_em) : ""}</span>`
+      : p.estado === "em_campo"
+        ? `<span class="pm-selo" data-e="campo">Em campo · #${p.chamado_aberto_id}</span>`
+        : balde === "com-dono"
+          ? `<span class="pm-selo" data-e="dono">Com dono</span>`
+          : `<span class="pm-selo" data-e="sem">Sem dono</span>`;
+    // ⚠️ A ORIGEM É ETIQUETA DENTRO DA FRASE, não outra linha — a regra que a
+    // tela de Preventivas aprendeu: "escalado" é decisão de alguém neste mês,
+    // "pela zona" é o padrão da região, e sem a distinção o admin não sabe o
+    // que já foi despachado à mão.
+    const quem = p.tecnico_nome
+      ? `<span class="pm-quem">${_waEscaparHtml(p.tecnico_nome)}<span class="pm-origem${
+           p.tecnico_origem === "escala" ? " is-escala" : ""}">${
+           p.tecnico_origem === "escala" ? "escalado" : "pela zona"}</span></span>`
+      : `<button type="button" class="pm-despachar viewer-only-hide" data-pm-action="despachar"
+                 data-pm-id="${p.id}">Escalar técnico</button>`;
+    return `${selo}<div class="pm-quem-linha">${quem}</div>`;
+  };
+
   const linhaPlano = p => {
-    const st  = _pmStatus(p);
-    const sub = `${_waEscaparHtml(p.condominio_nome || "—")} · ${p.ultima_em ? `última ${_pmFmtData(p.ultima_em)}` : "nunca executado"}`;
-    return `<tr data-pm-id="${p.id}" class="pm-row${p.ativo ? "" : " is-inativo"}">
+    const st = _pmStatus(p);
+    // ⚠️ A PERIODICIDADE SÓ APARECE QUANDO NÃO É MENSAL. Ela tinha coluna
+    // própria e escrevia "Mensal" 76 vezes em 76 — uma coluna inteira sem
+    // informação. Como etiqueta, ela só fala quando tem o que dizer.
+    const perio = p.periodicidade_dias === 30 ? ""
+      : `<span class="pm-pill-perio">${_waEscaparHtml(_pmPeriodLabel(p.periodicidade_dias))}</span>`;
+    // O título só aparece quando NÃO é a preventiva padrão — 75 dos 76 se
+    // chamam "Preventiva", e repetir isso em toda linha era o defeito antigo.
+    const titulo = (p.titulo && p.titulo.trim().toLowerCase() !== "preventiva")
+      ? `<span class="pm-pill-perio">${_waEscaparHtml(p.titulo)}</span>` : "";
+    const onde = [p.condominio_bairro, p.ultima_em ? `última ${_pmFmtData(p.ultima_em)}` : "nunca executado"]
+      .filter(Boolean).map(_waEscaparHtml).join(" · ");
+    return `<tr data-pm-id="${p.id}" class="pm-row${p.ativo ? "" : " is-inativo"}${_pmAtrasada(p) ? " is-atrasada" : ""}">
       <td><input type="checkbox" class="pm-chk viewer-only-hide" data-pm-chk="${p.id}" ${_pmSelecionados.has(p.id) ? "checked" : ""}></td>
       <td>
-        <div class="pm-plano-title">
-          ${_waEscaparHtml(p.titulo || "—")}
+        <div class="pm-predio">
+          ${_waEscaparHtml(p.condominio_nome || "—")}
+          ${perio}${titulo}
           ${p.ativo ? "" : `<span class="pm-pill-off">inativo</span>`}
+          ${_pmAtrasada(p) ? `<span class="pm-pill-atraso">atrasada</span>` : ""}
         </div>
-        <div class="pm-plano-sub">${sub}</div>
+        <div class="pm-plano-sub">${onde}</div>
       </td>
-      <td class="pm-period">${_pmPeriodLabel(p.periodicidade_dias)}</td>
+      <td class="pm-mes">${celulaMes(p)}</td>
       <td>
         <div class="pm-prox-data">${_pmFmtData(p.proxima_em)}</div>
         ${st.chamadoId
@@ -15201,13 +15316,42 @@ function _pmRenderTudo() {
       </td>
       <td>
         <div class="pm-acoes viewer-only-hide">
-          <button class="btn btn-sm" data-pm-action="executar" data-pm-id="${p.id}" title="Gerar chamado P4 agora">▶</button>
-          <button class="btn btn-sm" data-pm-action="editar"   data-pm-id="${p.id}" title="Editar">✎</button>
-          <button class="btn btn-sm pm-btn-danger" data-pm-action="excluir" data-pm-id="${p.id}" title="Desativar">×</button>
+          <button class="btn btn-sm" data-pm-action="editar" data-pm-id="${p.id}">Editar</button>
+          <div class="pm-menu-wrap">
+            <button class="btn btn-sm pm-menu-btn" data-pm-action="menu" data-pm-id="${p.id}"
+                    aria-haspopup="true" aria-expanded="${_pmMenuAberto === p.id ? "true" : "false"}"
+                    aria-label="Mais ações">⋯</button>
+            ${_pmMenuAberto === p.id ? `
+            <div class="pm-menu" role="menu">
+              <button type="button" role="menuitem" data-pm-action="executar" data-pm-id="${p.id}">Gerar chamado agora</button>
+              <button type="button" role="menuitem" data-pm-action="despachar" data-pm-id="${p.id}">Escalar técnico do mês</button>
+              <button type="button" role="menuitem" class="is-danger" data-pm-action="excluir" data-pm-id="${p.id}">${
+                p.ativo ? "Desativar plano" : "Reativar plano"}</button>
+            </div>` : ""}
+          </div>
         </div>
       </td>
     </tr>`;
   };
+
+  // ⚠️ A LINHA DO PRÉDIO SEM PLANO NÃO É UM PLANO, e por isso não tem caixa de
+  // seleção, estado nem data: ela tem uma pergunta e uma ação. É a única linha
+  // da tabela que CRIA em vez de editar.
+  const linhaSemPlano = c => `
+    <tr class="pm-row is-sem-plano">
+      <td></td>
+      <td>
+        <div class="pm-predio">${_waEscaparHtml(c.nome || "—")}</div>
+        <div class="pm-plano-sub">${_waEscaparHtml([c.bairro, c.zona].filter(Boolean).join(" · ") || "sem zona")}</div>
+      </td>
+      <td class="pm-mes"><span class="pm-selo" data-e="sem">Sem preventiva</span></td>
+      <td><div class="pm-prox-delta is-off">—</div></td>
+      <td>
+        <div class="pm-acoes viewer-only-hide">
+          <button class="btn btn-sm btnAccent" data-pm-action="criar-para" data-pm-condo="${c.id}">Criar plano</button>
+        </div>
+      </td>
+    </tr>`;
 
   tbody.innerHTML = zonasOrdenadas
     .flatMap(z => [linhaZona(z), ...grupos.get(z).map(linhaPlano)])
@@ -15412,14 +15556,18 @@ function _pmAtualizarBadge() {
   badge.style.display = venc > 0 ? "inline-flex" : "none";
 }
 
-async function _pmAbrirModal(plano) {
+// `condoPre` chega da linha do predio SEM plano: o modal abre com ele ja
+// escolhido, porque a pessoa clicou justamente naquele predio. Sem isso ela
+// teria de procurar o nome de novo numa lista de 88 — logo depois de apontar
+// para ele.
+async function _pmAbrirModal(plano, condoPre) {
   await _pmCarregarCondos();
   const isEdit = !!plano;
   document.getElementById("pmModalTitulo").textContent = isEdit ? "Editar plano" : "Novo plano";
   document.getElementById("pmModalSubtitulo").textContent = isEdit ? "Atualize os dados do plano de manutenção" : "Preencha os dados para criar um plano de manutenção";
 
   const condoOpts = _pmCondosCache.map(c =>
-    `<option value="${c.id}" ${plano?.condominio_id === c.id ? "selected" : ""}>${_waEscaparHtml(c.nome)}</option>`
+    `<option value="${c.id}" ${(plano?.condominio_id ?? condoPre) === c.id ? "selected" : ""}>${_waEscaparHtml(c.nome)}</option>`
   ).join("");
 
   const periodAtual = plano?.periodicidade_dias ?? 30;
@@ -15538,9 +15686,62 @@ async function _pmSalvar(idEdit) {
   }
 }
 
+// ⚠️ ESCALAR O TÉCNICO DO MÊS, DAQUI (04/09/2026, pedido do Pedro: "o que eu
+// quero fazer nessa tela é tudo que for possível"). Até aqui isso só existia no
+// painel do operador.
+//
+// ⚠️ REUSA O ENDPOINT DO OPERADOR, e isso não é preguiça: `POST
+// /operador/preventivas/atribuir` já grava a escala do ciclo E adota o chamado
+// aberto do plano na mesma transação. Uma segunda rota teria de repetir as duas
+// coisas, e a segunda cópia é a que esquece a segunda metade. O `adminOnly`
+// daquela rota já inclui admin e gerente.
+//
+// ⚠️ MANDA O MÊS CORRENTE explicitamente. A competência é do MÊS, e deixar o
+// backend adivinhar a partir do relógio do servidor é o tipo de coisa que
+// diverge na virada do mês.
+async function _pmDespachar(plano) {
+  if (!plano) return;
+  const tecnicos = (_pmTecnicosCache || []);
+  if (!tecnicos.length) { alert("Nenhum técnico cadastrado."); return; }
+
+  const opcoes = tecnicos.map((t, i) => `${i + 1}. ${t.nome}`).join("\n");
+  const escolha = prompt(
+    `Escalar quem para a preventiva de ${plano.condominio_nome}?\n\n${opcoes}\n\n` +
+    `Digite o número (ou 0 para tirar o técnico atual).`, "");
+  if (escolha === null) return;
+  const n = Number(escolha);
+  if (!Number.isInteger(n) || n < 0 || n > tecnicos.length) { alert("Número inválido."); return; }
+  const tecnico = n === 0 ? null : tecnicos[n - 1];
+
+  const agora = new Date();
+  const mes = `${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, "0")}`;
+  try {
+    const r = await fetch("/operador/preventivas/atribuir", {
+      method: "POST",
+      headers: { ...authHeaders(), "Content-Type": "application/json" },
+      body: JSON.stringify({ plano_ids: [plano.id], tecnico_id: tecnico ? tecnico.id : null, mes }),
+    });
+    const j = await r.json();
+    if (!r.ok) { alert(j.error || "Não foi possível escalar."); return; }
+    await carregarPlanos();
+  } catch (e) { alert(e.message); }
+}
+
 async function _pmAcao(acao, id) {
   const plano = _pmData.find(p => p.id === id);
+  // O menu "⋯" é estado de tela, não ação: alterna e redesenha.
+  if (acao === "menu") {
+    _pmMenuAberto = _pmMenuAberto === id ? null : id;
+    _pmRenderTudo();
+    return;
+  }
+  if (acao === "despachar") {
+    _pmMenuAberto = null;
+    await _pmDespachar(plano);
+    return;
+  }
   if (acao === "editar") {
+    _pmMenuAberto = null;
     _pmAbrirModal(plano);
     return;
   }
@@ -15630,10 +15831,32 @@ function _pmBindEventos() {
     });
   });
 
+  // ⚠️ O MENU "⋯" FECHA AO CLICAR FORA. Sem isto ele fica aberto por cima da
+  // linha seguinte enquanto a pessoa vai clicar em outra coisa — e o clique
+  // seguinte cai no item errado do menu, não no que ela mirou.
+  document.addEventListener("click", (e) => {
+    if (_pmMenuAberto === null) return;
+    if (e.target.closest(".pm-menu-wrap")) return;
+    _pmMenuAberto = null;
+    _pmRenderTudo();
+  });
+  // Esc fecha também: é o par obrigatório de qualquer coisa que abre por cima.
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && _pmMenuAberto !== null) { _pmMenuAberto = null; _pmRenderTudo(); }
+  });
+
   document.getElementById("pmBusca")?.addEventListener("input", _pmRenderTudo);
   document.getElementById("pmBtnNovo")?.addEventListener("click", () => _pmAbrirModal(null));
 
   document.getElementById("pmTableBody")?.addEventListener("click", (e) => {
+    // "Criar plano" na linha do prédio SEM plano — abre o modal já com o
+    // condomínio escolhido. É a única ação da tabela que cria em vez de editar.
+    const criar = e.target.closest("[data-pm-action='criar-para']");
+    if (criar) {
+      _pmAbrirModal(null, Number(criar.dataset.pmCondo));
+      return;
+    }
+
     const btn = e.target.closest("[data-pm-action]");
     if (btn) {
       _pmAcao(btn.dataset.pmAction, Number(btn.dataset.pmId));
