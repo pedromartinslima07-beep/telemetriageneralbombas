@@ -6,6 +6,10 @@ const { authRequired } = require("../middleware/authRequired");
 const { gestaoOnly } = require("../middleware/gestaoOnly");
 const { gerarPdfOS } = require("../services/os-pdf.service");
 const { registrarMudancas } = require("../services/chamado-historico.service");
+// A preventiva aproveitada: o técnico foi ao prédio por outro chamado, marcou
+// "Preventiva mensal" na O.S., e isso dá baixa no plano do mês. Ver o bloco
+// longo em `preventivas.service.js`.
+const { MARCA_PREVENTIVA, darBaixaPorOS } = require("../services/preventivas.service");
 
 const router = express.Router();
 
@@ -732,6 +736,66 @@ router.post("/:id/finalizar", authRequired, osDonoOuAdmin({ forWrite: true }), a
           depois: { ...antesCh.rows[0], status: "fechado" },
           alteradoPor: req.user.id,
         });
+      }
+    }
+
+    /* ── A preventiva aproveitada (04/09/2026) ─────────────────────────────
+       O técnico foi ao prédio por outro chamado e marcou "Preventiva mensal".
+       A caixa existia desde a migration 015 e não fazia nada; aqui ela passa a
+       dar baixa no plano do mês.
+
+       ⚠️ DENTRO DA TRANSAÇÃO, e DEPOIS do fechamento do chamado desta O.S.: a
+       baixa da preventiva e a finalização são o mesmo fato. Se uma falhar, as
+       duas voltam — uma O.S. finalizada com a preventiva por dar (ou o
+       contrário) é pior que nenhuma das duas.
+
+       ⚠️ A DATA É A DA O.S., não `NOW()`. Uma O.S. sincronizada no dia 1 de
+       outubro sobre um serviço feito em 30 de setembro fecha SETEMBRO — é a
+       mesma razão pela qual o chamado fecha em `quando` logo acima. */
+    let baixaPreventiva = null;
+    if (os.tipos_servico.includes(MARCA_PREVENTIVA)) {
+      baixaPreventiva = await darBaixaPorOS(client, {
+        osId: id,
+        condominioId: os.condominio_id,
+        quando,
+      });
+
+      // ⚠️ O CHAMADO DA PREVENTIVA TAMBÉM FECHA (decisão do Pedro). O serviço
+      // foi feito; deixar aberto faria a fila do turno e a tela de Preventivas
+      // mostrarem "em campo" para sempre, e alguém teria de limpar à mão.
+      // Ele NÃO é o chamado desta O.S. — aquele já fechou lá em cima —, então
+      // fecha aqui, com o histórico dizendo quem resolveu.
+      const chPrev = baixaPreventiva?.chamadoPreventivaAberto;
+      if (chPrev && chPrev !== os.chamado_id) {
+        const antesPrev = await client.query(
+          `SELECT status, prioridade, categoria, responsavel_id, tecnico_id, condominio_id
+             FROM chamados WHERE id = $1`,
+          [chPrev]
+        );
+        await client.query(
+          `UPDATE chamados
+              SET status = 'fechado',
+                  fechado_em = COALESCE($2::timestamptz, NOW()),
+                  primeira_resposta_em = COALESCE(primeira_resposta_em, NOW()),
+                  tempo_resolucao_seg = GREATEST(0, EXTRACT(EPOCH FROM (
+                    COALESCE($2::timestamptz, NOW()) - criado_em))::int),
+                  atualizado_em = NOW()
+            WHERE id = $1`,
+          [chPrev, quando]
+        );
+        if (antesPrev.rows.length > 0) {
+          await registrarMudancas({
+            client,
+            chamadoId: chPrev,
+            antes: antesPrev.rows[0],
+            depois: { ...antesPrev.rows[0], status: "fechado" },
+            alteradoPor: req.user.id,
+          });
+        }
+        console.log(
+          `[ordens-servico] OS#${id} deu baixa na preventiva do plano ` +
+          `${baixaPreventiva.planoId} e fechou o chamado #${chPrev} que a esperava.`
+        );
       }
     }
 

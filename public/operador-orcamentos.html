@@ -57,13 +57,36 @@
       <a href="/operador/painel/preventivas">Preventivas</a>
       <button type="button" data-acao="ajuda">Ajuda</button>
     </nav>
-    <span class="barra-eu" id="barraEu"></span>
-    <button class="conta conta-sair" id="btnSair" type="button" aria-label="Sair">
-      <!-- porta à esquerda, seta saindo: o mesmo desenho do painel do
-           cliente, no traço desta folha (ponta quadrada, junta em esquadro). -->
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M14 4H5v16h9"/><path d="M12 12h9M17.5 8l4 4-4 4"/></svg>
-      <span class="conta-rot">Sair</span>
-    </button>
+    <!-- ⚠️ A GAVETA DE CONTA, e ela chegou aqui em 04/09/2026 porque
+         "Trocar senha" era INALCANÇÁVEL nesta tela — só existia no Turno. O par
+         solto "nome (texto) + Sair" que estava aqui também não cabia no
+         celular: a 390px o wordmark pintava por cima da nav, e uma chapa só
+         devolve 50px (a tabela está no `operador.css`, em "CELULAR ESTREITO").
+         O comportamento vive no `operador-conta.js`, compartilhado pelas três
+         telas — o Turno tinha 187 linhas disto embutidas e as irmãs, nenhuma.
+         ⚠️ O id `btnSair` é o CONTRATO com o JS de cada tela: as três fazem o
+         logout por id, não por `data-acao`. -->
+    <div class="eu" id="eu">
+      <button class="conta conta-eu" id="btnEu" type="button"
+              aria-haspopup="true" aria-expanded="false" aria-controls="euGaveta">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4.5 20.5c0-4.14 3.36-7.5 7.5-7.5s7.5 3.36 7.5 7.5"/></svg>
+        <span class="conta-rot" id="barraEu"></span>
+        <svg class="eu-seta" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M5 9l7 7 7-7"/></svg>
+      </button>
+      <div class="eu-gaveta" id="euGaveta" role="menu" aria-labelledby="btnEu" hidden>
+        <button class="eu-item" type="button" role="menuitem" data-acao="senha">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><circle cx="7.5" cy="12" r="4.5"/><path d="M12 12h9M16.5 12v3.5M20 12v2.5"/></svg>
+          <span>Trocar senha</span>
+        </button>
+        <!-- ⚠️ O id `btnSair` é o CONTRATO com o front de cada tela: as três
+             fazem o logout por id, não por `data-acao`. Trocar o seletor aqui
+             quebraria o logout sem erro nenhum no console. -->
+        <button class="eu-item" id="btnSair" type="button" role="menuitem">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M14 4H5v16h9"/><path d="M12 12h9M17.5 8l4 4-4 4"/></svg>
+          <span>Sair</span>
+        </button>
+      </div>
+    </div>
   </div>
 </header>
 
@@ -73,8 +96,9 @@
   <div class="carregando" id="carregando">Carregando os orçamentos aprovados…</div>
 </main>
 
+<script src="/static/operador-conta.js?v=1" defer></script>
 <script src="/static/inatividade.js?v=10" defer></script>
-<script src="/static/operador-orcamentos.js?v=22" defer></script>
+<script src="/static/operador-orcamentos.js?v=23" defer></script>
 <script src="/static/register-sw.js?v=51" defer></script>
 </body>
 </html>

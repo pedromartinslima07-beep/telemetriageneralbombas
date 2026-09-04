@@ -10253,6 +10253,80 @@ Os slugs internos (`sem-dono`, `com-dono`) ficam: são identificadores, não tex
 `operador-preventivas.js` 3 → 4.
 
 
+### 2026-09-04 (15ª rodada) · A branch `fix/preventivas-acabamento` entra na main
+
+*"na outra sessão eu tinha falado que se um técnico tem uma preventiva atribuída
+e também tem outro chamado, no atendimento do outro chamado ele marcar na O.S. a
+opção de preventiva mensal o sistema tinha que entender e dar a preventiva como
+fechada; fiz esse teste aqui e não foi"*.
+
+**O conserto existia e nunca chegou na `main`.** Estava na branch
+`fix/preventivas-acabamento` (commits `eeb59de` e `cd06eeb`), escrita hoje em
+outra sessão. O teste do Pedro está no banco e prova o diagnóstico:
+**OS-2026-0031**, finalizada às 17:58 com a caixa marcada, prédio GENERAL
+ENGENHARIA — e o plano 86 com `ultima_em` **null**.
+
+⚠️ **Três armadilhas antes do porte:**
+
+1. **A migration já estava aplicada em produção e o código não.** A coluna
+   `planos_manutencao.ultima_os_id` existe no banco desde a branch. O banco
+   estava à frente do código no ar — o inverso do "bug silencioso" que o
+   CLAUDE.md registra, e igualmente perigoso.
+2. **Colisão de número: duas `083`.** `083_chamado_cancelado.sql` na main,
+   `083_plano_ultima_os.sql` na branch, **ambas aplicadas em produção**. A da
+   branch foi renumerada para **084**; renumerar o arquivo não desfaz nem
+   reaplica nada, e o `IF NOT EXISTS` torna a re-execução inofensiva.
+3. **A branch saiu do `e6bcf42` e a main andou 14 commits** nos mesmos arquivos.
+   Merge cego desfaria trabalho do dia; o porte foi item a item.
+
+### O que entrou
+
+| | |
+|---|---|
+| `preventivas.service.js` | `darBaixaPorOS` — a ligação que faltava |
+| `ordens-servico.routes.js` | a chamada dentro da transação de finalizar |
+| `migrations/084_plano_ultima_os.sql` | renumerada |
+| `planos-manutencao.job.js` | reagendamento em **meses de calendário** |
+| `config.service.js` | `preventivas.dia_meta` |
+| `operador-conta.js` + as duas telas | "Trocar senha" era **inalcançável** em Preventivas e Aprovados |
+| `preventivas-mes.test.js` | 10 asserções da baixa |
+
+⚠️ **A baixa tem duas guardas, e as duas importam.** Só com **um** plano devendo
+o mês (com dois, marcaria como feito um serviço que talvez não tenha sido) e só
+quando o plano **ainda deve** a competência (sem isso, marcar a caixa numa O.S.
+cujo chamado JÁ É o da preventiva adiantaria o ciclo duas vezes e o prédio
+pularia um mês).
+
+⚠️ **Usa a data da O.S., não `NOW()`:** serviço feito em 30/09 e sincronizado em
+01/10 fecha **setembro**.
+
+⚠️ **O job em meses conserta uma deriva real:** 30 dias andam ~5 dias para trás
+por ano no calendário, e sobre 69 planos isso dá duas rodadas em julho/2027 —
+138 chamados num mês.
+
+### O que NÃO entrou, e por quê
+
+- **`cd06eeb` inteiro** — a barra translúcida e o cargo no seletor de técnico já
+  estavam resolvidos na main (`093531f` e `78a65c0`), de outro jeito.
+- **`docs/api.md` (852 linhas regeneradas)** e as mudanças de
+  `operador-preventivas.js`/`.css` que colidem com o refino de hoje.
+- ⚠️ **O `planos.geracao_enabled = false`.** A branch **desligava a geração
+  automática**, com o argumento de que o job "despejaria 69 P4 numa fila
+  ordenada por prazo". **Esse motivo deixou de existir na main**: a fila do turno
+  passou a excluir preventiva enquanto ninguém começou. Desligar seria mudar
+  comportamento sem pedido — o Pedro viu o job rodar hoje e tratou como normal.
+  Ficou em `true`, e o interruptor existe em `PATCH /admin/configuracoes`.
+
+**59/59** no `preventivas-mes`, e as outras quatro suítes verdes. Reproduzido o
+caso do Pedro no banco de teste: `ultima_em` e `ultima_os_id` gravados,
+`proxima_em` para 01/10.
+
+A branch foi apagada, local e no remoto.
+
+`?v=N`: `operador-preventivas.js` 4 → 5, `operador-orcamentos.js` 22 → 23,
+`operador-conta.js` novo em 1.
+
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

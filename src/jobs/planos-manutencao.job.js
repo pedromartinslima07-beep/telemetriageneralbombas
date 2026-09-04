@@ -1,9 +1,23 @@
 // src/jobs/planos-manutencao.job.js
 //
-// Roda 1×/dia. Para cada plano ativo cujo `proxima_em <= hoje`:
-//   1. Abre um chamado P4 (categoria 'manutencao', sem técnico atribuído)
-//      vinculado ao plano via `chamados.plano_manutencao_id`.
-//   2. Atualiza `ultima_em = hoje` e `proxima_em = hoje + periodicidade_dias`.
+// `executarPlano(id)` é o ATO de pôr uma preventiva em execução:
+//   1. Abre um chamado P4 (categoria 'manutencao') vinculado ao plano via
+//      `chamados.plano_manutencao_id`.
+//   2. Grava `ultima_em = hoje` e joga `proxima_em` para o dia 1 do próximo
+//      ciclo, contado em MESES DE CALENDÁRIO (ver a nota longa lá embaixo).
+//
+// Quem chama: o despacho da tela de Preventivas do operador, o ▶ "Executar
+// agora" do admin, e — só se alguém religar a chave — o job automático.
+//
+// ⚠️ O JOB AUTOMÁTICO NASCE DESLIGADO desde 03/09/2026
+// (`planos.geracao_enabled`, default `true` na main — ver a nota na função).
+// `jobGerarChamadosPreventivos`. O código dele continua inteiro.
+//
+// ⚠️ `proxima_em` NÃO É MAIS UM VENCIMENTO. Com o ciclo em meses, ele é o
+// rótulo da COMPETÊNCIA em que o plano está devendo visita — o dia não
+// significa nada, e a rota do operador já o lia assim (`proxima_em < dia 1 da
+// competência` = atrasada). O "antes do dia 10" é meta de equipe, vive em
+// `preventivas.dia_meta` e não toca esta tabela.
 //
 // Anti-duplicidade: pula se o plano já tem chamado aberto vinculado
 // (alguém pode ter chamado /executar-agora ou o admin pode ter aberto manualmente).
@@ -97,30 +111,40 @@ async function executarPlano(planoId, { tecnicoId = null } = {}) {
       alteradoPor: null,
     });
 
-    // Reagendamento ancorado no calendário do plano, não no dia em que o job
-    // rodou. Antes era `CURRENT_DATE + periodicidade`, o que fazia todo atraso
-    // virar deslocamento permanente (uma semestral gerada 4 dias atrasada
-    // passava a vencer 4 dias depois, pra sempre — e a tela mostrava "em dia",
-    // porque medía contra a data já escorregada).
+    // ⚠️ REAGENDAMENTO POR MÊS DE CALENDÁRIO, NÃO POR "+N DIAS" (03/09/2026).
     //
-    //   k = menor inteiro >= 1 tal que proxima_em + k*periodicidade > hoje
+    // O contrato promete UMA VISITA POR MÊS. O código prometia "a cada 30
+    // dias", e as duas coisas não são a mesma: 30 dias andam para trás no
+    // calendário ~5 dias por ano, e uma hora dois ciclos caem no mesmo mês.
     //
-    // O LEAST cobre a execução antecipada (▶ Executar agora com proxima_em no
-    // futuro): aí o serviço aconteceu HOJE, então o próximo tem que sair de
-    // hoje — senão o intervalo real entre execuções fica maior que a
-    // periodicidade contratada. Nos demais casos o LEAST não tem efeito, já
-    // que a data ancorada nunca passa de hoje + periodicidade.
+    // Não é hipótese. Medido nos 69 planos ativos, que estão TODOS no dia 4 e
+    // caminham em bloco (foram cadastrados juntos):
+    //
+    //   04/09/26 · 04/10 · 03/11 · 03/12 · 02/01/27 · 01/02 · 03/03 · 02/04
+    //   · 02/05 · 01/06 · 01/07 · 31/07 ← DUAS EM JULHO/2027, 138 chamados
+    //
+    // ⚠️ E a data por prédio nunca foi real. Os 69 vencem no mesmo dia; a
+    // equipe faz todas até o dia 10. "O dia 4 do Ed. Vila Formosa" nunca
+    // significou nada — era precisão inventada, e o Pedro nomeou isso:
+    // "não tem isso de tem que fazer especificamente no dia X".
+    //
+    // Agora `proxima_em` é o DIA 1 DO PRÓXIMO CICLO, contado em meses de
+    // calendário. Ele deixa de ser um vencimento e passa a ser o rótulo da
+    // COMPETÊNCIA em que o plano está devendo visita — que é como a rota do
+    // operador já o lia (`proxima_em < dia 1 da competência` = atrasada).
+    //
+    // ⚠️ Meses, não dias, para as periodicidades não-mensais também: 90 dias
+    // vira 3 meses, 180 vira 6, 365 vira 12. `date_trunc` + `INTERVAL` faz o
+    // Postgres respeitar mês curto (31/01 + 1 mês = 28/02, não 03/03).
+    // Hoje os 72 planos são mensais — nenhum 90/180/365 em produção —, mas o
+    // seletor do admin os oferece e eles não podem herdar a deriva antiga.
+    const meses = Math.max(1, Math.round(plano.periodicidade_dias / 30));
     await client.query(
       `UPDATE planos_manutencao
        SET ultima_em  = CURRENT_DATE,
-           proxima_em = LEAST(
-             proxima_em + (
-               GREATEST(1, FLOOR((CURRENT_DATE - proxima_em)::numeric / $1::int) + 1) * $1::int
-             )::int,
-             CURRENT_DATE + $1::int
-           )
+           proxima_em = (date_trunc('month', CURRENT_DATE) + ($1::int * INTERVAL '1 month'))::date
        WHERE id = $2`,
-      [plano.periodicidade_dias, planoId]
+      [meses, planoId]
     );
 
     await client.query("COMMIT");
@@ -139,7 +163,31 @@ async function executarPlano(planoId, { tecnicoId = null } = {}) {
   }
 }
 
+// ⚠️ O PADRÃO VIROU `false` EM 03/09/2026 — decisão do Pedro, com a tela de
+// Preventivas já no ar: "não abrir sozinho; o operador despacha".
+//
+// O motivo é o mesmo do reagendamento acima. Com o mês como unidade, todo
+// plano ativo está devendo visita TODO mês; um job que abre chamado assim que
+// a data chega despejaria os 69 P4 de uma vez na fila do turno, e a fila é
+// ordenada por prazo — 69 preventivas sem urgência empurrariam para baixo o
+// que de fato estoura primeiro.
+//
+// ⚠️ NADA FOI REMOVIDO. `jobGerarChamadosPreventivos` e o scheduler continuam
+// inteiros, e ligar de volta é um `PATCH /admin/configuracoes` com
+// `planos.geracao_enabled = true` — sem deploy, como todo job deste projeto.
+// O caminho que passou a valer é o despacho da tela (`POST
+// /operador/preventivas/atribuir`) e o ▶ do admin, os dois pelo mesmo
+// `executarPlano`.
 async function jobGerarChamadosPreventivos() {
+  // ⚠️ DEFAULT `true`, E ISSO DIVERGE DA BRANCH DE ORIGEM (04/09/2026). Lá o
+  // job nascia DESLIGADO, com o argumento de que "com o mês como unidade ele
+  // despejaria 69 P4 numa fila ordenada por prazo". Esse motivo deixou de
+  // existir na `main`: a fila do turno passou a excluir preventiva enquanto
+  // ninguém começou (`GET /operador/fila`), então os 69 não poluem mais nada.
+  //
+  // Desligar a geração é decisão de operação, não efeito colateral de um porte
+  // — o Pedro viu o job rodar hoje e tratou como normal. O interruptor existe
+  // (`PATCH /admin/configuracoes`, chave `planos.geracao_enabled`) e é dele.
   const enabled = await getConfigBool("planos.geracao_enabled", true);
   if (!enabled) {
     return { ok: true, enabled: false, gerados: 0, duplicados: 0, candidatos: 0 };

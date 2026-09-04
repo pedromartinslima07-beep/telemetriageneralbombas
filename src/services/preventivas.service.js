@@ -94,8 +94,103 @@ function origemDoTecnico(linha) {
   return null;
 }
 
+/* ══════════════════════════════════════════════════════════════════════════
+   A PREVENTIVA APROVEITADA (04/09/2026)
+   ──────────────────────────────────────────────────────────────────────────
+   "Se o técnico for a um condomínio por outro chamado mas quiser aproveitar e
+   fazer a preventiva, ele marca essa opção na O.S. e o sistema conta como
+   preventiva realizada" — pedido do Pedro.
+
+   A caixa já existia (`preventiva_mensal` em `tipos_servico`, migration 015) e
+   não fazia nada. Isto é a ligação, e ela roda DENTRO da transação de
+   `POST /ordens-servico/:id/finalizar`.
+
+   ⚠️ SÓ QUANDO HÁ EXATAMENTE UM PLANO DEVENDO VISITA. Decisão do Pedro: "em
+   teoria era para cada condomínio ter só um plano". Ele está certo — o único
+   caso com dois em produção (CONNECT BUTANTA, planos 22 e 23) é DUPLICATA
+   EXATA: mesmo título, mesma periodicidade, mesmas datas, criados no mesmo dia.
+   Com dois planos elegíveis esta função não dá baixa em nenhum, porque dar
+   baixa nos dois marcaria como feito um serviço que talvez não tenha sido —
+   e o operador ainda tem a tela para resolver à mão.
+
+   ⚠️ E SÓ QUANDO O PLANO AINDA DEVE O MÊS. Sem esta guarda, marcar a caixa
+   numa O.S. cujo chamado JÁ É o da preventiva adiantaria o ciclo duas vezes
+   (o `executarPlano` já mexeu nas datas quando o chamado ABRIU) e o prédio
+   pularia um mês inteiro.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+const MARCA_PREVENTIVA = "preventiva_mensal";
+
+// `client` é a conexão da transação de quem chama — nunca abra outra aqui:
+// a baixa da preventiva tem de nascer e morrer junto com a finalização da O.S.
+async function darBaixaPorOS(client, { osId, condominioId, quando }) {
+  if (!condominioId) return { baixou: false, motivo: "sem condomínio" };
+
+  // O primeiro dia do mês em que a O.S. foi finalizada — a competência que ela
+  // fecha. Usa a data da O.S., não NOW(): uma O.S. sincronizada no dia 1 de
+  // outubro sobre um serviço feito em 30 de setembro fecha SETEMBRO.
+  const compRes = await client.query(
+    `SELECT date_trunc('month', COALESCE($1::timestamptz, NOW()))::date AS competencia`,
+    [quando]
+  );
+  const competencia = compRes.rows[0].competencia;
+
+  // Elegível = ativo, ainda devendo esta competência (proxima_em não passou do
+  // fim do mês) e sem baixa já dada neste mês.
+  const elegiveis = await client.query(
+    `SELECT pm.id, pm.periodicidade_dias,
+            (SELECT ch.id FROM chamados ch
+              WHERE ch.plano_manutencao_id = pm.id
+                AND ch.status NOT IN ('fechado','cancelado')
+              LIMIT 1) AS chamado_aberto_id
+       FROM planos_manutencao pm
+      WHERE pm.condominio_id = $1
+        AND pm.ativo = TRUE
+        AND pm.proxima_em < ($2::date + INTERVAL '1 month')
+        AND (pm.ultima_em IS NULL
+             OR pm.ultima_em < $2::date
+             OR pm.ultima_em >= ($2::date + INTERVAL '1 month'))
+      FOR UPDATE OF pm`,
+    [condominioId, competencia]
+  );
+
+  if (elegiveis.rows.length === 0) return { baixou: false, motivo: "nenhum plano devendo o mês" };
+  if (elegiveis.rows.length > 1) {
+    // Não é erro do técnico — é cadastro. Fica no log para virar limpeza.
+    console.warn(
+      `[preventivas] condomínio ${condominioId} tem ${elegiveis.rows.length} planos ` +
+      `devendo ${String(competencia).slice(0, 10)}; a O.S. ${osId} não deu baixa em nenhum.`
+    );
+    return { baixou: false, motivo: "mais de um plano elegível", planos: elegiveis.rows.map((p) => p.id) };
+  }
+
+  const plano = elegiveis.rows[0];
+  const meses = Math.max(1, Math.round(plano.periodicidade_dias / 30));
+
+  // A mesma aritmética do `executarPlano`: meses de calendário, ancorada na
+  // data em que o serviço aconteceu.
+  await client.query(
+    `UPDATE planos_manutencao
+        SET ultima_em    = COALESCE($1::timestamptz, NOW())::date,
+            ultima_os_id = $2,
+            proxima_em   = (date_trunc('month', COALESCE($1::timestamptz, NOW())::date)
+                            + ($3::int * INTERVAL '1 month'))::date
+      WHERE id = $4`,
+    [quando, osId, meses, plano.id]
+  );
+
+  return {
+    baixou: true,
+    planoId: plano.id,
+    competencia: String(competencia).slice(0, 10),
+    chamadoPreventivaAberto: plano.chamado_aberto_id || null,
+  };
+}
+
 module.exports = {
   ESTADOS,
+  MARCA_PREVENTIVA,
+  darBaixaPorOS,
   competenciaValida,
   competenciaDe,
   mesDe,

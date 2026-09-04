@@ -406,6 +406,82 @@ const ok = (nome, cond) => r.push([nome, cond]);
     ok("mês inválido cai no mês corrente", /^\d{4}-\d{2}-01$/.test(P.competenciaDe("xxx")));
     ok("competenciaValida recusa mês 13", !P.competenciaValida("2026-13"));
     ok("e recusa data completa", !P.competenciaValida("2026-09-01"));
+
+    // ── A PREVENTIVA APROVEITADA (04/09/2026) ─────────────────────────────
+    // "O técnico foi ao prédio por outro chamado, marcou 'Preventiva mensal' na
+    // O.S., e o sistema conta como preventiva realizada." As guardas são o que
+    // este bloco protege: sem elas, a marcação dá baixa em serviço não feito ou
+    // adianta o ciclo duas vezes.
+    {
+      const { darBaixaPorOS } = P;
+      const compHoje = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}-01`;
+      const client = await pool.connect();
+      try {
+        // Um prédio com UM plano devendo o mês → a baixa acontece.
+        const p1 = await novoPlano("APROV1", hojeStr, "Zona Aprov");
+        const os1 = await pool.query(
+          `INSERT INTO ordens_servico (numero, condominio_id) VALUES ($1,$2) RETURNING id`,
+          ["OS-APROV1-" + sufixo, p1.condo]
+        );
+        const r1 = await darBaixaPorOS(client, { osId: os1.rows[0].id, condominioId: p1.condo, quando: null });
+        ok("um plano devendo o mês: a O.S. dá baixa", r1.baixou === true && r1.planoId === p1.plano);
+
+        const dep = await pool.query(
+          "SELECT ultima_em, proxima_em, ultima_os_id FROM planos_manutencao WHERE id=$1", [p1.plano]);
+        ok("ultima_em cai no mês da O.S.",
+          String(dep.rows[0].ultima_em.toISOString()).slice(0, 7) === compHoje.slice(0, 7));
+        ok("proxima_em vai para o mês que vem, no dia 1",
+          dep.rows[0].proxima_em.getUTCDate() === 1 &&
+          String(dep.rows[0].proxima_em.toISOString()).slice(0, 7) !== compHoje.slice(0, 7));
+        ok("a O.S. que deu a baixa fica registrada", dep.rows[0].ultima_os_id === os1.rows[0].id);
+
+        // ⚠️ IDEMPOTENTE: marcar de novo no mesmo mês não adianta o ciclo.
+        const r1b = await darBaixaPorOS(client, { osId: os1.rows[0].id, condominioId: p1.condo, quando: null });
+        ok("marcar de novo no mesmo mês não faz nada", r1b.baixou === false);
+        const dep2 = await pool.query("SELECT proxima_em FROM planos_manutencao WHERE id=$1", [p1.plano]);
+        ok("e o ciclo NÃO pula um mês",
+          String(dep2.rows[0].proxima_em.toISOString()) === String(dep.rows[0].proxima_em.toISOString()));
+
+        // ⚠️ DOIS PLANOS ELEGÍVEIS → nenhum. Dar baixa nos dois marcaria como
+        // feito um serviço que talvez não tenha sido. Decisão do Pedro.
+        const p2a = await novoPlano("APROV2", hojeStr, "Zona Aprov");
+        const p2b = await pool.query(
+          `INSERT INTO planos_manutencao (condominio_id, titulo, periodicidade_dias, proxima_em, ativo)
+           VALUES ($1,$2,30,$3::date,TRUE) RETURNING id`,
+          [p2a.condo, "Segundo plano " + sufixo, hojeStr]
+        );
+        lixo.planos.push(p2b.rows[0].id);
+        const r2 = await darBaixaPorOS(client, { osId: os1.rows[0].id, condominioId: p2a.condo, quando: null });
+        ok("dois planos elegíveis: não dá baixa em nenhum", r2.baixou === false);
+        const semBaixa = await pool.query(
+          "SELECT count(*)::int AS n FROM planos_manutencao WHERE id IN ($1,$2) AND ultima_os_id IS NOT NULL",
+          [p2a.plano, p2b.rows[0].id]);
+        ok("e nenhum dos dois fica marcado", semBaixa.rows[0].n === 0);
+
+        // Prédio sem plano nenhum: não estoura.
+        const c0 = await pool.query(
+          `INSERT INTO condominios (nome, zona, ativo) VALUES ($1,$2,TRUE) RETURNING id`,
+          ["COND SEMPLANO " + sufixo, "Zona Aprov"]);
+        lixo.condos.push(c0.rows[0].id);
+        const r3 = await darBaixaPorOS(client, { osId: os1.rows[0].id, condominioId: c0.rows[0].id, quando: null });
+        ok("prédio sem plano não estoura", r3.baixou === false);
+
+        // ⚠️ A DATA É A DA O.S., não NOW(): serviço feito em 30/09 e
+        // sincronizado em 01/10 fecha SETEMBRO.
+        const p4 = await novoPlano("APROV4", "2026-09-04", "Zona Aprov");
+        await darBaixaPorOS(client, {
+          osId: os1.rows[0].id, condominioId: p4.condo, quando: "2026-09-30T20:00:00-03:00" });
+        const d4 = await pool.query("SELECT ultima_em, proxima_em FROM planos_manutencao WHERE id=$1", [p4.plano]);
+        ok("O.S. sincronizada depois fecha o mês em que o serviço aconteceu",
+          String(d4.rows[0].ultima_em.toISOString()).slice(0, 7) === "2026-09" &&
+          String(d4.rows[0].proxima_em.toISOString()).slice(0, 7) === "2026-10");
+
+        // A O.S. de teste precisa sair antes dos condomínios, no finally.
+        await pool.query("DELETE FROM ordens_servico WHERE id=$1", [os1.rows[0].id]).catch(() => {});
+      } finally {
+        client.release();
+      }
+    }
   } catch (e) {
     console.error("ERRO:", e.message);
     process.exitCode = 1;

@@ -37,6 +37,12 @@ const CHAVES = {
   "conversas.retencao_dias":     { tipo: "int", min: 30, max: 3650 }, // Fase 9E — conversas WhatsApp fechadas (default 365)
   "conversas.cleanup_dry_run":   { tipo: "boolean" },
   "planos.geracao_enabled":         { tipo: "boolean" }, // gera chamado P4 automático quando plano de manutenção vence (default true)
+  // Meta da equipe dentro do mês, não vencimento do prédio: "normalmente
+  // fazemos todas antes do dia 10". Passar dela é sinal de ritmo, não de dívida
+  // — o vermelho fica reservado para o mês que virou sem a visita.
+  // ⚠️ Máximo 28: dia 29+ não existe em todo mês, e uma meta que some em
+  // fevereiro é pior que meta nenhuma.
+  "preventivas.dia_meta":           { tipo: "int", min: 1, max: 28 }, // default 10
   "planos.roteiro_antecedencia_dias": { tipo: "int", min: 0, max: 60 }, // janela do roteiro do técnico no app: planos vencendo em até N dias (default 7)
   "whatsapp.sessao_timeout_horas":  { tipo: "int", min: 1, max: 72 }, // inatividade que encerra a sessão e abre nova na próxima msg (default 8h)
 };
