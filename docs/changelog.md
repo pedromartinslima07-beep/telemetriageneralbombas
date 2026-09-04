@@ -10327,6 +10327,52 @@ A branch foi apagada, local e no remoto.
 `operador-conta.js` novo em 1.
 
 
+### 2026-09-04 (16ª rodada) · Preventiva sai da lista de chamados do admin
+
+*"na tela de chamados do admin separe preventiva do restante, porque hoje está
+poluindo"*.
+
+**O mesmo diagnóstico da fila do turno, na outra tela.** O job gera uma
+preventiva por prédio por mês — **69 de uma vez em 04/09** —, e elas afogavam os
+chamados que alguém abriu de fato. O painel mostrava **82 abertos** quando
+**4** pediam alguém.
+
+⚠️ **O campo não chegava na LISTAGEM.** `plano_manutencao_id` existe na tabela e
+no `GET /chamados/:id` desde sempre; era o `SELECT` da lista que não o trazia,
+então o front não tinha como distinguir nem se quisesse. Foi a primeira coisa a
+consertar.
+
+**Aba própria, e as outras param de mostrá-las.** "Todos", "Abertos",
+"Resolvidos" e as demais passaram a ser *tudo menos preventiva*; a aba
+**Preventivas** mostra só elas.
+
+⚠️ **Separar pela metade não resolveria nada:** deixá-las em "Abertos" daria a
+lista limpa em "Todos" e a poluição de volta no primeiro clique.
+
+⚠️ **O corte é pela ORIGEM, nunca pela prioridade.** Preventiva é P4, mas nem
+todo P4 é preventiva — filtrar por peso esconderia serviço avulso de baixa
+urgência, que o admin precisa ver. O teste tem um avulso P4 justamente para
+travar isso: se alguém trocar o filtro por prioridade, a asserção cai.
+
+⚠️ **Os contadores acompanham.** Se "Abertos" contasse as 69 e a lista mostrasse
+4, a aba mentiria — e número que não bate com o que está embaixo dele é pior que
+número nenhum. O contador da aba nova conta só as que **ainda pedem alguém**: as
+feitas do mês somariam para sempre e ele pararia de responder "quanto falta".
+
+⚠️ **O BADGE DO MENU TAMBÉM PAROU DE CONTÁ-LAS**, e isso vai além do pedido —
+está declarado aqui para poder ser revertido. Ele é alarme, e saltou para 82 no
+dia 4 quando 4 chamados esperavam alguém. Alarme que dispara sozinho todo mês é
+alarme que a pessoa aprende a ignorar, e aí ele deixa de servir para o P1 que
+chega às 18h.
+
+O estado vazio da aba diz "Nenhuma preventiva aberta neste período" — "nenhum
+chamado" ali soaria como defeito quando o certo é "o mês está em dia".
+
+`scripts/testes/chamados-preventiva-separada.test.js`, **14/14**.
+
+`?v=N`: `admin.js` 341 → 342.
+
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

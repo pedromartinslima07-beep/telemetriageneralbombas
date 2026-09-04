@@ -585,6 +585,17 @@
                 <button class="wa-tab" data-ch-tab="fechado">Resolvidos <span class="wa-count" id="chCtFechados">0</span></button>
                 <button class="wa-tab" data-ch-tab="cancelado">Cancelados <span class="wa-count" id="chCtCancel">0</span></button>
                 <button class="wa-tab" data-ch-tab="p1">P1 Crítico <span class="wa-count" id="chCtEmerg">0</span></button>
+                <!-- ⚠️ PREVENTIVA SEPARADA DO RESTO (04/09/2026, pedido do Pedro:
+                     "na tela de chamados do admin separe preventiva do restante,
+                     porque hoje está poluindo"). O job gera uma por prédio por
+                     mês — 69 de uma vez em 04/09 —, e elas afogavam os chamados
+                     que alguém abriu de fato.
+                     ⚠️ "Todos" passou a ser TUDO MENOS preventiva; a aba própria
+                     mostra só elas. Duas listas, cada uma respondendo uma
+                     pergunta, em vez de uma que não responde nenhuma.
+                     ⚠️ O corte é pela ORIGEM (`plano_manutencao_id`), nunca pela
+                     prioridade: preventiva é P4, mas nem todo P4 é preventiva. -->
+                <button class="wa-tab" data-ch-tab="preventiva">Preventivas <span class="wa-count" id="chCtPrev">0</span></button>
               </div>
               <input id="chBusca" class="input" placeholder="Buscar chamado…">
               <button class="btn btn-sm btnAccent viewer-only-hide" id="btnNovoChamado" style="white-space:nowrap;">+ Novo chamado</button>
@@ -2796,7 +2807,7 @@
 </div>
 
 
-<script src="/static/admin.js?v=341" defer></script>
+<script src="/static/admin.js?v=342" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
 <script src="/static/register-sw.js?v=51" defer></script>
 </body>

@@ -4157,7 +4157,15 @@ async function carregarTudo() {
 }
 
 function atualizarBadgesChamados() {
-  const n = _chamadosData.filter(ch => _chEmAberto(ch.status) && !_chamadosIdsAck.has(ch.id)).length;
+  // ⚠️ O BADGE NÃO CONTA PREVENTIVA (04/09/2026). Ele é alarme — "isto pede sua
+  // atenção" —, e o job gera uma por prédio por mês: em 04/09 ele saltou para
+  // 82 quando 4 chamados de verdade esperavam alguém. Um alarme que dispara
+  // sozinho todo dia 4 é um alarme que a pessoa aprende a ignorar, e aí ele
+  // deixa de servir para o P1 que chega às 18h.
+  // A preventiva do mês tem tela própria (aba "Preventivas", e o painel do
+  // operador); o que ela não pode é competir com a emergência pelo mesmo sinal.
+  const n = _chamadosData.filter(ch =>
+    _chEmAberto(ch.status) && !_chEhPreventiva(ch) && !_chamadosIdsAck.has(ch.id)).length;
   const badge = document.getElementById("navBadgeChamados");
   if (badge) { badge.textContent = n; badge.style.display = n > 0 ? "inline-flex" : "none"; }
   const mobBadge = document.getElementById("mobBadgeChamados");
@@ -4312,19 +4320,41 @@ const _chStNome   = { aberto:"Aberto", em_atendimento:"Em atend.", fechado:"Reso
 // uma resposta só, aqui.
 const _chEmAberto = st => st !== "fechado" && st !== "cancelado";
 
+// ⚠️ PREVENTIVA É OUTRA LISTA (04/09/2026, pedido do Pedro: "na tela de
+// chamados do admin separe preventiva do restante, porque hoje está poluindo").
+//
+// O job gera uma por prédio por mês — 69 de uma vez em 04/09 —, e elas afogavam
+// os chamados que alguém abriu de fato. É o mesmo diagnóstico que tirou a
+// preventiva da fila do turno hoje mais cedo, e a mesma medida: **o corte é pela
+// ORIGEM, nunca pela prioridade**. Preventiva é P4, mas nem todo P4 é
+// preventiva, e filtrar por peso esconderia serviço avulso de baixa urgência.
+const _chEhPreventiva = ch => ch.plano_manutencao_id != null;
+
 function _chFiltrados() {
   const lista = Array.isArray(_chamadosData) ? _chamadosData : [];
   const { tab, busca } = _chFiltros;
   return lista.filter(ch => {
+    // ⚠️ A ABA "PREVENTIVAS" É A ÚNICA QUE AS MOSTRA — todas as outras, a de
+    // status inclusive, passam a ser "tudo menos preventiva". Deixá-las em
+    // "Abertos" ou "Resolvidos" seria separar pela metade: o Pedro veria a
+    // lista limpa em "Todos" e a poluição voltaria no primeiro clique.
+    if (tab === "preventiva") return _chEhPreventiva(ch) && _chAplicaBusca(ch, busca);
+    if (_chEhPreventiva(ch)) return false;
+
     if (tab === "p1" && (ch.prioridade !== "p1" || !_chEmAberto(ch.status))) return false;
     if (tab !== "todos" && tab !== "p1" && ch.status !== tab) return false;
-    if (busca) {
-      const q = busca.toLowerCase();
-      const blob = `${ch.id} ${ch.titulo||""} ${ch.condominio_nome||""} ${ch.cliente_nome||""} ${ch.categoria||""}`.toLowerCase();
-      if (!blob.includes(q)) return false;
-    }
-    return true;
+    return _chAplicaBusca(ch, busca);
   });
+}
+
+// A busca é a mesma nas duas listas — extraída para a aba de preventivas não
+// virar a única sem busca, que é o tipo de diferença que ninguém percebe até
+// precisar achar um prédio no meio de 69.
+function _chAplicaBusca(ch, busca) {
+  if (!busca) return true;
+  const q = busca.toLowerCase();
+  const blob = `${ch.id} ${ch.titulo||""} ${ch.condominio_nome||""} ${ch.cliente_nome||""} ${ch.categoria||""}`.toLowerCase();
+  return blob.includes(q);
 }
 
 function _chFmtDataCurta(iso) {
@@ -4405,16 +4435,29 @@ function renderChTabela() {
   const data = Array.isArray(_chamadosData) ? _chamadosData : [];
 
   const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
-  set("chCtTodos",    data.length);
-  set("chCtAbertos",  data.filter(ch => ch.status === "aberto").length);
-  set("chCtAtend",    data.filter(ch => ch.status === "em_atendimento").length);
-  set("chCtFechados", data.filter(ch => ch.status === "fechado").length);
-  set("chCtCancel",   data.filter(ch => ch.status === "cancelado").length);
-  set("chCtEmerg",    data.filter(ch => ch.prioridade === "p1" && _chEmAberto(ch.status)).length);
+  // ⚠️ TODO CONTADOR EXCLUI PREVENTIVA, menos o dela. Se "Abertos" contasse as
+  // 69 e a lista mostrasse 4, a aba mentiria — e um número que não bate com o
+  // que está embaixo dele é pior que número nenhum.
+  const semPrev = data.filter(ch => !_chEhPreventiva(ch));
+  set("chCtTodos",    semPrev.length);
+  set("chCtAbertos",  semPrev.filter(ch => ch.status === "aberto").length);
+  set("chCtAtend",    semPrev.filter(ch => ch.status === "em_atendimento").length);
+  set("chCtFechados", semPrev.filter(ch => ch.status === "fechado").length);
+  set("chCtCancel",   semPrev.filter(ch => ch.status === "cancelado").length);
+  set("chCtEmerg",    semPrev.filter(ch => ch.prioridade === "p1" && _chEmAberto(ch.status)).length);
+  // ⚠️ O contador da preventiva conta só as que AINDA PEDEM ALGUÉM. As feitas
+  // do mês inteiro ficariam somando para sempre, e o número pararia de dizer
+  // "quanto falta" — que é a única pergunta que ele responde.
+  set("chCtPrev",     data.filter(ch => _chEhPreventiva(ch) && _chEmAberto(ch.status)).length);
 
   const lista = _chFiltrados();
   if (!lista.length) {
-    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:32px;">Nenhum chamado encontrado.</td></tr>`;
+    // O vazio precisa dizer QUAL vazio é: "nenhum chamado" na aba de
+    // preventivas soa como defeito quando o certo é "o mês está em dia".
+    const vazio = _chFiltros.tab === "preventiva"
+      ? (_chFiltros.busca ? "Nenhuma preventiva encontrada." : "Nenhuma preventiva aberta neste período.")
+      : "Nenhum chamado encontrado.";
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:32px;">${vazio}</td></tr>`;
     return;
   }
 

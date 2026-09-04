@@ -388,7 +388,19 @@ router.get("/meus", authRequired, async (req, res) => {
          c.lat      AS condominio_lat,
          c.lng      AS condominio_lng,
          cw.telefone AS cliente_telefone,
-         cw.nome     AS cliente_nome
+         cw.nome     AS cliente_nome,
+         -- ⚠️ DE ONDE VEIO O CHAMADO, e a lista precisava disto para separar
+         -- preventiva do resto (04/09/2026, pedido do Pedro: "na tela de
+         -- chamados do admin separe preventiva do restante, porque hoje esta
+         -- poluindo"). O campo existe na tabela e no GET /chamados/:id desde
+         -- sempre; era a LISTAGEM que nao o trazia, entao o front nao tinha
+         -- como distinguir e mostrava tudo junto.
+         --
+         -- ⚠️ NAO E FILTRO DE PRIORIDADE: preventiva e P4, mas nem todo P4 e
+         -- preventiva. Quem manda e a ORIGEM. Mesma decisao do filtro da fila
+         -- do turno, no operador.routes.js.
+         -- (Sem crase nos comentarios: template literal. Ver CLAUDE.md.)
+         ch.plano_manutencao_id
        FROM chamados ch
        LEFT JOIN condominios c ON c.id = ch.condominio_id
        LEFT JOIN conversas_whatsapp cv ON cv.id = ch.conversa_id
