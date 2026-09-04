@@ -235,10 +235,11 @@ function grupo(g) {
         ${/* ⚠️ "TUDO DESPACHADO · 2 ATRASADAS" SE CONTRADIZIA — visto no print
              do refino. "Despachado" lê como resolvido, e atrasada é dívida:
              a zona podia ter dono para tudo e ainda assim dever duas visitas.
-             "Tudo com dono" diz o que de fato aconteceu (a escala está feita) e
+             "Todas com responsável" diz o que de fato aconteceu (a escala está
+             feita) e
              convive com o atraso sem prometer que ele sumiu. */""}
         <span class="pv-zona-sub">${
-          aFazer ? `<b class="pv-conta">${aFazer} a fazer</b>` : "tudo com dono"}${
+          aFazer ? `<b class="pv-conta">${aFazer} a fazer</b>` : "todas com responsável"}${
           atrasadas ? ` · <b class="pv-conta-atraso">${atrasadas} atrasada${atrasadas > 1 ? "s" : ""}</b>` : ""}</span>
       </div>
       ${despachaveis.length ? `

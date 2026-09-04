@@ -18,7 +18,7 @@
   <link rel="stylesheet" href="/static/leaflet.css">
   <!-- ⚠️ Ao mexer em admin.js ou admin.css, bumpe o ?v=N aqui E no <script>
        lá embaixo. Ver CLAUDE.md raiz. -->
-  <link rel="stylesheet" href="/static/admin.css?v=254">
+  <link rel="stylesheet" href="/static/admin.css?v=255">
 </head>
 <body>
   <div id="appLoader">
@@ -1341,7 +1341,7 @@
             <!-- ⚠️ O MÊS É UM SELETOR, NÃO O RELÓGIO DO SERVIDOR (04/09/2026).
                  A tela só sabia olhar o mês corrente: escalar uma preventiva
                  para outubro gravava certo no banco e a tela seguia dizendo
-                 "Sem dono" — a pessoa faz a ação, ela funciona, e a tela diz
+                 "Sem responsável" — a pessoa faz a ação, ela funciona, e a tela diz
                  que não aconteceu nada. Mesma peça da tela de Preventivas do
                  operador, no registro do admin. -->
             <div class="pm-mesnav">
@@ -1357,13 +1357,13 @@
                    andamento da ATUAL. Visto na tela: "Este mês 0" ao lado de
                    "Em andamento 69" — as duas verdadeiras, e contraditórias na
                    leitura, porque falavam de coisas diferentes.
-                   Hoje elas seguem o ciclo do serviço: sem dono → com dono →
-                   em campo → feita. Mais duas do CADASTRO, que é a outra
-                   pergunta legítima da tela: quem está de fora (sem plano) e o
-                   que está pausado. -->
+                   Hoje elas seguem o ciclo do serviço: sem responsável → com
+                   responsável → em campo → feita. Mais duas do CADASTRO, que é a
+                   outra pergunta legítima da tela: quem está de fora (sem plano) e
+                   o que está pausado. -->
               <button class="wa-tab is-active" data-pm-tab="todos" type="button">Todos <span class="wa-count" id="pmCtTodos">0</span></button>
-              <button class="wa-tab" data-pm-tab="sem-dono" type="button">Sem dono <span class="wa-count" id="pmCtSemDono">0</span></button>
-              <button class="wa-tab" data-pm-tab="com-dono" type="button">Com dono <span class="wa-count" id="pmCtComDono">0</span></button>
+              <button class="wa-tab" data-pm-tab="sem-dono" type="button">Sem responsável <span class="wa-count" id="pmCtSemDono">0</span></button>
+              <button class="wa-tab" data-pm-tab="com-dono" type="button">Com responsável <span class="wa-count" id="pmCtComDono">0</span></button>
               <button class="wa-tab" data-pm-tab="em-campo" type="button">Em campo <span class="wa-count" id="pmCtEmCampo">0</span></button>
               <button class="wa-tab" data-pm-tab="feitas" type="button">Feitas <span class="wa-count" id="pmCtFeitas">0</span></button>
               <!-- ⚠️ ESTA ABA NÃO LISTA PLANOS, e é a única assim: são os
@@ -2796,7 +2796,7 @@
 </div>
 
 
-<script src="/static/admin.js?v=340" defer></script>
+<script src="/static/admin.js?v=341" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
 <script src="/static/register-sw.js?v=51" defer></script>
 </body>

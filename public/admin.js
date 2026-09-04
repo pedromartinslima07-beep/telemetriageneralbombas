@@ -15082,11 +15082,15 @@ async function _pmCarregarCondos() {
 // ⚠️ O BALDE DO MÊS, e ele vem do BACKEND (`p.estado`), não de conta feita
 // aqui. É a mesma definição que a tela do operador usa — o
 // `preventivas.service.js` existe para não haver duas leituras do mesmo mês.
-// "Sem dono" é o que ainda espera despacho; escalada já tem alguém no nome.
+// "Sem responsável" é o que ainda espera despacho; escalada já tem alguém
+// no nome. ⚠️ A palavra é "responsável", não "dono" (04/09/2026, pedido do
+// Pedro: "essa frase está me incomodando"). É a que o sistema já usa em
+// `planos_zona_responsavel` e no cabeçalho de zona; "dono" soa como posse e
+// ninguém fala assim na operação.
 function _pmBaldeDoMes(p) {
   if (!p.ativo) return "inativo";
   // ⚠️ SÓ O QUE É TRABALHO DESTA COMPETÊNCIA entra nos baldes do mês. Um plano
-  // que só vence em outubro não é serviço de setembro, e aparecia em "Sem dono"
+  // que só vence em outubro não é serviço de setembro, e aparecia em "Sem resp."
   // ao lado do que vencia agora — numa lista de 80 linhas, só a coluna
   // "Próxima" distinguia. Ele continua em "Todos", que é a visão de cadastro.
   // `do_mes` vem do backend, com as mesmas duas portas do operador.
@@ -15301,8 +15305,8 @@ function _pmRenderTudo() {
       : p.estado === "em_campo"
         ? `<span class="pm-selo" data-e="campo">Em campo · #${p.chamado_aberto_id}</span>`
         : balde === "com-dono"
-          ? `<span class="pm-selo" data-e="dono">Com dono</span>`
-          : `<span class="pm-selo" data-e="sem">Sem dono</span>`;
+          ? `<span class="pm-selo" data-e="dono">Com responsável</span>`
+          : `<span class="pm-selo" data-e="sem">Sem responsável</span>`;
     // ⚠️ A ORIGEM É ETIQUETA DENTRO DA FRASE, não outra linha — a regra que a
     // tela de Preventivas aprendeu: "escalado" é decisão de alguém neste mês,
     // "pela zona" é o padrão da região, e sem a distinção o admin não sabe o

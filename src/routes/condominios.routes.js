@@ -6,6 +6,7 @@ const { authRequired } = require("../middleware/authRequired");
 const { adminOnly } = require("../middleware/adminOnly");
 const { masterAdminOnly } = require("../middleware/masterAdminOnly");
 const { gestaoOnly } = require("../middleware/gestaoOnly");
+const { zonaParaGravar } = require("../services/zona.service");
 
 const router = express.Router();
 
@@ -96,7 +97,18 @@ router.post("/", authRequired, gestaoOnly, async (req, res) => {
         ativoNorm,
         latNorm,
         lngNorm,
-        zona ? String(zona).trim() || null : null,
+        // ⚠️ A ZONA É DERIVADA QUANDO NÃO VEM (04/09/2026), e é isto que impede
+        // o prédio de nascer órfão. Antes gravava-se `zona` cru: formulário sem
+        // o campo → prédio sem zona, em silêncio. Medido em produção: 14 de 90
+        // ativos assim, TODOS com bairro e coordenada — o dado para derivar
+        // sempre esteve lá.
+        //
+        // ⚠️ Não é cosmético: sem zona o prédio não cai no roteiro de ninguém,
+        // porque a régua de `planos_zona_responsavel` é por zona.
+        //
+        // O que a pessoa digitou ganha sempre; a derivação só preenche o vazio.
+        // Ver `src/services/zona.service.js`.
+        zonaParaGravar(zona, { bairro, cidade, lat, lng }),
       ]
     );
 
@@ -218,7 +230,44 @@ router.patch("/:id", authRequired, gestaoOnly, async (req, res) => {
     if (lngNorm === undefined) return res.status(400).json({ error: "lng inválida (-180 a 180)" });
     add("lng", lngNorm);
   }
-  add("zona", "zona" in b ? (b.zona ? String(b.zona).trim() || null : null) : undefined);
+  // ⚠️ A EDIÇÃO TAMBÉM DERIVA, e por dois motivos.
+  //
+  // 1. Quem manda `zona: ""` (o campo esvaziado no formulário) está pedindo
+  //    "descubra por mim", não "deixe sem zona" — e sem isto a edição era um
+  //    caminho de volta para o prédio órfão que o POST acabou de fechar.
+  // 2. Mudar o BAIRRO de um prédio que ainda não tem zona é exatamente quando
+  //    a derivação passa a ser possível; ignorar isso deixaria o cadastro
+  //    consertado e o dado velho intacto.
+  //
+  // ⚠️ MAS NÃO REESCREVE ZONA EXISTENTE. Só entra quando a zona resultante
+  // ficaria vazia: um prédio na divisa que a equipe atende como Zona Sul não
+  // pode virar Zona Oeste porque alguém corrigiu o CEP.
+  if ("zona" in b || "bairro" in b || "cidade" in b || "lat" in b || "lng" in b) {
+    const zonaCrua = "zona" in b ? (b.zona ? String(b.zona).trim() || null : null) : undefined;
+    if (zonaCrua) {
+      add("zona", zonaCrua);
+    } else {
+      // O endereço final é o que vem no corpo sobre o que já está no banco —
+      // editar só o bairro precisa enxergar a cidade e as coordenadas antigas.
+      const atualRes = await pool.query(
+        "SELECT bairro, cidade, lat, lng, zona FROM condominios WHERE id = $1", [idNum]
+      );
+      const atual = atualRes.rows[0] || {};
+      if (!atualRes.rows.length) return res.status(404).json({ error: "Condomínio não encontrado" });
+      const end = {
+        bairro: "bairro" in b ? b.bairro : atual.bairro,
+        cidade: "cidade" in b ? b.cidade : atual.cidade,
+        lat:    "lat"    in b ? b.lat    : atual.lat,
+        lng:    "lng"    in b ? b.lng    : atual.lng,
+      };
+      const derivada = zonaParaGravar(null, end);
+      // Zona explicitamente apagada (`zona: ""`) → deriva. Zona não mencionada
+      // → só preenche se estiver vazia hoje.
+      if (zonaCrua === null || !atual.zona) {
+        if (derivada) add("zona", derivada);
+      }
+    }
+  }
 
   if (sets.length === 0) {
     return res.status(400).json({ error: "Nenhum campo para atualizar" });

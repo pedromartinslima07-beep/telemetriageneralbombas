@@ -10181,6 +10181,78 @@ Sem `?v=N`: só o `admin.html` mudou, e ele é servido com `Cache-Control:
 no-cache` pelo `_htmlNoCache`.
 
 
+### 2026-09-04 (14ª rodada) · A zona passa a ser derivada no cadastro
+
+*"solução não é você preencher por mim, solução é consertar para que nos
+próximos cadastros a zona seja cadastrada"*. Correção de rumo do Pedro, e ela
+está certa: preencher os 14 à mão é remendo; o defeito é o cadastro **aceitar
+prédio sem zona**.
+
+**O estado, medido em produção:** 14 de 90 condomínios ativos sem zona — **todos
+com bairro E coordenada preenchidos**. O dado para derivar sempre esteve lá e
+ninguém o usava. Um deles é a própria General.
+
+⚠️ **E não é cosmético: sem zona o prédio não cai no roteiro de ninguém**, porque
+a régua de `planos_zona_responsavel` é por zona. Ele só chega a um técnico se
+alguém escalar à mão — e 6 dos 14 nem plano tinham.
+
+**`src/services/zona.service.js` é a fonte única.** A tabela vivia duplicada em
+`scripts/auto-zona-condominios.js` e em `public/admin.js` (`_MP_BAIRROS_ZONA`),
+e **as duas já divergiam da realidade**: nenhuma conhecia Anália Franco,
+Higienópolis, Indianópolis, Alto da Mooca, Vila Ipojuca — bairros que existem na
+carteira hoje. Levantei os 65 bairros distintos do banco e completei a partir
+deles, não de memória.
+
+**O cadastro deriva sozinho.** `POST /condominios` e `PATCH /condominios/:id`
+preenchem a zona quando ela não vem. Conferido contra os dados reais: os **14
+resolveriam, 14 de 14**.
+
+⚠️ **Quem digitou ganha sempre.** A derivação preenche o vazio; não corrige
+ninguém. Um prédio na divisa que a equipe atende como Zona Sul continua Zona Sul
+mesmo que o bairro diga outra coisa.
+
+⚠️ **A edição fecha o caminho de volta.** Sem ela, o `PATCH` seria a porta que
+recriaria o órfão que o `POST` acabou de fechar. Mandar `zona: ""` é pedir
+"descubra por mim", não "deixe sem"; e mudar o **bairro** de um prédio sem zona é
+exatamente quando a derivação passa a ser possível. Mas **não reescreve zona
+existente**.
+
+### O teste achou um defeito latente que eu ia repetir
+
+⚠️ **A tabela é de bairros DA CAPITAL, e a cidade tem de vir antes dela.** O
+script original trazia o comentário *"1) Bairro no mapa (só aplica se for SP)"* e
+**a linha de código não verificava nada** — um prédio no "Centro" de Barueri
+viraria zona "Centro" de São Paulo. O defeito nunca apareceu porque nenhum dos
+prédios de fora tinha bairro que colidisse; colidiria no primeiro "Centro",
+"Jardim América" ou "Vila Nova" cadastrado fora da capital. Só apareceu porque a
+asserção existia.
+
+`scripts/testes/zona-cadastro.test.js`, **17/17**: a regra pura, os quatro
+bairros que faltavam, o parêntese do cadastro (*"CHACARA SANTO ANTONIO (ZONA
+LESTE)"* — anotação de quem digitou, e ainda por cima errada), a criação sem
+zona, a mão que ganha da derivação, a edição, e uma varredura que falha se
+qualquer bairro da carteira parar de resolver.
+
+⚠️ **Os 14 continuam sem zona, de propósito** — o Pedro pediu o conserto, não o
+preenchimento. Quando quiser, `node scripts/auto-zona-condominios.js` agora usa
+a mesma regra (ele importa o serviço; a cópia dele morreu).
+
+### E a copy: "dono" virou "responsável"
+
+*"essa frase está me incomodando"*, sobre o **"tudo com dono"** que eu tinha
+escrito hoje de manhã. Ele está certo: "dono" soa como posse, e ninguém fala
+assim na operação. A palavra que o sistema já usa é **responsável** —
+`planos_zona_responsavel`, e o "sem responsável" do cabeçalho de zona.
+
+- Preventivas do operador: *"tudo com dono"* → **"todas com responsável"**
+- Abas do admin: *"Sem dono / Com dono"* → **"Sem responsável / Com responsável"**
+
+Os slugs internos (`sem-dono`, `com-dono`) ficam: são identificadores, não texto.
+
+`?v=N`: `admin.css` 254 → 255, `admin.js` 340 → 341,
+`operador-preventivas.js` 3 → 4.
+
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em
