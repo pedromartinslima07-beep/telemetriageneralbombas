@@ -9647,6 +9647,50 @@ tem de andar junto**, senão a prévia serve uma versão do script e a página r
 serve outra.
 
 
+### 2026-09-04 (4ª rodada) · A escala da preventiva oferecia o escritório inteiro
+
+*"na hora de escolher técnico para preventiva nessa tela de operador está
+aparecendo todos os colaboradores, não apenas os técnicos"*. Levantado em
+produção, na tabela `tecnicos`:
+
+| cargo | ativos |
+|---|---|
+| `tecnico` | **6** |
+| `gestor` | 3 |
+| `adm` | 2 |
+
+A barra de despacho oferecia os **11**. Dava para escalar a preventiva de um
+prédio para o administrativo.
+
+**A tabela `tecnicos` é o QUADRO INTEIRO**, não só quem vai a campo — e o
+`operador.routes.js` já sabia disso: o `SQL_EQUIPE` no topo do arquivo filtra
+por `COALESCE(cargo,'tecnico') = 'tecnico'` e carrega o aviso de que *"as duas
+precisam responder igual, senão a tela oferece quem a gravação recusa"*. A query
+que monta a equipe de Preventivas nasceu depois e **copiou só metade**: ficou com
+`ativo = TRUE` e sem o cargo. É exatamente a divergência que aquele aviso existe
+para impedir.
+
+**Eram dois furos, não um.** O `POST /operador/preventivas/atribuir` tinha
+validação PRÓPRIA — `SELECT id FROM tecnicos WHERE id = $1 AND ativo = TRUE` —,
+também sem o cargo. Ou seja: mesmo com a lista corrigida, um POST à mão ainda
+escalaria uma preventiva para um gestor.
+
+⚠️ **Quem valida passou a ser o `resolverTecnico`**, o serviço que já responde
+por "Novo chamado" e por Aprovados. A checagem local saiu. O
+`chamado-atribuicao.service.js` foi criado justamente com esse argumento —
+*"a regra é de NEGÓCIO, não de rota"* — e esta rota estava fora dele.
+
+⚠️ **A recusa virou 400, era 404.** É a resposta do serviço, a mesma das telas
+irmãs, e é a certa: `tecnico_id` é campo do CORPO, então id inválido é pedido
+malformado, não recurso ausente. O teste foi ajustado.
+
+Duas asserções novas em `scripts/testes/preventivas-mes.test.js`, com um
+colaborador `cargo='gestor'` no seed: *"e quem não é técnico fica de fora dela"*
+e *"escalar para quem não é técnico → 400"*. **33/33 passam.**
+
+Sem `?v=N`: a mudança é de backend, e o front só desenha o que a API manda.
+
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

@@ -230,6 +230,24 @@ equipe sabe ter sido feito.
 setembro não é "a fazer", é dívida — e ela entra na lista do mês junto, com
 `atrasada`.
 
+### ⚠️ `tecnicos` é o quadro inteiro — filtre por `cargo` (04/09/2026)
+
+A tabela `tecnicos` guarda **todo o pessoal**, não só quem vai a campo: em
+produção são 6 com `cargo='tecnico'`, 3 `gestor` e 2 `adm`. Toda lista de
+despacho e toda gravação de responsável precisam de
+`COALESCE(cargo,'tecnico') = 'tecnico'` — o `COALESCE` porque a coluna nasceu
+depois das linhas, e nulo é técnico.
+
+A barra de despacho desta tela oferecia os 11, e a rota de escalar aceitava
+qualquer um deles. Hoje a listagem filtra por cargo e **quem valida a gravação é
+o [`chamado-atribuicao.service.js`](../../src/services/chamado-atribuicao.service.js)**,
+o mesmo do "Novo chamado" e de Aprovados: uma regra de negócio, um lugar só.
+Recusa responde **400** (campo do corpo inválido), não 404.
+
+⚠️ Ao escrever consulta nova sobre `tecnicos`, olhe o `SQL_EQUIPE` no topo do
+`operador.routes.js` antes: ele já traz a regra e o aviso de que a tela e a
+gravação têm de responder igual.
+
 ### O despacho
 
 Agrupado por **zona**, porque é por zona que a decisão se toma ("a Zona Leste vai

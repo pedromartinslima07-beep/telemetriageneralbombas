@@ -593,6 +593,19 @@ router.get("/preventivas", authRequired, adminOnly, async (req, res) => {
 
     // A equipe, para o diálogo de escala. `abertos` deixa a tela dizer quem já
     // está carregado antes de somar mais um prédio.
+    //
+    // ⚠️ `cargo = 'tecnico'`, E ISSO FALTAVA (04/09/2026). A tabela `tecnicos`
+    // guarda o QUADRO INTEIRO, não só quem vai a campo: em produção são 11
+    // ativos — 6 técnicos, 3 gestores e 2 do administrativo —, e a barra de
+    // despacho desta tela oferecia os 11. Relato do Pedro: "está aparecendo
+    // todos os colaboradores, não apenas os técnicos".
+    //
+    // ⚠️ A REGRA É A DO `resolverTecnico`, e o `SQL_EQUIPE` no topo deste
+    // arquivo já a escreve com o aviso de que "as duas precisam responder
+    // igual, senão a tela oferece quem a gravação recusa". Esta query nasceu
+    // depois e copiou só metade — é exatamente a divergência que aquele aviso
+    // existe para impedir. `COALESCE` porque a coluna nasceu depois das linhas
+    // e o nulo é técnico.
     const tec = await pool.query(
       `SELECT t.id, t.nome,
               (SELECT count(*)::int FROM chamados ch
@@ -600,6 +613,7 @@ router.get("/preventivas", authRequired, adminOnly, async (req, res) => {
                   AND ch.status IN ('aberto','em_atendimento')) AS abertos
          FROM tecnicos t
         WHERE t.ativo = TRUE
+          AND COALESCE(t.cargo, 'tecnico') = 'tecnico'
         ORDER BY t.nome`
     );
 
@@ -643,23 +657,22 @@ router.post("/preventivas/atribuir", authRequired, adminOnly, async (req, res) =
   }
   const competencia = competenciaDe(mes);
 
-  // Nulo desescala — é como a tela devolve um prédio para a régua da zona.
-  const tecId = tecnico_id == null || tecnico_id === "" ? null : Number(tecnico_id);
-  if (tecId !== null && (!Number.isInteger(tecId) || tecId <= 0)) {
-    return res.status(400).json({ error: "tecnico_id inválido" });
-  }
+  // Nulo desescala — é como a tela devolve um prédio para a régua da zona, e é
+  // o `id: null` que o `resolverTecnico` já devolve para entrada vazia.
+  //
+  // ⚠️ QUEM VALIDA É O SERVIÇO, não esta rota (04/09/2026). A checagem que
+  // estava aqui era `WHERE id = $1 AND ativo = TRUE` — sem o `cargo` —, então
+  // a gravação aceitava escalar uma preventiva para um gestor ou para o
+  // administrativo. Era o mesmo furo do `SELECT` da listagem, e a existência
+  // do `chamado-atribuicao.service.js` é a resposta registrada para ele: a
+  // regra é de NEGÓCIO e mora num lugar só.
+  const alvo = await resolverTecnico(tecnico_id);
+  if (!alvo.ok) return res.status(400).json({ error: alvo.erro });
+  const tecId = alvo.id;
 
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-
-    if (tecId !== null) {
-      const t = await client.query("SELECT id FROM tecnicos WHERE id = $1 AND ativo = TRUE", [tecId]);
-      if (!t.rows.length) {
-        await client.query("ROLLBACK");
-        return res.status(404).json({ error: "Técnico não encontrado ou inativo" });
-      }
-    }
 
     // ⚠️ SÓ PLANOS ATIVOS, e o filtro é aqui e não no front: a tela lista o mês
     // corrente, mas a requisição chega com ids que podem ter sido desativados

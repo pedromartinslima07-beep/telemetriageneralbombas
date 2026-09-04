@@ -610,6 +610,11 @@ Fluxo e pegadinhas em
     como a barra do topo. Vale para toda barra fixa nova nesta folha.
   - ⚠️ **`.sr-only` passou a existir no `operador.css`** (04/09) — não existia,
     e o rótulo do select do técnico aparecia cru na tela em produção.
+  - ⚠️ **`tecnicos` é o quadro inteiro, não só quem vai a campo** (04/09): em
+    produção, 6 `cargo='tecnico'`, 3 `gestor`, 2 `adm`. A escala da preventiva
+    oferecia os 11 e aceitava qualquer um. Toda lista de despacho filtra por
+    `COALESCE(cargo,'tecnico')='tecnico'`, e quem valida a gravação é o
+    `chamado-atribuicao.service.js` — uma regra, um lugar.
 - **Acabamento em 27/08** (passe `polish` da skill): item de 318px → 258px,
   medida de linha em 68ch, ações em coluna própria, piso de contraste 5,2:1 e
   o pulso da barra com três estados. O brief da superfície fica em

@@ -56,6 +56,15 @@ const ok = (nome, cond) => r.push([nome, cond]);
     };
     const tecZona   = await novoTecnico("Téc Zona " + sufixo);
     const tecOutro  = await novoTecnico("Téc Outro " + sufixo);
+    // ⚠️ A TABELA `tecnicos` É O QUADRO INTEIRO, não só quem vai a campo — em
+    // produção são 6 técnicos, 3 gestores e 2 do administrativo na mesma
+    // tabela. Este aqui existe para provar que ele NÃO é oferecido nem aceito.
+    const gestor = await pool.query(
+      "INSERT INTO tecnicos (nome, ativo, cargo) VALUES ($1, TRUE, 'gestor') RETURNING id",
+      ["Gestor " + sufixo]
+    );
+    lixo.tecnicos.push(gestor.rows[0].id);
+    const tecGestor = gestor.rows[0].id;
 
     await pool.query(
       "INSERT INTO planos_zona_responsavel (zona, tecnico_id) VALUES ($1, $2)", [ZONA, tecZona]
@@ -122,6 +131,12 @@ const ok = (nome, cond) => r.push([nome, cond]);
        doPlano(t, a.plano).tecnico_id === tecZona && doPlano(t, a.plano).tecnico_origem === "zona");
     ok("a equipe vem junto, para o diálogo de escala",
        Array.isArray(t.tecnicos) && t.tecnicos.some((x) => x.id === tecOutro));
+    // ⚠️ O DEFEITO DE 04/09: a barra de despacho oferecia os 11 colaboradores
+    // ativos, não os 6 técnicos. "está aparecendo todos os colaboradores, não
+    // apenas os técnicos" — a query da equipe tinha só `ativo = TRUE`, sem o
+    // `cargo` que o `SQL_EQUIPE` e o `resolverTecnico` já exigiam.
+    ok("e quem não é técnico fica de fora dela",
+       !t.tecnicos.some((x) => x.id === tecGestor));
 
     // ── Escalar: em lote, para um técnico que NÃO é o da zona ─────────────
     const escalar = (ids, tecnico) => fetch(base + "/operador/preventivas/atribuir", {
@@ -213,8 +228,19 @@ const ok = (nome, cond) => r.push([nome, cond]);
       method: "POST", headers: H, body: JSON.stringify({ plano_ids: [], tecnico_id: tecZona }) });
     ok("lote vazio → 400", semIds.status === 400);
 
+    // ⚠️ 400, NÃO 404 (04/09/2026). Quem valida passou a ser o
+    // `resolverTecnico` — a mesma regra do "Novo chamado" e de Aprovados, que
+    // já respondiam 400 —, e o `tecnico_id` é campo do CORPO: pedido malformado,
+    // não recurso ausente. A rota tinha checagem própria, e era ela que deixava
+    // passar quem não é técnico.
     const tecMau = await escalar([a.plano], 999999999);
-    ok("técnico inexistente → 404", tecMau.status === 404);
+    ok("técnico inexistente → 400", tecMau.status === 400);
+
+    // A outra metade do mesmo defeito: a tela parou de OFERECER o gestor, e a
+    // gravação precisa RECUSAR — senão um POST à mão escala uma preventiva
+    // para o administrativo.
+    const escGestor = await escalar([a.plano], tecGestor);
+    ok("escalar para quem não é técnico → 400", escGestor.status === 400);
 
     const mesMau = await fetch(base + "/operador/preventivas?mes=setembro", { headers: H });
     ok("mês fora do formato → 400", mesMau.status === 400);
