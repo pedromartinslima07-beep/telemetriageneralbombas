@@ -333,7 +333,34 @@ router.get("/meu-roteiro", authRequired, async (req, res) => {
          LIMIT 1
        ) cha ON TRUE
        WHERE pm.ativo = TRUE
-         AND pm.proxima_em <= CURRENT_DATE + $2::int
+         -- ⚠️ DUAS PORTAS, COMO NA TELA DO OPERADOR (04/09/2026). A janela de
+         -- dias sozinha esvazia o roteiro no dia em que o mes comeca.
+         --
+         -- O job ROLA proxima_em para o ciclo seguinte no instante em que abre
+         -- o chamado. Medido em producao neste dia: 77 planos ativos, 76 com
+         -- proxima_em em 04/10 e 77 chamados de preventiva ABERTOS — a janela
+         -- de 7 dias alcancava UM. O trabalho do mes estava todo la e a data de
+         -- todos ja apontava para o mes seguinte.
+         --
+         -- A segunda porta e ultima_em dentro da competencia: executarPlano
+         -- grava ultima_em = CURRENT_DATE na mesma transacao em que abre o
+         -- chamado, entao ele marca o mes em que o servico ACONTECEU.
+         -- E o mesmo conserto do GET /operador/preventivas.
+         -- (Sem crase nos comentarios: template literal. Ver CLAUDE.md.)
+         --
+         -- ⚠️ E SO ENQUANTO O SERVICO NAO FECHOU. Sem o cha.id IS NOT NULL, a
+         -- preventiva JA FEITA voltaria ao roteiro do tecnico pelo resto do mes
+         -- — ele veria de novo o predio de onde acabou de sair. O chamado
+         -- aberto e o que diz "isto ainda pede alguem"; fechado ou cancelado,
+         -- some.
+         AND (
+           pm.proxima_em <= CURRENT_DATE + $2::int
+           OR (
+             pm.ultima_em >= date_trunc('month', CURRENT_DATE)::date
+             AND pm.ultima_em <  (date_trunc('month', CURRENT_DATE) + INTERVAL '1 month')::date
+             AND cha.id IS NOT NULL
+           )
+         )
          AND (
            pa.tecnico_id = $1::int
            OR (

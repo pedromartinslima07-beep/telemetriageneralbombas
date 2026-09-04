@@ -10421,6 +10421,77 @@ deste mesmo conserto.
 Sem `?v=N`: a mudança é de backend.
 
 
+### 2026-09-04 (18ª rodada) · O roteiro do técnico, e o mês futuro que inventava atraso
+
+Dois consertos de competência, e o segundo saiu de uma ideia do Pedro melhor que
+a minha.
+
+### 1. O roteiro do técnico só via a janela de dias
+
+⚠️ **E EU AFIRMEI ISSO ERRADO ANTES DE MEDIR.** Disse que a janela de 7 dias era
+a causa do roteiro vazio; o Pedro perguntou *"você tem certeza disso?"* e a query
+real mostrou outra coisa: `planos_zona_responsavel` e `planos_atribuicoes`
+estavam **ambas vazias** em produção. Sem dono, o roteiro devolve zero com
+qualquer janela — testei com 40 dias e continuou zero. A janela é defeito real,
+mas só aparece depois que alguém é designado. Apresentei consequência como causa.
+
+O defeito, medido: **77 planos ativos, 76 com `proxima_em` em 04/10, 77 chamados
+de preventiva abertos** — a janela de 7 dias alcançava **um**. O job rola
+`proxima_em` no instante em que abre o chamado, então o trabalho do mês fica
+todo lá com a data já apontando para o mês seguinte.
+
+Mesmo conserto do operador: **duas portas** — ou vence na janela, ou já rodou
+neste mês.
+
+⚠️ **E só enquanto o serviço não fechou.** Sem essa condição a preventiva já
+feita voltaria ao roteiro pelo resto do mês, e o técnico veria de novo o prédio
+de onde acabou de sair.
+
+`scripts/testes/roteiro-competencia.test.js`, **6/6**. Provado que pega: com a
+janela sozinha, **exatamente a asserção do defeito falha** e as outras cinco
+passam.
+
+### 2. O mês futuro marcava tudo como atrasado
+
+*"tem uma coisa muito errada na tela de preventiva do operador: quando você vai
+avançando os meses aparece tudo vencido e atrasado — como algo no mês de
+dezembro pode estar vencido em setembro?"*
+
+Medido: olhando novembro ou dezembro, a tela marcava **77 de 77** como
+atrasadas.
+
+**Eram dois defeitos, não um:**
+
+**a) `atrasada` comparava com a competência OLHADA**, não com o mês corrente.
+Atraso é pergunta sobre o **relógio**, não sobre a página que se está lendo.
+
+**b) A ausência de limite inferior não vale para o futuro.** E aqui a ideia foi
+do Pedro: *"talvez o que faça sentido é que nos meses seguintes não apareça nada
+até o plano do mês em questão entrar em vigor"*. Está certo, e é melhor que o
+meu primeiro conserto — que arrumava a etiqueta e deixava 77 prédios numa página
+onde eles não são trabalho.
+
+A falta de limite inferior existe para a **dívida**: preventiva que passou do mês
+não vira passado, vira cobrança. Mas **dívida só existe para trás**. Num mês
+futuro, entra só o que vence nele.
+
+| mês (hoje é setembro) | antes | agora |
+|---|---|---|
+| setembro | 77 | **77**, 0 atrasados |
+| outubro | 77, 1 atrasado | **76**, 0 atrasados |
+| novembro | 77, **77 atrasados** | **vazio** |
+| dezembro | 77, **77 atrasados** | **vazio** |
+
+⚠️ **A dívida real continua visível no mês corrente**, e não vaza para o futuro —
+as duas asserções estão no teste.
+
+**63/63** no `preventivas-mes`; as outras seis suítes verdes.
+
+⚠️ **Errei a crase no template literal pela quinta vez hoje.**
+
+Sem `?v=N`: as duas mudanças são de backend.
+
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

@@ -559,7 +559,22 @@ router.get("/preventivas", authRequired, adminOnly, async (req, res) => {
          COALESCE(NULLIF(c.nome_fantasia,''), c.nome) AS condominio_nome,
          c.nome   AS condominio_razao_social,
          c.bairro, c.cidade, c.zona,
-         pm.proxima_em < $1::date AS atrasada,
+         -- ⚠️ ATRASADA E CONTRA O MES CORRENTE, NAO CONTRA O MES OLHADO
+         -- (04/09/2026). Comparar com $1 (a competencia selecionada) fazia a
+         -- tela mentir assim que alguem navegava para a frente: em novembro ela
+         -- marcava 77 de 77 planos como atrasados, e o Pedro viu — "como algo no
+         -- mes de dezembro pode estar vencido em setembro?".
+         --
+         -- Nao pode mesmo: atraso e uma pergunta sobre o RELOGIO, nao sobre a
+         -- pagina que se esta lendo. Um plano so deve o mes depois que o mes
+         -- passou de verdade.
+         -- (Sem crase nos comentarios: template literal. Ver CLAUDE.md.)
+         --
+         -- ⚠️ E ISSO VALE OLHANDO PARA TRAS TAMBEM: em agosto, o que venceu em
+         -- agosto e nao foi feito continua atrasado hoje — a comparacao com o
+         -- mes corrente acerta os dois sentidos, e a competencia selecionada
+         -- so acertava por acaso quando era o mes de hoje.
+         pm.proxima_em < date_trunc('month', CURRENT_DATE)::date AS atrasada,
 
          pa.tecnico_id            AS atribuido_tecnico_id,
          ta.nome                  AS atribuido_tecnico_nome,
@@ -641,9 +656,39 @@ router.get("/preventivas", authRequired, adminOnly, async (req, res) => {
          -- ⚠️ Nao e a mesma coisa que feita_no_mes la em cima: aquilo decide o
          -- ESTADO da linha; isto decide se a linha EXISTE. Um plano que rodou e
          -- cujo chamado ainda esta aberto entra por aqui e sai como "em campo".
-         AND (pm.proxima_em < ($1::date + INTERVAL '1 month')
-              OR (pm.ultima_em >= $1::date
-                  AND pm.ultima_em <  ($1::date + INTERVAL '1 month')))
+         -- ⚠️ MES FUTURO NAO ACUMULA DIVIDA (04/09/2026, ideia do Pedro:
+         -- "talvez o que faça sentido é que nos meses seguintes não apareça
+         -- nada até o plano do mês em questão entrar em vigor").
+         --
+         -- Ele esta certo, e o argumento e melhor que o meu conserto anterior.
+         -- A ausencia de limite inferior existe para a DIVIDA: preventiva que
+         -- passou do mes nao vira passado, vira cobranca, e por isso sobe na
+         -- lista do mes corrente. Mas divida so existe para tras.
+         --
+         -- Numa competencia FUTURA a mesma regra virava outra coisa: olhando
+         -- novembro, todo plano de outubro entrava — e a pagina de novembro
+         -- mostrava 77 predios que nao sao trabalho de novembro. O plano so
+         -- passa a ser de novembro quando o de outubro for executado e a data
+         -- rolar; ate la, novembro nao tem nada.
+         -- (Sem crase nos comentarios: template literal. Ver CLAUDE.md.)
+         --
+         -- Entao a regra muda de lado conforme o mes olhado:
+         --   passado ou corrente → vence nela OU ANTES (divida), ou ja rodou nela;
+         --   futuro              → so o que vence NELA.
+         AND (
+           (
+             $1::date <= date_trunc('month', CURRENT_DATE)::date
+             AND (pm.proxima_em < ($1::date + INTERVAL '1 month')
+                  OR (pm.ultima_em >= $1::date
+                      AND pm.ultima_em <  ($1::date + INTERVAL '1 month')))
+           )
+           OR
+           (
+             $1::date > date_trunc('month', CURRENT_DATE)::date
+             AND pm.proxima_em >= $1::date
+             AND pm.proxima_em <  ($1::date + INTERVAL '1 month')
+           )
+         )
        ORDER BY pm.proxima_em ASC, c.zona NULLS LAST, 8`,
       [competencia]
     );

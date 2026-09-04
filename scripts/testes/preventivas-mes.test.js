@@ -319,6 +319,56 @@ const ok = (nome, cond) => r.push([nome, cond]);
        intruso.status === 403, "status " + intruso.status);
     await escalar([a.plano], null);
 
+    // ── Mes futuro nao acumula divida ─────────────────────────────────────
+    // ⚠️ Dois relatos do Pedro no mesmo minuto (04/09/2026). Primeiro: "quando
+    // você vai avançando os meses aparece tudo vencido e atrasado — como algo
+    // no mês de dezembro pode estar vencido em setembro?". Medido em produção:
+    // **77 de 77** marcados como atrasados em novembro e dezembro.
+    //
+    // Depois, a ideia que resolveu melhor que o meu primeiro conserto: "talvez
+    // o que faça sentido é que nos meses seguintes não apareça nada até o plano
+    // do mês em questão entrar em vigor".
+    //
+    // São dois defeitos, e os dois foram consertados:
+    //   1. `atrasada` comparava com a competência OLHADA, não com o mês
+    //      corrente — atraso é pergunta sobre o relógio, não sobre a página;
+    //   2. a ausência de limite inferior (que existe para a DÍVIDA) fazia todo
+    //      plano de outubro entrar na página de novembro. Dívida só existe para
+    //      trás: num mês futuro, entra só o que vence NELE.
+    {
+      const daqui3 = new Date(hoje.getFullYear(), hoje.getMonth() + 3, 1);
+      const compFuturo = `${daqui3.getFullYear()}-${String(daqui3.getMonth() + 1).padStart(2, "0")}`;
+      const futuro = await (await fetch(base + "/operador/preventivas?mes=" + compFuturo, { headers: H })).json();
+
+      ok("mes futuro nao herda o trabalho do mes corrente",
+         futuro.planos.every((p) => {
+           const prox = String(p.proxima_em).slice(0, 7);
+           return prox === compFuturo;
+         }),
+         `${futuro.planos.length} plano(s), meses: ${[...new Set(futuro.planos.map((p) => String(p.proxima_em).slice(0, 7)))].join(",") || "nenhum"}`);
+
+      ok("e nada aparece atrasado la",
+         futuro.planos.every((p) => p.atrasada === false));
+
+      // ⚠️ E O ATRASO DE VERDADE CONTINUA SENDO VISTO. Plano próprio, criado
+      // aqui: o `b` já passou pelo `executar-agora` do bloco anterior e teve a
+      // data rolada — depender dele faria esta asserção medir o estado de outro
+      // teste, não a regra.
+      const cAtr = await novoPlano("ATRASADO", hojeStr, ZONA);
+      await pool.query(
+        `UPDATE planos_manutencao SET proxima_em = (date_trunc('month', CURRENT_DATE) - INTERVAL '1 day')::date
+          WHERE id = $1`, [cAtr.plano]);
+      const noAtual = (await tela()).planos.find((p) => p.id === cAtr.plano);
+      ok("mas o atraso real segue marcado no mes corrente",
+         noAtual && noAtual.atrasada === true,
+         noAtual ? "atrasada=" + noAtual.atrasada : "não veio na lista");
+
+      // ⚠️ E ele NÃO vaza para o mês futuro: dívida é do mês corrente.
+      const futuro2 = await (await fetch(base + "/operador/preventivas?mes=" + compFuturo, { headers: H })).json();
+      ok("e a dívida não vaza para o mês futuro",
+         !futuro2.planos.some((p) => p.id === cAtr.plano));
+    }
+
     // ── A preventiva NAO polui a fila do turno ────────────────────────────
     // ⚠️ Pedido do Pedro (04/09/2026): "não é pra as preventivas ficar na tela
     // do turno igual está agora, quero que apareça só no momento que o técnico
