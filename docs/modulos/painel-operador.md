@@ -101,6 +101,30 @@ resto → manual. **O caso ambíguo é real**: um chamado de `nivel_baixo` abert
 mão aparece como "telemetria". Resolver de verdade pede uma coluna `origem` —
 está no [`roadmap`](../../memory-bank/roadmap.md).
 
+## ⚠️ A preventiva não entra na fila até alguém começar (04/09/2026)
+
+`GET /operador/fila` exclui o chamado de preventiva enquanto ele está apenas
+`aberto`:
+
+```sql
+AND (ch.plano_manutencao_id IS NULL OR ch.status = 'em_atendimento')
+```
+
+Pedido do Pedro: a preventiva vive na tela de Preventivas até o técnico começar.
+O motivo em números: no dia em que o job gerou o mês, a fila tinha **73 itens e
+69 eram preventiva** — os 4 chamados que pediam alguém ficavam sob 95% de ruído,
+numa tela cuja tese é "o que estoura primeiro".
+
+⚠️ **O sinal de "começou" é `em_atendimento`**, posto pelo "Iniciar" do app
+(`POST /chamados/:id/iniciar-atendimento`). **Não existe evento de "saiu para a
+rota"**; se um dia existir, troca-se esta linha.
+
+⚠️ **O corte é pela ORIGEM (`plano_manutencao_id`), nunca pela prioridade.**
+Preventiva é P4, mas nem todo P4 é preventiva — os 4 que sobraram na fila são
+todos P4 e nenhum vem de plano.
+
+⚠️ O mapa e os contadores acompanham sozinhos: leem a mesma `fila`.
+
 ## As três ações
 
 ⚠️ **DESPACHAR TIRA O CHAMADO DA SEÇÃO EM QUE ELE ESTAVA.** Ele sai de

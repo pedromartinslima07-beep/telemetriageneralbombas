@@ -99,6 +99,32 @@ router.get("/fila", authRequired, adminOnly, async (req, res) => {
           LEFT JOIN tecnicos       t  ON t.id  = ch.tecnico_id
           LEFT JOIN sla_definicoes sd ON sd.prioridade = ch.prioridade
           WHERE ch.status IN ('aberto', 'em_atendimento')
+            -- ⚠️ A PREVENTIVA SO ENTRA NA FILA QUANDO ALGUEM COMECA (04/09/2026).
+            -- (Sem crase nos comentarios desta query: template literal. CLAUDE.md.)
+            --
+            -- Pedido do Pedro: "nao e pra as preventivas ficar na tela do turno
+            -- igual esta agora, quero que apareca so no momento que o tecnico
+            -- comecar a rota para atender, ate la tem que ficar so na pagina de
+            -- preventivas mesmo".
+            --
+            -- O numero que da razao a ele: medido em 04/09, a fila tinha 73
+            -- itens e 69 eram preventiva recem-gerada pelo job. As 4 que pedem
+            -- alguem de verdade ficavam enterradas sob 95% de ruido — e a tese
+            -- desta tela e "o que estoura primeiro". Preventiva do mes nao
+            -- estoura: ela tem o mes inteiro, e ja tem tela propria
+            -- (/operador/painel/preventivas) que existe justamente para isso.
+            --
+            -- ⚠️ O SINAL DE "COMECOU" E O em_atendimento, e ele e o UNICO que
+            -- existe: quem o poe e o POST /chamados/:id/iniciar-atendimento, o
+            -- "Iniciar" do app do tecnico, que grava chegada e abre a O.S.
+            -- rascunho. Nao ha evento de "sai para a rota" no sistema — se um
+            -- dia houver, o lugar de trocar e esta linha.
+            --
+            -- ⚠️ NAO E FILTRO DE PRIORIDADE. Preventiva e P4, mas nem todo P4 e
+            -- preventiva: filtrar por prioridade esconderia servico avulso de
+            -- baixa urgencia, que o operador precisa ver. Quem manda e a origem
+            -- (plano_manutencao_id), nao o peso.
+            AND (ch.plano_manutencao_id IS NULL OR ch.status = 'em_atendimento')
         )
         SELECT *,
           -- Qual relógio ainda corre, e quanto falta nele.

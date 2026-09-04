@@ -9816,6 +9816,54 @@ rodou. **37/37 passam.**
 Sem `?v=N`: a mudança é de backend.
 
 
+### 2026-09-04 (7ª rodada) · A preventiva sai da fila do turno até alguém começar
+
+*"não é pra as preventivas ficar na tela do turno igual está agora, quero que
+apareça só no momento que o técnico começar a rota para atender, até lá tem que
+ficar só na página de preventivas mesmo"*.
+
+**O número que dá razão ao pedido**, medido em produção logo depois de o job
+rodar:
+
+| | itens na fila |
+|---|---|
+| antes | **73** — sendo **69** preventiva recém-gerada |
+| depois | **4** |
+
+Os 4 chamados que pediam alguém de verdade ficavam enterrados sob **95% de
+ruído**, e a tese desta tela é *"o que estoura primeiro"*. Preventiva do mês não
+estoura: ela tem o mês inteiro, e desde 03/09 tem tela própria
+(`/operador/painel/preventivas`) que existe exatamente para acompanhá-la.
+
+⚠️ **O sinal de "começou" é o `em_atendimento`, e ele é o ÚNICO que existe.**
+Quem o põe é o `POST /chamados/:id/iniciar-atendimento` — o "Iniciar" do app do
+técnico, que grava a chegada e abre a O.S. rascunho. **Não há evento de "saiu
+para a rota"** no sistema; procurei. Se um dia houver, o lugar de trocar é esta
+mesma linha do `WHERE`.
+
+⚠️ **O corte é pela ORIGEM, não pela prioridade.** Preventiva é P4, mas nem todo
+P4 é preventiva — e a prova está nos 4 que sobraram na fila: **os quatro são
+P4** e nenhum vem de plano. Filtrar por prioridade esconderia serviço avulso de
+baixa urgência, que o operador precisa ver.
+
+⚠️ **O mapa e os contadores acompanham sozinhos**, porque leem a mesma `fila`.
+
+Três asserções novas: a preventiva aberta fica fora, entra ao virar
+`em_atendimento`, e o avulso P4 continua. **40/40 passam.**
+
+⚠️ **Duas armadilhas nesta rodada, as duas registradas:**
+
+1. **A crase dentro do template literal, de novo** — segunda vez no mesmo dia, e
+   outra vez escrevendo o comentário do próprio conserto.
+2. **O teste passou verde olhando a chave errada.** O payload do `/operador/fila`
+   traz `fila`, não `chamados`; `(d.chamados || []).some(...)` devolve `false`
+   silenciosamente e a asserção "não está na fila" **passa com o payload inteiro
+   fora do lugar**. Hoje o helper estoura se o `fila` não vier. Asserção de
+   AUSÊNCIA precisa provar que estava olhando o lugar certo.
+
+Sem `?v=N`: a mudança é de backend.
+
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

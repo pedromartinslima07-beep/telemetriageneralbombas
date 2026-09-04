@@ -223,6 +223,39 @@ const ok = (nome, cond) => r.push([nome, cond]);
     ok("preventiva de mês anterior aparece como atrasada",
        doPlano(t, b.plano) && doPlano(t, b.plano).atrasada === true);
 
+    // ── A preventiva NAO polui a fila do turno ────────────────────────────
+    // ⚠️ Pedido do Pedro (04/09/2026): "não é pra as preventivas ficar na tela
+    // do turno igual está agora, quero que apareça só no momento que o técnico
+    // começar a rota para atender". Medido em produção naquele dia: a fila
+    // tinha 73 itens e 69 eram preventiva recém-gerada pelo job — os 4 chamados
+    // que pediam alguém de verdade ficavam sob 95% de ruído.
+    //
+    // O sinal de "começou" é o `em_atendimento`, posto pelo "Iniciar" do app.
+    // ⚠️ A CHAVE E `fila`, nao `chamados` — e olhar a chave errada faz o teste
+    // PASSAR por acidente (lista vazia = "não está lá"). Aconteceu ao escrever
+    // este bloco: a primeira asserção passou verde com o payload inteiro fora.
+    const naFila = async (id) => {
+      const d = await (await fetch(base + "/operador/fila", { headers: H })).json();
+      if (!Array.isArray(d.fila)) throw new Error("payload sem `fila`: " + Object.keys(d));
+      return d.fila.some((x) => x.id === id);
+    };
+    ok("preventiva ABERTA fica fora da fila do turno", !(await naFila(chAberto.rows[0].id)));
+
+    await pool.query("UPDATE chamados SET status='em_atendimento' WHERE id=$1", [chAberto.rows[0].id]);
+    ok("e ENTRA assim que o técnico começa", await naFila(chAberto.rows[0].id));
+
+    // ⚠️ O corte é pela ORIGEM, não pela prioridade: preventiva é P4, mas nem
+    // todo P4 é preventiva, e serviço avulso de baixa urgência tem de aparecer.
+    const avulso = await pool.query(
+      `INSERT INTO chamados (condominio_id, titulo, descricao, prioridade, categoria, status)
+       VALUES ($1, 'Avulso P4', 'sem plano', 'p4', 'manutencao', 'aberto') RETURNING id`,
+      [c.condo]
+    );
+    lixo.chamados.push(avulso.rows[0].id);
+    ok("chamado avulso P4 (sem plano) continua na fila", await naFila(avulso.rows[0].id));
+
+    await pool.query("UPDATE chamados SET status='aberto' WHERE id=$1", [chAberto.rows[0].id]);
+
     // ── O plano que JA RODOU no mes continua na tela ──────────────────────
     // ⚠️ O DEFEITO DE 04/09/2026, e ele esvaziava a tela inteira. O job rola
     // `proxima_em` para o ciclo seguinte no instante em que abre o chamado —
