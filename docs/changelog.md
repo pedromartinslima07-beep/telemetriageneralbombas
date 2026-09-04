@@ -10492,6 +10492,70 @@ as duas asserções estão no teste.
 Sem `?v=N`: as duas mudanças são de backend.
 
 
+### 2026-09-04 (19ª rodada) · Lote na tela de Planos, e o "vence" que eu deixei passar duas vezes
+
+### 1. Escalar e gerar chamado em lote
+
+Dois dos cinco achados da simulação. **O backend de escalar já aceitava lote**
+desde a migration 082 (`plano_ids` é array) — era a tela que não usava, e cinco
+prédios eram cinco diálogos.
+
+⚠️ **As duas ações são diferentes por dentro**, e isso decide o que cada uma
+mostra: escalar é **uma** request resolvida numa transação; gerar chamado é um
+POST por plano (`executar-agora` é por id). A segunda pode falhar no meio — por
+isso mostra progresso, conta os que deram certo e **nomeia os que não deram**.
+"18 de 20" sem dizer quais deixa a pessoa conferir 20 linhas à mão.
+
+⚠️ **O lote filtra o que não pode receber a ação** e diz o que ficou de fora.
+Mandar o selecionado inteiro faria o backend recusar em silêncio, ou escalar por
+cima de quem já está em campo.
+
+### 2. O aviso de antecipação
+
+O outro achado: "gerar chamado agora" abria sem dizer nada num plano que só vence
+mês que vem — e isso **adianta o ciclo** (o `executarPlano` grava `ultima_em` e
+rola `proxima_em`). Provado no teste: `ultima_em` null → hoje, e `proxima_em`
+15/10 → 01/10.
+
+⚠️ **O texto diz a consequência, não faz pergunta retórica.** "Tem certeza?" não
+informa nada; *"a próxima visita passa a contar a partir de hoje"* é o que a
+pessoa precisa para decidir.
+
+`scripts/testes/planos-lote.test.js`, **10/10**.
+
+### 3. "Vence" — a mesma palavra, apontada duas vezes
+
+*"tenho a impressão que já falei isso aqui algumas vezes: o 'vence em 4/10' na
+preventiva não faz sentido esse vence, a pessoa que lê isso pensa que tem até o
+dia 4 para fazer"*.
+
+⚠️ **Ele tinha razão nas duas coisas — no defeito e em já ter falado.** De manhã
+a queixa foi a mesma (*"dia 4 ter no sistema que venceu hoje passa a impressão
+errada"*), eu consertei **no painel do admin** e deixei a palavra intacta na tela
+do operador. Uma correção pela metade fez a segunda queixa ser necessária.
+
+**O defeito é de significado, não de redação.** "Vence" é palavra de PRAZO, e a
+preventiva não tem prazo no dia: o contrato pede uma visita por MÊS, a equipe faz
+entre o dia 1 e o 10, e o mês inteiro está disponível. O dia que aparecia é só
+onde o ciclo caiu.
+
+⚠️ **E a data saiu do selo.** A manchete já diz de que mês é a lista ("69
+preventivas a fazer em setembro de 2026"); repetir a data em cada uma das 69
+linhas é ruído que ainda por cima mente.
+
+| antes | agora |
+|---|---|
+| `VENCE 04/09` | **`A FAZER`** |
+| `ATRASADA · VENCEU 04/08` | **`ATRASADA DESDE AGOSTO`** |
+| admin: `vence este mês` | **`a fazer este mês`** |
+| admin: `vencido desde agosto` | **`atrasada desde agosto`** |
+
+O atraso passou a falar em **mês**, não em dia: a dívida é de uma competência
+inteira que passou, não de uma data.
+
+`?v=N`: `admin.js` 342 → 344, `operador-preventivas.js` 6 → 7.
+
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

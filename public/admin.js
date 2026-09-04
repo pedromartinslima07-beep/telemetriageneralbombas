@@ -15077,10 +15077,14 @@ function _pmStatus(p) {
   // é o trabalho DESTE mês — não é dívida, mesmo passado o dia da data.
   if (dm < 0) {
     return { kind: "vencidos",
-             delta: `vencido desde ${_pmMesRot(p.proxima_em)}`, deltaCls: "is-bad" };
+             delta: `atrasada desde ${_pmMesRot(p.proxima_em)}`, deltaCls: "is-bad" };
   }
   // O mês corrente é o que pede alguém: âmbar, não vermelho.
-  if (dm === 0) return { kind: "vencendo", delta: "vence este mês", deltaCls: "is-warn" };
+  // ⚠️ "A FAZER ESTE MÊS", não "vence este mês" (04/09/2026, segunda vez que o
+  // Pedro aponta a palavra). "Vence" é palavra de PRAZO e a preventiva não tem
+  // prazo no dia — o contrato pede uma visita por mês. A coluna ao lado já
+  // mostra a data do ciclo para quem quiser o número.
+  if (dm === 0) return { kind: "vencendo", delta: "a fazer este mês", deltaCls: "is-warn" };
 
   // ⚠️ MÊS QUE VEM JÁ É "EM DIA", e não mais um aviso âmbar. A régua antiga
   // acendia 7 dias antes da data; com o mês como unidade isso ficaria absurdo,
@@ -15485,6 +15489,130 @@ function _pmAtualizarBulkBar() {
   }
 }
 
+/* ══════════════════════════════════════════════════════════════════════════
+   AS AÇÕES EM LOTE DA PREVENTIVA (04/09/2026)
+   ──────────────────────────────────────────────────────────────────────────
+   A simulação do fluxo, a pedido do Pedro, mostrou que escalar e gerar chamado
+   eram um clique por linha: cinco prédios eram cinco diálogos. O backend de
+   escalar JÁ ACEITAVA lote desde a migration 082 (`plano_ids` é array) — era a
+   tela que não usava.
+
+   ⚠️ AS DUAS SÃO DIFERENTES POR DENTRO, e isso decide o que cada uma mostra:
+   escalar é UMA request que o backend resolve numa transação; gerar chamado é
+   um POST por plano, porque `executar-agora` é por id. A segunda pode falhar no
+   meio — por isso ela conta os que deram certo e nomeia os que não deram.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+// ⚠️ SÓ OS PLANOS QUE PODEM RECEBER A AÇÃO. Selecionar "todos" numa tela em que
+// metade já está em campo e mandar o lote inteiro faria o backend recusar em
+// silêncio (ou, pior, escalar por cima de quem já foi). Filtra aqui e diz o que
+// ficou de fora.
+function _pmSelecionadosDespachaveis() {
+  return _pmData.filter(p =>
+    _pmSelecionados.has(p.id) && p.ativo && p.estado !== "em_campo" && p.estado !== "feita");
+}
+
+async function _pmBulkEscalar() {
+  const alvos = _pmSelecionadosDespachaveis();
+  const fora = _pmSelecionados.size - alvos.length;
+  if (!alvos.length) {
+    alert(fora
+      ? "Nenhum dos selecionados pode ser escalado: já estão em campo ou feitos."
+      : "Selecione ao menos uma preventiva.");
+    return;
+  }
+
+  const tecnicos = _pmTecnicosCache || [];
+  if (!tecnicos.length) { alert("Nenhum técnico cadastrado."); return; }
+
+  const opcoes = tecnicos.map((t, i) => `${i + 1}. ${t.nome}`).join("\n");
+  const mes = _pmMes || _pmMesCorrente();
+  const escolha = prompt(
+    `Escalar ${alvos.length} preventiva${alvos.length === 1 ? "" : "s"} de ` +
+    `${_pmMesPorExtenso(mes)}${fora ? ` (${fora} fora: já em campo ou feita)` : ""}.\n\n` +
+    `${opcoes}\n\nDigite o número (ou 0 para tirar o técnico).`, "");
+  if (escolha === null) return;
+  const n = Number(escolha);
+  if (!Number.isInteger(n) || n < 0 || n > tecnicos.length) { alert("Número inválido."); return; }
+  const tecnico = n === 0 ? null : tecnicos[n - 1];
+
+  const btn = document.getElementById("pmBulkEscalar");
+  if (btn) { btn.disabled = true; btn.textContent = "Escalando…"; }
+  try {
+    // ⚠️ UMA REQUEST SÓ. O backend resolve o lote numa transação — metade
+    // escalada e metade não é a divergência que ele existe para não ter.
+    const r = await fetch("/operador/preventivas/atribuir", {
+      method: "POST",
+      headers: { ...authHeaders(), "Content-Type": "application/json" },
+      body: JSON.stringify({ plano_ids: alvos.map(p => p.id), tecnico_id: tecnico ? tecnico.id : null, mes }),
+    });
+    const j = await r.json();
+    if (!r.ok) { alert(j.error || "Não foi possível escalar."); return; }
+    _pmSelecionados.clear();
+    await carregarPlanos();
+    // `chamados_atualizados` diz que o serviço chegou ao app de alguém, não só
+    // que a escala foi gravada — é a diferença que o operador precisa saber.
+    alert(`${j.atribuidos} preventiva${j.atribuidos === 1 ? "" : "s"} ` +
+          `${tecnico ? "para " + tecnico.nome : "sem técnico"}.` +
+          (j.chamados_atualizados ? `\n${j.chamados_atualizados} chamado(s) já aberto(s) passaram para ele.` : ""));
+  } catch (e) {
+    alert(e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = "Escalar técnico"; }
+  }
+}
+
+async function _pmBulkChamado() {
+  // ⚠️ SÓ O QUE AINDA NÃO TEM CHAMADO. `executar-agora` é idempotente por
+  // anti-duplicidade no backend, mas mandar o que já tem chamado só produziria
+  // erro para contar depois.
+  const alvos = _pmSelecionadosDespachaveis().filter(p => !p.chamado_aberto_id);
+  const fora = _pmSelecionados.size - alvos.length;
+  if (!alvos.length) {
+    alert(fora ? "Os selecionados já têm chamado aberto, ou já foram feitos."
+               : "Selecione ao menos uma preventiva.");
+    return;
+  }
+  if (!confirm(
+    `Gerar ${alvos.length} chamado${alvos.length === 1 ? "" : "s"} agora?` +
+    (fora ? `\n(${fora} fora: já têm chamado ou já foram feitos.)` : "") +
+    `\n\nIsso cria trabalho de verdade para a equipe.`)) return;
+
+  const btn = document.getElementById("pmBulkChamado");
+  // ⚠️ NÃO HÁ ROTA DE LOTE para gerar chamado — é um POST por plano. O botão
+  // mostra progresso porque 20 prédios levam alguns segundos, e uma tela parada
+  // faz a pessoa clicar de novo.
+  let feitos = 0;
+  const falhas = [];
+  if (btn) btn.disabled = true;
+  try {
+    for (const p of alvos) {
+      if (btn) btn.textContent = `Gerando ${feitos + 1}/${alvos.length}…`;
+      try {
+        const r = await fetch(`/planos-manutencao/${p.id}/executar-agora`, {
+          method: "POST", headers: authHeaders(),
+        });
+        if (r.ok) feitos++;
+        else {
+          const j = await r.json().catch(() => ({}));
+          falhas.push(`${p.condominio_nome}: ${j.error || r.status}`);
+        }
+      } catch (e) {
+        falhas.push(`${p.condominio_nome}: ${e.message}`);
+      }
+    }
+    _pmSelecionados.clear();
+    await carregarPlanos();
+    // ⚠️ O QUE FALHOU É NOMEADO. "18 de 20" sem dizer quais deixa a pessoa
+    // conferir 20 linhas à mão.
+    alert(`${feitos} chamado(s) gerado(s).` +
+          (falhas.length ? `\n\nNão deu para ${falhas.length}:\n` + falhas.slice(0, 8).join("\n") +
+            (falhas.length > 8 ? `\n…e mais ${falhas.length - 8}.` : "") : ""));
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = "Gerar chamados"; }
+  }
+}
+
 // Manda um PATCH /bulk com os ids selecionados + só os campos informados.
 // Retorna true se salvou (aí quem chamou decide o que fazer com a UI).
 async function _pmBulkPatch(campos) {
@@ -15862,7 +15990,27 @@ async function _pmAcao(acao, id) {
     return;
   }
   if (acao === "executar") {
-    if (!confirm(`Gerar chamado P4 agora para "${plano?.titulo}"?`)) return;
+    // ⚠️ O AVISO DE ANTECIPAÇÃO (04/09/2026). A simulação do fluxo mostrou que
+    // "gerar chamado agora" abria sem dizer nada num plano que só vence mês que
+    // vem — e isso ADIANTA O CICLO: o `executarPlano` grava `ultima_em` e rola
+    // `proxima_em`, então o prédio passa a dever a visita seguinte a partir de
+    // hoje. Fazer isso por engano custa um mês de calendário.
+    //
+    // ⚠️ O TEXTO DIZ A CONSEQUÊNCIA, não faz pergunta retórica. "Tem certeza?"
+    // não informa nada; "a próxima visita passa a contar a partir de hoje" é o
+    // que a pessoa precisa saber para decidir.
+    const meses = _pmMesesAteProxima(plano?.proxima_em);
+    const aviso = meses > 0
+      ? `A preventiva de "${plano?.condominio_nome}" só vence em ` +
+        `${_pmMesPorExtenso(String(plano.proxima_em).slice(0, 7))}.
+
+` +
+        `Gerar o chamado agora ANTECIPA o ciclo: a próxima visita passa a contar ` +
+        `a partir de hoje.
+
+Gerar mesmo assim?`
+      : `Gerar chamado P4 agora para "${plano?.condominio_nome}"?`;
+    if (!confirm(aviso)) return;
     try {
       const r = await fetch(`/planos-manutencao/${id}/executar-agora`, { method: "POST", headers: authHeaders() });
       const j = await r.json();
@@ -16039,6 +16187,8 @@ function _pmBindEventos() {
     _pmRenderTudo();
   });
 
+  document.getElementById("pmBulkEscalar")?.addEventListener("click", _pmBulkEscalar);
+  document.getElementById("pmBulkChamado")?.addEventListener("click", _pmBulkChamado);
   document.getElementById("pmBulkEditar")?.addEventListener("click", _pmAbrirModalBulk);
   document.getElementById("pmBulkAtivar")?.addEventListener("click", () => _pmAcaoBulk(true));
   document.getElementById("pmBulkDesativar")?.addEventListener("click", () => _pmAcaoBulk(false));

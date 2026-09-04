@@ -67,6 +67,12 @@ function dia(iso) {
 
 const MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho",
                "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+// "2026-08-04" → "agosto". Para o selo de atraso, que fala de competência.
+function mesCurto(iso) {
+  const m = Number(String(iso).slice(5, 7));
+  return MESES[m - 1] || "—";
+}
+
 function mesPorExtenso(mes) {
   const [a, m] = String(mes).split("-");
   return `${MESES[Number(m) - 1]} de ${a}`;
@@ -141,9 +147,28 @@ function selo(p) {
   // ⚠️ O ATRASO GANHA DO "A FAZER" NO SELO. Uma preventiva de agosto ainda
   // aberta em setembro não é "a fazer" — é dívida, e a tela tem de dizer isso
   // com a palavra que cobra.
-  if (p.atrasada) return `<span class="pv-selo" data-e="atrasada">Atrasada · venceu ${escapar(dia(p.proxima_em))}</span>`;
+  // ⚠️ "DESDE <MÊS>", NÃO "VENCEU <DIA>". O atraso é de uma competência
+  // inteira que passou, não de uma data — e o dia dava a impressão de que a
+  // dívida começou naquele dia específico.
+  if (p.atrasada) return `<span class="pv-selo" data-e="atrasada">Atrasada desde ${escapar(mesCurto(p.proxima_em))}</span>`;
   if (p.estado === "escalada") return `<span class="pv-selo" data-e="escalada">Escalada</span>`;
-  return `<span class="pv-selo" data-e="afazer">Vence ${escapar(dia(p.proxima_em))}</span>`;
+  // ⚠️ "A FAZER", SEM DATA — e é a segunda vez que o Pedro aponta a mesma
+  // palavra (04/09/2026): *"o 'vence em 4/10' na preventiva não faz sentido
+  // esse vence, a pessoa que lê isso pensa que tem até o dia 4 para fazer"*.
+  //
+  // Ele está certo, e o defeito é de significado, não de redação. "Vence" é
+  // palavra de PRAZO, e a preventiva não tem prazo no dia: o contrato pede uma
+  // visita por MÊS, a equipe faz entre o dia 1 e o 10, e o mês inteiro está
+  // disponível. O dia que aparecia ali é só onde o ciclo caiu — dizer "vence
+  // 04/10" faz o operador achar que perdeu o prazo no dia 5.
+  //
+  // ⚠️ E A DATA NÃO PRECISA ESTAR AQUI. A manchete da tela já diz de que mês é
+  // a lista ("69 preventivas a fazer em setembro de 2026"); repetir a data em
+  // cada uma das 69 linhas é ruído que ainda por cima mente.
+  //
+  // A mesma correção foi feita no painel do admin de manhã, e eu não a trouxe
+  // para cá — por isso ele teve de apontar duas vezes.
+  return `<span class="pv-selo" data-e="afazer">A fazer</span>`;
 }
 
 /* ⚠️ UMA FRASE, NUNCA UMA PILHA DE METADADOS — a regra que Aprovados aprendeu

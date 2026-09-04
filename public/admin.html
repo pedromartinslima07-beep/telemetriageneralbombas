@@ -1391,7 +1391,15 @@
           <!-- Barra de seleção em massa — some quando não há nada selecionado -->
           <div id="pmBulkBar" class="viewer-only-hide" style="display:none;align-items:center;gap:10px;padding:8px 16px;background:var(--surface2);border-bottom:1px solid var(--border);font-size:12px;">
             <span id="pmBulkCount" style="color:var(--text);font-weight:600;"></span>
-            <button class="btn btn-sm btnAccent" id="pmBulkEditar" type="button">Editar selecionados</button>
+            <!-- ⚠️ ESCALAR E GERAR CHAMADO EM LOTE (04/09/2026). A simulação do
+                 fluxo mostrou que o backend de escalar JÁ ACEITAVA lote (o
+                 `POST /operador/preventivas/atribuir` recebe `plano_ids`), e a
+                 tela oferecia uma linha por vez: 5 prédios eram 5 diálogos.
+                 O de gerar chamado não tem lote no backend — a tela faz o laço,
+                 e é por isso que ele mostra progresso e conta os que falharam. -->
+            <button class="btn btn-sm btnAccent" id="pmBulkEscalar" type="button">Escalar técnico</button>
+            <button class="btn btn-sm" id="pmBulkChamado" type="button">Gerar chamados</button>
+            <button class="btn btn-sm" id="pmBulkEditar" type="button">Editar selecionados</button>
             <button class="btn btn-sm" id="pmBulkAtivar" type="button">Ativar selecionados</button>
             <button class="btn btn-sm" id="pmBulkDesativar" type="button">Desativar selecionados</button>
             <button class="btn btn-sm" id="pmBulkLimpar" type="button" style="margin-left:auto;">Limpar seleção</button>
@@ -2807,7 +2815,7 @@
 </div>
 
 
-<script src="/static/admin.js?v=342" defer></script>
+<script src="/static/admin.js?v=344" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
 <script src="/static/register-sw.js?v=51" defer></script>
 </body>
