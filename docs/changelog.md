@@ -10027,6 +10027,64 @@ não é caro, e teria custado cinco minutos contra um clique morto em produção
 `?v=N`: `admin.js` 338 → 339.
 
 
+### 2026-09-04 (11ª rodada) · A tela de Planos ganha o mês
+
+Primeiro dos cinco achados da simulação, e o pior deles: **você escala uma
+preventiva para outubro, o banco grava certo, e a tela continua dizendo "Sem
+dono"**. A pessoa faz a ação, ela funciona, e a tela diz que não aconteceu nada.
+
+**A causa era uma constante.** Os `LEFT JOIN` do acompanhamento usavam
+`date_trunc('month', CURRENT_DATE)` fixo: a escala de outubro existia em
+`planos_atribuicoes` e a tela só sabia perguntar pelo mês de hoje.
+
+**O mês virou parâmetro.** `GET /planos-manutencao?mes=YYYY-MM`, validado pelo
+mesmo `competenciaValida` do operador, e a resposta devolve `mes` para a tela
+nunca desenhar um mês enquanto conta outro.
+
+⚠️ **A competência é o ÚLTIMO parâmetro do SQL**, e o índice sai de
+`vals.length` depois do `push` — os filtros opcionais (`condominio_id`, `ativo`)
+já podem ter ocupado `$1` e `$2`. Número fixo quebraria no primeiro filtro.
+
+**E o quarto achado saiu junto**, porque é a mesma raiz: cada plano passou a
+dizer `do_mes` — se é trabalho daquela competência —, pelas **mesmas duas portas
+do operador** (vence nela, ou já rodou nela). Um plano que só vence em outubro
+deixou de aparecer no balde "Sem dono" ao lado do trabalho de setembro; ele
+continua em **Todos**, que é a visão de cadastro.
+
+**Na tela:** navegação `← setembro de 2026 →` na barra, com um "hoje" que só
+aparece quando há para onde voltar.
+
+⚠️ **Trocar o mês RECARREGA do servidor**, não redesenha: o estado do mês é
+calculado lá, contra a competência. Refazer isso no front seria a segunda
+leitura do mesmo mês que o `preventivas.service` existe para impedir.
+
+⚠️ **A seleção não sobrevive à troca de mês** — ids marcados em setembro
+despachados como se fossem de outubro é o erro que a competência existe para
+impedir. Mesma regra da tela de Preventivas.
+
+⚠️ **E o despacho passou a usar o mês DA TELA**, não o do relógio. Sem isso,
+navegar para outubro e escalar alguém gravaria a decisão em setembro.
+
+### Dois defeitos do próprio teste, corrigidos
+
+⚠️ **O harness dublava o `fetch` e depois precisava dele.** O render não pode
+fazer request — se fizer, é bug —, mas o TESTE fala com o endpoint. Hoje ele
+guarda a rede real antes de dublar.
+
+⚠️ **O `planos-tela.test.js` saía com 127 imprimindo 23/23.** `process.exit()`
+logo depois do teardown estourava a assertion do libuv
+(`UV_HANDLE_CLOSING`, `src/win/async.c`) e um CI leria falha num teste que
+passou. Agora é `process.exitCode`, e o `srv.close()` espera de verdade
+(`closeAllConnections` primeiro — o `fetch` do Node segura a conexão em
+keep-alive e o close esperaria por um socket que ninguém fecha).
+
+Três asserções novas no `planos-tela.test.js` (o `?mes`, o `do_mes`, e o plano
+fora da competência sumindo dos baldes mas ficando em "Todos"). **23/23**, e as
+outras duas suítes seguem verdes.
+
+`?v=N`: `admin.css` 253 → 254, `admin.js` 339 → 340.
+
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

@@ -18,7 +18,7 @@
   <link rel="stylesheet" href="/static/leaflet.css">
   <!-- ⚠️ Ao mexer em admin.js ou admin.css, bumpe o ?v=N aqui E no <script>
        lá embaixo. Ver CLAUDE.md raiz. -->
-  <link rel="stylesheet" href="/static/admin.css?v=253">
+  <link rel="stylesheet" href="/static/admin.css?v=254">
 </head>
 <body>
   <div id="appLoader">
@@ -1338,8 +1338,19 @@
           </div>
 
           <div class="al-toolbar">
-            <div class="wa-tabs" role="tablist">
-              <!-- ⚠️ AS ABAS FALAM DO MÊS, NÃO DA DATA DO PLANO (04/09/2026).
+            <!-- ⚠️ O MÊS É UM SELETOR, NÃO O RELÓGIO DO SERVIDOR (04/09/2026).
+                 A tela só sabia olhar o mês corrente: escalar uma preventiva
+                 para outubro gravava certo no banco e a tela seguia dizendo
+                 "Sem dono" — a pessoa faz a ação, ela funciona, e a tela diz
+                 que não aconteceu nada. Mesma peça da tela de Preventivas do
+                 operador, no registro do admin. -->
+            <div class="pm-mesnav">
+              <button class="pm-mes-nav" type="button" data-pm-mes="-1" aria-label="Mês anterior">←</button>
+              <span class="pm-mes-rot" id="pmMesRot">—</span>
+              <button class="pm-mes-nav" type="button" data-pm-mes="1" aria-label="Mês seguinte">→</button>
+              <button class="pm-mes-hoje" type="button" data-pm-mes="0" id="pmMesHoje" hidden>hoje</button>
+            </div>
+            <div class="wa-tabs" role="tablist">, NÃO DA DATA DO PLANO (04/09/2026).
                    Antes eram Vencidos · Em andamento · Este mês · Em dia, e elas
                    misturavam duas perguntas: a data da PRÓXIMA visita e o
                    andamento da ATUAL. Visto na tela: "Este mês 0" ao lado de
@@ -2784,7 +2795,7 @@
 </div>
 
 
-<script src="/static/admin.js?v=339" defer></script>
+<script src="/static/admin.js?v=340" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
 <script src="/static/register-sw.js?v=51" defer></script>
 </body>

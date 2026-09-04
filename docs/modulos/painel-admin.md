@@ -49,6 +49,18 @@ transação.
 "gerar chamado agora" mora no menu `⋯` — cria trabalho real, o job já faz
 sozinho todo mês, e estava colado no desativar.
 
+⚠️ **A TELA MOSTRA UM MÊS POR VEZ, E ELE É ESCOLHIDO** (04/09/2026). O
+`GET /planos-manutencao` aceita `?mes=YYYY-MM`; sem ele, os JOINs do
+acompanhamento usavam `CURRENT_DATE` fixo e a escala de outubro era invisível —
+a pessoa escalava, gravava certo, e a tela dizia "Sem dono".
+
+⚠️ **`do_mes` decide se o plano entra nos baldes do mês**, pelas mesmas duas
+portas do operador (vence na competência, ou já rodou nela). Fora dela, o plano
+some das abas do mês e **fica em "Todos"** — que é a visão de cadastro.
+
+⚠️ **Trocar o mês recarrega do servidor**, e a seleção é limpa: ids marcados num
+mês despachados noutro é o que a competência existe para impedir.
+
 Detalhe e medidas no [changelog](../changelog.md).
 
 

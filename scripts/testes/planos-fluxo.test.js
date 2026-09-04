@@ -261,7 +261,14 @@ async function main() {
     }
     for (const id of lixo.condos) await pool.query("DELETE FROM condominios WHERE id=$1", [id]).catch(() => {});
     await pool.query("DELETE FROM planos_zona_responsavel WHERE zona LIKE 'ZFluxo%'").catch(() => {});
-    srv.close();
+    // ⚠️ FECHA DE VERDADE ANTES DE SAIR. Com `srv.close()` solto seguido de
+    // `process.exit()`, o Node saía com **127** e a assertion do libuv
+    // ("UV_HANDLE_CLOSING") — o teste imprimia 23/23 e o CI lia falha. O
+    // `fetch` do Node mantém a conexão viva (keep-alive), então o close espera
+    // por um socket que ninguém vai fechar: `closeAllConnections` é quem
+    // destrava.
+    srv.closeAllConnections?.();
+    await new Promise((r) => srv.close(r));
     await pool.end();
   }
 }

@@ -8,7 +8,9 @@ const express = require("express");
 const { pool } = require("../db");
 const { authRequired } = require("../middleware/authRequired");
 const { gestaoOnly } = require("../middleware/gestaoOnly");
-const { estadoDa, origemDoTecnico } = require("../services/preventivas.service");
+const {
+  estadoDa, origemDoTecnico, competenciaValida, competenciaDe, mesDe,
+} = require("../services/preventivas.service");
 const { executarPlano } = require("../jobs/planos-manutencao.job");
 const { getConfigInt } = require("../services/config.service");
 
@@ -89,6 +91,29 @@ router.get("/", authRequired, gestaoOnly, async (req, res) => {
 
   const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
 
+  // ⚠️ A COMPETÊNCIA É PARÂMETRO, NÃO O RELÓGIO DO SERVIDOR (04/09/2026).
+  //
+  // Até aqui os LEFT JOINs do acompanhamento usavam `date_trunc('month',
+  // CURRENT_DATE)` fixo, e isso escondia trabalho que EXISTE: escalar uma
+  // preventiva para outubro gravava certo em `planos_atribuicoes` e a tela
+  // continuava dizendo "Sem dono", porque só sabia olhar o mês de hoje. O
+  // Pedro fez exatamente isso na simulação e a tela não mostrou.
+  //
+  // ⚠️ É a MESMA competência do `GET /operador/preventivas` — dia 1, string
+  // `YYYY-MM-DD`, validada pelo mesmo `competenciaValida`. Duas definições de
+  // "que mês é este" entre as duas telas seria a divergência que o
+  // `preventivas.service` existe para impedir.
+  if (req.query.mes != null && req.query.mes !== "" && !competenciaValida(req.query.mes)) {
+    return res.status(400).json({ error: "mes inválido (use YYYY-MM)" });
+  }
+  const competencia = competenciaDe(req.query.mes);
+  // ⚠️ A COMPETENCIA E O ULTIMO PARAMETRO, e por isso o indice sai do
+  // `vals.length` DEPOIS do push: os filtros opcionais acima ja podem ter
+  // ocupado $1 e $2. Numero fixo aqui quebraria assim que alguem filtrasse
+  // por condominio.
+  vals.push(competencia);
+  const COMP = `$${vals.length}`;
+
   try {
     // O LATERAL traz o chamado da preventiva que ainda está aberto. Sem isso a
     // UI marcava como "vencido" um plano que na verdade está em execução: o job
@@ -121,9 +146,19 @@ router.get("/", authRequired, gestaoOnly, async (req, res) => {
               chf.id         AS chamado_fechado_id,
               chf.fechado_em,
               (pm.ultima_em IS NOT NULL
-               AND pm.ultima_em >= date_trunc('month', CURRENT_DATE)::date
-               AND pm.ultima_em <  (date_trunc('month', CURRENT_DATE) + INTERVAL '1 month')::date
-              ) AS feita_no_mes
+               AND pm.ultima_em >= ${COMP}::date
+               AND pm.ultima_em <  (${COMP}::date + INTERVAL '1 month')
+              ) AS feita_no_mes,
+              -- ⚠️ ESTE PLANO É TRABALHO DESTA COMPETENCIA? Duas portas, as
+              -- mesmas do GET /operador/preventivas: ou ele VENCE aqui (ou
+              -- antes, que e divida — por isso nao ha limite inferior), ou ele
+              -- JA RODOU aqui. Sem isto, um plano que so vence em outubro
+              -- aparecia no balde "Sem dono" ao lado do trabalho de setembro, e
+              -- so a coluna Proxima distinguia — numa lista de 80 linhas.
+              -- (Sem crase nos comentarios: template literal. Ver CLAUDE.md.)
+              (pm.proxima_em < (${COMP}::date + INTERVAL '1 month')
+               OR (pm.ultima_em >= ${COMP}::date
+                   AND pm.ultima_em < (${COMP}::date + INTERVAL '1 month'))) AS do_mes
        FROM planos_manutencao pm
        LEFT JOIN condominios c ON c.id = pm.condominio_id
        LEFT JOIN LATERAL (
@@ -138,13 +173,13 @@ router.get("/", authRequired, gestaoOnly, async (req, res) => {
          SELECT ch.id, ch.fechado_em FROM chamados ch
           WHERE ch.plano_manutencao_id = pm.id
             AND ch.status = 'fechado'
-            AND ch.fechado_em >= date_trunc('month', CURRENT_DATE)
-            AND ch.fechado_em <  date_trunc('month', CURRENT_DATE) + INTERVAL '1 month'
+            AND ch.fechado_em >= ${COMP}::date
+            AND ch.fechado_em <  (${COMP}::date + INTERVAL '1 month')
           ORDER BY ch.fechado_em DESC LIMIT 1
        ) chf ON TRUE
        LEFT JOIN planos_atribuicoes pa
               ON pa.plano_id = pm.id
-             AND pa.competencia = date_trunc('month', CURRENT_DATE)::date
+             AND pa.competencia = ${COMP}::date
        LEFT JOIN tecnicos ta ON ta.id = pa.tecnico_id
        LEFT JOIN LATERAL (
          SELECT pzr.tecnico_id FROM planos_zona_responsavel pzr
@@ -194,7 +229,9 @@ router.get("/", authRequired, gestaoOnly, async (req, res) => {
       semPlano = sp.rows;
     }
 
-    return res.json({ planos, sem_plano: semPlano });
+    // `mes` volta junto para a tela nunca desenhar um mes e contar outro —
+    // se ela pediu um mes invalido, quem manda e o que o servidor resolveu.
+    return res.json({ mes: mesDe(competencia), competencia, planos, sem_plano: semPlano });
   } catch (err) {
     console.error("[planos-manutencao] GET /:", err);
     return res.status(500).json({ error: "Erro ao listar planos" });

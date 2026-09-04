@@ -88,7 +88,11 @@ async function main() {
     ok("achei o bloco _pm* no admin.js", ini >= 0 && fim > ini);
 
     const { el } = montarDom();
-    global.fetch = async () => { throw new Error("sem rede no harness"); };
+    // ⚠️ GUARDA A REDE ANTES DE DUBLAR. O render não pode fazer request (se
+    // fizer, é bug), mas o TESTE precisa continuar falando com o endpoint —
+    // sem esta linha o próprio teste estoura no primeiro fetch depois daqui.
+    const rede = global.fetch.bind(global);
+    global.fetch = async () => { throw new Error("o render não deve fazer request"); };
     global.authHeaders = () => ({});
     global.alert = () => {}; global.confirm = () => false; global.prompt = () => null;
     global._waEscaparHtml = (v) => String(v ?? "").replace(/[&<>"']/g, (c) =>
@@ -109,6 +113,7 @@ async function main() {
     _pmTecnicosCache = [];
     _pmZonaEditando = null;
     _pmMenuAberto = null;
+    _pmMes = null;
     _pmAtualizarBulkBar = () => {};
 
     const ABAS = ["todos", "sem-dono", "com-dono", "em-campo", "feitas", "sem-plano", "inativos"];
@@ -140,6 +145,35 @@ async function main() {
       _pmMenuAberto = null;
     }
 
+    // ── O seletor de mês ─────────────────────────────────────────────────────
+    // ⚠️ Sem ele, escalar para outubro gravava certo e a tela dizia "Sem dono".
+    const outubro = await (await rede(base + "/planos-manutencao?mes=2026-10", { headers: H })).json();
+    ok("o endpoint aceita ?mes e devolve qual resolveu", outubro.mes === "2026-10");
+    ok("e recusa mês malformado",
+       (await rede(base + "/planos-manutencao?mes=setembro", { headers: H })).status === 400);
+    ok("cada plano diz se é trabalho DAQUELA competência",
+       outubro.planos.every((p) => typeof p.do_mes === "boolean"));
+
+    // ⚠️ O plano fora da competência sai dos baldes do mês, mas FICA em "Todos"
+    // — a aba de cadastro. Antes ele aparecia em "Sem dono" ao lado do trabalho
+    // de agora, e só a coluna "Próxima" distinguia numa lista de 80 linhas.
+    _pmData = outubro.planos; _pmMes = "2026-10";
+    const fora = outubro.planos.filter((p) => p.ativo && p.do_mes === false);
+    if (fora.length) {
+      ok("plano fora da competência não entra nos baldes do mês",
+         fora.every((p) => _pmBaldeDoMes(p) === "fora-do-mes"));
+      _pmTabAtiva = "sem-dono"; _pmRenderTudo();
+      const semDono = el("pmTableBody").innerHTML;
+      ok("e não aparece na aba \"Sem dono\"",
+         !fora.some((p) => semDono.includes(`data-pm-id="${p.id}"`)));
+      _pmTabAtiva = "todos"; _pmRenderTudo();
+      ok("mas continua em \"Todos\"",
+         fora.some((p) => el("pmTableBody").innerHTML.includes(`data-pm-id="${p.id}"`)));
+    } else {
+      ok("(sem plano fora da competência no banco de teste — pulei 3)", true);
+    }
+    _pmData = dados.planos; _pmMes = null;
+
     // O prédio é o sujeito da linha — se `.pm-predio` sumir, a hierarquia que
     // custou este passe voltou ao que era.
     _pmTabAtiva = "todos";
@@ -149,7 +183,14 @@ async function main() {
     ok("e a coluna do mês desenha o selo de estado",
        el("pmTableBody").innerHTML.includes('class="pm-selo"'));
   } finally {
-    srv.close();
+    // ⚠️ FECHA DE VERDADE ANTES DE SAIR. Com `srv.close()` solto seguido de
+    // `process.exit()`, o Node saía com **127** e a assertion do libuv
+    // ("UV_HANDLE_CLOSING") — o teste imprimia 23/23 e o CI lia falha. O
+    // `fetch` do Node mantém a conexão viva (keep-alive), então o close espera
+    // por um socket que ninguém vai fechar: `closeAllConnections` é quem
+    // destrava.
+    srv.closeAllConnections?.();
+    await new Promise((r) => srv.close(r));
     await pool.end();
   }
 }
@@ -158,6 +199,11 @@ main()
   .then(() => {
     const bons = r.filter((x) => x.cond).length;
     console.log(`\n${bons}/${r.length} passaram`);
-    process.exit(bons === r.length ? 0 : 1);
+    // ⚠️ `exitCode`, NAO `process.exit()`. Sair na marra logo depois do
+    // teardown fazia o Node estourar a assertion do libuv
+    // ("UV_HANDLE_CLOSING", src/win/async.c) e SAIR COM 127 — o teste
+    // imprimia 23/23 e um CI leria falha. Com o codigo ja definido, o
+    // processo termina sozinho e limpo.
+    process.exitCode = bons === r.length ? 0 : 1;
   })
-  .catch((e) => { console.error("ERRO:", e); process.exit(1); });
+  .catch((e) => { console.error("ERRO:", e); process.exitCode = 1; });

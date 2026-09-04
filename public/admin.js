@@ -14934,6 +14934,9 @@ let _pmSemPlano     = [];
 // Qual linha tem o menu "⋯" aberto. Um por vez: dois menus abertos numa
 // tabela de 80 linhas é só ruído.
 let _pmMenuAberto   = null;
+// A competência que a tela está mostrando ("YYYY-MM"). Nula = o mês corrente,
+// e é o servidor quem resolve — a tela não adivinha o mês dele.
+let _pmMes          = null;
 let _pmBindFeito    = false;
 let _pmCondosCache  = null;
 let _pmSelecionados = new Set(); // ids selecionados p/ ação em massa
@@ -15045,7 +15048,8 @@ function _pmStatus(p) {
 
 async function carregarPlanos() {
   try {
-    const r = await fetch("/planos-manutencao", { headers: authHeaders() });
+    const q = _pmMes ? "?mes=" + encodeURIComponent(_pmMes) : "";
+    const r = await fetch("/planos-manutencao" + q, { headers: authHeaders() });
     if (!r.ok) return;
     // ⚠️ A RESPOSTA VIROU OBJETO em 04/09/2026: `{ planos, sem_plano }`. O
     // segundo array são os condomínios ATIVOS sem plano nenhum — a pergunta que
@@ -15055,6 +15059,10 @@ async function carregarPlanos() {
     const resp = await r.json();
     _pmData    = Array.isArray(resp) ? resp : (resp.planos || []);
     _pmSemPlano = Array.isArray(resp) ? [] : (resp.sem_plano || []);
+    // ⚠️ QUEM MANDA NO MÊS É A RESPOSTA, não o que a tela pediu: se ela mandar
+    // um mês inválido o servidor resolve para o corrente, e desenhar um mês
+    // enquanto se conta outro é o defeito que este campo existe para impedir.
+    if (!Array.isArray(resp) && resp.mes) _pmMes = resp.mes;
     _pmRenderTudo();
     _pmAtualizarBadge();
   } catch (e) {
@@ -15077,6 +15085,12 @@ async function _pmCarregarCondos() {
 // "Sem dono" é o que ainda espera despacho; escalada já tem alguém no nome.
 function _pmBaldeDoMes(p) {
   if (!p.ativo) return "inativo";
+  // ⚠️ SÓ O QUE É TRABALHO DESTA COMPETÊNCIA entra nos baldes do mês. Um plano
+  // que só vence em outubro não é serviço de setembro, e aparecia em "Sem dono"
+  // ao lado do que vencia agora — numa lista de 80 linhas, só a coluna
+  // "Próxima" distinguia. Ele continua em "Todos", que é a visão de cadastro.
+  // `do_mes` vem do backend, com as mesmas duas portas do operador.
+  if (p.do_mes === false) return "fora-do-mes";
   if (p.estado === "feita")    return "feitas";
   if (p.estado === "em_campo") return "em-campo";
   if (p.estado === "escalada") return "com-dono";
@@ -15091,6 +15105,27 @@ function _pmBaldeDoMes(p) {
 function _pmAtrasada(p) {
   if (!p.ativo || p.estado === "feita") return false;
   return (_pmMesesAteProxima(p.proxima_em) ?? 0) < 0;
+}
+
+// "2026-09" → "setembro de 2026". Fatia a string: mês é competência, não data,
+// e `new Date("2026-09")` lê como UTC e volta um mês antes no Brasil.
+function _pmMesPorExtenso(mes) {
+  const [a, m] = String(mes || "").split("-");
+  const nome = _PM_MESES[Number(m) - 1];
+  return nome ? `${nome} de ${a}` : "—";
+}
+
+// "2026-09" + 1 → "2026-10". Passa por `Date` só na aritmética de mês, com dia
+// 1 fixo — que é seguro porque não há fuso envolvido no cálculo.
+function _pmMesVizinho(mes, passo) {
+  const [a, m] = String(mes).split("-").map(Number);
+  const d = new Date(a, m - 1 + passo, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function _pmMesCorrente() {
+  const h = new Date();
+  return `${h.getFullYear()}-${String(h.getMonth() + 1).padStart(2, "0")}`;
 }
 
 function _pmBusca() {
@@ -15152,6 +15187,14 @@ function _pmRenderTudo() {
     kpi(ICO_CLK, faltaFazer,    "Falta fazer",   faltaFazer > 0 ? "rc-warn" : "rc-ok") +
     kpi(ICO_X,   atrasadas,     "Atrasadas",     atrasadas > 0  ? "rc-bad"  : "rc-neutral") +
     kpi(ICO_OK,  semPlano,      "Prédios sem plano", semPlano > 0 ? "rc-warn" : "rc-ok");
+
+  // O mês que a tela está mostrando, e o atalho de volta.
+  const rot = document.getElementById("pmMesRot");
+  if (rot) rot.textContent = _pmMesPorExtenso(_pmMes || _pmMesCorrente());
+  // ⚠️ O "hoje" só existe quando há para onde voltar — botão que não faz nada é
+  // pior que nenhum botão, a regra que Aprovados registrou em 31/08.
+  const btnHoje = document.getElementById("pmMesHoje");
+  if (btnHoje) btnHoje.hidden = !_pmMes || _pmMes === _pmMesCorrente();
 
   // Contadores das tabs
   const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
@@ -15719,15 +15762,19 @@ async function _pmDespachar(plano) {
 
   const opcoes = tecnicos.map((t, i) => `${i + 1}. ${t.nome}`).join("\n");
   const escolha = prompt(
-    `Escalar quem para a preventiva de ${plano.condominio_nome}?\n\n${opcoes}\n\n` +
+    `Escalar quem para a preventiva de ${plano.condominio_nome} ` +
+    `em ${_pmMesPorExtenso(_pmMes || _pmMesCorrente())}?\n\n${opcoes}\n\n` +
     `Digite o número (ou 0 para tirar o técnico atual).`, "");
   if (escolha === null) return;
   const n = Number(escolha);
   if (!Number.isInteger(n) || n < 0 || n > tecnicos.length) { alert("Número inválido."); return; }
   const tecnico = n === 0 ? null : tecnicos[n - 1];
 
-  const agora = new Date();
-  const mes = `${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, "0")}`;
+  // ⚠️ O MÊS É O DA TELA, não o de hoje. Se a pessoa navegou para outubro e
+  // escala alguém, a escala é de OUTUBRO — mandar o mês corrente gravaria a
+  // decisão na competência errada, e ela apareceria no mês em que ninguém a
+  // tomou. Foi a simulação de 04/09 que expôs isso.
+  const mes = _pmMes || _pmMesCorrente();
   try {
     const r = await fetch("/operador/preventivas/atribuir", {
       method: "POST",
@@ -15856,6 +15903,24 @@ function _pmBindEventos() {
   // Esc fecha também: é o par obrigatório de qualquer coisa que abre por cima.
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && _pmMenuAberto !== null) { _pmMenuAberto = null; _pmRenderTudo(); }
+  });
+
+  // ⚠️ TROCAR O MÊS RECARREGA DO SERVIDOR, não redesenha. O estado do mês
+  // (escala, chamado, feita) é calculado LÁ, contra a competência — refazer
+  // isso no front seria a segunda leitura do mesmo mês que o
+  // `preventivas.service` existe para impedir.
+  document.querySelectorAll("[data-pm-mes]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const passo = Number(btn.dataset.pmMes);
+      _pmMes = passo === 0 ? _pmMesCorrente()
+                           : _pmMesVizinho(_pmMes || _pmMesCorrente(), passo);
+      // A seleção não sobrevive à troca: ids marcados em setembro despachados
+      // como se fossem de outubro é o erro que a competência existe para
+      // impedir. Mesma regra da tela de Preventivas.
+      _pmSelecionados.clear();
+      _pmMenuAberto = null;
+      await carregarPlanos();
+    });
   });
 
   document.getElementById("pmBusca")?.addEventListener("input", _pmRenderTudo);
