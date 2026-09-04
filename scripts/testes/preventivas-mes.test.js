@@ -82,6 +82,20 @@ const ok = (nome, cond) => r.push([nome, cond]);
     const tokenTec = jwt.sign({ id: uTec.rows[0].id, role: "tecnico" }, process.env.JWT_SECRET, { expiresIn: "10m" });
     const HT = { Authorization: "Bearer " + tokenTec, "Content-Type": "application/json" };
 
+    // ⚠️ UM SEGUNDO TÉCNICO COM LOGIN, e ele é o que prova a regra: `tecOutro`
+    // NÃO responde por zona nenhuma, então só a ESCALA pode autorizá-lo.
+    const uTec2 = await pool.query(
+      `INSERT INTO usuarios (nome, email, role, senha_hash)
+       VALUES ($1, $2, 'tecnico', 'x') RETURNING id`,
+      ["Téc Outro " + sufixo, "tec2" + sufixo + "@teste.local"]
+    );
+    lixo.usuarios.push(uTec2.rows[0].id);
+    await pool.query("UPDATE tecnicos SET usuario_id = $1 WHERE id = $2", [uTec2.rows[0].id, tecOutro]);
+    const HT2 = {
+      Authorization: "Bearer " + jwt.sign({ id: uTec2.rows[0].id, role: "tecnico" }, process.env.JWT_SECRET, { expiresIn: "10m" }),
+      "Content-Type": "application/json",
+    };
+
     // ── Quatro prédios na zona, um plano mensal em cada ───────────────────
     const hoje = new Date();
     const comp = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}`;
@@ -265,6 +279,45 @@ const ok = (nome, cond) => r.push([nome, cond]);
     await escalar([c.plano], null);
     const semDono = await pool.query("SELECT tecnico_id FROM chamados WHERE id = $1", [chAberto.rows[0].id]);
     ok("desescalar limpa o técnico do chamado também", semDono.rows[0].tecnico_id === null);
+
+    // ── O técnico ESCALADO consegue iniciar (04/09/2026) ──────────────────
+    // ⚠️ Relato do Pedro: escalou uma preventiva à mão para um técnico no painel
+    // do operador, o prédio APARECEU no roteiro dele, e ao tocar "Iniciar" o app
+    // respondeu "você não é o responsável pela zona deste plano".
+    //
+    // A causa: o `POST /:id/executar-agora` só olhava `planos_zona_responsavel`.
+    // O `/meu-roteiro` passou a considerar a escala em 03/09 e a rota de
+    // gravação não acompanhou — a tela mostrava o serviço e a gravação recusava.
+    // É a divergência que o `SQL_EQUIPE` do operador avisa em outro lugar do
+    // sistema: quem OFERECE e quem GRAVA têm de responder igual.
+    await escalar([b.plano], tecOutro);
+    const iniciarEsc = await fetch(base + `/planos-manutencao/${b.plano}/executar-agora`, {
+      method: "POST", headers: HT2,
+    });
+    const corpoEsc = await iniciarEsc.clone().json().catch(() => ({}));
+    if (iniciarEsc.status !== 200) console.log("    →", iniciarEsc.status, JSON.stringify(corpoEsc));
+    // ⚠️ E ESTE PLANO ESTÁ ATRASADO (o bloco do atraso, acima, jogou a
+    // `proxima_em` dele 40 dias para trás). Não é detalhe: é o caso em que as
+    // duas competências divergem — a escala é de HOJE, o mês da `proxima_em` é
+    // o passado. Foi ele que expôs a segunda metade do defeito.
+    ok("o técnico ESCALADO consegue iniciar, mesmo sem ser da zona",
+       iniciarEsc.status === 200);
+    if (iniciarEsc.status === 200) {
+      const jj = await iniciarEsc.json();
+      if (jj.chamado_id) lixo.chamados.push(jj.chamado_id);
+    }
+
+    // ⚠️ E O INVERSO, que ENDURECE a regra: escalado para OUTRO, o responsável
+    // da ZONA perde o acesso. Antes esta rota deixava passar — os dois iriam ao
+    // prédio, e um perderia a manhã. É o "escalar é DESVIAR, não acrescentar"
+    // valendo também na gravação, não só na listagem.
+    await escalar([a.plano], tecOutro);
+    const intruso = await fetch(base + `/planos-manutencao/${a.plano}/executar-agora`, {
+      method: "POST", headers: HT,
+    });
+    ok("e o da ZONA é recusado no que foi desviado para outro",
+       intruso.status === 403, "status " + intruso.status);
+    await escalar([a.plano], null);
 
     // ── A preventiva NAO polui a fila do turno ────────────────────────────
     // ⚠️ Pedido do Pedro (04/09/2026): "não é pra as preventivas ficar na tela

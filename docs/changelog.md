@@ -10085,6 +10085,72 @@ outras duas suítes seguem verdes.
 `?v=N`: `admin.css` 253 → 254, `admin.js` 339 → 340.
 
 
+### 2026-09-04 (12ª rodada) · O técnico escalado não conseguia iniciar
+
+*"enviei uma preventiva teste para o técnico teste, atribuí manualmente no
+painel de operador, mas quando fui entrar nela pelo app deu: você não é o
+responsável pela zona deste plano"*.
+
+**O `POST /:id/executar-agora` só olhava `planos_zona_responsavel`.** O
+`/meu-roteiro` passou a considerar a escala do mês em 03/09 (migration 082) e
+**a rota de gravação não acompanhou** — a tela mostrava o serviço e a gravação o
+recusava. É a mesma divergência que o `SQL_EQUIPE` do operador avisa em outro
+canto do sistema: quem OFERECE e quem GRAVA têm de responder igual.
+
+Conferido nos dados de produção — plano 83, técnico Teste (9), zona **nula**:
+
+| | |
+|---|---|
+| regra antiga (só zona) | **recusado** ← o erro do Pedro |
+| regra nova (escala) | **permitido** |
+
+**As três linhas do roteiro passaram a valer na gravação também:**
+
+- escalado para MIM → entra, mesmo que a zona não seja minha;
+- escalado para OUTRO → **sai, mesmo sendo minha zona**;
+- sem escala no ciclo → vale a zona, como sempre valeu.
+
+⚠️ **A segunda linha ENDURECE a regra.** Antes, o responsável da zona conseguia
+disparar um prédio que tinha sido desviado para outra pessoa — os dois iriam, e
+um perderia a manhã. "Escalar é DESVIAR" agora vale na gravação, não só na
+listagem.
+
+### O segundo defeito, que o teste achou: DUAS competências valem
+
+O guard (e o roteiro) procuravam a escala por
+`date_trunc('month', pm.proxima_em)`. Isso deixa de fora o caso da **preventiva
+atrasada**: ela aparece na lista do mês corrente (a query do operador não tem
+limite inferior), é escalada com a competência de **hoje**, e o plano tem
+`proxima_em` do mês **passado** — as duas nunca se encontram.
+
+Hoje ambas valem: `pa.competencia IN (mês da proxima_em, mês corrente)`. Só o
+mês de hoje quebraria o caso oposto — no fim do mês o roteiro já mostra
+preventiva do mês seguinte, cuja escala é da competência seguinte.
+
+⚠️ **O `/meu-roteiro` tinha o mesmo furo** e foi corrigido junto: sem isso a
+preventiva atrasada escalada some do app de quem a recebeu.
+
+### Um terceiro, de passagem: o gerente não podia disparar
+
+A checagem era `role !== "admin"`, e o botão que dispara isto vive no painel de
+Planos, que é `gestaoOnly` — **a tela oferecia a ação a quem a rota recusava**
+com "Acesso restrito".
+
+⚠️ **A frase de recusa mentia** quando o prédio tinha sido escalado para outra
+pessoa: dizia "zona" para um caso que não é de zona. Virou *"Esta preventiva não
+está no seu roteiro deste mês. Fale com o operador."*
+
+Duas asserções novas em `preventivas-mes.test.js`, com um segundo técnico que
+**não responde por zona nenhuma** — só a escala pode autorizá-lo — e usando de
+propósito o plano **atrasado**, que é onde as duas competências divergem.
+**49/49.**
+
+⚠️ **Errei a crase no template literal pela terceira vez hoje**, escrevendo a
+nota que explica o conserto. `node --check` pegou.
+
+Sem `?v=N`: a mudança é de backend.
+
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

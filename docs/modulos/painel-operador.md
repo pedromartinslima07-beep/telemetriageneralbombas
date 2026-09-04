@@ -234,6 +234,21 @@ dia 5 o painel do admin marcaria os 69 como vencidos, em vermelho, de uma vez.
 ⚠️ Vale para 90/180/365 dias também: para um semestral que vence em setembro, a
 competência é setembro.
 
+### ⚠️ Escalar vale na GRAVAÇÃO, não só na listagem (04/09/2026)
+
+O `POST /planos-manutencao/:id/executar-agora` — o "Iniciar" do app — só olhava
+`planos_zona_responsavel`. O `/meu-roteiro` considerava a escala desde 03/09 e
+a gravação não: **a tela mostrava o serviço e a rota o recusava**, com "você não
+é o responsável pela zona deste plano".
+
+As três linhas do roteiro valem nos dois lugares, e a segunda endurece a regra:
+prédio escalado para outro **sai** do alcance do responsável da zona.
+
+⚠️ **DUAS COMPETÊNCIAS VALEM** (`pa.competencia IN (mês da proxima_em, mês
+corrente)`). A preventiva **atrasada** aparece na lista do mês corrente e é
+escalada com a competência de hoje, enquanto sua `proxima_em` é do mês passado —
+conferir só por uma das duas esconde metade dos casos.
+
 ### ⚠️ A regra que sustenta tudo: escalar é DESVIAR, não acrescentar
 
 | Situação | Quem vê no app |

@@ -300,9 +300,30 @@ router.get("/meu-roteiro", authRequired, async (req, res) => {
               (pa.tecnico_id IS NOT NULL) AS escalado
        FROM planos_manutencao pm
        JOIN condominios c ON c.id = pm.condominio_id AND c.ativo = TRUE
+      -- ⚠️ DUAS COMPETENCIAS VALEM, e ignorar a segunda esconde trabalho real
+      -- (04/09/2026). A escala e gravada na competencia que o OPERADOR estava
+      -- vendo, e a tela dele lista duas coisas ao mesmo tempo:
+      --
+      --   • o que vence NESTE mes           → escala com a competencia do mes
+      --                                        da propria proxima_em;
+      --   • o ATRASADO de meses anteriores  → aparece na lista de hoje (a
+      --                                        query nao tem limite inferior) e
+      --                                        e escalado com a competencia de
+      --                                        HOJE, nao com a de agosto.
+      --
+      -- Conferir so contra date_trunc('month', pm.proxima_em) deixava a
+      -- segunda de fora: o operador escalava a preventiva atrasada, ela sumia
+      -- do roteiro de quem recebeu, e o "Iniciar" respondia 403.
+      -- E conferir so contra o mes de hoje quebraria a primeira — no fim do mes
+      -- o roteiro ja mostra preventiva do mes seguinte, e a escala dela e da
+      -- competencia seguinte.
+      -- (Sem crase nos comentarios: template literal. Ver CLAUDE.md.)
        LEFT JOIN planos_atribuicoes pa
               ON pa.plano_id = pm.id
-             AND pa.competencia = date_trunc('month', pm.proxima_em)::date
+             AND pa.competencia IN (
+               date_trunc('month', pm.proxima_em)::date,
+               date_trunc('month', CURRENT_DATE)::date
+             )
        LEFT JOIN LATERAL (
          SELECT ch.id
          FROM chamados ch
@@ -580,10 +601,15 @@ router.post("/:id/executar-agora", authRequired, async (req, res) => {
     // Fica null quando quem dispara é o admin pelo ▶.
     let executor = null;
 
-    // Admin master executa qualquer plano. Técnico só os das zonas em que ele
-    // é responsável — é o que sustenta o "Iniciar" do roteiro sem abrir a
-    // rota pra qualquer técnico disparar preventiva de qualquer prédio.
-    if (req.user.role !== "admin") {
+    // ⚠️ QUEM PODE DISPARAR: a gestão (admin e gerente) executa qualquer plano;
+    // o técnico, os que estão NO ROTEIRO DELE — e a definição de "no roteiro
+    // dele" é a mesma do `GET /meu-roteiro`, não uma segunda.
+    //
+    // ⚠️ O GERENTE ESTAVA DE FORA e caía no 403 "Acesso restrito" (04/09/2026).
+    // A checagem era `role !== "admin"`, e o botão que dispara isto vive no
+    // painel de Planos, que é `gestaoOnly` — ou seja, a tela oferecia a ação a
+    // quem a rota recusava.
+    if (req.user.role !== "admin" && req.user.role !== "gerente") {
       if (req.user.role !== "tecnico") {
         return res.status(403).json({ error: "Acesso restrito" });
       }
@@ -591,17 +617,66 @@ router.post("/:id/executar-agora", authRequired, async (req, res) => {
       if (!tecnicoId) {
         return res.status(403).json({ error: "Sua conta não está vinculada a um técnico ativo" });
       }
+      // ⚠️ A ESCALA DO MÊS TAMBÉM VALE, E GANHA DA ZONA (04/09/2026).
+      //
+      // Relato do Pedro: escalou uma preventiva à mão para um técnico no painel
+      // do operador, o prédio APARECEU no roteiro dele, e ao tocar "Iniciar" o
+      // app respondeu *"você não é o responsável pela zona deste plano"*.
+      //
+      // A causa: esta checagem só olhava `planos_zona_responsavel`. O
+      // `/meu-roteiro` passou a considerar a escala em 03/09 (migration 082) e
+      // ESTA rota não acompanhou — a tela mostrava o serviço e a gravação o
+      // recusava, que é a divergência que o proprio arquivo avisa em
+      // `SQL_EQUIPE` no operador.
+      //
+      // As três linhas, iguais às do roteiro:
+      //   • escalado para MIM      → entra, mesmo que a zona não seja minha;
+      //   • escalado para OUTRO    → SAI, mesmo que a zona seja minha;
+      //   • sem escala neste ciclo → vale a zona, como sempre valeu.
+      //
+      // ⚠️ A SEGUNDA LINHA É A QUE IMPORTA, e ela ENDURECE a regra: antes, o
+      // responsável da zona conseguia disparar um prédio que tinha sido
+      // desviado para outra pessoa — os dois iriam, e um perderia a manhã.
+      //
+      // ⚠️ A COMPETÊNCIA É A DO MÊS DE `proxima_em`, não a de hoje — mesma
+      // razão registrada no roteiro: no fim do mês ele já mostra preventiva do
+      // mês seguinte, e conferir contra a escala de hoje ignoraria a escala que
+      // acabou de passar a valer.
       const permitido = await pool.query(
         `SELECT 1
-         FROM planos_manutencao pm
-         JOIN condominios c               ON c.id = pm.condominio_id
-         JOIN planos_zona_responsavel pzr ON pzr.zona = c.zona
-         WHERE pm.id = $1 AND pzr.tecnico_id = $2
-         LIMIT 1`,
+           FROM planos_manutencao pm
+           JOIN condominios c ON c.id = pm.condominio_id
+           -- ⚠️ AS MESMAS DUAS COMPETENCIAS DO ROTEIRO, e nao por acaso: quem
+           -- OFERECE e quem GRAVA tem de responder igual, senao a tela mostra
+           -- o servico e a rota o recusa — que e exatamente o defeito que este
+           -- bloco esta consertando. Ver a nota no /meu-roteiro.
+           LEFT JOIN planos_atribuicoes pa
+                  ON pa.plano_id = pm.id
+                 AND pa.competencia IN (
+                   date_trunc('month', pm.proxima_em)::date,
+                   date_trunc('month', CURRENT_DATE)::date
+                 )
+          WHERE pm.id = $1
+            AND (
+              pa.tecnico_id = $2::int
+              OR (
+                pa.tecnico_id IS NULL
+                AND EXISTS (
+                  SELECT 1 FROM planos_zona_responsavel pzr
+                   WHERE pzr.zona = c.zona AND pzr.tecnico_id = $2::int
+                )
+              )
+            )
+          LIMIT 1`,
         [id, tecnicoId]
       );
       if (!permitido.rows.length) {
-        return res.status(403).json({ error: "Você não é o responsável pela zona deste plano" });
+        // ⚠️ A FRASE MENTIA quando o prédio tinha sido escalado para outra
+        // pessoa: dizia "zona" para um caso que não é de zona. Hoje ela nomeia
+        // o que de fato acontece, sem prometer que o técnico resolve sozinho.
+        return res.status(403).json({
+          error: "Esta preventiva não está no seu roteiro deste mês. Fale com o operador.",
+        });
       }
       executor = tecnicoId;
     }
