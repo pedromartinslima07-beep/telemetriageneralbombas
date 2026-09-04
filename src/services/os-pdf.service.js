@@ -115,7 +115,22 @@ async function buscarDadosOS(osId) {
   const osRes = await pool.query(
     `SELECT
        os.*,
-       c.nome      AS condominio_nome,
+       -- ⚠️ O NOME FANTASIA GANHA DA RAZÃO SOCIAL (04/09/2026). O PDF usava
+       -- c.nome cru e saía "ELVIRA FERRAZ EMPREENDIMENTOS IMOBILIARIOS LTDA"
+       -- num documento sobre o prédio que todo mundo chama de AURI FARIA LIMA
+       -- — inclusive o síndico que assina a O.S. Relato do Pedro.
+       --
+       -- ⚠️ E NÃO É UM CASO ISOLADO: **73 dos 89 condomínios ativos** têm nome
+       -- fantasia diferente do nome, então o documento saía com a razão social
+       -- em praticamente toda a carteira.
+       --
+       -- COALESCE(NULLIF(...)) é o padrão do projeto — o admin, o operador, o
+       -- painel do cliente e o PDF de ORÇAMENTO já faziam assim. Este PDF era a
+       -- exceção, e é justamente o papel que vai para a mão do cliente.
+       COALESCE(NULLIF(c.nome_fantasia, ''), c.nome) AS condominio_nome,
+       -- A razão social continua disponível: é ela que vale num documento
+       -- fiscal, e quem quiser imprimi-la um dia não precisa de outra query.
+       c.nome      AS condominio_razao_social,
        c.endereco, c.bairro, c.cidade, c.uf, c.cep,
        t.nome      AS tecnico_nome,
        t.telefone  AS tecnico_telefone

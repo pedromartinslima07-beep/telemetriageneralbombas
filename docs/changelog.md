@@ -10373,6 +10373,54 @@ chamado" ali soaria como defeito quando o certo é "o mês está em dia".
 `?v=N`: `admin.js` 341 → 342.
 
 
+### 2026-09-04 (17ª rodada) · O prédio volta a se chamar pelo nome que a operação usa
+
+*"a O.S. do Auri Faria Lima está vindo como Elvira Ferraz etc"*.
+
+O condomínio tem os dois campos preenchidos e diferentes:
+
+| | |
+|---|---|
+| `nome` (razão social) | ELVIRA FERRAZ EMPREENDIMENTOS IMOBILIARIOS LTDA |
+| `nome_fantasia` | **AURI FARIA LIMA** |
+
+O PDF selecionava `c.nome` cru — a razão social — **num documento que o síndico
+assina**.
+
+⚠️ **E não era um caso isolado: 73 dos 89 condomínios ativos** têm os dois campos
+diferentes. O documento saía com a razão social em praticamente toda a carteira:
+"CONDOMINIO 360JK" no lugar de "360JK", "RESIDENCIAL AMARAL FURLAN" no lugar de
+"AMARAL FURLAN".
+
+**Eram 20 lugares, não um.** A lista de chamados, os alertas, os relatórios, o
+WhatsApp, a lista de O.S., o job de offline. O projeto **já tinha decidido isso**
+— `COALESCE(NULLIF(nome_fantasia,''), nome)` em 12 outros pontos; os 20 eram a
+deriva, e o PDF era o pior deles porque é papel que vai para a mão do cliente.
+
+⚠️ **CONTRATO E ASSINATURA FICAM COM A RAZÃO SOCIAL, e é deliberado.** Ali o nome
+que vale é quem assina e quem responde juridicamente: "AURI FARIA LIMA" não
+assina nada. A regra do projeto é sobre o nome de **exibição**, não sobre o
+instrumento jurídico. O teste protege a exceção nos dois sentidos — falha se
+alguém "consertar" o contrato com o COALESCE.
+
+⚠️ **O PDF passou a devolver `condominio_razao_social` também**, para o dia em
+que fizer sentido imprimi-la num documento fiscal.
+
+⚠️ **O defeito é invisível em teste com dado inventado:** fixture cujo `nome` e
+`nome_fantasia` são iguais passa dos dois jeitos. Por isso o teste novo cria um
+prédio em que eles **diferem** — é a única forma de a asserção significar algo. E
+a varredura sobre o `src/` é o que impede a regressão: um `c.nome AS
+condominio_nome` novo não quebra nada, não aparece no console, e volta a
+imprimir a razão social no papel.
+
+`scripts/testes/nome-fantasia.test.js`, **7/7**. As outras seis suítes verdes.
+
+⚠️ **Errei a crase no template literal pela quarta vez hoje**, no comentário SQL
+deste mesmo conserto.
+
+Sem `?v=N`: a mudança é de backend.
+
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

@@ -150,7 +150,7 @@ router.get("/", authRequired, gestaoOnly, async (req, res) => {
          os.id, os.numero, os.chamado_id, os.condominio_id, os.tecnico_id,
          os.tipos_servico, os.servico_realizado, os.necessario_retorno,
          os.chegada_em, os.saida_em, os.criado_em, os.finalizada_em,
-         c.nome AS condominio_nome,
+         COALESCE(NULLIF(c.nome_fantasia,''), c.nome) AS condominio_nome,
          t.nome AS tecnico_nome
        FROM ordens_servico os
        LEFT JOIN condominios c ON c.id = os.condominio_id
@@ -189,7 +189,7 @@ router.get("/:id", authRequired, osDonoOuAdmin(), async (req, res) => {
          os.saida_em, os.saida_lat, os.saida_lng,
          os.finalizada_em, os.criado_em, os.pdf_url,
          (os.assinatura_b64 IS NOT NULL) AS tem_assinatura,
-         c.nome AS condominio_nome,
+         COALESCE(NULLIF(c.nome_fantasia,''), c.nome) AS condominio_nome,
          c.endereco, c.bairro, c.cidade, c.uf, c.cep,
          t.nome AS tecnico_nome,
          t.telefone AS tecnico_telefone

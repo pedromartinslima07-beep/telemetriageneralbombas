@@ -266,7 +266,7 @@ async function processarMensagem(msg) {
       ),
       pool.query(
         `SELECT cw.nome, cw.condominio_id, cw.tipo, cw.observacoes,
-                c.nome AS condominio_nome
+                COALESCE(NULLIF(c.nome_fantasia,''), c.nome) AS condominio_nome
            FROM clientes_whatsapp cw
            LEFT JOIN condominios c ON c.id = cw.condominio_id
           WHERE cw.id = $1`,

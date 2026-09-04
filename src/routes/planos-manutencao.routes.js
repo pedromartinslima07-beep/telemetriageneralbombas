@@ -442,7 +442,7 @@ router.get("/:id", authRequired, gestaoOnly, async (req, res) => {
 
   try {
     const r = await pool.query(
-      `SELECT pm.*, c.nome AS condominio_nome
+      `SELECT pm.*, COALESCE(NULLIF(c.nome_fantasia,''), c.nome) AS condominio_nome
        FROM planos_manutencao pm
        LEFT JOIN condominios c ON c.id = pm.condominio_id
        WHERE pm.id = $1`,

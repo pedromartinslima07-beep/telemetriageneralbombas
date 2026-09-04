@@ -34,7 +34,7 @@ router.get("/chamados", authRequired, gestaoOnly, async (req, res) => {
           THEN ROUND(EXTRACT(EPOCH FROM (ch.fechado_em - ch.criado_em)) / 3600, 1)
           ELSE ROUND(EXTRACT(EPOCH FROM (NOW() - ch.criado_em)) / 3600, 1)
         END AS sla_horas,
-        c.nome  AS condominio_nome,
+        COALESCE(NULLIF(c.nome_fantasia,''), c.nome) AS condominio_nome,
         t.nome  AS tecnico_nome,
         u.nome  AS responsavel_nome
       FROM chamados ch
@@ -76,7 +76,7 @@ router.get("/alertas", authRequired, gestaoOnly, async (req, res) => {
           ELSE ROUND(EXTRACT(EPOCH FROM (NOW() - a.criado_em)) / 3600, 1)
         END AS tempo_horas,
         r.nome  AS reservatorio_nome,
-        c.nome  AS condominio_nome
+        COALESCE(NULLIF(c.nome_fantasia,''), c.nome) AS condominio_nome
       FROM alertas a
       LEFT JOIN reservatorios r ON r.device_id = a.device_id
       LEFT JOIN condominios   c ON c.id = r.condominio_id
@@ -111,7 +111,7 @@ router.get("/telemetria", authRequired, gestaoOnly, async (req, res) => {
         DATE(l.criado_em AT TIME ZONE 'America/Sao_Paulo') AS dia,
         l.device_id,
         r.nome AS reservatorio_nome,
-        c.nome AS condominio_nome,
+        COALESCE(NULLIF(c.nome_fantasia,''), c.nome) AS condominio_nome,
         COUNT(*)::int AS leituras,
         MIN(COALESCE(l.nivel_pct,
           CASE l.nivel
@@ -163,7 +163,7 @@ router.get("/painel-vivo", authRequired, gestaoOnly, async (req, res) => {
       pool.query(`
         SELECT
           ch.id, ch.titulo, ch.prioridade, ch.status, ch.criado_em,
-          c.nome AS condominio_nome,
+          COALESCE(NULLIF(c.nome_fantasia,''), c.nome) AS condominio_nome,
           t.nome AS tecnico_nome,
           sd.ttr_min,
           ROUND(EXTRACT(EPOCH FROM (NOW() - ch.criado_em)) / 60.0)::int AS minutos_abertos,

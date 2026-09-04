@@ -100,7 +100,7 @@ router.post("/", telemetriaLimiter, async (req, res) => {
               r.nome AS reservatorio_nome,
               r.altura_total_m, r.adc_zero, r.adc_por_metro,
               r.limiar_bomba,
-              c.nome AS condominio_nome,
+              COALESCE(NULLIF(c.nome_fantasia,''), c.nome) AS condominio_nome,
               -- last_nivel_pct/bomba_ligada/criado_em alimentam só o
               -- write-threshold. O nível da última leitura NÃO serve pra
               -- decidir alerta (ver abaixo) e por isso não é mais buscado.

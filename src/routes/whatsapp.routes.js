@@ -59,7 +59,7 @@ router.get("/conversas", authRequired, gestaoOnly, async (req, res) => {
          cw.telefone,
          cw.nome     AS cliente_nome,
          cw.condominio_id,
-         c.nome      AS condominio_nome,
+         COALESCE(NULLIF(c.nome_fantasia,''), c.nome) AS condominio_nome,
          (SELECT COUNT(*)::int FROM mensagens_whatsapp m WHERE m.conversa_id = cv.id) AS total_mensagens,
          (SELECT conteudo FROM mensagens_whatsapp m WHERE m.conversa_id = cv.id ORDER BY criado_em DESC LIMIT 1) AS ultima_mensagem,
          (SELECT criado_em FROM mensagens_whatsapp m WHERE m.conversa_id = cv.id ORDER BY criado_em DESC LIMIT 1) AS ultima_mensagem_em,
@@ -95,7 +95,7 @@ router.get("/conversas/:id", authRequired, gestaoOnly, async (req, res) => {
          cw.telefone,
          cw.nome  AS cliente_nome,
          cw.condominio_id,
-         c.nome   AS condominio_nome,
+         COALESCE(NULLIF(c.nome_fantasia,''), c.nome) AS condominio_nome,
          u.nome   AS assumida_por_nome
        FROM conversas_whatsapp cv
        JOIN clientes_whatsapp cw ON cw.id = cv.cliente_whatsapp_id

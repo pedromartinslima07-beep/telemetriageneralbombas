@@ -49,7 +49,7 @@ async function jobVerificarOffline() {
 
   const res = await pool.query(
     `SELECT r.id, r.nome, r.tipo, r.device_id, r.last_seen, r.condominio_id,
-       c.nome AS condominio_nome,
+       COALESCE(NULLIF(c.nome_fantasia,''), c.nome) AS condominio_nome,
        FLOOR(EXTRACT(EPOCH FROM (NOW() - r.last_seen)) / 60)::int AS minutos_sem_atualizar
      FROM reservatorios r
      LEFT JOIN condominios c ON c.id = r.condominio_id

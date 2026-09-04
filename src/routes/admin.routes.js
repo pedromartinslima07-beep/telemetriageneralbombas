@@ -62,7 +62,7 @@ router.get("/status", authRequired, adminOnly, async (req, res) => {
     const q = await pool.query(`
       SELECT
         c.id   AS condominio_id,
-        c.nome AS condominio_nome,
+        COALESCE(NULLIF(c.nome_fantasia,''), c.nome) AS condominio_nome,
         c.endereco AS condominio_endereco,
         c.bairro   AS condominio_bairro,
         c.cidade   AS condominio_cidade,
@@ -388,7 +388,7 @@ router.get("/usuarios", authRequired, gestaoOnly, async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT u.id, u.nome, u.email, u.role, u.criado_em,
-              c.id AS condominio_id, c.nome AS condominio_nome, c.cidade AS condominio_cidade
+              c.id AS condominio_id, COALESCE(NULLIF(c.nome_fantasia,''), c.nome) AS condominio_nome, c.cidade AS condominio_cidade
        FROM usuarios u
        LEFT JOIN condominios c ON c.id = u.condominio_id
        WHERE ($1::text IS NULL OR u.role = $1)

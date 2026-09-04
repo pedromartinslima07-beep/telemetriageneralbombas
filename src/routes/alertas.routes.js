@@ -177,7 +177,7 @@ router.post("/alertas/analisar-ia", authRequired, adminOnly, async (req, res) =>
                 r.nome AS reservatorio_nome,
                 r.tipo AS reservatorio_tipo,
                 r.altura_total_m,
-                c.nome AS condominio_nome,
+                COALESCE(NULLIF(c.nome_fantasia,''), c.nome) AS condominio_nome,
                 c.endereco
          FROM alertas a
          LEFT JOIN reservatorios r ON r.device_id = a.device_id
@@ -192,7 +192,7 @@ router.post("/alertas/analisar-ia", authRequired, adminOnly, async (req, res) =>
     } else {
       const r = await pool.query(
         `SELECT ch.titulo, ch.descricao, ch.prioridade, ch.categoria, ch.status, ch.criado_em,
-                c.nome AS condominio_nome, c.endereco
+                COALESCE(NULLIF(c.nome_fantasia,''), c.nome) AS condominio_nome, c.endereco
          FROM chamados ch
          LEFT JOIN condominios c ON c.id = ch.condominio_id
          WHERE ch.id = $1`,
