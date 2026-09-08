@@ -176,6 +176,28 @@ HTML em ~1,3 MB por folha.
   14 por folha, 99 × 38,1 mm). Nas folhas adesivas a margem precisa bater com a
   picotagem e a borda tracejada é omitida, pra não imprimir traço em cima do
   adesivo.
+## Descartar um lote de etiquetas
+
+Folha impressa errada, teste de alinhamento, lote gerado a mais: botão **Apagar
+lote** no card "Imprimir folha de etiquetas"
+(`DELETE /equipamentos/lote/:lote`).
+
+- **`masterAdminOnly`**, e não o `gestaoOnly` do resto do módulo: apagar linha
+  do banco em lote é irreversível, e é a régua que o projeto já usa para esse
+  nível (apagar cliente, mexer em reservatório). Gerente imprime etiqueta; só o
+  admin master descarta o que foi impresso. O botão some para quem não é master,
+  mas ⚠️ **esconder não é a trava** — quem vale é o guard da rota.
+- ⚠️ **Só apaga etiqueta virgem** (`etiqueta_livre` e sem nenhuma movimentação).
+  Equipamento com histórico no meio do lote é deixado quieto e volta em
+  `preservados`, **nunca inativado em silêncio**: quem pediu para apagar "o lote
+  de teste" precisa descobrir ali que o lote não era só teste. A linha do tempo é
+  o ativo do módulo, e ela não volta.
+- A confirmação exige **digitar o nome do lote**, não um "tem certeza": o
+  seletor é o mesmo que a pessoa acabou de usar para imprimir, e o `.env` aponta
+  para produção.
+- Teste: `node scripts/testes/apagar-lote-etiquetas.test.js` (banco de teste,
+  limpa o que cria).
+
 - ⚠️ **A grade das folhas adesivas sai da tabela do fabricante, não de conta
   de padeiro.** A Pimaco publica os parâmetros de cada folha no `.doc` de
   "Parâmetros de Impressão" (`editor.pimaco.com.br/documents/parametros/`).

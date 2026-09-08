@@ -16569,6 +16569,58 @@ async function _eqNovoLote() {
   }
 }
 
+// Descarta o lote inteiro de etiquetas em branco (folha impressa errada, teste
+// de alinhamento). Só aparece pro admin master — ver _eqAplicarPermissoes.
+//
+// A confirmação exige digitar o nome do lote em vez de um confirm() de "tem
+// certeza": o .env aponta pro banco de PRODUÇÃO, e o seletor é o mesmo que a
+// pessoa acabou de usar pra imprimir — um clique errado aqui apaga o lote bom.
+async function _eqApagarLote() {
+  const lote = document.getElementById("eqLotePrint")?.value;
+  if (!lote) { alert("Nenhum lote selecionado."); return; }
+
+  const digitado = prompt(
+    `Apagar TODAS as etiquetas em branco do lote ${lote}?\n\n` +
+    `Isso não pode ser desfeito. Etiquetas já usadas (com histórico) são ` +
+    `preservadas.\n\nDigite ${lote} para confirmar:`
+  );
+  if (digitado === null) return;
+  if (digitado.trim().toUpperCase() !== lote.toUpperCase()) {
+    alert("O nome do lote não confere. Nada foi apagado.");
+    return;
+  }
+
+  const btn = document.getElementById("btnEqApagarLote");
+  btn.disabled = true;
+  const rotulo = btn.textContent;
+  btn.textContent = "Apagando…";
+  try {
+    const r = await fetch(`/equipamentos/lote/${encodeURIComponent(lote)}`, {
+      method: "DELETE",
+      headers: authHeaders(),
+    });
+    const dados = await lerRespostaJson(r, "Apagar lote");
+    if (!r.ok) throw new Error(dados.error || "Erro ao apagar o lote");
+
+    // Dizer o que NÃO foi apagado é o ponto: quem pediu pra apagar "o lote de
+    // teste" precisa descobrir aqui que o lote não era só teste.
+    let msg = `Lote ${dados.lote}: ${dados.apagados} etiqueta(s) apagada(s).`;
+    if (dados.preservados?.length) {
+      msg += `\n\n${dados.preservados.length} preservada(s) por já terem uso:\n` +
+             dados.preservados.slice(0, 10)
+               .map(e => `· ${e.codigo} (${e.status})`).join("\n") +
+             (dados.preservados.length > 10 ? "\n· …" : "");
+    }
+    alert(msg);
+    await _eqCarregar();
+  } catch (e) {
+    alert(e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = rotulo;
+  }
+}
+
 // O PDF é gerado sob autenticação, então não dá pra simplesmente apontar uma
 // aba nova pra URL — `window.open` não manda o header Authorization e o
 // servidor responderia 401. Busca como blob e abre o object URL.
@@ -16621,6 +16673,15 @@ function _eqBindEventos() {
 
   document.getElementById("btnEqNovoLote")?.addEventListener("click", _eqNovoLote);
   document.getElementById("btnEqImprimir")?.addEventListener("click", _eqImprimir);
+
+  // Apagar lote é irreversível e some pra quem não é admin master. Esconder é
+  // conforto de UI, não a trava: quem vale é o `masterAdminOnly` da rota — o
+  // botão sumido não impede ninguém de chamar o endpoint na mão.
+  const btnApagar = document.getElementById("btnEqApagarLote");
+  if (btnApagar) {
+    btnApagar.style.display = _isMaster ? "" : "none";
+    if (_isMaster) btnApagar.addEventListener("click", _eqApagarLote);
+  }
   document.getElementById("eqFiltroStatus")?.addEventListener("change", _eqCarregar);
 
   let _debounce;

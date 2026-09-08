@@ -15,6 +15,7 @@ const { pool } = require("../db");
 const { authRequired } = require("../middleware/authRequired");
 const { gestaoOnly } = require("../middleware/gestaoOnly");
 const { equipeInterna } = require("../middleware/equipeInterna");
+const { masterAdminOnly } = require("../middleware/masterAdminOnly");
 const {
   gerarCodigo, normalizarCodigo, baseUrlValida, gerarPdfEtiquetas, FORMATOS,
 } = require("../services/etiquetas-pdf.service");
@@ -816,6 +817,59 @@ router.delete("/:id", authRequired, gestaoOnly, async (req, res) => {
   } catch (err) {
     console.error("[equipamentos] DELETE /:id:", err);
     return res.status(500).json({ error: "Erro ao dar baixa no equipamento" });
+  }
+});
+
+// DELETE /equipamentos/lote/:lote — descarta um lote inteiro de etiquetas em
+// branco (folha impressa errada, teste de alinhamento).
+//
+// `masterAdminOnly` e não `gestaoOnly` como o resto do módulo: apagar linha do
+// banco em lote é irreversível, e é a régua que o projeto já usa pra esse nível
+// (apagar cliente, mexer em reservatório). Gerente imprime etiqueta; só o admin
+// master descarta o que foi impresso.
+//
+// ⚠️ Só apaga etiqueta VIRGEM — `etiqueta_livre` e sem nenhuma movimentação. Um
+// equipamento com histórico no meio do lote é deixado quieto e devolvido em
+// `preservados`, nunca inativado em silêncio: quem pediu "apagar o lote de
+// teste" precisa saber que o lote não era só teste.
+router.delete("/lote/:lote", authRequired, masterAdminOnly, async (req, res) => {
+  const lote = String(req.params.lote || "").trim();
+  if (!lote) return res.status(400).json({ error: "lote inválido" });
+
+  try {
+    const r = await pool.query(
+      `SELECT e.id, e.codigo, e.status,
+              (SELECT COUNT(*) FROM equipamento_movimentacoes m
+                WHERE m.equipamento_id = e.id) AS movs
+         FROM equipamentos e
+        WHERE e.lote = $1
+        ORDER BY e.id`,
+      [lote]
+    );
+    if (!r.rows.length) return res.status(404).json({ error: "Lote não encontrado" });
+
+    const virgens = r.rows.filter(
+      (e) => e.status === "etiqueta_livre" && Number(e.movs) === 0
+    );
+    const preservados = r.rows
+      .filter((e) => !virgens.includes(e))
+      .map((e) => ({ codigo: e.codigo, status: e.status, movimentacoes: Number(e.movs) }));
+
+    if (virgens.length) {
+      await pool.query(
+        `DELETE FROM equipamentos WHERE id = ANY($1::int[])`,
+        [virgens.map((e) => e.id)]
+      );
+    }
+    return res.json({
+      ok: true,
+      lote,
+      apagados: virgens.length,
+      preservados,
+    });
+  } catch (err) {
+    console.error("[equipamentos] DELETE /lote/:lote:", err);
+    return res.status(500).json({ error: "Erro ao apagar o lote" });
   }
 });
 

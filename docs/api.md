@@ -419,6 +419,7 @@ oficina não é tela dele. Fluxo em
 | GET | `/equipamentos/:id/fotos/:fotoId/imagem` | **autenticada** (diferente da equivalente em `os_fotos`, que é pública) — o front busca com header e usa object URL |
 | DELETE | `/equipamentos/:id/fotos/:fotoId` | adminOnly |
 | DELETE | `/equipamentos/:id` | gestaoOnly — apaga de verdade só etiqueta nunca usada; com histórico, **inativa** e registra movimentação `baixa` |
+| DELETE | `/equipamentos/lote/:lote` | **masterAdminOnly** — descarta o lote de etiquetas em branco (folha impressa errada). Apaga só as virgens (`etiqueta_livre` sem movimentação); devolve `{apagados, preservados[]}` com as que tinham uso e ficaram intactas |
 
 **`GET /e/:codigo`** (fora deste router) serve o HTML da ficha. Path curto de
 propósito: menos caractere na URL = QR com menos módulos = etiqueta legível

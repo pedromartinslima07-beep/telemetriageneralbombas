@@ -414,6 +414,10 @@ Detalhe e o porquê de cada uma em
   **acerta no meio da folha e erra nas duas pontas é escala**, não grade: o
   driver reduziu a página para caber na área imprimível. `&escala=` compensa
   quando não dá pra imprimir em 100%.
+- **Descartar lote**: `DELETE /equipamentos/lote/:lote` + botão "Apagar lote"
+  (08/09/2026). ⚠️ **`masterAdminOnly`** — é o único ponto do módulo acima de
+  `gestaoOnly`, porque apagar em lote é irreversível. Só apaga etiqueta virgem;
+  a que tem histórico volta em `preservados`, nunca é inativada em silêncio.
 - ⚠️ **A foto usa rota autenticada** (`fetch` + object URL), diferente da
   equivalente em `os_fotos`, que é pública: aqui o id é sequencial e o conteúdo
   é o interior da casa de máquinas de um cliente.

@@ -11090,6 +11090,40 @@ junto**, porque esse endpoint não é alcançável pela barra de endereços.
 escala 100 não entram na URL; `abc` vira nada; `-0.5` + `104` viram
 `&dx=-0.5&escala=104`.
 
+### 2026-09-08 (9ª rodada) · Apagar lote de etiquetas, com o histórico protegido de quem pede
+
+`DELETE /equipamentos/lote/:lote` + botão **Apagar lote** no card de impressão.
+Nasceu do lote de teste de alinhamento, que não tinha como sair do banco a não
+ser por SQL na mão.
+
+**`masterAdminOnly`, não `gestaoOnly`.** O resto do módulo é gestão (admin +
+gerente), mas apagar linha em lote é irreversível, e é a régua que o projeto já
+usa nesse nível — apagar cliente, mexer em reservatório. Gerente imprime
+etiqueta; só o admin master descarta o que foi impresso. O botão some para quem
+não é master, e ⚠️ **isso é conforto de UI, não a trava**: o botão escondido não
+impede ninguém de chamar o endpoint na mão.
+
+⚠️ **A regra que precisava de teste não é sintaxe, é a exceção.** A rota apaga
+só etiqueta virgem (`etiqueta_livre` sem movimentação); equipamento com
+histórico no meio do lote é deixado quieto e volta em `preservados` — **nunca
+inativado em silêncio**. Quem pede "apaga o lote de teste" precisa descobrir na
+resposta que o lote não era só teste, porque a linha do tempo é o ativo do
+módulo e não volta. O alert do front lista os preservados por código pelo mesmo
+motivo.
+
+A confirmação exige **digitar o nome do lote**, não um "tem certeza": o seletor
+é o mesmo que a pessoa acabou de usar para imprimir, e o `.env` aponta para
+produção.
+
+⚠️ Sem conflito de rota com `DELETE /:id`: `/lote/:lote` tem dois segmentos.
+
+`scripts/testes/apagar-lote-etiquetas.test.js` — **12/12 no banco de teste**:
+401 sem token, 403 para gerente e técnico, 404 em lote inexistente, e o caso que
+importa — duas virgens apagadas, a terceira preservada com o histórico intacto,
+e repetir a chamada não apaga a que sobrou.
+
+`?v=N`: `admin.js` 346 → 347, `admin.css` 256 → 257.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em
