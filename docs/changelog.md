@@ -6899,6 +6899,20 @@ screenshot headless acusaram. O que se via era a engrenagem do fundo aparecendo
 
 `?v=N`: `equipamento.css` e `equipamento.js` 8 → 9.
 
+### 2026-09-08 (11ª rodada) · A marca da ficha era a errada
+
+O Pedro viu na tela o que quatro folhas já documentavam e esta tinha
+contrariado: a faixa da ficha usava `login-logo.png`, o lockup COMPLETO, cujo
+"ENGENHARIA DA MANUTENÇÃO" a 38px vira borrão cinza. Em barra o wordmark é o
+`logo-topo.png` — é o que a landing, o painel do cliente e o do operador usam,
+cada um com a nota escrita ao lado. O lockup inteiro aparece uma vez só, grande,
+no login e no rodapé da landing.
+
+Altura da marca a 34px (29 no celular) e `width`/`height` declarados no `<img>`,
+que faltavam e deixavam a faixa saltar enquanto a imagem carregava.
+
+`?v=N`: `equipamento.css` e `equipamento.js` 9 → 10.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

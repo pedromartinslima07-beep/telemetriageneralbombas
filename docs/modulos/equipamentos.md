@@ -359,6 +359,12 @@ de orçamento (`.dialogo`, que abre por cima). As duas telas nunca aparecem
 juntas, e a troca de superfície diz *"agora é aqui, você vai escrever"*.
 Converter é **remapear token no contêiner**, não reescrever seletor.
 
+⚠️ **A marca é o `logo-topo.png`, nunca o `login-logo.png`.** O lockup completo
+traz "ENGENHARIA DA MANUTENÇÃO" embaixo, que na altura da faixa vira borrão
+cinza — a mesma nota que já estava no `cliente.css`, no `landing.css` e no
+`operador.html`, e que esta folha nasceu contrariando. O lockup inteiro aparece
+uma vez só, grande, no login e no rodapé da landing.
+
 ⚠️ **A escada `--surface` faltava no `:root` desta folha**, e o defeito só
 apareceu no navegador: `.ficha::before` pintava `var(--surface)`, que não
 existia, e custom property inválida resolve para **transparente sem erro

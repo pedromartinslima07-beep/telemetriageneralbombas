@@ -233,7 +233,11 @@ body {
   background: var(--mar-600);
   clip-path: polygon(0 0, 100% 0, 100% 44%, calc(100% - 20px) 100%, 0 100%);
 }
-.ficha-marca { height: 38px; width: auto; display: block; flex-shrink: 0; }
+/* ⚠️ `logo-topo.png`, nunca `login-logo.png` — a mesma nota que está no
+   `cliente.css`, no `landing.css` e no `operador.html`: o lockup completo traz
+   "ENGENHARIA DA MANUTENÇÃO" embaixo, que nesta altura vira borrão cinza. O
+   lockup inteiro aparece uma vez só, grande, no login e no rodapé da landing. */
+.ficha-marca { height: 34px; width: auto; display: block; flex-shrink: 0; }
 /* Código e estado à direita, um sobre o outro — a identidade da etiqueta e o
    que aconteceu com ela. ⚠️ O ESTADO MORA AQUI, e não no corpo: preenchido
    de amarelo lá embaixo, ele disputava com a parada acesa do trilho e as duas
@@ -820,7 +824,7 @@ label {
 @media (max-width: 460px) {
   body { padding: 18px 10px 36px; }
   .ficha-cabeca { min-height: 66px; padding: 12px 26px 14px 18px; gap: 12px; }
-  .ficha-marca { height: 32px; }
+  .ficha-marca { height: 29px; }
   .ficha-cod { font-size: 12.5px; }
   .ficha-corpo, .ficha-corpo.is-claro { padding: 20px 16px 22px; }
   .campo-duplo { grid-template-columns: 1fr; gap: 0; }
