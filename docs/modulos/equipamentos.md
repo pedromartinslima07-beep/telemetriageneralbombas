@@ -204,6 +204,12 @@ HTML em ~1,3 MB por folha.
   escala centrada — o driver reduziu a página inteira para caber na área
   imprimível (muita jato de tinta não imprime até a borda). No centro de uma
   redução centrada o erro é zero; por isso o meio da folha parece certo.
+- **A calibração tem UI** — bloco recolhido "Calibrar impressora" no card
+  "Imprimir folha de etiquetas" do admin (`eqCalDx` / `eqCalDy` /
+  `eqCalEscala`). ⚠️ Sem ela os parâmetros seriam inalcançáveis: o PDF é
+  buscado com header `Authorization` e aberto como object URL, então **não dá
+  para colar a URL com query string no navegador** — voltaria 401. Vale para
+  qualquer parâmetro novo dessa rota.
 - **Compensação `&escala=`** (%, 90–110) amplia o conteúdo para sobreviver a
   driver que reduz e não deixa desligar. Meça uma distância conhecida no papel e
   devolva a razão: entre o topo da 1ª e o da 7ª linha há **228,6 mm**; se

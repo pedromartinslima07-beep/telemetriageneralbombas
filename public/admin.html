@@ -18,7 +18,7 @@
   <link rel="stylesheet" href="/static/leaflet.css">
   <!-- ⚠️ Ao mexer em admin.js ou admin.css, bumpe o ?v=N aqui E no <script>
        lá embaixo. Ver CLAUDE.md raiz. -->
-  <link rel="stylesheet" href="/static/admin.css?v=255">
+  <link rel="stylesheet" href="/static/admin.css?v=256">
 </head>
 <body>
   <div id="appLoader">
@@ -1317,6 +1317,37 @@
             </label>
             <button class="btn btnAccent" id="btnEqImprimir">Abrir PDF</button>
           </div>
+
+          <details style="padding:0 16px 4px;">
+            <summary class="muted" style="cursor:pointer;font-size:12px;">
+              Calibrar impressora (só se a grade não cair em cima do adesivo)
+            </summary>
+            <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;padding:12px 0 0;">
+              <label class="f" style="flex:0 1 140px;">
+                <span>Deslocar → (mm)</span>
+                <input type="number" id="eqCalDx" class="input" step="0.5" min="-5" max="5" placeholder="0">
+              </label>
+              <label class="f" style="flex:0 1 140px;">
+                <span>Deslocar ↓ (mm)</span>
+                <input type="number" id="eqCalDy" class="input" step="0.5" min="-5" max="5" placeholder="0">
+              </label>
+              <label class="f" style="flex:0 1 140px;">
+                <span>Escala (%)</span>
+                <input type="number" id="eqCalEscala" class="input" step="0.1" min="90" max="110" placeholder="100">
+              </label>
+            </div>
+            <p class="muted" style="font-size:12px;line-height:1.6;margin:8px 0 0;">
+              <b>Primeiro tente imprimir em "Tamanho real" / 100%</b> — nunca
+              "Ajustar à página". Na maioria dos casos é só isso.<br>
+              Se a grade erra em cima e embaixo mas <b>acerta no meio da folha</b>,
+              a impressora encolheu a página: meça no papel a distância do topo
+              da 1ª etiqueta ao topo da 7ª (deve dar <b>228,6 mm</b>) e ponha em
+              Escala o resultado de 228,6 ÷ medido × 100.<br>
+              Se o erro é igual na folha inteira, é só deslocamento: use os campos
+              de mm com o sinal invertido (saiu 1 mm baixo demais → −1).
+            </p>
+          </details>
+
           <p class="muted" style="padding:0 16px 16px;font-size:12px;line-height:1.6;">
             Papel comum descola em casa de máquinas (umidade, graxa, calor).
             Use etiqueta adesiva de poliéster/vinil — ou papel adesivo com fita
@@ -2816,7 +2847,7 @@
 </div>
 
 
-<script src="/static/admin.js?v=345" defer></script>
+<script src="/static/admin.js?v=346" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
 <script src="/static/register-sw.js?v=51" defer></script>
 </body>

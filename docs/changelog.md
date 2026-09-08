@@ -11064,6 +11064,32 @@ compensação em cima da impressão fiel vira o mesmo erro ao contrário.
 101,60 × 38,10 e 228,61 mm entre a 1ª e a 7ª linha; `escala=104` leva a célula a
 102,96 mm de largura e a distância a 237,75; `escala=999` é presa em 110.
 
+### 2026-09-08 (8ª rodada) · A calibração ganha UI, porque pela URL ela era inalcançável
+
+As medidas da folha adesiva vieram da régua: topo/base 15 mm, lateral 5, entre
+colunas 3, etiqueta 38 × 99. Batem com a tabela da Pimaco dentro do
+arredondamento — e a prova é a soma: os valores medidos dão 211 mm na horizontal
+e 296 na vertical, enquanto as frações oficiais fecham em **210,0** e **297,0**
+exatos. **A folha física corresponde ao PDF**, o que fecha a grade como suspeita
+e deixa só a impressão.
+
+⚠️ **O `&escala=` da rodada anterior era código morto na prática.** O PDF é
+buscado com header `Authorization` e aberto como object URL — colar a URL com
+query string no navegador devolve 401. Sem UI, o parâmetro não alcançava quem
+precisa dele. Entrou um bloco recolhido "Calibrar impressora" no card de
+impressão, com os três campos e o roteiro de qual usar: escala quando o erro
+some no meio da folha, deslocamento quando é igual na folha inteira, e
+"Tamanho real / 100%" antes de qualquer um dos dois.
+
+Vale como regra para a rota: **parâmetro novo em `/etiquetas.pdf` precisa de UI
+junto**, porque esse endpoint não é alcançável pela barra de endereços.
+
+`?v=N`: `admin.js` 345 → 346, `admin.css` 255 → 256.
+
+**Verificado** a montagem da query contra um DOM falso: campos vazios, zeros e
+escala 100 não entram na URL; `abc` vira nada; `-0.5` + `104` viram
+`&dx=-0.5&escala=104`.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

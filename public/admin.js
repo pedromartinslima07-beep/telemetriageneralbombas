@@ -16577,12 +16577,25 @@ async function _eqImprimir() {
   const formato = document.getElementById("eqFormatoPrint")?.value || "corte";
   if (!lote) { alert("Gere um lote de etiquetas primeiro."); return; }
 
+  // Calibração da impressora. O backend prende os valores (±5mm, 90-110%);
+  // aqui só omitimos os neutros pra URL não carregar ruído.
+  const cal = new URLSearchParams();
+  const num = (id) => {
+    const v = Number(document.getElementById(id)?.value);
+    return Number.isFinite(v) ? v : null;
+  };
+  const dx = num("eqCalDx"), dy = num("eqCalDy"), escala = num("eqCalEscala");
+  if (dx) cal.set("dx", dx);
+  if (dy) cal.set("dy", dy);
+  if (escala && escala !== 100) cal.set("escala", escala);
+  const extra = cal.toString() ? `&${cal}` : "";
+
   const btn = document.getElementById("btnEqImprimir");
   btn.disabled = true;
   btn.textContent = "Gerando…";
   try {
     const r = await fetch(
-      `/equipamentos/etiquetas.pdf?lote=${encodeURIComponent(lote)}&formato=${formato}`,
+      `/equipamentos/etiquetas.pdf?lote=${encodeURIComponent(lote)}&formato=${formato}${extra}`,
       { headers: authHeaders() }
     );
     if (!r.ok) {
