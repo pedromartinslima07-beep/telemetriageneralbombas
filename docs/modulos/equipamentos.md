@@ -185,6 +185,15 @@ HTML em ~1,3 MB por folha.
   escritos ao lado do QR; quem recorta à tesoura quer o QR o maior possível na
   menor sobra de papel, e 3 × 65 + 2 mm de medianiz cabem nos 210 da folha —
   12 etiquetas contra as 10 de antes, com o QR indo de 26 para **44 mm**.
+  ⚠️ Nesta arte **o que limita a largura do logo é o chanfro**, não a etiqueta:
+  a engrenagem fica na ponta direita do wordmark e a diagonal come esse canto.
+  Por isso o formato encurta o chanfro (7 mm) e a folga lateral da faixa
+  (`medidas.padCabecaX`, 4 mm por padrão); o logo fecha em 46 × 10 mm.
+- **O arquivo do logo é por formato** (`logo` na entrada de `FORMATOS`, com
+  cache por nome). O `corte` usa `public/logo-topo.png` — o mesmo lockup do
+  cabeçalho da landing, **sem** a linha "Engenharia da Manutenção". Os demais
+  ficam no `login-logo.png` (padrão), que traz a linha. Em faixa baixa a linha
+  vira borrão na impressão; sem ela o wordmark ocupa a faixa inteira.
   ⚠️ Aqui **não há código humano impresso**: nesta folha o plano B do QR sujo é
   reimprimir a etiqueta, não digitar o código. Os formatos `grande` e
   `pimacoA4263` seguem com o código.

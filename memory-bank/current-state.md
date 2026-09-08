@@ -405,7 +405,7 @@ Detalhe e o porquê de cada uma em
   ⚠️ O estado mora na FAIXA — como selo amarelo na placa ele disputava com a
   parada acesa do trilho e as duas regiões amarelas se anulavam.
 - Folha A4 em três formatos: papel comum **quadrado, 65 × 65 mm, 12/folha, só
-  faixa da marca + QR de 44 mm** (redesenhado em 08/09/2026 — era retangular
+  faixa da marca (logo-topo.png, o da landing) + QR de 44 mm** (redesenhado em 08/09/2026 — era retangular
   95 × 52 com o código humano ao lado; quem recorta à tesoura quer o QR grande,
   e nesta folha o plano B do QR sujo é reimprimir, não digitar) ·
   grande 130 × 80 mm (3/folha, papel comum pra recortar e plastificar — QR de

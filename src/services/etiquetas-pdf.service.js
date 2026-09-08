@@ -85,19 +85,49 @@ const MEDIDAS_PADRAO = {
   chanfro: 9,       // corte de 45° no canto inferior direito da faixa (mm)
   logoW: 54, logoH: 9.5,
   padCabeca: 2,     // folga vertical dentro da faixa (mm)
+  padCabecaX: 4,    // folga lateral dentro da faixa (mm)
   qr: 26,           // lado do QR (mm)
   codFs: 16,        // corpo do código humano (pt)
   dicaFs: 6.5, peFs: 5.5,
 };
 
 const FORMATOS = {
+  // Papel comum: etiqueta QUADRADA, só QR e logo. A folha comum não é a que
+  // vai colada com adesivo pré-cortado — ela é recortada à tesoura, e nesse
+  // caminho o que se quer é o QR o maior possível na menor sobra de papel. O
+  // desenho retangular anterior gastava metade da largura com o código humano
+  // escrito ao lado; aqui o QR ocupa a célula inteira abaixo da faixa marinho.
+  // 65 mm entram 3 por linha (3 × 65 + 2 de medianiz = 199 dos 210 da folha) e
+  // 4 por coluna → 12 por folha, contra 10 do desenho antigo.
   corte: {
-    label: "Papel comum (com marcas de corte)",
-    cols: 2, rows: 5,
-    largura: 95, altura: 52,
-    margemTopo: 12, margemLado: 10,
-    gapX: 0, gapY: 3,
+    label: "Papel comum — quadrada 65 × 65 mm (12 por folha)",
+    // O lockup do cabeçalho da landing (sem a linha "Engenharia da
+    // Manutenção"): a essa altura de faixa a linha só engrossaria o borrão, e
+    // sem ela o wordmark ocupa a faixa inteira.
+    logo: "logo-topo.png",
+    cols: 3, rows: 4,
+    largura: 65, altura: 65,
+    margemTopo: 15.5, margemLado: 5.5,
+    gapX: 2, gapY: 2,
     borda: true,
+    layout: "quadrado",
+    // Sem código humano e sem pé, a altura toda que sobra da faixa é do QR:
+    // 65 − 16 de cabeça deixa 49 mm, e o QR de 44 fica com 2,5 mm de respiro em
+    // cima e embaixo. A faixa acompanha o logo: são os 10 mm dele mais os 3 de
+    // `padCabeca` de cada lado — mexer no logo sem mexer nela espremeria o
+    // wordmark contra o corte da cabeça.
+    //
+    // ⚠️ A largura do logo esbarra no CHANFRO, não na etiqueta: a engrenagem
+    // fica na ponta direita do wordmark, e a diagonal come esse canto de baixo
+    // pra cima. Por isso aqui o chanfro é curto (7 mm) e a folga lateral cai
+    // pra 3 mm (`padCabecaX`) — é o que deixa o logo chegar a 57 mm sem a
+    // engrenagem tocar o corte.
+    medidas: {
+      safe: 0,
+      cabecaH: 16, chanfro: 7, padCabeca: 3, padCabecaX: 3,
+      logoW: 46, logoH: 10,
+      qr: 44,
+    },
   },
   // Etiqueta grande pra imprimir em sulfite comum, recortar e plastificar —
   // é o caminho quando não há folha adesiva à mão e a bomba fica longe o
@@ -152,16 +182,25 @@ const FORMATOS = {
 // pousa sobre a faixa marinho. Lido uma vez e injetado como data URI numa
 // classe CSS: repetir a imagem em cada célula inflaria o HTML em ~1,3 MB por
 // folha, e o navegador baixaria o mesmo asset dez vezes.
-let _logoCache;
-function logoBase64() {
-  if (_logoCache !== undefined) return _logoCache;
+//
+// Cada formato pode escolher o arquivo (`logo` na entrada de FORMATOS), daí o
+// cache por nome: `login-logo.png` traz a linha "Engenharia da Manutenção"
+// debaixo do wordmark; `logo-topo.png` é o mesmo lockup sem ela — o do
+// cabeçalho da landing. Em etiqueta pequena a linha vira borrão, então quem
+// tem pouca altura de faixa fica melhor com o de cima.
+const LOGO_PADRAO = "login-logo.png";
+const _logoCache = new Map();
+function logoBase64(arquivo = LOGO_PADRAO) {
+  if (_logoCache.has(arquivo)) return _logoCache.get(arquivo);
+  let uri;
   try {
-    const bin = fs.readFileSync(path.join(__dirname, "../../public/login-logo.png"));
-    _logoCache = `data:image/png;base64,${bin.toString("base64")}`;
+    const bin = fs.readFileSync(path.join(__dirname, "../../public", arquivo));
+    uri = `data:image/png;base64,${bin.toString("base64")}`;
   } catch {
-    _logoCache = null; // sem logo a etiqueta ainda sai, só com o wordmark em texto
+    uri = null; // sem logo a etiqueta ainda sai, só com o wordmark em texto
   }
-  return _logoCache;
+  _logoCache.set(arquivo, uri);
+  return uri;
 }
 
 // Limites: dx/dy a ±5 mm porque além disso não é registro de impressora, é
@@ -190,7 +229,7 @@ async function qrSvg(url) {
 }
 
 function renderHTML(etiquetas, fmt, cal = {}) {
-  const logo = logoBase64();
+  const logo = logoBase64(fmt.logo || LOGO_PADRAO);
   const m = { ...MEDIDAS_PADRAO, ...(fmt.medidas || {}) };
   // Normaliza aqui e não só em gerarPdfEtiquetas: renderHTML é exportado e
   // chamado direto pra conferir layout, e um campo faltando viraria
@@ -203,7 +242,20 @@ function renderHTML(etiquetas, fmt, cal = {}) {
   // papel de qualquer impressora doméstica varia ~1 mm entre folhas — a faixa
   // marinho apareceria mordida ou sangrando na etiqueta vizinha. Com safe: 0
   // (formatos antigos) a arte ocupa a célula inteira, como sempre ocupou.
-  const celula = (e) => `
+  // Layout quadrado: só a faixa da marca e o QR. Sem código humano e sem pé —
+  // é a etiqueta de papel comum, recortada à tesoura, onde o que importa é o
+  // QR grande. Quem precisa do código lê a ficha depois de escanear.
+  const celulaQuadrada = (e) => `
+    <div class="et is-quad"><div class="arte">
+      <div class="cabeca">
+        ${logo ? `<div class="logo"></div>` : `<div class="wordmark">GENERAL BOMBAS</div>`}
+      </div>
+      <div class="corpo">
+        <div class="qr">${e.svg}</div>
+      </div>
+    </div></div>`;
+
+  const celulaPadrao = (e) => `
     <div class="et"><div class="arte">
       <div class="cabeca">
         ${logo ? `<div class="logo"></div>` : `<div class="wordmark">GENERAL BOMBAS</div>`}
@@ -217,6 +269,8 @@ function renderHTML(etiquetas, fmt, cal = {}) {
       </div>
       <div class="pe">Propriedade de General Bombas · generalbombas.com</div>
     </div></div>`;
+
+  const celula = fmt.layout === "quadrado" ? celulaQuadrada : celulaPadrao;
 
   // Pagina em blocos de cols × rows. A folha tem altura fixa (297mm) porque a
   // grade de uma folha adesiva não pode "escorrer" — sem essa fatia manual, o
@@ -293,7 +347,7 @@ function renderHTML(etiquetas, fmt, cal = {}) {
     height: ${m.cabecaH}mm;
     flex: none;
     background: #0d2775;
-    padding: ${m.padCabeca}mm 4mm;
+    padding: ${m.padCabeca}mm ${m.padCabecaX}mm;
     display: flex; align-items: center;
     /* Chanfro de 45° cortando o canto inferior direito — a assinatura da
        marca. 9mm para o corte ser lido como intenção, não como defeito de
@@ -333,6 +387,13 @@ function renderHTML(etiquetas, fmt, cal = {}) {
   .dica {
     font-size: ${m.dicaFs}pt; color: #4a5578; line-height: 1.4; margin-top: 1.6mm;
   }
+  /* Quadrada: o QR é o conteúdo, então o corpo só o centraliza. */
+  .et.is-quad .corpo {
+    justify-content: center;
+    padding: 0;
+    gap: 0;
+  }
+
   .pe {
     flex: none;
     padding: 1mm 4mm 2mm;

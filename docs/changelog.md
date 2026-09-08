@@ -6744,10 +6744,23 @@ plano B do QR sujo; aqui o plano B é reimprimir — papel comum é barato, e a
 etiqueta de casa de máquinas que borrou não se salva digitando. `grande` e
 `pimacoA4263` seguem com o código, intactos.
 
-O logo foi um degrau acima do primeiro corte (47 → **53 × 10,5 mm**), e a faixa
-subiu junto (14 → **16 mm**): a cabeça é o logo mais `padCabeca` dos dois lados,
-e crescer só o logo o espremeria contra o corte da faixa. Em 56 mm de largura a
-engrenagem já encostava na diagonal do chanfro — 53 devolve a folga.
+O logo cresceu a pedido e depois recuou meio degrau, parando em
+**46 × 10 mm** (era 47 × 9 no primeiro corte, mas com o outro arquivo — ver
+abaixo); a faixa acompanha, em **16 mm**. A cabeça é o logo mais `padCabeca`
+dos dois lados, e mexer só no logo o espremeria contra o corte da faixa. O QR
+fica em **44 mm**, com 2,5 mm de respiro.
+
+E o arquivo mudou: esta folha passou a usar **`logo-topo.png`**, o lockup do
+cabeçalho da landing, sem a linha "Engenharia da Manutenção" — na faixa da
+etiqueta a linha só vira borrão, e sem ela o wordmark ocupa a faixa inteira. O
+arquivo virou campo do formato (`logo`), com cache por nome; os outros dois
+seguem no `login-logo.png`.
+
+⚠️ **O que limita a largura do logo é o chanfro, não a etiqueta.** A engrenagem
+fica na ponta direita do wordmark, e a diagonal come justamente esse canto —
+em 56 mm com chanfro de 11 ela já encostava. Por isso o chanfro aqui é curto
+(7 mm) e a folga lateral da faixa virou parâmetro (`medidas.padCabecaX`, 4 mm
+por padrão, 3 aqui). Os outros formatos não mudam.
 
 Como isso entrou no serviço: o formato declara `layout: "quadrado"` e o
 `renderHTML` troca o template da célula (`celulaQuadrada` × `celulaPadrao`) em
