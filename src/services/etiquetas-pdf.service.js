@@ -80,6 +80,7 @@ function baseUrlValida(baseUrl) {
 // desenho original não cabem juntos, e deixar o CSS estourar empurraria o pé
 // pra fora do adesivo. Cada formato declara suas alturas e corpos de letra.
 const MEDIDAS_PADRAO = {
+  safe: 0,          // sangria de segurança dentro da célula (mm) — ver nota abaixo
   cabecaH: 13,      // altura da faixa marinho (mm)
   chanfro: 9,       // corte de 45° no canto inferior direito da faixa (mm)
   logoW: 54, logoH: 9.5,
@@ -113,7 +114,7 @@ const FORMATOS = {
     label: "Pimaco A4263 / Avery L7163 — 99 × 38,1 mm (14 por folha)",
     cols: 2, rows: 7,
     largura: 99, altura: 38.1,
-    margemTopo: 15.15, margemLado: 4.7,
+    margemTopo: 15.2, margemLado: 4.7,
     gapX: 2.6, gapY: 0,
     borda: false,
     // Etiqueta baixa e larga: a faixa afina e o QR encolhe pro que a altura
@@ -121,6 +122,7 @@ const FORMATOS = {
     // largura que sobra vai pro código humano, que é o plano B quando o QR
     // sujar — por isso ele cresce em vez de a etiqueta ficar meio vazia.
     medidas: {
+      safe: 1.5,
       cabecaH: 8.6, chanfro: 6, padCabeca: 1.2,
       logoW: 44, logoH: 6.4,
       qr: 20,
@@ -145,6 +147,21 @@ function logoBase64() {
   return _logoCache;
 }
 
+// Limites: dx/dy a ±5 mm porque além disso não é registro de impressora, é
+// formato errado — e deslocar demais joga a última linha pra fora da folha.
+// Escala a 90–110% pelo mesmo motivo.
+function normalizarCalibragem(cal = {}) {
+  const preso = (v, min, max, padrao) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : padrao;
+  };
+  return {
+    dx: preso(cal.dx, -5, 5, 0),
+    dy: preso(cal.dy, -5, 5, 0),
+    escala: preso(cal.escala, 90, 110, 100),
+  };
+}
+
 async function qrSvg(url) {
   // margin 0: a folga branca ao redor é dada pelo CSS, não pelo SVG — assim o
   // QR ocupa exatamente a caixa reservada e não encolhe sozinho.
@@ -155,12 +172,22 @@ async function qrSvg(url) {
   });
 }
 
-function renderHTML(etiquetas, fmt) {
+function renderHTML(etiquetas, fmt, cal = {}) {
   const logo = logoBase64();
   const m = { ...MEDIDAS_PADRAO, ...(fmt.medidas || {}) };
+  // Normaliza aqui e não só em gerarPdfEtiquetas: renderHTML é exportado e
+  // chamado direto pra conferir layout, e um campo faltando viraria
+  // scale(NaN) / calc(NaNmm) — que o browser descarta em silêncio, dando uma
+  // folha "certa" que não corresponde ao que a rota gera.
+  const c = normalizarCalibragem(cal);
 
+  // `.et` é a CÉLULA da grade (a picotagem); `.arte` é o desenho, recuado por
+  // `safe`. Sem essa separação o desenho encosta no corte, e o registro de
+  // papel de qualquer impressora doméstica varia ~1 mm entre folhas — a faixa
+  // marinho apareceria mordida ou sangrando na etiqueta vizinha. Com safe: 0
+  // (formatos antigos) a arte ocupa a célula inteira, como sempre ocupou.
   const celula = (e) => `
-    <div class="et">
+    <div class="et"><div class="arte">
       <div class="cabeca">
         ${logo ? `<div class="logo"></div>` : `<div class="wordmark">GENERAL BOMBAS</div>`}
       </div>
@@ -172,7 +199,7 @@ function renderHTML(etiquetas, fmt) {
         </div>
       </div>
       <div class="pe">Propriedade de General Bombas · generalbombas.com</div>
-    </div>`;
+    </div></div>`;
 
   // Pagina em blocos de cols × rows. A folha tem altura fixa (297mm) porque a
   // grade de uma folha adesiva não pode "escorrer" — sem essa fatia manual, o
@@ -182,7 +209,7 @@ function renderHTML(etiquetas, fmt) {
   for (let i = 0; i < etiquetas.length; i += porFolha) {
     const bloco = etiquetas.slice(i, i + porFolha);
     // Células vazias completam a última folha pra grade não desalinhar.
-    const filler = '<div class="et is-vazia"></div>'.repeat(porFolha - bloco.length);
+    const filler = '<div class="et is-vazia"><div class="arte"></div></div>'.repeat(porFolha - bloco.length);
     folhas.push(`<div class="folha">${bloco.map(celula).join("")}${filler}</div>`);
   }
 
@@ -196,15 +223,32 @@ function renderHTML(etiquetas, fmt) {
     font-family: "Segoe UI", Arial, Helvetica, sans-serif;
     -webkit-print-color-adjust: exact; print-color-adjust: exact;
   }
+  /* Compensação de escala. Muita impressora jato de tinta não imprime até a
+     borda e o driver reduz a página inteira pra caber na área imprimível,
+     centralizando — o conteúdo encolhe uns 4%. O sintoma é inconfundível:
+     erra no topo, ACERTA NO MEIO (onde o erro de uma escala centrada é zero) e
+     erra de novo embaixo, com o desvio crescendo pras pontas. Ampliar aqui
+     na mesma proporção devolve o tamanho real depois da redução do driver.
+     transform-origin center porque a redução do driver também é centrada. */
+  .folha { transform: scale(${(c.escala / 100).toFixed(4)}); transform-origin: center center; }
+
+  /* A grade sai da tabela oficial do fabricante, então NÃO é centralizada: os
+     valores já são absolutos a partir do canto superior esquerdo da folha, e
+     centralizar anularia o offset de calibração. dx/dy deslocam a grade
+     inteira pra compensar o registro de papel da impressora — é o único ajuste
+     que sobra quando o PDF está certo e o papel sai torto. */
   .folha {
     width: 210mm; height: 297mm;
-    padding: ${fmt.margemTopo}mm ${fmt.margemLado}mm;
+    padding: ${(fmt.margemTopo + c.dy).toFixed(2)}mm
+             ${(fmt.margemLado - c.dx).toFixed(2)}mm
+             0
+             ${(fmt.margemLado + c.dx).toFixed(2)}mm;
     display: grid;
     grid-template-columns: repeat(${fmt.cols}, ${fmt.largura}mm);
     grid-auto-rows: ${fmt.altura}mm;
     column-gap: ${fmt.gapX}mm;
     row-gap: ${fmt.gapY}mm;
-    justify-content: center;
+    justify-content: start;
     align-content: start;
   }
   .folha + .folha { page-break-before: always; }
@@ -213,15 +257,17 @@ function renderHTML(etiquetas, fmt) {
      QR, e o pé. O QR fica SEMPRE em preto sobre branco — invertido (claro
      sobre escuro) muitos leitores de celular não pegam, e uma etiqueta que
      não escaneia é papel colado à toa numa bomba. */
-  .et {
+  .et { padding: ${m.safe}mm; }
+  .arte {
+    height: 100%;
     display: flex; flex-direction: column;
     ${fmt.borda ? "border: 0.3mm dashed #b0b0b0;" : ""}
     border-radius: 1.5mm;
     overflow: hidden;
     background: #fff;
   }
-  .et.is-vazia { border-color: transparent; background: none; }
-  .et.is-vazia > * { display: none; }
+  .et.is-vazia .arte { border-color: transparent; background: none; }
+  .et.is-vazia * { display: none; }
 
   /* Cabeça: campo marinho com o chanfro de 45° do wordmark, que é a
      assinatura da marca (ver DESIGN.md). */
@@ -306,10 +352,12 @@ async function getBrowser() {
  * @param {Array<{codigo: string}>} equipamentos
  * @param {string} baseUrl  origem pública (ex.: https://app.generalbombas.com)
  * @param {string} formatoNome  chave de FORMATOS
+ * @param {{dx?: number, dy?: number}} cal  deslocamento da grade em mm
  * @returns {Promise<Buffer>} PDF em memória
  */
-async function gerarPdfEtiquetas(equipamentos, baseUrl, formatoNome = "corte") {
+async function gerarPdfEtiquetas(equipamentos, baseUrl, formatoNome = "corte", cal = {}) {
   const fmt = FORMATOS[formatoNome] || FORMATOS.corte;
+  const ajuste = normalizarCalibragem(cal);
   const base = String(baseUrl).replace(/\/+$/, "");
 
   const etiquetas = [];
@@ -324,12 +372,16 @@ async function gerarPdfEtiquetas(equipamentos, baseUrl, formatoNome = "corte") {
   const page = await browser.newPage();
   try {
     await page.setViewport({ width: 1200, height: 1600, deviceScaleFactor: 2 });
-    await page.setContent(renderHTML(etiquetas, fmt), {
+    await page.setContent(renderHTML(etiquetas, fmt, ajuste), {
       waitUntil: "domcontentloaded",
       timeout: 30000,
     });
     const pdfBuf = await page.pdf({
       format: "A4",
+      // Manda o Chrome obedecer o @page do CSS em vez do A4 dele: sem isso a
+      // folha vira 8,27 × 11,69 pol arredondadas, e a grade adesiva perde as
+      // frações de milímetro que a picotagem cobra.
+      preferCSSPageSize: true,
       printBackground: true,
       margin: { top: "0", right: "0", bottom: "0", left: "0" },
       displayHeaderFooter: false,
@@ -348,6 +400,7 @@ module.exports = {
   gerarPdfEtiquetas,
   // Exportados pra conferir o layout sem gerar PDF (screenshot da folha).
   renderHTML,
+  normalizarCalibragem,
   qrSvg,
   FORMATOS,
   ALFABETO,

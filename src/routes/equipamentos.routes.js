@@ -117,9 +117,20 @@ router.post("/lote", authRequired, gestaoOnly, async (req, res) => {
 
 // GET /equipamentos/etiquetas.pdf?lote=L2608A | ?ids=1,2,3 | &formato=corte
 //
+// `dx`/`dy` (mm, ±5) deslocam a grade inteira. Existem porque a grade do PDF
+// segue a tabela do fabricante e ainda assim pode sair torta: o registro de
+// papel de impressora doméstica varia ~1 mm, e é erro da MÁQUINA, não do
+// arquivo. Imprima uma folha, meça o desvio contra o adesivo e repita com o
+// desvio invertido — ex.: saiu 1 mm pra baixo → &dy=-1.
+//
+// `escala` (%, 90–110) compensa driver que reduz a página pra caber na área
+// imprimível. Sintoma: erra no topo, acerta no meio, erra embaixo. Meça uma
+// distância conhecida no papel e devolva a razão — ex.: os 228,6 mm entre a 1ª
+// e a 7ª linha saíram 220 → &escala=103.9.
+//
 // Declarada antes de `/:id` de propósito — o Express casa na ordem.
 router.get("/etiquetas.pdf", authRequired, gestaoOnly, async (req, res) => {
-  const { lote, ids, formato } = req.query;
+  const { lote, ids, formato, dx, dy, escala } = req.query;
 
   const base = baseUrlDe(req);
   if (!baseUrlValida(base) && req.query.forcar !== "1") {
@@ -155,7 +166,7 @@ router.get("/etiquetas.pdf", authRequired, gestaoOnly, async (req, res) => {
     if (!rows.length) return res.status(404).json({ error: "Nenhuma etiqueta encontrada" });
 
     const fmt = FORMATOS[formato] ? formato : "corte";
-    const pdf = await gerarPdfEtiquetas(rows, base, fmt);
+    const pdf = await gerarPdfEtiquetas(rows, base, fmt, { dx, dy, escala });
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition",
       `inline; filename="etiquetas-${lote || "selecao"}.pdf"`);

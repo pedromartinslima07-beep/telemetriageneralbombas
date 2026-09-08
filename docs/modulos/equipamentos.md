@@ -176,6 +176,39 @@ HTML em ~1,3 MB por folha.
   14 por folha, 99 × 38,1 mm). Nas folhas adesivas a margem precisa bater com a
   picotagem e a borda tracejada é omitida, pra não imprimir traço em cima do
   adesivo.
+- ⚠️ **A grade das folhas adesivas sai da tabela do fabricante, não de conta
+  de padeiro.** A Pimaco publica os parâmetros de cada folha no `.doc` de
+  "Parâmetros de Impressão" (`editor.pimaco.com.br/documents/parametros/`).
+  Para `A4063/A4263/A4363`: margem superior **1,52 cm**, margem lateral
+  **0,47 cm**, densidade vertical **3,81 cm**, densidade horizontal
+  **10,16 cm**, etiqueta **3,81 × 9,90 cm**, 2 por linha × 7 linhas. Daí saem o
+  `gapX` de 2,6 mm (10,16 − 9,90) e as margens do formato. **Centralizar a
+  grade não substitui isso** — coincidiu nesta folha, e não vai coincidir na
+  próxima.
+- ⚠️ **A arte não encosta no corte.** `medidas.safe` recua o desenho para
+  dentro da célula (1,5 mm na A4263). O registro de papel de impressora
+  doméstica varia ~1 mm entre folhas; com sangria total e `gapY` zero, esse
+  milímetro faz a faixa marinho aparecer mordida ou invadindo a etiqueta
+  vizinha — que é como o desalinhamento se manifesta na prática, mesmo com a
+  grade correta. `safe: 0` (formatos antigos) mantém a arte ocupando a célula.
+- **Calibração `&dx=`/`&dy=`** (mm, limitados a ±5) deslocam a grade inteira.
+  Existem porque o desvio que sobra é da **máquina**, não do arquivo: imprima,
+  meça contra o adesivo e repita com o desvio invertido (saiu 1 mm para baixo →
+  `&dy=-1`).
+- ⚠️ **`preferCSSPageSize: true` no `page.pdf`**: sem ele o Chrome usa o A4
+  dele (8,27 × 11,69 pol arredondadas) em vez do `@page` do CSS, e a grade
+  adesiva perde as frações de milímetro que a picotagem cobra.
+- ⚠️ **Imprimir em escala 100% / tamanho real.** Este é o desalinhamento mais
+  comum, e tem assinatura própria: **erra no topo, acerta no meio, erra de novo
+  embaixo**, com o desvio crescendo para as pontas e os lados errando junto. É
+  escala centrada — o driver reduziu a página inteira para caber na área
+  imprimível (muita jato de tinta não imprime até a borda). No centro de uma
+  redução centrada o erro é zero; por isso o meio da folha parece certo.
+- **Compensação `&escala=`** (%, 90–110) amplia o conteúdo para sobreviver a
+  driver que reduz e não deixa desligar. Meça uma distância conhecida no papel e
+  devolva a razão: entre o topo da 1ª e o da 7ª linha há **228,6 mm**; se
+  saíram 220, use `&escala=103.9`. Não use junto com impressão em 100% — aí a
+  compensação vira erro.
 - ⚠️ **Etiqueta menor não é a mesma arte reduzida.** Na A4263 a altura cai de
   50,8 para 38,1 mm: a faixa marinho e o QR do desenho original não cabem
   juntos, e o CSS estourando empurraria o pé para fora do adesivo. Por isso cada

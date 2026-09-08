@@ -406,6 +406,14 @@ Detalhe e o porquê de cada uma em
   pode declarar `medidas` (faixa, chanfro, logo, QR, corpos de letra) por cima de
   `MEDIDAS_PADRAO`. Sem isso o desenho estoura a etiqueta baixa e o pé sai fora
   do adesivo. Renderize e olhe antes de dar o formato por pronto.
+- ⚠️ **A grade de folha adesiva sai da tabela do fabricante** (Pimaco publica em
+  `editor.pimaco.com.br/documents/parametros/`), nunca de centralização — que
+  coincide numa folha e erra na seguinte. A arte também **não encosta no corte**
+  (`medidas.safe`), porque o registro de papel varia ~1 mm e com `gapY` zero
+  isso morde a faixa marinho. `&dx=`/`&dy=` calibram o resto, que é da máquina. ⚠️ Desalinhamento que
+  **acerta no meio da folha e erra nas duas pontas é escala**, não grade: o
+  driver reduziu a página para caber na área imprimível. `&escala=` compensa
+  quando não dá pra imprimir em 100%.
 - ⚠️ **A foto usa rota autenticada** (`fetch` + object URL), diferente da
   equivalente em `os_fotos`, que é pública: aqui o id é sequencial e o conteúdo
   é o interior da casa de máquinas de um cliente.

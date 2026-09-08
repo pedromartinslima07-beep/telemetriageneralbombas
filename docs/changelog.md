@@ -11025,6 +11025,45 @@ terminando em 281,91 mm (15,1 de sobra); `&dx=1&dy=-2` desloca a grade inteira
 sem transbordo; `corte` e `pimaco6180` com arte igual à célula e passos
 idênticos aos de antes.
 
+### 2026-09-08 (7ª rodada) · O desalinhamento que acerta no meio da folha é escala, não grade
+
+Relato do teste em papel: a linha da grade começa alguns mm abaixo do corte do
+adesivo, os lados também erram, **no meio da folha vai encaixando**, e no fim
+desencontra de novo com sobra maior embaixo.
+
+⚠️ **Esse padrão é assinatura de escala centrada, e descarta a grade como
+suspeita.** Se a grade estivesse errada — margem ou passo — o erro seria
+constante (margem) ou cresceria sempre no mesmo sentido (passo). Erro que é
+máximo nas duas pontas e **zero no meio** só sai de um redimensionamento em
+torno do centro: o driver reduziu a página inteira para caber na área
+imprimível, que muita jato de tinta não alcança até a borda. É o "Ajustar à
+página" do diálogo de impressão.
+
+O que entrou:
+
+- **`&escala=`** (%, 90–110) amplia o conteúdo para sobreviver ao driver que
+  reduz e não deixa desligar — `transform: scale()` com origem no centro,
+  porque a redução do driver também é centrada. Medindo uma distância conhecida
+  no papel sai o número: entre o topo da 1ª e o da 7ª linha há **228,6 mm**
+  (conferido no DOM: 228,61); saíram 220 → `&escala=103.9`.
+- **Folha de conferência com réguas**, gerada na Área de Trabalho: só o contorno
+  vermelho da grade, uma cruz por célula, e réguas verdes de 200 e 250 mm para
+  medir com régua de verdade. É o que separa "PDF errado" de "impressora
+  encolhendo" sem mais uma rodada de chute.
+- **`normalizarCalibragem` unificada.** Os limites viviam só em
+  `gerarPdfEtiquetas`, mas `renderHTML` é exportado e chamado direto para
+  conferir layout — sem calibração ele montava `scale(NaN)` e `calc(NaNmm)`,
+  que o browser **descarta em silêncio**. A folha saía visualmente correta e não
+  correspondia ao que a rota gera: exatamente o tipo de divergência que faz
+  perder uma rodada inteira de teste em papel.
+
+⚠️ **`&escala=` e imprimir em 100% são alternativas, nunca as duas juntas** — a
+compensação em cima da impressão fiel vira o mesmo erro ao contrário.
+
+**Verificado** no DOM: sem calibração a célula fica em (4,70 / 15,20) com passo
+101,60 × 38,10 e 228,61 mm entre a 1ª e a 7ª linha; `escala=104` leva a célula a
+102,96 mm de largura e a distância a 237,75; `escala=999` é presa em 110.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em
