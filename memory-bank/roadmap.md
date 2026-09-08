@@ -274,10 +274,20 @@ aliases:
     próprias por formato (a arte da A4260 não cabe em 38,1 mm de altura). Grade
     conferida contra a tabela oficial da Pimaco, arte recuada do corte e
     calibração `&dx=`/`&dy=` para o registro da impressora.
+  - ✅ **Ficha `/e/:codigo` migrada para o Chapa** — 2026-09-08. Era a última
+    tela interna fora do sistema (seguia o cartão da tela de assinatura de
+    contrato). A tela abre como a etiqueta escaneada; o DESIGN.md passou a
+    contar sete superfícies e oito folhas de tokens. 📋 O cartão da **tela de
+    assinatura** continua fora — dívida conhecida, não desenho.
   - ✅ **Formato `grande` (130 × 80 mm, 3 por folha)** — 2026-09-08. Papel
     comum pra recortar e plastificar, com QR de 45 mm, para quando o código
     precisa ser lido de longe ou não há folha adesiva à mão. Ocupou o lugar do
     `pimaco6180` no seletor (a A4260 não é papel que a operação use).
+  - ✅ **Papel comum virou quadrado (65 × 65 mm, 12 por folha)** — 2026-09-08.
+    Só faixa da marca e QR de 44 mm; saiu o código humano escrito ao lado, que
+    comia metade da largura. É a folha que se recorta à tesoura, e ali o plano
+    B do QR sujo é reimprimir, não digitar. `grande` e `pimacoA4263` seguem
+    com o código.
   - 📋 **Confirmar o alinhamento numa folha adesiva real** — a grade está
     conforme o fabricante, mas o desvio residual é da impressora e só aparece
     imprimindo. Falta a passada do Pedro com a folha na mão.

@@ -5,34 +5,84 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Equipamento — General Bombas</title>
   <link rel="icon" type="image/png" href="/static/favicon.png">
-  <meta name="theme-color" content="#090b18">
-  <!-- Segue o padrão da tela de assinatura de contrato (src/routes/assinatura.routes.js):
-       cartão único centrado, fio âmbar→azul no topo, logo, table.info e botão
-       âmbar de largura total. Por isso NÃO carrega admin.css — aquela tela
-       também não carrega, e tem paleta própria. Ver docs/modulos/equipamentos.md. -->
-  <link rel="stylesheet" href="/static/equipamento.css?v=6">
+  <meta name="theme-color" content="#030a26">
+  <!-- Sistema "Chapa" em registro de operação, o mesmo do painel do operador e
+       do admin (migrada em 08/09/2026 — antes seguia o padrão da tela de
+       assinatura de contrato). NÃO carrega admin.css: folha autônoma, como a
+       do operador. Ver docs/modulos/equipamentos.md. -->
+  <link rel="preload" href="/static/fonts/archivo.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/static/fonts/martianmono.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/static/equipamento.css?v=7">
 </head>
 <body>
 <!--
   THESIS: esta tela responde "o que aconteceu com essa bomba agora" e oferece
   UMA ação. Recusa a pilha de caixas de peso igual que qualquer CRUD produz.
-  OWN-WORLD: o cartão da assinatura de contrato — ground #090b18 com halo
-  âmbar, cartão #111326 de 520px com fio âmbar→azul no topo, logo centralizada,
-  rótulo/valor em table.info, botão âmbar de largura total, rodapé fora do
-  cartão. Radius 16 no cartão, 9 nos controles.
+  OWN-WORLD: "Chapa" em registro de operação — marinho como material,
+  engrenagem marinho-sobre-marinho ao fundo, chanfro de 45° em dois cantos
+  opostos, raio zero, sem sombra projetada. A tela abre como A ETIQUETA QUE
+  ACABOU DE SER ESCANEADA: faixa marinho com o wordmark e o código Crockford
+  em Martian Mono, e a placa clara embaixo, que é onde se lê e se edita.
   STORY: quem escaneia está de pé na bancada, com a bomba na frente. Lê de quem
   é, há quanto tempo está parada e o que foi relatado; então age.
-  FIRST VIEWPORT: logo, condomínio, selo do estado, trilho do ciclo com a
-  posição acesa, o tempo no estado, o relato e a ação primária em âmbar.
-  FORM: "próxima ação única", candidato 3 de 7; seed key e87349e6.
+  FIRST VIEWPORT: a faixa da etiqueta (código e estado), condomínio, trilho do
+  ciclo com a posição acesa, o tempo no estado, o relato e a ação primária.
   FINISH: unreviewed and undocumented is unfinished; this build ends with the
   finish review, the verdict, and DESIGN.md
 -->
-  <main class="card">
-    <div class="logo-wrap"><img src="/static/login-logo.png" alt="General Bombas"></div>
-    <!-- A logo fica fora de #eqRoot: é o JS que reescreve o corpo a cada
-         recarga da ficha, e ela não deve ser repintada junto. -->
-    <div id="eqRoot">
+  <!-- A engrenagem da marca, marinho sobre marinho: a mesma peça da landing, do
+       painel do cliente e do operador. Duas rodas em sentidos opostos — uma
+       sozinha lê como círculo, duas engrenam. -->
+  <div class="eng" aria-hidden="true">
+    <span class="eng-a"><svg viewBox="0 0 200 200">
+      <circle cx="100" cy="100" r="62" fill="none" stroke="currentColor" stroke-width="27"/>
+      <g fill="currentColor">
+        <rect x="93" y="6" width="14" height="26"/>
+        <rect x="93" y="6" width="14" height="26" transform="rotate(30 100 100)"/>
+        <rect x="93" y="6" width="14" height="26" transform="rotate(60 100 100)"/>
+        <rect x="93" y="6" width="14" height="26" transform="rotate(90 100 100)"/>
+        <rect x="93" y="6" width="14" height="26" transform="rotate(120 100 100)"/>
+        <rect x="93" y="6" width="14" height="26" transform="rotate(150 100 100)"/>
+        <rect x="93" y="6" width="14" height="26" transform="rotate(180 100 100)"/>
+        <rect x="93" y="6" width="14" height="26" transform="rotate(210 100 100)"/>
+        <rect x="93" y="6" width="14" height="26" transform="rotate(240 100 100)"/>
+        <rect x="93" y="6" width="14" height="26" transform="rotate(270 100 100)"/>
+        <rect x="93" y="6" width="14" height="26" transform="rotate(300 100 100)"/>
+        <rect x="93" y="6" width="14" height="26" transform="rotate(330 100 100)"/>
+      </g>
+    </svg></span>
+    <span class="eng-b"><svg viewBox="0 0 200 200">
+      <circle cx="100" cy="100" r="62" fill="none" stroke="currentColor" stroke-width="27"/>
+      <g fill="currentColor">
+        <rect x="93" y="6" width="14" height="26"/>
+        <rect x="93" y="6" width="14" height="26" transform="rotate(30 100 100)"/>
+        <rect x="93" y="6" width="14" height="26" transform="rotate(60 100 100)"/>
+        <rect x="93" y="6" width="14" height="26" transform="rotate(90 100 100)"/>
+        <rect x="93" y="6" width="14" height="26" transform="rotate(120 100 100)"/>
+        <rect x="93" y="6" width="14" height="26" transform="rotate(150 100 100)"/>
+        <rect x="93" y="6" width="14" height="26" transform="rotate(180 100 100)"/>
+        <rect x="93" y="6" width="14" height="26" transform="rotate(210 100 100)"/>
+        <rect x="93" y="6" width="14" height="26" transform="rotate(240 100 100)"/>
+        <rect x="93" y="6" width="14" height="26" transform="rotate(270 100 100)"/>
+        <rect x="93" y="6" width="14" height="26" transform="rotate(300 100 100)"/>
+        <rect x="93" y="6" width="14" height="26" transform="rotate(330 100 100)"/>
+      </g>
+    </svg></span>
+  </div>
+
+  <main class="ficha">
+    <!-- A faixa fica FORA de #eqRoot: é o JS que reescreve o corpo a cada
+         recarga da ficha, e a cabeça da etiqueta não deve ser repintada junto.
+         O código é preenchido pelo JS assim que a etiqueta é lida. -->
+    <header class="ficha-cabeca">
+      <img class="ficha-marca" src="/static/login-logo.png" alt="General Bombas">
+      <span class="ficha-id">
+        <span class="ficha-cod" id="eqCodigo"></span>
+        <span class="ficha-estado" id="eqEstado"></span>
+      </span>
+    </header>
+
+    <div class="ficha-corpo" id="eqRoot">
       <div class="carregando">
         <div class="spin" aria-hidden="true"></div>
         <p>Lendo a etiqueta…</p>
@@ -40,8 +90,8 @@
     </div>
   </main>
 
-  <div class="footer" id="eqRodape">General Bombas — ficha do equipamento</div>
+  <p class="rodape" id="eqRodape">Ficha do equipamento</p>
 
-  <script src="/static/equipamento.js?v=6" defer></script>
+  <script src="/static/equipamento.js?v=7" defer></script>
 </body>
 </html>

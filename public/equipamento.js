@@ -9,14 +9,19 @@
 //   • etiqueta livre  → formulário curto de vínculo (o técnico acabou de colar)
 //   • já vinculada    → a decisão + referência
 //
-// Folha própria (equipamento.css), no padrão do cartão da tela de assinatura de
-// contrato. Não carrega admin.css nem usa nada de admin.js.
+// Folha própria (equipamento.css), no sistema "Chapa" em registro de operação —
+// o mesmo do painel do operador e do admin. Não carrega admin.css nem usa nada
+// de admin.js.
 
 (function () {
   "use strict";
 
   const $root = document.getElementById("eqRoot");
   const $rodape = document.getElementById("eqRodape");
+  // O código vive na faixa marinho do topo — a mesma posição que ele ocupa na
+  // etiqueta colada na bomba. Ver `.ficha-cabeca` no equipamento.css.
+  const $codigo = document.getElementById("eqCodigo");
+  const $estado = document.getElementById("eqEstado");
 
   // ---------------------------------------------------------------------
   // Sessão
@@ -141,13 +146,6 @@
     em_conserto: 1, pronto: 2, devolvido: 3,
   };
 
-  const CLASSE_BADGE = {
-    instalado: "predio", devolvido: "predio",
-    oficina: "oficina", em_conserto: "oficina",
-    aguardando_orcamento: "oficina", aguardando_peca: "oficina",
-    pronto: "pronta", baixado: "baixada", etiqueta_livre: "livre",
-  };
-
   const PIXEL_VAZIO = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
 
   const ICONE_ALERTA = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"
@@ -207,12 +205,18 @@
     $root.innerHTML = `<div class="erro"><h1>${esc(titulo)}</h1><p>${texto}</p></div>`;
   }
 
-  /** O rodapé fora do cartão carrega a identidade da etiqueta. */
+  /** A faixa do topo leva o código e o estado; o rodapé, a procedência.
+   *  ⚠️ O estado fica AQUI e não na placa clara: preenchido de amarelo lá
+   *  embaixo, ele disputava com a parada acesa do trilho e as duas regiões
+   *  amarelas se anulavam (Regra do Campo Único). */
   function rodape(eq) {
+    if ($codigo) $codigo.textContent = formatarCodigo(eq ? eq.codigo : CODIGO);
+    if ($estado) $estado.textContent = eq && eq.status !== "etiqueta_livre"
+      ? (ESTADO_FRASE[eq.status] || eq.status) : "";
     if (!$rodape) return;
-    $rodape.textContent = eq
-      ? `Etiqueta ${formatarCodigo(eq.codigo)}${eq.lote ? ` · lote ${eq.lote}` : ""}`
-      : `Etiqueta ${formatarCodigo(CODIGO)}`;
+    $rodape.textContent = eq && eq.lote
+      ? `Etiqueta do lote ${eq.lote} · General Bombas`
+      : "Ficha do equipamento · General Bombas";
   }
 
   let _condominios = null;
@@ -231,7 +235,6 @@
     $root.innerHTML = `
       <h1>Etiqueta em branco</h1>
       <div class="sub">Preencha o mínimo agora, com a bomba na mão — o resto dá para completar depois.</div>
-      <span class="badge livre">${formatarCodigo(eq.codigo)}</span>
 
       <form id="eqFormVinc">
         <div class="campo">
@@ -283,10 +286,8 @@
 
         <div class="erro-msg" id="eqVincErro"></div>
 
-        <button type="submit" class="submit-btn">Registrar retirada</button>
-        <div style="margin-top:8px">
-          <button type="button" class="btn-linha" id="btnSoCadastrar">Só cadastrar (fica no prédio)</button>
-        </div>
+        <button type="submit" class="btn">Registrar retirada</button>
+        <button type="button" class="btn-fio" id="btnSoCadastrar">Só cadastrar (fica no prédio)</button>
       </form>`;
 
     const form = document.getElementById("eqFormVinc");
@@ -380,7 +381,7 @@
   const ORC_STATUS = {
     rascunho:  ["Rascunho", "livre"],
     enviado:   ["Enviado ao cliente", "pronta"],
-    aprovado:  ["Aprovado", "predio"],
+    aprovado:  ["Aprovado", "aprovado"],
     rejeitado: ["Recusado", "baixada"],
   };
 
@@ -418,7 +419,8 @@
     const secundarias = acoesSecundarias(eq.status);
 
     const dados = [
-      ["Tipo", eq.tipo, false], ["Marca", eq.marca, false], ["Modelo", eq.modelo, false],
+      ["Tipo", eq.tipo ? eq.tipo[0].toUpperCase() + eq.tipo.slice(1) : null, false],
+      ["Marca", eq.marca, false], ["Modelo", eq.modelo, false],
       ["Nº de série", eq.numero_serie, true],
       ["Potência", eq.potencia_cv ? `${eq.potencia_cv} cv` : null, true],
       ["Tensão", eq.tensao, true], ["Onde fica", eq.local_instalacao, false],
@@ -432,12 +434,10 @@
         <b>${esc(nomeEquipamento(eq))}</b>${eq.local_instalacao ? ` · ${esc(eq.local_instalacao)}` : ""}
         ${enderecoDe(eq) ? `<br>${esc(enderecoDe(eq))}` : ""}
       </div>
-      <span class="badge ${CLASSE_BADGE[eq.status] || "livre"}">${esc(ESTADO_FRASE[eq.status] || eq.status)}</span>
-
       <div class="trilho" id="eqTrilho" role="img"
            aria-label="Ciclo: ${esc(PARADAS[paradaAtual] || "fora do ciclo")}">
         ${PARADAS.map((p, i) => `
-          <div class="parada ${i < paradaAtual ? "feita" : i === paradaAtual ? "aqui" : ""}">${p}</div>
+          <div class="parada ${i < paradaAtual ? "feita" : i === paradaAtual ? "aqui" : ""}"><span>${p}</span></div>
         `).join("")}
       </div>
 
@@ -458,7 +458,7 @@
       <div class="erro-msg" id="eqAcaoErro"></div>
 
       ${primaria
-        ? `<button class="submit-btn" data-mov="${primaria.tipo}">${primaria.label}</button>`
+        ? `<button class="btn" data-mov="${primaria.tipo}">${primaria.label}</button>`
         : `<p class="vazio">Equipamento baixado — fora de operação.</p>`}
 
       ${secundarias.length ? `
@@ -466,8 +466,8 @@
           <summary>Outras ações ${ICONE_CHEVRON}</summary>
           <div class="mais-lista">
             ${secundarias.map(a => a.acao
-              ? `<button class="btn-linha" data-acao="${a.acao}">${a.label}</button>`
-              : `<button class="btn-linha" data-mov="${a.tipo}">${a.label}</button>`).join("")}
+              ? `<button class="btn-fio" data-acao="${a.acao}">${a.label}</button>`
+              : `<button class="btn-fio" data-mov="${a.tipo}">${a.label}</button>`).join("")}
           </div>
         </details>` : ""}
 
@@ -482,8 +482,7 @@
       <hr class="divider">
       <div class="secao-cab">
         <div class="secao-titulo">Fotos</div>
-        <button class="sign-clear" id="btnFoto"
-          style="font-size:12px;color:#7ba4f7;background:none;border:none;cursor:pointer;font-family:inherit;padding:0">Adicionar</button>
+        <button class="link-acao" id="btnFoto">Adicionar</button>
       </div>
       <div class="fotos" id="eqFotos">
         ${ficha.fotos.length
@@ -504,8 +503,8 @@
             <tr>
               <td class="num">${esc(os.numero || "—")}</td>
               <td>
-                ${esc((os.tipos_servico || []).map(t => TIPO_OS[t] || t).join(", ") || "—")}<br>
-                <span style="font-weight:400;color:#9094ae;font-size:12px">
+                ${esc((os.tipos_servico || []).map(t => TIPO_OS[t] || t).join(", ") || "—")}
+                <span class="meta">
                   ${os.finalizada_em ? `finalizada ${dataCurta(os.finalizada_em)}` : "em aberto"}${
                     os.tecnico_nome ? ` · ${esc(os.tecnico_nome)}` : ""}
                 </span>
@@ -522,8 +521,8 @@
             return `<tr>
               <td class="num">${esc(o.numero)}</td>
               <td>
-                <span class="badge ${cls}" style="margin:0 0 3px">${esc(rot)}</span><br>
-                <span style="font-weight:400;color:#9094ae;font-size:12px">
+                <span class="selo" data-s="${cls}">${esc(rot)}</span>
+                <span class="meta">
                   ${o.itens} ${Number(o.itens) === 1 ? "item" : "itens"}${val ? ` · ${esc(val)}` : " · sem valor lançado"}
                 </span>
               </td></tr>`;
@@ -660,18 +659,18 @@
     painel.className = "visor";
     painel.style.cursor = "default";
     painel.innerHTML = `
-      <div class="card" style="max-width:460px;padding:28px 26px 24px;max-height:88vh;overflow:auto">
+      <div class="dialogo">
         <h1>Solicitar orçamento</h1>
         <div class="sub">Liste o que a bomba precisa. O comercial põe os preços.</div>
         <div id="orcItens"></div>
-        <button type="button" class="btn-linha" id="orcAddItem" style="margin-top:4px">+ Outra peça</button>
+        <button type="button" class="btn-fio" id="orcAddItem">+ Outra peça</button>
         <div class="campo" style="margin-top:16px">
           <label for="orcObs">Constatação (opcional)</label>
           <textarea id="orcObs" placeholder="Rotor gasto e selo mecânico vazando."></textarea>
         </div>
         <div class="erro-msg" id="orcErro"></div>
-        <button type="button" class="submit-btn" id="orcEnviar">Solicitar orçamento</button>
-        <button type="button" class="btn-linha" id="orcCancelar" style="margin-top:8px">Cancelar</button>
+        <button type="button" class="btn" id="orcEnviar">Solicitar orçamento</button>
+        <button type="button" class="btn-fio" id="orcCancelar">Cancelar</button>
       </div>`;
     document.body.appendChild(painel);
 

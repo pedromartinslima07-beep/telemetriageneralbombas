@@ -171,13 +171,23 @@ HTML em ~1,3 MB por folha.
   máquinas vive com graxa, respingo e sol. O código humano impresso ao lado é o
   plano B quando nem isso resolve.
 - **Três formatos** (`FORMATOS` em `src/services/etiquetas-pdf.service.js`):
-  `corte` (padrão — papel comum com marcas de corte, 95 × 52 mm, 10 por folha),
-  `grande` (130 × 80 mm, 3 por folha — papel comum, pra recortar e plastificar
-  quando o QR precisa ser lido de longe ou não há folha adesiva à mão) e
-  `pimacoA4263` (A4263 / Avery L7163, 14 por folha, 99 × 38,1 mm).
+  `corte` (padrão — papel comum, **quadrada de 65 × 65 mm**, 12 por folha, só
+  faixa da marca + QR), `grande` (130 × 80 mm, 3 por folha — papel comum, pra
+  recortar e plastificar quando o QR precisa ser lido de longe ou não há folha
+  adesiva à mão) e `pimacoA4263` (A4263 / Avery L7163, 14 por folha,
+  99 × 38,1 mm).
   Nas folhas adesivas a margem precisa bater com a picotagem e a borda tracejada
   é omitida, pra não imprimir traço em cima do adesivo — nos formatos de papel
   comum ela fica, porque ali é a linha da tesoura.
+- **O papel comum é quadrado e mudo** (`layout: "quadrado"` no formato, que
+  troca o template da célula por um só com cabeça + QR). O desenho retangular
+  anterior (95 × 52 mm) gastava metade da largura com o código humano e a dica
+  escritos ao lado do QR; quem recorta à tesoura quer o QR o maior possível na
+  menor sobra de papel, e 3 × 65 + 2 mm de medianiz cabem nos 210 da folha —
+  12 etiquetas contra as 10 de antes, com o QR indo de 26 para **44 mm**.
+  ⚠️ Aqui **não há código humano impresso**: nesta folha o plano B do QR sujo é
+  reimprimir a etiqueta, não digitar o código. Os formatos `grande` e
+  `pimacoA4263` seguem com o código.
 - ⚠️ **O `grande` só cabe uma por linha**: 2 × 130 mm estouraria os 210 mm da
   folha. Como não há picotagem a respeitar, a grade é centralizada (40 mm de
   cada lado), ao contrário das adesivas, cuja margem vem da tabela do
@@ -305,18 +315,40 @@ voltavam a errar desde então. Código corrigido e `UPDATE` de acerto na 072.
 
 `public/equipamento.html` + `equipamento.css` + `equipamento.js`.
 
-**Segue o padrão da tela de assinatura de contrato** (`_shell` em
-`src/routes/assinatura.routes.js`), por decisão do Pedro em 2026-08-18: cartão
-único centrado de 520px sobre fundo escuro com halo, fio âmbar→azul no topo,
-logo centralizada, pares rótulo/valor em `table.info`, botão âmbar de largura
-total e rodapé fora do cartão.
+**Sistema "Chapa" em registro de operação**, o mesmo do
+[painel do operador](painel-operador.md) e do [admin](painel-admin.md) — desde
+2026-09-08, a pedido do Pedro (*"essa tela está com o visual antigo, traga para
+o visual da tela de operador"*).
 
-⚠️ Por isso **não carrega `admin.css`** — a tela de assinatura também não
-carrega, e tem paleta própria. A folha duplica essa paleta de propósito, mesma
-situação de `landing.css` e `login.css` entre si: são páginas servidas
-separadamente. **Mudou a paleta de uma, mude na outra.** Ganho colateral: a
-ficha deixou de baixar 265 KB de CSS do painel numa tela aberta pelo celular,
-na casa de máquinas, muitas vezes em rede ruim.
+⚠️ **Isto substituiu o padrão da tela de assinatura de contrato** (`_shell` em
+`src/routes/assinatura.routes.js`), que era o pino desta superfície desde
+2026-08-18: cartão `#111326` de 520px, fio âmbar→azul, radius 16, sombra
+projetada e âmbar `#f0b014`. Aquele padrão era uma identidade a mais no
+produto — nasceu antes de o Chapa cobrir as telas internas. **A tela de
+assinatura em si NÃO foi migrada junto** e segue nele; se um dia for, é a mesma
+conversa.
+
+**A forma da tela é a da etiqueta que acabou de ser escaneada:** faixa marinho
+com o wordmark, o código Crockford em Martian Mono e o estado, chanfrada a 45°
+no canto inferior direito — o mesmo desenho que sai do
+`src/services/etiquetas-pdf.service.js` e está colado na bomba que a pessoa tem
+na frente. Abaixo dela, a placa clara, que é **onde se lê e se edita** (Regra da
+Superfície: aqui não há conteúdo marinho competindo ao lado, é o arranjo do
+login e do painel do cliente). Engrenagem marinho-sobre-marinho ao fundo, raio
+zero e nenhuma sombra projetada.
+
+⚠️ **O ESTADO MORA NA FAIXA, não na placa.** Como selo preenchido de amarelo
+logo acima do trilho, ele dava duas regiões amarelas disputando a mesma tela e
+o "a bomba está aqui" do trilho morria — é a Regra do Campo Único. Sobre
+marinho o amarelo é livre como tinta, então o código continua âmbar e o estado
+sai em branco.
+
+⚠️ **Continua sem carregar `admin.css`**, como a folha do operador. Os tokens
+são duplicados de propósito (mesma situação das outras superfícies do Chapa):
+são páginas servidas separadamente e não compartilham CSS. **Mudou a paleta?
+Mude nas oito folhas.** Ganho colateral que já valia antes: a ficha não baixa
+265 KB de CSS do painel numa tela aberta pelo celular, na casa de máquinas,
+muitas vezes em rede ruim.
 
 **Direção: "próxima ação única"** (2026-08-18). A tela responde *o que aconteceu
 com essa bomba agora* e oferece **uma** ação, escolhida pelo estado; as demais
@@ -325,15 +357,18 @@ igual (Registrar / Fotos / Dados / Histórico) — o layout que qualquer CRUD
 produz. O contrato da direção está no topo de `equipamento.html`, como comentário
 HTML; estratégia em `.impeccable/surfaces/public-equipamento-html.md`.
 
-- **Um cartão só, seções separadas por `hr.divider`.** Nada de caixa dentro de
+- **Uma placa só, seções separadas por `hr.divider`.** Nada de caixa dentro de
   caixa: a hierarquia vem da ordem e do peso tipográfico, não de molduras.
   Repor cards ali devolve o problema original.
 - **O trilho do ciclo** (No prédio → Oficina → Pronta → Devolvida) é conteúdo,
   não enfeite: a posição sai das movimentações. É o único momento de movimento
   da página (acende da esquerda até a posição atual, uma vez, respeitando
   `prefers-reduced-motion`).
-- **Tempo no estado é sinal operacional:** 7 dias na oficina acende âmbar, 15
-  acende vermelho. Calculado pela movimentação mais recente cujo `status_novo`
+- **Tempo no estado é sinal operacional:** 7 dias na oficina acende atenção, 15
+  acende crítico. ⚠️ Sobre a placa clara isso é a família `-t`
+  (`--atencao-t` / `--risco-t`), **nunca** o sinal saturado — que ali reprova
+  contraste como texto. Mesma regra do painel do cliente e dos diálogos do
+  admin. Calculado pela movimentação mais recente cujo `status_novo`
   é igual ao status atual — usar "a última que mexeu em status" mente quando o
   estado foi ajustado por outro caminho.
 - **Mobile-first de verdade**: quem abre está de pé na bancada. Alvo de toque
@@ -347,10 +382,10 @@ HTML; estratégia em `.impeccable/surfaces/public-equipamento-html.md`.
 - ⚠️ **SVG inline precisa de largura declarada.** O chevron de "Outras ações"
   ficou do tamanho da página ao trocar de folha: sem `width`/`height` no CSS, o
   SVG assume o tamanho intrínseco (300×150).
-- ⚠️ O **detector do Impeccable acusa desvios de DESIGN.md** nesta página. São
-  falsos positivos estruturais: o `DESIGN.md` documenta o sistema "Chapa" da
-  landing, e esta superfície segue o cartão da assinatura de contrato, que
-  nunca esteve documentado ali.
+- **O detector do Impeccable ficou limpo** com a migração (só os avisos de
+  `font-size` fora da rampa, que o `DESIGN.md` registra como estado das oito
+  folhas, não como defeito desta). Antes eram desvios estruturais reais: a
+  superfície seguia um padrão que nunca esteve documentado no sistema.
 - ⚠️ **A foto é carregada por `fetch` + blob, não por `<img src>` direto.** A
   rota da imagem é autenticada e `<img src>` não manda header `Authorization`.
   A saída fácil seria abrir a rota — é o que

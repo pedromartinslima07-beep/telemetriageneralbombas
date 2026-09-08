@@ -1,348 +1,583 @@
-/* ============================================================
+/* ════════════════════════════════════════════════════════════════════════
    FICHA DO EQUIPAMENTO — /e/:codigo
-   ============================================================
-   Segue o padrão da tela de assinatura de contrato
-   (`_shell` em src/routes/assinatura.routes.js): cartão único centrado sobre
-   fundo escuro com halo, fio âmbar→azul no topo, logo centralizada, pares
-   rótulo/valor em tabela, botão âmbar de largura total, rodapé fora do cartão.
+   ────────────────────────────────────────────────────────────────────────
+   MUNDO: "Chapa" em REGISTRO DE OPERAÇÃO — o mesmo do painel do operador e
+   do admin. Migrada em 08/09/2026 a pedido do Pedro ("essa tela está com o
+   visual antigo, traga para o visual da tela de operador").
 
-   Folha autônoma, como a de lá: NÃO carrega admin.css. Além da fidelidade ao
-   padrão, evita baixar 265 KB de CSS do painel numa tela que é aberta pelo
-   celular, na casa de máquinas, muitas vezes em rede ruim.
+   ⚠️ ISTO SUBSTITUI O PADRÃO DA TELA DE ASSINATURA, que era o pino anterior
+   desta superfície (cartão #111326, fio âmbar→azul, radius 16, sombra
+   projetada, âmbar #f0b014). Aquele padrão era uma sexta identidade do
+   produto — nasceu antes de o Chapa cobrir as telas internas. A tela de
+   assinatura de contrato (`_shell` em src/routes/assinatura.routes.js) segue
+   nele e **não** foi migrada junto: se um dia for, é a mesma conversa.
 
-   ⚠️ A paleta é duplicada de propósito (mesma situação de landing.css e
-   login.css entre si): as duas telas não compartilham folha. Mudou a paleta de
-   uma, mude na outra.
-   ============================================================ */
+   A FORMA DA TELA É A DA ETIQUETA QUE ACABOU DE SER ESCANEADA: faixa marinho
+   com o wordmark e o código Crockford em mono, chanfrada a 45° no canto
+   inferior direito — o mesmo desenho que sai do
+   `src/services/etiquetas-pdf.service.js` e está colado na bomba que a pessoa
+   tem na frente. Abaixo dela, a placa clara, que é onde se lê e se edita
+   (Regra da Superfície: aqui não há conteúdo marinho competindo ao lado, é o
+   arranjo do login e do painel do cliente).
 
+   ⚠️ Folha AUTÔNOMA, como a do operador: não carrega `admin.css`. Além da
+   coerência, evita baixar 265 KB de CSS numa tela aberta pelo celular, na
+   casa de máquinas, muitas vezes em rede ruim.
+
+   ⚠️ Tokens duplicados de propósito (como nas outras superfícies do Chapa):
+   as páginas são servidas separadamente e não compartilham CSS.
+   Mudou a paleta? Mude em landing.css, login.css, cliente.css, admin.css,
+   operador.css, app/public/login.css, app/public/tecnico.css e AQUI.
+   ════════════════════════════════════════════════════════════════════════ */
+
+@font-face {
+  font-family: "Archivo";
+  src: url("/static/fonts/archivo.woff2") format("woff2");
+  font-weight: 400 900;
+  font-stretch: 62% 125%;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Archivo";
+  src: url("/static/fonts/archivo-ext.woff2") format("woff2");
+  font-weight: 400 900;
+  font-stretch: 62% 125%;
+  font-display: swap;
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Martian Mono";
+  src: url("/static/fonts/martianmono.woff2") format("woff2");
+  font-weight: 400 700;
+  font-stretch: 75% 112.5%;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Martian Mono";
+  src: url("/static/fonts/martianmono-ext.woff2") format("woff2");
+  font-weight: 400 700;
+  font-stretch: 75% 112.5%;
+  font-display: swap;
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Tokens — sistema "Chapa", registro de operação. Cópia do operador.css.
+   ═══════════════════════════════════════════════════════════════════ */
 :root {
   color-scheme: dark;
+  --mar-900:#030a26; --mar-800:#050f38; --mar-700:#071b5c;
+  --mar-600:#0d2775; --mar-500:#1a3a9e;
+  --bg:var(--mar-900);
+  --fio:rgba(255,255,255,.14); --fio-fraco:rgba(255,255,255,.07);
+  --fio-forte:rgba(255,255,255,.34);
+  --text:#f2f5ff; --text-dim:#a6b5dc; --muted:#8294c2;
+  --accent:#fbb329; --accent-2:#ffcb60; --accent-3:#d99411;
+  --ok:#63d8a0; --warn:#fbb329; --risco:#ff5a4d;
+  --vermelho:#ff5a4d; --verde:#63d8a0; --amarelo:#fbb329;
+  --sobre-2:#a6b5dc;
 
-  --ground:     #090b18;
-  --cartao:     #111326;
-  --fio:        rgba(255, 255, 255, .07);
-  --fio-forte:  rgba(255, 255, 255, .15);
-  --campo:      rgba(255, 255, 255, .04);
+  /* A família clara: vale dentro da placa. Sobre ela nenhum sinal saturado
+     passa contraste como texto (Regra do Amarelo Cego, que vale para o
+     vermelho e o verde também) — por isso a família `-t`. */
+  --chapa:#e8ebf2; --chapa-cl:#f5f7fb; --chapa-es:#d5dae6;
+  --tinta:#061033; --tinta-2:#414f74;
+  --fio-esc:rgba(6,16,51,.18);
+  --atencao-t:#886116;   /* atenção — L .52 · 4,7:1 sobre a placa */
+  --risco-t:#790000;     /* crítico — L .34 · 9,7:1 */
+  --normal-t:#105c31;    /* repouso — L .42 · 6,8:1 */
 
-  --texto:      #e1e3ef;
-  --texto-2:    #9094ae;
-  --apagado:    #60617e;
-  --apagado-2:  #44455a;
+  --fonte:"Archivo",ui-sans-serif,system-ui,sans-serif;
+  --mono:"Martian Mono",ui-monospace,"SFMono-Regular",monospace;
 
-  --ambar:      #f0b014;
-  --ambar-fundo:#d9a010;
-  --azul:       #4a78f7;
-  --azul-claro: #7ba4f7;
-  --verde:      #4ade80;
-  --vermelho:   #f87171;
+  /* ⚠️ ESTE é o chanfro de toda a tela: `--corte` resolve `--ch` aqui, no
+     `:root`, e os filhos herdam o polígono já pronto — redeclarar `--ch`
+     num componente não faz nada (o mesmo comentário está nas outras folhas).
+     10px é o número das irmãs de UI. */
+  --ch:10px;
+  --corte:polygon(var(--ch) 0,100% 0,100% calc(100% - var(--ch)),calc(100% - var(--ch)) 100%,0 100%,0 var(--ch));
+  --ch-p:5px;
+  --corte-p:polygon(var(--ch-p) 0,100% 0,100% calc(100% - var(--ch-p)),calc(100% - var(--ch-p)) 100%,0 100%,0 var(--ch-p));
+
+  --saida:cubic-bezier(.16,.84,.32,1);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { overflow-x: clip; }
 
 body {
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
-  font-size: 14px;
-  color: var(--texto);
-  background: var(--ground);
+  position: relative;   /* faz o `overflow-x: clip` valer para a engrenagem */
+  font-family: var(--fonte);
+  /* 15px é o corpo do registro de operação depois do passe de legibilidade de
+     28/08 — o mesmo motivo vale aqui, e com folga: esta tela é lida de pé, no
+     celular, com a bomba na frente. */
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--text);
+  background: var(--bg);
   min-height: 100vh;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 32px 16px 56px;
-  padding-top: max(32px, env(safe-area-inset-top));
+  padding: 28px 16px 48px;
+  padding-top: max(28px, env(safe-area-inset-top));
   -webkit-font-smoothing: antialiased;
-  caret-color: var(--ambar);
-  scrollbar-color: rgba(255, 255, 255, .12) transparent;
-  scrollbar-width: thin;
+  caret-color: var(--tinta);
 }
-body::before {
-  content: '';
+
+/* As partes que o navegador desenha também são do sistema — os mesmos
+   valores das folhas irmãs. O anel de foco é `inset`, nunca `outline`: num
+   elemento com `clip-path` o outline é recortado nos dois chanfros e lê como
+   defeito. */
+::selection { background: var(--amarelo); color: var(--mar-900); }
+:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--amarelo); }
+* { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.22) transparent; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,.22); }
+::-webkit-scrollbar-thumb:hover { background: var(--amarelo); }
+
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   A ENGRENAGEM — marinho sobre marinho, atrás de tudo.
+   A mesma peça da landing, do painel do cliente e do operador. Aqui ela
+   nasce atrás da quina superior direita da placa e sai pela borda: presença
+   sem ruído, e o `overflow-x: clip` do topo impede que a sobra estique a
+   página. Duas rodas em sentidos opostos — uma sozinha lê como círculo.
+   ═══════════════════════════════════════════════════════════════════ */
+/* ⚠️ A PEÇA FICA INTEIRA DENTRO DA JANELA. `html,body` têm `overflow-x: clip`
+   (é o que impede a sobra de esticar a página), e o que passa da borda é
+   ceifado numa RETA VERTICAL que nenhuma peça de metal tem — o mesmo defeito
+   que o operador.css registra em 31/08. Ancorada no canto inferior direito,
+   ela some pela metade ATRÁS da placa, que é o gesto da landing: a placa tem
+   fundo próprio e `z-index: 1`, então a roda passa por trás. */
+.eng {
   position: fixed;
-  inset: 0;
+  right: 14px; bottom: 14px;
+  width: min(48vw, 380px); height: min(48vw, 380px);
   pointer-events: none;
-  background:
-    radial-gradient(ellipse at 50% 30%, rgba(240, 176, 20, .07) 0%, transparent 60%),
-    radial-gradient(ellipse at 80% 80%, rgba(74, 120, 247, .05) 0%, transparent 55%);
+  z-index: 0;
 }
-::selection { background: rgba(240, 176, 20, .28); color: #fff; }
-:focus-visible { outline: 2px solid var(--ambar); outline-offset: 2px; border-radius: 4px; }
+.eng span { position: absolute; display: block; }
+.eng-a { inset: 0; color: var(--mar-500); opacity: .26; }
+.eng-a svg { width: 100%; height: 100%; animation: girar 96s linear infinite; }
+.eng-b { left: -24%; bottom: -6%; width: 44%; height: 44%; color: var(--mar-500); opacity: .2; }
+.eng-b svg { width: 100%; height: 100%; animation: girar-inv 64s linear infinite; }
+@keyframes girar     { to { transform: rotate(360deg); } }
+@keyframes girar-inv { to { transform: rotate(-360deg); } }
 
-/* ---------- o cartão ---------- */
-.card {
+/* ═══════════════════════════════════════════════════════════════════
+   A FICHA — a etiqueta em tamanho de tela.
+   Faixa marinho com o wordmark e o código; placa clara embaixo.
+   Sem raio, sem sombra projetada: a profundidade é tonal e por aresta.
+   ═══════════════════════════════════════════════════════════════════ */
+.ficha {
   position: relative;
+  z-index: 1;
   width: 100%;
-  max-width: 520px;
-  background: var(--cartao);
-  border: 1px solid var(--fio);
-  border-radius: 16px;
-  padding: 40px 36px 36px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, .6);
+  max-width: 540px;
+  background: var(--chapa);
+  clip-path: var(--corte);
 }
-.card::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 24px; right: 24px;
-  height: 2px;
-  background: linear-gradient(90deg, transparent, var(--ambar) 30%, var(--azul) 70%, transparent);
-  border-radius: 0 0 2px 2px;
-}
-.logo-wrap { display: flex; justify-content: center; margin-bottom: 28px; }
-.logo-wrap img { height: 56px; width: auto; display: block; }
 
-.footer {
-  font-size: 11.5px;
-  color: var(--apagado-2);
+/* A faixa da etiqueta impressa, com o mesmo chanfro de 45° no canto inferior
+   direito (ver `medidas.chanfro` no etiquetas-pdf.service.js). Sobre marinho
+   o amarelo é livre — é por isso que o código mora aqui e não na placa. */
+.ficha-cabeca {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 76px;
+  padding: 14px 30px 16px 22px;
+  background: var(--mar-700);
+  clip-path: polygon(0 0, 100% 0, 100% 44%, calc(100% - 20px) 100%, 0 100%);
+}
+.ficha-marca { height: 38px; width: auto; display: block; flex-shrink: 0; }
+/* Código e estado à direita, um sobre o outro — a identidade da etiqueta e o
+   que aconteceu com ela. ⚠️ O ESTADO MORA AQUI, e não na placa: com ele
+   preenchido de amarelo lá embaixo, a tela tinha DUAS regiões amarelas
+   disputando (o selo e a parada acesa do trilho), e o "a bomba está aqui"
+   morria — é a Regra do Campo Único. Sobre marinho o amarelo é livre como
+   tinta, então o código continua âmbar e o estado sai em branco. */
+.ficha-id { margin-left: auto; text-align: right; min-width: 0; }
+.ficha-cod {
+  display: block;
+  font-family: var(--mono);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  color: var(--accent);
+  font-feature-settings: "tnum";
+  white-space: nowrap;
+}
+.ficha-estado {
+  display: block;
+  margin-top: 3px;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: .11em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+.ficha-estado:empty { display: none; }
+
+.ficha-corpo { padding: 24px 22px 26px; color: var(--tinta); }
+
+.rodape {
+  position: relative;
+  z-index: 1;
+  margin-top: 16px;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--muted);
   text-align: center;
-  margin-top: 24px;
-  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
 }
 
-/* ---------- carregando / erro ---------- */
-.carregando, .erro { text-align: center; padding: 20px 0 12px; color: var(--apagado); }
+/* ═══════════════════════════════════════════════════════════════════
+   Carregando / erro
+   ═══════════════════════════════════════════════════════════════════ */
+.carregando, .erro { text-align: center; padding: 18px 0 10px; color: var(--tinta-2); }
 .spin {
   width: 26px; height: 26px;
   margin: 0 auto 14px;
-  border: 2px solid var(--fio-forte);
-  border-top-color: var(--ambar);
-  border-radius: 50%;
+  border: 2px solid var(--fio-esc);
+  border-top-color: var(--mar-700);
+  border-radius: 50%;   /* a única curva do sistema: peça que gira */
   animation: girar .8s linear infinite;
 }
-@keyframes girar { to { transform: rotate(360deg); } }
-.erro h1 { font-size: 19px; font-weight: 700; margin-bottom: 8px; color: var(--texto); }
-.erro p  { font-size: 13px; line-height: 1.6; color: var(--apagado); }
+.erro h1 { margin-bottom: 8px; }
+.erro p { font-size: 14px; line-height: 1.6; color: var(--tinta-2); }
 
-/* ---------- cabeçalho do equipamento ---------- */
-h1 { font-size: 19px; font-weight: 700; color: var(--texto); margin-bottom: 4px; }
-.sub { font-size: 13px; color: var(--apagado); margin-bottom: 20px; line-height: 1.5; }
-.sub b { color: var(--texto-2); font-weight: 600; }
+/* ═══════════════════════════════════════════════════════════════════
+   Cabeçalho do equipamento
+   ═══════════════════════════════════════════════════════════════════ */
+h1 {
+  font-size: 1.22rem;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: -.02em;
+  font-stretch: 106%;
+  color: var(--tinta);
+  margin-bottom: 5px;
+}
+.sub { font-size: 14px; line-height: 1.5; color: var(--tinta-2); margin-bottom: 16px; }
+.sub b { color: var(--tinta); font-weight: 700; }
 
-.badge {
+/* O selo de estado. Pela Regra do Selo, estado que pede ação PREENCHE e
+   estado em repouso é de fio — é o que faz uma bomba parada há semanas
+   saltar e uma bomba no prédio ficar quieta. */
+.selo {
   display: inline-block;
-  padding: 4px 12px;
-  border-radius: 20px;
-  font-size: 11px;
+  font-family: var(--mono);
+  font-size: 11.5px;
   font-weight: 700;
+  letter-spacing: .1em;
   text-transform: uppercase;
-  letter-spacing: .5px;
-  margin-bottom: 20px;
+  padding: 6px 10px;
+  margin-bottom: 18px;
+  clip-path: var(--corte-p);
 }
-.badge.oficina  { background: rgba(240,176,20,.12); color: var(--ambar);      border: 1px solid rgba(240,176,20,.25); }
-.badge.predio   { background: rgba(74,222,128,.10); color: var(--verde);      border: 1px solid rgba(74,222,128,.22); }
-.badge.pronta   { background: rgba(74,120,247,.15); color: var(--azul-claro); border: 1px solid rgba(74,120,247,.25); }
-.badge.baixada  { background: rgba(248,113,113,.10);color: var(--vermelho);   border: 1px solid rgba(248,113,113,.25); }
-.badge.livre    { background: rgba(255,255,255,.05);color: var(--apagado);    border: 1px solid var(--fio); }
+.selo[data-s="oficina"] { background: var(--amarelo); color: var(--mar-900); }
+.selo[data-s="pronta"]  { background: var(--mar-600); color: #fff; }
+.selo[data-s="baixada"] { background: var(--vermelho); color: var(--mar-900); }
+/* Em repouso (no prédio, etiqueta em branco, orçamento aprovado): de fio, sem
+   preenchimento — é o que faz uma tela sem pendência ficar calma por
+   construção. `clip-path` sai junto: ele recorta o `inset` nos dois cantos e a
+   borda some justo ali, o que lê como defeito. */
+.selo[data-s="predio"],
+.selo[data-s="livre"],
+.selo[data-s="aprovado"] {
+  background: none;
+  color: var(--tinta-2);
+  box-shadow: inset 0 0 0 1px var(--fio-esc);
+  clip-path: none;
+}
+.selo[data-s="aprovado"] { color: var(--normal-t); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--normal-t) 45%, transparent); }
+/* Dentro da tabela o selo é um valor de linha, não a abertura de uma seção. */
+table.info .selo { margin-bottom: 4px; }
 
-/* ---------- trilho do ciclo ----------
-   O instrumento da tela: onde a bomba está no caminho que percorre de verdade.
-   Sai das movimentações — não é enfeite. */
-.trilho {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  margin: 4px 0 20px;
-}
+/* ═══════════════════════════════════════════════════════════════════
+   O TRILHO DO CICLO — o momento da tela.
+   Onde a bomba está no caminho que ela percorre de verdade: sai das
+   movimentações, não é enfeite.
+   ⚠️ Sobre placa clara o amarelo não é tinta nem traço (Regra do Amarelo
+   Cego): o caminho já andado é MARINHO, e o amarelo entra só como
+   preenchimento da parada atual, com tinta marinho por cima.
+   ═══════════════════════════════════════════════════════════════════ */
+.trilho { display: grid; grid-template-columns: repeat(4, 1fr); margin: 20px 0 22px; }
 .parada {
   position: relative;
-  padding-top: 15px;
+  padding-top: 17px;
+  font-family: var(--mono);
   font-size: 9.5px;
-  font-weight: 700;
-  letter-spacing: .5px;
+  font-weight: 500;
+  letter-spacing: .09em;
   text-transform: uppercase;
-  color: var(--apagado-2);
+  color: var(--tinta-2);
   text-align: center;
 }
 .parada::before {
   content: '';
   position: absolute;
-  top: 3px; left: 0; right: 0;
+  top: 4px; left: 0; right: 0;
   height: 2px;
-  background: var(--fio-forte);
+  background: var(--chapa-es);
 }
-.parada:first-child::before { left: 50%; border-radius: 2px 0 0 2px; }
-.parada:last-child::before  { right: 50%; border-radius: 0 2px 2px 0; }
+.parada:first-child::before { left: 50%; }
+.parada:last-child::before  { right: 50%; }
+/* Marcador quadrado: raio zero, como tudo neste sistema. */
 .parada::after {
   content: '';
   position: absolute;
   top: 0; left: 50%;
-  width: 8px; height: 8px;
-  margin-left: -4px;
-  border-radius: 50%;
-  background: var(--cartao);
-  border: 2px solid var(--fio-forte);
+  width: 10px; height: 10px;
+  margin-left: -5px;
+  background: var(--chapa);
+  box-shadow: inset 0 0 0 2px var(--chapa-es);
 }
-.parada.feita { color: var(--apagado); }
-.parada.feita::before { background: var(--ambar); }
-.parada.feita::after  { background: var(--ambar); border-color: var(--ambar); }
-.parada.aqui { color: var(--ambar); }
-/* Sem isto, o trilho abre um vão cinza logo antes de onde a bomba está. */
-.parada.aqui::before { background: linear-gradient(90deg, var(--ambar) 50%, var(--fio-forte) 50%); }
-.parada.aqui:last-child::before { background: var(--ambar); }
-.parada.aqui::after {
-  background: var(--ambar);
-  border-color: var(--ambar);
-  box-shadow: 0 0 0 4px rgba(240, 176, 20, .16);
+.parada.feita { color: var(--tinta-2); }
+.parada.feita::before { background: var(--mar-700); }
+.parada.feita::after  { background: var(--mar-700); box-shadow: none; }
+/* Sem isto, o trilho abre um vão claro logo antes de onde a bomba está. */
+.parada.aqui::before { background: linear-gradient(90deg, var(--mar-700) 50%, var(--chapa-es) 50%); }
+.parada.aqui:last-child::before { background: var(--mar-700); }
+.parada.aqui::after { background: var(--mar-700); box-shadow: none; }
+.parada.aqui {
+  color: var(--mar-900);
+  font-weight: 700;
 }
-/* Um único momento de movimento: o trilho acende até a posição atual. */
+/* A parada atual é a única região amarela da tela — a Regra do Campo Único
+   aplicada a uma superfície de tarefa: se um segundo elemento virar campo
+   amarelo, o "a bomba está aqui" morre. */
+.parada.aqui > span {
+  display: inline-block;
+  padding: 3px 7px;
+  background: var(--amarelo);
+  clip-path: var(--corte-p);
+}
+/* O único momento de movimento: o trilho acende até a posição atual. */
 .trilho.animando .parada.feita::before,
 .trilho.animando .parada.aqui::before {
   transform-origin: left center;
-  animation: acender .62s cubic-bezier(.16, 1, .3, 1) both;
+  animation: acender .62s var(--saida) both;
 }
 @keyframes acender { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 @media (prefers-reduced-motion: reduce) {
   .trilho.animando .parada::before { animation: none; }
   .spin { animation-duration: 2s; }
+  .eng svg { animation: none; }
 }
 
-/* ---------- estado + tempo ---------- */
-.estado {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--texto);
-  margin-bottom: 16px;
-}
+/* ═══════════════════════════════════════════════════════════════════
+   Estado + tempo parado
+   ⚠️ 7 dias acende atenção, 15 acende crítico — e sobre a placa clara isso
+   é a família `-t`, nunca o sinal saturado.
+   ═══════════════════════════════════════════════════════════════════ */
+.estado { font-size: 15px; font-weight: 600; color: var(--tinta); margin-bottom: 16px; }
 .estado .dias {
-  font-variant-numeric: tabular-nums;
+  font-family: var(--mono);
+  font-size: 14px;
   font-weight: 700;
-  color: var(--ambar);
+  font-feature-settings: "tnum";
+  color: var(--tinta);
 }
-.estado.atencao .dias { color: var(--ambar); }
-.estado.tarde   .dias { color: var(--vermelho); }
+.estado.atencao .dias { color: var(--atencao-t); }
+.estado.tarde   .dias { color: var(--risco-t); }
 
-/* ---------- relato ---------- */
+/* ═══════════════════════════════════════════════════════════════════
+   Relato do defeito — o que o zelador disse, com procedência
+   ═══════════════════════════════════════════════════════════════════ */
 .relato {
-  background: var(--campo);
-  border: 1px solid var(--fio);
-  border-radius: 9px;
-  padding: 14px;
+  background: var(--chapa-cl);
+  box-shadow: inset 0 0 0 1px var(--fio-esc);
+  padding: 14px 16px;
   margin-bottom: 16px;
-  font-size: 13.5px;
+  font-size: 15px;
   line-height: 1.6;
-  color: var(--texto);
+  color: var(--tinta);
 }
 .relato cite {
   display: block;
-  margin-top: 7px;
+  margin-top: 8px;
   font-style: normal;
-  font-size: 11.5px;
-  color: var(--apagado);
+  font-size: 12.5px;
+  color: var(--tinta-2);
 }
 
 .alerta {
   display: flex;
   align-items: center;
   gap: 9px;
-  font-size: 12.5px;
-  color: var(--texto-2);
+  font-size: 13.5px;
+  color: var(--tinta-2);
   margin-bottom: 16px;
 }
-.alerta svg { width: 15px; height: 15px; flex: none; color: var(--vermelho); }
-.alerta b { color: var(--texto); font-weight: 700; }
+.alerta svg { width: 16px; height: 16px; flex: none; color: var(--risco-t); }
+.alerta b { color: var(--risco-t); font-weight: 700; }
 
-/* ---------- tabela rótulo/valor ---------- */
-table.info { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+/* ═══════════════════════════════════════════════════════════════════
+   Tabela rótulo/valor
+   ═══════════════════════════════════════════════════════════════════ */
+table.info { width: 100%; border-collapse: collapse; margin-bottom: 4px; }
 table.info td {
-  padding: 7px 0;
-  font-size: 13px;
+  padding: 8px 0;
+  font-size: 14px;
   line-height: 1.5;
   vertical-align: top;
-  border-bottom: 1px solid rgba(255, 255, 255, .04);
+  border-bottom: 1px solid var(--fio-esc);
 }
-table.info td:first-child { color: var(--apagado); width: 120px; }
-table.info td:last-child  { font-weight: 600; color: var(--texto); }
-table.info td.num { font-variant-numeric: tabular-nums; }
+table.info tr:last-child td { border-bottom: 0; }
+table.info td:first-child { color: var(--tinta-2); width: 124px; }
+table.info td:last-child { font-weight: 700; color: var(--tinta); }
+table.info td.num { font-family: var(--mono); font-size: 13px; font-feature-settings: "tnum"; }
+.meta { display: block; font-weight: 400; color: var(--tinta-2); font-size: 12.5px; }
 
-.divider { border: none; border-top: 1px solid rgba(255, 255, 255, .06); margin: 20px 0; }
+.divider { border: none; border-top: 1px solid var(--fio-esc); margin: 20px 0; }
 
 .secao-titulo {
+  font-family: var(--mono);
   font-size: 11px;
-  font-weight: 700;
-  color: var(--apagado);
+  font-weight: 500;
+  color: var(--tinta-2);
   text-transform: uppercase;
-  letter-spacing: .45px;
-  margin-bottom: 10px;
+  letter-spacing: .12em;
+  margin-bottom: 12px;
 }
 .secao-cab { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
-.vazio { font-size: 12.5px; color: var(--apagado); line-height: 1.6; }
+.vazio { font-size: 13.5px; color: var(--tinta-2); line-height: 1.6; }
 
-/* ---------- ações ---------- */
-.submit-btn {
+/* ═══════════════════════════════════════════════════════════════════
+   Ações — uma primária, o resto recolhido
+   ⚠️ Alvo de 48px: a mão está com luva e a tela suja.
+   ═══════════════════════════════════════════════════════════════════ */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
   width: 100%;
-  padding: 13px;
-  background: var(--ambar);
-  border: none;
-  border-radius: 9px;
-  font-size: 14px;
-  font-weight: 800;
-  color: #111;
-  cursor: pointer;
-  font-family: inherit;
-  letter-spacing: .2px;
-  transition: background .15s, transform .08s;
+  font: inherit; font-size: 15px; font-weight: 800; letter-spacing: -.01em;
+  min-height: 48px; padding: 12px 16px;
+  cursor: pointer; border: 0; text-decoration: none;
+  background: var(--accent); color: var(--mar-900);
+  clip-path: var(--corte-p);
+  transition: background .14s var(--saida);
 }
-.submit-btn:hover { background: var(--ambar-fundo); }
-.submit-btn:active { transform: translateY(1px); }
-.submit-btn:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+.btn:hover { background: var(--accent-2); }
+/* Anel amarelo sobre superfície amarela é invisível — sobre amarelo o
+   indicador é marinho (Regra do Amarelo Cego aplicada ao foco). */
+.btn:focus-visible { box-shadow: inset 0 0 0 2px var(--mar-900); }
+.btn:disabled { opacity: .55; cursor: not-allowed; }
 
-.btn-linha {
+/* Chapa de duas camadas, não `box-shadow: inset`: o fundo do elemento é o
+   ANEL e o `::before` embutido 1,5px é a placa. Sobre superfície clara o anel
+   é `--fio-esc` e a placa é a própria chapa. */
+.btn-fio {
   display: block;
   width: 100%;
-  padding: 11px;
-  border: 1px solid rgba(255, 255, 255, .1);
-  border-radius: 9px;
+  position: relative;
+  isolation: isolate;
+  font: inherit; font-size: 14.5px; font-weight: 600;
+  min-height: 46px; padding: 12px 16px;
   text-align: center;
-  font-size: 13.5px;
-  font-weight: 500;
-  color: var(--texto-2);
-  background: rgba(255, 255, 255, .03);
-  cursor: pointer;
-  font-family: inherit;
-  transition: border-color .15s, color .15s;
+  cursor: pointer; border: 0;
+  /* ⚠️ O anel é mais escuro que `--fio-esc` (.18): ao lado do amarelo cheio da
+     ação primária, um contorno a .18 não existe — a peça lê como texto solto,
+     não como controle. É o mesmo achado registrado no `.btn-fio` do operador,
+     onde o anel subiu de `--fio` para `--fio-forte`. */
+  background: color-mix(in srgb, var(--tinta) 34%, transparent);
+  color: var(--tinta-2);
+  clip-path: var(--corte-p);
+  transition: color .14s var(--saida);
 }
-.btn-linha:hover { border-color: rgba(255, 255, 255, .2); color: var(--texto); }
-.btn-linha:disabled { opacity: .5; cursor: not-allowed; }
-.btn-linha + .btn-linha { margin-top: 8px; }
+.btn-fio::before {
+  content: "";
+  position: absolute; inset: 1.5px; z-index: -1;
+  clip-path: var(--corte-p);
+  background: var(--chapa);
+  transition: background .16s var(--saida);
+}
+.btn-fio:hover { background: var(--amarelo); color: var(--mar-900); }
+.btn-fio:hover::before { background: var(--amarelo); }
+/* O anel de foco do sistema é `box-shadow: inset`, e o inset próprio desta
+   peça o engoliria: aqui o foco é o anel amarelo com a placa marinho. */
+.btn-fio:focus-visible { background: var(--amarelo); color: #fff; box-shadow: none; }
+.btn-fio:focus-visible::before { background: var(--mar-900); }
+.btn-fio:disabled { opacity: .55; cursor: not-allowed; }
+.btn-fio + .btn-fio { margin-top: 8px; }
+.btn + .btn-fio, .btn-fio + .btn { margin-top: 8px; }
+/* A ação fecha o formulário: separação maior acima dela do que entre campos. */
+.campo + .btn, .erro-msg + .btn { margin-top: 8px; }
 
 .mais { margin-top: 14px; }
 .mais summary {
-  font-size: 12.5px;
-  color: var(--azul-claro);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--tinta-2);
   cursor: pointer;
   list-style: none;
   text-align: center;
-  padding: 4px 0;
+  padding: 8px 0;
+  min-height: 44px;
+  display: flex; align-items: center; justify-content: center; gap: 7px;
 }
 .mais summary::-webkit-details-marker { display: none; }
-.mais summary:hover { color: #a3c0fa; }
+.mais summary:hover { color: var(--tinta); }
+.mais summary:focus-visible { box-shadow: inset 0 0 0 2px var(--tinta); }
 /* SVG sem largura declarada assume o tamanho intrínseco (300×150) e toma a
    página inteira — o chevron precisa da medida aqui. */
-.mais summary svg {
-  width: 11px; height: 11px;
-  vertical-align: -1px;
-  transition: transform .18s ease;
-}
+.mais summary svg { width: 12px; height: 12px; transition: transform .18s var(--saida); }
 .mais[open] summary svg { transform: rotate(180deg); }
-.mais-lista { margin-top: 10px; }
+.mais-lista { margin-top: 8px; }
+
+/* Ação de texto dentro de um cabeçalho de seção ("Adicionar" nas fotos). */
+.link-acao {
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--tinta);
+  background: none;
+  border: 0;
+  padding: 4px 2px;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
+  text-decoration-color: var(--fio-esc);
+  transition: text-decoration-color .14s var(--saida);
+}
+.link-acao:hover { text-decoration-color: var(--tinta); }
+.link-acao:focus-visible { box-shadow: inset 0 0 0 2px var(--tinta); }
 
 .erro-msg {
-  color: var(--vermelho);
-  font-size: 13px;
+  color: var(--risco-t);
+  font-size: 14px;
+  font-weight: 600;
   margin-bottom: 12px;
-  padding: 10px 14px;
-  border-radius: 8px;
-  background: rgba(240, 68, 56, .1);
-  border: 1px solid rgba(240, 68, 56, .2);
+  padding: 11px 14px;
+  background: color-mix(in srgb, var(--risco-t) 8%, var(--chapa-cl));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--risco-t) 28%, transparent);
 }
 .erro-msg:empty { display: none; }
 
-/* ---------- fotos ---------- */
-.fotos { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 8px; }
+/* ═══════════════════════════════════════════════════════════════════
+   Fotos
+   ═══════════════════════════════════════════════════════════════════ */
+.fotos { display: grid; grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); gap: 8px; }
 .fotos img {
   width: 100%;
   aspect-ratio: 1;
   object-fit: cover;
-  border-radius: 9px;
-  border: 1px solid var(--fio);
-  background: var(--campo);
+  background: var(--chapa-es);
+  clip-path: var(--corte-p);
   cursor: zoom-in;
 }
 .fotos .vazio { grid-column: 1 / -1; }
@@ -351,87 +586,109 @@ table.info td.num { font-variant-numeric: tabular-nums; }
   position: fixed;
   inset: 0;
   z-index: 90;
-  background: rgba(4, 5, 12, .95);
+  background: rgba(3, 10, 38, .94);
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 20px;
   cursor: zoom-out;
 }
-.visor img { max-width: 100%; max-height: 100%; border-radius: 9px; }
+.visor img { max-width: 100%; max-height: 100%; clip-path: var(--corte-p); }
 
-/* ---------- histórico ---------- */
+/* O diálogo de orçamento: placa clara que ABRE POR CIMA, com o campo
+   escurecido atrás — o caso canônico da Regra da Superfície. */
+.dialogo {
+  width: 100%;
+  max-width: 460px;
+  max-height: 88vh;
+  overflow: auto;
+  padding: 26px 22px 24px;
+  background: var(--chapa);
+  color: var(--tinta);
+  clip-path: var(--corte);
+  cursor: default;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Histórico
+   ═══════════════════════════════════════════════════════════════════ */
 .linha { list-style: none; }
 .linha li {
   position: relative;
   padding: 0 0 16px 18px;
-  border-left: 1px solid rgba(255, 255, 255, .08);
+  border-left: 1px solid var(--fio-esc);
 }
 .linha li:last-child { padding-bottom: 0; border-left-color: transparent; }
+/* Marcador quadrado, como o do trilho — a mesma peça contando a mesma coisa. */
 .linha li::before {
   content: '';
   position: absolute;
-  left: -4px; top: 4px;
+  left: -4px; top: 5px;
   width: 7px; height: 7px;
-  border-radius: 50%;
-  background: var(--apagado-2);
-  border: 2px solid var(--cartao);
+  background: var(--chapa-es);
+  box-shadow: 0 0 0 3px var(--chapa);
 }
-.linha li.marco::before { background: var(--ambar); }
-.mov-tipo { font-size: 13px; font-weight: 600; color: var(--texto); }
-.mov-meta { font-size: 11.5px; color: var(--apagado); margin-top: 2px; font-variant-numeric: tabular-nums; }
-.mov-obs  { margin-top: 5px; font-size: 12.5px; line-height: 1.55; color: var(--texto-2); white-space: pre-wrap; }
+.linha li.marco::before { background: var(--mar-700); }
+.mov-tipo { font-size: 14px; font-weight: 700; color: var(--tinta); }
+.mov-meta {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--tinta-2);
+  margin-top: 3px;
+  font-feature-settings: "tnum";
+}
+.mov-obs { margin-top: 5px; font-size: 13.5px; line-height: 1.55; color: var(--tinta-2); white-space: pre-wrap; }
 
-/* ---------- formulário de vínculo ---------- */
+/* ═══════════════════════════════════════════════════════════════════
+   Formulário de vínculo — campo branco sobre a chapa, o mesmo do operador
+   e do painel do cliente.
+   ═══════════════════════════════════════════════════════════════════ */
 label {
   display: block;
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--apagado);
-  text-transform: uppercase;
-  letter-spacing: .45px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--tinta-2);
   margin-bottom: 6px;
 }
 .campo { margin-bottom: 14px; }
 .campo input, .campo select, .campo textarea {
   width: 100%;
-  padding: 11px 14px;
-  border: 1px solid rgba(255, 255, 255, .08);
-  border-radius: 9px;
-  /* 16px evita o zoom automático do iOS ao focar o campo. */
+  font: inherit;
+  /* ⚠️ 16px: abaixo disso o iOS dá zoom ao focar e o formulário sai da vista. */
   font-size: 16px;
+  min-height: 48px;
+  padding: 12px 14px;
+  background: #fff;
+  color: var(--tinta);
+  border: 0;
+  box-shadow: inset 0 0 0 1px var(--fio-esc);
+  /* O `:root` desta folha é `dark`: sem isto o navegador pinta o indicador do
+     `select` claro sobre campo branco. */
+  color-scheme: light;
+}
+.campo textarea { min-height: 92px; resize: vertical; line-height: 1.55; }
+.campo input::placeholder, .campo textarea::placeholder { color: var(--tinta-2); }
+.campo input:focus-visible, .campo select:focus-visible, .campo textarea:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--tinta);
   outline: none;
-  background: var(--campo);
-  color: var(--texto);
-  font-family: inherit;
-  transition: border-color .15s, box-shadow .15s;
 }
-.campo textarea { min-height: 88px; resize: vertical; line-height: 1.55; font-size: 15px; }
-
-/* ⚠️ A lista aberta do <select> é desenhada pelo sistema, não pela página.
-   Dar `background` ao select faz o Windows/Chrome pintar o popup de branco,
-   mas as <option> continuam herdando a cor clara do texto — branco no branco,
-   ilegível. As duas cores precisam ser declaradas na própria <option>.
-   `color-scheme: dark` no :root ajuda em parte dos sistemas, mas não em todos. */
-.campo select option {
-  background: var(--cartao);
-  color: var(--texto);
-}
-/* Fallback para qualquer <select> desta página, na mesma linha do que o
-   admin.css já fazia (`select option`, ~linha 2679) — a regra não veio junto
-   quando esta folha virou autônoma. */
-select option { background: var(--cartao); color: var(--texto); }
-.campo input::placeholder, .campo textarea::placeholder { color: var(--apagado-2); }
-.campo input:focus, .campo select:focus, .campo textarea:focus {
-  border-color: rgba(240, 176, 20, .5);
-  box-shadow: 0 0 0 3px rgba(240, 176, 20, .08);
-}
+/* ⚠️ A lista aberta do `<select>` é desenhada pelo sistema, não pela página:
+   as duas cores precisam ser declaradas na própria `<option>`, senão o
+   Windows/Chrome pinta o popup e o texto herda a cor errada. */
+.campo select option, select option { background: #fff; color: var(--tinta); }
 .campo-duplo { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.obrigatorio { color: var(--vermelho); }
+.obrigatorio { color: var(--risco-t); }
 
 @media (max-width: 460px) {
-  body { padding: 20px 12px 40px; }
-  .card { padding: 30px 22px 26px; border-radius: 14px; }
-  .logo-wrap img { height: 46px; }
+  body { padding: 18px 10px 36px; }
+  .ficha-cabeca { min-height: 66px; padding: 12px 26px 14px 18px; gap: 12px; }
+  .ficha-marca { height: 32px; }
+  .ficha-cod { font-size: 12.5px; }
+  .ficha-corpo { padding: 20px 16px 22px; }
   .campo-duplo { grid-template-columns: 1fr; gap: 0; }
+  /* Quatro paradas em 358px de placa: o tracking é o que sobra para cortar
+     antes de o rótulo quebrar em duas linhas. */
+  .parada { font-size: 9px; letter-spacing: .04em; }
+  .parada.aqui > span { padding: 3px 5px; }
+  .rodape { font-size: 10px; letter-spacing: .09em; }
 }

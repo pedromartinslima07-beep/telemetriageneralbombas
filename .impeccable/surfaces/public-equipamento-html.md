@@ -38,6 +38,18 @@ Recusa explícita: a pilha de caixas de peso igual (Registrar / Fotos / Dados /
 Histórico) da primeira versão — o layout que qualquer CRUD produz e que o Pedro
 apontou como "100% genérico" em 2026-08-18.
 
+## Mundo visual
+
+**"Chapa" em registro de operação** — o mesmo do painel do operador e do admin,
+adotado em 2026-09-08 a pedido do Pedro. A tela abre como **a etiqueta que
+acabou de ser escaneada**: faixa marinho com o wordmark, o código Crockford em
+Martian Mono e o estado, chanfrada a 45° no canto inferior direito como a
+etiqueta impressa; placa clara embaixo, que é onde se lê e se edita. Engrenagem
+marinho-sobre-marinho ao fundo, raio zero, nenhuma sombra projetada.
+
+⚠️ Isto **substituiu** o pino anterior (o cartão da tela de assinatura de
+contrato). O pino continua valendo para aquela tela, que não foi migrada.
+
 ## Momento memorável
 
 O **trilho do ciclo** (No prédio → Oficina → Pronta → Devolvida) com a posição
@@ -45,27 +57,27 @@ acesa em âmbar, que acende da esquerda até onde a bomba está ao carregar a
 página. É o único momento de movimento da tela, e é conteúdo real: sai das
 movimentações, não é enfeite.
 
+⚠️ E é a **única região amarela** da tela. O selo de estado, preenchido logo
+acima dele, dava dois campos amarelos disputando e anulava a parada acesa — o
+estado subiu para a faixa marinho, onde o amarelo é tinta e não campo.
+
 Segundo: **o tempo no estado** vira sinal operacional — 7 dias na oficina acende
-âmbar, 15 acende vermelho. A pergunta da bancada é "há quanto tempo isso está
-parado aqui".
+atenção, 15 acende crítico. A pergunta da bancada é "há quanto tempo isso está
+parado aqui". Sobre a placa clara isso é a família `-t`, nunca o sinal saturado.
 
 ## Restrições
 
-- **Padrão do cartão da assinatura de contrato** (`_shell` em
-  `src/routes/assinatura.routes.js`), pinado pelo Pedro em 2026-08-18: cartão
-  único de 520px, fio âmbar→azul, logo, `table.info`, botão âmbar full width,
-  rodapé fora. Folha autônoma — não carrega `admin.css`, como aquela tela.
-- A paleta é duplicada da tela de assinatura de propósito (as duas não
-  compartilham folha). Mudou uma, mude a outra.
-- O detector acusa desvios de DESIGN.md: ele compara com o sistema "Chapa" da
-  landing, e este cartão nunca esteve documentado lá. Falsos positivos.
+- Folha autônoma: **não carrega `admin.css`**, como a do operador. Os tokens do
+  Chapa são duplicados de propósito — mudou a paleta, mude nas oito folhas.
+- O detector fica limpo fora dos avisos de `font-size`, que o DESIGN.md registra
+  como estado das oito folhas.
 - Campos a 16px — abaixo disso o iOS dá zoom ao focar e o formulário sai da vista.
 - Alvos de toque ≥ 44px (mão com luva, tela suja).
 
 ## Em aberto
 
 - Nunca foi aberta em **aparelho real**, escaneando uma etiqueta **impressa**.
-- A etiqueta impressa (o PDF) continua genérica — texto em Arial, sem logo.
-  É o próximo alvo natural e depende das decisões desta tela.
+- ~~A etiqueta impressa continua genérica~~ — resolvido: o PDF ganhou faixa
+  marinho, wordmark e chanfro, e é dele que esta tela herda a forma da cabeça.
 - Fase 12B (bancada: diagnóstico, peças, orçamento) vai acrescentar ações a esta
   mesma tela; "Outras ações" é onde elas entram sem quebrar a hierarquia.

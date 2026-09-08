@@ -6726,6 +6726,89 @@ transbordo, e o código de 9 caracteres cabe na largura que sobra ao lado do QR.
 `?v=N`: nada a bumpar — a mudança no front foi só uma `<option>` do
 `admin.html`, que já sai com `Cache-Control: no-cache`.
 
+### 2026-09-08 (10ª rodada) · O papel comum vira quadrado, só QR e logo
+
+O formato `corte` (o "Papel comum" do seletor) era retangular, 95 × 52 mm, com
+o QR de 26 mm à esquerda e o código humano + a dica ocupando a metade direita.
+Agora é **quadrado, 65 × 65 mm, com faixa da marca e QR e mais nada**.
+
+O motivo é o uso: esta folha não é adesivo pré-cortado, é papel que alguém
+recorta à tesoura. Nesse caminho o que se quer é o **QR o maior possível na
+menor sobra de papel** — e metade da largura escrita ao lado era justamente o
+que impedia. O QR vai de 26 para **44 mm**, e ainda saem **12 por folha**
+(3 × 65 + 2 mm de medianiz = 199 dos 210; 4 × 65 + 3 × 2 = 266 dos 297) contra
+as 10 do desenho antigo.
+
+⚠️ **Nesta folha não há código humano impresso.** Nos outros formatos ele é o
+plano B do QR sujo; aqui o plano B é reimprimir — papel comum é barato, e a
+etiqueta de casa de máquinas que borrou não se salva digitando. `grande` e
+`pimacoA4263` seguem com o código, intactos.
+
+O logo foi um degrau acima do primeiro corte (47 → **53 × 10,5 mm**), e a faixa
+subiu junto (14 → **16 mm**): a cabeça é o logo mais `padCabeca` dos dois lados,
+e crescer só o logo o espremeria contra o corte da faixa. Em 56 mm de largura a
+engrenagem já encostava na diagonal do chanfro — 53 devolve a folga.
+
+Como isso entrou no serviço: o formato declara `layout: "quadrado"` e o
+`renderHTML` troca o template da célula (`celulaQuadrada` × `celulaPadrao`) em
+vez de esconder pedaços com CSS — o desenho não é o antigo com partes apagadas.
+
+Conferido renderizando a folha e olhando (`renderHTML` + screenshot): 12 células
+na grade, QR centralizado sob a faixa, chanfro e logo no lugar.
+
+`?v=N`: nada a bumpar — no front mudou só o texto de uma `<option>` do
+`admin.html`, que já sai com `Cache-Control: no-cache`.
+
+### 2026-09-08 (8ª rodada) · A ficha do equipamento entra no Chapa
+
+*"Essa é a tela que abre desses equipamentos, ela está com o visual antigo,
+traga para o visual da tela de operador."* A ficha `/e/:codigo` era a última
+tela interna fora do sistema: cartão `#111326` de 520px, fio âmbar→azul, radius
+16, sombra projetada e âmbar `#f0b014` — o padrão da tela de assinatura de
+contrato, pinado em 18/08, quando o Chapa ainda não cobria as telas internas.
+
+⚠️ **A tela de assinatura NÃO foi migrada junto** e segue naquele padrão. Ela é
+hoje a última superfície com identidade própria, junto do `app/public/app.css`.
+Dívida conhecida — e agora escrita no DESIGN.md, que passou a contar **sete**
+superfícies e **oito** folhas de tokens.
+
+**A forma da tela é a da etiqueta que acabou de ser escaneada.** Faixa marinho
+com o wordmark, o código Crockford em Martian Mono e o estado, chanfrada a 45°
+no canto inferior direito — o mesmo desenho que sai do
+`etiquetas-pdf.service.js` e está colado na bomba que a pessoa tem na frente.
+Abaixo, a placa clara: pela Regra da Superfície, aqui não há conteúdo marinho
+competindo ao lado, então é o arranjo do login e do painel do cliente — marinho
+é moldura, placa clara é onde se lê e se edita.
+
+⚠️ **O ESTADO SUBIU PARA A FAIXA, e o motivo é a Regra do Campo Único.** Como
+selo preenchido de amarelo logo acima do trilho, ele dava **duas regiões
+amarelas** na mesma tela, e a parada acesa do ciclo — que é a peça pela qual a
+tela existe — deixava de apontar para qualquer coisa. Sobre marinho o amarelo é
+tinta e não campo: o código continua âmbar, o estado sai em branco, e a única
+região amarela da tela voltou a ser onde a bomba está.
+
+⚠️ **A engrenagem tem que caber inteira na janela.** `html,body` têm
+`overflow-x: clip` (é o que impede a sobra de esticar a página), e o que passa
+da borda é ceifado numa reta vertical que nenhuma peça de metal tem — o mesmo
+defeito que o `operador.css` registra em 31/08. Ancorada no canto inferior
+direito, ela some pela metade **atrás** da placa, que é o gesto da landing.
+
+Outros acertos do passe: o trilho redesenhado com marcador quadrado (raio zero)
+e o caminho já andado em marinho; tempo no estado na família `-t` (`--atencao-t`
+/ `--risco-t`), porque sobre placa clara o sinal saturado reprova contraste;
+anel do botão de fio acima de `--fio-esc`, que ao lado do amarelo cheio não
+existia; corpo a 15px e alvos de 48px; e as cores soltas do bloco de erro
+trocadas por `color-mix` dos tokens. Detector limpo fora dos avisos de
+`font-size`, que o DESIGN.md registra como estado das oito folhas.
+
+Conferido renderizando as cinco telas com dados falsos (ficha em 900 e 390,
+etiqueta em branco, diálogo de orçamento sobre a ficha, e o 404 da etiqueta
+inexistente).
+
+`?v=N`: `equipamento.css` e `equipamento.js` 6 → 7. **`CACHE_NAME` do `sw.js`
+não precisou de bump**: o `?v=` muda a URL, e `/e/:codigo` já é network-first
+(cai no `isHtml`) com `Cache-Control: no-cache` pelo `_htmlNoCache`.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

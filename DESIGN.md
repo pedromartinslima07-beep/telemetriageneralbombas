@@ -211,14 +211,24 @@ components:
 
 # Design System: General Telemetria — Sistema "Chapa"
 
-> **Fronteira do documento — revisada em 2026-08-27.** Este arquivo descreve o
-> sistema **"Chapa"**, que hoje veste **seis superfícies**: a landing pública
+> **Fronteira do documento — revisada em 2026-09-08.** Este arquivo descreve o
+> sistema **"Chapa"**, que hoje veste **sete superfícies**: a landing pública
 > (`/`), a tela de login (`/login`), o **painel do cliente**
 > (`/cliente/painel`), o **painel admin** (`/admin/painel`), o **painel do
 > operador** (`/operador/painel`, desde 27/08/2026 — em registro de operação,
 > como o admin; ver [painel-operador.md](docs/modulos/painel-operador.md)) e as
 > **telas de entrada do app do técnico** (desde 01/09/2026 — só elas; ver a
-> ressalva abaixo).
+> ressalva abaixo) e a **ficha pública do equipamento** (`/e/:codigo`, desde
+> 08/09/2026 — a tela que a etiqueta QR abre; ver
+> [equipamentos.md](docs/modulos/equipamentos.md)).
+>
+> ⚠️ **A ficha do equipamento entrou substituindo um padrão concorrente**, não
+> preenchendo um vazio: ela seguia o cartão da **tela de assinatura de
+> contrato** (`_shell` em `src/routes/assinatura.routes.js`) — `#111326`,
+> radius 16, fio âmbar→azul, sombra projetada, âmbar `#f0b014`. Essa tela de
+> assinatura **continua fora**, e é hoje a última superfície do produto com
+> identidade própria, junto do `app/public/app.css`. Dívida conhecida, não
+> desenho.
 >
 > ⚠️ **O painel admin entrou em 20–21/08/2026, e isso INVERTE o que esta caixa
 > dizia.** Até então ela afirmava que o admin seguia num sistema separado
@@ -251,8 +261,8 @@ components:
 > As telas `cliente-*` do app **estão fora do escopo** — o Pedro confirmou que
 > não existem em uso.
 >
-> Mudar a paleta do Chapa hoje é mexer em **sete** folhas: `landing.css`,
-> `login.css`, `cliente.css`, `admin.css`, `operador.css`,
+> Mudar a paleta do Chapa hoje é mexer em **oito** folhas: `landing.css`,
+> `login.css`, `cliente.css`, `admin.css`, `operador.css`, `equipamento.css`,
 > `app/public/login.css` e `app/public/tecnico.css`.
 >
 > ⚠️ Os tokens dessa folha são escopados em `.screen-auth`, **não no `:root`** —
@@ -683,7 +693,7 @@ landing e o do painel do cliente, que estão em produção desde agosto.
 | Arranjo | Placa clara? | Por quê |
 |---|---|---|
 | Abre por cima (modal, drawer) | **sim** | o campo escurece atrás; nada disputa |
-| É o conteúdo, campo marinho em volta | **sim** | landing, login, painel do cliente, Aprovados |
+| É o conteúdo, campo marinho em volta | **sim** | landing, login, painel do cliente, Aprovados, ficha do equipamento |
 | Lado a lado com conteúdo marinho | **não** | duas metades competindo, e nenhuma vence |
 | Tabela / lista densa de varredura | **não** | é superfície de trabalho — a fila do turno |
 
@@ -965,8 +975,15 @@ congelado no momento que importa — o alerta crítico já aberto.
   a margem de 1em do navegador **não colapsa** ali e vira ar acidental — foram
   29px por item na fila do operador, invisíveis na leitura do CSS.
 - **Don't** tratar o `public/operador.css` como sistema estrangeiro: desde
-  27/08/2026 ele É este sistema, no mesmo registro de operação do admin. O que
-  continua fora é o `app/public/app.css` (app do técnico), e por escopo.
+  27/08/2026 ele É este sistema, no mesmo registro de operação do admin. O
+  mesmo vale para o `public/equipamento.css` desde 08/09/2026. O que continua
+  fora é o `app/public/app.css` (app do técnico) e o cartão da tela de
+  assinatura de contrato, e por escopo.
+- **Don't** deixar duas regiões amarelas preenchidas disputarem a mesma tela de
+  tarefa. A Regra do Campo Único não é só da landing: na ficha do equipamento o
+  selo de estado preenchido, logo acima do trilho do ciclo, anulava a parada
+  acesa — a peça que a tela existe para mostrar. O estado subiu para a faixa
+  marinho, onde o amarelo é tinta e não campo.
 - **Don't** fazer o painel do cliente voltar a carregar `admin.css`. Foi o
   defeito central que este redesenho desfez: toda evolução do painel de
   operação caía no painel do síndico sem revisão. Ver
