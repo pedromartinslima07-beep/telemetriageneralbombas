@@ -170,9 +170,19 @@ HTML em ~1,3 MB por folha.
 - **Correção de erro `H`** (~30% do código recuperável): etiqueta de casa de
   máquinas vive com graxa, respingo e sol. O código humano impresso ao lado é o
   plano B quando nem isso resolve.
-- **Dois formatos**: `corte` (padrão — papel comum com marcas de corte) e
-  `pimaco6180` (folha adesiva pré-cortada de 10, 84,7 × 50,8 mm, onde a margem
-  precisa bater com a picotagem e a borda tracejada é omitida).
+- **Três formatos** (`FORMATOS` em `src/services/etiquetas-pdf.service.js`):
+  `corte` (padrão — papel comum com marcas de corte), `pimaco6180`
+  (A4260, 10 por folha, 84,7 × 50,8 mm) e `pimacoA4263` (A4263 / Avery L7163,
+  14 por folha, 99 × 38,1 mm). Nas folhas adesivas a margem precisa bater com a
+  picotagem e a borda tracejada é omitida, pra não imprimir traço em cima do
+  adesivo.
+- ⚠️ **Etiqueta menor não é a mesma arte reduzida.** Na A4263 a altura cai de
+  50,8 para 38,1 mm: a faixa marinho e o QR do desenho original não cabem
+  juntos, e o CSS estourando empurraria o pé para fora do adesivo. Por isso cada
+  formato pode declarar um bloco `medidas` (altura da faixa, chanfro, tamanho do
+  logo e do QR, corpos de letra) que sobrepõe `MEDIDAS_PADRAO`. Ao criar formato
+  novo, **renderize a folha e olhe** — `renderHTML` é exportado justamente pra
+  screenshot sem gerar PDF.
 - ⚠️ **`PUBLIC_BASE_URL`**: sem essa env o serviço deriva a URL do request e
   recusa gerar o PDF se o host for local (`&forcar=1` ignora, só para teste).
   Etiqueta é física e permanente — um QR apontando para `localhost` vira lixo

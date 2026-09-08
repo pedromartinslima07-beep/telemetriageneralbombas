@@ -366,9 +366,15 @@ Detalhe e o porquê de cada uma em
   ficha revela endereço de cliente, e URL sequencial exporia o parque inteiro.
 - **Sem plugin de scanner** — a câmera nativa do Android abre a URL. Mexer no
   build Android competiria com o prazo de 31/08 da Play Store.
-- Folha A4 em dois formatos (papel comum com marcas de corte · Pimaco 6180).
+- Folha A4 em três formatos: papel comum com marcas de corte · Pimaco 6180 /
+  A4260 (10/folha) · Pimaco A4263 / Avery L7163 (14/folha, 99 × 38,1 mm — o
+  papel que a operação tem em mãos, entrou em 08/09/2026).
   ⚠️ O gerador **recusa** QR com host local — etiqueta é física e permanente.
   Depende de `PUBLIC_BASE_URL` nas envs.
+- ⚠️ **Formato novo não é a arte antiga reduzida**: cada entrada de `FORMATOS`
+  pode declarar `medidas` (faixa, chanfro, logo, QR, corpos de letra) por cima de
+  `MEDIDAS_PADRAO`. Sem isso o desenho estoura a etiqueta baixa e o pé sai fora
+  do adesivo. Renderize e olhe antes de dar o formato por pronto.
 - ⚠️ **A foto usa rota autenticada** (`fetch` + object URL), diferente da
   equivalente em `os_fotos`, que é pública: aqui o id é sequencial e o conteúdo
   é o interior da casa de máquinas de um cliente.

@@ -269,6 +269,9 @@ aliases:
   - 📋 **`PUBLIC_BASE_URL` nas envs do Railway** — sem ela o gerador de
     etiquetas recusa imprimir (deriva a URL do request e barra host local).
     É pré-requisito pra primeira folha real sair da impressora.
+  - ✅ **Formato Pimaco A4263 / Avery L7163** (99 × 38,1 mm, 14 por folha) —
+    2026-09-08. É o papel que a operação comprou; a folha baixa exigiu medidas
+    próprias por formato (a arte da A4260 não cabe em 38,1 mm de altura).
   - ✅ **12B (orçamento da bancada)** — 2026-08-18, migration 071. Botão
     "Solicitar orçamento" na ficha cria `orcamentos` com `origem = 'bancada'` e
     as peças como linhas; aprovar ou recusar no painel move a bomba de volta

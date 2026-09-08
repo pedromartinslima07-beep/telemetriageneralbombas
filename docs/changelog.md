@@ -10884,6 +10884,32 @@ o mapa.
 
 `?v=N`: `operador.css` 96 → 97.
 
+### 2026-09-08 (5ª rodada) · A folha A4263 entra na impressão de etiquetas
+
+O papel que a operação tem em mãos é **A4263 / Avery L7163** — 99 × 38,1 mm, 14
+por folha (2 × 7). Entrou como formato `pimacoA4263` no seletor de "Imprimir
+folha de etiquetas", ao lado de `corte` e `pimaco6180`.
+
+A grade sai das sobras da folha: 2 × 99 mm + 2,6 de medianiz deixa **4,7 mm** de
+cada lado; 7 × 38,1 mm deixa **15,15 mm** em cima e embaixo.
+
+⚠️ **Etiqueta menor não é a mesma arte reduzida.** Com 38,1 mm de altura (contra
+50,8 da A4260), a faixa marinho de 13 mm mais o QR de 26 mm já estouram sozinhos
+— e o que estoura empurra o pé pra **fora do adesivo**, que é onde a folha
+picotada não perdoa. Por isso `FORMATOS` ganhou um bloco opcional `medidas`
+(altura e folga da faixa, chanfro, logo, lado do QR, corpos de letra) que
+sobrepõe `MEDIDAS_PADRAO`. Os dois formatos antigos não declaram `medidas` e
+saem **pixel a pixel idênticos** ao que já saíam.
+
+Na A4263: faixa de 8,6 mm, chanfro de 6, logo 44 × 6,4, QR de 20 mm. O QR
+encolheu até o que a altura permite, e a largura que sobrou foi pro **código
+humano em 19pt** — numa etiqueta de 99 mm o desenho antigo deixava um terço
+vazio, e o código grande é justamente o plano B pra quando o QR sujar.
+
+Conferido renderizando as três folhas (`renderHTML` é exportado pra isso) e
+lendo a imagem: 14 etiquetas dentro da caixa, nada transbordando, e os formatos
+antigos intactos.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

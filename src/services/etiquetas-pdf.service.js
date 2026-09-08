@@ -71,9 +71,24 @@ function baseUrlValida(baseUrl) {
 }
 
 // Formatos de folha. `corte` é o padrão: papel comum, grade com marcas de
-// corte. `pimaco6180` casa com a folha adesiva pré-cortada de 10 etiquetas
-// (84,7 × 50,8 mm) — ali a margem precisa bater com a picotagem, e a borda
-// tracejada some pra não imprimir traço em cima do adesivo.
+// corte. Os demais casam com folhas adesivas pré-cortadas — ali a margem
+// precisa bater com a picotagem, e a borda tracejada some pra não imprimir
+// traço em cima do adesivo.
+//
+// `medidas` existe porque etiqueta menor não é a mesma arte reduzida: na
+// A4263 (38,1 mm de altura, contra 50,8 da A4260) a faixa marinho e o QR do
+// desenho original não cabem juntos, e deixar o CSS estourar empurraria o pé
+// pra fora do adesivo. Cada formato declara suas alturas e corpos de letra.
+const MEDIDAS_PADRAO = {
+  cabecaH: 13,      // altura da faixa marinho (mm)
+  chanfro: 9,       // corte de 45° no canto inferior direito da faixa (mm)
+  logoW: 54, logoH: 9.5,
+  padCabeca: 2,     // folga vertical dentro da faixa (mm)
+  qr: 26,           // lado do QR (mm)
+  codFs: 16,        // corpo do código humano (pt)
+  dicaFs: 6.5, peFs: 5.5,
+};
+
 const FORMATOS = {
   corte: {
     label: "Papel comum (com marcas de corte)",
@@ -90,6 +105,27 @@ const FORMATOS = {
     margemTopo: 21.5, margemLado: 19,
     gapX: 2.6, gapY: 0,
     borda: false,
+  },
+  // A4263 / Avery L7163: 99,0 × 38,1 mm, 14 por folha (2 × 7). As margens são
+  // as que sobram da folha depois da grade — 2×99 + 2,6 de medianiz deixa
+  // 4,7 mm de cada lado; 7×38,1 deixa 15,15 mm em cima e embaixo.
+  pimacoA4263: {
+    label: "Pimaco A4263 / Avery L7163 — 99 × 38,1 mm (14 por folha)",
+    cols: 2, rows: 7,
+    largura: 99, altura: 38.1,
+    margemTopo: 15.15, margemLado: 4.7,
+    gapX: 2.6, gapY: 0,
+    borda: false,
+    // Etiqueta baixa e larga: a faixa afina e o QR encolhe pro que a altura
+    // permite (20 mm ainda é folgado pro leitor de celular no nível H). A
+    // largura que sobra vai pro código humano, que é o plano B quando o QR
+    // sujar — por isso ele cresce em vez de a etiqueta ficar meio vazia.
+    medidas: {
+      cabecaH: 8.6, chanfro: 6, padCabeca: 1.2,
+      logoW: 44, logoH: 6.4,
+      qr: 20,
+      codFs: 19, dicaFs: 6.5, peFs: 5,
+    },
   },
 };
 
@@ -121,6 +157,7 @@ async function qrSvg(url) {
 
 function renderHTML(etiquetas, fmt) {
   const logo = logoBase64();
+  const m = { ...MEDIDAS_PADRAO, ...(fmt.medidas || {}) };
 
   const celula = (e) => `
     <div class="et">
@@ -190,18 +227,18 @@ function renderHTML(etiquetas, fmt) {
      assinatura da marca (ver DESIGN.md). */
   .cabeca {
     position: relative;
-    height: 13mm;
+    height: ${m.cabecaH}mm;
     flex: none;
     background: #0d2775;
-    padding: 2mm 4mm;
+    padding: ${m.padCabeca}mm 4mm;
     display: flex; align-items: center;
     /* Chanfro de 45° cortando o canto inferior direito — a assinatura da
        marca. 9mm para o corte ser lido como intenção, não como defeito de
        impressão. */
-    clip-path: polygon(0 0, 100% 0, 100% 30%, calc(100% - 9mm) 100%, 0 100%);
+    clip-path: polygon(0 0, 100% 0, 100% 30%, calc(100% - ${m.chanfro}mm) 100%, 0 100%);
   }
   .logo {
-    width: 54mm; height: 9.5mm;
+    width: ${m.logoW}mm; height: ${m.logoH}mm;
     background-image: url("${logo}");
     background-repeat: no-repeat;
     background-position: left center;
@@ -217,12 +254,12 @@ function renderHTML(etiquetas, fmt) {
     padding: 2.5mm 4mm 1mm;
     min-height: 0;
   }
-  .qr { width: 26mm; height: 26mm; flex: none; }
+  .qr { width: ${m.qr}mm; height: ${m.qr}mm; flex: none; }
   .qr svg { width: 100%; height: 100%; display: block; }
   .txt { min-width: 0; }
   .cod {
     font-family: "Consolas", "Courier New", monospace;
-    font-size: 16pt; font-weight: 700; letter-spacing: .03em;
+    font-size: ${m.codFs}pt; font-weight: 700; letter-spacing: .03em;
     color: #061033;
     padding-bottom: 1.2mm;
     /* O fio amarelo é o acento da marca no único lugar onde não disputa com a
@@ -231,12 +268,12 @@ function renderHTML(etiquetas, fmt) {
     display: inline-block;
   }
   .dica {
-    font-size: 6.5pt; color: #4a5578; line-height: 1.4; margin-top: 1.6mm;
+    font-size: ${m.dicaFs}pt; color: #4a5578; line-height: 1.4; margin-top: 1.6mm;
   }
   .pe {
     flex: none;
     padding: 1mm 4mm 2mm;
-    font-size: 5.5pt; letter-spacing: .04em; color: #8a93ad;
+    font-size: ${m.peFs}pt; letter-spacing: .04em; color: #8a93ad;
   }
 </style></head>
 <body>${folhas.join("")}</body></html>`;
