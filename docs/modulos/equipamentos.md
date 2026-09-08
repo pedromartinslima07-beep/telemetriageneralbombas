@@ -359,6 +359,19 @@ de orçamento (`.dialogo`, que abre por cima). As duas telas nunca aparecem
 juntas, e a troca de superfície diz *"agora é aqui, você vai escrever"*.
 Converter é **remapear token no contêiner**, não reescrever seletor.
 
+**Simulador do ciclo** — `node scripts/simular-equipamento.js` sobe a ficha
+REAL (`public/equipamento.*`) contra um backend em memória, em
+`http://localhost:4700`. Serve para percorrer o caminho inteiro clicando
+(etiqueta em branco → retirada → oficina → orçamento → peça → conserto →
+pronta → devolvida) e ver a tela mudar a cada passo, sem login e sem tocar no
+banco. `/reiniciar` volta a etiqueta ao começo.
+⚠️ **Não é teste**: o `STATUS_POR_TIPO` de lá é cópia do desta rota e não
+acusa nada quando a rota de verdade muda — só continua mentindo do jeito
+antigo. Quem testa a rota é `scripts/testes/`.
+⚠️ O código da etiqueta simulada precisa ser **Crockford válido** (sem I, L, O,
+U): o front normaliza I→1 e O→0 antes de chamar a API, e um código com essas
+letras chega transformado e cai em "Etiqueta não encontrada".
+
 ⚠️ **A marca é o `logo-topo.png`, nunca o `login-logo.png`.** O lockup completo
 traz "ENGENHARIA DA MANUTENÇÃO" embaixo, que na altura da faixa vira borrão
 cinza — a mesma nota que já estava no `cliente.css`, no `landing.css` e no

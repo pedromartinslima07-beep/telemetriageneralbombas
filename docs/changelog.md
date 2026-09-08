@@ -6913,6 +6913,24 @@ que faltavam e deixavam a faixa saltar enquanto a imagem carregava.
 
 `?v=N`: `equipamento.css` e `equipamento.js` 9 → 10.
 
+### 2026-09-08 (12ª rodada) · Simulador do ciclo do equipamento
+
+`node scripts/simular-equipamento.js` sobe a ficha REAL de `public/` contra um
+backend em memória, na 4700. Dá para percorrer o caminho inteiro da bomba
+clicando — etiqueta em branco, retirada, oficina, orçamento, peça, conserto,
+pronta, devolvida — sem login, sem banco e sem risco: fechou o processo, sumiu
+o estado. É o que nenhum screenshot mostra, que é como a tela se comporta
+quando o estado avança.
+
+⚠️ **Não é teste automatizado.** O `STATUS_POR_TIPO` do simulador é cópia do de
+`equipamentos.routes.js`; mudou a rota de verdade, ele não acusa nada — só
+continua mentindo do jeito antigo. Quem exercita rota é `scripts/testes/`.
+
+⚠️ **O código da etiqueta simulada tem que ser Crockford válido.** O primeiro
+era `SIM1BOMB` e a tela devolvia "Etiqueta não encontrada": o front normaliza
+I/L → 1 e O → 0 antes de chamar a API (é o que salva quem digita o código de
+uma etiqueta suja), então ele chegava como `S1M1B0MB`. Virou `S1MB0MBA`.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em
