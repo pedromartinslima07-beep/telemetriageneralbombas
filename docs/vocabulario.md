@@ -117,9 +117,18 @@ significa — texto mais claro que diz coisa errada é pior que sigla.
    *"Rotor gasto e selo mecânico vazando"* e *"Não liga. Zelador diz que parou
    depois da chuva de sábado"* eram histórias inteiras dentro do campo: quem
    lê precisa primeiro entender que aquilo é exemplo, depois descartar, depois
-   escrever o seu. **"Peça ou serviço"** e **"Não liga."** fazem o mesmo
-   trabalho em uma fração da leitura. Exemplo específico só se paga quando o
-   formato não é óbvio pelo rótulo — e quando é uma palavra, não uma cena.
+   escrever o seu.
+
+   E o passo seguinte, que o Pedro cobrou na mesma conversa (*"por que tem
+   'não liga'?"*): **encurtar o exemplo não é o conserto, é o meio do
+   caminho.** Placeholder só se paga quando o rótulo deixa o FORMATO em
+   aberto. "Identificação" não diz se quer apelido ou código — *"Bomba 2"*
+   resolve; "Onde fica no prédio" não diz se quer o cômodo ou o endereço —
+   *"Casa de máquinas"* resolve; e o campo de peça do orçamento não tem rótulo
+   nenhum, então *"Peça ou serviço"* **é** o rótulo. Já "Qual é o problema" é
+   pergunta direta com resposta livre: não há formato a ensinar, e o exemplo
+   ainda arrisca **induzir a resposta** de quem está com pressa. Esse ficou
+   vazio.
 6. **Subtítulo é para o que não se deduz.** *"Preencha o mínimo agora, com a
    bomba na mão"* descreve o que a pessoa já está fazendo — foi por isso que
    ela escaneou. O que ela não sabe é que pode salvar incompleto, e é só isso

@@ -6948,8 +6948,13 @@ ORC-XXXX criado como rascunho."*
 *"Rotor gasto e selo mecânico vazando"* e *"Não liga. Zelador diz que parou
 depois da chuva de sábado"* eram cenas inteiras dentro do campo: quem lê
 precisa entender que aquilo é exemplo, descartar, e então escrever o seu.
-Viraram **"Peça ou serviço"**, campo vazio e **"Não liga."** — a metade do
-trabalho pela décima parte da leitura.
+Viraram **"Peça ou serviço"**, campo vazio e — depois de o Pedro cobrar o passo
+que faltava (*"por que tem 'não liga'?"*) — **campo vazio também em "Qual é o
+problema"**. Encurtar o exemplo era o meio do caminho: placeholder só se paga
+quando o rótulo deixa o formato em aberto ("Identificação" não diz se quer
+apelido ou código; o campo de peça não tem rótulo nenhum, então o placeholder
+**é** o rótulo). Pergunta direta com resposta livre não tem formato a ensinar,
+e o exemplo ainda arrisca induzir a resposta de quem está com pressa.
 
 Na mesma passada: *"Nenhuma foto ainda. Vale a placa de identificação e o
 ponto do defeito"* perdeu a segunda frase, e o subtítulo da etiqueta em branco

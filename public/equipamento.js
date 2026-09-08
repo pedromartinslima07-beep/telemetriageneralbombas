@@ -273,7 +273,7 @@
 
         <div class="campo">
           <label for="fDefeito">Qual é o problema</label>
-          <textarea id="fDefeito" placeholder="Não liga."></textarea>
+          <textarea id="fDefeito"></textarea>
         </div>
 
         <div class="campo-duplo">
