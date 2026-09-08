@@ -396,6 +396,9 @@ body{
    36 em 68 já tinha devolvido a proporção), mas com a barra igualada não há
    mais motivo para o logo ser um tamanho só desta tela. */
 .marca img{height:40px;width:auto;display:block}
+/* `<picture>` é inline por padrão e criaria um degrau de linha-base dentro do
+   flex da marca; quem desenha continua sendo a `img` de dentro. */
+.marca picture{display:flex}
 /* As duas formas do rótulo de navegação — ver o bloco de celular. */
 .nav-curto{display:none}
 .nav-longo{display:inline}
@@ -1474,41 +1477,14 @@ body{
   background:transparent;border:0;
 }
 .tec+.tec{border-top:1px solid var(--rasgo);box-shadow:inset 0 1px 0 var(--luz)}
-/* ⚠️ CHAPA DE DUAS CAMADAS, como o `.conta` da barra. Os dois são o mesmo
-   objeto — um selo quadrado e chanfrado com iniciais — e estavam construídos
-   diferente: o da barra com anel, este chapado. Dentro de uma tela só, isso
-   é a mesma peça com dois acabamentos.
-   E o tipo virou MONO: iniciais são código, não nome, e mono é o que este
-   sistema usa para código e medição. */
-.tec-av{
-  position:relative;isolation:isolate;
-  width:30px;height:30px;flex-shrink:0;background:var(--fio);
-  display:grid;place-items:center;
-  font-family:var(--mono);font-size:12px;font-weight:700;letter-spacing:.02em;
-  color:var(--text-dim);
-  --ch:6px;clip-path:var(--corte);
-}
-.tec-av::before{
-  content:"";position:absolute;inset:1px;z-index:-1;
-  clip-path:var(--corte);background:var(--mar-600);
-}
-/* ⚠️ O ESTADO VAI NO ANEL, NÃO NO PREENCHIMENTO — e isso é a Regra do
-   Amarelo Cego valendo para o verde. A primeira versão desta linha pintava
-   o selo de `--ok` a 46% e escrevia as iniciais em `--ok` por cima: verde
-   sobre verde, medido em 3,20:1, reprovado como texto e ainda por cima a
-   10,5px. Preenchimento de sinal saturado exige tinta marinho por cima
-   (Regra do Preenchimento Cru) — mas selo verde CHEIO em dois dos quatro
-   técnicos joga um segundo sinal forte numa tela cuja cor de ação é o
-   amarelo.
-   A chapa de duas camadas resolve os dois de uma vez: o ANEL é o fundo do
-   elemento, então basta ele mudar de cor. Aresta verde de 1px, a tinta
-   continua `--text-dim` sobre `--mar-600` (6,6:1), e o realce fica do
-   tamanho que a informação merece — quem lê "DISPONÍVEL" já sabe.
-
-   ⚠️ O SELO SAIU DO TRILHO em 31/08 e levou o anel verde junto; o que está
-   acima vale hoje só para o `.tec-av` do diálogo de despacho, que ainda não
-   passou pelo corte. Com o selo fora, a disponibilidade não tem mais dois
-   lugares para morar — mora na tinta do `.tec-est`, e só. */
+/* ⚠️ O `.tec-av` SAIU DA FOLHA em 08/09. O selo de iniciais tinha deixado o
+   trilho em 31/08 e sobrevivia só no diálogo de despacho, com a nota de que
+   ele "ainda não passou pelo corte". Passou: o argumento de lá vale igual
+   aqui — o selo não identifica ninguém que o operador já não reconheça pelo
+   nome, porque é a equipe dele. Com a última chamada fora do `dlgDespacho`,
+   estas 12 linhas viraram CSS morto e foram embora.
+   O anel verde (estado no fio, nunca no preenchimento) continua registrado em
+   DESIGN.md — a peça é que não existe mais nesta folha. */
 /* ⚠️ O ELLIPSIS TROCOU DE LINHA. Era o estado que truncava em 22ch, porque a
    nota de GPS disputava a largura à direita; hoje o estado tem a linha
    inteira e frase curta, e quem estoura é NOME de técnico. O corte foi para
@@ -1841,8 +1817,62 @@ body.com-ficha{overflow:hidden}
   border-top:1px solid var(--fio-esc);padding:14px 22px;background:var(--chapa-cl);
   display:flex;align-items:center;gap:11px;flex-wrap:wrap;
 }
-.ficha-pe p{margin:0;font-size:12px;color:var(--tinta-2);flex:1;min-width:180px}
+/* ⚠️ 12px ERA O MENOR TIPO DO DIÁLOGO, e ele é uma FRASE de duas linhas — o
+   pior lugar possível para o piso da folha. A calibragem de 28/08 ("quem
+   opera aqui tem pouca familiaridade com computador") nunca chegou aqui:
+   vale para os quatro diálogos, é a mesma nota de rodapé nos quatro. */
+.ficha-pe p{margin:0;font-size:13.5px;line-height:1.45;color:var(--tinta-2);flex:1;min-width:180px}
 .ficha-pe b{color:var(--tinta)}
+/* ⚠️ `display:flex` GANHA DO `[hidden]`. O padrão do navegador é
+   `[hidden]{display:none}`, mas ele tem a especificidade de um seletor de
+   atributo e perde para qualquer regra de classe que declare `display` — e
+   esta declara. Sem esta linha o rodapé e a barra de confirmação apareciam os
+   DOIS, um em cima do outro, com o rodapé ainda oferecendo "Cancelar". */
+.ficha-pe[hidden]{display:none}
+/* ═══ A BARRA DE CONFIRMAÇÃO ════════════════════════════════════════
+   Troca o `.ficha-pe` quando uma ação não tem desfazer honesto (ver a nota da
+   regra no `operador.js`). Ocupa a mesma caixa do rodapé, no mesmo x, com a
+   mesma construção — o que muda é o MATERIAL: `--chapa-es` contra o
+   `--chapa-cl` do rodapé, meio degrau que diz "a peça de baixo trocou de
+   assunto" sem inventar cor de alarme. Vermelho aqui seria mentira: despachar
+   não é destruir, é comprometer o relógio.
+   ⚠️ SEM COR DE ESTADO E SEM FIO COLORIDO — a Regra do Campo Único vale
+   dentro do diálogo também: o único preenchimento âmbar da peça é o botão que
+   grava, e é ele que tem de apontar. */
+.confirma{
+  border-top:1px solid var(--fio-esc);padding:14px 22px;background:var(--chapa-es);
+  display:flex;align-items:center;gap:11px;flex-wrap:wrap;
+  animation:sobe .18s var(--saida);
+}
+/* A pergunta é a maior leitura do pé, e precisa ser: ela existe para ser lida
+   por quem NÃO estava lendo — é o clique errado que a fez aparecer. */
+.confirma-txt{
+  margin:0;flex:1;min-width:200px;
+  font-size:17px;font-weight:700;line-height:1.3;letter-spacing:-.015em;
+  color:var(--tinta);
+}
+.confirma-txt b{font-weight:800}
+.confirma-txt span{
+  display:block;margin-top:3px;
+  font-size:13.5px;font-weight:400;line-height:1.4;color:var(--tinta-2);
+  letter-spacing:0;
+}
+@media (prefers-reduced-motion:reduce){
+  .confirma{animation:none}
+}
+/* ⚠️ A LINHA ESCOLHIDA FICA MARCADA, e é metade do valor da confirmação: o
+   erro que ela existe para pegar é ter acertado o VIZINHO, então a pergunta
+   no pé e a linha lá em cima precisam se apontar. Marca por material e por
+   fio — nada de `opacity` nas outras (a regra de 31/08 vale aqui também: a
+   lista continua legível inteira enquanto se confere).
+   ⚠️ Marca em DOIS canais do vocabulário da casa — o degrau de material
+   (`--chapa`, um passo abaixo do hover) e o chip PREENCHIDO (Regra do Selo:
+   preenchido quando pede ação). Nada de barra colorida na borda: fio de cor
+   acima de 1px em item de lista não é deste sistema, e o chip cheio já é o
+   jeito desta folha de dizer "é este". */
+.cand[data-sel]{background:var(--chapa)}
+.cand[data-sel] .cand-chip{background:var(--amarelo);color:var(--mar-900);box-shadow:none}
+
 /* O botão de fio dentro da placa clara: mesma chapa de duas camadas, com o
    anel e a placa do campo claro. O hover continua invertendo para amarelo. */
 .ficha .btn-fio{background:var(--fio-esc);color:var(--tinta)}
@@ -1855,12 +1885,19 @@ body.com-ficha{overflow:hidden}
 /* Despacho: o mapa é a ferramenta de UMA decisão — quem vai. Aberto o
    turno inteiro ele é papel de parede; aberto aqui, é a única coisa que
    responde a pergunta, porque a resposta é geográfica. */
-.ficha-corpo{display:grid;grid-template-columns:1fr 296px}
+/* ⚠️ O MAPA TOMA A ALTURA DO CORPO — ele era `height:326px` fixo ao lado de
+   uma coluna que crescia com a equipe, e o que sobrava era CHAPA VAZIA.
+   Medido em produção com 6 técnicos, a 987×765: 197px de vão branco embaixo
+   do mapa, 38% da altura do corpo, e a maior região contínua do diálogo.
+   A peça que responde "quem pode ir" era a que estava sendo espremida por um
+   número escrito à mão. Agora ela estica, e quem limita a altura é a coluna
+   (que rola por dentro), não uma constante. */
+.ficha-corpo{display:grid;grid-template-columns:1fr 356px;align-items:stretch;min-height:0}
 /* ⚠️ O MAPA CONTINUA ESCURO dentro da placa clara, e isso é regra do sistema,
    não exceção: instrumento é placa marinho (DESIGN.md, `instrumento`). Ele
    fica embutido na chapa como um visor — com o fio escuro em volta para a
    junta ficar usinada, não colada. */
-.mapa{height:326px;background:#0d1325;box-shadow:inset 0 0 0 1px var(--fio-esc)}
+.mapa{min-height:340px;background:#0d1325;box-shadow:inset 0 0 0 1px var(--fio-esc)}
 .leaflet-container{background:#0d1325;font-family:inherit}
 /* O crédito do OSM é obrigatório e vinha na caixa branca padrão do Leaflet,
    acesa no canto de um mapa escuro. Aqui ele é etiqueta gravada, como toda
@@ -2140,59 +2177,100 @@ body.com-ficha{overflow:hidden}
   background-size:200% 100%;
   animation:cand-indo 1.1s linear infinite;
 }
-.cand[data-ocupado] .cand-est,.cand[data-ocupado] .cand-nome{color:var(--mar-900)}
+.cand[data-ocupado] .cand-est,.cand[data-ocupado] .cand-nome,
+.cand[data-ocupado] .cand-sp{color:var(--mar-900)}
+/* O chip vira tinta sobre a listra: anel de fio sobre âmbar some, e o rótulo
+   precisa continuar legível enquanto o PATCH corre. */
+.cand[data-ocupado] .cand-chip{
+  background:transparent;color:var(--mar-900);box-shadow:inset 0 0 0 1px rgba(6,16,51,.34);
+}
 @keyframes cand-indo{from{background-position:0 0}to{background-position:-28px 0}}
 @media (prefers-reduced-motion:reduce){
   .cand[data-ocupado]{animation:none}
 }
+/* ⚠️ A COLUNA ROLA POR DENTRO, o diálogo não. É a regra que o `.trilho` já
+   segue desde 28/08 ("rola o `.trilho-listas`, nunca o `.trilho`") e que aqui
+   faltava: com 11 técnicos ativos em produção, rolar a equipe levava o MAPA
+   para fora da tela — e o mapa é a única coisa que responde a pergunta. */
 .escolha{
   border-left:1px solid var(--fio-esc);background:var(--chapa-cl);
-  padding:16px 15px;display:flex;flex-direction:column;gap:7px;
+  padding:16px 15px;display:flex;flex-direction:column;gap:9px;
+  min-height:0;max-height:min(58svh,540px);
 }
 .escolha h3{
-  margin:0 0 4px;font-family:var(--mono);
+  margin:0;font-family:var(--mono);
   font-size:12px;letter-spacing:.13em;color:var(--tinta-2);
-  text-transform:uppercase;font-weight:500;
+  text-transform:uppercase;font-weight:500;flex-shrink:0;
 }
+/* ⚠️ SEM FIO, SÓ CHANFRO. `border` + `clip-path` está proibido desde 27/08
+   (o fio some justo nos dois cantos cortados e lê como defeito), e o `.cand`
+   era a última peça desta folha ainda construída assim — seis vezes por
+   diálogo. O branco sobre `--chapa-cl` já é o degrau; o corte faz o resto. */
+.cand-grupo{
+  background:#fff;overflow:auto;min-height:0;
+  --ch:12px;clip-path:var(--corte);
+  scrollbar-color:rgba(6,16,51,.28) transparent;
+}
+/* A linha perdeu a caixa: quem separa é o corte gravado, na versão de campo
+   claro — o sulco em `--fio-esc` com a aresta branca pegando luz logo abaixo.
+   Mesmo mecanismo do `.tec + .tec` do trilho, invertido para a placa. */
 .cand{
-  display:flex;align-items:center;gap:10px;padding:9px 10px;width:100%;
-  background:#fff;border:1px solid var(--fio-esc);cursor:pointer;
+  display:flex;align-items:center;gap:12px;padding:13px 14px;width:100%;
+  background:transparent;border:0;cursor:pointer;
   text-align:left;font:inherit;color:var(--tinta);
-  --ch:8px;clip-path:var(--corte);
-  transition:border-color .14s var(--saida),background .14s var(--saida);
+  transition:background .14s var(--saida);
 }
-.cand:hover{background:var(--chapa);border-color:var(--tinta-2)}
-.cand[data-liv="0"]{opacity:.5}
-/* O nome não quebra: "Carlos / Ferreira" em duas linhas por causa da coluna
-   da direita fazia a lista inteira dançar. */
-.cand-quem{min-width:0;flex:1}
+.cand+.cand{border-top:1px solid var(--fio-esc);box-shadow:inset 0 1px 0 #fff}
+.cand:hover{background:var(--chapa-cl)}
+/* ⚠️ O ANEL DE FOCO PRECISA DESTA LINHA, e o motivo já estava escrito na
+   folha: "o anel de foco inset é engolido por qualquer peça que já tenha um
+   inset próprio". A aresta de luz do corte gravado logo acima é um
+   `box-shadow:inset`, tem a MESMA especificidade do `.ficha :focus-visible`
+   e vem depois — então ela ganhava, e a linha ficava sem foco visível para
+   quem navega por teclado. Medido: `inset 0 1px 0 #fff` no lugar do anel. */
+.ficha .cand:focus-visible{box-shadow:inset 0 0 0 2px var(--tinta)}
+/* ⚠️ NOME DE GENTE NÃO TRUNCA — ele QUEBRA. Medido em produção: 4 dos 6
+   nomes cortados, entre eles "Carlos Eduardo Basilio da Silva Junior" saindo
+   como "Carlos Eduardo …". É a mesma regra do rótulo do tanque e do estado
+   logo abaixo, no caso em que ela pesa mais: despacha-se ligando para uma
+   PESSOA, e o nome é a única coisa da linha que não dá para adivinhar.
+   O argumento antigo ("a lista dançava") morreu com a coluna da direita: o
+   chip tem largura fixa e não disputa mais a medida com o nome. */
+.cand-quem{min-width:0;flex:1;display:block}
 .cand-nome{
-  font-size:14px;font-weight:700;line-height:1.25;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  display:block;font-size:15px;font-weight:700;line-height:1.25;
+  letter-spacing:-.012em;overflow-wrap:anywhere;
 }
-/* Quem está indisponível não ganha nota de GPS (ver `dlgDespacho`): a linha
-   cabe numa só, e a posição de quem não pode ir não decide nada. */
-/* ⚠️ QUEBRA, não trunca. Com a etiqueta a 10,5px "DISPONÍVEL · NO MAPA" não
-   cabe mais numa linha desta coluna, e com `ellipsis` ela virava
-   "DISPONÍVEL · N…" — cortando exatamente a metade que diz se dá para achar
-   o técnico. Mesmo argumento do rótulo do tanque: cortado, vira adivinhação
-   no meio de uma decisão. O cartão tem altura para as duas linhas. */
+/* ⚠️ AS PALAVRAS SÃO AS DO TRILHO, e o mono grande com a contagem saiu junto:
+   a mesma pessoa era descrita de dois jeitos na mesma tela. "Livre agora"
+   ganha a tinta de repouso da placa clara (`--normal-t`, 6,8:1); carga é
+   medida e fica em `--tinta`; "Ocupado" recua para `--tinta-2`. Recuo por
+   TINTA, nunca por `opacity` — a regra de 31/08. */
 .cand-est{
-  font-family:var(--fonte);font-size:13px;line-height:1.35;font-weight:600;
-  letter-spacing:0;color:var(--tinta-2);margin-top:2px;
-  white-space:normal;overflow:visible;text-overflow:clip;
+  display:block;font-family:var(--fonte);font-size:13.5px;line-height:1.4;
+  font-weight:600;letter-spacing:0;color:var(--tinta-2);margin-top:3px;
 }
-.cand[data-liv="1"] .cand-est{color:var(--normal-t);font-weight:700}
-/* ⚠️ A hierarquia estava invertida. O comp tinha DISTÂNCIA aqui ("2,1 km"),
-   que é medição e justifica o mono grande; a API não devolve distância, então
-   o slot exibia "no mapa" — texto comum em tipo de medição, no lugar de
-   destaque. Quem decide, hoje, é a CARGA do técnico: ela sobe, e a presença
-   no mapa desce a etiqueta. */
-.cand-eta{margin-left:auto;text-align:right;flex-shrink:0;font-family:var(--mono);font-feature-settings:"tnum"}
-.cand-eta b{display:block;font-size:.95rem;color:var(--tinta);font-weight:700}
-.cand-eta span{
-  display:block;font-size:12px;letter-spacing:.08em;color:var(--tinta-2);
-  text-transform:uppercase;margin-top:2px;
+.cand-est[data-est="livre"]{color:var(--normal-t);font-weight:700}
+.cand-est[data-est="carga"]{color:var(--tinta)}
+.cand-sp{color:var(--tinta-2);font-weight:600}
+/* ⚠️ O CHIP É SEMPRE VISÍVEL E DE FIO EM REPOUSO — as duas metades da regra
+   de Aprovados (31/08). Sempre visível porque quem não sabe que devia passar
+   o mouse não descobre um alvo que só aparece quando ele chega, e esta tela é
+   calibrada para pouca familiaridade com computador. De fio porque seis chips
+   âmbar acesos viram uma coluna de âmbar que não aponta para nada.
+   `<span>`, não `<button>`: a linha inteira já é o botão, e botão dentro de
+   botão desmonta a árvore. */
+.cand-chip{
+  margin-left:auto;flex-shrink:0;
+  font-family:var(--mono);font-size:12px;font-weight:700;
+  letter-spacing:.05em;text-transform:uppercase;
+  padding:7px 9px;color:var(--tinta-2);
+  box-shadow:inset 0 0 0 1px var(--fio-esc);
+  --ch-p:4px;clip-path:var(--corte-p);
+  transition:background .14s var(--saida),color .14s var(--saida);
+}
+.cand:hover .cand-chip,.cand:focus-visible .cand-chip{
+  background:var(--amarelo);color:var(--mar-900);box-shadow:none;
 }
 
 /* Ficha do chamado: o que "Abrir ficha" faz. A linha do tempo completa e a
@@ -2358,7 +2436,13 @@ body.com-ficha{overflow:hidden}
   .barra-acoes{padding-right:13px}
   .barra-in{min-width:0}
   .marca{min-width:0}
-  .marca img{height:32px}
+  /* ⚠️ ALTURA FIXA, E ACABARAM OS DEGRAUS. Aqui a `img` já é o
+     `logo-marca.png` (o `<picture>` troca a fonte a 760px), e a marca sozinha
+     mede ~53px de largura contra os 138 do wordmark — 85px devolvidos à
+     barra, que é mais do que a sobreposição em qualquer largura de celular
+     real. Os dois degraus que existiam abaixo (27px a 420, 22px a 385)
+     existiam SÓ para espremer o wordmark, e saíram com ele. */
+  .marca img{height:34px}
   .marca span{display:none}
   .barra-acoes{gap:8px}
   /* ⚠️ Era `display:none`. O chamado que chega por telefone é justamente o
@@ -2380,6 +2464,18 @@ body.com-ficha{overflow:hidden}
      `<span>`, não dois links — leitor de tela lê só a visível. */
   .barra-nav{gap:11px}
   .barra-nav a,.barra-nav button{font-size:14px;padding:12px 0;min-height:44px;display:flex;align-items:center}
+  /* ⚠️ O ALVO CRESCE SEM O LAYOUT CRESCER. A altura já estava resolvida
+     (`min-height:44px`, medido 46), mas a LARGURA é a do texto — e "Ajuda"
+     mede 38px, abaixo do piso de 44 desta folha. `padding-inline` resolveria
+     e seria a saída errada aqui: ele empurra a nav mais 24px para a direita,
+     e esta barra já está com o wordmark por cima das ações no celular (ver a
+     conta grande lá embaixo). Um `::before` absoluto alarga a área de clique
+     4px de cada lado sem ocupar UM pixel de layout — sobram 3px dos 11 de
+     `gap`, então dois vizinhos nunca se tocam.
+     O sublinhado continua no `::after`, que pinta depois e por cima. */
+  .barra-nav a::before,.barra-nav button::before{
+    content:"";position:absolute;top:0;bottom:0;left:-4px;right:-4px;
+  }
   .nav-longo{display:none}
   .nav-curto{display:inline}
   /* ⚠️ O NOME DE QUEM ESTÁ LOGADO SAI DA BARRA NO CELULAR (03/09/2026), e é o
@@ -2473,10 +2569,29 @@ body.com-ficha{overflow:hidden}
     width:100%;height:100%;max-height:100%;--ch:0px;clip-path:none;
     display:flex;flex-direction:column;
   }
-  .ficha-pe{margin-top:auto}
-  .ficha-corpo{grid-template-columns:1fr}
-  .mapa{height:206px}
-  .escolha{border-left:0;border-top:1px solid var(--fio-fraco)}
+  /* A confirmação herda a cola no pé: com o `.ficha-pe` `hidden`, é ela que
+     precisa cair na altura do polegar de quem atende de pé. */
+  .ficha-pe,.confirma{margin-top:auto}
+  .confirma-txt{min-width:100%}
+  /* ⚠️ O `min-height:0` DA MESA PRECISA SER DESFEITO AQUI, e o sintoma é
+     silencioso. Empilhada, a `.ficha` é uma coluna flex de altura 100% e o
+     corpo é um item dela: com `min-height:0` ele encolhe abaixo do conteúdo,
+     a lista transborda — e o `clip-path` do grupo APAGA o que sobrou, sem
+     barra de rolagem e sem aviso. Medido a 390px: o grupo pedia 424px e
+     recebia 354. Aqui quem rola é a ficha inteira, então cada peça toma a
+     altura que tem. */
+  .ficha-corpo{grid-template-columns:1fr;min-height:auto}
+  .mapa{min-height:206px;max-height:206px}
+  /* Sem teto e sem rolagem própria: duas áreas de rolagem aninhadas num
+     celular é a lista presa dentro da página. */
+  .escolha{
+    border-left:0;border-top:1px solid var(--fio-fraco);
+    max-height:none;min-height:auto;
+  }
+  .cand-grupo{overflow:visible;min-height:auto}
+  /* Largura cheia: sobram ~250px para o nome ao lado do chip, então ele fica
+     onde está. O que muda é só o respiro — a linha vai a 44px folgado. */
+  .cand{padding:14px}
   .ficha-pane{grid-template-columns:1fr;gap:18px;padding:16px}
   .form{grid-template-columns:1fr;padding:16px 16px 4px}
   .calmo{padding:52px 20px 36px}
@@ -2882,6 +2997,26 @@ body.sem-trilho #tela{width:100%}
    Regra do Campo Único recusa. Abaixo de 560 a frase já toma a linha
    inteira sozinha, e aí o botão de largura cheia é o alvo de toque certo. */
 @media (max-width:560px){
+  /* ═══ O PÉ DO DIÁLOGO EMPILHA ═══════════════════════════════════════
+     ⚠️ OS DOIS BOTÕES CAÍAM EM LINHAS DIFERENTES. Medido a 390 e 430px no
+     "Novo chamado": "Cancelar" numa linha, encostado à direita, e "Abrir
+     chamado" na linha de baixo, encostado à esquerda — três alturas distintas
+     num rodapé de três peças.
+     A culpa é do `<p>` de mensagem: ele é `flex:1 1 auto` com
+     `min-width:180px`, e **reserva os 180px mesmo VAZIO** (o `#nvMsg` só tem
+     texto quando há erro de validação). Sobrava largura para um botão, não
+     para dois, e o `flex-wrap` separou o par.
+     ⚠️ Em flexbox não há como manter dois irmãos na mesma linha sem um
+     invólucro — então a saída não é impedir a quebra, é a regra que esta
+     folha já registrou em 31/08 para o pé de Aprovados: **abaixo de 560px o
+     botão ocupa a linha.** Alvo maior, ordem preservada (o secundário em cima,
+     o primário embaixo, na altura do polegar) e nenhum par para desalinhar.
+     ⚠️ `:empty` no parágrafo: sem isso o `#nvMsg` vazio vira uma faixa de
+     respiro no meio da pilha. */
+  .ficha-pe{flex-direction:column;align-items:stretch;gap:10px}
+  .ficha-pe p{min-width:0;flex:0 0 auto}
+  .ficha-pe p:empty{display:none}
+  .ficha-pe .btn{width:100%;justify-content:center;text-align:center}
   .orc-pe{align-items:stretch;flex-direction:column;gap:13px}
   /* ⚠️ `flex-basis` MUDA DE EIXO junto com o `flex-direction`. Em linha,
      `flex:1 1 260px` no `.orc-meta` é a largura mínima da frase; em coluna,
@@ -3014,61 +3149,59 @@ body.sem-trilho #tela{width:100%}
   .aviso{bottom:calc(16px + env(safe-area-inset-bottom, 0px))}
 }
 
-/* ── CELULAR ESTREITO: A MARCA CEDE 4px ────────────────────────────
-   ⚠️ Esta quebra nasceu de uma CONTA, não de gosto, e da conta que o link
-   "Aprovados" quebrou ao entrar na barra em 31/08. A 390px sobram
-   `390 − 13 (recuo) − 240 (as ações) = 127px` para a marca, e o wordmark tem
-   **138px** de largura natural a 30px de altura: 11px de sobreposição, o
-   logotipo por cima do botão. Medido, não estimado.
-   `max-width` não resolve — num flex a largura do invólucro é decidida pelo
-   próprio conteúdo, e a imagem não tem contra o que encolher. Quem cede é a
-   ALTURA, e só onde falta espaço: 26px dá 120px de largura e três de folga.
-   Acima de 420 a medida das irmãs (32 numa barra de 64) segue intacta.
-   ⚠️ Mexeu no que há dentro de `.barra-acoes`? Refaça esta conta.
+/* ═══ AQUI MORAVA "A MARCA CEDE 4px", E ELA SAIU INTEIRA (08/09/2026) ═══
+   Ficavam aqui duas quebras (420px e 385px) que baixavam o wordmark de 32
+   para 27 e depois para 22px, mais uma tabela de sobreposição em pixels. Elas
+   eram o sintoma, não a cura, e o próprio comentário admitia:
 
-   ⚠️ A CONTA FOI REFEITA EM 03/09/2026 (o "Senha" saiu da nav e virou botão)
-   E ELA NÃO FECHA. Medido no navegador, largura do wordmark contra a borda
-   esquerda das ações — sobreposição em pixels:
+     "não há altura de logo que resolva — a 390px sobram 91px para a marca, o
+      que pediria um logo de 20px de altura. A conta só fecha se ALGUMA COISA
+      SAIR da barra no celular (a marca, ou os dois links de texto virando
+      ícone)."
 
-       largura   antes de 03/09   depois
-        320px         128            107
-        360px         113             67
-        390px          83             37   ← iPhone 12/13/14/15
-        412px          61             15   ← Pixel
-        430px          65             21
-        480px          15              0
+   Em 08/09 a decisão foi tomada: **sai a marca, não as palavras.** O
+   `<picture>` da barra troca `logo-topo.png` por `logo-marca.png` a 760px, o
+   wordmark de 138px vira desenho de ~53, e sobra folga em toda largura de
+   celular real. As duas quebras perderam o objeto que regulavam.
 
-   Ou seja: **a barra já estava quebrada em todo celular** — a coluna "antes"
-   é o que está em produção hoje, com "Minha senha" ainda em texto na nav. O
-   move de 03/09 corta a sobreposição pela metade e conserta o 480, mas não
-   cura: abaixo de ~450px o wordmark continua pintando por cima do primeiro
-   alvo. E não há altura de logo que resolva — a 390px sobram 91px para a
-   marca, o que pediria um logo de 20px de altura.
+   ⚠️ A troca sozinha NÃO zerou, e o número honesto está na quebra de 420px
+   logo abaixo: ela resolveu 412 e 430, e deixou 6px a 390, 36 a 360 e 53 a
+   320. Quem fecha a conta no telefone estreito é a regra seguinte.
 
-   A conta só fecha se ALGUMA COISA SAIR da barra no celular (a marca, ou os
-   dois links de texto virando ícone). Isso é decisão de direção, não de
-   implementação, e está aberta em `memory-bank/active-work.md`. Não invente
-   um `overflow:hidden` aqui: ele troca o logotipo por cima do botão por um
-   logotipo cortado no meio, que lê como defeito de carregamento. */
+   ⚠️ O `gap:6px` das ações FICA: ele é sobre o espaço entre os alvos, não
+   sobre a marca, e continua sendo o que segura os 44px lado a lado no aparelho
+   estreito. */
 @media (max-width:420px){
-  .marca img{height:27px}
   .barra-acoes{gap:6px}
 }
-/* ── E ABAIXO DE 386px A MARCA CEDE MAIS 4px ────────────────────────
-   ⚠️ Quebra nova em 03/09/2026, e ela também é conta, não gosto. Com a
-   gaveta de conta as ações fecharam em 235,5px, e o `385 − 13 − 235,5 =
-   136,5px` disponível ainda não cabe o wordmark a 28px (128,5) nos aparelhos
-   de 360–375: sobravam 27px e 12px de sobreposição. A 24px ele mede 110px e
-   fecha até ~358px de janela.
-   ⚠️ ESTES DOIS NÚMEROS (27 e 22) SAÍRAM DA TELA, não da conta. A conta a
-   partir da largura das ações dava 28 e 24, e medido no navegador sobrava 1px
-   de sobreposição a 386px e 8,7px a 360px — a fórmula ignora o `gap` do
-   `.barra-in` e o arredondamento do wordmark. Refez? Meça, não deduza.
-   ⚠️ 320px continua fora, e é limite conhecido, não descuido: ali sobram
-   ~66px para a marca, o que pediria 14px de altura — ilegível. É o iPhone SE
-   de 2016; o menor aparelho em circulação real tem 360. */
-@media (max-width:385px){
-  .marca img{height:22px}
+/* ── E ABAIXO DE 420px A MARCA SAI DE VEZ ───────────────────────────
+   ⚠️ A troca pelo `logo-marca.png` devolveu 85px e resolveu de 412 para cima,
+   mas NÃO zerou embaixo: medido depois dela, ainda sobravam 6px de
+   sobreposição a 390, 36 a 360 e 53 a 320. A conta simplesmente não fecha —
+   três links de texto (71 + 76 + 38), dois alvos de 44 e a marca pedem mais
+   largura do que um telefone tem.
+
+   É a mesma decisão de 08/09 levada até o fim: **sai a marca, não as
+   palavras.** "Aprovados" e "Preventivas" são a navegação de quem tem pouca
+   familiaridade com computador (calibragem de 28/08); "+ Novo chamado" é a
+   porta do chamado que chega por telefone; a conta é a única saída do
+   sistema. A marca é a única peça da barra que não responde por nada aqui —
+   quem está logado no próprio turno não precisa que a tela se apresente. O
+   admin, aliás, nunca teve logo na topbar.
+
+   ⚠️ NÃO É `overflow:hidden` NEM `opacity`: o wordmark cortado ao meio lê
+   como defeito de carregamento (a nota de 03/09 já avisava), e apagado por
+   opacidade continua ocupando a largura, que é o problema inteiro.
+
+   ⚠️ Acima de 420 a marca está lá, e é onde ela cabe de verdade. Mexeu no que
+   há dentro de `.barra-acoes`? Refaça a conta — e MEÇA, não deduza: a conta
+   ignora o `gap` do `.barra-in` e o arredondamento do desenho. */
+@media (max-width:420px){
+  .barra-in{display:none}
+  /* Com a marca fora, a fila de alvos ganha o recuo inteiro para respirar em
+     vez de brigar por ele. */
+  .barra-acoes{padding-inline:12px;justify-content:space-between;width:100%}
+  .barra-nav{gap:10px}
 }
 
 /* ⚠️ AQUI MORAVA A REGRA DE 380px, e ela morreu com o que regulava.
@@ -3515,6 +3648,16 @@ body.sem-trilho #tela{width:100%}
    x=563 enquanto o prédio que ele despacha ia até x=1455. Agora a chapa
    âmbar termina exatamente no x da placa. */
 .pv-barra-limpa{margin-left:auto}
+/* A pergunta do lote ocupa o lugar do "N escolhidas" + select, na MESMA
+   coluna e com o par de ações no mesmo x — a barra não muda de forma, muda de
+   assunto. ⚠️ Aqui o campo é MARINHO (a barra é `--bg`), então a tinta é a
+   do campo escuro, não a família `-t` do diálogo. */
+.pv-confirma{
+  margin:0;flex:1;min-width:200px;
+  font-size:1.05rem;font-weight:700;line-height:1.35;
+  letter-spacing:-.012em;color:var(--text);
+}
+.pv-confirma b{font-weight:800;color:#fff}
 /* ⚠️ O SELECT VIRA PEÇA DA CASA — era o último controle nativo do sistema
    operacional nesta tela, exatamente o que o checkbox tinha sido antes do
    passe de 03/09 ("numa folha que corta tudo com chanfro, o quadradinho

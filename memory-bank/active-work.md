@@ -10,7 +10,7 @@ aliases:
 > Branch atual: **`main`**, limpa. `feature/admin-chapa` (11 commits) e a tela
 > de orçamento do cliente já foram mergeadas — a produção
 > (`telemetria.generalbombas.com`) está servindo as duas.
-> Última sessão registrada: **2026-09-04**.
+> Última sessão registrada: **2026-09-08**.
 > Roadmap completo em [`roadmap.md`](roadmap.md); decisões em [`decisions.md`](decisions.md).
 
 > ✅ **Schema de produção em dia:** 074 aplicada em 24/08; a 073 já estava
@@ -106,8 +106,9 @@ UI, ler o `innerText` do que sobrou, não só olhar.
    "Ver detalhes" encostaram na borda direita (a largura virou estrutura, em
    vez de tudo empacotado no terço esquerdo), e o cabeçalho de seção subiu de
    12 para 15px — ele saía **menor que a própria legenda**.
-4. **A ficha e o diálogo de despacho não passaram pelo corte** — e a ficha é
-   justamente onde foi parar tudo que saiu do item, então ela ficou mais densa.
+4. **O diálogo de despacho** ✅ **feito em 08/09** — ver a seção da sessão lá
+   embaixo. **A ficha do chamado continua pendente**, e ela é justamente onde
+   foi parar tudo que saiu do item, então ficou mais densa.
 5. **A seção "Já tem técnico"** ficou com o layout antigo de ações; conferir se
    o `.emrota` continua fazendo sentido na linha nova.
 6. **Remedir as faixas** (o item trocou de grid: `118px minmax(0,1fr)`) e
@@ -118,6 +119,231 @@ UI, ler o `innerText` do que sobrou, não só olhar.
 duplicação do dia calmo~~ (resolvida no item 2, sem escrever palavra nova — o
 placar saiu e a frase que sobrou já estava lá), a legenda de cor dos pinos do
 mapa, e o rótulo "TURNO" ao lado da marca.
+
+---
+
+## Sessão 2026-09-08 (3ª rodada) — A barra cabe no celular
+
+*"consegue arrumar isso?"* — a sobreposição achada na rodada anterior.
+
+**Escolhida a saída que o `operador.css` já nomeava desde 03/09:** *"a conta só
+fecha se ALGUMA COISA SAIR da barra no celular (a marca, ou os dois links de
+texto virando ícone)"*. **Sai a marca, não as palavras** — a calibragem de 28/08
+existe para quem tem pouca familiaridade com computador, e ícone mudo no lugar
+de "Aprovados"/"Preventivas" pagaria a conta com exatamente o que ela protege.
+O admin, aliás, nunca teve logo na topbar.
+
+| largura | antes | só com a marca curta | + marca fora abaixo de 420 |
+|---|---|---|---|
+| 320px | 101 | 53 | **0** |
+| 360px | 84 | 36 | **0** |
+| 390px | 77 | 6 | **0** |
+| 430px | 64 | **0** | 0 |
+
+⚠️ **A PRIMEIRA ETAPA NÃO BASTOU, e isso é a lição.** Trocar o wordmark (138px)
+pela marca (53px) devolveu 85px e parecia resolvido — a 430 e 412 zerou. Mas a
+360 ainda sobravam **36px**. Três links de texto (71+76+38), dois alvos de 44 e
+a marca não cabem em 360px, ponto. **Parar de medir na primeira melhora teria
+deixado o defeito de pé nos aparelhos mais comuns.** Abaixo de 420 a marca sai
+inteira.
+
+⚠️ **Nem `overflow:hidden` nem `opacity`** para tirar a marca: cortada ao meio
+lê como defeito de carregamento (a nota de 03/09 já avisava) e apagada por
+opacidade continua ocupando a largura, que é o problema inteiro.
+
+### `public/logo-marca.png` — asset novo, e por que ele existe
+
+Gerado por `scripts/gerar-logo-marca.js`: **160×102, 11 KB**, a partir do
+`logo-menu.png` (o desenho que a sidebar recolhida do admin usa).
+
+⚠️ **O `logo-menu.png` tem 1024×1024 e 1,15 MB.** O admin o serve assim, mas
+ali é desktop; aqui o alvo é o celular, que é o caso de banda ruim. Mesma lição
+do `gerar-logo-email.js` e do `_avPrepararAssinatura`.
+⚠️ **O script apara o halo medindo pixel a pixel** (alfa ≥ .6), não por número
+escrito à mão — numa barra de 60px o halo do original vira mancha clara sobre o
+marinho, e este sistema não tem sombra projetada em lugar nenhum.
+⚠️ **Dimensiona pela ALTURA, não num quadrado:** o desenho é 886×566 (razão
+1,57), e o quadrado desperdiçaria justamente a largura que se quer economizar.
+⚠️ **O Chrome empacotado do puppeteer NÃO SOBE nesta máquina** — "Timed out
+after 30000 ms while waiting for the WS endpoint URL". O do sistema sobe na
+hora. O script aceita `CHROME_PATH`; sem a variável mantém o padrão, que é o
+que funciona no servidor. Vale para qualquer script novo com puppeteer aqui.
+
+### Verificação
+
+Sobreposição real entre **todos os pares** de peças da barra (não só marca ×
+ações), a 320 / 360 / 390 / 412 / 430 / 600, nas três telas: **zero em todas**.
+Zero alvo abaixo de 44px, zero transbordo horizontal. As confirmações da rodada
+anterior seguem passando no celular (0 `PATCH` no clique, 1 depois do
+"Despachar", console limpo).
+
+⚠️ **Falso positivo do detector, registrado:** ele acusou `broken-image` no
+`operador.html` porque casou o literal `<img>` escrito **dentro de um comentário
+HTML**. Reescrito para não deixar ruído permanente.
+
+---
+
+## Sessão 2026-09-08 (2ª rodada) — Confirmação, e a barra que está quebrada no celular
+
+*"queria implementar algumas confirmações... está acontecendo mt do operador
+clicar em coisas sem querer"* + *"usa o impeccable para verificar como está o
+visual no mobile"*.
+
+### A regra saiu do backend, não do gosto
+
+> **Confirma o que não volta; desfaz o que volta.**
+
+⚠️ `PATCH /chamados/:id` grava `primeira_resposta_em = COALESCE(primeira_resposta_em, NOW())`.
+O carimbo **nunca é limpo** — tirar o técnico depois devolve o chamado à fila,
+mas o relógio do TTFR fica parado para sempre e o histórico guarda as duas
+entradas. **Não existe desfazer honesto para despacho.**
+⚠️ E é o mesmo motivo pelo qual o **"Já foi feito" de Aprovados NÃO ganhou
+confirmação**: aquilo é `POST`/`DELETE` numa coluna só e já tem Desfazer na
+faixa desde 31/08. Confirmação sobre ação com desfazer que funciona é atrito
+sem segurança.
+
+| Ganhou | Não ganhou |
+|---|---|
+| Despachar técnico (turno) | "Já foi feito" (Aprovados) — tem Desfazer |
+| Descartar "Novo chamado" com texto | "Abrir chamado" — já é diálogo com formulário |
+| Lote de Preventivas ("N para quem") | Marcar/desmarcar prédio — só muda seleção local |
+
+⚠️ **Barra no pé, nunca um segundo `<dialog>`**: modal sobre modal empilha dois
+`showModal()` no top layer e rouba o mapa da vista — e o mapa é o que diz se a
+pessoa certa está perto.
+⚠️ **A linha escolhida fica marcada.** É metade do valor: o erro que isto pega é
+ter acertado o VIZINHO, então a pergunta no pé e a linha lá em cima têm de se
+apontar. Marca por material + chip preenchido, nunca `opacity`.
+⚠️ **O foco vai para "Voltar".** Enter armado no botão que grava devolveria o
+problema pelo teclado.
+⚠️ **`display:flex` GANHA DO `[hidden]`** — o rodapé e a barra apareciam os dois,
+com o rodapé ainda oferecendo "Cancelar". Precisou de `.ficha-pe[hidden]{display:none}`.
+
+**Provado com espião no `fetch`:** clicar na linha → **0** requisições; o `PATCH`
+sai só depois do "Despachar". Idem no lote. Oito fluxos conferidos (Voltar, Esc,
+clique no fundo, vazio × com texto, preservação do que foi escrito e do técnico
+escolhido).
+
+### 🔴 O passe de celular achou a barra do TURNO quebrada em produção
+
+| largura | antes de 03/09 | depois (2 links) | **hoje (3 links)** |
+|---|---|---|---|
+| 320px | 128 | 107 | **101** |
+| 360px | 113 | 67 | **84** |
+| 390px | 83 | 37 | **77** |
+| 430px | 65 | 21 | **64** |
+
+O wordmark pinta por cima de "Aprovados". **Preventivas e Aprovados estão em
+zero** — as duas receberam o rótulo curto em 03/09 ("A fila do turno" →
+"Turno"); a tela do turno não tem rótulo para encurtar, e foi ela que recebeu o
+terceiro link sem a conta ser refeita.
+
+⚠️ **É decisão de direção, e o `operador.css` já dizia isso:** *"a conta só fecha
+se ALGUMA COISA SAIR da barra no celular (a marca, ou os dois links de texto
+virando ícone)"*. **Aberto para o Pedro** — os números novos foram gravados no
+comentário do CSS.
+
+⚠️ **E o defeito sobreviveu porque a PRÉVIA NÃO TINHA O LINK.** O
+`_operador-preview.html` ficou com dois itens de nav enquanto o `operador.html`
+já tinha três — toda medição de barra feita ali testava o caso fácil e passava
+verde. **Ao mexer na nav do `operador.html`, sincronize a prévia no mesmo
+commit.**
+
+### O resto do celular está bom
+
+Medido a 320 / 360 / 390 / 430 nas três telas: zero transbordo horizontal, zero
+alvo abaixo de 44px, zero texto do diálogo abaixo de 12px, e as duas barras de
+confirmação empilham certo.
+
+✅ **"Ajuda" saiu de 38 para 46px** de alvo. `padding-inline` seria a saída
+errada — empurraria a nav mais 24px numa barra que já sobrepõe. Um `::before`
+absoluto alarga a área de clique 4px de cada lado **sem ocupar um pixel de
+layout**.
+
+### ⚠️ Duas medições minhas que estavam erradas
+
+- **Contraste não se mede subindo `backgroundColor` na árvore nesta folha.** Deu
+  **45 reprovações falsas** — a placa mora num `::before` com gradiente, então o
+  medidor comparava texto branco contra o fundo de trás. Contraste aqui se
+  confere na superfície de cor sólida (o diálogo claro: 7,5:1) ou no olho.
+- **Alvo com `::before` embutido mede menor do que é.** O `.conta` apareceu como
+  42×44 porque eu descontava o `inset:1px` da chapa de duas camadas. Sempre teve 44.
+
+---
+
+## Sessão 2026-09-08 — O diálogo de despacho passa pelo corte
+
+*"precisa melhorar esse modal"* — print da tela de despacho aberta em produção.
+É o **item 4** do corte do operador, o único da lista que ainda estava inteiro.
+
+**O que a medição achou, em produção, a 987×765 e com 6 técnicos:**
+
+| | Antes | Agora |
+|---|---|---|
+| Chapa vazia sob o mapa | **197px** (38% do corpo) | **0** |
+| Nomes truncados | **4 de 6** | 0 |
+| Linhas apagadas com `opacity:.5` | **3 de 6** | 0 |
+| Blocos de texto na peça | 39 | **28** |
+| Texto do diálogo abaixo de 12px | 4 | **0** |
+| Peças por linha de técnico | 4 | **3** |
+
+⚠️ **A lista do diálogo e a lista do trilho são as MESMAS PESSOAS**, e estavam
+desenhadas de dois jeitos: o trilho recebeu o corte em 31/08 (uma chapa dividida
+por corte gravado, "1 chamado" escrito na linha) e o diálogo ficou com seis
+cartõezinhos brancos, cada um com selo de iniciais e uma placa mono de
+"1 / CHAMADOS" ao lado da frase "Livre agora · no mapa". Duas renderizações do
+mesmo fato sobre a mesma pessoa, na mesma tela. Agora o diálogo usa as palavras
+e a construção do trilho — **nada saiu**, a contagem que morava na placa mono
+está na frase.
+
+⚠️ **`opacity:.5` recuava justamente quem o mapa podia responder.** `data-liv`
+era `disponivel && !abertos`, então quem estava livre carregando um chamado saía
+a 50% — e os três apagados eram os três **com posição no mapa**. Além de
+contradizer a própria frase da linha ("Livre agora"), é a regra já registrada
+duas vezes (31/08 em Aprovados, 03/09 em Preventivas): *recuo por material ou
+tinta, nunca por `opacity`*.
+
+⚠️ **O mapa era `height:326px` fixo ao lado de uma coluna que crescia com a
+equipe** — a peça que responde "quem pode ir" espremida por uma constante,
+com 197px de chapa vazia embaixo dela. Hoje ele estica e quem limita a altura é
+a coluna, que rola por dentro (`.escolha` / `.cand-grupo`) — a mesma regra que o
+`.trilho` já seguia: **rolar a equipe não pode levar o mapa para fora da tela**.
+
+⚠️ **O `.cand` era a última peça da folha com `border` + `clip-path`**, proibido
+desde 27/08 (o fio some nos dois cantos cortados). Saiu junto com a caixa.
+
+⚠️ **`.tec-av` virou CSS morto e foi embora.** O selo de iniciais tinha deixado
+o trilho em 31/08 e sobrevivia só aqui, com a nota "ainda não passou pelo corte".
+Passou.
+
+**O que ENTROU:** o chip "Despachar" em cada linha, sempre visível e **de fio em
+repouso** (as duas metades da regra de Aprovados). Antes o único elemento com
+cara de botão no diálogo era **"Cancelar"** — numa tela calibrada para pouca
+familiaridade com computador, a ação primária era uma área que só reagia ao
+hover. O chip enche de âmbar no hover e no foco.
+
+⚠️ **A armadilha que eu mesmo criei, e que a folha já tinha registrado:** o anel
+de foco `inset` é engolido por qualquer peça que já tenha um `inset` próprio — e
+a aresta de luz do corte gravado (`box-shadow:inset 0 1px 0 #fff`) tem a mesma
+especificidade do `.ficha :focus-visible` e vem depois. **A linha ficou sem foco
+visível de teclado**, e só apareceu tabulando de verdade: `el.focus()` por script
+não casa `:focus-visible`, então a primeira medição passou limpa. Corrigido com
+`.ficha .cand:focus-visible`.
+
+⚠️ **E o `min-height:0` da mesa precisa ser DESFEITO no celular.** Empilhada, a
+`.ficha` é coluna flex de altura 100%; com `min-height:0` o corpo encolhia abaixo
+do conteúdo, a lista transbordava e o `clip-path` do grupo **apagava o resto sem
+barra de rolagem e sem aviso**. Medido a 390px: o grupo pedia 424px e recebia 354.
+
+**Verificado** na prévia com fixture ampliada (6 técnicos, nomes de produção),
+medido a **390 / 430 / 900 / 1440 / 1920**: vão zero, nenhum nome truncado,
+nenhum alvo abaixo de 44px, nenhum transbordo horizontal, contraste mínimo
+**7,5:1**, foco de teclado visível, e nada clipado no celular. Detector: só as
+advertências de `font-size` já conhecidas das cinco folhas.
+
+⚠️ **Copy nova, e é a única — decisão do Pedro se fica:** o chip vira
+**"Despachando…"** enquanto o PATCH corre. Antes a listra âmbar de "indo" ficava
+ao lado de um rótulo no imperativo, pedindo o que já estava fazendo.
 
 ---
 

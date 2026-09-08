@@ -41,6 +41,43 @@ aliases:
 
 ## Em andamento / pendente
 
+- ✅ **O diálogo de despacho do operador passa pelo corte** (08/09/2026). Era o
+  **item 4** da simplificação da tela do operador — e o último com peça inteira.
+  A coluna "Quem pode ir" virou **uma chapa dividida por corte gravado** com as
+  mesmas palavras do trilho: as duas listas mostram **as mesmas pessoas** e
+  estavam desenhadas de dois jeitos. Medido em produção com 6 técnicos: 197px de
+  chapa vazia sob o mapa → **0** (o mapa era `326px` fixo), 4 de 6 nomes
+  truncados → **0**, 3 de 6 linhas apagadas com `opacity:.5` → **0**, 39 blocos
+  de texto → 28. Cada linha ganhou o chip **"Despachar"**, sempre visível e de
+  fio em repouso — antes o único elemento com cara de botão era "Cancelar".
+  Detalhe em [`../docs/changelog.md`](../docs/changelog.md) e
+  [`../docs/modulos/painel-operador.md`](../docs/modulos/painel-operador.md).
+  - 📋 **A ficha do chamado é o que sobra** desta direção, e é onde foi parar
+    tudo que saiu do item da fila — então ficou mais densa. Ver
+    [`active-work.md`](active-work.md).
+  - 📋 **Copy pendente, decisão do Pedro:** o chip diz **"Despachando…"**
+    enquanto o `PATCH` corre. É a única palavra nova do passe.
+
+- ✅ **Confirmação no que não volta** (08/09/2026, 2ª rodada). *"está acontecendo
+  mt do operador clicar em coisas sem querer"*. Regra: **confirma o que não
+  volta; desfaz o que volta** — tirada do backend (`primeira_resposta_em` usa
+  `COALESCE(..., NOW())` e nunca é limpo, então despachar não tem desfazer
+  honesto). Ganharam confirmação o despacho de técnico, o descarte do "Novo
+  chamado" com texto escrito e o lote de Preventivas; "Já foi feito" de
+  Aprovados **não**, porque já tem Desfazer na faixa. Barra no pé, nunca um
+  segundo diálogo. Verificado com espião no `fetch`: 0 requisições no clique da
+  linha, 1 depois do "Despachar". Detalhe em
+  [`../docs/changelog.md`](../docs/changelog.md).
+  - ✅ **A barra do turno cabe no celular** (08/09, 3ª rodada) — era 77px de
+    wordmark por cima de "Aprovados" a 390px. Das duas saídas que o
+    `operador.css` nomeava, escolhida **"sai a marca, não as palavras"**: os
+    rótulos são a navegação de quem tem pouca familiaridade com computador. Em
+    duas etapas — `<picture>` troca o wordmark pelo `logo-marca.png` (asset novo,
+    11 KB, gerado por `scripts/gerar-logo-marca.js`) e, abaixo de 420px, a marca
+    sai inteira. **Zero sobreposição a 320/360/390/412/430/600** nas três telas.
+  - ✅ **"Ajuda" saiu de 38 para 46px de alvo** nas três telas, sem custar um
+    pixel de layout (`::before` absoluto). Zero alvo abaixo de 44px agora.
+
 - ✅ **Cancelar um chamado** (04/09/2026). Pergunta do Pedro: *"tem como
   cancelar um chamado hj?"*. Não tinha — a única saída do chamado aberto por
   engano, duplicado ou desistido pelo cliente era **fechar**, e fechar afirma

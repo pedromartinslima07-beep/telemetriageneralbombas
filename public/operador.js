@@ -565,8 +565,115 @@ function iniciais(nome) {
 // tela de turno, é perder o lugar na lista toda vez.
 let _focoAnterior = null;
 
+/* ── A CONFIRMAÇÃO ────────────────────────────────────────────────────
+   Pedido do Pedro em 08/09: *"esta acontecendo mt do operador clicar em coisas
+   sem querer"*. A regra que saiu do levantamento, e que decide caso a caso:
+
+   > **Confirma o que não volta; desfaz o que volta.**
+
+   ⚠️ NÃO é gosto — é o que o backend permite. Despachar grava
+   `primeira_resposta_em = COALESCE(primeira_resposta_em, NOW())`: o carimbo
+   NUNCA é limpo. Tirar o técnico depois devolve o chamado para a fila, mas o
+   relógio do TTFR fica parado para sempre e o histórico guarda as duas
+   entradas. Não existe desfazer honesto — então este pede antes.
+   Já o "Já foi feito" de Aprovados é POST/DELETE numa coluna só, e por isso
+   ele tem (e continua tendo) **Desfazer na faixa**, que é mais rápido e não
+   cobra pedágio de quem acertou.
+
+   ⚠️ É UMA BARRA NO PÉ, NÃO UM SEGUNDO DIÁLOGO. Modal sobre modal empilha
+   dois `showModal()` no top layer e rouba o mapa da vista — e o mapa é o que
+   diz se a pessoa certa está perto. A barra troca o rodapé que já existe,
+   no lugar em que a ação desta folha sempre esteve (no celular, à altura do
+   polegar). E a linha escolhida fica MARCADA: o erro que isto existe para
+   pegar é ter clicado no vizinho, então a confirmação tem de dizer em quem. */
+let _confirmaAtiva = null;
+
+function confirmar({ pergunta, nota, rotulo, aoSim }) {
+  const cx = document.querySelector("#fundo .ficha");
+  if (!cx) return;
+  cancelarConfirma();
+  const pe = cx.querySelector(".ficha-pe");
+  if (pe) pe.hidden = true;
+  const el = document.createElement("div");
+  el.className = "confirma";
+  el.innerHTML =
+    `<p class="confirma-txt" role="alert">${pergunta}` +
+    (nota ? `<span>${nota}</span>` : "") + `</p>` +
+    // "Voltar" antes de "Despachar" no DOM e o par encostado à direita: o
+    // mesmo par de ações do pé de Aprovados e da barra de Preventivas.
+    `<button type="button" class="btn btn-fio" data-acao="confirma-nao">Voltar</button>` +
+    `<button type="button" class="btn" data-acao="confirma-sim">${rotulo}</button>`;
+  if (pe) pe.insertAdjacentElement("afterend", el); else cx.appendChild(el);
+  _confirmaAtiva = { el, pe, aoSim, foco: document.activeElement };
+  // ⚠️ O FOCO VAI PARA "VOLTAR", a opção segura. Numa barra que existe porque
+  // alguém clicou sem querer, deixar o Enter armado no botão que grava seria
+  // devolver o problema pelo teclado.
+  el.querySelector('[data-acao="confirma-nao"]').focus();
+}
+
+// Devolve `true` quando havia uma confirmação para cancelar — é assim que o
+// Esc e o clique no fundo sabem que já foram consumidos.
+function cancelarConfirma() {
+  if (!_confirmaAtiva) return false;
+  const { el, pe, foco } = _confirmaAtiva;
+  _confirmaAtiva = null;
+  el.remove();
+  if (pe) pe.hidden = false;
+  document.querySelectorAll("#fundo [data-sel]").forEach((x) => { delete x.dataset.sel; });
+  if (foco && foco.isConnected) foco.focus();
+  return true;
+}
+
+// O caminho de TODO `data-acao="fechar"`, do Esc e do clique no fundo.
+// ⚠️ Fecha de dentro para fora: com a confirmação aberta, o Esc cancela ELA,
+// não o diálogo — a mesma ordem que o resto deste arquivo já segue.
+function fecharPedindo() {
+  if (cancelarConfirma()) return;
+  if (_novoTemConteudo()) {
+    return confirmar({
+      pergunta: "Descartar este chamado?",
+      nota: "O que você escreveu não fica salvo em lugar nenhum.",
+      rotulo: "Descartar",
+      aoSim: fechar,
+    });
+  }
+  fechar();
+}
+
+/* ⚠️ O CLIQUE NO FUNDO APAGAVA UM CHAMADO INTEIRO, e é o outro "cliquei sem
+   querer" desta tela. "Novo chamado" é o único diálogo com texto digitado à
+   mão — prédio, título e o relato de quem ligou — e um clique de raspão fora
+   da placa (ou o Esc) fechava tudo sem perguntar. Só pergunta quando há o que
+   perder: diálogo vazio continua fechando no primeiro clique. */
+function _novoTemConteudo() {
+  if (!document.getElementById("nvTitulo")) return false;
+  const v = (id) => (document.getElementById(id)?.value || "").trim();
+  return !!(v("nvTitulo") || v("nvDesc") || v("nvCondo"));
+}
+
+/* O despacho passa por aqui em vez de ir direto ao `PATCH`. A linha escolhida
+   fica marcada enquanto a pergunta está no pé. */
+function pedirDespacho(chamadoId, tecnicoId, linha) {
+  const t = (DADOS.tecnicos || []).find((x) => x.id === tecnicoId);
+  // ⚠️ A MARCA VEM DEPOIS DE LIMPAR, não antes: `confirmar()` começa chamando
+  // `cancelarConfirma()`, que apaga todo `data-sel` — marcar antes seria
+  // marcar e desmarcar na mesma volta. Com a confirmação já fora, a chamada
+  // lá dentro vira no-op e a marca sobrevive.
+  cancelarConfirma();
+  if (linha) linha.dataset.sel = "1";
+  confirmar({
+    pergunta: `Despachar <b>${escapar(t ? t.nome : "este técnico")}</b>?`,
+    // A mesma frase que o rodapé escondido atrás desta barra já dizia — não é
+    // copy nova, é a advertência trazida para o momento em que ela decide.
+    nota: "Atribuir o técnico marca a primeira resposta e para esse relógio.",
+    rotulo: "Despachar",
+    aoSim: () => despachar(chamadoId, tecnicoId),
+  });
+}
+
 function fechar() {
   const f = document.getElementById("fundo");
+  _confirmaAtiva = null;
   if (!f) return;
   // `close()` antes de remover: é o que tira o diálogo do top layer. Remover
   // o nó sem fechar deixa o navegador achando que ainda há um modal aberto —
@@ -612,7 +719,10 @@ function abrirFundo(html) {
   dlg.showModal();
   // O Esc é do navegador quando o diálogo é nativo; `fechar()` faz a limpeza
   // (classe do body, devolução do foco) tanto no Esc quanto no nosso botão.
-  dlg.addEventListener("cancel", (e) => { e.preventDefault(); fechar(); });
+  // ⚠️ O Esc PASSA PELA CONFIRMAÇÃO PRIMEIRO. `cancelarConfirma()` devolve
+  // `true` quando consumiu o Esc; só então o diálogo se fecha — e quando há
+  // chamado escrito, `fecharPedindo` pergunta em vez de descartar.
+  dlg.addEventListener("cancel", (e) => { e.preventDefault(); fecharPedindo(); });
   // Trava a fila atrás do diálogo — mesma classe do painel do cliente.
   document.body.classList.add("com-ficha");
   const cx = document.querySelector("#fundo .ficha");
@@ -663,17 +773,36 @@ function dlgDespacho(id) {
       <div class="mapa" id="mapa"></div>
       <div class="escolha">
         <h3>Quem pode ir</h3>
-        ${cands.length ? cands.map((t) => `
-          <button class="cand" data-liv="${t.disponivel && !t.abertos ? 1 : 0}"
-                  data-acao="escolher" data-tec="${t.id}" data-chamado="${c.id}">
-            <div class="tec-av">${iniciais(t.nome)}</div>
-            <div class="cand-quem"><div class="cand-nome">${escapar(t.nome)}</div>
-              <div class="cand-est">${t.disponivel
-                ? "Livre agora" + (t.lat != null ? " · no mapa" : " · sem posição")
-                : "Ocupado"}</div></div>
-            <div class="cand-eta"><b>${t.abertos}</b><span>${
-              t.abertos === 1 ? "chamado" : "chamados"}</span></div>
-          </button>`).join("") : `<p class="vazio-lado">Nenhum técnico ativo para despachar.</p>`}
+        <!-- ⚠️ UMA CHAPA, NÃO SEIS CARTÕES — o corte que o trilho recebeu em
+             31/08 aplicado à MESMA LISTA DAS MESMAS PESSOAS. Aqui cada técnico
+             era uma caixa branca com fio de 1px sobre um fundo quase da mesma
+             cor: os seis retângulos pálidos que o DESIGN.md recusa como
+             estrutura, e que o trilho já não tem. Agora é uma peça só,
+             dividida por corte gravado, e a linha é o alvo.
+             ⚠️ O ESTADO É ESCRITO COM AS PALAVRAS DO TRILHO. Ele dizia
+             "1 chamado" e o diálogo dizia "Livre agora · no mapa" mais uma
+             placa mono com "1 / CHAMADOS": duas renderizações do mesmo fato,
+             na mesma tela, sobre a mesma pessoa. Nada saiu — a contagem que
+             morava na placa mono está na linha, na frase que já existia.
+             ⚠️ "no mapa" NÃO volta: ele se repetia em quase toda linha logo
+             ao lado do mapa que mostra o pino. Fica só a exceção.
+             ⚠️ NADA DE opacity para recuar linha (regra de 31/08, repetida
+             em 03/09): quem tem chamado aberto continua LIVRE, e apagar a
+             linha pela metade contradizia a própria frase dela. Ordem e
+             tinta bastam — os três apagados eram justamente os três com
+             posição no mapa. -->
+        ${cands.length ? `<div class="cand-grupo">${cands.map((t) => `
+          <button class="cand" data-acao="escolher" data-tec="${t.id}" data-chamado="${c.id}">
+            <span class="cand-quem">
+              <span class="cand-nome">${escapar(t.nome)}</span>
+              <span class="cand-est" data-est="${
+                !t.disponivel ? "ocupado" : t.abertos ? "carga" : "livre"}">${t.disponivel
+                ? (t.abertos ? `${t.abertos} chamado${t.abertos > 1 ? "s" : ""}` : "Livre agora")
+                : "Ocupado"}${t.lat == null
+                ? ` <span class="cand-sp">· sem posição</span>` : ""}</span>
+            </span>
+            <span class="cand-chip">Despachar</span>
+          </button>`).join("")}</div>` : `<p class="vazio-lado">Nenhum técnico ativo para despachar.</p>`}
       </div>
     </div>
     <div class="ficha-pe">
@@ -1350,7 +1479,12 @@ async function despachar(chamadoId, tecnicoId) {
   // 1. O botão DIZ que está trabalhando, em vez de só apagar. `data-ocupado`
   //    e não uma troca de texto: o cartão tem nome, estado e contagem, e
   //    reescrever tudo isso perderia a informação de quem foi escolhido.
+  //    ⚠️ E O CHIP DIZ O MESMO. Desde que a linha ganhou "Despachar" escrito,
+  //    deixá-lo intacto punha a listra de "indo" ao lado de um rótulo no
+  //    imperativo — a peça pedindo o que já está fazendo.
+  const chip = btn && btn.querySelector(".cand-chip");
   if (btn) { btn.disabled = true; btn.dataset.ocupado = "1"; }
+  if (chip) chip.textContent = "Despachando…";
   const tec = (DADOS.tecnicos || []).find((t) => t.id === tecnicoId);
   try {
     const r = await fetch(`/chamados/${chamadoId}`, {
@@ -1384,6 +1518,7 @@ async function despachar(chamadoId, tecnicoId) {
   } catch (e) {
     avisar(e.message);
     if (btn) { btn.disabled = false; delete btn.dataset.ocupado; }
+    if (chip) chip.textContent = "Despachar";
   }
 }
 
@@ -2084,7 +2219,13 @@ document.addEventListener("click", (e) => {
   const b = e.target.closest("[data-acao]");
   if (b) {
     const a = b.dataset.acao;
-    if (a === "fechar") return fechar();
+    if (a === "fechar") return fecharPedindo();
+    if (a === "confirma-nao") return cancelarConfirma();
+    if (a === "confirma-sim") {
+      const seguir = _confirmaAtiva && _confirmaAtiva.aoSim;
+      cancelarConfirma();
+      return seguir && seguir();
+    }
     if (a === "novo") return dlgNovo();
     if (a === "ajuda") return dlgAjuda();
     if (a === "senha") return dlgSenha();
@@ -2092,7 +2233,7 @@ document.addEventListener("click", (e) => {
     if (a === "ficha") return dlgFicha(Number(b.dataset.id));
     if (a === "despacho") return dlgDespacho(Number(b.dataset.id));
     if (a === "salvar-novo") return salvarNovo();
-    if (a === "escolher") return despachar(Number(b.dataset.chamado), Number(b.dataset.tec));
+    if (a === "escolher") return pedirDespacho(Number(b.dataset.chamado), Number(b.dataset.tec), b);
     if (a === "mapa-fs") return mapaFs();
   }
   const prio = e.target.closest(".prio");
@@ -2105,7 +2246,7 @@ document.addEventListener("click", (e) => {
     if (prio.closest("#nvPrio")) { NV_PRIO_NA_MAO = true; _nvNotaPrio(); }
     return;
   }
-  if (e.target.id === "fundo") fechar();
+  if (e.target.id === "fundo") return fecharPedindo();
 });
 document.addEventListener("keydown", (e) => {
   // ⚠️ ORDEM IMPORTA: o Esc do mapa em tela cheia vem ANTES do `fechar()`.

@@ -141,6 +141,49 @@ feito nada, que foi exatamente o relato.
    que texto.
    ⚠️ **"Em atendimento" não sai daqui**: só o app do técnico seta esse status,
    com GPS (`POST /chamados/:id/iniciar-atendimento`).
+
+   **O diálogo, depois do corte de 08/09** (era o item 4 da simplificação do
+   operador). A coluna "Quem pode ir" é **uma chapa dividida por corte
+   gravado**, não um cartão por técnico, e cada linha diz **duas coisas** —
+   nome e estado — com as **mesmas palavras do trilho**: "Livre agora",
+   "N chamados", "Ocupado", mais a exceção "· sem posição". A placa mono com a
+   contagem e o selo de iniciais saíram: os dois repetiam, ali, o que a linha e
+   o mapa já diziam.
+
+   | | Regra |
+   |---|---|
+   | Nome | **Quebra, nunca trunca.** Despacha-se ligando para uma pessoa, e o nome é a única coisa da linha que não dá para adivinhar |
+   | Recuo | Por **tinta** (`--normal-t` / `--tinta` / `--tinta-2`), nunca por `opacity` — a regra de 31/08. `opacity:.5` apagava quem estava livre com um chamado aberto, que eram justamente os que tinham posição no mapa |
+   | Chip "Despachar" | **Sempre visível, de fio em repouso**, âmbar no hover e no foco. É `<span>`: a linha inteira já é o `<button>` |
+   | Mapa | Toma a **altura do corpo**. Era `326px` fixo ao lado de uma coluna que crescia com a equipe, e deixava 197px de chapa vazia embaixo da única peça que responde a pergunta |
+   | Rolagem | Rola o **grupo de candidatos**, nunca o diálogo — senão o mapa sai da tela ao rolar a equipe. Mesma regra do `.trilho` |
+   | Celular | Empilha, e o `min-height:0` da mesa é **desfeito**: com ele o `clip-path` do grupo apaga o fim da lista sem barra de rolagem e sem aviso |
+
+   **A confirmação (08/09).** Escolher a linha **não despacha** — ela marca o
+   técnico e troca o rodapé por uma barra que pergunta *"Despachar [nome]?"*.
+   O `PATCH` só sai no "Despachar" da barra.
+
+   > **Confirma o que não volta; desfaz o que volta.**
+
+   ⚠️ **A regra vem do backend, não do gosto.** `PATCH /chamados/:id` grava
+   `primeira_resposta_em = COALESCE(primeira_resposta_em, NOW())`: o carimbo
+   nunca é limpo, então tirar o técnico depois devolve o chamado à fila mas
+   deixa o relógio do TTFR parado para sempre. Não há desfazer honesto.
+   ⚠️ Por isso o **"Já foi feito" de Aprovados NÃO tem confirmação**: aquilo é
+   `POST`/`DELETE` numa coluna só e já tem Desfazer na faixa.
+
+   | | Regra |
+   |---|---|
+   | Peça | Barra no pé, **nunca um segundo `<dialog>`** — modal sobre modal empilha dois `showModal()` e rouba o mapa da vista |
+   | A linha | Fica **marcada** (material + chip preenchido) enquanto a pergunta está no pé: o erro a pegar é ter clicado no vizinho |
+   | Foco | Vai para **"Voltar"**. Enter armado no botão que grava devolveria o problema pelo teclado |
+   | Esc / clique no fundo | Cancelam **a pergunta**, não o diálogo — fecha-se de dentro para fora |
+   | `[hidden]` | ⚠️ `.ficha-pe[hidden]{display:none}` é obrigatório: `display:flex` na classe ganha do `[hidden]` do navegador, e as duas barras apareciam juntas |
+
+   **"Novo chamado" também pergunta** antes de descartar, e só quando há o que
+   perder: com prédio, título ou relato escritos, o clique no fundo e o Esc
+   passam por *"Descartar este chamado?"*. Diálogo vazio fecha no primeiro
+   clique, como sempre.
 2. **Abrir ficha** — `GET /chamados/:id` + `/historico`, a linha do tempo que
    o operador lê antes de ligar para o técnico.
 3. **Novo chamado** — o que chega por telefone precisa de porta de entrada.
@@ -416,6 +459,27 @@ translúcida para sempre, com as placas claras dos prédios borrando o cabeçalh
 O listener vem **com a chamada inicial junto**: o navegador restaura a rolagem
 no F5, e sem ela a barra nasce translúcida com a página já rolada. Ver o
 [changelog](../changelog.md).
+
+### A confirmação do lote (08/09/2026)
+
+"Enviar" **não envia**: a barra troca o "N escolhidas + select" por
+*"Enviar N preventivas para [nome]?"*, no mesmo x e com o par de ações no mesmo
+lugar — a barra não muda de forma, muda de assunto. O `POST` só sai no segundo
+"Enviar".
+
+Aqui o **clique** não é o risco (a barra só aparece com algo marcado e ainda
+exige escolher o técnico); o **tamanho** é: um "Marcar zona" pega uma região
+inteira, e o `POST` escreve `planos_atribuicoes`, reescreve o `tecnico_id` dos
+chamados do mês e grava histórico em cada um, tudo numa transação. Por isso a
+pergunta diz **quantas** e **para quem** — é o número que ninguém confere antes
+de clicar.
+
+⚠️ **"Voltar" repõe o técnico escolhido.** Devolver o HTML da barra recria o
+`<select>`, e este arquivo já avisava que isso "apagaria o técnico que a pessoa
+já escolheu" — o valor é reposto à mão logo depois.
+⚠️ **Marcar outro prédio cancela a pergunta.** Ela diz "Enviar 24 para X?";
+deixá-la de pé enquanto o 25º entra na seleção confirmaria um número que já não
+é o da tela.
 
 ### A barra de despacho (refino de 04/09/2026)
 

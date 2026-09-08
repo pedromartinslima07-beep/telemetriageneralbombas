@@ -270,6 +270,24 @@
       "lng": null,
       "gps_em": null,
       "abertos": 2
+    },
+    {
+      "id": 5,
+      "nome": "Carlos Eduardo Basilio da Silva Junior",
+      "disponivel": true,
+      "lat": -23.552,
+      "lng": -46.601,
+      "gps_em": "2026-08-28T00:02:22.888Z",
+      "abertos": 1
+    },
+    {
+      "id": 6,
+      "nome": "Valdeir Bento da Silva",
+      "disponivel": true,
+      "lat": null,
+      "lng": null,
+      "gps_em": null,
+      "abertos": 0
     }
   ]
 };

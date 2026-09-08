@@ -434,15 +434,62 @@ async function trocarMes(passo) {
   } catch (e) { avisar(e.message); }
 }
 
-async function despachar() {
+/* ── A confirmação do lote ───────────────────────────────────────────────
+   Pedido do Pedro em 08/09 ("o operador está clicando em coisas sem querer").
+   Vale a mesma regra registrada no `operador.js`: **confirma o que não volta.**
+   Aqui o clique não é o risco — a barra só aparece com algo marcado e ainda
+   exige escolher o técnico —, o **tamanho** é: um "Marcar zona" pega uma
+   região inteira, e este `POST` escreve `planos_atribuicoes`, reescreve o
+   `tecnico_id` dos chamados do mês e grava histórico em cada um, tudo numa
+   transação. Desescalar existe, mas não apaga o histórico. Por isso a
+   pergunta diz **quantas** e **para quem** — é o número que ninguém confere
+   antes de clicar. */
+let PV_CONFIRMA = null;
+
+function pedirDespacho() {
   const sel = document.getElementById("pvTecnico");
   const tecnico = sel ? sel.value : "";
   if (!tecnico) { avisar("Escolha para qual técnico enviar."); sel?.focus(); return; }
   if (!SEL.size) return;
+  const nome = sel.options[sel.selectedIndex].text.replace(/\s*\(\d+ em aberto\)$/, "");
+  const inn = document.querySelector(".pv-barra-in");
+  if (!inn) return;
+  const n = SEL.size;
+  // ⚠️ GUARDA O HTML E O TÉCNICO. Este arquivo já avisava que "recriar o
+  // `<select>` apagaria o técnico que a pessoa já escolheu"; devolver o HTML
+  // no "Voltar" recria mesmo — então o valor é reposto à mão logo depois.
+  PV_CONFIRMA = { html: inn.innerHTML, tecnico: Number(tecnico), nome };
+  inn.innerHTML =
+    `<p class="pv-confirma" role="alert">Enviar <b>${n} ${n === 1 ? "preventiva" : "preventivas"}</b>` +
+    ` para <b>${escapar(nome)}</b>?</p>` +
+    `<button type="button" class="pv-barra-limpa" data-acao="pv-nao">Voltar</button>` +
+    `<button type="button" class="btn" data-acao="pv-sim">Enviar</button>`;
+  inn.querySelector('[data-acao="pv-nao"]').focus();
+}
+
+// `true` quando havia confirmação a cancelar — é como o Esc e a troca de
+// seleção sabem que já foram consumidos.
+function cancelarPvConfirma() {
+  if (!PV_CONFIRMA) return false;
+  const inn = document.querySelector(".pv-barra-in");
+  if (inn) {
+    inn.innerHTML = PV_CONFIRMA.html;
+    const sel = document.getElementById("pvTecnico");
+    if (sel) sel.value = String(PV_CONFIRMA.tecnico);
+  }
+  PV_CONFIRMA = null;
+  document.querySelector('[data-acao="despachar"]')?.focus();
+  return true;
+}
+
+async function despachar(tecnicoId, nomeTec) {
+  const tecnico = tecnicoId != null ? String(tecnicoId) : "";
+  if (!tecnico) return;
+  if (!SEL.size) return;
 
   const ids = [...SEL];
-  const nome = sel.options[sel.selectedIndex].text.replace(/\s*\(\d+ em aberto\)$/, "");
-  const btn = document.querySelector('[data-acao="despachar"]');
+  const nome = nomeTec || "";
+  const btn = document.querySelector('[data-acao="pv-sim"],[data-acao="despachar"]');
   if (btn) { btn.disabled = true; btn.textContent = "Enviando…"; }
 
   try {
@@ -464,9 +511,13 @@ async function despachar() {
     avisar("Erro ao enviar: " + e.message);
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = "Enviar"; }
+    PV_CONFIRMA = null;
   }
 }
 
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && cancelarPvConfirma()) e.preventDefault();
+});
 document.addEventListener("click", (e) => {
   if (e.target.closest("#btnSair")) return logout();
 
@@ -479,6 +530,10 @@ document.addEventListener("click", (e) => {
     // `body`, o Tab recomeça do topo, e quem marca vários seguidos com o
     // teclado perde o lugar a cada um. Também pisca a lista toda para mudar
     // uma borda. Aqui só a linha e a barra do pé mudam.
+    // ⚠️ MARCAR OUTRA COISA CANCELA A PERGUNTA. Ela diz "Enviar 24 para X?";
+    // deixá-la de pé enquanto o 25º entra na seleção seria confirmar um
+    // número que já não é o da tela.
+    cancelarPvConfirma();
     _pintarMarcada(id);
     _atualizarBarra();
     return;
@@ -490,7 +545,13 @@ document.addEventListener("click", (e) => {
 
   if (a === "mes-ant")  return trocarMes(-1);
   if (a === "mes-prox") return trocarMes(1);
-  if (a === "despachar") return despachar();
+  if (a === "despachar") return pedirDespacho();
+  if (a === "pv-nao") return cancelarPvConfirma();
+  if (a === "pv-sim") {
+    const c = PV_CONFIRMA;
+    if (!c) return;
+    return despachar(c.tecnico, c.nome);
+  }
   if (a === "limpar")   { SEL = new Set(); return render(); }   // some tudo: vale redesenhar
   if (a === "ver-feitas") { VER_FEITAS = !VER_FEITAS; return render(); }
   if (a === "ajuda")    return dlgAjuda();

@@ -22,7 +22,7 @@
 <link rel="preload" href="/static/fonts/archivo.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="/static/fonts/martianmono.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/static/leaflet.css">
-<link rel="stylesheet" href="/static/operador.css?v=88">
+<link rel="stylesheet" href="/static/operador.css?v=97">
 </head>
 <body>
 <!-- ⚠️ PÁGINA DE PRÉVIA, GERADA a partir do operador.html — temporária,
@@ -58,7 +58,28 @@
        cliente.html e da landing. -->
   <div class="barra-in">
     <div class="marca">
-      <img src="/static/logo-topo.png" alt="GENERAL" width="826" height="180">
+      <!-- ⚠️ NO CELULAR A MARCA PERDE O WORDMARK (08/09/2026). A barra não tem
+           largura para os 138px do `logo-topo.png` ao lado de três links de
+           navegação e duas ações: medido, ele pintava 77px por cima de
+           "Aprovados" a 390px, e 101 a 320. O `operador.css` já dizia desde
+           03/09 que "a conta só fecha se alguma coisa sair da barra no
+           celular (a marca, ou os dois links de texto virando ícone)".
+           ⚠️ SAI A MARCA, NÃO AS PALAVRAS. Esta tela foi recalibrada em 28/08
+           para quem tem pouca familiaridade com computador; trocar
+           "Aprovados" e "Preventivas" por ícones mudos seria pagar a conta
+           com a única coisa que a calibragem existe para proteger. E a marca
+           não identifica nada que o operador logado no próprio turno já não
+           saiba — o admin, aliás, nem tem logo na topbar.
+           ⚠️ É `<picture>`, NÃO duas imagens com `display:none`: assim o
+           navegador baixa SÓ a que vai usar. O `logo-marca.png` (160x102,
+           11 KB) sai do `logo-menu.png` — o mesmo desenho que a sidebar
+           recolhida do admin usa — pelo `scripts/gerar-logo-marca.js`, que
+           apara o halo e reduz. O original tem 1,15 MB, e o alvo aqui é
+           justamente o celular. -->
+      <picture>
+        <source media="(max-width:760px)" srcset="/static/logo-marca.png" width="160" height="102">
+        <img src="/static/logo-topo.png" alt="GENERAL" width="826" height="180">
+      </picture>
       <span>Turno</span>
     </div>
   </div>
@@ -76,6 +97,12 @@
          "O serviço" e "Dúvidas" na landing. -->
     <nav class="barra-nav" aria-label="Telas do operador">
       <a href="/operador/painel/orcamentos">Aprovados</a>
+      <!-- ⚠️ ESTE LINK FALTAVA NA PRÉVIA e o `operador.html` já o tinha. Não é
+           detalhe: a nota de 03/09 registra que "o terceiro link reabriu a
+           barra do celular" — é o item que empurra o wordmark por cima das
+           ações a 390px. Sem ele, toda medição de barra feita aqui testava o
+           caso fácil e passava verde. -->
+      <a href="/operador/painel/preventivas">Preventivas</a>
       <button type="button" data-acao="ajuda">Ajuda</button>
     </nav>
     <button class="btn btn-novo" data-acao="novo" aria-label="Abrir novo chamado"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span class="btn-rot">Novo chamado</span></button>
@@ -238,6 +265,6 @@
 <script src="/static/leaflet.js"></script>
 <script src="/static/condo-picker.js?v=2"></script>
 <script src="/static/_operador-preview.js?v=5"></script>
-<script src="/static/operador.js?v=77" defer></script>
+<script src="/static/operador.js?v=79" defer></script>
 </body>
 </html>

@@ -621,6 +621,81 @@ Fluxo e pegadinhas em
     oferecia os 11 e aceitava qualquer um. Toda lista de despacho filtra por
     `COALESCE(cargo,'tecnico')='tecnico'`, e quem valida a gravação é o
     `chamado-atribuicao.service.js` — uma regra, um lugar.
+  - ⚠️ **O diálogo de despacho passou pelo corte** (08/09) — era o item 4 da
+    simplificação do operador, e o último. A coluna "Quem pode ir" virou **uma
+    chapa dividida por corte gravado** (a construção que o trilho já tinha
+    desde 31/08) com **as mesmas palavras do trilho**: eram as MESMAS PESSOAS
+    descritas de dois jeitos na mesma tela. Saíram o selo de iniciais
+    (`.tec-av` virou CSS morto), a placa mono "N / CHAMADOS" e o `opacity:.5` —
+    que apagava justamente quem estava livre com um chamado aberto, isto é, os
+    três **com posição no mapa**. Nome de técnico **quebra, não trunca** (4 de
+    6 saíam cortados em produção). O mapa deixou de ser `326px` fixo e toma a
+    altura do corpo: eram **197px de chapa vazia** embaixo da única peça que
+    responde "quem pode ir". E cada linha ganhou o chip **"Despachar"**, sempre
+    visível e de fio em repouso — antes o único elemento com cara de botão no
+    diálogo era "Cancelar". Detalhe em
+    [changelog.md](../docs/changelog.md) e
+    [painel-operador.md](../docs/modulos/painel-operador.md).
+  - ⚠️ **Duas armadilhas que este passe confirmou**, e as duas só apareceram na
+    verificação: o **anel de foco `inset` é engolido** por qualquer peça que já
+    tenha um `inset` próprio (aqui, a aresta de luz do corte gravado — mesma
+    especificidade, e vem depois no arquivo), e **`el.focus()` por script não
+    casa `:focus-visible`**, então a primeira medição passou limpa. No celular,
+    o `min-height:0` da mesa faz o `clip-path` do grupo **apagar o fim da lista
+    sem barra de rolagem e sem aviso** — precisa de `min-height:auto` no bloco
+    de 760px.
+  - ⏳ **A ficha do chamado é o que sobrou** da simplificação do operador — e é
+    onde foi parar tudo que saiu do item da fila.
+  - ⚠️ **Confirmação nas ações que não voltam** (08/09, 2ª rodada). Pedido do
+    Pedro: *"está acontecendo mt do operador clicar em coisas sem querer"*. A
+    regra que ficou: **confirma o que não volta; desfaz o que volta** — e ela
+    saiu do backend, não do gosto. `PATCH /chamados/:id` grava
+    `primeira_resposta_em = COALESCE(primeira_resposta_em, NOW())`: o carimbo
+    **nunca é limpo**, então despachar não tem desfazer honesto. Ganharam
+    confirmação o **despacho de técnico**, o **descarte do "Novo chamado"** com
+    texto escrito e o **lote de Preventivas** (que diz quantas e para quem). O
+    **"Já foi feito" de Aprovados NÃO ganhou**: é `POST`/`DELETE` numa coluna só
+    e já tem Desfazer na faixa desde 31/08.
+  - ⚠️ **É barra no pé, nunca um segundo `<dialog>`** — modal sobre modal
+    empilha dois `showModal()` no top layer e rouba o mapa da vista. E a linha
+    escolhida fica **marcada**: o erro que isto pega é ter clicado no vizinho.
+    ⚠️ `.ficha-pe[hidden]{display:none}` é obrigatório — `display:flex` na
+    classe ganha do `[hidden]` do navegador, e as duas barras apareciam juntas.
+  - ✅ **A barra do operador cabe no celular** (08/09, 3ª rodada). Estava com o
+    wordmark pintando 77px por cima de "Aprovados" a 390px (84 a 360, 101 a
+    320) desde que o link "Preventivas" entrou na nav em 03/09. Das duas saídas
+    que o `operador.css` nomeava, escolhida **"sai a marca, não as palavras"** —
+    a calibragem de 28/08 existe para quem tem pouca familiaridade com
+    computador, e trocar os rótulos por ícones mudos pagaria a conta com
+    exatamente o que ela protege. O admin, aliás, nunca teve logo na topbar.
+    ⚠️ **Foram DUAS etapas, e a primeira não bastou:** o `<picture>` troca o
+    wordmark (138px) pelo `logo-marca.png` (53px) a 760px e ainda sobravam 36px
+    a 360 — três links de texto, dois alvos de 44 e a marca não cabem em 360px.
+    **Abaixo de 420 a marca sai inteira.** Zero sobreposição a 320/360/390/412/
+    430/600, nas três telas.
+  - ⚠️ **O pé do diálogo EMPILHA abaixo de 560px** (08/09, 4ª rodada). Os dois
+    botões caíam em linhas diferentes a 390 e 430px, porque o `<p>` de mensagem
+    (`#nvMsg`) reserva `min-width:180px` **mesmo vazio** e o `flex-wrap`
+    separava o par. Em flexbox não há como manter dois irmãos na mesma linha
+    sem invólucro, então vale a regra já registrada para o pé de Aprovados:
+    abaixo de 560px o botão ocupa a linha. `p:empty{display:none}` junto.
+    ⚠️ A barra de confirmação **não** empilha: duas palavras curtas cabem lado
+    a lado, e par lado a lado lê como escolha binária.
+  - ⚠️ **`public/logo-marca.png` é asset GERADO** (160×102, 11 KB) por
+    `scripts/gerar-logo-marca.js`, a partir do `logo-menu.png`. Não usar o
+    original direto: ele tem 1024×1024 e **1,15 MB**, e o alvo aqui é o celular.
+    O script apara o halo medindo pixel a pixel (alfa ≥ .6) e dimensiona pela
+    ALTURA — o desenho é 886×566, e um quadrado desperdiçaria a largura que se
+    quer economizar. ⚠️ O Chrome empacotado do puppeteer **não sobe nesta
+    máquina**; o script aceita `CHROME_PATH` apontando para o Chrome do sistema.
+  - ⚠️ **A PRÉVIA ESCONDIA ISSO.** `_operador-preview.html` tinha dois itens de
+    nav enquanto o `operador.html` já tinha três, então toda medição de barra
+    feita ali testava o caso fácil. Sincronizado em 08/09 — **ao mexer na nav do
+    `operador.html`, sincronize a prévia no mesmo commit.**
+  - ⚠️ **Duas medições automáticas que NÃO servem nesta folha:** contraste lido
+    subindo `backgroundColor` na árvore (a placa mora num `::before` com
+    gradiente — deu 45 reprovações falsas) e tamanho de alvo descontando o
+    `::before` embutido (o `.conta` apareceu 42×44 e sempre teve 44).
 - **Acabamento em 27/08** (passe `polish` da skill): item de 318px → 258px,
   medida de linha em 68ch, ações em coluna própria, piso de contraste 5,2:1 e
   o pulso da barra com três estados. O brief da superfície fica em
