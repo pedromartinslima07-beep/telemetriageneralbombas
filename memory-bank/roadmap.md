@@ -274,6 +274,10 @@ aliases:
     próprias por formato (a arte da A4260 não cabe em 38,1 mm de altura). Grade
     conferida contra a tabela oficial da Pimaco, arte recuada do corte e
     calibração `&dx=`/`&dy=` para o registro da impressora.
+  - ✅ **Formato `grande` (130 × 80 mm, 3 por folha)** — 2026-09-08. Papel
+    comum pra recortar e plastificar, com QR de 45 mm, para quando o código
+    precisa ser lido de longe ou não há folha adesiva à mão. Ocupou o lugar do
+    `pimaco6180` no seletor (a A4260 não é papel que a operação use).
   - 📋 **Confirmar o alinhamento numa folha adesiva real** — a grade está
     conforme o fabricante, mas o desvio residual é da impressora e só aparece
     imprimindo. Falta a passada do Pedro com a folha na mão.

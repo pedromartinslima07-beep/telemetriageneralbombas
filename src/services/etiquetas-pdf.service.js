@@ -70,10 +70,10 @@ function baseUrlValida(baseUrl) {
   }
 }
 
-// Formatos de folha. `corte` é o padrão: papel comum, grade com marcas de
-// corte. Os demais casam com folhas adesivas pré-cortadas — ali a margem
-// precisa bater com a picotagem, e a borda tracejada some pra não imprimir
-// traço em cima do adesivo.
+// Formatos de folha. `corte` e `grande` são papel comum: grade com marcas de
+// corte, pra recortar (e, no caso do grande, plastificar). Os de folha adesiva
+// pré-cortada são outra história — ali a margem precisa bater com a picotagem,
+// e a borda tracejada some pra não imprimir traço em cima do adesivo.
 //
 // `medidas` existe porque etiqueta menor não é a mesma arte reduzida: na
 // A4263 (38,1 mm de altura, contra 50,8 da A4260) a faixa marinho e o QR do
@@ -99,13 +99,30 @@ const FORMATOS = {
     gapX: 0, gapY: 3,
     borda: true,
   },
-  pimaco6180: {
-    label: "Pimaco 6180 / A4260 (10 por folha)",
-    cols: 2, rows: 5,
-    largura: 84.7, altura: 50.8,
-    margemTopo: 21.5, margemLado: 19,
-    gapX: 2.6, gapY: 0,
-    borda: false,
+  // Etiqueta grande pra imprimir em sulfite comum, recortar e plastificar —
+  // é o caminho quando não há folha adesiva à mão e a bomba fica longe o
+  // bastante pra que ler o QR de pé, sem chegar perto, valha o papel gasto.
+  // 130 × 80 mm só cabe uma por linha (2 × 130 estouraria os 210 da folha),
+  // então saem 3 por folha, centralizadas, com a borda tracejada servindo de
+  // guia de corte — aqui o traço é bem-vindo, ele vira a linha da tesoura.
+  grande: {
+    label: "Grande — 130 × 80 mm, papel comum p/ plastificar (3 por folha)",
+    cols: 1, rows: 3,
+    largura: 130, altura: 80,
+    margemTopo: 23.5, margemLado: 40,
+    gapX: 0, gapY: 5,
+    borda: true,
+    // Tudo cresce junto: aumentar só o QR deixaria a faixa marinho parecendo
+    // uma tarja perdida no topo. O QR vai a 45 mm — mais que o dobro de área
+    // da A4263 — e o código humano acompanha, porque é ele que salva quando a
+    // plastificação amarelar ou riscar.
+    medidas: {
+      safe: 0,
+      cabecaH: 20, chanfro: 14, padCabeca: 3,
+      logoW: 82, logoH: 14,
+      qr: 45,
+      codFs: 30, dicaFs: 11, peFs: 8.5,
+    },
   },
   // A4263 / Avery L7163: 99,0 × 38,1 mm, 14 por folha (2 × 7). As margens são
   // as que sobram da folha depois da grade — 2×99 + 2,6 de medianiz deixa

@@ -397,9 +397,11 @@ Detalhe e o porquê de cada uma em
   ficha revela endereço de cliente, e URL sequencial exporia o parque inteiro.
 - **Sem plugin de scanner** — a câmera nativa do Android abre a URL. Mexer no
   build Android competiria com o prazo de 31/08 da Play Store.
-- Folha A4 em três formatos: papel comum com marcas de corte · Pimaco 6180 /
-  A4260 (10/folha) · Pimaco A4263 / Avery L7163 (14/folha, 99 × 38,1 mm — o
-  papel que a operação tem em mãos, entrou em 08/09/2026).
+- Folha A4 em três formatos: papel comum com marcas de corte (95 × 52 mm) ·
+  grande 130 × 80 mm (3/folha, papel comum pra recortar e plastificar — QR de
+  45 mm, entrou em 08/09/2026 no lugar do Pimaco 6180 / A4260, que a operação
+  não usa) · Pimaco A4263 / Avery L7163 (14/folha, 99 × 38,1 mm — o papel
+  adesivo que a operação tem em mãos, entrou em 08/09/2026).
   ⚠️ O gerador **recusa** QR com host local — etiqueta é física e permanente.
   Depende de `PUBLIC_BASE_URL` nas envs.
 - ⚠️ **Formato novo não é a arte antiga reduzida**: cada entrada de `FORMATOS`

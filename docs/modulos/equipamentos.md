@@ -171,11 +171,17 @@ HTML em ~1,3 MB por folha.
   máquinas vive com graxa, respingo e sol. O código humano impresso ao lado é o
   plano B quando nem isso resolve.
 - **Três formatos** (`FORMATOS` em `src/services/etiquetas-pdf.service.js`):
-  `corte` (padrão — papel comum com marcas de corte), `pimaco6180`
-  (A4260, 10 por folha, 84,7 × 50,8 mm) e `pimacoA4263` (A4263 / Avery L7163,
-  14 por folha, 99 × 38,1 mm). Nas folhas adesivas a margem precisa bater com a
-  picotagem e a borda tracejada é omitida, pra não imprimir traço em cima do
-  adesivo.
+  `corte` (padrão — papel comum com marcas de corte, 95 × 52 mm, 10 por folha),
+  `grande` (130 × 80 mm, 3 por folha — papel comum, pra recortar e plastificar
+  quando o QR precisa ser lido de longe ou não há folha adesiva à mão) e
+  `pimacoA4263` (A4263 / Avery L7163, 14 por folha, 99 × 38,1 mm).
+  Nas folhas adesivas a margem precisa bater com a picotagem e a borda tracejada
+  é omitida, pra não imprimir traço em cima do adesivo — nos formatos de papel
+  comum ela fica, porque ali é a linha da tesoura.
+- ⚠️ **O `grande` só cabe uma por linha**: 2 × 130 mm estouraria os 210 mm da
+  folha. Como não há picotagem a respeitar, a grade é centralizada (40 mm de
+  cada lado), ao contrário das adesivas, cuja margem vem da tabela do
+  fabricante.
 ## Descartar um lote de etiquetas
 
 Folha impressa errada, teste de alinhamento, lote gerado a mais: botão **Apagar

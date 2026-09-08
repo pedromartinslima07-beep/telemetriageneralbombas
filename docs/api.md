@@ -407,7 +407,7 @@ oficina não é tela dele. Fluxo em
 | Método | Rota | Acesso / observação |
 |---|---|---|
 | POST | `/equipamentos/lote` | gestaoOnly — cria N etiquetas em branco (1 a 200). Body `{ quantidade }`. Devolve `{ lote, quantidade, equipamentos }` |
-| GET | `/equipamentos/etiquetas.pdf?lote=…\|ids=…&formato=` | adminOnly — folha A4 em memória. `formato`: `corte` (padrão), `pimaco6180` (10/folha) ou `pimacoA4263` (A4263 / Avery L7163, 14/folha, 99 × 38,1 mm). `dx`/`dy` (mm, ±5) deslocam a grade e `escala` (%, 90–110) compensa driver que reduz a página — calibração do registro da impressora. **Recusa** gerar se a URL pública for local (defina `PUBLIC_BASE_URL`; `&forcar=1` ignora, só para teste) |
+| GET | `/equipamentos/etiquetas.pdf?lote=…\|ids=…&formato=` | adminOnly — folha A4 em memória. `formato`: `corte` (padrão), `grande` (130 × 80 mm, 3/folha, papel comum p/ recortar e plastificar) ou `pimacoA4263` (A4263 / Avery L7163, 14/folha, 99 × 38,1 mm). `dx`/`dy` (mm, ±5) deslocam a grade e `escala` (%, 90–110) compensa driver que reduz a página — calibração do registro da impressora. **Recusa** gerar se a URL pública for local (defina `PUBLIC_BASE_URL`; `&forcar=1` ignora, só para teste) |
 | GET | `/equipamentos?status=&condominio_id=&lote=&q=&limit=` | lista o parque etiquetado |
 | GET | `/equipamentos/condominios` | id + nome apenas — `GET /condominios` é adminOnly e o técnico não passa nele |
 | GET | `/equipamentos/codigo/:codigo` | **a ficha que o QR abre**. Aceita hífen e minúsculas; normaliza I/L→1, O→0, U→V |

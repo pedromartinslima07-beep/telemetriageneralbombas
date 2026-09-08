@@ -6694,6 +6694,38 @@ Fragmento de glifo não é "menos informação", é sujeira. Com `flex-shrink: 0
 ele ou cabe inteiro ou some (abaixo de 760px o bloco de celular já o esconde);
 quem cede no aperto é a marca, que tem a regra de 420px para isso.
 
+### 2026-09-08 (7ª rodada) · A etiqueta grande, pra recortar e plastificar
+
+Nem toda bomba mora ao alcance da mão. Quando o QR precisa ser lido de longe —
+ou quando não há folha adesiva por perto — o caminho é imprimir em sulfite
+comum, recortar e plastificar. Entrou o formato `grande`: **130 × 80 mm, 3 por
+folha** (1 × 3), com marcas de corte.
+
+⚠️ **Ele tomou o lugar do `pimaco6180`** no seletor, a pedido: a A4260 não é
+papel que a operação use. Os três formatos hoje são `corte`, `grande` e
+`pimacoA4263`.
+
+**Só cabe uma por linha** — 2 × 130 mm estouraria os 210 da folha. Sobram 40 mm
+de cada lado e a grade fica centralizada (aqui pode: papel comum não tem
+picotagem pra respeitar). Três linhas de 80 mm com 5 de medianiz ocupam 250 dos
+297, deixando 23,5 mm em cima.
+
+Aqui a **borda tracejada é recurso, não sujeira**: nas folhas adesivas ela é
+omitida pra não imprimir traço em cima do picote; no papel comum ela é a linha
+da tesoura.
+
+⚠️ **Aumentar só o QR deixaria a faixa marinho parecendo tarja perdida no topo.**
+Como na A4263, o formato declara `medidas` próprias e tudo cresce junto: faixa
+de 20 mm, chanfro de 14, logo 82 × 14, **QR de 45 mm** (mais que o dobro da área
+do da A4263) e o código humano a 30pt — porque é ele que salva quando a
+plastificação amarelar ou riscar.
+
+Conferido renderizando a folha e olhando: os 80 mm comportam faixa + QR + pé sem
+transbordo, e o código de 9 caracteres cabe na largura que sobra ao lado do QR.
+
+`?v=N`: nada a bumpar — a mudança no front foi só uma `<option>` do
+`admin.html`, que já sai com `Cache-Control: no-cache`.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em
@@ -6740,6 +6772,38 @@ Verificado em `/dev/_operador-preview.html` (mesa a 1440 e celular a 390, por
 iframe): render correto nos quatro estados da fixture — ocupado com posição,
 livre com posição, e livre/ocupado **sem** posição —, console limpo,
 `node --check` limpo, detector do impeccable sem achado novo.
+
+### 2026-09-08 (7ª rodada) · A etiqueta grande, pra recortar e plastificar
+
+Nem toda bomba mora ao alcance da mão. Quando o QR precisa ser lido de longe —
+ou quando não há folha adesiva por perto — o caminho é imprimir em sulfite
+comum, recortar e plastificar. Entrou o formato `grande`: **130 × 80 mm, 3 por
+folha** (1 × 3), com marcas de corte.
+
+⚠️ **Ele tomou o lugar do `pimaco6180`** no seletor, a pedido: a A4260 não é
+papel que a operação use. Os três formatos hoje são `corte`, `grande` e
+`pimacoA4263`.
+
+**Só cabe uma por linha** — 2 × 130 mm estouraria os 210 da folha. Sobram 40 mm
+de cada lado e a grade fica centralizada (aqui pode: papel comum não tem
+picotagem pra respeitar). Três linhas de 80 mm com 5 de medianiz ocupam 250 dos
+297, deixando 23,5 mm em cima.
+
+Aqui a **borda tracejada é recurso, não sujeira**: nas folhas adesivas ela é
+omitida pra não imprimir traço em cima do picote; no papel comum ela é a linha
+da tesoura.
+
+⚠️ **Aumentar só o QR deixaria a faixa marinho parecendo tarja perdida no topo.**
+Como na A4263, o formato declara `medidas` próprias e tudo cresce junto: faixa
+de 20 mm, chanfro de 14, logo 82 × 14, **QR de 45 mm** (mais que o dobro da área
+do da A4263) e o código humano a 30pt — porque é ele que salva quando a
+plastificação amarelar ou riscar.
+
+Conferido renderizando a folha e olhando: os 80 mm comportam faixa + QR + pé sem
+transbordo, e o código de 9 caracteres cabe na largura que sobra ao lado do QR.
+
+`?v=N`: nada a bumpar — a mudança no front foi só uma `<option>` do
+`admin.html`, que já sai com `Cache-Control: no-cache`.
 
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
@@ -11123,6 +11187,38 @@ importa — duas virgens apagadas, a terceira preservada com o histórico intact
 e repetir a chamada não apaga a que sobrou.
 
 `?v=N`: `admin.js` 346 → 347, `admin.css` 256 → 257.
+
+### 2026-09-08 (7ª rodada) · A etiqueta grande, pra recortar e plastificar
+
+Nem toda bomba mora ao alcance da mão. Quando o QR precisa ser lido de longe —
+ou quando não há folha adesiva por perto — o caminho é imprimir em sulfite
+comum, recortar e plastificar. Entrou o formato `grande`: **130 × 80 mm, 3 por
+folha** (1 × 3), com marcas de corte.
+
+⚠️ **Ele tomou o lugar do `pimaco6180`** no seletor, a pedido: a A4260 não é
+papel que a operação use. Os três formatos hoje são `corte`, `grande` e
+`pimacoA4263`.
+
+**Só cabe uma por linha** — 2 × 130 mm estouraria os 210 da folha. Sobram 40 mm
+de cada lado e a grade fica centralizada (aqui pode: papel comum não tem
+picotagem pra respeitar). Três linhas de 80 mm com 5 de medianiz ocupam 250 dos
+297, deixando 23,5 mm em cima.
+
+Aqui a **borda tracejada é recurso, não sujeira**: nas folhas adesivas ela é
+omitida pra não imprimir traço em cima do picote; no papel comum ela é a linha
+da tesoura.
+
+⚠️ **Aumentar só o QR deixaria a faixa marinho parecendo tarja perdida no topo.**
+Como na A4263, o formato declara `medidas` próprias e tudo cresce junto: faixa
+de 20 mm, chanfro de 14, logo 82 × 14, **QR de 45 mm** (mais que o dobro da área
+do da A4263) e o código humano a 30pt — porque é ele que salva quando a
+plastificação amarelar ou riscar.
+
+Conferido renderizando a folha e olhando: os 80 mm comportam faixa + QR + pé sem
+transbordo, e o código de 9 caracteres cabe na largura que sobra ao lado do QR.
+
+`?v=N`: nada a bumpar — a mudança no front foi só uma `<option>` do
+`admin.html`, que já sai com `Cache-Control: no-cache`.
 
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
