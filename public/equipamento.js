@@ -242,7 +242,7 @@
     $root.classList.add("is-claro");
     $root.innerHTML = `
       <h1>Etiqueta em branco</h1>
-      <div class="sub">Preencha o mínimo agora, com a bomba na mão — o resto dá para completar depois.</div>
+      <div class="sub">O resto dá para completar depois.</div>
 
       <form id="eqFormVinc">
         <div class="campo">
@@ -262,18 +262,18 @@
           </div>
           <div class="campo">
             <label for="fApelido">Identificação</label>
-            <input id="fApelido" placeholder="Bomba 2 — recalque" maxlength="120">
+            <input id="fApelido" placeholder="Bomba 2" maxlength="120">
           </div>
         </div>
 
         <div class="campo">
           <label for="fLocal">Onde fica no prédio</label>
-          <input id="fLocal" placeholder="Casa de máquinas, ao lado do quadro" maxlength="200">
+          <input id="fLocal" placeholder="Casa de máquinas" maxlength="200">
         </div>
 
         <div class="campo">
           <label for="fDefeito">Qual é o problema</label>
-          <textarea id="fDefeito" placeholder="Não liga. Zelador diz que parou depois da chuva de sábado."></textarea>
+          <textarea id="fDefeito" placeholder="Não liga."></textarea>
         </div>
 
         <div class="campo-duplo">
@@ -510,7 +510,7 @@
           // imagem quebrada até lá.
           ? ficha.fotos.map(f => `<img src="${PIXEL_VAZIO}"
               alt="${esc(f.legenda || "Foto do equipamento")}" data-foto="${f.id}">`).join("")
-          : `<p class="vazio">Nenhuma foto ainda. Vale a placa de identificação e o ponto do defeito.</p>`}
+          : `<p class="vazio">Nenhuma foto ainda.</p>`}
       </div>
       <input type="file" accept="image/*" capture="environment" id="inputFoto" hidden>
 
@@ -680,12 +680,11 @@
     painel.innerHTML = `
       <div class="dialogo">
         <h1>Solicitar orçamento</h1>
-        <div class="sub">Liste o que a bomba precisa. O comercial põe os preços.</div>
         <div id="orcItens"></div>
         <button type="button" class="btn-fio" id="orcAddItem">+ Outra peça</button>
         <div class="campo" style="margin-top:16px">
           <label for="orcObs">Constatação (opcional)</label>
-          <textarea id="orcObs" placeholder="Rotor gasto e selo mecânico vazando."></textarea>
+          <textarea id="orcObs"></textarea>
         </div>
         <div class="erro-msg" id="orcErro"></div>
         <button type="button" class="btn" id="orcEnviar">Solicitar orçamento</button>
@@ -700,7 +699,7 @@
       linha.style.gridTemplateColumns = "1fr 64px";
       linha.innerHTML = `
         <div class="campo" style="margin-bottom:8px">
-          <input class="orc-desc" placeholder="Selo mecânico 1.1/4" maxlength="255">
+          <input class="orc-desc" placeholder="Peça ou serviço" maxlength="255">
         </div>
         <div class="campo" style="margin-bottom:8px">
           <input class="orc-qtd" type="number" min="1" value="1" inputmode="numeric">
@@ -734,7 +733,7 @@
         });
         painel.remove();
         carregar();
-        alert(`Orçamento ${r.numero} criado como rascunho.\n\nO comercial lança os preços e envia ao cliente pelo painel, em Orçamentos.`);
+        alert(`Orçamento ${r.numero} criado como rascunho.`);
       } catch (e) {
         erro.textContent = e.message;
         botoes.forEach(b => (b.disabled = false));

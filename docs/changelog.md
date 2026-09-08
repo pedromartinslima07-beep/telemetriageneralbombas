@@ -6931,6 +6931,33 @@ era `SIM1BOMB` e a tela devolvia "Etiqueta não encontrada": o front normaliza
 I/L → 1 e O → 0 antes de chamar a API (é o que salva quem digita o código de
 uma etiqueta suja), então ele chegava como `S1M1B0MB`. Virou `S1MB0MBA`.
 
+### 2026-09-08 (13ª rodada) · A ficha para de explicar o que ninguém perguntou
+
+*"Esse 'o comercial põe os preços' não faz sentido ter lá, outra coisa é os
+exemplos muito específicos tipo 'selo mecânico', 'rotor gasto'."* Duas regras
+novas em [vocabulario.md](vocabulario.md), e a ficha do equipamento limpa por
+elas:
+
+**Não explique o organograma.** Quem está com a bomba na mão não decide quem
+faz o passo seguinte, e saber disso não muda nada do que ele vai digitar. Saiu
+do subtítulo do diálogo (*"Liste o que a bomba precisa. O comercial põe os
+preços"*, que foi inteiro) e do aviso de sucesso, que virou só *"Orçamento
+ORC-XXXX criado como rascunho."*
+
+**Placeholder ensina formato, não conta um caso.** *"Selo mecânico 1.1/4"*,
+*"Rotor gasto e selo mecânico vazando"* e *"Não liga. Zelador diz que parou
+depois da chuva de sábado"* eram cenas inteiras dentro do campo: quem lê
+precisa entender que aquilo é exemplo, descartar, e então escrever o seu.
+Viraram **"Peça ou serviço"**, campo vazio e **"Não liga."** — a metade do
+trabalho pela décima parte da leitura.
+
+Na mesma passada: *"Nenhuma foto ainda. Vale a placa de identificação e o
+ponto do defeito"* perdeu a segunda frase, e o subtítulo da etiqueta em branco
+ficou só com a metade que não se deduz — *"O resto dá para completar depois."*
+A outra metade descrevia o que a pessoa já estava fazendo.
+
+`?v=N`: `equipamento.js` 10 → 11.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

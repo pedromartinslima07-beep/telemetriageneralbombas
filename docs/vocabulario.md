@@ -107,6 +107,23 @@ significa — texto mais claro que diz coisa errada é pior que sigla.
    de "TTR restante".
 3. **Nada de definição por sigla + legenda.** Se precisou de legenda, troque o
    rótulo.
+4. **Não explique o organograma.** Quem está com a bomba na mão não decide
+   quem faz o passo seguinte, e saber disso não muda nada do que ele vai
+   digitar. *"Liste o que a bomba precisa. O comercial põe os preços"* saiu do
+   diálogo de orçamento por isso, e a mesma frase saiu do aviso de sucesso.
+   Regra do Pedro, em 08/09/2026: *"esse 'o comercial põe os preços' não faz
+   sentido ter lá"*.
+5. **Placeholder ensina FORMATO, não conta um caso.** *"Selo mecânico 1.1/4"*,
+   *"Rotor gasto e selo mecânico vazando"* e *"Não liga. Zelador diz que parou
+   depois da chuva de sábado"* eram histórias inteiras dentro do campo: quem
+   lê precisa primeiro entender que aquilo é exemplo, depois descartar, depois
+   escrever o seu. **"Peça ou serviço"** e **"Não liga."** fazem o mesmo
+   trabalho em uma fração da leitura. Exemplo específico só se paga quando o
+   formato não é óbvio pelo rótulo — e quando é uma palavra, não uma cena.
+6. **Subtítulo é para o que não se deduz.** *"Preencha o mínimo agora, com a
+   bomba na mão"* descreve o que a pessoa já está fazendo — foi por isso que
+   ela escaneou. O que ela não sabe é que pode salvar incompleto, e é só isso
+   que sobrou: *"O resto dá para completar depois."*
 
 ---
 
