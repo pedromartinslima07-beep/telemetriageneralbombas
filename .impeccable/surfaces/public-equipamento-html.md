@@ -42,10 +42,17 @@ apontou como "100% genérico" em 2026-08-18.
 
 **"Chapa" em registro de operação** — o mesmo do painel do operador e do admin,
 adotado em 2026-09-08 a pedido do Pedro. A tela abre como **a etiqueta que
-acabou de ser escaneada**: faixa marinho com o wordmark, o código Crockford em
-Martian Mono e o estado, chanfrada a 45° no canto inferior direito como a
-etiqueta impressa; placa clara embaixo, que é onde se lê e se edita. Engrenagem
-marinho-sobre-marinho ao fundo, raio zero, nenhuma sombra projetada.
+acabou de ser escaneada**: faixa marinho no `#0d2775` da faixa impressa, com o
+wordmark, o código Crockford em Martian Mono e o estado, chanfrada a 45° no
+canto inferior direito. Corpo em superfície de trabalho marinho, com a chapa de
+duas camadas do `.item` do operador. Engrenagem marinho-sobre-marinho ao fundo,
+raio zero, nenhuma sombra projetada.
+
+⚠️ **O corpo nasceu claro e foi corrigido no mesmo dia**, depois de abrir a
+ficha e o painel do operador lado a lado no navegador: operador, cliente e
+landing são todos marinho. Placa clara aqui veste só o que EDITA (o formulário
+de vínculo) e o que ABRE POR CIMA (o diálogo de orçamento) — o arranjo do
+login.
 
 ⚠️ Isto **substituiu** o pino anterior (o cartão da tela de assinatura de
 contrato). O pino continua valendo para aquela tela, que não foi migrada.

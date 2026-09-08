@@ -401,7 +401,11 @@ Detalhe e o porquê de cada uma em
   08/09/2026 (antes seguia o cartão da tela de assinatura de contrato, que
   continua nele e é hoje a última superfície fora do sistema, junto do
   `app/public/app.css`). A tela abre como a etiqueta escaneada: faixa marinho
-  com wordmark, código em mono e estado; placa clara embaixo.
+  com wordmark, código em mono e estado; corpo em superfície de trabalho
+  marinho.
+  ⚠️ **O corpo nasceu claro e foi corrigido no mesmo dia**: operador, cliente e
+  landing são todos marinho, e a ficha clara era a única superfície fora do
+  tom. Placa clara ali é só o formulário de vínculo e o diálogo de orçamento.
   ⚠️ O estado mora na FAIXA — como selo amarelo na placa ele disputava com a
   parada acesa do trilho e as duas regiões amarelas se anulavam.
 - Folha A4 em três formatos: papel comum **quadrado, 65 × 65 mm, 12/folha, só

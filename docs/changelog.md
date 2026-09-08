@@ -6867,6 +6867,38 @@ não pode acender nada), mais etiqueta em branco e o 404.
 
 `?v=N`: `equipamento.css` e `equipamento.js` 7 → 8.
 
+### 2026-09-08 (10ª rodada) · A ficha vai para o marinho, depois de abrir as duas lado a lado
+
+*"Ainda me parece um serviço menos refinado, abra ambos lado a lado no Chrome e
+compare."* Abri — a ficha do equipamento num painel, o comp aprovado do painel
+do operador no outro — e o Pedro estava certo, por um motivo que nenhum
+screenshot isolado mostra: **o painel do operador, o painel do cliente e a
+landing são todos MARINHO**, e a ficha, migrada de manhã, era a única superfície
+clara do produto. Cada peça dela seguia o sistema; o conjunto não parecia outra
+tela do sistema, parecia outro sistema.
+
+O corpo virou superfície de trabalho marinho (`--surface`), com a chapa de duas
+camadas do `.item` do operador — o fundo do elemento é o anel, o `::before`
+embutido é a placa. A faixa da etiqueta subiu para o `#0d2775` **exato da faixa
+impressa**, um degrau acima do corpo. Sobre marinho o amarelo volta a ser livre,
+então o trilho do ciclo acende em âmbar e o traço das seções também.
+
+**Placa clara ficou com o que ela sempre governou:** o que se EDITA (o
+formulário da etiqueta em branco) e o que ABRE POR CIMA (o diálogo de
+orçamento). É o arranjo da tela de login, em produção desde 11/08. E a
+conversão é **remapeamento de token no contêiner** (`.is-claro`), não reescrita
+de seletor — o que o DESIGN.md manda.
+
+⚠️ **A ESCADA `--surface` NÃO EXISTIA NO `:root` DESTA FOLHA**, e este é o
+achado que pagou a ida ao navegador. `.ficha::before` pintava `var(--surface)`,
+que não estava declarada, e **custom property inválida resolve para
+transparente, sem erro nenhum**: nem o `node --check`, nem o detector, nem o
+screenshot headless acusaram. O que se via era a engrenagem do fundo aparecendo
+**através** da ficha — e isso eu tinha lido como artefato de captura. Só o
+`getComputedStyle` no Chrome disse o que era.
+
+`?v=N`: `equipamento.css` e `equipamento.js` 8 → 9.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

@@ -16,9 +16,14 @@
    com o wordmark e o código Crockford em mono, chanfrada a 45° no canto
    inferior direito — o mesmo desenho que sai do
    `src/services/etiquetas-pdf.service.js` e está colado na bomba que a pessoa
-   tem na frente. Abaixo dela, a placa clara, que é onde se lê e se edita
-   (Regra da Superfície: aqui não há conteúdo marinho competindo ao lado, é o
-   arranjo do login e do painel do cliente).
+   tem na frente.
+
+   ⚠️ O CORPO É MARINHO, e isso foi corrigido no mesmo dia: a primeira versão
+   pôs a leitura em placa clara, e lado a lado no navegador com o painel do
+   operador, o do cliente e a landing — todos marinho — a ficha era a única
+   superfície clara do produto. Placa clara aqui veste só o que EDITA (o
+   formulário de vínculo) e o que ABRE POR CIMA (o diálogo de orçamento), que
+   é o arranjo da tela de login. Ver o bloco `.is-claro` lá embaixo.
 
    ⚠️ Folha AUTÔNOMA, como a do operador: não carrega `admin.css`. Além da
    coerência, evita baixar 265 KB de CSS numa tela aberta pelo celular, na
@@ -71,6 +76,13 @@
   --mar-900:#030a26; --mar-800:#050f38; --mar-700:#071b5c;
   --mar-600:#0d2775; --mar-500:#1a3a9e;
   --bg:var(--mar-900);
+  /* ⚠️ A ESCADA DE SUPERFÍCIE FALTAVA NESTA FOLHA, e o defeito só apareceu
+     abrindo no navegador: `.ficha::before` pintava `var(--surface)`, que não
+     existia no `:root`, e uma custom property inválida resolve para
+     TRANSPARENTE sem erro nenhum. A ficha ficava com o fundo do body, e a
+     engrenagem, que devia passar por trás, aparecia através dela.
+     Mesmos valores do operador.css e do admin.css. */
+  --surface:#06154b; --surface2:#0a1d5b; --surface3:#0e2163;
   --fio:rgba(255,255,255,.14); --fio-fraco:rgba(255,255,255,.07);
   --fio-forte:rgba(255,255,255,.34);
   --text:#f2f5ff; --text-dim:#a6b5dc; --muted:#8294c2;
@@ -174,37 +186,58 @@ body {
 
 /* ═══════════════════════════════════════════════════════════════════
    A FICHA — a etiqueta em tamanho de tela.
-   Faixa marinho com o wordmark e o código; placa clara embaixo.
-   Sem raio, sem sombra projetada: a profundidade é tonal e por aresta.
+   Faixa marinho com o wordmark e o código; corpo em superfície de trabalho.
+
+   ⚠️ O CORPO É MARINHO, e isto foi uma CORREÇÃO de 08/09/2026, no mesmo dia
+   da migração. A primeira versão pôs a leitura em placa clara — defensável
+   pela Regra da Superfície ("é o conteúdo, campo marinho em volta"), mas
+   errada quando se olha a família inteira lado a lado no navegador, que foi
+   o que o Pedro mandou fazer: o painel do operador, o painel do cliente e a
+   landing são TODOS marinho, e a ficha ficava a única superfície clara do
+   produto. Não parecia outra tela do sistema; parecia outro sistema.
+   Placa clara aqui é só o que EDITA (o formulário de vínculo) e o que ABRE
+   POR CIMA (o diálogo de orçamento) — que é exatamente o arranjo da tela de
+   login, em produção desde 11/08.
+
+   Chapa de duas camadas, como o `.item` do operador: o fundo do elemento é o
+   ANEL e o `::before` embutido é a placa. `border` + `clip-path` sai
+   recortada nos dois chanfros e lê como defeito.
    ═══════════════════════════════════════════════════════════════════ */
 .ficha {
   position: relative;
+  isolation: isolate;
   z-index: 1;
   width: 100%;
   max-width: 540px;
-  background: var(--chapa);
+  background: var(--fio-fraco);
+  padding: 1px;
   clip-path: var(--corte);
 }
+.ficha::before {
+  content: "";
+  position: absolute; inset: 1px; z-index: -1;
+  clip-path: var(--corte);
+  background: var(--surface);
+}
 
-/* A faixa da etiqueta impressa, com o mesmo chanfro de 45° no canto inferior
-   direito (ver `medidas.chanfro` no etiquetas-pdf.service.js). Sobre marinho
-   o amarelo é livre — é por isso que o código mora aqui e não na placa. */
+/* A faixa da etiqueta impressa, no marinho exato dela (`#0d2775` é o
+   `background` da `.cabeca` no etiquetas-pdf.service.js) e com o mesmo
+   chanfro de 45° no canto inferior direito. É um degrau acima do corpo:
+   material sobre material, sem fio no meio. */
 .ficha-cabeca {
   display: flex;
   align-items: center;
   gap: 16px;
   min-height: 76px;
   padding: 14px 30px 16px 22px;
-  background: var(--mar-700);
+  background: var(--mar-600);
   clip-path: polygon(0 0, 100% 0, 100% 44%, calc(100% - 20px) 100%, 0 100%);
 }
 .ficha-marca { height: 38px; width: auto; display: block; flex-shrink: 0; }
 /* Código e estado à direita, um sobre o outro — a identidade da etiqueta e o
-   que aconteceu com ela. ⚠️ O ESTADO MORA AQUI, e não na placa: com ele
-   preenchido de amarelo lá embaixo, a tela tinha DUAS regiões amarelas
-   disputando (o selo e a parada acesa do trilho), e o "a bomba está aqui"
-   morria — é a Regra do Campo Único. Sobre marinho o amarelo é livre como
-   tinta, então o código continua âmbar e o estado sai em branco. */
+   que aconteceu com ela. ⚠️ O ESTADO MORA AQUI, e não no corpo: preenchido
+   de amarelo lá embaixo, ele disputava com a parada acesa do trilho e as duas
+   regiões amarelas se anulavam (Regra do Campo Único). */
 .ficha-id { margin-left: auto; text-align: right; min-width: 0; }
 .ficha-cod {
   display: block;
@@ -228,7 +261,7 @@ body {
 }
 .ficha-estado:empty { display: none; }
 
-.ficha-corpo { padding: 24px 22px 26px; color: var(--tinta); }
+.ficha-corpo { padding: 22px 22px 26px; }
 
 /* A faixa de segurança assinando a base do campo — a mesma peça que fecha o
    hero da landing (`.hero::after`), na mesma inclinação e no mesmo passo.
@@ -238,7 +271,7 @@ body {
   display: block;
   height: 6px;
   background: repeating-linear-gradient(
-    -45deg, var(--amarelo) 0 18px, var(--mar-700) 18px 36px);
+    -45deg, var(--amarelo) 0 18px, var(--mar-900) 18px 36px);
 }
 
 .rodape {
@@ -258,36 +291,36 @@ body {
 /* ═══════════════════════════════════════════════════════════════════
    Carregando / erro
    ═══════════════════════════════════════════════════════════════════ */
-.carregando, .erro { text-align: center; padding: 18px 0 10px; color: var(--tinta-2); }
+.carregando, .erro { text-align: center; padding: 18px 0 10px; color: var(--muted); }
 .spin {
   width: 26px; height: 26px;
   margin: 0 auto 14px;
-  border: 2px solid var(--fio-esc);
-  border-top-color: var(--mar-700);
+  border: 2px solid var(--fio);
+  border-top-color: var(--accent);
   border-radius: 50%;   /* a única curva do sistema: peça que gira */
   animation: girar .8s linear infinite;
 }
 .erro h1 { margin-bottom: 8px; }
-.erro p { font-size: 14px; line-height: 1.6; color: var(--tinta-2); }
+.erro p { font-size: 14px; line-height: 1.6; color: var(--text-dim); }
 
 /* ═══════════════════════════════════════════════════════════════════
    Cabeçalho do equipamento
    ═══════════════════════════════════════════════════════════════════ */
 h1 {
-  font-size: 1.22rem;
+  font-size: 1.32rem;
   font-weight: 800;
   line-height: 1.2;
   letter-spacing: -.02em;
   font-stretch: 106%;
-  color: var(--tinta);
+  color: var(--text);
   margin-bottom: 5px;
 }
-.sub { font-size: 14px; line-height: 1.5; color: var(--tinta-2); margin-bottom: 16px; }
-.sub b { color: var(--tinta); font-weight: 700; }
+.sub { font-size: 14px; line-height: 1.5; color: var(--muted); margin-bottom: 16px; }
+.sub b { color: var(--text-dim); font-weight: 700; }
 
 /* O selo de estado. Pela Regra do Selo, estado que pede ação PREENCHE e
-   estado em repouso é de fio — é o que faz uma bomba parada há semanas
-   saltar e uma bomba no prédio ficar quieta. */
+   estado em repouso é de fio. Hoje ele só veste os orçamentos: o estado do
+   equipamento mora na faixa. */
 .selo {
   display: inline-block;
   font-family: var(--mono);
@@ -296,39 +329,38 @@ h1 {
   letter-spacing: .1em;
   text-transform: uppercase;
   padding: 6px 10px;
-  margin-bottom: 18px;
   clip-path: var(--corte-p);
 }
 .selo[data-s="oficina"] { background: var(--amarelo); color: var(--mar-900); }
-.selo[data-s="pronta"]  { background: var(--mar-600); color: #fff; }
+.selo[data-s="pronta"]  { background: var(--mar-500); color: #fff; }
 .selo[data-s="baixada"] { background: var(--vermelho); color: var(--mar-900); }
-/* Em repouso (no prédio, etiqueta em branco, orçamento aprovado): de fio, sem
-   preenchimento — é o que faz uma tela sem pendência ficar calma por
-   construção. `clip-path` sai junto: ele recorta o `inset` nos dois cantos e a
-   borda some justo ali, o que lê como defeito. */
+/* Em repouso: de fio. `clip-path` sai junto — ele recorta o `inset` nos dois
+   cantos e a borda some justo ali, o que lê como defeito. */
 .selo[data-s="predio"],
 .selo[data-s="livre"],
 .selo[data-s="aprovado"] {
   background: none;
-  color: var(--tinta-2);
-  box-shadow: inset 0 0 0 1px var(--fio-esc);
+  color: var(--muted);
+  box-shadow: inset 0 0 0 1px var(--fio);
   clip-path: none;
 }
-.selo[data-s="aprovado"] { color: var(--normal-t); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--normal-t) 45%, transparent); }
-/* Dentro da tabela o selo é um valor de linha, não a abertura de uma seção. */
+.selo[data-s="aprovado"] { color: var(--ok); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ok) 40%, transparent); }
 table.info .selo { margin-bottom: 4px; }
 
 /* ═══════════════════════════════════════════════════════════════════
    O TRILHO DO CICLO — o momento da tela.
    Onde a bomba está no caminho que ela percorre de verdade: sai das
-   movimentações, não é enfeite.
-   ⚠️ Sobre placa clara o amarelo não é tinta nem traço (Regra do Amarelo
-   Cego): o caminho já andado é MARINHO, e o amarelo entra só como
-   preenchimento da parada atual, com tinta marinho por cima.
+   movimentações, não é enfeite. Sobre marinho o amarelo é livre, então o
+   caminho já andado é âmbar e a parada atual é a placa preenchida.
    ═══════════════════════════════════════════════════════════════════ */
-/* O respiro lateral é da PLACA da parada acesa: centralizada na última
-   coluna, ela encostava na aresta da ficha. */
-.trilho { display: grid; grid-template-columns: repeat(4, 1fr); margin: 20px 0 22px; padding: 0 6px; }
+.trilho {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  margin: 18px 0 20px;
+  /* O respiro lateral é da PLACA da parada acesa: centralizada na última
+     coluna, ela encostava na aresta da ficha. */
+  padding: 0 6px;
+}
 .parada {
   position: relative;
   padding-top: 17px;
@@ -337,7 +369,7 @@ table.info .selo { margin-bottom: 4px; }
   font-weight: 500;
   letter-spacing: .09em;
   text-transform: uppercase;
-  color: var(--tinta-2);
+  color: var(--muted);
   text-align: center;
 }
 .parada::before {
@@ -345,7 +377,7 @@ table.info .selo { margin-bottom: 4px; }
   position: absolute;
   top: 4px; left: 0; right: 0;
   height: 2px;
-  background: var(--chapa-es);
+  background: var(--fio);
 }
 .parada:first-child::before { left: 50%; }
 .parada:last-child::before  { right: 50%; }
@@ -356,23 +388,19 @@ table.info .selo { margin-bottom: 4px; }
   top: 0; left: 50%;
   width: 10px; height: 10px;
   margin-left: -5px;
-  background: var(--chapa);
-  box-shadow: inset 0 0 0 2px var(--chapa-es);
+  background: var(--surface);
+  box-shadow: inset 0 0 0 2px var(--fio);
 }
-.parada.feita { color: var(--tinta-2); }
-.parada.feita::before { background: var(--mar-700); }
-.parada.feita::after  { background: var(--mar-700); box-shadow: none; }
-/* Sem isto, o trilho abre um vão claro logo antes de onde a bomba está. */
-.parada.aqui::before { background: linear-gradient(90deg, var(--mar-700) 50%, var(--chapa-es) 50%); }
-.parada.aqui:last-child::before { background: var(--mar-700); }
-.parada.aqui::after { background: var(--mar-700); box-shadow: none; }
-.parada.aqui {
-  color: var(--mar-900);
-  font-weight: 700;
-}
-/* A parada atual é a única região amarela da tela — a Regra do Campo Único
-   aplicada a uma superfície de tarefa: se um segundo elemento virar campo
-   amarelo, o "a bomba está aqui" morre. */
+.parada.feita { color: var(--text-dim); }
+.parada.feita::before { background: var(--accent); }
+.parada.feita::after  { background: var(--accent); box-shadow: none; }
+/* Sem isto, o trilho abre um vão apagado logo antes de onde a bomba está. */
+.parada.aqui::before { background: linear-gradient(90deg, var(--accent) 50%, var(--fio) 50%); }
+.parada.aqui:last-child::before { background: var(--accent); }
+.parada.aqui::after { background: var(--accent); box-shadow: none; }
+.parada.aqui { color: var(--mar-900); font-weight: 700; }
+/* A parada atual é a única região preenchida de amarelo da tela — a Regra do
+   Campo Único aplicada a uma superfície de tarefa. */
 .parada.aqui > span {
   display: inline-block;
   padding: 3px 7px;
@@ -404,19 +432,17 @@ table.info .selo { margin-bottom: 4px; }
    metade?"). Recuada dos quatro lados e chanfrada, a mesma área lê como
    objeto; encostada nas arestas, lê como tinta que acabou.
 
-   ⚠️ 7 dias é atenção, 15 é crítico — e SÓ O CRÍTICO PREENCHE. A atenção
-   fica de fio com a tinta `--atencao-t`, porque o campo amarelo desta tela
-   já pertence à parada acesa do trilho (Regra do Campo Único) e dois
-   amarelos preenchidos se anulam. É a Regra do Selo dizendo qual das duas
-   dimensões grita.
+   ⚠️ 7 dias é atenção, 15 é crítico — e SÓ O CRÍTICO PREENCHE. Na atenção o
+   número vira tinta âmbar (livre sobre marinho), como o `.sla-n` do
+   operador: o campo amarelo desta tela já pertence à parada acesa do trilho.
    ═══════════════════════════════════════════════════════════════════ */
 .regua {
   display: grid;
   grid-template-columns: 108px 1fr;
   align-items: stretch;
-  background: var(--chapa-cl);
-  box-shadow: inset 0 0 0 1px var(--fio-esc);
-  margin-bottom: 18px;
+  background: var(--mar-900);
+  box-shadow: inset 0 0 0 1px var(--fio-fraco);
+  margin-bottom: 16px;
 }
 .regua-medida {
   margin: 8px;
@@ -424,7 +450,7 @@ table.info .selo { margin-bottom: 4px; }
   display: flex; flex-direction: column; justify-content: center; gap: 2px;
   text-align: center;
   clip-path: var(--corte-p);
-  box-shadow: inset 0 0 0 1px var(--fio-esc);
+  box-shadow: inset 0 0 0 1px var(--fio);
 }
 .regua-n {
   font-family: var(--mono);
@@ -434,24 +460,23 @@ table.info .selo { margin-bottom: 4px; }
   line-height: 1;
   letter-spacing: -.03em;
   font-feature-settings: "tnum";
-  color: var(--tinta);
+  color: var(--text);
 }
 /* A régua diz uma frase, e frase não vai em caixa alta (docs/vocabulario.md).
    Caixa alta em mono fica para a etiqueta curta, que classifica em vez de
    narrar. */
-.regua-u { font-size: 12.5px; font-weight: 600; color: var(--tinta-2); line-height: 1.2; }
+.regua-u { font-size: 12.5px; font-weight: 600; color: var(--muted); line-height: 1.2; }
 .regua-txt {
   display: flex; flex-direction: column; justify-content: center; gap: 3px;
   padding: 12px 16px 12px 4px;
   min-width: 0;
 }
-.regua-txt b { font-size: 15px; font-weight: 700; color: var(--tinta); }
-.regua-txt span { font-size: 13px; color: var(--tinta-2); }
-.regua[data-t="atencao"] .regua-n { color: var(--atencao-t); }
-.regua[data-t="atencao"] .regua-medida { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--atencao-t) 45%, transparent); }
-/* Só o crítico preenche — e o fundo usa o token CRU (`--vermelho`), nunca o
-   semântico: dentro da placa clara `--risco` vira tinta e o selo ficaria
-   escuro sobre escuro (Regra do Preenchimento Cru). */
+.regua-txt b { font-size: 15px; font-weight: 700; color: var(--text); }
+.regua-txt span { font-size: 13px; color: var(--muted); }
+.regua[data-t="atencao"] .regua-n { color: var(--accent); }
+.regua[data-t="atencao"] .regua-medida { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent); }
+/* Só o crítico preenche — e o fundo usa o token CRU (`--vermelho`), com tinta
+   marinho por cima (Regra do Preenchimento Cru). */
 .regua[data-t="tarde"] .regua-medida { background: var(--vermelho); box-shadow: none; }
 .regua[data-t="tarde"] .regua-n { color: var(--mar-900); }
 /* Recuo por TINTA, nunca por `opacity` — a regra de 31/08. */
@@ -461,20 +486,20 @@ table.info .selo { margin-bottom: 4px; }
    Relato do defeito — o que o zelador disse, com procedência
    ═══════════════════════════════════════════════════════════════════ */
 .relato {
-  background: var(--chapa-cl);
-  box-shadow: inset 0 0 0 1px var(--fio-esc);
+  background: var(--mar-900);
+  box-shadow: inset 0 0 0 1px var(--fio-fraco);
   padding: 14px 16px;
   margin-bottom: 16px;
   font-size: 15px;
   line-height: 1.6;
-  color: var(--tinta);
+  color: var(--text);
 }
 .relato cite {
   display: block;
   margin-top: 8px;
   font-style: normal;
   font-size: 12.5px;
-  color: var(--tinta-2);
+  color: var(--muted);
 }
 
 .alerta {
@@ -482,11 +507,11 @@ table.info .selo { margin-bottom: 4px; }
   align-items: center;
   gap: 9px;
   font-size: 13.5px;
-  color: var(--tinta-2);
+  color: var(--text-dim);
   margin-bottom: 16px;
 }
-.alerta svg { width: 16px; height: 16px; flex: none; color: var(--risco-t); }
-.alerta b { color: var(--risco-t); font-weight: 700; }
+.alerta svg { width: 16px; height: 16px; flex: none; color: var(--risco); }
+.alerta b { color: var(--risco); font-weight: 700; }
 
 /* ═══════════════════════════════════════════════════════════════════
    Tabela rótulo/valor
@@ -497,20 +522,19 @@ table.info td {
   font-size: 14px;
   line-height: 1.5;
   vertical-align: top;
-  border-bottom: 1px solid var(--fio-esc);
+  border-bottom: 1px solid var(--fio-fraco);
 }
 table.info tr:last-child td { border-bottom: 0; }
-table.info td:first-child { color: var(--tinta-2); width: 124px; }
-table.info td:last-child { font-weight: 700; color: var(--tinta); }
+table.info td:first-child { color: var(--muted); width: 124px; }
+table.info td:last-child { font-weight: 700; color: var(--text); }
 table.info td.num { font-family: var(--mono); font-size: 13px; font-feature-settings: "tnum"; }
-.meta { display: block; font-weight: 400; color: var(--tinta-2); font-size: 12.5px; }
+.meta { display: block; font-weight: 400; color: var(--muted); font-size: 12.5px; }
 
-.divider { border: none; border-top: 1px solid var(--fio-esc); margin: 20px 0; }
+.divider { border: none; border-top: 1px solid var(--fio-fraco); margin: 20px 0; }
 
 /* O traço curto antes da etiqueta é o gesto da landing ("— CUIDAMOS DE CASA
-   DE MÁQUINAS DESDE 2005"). ⚠️ Lá ele é amarelo porque pousa sobre marinho;
-   aqui é marinho, pela Regra do Amarelo Cego — um fio amarelo de 2px sobre a
-   placa clara dá ~2:1 e simplesmente não aparece. */
+   DE MÁQUINAS DESDE 2005") — e aqui ele sai âmbar, como lá, porque pousa
+   sobre marinho. */
 .secao-titulo {
   display: flex;
   align-items: center;
@@ -518,7 +542,7 @@ table.info td.num { font-family: var(--mono); font-size: 13px; font-feature-sett
   font-family: var(--mono);
   font-size: 11px;
   font-weight: 500;
-  color: var(--tinta-2);
+  color: var(--muted);
   text-transform: uppercase;
   letter-spacing: .12em;
   margin-bottom: 12px;
@@ -527,10 +551,10 @@ table.info td.num { font-family: var(--mono); font-size: 13px; font-feature-sett
   content: "";
   width: 16px; height: 2px;
   flex: none;
-  background: var(--mar-700);
+  background: var(--accent);
 }
 .secao-cab { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
-.vazio { font-size: 13.5px; color: var(--tinta-2); line-height: 1.6; }
+.vazio { font-size: 13.5px; color: var(--muted); line-height: 1.6; }
 
 /* ═══════════════════════════════════════════════════════════════════
    Ações — uma primária, o resto recolhido
@@ -542,7 +566,7 @@ table.info td.num { font-family: var(--mono); font-size: 13px; font-feature-sett
   font: inherit; font-size: 15px; font-weight: 800; letter-spacing: -.01em;
   min-height: 48px; padding: 12px 16px;
   cursor: pointer; border: 0; text-decoration: none;
-  background: var(--accent); color: var(--mar-900);
+  background: var(--amarelo); color: var(--mar-900);
   clip-path: var(--corte-p);
   transition: background .14s var(--saida);
 }
@@ -552,9 +576,10 @@ table.info td.num { font-family: var(--mono); font-size: 13px; font-feature-sett
 .btn:focus-visible { box-shadow: inset 0 0 0 2px var(--mar-900); }
 .btn:disabled { opacity: .55; cursor: not-allowed; }
 
-/* Chapa de duas camadas, não `box-shadow: inset`: o fundo do elemento é o
-   ANEL e o `::before` embutido 1,5px é a placa. Sobre superfície clara o anel
-   é `--fio-esc` e a placa é a própria chapa. */
+/* Chapa de duas camadas: o fundo do elemento é o ANEL e o `::before`
+   embutido 1,5px é a placa. ⚠️ O anel é `--fio-forte`, não `--fio`: ao lado
+   do amarelo cheio da ação primária, um contorno a .14 não existe e a peça
+   lê como texto solto — o mesmo achado do `.btn-fio` do operador. */
 .btn-fio {
   display: block;
   width: 100%;
@@ -564,12 +589,8 @@ table.info td.num { font-family: var(--mono); font-size: 13px; font-feature-sett
   min-height: 46px; padding: 12px 16px;
   text-align: center;
   cursor: pointer; border: 0;
-  /* ⚠️ O anel é mais escuro que `--fio-esc` (.18): ao lado do amarelo cheio da
-     ação primária, um contorno a .18 não existe — a peça lê como texto solto,
-     não como controle. É o mesmo achado registrado no `.btn-fio` do operador,
-     onde o anel subiu de `--fio` para `--fio-forte`. */
-  background: color-mix(in srgb, var(--tinta) 34%, transparent);
-  color: var(--tinta-2);
+  background: var(--fio-forte);
+  color: var(--text);
   clip-path: var(--corte-p);
   transition: color .14s var(--saida);
 }
@@ -577,7 +598,7 @@ table.info td.num { font-family: var(--mono); font-size: 13px; font-feature-sett
   content: "";
   position: absolute; inset: 1.5px; z-index: -1;
   clip-path: var(--corte-p);
-  background: var(--chapa);
+  background: var(--mar-900);
   transition: background .16s var(--saida);
 }
 .btn-fio:hover { background: var(--amarelo); color: var(--mar-900); }
@@ -596,7 +617,7 @@ table.info td.num { font-family: var(--mono); font-size: 13px; font-feature-sett
 .mais summary {
   font-size: 14px;
   font-weight: 600;
-  color: var(--tinta-2);
+  color: var(--text-dim);
   cursor: pointer;
   list-style: none;
   text-align: center;
@@ -605,8 +626,8 @@ table.info td.num { font-family: var(--mono); font-size: 13px; font-feature-sett
   display: flex; align-items: center; justify-content: center; gap: 7px;
 }
 .mais summary::-webkit-details-marker { display: none; }
-.mais summary:hover { color: var(--tinta); }
-.mais summary:focus-visible { box-shadow: inset 0 0 0 2px var(--tinta); }
+.mais summary:hover { color: #fff; }
+.mais summary:focus-visible { box-shadow: inset 0 0 0 2px var(--amarelo); }
 /* SVG sem largura declarada assume o tamanho intrínseco (300×150) e toma a
    página inteira — o chevron precisa da medida aqui. */
 .mais summary svg { width: 12px; height: 12px; transition: transform .18s var(--saida); }
@@ -618,7 +639,7 @@ table.info td.num { font-family: var(--mono); font-size: 13px; font-feature-sett
   font: inherit;
   font-size: 13.5px;
   font-weight: 700;
-  color: var(--tinta);
+  color: var(--text-dim);
   background: none;
   border: 0;
   padding: 4px 2px;
@@ -626,20 +647,20 @@ table.info td.num { font-family: var(--mono); font-size: 13px; font-feature-sett
   text-decoration: underline;
   text-decoration-thickness: 1px;
   text-underline-offset: 4px;
-  text-decoration-color: var(--fio-esc);
-  transition: text-decoration-color .14s var(--saida);
+  text-decoration-color: var(--fio-forte);
+  transition: color .14s var(--saida), text-decoration-color .14s var(--saida);
 }
-.link-acao:hover { text-decoration-color: var(--tinta); }
-.link-acao:focus-visible { box-shadow: inset 0 0 0 2px var(--tinta); }
+.link-acao:hover { color: #fff; text-decoration-color: var(--amarelo); }
+.link-acao:focus-visible { box-shadow: inset 0 0 0 2px var(--amarelo); }
 
 .erro-msg {
-  color: var(--risco-t);
+  color: var(--risco);
   font-size: 14px;
   font-weight: 600;
   margin-bottom: 12px;
   padding: 11px 14px;
-  background: color-mix(in srgb, var(--risco-t) 8%, var(--chapa-cl));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--risco-t) 28%, transparent);
+  background: color-mix(in srgb, var(--vermelho) 12%, var(--mar-900));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--vermelho) 34%, transparent);
 }
 .erro-msg:empty { display: none; }
 
@@ -651,7 +672,7 @@ table.info td.num { font-family: var(--mono); font-size: 13px; font-feature-sett
   width: 100%;
   aspect-ratio: 1;
   object-fit: cover;
-  background: var(--chapa-es);
+  background: var(--surface3);
   clip-path: var(--corte-p);
   cursor: zoom-in;
 }
@@ -670,20 +691,6 @@ table.info td.num { font-family: var(--mono); font-size: 13px; font-feature-sett
 }
 .visor img { max-width: 100%; max-height: 100%; clip-path: var(--corte-p); }
 
-/* O diálogo de orçamento: placa clara que ABRE POR CIMA, com o campo
-   escurecido atrás — o caso canônico da Regra da Superfície. */
-.dialogo {
-  width: 100%;
-  max-width: 460px;
-  max-height: 88vh;
-  overflow: auto;
-  padding: 26px 22px 24px;
-  background: var(--chapa);
-  color: var(--tinta);
-  clip-path: var(--corte);
-  cursor: default;
-}
-
 /* ═══════════════════════════════════════════════════════════════════
    Histórico
    ═══════════════════════════════════════════════════════════════════ */
@@ -691,7 +698,7 @@ table.info td.num { font-family: var(--mono); font-size: 13px; font-feature-sett
 .linha li {
   position: relative;
   padding: 0 0 16px 18px;
-  border-left: 1px solid var(--fio-esc);
+  border-left: 1px solid var(--fio-fraco);
 }
 .linha li:last-child { padding-bottom: 0; border-left-color: transparent; }
 /* Marcador quadrado, como o do trilho — a mesma peça contando a mesma coisa. */
@@ -700,23 +707,79 @@ table.info td.num { font-family: var(--mono); font-size: 13px; font-feature-sett
   position: absolute;
   left: -4px; top: 5px;
   width: 7px; height: 7px;
-  background: var(--chapa-es);
-  box-shadow: 0 0 0 3px var(--chapa);
+  background: var(--fio-forte);
+  box-shadow: 0 0 0 3px var(--surface);
 }
-.linha li.marco::before { background: var(--mar-700); }
-.mov-tipo { font-size: 14px; font-weight: 700; color: var(--tinta); }
+.linha li.marco::before { background: var(--accent); }
+.mov-tipo { font-size: 14px; font-weight: 700; color: var(--text); }
 .mov-meta {
   font-family: var(--mono);
   font-size: 11.5px;
-  color: var(--tinta-2);
+  color: var(--muted);
   margin-top: 3px;
   font-feature-settings: "tnum";
 }
-.mov-obs { margin-top: 5px; font-size: 13.5px; line-height: 1.55; color: var(--tinta-2); white-space: pre-wrap; }
+.mov-obs { margin-top: 5px; font-size: 13.5px; line-height: 1.55; color: var(--text-dim); white-space: pre-wrap; }
 
 /* ═══════════════════════════════════════════════════════════════════
-   Formulário de vínculo — campo branco sobre a chapa, o mesmo do operador
-   e do painel do cliente.
+   A PLACA CLARA — onde se EDITA e o que ABRE POR CIMA.
+   Regra da Superfície, tirada da tela de login: marinho é moldura, placa
+   clara é onde se lê e se edita. Aqui ela veste duas coisas e só duas: o
+   formulário da etiqueta em branco (`.is-claro`, uma tela inteira de
+   digitação, como o login) e o diálogo de orçamento (`.dialogo`, que abre
+   por cima com o campo escurecido atrás).
+
+   ⚠️ Converter superfície é REMAPEAR TOKEN NO CONTÊINER, não reescrever
+   seletor: redeclarar a família aqui vira a subárvore inteira de uma vez, sem
+   caçar regra e sem o risco de deixar texto branco sobre fundo branco.
+   O que NÃO se remapeia: `--amarelo`/`--vermelho`/`--verde` (crus, ver a
+   Regra do Preenchimento Cru) e `--mar-800`/`--mar-900`, que são a tinta de
+   quem pousa sobre o amarelo — remapeá-los apagaria o rótulo do botão.
+   ═══════════════════════════════════════════════════════════════════ */
+.is-claro, .dialogo {
+  --text: var(--tinta);
+  --text-dim: var(--tinta-2);
+  --muted: var(--tinta-2);
+  --fio: var(--fio-esc);
+  --fio-fraco: var(--fio-esc);
+  --fio-forte: rgba(6, 16, 51, .34);
+  --surface: var(--chapa);
+  --surface3: var(--chapa-es);
+  --accent: var(--tinta);      /* o âmbar não é tinta sobre claro */
+  --risco: var(--risco-t);
+  --ok: var(--normal-t);
+  background: var(--chapa);
+  color: var(--tinta);
+}
+/* A placa clara é do tamanho do corpo: ela substitui a superfície de
+   trabalho, não pousa sobre ela. */
+.ficha-corpo.is-claro { padding: 24px 22px 26px; }
+.is-claro .btn-fio::before, .dialogo .btn-fio::before { background: var(--chapa); }
+.is-claro .btn-fio:hover::before, .dialogo .btn-fio:hover::before { background: var(--amarelo); }
+.is-claro .btn-fio:focus-visible::before, .dialogo .btn-fio:focus-visible::before { background: var(--mar-900); }
+.is-claro :focus-visible, .dialogo :focus-visible { box-shadow: inset 0 0 0 2px var(--tinta); }
+.is-claro .btn:focus-visible, .dialogo .btn:focus-visible { box-shadow: inset 0 0 0 2px var(--mar-900); }
+.is-claro .erro-msg, .dialogo .erro-msg {
+  background: color-mix(in srgb, var(--risco-t) 8%, var(--chapa-cl));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--risco-t) 28%, transparent);
+}
+.is-claro .secao-titulo::before, .dialogo .secao-titulo::before { background: var(--mar-700); }
+.is-claro .mais summary:hover, .dialogo .mais summary:hover { color: var(--tinta); }
+
+/* O diálogo abre por cima, dentro do `.visor`. */
+.dialogo {
+  width: 100%;
+  max-width: 460px;
+  max-height: 88vh;
+  overflow: auto;
+  padding: 26px 22px 24px;
+  clip-path: var(--corte);
+  cursor: default;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Formulário — campo branco sobre a placa clara, o mesmo do operador e do
+   painel do cliente.
    ═══════════════════════════════════════════════════════════════════ */
 label {
   display: block;
@@ -759,7 +822,7 @@ label {
   .ficha-cabeca { min-height: 66px; padding: 12px 26px 14px 18px; gap: 12px; }
   .ficha-marca { height: 32px; }
   .ficha-cod { font-size: 12.5px; }
-  .ficha-corpo { padding: 20px 16px 22px; }
+  .ficha-corpo, .ficha-corpo.is-claro { padding: 20px 16px 22px; }
   .campo-duplo { grid-template-columns: 1fr; gap: 0; }
   /* Quatro paradas em 358px de placa: o tracking é o que sobra para cortar
      antes de o rótulo quebrar em duas linhas. */

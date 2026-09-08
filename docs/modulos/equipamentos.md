@@ -338,13 +338,32 @@ assinatura em si NÃO foi migrada junto** e segue nele; se um dia for, é a mesm
 conversa.
 
 **A forma da tela é a da etiqueta que acabou de ser escaneada:** faixa marinho
-com o wordmark, o código Crockford em Martian Mono e o estado, chanfrada a 45°
-no canto inferior direito — o mesmo desenho que sai do
+(no `#0d2775` exato da faixa impressa), o código Crockford em Martian Mono e o
+estado, chanfrada a 45° no canto inferior direito — o mesmo desenho que sai do
 `src/services/etiquetas-pdf.service.js` e está colado na bomba que a pessoa tem
-na frente. Abaixo dela, a placa clara, que é **onde se lê e se edita** (Regra da
-Superfície: aqui não há conteúdo marinho competindo ao lado, é o arranjo do
-login e do painel do cliente). Engrenagem marinho-sobre-marinho ao fundo, raio
-zero e nenhuma sombra projetada.
+na frente. Engrenagem marinho-sobre-marinho ao fundo, raio zero e nenhuma
+sombra projetada.
+
+⚠️ **O CORPO É MARINHO, e isso foi corrigido no mesmo dia da migração.** A
+primeira versão pôs a leitura em placa clara — defensável pela Regra da
+Superfície ("é o conteúdo, campo marinho em volta"), mas errada quando se abre
+a família lado a lado no navegador, que foi o que o Pedro mandou fazer: o
+[painel do operador](painel-operador.md), o [do cliente](painel-cliente.md) e a
+[landing](landing-publica.md) são **todos marinho**, e a ficha era a única
+superfície clara do produto. Não parecia outra tela do sistema; parecia outro
+sistema.
+
+**Placa clara aqui veste duas coisas e só duas:** o formulário da etiqueta em
+branco (`.is-claro` — uma tela inteira de digitação, como o login) e o diálogo
+de orçamento (`.dialogo`, que abre por cima). As duas telas nunca aparecem
+juntas, e a troca de superfície diz *"agora é aqui, você vai escrever"*.
+Converter é **remapear token no contêiner**, não reescrever seletor.
+
+⚠️ **A escada `--surface` faltava no `:root` desta folha**, e o defeito só
+apareceu no navegador: `.ficha::before` pintava `var(--surface)`, que não
+existia, e custom property inválida resolve para **transparente sem erro
+nenhum**. A ficha ficava com o fundo do body e a engrenagem, que devia passar
+por trás, aparecia através dela.
 
 ⚠️ **O ESTADO MORA NA FAIXA, não na placa.** Como selo preenchido de amarelo
 logo acima do trilho, ele dava duas regiões amarelas disputando a mesma tela e

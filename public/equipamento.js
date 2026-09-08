@@ -203,6 +203,7 @@
   // ---------------------------------------------------------------------
 
   function telaErro(titulo, texto) {
+    $root.classList.remove("is-claro");
     $root.innerHTML = `<div class="erro"><h1>${esc(titulo)}</h1><p>${texto}</p></div>`;
   }
 
@@ -233,6 +234,12 @@
     catch (e) { telaErro("Não consegui carregar os condomínios", esc(e.message)); return; }
 
     rodape(eq);
+    // ⚠️ A TELA DE VÍNCULO É PLACA CLARA, e a ficha é marinho. Não é
+    // inconsistência: é a Regra da Superfície da tela de login — marinho é
+    // moldura, placa clara é onde se DIGITA. As duas nunca aparecem juntas
+    // (o backend decide qual delas é a tela), e a troca de superfície diz
+    // "agora é aqui, você vai escrever".
+    $root.classList.add("is-claro");
     $root.innerHTML = `
       <h1>Etiqueta em branco</h1>
       <div class="sub">Preencha o mínimo agora, com a bomba na mão — o resto dá para completar depois.</div>
@@ -431,6 +438,7 @@
     ].filter(([, v]) => v);
 
     rodape(eq);
+    $root.classList.remove("is-claro");
     $root.innerHTML = `
       <h1>${esc(eq.condominio_nome || "Sem condomínio vinculado")}</h1>
       <div class="sub">
