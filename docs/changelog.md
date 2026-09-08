@@ -6822,6 +6822,51 @@ inexistente).
 não precisou de bump**: o `?v=` muda a URL, e `/e/:codigo` já é network-first
 (cai no `isHtml`) com `Cache-Control: no-cache` pelo `_htmlNoCache`.
 
+### 2026-09-08 (9ª rodada) · A ficha ganha a régua do operador e a faixa da landing
+
+Segundo passe na ficha do equipamento, pedido logo depois do primeiro: *"analise
+novamente e melhore usando a tela de operador e a landing"*. Três peças das
+irmãs entraram, e nenhuma é decoração — todas carregam conteúdo que já estava
+na tela, mal servido.
+
+**A régua do tempo.** A pergunta da bancada é *"há quanto tempo isso está parado
+aqui"* — está escrito no brief da superfície desde agosto —, e a resposta era
+uma frase de 15px no meio do texto ("Em conserto há 9 dias"). No registro de
+operação essa resposta é um NÚMERO com presença: Martian Mono condensado a 82%
+na coluna da esquerda, do mesmo jeito que o relógio de SLA do item da fila do
+operador.
+
+⚠️ **A medida é uma placa, não um preenchimento da coluna** — a lição que o
+Pedro arrancou do operador em 31/08 ("qual o sentido de estar pintado de
+vermelho só até a metade?"). Recuada dos quatro lados e chanfrada, a área lê
+como objeto; encostada nas arestas, lê como tinta que acabou.
+
+⚠️ **E só o crítico preenche.** 15 dias enche a placa de `--vermelho` cru com
+tinta marinho; 7 dias fica **de fio**, com o número em `--atencao-t`. Preencher
+os dois traria de volta o problema que o primeiro passe resolveu: o campo
+amarelo desta tela pertence à parada acesa do trilho, e dois amarelos
+preenchidos se anulam. É a Regra do Selo dizendo qual das duas dimensões grita.
+
+**A faixa de segurança a −45°** fecha o pé da placa — a mesma peça que fecha o
+hero da landing, na mesma inclinação (18px cheios, 18px vazios) e recortada
+pelo chanfro da ficha. Não é campo amarelo, é limite de campo: a Regra do Campo
+Único continua de pé.
+
+**O traço curto antes da etiqueta de seção**, o gesto do *"— CUIDAMOS DE CASA
+DE MÁQUINAS DESDE 2005"* da landing. ⚠️ Lá ele é amarelo porque pousa sobre
+marinho; aqui é marinho, pela Regra do Amarelo Cego — 2px de amarelo sobre a
+placa clara dão ~2:1 e não aparecem.
+
+Miudezas do mesmo passe: o recuo da unidade na régua crítica é por **tinta**
+(`color-mix` sobre o vermelho), nunca por `opacity` — a regra de 31/08; e o
+trilho ganhou 6px de respiro lateral, porque a placa da parada acesa encostava
+na aresta quando a bomba estava em "Devolvida".
+
+Conferido nos três regimes de tempo (9 dias, 22 dias e 40 dias no prédio, que
+não pode acender nada), mais etiqueta em branco e o 404.
+
+`?v=N`: `equipamento.css` e `equipamento.js` 7 → 8.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

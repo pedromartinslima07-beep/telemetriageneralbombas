@@ -230,6 +230,17 @@ body {
 
 .ficha-corpo { padding: 24px 22px 26px; color: var(--tinta); }
 
+/* A faixa de segurança assinando a base do campo — a mesma peça que fecha o
+   hero da landing (`.hero::after`), na mesma inclinação e no mesmo passo.
+   Não é campo amarelo (a Regra do Campo Único segue valendo): é limite. */
+.ficha::after {
+  content: "";
+  display: block;
+  height: 6px;
+  background: repeating-linear-gradient(
+    -45deg, var(--amarelo) 0 18px, var(--mar-700) 18px 36px);
+}
+
 .rodape {
   position: relative;
   z-index: 1;
@@ -315,7 +326,9 @@ table.info .selo { margin-bottom: 4px; }
    Cego): o caminho já andado é MARINHO, e o amarelo entra só como
    preenchimento da parada atual, com tinta marinho por cima.
    ═══════════════════════════════════════════════════════════════════ */
-.trilho { display: grid; grid-template-columns: repeat(4, 1fr); margin: 20px 0 22px; }
+/* O respiro lateral é da PLACA da parada acesa: centralizada na última
+   coluna, ela encostava na aresta da ficha. */
+.trilho { display: grid; grid-template-columns: repeat(4, 1fr); margin: 20px 0 22px; padding: 0 6px; }
 .parada {
   position: relative;
   padding-top: 17px;
@@ -380,20 +393,69 @@ table.info .selo { margin-bottom: 4px; }
 }
 
 /* ═══════════════════════════════════════════════════════════════════
-   Estado + tempo parado
-   ⚠️ 7 dias acende atenção, 15 acende crítico — e sobre a placa clara isso
-   é a família `-t`, nunca o sinal saturado.
+   A RÉGUA DO TEMPO — a peça do painel do operador, trazida para cá.
+   A pergunta da bancada é "há quanto tempo isso está parado aqui", e ela
+   estava respondida numa frase de 15px no meio do texto. No registro de
+   operação essa resposta é um NÚMERO com presença, na coluna à esquerda,
+   exatamente como o relógio de SLA do item da fila.
+
+   ⚠️ A MEDIDA É UMA PLACA, NÃO UM PREENCHIMENTO DA COLUNA — a lição de
+   31/08 no operador ("qual o sentido de estar pintado de vermelho só até a
+   metade?"). Recuada dos quatro lados e chanfrada, a mesma área lê como
+   objeto; encostada nas arestas, lê como tinta que acabou.
+
+   ⚠️ 7 dias é atenção, 15 é crítico — e SÓ O CRÍTICO PREENCHE. A atenção
+   fica de fio com a tinta `--atencao-t`, porque o campo amarelo desta tela
+   já pertence à parada acesa do trilho (Regra do Campo Único) e dois
+   amarelos preenchidos se anulam. É a Regra do Selo dizendo qual das duas
+   dimensões grita.
    ═══════════════════════════════════════════════════════════════════ */
-.estado { font-size: 15px; font-weight: 600; color: var(--tinta); margin-bottom: 16px; }
-.estado .dias {
+.regua {
+  display: grid;
+  grid-template-columns: 108px 1fr;
+  align-items: stretch;
+  background: var(--chapa-cl);
+  box-shadow: inset 0 0 0 1px var(--fio-esc);
+  margin-bottom: 18px;
+}
+.regua-medida {
+  margin: 8px;
+  padding: 12px 6px;
+  display: flex; flex-direction: column; justify-content: center; gap: 2px;
+  text-align: center;
+  clip-path: var(--corte-p);
+  box-shadow: inset 0 0 0 1px var(--fio-esc);
+}
+.regua-n {
   font-family: var(--mono);
-  font-size: 14px;
+  font-size: 1.65rem;
   font-weight: 700;
+  font-stretch: 82%;   /* mono condensado é a linguagem do mostrador */
+  line-height: 1;
+  letter-spacing: -.03em;
   font-feature-settings: "tnum";
   color: var(--tinta);
 }
-.estado.atencao .dias { color: var(--atencao-t); }
-.estado.tarde   .dias { color: var(--risco-t); }
+/* A régua diz uma frase, e frase não vai em caixa alta (docs/vocabulario.md).
+   Caixa alta em mono fica para a etiqueta curta, que classifica em vez de
+   narrar. */
+.regua-u { font-size: 12.5px; font-weight: 600; color: var(--tinta-2); line-height: 1.2; }
+.regua-txt {
+  display: flex; flex-direction: column; justify-content: center; gap: 3px;
+  padding: 12px 16px 12px 4px;
+  min-width: 0;
+}
+.regua-txt b { font-size: 15px; font-weight: 700; color: var(--tinta); }
+.regua-txt span { font-size: 13px; color: var(--tinta-2); }
+.regua[data-t="atencao"] .regua-n { color: var(--atencao-t); }
+.regua[data-t="atencao"] .regua-medida { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--atencao-t) 45%, transparent); }
+/* Só o crítico preenche — e o fundo usa o token CRU (`--vermelho`), nunca o
+   semântico: dentro da placa clara `--risco` vira tinta e o selo ficaria
+   escuro sobre escuro (Regra do Preenchimento Cru). */
+.regua[data-t="tarde"] .regua-medida { background: var(--vermelho); box-shadow: none; }
+.regua[data-t="tarde"] .regua-n { color: var(--mar-900); }
+/* Recuo por TINTA, nunca por `opacity` — a regra de 31/08. */
+.regua[data-t="tarde"] .regua-u { color: color-mix(in srgb, var(--mar-900) 74%, var(--vermelho)); }
 
 /* ═══════════════════════════════════════════════════════════════════
    Relato do defeito — o que o zelador disse, com procedência
@@ -445,7 +507,14 @@ table.info td.num { font-family: var(--mono); font-size: 13px; font-feature-sett
 
 .divider { border: none; border-top: 1px solid var(--fio-esc); margin: 20px 0; }
 
+/* O traço curto antes da etiqueta é o gesto da landing ("— CUIDAMOS DE CASA
+   DE MÁQUINAS DESDE 2005"). ⚠️ Lá ele é amarelo porque pousa sobre marinho;
+   aqui é marinho, pela Regra do Amarelo Cego — um fio amarelo de 2px sobre a
+   placa clara dá ~2:1 e simplesmente não aparece. */
 .secao-titulo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   font-family: var(--mono);
   font-size: 11px;
   font-weight: 500;
@@ -453,6 +522,12 @@ table.info td.num { font-family: var(--mono); font-size: 13px; font-feature-sett
   text-transform: uppercase;
   letter-spacing: .12em;
   margin-bottom: 12px;
+}
+.secao-titulo::before {
+  content: "";
+  width: 16px; height: 2px;
+  flex: none;
+  background: var(--mar-700);
 }
 .secao-cab { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
 .vazio { font-size: 13.5px; color: var(--tinta-2); line-height: 1.6; }
@@ -691,4 +766,6 @@ label {
   .parada { font-size: 9px; letter-spacing: .04em; }
   .parada.aqui > span { padding: 3px 5px; }
   .rodape { font-size: 10px; letter-spacing: .09em; }
+  .regua { grid-template-columns: 92px 1fr; }
+  .regua-n { font-size: 1.45rem; }
 }

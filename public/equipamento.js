@@ -97,13 +97,14 @@
   }
 
   /** "hoje" · "há 1 dia" · "há 12 dias" · "há 3 meses" */
-  function faz(dias) {
-    if (dias == null) return "";
-    if (dias <= 0) return "desde hoje";
-    if (dias === 1) return "há 1 dia";
-    if (dias < 60) return `há ${dias} dias`;
-    const meses = Math.round(dias / 30);
-    return `há ${meses} meses`;
+  /** O tempo no estado, partido em número e unidade: na régua o número vai em
+   *  mono grande e a unidade em Archivo pequeno ao lado — dois papéis
+   *  tipográficos, não uma frase só. */
+  function medida(dias) {
+    if (dias == null) return null;
+    if (dias <= 0) return { n: "hoje", u: "" };
+    if (dias < 60) return { n: String(dias), u: dias === 1 ? "dia" : "dias" };
+    return { n: String(Math.round(dias / 30)), u: "meses" };
   }
 
   // Frase do estado. O verbo muda com o estado porque a pergunta muda: na
@@ -401,7 +402,9 @@
     // ajustado por outro caminho.
     const ultimaDeEstado = ficha.movimentacoes.find(m => m.status_novo === eq.status)
       || ficha.movimentacoes.find(m => m.status_novo);
-    const dias = diasDesde(ultimaDeEstado ? ultimaDeEstado.criado_em : eq.vinculado_em);
+    const desdeQuando = ultimaDeEstado ? ultimaDeEstado.criado_em : eq.vinculado_em;
+    const dias = diasDesde(desdeQuando);
+    const med = medida(dias);
 
     // Quem relatou o defeito e quando — o relato sem procedência vira boato.
     const relatoMov = [...ficha.movimentacoes].reverse().find(m => m.tipo === "retirada");
@@ -441,10 +444,18 @@
         `).join("")}
       </div>
 
-      ${dias != null ? `
-        <p class="estado ${classeTempo}">
-          ${esc(ESTADO_FRASE[eq.status] || eq.status)} <span class="dias">${esc(faz(dias))}</span>
-        </p>` : ""}
+      ${med ? `
+        <div class="regua" data-t="${classeTempo || "calmo"}">
+          <div class="regua-medida">
+            <b class="regua-n">${esc(med.n)}</b>
+            ${med.u ? `<span class="regua-u">${esc(med.u)}</span>` : ""}
+          </div>
+          <div class="regua-txt">
+            <b>${esc(ESTADO_FRASE[eq.status] || eq.status)}</b>
+            <span>desde ${esc(dataCurta(desdeQuando))}${
+              ultimaDeEstado && ultimaDeEstado.autor ? ` · ${esc(ultimaDeEstado.autor)}` : ""}</span>
+          </div>
+        </div>` : ""}
 
       ${eq.defeito_relatado ? `
         <blockquote class="relato">${esc(eq.defeito_relatado)}

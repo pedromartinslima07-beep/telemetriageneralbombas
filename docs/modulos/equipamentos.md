@@ -369,6 +369,21 @@ HTML; estratégia em `.impeccable/surfaces/public-equipamento-html.md`.
 - **Uma placa só, seções separadas por `hr.divider`.** Nada de caixa dentro de
   caixa: a hierarquia vem da ordem e do peso tipográfico, não de molduras.
   Repor cards ali devolve o problema original.
+- **A régua do tempo** é a peça do [painel do operador](painel-operador.md)
+  trazida para cá (2026-09-08, segundo passe): a pergunta da bancada é *"há
+  quanto tempo isso está parado aqui"*, e ela estava respondida numa frase de
+  15px no meio do texto. Agora é um número em Martian Mono na coluna à
+  esquerda, como o relógio de SLA do item da fila.
+  ⚠️ **A medida é uma placa, não um preenchimento da coluna** — a lição de
+  31/08 no operador. E **só o crítico preenche**: a atenção fica de fio com
+  tinta `--atencao-t`, porque o campo amarelo desta tela já pertence à parada
+  acesa do trilho.
+- **A faixa de segurança a −45°** fecha o pé da placa — a mesma peça que fecha
+  o hero da [landing](landing-publica.md), na mesma inclinação e no mesmo
+  passo. Não é campo amarelo; é limite.
+- **O traço curto antes de cada etiqueta de seção** é o gesto da landing
+  (*"— CUIDAMOS DE CASA DE MÁQUINAS DESDE 2005"*). ⚠️ Lá o traço é amarelo
+  porque pousa sobre marinho; aqui é marinho, pela Regra do Amarelo Cego.
 - **O trilho do ciclo** (No prédio → Oficina → Pronta → Devolvida) é conteúdo,
   não enfeite: a posição sai das movimentações. É o único momento de movimento
   da página (acende da esquerda até a posição atual, uma vez, respeitando

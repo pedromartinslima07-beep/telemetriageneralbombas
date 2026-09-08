@@ -61,9 +61,16 @@ movimentações, não é enfeite.
 acima dele, dava dois campos amarelos disputando e anulava a parada acesa — o
 estado subiu para a faixa marinho, onde o amarelo é tinta e não campo.
 
-Segundo: **o tempo no estado** vira sinal operacional — 7 dias na oficina acende
-atenção, 15 acende crítico. A pergunta da bancada é "há quanto tempo isso está
-parado aqui". Sobre a placa clara isso é a família `-t`, nunca o sinal saturado.
+Segundo: **a régua do tempo**, a peça do painel do operador — o número em
+Martian Mono na coluna da esquerda, respondendo "há quanto tempo isso está
+parado aqui". 7 dias acende atenção (de fio, tinta `--atencao-t`), 15 acende
+crítico (placa preenchida de `--vermelho` cru).
+⚠️ **Só o crítico preenche**: o campo amarelo desta tela é do trilho.
+
+Da landing vêm dois empréstimos, ambos em papel de assinatura e não de
+conteúdo: a **faixa de segurança a −45°** fechando o pé da placa (a mesma que
+fecha o hero) e o **traço curto** antes de cada etiqueta de seção — em marinho,
+porque sobre placa clara o amarelo não é traço.
 
 ## Restrições
 
