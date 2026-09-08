@@ -100,6 +100,34 @@ alertas. A resposta do `POST /telemetria` expõe os dois: `nivel` (cru) e
   A lista mostra `+ telemetria ×2` e "N reservatórios"; o painel lateral lista
   device + tipo de cada um. É condensação intencional — o backend já trata os
   dois como o mesmo problema.
+- **O que conta como alerta na página de Alertas** (corrigido em 08/09/2026,
+  `_alContaComoAlerta` em `public/admin.js`): telemetria **sempre**; chamado só
+  quando é **P1 ou P2**, quando **estourou o prazo** (aí a prioridade não
+  importa — um P4 atrasado é alerta), quando **absorveu um alerta de
+  telemetria** (senão o evento sumiria da tela ao ser agrupado) ou quando
+  **nasceu da telemetria** (prefixo `[AUTO]` no título).
+  ⚠️ **`[AUTO]` é o que salva o passado.** `telemetriaAbsorvida` se calcula
+  sobre os alertas **abertos**: assim que o nível normaliza, o chamado P3 que
+  só era alerta por causa dele sumiria da aba "Resolvidos", e a tela perderia o
+  histórico do evento que a fez existir. O prefixo é gravado por
+  `abrirChamadoAuto` e **sobrevive ao fechamento**.
+  ⚠️ **Preventiva NUNCA é alerta, e o corte é pela ORIGEM**
+  (`plano_manutencao_id`), não pela prioridade — a mesma decisão que a tirou da
+  lista de chamados do admin em 04/09. Elas são P4 e já cairiam pela
+  prioridade, mas o job gera uma por prédio por mês (**69 de uma vez em
+  setembro**) e no fim do mês um lote inteiro estoura prazo junto: voltariam
+  como "alerta crítico" em bloco. Têm tela e cadência próprias.
+  ⚠️ **A regra existia desde antes e a tabela não a aplicava.** O badge do menu
+  e o KPI do dashboard já filtravam; `renderAlertas()` passava o `_alUnificar()`
+  cru — que empurra TODO chamado para dentro — e o `_alAplicarFiltros()` só
+  filtra por aba, tipo, busca e data. Um P4 agendado virava card de alerta, e
+  os contadores das abas o contavam.
+  ⚠️ **O sintoma era composto:** a tela mostrava MAIS itens do que o número que
+  a anunciava. É a mesma contradição que este módulo registra como "8 aqui e 7
+  em Alertas" — dada por resolvida quando só o KPI e o badge foram corrigidos.
+  **A pergunta "isto é um alerta?" tem UM dono agora**, e a lista desenhada sai
+  da mesma função que a lista contada. Travado em
+  `scripts/testes/alertas-so-o-que-e-alerta.test.js`.
 - **Fechar o chamado não fecha o alerta de telemetria.** O alerta é estado
   físico: some quando o nível normaliza (ou reabre em ~10s se ainda estiver
   baixo). Fechado o chamado, o alerta volta a aparecer como card próprio.

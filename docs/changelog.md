@@ -10910,6 +10910,121 @@ Conferido renderizando as três folhas (`renderHTML` é exportado pra isso) e
 lendo a imagem: 14 etiquetas dentro da caixa, nada transbordando, e os formatos
 antigos intactos.
 
+### 2026-09-08 (6ª rodada) · A página de Alertas só mostra o que é alerta
+
+*"agr na tela de admin, precisa arrumar os alertas, hj qlqr tipo de chamado
+está gerando alerta e não está certo"*.
+
+**Ele estava certo, e o defeito não era do backend.** Nada no servidor cria
+linha de `alertas` a partir de chamado — só o `alertas.service.js`, chamado
+pela telemetria e pelo job de offline. Era a tela.
+
+⚠️ **E a regra já existia, escrita e nomeada.** Três lugares aplicavam "conta
+como alerta quem é P1/P2, ou estourou o prazo, ou absorveu telemetria": o badge
+do menu, o KPI do dashboard e `_chamadosAlertaAbertos()`. **A lista que a página
+desenha era o único lugar que NÃO aplicava** — `renderAlertas()` passava o
+`_alUnificar()` cru, que empurra TODO chamado para dentro, e o
+`_alAplicarFiltros()` só filtra por aba, tipo, busca e data. Um P4 agendado
+virava card de alerta, e os contadores das abas o contavam.
+
+⚠️ **O sintoma era composto, e reabria uma contradição que o arquivo dava por
+fechada:** a tela mostrava **mais itens do que o número que a anunciava**. O
+comentário do KPI no `admin.js` registra o "8 aqui e 7 em Alertas" como bug
+conhecido — aquela rodada acertou o KPI e o badge e não voltou na tabela.
+
+**A correção é a pergunta ter um dono.** `_alContaComoAlerta(it)` é a única
+definição, e tanto `renderAlertas()` quanto `_alertasAtivosUnificados()` saem
+dela. Duas medidas para a mesma pergunta era o defeito; uma função é a cura.
+
+| | Conta como alerta? |
+|---|---|
+| Telemetria (`nivel_baixo`, `nivel_muito_baixo`, `dispositivo_offline`) | **sempre** |
+| Chamado P1 ou P2 | **sim** |
+| Chamado de qualquer prioridade com **prazo estourado** | **sim** — um P4 atrasado é alerta |
+| Chamado que **absorveu** um alerta de telemetria | **sim**, senão o evento sumiria ao ser agrupado |
+| Chamado que **nasceu** da telemetria (`[AUTO]`) | **sim**, mesmo fechado |
+| **Preventiva** (`plano_manutencao_id`) | **não**, nem com prazo estourado |
+| Chamado P3/P4 comum | **não** ← era o que poluía |
+
+⚠️ **`[AUTO]` É O QUE SALVA O PASSADO**, e fecha o buraco que a primeira versão
+desta correção deixava. `telemetriaAbsorvida` se calcula sobre os alertas
+**abertos**: assim que o nível normaliza, o chamado P3 que só era alerta por
+causa dele sumiria da aba "Resolvidos" — a tela perderia o histórico do próprio
+evento que a fez existir. O prefixo é gravado por `abrirChamadoAuto` e
+**sobrevive ao fechamento**, então é ele quem responde "nasceu de telemetria?"
+quando o alerta já não está lá.
+
+⚠️ **PREVENTIVA NUNCA É ALERTA, E O CORTE É PELA ORIGEM** — a mesma decisão que
+a tirou da lista de chamados do admin em 04/09. Elas são P4 e já cairiam pela
+prioridade, mas o job gera **uma por prédio por mês** (69 de uma vez em
+setembro) e no fim do mês um lote inteiro estoura prazo junto: voltariam como
+"alerta crítico" em bloco, pela porta do SLA. É provável que fossem a maior
+parte do que o Pedro estava vendo.
+
+⚠️ A aba "Resolvidos" segue a mesma regra, então um P4 comum fechado não
+aparece mais lá.
+
+#### O teste
+
+`scripts/testes/alertas-so-o-que-e-alerta.test.js` — sem banco e sem navegador,
+extrai as funções puras do `admin.js` e roda contra fixtures. **17/17.** Além
+dos casos da tabela acima, ele trava o contrato que o bug quebrava: **a lista
+desenhada e a lista contada têm de ser a mesma**. Verificado que ele cai
+(14/15) ao devolver o `_alUnificar()` cru para o render.
+
+⚠️ **Uma pegadinha na fixture, que vale para qualquer teste desta família:**
+`_alCondoIdDoDevice` lê `g.condominio?.id`, não `g.condominio_id`. Com a chave
+errada ele devolve `null`, o alerta não acha chamado nenhum, o agrupamento não
+acontece — e o teste "passa" medindo outra coisa.
+
+`?v=N`: `admin.js` 344 → 345.
+
+### 2026-09-08 (6ª rodada) · A grade da A4263 vem da tabela da Pimaco, e a arte sai de cima do corte
+
+A folha impressa não bateu com o adesivo. Fui atrás da fonte primária: a Pimaco
+publica os parâmetros de cada folha num `.doc` de "Parâmetros de Impressão"
+(`editor.pimaco.com.br/documents/parametros/inkjet_a4/`). Para
+`A4063/A4263/A4363/A4063R`: margem superior **1,52 cm**, margem lateral
+**0,47 cm**, densidade vertical **3,81**, densidade horizontal **10,16**,
+etiqueta **3,81 × 9,90 cm**, 2 × 7.
+
+⚠️ **A grade que eu já tinha estava certa** — medi o HTML renderizado: célula em
+(4,70 / 15,15), passo 101,60 × 38,10, etiqueta 99,00 × 38,10. Bate com a tabela
+em tudo menos 0,05 mm na margem superior (corrigida para 15,2). Ou seja, o
+desalinhamento **não vinha da grade**, e mexer nela teria sido conserto às
+cegas. Deduzi por centralização e deu certo por coincidência nesta folha; agora
+os valores vêm do fabricante, que é o que vale para a próxima.
+
+O que estava errado de verdade eram outras três coisas:
+
+**1. A arte encostava no corte.** Sangria total, `gapY` zero: o registro de papel
+de impressora doméstica varia ~1 mm entre folhas, e esse milímetro faz a faixa
+marinho aparecer mordida ou invadindo a vizinha. `.et` agora é a célula da grade
+e `.arte` é o desenho, recuado por `medidas.safe` (1,5 mm na A4263). Os formatos
+antigos têm `safe: 0` e continuam ocupando a célula inteira.
+
+**2. `preferCSSPageSize` faltava no `page.pdf`.** Sem ele o Chrome usa o A4 dele
+(8,27 × 11,69 pol arredondadas) em vez do `@page` do CSS, e a grade adesiva
+perde as frações de milímetro que a picotagem cobra.
+
+**3. Não havia como calibrar.** `&dx=`/`&dy=` (mm, ±5) deslocam a grade inteira.
+O desvio que sobra depois disso é da **máquina**, não do arquivo: imprime, mede
+contra o adesivo, repete com o desvio invertido (saiu 1 mm para baixo →
+`&dy=-1`). `justify-content` da folha virou `start` junto — com `center` o
+offset seria anulado, e centralizar não faz sentido quando os valores já são
+absolutos a partir do canto da folha.
+
+⚠️ A crase em comentário dentro do template literal derrubou o arquivo de novo,
+exatamente como o [`../CLAUDE.md`](../CLAUDE.md) avisa. Dessa vez o `node
+--check` pegou, porque a crase caiu no meio de uma linha de CSS e quebrou a
+sintaxe — não é o caso silencioso.
+
+**Verificado** medindo o DOM renderizado dos três formatos: A4263 com célula em
+(4,70 / 15,20), passo 101,60 × 38,10, arte recuada 1,49 e última linha
+terminando em 281,91 mm (15,1 de sobra); `&dx=1&dy=-2` desloca a grade inteira
+sem transbordo; `corte` e `pimaco6180` com arte igual à célula e passos
+idênticos aos de antes.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

@@ -2093,19 +2093,60 @@ function _chamadosAlertaAbertos() {
   });
 }
 
+/* ⚠️ A PERGUNTA "ISTO É UM ALERTA?" MORA AQUI, E SÓ AQUI (08/09/2026).
+   Pedido do Pedro: *"qualquer tipo de chamado está gerando alerta e não está
+   certo"*. Ele estava certo, e o defeito não era o backend — nada no servidor
+   cria linha de `alertas` a partir de chamado (só `alertas.service.js`, da
+   telemetria). Era esta tela.
+
+   A regra já existia, escrita e nomeada, e três lugares a aplicavam: o badge
+   do menu, o KPI do dashboard e `_chamadosAlertaAbertos()`. **A LISTA QUE A
+   PÁGINA DESENHA era o único lugar que NÃO aplicava** — `renderAlertas()`
+   passava o `_alUnificar()` cru, que empurra TODO chamado para dentro, e
+   `_alAplicarFiltros()` só filtra por aba, tipo, busca e data. Resultado: um
+   P4 agendado virava card de alerta, e os contadores das abas o contavam.
+
+   ⚠️ E ISSO REABRIA A CONTRADIÇÃO QUE O PRÓPRIO ARQUIVO DIZ TER FECHADO —
+   o comentário do KPI fala do "8 aqui e 7 em Alertas" como bug conhecido.
+   Aquela rodada acertou o KPI e o badge e não voltou na tabela, então a tela
+   passou a mostrar MAIS itens do que o número que a anunciava. Duas medidas
+   para a mesma pergunta é o defeito; a correção é a pergunta ter um dono.
+
+   Um chamado conta como alerta quando é **P1 ou P2**, quando **estourou o
+   prazo** (aí a prioridade não importa — um P4 atrasado é alerta), quando
+   **absorveu um alerta de telemetria** (senão o evento sumiria da tela ao ser
+   agrupado no chamado) ou quando **nasceu da telemetria** (`[AUTO]`).
+   Telemetria conta sempre.
+
+   ⚠️ `[AUTO]` É O QUE SALVA O PASSADO. `telemetriaAbsorvida` se calcula sobre
+   os alertas **abertos**: assim que o nível normaliza, o chamado P3 que só era
+   alerta por causa dele sumiria da aba "Resolvidos" — a tela perderia o
+   histórico do próprio evento que a fez existir. O prefixo `[AUTO]` do título
+   é gravado por `abrirChamadoAuto` e **sobrevive ao fechamento**, então é ele
+   quem responde "isto nasceu de telemetria?" quando o alerta já não está lá.
+
+   ⚠️ PREVENTIVA NUNCA É ALERTA, E O CORTE É PELA ORIGEM, NÃO PELA PRIORIDADE
+   — a mesma decisão que tirou preventiva da lista de chamados do admin em
+   04/09. O job gera uma por prédio por mês (69 de uma vez em setembro); elas
+   são P4 e já cairiam fora pela prioridade, mas no fim do mês um lote inteiro
+   estoura prazo de uma vez e voltaria como "alerta crítico" em bloco. Elas têm
+   tela própria e cadência própria. */
+function _alContaComoAlerta(it) {
+  if (!it) return false;
+  if (it.origem === "telemetria") return true;
+  const ch = it.raw || {};
+  if (ch.plano_manutencao_id != null) return false;
+  const p = String(ch.prioridade || "").toLowerCase();
+  const auto = String(ch.titulo || "").startsWith("[AUTO]");
+  return p === "p1" || p === "p2" || it.slaEstourado || auto
+      || (it.telemetriaAbsorvida || []).length > 0;
+}
+
 // Itens ATIVOS que contam como alerta, já sem a duplicata telemetria+chamado.
 // Contadores e badge saem daqui pra não divergirem da lista que a página
 // renderiza — antes o badge dizia 2 e a tela mostrava o mesmo evento 2 vezes.
-// Um chamado que absorveu um alerta de telemetria conta como alerta mesmo
-// sendo P3/P4, senão o evento sumiria da contagem ao ser agrupado.
 function _alertasAtivosUnificados() {
-  return _alUnificar().filter((it) => {
-    if (it.status !== "ativo") return false;
-    if (it.origem === "telemetria") return true;
-    const p = String(it.raw?.prioridade || "").toLowerCase();
-    return p === "p1" || p === "p2" || it.slaEstourado
-        || (it.telemetriaAbsorvida || []).length > 0;
-  });
+  return _alUnificar().filter((it) => it.status === "ativo" && _alContaComoAlerta(it));
 }
 
 function _atualizarBadgeAlertas() {
@@ -2673,7 +2714,11 @@ function _alRenderAnaliseIA(it) {
 
 function renderAlertas() {
   // Compatível com a API existente: continua sendo chamado por carregarTelemetria.
-  const todos = _alUnificar();
+  // ⚠️ O FILTRO VEM ANTES DOS KPIs, e é o conserto de 08/09: `_alRenderKpis`
+  // recebe esta mesma lista, então os contadores das abas contavam TODO
+  // chamado enquanto o badge do menu contava só os que são alerta de verdade.
+  // Uma lista só, uma regra só (`_alContaComoAlerta`).
+  const todos = _alUnificar().filter(_alContaComoAlerta);
   const filtrados = _alAplicarFiltros(todos);
   _alRenderKpis(todos);
   _alRenderTabela(filtrados);

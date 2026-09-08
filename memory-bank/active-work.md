@@ -122,6 +122,69 @@ mapa, e o rótulo "TURNO" ao lado da marca.
 
 ---
 
+## Sessão 2026-09-08 — Os alertas do admin
+
+*"agr na tela de admin, precisa arrumar os alertas, hj qlqr tipo de chamado está
+gerando alerta e não está certo"*.
+
+**Ele estava certo, e a causa não era onde parecia.** Nada no backend cria linha
+de `alertas` a partir de chamado — só `alertas.service.js`, da telemetria. O
+defeito era do front.
+
+⚠️ **A regra já existia, escrita e nomeada, e a tabela era o único lugar que não
+a aplicava.** Badge do menu, KPI do dashboard e `_chamadosAlertaAbertos()`
+filtravam; `renderAlertas()` passava o `_alUnificar()` cru — que empurra TODO
+chamado para dentro — e o `_alAplicarFiltros()` só filtra por aba, tipo, busca e
+data. Um P4 agendado virava card de alerta, e os contadores das abas o contavam.
+
+⚠️ **E isso reabria uma contradição que o próprio arquivo dá por fechada.** O
+comentário do KPI no `admin.js` cita o "8 aqui e 7 em Alertas" como bug
+conhecido: aquela rodada corrigiu o KPI e o badge e **não voltou na tabela**.
+Resultado — a tela mostrava mais itens do que o número que a anunciava.
+
+> **Duas medidas para a mesma pergunta é o defeito. A cura é a pergunta ter um
+> dono.** `_alContaComoAlerta(it)` é a única definição; `renderAlertas()` e
+> `_alertasAtivosUnificados()` saem dela.
+
+| | Conta como alerta? |
+|---|---|
+| Telemetria | **sempre** |
+| Chamado P1 / P2 | sim |
+| Qualquer prioridade com **prazo estourado** | sim — P4 atrasado é alerta |
+| Chamado que **absorveu** telemetria | sim, senão o evento sumiria ao agrupar |
+| Chamado que **nasceu** da telemetria (`[AUTO]`) | sim, mesmo fechado |
+| **Preventiva** (`plano_manutencao_id`) | **não**, nem com prazo estourado |
+| **P3 / P4 comum** | **não** ← era o que poluía |
+
+⚠️ **`[AUTO]` SALVA O PASSADO.** `telemetriaAbsorvida` se calcula sobre os
+alertas **abertos**: assim que o nível normaliza, o chamado P3 que só era alerta
+por causa dele sumiria da aba "Resolvidos" — a tela perderia o histórico do
+evento que a fez existir. O prefixo é gravado por `abrirChamadoAuto` e
+sobrevive ao fechamento, então é ele quem responde "nasceu de telemetria?"
+quando o alerta já não está lá.
+
+⚠️ **PREVENTIVA NUNCA É ALERTA, E O CORTE É PELA ORIGEM** — a mesma decisão de
+04/09 que a tirou da lista de chamados do admin. Elas são P4 e já cairiam pela
+prioridade, mas o job gera **uma por prédio por mês** (69 em setembro) e no fim
+do mês um lote inteiro estoura prazo junto: voltariam como "crítico" em bloco,
+pela porta do SLA. **É provável que fossem a maior parte do que ele estava
+vendo** — `_chamadosData` carrega tudo do `GET /chamados`, preventiva inclusive
+(o `_chEhPreventiva` só separa na TELA de chamados, não na carga).
+
+**Teste:** `scripts/testes/alertas-so-o-que-e-alerta.test.js`, sem banco e sem
+navegador (extrai as funções puras do `admin.js` e roda contra fixtures).
+**17/17**, e conferido que cai ao devolver o cru para o render.
+
+⚠️ **Pegadinha da fixture, vale para toda esta família de teste:**
+`_alCondoIdDoDevice` lê `g.condominio?.id`, **não** `g.condominio_id`. Com a
+chave errada ele devolve `null`, o agrupamento não acontece, e o teste "passa"
+medindo outra coisa. Perdi uma rodada nisso.
+
+⏳ **Não conferido contra a produção:** a sessão do admin tinha expirado e o
+login é handoff pro Pedro. A prova é o teste e a leitura do código.
+
+---
+
 ## Sessão 2026-09-08 (3ª rodada) — A barra cabe no celular
 
 *"consegue arrumar isso?"* — a sobreposição achada na rodada anterior.

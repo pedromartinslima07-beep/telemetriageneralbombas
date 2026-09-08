@@ -231,6 +231,37 @@ manutenção e o select de condomínios.
 
 Detalhe em [painel-admin.md](../docs/modulos/painel-admin.md).
 
+### ⚠️ A página de Alertas do admin só mostra o que é alerta (08/09/2026)
+
+Pedido do Pedro: *"qualquer tipo de chamado está gerando alerta e não está
+certo"*. **O defeito não era do backend** — nada no servidor cria linha de
+`alertas` a partir de chamado (só `alertas.service.js`, da telemetria). Era a
+tela.
+
+⚠️ **A regra já existia e a tabela era o único lugar que não a aplicava.** O
+badge do menu, o KPI do dashboard e `_chamadosAlertaAbertos()` filtravam havia
+rodadas; `renderAlertas()` passava o `_alUnificar()` cru — que empurra TODO
+chamado para dentro — e o `_alAplicarFiltros()` só filtra por aba, tipo, busca e
+data. Um P4 agendado virava card de alerta.
+
+⚠️ **O sintoma era composto:** a tela mostrava **mais itens do que o número que
+a anunciava** — a mesma contradição "8 aqui e 7 em Alertas" que o `admin.js`
+registra como resolvida, e que só tinha sido corrigida no KPI e no badge.
+
+Hoje a pergunta "isto é um alerta?" tem **um dono só**, `_alContaComoAlerta`:
+telemetria sempre; chamado se for **P1/P2**, se **estourou o prazo** (a
+prioridade não importa aí), se **absorveu telemetria** ou se **nasceu dela**
+(`[AUTO]` no título). Travado em
+`scripts/testes/alertas-so-o-que-e-alerta.test.js` (17/17), que checa também o
+contrato que o bug quebrava: **a lista desenhada e a contada são a mesma**.
+⚠️ **`[AUTO]` salva o passado:** `telemetriaAbsorvida` se calcula sobre alertas
+**abertos**, então sem ele o chamado que nasceu de telemetria sumiria da aba
+"Resolvidos" ao normalizar o nível. O prefixo sobrevive ao fechamento.
+⚠️ **Preventiva NUNCA é alerta, e o corte é pela ORIGEM** — mesma decisão de
+04/09. São P4 e já cairiam pela prioridade, mas no fim do mês um lote inteiro
+estoura prazo junto e voltaria como "crítico" em bloco (69 por mês em setembro).
+Detalhe em [telemetria.md](../docs/modulos/telemetria.md).
+
 ### ⚠️ O painel do operador é a tela de PLANTÃO (02/09/2026)
 
 Três regras que só valem lá, e as três vêm do mesmo fato: a tela fica **aberta**
