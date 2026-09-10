@@ -132,6 +132,101 @@ constraint.
 > verdadeiro é `instalado` ("está no prédio funcionando"), que é o que a
 > bancada precisa ver para parar de contar a bomba como pendência.
 
+## A tela do técnico no navegador (10/09/2026)
+
+`/tecnico/painel` — `public/tecnico.html` / `tecnico.js`, com a folha do
+operador. Nasceu de um defeito de login: `PAINEL_POR_ROLE` mandava a role
+`tecnico` para esse path e o Express não servia página nenhuma ali (ver
+[autenticacao.md](autenticacao.md)).
+
+⚠️ **O CELULAR É A CENA PRINCIPAL** — *"o foco desse login é 100% mobile"*.
+Uma coluna, alvos de 44px, nada que dependa de hover.
+
+⚠️ **ELA ACHA, NÃO AGE.** A lista responde "onde está esta peça"; quem registra
+retirada, conserto, devolução e orçamento continua sendo a **ficha da etiqueta**
+(`/e/:codigo`), a mesma que o QR abre. Repetir as ações aqui criaria dois
+lugares para dizer a mesma coisa sobre a mesma bomba.
+
+⚠️ **O ESTADO É O CABEÇALHO DO GRUPO, não um selo por linha.** A lista agrupa
+pelos estados na ordem do ciclo, então um selo repetiria a mesma palavra — e a
+320px "AGUARDANDO ORÇAMENTO" em mono estourava a placa.
+
+⚠️ **"Na oficina" é um FILTRO, não um estado**: `oficina`,
+`aguardando_orcamento`, `aguardando_peca` e `em_conserto` querem todos dizer "a
+peça está parada aqui dentro", que é a pergunta de quem abre a tela.
+
+⚠️ **A folha é a `operador.css`**, e o bloco `.eq-*` mora nela. A tela tem a
+mesma barra, a mesma gaveta de conta e os mesmos diálogos das telas do
+operador; uma sexta cópia dos tokens divergiria no primeiro ajuste. A regra que
+continua valendo é a do topo daquele arquivo: ela não herda de `admin.css`.
+- ⚠️ Duas regras de celular precisaram de exceção por classe no `<body>`
+  (`tela-equip`): abaixo de 760px a folha esconde o nome da tela e abaixo de
+  420 esconde a `.barra-in` inteira, porque **lá** a marca disputa com três
+  links de navegação. Aqui não há navegação nenhuma, e a mesma regra deixava a
+  barra do celular com um avatar e mais nada.
+
+### Escanear a etiqueta pela câmera do navegador (10/09/2026)
+
+Pedido do Pedro: *"coloque uma parte para abrir a câmera e escanear o qr code
+para cadastro"*. Botão **Escanear etiqueta** na tela do técnico; a leitura abre
+`/e/:codigo`, que é a ficha — e, numa etiqueta em branco, é a tela de cadastro.
+
+⚠️ **Isto não contradiz "sem plugin de scanner no app".** Aquela decisão é sobre
+o **app Capacitor**, cujo build Android está sob o prazo da Play Store. Aqui não
+há build nenhum: é o navegador do celular pedindo a câmera.
+
+⚠️ **Sem biblioteca.** A CSP do helmet é `script-src 'self'` — script de CDN não
+executa, e sem erro visível. Quem lê é o `BarcodeDetector` do próprio navegador.
+
+⚠️ **O QR guarda a URL, não o código** (`<base>/e/CODIGO`). Mandar o texto cru
+para a ficha daria `/e/https://...`. O `codigoDe` aceita as duas formas, mais o
+hífen do código impresso — que existe só para leitura humana e não está no banco.
+
+⚠️ **`setTimeout`, não `requestAnimationFrame`.** O rAF é o laço padrão para
+isto e **não dispara em aba de segundo plano nem em janela sem foco**: medido
+com o vídeo tocando e zero chamadas ao detector. Numa tela que existe para ler
+um QR, um laço que pode nunca rodar é um retângulo preto que o técnico encara
+sem entender. 150 ms é folgado para QR e poupa bateria.
+
+⚠️ **Parar as trilhas à mão.** Só remover o `<video>` do DOM deixa a câmera
+**ligada** — a luz do aparelho fica acesa. `pararCamera()` roda no fechar, no
+Esc, no `pagehide` e antes de navegar para a ficha.
+
+⚠️ **NÃO HÁ CAMPO PARA DIGITAR O CÓDIGO NO DIÁLOGO**, e ele existiu por umas
+horas: entrou como plano B do QR sujo e o Pedro o tirou no mesmo dia. O diálogo
+é de uma coisa só — apontar a câmera. Quem precisa achar uma peça sem escanear
+usa a **busca da tela**, que já procura por código, apelido e prédio; duas
+portas para a mesma coisa, uma delas dentro de um diálogo de câmera, é o
+acúmulo que esta tela existe para não ter.
+
+⚠️ **Toda falha de câmera oferece "Tentar de novo"** e nomeia a saída: o app de
+câmera do próprio celular lê a etiqueta e abre a ficha. Quase toda falha aqui é
+recuperável (permissão recusada sem querer, câmera presa em outro aplicativo), e
+sem o botão o caminho seria fechar e reabrir — que é o que ele faz sem obrigar
+ninguém a descobrir.
+
+⚠️ **`[hidden]` precisa ser repetido no CSS do botão.** O atributo esconde por
+uma regra do navegador, e o `display:inline-flex` do `.btn` é uma classe: vence
+por especificidade. Sem a linha, o "Tentar de novo" aparecia com a câmera
+funcionando, oferecendo consertar o que não estava quebrado.
+
+⚠️ **No celular a ficha ocupa a tela inteira** (regra da folha, certa para os
+diálogos densos do operador). Um miolo de duas linhas herdava isso e ficava
+pendurado no topo de uma chapa vazia de 857px — medido. O miolo cresce e centra:
+a mira fica no meio do aparelho, que é onde a mão aponta.
+
+**Onde funciona.** `BarcodeDetector` é nativo do Chrome no **Android**, que é a
+cena de uso. **Não existe** no Safari (iPhone), no Firefox nem no Chrome de
+Windows — ali o diálogo diz isso e aponta o caminho que já funciona: o app de
+câmera do próprio celular, que abre a ficha pelo QR.
+Se algum técnico usar iPhone, o caminho é hospedar um leitor local em
+`public/static/` (a CSP permite `'self'`), como já é feito com Leaflet e
+ApexCharts.
+
+⚠️ **A câmera exige contexto seguro.** Em `http://` que não seja `localhost`,
+`navigator.mediaDevices` nem existe — testar pelo IP da rede local (`http://192.168…`)
+**não** vai pedir câmera. Produção é HTTPS e funciona.
+
 ## Quem enxerga
 
 Guard `equipeInterna` (`src/middleware/equipeInterna.js`) — admin, gerente e

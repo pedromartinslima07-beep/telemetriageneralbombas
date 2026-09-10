@@ -3784,3 +3784,203 @@ body:has(.pv-barra) .aviso{bottom:calc(var(--pv-pe) + 16px)}
   .pv-barra-sel select{transition:none}
   .pv-barra{animation:none}
 }
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   EQUIPAMENTOS (/tecnico/painel) — a lista da oficina.
+   ───────────────────────────────────────────────────────────────────
+   ⚠️ NADA NOVO AQUI DE PROPÓSITO. Pedido do Pedro em 10/09/2026: *"quero
+   o mais simples possível, no mesmo visual da tela do operador, não
+   precisa inventar"*. A placa é a MESMA construção do `.pv-item` (chapa
+   clara pousada no marinho, chanfro, tokens de tinta redeclarados), e o
+   selo segue a mesma gramática mono/caixa-alta dos irmãos.
+
+   ⚠️ A TELA DO TÉCNICO USA ESTA FOLHA, não uma sexta cópia dos tokens.
+   Ela tem a MESMA barra, a MESMA gaveta de conta e os MESMOS diálogos —
+   duplicar isso para manter "uma folha por superfície" criaria duas
+   cópias que divergem no primeiro ajuste. A regra que vale continua
+   sendo a registrada no topo: esta folha não herda de `admin.css`.
+   ═══════════════════════════════════════════════════════════════════ */
+
+.eq-topo{max-width:var(--area-max);margin:0 auto;padding:clamp(22px,3vw,34px) var(--gut) 0;width:100%}
+.eq-topo h1{
+  margin:0;font-size:clamp(1.5rem,2.6vw,2rem);font-weight:800;
+  letter-spacing:-.022em;line-height:1.2;color:var(--text);
+}
+.eq-topo h1 b{color:var(--amarelo);font-weight:800}
+.eq-lede{margin:8px 0 0;max-width:70ch;color:var(--text-dim);font-size:1rem;line-height:1.55}
+
+/* A busca e os filtros: uma linha só, e ela é a única ação da tela. */
+.eq-ferramentas{
+  max-width:var(--area-max);margin:0 auto;width:100%;
+  padding:18px var(--gut) 0;
+  display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+}
+.eq-busca{
+  flex:1 1 260px;min-width:0;font:inherit;font-size:15px;
+  padding:12px 14px;min-height:46px;
+  background:var(--fio-fraco);color:var(--text);
+  border:1px solid var(--fio);clip-path:var(--corte-p);
+}
+.eq-busca::placeholder{color:var(--muted)}
+.eq-busca:focus{outline:none;border-color:var(--fio-forte);box-shadow:inset 0 0 0 2px var(--amarelo)}
+.eq-filtros{display:flex;gap:8px;flex-wrap:wrap}
+/* Mesma peça do `.pv-zona-btn`: chapa vazada de fio, 44px de alvo. */
+.eq-chip{
+  font:inherit;font-size:.88rem;font-weight:700;
+  padding:11px 15px;min-height:44px;
+  background:transparent;color:var(--text-dim);
+  border:1px solid var(--fio);cursor:pointer;
+  clip-path:var(--corte-p);
+  transition:color .16s var(--saida),border-color .16s var(--saida);
+}
+.eq-chip:hover{color:var(--text);border-color:var(--fio-forte)}
+.eq-chip:focus-visible{outline:2px solid var(--amarelo);outline-offset:2px}
+.eq-chip[aria-pressed="true"]{background:var(--amarelo);color:var(--mar-900);border-color:var(--amarelo)}
+
+.eq-lista{
+  max-width:var(--area-max);margin:0 auto;width:100%;
+  padding:clamp(18px,2.4vw,26px) var(--gut) clamp(40px,6vw,72px);
+}
+.eq-grupo{margin-bottom:clamp(20px,2.6vw,30px)}
+.eq-grupo-cab{
+  display:flex;align-items:baseline;gap:12px;
+  padding:0 0 10px;margin-bottom:8px;
+  box-shadow:inset 0 -1px 0 var(--fio);
+}
+.eq-grupo-cab h2{
+  margin:0;font-size:1.05rem;font-weight:800;letter-spacing:-.015em;color:var(--text);
+}
+.eq-grupo-cab span{
+  font-family:var(--mono);font-size:.66rem;font-weight:700;
+  letter-spacing:.12em;text-transform:uppercase;color:var(--muted);
+}
+
+/* A placa: a MESMA do `.pv-item`. Aqui ela é um link, então o alvo inteiro
+   abre a ficha — é o que a etiqueta QR faz no celular, e na mesa o técnico
+   não tem como escanear. */
+.eq-item{
+  --text:var(--tinta);
+  --text-dim:var(--tinta-2);
+  --muted:var(--tinta-2);
+  --fio:var(--fio-esc);
+
+  display:flex;align-items:flex-start;gap:16px;
+  background:var(--chapa);color:var(--tinta);
+  padding:16px clamp(16px,2vw,22px) 18px;
+  clip-path:var(--corte-p);
+  margin-bottom:2px;
+  text-decoration:none;
+  transition:background .14s var(--saida);
+}
+.eq-item:hover{background:var(--chapa-cl)}
+.eq-item:focus-visible{outline:none;box-shadow:inset 0 0 0 2px var(--tinta)}
+/* O código é a identidade física da peça — é o que está impresso na etiqueta
+   colada nela. Mono porque é código, não porque é "técnico". */
+.eq-cod{
+  flex-shrink:0;font-family:var(--mono);font-size:.8rem;font-weight:700;
+  letter-spacing:.06em;color:var(--tinta-2);padding-top:3px;
+}
+.eq-item-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
+.eq-nome{
+  margin:0;font-size:1.18rem;font-weight:800;line-height:1.2;
+  letter-spacing:-.02em;color:var(--text);
+}
+.eq-meta{margin:0;max-width:74ch;font-size:.95rem;line-height:1.5;color:var(--muted)}
+.eq-meta b{color:var(--text);font-weight:700}
+
+
+/* ⚠️ ABAIXO DE 420px A FOLHA ESCONDE A BARRA-IN INTEIRA, e nas telas do
+   operador isso é a decisão certa: lá a marca disputa com três links de
+   navegação e dois alvos de 44px, e "sai a marca, não as palavras".
+   AQUI NÃO HÁ NAVEGAÇÃO NENHUMA — a tela é uma só —, então a mesma regra
+   deixava a barra do celular com um avatar e mais nada. Medido a 390px: 64px
+   de faixa vazia no topo da cena principal desta tela.
+   O nome volta; o logotipo continua fora, que é o que custava a largura. */
+body.tela-equip .barra-in{display:flex}
+/* O rótulo da tela é o que fica: abaixo de 760px a folha esconde `.marca span`
+   (nas telas do operador o nome da tela está na navegação, que aqui não
+   existe) e abaixo de 420 esconde a `.barra-in` inteira. Nesta tela some o
+   logotipo, que é o que custa largura, e ficam as palavras. */
+body.tela-equip .marca span{display:block}
+body.tela-equip .marca picture{display:none}
+/* ⚠️ E A FILA DE ALVOS PERDE O `width:100%` JUNTO. Abaixo de 420 a folha dá
+   largura total ao `.barra-acoes` porque lá a `.barra-in` não existe mais —
+   com ela de volta, os dois filhos do flex ocupavam a mesma faixa e o botão
+   de conta era desenhado POR CIMA da palavra: "EQ[avatar]AMENTOS", visto a
+   390 e a 320. */
+@media (max-width:420px){
+  body.tela-equip .barra-acoes{width:auto}
+}
+@media (min-width:421px){
+  body.tela-equip .marca picture{display:flex}
+}
+
+@media (max-width:760px){
+  .eq-topo,.eq-ferramentas,.eq-lista{padding-inline:13px}
+  /* ⚠️ O CÓDIGO SOBE PARA A LINHA DE CIMA no telefone. Como coluna à esquerda
+     ele comia 9ch de uma largura de 320, e o apelido — que é a leitura grande
+     da placa — quebrava em três linhas. */
+  .eq-item{flex-wrap:wrap;gap:4px 12px}
+  .eq-cod{padding-top:0;order:-1;flex-basis:100%}
+  .eq-item-main{flex-basis:100%}
+}
+@media (prefers-reduced-motion:reduce){
+  .eq-chip,.eq-item{transition:none}
+}
+
+/* ── O leitor de etiqueta ───────────────────────────────────────────────
+   O diálogo é o `.fundo` + `.ficha` da folha; só o miolo é daqui. */
+
+/* A ação âmbar não encolhe: no celular ela é a primeira coisa da linha e o
+   caminho normal de chegar numa peça. */
+.eq-scan-btn{flex:0 0 auto;min-height:46px}
+.eq-scan-btn svg{width:18px;height:18px;flex-shrink:0}
+
+.eq-scan{display:flex;flex-direction:column;gap:14px;padding:clamp(16px,2.4vw,22px)}
+/* ⚠️ QUADRADO, E O VÍDEO PREENCHE. A câmera do celular entrega retrato ou
+   paisagem conforme o aparelho; sem `aspect-ratio` fixo o diálogo pulava de
+   altura quando a imagem chegava. `object-fit:cover` corta as bordas em vez
+   de deformar — QR deformado é QR que não lê. */
+.eq-scan-quadro{
+  position:relative;width:100%;aspect-ratio:1;
+  background:var(--mar-900);clip-path:var(--corte);overflow:hidden;
+}
+.eq-scan-quadro video{width:100%;height:100%;object-fit:cover;display:block}
+/* A mira é onde apontar, e ela é fio, não caixa: um retângulo cheio taparia
+   justamente o que a câmera precisa enxergar. */
+.eq-scan-mira{
+  position:absolute;inset:18%;
+  box-shadow:inset 0 0 0 2px var(--amarelo);
+  clip-path:var(--corte);
+  pointer-events:none;
+}
+.eq-scan.is-sem-camera .eq-scan-quadro{display:none}
+.eq-scan-nota{
+  margin:0;color:var(--tinta-2);font-size:.95rem;line-height:1.5;text-align:center;
+  min-height:2.6em;
+}
+/* Só aparece quando a câmera falhou (ver `_semCamera`), e aí ele é a única
+   ação do diálogo — por isso ocupa a linha inteira.
+   ⚠️ O `[hidden]` PRECISA SER REPETIDO AQUI. O atributo do HTML esconde por
+   uma regra do navegador (`[hidden]{display:none}`), e o `display:inline-flex`
+   do `.btn` é uma CLASSE — vence por especificidade. Sem esta linha o botão
+   de tentar de novo aparecia com a câmera funcionando, oferecendo consertar o
+   que não estava quebrado. */
+.eq-scan-retry{align-self:stretch;justify-content:center;min-height:48px}
+.eq-scan-retry[hidden]{display:none}
+
+@media (max-width:760px){
+  /* No celular a ação âmbar toma a linha inteira: ela é a primeira coisa a
+     fazer, e dividir a faixa com a busca deixava as duas apertadas. */
+  .eq-scan-btn{flex:1 1 100%}
+  /* ⚠️ NO CELULAR A FICHA OCUPA A TELA INTEIRA (regra da folha, e é a certa
+     para os diálogos densos do operador). Um miolo de duas linhas herdava
+     isso e ficava pendurado no topo de uma chapa vazia de 857px — medido.
+     Crescer e centrar transforma a sobra em composição: a mira fica no meio
+     do aparelho, que é onde a mão aponta. */
+  .eq-scan{flex:1 1 auto;justify-content:center}
+}
+@media (prefers-reduced-motion:reduce){
+  .eq-scan-btn{transition:none}
+}

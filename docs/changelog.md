@@ -7028,6 +7028,72 @@ documento errado ao telefone.
 `operador-preventivas.js` 8 → **10**. Sem endpoint de prefixo novo, então o
 `sw.js` e o `CACHE_NAME` ficam onde estão.
 
+### 2026-09-10 · O técnico entra no site, e cai numa tela que existe
+
+*"o login do técnico só entra no app, no site não vai"*. Não era o login: o
+`PAINEL_POR_ROLE` do `login.js` manda a role `tecnico` para `/tecnico/painel`
+desde sempre, e o Express **nunca serviu essa página**. A senha certa terminava
+num 404, e só o app Capacitor tinha painel de técnico.
+
+A rota passou a existir, e com ela `public/tecnico.html` / `tecnico.js`: a
+lista de equipamentos, agrupada pelos estados na ordem do ciclo da oficina,
+com busca por código, apelido ou prédio. Tocar numa peça abre a **ficha da
+etiqueta** (`/e/:codigo`), a mesma que o QR abre — a tela acha, a ficha age.
+
+⚠️ **O celular é a cena principal** — *"o foco desse login é 100% mobile"*.
+Duas regras da folha precisaram de exceção por classe no `<body>`: abaixo de
+760px ela esconde o nome da tela, e abaixo de 420 esconde a `.barra-in`
+inteira. Nas telas do operador isso é certo (a marca disputa com três links de
+navegação); aqui, sem navegação nenhuma, deixava a barra do celular com um
+avatar e mais nada.
+
+⚠️ **Sem selo de estado por linha.** A lista já agrupa por estado, então o selo
+repetia a mesma palavra na mesma tela — e a 320px "AGUARDANDO ORÇAMENTO" em
+mono estourava a placa.
+
+⚠️ **Sem folha nova.** O bloco `.eq-*` mora no `operador.css`: mesma barra,
+mesma gaveta de conta, mesmos diálogos. Uma sexta cópia dos tokens divergiria
+no primeiro ajuste.
+
+Entrada nova no `MANIFEST_APPS` (`?app=tecnico`) — sem ela o atalho instalado
+no celular abriria a landing em vez do painel.
+
+### E a câmera, no mesmo dia
+
+*"coloque uma parte para abrir a câmera e escanear o qr code para cadastro"*.
+Botão **Escanear etiqueta**, diálogo com a câmera traseira, e a leitura abre
+`/e/:codigo` — que numa etiqueta em branco é a própria tela de cadastro.
+
+Quem lê é o `BarcodeDetector` do navegador: a CSP é `script-src 'self'`, então
+biblioteca de CDN não executa. E isto **não** contradiz o "sem plugin de
+scanner" do módulo — aquilo é sobre o build Android do app; aqui é o navegador.
+
+⚠️ **`setTimeout` no lugar do `requestAnimationFrame`.** O rAF é o laço padrão
+e não dispara em aba de segundo plano nem em janela sem foco: medido, o vídeo
+tocando e **zero** chamadas ao detector. Numa tela que só serve para ler um QR,
+laço que pode nunca rodar é um retângulo preto sem explicação.
+
+⚠️ **A câmera se desliga à mão** (`pararCamera`) no fechar, no Esc, no
+`pagehide` e antes de navegar. Só tirar o `<video>` do DOM deixa a luz acesa.
+
+⚠️ **Sem campo para digitar o código.** Ele chegou a existir como plano B do QR
+sujo e saiu no mesmo dia, a pedido do Pedro: o diálogo é de uma coisa só. Quem
+precisa achar uma peça sem escanear usa a busca da tela, que já procura por
+código. Em toda falha de câmera fica um **"Tentar de novo"** e a frase que
+nomeia a saída — o app de câmera do celular abre a ficha pelo QR.
+
+⚠️ Dois defeitos medidos e corrigidos no mesmo passe: o `[hidden]` do botão
+precisou ser repetido no CSS (o `display:inline-flex` do `.btn` é classe e vence
+o atributo), e o miolo do diálogo passou a crescer e centrar — no celular a
+ficha ocupa a tela inteira, e duas linhas de erro ficavam penduradas no topo de
+857px vazios.
+
+Limite conhecido: `BarcodeDetector` existe no Chrome do **Android** (a cena de
+uso) e não no Safari do iPhone nem no Chrome de Windows.
+
+`?v=N`: `operador.css` 99 → **105** nos seis HTMLs que a carregam,
+`tecnico.js` até **5**.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

@@ -309,7 +309,12 @@ token. Encerrar sessão de verdade exigiria revogação no backend, que não exi
 - `operador` → `/operador/painel` — **superfície própria desde 27/08/2026**,
   não mais o painel admin com itens escondidos. Ver
   [painel-operador.md](painel-operador.md)
-- `tecnico` → `/tecnico/painel` (app)
+- `tecnico` → `/tecnico/painel` — **a página passou a existir no site em
+  10/09/2026**. O mapa mandava para lá desde sempre e o Express não servia
+  nada nesse path: o técnico digitava a senha certa e caía num 404, enquanto o
+  app Capacitor tinha painel. Relato do Pedro: *"o login do técnico só entra no
+  app, no site não vai"*. A tela é a lista de equipamentos, feita para o
+  celular — ver [equipamentos.md](equipamentos.md)
 - `cliente` → `/cliente/painel`
 
 ### Quem já tem sessão não vê a tela de login (01/09/2026)

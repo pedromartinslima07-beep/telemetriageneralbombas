@@ -696,6 +696,12 @@ Fluxo e pegadinhas em
     para o Desfazer devolver o plano exato. Não vale "em campo": chamado com
     técnico é serviço andando, e a rota recusa com 409. Ver
     [painel-operador.md](../docs/modulos/painel-operador.md).
+  - ⚠️ **O técnico tem painel no NAVEGADOR desde 10/09**, em `/tecnico/painel`
+    (`public/tecnico.html` / `tecnico.js`, folha do operador, bloco `.eq-*`).
+    Era um 404: o `PAINEL_POR_ROLE` apontava para lá e o Express não servia
+    nada. É a lista de equipamentos, **feita para o celular**, e ela só
+    **acha** — quem age é a ficha `/e/:codigo`. Ver
+    [equipamentos.md](../docs/modulos/equipamentos.md).
   - ⚠️ **A O.S. de uma preventiva tem DUAS pernas** (10/09): a da execução
     (`chamados.plano_manutencao_id` → `ordens_servico.chamado_id`, o caminho
     normal) e a aproveitada (`planos_manutencao.ultima_os_id`, migration 084 —

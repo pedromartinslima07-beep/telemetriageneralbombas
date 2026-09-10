@@ -41,6 +41,31 @@ aliases:
 
 ## Em andamento / pendente
 
+- ✅ **O técnico tem painel no site** (10/09/2026). *"o login do técnico só
+  entra no app, no site não vai"* — e não era o login: `/tecnico/painel` nunca
+  foi servido pelo Express, então a senha certa dava 404. A tela nova é a
+  **lista de equipamentos**, feita para o celular (*"o foco desse login é 100%
+  mobile"*), agrupada pelos estados da oficina e com busca. Ela **acha**; quem
+  **age** continua sendo a ficha da etiqueta. Detalhe em
+  [`../docs/modulos/equipamentos.md`](../docs/modulos/equipamentos.md).
+  - 📋 **Só leitura, por decisão desta rodada.** Se o técnico precisar
+    registrar movimentação sem escanear, o caminho é abrir a ficha pelo item —
+    não duplicar as ações na lista.
+  - ✅ **Escanear a etiqueta pela câmera** (mesmo dia): botão na tela, leitura
+    pelo `BarcodeDetector` do navegador, sem biblioteca (a CSP proíbe CDN) e
+    sem plugin (não há build). A leitura abre a ficha — que numa etiqueta em
+    branco é o cadastro.
+    - ⚠️ **Só no Chrome do Android**, que é a cena de uso. iPhone e Chrome de
+      Windows não têm o detector: ali o diálogo avisa e aponta o app de câmera
+      do próprio celular, que já abre a ficha pelo QR. Se algum técnico usar
+      iPhone, o caminho é hospedar um leitor em `public/static/`.
+    - 📋 **Sem digitar código no diálogo** (decisão do Pedro, mesmo dia): o
+      diálogo é de uma coisa só. Achar peça sem escanear é a busca da tela.
+    - ⚠️ **Câmera exige HTTPS.** Testar pelo IP da rede local não pede câmera.
+  - 📋 **O parque inteiro é visível a qualquer técnico.** É o que o
+    `GET /equipamentos` já fazia (guard `equipeInterna`); se um dia precisar
+    ser "só o que é meu", a regra é de negócio e muda no endpoint.
+
 - ✅ **"Já foi feita" na tela de Preventivas** (10/09/2026). Pedido do Pedro:
   *"quero implementar na tela de preventiva do operador para ele marcar q a
   preventiva já foi feita, igual tem em orçamentos aprovados"*. O mesmo caso que

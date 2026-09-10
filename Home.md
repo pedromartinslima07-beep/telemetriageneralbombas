@@ -48,7 +48,7 @@ Como cada coisa funciona ponta a ponta. Índice em [`modulos/README.md`](docs/mo
 - [`whatsapp-ia.md`](docs/modulos/whatsapp-ia.md) — atendimento, state machine, curadoria `#fluxo`
 - [`chamados-sla.md`](docs/modulos/chamados-sla.md) — criticidade P1–P4 e SLA `#fluxo`
 - [`ordens-servico.md`](docs/modulos/ordens-servico.md) — O.S., orçamentos, GPS `#fluxo`
-- [`equipamentos.md`](docs/modulos/equipamentos.md) — identidade da bomba, etiqueta QR, oficina `#fluxo`
+- [`equipamentos.md`](docs/modulos/equipamentos.md) — identidade da bomba, etiqueta QR, oficina, e o painel do técnico no navegador `#fluxo`
 - [`mapa-geocoding.md`](docs/modulos/mapa-geocoding.md) — geocoding híbrido + proxy de tiles `#fluxo`
 - [`app-mobile.md`](docs/modulos/app-mobile.md) — Capacitor, GPS background (limitação + solução pendente) `#fluxo`
 - [`landing-publica.md`](docs/modulos/landing-publica.md) — página `/`, captação de lead, sistema visual "Chapa" `#fluxo`

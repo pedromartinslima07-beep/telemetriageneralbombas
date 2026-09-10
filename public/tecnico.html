@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#030a26">
+<link rel="manifest" href="/manifest.json?app=tecnico">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="General">
+<title>GENERAL • Equipamentos</title>
+<link rel="icon" type="image/png" href="/static/favicon.png?v=3">
+<link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+<link rel="preload" href="/static/fonts/archivo.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/static/fonts/martianmono.woff2" as="font" type="font/woff2" crossorigin>
+<!-- ⚠️ A FOLHA DO OPERADOR, e isso é escolha, não descuido. Esta tela tem a
+     MESMA barra, a MESMA gaveta de conta e os MESMOS diálogos das telas do
+     operador; uma sexta cópia dos tokens divergiria no primeiro ajuste. Só o
+     bloco `.eq-*` é exclusivo daqui, e ele mora no `operador.css` junto com o
+     resto — mesma decisão do bloco `.pv-*`. -->
+<link rel="stylesheet" href="/static/operador.css?v=105">
+</head>
+<body class="sem-trilho tela-equip">
+
+<!-- DIREÇÃO — Equipamentos do técnico · 10/09/2026
+
+     THESIS: o técnico entra pelo navegador do CELULAR e responde uma
+     pergunta só — "onde está esta bomba e o que já aconteceu com ela".
+     A tela é a lista da oficina; quem age é a ficha da etiqueta.
+     ⚠️ NADA INVENTADO. Pedido do Pedro: "o mais simples possível, no mesmo
+     visual da tela do operador, não precisa inventar". A placa é a mesma
+     construção do item de Preventivas, e o estado é o cabeçalho do grupo —
+     não um selo repetindo a mesma palavra em cada linha.
+     ⚠️ MOBILE É A CENA PRINCIPAL, não o caso de borda: "o foco desse login
+     é 100% mobile". Uma coluna, alvos de 44px, nada que dependa de hover.
+     OWN-WORLD: o Chapa em registro de operação, herdado inteiro. -->
+
+<header class="barra">
+  <div class="barra-in">
+    <div class="marca">
+      <picture>
+        <source media="(max-width:760px)" srcset="/static/logo-marca.png" width="160" height="102">
+        <img src="/static/logo-topo.png" alt="GENERAL" width="826" height="180">
+      </picture>
+      <span>Equipamentos</span>
+    </div>
+  </div>
+  <div class="barra-acoes">
+    <!-- ⚠️ O id `btnSair` é o CONTRATO com o JS da tela — o logout é por id,
+         como nas três telas do operador. O comportamento da gaveta vive no
+         `operador-conta.js`, compartilhado. -->
+    <div class="eu" id="eu">
+      <button class="conta conta-eu" id="btnEu" type="button"
+              aria-haspopup="true" aria-expanded="false" aria-controls="euGaveta">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4.5 20.5c0-4.14 3.36-7.5 7.5-7.5s7.5 3.36 7.5 7.5"/></svg>
+        <span class="conta-rot" id="barraEu"></span>
+        <svg class="eu-seta" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M5 9l7 7 7-7"/></svg>
+      </button>
+      <div class="eu-gaveta" id="euGaveta" role="menu" aria-labelledby="btnEu" hidden>
+        <button class="eu-item" type="button" role="menuitem" data-acao="senha">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><circle cx="7.5" cy="12" r="4.5"/><path d="M12 12h9M16.5 12v3.5M20 12v2.5"/></svg>
+          <span>Trocar senha</span>
+        </button>
+        <button class="eu-item" id="btnSair" type="button" role="menuitem">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M14 4H5v16h9"/><path d="M12 12h9M17.5 8l4 4-4 4"/></svg>
+          <span>Sair</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main id="tela">
+  <!-- O primeiro estado é "ainda não sei", nunca "está vazio" — mesma regra
+       das telas do operador. -->
+  <div class="carregando" id="carregando">Carregando os equipamentos…</div>
+</main>
+
+<script src="/static/operador-conta.js?v=1" defer></script>
+<script src="/static/tecnico.js?v=5" defer></script>
+<script src="/static/register-sw.js?v=51" defer></script>
+</body>
+</html>

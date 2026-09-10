@@ -205,6 +205,10 @@ const MANIFEST_APPS = {
   operador: { start_url: "/operador/painel",  name: "General Turno",      short_name: "Turno" },
   admin:    { start_url: "/admin/painel",     name: "General Admin",      short_name: "Admin" },
   cliente:  { start_url: "/cliente/painel",   name: "General Telemetria", short_name: "Telemetria" },
+  // ⚠️ Sem esta entrada o `?app=tecnico` cai no manifest base, e o atalho
+  // instalado abre a landing em vez do painel — o técnico salva a tela na
+  // home do celular e toca num site de vendas.
+  tecnico:  { start_url: "/tecnico/painel",   name: "General Equipamentos", short_name: "Equipamentos" },
 };
 app.get("/manifest.json", (req, res) => {
   const extra = MANIFEST_APPS[String(req.query.app || "")] || {};
@@ -471,6 +475,21 @@ app.get("/cliente/orcamentos", (req, res, next) => {
   const qs = req.originalUrl.includes("?") ? req.originalUrl.slice(req.originalUrl.indexOf("?")) : "";
   return res.redirect(302, "/cliente/painel/orcamentos" + qs);
 });
+
+// Painel do técnico — a lista de equipamentos, no navegador.
+//
+// ⚠️ ESTA ROTA FALTAVA, e o sintoma era um login que dava certo e terminava em
+// 404: o `PAINEL_POR_ROLE` do `login.js` manda a role `tecnico` para
+// `/tecnico/painel` desde sempre, e o Express nunca serviu essa página — só o
+// app Capacitor tinha painel de técnico. Relato do Pedro (10/09/2026): *"o
+// login do técnico só entra no app, no site não vai"*.
+//
+// Mesma convenção das irmãs: a PÁGINA é o nome da tela (`/tecnico/painel`), a
+// API é o nome do recurso (`/tecnicos`, registrado lá embaixo) — então esta
+// rota não sombreia router nenhum.
+app.get("/tecnico/painel", _htmlNoCache, (req, res) =>
+  enviarHtml(res, path.join(__dirname, "../public/tecnico.html"))
+);
 
 // Ficha do equipamento — é o que a etiqueta QR abre. O path é curto de
 // propósito: menos caractere na URL = QR com menos módulos = etiqueta legível
