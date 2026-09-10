@@ -41,6 +41,25 @@ aliases:
 
 ## Em andamento / pendente
 
+- ✅ **"Já foi feita" na tela de Preventivas** (10/09/2026). Pedido do Pedro:
+  *"quero implementar na tela de preventiva do operador para ele marcar q a
+  preventiva já foi feita, igual tem em orçamentos aprovados"*. O mesmo caso que
+  a migration 080 resolveu em Aprovados — a visita aconteceu e não passou pelo
+  sistema —, agora com a migration 085 (`planos_baixas_manuais`). Marcar **rola
+  o ciclo do plano** e cancela o chamado P4 órfão do mês; a baixa guarda as
+  datas anteriores, e é isso que faz o **Desfazer** devolver o plano ao estado
+  exato. Não vale "em campo": ali quem fecha é a O.S. do técnico (409). Detalhe
+  em [`../docs/modulos/painel-operador.md`](../docs/modulos/painel-operador.md).
+  - ⏳ **Migration 085 aplicada só em TESTE** — falta produção, junto com a 082,
+    que segue pendente lá desde 03/09.
+  - 📋 **Sem confirmação, com Desfazer** — a mesma troca de Aprovados. A
+    confirmação do despacho em lote continua de pé: lá o risco é o tamanho.
+  - ✅ **E o "Ver O.S." das feitas**, no mesmo dia: *"quero tb o link da os das
+    preventivas já feitas assim como é em orçamento"*. A placa nomeava um
+    documento que não abria, e no caminho normal (O.S. finalizada fecha o
+    chamado do plano) a tela nem sabia que a O.S. existia. **Uma O.S. por
+    placa**: a que executou ganha da aproveitada.
+
 - ✅ **O diálogo de despacho do operador passa pelo corte** (08/09/2026). Era o
   **item 4** da simplificação da tela do operador — e o último com peça inteira.
   A coluna "Quem pode ir" virou **uma chapa dividida por corte gravado** com as

@@ -542,3 +542,34 @@ quem foi onde se perderia.
 seriam competências diferentes do mesmo mês, e a PK deixaria o mesmo plano ser
 atribuído duas vezes.
 
+### `planos_baixas_manuais` (migration 085)
+
+A preventiva **dada como feita à mão** na tela do operador — o "Já foi feito"
+de [Aprovados](modulos/painel-operador.md) trazido para a tela de Preventivas.
+O caso real: a visita aconteceu e não passou pelo sistema.
+
+| Coluna | Tipo | Nota |
+|---|---|---|
+| `plano_id` | INTEGER | FK `planos_manutencao`, ON DELETE CASCADE |
+| `competencia` | DATE | **sempre o dia 1 do mês** — mesmo CHECK da 082 |
+| `marcada_em` | TIMESTAMPTZ | carimbo, não digitação |
+| `marcada_por` | INTEGER | FK `usuarios`, ON DELETE SET NULL |
+| `proxima_em_anterior` | DATE | o ciclo do plano ANTES da baixa |
+| `ultima_em_anterior` | DATE | idem |
+| `ultima_os_id_anterior` | INTEGER | FK `ordens_servico`, ON DELETE SET NULL |
+| `chamado_cancelado_id` | INTEGER | FK `chamados`, ON DELETE SET NULL |
+
+PK composta `(plano_id, competencia)`: **uma baixa manual por plano por mês**.
+
+⚠️ **Por que as datas anteriores moram aqui.** Marcar como feita ROLA o ciclo do
+plano (`ultima_em`, `proxima_em`, `ultima_os_id`), como `executarPlano` e
+`darBaixaPorOS` fazem — sem isso o job reabriria o chamado do mês na madrugada
+seguinte e a preventiva marcada voltaria como "em campo". Rolar é destrutivo, e
+a marcação é de **um clique sem confirmação**: o desfazer só devolve o plano ao
+estado exato porque estas três colunas lembram qual era ele.
+
+⚠️ **`chamado_cancelado_id` é a outra metade do desfazer.** A baixa cancela o
+chamado P4 órfão do mês (senão ele fica no roteiro pedindo um serviço que já
+aconteceu); guardar o id permite reabri-lo. Chamado **com técnico** não entra
+nessa conta: ali o serviço está andando e a rota recusa com 409.
+

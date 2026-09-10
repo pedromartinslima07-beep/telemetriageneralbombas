@@ -7008,8 +7008,24 @@ Teste novo: `scripts/testes/preventiva-feita-a-mao.test.js` (28 asserções),
 exercitando as rotas de verdade — a competência aparece em cinco lugares da
 mesma query, e `$n` repetido só se testa batendo no endpoint (CLAUDE.md).
 
-`?v=N`: `operador.css` 97 → **98** nos seis HTMLs do operador,
-`operador-preventivas.js` 8 → **9**. Sem endpoint de prefixo novo, então o
+### E o "Ver O.S." da preventiva feita, no mesmo dia
+
+*"quero tb o link da os das preventivas já feitas assim como é em orçamento"*.
+A placa dizia "aproveitada na O.S. OS-2026-0031" e não havia como abrir o
+documento — e, no caminho **normal** (o técnico finaliza a O.S., ela fecha o
+chamado do plano), a tela nem sabia que a O.S. existia: o `GET` percorria só
+`planos_manutencao.ultima_os_id`, a perna da baixa de carona.
+
+Um `LEFT JOIN LATERAL` sobre o chamado fechado do mês trouxe `exec_os_*`, e o
+link "Ver O.S." entrou ao lado do "Já foi feita" — `fetch` + blob, como em
+Aprovados, porque o PDF exige `Authorization: Bearer`.
+
+⚠️ **Uma O.S. por placa**, e quem ganha é a que executou; a aproveitada só
+entra quando é a única. Dois números na mesma frase fariam o operador citar o
+documento errado ao telefone.
+
+`?v=N`: `operador.css` 97 → **99** nos seis HTMLs do operador,
+`operador-preventivas.js` 8 → **10**. Sem endpoint de prefixo novo, então o
 `sw.js` e o `CACHE_NAME` ficam onde estão.
 
 > Decisões, itens descartados e backlog futuro:

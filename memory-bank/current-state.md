@@ -696,6 +696,12 @@ Fluxo e pegadinhas em
     para o Desfazer devolver o plano exato. Não vale "em campo": chamado com
     técnico é serviço andando, e a rota recusa com 409. Ver
     [painel-operador.md](../docs/modulos/painel-operador.md).
+  - ⚠️ **A O.S. de uma preventiva tem DUAS pernas** (10/09): a da execução
+    (`chamados.plano_manutencao_id` → `ordens_servico.chamado_id`, o caminho
+    normal) e a aproveitada (`planos_manutencao.ultima_os_id`, migration 084 —
+    baixa de carona por outro chamado). A tela mostra **uma por placa**, e a da
+    execução ganha; só na lista de feitas, porque numa preventiva aberta a
+    `ultima_os_id` é a do mês passado.
   - ⚠️ **`tecnicos` é o quadro inteiro, não só quem vai a campo** (04/09): em
     produção, 6 `cargo='tecnico'`, 3 `gestor`, 2 `adm`. A escala da preventiva
     oferecia os 11 e aceitava qualquer um. Toda lista de despacho filtra por

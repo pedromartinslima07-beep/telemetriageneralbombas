@@ -3582,6 +3582,42 @@ body.sem-trilho #tela{width:100%}
   color:var(--ok-t);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--ok-t) 40%,transparent);
 }
 
+/* ── "Já foi feita" e "Desfazer" na linha ───────────────────────────────
+   O irmão do `.orc-jafoi` de Aprovados, na gramática desta lista: link
+   sublinhado, nunca botão. A placa daqui não tem ação em destaque nenhuma —
+   a ação principal desta tela é o DESPACHO EM LOTE, e ele vive na barra do
+   pé. Um botão cheio por linha, 72 vezes, disputaria com ela e com o próprio
+   nome do prédio, que é a leitura grande da placa.
+
+   ⚠️ À DIREITA, EM COLUNA PRÓPRIA, e não numa terceira linha dentro do
+   `.pv-item-main`. São até 72 prédios num mês: cada linha nova custa um
+   prédio a menos na tela, e esta é a mesma razão pela qual o rodapé daqui é
+   UMA frase e não a pilha de metadados da primeira versão.
+
+   ⚠️ ALINHA COM O NOME, não com o centro da placa. `align-self:center` num
+   item de duas linhas põe o link entre o nome e o rodapé — a régua desta
+   folha é a primeira linha de texto, a mesma da caixa de marcar. */
+.pv-jafoi,.pv-desfaz,.pv-veros{
+  flex-shrink:0;align-self:flex-start;margin:-10px -2px -10px 0;
+  font:inherit;font-size:.95rem;font-weight:700;letter-spacing:-.005em;
+  background:transparent;border:0;padding:10px 2px;min-height:44px;
+  cursor:pointer;color:var(--text-dim);
+  text-decoration:underline;text-underline-offset:4px;
+  text-decoration-color:var(--fio-esc);
+  transition:color .16s var(--saida),text-decoration-color .16s var(--saida);
+}
+.pv-jafoi:hover,.pv-desfaz:hover,.pv-veros:hover{color:var(--text);text-decoration-color:var(--text)}
+.pv-jafoi:focus-visible,.pv-desfaz:focus-visible,.pv-veros:focus-visible{
+  outline:2px solid var(--tinta);outline-offset:2px;text-decoration-color:var(--text);
+}
+/* Enquanto o PDF é gerado sob demanda. Sem isto o link some de vista ao virar
+   "Abrindo…" e a pessoa clica de novo. */
+.pv-veros[disabled]{opacity:.55;cursor:default;text-decoration-color:transparent}
+/* ⚠️ UM VÃO ENTRE OS DOIS, e não o `gap` de 16px do item: quando "Ver O.S." e
+   "Desfazer" aparecem na mesma linha eles são a MESMA peça repetida, e 16px os
+   lê como colunas separadas da placa. */
+.pv-veros + .pv-desfaz,.pv-veros + .pv-jafoi{margin-left:14px}
+
 /* ── O que já foi feito ─────────────────────────────────────────────────── */
 .pv-feitas-cab{
   max-width:var(--area-max);margin:clamp(26px,3vw,40px) auto 0;width:100%;
@@ -3720,6 +3756,10 @@ body:has(.pv-barra) .aviso{bottom:calc(var(--pv-pe) + 16px)}
   .pv-mes-nav{width:44px;height:44px}
   .pv-item{flex-wrap:wrap}
   .pv-selo{margin-left:0}
+  /* Quebrada a linha, o link cai embaixo do rodapé e ocupa a coluna inteira —
+     o `margin-left` negativo da mesa o jogaria para fora da placa. */
+  .pv-jafoi,.pv-desfaz,.pv-veros{margin:2px 0 -10px;align-self:stretch;text-align:left}
+  .pv-veros + .pv-desfaz,.pv-veros + .pv-jafoi{margin-left:0}
   .pv-item-topo{gap:8px}
   /* A barra empilha em DUAS linhas: "N escolhidas" e o técnico em cima, o
      par de ações embaixo, com o "Enviar" cheio — como as ações da placa em
@@ -3740,6 +3780,7 @@ body:has(.pv-barra) .aviso{bottom:calc(var(--pv-pe) + 16px)}
 
 @media (prefers-reduced-motion:reduce){
   .pv-mes-nav,.pv-zona-btn,.pv-verfeitas,.pv-barra-limpa,
+  .pv-jafoi,.pv-desfaz,.pv-veros,
   .pv-barra-sel select{transition:none}
   .pv-barra{animation:none}
 }

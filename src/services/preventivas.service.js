@@ -67,7 +67,15 @@ const ESTADOS = ["a_fazer", "escalada", "em_campo", "feita"];
 // Chamado aberto SEM técnico não é serviço andando: é serviço esperando alguém,
 // que é exatamente o que "a fazer" (ou "escalada") já diz. O chamado continua
 // existindo — quem despacha o adota, em vez de criar um segundo.
+// ⚠️ A MARCACAO A MAO VEM PRIMEIRO, antes de olhar chamado (10/09/2026,
+// migration 085). E a mesma ordem do `execucao()` de Aprovados, e pelo mesmo
+// motivo: alguem disse, com nome e hora, que a visita aconteceu — isso e
+// afirmacao de gente e ganha de qualquer deducao a partir do estado de um
+// chamado. O caso concreto: o operador marca a preventiva do mes como feita e
+// depois abre um chamado no mesmo predio; sem esta linha a placa esqueceria a
+// baixa e voltaria a cobrar o mes.
 function estadoDa(linha) {
+  if (linha.baixa_manual_em) return "feita";
   if (linha.chamado_fechado_id) return "feita";
   if (!linha.chamado_aberto_id && linha.feita_no_mes) return "feita";
   if (linha.chamado_aberto_id && linha.chamado_aberto_tecnico_id) return "em_campo";

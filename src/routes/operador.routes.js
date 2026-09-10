@@ -603,7 +603,33 @@ router.get("/preventivas", authRequired, adminOnly, async (req, res) => {
          -- consegue desfazer um engano.
          -- (Sem crase nos comentarios: template literal. Ver CLAUDE.md.)
          osb.id     AS baixa_os_id,
-         osb.numero AS baixa_os_numero
+         osb.numero AS baixa_os_numero,
+
+         -- A BAIXA MARCADA A MAO nesta competencia (migration 085). E o
+         -- "Ja foi feito" de Aprovados trazido para ca: visita que aconteceu
+         -- sem passar pelo sistema — sem chamado, ou com o chamado do mes
+         -- orfao — e que sem isto ficaria cobrada para sempre.
+         -- ⚠️ QUEM DECIDE O ESTADO CONTINUA SENDO O estadoDa. Estas colunas
+         -- so alimentam ele e o rodape da placa; a regra de "feita" nao pode
+         -- ter uma segunda versao dentro desta query.
+         -- (Sem crase nos comentarios: template literal. Ver CLAUDE.md.)
+         bm.marcada_em AS baixa_manual_em,
+         ubm.nome      AS baixa_manual_por_nome,
+
+         -- A O.S. QUE EXECUTOU A PREVENTIVA (10/09/2026), quando ela foi feita
+         -- pelo caminho normal: o tecnico finaliza a O.S. no predio e isso
+         -- FECHA o chamado do plano. O vinculo sempre existiu em duas pernas —
+         -- chamados.plano_manutencao_id e ordens_servico.chamado_id — e
+         -- ninguem percorria a segunda: a placa dizia "Feita" e o documento
+         -- que prova a visita nao tinha como ser aberto.
+         --
+         -- ⚠️ E A MESMA REGRA DE APROVADOS: UMA O.S. POR PLACA. Quando existem
+         -- as duas, quem aparece e a que EXECUTOU; a aproveitada (osb, via
+         -- ultima_os_id) so entra quando e a unica. Quem escolhe e o front.
+         -- (Sem crase nos comentarios: template literal. Ver CLAUDE.md.)
+         ose.id            AS exec_os_id,
+         ose.numero        AS exec_os_numero,
+         ose.finalizada_em AS exec_os_finalizada_em
        FROM planos_manutencao pm
        JOIN condominios c ON c.id = pm.condominio_id AND c.ativo = TRUE
        LEFT JOIN planos_atribuicoes pa
@@ -619,6 +645,9 @@ router.get("/preventivas", authRequired, adminOnly, async (req, res) => {
        ) zr ON TRUE
        LEFT JOIN tecnicos tz ON tz.id = zr.tecnico_id
        LEFT JOIN ordens_servico osb ON osb.id = pm.ultima_os_id
+       LEFT JOIN planos_baixas_manuais bm
+              ON bm.plano_id = pm.id AND bm.competencia = $1::date
+       LEFT JOIN usuarios ubm ON ubm.id = bm.marcada_por
        LEFT JOIN LATERAL (
          SELECT ch.id, ch.status, ch.tecnico_id FROM chamados ch
           WHERE ch.plano_manutencao_id = pm.id
@@ -633,6 +662,17 @@ router.get("/preventivas", authRequired, adminOnly, async (req, res) => {
             AND ch.fechado_em <  ($1::date + INTERVAL '1 month')
           ORDER BY ch.fechado_em DESC LIMIT 1
        ) chf ON TRUE
+       -- ⚠️ DEPENDE DO chf E POR ISSO VEM DEPOIS DELE: um LATERAL so enxerga o
+       -- que ja foi juntado a sua esquerda. Invertida a ordem, chf.id ainda
+       -- nao existe e o Postgres recusa a query — o mesmo cuidado que o
+       -- GET /operador/orcamentos ja registra entre os dois laterais dele.
+       LEFT JOIN LATERAL (
+         SELECT os2.id, os2.numero, os2.finalizada_em
+           FROM ordens_servico os2
+          WHERE os2.chamado_id = chf.id
+          ORDER BY (os2.finalizada_em IS NOT NULL) DESC, os2.finalizada_em DESC, os2.id DESC
+          LIMIT 1
+       ) ose ON TRUE
        WHERE pm.ativo = TRUE
          -- ⚠️ DUAS PORTAS PARA O MES, E A SEGUNDA FALTAVA (04/09/2026).
          -- (Sem crase em nenhum comentario daqui: eles vivem dentro de um
@@ -1096,6 +1136,248 @@ router.delete("/orcamentos/:id/executado", authRequired, adminOnly, async (req, 
   } catch (err) {
     console.error("[operador] DELETE /orcamentos/:id/executado:", err);
     return res.status(500).json({ error: "Erro ao desfazer" });
+  }
+});
+
+/**
+ * POST   /operador/preventivas/:id/feita   — a visita deste mês já aconteceu
+ * DELETE /operador/preventivas/:id/feita   — desfaz
+ *
+ * O "Já foi feito" de Aprovados, na tela de Preventivas (10/09/2026,
+ * migration 085). Pedido do Pedro: *"quero implementar na tela de preventiva
+ * do operador para ele marcar q a preventiva já foi feita, igual tem em
+ * orçamentos aprovados"*.
+ *
+ * O caso real: o técnico foi ao prédio, fez a visita e nada disso passou pelo
+ * sistema — não houve chamado, ou o chamado do mês nasceu órfão pelo job e
+ * ninguém tocou nele. Sem esta rota a preventiva fica cobrada até o fim dos
+ * tempos, e a única saída seria mexer no banco.
+ *
+ * ⚠️ MARCAR ROLA O CICLO DO PLANO — `ultima_em`, `proxima_em` e
+ * `ultima_os_id`, a mesma aritmética de `executarPlano` e `darBaixaPorOS`
+ * (meses de calendário). Gravar só a linha da baixa deixaria `proxima_em` no
+ * passado, e o job reabriria o chamado do mês na madrugada seguinte: a
+ * preventiva marcada como feita voltaria como "em campo".
+ *
+ * ⚠️ E CANCELA O CHAMADO DO MÊS, quando existe um aberto. Ele pede um serviço
+ * que já aconteceu: deixá-lo de pé mantém o prédio no roteiro do técnico e na
+ * fila. O id fica guardado na baixa para o desfazer reabri-lo.
+ *
+ * ⚠️ MAS NÃO QUANDO ALGUÉM ESTÁ NELE. Chamado aberto COM técnico é o estado
+ * "em campo": o serviço está andando agora, e quem o encerra é a O.S. que o
+ * técnico assina no prédio. Marcar por fora criaria duas verdades sobre a
+ * mesma visita — a mesma razão pela qual o "Já foi feito" de Aprovados só
+ * aparece no estado livre.
+ *
+ * ⚠️ NÃO ACEITA DATA NEM AUTOR DO CORPO — só a competência. `marcada_em` é
+ * `NOW()` e `marcada_por` é quem está logado: o valor do registro é ser
+ * carimbo, não digitação. Mesma regra do `executado_em` do orçamento.
+ */
+router.post("/preventivas/:id/feita", authRequired, adminOnly, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0)
+    return res.status(400).json({ error: "Preventiva inválida" });
+
+  const mes = req.body?.mes;
+  if (mes != null && mes !== "" && !competenciaValida(mes)) {
+    return res.status(400).json({ error: "mes inválido (use YYYY-MM)" });
+  }
+  const competencia = competenciaDe(mes);
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    const planoRes = await client.query(
+      `SELECT id, condominio_id, periodicidade_dias, proxima_em, ultima_em, ultima_os_id
+         FROM planos_manutencao
+        WHERE id = $1 AND ativo = TRUE
+        FOR UPDATE`,
+      [id]
+    );
+    if (!planoRes.rows.length) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "Plano de manutenção não encontrado ou inativo" });
+    }
+    const plano = planoRes.rows[0];
+
+    // ⚠️ O CHAMADO ABERTO DECIDE SE ESTA ROTA PODE AGIR. Com técnico dentro, o
+    // serviço está andando e quem o encerra é a O.S.; sem técnico, é o chamado
+    // órfão do job e ele sai de cena junto com a baixa.
+    const chRes = await client.query(
+      `SELECT id, status, tecnico_id FROM chamados
+        WHERE plano_manutencao_id = $1
+          AND status NOT IN ('fechado', 'cancelado')
+        ORDER BY id DESC LIMIT 1
+        FOR UPDATE`,
+      [id]
+    );
+    const chamado = chRes.rows[0] || null;
+    if (chamado && chamado.tecnico_id) {
+      await client.query("ROLLBACK");
+      return res.status(409).json({
+        error: "Esta preventiva já está em campo. Quem a fecha é a O.S. do técnico.",
+        chamado_id: chamado.id,
+      });
+    }
+
+    // ⚠️ UPSERT COM AS DATAS DA PRIMEIRA VEZ. Marcar duas vezes o mesmo mês não
+    // pode reescrever `proxima_em_anterior` com a data JÁ ROLADA — o desfazer
+    // devolveria o plano para o mês seguinte e o prédio pularia uma visita.
+    // `DO NOTHING` porque a segunda marcação não tem nada a acrescentar.
+    await client.query(
+      `INSERT INTO planos_baixas_manuais
+         (plano_id, competencia, marcada_por,
+          proxima_em_anterior, ultima_em_anterior, ultima_os_id_anterior,
+          chamado_cancelado_id)
+       VALUES ($1, $2::date, $3, $4::date, $5::date, $6, $7)
+       ON CONFLICT (plano_id, competencia) DO NOTHING`,
+      [id, competencia, req.user.id,
+       plano.proxima_em, plano.ultima_em, plano.ultima_os_id,
+       chamado ? chamado.id : null]
+    );
+
+    if (chamado) {
+      await client.query(
+        "UPDATE chamados SET status = 'cancelado' WHERE id = $1",
+        [chamado.id]
+      );
+      // O histórico é a memória de quem mexeu no chamado. Cancelamento que não
+      // passa pela tela do chamado sumiria dele.
+      await registrarMudancas({
+        client,
+        chamadoId: chamado.id,
+        antes: { status: chamado.status },
+        depois: { status: "cancelado" },
+        alteradoPor: req.user.id,
+      });
+    }
+
+    // ⚠️ A DATA DA VISITA CAI DENTRO DA COMPETÊNCIA MARCADA, não em NOW(). Um
+    // operador que fecha agosto no dia 3 de setembro está dizendo que a visita
+    // foi em AGOSTO; gravar hoje faria feita_no_mes responder pelo mês errado
+    // nas duas telas. LEAST porque no mês corrente a data é hoje mesmo — o
+    // último dia do mês ainda não chegou.
+    // (Sem crase nos comentarios: template literal. Ver CLAUDE.md.)
+    const meses = Math.max(1, Math.round(plano.periodicidade_dias / 30));
+    const upd = await client.query(
+      `UPDATE planos_manutencao
+          SET ultima_em    = LEAST(CURRENT_DATE,
+                                   ($1::date + INTERVAL '1 month' - INTERVAL '1 day')::date),
+              ultima_os_id = NULL,
+              proxima_em   = ($1::date + ($2::int * INTERVAL '1 month'))::date
+        WHERE id = $3
+        RETURNING proxima_em, ultima_em`,
+      [competencia, meses, id]
+    );
+
+    const marcada = await client.query(
+      `SELECT bm.marcada_em, u.nome AS marcada_por_nome
+         FROM planos_baixas_manuais bm
+         LEFT JOIN usuarios u ON u.id = bm.marcada_por
+        WHERE bm.plano_id = $1 AND bm.competencia = $2::date`,
+      [id, competencia]
+    );
+
+    await client.query("COMMIT");
+    return res.json({
+      ok: true,
+      plano_id: id,
+      mes: mesDe(competencia),
+      competencia,
+      baixa_manual_em: marcada.rows[0]?.marcada_em || null,
+      baixa_manual_por_nome: marcada.rows[0]?.marcada_por_nome || null,
+      proxima_em: upd.rows[0].proxima_em,
+      chamado_cancelado_id: chamado ? chamado.id : null,
+    });
+  } catch (err) {
+    await client.query("ROLLBACK").catch(() => {});
+    console.error("[operador] POST /preventivas/:id/feita:", err);
+    return res.status(500).json({ error: "Erro ao marcar a preventiva como feita" });
+  } finally {
+    client.release();
+  }
+});
+
+// ⚠️ O DESFAZER DEVOLVE O PLANO INTEIRO, não só apaga a linha. As três datas
+// anteriores estão na baixa justamente para isto (ver migration 085): sem elas
+// o plano ficaria com `proxima_em` no mês seguinte, e a preventiva que voltou a
+// ser devida não apareceria em mês nenhum.
+router.delete("/preventivas/:id/feita", authRequired, adminOnly, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0)
+    return res.status(400).json({ error: "Preventiva inválida" });
+
+  const mes = req.query.mes;
+  if (mes != null && mes !== "" && !competenciaValida(mes)) {
+    return res.status(400).json({ error: "mes inválido (use YYYY-MM)" });
+  }
+  const competencia = competenciaDe(mes);
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    const bm = await client.query(
+      `DELETE FROM planos_baixas_manuais
+        WHERE plano_id = $1 AND competencia = $2::date
+        RETURNING proxima_em_anterior, ultima_em_anterior,
+                  ultima_os_id_anterior, chamado_cancelado_id`,
+      [id, competencia]
+    );
+    if (!bm.rows.length) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "Esta preventiva não foi marcada à mão neste mês" });
+    }
+    const antes = bm.rows[0];
+
+    await client.query(
+      `UPDATE planos_manutencao
+          SET proxima_em   = $1::date,
+              ultima_em    = $2::date,
+              ultima_os_id = $3
+        WHERE id = $4`,
+      [antes.proxima_em_anterior, antes.ultima_em_anterior, antes.ultima_os_id_anterior, id]
+    );
+
+    // ⚠️ E REABRE O CHAMADO QUE A BAIXA CANCELOU — mas só se ele continuar
+    // cancelado. Alguém pode tê-lo reaberto ou fechado no meio do caminho, e
+    // reescrever esse status apagaria uma decisão mais nova que a nossa.
+    let reaberto = null;
+    if (antes.chamado_cancelado_id) {
+      const r = await client.query(
+        `UPDATE chamados SET status = 'aberto'
+          WHERE id = $1 AND status = 'cancelado'
+          RETURNING id`,
+        [antes.chamado_cancelado_id]
+      );
+      if (r.rows.length) {
+        reaberto = r.rows[0].id;
+        await registrarMudancas({
+          client,
+          chamadoId: reaberto,
+          antes: { status: "cancelado" },
+          depois: { status: "aberto" },
+          alteradoPor: req.user.id,
+        });
+      }
+    }
+
+    await client.query("COMMIT");
+    return res.json({
+      ok: true,
+      plano_id: id,
+      mes: mesDe(competencia),
+      competencia,
+      baixa_manual_em: null,
+      chamado_reaberto_id: reaberto,
+    });
+  } catch (err) {
+    await client.query("ROLLBACK").catch(() => {});
+    console.error("[operador] DELETE /preventivas/:id/feita:", err);
+    return res.status(500).json({ error: "Erro ao desfazer" });
+  } finally {
+    client.release();
   }
 });
 

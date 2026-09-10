@@ -325,8 +325,10 @@ pendências em [painel-operador.md](modulos/painel-operador.md).
 | GET | `/operador/fila` | adminOnly — **uma request monta a tela inteira**: chamados abertos (`aberto`, `em_atendimento`) com o SLA já resolvido, os reservatórios do condomínio de cada um e a equipe com posição atual |
 | GET | `/operador/tecnicos` | adminOnly — a equipe que pode receber um chamado (id, nome, `disponivel`, `abertos`, GPS dos últimos 30 min). É a lista do seletor **Técnico** dos diálogos de abrir chamado |
 | GET | `/operador/prazos` | adminOnly — os prazos de `sla_definicoes` + as faixas de nível e a janela do sensor mudo. É o que a **Ajuda** das duas telas mostra |
-| GET | `/operador/preventivas?mes=YYYY-MM` | adminOnly — os planos de manutenção que vencem no mês (mais os **vencidos de meses anteriores**, com `atrasada`), cada um com `estado` (`a_fazer`/`escalada`/`em_campo`/`feita`), o responsável e a origem dele (`escala` ou `zona`), e a equipe para o diálogo de despacho. Sem `mes`, o mês corrente. ⚠️ Lista **planos, não chamados**: o chamado P4 só nasce quando o serviço começa, e a tela precisa mostrar o que FALTA |
+| GET | `/operador/preventivas?mes=YYYY-MM` | adminOnly — os planos de manutenção que vencem no mês (mais os **vencidos de meses anteriores**, com `atrasada`), cada um com `estado` (`a_fazer`/`escalada`/`em_campo`/`feita`), o responsável e a origem dele (`escala` ou `zona`), e a equipe para o diálogo de despacho. Desde 10/09/2026 traz também `baixa_manual_em`/`baixa_manual_por_nome` (a baixa dada à mão, migration 085) e `exec_os_id`/`exec_os_numero`/`exec_os_finalizada_em` — **a O.S. que executou a preventiva**, achada pelo chamado do plano que fechou. ⚠️ Não confundir com `baixa_os_id`/`baixa_os_numero`, que são a O.S. de OUTRO chamado que deu a baixa de carona (084): quando existem as duas, quem a placa mostra é a que executou. O `LEFT JOIN LATERAL` da O.S. depende do chamado fechado e tem de vir depois dele. Sem `mes`, o mês corrente. ⚠️ Lista **planos, não chamados**: o chamado P4 só nasce quando o serviço começa, e a tela precisa mostrar o que FALTA |
 | POST | `/operador/preventivas/atribuir` | adminOnly — escala um lote para um técnico neste mês. Body `{ plano_ids: [], tecnico_id, mes? }`; `tecnico_id` **nulo desescala** (devolve o prédio à régua da zona). É a mesma rota para os dois caminhos da tela — "a zona inteira" é ela mandando os ids de uma zona, "prédio a prédio" são os marcados. Upsert numa transação, máx. 200 por vez. Migration 082 |
+| POST | `/operador/preventivas/:id/feita` | adminOnly — a visita **já aconteceu**: dá baixa à mão na preventiva do mês. Body `{ mes? }`. Rola o ciclo do plano (`ultima_em`, `proxima_em`), cancela o chamado P4 órfão do mês se houver, e grava a baixa com quem marcou. **409 quando a preventiva está em campo** (chamado aberto com técnico): ali quem fecha é a O.S. Migration 085 |
+| DELETE | `/operador/preventivas/:id/feita?mes=YYYY-MM` | adminOnly — desfaz a baixa: devolve as datas anteriores do plano e reabre o chamado que a marcação cancelou (só se ele continuar cancelado) |
 | GET | `/operador/orcamentos` | adminOnly — os orçamentos **aprovados**, por prédio, para a tela `/operador/painel/orcamentos`. Traz `chamado_id`/`chamado_status` do chamado que executa cada um (079) e, desde 03/09/2026, `exec_os_id`/`exec_os_numero`/`exec_os_finalizada_em` — **a O.S. daquele chamado**, que é o que de fato aconteceu no prédio. ⚠️ **Não confundir com `os_id`/`os_numero`**, que são a O.S. de ORIGEM (aquela em que o técnico pediu o orçamento). O segundo `LEFT JOIN LATERAL` depende do primeiro e tem de vir depois dele |
 | POST | `/operador/orcamentos/:id/executado` | adminOnly — marca o orçamento como **já feito** (sem chamado). Migration 080 |
 | DELETE | `/operador/orcamentos/:id/executado` | adminOnly — desfaz a marcação |
@@ -346,6 +348,14 @@ nunca na carga da tela.
 precisa saber **o que** foi aprovado e **onde**, não quanto custou, e esconder
 no CSS deixaria o número viajando na resposta, visível na aba Network. Ao
 mexer na query, não traga coluna de dinheiro "porque é fácil somar depois".
+
+⚠️ **Marcar a preventiva como feita é destrutivo, e por isso o desfazer é
+completo.** O `POST` rola `proxima_em` para o ciclo seguinte — sem isso o job
+reabriria o chamado do mês na madrugada seguinte e a preventiva marcada
+voltaria como "em campo". Como a marcação é de **um clique sem confirmação**, a
+linha em `planos_baixas_manuais` guarda as datas anteriores do plano e o id do
+chamado cancelado; o `DELETE` devolve os dois. Ver
+[banco-de-dados.md](banco-de-dados.md).
 
 ⚠️ **`POST /operador/orcamentos/:id/executado` não aceita data nem autor no
 corpo.** `executado_em` é `NOW()` e `executado_por` é quem está logado — o

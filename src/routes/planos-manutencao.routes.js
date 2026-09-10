@@ -156,6 +156,13 @@ router.get("/", authRequired, gestaoOnly, async (req, res) => {
               -- aparecia no balde "Sem dono" ao lado do trabalho de setembro, e
               -- so a coluna Proxima distinguia — numa lista de 80 linhas.
               -- (Sem crase nos comentarios: template literal. Ver CLAUDE.md.)
+              -- A BAIXA MARCADA A MAO na tela do operador (migration 085).
+              -- Entra aqui pela mesma razao que as outras colunas do
+              -- acompanhamento: quem decide o estado e o estadoDa, e ele
+              -- precisa ler a mesma coisa nas duas telas. Sem isto o admin
+              -- diria "a fazer" num mes que o operador ja fechou.
+              -- (Sem crase nos comentarios: template literal. Ver CLAUDE.md.)
+              bm.marcada_em  AS baixa_manual_em,
               (pm.proxima_em < (${COMP}::date + INTERVAL '1 month')
                OR (pm.ultima_em >= ${COMP}::date
                    AND pm.ultima_em < (${COMP}::date + INTERVAL '1 month'))) AS do_mes
@@ -180,6 +187,9 @@ router.get("/", authRequired, gestaoOnly, async (req, res) => {
        LEFT JOIN planos_atribuicoes pa
               ON pa.plano_id = pm.id
              AND pa.competencia = ${COMP}::date
+       LEFT JOIN planos_baixas_manuais bm
+              ON bm.plano_id = pm.id
+             AND bm.competencia = ${COMP}::date
        LEFT JOIN tecnicos ta ON ta.id = pa.tecnico_id
        LEFT JOIN LATERAL (
          SELECT pzr.tecnico_id FROM planos_zona_responsavel pzr

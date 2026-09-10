@@ -29,6 +29,9 @@
     zona_tecnico_id: null, zona_tecnico_nome: null,
     chamado_aberto_id: null, chamado_aberto_status: null,
     chamado_fechado_id: null, fechado_em: null, feita_no_mes: false,
+    baixa_manual_em: null, baixa_manual_por_nome: null,
+    baixa_os_id: null, baixa_os_numero: null,
+    exec_os_id: null, exec_os_numero: null, exec_os_finalizada_em: null,
     estado: "a_fazer", tecnico_id: null, tecnico_nome: null, tecnico_origem: null,
   }, extra);
 
@@ -66,13 +69,27 @@
     P(7, "Ed. Guarulhos Centro", null, { proxima_em: d(22) }),
 
     // Feitas: uma pelo chamado fechado, outra pelo `ultima_em` (execução antiga)
+    // Feita pelo caminho normal: o técnico finalizou a O.S. e ela FECHOU o
+    // chamado do plano. É a placa que ganha o "Ver O.S.".
     P(8, "Res. Aurora", "Zona Oeste", {
       estado: "feita", chamado_fechado_id: 61,
+      exec_os_id: 51, exec_os_numero: "OS-2026-0051",
+      exec_os_finalizada_em: new Date(hoje.getFullYear(), hoje.getMonth(), 2).toISOString(),
       fechado_em: new Date(hoje.getFullYear(), hoje.getMonth(), 2).toISOString(),
       zona_tecnico_id: 1, zona_tecnico_nome: "Marcos Ribeiro",
       tecnico_id: 1, tecnico_nome: "Marcos Ribeiro", tecnico_origem: "zona" }),
+    // Dada como feita À MÃO (085): a visita aconteceu e não passou pelo
+    // sistema. É a única linha da lista de feitas que tem "Desfazer".
+    P(10, "Ed. Jardins 88", "Zona Oeste", {
+      estado: "feita", feita_no_mes: true, ultima_em: d(2),
+      baixa_manual_em: new Date().toISOString(), baixa_manual_por_nome: "Prévia",
+      zona_tecnico_id: 1, zona_tecnico_nome: "Marcos Ribeiro",
+      tecnico_id: 1, tecnico_nome: "Marcos Ribeiro", tecnico_origem: "zona" }),
+    // Aproveitada: o técnico foi por OUTRO chamado e marcou a caixa na O.S.
+    // (migration 084). O número é o mesmo botão, com outra palavra no rodapé.
     P(9, "Ed. Pinheiros 400", "Zona Oeste", {
       estado: "feita", feita_no_mes: true, ultima_em: d(1),
+      baixa_os_id: 31, baixa_os_numero: "OS-2026-0031",
       zona_tecnico_id: 1, zona_tecnico_nome: "Marcos Ribeiro",
       tecnico_id: 1, tecnico_nome: "Marcos Ribeiro", tecnico_origem: "zona" }),
   ];
@@ -116,6 +133,26 @@
       return ok({ ok: true, mes: MES, atribuidos: body.plano_ids.length, ignorados: [], tecnico_id: body.tecnico_id });
     }
 
+    // ⚠️ ANTES DO GENÉRICO, e é por isso que ele existe: `/preventivas/:id/feita`
+    // começa com o mesmo prefixo, e sem esta guarda o `POST` cairia na listagem,
+    // responderia 200 com a fixture intacta e a prévia mentiria — a placa
+    // voltaria da recarga como se nada tivesse sido marcado.
+    const mFeita = url.match(/^\/operador\/preventivas\/(\d+)\/feita/);
+    if (mFeita && init && (init.method === "POST" || init.method === "DELETE")) {
+      const p = PLANOS.find((x) => x.id === Number(mFeita[1]));
+      if (!p) return ok({ error: "não encontrado" });
+      const marcar = init.method === "POST";
+      p.baixa_manual_em = marcar ? new Date().toISOString() : null;
+      p.baixa_manual_por_nome = marcar ? "Prévia" : null;
+      p.feita_no_mes = marcar;
+      p.ultima_em = marcar ? d(hoje.getDate()) : null;
+      // Marcar tira o prédio do mês: o estado volta pelo que a fixture guarda.
+      p.estado = marcar ? "feita" : (p.atribuido_tecnico_id ? "escalada" : "a_fazer");
+      return ok({ ok: true, plano_id: p.id, mes: MES,
+                  baixa_manual_em: p.baixa_manual_em,
+                  baixa_manual_por_nome: p.baixa_manual_por_nome });
+    }
+
     if (url.indexOf("/operador/preventivas") === 0) {
       // ⚠️ O mês pedido é respeitado, para a navegação ← → não mentir: só o mês
       // corrente tem fixture, os outros vêm vazios — que é o estado vazio real
@@ -126,6 +163,14 @@
         planos: m === MES ? PLANOS : [],
         tecnicos: TECNICOS,
       });
+    }
+    // ⚠️ O PDF NÃO EXISTE NA PRÉVIA, e o silêncio seria pior: sem esta guarda
+    // o `ok([])` genérico lá embaixo viraria um blob de "[]" e o "Ver O.S."
+    // abriria uma aba com lixo, como se o documento fosse aquilo.
+    if (url.indexOf("/ordens-servico/") === 0) {
+      return Promise.resolve(new Response(
+        JSON.stringify({ error: "A prévia não tem PDF de O.S. — só o painel de verdade abre." }),
+        { status: 501, headers: { "Content-Type": "application/json" } }));
     }
     if (url.indexOf("/static/") === 0 || url.indexOf("http") === 0) return nativo(input, init);
     return ok([]);

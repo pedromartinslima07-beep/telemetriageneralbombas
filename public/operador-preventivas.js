@@ -179,6 +179,23 @@ function selo(p) {
    ⚠️ MAS A ORIGEM CONTINUA ETIQUETA. "Escalado" é decisão de alguém neste mês;
    "pela zona" é o padrão da região — e sem a distinção o operador não sabe o
    que ele mesmo já despachou. Etiqueta dentro da frase, não outra linha. */
+/* A O.S. desta preventiva, quando existe uma. `null` quando não há — a
+   preventiva marcada à mão não tem documento nenhum, e é o caso mais comum
+   de baixa sem O.S.
+   ⚠️ SÓ NA LISTA DE FEITAS. Numa preventiva ainda aberta, `baixa_os_id` é a
+   O.S. do mês passado, e mostrá-la ali diria que a visita deste mês já
+   aconteceu. */
+function osDaPlaca(p) {
+  if (!feita(p)) return null;
+  if (p.exec_os_id && p.exec_os_numero) {
+    return { id: p.exec_os_id, numero: p.exec_os_numero, aproveitada: false };
+  }
+  if (p.baixa_os_id && p.baixa_os_numero) {
+    return { id: p.baixa_os_id, numero: p.baixa_os_numero, aproveitada: true };
+  }
+  return null;
+}
+
 function rodape(p) {
   const partes = [escapar(p.titulo)];
   if (p.bairro) partes.push(escapar(p.bairro));
@@ -199,10 +216,70 @@ function rodape(p) {
   // ⚠️ Só na lista de FEITAS: numa preventiva ainda aberta, `baixa_os_id` é a
   // O.S. do mês passado, e mostrá-la ali diria que a visita deste mês já
   // aconteceu.
-  const aproveitada = feita(p) && p.baixa_os_numero
-    ? ` · <span class="pv-aproveitada">aproveitada na O.S. ${escapar(p.baixa_os_numero)}</span>`
+  // ⚠️ UMA O.S. POR PLACA, e quem ganha é a que EXECUTOU (10/09/2026) — a
+  // mesma regra de Aprovados. A O.S. da execução é a do chamado da preventiva
+  // que fechou; a "aproveitada" é a de OUTRO chamado que deu a baixa de
+  // carona (`ultima_os_id`, migration 084). Quando existem as duas, escrever
+  // os dois números na mesma frase faria o operador citar o documento errado
+  // ao telefone.
+  const os = osDaPlaca(p);
+  const aproveitada = os
+    ? ` · <span class="pv-aproveitada">${
+        os.aproveitada ? "aproveitada na" : "feita na"} O.S. ${escapar(os.numero)}</span>`
     : "";
-  return `<p class="pv-meta">${partes.join(" · ")} · ${quem}${aproveitada}</p>`;
+  // ⚠️ QUEM MARCOU À MÃO ASSINA A BAIXA (10/09/2026). Mesma razão da linha
+  // acima: uma preventiva que ninguém despachou aparecendo como feita lê como
+  // defeito enquanto não houver nome e hora do lado. E aqui vale mais que lá —
+  // a baixa à mão é afirmação de uma pessoa, não dedução do sistema.
+  const aMao = feita(p) && p.baixa_manual_em
+    ? ` · <span class="pv-aproveitada">dada como feita${
+        p.baixa_manual_por_nome ? " por " + escapar(p.baixa_manual_por_nome) : ""}</span>`
+    : "";
+  return `<p class="pv-meta">${partes.join(" · ")} · ${quem}${aproveitada}${aMao}</p>`;
+}
+
+/* ── A ação da linha ─────────────────────────────────────────────────────
+   "Já foi feito", trazido de Aprovados a pedido do Pedro (10/09/2026). O caso
+   é o mesmo daquela tela: o serviço aconteceu e não passou pelo sistema — o
+   técnico já estava no prédio, ou o chamado do mês nasceu órfão e ninguém o
+   tocou. Sem isto a preventiva fica cobrada para sempre.
+
+   ⚠️ SEM CONFIRMAÇÃO, COM DESFAZER — a mesma troca registrada em Aprovados.
+   Uma caixa de "tem certeza?" a cada marcação cobra de todo mundo o preço do
+   erro de alguns; o desfazer cobra só de quem errou. (A confirmação do
+   DESPACHO em lote continua de pé: lá o tamanho é o risco — uma zona inteira
+   de uma vez —, aqui é um prédio só.)
+
+   ⚠️ NÃO APARECE EM CAMPO. Com técnico dentro do chamado, quem encerra é a
+   O.S. que ele assina no prédio; oferecer os dois caminhos criaria duas
+   verdades sobre a mesma visita. O backend recusa esse caso com 409.
+
+   ⚠️ E O "DESFAZER" SÓ EXISTE NA BAIXA À MÃO. Preventiva fechada por O.S. ou
+   por chamado não se desfaz aqui: o documento é a verdade, e apagá-lo por um
+   link numa lista seria reescrever o que o técnico assinou. */
+/* ⚠️ "VER O.S." É IRMÃO DO "JÁ FOI FEITA": mesmo tipo de peça (link de texto
+   à direita da linha), mesmo lugar. Pedido do Pedro em 10/09/2026 — *"quero
+   tb o link da os das preventivas já feitas assim como é em orçamento"*. Sem
+   ele a placa NOMEAVA um documento que ela mesma não abria, que é o defeito
+   que Aprovados corrigiu em 03/09 e esta tela herdou por cópia incompleta.
+
+   ⚠️ OS DOIS PODEM CONVIVER numa preventiva feita à mão que tenha O.S. de
+   carona — raro, porque a baixa à mão zera `ultima_os_id`, mas a placa não
+   pode depender disso para não quebrar. */
+function acao(p) {
+  const os = osDaPlaca(p);
+  const verOs = os
+    ? `<button type="button" class="pv-veros" data-acao="ver-os" data-id="${os.id}"
+         title="Abrir a O.S. ${escapar(os.numero)} em PDF">Ver O.S.</button>`
+    : "";
+  if (p.baixa_manual_em) {
+    return `${verOs}<button type="button" class="pv-desfaz" data-acao="desfazer-feita"
+      data-id="${p.id}">Desfazer</button>`;
+  }
+  if (feita(p)) return verOs;
+  if (p.estado === "em_campo") return "";
+  return `<button type="button" class="pv-jafoi" data-acao="feita" data-id="${p.id}"
+    >Já foi feita</button>`;
 }
 
 function linha(p) {
@@ -239,6 +316,7 @@ function linha(p) {
       </div>
       ${rodape(p)}
     </div>
+    ${acao(p)}
   </article>`;
 }
 
@@ -413,12 +491,23 @@ function render() {
 }
 
 /* ── As ações ────────────────────────────────────────────────────────── */
-function avisar(texto, ok) {
+// ⚠️ A FAIXA ACEITA UMA AÇÃO (10/09/2026), e ela existe para um caso só:
+// desfazer o "Já foi feita", que tira a placa da lista na hora. Ação de um
+// clique que some com o item precisa da volta no MESMO lugar e no mesmo
+// instante — mandar procurar na linha de feitas lá no fim é pedir que a pessoa
+// saiba de algo que ela não tem como saber. É a mesma peça de Aprovados.
+// ⚠️ 10s quando há ação, contra os 6 da confirmação seca: ler a frase é
+// rápido, decidir que clicou errado e mirar num botão não é.
+function avisar(texto, ok, acao) {
   document.getElementById("aviso")?.remove();
+  const botao = acao
+    ? `<button type="button" class="aviso-acao" data-acao="desfazer-feita"
+         data-id="${acao.id}">${escapar(acao.rot)}</button>` : "";
   document.body.insertAdjacentHTML("beforeend",
     `<div class="aviso" id="aviso" data-t="${ok ? "ok" : "erro"}"
-       role="${ok ? "status" : "alert"}">${escapar(texto)}</div>`);
-  setTimeout(() => document.getElementById("aviso")?.remove(), ok ? 6000 : 8000);
+       role="${ok ? "status" : "alert"}">${escapar(texto)}${botao}</div>`);
+  setTimeout(() => document.getElementById("aviso")?.remove(),
+             acao ? 10000 : (ok ? 6000 : 8000));
 }
 
 function mesVizinho(passo) {
@@ -432,6 +521,105 @@ async function trocarMes(passo) {
     await carregar(mesVizinho(passo));
     render();
   } catch (e) { avisar(e.message); }
+}
+
+/* ── Abrir a O.S. da preventiva ──────────────────────────────────────────
+   ⚠️ `fetch` + blob, NÃO um `<a href>`. O PDF sai de
+   `GET /ordens-servico/:id/pdf`, que exige `Authorization: Bearer` — link
+   direto no href não carrega header nenhum, e o operador receberia o JSON de
+   "Token ausente" numa aba em branco. Mesmo caminho da tela de Aprovados.
+
+   ⚠️ ISTO SÓ FUNCIONA PORQUE O OPERADOR LÊ O.S. — `osDonoOuAdmin` liberou a
+   leitura para a role em 03/09. Antes, o botão daria 403 e a tela nomearia um
+   documento que ela mesma não abre.
+
+   ⚠️ O BOTÃO SE DESABILITA ENQUANTO BUSCA. O PDF é gerado sob demanda quando
+   não existe em disco, e isso demora o suficiente para alguém clicar três
+   vezes e abrir três abas. */
+async function verOS(osId, btn) {
+  if (!osId || !btn || btn.disabled) return;
+  const txt = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "Abrindo…";
+  try {
+    const r = await fetch("/ordens-servico/" + osId + "/pdf", { headers: authHeaders() });
+    if (!r.ok) {
+      const j = await lerJson(r, "PDF da O.S.");
+      avisar(j.error || "Não foi possível abrir a O.S.");
+      return;
+    }
+    const url = URL.createObjectURL(await r.blob());
+    const a = document.createElement("a");
+    a.href = url; a.target = "_blank"; a.rel = "noopener";
+    document.body.appendChild(a); a.click(); a.remove();
+    // ⚠️ O revoke é ATRASADO. Revogar na hora corre com a aba que está
+    // abrindo, e ela nasce em branco.
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  } catch (e) {
+    avisar("Erro ao abrir a O.S.: " + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = txt;
+  }
+}
+
+/* ── Já foi feita, e desfazer ────────────────────────────────────────────
+   ⚠️ A PLACA VIRA NA HORA e SÓ DEPOIS o servidor confirma — o mesmo otimismo
+   de Aprovados, pelo mesmo motivo medido lá em 31/08: a lista leva mais de
+   2,5s para voltar, e até lá o botão parece não ter feito nada.
+
+   ⚠️ MAS RECARREGA DEPOIS, e isso é diferente daquela tela. Marcar aqui não
+   muda um campo só: rola `proxima_em` (o atraso deixa de existir), pode
+   cancelar o chamado do mês, e mexe nas contagens da zona e da manchete.
+   Remendar tudo isso à mão seria criar uma segunda verdade sobre o mês — a
+   mesma razão pela qual o despacho já recarrega. */
+async function marcarFeita(id, marcar) {
+  const p = DADOS.planos.find((x) => x.id === id);
+  if (!p) return;
+
+  const antes = { estado: p.estado, em: p.baixa_manual_em, quem: p.baixa_manual_por_nome };
+  p.estado = marcar ? "feita" : (p.atribuido_tecnico_id ? "escalada" : "a_fazer");
+  p.baixa_manual_em = marcar ? new Date().toISOString() : null;
+  p.baixa_manual_por_nome = marcar ? (meuNome() || null) : null;
+  // Uma preventiva feita não se despacha: sai da seleção junto com a placa.
+  if (marcar) SEL.delete(id);
+  render();
+
+  try {
+    const url = `/operador/preventivas/${id}/feita` +
+      (marcar ? "" : "?mes=" + encodeURIComponent(MES));
+    const r = await fetch(url, {
+      method: marcar ? "POST" : "DELETE",
+      headers: { ...authHeaders(), "Content-Type": "application/json" },
+      body: marcar ? JSON.stringify({ mes: MES }) : undefined,
+    });
+    const d = await lerJson(r, "Preventiva feita");
+    if (!r.ok) throw new Error(d.error || "Não foi possível salvar");
+
+    const nome = p.condominio_nome;
+    await carregar(MES);
+    render();
+    if (marcar) {
+      avisar(`${nome} saiu da lista.`, true, { rot: "Desfazer", id });
+    } else {
+      avisar(`${nome} voltou para a lista do mês.`, true);
+    }
+  } catch (e) {
+    // ⚠️ DESFAZ O OTIMISMO. Sem isto a placa fica dizendo "Feita" com o banco
+    // dizendo o contrário, e ninguém descobre até a próxima recarga.
+    p.estado = antes.estado;
+    p.baixa_manual_em = antes.em;
+    p.baixa_manual_por_nome = antes.quem;
+    render();
+    avisar(e.message);
+  }
+}
+
+// O nome de quem está logado, para a placa já dizer quem marcou antes de o
+// servidor responder. Enfeite: a linha se lê sem ele.
+function meuNome() {
+  try { return JSON.parse(localStorage.getItem("user") || "{}").nome || ""; }
+  catch { return ""; }
 }
 
 /* ── A confirmação do lote ───────────────────────────────────────────────
@@ -552,6 +740,14 @@ document.addEventListener("click", (e) => {
     if (!c) return;
     return despachar(c.tecnico, c.nome);
   }
+  if (a === "ver-os")   return verOS(Number(b.dataset.id), b);
+  if (a === "feita")    return marcarFeita(Number(b.dataset.id), true);
+  if (a === "desfazer-feita") {
+    // O botão vive na faixa E na linha da lista de feitas; nos dois casos a
+    // faixa some junto, senão ela fica oferecendo desfazer o que já voltou.
+    document.getElementById("aviso")?.remove();
+    return marcarFeita(Number(b.dataset.id), false);
+  }
   if (a === "limpar")   { SEL = new Set(); return render(); }   // some tudo: vale redesenhar
   if (a === "ver-feitas") { VER_FEITAS = !VER_FEITAS; return render(); }
   if (a === "ajuda")    return dlgAjuda();
@@ -607,6 +803,12 @@ function dlgAjuda() {
           <p>Quando o chamado da preventiva é fechado.</p>
           <p>Isso acontece quando o técnico finaliza a O.S. no prédio. Começar e
              não terminar não fecha o mês.</p>
+          <h3>Já foi feita</h3>
+          <p>Use quando a visita aconteceu e não passou pelo sistema.</p>
+          <p>A preventiva sai da lista do mês e fica com o seu nome. Dá para
+             desfazer na hora, pela faixa, ou depois em <b>já feitas</b>.</p>
+          <p>Não aparece em prédio <b>em campo</b>: ali quem fecha o mês é a
+             O.S. do técnico.</p>
           <h3>Atrasada</h3>
           <p>Venceu em mês anterior e ainda não foi feita. Ela continua aparecendo
              até sair.</p>

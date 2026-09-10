@@ -339,7 +339,7 @@ chamado aberto de outro mês.
 | **A fazer** | vence no mês, sem escala e sem chamado |
 | **Escalada** | alguém foi escalado neste ciclo (a atribuição explícita) |
 | **Em campo** | há chamado da preventiva aberto |
-| **Feita** | o chamado da preventiva **fechou** no mês |
+| **Feita** | o chamado da preventiva **fechou** no mês, **ou** alguém deu baixa à mão |
 
 ⚠️ **"FEITA" É O CHAMADO FECHADO, não `ultima_em`.** Parecem a mesma coisa e não
 são: `executarPlano` grava `ultima_em = CURRENT_DATE` no instante em que **abre**
@@ -354,6 +354,69 @@ equipe sabe ter sido feito.
 ⚠️ **O ATRASO GANHA DO "A FAZER" NO SELO.** Preventiva de agosto ainda aberta em
 setembro não é "a fazer", é dívida — e ela entra na lista do mês junto, com
 `atrasada`.
+
+### O "Ver O.S." da preventiva feita (10/09/2026)
+
+*"quero tb o link da os das preventivas já feitas assim como é em orçamento"*.
+A placa **nomeava** um documento que ela mesma não abria — o mesmo defeito que
+Aprovados corrigiu em 03/09, herdado aqui por cópia incompleta.
+
+O vínculo sempre existiu em duas pernas e ninguém percorria a segunda:
+`planos_manutencao` ← `chamados.plano_manutencao_id` ← `ordens_servico.chamado_id`.
+Um `LEFT JOIN LATERAL` sobre o chamado fechado do mês traz `exec_os_*`.
+
+⚠️ **Uma O.S. por placa, e quem ganha é a que EXECUTOU.** A "aproveitada"
+(`ultima_os_id`, migration 084 — a O.S. de outro chamado que deu a baixa de
+carona) só aparece quando é a única. Dois números na mesma frase fariam o
+operador citar o documento errado ao telefone. Quem escolhe é `osDaPlaca()`, no
+front.
+
+⚠️ **Só na lista de feitas.** Numa preventiva ainda aberta, `baixa_os_id` é a
+O.S. do mês passado, e mostrá-la ali diria que a visita deste mês já aconteceu.
+
+⚠️ **`fetch` + blob, não `<a href>`** — o PDF exige `Authorization: Bearer`, e
+link direto no href não carrega header nenhum. Funciona porque `osDonoOuAdmin`
+liberou a leitura de O.S. para a role do operador em 03/09.
+
+### "Já foi feita" — a baixa à mão (10/09/2026)
+
+Pedido do Pedro: *"quero implementar na tela de preventiva do operador para ele
+marcar q a preventiva já foi feita, igual tem em orçamentos aprovados"*. É o
+mesmo caso de Aprovados: a visita aconteceu e **não passou pelo sistema** — não
+houve chamado, ou o chamado do mês nasceu órfão pelo job e ninguém o tocou. Sem
+isso a preventiva fica cobrada até o fim dos tempos.
+
+Um link discreto em cada linha, e um **Desfazer** na faixa e na linha da lista
+de feitas. Migration 085, tabela `planos_baixas_manuais` — ver
+[banco-de-dados.md](../banco-de-dados.md) e as rotas em [api.md](../api.md).
+
+⚠️ **A marcação à mão vem PRIMEIRO no `estadoDa`**, antes de olhar chamado. É a
+mesma ordem do `execucao()` de Aprovados e pelo mesmo motivo: alguém disse, com
+nome e hora, que a visita aconteceu, e isso é afirmação de gente — ganha de
+qualquer dedução a partir do estado de um chamado.
+
+⚠️ **Marcar ROLA o ciclo do plano.** Gravar só a linha da baixa deixaria
+`proxima_em` no passado e o job reabriria o chamado do mês na madrugada
+seguinte: a preventiva marcada como feita voltaria como "em campo". Por isso a
+baixa guarda as datas anteriores — é o que faz o desfazer devolver o plano ao
+estado exato, e ele **precisa** devolver: a marcação é de um clique e sem
+confirmação.
+
+⚠️ **E cancela o chamado P4 órfão do mês**, que pede um serviço que já
+aconteceu; deixá-lo de pé mantém o prédio no roteiro do técnico. O desfazer o
+reabre — só se ele continuar cancelado, para não apagar uma decisão mais nova.
+
+⚠️ **NÃO APARECE EM CAMPO.** Chamado aberto **com técnico** é serviço andando, e
+quem o encerra é a O.S. que ele assina no prédio. O front esconde o link e o
+backend recusa com **409** — oferecer os dois caminhos criaria duas verdades
+sobre a mesma visita. É a mesma regra do "Já foi feito" de Aprovados, que só
+existe no estado livre.
+
+⚠️ **Sem confirmação, com desfazer** — a troca registrada em Aprovados. Uma
+caixa de "tem certeza?" a cada marcação cobra de todo mundo o preço do erro de
+alguns. A confirmação do **despacho em lote** continua de pé, e não é
+contradição: lá o risco é o tamanho (uma zona inteira de uma vez), aqui é um
+prédio só.
 
 ### ⚠️ `tecnicos` é o quadro inteiro — filtre por `cargo` (04/09/2026)
 
