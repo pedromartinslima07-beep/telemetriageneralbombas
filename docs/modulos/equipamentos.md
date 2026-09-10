@@ -156,8 +156,8 @@ padrão de `orcamento-pdf.service.js`). O PDF sai em memória e vai direto na
 resposta — não persiste em disco, que é efêmero no Railway.
 
 **Desenho da etiqueta** (2026-08-18): a marca em três faixas — cabeça marinho
-(`#0d2775`) com o wordmark branco e o **chanfro de 45°** cortando o canto
-inferior direito, campo branco com o QR e o código sublinhado pelo fio amarelo
+(`#0d2775`) com o wordmark branco **centrado numa barra inteira**, campo branco
+com o QR e o código sublinhado pelo fio amarelo
 (`#fbb329`), e o pé com a propriedade. O logo é `public/login-logo.png`
 (wordmark branco + engrenagens, fundo transparente), lido uma vez e injetado
 como data URI numa **classe CSS** — repetir a imagem em cada célula inflaria o
@@ -167,13 +167,16 @@ HTML em ~1,3 MB por folha.
   muitos leitores de celular não pegam, e etiqueta que não escaneia é papel
   colado à toa numa bomba. Por isso a cor da marca vive na cabeça e no fio, não
   no campo do código.
-- ⚠️ **O chanfro é 45° de verdade** (2026-09-10): mesmo recuo em mm nos dois
-  eixos, `medidas.chanfro` em torno da **metade** de `medidas.cabecaH`. A versão
-  anterior subia até 30% da altura da cabeça num recuo horizontal menor, e na
-  quadrada isso virava uma diagonal de ~58° atravessando 11 dos 16 mm da faixa —
-  numa faixa de 65 mm de largura o resultado lê como **etiqueta impressa torta**,
-  não como corte de marca. Recuos em uso: 8 mm no `corte`, 10 no `grande`,
-  4,3 no `pimacoA4263`, 6,5 no padrão.
+- ⚠️ **A cabeça impressa NÃO leva chanfro** (2026-09-10): a barra marinho vai
+  inteira, de corte a corte, com o wordmark centrado. Tela e papel não são a
+  mesma coisa — no monitor o corte de 45° é a assinatura da marca, mas impresso
+  e recortado à tesoura ele deixa de ler como intenção: de perto vira ponta
+  amassada, de longe a faixa parece entrar torta na impressora. Duas geometrias
+  foram tentadas antes de desistir (a que subia até 30% da altura da cabeça, e a
+  de 45° exato com o mesmo recuo nos dois eixos) e as duas leram torto no papel.
+  **Não recoloque o corte aqui**; ele fica nas telas. O campo `medidas.chanfro`
+  continua declarado porque a `.ficha-cabeca` do `public/equipamento.css` ainda
+  desenha o corte na tela.
 - **Correção de erro `H`** (~30% do código recuperável): etiqueta de casa de
   máquinas vive com graxa, respingo e sol. O código humano impresso ao lado é o
   plano B quando nem isso resolve.
@@ -192,11 +195,10 @@ HTML em ~1,3 MB por folha.
   escritos ao lado do QR; quem recorta à tesoura quer o QR o maior possível na
   menor sobra de papel, e 3 × 65 + 2 mm de medianiz cabem nos 210 da folha —
   12 etiquetas contra as 10 de antes, com o QR indo de 26 para **44 mm**.
-  ⚠️ Nesta arte **o que limita a largura do logo é o chanfro**, não a etiqueta:
-  a engrenagem fica na ponta direita do wordmark e a diagonal come esse canto.
-  Por isso a folga lateral da faixa cai pra 3 mm (`medidas.padCabecaX`, 4 mm por
-  padrão) e o logo fecha em 46 × 10 mm — ele termina em 49 mm, contra os 57 onde
-  a diagonal começa.
+  O logo fecha em 46 × 10 mm, centrado na barra de 65 — sobram uns 9 mm de cada
+  lado. A folga lateral da faixa (`medidas.padCabecaX`) fica em 3 mm, contra os
+  4 do padrão, e hoje é só o limite de segurança: com o wordmark centrado, quem
+  define a margem é a largura dele.
 - **O arquivo do logo é por formato** (`logo` na entrada de `FORMATOS`, com
   cache por nome). O `corte` usa `public/logo-topo.png` — o mesmo lockup do
   cabeçalho da landing, **sem** a linha "Engenharia da Manutenção". Os demais

@@ -422,11 +422,11 @@ Detalhe e o porquê de cada uma em
   pode declarar `medidas` (faixa, chanfro, logo, QR, corpos de letra) por cima de
   `MEDIDAS_PADRAO`. Sem isso o desenho estoura a etiqueta baixa e o pé sai fora
   do adesivo. Renderize e olhe antes de dar o formato por pronto.
-- ⚠️ **O chanfro da cabeça é 45° de verdade** (10/09/2026): mesmo recuo em mm nos
-  dois eixos do `clip-path`, e `medidas.chanfro` em torno da **metade** de
-  `medidas.cabecaH`. Misturar porcentagem da altura com milímetro (como era até
-  aqui) dá uma diagonal comprida que na quadrada de 65 mm lê como **etiqueta
-  impressa torta**. Detalhe em
+- ⚠️ **A cabeça impressa é barra CHEIA, sem chanfro, com o logo centrado**
+  (10/09/2026). O corte de 45° é assinatura de marca **na tela**; no papel
+  recortado à tesoura ele lê como defeito de impressão — duas geometrias foram
+  tentadas e as duas pareceram faixa torta. Não recoloque o `clip-path` na
+  `.cabeca` do gerador de etiquetas. Detalhe em
   [equipamentos.md](../docs/modulos/equipamentos.md).
 - ⚠️ **A grade de folha adesiva sai da tabela do fabricante** (Pimaco publica em
   `editor.pimaco.com.br/documents/parametros/`), nunca de centralização — que
@@ -687,6 +687,15 @@ Fluxo e pegadinhas em
     e o app do técnico foram alinhados. O dia 10 não aparece em tela — é
     prática, não cláusula. Ver
     [decisions.md](decisions.md).
+  - ⚠️ **"Feita" tem três origens, e a terceira é gente** (10/09): chamado
+    fechado no mês, `ultima_em` dentro da competência, **ou a baixa marcada à
+    mão** na tela (migration 085, `planos_baixas_manuais`). A marcação à mão vem
+    primeiro no `estadoDa` — afirmação de gente ganha de dedução a partir de
+    chamado —, **rola o ciclo do plano** (senão o job reabre o chamado do mês na
+    madrugada seguinte) e cancela o P4 órfão. A baixa guarda as datas anteriores
+    para o Desfazer devolver o plano exato. Não vale "em campo": chamado com
+    técnico é serviço andando, e a rota recusa com 409. Ver
+    [painel-operador.md](../docs/modulos/painel-operador.md).
   - ⚠️ **`tecnicos` é o quadro inteiro, não só quem vai a campo** (04/09): em
     produção, 6 `cargo='tecnico'`, 3 `gestor`, 2 `adm`. A escala da preventiva
     oferecia os 11 e aceitava qualquer um. Toda lista de despacho filtra por

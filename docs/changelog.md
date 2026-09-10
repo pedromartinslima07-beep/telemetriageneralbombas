@@ -6963,6 +6963,55 @@ A outra metade descrevia o que a pessoa já estava fazendo.
 
 `?v=N`: `equipamento.js` 10 → 11.
 
+### 2026-09-10 · "Já foi feita": a preventiva que aconteceu fora do sistema
+
+Pedido do Pedro: *"quero implementar na tela de preventiva do operador para ele
+marcar q a preventiva já foi feita, igual tem em orçamentos aprovados"*.
+
+O caso é o mesmo que a migration 080 resolveu em Aprovados: o técnico foi ao
+prédio, fez a visita, e nada disso passou pelo sistema — ou não houve chamado,
+ou o chamado P4 do mês nasceu órfão pelo job e ninguém o tocou. A preventiva
+ficava cobrada para sempre, e a única saída era mexer no banco.
+
+**Migration 085**, `planos_baixas_manuais`: uma linha por plano e competência,
+com quem marcou, quando, **e as datas anteriores do plano**.
+
+| | |
+|---|---|
+| Front | link `Já foi feita` em cada linha; `Desfazer` na faixa e na lista de feitas |
+| Rotas | `POST`/`DELETE /operador/preventivas/:id/feita` |
+| Rodapé | "dada como feita por Fulano" na placa, ao lado da O.S. aproveitada |
+
+⚠️ **Marcar ROLA o ciclo do plano** — `ultima_em`, `proxima_em`, `ultima_os_id`,
+a mesma aritmética de `executarPlano` e `darBaixaPorOS`. Gravar só a baixa
+deixaria `proxima_em` no passado, e o job reabriria o chamado do mês na
+madrugada seguinte: a preventiva marcada como feita voltaria como "em campo".
+
+⚠️ **Por isso a baixa guarda as datas de antes.** Rolar é destrutivo e a
+marcação é de um clique sem confirmação (a troca de Aprovados: confirmação cobra
+de todos o preço do erro de alguns). O `DELETE` devolve o plano ao estado exato,
+e reabre o chamado que a baixa cancelou — só se ele continuar cancelado, para
+não apagar uma decisão mais nova.
+
+⚠️ **Nada disso vale "em campo".** Chamado aberto **com técnico** é serviço
+andando, e quem o encerra é a O.S. que ele assina no prédio. O front esconde o
+link e o backend recusa com **409** — dois caminhos para a mesma visita são duas
+verdades sobre ela.
+
+⚠️ **A marcação à mão vem primeiro no `estadoDa`**, antes de olhar chamado —
+mesma ordem do `execucao()` de Aprovados. Afirmação de gente ganha de dedução a
+partir do estado de um chamado. O `GET` do admin (`/planos-manutencao`) leu a
+mesma coluna no mesmo dia: duas telas com definições diferentes de "feita" é o
+que o `preventivas.service.js` existe para impedir.
+
+Teste novo: `scripts/testes/preventiva-feita-a-mao.test.js` (28 asserções),
+exercitando as rotas de verdade — a competência aparece em cinco lugares da
+mesma query, e `$n` repetido só se testa batendo no endpoint (CLAUDE.md).
+
+`?v=N`: `operador.css` 97 → **98** nos seis HTMLs do operador,
+`operador-preventivas.js` 8 → **9**. Sem endpoint de prefixo novo, então o
+`sw.js` e o `CACHE_NAME` ficam onde estão.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em
@@ -11493,6 +11542,29 @@ Conferido renderizando a folha do `corte` pelo `renderHTML` e olhando a arte.
 ⚠️ A `.ficha-cabeca` do `public/equipamento.css` copia essa forma na tela
 (`100% 44%, calc(100% - 20px)`) e **não** foi mexida — se a ficha tiver que
 casar com a etiqueta nova, é lá.
+
+`?v=N`: nada a bumpar — a mudança é toda no serviço de PDF, no servidor.
+
+
+### 2026-09-10 (2ª rodada) · A faixa da etiqueta vai inteira, e o wordmark ao centro
+
+Veredito no papel depois da rodada anterior: **continuou sem agradar**. O
+chanfro de 45° saiu da etiqueta impressa. A barra marinho agora vai inteira, de
+corte a corte, com o wordmark **centrado** (`justify-content: center` na
+`.cabeca` e `background-position: center` no `.logo`).
+
+O que se aprendeu: tela e papel não são a mesma coisa. No monitor o corte do
+canto inferior direito é a assinatura da marca; impresso e recortado à tesoura
+ele para de ler como intenção — de perto vira ponta amassada, de longe a faixa
+inteira parece entrar torta na impressora. Duas geometrias foram tentadas antes
+de desistir (a que subia até 30% da altura da cabeça e a de 45° exato) e as duas
+leram torto. **Não recoloque o `clip-path` na `.cabeca` do gerador.**
+
+Vale pros três formatos — `corte`, `grande` e `pimacoA4263` — porque a `.cabeca`
+é a mesma regra pros três.
+
+O campo `medidas.chanfro` continua declarado nos formatos: quem ainda desenha o
+corte é a `.ficha-cabeca` do `public/equipamento.css`, que é tela.
 
 `?v=N`: nada a bumpar — a mudança é toda no serviço de PDF, no servidor.
 

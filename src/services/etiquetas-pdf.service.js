@@ -344,31 +344,32 @@ function renderHTML(etiquetas, fmt, cal = {}) {
   .et.is-vazia .arte { border-color: transparent; background: none; }
   .et.is-vazia * { display: none; }
 
-  /* Cabeça: campo marinho com o chanfro de 45° do wordmark, que é a
-     assinatura da marca (ver DESIGN.md). */
+  /* Cabeça: barra marinho INTEIRA, de corte a corte, com o wordmark centrado.
+     ⚠️ NÃO PONHA O CHANFRO AQUI. A tela e o papel não são a mesma coisa: no
+     monitor o corte de 45° do canto inferior direito é a assinatura da marca,
+     mas impresso e recortado à tesoura ele some como intenção e reaparece como
+     defeito — de perto vira ponta amassada, de longe a faixa inteira parece
+     entrar torta na impressora. Duas geometrias já foram tentadas (a que subia
+     até 30% da altura e a de 45° exato) e as duas leram torto no papel.
+     Barra cheia é a leitura certa aqui; o chanfro fica pras telas.
+     O campo chanfro continua declarado nos formatos porque a arte da tela
+     (a ficha-cabeca do equipamento.css) ainda o usa. */
   .cabeca {
     position: relative;
     height: ${m.cabecaH}mm;
     flex: none;
     background: #0d2775;
     padding: ${m.padCabeca}mm ${m.padCabecaX}mm;
-    display: flex; align-items: center;
-    /* Chanfro cortando o canto inferior direito — a assinatura da marca.
-       ⚠️ O corte é 45° DE VERDADE: mesmo recuo em mm nos dois eixos, e por
-       isso o vértice de cima é calc(100% - Nmm) e não uma porcentagem da
-       altura. A versão anterior subia até 30% da cabeça num recuo horizontal
-       menor — na etiqueta quadrada isso dava uma diagonal de ~58° atravessando
-       11 dos 16mm da faixa, e uma faixa de 65mm de largura com a ponta direita
-       assim comprida lê como IMPRESSA TORTA, não como corte de marca.
-       Mantenha o chanfro em torno da METADE da altura da cabeça: aí sobra aresta
-       vertical suficiente à direita pro corte ser lido como canto chanfrado. */
-    clip-path: polygon(0 0, 100% 0, 100% calc(100% - ${m.chanfro}mm), calc(100% - ${m.chanfro}mm) 100%, 0 100%);
+    /* Wordmark centrado na barra: sem o corte à direita não há mais o que
+       equilibrar com a bandeira à esquerda, e centrado a barra vira uma peça
+       simétrica — que é o que sobrevive ao recorte manual. */
+    display: flex; align-items: center; justify-content: center;
   }
   .logo {
     width: ${m.logoW}mm; height: ${m.logoH}mm;
     background-image: url("${logo}");
     background-repeat: no-repeat;
-    background-position: left center;
+    background-position: center center;
     background-size: contain;
   }
   .wordmark {
