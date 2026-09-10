@@ -11457,6 +11457,46 @@ transbordo, e o código de 9 caracteres cabe na largura que sobra ao lado do QR.
 `?v=N`: nada a bumpar — a mudança no front foi só uma `<option>` do
 `admin.html`, que já sai com `Cache-Control: no-cache`.
 
+### 2026-09-10 · O chanfro da etiqueta não era 45°, e por isso a faixa parecia torta
+
+A queixa foi na etiqueta de **papel comum** (`corte`, quadrada de 65 × 65 mm):
+a faixa marinho do topo dava impressão de estar **impressa torta**.
+
+Não era a faixa: era o corte do canto. O `clip-path` da `.cabeca` era
+`polygon(0 0, 100% 0, 100% 30%, calc(100% - Nmm) 100%, 0 100%)` — o vértice de
+cima em **porcentagem da altura** e o de baixo em **milímetros**. Os dois eixos
+andando em unidades diferentes nunca dão 45°: na quadrada a diagonal saía com
+~58°, subindo 11 dos 16 mm da faixa num recuo de 7 mm. Numa faixa de 65 mm de
+largura, uma ponta direita comprida e inclinada assim o olho lê como registro de
+papel errado, não como assinatura de marca.
+
+Agora os dois vértices usam o **mesmo recuo em mm**:
+`polygon(0 0, 100% 0, 100% calc(100% - Nmm), calc(100% - Nmm) 100%, 0 100%)`.
+O corte é 45° de verdade, sobra aresta vertical à direita e o rodapé da faixa
+fica reto na maior parte da largura.
+
+Como o recuo agora vale nos dois eixos, ele passou a ser **~metade da altura da
+faixa** em cada formato — senão o corte comeria a faixa inteira:
+
+| Formato | `cabecaH` | chanfro antes | chanfro agora |
+|---|---|---|---|
+| `corte` (papel comum) | 16 mm | 7 mm | **8 mm** |
+| `grande` | 20 mm | 14 mm | **10 mm** |
+| `pimacoA4263` | 8,6 mm | 6 mm | **4,3 mm** |
+| padrão (`MEDIDAS_PADRAO`) | 13 mm | 9 mm | **6,5 mm** |
+
+A engrenagem do wordmark continua livre do corte na quadrada: o logo termina em
+49 mm (3 de folga + 46 de largura) e a diagonal só começa em 57.
+
+Conferido renderizando a folha do `corte` pelo `renderHTML` e olhando a arte.
+
+⚠️ A `.ficha-cabeca` do `public/equipamento.css` copia essa forma na tela
+(`100% 44%, calc(100% - 20px)`) e **não** foi mexida — se a ficha tiver que
+casar com a etiqueta nova, é lá.
+
+`?v=N`: nada a bumpar — a mudança é toda no serviço de PDF, no servidor.
+
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

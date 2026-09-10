@@ -82,7 +82,7 @@ function baseUrlValida(baseUrl) {
 const MEDIDAS_PADRAO = {
   safe: 0,          // sangria de segurança dentro da célula (mm) — ver nota abaixo
   cabecaH: 13,      // altura da faixa marinho (mm)
-  chanfro: 9,       // corte de 45° no canto inferior direito da faixa (mm)
+  chanfro: 6.5,     // recuo do corte de 45° no canto inferior direito (mm)
   logoW: 54, logoH: 9.5,
   padCabeca: 2,     // folga vertical dentro da faixa (mm)
   padCabecaX: 4,    // folga lateral dentro da faixa (mm)
@@ -117,14 +117,18 @@ const FORMATOS = {
     // `padCabeca` de cada lado — mexer no logo sem mexer nela espremeria o
     // wordmark contra o corte da cabeça.
     //
-    // ⚠️ A largura do logo esbarra no CHANFRO, não na etiqueta: a engrenagem
-    // fica na ponta direita do wordmark, e a diagonal come esse canto de baixo
-    // pra cima. Por isso aqui o chanfro é curto (7 mm) e a folga lateral cai
-    // pra 3 mm (`padCabecaX`) — é o que deixa o logo chegar a 57 mm sem a
-    // engrenagem tocar o corte.
+    // O chanfro é de 8 mm — metade dos 16 de faixa, o corte de 45° que sobe
+    // até a meia-altura e deixa os 8 mm de cima como aresta vertical. Numa
+    // faixa de 65 mm de largura é o recuo mínimo que ainda lê como canto
+    // chanfrado à distância de braço; mais que isso e a ponta direita começa a
+    // parecer papel entrando torto na impressora.
+    //
+    // ⚠️ A engrenagem fica na ponta direita do wordmark, então o logo tem que
+    // terminar ANTES do canto cortado: 3 mm de `padCabecaX` + 46 de logo = 49,
+    // contra os 57 onde a diagonal começa. Alargar o logo come essa folga.
     medidas: {
       safe: 0,
-      cabecaH: 16, chanfro: 7, padCabeca: 3, padCabecaX: 3,
+      cabecaH: 16, chanfro: 8, padCabeca: 3, padCabecaX: 3,
       logoW: 46, logoH: 10,
       qr: 44,
     },
@@ -148,7 +152,7 @@ const FORMATOS = {
     // plastificação amarelar ou riscar.
     medidas: {
       safe: 0,
-      cabecaH: 20, chanfro: 14, padCabeca: 3,
+      cabecaH: 20, chanfro: 10, padCabeca: 3,
       logoW: 82, logoH: 14,
       qr: 45,
       codFs: 30, dicaFs: 11, peFs: 8.5,
@@ -170,7 +174,7 @@ const FORMATOS = {
     // sujar — por isso ele cresce em vez de a etiqueta ficar meio vazia.
     medidas: {
       safe: 1.5,
-      cabecaH: 8.6, chanfro: 6, padCabeca: 1.2,
+      cabecaH: 8.6, chanfro: 4.3, padCabeca: 1.2,
       logoW: 44, logoH: 6.4,
       qr: 20,
       codFs: 19, dicaFs: 6.5, peFs: 5,
@@ -349,10 +353,16 @@ function renderHTML(etiquetas, fmt, cal = {}) {
     background: #0d2775;
     padding: ${m.padCabeca}mm ${m.padCabecaX}mm;
     display: flex; align-items: center;
-    /* Chanfro de 45° cortando o canto inferior direito — a assinatura da
-       marca. 9mm para o corte ser lido como intenção, não como defeito de
-       impressão. */
-    clip-path: polygon(0 0, 100% 0, 100% 30%, calc(100% - ${m.chanfro}mm) 100%, 0 100%);
+    /* Chanfro cortando o canto inferior direito — a assinatura da marca.
+       ⚠️ O corte é 45° DE VERDADE: mesmo recuo em mm nos dois eixos, e por
+       isso o vértice de cima é calc(100% - Nmm) e não uma porcentagem da
+       altura. A versão anterior subia até 30% da cabeça num recuo horizontal
+       menor — na etiqueta quadrada isso dava uma diagonal de ~58° atravessando
+       11 dos 16mm da faixa, e uma faixa de 65mm de largura com a ponta direita
+       assim comprida lê como IMPRESSA TORTA, não como corte de marca.
+       Mantenha o chanfro em torno da METADE da altura da cabeça: aí sobra aresta
+       vertical suficiente à direita pro corte ser lido como canto chanfrado. */
+    clip-path: polygon(0 0, 100% 0, 100% calc(100% - ${m.chanfro}mm), calc(100% - ${m.chanfro}mm) 100%, 0 100%);
   }
   .logo {
     width: ${m.logoW}mm; height: ${m.logoH}mm;

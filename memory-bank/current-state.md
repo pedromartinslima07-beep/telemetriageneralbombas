@@ -422,6 +422,12 @@ Detalhe e o porquê de cada uma em
   pode declarar `medidas` (faixa, chanfro, logo, QR, corpos de letra) por cima de
   `MEDIDAS_PADRAO`. Sem isso o desenho estoura a etiqueta baixa e o pé sai fora
   do adesivo. Renderize e olhe antes de dar o formato por pronto.
+- ⚠️ **O chanfro da cabeça é 45° de verdade** (10/09/2026): mesmo recuo em mm nos
+  dois eixos do `clip-path`, e `medidas.chanfro` em torno da **metade** de
+  `medidas.cabecaH`. Misturar porcentagem da altura com milímetro (como era até
+  aqui) dá uma diagonal comprida que na quadrada de 65 mm lê como **etiqueta
+  impressa torta**. Detalhe em
+  [equipamentos.md](../docs/modulos/equipamentos.md).
 - ⚠️ **A grade de folha adesiva sai da tabela do fabricante** (Pimaco publica em
   `editor.pimaco.com.br/documents/parametros/`), nunca de centralização — que
   coincide numa folha e erra na seguinte. A arte também **não encosta no corte**

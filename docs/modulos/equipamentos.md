@@ -167,6 +167,13 @@ HTML em ~1,3 MB por folha.
   muitos leitores de celular não pegam, e etiqueta que não escaneia é papel
   colado à toa numa bomba. Por isso a cor da marca vive na cabeça e no fio, não
   no campo do código.
+- ⚠️ **O chanfro é 45° de verdade** (2026-09-10): mesmo recuo em mm nos dois
+  eixos, `medidas.chanfro` em torno da **metade** de `medidas.cabecaH`. A versão
+  anterior subia até 30% da altura da cabeça num recuo horizontal menor, e na
+  quadrada isso virava uma diagonal de ~58° atravessando 11 dos 16 mm da faixa —
+  numa faixa de 65 mm de largura o resultado lê como **etiqueta impressa torta**,
+  não como corte de marca. Recuos em uso: 8 mm no `corte`, 10 no `grande`,
+  4,3 no `pimacoA4263`, 6,5 no padrão.
 - **Correção de erro `H`** (~30% do código recuperável): etiqueta de casa de
   máquinas vive com graxa, respingo e sol. O código humano impresso ao lado é o
   plano B quando nem isso resolve.
@@ -187,8 +194,9 @@ HTML em ~1,3 MB por folha.
   12 etiquetas contra as 10 de antes, com o QR indo de 26 para **44 mm**.
   ⚠️ Nesta arte **o que limita a largura do logo é o chanfro**, não a etiqueta:
   a engrenagem fica na ponta direita do wordmark e a diagonal come esse canto.
-  Por isso o formato encurta o chanfro (7 mm) e a folga lateral da faixa
-  (`medidas.padCabecaX`, 4 mm por padrão); o logo fecha em 46 × 10 mm.
+  Por isso a folga lateral da faixa cai pra 3 mm (`medidas.padCabecaX`, 4 mm por
+  padrão) e o logo fecha em 46 × 10 mm — ele termina em 49 mm, contra os 57 onde
+  a diagonal começa.
 - **O arquivo do logo é por formato** (`logo` na entrada de `FORMATOS`, com
   cache por nome). O `corte` usa `public/logo-topo.png` — o mesmo lockup do
   cabeçalho da landing, **sem** a linha "Engenharia da Manutenção". Os demais
