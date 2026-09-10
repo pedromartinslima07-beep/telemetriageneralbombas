@@ -253,9 +253,22 @@ function _pintarLista() {
    Pedido do Pedro (10/09/2026): *"coloque uma parte para abrir a câmera e
    escanear o qr code para cadastro"*.
 
-   ⚠️ SEM BIBLIOTECA, e não é economia: a CSP do helmet é `script-src 'self'`,
-   então script de CDN não executa — e sem erro visível, que é o que engana.
-   Quem lê o código é o `BarcodeDetector` do próprio navegador.
+   ⚠️ DOIS LEITORES, NESTA ORDEM. Primeiro o `BarcodeDetector` do próprio
+   navegador, que é nativo e não custa download nenhum. Onde ele não existe
+   entra o `jsqr.min.js`, hospedado em `public/` como o Leaflet e o ApexCharts
+   — a CSP do helmet é `script-src 'self'`, então biblioteca de CDN não
+   executa, e sem erro visível.
+
+   ⚠️ A SEGUNDA VERSÃO PRECISOU DA BIBLIOTECA, e o motivo foi relato de uso: o
+   Pedro escaneou e recebeu "este navegador não lê QR" (10/09/2026). O detector
+   nativo só existe no Chrome do Android e do ChromeOS — Safari, Firefox e o
+   Chrome de Windows ficavam sem leitor, e a mensagem, por mais bem escrita que
+   fosse, era um beco sem saída numa tela cuja razão de existir é ler o QR.
+
+   ⚠️ E ELA CARREGA SÓ QUANDO FALTA O NATIVO. São 130 KB em disco (46 no fio,
+   com o `compression` do Express) e nenhum aparelho que já tem o detector paga
+   por eles — o `<script>` nasce no primeiro toque em "Escanear", não na carga
+   da tela.
 
    ⚠️ E SEM PLUGIN, que é o outro lado da mesma decisão. O módulo registra que
    scanner NO APP mexeria no build Android (ver `docs/modulos/equipamentos.md`);
@@ -290,6 +303,41 @@ function codigoDe(texto) {
 let _stream = null;
 let _lendo = false;
 let _focoAnterior = null;
+let _jsqr = null;      // promessa de carga do leitor de reserva
+
+// Carrega o `jsqr.min.js` uma vez por sessão. A promessa fica guardada: dois
+// toques seguidos em "Escanear" não injetam dois `<script>`.
+function carregarLeitor() {
+  if (window.jsQR) return Promise.resolve(true);
+  if (_jsqr) return _jsqr;
+  _jsqr = new Promise((resolve) => {
+    const s = document.createElement("script");
+    s.src = "/static/jsqr.min.js?v=1";
+    s.onload = () => resolve(!!window.jsQR);
+    // ⚠️ RESOLVE `false`, NÃO REJEITA. Falha de rede aqui não pode derrubar o
+    // diálogo com um erro de promessa não tratada: ela vira uma frase.
+    s.onerror = () => { _jsqr = null; resolve(false); };
+    document.head.appendChild(s);
+  });
+  return _jsqr;
+}
+
+// O quadro do vídeo vira pixels para o jsQR. Reaproveita UM canvas — criar um
+// a cada 150ms deixa o coletor de lixo trabalhando no meio da leitura.
+// ⚠️ `willReadFrequently` é o que evita que o navegador mantenha esse canvas
+// na GPU: cada `getImageData` numa textura de GPU custa uma volta de leitura.
+let _cv = null, _cx = null;
+function _pixels(video) {
+  const w = video.videoWidth, h = video.videoHeight;
+  if (!w || !h) return null;
+  // 640 de largura é folgado para QR e mantém o quadro barato no celular.
+  const escala = Math.min(1, 640 / w);
+  const cw = Math.round(w * escala), ch = Math.round(h * escala);
+  if (!_cv) { _cv = document.createElement("canvas"); _cx = _cv.getContext("2d", { willReadFrequently: true }); }
+  if (_cv.width !== cw || _cv.height !== ch) { _cv.width = cw; _cv.height = ch; }
+  _cx.drawImage(video, 0, 0, cw, ch);
+  return _cx.getImageData(0, 0, cw, ch);
+}
 
 function pararCamera() {
   _lendo = false;
@@ -386,11 +434,11 @@ async function abrirLeitor() {
     _semCamera("A câmera só abre em endereço seguro (https)." + SAIDA);
     return;
   }
-  // ⚠️ `BarcodeDetector` é nativo do Chrome (Android inclusive) e NÃO existe
-  // no Safari nem no Firefox. Sem ele a câmera até abriria, e ficaria um vídeo
-  // bonito que nunca reconhece nada — pior que não abrir. Ali o caminho é o
-  // app de câmera do próprio celular, que já lê o QR e abre a ficha sozinho.
-  const temDetector = "BarcodeDetector" in window;
+  // ⚠️ O NATIVO PRIMEIRO, e a biblioteca só se ele faltar. A carga começa
+  // AGORA, em paralelo com o pedido de câmera: são as duas esperas do
+  // diálogo, e enfileirá-las somaria os dois tempos no primeiro uso.
+  const nativo = "BarcodeDetector" in window;
+  const reserva = nativo ? Promise.resolve(false) : carregarLeitor();
 
   try {
     _stream = await navigator.mediaDevices.getUserMedia({
@@ -406,16 +454,27 @@ async function abrirLeitor() {
   video.srcObject = _stream;
   try { await video.play(); } catch { /* alguns navegadores só tocam no gesto */ }
 
-  if (!temDetector) {
-    // ⚠️ AQUI A CÂMERA JÁ ESTÁ ABERTA e o vídeo aparece — mas nada nele será
-    // reconhecido nunca. Deixar a imagem rodando seria a pior versão do erro:
-    // a tela parece funcionar. O quadro sai junto com a explicação.
+  const temReserva = await reserva;
+  if (!nativo && !temReserva) {
+    // ⚠️ A CÂMERA JÁ ESTÁ ABERTA aqui, e nada nela seria reconhecido. Deixar a
+    // imagem rodando é a pior versão do erro: a tela parece funcionar.
     pararCamera();
-    _semCamera("Este navegador não lê QR." + SAIDA);
+    _semCamera("Não deu para carregar o leitor de QR. Confira a conexão e tente de novo." + SAIDA);
     return;
   }
 
-  const detector = new BarcodeDetector({ formats: ["qr_code"] });
+  const detector = nativo ? new BarcodeDetector({ formats: ["qr_code"] }) : null;
+  // Uma função, dois motores: o resto do laço não sabe qual está rodando.
+  const lerQuadro = async () => {
+    if (detector) {
+      const achados = await detector.detect(video);
+      return achados.map((a) => a.rawValue);
+    }
+    const px = _pixels(video);
+    if (!px) return [];
+    const r = window.jsQR(px.data, px.width, px.height, { inversionAttempts: "dontInvert" });
+    return r ? [r.data] : [];
+  };
   _lendo = true;
   // ⚠️ `setTimeout`, NÃO `requestAnimationFrame` — e a diferença é de
   // funcionamento, não de gosto. O rAF é o laço padrão para isto, mas ele NÃO
@@ -428,9 +487,9 @@ async function abrirLeitor() {
   const tique = async () => {
     if (!_lendo || !document.getElementById("fundo")) return;
     try {
-      const achados = await detector.detect(video);
-      for (const a of achados) {
-        const cod = codigoDe(a.rawValue);
+      const achados = await lerQuadro();
+      for (const bruto of achados) {
+        const cod = codigoDe(bruto);
         if (cod) {
           _lendo = false;
           _dizer("Etiqueta " + cod + " — abrindo…");

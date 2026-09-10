@@ -184,8 +184,28 @@ para cadastro"*. Botão **Escanear etiqueta** na tela do técnico; a leitura abr
 o **app Capacitor**, cujo build Android está sob o prazo da Play Store. Aqui não
 há build nenhum: é o navegador do celular pedindo a câmera.
 
-⚠️ **Sem biblioteca.** A CSP do helmet é `script-src 'self'` — script de CDN não
-executa, e sem erro visível. Quem lê é o `BarcodeDetector` do próprio navegador.
+⚠️ **Dois leitores, nesta ordem.** Primeiro o `BarcodeDetector` do próprio
+navegador, que é nativo e não custa download. Onde ele não existe entra o
+`public/jsqr.min.js` (jsQR 1.4.0, Apache-2.0), hospedado como o Leaflet e o
+ApexCharts — a CSP do helmet é `script-src 'self'`, e script de CDN não executa
+aqui, sem erro visível.
+
+⚠️ **A biblioteca entrou por relato de uso**, não por precaução: a primeira
+versão só tinha o nativo, e o Pedro escaneou e recebeu *"este navegador não lê
+QR"*. O detector nativo existe no Chrome do Android e do ChromeOS; Safari,
+Firefox e o Chrome de Windows ficavam sem leitor nenhum — e a mensagem, por
+melhor escrita que fosse, era um beco sem saída numa tela cuja razão de existir
+é ler o QR.
+
+⚠️ **Carga sob demanda.** São 130 KB em disco (≈46 no fio, com o `compression`
+do Express) e quem já tem o detector nativo não paga por eles: o `<script>`
+nasce no primeiro toque em "Escanear", em paralelo com o pedido de câmera —
+enfileirar as duas esperas somaria os dois tempos no primeiro uso.
+
+⚠️ **`willReadFrequently` no canvas do quadro.** O jsQR precisa dos pixels, e
+cada `getImageData` numa textura que o navegador manteve na GPU custa uma volta
+de leitura. O canvas é UM só, reaproveitado, e o quadro é reduzido para 640 de
+largura — folgado para QR e barato no celular.
 
 ⚠️ **O QR guarda a URL, não o código** (`<base>/e/CODIGO`). Mandar o texto cru
 para a ficha daria `/e/https://...`. O `codigoDe` aceita as duas formas, mais o
@@ -224,13 +244,12 @@ diálogos densos do operador). Um miolo de duas linhas herdava isso e ficava
 pendurado no topo de uma chapa vazia de 857px — medido. O miolo cresce e centra:
 a mira fica no meio do aparelho, que é onde a mão aponta.
 
-**Onde funciona.** `BarcodeDetector` é nativo do Chrome no **Android**, que é a
-cena de uso. **Não existe** no Safari (iPhone), no Firefox nem no Chrome de
-Windows — ali o diálogo diz isso e aponta o caminho que já funciona: o app de
-câmera do próprio celular, que abre a ficha pelo QR.
-Se algum técnico usar iPhone, o caminho é hospedar um leitor local em
-`public/static/` (a CSP permite `'self'`), como já é feito com Leaflet e
-ApexCharts.
+**Onde funciona.** Em todo navegador com câmera. O caminho nativo
+(`BarcodeDetector`) cobre o Chrome do Android e do ChromeOS; o resto — Safari do
+iPhone, Firefox, Chrome de Windows — cai no `jsqr.min.js` e lê igual. A única
+falha que sobra é a da própria câmera (permissão negada, aparelho sem câmera,
+`http://` fora de localhost), e aí o diálogo diz o que houve, oferece "Tentar de
+novo" e lembra que o app de câmera do celular também abre a ficha pelo QR.
 
 ⚠️ **A câmera exige contexto seguro.** Em `http://` que não seja `localhost`,
 `navigator.mediaDevices` nem existe — testar pelo IP da rede local (`http://192.168…`)

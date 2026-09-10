@@ -7122,6 +7122,28 @@ para a manchete e as contagens falarem do mesmo conjunto que a lista mostra.
 
 `?v=N`: `operador.css` → **106**, `tecnico.js` → **6**.
 
+### 2026-09-10 (3ª rodada) · O leitor de QR passa a funcionar em qualquer navegador
+
+*"tentei usar o scanner e apareceu 'este navegador não lê QR'"*. Era o limite
+que a versão da manhã tinha e que eu tinha registrado como aceitável: o
+`BarcodeDetector` é nativo só no Chrome do Android e do ChromeOS. Aceitável no
+papel; na mão de quem foi usar, um beco sem saída numa tela cuja razão de
+existir é ler o QR.
+
+Entrou o **`public/jsqr.min.js`** (jsQR 1.4.0, Apache-2.0), hospedado como o
+Leaflet e o ApexCharts — a CSP é `script-src 'self'`. O nativo continua sendo o
+primeiro caminho, por ser de graça; a biblioteca só carrega onde ele falta, e
+**sob demanda**: o `<script>` nasce no primeiro toque em "Escanear", em paralelo
+com o pedido de câmera. 130 KB em disco, ≈46 no fio com o `compression`.
+
+Provado no navegador com um QR de etiqueta de verdade (gerado pelo mesmo
+`qrcode` que imprime a folha): quadro de 640×480 → `WAB8P4GZ` → ficha aberta.
+
+⚠️ O canvas do quadro é UM só, reaproveitado, com `willReadFrequently` — sem
+isso cada `getImageData` puxa a textura de volta da GPU, 6 vezes por segundo.
+
+`?v=N`: `tecnico.js` → **7**.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

@@ -55,10 +55,11 @@ aliases:
     pelo `BarcodeDetector` do navegador, sem biblioteca (a CSP proíbe CDN) e
     sem plugin (não há build). A leitura abre a ficha — que numa etiqueta em
     branco é o cadastro.
-    - ⚠️ **Só no Chrome do Android**, que é a cena de uso. iPhone e Chrome de
-      Windows não têm o detector: ali o diálogo avisa e aponta o app de câmera
-      do próprio celular, que já abre a ficha pelo QR. Se algum técnico usar
-      iPhone, o caminho é hospedar um leitor em `public/static/`.
+    - ✅ **Funciona em qualquer navegador** (3ª rodada do dia, por relato de
+      uso: *"apareceu 'este navegador não lê QR'"*). O `BarcodeDetector` nativo
+      cobre Chrome do Android; onde ele falta entra o `public/jsqr.min.js`
+      (jsQR 1.4.0), carregado **sob demanda** — quem tem o nativo não paga os
+      130 KB.
     - 📋 **Sem digitar código no diálogo** (decisão do Pedro, mesmo dia): o
       diálogo é de uma coisa só. Achar peça sem escanear é a busca da tela.
     - ⚠️ **Câmera exige HTTPS.** Testar pelo IP da rede local não pede câmera.
