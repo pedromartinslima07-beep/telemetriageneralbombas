@@ -11859,6 +11859,37 @@ lá. Sem ela o `forcar` viraria "apaga tudo" no primeiro refactor.
 `?v=N`: `admin.js` 348 → **349**, `admin.css` 258 → **259**.
 
 
+### 2026-09-10 (5ª rodada) · A logo volta à barra do operador, em duas linhas
+
+Relato do Pedro, no PWA instalado do operador: *"não está aparecendo a logo"*,
+*"aprovados, preventiva e ajuda grudados a esquerda"*. Não era cache — era a
+regra de 08/09, que escondia a `.barra-in` inteira abaixo de 420px, e o
+`space-between` que vinha junto empurrando a nav para a borda.
+
+**A conta anotada no `operador.css` estava errada em 21px.** O comentário dizia
+"6px de sobreposição a 390"; remedido com a folha de verdade, a barra pede
+**417,1px numa linha só** (nav 204,8 + duas ações de 44 + marca 53,3 + recuos e
+gaps). Não existe telefone com essa largura — encolher o logo nunca ia resolver.
+
+A largura acabou, então cede a altura: **duas linhas abaixo de 420px**, marca ·
+"+ Novo chamado" · conta em cima, as três telas embaixo. Barato porque no
+celular esta barra é `position:relative`, não `sticky` — os ~46px são pagos uma
+vez na entrada e rolam para fora. `display:contents` no `.barra-acoes` faz a
+nav virar filha do grid sem tocar em HTML nenhum. A tela do técnico perdeu os
+**três remendos** que existiam só para sobreviver ao `display:none` e recuperou
+a marca, em uma linha só.
+
+Novo: **`scripts/medir-barra.js`** — monta o header real das quatro telas com o
+`operador.css` real num Chrome e afere estouro, altura, logo e alvos de 44px em
+seis larguras, sem servidor nem login. É a resposta ao "MEÇA, não deduza" que a
+folha manda e que esta rodada mostrou não estar sendo seguido. Detalhe em
+[`modulos/painel-operador.md`](modulos/painel-operador.md).
+
+`?v=N`: `operador.css` 106 → **107** nas quatro telas que a servem
+(`operador.html`, `operador-orcamentos.html`, `operador-preventivas.html`,
+`tecnico.html`). `sw.js` não muda — não há endpoint novo.
+
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

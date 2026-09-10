@@ -717,6 +717,19 @@ Fluxo e pegadinhas em
     para o Desfazer devolver o plano exato. Não vale "em campo": chamado com
     técnico é serviço andando, e a rota recusa com 409. Ver
     [painel-operador.md](../docs/modulos/painel-operador.md).
+  - ⚠️ **A barra é de DUAS LINHAS no celular abaixo de 420px** (10/09): marca ·
+    "+ Novo chamado" · conta em cima, as três telas embaixo. Substitui a regra
+    de 08/09 que escondia a marca inteira e que o Pedro revogou ("preciso da
+    logo"). A conta real: a barra pede **417,1px numa linha**, largura que
+    telefone nenhum tem — encolher o logo nunca resolveria. Só é barato porque
+    aqui a barra é `position:relative` no celular e rola para fora. Feito com
+    `display:contents` no `.barra-acoes`, sem tocar em HTML. Vale para as
+    quatro telas da folha; a do técnico fica em uma linha (não tem nav) e
+    perdeu os três remendos que existiam só para sobreviver à regra antiga.
+    ⚠️ **Mexeu na barra? `node scripts/medir-barra.js`** — afere as quatro
+    telas em seis larguras, sem servidor nem login. Ver
+    [painel-operador.md](../docs/modulos/painel-operador.md) e
+    [decisions.md](decisions.md).
   - ⚠️ **O técnico tem painel no NAVEGADOR desde 10/09**, em `/tecnico/painel`
     (`public/tecnico.html` / `tecnico.js`, folha do operador, bloco `.eq-*`).
     Era um 404: o `PAINEL_POR_ROLE` apontava para lá e o Express não servia

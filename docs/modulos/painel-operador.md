@@ -484,6 +484,77 @@ pelo mesmo motivo: no celular o nome é conferência, não operação. Fecha com
 **zero sobreposição de 360px para cima** nas três telas. 320px segue fora, limite
 conhecido.
 
+### A barra vira duas linhas no celular (10/09/2026)
+
+Relato do Pedro, no PWA instalado: *"não está aparecendo a logo"* e
+*"aprovados, preventiva e ajuda grudados a esquerda"*. Não era cache nem bug —
+era a regra de 08/09, que escondia a `.barra-in` inteira abaixo de 420px
+("sai a marca, não as palavras"). Sem a marca ocupando o começo, o
+`width:100%` + `space-between` que vinha junto jogava a nav na borda esquerda.
+
+⚠️ **A conta anotada no `operador.css` estava errada em 21px.** O comentário
+dizia "6px de sobreposição a 390, 36 a 360 e 53 a 320". Remedido com a folha
+de verdade, a barra pede **417,1px numa linha só**:
+
+| Peça | Largura |
+|---|---|
+| nav (Aprovados 70,9 · Preventivas 76,2 · Ajuda 37,7 + gap 10) | 204,8 |
+| "+ Novo chamado" e conta, em 44 cada, com gaps de 6 | 100 |
+| marca (`logo-marca.png` a 34px de altura) | 53,3 |
+| recuos 13 + 12, gap da `.barra-in` 10 | 35 |
+| **total** | **417,1** |
+
+Não existe telefone com essa largura — o 430 do iPhone Pro Max já está acima do
+limiar de 420 e nunca entrou nesta regra. Ou seja, **encolher o logo nunca ia
+resolver**: a 390 ainda faltam 27px com ele em 34, e 11 com ele em 24, que é
+tamanho de miniatura ilegível.
+
+A largura acabou, então o que cede é a **altura**. A barra vira duas linhas
+abaixo de 420px — linha 1 marca · "+ Novo chamado" · conta, linha 2 as três
+telas — e ninguém perde nada: a marca volta, "Aprovados"/"Preventivas"
+continuam por extenso (a calibragem de 28/08 para quem tem pouca familiaridade
+com computador) e os alvos seguem em 44px.
+
+⚠️ **Os ~46px a mais são baratos AQUI por um motivo específico**: no celular
+esta barra é `position:relative`, não `sticky` (regra de 10/09, ver a gaveta de
+conta). Ela rola para fora e some — a altura é paga uma vez na entrada da tela,
+não o turno inteiro. Em barra fixa a conta seria outra.
+
+⚠️ **`display:contents` no `.barra-acoes` é o que permite não tocar em HTML
+nenhum.** A `.barra-nav` é *neta* da `.barra`, e `grid-area` só vale para filho
+direto; dissolvendo o contêiner intermediário, nav, botão e conta viram filhos
+do grid e cada um escolhe sua célula. O preço é que `.barra-acoes` deixa de
+gerar caixa — o `padding` e o `gap` **dela** morrem, e quem os substitui é o
+`column-gap` do grid e a margem direita do `.eu`. Seletor descendente
+(`.barra-acoes .btn`) continua valendo; só a caixa some.
+
+⚠️ **A margem do `.eu` é `margin`, não `padding`**: a gaveta de conta é filha
+absoluta dele e se ancora em `right:-1px`; padding empurraria a gaveta para
+dentro junto com o botão e ela descolaria da borda.
+
+A tela de Equipamentos do técnico (`body.tela-equip`, ver
+[`equipamentos.md`](equipamentos.md)) tinha **três remendos** que existiam só
+para sobreviver ao `display:none` daqui — devolver a `.barra-in`, esconder o
+logotipo e tirar o `width:100%` do `.barra-acoes`, este último porque sem ele o
+avatar era desenhado por cima da palavra ("EQ[avatar]AMENTOS", visto a 390 e a
+320). Os três caíram junto com a regra. Lá a barra segue em **uma linha só** —
+não há nav nem "Novo chamado", e as duas células colapsam sozinhas.
+
+#### O medidor
+
+⚠️ **`node scripts/medir-barra.js` — MEÇA, NÃO DEDUZA.** Foi deduzindo que a
+conta antiga errou por 21px. O script monta o `<header class="barra">` real de
+cada uma das quatro telas — lido do próprio HTML, não copiado — com o
+`operador.css` real num Chrome, e pergunta ao layout quanto cada peça ocupa em
+320 · 360 · 375 · 390 · 412 · 430. Reporta estouro horizontal, altura da barra,
+presença e posição do logo, e todo alvo de toque abaixo de 44px (contando o
+`::before` que alarga a área de clique sem ocupar layout). Sai com código 1 se
+alguma largura falhar, e grava retratos em `tmp-barra/` (`RETRATOS=0` desliga).
+
+Ele **não precisa do servidor nem de login**: as requests de `/static/**` são
+interceptadas e respondidas direto do `public/`. Rode-o sempre que mexer no que
+há dentro da barra.
+
 ### O passe de nível (03/09/2026)
 
 Depois de pronta, o Pedro: *"tenho minhas dúvidas se essa tela está com o nível

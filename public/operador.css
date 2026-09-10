@@ -3184,34 +3184,94 @@ body.sem-trilho #tela{width:100%}
 @media (max-width:420px){
   .barra-acoes{gap:6px}
 }
-/* ── E ABAIXO DE 420px A MARCA SAI DE VEZ ───────────────────────────
-   ⚠️ A troca pelo `logo-marca.png` devolveu 85px e resolveu de 412 para cima,
-   mas NÃO zerou embaixo: medido depois dela, ainda sobravam 6px de
-   sobreposição a 390, 36 a 360 e 53 a 320. A conta simplesmente não fecha —
-   três links de texto (71 + 76 + 38), dois alvos de 44 e a marca pedem mais
-   largura do que um telefone tem.
+/* ── E ABAIXO DE 420px A BARRA VIRA DUAS LINHAS ─────────────────────
+   ⚠️ AQUI MOROU "A MARCA SAI DE VEZ", DE 08 A 10/09/2026, E A DECISÃO FOI
+   REVOGADA PELO PEDRO ("preciso da logo"). O bloco antigo escondia a
+   `.barra-in` inteira abaixo de 420px, e o sintoma que ele produzia foi
+   relatado exatamente assim: "aprovados, preventiva e ajuda grudados a
+   esquerda" — sem a marca ocupando o começo, o `width:100%` +
+   `space-between` que vinha junto jogava a nav na borda.
 
-   É a mesma decisão de 08/09 levada até o fim: **sai a marca, não as
-   palavras.** "Aprovados" e "Preventivas" são a navegação de quem tem pouca
-   familiaridade com computador (calibragem de 28/08); "+ Novo chamado" é a
-   porta do chamado que chega por telefone; a conta é a única saída do
-   sistema. A marca é a única peça da barra que não responde por nada aqui —
-   quem está logado no próprio turno não precisa que a tela se apresente. O
-   admin, aliás, nunca teve logo na topbar.
+   ⚠️ E A CONTA ESTAVA ERRADA NO ARQUIVO. O comentário antigo dizia "6px de
+   sobreposição a 390, 36 a 360 e 53 a 320". Medido de novo em 10/09 com esta
+   folha, montando o header do `operador.html` num Chrome e perguntando ao
+   layout (`scripts/medir-barra.js`), o buraco é MUITO maior:
 
-   ⚠️ NÃO É `overflow:hidden` NEM `opacity`: o wordmark cortado ao meio lê
-   como defeito de carregamento (a nota de 03/09 já avisava), e apagado por
-   opacidade continua ocupando a largura, que é o problema inteiro.
+     nav 204,8 (Aprovados 70,9 · Preventivas 76,2 · Ajuda 37,7 + gap 10)
+     + Novo 44 + conta 44 + gaps 6+6  →  ações = 328,8
+     + marca 53,3 + recuos 13/12 + gap 10  →  a barra pede 417,1px
 
-   ⚠️ Acima de 420 a marca está lá, e é onde ela cabe de verdade. Mexeu no que
-   há dentro de `.barra-acoes`? Refaça a conta — e MEÇA, não deduza: a conta
-   ignora o `gap` do `.barra-in` e o arredondamento do desenho. */
+   417 numa linha só. Não existe telefone com essa largura: o 430 do iPhone
+   Pro Max já está acima do limiar de 420 e nunca entrou nesta regra. Ou seja,
+   **encolher o logo nunca ia resolver** — a 390 ainda faltam 27px com o logo
+   em 34, e 11 com ele em 24, que é tamanho de miniatura ilegível.
+
+   A largura acabou. O que sobra é a SEGUNDA LINHA, e ela é barata aqui por um
+   motivo específico: no celular esta barra é `position:relative`, não
+   `sticky` (ver a regra de 760px lá em cima) — ela rola para fora e some. Os
+   ~46px a mais são pagos uma vez na entrada da tela, não o turno inteiro.
+
+   Linha 1: marca · + Novo chamado · conta.  Linha 2: as três telas.
+   Ninguém cede nada — a marca volta, "Aprovados"/"Preventivas" continuam
+   escritos por extenso (calibragem de 28/08, para quem tem pouca
+   familiaridade com computador), e os alvos seguem em 44px.
+
+   ⚠️ `display:contents` NO `.barra-acoes` É O TRUQUE, e é o que permite não
+   tocar em nenhum HTML: a `.barra-nav` é NETA da `.barra`, e `grid-area` só
+   vale para filho direto. Com o contêiner intermediário dissolvido, nav,
+   botão e conta viram filhos do grid e cada um escolhe sua célula.
+   Consequência: `.barra-acoes` deixa de gerar caixa, então o `padding` e o
+   `gap` DELA morrem — quem os substitui é o `column-gap` do grid e a margem
+   direita do `.eu` logo abaixo. Seletor descendente (`.barra-acoes .btn`)
+   continua valendo; só a caixa some.
+
+   ⚠️ Vale para as QUATRO telas da folha. Painel, Aprovados e Preventivas têm
+   nav + Novo + conta; o técnico (`body.tela-equip`) não tem nav nem Novo, e
+   as células vazias simplesmente colapsam — por isso ele ganhou a marca de
+   volta no bloco `.eq-*`, em vez de continuar com a exceção que existia só
+   para sobreviver ao `display:none` daqui.
+
+   ⚠️ Mexeu no que há dentro da barra? RODE O MEDIDOR, não deduza — foi
+   deduzindo que a conta antiga errou por 21px. */
 @media (max-width:420px){
-  .barra-in{display:none}
-  /* Com a marca fora, a fila de alvos ganha o recuo inteiro para respirar em
-     vez de brigar por ele. */
-  .barra-acoes{padding-inline:12px;justify-content:space-between;width:100%}
-  .barra-nav{gap:10px}
+  .barra{
+    display:grid;
+    grid-template-columns:1fr auto auto;
+    grid-template-areas:
+      "marca novo conta"
+      "nav   nav  nav";
+    align-items:center;
+    column-gap:6px;
+    /* `auto`: as duas linhas se somam. A altura fixa de `--barra-h` vinha da
+       regra de iOS instalado lá em cima e cortaria a segunda linha fora. O
+       `padding-top` do entalhe continua lá e continua valendo. */
+    height:auto;
+    padding-bottom:6px;
+  }
+  /* 52, não `--barra-h`: a linha 1 não precisa mais dos 64 de uma barra que
+     carregava tudo sozinha, e 52 já folga sobre o logo de 34. */
+  .barra-in{display:flex;grid-area:marca;min-height:52px}
+  .barra-acoes{display:contents}
+  .btn-novo{grid-area:novo}
+  /* ⚠️ MARGEM, NÃO PADDING. A gaveta de conta é filha absoluta do `.eu` e se
+     ancora em `right:-1px`; padding empurraria a gaveta para dentro junto com
+     o botão e ela descolaria da borda. */
+  .barra-acoes .eu{grid-area:conta;margin-right:13px}
+  .barra-nav{
+    grid-area:nav;
+    /* ⚠️ AGRUPADA À ESQUERDA, NÃO `space-between`. O `space-between` era o que
+       a regra antiga usava porque lá a fila de alvos ocupava a barra inteira;
+       trazido para a linha própria ele abre ~46px entre os itens a 390 e as
+       três telas passam a ler como três coisas soltas, cada uma encostada num
+       canto — "Ajuda" grudada na borda direita, longe das outras duas. Nav é
+       um grupo: fica junta, e começa no mesmo x da marca da linha de cima.
+       Os 20px são o piso do `clamp(14px,2vw,30px)` do desktop, e cabem: os
+       três rótulos somam 205px com eles, contra os 294 livres a 320. */
+    justify-content:flex-start;
+    gap:20px;
+    /* O recuo que era do `.barra-acoes` — a nav começa no mesmo x da marca. */
+    padding-inline:13px;
+  }
 }
 
 /* ⚠️ AQUI MORAVA A REGRA DE 380px, e ela morreu com o que regulava.
@@ -3900,31 +3960,20 @@ body:has(.pv-barra) .aviso{bottom:calc(var(--pv-pe) + 16px)}
 .eq-meta b{color:var(--text);font-weight:700}
 
 
-/* ⚠️ ABAIXO DE 420px A FOLHA ESCONDE A BARRA-IN INTEIRA, e nas telas do
-   operador isso é a decisão certa: lá a marca disputa com três links de
-   navegação e dois alvos de 44px, e "sai a marca, não as palavras".
-   AQUI NÃO HÁ NAVEGAÇÃO NENHUMA — a tela é uma só —, então a mesma regra
-   deixava a barra do celular com um avatar e mais nada. Medido a 390px: 64px
-   de faixa vazia no topo da cena principal desta tela.
-   O nome volta; o logotipo continua fora, que é o que custava a largura. */
-body.tela-equip .barra-in{display:flex}
-/* O rótulo da tela é o que fica: abaixo de 760px a folha esconde `.marca span`
-   (nas telas do operador o nome da tela está na navegação, que aqui não
-   existe) e abaixo de 420 esconde a `.barra-in` inteira. Nesta tela some o
-   logotipo, que é o que custa largura, e ficam as palavras. */
+/* ⚠️ AQUI MOROU A EXCEÇÃO CONTRA O `display:none` DE 420px, E ELA CAIU JUNTO
+   COM ELE (10/09/2026). Enquanto a folha escondia a `.barra-in` inteira no
+   celular, esta tela precisava de três remendos: devolver a `.barra-in`,
+   esconder o logotipo (que era o que custava a largura lá) e tirar o
+   `width:100%` do `.barra-acoes` — sem o último, os dois filhos do flex
+   ocupavam a mesma faixa e o avatar era desenhado POR CIMA da palavra
+   ("EQ[avatar]AMENTOS", visto a 390 e a 320).
+   Com a barra em duas linhas, nada disso existe mais: a marca cabe em toda
+   largura, e aqui sobra ainda mais espaço porque esta tela não tem nav nem
+   "Novo chamado" — as duas células colapsam sozinhas.
+   O que FICA é só o rótulo: abaixo de 760px a folha esconde `.marca span`
+   porque nas telas do operador o nome da tela está na navegação. Aqui não há
+   navegação, então a palavra é a única coisa que diz onde se está. */
 body.tela-equip .marca span{display:block}
-body.tela-equip .marca picture{display:none}
-/* ⚠️ E A FILA DE ALVOS PERDE O `width:100%` JUNTO. Abaixo de 420 a folha dá
-   largura total ao `.barra-acoes` porque lá a `.barra-in` não existe mais —
-   com ela de volta, os dois filhos do flex ocupavam a mesma faixa e o botão
-   de conta era desenhado POR CIMA da palavra: "EQ[avatar]AMENTOS", visto a
-   390 e a 320. */
-@media (max-width:420px){
-  body.tela-equip .barra-acoes{width:auto}
-}
-@media (min-width:421px){
-  body.tela-equip .marca picture{display:flex}
-}
 
 @media (max-width:760px){
   .eq-topo,.eq-ferramentas,.eq-lista{padding-inline:13px}

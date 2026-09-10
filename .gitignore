@@ -27,3 +27,6 @@ uploads/
 # .part. É trabalho descartável, nunca produto — e sem esta linha um
 # `git add -A` levava a pasta inteira para o commit.
 .tmpbuild/
+
+# Retratos do scripts/medir-barra.js — saída de diagnóstico, não versionada.
+tmp-barra/

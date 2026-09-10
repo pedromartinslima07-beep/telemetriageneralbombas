@@ -1219,3 +1219,24 @@ desenho em camadas original continua válido.
   faz parte do caminho — e um comentário afirmando a divisão não a implementa.
   Havia três comentários no código dizendo "isto só existe no modo carta"
   enquanto o HTML tratava todo mundo igual.
+
+- **Revogado: "sai a marca, não as palavras" (2026-09-10).** De 08 a 10/09 a
+  barra do operador escondia a `.barra-in` inteira abaixo de 420px. A lógica
+  era defensável — a marca era a única peça da barra que não respondia por
+  nada, e "Aprovados"/"Preventivas" são a navegação calibrada em 28/08 para
+  quem tem pouca familiaridade com computador. O Pedro viu no PWA instalado e
+  revogou: *"preciso da logo"*.
+  O que a revogação ensinou não foi sobre a marca, foi sobre a **conta**. O
+  comentário do `operador.css` afirmava "6px de sobreposição a 390, 36 a 360 e
+  53 a 320" e mandava, na linha seguinte, "MEÇA, não deduza". Remedido, o
+  buraco real era de **27px a 390** — a barra pede 417,1px numa linha, e não
+  existe telefone com essa largura. As três rodadas anteriores (encolher o
+  wordmark, trocar pelo `logo-marca.png`, esconder a marca) foram todas
+  escolhas de **largura**, cada uma aparando um pouco menos do que faltava,
+  porque ninguém tinha medido o total. Com o número certo na mesa, ficou óbvio
+  que nenhuma quantidade de encolhimento resolveria e que a dimensão errada
+  estava sendo negociada: cedeu a **altura**, em duas linhas.
+  A regra que fica: **um comentário que manda medir e traz um número à mão é um
+  número à mão.** Virou `scripts/medir-barra.js` — enquanto medir custar mais
+  do que estimar, alguém vai estimar. E: quando três tentativas seguidas atacam
+  a mesma dimensão e nenhuma fecha, o problema provavelmente é a dimensão.
