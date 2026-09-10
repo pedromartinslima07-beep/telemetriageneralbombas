@@ -422,6 +422,12 @@ Detalhe e o porquê de cada uma em
   pode declarar `medidas` (faixa, chanfro, logo, QR, corpos de letra) por cima de
   `MEDIDAS_PADRAO`. Sem isso o desenho estoura a etiqueta baixa e o pé sai fora
   do adesivo. Renderize e olhe antes de dar o formato por pronto.
+- ⚠️ **Etiqueta cadastrada por engano tem volta** (10/09/2026):
+  `POST /equipamentos/:id/desfazer-cadastro`, card "Reaproveitar etiqueta",
+  **masterAdminOnly**. Devolve a etiqueta a `etiqueta_livre` mantendo código e
+  lote. Só desfaz o vínculo inicial — com foto, chamado, orçamento, O.S. ou
+  movimentação extra responde 409 dizendo o que impede, e aí o caminho é a baixa.
+  Sem isso o código ficava queimado, porque o DELETE dá baixa e não libera.
 - ⚠️ **A cabeça impressa é barra CHEIA, sem chanfro, com o logo centrado**
   (10/09/2026). O corte de 45° é assinatura de marca **na tela**; no papel
   recortado à tesoura ele lê como defeito de impressão — duas geometrias foram

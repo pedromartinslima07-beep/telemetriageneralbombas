@@ -820,6 +820,123 @@ router.delete("/:id", authRequired, gestaoOnly, async (req, res) => {
   }
 });
 
+// POST /equipamentos/:id/desfazer-cadastro — devolve a etiqueta ao estado de
+// branco, pra ela ser reaproveitada.
+//
+// Existe porque o cadastro acontece com a bomba na mão, no corredor, e errar a
+// etiqueta é questão de tempo. Sem isto o código ficava queimado pra sempre: o
+// DELETE acima não apaga quem tem movimentação, ele dá BAIXA — o equipamento
+// some da operação mas o código continua ocupado, e a etiqueta colada na bomba
+// vira papel morto.
+//
+// `masterAdminOnly` a pedido do Pedro (10/09/2026), e é a régua certa: isto
+// APAGA linha do tempo, que é o ativo do módulo. Mesmo nível de `DELETE /lote`.
+//
+// ⚠️ O que a rota aceita desfazer é só o VÍNCULO INICIAL. Se a etiqueta já
+// juntou foto, chamado, orçamento, O.S. ou qualquer movimentação além do
+// cadastro/retirada de abertura, ela responde 409 com a lista do que impede —
+// nunca apaga histórico de verdade "porque o admin pediu". Nesse caso o
+// caminho é o DELETE, que inativa e preserva.
+//
+// ⚠️ O código vai no BODY e precisa bater com o do equipamento. É a mesma
+// trava do "digite o nome do lote" do front, só que no servidor: id errado na
+// URL zeraria a ficha da bomba errada, e o `.env` aponta pra produção.
+router.post("/:id/desfazer-cadastro", authRequired, masterAdminOnly, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    const atual = await client.query(
+      `SELECT id, codigo, status FROM equipamentos WHERE id = $1 FOR UPDATE`,
+      [id]
+    );
+    if (!atual.rows.length) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "Equipamento não encontrado" });
+    }
+    const eq = atual.rows[0];
+
+    const confirmado = normalizarCodigo(req.body?.codigo);
+    if (!confirmado || confirmado !== eq.codigo) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({
+        error: "O código digitado não confere com o desta etiqueta. Nada foi alterado.",
+      });
+    }
+
+    // O que impede. Contado tudo de uma vez pra resposta dizer o motivo inteiro
+    // e não o primeiro obstáculo — quem apagaria de novo depois de corrigir um
+    // item de cada vez está sendo empurrado a insistir, e insistir aqui é ruim.
+    const imp = await client.query(
+      `SELECT
+         (SELECT COUNT(*) FROM equipamento_movimentacoes
+           WHERE equipamento_id = $1 AND tipo NOT IN ('cadastro', 'retirada')) AS movs_extra,
+         (SELECT COUNT(*) FROM equipamento_fotos    WHERE equipamento_id = $1) AS fotos,
+         (SELECT COUNT(*) FROM chamados             WHERE equipamento_id = $1) AS chamados,
+         (SELECT COUNT(*) FROM orcamentos           WHERE equipamento_id = $1) AS orcamentos,
+         (SELECT COUNT(*) FROM ordens_servico       WHERE equipamento_id = $1) AS ordens`,
+      [id]
+    );
+    const n = imp.rows[0];
+    const impedimentos = {
+      movimentacoes: Number(n.movs_extra),
+      fotos: Number(n.fotos),
+      chamados: Number(n.chamados),
+      orcamentos: Number(n.orcamentos),
+      ordens_servico: Number(n.ordens),
+    };
+    if (Object.values(impedimentos).some((v) => v > 0)) {
+      await client.query("ROLLBACK");
+      return res.status(409).json({
+        error: "Esta etiqueta já tem histórico e não pode voltar a ficar em branco. "
+             + "Para tirá-la de circulação, use a baixa.",
+        impedimentos,
+      });
+    }
+
+    // A limpeza: os campos que o vincular preenche voltam a NULL, junto com o
+    // condomínio e a data do vínculo. Ficam de pé `codigo`, `lote`, `criado_em`
+    // e `criado_por` — a etiqueta é a mesma folha impressa no mesmo lote, o que
+    // se desfaz é o cadastro que foi posto nela.
+    const zerar = ["condominio_id", "vinculado_em", ...CAMPOS_EDITAVEIS]
+      .map((c) => `${c} = NULL`).join(", ");
+    const upd = await client.query(
+      `UPDATE equipamentos
+          SET ${zerar},
+              status = 'etiqueta_livre',
+              ativo = true,
+              atualizado_em = NOW()
+        WHERE id = $1
+      RETURNING *`,
+      [id]
+    );
+
+    // Sem rastro no banco de propósito: a etiqueta precisa ficar
+    // INDISTINGUÍVEL de uma recém-impressa, senão a próxima ficha nasce com uma
+    // nota de erro que não é dela. O rastro fica no log do servidor.
+    const del = await client.query(
+      `DELETE FROM equipamento_movimentacoes WHERE equipamento_id = $1`,
+      [id]
+    );
+
+    await client.query("COMMIT");
+    console.log(
+      `[equipamentos] desfazer-cadastro: ${eq.codigo} (id ${id}) por ${req.user.id} — `
+      + `${del.rowCount} movimentação(ões) apagada(s)`
+    );
+    return res.json({ ok: true, equipamento: upd.rows[0], movimentacoes_apagadas: del.rowCount });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error("[equipamentos] POST /:id/desfazer-cadastro:", err);
+    return res.status(500).json({ error: "Erro ao desfazer o cadastro" });
+  } finally {
+    client.release();
+  }
+});
+
 // DELETE /equipamentos/lote/:lote — descarta um lote inteiro de etiquetas em
 // branco (folha impressa errada, teste de alinhamento).
 //

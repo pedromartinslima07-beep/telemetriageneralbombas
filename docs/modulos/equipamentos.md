@@ -328,6 +328,39 @@ lote** no card "Imprimir folha de etiquetas"
 - Teste: `node scripts/testes/apagar-lote-etiquetas.test.js` (banco de teste,
   limpa o que cria).
 
+## Reaproveitar uma etiqueta cadastrada por engano
+
+Cadastro feito na etiqueta errada — acontece porque o vínculo é feito no
+corredor, com a bomba na mão. Card **Reaproveitar etiqueta** na tela de
+Equipamentos (`POST /equipamentos/:id/desfazer-cadastro`), que devolve a
+etiqueta a `etiqueta_livre` para ser vinculada de novo.
+
+- ⚠️ **Sem isto o código ficava queimado para sempre.** O
+  `DELETE /equipamentos/:id` não apaga quem tem movimentação: ele dá **baixa**.
+  O equipamento some da operação, mas o código continua ocupado e a etiqueta
+  colada na bomba vira papel morto. Não existia caminho de volta.
+- **`masterAdminOnly`** (decisão do Pedro, 10/09/2026): isto **apaga linha do
+  tempo**, que é o ativo do módulo — mesma régua do descarte de lote.
+- ⚠️ **Só desfaz o vínculo inicial.** Se a etiqueta já juntou foto, chamado,
+  orçamento, O.S. ou qualquer movimentação além do `cadastro`/`retirada` de
+  abertura, a rota responde **409 com `impedimentos`** (a contagem de cada
+  coisa) e não encosta em nada. Aí o caminho é a baixa, que preserva. A resposta
+  diz **o que** impede de propósito: um "não pode" seco empurra a pessoa a mexer
+  no banco na mão.
+- **O código vai no body e tem que bater com o do `:id`.** É a mesma trava do
+  "digite o nome do lote", só que no servidor: id errado na URL zeraria a ficha
+  da bomba errada, e o `.env` aponta para produção.
+- **O que volta a NULL:** `condominio_id`, `vinculado_em` e todos os
+  `CAMPOS_EDITAVEIS`; o status vira `etiqueta_livre` e `ativo` volta a `true`.
+  **Ficam de pé** `codigo`, `lote`, `criado_em` e `criado_por` — é a mesma folha
+  impressa no mesmo lote; o que se desfaz é o cadastro posto nela.
+- ⚠️ **Não fica rastro no banco, de propósito.** A etiqueta precisa ficar
+  indistinguível de uma recém-impressa, senão a próxima ficha nasce com uma nota
+  de erro que não é dela. O rastro fica no log do servidor (código, id, quem
+  pediu, quantas movimentações caíram).
+- Teste: `node scripts/testes/desfazer-cadastro-etiqueta.test.js` (banco de
+  teste, limpa o que cria).
+
 - ⚠️ **A grade das folhas adesivas sai da tabela do fabricante, não de conta
   de padeiro.** A Pimaco publica os parâmetros de cada folha no `.doc` de
   "Parâmetros de Impressão" (`editor.pimaco.com.br/documents/parametros/`).

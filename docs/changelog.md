@@ -11651,6 +11651,43 @@ corte é a `.ficha-cabeca` do `public/equipamento.css`, que é tela.
 `?v=N`: nada a bumpar — a mudança é toda no serviço de PDF, no servidor.
 
 
+### 2026-09-10 (3ª rodada) · Etiqueta cadastrada por engano volta a ficar em branco
+
+Cadastro feito na etiqueta errada, com a bomba na mão. Até aqui o código ficava
+**queimado para sempre**: o `DELETE /equipamentos/:id` não apaga quem tem
+movimentação, ele dá baixa — o equipamento sai da operação, mas o código
+continua ocupado e a etiqueta colada na bomba vira papel morto.
+
+Nova rota `POST /equipamentos/:id/desfazer-cadastro` e o card **Reaproveitar
+etiqueta** na tela de Equipamentos. Devolve a etiqueta a `etiqueta_livre`:
+zera condomínio, dados cadastrais, `vinculado_em` e a linha do tempo, mantendo
+`codigo`, `lote`, `criado_em` e `criado_por`.
+
+**`masterAdminOnly`**, a pedido do Pedro — isto apaga linha do tempo, que é o
+ativo do módulo. Mesma régua do descarte de lote.
+
+⚠️ **Só desfaz o vínculo inicial.** Foto, chamado, orçamento, O.S. ou qualquer
+movimentação além do `cadastro`/`retirada` de abertura → **409 com
+`impedimentos`**, e nada é tocado. A resposta diz o que impede de propósito: um
+"não pode" seco empurra a pessoa a mexer no banco na mão.
+
+⚠️ **O código vai no body e é conferido contra o do `:id`** — a mesma trava do
+"digite o nome do lote", só que no servidor. Id errado zeraria a ficha da bomba
+errada, e o `.env` aponta para produção.
+
+⚠️ **Não fica rastro no banco, de propósito**: a etiqueta precisa ficar
+indistinguível de uma recém-impressa, senão a próxima ficha nasce com uma nota
+de erro que não é dela. O rastro fica no log do servidor.
+
+Teste: `node scripts/testes/desfazer-cadastro-etiqueta.test.js` — 23 asserções,
+banco de teste, incluindo permissão, código trocado, o caso feliz limpo e as
+duas recusas por histórico. Passou inteiro.
+
+`?v=N`: `admin.js` 347 → **348** e `admin.css` 257 → **258** (o par anda junto).
+`sw.js` não muda — `/equipamentos` já está na lista network-first, e o SW não
+intercepta `POST`.
+
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

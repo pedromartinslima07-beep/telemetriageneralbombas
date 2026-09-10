@@ -318,6 +318,12 @@ aliases:
     próprias por formato (a arte da A4260 não cabe em 38,1 mm de altura). Grade
     conferida contra a tabela oficial da Pimaco, arte recuada do corte e
     calibração `&dx=`/`&dy=` para o registro da impressora.
+  - ✅ **Desfazer cadastro da etiqueta** — 2026-09-10. Cadastro feito na
+    etiqueta errada (acontece: o vínculo é no corredor, com a bomba na mão)
+    queimava o código para sempre, porque o DELETE dá baixa em vez de liberar.
+    Rota `POST /equipamentos/:id/desfazer-cadastro` (**masterAdminOnly**) e card
+    "Reaproveitar etiqueta" no admin. Só desfaz o vínculo inicial; com histórico
+    de verdade recusa e diz o que impede.
   - ✅ **Ficha `/e/:codigo` migrada para o Chapa** — 2026-09-08. Era a última
     tela interna fora do sistema (seguia o cartão da tela de assinatura de
     contrato). A tela abre como a etiqueta escaneada; o DESIGN.md passou a

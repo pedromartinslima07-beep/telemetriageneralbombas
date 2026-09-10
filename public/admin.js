@@ -16667,6 +16667,83 @@ async function _eqImprimir() {
   }
 }
 
+// Devolve a etiqueta ao estado de branco pra ser reaproveitada — o cadastro
+// feito na etiqueta errada, com a bomba na mão. Só admin master (o card inteiro
+// fica escondido; a trava de verdade é o masterAdminOnly da rota).
+//
+// Resolve o código em id antes de perguntar qualquer coisa: a confirmação
+// precisa dizer O QUE vai ser apagado ("Bomba 2 — recalque, Ed. Aurora"), senão
+// a pessoa está confirmando um código de oito caracteres contra outro código de
+// oito caracteres, que é exatamente o erro que trouxe ela até aqui.
+async function _eqDesfazerCadastro() {
+  const campo = document.getElementById("eqDesfazerCodigo");
+  const digitado = campo?.value.trim();
+  if (!digitado) { alert("Digite o código da etiqueta."); return; }
+
+  const btn = document.getElementById("btnEqDesfazer");
+  btn.disabled = true;
+  const rotulo = btn.textContent;
+  btn.textContent = "Verificando…";
+  try {
+    const r = await fetch(`/equipamentos/codigo/${encodeURIComponent(digitado)}`,
+      { headers: authHeaders() });
+    const ficha = await lerRespostaJson(r, "Etiqueta");
+    if (!r.ok) throw new Error(ficha.error || "Etiqueta não encontrada");
+
+    const eq = ficha.equipamento;
+    if (eq.status === "etiqueta_livre") {
+      alert(`A etiqueta ${_eqFormatarCodigo(eq.codigo)} já está em branco. Nada a desfazer.`);
+      return;
+    }
+
+    const nome = eq.apelido || [eq.marca, eq.modelo].filter(Boolean).join(" ") || eq.tipo || "sem nome";
+    const onde = eq.condominio_nome ? ` · ${eq.condominio_nome}` : "";
+    if (!confirm(
+      `Desfazer o cadastro da etiqueta ${_eqFormatarCodigo(eq.codigo)}?\n\n` +
+      `${nome}${onde}\n\n` +
+      `O cadastro é apagado e a etiqueta volta a ficar EM BRANCO, pronta pra ` +
+      `ser vinculada de novo. Isso não pode ser desfeito.`
+    )) return;
+
+    btn.textContent = "Desfazendo…";
+    // O código vai junto no body: a rota recusa se não bater com o do id, e é
+    // essa a trava contra zerar a ficha da bomba errada.
+    const rr = await fetch(`/equipamentos/${eq.id}/desfazer-cadastro`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      body: JSON.stringify({ codigo: eq.codigo }),
+    });
+    const dados = await lerRespostaJson(rr, "Desfazer cadastro");
+    if (!rr.ok) {
+      // 409 = tem histórico de verdade. Dizer O QUE impede, senão a mensagem
+      // vira "não pode" e a pessoa vai mexer no banco na mão.
+      const imp = dados.impedimentos;
+      let msg = dados.error || "Não foi possível desfazer o cadastro";
+      if (imp) {
+        const rot = {
+          movimentacoes: "movimentação(ões) além do cadastro",
+          fotos: "foto(s)", chamados: "chamado(s)",
+          orcamentos: "orçamento(s)", ordens_servico: "O.S.",
+        };
+        const lista = Object.entries(imp).filter(([, v]) => v > 0)
+          .map(([k, v]) => `· ${v} ${rot[k] || k}`).join("\n");
+        if (lista) msg += `\n\nO que impede:\n${lista}`;
+      }
+      throw new Error(msg);
+    }
+
+    alert(`Etiqueta ${_eqFormatarCodigo(eq.codigo)} está em branco de novo. ` +
+          `Escaneie o QR pra vincular ao equipamento certo.`);
+    if (campo) campo.value = "";
+    await _eqCarregar();
+  } catch (e) {
+    alert(e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = rotulo;
+  }
+}
+
 function _eqBindEventos() {
   if (_eqEventosLigados) return;
   _eqEventosLigados = true;
@@ -16682,6 +16759,14 @@ function _eqBindEventos() {
     btnApagar.style.display = _isMaster ? "" : "none";
     if (_isMaster) btnApagar.addEventListener("click", _eqApagarLote);
   }
+  // Mesma régua do apagar lote: o card só existe pro admin master, e quem
+  // decide de verdade é o masterAdminOnly da rota.
+  const cardDesfazer = document.getElementById("eqCardDesfazer");
+  if (cardDesfazer && _isMaster) {
+    cardDesfazer.style.display = "";
+    document.getElementById("btnEqDesfazer")?.addEventListener("click", _eqDesfazerCadastro);
+  }
+
   document.getElementById("eqFiltroStatus")?.addEventListener("change", _eqCarregar);
 
   let _debounce;

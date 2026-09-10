@@ -18,7 +18,7 @@
   <link rel="stylesheet" href="/static/leaflet.css">
   <!-- ⚠️ Ao mexer em admin.js ou admin.css, bumpe o ?v=N aqui E no <script>
        lá embaixo. Ver CLAUDE.md raiz. -->
-  <link rel="stylesheet" href="/static/admin.css?v=257">
+  <link rel="stylesheet" href="/static/admin.css?v=258">
 </head>
 <body>
   <div id="appLoader">
@@ -1353,6 +1353,29 @@
             Papel comum descola em casa de máquinas (umidade, graxa, calor).
             Use etiqueta adesiva de poliéster/vinil — ou papel adesivo com fita
             transparente larga por cima.
+          </p>
+        </div>
+
+        <!-- Reaproveitar etiqueta: cadastro feito na etiqueta errada, com a
+             bomba na mão. Card inteiro só existe pro admin master (a trava de
+             verdade e o masterAdminOnly da rota) - ver _eqBindEventos. -->
+        <div class="card" style="margin-top:16px;display:none;" id="eqCardDesfazer">
+          <div class="cardHead"><h3>Reaproveitar etiqueta</h3></div>
+          <div style="padding:16px;display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+            <label class="f" style="flex:1 1 220px;">
+              <span>Código da etiqueta</span>
+              <input id="eqDesfazerCodigo" class="input" placeholder="990H-3TJP" autocomplete="off">
+            </label>
+            <button class="btn btnDanger" id="btnEqDesfazer">Desfazer cadastro</button>
+          </div>
+          <p class="muted" style="padding:0 16px 16px;font-size:12px;line-height:1.6;">
+            Apaga o cadastro posto nesta etiqueta e devolve ela a
+            <b>em branco</b>, para ser vinculada de novo. Serve para o cadastro
+            feito na etiqueta errada.<br>
+            <b>Só funciona enquanto o vínculo é a única coisa que existe.</b> Se
+            a etiqueta já tem foto, chamado, orçamento, O.S. ou qualquer outra
+            movimentação, o sistema recusa e diz o que impede - aí o caminho é
+            dar baixa, que preserva o histórico.
           </p>
         </div>
       </div>
@@ -2848,7 +2871,7 @@
 </div>
 
 
-<script src="/static/admin.js?v=347" defer></script>
+<script src="/static/admin.js?v=348" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
 <script src="/static/register-sw.js?v=51" defer></script>
 </body>
