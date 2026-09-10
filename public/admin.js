@@ -11820,6 +11820,7 @@ function _osBindEventos() {
   document.getElementById("osBtnPdf")?.addEventListener("click", () => {
     if (_osSelecionadaId) baixarOSPdf(_osSelecionadaId);
   });
+  document.getElementById("osBtnEmail")?.addEventListener("click", _osAbrirEnvioEmail);
   document.getElementById("osBtnEditar")?.addEventListener("click", _osEntrarModoEdicao);
   document.getElementById("osBtnSalvar")?.addEventListener("click", _osSalvarEdicao);
   document.getElementById("osBtnCancelarEdicao")?.addEventListener("click", _osCancelarEdicao);
@@ -11895,6 +11896,7 @@ function _osAtualizarBotoesHeader() {
   const btnSalvar    = document.getElementById("osBtnSalvar");
   const btnCancelar  = document.getElementById("osBtnCancelarEdicao");
   const btnPdf       = document.getElementById("osBtnPdf");
+  const btnEmail     = document.getElementById("osBtnEmail");
   if (!btnEditar) return;
 
   if (_osModoEdicao) {
@@ -11902,11 +11904,17 @@ function _osAtualizarBotoesHeader() {
     btnSalvar.style.display = "inline-flex";
     btnCancelar.style.display = "inline-flex";
     btnPdf.style.display = "none";
+    if (btnEmail) btnEmail.style.display = "none";
   } else {
     btnEditar.style.display = "inline-flex";
     btnSalvar.style.display = "none";
     btnCancelar.style.display = "none";
-    btnPdf.style.display = (_osSelecionada && _osSelecionada.finalizada_em) ? "inline-flex" : "none";
+    // ⚠️ O E-MAIL SEGUE O PDF: só O.S. finalizada tem documento para anexar,
+    // e é o anexo que faz esse e-mail existir (não há painel de O.S. para
+    // onde mandar o cliente). Rascunho não sai daqui.
+    const podeDocumento = Boolean(_osSelecionada && _osSelecionada.finalizada_em);
+    btnPdf.style.display = podeDocumento ? "inline-flex" : "none";
+    if (btnEmail) btnEmail.style.display = podeDocumento ? "inline-flex" : "none";
   }
 }
 
@@ -12135,6 +12143,137 @@ async function baixarOSPdf(id) {
     console.error("[os] baixarOSPdf:", err);
     alert("Erro ao baixar PDF: " + err.message);
   }
+}
+
+// ============================================================
+// ENVIO POR E-MAIL
+// ============================================================
+
+// Manda a O.S. finalizada ao cliente, com o PDF em anexo e no mesmo desenho do
+// e-mail de orçamento.
+//
+// ⚠️ AQUI NÃO HÁ DOIS MODOS, e a diferença para o orçamento é de fundo: lá o
+// modo "pelo painel" existe porque o cliente tem uma TELA onde aprova ou
+// recusa, e o e-mail é só o caminho até ela. A O.S. não tem tela — o painel do
+// cliente não lista ordens de serviço. Então o documento vai anexo, a lista é
+// editável, e quem não tem login recebe do mesmo jeito.
+//
+// ⚠️ TOKENS DE PLACA CLARA, NÃO OS DO PAINEL. O modal é `--chapa` (claro) e as
+// variáveis de uso diário do admin — `--muted`, `--border` — são do campo
+// ESCURO: dentro dele o texto secundário fica azul-claro sobre cinza-claro e o
+// fio some. É a Regra dos Dois Campos de Estado do DESIGN.md. E a classe do
+// texto do checkbox é `avOpt`, não `f span`: este último é rótulo de campo e
+// vem com `text-transform: uppercase`.
+async function _osAbrirEnvioEmail() {
+  const os = _osSelecionada;
+  if (!os) return;
+  if (!os.finalizada_em) {
+    alert("Esta O.S. ainda não foi finalizada — só depois da assinatura ela vira documento para o cliente.");
+    return;
+  }
+
+  // Os endereços do cadastro do condomínio, que é o ponto de partida. Falhar
+  // aqui não impede o envio: o operador digita.
+  let dest = { cadastrados: [], tem_condominio: false };
+  try {
+    const rd = await fetch(`/ordens-servico/${os.id}/destinatarios`, { headers: authHeaders() });
+    if (rd.ok) dest = await rd.json();
+  } catch (_) { /* segue com a lista vazia */ }
+
+  const emailsCadastrados = (dest.cadastrados || []).join(", ");
+  const jaEnviado = os.enviado_em
+    ? `Já enviada em ${_osFmtData(os.enviado_em)}${os.enviado_para ? " para " + os.enviado_para : ""}.`
+    : "";
+
+  const ov = document.createElement("div");
+  ov.className = "modalOverlay";
+  ov.style.display = "flex";
+  ov.innerHTML = `
+    <div class="modalBox" style="max-width:560px;">
+      <div class="modalHead">
+        <div>
+          <div class="modalTitle">Enviar O.S. por e-mail</div>
+          <div class="modalSub">${_waEscaparHtml(os.numero || "")} · ${_waEscaparHtml(os.condominio_nome || "—")}</div>
+        </div>
+        <button class="btn btn-sm" id="osEnvioFechar">Fechar</button>
+      </div>
+      <div class="modalBody">
+        <div class="modalTools"><div class="modalCount" id="osEnvioMsg">${_waEscaparHtml(jaEnviado)}</div></div>
+        <form class="formGrid" style="grid-template-columns:1fr;" onsubmit="return false;">
+
+          <label class="f">
+            <span>Para <small style="font-weight:400;color:var(--tinta-2);">(separe vários por vírgula)</small></span>
+            <input id="osEnvioPara" class="input" type="text" value="${_waEscaparHtml(emailsCadastrados)}" placeholder="sindico@email.com" />
+          </label>
+
+          <label class="f">
+            <span>Mensagem <small style="font-weight:400;color:var(--tinta-2);">(em branco usa o texto padrão)</small></span>
+            <textarea id="osEnvioMsgTexto" class="input" rows="4" style="resize:vertical;" placeholder="Prezado(a), segue a ordem de serviço referente ao atendimento…"></textarea>
+          </label>
+
+          <div class="hint" style="line-height:1.6;">
+            O e-mail vai com o <b>PDF da O.S. em anexo</b>, no mesmo formato do
+            e-mail de orçamento. Não existe link de painel para O.S.: quem
+            recebe abre o anexo, tenha login ou não.
+            ${dest.tem_condominio ? "" : "<br /><br />Esta O.S. não está ligada a um condomínio — digite o endereço à mão."}
+          </div>
+
+          <div class="formActions">
+            <button class="btn" type="button" id="osEnvioCancelar">Cancelar</button>
+            <button class="btn btnAccent" type="button" id="osEnvioConfirmar">Enviar</button>
+          </div>
+        </form>
+      </div>
+    </div>`;
+  document.body.appendChild(ov);
+
+  const fechar = () => ov.remove();
+  ov.addEventListener("click", e => { if (e.target === ov) fechar(); });
+  document.getElementById("osEnvioFechar").addEventListener("click", fechar);
+  document.getElementById("osEnvioCancelar").addEventListener("click", fechar);
+
+  document.getElementById("osEnvioConfirmar").addEventListener("click", async () => {
+    const msg = document.getElementById("osEnvioMsg");
+    const btn = document.getElementById("osEnvioConfirmar");
+    const emails   = (document.getElementById("osEnvioPara")?.value || "").trim();
+    const mensagem = (document.getElementById("osEnvioMsgTexto")?.value || "").trim();
+
+    if (msg) { msg.style.color = "var(--tinta-2)"; msg.textContent = "Enviando…"; }
+    if (btn) btn.disabled = true;
+    try {
+      const r = await fetch(`/ordens-servico/${os.id}/enviar-email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders() },
+        body: JSON.stringify({ emails, mensagem }),
+      });
+      const j = await lerRespostaJson(r, "Envio do e-mail");
+      if (!r.ok) {
+        // ⚠️ O motivo também vai para o console: a mensagem de erro vive
+        // DENTRO do modal, e fechar a tela leva junto a única pista de uma
+        // falha intermitente — que é justamente a que precisa ser
+        // diagnosticada. O console sobrevive à navegação.
+        console.error(
+          `[envio-os] FALHA os=${os.id} etapa=${j.etapa || "?"} code=${j.code || "?"} ` +
+          `destinos="${emails}"\n${j.error || "sem detalhe"}`
+        );
+        if (msg) { msg.style.color = "var(--danger)"; msg.textContent = j.error || "Erro ao enviar"; }
+        if (btn) btn.disabled = false;
+        return;
+      }
+
+      os.enviado_em = j.enviado_em;
+      os.enviado_para = j.enviado_para;
+      const idx = _osData.findIndex(o => o.id === os.id);
+      if (idx !== -1) Object.assign(_osData[idx], { enviado_em: j.enviado_em, enviado_para: j.enviado_para });
+      fechar();
+      _osRenderModal();
+      const quantos = String(j.enviado_para || "").split(",").filter(s => s.trim()).length;
+      alert(`✓ O.S. enviada com o PDF em anexo para ${quantos} endereço(s).`);
+    } catch (e) {
+      if (msg) { msg.style.color = "var(--danger)"; msg.textContent = "Erro: " + e.message; }
+      if (btn) btn.disabled = false;
+    }
+  });
 }
 
 // ============================================================

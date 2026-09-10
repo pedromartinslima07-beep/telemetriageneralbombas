@@ -92,6 +92,7 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
 | 071 | orcamento_bancada | `orcamentos.origem` aceita `'bancada'`; `orcamentos.equipamento_id (SET NULL)` — liga a bomba na bancada ao orçamento, sem tabela de peças própria |
 | 070 | equipamentos | `equipamentos` (identidade permanente + `codigo` do QR), `equipamento_movimentacoes` (linha do tempo, com snapshot do autor), `equipamento_fotos` (`dados_base64` no banco); `chamados.equipamento_id`. Ver [equipamentos.md](modulos/equipamentos.md) |
 | 083 | chamado_cancelado | `chamados.status` aceita `cancelado` + `cancelado_em`, `cancelado_motivo` — fechar afirmava que o serviço foi feito, e era a única saída do chamado aberto por engano. Ver [chamados-sla.md](modulos/chamados-sla.md) |
+| 086 | os_envio_email | `ordens_servico.enviado_em`, `enviado_para` — rastreio do envio da O.S. por e-mail ao cliente, com os mesmos nomes que `orcamentos` usa desde a 047. Ver [ordens-servico.md](modulos/ordens-servico.md) |
 
 ## Marcos de produto (fases do plano)
 
@@ -7143,6 +7144,50 @@ Provado no navegador com um QR de etiqueta de verdade (gerado pelo mesmo
 isso cada `getImageData` puxa a textura de volta da GPU, 6 vezes por segundo.
 
 `?v=N`: `tecnico.js` → **7**.
+
+### 2026-09-10 (5ª rodada) · A O.S. também vai por e-mail
+
+O orçamento chegava ao cliente por e-mail desde agosto; a O.S. finalizada não
+tinha caminho nenhum — o PDF só existia para quem abrisse o painel. Agora tem
+botão **✉️ E-mail** no modal da O.S., ao lado do PDF e sob a mesma condição:
+**só O.S. finalizada**, porque sem a assinatura do responsável o papel não vale
+como comprovante do atendimento.
+
+**Um modo só, e isso é decisão.** O orçamento oferece "pelo painel" porque
+existe uma tela onde o cliente aprova ou recusa. A O.S. não tem tela no painel
+do cliente — só menção no histórico do chamado —, então o documento vai
+**sempre em anexo** e a lista de destinatários é editável: quem não tem login
+recebe igual. Oferecer dois modos aqui seria oferecer um que não leva a lugar
+nenhum.
+
+**A moldura virou compartilhada, não copiada.** O pedido foi "o mesmo desenho
+do e-mail de orçamento", e desenho copiado começa igual e diverge na primeira
+correção. A faixa marinho, a caixa de informações, o fecho e o rodapé saíram de
+dentro de `sendOrcamentoCliente` para **`_molduraEstruturada`**, e os dois
+e-mails a chamam — muda a sobrancelha ("Orçamento comercial" ×
+"Ordem de serviço") e o que a caixa diz. A extração foi conferida contra o HEAD
+nos três casos do orçamento (painel, carta, sem `modo`): saiu idêntica, a menos
+de dois espaços de indentação.
+
+As duas etapas falham separado (`etapa: "pdf"` × `etapa: "envio"`), como no
+envio de orçamento, e o PDF gerado na finalização é reaproveitado — só regenera
+quando o arquivo sumiu, o que acontece porque o filesystem do Railway é
+efêmero.
+
+Teste novo: `scripts/testes/os-envio-email.test.js` (25 asserções) — quem pode
+chegar na rota, rascunho recusado, endereço inválido recusado, e o caminho
+feliz com o SDK do Resend dublado e um PDF falso plantado no disco, para o
+Puppeteer nem ser chamado. Ele confere também que o HTML sai com a sobrancelha
+da O.S. e **sem** a do orçamento — é o que pega uma troca de moldura feita sem
+querer.
+
+Preview sem enviar nada: `node scripts/preview-email-os.js` grava
+`public/_preview-email-os.html`, aberto em `/dev/_preview-email-os.html`.
+
+`?v=N`: `admin.js` 349 → **350**, `admin.css` 259 → **260** (o par anda junto).
+`sw.js` não muda — `/ordens-servico` já está na lista network-first, e o SW não
+intercepta `POST`.
+
 
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e

@@ -268,6 +268,105 @@ function _fmtInstante(v) {
   return new Date(v).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
 }
 
+// ⚠️ A MOLDURA ESTRUTURADA É UMA SÓ, E É COMPARTILHADA (10/09/2026).
+// Ela nasceu dentro de `sendOrcamentoCliente` e saiu daqui quando a O.S.
+// passou a ser enviada por e-mail: o pedido foi "o mesmo desenho do orçamento",
+// e desenho copiado começa igual e diverge na primeira correção — o topo de um
+// documento ganharia contraste no logo e o do outro não. Quem quiser mudar a
+// faixa, a caixa de informações ou o rodapé muda aqui, e os dois e-mails mudam
+// juntos.
+//
+// ⚠️ LAYOUT EM <table>, DO LADO DE FORA PRA DENTRO, com estilo inline.
+// Não é preferência: o Outlook renderiza com o motor do Word, que ignora
+// flex/grid, `max-width` em div e folha de estilo em <style>. Tabela aninhada
+// com width fixo é o único layout que chega igual no Gmail, no Outlook e no
+// app do celular.
+//
+// opts: { sobrancelha, corpoHtml, tituloInfos, infos: [[rotulo, valor], ...],
+//         assinaturaHtml }
+function _molduraEstruturada({ sobrancelha, corpoHtml, tituloInfos, infos = [], assinaturaHtml = "" }) {
+  const logo = _logoEmail();
+  const E = _escaparHtml;
+
+  // Linha da caixa de informações. Sem valor de propósito: o preço é assunto
+  // do documento, e mandá-lo no corpo do e-mail o espalha por caixas de
+  // entrada e encaminhamentos que ninguém controla.
+  const linhas = infos
+    .filter(([, valor]) => valor)
+    .map(([rotulo, valor]) => `<tr>
+         <td style="padding:5px 0;font-size:13px;color:#6b7280;width:110px;">${E(rotulo)}</td>
+         <td style="padding:5px 0;font-size:13px;color:#111827;font-weight:bold;">${E(valor)}</td>
+       </tr>`)
+    .join("");
+
+  // Caixa inteira some quando não há nada para dizer nela — moldura vazia lê
+  // como defeito de renderização.
+  const caixaInfos = linhas
+    ? `
+      <tr><td style="padding:6px 28px 4px;font-family:Helvetica,Arial,sans-serif;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f5f7fb;border:1px solid #e4e8f1;">
+          <tr><td style="padding:16px 18px;">
+            <div style="font-size:11px;font-weight:bold;letter-spacing:1.1px;text-transform:uppercase;color:#6b7280;padding-bottom:8px;">
+              ${E(tituloInfos || "Informações")}
+            </div>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+              ${linhas}
+            </table>
+          </td></tr>
+        </table>
+      </td></tr>`
+    : "";
+
+  return `
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#eef1f7;margin:0;padding:24px 12px;">
+  <tr><td align="center">
+    <table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0" style="width:560px;max-width:100%;background:#ffffff;border:1px solid #dfe4ee;">
+
+      <tr><td style="background:#030a26;padding:22px 28px;">
+        ${logo
+          // ⚠️ O ESTILO DO <img> É O ESTILO DO ALT. Outlook bloqueia imagem por
+          // padrão (foi o que aconteceu no e-mail que serviu de referência), e
+          // aí o que aparece é o texto alternativo — que herda cor, fonte e
+          // corpo daqui. Sem isto, o topo do e-mail ficava com "General
+          // Bombas" em preto sobre a faixa marinho, ou seja, invisível.
+          // O width/height duplicado (atributo + estilo) é o que segura a
+          // proporção no Outlook — ver _logoEmail().
+          ? `<img src="${logo.src}" width="${logo.largura}"${logo.altura ? ` height="${logo.altura}"` : ""} alt="General Bombas" style="display:block;border:0;outline:none;width:${logo.largura}px;height:${logo.altura ? logo.altura + "px" : "auto"};font-family:Helvetica,Arial,sans-serif;font-size:20px;font-weight:bold;color:#ffffff;" />`
+          : `<div style="font-family:Helvetica,Arial,sans-serif;font-size:21px;font-weight:bold;color:#ffffff;letter-spacing:.5px;">GENERAL <span style="color:#f0b014;">BOMBAS</span></div>`}
+        <div style="font-family:Helvetica,Arial,sans-serif;margin-top:12px;font-size:10.5px;font-weight:bold;letter-spacing:1.6px;text-transform:uppercase;color:#f0b014;">
+          ${E(sobrancelha)}
+        </div>
+      </td></tr>
+
+      <tr><td style="padding:28px 28px 6px;font-family:Helvetica,Arial,sans-serif;">
+        ${corpoHtml}
+      </td></tr>
+${caixaInfos}
+      <tr><td style="padding:20px 28px 26px;font-family:Helvetica,Arial,sans-serif;">
+        <p style="margin:0;font-size:14px;line-height:1.6;color:#111827;">Atenciosamente,</p>
+        ${assinaturaHtml}
+        <p style="margin:2px 0 0;font-size:14px;line-height:1.6;color:#111827;font-weight:bold;">General Bombas</p>
+      </td></tr>
+
+      <tr><td style="background:#f5f7fb;border-top:1px solid #e4e8f1;padding:16px 28px;font-family:Helvetica,Arial,sans-serif;font-size:11.5px;line-height:1.7;color:#6b7280;">
+        <strong style="color:#4b5563;">General Engenharia da Manutenção</strong><br />
+        (11) 2038-8679 · WhatsApp (11) 96653-6110 ·
+        <a href="mailto:comercial@generalbombas.com" style="color:#6b7280;">comercial@generalbombas.com</a>
+      </td></tr>
+
+    </table>
+  </td></tr>
+</table>`;
+}
+
+// O fecho da versão em texto puro — mesmo conteúdo do rodapé da moldura, para
+// quem bloqueia HTML. Vale para todo e-mail estruturado.
+const _FECHO_TEXTO = [
+  `Atenciosamente,`,
+  `General Bombas`,
+  `General Engenharia da Manutenção · (11) 2038-8679 · WhatsApp (11) 96653-6110 · comercial@generalbombas.com`,
+];
+
 // Envia o orçamento diretamente ao cliente — pelo painel (link) ou pelo PDF
 // anexado, nunca pelos dois ao mesmo tempo (ver `temAnexo`).
 //
@@ -362,16 +461,6 @@ async function sendOrcamentoCliente(dados) {
     ? "O documento completo está na sua área do cliente, no botão abaixo."
     : (temAnexo ? "O documento completo está no PDF em anexo." : "");
 
-  // Linha da caixa de informações. Sem valor de propósito: o preço é assunto
-  // do documento, e mandá-lo no corpo do e-mail o espalha por caixas de
-  // entrada e encaminhamentos que ninguém controla.
-  const linha = (rotulo, valor) => valor
-    ? `<tr>
-         <td style="padding:5px 0;font-size:13px;color:#6b7280;width:110px;">${E(rotulo)}</td>
-         <td style="padding:5px 0;font-size:13px;color:#111827;font-weight:bold;">${E(valor)}</td>
-       </tr>`
-    : "";
-
   // ⚠️ MENSAGEM E ASSINATURA SÓ EXISTEM NO MODO `carta` (25/08/2026).
   // Elas saíram em 24/08, quando o corpo virou fixo, e voltaram como metade
   // de uma escolha do operador — não como padrão. Quem manda pelo painel
@@ -433,9 +522,7 @@ async function sendOrcamentoCliente(dados) {
         // HTML.
         dados.linkPainel ? `Ver o orçamento e responder: ${dados.linkPainel}` : null,
         dados.linkPainel ? `` : null,
-        `Atenciosamente,`,
-        `General Bombas`,
-        `General Engenharia da Manutenção · (11) 2038-8679 · WhatsApp (11) 96653-6110 · comercial@generalbombas.com`,
+        ..._FECHO_TEXTO,
       ].filter(l => l !== null).join("\n");
 
   // ⚠️ A CARTA NÃO TEM MOLDURA: texto e assinatura, e o e-mail acaba aí.
@@ -454,68 +541,20 @@ async function sendOrcamentoCliente(dados) {
   ${assinaturaHtml}
 </div>`;
 
-  // ⚠️ LAYOUT EM <table>, DO LADO DE FORA PRA DENTRO, com estilo inline.
-  // Não é preferência: o Outlook renderiza com o motor do Word, que ignora
-  // flex/grid, `max-width` em div e folha de estilo em <style>. Tabela
-  // aninhada com width fixo é o único layout que chega igual no Gmail, no
-  // Outlook e no app do celular.
-  const estruturadoHtml = `
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#eef1f7;margin:0;padding:24px 12px;">
-  <tr><td align="center">
-    <table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0" style="width:560px;max-width:100%;background:#ffffff;border:1px solid #dfe4ee;">
-
-      <tr><td style="background:#030a26;padding:22px 28px;">
-        ${logo
-          // ⚠️ O ESTILO DO <img> É O ESTILO DO ALT. Outlook bloqueia imagem por
-          // padrão (foi o que aconteceu no e-mail que serviu de referência), e
-          // aí o que aparece é o texto alternativo — que herda cor, fonte e
-          // corpo daqui. Sem isto, o topo do e-mail ficava com "General
-          // Bombas" em preto sobre a faixa marinho, ou seja, invisível.
-          // O width/height duplicado (atributo + estilo) é o que segura a
-          // proporção no Outlook — ver _logoEmail().
-          ? `<img src="${logo.src}" width="${logo.largura}"${logo.altura ? ` height="${logo.altura}"` : ""} alt="General Bombas" style="display:block;border:0;outline:none;width:${logo.largura}px;height:${logo.altura ? logo.altura + "px" : "auto"};font-family:Helvetica,Arial,sans-serif;font-size:20px;font-weight:bold;color:#ffffff;" />`
-          : `<div style="font-family:Helvetica,Arial,sans-serif;font-size:21px;font-weight:bold;color:#ffffff;letter-spacing:.5px;">GENERAL <span style="color:#f0b014;">BOMBAS</span></div>`}
-        <div style="font-family:Helvetica,Arial,sans-serif;margin-top:12px;font-size:10.5px;font-weight:bold;letter-spacing:1.6px;text-transform:uppercase;color:#f0b014;">
-          Orçamento comercial
-        </div>
-      </td></tr>
-
-      <tr><td style="padding:28px 28px 6px;font-family:Helvetica,Arial,sans-serif;">
-        ${mensagemHtml}
-        ${convite}
-      </td></tr>
-
-      <tr><td style="padding:6px 28px 4px;font-family:Helvetica,Arial,sans-serif;">
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f5f7fb;border:1px solid #e4e8f1;">
-          <tr><td style="padding:16px 18px;">
-            <div style="font-size:11px;font-weight:bold;letter-spacing:1.1px;text-transform:uppercase;color:#6b7280;padding-bottom:8px;">
-              Informações do orçamento
-            </div>
-            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-              ${linha("Número", numero)}
-              ${linha("Cliente", condo)}
-              ${linha("Data", dataDoc)}
-              ${linha("Válido até", validade)}
-            </table>
-          </td></tr>
-        </table>
-      </td></tr>
-
-      <tr><td style="padding:20px 28px 26px;font-family:Helvetica,Arial,sans-serif;">
-        <p style="margin:0;font-size:14px;line-height:1.6;color:#111827;">Atenciosamente,</p>
-        ${assinaturaHtml}
-        <p style="margin:2px 0 0;font-size:14px;line-height:1.6;color:#111827;font-weight:bold;">General Bombas</p>
-      </td></tr>
-
-      <tr><td style="background:#f5f7fb;border-top:1px solid #e4e8f1;padding:16px 28px;font-family:Helvetica,Arial,sans-serif;font-size:11.5px;line-height:1.7;color:#6b7280;">
-        <strong style="color:#4b5563;">General Engenharia da Manutenção</strong><br />
-        (11) 2038-8679 · WhatsApp (11) 96653-6110 ·
-        <a href="mailto:comercial@generalbombas.com" style="color:#6b7280;">comercial@generalbombas.com</a>
-      </td></tr>
-
-    </table>
-  </td></tr>
-</table>`;
+  // A moldura é a mesma do e-mail de O.S. — ver `_molduraEstruturada`.
+  const estruturadoHtml = _molduraEstruturada({
+    sobrancelha: "Orçamento comercial",
+    corpoHtml: `${mensagemHtml}
+        ${convite}`,
+    tituloInfos: "Informações do orçamento",
+    infos: [
+      ["Número", numero],
+      ["Cliente", condo],
+      ["Data", dataDoc],
+      ["Válido até", validade],
+    ],
+    assinaturaHtml,
+  });
 
   const html = ehCarta ? cartaHtml : estruturadoHtml;
 
@@ -530,6 +569,98 @@ async function sendOrcamentoCliente(dados) {
     // como anexo inválido.
     ...(temAnexo ? { attachments: [{ filename, content: dados.pdfBuffer }] } : {}),
   }, "orçamento ao cliente");
+}
+
+// Envia a Ordem de Serviço finalizada ao cliente, com o PDF em anexo.
+//
+// dados: { to (array de e-mails), numero, condominioNome, tecnicoNome,
+//          atendimentoEm (timestamptz|null), finalizadaEm (timestamptz|null),
+//          pdfBuffer (Buffer), filename, mensagem (string|null) }
+//
+// ⚠️ AQUI O ANEXO É O ÚNICO CAMINHO, e por isso ele é obrigatório.
+// O orçamento tem dois modos porque tem para onde mandar o cliente: a tela em
+// que ele aprova ou recusa. A O.S. não tem — o painel do cliente não lista
+// ordens de serviço, só as menciona no histórico do chamado. Um e-mail de O.S.
+// sem PDF não entregaria documento nenhum, então a rota gera o PDF antes e
+// falha separado se não conseguir.
+//
+// ⚠️ E É O MESMO DESENHO DO ORÇAMENTO, de propósito (10/09/2026): mesma faixa,
+// mesma caixa de informações, mesmo fecho e mesmo rodapé, por
+// `_molduraEstruturada`. O que muda é a sobrancelha e o que a caixa diz. Dois
+// documentos da mesma casa chegando com molduras diferentes fazem o cliente
+// duvidar de um dos dois.
+async function sendOrdemServicoCliente(dados) {
+  if (!process.env.RESEND_API_KEY) {
+    throw new Error("RESEND_API_KEY não configurada — envio de email indisponível");
+  }
+  const to = Array.isArray(dados.to) ? dados.to : [dados.to];
+  if (!to.length) throw new Error("Nenhum destinatário informado");
+  if (!dados.pdfBuffer) throw new Error("O PDF da O.S. é obrigatório neste envio");
+
+  const E = _escaparHtml;
+
+  const numero    = dados.numero || "—";
+  const condo     = dados.condominioNome || "—";
+  const tecnico   = dados.tecnicoNome || null;
+  const filename  = dados.filename || `os-${numero}.pdf`;
+  const atendimento = _fmtInstante(dados.atendimentoEm) || _fmtInstante(dados.finalizadaEm);
+
+  // ⚠️ A MENSAGEM SUBSTITUI O PARÁGRAFO PADRÃO, não se soma a ele — mesma
+  // regra do orçamento. Quem escreveu tinha algo próprio a dizer, e as duas
+  // versões juntas fariam o e-mail repetir o número e o cliente logo antes da
+  // caixa que os repete de novo.
+  const mensagem = dados.mensagem ? String(dados.mensagem).trim() : "";
+
+  const corpoHtml = mensagem
+    ? mensagem
+        .split(/\n{2,}/)
+        .map(par => `<p style="margin:0 0 14px;font-size:14px;line-height:1.6;color:#111827;">${E(par).replace(/\n/g, "<br />")}</p>`)
+        .join("\n        ")
+    : `<p style="margin:0 0 14px;font-size:14px;line-height:1.6;color:#111827;">Prezado(a),</p>
+        <p style="margin:0 0 14px;font-size:14px;line-height:1.6;color:#111827;">
+          Segue a ordem de serviço <strong>${E(numero)}</strong>, referente ao
+          atendimento realizado em <strong>${E(condo)}</strong>. O documento
+          completo, com o serviço executado e as fotos, está no PDF em anexo.
+        </p>`;
+
+  const html = _molduraEstruturada({
+    sobrancelha: "Ordem de serviço",
+    corpoHtml,
+    tituloInfos: "Informações da O.S.",
+    infos: [
+      ["Número", numero],
+      ["Cliente", condo],
+      ["Atendimento", atendimento],
+      ["Técnico", tecnico],
+    ],
+  });
+
+  const textoAbertura = mensagem || [
+    `Prezado(a),`,
+    ``,
+    `Segue a ordem de serviço ${numero}, referente ao atendimento realizado em ${condo}. O documento completo está no PDF em anexo.`,
+  ].join("\n");
+
+  const textoPuro = [
+    textoAbertura,
+    ``,
+    `Informações da O.S.`,
+    `Número: ${numero}`,
+    `Cliente: ${condo}`,
+    atendimento ? `Atendimento: ${atendimento}` : null,
+    tecnico     ? `Técnico: ${tecnico}` : null,
+    ``,
+    ..._FECHO_TEXTO,
+  ].filter(l => l !== null).join("\n");
+
+  await _enviar({
+    from: `General Bombas <${_emailFrom()}>`,
+    to,
+    subject: `Ordem de serviço ${numero} — General Bombas`,
+    text: textoPuro,
+    html,
+    attachments: [{ filename, content: dados.pdfBuffer }],
+  }, "O.S. ao cliente");
 }
 
 // Envia e-mail de solicitação de assinatura de contrato.
@@ -713,4 +844,4 @@ function _escaparHtml(v) {
     .replace(/"/g, "&quot;");
 }
 
-module.exports = { sendOTP, sendAssinaturaCodigo, sendAlertaEmail, sendOrcamentoCliente, sendOrcamentoRespondido, sendContratoAssinatura, sendLeadNovo };
+module.exports = { sendOTP, sendAssinaturaCodigo, sendAlertaEmail, sendOrcamentoCliente, sendOrdemServicoCliente, sendOrcamentoRespondido, sendContratoAssinatura, sendLeadNovo };

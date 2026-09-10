@@ -200,6 +200,11 @@ liga técnico ao login. 029: perfil (`foto_url`, `cpf`, `rg`,
 018: `orcamento_necessario BOOL`, `orcamento_observacoes`. (As colunas
 `orcamento_*` formais de 024/025 foram removidas em 030 — ver orçamentos.)
 081: `sincronizada_em TIMESTAMPTZ` — ver a migration 081 abaixo.
+086: `enviado_em TIMESTAMPTZ`, `enviado_para TEXT` — rastreio do envio da O.S.
+por e-mail ao cliente. **Mesmos nomes que `orcamentos` usa desde a 047**: é o
+mesmo fato sobre outro documento, e nome diferente para a mesma coisa custa uma
+consulta ao schema toda vez. Ver
+[envio da O.S.](modulos/ordens-servico.md).
 **`os_fotos`** (015, CASCADE) — `id`, `os_id`, `url`, `tipo`, `legenda`, `criado_em`.
 053: `dados_base64 TEXT` — conteúdo da imagem como data URL (`data:image/jpeg;base64,...`). Armazenado no banco para sobreviver a restarts do Railway (filesystem efêmero). Upload salva aqui; novo endpoint `GET /ordens-servico/:osId/fotos/:fotoId/imagem` serve o binário.
 **`os_pecas`** (015, CASCADE).

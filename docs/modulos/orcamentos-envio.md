@@ -209,7 +209,21 @@ a resposta" para algo que foi registrado, clicar de novo e tomar "este
 orçamento já foi respondido". O e-mail é aviso — a fonte da verdade é o banco,
 e o painel mostra o não-visto de qualquer jeito.
 
+## A moldura estruturada agora é compartilhada (10/09/2026)
+
+A O.S. passou a ser enviada por e-mail com o **mesmo desenho** deste e-mail, e o
+HTML do modo `painel` saiu de dentro de `sendOrcamentoCliente` para
+`_molduraEstruturada`. Quem mexer na faixa, na caixa de informações ou no
+rodapé mexe **nos dois e-mails de uma vez** — que é o ponto: dois documentos da
+mesma casa chegando com molduras diferentes fazem o cliente duvidar de um dos
+dois. O que cada e-mail passa é a sobrancelha e as linhas da caixa. Ver
+[ordens-servico.md](ordens-servico.md).
+
+O modo `carta` não passa por ela: carta não tem moldura, e continua sendo a
+`div` de 621 bytes descrita acima.
+
 ---
 
 Relacionados: [autenticacao.md](autenticacao.md) ·
-[painel-cliente.md](painel-cliente.md) · [../api.md](../api.md)
+[painel-cliente.md](painel-cliente.md) ·
+[ordens-servico.md](ordens-servico.md) · [../api.md](../api.md)

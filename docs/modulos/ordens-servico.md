@@ -4,6 +4,7 @@ tags:
   - fluxo
 aliases:
   - Ordens de Serviço
+  - Envio da O.S. por e-mail
   - O.S.
   - Orçamentos
   - GPS
@@ -53,6 +54,64 @@ lê a coluna direto do banco, escondia o defeito. Ver
 
 Uploads servidos em `/uploads` (estático, cacheável). Regerar PDFs em lote:
 `scripts/regenerar-pdfs-os.js`.
+
+### Envio da O.S. por e-mail ao cliente (10/09/2026)
+
+Botão **✉️ E-mail** no cabeçalho do modal da O.S., ao lado do PDF e sob a mesma
+condição: **só O.S. finalizada**. `POST /ordens-servico/:id/enviar-email` manda
+o documento ao cliente com o **PDF em anexo**, e grava `enviado_em` /
+`enviado_para` (migration 086). O modal abre com os `condominios.email` do
+prédio, vindos de `GET /ordens-servico/:id/destinatarios`, e a lista é
+**editável**.
+
+#### ⚠️ Aqui não existem dois modos, e no orçamento existem
+
+A pergunta óbvia é por que o [envio de orçamento](orcamentos-envio.md) oferece
+"pelo painel" e este não. Porque lá existe uma **tela** onde o cliente aprova ou
+recusa, e o e-mail é o caminho até ela — o modo painel existe para não mandar
+um link a quem não consegue entrar. **A O.S. não tem tela no painel do
+cliente**: ela só é mencionada no histórico do chamado. Um e-mail de O.S. sem
+anexo não entregaria documento nenhum, então o anexo é obrigatório no serviço
+(`sendOrdemServicoCliente` recusa sem `pdfBuffer`) e a lista pode ser digitada
+livremente — anexo qualquer endereço abre, com login ou sem.
+
+Se um dia a O.S. ganhar tela no painel do cliente, é aqui que a escolha de dois
+modos passa a fazer sentido — e não antes.
+
+#### ⚠️ A moldura é compartilhada, não copiada
+
+O pedido foi "o mesmo desenho do e-mail de orçamento". Desenho **copiado**
+começa igual e diverge na primeira correção: o topo de um documento ganharia
+contraste no logo e o do outro não. Por isso a faixa marinho, a caixa de
+informações, o fecho e o rodapé saíram de dentro de `sendOrcamentoCliente` para
+`_molduraEstruturada` em `src/services/email.js`, e os dois e-mails a chamam.
+O que muda entre eles é a **sobrancelha** ("Orçamento comercial" ×
+"Ordem de serviço") e o que a caixa diz — na O.S., número, cliente, atendimento
+e técnico.
+
+A extração foi conferida byte a byte: o HTML do orçamento nos três casos
+(painel, carta, sem `modo`) saiu idêntico ao anterior, a menos de dois espaços
+de indentação.
+
+#### As duas etapas falham separado
+
+Gerar o PDF (Puppeteer, que consome memória e falha de forma intermitente em
+container apertado) e entregar ao provedor são problemas diferentes. Com os
+dois no mesmo `catch`, o log diria só "erro ao enviar". A resposta leva
+**`etapa`** (`pdf` | `envio`) e o `code` do Resend, e o modal escreve o motivo
+no console além da tela — fechar o modal apaga a mensagem, e numa falha
+intermitente essa é a única pista.
+
+O PDF já gerado na finalização é reaproveitado; só regenera quando o arquivo
+sumiu, o que acontece porque o filesystem do Railway é efêmero.
+
+#### Preview sem enviar nada
+
+`node scripts/preview-email-os.js` grava `public/_preview-email-os.html`, aberto
+em `/dev/_preview-email-os.html` (rota que **só existe fora de produção**). O
+SDK do Resend é substituído por um dublê: o que aparece na tela é o
+`sendOrdemServicoCliente` de verdade, não uma cópia do template que
+envelheceria sozinha.
 
 ## Orçamentos (sistema unificado)
 

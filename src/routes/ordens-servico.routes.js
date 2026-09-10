@@ -6,6 +6,7 @@ const { authRequired } = require("../middleware/authRequired");
 const { gestaoOnly } = require("../middleware/gestaoOnly");
 const { gerarPdfOS } = require("../services/os-pdf.service");
 const { registrarMudancas } = require("../services/chamado-historico.service");
+const { sendOrdemServicoCliente } = require("../services/email");
 // A preventiva aproveitada: o técnico foi ao prédio por outro chamado, marcou
 // "Preventiva mensal" na O.S., e isso dá baixa no plano do mês. Ver o bloco
 // longo em `preventivas.service.js`.
@@ -24,6 +25,12 @@ const SERVICO_RESULTADOS = ["resolvido", "paliativo", "agravado"];
 const FOTO_TIPOS = ["antes", "depois", "geral"];
 
 const UPLOAD_ROOT = path.join(__dirname, "../../uploads/os");
+
+// Validação de e-mail do envio da O.S. ao cliente. Deliberadamente frouxa: o
+// que ela pega é dedo errado (vírgula sobrando, endereço sem arroba), não
+// conformidade com a RFC — quem valida de verdade é o provedor, e recusar um
+// endereço estranho porém real seria pior.
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // Middleware fábrica: permite admin/gerente OU o técnico dono da O.S.
 // `forWrite=true` bloqueia escrita em O.S. finalizada / chamado fechado.
@@ -188,6 +195,9 @@ router.get("/:id", authRequired, osDonoOuAdmin(), async (req, res) => {
          os.chegada_em, os.chegada_lat, os.chegada_lng,
          os.saida_em, os.saida_lat, os.saida_lng,
          os.finalizada_em, os.criado_em, os.pdf_url,
+         -- Rastreio do envio ao cliente (086): o modal de e-mail diz "já
+         -- enviada em ... para ..." antes de mandar de novo.
+         os.enviado_em, os.enviado_para,
          (os.assinatura_b64 IS NOT NULL) AS tem_assinatura,
          COALESCE(NULLIF(c.nome_fantasia,''), c.nome) AS condominio_nome,
          c.endereco, c.bairro, c.cidade, c.uf, c.cep,
@@ -853,6 +863,161 @@ router.get("/:id/pdf", authRequired, osDonoOuAdmin(), async (req, res) => {
   } catch (err) {
     console.error("[ordens-servico] GET /:id/pdf:", err);
     return res.status(500).json({ error: "Erro ao servir PDF da O.S." });
+  }
+});
+
+/**
+ * GET /ordens-servico/:id/destinatarios
+ *
+ * Para quem o modal de envio propõe mandar. Vem de `condominios.email` — a
+ * lista que a portaria/administração informou —, e é EDITÁVEL no modal: ao
+ * contrário do orçamento, aqui não existe uma segunda lista "só quem tem
+ * login", porque não há painel de O.S. para onde mandar o cliente. O documento
+ * vai anexo, e anexo qualquer endereço consegue abrir.
+ */
+router.get("/:id/destinatarios", authRequired, gestaoOnly, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
+  try {
+    const r = await pool.query(
+      `SELECT os.condominio_id, c.email AS condominio_email
+         FROM ordens_servico os
+         LEFT JOIN condominios c ON c.id = os.condominio_id
+        WHERE os.id = $1`,
+      [id]
+    );
+    if (!r.rows.length) return res.status(404).json({ error: "O.S. não encontrada" });
+
+    const cadastrados = String(r.rows[0].condominio_email || "")
+      .split(",")
+      .map(s => s.trim().toLowerCase())
+      .filter(Boolean);
+
+    return res.json({ cadastrados, tem_condominio: Boolean(r.rows[0].condominio_id) });
+  } catch (err) {
+    console.error("[ordens-servico] GET /:id/destinatarios:", err);
+    return res.status(500).json({ error: "Erro ao listar destinatários" });
+  }
+});
+
+/**
+ * POST /ordens-servico/:id/enviar-email
+ *
+ * Manda a O.S. finalizada ao cliente com o PDF em anexo, no mesmo desenho do
+ * e-mail de orçamento (ver `_molduraEstruturada` em services/email.js).
+ *
+ * body: { emails: "a@x.com, b@y.com", mensagem?: string }
+ *
+ * ⚠️ SÓ O.S. FINALIZADA SAI DAQUI. Rascunho é documento pela metade — sem
+ * assinatura do responsável, e é justamente a assinatura que faz o papel valer
+ * como comprovante do atendimento. O próprio `gerarPdfOS` recusa, mas a
+ * checagem fica aqui também para o operador receber a explicação em vez de um
+ * "erro ao gerar PDF".
+ *
+ * ⚠️ AS DUAS ETAPAS FALHAM SEPARADO, como no envio de orçamento. Gerar o PDF
+ * (Puppeteer, que consome memória e falha de forma intermitente em container
+ * apertado) e entregar ao provedor são problemas diferentes; com os dois no
+ * mesmo `catch`, o log dizia só "erro ao enviar" e não dava para saber qual.
+ * A resposta leva `etapa` para o modal poder dizer o que aconteceu.
+ */
+router.post("/:id/enviar-email", authRequired, gestaoOnly, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
+
+  try {
+    const r = await pool.query(
+      `SELECT os.id, os.numero, os.finalizada_em, os.chegada_em, os.condominio_id,
+              COALESCE(NULLIF(c.nome_fantasia, ''), c.nome) AS condominio_nome,
+              t.nome AS tecnico_nome
+         FROM ordens_servico os
+         LEFT JOIN condominios c ON c.id = os.condominio_id
+         LEFT JOIN tecnicos    t ON t.id = os.tecnico_id
+        WHERE os.id = $1`,
+      [id]
+    );
+    if (!r.rows.length) return res.status(404).json({ error: "O.S. não encontrada" });
+    const os = r.rows[0];
+
+    if (!os.finalizada_em) {
+      return res.status(400).json({
+        error: "Esta O.S. ainda não foi finalizada — só depois da assinatura ela vira documento para o cliente.",
+      });
+    }
+
+    // ⚠️ A LISTA VEM DO CORPO, e isso é diferente do orçamento de propósito.
+    // Lá o modo "pelo painel" monta a lista no backend porque o e-mail leva um
+    // link que só usuário com login consegue abrir. Aqui vai anexo: quem
+    // recebe abre, tendo conta ou não, e quem escolhe é o operador.
+    const emailsRaw = req.body?.emails != null ? String(req.body.emails).trim() : "";
+    const to = emailsRaw
+      .split(",")
+      .map(s => s.trim().toLowerCase())
+      .filter(Boolean);
+    if (!to.length) return res.status(400).json({ error: "Informe o e-mail do destinatário." });
+
+    const invalidos = to.filter(e => !EMAIL_RE.test(e));
+    if (invalidos.length) {
+      return res.status(400).json({ error: `E-mail(s) inválido(s): ${invalidos.join(", ")}` });
+    }
+
+    const mensagem = req.body?.mensagem != null ? String(req.body.mensagem).trim() : "";
+
+    // Etapa 1 — o PDF. Reaproveita o arquivo já gerado na finalização; só
+    // regenera quando ele sumiu (filesystem do Railway é efêmero).
+    let pdfBuffer;
+    try {
+      const fpath = path.join(UPLOAD_ROOT, String(id), `os-${os.numero}.pdf`);
+      let existe = false;
+      try { await fs.access(fpath); existe = true; } catch {}
+      if (!existe) {
+        console.log(`[email-os] PDF on-demand OS#${id}`);
+        await gerarPdfOS(id);
+      }
+      pdfBuffer = await fs.readFile(fpath);
+    } catch (errPdf) {
+      console.error(`[email-os] FALHA=pdf os=${id} motivo=${errPdf.message}`);
+      return res.status(500).json({
+        error: `Não foi possível gerar o PDF da O.S. (${errPdf.message}). O e-mail não foi enviado.`,
+        etapa: "pdf",
+      });
+    }
+
+    // Etapa 2 — a entrega.
+    try {
+      await sendOrdemServicoCliente({
+        to,
+        numero: os.numero,
+        condominioNome: os.condominio_nome,
+        tecnicoNome: os.tecnico_nome,
+        atendimentoEm: os.chegada_em,
+        finalizadaEm: os.finalizada_em,
+        pdfBuffer,
+        filename: `os-${os.numero || id}.pdf`,
+        mensagem: mensagem || null,
+      });
+    } catch (errEnvio) {
+      // `resendCode` vem do helper `_enviar` em services/email.js: é ele que
+      // diz o que fazer (cota, limite de taxa, domínio não verificado, anexo
+      // grande demais). Linha compacta e greppável no log do Railway.
+      console.error(
+        `[email-os] FALHA=envio os=${id} code=${errEnvio.resendCode || "?"} ` +
+        `destinos=${to.length} anexo_kb=${Math.round(pdfBuffer.length / 1024)} motivo=${errEnvio.message}`
+      );
+      return res.status(500).json({ error: errEnvio.message, etapa: "envio", code: errEnvio.resendCode || null });
+    }
+
+    const enviadoPara = to.join(", ");
+    const up = await pool.query(
+      `UPDATE ordens_servico SET enviado_em = NOW(), enviado_para = $2 WHERE id = $1
+        RETURNING enviado_em, enviado_para`,
+      [id, enviadoPara]
+    );
+
+    console.log(`[email-os] OK os=${id} destinos=${to.length} anexo_kb=${Math.round(pdfBuffer.length / 1024)}`);
+    return res.json({ ok: true, ...up.rows[0] });
+  } catch (err) {
+    console.error("[ordens-servico] POST /:id/enviar-email:", err);
+    return res.status(500).json({ error: "Erro ao enviar a O.S. por e-mail" });
   }
 });
 

@@ -354,6 +354,13 @@ Detalhe e o porquê de cada uma em
   (lista completa em [chamados-sla.md](../docs/modulos/chamados-sla.md)).
 - **O.S. digital** completa (fotos base64 comprimidas, assinatura, orçamento) +
   PDF via Puppeteer; página de O.S. no admin.
+  **Envio da O.S. ao cliente por e-mail** desde 10/09/2026 (botão ✉️ no modal,
+  só em O.S. finalizada; PDF sempre em anexo, lista editável a partir de
+  `condominios.email`; grava `enviado_em`/`enviado_para`, migration 086). Não
+  tem os dois modos do orçamento porque não há tela de O.S. no painel do
+  cliente para onde mandar quem recebe. A moldura do e-mail é **a mesma** do
+  orçamento, compartilhada em `_molduraEstruturada`
+  ([ordens-servico.md](../docs/modulos/ordens-servico.md)).
 - Histórico de chamados, mensagens do chamado, avaliação.
 - **Orçamentos unificados** (Migration 030) + encaminhamento via IA por email.
   **Envio do orçamento ao cliente por e-mail** (PDF anexo via Resend, botão no modal;

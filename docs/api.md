@@ -205,6 +205,8 @@ restringe escrita.
 | DELETE | `/:id/fotos/:foto_id` | dono/admin |
 | POST/PATCH/DELETE | `/:id/pecas[/:peca_id]` | dono/admin |
 | POST | `/:id/finalizar` | dono/admin (gera PDF) |
+| GET | `/:id/destinatarios` | **gestao** — os `condominios.email` do prédio da O.S., ponto de partida do modal de envio |
+| POST | `/:id/enviar-email` | **gestao** — manda a O.S. finalizada ao cliente com o PDF em anexo. Body `{ emails, mensagem? }` |
 
 ⚠️ **`GET /:id` não devolve `assinatura_b64`** — são ~120KB de PNG que o
 técnico rebaixaria no 4G a cada abertura da O.S. O detalhe manda só o
@@ -212,6 +214,17 @@ booleano **`tem_assinatura`**; a imagem sai por `GET /:id/assinatura`, sob
 demanda. Quem exibe assinatura precisa das **duas** chamadas — ler
 `assinatura_b64` do detalhe dá `undefined`, e o front cai no ramo "não
 assinada" numa O.S. assinada (foi o bug de 02/09/2026 no painel admin).
+
+⚠️ **O envio por e-mail não tem dois modos, e o orçamento tem** — não é
+esquecimento. O orçamento oferece "pelo painel" porque existe uma tela onde o
+cliente aprova ou recusa; a O.S. não tem tela nenhuma no painel do cliente, só
+menção no histórico do chamado. Aqui o documento vai **sempre em anexo**, a
+lista de destinatários é **editável** e quem não tem login recebe igual. A
+moldura do e-mail é a mesma do orçamento, por `_molduraEstruturada`. Ver
+[modulos/ordens-servico.md](modulos/ordens-servico.md).
+
+⚠️ **Rascunho não sai daqui** (400): sem a assinatura do responsável o papel
+não vale como comprovante do atendimento.
 
 ---
 

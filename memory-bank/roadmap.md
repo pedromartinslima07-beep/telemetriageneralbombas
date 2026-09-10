@@ -365,6 +365,20 @@ aliases:
     substituído pelo seletor; inventário do parque instalado; alerta de
     garantia.
 
+- **Envio da O.S. por e-mail ao cliente** ✅ — 2026-09-10, migration 086.
+  O orçamento chegava ao cliente por e-mail desde agosto; a O.S. finalizada não
+  tinha caminho nenhum. Botão ✉️ no modal da O.S. (só em O.S. finalizada), PDF
+  sempre em anexo, lista de destinatários editável a partir de
+  `condominios.email`. **Um modo só**, ao contrário do orçamento: não há tela
+  de O.S. no painel do cliente para onde mandar quem recebe. A moldura do
+  e-mail passou a ser compartilhada (`_molduraEstruturada`), então mexer na
+  faixa ou no rodapé mexe nos dois e-mails de uma vez. Fluxo em
+  [`../docs/modulos/ordens-servico.md`](../docs/modulos/ordens-servico.md).
+  - 📋 **Rodar a migration 086 em produção** (`node scripts/migrate.js
+    086_os_envio_email.sql --prod`) — aplicada só no banco de teste até aqui.
+    Sem ela a rota grava numa coluna que não existe e o envio falha depois de o
+    e-mail já ter saído. É a lição da Fase 7E no [`../CLAUDE.md`](../CLAUDE.md).
+
 - **Fase 13 — Ativos Técnicos (VRP, piscina e além)** 📋 — plano recebido de
   fora em 2026-09-01: o chefe do Pedro mandou o `Prompt_Mestre` (28 seções, em
   `.txt` e `.docx` — mesmo conteúdo), o resumo com mapa visual e, horas depois,
