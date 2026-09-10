@@ -151,6 +151,15 @@ lugares para dizer a mesma coisa sobre a mesma bomba.
 pelos estados na ordem do ciclo, então um selo repetiria a mesma palavra — e a
 320px "AGUARDANDO ORÇAMENTO" em mono estourava a placa.
 
+⚠️ **ETIQUETA EM BRANCO NÃO ENTRA NA LISTA** (pedido do Pedro, 10/09/2026).
+`etiqueta_livre` é papel impresso esperando uma bomba: sem prédio, sem apelido,
+sem defeito — a linha nasceria só com o código, e são dezenas por lote. Numa
+tela que responde "onde está esta peça", isso é estoque de adesivo ocupando a
+resposta. O corte é **na carga** (`FORA_DA_LISTA`), não no desenho, para a
+manchete, a contagem de cada grupo e o filtro "Tudo" falarem do mesmo conjunto.
+Elas seguem alcançáveis pelo caminho real: escanear abre a ficha, e é lá que o
+cadastro acontece.
+
 ⚠️ **"Na oficina" é um FILTRO, não um estado**: `oficina`,
 `aguardando_orcamento`, `aguardando_peca` e `em_conserto` querem todos dizer "a
 peça está parada aqui dentro", que é a pergunta de quem abre a tela.

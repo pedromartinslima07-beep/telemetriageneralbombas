@@ -1282,6 +1282,21 @@ nome de lá sem tamanho, sem cor e sem ellipsis (nada no painel do turno
 acusaria). As duas barras do operador divergem enquanto isso durar; levar a
 gaveta para lá exige o `dlgSenha` no `operador-orcamentos.js`, que não o tem.
 
+## ⚠️ No celular a barra é `relative`, nunca `static` (10/09/2026)
+
+Abaixo de 760px a barra deixa de grudar no topo — e a primeira versão fez isso
+com `position:static`, que **joga fora o `z-index:20` dela**. Como `#tela` é
+`position:relative; z-index:1`, tudo que a tela desenha passa a ser pintado por
+cima da **gaveta de conta** (Trocar senha · Sair), que vive dentro da barra.
+
+O sintoma lê como transparência e não é: a gaveta está atrás. Foi visto na tela
+de Equipamentos do técnico, onde a lista começa colada na barra; aqui o defeito
+existia igual e passava despercebido porque o conteúdo começa mais abaixo.
+
+`position:relative` sem deslocamento ocupa o mesmo espaço e devolve o contexto
+de empilhamento. **Toda regra que mexe em `position` da barra precisa levar o
+`z-index` junto.**
+
 ## Regras que não dá para inferir lendo o arquivo
 
 - **`operador.js` não importa nada de `admin.js`.** As duas telas mostram os

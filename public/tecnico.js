@@ -68,9 +68,17 @@ const ESTADOS = [
   { chave: "em_conserto",          rot: "Em conserto" },
   { chave: "pronto",               rot: "Pronta para devolver" },
   { chave: "instalado",            rot: "No prédio" },
-  { chave: "etiqueta_livre",       rot: "Etiqueta em branco" },
   { chave: "baixado",              rot: "Baixada" },
 ];
+
+// ⚠️ ETIQUETA EM BRANCO NÃO ENTRA NA LISTA (10/09/2026, pedido do Pedro).
+// `etiqueta_livre` é papel impresso esperando uma bomba: não tem prédio, nem
+// apelido, nem defeito — a linha nasce com o código e a palavra "sem
+// cadastro", e são dezenas delas por lote. Numa tela que responde "onde está
+// esta peça", isso é estoque de adesivo ocupando a resposta.
+// Elas continuam alcançáveis pelo caminho que a operação usa de verdade:
+// escanear a etiqueta abre a ficha, e ali é onde o cadastro acontece.
+const FORA_DA_LISTA = ["etiqueta_livre"];
 const ROT = Object.fromEntries(ESTADOS.map((e) => [e.chave, e.rot]));
 
 // ⚠️ "NA OFICINA" É UM FILTRO, NÃO UM ESTADO. Quatro estados do banco querem
@@ -97,7 +105,11 @@ async function carregar() {
   const r = await fetch("/equipamentos", { headers: authHeaders() });
   const d = await lerJson(r, "Equipamentos");
   if (!r.ok) throw new Error(d.error || "Erro ao carregar os equipamentos");
-  DADOS = Array.isArray(d) ? d : [];
+  // ⚠️ O CORTE É NA CARGA, não na hora de desenhar: assim a manchete, a
+  // contagem de cada grupo e o filtro "Tudo" falam todos do mesmo conjunto.
+  // Filtrar só no render deixaria "Tudo" mostrando um número que a lista não
+  // tem.
+  DADOS = (Array.isArray(d) ? d : []).filter((e) => !FORA_DA_LISTA.includes(e.status));
   return DADOS;
 }
 
@@ -120,7 +132,9 @@ function nomeDe(e) {
   if (e.apelido) return e.apelido;
   const partes = [e.tipo, e.marca, e.modelo].filter(Boolean);
   if (partes.length) return partes.join(" · ");
-  return "Etiqueta sem cadastro";
+  // Cadastrada e ainda sem apelido nem dados de placa — acontece quando o
+  // técnico registra a retirada com a bomba na mão e preenche o resto depois.
+  return "Sem identificação";
 }
 
 // ⚠️ A PLACA NÃO REPETE O ESTADO. Ele é o cabeçalho do grupo em que a peça

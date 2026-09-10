@@ -7094,6 +7094,34 @@ uso) e não no Safari do iPhone nem no Chrome de Windows.
 `?v=N`: `operador.css` 99 → **105** nos seis HTMLs que a carregam,
 `tecnico.js` até **5**.
 
+### 2026-09-10 (2ª rodada) · A gaveta de conta estava ATRÁS da página
+
+*"confere o botão q abre a troca de senha e o sair, parece q está
+transparente"*. Não estava transparente: estava **atrás**. Abaixo de 760px a
+folha do operador torna a barra `position:static`, e `static` joga fora o
+`z-index:20` dela — enquanto `#tela` é `position:relative; z-index:1`. A gaveta
+(Trocar senha · Sair) vive dentro da barra, então a lista inteira passava a ser
+pintada por cima dela.
+
+`position:relative` no lugar de `static` ocupa exatamente o mesmo espaço (a
+barra continua sem grudar no topo, que é o que a regra queria) e devolve o
+contexto de empilhamento. **Vale para as quatro telas desta folha** — nas do
+operador o defeito é o mesmo e só não tinha sido visto, porque ali o conteúdo
+não começa colado na barra.
+
+⚠️ A pista que enganava: `getComputedStyle` mostrava a gaveta com `isolation:
+isolate` e o gradiente do `::before` no lugar, tudo certo. O que decidia era o
+`elementFromPoint` no meio dela, que devolvia o `<h1>` da página.
+
+### E as etiquetas em branco saíram da lista
+
+`etiqueta_livre` é papel impresso esperando uma bomba: sem prédio, sem apelido,
+sem defeito, e dezenas por lote. Numa tela que responde "onde está esta peça",
+era estoque de adesivo ocupando a resposta. O corte é na carga, não no desenho,
+para a manchete e as contagens falarem do mesmo conjunto que a lista mostra.
+
+`?v=N`: `operador.css` → **106**, `tecnico.js` → **6**.
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

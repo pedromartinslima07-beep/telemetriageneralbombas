@@ -2431,7 +2431,17 @@ body.com-ficha{overflow:hidden}
    `--barra-h` redeclarado lá embaixo, junto com o entalhe do iOS; escrevê-la
    aqui de novo era o número mágico que fazia o trilho colar no lugar errado. */
 @media (max-width:760px){
-  .barra{position:static}
+  /* ⚠️ `relative`, NÃO `static` — e a diferença não é de layout, é de PINTURA
+     (10/09/2026). A barra deixa de grudar no topo no celular, que é o que
+     esta linha quer; mas `static` também joga fora o `z-index:20` dela, e o
+     `#tela` é `position:relative; z-index:1`. Resultado: a GAVETA DE CONTA
+     (Trocar senha · Sair) passa a ser pintada POR BAIXO do conteúdo da
+     página — o Pedro viu na tela de Equipamentos, onde a lista começa logo
+     abaixo da barra: "parece q está transparente". Não estava; estava atrás.
+     `relative` sem deslocamento nenhum ocupa o mesmo espaço que `static` e
+     devolve o contexto de empilhamento. Vale para as quatro telas desta
+     folha — nas do operador o defeito é o mesmo e só não tinha sido visto. */
+  .barra{position:relative;z-index:20}
   .barra-in{padding-left:13px;gap:10px}
   .barra-acoes{padding-right:13px}
   .barra-in{min-width:0}
