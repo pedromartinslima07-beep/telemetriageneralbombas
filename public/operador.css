@@ -402,6 +402,10 @@ body{
 /* As duas formas do rótulo de navegação — ver o bloco de celular. */
 .nav-curto{display:none}
 .nav-longo{display:inline}
+/* As duas formas de "Ajuda": palavra na mesa, símbolo no celular. O par vive
+   no bloco de 420px; aqui só o estado de repouso. Ver o `<button>` no HTML
+   para o porquê de o `aria-label` ficar no botão e não nas formas. */
+.nav-sim{display:none}
 
 .marca span{
   font-family:var(--mono);font-size:12px;
@@ -2448,11 +2452,22 @@ body.com-ficha{overflow:hidden}
   .marca{min-width:0}
   /* ⚠️ ALTURA FIXA, E ACABARAM OS DEGRAUS. Aqui a `img` já é o
      `logo-marca.png` (o `<picture>` troca a fonte a 760px), e a marca sozinha
-     mede ~53px de largura contra os 138 do wordmark — 85px devolvidos à
+     mede ~56px de largura contra os 138 do wordmark — 82px devolvidos à
      barra, que é mais do que a sobreposição em qualquer largura de celular
      real. Os dois degraus que existiam abaixo (27px a 420, 22px a 385)
-     existiam SÓ para espremer o wordmark, e saíram com ele. */
-  .marca img{height:34px}
+     existiam SÓ para espremer o wordmark, e saíram com ele.
+
+     ⚠️ 36, E O NÚMERO SAI DA PROPORÇÃO, NÃO DO GOSTO (10/09/2026, pedido do
+     Pedro: "da para deixar a logo um pouco maior?"). Na mesa a marca é 40
+     numa barra de 74 — razão 0,54. A barra do celular tem 64, e 0,54 × 64 dá
+     34,6. Era 34, virou 36: o arredondamento para cima do que a razão pede.
+     Medido, com "Ajuda" em símbolo a barra aguenta até 40 respirando a 390 —
+     mas 40 em 64 é razão 0,63, e a marca passaria a pesar MAIS no celular do
+     que na mesa, que é o contrário do que uma barra apertada quer.
+     ⚠️ E o teto só é 40 por causa do símbolo: com a palavra "Ajuda", a marca
+     em 34 já deixa 9,9px de respiro a 390 e em 40 fica em 0,5. Mexeu num,
+     remeça o outro — `node scripts/medir-barra.js`. */
+  .marca img{height:36px}
   .marca span{display:none}
   .barra-acoes{gap:8px}
   /* ⚠️ Era `display:none`. O chamado que chega por telefone é justamente o
@@ -2486,6 +2501,12 @@ body.com-ficha{overflow:hidden}
   .barra-nav a::before,.barra-nav button::before{
     content:"";position:absolute;top:0;bottom:0;left:-4px;right:-4px;
   }
+  /* ⚠️ O SÍMBOLO PRECISA DE MAIS QUE OS 4px. O desenho mede 20px de largura, e
+     4 de cada lado dariam 28 — bem abaixo do piso de 44 desta folha, que a
+     palavra "Ajuda" alcançava por ter 38 de texto. 12 de cada lado fecham os
+     44 exatos, e continuam sem ocupar UM pixel de layout: quem mede a barra é
+     a caixa do `<svg>`, não o `::before` absoluto. */
+  .barra-nav button:has(.nav-sim)::before{left:-12px;right:-12px}
   .nav-longo{display:none}
   .nav-curto{display:inline}
   /* ⚠️ O NOME DE QUEM ESTÁ LOGADO SAI DA BARRA NO CELULAR (03/09/2026), e é o
@@ -3242,12 +3263,21 @@ body.sem-trilho #tela{width:100%}
    `display:none` daqui. */
 @media (max-width:420px){
   /* UMA LINHA, apertada o suficiente para caber com folga em vez de por 3px.
-     A marca cede 4px de altura, o `gap` da nav 2 e cada recuo 3 — juntos são
-     ~15px, e é o que transforma "cabe por 3px a 375" em "cabe com 22 a 390". */
+     O `gap` da nav cede 2px e cada recuo 3 — e o que paga a marca é a troca de
+     "Ajuda" pelo símbolo, logo abaixo. */
   .barra-in{display:flex;padding-left:10px}
-  .marca img{height:30px}
   .barra-acoes{padding-right:10px}
   .barra-nav{gap:8px}
+  /* ⚠️ "AJUDA" VIRA SÍMBOLO NO CELULAR, e é o que compra os 18px da marca.
+     A calibragem de 28/08 protege "Aprovados" e "Preventivas" — navegação
+     para quem tem pouca familiaridade com computador. Ajuda não leva a outra
+     tela: abre uma leitura, e a interrogação em círculo é o desenho mais
+     reconhecido que existe. Autorizado pelo Pedro em 10/09.
+     ⚠️ Vale nas DUAS formas da barra (uma e duas linhas). Abaixo de 390 a
+     palavra caberia na linha da nav, mas "no celular Ajuda é um símbolo" é
+     regra melhor do que "o símbolo aparece só entre 390 e 420px". */
+  .barra-nav .nav-rot{display:none}
+  .barra-nav .nav-sim{display:block;width:20px;height:20px}
   /* ⚠️ A MAIOR DISTÂNCIA TEM DE SER A QUE SEPARA OS GRUPOS. Sem esta margem a
      nav encosta no "+ Novo chamado" pelo `gap:6px` do `.barra-acoes` — menos
      do que os 8px entre "Aprovados" e "Preventivas" —, e a barra vira uma

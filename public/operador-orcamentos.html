@@ -25,7 +25,7 @@
      deixar telas irmãs divergirem: `cliente-orcamentos.html` carrega o
      `cliente.css` pelo mesmo motivo. Só o bloco `.orc-*` é exclusivo daqui,
      e ele mora no operador.css junto com o resto. -->
-<link rel="stylesheet" href="/static/operador.css?v=107">
+<link rel="stylesheet" href="/static/operador.css?v=108">
 </head>
 <!-- `sem-trilho`: esta tela não tem a coluna do mapa, então a barra volta a
      dividir a largura por `--area-max` sozinho. Ver o bloco no operador.css. -->
@@ -76,7 +76,27 @@
     <nav class="barra-nav" aria-label="Telas do operador">
       <a href="/operador/painel"><span class="nav-longo">A fila do turno</span><span class="nav-curto">Turno</span></a>
       <a href="/operador/painel/preventivas">Preventivas</a>
-      <button type="button" data-acao="ajuda">Ajuda</button>
+      <!-- ⚠️ NO CELULAR "AJUDA" É UM SÍMBOLO, e isto NÃO revoga a calibragem de
+           28/08 — ela protege "Aprovados" e "Preventivas", que são navegação
+           para quem tem pouca familiaridade com computador. Ajuda não leva a
+           outra tela: abre uma leitura, e a interrogação em círculo é o
+           desenho mais reconhecido da interface inteira.
+           O que a troca compra está medido: 18px, que é o que faz a LOGO
+           caber em 36px em vez de 30 sem espremer a barra (pedido do Pedro em
+           10/09, "da para deixar a logo um pouco maior?"). Autorizado por ele
+           na mesma conversa: "se quiser criar um simbolo pra ajuda inves da
+           palavra fica a vontade".
+           ⚠️ O `aria-label` fica no BOTÃO, não nas duas formas: assim o leitor
+           de tela lê "Ajuda" nas duas larguras, sem depender de qual filho
+           está visível. Por isso aqui NÃO se usa o par `.nav-longo`/
+           `.nav-curto` dos rótulos de tela — lá as duas formas são texto e a
+           regra é outra. -->
+      <button type="button" data-acao="ajuda" aria-label="Ajuda">
+        <span class="nav-rot">Ajuda</span>
+        <!-- interrogação em círculo, no traço da folha: ponta quadrada, junta
+             em esquadro. Nada de ícone de biblioteca. -->
+        <svg class="nav-sim" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.2 9.2a2.9 2.9 0 0 1 5.6 1c0 1.9-2.8 2.4-2.8 4"/><path d="M12 17.4v.2"/></svg>
+      </button>
     </nav>
     <!-- ⚠️ A GAVETA DE CONTA, e ela chegou aqui em 04/09/2026 porque
          "Trocar senha" era INALCANÇÁVEL nesta tela — só existia no Turno. O par

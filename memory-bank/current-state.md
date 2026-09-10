@@ -727,6 +727,13 @@ Fluxo e pegadinhas em
     celular e rola para fora. Feita com `display:contents` no `.barra-acoes`,
     sem tocar em HTML. A tela do técnico fica sempre em uma linha (não tem nav)
     e perdeu os três remendos que existiam só para sobreviver à regra antiga.
+  - ⚠️ **"Ajuda" é SÍMBOLO no celular** (10/09), e é o que paga a marca em 36px
+    em vez de 30 — com a palavra, o teto a 390 era 30. Não revoga a calibragem
+    de 28/08: ela protege "Aprovados"/"Preventivas", que são **navegação**;
+    Ajuda abre uma leitura. O `aria-label` fica no `<button>` (leitor de tela lê
+    "Ajuda" nas duas larguras) e o alvo fecha 44px pelo `::before` de 12px de
+    cada lado, porque o desenho tem 20 contra os 38 da palavra. A marca em 36 é
+    a razão do desktop transposta (40/74 = 0,54; × 64 = 34,6), não gosto.
     ⚠️ **Mexeu na barra? `node scripts/medir-barra.js`** — afere as quatro
     telas em seis larguras, sem servidor nem login. Ver
     [painel-operador.md](../docs/modulos/painel-operador.md) e

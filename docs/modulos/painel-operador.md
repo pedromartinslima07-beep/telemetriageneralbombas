@@ -540,6 +540,50 @@ Ninguém perde nada em nenhum dos dois modos: a marca está lá,
 "Aprovados"/"Preventivas" continuam por extenso (a calibragem de 28/08 para
 quem tem pouca familiaridade com computador) e os alvos seguem em 44px.
 
+#### "Ajuda" vira símbolo no celular, e é isso que paga a logo maior
+
+Pedido do Pedro, na mesma conversa: *"da para deixar a logo um pouco maior?"* —
+e, antes disso, a autorização: *"se quiser criar um simbolo pra ajuda inves da
+palavra fica a vontade"*. As duas coisas são a mesma conta.
+
+Com a palavra "Ajuda" na barra, o teto da marca a 390px é **30px** — em 34 já
+sobram só 9,9px entre ela e a nav, e em 40 sobram 0,5. Trocando a palavra pela
+interrogação em círculo, o respiro a 390 vai de 16,2 para **33,9px**, e a marca
+aguenta até 40 respirando:
+
+| altura da marca | com "Ajuda" (respiro a 390) | com o símbolo |
+|---|---|---|
+| 30px | 16,2 ✓ | 33,9 ✓ |
+| 34px | 9,9 | 27,6 ✓ |
+| 36px | 6,8 | 24,4 ✓ |
+| 40px | 0,5 | 18,2 ✓ |
+| 44px | −5,8 ✗ | 11,9 |
+
+⚠️ **Escolhido 36, não 40, e o número sai da proporção.** Na mesa a marca é 40
+numa barra de 74 — razão 0,54. A barra do celular tem 64, e 0,54 × 64 dá 34,6.
+36 é isso arredondado para cima. 40 numa barra de 64 é razão 0,63: a marca
+passaria a pesar **mais** no celular do que na mesa, que é o contrário do que
+uma barra apertada quer. Vale de 421 a 760px também, senão a marca ficaria
+maior no telefone (36) do que no tablet (34).
+
+⚠️ **Isto NÃO revoga a calibragem de 28/08.** Ela protege "Aprovados" e
+"Preventivas", que são **navegação** para quem tem pouca familiaridade com
+computador. Ajuda não leva a outra tela — abre uma leitura —, e a interrogação
+em círculo é o desenho mais reconhecido da interface inteira. É a mesma
+distinção que a folha já fazia ao manter os rótulos e transformar o nome de
+quem está logado em silhueta.
+
+⚠️ **O `aria-label` fica no `<button>`, não nas duas formas.** Assim o leitor de
+tela lê "Ajuda" nas duas larguras, sem depender de qual filho está visível — é
+por isso que aqui **não** se usa o par `.nav-longo`/`.nav-curto` dos rótulos de
+tela, onde as duas formas são texto e a regra é outra.
+
+⚠️ **O alvo de toque do símbolo precisa de mais que os 4px do `::before`.** O
+desenho mede 20px, e 4 de cada lado dariam 28 — bem abaixo do piso de 44 desta
+folha, que a palavra alcançava por ter 38px de texto. São 12 de cada lado
+(`.barra-nav button:has(.nav-sim)::before`), e continuam sem ocupar um pixel de
+layout.
+
 ⚠️ **Os ~46px a mais são baratos AQUI por um motivo específico**: no celular
 esta barra é `position:relative`, não `sticky` (regra de 10/09, ver a gaveta de
 conta). Ela rola para fora e some — a altura é paga uma vez na entrada da tela,

@@ -11885,7 +11885,19 @@ sete larguras, sem servidor nem login. É a resposta ao "MEÇA, não deduza" que
 folha manda: medir tem de ser mais barato do que estimar, senão ninguém mede. Detalhe em
 [`modulos/painel-operador.md`](modulos/painel-operador.md).
 
-`?v=N`: `operador.css` 106 → **107** nas quatro telas que a servem
+**E a logo cresceu, paga pelo símbolo.** *"da para deixar a logo um pouco
+maior?"* — com a palavra "Ajuda" na barra, o teto a 390px era 30px (em 34 já
+sobravam 9,9px de respiro, em 40 sobravam 0,5). Trocando "Ajuda" pela
+interrogação em círculo — autorizado na mesma conversa —, o respiro vai de 16,2
+para 33,9 e a marca aguenta até 40. Escolhido **36**, que é a proporção do
+desktop transposta (40 numa barra de 74 = 0,54; 0,54 × 64 = 34,6): 40 numa barra
+de 64 daria 0,63 e a marca pesaria mais no celular do que na mesa. Não revoga a
+calibragem de 28/08 — ela protege "Aprovados"/"Preventivas", que são navegação;
+Ajuda abre uma leitura. O `aria-label` fica no `<button>` para o leitor de tela
+ler "Ajuda" nas duas larguras, e o `::before` do alvo vai a 12px de cada lado
+para fechar os 44 (o desenho tem 20px; a palavra tinha 38).
+
+`?v=N`: `operador.css` 106 → **108** nas quatro telas que a servem
 (`operador.html`, `operador-orcamentos.html`, `operador-preventivas.html`,
 `tecnico.html`). `sw.js` não muda — não há endpoint novo.
 
