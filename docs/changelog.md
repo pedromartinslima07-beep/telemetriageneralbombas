@@ -11859,7 +11859,7 @@ lá. Sem ela o `forcar` viraria "apaga tudo" no primeiro refactor.
 `?v=N`: `admin.js` 348 → **349**, `admin.css` 258 → **259**.
 
 
-### 2026-09-10 (5ª rodada) · A logo volta à barra do operador, em duas linhas
+### 2026-09-10 (5ª rodada) · A logo volta à barra do operador
 
 Relato do Pedro, no PWA instalado do operador: *"não está aparecendo a logo"*,
 *"aprovados, preventiva e ajuda grudados a esquerda"*. Não era cache — era a
@@ -11881,8 +11881,8 @@ a marca, em uma linha só.
 
 Novo: **`scripts/medir-barra.js`** — monta o header real das quatro telas com o
 `operador.css` real num Chrome e afere estouro, altura, logo e alvos de 44px em
-seis larguras, sem servidor nem login. É a resposta ao "MEÇA, não deduza" que a
-folha manda e que esta rodada mostrou não estar sendo seguido. Detalhe em
+sete larguras, sem servidor nem login. É a resposta ao "MEÇA, não deduza" que a
+folha manda: medir tem de ser mais barato do que estimar, senão ninguém mede. Detalhe em
 [`modulos/painel-operador.md`](modulos/painel-operador.md).
 
 `?v=N`: `operador.css` 106 → **107** nas quatro telas que a servem

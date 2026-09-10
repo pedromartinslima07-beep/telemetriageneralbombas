@@ -6,10 +6,14 @@
 // Para que serve: a barra dessas telas é a peça mais apertada do sistema —
 // marca + até três links de texto + duas ações de 44px numa largura de
 // telefone. Toda vez que alguém mexeu no que há dentro dela, a conta foi
-// refeita À MÃO no comentário do `operador.css`, e em 10/09/2026 descobriu-se
-// que a conta anotada estava errada em 21px: o arquivo dizia "6px de
-// sobreposição a 390" quando o buraco real era de 27. A regra que saiu de lá
-// ("MEÇA, não deduza") só vale se medir for barato. É isto aqui.
+// refeita À MÃO num comentário do `operador.css`, e em 10/09/2026 ficou claro
+// que NENHUMA das contas anotadas batia: a de 08/09 dizia "6px de sobreposição
+// a 390" (na verdade sobravam 12), e a que a substituiu dizia "a barra pede
+// 417,1px" (somava os recuos laterais duas vezes). Uma delas mandava, na linha
+// seguinte, "MEÇA, não deduza".
+//
+// A moral não é que as pessoas erram conta — é que **medir precisa ser mais
+// barato do que estimar**, senão ninguém mede. É isto aqui.
 //
 // O que ele faz: monta o `<header class="barra">` REAL de cada tela — lido do
 // próprio HTML, não copiado — com o `operador.css` REAL, num Chrome, e
@@ -43,7 +47,7 @@ const TELAS = [
 
 // Larguras de telefone real, em CSS px. 320 é o piso histórico (iPhone SE 1ª
 // geração); 430 é o iPhone Pro Max, já acima do limiar de 420 da folha.
-const LARGURAS = [320, 360, 375, 390, 412, 430];
+const LARGURAS = [320, 360, 375, 376, 390, 412, 430];
 
 const RETRATOS = Number(process.env.RETRATOS ?? 1);
 

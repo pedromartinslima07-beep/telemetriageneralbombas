@@ -484,7 +484,7 @@ pelo mesmo motivo: no celular o nome é conferência, não operação. Fecha com
 **zero sobreposição de 360px para cima** nas três telas. 320px segue fora, limite
 conhecido.
 
-### A barra vira duas linhas no celular (10/09/2026)
+### A marca volta à barra no celular (10/09/2026)
 
 Relato do Pedro, no PWA instalado: *"não está aparecendo a logo"* e
 *"aprovados, preventiva e ajuda grudados a esquerda"*. Não era cache nem bug —
@@ -492,28 +492,53 @@ era a regra de 08/09, que escondia a `.barra-in` inteira abaixo de 420px
 ("sai a marca, não as palavras"). Sem a marca ocupando o começo, o
 `width:100%` + `space-between` que vinha junto jogava a nav na borda esquerda.
 
-⚠️ **A conta anotada no `operador.css` estava errada em 21px.** O comentário
-dizia "6px de sobreposição a 390, 36 a 360 e 53 a 320". Remedido com a folha
-de verdade, a barra pede **417,1px numa linha só**:
+⚠️ **NENHUMA das contas anotadas batia — nem a antiga, nem a primeira que
+escrevi no lugar dela.** A de 08/09 dizia "6px de sobreposição a 390"; na
+verdade **sobravam** 12. A que a substituiu dizia "a barra pede 417,1px" e
+somava os recuos laterais duas vezes (a largura medida das ações já os
+inclui). Duas contas de cabeça seguidas, as duas erradas, sob um comentário
+que mandava medir.
 
-| Peça | Largura |
-|---|---|
-| nav (Aprovados 70,9 · Preventivas 76,2 · Ajuda 37,7 + gap 10) | 204,8 |
-| "+ Novo chamado" e conta, em 44 cada, com gaps de 6 | 100 |
-| marca (`logo-marca.png` a 34px de altura) | 53,3 |
-| recuos 13 + 12, gap da `.barra-in` 10 | 35 |
-| **total** | **417,1** |
+O número medido — estouro real (`scrollWidth - innerWidth`) e sobreposição real
+(borda direita da marca contra borda esquerda das ações), com a marca em 34px e
+os gaps de então:
 
-Não existe telefone com essa largura — o 430 do iPhone Pro Max já está acima do
-limiar de 420 e nunca entrou nesta regra. Ou seja, **encolher o logo nunca ia
-resolver**: a 390 ainda faltam 27px com ele em 34, e 11 com ele em 24, que é
-tamanho de miniatura ilegível.
+| | painel (tem "+ Novo chamado") | Aprovados / Preventivas |
+|---|---|---|
+| 320px | falta 47 | folga 26 / 31 |
+| 360px | falta 18 | folga 66 / 71 |
+| 375px | falta 3 | folga 81 / 86 |
+| 390px | **folga 12** | folga 96 / 101 |
+| 412px | **folga 34** | folga 118 / 123 |
 
-A largura acabou, então o que cede é a **altura**. A barra vira duas linhas
-abaixo de 420px — linha 1 marca · "+ Novo chamado" · conta, linha 2 as três
-telas — e ninguém perde nada: a marca volta, "Aprovados"/"Preventivas"
-continuam por extenso (a calibragem de 28/08 para quem tem pouca familiaridade
-com computador) e os alvos seguem em 44px.
+Ou seja: **uma linha cabe, e cabe em quase todo telefone.** Aprovados e
+Preventivas cabem em toda largura até 320 — elas não têm o "+ Novo chamado".
+Quem aperta é o painel do turno, e só embaixo.
+
+Então a folha faz as duas coisas, cada uma onde a medida manda:
+
+- **De 390 a 420px: uma linha** — que é o que o Pedro pediu ("tem q ficar tudo
+  na mesma linha"). Para caber com folga em vez de por 3px, a marca vai a 30px,
+  o `gap` da nav a 8 e os recuos a 10.
+- **Abaixo de 390px: duas linhas** — marca · "+ Novo chamado" · conta em cima,
+  as três telas embaixo. Não é escolha, é o que sobra.
+
+⚠️ **O limiar é onde a barra RESPIRA, não onde ela apenas não estoura.** Medido,
+o painel cabe em uma linha desde 376px — mas a 376 a marca fica a 8px de
+"Aprovados", a mesma distância que separa os rótulos entre si, e a barra lê
+como uma fileira indiferenciada de cinco coisas. A 390 sobram 22, que pagam os
+6px de separação entre os grupos e ainda deixam 16 entre marca e nav. 390
+também é a largura da família iPhone 12–16; 375 é o SE/8 e o mini, 360 a
+maioria dos Android.
+
+⚠️ **A maior distância tem de ser a que separa os grupos.** Sem a margem de 6px
+na nav, ela encosta no "+ Novo chamado" pelo `gap:6px` do `.barra-acoes` —
+menos do que os 8px entre "Aprovados" e "Preventivas" —, e "Ajuda" lê como
+vizinha do botão em vez de última das três telas.
+
+Ninguém perde nada em nenhum dos dois modos: a marca está lá,
+"Aprovados"/"Preventivas" continuam por extenso (a calibragem de 28/08 para
+quem tem pouca familiaridade com computador) e os alvos seguem em 44px.
 
 ⚠️ **Os ~46px a mais são baratos AQUI por um motivo específico**: no celular
 esta barra é `position:relative`, não `sticky` (regra de 10/09, ver a gaveta de
@@ -542,11 +567,13 @@ não há nav nem "Novo chamado", e as duas células colapsam sozinhas.
 
 #### O medidor
 
-⚠️ **`node scripts/medir-barra.js` — MEÇA, NÃO DEDUZA.** Foi deduzindo que a
-conta antiga errou por 21px. O script monta o `<header class="barra">` real de
-cada uma das quatro telas — lido do próprio HTML, não copiado — com o
+⚠️ **`node scripts/medir-barra.js` — MEÇA, NÃO DEDUZA.** Duas contas de cabeça
+seguidas erraram esta barra, e a moral não é que gente erra conta: é que
+**medir precisa ser mais barato do que estimar**, senão ninguém mede. O script
+monta o `<header class="barra">` real de cada
+uma das quatro telas — lido do próprio HTML, não copiado — com o
 `operador.css` real num Chrome, e pergunta ao layout quanto cada peça ocupa em
-320 · 360 · 375 · 390 · 412 · 430. Reporta estouro horizontal, altura da barra,
+320 · 360 · 375 · 376 · 390 · 412 · 430. Reporta estouro horizontal, altura da barra,
 presença e posição do logo, e todo alvo de toque abaixo de 44px (contando o
 `::before` que alarga a área de clique sem ocupar layout). Sai com código 1 se
 alguma largura falhar, e grava retratos em `tmp-barra/` (`RETRATOS=0` desliga).

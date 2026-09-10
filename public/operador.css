@@ -3184,7 +3184,7 @@ body.sem-trilho #tela{width:100%}
 @media (max-width:420px){
   .barra-acoes{gap:6px}
 }
-/* ── E ABAIXO DE 420px A BARRA VIRA DUAS LINHAS ─────────────────────
+/* ── A MARCA VOLTA À BARRA NO CELULAR (10/09/2026) ──────────────────
    ⚠️ AQUI MOROU "A MARCA SAI DE VEZ", DE 08 A 10/09/2026, E A DECISÃO FOI
    REVOGADA PELO PEDRO ("preciso da logo"). O bloco antigo escondia a
    `.barra-in` inteira abaixo de 420px, e o sintoma que ele produzia foi
@@ -3192,29 +3192,85 @@ body.sem-trilho #tela{width:100%}
    esquerda" — sem a marca ocupando o começo, o `width:100%` +
    `space-between` que vinha junto jogava a nav na borda.
 
-   ⚠️ E A CONTA ESTAVA ERRADA NO ARQUIVO. O comentário antigo dizia "6px de
-   sobreposição a 390, 36 a 360 e 53 a 320". Medido de novo em 10/09 com esta
-   folha, montando o header do `operador.html` num Chrome e perguntando ao
-   layout (`scripts/medir-barra.js`), o buraco é MUITO maior:
+   ⚠️ E A CONTA ANOTADA NO ARQUIVO NUNCA VALEU — NEM A ANTIGA, NEM A PRIMEIRA
+   QUE ESCREVI NO LUGAR DELA. O comentário de 08/09 dizia "6px de sobreposição
+   a 390, 36 a 360 e 53 a 320". A minha, de 10/09, dizia "a barra pede 417,1px"
+   — e estava inflada: eu somava a largura das ações (que JÁ INCLUI os recuos
+   laterais) mais os recuos de novo. Duas contas de cabeça seguidas, as duas
+   erradas, sob um comentário que manda medir. Daí o `scripts/medir-barra.js`.
 
-     nav 204,8 (Aprovados 70,9 · Preventivas 76,2 · Ajuda 37,7 + gap 10)
-     + Novo 44 + conta 44 + gaps 6+6  →  ações = 328,8
-     + marca 53,3 + recuos 13/12 + gap 10  →  a barra pede 417,1px
+   O NÚMERO MEDIDO, com o estouro real (`scrollWidth - innerWidth`) e a
+   sobreposição real (borda direita da marca contra borda esquerda das ações),
+   em vez de soma à mão:
 
-   417 numa linha só. Não existe telefone com essa largura: o 430 do iPhone
-   Pro Max já está acima do limiar de 420 e nunca entrou nesta regra. Ou seja,
-   **encolher o logo nunca ia resolver** — a 390 ainda faltam 27px com o logo
-   em 34, e 11 com ele em 24, que é tamanho de miniatura ilegível.
+     |        | painel (tem "+ Novo chamado") | Aprovados / Preventivas |
+     | 320px  | falta 47                      | folga 26 / 31           |
+     | 360px  | falta 18                      | folga 66 / 71           |
+     | 375px  | falta 3                       | folga 81 / 86           |
+     | 390px  | FOLGA 12                      | folga 96 / 101          |
+     | 412px  | FOLGA 34                      | folga 118 / 123         |
 
-   A largura acabou. O que sobra é a SEGUNDA LINHA, e ela é barata aqui por um
-   motivo específico: no celular esta barra é `position:relative`, não
-   `sticky` (ver a regra de 760px lá em cima) — ela rola para fora e some. Os
-   ~46px a mais são pagos uma vez na entrada da tela, não o turno inteiro.
+   Ou seja: **uma linha só cabe, e cabe em quase todo telefone.** Aprovados e
+   Preventivas cabem em TODA largura, até 320 — elas não têm o "+ Novo
+   chamado". Quem aperta é o painel do turno, e só abaixo de 376px.
 
-   Linha 1: marca · + Novo chamado · conta.  Linha 2: as três telas.
-   Ninguém cede nada — a marca volta, "Aprovados"/"Preventivas" continuam
-   escritos por extenso (calibragem de 28/08, para quem tem pouca
-   familiaridade com computador), e os alvos seguem em 44px.
+   Então a folha faz as duas coisas, cada uma onde a medida manda:
+   **de 376 a 420px, uma linha** (é o que o Pedro pediu: "tem q ficar tudo na
+   mesma linha") — e para ela caber com folga confortável em vez de por 3px, a
+   marca vai a 30, o `gap` da nav a 8 e os recuos a 10.
+   **Abaixo de 376px, duas linhas** — marca · "+ Novo chamado" · conta em
+   cima, as três telas embaixo. Não é escolha, é o que sobra: a 320 faltam
+   47px, que é praticamente a marca inteira.
+
+   ⚠️ A SEGUNDA LINHA SÓ É BARATA AQUI por um motivo específico: no celular
+   esta barra é `position:relative`, não `sticky` (ver a regra de 760px lá em
+   cima) — ela rola para fora e some. Os ~46px a mais são pagos uma vez na
+   entrada da tela, não o turno inteiro. Em barra fixa a conta seria outra.
+
+   ⚠️ E O 376 NÃO É NÚMERO REDONDO ESCOLHIDO A DEDO: é onde o painel passa a
+   caber, medido. 375 é o iPhone SE/8 e o mini; 390 é a família 12–16. Mexeu no
+   que há dentro da barra? Rode o medidor — o limiar muda com o conteúdo.
+
+   Ninguém cede nada em nenhum dos dois modos: a marca está lá, "Aprovados"/
+   "Preventivas" continuam escritos por extenso (calibragem de 28/08, para quem
+   tem pouca familiaridade com computador), e os alvos seguem em 44px.
+
+   ⚠️ Vale para as QUATRO telas da folha. O técnico (`body.tela-equip`) não tem
+   nav nem "+ Novo chamado", então ele cabe em uma linha em toda largura e nem
+   chega no modo de duas — por isso ganhou a marca de volta no bloco `.eq-*`,
+   em vez de continuar com a exceção que existia só para sobreviver ao
+   `display:none` daqui. */
+@media (max-width:420px){
+  /* UMA LINHA, apertada o suficiente para caber com folga em vez de por 3px.
+     A marca cede 4px de altura, o `gap` da nav 2 e cada recuo 3 — juntos são
+     ~15px, e é o que transforma "cabe por 3px a 375" em "cabe com 22 a 390". */
+  .barra-in{display:flex;padding-left:10px}
+  .marca img{height:30px}
+  .barra-acoes{padding-right:10px}
+  .barra-nav{gap:8px}
+  /* ⚠️ A MAIOR DISTÂNCIA TEM DE SER A QUE SEPARA OS GRUPOS. Sem esta margem a
+     nav encosta no "+ Novo chamado" pelo `gap:6px` do `.barra-acoes` — menos
+     do que os 8px entre "Aprovados" e "Preventivas" —, e a barra vira uma
+     fileira só de cinco coisas: "Ajuda" lê como vizinha do botão, não como a
+     última das três telas. 6 + 6 = 12 contra 8 de dentro do grupo. */
+  .barra-nav{margin-right:6px}
+}
+/* ── E ABAIXO DE 390px, A SEGUNDA LINHA ─────────────────────────────
+   ⚠️ O LIMIAR É ONDE A BARRA RESPIRA, NÃO ONDE ELA APENAS NÃO ESTOURA. Medido,
+   o painel do turno cabe em uma linha desde 376px — mas lá a marca fica a 8px
+   de "Aprovados", a mesma distância que separa os rótulos entre si, e a barra
+   inteira lê como uma fileira indiferenciada. A 390 sobram 22, que é o que
+   paga os 6px de separação dos grupos acima e ainda deixa 16 entre marca e
+   nav. 390 também é a largura da família iPhone 12–16, que é o telefone da
+   cena; 375 é o SE/8 e o mini, 360 a maioria dos Android.
+
+   Abaixo disso não é escolha, é o que sobra: a 360 faltam 18px e a 320, 47 —
+   praticamente a marca inteira.
+
+   Aprovados, Preventivas e o técnico caberiam em uma linha até 320 (elas não
+   têm o "+ Novo chamado"), mas as telas do operador são A MESMA BARRA para
+   quem usa: uma trocando de forma no meio do turno enquanto as outras não é
+   pior do que todas trocando juntas.
 
    ⚠️ `display:contents` NO `.barra-acoes` É O TRUQUE, e é o que permite não
    tocar em nenhum HTML: a `.barra-nav` é NETA da `.barra`, e `grid-area` só
@@ -3223,17 +3279,8 @@ body.sem-trilho #tela{width:100%}
    Consequência: `.barra-acoes` deixa de gerar caixa, então o `padding` e o
    `gap` DELA morrem — quem os substitui é o `column-gap` do grid e a margem
    direita do `.eu` logo abaixo. Seletor descendente (`.barra-acoes .btn`)
-   continua valendo; só a caixa some.
-
-   ⚠️ Vale para as QUATRO telas da folha. Painel, Aprovados e Preventivas têm
-   nav + Novo + conta; o técnico (`body.tela-equip`) não tem nav nem Novo, e
-   as células vazias simplesmente colapsam — por isso ele ganhou a marca de
-   volta no bloco `.eq-*`, em vez de continuar com a exceção que existia só
-   para sobreviver ao `display:none` daqui.
-
-   ⚠️ Mexeu no que há dentro da barra? RODE O MEDIDOR, não deduza — foi
-   deduzindo que a conta antiga errou por 21px. */
-@media (max-width:420px){
+   continua valendo; só a caixa some. */
+@media (max-width:389px){
   .barra{
     display:grid;
     grid-template-columns:1fr auto auto;
@@ -3249,28 +3296,26 @@ body.sem-trilho #tela{width:100%}
     padding-bottom:6px;
   }
   /* 52, não `--barra-h`: a linha 1 não precisa mais dos 64 de uma barra que
-     carregava tudo sozinha, e 52 já folga sobre o logo de 34. */
-  .barra-in{display:flex;grid-area:marca;min-height:52px}
+     carregava tudo sozinha, e 52 já folga sobre o logo de 30. */
+  .barra-in{grid-area:marca;min-height:52px}
   .barra-acoes{display:contents}
   .btn-novo{grid-area:novo}
   /* ⚠️ MARGEM, NÃO PADDING. A gaveta de conta é filha absoluta do `.eu` e se
      ancora em `right:-1px`; padding empurraria a gaveta para dentro junto com
      o botão e ela descolaria da borda. */
-  .barra-acoes .eu{grid-area:conta;margin-right:13px}
+  .barra-acoes .eu{grid-area:conta;margin-right:10px}
   .barra-nav{
     grid-area:nav;
     /* ⚠️ AGRUPADA À ESQUERDA, NÃO `space-between`. O `space-between` era o que
        a regra antiga usava porque lá a fila de alvos ocupava a barra inteira;
-       trazido para a linha própria ele abre ~46px entre os itens a 390 e as
-       três telas passam a ler como três coisas soltas, cada uma encostada num
-       canto — "Ajuda" grudada na borda direita, longe das outras duas. Nav é
-       um grupo: fica junta, e começa no mesmo x da marca da linha de cima.
-       Os 20px são o piso do `clamp(14px,2vw,30px)` do desktop, e cabem: os
-       três rótulos somam 205px com eles, contra os 294 livres a 320. */
+       trazido para a linha própria ele abre ~46px entre os itens e as três
+       telas passam a ler como três coisas soltas, cada uma encostada num canto
+       — "Ajuda" grudada na borda direita, longe das outras duas. Nav é um
+       grupo: fica junta, e começa no mesmo x da marca da linha de cima. */
     justify-content:flex-start;
-    gap:20px;
+    gap:18px;
     /* O recuo que era do `.barra-acoes` — a nav começa no mesmo x da marca. */
-    padding-inline:13px;
+    padding-inline:10px;
   }
 }
 

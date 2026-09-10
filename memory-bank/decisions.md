@@ -1228,15 +1228,18 @@ desenho em camadas original continua válido.
   revogou: *"preciso da logo"*.
   O que a revogação ensinou não foi sobre a marca, foi sobre a **conta**. O
   comentário do `operador.css` afirmava "6px de sobreposição a 390, 36 a 360 e
-  53 a 320" e mandava, na linha seguinte, "MEÇA, não deduza". Remedido, o
-  buraco real era de **27px a 390** — a barra pede 417,1px numa linha, e não
-  existe telefone com essa largura. As três rodadas anteriores (encolher o
-  wordmark, trocar pelo `logo-marca.png`, esconder a marca) foram todas
-  escolhas de **largura**, cada uma aparando um pouco menos do que faltava,
-  porque ninguém tinha medido o total. Com o número certo na mesa, ficou óbvio
-  que nenhuma quantidade de encolhimento resolveria e que a dimensão errada
-  estava sendo negociada: cedeu a **altura**, em duas linhas.
+  53 a 320" e mandava, na linha seguinte, "MEÇA, não deduza". A 390 não havia
+  sobreposição nenhuma: **sobravam 12px**. A marca tinha sido escondida de uma
+  largura em que ela cabia.
+  ⚠️ **E eu errei a segunda conta também**, na primeira tentativa de corrigir a
+  primeira: escrevi "a barra pede 417,1px" somando os recuos laterais duas
+  vezes, e concluí que uma linha era impossível em qualquer telefone. Era
+  possível — cabe de 376px para cima. Duas contas de cabeça seguidas, as duas
+  erradas, cada uma levando a um desenho diferente.
   A regra que fica: **um comentário que manda medir e traz um número à mão é um
-  número à mão.** Virou `scripts/medir-barra.js` — enquanto medir custar mais
-  do que estimar, alguém vai estimar. E: quando três tentativas seguidas atacam
-  a mesma dimensão e nenhuma fecha, o problema provavelmente é a dimensão.
+  número à mão** — e a moral não é que gente erra conta, é que **medir precisa
+  ser mais barato do que estimar**, senão ninguém mede. Virou
+  `scripts/medir-barra.js`, que lê o header real das telas e afere sozinho.
+  A segunda regra: **verificar não é reconferir a própria conta, é medir o
+  resultado.** As três rodadas anteriores e as minhas duas todas "conferiam"
+  aritmética; nenhuma tinha aberto a barra num telefone e perguntado ao layout.

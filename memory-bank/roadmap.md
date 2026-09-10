@@ -121,9 +121,9 @@ aliases:
     11 KB, gerado por `scripts/gerar-logo-marca.js`) e, abaixo de 420px, a marca
     sai inteira. **Zero sobreposição a 320/360/390/412/430/600** nas três telas.
     - ⚠️ **A 2ª etapa foi REVOGADA em 10/09** — *"preciso da logo"*. E a conta
-      desta rodada estava errada em 21px: remedido, o buraco a 390 era de 27,
-      não 6, e a barra pede 417,1px numa linha. Nenhum encolhimento resolveria;
-      a barra virou **duas linhas** abaixo de 420px, com a marca de volta.
+      desta rodada não batia: a 390 não havia sobreposição nenhuma, sobravam
+      12px. Medido, a barra cabe em **uma linha de 390 a 420px** (é o que a
+      folha faz agora) e em duas abaixo disso, onde de fato não cabe.
       Ver [`decisions.md`](decisions.md) e
       [`../docs/modulos/painel-operador.md`](../docs/modulos/painel-operador.md).
   - ✅ **"Ajuda" saiu de 38 para 46px de alvo** nas três telas, sem custar um

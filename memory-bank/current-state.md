@@ -717,15 +717,16 @@ Fluxo e pegadinhas em
     para o Desfazer devolver o plano exato. Não vale "em campo": chamado com
     técnico é serviço andando, e a rota recusa com 409. Ver
     [painel-operador.md](../docs/modulos/painel-operador.md).
-  - ⚠️ **A barra é de DUAS LINHAS no celular abaixo de 420px** (10/09): marca ·
-    "+ Novo chamado" · conta em cima, as três telas embaixo. Substitui a regra
-    de 08/09 que escondia a marca inteira e que o Pedro revogou ("preciso da
-    logo"). A conta real: a barra pede **417,1px numa linha**, largura que
-    telefone nenhum tem — encolher o logo nunca resolveria. Só é barato porque
-    aqui a barra é `position:relative` no celular e rola para fora. Feito com
-    `display:contents` no `.barra-acoes`, sem tocar em HTML. Vale para as
-    quatro telas da folha; a do técnico fica em uma linha (não tem nav) e
-    perdeu os três remendos que existiam só para sobreviver à regra antiga.
+  - ⚠️ **A marca voltou à barra no celular** (10/09), revogando a regra de 08/09
+    que a escondia abaixo de 420px — *"preciso da logo"*. **Uma linha de 390 a
+    420px** (marca 30px, gaps 8, recuos 10) e **duas linhas abaixo de 390**,
+    onde não cabe: a 360 faltam 18px, a 320 faltam 47. O limiar é 390 e não 376
+    (onde já caberia) porque a 376 a marca fica a 8px de "Aprovados", a mesma
+    distância entre os rótulos — cabe, mas lê como fileira indiferenciada.
+    A segunda linha só é barata porque aqui a barra é `position:relative` no
+    celular e rola para fora. Feita com `display:contents` no `.barra-acoes`,
+    sem tocar em HTML. A tela do técnico fica sempre em uma linha (não tem nav)
+    e perdeu os três remendos que existiam só para sobreviver à regra antiga.
     ⚠️ **Mexeu na barra? `node scripts/medir-barra.js`** — afere as quatro
     telas em seis larguras, sem servidor nem login. Ver
     [painel-operador.md](../docs/modulos/painel-operador.md) e
