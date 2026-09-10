@@ -347,6 +347,16 @@ etiqueta a `etiqueta_livre` para ser vinculada de novo.
   coisa) e não encosta em nada. Aí o caminho é a baixa, que preserva. A resposta
   diz **o que** impede de propósito: um "não pode" seco empurra a pessoa a mexer
   no banco na mão.
+- ⚠️ **`forcar: true` é a exceção estreita, e ela tem limite.** O primeiro caso
+  real (990H-3TJP, 10/09/2026) foram **três cliques da mesma pessoa em um minuto
+  e meio** — cadastro, entrada na oficina, aguardando peça — e a regra acima
+  recusou por "2 movimentações além do cadastro". Aquilo não era histórico, era
+  alguém andando pelo fluxo na etiqueta errada. Com a flag o admin master passa
+  por cima das **movimentações, e só delas**: foto, chamado, orçamento e O.S.
+  recusam mesmo forçando, porque aí existe trabalho de outra pessoa pendurado —
+  apagar isso não é desfazer um engano, é sumir com o serviço de alguém. O 409
+  devolve **`pode_forcar`** para o front não precisar deduzir a regra do
+  servidor pela contagem, e o painel só então faz a segunda pergunta.
 - **O código vai no body e tem que bater com o do `:id`.** É a mesma trava do
   "digite o nome do lote", só que no servidor: id errado na URL zeraria a ficha
   da bomba errada, e o `.env` aponta para produção.

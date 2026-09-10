@@ -11688,6 +11688,36 @@ duas recusas por histórico. Passou inteiro.
 intercepta `POST`.
 
 
+### 2026-09-10 (4ª rodada) · O primeiro uso real mostrou o limite da regra
+
+O 990H-3TJP, a etiqueta que motivou a rodada anterior, foi recusado: "2
+movimentações além do cadastro". Olhando o banco de produção (só leitura), as
+três movimentações eram da **mesma pessoa, dentro de um minuto e meio** —
+cadastro às 13:13:59, entrada na oficina 21 segundos depois, aguardando peça
+mais 24 depois. Sem foto, chamado, orçamento ou O.S. Não era histórico: era
+alguém andando pelo fluxo na etiqueta errada, que é exatamente o caso que a
+rota nasceu para resolver.
+
+Entra o `forcar: true` — **exceção estreita, não afrouxamento**. O admin master
+passa por cima das **movimentações e só delas**. Foto, chamado, orçamento e O.S.
+recusam mesmo com a flag: ali existe trabalho de outra pessoa pendurado, e
+apagar isso não é desfazer um engano, é sumir com o serviço de alguém.
+
+O 409 passou a devolver **`pode_forcar`**. Sem esse campo o front teria que
+deduzir a regra do servidor pela contagem de `impedimentos`, e as duas leituras
+divergiriam no primeiro ajuste. Com ele, o painel faz a segunda pergunta só
+quando existe saída — e a pergunta diz o número de movimentações e avisa que a
+linha do tempo não volta, porque "3 movimentações" tanto pode ser uma bomba que
+rodou a bancada quanto três cliques errados, e quem sabe qual é das duas é a
+pessoa na frente da tela.
+
+Teste: `desfazer-cadastro-etiqueta.test.js` foi de 23 para **29 asserções**,
+incluindo a que garante que **forçar com foto continua 409** e a foto continua
+lá. Sem ela o `forcar` viraria "apaga tudo" no primeiro refactor.
+
+`?v=N`: `admin.js` 348 → **349**, `admin.css` 258 → **259**.
+
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

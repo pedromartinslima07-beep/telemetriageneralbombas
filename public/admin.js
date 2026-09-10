@@ -16708,12 +16708,36 @@ async function _eqDesfazerCadastro() {
     btn.textContent = "Desfazendo…";
     // O código vai junto no body: a rota recusa se não bater com o do id, e é
     // essa a trava contra zerar a ficha da bomba errada.
-    const rr = await fetch(`/equipamentos/${eq.id}/desfazer-cadastro`, {
+    const enviar = (forcar) => fetch(`/equipamentos/${eq.id}/desfazer-cadastro`, {
       method: "POST",
       headers: { "Content-Type": "application/json", ...authHeaders() },
-      body: JSON.stringify({ codigo: eq.codigo }),
+      body: JSON.stringify({ codigo: eq.codigo, forcar }),
     });
-    const dados = await lerRespostaJson(rr, "Desfazer cadastro");
+
+    let rr = await enviar(false);
+    let dados = await lerRespostaJson(rr, "Desfazer cadastro");
+
+    // 409 com `pode_forcar`: o que impede são só movimentações, e o master pode
+    // passar por cima. Vale a segunda pergunta porque é aqui que a diferença
+    // aparece — "3 movimentações" pode ser uma bomba que rodou a bancada ou
+    // alguém que clicou três vezes na etiqueta errada, e quem sabe qual é das
+    // duas é a pessoa na frente da tela, não o servidor.
+    if (rr.status === 409 && dados.pode_forcar) {
+      const n = dados.impedimentos?.movimentacoes || 0;
+      if (confirm(
+        `A etiqueta ${_eqFormatarCodigo(eq.codigo)} tem ${n} movimentação(ões) ` +
+        `além do cadastro.\n\n` +
+        `Não há foto, chamado, orçamento nem O.S. amarrados — só a linha do ` +
+        `tempo. Apagar assim mesmo e devolver a etiqueta ao branco?\n\n` +
+        `Se essa bomba passou de verdade pela bancada, cancele: a linha do ` +
+        `tempo não volta.`
+      )) {
+        rr = await enviar(true);
+        dados = await lerRespostaJson(rr, "Desfazer cadastro");
+      } else {
+        return;   // desistiu — sem alerta de erro em cima, ela já decidiu
+      }
+    }
     if (!rr.ok) {
       // 409 = tem histórico de verdade. Dizer O QUE impede, senão a mensagem
       // vira "não pode" e a pessoa vai mexer no banco na mão.

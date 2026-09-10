@@ -838,6 +838,16 @@ router.delete("/:id", authRequired, gestaoOnly, async (req, res) => {
 // nunca apaga histórico de verdade "porque o admin pediu". Nesse caso o
 // caminho é o DELETE, que inativa e preserva.
 //
+// ⚠️ EXCEÇÃO ESTREITA (`forcar: true`, 10/09/2026): o primeiro caso real de
+// uso mostrou o limite da regra acima. A etiqueta 990H-3TJP levou três cliques
+// da MESMA pessoa em um minuto e meio — cadastro, entrada na oficina, aguardando
+// peça — e a rota recusou por "2 movimentações além do cadastro". Aquilo não era
+// histórico, era alguém andando pelo fluxo na etiqueta errada. Com `forcar` o
+// admin master passa por cima das MOVIMENTAÇÕES, e só delas: foto, chamado,
+// orçamento ou O.S. continuam recusando seco mesmo com a flag, porque aí existe
+// trabalho de outra pessoa pendurado — e apagar isso não é desfazer um engano,
+// é sumir com o serviço de alguém.
+//
 // ⚠️ O código vai no BODY e precisa bater com o do equipamento. É a mesma
 // trava do "digite o nome do lote" do front, só que no servidor: id errado na
 // URL zeraria a ficha da bomba errada, e o `.env` aponta pra produção.
@@ -888,12 +898,23 @@ router.post("/:id/desfazer-cadastro", authRequired, masterAdminOnly, async (req,
       orcamentos: Number(n.orcamentos),
       ordens_servico: Number(n.ordens),
     };
-    if (Object.values(impedimentos).some((v) => v > 0)) {
+    // O que trava mesmo é o trabalho pendurado por OUTRAS pessoas; movimentação
+    // solta o master consegue passar por cima com `forcar`.
+    const { movimentacoes: _movs, ...pendurado } = impedimentos;
+    const temPendurado = Object.values(pendurado).some((v) => v > 0);
+    const forcar = req.body?.forcar === true;
+    if (temPendurado || (impedimentos.movimentacoes > 0 && !forcar)) {
       await client.query("ROLLBACK");
       return res.status(409).json({
-        error: "Esta etiqueta já tem histórico e não pode voltar a ficar em branco. "
-             + "Para tirá-la de circulação, use a baixa.",
+        error: temPendurado
+          ? "Esta etiqueta tem foto, chamado, orçamento ou O.S. amarrados e não pode "
+            + "voltar a ficar em branco. Para tirá-la de circulação, use a baixa."
+          : "Esta etiqueta já tem histórico e não pode voltar a ficar em branco. "
+            + "Para tirá-la de circulação, use a baixa.",
         impedimentos,
+        // Diz ao front se ainda existe saída — sem isto ele teria que deduzir a
+        // regra do servidor pela contagem, e as duas leituras iam divergir.
+        pode_forcar: !temPendurado,
       });
     }
 
@@ -925,7 +946,7 @@ router.post("/:id/desfazer-cadastro", authRequired, masterAdminOnly, async (req,
     await client.query("COMMIT");
     console.log(
       `[equipamentos] desfazer-cadastro: ${eq.codigo} (id ${id}) por ${req.user.id} — `
-      + `${del.rowCount} movimentação(ões) apagada(s)`
+      + `${del.rowCount} movimentação(ões) apagada(s)${forcar ? " [forçado]" : ""}`
     );
     return res.json({ ok: true, equipamento: upd.rows[0], movimentacoes_apagadas: del.rowCount });
   } catch (err) {

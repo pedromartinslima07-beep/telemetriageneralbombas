@@ -428,6 +428,8 @@ Detalhe e o porquê de cada uma em
   lote. Só desfaz o vínculo inicial — com foto, chamado, orçamento, O.S. ou
   movimentação extra responde 409 dizendo o que impede, e aí o caminho é a baixa.
   Sem isso o código ficava queimado, porque o DELETE dá baixa e não libera.
+  ⚠️ `forcar: true` passa por cima **só das movimentações** (o 409 avisa com
+  `pode_forcar`); foto, chamado, orçamento e O.S. recusam mesmo forçando.
 - ⚠️ **A cabeça impressa é barra CHEIA, sem chanfro, com o logo centrado**
   (10/09/2026). O corte de 45° é assinatura de marca **na tela**; no papel
   recortado à tesoura ele lê como defeito de impressão — duas geometrias foram

@@ -62,9 +62,9 @@ const ok = (nome, cond) => r.push([nome, cond]);
       criados.push(id);
       return { id, codigo };
     };
-    const desfazer = (id, codigo, headers = H) =>
+    const desfazer = (id, codigo, headers = H, forcar = undefined) =>
       fetch(`${base}/equipamentos/${id}/desfazer-cadastro`, {
-        method: "POST", headers, body: JSON.stringify({ codigo }),
+        method: "POST", headers, body: JSON.stringify({ codigo, forcar }),
       });
 
     // A etiqueta do caso feliz passa pelo vincular DE VERDADE: é ele que
@@ -157,12 +157,27 @@ const ok = (nome, cond) => r.push([nome, cond]);
     const bodyHist = await rHist.json();
     ok("com histórico → 409", rHist.status === 409);
     ok("diz o que impede", bodyHist.impedimentos?.movimentacoes === 1);
+    ok("avisa que dá pra forçar", bodyHist.pode_forcar === true);
     const bDepois = (await pool.query(
       `SELECT e.status, (SELECT COUNT(*)::int FROM equipamento_movimentacoes m
                           WHERE m.equipamento_id = e.id) AS movs
          FROM equipamentos e WHERE e.id = $1`, [b.id]
     )).rows[0];
     ok("e não encostou no equipamento", bDepois.status === "oficina" && bDepois.movs === 1);
+
+    // A exceção do master: movimentação solta não é trabalho de ninguém
+    // pendurado, e foi o primeiro caso real (três cliques no mesmo minuto).
+    const rForca = await desfazer(b.id, b.codigo, H, true);
+    ok("forçar com só movimentação → 200", rForca.status === 200);
+    const bForcado = (await pool.query(
+      `SELECT e.status, e.condominio_id,
+              (SELECT COUNT(*)::int FROM equipamento_movimentacoes m
+                WHERE m.equipamento_id = e.id) AS movs
+         FROM equipamentos e WHERE e.id = $1`, [b.id]
+    )).rows[0];
+    ok("forçado volta a etiqueta_livre e limpa",
+       bForcado.status === "etiqueta_livre" && bForcado.condominio_id === null
+       && bForcado.movs === 0);
 
     // Foto também segura, mesmo com a movimentação sendo só a do cadastro.
     const c = await novaEtiqueta(3);
@@ -183,6 +198,18 @@ const ok = (nome, cond) => r.push([nome, cond]);
     const bodyFoto = await rFoto.json();
     ok("com foto → 409", rFoto.status === 409);
     ok("aponta a foto", bodyFoto.impedimentos?.fotos === 1);
+    ok("e diz que NÃO dá pra forçar", bodyFoto.pode_forcar === false);
+
+    // A regra que a exceção não pode furar: forçar NÃO passa por cima de
+    // trabalho pendurado. Se passar, o `forcar` virou "apaga tudo".
+    const rFotoForca = await desfazer(c.id, c.codigo, H, true);
+    ok("forçar com foto → 409 mesmo assim", rFotoForca.status === 409);
+    const cDepois = (await pool.query(
+      `SELECT e.status, (SELECT COUNT(*)::int FROM equipamento_fotos f
+                          WHERE f.equipamento_id = e.id) AS fotos
+         FROM equipamentos e WHERE e.id = $1`, [c.id]
+    )).rows[0];
+    ok("a foto continua lá", cDepois.status === "instalado" && cDepois.fotos === 1);
   } catch (e) {
     console.error("ERRO:", e.message);
     process.exitCode = 1;
