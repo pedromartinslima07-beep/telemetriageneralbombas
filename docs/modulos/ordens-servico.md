@@ -105,6 +105,61 @@ intermitente essa é a única pista.
 O PDF já gerado na finalização é reaproveitado; só regenera quando o arquivo
 sumiu, o que acontece porque o filesystem do Railway é efêmero.
 
+#### Em lote: várias O.S., cada uma para o seu prédio
+
+`POST /ordens-servico/enviar-email-lote` recebe `{ ids, mensagem? }` e manda
+**um e-mail por O.S.**, cada um para os endereços do cadastro do **seu próprio
+condomínio**. É o fechamento de semana: o escritório marca as O.S. de vários
+prédios e dispara.
+
+⚠️ **Não é uma mensagem com tudo dentro.** Juntar O.S. de condomínios
+diferentes num envio mandaria o documento de um cliente para a caixa de entrada
+de outro. O teste guarda exatamente isso: dois prédios, dois e-mails, e cada
+`to` com o endereço só do dono.
+
+⚠️ **No lote não se digita endereço, e no envio individual sim.** Na ficha o
+operador escolhe o destino porque está olhando uma O.S.; no lote são vários
+prédios, e um campo de texto só poderia valer para todos — que é o erro que
+este endpoint não pode permitir. Quem precisa de outro endereço usa o ✉️ da
+linha e manda aquela sozinha.
+
+⚠️ **Uma falha não derruba o lote.** Responde **200 com o relatório**
+(`enviadas` e `falhas`), não erro: quando a nona de dez falha, as outras nove
+foram de verdade, e um 500 faria a tela dizer que nada saiu. As falhas vêm
+nomeadas — "18 de 20" sem dizer quais obriga a conferir 20 linhas à mão, e o
+motivo costuma ser resolvível (prédio sem e-mail no cadastro).
+
+⚠️ **Os envios são em série, não em `Promise.all`.** São dezenas de PDFs pelo
+Puppeteer e dezenas de chamadas ao provedor; em paralelo isso derruba a memória
+do container e esbarra no limite de taxa do Resend. Teto de 40 por chamada,
+porque o request precisa terminar.
+
+#### Na tela: o que já foi e o que falta
+
+A pergunta "qual eu já mandei?" só se respondia abrindo uma O.S. por vez. Hoje:
+
+- **Coluna E-mail** na tabela, com três estados. Enviada é fio verde com a data
+  (fato consumado); **"Não enviada" é amarelo cheio**, porque é a única linha
+  que pede ação de quem está olhando; "Sem e-mail" é fio neutro, porque também
+  está pendente mas o que resolve é outra tela (Clientes).
+- **Aba "A enviar"** e **KPI "A enviar ao cliente"** — finalizada, com e-mail no
+  cadastro, e nunca enviada.
+- **Seleção com caixa** na linha e no cabeçalho, barra de lote e um modal que
+  **mostra para onde cada uma vai** antes do clique.
+
+⚠️ **Só entra na seleção o que pode de fato ser enviado.** Marcar rascunho ou
+prédio sem e-mail produziria um relatório cheio de erro previsível. Já enviada
+**não** é impedimento: reenviar é caso real (o síndico apagou, o prédio trocou
+de endereço), e o modal marca essas linhas como "reenvio".
+
+⚠️ **A caixa de seleção não abre a ficha.** A linha inteira é clicável; sem um
+retorno explícito no manipulador, marcar uma O.S. abriria o modal por cima da
+seleção em curso.
+
+⚠️ **A lista precisa devolver `enviado_em` e `condominios.email`.** O primeiro é
+o selo; o segundo é o que decide se a O.S. pode ir em lote — e a tela diz isso
+antes do clique, não depois.
+
 #### Preview sem enviar nada
 
 `node scripts/preview-email-os.js` grava `public/_preview-email-os.html`, aberto

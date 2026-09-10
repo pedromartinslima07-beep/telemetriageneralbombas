@@ -7543,6 +7543,32 @@ body.role-viewer .viewer-only-hide-inline {
 .os-status-final    { background: transparent; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ok) 45%, transparent); color: var(--ok); }
 .os-status-rascunho { background: transparent; box-shadow: inset 0 0 0 1px var(--fio); color: var(--text-dim); }
 
+/* ⚠️ O SELO DE E-MAIL É O TERCEIRO ESTADO DA LINHA, e não repete o STATUS.
+   Status diz a fase do trabalho (rascunho/finalizada); este diz se o documento
+   chegou ao cliente. São perguntas diferentes, e antes desta coluna a segunda
+   só se respondia abrindo a O.S. uma por uma.
+
+   Enviada é de fio verde como "Finalizada" — fato consumado, não pede nada.
+   "Não enviada" é AMARELO CHEIO porque é a única linha da tabela que pede
+   ação de quem está olhando. "Sem e-mail" fica de fio neutro: também está
+   pendente, mas o que resolve é outra tela (Clientes), não este botão. */
+.os-mail-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  --ch-p: 4px; clip-path: var(--corte-p);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: .03em;
+  white-space: nowrap;
+}
+.os-mail-ok   { background: transparent; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ok) 45%, transparent); color: var(--ok); }
+.os-mail-pend { background: var(--amarelo); color: var(--mar-900); }
+.os-mail-sem  { background: transparent; box-shadow: inset 0 0 0 1px var(--fio); color: var(--text-dim); }
+
+/* O checkbox do lote: alvo de clique confortável sem esticar a linha. */
+.os-chk { width: 15px; height: 15px; cursor: pointer; accent-color: var(--amarelo); }
+
 .os-muted { color: var(--muted); font-size: 12px; }
 
 /* ---------- Modal ---------- */

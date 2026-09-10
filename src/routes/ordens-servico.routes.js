@@ -157,6 +157,14 @@ router.get("/", authRequired, gestaoOnly, async (req, res) => {
          os.id, os.numero, os.chamado_id, os.condominio_id, os.tecnico_id,
          os.tipos_servico, os.servico_realizado, os.necessario_retorno,
          os.chegada_em, os.saida_em, os.criado_em, os.finalizada_em,
+         -- ⚠️ O ESTADO DO ENVIO VEM NA LISTA, não só no detalhe (10/09/2026).
+         -- Sem ele a tela não tem como dizer o que já foi para o cliente, e
+         -- "qual eu já mandei?" só se responde abrindo uma por uma.
+         os.enviado_em, os.enviado_para,
+         -- O e-mail do cadastro decide se a O.S. PODE ser enviada em lote: sem
+         -- endereço não há para onde mandar, e a tela precisa dizer isso antes
+         -- do clique, não depois.
+         c.email AS condominio_email,
          COALESCE(NULLIF(c.nome_fantasia,''), c.nome) AS condominio_nome,
          t.nome AS tecnico_nome
        FROM ordens_servico os
@@ -866,6 +874,96 @@ router.get("/:id/pdf", authRequired, osDonoOuAdmin(), async (req, res) => {
   }
 });
 
+// A O.S. com o que o e-mail precisa dizer. Uma consulta só, usada pelo envio
+// individual e pelo lote — se divergirem, um dos dois manda e-mail com dado
+// que o outro não tem.
+const _SQL_OS_PARA_EMAIL = `
+  SELECT os.id, os.numero, os.finalizada_em, os.chegada_em, os.condominio_id,
+         COALESCE(NULLIF(c.nome_fantasia, ''), c.nome) AS condominio_nome,
+         c.email AS condominio_email,
+         t.nome AS tecnico_nome
+    FROM ordens_servico os
+    LEFT JOIN condominios c ON c.id = os.condominio_id
+    LEFT JOIN tecnicos    t ON t.id = os.tecnico_id`;
+
+// Lista de e-mails vinda de texto separado por vírgula, normalizada.
+function _listaEmails(raw) {
+  return String(raw || "")
+    .split(",")
+    .map(e => e.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+/**
+ * Manda UMA O.S. para UMA lista de endereços, e registra o envio.
+ *
+ * Devolve `{ ok: true, enviado_para }` ou `{ ok: false, etapa, erro, code }` —
+ * **não lança**. É o que permite o lote seguir depois de uma falha: no envio
+ * de dez O.S. para dez prédios, a nona falhar não pode apagar as oito que já
+ * saíram nem impedir a décima.
+ *
+ * ⚠️ AS DUAS ETAPAS SÃO SEPARADAS. Gerar o PDF (Puppeteer, que consome memória
+ * e falha de forma intermitente em container apertado) e entregar ao provedor
+ * são problemas diferentes; com os dois no mesmo `catch`, o log diria só "erro
+ * ao enviar" e não daria para saber qual.
+ */
+async function _enviarUmaOS(os, to, mensagem) {
+  // Etapa 1 — o PDF. Reaproveita o arquivo gerado na finalização; só regenera
+  // quando ele sumiu (o filesystem do Railway é efêmero).
+  let pdfBuffer;
+  try {
+    const fpath = path.join(UPLOAD_ROOT, String(os.id), `os-${os.numero}.pdf`);
+    let existe = false;
+    try { await fs.access(fpath); existe = true; } catch {}
+    if (!existe) {
+      console.log(`[email-os] PDF on-demand OS#${os.id}`);
+      await gerarPdfOS(os.id);
+    }
+    pdfBuffer = await fs.readFile(fpath);
+  } catch (errPdf) {
+    console.error(`[email-os] FALHA=pdf os=${os.id} motivo=${errPdf.message}`);
+    return {
+      ok: false,
+      etapa: "pdf",
+      erro: `Não foi possível gerar o PDF (${errPdf.message}). O e-mail não foi enviado.`,
+    };
+  }
+
+  // Etapa 2 — a entrega.
+  try {
+    await sendOrdemServicoCliente({
+      to,
+      numero: os.numero,
+      condominioNome: os.condominio_nome,
+      tecnicoNome: os.tecnico_nome,
+      atendimentoEm: os.chegada_em,
+      finalizadaEm: os.finalizada_em,
+      pdfBuffer,
+      filename: `os-${os.numero || os.id}.pdf`,
+      mensagem: mensagem || null,
+    });
+  } catch (errEnvio) {
+    // `resendCode` vem do helper `_enviar` em services/email.js: é ele que diz
+    // o que fazer (cota, limite de taxa, domínio não verificado, anexo grande
+    // demais). Linha compacta e greppável no log do Railway.
+    console.error(
+      `[email-os] FALHA=envio os=${os.id} code=${errEnvio.resendCode || "?"} ` +
+      `destinos=${to.length} anexo_kb=${Math.round(pdfBuffer.length / 1024)} motivo=${errEnvio.message}`
+    );
+    return { ok: false, etapa: "envio", erro: errEnvio.message, code: errEnvio.resendCode || null };
+  }
+
+  const enviadoPara = to.join(", ");
+  const up = await pool.query(
+    `UPDATE ordens_servico SET enviado_em = NOW(), enviado_para = $2 WHERE id = $1
+      RETURNING enviado_em, enviado_para`,
+    [os.id, enviadoPara]
+  );
+
+  console.log(`[email-os] OK os=${os.id} destinos=${to.length} anexo_kb=${Math.round(pdfBuffer.length / 1024)}`);
+  return { ok: true, ...up.rows[0] };
+}
+
 /**
  * GET /ordens-servico/:id/destinatarios
  *
@@ -913,28 +1011,13 @@ router.get("/:id/destinatarios", authRequired, gestaoOnly, async (req, res) => {
  * como comprovante do atendimento. O próprio `gerarPdfOS` recusa, mas a
  * checagem fica aqui também para o operador receber a explicação em vez de um
  * "erro ao gerar PDF".
- *
- * ⚠️ AS DUAS ETAPAS FALHAM SEPARADO, como no envio de orçamento. Gerar o PDF
- * (Puppeteer, que consome memória e falha de forma intermitente em container
- * apertado) e entregar ao provedor são problemas diferentes; com os dois no
- * mesmo `catch`, o log dizia só "erro ao enviar" e não dava para saber qual.
- * A resposta leva `etapa` para o modal poder dizer o que aconteceu.
  */
 router.post("/:id/enviar-email", authRequired, gestaoOnly, async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
 
   try {
-    const r = await pool.query(
-      `SELECT os.id, os.numero, os.finalizada_em, os.chegada_em, os.condominio_id,
-              COALESCE(NULLIF(c.nome_fantasia, ''), c.nome) AS condominio_nome,
-              t.nome AS tecnico_nome
-         FROM ordens_servico os
-         LEFT JOIN condominios c ON c.id = os.condominio_id
-         LEFT JOIN tecnicos    t ON t.id = os.tecnico_id
-        WHERE os.id = $1`,
-      [id]
-    );
+    const r = await pool.query(`${_SQL_OS_PARA_EMAIL} WHERE os.id = $1`, [id]);
     if (!r.rows.length) return res.status(404).json({ error: "O.S. não encontrada" });
     const os = r.rows[0];
 
@@ -948,11 +1031,7 @@ router.post("/:id/enviar-email", authRequired, gestaoOnly, async (req, res) => {
     // Lá o modo "pelo painel" monta a lista no backend porque o e-mail leva um
     // link que só usuário com login consegue abrir. Aqui vai anexo: quem
     // recebe abre, tendo conta ou não, e quem escolhe é o operador.
-    const emailsRaw = req.body?.emails != null ? String(req.body.emails).trim() : "";
-    const to = emailsRaw
-      .split(",")
-      .map(s => s.trim().toLowerCase())
-      .filter(Boolean);
+    const to = _listaEmails(req.body?.emails);
     if (!to.length) return res.status(400).json({ error: "Informe o e-mail do destinatário." });
 
     const invalidos = to.filter(e => !EMAIL_RE.test(e));
@@ -961,63 +1040,102 @@ router.post("/:id/enviar-email", authRequired, gestaoOnly, async (req, res) => {
     }
 
     const mensagem = req.body?.mensagem != null ? String(req.body.mensagem).trim() : "";
+    const resultado = await _enviarUmaOS(os, to, mensagem);
 
-    // Etapa 1 — o PDF. Reaproveita o arquivo já gerado na finalização; só
-    // regenera quando ele sumiu (filesystem do Railway é efêmero).
-    let pdfBuffer;
-    try {
-      const fpath = path.join(UPLOAD_ROOT, String(id), `os-${os.numero}.pdf`);
-      let existe = false;
-      try { await fs.access(fpath); existe = true; } catch {}
-      if (!existe) {
-        console.log(`[email-os] PDF on-demand OS#${id}`);
-        await gerarPdfOS(id);
-      }
-      pdfBuffer = await fs.readFile(fpath);
-    } catch (errPdf) {
-      console.error(`[email-os] FALHA=pdf os=${id} motivo=${errPdf.message}`);
-      return res.status(500).json({
-        error: `Não foi possível gerar o PDF da O.S. (${errPdf.message}). O e-mail não foi enviado.`,
-        etapa: "pdf",
-      });
+    // A resposta leva `etapa` para o modal poder dizer o que aconteceu — gerar
+    // o documento e entregá-lo falham por motivos diferentes.
+    if (!resultado.ok) {
+      return res.status(500).json({ error: resultado.erro, etapa: resultado.etapa, code: resultado.code || null });
     }
-
-    // Etapa 2 — a entrega.
-    try {
-      await sendOrdemServicoCliente({
-        to,
-        numero: os.numero,
-        condominioNome: os.condominio_nome,
-        tecnicoNome: os.tecnico_nome,
-        atendimentoEm: os.chegada_em,
-        finalizadaEm: os.finalizada_em,
-        pdfBuffer,
-        filename: `os-${os.numero || id}.pdf`,
-        mensagem: mensagem || null,
-      });
-    } catch (errEnvio) {
-      // `resendCode` vem do helper `_enviar` em services/email.js: é ele que
-      // diz o que fazer (cota, limite de taxa, domínio não verificado, anexo
-      // grande demais). Linha compacta e greppável no log do Railway.
-      console.error(
-        `[email-os] FALHA=envio os=${id} code=${errEnvio.resendCode || "?"} ` +
-        `destinos=${to.length} anexo_kb=${Math.round(pdfBuffer.length / 1024)} motivo=${errEnvio.message}`
-      );
-      return res.status(500).json({ error: errEnvio.message, etapa: "envio", code: errEnvio.resendCode || null });
-    }
-
-    const enviadoPara = to.join(", ");
-    const up = await pool.query(
-      `UPDATE ordens_servico SET enviado_em = NOW(), enviado_para = $2 WHERE id = $1
-        RETURNING enviado_em, enviado_para`,
-      [id, enviadoPara]
-    );
-
-    console.log(`[email-os] OK os=${id} destinos=${to.length} anexo_kb=${Math.round(pdfBuffer.length / 1024)}`);
-    return res.json({ ok: true, ...up.rows[0] });
+    return res.json({ ok: true, enviado_em: resultado.enviado_em, enviado_para: resultado.enviado_para });
   } catch (err) {
     console.error("[ordens-servico] POST /:id/enviar-email:", err);
     return res.status(500).json({ error: "Erro ao enviar a O.S. por e-mail" });
+  }
+});
+
+/**
+ * POST /ordens-servico/enviar-email-lote
+ *
+ * Manda VÁRIAS O.S. de uma vez, **cada uma para o e-mail do seu próprio
+ * condomínio**. É o fechamento de mês: o escritório seleciona as O.S. da
+ * semana, de prédios diferentes, e dispara.
+ *
+ * body: { ids: number[], mensagem?: string }
+ *
+ * ⚠️ É UM E-MAIL POR O.S., não um e-mail com tudo dentro. Cada prédio recebe
+ * só o que é dele — juntar O.S. de condomínios diferentes num envio mandaria o
+ * documento de um cliente para a caixa de entrada de outro.
+ *
+ * ⚠️ A LISTA DE DESTINO VEM DO CADASTRO, e aqui não se digita endereço. No
+ * envio individual o operador escolhe para quem vai porque está olhando UMA
+ * O.S.; no lote são dezenas de prédios, e um campo de texto só poderia valer
+ * para todos — que é exatamente o erro que este endpoint não pode permitir.
+ * Quem precisa mandar para um endereço diferente do cadastro usa o envio
+ * individual, que continua editável.
+ *
+ * ⚠️ UMA FALHA NÃO DERRUBA O LOTE. Responde **200 com o relatório**, não erro:
+ * quando a nona de dez falha, as outras nove foram de verdade, e um 500 faria a
+ * tela dizer que nada saiu. As falhas vêm nomeadas — "18 de 20" sem dizer quais
+ * obriga a conferir 20 linhas à mão.
+ */
+router.post("/enviar-email-lote", authRequired, gestaoOnly, async (req, res) => {
+  const ids = Array.isArray(req.body?.ids) ? req.body.ids.map(Number).filter(Number.isInteger) : [];
+  if (!ids.length) return res.status(400).json({ error: "Informe as O.S. a enviar." });
+
+  // Teto: cada envio gera PDF e chama o provedor, e o request tem que terminar.
+  if (ids.length > 40) {
+    return res.status(400).json({ error: "Envie no máximo 40 O.S. por vez." });
+  }
+
+  const mensagem = req.body?.mensagem != null ? String(req.body.mensagem).trim() : "";
+
+  try {
+    const r = await pool.query(`${_SQL_OS_PARA_EMAIL} WHERE os.id = ANY($1::int[])`, [ids]);
+    const porId = new Map(r.rows.map(row => [row.id, row]));
+
+    const enviadas = [];
+    const falhas = [];
+    const registrarFalha = (id, numero, condominio, motivo, etapa) =>
+      falhas.push({ id, numero: numero || null, condominio_nome: condominio || null, erro: motivo, etapa: etapa || "validacao" });
+
+    // ⚠️ EM SÉRIE, não em Promise.all. São dezenas de PDFs pelo Puppeteer e
+    // dezenas de chamadas ao provedor: em paralelo isso derruba a memória do
+    // container e esbarra no limite de taxa do Resend, e o lote falharia todo
+    // por excesso de pressa.
+    for (const id of ids) {
+      const os = porId.get(id);
+      if (!os) { registrarFalha(id, null, null, "O.S. não encontrada"); continue; }
+      if (!os.finalizada_em) {
+        registrarFalha(id, os.numero, os.condominio_nome, "Ainda não finalizada — só depois da assinatura ela vira documento para o cliente.");
+        continue;
+      }
+
+      const to = _listaEmails(os.condominio_email).filter(e => EMAIL_RE.test(e));
+      if (!to.length) {
+        registrarFalha(id, os.numero, os.condominio_nome,
+          os.condominio_id
+            ? "Sem e-mail válido no cadastro do condomínio — cadastre em Clientes ou envie pela ficha."
+            : "O.S. sem condomínio: o destinatário precisa ser digitado na ficha.");
+        continue;
+      }
+
+      const resultado = await _enviarUmaOS(os, to, mensagem);
+      if (resultado.ok) {
+        enviadas.push({
+          id, numero: os.numero, condominio_nome: os.condominio_nome,
+          enviado_em: resultado.enviado_em, enviado_para: resultado.enviado_para,
+        });
+      } else {
+        registrarFalha(id, os.numero, os.condominio_nome, resultado.erro, resultado.etapa);
+      }
+    }
+
+    console.log(`[email-os] LOTE pedidas=${ids.length} enviadas=${enviadas.length} falhas=${falhas.length}`);
+    return res.json({ ok: true, enviadas, falhas });
+  } catch (err) {
+    console.error("[ordens-servico] POST /enviar-email-lote:", err);
+    return res.status(500).json({ error: "Erro ao enviar as O.S. por e-mail" });
   }
 });
 

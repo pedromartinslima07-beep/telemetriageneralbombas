@@ -382,6 +382,11 @@ aliases:
     hora de preencher. É a lição da Fase 7E no [`../CLAUDE.md`](../CLAUDE.md)
     acontecendo de novo, agora com a agravante de que o SELECT quebrado não era
     da funcionalidade nova, e sim de uma tela que já funcionava.
+  - ✅ **Envio em lote + estado do envio na tela** — 2026-09-10, sem migration.
+    Seleção com caixa na tabela e **um e-mail por O.S., cada um para o e-mail
+    do seu próprio condomínio**; coluna E-mail com três estados, aba e KPI
+    "A enviar". Foi o que o Pedro pediu depois de usar a primeira versão: a
+    tela não dizia o que já tinha saído, e mandar era um clique por vez.
 
 - **Fase 13 — Ativos Técnicos (VRP, piscina e além)** 📋 — plano recebido de
   fora em 2026-09-01: o chefe do Pedro mandou o `Prompt_Mestre` (28 seções, em

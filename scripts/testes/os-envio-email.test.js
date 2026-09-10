@@ -20,12 +20,20 @@ const Module = require("module");
 
 // O dublê precisa entrar ANTES do require do router, que carrega o email.js.
 let ultimoPayload = null;
+// No lote interessa a sequência inteira, não só o último: é comparando os dois
+// e-mails que se prova que cada prédio recebeu só o documento dele.
+let acumulador = null;
+const capturarTodos = (arr) => { acumulador = arr; };
 const _load = Module._load;
 Module._load = function (pedido) {
   if (pedido === "resend") {
     return { Resend: class {
       constructor() {
-        this.emails = { send: async (p) => { ultimoPayload = p; return { data: { id: "teste" }, error: null }; } };
+        this.emails = { send: async (p) => {
+          ultimoPayload = p;
+          if (acumulador) acumulador.push(p);
+          return { data: { id: "teste" }, error: null };
+        } };
       }
     } };
   }
@@ -55,6 +63,7 @@ const ok = (nome, cond) => r.push([nome, cond]);
   const server = app.listen(0);
   const base = "http://127.0.0.1:" + server.address().port;
   let osId = null, condoId = null, emailAntes = null, pdfPath = null;
+  let os2Id = null, os3Id = null, condo2Id = null, email2Antes = null;
 
   try {
     const condo = (await pool.query("SELECT id, email FROM condominios ORDER BY id LIMIT 1")).rows[0];
@@ -132,13 +141,87 @@ const ok = (nome, cond) => r.push([nome, cond]);
     ok("gravou enviado_em", Boolean(banco.enviado_em));
     ok("gravou a lista em enviado_para", banco.enviado_para === "sindico@teste.local, zelador@teste.local");
     ok("e a resposta devolve o mesmo", env.enviado_para === banco.enviado_para);
+
+    // ══════════════════════════════════════════════════════════════════════
+    // LOTE — várias O.S., de prédios diferentes, cada uma para o SEU destino
+    // ══════════════════════════════════════════════════════════════════════
+    // ⚠️ ESTA É A ASSERÇÃO QUE IMPORTA: o documento de um cliente não pode
+    // chegar na caixa de entrada de outro. O teste monta dois condomínios com
+    // e-mails distintos e confere PARA ONDE cada e-mail foi.
+    const outro = (await pool.query("SELECT id, email FROM condominios WHERE id <> $1 ORDER BY id LIMIT 1", [condoId])).rows[0];
+    if (outro) {
+      condo2Id = outro.id;
+      email2Antes = outro.email;
+      await pool.query("UPDATE condominios SET email = $2 WHERE id = $1", [condo2Id, "outro-predio@teste.local"]);
+
+      const n2 = "OS-T2-" + String(Date.now()).slice(-9);
+      os2Id = (await pool.query(
+        `INSERT INTO ordens_servico (numero, condominio_id, finalizada_em, chegada_em)
+         VALUES ($1, $2, NOW(), NOW()) RETURNING id`, [n2, condo2Id]
+      )).rows[0].id;
+      const dir2 = path.join(__dirname, "../../uploads/os", String(os2Id));
+      fs.mkdirSync(dir2, { recursive: true });
+      fs.writeFileSync(path.join(dir2, "os-" + n2 + ".pdf"), "%PDF-1.4 teste");
+
+      // Uma terceira, de propósito impossível: rascunho. O lote não pode
+      // derrubar tudo por causa dela.
+      const n3 = "OS-T3-" + String(Date.now()).slice(-9);
+      os3Id = (await pool.query(
+        `INSERT INTO ordens_servico (numero, condominio_id) VALUES ($1, $2) RETURNING id`, [n3, condoId]
+      )).rows[0].id;
+
+      const enviados = [];
+      capturarTodos(enviados);
+      const rLote = await fetch(base + "/ordens-servico/enviar-email-lote", {
+        method: "POST",
+        headers: { Authorization: "Bearer " + tk("admin"), "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: [osId, os2Id, os3Id] }),
+      });
+      const lote = await rLote.json();
+
+      ok("lote responde 200 mesmo com uma impossível", rLote.status === 200);
+      ok("duas enviadas", (lote.enviadas || []).length === 2);
+      ok("uma falha, e é o rascunho", (lote.falhas || []).length === 1 && lote.falhas[0].id === os3Id);
+      ok("a falha diz o motivo", /finalizada/i.test(lote.falhas[0].erro || ""));
+
+      ok("saíram DOIS e-mails, um por O.S.", enviados.length === 2);
+      const doPredio1 = enviados.find(p => (p.subject || "").includes(numero));
+      const doPredio2 = enviados.find(p => (p.subject || "").includes(n2));
+      ok("cada e-mail leva uma O.S. só",
+        doPredio1?.attachments?.length === 1 && doPredio2?.attachments?.length === 1);
+      // O coração do teste.
+      ok("o prédio 1 recebeu só o dele",
+        JSON.stringify(doPredio1?.to) === JSON.stringify(["sindico@teste.local", "zelador@teste.local"]));
+      ok("o prédio 2 recebeu só o dele",
+        JSON.stringify(doPredio2?.to) === JSON.stringify(["outro-predio@teste.local"]));
+      ok("e nenhum viu o documento do outro",
+        !(doPredio1?.html || "").includes(n2) && !(doPredio2?.html || "").includes(numero));
+
+      const b2 = (await pool.query("SELECT enviado_em, enviado_para FROM ordens_servico WHERE id=$1", [os2Id])).rows[0];
+      ok("a segunda ficou registrada com o destino dela", b2.enviado_para === "outro-predio@teste.local");
+      const b3 = (await pool.query("SELECT enviado_em FROM ordens_servico WHERE id=$1", [os3Id])).rows[0];
+      ok("o rascunho não foi marcado como enviado", b3.enviado_em === null);
+    }
+
+    // ── A lista traz o estado do envio, que é o que a tela mostra ─────────
+    const rLista = await fetch(base + "/ordens-servico", { headers: { Authorization: "Bearer " + tk("admin") } });
+    const lista = await rLista.json();
+    const naLista = lista.find(o => o.id === osId);
+    ok("a lista devolve enviado_em", Boolean(naLista && naLista.enviado_em));
+    ok("e o e-mail do cadastro, que decide se dá para enviar em lote",
+      Boolean(naLista && naLista.condominio_email));
   } catch (e) {
     console.error("ERRO:", e.stack);
     process.exitCode = 1;
   } finally {
-    if (osId) await pool.query("DELETE FROM ordens_servico WHERE id=$1", [osId]).catch(() => {});
+    for (const id of [osId, os2Id, os3Id]) {
+      if (id) await pool.query("DELETE FROM ordens_servico WHERE id=$1", [id]).catch(() => {});
+    }
     if (condoId) await pool.query("UPDATE condominios SET email=$2 WHERE id=$1", [condoId, emailAntes]).catch(() => {});
-    if (pdfPath) { try { fs.rmSync(path.dirname(pdfPath), { recursive: true, force: true }); } catch {} }
+    if (condo2Id) await pool.query("UPDATE condominios SET email=$2 WHERE id=$1", [condo2Id, email2Antes]).catch(() => {});
+    for (const id of [osId, os2Id]) {
+      if (id) { try { fs.rmSync(path.join(__dirname, "../../uploads/os", String(id)), { recursive: true, force: true }); } catch {} }
+    }
     server.close();
     await pool.end();
   }

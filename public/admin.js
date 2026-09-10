@@ -11708,6 +11708,7 @@ function _osRenderKpis() {
   inicioMes.setDate(1);
   inicioMes.setHours(0, 0, 0, 0);
   const esteMes = data.filter(o => o.criado_em && new Date(o.criado_em) >= inicioMes).length;
+  const aEnviar = data.filter(_osFaltaEnviar).length;
 
   const kpi = (icon, val, hint, kindCls) => kpiCard(icon, val, hint, kindCls);
 
@@ -11719,7 +11720,32 @@ function _osRenderKpis() {
     kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
         rascunho, "Em rascunho", rascunho > 0 ? "rc-warn" : "rc-neutral") +
     kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`,
-        esteMes, "Este mês", "rc-neutral");
+        esteMes, "Este mês", "rc-neutral") +
+    // ⚠️ O QUE O ESCRITÓRIO AINDA DEVE AO CLIENTE. Finalizada, com e-mail no
+    // cadastro e nunca enviada — a única das quatro contas acima que aponta
+    // para trabalho parado, e por isso ela acende.
+    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>`,
+        aEnviar, "A enviar ao cliente", aEnviar > 0 ? "rc-warn" : "rc-ok");
+}
+
+// ⚠️ O QUE "PODE IR EM LOTE" É REGRA, E ELA MORA AQUI (10/09/2026).
+// Três condições, e as três aparecem na tela antes do clique: a O.S. precisa
+// estar finalizada (sem assinatura não é documento), precisa ter e-mail no
+// cadastro do condomínio (o lote não digita endereço — ver a rota) e é isso.
+// Já enviada NÃO impede: reenviar é caso real (o síndico apagou, trocou o
+// e-mail do prédio), e a tela diz que já foi.
+function _osPodeEnviarLote(o) {
+  return Boolean(o.finalizada_em) && _osDestinoDoCadastro(o).length > 0;
+}
+function _osDestinoDoCadastro(o) {
+  return String(o.condominio_email || "")
+    .split(",")
+    .map(e => e.trim())
+    .filter(Boolean);
+}
+// A O.S. que o escritório ainda deve ao cliente: dá para mandar e nunca foi.
+function _osFaltaEnviar(o) {
+  return _osPodeEnviarLote(o) && !o.enviado_em;
 }
 
 function _osFiltrados() {
@@ -11729,6 +11755,7 @@ function _osFiltrados() {
 
   if (_osTabAtiva === "finalizadas") lista = lista.filter(o => o.finalizada_em);
   if (_osTabAtiva === "rascunho")    lista = lista.filter(o => !o.finalizada_em);
+  if (_osTabAtiva === "a-enviar")    lista = lista.filter(_osFaltaEnviar);
 
   if (q) {
     lista = lista.filter(o => {
@@ -11750,6 +11777,7 @@ function _osRenderTabela() {
   set("osCtTodas",    data.length);
   set("osCtFinal",    data.filter(o => o.finalizada_em).length);
   set("osCtRascunho", data.filter(o => !o.finalizada_em).length);
+  set("osCtAEnviar",  data.filter(_osFaltaEnviar).length);
 
   const lista = _osFiltrados();
   if (!lista.length) {
@@ -11774,7 +11802,26 @@ function _osRenderTabela() {
       ? `<span class="os-status-pill os-status-final">Finalizada</span>`
       : `<span class="os-status-pill os-status-rascunho">Rascunho</span>`;
 
+    // ⚠️ O SELO DE E-MAIL É A RESPOSTA DE "JÁ MANDEI ESTA?", e por isso ele
+    // diz três coisas diferentes em vez de duas. "Não enviada" num rascunho
+    // seria cobrança de algo que ainda nem pode sair; "sem e-mail" é o único
+    // estado que exige ir a outra tela (Clientes) para resolver.
+    const email = !o.finalizada_em
+      ? `<span class="os-muted">—</span>`
+      : o.enviado_em
+        ? `<span class="os-mail-pill os-mail-ok" title="Enviada para ${_waEscaparHtml(o.enviado_para || "")}">✓ ${_osFmtDataCurta(o.enviado_em)}</span>`
+        : _osDestinoDoCadastro(o).length
+          ? `<span class="os-mail-pill os-mail-pend">Não enviada</span>`
+          : `<span class="os-mail-pill os-mail-sem" title="Cadastre o e-mail do condomínio em Clientes">Sem e-mail</span>`;
+
+    // Só entra na seleção o que pode de fato ser enviado — marcar o que vai
+    // falhar é convite para um relatório cheio de erro previsível.
+    const podeLote = _osPodeEnviarLote(o);
+
     return `<tr class="os-row" data-os-id="${o.id}">
+      <td>${podeLote
+        ? `<input type="checkbox" class="os-chk viewer-only-hide" data-os-chk="${o.id}" ${_osSelecionadas.has(o.id) ? "checked" : ""}>`
+        : ""}</td>
       <td><strong>${_waEscaparHtml(o.numero || "—")}</strong></td>
       <td>${_osFmtDataCurta(o.criado_em)}</td>
       <td>${_waEscaparHtml(o.condominio_nome || "—")}</td>
@@ -11782,13 +11829,45 @@ function _osRenderTabela() {
       <td><div class="os-tipos-cell">${tiposHtml}</div></td>
       <td>${resultado}</td>
       <td>${status}</td>
+      <td>${email}</td>
       <td class="right os-acoes-cell">
         <button class="btn btn-sm os-btn-ver" data-os-id="${o.id}" type="button" title="Ver detalhes">👁</button>
         ${o.finalizada_em ? `<button class="btn btn-sm os-btn-pdf" data-os-id="${o.id}" type="button" title="Baixar PDF">📄</button>` : ""}
+        ${o.finalizada_em ? `<button class="btn btn-sm os-btn-email" data-os-id="${o.id}" type="button" title="Enviar por e-mail">✉️</button>` : ""}
       </td>
     </tr>`;
   }).join("");
+
+  // Tira da seleção o que saiu da lista (filtro, aba, busca): manter marcado o
+  // que não está na tela faria o contador falar de O.S. que ninguém vê.
+  const visiveis = new Set(lista.map(o => o.id));
+  for (const id of _osSelecionadas) if (!visiveis.has(id)) _osSelecionadas.delete(id);
+  _osAtualizarBulkBar();
 }
+
+function _osAtualizarBulkBar() {
+  const bar = document.getElementById("osBulkBar");
+  if (!bar) return;
+  const n = _osSelecionadas.size;
+  bar.style.display = n > 0 ? "flex" : "none";
+  const count = document.getElementById("osBulkCount");
+  if (count) count.textContent = `${n} O.S. selecionada${n === 1 ? "" : "s"}`;
+  const btn = document.getElementById("osBulkEmail");
+  if (btn) btn.textContent = `Enviar ${n} por e-mail`;
+
+  const chkAll = document.getElementById("osChkAll");
+  if (chkAll) {
+    // ⚠️ "Todas" quer dizer todas as ENVIÁVEIS da tela, não todas as linhas.
+    // Rascunho e prédio sem e-mail não entram, então marcá-los deixaria o
+    // cabeçalho eternamente em estado intermediário.
+    const alvos = _osFiltrados().filter(_osPodeEnviarLote);
+    const todas = alvos.length > 0 && alvos.every(o => _osSelecionadas.has(o.id));
+    chkAll.checked = todas;
+    chkAll.indeterminate = !todas && alvos.some(o => _osSelecionadas.has(o.id));
+  }
+}
+
+let _osSelecionadas = new Set(); // ids marcados para o envio em lote
 
 let _osEventosBound = false;
 function _osBindEventos() {
@@ -11809,11 +11888,35 @@ function _osBindEventos() {
   document.getElementById("osTableBody")?.addEventListener("click", (e) => {
     const ver = e.target.closest(".os-btn-ver");
     const pdf = e.target.closest(".os-btn-pdf");
+    const mail = e.target.closest(".os-btn-email");
+    const chk = e.target.closest(".os-chk");
+    // ⚠️ O CHECKBOX NÃO ABRE A FICHA. Ele vive dentro da linha, e a linha
+    // inteira é clicável — sem este retorno, marcar uma O.S. abriria o modal
+    // por cima da seleção que a pessoa está fazendo.
+    if (chk) {
+      const id = Number(chk.dataset.osChk);
+      if (chk.checked) _osSelecionadas.add(id); else _osSelecionadas.delete(id);
+      _osAtualizarBulkBar();
+      return;
+    }
     if (ver) { abrirOSDetalhe(Number(ver.dataset.osId)); return; }
     if (pdf) { baixarOSPdf(Number(pdf.dataset.osId)); return; }
+    if (mail) { _osEnviarUmaPelaLista(Number(mail.dataset.osId)); return; }
     const row = e.target.closest(".os-row");
     if (row) abrirOSDetalhe(Number(row.dataset.osId));
   });
+
+  document.getElementById("osChkAll")?.addEventListener("change", (e) => {
+    const alvos = _osFiltrados().filter(_osPodeEnviarLote);
+    if (e.target.checked) alvos.forEach(o => _osSelecionadas.add(o.id));
+    else alvos.forEach(o => _osSelecionadas.delete(o.id));
+    _osRenderTabela();
+  });
+  document.getElementById("osBulkLimpar")?.addEventListener("click", () => {
+    _osSelecionadas.clear();
+    _osRenderTabela();
+  });
+  document.getElementById("osBulkEmail")?.addEventListener("click", _osAbrirEnvioLote);
 
   // Modal
   document.getElementById("osBtnFechar")?.addEventListener("click", fecharOSModal);
@@ -12148,6 +12251,146 @@ async function baixarOSPdf(id) {
 // ============================================================
 // ENVIO POR E-MAIL
 // ============================================================
+
+// O ✉️ da linha: abre a ficha e o modal de envio dela, sem obrigar o operador a
+// entrar na O.S., achar o botão e voltar.
+async function _osEnviarUmaPelaLista(id) {
+  await abrirOSDetalhe(id);
+  if (_osSelecionada?.finalizada_em) _osAbrirEnvioEmail();
+}
+
+// Envio em lote: VÁRIAS O.S., de prédios diferentes, cada uma para o e-mail do
+// seu próprio condomínio.
+//
+// ⚠️ UM E-MAIL POR O.S., E CADA UM PARA O SEU DONO. Não é uma mensagem com
+// tudo dentro: juntar O.S. de condomínios diferentes mandaria o documento de um
+// cliente para a caixa de entrada de outro.
+//
+// ⚠️ AQUI NÃO SE DIGITA ENDEREÇO, e a diferença para o envio individual é de
+// fundo. Na ficha o operador escolhe o destino porque está olhando UMA O.S.;
+// no lote são vários prédios, e um campo de texto só poderia valer para todos.
+// O destino vem do cadastro de cada condomínio — e o modal MOSTRA qual é, para
+// ninguém descobrir depois. Quem precisa de outro endereço usa a ficha.
+async function _osAbrirEnvioLote() {
+  const selecionadas = (_osData || []).filter(o => _osSelecionadas.has(o.id));
+  if (!selecionadas.length) { alert("Selecione ao menos uma O.S."); return; }
+
+  const linhas = selecionadas.map(o => `
+    <tr>
+      <td style="padding:6px 8px 6px 0;white-space:nowrap;"><b>${_waEscaparHtml(o.numero || "—")}</b></td>
+      <td style="padding:6px 8px 6px 0;">${_waEscaparHtml(o.condominio_nome || "—")}</td>
+      <td style="padding:6px 0;color:var(--tinta-2);">${_waEscaparHtml(_osDestinoDoCadastro(o).join(", "))}</td>
+      <td style="padding:6px 0 6px 8px;text-align:right;white-space:nowrap;">${
+        o.enviado_em ? `<span class="os-mail-pill os-mail-ok">reenvio</span>` : ""
+      }</td>
+    </tr>`).join("");
+
+  const reenvios = selecionadas.filter(o => o.enviado_em).length;
+
+  const ov = document.createElement("div");
+  ov.className = "modalOverlay";
+  ov.style.display = "flex";
+  ov.innerHTML = `
+    <div class="modalBox" style="max-width:680px;">
+      <div class="modalHead">
+        <div>
+          <div class="modalTitle">Enviar ${selecionadas.length} O.S. por e-mail</div>
+          <div class="modalSub">Cada uma vai para o e-mail do seu condomínio</div>
+        </div>
+        <button class="btn btn-sm" id="osLoteFechar">Fechar</button>
+      </div>
+      <div class="modalBody">
+        <div class="modalTools"><div class="modalCount" id="osLoteMsg">${
+          reenvios ? `${reenvios} já ${reenvios === 1 ? "tinha sido enviada" : "tinham sido enviadas"} antes.` : ""
+        }</div></div>
+        <form class="formGrid" style="grid-template-columns:1fr;" onsubmit="return false;">
+
+          <div class="f">
+            <span>Vai assim</span>
+            <div style="max-height:280px;overflow:auto;border:1px solid var(--fio-esc);padding:8px 12px;">
+              <table style="width:100%;border-collapse:collapse;font-size:12.5px;">${linhas}</table>
+            </div>
+          </div>
+
+          <label class="f">
+            <span>Mensagem <small style="font-weight:400;color:var(--tinta-2);">(vale para todas; em branco usa o texto padrão)</small></span>
+            <textarea id="osLoteMsgTexto" class="input" rows="3" style="resize:vertical;" placeholder="Prezado(a), segue a ordem de serviço referente ao atendimento…"></textarea>
+          </label>
+
+          <div class="hint" style="line-height:1.6;">
+            Sai <b>um e-mail por O.S.</b>, com o PDF em anexo, para os endereços
+            acima — que vêm do cadastro de cada condomínio. Para mandar a um
+            endereço diferente, use o ✉️ da linha e envie aquela sozinha.
+          </div>
+
+          <div class="formActions">
+            <button class="btn" type="button" id="osLoteCancelar">Cancelar</button>
+            <button class="btn btnAccent" type="button" id="osLoteConfirmar">Enviar ${selecionadas.length}</button>
+          </div>
+        </form>
+      </div>
+    </div>`;
+  document.body.appendChild(ov);
+
+  const fechar = () => ov.remove();
+  ov.addEventListener("click", e => { if (e.target === ov) fechar(); });
+  document.getElementById("osLoteFechar").addEventListener("click", fechar);
+  document.getElementById("osLoteCancelar").addEventListener("click", fechar);
+
+  document.getElementById("osLoteConfirmar").addEventListener("click", async () => {
+    const msg = document.getElementById("osLoteMsg");
+    const btn = document.getElementById("osLoteConfirmar");
+    const mensagem = (document.getElementById("osLoteMsgTexto")?.value || "").trim();
+
+    // ⚠️ O BOTÃO AVISA QUE VAI DEMORAR. Cada O.S. gera PDF e chama o provedor;
+    // vinte prédios levam dezenas de segundos, e tela parada faz clicar de novo
+    // — que aqui significaria mandar tudo duas vezes.
+    if (msg) { msg.style.color = "var(--tinta-2)"; msg.textContent = `Enviando ${selecionadas.length}… isso leva alguns segundos.`; }
+    if (btn) { btn.disabled = true; btn.textContent = "Enviando…"; }
+
+    try {
+      const r = await fetch("/ordens-servico/enviar-email-lote", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders() },
+        body: JSON.stringify({ ids: selecionadas.map(o => o.id), mensagem }),
+      });
+      const j = await lerRespostaJson(r, "Envio em lote");
+      if (!r.ok) {
+        if (msg) { msg.style.color = "var(--danger)"; msg.textContent = j.error || "Erro ao enviar"; }
+        if (btn) { btn.disabled = false; btn.textContent = `Enviar ${selecionadas.length}`; }
+        return;
+      }
+
+      // O que foi, foi: atualiza o dataset local para os selos mudarem sem
+      // esperar um recarregamento.
+      for (const e of (j.enviadas || [])) {
+        const item = _osData.find(o => o.id === e.id);
+        if (item) { item.enviado_em = e.enviado_em; item.enviado_para = e.enviado_para; }
+      }
+      _osSelecionadas.clear();
+      fechar();
+      _osRenderKpis();
+      _osRenderTabela();
+
+      // ⚠️ O QUE FALHOU É NOMEADO. "18 de 20" sem dizer quais obriga a
+      // conferir 20 linhas à mão — e o motivo costuma ser resolvível (prédio
+      // sem e-mail no cadastro).
+      const falhas = j.falhas || [];
+      const enviadas = (j.enviadas || []).length;
+      let texto = `✓ ${enviadas} O.S. enviada${enviadas === 1 ? "" : "s"}.`;
+      if (falhas.length) {
+        texto += `\n\nNão deu para ${falhas.length}:\n` +
+          falhas.slice(0, 8).map(f => `• ${f.numero || "#" + f.id} (${f.condominio_nome || "sem condomínio"}): ${f.erro}`).join("\n") +
+          (falhas.length > 8 ? `\n…e mais ${falhas.length - 8}.` : "");
+        console.error("[envio-os-lote] falhas:", falhas);
+      }
+      alert(texto);
+    } catch (e) {
+      if (msg) { msg.style.color = "var(--danger)"; msg.textContent = "Erro: " + e.message; }
+      if (btn) { btn.disabled = false; btn.textContent = `Enviar ${selecionadas.length}`; }
+    }
+  });
+}
 
 // Manda a O.S. finalizada ao cliente, com o PDF em anexo e no mesmo desenho do
 // e-mail de orçamento.

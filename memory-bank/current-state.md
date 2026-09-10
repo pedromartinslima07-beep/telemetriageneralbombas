@@ -361,6 +361,12 @@ Detalhe e o porquê de cada uma em
   cliente para onde mandar quem recebe. A moldura do e-mail é **a mesma** do
   orçamento, compartilhada em `_molduraEstruturada`
   ([ordens-servico.md](../docs/modulos/ordens-servico.md)).
+  **Em lote desde 10/09** (`POST /ordens-servico/enviar-email-lote`): seleção
+  com caixa na tabela e **um e-mail por O.S., cada um para o e-mail do seu
+  próprio condomínio** — nunca uma mensagem com O.S. de prédios diferentes
+  dentro. A coluna **E-mail** na tabela diz o que já foi (fio verde com data),
+  o que falta (**amarelo cheio**) e o que não tem para onde ir (fio neutro),
+  com aba e KPI "A enviar".
 - Histórico de chamados, mensagens do chamado, avaliação.
 - **Orçamentos unificados** (Migration 030) + encaminhamento via IA por email.
   **Envio do orçamento ao cliente por e-mail** (PDF anexo via Resend, botão no modal;

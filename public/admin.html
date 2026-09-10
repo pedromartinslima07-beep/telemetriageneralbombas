@@ -18,7 +18,7 @@
   <link rel="stylesheet" href="/static/leaflet.css">
   <!-- ⚠️ Ao mexer em admin.js ou admin.css, bumpe o ?v=N aqui E no <script>
        lá embaixo. Ver CLAUDE.md raiz. -->
-  <link rel="stylesheet" href="/static/admin.css?v=260">
+  <link rel="stylesheet" href="/static/admin.css?v=261">
 </head>
 <body>
   <div id="appLoader">
@@ -655,14 +655,27 @@
               <button class="wa-tab is-active" data-os-tab="todas" type="button">Todas <span class="wa-count" id="osCtTodas">0</span></button>
               <button class="wa-tab" data-os-tab="finalizadas" type="button">Finalizadas <span class="wa-count" id="osCtFinal">0</span></button>
               <button class="wa-tab" data-os-tab="rascunho" type="button">Em rascunho <span class="wa-count" id="osCtRascunho">0</span></button>
+              <!-- ⚠️ "A enviar" é a pergunta que o escritório faz de verdade
+                   no fim da semana: finalizada, com e-mail no cadastro, e que
+                   ainda não foi para o cliente. Sem esta aba isso só se
+                   responde abrindo uma O.S. por vez. -->
+              <button class="wa-tab" data-os-tab="a-enviar" type="button">A enviar <span class="wa-count" id="osCtAEnviar">0</span></button>
             </div>
             <input id="osBusca" class="input" placeholder="Buscar por número, condomínio, técnico…" />
+          </div>
+
+          <!-- Barra de seleção em massa — some quando não há nada selecionado -->
+          <div id="osBulkBar" class="viewer-only-hide" style="display:none;align-items:center;gap:10px;padding:8px 16px;background:var(--surface2);border-bottom:1px solid var(--border);font-size:12px;">
+            <span id="osBulkCount" style="color:var(--text);font-weight:600;"></span>
+            <button class="btn btn-sm btnAccent" id="osBulkEmail" type="button">Enviar por e-mail</button>
+            <button class="btn btn-sm" id="osBulkLimpar" type="button" style="margin-left:auto;">Limpar seleção</button>
           </div>
 
           <div class="tableWrap os-table-wrap">
             <table>
               <thead>
                 <tr>
+                  <th style="width:32px"><input type="checkbox" id="osChkAll" class="viewer-only-hide"></th>
                   <th style="width:120px">Número</th>
                   <th style="width:120px">Criada em</th>
                   <th>Condomínio</th>
@@ -670,6 +683,7 @@
                   <th style="white-space:nowrap">Tipos de serviço</th>
                   <th style="width:120px">Resultado</th>
                   <th style="width:96px">Status</th>
+                  <th style="width:132px">E-mail</th>
                   <th style="width:110px" class="right">Ações</th>
                 </tr>
               </thead>
@@ -2872,7 +2886,7 @@
 </div>
 
 
-<script src="/static/admin.js?v=350" defer></script>
+<script src="/static/admin.js?v=351" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
 <script src="/static/register-sw.js?v=51" defer></script>
 </body>

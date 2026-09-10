@@ -207,6 +207,7 @@ restringe escrita.
 | POST | `/:id/finalizar` | dono/admin (gera PDF) |
 | GET | `/:id/destinatarios` | **gestao** — os `condominios.email` do prédio da O.S., ponto de partida do modal de envio |
 | POST | `/:id/enviar-email` | **gestao** — manda a O.S. finalizada ao cliente com o PDF em anexo. Body `{ emails, mensagem? }` |
+| POST | `/ordens-servico/enviar-email-lote` | **gestao** — várias O.S. de uma vez, **cada uma para o e-mail do seu próprio condomínio**. Body `{ ids, mensagem? }`, até 40 por chamada |
 
 ⚠️ **`GET /:id` não devolve `assinatura_b64`** — são ~120KB de PNG que o
 técnico rebaixaria no 4G a cada abertura da O.S. O detalhe manda só o
@@ -225,6 +226,16 @@ moldura do e-mail é a mesma do orçamento, por `_molduraEstruturada`. Ver
 
 ⚠️ **Rascunho não sai daqui** (400): sem a assinatura do responsável o papel
 não vale como comprovante do atendimento.
+
+⚠️ **O lote responde 200 com relatório, não erro.** `{ enviadas, falhas }`: uma
+O.S. que falha (rascunho, prédio sem e-mail, provedor fora) não pode fazer a
+tela dizer que nada saiu quando as outras foram. E o lote **não aceita
+endereço digitado** — o destino vem do cadastro de cada condomínio, porque um
+campo de texto valeria para todos os prédios de uma vez.
+
+⚠️ **`GET /` devolve `enviado_em`, `enviado_para` e `condominio_email`.** Os
+dois primeiros pintam o selo da coluna E-mail; o terceiro é o que diz se a O.S.
+pode ir em lote.
 
 ---
 

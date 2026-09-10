@@ -7199,6 +7199,42 @@ funcionava**. Coluna nova em `SELECT` de rota existente é mudança de schema
 disfarçada de leitura.
 
 
+### 2026-09-10 (6ª rodada) · Qual já foi, e mandar várias de uma vez
+
+O envio existia por O.S., um clique por vez, e a tela não dizia o que já tinha
+saído. As duas coisas que o Pedro pediu depois de usar: **deixar evidente o que
+já foi enviado** e **poder selecionar várias, de prédios diferentes, e
+disparar**.
+
+**A coluna E-mail tem três estados, não dois.** Enviada é fio verde com a data —
+fato consumado, não pede nada. **"Não enviada" é amarelo cheio**, porque é a
+única linha da tabela que pede ação de quem está olhando. "Sem e-mail" fica de
+fio neutro: também está pendente, mas o que resolve é outra tela (Clientes), não
+este botão. Rascunho não mostra selo nenhum — cobrar envio de algo que ainda nem
+pode sair seria ruído. Junto vieram a aba **"A enviar"** e o KPI
+**"A enviar ao cliente"**, que é a conta que aponta para trabalho parado.
+
+**O lote é um e-mail por O.S., cada um para o seu prédio** — não uma mensagem
+com tudo dentro. Juntar O.S. de condomínios diferentes mandaria o documento de
+um cliente para a caixa de entrada de outro, e é essa a asserção que o teste
+guarda: dois prédios, dois e-mails, cada `to` com o endereço só do dono, e
+nenhum dos dois HTML citando o número do outro.
+
+**No lote não se digita endereço, e na ficha sim.** Não é inconsistência: na
+ficha o operador escolhe o destino porque está olhando uma O.S.; no lote são
+vários prédios, e um campo de texto só poderia valer para todos. O destino vem
+do cadastro de cada condomínio, e o modal mostra qual é **antes** do clique.
+
+**Uma falha não derruba o lote**: responde 200 com `{ enviadas, falhas }`, e as
+falhas vêm nomeadas com o motivo. Os envios são **em série** — dezenas de PDFs
+pelo Puppeteer em paralelo derrubam a memória do container e esbarram no limite
+de taxa do Resend. Teto de 40 por chamada.
+
+O teste subiu de 25 para **38 asserções**.
+
+`?v=N`: `admin.js` 350 → **351**, `admin.css` 260 → **261**.
+
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em
