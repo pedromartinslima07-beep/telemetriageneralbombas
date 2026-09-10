@@ -374,10 +374,14 @@ aliases:
   e-mail passou a ser compartilhada (`_molduraEstruturada`), então mexer na
   faixa ou no rodapé mexe nos dois e-mails de uma vez. Fluxo em
   [`../docs/modulos/ordens-servico.md`](../docs/modulos/ordens-servico.md).
-  - 📋 **Rodar a migration 086 em produção** (`node scripts/migrate.js
-    086_os_envio_email.sql --prod`) — aplicada só no banco de teste até aqui.
-    Sem ela a rota grava numa coluna que não existe e o envio falha depois de o
-    e-mail já ter saído. É a lição da Fase 7E no [`../CLAUDE.md`](../CLAUDE.md).
+  - ✅ **Migration 086 aplicada em produção** — 2026-09-10, `--prod`, mas
+    **depois do deploy do código, e isso derrubou o app do técnico**. O commit
+    incluiu `enviado_em`/`enviado_para` no `SELECT` de `GET /ordens-servico/:id`
+    — a rota que o app usa para abrir a O.S. — e sem as colunas o Postgres
+    recusa a query inteira: o técnico em campo tomou "Erro ao buscar O.S." na
+    hora de preencher. É a lição da Fase 7E no [`../CLAUDE.md`](../CLAUDE.md)
+    acontecendo de novo, agora com a agravante de que o SELECT quebrado não era
+    da funcionalidade nova, e sim de uma tela que já funcionava.
 
 - **Fase 13 — Ativos Técnicos (VRP, piscina e além)** 📋 — plano recebido de
   fora em 2026-09-01: o chefe do Pedro mandou o `Prompt_Mestre` (28 seções, em

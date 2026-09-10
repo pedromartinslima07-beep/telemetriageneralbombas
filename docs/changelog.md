@@ -7188,6 +7188,16 @@ Preview sem enviar nada: `node scripts/preview-email-os.js` grava
 `sw.js` não muda — `/ordens-servico` já está na lista network-first, e o SW não
 intercepta `POST`.
 
+⚠️ **E a migration foi aplicada em produção DEPOIS do deploy, o que derrubou o
+app do técnico.** O commit incluiu `enviado_em`/`enviado_para` no `SELECT` de
+`GET /ordens-servico/:id` para o modal poder dizer "já enviada em…", e essa é a
+rota que o app usa para abrir a O.S. Sem as colunas, o Postgres recusa a query
+inteira e a rota responde "Erro ao buscar O.S." — o técnico tomou isso em campo,
+na hora de preencher. A lição da Fase 7E de novo, com uma agravante que vale
+registrar: **o que quebrou não foi a funcionalidade nova, foi uma tela que já
+funcionava**. Coluna nova em `SELECT` de rota existente é mudança de schema
+disfarçada de leitura.
+
 
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
