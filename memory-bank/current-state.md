@@ -352,6 +352,11 @@ Detalhe e o porquê de cada uma em
   O TTFR é marcado por qualquer primeiro toque da equipe — atribuir técnico ou
   responsável, mudar status, mensagem/comentário, iniciar atendimento ou chegar
   (lista completa em [chamados-sla.md](../docs/modulos/chamados-sla.md)).
+- **Aviso de serviço já aprovado no novo chamado** (10/09/2026): escolhido o
+  prédio, o diálogo do operador (e o modal do admin) lista os orçamentos
+  aprovados que ainda esperam chamado, e **tocar em um faz o chamado nascer
+  vinculado** (`chamados.orcamento_id`). Um endpoint só —
+  `GET /admin/condominios/:id/orcamentos-pendentes` — para as duas telas.
 - **O.S. digital** completa (fotos base64 comprimidas, assinatura, orçamento) +
   PDF via Puppeteer; página de O.S. no admin.
   **Envio da O.S. ao cliente por e-mail** desde 10/09/2026 (botão ✉️ no modal,

@@ -1728,6 +1728,15 @@ function dlgNovo() {
           <option value="">Carregando…</option>
         </select>
       </div>
+      <!-- ⚠️ O AVISO DE ORÇAMENTO APROVADO (10/09/2026). Ele nasce vazio e só
+           aparece quando o prédio escolhido tem serviço aprovado esperando
+           chamado. Fica LOGO ABAIXO do prédio de propósito: é a resposta à
+           escolha que acabou de ser feita, e mais para baixo o operador ja
+           teria escrito titulo e relato antes de descobrir que havia um
+           caminho melhor.
+           (Sem crase neste comentario: ele vive dentro de um template literal,
+            e crase aqui FECHA o template. Ver CLAUDE.md.) -->
+      <div class="campo largo" id="nvAprovados" hidden></div>
       <!-- ⚠️ AS CATEGORIAS VÊM DE GET /chamados/prioridades (03/09/2026), não
            desta lista. Escrita à mão, ela já estava desatualizada: "Melhoria"
            entrou na migration 081 e não existia aqui, então o serviço que a
@@ -1811,6 +1820,41 @@ function dlgNovo() {
   // ⚠️ CADA ABERTURA RECOMEÇA COM A SUGESTÃO VALENDO. A decisão de quem abriu
   // o chamado anterior não pode continuar mandando no próximo.
   NV_PRIO_NA_MAO = false;
+  // O `change` do prédio vale para o `<select>` de fallback E para o
+  // CondoPicker: ele dispara o mesmo evento no campo escondido ao escolher.
+  document.getElementById("nvCondo")?.addEventListener("change", (ev) => {
+    _nvChecarAprovados(Number(ev.target.value) || 0);
+  });
+  // ⚠️ DELEGAÇÃO NA CAIXA, não no botão: os itens nascem depois, a cada
+  // prédio escolhido. E o clique ALTERNA — tocar no que já está escolhido
+  // desfaz, porque errar o orçamento é tão fácil quanto acertar.
+  document.getElementById("nvAprovados")?.addEventListener("click", (ev) => {
+    const btn = ev.target.closest("[data-nv-orc]");
+    if (!btn) return;
+    const hid = document.getElementById("nvOrcamento");
+    if (!hid) return;
+    const id = btn.dataset.nvOrc;
+    hid.value = hid.value === id ? "" : id;
+    document.querySelectorAll("#nvAprovados [data-nv-orc]").forEach((b) => {
+      const on = b.dataset.nvOrc === hid.value;
+      b.classList.toggle("is-sel", on);
+      b.setAttribute("aria-pressed", String(on));
+    });
+    // ⚠️ SERVIÇO APROVADO É TRABALHO AGENDADO, e a prioridade acompanha: P4,
+    // a mesma que a tela de Aprovados usa ao abrir por lá. Como P2 ele passaria
+    // na frente de bomba parada numa fila ordenada pelo prazo que estoura
+    // primeiro. Só sugere — se o operador já tocou nos botões, a escolha dele
+    // manda, igual à régua da categoria.
+    if (hid.value && !NV_PRIO_NA_MAO) {
+      _nvMarcarPrio("p4");
+      const nota = document.getElementById("nvPrioNota");
+      if (nota) {
+        nota.hidden = false;
+        nota.innerHTML = "<b>P4</b> sugerido por ser serviço já aprovado — " +
+          "trabalho agendado, não emergência. Pode trocar.";
+      }
+    }
+  });
   _nvCarregarRegua();
   document.getElementById("nvCat")?.addEventListener("change", (ev) => {
     if (NV_PRIO_NA_MAO) return;
@@ -1855,6 +1899,105 @@ function dlgNovo() {
       const sel = document.getElementById("nvCondo");
       if (sel) sel.innerHTML = `<option value="">Não foi possível carregar os prédios</option>`;
     });
+}
+
+/* ── O aviso de serviço já aprovado (10/09/2026) ───────────────────────────
+   ⚠️ POR QUE ESTA TELA AVISA. Pedido do Pedro: um chamado avulso aberto para
+   um serviço que JÁ tem orçamento aprovado é trabalho que nasce solto. O
+   orçamento fica em Aprovados como se nada tivesse acontecido — e mais tarde
+   alguém abre um segundo chamado para a mesma coisa —, a O.S. não volta para a
+   placa do orçamento, e o técnico vai ao prédio sem o que foi combinado
+   escrito em lugar nenhum.
+
+   ⚠️ AVISA, NÃO IMPEDE. Chamado avulso no mesmo prédio é caso normal: o
+   orçamento é da limpeza do reservatório e o telefone é de bomba parada. Quem
+   sabe qual dos dois é quem está no telefone — a tela só garante que ele saiba
+   que o outro caminho existe antes de escolher.
+
+   ⚠️ E ABRE EM OUTRA ABA. Trocar de tela aqui jogaria fora o título e o relato
+   já digitados, e o operador está ao telefone. */
+async function _nvChecarAprovados(condominioId) {
+  const caixa = document.getElementById("nvAprovados");
+  if (!caixa) return;
+  if (!condominioId) { caixa.hidden = true; caixa.innerHTML = ""; return; }
+
+  try {
+    // ⚠️ O ENDPOINT É O MESMO DO MODAL DO ADMIN, de propósito. As duas telas
+    // fazem a mesma pergunta — "este prédio tem serviço já autorizado?" — e um
+    // endpoint só para cá foi escrito e descartado no mesmo dia: duas versões
+    // da regra divergem na primeira correção. (A cópia de HELPERS entre as
+    // superfícies do operador continua valendo; o que não se duplica é a
+    // REGRA, que mora no backend.)
+    const r = await fetch(
+      "/admin/condominios/" + encodeURIComponent(condominioId) + "/orcamentos-pendentes",
+      { headers: authHeaders() }
+    );
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const lista = await r.json();
+    if (!Array.isArray(lista) || !lista.length) {
+      caixa.hidden = true; caixa.innerHTML = "";
+      return;
+    }
+
+    // ⚠️ CADA ORÇAMENTO É UM BOTÃO, não um item de lista — e é isso que
+    // transforma o aviso em caminho. Mandar o operador "abrir por Aprovados"
+    // era mandá-lo trocar de tela com o telefone no ombro, jogando fora o que
+    // já tinha digitado; tocando aqui, o chamado nasce vinculado sem sair do
+    // lugar. É o mesmo gesto do modal de novo chamado do admin.
+    const itens = lista.map((o) => {
+      const servico = _nvServicoDe(o);
+      const quando = o.aprovado_em || o.respondido_em || o.criado_em;
+      const dia = quando ? new Date(quando).toLocaleDateString("pt-BR") : "";
+      const quem = o.aprovado_por_nome ? ` por ${escapar(o.aprovado_por_nome)}` : "";
+      const canc = o.chamado_cancelado_id
+        ? ` · o chamado #${o.chamado_cancelado_id} foi cancelado`
+        : "";
+      return `
+        <button type="button" class="nv-orc" data-nv-orc="${o.id}" aria-pressed="false">
+          <span class="nv-orc-num">${escapar(o.numero || "#" + o.id)}</span>
+          <span class="nv-orc-txt">${escapar(servico)}</span>
+          <span class="nv-orc-sub">aprovado${dia ? " em " + dia : ""}${quem}${canc}</span>
+        </button>`;
+    }).join("");
+
+    const n = lista.length;
+    caixa.hidden = false;
+    caixa.innerHTML = `
+      <div class="nv-aprovados">
+        <p class="nv-aprovados-tit">Este prédio tem ${n} orçamento${n > 1 ? "s" : ""}
+          aprovado${n > 1 ? "s" : ""} esperando chamado</p>
+        <div class="nv-orc-lista">${itens}</div>
+        <p class="nv-aprovados-nota">Se o chamado for por causa de um destes,
+          <b>toque nele</b>: o chamado nasce ligado ao orçamento, e a O.S. do
+          técnico volta para a placa em Aprovados. Sendo outro assunto, siga
+          sem escolher nenhum.</p>
+        <input type="hidden" id="nvOrcamento" value="">
+      </div>`;
+  } catch (e) {
+    // ⚠️ FALHA AQUI NÃO ATRAPALHA O CHAMADO. O aviso é ajuda; deixar um erro
+    // vermelho no meio do formulário por causa dele seria trocar um problema
+    // pequeno por um maior — o operador está ao telefone e precisa abrir o
+    // chamado de qualquer jeito.
+    console.warn("[novo chamado] aviso de aprovados:", e.message);
+    caixa.hidden = true; caixa.innerHTML = "";
+  }
+}
+
+// O serviço em uma linha. Mesma leitura de `servicoTxt` em
+// `operador-orcamentos.js`: em orçamento por cláusula quem diz é o tipo; em
+// orçamento de peças é a primeira linha, com a contagem para o "e mais N".
+function _nvServicoDe(o) {
+  const ROT = {
+    limpeza_reservatorio: "Limpeza de reservatório",
+    dedetizacao: "Dedetização",
+    limpeza_dedetizacao: "Limpeza de reservatório e dedetização",
+    pecas: "Peças e serviços",
+  };
+  if (o.tipo && o.tipo !== "pecas") return ROT[o.tipo] || o.tipo;
+  const linhas = Array.isArray(o.linhas) ? o.linhas : [];
+  if (!linhas.length) return ROT.pecas;
+  const primeira = linhas[0].descricao || ROT.pecas;
+  return linhas.length > 1 ? `${primeira} e mais ${linhas.length - 1}` : primeira;
 }
 
 /* ── A régua de prioridade no diálogo de novo chamado (03/09/2026) ─────────
@@ -1936,6 +2079,9 @@ async function salvarNovo() {
   const categoria = document.getElementById("nvCat")?.value;
   const prioridade = document.querySelector('#nvPrio .prio[aria-pressed="true"]')?.dataset.p || "p2";
   const tecnico_id = Number(document.getElementById("nvTec")?.value) || null;
+  // O orçamento aprovado que este chamado executa, quando o operador tocou num
+  // dos avisados. `POST /chamados` recusa o de outro prédio e o não aprovado.
+  const orcamento_id = Number(document.getElementById("nvOrcamento")?.value) || null;
   const msg = document.getElementById("nvMsg");
 
   if (!condominio_id) { if (msg) msg.textContent = "Escolha o prédio."; return; }
@@ -1945,7 +2091,7 @@ async function salvarNovo() {
     const r = await fetch("/chamados", {
       method: "POST",
       headers: { ...authHeaders(), "Content-Type": "application/json" },
-      body: JSON.stringify({ condominio_id, titulo, descricao, categoria, prioridade, tecnico_id }),
+      body: JSON.stringify({ condominio_id, titulo, descricao, categoria, prioridade, tecnico_id, orcamento_id }),
     });
     const d = await lerJson(r, "Novo chamado");
     if (!r.ok) throw new Error(d.error || "Erro ao abrir o chamado");

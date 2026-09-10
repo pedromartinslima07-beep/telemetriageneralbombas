@@ -7235,6 +7235,42 @@ O teste subiu de 25 para **38 asserções**.
 `?v=N`: `admin.js` 350 → **351**, `admin.css` 260 → **261**.
 
 
+### 2026-09-10 (7ª rodada) · O chamado avulso que já tinha orçamento
+
+Pedido do Pedro: quando o operador abre um chamado novo num prédio que **já tem
+orçamento aprovado esperando**, a tela precisa dizer — senão o serviço
+autorizado vira trabalho solto. O orçamento fica em Aprovados como se nada
+tivesse acontecido, alguém abre um **segundo** chamado para a mesma coisa
+depois, e a O.S. do técnico não volta para a placa.
+
+**Avisa e vincula.** Escolhido o prédio, os orçamentos livres aparecem logo
+abaixo do campo — cada um um botão. Tocar em um faz o chamado nascer com
+`orcamento_id`, do mesmo jeito que nasceria por Aprovados. A primeira versão só
+mandava "abra por Aprovados", com link em outra aba; era trocar de tela com o
+telefone no ombro, quando `POST /chamados` já aceita o vínculo desde 03/09.
+Escolher um orçamento sugere **P4** — trabalho agendado —, e para de sugerir se
+o operador já mexeu na prioridade.
+
+**Avisa, não impede.** Chamado avulso no mesmo prédio é caso normal: o
+orçamento é da limpeza do reservatório e o telefone é de bomba parada.
+
+**O endpoint é o mesmo do modal do admin, e essa foi a correção do dia.**
+`GET /admin/condominios/:id/orcamentos-pendentes` já respondia à mesma
+pergunta. Um endpoint próprio para o operador chegou a ser escrito e foi
+descartado horas depois: as duas versões **já discordavam** sobre o chamado
+cancelado. E a discordância era um defeito real do lado do admin — a condição
+era `NOT EXISTS (SELECT 1 FROM chamados …)`, e cancelado é um chamado que
+existe, então o orçamento sumia do aviso **justamente porque o serviço deixou
+de ser feito** (migration 083). Hoje a regra é a chave `livre` de `execucao()`,
+escrita uma vez.
+
+Teste novo: `scripts/testes/aviso-orcamento-aprovado.test.js` (14 asserções),
+com os cinco estados e a que garante que o aviso é do prédio escolhido e de
+mais nenhum — vazar ali contaria a um operador o serviço de outro condomínio.
+
+`?v=N`: `operador.js` 79 → **80**, `operador.css` 108 → **109**.
+
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

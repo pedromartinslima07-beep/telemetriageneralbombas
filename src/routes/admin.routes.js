@@ -2252,11 +2252,24 @@ router.get("/condominios/:id/historico", authRequired, adminOnly, async (req, re
 // Alimenta o modal de novo chamado: escolhido o condomínio, o operador vê se
 // há serviço já autorizado e pode amarrar o chamado a ele.
 //
-// ⚠️ "PENDENTE" AQUI É NÃO TER NENHUM CHAMADO, não é o `status`. Um orçamento
-// com chamado vinculado — aberto ou fechado — já teve o seu despacho: o aberto
-// está andando, e o fechado foi feito. Oferecer os dois no modal convidaria a
-// abrir um segundo chamado para o mesmo serviço, que é o defeito que a rota do
-// operador já evita com o `ja_existia`.
+// ⚠️ "PENDENTE" AQUI NÃO É O `status`: é a chave `livre` de `execucao()`, a
+// mesma regra com que a tela de Aprovados decide que um orçamento ainda espera
+// alguém. Um orçamento com chamado vinculado — aberto ou fechado — já teve o
+// seu despacho: o aberto está andando, e o fechado foi feito. Oferecer os dois
+// no modal convidaria a abrir um segundo chamado para o mesmo serviço, que é o
+// defeito que a rota do operador já evita com o `ja_existia`.
+//
+// ⚠️ O CANCELADO VOLTA A SER PENDENTE (10/09/2026, migration 083). Até aqui a
+// condição era `NOT EXISTS (SELECT 1 FROM chamados ...)`, e um chamado
+// cancelado é um chamado que existe: o orçamento sumia deste aviso para sempre
+// justamente porque o serviço DEIXOU de ser feito. A tela de Aprovados já
+// tratava esse caso (`execucao()` devolve `livre` com `cancelado: true`), e as
+// duas contas do mesmo fato discordavam.
+//
+// ⚠️ ESTE ENDPOINT SERVE AS DUAS TELAS. O modal do admin e o diálogo de novo
+// chamado do operador fazem a MESMA pergunta; um segundo endpoint para o
+// operador foi escrito e descartado no mesmo dia, porque duas versões da regra
+// divergem na primeira correção — como esta aqui acabou de mostrar.
 //
 // ⚠️ SEM VALOR. Mesma regra do `GET /operador/orcamentos`: quem despacha um
 // serviço não precisa do preço na tela, e preço em tela de operação vaza para
@@ -2275,13 +2288,27 @@ router.get("/condominios/:id/orcamentos-pendentes", authRequired, adminOnly, asy
                             ORDER BY l.id)
               FROM orcamento_linhas l WHERE l.orcamento_id = o.id),
            '[]'::json
-         ) AS linhas
+         ) AS linhas,
+         -- O chamado cancelado que devolveu este orçamento à fila: a tela diz
+         -- que houve um e o que houve com ele, senão quem lê acha que nunca
+         -- foi aberto.
+         ch.id AS chamado_cancelado_id
        FROM orcamentos o
        LEFT JOIN usuarios ur ON ur.id = o.respondido_por
+       -- O MESMO LATERAL de GET /operador/orcamentos: o chamado aberto ganha,
+       -- e na falta dele o mais recente. É ele que separa "andando" de
+       -- "cancelado, logo livre de novo".
+       LEFT JOIN LATERAL (
+         SELECT c2.id, c2.status
+           FROM chamados c2
+          WHERE c2.orcamento_id = o.id
+          ORDER BY (c2.status IN ('aberto','em_atendimento')) DESC, c2.criado_em DESC
+          LIMIT 1
+       ) ch ON true
        WHERE o.condominio_id = $1
          AND o.status = 'aprovado'
          AND o.executado_em IS NULL
-         AND NOT EXISTS (SELECT 1 FROM chamados c WHERE c.orcamento_id = o.id)
+         AND (ch.id IS NULL OR ch.status = 'cancelado')
        ORDER BY COALESCE(o.aprovado_em, o.respondido_em, o.criado_em) DESC
        LIMIT 20`,
       [id]

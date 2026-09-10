@@ -3468,6 +3468,62 @@ body.sem-trilho #tela{width:100%}
 }
 .nv-prio-nota b{color:var(--tinta);font-weight:800}
 
+/* ── O aviso de serviço já aprovado, no novo chamado (10/09/2026) ─────────
+   ⚠️ FIO ÂMBAR, NÃO PREENCHIMENTO. O diálogo já tem o amarelo do botão "Abrir
+   chamado" no rodapé, e um por tela é a regra: um bloco âmbar cheio aqui
+   brigaria com a ação e faria o aviso parecer o assunto principal. Ele é
+   informação, e o corte à esquerda é o que o separa do resto do formulário.
+
+   ⚠️ TOKENS DE PLACA CLARA (`--tinta`/`--fio-esc`), porque a `.ficha` é chapa.
+   Os de campo escuro sairiam azul-claro sobre cinza. Regra dos Dois Campos de
+   Estado do DESIGN.md. */
+.nv-aprovados{
+  grid-column:1/-1;
+  border:1px solid color-mix(in srgb, var(--amarelo) 45%, transparent);
+  border-left:3px solid var(--amarelo);
+  background:color-mix(in srgb, var(--amarelo) 7%, transparent);
+  padding:12px 14px;
+}
+.nv-aprovados-tit{
+  margin:0 0 8px;font-size:14px;font-weight:800;line-height:1.4;color:var(--tinta);
+}
+.nv-aprovados-lista{
+  margin:0 0 10px;padding-left:18px;
+  font-size:13.5px;line-height:1.6;color:var(--tinta-2);
+}
+.nv-aprovados-lista b{color:var(--tinta)}
+.nv-aprovados-nota{
+  margin:0 0 12px;font-size:13px;line-height:1.55;color:var(--tinta-2);
+}
+.nv-aprovados-nota b{color:var(--tinta);font-weight:800}
+/* Cada orçamento é um alvo de toque, e o escolhido fica ÓBVIO: em placa clara,
+   selecionado é tinta marinho cheia com texto claro — a mesma inversão que o
+   sistema usa para "este é o estado atual". O âmbar continua sendo do botão
+   "Abrir chamado", um por tela. */
+.nv-orc-lista{display:grid;gap:6px;margin-bottom:10px}
+.nv-orc{
+  display:grid;grid-template-columns:auto 1fr;gap:2px 10px;
+  width:100%;text-align:left;cursor:pointer;
+  padding:8px 10px;font:inherit;
+  background:var(--chapa, #fff);
+  border:1px solid var(--fio-esc);
+}
+.nv-orc:hover{border-color:var(--tinta-2)}
+.nv-orc-num{
+  grid-row:1;font-family:var(--mono);font-size:11.5px;font-weight:700;
+  letter-spacing:.04em;color:var(--tinta-2);align-self:center;
+}
+.nv-orc-txt{grid-row:1;font-size:14px;font-weight:700;color:var(--tinta);line-height:1.35}
+.nv-orc-sub{
+  grid-row:2;grid-column:2;font-size:12.5px;color:var(--tinta-2);line-height:1.45;
+}
+.nv-orc.is-sel{background:var(--tinta);border-color:var(--tinta)}
+.nv-orc.is-sel .nv-orc-txt{color:#fff}
+.nv-orc.is-sel .nv-orc-num,
+.nv-orc.is-sel .nv-orc-sub{color:rgba(255,255,255,.78)}
+
+.nv-aprovados-btn{display:inline-flex;text-decoration:none}
+
 /* ═══ Preventivas do mês (03/09/2026) ══════════════════════════════════════
    A terceira tela do operador. Mesma superfície das irmãs — placa clara sobre
    campo escuro, corte gravado, mono nos selos — e as mesmas duas regras que

@@ -228,6 +228,81 @@ true`); com técnico, nada muda e a faixa diz isso. Ignorar em silêncio faria a
 tela afirmar um despacho que não houve; sobrescrever faria o segundo clique
 desfazer, sem aviso, o despacho do primeiro — ou o de outro operador.
 
+## O aviso de serviço já aprovado, no novo chamado (10/09/2026)
+
+Escolhido o prédio no diálogo de **novo chamado**, a tela pergunta ao backend
+se aquele condomínio tem orçamento **aprovado esperando chamado** — e, se tiver,
+mostra a lista ali mesmo, logo abaixo do campo do prédio.
+
+**O que isto evita.** Um chamado avulso aberto para um serviço já autorizado
+nasce solto: o orçamento continua em [Aprovados](#a-segunda-tela-aprovados-operadorpainelorcamentos)
+como se nada tivesse acontecido — e alguém abre um **segundo** chamado para a
+mesma coisa mais tarde —, a O.S. do técnico não volta para a placa do
+orçamento, e quem vai ao prédio não tem o que foi combinado escrito em lugar
+nenhum. Pedido do Pedro.
+
+**Cada orçamento é um botão, e tocar nele vincula.** Não é só aviso: o chamado
+nasce com `orcamento_id`, do mesmo jeito que nasceria se aberto por Aprovados.
+A primeira versão mandava "abra por Aprovados", com link em outra aba — mas
+isso é trocar de tela com o telefone no ombro, e o caminho curto estava a um
+campo escondido de distância, porque `POST /chamados` aceita `orcamento_id`
+desde 03/09. O clique **alterna**: tocar no escolhido desfaz, porque errar o
+orçamento é tão fácil quanto acertar.
+
+⚠️ **Escolher um orçamento sugere P4**, a mesma prioridade que a tela de
+Aprovados usa: serviço aprovado é trabalho **agendado**, e como P2 ele passaria
+na frente de bomba parada numa fila ordenada pelo prazo que estoura primeiro. É
+sugestão — se o operador já tocou nos botões de prioridade, a escolha dele
+manda, igual à régua da categoria.
+
+⚠️ **Avisa, não impede.** Chamado avulso no mesmo prédio é caso normal: o
+orçamento é da limpeza do reservatório e o telefone é de bomba parada. Quem
+sabe qual dos dois é quem está no telefone; a tela só garante que ele saiba que
+o outro caminho existe **antes** de escolher.
+
+⚠️ **O aviso fica logo abaixo do prédio**, não no rodapé do formulário. É a
+resposta à escolha que acabou de ser feita — mais para baixo, o operador já
+teria escrito título e relato antes de descobrir que havia um caminho melhor.
+
+⚠️ **Falha do aviso não atrapalha o chamado.** Erro na consulta esconde o bloco
+e escreve no console; um erro vermelho no meio do formulário trocaria um
+problema pequeno por um maior.
+
+### ⚠️ O endpoint é o MESMO do modal do admin
+
+`GET /admin/condominios/:id/orcamentos-pendentes` já existia e já alimentava o
+bloco "Serviço já autorizado" do modal de novo chamado do admin — as duas telas
+fazem **a mesma pergunta**. Um endpoint próprio para o operador chegou a ser
+escrito e foi descartado no mesmo dia: as duas versões da regra **já
+discordavam** sobre o chamado cancelado, que é exatamente o tipo de divergência
+que dois endpoints produzem na primeira correção.
+
+O que a unificação corrigiu, de graça, no aviso do admin: a condição era
+`NOT EXISTS (SELECT 1 FROM chamados ...)`, e chamado **cancelado** é um chamado
+que existe — o orçamento sumia do aviso para sempre justamente porque o serviço
+deixou de ser feito.
+
+A regra é a chave `livre` de `execucao()` (em `public/operador-orcamentos.js`):
+
+1. `executado_em` nulo — ninguém marcou "já foi feito" à mão;
+2. sem chamado vinculado, **ou** com o último **cancelado** (migration 083, que
+   volta a ser livre porque o serviço deixou de ser feito);
+3. `status = 'aprovado'`.
+
+Chamado aberto, fechado ou com O.S. finalizada **não** entram: ali o serviço já
+tem dono, e avisar empurraria o operador para um caminho que não existe.
+
+São duas contas do mesmo fato em lugares diferentes — o tipo de par que diverge
+na primeira correção e passa a mostrar números diferentes na mesma tarde. Por
+isso os cinco estados estão escritos em
+`scripts/testes/aviso-orcamento-aprovado.test.js` (14 asserções), incluindo a
+que garante que o aviso é **do prédio escolhido e de mais nenhum**: vazar ali
+contaria a um operador o serviço de outro condomínio, e ainda o empurraria a
+abrir chamado no prédio errado.
+
+⚠️ **Nenhum valor trafega**, como no resto desta superfície — o endpoint devolve
+o serviço, quem aprovou e a data, nunca dinheiro.
+
 ## A terceira tela: Preventivas (`/operador/painel/preventivas`)
 
 Pedido do Pedro (03/09/2026): *"preciso que em operador fique todas as

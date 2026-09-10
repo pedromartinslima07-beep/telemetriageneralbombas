@@ -393,6 +393,10 @@ aliases:
     do seu próprio condomínio**; coluna E-mail com três estados, aba e KPI
     "A enviar". Foi o que o Pedro pediu depois de usar a primeira versão: a
     tela não dizia o que já tinha saído, e mandar era um clique por vez.
+  - ✅ **O chamado avulso que já tinha orçamento** — 2026-09-10, sem migration.
+    O diálogo de novo chamado do operador avisa quando o prédio tem serviço
+    aprovado esperando, e deixa vincular ali mesmo. De quebra corrigiu o aviso
+    do admin, que perdia o orçamento cujo chamado tinha sido **cancelado**.
 
 - **Fase 13 — Ativos Técnicos (VRP, piscina e além)** 📋 — plano recebido de
   fora em 2026-09-01: o chefe do Pedro mandou o `Prompt_Mestre` (28 seções, em
