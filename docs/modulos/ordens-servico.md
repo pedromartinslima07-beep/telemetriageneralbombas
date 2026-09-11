@@ -37,6 +37,32 @@ um chamado.
 4. **Acesso ao PDF** — `GET /:id/pdf` (dono ou admin);
    `GET /cliente/ordens-servico/:id/pdf` (cliente do condomínio).
 
+### ⚠️ A O.S. pode nascer sem coordenada de chegada (11/09/2026)
+
+`chegada_lat`/`chegada_lng` podem ser **NULL**, e isso não é dado faltando por
+descuido: é o técnico que começou o atendimento **sem sinal de GPS**.
+
+Até 11/09/2026 a coordenada era obrigatória no `POST
+/chamados/:id/iniciar-atendimento` (400 sem ela) e o app nem chegava a bater na
+rota. A razão era boa — `em_atendimento` afirma presença física, e é por isso
+que o `PATCH /chamados/:id` recusa esse status até hoje. Mas a bomba mora em
+casa de máquinas e subsolo, e a regra travava justamente quem estava no lugar
+certo. ⚠️ **Como prova ela era fraca de qualquer jeito:** o app aceita posição
+em cache de qualquer idade, a rota não impõe teto de precisão, e ninguém compara
+a coordenada com o endereço do condomínio. Presença física de verdade se garante
+comparando coordenada com endereço, não recusando o atendimento quando ela
+falta.
+
+- `chegada_em` **continua sempre gravada** — a hora é fato, o lugar não.
+- A ficha da O.S. no admin escreve **"sem GPS"** (`_osFmtGeo` em
+  `public/admin.js`), em vez de omitir a linha: omitir fazia "não tinha sinal" e
+  "não olhei direito" terem a mesma aparência.
+- ⚠️ `tecnico_localizacoes` **só é escrita quando há coordenada** — `lat`/`lng`
+  são NOT NULL lá (016), e o erro derrubaria a transação inteira, desfazendo a
+  O.S. recém-criada.
+
+Prova: `scripts/testes/iniciar-atendimento-sem-gps.test.js` (19 checagens).
+
 ### ⚠️ A O.S. rascunho é descartável — a finalizada não (11/09/2026)
 
 Uma O.S. nasce no `POST /chamados/:id/iniciar-atendimento`, antes de o técnico

@@ -11727,6 +11727,19 @@ function _osFmtData(iso) {
   if (!iso) return "—";
   return new Date(iso).toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit" });
 }
+// Coordenada de chegada/saída da O.S. na ficha.
+//
+// ⚠️ "sem GPS" é dito em voz alta, e não é decoração. Desde 11/09/2026 o
+// técnico pode iniciar o atendimento sem sinal — subsolo e casa de máquinas
+// são onde ele trabalha — e nesses casos chegada_lat/lng ficam NULL. Antes a
+// linha simplesmente omitia a coordenada, o que fazia "sem GPS" e "não olhei
+// direito" terem a mesma aparência. Quem lê a ficha precisa saber qual dos
+// dois aconteceu: a coordenada é evidência de presença física, e evidência que
+// falta tem que faltar visivelmente.
+function _osFmtGeo(lat, lng) {
+  if (lat == null || lng == null) return " · sem GPS";
+  return " · " + Number(lat).toFixed(5) + ", " + Number(lng).toFixed(5);
+}
 function _osFmtDataCurta(iso) {
   if (!iso) return "—";
   return new Date(iso).toLocaleDateString("pt-BR", { day:"2-digit", month:"2-digit", year:"2-digit" });
@@ -12199,7 +12212,7 @@ function _osRenderView(os) {
           <div class="os-vsec-title">Atendimento</div>
           <div class="os-rows">
             <div class="os-row-info"><span class="os-key">Criada em</span><span class="os-val">${_osFmtData(os.criado_em)}</span></div>
-            <div class="os-row-info"><span class="os-key">Chegada</span><span class="os-val">${_osFmtData(os.chegada_em)}${os.chegada_lat ? ` · ${Number(os.chegada_lat).toFixed(5)}, ${Number(os.chegada_lng).toFixed(5)}` : ""}</span></div>
+            <div class="os-row-info"><span class="os-key">Chegada</span><span class="os-val">${_osFmtData(os.chegada_em)}${_osFmtGeo(os.chegada_lat, os.chegada_lng)}</span></div>
             <div class="os-row-info"><span class="os-key">Saída</span><span class="os-val">${_osFmtData(os.saida_em)}${os.saida_lat ? ` · ${Number(os.saida_lat).toFixed(5)}, ${Number(os.saida_lng).toFixed(5)}` : ""}</span></div>
             <div class="os-row-info"><span class="os-key">Recebido por</span><span class="os-val">${_waEscaparHtml(os.recebido_nome || "—")}${os.recebido_tipo ? ` (${_OS_RECEBIDO_TIPOS[os.recebido_tipo] || os.recebido_tipo})` : ""}</span></div>
             <div class="os-row-info"><span class="os-key">Endereço</span><span class="os-val">${_waEscaparHtml(endereco)}</span></div>

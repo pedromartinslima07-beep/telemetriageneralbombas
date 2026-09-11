@@ -529,9 +529,30 @@ canônica do "porquê"; o "o quê" está em `../docs/` e em [`current-state.md`]
      antes da resposta chegar é afirmar calma que ninguém verificou; a tela diz
      *"Carregando a fila do turno…"*. Pela mesma razão o pulso da barra vira
      vermelho após 3 ciclos sem carga: falha e silêncio não podem se parecer.
-- **`em_atendimento` só via app do técnico com GPS** (`/iniciar-atendimento`);
+- **`em_atendimento` só via app do técnico** (`/iniciar-atendimento`);
   `PATCH /chamados/:id` bloqueia esse status — garante que o status reflita
   presença física no campo.
+  ⚠️ **A COORDENADA DEIXOU DE SER OBRIGATÓRIA EM 11/09/2026** (pergunta do
+  Pedro: *"hj só é possível iniciar atendimento se tiver a localização?"*). A
+  porta única continua sendo o app; o que caiu foi o 400 quando o GPS não
+  responde. Dois motivos, e o segundo é o que decide:
+  1. **A bomba mora onde o sinal não chega.** Casa de máquinas e subsolo são o
+     local de trabalho, não a exceção. A regra travava o técnico honesto sem
+     sinal. Todo o resto do app já trata falta de sinal como normal (fila
+     offline, O.S. que não evapora, `/chegou` com `.catch`); só este ponto
+     tratava como impedimento.
+  2. **Ela nunca foi a prova que aparentava ser.** O app aceita posição em cache
+     de qualquer idade, a rota não impõe teto de precisão (posição por IP de
+     10 km passa) e **ninguém compara a coordenada com o endereço do
+     condomínio**. Bloqueava quem estava no lugar certo sem sinal e não segurava
+     quem quisesse mentir com o app aberto na calçada. **Presença física se
+     garante comparando coordenada com endereço** — recusar o atendimento
+     quando ela falta nunca foi essa garantia, só parecia ser.
+  A ausência virou **informação**: `chegada_lat/lng` NULL e a ficha da O.S. no
+  admin dizendo **"sem GPS"** (omitir fazia "não tinha sinal" e "não olhei
+  direito" terem a mesma aparência). Se um dia a garantia de presença for
+  mesmo necessária, o lugar de escrevê-la é a comparação com o endereço, não o
+  retorno do `getCurrentPosition`.
 - **Assinatura de contrato não usa ZapSign nem D4Sign** (nem vai usar —
   decisão explícita do dono do projeto: são pagos). O fluxo é próprio
   (migration 056 + reforço em 063): link por e-mail com token único +

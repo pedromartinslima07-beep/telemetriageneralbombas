@@ -205,6 +205,16 @@ por e-mail ao cliente. **Mesmos nomes que `orcamentos` usa desde a 047**: é o
 mesmo fato sobre outro documento, e nome diferente para a mesma coisa custa uma
 consulta ao schema toda vez. Ver
 [envio da O.S.](modulos/ordens-servico.md).
+⚠️ **`chegada_lat`/`chegada_lng` são NULÁVEIS de propósito, e desde
+11/09/2026 isso acontece na prática.** O técnico pode iniciar o atendimento
+sem sinal — subsolo e casa de máquinas são onde ele trabalha — e a coluna
+guarda a ausência em vez de o sistema recusar o atendimento. `chegada_em`
+continua sempre preenchida: a hora é fato, o lugar não. Quem lê essas
+colunas precisa tratar NULL como **"sem GPS"**, que é o que a ficha da O.S.
+no admin escreve. Contraste com **`tecnico_localizacoes.lat/lng`, que são
+NOT NULL** (016) — é por isso que `iniciar-atendimento` só escreve lá quando
+há coordenada. Ver [ordens de serviço](modulos/ordens-servico.md).
+
 **`os_fotos`** (015, CASCADE) — `id`, `os_id`, `url`, `tipo`, `legenda`, `criado_em`.
 053: `dados_base64 TEXT` — conteúdo da imagem como data URL (`data:image/jpeg;base64,...`). Armazenado no banco para sobreviver a restarts do Railway (filesystem efêmero). Upload salva aqui; novo endpoint `GET /ordens-servico/:osId/fotos/:fotoId/imagem` serve o binário.
 **`os_pecas`** (015, CASCADE).

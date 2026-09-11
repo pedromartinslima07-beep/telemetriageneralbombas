@@ -528,6 +528,15 @@ falha é silenciosa: as escritas estouram numa transação para um store
 inexistente, o `.catch()` engole, e o técnico simplesmente não tem cache. (v2 =
 store `cache`.)
 
+⚠️ **SEM GPS O ATENDIMENTO COMEÇA ASSIM MESMO (11/09/2026).** Em
+`iniciarAtendimento`, a posição é buscada em três tentativas — `GPS.last` com
+menos de 60s, `getCurrentPosition` na hora, `GPS.last` velho — e o fim da fila
+**deixou de ser um `throw`**: agora resolve `null`, o corpo do POST vai `{}` e o
+backend grava `chegada_lat/lng` NULL. Antes, ficar sem coordenada era alerta
+vermelho e o técnico não iniciava **nada** — no subsolo, que é onde ele
+trabalha. O que sinal ainda impede é o **POST em si** (o parágrafo abaixo), não
+o GPS.
+
 ⚠️ **O QUE A ETAPA 4 NÃO RESOLVE: começar um atendimento novo.** A O.S. nasce de
 `POST /chamados/:id/iniciar-atendimento`, que devolve o `ordem_servico`. Sem
 rede não há como criar — e todo o resto (rascunho, fotos, finalização) depende

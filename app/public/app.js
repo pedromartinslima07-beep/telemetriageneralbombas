@@ -1525,13 +1525,27 @@ async function iniciarAtendimento(id) {
   hideAlert(document.getElementById("tdAlert"));
 
   try {
-    // Usa posição recente do watchPosition se tiver < 60s; evita timeout do getCurrentPosition
+    // ⚠️ SEM GPS O ATENDIMENTO COMEÇA ASSIM MESMO (11/09/2026).
+    //
+    // Até aqui, ficar sem coordenada era erro fatal: o `reject` abaixo subia
+    // como alerta vermelho e o técnico não conseguia iniciar NADA. Isso
+    // acontecia justamente no subsolo e na casa de máquinas — o lugar onde ele
+    // trabalha. Todo o resto do app já trata falta de sinal como normal (a
+    // fila offline, a O.S. que não pode evaporar, a chegada de SLA enviada com
+    // `.catch`); só este ponto ainda tratava como impedimento.
+    //
+    // Agora `geo` pode ser `null`, e o backend grava `chegada_lat/lng` NULL.
+    // A ausência aparece como "sem GPS" na ficha da O.S. do admin: vira
+    // informação para quem precisa saber, em vez de porta trancada.
+    //
+    // A ordem de tentativa continua a mesma — posição fresca, leitura na hora,
+    // cache velho — só o fim da fila mudou de `reject` para `null`.
     const geo = await (async () => {
       if (GPS.last && (Date.now() - GPS.last.ts) < 60000) {
         return { lat: GPS.last.lat, lng: GPS.last.lng, precisao_m: GPS.last.precisao_m };
       }
-      if (!navigator.geolocation) throw new Error("GPS indisponível");
-      return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) return null;
+      return new Promise((resolve) => {
         navigator.geolocation.getCurrentPosition(
           (pos) => resolve({
             lat: pos.coords.latitude,
@@ -1539,11 +1553,13 @@ async function iniciarAtendimento(id) {
             precisao_m: pos.coords.accuracy,
           }),
           (err) => {
-            // Timeout ou sinal fraco: aceita posição em cache se existir, mesmo velha
+            // Timeout ou sinal fraco: aceita posição em cache se existir, mesmo
+            // velha; sem nem isso, segue sem coordenada.
             if (GPS.last) {
               resolve({ lat: GPS.last.lat, lng: GPS.last.lng, precisao_m: GPS.last.precisao_m });
             } else {
-              reject(new Error("Não foi possível obter GPS: " + err.message));
+              console.warn("[gps] iniciando atendimento sem coordenada:", err.message);
+              resolve(null);
             }
           },
           { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 }
@@ -1564,14 +1580,18 @@ async function iniciarAtendimento(id) {
       TD.chamado.ordem_servico = {
         id: 999, numero: "OS-2026-DEMO",
         chegada_em: new Date().toISOString(),
-        chegada_lat: geo.lat, chegada_lng: geo.lng,
+        chegada_lat: geo?.lat ?? null, chegada_lng: geo?.lng ?? null,
       };
       const c = TC.chamados.find((x) => x.id === id);
       if (c) c.status = "em_atendimento";
     } else {
+      // `{}` e não `geo` direto: sem coordenada o corpo vira objeto vazio, que
+      // é o que o backend lê como "sem GPS". Mandar `null` faria o `api()`
+      // pular o Content-Type e o Express entregar `req.body` indefinido — o
+      // mesmo resultado por acidente, e não por contrato.
       const r = await api(`/chamados/${id}/iniciar-atendimento`, {
         method: "POST",
-        body: geo,
+        body: geo || {},
       });
       TD.chamado.status = "em_atendimento";
       TD.chamado.ordem_servico = r.ordem_servico;

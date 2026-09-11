@@ -657,7 +657,8 @@ router.post("/meus/:id/mensagens", authRequired, async (req, res) => {
 });
 
 // POST /chamados/:id/iniciar-atendimento — técnico inicia atendimento.
-// Recebe {lat, lng, precisao_m?}. Idempotente: se já existe O.S. pra esse
+// Recebe {lat?, lng?, precisao_m?} — a coordenada é OPCIONAL desde 11/09/2026
+// (o porquê está no bloco de validação). Idempotente: se já existe O.S. pra esse
 // chamado (UNIQUE em ordens_servico.chamado_id), retorna ela. Caso contrário
 // muda status pra em_atendimento e cria O.S. rascunho com chegada_em/lat/lng.
 router.post("/:id/iniciar-atendimento", authRequired, async (req, res) => {
@@ -670,14 +671,41 @@ router.post("/:id/iniciar-atendimento", authRequired, async (req, res) => {
     return res.status(400).json({ error: "id inválido" });
   }
 
+  // ⚠️ A COORDENADA DEIXOU DE SER OBRIGATÓRIA EM 11/09/2026, de propósito.
+  //
+  // Ela nasceu obrigatória como prova de presença física: `em_atendimento` diz
+  // "tem gente no prédio agora", e por isso o `PATCH /chamados/:id` recusa esse
+  // status até hoje — não pode haver caminho sem evidência (decisions.md).
+  // Só que a bomba mora em casa de máquinas e subsolo, que é exatamente onde o
+  // sinal não chega. Na prática a regra travava o técnico honesto sem sinal e
+  // não segurava ninguém disposto a mentir com o app aberto na calçada: o app
+  // aceita posição em cache de qualquer idade e aqui nunca se conferiu a
+  // coordenada contra o endereço do condomínio.
+  //
+  // Agora a ausência é INFORMAÇÃO, não bloqueio: `chegada_lat/lng` ficam NULL
+  // (a coluna já aceitava — migration 015) e a ficha da O.S. no admin mostra
+  // "sem GPS" em vez de omitir a linha. Quem quiser a garantia de presença de
+  // verdade precisa comparar coordenada com endereço; recusar o atendimento
+  // quando ela falta nunca foi essa garantia.
+  //
+  // O par continua indivisível: `lat` sem `lng` é payload quebrado, não
+  // "sem GPS" — por isso os dois, ou nenhum.
   const { lat, lng, precisao_m } = req.body || {};
-  const latN = Number(lat);
-  const lngN = Number(lng);
-  if (!Number.isFinite(latN) || !Number.isFinite(lngN)) {
-    return res.status(400).json({ error: "lat e lng são obrigatórios" });
-  }
-  if (latN < -90 || latN > 90 || lngN < -180 || lngN > 180) {
-    return res.status(400).json({ error: "lat/lng fora de range" });
+  const semGeo = (lat === undefined || lat === null || lat === "") &&
+                 (lng === undefined || lng === null || lng === "");
+  let latN = null;
+  let lngN = null;
+  if (!semGeo) {
+    latN = Number(lat);
+    lngN = Number(lng);
+    if (!Number.isFinite(latN) || !Number.isFinite(lngN)) {
+      return res.status(400).json({
+        error: "lat/lng inválidos — envie os dois como número, ou nenhum dos dois",
+      });
+    }
+    if (latN < -90 || latN > 90 || lngN < -180 || lngN > 180) {
+      return res.status(400).json({ error: "lat/lng fora de range" });
+    }
   }
 
   const client = await pool.connect();
@@ -764,9 +792,14 @@ router.post("/:id/iniciar-atendimento", authRequired, async (req, res) => {
     }
 
     // Também grava a primeira posição em tecnico_localizacoes
-    // (independe se o tracking contínuo subiu — ao menos a chegada fica)
+    // (independe se o tracking contínuo subiu — ao menos a chegada fica).
+    //
+    // ⚠️ Só quando há coordenada. `tecnico_localizacoes.lat/lng` são NOT NULL
+    // (migration 016): mandar NULL aqui estoura a query, cai no catch e o
+    // ROLLBACK desfaz a O.S. que acabou de nascer — o atendimento sem GPS
+    // falharia inteiro por causa de uma escrita acessória.
     const precN = precisao_m != null ? Number(precisao_m) : null;
-    await client.query(
+    if (!semGeo) await client.query(
       `INSERT INTO tecnico_localizacoes
          (tecnico_id, lat, lng, precisao_m, capturada_em, atualizada_em)
        VALUES ($1, $2, $3, $4, NOW(), NOW())

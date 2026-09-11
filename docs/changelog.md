@@ -16841,6 +16841,61 @@ sem tocar no cache do service worker.
 
 
 
+## O atendimento começa sem GPS, e a ausência vira informação (2026-09-11)
+
+Pergunta do Pedro: *"hj só é possível iniciar atendimento se tiver a
+localização?"* Era: `POST /chamados/:id/iniciar-atendimento` respondia **400 —
+"lat e lng são obrigatórios"**, e o app nem chegava a bater na rota (o
+`getCurrentPosition` sem posição em cache subia um `throw` e virava alerta
+vermelho na ficha do chamado).
+
+A regra existia por um motivo bom, registrado em
+[`../memory-bank/decisions.md`](../memory-bank/decisions.md): `em_atendimento`
+afirma **presença física no campo**, e por isso o `PATCH /chamados/:id` recusa
+esse status até hoje — não pode haver caminho sem evidência. O problema é que a
+bomba mora em **casa de máquinas e subsolo**, que é exatamente onde o sinal não
+chega. Todo o resto do app já trata falta de sinal como normal (a fila offline,
+a O.S. que não pode evaporar, o `/chegou` enviado com `.catch`); só este ponto
+tratava como impedimento.
+
+⚠️ **E a exigência era mais frágil do que prova nenhuma:** o app aceita posição
+em cache de **qualquer idade** quando o GPS falha, a rota não impõe teto de
+precisão (uma posição por IP de 10 km passa — o ping de rastreamento descarta
+acima de 15 km) e **ninguém compara a coordenada com o endereço do
+condomínio**. Ela bloqueava o técnico honesto sem sinal e não segurava quem
+quisesse mentir com o app aberto na calçada.
+
+Agora a coordenada é **opcional**, e a ausência é **informação**:
+
+- `chegada_lat/lng` ficam **NULL** — a coluna já aceitava (migration 015), então
+  **sem migration**.
+- A ficha da O.S. no admin diz **"sem GPS"** em vez de omitir a linha
+  (`_osFmtGeo` em `public/admin.js`). Omitir fazia "não tinha sinal" e "não
+  olhei direito" terem a mesma aparência.
+- `chegada_em` continua gravada: **a hora é fato, o lugar não**.
+- O par continua **indivisível** — `lat` sem `lng` é payload quebrado, não "sem
+  GPS", e leva 400.
+
+⚠️ **A escrita em `tecnico_localizacoes` passou a ser condicional.** `lat`/`lng`
+são **NOT NULL** lá (migration 016): mandar NULL estoura a query, cai no catch e
+o **ROLLBACK desfaz a O.S. que acabou de nascer** — o atendimento sem GPS
+falharia inteiro por causa de uma escrita acessória. Foi o que o teste pegou.
+
+Teste: **`scripts/testes/iniciar-atendimento-sem-gps.test.js`** — 19 checagens
+no banco de teste, incluindo que a posição anterior do técnico **não** é apagada
+por um atendimento sem GPS ("não sei onde ele está agora" não pode virar "ele
+não está em lugar nenhum") e que o caminho com coordenada não regrediu.
+
+⚠️ **O app precisa ser reinstalado.** `capacitor.config.json` usa
+`webDir: "public"` sem `server.url`: o `app.js` vai **dentro do APK**. Subir só
+o backend não destrava nada, porque o `throw` que travava o técnico é do lado do
+app.
+
+`?v=N`: `admin.js` 355 → **356**, `admin.css` 265 → **266**. `sw.js` não muda —
+nenhum endpoint novo, e a rota alterada é `POST` (a lista network-first só vale
+para `GET`).
+
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

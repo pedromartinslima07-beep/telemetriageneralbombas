@@ -41,6 +41,25 @@ aliases:
 
 ## Em andamento / pendente
 
+- ✅ **Iniciar atendimento sem GPS** (11/09/2026). *"hj só é possível iniciar
+  atendimento se tiver a localização?"* Era: 400 no backend e um `throw` no app
+  antes mesmo da requisição. A coordenada existia como prova de presença física,
+  mas a bomba mora em casa de máquinas e subsolo — a regra travava quem estava
+  no lugar certo sem sinal, e como prova era fraca (aceita cache de qualquer
+  idade, sem teto de precisão, sem comparar com o endereço do condomínio).
+  Agora `chegada_lat/lng` podem ser NULL e a ficha da O.S. diz **"sem GPS"**.
+  Sem migration; 19 checagens em
+  `scripts/testes/iniciar-atendimento-sem-gps.test.js`. O porquê em
+  [`decisions.md`](decisions.md).
+  - ⚠️ **Exige APK novo** — o `throw` é do lado do app, empacotado no pacote.
+  - 🔴 **Pendente: o `gpsStop()` da devolução mata o rastreamento inteiro.**
+    Achado no diagnóstico da mesma sessão e não corrigido. Detalhe e conserto
+    (uma linha) em [`active-work.md`](active-work.md).
+  - 📋 **Se presença física precisar de garantia de verdade**, o desenho é
+    comparar a coordenada com o endereço do condomínio (a distância já é
+    calculada por Haversine em outros pontos) e marcar a O.S. quando destoar —
+    não voltar a recusar o atendimento sem sinal.
+
 - ✅ **O técnico devolve o chamado para a fila** (11/09/2026). *"depois que você
   aceita o chamado no app não dá para cancelar, então o chamado fica em
   atendimento até o técnico conseguir voltar no condomínio"*. A única saída do

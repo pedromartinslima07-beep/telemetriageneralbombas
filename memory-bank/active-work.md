@@ -122,6 +122,38 @@ mapa, e o rótulo "TURNO" ao lado da marca.
 
 ---
 
+## Sessão 2026-09-11 (2ª rodada) — Iniciar atendimento sem GPS
+
+Começou como diagnóstico: *"alguma mudança ou no app ou no backend fez a
+localização do técnico parar"*. Virou pergunta: *"hj só é possível iniciar
+atendimento se tiver a localização?"* — e depois *"me explica a lógica"*.
+
+**O que foi feito:** a coordenada virou opcional no
+`POST /chamados/:id/iniciar-atendimento` (backend + app + ficha do admin), com
+19 checagens em `scripts/testes/iniciar-atendimento-sem-gps.test.js`. O porquê
+está em [decisions.md](decisions.md); o que mudou, em
+[changelog](../docs/changelog.md).
+
+### 🔴 ABERTO — o `gpsStop()` da devolução mata o rastreamento inteiro
+
+Achado durante o diagnóstico, **não corrigido** (fora do escopo autorizado):
+`devolverChamado` em `app/public/app.js` chama `gpsStop()` com o comentário "para
+o GPS daquele atendimento". **`gpsStop()` não é isso** — é a função de fim de
+sessão (todos os outros call-sites são logout ou 401). Ela zera
+`GPS.scheduled`, mata o `horarioTimer` que policia a janela 8h–18h, para o
+ForegroundService Java e dispara `DELETE /tecnicos/localizacao`, que apaga o pin
+do mapa.
+
+O GPS do técnico é **global enquanto logado** (o admin precisa vê-lo fora de
+atendimento também). Nada religa: `gpsStart()` só roda no boot pós-login e ao
+abrir chamado já `em_atendimento`. **Resultado: quem devolve um chamado some do
+mapa até relogar.** O conserto é trocar a linha por `GPS.chamadoId = null;`.
+
+⚠️ **Só atinge quem tem o APK com a devolução** (subiu em 11/09). Se a
+localização parou para quem nunca devolveu nada, a causa é outra — as suspeitas
+seguintes eram o JWT congelado no `NativeGps.start()` e a janela de expediente
+vinda de `gps.expediente_inicio/fim`.
+
 ## Sessão 2026-09-11 — O técnico devolve o chamado que não conseguiu fazer
 
 *"em alguns casos, quando o técnico está no condomínio para fazer o serviço, ele

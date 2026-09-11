@@ -198,6 +198,23 @@ prédio.
   fica em `historico_chamados` (`campo_alterado = 'devolvido'`).
 - **Sem migration.** Teste: `scripts/testes/devolver-chamado.test.js` (24).
 
+### Iniciar atendimento sem GPS (11/09/2026)
+
+`POST /chamados/:id/iniciar-atendimento` **não exige mais a coordenada**. Ela
+era 400 obrigatório desde o começo, para que `em_atendimento` afirmasse presença
+física — mas a bomba mora em casa de máquinas e subsolo, e a regra travava
+justamente quem estava no lugar certo sem sinal.
+
+- Sem coordenada: `chegada_lat/lng` **NULL**, `chegada_em` gravada do mesmo
+  jeito. A ficha da O.S. no admin mostra **"sem GPS"**.
+- `lat` sem `lng` continua 400 — payload quebrado não é "sem GPS".
+- ⚠️ `tecnico_localizacoes` só é escrita quando há coordenada (colunas NOT
+  NULL); sem a guarda, o ROLLBACK desfazia a O.S. recém-criada.
+- **Sem migration** (a coluna já era nulável). Teste:
+  `scripts/testes/iniciar-atendimento-sem-gps.test.js` (19).
+- ⚠️ **Exige APK novo** — o `throw` que travava o técnico é do lado do app, e
+  `app.js` vai dentro do pacote (`webDir: "public"`, sem `server.url`).
+
 Detalhe em [`../docs/modulos/chamados-sla.md`](../docs/modulos/chamados-sla.md)
 e [`../docs/modulos/app-mobile.md`](../docs/modulos/app-mobile.md); o porquê em
 [`decisions.md`](decisions.md).
