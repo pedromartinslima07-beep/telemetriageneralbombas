@@ -70,24 +70,42 @@ Leaflet (~280px) com pino arrastável. Arrastar dispara **reverse geocode** e
 (campo vazio do reverse mantém o atual). Race protection por sequência de
 prefixo descarta respostas obsoletas em arrastos rápidos.
 
-## Renderização do mapa (tiles via proxy)
+## Renderização do mapa (tiles)
 
-Os tiles vêm do **Carto (tema dark)**, mas servidos pelo **nosso domínio** via
-`GET /tiles/:z/:x/:y.png` (em `src/app.js`). Motivo: adblockers e firewalls
-corporativos bloqueavam o CDN do Carto direto, deixando o mapa em branco. Como
-tudo chega do mesmo origin, nada é bloqueado.
+Os tiles vêm do **Carto, basemap `dark_all`**, baixados **direto do CDN pelo
+browser** de cada usuário:
 
-Otimizações do proxy:
-- Validação `^\d+$` em z/x/y (anti-SSRF) e zoom ≤ 19.
-- **Cache em memória** de até 4000 tiles (TTL 24h) — após o 1º hit, instantâneo.
-- **Dedupe de inflight**: vários clientes pedindo o mesmo tile = 1 fetch upstream.
-- Rotação de subdomínios `a/b/c/d.basemaps.cartocdn.com` para paralelismo.
-- `Cache-Control: public, max-age=86400, immutable` (browser + CDN cacheiam).
+```
+https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png
+```
+
+Um único ponto de verdade por front: `_criarTileLayer` em `public/admin.js`
+(mapa do dashboard, mini-mapa do cadastro e mapa da página Mapa) e
+`camadaTiles` em `public/operador.js` (mapa do turno e do diálogo de despacho).
+Os dois têm de andar juntos — o comentário longo mora no `admin.js`.
+
+**Por que Carto e não `tile.openstreetmap.org`:** os servidores de tile do OSM
+são mantidos por voluntários e a política de uso deles não cobre aplicação em
+produção. Em 11/09/2026 o OSM bloqueou este app: **403 em toda tile**, cada uma
+substituída por um cartaz *"Access blocked — App is not following the tile usage
+policy"*. O mapa do operador virou um mosaico de aviso. Detalhe que atrapalha o
+diagnóstico: o bloqueio é **por aplicação**, então a mesma URL responde 200 num
+`curl` de fora. **Não voltar para o OSM.**
+
+`dark_all` já é escuro de origem — por isso **não** leva mais a classe
+`.map-tiles-dark` (o `invert()` daquela regra clareava uma tile já escura). A
+regra foi removida de `admin.css` e `operador.css` junto.
 
 Cliente Leaflet: `keepBuffer: 4`, `updateWhenIdle: false`, `updateInterval: 100`
-(carrega durante o pan, sensação de fluidez).
+(carrega durante o pan, sensação de fluidez) e reenvio de tile que falhou — o
+Leaflet não repete o pedido sozinho, e tile perdida fica preta para sempre.
 
-> **Sem fallback OSM** e **sem markercluster** — decisões conscientes (ver
+O proxy `GET /tiles/:z/:x/:y.png` (em `src/app.js`) **continua existindo** mas
+não é mais o caminho do mapa: concentrar todas as tiles de todos os clientes num
+IP só da Railway dava rate-limit. Direto do CDN, cada usuário gasta a própria
+cota.
+
+> **Sem markercluster** — decisão consciente (ver
 > [`../../memory-bank/decisions.md`](../../memory-bank/decisions.md)).
 
 ## Classificação por zona de SP

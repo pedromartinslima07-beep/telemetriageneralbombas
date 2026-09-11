@@ -821,12 +821,17 @@ function dlgDespacho(id) {
    diálogo de despacho). Estava escrita uma vez só porque só havia um mapa;
    com dois, copiar seria garantir que divergissem no primeiro ajuste — e o
    ajuste que existe aqui (reenvio de tile) foi caro de descobrir.
-   Tiles direto do OSM, como no admin: o proxy `/tiles` do backend dava
-   rate-limit no IP da Railway (ver `_criarTileLayer`, admin.js). */
+   Tiles direto no browser, como no admin: o proxy `/tiles` do backend dava
+   rate-limit no IP da Railway (ver `_criarTileLayer`, admin.js).
+   ⚠️ Provedor é o Carto, NÃO o `tile.openstreetmap.org` — em 11/09/2026 o OSM
+   passou a devolver 403 "Access blocked / App is not following the tile usage
+   policy" em toda tile, e o mapa do turno virou um mosaico de aviso. O motivo
+   inteiro está em `_criarTileLayer` (admin.js); os dois têm de andar juntos.
+   `dark_all` já é escuro: sem a className `map-tiles-dark`, que inverteria. */
 function camadaTiles(mapa) {
-  const camada = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-    { subdomains: "abc", maxZoom: 19, className: "map-tiles-dark",
-      attribution: "© OpenStreetMap",
+  const camada = L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+    { subdomains: "abcd", maxZoom: 20,
+      attribution: "© OpenStreetMap contributors © CARTO",
       // ⚠️ OS TRÊS DO ADMIN (`_criarTileLayer`, admin.js), que faltavam aqui.
       // `keepBuffer` guarda um anel de tiles fora da vista, então arrastar o
       // mapa não abre buraco cinza na direção do gesto; `updateWhenIdle:false`

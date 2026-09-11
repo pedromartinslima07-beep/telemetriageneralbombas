@@ -3033,9 +3033,6 @@ td, th, .mono, [class*="valor"], [class*="total"], [class*="count"] {
   color: var(--text);
 }
 
-/* Inverte tiles OSM para tema dark; marcadores estão em camada separada e não são afetados */
-.map-tiles-dark { filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%); }
-
 /* Tema dark do Leaflet — atenua o fundo branco dos controles */
 .leaflet-container {
   background: #0d1325 !important;

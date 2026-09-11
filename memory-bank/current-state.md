@@ -337,8 +337,11 @@ Detalhe e o porquê de cada uma em
   da lista. Os rótulos de seção são texto (8.8px mono) em todas as faixas
   menos a mais apertada (614–700px, notebook com barra de tarefas), onde
   viram filete de 1px. Ver [decisions.md](decisions.md).
-- **Mapa interativo Leaflet** (tiles OpenStreetMap + filtro CSS dark): pinos por
+- **Mapa interativo Leaflet** (tiles Carto `dark_all`, direto do CDN): pinos por
   status, painel lateral com tabs, KPIs, donuts, classificação por zona de SP.
+  ⚠️ **Não voltar para `tile.openstreetmap.org`** — o OSM bloqueou o app em
+  11/09/2026 (403 "App is not following the tile usage policy" em toda tile).
+  Ver [../docs/modulos/mapa-geocoding.md](../docs/modulos/mapa-geocoding.md).
 - Cadastro de coordenadas com **geocoding híbrido** (ViaCEP + AwesomeAPI +
   BrasilAPI + Nominatim) e reverse geocode ao arrastar o pino. A coordenada da
   BrasilAPI só vale quando o `service` da resposta não é `open-cep` — esse

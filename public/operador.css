@@ -1914,7 +1914,6 @@ body.com-ficha{overflow:hidden}
 .leaflet-control-attribution a{color:var(--muted)!important;text-decoration:none}
 .leaflet-control-attribution a:hover{color:var(--text-dim)!important}
 .leaflet-attribution-flag{display:none!important}
-.map-tiles-dark{filter:invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%)}
 /* ⚠️ A FACE É CENTRADA NA CAIXA, e isso é o que permite mudar o tamanho do
    pino aqui sem tocar no `iconSize` do JS. O Leaflet posiciona a CAIXA do
    divIcon e desconta o `iconAnchor` (sempre a metade dela, nos quatro pinos

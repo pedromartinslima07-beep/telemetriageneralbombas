@@ -658,19 +658,33 @@ function _mcPinIcon(kind) {
   });
 }
 
-// Tiles carregados direto do servidor do OpenStreetMap no browser.
-// O proxy via backend causava rate-limit no IP do servidor Railway.
+// Tiles carregados direto no browser (o proxy via backend causava rate-limit
+// no IP do servidor Railway).
+//
+// ⚠️ NÃO voltar para `tile.openstreetmap.org`. Em 11/09/2026 o mapa inteiro
+// virou um mosaico de "Access blocked — App is not following the tile usage
+// policy of OpenStreetMap's volunteer-run servers", com 403 em toda tile. Os
+// servidores do OSM são mantidos por voluntários e a política deles não cobre
+// app em produção; o bloqueio é por aplicação, não por erro de URL — a mesma
+// URL responde 200 num curl qualquer, o que faz o diagnóstico parecer "é só
+// aqui". Provedor de tile para produção é o Carto, cujos basemaps públicos
+// existem para este uso.
+//
+// `dark_all` é a versão escura de origem: por isso NÃO leva a className
+// `map-tiles-dark` (o `invert()` daquela regra sobre uma tile já escura a
+// deixa clara de novo).
+const TILE_URL = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
+const TILE_ATTR = "© OpenStreetMap contributors © CARTO";
 const TILE_MAX_TENTATIVAS = 3;
 
 function _criarTileLayer(map, onLoad) {
-  const layer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    subdomains: "abc",
-    maxZoom: 19,
-    attribution: "© OpenStreetMap contributors",
+  const layer = L.tileLayer(TILE_URL, {
+    subdomains: "abcd",
+    maxZoom: 20,
+    attribution: TILE_ATTR,
     keepBuffer: 4,
     updateWhenIdle: false,
     updateInterval: 100,
-    className: "map-tiles-dark",
   }).addTo(map);
 
   // Rede instável: tile que falha fica preta PARA SEMPRE, porque o Leaflet não

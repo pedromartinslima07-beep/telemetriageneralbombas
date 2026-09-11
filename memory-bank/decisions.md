@@ -341,11 +341,21 @@ canônica do "porquê"; o "o quê" está em `../docs/` e em [`current-state.md`]
 
 ## Mapas
 
-- **Leaflet local** (sem CDN externo, ~150kb) + **tiles dark Carto via proxy
-  próprio** (`/tiles/:z/:x/:y.png`) — resolve bloqueio por adblock/firewall
-  corporativo (tudo vem do mesmo origin). Proxy tem cache em memória (4000 tiles,
-  24h TTL) + dedupe de requisições inflight + rotação de subdomínios.
-- **OSM fallback removido** (Carto é estável; OSM proíbe proxy em apps).
+- **Leaflet local** (sem CDN externo, ~150kb) + **tiles dark Carto**
+  (`dark_all`). O proxy próprio `/tiles/:z/:x/:y.png` ainda existe em
+  `src/app.js` (cache de 4000 tiles, 24h TTL, dedupe de inflight, rotação de
+  subdomínios) e resolvia bloqueio por adblock/firewall corporativo, mas **não é
+  mais o caminho do mapa**: concentrar as tiles de todos os clientes num IP só
+  da Railway dava rate-limit. Hoje cada browser baixa do CDN do Carto.
+- **Tile do OSM está fora, e é definitivo** (11/09/2026). Entre o rate-limit do
+  proxy e o Carto direto, passou-se um período usando
+  `tile.openstreetmap.org` no browser — até o OSM bloquear o app: **403 em toda
+  tile**, cada uma virando um cartaz *"App is not following the tile usage
+  policy of OpenStreetMap's volunteer-run servers"*. Aqueles servidores são de
+  voluntários e a política não cobre app em produção; o bloqueio é por
+  aplicação, então a URL segue respondendo 200 em `curl` de fora e o problema
+  parece ser de quem está olhando a tela. **Não há request a ajustar** — tile
+  para produção sai de provedor que vende isso.
 - **Geocoding híbrido:** ViaCEP (texto) + BrasilAPI + AwesomeAPI (coords) +
   Nominatim (fallback, fila de 1 req/s respeitando ToS). Reverse geocode ao
   arrastar o pino sobrescreve os campos.

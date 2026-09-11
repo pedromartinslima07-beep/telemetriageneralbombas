@@ -11996,6 +11996,48 @@ devolução em que ele nunca tinha sido gravado.
 `?v=N`: `admin.js` 351 → **352**, `admin.css` 261 → **262**. `sw.js` não muda —
 o endpoint novo é `POST` (a lista network-first só vale para `GET`).
 
+## Tiles do mapa saem do OSM e voltam para o Carto (2026-09-11)
+
+O mapa do painel do operador amanheceu como um mosaico de cartazes:
+**"Access blocked — App is not following the tile usage policy of
+OpenStreetMap's volunteer-run servers"**, com **403 em toda tile**. O admin usa
+a mesma origem e estava no mesmo estado.
+
+Não era código quebrado: os servidores de tile do OSM são mantidos por
+voluntários, a política deles não cobre aplicação em produção, e o bloqueio é
+**por aplicação** — a mesma URL responde 200 num `curl` de fora, o que faz o
+problema parecer local de quem está olhando. Não há ajuste de request que
+contorne; o caminho é sair do OSM.
+
+Provedor agora é o **Carto, basemap `dark_all`**, baixado direto do CDN pelo
+browser de cada usuário (um IP por usuário, em vez de tudo concentrado no IP da
+Railway — que foi o motivo de terem saído do proxy `/tiles` no passado):
+
+```
+https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png
+```
+
+- `public/admin.js` → `_criarTileLayer` (dashboard, mini-mapa do cadastro,
+  página Mapa) e `public/operador.js` → `camadaTiles` (mapa do turno e do
+  diálogo de despacho). São os **dois únicos** pontos; têm de andar juntos.
+- **`.map-tiles-dark` removida** de `admin.css` e `operador.css`. Ela existia
+  para inverter a tile clara do OSM; `dark_all` já é escuro de origem, e manter
+  o `invert()` clarearia o mapa de volta.
+- `subdomains` `abc` → `abcd` e `maxZoom` 19 → 20 (o Carto serve o 20).
+- O proxy `GET /tiles/:z/:x/:y.png` em `src/app.js` **continua onde estava** —
+  só não é o caminho do mapa.
+
+Detalhe em [`modulos/mapa-geocoding.md`](modulos/mapa-geocoding.md).
+
+**Sem migration** — nada de schema.
+
+`?v=N`: `admin.js` 352 → **353**, `admin.css` 262 → **263**, `operador.js`
+80 → **81**, `operador.css` 109 → **110** (e 108 → **110** em
+`operador-orcamentos.html`, `operador-preventivas.html` e `tecnico.html`, que
+carregam o mesmo CSS). `sw.js` não muda: tile é cross-origin e já passa direto,
+sem tocar no cache do service worker.
+
+
 
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
